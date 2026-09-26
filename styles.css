@@ -277,7 +277,8 @@ button.ghost.on { background: var(--moss); color: #fff; border-color: var(--moss
   #infopanel { width: 260px; }
 }
 @media (max-width: 900px) {
-  .brand > div, #stat-weather, #stat-date { display: none; }
+  .brand > div, #stat-weather { display: none; }
+  #stat-date { display: none !important; }
   .brand { padding-right: 6px; }
   .stat.money { min-width: 0; font-size: 16px; }
   .top-actions select { max-width: 120px; padding: 0 6px; }
