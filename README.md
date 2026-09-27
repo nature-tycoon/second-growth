@@ -19,6 +19,7 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 - `Space` pauses, `1`–`3` set the speed. `T` sees through trees, `H` toggles the habitat overlay, `G` opens the field guide, `Tab` hides the side panels.
 - Panels collapse with their `−` button, and fade out while you paint.
 - Use **Inspect** to click a tile or an animal. The **Overlay** menu shows moisture, soil, sunlight, fish passage, or where a given species could live. In the field guide, the pin on any species that lives here jumps the camera to one of them and follows it.
+- **On a phone or tablet:** drag one finger to brush, tap to place or inspect, two fingers to move the map and pinch to zoom, and the arrow buttons rotate the view. Phones play in landscape (portrait shows a "turn your phone" screen); full screen or Add to Home Screen gives the most room.
 - The gear button opens **Settings**: resolution, shadows, wind, weather, pan and zoom speed, autosave, and pausing on wildfires and floods.
 
 ## How the ecosystem works

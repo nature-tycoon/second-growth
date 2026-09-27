@@ -188,8 +188,8 @@ export class Renderer {
     this.v3.set(x, y, z).project(this.camera);
     return { x: (this.v3.x + 1) / 2 * this.vw, y: (1 - this.v3.y) / 2 * this.vh };
   }
-  pickAgent(game, sx, sy) {
-    let best = null, bd = 26 * 26;
+  pickAgent(game, sx, sy, radius = 26) {
+    let best = null, bd = radius * radius;
     const all = [...game.wildlife.agents];
     for (const a of all) {
       const s = this.actors.pose.get(a.id);

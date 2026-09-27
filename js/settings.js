@@ -18,7 +18,9 @@ export const DEFAULTS = {
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { ...DEFAULTS, ...d, brushSizes: { ...(d.brushSizes || {}) } };
+    // phones and tablets start on a lighter resolution so the game stays smooth and cool
+    const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    return { ...DEFAULTS, ...(touch ? { quality: 'balanced' } : {}), ...d, brushSizes: { ...(d.brushSizes || {}) } };
   } catch (e) {
     return { ...DEFAULTS, brushSizes: {} };
   }

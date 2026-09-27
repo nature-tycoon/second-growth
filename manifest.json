@@ -1,0 +1,16 @@
+{
+  "name": "Second Growth",
+  "short_name": "Second Growth",
+  "description": "Rewild an old farm in the Pacific Northwest.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#16291f",
+  "theme_color": "#1b3326",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/logo.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

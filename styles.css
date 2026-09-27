@@ -373,3 +373,86 @@ button.ghost.on { background: var(--moss); color: #fff; border-color: var(--moss
 .fb-status { color: var(--bad); margin-top: 8px; min-height: 1em; }
 .feedback a { color: var(--moss-2); font-weight: 700; }
 @media (max-width: 1180px) { #btn-feedback { padding-left: 8px; padding-right: 8px; } }
+
+/* ---------------------------------------------------------------- phones and tablets */
+html { -webkit-text-size-adjust: 100%; }
+body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior: none; }
+#view { touch-action: none; } /* the game handles every gesture on the map itself */
+
+/* rotate buttons for touch screens (desktop has Q / E) */
+#view-ctrls { display: none; right: calc(10px + env(safe-area-inset-right)); bottom: 196px; z-index: 7; padding: 4px; gap: 4px; }
+#view-ctrls button { width: 40px; height: 40px; border: 0; border-radius: 10px; background: var(--paper-2); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+#view-ctrls button svg { width: 22px; height: 22px; }
+#view-ctrls button:active { background: var(--moss); color: #fff; }
+@media (pointer: coarse) {
+  #view-ctrls { display: flex; }
+  body.mini-collapsed #view-ctrls { bottom: 52px; }
+  .tool-card, #toolbar button, .tabs button, .btn, button.ghost { touch-action: manipulation; }
+}
+
+/* "turn your phone sideways": portrait phones only */
+#rotate-hint { display: none; position: fixed; inset: 0; z-index: 200; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 32px; text-align: center; color: #f3ecd6; font-family: var(--ui);
+  background: radial-gradient(ellipse 80% 50% at 50% 38%, rgba(242, 196, 90, .18), transparent 70%), linear-gradient(#1b3326, #16291f); }
+#rotate-hint h2 { font: 700 30px/1.1 var(--display); margin: 8px 0 0; color: #f6efd8; }
+#rotate-hint p { margin: 0; max-width: 300px; color: #bcd2a8; font-size: 15px; line-height: 1.5; }
+.rh-phone { width: 120px; height: 120px; }
+.rh-device { transform-origin: 60px 60px; animation: rh-turn 2.6s ease-in-out infinite; }
+.rh-arrow { animation: rh-fade 2.6s ease-in-out infinite; }
+@keyframes rh-turn { 0%, 25% { transform: rotate(0); } 55%, 85% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
+@keyframes rh-fade { 0%, 20% { opacity: 1; } 45%, 90% { opacity: 0; } 100% { opacity: 1; } }
+@media (orientation: portrait) and (max-width: 700px) { #rotate-hint { display: flex; } }
+
+/* short landscape screens (phones on their side): tighter bars, panels that fit */
+@media (max-height: 520px) {
+  #topbar { top: 6px; height: 46px; left: calc(6px + env(safe-area-inset-left)); right: calc(6px + env(safe-area-inset-right)); padding: 0 6px; gap: 4px; border-radius: 12px; }
+  .logo { width: 26px; height: 26px; }
+  .brand { padding-right: 4px; margin-right: 0; }
+  .brand > div, #stat-weather, #stat-season, #stat-date, #btn-journal, #btn-trees, #btn-feedback { display: none !important; }
+  .stat.money { font-size: 15px; }
+  .speed button { width: 28px; height: 28px; }
+  #stat-score .ring { width: 30px; height: 30px; }
+  .stat .small, #visitor-stars, #stat-score > div:last-child { display: none; }
+  .top-actions select { max-width: 96px; height: 32px; font-size: 12px; }
+  button.ghost { padding: 5px 8px; font-size: 12.5px; }
+
+  #toolbar { top: 58px; left: calc(6px + env(safe-area-inset-left)); width: 54px; padding: 4px; gap: 2px; max-height: calc(100dvh - 64px); overflow-y: auto; }
+  #toolbar button { padding: 4px 1px 3px; font-size: 9px; gap: 1px; border-radius: 8px; }
+  #toolbar button svg { width: 21px; height: 21px; }
+  #toolbar .sep { margin: 1px 4px; }
+  #toolpanel { top: 58px; left: calc(66px + env(safe-area-inset-left)); width: 270px; max-height: calc(100dvh - 64px); }
+  .tp-head { padding: 8px 12px 4px; }
+  .tp-head h2 { font-size: 16px; }
+  .tp-head p { display: none; }
+  #toolpanel { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #toolpanel .tool-grid { gap: 4px; padding: 6px 10px; overflow: visible; flex: none; }
+  #toolpanel .tool-desc { flex: none; }
+  .tool-desc .prefs span { font-size: 10.5px; padding: 1px 6px; }
+  .tool-card { min-height: 74px; padding: 4px 3px; }
+  .tool-card img { width: 38px; height: 38px; }
+  .tool-card .nm { font-size: 10.5px; }
+  .tool-desc { font-size: 11.5px; padding: 8px 10px; }
+  #infopanel { top: 58px; right: calc(6px + env(safe-area-inset-right)); width: 250px; max-height: calc(100dvh - 150px); padding: 10px 12px; }
+  #banner { top: 58px; font-size: 12px; padding: 5px 8px; }
+  #toasts { width: min(340px, 44vw); bottom: 6px; }
+  .toast { font-size: 12px; padding: 7px 10px; }
+  #toasts .toast:nth-child(n+3) { display: none; }
+  #legend { bottom: 52px; right: calc(60px + env(safe-area-inset-right)); max-width: 220px; }
+  #minimap-wrap { right: calc(6px + env(safe-area-inset-right)); bottom: 6px; }
+  #minimap-wrap:not(.collapsed) canvas { width: 180px; height: 135px; }
+  #view-ctrls { right: calc(6px + env(safe-area-inset-right)); bottom: 160px; flex-direction: column; }
+  body.mini-collapsed #view-ctrls { bottom: 44px; }
+  #view-ctrls button { width: 36px; height: 36px; }
+
+  .modal { width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)); max-height: calc(100dvh - 12px); border-radius: 14px; }
+  .modal-head { padding: 8px 14px; }
+  .modal-head h2 { font-size: 18px; }
+  .modal-body { padding: 10px 14px 12px; }
+  .modal-foot { padding: 8px 14px; }
+  .intro { font-size: 13px; }
+  .guide { grid-template-columns: 1fr 250px; gap: 10px; }
+  .guide-list { max-height: calc(100dvh - 120px); }
+  .guide-detail { max-height: calc(100dvh - 120px); overflow-y: auto; padding: 10px; }
+  .guide-detail .hero { max-height: 90px; }
+  .gcard img { width: 60px; height: 46px; }
+}

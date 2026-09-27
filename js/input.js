@@ -19,7 +19,7 @@ export class Input {
     this.mouse = { x: 0, y: 0, in: false };
     this.tip = document.getElementById('cursor-tip');
     const cv = renderer.canvas;
-    cv.addEventListener('mousedown', e => this.down(e));
+    cv.addEventListener('mousedown', e => { this.touching = false; this.down(e); });
     window.addEventListener('mousemove', e => this.move(e));
     window.addEventListener('mouseup', e => this.up(e));
     cv.addEventListener('mouseleave', () => { this.mouse.in = false; this.ui.state.hover = null; this.tip.classList.add('hidden'); });
@@ -30,6 +30,11 @@ export class Input {
       const f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015) * settings.zoomSpeed);
       this.r.zoomAt(e.clientX, e.clientY, f);
     }, { passive: false });
+    // touch: one finger paints (or pans in Inspect), a tap inspects or places,
+    // two fingers pan and pinch-zoom the camera
+    for (const [ev, fn] of [['touchstart', 'touchStart'], ['touchmove', 'touchMove'], ['touchend', 'touchEnd'], ['touchcancel', 'touchEnd']]) {
+      cv.addEventListener(ev, e => this[fn](e), { passive: false });
+    }
     window.addEventListener('keydown', e => this.key(e, true));
     window.addEventListener('keyup', e => this.key(e, false));
     window.addEventListener('blur', () => this.keys.clear());
@@ -93,6 +98,86 @@ export class Input {
   }
 
   tool() { return this.ui.state.tool ? TOOLS[this.ui.state.tool] : null; }
+
+  // ------------------------------------------------------------ touch
+  fake(x, y) { return { button: 0, clientX: x, clientY: y, preventDefault() {} }; }
+  touchStart(e) {
+    e.preventDefault(); // also stops the browser's emulated mouse events and page zoom
+    this.touching = true;
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    const ts = e.touches;
+    if (ts.length === 1) {
+      const t = ts[0];
+      this.ui.follow = null;
+      this.touch = { mode: 'pending', x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, moved: false };
+      // wait a moment before painting, in case a second finger is coming for a camera gesture
+      const tool = this.tool();
+      if (tool && tool.brush) this.touch.timer = setTimeout(() => this.beginTouchPaint(), 110);
+    } else {
+      if (this.touch && this.touch.timer) clearTimeout(this.touch.timer);
+      if (this.stroke) this.endStroke();
+      const [a, b] = ts;
+      this.touch = { mode: 'gesture', mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2, d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1 };
+      this.hideHover();
+    }
+  }
+  beginTouchPaint() {
+    const T = this.touch;
+    if (!T || T.mode !== 'pending') return;
+    T.mode = 'paint';
+    this.mouse.in = true; this.mouse.x = T.x; this.mouse.y = T.y;
+    this.down(this.fake(T.x, T.y));
+  }
+  touchMove(e) {
+    e.preventDefault();
+    const T = this.touch, ts = e.touches;
+    if (!T) return;
+    if (T.mode === 'gesture' && ts.length >= 2) {
+      const [a, b] = ts, mx = (a.clientX + b.clientX) / 2, my = (a.clientY + b.clientY) / 2, d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
+      this.r.panBy(mx - T.mx, my - T.my);
+      this.r.zoomAt(mx, my, d / T.d);
+      T.mx = mx; T.my = my; T.d = d;
+      return;
+    }
+    if (ts.length !== 1) return;
+    const t = ts[0];
+    if (!T.moved && Math.hypot(t.clientX - T.x0, t.clientY - T.y0) > 10) {
+      T.moved = true;
+      if (T.mode === 'pending') {
+        const tool = this.tool();
+        if (tool && tool.brush) { clearTimeout(T.timer); this.beginTouchPaint(); }
+        else T.mode = 'pan'; // Inspect and click-to-place tools: dragging moves the map
+      }
+    }
+    if (T.mode === 'pan') this.r.panBy(t.clientX - T.x, t.clientY - T.y);
+    else if (T.mode === 'paint') { this.mouse.x = t.clientX; this.mouse.y = t.clientY; this.move(this.fake(t.clientX, t.clientY)); }
+    T.x = t.clientX; T.y = t.clientY;
+  }
+  touchEnd(e) {
+    e.preventDefault();
+    const T = this.touch;
+    if (!T) return;
+    if (e.touches.length === 0) {
+      clearTimeout(T.timer);
+      if (T.mode === 'paint') this.up(this.fake(T.x, T.y));
+      else if (T.mode === 'pending' && !T.moved) {
+        // a tap: inspect, place, or dab the brush once
+        this.mouse.x = T.x0; this.mouse.y = T.y0;
+        this.down(this.fake(T.x0, T.y0));
+        if (this.stroke) this.up(this.fake(T.x0, T.y0));
+      }
+      this.touch = null;
+      this.hideHover();
+    } else if (e.touches.length === 1 && T.mode === 'gesture') {
+      // one finger lifted from a pinch: keep moving the map with the other, never paint
+      const t = e.touches[0];
+      this.touch = { mode: 'pan', x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, moved: true };
+    }
+  }
+  hideHover() {
+    this.mouse.in = false; this.ui.state.hover = null; this.ui.state.previewTiles = null;
+    this.tip.classList.add('hidden');
+  }
 
   down(e) {
     // clicking the map takes focus away from any menu, so the keyboard drives the camera again
@@ -195,7 +280,7 @@ export class Input {
 
   inspectAt(t) {
     const g = this.game, w = g.world;
-    const best = this.r.pickAgent(g, this.mouse.x, this.mouse.y);
+    const best = this.r.pickAgent(g, this.mouse.x, this.mouse.y, this.touching ? 44 : 26); // fingers are less precise
     if (best) { this.ui.inspectAgent(best); return; }
     if (w.inb(t.x, t.y)) this.ui.inspectTile(w.idx(t.x, t.y));
     else this.ui.closeInfo();

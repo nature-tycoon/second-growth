@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1b3326">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Second Growth">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/icon-180.png">
   <title>Second Growth</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -117,6 +124,14 @@
       if (el) el.textContent = tips[Math.floor(Math.random() * tips.length)];
     })();
   </script>
+  <div id="rotate-hint" role="alert">
+    <svg class="rh-phone" viewBox="0 0 120 120" aria-hidden="true">
+      <g class="rh-device"><rect x="38" y="14" width="44" height="92" rx="8" fill="none" stroke="#f3ecd6" stroke-width="5"/><rect x="45" y="24" width="30" height="70" rx="2" fill="#6f9a52"/><circle cx="60" cy="100" r="2.6" fill="#f3ecd6"/></g>
+      <path class="rh-arrow" d="M20 44 A44 44 0 0 1 44 16" fill="none" stroke="#d7e7a2" stroke-width="4" stroke-linecap="round"/><path class="rh-arrow" d="M38 10 L46 16 L37 22" fill="none" stroke="#d7e7a2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h2>Turn your phone sideways</h2>
+    <p>Second Growth plays in landscape. Rotate your phone to keep restoring the valley.</p>
+  </div>
   <canvas id="view"></canvas>
 
   <header id="topbar" class="panel">
@@ -164,6 +179,7 @@
       <button id="btn-goals" class="ghost">Goals</button>
       <button id="btn-journal" class="ghost">Journal</button>
       <button id="btn-feedback" class="ghost" title="Tell us what you think">Feedback</button>
+      <button id="btn-fullscreen" class="ghost icon-btn hidden" title="Full screen"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
       <button id="btn-settings" class="ghost icon-btn" title="Settings"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8M18.5 18.5l-1.8-1.8M7.3 7.3 5.5 5.5"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
       <button id="btn-menu" class="ghost" title="Menu">☰</button>
     </div>
@@ -174,6 +190,10 @@
   <aside id="infopanel" class="panel hidden"></aside>
   <div id="legend" class="panel hidden"></div>
   <div id="toasts"></div>
+  <div id="view-ctrls" class="panel" aria-label="Camera">
+    <button data-v="rotl" title="Rotate view left"><svg viewBox="0 0 24 24"><path d="M5 12a7 7 0 1 0 2.2-5.1" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M4 3.5v5h5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button data-v="rotr" title="Rotate view right"><svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.2-5.1" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M20 3.5v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
   <div id="minimap-wrap" class="panel"><button id="mini-toggle" title="Show or hide the map">Map</button><canvas id="minimap"></canvas></div>
   <div id="banner" class="panel hidden"></div>
   <div id="cursor-tip" class="hidden"></div>

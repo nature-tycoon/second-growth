@@ -16,6 +16,9 @@ import { settings, saveSettings, resetSettings } from '../settings.js';
 import { track, setContext, setAnalyticsEnabled, analyticsReady, GAME_VERSION } from '../analytics.js';
 
 const $ = sel => document.querySelector(sel);
+// A phone or tablet (no mouse), and a screen too short for the full layout.
+const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
+const COMPACT = () => innerHeight <= 520;
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const pct = v => Math.round(v * 100) + '%';
 
@@ -187,12 +190,28 @@ export class UI {
     $('#stat-score').addEventListener('click', () => this.openReport());
     $('#stat-species').addEventListener('click', () => this.openGuide());
     $('#stat-visitors').addEventListener('click', () => this.openVisitors());
-    $('#mini-toggle').addEventListener('click', () => $('#minimap-wrap').classList.toggle('collapsed'));
+    $('#mini-toggle').addEventListener('click', () => document.body.classList.toggle('mini-collapsed', $('#minimap-wrap').classList.toggle('collapsed')));
     $('#btn-goals').addEventListener('click', () => this.openGoals());
     $('#btn-journal').addEventListener('click', () => this.openJournal());
     $('#btn-menu').addEventListener('click', () => this.openMenu());
     $('#btn-settings').addEventListener('click', () => this.openSettings());
     $('#btn-feedback').addEventListener('click', () => this.openFeedback());
+    // phones and tablets: on-screen rotate buttons, full screen where the browser allows it
+    document.querySelectorAll('#view-ctrls [data-v]').forEach(b => b.addEventListener('click', () => this.renderer.rotate(b.dataset.v === 'rotl' ? -1 : 1)));
+    const fs = $('#btn-fullscreen'), root = document.documentElement;
+    if (TOUCH && (root.requestFullscreen || root.webkitRequestFullscreen)) {
+      fs.classList.remove('hidden');
+      fs.addEventListener('click', () => {
+        const on = document.fullscreenElement || document.webkitFullscreenElement;
+        if (on) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        else {
+          const req = (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
+          req?.then?.(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {});
+        }
+      });
+    }
+    // short screens start with the minimap folded away
+    if (COMPACT()) { $('#minimap-wrap').classList.add('collapsed'); document.body.classList.add('mini-collapsed'); }
     $('#btn-trees').addEventListener('click', () => this.toggleTrees());
     // blur after picking so WASD goes back to moving the camera instead of scrolling the list
     $('#overlay').addEventListener('change', e => { this.setOverlay(e.target.value); e.target.blur(); });
@@ -774,12 +793,16 @@ export class UI {
   openMenu() {
     const m = this.modal('Menu', `<div class="menu-list">
       <button class="btn secondary" data-a="settings">Settings</button>
+      <button class="btn secondary" data-a="journal">Field journal</button>
+      <button class="btn secondary" data-a="trees">${this.renderer.fadeTrees ? 'Show trees normally' : 'See through trees'}</button>
       <button class="btn secondary" data-a="feedback">Send feedback</button>
       <button class="btn secondary" data-a="help">How to play</button>
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="new">Start over on a fresh farm</button></div>`, { narrow: true });
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
     m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
+    m.querySelector('[data-a=journal]').addEventListener('click', () => this.openJournal());
+    m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
     m.querySelector('[data-a=save]').addEventListener('click', () => { const ok = this.game.save(); this.closeModal(); this.game.notify(ok ? 'Game saved. It also autosaves every month.' : 'Could not save (browser storage unavailable).', ok ? 'good' : 'warn'); });
     const nb = m.querySelector('[data-a=new]');
@@ -908,8 +931,11 @@ export class UI {
       </ul>
       <h3>Controls</h3>
       <ul>
-        <li>Pick a tool on the left, then <b>click and drag to brush</b> it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
-        <li>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate the view. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels.</li>
+        ${TOUCH ? `<li>Pick a tool on the left, then <b>drag one finger to brush</b> it across the land. Tap to place things or inspect a tile or animal.</li>
+        <li><b>Two fingers</b> move the map; <b>pinch</b> to zoom. The arrows at the bottom right rotate the view. The ☰ menu has the journal and see-through trees.</li>
+        <li>For the most room, use full screen (the corner button at the top) or add the game to your home screen.</li>` : ''}
+        <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag to brush</b> it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
+        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate the view. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels.</li>
         <li>Use <b>Inspect</b> to click any tile or animal. The <b>Overlay</b> menu shows moisture, soil, sunlight, fish passage, or where a species could live.</li>
       </ul>
       <h3>A good first year</h3>
