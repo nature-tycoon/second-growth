@@ -62,15 +62,17 @@ class Model {
   constructor() { this.parts = []; }
   // geo: a unit primitive; m: where it goes; paint(unitPos, worldPos) -> colour.
   // ext: a second placement (wings spread out), blended in by the shader when flying.
-  add(geo, m, paint, { part = P.BODY, pivot = null, ext = null } = {}) {
+  // paintGeo: optional geometry whose positions are handed to paint() instead of geo's own
+  add(geo, m, paint, { part = P.BODY, pivot = null, ext = null, paintGeo = null } = {}) {
     const unit = geo.clone();
+    const paintPos = (paintGeo || unit).attributes.position;
     if (unit.attributes.uv) unit.deleteAttribute('uv');
     const g = unit.clone().applyMatrix4(m);
     const n = g.attributes.position.count;
     const color = new Float32Array(n * 3), u = new THREE.Vector3(), p = new THREE.Vector3();
     const fn = typeof paint === 'function' ? paint : solid(paint);
     for (let i = 0; i < n; i++) {
-      u.fromBufferAttribute(unit.attributes.position, i);
+      u.fromBufferAttribute(paintPos, i);
       p.fromBufferAttribute(g.attributes.position, i);
       const c = fn(u, p);
       color[i * 3] = c.r; color[i * 3 + 1] = c.g; color[i * 3 + 2] = c.b;
@@ -120,20 +122,55 @@ function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
   for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: true, part, pivot });
 }
 
+// One smooth body: a tube along x whose oval cross-section swells from haunch to chest and
+// rounds off at both ends (no seams between separate blobs). Paint gets (ny, x, side) in
+// unit-like coordinates, so countershading and spots work as they do on a sphere.
+function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0 }, paint) {
+  const R = 22, A = 14, pos = [], idx = [], u = [];
+  for (let i = 0; i <= R; i++) {
+    const t = i / R, x = x0 + (x1 - x0) * t;
+    const w = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(2 * t - 1), 2.6))); // rounded, blunt ends
+    const e = t * t * (3 - 2 * t);
+    const ry = (ry0 + (ry1 - ry0) * e) * w, rz = (rz0 + (rz1 - rz0) * e) * w, cy = cy0 + (cy1 - cy0) * e - sag * Math.sin(t * Math.PI);
+    for (let j = 0; j <= A; j++) {
+      const a = j / A * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+      pos.push(x, cy + c * ry, sn * rz);
+      u.push(2 * t - 1, c, sn);
+    }
+  }
+  for (let i = 0; i < R; i++) for (let j = 0; j < A; j++) {
+    const a = i * (A + 1) + j, b = a + A + 1;
+    idx.push(a, a + 1, b, b, a + 1, b + 1); // wound so the faces (and normals) point outward
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const unitG = new THREE.BufferGeometry();
+  unitG.setAttribute('position', new THREE.Float32BufferAttribute(u, 3));
+  m.add(g, new THREE.Matrix4(), paint, { paintGeo: unitG });
+}
+
 function quadruped(m, s, o) {
   const L = s.len, H = o.H, leg = o.leg, W = o.wide ?? 1;
   const by = leg + H * 0.5;
-  const coat = grad(s.color, s.belly || s.color, -0.3, 0.5);
-  m.ell([0, by, 0], [L * 0.34, H * 0.46, H * 0.38 * W], coat);
-  m.ell([L * 0.19, by + H * (o.shoulder ?? 0.04), 0], [L * 0.24, H * 0.5 * (o.chest ?? 1), H * 0.4 * W], coat);
-  m.ell([-L * 0.21, by + H * (o.hip ?? 0.02), 0], [L * 0.24, H * 0.5 * (o.haunch ?? 1), H * 0.42 * W], coat);
+  const base = grad(s.color, s.belly || s.color, -0.3, 0.5);
+  // spotted coats (bobcat): small dark rosettes on the back and flanks
+  const coat = o.spots ? (u => (u.y > -0.35 && hash3(Math.round(u.x * 16), Math.round(u.y * 8), Math.round(u.z * 8)) > 0.7 ? col(o.spots) : base(u))) : base;
+  loftBody(m, {
+    x0: -L * 0.47, x1: L * 0.45,
+    cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
+    ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
+    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * 0.04,
+  }, coat);
   if (o.extra) o.extra(m, { L, H, leg, by, W, coat });
 
   // legs: upper and lower segment, swinging from the hip
   const lc = o.legColor || shade(s.color, -0.2);
   const spots = [[L * 0.26, 1, P.LEG_FL], [L * 0.26, -1, P.LEG_FR], [-L * 0.25, 1, P.LEG_BL], [-L * 0.25, -1, P.LEG_BR]];
   for (const [x, side, part] of spots) {
-    const z = side * H * 0.24 * W, hip = [x, by - H * 0.05, z];
+    // set in far enough that even thick upper legs stay inside the body's outline
+    const z = side * Math.min(H * 0.24, H * 0.42 - o.legR0) * W, hip = [x, by - H * 0.05, z];
     const r0 = o.legR0, r1 = o.legR1, knee = [x + (part >= P.LEG_BL ? -r0 * 0.5 : r0 * 0.2), leg * 0.5, z];
     m.limb(hip, knee, r0, (r0 + r1) * 0.55, lc, { part, pivot: hip });
     m.limb(knee, [x, r1, z], (r0 + r1) * 0.55, r1, lc, { part, pivot: hip });
@@ -193,7 +230,7 @@ const MAMMALS = {
   canine: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
-      H, leg, legR0: H * 0.15, legR1: H * 0.08, neckR: H * 0.26, legColor: shade(s.color, -0.12),
+      H, leg, legR0: H * 0.18, legR1: H * 0.1, neckR: H * 0.28, legColor: shade(s.color, -0.12),
       head: [L * 0.52, by + H * 0.5], headR: [H * 0.34, H * 0.3, H * 0.27], snout: H * 0.36,
       ears: 'point', ear: H * 0.38, earOut: 0.15, earBack: 0.05, muzzle: grad(s.color, s.belly, -0.1, 0.4),
       tail: (m, b) => {
@@ -203,10 +240,10 @@ const MAMMALS = {
     };
   },
   feline: s => {
-    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    const L = s.len, H = s.h, leg = s.leg * 0.85, by = leg + H * 0.5;
     return {
-      H, leg, legR0: H * 0.18, legR1: H * 0.1, neckR: H * 0.28,
-      head: [L * 0.5, by + H * 0.38], headR: [H * 0.34, H * 0.32, H * 0.32], snout: H * 0.15,
+      H, leg, legR0: H * 0.22, legR1: H * 0.14, neckR: H * 0.3, spots: s.bobtail ? shade(s.color, -0.45) : null,
+      head: [L * 0.5, by + H * 0.38], headR: [H * 0.36, H * 0.33, H * 0.34], snout: H * 0.15,
       ears: 'point', ear: H * 0.26, earOut: 0.2, earBack: 0.1, earW: 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
       tail: (m, b) => {
         const base = [-L * 0.42, b.by + H * 0.15, 0], o = { part: P.TAIL, pivot: base };
@@ -228,9 +265,9 @@ const MAMMALS = {
     };
   },
   raccoon: s => {
-    const L = s.len, H = L * 0.42, leg = L * 0.3, by = leg + H * 0.5;
+    const L = s.len, H = L * 0.46, leg = L * 0.2, by = leg + H * 0.5;
     return {
-      H, leg, wide: 1.05, legR0: H * 0.17, legR1: H * 0.1, legColor: s.dark, neckR: H * 0.3, hip: 0.1,
+      H, leg, wide: 1.1, legR0: H * 0.22, legR1: H * 0.14, legColor: s.dark, neckR: H * 0.32, hip: 0.18, haunch: 1.12,
       head: [L * 0.47, by + H * 0.3], headR: [H * 0.4, H * 0.35, H * 0.38], snout: H * 0.32, muzzle: shade(s.belly, 0.3), mask: true,
       ears: 'point', ear: H * 0.28, earOut: 0.3, earW: 0.45, earColor: shade(s.belly, 0.2),
       tail: (m, b) => {
@@ -297,6 +334,25 @@ const MAMMALS = {
     };
   },
 };
+
+// A vole is a furry egg with a blunt nose: tiny feet, ears tucked in the fur, a short tail.
+function vole(m, s) {
+  const fur = grad(s.color, s.belly, -0.35, 0.5);
+  m.ell([-0.4, 2.9, 0], [4.4, 2.8, 2.7], fur);
+  const hd = { part: P.HEAD, pivot: [2.2, 3, 0] }, hp = [3.6, 3.1, 0];
+  m.ell(hp, [2.3, 2.1, 2.1], fur, hd);
+  m.ell([5.3, 2.8, 0], [0.9, 0.85, 0.95], shade(s.belly, 0.1), hd);
+  m.ell([6.1, 2.95, 0], [0.28, 0.24, 0.28], '#2a1c18', { ...hd, lo: true });
+  for (const side of [1, -1]) {
+    m.ell([4.3, 3.7, side * 1.35], [0.34, 0.34, 0.2], '#120e0c', { ...hd, lo: true });
+    m.ell([3.1, 4.7, side * 1.15], [0.55, 0.6, 0.28], shade(s.color, 0.12), { ...hd, rot: [side * -0.35, 0, 0] });
+    for (const [x, part] of [[2.3, side > 0 ? P.LEG_FL : P.LEG_FR], [-2.5, side > 0 ? P.LEG_BL : P.LEG_BR]]) {
+      const hip = [x, 1.4, side * 1.6];
+      m.ell([x + 0.4, 0.35, side * 1.7], [0.75, 0.35, 0.45], shade(s.belly, 0.2), { part, pivot: hip, lo: true });
+    }
+  }
+  m.limb([-4.5, 2.4, 0], [-7.8, 1.3, 0], 0.32, 0.14, shade(s.color, 0.15), { part: P.TAIL, pivot: [-4.4, 2.4, 0] });
+}
 
 // Squirrel, rabbit and bear have their own builders: their shapes (a crouch with a curling tail,
 // long hind feet and leaf ears, a heavy rolling bulk) don't fit the generic quadruped.
@@ -398,7 +454,7 @@ const BIRDS = {
   heron: s => ({ legH: 1.05, tilt: 0.3, span: 0.9, chord: 0.3, beak: 0.42, beakColor: '#e0b030', legColor: '#b8a060', tail: 0.2, neck: true, head: 0.13 }),
   duck: s => ({ legH: 0.08, tilt: 0.05, span: 0.6, chord: 0.24, beak: 0.2, beakColor: '#d8a030', legColor: '#e08a30', tail: -0.4, duck: true }),
   raptor: s => ({ legH: 0.16, tilt: 0.45, span: 0.95, chord: 0.3, beak: 0.14, beakColor: '#e0b030', legColor: '#e0b030', tail: 0.35, hook: true }),
-  owl: s => ({ legH: 0.12, tilt: 1.25, span: 0.85, chord: 0.3, beak: 0.08, beakColor: '#8a7a5a', legColor: '#8a7a5a', tail: 1.2, owl: true, head: 0.28 }),
+  owl: s => ({ legH: 0.12, tilt: 1.3, span: 0.85, chord: 0.3, beak: 0.08, beakColor: '#3a3028', legColor: '#8a7a5a', tail: 1.2, owl: true, head: 0.22 }),
 };
 
 function bird(m, s) {
@@ -413,7 +469,7 @@ function bird(m, s) {
   // head (with a long S-neck for the heron)
   const hr = S * (o.head ?? 0.19);
   let hp;
-  if (o.owl) hp = [S * 0.12, by + S * 0.36, 0];
+  if (o.owl) hp = [S * 0.1, by + S * 0.33, 0];
   else if (o.neck) hp = [S * 0.5, by + S * 0.6, 0];
   else if (o.duck) hp = [S * 0.38, by + S * 0.28, 0];
   else hp = [S * 0.34 + Math.sin(o.tilt) * S * 0.02, by + S * 0.2 + Math.sin(o.tilt) * S * 0.12, 0];
@@ -423,8 +479,17 @@ function bird(m, s) {
     m.limb([S * 0.42, by + S * 0.32, 0], [hp[0] - hr * 0.5, hp[1] - hr * 0.2, 0], S * 0.07, S * 0.06, s.breast, hd);
   }
   if (o.duck) m.limb([S * 0.3, by + S * 0.08, 0], hp, S * 0.12, S * 0.11, s.head, hd);
-  m.ell(hp, [hr * 1.05, hr, hr * (o.owl ? 1.1 : 0.95)], s.head, hd);
+  const pecker = s.kind === 'woodpecker';
+  m.ell(hp, [hr * 1.05, hr, hr * (o.owl ? 1.1 : 0.95)], pecker ? s.color : s.head, hd);
+  if (pecker) {
+    // pileated: a flaming red crest, and a white stripe from the bill down the neck
+    m.limb([hp[0] + hr * 0.1, hp[1] + hr * 0.6, 0], [hp[0] - hr * 1.1, hp[1] + hr * 1.05, 0], hr * 0.55, hr * 0.12, s.head, hd);
+    m.ell([hp[0] + hr * 0.2, hp[1] + hr * 0.75, 0], [hr * 0.6, hr * 0.35, hr * 0.5], s.head, hd);
+    for (const side of [1, -1]) m.ell([hp[0] + hr * 0.1, hp[1] - hr * 0.25, side * hr * 0.72], [hr * 0.85, hr * 0.14, hr * 0.28], '#f2f0ea', hd);
+  }
   if (o.owl) {
+    // great horned: feather "horns", a tawny facial disc and yellow eyes
+    for (const side of [1, -1]) m.limb([hp[0] - hr * 0.1, hp[1] + hr * 0.75, side * hr * 0.45], [hp[0] - hr * 0.35, hp[1] + hr * 1.45, side * hr * 0.62], hr * 0.22, hr * 0.04, s.color, hd);
     for (const side of [1, -1]) m.ell([hp[0] + hr * 0.62, hp[1], side * hr * 0.42], [hr * 0.25, hr * 0.52, hr * 0.45], s.breast, hd);
     eyes(m, hp, hr * 0.85, hr * 0.08, hr * 0.4, hr * 0.17, P.HEAD, neckBase, '#e8c030');
     eyes(m, hp, hr * 0.97, hr * 0.08, hr * 0.4, hr * 0.09, P.HEAD, neckBase);
@@ -449,7 +514,7 @@ function bird(m, s) {
   }
 
   // wings
-  const wc = grad(s.color, shade(s.color, 0.25), 0, 0.5);
+  const wc = grad(s.color, shade(s.color, o.owl ? -0.1 : 0.25), 0, 0.5);
   for (const side of [1, -1]) {
     m.wing(side, [S * 0.1, by + S * 0.1, side * S * 0.14], S * o.span, S * o.chord, S * 0.035, wc, [-S * 0.1, by + S * 0.05, side * S * 0.2]);
   }
@@ -504,17 +569,25 @@ function bat(m, s) {
 }
 
 // ---------------------------------------------------------------- herps and fish
+// Frogs sit up on folded hind legs: thigh back, shin forward, long foot flat on the ground.
 function frog(m, s) {
-  const S = s.size, skin = grad(s.color, shade(s.color, 0.35), -0.1, 0.35), leg = s.dark && s.dark !== '#2a4a1e' ? s.dark : shade(s.color, -0.15);
-  m.ell([0, S * 0.3, 0], [S * 0.42, S * 0.26, S * 0.36], skin, { rot: [0, 0, 0.25] });
-  m.ell([S * 0.3, S * 0.38, 0], [S * 0.26, S * 0.2, S * 0.3], skin);
+  const S = s.size, skin = grad(s.color, shade(s.color, 0.4), -0.15, 0.35);
+  const leg = s.dark && s.dark !== '#2a4a1e' ? s.dark : shade(s.color, -0.1);
+  m.ell([-S * 0.02, S * 0.3, 0], [S * 0.38, S * 0.24, S * 0.3], skin, { rot: [0, 0, 0.35] });
+  m.ell([S * 0.28, S * 0.4, 0], [S * 0.22, S * 0.16, S * 0.26], skin, { rot: [0, 0, 0.15] });
   for (const side of [1, -1]) {
-    m.ell([S * 0.38, S * 0.56, side * S * 0.16], [S * 0.1, S * 0.1, S * 0.1], skin, { lo: true });
-    m.ell([S * 0.45, S * 0.58, side * S * 0.18], [S * 0.05, S * 0.06, S * 0.05], '#141210', { lo: true });
-    if (s.kind === 'frog' && s.dark === '#2a4a1e') m.ell([S * 0.3, S * 0.44, side * S * 0.25], [S * 0.18, S * 0.035, S * 0.05], s.dark, { lo: true });
-    m.ell([-S * 0.2, S * 0.2, side * S * 0.32], [S * 0.3, S * 0.13, S * 0.12], leg, { rot: [0, side * 0.35, 0.2], part: side > 0 ? P.LEG_BL : P.LEG_BR, pivot: [-S * 0.1, S * 0.25, side * S * 0.25] });
-    m.ell([-S * 0.05, S * 0.05, side * S * 0.4], [S * 0.22, S * 0.05, S * 0.1], leg, { lo: true, part: side > 0 ? P.LEG_BL : P.LEG_BR, pivot: [-S * 0.1, S * 0.25, side * S * 0.25] });
-    m.limb([S * 0.3, S * 0.25, side * S * 0.2], [S * 0.4, S * 0.03, side * S * 0.28], S * 0.06, S * 0.05, leg, { part: side > 0 ? P.LEG_FL : P.LEG_FR, pivot: [S * 0.3, S * 0.25, side * S * 0.2] });
+    // eyes on top, gold with a dark pupil
+    m.ell([S * 0.33, S * 0.53, side * S * 0.14], [S * 0.075, S * 0.075, S * 0.075], skin, { lo: true });
+    m.ell([S * 0.38, S * 0.55, side * S * 0.16], [S * 0.045, S * 0.05, S * 0.045], '#c8a040', { lo: true });
+    m.ell([S * 0.405, S * 0.555, side * S * 0.165], [S * 0.022, S * 0.035, S * 0.022], '#141210', { lo: true });
+    if (s.dark === '#2a4a1e') m.ell([S * 0.3, S * 0.45, side * S * 0.2], [S * 0.2, S * 0.03, S * 0.05], s.dark, { lo: true, rot: [0, 0, -0.15] }); // tree frog's eye stripe
+    const hip = [-S * 0.15, S * 0.24, side * S * 0.2], hl = { part: side > 0 ? P.LEG_BL : P.LEG_BR, pivot: hip };
+    m.ell([-S * 0.16, S * 0.2, side * S * 0.3], [S * 0.22, S * 0.1, S * 0.09], leg, { ...hl, rot: [0, side * 0.3, 0.45] });
+    m.ell([-S * 0.02, S * 0.1, side * S * 0.36], [S * 0.18, S * 0.06, S * 0.07], leg, { ...hl, rot: [0, side * -0.25, -0.35] });
+    m.ell([S * 0.02, S * 0.025, side * S * 0.38], [S * 0.2, S * 0.025, S * 0.07], leg, { ...hl, lo: true });
+    const sh = [S * 0.25, S * 0.24, side * S * 0.18], fl = { part: side > 0 ? P.LEG_FL : P.LEG_FR, pivot: sh };
+    m.limb(sh, [S * 0.34, S * 0.03, side * S * 0.24], S * 0.05, S * 0.04, leg, fl);
+    m.ell([S * 0.38, S * 0.02, side * S * 0.25], [S * 0.06, S * 0.02, S * 0.05], leg, { ...fl, lo: true });
   }
 }
 
@@ -541,29 +614,34 @@ function turtle(m, s) {
   m.limb([-S * 0.42, S * 0.16, 0], [-S * 0.58, S * 0.08, 0], S * 0.05, S * 0.015, skin, { part: P.TAIL, pivot: [-S * 0.42, S * 0.16, 0] });
 }
 
+// Garter snake: rests in a lazy S-curve (the swim/slither wave adds to it), with a yellow back
+// stripe and red-checked sides.
 function snake(m, s) {
-  const S = s.size, Ls = S * 2.4, N = 12, cy = S * 0.08;
-  // Limbs run tail-ward along -x, so in their own space +x is the snake's back and z its sides.
-  const paint = (u, p) => {
-    const r = Math.hypot(u.x, u.z) || 1, up = u.x / r, sd = Math.abs(u.z) / r;
-    if (up > 0.93) return col(s.stripe);
-    if (sd > 0.9 && up > -0.3 && up < 0.3) return hash3(Math.round(p.x / (S * 0.09)), 0, 0) > 0.55 ? col(s.side) : shade(s.stripe, -0.25);
-    return up < -0.6 ? shade(s.color, 0.45) : col(s.color);
+  const S = s.size, Ls = S * 2.2, N = 16, cy = S * 0.08;
+  const segPaint = (a, b) => {
+    const ax = b[0] - a[0], az = b[2] - a[2], al = Math.hypot(ax, az) || 1;
+    return (u, p) => {
+      // radial direction from the segment's axis at this point
+      const t = Math.max(0, Math.min(1, ((p.x - a[0]) * ax + (p.z - a[2]) * az) / (al * al)));
+      const rx = p.x - (a[0] + ax * t), ry = p.y - (a[1] + (b[1] - a[1]) * t), rz = p.z - (a[2] + az * t);
+      const r = Math.hypot(rx, ry, rz) || 1, up = ry / r, sd = Math.abs((rx * -az + rz * ax) / al) / r;
+      if (up > 0.9) return col(s.stripe);
+      if (sd > 0.85 && up > -0.35 && up < 0.35) return hash3(Math.round((p.x + p.z) / (S * 0.1)), 0, 0) > 0.5 ? col(s.side) : shade(s.stripe, -0.2);
+      return up < -0.55 ? shade(s.color, 0.45) : col(s.color);
+    };
   };
-  const headPaint = u => u.y > 0.6 ? col(s.color) : u.y < -0.3 ? shade(s.color, 0.4) : col(s.color);
-  let prev = null;
+  const pts = [];
   for (let k = 0; k <= N; k++) {
-    const t = k / N, x = Ls * 0.45 - t * Ls, r = S * 0.08 * (t < 0.1 ? 0.85 + t : t > 0.6 ? 1 - (t - 0.6) * 2.1 : 1);
-    const pt = [x, cy * Math.max(0.5, r / (S * 0.08)), 0];
-    if (prev) m.limb(prev.p, pt, prev.r, Math.max(r, S * 0.012), paint, { caps: k === N, seg: 14 });
-    prev = { p: pt, r: Math.max(r, S * 0.012) };
+    const t = k / N, x = Ls * 0.45 - t * Ls, z = Math.sin(t * Math.PI * 1.7 + 0.3) * S * 0.3 * (0.45 + t * 0.55);
+    const r = S * 0.1 * (t < 0.08 ? 0.85 + t * 2 : t > 0.6 ? 1 - (t - 0.6) * 2.1 : 1);
+    pts.push({ p: [x, cy * Math.max(0.55, r / (S * 0.085)), z], r: Math.max(r, S * 0.014) });
   }
-  m.ell([Ls * 0.5, cy, 0], [S * 0.13, S * 0.075, S * 0.095], headPaint);
-  eyes(m, [Ls * 0.5, cy, 0], S * 0.06, S * 0.03, S * 0.07, S * 0.02, P.BODY, null);
+  for (let k = 1; k < pts.length; k++) m.limb(pts[k - 1].p, pts[k].p, pts[k - 1].r, pts[k].r, segPaint(pts[k - 1].p, pts[k].p), { caps: true, seg: 12 });
+  const hp = [Ls * 0.5, cy, pts[0].p[2]];
+  m.ell(hp, [S * 0.12, S * 0.07, S * 0.09], u => u.y < -0.3 ? shade(s.color, 0.4) : col(s.color));
+  eyes(m, hp, S * 0.05, S * 0.025, S * 0.065, S * 0.018, P.BODY, null);
 }
 
-// Trout and salmon: a torpedo body narrowing to the tail, a forked tail fin, dorsal, adipose,
-// anal and pectoral fins, and markings painted over a fine mesh.
 function fish(m, s) {
   const S = s.size, cy = S * 0.2, coho = !!s.head;
   const back = coho ? '#2f4a38' : '#66784a', flank = coho ? '#c5403a' : '#c6bd86', belly = coho ? '#9a6a60' : '#ece6d2';
@@ -655,9 +733,10 @@ export function buildSpecies(def) {
   const mo = { leg: 0.55, bob: 0, tail: 0.25, flap: 1.6, wave: 0, waveK: 0, waveHead: 0, waveLen: 1, sink: 0, len: s.len || s.size };
   switch (s.kind) {
     case 'squirrel': squirrel(m, s); mo.leg = 0.45; mo.bob = 1.1; mo.sink = 3; break;
+    case 'rodent': vole(m, s); mo.leg = 0.6; mo.bob = 0.5; mo.sink = 2.5; break;
     case 'rabbit': rabbit(m, s); mo.leg = 0.35; mo.bob = 2.6; mo.sink = 3.5; break;
     case 'bear': bear(m, s); mo.leg = 0.38; mo.bob = 0.6; mo.sink = s.leg + s.h * 0.45; break;
-    case 'deer': case 'canine': case 'feline': case 'raccoon': case 'otter': case 'beaver': case 'rodent': {
+    case 'deer': case 'canine': case 'feline': case 'raccoon': case 'otter': case 'beaver': {
       const o = MAMMALS[s.kind](s);
       quadruped(m, s, o);
       mo.bob = o.H * (s.kind === 'rabbit' ? 0.35 : s.kind === 'rodent' || s.kind === 'squirrel' ? 0.12 : 0.04);

@@ -216,6 +216,8 @@ export class Wildlife {
     this.recount();
     this.computeSuitability();
 
+    // migrants coming and going this month, announced together below
+    const left = [], back = [];
     for (const def of ANIMALS) {
       const st = this.state[def.index];
       if (def.special === 'salmon') { this.salmonMonth(def, st); continue; }
@@ -228,7 +230,9 @@ export class Wildlife {
         if (pop > 0) {
           st.lastYear = pop;
           for (const a of mine) this.leave(a);
-          game.notify(`The ${many(def)} have left for the winter (${pop}). They'll be back if the habitat is still here.`, 'info');
+          // announce a species' departure the first time; after that it's routine
+          game.flags.leftSeen ||= {};
+          if (!game.flags.leftSeen[def.key]) { game.flags.leftSeen[def.key] = true; left.push(`${pop} ${pop === 1 ? def.name.toLowerCase() : many(def)}`); }
         }
         continue;
       }
@@ -238,7 +242,7 @@ export class Wildlife {
         const n = Math.max(1, Math.min(st.lastYear, Math.ceil(K)));
         let placed = 0;
         for (let k = 0; k < n; k++) placed += this.immigrate(def, 1, true);
-        if (placed) game.notify(`The ${many(def)} are back for the season (${placed})!`, 'good', this.agents[this.agents.length - 1]);
+        if (placed) back.push({ text: `${placed} ${placed === 1 ? def.name.toLowerCase() : many(def)}`, a: this.agents[this.agents.length - 1] });
         st.lastYear = 0;
         pop += placed;
       }
@@ -283,6 +287,16 @@ export class Wildlife {
           this.immigrate(def, n);
         }
       }
+    }
+    // one message for the whole seasonal movement, with the explanation only the first time
+    const list = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0];
+    if (back.length) {
+      game.notify(`Migrants are back for the season: ${list(back.map(b => b.text))}.`, 'good', back[0].a);
+    }
+    if (left.length) {
+      const first = !game.flags.migrantsExplained;
+      game.flags.migrantsExplained = true;
+      game.notify(`Heading south for the winter: ${list(left)}.${first ? ' They remember good habitat and come back in spring if it is still here.' : ''}`, 'info');
     }
     this.recount();
   }

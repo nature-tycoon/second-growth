@@ -6,6 +6,7 @@ import { PLANTS, plantPhase } from '../data/plants.js';
 import { hash2 } from '../rng.js';
 import * as G from './geometry.js';
 import { withFocusFade } from './focus.js';
+import { withSnowTops } from './snow.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -50,7 +51,8 @@ class Pool {
     if (this.n) { this.mesh.computeBoundingSphere(); this.mesh.boundingSphere.radius += 3; }
   }
   dispose() { if (this.mesh) { this.scene.remove(this.mesh); this.mesh.dispose(); } }
-  setView(lod, grass, shrubShadow) {
+  setView(lod, grass, shrubShadow, grassLod = lod) {
+    if (this.kind === 'grass') lod = grassLod;
     this.lod = lod;
     if (!this.mesh) return;
     this.mesh.geometry = lod ? this.geoLo : this.geo;
@@ -62,13 +64,13 @@ class Pool {
 // Splits instances into map chunks so off-screen plants aren't drawn.
 const CHUNK = 48;
 class ChunkedPool {
-  constructor(make) { this.make = make; this.subs = new Map(); this.view = [0, true, true]; }
+  constructor(make) { this.make = make; this.subs = new Map(); this.view = [0, true, true, 0]; }
   setView(...v) { this.view = v; for (const p of this.subs.values()) p.setView(...v); }
   begin() { for (const p of this.subs.values()) p.begin(); }
   add(x, y, z, ...rest) {
     const k = Math.floor((x + BORDER) / CHUNK) * 64 + Math.floor((z + BORDER) / CHUNK);
     let p = this.subs.get(k);
-    if (!p) { p = this.make(); p.lod = this.view[0]; this.subs.set(k, p); }
+    if (!p) { p = this.make(); p.lod = p.kind === 'grass' ? this.view[3] : this.view[0]; this.subs.set(k, p); }
     p.add(x, y, z, ...rest);
   }
   end() { for (const p of this.subs.values()) { p.end(); p.setView(...this.view); } }
@@ -119,14 +121,15 @@ export class Flora {
     this.scene = scene;
     this.wind = { value: 0 };
     // everything that can hide an animal dissolves around the selected one (see focus.js)
-    this.foliage = withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind));
-    this.shrubs = withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind));
-    this.grass = withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true));
-    this.bark = withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true }));
-    this.small = withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    // ...and everything catches snow on top in winter (see snow.js)
+    this.foliage = withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind)), 0.95);
+    this.shrubs = withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind)), 0.85);
+    this.grass = withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true)), 1.3);
+    this.bark = withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1);
+    this.small = withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1);
     this.pools = new Map();
     this.geos = new Map();
-    this.view = [0, true, true];
+    this.view = [0, true, true, 0];
   }
 
   geo(key, build) {
@@ -147,8 +150,10 @@ export class Flora {
   }
 
   // Simpler models when zoomed out; grass blades vanish once they'd be too small to see.
+  // [lod for trees and shrubs, grass visible, shrub shadows, lod for grass]
+  // Grass is by far the most instances, so it switches to its light version well before close-up.
   setZoom(zoom) {
-    const v = [zoom < 0.5 ? 1 : 0, zoom > 0.34, zoom > 0.7];
+    const v = [zoom < 0.5 ? 1 : 0, zoom > 0.34, zoom > 0.7, zoom < 1.1 ? 1 : 0];
     if (this.view && v.every((x, k) => x === this.view[k])) return;
     this.view = v;
     for (const p of this.pools.values()) p.setView(...v);
@@ -185,7 +190,8 @@ export class Flora {
         const n = g < 0.3 ? 2 : g < 0.65 ? 3 : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : 5);
         const phase = plantPhase(p, month);
         const col = leafColor(p, phase);
-        const pool = this.pool(`tuft:${type}:${v}`, () => G.tuft(type, 100 + v * 17 + type.length), this.grass, { shadow: false, kind: 'grass' });
+        const pool = this.pool(`tuft:${type}:${v}`, () => G.tuft(type, 100 + v * 17 + type.length), this.grass, { shadow: false, kind: 'grass' },
+          () => G.tuft(type, 100 + v * 17 + type.length, true));
         for (let k = 0; k < n; k++) {
           const px = x + 0.08 + hash2(x, y, 20 + k) * 0.84, pz = y + 0.08 + hash2(x, y, 40 + k) * 0.84;
           const sc = (0.5 + 0.45 * g) * (0.7 + hash2(x, y, 60 + k) * 0.5);

@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
+import { snow, withSnowTops } from './snow.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
 import { ANIMALS } from '../data/animals.js';
 import { Terrain, buildAtlas } from './terrain.js';
@@ -48,7 +49,7 @@ export class Renderer {
     this.terrain = new Terrain(this.scene, this.atlas);
     this.flora = new Flora(this.scene);
     this.actors = new Actors(this.scene);
-    this.structMat = withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+    this.structMat = withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), 1.1);
     this.structs = new Map();
     this.time = 0;
     this.lastDay = -1; this.lastFlora = 0; this.editDirty = false;
@@ -274,6 +275,9 @@ export class Renderer {
     const r = this.right();
     this.actors.update(game, r, this.time);
     this.updateFocus(game, dt);
+    // snow settles and melts gradually on screen rather than popping in with the daily tick
+    const su = snow.uSnow;
+    su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, dt);
     this.gl.render(this.scene, this.camera);
     this.drawFX(game, ui, dt);

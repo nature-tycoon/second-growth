@@ -336,7 +336,8 @@ export class Events {
     const was = this.floodTiles;
     this.floodTiles = count;
     if (was && !count) {
-      g.notify('The floodwaters have gone down, leaving fresh silt. Willow and cottonwood seeds love it (and so does reed canarygrass).', 'info');
+      if (!g.flags.floodExplained) g.notify('The floodwaters have gone down, leaving fresh silt. Willow and cottonwood seeds love it (and so does reed canarygrass).', 'info');
+      g.flags.floodExplained = true;
       g.emit('event', 'flood-out');
     }
   }

@@ -35,6 +35,7 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 - **Special behaviour:** beavers coppice willow, fell alder and build dams that flood new wetlands. Coho run up connected, shaded creeks each October, spawn, die and feed the soil, and their fry return three years later. Migratory birds leave in fall and come back if the habitat is still there.
 - **Scale:** the farm is 120×90 tiles. Plants are smooth, instanced low-poly models that sway in the wind, with simpler versions used when zoomed out; animals and visitors are high-resolution sprites you can zoom right in on.
 - **Terrain:** the valley slopes from the northern foothills down to the river. Hollows are wetter and ridges drier. Digging water carves the ground, and the Raise and Lower tools reshape it.
+- **Snow:** Dec–Feb storms sometimes come in cold. A snowpack builds on snowy days, lingers on high open ground, stays thin under trees, and melts in rain and spring warmth.
 - **Fire:** in late-summer droughts, lightning or a visitor's spark can start a wildfire. It spreads through dry grass, broom and blackberry, and runs uphill faster. Trails, water and bare ground stop it, and rain puts it out. Douglas-fir and oak usually survive; young trees and most shrubs don't, while native meadow plants resprout. Send a fire crew to fight it, or use controlled burns to cut the fuel ahead of time. Once every few years at most, a fire in a deep drought turns into a **crown fire** that burns through the forest canopy. It leaves standing snags, and fireweed, lupine and native grasses turn the burn into meadow until the forest returns.
 - **Floods:** long winter rains push the river over low ground beside the river and creeks. Seedlings drown, fresh silt enriches the soil, floodplain seeds (willow, cottonwood, and canarygrass too) arrive, and beaver dams can wash out. Marshes and ponds absorb part of every flood.
 - **Visitors:** build a trailhead parking lot beside a road and connect trails to it (within two tiles), with boardwalks over wetlands, viewing blinds and a visitor center. The rating depends on the wildlife seen from the trails, the scenery along them and their length. Visitors pay per head, trails cost upkeep, and people on the trails disturb shy species (elk, cougar, bear, heron, pond turtle) nearby.
@@ -58,6 +59,7 @@ js/render3d/                three.js scene: terrain mesh, instanced plants, buil
 js/render3d/fauna.js        3D wildlife and visitors: built from soft primitives, instanced, animated in a vertex shader
 js/render3d/portraits.js    field-guide portraits rendered from the 3D models
 js/render3d/focus.js        see-through cover around the selected animal
+js/render3d/snow.js         winter snow on the ground, plants and roofs
 js/audio/music.js           procedural lo-fi music and nature ambience (Web Audio)
 js/render/sprites.js        procedural 2D art: terrain textures, fire and smoke, fallback portraits
 assets/logo.svg             the Second Growth emblem (loading screen, top bar, favicon)

@@ -836,6 +836,13 @@ export class UI {
       ctx.strokeStyle = '#4f7d3b'; ctx.lineWidth = 2.5; ctx.beginPath();
       hist.forEach((h, k) => { const x = 8 + k / (hist.length - 1) * (c.width - 16), y = c.height - 8 - h.score / 100 * (c.height - 16); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
       ctx.stroke();
+      // invasive cover on the same 0-100 scale, so a rising pink line is an early warning
+      if (hist.some(h => h.inv != null)) {
+        ctx.strokeStyle = '#c0467a'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.beginPath();
+        hist.forEach((h, k) => { const x = 8 + k / (hist.length - 1) * (c.width - 16), y = c.height - 8 - (h.inv || 0) * 100 / 100 * (c.height - 16); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        ctx.stroke(); ctx.setLineDash([]);
+        ctx.font = '700 11px Nunito'; ctx.fillStyle = '#4f7d3b'; ctx.fillText('Health', 12, 16); ctx.fillStyle = '#c0467a'; ctx.fillText('Invasive cover %', 62, 16);
+      }
     } else { ctx.fillStyle = '#7a7a62'; ctx.font = '600 13px Nunito'; ctx.fillText('History builds up month by month.', 12, 58); }
   }
 
@@ -1077,6 +1084,16 @@ export class UI {
     if (f.blinds < 2) tips.push('<b>Viewing blinds</b> let people watch wildlife without scaring it off.');
     tips.push('Shy animals (elk, cougar, bear, heron, pond turtle) avoid busy trails. Keep some of the farm quiet.');
     const stars = n => '★★★★★'.slice(0, Math.round(n)) + '☆☆☆☆☆'.slice(0, 5 - Math.round(n));
+    // where the stars come from, and the single biggest thing to fix
+    let breakdown = '';
+    if (f.parking && v.parts) {
+      const gap = [...v.parts].sort((a, b) => ((b.max - b.pts) - (a.max - a.pts)) || (a.pts - b.pts))[0];
+      breakdown = `<h4 style="margin-top:16px">Where the rating comes from</h4>` + v.parts.map(p => {
+        const neg = p.pts < 0, w = neg ? Math.min(1, -p.pts / 1.2) : p.max ? p.pts / p.max : 0;
+        return `<div class="srow"><span>${p.name}</span><div class="bar"><i class="${neg ? 'neg' : ''}" style="width:${pct(clamp(w, 0, 1))}"></i></div><span class="v">${neg ? '' : '+'}${p.pts.toFixed(1)}</span></div>`;
+      }).join('') + `<div class="small" style="margin-top:4px">Every preserve starts at 0.5 stars.</div>` +
+        (gap && gap.max - gap.pts > 0.15 ? `<div class="need" style="margin-top:8px"><span class="st warn">▲</span><span><b>Biggest gain:</b> ${gap.tip}</span></div>` : '');
+    }
     this.modal('Visitors', `<div class="report">
       <div><h4>Last month</h4><div class="kv" style="grid-template-columns:150px 1fr">
         <span class="k">Visitors</span><span>${v.monthly.toLocaleString()}</span>
@@ -1086,6 +1103,7 @@ export class UI {
         <span class="k">Total visitors</span><span>${v.total.toLocaleString()}</span>
         <span class="k">Connected trail</span><span>${v.net.length} tiles</span>
         <span class="k">Facilities</span><span>${f.parking} parking · ${f.center} visitor center${f.center === 1 ? '' : 's'} · ${f.blinds} blind${f.blinds === 1 ? '' : 's'} · ${f.boardwalk} boardwalk tiles</span></div>
+        ${breakdown}
         <h4 style="margin-top:16px">Seen from the trails</h4><p class="info-desc">${seen.length ? seen.join(', ') : 'Nothing yet.'}</p></div>
       <div><h4>How to grow visits</h4>${tips.map(t => `<div class="need"><span class="st">•</span><span>${t}</span></div>`).join('')}</div></div>`, { narrow: false });
   }

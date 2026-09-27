@@ -7,6 +7,7 @@ import { updateEnvironment, updateHydrology } from './sim/environment.js';
 import { updatePlants, seedRain } from './sim/plants.js';
 import { Wildlife } from './sim/animals.js';
 import { ANIMALS, ANIMAL, aOne } from './data/animals.js';
+import { PLANTS } from './data/plants.js';
 import { ecoScore, monthlyGrant, nativePlantSpecies, GOALS, speciesPresent } from './sim/goals.js';
 import { Visitors } from './sim/visitors.js';
 import { Events } from './sim/events.js';
@@ -47,6 +48,7 @@ export class Game {
     this.history = [];
     this.weather = 'clear';
     this.rainStreak = 0; this.dryStreak = 0;
+    this.snow = 0;
     this.wildlife = new Wildlife(this);
     this.visitors = new Visitors(this);
     this.events = new Events(this);
@@ -136,11 +138,22 @@ export class Game {
     if (this.weatherDays > 0) this.weatherDays--;
     else {
       const rain = r < RAIN[m];
-      const snow = rain && (m >= 9 && m <= 11) && this.rng() < 0.12;
+      // Dec-Feb storms sometimes come in cold enough to snow, most often in January
+      const snow = rain && (m >= 9 && m <= 11) && this.rng() < (m === 10 ? 0.4 : 0.25);
       this.weather = snow ? 'snow' : rain ? 'rain' : this.rng() < 0.3 ? 'cloud' : 'clear';
       this.weatherDays = 1 + Math.floor(this.rng() * 3);
     }
     const wet = this.weather === 'rain' || this.weather === 'snow';
+    // snowpack: builds on snowy days, rain washes it away, winter sun melts it slowly, spring fast
+    const winter = m >= 9 && m <= 11;
+    if (this.weather === 'snow') {
+      this.snow = Math.min(1, (this.snow || 0) + 0.22);
+      if (this.snow > 0.4 && !this.flags.firstSnow) {
+        this.flags.firstSnow = true;
+        this.notify('Snow is settling over the valley. It lingers on high, open ground and melts first under the trees. The spring melt will feed your wetlands.', 'season');
+      }
+    }
+    else if (this.snow) this.snow = Math.max(0, this.snow - (this.weather === 'rain' ? 0.18 : winter ? 0.025 : 0.2));
     this.rainStreak = wet ? this.rainStreak + 1 : 0;
     this.dryStreak = wet ? 0 : this.dryStreak + 1;
     w.renderDirty = true;
@@ -156,7 +169,8 @@ export class Game {
     const grant = this.grant(monthlyGrant(this, score.total));
     this.lastGrant = grant;
     this.visitors.monthEnd();
-    if (m % 3 === 0) {
+    // season tips teach the first year; after that the top bar says the season
+    if (m % 3 === 0 && this.year === 1) {
       const tips = [
         'Spring: seeds germinate and migrant birds return. A great time to plant.',
         'Summer: dry weather. Plants grow slower and streams get warm without shade.',
@@ -165,12 +179,46 @@ export class Game {
       ];
       this.notify(`${this.seasonName()} has arrived. ${tips[this.season]}`, 'season');
     }
-    this.history.push({ day: this.day, score: score.total, species: speciesPresent(this), money: this.money, visitors: this.visitors.monthly });
+    this.history.push({ day: this.day, score: score.total, species: speciesPresent(this), money: this.money, visitors: this.visitors.monthly, inv: score.invFrac || 0 });
+    this.checkInvasives(score.invFrac || 0);
     if (this.history.length > 400) this.history.shift();
     this.checkGoals();
     this.emit('month', { grant });
-    if (m === 0 && this.day > 0) this.notify(`Year ${this.year} begins. The land trust has granted ${money(this.stats.earned)} so far.`, 'season');
+    if (m === 0 && this.day > 0) {
+      // a short year-in-review instead of a bare date
+      const lastYear = this.history.find(h => h.day >= this.day - DAYS_PER_YEAR - 1) || this.history[0];
+      const ds = Math.round(score.total - (lastYear?.score ?? score.total)), dn = speciesPresent(this) - (lastYear?.species ?? 0);
+      const sign = v => (v > 0 ? '+' : '') + v;
+      this.notify(`Year ${this.year} begins. Over the past year health went ${sign(ds)} to ${Math.round(score.total)}, and ${speciesPresent(this)} species live here (${sign(dn)}).`, 'season');
+    }
     if (this.autosave !== false) this.save();
+  }
+
+  // Warn as invasive cover crosses 10%, 20% and 30%, pointing at the worst patch. The warning
+  // resets once the player beats it back, so it can fire again if it creeps back.
+  checkInvasives(frac) {
+    const steps = [0.1, 0.2, 0.3];
+    let lvl = this.flags.invWarn || 0;
+    if (lvl > 0 && frac < steps[lvl - 1] * 0.7) this.flags.invWarn = --lvl;
+    if (lvl >= steps.length || frac < steps[lvl]) return;
+    this.flags.invWarn = lvl + 1;
+    const w = this.world, B = 8, bw = Math.ceil(w.w / B), cells = new Map(), kinds = {};
+    for (let i = 0; i < w.n; i++) {
+      for (const id of [w.ground[i], w.shrub[i]]) {
+        if (!id || !PLANTS[id].invasive) continue;
+        kinds[id] = (kinds[id] || 0) + 1;
+        const c = Math.floor((i % w.w) / B) + Math.floor(((i / w.w) | 0) / B) * bw;
+        cells.set(c, (cells.get(c) || 0) + 1);
+      }
+    }
+    let best = -1, bn = 0;
+    for (const [c, n] of cells) if (n > bn) { bn = n; best = c; }
+    const top = Object.entries(kinds).sort((a, b) => b[1] - a[1])[0];
+    const name = top ? PLANTS[top[0]].name.replace(/^(Himalayan|Scotch|Reed) /, m => m) : 'Invasive plants';
+    const loc = best >= 0 ? { x: (best % bw) * B + B / 2, y: Math.floor(best / bw) * B + B / 2 } : null;
+    const pct = Math.round(frac * 100);
+    this.notify(`Invasives are spreading: they now cover ${pct}% of the land, mostly ${name.toLowerCase()}. Click to see the worst patch. Pull it, burn it, or shade it out with trees and shrubs.`, 'warn', loc);
+    this.emit('invasive', { pct });
   }
 
   updateScore() {
@@ -220,7 +268,7 @@ export class Game {
         world: { arrays, structures: w.structures },
         wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
         visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant,
-        mode: this.mode, campaign: this.campaign, difficulty: this.difficulty,
+        mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
       return true;
@@ -252,6 +300,7 @@ export class Game {
     this.mode = data.mode || 'free'; // saves from before the campaign are free play
     this.campaign = data.campaign || { chapter: 0 };
     this.difficulty = data.difficulty || 'standard';
+    this.snow = data.snow || 0;
     this.weather = 'clear';
     this.rainStreak = 0; this.dryStreak = 0;
     this.lastGrant = data.lastGrant || 0;

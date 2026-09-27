@@ -187,7 +187,16 @@ export class Visitors {
     this.seen.clear();
     const lengthScore = clamp(len / 110, 0, 1);
     const open = fac.parking > 0 && len >= 4;
-    this.rating = open ? clamp(0.5 + species * 0.26 + scenic * 2.0 + lengthScore * 0.6 + Math.min(0.5, fac.blinds * 0.12) + (fac.center ? 0.4 : 0) - invasive * 1.2, 0, 5) : 0;
+    // what the rating is made of, so the visitor panel can show where the stars come from
+    this.parts = [
+      { key: 'wildlife', name: 'Wildlife seen from the trail', pts: species * 0.26, max: 2.6, tip: 'Route the trail past water, forest edges and meadows where animals feed. Viewing blinds help people spot shy ones.' },
+      { key: 'scenery', name: 'Scenery along the trail', pts: scenic * 2.0, max: 2.0, tip: 'Pass varied native habitat: water, old trees and wildflower meadows within a few tiles of the path.' },
+      { key: 'length', name: 'Trail length', pts: lengthScore * 0.6, max: 0.6, tip: `Longer trails rate higher, up to about 110 tiles (now ${len}).` },
+      { key: 'blinds', name: 'Viewing blinds', pts: Math.min(0.5, fac.blinds * 0.12), max: 0.5, tip: 'Add viewing blinds beside the trail (up to four count).' },
+      { key: 'center', name: 'Visitor center', pts: fac.center ? 0.4 : 0, max: 0.4, tip: 'A visitor center adds exhibits and raises the rating.' },
+      { key: 'invasive', name: 'Invasive weeds by the trail', pts: -invasive * 1.2, max: 0, tip: 'Pull blackberry and broom along the trail; visitors dislike weedy patches.' },
+    ];
+    this.rating = open ? clamp(0.5 + this.parts.reduce((s, p) => s + p.pts, 0), 0, 5) : 0;
     this.rep += (this.rating - this.rep) * (this.rep ? 0.3 : 0.6);
     const demand = open ? (40 + 360 * Math.pow(this.rep / 5, 1.3)) * SEASON_DEMAND[g.month] * (0.4 + 0.6 * lengthScore) : 0;
     const capacity = fac.parking * 220 + fac.center * 380;
@@ -214,7 +223,7 @@ export class Visitors {
   }
 
   serialize() {
-    return { monthly: this.monthly, total: this.total, rating: this.rating, rep: this.rep, income: this.income, upkeep: this.upkeep, traffic: this.traffic, welcomed: this.welcomed, seenLast: this.seenLast };
+    return { monthly: this.monthly, total: this.total, rating: this.rating, rep: this.rep, income: this.income, upkeep: this.upkeep, traffic: this.traffic, welcomed: this.welcomed, seenLast: this.seenLast, parts: this.parts };
   }
   load(d) { if (d) Object.assign(this, d); }
 }

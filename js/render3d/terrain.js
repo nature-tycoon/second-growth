@@ -6,6 +6,7 @@ import { T, BORDER, LEVEL, isWater, clamp } from '../config.js';
 import { PLANTS, plantPhase } from '../data/plants.js';
 import { extTerrain } from '../world.js';
 import * as S from '../render/sprites.js';
+import { snow, SNOW_RGB } from './snow.js';
 import { hash2 } from '../rng.js';
 
 const ATLAS_TYPES = [T.PASTURE, T.FIELD, T.SOIL, T.GRAVEL, T.MUD, T.ROAD, T.DUFF, T.TRAIL, S.TURF, S.BED];
@@ -42,13 +43,20 @@ function noiseTexture() {
 function groundDetail(mat, noise) {
   mat.onBeforeCompile = shader => {
     shader.uniforms.uNoise = { value: noise };
-    shader.vertexShader = 'varying vec2 vWorldXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWorldXZ = (modelMatrix * vec4(transformed, 1.0)).xz;');
-    shader.fragmentShader = 'uniform sampler2D uNoise;\nvarying vec2 vWorldXZ;\n' + shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+    shader.uniforms.uSnow = snow.uSnow;
+    shader.vertexShader = 'attribute float aSnow;\nvarying float vSnowAff;\nvarying vec2 vWorldXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWorldXZ = (modelMatrix * vec4(transformed, 1.0)).xz;\n  vSnowAff = aSnow;');
+    shader.fragmentShader = 'uniform sampler2D uNoise;\nuniform float uSnow;\nvarying float vSnowAff;\nvarying vec2 vWorldXZ;\n' + shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
       float gn1 = texture2D(uNoise, vWorldXZ * 0.035).r;
       float gn2 = texture2D(uNoise, vWorldXZ * 0.16 + 0.37).r;
-      diffuseColor.rgb *= 0.84 + 0.24 * gn1 + 0.12 * (gn2 - 0.5);`);
+      diffuseColor.rgb *= 0.84 + 0.24 * gn1 + 0.12 * (gn2 - 0.5);`).replace('#include <color_fragment>', `#include <color_fragment>
+      // snow: soft noisy patches that grow with the snowpack, first on high open ground
+      if (uSnow > 0.01) {
+        float sn = uSnow * vSnowAff + (texture2D(uNoise, vWorldXZ * 0.09 + 0.61).r - 0.5) * 0.45;
+        float cover = smoothstep(0.22, 0.5, sn);
+        diffuseColor.rgb = mix(diffuseColor.rgb, ${SNOW_RGB} * (0.92 + 0.1 * gn2), cover * 0.95);
+      }`);
   };
-  mat.customProgramCacheKey = () => 'ground';
+  mat.customProgramCacheKey = () => 'ground-snow';
   return mat;
 }
 
@@ -143,7 +151,7 @@ export class Terrain {
 
   // (Re)build everything for a world.
   setWorld(world, border) {
-    this.world = world; this.border = border;
+    this.world = world; this.border = border; this.snowT = null;
     this.X0 = -BORDER; this.Y0 = -BORDER;
     this.TW = world.w + BORDER * 2; this.TH = world.h + BORDER * 2;
     const n = this.TW * this.TH;
@@ -152,6 +160,7 @@ export class Terrain {
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
     g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
     g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
+    g.setAttribute('aSnow', new THREE.BufferAttribute(new Float32Array(n * 6), 1));
     g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 12), 2));
     this.mesh = new THREE.Mesh(g, this.material);
     this.mesh.receiveShadow = true;
@@ -205,6 +214,10 @@ export class Terrain {
     const uv = g.attributes.uv.array, col = g.attributes.color.array;
     const month = game.month, season = game.season;
     const tint = this.tint;
+    // how readily each tile holds snow: open high ground most, under trees less, water not at all
+    const snowT = this.snowT || (this.snowT = new Float32Array(this.TW * this.TH));
+    let hLo = Infinity, hHi = -Infinity;
+    for (let ty = 0; ty < this.TH; ty++) for (let tx = 0; tx < this.TW; tx++) { const h = Math.max(...w.corners(tx + this.X0, ty + this.Y0)); hLo = Math.min(hLo, h); hHi = Math.max(hHi, h); }
     const turfCache = new Map();
     for (let ty = 0; ty < this.TH; ty++) for (let tx = 0; tx < this.TW; tx++) {
       const x = tx + this.X0, y = ty + this.Y0, k = ty * this.TW + tx;
@@ -215,6 +228,8 @@ export class Terrain {
       const v = inside ? w.variant[i] : ((x * 7 + y * 13) & 3);
       let tex = t, c = [1, 1, 1];
       if (t === T.MARSH) { tex = S.TURF; c = [0.52, 0.58, 0.42]; }
+      // pond beds share the marsh's soft texture (just darker), so the two blend at their edges
+      else if (t === T.POND) { tex = S.TURF; c = [0.4, 0.44, 0.34]; }
       else if (isWater(t)) { tex = S.BED; c = [0.7, 0.66, 0.58]; }
       else {
         const canopy = inside ? w.canopy[i] : 0;
@@ -243,6 +258,11 @@ export class Terrain {
           c = mixRgb(c, [0.5, 0.45, 0.33], clamp((canopy - 0.3) * 1.2, 0, 0.7));
         }
         if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); }
+      }
+      {
+        const canopyS = inside ? w.canopy[i] : (bi >= 0 && B.tree?.[bi] ? 0.7 : 0.2);
+        const elev = (Math.max(...w.corners(x, y)) - hLo) / Math.max(0.01, hHi - hLo);
+        snowT[k] = isWater(t) ? 0 : (1 - canopyS * 0.55) * (0.75 + elev * 0.55);
       }
       const b = 0.95 + hash2(x, y, 5) * 0.1;
       const dim = inside ? 1 : 0.8;
@@ -278,6 +298,22 @@ export class Terrain {
       const put = (j, q) => { col[o + j * 3] = q[0] * 0.8 + own[0] * 0.2; col[o + j * 3 + 1] = q[1] * 0.8 + own[1] * 0.2; col[o + j * 3 + 2] = q[2] * 0.8 + own[2] * 0.2; };
       put(0, cA); put(1, cC); put(2, cB); put(3, cA); put(4, cD); put(5, cC);
     }
+    // snow affinity, blended at corners like the colours so its edges fade too
+    const sa = g.attributes.aSnow.array;
+    const sCorner = (cx, cy) => {
+      let v = 0, n = 0, dry = true;
+      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+        const tx = cx + dx, ty = cy + dy;
+        if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
+        const k = ty * TW + tx; v += snowT[k]; n++; if (snowT[k] === 0) dry = false;
+      }
+      return n ? (dry ? v / n : v / n * 0.5) : 0;
+    };
+    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
+      const o = (ty * TW + tx) * 6, a = sCorner(tx, ty), b = sCorner(tx + 1, ty), c = sCorner(tx + 1, ty + 1), d = sCorner(tx, ty + 1);
+      sa[o] = a; sa[o + 1] = c; sa[o + 2] = b; sa[o + 3] = a; sa[o + 4] = d; sa[o + 5] = c;
+    }
+    g.attributes.aSnow.needsUpdate = true;
     g.attributes.uv.needsUpdate = true;
     g.attributes.color.needsUpdate = true;
   }
@@ -318,6 +354,27 @@ export class Terrain {
       const k = ty * TW + tx;
       level[k] = Math.min(...w.corners(tx + X0, ty + Y0)) + FILL[t]; kind[k] = t; wet[k] = 1;
     }
+    // Ponds and marshes that touch are one body of standing water: give it one surface, so a
+    // deeper pond reads as darker water under a continuous sheet instead of a sunken square.
+    // (Capped a little above its lowest tile so water never climbs a slope.)
+    const body = new Int32Array(TW * TH).fill(-1);
+    for (let k0 = 0; k0 < TW * TH; k0++) {
+      if (!wet[k0] || body[k0] >= 0 || (kind[k0] !== T.POND && kind[k0] !== T.MARSH)) continue;
+      const q = [k0]; body[k0] = k0;
+      let lo = Infinity, hi = -Infinity;
+      for (let h = 0; h < q.length; h++) {
+        const k = q[h], tx = k % TW, ty = (k / TW) | 0;
+        lo = Math.min(lo, level[k]); hi = Math.max(hi, level[k]);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const xx = tx + dx, yy = ty + dy;
+          if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
+          const j = yy * TW + xx;
+          if (wet[j] && body[j] < 0 && (kind[j] === T.POND || kind[j] === T.MARSH)) { body[j] = k0; q.push(j); }
+        }
+      }
+      const L = Math.min(hi, lo + 0.3);
+      for (const k of q) level[k] = Math.max(level[k], L);
+    }
     // one ring of bank tiles carries the neighbouring water level
     const ring = [];
     for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
@@ -351,14 +408,28 @@ export class Terrain {
       }
       return false;
     };
+    // blend the water's colour across tile corners, so pond, marsh and creek shade into each other
+    const vColor = (vx, vy) => {
+      const out = [0, 0, 0, 0]; let n = 0;
+      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+        const tx = vx - X0 + dx, ty = vy - Y0 + dy;
+        if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
+        const k = ty * TW + tx;
+        if (level[k] !== level[k]) continue;
+        const c = COL[kind[k]];
+        for (let e = 0; e < 4; e++) out[e] += c[e];
+        n++;
+      }
+      return n ? out.map(v => v / n) : COL[T.POND];
+    };
     const tiles = [];
     for (let k = 0; k < TW * TH; k++) if (level[k] === level[k]) tiles.push(k);
     const pos = new Float32Array(tiles.length * 18), col = new Float32Array(tiles.length * 24), nor = new Float32Array(tiles.length * 18);
     let o = 0, oc = 0;
     for (const k of tiles) {
       const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
-      const c = COL[kind[k]];
       for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
+        const c = vColor(vx, vy);
         pos[o] = vx; pos[o + 1] = vLevel(vx, vy) * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
       }

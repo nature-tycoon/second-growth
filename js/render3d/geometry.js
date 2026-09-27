@@ -291,13 +291,15 @@ export function twigs(seed, height = 0.5) {
 }
 
 // ---------------------------------------------------------------- groundcover tufts
-export function tuft(type, seed) {
+// lo: a light version for anything but close-ups (fewer, straighter blades, simpler flowers).
+export function tuft(type, seed, lo = false) {
   const r = mulberry32(seed);
   const parts = [];
+  const few = n => lo ? Math.max(2, Math.round(n * 0.45)) : n;
   const blades = (n, len, width, bendMax, spread = 0.05) => {
-    for (let k = 0; k < n; k++) {
+    for (let k = 0, m = few(n); k < m; k++) {
       const dir = r() * 6.28;
-      parts.push(ribbon(len * (0.65 + r() * 0.5), width, 0.25 + r() * bendMax, 2, dir, 0.1 + r() * 0.35, (r() - 0.5) * spread, (r() - 0.5) * spread));
+      parts.push(ribbon(len * (0.65 + r() * 0.5), width * (lo ? 1.35 : 1), 0.25 + r() * bendMax, lo ? 1 : 2, dir, 0.1 + r() * 0.35, (r() - 0.5) * spread, (r() - 0.5) * spread));
     }
   };
   switch (type) {
@@ -305,9 +307,9 @@ export function tuft(type, seed) {
     case 'tallgrass': blades(9, 0.28, 0.014, 0.8); break;
     case 'sedge': blades(10, 0.18, 0.016, 1.1); break;
     case 'forb': {
-      for (let k = 0; k < 6; k++) {
-        const a = k / 6 * 6.28 + r() * 0.4;
-        parts.push(soft(new THREE.IcosahedronGeometry(0.035, 1), { transform: g => { g.scale(1.6, 0.3, 0.8); g.rotateY(-a); g.translate(Math.cos(a) * 0.045, 0.02, Math.sin(a) * 0.045); } }));
+      for (let k = 0, m = lo ? 4 : 6; k < m; k++) {
+        const a = k / m * 6.28 + r() * 0.4;
+        parts.push(soft(new THREE.IcosahedronGeometry(0.035, lo ? 0 : 1), { transform: g => { g.scale(1.6, 0.3, 0.8); g.rotateY(-a); g.translate(Math.cos(a) * 0.045, 0.02, Math.sin(a) * 0.045); } }));
       }
       blades(3, 0.14, 0.006, 0.2, 0.02);
       break;
@@ -316,24 +318,24 @@ export function tuft(type, seed) {
       for (let k = 0; k < 3; k++) {
         const x = (r() - 0.5) * 0.08, z = (r() - 0.5) * 0.08, h = 0.24 + r() * 0.08;
         parts.push(soft(new THREE.CylinderGeometry(0.004, 0.007, h, 4), { transform: g => g.translate(x, h / 2, z) }));
-        for (let l = 0; l < 4; l++) parts.push(ribbon(0.07, 0.01, 0.6, 2, r() * 6.28, 1.0, x, z).translate(0, h * (0.25 + l * 0.17), 0));
+        for (let l = 0, m = lo ? 2 : 4; l < m; l++) parts.push(ribbon(0.07, 0.01, 0.6, lo ? 1 : 2, r() * 6.28, 1.0, x, z).translate(0, h * (0.25 + l * (lo ? 0.34 : 0.17)), 0));
       }
       break;
     }
     case 'fern': {
-      for (let k = 0; k < 9; k++) parts.push(ribbon(0.3 + r() * 0.06, 0.035, 1.1 + r() * 0.3, 5, k / 9 * 6.28 + r() * 0.3, 0.35, 0, 0, 0xffffff, 0.02));
+      for (let k = 0, m = lo ? 5 : 9; k < m; k++) parts.push(ribbon(0.3 + r() * 0.06, 0.035 * (lo ? 1.3 : 1), 1.1 + r() * 0.3, lo ? 3 : 5, k / m * 6.28 + r() * 0.3, 0.35, 0, 0, 0xffffff, 0.02));
       break;
     }
     case 'cattail': blades(6, 0.44, 0.013, 0.35, 0.08); break;
     case 'tule': {
-      for (let k = 0; k < 8; k++) {
+      for (let k = 0, m = lo ? 4 : 8; k < m; k++) {
         const x = (r() - 0.5) * 0.1, z = (r() - 0.5) * 0.1, h = 0.45 + r() * 0.2;
         parts.push(soft(new THREE.CylinderGeometry(0.003, 0.006, h, 4), { transform: g => { g.translate(0, h / 2, 0); g.rotateZ((r() - 0.5) * 0.25); g.translate(x, 0, z); } }));
       }
       break;
     }
     case 'skunk': {
-      for (let k = 0; k < 5; k++) parts.push(ribbon(0.22, 0.05, 0.5, 4, k / 5 * 6.28, 0.35, 0, 0, 0xffffff, 0.04));
+      for (let k = 0; k < 5; k++) parts.push(ribbon(0.22, 0.05, 0.5, lo ? 2 : 4, k / 5 * 6.28, 0.35, 0, 0, 0xffffff, 0.04));
       break;
     }
     default: blades(8, 0.15, 0.012, 0.6);
