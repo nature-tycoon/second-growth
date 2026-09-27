@@ -1,9 +1,10 @@
 // DOM interface: top bar, tool palette, inspector, notifications, minimap and modal screens.
 
-import { T, F, H, HABITAT_INFO, TERRAIN_NAMES, FEATURE_NAMES, MONTH_NAMES, SPEEDS, isWater, money, clamp } from '../config.js';
+import { T, F, H, HABITAT_INFO, TERRAIN_NAMES, FEATURE_NAMES, MONTH_NAMES, SPEEDS, DIFFICULTY, isWater, money, moneyShort, clamp } from '../config.js';
+import { music } from '../audio/music.js';
 import { PLANTS, PLANT, LAYER_NAMES, MIX } from '../data/plants.js';
 import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many } from '../data/animals.js';
-import { TOOLS, CATEGORIES, PLANT_TABS, BRUSH_SIZES } from '../tools.js';
+import { TOOLS, CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
 import { STRUCTURES } from '../world.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
 import { layerLight } from '../sim/environment.js';
@@ -150,6 +151,9 @@ export class UI {
     this.bindAnalytics();
     this.applySettings();
     this.warmPortraits();
+    const wake = () => { music.start(); music.setScene(game.weather, game.season); };
+    window.addEventListener('pointerdown', wake, true);
+    window.addEventListener('keydown', wake, true);
   }
 
   // Render the field-guide portraits a few at a time in the background, so the guide opens instantly.
@@ -185,6 +189,13 @@ export class UI {
   applySettings() {
     this.renderer.applySettings(settings);
     this.game.autosave = settings.autosave;
+    music.set({ music: settings.music, nature: settings.nature, muted: settings.muted, musicVol: settings.musicVolume, natureVol: settings.natureVolume });
+    $('#btn-sound')?.classList.toggle('muted', !!settings.muted);
+  }
+  toggleMute() {
+    settings.muted = !settings.muted;
+    saveSettings(); this.applySettings();
+    track('setting_changed', { setting: 'muted', value: settings.muted });
   }
 
   // ------------------------------------------------------------ top bar
@@ -198,6 +209,8 @@ export class UI {
     $('#btn-journal').addEventListener('click', () => this.openJournal());
     $('#btn-menu').addEventListener('click', () => this.openMenu());
     $('#btn-settings').addEventListener('click', () => this.openSettings());
+    $('#btn-sound').addEventListener('click', () => this.toggleMute());
+    window.addEventListener('resize', () => this.fitTopbar());
     $('#btn-feedback').addEventListener('click', () => this.openFeedback());
     // phones and tablets: on-screen rotate buttons, full screen where the browser allows it
     document.querySelectorAll('#view-ctrls [data-v]').forEach(b => b.addEventListener('click', () => this.renderer.rotate(b.dataset.v === 'rotl' ? -1 : 1)));
@@ -220,6 +233,13 @@ export class UI {
     $('#overlay').addEventListener('change', e => { this.setOverlay(e.target.value); e.target.blur(); });
   }
   setSpeed(s) { this.game.speed = s; this.refreshTop(true); }
+  // If the top bar still doesn't fit, fold away lower-priority pieces one step at a time.
+  fitTopbar() {
+    const bar = $('#topbar');
+    if (!bar) return;
+    for (let k = 1; k <= 4; k++) bar.classList.remove('tight-' + k);
+    for (let k = 1; k <= 4 && bar.scrollWidth > bar.clientWidth + 1; k++) bar.classList.add('tight-' + k);
+  }
   toggleTrees() {
     this.renderer.fadeTrees = !this.renderer.fadeTrees;
     $('#btn-trees').classList.toggle('on', this.renderer.fadeTrees);
@@ -242,12 +262,16 @@ export class UI {
     const now = performance.now();
     if (!force && now - this.lastTop < 250) return;
     this.lastTop = now;
+    if (force && !this.fitOnce) { this.fitOnce = true; document.fonts?.ready.then(() => this.fitTopbar()); }
     const m = $('#stat-money');
-    m.textContent = money(g.money);
+    const mt = moneyShort(g.money);
+    if (m.textContent !== mt) { m.textContent = mt; this.fitTopbar(); }
     m.classList.toggle('low', g.money < 2000);
-    m.title = `Conservation budget. Last monthly grant: ${money(g.lastGrant || 0)}`;
+    m.title = `Conservation budget: ${money(g.money)}. Last monthly grant: ${money(g.lastGrant || 0)}`;
     $('#stat-season').textContent = g.seasonName();
     $('#stat-date').textContent = `${MONTH_NAMES[g.month]} ${g.dayOfMonth * 3 - 2}, Year ${g.year}`;
+    const scene = g.weather + g.season;
+    if (scene !== this.lastScene) { this.lastScene = scene; music.setScene(g.weather, g.season); }
     const wIcon = { clear: 'sun', cloud: 'cloud', rain: 'rain', snow: 'snow' }[g.weather] || 'sun';
     const we = $('#stat-weather');
     if (we.dataset.w !== wIcon) { we.innerHTML = ICONS[wIcon]; we.dataset.w = wIcon; }
@@ -379,8 +403,9 @@ export class UI {
     const grid = el('div', 'tool-grid');
     for (const t of this.toolsFor(st.cat)) {
       const open = this.isOpen(t.key), ch = open ? -1 : chapterOfTool(t.key);
-      const card = el('div', 'tool-card' + (t.key === st.tool ? ' on' : '') + (open && t.cost > this.game.money ? ' poor' : '') + (open ? '' : ' locked'));
-      const costTxt = !open ? `Chapter ${ch + 1}` : t.costFor ? 'varies' : t.cost ? money(t.cost) + (t.brush ? '/tile' : '') : 'free';
+      const price = listPrice(this.game, t);
+      const card = el('div', 'tool-card' + (t.key === st.tool ? ' on' : '') + (open && price > this.game.money ? ' poor' : '') + (open ? '' : ' locked'));
+      const costTxt = !open ? `Chapter ${ch + 1}` : t.costFor ? 'varies' : price ? money(price) + (t.brush ? '/tile' : '') : 'free';
       card.innerHTML = `<img src="${iconThumb(t.icon)}" alt="">${open ? '' : `<span class="lock">${ICONS.lock}</span>`}<div class="nm">${t.name}</div><div class="cost">${costTxt}</div>`;
       card.title = open ? t.desc : `Unlocks in Chapter ${ch + 1}: ${CHAPTERS[ch].title}`;
       card.addEventListener('click', () => open ? this.selectTool(t.key) : this.game.notify(`${t.name} unlocks in Chapter ${ch + 1}, "${CHAPTERS[ch].title}". Finish this chapter's goals to get there.`, 'info'));
@@ -571,6 +596,8 @@ export class UI {
   toast(n) {
     this.journal.unshift(n);
     if (this.journal.length > 120) this.journal.pop();
+    // "important only": routine updates skip the pop-up but stay in the journal
+    if (settings.notifications === 'important' && (n.kind === 'info' || n.kind === 'season') && !n.loc) return;
     const box = $('#toasts');
     const icon = { good: 'good', warn: 'warn', discover: 'star', goal: 'star', season: 'leaf', info: 'info', fire: 'fire', flood: 'rain' }[n.kind] || 'info';
     const t = el('div', `toast ${n.kind}` + (n.loc ? ' clickable' : ''), `<span class="ti">${ICONS[icon]}</span><span>${n.text}</span>`);
@@ -835,39 +862,63 @@ export class UI {
     m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true));
   }
 
-  openSettings() {
+  openSettings(tab = this.settingsTab || 'audio') {
+    this.settingsTab = tab;
+    const g = this.game;
     const toggle = (key, name, desc) => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><input type="checkbox" data-s="${key}" ${settings[key] ? 'checked' : ''}></label>`;
-    const choice = (key, name, desc, opts) => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><select data-s="${key}">${opts.map(([v, t]) => `<option value="${v}" ${settings[key] === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
-    const slider = (key, name, desc) => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><span class="set-slide"><input type="range" min="0.4" max="2.5" step="0.1" data-s="${key}" value="${settings[key]}"><output>${settings[key].toFixed(1)}×</output></span></label>`;
-    const m = this.modal('Settings', `<div class="settings">
-      <div class="section-title">Graphics</div>
-      ${choice('quality', 'Resolution', 'Lower it if the game feels slow.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}
-      ${toggle('shadows', 'Shadows', 'Trees and buildings cast soft shadows.')}
-      ${toggle('wind', 'Wind in the plants', 'Grass, shrubs and treetops sway.')}
-      ${toggle('weather', 'Rain and snow', 'Falling rain and snow over the view.')}
-      <div class="section-title">Controls</div>
-      ${slider('panSpeed', 'Camera pan speed', 'WASD and arrow keys.')}
-      ${slider('zoomSpeed', 'Zoom speed', 'Mouse wheel and + / − keys.')}
-      <div class="section-title">Game</div>
-      ${toggle('autosave', 'Autosave', 'Save the farm at the end of every month.')}
-      ${toggle('pauseOnEvents', 'Pause on wildfire or flood', 'Stop the clock so you can respond.')}
-      <div class="section-title">Privacy</div>
-      ${toggle('analytics', 'Share anonymous play data', 'Things like which tools get used and how far people get. No names, no cookies.')}
-      <div class="small" style="margin-top:12px">Brush sizes are remembered for each tool group. Settings are saved in this browser.</div>
-      </div>`, { narrow: true, foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>' });
+    const choice = (key, name, desc, opts, value = settings[key]) => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><select data-s="${key}">${opts.map(([v, t]) => `<option value="${v}" ${value === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
+    const slider = (key, name, desc, min = 0.4, max = 2.5, fmt = v => v.toFixed(1) + '×') => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><span class="set-slide"><input type="range" min="${min}" max="${max}" step="${(max - min) / 20}" data-s="${key}" value="${settings[key]}" data-fmt="${fmt === pctFmt ? 'pct' : 'x'}"><output>${fmt(settings[key])}</output></span></label>`;
+    const pctFmt = v => Math.round(v * 100) + '%';
+    const TABS = {
+      audio: ['Audio', `
+        ${toggle('muted', 'Mute everything', 'Also the speaker button in the top bar, or press M.')}
+        ${toggle('music', 'Lo-fi music', 'Soft beats and warm keys, made live as you play.')}
+        ${slider('musicVolume', 'Music volume', '', 0, 1, pctFmt)}
+        ${toggle('nature', 'Nature sounds', 'Rain when it rains, birdsong in spring and summer, a creek.')}
+        ${slider('natureVolume', 'Nature volume', '', 0, 1, pctFmt)}`],
+      game: ['Gameplay', `
+        <div class="section-title" style="margin-top:0">Difficulty on this farm</div>
+        <div class="seg" data-seg="difficulty">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === (g.difficulty || 'standard') ? 'on' : ''}">${d.name}</button>`).join('')}</div>
+        <p class="small diff-desc">${g.diff.desc} Grants ×${g.diff.grants}, costs ×${g.diff.costs}, fire and flood ×${g.diff.disasters}.</p>
+        ${toggle('autosave', 'Autosave', 'Save the farm at the end of every month.')}
+        ${toggle('pauseOnEvents', 'Pause on wildfire or flood', 'Stop the clock so you can respond.')}
+        ${choice('notifications', 'Notifications', 'Routine updates still go in the field journal.', [['all', 'Show everything'], ['important', 'Important only']])}`],
+      graphics: ['Graphics', `
+        ${choice('quality', 'Resolution', 'Lower it if the game feels slow.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}
+        ${toggle('shadows', 'Shadows', 'Trees and buildings cast soft shadows.')}
+        ${toggle('wind', 'Wind in the plants', 'Grass, shrubs and treetops sway.')}
+        ${toggle('weather', 'Rain and snow', 'Falling rain and snow over the view.')}`],
+      controls: ['Controls', `
+        ${slider('panSpeed', 'Camera pan speed', 'WASD and arrow keys.')}
+        ${slider('zoomSpeed', 'Zoom speed', 'Mouse wheel and + / − keys.')}
+        <div class="small" style="margin-top:10px">Brush sizes are remembered for each tool group.</div>`],
+      privacy: ['Privacy', `
+        ${toggle('analytics', 'Share anonymous play data', 'Things like which tools get used and how far people get, plus screen recordings of play sessions. No names, no cookies.')}`],
+    };
+    const nav = Object.entries(TABS).map(([k, [name]]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${name}</button>`).join('');
+    const m = this.modal('Settings', `<div class="settings-wrap"><nav class="settings-nav">${nav}</nav><div class="settings">${TABS[tab][1]}</div></div>`,
+      { foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>' });
+    m.classList.add('settings-modal');
+    m.querySelectorAll('.settings-nav [data-tab]').forEach(b => b.addEventListener('click', () => this.openSettings(b.dataset.tab)));
     m.querySelectorAll('[data-s]').forEach(inp => {
       const key = inp.dataset.s;
       inp.addEventListener(inp.type === 'range' ? 'input' : 'change', () => {
         settings[key] = inp.type === 'checkbox' ? inp.checked : inp.type === 'range' ? +inp.value : inp.value;
-        if (inp.type === 'range') inp.nextElementSibling.textContent = settings[key].toFixed(1) + '×';
+        if (inp.type === 'range') inp.nextElementSibling.textContent = inp.dataset.fmt === 'pct' ? pctFmt(settings[key]) : settings[key].toFixed(1) + '×';
         if (key === 'analytics') { if (!settings.analytics) track('analytics_opt_out'); setAnalyticsEnabled(settings.analytics); }
-        else track('setting_changed', { setting: key, value: settings[key] });
+        else if (inp.type !== 'range') track('setting_changed', { setting: key, value: settings[key] });
         saveSettings();
         this.applySettings();
       });
     });
+    m.querySelectorAll('[data-seg=difficulty] [data-d]').forEach(b => b.addEventListener('click', () => {
+      g.difficulty = b.dataset.d;
+      track('setting_changed', { setting: 'difficulty', value: g.difficulty });
+      this.openSettings('game');
+      if (this.state.cat !== 'inspect') this.renderToolPanel();
+    }));
     m.querySelector('[data-a=done]').addEventListener('click', () => this.closeModal());
-    m.querySelector('[data-a=reset]').addEventListener('click', () => { resetSettings(); this.applySettings(); this.openSettings(); });
+    m.querySelector('[data-a=reset]').addEventListener('click', () => { resetSettings(); this.applySettings(); this.openSettings(tab); });
   }
 
   openFeedback() {
@@ -916,10 +967,19 @@ export class UI {
   // ------------------------------------------------------------ campaign
   // Pick Campaign or Free Play. replacing = start over on a new farm (after a confirm).
   openModeChoice(replacing) {
-    const m = this.modal('How do you want to play?', `<div class="modes">
+    let diff = this.game.difficulty || 'standard';
+    const m = this.modal('How do you want to play?', `<div class="section-title" style="margin-top:0">Difficulty</div>
+      <div class="seg" data-seg="diff">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === diff ? 'on' : ''}">${d.name}</button>`).join('')}</div>
+      <p class="small diff-desc">${DIFFICULTY[diff].desc}</p>
+      <div class="section-title">Mode</div><div class="modes">
       <button class="mode-card" data-m="campaign"><b>Campaign</b><span>Eight chapters on the Hollis farm. Each one teaches a new part of restoration and unlocks new tools as you go. Best for your first time.</span></button>
       <button class="mode-card" data-m="free"><b>Free play</b><span>Every tool from the start and no chapters, just the land, the grants and the milestone goals.</span></button>
       </div>${replacing && Game.hasSave() ? '<p class="small" style="margin:10px 2px 0">This replaces your saved farm.</p>' : ''}`, { narrow: true });
+    m.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => {
+      diff = b.dataset.d;
+      m.querySelectorAll('[data-d]').forEach(o => o.classList.toggle('on', o === b));
+      m.querySelector('.diff-desc').textContent = DIFFICULTY[diff].desc;
+    }));
     m.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
       if (replacing && Game.hasSave() && !b.dataset.sure) {
         m.querySelectorAll('[data-m]').forEach(o => { delete o.dataset.sure; o.classList.remove('danger'); });
@@ -927,14 +987,14 @@ export class UI {
         return;
       }
       this.closeModal();
-      this.startMode(b.dataset.m, replacing);
+      this.startMode(b.dataset.m, replacing, diff);
     }));
   }
-  startMode(mode, fresh) {
+  startMode(mode, fresh, difficulty = 'standard') {
     const g = this.game;
-    if (fresh) { track('game_restart', this.snapshot()); Game.clearSave(); g.newGame(Math.floor(Math.random() * 100000), mode); }
-    else { g.mode = mode; g.campaign = { chapter: 0 }; }
-    track('game_start', { mode, fresh });
+    if (fresh) { track('game_restart', this.snapshot()); Game.clearSave(); g.newGame(Math.floor(Math.random() * 100000), mode, difficulty); }
+    else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
+    track('game_start', { mode, fresh, difficulty });
     this.newCats = new Set();
     this.afterNewGame();
     if (g.speed === 0) this.setSpeed(1);
@@ -1061,7 +1121,7 @@ export class UI {
       </ul></div>`;
     const foot = first
       ? (hasSave ? `<button class="btn secondary" data-a="new">New game</button><button class="btn" data-a="continue">Continue restoration</button>`
-        : `<button class="btn secondary" data-a="free">Free play</button><button class="btn" data-a="campaign">Start the campaign</button>`)
+        : `<button class="btn" data-a="start">Start restoring</button>`)
       : `<button class="btn" data-a="close">Back to the farm</button>`;
     const m = this.modal(first ? 'Welcome to Second Growth' : 'How to play', body, { narrow: true, foot, onClose });
     const btn = a => m.querySelector(`[data-a=${a}]`);
@@ -1075,9 +1135,6 @@ export class UI {
     });
     btn('new')?.addEventListener('click', () => this.openModeChoice(true));
     // first visit: the farm is already generated, so just choose how to play it
-    for (const mode of ['free', 'campaign']) btn(mode)?.addEventListener('click', () => {
-      this.closeModal();
-      this.startMode(mode, false);
-    });
+    btn('start')?.addEventListener('click', () => this.openModeChoice(false));
   }
 }

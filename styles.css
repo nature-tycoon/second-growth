@@ -505,3 +505,36 @@ body.campaign #banner { top: 124px; }
   #quest .q-ch { display: none; }
   body.campaign #banner { top: 96px; }
 }
+
+/* ---------------------------------------------------------------- top bar fitting */
+/* the see-through, journal and feedback buttons live in the ☰ menu except on very wide screens */
+@media (max-width: 1599px) { #btn-trees, #btn-journal { display: none !important; } }
+@media (max-width: 1499px) { #btn-feedback { display: none !important; } }
+.top-actions { flex-shrink: 0; }
+#stat-money { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* if it still doesn't fit, fold lower-priority pieces away (set from JS) */
+#topbar.tight-1 .brand > div { display: none; }
+#topbar.tight-2 #stat-weather, #topbar.tight-2 #stat-season, #topbar.tight-2 #stat-date { display: none !important; }
+#topbar.tight-3 .stat .small, #topbar.tight-3 #stat-score > div:last-child, #topbar.tight-3 #visitor-stars { display: none !important; }
+#topbar.tight-4 #stat-visitors, #topbar.tight-4 .top-actions select { display: none !important; }
+#btn-sound .snd-x { display: none; }
+#btn-sound.muted .snd-x { display: inline; }
+#btn-sound.muted .snd-waves { display: none; }
+#btn-sound.muted { color: var(--muted); }
+
+/* ---------------------------------------------------------------- settings */
+.settings-modal { width: min(720px, calc(100vw - 40px)); }
+.settings-wrap { display: grid; grid-template-columns: 150px 1fr; gap: 18px; min-height: 340px; }
+.settings-nav { display: flex; flex-direction: column; gap: 4px; }
+.settings-nav button { text-align: left; border: 0; background: transparent; border-radius: 9px; padding: 9px 12px; font: 700 13.5px var(--ui); color: var(--ink-2); cursor: pointer; }
+.settings-nav button:hover { background: var(--paper-2); }
+.settings-nav button.on { background: var(--moss); color: #fff; }
+.seg { display: inline-flex; background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg button { border: 0; background: transparent; border-radius: 8px; padding: 6px 14px; font: 700 13px var(--ui); color: var(--ink-2); cursor: pointer; }
+.seg button.on { background: var(--moss); color: #fff; }
+.diff-desc { margin: 6px 2px 10px; }
+@media (max-width: 640px), (max-height: 520px) {
+  .settings-wrap { grid-template-columns: 1fr; gap: 8px; min-height: 0; }
+  .settings-nav { flex-direction: row; flex-wrap: wrap; }
+  .settings-nav button { padding: 6px 10px; font-size: 12.5px; }
+}

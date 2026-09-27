@@ -22,10 +22,10 @@ const SEASON_LIGHT = [
 ];
 
 export class Renderer {
-  constructor(canvas) {
+  constructor(canvas, { preserveDrawingBuffer = false } = {}) {
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
-    this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+    this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
     this.gl.setPixelRatio(this.dpr);
     this.gl.shadowMap.enabled = true;
     this.gl.shadowMap.type = THREE.PCFSoftShadowMap;

@@ -69,4 +69,21 @@ export const HABITAT_INFO = [
 
 export const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 export const lerp = (a, b, t) => a + (b - a) * t;
+// Difficulty scales the land trust's money, what things cost, how often fire and flood come,
+// and how hard the neighbours' invasive seeds press in.
+export const DIFFICULTY = {
+  relaxed:     { name: 'Relaxed', startMoney: 45000, grants: 1.5, costs: 0.75, disasters: 0.5, invasives: 0.6,
+                 desc: 'More money, cheaper work, fewer fires and floods. Just enjoy the valley coming back.' },
+  standard:    { name: 'Standard', startMoney: 30000, grants: 1, costs: 1, disasters: 1, invasives: 1,
+                 desc: 'The intended balance: money is tight early and grows as the land heals.' },
+  challenging: { name: 'Challenging', startMoney: 22000, grants: 0.75, costs: 1.25, disasters: 1.5, invasives: 1.4,
+                 desc: 'Smaller grants, pricier work, more disasters and pushier invasives. Every dollar counts.' },
+};
+// Big balances in a short form for tight spaces ($2.08M, $152k).
+export const moneyShort = n => {
+  const a = Math.abs(n), sign = n < 0 ? '-$' : '$';
+  if (a >= 1e6) return sign + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2) + 'M';
+  if (a >= 1e5) return sign + Math.round(a / 1e3) + 'k';
+  return money(n);
+};
 export const money = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US');

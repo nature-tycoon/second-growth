@@ -12,6 +12,10 @@ export const DEFAULTS = {
   autosave: true,
   pauseOnEvents: false, // pause the clock when a wildfire or flood starts
   analytics: true,     // share anonymous play data to help improve the game
+  muted: false,        // quick mute from the top bar (M)
+  music: true, musicVolume: 0.45,     // lo-fi background music
+  nature: true, natureVolume: 0.6,    // rain, birds and water
+  notifications: 'all', // 'all' or 'important' (skip routine updates; they still go in the journal)
   brushSizes: {},      // last brush radius used with each tool
 };
 

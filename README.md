@@ -21,7 +21,9 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 - Panels collapse with their `−` button, and fade out while you paint.
 - Use **Inspect** to click a tile or an animal. The **Overlay** menu shows moisture, soil, sunlight, fish passage, or where a given species could live. In the field guide, the pin on any species that lives here jumps the camera to one of them and follows it.
 - **On a phone or tablet:** drag one finger to brush, tap to place or inspect, two fingers to move the map and pinch to zoom, and the arrow buttons rotate the view. Phones play in landscape (portrait shows a "turn your phone" screen); full screen or Add to Home Screen gives the most room.
-- The gear button opens **Settings**: resolution, shadows, wind, weather, pan and zoom speed, autosave, and pausing on wildfires and floods.
+- The gear button opens **Settings**: audio (lo-fi music and nature sounds, each with a volume), gameplay (difficulty, autosave, pausing on wildfires and floods, notification level), graphics, controls and privacy. The speaker button or `M` mutes everything.
+- **Difficulty:** Relaxed, Standard or Challenging. It scales starting money, grants, what work costs, how often fire and flood come, and how hard invasive seeds press in from the neighbours. Pick it for a new game, or change it any time in Settings.
+- **Music** is generated live with Web Audio (warm keys, soft bass, a swung beat, vinyl crackle) and nature sounds follow the weather and seasons; no audio files are downloaded.
 
 ## How the ecosystem works
 
@@ -56,6 +58,7 @@ js/render3d/                three.js scene: terrain mesh, instanced plants, buil
 js/render3d/fauna.js        3D wildlife and visitors: built from soft primitives, instanced, animated in a vertex shader
 js/render3d/portraits.js    field-guide portraits rendered from the 3D models
 js/render3d/focus.js        see-through cover around the selected animal
+js/audio/music.js           procedural lo-fi music and nature ambience (Web Audio)
 js/render/sprites.js        procedural 2D art: terrain textures, fire and smoke, fallback portraits
 assets/logo.svg             the Second Growth emblem (loading screen, top bar, favicon)
 js/sim/visitors.js          trails, visitor numbers, rating and income

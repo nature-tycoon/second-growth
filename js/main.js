@@ -2,7 +2,7 @@ import { Game } from './game.js';
 import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
-import { initAnalytics } from './analytics.js';
+import { initAnalytics, analyticsWillRun } from './analytics.js';
 
 const loading = document.getElementById('loading-screen');
 const loadingStatus = document.getElementById('loading-status');
@@ -29,7 +29,8 @@ async function boot() {
     stage('Growing the landscape', 52);
     await nextPaint();
 
-    const renderer = new Renderer(document.getElementById('view'));
+    // session replays can only see the 3D view if its drawing buffer is kept between frames
+    const renderer = new Renderer(document.getElementById('view'), { preserveDrawingBuffer: analyticsWillRun() });
     const ui = new UI(game, renderer);
     const input = new Input(game, renderer, ui);
     renderer.resetView();

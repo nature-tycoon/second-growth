@@ -141,7 +141,7 @@ export function checkCampaign(g) {
   if (!ch) return;
   if (!ch.goals.every(o => o.check(g))) return;
   g.campaign.chapter++;
-  g.earn(ch.reward);
+  g.grant(ch.reward);
   g.emit('chapter', { done: ch, next: currentChapter(g), index: g.campaign.chapter - 1 });
 }
 

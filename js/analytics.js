@@ -26,10 +26,21 @@ function loadPostHog() {
     capture_pageview: true,
     capture_pageleave: true,
     disable_session_recording: false, // replays only run if enabled in the PostHog project
-    session_recording: { maskAllInputs: false, maskTextSelector: '.ph-mask' },
+    session_recording: {
+      maskAllInputs: false, maskTextSelector: '.ph-mask',
+      // record the 3D view too (a couple of frames a second, compressed), not just the panels
+      captureCanvas: { recordCanvas: true, canvasFps: 2, canvasQuality: '0.35' },
+    },
   });
   window.posthog.register({ game_version: GAME_VERSION });
   return window.posthog;
+}
+
+// Whether tracking will run on this page (checked before the 3D view is created, because
+// recording the WebGL canvas needs its drawing buffer kept).
+export function analyticsWillRun() {
+  const local = ['localhost', '127.0.0.1', ''].includes(location.hostname) && !new URLSearchParams(location.search).has('ph');
+  return !!POSTHOG_KEY && !local && settings.analytics && navigator.doNotTrack !== '1';
 }
 
 export function initAnalytics() {

@@ -62,7 +62,7 @@ export class Events {
     if (!disturbanceOn(g)) return;
     // Late-summer droughts bring fire; visitors add a little risk.
     if (!this.fireTiles && m >= 4 && m <= 6 && g.dryStreak >= 6 && g.day - this.lastFire > 60) {
-      const p = 0.012 * (0.4 + this.fuelLoad() * 1.5) * (1 + g.visitors.traffic * 0.8);
+      const p = 0.012 * (0.4 + this.fuelLoad() * 1.5) * (1 + g.visitors.traffic * 0.8) * g.diff.disasters;
       if (rng() < p) {
         // Once in a long while a deep drought and a heat wave line up and the fire goes into the crowns.
         const severe = g.dryStreak >= 8 && g.day - this.lastSevere > SEVERE_GAP && rng() < 0.3;
@@ -71,7 +71,7 @@ export class Events {
     }
     if (this.severe) this.heat *= 0.93;
     // Long winter rains swell the river.
-    if (!this.floodTiles && (m >= 8 || m === 0) && g.rainStreak >= 3 && g.day - this.lastFlood > 45 && rng() < 0.09) {
+    if (!this.floodTiles && (m >= 8 || m === 0) && g.rainStreak >= 3 && g.day - this.lastFlood > 45 && rng() < 0.09 * g.diff.disasters) {
       this.startFlood(0.7 + rng() * 1.1);
     }
   }

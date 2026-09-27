@@ -352,8 +352,11 @@ export function brushTiles(w, x, y, r) {
   return out;
 }
 
+// What a tool costs on this tile at the current difficulty (salvage earnings aren't scaled).
 export function toolCost(game, tool, i) {
-  return tool.costFor ? tool.costFor(game, i) : tool.cost;
+  const c = tool.costFor ? tool.costFor(game, i) : tool.cost;
+  return c > 0 ? Math.round(c * (game.diff?.costs ?? 1)) : c;
 }
+export function listPrice(game, tool) { return Math.round(tool.cost * (game.diff?.costs ?? 1)); }
 
 export { MIX, ANIMAL };

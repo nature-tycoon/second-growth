@@ -222,7 +222,11 @@ export function seedRain(game) {
     else if (edge === 'W') { x = depth; y = Math.floor(rng() * w.h); }
     else { x = Math.floor(rng() * w.w); y = w.h - 5 - depth - Math.floor(rng() * 3); }
     if (!w.inb(x, y)) continue;
+    // difficulty sets how hard the neighbours' invasive seeds press in
+    const inv = p.invasive ? (game.diff?.invasives ?? 1) : 1;
+    if (inv < 1 && rng() > inv) continue;
     trySeed(w, p, w.idx(x, y), rng);
+    if (inv > 1 && rng() < inv - 1) trySeed(w, p, w.idx(x, y), rng);
   }
   // Birds carry berry seeds from far away once they are visiting.
   if (game.frugivoreCount > 0 && rng() < 0.08 * sf) {

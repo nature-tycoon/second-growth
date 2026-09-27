@@ -74,6 +74,7 @@ export class Input {
     else if (k === 'tab') { e.preventDefault(); this.ui.togglePanels(); }
     else if (k === 'h') this.ui.setOverlay(this.ui.state.overlay === 'habitat' ? 'none' : 'habitat');
     else if (k === 'g') this.ui.openGuide();
+    else if (k === 'm') this.ui.toggleMute();
   }
 
   update(dt) {

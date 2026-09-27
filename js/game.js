@@ -1,6 +1,6 @@
 // Game state and the simulation clock.
 
-import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SEASONS, SPEEDS, seasonOfMonth, money } from './config.js';
+import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SEASONS, SPEEDS, DIFFICULTY, seasonOfMonth, money } from './config.js';
 import { World, Border, generateFarm } from './world.js';
 import { mulberry32 } from './rng.js';
 import { updateEnvironment, updateHydrology } from './sim/environment.js';
@@ -29,16 +29,17 @@ export class Game {
   emit(ev, ...args) { for (const fn of this.listeners[ev] || []) fn(...args); }
 
   // mode: 'free' (everything unlocked) or 'campaign' (chapters unlock tools as you learn)
-  newGame(seed = 1987, mode = 'free') {
+  newGame(seed = 1987, mode = 'free', difficulty = 'standard') {
     this.seed = seed;
     this.mode = mode;
+    this.difficulty = DIFFICULTY[difficulty] ? difficulty : 'standard';
     this.campaign = { chapter: 0 };
     this.world = generateFarm(seed);
     this.border = new Border(this.world);
     this.rng = mulberry32(seed * 31 + 7);
     this.day = 0;
     this.acc = 0;
-    this.money = 30000;
+    this.money = this.diff.startMoney;
     this.speed = 1;
     this.flags = {};
     this.stats = { planted: 0, dug: 0, removed: 0, spent: 0, earned: 0, used: {} };
@@ -88,6 +89,9 @@ export class Game {
     return true;
   }
   earn(c) { this.money += c; this.stats.earned += c; }
+  get diff() { return DIFFICULTY[this.difficulty] || DIFFICULTY.standard; }
+  // Land trust money (grants and rewards) scales with difficulty; visitor donations don't.
+  grant(c) { const v = Math.round(c * this.diff.grants); this.earn(v); return v; }
 
   notify(text, kind = 'info', loc = null) { this.emit('notify', { text, kind, loc, date: this.dateString() }); }
 
@@ -149,8 +153,7 @@ export class Game {
     this.wildlife.monthly();
     this.cache.nativePlants = nativePlantSpecies(this.world);
     const score = this.updateScore();
-    const grant = monthlyGrant(this, score.total);
-    this.earn(grant);
+    const grant = this.grant(monthlyGrant(this, score.total));
     this.lastGrant = grant;
     this.visitors.monthEnd();
     if (m % 3 === 0) {
@@ -181,16 +184,15 @@ export class Game {
       if (this.goalsDone[g.key]) continue;
       if (g.check(this)) {
         this.goalsDone[g.key] = this.day;
-        this.earn(g.reward);
-        this.notify(`Goal complete: ${g.name}! The land trust awarded a ${money(g.reward)} grant.`, 'goal');
+        const paid = this.grant(g.reward);
+        this.notify(`Goal complete: ${g.name}! The land trust awarded a ${money(paid)} grant.`, 'goal');
         this.emit('goal', g);
       }
     }
   }
 
   onDiscover(def, a) {
-    const bonus = 250;
-    this.earn(bonus);
+    const bonus = this.grant(250);
     this.notify(`New species! ${aOne(def).replace(/^a/, 'A')} has arrived on the farm. (+${money(bonus)} discovery grant)`, 'discover', a);
     this.emit('discover', def);
   }
@@ -218,7 +220,7 @@ export class Game {
         world: { arrays, structures: w.structures },
         wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
         visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant,
-        mode: this.mode, campaign: this.campaign,
+        mode: this.mode, campaign: this.campaign, difficulty: this.difficulty,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
       return true;
@@ -249,6 +251,7 @@ export class Game {
     this.stats.used ||= {};
     this.mode = data.mode || 'free'; // saves from before the campaign are free play
     this.campaign = data.campaign || { chapter: 0 };
+    this.difficulty = data.difficulty || 'standard';
     this.weather = 'clear';
     this.rainStreak = 0; this.dryStreak = 0;
     this.lastGrant = data.lastGrant || 0;
