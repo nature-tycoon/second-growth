@@ -2,7 +2,7 @@ import { Game, PENDING_KEY } from './game.js';
 import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
-import { initAnalytics, analyticsWillRun } from './analytics.js';
+import { initAnalytics, analyticsWillRun, track } from './analytics.js';
 
 const loading = document.getElementById('loading-screen');
 const loadingStatus = document.getElementById('loading-status');
@@ -26,6 +26,8 @@ async function boot() {
     // a map switch reloads the page (see UI.switchMap); otherwise open on the last map played
     let pending = null;
     try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)); sessionStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+    // analytics first, so events from a game started on load (after a map switch) aren't lost
+    initAnalytics();
     const game = new Game();
     game.newGame(1987, 'free', 'standard', pending?.map || Game.lastMap());
     game.speed = 0; // paused until the welcome screen closes
@@ -41,6 +43,7 @@ async function boot() {
 
     if (pending?.resume) {
       if (!game.load(pending.map)) game.newGame(1987, 'free', 'standard', pending.map);
+      track('game_start', { mode: 'continue', saved_mode: game.mode, map: game.map, difficulty: game.difficulty, game_year: game.year });
       game.notify(`Welcome back. It's ${game.dateString()}.`, 'season');
     } else if (pending) ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map);
     else ui.openIntro(true, Game.hasSave(), () => { if (game.speed === 0) ui.setSpeed(1); });
@@ -49,7 +52,6 @@ async function boot() {
     stage('Welcoming the wild', 82);
     await nextPaint();
 
-    initAnalytics();
     let last = performance.now();
     function frame(now) {
       const dt = Math.min(0.1, (now - last) / 1000);

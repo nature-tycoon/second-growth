@@ -6,6 +6,8 @@ import { PLANTS } from './data/plants.js';
 import { ANIMALS } from './data/animals.js';
 import { plantLimits } from './sim/plants.js';
 import { settings } from './settings.js';
+
+let firstToolSent = false; // once per page load
 import { track } from './analytics.js';
 
 const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
@@ -269,7 +271,11 @@ export class Input {
     }
     if (s.tool.cat === 'land' || s.tool.key === 'demolish' || s.tool.key === 'log') g.refreshEnvironment();
     else if (s.count) g.refreshEnvironment();
-    if (s.count) track('tool_used', { tool: s.tool.key, category: s.tool.cat, tiles: s.count, cost: Math.round(s.cost) });
+    if (s.count) {
+      track('tool_used', { tool: s.tool.key, category: s.tool.cat, tiles: s.count, cost: Math.round(s.cost) });
+      // how long it takes a new player to do anything at all
+      if (!firstToolSent) { firstToolSent = true; track('first_tool', { tool: s.tool.key, category: s.tool.cat, seconds_since_load: Math.round(performance.now() / 1000) }); }
+    }
     else if (s.broke || s.unsuitable) track('tool_failed', { tool: s.tool.key, category: s.tool.cat, reason: s.broke ? 'money' : 'unsuitable' });
     if (s.broke) g.notify(`Not enough money. Monthly grants will top up your budget. Healthier land earns bigger grants.`, 'warn');
     if (!s.count && s.unsuitable && s.tool.species) {

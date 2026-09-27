@@ -54,6 +54,7 @@ export class Renderer {
     // 2D overlay
     this.ui = document.createElement('canvas');
     this.ui.id = 'fx';
+    this.ui.className = 'ph-no-capture'; // never filmed by session replays (it redraws every frame)
     document.body.insertBefore(this.ui, canvas.nextSibling);
     this.ux = this.ui.getContext('2d');
     this.particles = []; this.weatherParticles = [];

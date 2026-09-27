@@ -17,7 +17,7 @@ import * as S from '../render/sprites.js';
 import { renderPortrait, renderPlants } from '../render3d/portraits.js';
 import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
-import { track, setContext, setAnalyticsEnabled, sendFeedback, feedbackPossible, GAME_VERSION } from '../analytics.js';
+import { track, trackExit, setContext, setAnalyticsEnabled, sendFeedback, feedbackPossible, GAME_VERSION } from '../analytics.js';
 
 const $ = sel => document.querySelector(sel);
 // A phone or tablet (no mouse), and a screen too short for the full layout.
@@ -25,6 +25,11 @@ const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: 
 const COMPACT = () => innerHeight <= 520;
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const pct = v => Math.round(v * 100) + '%';
+// Only touch the page when something actually changed: every write is a DOM mutation, and session
+// replays record each one (rewriting the same text four times a second made replays too big to open).
+const setText = (e, v) => { v = String(v); if (e && e.textContent !== v) e.textContent = v; };
+const setHTML = (e, html) => { if (!e || e._html === html) return false; e._html = html; e.innerHTML = html; return true; };
+const setAttr = (e, k, v) => { v = String(v); if (e && e.getAttribute(k) !== v) e.setAttribute(k, v); };
 
 // ---------------------------------------------------------------- thumbnails
 const thumbCache = new Map();
@@ -189,10 +194,36 @@ export class UI {
     });
     g.on('month', () => {
       const s = snapshot();
-      setContext(s);
+      setContext({ ...s, ...context() });
       if (g.month === 0) track('year_reached', s);
     });
     this.snapshot = snapshot;
+
+    // ---- sessions: how long people play each map and mode, and what they were doing when they
+    // drifted off or left. Map, mode, difficulty and chapter ride along on every event.
+    const context = () => ({ map: g.map, mode: g.mode, difficulty: g.difficulty,
+      chapter: campaignOn(g) ? g.campaign.chapter + 1 : null, chapter_key: currentChapter(g)?.key ?? null });
+    this.analyticsContext = () => setContext(context());
+    const S = this.session = { t0: performance.now(), active: 0, lastInput: performance.now(), day0: g.day, idleSent: false, leftAt: 0 };
+    const touch = () => { S.lastInput = performance.now(); S.idleSent = false; };
+    for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) window.addEventListener(ev, touch, { passive: true, capture: true });
+    const doing = () => ({ speed: g.speed, open_panel: this.modalOpen ? this.lastModal : null, tool: this.state.tool || null,
+      category: this.state.cat || null, goals_done: Object.keys(g.goalsDone).length });
+    setInterval(() => {
+      if (document.hidden) return;
+      const idle = (performance.now() - S.lastInput) / 1000;
+      // active time: the tab is visible and the player has touched something in the last two minutes
+      if (idle < 120) { S.active++; if (S.active % 300 === 0) track('play_heartbeat', { active_minutes: S.active / 60, ...snapshot() }); }
+      if (idle > 240 && !S.idleSent) { S.idleSent = true; track('went_idle', { active_minutes: +(S.active / 60).toFixed(1), ...snapshot(), ...doing() }); }
+    }, 1000);
+    const leave = reason => {
+      if (performance.now() - S.leftAt < 5000) return;
+      S.leftAt = performance.now();
+      trackExit('game_left', { reason, active_minutes: +(S.active / 60).toFixed(1), session_minutes: +((performance.now() - S.t0) / 60000).toFixed(1),
+        days_played: g.day - S.day0, idle_seconds: Math.round((performance.now() - S.lastInput) / 1000), ...snapshot(), ...doing() });
+    };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) leave('hidden'); });
+    window.addEventListener('pagehide', () => leave('closed'));
   }
 
   applySettings() {
@@ -276,9 +307,9 @@ export class UI {
     const mt = moneyShort(g.money);
     if (m.textContent !== mt) { m.textContent = mt; this.fitTopbar(); }
     m.classList.toggle('low', g.money < 2000);
-    m.title = `Conservation budget: ${money(g.money)}. Last monthly grant: ${money(g.lastGrant || 0)}`;
-    $('#stat-season').textContent = g.seasonName();
-    $('#stat-date').textContent = `${MONTH_NAMES[g.month]} ${g.dayOfMonth * 3 - 2}, Year ${g.year}`;
+    setAttr(m, 'title', `Conservation budget: ${money(g.money)}. Last monthly grant: ${money(g.lastGrant || 0)}`);
+    setText($('#stat-season'), g.seasonName());
+    setText($('#stat-date'), `${MONTH_NAMES[g.month]} ${g.dayOfMonth * 3 - 2}, Year ${g.year}`);
     const scene = g.weather + g.season;
     if (scene !== this.lastScene) { this.lastScene = scene; music.setScene(g.weather, g.season); }
     const wIcon = { clear: 'sun', cloud: 'cloud', rain: 'rain', snow: 'snow' }[g.weather] || 'sun';
@@ -286,17 +317,20 @@ export class UI {
     if (we.dataset.w !== wIcon) { we.innerHTML = ICONS[wIcon]; we.dataset.w = wIcon; }
     document.querySelectorAll('#speed button').forEach(b => b.classList.toggle('on', +b.dataset.speed === g.speed));
     const sc = Math.round(g.cache.score?.total ?? 0);
-    $('#score-num').textContent = sc;
+    setText($('#score-num'), sc);
     const ring = $('#score-ring');
-    ring.style.strokeDashoffset = 94.25 * (1 - sc / 100);
-    ring.style.stroke = sc < 25 ? '#c07a2a' : sc < 55 ? '#8aa83a' : '#3f8a4e';
-    $('#species-num').textContent = speciesPresent(g);
+    if (ring.dataset.sc !== String(sc)) {
+      ring.dataset.sc = sc;
+      ring.style.strokeDashoffset = 94.25 * (1 - sc / 100);
+      ring.style.stroke = sc < 25 ? '#c07a2a' : sc < 55 ? '#8aa83a' : '#3f8a4e';
+    }
+    setText($('#species-num'), speciesPresent(g));
     const v = g.visitors;
-    $('#visitor-num').textContent = v.monthly.toLocaleString();
-    $('#visitor-stars').textContent = v.facilities().parking ? '★'.repeat(Math.round(v.rating)) + '☆'.repeat(5 - Math.round(v.rating)) : 'no trailhead';
+    setText($('#visitor-num'), v.monthly.toLocaleString());
+    setText($('#visitor-stars'), v.facilities().parking ? '★'.repeat(Math.round(v.rating)) + '☆'.repeat(5 - Math.round(v.rating)) : 'no trailhead');
     this.renderBanner();
     const open = GOALS.filter(x => !g.goalsDone[x.key]).length;
-    $('#btn-goals').innerHTML = `Goals<span class="badge">${GOALS.length - open}/${GOALS.length}</span>`;
+    setHTML($('#btn-goals'), `Goals<span class="badge">${GOALS.length - open}/${GOALS.length}</span>`);
     this.renderQuest();
   }
 
@@ -514,9 +548,9 @@ export class UI {
     panel.classList.remove('hidden');
     if (ins.agent) {
       const a = this.game.wildlife.agents.find(o => o.id === ins.agent);
-      if (!a) { panel.innerHTML = `<button class="close">×</button><h3>Gone</h3><p class="info-desc">This animal has moved on, or didn't make it.</p>`; }
-      else panel.innerHTML = this.agentHTML(a);
-    } else panel.innerHTML = this.tileHTML(ins.i);
+      if (!a) { if (!setHTML(panel, `<button class="close">×</button><h3>Gone</h3><p class="info-desc">This animal has moved on, or didn't make it.</p>`)) return; }
+      else if (!setHTML(panel, this.agentHTML(a))) return;
+    } else if (!setHTML(panel, this.tileHTML(ins.i))) return;
     panel.querySelector('.close')?.addEventListener('click', () => this.closeInfo());
     const mini = el('button', 'minimize', this.infoMin ? '+' : '−');
     mini.title = this.infoMin ? 'Expand' : 'Collapse';
@@ -706,7 +740,8 @@ export class UI {
     back.addEventListener('mousedown', e => { if (e.target === back) close(); });
     this.modalOpen = true;
     this.closeModal = close;
-    track('panel_opened', { panel: title });
+    this.lastModal = title.replace(/<[^>]+>/g, '');
+    track('panel_opened', { panel: this.lastModal });
     return m;
   }
 
@@ -831,7 +866,7 @@ export class UI {
       .map(([h, c]) => `<div class="srow"><span><span class="chip" style="background:${h.color}"></span> ${h.name}</span><div class="bar"><i style="width:${pct(c / w.n * 2.5)};background:${h.color}"></i></div><span class="v">${c}</span></div>`).join('');
     const body = `<div class="report">
       <div><h4>Ecosystem health: ${Math.round(s.total)} / 100</h4>${rows}
-        <h4 style="margin-top:18px">Score over time</h4><canvas id="spark" width="420" height="110" style="width:100%;height:110px;background:var(--paper-2);border-radius:10px"></canvas>
+        <h4 style="margin-top:18px">Score over time</h4><canvas id="spark" class="ph-no-capture" width="420" height="110" style="width:100%;height:110px;background:var(--paper-2);border-radius:10px"></canvas>
         <h4 style="margin-top:18px">Budget</h4>
         <div class="kv" style="grid-template-columns:150px 1fr"><span class="k">Last monthly grant</span><span>${money(g.lastGrant || 0)}</span><span class="k">Total grants</span><span>${money(g.stats.earned)}</span><span class="k">Total spent</span><span>${money(g.stats.spent)}</span><span class="k">Plants planted</span><span>${g.stats.planted.toLocaleString()}</span><span class="k">Visitor donations</span><span>${money(g.visitors.income)} last month</span><span class="k">Trail upkeep</span><span>-${money(g.visitors.upkeep)} last month</span></div>
       </div>
@@ -977,6 +1012,8 @@ export class UI {
   }
 
   afterNewGame() {
+    this.analyticsContext?.();
+    if (this.session) this.session.day0 = this.game.day;
     const sub = document.querySelector('#topbar .subtitle, .subtitle');
     if (sub) sub.textContent = `${biome.farm} restoration`;
     this.renderer.resetView();
@@ -1066,6 +1103,7 @@ export class UI {
   openChapter(k, review = false) {
     const g = this.game, c = CHAPTERS[k];
     if (!c) return;
+    if (!review && !(g.campaign.seen ||= {})[c.key]) { g.campaign.seen[c.key] = true; track('chapter_started', { chapter: k + 1, key: c.key, ...this.snapshot() }); }
     const tools = c.unlock.map(key => TOOLS[key]).filter(Boolean);
     const shown = tools.filter(t => !t.sub || t.sub === 'mixes').slice(0, 10);
     const extra = tools.length - shown.length;
@@ -1087,7 +1125,9 @@ export class UI {
   }
 
   onChapterDone({ done, next, index }) {
-    track('chapter_complete', { chapter: index + 1, key: done.key, ...this.snapshot() });
+    track('chapter_complete', { chapter: index + 1, key: done.key, days_in_chapter: this.game.day - (this.game.campaign.startDay ?? 0), ...this.snapshot() });
+    this.game.campaign.startDay = this.game.day;
+    this.analyticsContext?.();
     const g = this.game, resume = g.speed;
     this.setSpeed(0);
     this.newCats ||= new Set();
@@ -1116,8 +1156,9 @@ export class UI {
     const k = g.campaign.chapter, doneN = c.goals.filter(o => o.check(g)).length;
     q.classList.remove('hidden');
     q.classList.toggle('open', !!this.questOpen);
-    q.innerHTML = `<button class="q-head" title="${this.questOpen ? 'Hide goals' : 'Show goals'}"><span class="q-ch">Chapter ${k + 1}/${CHAPTERS.length}</span><b>${c.title}</b><span class="q-n">${doneN}/${c.goals.length}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
+    const qhtml = `<button class="q-head" title="${this.questOpen ? 'Hide goals' : 'Show goals'}"><span class="q-ch">Chapter ${k + 1}/${CHAPTERS.length}</span><b>${c.title}</b><span class="q-n">${doneN}/${c.goals.length}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
       (this.questOpen ? `<div class="q-body">${c.goals.map(o => { const ok = o.check(g); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${o.desc}<small>${o.prog(g)}</small></span></div>`; }).join('')}<button class="q-more">Chapter details</button></div>` : '');
+    if (!setHTML(q, qhtml)) return; // unchanged: keep the existing nodes (and their listeners)
     q.querySelector('.q-head').addEventListener('click', () => { this.questOpen = !this.questOpen; this.renderQuest(true); });
     q.querySelector('.q-more')?.addEventListener('click', () => this.openChapter(k, true));
   }
@@ -1190,7 +1231,7 @@ export class UI {
     btn('close')?.addEventListener('click', () => this.closeModal());
     btn('continue')?.addEventListener('click', () => {
       this.closeModal();
-      track('game_start', { mode: 'continue' });
+      track('game_start', { mode: 'continue', saved_mode: this.game.mode, map: this.game.map, difficulty: this.game.difficulty, game_year: this.game.year });
       if (!this.game.load()) { this.game.newGame(); this.game.notify('The saved game could not be loaded, so you are starting fresh.', 'warn'); }
       this.afterNewGame();
       this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
