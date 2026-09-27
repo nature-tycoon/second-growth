@@ -71,6 +71,20 @@ export function merge(list) {
   return out;
 }
 
+// Thin leaves (palm fronds, fans, paddles) drawn with a one-sided material vanish when seen
+// from behind: add every triangle again with the opposite winding, keeping the same colours
+// and normals so both faces light alike.
+function twoSided(g) {
+  const out = new THREE.BufferGeometry();
+  for (const name of ['position', 'normal', 'color']) {
+    const a = g.attributes[name].array, n = a.length, b = new Float32Array(n * 2);
+    b.set(a);
+    for (let t = 0; t < n; t += 9) { b.set(a.subarray(t, t + 3), n + t); b.set(a.subarray(t + 6, t + 9), n + t + 3); b.set(a.subarray(t + 3, t + 6), n + t + 6); }
+    out.setAttribute(name, new THREE.BufferAttribute(b, 3));
+  }
+  return out;
+}
+
 function shadeVerts(g, fn) {
   const p = g.attributes.position, c = g.attributes.color;
   for (let i = 0; i < p.count; i++) {
@@ -230,7 +244,159 @@ export const TREE_SHAPES = {
   maple:      { kind: 'broad', height: 1.7, rx: 0.6, ry: 0.52, blobs: 14, trunkH: 0.68, trunkR: 0.075, lobes: 3 },
   ash:        { kind: 'broad', height: 1.55, rx: 0.42, ry: 0.46, blobs: 11, trunkH: 0.72, trunkR: 0.055 },
   oak:        { kind: 'broad', height: 1.35, rx: 0.64, ry: 0.38, blobs: 14, trunkH: 0.5, trunkR: 0.085, lobes: 4 },
+  // Amazon
+  inga:       { kind: 'broad', height: 1.55, rx: 0.56, ry: 0.4, blobs: 12, trunkH: 0.65, trunkR: 0.06, lobes: 2 },
+  balsa:      { kind: 'broad', height: 1.95, rx: 0.46, ry: 0.5, blobs: 10, trunkH: 1.0, trunkR: 0.065 },
+  mahogany:   { kind: 'broad', height: 2.3, rx: 0.64, ry: 0.55, blobs: 15, trunkH: 1.1, trunkR: 0.085, lobes: 3 },
+  ipe:        { kind: 'broad', height: 2.05, rx: 0.6, ry: 0.44, blobs: 13, trunkH: 1.0, trunkR: 0.07, lobes: 3 },
+  fig:        { kind: 'broad', height: 2.15, rx: 0.78, ry: 0.55, blobs: 16, trunkH: 0.85, trunkR: 0.11, lobes: 4 },
+  leucaena:   { kind: 'broad', height: 1.2, rx: 0.42, ry: 0.32, blobs: 9, trunkH: 0.62, trunkR: 0.04 },
+  cecropia:   { kind: 'cecropia', height: 2.0 },
+  palm:       { kind: 'palm', height: 1.9, stems: 3 },
+  fanpalm:    { kind: 'fanpalm', height: 2.3 },
+  emergent:   { kind: 'emergent', height: 3.2, rx: 0.95, ry: 0.32, trunkR: 0.1 },
+  kapok:      { kind: 'emergent', height: 3.4, rx: 1.05, ry: 0.3, trunkR: 0.11, buttress: true },
 };
+
+// Crown and trunk for any tree shape.
+export function treeParts(shape, seed, lod = 0) {
+  switch (shape.kind) {
+    case 'conifer': return conifer(shape, seed, lod);
+    case 'palm': return palm(shape, seed, lod);
+    case 'fanpalm': return fanPalm(shape, seed, lod);
+    case 'cecropia': return cecropia(shape, seed, lod);
+    case 'emergent': return emergent(shape, seed, lod);
+    default: return broadleaf(shape, seed, lod);
+  }
+}
+
+// ---------------------------------------------------------------- tropical trees
+// Palms: slender, slightly curving trunks (one or a clump) topped with arching pinnate fronds.
+export function palm(opts, seed, lod = 0) {
+  const r = mulberry32(seed);
+  const trunks = [], fronds = [];
+  const stems = opts.stems || 1;
+  for (let s = 0; s < stems; s++) {
+    const a = r() * 6.28, lean = stems > 1 ? 0.12 + r() * 0.18 : r() * 0.08;
+    const H = opts.height * (stems > 1 ? 0.7 + r() * 0.35 : 1);
+    const bx = Math.cos(a) * (stems > 1 ? 0.07 : 0), bz = Math.sin(a) * (stems > 1 ? 0.07 : 0);
+    const tx = bx + Math.cos(a) * lean * H * 0.35, tz = bz + Math.sin(a) * lean * H * 0.35;
+    // trunk in two segments so it can curve
+    for (let k = 0; k < 2; k++) {
+      const y0 = H * k / 2, y1 = H * (k + 1) / 2, f0 = (k / 2) ** 1.6, f1 = ((k + 1) / 2) ** 1.6;
+      const x0 = bx + (tx - bx) * f0, z0 = bz + (tz - bz) * f0, x1 = bx + (tx - bx) * f1, z1 = bz + (tz - bz) * f1;
+      const len = Math.hypot(x1 - x0, y1 - y0, z1 - z0);
+      const c = soft(new THREE.CylinderGeometry(0.022, 0.028, len, lod ? 5 : 6), { transform: g => {
+        g.translate(0, len / 2, 0);
+        const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(x1 - x0, y1 - y0, z1 - z0).normalize());
+        g.applyQuaternion(q); g.translate(x0, y0, z0);
+      } });
+      trunks.push(c);
+    }
+    const n = lod ? 6 : 9;
+    for (let k = 0; k < n; k++) {
+      const d = k / n * 6.28 + r() * 0.4;
+      const leaf = ribbon(0.5 + r() * 0.15, 0.075, 1.3 + r() * 0.4, lod ? 3 : 5, d, 0.35 + r() * 0.3, 0, 0, 0xffffff, 0.02);
+      leaf.translate(tx, H, tz);
+      fronds.push(leaf);
+    }
+  }
+  const crown = twoSided(merge(fronds));
+  return { crown, trunk: merge(trunks) };
+}
+
+// Buriti: one straight trunk and a round head of stiff fan leaves.
+export function fanPalm(opts, seed, lod = 0) {
+  const r = mulberry32(seed);
+  const H = opts.height, parts = [];
+  const n = lod ? 7 : 12;
+  for (let k = 0; k < n; k++) {
+    const a = k / n * 6.28 + r() * 0.3, up = 0.25 + r() * 0.6;
+    const fan = soft(new THREE.CircleGeometry(0.4, lod ? 6 : 10, -0.9, 1.8), { transform: g => {
+      g.rotateX(-Math.PI / 2 + up); g.rotateY(-a + Math.PI / 2); g.translate(Math.cos(a) * 0.14, H + Math.sin(up) * 0.16, Math.sin(a) * 0.14);
+    } });
+    shadeVerts(fan, (x, y) => 0.8 + Math.min(0.25, (y - H) * 1.2));
+    parts.push(fan);
+  }
+  // a skirt of dead brown fronds hanging below the crown
+  for (let k = 0; k < (lod ? 3 : 6); k++) {
+    const a = r() * 6.28;
+    const dead = ribbon(0.3, 0.05, 0.3, 2, a, 2.6, 0, 0, 0x8a6a40);
+    dead.translate(0, H - 0.02, 0);
+    parts.push(dead);
+  }
+  const crown = twoSided(merge(parts));
+  return { crown, trunk: trunk(H, 0.06, 0.05) };
+}
+
+// Cecropia: a pale, bare trunk forking into a few upturned branches, each ending in a flat
+// umbrella of huge hand-shaped leaves.
+export function cecropia(opts, seed, lod = 0) {
+  const r = mulberry32(seed);
+  const H = opts.height, fork = H * 0.62;
+  const limbs = [trunk(fork + 0.05, 0.045, 0.035)], leaves = [];
+  const n = 3 + Math.floor(r() * 2);
+  for (let k = 0; k < n; k++) {
+    const a = k / n * 6.28 + r() * 0.5, len = H - fork + (r() - 0.5) * 0.2, out = 0.22 + r() * 0.15;
+    const ex = Math.cos(a) * out, ez = Math.sin(a) * out, ey = fork + len;
+    const b = soft(new THREE.CylinderGeometry(0.018, 0.026, Math.hypot(ex, len, ez), 5), { transform: g => {
+      g.translate(0, Math.hypot(ex, len, ez) / 2, 0);
+      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(ex, len, ez).normalize()));
+      g.translate(0, fork, 0);
+    } });
+    limbs.push(b);
+    // umbrella: a few overlapping flattened lobes, pale underneath
+    for (let l = 0; l < (lod ? 3 : 6); l++) {
+      const la = l / 6 * 6.28 + r() * 0.4, lr = 0.1 + r() * 0.04;
+      const lobe = soft(new THREE.IcosahedronGeometry(lr, lod ? 0 : 1), { transform: g => {
+        g.scale(1.5, 0.22, 0.8); g.rotateY(-la); g.translate(ex + Math.cos(la) * lr * 0.9, ey + 0.02 - l * 0.004, ez + Math.sin(la) * lr * 0.9);
+      } });
+      shadeVerts(lobe, (x, y) => (y > ey ? 1 : 0.72));
+      leaves.push(lobe);
+    }
+  }
+  const crown = merge(leaves);
+  volumeNormals(crown, 0, H, 0, 0.35);
+  return { crown, trunk: merge(limbs) };
+}
+
+// Emergents (Brazil nut, kapok): a tall, straight, clean trunk rising above the canopy to a
+// broad, flat-topped crown. Kapoks stand on great buttress roots.
+export function emergent(opts, seed, lod = 0) {
+  const r = mulberry32(seed);
+  const { height: H, rx, ry, trunkR } = opts;
+  const cy = H - ry * 0.9, parts = [];
+  const nB = lod ? 9 : 16;
+  for (let b = 0; b < nB; b++) {
+    const a = r() * 6.28, d = Math.sqrt(r());
+    const x = Math.cos(a) * rx * d, z = Math.sin(a) * rx * d * 0.9, y = cy + (r() - 0.35) * ry * (1.2 - d * 0.6);
+    const s = rx * (lod ? 0.36 : 0.3) * (0.7 + r() * 0.5);
+    const blob = soft(new THREE.IcosahedronGeometry(s, lod ? 0 : 1), { seed: seed + b * 5, lump: s * 0.25, transform: g => { g.scale(1, 0.62, 1); g.translate(x, y, z); } });
+    shadeVerts(blob, (xx, yy) => 0.82 + Math.min(0.24, Math.max(0, (yy - y) / s * 0.5 + 0.5) * 0.24));
+    parts.push(blob);
+  }
+  const crown = merge(parts);
+  volumeNormals(crown, 0, cy, 0, 0.5);
+  const limbs = [trunk(cy, trunkR, trunkR * 0.72)];
+  for (let k = 0; k < 5; k++) {
+    const a = k / 5 * 6.28 + r() * 0.5, len = rx * 0.75;
+    const l = soft(new THREE.CylinderGeometry(trunkR * 0.28, trunkR * 0.5, len, 5), { transform: g => {
+      g.translate(0, len / 2, 0); g.rotateZ(-1.05); g.rotateY(-a); g.translate(0, cy - ry * 0.4, 0);
+    } });
+    limbs.push(l);
+  }
+  if (opts.buttress) for (let k = 0; k < 5; k++) {
+    const a = k / 5 * 6.28 + r() * 0.4;
+    const fin = soft(new THREE.BoxGeometry(0.34, 0.5, 0.025), { transform: g => {
+      // taper the fin into a triangle: narrow at the top, spreading along the ground
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y > 0) p.setX(i, p.getX(i) * 0.12 - 0.12); }
+      g.translate(0.17, 0.25, 0); g.rotateY(-a);
+    } });
+    limbs.push(fin);
+  }
+  return { crown, trunk: merge(limbs) };
+}
 
 // ---------------------------------------------------------------- shrubs
 export function shrub(type, seed, lod = 0) {
@@ -251,6 +417,30 @@ export function shrub(type, seed, lod = 0) {
         c.rotateY(r() * Math.PI); at(c, (r() - 0.5) * 0.4, 0.04, (r() - 0.5) * 0.4); parts.push(c);
       }
       break;
+    case 'heliconia': {
+      // upright paddle leaves on long stalks
+      cy = 0.35;
+      for (let k = 0; k < (lod ? 5 : 9); k++) parts.push(twoSided(ribbon(0.46 + r() * 0.2, 0.075, 0.5 + r() * 0.4, lod ? 2 : 4, r() * 6.28, 0.12 + r() * 0.3, (r() - 0.5) * 0.12, (r() - 0.5) * 0.12, 0xffffff, 0.015)));
+      break;
+    }
+    case 'bamboo': {
+      // a clump of arching culms, feathery with narrow leaves toward the tops
+      cy = 0.5;
+      for (let k = 0; k < (lod ? 5 : 8); k++) {
+        const a = r() * 6.28, lean = 0.1 + r() * 0.25, h = 0.75 + r() * 0.35, bx = Math.cos(a) * 0.05, bz = Math.sin(a) * 0.05;
+        const tx = bx + Math.cos(a) * Math.sin(lean) * h, tz = bz + Math.sin(a) * Math.sin(lean) * h, ty = Math.cos(lean) * h;
+        parts.push(soft(new THREE.CylinderGeometry(0.008, 0.014, h, 4), { color: 0xd8e0a0, transform: g => {
+          g.translate(0, h / 2, 0);
+          g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(tx - bx, ty, tz - bz).normalize()));
+          g.translate(bx, 0, bz);
+        } }));
+        for (let l = 0; l < (lod ? 2 : 4); l++) {
+          const t = 0.55 + l * 0.13;
+          parts.push(twoSided(ribbon(0.16, 0.03, 0.9, 2, r() * 6.28, 0.9 + r() * 0.4, bx + (tx - bx) * t, bz + (tz - bz) * t)).translate(0, ty * t, 0));
+        }
+      }
+      break;
+    }
     case 'willow':
       cy = 0.45;
       for (let k = 0; k < 7; k++) { const a = r() * 6.28, d = r() * 0.12; blob(Math.cos(a) * d, 0.28 + r() * 0.34, Math.sin(a) * d, 0.11 + r() * 0.04, 2.0, 0.85 + r() * 0.2); }
@@ -327,6 +517,14 @@ export function tuft(type, seed, lo = false) {
       break;
     }
     case 'cattail': blades(6, 0.44, 0.013, 0.35, 0.08); break;
+    case 'lily': {
+      // floating round pads with a notch, raised rims on the giant water lily
+      for (let k = 0, m = lo ? 2 : 4; k < m; k++) {
+        const a = r() * 6.28, d = 0.03 + r() * 0.1, rad = 0.07 + r() * 0.06;
+        parts.push(prep(new THREE.CircleGeometry(rad, lo ? 8 : 14, 0.3, 5.9).rotateX(-Math.PI / 2).rotateY(r() * 6.28).translate(Math.cos(a) * d, 0.004 + k * 0.001, Math.sin(a) * d)));
+      }
+      break;
+    }
     case 'tule': {
       for (let k = 0, m = lo ? 4 : 8; k < m; k++) {
         const x = (r() - 0.5) * 0.1, z = (r() - 0.5) * 0.1, h = 0.45 + r() * 0.2;

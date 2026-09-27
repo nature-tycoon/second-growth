@@ -1,7 +1,7 @@
 // Animals (instanced 3D models, see fauna.js), plus visitors and flames drawn as camera-facing sprites.
 
 import * as THREE from 'three';
-import { LEVEL, isWater, T, clamp } from '../config.js';
+import { LEVEL, isWater, T, F as FEAT, clamp } from '../config.js';
 import { ANIMALS } from '../data/animals.js';
 import * as S from '../render/sprites.js';
 import { TREE_SHAPES } from './geometry.js';
@@ -11,8 +11,8 @@ import { waterSurfaceY } from './terrain.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
-const FLOATERS = new Set(['duck', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake']);
-const GRAZERS = new Set(['deer', 'rabbit', 'rodent']);
+const FLOATERS = new Set(['duck', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman']);
+const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti']);
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 
 export class Actors {
@@ -79,6 +79,10 @@ export class Actors {
       else if (surf != null && FLOATERS.has(kind)) y = surf - mo.sink * sc;
       else if (def.move === 'fly' && inside && w.tree[i] && w.treeG[i] > 0.5 && kind !== 'duck' && kind !== 'heron') {
         y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * w.treeG[i] * 0.55;
+      } else if (def.move === 'tree' && inside) {
+        // monkeys and sloths live up in the crowns (or on a snag's bare top)
+        if (w.tree[i]) y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * w.treeG[i] * 0.62;
+        else if (w.feature[i] === FEAT.SNAG) y += 0.9;
       }
       // face the way it's moving, and blend between standing, walking and flying
       const dx = a.x - st.px, dz = a.y - st.py;

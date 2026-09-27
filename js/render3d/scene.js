@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { snow, withSnowTops } from './snow.js';
+import { biome } from '../biome.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
 import { ANIMALS } from '../data/animals.js';
 import { Terrain, buildAtlas } from './terrain.js';
@@ -15,12 +16,6 @@ import { hash2 } from '../rng.js';
 const EL = THREE.MathUtils.degToRad(34);
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
 
-const SEASON_LIGHT = [
-  { sun: 0xfff3dc, sunI: 2.5, sky: 0xe4eeff, ground: 0x5f6e3c, hemiI: 1.25 },
-  { sun: 0xffeccc, sunI: 2.8, sky: 0xf0f0ff, ground: 0x6e6a3c, hemiI: 1.3 },
-  { sun: 0xffd9a8, sunI: 2.3, sky: 0xf4e4d0, ground: 0x6a5a38, hemiI: 1.2 },
-  { sun: 0xdfe8ff, sunI: 1.7, sky: 0xd2dcec, ground: 0x4a5048, hemiI: 1.15 },
-];
 
 export class Renderer {
   constructor(canvas, { preserveDrawingBuffer = false } = {}) {
@@ -264,7 +259,7 @@ export class Renderer {
     this.updatePreview(ui);
 
     // light follows the seasons and weather
-    const L = SEASON_LIGHT[game.season];
+    const L = biome.look.light[game.season];
     const gloom = game.weather === 'rain' || game.weather === 'snow' ? 0.55 : game.weather === 'cloud' ? 0.75 : 1;
     this.sun.color.setHex(L.sun); this.sun.intensity = L.sunI * gloom;
     this.hemi.color.setHex(L.sky); this.hemi.groundColor.setHex(L.ground); this.hemi.intensity = L.hemiI * (gloom < 1 ? 1.1 : 1);
@@ -410,7 +405,7 @@ export class Renderer {
     }
 
     // season tint and weather
-    const tint = ['rgba(255,250,230,0)', 'rgba(255,215,140,0.05)', 'rgba(255,160,80,0.06)', 'rgba(140,165,200,0.1)'][game.season];
+    const tint = biome.look.tint[game.season];
     ctx.fillStyle = tint; ctx.fillRect(0, 0, this.vw, this.vh);
     const wp = this.weatherParticles, kind = game.weather;
     const want = this.weatherOn === false ? 0 : kind === 'rain' ? 240 : kind === 'snow' ? 150 : 0;

@@ -7,11 +7,12 @@ import { PLANTS, plantPhase } from '../data/plants.js';
 import { extTerrain } from '../world.js';
 import * as S from '../render/sprites.js';
 import { snow, SNOW_RGB } from './snow.js';
+import { biome } from '../biome.js';
 import { hash2 } from '../rng.js';
 
 const ATLAS_TYPES = [T.PASTURE, T.FIELD, T.SOIL, T.GRAVEL, T.MUD, T.ROAD, T.DUFF, T.TRAIL, S.TURF, S.BED];
 const CELL = 64, GUT = 4, SLOT = CELL + GUT * 2, COLS = 28;
-const PASTURE_RGB = ['#a2b56a', '#abb26c', '#a9a46c', '#8c976a'];
+// grass, soil and water colours come from the active map (biome.look)
 
 const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
@@ -112,14 +113,14 @@ export function buildAtlas() {
 // Tint for groundcover: a meadow's color comes from what's growing in it.
 function turfColor(p, month, season) {
   const phase = plantPhase(p, month);
-  let base = mixRgb(hexRgb(PASTURE_RGB[season]), hexRgb(p.look.leaf), 0.55);
+  let base = mixRgb(hexRgb(biome.look.pasture[season]), hexRgb(p.look.leaf), 0.55);
   if (p.look.type === 'tallgrass' || p.look.type === 'grass') {
     if (phase === 'late' || phase === 'fall') base = mixRgb(base, hexRgb(p.look.dry || '#c9b77e'), 0.45);
     if (phase === 'winter') base = mixRgb(base, [0.62, 0.58, 0.44], 0.4);
   }
   if (phase === 'spring') base = mixRgb(base, [0.72, 0.84, 0.48], 0.3);
   // pull every meadow toward one shared color so mixed stands don't look like a quilt
-  base = mixRgb(base, hexRgb(PASTURE_RGB[season]), 0.25);
+  base = mixRgb(base, hexRgb(biome.look.pasture[season]), 0.25);
   // divide out the turf texture's own brightness
   return [base[0] / 0.86, base[1] / 0.88, base[2] / 0.8];
 }
@@ -236,10 +237,10 @@ export class Terrain {
         const gid = inside ? w.ground[i] : (bi >= 0 ? B.ground[bi] : 0);
         const gg = inside ? w.groundG[i] : 1;
         // grassland of any kind shares one texture, tinted by what grows there
-        const pasture = hexRgb(PASTURE_RGB[season]).map((v, q) => v / [0.86, 0.88, 0.8][q]);
+        const pasture = hexRgb(biome.look.pasture[season]).map((v, q) => v / [0.86, 0.88, 0.8][q]);
         if (tex === T.PASTURE) { tex = S.TURF; c = pasture; }
-        else if (tex === T.SOIL) { tex = S.TURF; c = [0.8, 0.66, 0.5]; }
-        else if (tex === T.MUD) { tex = S.TURF; c = [0.62, 0.54, 0.42]; }
+        else if (tex === T.SOIL) { tex = S.TURF; c = biome.look.soil; }
+        else if (tex === T.MUD) { tex = S.TURF; c = biome.look.mud; }
         if (gid && gg > 0.12 && t !== T.TRAIL) {
           const p = PLANTS[gid];
           if (p.look.type === 'fern' || p.look.type === 'skunk') tex = T.DUFF;
@@ -346,7 +347,8 @@ export class Terrain {
   buildWater() {
     if (this.water) { this.scene.remove(this.water); this.water.geometry.dispose(); }
     const w = this.world, TW = this.TW, TH = this.TH, X0 = this.X0, Y0 = this.Y0;
-    const COL = { [T.POND]: [0.3, 0.56, 0.66, 0.82], [T.CREEK]: [0.38, 0.63, 0.7, 0.78], [T.RIVER]: [0.28, 0.52, 0.63, 0.86], [T.MARSH]: [0.46, 0.62, 0.52, 0.55] };
+    const wc = biome.look.water;
+    const COL = { [T.POND]: wc.pond, [T.CREEK]: wc.creek, [T.RIVER]: wc.river, [T.MARSH]: wc.marsh };
     const level = new Float32Array(TW * TH).fill(NaN), kind = new Uint8Array(TW * TH), wet = new Uint8Array(TW * TH);
     for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
       const t = this.terrainAt(tx + X0, ty + Y0);

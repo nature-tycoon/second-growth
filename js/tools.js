@@ -5,6 +5,7 @@ import { PLANTS, PLANT, MIXES, MIX, L } from './data/plants.js';
 import { ANIMALS, ANIMAL, many } from './data/animals.js';
 import { STRUCTURES } from './world.js';
 import { plantSuit } from './sim/plants.js';
+import { onBiome } from './biome.js';
 
 const land = t => !isWater(t);
 const DEPTH = { [T.POND]: 0.6, [T.MARSH]: 0.2, [T.CREEK]: 0.4 };
@@ -21,7 +22,7 @@ function dig(terrain) {
     const wasLand = land(t);
     if (terrain === T.MARSH) {
       // keep wetland plants that can handle standing water
-      if (w.tree[i] && !PLANTS[w.tree[i]].wetOK) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+      if (w.tree[i]) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
       if (w.shrub[i] && !PLANTS[w.shrub[i]].wetOK) { w.shrub[i] = 0; w.shrubG[i] = 0; }
       if (w.ground[i] && !PLANTS[w.ground[i]].wetOK && !PLANTS[w.ground[i]].aquatic) { w.ground[i] = 0; w.groundG[i] = 0; }
       if (w.feature[i] !== F.LOG) w.feature[i] = 0;
@@ -119,6 +120,8 @@ function plantTool(source, cost, density) {
 }
 export const bestSuit = (game, i, keys) => Math.max(...keys.map(k => plantSuit(game.world, i, PLANT[k])));
 
+// Planting tools come from the active map's plants and seed mixes (rebuilt when the map changes).
+function addPlantTools() {
 for (const m of MIXES) {
   tool({ key: m.key, cat: 'plants', sub: 'mixes', name: m.name, cost: m.cost, icon: { plant: m.species[0], mix: m.species },
     desc: m.desc, species: m.species, layer: m.layer, size: m.layer === 2 ? 2 : 2,
@@ -130,6 +133,7 @@ for (const p of PLANTS) {
   tool({ key: 'plant_' + p.key, cat: 'plants', sub: ['ground', 'shrub', 'tree'][p.layer], name: p.name, cost: p.cost,
     icon: { plant: p.key }, desc: p.desc, species: [p.key], layer: p.layer, size: p.layer === 2 ? 0 : 1,
     apply: plantTool(p.key, p.cost, p.layer === 2 ? 1 : density) });
+}
 }
 
 // ---------------------------------------------------------------- habitat features
@@ -309,6 +313,7 @@ buildTool('house', 'Put the farmhouse back up, as a caretaker\'s home. Bats roos
 buildTool('silo', 'A grain silo. Swifts and bats roost inside tall old silos.', { ...roost, done: 'Silo rebuilt.' });
 
 // ---------------------------------------------------------------- wildlife introductions
+function addWildlifeTools() {
 for (const a of ANIMALS) {
   if (!a.intro) continue;
   tool({ key: 'intro_' + a.key, cat: 'wildlife', name: a.name, cost: a.intro, brush: false, icon: { animal: a.key },
@@ -323,6 +328,21 @@ for (const a of ANIMALS) {
       return true;
     } });
 }
+}
+
+// Swap in the planting and reintroduction tools for the current map.
+// Each map can re-word the fixed tools (which invasives to pull, what a pond is for).
+const TOOL_BASE = {};
+onBiome(b => {
+  for (const k of Object.keys(TOOLS)) if (TOOLS[k].cat === 'plants' || TOOLS[k].cat === 'wildlife') delete TOOLS[k];
+  for (const [k, base] of Object.entries(TOOL_BASE)) Object.assign(TOOLS[k], base);
+  for (const [k, o] of Object.entries(b.toolText || {})) {
+    TOOL_BASE[k] ||= Object.fromEntries(Object.keys(o).map(f => [f, TOOLS[k][f]]));
+    Object.assign(TOOLS[k], o);
+  }
+  addPlantTools();
+  addWildlifeTools();
+});
 
 export const CATEGORIES = [
   { key: 'inspect', name: 'Inspect', icon: 'inspect', desc: 'Click tiles and animals to learn about them.' },

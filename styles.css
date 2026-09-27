@@ -489,6 +489,25 @@ body.campaign #banner { top: 124px; }
 .mode-card:hover { border-color: var(--moss); }
 .mode-card.danger { border-color: var(--bad); }
 .mode-card.danger span { color: var(--bad); font-weight: 700; }
+.mode-card:disabled { opacity: 0.5; cursor: not-allowed; border-color: var(--line); }
+.maps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.map-card { display: flex; flex-direction: column; gap: 3px; text-align: left; border: 1.5px solid var(--line); border-radius: 14px; background: var(--paper-2); padding: 12px 14px; cursor: pointer; font: inherit; color: var(--ink); }
+.map-card b { font-family: var(--display); font-size: 17px; color: var(--moss-2); }
+.map-card .rg { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3, var(--ink-2)); }
+.map-card span.bl { font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+.map-card em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--moss); }
+.map-card:hover { border-color: var(--moss); }
+.map-card img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: center 30%; border-radius: 9px; margin-bottom: 6px; display: block; background: var(--paper-3, #ddd6bf); }
+.intro-maps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 14px; }
+.intro-map { position: relative; padding: 0; border: 1.5px solid var(--line); border-radius: 12px; overflow: hidden; cursor: pointer; background: var(--paper-2); font: inherit; color: var(--ink); text-align: left; }
+.intro-map img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: center 30%; display: block; }
+.intro-map span { display: flex; flex-direction: column; gap: 1px; padding: 7px 10px 8px; }
+.intro-map b { font-family: var(--display); font-size: 15px; color: var(--moss-2); }
+.intro-map em { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+.intro-map:hover { border-color: var(--moss); }
+.map-card.on { border-color: var(--moss); box-shadow: inset 0 0 0 1.5px var(--moss); }
+.map-resume { margin-top: 10px; width: 100%; }
+@media (max-width: 520px) { .maps { grid-template-columns: 1fr; } }
 .ch-story { font-size: 14px; line-height: 1.55; color: var(--ink-2); margin: 0 0 6px; }
 .ch-tools { display: flex; flex-wrap: wrap; gap: 6px; }
 .ch-tool { display: flex; align-items: center; gap: 6px; background: var(--paper-2); border-radius: 10px; padding: 4px 10px 4px 4px; font-size: 12px; font-weight: 700; }
@@ -538,3 +557,4 @@ body.campaign #banner { top: 124px; }
   .settings-nav { flex-direction: row; flex-wrap: wrap; }
   .settings-nav button { padding: 6px 10px; font-size: 12.5px; }
 }
+@media (max-height: 520px) { .intro-map img, .map-card img { aspect-ratio: 21 / 8; } }

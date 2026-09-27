@@ -1,7 +1,8 @@
 // Game state and the simulation clock.
 
-import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SEASONS, SPEEDS, DIFFICULTY, seasonOfMonth, money } from './config.js';
-import { World, Border, generateFarm } from './world.js';
+import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, DIFFICULTY, seasonOfMonth, money } from './config.js';
+import { biome, setBiome } from './biome.js';
+import { World, Border } from './world.js';
 import { mulberry32 } from './rng.js';
 import { updateEnvironment, updateHydrology } from './sim/environment.js';
 import { updatePlants, seedRain } from './sim/plants.js';
@@ -14,7 +15,11 @@ import { Events } from './sim/events.js';
 import { checkCampaign } from './sim/campaign.js';
 
 const SAVE_KEY = 'second-growth-save-v3';
-const RAIN = [0.45, 0.35, 0.3, 0.2, 0.08, 0.08, 0.2, 0.45, 0.6, 0.65, 0.65, 0.55];
+const LAST_MAP_KEY = 'second-growth-last-map';
+// one save slot per map (the Hollis farm keeps the original key so old saves still load)
+const saveKey = map => map === 'pnw' ? SAVE_KEY : `${SAVE_KEY}-${map}`;
+// a map switch in progress across a page reload (see UI.switchMap)
+export const PENDING_KEY = 'second-growth-pending';
 
 const WORLD_ARRAYS = ['terrain', 'baseMoist', 'moist', 'soil', 'ground', 'groundG', 'shrub', 'shrubG',
   'tree', 'treeG', 'treeAge', 'feature', 'featureAge', 'struct', 'variant', 'vh', 'flood', 'fire', 'scorch'];
@@ -30,13 +35,16 @@ export class Game {
   emit(ev, ...args) { for (const fn of this.listeners[ev] || []) fn(...args); }
 
   // mode: 'free' (everything unlocked) or 'campaign' (chapters unlock tools as you learn)
-  newGame(seed = 1987, mode = 'free', difficulty = 'standard') {
+  newGame(seed = 1987, mode = 'free', difficulty = 'standard', map = biome.id) {
+    setBiome(map);
+    this.map = biome.id;
+    this.loaded = false; // true once a save has been loaded into this game
     this.seed = seed;
     this.mode = mode;
     this.difficulty = DIFFICULTY[difficulty] ? difficulty : 'standard';
     this.campaign = { chapter: 0 };
-    this.world = generateFarm(seed);
-    this.border = new Border(this.world);
+    this.world = biome.generate(seed);
+    this.border = new Border(this.world, biome.borderCell);
     this.rng = mulberry32(seed * 31 + 7);
     this.day = 0;
     this.acc = 0;
@@ -68,11 +76,7 @@ export class Game {
         if (pos) wl.spawn(def, pos[0], pos[1], { silent: true });
       }
     };
-    place('vole', 6, 90, 14, 8);
-    place('robin', 3, 25, 24, 6);
-    place('raccoon', 1, 33, 22, 4);
-    place('mallard', 2, 93, 37, 2);
-    place('treefrog', 5, 93, 37, 4);
+    for (const [key, n, x, y, r] of biome.startWildlife) if (ANIMAL[key]) place(key, n, x, y, r);
     wl.recount();
   }
 
@@ -81,7 +85,7 @@ export class Game {
   get season() { return seasonOfMonth(this.month); }
   get dayOfMonth() { return (this.day % DAYS_PER_MONTH) + 1; }
   dateString() { return `${MONTH_NAMES[this.month]}, Year ${this.year}`; }
-  seasonName() { return SEASONS[this.season]; }
+  seasonName() { return biome.climate.seasons[this.season]; }
 
   canAfford(c) { return this.money >= c; }
   spend(c) {
@@ -137,15 +141,16 @@ export class Game {
     const m = this.month;
     if (this.weatherDays > 0) this.weatherDays--;
     else {
-      const rain = r < RAIN[m];
+      const rain = r < biome.climate.rain[m];
       // Dec-Feb storms sometimes come in cold enough to snow, most often in January
-      const snow = rain && (m >= 9 && m <= 11) && this.rng() < (m === 10 ? 0.4 : 0.25);
+      const sn = biome.climate.snow;
+      const snow = rain && !!sn && sn.months.includes(m) && this.rng() < sn.chance(m);
       this.weather = snow ? 'snow' : rain ? 'rain' : this.rng() < 0.3 ? 'cloud' : 'clear';
       this.weatherDays = 1 + Math.floor(this.rng() * 3);
     }
     const wet = this.weather === 'rain' || this.weather === 'snow';
     // snowpack: builds on snowy days, rain washes it away, winter sun melts it slowly, spring fast
-    const winter = m >= 9 && m <= 11;
+    const winter = !!biome.climate.snow && biome.climate.snow.months.includes(m);
     if (this.weather === 'snow') {
       this.snow = Math.min(1, (this.snow || 0) + 0.22);
       if (this.snow > 0.4 && !this.flags.firstSnow) {
@@ -171,12 +176,7 @@ export class Game {
     this.visitors.monthEnd();
     // season tips teach the first year; after that the top bar says the season
     if (m % 3 === 0 && this.year === 1) {
-      const tips = [
-        'Spring: seeds germinate and migrant birds return. A great time to plant.',
-        'Summer: dry weather. Plants grow slower and streams get warm without shade.',
-        'Autumn: berries ripen, leaves turn, and coho salmon run in October if they can get upstream.',
-        'Winter: rain soaks the valley. Most plants rest, but owls and eagles are busy.',
-      ];
+      const tips = biome.climate.tips;
       this.notify(`${this.seasonName()} has arrived. ${tips[this.season]}`, 'season');
     }
     this.history.push({ day: this.day, score: score.total, species: speciesPresent(this), money: this.money, visitors: this.visitors.monthly, inv: score.invFrac || 0 });
@@ -268,9 +268,10 @@ export class Game {
         world: { arrays, structures: w.structures },
         wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
         visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant,
-        mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0,
+        mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0, map: this.map,
       };
-      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+      localStorage.setItem(saveKey(this.map), JSON.stringify(data));
+      localStorage.setItem(LAST_MAP_KEY, this.map);
       return true;
     } catch (e) {
       console.warn('Save failed', e);
@@ -278,21 +279,30 @@ export class Game {
     }
   }
 
-  static hasSave() {
-    try { return !!localStorage.getItem(SAVE_KEY); } catch { return false; }
+  static saveKey(map) { return saveKey(map); }
+  static hasSave(map = Game.lastMap()) {
+    try { return !!localStorage.getItem(saveKey(map)); } catch { return false; }
   }
-  static clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ } }
+  static clearSave(map = Game.lastMap()) { try { localStorage.removeItem(saveKey(map)); } catch { /* ignore */ } }
+  // the map played most recently (the one "Continue" opens)
+  static lastMap() {
+    try { const m = localStorage.getItem(LAST_MAP_KEY); if (m && localStorage.getItem(saveKey(m))) return m; } catch { /* ignore */ }
+    return 'pnw';
+  }
 
-  load() {
+  load(map = Game.lastMap()) {
     let data;
-    try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch { return false; }
+    try { data = JSON.parse(localStorage.getItem(saveKey(map))); } catch { return false; }
     if (!data || data.v !== 1) return false;
+    setBiome(data.map || 'pnw');
+    this.map = biome.id;
+    this.loaded = true;
     const w = new World();
     for (const k of WORLD_ARRAYS) fromB64(data.world.arrays[k], w[k]);
     w.structures = data.world.structures;
     this.seed = data.seed;
     this.world = w;
-    this.border = new Border(w);
+    this.border = new Border(w, biome.borderCell);
     this.rng = mulberry32(1); this.rng.setState(data.rng);
     this.day = data.day; this.acc = 0; this.money = data.money; this.speed = data.speed || 1;
     this.flags = data.flags; this.stats = data.stats; this.goalsDone = data.goalsDone; this.history = data.history || [];

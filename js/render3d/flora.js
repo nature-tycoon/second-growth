@@ -7,6 +7,7 @@ import { hash2 } from '../rng.js';
 import * as G from './geometry.js';
 import { withFocusFade } from './focus.js';
 import { withSnowTops } from './snow.js';
+import { waterSurfaceY } from './terrain.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -104,8 +105,10 @@ const rgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255)
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const vary = (c, x, y, salt, amt = 0.08) => { const f = 1 + (hash2(x, y, salt) - 0.5) * amt * 2; return [c[0] * f, c[1] * f, c[2] * f]; };
 
-function leafColor(p, phase) {
+export function leafColor(p, phase) {
   const lk = p.look;
+  // trees like the pink ipê turn their whole crown to flower
+  if (phase === 'bloom' && lk.crownBloom) return rgb(lk.flower);
   let c = rgb(lk.leaf);
   if (phase === 'spring') c = mixc(c, [0.72, 0.86, 0.45], 0.4);
   else if (phase === 'late') c = mixc(c, lk.dry ? rgb(lk.dry) : [0.45, 0.5, 0.25], lk.dry ? 0.35 : 0.12);
@@ -115,6 +118,8 @@ function leafColor(p, phase) {
 }
 
 const STEM = { dogwood: '#b0302a', willow: '#c8923a' };
+// shrub looks with a geometry of their own; everything else is a generic leafy mound
+export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo'];
 
 export class Flora {
   constructor(scene) {
@@ -195,7 +200,8 @@ export class Flora {
         for (let k = 0; k < n; k++) {
           const px = x + 0.08 + hash2(x, y, 20 + k) * 0.84, pz = y + 0.08 + hash2(x, y, 40 + k) * 0.84;
           const sc = (0.5 + 0.45 * g) * (0.7 + hash2(x, y, 60 + k) * 0.5);
-          const py = hAt(px, pz);
+          // lily pads float on the water surface instead of sitting on the pond bed
+          const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz);
           pool.add(px, py, pz, sc, sc, sc, hash2(x, y, 80 + k) * 6.28, vary(col.map(c => c * dim), x, y, k));
           // flowers, seed heads and spathes
           if (phase === 'bloom' && p.look.flower) {
@@ -222,7 +228,7 @@ export class Flora {
           this.pool(`twig:${v}`, () => G.twigs(300 + v), this.bark).add(sx, sy, sz, sc, sc * (p.key === 'willow' ? 1.6 : 1), sc, rot, stem.map(c => c * dim));
         } else {
           const type = p.look.type;
-          const shape = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple'].includes(type) ? type : 'shrub';
+          const shape = SHRUB_SHAPES.includes(type) ? type : 'shrub';
           const col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8);
           this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, 200 + v * 31 + shape.length), this.shrubs, { kind: 'shrub' }, () => G.shrub(shape, 200 + v * 31 + shape.length, 1)).add(sx, sy, sz, sc, sc, sc, rot, col);
           const dotCol = phase === 'bloom' && p.look.flower ? rgb(p.look.flower) : phase === 'fruit' && p.look.berry ? rgb(p.look.berry) : null;
@@ -249,7 +255,7 @@ export class Flora {
         const rot = hash2(x, y, 10) * 6.28;
         const bark = rgb(p.look.bark).map(c => c * dim);
         const key = `${p.look.type}:${v}`;
-        const build = (lod = 0) => shapeDef.kind === 'conifer' ? G.conifer(shapeDef, 500 + v * 13 + p.id, lod) : G.broadleaf(shapeDef, 500 + v * 13 + p.id, lod);
+        const build = (lod = 0) => G.treeParts(shapeDef, 500 + v * 13 + p.id, lod);
         if (!p.conifer && phase === 'winter') {
           this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark).add(tx, ty, tz, sc, sc, sc, rot, bark);
         } else {

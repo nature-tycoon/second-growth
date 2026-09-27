@@ -1,4 +1,4 @@
-import { Game } from './game.js';
+import { Game, PENDING_KEY } from './game.js';
 import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
@@ -23,8 +23,11 @@ async function boot() {
     stage('Preparing the valley', 22);
     await nextPaint();
 
+    // a map switch reloads the page (see UI.switchMap); otherwise open on the last map played
+    let pending = null;
+    try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)); sessionStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
     const game = new Game();
-    game.newGame();
+    game.newGame(1987, 'free', 'standard', pending?.map || Game.lastMap());
     game.speed = 0; // paused until the welcome screen closes
     stage('Growing the landscape', 52);
     await nextPaint();
@@ -36,7 +39,12 @@ async function boot() {
     renderer.resetView();
     window.addEventListener('resize', () => { renderer.resize(); renderer.clampCam(); });
 
-    ui.openIntro(true, Game.hasSave(), () => { if (game.speed === 0) ui.setSpeed(1); });
+    if (pending?.resume) {
+      if (!game.load(pending.map)) game.newGame(1987, 'free', 'standard', pending.map);
+      game.notify(`Welcome back. It's ${game.dateString()}.`, 'season');
+    } else if (pending) ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map);
+    else ui.openIntro(true, Game.hasSave(), () => { if (game.speed === 0) ui.setSpeed(1); });
+    ui.afterNewGame();
     ui.refreshTop(true);
     stage('Welcoming the wild', 82);
     await nextPaint();

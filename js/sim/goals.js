@@ -55,16 +55,21 @@ export function monthlyGrant(game, score) {
   return Math.round(120 + score * 8 + speciesPresent(game) * 6);
 }
 
-const perimeterFence = w => {
+export const perimeterFence = w => {
   let n = 0;
   for (let x = 0; x < w.w; x++) if (w.feature[w.idx(x, 0)] === F.FENCE) n++;
   for (let y = 0; y < w.h; y++) if (w.feature[w.idx(w.w - 1, y)] === F.FENCE) n++;
   return n;
 };
-const culvertExists = w => { for (let i = 0; i < w.n; i++) if (w.feature[i] === F.CULVERT) return true; return false; };
-const pop = (g, k) => g.wildlife.state[ANIMAL[k].index].pop;
+export const culvertExists = w => { for (let i = 0; i < w.n; i++) if (w.feature[i] === F.CULVERT) return true; return false; };
+export const pop = (g, k) => ANIMAL[k] ? g.wildlife.state[ANIMAL[k].index].pop : 0;
 
-export const GOALS = [
+// The active map's milestone goals (refilled by loadGoals when the map changes).
+export const GOALS = [];
+export function loadGoals(list) { GOALS.length = 0; GOALS.push(...list); }
+
+// Pacific Northwest (Hollis farm) milestones.
+export const PNW_GOALS = [
   { key: 'plant', name: 'Break ground', reward: 1000,
     desc: 'Plant 200 native plants anywhere on the farm.',
     check: g => g.stats.planted >= 200, prog: g => `${Math.min(200, g.stats.planted)} / 200 planted` },

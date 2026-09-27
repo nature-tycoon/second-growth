@@ -1,6 +1,8 @@
 // Daily plant life: growth, decline, natural seeding, competition, succession, soil building.
 
-import { T, F, GROWTH_BY_MONTH, SPREAD_BY_MONTH, clamp } from '../config.js';
+import { T, F, clamp } from '../config.js';
+import { biome } from '../biome.js';
+import { ANIMAL } from '../data/animals.js';
 import { PLANTS, PLANT } from '../data/plants.js';
 import { layerLight } from './environment.js';
 
@@ -13,11 +15,13 @@ export function terrainFit(w, i, p) {
   if (w.feature[i] === F.CULVERT || w.feature[i] === F.DAM) return 0;
   switch (t) {
     case T.RIVER: case T.POND: case T.CREEK: case T.ROAD: case T.TRAIL: return 0;
-    case T.MARSH: return p.aquatic ? 1 : p.wetOK ? 0.8 : 0;
+    // marsh stays open wetland: no trees at all (wet-loving trees line its muddy banks instead),
+    // and only a thin scatter of wet-tolerant shrubs, so they can't smother the sedges and rushes
+    case T.MARSH: return p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
     default:
       if (p.aquatic) return t === T.MUD ? 0.8 : 0;
       switch (t) {
-        case T.GRAVEL: return p.key === 'willow' || p.key === 'cottonwood' || p.key === 'alder' ? 0.7 : 0.3;
+        case T.GRAVEL: return p.gravelOK ? 0.7 : 0.3;
         case T.FIELD: return 0.85;
         case T.PASTURE: return p.layer === 0 ? 0.55 : 0.75; // old sod competes with seedlings
         case T.MUD: return p.moist[1] >= 0.8 ? 1 : 0.6;
@@ -91,9 +95,15 @@ function disperse(w, p, x, y, rng, radiusBoost) {
 
 export function updatePlants(game) {
   const w = game.world, rng = game.rng, m = game.month;
-  const gf = GROWTH_BY_MONTH[m], sf = SPREAD_BY_MONTH[m];
+  const gf = biome.climate.growth[m], sf = biome.climate.spread[m];
   const W = w.w;
   const frugivores = game.frugivoreCount || 0;
+  // trees that depend on one animal to carry their seed (a Brazil nut needs agoutis to bury its nuts)
+  const disperserMult = [];
+  for (const p of PLANTS) if (p && p.disperser) {
+    const a = game.wildlife?.state && ANIMAL[p.disperser];
+    disperserMult[p.id] = a && game.wildlife.state[a.index].pop > 0 ? 1.6 : 0.12;
+  }
   const birdBoost = frugivores > 0 ? 1 : 0;
   const soilRate = 0.00012;
 
@@ -134,7 +144,7 @@ export function updatePlants(game) {
           const boost = berry ? birdBoost * 3 : 0;
           if (rng() < p.spread * sf * (berry && frugivores ? 1.5 : 1)) disperse(w, p, x, y, rng, boost);
           // blackberry also creeps by rooting canes
-          if (p.key === 'blackberry' && rng() < 0.006 * sf) disperse(w, p, x, y, rng, -1);
+          if (p.birdSpread && rng() < 0.006 * sf) disperse(w, p, x, y, rng, -1);
         }
         if (p.nfix) w.soil[i] += 0.0005 * g;
       }
@@ -160,7 +170,7 @@ export function updatePlants(game) {
       else if (dies) killTree(w, i, rng);
       else {
         g = Math.min(1, g); w.treeG[i] = g; cover += g * 1.5;
-        if (g > 0.75 && rng() < p.spread * sf) disperse(w, p, x, y, rng, 0);
+        if (g > 0.75 && rng() < p.spread * sf * (disperserMult[p.id] ?? 1)) disperse(w, p, x, y, rng, 0);
         if (p.nfix) {
           w.soil[i] += 0.0007 * g;
           if (x > 0) w.soil[i - 1] += 0.0002 * g;
@@ -199,21 +209,17 @@ export function killTree(w, i, rng, snagOdds = 0.7) {
 // Seeds drifting in from outside the property: forest to the north and east,
 // wind-blown cottonwood and fireweed, invasives from neighbouring farms to the west,
 // and whatever the winter floods leave along the river.
-const RAIN = {
-  N: ['fir', 'hemlock', 'cedar', 'alder', 'swordfern', 'salal', 'vinemaple', 'salmonberry'],
-  E: ['alder', 'maple', 'fir', 'salmonberry', 'snowberry', 'swordfern', 'elderberry'],
-  W: ['blackberry', 'blackberry', 'broom', 'canarygrass'],
-  S: ['willow', 'cottonwood', 'alder', 'canarygrass', 'dogwood', 'sedge'],
-};
 
 export function seedRain(game) {
   const w = game.world, rng = game.rng, m = game.month;
-  const sf = SPREAD_BY_MONTH[m];
+  const sf = biome.climate.spread[m];
   const tries = 3;
   for (let k = 0; k < tries; k++) {
     if (rng() > 0.5 * sf) continue;
     const edge = ['N', 'E', 'W', 'S'][Math.floor(rng() * 4)];
-    const key = RAIN[edge][Math.floor(rng() * RAIN[edge].length)];
+    const src = biome.seedRain[edge];
+    if (!src || !src.length) continue;
+    const key = src[Math.floor(rng() * src.length)];
     const p = PLANT[key];
     const depth = Math.floor(rng() * rng() * (p.radius + 4)) ;
     let x, y;
@@ -230,14 +236,14 @@ export function seedRain(game) {
   }
   // Birds carry berry seeds from far away once they are visiting.
   if (game.frugivoreCount > 0 && rng() < 0.08 * sf) {
-    const opts = ['salmonberry', 'elderberry', 'snowberry', 'rose', 'salal', 'oregongrape', 'blackberry'];
+    const opts = biome.berrySeeds;
     const p = PLANT[opts[Math.floor(rng() * opts.length)]];
     const i = Math.floor(rng() * w.n);
     trySeed(w, p, i, rng);
   }
   // Wind-carried seeds can land anywhere.
   if (rng() < 0.05 * sf) {
-    const p = rng() < 0.5 ? PLANT.fireweed : PLANT.cottonwood;
+    const p = PLANT[biome.windSeeds[Math.floor(rng() * biome.windSeeds.length)]];
     trySeed(w, p, Math.floor(rng() * w.n), rng);
   }
 }

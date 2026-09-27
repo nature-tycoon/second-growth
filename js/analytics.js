@@ -8,7 +8,7 @@ import { settings } from './settings.js';
 const POSTHOG_KEY = 'phc_wWDczF7Egr2VV5Nj6JN2duzKW4ND298DaKjgaQ3B78sf';
 // https://us.i.posthog.com for US cloud, https://eu.i.posthog.com for EU cloud.
 const POSTHOG_HOST = 'https://us.i.posthog.com';
-export const GAME_VERSION = '0.4';
+export const GAME_VERSION = '0.5';
 
 let ph = null;
 

@@ -194,7 +194,7 @@ export class Visitors {
       { key: 'length', name: 'Trail length', pts: lengthScore * 0.6, max: 0.6, tip: `Longer trails rate higher, up to about 110 tiles (now ${len}).` },
       { key: 'blinds', name: 'Viewing blinds', pts: Math.min(0.5, fac.blinds * 0.12), max: 0.5, tip: 'Add viewing blinds beside the trail (up to four count).' },
       { key: 'center', name: 'Visitor center', pts: fac.center ? 0.4 : 0, max: 0.4, tip: 'A visitor center adds exhibits and raises the rating.' },
-      { key: 'invasive', name: 'Invasive weeds by the trail', pts: -invasive * 1.2, max: 0, tip: 'Pull blackberry and broom along the trail; visitors dislike weedy patches.' },
+      { key: 'invasive', name: 'Invasive weeds by the trail', pts: -invasive * 1.2, max: 0, tip: 'Pull invasive plants along the trail; visitors dislike weedy patches.' },
     ];
     this.rating = open ? clamp(0.5 + this.parts.reduce((s, p) => s + p.pts, 0), 0, 5) : 0;
     this.rep += (this.rating - this.rep) * (this.rep ? 0.3 : 0.6);

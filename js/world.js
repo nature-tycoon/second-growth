@@ -302,7 +302,7 @@ export function extTerrain(w, x, y) {
 
 // A valley sloping from the foothills in the north down to the river, with rolling
 // pasture, fields the old farmers leveled, and water sitting in its own hollows.
-function generateHeights(w, fields) {
+export function generateHeights(w, fields) {
   const B = BORDER;
   const inField = (x, y) => fields.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 + 1 && y >= y0 && y <= y1 + 1);
   for (let y = -B; y <= w.h + B; y++) for (let x = -B; x <= w.w + B; x++) {
@@ -335,8 +335,44 @@ function generateHeights(w, fields) {
 
 // ---------------------------------------------------------------- Surroundings (render only)
 
+// Hollis farm surroundings: conifer forest north and east, fields and blackberry west, the river south.
+export function pnwBorderCell(x, y, r, r2, world) {
+  let t = T.DUFF, tree = 0, g = 0, shrub = 0, ground = 0;
+  const rt = riverRow(x);
+  if (y >= world.h + 3) {
+    // far bank of the river
+    t = y === world.h + 3 ? T.GRAVEL : T.PASTURE;
+    if (y > world.h + 3 && r < 0.45) { tree = r2 < 0.6 ? PLANT.cottonwood.id : PLANT.alder.id; g = 0.8 + r2 * 0.2; }
+    if (y > world.h + 3 && r > 0.6) shrub = PLANT.willow.id;
+  } else if (y >= rt) {
+    t = T.RIVER;
+  } else if (x < 0) {
+    if (x === -2) t = T.ROAD;
+    else if (x === -1) { t = T.PASTURE; if (r < 0.3) shrub = PLANT.blackberry.id; }
+    else if (y < 0) { t = T.DUFF; tree = PLANT.fir.id; g = 0.7 + r2 * 0.3; if (r < 0.2) tree = 0; }
+    else { t = T.FIELD; if (x === -3 && r < 0.5) shrub = PLANT.blackberry.id; }
+  } else if (y < 0) {
+    t = T.DUFF;
+    if (r < 0.82) {
+      const s = r2 < 0.45 ? 'fir' : r2 < 0.75 ? 'hemlock' : r2 < 0.9 ? 'cedar' : 'maple';
+      tree = PLANT[s].id; g = 0.75 + hash2(x, y, 45) * 0.25;
+    } else shrub = r2 < 0.5 ? PLANT.vinemaple.id : PLANT.salal.id;
+    ground = PLANT.swordfern.id;
+  } else if (x >= world.w) {
+    t = T.DUFF;
+    if (r < 0.72) {
+      const s = r2 < 0.35 ? 'alder' : r2 < 0.55 ? 'maple' : r2 < 0.85 ? 'fir' : 'cedar';
+      tree = PLANT[s].id; g = 0.7 + hash2(x, y, 45) * 0.3;
+    } else shrub = r2 < 0.5 ? PLANT.salmonberry.id : PLANT.snowberry.id;
+    ground = PLANT.swordfern.id;
+  }
+  return { t, tree, g, shrub, ground };
+}
+
+// The land around the property: forest, neighbours' fields, the river and its far bank.
+// Each map supplies cell(x, y, r, r2, world) describing one outside tile.
 export class Border {
-  constructor(world) {
+  constructor(world, cell = pnwBorderCell) {
     this.world = world;
     const B = BORDER, W = world.w + B * 2, Hh = world.h + B * 2;
     this.W = W; this.H = Hh;
@@ -347,37 +383,8 @@ export class Border {
       const x = bx - B, y = by - B;
       if (world.inb(x, y)) continue;
       const i = by * W + bx;
-      const r = hash2(x, y, 41), r2 = hash2(x, y, 43);
-      let t = T.DUFF, tree = 0, g = 0, shrub = 0, ground = 0;
-      const rt = riverRow(x);
-      if (y >= world.h + 3) {
-        // far bank of the river
-        t = y === world.h + 3 ? T.GRAVEL : T.PASTURE;
-        if (y > world.h + 3 && r < 0.45) { tree = r2 < 0.6 ? PLANT.cottonwood.id : PLANT.alder.id; g = 0.8 + r2 * 0.2; }
-        if (y > world.h + 3 && r > 0.6) shrub = PLANT.willow.id;
-      } else if (y >= rt) {
-        t = T.RIVER;
-      } else if (x < 0) {
-        if (x === -2) t = T.ROAD;
-        else if (x === -1) { t = T.PASTURE; if (r < 0.3) shrub = PLANT.blackberry.id; }
-        else if (y < 0) { t = T.DUFF; tree = PLANT.fir.id; g = 0.7 + r2 * 0.3; if (r < 0.2) tree = 0; }
-        else { t = T.FIELD; if (x === -3 && r < 0.5) shrub = PLANT.blackberry.id; }
-      } else if (y < 0) {
-        t = T.DUFF;
-        if (r < 0.82) {
-          const s = r2 < 0.45 ? 'fir' : r2 < 0.75 ? 'hemlock' : r2 < 0.9 ? 'cedar' : 'maple';
-          tree = PLANT[s].id; g = 0.75 + hash2(x, y, 45) * 0.25;
-        } else shrub = r2 < 0.5 ? PLANT.vinemaple.id : PLANT.salal.id;
-        ground = PLANT.swordfern.id;
-      } else if (x >= world.w) {
-        t = T.DUFF;
-        if (r < 0.72) {
-          const s = r2 < 0.35 ? 'alder' : r2 < 0.55 ? 'maple' : r2 < 0.85 ? 'fir' : 'cedar';
-          tree = PLANT[s].id; g = 0.7 + hash2(x, y, 45) * 0.3;
-        } else shrub = r2 < 0.5 ? PLANT.salmonberry.id : PLANT.snowberry.id;
-        ground = PLANT.swordfern.id;
-      }
-      this.terrain[i] = t; this.tree[i] = tree; this.treeG[i] = g; this.shrub[i] = shrub; this.ground[i] = ground;
+      const c = cell(x, y, hash2(x, y, 41), hash2(x, y, 43), world);
+      this.terrain[i] = c.t; this.tree[i] = c.tree || 0; this.treeG[i] = c.g || 0; this.shrub[i] = c.shrub || 0; this.ground[i] = c.ground || 0;
     }
   }
   bi(x, y) {

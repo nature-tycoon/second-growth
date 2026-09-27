@@ -1,6 +1,7 @@
 // Derived environment fields: water, moisture, canopy, distances, habitat classes, food.
 
-import { T, F, H, isWater, MOIST_BY_MONTH, clamp } from '../config.js';
+import { T, F, H, isWater, clamp } from '../config.js';
+import { biome } from '../biome.js';
 import { PLANTS, isBlooming, isFruiting } from '../data/plants.js';
 
 const FAR = 255;
@@ -76,7 +77,7 @@ export function updateCanopy(w) {
 }
 
 export function updateMoisture(w, month) {
-  const off = MOIST_BY_MONTH[month];
+  const off = biome.climate.moist[month];
   for (let i = 0; i < w.n; i++) {
     const t = w.terrain[i];
     if (isWater(t)) { w.moist[i] = t === T.MARSH ? 0.97 : 1; continue; }
@@ -144,7 +145,7 @@ export function classifyAndResources(w, month) {
       const nearW = w.distWater[i] <= 2;
       if (inv > 0.5 && !(tp && tG > 0.6)) h = H.INVASIVE;
       else if (tp && tG >= 0.35) {
-        const matureAge = tp.conifer ? 12 : 18;
+        const matureAge = tp.matureAge ?? (tp.conifer ? 12 : 18);
         const mature = tG >= 0.98 && w.treeAge[i] >= matureAge * 120;
         if (nearW && !tp.conifer && !mature) h = H.RIPARIAN;
         else h = mature ? H.MATURE_FOREST : H.YOUNG_FOREST;
@@ -186,7 +187,7 @@ export function classifyAndResources(w, month) {
     if (tp) {
       if (tG < 0.6) browse += tG * (tp.browse || 0.3);
       if (tp.mast && (month === 6 || month === 7)) berries += tp.mast * tG;
-      if (tp.key === 'maple' && month === 1) nectar += 0.3 * tG;
+      if (tp.nectar && tp.nectar.months.includes(month)) nectar += tp.nectar.amount * tG;
     }
     w.nectar[i] = Math.min(1, nectar);
     w.berries[i] = Math.min(1, berries);

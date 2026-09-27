@@ -1,6 +1,6 @@
 // DOM interface: top bar, tool palette, inspector, notifications, minimap and modal screens.
 
-import { T, F, H, HABITAT_INFO, TERRAIN_NAMES, FEATURE_NAMES, MONTH_NAMES, SPEEDS, DIFFICULTY, isWater, money, moneyShort, clamp } from '../config.js';
+import { T, F, H, HABITAT_INFO, TERRAIN_NAMES, FEATURE_NAMES, MONTH_NAMES, SPEEDS, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp } from '../config.js';
 import { music } from '../audio/music.js';
 import { PLANTS, PLANT, LAYER_NAMES, MIX } from '../data/plants.js';
 import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many } from '../data/animals.js';
@@ -10,9 +10,10 @@ import { plantSuit, plantLimits } from '../sim/plants.js';
 import { layerLight } from '../sim/environment.js';
 import { GOALS, speciesPresent } from '../sim/goals.js';
 import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chapterOfTool } from '../sim/campaign.js';
-import { Game } from '../game.js';
+import { Game, PENDING_KEY } from '../game.js';
+import { biome, BIOMES, BIOME_LIST } from '../biome.js';
 import * as S from '../render/sprites.js';
-import { renderPortrait } from '../render3d/portraits.js';
+import { renderPortrait, renderPlants } from '../render3d/portraits.js';
 import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
 import { track, setContext, setAnalyticsEnabled, analyticsReady, GAME_VERSION } from '../analytics.js';
@@ -51,7 +52,9 @@ export function plantThumb(key) {
   const p = PLANT[key];
   const m = showcaseMonth(p);
   let src;
-  if (p.layer === 0) {
+  // tropical plants have shapes the 2D painter doesn't know: render their 3D models instead
+  if (p.look.tropical) src = trim(renderPlants([p]), 4);
+  else if (p.layer === 0) {
     const c = document.createElement('canvas'); c.width = 84; c.height = 84;
     c.getContext('2d').drawImage(S.groundSprite(p.id, 2, m, 0), 0, 0);
     src = trim(c);
@@ -64,6 +67,12 @@ export function plantThumb(key) {
 function mixThumb(keys) {
   const k = 'm' + keys.join();
   if (thumbCache.has(k)) return thumbCache.get(k);
+  if (PLANT[keys[0]].look.tropical) {
+    // tallest first so the trees stand behind: trees, then shrubs, then groundcover
+    const url = trim(renderPlants(keys.slice(0, 3).map(k => PLANT[k]).sort((a, b) => b.layer - a.layer)), 4).toDataURL();
+    thumbCache.set(k, url);
+    return url;
+  }
   const c = document.createElement('canvas'); c.width = 120; c.height = 120;
   const ctx = c.getContext('2d');
   const pick = keys.slice(0, 3);
@@ -119,7 +128,6 @@ function lightWord(lo, hi) {
   if (lo <= 0.1) return 'sun or deep shade';
   return 'sun or part shade';
 }
-const EDGE_NAMES = { N: 'the forest to the north', E: 'the woods to the east', S: 'the river', W: 'the farms to the west' };
 function seasonText(months) {
   if (!months) return null;
   return `${MONTH_NAMES[months[0]]} to ${MONTH_NAMES[months[months.length - 1]]}`;
@@ -245,7 +253,7 @@ export class UI {
     $('#btn-trees').classList.toggle('on', this.renderer.fadeTrees);
   }
   setOverlay(v, species = null) {
-    if (v === 'species' && species == null) species = this.state.overlaySpecies ?? ANIMAL.deer.index;
+    if (v === 'species' && species == null) species = this.state.overlaySpecies ?? (ANIMAL.deer ?? ANIMALS[0]).index;
     this.state.overlay = v;
     if (species != null) this.state.overlaySpecies = species;
     $('#overlay').value = v;
@@ -555,14 +563,14 @@ export class UI {
     if (isWater(t)) {
       html += `<span class="k">Water quality</span>${bar(w.waterQ[i], '#5ab0a0')}
         <span class="k">Fish access</span><span>${w.connected[i] ? '<span class="st good">Connected to the river</span>' : '<span class="st bad">Cut off from the river</span>'}</span>`;
-      if (t === T.CREEK) html += `<span class="k">For salmon</span><span>${w.waterQ[i] > 0.43 ? '<span class="st good">Cool and shaded</span>' : '<span class="st warn">Too sunny and warm. Plant shrubs and trees along the banks.</span>'}</span>`;
+      if (t === T.CREEK) html += `<span class="k">For ${biome.text.creekFish}</span><span>${w.waterQ[i] > 0.43 ? '<span class="st good">Cool and shaded</span>' : '<span class="st warn">Too sunny and warm. Plant shrubs and trees along the banks.</span>'}</span>`;
     }
     html += `</div>`;
     if (w.fire[i]) html += `<div class="info-desc st bad"><b>On fire!</b> Use the Fire crew tool to put it out.</div>`;
     else if (w.flood[i]) html += `<div class="info-desc"><b>Flooded</b> for another ${w.flood[i]} days.</div>`;
     else if (w.scorch[i] > 0) html += `<div class="info-desc">Burned recently. The ash will feed new growth.</div>`;
     const f = w.feature[i];
-    if (f) html += `<div class="section-title">Feature</div><div class="info-desc">${FEATURE_NAMES[f]}${f === F.CULVERT ? ': blocks salmon and trout. Demolish it to reopen the creek.' : f === F.FENCE ? ': blocks deer and elk.' : ''}</div>`;
+    if (f) html += `<div class="section-title">Feature</div><div class="info-desc">${FEATURE_NAMES[f]}${f === F.CULVERT ? `: blocks ${biome.text.culvertBlocks}. Demolish it to reopen the creek.` : f === F.FENCE ? `: blocks ${biome.text.fenceBlocks}.` : ''}</div>`;
     const layers = [[w.ground[i], w.groundG[i]], [w.shrub[i], w.shrubG[i]], [w.tree[i], w.treeG[i]]];
     const rows = layers.filter(l => l[0]).map(([id, gg]) => {
       const p = PLANTS[id];
@@ -724,9 +732,9 @@ export class UI {
       } else if (cap >= def.minK) needs.push(['good', `The habitat here has room for about ${Math.floor(cap)}.`]);
       else needs.push(['warn', `Not enough habitat yet (room for ${cap.toFixed(1)}, needs ${def.minK}).`]);
       if (def.prey && st.preyK != null && st.preyK < (st.habitatK ?? 0)) needs.push(['warn', `Limited by prey. More ${def.prey.map(k => many(ANIMAL[k])).join(' or ')} would help.`]);
-      needs.push(['info', `Arrives from ${[...new Set(def.sources.map(s => EDGE_NAMES[s]))].join(', ')}.`]);
+      needs.push(['info', `Arrives from ${[...new Set(def.sources.map(s => biome.text.edges[s]))].join(', ')}.`]);
       if (def.intro) needs.push(['info', `Can be reintroduced (${money(def.intro)}) from the Wildlife tools.`]);
-      if (def.key === 'deer' || def.key === 'elk') needs.push(['info', 'Blocked by fences along the property edge.']);
+      if (def.fenced) needs.push(['info', 'Blocked by fences along the property edge.']);
       detail.innerHTML = `<img class="hero" src="${animalThumb(def.key)}" style="${known ? '' : 'filter:brightness(0) opacity(.35)'}">
         <h3>${known ? def.name : 'Not yet seen'}</h3><div class="small"><i>${known ? def.sci : def.group}</i></div>
         <p class="info-desc">${known ? def.desc : 'Something that might live here someday. The clue below says what it needs.'}</p>
@@ -964,6 +972,8 @@ export class UI {
   }
 
   afterNewGame() {
+    const sub = document.querySelector('#topbar .subtitle, .subtitle');
+    if (sub) sub.textContent = `${biome.farm} restoration`;
     this.renderer.resetView();
     this.setOverlay('none');
     this.openCategory('inspect');
@@ -973,40 +983,78 @@ export class UI {
 
   // ------------------------------------------------------------ campaign
   // Pick Campaign or Free Play. replacing = start over on a new farm (after a confirm).
-  openModeChoice(replacing) {
-    let diff = this.game.difficulty || 'standard';
-    const m = this.modal('How do you want to play?', `<div class="section-title" style="margin-top:0">Difficulty</div>
+  openModeChoice(replacing, pick = null) {
+    let diff = this.game.difficulty || 'standard', map = pick || this.game.map;
+    const savedYear = id => { try { return JSON.parse(localStorage.getItem(Game.saveKey(id)))?.day / DAYS_PER_YEAR + 1 | 0; } catch { return 0; } };
+    const m = this.modal('How do you want to play?', `<div class="section-title" style="margin-top:0">Map</div>
+      <div class="maps">${BIOME_LIST.map(b => `<button class="map-card${b.id === map ? ' on' : ''}" data-map="${b.id}"><img src="${b.image}" alt="" loading="lazy"><span class="rg">${b.region}</span><b>${b.farm}</b><span class="bl">${b.blurb}</span>${Game.hasSave(b.id) ? `<em>Saved farm, year ${savedYear(b.id)}</em>` : ''}</button>`).join('')}</div>
+      <button class="btn secondary map-resume" data-a="resume" hidden></button>
+      <div class="section-title">Difficulty</div>
       <div class="seg" data-seg="diff">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === diff ? 'on' : ''}">${d.name}</button>`).join('')}</div>
       <p class="small diff-desc">${DIFFICULTY[diff].desc}</p>
       <div class="section-title">Mode</div><div class="modes">
-      <button class="mode-card" data-m="campaign"><b>Campaign</b><span>Eight chapters on the Hollis farm. Each one teaches a new part of restoration and unlocks new tools as you go. Best for your first time.</span></button>
+      <button class="mode-card" data-m="campaign"><b>Campaign</b><span></span></button>
       <button class="mode-card" data-m="free"><b>Free play</b><span>Every tool from the start and no chapters, just the land, the grants and the milestone goals.</span></button>
-      </div>${replacing && Game.hasSave() ? '<p class="small" style="margin:10px 2px 0">This replaces your saved farm.</p>' : ''}`, { narrow: true });
+      </div><p class="small replace-note" style="margin:10px 2px 0" hidden>This replaces your saved farm.</p>`, { narrow: true });
+    const FREE_TEXT = m.querySelector('[data-m=free] span').textContent;
+    const willReplace = () => (replacing || map !== this.game.map) && Game.hasSave(map);
+    const showMap = () => {
+      const b = BIOMES[map], camp = m.querySelector('[data-m=campaign]');
+      m.querySelectorAll('[data-map]').forEach(o => o.classList.toggle('on', o.dataset.map === map));
+      m.querySelectorAll('[data-m]').forEach(o => { delete o.dataset.sure; o.classList.remove('danger'); });
+      camp.disabled = !b.campaign;
+      camp.querySelector('span').textContent = b.campaign ? `Eight chapters on ${b.farm}. Each one teaches a new part of restoration and unlocks new tools as you go. Best for your first time.` : `No campaign on ${b.farm} yet. Free Play has its own milestone goals for this map.`;
+      m.querySelector('[data-m=free] span').textContent = FREE_TEXT;
+      m.querySelector('.replace-note').hidden = !willReplace();
+      const resume = m.querySelector('[data-a=resume]');
+      resume.hidden = !Game.hasSave(map) || (map === this.game.map && this.game.loaded);
+      resume.textContent = `Continue your saved ${b.farm} farm`;
+    };
+    showMap();
+    m.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { map = b.dataset.map; showMap(); }));
+    m.querySelector('[data-a=resume]').addEventListener('click', () => {
+      if (map !== this.game.map) return this.switchMap({ map, resume: true });
+      this.closeModal();
+      if (!this.game.load(map)) return;
+      track('game_start', { mode: 'continue', map });
+      this.afterNewGame();
+      this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
+    });
     m.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => {
       diff = b.dataset.d;
       m.querySelectorAll('[data-d]').forEach(o => o.classList.toggle('on', o === b));
       m.querySelector('.diff-desc').textContent = DIFFICULTY[diff].desc;
     }));
     m.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
-      if (replacing && Game.hasSave() && !b.dataset.sure) {
+      if (b.disabled) return;
+      if (willReplace() && !b.dataset.sure) {
         m.querySelectorAll('[data-m]').forEach(o => { delete o.dataset.sure; o.classList.remove('danger'); });
         b.dataset.sure = 1; b.classList.add('danger'); b.querySelector('span').textContent = 'Click again to replace your saved farm for good.';
         return;
       }
       this.closeModal();
-      this.startMode(b.dataset.m, replacing, diff);
+      this.startMode(b.dataset.m, replacing, diff, map);
     }));
   }
-  startMode(mode, fresh, difficulty = 'standard') {
+  // Another map means a different cast of plants and animals, so the page reloads into it:
+  // every cached model, sprite and thumbnail starts clean. main.js picks up where this left off.
+  switchMap(pending) {
+    if (this.game.day > 0 || Game.hasSave(this.game.map)) this.game.save();
+    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending)); } catch { /* ignore */ }
+    track('map_switch', { from: this.game.map, to: pending.map, resume: !!pending.resume });
+    location.reload();
+  }
+  startMode(mode, fresh, difficulty = 'standard', map = this.game.map) {
     const g = this.game;
-    if (fresh) { track('game_restart', this.snapshot()); Game.clearSave(); g.newGame(Math.floor(Math.random() * 100000), mode, difficulty); }
+    if (map !== g.map) return this.switchMap({ map, mode, difficulty });
+    if (fresh) { track('game_restart', this.snapshot()); Game.clearSave(map); g.newGame(Math.floor(Math.random() * 100000), mode, difficulty, map); }
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
-    track('game_start', { mode, fresh, difficulty });
+    track('game_start', { mode, fresh, difficulty, map });
     this.newCats = new Set();
     this.afterNewGame();
     if (g.speed === 0) this.setSpeed(1);
     if (mode === 'campaign') this.openChapter(0);
-    else g.notify('Spring, Year 1. The farm is quiet: a few voles, robins and a pair of mallards on the stock pond. Let\'s change that.', 'season');
+    else g.notify(biome.startText, 'season');
   }
 
   // A chapter's introduction: the story, what to do, the goals, and the tools it unlocks.
@@ -1082,7 +1130,8 @@ export class UI {
     if (f.parking && v.net.length < 40) tips.push('Longer trails bring more visitors. Loop them past water, meadows and old trees.');
     if (!f.center && f.parking) tips.push('A <b>visitor center</b> nearly doubles what each visitor gives.');
     if (f.blinds < 2) tips.push('<b>Viewing blinds</b> let people watch wildlife without scaring it off.');
-    tips.push('Shy animals (elk, cougar, bear, heron, pond turtle) avoid busy trails. Keep some of the farm quiet.');
+    const shy = ANIMALS.filter(a => a.shy >= 0.5).sort((a, b) => b.shy - a.shy).slice(0, 5).map(a => a.name.toLowerCase());
+    tips.push(`Shy animals (${shy.join(', ')}) avoid busy trails. Keep some of the land quiet.`);
     const stars = n => '★★★★★'.slice(0, Math.round(n)) + '☆☆☆☆☆'.slice(0, 5 - Math.round(n));
     // where the stars come from, and the single biggest thing to fix
     let breakdown = '';
@@ -1109,18 +1158,13 @@ export class UI {
   }
 
   openIntro(first = true, hasSave = false, onClose = null) {
-    const body = `<div class="intro">
-      <p><b>Your great-aunt left you the old Hollis farm</b>: 180 acres of tired pasture and plowed fields in a Cascade foothill valley, bordered by second-growth forest to the north and east and a salmon river to the south. The land trust will fund your work. Your job is to give it back to the wild.</p>
+    // first visit: show both places up front so the difference is obvious at a glance
+    const maps = first ? `<div class="intro-maps">${BIOME_LIST.map(b => `<button class="intro-map" data-map="${b.id}">
+        <img src="${b.image}" alt="${b.farm}"><span><b>${b.farm}</b><em>${b.region}</em></span></button>`).join('')}</div>` : '';
+    const body = `<div class="intro">${maps}
+      ${biome.story}
       <h3>How nature works here</h3>
-      <ul>
-        <li>You don't buy animals or upgrades. <b>You build habitat</b>, and wildlife follows its own rules: it wanders in from the surrounding forest, river and farms when there's room, raises young, hunts, and moves on when there isn't enough.</li>
-        <li><b>Plants follow succession.</b> Pioneers like red alder, lupine and fireweed heal worn-out soil. Later, shade-loving cedar and hemlock take over. Every plant has water, light and soil needs.</li>
-        <li><b>Water ties it all together.</b> Ponds, marshes and creeks raise soil moisture nearby. Shaded, connected creeks let salmon return. Beavers will build dams and flood new wetlands on their own.</li>
-        <li><b>Invasives</b> (blackberry, Scotch broom, reed canarygrass) spread from the neighbors. Pull them, then shade them out.</li>
-        <li><b>The land has shape.</b> Hollows stay wet, ridges drain dry. Raise and lower ground to make new niches.</li>
-        <li><b>Disturbance is natural.</b> Summer wildfires race through dry grass and broom; winter floods spill over the low ground. Wetlands soak up floods and burned meadows bounce back.</li>
-        <li><b>Money is tight.</b> Grants grow with ecosystem health, and visitors on your trails pay their way, but crowds push shy wildlife away.</li>
-      </ul>
+      <ul>${biome.rules.map(r => `<li>${r}</li>`).join('')}</ul>
       <h3>Controls</h3>
       <ul>
         ${TOUCH ? `<li>Pick a tool on the left, then <b>drag one finger to brush</b> it across the land. Tap to place things or inspect a tile or animal.</li>
@@ -1131,12 +1175,7 @@ export class UI {
         <li>Use <b>Inspect</b> to click any tile or animal. The <b>Overlay</b> menu shows moisture, soil, sunlight, fish passage, or where a species could live.</li>
       </ul>
       <h3>A good first year</h3>
-      <ul>
-        <li>Demolish the <b>culvert</b> where the river road crosses the ditch, then plant <b>streamside shrubs</b> and <b>pioneer trees</b> along the creek to shade it.</li>
-        <li>Dig a <b>marsh</b> or two, loosen the plowed fields and sow <b>meadow mix</b>.</li>
-        <li>Pull out the east and north <b>boundary fences</b> so deer can find you.</li>
-        <li>When you can afford it, put a <b>trailhead parking</b> lot by the road and a trail into your best habitat.</li>
-      </ul></div>`;
+      <ul>${biome.firstYear.map(r => `<li>${r}</li>`).join('')}</ul></div>`;
     const foot = first
       ? (hasSave ? `<button class="btn secondary" data-a="new">New game</button><button class="btn" data-a="continue">Continue restoration</button>`
         : `<button class="btn" data-a="start">Start restoring</button>`)
@@ -1154,5 +1193,6 @@ export class UI {
     btn('new')?.addEventListener('click', () => this.openModeChoice(true));
     // first visit: the farm is already generated, so just choose how to play it
     btn('start')?.addEventListener('click', () => this.openModeChoice(false));
+    m.querySelectorAll('.intro-map').forEach(b => b.addEventListener('click', () => this.openModeChoice(hasSave, b.dataset.map)));
   }
 }

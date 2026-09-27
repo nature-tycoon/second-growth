@@ -6,21 +6,20 @@ import { ANIMALS, ANIMAL, many, cap } from '../data/animals.js';
 import { PLANTS } from '../data/plants.js';
 import { killTree } from './plants.js';
 
-// Species that eat fruit and spread seeds.
-const FRUGIVORES = ['robin', 'thrush', 'jay', 'bear'];
-const BIG = { deer: 1, elk: 1 }; // blocked by fences
 
 let stamp = null, parent = null, bfsQ = null, stampN = 1;
 
 export function passable(w, i, a) {
   const move = a.move;
   if (move === 'fly') return true;
+  // tree dwellers (monkeys, sloths) travel through connected canopy only
+  if (move === 'tree') return !!(w.tree[i] && w.treeG[i] > 0.45) || w.feature[i] === F.SNAG;
   if (w.struct[i] >= 0) return false;
   const t = w.terrain[i];
   if (move === 'swim') return isWater(t) && w.feature[i] !== F.CULVERT;
   if (move === 'semi') return true;
   if (t === T.POND || t === T.RIVER) return false;
-  if (w.feature[i] === F.FENCE && BIG[a.key]) return false;
+  if (w.feature[i] === F.FENCE && ANIMAL[a.key]?.fenced) return false; // big grazers can't cross fences
   return true;
 }
 
@@ -34,7 +33,7 @@ export class Wildlife {
     this.salmon = { fry: {}, spawners: 0, juveniles: 0, everSpawned: false };
     this.dams = 0;
     this.g = { fishIndex: 0, frogIndex: 0, snagCount: 0, nestboxCount: 0, structureCount: 0, berryTiles: 0,
-      forestTiles: 0, meadowTiles: 0, bigTrees: 0, salmonBonus: 0 };
+      forestTiles: 0, matureTiles: 0, meadowTiles: 0, bigTrees: 0, cleanWater: 0, salmonBonus: 0 };
   }
 
   // -------------------------------------------------------------- population bookkeeping
@@ -49,7 +48,7 @@ export class Wildlife {
     for (const s of this.state) s.pop = 0;
     for (const a of this.agents) if (!a.leaving) this.state[a.sp].pop++;
     let f = 0;
-    for (const k of FRUGIVORES) f += this.state[ANIMAL[k].index].pop;
+    for (const a of ANIMALS) if (a.frugivore) f += this.state[a.index].pop;
     this.game.frugivoreCount = f;
   }
 
@@ -61,14 +60,22 @@ export class Wildlife {
       if (!isWater(w.terrain[i]) || w.terrain[i] === T.RIVER) continue;
       if (w.waterQ[i] > 0.45) { if (w.connected[i]) conWater++; else isoWater++; }
     }
-    const S = key => this.state[ANIMAL[key].index].pop;
-    g.fishIndex = S('cutthroat') + S('coho') * 0.5 + this.salmon.juveniles * 0.2 + conWater / 12 + isoWater / 30;
-    g.frogIndex = S('treefrog') * 0.5 + S('redlegged') * 0.5;
+    // food for fish-eaters and frog-eaters: whatever swims or croaks on this map
+    let fish = 0, frogs = 0;
+    for (const a of ANIMALS) {
+      const p = this.state[a.index].pop;
+      if (a.move === 'swim' && !a.notPrey) fish += a.special === 'salmon' ? p * 0.5 : p;
+      if (a.sprite.kind === 'frog') frogs += p * 0.5;
+    }
+    g.fishIndex = fish + this.salmon.juveniles * 0.2 + conWater / 12 + isoWater / 30;
+    g.cleanWater = conWater; // clean ponds, creeks and marsh linked to the river
+    g.frogIndex = frogs;
     g.snagCount = st.snags || 0;
     g.nestboxCount = st.nestboxes || 0;
     g.structureCount = w.structures.filter(Boolean).length;
     g.berryTiles = st.berry || 0;
     g.forestTiles = st.forest || 0;
+    g.matureTiles = st.mature || 0;
     g.meadowTiles = st.meadow || 0;
     g.bigTrees = st.bigTrees || 0;
     const m = this.game.month;
@@ -96,7 +103,7 @@ export class Wildlife {
       st.habitatK = K;
       if (def.prey) {
         let prey = 0;
-        for (const pk of def.prey) prey += this.state[ANIMAL[pk].index].pop;
+        for (const pk of def.prey) if (ANIMAL[pk]) prey += this.state[ANIMAL[pk].index].pop;
         st.preyK = prey / def.preyPer;
         K = Math.min(K, st.preyK);
       }
@@ -411,10 +418,10 @@ export class Wildlife {
 
       if (def.prey && a.state !== 'hunt' && a.hunger > 7 && rng() < 0.4) this.startHunt(a, def);
 
-      if (a.key === 'beaver') this.beaverDay(a, x, y, i);
-      else if ((a.key === 'deer' || a.key === 'elk') && a.state === 'idle') {
+      if (def.damBuilder) this.beaverDay(a, x, y, i);
+      else if (def.browseRate && a.state === 'idle') {
         const s = w.shrub[i];
-        if (s && !PLANTS[s].invasive && w.shrubG[i] > 0.3) w.shrubG[i] -= a.key === 'elk' ? 0.02 : 0.012;
+        if (s && !PLANTS[s].invasive && w.shrubG[i] > 0.3) w.shrubG[i] -= def.browseRate;
         if (w.tree[i] && w.treeG[i] < 0.4) w.treeG[i] = Math.max(0.05, w.treeG[i] - 0.01);
       }
     }
@@ -510,7 +517,7 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
-          if (!a.path || !a.path.length) { a.state = 'idle'; a.wait = 0.5 + Math.random() * 3; break; }
+          if (!a.path || !a.path.length) { a.state = 'idle'; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : 0.5 + Math.random() * 3; break; }
           const j = a.path[a.path.length - 1];
           const tx = (j % w.w) + 0.5, ty = ((j / w.w) | 0) + 0.5;
           if (this.stepToward(a, tx, ty, sp)) a.path.pop();
@@ -569,20 +576,32 @@ export class Wildlife {
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (!w.inb(x0, y0)) { a.x = clamp(a.x, 0.5, w.w - 0.5); a.y = clamp(a.y, 0.5, w.h - 0.5); a.wait = 1; return; }
     const start = w.idx(x0, y0);
-    const R = Math.min(12, 3 + Math.sqrt(def.hr) * 0.9);
+    // Patrollers (river dolphins, giant otters) cruise long stretches of water instead of
+    // milling about one spot: they hold a heading, favour water well ahead of them, and turn
+    // around at dead ends, following the channel toward its farthest reach.
+    const patrol = !!def.patrol;
+    if (patrol && !a.heading) { const ang = Math.random() * Math.PI * 2; a.heading = [Math.cos(ang), Math.sin(ang)]; }
+    const R = patrol ? 16 : Math.min(12, 3 + Math.sqrt(def.hr) * 0.9);
     const n = w.n;
     if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
     stampN++;
     let head = 0, tail = 0;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
-    let best = start, bs = map[start] * 0.8;
-    const W = w.w;
+    let best = start, bs = patrol ? 0 : map[start] * 0.8, far = -1, farD = 0;
+    const W = w.w, cap = patrol ? 1200 : 380;
     const diag = a.move === 'swim';
-    while (head < tail && tail < 380) {
+    const ahead = i => (((i % W) - x0) * a.heading[0] + (((i / W) | 0) - y0) * a.heading[1]) / R;
+    while (head < tail && tail < cap) {
       const i = bfsQ[head++];
       const x = i % W, y = (i / W) | 0;
       if (Math.abs(x - x0) > R || Math.abs(y - y0) > R) continue;
-      const s = map[i] * (0.55 + 0.45 * Math.random());
+      let s = map[i] * (0.55 + 0.45 * Math.random());
+      if (patrol) {
+        const d2 = (x - x0) ** 2 + (y - y0) ** 2;
+        if (map[i] > 0.15 && d2 > farD) { farD = d2; far = i; }
+        const f = ahead(i);
+        s *= f > 0 ? 0.3 + f : 0.03;
+      }
       if (s > bs) { bs = s; best = i; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
@@ -592,6 +611,17 @@ export class Wildlife {
         const j = yy * W + xx;
         if (stamp[j] === stampN || !passable(w, j, a)) continue;
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
+      }
+    }
+    if (patrol) {
+      // blocked (a bank or the end of the channel): turn toward the farthest open water instead
+      if (best === start || ahead(best) < 0.35) {
+        if (far >= 0) { const dx = (far % W) - x0, dy = ((far / W) | 0) - y0, l = Math.hypot(dx, dy) || 1; a.heading = [dx / l, dy / l]; }
+        else a.heading = [-a.heading[0], -a.heading[1]];
+      } else {
+        // drift the heading a little so they also nose into creek mouths and side channels
+        const t = (Math.random() - 0.5) * 0.5, c = Math.cos(t), sn = Math.sin(t);
+        a.heading = [a.heading[0] * c - a.heading[1] * sn, a.heading[0] * sn + a.heading[1] * c];
       }
     }
     if (best === start) { a.wait = 1 + Math.random() * 3; return; }

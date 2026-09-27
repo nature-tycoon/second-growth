@@ -1,6 +1,6 @@
 # Second Growth
 
-A rewilding tycoon game set on a worn-out farm in the Pacific Northwest foothills, shown as an isometric 3D diorama. You don't buy animals or upgrades. You shape water and soil, brush in native plants, pull invasives, and tear out the old farm. Wildlife then follows its own rules: it wanders in from the surrounding forest, river and farms when there's room, raises young, hunts, and moves on when there isn't enough.
+A rewilding tycoon game shown as an isometric 3D diorama, with two maps: a worn-out dairy farm in the Pacific Northwest foothills, and a cattle ranch cut from the Amazon rainforest. You don't buy animals or upgrades. You shape water and soil, brush in native plants, pull invasives, and tear out the old farm. Wildlife then follows its own rules: it wanders in from the surrounding forest, river and farms when there's room, raises young, hunts, and moves on when there isn't enough.
 
 ## Running it
 
@@ -25,7 +25,16 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 - **Difficulty:** Relaxed, Standard or Challenging. It scales starting money, grants, what work costs, how often fire and flood come, and how hard invasive seeds press in from the neighbours. Pick it for a new game, or change it any time in Settings.
 - **Music** is generated live with Web Audio (warm keys, soft bass, a swung beat, vinyl crackle) and nature sounds follow the weather and seasons; no audio files are downloaded.
 
+## Maps
+
+- **Hollis Farm** (Cascade foothills, Washington): 33 plants and 34 animals, salmon runs, beavers, winter floods and snow, summer fires. Has the eight-chapter campaign and Free Play.
+- **Fazenda Esperança** (Pará, Brazil): an old cattle ranch where African pasture grass (braquiária) runs fence to fence and burns every dry season, with a scrap of forest reserve in one corner touching the rainforest. 27 plants (cecropia, ingá, açaí and buriti palms, Brazil nut, kapok, ipê, heliconia, bamboo, and the invasive grasses) and 26 animals (jaguar, tapir, howler and spider monkeys, sloth, giant otter, toucan, scarlet macaw, harpy eagle, caiman, anaconda, pink river dolphin, arapaima and more). Sow the muvuca seed mix, shade out the grass, keep fire off the young forest, and reconnect the canopy so arboreal animals can move in through the treetops. Agoutis are the only animals that spread Brazil nuts. Free Play only for now, with its own milestone goals.
+
+Each map keeps its own save. Choosing a different map reloads the page into it.
+
 ## How the ecosystem works
+
+(Described for the Hollis farm; the Amazon map runs the same rules with its own species, seasons and climate.)
 
 - **Time:** 1 game day per second at normal speed, 10 days a month, 120 days a year. Seasons change growth, moisture, blooming, fruiting and migration.
 - **Plants** (33 PNW species) each have moisture, light and soil ranges. They grow where conditions suit them and decline where they don't. Once mature they spread seed. Seeds also drift in from the forest edges, from the river in floods, and (blackberry, broom, canarygrass) from the neighbouring farms.
@@ -46,8 +55,11 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 ```
 index.html, styles.css      page shell and UI styling
 js/config.js                constants, terrain / feature / habitat enums
-js/data/plants.js           plant species, seed mixes
-js/data/animals.js          animal species and their habitat rules
+js/biome.js                 the active map: swaps species, goals, climate and look
+js/maps/pnw.js, amazon.js   each map's story, climate, seasons, look, goals and generator hooks
+js/maps/amazon-world.js     the ranch layout and its rainforest surroundings
+js/data/plants.js           plant registry (species in plants-pnw.js, plants-amazon.js)
+js/data/animals.js          animal registry (species in animals-pnw.js, animals-amazon.js)
 js/world.js                 map arrays, farm generation, surroundings
 js/sim/environment.js       water, moisture, canopy, distance fields, habitat classes, food
 js/sim/plants.js            growth, seeding, competition, soil
@@ -57,12 +69,13 @@ js/game.js                  clock, events, save/load
 js/tools.js                 player tools
 js/render3d/                three.js scene: terrain mesh, instanced plants, buildings, lighting
 js/render3d/fauna.js        3D wildlife and visitors: built from soft primitives, instanced, animated in a vertex shader
-js/render3d/portraits.js    field-guide portraits rendered from the 3D models
+js/render3d/portraits.js    field-guide portraits (animals and tropical plants) rendered from the 3D models
 js/render3d/focus.js        see-through cover around the selected animal
 js/render3d/snow.js         winter snow on the ground, plants and roofs
 js/audio/music.js           procedural lo-fi music and nature ambience (Web Audio)
 js/render/sprites.js        procedural 2D art: terrain textures, fire and smoke, fallback portraits
 assets/logo.svg             the Second Growth emblem (loading screen, top bar, favicon)
+assets/maps/                preview images of each map (welcome screen and map picker), rendered in-game
 js/sim/visitors.js          trails, visitor numbers, rating and income
 js/sim/events.js            wildfires and floods
 vendor/three/               three.js 0.186 and its BufferGeometryUtils addon (MIT)
