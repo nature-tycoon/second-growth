@@ -3,6 +3,7 @@
 const svg = (body, vb = '0 0 32 32') => `<svg viewBox="${vb}" aria-hidden="true">${body}</svg>`;
 
 export const ICONS = {
+  lock: svg('<rect x="8" y="14" width="16" height="13" rx="2.5" fill="currentColor"/><path d="M11 14 V10.5 A5 5 0 0 1 21 10.5 V14" fill="none" stroke="currentColor" stroke-width="3"/>'),
   pin: svg('<path d="M16 29 C16 29 7 19 7 12.5 A9 9 0 0 1 25 12.5 C25 19 16 29 16 29Z" fill="currentColor"/><circle cx="16" cy="12.5" r="3.4" fill="#fff"/>'),
   inspect: svg('<circle cx="14" cy="14" r="8" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 20 L27 27" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>'),
   shovel: svg('<path d="M9 23 C6 20 7 16 10 14 L13 17 L16 20 C14 23 10 24 9 23Z" fill="currentColor"/><path d="M14 16 L25 5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M22 4 L27 9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M4 28 C10 26 16 27 22 28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" opacity=".6"/>'),
@@ -17,6 +18,10 @@ export const ICONS = {
   crew: svg('<path d="M6 14 C6 8 11 5 16 5 C21 5 26 8 26 14Z" fill="#e0b030"/><rect x="4" y="13" width="24" height="3" rx="1.5" fill="#c8942a"/><path d="M9 20 C11 17 13 21 15 18 C16 22 19 18 21 21 C22 19 24 20 24 22 C24 26 20 28 16 28 C11 28 8 26 9 20Z" fill="#4d8fc0"/>'),
   hiker: svg('<circle cx="17" cy="5.5" r="3.2" fill="currentColor"/><path d="M15 10 L12 19 L8 28 M15 10 L18 18 L22 28 M15 12 L20 16 M13 12 L9 17" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><rect x="18" y="9" width="5" height="8" rx="2" fill="currentColor"/><path d="M25 8 L23 29" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'),
   parking: svg('<rect x="3" y="3" width="26" height="26" rx="6" fill="#3a6a9a"/><path d="M12 24 V8 H18 C22 8 23.5 10.5 23.5 13 C23.5 15.5 22 18 18 18 H12" stroke="#fff" stroke-width="3" fill="none" stroke-linejoin="round"/>'),
+  barn: svg('<path d="M4 14 L16 5 L28 14 V28 H4Z" fill="#9c3b2f"/><path d="M4 14 L16 5 L28 14" fill="none" stroke="#5a2a22" stroke-width="2"/><rect x="11" y="17" width="10" height="11" fill="#6e2a22"/><path d="M11 17 L21 28 M21 17 L11 28" stroke="#e8dcc6" stroke-width="1.6"/><rect x="14" y="10" width="4" height="4" fill="#e8dcc6"/>'),
+  shed: svg('<path d="M5 14 L16 7 L27 14 V27 H5Z" fill="#8a7a5a"/><path d="M4 14 L16 6.5 L28 14" fill="none" stroke="#4b4a4c" stroke-width="2.4"/><rect x="12" y="17" width="8" height="10" fill="#5a4a38"/>'),
+  house: svg('<path d="M3 15 L16 5 L29 15Z" fill="#6a5a4a"/><rect x="6" y="15" width="20" height="13" fill="#e8dcc6"/><rect x="9" y="18" width="5" height="4" fill="#9fc4d0"/><rect x="18" y="18" width="5" height="10" fill="#7a5a3a"/><rect x="21" y="6" width="3" height="6" fill="#8a6a50"/>'),
+  silo: svg('<rect x="10" y="9" width="12" height="19" fill="#b8b4a8"/><path d="M10 9 Q16 2 22 9Z" fill="#8a8a8a"/><path d="M10 14 H22 M10 19 H22 M10 24 H22" stroke="#8a867a" stroke-width="1.2"/>'),
   center: svg('<path d="M3 15 L16 5 L29 15Z" fill="#4f6a3a"/><rect x="6" y="15" width="20" height="12" fill="#8a6444"/><rect x="9" y="18" width="9" height="5" fill="#9fc4d0"/><rect x="20" y="18" width="4" height="9" fill="#4a3020"/>'),
   sun: svg('<circle cx="16" cy="16" r="6" fill="#f2b632"/><g stroke="#f2b632" stroke-width="2.2" stroke-linecap="round"><path d="M16 3v4M16 25v4M3 16h4M25 16h4M6.8 6.8l2.8 2.8M22.4 22.4l2.8 2.8M6.8 25.2l2.8-2.8M22.4 9.6l2.8-2.8"/></g>'),
   cloud: svg('<path d="M9 24 a6 6 0 0 1 1-12 a8 8 0 0 1 15 3 a5 5 0 0 1-1 9Z" fill="#b8c0c8"/><circle cx="23" cy="9" r="4" fill="#f2b632"/>'),

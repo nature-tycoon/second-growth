@@ -8,6 +8,7 @@ import { STRUCTURES } from '../world.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
 import { layerLight } from '../sim/environment.js';
 import { GOALS, speciesPresent } from '../sim/goals.js';
+import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chapterOfTool } from '../sim/campaign.js';
 import { Game } from '../game.js';
 import * as S from '../render/sprites.js';
 import { renderPortrait } from '../render3d/portraits.js';
@@ -135,13 +136,15 @@ export class UI {
     this.journal = [];
     this.lastTop = 0; this.lastInfo = 0; this.lastMini = 0;
     this.toastCount = 0;
+    this.newCats = new Set(); // tool categories a chapter just unlocked (they glow until opened)
     this.buildToolbar();
     this.bindTopbar();
     this.minimap = $('#minimap');
     this.minimap.width = 400; this.minimap.height = 300;
     this.bindMinimap();
     game.on('notify', n => this.toast(n));
-    game.on('reset', () => { this.journal = []; this.closeInfo(); this.refreshTop(true); });
+    game.on('reset', () => { this.journal = []; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
+    game.on('chapter', e => this.onChapterDone(e));
     game.on('month', () => { if (this.state.cat !== 'inspect') this.renderToolPanel(); });
     game.on('event', kind => { if ((kind === 'fire' || kind === 'flood') && settings.pauseOnEvents && game.speed) this.setSpeed(0); });
     this.bindAnalytics();
@@ -261,6 +264,7 @@ export class UI {
     this.renderBanner();
     const open = GOALS.filter(x => !g.goalsDone[x.key]).length;
     $('#btn-goals').innerHTML = `Goals<span class="badge">${GOALS.length - open}/${GOALS.length}</span>`;
+    this.renderQuest();
   }
 
   renderBanner() {
@@ -281,6 +285,7 @@ export class UI {
       let sx = 0, sy = 0, n = 0;
       for (let i = 0; i < w.n; i++) if (arr[i]) { sx += i % w.w; sy += (i / w.w) | 0; n++; }
       if (n) this.renderer.centerOn(sx / n + 0.5, sy / n + 0.5);
+      if (!fire && this.state.overlay !== 'flood') this.setOverlay('flood'); // make the floodwater easy to see
     });
     b.querySelector('[data-b=crew]')?.addEventListener('click', () => { this.state.cat = ''; this.openCategory('remove'); this.selectTool('firecrew'); });
   }
@@ -290,7 +295,8 @@ export class UI {
     const bar = $('#toolbar');
     bar.innerHTML = '';
     CATEGORIES.forEach((c, n) => {
-      const b = el('button', '', `${ICONS[c.icon]}<span>${c.name}</span>`);
+      const open = c.key === 'inspect' || this.toolsFor(c.key, true, true).length > 0;
+      const b = el('button', (open ? '' : 'hidden') + (this.newCats?.has(c.key) ? ' fresh' : ''), `${ICONS[c.icon]}<span>${c.name}</span>`);
       b.dataset.cat = c.key;
       b.title = c.desc;
       b.addEventListener('click', () => this.openCategory(c.key));
@@ -309,20 +315,28 @@ export class UI {
       return;
     }
     st.cat = cat;
+    if (this.newCats?.delete(cat)) document.querySelector(`#toolbar [data-cat=${cat}]`)?.classList.remove('fresh');
     this.markToolbar();
     if (cat === 'inspect') { st.tool = null; $('#toolpanel').classList.add('hidden'); return; }
-    const list = this.toolsFor(cat);
-    if (!st.tool || TOOLS[st.tool].cat !== cat) this.selectTool(list[0].key, false);
+    if (cat === 'plants' && !this.toolsFor('plants', true).length) st.plantTab = PLANT_TABS.find(t => this.tabOpen(t.key))?.key || 'mixes';
+    const list = this.toolsFor(cat, true);
+    if (!list.length) return;
+    if (!st.tool || TOOLS[st.tool].cat !== cat || !this.isOpen(st.tool)) this.selectTool(list[0].key, false);
     this.renderToolPanel();
     $('#toolpanel').classList.remove('hidden');
   }
-  toolsFor(cat) {
+  // Tools in a category (the current plant tab only, unless allTabs); openOnly skips campaign-locked ones.
+  toolsFor(cat, openOnly = false, allTabs = false) {
     let list = Object.values(TOOLS).filter(t => t.cat === cat);
-    if (cat === 'plants') list = list.filter(t => t.sub === this.state.plantTab);
+    if (cat === 'plants' && !allTabs) list = list.filter(t => t.sub === this.state.plantTab);
+    if (openOnly) list = list.filter(t => this.isOpen(t.key));
     return list;
   }
+  isOpen(key) { const u = unlockedTools(this.game); return !u || u.has(key); }
+  tabOpen(sub) { return Object.values(TOOLS).some(t => t.sub === sub && this.isOpen(t.key)); }
   selectTool(key, rerender = true) {
     const t = TOOLS[key];
+    if (!this.isOpen(key)) return;
     this.state.tool = key;
     // each tool category remembers the last brush size you used with it
     this.state.brushR = t.brush ? (settings.brushSizes[t.cat] ?? t.size) : 0;
@@ -351,10 +365,11 @@ export class UI {
     if (st.cat === 'plants') {
       const tabs = el('div', 'tabs');
       for (const t of PLANT_TABS) {
+        if (!this.tabOpen(t.key)) continue;
         const b = el('button', t.key === st.plantTab ? 'on' : '', t.name);
         b.addEventListener('click', () => {
           st.plantTab = t.key;
-          const first = this.toolsFor('plants')[0];
+          const first = this.toolsFor('plants', true)[0];
           this.selectTool(first.key);
         });
         tabs.appendChild(b);
@@ -363,11 +378,12 @@ export class UI {
     }
     const grid = el('div', 'tool-grid');
     for (const t of this.toolsFor(st.cat)) {
-      const card = el('div', 'tool-card' + (t.key === st.tool ? ' on' : '') + (t.cost > this.game.money ? ' poor' : ''));
-      const costTxt = t.costFor ? 'varies' : t.cost ? money(t.cost) + (t.brush ? '/tile' : '') : 'free';
-      card.innerHTML = `<img src="${iconThumb(t.icon)}" alt=""><div class="nm">${t.name}</div><div class="cost">${costTxt}</div>`;
-      card.title = t.desc;
-      card.addEventListener('click', () => this.selectTool(t.key));
+      const open = this.isOpen(t.key), ch = open ? -1 : chapterOfTool(t.key);
+      const card = el('div', 'tool-card' + (t.key === st.tool ? ' on' : '') + (open && t.cost > this.game.money ? ' poor' : '') + (open ? '' : ' locked'));
+      const costTxt = !open ? `Chapter ${ch + 1}` : t.costFor ? 'varies' : t.cost ? money(t.cost) + (t.brush ? '/tile' : '') : 'free';
+      card.innerHTML = `<img src="${iconThumb(t.icon)}" alt="">${open ? '' : `<span class="lock">${ICONS.lock}</span>`}<div class="nm">${t.name}</div><div class="cost">${costTxt}</div>`;
+      card.title = open ? t.desc : `Unlocks in Chapter ${ch + 1}: ${CHAPTERS[ch].title}`;
+      card.addEventListener('click', () => open ? this.selectTool(t.key) : this.game.notify(`${t.name} unlocks in Chapter ${ch + 1}, "${CHAPTERS[ch].title}". Finish this chapter's goals to get there.`, 'info'));
       grid.appendChild(card);
     }
     panel.appendChild(grid);
@@ -445,11 +461,13 @@ export class UI {
   }
   inspectTile(i) {
     this.follow = null;
+    this.game.flags.inspected = true;
     this.game.selectedAgent = null;
     this.state.inspect = { i };
     this.renderInfo();
   }
   inspectAgent(a) {
+    this.game.flags.inspected = true;
     if (this.follow && this.follow !== a) this.follow = null;
     this.game.selectedAgent = a;
     this.state.inspect = { agent: a.id };
@@ -629,6 +647,7 @@ export class UI {
     else if (mode === 'light') html = '<b>Sunlight at ground level</b>' + grad(['#1c2a3a', '#6a8a6a', '#f2e08a'], 'deep shade', 'full sun');
     else if (mode === 'elevation') html = '<b>Elevation</b>' + grad(['#2f6a5a', '#c8c07a', '#f4f0e8'], 'low (wetter)', 'high (drier)');
     else if (mode === 'disturb') html = '<b>Visitor disturbance</b>' + grad(['#f2e08a', '#e0843a', '#b8302a'], 'a little', 'a lot') + '<div class="small" style="margin-top:4px">Shy species avoid busy trails. Screening shrubs and viewing blinds help.</div>';
+    else if (mode === 'flood') html = '<b>Flood risk</b><div class="row"><span class="chip" style="background:#1f6bf2"></span>Underwater right now</div><div class="row"><span class="chip" style="background:#3380d9"></span>Floods most winters</div><div class="row"><span class="chip" style="background:#8cc7f2"></span>Only in a big flood</div><div class="small" style="margin-top:4px">Marshes, ponds and beaver dams soak up floodwater and shrink these zones.</div>';
     else if (mode === 'fish') html = '<b>Fish passage</b><div class="row"><span class="chip" style="background:#c83c32"></span>Cut off from the river</div>' + grad(['#d88a4a', '#e8d86a', '#5ad0a0'], 'connected, poor', 'connected, clean & shaded');
     else if (mode === 'species') {
       const def = ANIMALS[this.state.overlaySpecies];
@@ -749,7 +768,15 @@ export class UI {
 
   openGoals() {
     const g = this.game;
-    const html = GOALS.map(goal => {
+    let camp = '';
+    if (campaignOn(g)) {
+      camp = '<div class="section-title" style="margin-top:0">Campaign</div>' + CHAPTERS.map((c, k) => {
+        const state = k < g.campaign.chapter ? 'done' : k === g.campaign.chapter ? 'now' : 'later';
+        const goals = state === 'now' ? `<div class="ch-goals">${c.goals.map(o => `<div class="need"><span class="st ${o.check(g) ? 'good' : ''}">${o.check(g) ? '✓' : '•'}</span><span>${o.desc} <span class="small">(${o.prog(g)})</span></span></div>`).join('')}</div>` : '';
+        return `<div class="goal chapter ${state}"><div class="check">${state === 'done' ? '✓' : k + 1}</div><div><div class="gn">${c.title}</div>${state === 'later' ? '<div class="gd">Locked</div>' : state === 'done' ? '<div class="gd">Complete</div>' : goals}</div><div class="gr">${money(c.reward)}</div></div>`;
+      }).join('') + '<div class="section-title">Milestone grants</div>';
+    }
+    const html = camp + GOALS.map(goal => {
       const done = !!g.goalsDone[goal.key];
       return `<div class="goal ${done ? 'done' : ''}"><div class="check">${done ? '✓' : ''}</div><div><div class="gn">${goal.name}</div><div class="gd">${goal.desc}</div><div class="gp">${done ? 'Completed' : goal.prog(g)}</div></div><div class="gr">${money(goal.reward)}</div></div>`;
     }).join('');
@@ -798,19 +825,14 @@ export class UI {
       <button class="btn secondary" data-a="feedback">Send feedback</button>
       <button class="btn secondary" data-a="help">How to play</button>
       <button class="btn secondary" data-a="save">Save game</button>
-      <button class="btn secondary" data-a="new">Start over on a fresh farm</button></div>`, { narrow: true });
+      <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
     m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
     m.querySelector('[data-a=journal]').addEventListener('click', () => this.openJournal());
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
     m.querySelector('[data-a=save]').addEventListener('click', () => { const ok = this.game.save(); this.closeModal(); this.game.notify(ok ? 'Game saved. It also autosaves every month.' : 'Could not save (browser storage unavailable).', ok ? 'good' : 'warn'); });
-    const nb = m.querySelector('[data-a=new]');
-    nb.addEventListener('click', () => {
-      if (!nb.dataset.sure) { nb.dataset.sure = 1; nb.textContent = 'Click again to replace this farm for good'; nb.classList.add('danger'); return; }
-      track('game_restart', this.snapshot());
-      Game.clearSave(); this.game.newGame(Math.floor(Math.random() * 100000)); this.closeModal(); this.afterNewGame();
-    });
+    m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true));
   }
 
   openSettings() {
@@ -886,6 +908,98 @@ export class UI {
   afterNewGame() {
     this.renderer.resetView();
     this.setOverlay('none');
+    this.openCategory('inspect');
+    this.buildToolbar();
+    this.renderQuest(true);
+  }
+
+  // ------------------------------------------------------------ campaign
+  // Pick Campaign or Free Play. replacing = start over on a new farm (after a confirm).
+  openModeChoice(replacing) {
+    const m = this.modal('How do you want to play?', `<div class="modes">
+      <button class="mode-card" data-m="campaign"><b>Campaign</b><span>Eight chapters on the Hollis farm. Each one teaches a new part of restoration and unlocks new tools as you go. Best for your first time.</span></button>
+      <button class="mode-card" data-m="free"><b>Free play</b><span>Every tool from the start and no chapters, just the land, the grants and the milestone goals.</span></button>
+      </div>${replacing && Game.hasSave() ? '<p class="small" style="margin:10px 2px 0">This replaces your saved farm.</p>' : ''}`, { narrow: true });
+    m.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
+      if (replacing && Game.hasSave() && !b.dataset.sure) {
+        m.querySelectorAll('[data-m]').forEach(o => { delete o.dataset.sure; o.classList.remove('danger'); });
+        b.dataset.sure = 1; b.classList.add('danger'); b.querySelector('span').textContent = 'Click again to replace your saved farm for good.';
+        return;
+      }
+      this.closeModal();
+      this.startMode(b.dataset.m, replacing);
+    }));
+  }
+  startMode(mode, fresh) {
+    const g = this.game;
+    if (fresh) { track('game_restart', this.snapshot()); Game.clearSave(); g.newGame(Math.floor(Math.random() * 100000), mode); }
+    else { g.mode = mode; g.campaign = { chapter: 0 }; }
+    track('game_start', { mode, fresh });
+    this.newCats = new Set();
+    this.afterNewGame();
+    if (g.speed === 0) this.setSpeed(1);
+    if (mode === 'campaign') this.openChapter(0);
+    else g.notify('Spring, Year 1. The farm is quiet: a few voles, robins and a pair of mallards on the stock pond. Let\'s change that.', 'season');
+  }
+
+  // A chapter's introduction: the story, what to do, the goals, and the tools it unlocks.
+  openChapter(k, review = false) {
+    const g = this.game, c = CHAPTERS[k];
+    if (!c) return;
+    const tools = c.unlock.map(key => TOOLS[key]).filter(Boolean);
+    const shown = tools.filter(t => !t.sub || t.sub === 'mixes').slice(0, 10);
+    const extra = tools.length - shown.length;
+    const resume = g.speed; this.setSpeed(0);
+    const m = this.modal(`Chapter ${k + 1}: ${c.title}`, `<div class="chapter-intro">
+      <p class="ch-story">${c.story}</p>
+      <div class="section-title">New tools</div>
+      <div class="ch-tools">${shown.map(t => `<div class="ch-tool"><img src="${iconThumb(t.icon)}" alt=""><span>${t.name}</span></div>`).join('')}${extra > 0 ? `<div class="ch-tool more">+${extra} more plants</div>` : ''}</div>
+      <div class="section-title">How</div><p class="info-desc">${c.teach}</p>
+      <div class="section-title">Goals</div>${c.goals.map(o => `<div class="need"><span class="st">•</span><span>${o.desc}</span></div>`).join('')}
+      <p class="small" style="margin-top:10px">Complete all three for a ${money(c.reward)} grant and Chapter ${k + 2 <= CHAPTERS.length ? k + 2 : 'the end'}.</p>
+      </div>`, { narrow: true, foot: `<button class="btn" data-a="go">Let's go</button>`, onClose: () => this.setSpeed(resume || 1) });
+    m.querySelector('[data-a=go]').addEventListener('click', () => this.closeModal());
+    if (!review) for (const t of tools) this.newCats.add(t.cat);
+    this.buildToolbar();
+    if (this.state.cat !== 'inspect') this.renderToolPanel(); // show the newly unlocked tools
+    this.questOpen = !COMPACT(); // on small screens the tracker starts folded
+    this.renderQuest(true);
+  }
+
+  onChapterDone({ done, next, index }) {
+    track('chapter_complete', { chapter: index + 1, key: done.key, ...this.snapshot() });
+    const g = this.game, resume = g.speed;
+    this.setSpeed(0);
+    this.newCats ||= new Set();
+    const body = next
+      ? `<p class="ch-story">You finished <b>${done.title}</b>. The land trust sent a <b>${money(done.reward)}</b> grant.</p><p class="info-desc">Next up: <b>Chapter ${index + 2}, ${next.title}</b>, with new tools to learn.</p>`
+      : `<p class="ch-story">You finished the campaign. The Hollis farm is a living valley again, and every tool is yours. Keep going as long as you like: the old forest is still growing up, and the salmon are still coming home.</p><p class="info-desc">The land trust sent a final <b>${money(done.reward)}</b> grant.</p>`;
+    const m = this.modal(next ? `Chapter ${index + 1} complete!` : 'The valley is restored', `<div class="chapter-done">${body}</div>`, { narrow: true,
+      foot: `<button class="btn" data-a="next">${next ? `Start Chapter ${index + 2}` : 'Keep restoring'}</button>`, onClose: () => { if (!next) this.setSpeed(resume || 1); } });
+    m.querySelector('[data-a=next]').addEventListener('click', () => {
+      this.closeModal();
+      if (next) this.openChapter(index + 1);
+      else { this.buildToolbar(); this.renderQuest(true); this.setSpeed(resume || 1); }
+    });
+    this.buildToolbar();
+    this.renderQuest(true);
+  }
+
+  // The chapter tracker at the top of the screen.
+  renderQuest(force = false) {
+    const q = $('#quest'), g = this.game, c = currentChapter(g);
+    document.body.classList.toggle('campaign', !!c);
+    if (!c) { q.classList.add('hidden'); return; }
+    const now = performance.now();
+    if (!force && now - (this.questAt || 0) < 1000) return;
+    this.questAt = now;
+    const k = g.campaign.chapter, doneN = c.goals.filter(o => o.check(g)).length;
+    q.classList.remove('hidden');
+    q.classList.toggle('open', !!this.questOpen);
+    q.innerHTML = `<button class="q-head" title="${this.questOpen ? 'Hide goals' : 'Show goals'}"><span class="q-ch">Chapter ${k + 1}/${CHAPTERS.length}</span><b>${c.title}</b><span class="q-n">${doneN}/${c.goals.length}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
+      (this.questOpen ? `<div class="q-body">${c.goals.map(o => { const ok = o.check(g); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${o.desc}<small>${o.prog(g)}</small></span></div>`; }).join('')}<button class="q-more">Chapter details</button></div>` : '');
+    q.querySelector('.q-head').addEventListener('click', () => { this.questOpen = !this.questOpen; this.renderQuest(true); });
+    q.querySelector('.q-more')?.addEventListener('click', () => this.openChapter(k, true));
   }
 
   togglePanels() {
@@ -946,7 +1060,8 @@ export class UI {
         <li>When you can afford it, put a <b>trailhead parking</b> lot by the road and a trail into your best habitat.</li>
       </ul></div>`;
     const foot = first
-      ? (hasSave ? `<button class="btn secondary" data-a="new">New farm</button><button class="btn" data-a="continue">Continue restoration</button>` : `<button class="btn" data-a="new">Start restoring</button>`)
+      ? (hasSave ? `<button class="btn secondary" data-a="new">New game</button><button class="btn" data-a="continue">Continue restoration</button>`
+        : `<button class="btn secondary" data-a="free">Free play</button><button class="btn" data-a="campaign">Start the campaign</button>`)
       : `<button class="btn" data-a="close">Back to the farm</button>`;
     const m = this.modal(first ? 'Welcome to Second Growth' : 'How to play', body, { narrow: true, foot, onClose });
     const btn = a => m.querySelector(`[data-a=${a}]`);
@@ -958,11 +1073,11 @@ export class UI {
       this.afterNewGame();
       this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
     });
-    btn('new')?.addEventListener('click', () => {
+    btn('new')?.addEventListener('click', () => this.openModeChoice(true));
+    // first visit: the farm is already generated, so just choose how to play it
+    for (const mode of ['free', 'campaign']) btn(mode)?.addEventListener('click', () => {
       this.closeModal();
-      track('game_start', { mode: hasSave ? 'new_over_save' : 'new' });
-      if (hasSave) { Game.clearSave(); this.game.newGame(Math.floor(Math.random() * 100000)); this.afterNewGame(); }
-      this.game.notify('Spring, Year 1. The farm is quiet: a few voles, robins and a pair of mallards on the stock pond. Let\'s change that.', 'season');
+      this.startMode(mode, false);
     });
   }
 }

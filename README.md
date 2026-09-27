@@ -14,6 +14,7 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 
 ## Controls
 
+- **Campaign or Free Play.** The campaign walks you through eight chapters on the same farm (fields, water, opening the gates, shading the creek, wildlife homes, fire and flood, visitors, reintroductions). Each chapter has three goals and unlocks the next set of tools; wildfires and floods begin in Chapter 6. Free Play has every tool from the start.
 - Pick a tool on the left, then click and drag to brush it. `[` and `]` change the brush size, and each tool group remembers the size you last used.
 - Right-drag or `WASD` / arrow keys to pan, scroll wheel or `+`/`-` to zoom, `Q`/`E` to rotate the view.
 - `Space` pauses, `1`–`3` set the speed. `T` sees through trees, `H` toggles the habitat overlay, `G` opens the field guide, `Tab` hides the side panels.
@@ -62,6 +63,8 @@ js/sim/events.js            wildfires and floods
 vendor/three/               three.js 0.186 and its BufferGeometryUtils addon (MIT)
 js/ui/                      DOM interface
 tools/balance-sim.mjs       headless balance simulator (node tools/balance-sim.mjs restore 15)
+tools/campaign-sim.mjs      scripted campaign playthrough: days per chapter (node tools/campaign-sim.mjs 14)
+js/sim/campaign.js          campaign chapters: story, goals, unlocks
 ```
 
 Most tuning lives in `js/data/*.js` (species ranges, growth, spread, home ranges) and `js/sim/goals.js` (economy). Run `tools/balance-sim.mjs` after tuning to see how a farm develops over decades in a few seconds.

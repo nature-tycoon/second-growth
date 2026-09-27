@@ -106,6 +106,14 @@ function plantTool(source, cost, density) {
     for (let k = 0; k < species.length; k++) { r -= s[k]; if (r <= 0) { pick = species[k]; break; } }
     w.setPlant(i, pick, 0.1);
     game.stats.planted++;
+    // tallies for the campaign: trees planted, and shrubs or trees planted right beside the creek
+    if (pick.layer === 2) game.stats.treesPlanted = (game.stats.treesPlanted || 0) + 1;
+    if (pick.layer > 0) {
+      const x = i % w.w, y = (i / w.w) | 0;
+      let creek = false;
+      for (let dy = -1; dy <= 1 && !creek; dy++) for (let dx = -1; dx <= 1; dx++) if (w.inb(x + dx, y + dy) && w.terrain[w.idx(x + dx, y + dy)] === T.CREEK) { creek = true; break; }
+      if (creek) game.stats.creekPlanted = (game.stats.creekPlanted || 0) + 1;
+    }
     return true;
   };
 }
@@ -252,9 +260,20 @@ tool({ key: 'blind', cat: 'visitors', name: 'Viewing blind', cost: 900, brush: f
     w.feature[i] = F.BLIND; w.shrub[i] = 0; w.tree[i] = 0; w.treeG[i] = 0;
     return true;
   } });
-function buildTool(type, desc) {
+tool({ key: 'build_road', cat: 'visitors', name: 'Gravel road', cost: 40, icon: { terrain: T.ROAD }, size: 0,
+  desc: 'Lay a farm road. Visitors drive in on roads, and trailhead parking has to sit beside one. Roads block nothing, but they are bare ground for wildlife.',
+  apply: (game, i) => {
+    const w = game.world, t = w.terrain[i];
+    if (isWater(t) || t === T.ROAD || w.struct[i] >= 0) return null;
+    const f = w.feature[i];
+    if (f && f !== F.FENCE && f !== F.BRUSH && f !== F.ROCKS && f !== F.LOG) return null;
+    w.terrain[i] = T.ROAD; w.feature[i] = 0;
+    w.clearPlants(i);
+    return true;
+  } });
+function buildTool(type, desc, { cat = 'visitors', needsRoad = true, done = null } = {}) {
   const d = STRUCTURES[type];
-  return tool({ key: 'build_' + type, cat: 'visitors', name: d.name, cost: d.build, brush: false, icon: { svg: type },
+  return tool({ key: 'build_' + type, cat, name: needsRoad ? d.name : 'Rebuild ' + d.name.toLowerCase(), cost: d.build, brush: false, icon: { svg: type },
     desc, footprint: [d.w, d.h],
     apply: (game, i) => {
       const w = game.world, x = i % w.w, y = (i / w.w) | 0;
@@ -269,18 +288,25 @@ function buildTool(type, desc) {
         const j = w.idx(xx, yy), t = w.terrain[j];
         if (t === T.ROAD || (w.struct[j] >= 0 && w.structures[w.struct[j]]?.type === 'parking')) road = true;
       }
-      if (!road) { game.notify(`The ${d.name.toLowerCase()} has to sit right beside a road${type === 'center' ? ' or parking lot' : ''} so people can drive in.`, 'warn'); return 'blocked'; }
+      if (needsRoad && !road) { game.notify(`The ${d.name.toLowerCase()} has to sit right beside a road${type === 'center' ? ' or parking lot' : ''} so people can drive in.`, 'warn'); return 'blocked'; }
       for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) {
         const j = w.idx(xx, yy);
         w.terrain[j] = T.GRAVEL;
       }
       w.addStructure(type, x, y);
+      if (done) { game.notify(done, 'good'); return true; }
       game.notify(type === 'parking' ? 'Trailhead parking built. Now lay a trail out from it into the best habitat.' : 'The visitor center is open. Visitors give more, and the gift shop and exhibits raise your rating.', 'good');
       return true;
     } });
 }
 buildTool('parking', 'Where visitors park and start their walk. Must be next to a road. Holds about 220 visitors a month.');
 buildTool('center', 'Exhibits, a gift shop and restrooms. Visitors give more and rate the preserve higher. Must be next to a road or parking lot.');
+// Farm buildings you tore down can go back up. Old buildings are roosts for bats, owls and swallows.
+const roost = { cat: 'features', needsRoad: false };
+buildTool('barn', 'A timber barn. Its loft is a roost for little brown bats and a nest site for owls and swallows.', { ...roost, done: 'The barn is up. Bats and owls will find the loft.' });
+buildTool('shed', 'A small equipment shed. Raccoons and bats move into sheds like this.', { ...roost, done: 'Shed rebuilt.' });
+buildTool('house', 'Put the farmhouse back up, as a caretaker\'s home. Bats roost in the attic.', { ...roost, done: 'The farmhouse stands again.' });
+buildTool('silo', 'A grain silo. Swifts and bats roost inside tall old silos.', { ...roost, done: 'Silo rebuilt.' });
 
 // ---------------------------------------------------------------- wildlife introductions
 for (const a of ANIMALS) {

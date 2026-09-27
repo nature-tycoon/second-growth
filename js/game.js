@@ -10,6 +10,7 @@ import { ANIMALS, ANIMAL, aOne } from './data/animals.js';
 import { ecoScore, monthlyGrant, nativePlantSpecies, GOALS, speciesPresent } from './sim/goals.js';
 import { Visitors } from './sim/visitors.js';
 import { Events } from './sim/events.js';
+import { checkCampaign } from './sim/campaign.js';
 
 const SAVE_KEY = 'second-growth-save-v3';
 const RAIN = [0.45, 0.35, 0.3, 0.2, 0.08, 0.08, 0.2, 0.45, 0.6, 0.65, 0.65, 0.55];
@@ -27,8 +28,11 @@ export class Game {
   on(ev, fn) { (this.listeners[ev] ||= []).push(fn); }
   emit(ev, ...args) { for (const fn of this.listeners[ev] || []) fn(...args); }
 
-  newGame(seed = 1987) {
+  // mode: 'free' (everything unlocked) or 'campaign' (chapters unlock tools as you learn)
+  newGame(seed = 1987, mode = 'free') {
     this.seed = seed;
+    this.mode = mode;
+    this.campaign = { chapter: 0 };
     this.world = generateFarm(seed);
     this.border = new Border(this.world);
     this.rng = mulberry32(seed * 31 + 7);
@@ -37,7 +41,7 @@ export class Game {
     this.money = 30000;
     this.speed = 1;
     this.flags = {};
-    this.stats = { planted: 0, dug: 0, removed: 0, spent: 0, earned: 0 };
+    this.stats = { planted: 0, dug: 0, removed: 0, spent: 0, earned: 0, used: {} };
     this.goalsDone = {};
     this.history = [];
     this.weather = 'clear';
@@ -121,6 +125,7 @@ export class Game {
     this.wildlife.daily();
     this.visitors.daily();
     this.events.daily();
+    checkCampaign(this);
     // weather
     const r = this.rng();
     const m = this.month;
@@ -213,6 +218,7 @@ export class Game {
         world: { arrays, structures: w.structures },
         wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
         visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant,
+        mode: this.mode, campaign: this.campaign,
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(data));
       return true;
@@ -240,6 +246,9 @@ export class Game {
     this.rng = mulberry32(1); this.rng.setState(data.rng);
     this.day = data.day; this.acc = 0; this.money = data.money; this.speed = data.speed || 1;
     this.flags = data.flags; this.stats = data.stats; this.goalsDone = data.goalsDone; this.history = data.history || [];
+    this.stats.used ||= {};
+    this.mode = data.mode || 'free'; // saves from before the campaign are free play
+    this.campaign = data.campaign || { chapter: 0 };
     this.weather = 'clear';
     this.rainStreak = 0; this.dryStreak = 0;
     this.lastGrant = data.lastGrant || 0;

@@ -6,10 +6,11 @@ import { PLANT } from './data/plants.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
 
 export const STRUCTURES = {
-  house:   { name: 'Old farmhouse', w: 3, h: 2, removeCost: 4000, salvage: 0 },
-  barn:    { name: 'Collapsing barn', w: 4, h: 3, removeCost: 5000, salvage: 1500 },
-  silo:    { name: 'Rusted silo', w: 2, h: 2, removeCost: 2500, salvage: 800 },
-  shed:    { name: 'Equipment shed', w: 2, h: 2, removeCost: 1200, salvage: 300 },
+  // farm buildings can be torn down, and rebuilt later (bats, owls and swallows roost in them)
+  house:   { name: 'Farmhouse', w: 3, h: 2, removeCost: 4000, salvage: 0, build: 9000 },
+  barn:    { name: 'Barn', w: 4, h: 3, removeCost: 5000, salvage: 1500, build: 7000 },
+  silo:    { name: 'Silo', w: 2, h: 2, removeCost: 2500, salvage: 800, build: 3500 },
+  shed:    { name: 'Equipment shed', w: 2, h: 2, removeCost: 1200, salvage: 300, build: 2200 },
   tractor: { name: 'Abandoned tractor', w: 1, h: 1, removeCost: 300, salvage: 900 },
   // visitor facilities the player can build
   parking: { name: 'Trailhead parking', w: 2, h: 2, removeCost: 300, salvage: 0, build: 3500, visitor: true },

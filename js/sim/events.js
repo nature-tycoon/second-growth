@@ -4,6 +4,7 @@ import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { PLANTS, PLANT } from '../data/plants.js';
 import { ANIMALS } from '../data/animals.js';
 import { killTree, trySeed } from './plants.js';
+import { disturbanceOn } from './campaign.js';
 
 // Shrubs that resprout from their roots after a fire.
 const RESPROUT = new Set(['salmonberry', 'snowberry', 'rose', 'oceanspray', 'willow', 'dogwood',
@@ -57,6 +58,8 @@ export class Events {
     const w = g.world;
     for (let i = 0; i < w.n; i++) if (w.scorch[i] > 0) w.scorch[i] -= 1;
 
+    // In the campaign, fires and floods start in the chapter that teaches them.
+    if (!disturbanceOn(g)) return;
     // Late-summer droughts bring fire; visitors add a little risk.
     if (!this.fireTiles && m >= 4 && m <= 6 && g.dryStreak >= 6 && g.day - this.lastFire > 60) {
       const p = 0.012 * (0.4 + this.fuelLoad() * 1.5) * (1 + g.visitors.traffic * 0.8);
@@ -226,15 +229,44 @@ export class Events {
   }
 
   // ------------------------------------------------------------ flood
-  startFlood(intensity) {
-    const g = this.game, w = g.world, rng = g.rng;
+  // How much of a flood the farm's wetlands soak up (0..0.6).
+  sponge() {
+    const g = this.game, w = g.world;
     let wetland = 0;
     for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.MARSH || w.terrain[i] === T.POND) wetland++;
     wetland += g.wildlife.dams * 8;
-    const sponge = clamp(wetland / 380, 0, 0.6);
+    return clamp(wetland / 380, 0, 0.6);
+  }
+
+  // Dry land a flood of this strength would reach (1 = underwater), after the wetlands' share.
+  floodReach(intensity) {
+    const w = this.game.world, out = new Uint8Array(w.n);
+    const eff = intensity * (1 - this.sponge());
+    this.reachFrom(eff, (j) => { if (!isWater(w.terrain[j])) out[j] = 1; });
+    return out;
+  }
+
+  // For the Flood risk overlay: 2 = floods most winters, 1 = only in a big flood, 0 = safe.
+  floodRisk() {
+    const common = this.floodReach(1.0), big = this.floodReach(1.8), out = new Uint8Array(common.length);
+    for (let i = 0; i < out.length; i++) out[i] = common[i] ? 2 : big[i] ? 1 : 0;
+    return out;
+  }
+
+  startFlood(intensity) {
+    const g = this.game, w = g.world, rng = g.rng;
+    const sponge = this.sponge();
     const eff = intensity * (1 - sponge);
-    // Floodwater reaches land that sits only a little above its nearest river or creek
-    // ("height above nearest drainage"): wide on the river's floodplain, narrow along creeks.
+    const days = 4 + Math.round(intensity * 4);
+    let flooded = 0;
+    this.reachFrom(eff, j => { if (!isWater(w.terrain[j]) && !w.flood[j]) { w.flood[j] = days; flooded++; } });
+    this.finishFlood(intensity, sponge, flooded);
+  }
+
+  // Walk out from the river and connected creeks over land that sits only a little above them
+  // ("height above nearest drainage"): wide on the river's floodplain, narrow along creeks.
+  reachFrom(eff, visit) {
+    const w = this.game.world;
     const srcH = new Float32Array(w.n).fill(NaN), srcRiver = new Uint8Array(w.n), dist = new Uint8Array(w.n).fill(255);
     const q = [];
     for (let i = 0; i < w.n; i++) {
@@ -243,8 +275,6 @@ export class Events {
         srcH[i] = w.tileH(i % w.w, (i / w.w) | 0); srcRiver[i] = t === T.RIVER ? 1 : 0; dist[i] = 0; q.push(i);
       }
     }
-    let flooded = 0;
-    const days = 4 + Math.round(intensity * 4);
     for (let h = 0; h < q.length; h++) {
       const i = q[h];
       const x = i % w.w, y = (i / w.w) | 0;
@@ -259,10 +289,14 @@ export class Events {
         const above = w.tileH(xx, yy) - srcH[j];
         const limit = eff * (srcRiver[j] ? 1.1 : 0.45);
         if (above > limit) continue;
-        if (!isWater(w.terrain[j]) && !w.flood[j]) { w.flood[j] = days; flooded++; }
+        visit(j);
         q.push(j);
       }
     }
+  }
+
+  finishFlood(intensity, sponge, flooded) {
+    const g = this.game, w = g.world, rng = g.rng;
     this.lastFlood = g.day;
     if (!flooded) return;
     this.floodTiles = flooded;
@@ -271,11 +305,13 @@ export class Events {
     for (let i = 0; i < w.n; i++) if (w.feature[i] === F.DAM && rng() < 0.12 * intensity) { w.feature[i] = 0; broke++; }
     if (broke) { g.wildlife.dams = Math.max(0, g.wildlife.dams - broke); w.hydroDirty = true; }
     const soak = Math.round(sponge * 100);
-    const first = [...Array(w.n).keys()].find(i => w.flood[i]);
+    // point the notice at the middle of the flooded ground
+    let sx = 0, sy = 0, n = 0;
+    for (let i = 0; i < w.n; i++) if (w.flood[i]) { sx += i % w.w; sy += (i / w.w) | 0; n++; }
     g.notify(`Winter flood! After days of rain the river spilled over ${flooded} tiles of low ground.` +
       (soak >= 10 ? ` Your wetlands soaked up about ${soak}% of it.` : ' More marshes and ponds would soak some of it up.') +
       (broke ? ` The high water broke ${broke} beaver dam${broke > 1 ? 's' : ''}.` : ''), 'flood',
-      first != null ? { x: (first % w.w) + 0.5, y: ((first / w.w) | 0) + 0.5 } : null);
+      n ? { x: sx / n + 0.5, y: sy / n + 0.5 } : null);
     g.emit('event', 'flood');
   }
 

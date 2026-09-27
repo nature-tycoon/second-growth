@@ -456,3 +456,52 @@ body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; ove
   .guide-detail .hero { max-height: 90px; }
   .gcard img { width: 60px; height: 46px; }
 }
+
+/* ---------------------------------------------------------------- campaign */
+#quest { top: 78px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 0; width: min(440px, calc(100vw - 460px)); min-width: 300px; overflow: hidden; }
+#quest .q-head { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; padding: 8px 12px; cursor: pointer; font: inherit; color: var(--ink); text-align: left; }
+#quest .q-head b { font-family: var(--display); font-size: 15px; color: var(--moss-2); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#quest .q-ch { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+#quest .q-n { font-size: 12px; font-weight: 800; background: var(--moss); color: #fff; border-radius: 10px; padding: 1px 8px; }
+#quest .q-caret { color: var(--muted); font-size: 12px; }
+#quest .q-body { padding: 2px 12px 10px; border-top: 1px solid var(--line); }
+.q-goal { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; font-size: 12.5px; line-height: 1.35; }
+.q-goal small { display: block; color: var(--muted); font-weight: 700; margin-top: 1px; }
+.q-goal.ok > span:last-child { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(0,0,0,.25); }
+.q-box { flex: none; width: 16px; height: 16px; margin-top: 1px; border-radius: 5px; border: 1.5px solid var(--moss); display: grid; place-items: center; font-size: 11px; font-weight: 900; color: #fff; }
+.q-goal.ok .q-box { background: var(--moss); }
+.q-more { margin-top: 4px; border: 0; background: transparent; color: var(--moss-2); font: 800 12px var(--ui); cursor: pointer; padding: 2px 0; }
+body.campaign #banner { top: 124px; }
+
+.tool-card { position: relative; }
+.tool-card.locked { opacity: .5; filter: grayscale(.85); cursor: help; }
+.tool-card.locked .cost { color: var(--muted); }
+.tool-card .lock { position: absolute; top: 5px; right: 6px; width: 15px; height: 15px; color: var(--ink-2); }
+.tool-card .lock svg { width: 100%; height: 100%; }
+#toolbar button.fresh { position: relative; }
+#toolbar button.fresh::after { content: ''; position: absolute; top: 5px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: #e8a33a; box-shadow: 0 0 0 2px var(--paper); animation: fresh-pulse 1.4s ease-in-out infinite; }
+@keyframes fresh-pulse { 50% { transform: scale(1.35); opacity: .7; } }
+
+.modes { display: grid; gap: 10px; }
+.mode-card { display: flex; flex-direction: column; gap: 4px; text-align: left; border: 1.5px solid var(--line); border-radius: 14px; background: var(--paper-2); padding: 14px 16px; cursor: pointer; font: inherit; color: var(--ink); }
+.mode-card b { font-family: var(--display); font-size: 18px; color: var(--moss-2); }
+.mode-card span { font-size: 13px; line-height: 1.45; color: var(--ink-2); }
+.mode-card:hover { border-color: var(--moss); }
+.mode-card.danger { border-color: var(--bad); }
+.mode-card.danger span { color: var(--bad); font-weight: 700; }
+.ch-story { font-size: 14px; line-height: 1.55; color: var(--ink-2); margin: 0 0 6px; }
+.ch-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.ch-tool { display: flex; align-items: center; gap: 6px; background: var(--paper-2); border-radius: 10px; padding: 4px 10px 4px 4px; font-size: 12px; font-weight: 700; }
+.ch-tool img { width: 30px; height: 30px; object-fit: contain; }
+.ch-tool.more { padding: 4px 10px; color: var(--muted); }
+.goal.chapter.later { opacity: .55; }
+.goal.chapter.now { border-color: var(--moss); }
+.ch-goals { margin-top: 4px; }
+/* keep the tracker between the tool panel (left) and the info panel (right) on narrower screens */
+@media (max-width: 1240px) { #quest { left: 424px; transform: none; min-width: 0; width: min(400px, calc(100vw - 424px - 320px)); } }
+@media (max-height: 520px) {
+  #quest { top: 58px; left: calc(346px + env(safe-area-inset-left)); transform: none; min-width: 0; width: min(300px, calc(100vw - 346px - 262px)); }
+  #quest .q-head { padding: 5px 10px; }
+  #quest .q-ch { display: none; }
+  body.campaign #banner { top: 96px; }
+}

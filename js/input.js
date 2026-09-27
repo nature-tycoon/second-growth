@@ -246,6 +246,8 @@ export class Input {
       if (cost > 0 && !g.canAfford(cost)) { s.broke = true; continue; }
       const res = tool.apply(g, i, Math.random);
       if (res === true) {
+        g.stats.used ||= {};
+        g.stats.used[tool.key] = (g.stats.used[tool.key] || 0) + 1;
         this.r.markTileDirty(i % w.w, (i / w.w) | 0);
         if (cost > 0) g.spend(cost); else if (cost < 0) g.earn(-cost);
         s.cost += cost; s.count++;

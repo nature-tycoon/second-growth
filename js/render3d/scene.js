@@ -289,6 +289,7 @@ export class Renderer {
     const suit = mode === 'species' && ui.overlaySpecies != null ? game.wildlife.suit[ui.overlaySpecies] : null;
     let hmin = Infinity, hmax = -Infinity;
     if (mode === 'elevation') for (let i = 0; i < w.n; i++) { const h = w.tileH(i % w.w, (i / w.w) | 0); hmin = Math.min(hmin, h); hmax = Math.max(hmax, h); }
+    const risk = mode === 'flood' ? game.events.floodRisk() : null;
     for (let i = 0; i < w.n; i++) {
       let c = null;
       if (mode === 'habitat') c = [...hexRgb(HABITAT_INFO[w.habitat[i]].color), 0.72];
@@ -296,6 +297,7 @@ export class Renderer {
       else if (mode === 'soil') c = ramp(w.soil[i], [[0, '#c8b89a'], [0.4, '#8a6a3a'], [0.8, '#3a2614']], 0.7);
       else if (mode === 'light') c = ramp(1 - w.canopy[i], [[0, '#1c2a3a'], [0.5, '#6a8a6a'], [1, '#f2e08a']], 0.62);
       else if (mode === 'elevation') c = ramp((w.tileH(i % w.w, (i / w.w) | 0) - hmin) / Math.max(0.01, hmax - hmin), [[0, '#2f6a5a'], [0.5, '#c8c07a'], [1, '#f4f0e8']], 0.62);
+      else if (risk) c = w.flood[i] ? [0.12, 0.42, 0.95, 0.85] : risk[i] === 2 ? [0.2, 0.5, 0.85, 0.62] : risk[i] === 1 ? [0.55, 0.78, 0.95, 0.5] : [0, 0, 0, 0];
       else if (mode === 'disturb') c = w.disturb[i] < 0.02 ? [0, 0, 0, 0] : ramp(w.disturb[i], [[0, '#f2e08a'], [0.5, '#e0843a'], [1, '#b8302a']], 0.7);
       else if (mode === 'fish') c = isWater(w.terrain[i]) ? (w.connected[i] ? ramp(w.waterQ[i], [[0, '#d88a4a'], [0.5, '#e8d86a'], [1, '#5ad0a0']], 0.85) : [0.78, 0.24, 0.2, 0.8]) : [0, 0, 0, 0];
       else if (suit) c = suit[i] < 0.02 ? [0.16, 0.12, 0.12, 0.4] : ramp(suit[i], [[0, '#c8584a'], [0.4, '#e8c85a'], [1, '#4ac86a']], 0.65);
