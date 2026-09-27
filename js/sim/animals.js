@@ -10,6 +10,10 @@ import { biome } from '../biome.js';
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
 
+// Herons and cranes spend most of their time on foot in the shallows, not in the air.
+const WADERS = new Set(['heron', 'crane']);
+const shallows = (w, i) => { const t = w.terrain[i]; return t === T.MARSH || t === T.CREEK || t === T.MUD || (w.distWater[i] === 1 && !isWater(t)); };
+
 export function passable(w, i, a) {
   const move = a.move;
   if (move === 'fly') return true;
@@ -566,11 +570,11 @@ export class Wildlife {
       a.phase += dt * 6;
       if (biome.waterholes) a.thirst = (a.thirst || 0) + dt;
       if (a.drinkT > 0) a.drinkT -= dt;
-      const sp = def.speed * dt * (a.follow ? 1.3 : 1); // herd members trot to keep up
+      const sp = def.speed * dt * (a.follow ? 1.3 : a.wade ? 0.3 : 1); // herd members trot to keep up; waders step slowly
       switch (a.state) {
         case 'idle':
           a.wait -= dt;
-          if (a.move === 'fly' && a.flying) a.alt = Math.max(0, a.alt - dt * 3);
+          if (a.move === 'fly' && a.alt > 0) a.alt = Math.max(0, a.alt - dt * 3); // settle to the ground (or a branch) after landing
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
@@ -583,7 +587,11 @@ export class Wildlife {
         }
         case 'fly':
           a.alt = Math.min(1, a.alt + dt * 3);
-          if (this.stepToward(a, a.tx, a.ty, sp)) { a.state = 'idle'; a.wait = 0.5 + Math.random() * 3; a.flying = false; }
+          if (this.stepToward(a, a.tx, a.ty, sp)) {
+            a.state = 'idle'; a.flying = false;
+            const i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
+            a.wait = WADERS.has(def.sprite.kind) && i >= 0 && shallows(w, i) ? 4 + Math.random() * 6 : 0.5 + Math.random() * 3; // a wader settles in
+          }
           break;
         case 'hunt': {
           a.huntTime -= dt;
@@ -693,7 +701,8 @@ export class Wildlife {
       if (Math.hypot(a.x - tx, a.y - ty) < 2) a.trip = null;
       else if (this.roam(a, def, a.trip)) return;
     }
-    a.follow = false;
+    a.follow = false; a.wade = false;
+    if (a.move === 'fly' && WADERS.has(def.sprite.kind) && !a.flying && !a.leaving && Math.random() < 0.65 && this.wade(a)) return;
     if (def.ambush && this.crossingAt && this.game.day < this.crossingAt.until && this.lurk(a)) return;
     if (biome.waterholes && !a.leaving && this.waterhole(a, def)) return;
     // herd animals stay together: one leads, the rest keep their place around it
@@ -702,7 +711,13 @@ export class Wildlife {
     if (!a.leaving && !a.juvenile && Math.random() < this.roamChance(def, a) && this.roam(a, def)) return;
     if (a.move === 'fly') {
       const r = Math.min(14, 4 + Math.sqrt(def.hr) * 0.8);
-      const [x, y] = this.bestTileSample(def, a.x, a.y, r, 10);
+      let [x, y] = this.bestTileSample(def, a.x, a.y, r, 10);
+      if (WADERS.has(def.sprite.kind)) { // waders come down in the shallows when there are any nearby
+        for (let k = 0; k < 40; k++) {
+          const xx = Math.round(a.x + (Math.random() * 2 - 1) * r), yy = Math.round(a.y + (Math.random() * 2 - 1) * r);
+          if (w.inb(xx, yy) && shallows(w, w.idx(xx, yy)) && map[w.idx(xx, yy)] > 0.15) { x = xx; y = yy; break; }
+        }
+      }
       a.tx = x + 0.3 + Math.random() * 0.4; a.ty = y + 0.3 + Math.random() * 0.4;
       a.state = 'fly'; a.flying = true;
       return;
@@ -796,6 +811,21 @@ export class Wildlife {
     const goal = this.pathTo(a, j => w.distWater[j] <= 1, 5000);
     if (!goal) { a.thirst = 0; return false; } // no water it can reach: it gets by on dew and green grass
     return true;
+  }
+
+  // A heron or crane standing in the shallows: mostly it stays put, now and then stabbing at a fish,
+  // or it wades a few steps to another spot. Only once in a while does it take off.
+  wade(a) {
+    const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+    if (!w.inb(x0, y0) || !shallows(w, w.idx(x0, y0))) return false;
+    if (Math.random() < 0.55) {
+      a.wait = 3 + Math.random() * 6;
+      if (Math.random() < 0.45) a.drinkT = 1 + Math.random(); // head down: a strike at a fish or frog
+      return true;
+    }
+    const ok = this.pathTo(a, (j, x, y) => shallows(w, j) && Math.hypot(x - x0, y - y0) >= 1.5 && Math.random() < 0.35, 90);
+    if (ok) { a.wade = true; a.alt = 0; }
+    return ok;
   }
 
   // Crocodiles gather in the river at the crossing while the migration is swimming over: head

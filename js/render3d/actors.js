@@ -77,7 +77,7 @@ export class Actors {
       if (flying) y += 0.7 + a.alt * 1.2;
       else if (def.move === 'swim') y = (surf ?? ground) - 0.05 - mo.sink * sc;
       else if (surf != null && FLOATERS.has(kind)) y = surf - mo.sink * sc;
-      else if (def.move === 'fly' && inside && w.tree[i] && w.treeG[i] > 0.5 && kind !== 'duck' && kind !== 'heron') {
+      else if (def.move === 'fly' && inside && w.tree[i] && w.treeG[i] > 0.5 && kind !== 'duck' && kind !== 'heron' && kind !== 'crane') {
         y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * w.treeG[i] * 0.55;
       } else if (def.move === 'tree' && inside) {
         // monkeys and sloths live up in the crowns (or on a snag's bare top)
