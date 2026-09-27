@@ -88,17 +88,17 @@ export class Actors {
       }
       if (onWater) y += pose === 'swim' && def.move === 'swim' ? 0.0 : 0.02;
       const face = this.facing(s, a.x, a.y, camRight);
-      const img = S.animalSprite(def, frame, face, pose);
+      const img = S.animalSprite(def, frame, face, pose, 2);
       const tex = this.tex(img);
       if (s.material.map !== tex) { s.material.map = tex; s.material.needsUpdate = true; }
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
-      const sc = (a.juvenile ? 0.5 : 1) * ageF * (pose === 'swim' && def.move === 'swim' ? 0.9 : 1.25);
+      const sc = (a.juvenile ? 0.5 : 1) * ageF * (pose === 'swim' && def.move === 'swim' ? 0.5 : 0.62);
       s.scale.set(S.ANIM_W * PX * sc, S.ANIM_H * PX * sc, 1);
       s.position.set(a.x, y, a.y);
       s.material.opacity = def.move === 'swim' ? 0.8 : 1;
       s.material.transparent = def.move === 'swim';
       s.renderOrder = def.move === 'swim' ? 1 : 0;
-      if (pose !== 'swim') shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * PX * 0.9 * ageF);
+      if (pose !== 'swim') shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * PX * 0.45 * ageF);
     }
     for (const [id, s] of this.sprites) if (!seen.has(id)) { this.scene.remove(s); s.material.dispose(); this.sprites.delete(id); }
 
@@ -110,12 +110,12 @@ export class Actors {
       pseen.add(v.id);
       const face = this.facing(s, v.x, v.y, camRight);
       const frame = v.pause > 0 ? 0 : Math.floor(v.phase) % 2;
-      const tex = this.tex(S.personSprite(v.look, frame, face));
+      const tex = this.tex(S.personSprite(v.look, frame, face, 2));
       if (s.material.map !== tex) { s.material.map = tex; s.material.needsUpdate = true; }
       const gy = w.heightAt(v.x, v.y) * LEVEL + (w.inb(Math.floor(v.x), Math.floor(v.y)) && isWater(w.terrain[w.idx(Math.floor(v.x), Math.floor(v.y))]) ? 0.08 : 0);
-      s.scale.set(S.ANIM_W * PX * 1.05, S.ANIM_H * PX * 1.05, 1);
+      s.scale.set(S.ANIM_W * PX * 0.58, S.ANIM_H * PX * 0.58, 1);
       s.position.set(v.x, gy, v.y);
-      shadow(v.x, gy, v.y, 0.14);
+      shadow(v.x, gy, v.y, 0.09);
     }
     for (const [id, s] of this.people) if (!pseen.has(id)) { this.scene.remove(s); s.material.dispose(); this.people.delete(id); }
 

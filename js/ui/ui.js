@@ -469,7 +469,7 @@ export class UI {
       if (n.loc.id && this.game.wildlife.agents.includes(n.loc)) this.inspectAgent(n.loc);
     });
     box.prepend(t);
-    while (box.children.length > 5) box.lastChild.remove();
+    while (box.children.length > 3) box.lastChild.remove();
     const life = n.kind === 'discover' || n.kind === 'goal' || n.kind === 'fire' || n.kind === 'flood' ? 12000 : n.kind === 'warn' ? 9000 : 7000;
     setTimeout(() => { t.classList.add('fade'); setTimeout(() => t.remove(), 600); }, life);
   }
@@ -734,7 +734,7 @@ export class UI {
 
   openIntro(first = true, hasSave = false, onClose = null) {
     const body = `<div class="intro">
-      <p><b>Your great-aunt left you the old Hollis farm</b>: 80 acres of tired pasture and plowed fields in a Cascade foothill valley, bordered by second-growth forest to the north and east and a salmon river to the south. The land trust will fund your work. Your job is to give it back to the wild.</p>
+      <p><b>Your great-aunt left you the old Hollis farm</b>: 180 acres of tired pasture and plowed fields in a Cascade foothill valley, bordered by second-growth forest to the north and east and a salmon river to the south. The land trust will fund your work. Your job is to give it back to the wild.</p>
       <h3>How nature works here</h3>
       <ul>
         <li>You don't buy animals or upgrades. <b>You build habitat</b>, and wildlife follows its own rules: it wanders in from the surrounding forest, river and farms when there's room, raises young, hunts, and moves on when there isn't enough.</li>

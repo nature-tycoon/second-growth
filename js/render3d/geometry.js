@@ -1,42 +1,32 @@
-// Procedural low-poly geometry for plants, features and buildings.
-// Every builder returns a non-indexed BufferGeometry with position, normal and color attributes.
-// Colors baked into geometry are light "shading" values; instance colors supply the hue.
+// Procedural geometry for plants, features and buildings.
+// Plants are built from welded, smooth-shaded parts so they read as soft, organic volumes;
+// buildings and props stay crisp. Every builder returns a non-indexed BufferGeometry with
+// position, normal and color attributes. Baked colors are shading values; instance colors supply hue.
 
 import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/BufferGeometryUtils.js';
 import { mulberry32 } from '../rng.js';
 
 // ---------------------------------------------------------------- helpers
-export function prep(geo, color = 0xffffff) {
-  const g = geo.index ? geo.toNonIndexed() : geo;
-  g.deleteAttribute('uv');
+function addColor(g, color) {
   const n = g.attributes.position.count;
-  if (!g.attributes.color) {
-    const c = new THREE.Color(color);
-    const arr = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
-    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
-  }
+  const c = new THREE.Color(color);
+  const arr = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
   return g;
 }
 
-export function merge(list) {
-  let total = 0;
-  for (const g of list) total += g.attributes.position.count;
-  const pos = new Float32Array(total * 3), col = new Float32Array(total * 3);
-  let o = 0;
-  for (const g of list) {
-    pos.set(g.attributes.position.array, o * 3);
-    col.set(g.attributes.color.array, o * 3);
-    o += g.attributes.position.count;
-  }
-  const out = new THREE.BufferGeometry();
-  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  out.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  out.computeVertexNormals();
-  return out;
+// Crisp part: flat faces, keeps the geometry's own normals.
+export function prep(geo, color = 0xffffff) {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  if (g.attributes.uv) g.deleteAttribute('uv');
+  if (!g.attributes.normal) g.computeVertexNormals();
+  if (!g.attributes.color) addColor(g, color);
+  return g;
 }
 
-// Displace vertices by a hash of their position so shared corners stay welded.
+// Displace vertices by a hash of their position so shared vertices move together.
 function wobble(g, amt, seed) {
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
@@ -50,6 +40,37 @@ function wobble(g, amt, seed) {
   return g;
 }
 
+// Soft part: welded, optionally lumpy, smooth normals.
+function soft(geo, { color = 0xffffff, lump = 0, seed = 1, transform = null } = {}) {
+  let g = geo;
+  for (const k of ['uv', 'normal']) if (g.attributes[k]) g.deleteAttribute(k);
+  g = mergeVertices(g, 1e-4);
+  if (transform) transform(g);
+  if (lump) wobble(g, lump, seed);
+  g.computeVertexNormals();
+  g = g.toNonIndexed();
+  return addColor(g, color);
+}
+
+export function merge(list) {
+  let total = 0;
+  for (const g of list) total += g.attributes.position.count;
+  const pos = new Float32Array(total * 3), col = new Float32Array(total * 3), nor = new Float32Array(total * 3);
+  let o = 0;
+  for (const g of list) {
+    if (!g.attributes.normal) g.computeVertexNormals();
+    pos.set(g.attributes.position.array, o * 3);
+    col.set(g.attributes.color.array, o * 3);
+    nor.set(g.attributes.normal.array, o * 3);
+    o += g.attributes.position.count;
+  }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  out.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return out;
+}
+
 function shadeVerts(g, fn) {
   const p = g.attributes.position, c = g.attributes.color;
   for (let i = 0; i < p.count; i++) {
@@ -59,73 +80,122 @@ function shadeVerts(g, fn) {
   return g;
 }
 
-const at = (g, x, y, z) => { g.translate(x, y, z); return g; };
-
-// ---------------------------------------------------------------- trees (unit: tiles, mature size)
-function trunk(h, r0, r1, color = 0xffffff, sides = 6) {
-  return at(prep(new THREE.CylinderGeometry(r1, r0, h, sides, 1), color), 0, h / 2, 0);
+// Light foliage as one soft volume: bend normals toward pointing out from a center (or axis).
+function volumeNormals(g, cx, cy, cz, amount, axis = false) {
+  const p = g.attributes.position, n = g.attributes.normal, v = new THREE.Vector3(), m = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.set(p.getX(i) - cx, axis ? 0.35 : p.getY(i) - cy, p.getZ(i) - cz).normalize();
+    m.set(n.getX(i), n.getY(i), n.getZ(i)).lerp(v, amount).normalize();
+    n.setXYZ(i, m.x, m.y, m.z);
+  }
+  return g;
 }
 
-export function conifer(opts, seed) {
+const at = (g, x, y, z) => { g.translate(x, y, z); return g; };
+
+// A curved, tapering ribbon (grass blades, fern fronds, cattail leaves).
+function ribbon(len, width, bend, segments, dir, tilt, x = 0, z = 0, color = 0xffffff, cup = 0) {
+  const pos = [], col = [];
+  const pts = [];
+  for (let k = 0; k <= segments; k++) {
+    const t = k / segments;
+    const a = tilt + bend * t * t;          // leans more toward the tip
+    const r = len * t;
+    pts.push([Math.sin(a) * r, Math.cos(a) * r * (1 - t * bend * 0.15), (1 - t) * width, t]);
+  }
+  const c = new THREE.Color(color);
+  const side = [Math.cos(dir), 0, -Math.sin(dir)];
+  const fwd = [Math.sin(dir), 0, Math.cos(dir)];
+  const P = ([h, y, w, t], s) => [x + fwd[0] * h + side[0] * w * s, y + cup * w * w * 40 * (s * s), z + fwd[2] * h + side[2] * w * s];
+  for (let k = 0; k < segments; k++) {
+    const a = pts[k], b = pts[k + 1];
+    const a0 = P(a, -1), a1 = P(a, 1), b0 = P(b, -1), b1 = P(b, 1);
+    pos.push(...a0, ...a1, ...b1, ...a0, ...b1, ...b0);
+    const s0 = 0.62 + 0.45 * a[3], s1 = 0.62 + 0.45 * b[3];
+    for (const s of [s0, s0, s1, s0, s1, s1]) col.push(c.r * s, c.g * s, c.b * s);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  // ribbons are thin: point their normals mostly up so both sides catch the sun
+  const n = g.attributes.normal;
+  for (let i = 0; i < n.count; i++) { const ny = Math.abs(n.getY(i)); n.setXYZ(i, n.getX(i) * 0.4, 0.6 + ny * 0.4, n.getZ(i) * 0.4); }
+  return g;
+}
+
+// ---------------------------------------------------------------- trees (unit: tiles, mature size)
+function trunk(h, r0, r1, color = 0xffffff, sides = 7) {
+  return soft(new THREE.CylinderGeometry(r1, r0, h, sides, 3), { color, transform: g => g.translate(0, h / 2, 0), lump: r0 * 0.25, seed: 5 });
+}
+
+export function conifer(opts, seed, lod = 0) {
   const r = mulberry32(seed);
   const { height: H, radius: R, tiers, droop = 0, lean = 0 } = opts;
   const parts = [];
-  const top = H;
-  const base = H * 0.18;
+  const base = H * 0.16;
   for (let k = 0; k < tiers; k++) {
     const t = k / tiers;
-    const rad = R * Math.pow(1 - t, 0.9) + 0.05;
-    const th = (H - base) / tiers * 2.1;
-    const y = base + (H - base) * t * 0.93;
-    const cone = prep(new THREE.ConeGeometry(rad, th, 7, 1));
-    cone.rotateY(r() * Math.PI);
-    if (droop) {
-      // bend the rim down for drooping cedar and hemlock sprays
-      const p = cone.attributes.position;
-      for (let i = 0; i < p.count; i++) if (p.getY(i) < -th * 0.45) p.setY(i, p.getY(i) - droop);
-    }
-    at(cone, 0, y + th / 2, 0);
-    const shade = 0.72 + t * 0.35;
-    shadeVerts(cone, (x, yy) => shade * (0.85 + 0.25 * Math.min(1, (yy - y) / th + 0.2)));
+    const rad = R * Math.pow(1 - t, 0.95) + 0.04;
+    const th = (H - base) / tiers * 2.2;
+    const y = base + (H - base) * t * 0.92;
+    const phase = r() * 6.28, lobes = 6 + Math.floor(r() * 3);
+    const cone = soft(new THREE.ConeGeometry(rad, th, lod ? 7 : 12, lod ? 1 : 2), {
+      seed: seed + k, lump: 0.03,
+      transform: g => {
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          const px = p.getX(i), py = p.getY(i), pz = p.getZ(i);
+          const u = (py + th / 2) / th;                // 0 at the rim, 1 at the tip
+          const ang = Math.atan2(pz, px);
+          // ragged branch tips around the rim, drooping at the ends
+          const jag = 1 + (1 - u) * 0.22 * Math.sin(ang * lobes + phase);
+          const sag = (1 - u) * (1 - u) * droop * (0.6 + 0.4 * Math.sin(ang * lobes + phase));
+          p.setXYZ(i, px * jag, py - sag, pz * jag);
+        }
+        g.rotateY(r() * Math.PI);
+        g.translate(0, y + th / 2, 0);
+      },
+    });
+    const shade = 0.7 + t * 0.34;
+    shadeVerts(cone, (x, yy) => shade * (0.78 + 0.34 * Math.min(1, Math.max(0, (yy - y) / th + 0.1))));
     parts.push(cone);
   }
-  let crown = merge(parts);
-  wobble(crown, 0.06, seed);
+  const crown = merge(parts);
+  volumeNormals(crown, 0, 0, 0, 0.45, true);
   if (lean) {
     const p = crown.attributes.position;
-    for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y > top * 0.85) p.setX(i, p.getX(i) + (y - top * 0.85) * lean); }
-    crown.computeVertexNormals();
+    for (let i = 0; i < p.count; i++) { const y = p.getY(i); if (y > H * 0.85) p.setX(i, p.getX(i) + (y - H * 0.85) * lean); }
   }
-  return { crown, trunk: trunk(base + 0.3, 0.075, 0.045) };
+  return { crown, trunk: trunk(base + 0.3, 0.07, 0.04) };
 }
 
-export function broadleaf(opts, seed) {
+export function broadleaf(opts, seed, lod = 0) {
   const r = mulberry32(seed);
   const { height: H, rx, ry, blobs, trunkH, trunkR = 0.06, lobes = 1 } = opts;
   const cy = H - ry;
   const parts = [];
-  for (let b = 0; b < blobs; b++) {
-    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 0.75;
+  const nBlobs = lod ? Math.ceil(blobs * 0.6) : Math.ceil(blobs * 0.75);
+  for (let b = 0; b < nBlobs; b++) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 0.78;
     const lobeX = lobes > 1 ? ((b % lobes) / (lobes - 1) - 0.5) * rx * 0.9 : 0;
     const x = lobeX + Math.cos(a) * rx * d * (lobes > 1 ? 0.55 : 1);
     const z = Math.sin(a) * rx * d * (lobes > 1 ? 0.8 : 1);
-    const y = cy + (r() - 0.45) * ry * 1.1;
-    const s = (Math.min(rx, ry) * 0.55) * (0.75 + r() * 0.5);
-    const ico = prep(new THREE.IcosahedronGeometry(s, 0));
-    ico.scale(1, 0.85 + r() * 0.3, 1);
-    at(ico, x, y, z);
-    const shade = 0.8 + (y - cy) / ry * 0.18 + r() * 0.1;
-    shadeVerts(ico, () => shade);
-    parts.push(ico);
+    const y = cy + (r() - 0.42) * ry * 1.05;
+    const s = Math.min(rx, ry) * (lod ? 0.62 : 0.56) * (0.75 + r() * 0.5);
+    const sy = 0.82 + r() * 0.3;
+    const blob = soft(new THREE.IcosahedronGeometry(s, lod ? 0 : 1), { seed: seed + b * 7, lump: s * 0.28, transform: g => { g.scale(1, sy, 1); g.translate(x, y, z); } });
+    const shade = 0.8 + (y - cy) / ry * 0.2 + r() * 0.08;
+    shadeVerts(blob, (xx, yy) => shade * (0.84 + 0.22 * Math.min(1, Math.max(0, (yy - y) / s * 0.5 + 0.5))));
+    parts.push(blob);
   }
-  const crown = wobble(merge(parts), 0.05, seed);
-  // a few visible limbs
+  const crown = merge(parts);
+  volumeNormals(crown, 0, cy, 0, 0.6);
   const limbs = [trunk(trunkH, trunkR, trunkR * 0.7)];
-  for (let k = 0; k < 3; k++) {
-    const l = prep(new THREE.CylinderGeometry(trunkR * 0.35, trunkR * 0.55, ry * 0.9, 5));
-    l.translate(0, ry * 0.45, 0);
-    l.rotateZ((r() - 0.5) * 1.2); l.rotateY(r() * Math.PI * 2);
-    at(l, 0, trunkH * 0.85, 0);
+  for (let k = 0; k < 4; k++) {
+    const l = soft(new THREE.CylinderGeometry(trunkR * 0.3, trunkR * 0.55, ry * 0.9, 6), {
+      color: 0xffffff, transform: g => { g.translate(0, ry * 0.45, 0); g.rotateZ((r() - 0.5) * 1.3); g.rotateY(r() * Math.PI * 2); g.translate(0, trunkH * 0.85, 0); },
+    });
     limbs.push(l);
   }
   return { crown, trunk: merge(limbs) };
@@ -137,82 +207,85 @@ export function bareTree(opts, seed) {
   const { height: H, trunkH, trunkR = 0.06 } = opts;
   const parts = [trunk(trunkH, trunkR, trunkR * 0.7)];
   const branch = (x, y, z, len, rad, ax, az, depth) => {
-    const c = prep(new THREE.CylinderGeometry(rad * 0.6, rad, len, 4));
-    c.translate(0, len / 2, 0);
-    c.rotateX(ax); c.rotateZ(az);
-    at(c, x, y, z);
+    const c = soft(new THREE.CylinderGeometry(rad * 0.6, rad, len, 5), { transform: g => { g.translate(0, len / 2, 0); g.rotateX(ax); g.rotateZ(az); g.translate(x, y, z); } });
     parts.push(c);
     if (depth <= 0) return;
     const ex = x - Math.sin(az) * len * Math.cos(ax), ey = y + Math.cos(az) * Math.cos(ax) * len, ez = z + Math.sin(ax) * len;
-    for (let k = 0; k < 2; k++) branch(ex, ey, ez, len * 0.65, rad * 0.6, ax + (r() - 0.5) * 0.9, az + (k ? 0.5 : -0.5) + (r() - 0.5) * 0.4, depth - 1);
+    for (let k = 0; k < 2; k++) branch(ex, ey, ez, len * 0.66, rad * 0.62, ax + (r() - 0.5) * 0.9, az + (k ? 0.5 : -0.5) + (r() - 0.5) * 0.4, depth - 1);
   };
-  for (let k = 0; k < 5; k++) {
-    const a = k / 5 * Math.PI * 2 + r();
+  for (let k = 0; k < 6; k++) {
+    const a = k / 6 * Math.PI * 2 + r();
     branch(0, trunkH * 0.9, 0, (H - trunkH) * 0.45, trunkR * 0.55, Math.sin(a) * 0.6, Math.cos(a) * 0.6, 2);
   }
   return merge(parts);
 }
 
+// Sizes in tiles. Kept a little under one tile across so forests have depth, not a solid carpet.
 export const TREE_SHAPES = {
-  fir:        { kind: 'conifer', height: 2.7, radius: 0.46, tiers: 7 },
-  cedar:      { kind: 'conifer', height: 2.3, radius: 0.58, tiers: 6, droop: 0.12 },
-  hemlock:    { kind: 'conifer', height: 2.5, radius: 0.42, tiers: 8, droop: 0.07, lean: 0.35 },
-  alder:      { kind: 'broad', height: 1.9, rx: 0.42, ry: 0.6, blobs: 8, trunkH: 0.95, trunkR: 0.055 },
-  cottonwood: { kind: 'broad', height: 2.8, rx: 0.45, ry: 1.0, blobs: 11, trunkH: 1.1, trunkR: 0.08 },
-  maple:      { kind: 'broad', height: 2.0, rx: 0.72, ry: 0.62, blobs: 12, trunkH: 0.8, trunkR: 0.09, lobes: 3 },
-  ash:        { kind: 'broad', height: 1.8, rx: 0.5, ry: 0.55, blobs: 9, trunkH: 0.85, trunkR: 0.07 },
-  oak:        { kind: 'broad', height: 1.55, rx: 0.75, ry: 0.45, blobs: 12, trunkH: 0.6, trunkR: 0.1, lobes: 4 },
+  fir:        { kind: 'conifer', height: 2.3, radius: 0.38, tiers: 8 },
+  cedar:      { kind: 'conifer', height: 1.95, radius: 0.48, tiers: 7, droop: 0.14 },
+  hemlock:    { kind: 'conifer', height: 2.1, radius: 0.35, tiers: 9, droop: 0.09, lean: 0.35 },
+  alder:      { kind: 'broad', height: 1.6, rx: 0.36, ry: 0.5, blobs: 10, trunkH: 0.8, trunkR: 0.045 },
+  cottonwood: { kind: 'broad', height: 2.35, rx: 0.38, ry: 0.85, blobs: 13, trunkH: 0.95, trunkR: 0.065 },
+  maple:      { kind: 'broad', height: 1.7, rx: 0.6, ry: 0.52, blobs: 14, trunkH: 0.68, trunkR: 0.075, lobes: 3 },
+  ash:        { kind: 'broad', height: 1.55, rx: 0.42, ry: 0.46, blobs: 11, trunkH: 0.72, trunkR: 0.055 },
+  oak:        { kind: 'broad', height: 1.35, rx: 0.64, ry: 0.38, blobs: 14, trunkH: 0.5, trunkR: 0.085, lobes: 4 },
 };
 
 // ---------------------------------------------------------------- shrubs
-export function shrub(type, seed) {
+export function shrub(type, seed, lod = 0) {
   const r = mulberry32(seed);
   const parts = [];
+  let cy = 0.2;
   const blob = (x, y, z, s, sy = 0.85, shade = 1) => {
-    const g = prep(new THREE.IcosahedronGeometry(s, 0));
-    g.scale(1, sy, 1);
-    at(g, x, y, z);
+    const g = soft(new THREE.IcosahedronGeometry(s * (lod ? 1.15 : 1), lod ? 0 : 1), { seed: seed + parts.length * 3, lump: s * 0.3, transform: gg => { gg.scale(1, sy, 1); gg.translate(x, y, z); } });
     shadeVerts(g, (xx, yy) => shade * (0.8 + Math.min(0.3, (yy - y + s) / (2 * s) * 0.3)));
     parts.push(g);
   };
   switch (type) {
     case 'bramble':
-      for (let k = 0; k < 9; k++) { const a = r() * 6.28, d = r() * 0.32; blob(Math.cos(a) * d, 0.12 + r() * 0.12, Math.sin(a) * d, 0.17 + r() * 0.08, 0.7, 0.8 + r() * 0.2); }
-      // arching canes
+      cy = 0.16;
+      for (let k = 0; k < 10; k++) { const a = r() * 6.28, d = r() * 0.3; blob(Math.cos(a) * d, 0.1 + r() * 0.12, Math.sin(a) * d, 0.15 + r() * 0.07, 0.68, 0.8 + r() * 0.2); }
       for (let k = 0; k < 6; k++) {
-        const c = prep(new THREE.TorusGeometry(0.2 + r() * 0.1, 0.012, 3, 8, Math.PI), 0xb07070);
-        c.rotateY(r() * Math.PI); at(c, (r() - 0.5) * 0.4, 0.05, (r() - 0.5) * 0.4); parts.push(c);
+        const c = prep(new THREE.TorusGeometry(0.19 + r() * 0.1, 0.009, 4, 12, Math.PI), 0xb07070);
+        c.rotateY(r() * Math.PI); at(c, (r() - 0.5) * 0.4, 0.04, (r() - 0.5) * 0.4); parts.push(c);
       }
       break;
     case 'willow':
-      for (let k = 0; k < 6; k++) { const a = r() * 6.28, d = r() * 0.14; blob(Math.cos(a) * d, 0.3 + r() * 0.35, Math.sin(a) * d, 0.13 + r() * 0.05, 2.0, 0.85 + r() * 0.2); }
+      cy = 0.45;
+      for (let k = 0; k < 7; k++) { const a = r() * 6.28, d = r() * 0.12; blob(Math.cos(a) * d, 0.28 + r() * 0.34, Math.sin(a) * d, 0.11 + r() * 0.04, 2.0, 0.85 + r() * 0.2); }
       break;
     case 'broom':
-      for (let k = 0; k < 14; k++) {
-        const c = prep(new THREE.ConeGeometry(0.03, 0.5 + r() * 0.2, 4));
-        c.translate(0, 0.28, 0); c.rotateX((r() - 0.5) * 0.7); c.rotateZ((r() - 0.5) * 0.7);
-        at(c, (r() - 0.5) * 0.1, 0, (r() - 0.5) * 0.1); parts.push(c);
+      cy = 0.3;
+      for (let k = 0; k < 18; k++) {
+        const c = soft(new THREE.CylinderGeometry(0.004, 0.012, 0.45 + r() * 0.2, 4), { transform: g => { g.translate(0, 0.25, 0); g.rotateX((r() - 0.5) * 0.8); g.rotateZ((r() - 0.5) * 0.8); g.translate((r() - 0.5) * 0.1, 0, (r() - 0.5) * 0.1); } });
+        parts.push(c);
       }
       break;
     case 'salal': case 'holly':
-      for (let k = 0; k < 7; k++) { const a = r() * 6.28, d = r() * 0.25; blob(Math.cos(a) * d, 0.1 + r() * 0.08, Math.sin(a) * d, 0.13 + r() * 0.05, 0.75, 0.75 + r() * 0.2); }
+      cy = 0.1;
+      for (let k = 0; k < 8; k++) { const a = r() * 6.28, d = r() * 0.24; blob(Math.cos(a) * d, 0.08 + r() * 0.08, Math.sin(a) * d, 0.11 + r() * 0.05, 0.72, 0.75 + r() * 0.2); }
       break;
     case 'vinemaple':
-      for (let k = 0; k < 3; k++) for (let j = 0; j < 3; j++) { const a = r() * 6.28, d = r() * 0.25; blob(Math.cos(a) * d, 0.2 + k * 0.17, Math.sin(a) * d, 0.18 - k * 0.03, 0.45, 0.8 + k * 0.1); }
+      cy = 0.35;
+      for (let k = 0; k < 3; k++) for (let j = 0; j < 3; j++) { const a = r() * 6.28, d = r() * 0.24; blob(Math.cos(a) * d, 0.18 + k * 0.15, Math.sin(a) * d, 0.16 - k * 0.03, 0.45, 0.8 + k * 0.1); }
       break;
     default:
-      for (let k = 0; k < 6; k++) { const a = r() * 6.28, d = r() * 0.2; blob(Math.cos(a) * d, 0.18 + r() * 0.16, Math.sin(a) * d, 0.15 + r() * 0.06, 0.85, 0.8 + r() * 0.25); }
+      cy = 0.24;
+      for (let k = 0; k < 8; k++) { const a = r() * 6.28, d = r() * 0.19; blob(Math.cos(a) * d, 0.15 + r() * 0.16, Math.sin(a) * d, 0.12 + r() * 0.06, 0.85, 0.8 + r() * 0.25); }
   }
-  return wobble(merge(parts), 0.03, seed);
+  const g = merge(parts);
+  if (type !== 'broom') volumeNormals(g, 0, cy, 0, 0.55);
+  return g;
 }
 
 export function twigs(seed, height = 0.5) {
   const r = mulberry32(seed);
   const parts = [];
-  for (let k = 0; k < 9; k++) {
-    const c = prep(new THREE.CylinderGeometry(0.006, 0.014, height * (0.6 + r() * 0.5), 3));
-    c.translate(0, height * 0.35, 0); c.rotateX((r() - 0.5) * 1.0); c.rotateZ((r() - 0.5) * 1.0);
-    at(c, (r() - 0.5) * 0.15, 0, (r() - 0.5) * 0.15); parts.push(c);
+  for (let k = 0; k < 11; k++) {
+    parts.push(soft(new THREE.CylinderGeometry(0.004, 0.011, height * (0.6 + r() * 0.5), 4), {
+      transform: g => { g.translate(0, height * 0.35, 0); g.rotateX((r() - 0.5) * 1.0); g.rotateZ((r() - 0.5) * 1.0); g.translate((r() - 0.5) * 0.15, 0, (r() - 0.5) * 0.15); },
+    }));
   }
   return merge(parts);
 }
@@ -221,57 +294,49 @@ export function twigs(seed, height = 0.5) {
 export function tuft(type, seed) {
   const r = mulberry32(seed);
   const parts = [];
-  const blade = (h, w, lean, rot, x = 0, z = 0) => {
-    const c = prep(new THREE.ConeGeometry(w, h, 3));
-    c.translate(0, h / 2, 0); c.rotateZ(lean); c.rotateY(rot);
-    at(c, x, 0, z);
-    shadeVerts(c, (xx, y) => 0.7 + 0.45 * (y / h));
-    parts.push(c);
+  const blades = (n, len, width, bendMax, spread = 0.05) => {
+    for (let k = 0; k < n; k++) {
+      const dir = r() * 6.28;
+      parts.push(ribbon(len * (0.65 + r() * 0.5), width, 0.25 + r() * bendMax, 2, dir, 0.1 + r() * 0.35, (r() - 0.5) * spread, (r() - 0.5) * spread));
+    }
   };
   switch (type) {
-    case 'grass': case 'tallgrass': case 'sedge': {
-      const h = type === 'tallgrass' ? 0.32 : type === 'sedge' ? 0.2 : 0.2;
-      const n = type === 'sedge' ? 9 : 7;
-      for (let k = 0; k < n; k++) blade(h * (0.7 + r() * 0.5), 0.022, 0.25 + r() * 0.45, r() * 6.28, (r() - 0.5) * 0.06, (r() - 0.5) * 0.06);
-      break;
-    }
+    case 'grass': blades(8, 0.17, 0.014, 0.7); break;
+    case 'tallgrass': blades(9, 0.28, 0.014, 0.8); break;
+    case 'sedge': blades(10, 0.18, 0.016, 1.1); break;
     case 'forb': {
-      for (let k = 0; k < 5; k++) {
-        const g = prep(new THREE.IcosahedronGeometry(0.05, 0)); g.scale(1.4, 0.35, 0.7); g.rotateY(k * 1.26);
-        at(g, Math.cos(k * 1.26) * 0.05, 0.03, Math.sin(k * 1.26) * 0.05); parts.push(g);
+      for (let k = 0; k < 6; k++) {
+        const a = k / 6 * 6.28 + r() * 0.4;
+        parts.push(soft(new THREE.IcosahedronGeometry(0.035, 1), { transform: g => { g.scale(1.6, 0.3, 0.8); g.rotateY(-a); g.translate(Math.cos(a) * 0.045, 0.02, Math.sin(a) * 0.045); } }));
       }
-      blade(0.16, 0.012, 0.1, 0);
+      blades(3, 0.14, 0.006, 0.2, 0.02);
       break;
     }
     case 'tallforb': {
-      for (let k = 0; k < 3; k++) blade(0.28 + r() * 0.08, 0.02, (r() - 0.5) * 0.3, r() * 6.28, (r() - 0.5) * 0.08, (r() - 0.5) * 0.08);
+      for (let k = 0; k < 3; k++) {
+        const x = (r() - 0.5) * 0.08, z = (r() - 0.5) * 0.08, h = 0.24 + r() * 0.08;
+        parts.push(soft(new THREE.CylinderGeometry(0.004, 0.007, h, 4), { transform: g => g.translate(x, h / 2, z) }));
+        for (let l = 0; l < 4; l++) parts.push(ribbon(0.07, 0.01, 0.6, 2, r() * 6.28, 1.0, x, z).translate(0, h * (0.25 + l * 0.17), 0));
+      }
       break;
     }
     case 'fern': {
-      for (let k = 0; k < 8; k++) {
-        const c = prep(new THREE.ConeGeometry(0.035, 0.34, 3));
-        c.translate(0, 0.17, 0); c.scale(1, 1, 0.3); c.rotateZ(1.0 + r() * 0.25); c.rotateY(k / 8 * 6.28);
-        shadeVerts(c, (x, y) => 0.75 + y);
-        parts.push(c);
-      }
+      for (let k = 0; k < 9; k++) parts.push(ribbon(0.3 + r() * 0.06, 0.035, 1.1 + r() * 0.3, 5, k / 9 * 6.28 + r() * 0.3, 0.35, 0, 0, 0xffffff, 0.02));
       break;
     }
-    case 'cattail': {
-      for (let k = 0; k < 4; k++) blade(0.45 + r() * 0.15, 0.02, (r() - 0.5) * 0.3, r() * 6.28, (r() - 0.5) * 0.08, (r() - 0.5) * 0.08);
-      break;
-    }
+    case 'cattail': blades(6, 0.44, 0.013, 0.35, 0.08); break;
     case 'tule': {
-      for (let k = 0; k < 7; k++) blade(0.5 + r() * 0.2, 0.01, (r() - 0.5) * 0.2, r() * 6.28, (r() - 0.5) * 0.1, (r() - 0.5) * 0.1);
+      for (let k = 0; k < 8; k++) {
+        const x = (r() - 0.5) * 0.1, z = (r() - 0.5) * 0.1, h = 0.45 + r() * 0.2;
+        parts.push(soft(new THREE.CylinderGeometry(0.003, 0.006, h, 4), { transform: g => { g.translate(0, h / 2, 0); g.rotateZ((r() - 0.5) * 0.25); g.translate(x, 0, z); } }));
+      }
       break;
     }
     case 'skunk': {
-      for (let k = 0; k < 5; k++) {
-        const g = prep(new THREE.IcosahedronGeometry(0.1, 0)); g.scale(0.5, 1.5, 0.2); g.rotateX(0.5); g.rotateY(k * 1.26);
-        at(g, Math.cos(k * 1.26) * 0.06, 0.12, Math.sin(k * 1.26) * 0.06); parts.push(g);
-      }
+      for (let k = 0; k < 5; k++) parts.push(ribbon(0.22, 0.05, 0.5, 4, k / 5 * 6.28, 0.35, 0, 0, 0xffffff, 0.04));
       break;
     }
-    default: blade(0.15, 0.02, 0.3, 0);
+    default: blades(8, 0.15, 0.012, 0.6);
   }
   return merge(parts);
 }

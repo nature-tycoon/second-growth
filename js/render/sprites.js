@@ -830,9 +830,10 @@ export function structureSprite(type, w, h) {
 // ---------------------------------------------------------------- animals
 export const ANIM_W = 128, ANIM_H = 112, ANIM_AX = 64, ANIM_AY = 96;
 
-export function animalSprite(def, frame, dir, pose) {
-  return cached(`a${def.key}|${frame}|${dir}|${pose}`, () => {
-    const [c, ctx] = mk(ANIM_W, ANIM_H);
+export function animalSprite(def, frame, dir, pose, res = 1) {
+  return cached(`a${def.key}|${frame}|${dir}|${pose}|${res}`, () => {
+    const [c, ctx] = mk(ANIM_W * res, ANIM_H * res);
+    ctx.scale(res, res);
     ctx.translate(ANIM_AX, ANIM_AY);
     if (dir < 0) ctx.scale(-1, 1);
     drawAnimal(ctx, def.sprite, frame, pose);
@@ -1137,9 +1138,10 @@ function flyingBird(ctx, s, frame, heron = false) {
 const SHIRTS = ['#c8583a', '#3a6a9a', '#e0b030', '#5a8a4a', '#8a4a8a', '#d88a6a', '#2a4a3a', '#b0302a'];
 const PANTS = ['#3a3a4a', '#5a4a3a', '#2a3a5a', '#6a6a5a'];
 const SKIN = ['#f0c8a0', '#d8a878', '#a87850', '#7a5030'];
-export function personSprite(look, frame, dir) {
-  return cached(`person${look}|${frame}|${dir}`, () => {
-    const [c, ctx] = mk(ANIM_W, ANIM_H);
+export function personSprite(look, frame, dir, res = 1) {
+  return cached(`person${look}|${frame}|${dir}|${res}`, () => {
+    const [c, ctx] = mk(ANIM_W * res, ANIM_H * res);
+    ctx.scale(res, res);
     ctx.translate(ANIM_AX, ANIM_AY);
     if (dir < 0) ctx.scale(-1, 1);
     const shirt = SHIRTS[look % SHIRTS.length], pants = PANTS[look % PANTS.length], skin = SKIN[(look >> 1) % SKIN.length];

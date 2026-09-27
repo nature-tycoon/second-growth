@@ -1,7 +1,7 @@
 // Instanced plants and small features, rebuilt from the world arrays as things grow.
 
 import * as THREE from 'three';
-import { T, F, LEVEL, isWater, clamp } from '../config.js';
+import { T, F, LEVEL, BORDER, isWater, clamp } from '../config.js';
 import { PLANTS, plantPhase } from '../data/plants.js';
 import { hash2 } from '../rng.js';
 import * as G from './geometry.js';
@@ -14,8 +14,9 @@ const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 
 // A growable InstancedMesh.
 class Pool {
-  constructor(scene, geo, mat, { shadow = true, receive = false } = {}) {
-    this.scene = scene; this.geo = geo; this.mat = mat; this.shadow = shadow; this.receive = receive;
+  constructor(scene, geo, mat, { shadow = true, receive = false, geoLo = null, kind = 'plant' } = {}) {
+    this.scene = scene; this.geo = geo; this.geoLo = geoLo || geo; this.mat = mat; this.shadow = shadow; this.receive = receive;
+    this.kind = kind; this.lod = 0;
     this.cap = 0; this.mesh = null; this.n = 0;
     this.m = []; this.c = [];
   }
@@ -32,20 +33,68 @@ class Pool {
     if (this.n > this.cap) {
       if (this.mesh) { this.scene.remove(this.mesh); this.mesh.dispose(); }
       this.cap = Math.max(16, Math.ceil(this.n * 1.5));
-      this.mesh = new THREE.InstancedMesh(this.geo, this.mat, this.cap);
+      this.mesh = new THREE.InstancedMesh(this.lod ? this.geoLo : this.geo, this.mat, this.cap);
       this.mesh.castShadow = this.shadow; this.mesh.receiveShadow = this.receive;
       this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 3), 3);
-      this.mesh.frustumCulled = false;
       this.scene.add(this.mesh);
     }
     if (!this.mesh) return;
+    this.mesh.visible = this.n > 0;
     const ma = this.mesh.instanceMatrix.array, ca = this.mesh.instanceColor.array;
     for (let k = 0; k < this.n; k++) { ma.set(this.m[k], k * 16); ca[k * 3] = this.c[k][0]; ca[k * 3 + 1] = this.c[k][1]; ca[k * 3 + 2] = this.c[k][2]; }
     this.mesh.count = this.n;
     this.mesh.instanceMatrix.needsUpdate = true;
     this.mesh.instanceColor.needsUpdate = true;
+    // lets three.js skip this chunk when it's off screen
+    if (this.n) { this.mesh.computeBoundingSphere(); this.mesh.boundingSphere.radius += 3; }
   }
   dispose() { if (this.mesh) { this.scene.remove(this.mesh); this.mesh.dispose(); } }
+  setView(lod, grass, shrubShadow) {
+    this.lod = lod;
+    if (!this.mesh) return;
+    this.mesh.geometry = lod ? this.geoLo : this.geo;
+    if (this.kind === 'grass') this.mesh.visible = grass && this.n > 0;
+    if (this.kind === 'shrub') this.mesh.castShadow = shrubShadow;
+  }
+}
+
+// Splits instances into map chunks so off-screen plants aren't drawn.
+const CHUNK = 48;
+class ChunkedPool {
+  constructor(make) { this.make = make; this.subs = new Map(); this.view = [0, true, true]; }
+  setView(...v) { this.view = v; for (const p of this.subs.values()) p.setView(...v); }
+  begin() { for (const p of this.subs.values()) p.begin(); }
+  add(x, y, z, ...rest) {
+    const k = Math.floor((x + BORDER) / CHUNK) * 64 + Math.floor((z + BORDER) / CHUNK);
+    let p = this.subs.get(k);
+    if (!p) { p = this.make(); p.lod = this.view[0]; this.subs.set(k, p); }
+    p.add(x, y, z, ...rest);
+  }
+  end() { for (const p of this.subs.values()) { p.end(); p.setView(...this.view); } }
+}
+
+// Foliage sways in the wind: displacement grows with height above each plant's base.
+function windy(mat, amount, wind, bothSidesLit = false) {
+  mat.onBeforeCompile = shader => {
+    // thin blades: light both faces as if they faced the sky, instead of darkening the back
+    if (bothSidesLit) shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>',
+      THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0'));
+    shader.uniforms.uTime = wind;
+    shader.uniforms.uWind = { value: amount };
+    shader.vertexShader = 'uniform float uTime;\nuniform float uWind;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      #ifdef USE_INSTANCING
+        vec3 wOrigin = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+      #else
+        vec3 wOrigin = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+      #endif
+      float wPh = uTime * 1.1 + wOrigin.x * 0.35 + wOrigin.z * 0.27;
+      float wS = sin(wPh) * 0.6 + sin(wPh * 2.3 + wOrigin.x) * 0.25 + 0.2;
+      float wH = max(transformed.y, 0.0);
+      transformed.x += wS * wH * wH * uWind;
+      transformed.z += wS * 0.5 * wH * wH * uWind;`);
+  };
+  mat.customProgramCacheKey = () => 'wind' + amount + (bothSidesLit ? 'b' : '');
+  return mat;
 }
 
 const rgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
@@ -67,11 +116,15 @@ const STEM = { dogwood: '#b0302a', willow: '#c8923a' };
 export class Flora {
   constructor(scene) {
     this.scene = scene;
-    this.foliage = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-    this.bark = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-    this.small = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+    this.wind = { value: 0 };
+    this.foliage = windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind);
+    this.shrubs = windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind);
+    this.grass = windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true);
+    this.bark = new THREE.MeshLambertMaterial({ vertexColors: true });
+    this.small = new THREE.MeshLambertMaterial({ vertexColors: true });
     this.pools = new Map();
     this.geos = new Map();
+    this.view = [0, true, true];
   }
 
   geo(key, build) {
@@ -79,14 +132,28 @@ export class Flora {
     if (!g) { g = build(); this.geos.set(key, g); }
     return g;
   }
-  pool(key, build, mat, opts) {
+  pool(key, build, mat, opts = {}, buildLo = null) {
     let p = this.pools.get(key);
-    if (!p) { p = new Pool(this.scene, this.geo(key, build), mat, opts); this.pools.set(key, p); }
+    if (!p) {
+      const geo = this.geo(key, build);
+      const geoLo = buildLo ? this.geo(key + ':lo', buildLo) : geo;
+      p = new ChunkedPool(() => new Pool(this.scene, geo, mat, { ...opts, geoLo }));
+      p.setView(...this.view);
+      this.pools.set(key, p);
+    }
     return p;
   }
 
+  // Simpler models when zoomed out; grass blades vanish once they'd be too small to see.
+  setZoom(zoom) {
+    const v = [zoom < 0.5 ? 1 : 0, zoom > 0.34, zoom > 0.7];
+    if (this.view && v.every((x, k) => x === this.view[k])) return;
+    this.view = v;
+    for (const p of this.pools.values()) p.setView(...v);
+  }
+
   setFade(on) {
-    for (const m of [this.foliage, this.bark]) { m.transparent = on; m.opacity = on ? 0.28 : 1; m.depthWrite = !on; m.needsUpdate = true; }
+    for (const m of [this.foliage, this.shrubs, this.bark]) { m.transparent = on; m.opacity = on ? 0.28 : 1; m.depthWrite = !on; m.needsUpdate = true; }
   }
 
   // ------------------------------------------------------------ rebuild everything from the world
@@ -94,7 +161,7 @@ export class Flora {
     const w = game.world, B = game.border, month = game.month;
     for (const p of this.pools.values()) p.begin();
     const dots = this.pool('dot', () => G.blob(0xffffff), this.small, { shadow: false });
-    const x0 = -10, y0 = -10, x1 = w.w + 10, y1 = w.h + 10;
+    const x0 = -BORDER, y0 = -BORDER, x1 = w.w + BORDER, y1 = w.h + BORDER;
     const hAt = (x, y) => w.heightAt(x, y) * LEVEL;
 
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
@@ -113,13 +180,13 @@ export class Flora {
         const p = PLANTS[gid];
         const g = inside ? w.groundG[i] : 1;
         const type = p.look.type;
-        const n = g < 0.3 ? 1 : g < 0.65 ? 2 : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 2 : 4);
+        const n = g < 0.3 ? 2 : g < 0.65 ? 3 : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : 5);
         const phase = plantPhase(p, month);
         const col = leafColor(p, phase);
-        const pool = this.pool(`tuft:${type}:${v}`, () => G.tuft(type, 100 + v * 17 + type.length), this.small, { shadow: false });
+        const pool = this.pool(`tuft:${type}:${v}`, () => G.tuft(type, 100 + v * 17 + type.length), this.grass, { shadow: false, kind: 'grass' });
         for (let k = 0; k < n; k++) {
-          const px = x + 0.18 + hash2(x, y, 20 + k) * 0.64, pz = y + 0.18 + hash2(x, y, 40 + k) * 0.64;
-          const sc = (0.55 + 0.45 * g) * (0.8 + hash2(x, y, 60 + k) * 0.4);
+          const px = x + 0.08 + hash2(x, y, 20 + k) * 0.84, pz = y + 0.08 + hash2(x, y, 40 + k) * 0.84;
+          const sc = (0.5 + 0.45 * g) * (0.7 + hash2(x, y, 60 + k) * 0.5);
           const py = hAt(px, pz);
           pool.add(px, py, pz, sc, sc, sc, hash2(x, y, 80 + k) * 6.28, vary(col.map(c => c * dim), x, y, k));
           // flowers, seed heads and spathes
@@ -138,9 +205,9 @@ export class Flora {
         const p = PLANTS[sid];
         const g = inside ? w.shrubG[i] : 1;
         const phase = plantPhase(p, month);
-        const sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.25, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.25;
+        const sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
         const sy = hAt(sx, sz);
-        const sc = (0.35 + 0.65 * g) * (p.look.small ? 0.8 : 1) * (0.9 + hash2(x, y, 6) * 0.2);
+        const sc = (0.32 + 0.6 * g) * (p.look.small ? 0.8 : 1) * (0.8 + hash2(x, y, 6) * 0.35);
         const rot = hash2(x, y, 7) * 6.28;
         if (p.look.deciduous && phase === 'winter') {
           const stem = rgb(STEM[p.key] || '#7a6a52');
@@ -149,7 +216,7 @@ export class Flora {
           const type = p.look.type;
           const shape = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple'].includes(type) ? type : 'shrub';
           const col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8);
-          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, 200 + v * 31 + shape.length), this.foliage).add(sx, sy, sz, sc, sc, sc, rot, col);
+          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, 200 + v * 31 + shape.length), this.shrubs, { kind: 'shrub' }, () => G.shrub(shape, 200 + v * 31 + shape.length, 1)).add(sx, sy, sz, sc, sc, sc, rot, col);
           const dotCol = phase === 'bloom' && p.look.flower ? rgb(p.look.flower) : phase === 'fruit' && p.look.berry ? rgb(p.look.berry) : null;
           if (dotCol && g > 0.3) {
             const n = 4 + Math.round(g * 5);
@@ -168,22 +235,23 @@ export class Flora {
         const g = inside ? w.treeG[i] : (B.treeG[bi] || 0.9);
         const shapeDef = G.TREE_SHAPES[p.look.type];
         const phase = p.conifer ? 'green' : plantPhase(p, month);
-        const tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.3, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.3;
+        const tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
         const ty = hAt(tx, tz) - 0.02;
-        const sc = (0.22 + 0.78 * g) * (0.88 + hash2(x, y, 9) * 0.24);
+        const sc = (0.2 + 0.8 * g) * (0.78 + hash2(x, y, 9) * 0.42);
         const rot = hash2(x, y, 10) * 6.28;
         const bark = rgb(p.look.bark).map(c => c * dim);
         const key = `${p.look.type}:${v}`;
-        const build = () => shapeDef.kind === 'conifer' ? G.conifer(shapeDef, 500 + v * 13 + p.id) : G.broadleaf(shapeDef, 500 + v * 13 + p.id);
+        const build = (lod = 0) => shapeDef.kind === 'conifer' ? G.conifer(shapeDef, 500 + v * 13 + p.id, lod) : G.broadleaf(shapeDef, 500 + v * 13 + p.id, lod);
         if (!p.conifer && phase === 'winter') {
           this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark).add(tx, ty, tz, sc, sc, sc, rot, bark);
         } else {
           let shape = this.geos.get(`treeparts:${key}`);
-          if (!shape) { shape = build(); this.geos.set(`treeparts:${key}`, shape); }
+          if (!shape) { shape = build(); shape.lo = build(1); this.geos.set(`treeparts:${key}`, shape); }
           if (!this.pools.has(`crown:${key}`)) {
-            this.pools.set(`crown:${key}`, new Pool(this.scene, shape.crown, this.foliage));
-            this.pools.set(`trunk:${key}`, new Pool(this.scene, shape.trunk, this.bark));
-            this.pools.get(`crown:${key}`).begin(); this.pools.get(`trunk:${key}`).begin();
+            const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown }));
+            const trunkP = new ChunkedPool(() => new Pool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk }));
+            crown.setView(...this.view); trunkP.setView(...this.view);
+            this.pools.set(`crown:${key}`, crown); this.pools.set(`trunk:${key}`, trunkP);
           }
           let leaf = leafColor(p, phase);
           if (phase === 'fall') leaf = mixc(leaf, rgb(p.look.leaf), hash2(x, y, 11) * 0.35);

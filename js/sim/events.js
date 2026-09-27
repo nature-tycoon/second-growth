@@ -169,7 +169,7 @@ export class Events {
     let wetland = 0;
     for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.MARSH || w.terrain[i] === T.POND) wetland++;
     wetland += g.wildlife.dams * 8;
-    const sponge = clamp(wetland / 260, 0, 0.6);
+    const sponge = clamp(wetland / 380, 0, 0.6);
     const eff = intensity * (1 - sponge);
     // Floodwater reaches land that sits only a little above its nearest river or creek
     // ("height above nearest drainage"): wide on the river's floodplain, narrow along creeks.

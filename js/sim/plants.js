@@ -219,7 +219,7 @@ export function seedRain(game) {
     if (edge === 'N') { x = Math.floor(rng() * w.w); y = depth; }
     else if (edge === 'E') { x = w.w - 1 - depth; y = Math.floor(rng() * w.h); }
     else if (edge === 'W') { x = depth; y = Math.floor(rng() * w.h); }
-    else { x = Math.floor(rng() * w.w); y = 57 - depth - Math.floor(rng() * 3); }
+    else { x = Math.floor(rng() * w.w); y = w.h - 5 - depth - Math.floor(rng() * 3); }
     if (!w.inb(x, y)) continue;
     trySeed(w, p, w.idx(x, y), rng);
   }
