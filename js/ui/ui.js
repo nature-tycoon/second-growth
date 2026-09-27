@@ -13,6 +13,7 @@ import { GOALS, speciesPresent } from '../sim/goals.js';
 import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chapterOfTool } from '../sim/campaign.js';
 import { Game, PENDING_KEY } from '../game.js';
 import { biome, BIOMES, BIOME_LIST } from '../biome.js';
+import { worldMap } from './worldmap.js';
 import * as S from '../render/sprites.js';
 import { renderPortrait, renderPlants } from '../render3d/portraits.js';
 import { ICONS } from './icons.js';
@@ -59,7 +60,7 @@ export function plantThumb(key) {
   const m = showcaseMonth(p);
   let src;
   // tropical plants have shapes the 2D painter doesn't know: render their 3D models instead
-  if (p.look.tropical) src = trim(renderPlants([p]), 4);
+  if (p.look.tropical || p.look.savanna) src = trim(renderPlants([p]), 4);
   else if (p.layer === 0) {
     const c = document.createElement('canvas'); c.width = 84; c.height = 84;
     c.getContext('2d').drawImage(S.groundSprite(p.id, 2, m, 0), 0, 0);
@@ -73,7 +74,7 @@ export function plantThumb(key) {
 function mixThumb(keys) {
   const k = 'm' + keys.join();
   if (thumbCache.has(k)) return thumbCache.get(k);
-  if (PLANT[keys[0]].look.tropical) {
+  if (PLANT[keys[0]].look.tropical || PLANT[keys[0]].look.savanna) {
     // tallest first so the trees stand behind: trees, then shrubs, then groundcover
     const url = trim(renderPlants(keys.slice(0, 3).map(k => PLANT[k]).sort((a, b) => b.layer - a.layer)), 4).toDataURL();
     thumbCache.set(k, url);
@@ -1029,7 +1030,7 @@ export class UI {
     let diff = this.game.difficulty || 'standard', map = pick || this.game.map;
     const savedYear = id => { try { return JSON.parse(localStorage.getItem(Game.saveKey(id)))?.day / DAYS_PER_YEAR + 1 | 0; } catch { return 0; } };
     const m = this.modal('How do you want to play?', `<div class="section-title" style="margin-top:0">Map</div>
-      <div class="maps">${BIOME_LIST.map(b => `<button class="map-card${b.id === map ? ' on' : ''}" data-map="${b.id}"><img src="${b.image}" alt="" loading="lazy"><span class="rg">${b.region}</span><b>${b.farm}</b><span class="bl">${b.blurb}</span>${Game.hasSave(b.id) ? `<em>Saved farm, year ${savedYear(b.id)}</em>` : ''}</button>`).join('')}</div>
+      ${worldMap(BIOME_LIST, map)}<div class="map-pick"></div>
       <button class="btn secondary map-resume" data-a="resume" hidden></button>
       <div class="section-title">Difficulty</div>
       <div class="seg" data-seg="diff">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === diff ? 'on' : ''}">${d.name}</button>`).join('')}</div>
@@ -1043,6 +1044,7 @@ export class UI {
     const showMap = () => {
       const b = BIOMES[map], camp = m.querySelector('[data-m=campaign]');
       m.querySelectorAll('[data-map]').forEach(o => o.classList.toggle('on', o.dataset.map === map));
+      m.querySelector('.map-pick').innerHTML = `<div class="map-card on"><img src="${b.image}" alt=""><div><span class="rg">${b.region}</span><b>${b.farm}</b><span class="bl">${b.blurb}</span>${Game.hasSave(b.id) ? `<em>Saved farm, year ${savedYear(b.id)}</em>` : ''}</div></div>`;
       m.querySelectorAll('[data-m]').forEach(o => { delete o.dataset.sure; o.classList.remove('danger'); });
       camp.disabled = !b.campaign;
       camp.querySelector('span').textContent = b.campaign ? `Eight chapters on ${b.farm}. Each one teaches a new part of restoration and unlocks new tools as you go. Best for your first time.` : `No campaign on ${b.farm} yet. Free Play has its own milestone goals for this map.`;
@@ -1204,9 +1206,8 @@ export class UI {
   }
 
   openIntro(first = true, hasSave = false, onClose = null) {
-    // first visit: show both places up front so the difference is obvious at a glance
-    const maps = first ? `<div class="intro-maps">${BIOME_LIST.map(b => `<button class="intro-map" data-map="${b.id}">
-        <img src="${b.image}" alt="${b.farm}"><span><b>${b.farm}</b><em>${b.region}</em></span></button>`).join('')}</div>` : '';
+    // first visit: every place pinned on a world map, so the choice is obvious at a glance
+    const maps = first ? `${worldMap(BIOME_LIST)}<p class="small wm-cap">${['One', 'Two', 'Three', 'Four', 'Five', 'Six'][BIOME_LIST.length - 1] || BIOME_LIST.length} places to bring back. Tap a pin to pick one, or start right here at ${biome.farm}.</p>` : '';
     const body = `<div class="intro">${maps}
       ${biome.story}
       <h3>How nature works here</h3>
@@ -1239,6 +1240,6 @@ export class UI {
     btn('new')?.addEventListener('click', () => this.openModeChoice(true));
     // first visit: the farm is already generated, so just choose how to play it
     btn('start')?.addEventListener('click', () => this.openModeChoice(false));
-    m.querySelectorAll('.intro-map').forEach(b => b.addEventListener('click', () => this.openModeChoice(hasSave, b.dataset.map)));
+    m.querySelectorAll('.wm-pin').forEach(b => b.addEventListener('click', () => this.openModeChoice(hasSave, b.dataset.map)));
   }
 }

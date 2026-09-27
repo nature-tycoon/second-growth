@@ -141,16 +141,17 @@ export function classifyAndResources(w, month) {
     else if (t === T.MARSH) h = H.MARSH;
     else if (w.struct[i] >= 0 || t === T.ROAD || t === T.TRAIL) h = H.DEVELOPED;
     else {
-      const inv = (sp && sp.invasive ? sG : 0) + (gp && gp.invasive ? gG * 0.8 : 0);
+      // invasive trees (mesquite, leucaena) make weed thickets, not woodland
+      const inv = (tp && tp.invasive ? tG : 0) + (sp && sp.invasive ? sG : 0) + (gp && gp.invasive ? gG * 0.8 : 0);
       const nearW = w.distWater[i] <= 2;
-      if (inv > 0.5 && !(tp && tG > 0.6)) h = H.INVASIVE;
+      if (inv > 0.5 && !(tp && !tp.invasive && tG > 0.6)) h = H.INVASIVE;
       else if (tp && tG >= 0.35) {
         const matureAge = tp.matureAge ?? (tp.conifer ? 12 : 18);
         const mature = tG >= 0.98 && w.treeAge[i] >= matureAge * 120;
         if (nearW && !tp.conifer && !mature) h = H.RIPARIAN;
         else h = mature ? H.MATURE_FOREST : H.YOUNG_FOREST;
       } else if (sp && !sp.invasive && sG >= 0.4) h = nearW ? H.RIPARIAN : H.SHRUB;
-      else if (gp && !gp.invasive && gG >= 0.35) h = H.MEADOW;
+      else if (gp && !gp.invasive && !gp.weedy && gG >= 0.35) h = H.MEADOW; // weedy: a native that marks overgrazing, not grassland
       else if (t === T.FIELD || t === T.PASTURE) h = H.FARM;
       else h = H.BARE;
     }

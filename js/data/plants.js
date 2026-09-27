@@ -44,6 +44,8 @@ export function plantPhase(p, m) {
   if (lk.fruit && lk.fruit.includes(m)) return 'fruit';
   // tropical plants stay green; only grasses and herbs dry out in the June–September dry season
   if (lk.tropical) return p.layer === 0 && m >= 3 && m <= 6 ? 'late' : 'green';
+  // savanna: grasses and herbs cure gold through the long dry season (June–October); trees stay green
+  if (lk.savanna) return p.layer === 0 && m >= 3 && m <= 7 ? 'late' : 'green';
   if (lk.deciduous || p.layer === 0) {
     if (m === 7 || m === 8) return 'fall';
     if (m >= 9 || m === 11) return 'winter';

@@ -256,6 +256,15 @@ export const TREE_SHAPES = {
   fanpalm:    { kind: 'fanpalm', height: 2.3 },
   emergent:   { kind: 'emergent', height: 3.2, rx: 0.95, ry: 0.32, trunkR: 0.1 },
   kapok:      { kind: 'emergent', height: 3.4, rx: 1.05, ry: 0.3, trunkR: 0.11, buttress: true },
+  // Serengeti
+  umbrella:   { kind: 'emergent', height: 1.55, rx: 1.0, ry: 0.17, trunkR: 0.06, fork: 0.42 },
+  fevertree:  { kind: 'emergent', height: 1.9, rx: 0.78, ry: 0.26, trunkR: 0.065, fork: 0.5 },
+  balanites:  { kind: 'broad', height: 1.3, rx: 0.5, ry: 0.46, blobs: 11, trunkH: 0.55, trunkR: 0.06 },
+  commiphora: { kind: 'broad', height: 1.1, rx: 0.48, ry: 0.3, blobs: 7, trunkH: 0.55, trunkR: 0.07 },
+  sausage:    { kind: 'broad', height: 1.55, rx: 0.78, ry: 0.5, blobs: 15, trunkH: 0.6, trunkR: 0.085, lobes: 3 },
+  mesquite:   { kind: 'broad', height: 1.0, rx: 0.7, ry: 0.32, blobs: 12, trunkH: 0.35, trunkR: 0.045, lobes: 3 },
+  baobab:     { kind: 'baobab', height: 1.9 },
+  euphorbia:  { kind: 'euphorbia', height: 1.6 },
 };
 
 // Crown and trunk for any tree shape.
@@ -266,6 +275,8 @@ export function treeParts(shape, seed, lod = 0) {
     case 'fanpalm': return fanPalm(shape, seed, lod);
     case 'cecropia': return cecropia(shape, seed, lod);
     case 'emergent': return emergent(shape, seed, lod);
+    case 'baobab': return baobab(shape, seed, lod);
+    case 'euphorbia': return euphorbia(shape, seed, lod);
     default: return broadleaf(shape, seed, lod);
   }
 }
@@ -377,13 +388,25 @@ export function emergent(opts, seed, lod = 0) {
   }
   const crown = merge(parts);
   volumeNormals(crown, 0, cy, 0, 0.5);
-  const limbs = [trunk(cy, trunkR, trunkR * 0.72)];
-  for (let k = 0; k < 5; k++) {
-    const a = k / 5 * 6.28 + r() * 0.5, len = rx * 0.75;
-    const l = soft(new THREE.CylinderGeometry(trunkR * 0.28, trunkR * 0.5, len, 5), { transform: g => {
-      g.translate(0, len / 2, 0); g.rotateZ(-1.05); g.rotateY(-a); g.translate(0, cy - ry * 0.4, 0);
-    } });
-    limbs.push(l);
+  const limbs = [];
+  if (opts.fork) {
+    // acacias: a short trunk that splits into a few long limbs angling out to the flat crown
+    const fh = cy * opts.fork;
+    limbs.push(trunk(fh + 0.04, trunkR, trunkR * 0.85));
+    const n = 3 + Math.floor(r() * 2);
+    for (let k = 0; k < n; k++) {
+      const a = k / n * 6.28 + r() * 0.6, d = rx * (0.35 + r() * 0.3);
+      limbs.push(rod([0, fh, 0], [Math.cos(a) * d, cy - ry * 0.25, Math.sin(a) * d * 0.9], trunkR * 0.7, trunkR * 0.35));
+    }
+  } else {
+    limbs.push(trunk(cy, trunkR, trunkR * 0.72));
+    for (let k = 0; k < 5; k++) {
+      const a = k / 5 * 6.28 + r() * 0.5, len = rx * 0.75;
+      const l = soft(new THREE.CylinderGeometry(trunkR * 0.28, trunkR * 0.5, len, 5), { transform: g => {
+        g.translate(0, len / 2, 0); g.rotateZ(-1.05); g.rotateY(-a); g.translate(0, cy - ry * 0.4, 0);
+      } });
+      limbs.push(l);
+    }
   }
   if (opts.buttress) for (let k = 0; k < 5; k++) {
     const a = k / 5 * 6.28 + r() * 0.4;
@@ -396,6 +419,61 @@ export function emergent(opts, seed, lod = 0) {
     limbs.push(fin);
   }
   return { crown, trunk: merge(limbs) };
+}
+
+// A tapered branch between two points.
+function rod(p0, p1, r0, r1, sides = 5) {
+  const a = new THREE.Vector3(...p0), d = new THREE.Vector3(...p1).sub(a), len = d.length() || 1e-3;
+  return soft(new THREE.CylinderGeometry(r1, r0, len, sides), { transform: g => {
+    g.translate(0, len / 2, 0);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
+    g.translate(a.x, a.y, a.z);
+  } });
+}
+
+// Baobab: a swollen bottle of a trunk, stubby branches like roots in the air, a thin crown.
+export function baobab(opts, seed, lod = 0) {
+  const r = mulberry32(seed), H = opts.height;
+  const top = H * 0.62;
+  const profile = [[0.001, 0], [0.3, 0.02], [0.33, top * 0.2], [0.31, top * 0.55], [0.24, top * 0.85], [0.17, top], [0.001, top + 0.02]]
+    .map(([x, y]) => new THREE.Vector2(x, y));
+  const limbs = [soft(new THREE.LatheGeometry(profile, lod ? 7 : 11), { lump: 0.02, seed })];
+  const leaves = [];
+  const n = lod ? 5 : 7;
+  for (let k = 0; k < n; k++) {
+    const a = k / n * 6.28 + r() * 0.5, out = 0.28 + r() * 0.18, up = 0.25 + r() * 0.2;
+    const tip = [Math.cos(a) * out, top + up, Math.sin(a) * out];
+    limbs.push(rod([Math.cos(a) * 0.08, top - 0.02, Math.sin(a) * 0.08], tip, 0.07, 0.035));
+    // a stubby side branch
+    const t2 = [tip[0] * 1.35 + (r() - 0.5) * 0.1, tip[1] + 0.08, tip[2] * 1.35 + (r() - 0.5) * 0.1];
+    limbs.push(rod(tip, t2, 0.035, 0.018, 4));
+    for (const p of [tip, t2]) {
+      const s = 0.12 + r() * 0.05;
+      const blob = soft(new THREE.IcosahedronGeometry(s, lod ? 0 : 1), { seed: seed + k * 7, lump: s * 0.3, transform: g => { g.scale(1, 0.55, 1); g.translate(p[0], p[1] + 0.03, p[2]); } });
+      shadeVerts(blob, (xx, yy) => (yy > p[1] + 0.03 ? 1 : 0.78));
+      leaves.push(blob);
+    }
+  }
+  const crown = merge(leaves);
+  volumeNormals(crown, 0, top + 0.3, 0, 0.5);
+  return { crown, trunk: merge(limbs) };
+}
+
+// Candelabra tree: a short trunk holding up a crown of thick green succulent arms that curve
+// out and then straight up. The arms are the "leaves" (painted with the leaf colour).
+export function euphorbia(opts, seed, lod = 0) {
+  const r = mulberry32(seed), H = opts.height, base = H * 0.28;
+  const arms = [];
+  arms.push(rod([0, base, 0], [0, H, 0], 0.075, 0.06, 6));
+  const n = lod ? 6 : 10;
+  for (let k = 0; k < n; k++) {
+    const a = k / n * 6.28 + r() * 0.4, tier = base + 0.08 + (k % 3) * 0.12, out = 0.22 + r() * 0.2, rise = H * (0.55 + r() * 0.35);
+    const elbow = [Math.cos(a) * out, tier + 0.1, Math.sin(a) * out];
+    arms.push(rod([0, tier, 0], elbow, 0.055, 0.05, 5));
+    arms.push(rod(elbow, [elbow[0], Math.min(H, tier + rise * 0.6), elbow[2]], 0.05, 0.042, 5));
+  }
+  const crown = merge(arms);
+  return { crown, trunk: trunk(base + 0.05, 0.085, 0.075) };
 }
 
 // ---------------------------------------------------------------- shrubs
@@ -421,6 +499,28 @@ export function shrub(type, seed, lod = 0) {
       // upright paddle leaves on long stalks
       cy = 0.35;
       for (let k = 0; k < (lod ? 5 : 9); k++) parts.push(twoSided(ribbon(0.46 + r() * 0.2, 0.075, 0.5 + r() * 0.4, lod ? 2 : 4, r() * 6.28, 0.12 + r() * 0.3, (r() - 0.5) * 0.12, (r() - 0.5) * 0.12, 0xffffff, 0.015)));
+      break;
+    }
+    case 'aloe': {
+      // a rosette of thick, pointed, curving leaves
+      cy = 0.2;
+      const n = lod ? 8 : 14;
+      for (let k = 0; k < n; k++) parts.push(twoSided(ribbon(0.24 + r() * 0.08, 0.06, 0.7 + r() * 0.3, lod ? 2 : 3, k / n * 6.28 + r() * 0.3, 0.35 + (k % 3) * 0.25, 0, 0, 0xffffff, 0.03)));
+      break;
+    }
+    case 'cactus': {
+      // prickly pear: flat oval pads growing out of each other's edges
+      cy = 0.3;
+      const pads = [[0, 0.14, 0, 0]];
+      for (let k = 1; k < (lod ? 6 : 10); k++) {
+        const pr = pads[Math.floor(r() * pads.length)], a = r() * 6.28;
+        pads.push([pr[0] + Math.cos(a) * 0.1, Math.min(0.62, pr[1] + 0.11 + r() * 0.05), pr[2] + Math.sin(a) * 0.1, a]);
+      }
+      for (const [x, y, z, a] of pads) {
+        const pad = soft(new THREE.IcosahedronGeometry(0.1, lod ? 0 : 1), { seed: seed + parts.length, lump: 0.01, transform: g => { g.scale(0.9, 1.15, 0.28); g.rotateZ((r() - 0.5) * 0.7); g.rotateY(a); g.translate(x, y, z); } });
+        shadeVerts(pad, (xx, yy) => 0.82 + (yy - y + 0.1) * 0.9);
+        parts.push(pad);
+      }
       break;
     }
     case 'bamboo': {

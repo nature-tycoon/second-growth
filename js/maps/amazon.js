@@ -75,6 +75,7 @@ export default {
   visitorValue: 1.3,
   campaignEnd: 'You finished the campaign. Fazenda Esperança is turning back into rainforest, the igarapé runs clear, and the jaguar hunts where the cattle used to graze. Every tool is yours now: keep going as long as you like, because the forest giants are only just getting started.',
   image: 'assets/maps/amazon.jpg',
+  lat: -6.6, lon: -51.9,
   plants: buildAmazonPlants,
   animals: buildAmazonAnimals,
   goals: GOALS,

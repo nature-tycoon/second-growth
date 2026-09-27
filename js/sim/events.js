@@ -54,11 +54,13 @@ export class Events {
     // In the campaign, fires and floods start in the chapter that teaches them.
     if (!disturbanceOn(g)) return;
     // Late-summer droughts bring fire; visitors add a little risk.
-    if (!this.fireTiles && biome.climate.fireMonths.includes(m) && g.dryStreak >= 6 && g.day - this.lastFire > 60) {
-      const p = 0.012 * (0.4 + this.fuelLoad() * 1.5) * (1 + g.visitors.traffic * 0.8) * g.diff.disasters;
+    // (fireRate / fireGap: savannas burn far more often, every dry season, than forests do)
+    const cl = biome.climate;
+    if (!this.fireTiles && cl.fireMonths.includes(m) && g.dryStreak >= 6 && g.day - this.lastFire > (cl.fireGap ?? 60)) {
+      const p = 0.012 * (cl.fireRate ?? 1) * (0.4 + this.fuelLoad() * 1.5) * (1 + g.visitors.traffic * 0.8) * g.diff.disasters;
       if (rng() < p) {
         // Once in a long while a deep drought and a heat wave line up and the fire goes into the crowns.
-        const severe = g.dryStreak >= 8 && g.day - this.lastSevere > SEVERE_GAP && rng() < 0.3;
+        const severe = cl.crownFires !== false && g.dryStreak >= 8 && g.day - this.lastSevere > SEVERE_GAP && rng() < 0.3;
         this.ignite(null, severe);
       }
     }
@@ -180,7 +182,7 @@ export class Events {
         if (w.fire[j] || w.scorch[j] > 60) continue;
         // fire runs uphill faster
         const up = clamp(1 + (w.tileH(xx, yy) - w.tileH(x, y)) * 0.6, 0.6, 1.8);
-        if (rng() < (this.severe ? 0.42 + 0.12 * this.heat : 0.42) * this.fuel(w, j) * up * (dx && dy ? 0.7 : 1)) next.push(j);
+        if (rng() < (this.severe ? 0.42 + 0.12 * this.heat : 0.42) * (biome.climate.fireSpread ?? 1) * this.fuel(w, j) * up * (dx && dy ? 0.7 : 1)) next.push(j);
       }
     }
     for (const j of next) if (!w.fire[j]) this.burnTile(j);

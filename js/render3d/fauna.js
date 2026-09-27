@@ -30,12 +30,25 @@ const grad = (top, bottom, at = -0.2, soft = 0.45) => {
   const a = col(top), b = col(bottom);
   return u => tmp.copy(b).lerp(a, smooth(at - soft, at + soft, u.y));
 };
+// Cellular (Voronoi) pattern in model space: returns [gap between the two nearest cell points,
+// a hash of the nearest cell]. Irregular polygons with seams, for giraffe patches and tortoise plates.
+function cells(p, size) {
+  const x = p.x / size, y = p.y / size, z = p.z / size, ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+  let d1 = 9, d2 = 9, id = 0;
+  for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) {
+    const cx = ix + a, cy = iy + b, cz = iz + c;
+    const d = Math.hypot(cx + hash3(cx, cy, cz) - x, cy + hash3(cy, cz, cx) - y, cz + hash3(cz, cx, cy) - z);
+    if (d < d1) { d2 = d1; d1 = d; id = hash3(cx * 1.3, cy * 1.7, cz * 2.1); } else if (d < d2) d2 = d;
+  }
+  return [d2 - d1, id];
+}
 const hash3 = (x, y, z) => { const h = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453; return h - Math.floor(h); };
 
 // ---------------------------------------------------------------- geometry builder
 const SPH = new THREE.SphereGeometry(1, 12, 9);
 const SPH_LO = new THREE.SphereGeometry(1, 7, 5);
 const SPH_HI = new THREE.SphereGeometry(1, 24, 16); // for bodies that carry fine markings
+const SPH_XL = new THREE.SphereGeometry(1, 56, 36); // a tortoise's plated shell
 
 // A thin flat shape (fins, wing membranes): drawn in 2D, given a hair of thickness, indexed so it
 // merges with the rest of the model. plane 'xz' lays it flat (span along z), 'xy' stands it up.
@@ -49,10 +62,10 @@ function flat(draw, plane = 'xy', curveSegments = 8) {
   return mergeVertices(g);
 }
 const cylCache = new Map();
-function cyl(r0, r1, seg = 7) {
-  const k = r0.toFixed(3) + '|' + r1.toFixed(3) + '|' + seg;
+function cyl(r0, r1, seg = 7, rings = 1) {
+  const k = r0.toFixed(3) + '|' + r1.toFixed(3) + '|' + seg + '|' + rings;
   let g = cylCache.get(k);
-  if (!g) { g = new THREE.CylinderGeometry(r1, r0, 1, seg, 1, true).translate(0, 0.5, 0); cylCache.set(k, g); }
+  if (!g) { g = new THREE.CylinderGeometry(r1, r0, 1, seg, rings, true).translate(0, 0.5, 0); cylCache.set(k, g); }
   return g;
 }
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -140,7 +153,7 @@ class Model {
   limb(p0, p1, r0, r1, paint, o = {}) {
     const a = V(...p0), d = V(...p1).sub(a), len = d.length() || 1e-3;
     const q = new THREE.Quaternion().setFromUnitVectors(UP, d.clone().normalize());
-    this.add(cyl(r0, r1, o.seg), new THREE.Matrix4().compose(a, q, V(1, len, 1)), paint, o);
+    this.add(cyl(r0, r1, o.seg, o.rings), new THREE.Matrix4().compose(a, q, V(1, len, 1)), paint, o);
     if (o.caps !== false) {
       this.add(SPH_LO, place(p0, [0, 0, 0], [r0, r0, r0]), paint, o);
       this.add(SPH_LO, place(p1, [0, 0, 0], [r1, r1, r1]), paint, o);
@@ -222,18 +235,30 @@ function rosettes(base, dark, belly, chains = false) {
   };
 }
 
+// Solid round spots on a jittered grid (cheetah, hyena); size is the spot radius in cell units.
+function dots(base, dark, cells, size) {
+  const d = col(dark);
+  return u => {
+    if (u.y < -0.55) return base(u);
+    const gx = u.x * cells, ga = Math.atan2(u.z, u.y) * cells * 0.32;
+    const ix = Math.floor(gx), ia = Math.floor(ga);
+    const cx = ix + 0.5 + (hash3(ix, ia, 1) - 0.5) * 0.4, ca = ia + 0.5 + (hash3(ix, ia, 2) - 0.5) * 0.4;
+    return Math.hypot(gx - cx, ga - ca) < size ? d : base(u);
+  };
+}
+
 function quadruped(m, s, o) {
   const L = s.len, H = o.H, leg = o.leg, W = o.wide ?? 1;
   const by = leg + H * 0.5;
   const base = grad(s.color, s.belly || s.color, -0.3, 0.5);
   // spotted coats (bobcat): small dark rosettes on the back and flanks
-  const coat = o.coat ? o.coat(base) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains)
+  const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2]) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains)
     : o.spots ? (u => (u.y > -0.35 && hash3(Math.round(u.x * 16), Math.round(u.y * 8), Math.round(u.z * 8)) > 0.7 ? col(o.spots) : base(u))) : base;
   loftBody(m, {
     x0: -L * 0.47, x1: L * 0.45,
     cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
     ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
-    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * 0.04, fine: o.rosettes ? 2 : false,
+    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * 0.04, fine: o.rosettes || o.dots || o.fine ? 2 : false,
   }, coat);
   if (o.extra) o.extra(m, { L, H, leg, by, W, coat });
 
@@ -255,7 +280,7 @@ function quadruped(m, s, o) {
   const hp = o.head, hr = o.headR;
   const hc = o.headColor ? grad(o.headColor, s.belly || o.headColor, -0.4, 0.5) : coat;
   const hd = { part: P.HEAD, pivot: neck };
-  if (o.neckR) m.limb(neck, [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], o.neckR, o.neckR * 0.8, o.neckColor ? solid(o.neckColor) : hc, hd);
+  if (o.neckR) m.limb(neck, [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], o.neckR, o.neckR * 0.8, o.neckColor ? solid(o.neckColor) : hc, { ...hd, seg: o.neckSeg, rings: o.neckRings });
   m.ell(hp, hr, hc, hd);
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28, 0];
   m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
@@ -320,10 +345,19 @@ const MAMMALS = {
     const L = s.len, H = s.h * (1 + k * 0.12), leg = s.leg * (0.85 - k * 0.08), by = leg + H * 0.5;
     const hs = 1 + k * 0.18;
     return {
-      H, leg, chest: 1 + k * 0.1, legR0: H * (0.22 + k * 0.08), legR1: H * (0.14 + k * 0.06), neckR: H * (0.3 + k * 0.08), spots: s.bobtail ? shade(s.color, -0.45) : null, rosettes: s.rosettes,
+      H, leg, chest: 1 + k * 0.1, legR0: H * (s.cheetah ? 0.16 : 0.22 + k * 0.08), legR1: H * (s.cheetah ? 0.09 : 0.14 + k * 0.06), neckR: H * (0.3 + k * 0.08), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : null, rosettes: s.rosettes,
       hoof: s.rosettes ? shade(s.color, -0.12) : null, // big soft paws
       head: [L * 0.5, by + H * (0.38 - k * 0.1)], headR: [H * 0.36 * hs, H * 0.33 * hs, H * 0.34 * hs], snout: H * 0.15 * hs,
-      ears: s.rosettes ? 'round' : 'point', ear: H * (s.rosettes ? 0.34 : 0.26), earOut: 0.2, earBack: 0.1, earW: 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
+      ears: s.rosettes || s.mane || s.cheetah ? 'round' : 'point', ear: H * (s.rosettes || s.cheetah ? 0.3 : s.mane ? 0.24 : 0.26), earOut: 0.2, earBack: 0.1, earW: 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
+      face: s.mane ? (m, hp, hr, hd) => {
+        // a lion's mane: a shaggy ruff around the head and down the neck
+        const mane = u => tmp.copy(col(s.mane)).multiplyScalar(0.8 + hash3(Math.round(u.x * 7), Math.round(u.y * 7), Math.round(u.z * 7)) * 0.4);
+        m.ell([hp[0] - hr[0] * 0.55, hp[1] - hr[1] * 0.15, 0], [hr[0] * 0.95, hr[1] * 1.45, hr[2] * 1.45], mane, hd);
+        m.ell([hp[0] - hr[0] * 1.3, hp[1] - hr[1] * 0.7, 0], [hr[0] * 0.9, hr[1] * 1.1, hr[2] * 1.15], mane, hd);
+      } : s.cheetah ? (m, hp, hr, hd) => {
+        // cheetah: black "tear" lines from the eyes to the mouth
+        for (const side of [1, -1]) m.limb([hp[0] + hr[0] * 0.5, hp[1] + hr[1] * 0.1, side * hr[2] * 0.62], [hp[0] + hr[0] * 0.95, hp[1] - hr[1] * 0.45, side * hr[2] * 0.42], hr[1] * 0.06, hr[1] * 0.05, s.dark, { ...hd, caps: false });
+      } : null,
       tail: (m, b) => {
         const base = [-L * 0.42, b.by + H * 0.15, 0], o = { part: P.TAIL, pivot: base };
         if (s.bobtail) { m.ell([-L * 0.47, b.by + H * 0.22, 0], [H * 0.2, H * 0.12, H * 0.12], s.color, { ...o, rot: [0, 0, 0.5] }); return; }
@@ -467,6 +501,205 @@ const MAMMALS = {
       },
     };
   },
+  // ---------------------------------------------------------------- Serengeti hoofed animals
+  // Plains zebra: a horse with bold black stripes (chevrons over the rump), striped legs and an
+  // upright mane.
+  zebra: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    const dark = col(s.dark), light = col(s.color), belly = col(s.belly);
+    const stripes = () => u => {
+      if (u.y < -0.7) return belly;
+      const a = Math.abs(Math.atan2(u.z, u.y));
+      const rump = u.x < -0.35 ? (u.x + 0.35) * a * 6 : 0;
+      return Math.sin(u.x * 24 + rump + a * 1.2) > 0.15 ? dark : light;
+    };
+    const legC = u => (Math.sin(u.y * 9) > 0.2 ? dark : light);
+    return {
+      H, leg, legR0: H * 0.14, legR1: H * 0.075, hoof: '#141414', neckR: H * 0.22, shoulder: 0.06, chest: 0.95,
+      coat: stripes, legColor: legC, headColor: null,
+      head: [L * 0.55, by + H * 0.72], headR: [H * 0.32, H * 0.21, H * 0.17], snout: H * 0.3, muzzle: '#2a2626',
+      ears: 'point', ear: H * 0.27, earOut: 0.3, earBack: 0.1, earW: 0.3, earColor: s.color,
+      face: (m, hp, hr, hd) => m.limb([L * 0.3, by + H * 0.52, 0], [hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.9, 0], H * 0.07, H * 0.05, u => (Math.sin(u.y * 8) > 0 ? dark : light), hd),
+      tail: (m, b) => { const base = [-L * 0.46, b.by + H * 0.25, 0]; m.limb(base, [-L * 0.55, b.by - H * 0.35, 0], H * 0.04, H * 0.03, s.color, { part: P.TAIL, pivot: base }); m.ell([-L * 0.56, b.by - H * 0.45, 0], [H * 0.06, H * 0.13, H * 0.06], s.dark, { part: P.TAIL, pivot: base, lo: true }); },
+    };
+  },
+  // Wildebeest: a front-heavy antelope with high shoulders and a sloping back, a long, broad,
+  // blunt face carried low, cow-like horns that sweep out and hook up, a black mane and beard, and
+  // silvery grey coat with dark bands over the shoulders.
+  wildebeest: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    const dark = col(s.dark);
+    return {
+      H, leg, hip: -0.16, shoulder: 0.22, chest: 1.12, haunch: 0.8, legR0: H * 0.14, legR1: H * 0.055, hoof: '#141414', neckR: H * 0.24,
+      legColor: u => tmp.copy(col(s.color)).lerp(dark, smooth(0.6, 0.1, u.y) * 0.6),
+      coat: base => u => (u.x > -0.05 && u.y > -0.55 && Math.sin(u.x * 26 + u.y * 2) > 0.45 ? col(shade(s.color, -0.28)) : base(u)), // the brindled bands
+      head: [L * 0.57, by + H * 0.22], headR: [H * 0.24, H * 0.24, H * 0.19], snout: H * 0.04, muzzle: s.dark, nose: false,
+      ears: 'point', ear: H * 0.17, earOut: 1.0, earBack: 0.05, earW: 0.35, earColor: s.color,
+      antlers: (m, hp, hr, hd) => {
+        for (const side of [1, -1]) {
+          const b0 = [hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.75, side * hr[2] * 0.5], b1 = [b0[0] - H * 0.02, b0[1] - H * 0.03, side * H * 0.42];
+          const b2 = [b1[0] + H * 0.03, b1[1] + H * 0.18, side * H * 0.44], b3 = [b2[0] - H * 0.03, b2[1] + H * 0.1, side * H * 0.32];
+          m.limb(b0, b1, H * 0.055, H * 0.045, '#4a4640', hd); m.limb(b1, b2, H * 0.045, H * 0.03, '#3a3632', hd); m.limb(b2, b3, H * 0.03, H * 0.008, '#2a2826', { ...hd, caps: false });
+        }
+      },
+      face: (m, hp, hr, hd) => {
+        // the long, blunt face, angled down to a broad black nose
+        const f0 = [hp[0] + hr[0] * 0.3, hp[1] - hr[1] * 0.1, 0], f1 = [hp[0] + H * 0.46, hp[1] - H * 0.42, 0];
+        m.limb(f0, f1, H * 0.17, H * 0.15, u => tmp.copy(col(s.color)).lerp(dark, 0.55), hd);
+        m.ell([f1[0] + H * 0.02, f1[1] - H * 0.02, 0], [H * 0.11, H * 0.1, H * 0.16], s.dark, hd);
+        for (const side of [1, -1]) m.ell([f1[0] + H * 0.08, f1[1] - H * 0.01, side * H * 0.08], [H * 0.03, H * 0.03, H * 0.03], '#0a0a0a', { ...hd, lo: true }); // nostrils
+        // black beard hanging from the throat, and the upright mane along the neck
+        m.ell([hp[0] - hr[0] * 0.2, hp[1] - hr[1] * 1.3, 0], [H * 0.14, H * 0.3, H * 0.07], s.dark, hd);
+        m.ell([L * 0.38, by + H * 0.08, 0], [H * 0.16, H * 0.26, H * 0.06], s.dark, hd);
+        for (let k = 0; k < 7; k++) {
+          const t = k / 6, p = [L * 0.22 + (hp[0] - hr[0] * 0.5 - L * 0.22) * t, by + H * 0.56 + (hp[1] + hr[1] * 0.8 - by - H * 0.56) * t, 0];
+          m.ell(p, [H * 0.09, H * 0.11, H * 0.035], s.dark, { ...hd, lo: true });
+        }
+      },
+      tail: (m, b) => {
+        const base = [-L * 0.46, b.by + H * 0.08, 0];
+        m.limb(base, [-L * 0.52, b.by - H * 0.3, 0], H * 0.04, H * 0.035, s.color, { part: P.TAIL, pivot: base });
+        m.limb([-L * 0.52, b.by - H * 0.3, 0], [-L * 0.53, b.by - H * 0.75, 0], H * 0.06, H * 0.03, s.dark, { part: P.TAIL, pivot: base }); // long black switch
+      },
+    };
+  },
+  // Thomson's gazelle: slim and small, tan with a black flank band, white belly and ringed horns.
+  gazelle: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    return {
+      H, leg, legR0: H * 0.12, legR1: H * 0.05, legColor: shade(s.color, 0.1), hoof: '#1a1612', neckR: H * 0.19, chest: 0.95,
+      coat: base => u => (u.y < -0.45 ? col(s.belly) : u.y < -0.2 && u.x > -0.6 && u.x < 0.55 ? col(s.dark) : base(u)),
+      head: [L * 0.53, by + H * 0.85], headR: [H * 0.27, H * 0.2, H * 0.17], snout: H * 0.24,
+      ears: 'point', ear: H * 0.3, earOut: 0.45, earBack: 0.1, earW: 0.3,
+      antlers: (m, hp, hr, hd) => {
+        const ring = u => (Math.sin(u.y * 14) > 0 ? col('#2a241e') : col('#4a4034'));
+        for (const side of [1, -1]) { const b0 = [hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.8, side * hr[2] * 0.3], b1 = [b0[0] - H * 0.14, b0[1] + H * 0.36, side * hr[2] * 0.4], b2 = [b1[0] + H * 0.02, b1[1] + H * 0.14, side * hr[2] * 0.3]; m.limb(b0, b1, H * 0.035, H * 0.026, ring, hd); m.limb(b1, b2, H * 0.026, H * 0.01, '#2a241e', { ...hd, caps: false }); }
+      },
+      tail: (m, b) => m.ell([-L * 0.47, b.by + H * 0.1, 0], [H * 0.05, H * 0.14, H * 0.05], s.dark, { part: P.TAIL, pivot: [-L * 0.45, b.by + H * 0.2, 0] }),
+    };
+  },
+  // Impala: reddish and two-toned, the ram with long lyre-shaped horns, black tufts on the rump.
+  impala: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    return {
+      H, leg, legR0: H * 0.12, legR1: H * 0.055, legColor: shade(s.color, -0.05), hoof: '#1a1612', neckR: H * 0.19,
+      coat: base => u => (u.y < -0.55 ? col(s.belly) : u.y < -0.2 ? col(shade(s.color, 0.2)) : base(u)),
+      head: [L * 0.53, by + H * 0.85], headR: [H * 0.27, H * 0.2, H * 0.17], snout: H * 0.26,
+      ears: 'point', ear: H * 0.32, earOut: 0.5, earBack: 0.1, earW: 0.32,
+      antlers: s.lyre ? (m, hp, hr, hd) => {
+        for (const side of [1, -1]) {
+          const pts = [[hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.8, side * hr[2] * 0.3], [hp[0] - H * 0.22, hp[1] + H * 0.42, side * H * 0.22], [hp[0] - H * 0.22, hp[1] + H * 0.82, side * H * 0.12], [hp[0] - H * 0.08, hp[1] + H * 1.05, side * H * 0.2]];
+          for (let k = 1; k < pts.length; k++) m.limb(pts[k - 1], pts[k], H * (0.05 - k * 0.012), H * (0.04 - k * 0.012), '#2e2620', { ...hd, caps: false });
+        }
+      } : null,
+      tail: (m, b) => m.ell([-L * 0.48, b.by + H * 0.12, 0], [H * 0.05, H * 0.16, H * 0.07], s.belly, { part: P.TAIL, pivot: [-L * 0.45, b.by + H * 0.2, 0] }),
+    };
+  },
+  // Cape buffalo: heavy and black, with a massive boss of horn that sweeps down and hooks up.
+  buffalo: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    return {
+      H, leg, wide: 1.18, shoulder: 0.12, chest: 1.1, legR0: H * 0.2, legR1: H * 0.12, hoof: '#0e0c0a', neckR: H * 0.34,
+      head: [L * 0.53, by - H * 0.0], headR: [H * 0.33, H * 0.28, H * 0.26], snout: H * 0.28, muzzle: '#1a1614',
+      ears: 'point', ear: H * 0.2, earOut: 1.2, earBack: 0.1, earW: 0.45, earColor: s.color,
+      antlers: (m, hp, hr, hd) => {
+        m.ell([hp[0] - hr[0] * 0.25, hp[1] + hr[1] * 0.85, 0], [hr[0] * 0.5, hr[1] * 0.28, hr[2] * 1.1], '#8c826e', hd); // the boss
+        for (const side of [1, -1]) {
+          const b0 = [hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.8, side * hr[2] * 0.9], b1 = [b0[0] + H * 0.04, b0[1] - H * 0.2, side * H * 0.52], b2 = [b1[0] + H * 0.1, b1[1] + H * 0.2, side * H * 0.62];
+          m.limb(b0, b1, H * 0.09, H * 0.065, '#8c826e', hd); m.limb(b1, b2, H * 0.065, H * 0.015, '#5a5446', { ...hd, caps: false });
+        }
+      },
+      tail: (m, b) => { const base = [-L * 0.46, b.by + H * 0.15, 0]; m.limb(base, [-L * 0.52, b.by - H * 0.5, 0], H * 0.035, H * 0.03, s.color, { part: P.TAIL, pivot: base }); m.ell([-L * 0.52, b.by - H * 0.56, 0], [H * 0.05, H * 0.1, H * 0.05], s.dark, { part: P.TAIL, pivot: base, lo: true }); },
+    };
+  },
+  // Warthog: a wide flat face with warts and curling tusks, a bristly mane, and the tail held straight up.
+  warthog: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    return {
+      H, leg, shoulder: 0.1, chest: 1.05, haunch: 0.9, legR0: H * 0.13, legR1: H * 0.08, legColor: shade(s.color, -0.2), hoof: '#1a1614', neckR: H * 0.34,
+      head: [L * 0.5, by - H * 0.08], headR: [H * 0.4, H * 0.28, H * 0.32], snout: H * 0.3, muzzle: shade(s.color, -0.1), nose: false,
+      ears: 'point', ear: H * 0.2, earOut: 0.6, earW: 0.4,
+      face: (m, hp, hr, hd, sn) => {
+        m.ell([sn[0] + H * 0.38, sn[1], 0], [H * 0.04, H * 0.12, H * 0.14], '#4a3a36', hd); // disc of a nose
+        for (const side of [1, -1]) {
+          m.limb([sn[0] + H * 0.2, sn[1] - H * 0.04, side * H * 0.12], [sn[0] + H * 0.24, sn[1] + H * 0.26, side * H * 0.3], H * 0.04, H * 0.012, '#ece4d0', { ...hd, caps: false }); // tusks
+          m.ell([hp[0] + hr[0] * 0.45, hp[1] - hr[1] * 0.2, side * hr[2] * 0.95], [H * 0.07, H * 0.06, H * 0.05], shade(s.color, -0.15), { ...hd, lo: true }); // warts
+        }
+        m.limb([hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.8, 0], [-L * 0.25, by + H * 0.5, 0], H * 0.07, H * 0.04, s.dark, hd); // mane
+      },
+      tail: (m, b) => { const base = [-L * 0.46, b.by + H * 0.2, 0]; m.limb(base, [-L * 0.5, b.by + H * 0.9, 0], H * 0.03, H * 0.02, s.color, { part: P.TAIL, pivot: base }); m.ell([-L * 0.5, b.by + H * 0.98, 0], [H * 0.05, H * 0.1, H * 0.05], s.dark, { part: P.TAIL, pivot: base, lo: true }); },
+    };
+  },
+  // Spotted hyena: high shoulders, low haunches, a heavy head with round ears, spotted coat.
+  hyena: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    return {
+      H, leg, hip: -0.16, shoulder: 0.16, chest: 1.1, haunch: 0.8, legR0: H * 0.16, legR1: H * 0.09, legColor: shade(s.color, -0.1), neckR: H * 0.32, dots: [s.dark, 6, 0.26],
+      head: [L * 0.54, by + H * 0.35], headR: [H * 0.36, H * 0.3, H * 0.28], snout: H * 0.28, muzzle: '#2a2420',
+      ears: 'round', ear: H * 0.26, earColor: shade(s.color, -0.1),
+      tail: (m, b) => { const base = [-L * 0.44, b.by, 0]; m.limb(base, [-L * 0.55, b.by - H * 0.4, 0], H * 0.07, H * 0.09, s.dark, { part: P.TAIL, pivot: base }); },
+    };
+  },
+  // Black rhino: heavy and grey, with two horns and a hooked upper lip for browsing.
+  rhino: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    const hide = base => u => tmp.copy(base(u)).multiplyScalar(0.92 + hash3(Math.round(u.x * 14), Math.round(u.y * 7), Math.round(u.z * 7)) * 0.12);
+    return {
+      H, leg, wide: 1.15, hip: 0.06, shoulder: 0.1, chest: 1.05, legR0: H * 0.2, legR1: H * 0.15, hoof: '#2a2826', neckR: H * 0.36, coat: hide,
+      head: [L * 0.52, by - H * 0.12], headR: [H * 0.36, H * 0.25, H * 0.22], snout: H * 0.3, muzzle: shade(s.color, -0.05), nose: false,
+      ears: 'point', ear: H * 0.2, earOut: 0.25, earBack: 0.15, earW: 0.4,
+      face: (m, hp, hr, hd, sn) => {
+        m.limb([sn[0] + H * 0.18, sn[1] + H * 0.12, 0], [sn[0] + H * 0.34, sn[1] + H * 0.62, 0], H * 0.1, H * 0.01, '#8a8478', { ...hd, caps: false });   // front horn
+        m.limb([sn[0] - H * 0.08, sn[1] + H * 0.2, 0], [sn[0] - H * 0.05, sn[1] + H * 0.44, 0], H * 0.08, H * 0.01, '#8a8478', { ...hd, caps: false }); // back horn
+        m.ell([sn[0] + H * 0.3, sn[1] - H * 0.08, 0], [H * 0.09, H * 0.06, H * 0.08], shade(s.color, -0.05), hd);                                    // pointed, hooked upper lip
+      },
+      tail: (m, b) => { const base = [-L * 0.46, b.by + H * 0.2, 0]; m.limb(base, [-L * 0.5, b.by - H * 0.2, 0], H * 0.03, H * 0.025, s.color, { part: P.TAIL, pivot: base }); },
+    };
+  },
+  // Masai giraffe: long legs, a sloping back, and a neck twice the body's height, with jagged
+  // chestnut patches on cream and two ossicones.
+  giraffe: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    // jagged chestnut patches split by a network of cream lines, over the body, neck and head
+    const patch = () => {
+      const light = col(s.belly), d = col(s.dark), m2 = col(s.color);
+      return (u, p) => {
+        if (p.y < leg * 0.7) return light;
+        const [gap, id] = cells(p, H * 0.3);
+        if (gap < 0.16) return light;
+        return tmp.copy(m2).lerp(d, id * 0.8);
+      };
+    };
+    return {
+      H, leg, hip: -0.14, shoulder: 0.2, chest: 1.1, haunch: 0.88, legR0: H * 0.16, legR1: H * 0.07, hoof: '#2a211a', neckR: H * 0.27,
+      legColor: (u, p) => (p.y < leg * 0.62 ? col(s.belly) : patch()(u, p)), coat: patch, fine: true, neckSeg: 14, neckRings: 18,
+      head: [L * 0.8, by + H * 2.7], headR: [H * 0.28, H * 0.18, H * 0.16], snout: H * 0.24, muzzle: shade(s.belly, -0.1),
+      ears: 'point', ear: H * 0.2, earOut: 0.9, earBack: 0.1, earW: 0.35,
+      antlers: (m, hp, hr, hd) => { for (const side of [1, -1]) { const b0 = [hp[0] - hr[0] * 0.3, hp[1] + hr[1] * 0.8, side * hr[2] * 0.35]; m.limb(b0, [b0[0] - H * 0.04, b0[1] + H * 0.22, b0[2]], H * 0.04, H * 0.035, s.color, hd); m.ell([b0[0] - H * 0.04, b0[1] + H * 0.24, b0[2]], [H * 0.05, H * 0.05, H * 0.05], '#2a2018', { ...hd, lo: true }); } },
+      face: (m, hp, hr, hd) => m.limb([L * 0.34, by + H * 0.6, 0], [hp[0] - hr[0] * 0.8, hp[1] + hr[1] * 0.2, 0], H * 0.05, H * 0.035, s.dark, hd), // short mane
+      tail: (m, b) => { const base = [-L * 0.46, b.by, 0]; m.limb(base, [-L * 0.52, b.by - H * 0.9, 0], H * 0.03, H * 0.025, s.color, { part: P.TAIL, pivot: base }); m.ell([-L * 0.52, b.by - H * 1.0, 0], [H * 0.06, H * 0.14, H * 0.06], '#1e1612', { part: P.TAIL, pivot: base, lo: true }); },
+    };
+  },
+  // African elephant: pillar legs, a domed head, big flapping ears, tusks and a long trunk.
+  elephant: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    const hide = base => u => tmp.copy(base(u)).multiplyScalar(0.94 + hash3(Math.round(u.x * 18), Math.round(u.y * 9), Math.round(u.z * 9)) * 0.1);
+    return {
+      H, leg, wide: 1.12, hip: 0.02, shoulder: 0.1, chest: 1.05, legR0: H * 0.18, legR1: H * 0.16, hoof: shade(s.color, 0.15), neckR: H * 0.4, coat: hide,
+      head: [L * 0.5, by + H * 0.25], headR: [H * 0.38, H * 0.4, H * 0.34], snout: H * 0.1, nose: false,
+      ears: 'none',
+      face: (m, hp, hr, hd) => {
+        // trunk: three tapering segments hanging and curling forward at the tip
+        const t0 = [hp[0] + hr[0] * 0.75, hp[1] - hr[1] * 0.2, 0], t1 = [t0[0] + H * 0.14, t0[1] - H * 0.5, 0], t2 = [t1[0] + H * 0.02, t1[1] - H * 0.45, 0], t3 = [t2[0] + H * 0.1, t2[1] - H * 0.2, 0];
+        m.limb(t0, t1, H * 0.15, H * 0.1, s.color, hd); m.limb(t1, t2, H * 0.1, H * 0.07, s.color, hd); m.limb(t2, t3, H * 0.07, H * 0.05, s.color, hd);
+        for (const side of [1, -1]) {
+          m.limb([hp[0] + hr[0] * 0.55, hp[1] - hr[1] * 0.45, side * hr[2] * 0.4], [hp[0] + hr[0] * 1.3, hp[1] - hr[1] * 1.05, side * hr[2] * 0.55], H * 0.05, H * 0.025, '#ece4d0', { ...hd, caps: false }); // tusks
+          m.ell([hp[0] - hr[0] * 0.35, hp[1] - hr[1] * 0.05, side * hr[2] * 1.05], [hr[0] * 0.75, hr[1] * 1.05, H * 0.04], shade(s.color, -0.05), { ...hd, rot: [side * 0.25, side * -0.35, 0] }); // ears
+        }
+      },
+      tail: (m, b) => { const base = [-L * 0.46, b.by + H * 0.2, 0]; m.limb(base, [-L * 0.5, b.by - H * 0.45, 0], H * 0.03, H * 0.025, s.color, { part: P.TAIL, pivot: base }); m.ell([-L * 0.5, b.by - H * 0.5, 0], [H * 0.04, H * 0.08, H * 0.04], s.dark, { part: P.TAIL, pivot: base, lo: true }); },
+    };
+  },
 };
 
 // A vole is a furry egg with a blunt nose: tiny feet, ears tucked in the fur, a short tail.
@@ -588,12 +821,17 @@ const BIRDS = {
   heron: s => ({ legH: 1.05, tilt: 0.3, span: 0.9, chord: 0.3, beak: 0.42, beakColor: '#e0b030', legColor: '#b8a060', tail: 0.2, neck: true, head: 0.13 }),
   duck: s => ({ legH: 0.08, tilt: 0.05, span: 0.6, chord: 0.24, beak: 0.2, beakColor: '#d8a030', legColor: '#e08a30', tail: -0.4, duck: true }),
   raptor: s => ({ legH: 0.16, tilt: 0.45, span: 0.95, chord: 0.3, beak: 0.14, beakColor: s.bill || '#e0b030', legColor: '#e0b030', tail: 0.35, hook: true }),
+  vulture: s => ({ legH: 0.2, tilt: 0.3, span: 0.95, chord: 0.34, beak: 0.13, beakColor: s.bill || '#2a2a2a', legColor: '#5a5650', tail: 0.2, hook: true, head: 0.12, vulture: true }),
+  secretary: s => ({ legH: 1.05, tilt: 0.18, span: 1.0, chord: 0.3, beak: 0.09, beakColor: '#8a8a88', legColor: '#e2c49a', tail: 0.1, hook: true, neck: true, head: 0.13, secretary: true }),
+  crane: s => ({ legH: 0.95, tilt: 0.22, span: 1.0, chord: 0.32, beak: 0.15, beakColor: '#2a2a2a', legColor: '#3a3a3a', tail: 0.2, neck: true, head: 0.13 }),
+  hornbill: s => ({ legH: 0.44, tilt: 0.22, span: 0.8, chord: 0.3, beak: 0, beakColor: '#1c1a18', legColor: '#2a2624', tail: 0.3, head: 0.16, hornbill: true }),
   toucan: s => ({ legH: 0.18, tilt: 0.45, span: 0.55, chord: 0.26, beak: 0, beakColor: s.bill, legColor: '#4a6aa0', tail: 0.4, head: 0.2, toucan: true }),
   macaw: s => ({ legH: 0.14, tilt: 0.55, span: 0.95, chord: 0.28, beak: 0.13, beakColor: '#e8e2d4', legColor: '#5a5048', tail: 0.45, hook: true, head: 0.21, macaw: true }),
+  ostrich: s => ({ legH: 1.15, tilt: 0.05, span: 0.45, chord: 0.3, beak: 0.1, beakColor: '#c8a088', legColor: '#d0a898', tail: -0.6, neck: true, tall: true, head: 0.09, fluffy: true }),
   owl: s => ({ legH: 0.12, tilt: 1.3, span: 0.85, chord: 0.3, beak: 0.08, beakColor: '#3a3028', legColor: '#8a7a5a', tail: 1.2, owl: true, head: 0.22 }),
 };
 
-const WING_KIND = { songbird: 'round', woodpecker: 'round', owl: 'round', toucan: 'round', hummer: 'pointed', duck: 'pointed', macaw: 'pointed', heron: 'fingered', raptor: 'fingered' };
+const WING_KIND = { vulture: 'fingered', secretary: 'fingered', crane: 'fingered', hornbill: 'fingered', ostrich: 'round', songbird: 'round', woodpecker: 'round', owl: 'round', toucan: 'round', hummer: 'pointed', duck: 'pointed', macaw: 'pointed', heron: 'fingered', raptor: 'fingered' };
 
 function bird(m, s) {
   const S = s.size, o = BIRDS[s.kind](s);
@@ -608,11 +846,23 @@ function bird(m, s) {
   const hr = S * (o.head ?? 0.19);
   let hp;
   if (o.owl) hp = [S * 0.1, by + S * 0.33, 0];
+  else if (o.tall) hp = [S * 0.45, by + S * 1.0, 0];
+  else if (o.vulture) hp = [S * 0.5, by + S * 0.1, 0];
   else if (o.neck) hp = [S * 0.5, by + S * 0.6, 0];
   else if (o.duck) hp = [S * 0.38, by + S * 0.28, 0];
   else hp = [S * 0.34 + Math.sin(o.tilt) * S * 0.02, by + S * 0.2 + Math.sin(o.tilt) * S * 0.12, 0];
   const neckBase = [S * 0.25, by + S * 0.1, 0], hd = { part: P.HEAD, pivot: neckBase };
-  if (o.neck) {
+  if (o.vulture) {
+    // white-backed vulture: a long, bare grey neck hanging forward out of a thick white ruff
+    m.limb([S * 0.26, by + S * 0.12, 0], [S * 0.4, by + S * 0.18, 0], S * 0.05, S * 0.04, s.head, hd);
+    m.limb([S * 0.4, by + S * 0.18, 0], [hp[0] - hr * 0.5, hp[1], 0], S * 0.04, S * 0.035, s.head, hd);
+    m.ell([S * 0.24, by + S * 0.1, 0], [S * 0.13, S * 0.12, S * 0.17], '#f2eee6', hd);
+  }
+  if (o.tall) {
+    // ostrich: a bare pinkish neck rising straight up out of the black plumes
+    m.limb([S * 0.3, by + S * 0.08, 0], [S * 0.4, by + S * 0.5, 0], S * 0.07, S * 0.05, s.head, hd);
+    m.limb([S * 0.4, by + S * 0.5, 0], [hp[0] - hr * 0.5, hp[1] - hr * 0.3, 0], S * 0.05, S * 0.04, s.head, hd);
+  } else if (o.neck) {
     m.limb([S * 0.3, by + S * 0.08, 0], [S * 0.42, by + S * 0.32, 0], S * 0.09, S * 0.07, s.breast, hd);
     m.limb([S * 0.42, by + S * 0.32, 0], [hp[0] - hr * 0.5, hp[1] - hr * 0.2, 0], S * 0.07, S * 0.06, s.breast, hd);
   }
@@ -636,7 +886,22 @@ function bird(m, s) {
     if (s.face) for (const side of [1, -1]) m.ell([hp[0] + hr * 0.4, hp[1] + hr * 0.2, side * hr * 0.72], [hr * 0.38, hr * 0.3, hr * 0.2], s.face, hd);
     eyes(m, hp, hr * 0.47, hr * 0.24, hr * 0.84, Math.max(0.55, hr * 0.19), P.HEAD, neckBase, s.eye);
     eyes(m, hp, hr * 0.52, hr * 0.24, hr * 0.9, Math.max(0.3, hr * 0.09), P.HEAD, neckBase);
-  } else eyes(m, hp, hr * 0.45, hr * 0.25, hr * 0.78, Math.max(0.45, hr * 0.17), P.HEAD, neckBase);
+  } else {
+    // bare facial skin (secretarybird's orange, crowned crane's white cheek)
+    if (s.face) for (const side of [1, -1]) m.ell([hp[0] + hr * 0.35, hp[1] + hr * 0.05, side * hr * 0.7], [hr * 0.5, hr * 0.4, hr * 0.3], s.face, hd);
+    eyes(m, hp, hr * 0.45, hr * 0.25, hr * 0.78, Math.max(0.45, hr * 0.17), P.HEAD, neckBase);
+  }
+  if (s.quills) for (let k = 0; k < 6; k++) { // secretarybird: long black quills hanging off the back of the head
+    const z = (k % 2 ? 1 : -1) * hr * 0.15 * (1 + (k >> 1));
+    m.limb([hp[0] - hr * 0.5, hp[1] + hr * 0.3, z * 0.5], [hp[0] - hr * (2 + (k % 3) * 0.4), hp[1] + hr * (0.4 - (k % 3) * 0.5), z], hr * 0.1, hr * 0.05, '#141414', { ...hd, caps: false });
+  }
+  if (s.crown) for (let k = 0; k < 9; k++) { // crowned crane: a fan of golden bristles
+    const a = -0.9 + k * 0.22;
+    m.limb([hp[0] - hr * 0.1, hp[1] + hr * 0.7, 0], [hp[0] - hr * 0.1 - Math.sin(a) * hr * 1.4, hp[1] + hr * 0.7 + Math.cos(a) * hr * 1.3, (k % 2 ? 1 : -1) * hr * 0.3], hr * 0.08, hr * 0.03, s.crown, { ...hd, caps: false });
+  }
+  if (s.wattle && !o.toucan && !o.hornbill) m.ell([hp[0] + hr * 0.45, hp[1] - hr * 0.95, 0], [hr * 0.22, hr * 0.38, hr * 0.14], s.wattle, hd); // crowned crane's red throat wattle
+  if (s.velvet) m.ell([hp[0] + hr * 0.55, hp[1] + hr * 0.45, 0], [hr * 0.45, hr * 0.35, hr * 0.5], s.velvet, hd); // black velvet forehead
+  if (o.fluffy) m.ell([-S * 0.1, by + S * 0.02, 0], [S * 0.36, S * 0.28, S * 0.3], s.color); // plumes bulk out the body
   if (s.crest === 'double') {
     // harpy: a split crest of grey plumes that fans up when it's alert
     for (const side of [1, -1]) m.limb([hp[0] - hr * 0.3, hp[1] + hr * 0.7, side * hr * 0.2], [hp[0] - hr * 0.9, hp[1] + hr * 1.55, side * hr * 0.55], hr * 0.28, hr * 0.06, shade(s.head, -0.35), hd);
@@ -654,7 +919,17 @@ function bird(m, s) {
     const bill = u => u.x > 0.72 ? col('#141210') : u.x > 0.2 && u.y > 0.55 ? col(shade(s.bill, 0.2)) : col(s.bill);
     m.ell([bb[0] + S * 0.25, bb[1] - S * 0.02, 0], [S * 0.3, hr * 0.6, hr * 0.42], bill, { ...hd, rot: [0, 0, -0.12] });
     m.ell([hp[0] + hr * 0.3, hp[1] - hr * 0.8, 0], [hr * 0.7, hr * 0.7, hr * 0.8], s.breast, hd);
-    for (const side of [1, -1]) m.ell([hp[0] + hr * 0.45, hp[1] + hr * 0.25, side * hr * 0.72], [hr * 0.3, hr * 0.3, hr * 0.12], '#3a8ae0', { ...hd, lo: true });
+    for (const side of [1, -1]) m.ell([hp[0] + hr * 0.45, hp[1] + hr * 0.25, side * hr * 0.72], [hr * 0.3, hr * 0.3, hr * 0.12], s.wattle || '#3a8ae0', { ...hd, lo: true });
+    if (s.wattle) m.ell([hp[0] + hr * 0.4, hp[1] - hr * 0.95, 0], [hr * 0.55, hr * 0.5, hr * 0.5], s.wattle, hd); // ground hornbill's red throat
+  } else if (o.hornbill) {
+    // southern ground hornbill: a heavy, down-curved black bill with a low casque on top, and a
+    // big bare red throat pouch below it
+    const t0 = bb, t1 = [bb[0] + S * 0.17, bb[1] - S * 0.04, 0], t2 = [bb[0] + S * 0.3, bb[1] - S * 0.14, 0];
+    m.limb(t0, t1, S * 0.06, S * 0.042, o.beakColor, hd); m.limb(t1, t2, S * 0.042, S * 0.008, o.beakColor, { ...hd, caps: false });
+    m.limb([bb[0], bb[1] - S * 0.035, 0], [bb[0] + S * 0.2, bb[1] - S * 0.1, 0], S * 0.035, S * 0.01, shade(o.beakColor, 0.08), { ...hd, caps: false }); // lower mandible
+    m.ell([bb[0] + S * 0.05, bb[1] + S * 0.045, 0], [S * 0.085, S * 0.03, S * 0.028], o.beakColor, hd); // casque
+    m.ell([hp[0] + hr * 0.35, hp[1] - hr * 1.05, 0], [hr * 0.75, hr * 0.7, hr * 0.62], s.wattle, hd);    // throat pouch
+    m.ell([hp[0] + hr * 0.1, hp[1] - hr * 0.55, 0], [hr * 0.6, hr * 0.45, hr * 0.8], s.wattle, hd);
   } else if (o.duck) m.ell([bb[0] + bl * 0.45, bb[1], 0], [bl * 0.6, hr * 0.18, hr * 0.42], o.beakColor, hd);
   else {
     if (o.macaw) {
@@ -668,6 +943,7 @@ function bird(m, s) {
 
   // tail
   const tb = [-S * 0.3, by - S * 0.02, 0];
+  if (o.secretary) for (const z of [-0.025, 0.025]) m.limb([-S * 0.4, by - S * 0.06, S * z], [-S * 1.05, by - S * 0.32, S * z * 2], S * 0.03, S * 0.012, u => u.y > 0.8 ? col('#1a1a1a') : col(s.color), { part: P.TAIL, pivot: tb, caps: false }); // the long central streamers
   if (o.macaw) m.ell([-S * 0.8, by - S * 0.3, 0], [S * 0.6, S * 0.03, S * 0.09], u => u.x < -0.5 ? col(s.wingtip) : col(s.color), { rot: [0, 0, 0.45], part: P.TAIL, pivot: tb });
   else if (s.tailTip) m.ell([-S * 0.62, by - S * 0.12, 0], [S * 0.42, S * 0.04, S * 0.16], u => u.x < -0.6 ? col(s.tailTip) : col(s.tail || s.color), { rot: [0, 0, 0.35], part: P.TAIL, pivot: tb });
   else if (s.tailBars) m.ell([-S * 0.52, by - S * 0.08 + Math.sin(-o.tail * 0.3) * S * 0.2, 0], [S * 0.3, S * 0.035, S * 0.13], u => Math.sin(u.x * 11) > 0.4 ? col(s.tailBars) : col(s.tail || s.color), { rot: [0, 0, o.tail * 0.6 + 0.15], part: P.TAIL, pivot: tb });
@@ -676,8 +952,9 @@ function bird(m, s) {
   // legs
   if (!o.duck) for (const side of [1, -1]) {
     const hip = [S * 0.02, by - S * 0.12, side * S * 0.07];
-    const lp = { part: side > 0 ? P.LEG_FL : P.LEG_FR, pivot: hip }, thick = s.bigFeet ? 1.9 : 1;
+    const lp = { part: side > 0 ? P.LEG_FL : P.LEG_FR, pivot: hip }, thick = s.bigFeet ? 1.9 : o.tall ? 1.8 : o.hornbill ? 1.5 : 1;
     m.limb(hip, [S * 0.04, S * 0.02, side * S * 0.08], S * (o.legH > 0.5 ? 0.028 : 0.035) * thick, S * 0.022 * thick, o.legColor, lp);
+    if (o.secretary) m.limb(hip, [S * 0.03, by - S * 0.62, side * S * 0.08], S * 0.075, S * 0.05, '#1a1a1a', lp); // feathered black thighs
     if (s.bigFeet) for (const t of [-1, 0, 1]) m.limb([S * 0.04, S * 0.02, side * S * 0.08], [S * (0.04 + 0.07 * (t === 0 ? 1 : 0.6)), S * 0.005, side * S * 0.08 + t * S * 0.04], S * 0.02, S * 0.01, '#2a2420', { ...lp, caps: false });
   }
 
@@ -783,7 +1060,20 @@ function newt(m, s) {
 function turtle(m, s) {
   const S = s.size;
   const shell = (u, p) => tmp.copy(col(s.color)).lerp(col(s.dark), hash3(Math.round(p.x / (S * 0.22)), Math.round(p.z / (S * 0.22)), 1) * 0.7);
-  m.ell([0, S * 0.24, 0], [S * 0.46, S * 0.24, S * 0.38], shell);
+  if (s.dome) {
+    // leopard tortoise: a tall dome of pale scutes with dark flecks
+    // leopard tortoise: a high dome of plates, each pale gold with a dark rim and dark flecks
+    // radiating from its middle
+    const gold = col(s.color), dk = col(s.dark);
+    const plates = (u, p) => {
+      const [gap, id] = cells(p, S * 0.26);
+      if (gap < 0.12) return tmp.copy(dk).lerp(gold, 0.2);                                     // seams between plates
+      if (gap < 0.3 && hash3(Math.round(p.x * 3), Math.round(p.y * 3), Math.round(p.z * 3)) > 0.55) return tmp.copy(dk).lerp(gold, 0.4); // flecks near the edges
+      return tmp.copy(gold).multiplyScalar(0.85 + 0.15 * id + 0.15 * smooth(-0.2, 1, u.y));
+    };
+    m.add(SPH_XL, place([0, S * 0.3, 0], [0, 0, 0], [S * 0.46, S * 0.36, S * 0.38]), plates); // fine mesh, so the plates show
+    m.ell([0, S * 0.14, 0], [S * 0.47, S * 0.05, S * 0.39], shade(s.color, -0.3)); // the rim of the shell
+  } else m.ell([0, S * 0.24, 0], [S * 0.46, S * 0.24, S * 0.38], shell);
   m.ell([0, S * 0.13, 0], [S * 0.47, S * 0.05, S * 0.39], shade(s.dark, -0.2));
   const skin = shade(s.dark, 0.1);
   m.ell([S * 0.52, S * 0.2, 0], [S * 0.16, S * 0.12, S * 0.12], skin, { part: P.HEAD, pivot: [S * 0.4, S * 0.18, 0] });
@@ -849,6 +1139,8 @@ function fish(m, s) {
   };
   m.ell([S * 0.3, cy - S * 0.005, 0], [S * 0.17, S * 0.115 * D, S * 0.075], head);
   m.ell([S * 0.43, cy - S * 0.03, 0], [S * 0.06, S * 0.035, S * 0.05], coho ? '#3a3a30' : shade(back, 0.2)); // snout / kype
+  if (s.whiskers) for (const side of [1, -1]) for (const [dy, dz] of [[0, 0.05], [-0.05, 0.12]]) // catfish barbels
+    m.limb([S * 0.46, cy - S * 0.03, side * S * 0.03], [S * 0.5, cy - S * (0.09 + dy), side * S * dz * 2], S * 0.012, S * 0.004, back, { caps: false });
   for (const side of [1, -1]) {
     m.ell([S * 0.36, cy + S * 0.025, side * S * 0.058], [S * 0.03, S * 0.03, S * 0.012], '#e8d890', { lo: true });
     m.ell([S * 0.365, cy + S * 0.025, side * S * 0.066], [S * 0.017, S * 0.017, S * 0.008], '#111010', { lo: true });
@@ -1123,6 +1415,114 @@ function person(m, look) {
   }
 }
 
+// Hippo: a huge grey barrel slung low on stumpy legs, and a head that is mostly muzzle: a wide,
+// flared box with the nostrils, eyes and little ears all set on top so it can lie almost
+// hidden in the water. Pinkish skin around the eyes, the mouth and underneath.
+function hippo(m, s) {
+  const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+  const pink = col(s.belly), grey = col(s.color);
+  const hide = u => tmp.copy(grey).lerp(pink, smooth(-0.35, -0.85, u.y) * 0.75)
+    .multiplyScalar(0.94 + hash3(Math.round(u.x * 16), Math.round(u.y * 8), Math.round(u.z * 8)) * 0.1);
+  loftBody(m, { x0: -L * 0.5, x1: L * 0.34, cy0: by + H * 0.06, cy1: by + H * 0.02, ry0: H * 0.66, ry1: H * 0.62, rz0: H * 0.6, rz1: H * 0.58, sag: H * 0.03, fine: true }, hide);
+  const neck = [L * 0.27, by + H * 0.08, 0], hd = { part: P.HEAD, pivot: neck };
+  const face = u => tmp.copy(grey).lerp(pink, smooth(-0.1, -0.8, u.y) * 0.8);
+  m.limb(neck, [L * 0.4, by + H * 0.05, 0], H * 0.5, H * 0.42, face, hd);                                      // thick neck
+  m.ell([L * 0.45, by + H * 0.12, 0], [H * 0.36, H * 0.34, H * 0.36], face, hd);                               // skull
+  m.ell([L * 0.62, by - H * 0.02, 0], [H * 0.34, H * 0.3, H * 0.44], face, hd);                                // the broad, flared muzzle
+  m.ell([L * 0.6, by - H * 0.26, 0], [H * 0.32, H * 0.14, H * 0.38], shade(s.belly, -0.08), hd);              // heavy lower jaw
+  m.limb([L * 0.53, by - H * 0.14, H * 0.36], [L * 0.53, by - H * 0.14, -H * 0.36], H * 0.1, H * 0.1, shade(s.belly, -0.2), { ...hd, caps: false }); // the long mouth line
+  for (const side of [1, -1]) {
+    const z = side * H * 0.15;
+    m.ell([L * 0.7, by + H * 0.22, z], [H * 0.09, H * 0.08, H * 0.1], face, hd);                              // nostril bumps
+    m.ell([L * 0.74, by + H * 0.27, z], [H * 0.035, H * 0.025, H * 0.045], '#2a1c1c', { ...hd, lo: true });
+    m.ell([L * 0.47, by + H * 0.4, side * H * 0.22], [H * 0.1, H * 0.09, H * 0.09], face, hd);                // eye turrets
+    m.ell([L * 0.5, by + H * 0.42, side * H * 0.27], [H * 0.055, H * 0.05, H * 0.035], pink, { ...hd, lo: true });
+    m.ell([L * 0.51, by + H * 0.43, side * H * 0.29], [H * 0.03, H * 0.03, H * 0.02], '#140c0a', { ...hd, lo: true });
+    m.ell([L * 0.39, by + H * 0.48, side * H * 0.2], [H * 0.05, H * 0.08, H * 0.04], shade(s.color, -0.2), { ...hd, rot: [side * -0.4, 0, 0.3] }); // little ears
+    m.ell([L * 0.72, by - H * 0.12, side * H * 0.34], [H * 0.035, H * 0.08, H * 0.03], '#f0e8d8', { ...hd, lo: true }); // a hint of tusk at the lip
+  }
+  const lc = u => tmp.copy(grey).lerp(pink, 0.25), r0 = H * 0.28, r1 = H * 0.24;
+  stumpLegs(m, [[L * 0.2, H * 0.34, by - H * 0.1, r0, r1, lc], [L * 0.2, -H * 0.34, by - H * 0.1, r0, r1, lc],
+    [-L * 0.3, H * 0.36, by - H * 0.05, r0 * 1.1, r1, lc], [-L * 0.3, -H * 0.36, by - H * 0.05, r0 * 1.1, r1, lc]], shade(s.color, -0.25));
+  const tb = [-L * 0.49, by + H * 0.2, 0];
+  m.ell([-L * 0.53, by + H * 0.02, 0], [H * 0.05, H * 0.16, H * 0.08], s.color, { part: P.TAIL, pivot: tb, rot: [0, 0, -0.3] }); // short flattened tail
+}
+
+// Nile monitor: a long, low lizard on sprawling legs, with a snaky neck, a narrow pointed head,
+// a flicking forked tongue and a thick tail as long as the rest of it. Dark olive with pale
+// yellow bands and spots.
+function monitor(m, s) {
+  const S = s.size, cy = S * 0.13;
+  const skin = u => {
+    const band = Math.sin(u.x * 13) > 0.82 && u.y > -0.3;
+    const spot = u.y > 0.1 && hash3(Math.round(u.x * 34), Math.round(u.y * 9), Math.round(u.z * 9)) > 0.86;
+    return u.y < -0.5 ? col(s.belly) : band || spot ? col(shade(s.belly, -0.1)) : col(s.color);
+  };
+  loftBody(m, { x0: -S * 0.3, x1: S * 0.28, cy0: cy, cy1: cy + S * 0.005, ry0: S * 0.075, ry1: S * 0.08, rz0: S * 0.1, rz1: S * 0.1, fine: true }, skin);
+  const neck = [S * 0.24, cy + S * 0.01, 0], hd = { part: P.HEAD, pivot: neck };
+  m.limb(neck, [S * 0.4, cy + S * 0.04, 0], S * 0.065, S * 0.05, skin, hd);                  // long neck
+  m.ell([S * 0.46, cy + S * 0.045, 0], [S * 0.08, S * 0.04, S * 0.045], skin, hd);           // head
+  m.ell([S * 0.54, cy + S * 0.035, 0], [S * 0.045, S * 0.025, S * 0.028], s.color, hd);      // pointed snout
+  eyes(m, [S * 0.46, cy + S * 0.045, 0], S * 0.03, S * 0.02, S * 0.037, S * 0.011, P.HEAD, neck, '#c8a030');
+  for (const side of [1, -1]) m.limb([S * 0.585, cy + S * 0.03, 0], [S * 0.64, cy + S * 0.03, side * S * 0.012], S * 0.005, S * 0.003, '#8a3a4a', { ...hd, caps: false }); // forked tongue
+  // tail: thick at the base, tapering, as long again as the body
+  const tb = [-S * 0.28, cy, 0];
+  m.limb(tb, [-S * 0.62, cy - S * 0.03, 0], S * 0.07, S * 0.04, skin, { part: P.TAIL, pivot: tb });
+  m.limb([-S * 0.62, cy - S * 0.03, 0], [-S * 0.95, cy - S * 0.06, 0], S * 0.04, S * 0.01, skin, { part: P.TAIL, pivot: tb, caps: false });
+  // legs splay out sideways from the body, elbows up, feet flat with claws
+  const legs = [[S * 0.17, 1, P.LEG_FL], [S * 0.17, -1, P.LEG_FR], [-S * 0.2, 1, P.LEG_BL], [-S * 0.2, -1, P.LEG_BR]];
+  for (const [x, side, part] of legs) {
+    const hip = [x, cy, side * S * 0.07], knee = [x + S * 0.02, cy + S * 0.02, side * S * 0.17], foot = [x + S * 0.04, S * 0.01, side * S * 0.2], o = { part, pivot: hip };
+    m.limb(hip, knee, S * 0.035, S * 0.028, skin, o);
+    m.limb(knee, foot, S * 0.028, S * 0.02, s.color, o);
+    for (const t of [-1, 0, 1]) m.limb(foot, [foot[0] + S * 0.04, S * 0.004, foot[2] + t * S * 0.02], S * 0.008, S * 0.003, '#2a2418', { ...o, caps: false });
+  }
+}
+
+// Dung beetle: a glossy black scarab, head down and walking backwards, its long hind legs up on
+// the ball of dung it's rolling. Shovel-edged head, spiny digging forelegs, a seam down the wing cases.
+function beetle(m, s) {
+  const S = s.size * 1.6, c = col(s.color), hi = col('#5a5a4c');
+  const tilt = -0.32; // nose down, rear up against the ball
+  const R = (x, y) => [x * Math.cos(tilt) - y * Math.sin(tilt), x * Math.sin(tilt) + y * Math.cos(tilt) + S * 0.34];
+  const at = (x, y, z) => { const [a, b] = R(x, y); return [a, b, z]; };
+  const shell = u => {
+    const k = smooth(0.1, 0.9, u.y) * 0.6 + (Math.abs(Math.sin(u.z * 9)) < 0.18 ? -0.25 : 0); // sheen on top, faint grooves
+    const t = tmp.copy(c).lerp(hi, Math.max(0, k));
+    return Math.abs(u.z) < 0.05 && u.y > 0 ? t.multiplyScalar(0.5) : t;                           // the seam between the wing cases
+  };
+  const rot = [0, 0, tilt];
+  m.ell(at(-S * 0.1, S * 0.08, 0), [S * 0.36, S * 0.22, S * 0.32], shell, { rot });                  // wing cases
+  m.ell(at(S * 0.26, S * 0.06, 0), [S * 0.17, S * 0.17, S * 0.29], u => tmp.copy(c).lerp(hi, smooth(0.2, 1, u.y) * 0.7), { rot }); // pronotum
+  const hd = { part: P.HEAD, pivot: at(S * 0.38, S * 0.05, 0) };
+  m.ell(at(S * 0.48, -S * 0.02, 0), [S * 0.15, S * 0.06, S * 0.27], shade(s.color, 0.1), { ...hd, rot });  // the flat, shovel-like head
+  for (const z of [-0.18, -0.07, 0.07, 0.18]) m.ell(at(S * 0.62, -S * 0.04, S * z), [S * 0.045, S * 0.025, S * 0.04], s.color, { ...hd, lo: true }); // toothed front edge
+  for (const side of [1, -1]) m.ell(at(S * 0.5, S * 0.02, side * S * 0.24), [S * 0.03, S * 0.03, S * 0.02], '#3a2e20', { ...hd, lo: true }); // eyes
+  // six legs in two tripods, so they alternate the way a beetle walks
+  const legs = [
+    [S * 0.3, 1, P.LEG_FL, [S * 0.62, -S * 0.2, S * 0.42], [S * 0.72, -S * 0.34, S * 0.36]],   // front: short, flattened, digging
+    [S * 0.05, -1, P.LEG_FL, [S * 0.1, -S * 0.2, -S * 0.55], [S * 0.0, -S * 0.34, -S * 0.72]],   // middle: splayed out
+    [-S * 0.28, 1, P.LEG_FL, [-S * 0.55, S * 0.15, S * 0.5], [-S * 0.72, S * 0.32, S * 0.34]],   // hind: long, reaching up onto the ball
+    [S * 0.3, -1, P.LEG_FR, [S * 0.62, -S * 0.2, -S * 0.42], [S * 0.72, -S * 0.34, -S * 0.36]],
+    [S * 0.05, 1, P.LEG_FR, [S * 0.1, -S * 0.2, S * 0.55], [S * 0.0, -S * 0.34, S * 0.72]],
+    [-S * 0.28, -1, P.LEG_FR, [-S * 0.55, S * 0.15, -S * 0.5], [-S * 0.72, S * 0.32, -S * 0.34]],
+  ];
+  for (const [x, side, part, knee, foot] of legs) {
+    const hip = at(x, -S * 0.08, side * S * 0.2), k = at(...knee), f = at(...foot), o = { part, pivot: hip };
+    m.limb(hip, k, S * 0.04, S * 0.035, s.color, o);
+    m.limb(k, f, S * 0.035, S * 0.018, s.color, { ...o, caps: false });
+    if (x > S * 0.2) for (const t of [0.4, 0.7]) { const p = k.map((v, n) => v + (f[n] - v) * t); m.limb(p, [p[0] + S * 0.06, p[1] - S * 0.02, p[2]], S * 0.012, S * 0.004, s.color, { ...o, caps: false }); } // spines on the forelegs
+  }
+  // the ball: rough, lumpy dung with bits of dry grass stuck in it
+  const bc = [-S * 1.12, S * 0.62, 0], br = S * 0.6;
+  m.add(SPH_HI, place(bc, [0, 0, 0], [br, br * 0.97, br]), u => tmp.copy(col('#6a4e30')).lerp(col('#8a6a42'), hash3(Math.round(u.x * 6), Math.round(u.y * 6), Math.round(u.z * 6))).multiplyScalar(0.8 + hash3(Math.round(u.x * 13), Math.round(u.y * 13), Math.round(u.z * 13)) * 0.35));
+  for (let k = 0; k < 7; k++) {
+    const a = k * 2.4, b = (k % 3 - 1) * 0.7, d = [Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)];
+    const p = bc.map((v, n) => v + d[n] * br * 0.96);
+    m.limb(p, [p[0] + d[2] * S * 0.22, p[1] + d[0] * S * 0.12, p[2] - d[0] * S * 0.22], S * 0.018, S * 0.012, '#c8b27a', { caps: false });
+  }
+}
+
 // ---------------------------------------------------------------- species -> model + motion
 // motion: leg swing (radians), body bob (px), tail sway, wing beat rate, swim/slither wave.
 export function buildSpecies(def) {
@@ -1141,21 +1541,25 @@ export function buildSpecies(def) {
     case 'caiman': caiman(m, s); mo.leg = 0.4; mo.tail = 0.35; mo.wave = s.len * 0.025; mo.waveK = 6 / s.len; mo.waveHead = s.len * 0.1; mo.waveLen = s.len * 0.7; mo.sink = s.len * 0.09; break;
     case 'dolphin': dolphin(m, s); mo.tail = 0.3; mo.wave = s.size * 0.03; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.2; mo.waveLen = s.size * 0.8; mo.sink = s.size * 0.1; break;
     case 'deer': case 'canine': case 'feline': case 'raccoon': case 'otter': case 'beaver':
-    case 'peccary': case 'agouti': case 'anteater': {
+    case 'peccary': case 'agouti': case 'anteater':
+    case 'zebra': case 'wildebeest': case 'gazelle': case 'impala': case 'buffalo': case 'warthog': case 'hyena': case 'rhino': case 'giraffe': case 'elephant': {
       const o = MAMMALS[s.kind](s);
       quadruped(m, s, o);
       mo.bob = o.H * (s.kind === 'rabbit' ? 0.35 : s.kind === 'rodent' || s.kind === 'squirrel' ? 0.12 : 0.04);
-      mo.leg = s.kind === 'bear' ? 0.4 : s.kind === 'rabbit' ? 0.35 : 0.55;
+      mo.leg = s.kind === 'elephant' || s.kind === 'rhino' ? 0.3 : s.kind === 'giraffe' ? 0.38 : 0.55;
       mo.sink = o.leg + o.H * 0.45;
       break;
     }
-    case 'songbird': case 'hummer': case 'woodpecker': case 'heron': case 'duck': case 'raptor': case 'owl': case 'toucan': case 'macaw':
+    case 'songbird': case 'hummer': case 'woodpecker': case 'heron': case 'duck': case 'raptor': case 'owl': case 'toucan': case 'macaw': case 'ostrich': case 'hornbill': case 'vulture': case 'secretary': case 'crane':
       bird(m, s);
-      mo.flap = s.kind === 'hummer' ? 7 : s.kind === 'heron' || s.kind === 'raptor' || s.kind === 'owl' || s.kind === 'macaw' ? 0.9 : 2;
+      mo.flap = s.kind === 'hummer' ? 7 : s.kind === 'heron' || s.kind === 'raptor' || s.kind === 'owl' || s.kind === 'macaw' || s.kind === 'vulture' || s.kind === 'crane' || s.kind === 'secretary' ? 0.9 : 2;
       mo.leg = 0.5; mo.tail = 0.1;
       mo.sink = s.kind === 'duck' ? s.size * 0.24 : 0;
       break;
     case 'bat': bat(m, s); mo.flap = 2.6; break;
+    case 'beetle': beetle(m, s); mo.leg = 0.7; mo.tail = 0; break;
+    case 'monitor': monitor(m, s); mo.leg = 0.55; mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.3; mo.waveLen = s.size * 1.2; mo.sink = s.size * 0.1; break;
+    case 'hippo': hippo(m, s); mo.leg = 0.28; mo.bob = 0.3; mo.tail = 0.5; mo.sink = s.leg + s.h * 0.55; break;
     case 'frog': frog(m, s); mo.leg = 0.3; mo.bob = s.size * 0.5; mo.sink = s.size * 0.3; break;
     case 'newt': newt(m, s); mo.leg = 0.5; mo.wave = s.size * 0.05; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.4; mo.waveLen = s.size * 1.2; mo.sink = s.size * 0.12; break;
     case 'turtle': turtle(m, s); mo.leg = 0.35; mo.sink = s.size * 0.2; break;

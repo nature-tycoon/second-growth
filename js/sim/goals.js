@@ -27,6 +27,8 @@ export function ecoScore(game) {
   const nativeFrac = st.native / land;
   const invFrac = st.invasive / land;
   const farmFrac = st.farm / land;
+  // bare, eroded ground (the Serengeti range's hardpan) counts against the land too
+  const bareFrac = (st.counts?.[H.BARE] || 0) / land;
   const habs = [
     [H.MEADOW, 20], [H.SHRUB, 15], [H.YOUNG_FOREST, 20], [H.MATURE_FOREST, 15],
     [H.RIPARIAN, 15], [H.MARSH, 12], [H.POND, 10], [H.CREEK, 10],
@@ -45,10 +47,10 @@ export function ecoScore(game) {
     { name: 'Native plant species', pts: 15 * clamp(nativePlants / 26, 0, 1), max: 15 },
     { name: 'Healthy, connected creek', pts: (connected ? 4 : 0) + 6 * shadedCreek, max: 10 },
     { name: 'Invasive plants', pts: -25 * clamp(invFrac / 0.3, 0, 1), max: 0 },
-    { name: 'Degraded farmland left', pts: -10 * clamp(farmFrac, 0, 1), max: 0 },
+    { name: 'Degraded or bare land left', pts: -10 * clamp(farmFrac, 0, 1) - 16 * clamp(bareFrac, 0, 1), max: 0 },
   ];
   const total = clamp(parts.reduce((s, p) => s + p.pts, 0), 0, 100);
-  return { total, parts, nativeFrac, invFrac, farmFrac, animals, nativePlants, habCount };
+  return { total, parts, nativeFrac, invFrac, farmFrac, bareFrac, animals, nativePlants, habCount };
 }
 
 export function monthlyGrant(game, score) {

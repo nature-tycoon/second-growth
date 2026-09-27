@@ -120,7 +120,7 @@ export function leafColor(p, phase) {
 
 const STEM = { dogwood: '#b0302a', willow: '#c8923a' };
 // shrub looks with a geometry of their own; everything else is a generic leafy mound
-export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo'];
+export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo', 'aloe', 'cactus'];
 
 export class Flora {
   constructor(scene) {

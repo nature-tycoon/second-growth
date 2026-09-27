@@ -14,6 +14,7 @@ export default {
   campaign: true,
   campaignEnd: 'You finished the campaign. The Hollis farm is a living valley again, and every tool is yours. Keep going as long as you like: the old forest is still growing up, and the salmon are still coming home.',
   image: 'assets/maps/pnw.jpg',
+  lat: 46.6, lon: -122.9, // where the pin sits on the world map
   plants: buildPnwPlants,
   animals: buildPnwAnimals,
   goals: PNW_GOALS,

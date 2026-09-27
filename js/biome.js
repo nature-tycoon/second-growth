@@ -6,12 +6,13 @@ import { loadPlants } from './data/plants.js';
 import { loadAnimals } from './data/animals.js';
 import { loadGoals } from './sim/goals.js';
 import { STRUCTURES } from './world.js';
-import { H, HABITAT_INFO } from './config.js';
+import { H, T, HABITAT_INFO, TERRAIN_NAMES } from './config.js';
 import PNW from './maps/pnw.js';
 import AMAZON from './maps/amazon.js';
+import SERENGETI from './maps/serengeti.js';
 
-export const BIOMES = { pnw: PNW, amazon: AMAZON };
-export const BIOME_LIST = [PNW, AMAZON];
+export const BIOMES = { pnw: PNW, amazon: AMAZON, serengeti: SERENGETI };
+export const BIOME_LIST = [PNW, AMAZON, SERENGETI];
 
 export let biome = null;
 const hooks = [];
@@ -20,6 +21,7 @@ export function onBiome(fn) { hooks.push(fn); if (biome) fn(biome); }
 
 const baseNames = Object.fromEntries(Object.entries(STRUCTURES).map(([k, s]) => [k, s.name]));
 const baseHabitats = HABITAT_INFO.map(h => h.name);
+const baseTerrains = [...TERRAIN_NAMES];
 
 export function setBiome(id) {
   const next = BIOMES[id] || PNW;
@@ -32,6 +34,8 @@ export function setBiome(id) {
   for (const [k, s] of Object.entries(STRUCTURES)) s.name = next.structureNames?.[k] || baseNames[k];
   HABITAT_INFO.forEach((h, k) => { h.name = baseHabitats[k]; });
   for (const [key, name] of Object.entries(next.habitatNames || {})) HABITAT_INFO[H[key]].name = name;
+  TERRAIN_NAMES.splice(0, TERRAIN_NAMES.length, ...baseTerrains);
+  for (const [key, name] of Object.entries(next.terrainNames || {})) TERRAIN_NAMES[T[key]] = name;
   for (const fn of hooks) fn(next);
   return next;
 }

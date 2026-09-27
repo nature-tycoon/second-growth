@@ -491,6 +491,38 @@ body.campaign #banner { top: 124px; }
 .mode-card.danger span { color: var(--bad); font-weight: 700; }
 .mode-card:disabled { opacity: 0.5; cursor: not-allowed; border-color: var(--line); }
 .maps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* the world map with a pin on each place */
+.world { position: relative; border-radius: 14px; overflow: hidden; background: linear-gradient(#c4d8d6, #b5ccc9); border: 1.5px solid var(--line); margin: 0 0 10px; }
+.world svg { display: block; width: 100%; height: auto; }
+.wm-land { fill: #efe5c6; stroke: #b3a179; stroke-width: 0.8; stroke-linejoin: round; }
+.wm-sea { fill: #bdd2cf; stroke: #b3a179; stroke-width: 0.6; }
+.wm-grid { stroke: rgba(255, 255, 255, 0.35); stroke-width: 0.6; fill: none; }
+.wm-eq { stroke: rgba(255, 255, 255, 0.6); stroke-width: 0.8; stroke-dasharray: 3 4; fill: none; }
+.wm-pin { position: absolute; transform: translate(-50%, -100%); padding: 0; border: 0; background: none; cursor: pointer; font: inherit; color: var(--ink); display: flex; flex-direction: column; align-items: center; }
+.wm-pin i { width: 18px; height: 18px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--rust); border: 2px solid #fff8e6; box-shadow: 0 2px 5px rgba(20, 30, 10, 0.35); transition: transform 0.15s, background 0.15s; }
+.wm-pin i::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: #fff8e6; }
+.wm-pin span { position: absolute; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; white-space: nowrap; background: rgba(250, 244, 226, 0.94); border-radius: 8px; padding: 3px 8px 4px; box-shadow: 0 1px 4px rgba(20, 30, 10, 0.2); pointer-events: none; }
+.wm-pin.wm-west span { left: auto; right: 50%; transform: translateX(16px); align-items: flex-end; }
+.wm-pin b { font-family: var(--display); font-size: 13px; color: var(--moss-2); line-height: 1.15; }
+.wm-pin em { font-style: normal; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2); }
+.wm-pin:hover i, .wm-pin:focus-visible i { transform: rotate(-45deg) scale(1.15); }
+.wm-pin.on i { background: var(--moss); transform: rotate(-45deg) scale(1.2); }
+.wm-pin.on span { box-shadow: 0 0 0 1.5px var(--moss), 0 1px 4px rgba(20, 30, 10, 0.2); }
+.wm-pin.on::before { content: ''; position: absolute; left: 50%; bottom: -3px; width: 26px; height: 10px; margin-left: -13px; border-radius: 50%; border: 2px solid var(--moss); opacity: 0.7; animation: wm-ping 1.8s ease-out infinite; }
+@keyframes wm-ping { from { transform: scale(0.5); opacity: 0.8; } to { transform: scale(1.8); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .wm-pin.on::before { animation: none; } }
+.wm-cap { margin: -4px 2px 12px; color: var(--ink-2); }
+.map-pick .map-card { cursor: default; flex-direction: row; gap: 12px; align-items: flex-start; }
+.map-pick .map-card img { width: 42%; flex: none; margin: 0; }
+.map-pick .map-card div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+@media (max-width: 520px) {
+  .wm-pin span { padding: 2px 6px 3px; }
+  .wm-pin b { font-size: 11px; }
+  .wm-pin em { display: none; }
+  .wm-pin i { width: 15px; height: 15px; }
+  .map-pick .map-card { flex-direction: column; }
+  .map-pick .map-card img { width: 100%; }
+}
 .map-card { display: flex; flex-direction: column; gap: 3px; text-align: left; border: 1.5px solid var(--line); border-radius: 14px; background: var(--paper-2); padding: 12px 14px; cursor: pointer; font: inherit; color: var(--ink); }
 .map-card b { font-family: var(--display); font-size: 17px; color: var(--moss-2); }
 .map-card .rg { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3, var(--ink-2)); }
@@ -558,5 +590,6 @@ body.campaign #banner { top: 124px; }
   .settings-nav button { padding: 6px 10px; font-size: 12.5px; }
 }
 @media (max-height: 520px) { .intro-map img, .map-card img { aspect-ratio: 21 / 8; } }
+@media (max-height: 520px) { .world { max-width: 470px; margin-inline: auto; } .wm-pin em { display: none; } .wm-pin b { font-size: 11.5px; } .map-pick .map-card img { width: 34%; } }
 .set-row.now-playing { cursor: default; }
 .set-row.now-playing .btn { flex-shrink: 0; padding: 6px 12px; font-size: 12.5px; }

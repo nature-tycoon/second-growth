@@ -17,6 +17,9 @@ const FLOCKS = {
   swallows: { n: [5, 8], size: 4.4, speed: 140, flap: 7, color: 'rgba(30,36,48,0.75)', loose: 1.6, swoop: true },
   parrots: { n: [5, 9], size: 5, speed: 105, flap: 8, color: 'rgba(58,160,70,0.85)', loose: 1.2 },
   macaws: { n: [2, 4], size: 8, speed: 80, flap: 4, color: 'rgba(214,40,30,0.9)', tail: 'rgba(40,90,200,0.9)', loose: 0.7 },
+  vultures: { n: [3, 6], size: 11, speed: 45, flap: 1.2, color: 'rgba(70,58,44,0.8)', loose: 1.6 },
+  storks: { n: [6, 12], size: 8, speed: 60, flap: 2.2, color: 'rgba(40,36,34,0.82)', loose: 1.2 },
+  weavers: { n: [10, 20], size: 3.4, speed: 110, flap: 10, color: 'rgba(214,176,40,0.9)', loose: 1.3 },
   egrets: { n: [4, 7], size: 7.5, speed: 60, flap: 2.6, color: 'rgba(246,246,240,0.92)', loose: 1 },
 };
 const rand = (a, b) => a + Math.random() * (b - a);

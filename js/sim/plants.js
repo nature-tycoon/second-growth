@@ -35,9 +35,11 @@ export function plantSuit(w, i, p) {
   if (!tf) return 0;
   const light = layerLight(w, i, p.layer);
   const soil = w.soil[i];
-  const soilFit = soil >= p.soil ? 1 : Math.max(0, 1 - (p.soil - soil) * 3.5);
+  const soilFit = soil >= p.soil ? 1 : Math.max(0, 1 - (p.soil - soil) * (p.soilK ?? 3.5)); // soilK: how sharply poor soil holds a plant back
   let s = tf * rangeFit(w.moist[i], p.moist[0], p.moist[1], 0.18) * rangeFit(light, p.light[0], p.light[1], 0.25) * soilFit;
   if (p.nurse && (w.feature[i] === F.LOG || w.distLog[i] <= 1)) s = Math.min(1, s + 0.3);
+  // pioneers of poor ground (dropseed) lose out to better grasses once the soil has recovered
+  if (p.pioneer && soil > p.pioneer) s *= Math.max(0.35, 1 - (soil - p.pioneer) * 2.5);
   return s;
 }
 
@@ -74,14 +76,43 @@ export function trySeed(w, p, i, rng) {
   }
   // A thick sward of established groundcover is hard for woody seedlings to break through.
   let odds = s;
+  const open = biome.savanna && w.distWater[i] > 3; // savanna, away from the riverine strip
   if (p.layer > 0 && w.ground[i] && w.groundG[i] > 0.6) {
     const gp = PLANTS[w.ground[i]];
-    if (gp.look.type === 'grass' || gp.look.type === 'sedge' || gp.look.type === 'tallgrass') odds *= 0.3;
+    if (gp.look.type === 'grass' || gp.look.type === 'sedge' || gp.look.type === 'tallgrass') odds *= open ? 0.1 : 0.3;
   }
+  // On the savanna the roots of a grown tree take all the water around it, so native seedlings
+  // only come up in the gaps and the trees stay scattered (invasive mesquite still makes thickets).
+  if (open && p.layer === 2 && !p.invasive && crowded(w, i, 1, 'tree', 2)) return false;
+  // and thornbush stays in clumps and patches rather than closing over the grass
+  if (open && p.layer === 1 && !p.invasive && crowded(w, i, 1, 'shrub')) return false;
   if (rng() > odds) return false;
   ids[i] = p.id; gs[i] = 0.04;
   if (p.layer === 2) w.treeAge[i] = 0;
   return true;
+}
+
+// On the savanna a young shrub or tree in thick grass loses the dry-season fight for water:
+// grass roots get to it first. Most seedlings die unless fire, grazing or a gap opens the sward.
+const GRASS_LOOK = { grass: 1, tallgrass: 1, sedge: 1 };
+function droughtKills(w, i, g, gf, rng) {
+  if (!biome.savanna || gf >= 0.6 || g >= 0.45 || w.distWater[i] <= 3) return false;
+  const gi = w.ground[i];
+  return !!gi && w.groundG[i] > 0.6 && GRASS_LOOK[PLANTS[gi].look.type] && rng() < 0.012;
+}
+
+// Grown plants of a layer on the tiles around (at least `need` of them, within r tiles).
+function crowded(w, i, need, layer = 'tree', r = 1) {
+  const W = w.w, x = i % W, y = (i / W) | 0, ids = w[layer], gs = w[layer + 'G'];
+  let n = 0;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    if (!dx && !dy) continue;
+    const xx = x + dx, yy = y + dy;
+    if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
+    const j = yy * W + xx;
+    if (ids[j] && gs[j] > 0.5 && ++n >= need) return true;
+  }
+  return false;
 }
 
 function disperse(w, p, x, y, rng, radiusBoost) {
@@ -136,6 +167,7 @@ export function updatePlants(game) {
       if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4;
       else if (g < 0.9) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       else if (rng() < 0.004 * (0.3 - s) / 0.3) g = 0; // shaded out
+      if (droughtKills(w, i, g, gf, rng)) g = 0;
       if (g <= 0) { w.shrub[i] = 0; w.shrubG[i] = 0; }
       else {
         g = Math.min(1, g); w.shrubG[i] = g; cover += g;
@@ -166,6 +198,9 @@ export function updatePlants(game) {
       } else if (s >= 0.3) g = Math.min(1, g + p.grow * gf * 0.5);
       else if (rng() < 0.0015 * (0.3 - s) / 0.3) dies = true;
       if (ageY > p.life && rng() < 0.004) dies = true;
+      else if (droughtKills(w, i, g, gf, rng)) g = 0;
+      // savanna: in the dry months, trees packed into a thicket run short of water and some die back
+      else if (biome.savanna && gf < 0.6 && !p.invasive && w.distWater[i] > 3 && rng() < 0.006 && crowded(w, i, 3)) dies = true;
       if (g <= 0) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
       else if (dies) killTree(w, i, rng);
       else {

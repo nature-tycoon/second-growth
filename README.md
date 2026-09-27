@@ -1,6 +1,6 @@
 # Second Growth
 
-A rewilding tycoon game shown as an isometric 3D diorama, with two maps: a worn-out dairy farm in the Pacific Northwest foothills, and a cattle ranch cut from the Amazon rainforest. You don't buy animals or upgrades. You shape water and soil, brush in native plants, pull invasives, and tear out the old farm. Wildlife then follows its own rules: it wanders in from the surrounding forest, river and farms when there's room, raises young, hunts, and moves on when there isn't enough.
+A rewilding tycoon game shown as an isometric 3D diorama, with three maps: a worn-out dairy farm in the Pacific Northwest foothills, a cattle ranch cut from the Amazon rainforest, and an overgrazed range on the edge of the Serengeti. You don't buy animals or upgrades. You shape water and soil, brush in native plants, pull invasives, and tear out the old farm. Wildlife then follows its own rules: it wanders in from the surrounding forest, river and farms when there's room, raises young, hunts, and moves on when there isn't enough.
 
 ## Running it
 
@@ -23,18 +23,20 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 - **On a phone or tablet:** drag one finger to brush, tap to place or inspect, two fingers to move the map and pinch to zoom, and the arrow buttons rotate the view. Phones play in landscape (portrait shows a "turn your phone" screen); full screen or Add to Home Screen gives the most room.
 - The gear button opens **Settings**: audio (lo-fi music and nature sounds, each with a volume), gameplay (difficulty, autosave, pausing on wildfires and floods, notification level), graphics, controls and privacy. The speaker button or `M` mutes everything.
 - **Difficulty:** Relaxed, Standard or Challenging. It scales starting money, grants, what work costs, how often fire and flood come, and how hard invasive seeds press in from the neighbours. Pick it for a new game, or change it any time in Settings.
-- **Music** is generated live with Web Audio (warm keys, soft bass, a swung beat, vinyl crackle) and nature sounds follow the weather and seasons; no audio files are downloaded.
+- **Music** is a shuffled, crossfaded set of public-domain (CC0) lo-fi tracks by HoliznaCC0 in `assets/music/` (listed with their sources in `js/audio/tracks.js`). Nature sounds are synthesized live with Web Audio and follow the weather and seasons.
 
 ## Maps
 
 - **Hollis Farm** (Cascade foothills, Washington): 33 plants and 34 animals, salmon runs, beavers, winter floods and snow, summer fires. Has the eight-chapter campaign and Free Play.
 - **Fazenda Esperança** (Pará, Brazil): an old cattle ranch where African pasture grass (braquiária) runs fence to fence and burns every dry season, with a scrap of forest reserve in one corner touching the rainforest. 27 plants (cecropia, ingá, açaí and buriti palms, Brazil nut, kapok, ipê, heliconia, bamboo, and the invasive grasses) and 26 animals (jaguar, tapir, howler and spider monkeys, sloth, giant otter, toucan, scarlet macaw, harpy eagle, caiman, anaconda, pink river dolphin, arapaima and more). Sow the muvuca seed mix, shade out the grass, keep fire off the young forest, and reconnect the canopy so arboreal animals can move in through the treetops. Agoutis are the only animals that spread Brazil nuts. Has its own eight-chapter campaign (from pulling the first pasture grass to the jaguar's return) and Free Play with its own milestone goals.
 
-Each map keeps its own save. Choosing a different map reloads the page into it.
+- **Enkare Conservancy** (Serengeti, Tanzania): a communal grazing range where generations of too many cattle have left bare, crusted hardpan, gullies, famine weed (parthenium), prickly pear hedges and mesquite thickets, with a wire fence across the old migration route. 26 plants (dropseed, star grass, red oat grass, umbrella thorn, fever tree, baobab, sausage tree, candelabra euphorbia, aloe, and the invasives) and 26 animals (wildebeest and zebra that pass through with the dry-season migration, giraffe, elephant, black rhino, buffalo, hippo, lion, cheetah, leopard, hyena, ostrich, vultures, secretary bird, crowned crane, ground hornbill, Nile crocodile, dung beetles and more). Rip the hardpan and dig half-moon pits to catch the rain, sow soil builders, beat back the famine weed, and let red oat grass return once the soil has. Vultures and dung beetles only live here once there are herds to follow. It stays open savanna rather than turning to woodland: grass fires sweep through most dry seasons and kill saplings, thick grass starves woody seedlings of water, herds trample them, and grown trees keep their neighbours at a distance (only along the water do trees close up into a riverine strip). Each dry season the migrating wildebeest and zebra swim the river at the crossing in the middle of the map (crocodiles gather there while they cross) and pass on north to the park, which they only do once the north fence is down. Herds (wildebeest, zebra, gazelle, impala, buffalo, elephants, giraffe) move together behind a leader, and every animal walks or flies to water every few days to drink. Has its own eight-chapter campaign and Free Play.
+
+The map picker and welcome screen show every map pinned on a world map (`js/ui/worldmap.js`, hand-traced coastlines). Each map keeps its own save. Choosing a different map reloads the page into it.
 
 ## How the ecosystem works
 
-(Described for the Hollis farm; the Amazon map runs the same rules with its own species, seasons and climate.)
+(Described for the Hollis farm; the Amazon and Serengeti maps run the same rules with their own species, seasons and climate.)
 
 - **Time:** 1 game day per second at normal speed, 10 days a month, 120 days a year. Seasons change growth, moisture, blooming, fruiting and migration.
 - **Plants** (33 PNW species) each have moisture, light and soil ranges. They grow where conditions suit them and decline where they don't. Once mature they spread seed. Seeds also drift in from the forest edges, from the river in floods, and (blackberry, broom, canarygrass) from the neighbouring farms.
@@ -57,10 +59,11 @@ Each map keeps its own save. Choosing a different map reloads the page into it.
 index.html, styles.css      page shell and UI styling
 js/config.js                constants, terrain / feature / habitat enums
 js/biome.js                 the active map: swaps species, goals, climate and look
-js/maps/pnw.js, amazon.js   each map's story, climate, seasons, look, goals and generator hooks
+js/maps/pnw.js, amazon.js, serengeti.js  each map's story, climate, seasons, look, goals and generator hooks
 js/maps/amazon-world.js     the ranch layout and its rainforest surroundings
-js/data/plants.js           plant registry (species in plants-pnw.js, plants-amazon.js)
-js/data/animals.js          animal registry (species in animals-pnw.js, animals-amazon.js)
+js/maps/serengeti-world.js  the grazing range, kopjes, lugga and the park beyond the fence
+js/data/plants.js           plant registry (species in plants-pnw.js, plants-amazon.js, plants-serengeti.js)
+js/data/animals.js          animal registry (species in animals-pnw.js, animals-amazon.js, animals-serengeti.js)
 js/world.js                 map arrays, farm generation, surroundings
 js/sim/environment.js       water, moisture, canopy, distance fields, habitat classes, food
 js/sim/plants.js            growth, seeding, competition, soil
@@ -80,11 +83,12 @@ assets/maps/                preview images of each map (welcome screen and map p
 js/sim/visitors.js          trails, visitor numbers, rating and income
 js/sim/events.js            wildfires and floods
 vendor/three/               three.js 0.186 and its BufferGeometryUtils addon (MIT)
-js/ui/                      DOM interface
+js/ui/                      DOM interface (worldmap.js: the map picker's world map)
 tools/balance-sim.mjs       headless balance simulator (node tools/balance-sim.mjs restore 15)
 tools/campaign-sim.mjs      scripted campaign playthrough: days per chapter (node tools/campaign-sim.mjs 14)
 tools/campaign-sim-amazon.mjs  the same for the Amazon campaign (node tools/campaign-sim-amazon.mjs 14 standard)
-js/sim/campaign.js          campaign chapters per map: story, goals, unlocks (Amazon chapters in campaign-amazon.js)
+tools/campaign-sim-serengeti.mjs  and for the Serengeti campaign (node tools/campaign-sim-serengeti.mjs 14 standard)
+js/sim/campaign.js          campaign chapters per map: story, goals, unlocks (Amazon and Serengeti chapters in campaign-amazon.js, campaign-serengeti.js)
 ```
 
 Most tuning lives in `js/data/*.js` (species ranges, growth, spread, home ranges) and `js/sim/goals.js` (economy). Run `tools/balance-sim.mjs` after tuning to see how a farm develops over decades in a few seconds.

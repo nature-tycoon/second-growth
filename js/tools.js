@@ -5,7 +5,7 @@ import { PLANTS, PLANT, MIXES, MIX, L } from './data/plants.js';
 import { ANIMALS, ANIMAL, many } from './data/animals.js';
 import { STRUCTURES } from './world.js';
 import { plantSuit } from './sim/plants.js';
-import { onBiome } from './biome.js';
+import { onBiome, biome } from './biome.js';
 
 const land = t => !isWater(t);
 const DEPTH = { [T.POND]: 0.6, [T.MARSH]: 0.2, [T.CREEK]: 0.4 };
@@ -62,7 +62,8 @@ tool({ key: 'rip', cat: 'land', name: 'Loosen soil', cost: 4, icon: { terrain: T
   desc: 'Break up compacted fields and old pasture sod so native seeds can take hold.',
   apply: (game, i) => {
     const w = game.world, t = w.terrain[i];
-    if (t !== T.FIELD && t !== T.PASTURE) return null;
+    // (on maps with crusted hardpan, like the Serengeti range, this breaks the crust too)
+    if (t !== T.FIELD && t !== T.PASTURE && !(biome.hardpan && t === T.GRAVEL)) return null;
     w.terrain[i] = T.SOIL;
     w.soil[i] = Math.min(1, w.soil[i] + 0.04);
     if (w.ground[i] && PLANTS[w.ground[i]].invasive) { w.ground[i] = 0; w.groundG[i] = 0; }
@@ -82,6 +83,8 @@ function reshape(amt) {
     const w = game.world;
     if (w.terrain[i] === T.RIVER || w.struct[i] >= 0) return null;
     w.shiftTile(i % w.w, (i / w.w) | 0, amt);
+    // a half-moon pit dug into hardpan cracks the crust, so rain and seed can get in
+    if (amt < 0 && biome.hardpan && w.terrain[i] === T.GRAVEL) { w.terrain[i] = T.SOIL; w.soil[i] = Math.min(1, w.soil[i] + 0.03); }
     return true;
   };
 }
@@ -169,6 +172,7 @@ tool({ key: 'pull', cat: 'remove', name: 'Pull invasives', cost: 8, icon: { plan
     let n = 0;
     if (w.ground[i] && PLANTS[w.ground[i]].invasive) { w.ground[i] = 0; w.groundG[i] = 0; n++; }
     if (w.shrub[i] && PLANTS[w.shrub[i]].invasive) { w.shrub[i] = 0; w.shrubG[i] = 0; n++; }
+    if (w.tree[i] && PLANTS[w.tree[i]].invasive) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; n++; } // mesquite, leucaena
     if (!n) return null;
     game.stats.removed += n;
     return true;

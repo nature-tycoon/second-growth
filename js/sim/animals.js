@@ -5,6 +5,7 @@ import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { ANIMALS, ANIMAL, many, cap } from '../data/animals.js';
 import { PLANTS } from '../data/plants.js';
 import { killTree } from './plants.js';
+import { biome } from '../biome.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -107,6 +108,12 @@ export class Wildlife {
         st.preyK = prey / def.preyPer;
         K = Math.min(K, st.preyK);
       }
+      // species it lives off without hunting (vultures follow the herds, dung beetles their dung)
+      if (def.needs) {
+        let host = 0;
+        for (const hk of def.needs) if (ANIMAL[hk]) host += this.state[ANIMAL[hk].index].pop;
+        K = Math.min(K, host / def.needsPer);
+      }
       st.K = Math.min(def.max, K);
     }
   }
@@ -152,6 +159,7 @@ export class Wildlife {
 
   // Try to bring a group of this species in from one of its source edges.
   immigrate(def, n, returning = false) {
+    if (def.crossing) return this.crossRiver(def, n);
     const w = this.game.world, rng = this.game.rng;
     const edge = def.sources[Math.floor(rng() * def.sources.length)];
     let placed = 0, blocked = false;
@@ -203,6 +211,36 @@ export class Wildlife {
       this.game.notify(`${cap(many(def))} tried to wander in from the ${dir}, but the old boundary fence stopped them. Tearing out fences opens a wildlife corridor.`, 'warn');
     }
     return placed;
+  }
+
+  // The migration: the herd comes over the river from the far bank at the crossing in the middle
+  // of the map, swimming in a long column, and climbs out onto the plains. They're only passing
+  // through on their way north to the park, so while the north fence cuts that route, they don't come.
+  crossRiver(def, n) {
+    const w = this.game.world, rng = this.game.rng, st = this.state[def.index];
+    let fence = 0;
+    for (let x = 0; x < w.w; x++) if (w.feature[w.idx(x, 0)] === F.FENCE) fence++;
+    if (fence > 4) {
+      if (!st.blockedNotified) {
+        st.blockedNotified = true;
+        this.game.notify(`${cap(many(def))} came to the river crossing, but turned back: the fence along the north edge cuts the migration route through to the park. Tear it out and the herds can pass through.`, 'warn');
+      }
+      return 0;
+    }
+    const cx = Math.round(w.w * (def.crossing.x ?? 0.5));
+    let bank = w.h - 1;
+    while (bank > 0 && isWater(w.terrain[w.idx(cx, bank)])) bank--;
+    this.crossingAt = { x: cx, until: this.game.day + 12 }; // the crocodiles know
+    const lag = rng() * 4; // groups that arrive the same month string out along the crossing
+    for (let k = 0; k < n; k++) {
+      const x = clamp(cx + Math.round((rng() * 2 - 1) * 2.5), 0, w.w - 1);
+      const a = this.spawn(def, x, w.h - 1);
+      a.x = x + 0.2 + rng() * 0.6; a.y = w.h + 1 + lag + k * 0.55 + rng() * 0.4;
+      const path = [];
+      for (let y = Math.max(0, bank - 3 - Math.floor(rng() * 3)); y <= w.h - 1; y++) path.push(w.idx(x, y));
+      a.path = path; a.state = 'walk'; a.wait = 0;
+    }
+    return n;
   }
 
   bestTileSample(def, x, y, r, n) {
@@ -290,7 +328,9 @@ export class Wildlife {
       // it stays good (and a returning migrant population always knows the way)
       st.ready = K >= def.minK ? (st.ready || 0) + 1 : 0;
       if (K >= def.minK && pop < K) {
-        const finding = pop === 0 && !st.discovered ? clamp((st.ready - 3) / 16, 0, 1) : 1;
+        // seasonal visitors only count their months here, so they catch on proportionally faster
+        const ramp = def.season ? def.season.length / 12 : 1;
+        const finding = pop === 0 && !st.discovered ? clamp((st.ready - 3 * ramp) / (16 * ramp), 0, 1) : 1;
         const chance = def.mig * (pop === 0 ? 1 : 0.35) * clamp((K - pop) / K + 0.2, 0, 1) * game.diff.arrivals * finding;
         if (rng() < chance) {
           const n = def.groupSize[0] + Math.floor(rng() * (def.groupSize[1] - def.groupSize[0] + 1));
@@ -427,6 +467,18 @@ export class Wildlife {
         if (s && !PLANTS[s].invasive && w.shrubG[i] > 0.3) w.shrubG[i] -= def.browseRate;
         if (w.tree[i] && w.treeG[i] < 0.4) w.treeG[i] = Math.max(0.05, w.treeG[i] - 0.01);
       }
+      // On the savanna the herds nibble and trample woody seedlings wherever they feed, which
+      // (with fire) is what keeps the plains open grassland instead of thornbush.
+      if (biome.savanna && def.move === 'ground' && !def.prey && (def.sprite.len || 0) >= 20) this.trample(w, x, y, rng);
+    }
+  }
+
+  trample(w, x, y, rng) {
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!w.inb(x + dx, y + dy) || rng() > 0.3) continue;
+      const j = w.idx(x + dx, y + dy);
+      if (w.tree[j] && w.treeG[j] < 0.3 && (w.treeG[j] -= 0.08) <= 0) { w.tree[j] = 0; w.treeG[j] = 0; w.treeAge[j] = 0; }
+      if (w.shrub[j] && w.shrubG[j] < 0.3 && (w.shrubG[j] -= 0.08) <= 0) { w.shrub[j] = 0; w.shrubG[j] = 0; }
     }
   }
 
@@ -512,7 +564,9 @@ export class Wildlife {
       const def = ANIMALS[a.sp];
       a.age += dt;
       a.phase += dt * 6;
-      const sp = def.speed * dt;
+      if (biome.waterholes) a.thirst = (a.thirst || 0) + dt;
+      if (a.drinkT > 0) a.drinkT -= dt;
+      const sp = def.speed * dt * (a.follow ? 1.3 : 1); // herd members trot to keep up
       switch (a.state) {
         case 'idle':
           a.wait -= dt;
@@ -523,7 +577,8 @@ export class Wildlife {
           if (!a.path || !a.path.length) { a.state = 'idle'; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : 0.5 + Math.random() * 3; break; }
           const j = a.path[a.path.length - 1];
           const tx = (j % w.w) + 0.5, ty = ((j / w.w) | 0) + 0.5;
-          if (this.stepToward(a, tx, ty, sp)) a.path.pop();
+          const wading = def.crossing && w.terrain[j] === T.RIVER; // swimming the river is slow going
+          if (this.stepToward(a, tx, ty, wading ? sp * 0.55 : sp)) a.path.pop();
           break;
         }
         case 'fly':
@@ -638,6 +693,11 @@ export class Wildlife {
       if (Math.hypot(a.x - tx, a.y - ty) < 2) a.trip = null;
       else if (this.roam(a, def, a.trip)) return;
     }
+    a.follow = false;
+    if (def.ambush && this.crossingAt && this.game.day < this.crossingAt.until && this.lurk(a)) return;
+    if (biome.waterholes && !a.leaving && this.waterhole(a, def)) return;
+    // herd animals stay together: one leads, the rest keep their place around it
+    if (def.herd && !a.leaving && this.keepWithHerd(a, def)) return;
     // now and then, head off along a corridor to another patch of habitat
     if (!a.leaving && !a.juvenile && Math.random() < this.roamChance(def, a) && this.roam(a, def)) return;
     if (a.move === 'fly') {
@@ -702,6 +762,107 @@ export class Wildlife {
     const path = [];
     for (let i = best; i !== start && i >= 0; i = parent[i]) path.push(i);
     a.path = path; a.state = 'walk';
+  }
+
+  // -------------------------------------------------------------- herds and waterholes
+  // Every few days, animals walk (or fly) to the nearest water to drink, then stand with their
+  // heads down at the edge for a while. Returns true if that's what it's doing now.
+  waterhole(a, def) {
+    if (def.move === 'swim' || def.noDrink) return false;
+    const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+    if (!w.inb(x0, y0)) return false;
+    const here = w.idx(x0, y0), atWater = w.distWater[here] <= 1;
+    const every = def.drinkEvery ?? 5 + (a.id % 5);
+    if (atWater && a.thirst > every * 0.5) {
+      a.thirst = 0; a.drinkT = 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false;
+      return true;
+    }
+    if (a.thirst < every || a.juvenile && def.herd) return false;
+    if (def.herd && this.herdLeader(a) !== a) return false; // the herd goes when its leader does
+    if (a.move === 'fly') {
+      let best = -1, bd = 1e9;
+      for (let k = 0; k < 120; k++) {
+        const xx = x0 + Math.round((Math.random() * 2 - 1) * 30), yy = y0 + Math.round((Math.random() * 2 - 1) * 30);
+        if (!w.inb(xx, yy)) continue;
+        const j = w.idx(xx, yy);
+        if (w.distWater[j] !== 1) continue;
+        const d = Math.hypot(xx - x0, yy - y0);
+        if (d < bd) { bd = d; best = j; }
+      }
+      if (best < 0) { a.thirst = 0; return false; }
+      a.tx = (best % w.w) + 0.5; a.ty = ((best / w.w) | 0) + 0.5; a.state = 'fly'; a.flying = true;
+      return true;
+    }
+    const goal = this.pathTo(a, j => w.distWater[j] <= 1, 5000);
+    if (!goal) { a.thirst = 0; return false; } // no water it can reach: it gets by on dew and green grass
+    return true;
+  }
+
+  // Crocodiles gather in the river at the crossing while the migration is swimming over: head
+  // there, then lie in wait (hunting is the usual daily check, and swimmers are easy to reach).
+  lurk(a) {
+    const w = this.game.world, cx = this.crossingAt.x;
+    const at = (x, y) => Math.abs(x - cx) <= 5 && w.inb(x, y) && w.terrain[w.idx(x, y)] === T.RIVER && y < w.h - 1;
+    if (at(Math.floor(a.x), Math.floor(a.y))) { a.wait = 1 + Math.random() * 3; a.trip = null; return true; }
+    a.trip = null;
+    return this.pathTo(a, (j, x, y) => at(x, y), 14000);
+  }
+
+  // The herd's leader: the longest-standing member within reach (lowest id). Herds that drift far
+  // apart split, each with its own leader.
+  herdLeader(a) {
+    let lead = a;
+    for (const o of this.agents) if (o.sp === a.sp && o.id < lead.id && !o.leaving && Math.abs(o.x - a.x) + Math.abs(o.y - a.y) < 40) lead = o;
+    return lead;
+  }
+
+  keepWithHerd(a, def) {
+    const lead = this.herdLeader(a);
+    if (lead === a) return false; // the leader grazes and roams as usual, and the herd follows
+    // the leader is drinking: crowd down to the water beside it
+    if (lead.drinkT > 0 && a.thirst > 1) {
+      const w = this.game.world;
+      if (this.pathTo(a, (j, x, y) => w.distWater[j] <= 1 && Math.abs(x - lead.x) + Math.abs(y - lead.y) < 7, 900)) { a.follow = true; a.trip = null; return true; }
+    }
+    if (!a.slot) { const ang = Math.random() * Math.PI * 2, r = 0.8 + Math.random() * (def.herdR ?? 2.5); a.slot = [Math.cos(ang) * r, Math.sin(ang) * r]; }
+    const tx = lead.x + a.slot[0], ty = lead.y + a.slot[1];
+    if (Math.hypot(a.x - tx, a.y - ty) < 1.2) { a.wait = 0.4 + Math.random() * 1.5; a.trip = null; return true; }
+    a.trip = null;
+    if (this.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 1, 900, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty))) { a.follow = true; return true; }
+    return false;
+  }
+
+  // Breadth-first walk to the nearest tile passing goal(j, x, y); if none turns up within `cap`
+  // tiles and a distance function is given, head for the searched tile closest to the target.
+  // Sets up the path and returns true if the animal is now walking.
+  pathTo(a, goal, cap, dist = null) {
+    const w = this.game.world, W = w.w, n = w.n;
+    const x0 = Math.floor(a.x), y0 = Math.floor(a.y), start = w.idx(x0, y0);
+    if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
+    stampN++;
+    let head = 0, tail = 0, found = -1, near = -1, nd = dist ? dist(x0, y0) : 1e9;
+    bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
+    const diag = a.move === 'swim';
+    while (head < tail && tail < cap) {
+      const i = bfsQ[head++], x = i % W, y = (i / W) | 0;
+      if (i !== start && goal(i, x, y)) { found = i; break; }
+      if (dist) { const d = dist(x, y); if (d < nd) { nd = d; near = i; } }
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        if (!diag && dx && dy) continue;
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
+        const j = yy * W + xx;
+        if (stamp[j] === stampN || !passable(w, j, a)) continue;
+        stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
+      }
+    }
+    const dest = found >= 0 ? found : near;
+    if (dest < 0 || dest === start) return false;
+    const path = [];
+    for (let i = dest; i !== start && i >= 0; i = parent[i]) path.push(i);
+    a.path = path; a.state = 'walk';
+    return true;
   }
 
   // -------------------------------------------------------------- introductions

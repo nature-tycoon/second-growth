@@ -11,8 +11,8 @@ import { waterSurfaceY } from './terrain.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
-const FLOATERS = new Set(['duck', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman']);
-const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti']);
+const FLOATERS = new Set(['duck', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
+const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 
 export class Actors {
@@ -91,7 +91,8 @@ export class Actors {
       st.px = a.x; st.py = a.y;
       st.gait += ((moving ? 1 : 0) - st.gait) * k;
       st.fly += ((flying ? 1 : 0) - st.fly) * k * 1.5;
-      const grazing = !moving && GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1;
+      // heads down to graze, and for everyone drinking at the water's edge
+      const grazing = !moving && (a.drinkT > 0 || (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1));
       st.graze += ((grazing ? 1 : 0) - st.graze) * k * 0.5;
       F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, st.graze);
       st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
