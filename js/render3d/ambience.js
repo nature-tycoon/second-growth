@@ -160,12 +160,15 @@ export class Ambience {
       F.x += F.dir[0] * F.speed * dt; F.z += F.dir[1] * F.speed * dt;
       if (F.t > F.life) { this.flocks.splice(k, 1); continue; }
       const [ca, sa] = F.dir;
+      // which way the flock is heading on screen, so every bird faces along its flight
+      const p0 = R.project(F.x, F.y, F.z), p1 = R.project(F.x + ca, F.y, F.z + sa);
+      const heading = Math.atan2(p1.y - p0.y, p1.x - p0.x);
       for (const b of F.birds) {
         const wob = (S.swoop ? Math.sin(F.t * 2.2 + b.ph) * 14 : Math.sin(F.t * 0.9 + b.ph) * 2.5 * (S.loose || 0)) / PPU;
         const bx = F.x + b.dx * ca - (b.dy + wob) * sa, bz = F.z + b.dx * sa + (b.dy + wob) * ca;
         const p = R.project(bx, F.y + b.dy * 0.08, bz);
         if (p.x < -60 || p.y < -60 || p.x > vw + 60 || p.y > vh + 60) continue;
-        drawBird(ctx, p.x, p.y, S, Math.sin(F.t * S.flap + b.ph), b.s * zs);
+        drawBird(ctx, p.x, p.y, S, Math.sin(F.t * S.flap + b.ph), b.s * zs, heading);
       }
     }
 
@@ -199,22 +202,27 @@ export class Ambience {
   }
 }
 
-// A bird seen from below at a distance: a small body with two crescent wings beating up and
-// down (filled, so it still reads as a bird when you zoom in close).
-function drawBird(ctx, x, y, S, beat, scale) {
-  const s = S.size * scale, up = beat * s * 0.7, sag = s * 0.28;
+// A bird seen from above: body and head pointing along its heading, two crescent wings out to the
+// sides. The wingbeat shows as the wings sweeping and foreshortening (seen from above they
+// shorten at the top and bottom of each beat). Drawn in the bird's own frame, head toward -y.
+function drawBird(ctx, x, y, S, beat, scale, heading = -Math.PI / 2) {
+  const s = S.size * scale, span = s * (0.78 + 0.22 * beat), sweep = s * (0.12 - 0.16 * beat);
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(heading + Math.PI / 2);
   ctx.fillStyle = S.color;
   ctx.beginPath();
   for (const side of [-1, 1]) {
-    const tx = x + side * s, ty = y - up;
-    // leading edge out to the tip, trailing edge back to the body
-    ctx.moveTo(x, y - s * 0.06);
-    ctx.quadraticCurveTo(x + side * s * 0.45, y - up * 0.35 - sag, tx, ty);
-    ctx.quadraticCurveTo(x + side * s * 0.5, y - up * 0.3 + s * 0.12, x, y + s * 0.14);
+    // leading edge bows forward out to the tip, trailing edge curves back to the body
+    ctx.moveTo(0, -s * 0.12);
+    ctx.quadraticCurveTo(side * span * 0.5, -s * 0.34 + sweep * 0.3, side * span, sweep);
+    ctx.quadraticCurveTo(side * span * 0.55, s * 0.02 + sweep * 0.5, 0, s * 0.16);
   }
   ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x, y + s * 0.04, s * 0.13, s * 0.3, 0, 0, 7); ctx.fill(); // body, head to tail
-  if (S.tail) { ctx.fillStyle = S.tail; ctx.beginPath(); ctx.moveTo(x - s * 0.08, y + s * 0.25); ctx.lineTo(x + s * 0.08, y + s * 0.25); ctx.lineTo(x, y + s * 1.0); ctx.fill(); }
+  ctx.beginPath(); ctx.ellipse(0, 0, s * 0.12, s * 0.3, 0, 0, 7); ctx.fill();          // body
+  ctx.beginPath(); ctx.arc(0, -s * 0.34, s * 0.1, 0, 7); ctx.fill();                   // head
+  if (S.tail) { ctx.fillStyle = S.tail; ctx.beginPath(); ctx.moveTo(-s * 0.07, s * 0.22); ctx.lineTo(s * 0.07, s * 0.22); ctx.lineTo(0, s * 0.95); ctx.fill(); }
+  else { ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.22); ctx.lineTo(s * 0.1, s * 0.22); ctx.lineTo(0, s * 0.46); ctx.fill(); } // a short tail
+  ctx.restore();
 }
 
 function makeMist() {

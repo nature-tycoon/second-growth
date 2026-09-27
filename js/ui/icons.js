@@ -16,7 +16,14 @@ export const ICONS = {
   raise: svg('<path d="M3 26 C9 26 11 12 16 12 C21 12 23 26 29 26Z" fill="#8a7a4a"/><path d="M16 3 L21 9 H18 V14 H14 V9 H11Z" fill="#4f7d3b"/>'),
   lower: svg('<path d="M3 14 C9 14 11 26 16 26 C21 26 23 14 29 14 V28 H3Z" fill="#8a7a4a"/><path d="M16 17 L21 11 H18 V4 H14 V11 H11Z" fill="#3d7fa6"/>'),
   crew: svg('<path d="M6 14 C6 8 11 5 16 5 C21 5 26 8 26 14Z" fill="#e0b030"/><rect x="4" y="13" width="24" height="3" rx="1.5" fill="#c8942a"/><path d="M9 20 C11 17 13 21 15 18 C16 22 19 18 21 21 C22 19 24 20 24 22 C24 26 20 28 16 28 C11 28 8 26 9 20Z" fill="#4d8fc0"/>'),
-  hiker: svg('<circle cx="17" cy="5.5" r="3.2" fill="currentColor"/><path d="M15 10 L12 19 L8 28 M15 10 L18 18 L22 28 M15 12 L20 16 M13 12 L9 17" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><rect x="18" y="9" width="5" height="8" rx="2" fill="currentColor"/><path d="M25 8 L23 29" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'),
+  // a visitor on a nature walk: sun hat, day pack and walking stick, mid-stride
+  hiker: svg('<path d="M24.6 9.5 L22.2 29" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>'
+    + '<path d="M15.2 18 L12.8 23 L9.6 27.8 M17.6 18 L20.6 22.4 L21.2 27.8" stroke="currentColor" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<path d="M7.8 28.2 H11.4 M20.2 28.2 H23.8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>'
+    + '<rect x="8.2" y="9.6" width="6.4" height="9.6" rx="2.6" fill="currentColor"/>'
+    + '<path d="M13.4 10.6 C15.2 9.4 18 9.6 19.4 11 L18.8 18.4 C17.2 19.3 15 19.3 13.6 18.4 Z" fill="currentColor"/>'
+    + '<path d="M18.4 12.4 L21.4 15.6 L23.6 14.6" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<circle cx="17.6" cy="6.4" r="3.1" fill="currentColor"/><ellipse cx="17.6" cy="3.9" rx="4.9" ry="1.05" fill="currentColor"/><path d="M15 3.9 C15.2 1.6 20 1.6 20.2 3.9Z" fill="currentColor"/>'),
   parking: svg('<rect x="3" y="3" width="26" height="26" rx="6" fill="#3a6a9a"/><path d="M12 24 V8 H18 C22 8 23.5 10.5 23.5 13 C23.5 15.5 22 18 18 18 H12" stroke="#fff" stroke-width="3" fill="none" stroke-linejoin="round"/>'),
   barn: svg('<path d="M4 14 L16 5 L28 14 V28 H4Z" fill="#9c3b2f"/><path d="M4 14 L16 5 L28 14" fill="none" stroke="#5a2a22" stroke-width="2"/><rect x="11" y="17" width="10" height="11" fill="#6e2a22"/><path d="M11 17 L21 28 M21 17 L11 28" stroke="#e8dcc6" stroke-width="1.6"/><rect x="14" y="10" width="4" height="4" fill="#e8dcc6"/>'),
   shed: svg('<path d="M5 14 L16 7 L27 14 V27 H5Z" fill="#8a7a5a"/><path d="M4 14 L16 6.5 L28 14" fill="none" stroke="#4b4a4c" stroke-width="2.4"/><rect x="12" y="17" width="8" height="10" fill="#5a4a38"/>'),

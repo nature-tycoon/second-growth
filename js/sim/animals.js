@@ -7,7 +7,7 @@ import { PLANTS } from '../data/plants.js';
 import { killTree } from './plants.js';
 
 
-let stamp = null, parent = null, bfsQ = null, stampN = 1;
+let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
 
 export function passable(w, i, a) {
   const move = a.move;
@@ -536,8 +536,10 @@ export class Wildlife {
           if (!b || b.leaving || a.huntTime <= 0) { a.state = 'idle'; a.wait = 1; break; }
           if (a.move === 'fly') a.alt = Math.min(1, a.alt + dt * 2);
           const nx = a.x + Math.sign(b.x - a.x) * 0.3, ny = a.y + Math.sign(b.y - a.y) * 0.3;
-          if (a.move !== 'fly' && w.inb(Math.floor(nx), Math.floor(ny)) && !passable(w, w.idx(Math.floor(nx), Math.floor(ny)), def)) {
-            a.state = 'idle'; a.wait = 1; break;
+          if (a.move !== 'fly' && w.inb(Math.floor(nx), Math.floor(ny))) {
+            const j = w.idx(Math.floor(nx), Math.floor(ny));
+            // water hunters (caiman, anaconda, giant otter) strike from the water's edge, not across the fields
+            if (!passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2)) { a.state = 'idle'; a.wait = 1; break; }
           }
           if (this.stepToward(a, b.x, b.y, sp * 1.6) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25) {
             a.state = 'idle'; a.wait = 1.5; a.hunger = 0;
@@ -566,9 +568,78 @@ export class Wildlife {
     return false;
   }
 
+  // How often a decision becomes a trip to another patch of habitat: wide-ranging species roam more.
+  // Animals out in the river (the neighbours' water) look for a home on the farm more often.
+  roamChance(def, a) {
+    const w = this.game.world, i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
+    const inRiver = i >= 0 && w.terrain[i] === T.RIVER && !def.patrol;
+    return (0.04 + Math.min(0.06, def.hr / 1000)) * (inRiver ? 3 : 1);
+  }
+
+  // Roaming: set off for another patch of good habitat somewhere else on the map. Walkers, swimmers
+  // and climbers only travel along a corridor, an unbroken run of tiles they can live in (or water,
+  // for animals that swim), so a caiman follows the river to a marsh but won't trek across pasture.
+  // Flyers just fly there. Returns true if a trip was set up.
+  roam(a, def, resume = null) {
+    const w = this.game.world, map = this.suit[a.sp], W = w.w, n = w.n;
+    const x0 = clamp(Math.floor(a.x), 0, W - 1), y0 = clamp(Math.floor(a.y), 0, w.h - 1), start = w.idx(x0, y0);
+    if (a.move === 'fly') {
+      let best = -1, bs = 0;
+      for (let k = 0; k < 60; k++) {
+        const j = Math.floor(Math.random() * n), x = j % W, y = (j / W) | 0;
+        if (Math.hypot(x - x0, y - y0) < 14 || map[j] < 0.25) continue;
+        const sc = map[j] * (0.6 + 0.4 * Math.random()) * (w.terrain[j] === T.RIVER ? 0.5 : 1);
+        if (sc > bs) { bs = sc; best = j; }
+      }
+      if (best < 0) return false;
+      a.tx = (best % W) + 0.3 + Math.random() * 0.4; a.ty = ((best / W) | 0) + 0.3 + Math.random() * 0.4;
+      a.state = 'fly'; a.flying = true;
+      return true;
+    }
+    if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
+    if (!depth || depth.length < n) depth = new Int16Array(n);
+    const wet = a.move !== 'ground';
+    const corridor = j => passable(w, j, a) && (map[j] > 0.04 || (wet && isWater(w.terrain[j])));
+    stampN++;
+    let head = 0, tail = 0, pick = -1, seen = 0;
+    const dest = resume ?? -1;
+    bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1; depth[start] = 0;
+    while (head < tail) {
+      const i = bfsQ[head++], x = i % W, y = (i / W) | 0;
+      if (dest >= 0) { if (i === dest) { pick = i; break; } }
+      else
+      // a far, good tile: keep one at random, weighted toward the best habitat (reservoir sampling)
+      // (the river is mostly a corridor: a place to pass through rather than settle)
+      if (depth[i] >= 12 && map[i] > 0.3) { const wgt = map[i] * map[i] * (w.terrain[i] === T.RIVER && !def.patrol ? 0.25 : 1); seen += wgt; if (Math.random() * seen < wgt) pick = i; }
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        if (a.move !== 'swim' && dx && dy) continue;
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
+        const j = yy * W + xx;
+        if (stamp[j] === stampN || !corridor(j)) continue;
+        stamp[j] = stampN; parent[j] = i; depth[j] = Math.min(32000, depth[i] + 1); bfsQ[tail++] = j;
+      }
+    }
+    if (pick < 0) { a.trip = null; return false; }
+    const path = [];
+    for (let i = pick; i !== start && i >= 0; i = parent[i]) path.push(i);
+    a.path = path; a.state = 'walk';
+    a.trip = pick; // remembered, so a hunt along the way doesn't make it forget where it was going
+    return true;
+  }
+
   chooseTarget(a, def) {
     const w = this.game.world;
     const map = this.suit[a.sp];
+    // on a trip: carry on to the destination (a hunt or a rest may have interrupted it)
+    if (a.trip != null) {
+      const tx = (a.trip % w.w) + 0.5, ty = ((a.trip / w.w) | 0) + 0.5;
+      if (Math.hypot(a.x - tx, a.y - ty) < 2) a.trip = null;
+      else if (this.roam(a, def, a.trip)) return;
+    }
+    // now and then, head off along a corridor to another patch of habitat
+    if (!a.leaving && !a.juvenile && Math.random() < this.roamChance(def, a) && this.roam(a, def)) return;
     if (a.move === 'fly') {
       const r = Math.min(14, 4 + Math.sqrt(def.hr) * 0.8);
       const [x, y] = this.bestTileSample(def, a.x, a.y, r, 10);
