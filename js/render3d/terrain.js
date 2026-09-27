@@ -10,11 +10,70 @@ import { hash2 } from '../rng.js';
 
 const ATLAS_TYPES = [T.PASTURE, T.FIELD, T.SOIL, T.GRAVEL, T.MUD, T.ROAD, T.DUFF, T.TRAIL, S.TURF, S.BED];
 const CELL = 64, GUT = 4, SLOT = CELL + GUT * 2, COLS = 28;
-const PASTURE_RGB = ['#a4b36b', '#b6b172', '#a9a46c', '#8c976a'];
+const PASTURE_RGB = ['#a2b56a', '#abb26c', '#a9a46c', '#8c976a'];
 
 const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
 const mixRgb = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+// Soft, tileable noise used to vary the ground's color across the valley.
+function noiseTexture() {
+  const N = 128, G = 8, c = document.createElement('canvas');
+  c.width = c.height = N;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(N, N);
+  const grid = [];
+  for (let k = 0; k < G * G; k++) grid.push(hash2(k % G, Math.floor(k / G), 77));
+  const at = (x, y) => grid[((y + G) % G) * G + ((x + G) % G)];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const fx = x / N * G, fy = y / N * G, x0 = Math.floor(fx), y0 = Math.floor(fy);
+    let tx = fx - x0, ty = fy - y0; tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+    const a = at(x0, y0), b = at(x0 + 1, y0), cc = at(x0, y0 + 1), d = at(x0 + 1, y0 + 1);
+    const v = (a + (b - a) * tx) * (1 - ty) + (cc + (d - cc) * tx) * ty;
+    const o = (y * N + x) * 4;
+    img.data[o] = img.data[o + 1] = img.data[o + 2] = Math.round(v * 255); img.data[o + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+// Break up the tile grid: modulate the ground by large, soft world-space noise.
+function groundDetail(mat, noise) {
+  mat.onBeforeCompile = shader => {
+    shader.uniforms.uNoise = { value: noise };
+    shader.vertexShader = 'varying vec2 vWorldXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWorldXZ = (modelMatrix * vec4(transformed, 1.0)).xz;');
+    shader.fragmentShader = 'uniform sampler2D uNoise;\nvarying vec2 vWorldXZ;\n' + shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      float gn1 = texture2D(uNoise, vWorldXZ * 0.035).r;
+      float gn2 = texture2D(uNoise, vWorldXZ * 0.16 + 0.37).r;
+      diffuseColor.rgb *= 0.84 + 0.24 * gn1 + 0.12 * (gn2 - 0.5);`);
+  };
+  mat.customProgramCacheKey = () => 'ground';
+  return mat;
+}
+
+// Gentle waves: the surface bobs and its normals ripple so highlights move.
+function waves(mat, time, amp) {
+  mat.onBeforeCompile = shader => {
+    shader.uniforms.uTime = time;
+    const wave = `
+      float wa = uTime * 1.3 + position.x * 2.1 + position.z * 1.7;
+      float wb = uTime * 0.9 - position.x * 1.3 + position.z * 2.6;
+      float wc = uTime * 1.7 + position.x * 3.7 - position.z * 0.9;`;
+    shader.vertexShader = 'uniform float uTime;\n' + shader.vertexShader
+      .replace('#include <beginnormal_vertex>', `${wave}
+      float wdx = (cos(wa) * 2.1 * 0.012 - cos(wb) * 1.3 * 0.008 + cos(wc) * 3.7 * 0.004) * ${amp.toFixed(2)};
+      float wdz = (cos(wa) * 1.7 * 0.012 + cos(wb) * 2.6 * 0.008 - cos(wc) * 0.9 * 0.004) * ${amp.toFixed(2)};
+      vec3 objectNormal = normalize(vec3(-wdx * 6.0, 1.0, -wdz * 6.0));
+      #ifdef USE_TANGENT
+        vec3 objectTangent = vec3(tangent.xyz);
+      #endif`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+      transformed.y += (sin(wa) * 0.012 + sin(wb) * 0.008 + sin(wc) * 0.004) * ${amp.toFixed(2)};`);
+  };
+  mat.customProgramCacheKey = () => 'waves' + amp;
+  return mat;
+}
 
 export function buildAtlas() {
   const W = 2048, H = 512;
@@ -52,7 +111,7 @@ function turfColor(p, month, season) {
   }
   if (phase === 'spring') base = mixRgb(base, [0.72, 0.84, 0.48], 0.3);
   // pull every meadow toward one shared color so mixed stands don't look like a quilt
-  base = mixRgb(base, hexRgb(PASTURE_RGB[season]), 0.4);
+  base = mixRgb(base, hexRgb(PASTURE_RGB[season]), 0.25);
   // divide out the turf texture's own brightness
   return [base[0] / 0.86, base[1] / 0.88, base[2] / 0.8];
 }
@@ -61,9 +120,10 @@ export class Terrain {
   constructor(scene, atlas) {
     this.scene = scene;
     this.atlas = atlas;
-    this.material = new THREE.MeshLambertMaterial({ map: atlas.tex, vertexColors: true });
-    this.waterMat = new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 110, specular: 0x9ab8c8, depthWrite: false });
-    this.floodMat = new THREE.MeshPhongMaterial({ color: 0x8a9a86, transparent: true, opacity: 0.72, shininess: 60, specular: 0x556677, depthWrite: false });
+    this.time = { value: 0 };
+    this.material = groundDetail(new THREE.MeshLambertMaterial({ map: atlas.tex, vertexColors: true }), noiseTexture());
+    this.waterMat = waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1);
+    this.floodMat = waves(new THREE.MeshPhongMaterial({ color: 0x8a9a86, transparent: true, opacity: 0.72, shininess: 60, specular: 0x556677, depthWrite: false }), this.time, 0.6);
     this.skirtMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
     this.overlayMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.previewMat = this.overlayMat.clone();
@@ -142,10 +202,10 @@ export class Terrain {
       const t = inside ? w.terrain[i] : (bi >= 0 ? B.terrain[bi] : extTerrain(w, x, y));
       const v = inside ? w.variant[i] : ((x * 7 + y * 13) & 3);
       let tex = t, c = [1, 1, 1];
-      if (isWater(t)) { tex = S.BED; c = [0.7, 0.66, 0.58]; }
+      if (t === T.MARSH) { tex = S.TURF; c = [0.52, 0.58, 0.42]; }
+      else if (isWater(t)) { tex = S.BED; c = [0.7, 0.66, 0.58]; }
       else {
         const canopy = inside ? w.canopy[i] : 0;
-        if (canopy > 0.55 && t !== T.ROAD && t !== T.GRAVEL && t !== T.TRAIL) tex = T.DUFF;
         const gid = inside ? w.ground[i] : (bi >= 0 ? B.ground[bi] : 0);
         const gg = inside ? w.groundG[i] : 1;
         // grassland of any kind shares one texture, tinted by what grows there
@@ -164,6 +224,11 @@ export class Terrain {
             else if (gg > 0.35) { tex = S.TURF; c = mixRgb(pasture, tc, f); }
             else c = mixRgb([1, 1, 1], [0.85, 1, 0.8], f);
           }
+        }
+        // under a closing canopy the ground fades into shaded forest floor
+        if (canopy > 0.3 && t !== T.ROAD && t !== T.GRAVEL && t !== T.TRAIL) {
+          if (canopy > 0.6 && (tex === T.FIELD || tex === T.SOIL)) tex = S.TURF;
+          c = mixRgb(c, [0.5, 0.45, 0.33], clamp((canopy - 0.3) * 1.2, 0, 0.7));
         }
         if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); }
       }
@@ -228,14 +293,70 @@ export class Terrain {
     return new THREE.Mesh(g, material);
   }
 
+  // Water lies level in its basin and spills a tile onto the banks; wherever the ground rises
+  // above it, the ground hides it. So shorelines follow the land's contours instead of tile edges.
   buildWater() {
     if (this.water) { this.scene.remove(this.water); this.water.geometry.dispose(); }
-    const tiles = [];
-    for (let y = this.Y0; y < this.Y0 + this.TH; y++) for (let x = this.X0; x < this.X0 + this.TW; x++) {
-      if (isWater(this.terrainAt(x, y))) tiles.push([x, y]);
+    const w = this.world, TW = this.TW, TH = this.TH, X0 = this.X0, Y0 = this.Y0;
+    const FILL = { [T.POND]: 0.4, [T.CREEK]: 0.32, [T.RIVER]: 0.35, [T.MARSH]: 0.16 };
+    const COL = { [T.POND]: [0.3, 0.56, 0.66, 0.82], [T.CREEK]: [0.38, 0.63, 0.7, 0.78], [T.RIVER]: [0.28, 0.52, 0.63, 0.86], [T.MARSH]: [0.46, 0.62, 0.52, 0.55] };
+    const level = new Float32Array(TW * TH).fill(NaN), kind = new Uint8Array(TW * TH), wet = new Uint8Array(TW * TH);
+    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
+      const t = this.terrainAt(tx + X0, ty + Y0);
+      if (!isWater(t)) continue;
+      const k = ty * TW + tx;
+      level[k] = Math.min(...w.corners(tx + X0, ty + Y0)) + FILL[t]; kind[k] = t; wet[k] = 1;
     }
-    const COL = { [T.POND]: [0.34, 0.6, 0.68, 0.8], [T.CREEK]: [0.42, 0.66, 0.72, 0.78], [T.RIVER]: [0.3, 0.54, 0.64, 0.85], [T.MARSH]: [0.5, 0.66, 0.54, 0.5] };
-    this.water = this.quadMesh(tiles, 0.035, this.waterMat, (x, y) => COL[this.terrainAt(x, y)], true);
+    // one ring of bank tiles carries the neighbouring water level
+    const ring = [];
+    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
+      const k = ty * TW + tx;
+      if (wet[k]) continue;
+      let L = -Infinity, kd = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const xx = tx + dx, yy = ty + dy;
+        if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
+        const j = yy * TW + xx;
+        if (wet[j] && level[j] > L) { L = level[j]; kd = kind[j]; }
+      }
+      if (L > -Infinity && Math.min(...w.corners(tx + X0, ty + Y0)) < L) ring.push([k, L, kd]);
+    }
+    for (const [k, L, kd] of ring) { level[k] = L; kind[k] = kd; }
+    const vLevel = (vx, vy) => {
+      let L = -Infinity;
+      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+        const tx = vx - X0 + dx, ty = vy - Y0 + dy;
+        if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
+        const l = level[ty * TW + tx];
+        if (l === l && l > L) L = l;
+      }
+      return L;
+    };
+    // fully clear at the outer edge of the bank ring, so shallows fade out instead of ending in a line
+    const vWet = (vx, vy) => {
+      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+        const tx = vx - X0 + dx, ty = vy - Y0 + dy;
+        if (tx >= 0 && ty >= 0 && tx < TW && ty < TH && wet[ty * TW + tx]) return true;
+      }
+      return false;
+    };
+    const tiles = [];
+    for (let k = 0; k < TW * TH; k++) if (level[k] === level[k]) tiles.push(k);
+    const pos = new Float32Array(tiles.length * 18), col = new Float32Array(tiles.length * 24), nor = new Float32Array(tiles.length * 18);
+    let o = 0, oc = 0;
+    for (const k of tiles) {
+      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
+      const c = COL[kind[k]];
+      for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
+        pos[o] = vx; pos[o + 1] = vLevel(vx, vy) * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
+        col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 4));
+    this.water = new THREE.Mesh(g, this.waterMat);
     this.water.renderOrder = 2;
     this.scene.add(this.water);
   }

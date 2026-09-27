@@ -17,7 +17,7 @@ export const STRUCTURES = {
 };
 
 // The river's northern edge, shared by the map and the decorative surroundings.
-export const riverRow = x => 56 + Math.round(valueNoise(x, 0, 9, 3) * 2 - 1);
+export const riverRow = x => MAP_H - 6 + Math.round(valueNoise(x, 0, 13, 3) * 2.4 - 1.2);
 
 export class World {
   constructor(w = MAP_W, h = MAP_H) {
@@ -149,12 +149,12 @@ export function generateFarm(seed = 1987) {
     const i = w.idx(x, y);
     w.variant[i] = Math.floor(hash2(x, y, 7) * 4);
     w.terrain[i] = T.PASTURE;
-    w.soil[i] = 0.26 + valueNoise(x, y, 7, 11) * 0.08;
-    w.baseMoist[i] = 0.16 + 0.12 * (y / Hh) + valueNoise(x, y, 8, 5) * 0.12;
+    w.soil[i] = 0.26 + valueNoise(x, y, 10, 11) * 0.08;
+    w.baseMoist[i] = 0.16 + 0.12 * (y / Hh) + valueNoise(x, y, 12, 5) * 0.12;
     const rt = riverTop(x);
     if (y >= rt) w.terrain[i] = T.RIVER;
-    else if (y === rt - 1 && valueNoise(x, 1, 5, 9) > 0.55) w.terrain[i] = T.GRAVEL;
-    else if (y >= rt - 4) { w.soil[i] = 0.4; w.baseMoist[i] += 0.08; }
+    else if (y === rt - 1 && valueNoise(x, 1, 7, 9) > 0.55) w.terrain[i] = T.GRAVEL;
+    else if (y >= rt - 6) { w.soil[i] = 0.4; w.baseMoist[i] += 0.08; }
   }
 
   const rect = (x0, y0, x1, y1, fn) => {
@@ -162,52 +162,49 @@ export function generateFarm(seed = 1987) {
   };
 
   // Plowed fields
+  const FIELDS = [[6, 40, 45, 67], [60, 52, 114, 76], [76, 4, 114, 22]];
   const field = i => { w.terrain[i] = T.FIELD; w.soil[i] = 0.1 + rng() * 0.05; };
-  rect(4, 27, 30, 45, field);
-  rect(40, 35, 76, 51, field);
-  rect(51, 3, 76, 15, field);
+  for (const [x0, y0, x1, y1] of FIELDS) rect(x0, y0, x1, y1, field);
 
   // Farmstead yard
-  rect(10, 10, 28, 22, (i, x, y) => {
+  rect(15, 14, 40, 33, (i, x, y) => {
     if (valueNoise(x, y, 3, 21) > 0.3) w.terrain[i] = T.GRAVEL;
     w.soil[i] = 0.18;
   });
 
-  // Roads: county access from the west, a lane east, and the river road.
-  rect(0, 18, 44, 18, i => { w.terrain[i] = T.ROAD; });
-  rect(0, 50, 39, 50, i => { w.terrain[i] = T.ROAD; });
-  rect(37, 49, 40, 51, i => { if (w.terrain[i] !== T.ROAD) w.terrain[i] = T.GRAVEL; });
+  // Roads: county access from the west to the farmstead lane, and the river road.
+  rect(0, 27, 64, 27, i => { w.terrain[i] = T.ROAD; });
+  rect(0, 75, 58, 75, i => { w.terrain[i] = T.ROAD; });
+  rect(56, 74, 60, 76, i => { if (w.terrain[i] !== T.ROAD) w.terrain[i] = T.GRAVEL; });
 
   // The drainage ditch: a straightened creek, runs from a spring in the north to the river.
   const ditch = [];
-  for (let y = 1; y <= 30; y++) ditch.push([46, y]);
-  for (let x = 45; x >= 36; x--) ditch.push([x, 30]);
-  for (let y = 31; y < 60; y++) ditch.push([36, y]);
+  for (let y = 1; y <= 45; y++) ditch.push([69, y]);
+  for (let x = 68; x >= 54; x--) ditch.push([x, 45]);
+  for (let y = 46; y < Hh; y++) ditch.push([54, y]);
   for (const [x, y] of ditch) {
     const i = w.idx(x, y);
     if (w.terrain[i] === T.RIVER) break;
     w.terrain[i] = T.CREEK;
   }
   // Culvert where the river road crosses the ditch: blocks fish passage.
-  w.feature[w.idx(36, 50)] = F.CULVERT;
-  // Lane stops short of the creek.
-  w.terrain[w.idx(45, 18)] = T.PASTURE; w.terrain[w.idx(44, 18)] = T.PASTURE;
+  w.feature[w.idx(54, 75)] = F.CULVERT;
 
   // Muddy stock pond
-  const pcx = 62, pcy = 25;
-  rect(56, 20, 68, 30, (i, x, y) => {
-    const d = ((x - pcx) / 3.6) ** 2 + ((y - pcy) / 2.4) ** 2;
+  const pcx = 93, pcy = 37;
+  rect(84, 30, 102, 45, (i, x, y) => {
+    const d = ((x - pcx) / 5.2) ** 2 + ((y - pcy) / 3.4) ** 2;
     if (d <= 1) w.terrain[i] = T.POND;
-    else if (d <= 1.9) w.terrain[i] = T.MUD;
+    else if (d <= 1.8) w.terrain[i] = T.MUD;
   });
 
   // Structures
-  w.addStructure('house', 12, 12);
-  w.addStructure('barn', 19, 11);
-  w.addStructure('silo', 24, 11);
-  w.addStructure('shed', 13, 19);
-  w.addStructure('tractor', 22, 20);
-  w.addStructure('tractor', 58, 44);
+  w.addStructure('house', 18, 18);
+  w.addStructure('barn', 27, 16);
+  w.addStructure('silo', 33, 17);
+  w.addStructure('shed', 19, 29);
+  w.addStructure('tractor', 32, 30);
+  w.addStructure('tractor', 87, 66);
 
   // Fences
   const fence = (x, y, gap = 0) => {
@@ -219,29 +216,33 @@ export function generateFarm(seed = 1987) {
     w.feature[i] = F.FENCE;
   };
   for (let x = 0; x < W; x++) fence(x, 0);
-  for (let y = 0; y < 54; y++) fence(W - 1, y);
-  for (let y = 0; y < 54; y++) fence(0, y);
+  for (let y = 0; y < Hh - 9; y++) fence(W - 1, y);
+  for (let y = 0; y < Hh - 9; y++) fence(0, y);
   const fenceRect = (x0, y0, x1, y1, gap) => {
     for (let x = x0; x <= x1; x++) { fence(x, y0, gap); fence(x, y1, gap); }
     for (let y = y0; y <= y1; y++) { fence(x0, y, gap); fence(x1, y, gap); }
   };
-  fenceRect(3, 26, 31, 46, 0.12);
-  fenceRect(55, 19, 70, 31, 0.15);
-  fenceRect(50, 2, 77, 16, 0.2);
+  fenceRect(4, 38, 47, 69, 0.12);
+  fenceRect(81, 27, 106, 47, 0.15);
+  fenceRect(74, 2, 116, 24, 0.2);
 
   // Remnant trees
   const plant = (key, x, y, g = 1, ageYears = 30) => {
     const i = w.idx(x, y);
+    if (w.struct[i] >= 0) return;
     w.setPlant(i, PLANT[key], g, ageYears * 120);
     w.soil[i] = Math.max(w.soil[i], 0.45);
   };
-  plant('maple', 17, 16, 1, 70);
-  plant('fir', 9, 11, 1, 60);
-  plant('fir', 8, 15, 1, 45);
-  plant('oak', 33, 7, 1, 120);
-  plant('cottonwood', 58, 54, 1, 30);
-  plant('cottonwood', 66, 55, 1, 25);
-  w.feature[w.idx(49, 53)] = F.SNAG;
+  plant('maple', 25, 24, 1, 70);
+  plant('fir', 13, 16, 1, 60);
+  plant('fir', 12, 22, 1, 45);
+  plant('fir', 16, 12, 1, 50);
+  plant('oak', 49, 10, 1, 120);
+  plant('oak', 44, 14, 0.8, 60);
+  plant('cottonwood', 87, 81, 1, 30);
+  plant('cottonwood', 99, 82, 1, 25);
+  plant('cottonwood', 104, 81, 0.8, 18);
+  w.feature[w.idx(73, 79)] = F.SNAG;
 
   // Invasives along fences, ditch banks and waste corners
   for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
@@ -259,11 +260,11 @@ export function generateFarm(seed = 1987) {
     }
     if (w.feature[i] === F.FENCE && x > 0 && y > 0 && x < W - 1 && rng() < 0.3) w.setPlant(i, PLANT.blackberry, 0.5 + rng() * 0.5);
     if (t === T.MUD && rng() < 0.35) w.setPlant(i, PLANT.canarygrass, 0.6);
-    const riverBank = y >= riverTop(x) - 3;
+    const riverBank = y >= riverTop(x) - 4;
     if (riverBank && t !== T.GRAVEL && rng() < 0.35) w.setPlant(i, PLANT.canarygrass, 0.8);
     if (riverBank && rng() < 0.12) w.setPlant(i, PLANT.blackberry, 0.8);
   }
-  // A big blackberry thicket by the river road, one around the barn, broom on the dry hill.
+  // Blackberry thickets by the river road and the barn, broom on the dry hill.
   const blob = (cx, cy, rx, ry, key, dens) => {
     rect(cx - rx, cy - ry, cx + rx, cy + ry, (i, x, y) => {
       const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
@@ -272,16 +273,19 @@ export function generateFarm(seed = 1987) {
         w.setPlant(i, PLANT[key], 0.6 + rng() * 0.4);
     });
   };
-  blob(7, 53, 5, 2, 'blackberry', 0.9);
-  blob(26, 23, 3, 2, 'blackberry', 0.8);
-  blob(39, 7, 5, 4, 'broom', 0.8);
-  blob(72, 33, 3, 2, 'blackberry', 0.8);
+  blob(10, 79, 7, 3, 'blackberry', 0.9);
+  blob(39, 35, 4, 3, 'blackberry', 0.8);
+  blob(58, 10, 7, 6, 'broom', 0.8);
+  blob(108, 49, 4, 3, 'blackberry', 0.8);
 
-  // A few native survivors hanging on
-  blob(47, 55, 3, 1, 'willow', 0.5);
-  blob(4, 20, 2, 2, 'snowberry', 0.5);
+  // A few native survivors hanging on: a scrappy alder woodlot, willows by the river, a hedgerow.
+  blob(60, 34, 4, 3, 'alder', 0.55);
+  blob(60, 34, 5, 4, 'salmonberry', 0.35);
+  blob(70, 82, 4, 2, 'willow', 0.5);
+  blob(6, 30, 3, 3, 'snowberry', 0.5);
+  for (let x = 48; x <= 58; x++) if (rng() < 0.45) plant('rose', x, 50, 0.9, 5);
 
-  generateHeights(w, [[4, 27, 30, 45], [40, 35, 76, 51], [51, 3, 76, 15]]);
+  generateHeights(w, FIELDS);
   for (const st of w.structures) if (st) w.flattenRect(st.x, st.y, st.w, st.h);
   w.hydroDirty = true;
   return w;
@@ -301,13 +305,13 @@ function generateHeights(w, fields) {
   const B = BORDER;
   const inField = (x, y) => fields.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 + 1 && y >= y0 && y <= y1 + 1);
   for (let y = -B; y <= w.h + B; y++) for (let x = -B; x <= w.w + B; x++) {
-    const t = clamp((56 - y) / 56, 0, 1.4);
-    let h = 4.4 * Math.pow(t, 1.15);
+    const t = clamp((w.h - 4 - y) / (w.h - 4), 0, 1.4);
+    let h = 5.2 * Math.pow(t, 1.15);
     if (y < 0) h += -y * 0.3;
     if (x > w.w) h += (x - w.w) * 0.1;
     if (y > w.h + 3) h = 0.2 + (y - w.h - 3) * 0.3;
-    const n = (valueNoise(x + 50, y + 50, 11, 31) - 0.5) * 2.2 + (valueNoise(x + 50, y + 50, 4, 37) - 0.5) * 0.5;
-    const nearRiver = clamp((riverRow(x) - 1 - y) / 7, 0, 1);
+    const n = (valueNoise(x + 50, y + 50, 16, 31) - 0.5) * 2.4 + (valueNoise(x + 50, y + 50, 6, 37) - 0.5) * 0.6;
+    const nearRiver = clamp((riverRow(x) - 1 - y) / 9, 0, 1);
     h += n * (inField(x, y) ? 0.25 : 1) * (y > w.h + 3 ? 0.5 : nearRiver);
     w.setVert(x, y, h);
   }

@@ -156,7 +156,7 @@ export class Visitors {
     const species = this.seen.size;
     this.seenLast = [...this.seen];
     this.seen.clear();
-    const lengthScore = clamp(len / 80, 0, 1);
+    const lengthScore = clamp(len / 110, 0, 1);
     const open = fac.parking > 0 && len >= 4;
     this.rating = open ? clamp(0.5 + species * 0.26 + scenic * 2.0 + lengthScore * 0.6 + Math.min(0.5, fac.blinds * 0.12) + (fac.center ? 0.4 : 0) - invasive * 1.2, 0, 5) : 0;
     this.rep += (this.rating - this.rep) * (this.rep ? 0.3 : 0.6);

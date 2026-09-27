@@ -29,6 +29,8 @@ export class Renderer {
     this.gl.shadowMap.enabled = true;
     this.gl.shadowMap.type = THREE.PCFSoftShadowMap;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
+    this.gl.toneMapping = THREE.NeutralToneMapping;
+    this.gl.toneMappingExposure = 1.0;
     this.scene = new THREE.Scene();
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -300, 300);
     this.target = new THREE.Vector3(40, 1, 32);
@@ -105,7 +107,7 @@ export class Renderer {
     this.target.y = w.heightAt(clamp(this.target.x, 0, w.w), clamp(this.target.z, 0, w.h)) * LEVEL;
   }
   centerOn(tx, ty) { this.target.x = tx; this.target.z = ty; this.clampCam(); this.updateCamera(); }
-  resetView() { this.zoom = 0.8; this.az = this.azTarget = Math.PI / 4; this.centerOn(40, 34); }
+  resetView() { this.zoom = 0.62; this.az = this.azTarget = Math.PI / 4; this.centerOn(this.world ? this.world.w * 0.36 : 44, this.world ? this.world.h * 0.42 : 38); }
   panBy(dx, dy) {
     const u = 1 / this.ppu;
     this.target.addScaledVector(this.right(), -dx * u);
@@ -119,7 +121,7 @@ export class Renderer {
   }
   zoomAt(sx, sy, f) {
     const before = this.groundPoint(sx, sy);
-    this.zoom = clamp(this.zoom * f, 0.3, 3.2);
+    this.zoom = clamp(this.zoom * f, 0.16, 4.5);
     this.updateCamera();
     const after = this.groundPoint(sx, sy);
     this.target.x += before.x - after.x; this.target.z += before.z - after.z;
@@ -231,7 +233,7 @@ export class Renderer {
     if (this.editDirty && now - this.lastFlora > 120) { surface = flora = true; this.editDirty = false; this.terrain.buildWater(); }
     if (surface) { this.terrain.updateSurface(game); this.syncStructures(); }
     if (flora) this.floraPending = true;
-    if (this.floraPending && now - this.lastFlora > 90) { this.flora.rebuild(game); this.lastFlora = now; this.floraPending = false; }
+    if (this.floraPending && now - this.lastFlora > (game.speed >= 3 ? 400 : 150)) { this.flora.rebuild(game); this.lastFlora = now; this.floraPending = false; }
 
     this.updateOverlay(game, ui, now);
     this.updatePreview(ui);
@@ -242,6 +244,9 @@ export class Renderer {
     this.sun.color.setHex(L.sun); this.sun.intensity = L.sunI * gloom;
     this.hemi.color.setHex(L.sky); this.hemi.groundColor.setHex(L.ground); this.hemi.intensity = L.hemiI * (gloom < 1 ? 1.1 : 1);
 
+    this.flora.wind.value = this.time;
+    this.flora.setZoom(this.zoom);
+    this.terrain.time.value = this.time;
     const r = this.right();
     this.actors.update(game, r, this.time);
     this.actors.updateFire(game, this.time, dt);

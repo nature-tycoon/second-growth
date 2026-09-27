@@ -14,12 +14,15 @@ const g = new Game(); g.newGame(1987);
 const notes = [];
 g.on('notify', n => notes.push(`[${g.dateString()}] ${n.text}`));
 const w = g.world;
-const use = (key, x, y, r=1) => { const t = TOOLS[key]; let n=0; for (const i of (t.brush ? brushTiles(w,x,y,r) : [w.idx(x,y)])) { const c = t.costFor ? t.costFor(g,i) : t.cost; if (c>0 && !g.canAfford(c)) continue; if (t.apply(g,i,Math.random)===true){ if(c>0) g.spend(c); else if (c<0) g.earn(-c); n++;} } return n; };
-const rect = (key,x0,y0,x1,y1,step=1,r=0) => { let n=0; for (let y=y0;y<=y1;y+=step) for (let x=x0;x<=x1;x+=step) n+=use(key,x,y,r); return n; };
+// The scripted plan below was written for the original 80x60 farm; coordinates scale up to the real map.
+const SC = w.w / 80;
+const useRaw = (key, x, y, r=1) => { const t = TOOLS[key]; let n=0; for (const i of (t.brush ? brushTiles(w,x,y,r) : [w.idx(x,y)])) { const c = t.costFor ? t.costFor(g,i) : t.cost; if (c>0 && !g.canAfford(c)) continue; if (t.apply(g,i,Math.random)===true){ if(c>0) g.spend(c); else if (c<0) g.earn(-c); n++;} } return n; };
+const use = (key, x, y, r=1) => useRaw(key, Math.round(x * SC), Math.round(y * SC), Math.max(r, Math.round(r * SC)));
+const rect = (key,x0,y0,x1,y1,step=1,r=0) => { let n=0; const S = v => Math.round(v * SC); for (let y=S(y0);y<=S(y1);y+=step) for (let x=S(x0);x<=S(x1);x+=step) n+=useRaw(key,x,y,r); return n; };
 function restoreYear1() {
   use('demolish', 36, 50);
-  for (let x=0;x<w.w;x++) use('demolish', x, 0);
-  for (let y=0;y<w.h;y++) use('demolish', w.w-1, y);
+  for (let x=0;x<w.w;x++) useRaw('demolish', x, 0);
+  for (let y=0;y<w.h;y++) useRaw('demolish', w.w-1, y);
   // pull invasives near creek
   for (let y=1;y<56;y++) for (let x=33;x<=49;x++) use('pull',x,y,0);
   // riparian shrubs & pioneer trees along creek
@@ -33,11 +36,12 @@ function restoreYear1() {
   rect('mix_meadow', 4, 27, 30, 45);
 }
 function visitorsYear2() {
-  use('build_parking', 30, 19);
-  for (let x = 32; x <= 35; x++) use('trail', x, 20, 0);
-  for (let y = 20; y <= 44; y++) use('trail', 34, y, 0);
-  for (let x = 34; x <= 60; x++) use('trail', x, 44, 0);
-  use('blind', 39, 45);
+  // trailhead on the farm lane, a trail down to the creek and along the marsh
+  useRaw('build_parking', 45, 28);
+  for (let x = 47; x <= 52; x++) useRaw('trail', x, 29, 0);
+  for (let y = 29; y <= 66; y++) useRaw('trail', 52, y, 0);
+  for (let x = 52; x <= 75; x++) useRaw('trail', x, 67, 0);
+  useRaw('blind', 58, 68);
 }
 function restoreYear2() {
   visitorsYear2();

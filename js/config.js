@@ -1,10 +1,10 @@
 // Core constants shared by every module.
 
-export const MAP_W = 80;
-export const MAP_H = 60;
+export const MAP_W = 120;
+export const MAP_H = 90;
 export const TILE = 32;          // world units per tile
 export const SPR = 64;           // sprite pixels per tile (sprites are pre-rendered at 2x)
-export const BORDER = 10;        // decorative tiles drawn around the property
+export const BORDER = 14;        // decorative tiles drawn around the property
 
 export const DAYS_PER_MONTH = 10;
 export const MONTHS_PER_YEAR = 12;

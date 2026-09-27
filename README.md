@@ -28,6 +28,7 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 - **Water:** moisture falls off with distance from water. Creek shade sets water quality. Fish can only reach water that connects to the river, and the old culvert blocks it.
 - **Wildlife** (34 species): each species rates every tile's habitat. Carrying capacity is the total suitable habitat divided by the home-range size, limited by needs across the whole property: prey for predators, snags for woodpeckers and bats, berries for bears, fish for otters and herons. Animals breed in season when there's room, die or leave when there isn't, and immigrate from their source edge. Deer and elk are blocked by the boundary fences.
 - **Special behaviour:** beavers coppice willow, fell alder and build dams that flood new wetlands. Coho run up connected, shaded creeks each October, spawn, die and feed the soil, and their fry return three years later. Migratory birds leave in fall and come back if the habitat is still there.
+- **Scale:** the farm is 120×90 tiles. Plants are smooth, instanced low-poly models that sway in the wind, with simpler versions used when zoomed out; animals and visitors are high-resolution sprites you can zoom right in on.
 - **Terrain:** the valley slopes from the northern foothills down to the river. Hollows are wetter and ridges drier. Digging water carves the ground, and the Raise and Lower tools reshape it.
 - **Fire:** in late-summer droughts, lightning or a visitor's spark can start a wildfire. It spreads through dry grass, broom and blackberry, and runs uphill faster. Trails, water and bare ground stop it, and rain puts it out. Douglas-fir and oak usually survive; young trees and most shrubs don't, while native meadow plants resprout. Send a fire crew to fight it, or use controlled burns to cut the fuel ahead of time.
 - **Floods:** long winter rains push the river over low ground beside the river and creeks. Seedlings drown, fresh silt enriches the soil, floodplain seeds (willow, cottonwood, and canarygrass too) arrive, and beaver dams can wash out. Marshes and ponds absorb part of every flood.
@@ -52,7 +53,7 @@ js/render3d/                three.js scene: terrain mesh, instanced low-poly pla
 js/render/sprites.js        procedural 2D art: terrain textures, animal and visitor sprites, UI thumbnails
 js/sim/visitors.js          trails, visitor numbers, rating and income
 js/sim/events.js            wildfires and floods
-vendor/three/               three.js 0.186 (MIT)
+vendor/three/               three.js 0.186 and its BufferGeometryUtils addon (MIT)
 js/ui/                      DOM interface
 tools/balance-sim.mjs       headless balance simulator (node tools/balance-sim.mjs restore 15)
 ```

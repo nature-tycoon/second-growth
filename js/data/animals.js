@@ -21,6 +21,8 @@ function def(a) {
     life: 5, mature: 1, season: null, prey: null, preyPer: 5, speed: 1, max: 10,
     req: () => 1, hint: '',
   }, a);
+  // the valley is larger than the original design, so there's room for more of most species
+  if (o.key !== 'cougar') o.max = Math.round(o.max * 1.4);
   o.index = ANIMALS.length;
   ANIMALS.push(o);
   ANIMAL[o.key] = o;

@@ -11,7 +11,7 @@ import { ecoScore, monthlyGrant, nativePlantSpecies, GOALS, speciesPresent } fro
 import { Visitors } from './sim/visitors.js';
 import { Events } from './sim/events.js';
 
-const SAVE_KEY = 'second-growth-save-v2';
+const SAVE_KEY = 'second-growth-save-v3';
 const RAIN = [0.45, 0.35, 0.3, 0.2, 0.08, 0.08, 0.2, 0.45, 0.6, 0.65, 0.65, 0.55];
 
 const WORLD_ARRAYS = ['terrain', 'baseMoist', 'moist', 'soil', 'ground', 'groundG', 'shrub', 'shrubG',
@@ -61,11 +61,11 @@ export class Game {
         if (pos) wl.spawn(def, pos[0], pos[1], { silent: true });
       }
     };
-    place('vole', 4, 60, 10, 6);
-    place('robin', 3, 17, 16, 5);
-    place('raccoon', 1, 22, 15, 3);
-    place('mallard', 2, 62, 25, 2);
-    place('treefrog', 4, 62, 25, 3);
+    place('vole', 6, 90, 14, 8);
+    place('robin', 3, 25, 24, 6);
+    place('raccoon', 1, 33, 22, 4);
+    place('mallard', 2, 93, 37, 2);
+    place('treefrog', 5, 93, 37, 4);
     wl.recount();
   }
 
