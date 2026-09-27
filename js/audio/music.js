@@ -1,78 +1,74 @@
-// Soothing lo-fi, generated live with Web Audio: warm electric-piano chords, a soft round bass,
-// a lazy swung beat, a sparse melody with echo, and vinyl crackle, all through a gentle tape wobble
-// and a low-pass "old speaker" filter. Nature sounds (rain, birds, a creek) sit on their own bus
-// and follow the weather and seasons. Nothing is downloaded; every sound is synthesized.
+// The soundtrack and the valley's sounds.
+// Music: real lo-fi tracks (public domain, see tracks.js), shuffled and crossfaded, streamed one
+// at a time so only what's playing gets downloaded. Nature: rain, a creek and birdsong,
+// synthesized live with Web Audio on their own bus, following the weather and the seasons.
 
-const BPM = 72;
-const STEP = 60 / BPM / 4;        // one sixteenth note, in seconds
-const SWING = 0.18;               // off-beat eighths land a little late
-const LOOKAHEAD = 0.15;
+import { TRACKS } from './tracks.js';
 
-// Chord progressions (MIDI notes), four bars each; the band drifts between them.
-const PROGRESSIONS = [
-  [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]],          // Fmaj7 Em7 Dm7 Cmaj7
-  [[45, 52, 55, 60], [50, 54, 57, 60, 64], [43, 50, 54, 59], [48, 52, 55, 59, 62]],  // Am7 D9 Gmaj7 Cmaj9
-  [[50, 53, 57, 60, 64], [43, 53, 57, 59], [48, 52, 55, 59, 62], [45, 48, 52, 55]],  // Dm9 G7 Cmaj9 Am7
-  [[41, 52, 55, 57, 60], [43, 50, 53, 57], [40, 50, 55, 59], [45, 52, 55, 60]],      // Fmaj9 G6 Em7 Am7
-];
-// Drum patterns over 16 steps: kick, snare, hat.
-const BEATS = [
-  { k: [0, 7, 10], s: [4, 12], h: [0, 2, 4, 6, 8, 10, 12, 14] },
-  { k: [0, 3, 8, 11], s: [4, 12], h: [0, 2, 4, 6, 8, 10, 12, 14, 15] },
-  { k: [0, 6, 10], s: [4, 12, 15], h: [0, 2, 4, 6, 8, 10, 12, 14] },
-];
-const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+const FADE = 4;        // seconds of crossfade between tracks
+const GAP = 1.5;       // quiet seconds after a track fails to load, before the next
+
+// a few milliseconds of silent WAV, for unlocking audio on iOS
+const SILENCE = (() => {
+  const n = 64, b = new Uint8Array(44 + n), v = new DataView(b.buffer), str = (o, t) => [...t].forEach((c, k) => { b[o + k] = c.charCodeAt(0); });
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 8000, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true); str(36, 'data'); v.setUint32(40, n, true);
+  b.fill(128, 44);
+  return 'data:audio/wav;base64,' + btoa(String.fromCharCode(...b));
+})();
 
 export class Music {
   constructor() {
     this.ctx = null;
     this.musicOn = true; this.natureOn = true; this.muted = false;
     this.musicVol = 0.5; this.natureVol = 0.6;
-    this.step = 0; this.bar = 0; this.prog = 0; this.beat = 0;
-    this.weather = 'clear'; this.season = 0; this.hour = 0;
+    this.weather = 'clear'; this.season = 0;
+    this.order = []; this.pos = -1; this.current = null; this.nowPlaying = null;
+    this.listeners = [];
   }
 
   // Browsers only allow audio after the player has clicked or pressed something.
   start() {
-    if (this.ctx) { if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume(); return; }
+    if (this.ctx) { if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume(); this.syncPlayback(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = this.ctx = new AC();
     this.out = ctx.createDynamicsCompressor();
     this.out.threshold.value = -18; this.out.ratio.value = 3;
     this.out.connect(ctx.destination);
-
-    // music bus: volume -> warm low-pass -> out
     this.musicGain = ctx.createGain();
-    this.warm = ctx.createBiquadFilter(); this.warm.type = 'lowpass'; this.warm.frequency.value = 3200; this.warm.Q.value = 0.4;
-    this.musicGain.connect(this.warm).connect(this.out);
+    this.musicGain.connect(this.out);
     this.natureGain = ctx.createGain();
     this.natureGain.connect(this.out);
-    // tape wobble shared by the tuned voices
-    this.wow = ctx.createOscillator(); this.wow.frequency.value = 0.35;
-    this.wowAmt = ctx.createGain(); this.wowAmt.gain.value = 7; // cents
-    this.wow.connect(this.wowAmt); this.wow.start();
-    // echo for the melody
-    this.delay = ctx.createDelay(1); this.delay.delayTime.value = STEP * 6;
-    const fb = ctx.createGain(); fb.gain.value = 0.32;
-    const dl = ctx.createBiquadFilter(); dl.type = 'lowpass'; dl.frequency.value = 1800;
-    this.delay.connect(dl).connect(fb).connect(this.delay);
-    dl.connect(this.musicGain);
-    // drum bus, a little dull and squashed like a sampled loop
-    this.drums = ctx.createBiquadFilter(); this.drums.type = 'lowpass'; this.drums.frequency.value = 4200;
-    const dg = ctx.createGain(); dg.gain.value = 0.9;
-    this.drums.connect(dg).connect(this.musicGain);
-
+    // two decks, so one track can fade out while the next fades in
+    this.decks = [0, 1].map(() => {
+      const el = new Audio();
+      el.preload = 'none'; el.crossOrigin = 'anonymous';
+      const gain = ctx.createGain(); gain.gain.value = 0;
+      ctx.createMediaElementSource(el).connect(gain).connect(this.musicGain);
+      const deck = { el, gain, track: null };
+      el.addEventListener('ended', () => { if (this.current === deck) this.advance(0); });
+      el.addEventListener('error', () => { if (this.current === deck) this.advance(GAP); });
+      el.addEventListener('timeupdate', () => {
+        // start the next track a little before this one ends
+        if (this.current === deck && el.duration && el.duration - el.currentTime < FADE && !deck.handedOff) { deck.handedOff = true; this.advance(0); }
+      });
+      return deck;
+    });
     this.noise = this.makeNoise(2);
-    this.startCrackle();
     this.startNature();
     this.applyVolumes();
-    this.next = ctx.currentTime + 0.1;
-    this.timer = setInterval(() => this.schedule(), 25);
+    this.timer = setInterval(() => { if (this.natureOn && !this.muted && this.ctx.state === 'running' && Math.random() < 0.012) this.maybeBird(); }, 25);
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
-      if (document.hidden) this.ctx.suspend(); else this.ctx.resume();
+      if (document.hidden) { this.ctx.suspend(); this.decks.forEach(d => d.el.pause()); }
+      else { this.ctx.resume(); this.syncPlayback(); }
     });
+    // iOS only lets a media element start inside a tap: start the first track now (it fades in),
+    // and unlock the second deck with a moment of silence so later crossfades can play too
+    this.syncPlayback();
+    const spare = this.decks.find(d => d !== this.current);
+    if (spare) { spare.el.src = SILENCE; spare.el.play().then(() => spare.el.pause()).catch(() => {}); }
   }
 
   makeNoise(seconds) {
@@ -80,6 +76,42 @@ export class Music {
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     return b;
   }
+
+  // ------------------------------------------------------------ the soundtrack
+  // a fresh shuffle each time through, never repeating the last track first
+  nextTrack() {
+    if (this.pos + 1 >= this.order.length) {
+      const last = this.order[this.order.length - 1];
+      this.order = TRACKS.map((_, k) => k).sort(() => Math.random() - 0.5);
+      if (this.order.length > 1 && this.order[0] === last) this.order.push(this.order.shift());
+      this.pos = -1;
+    }
+    return TRACKS[this.order[++this.pos]];
+  }
+  // Fade the current track out and the next one in on the other deck.
+  advance(delay = 0) {
+    if (!this.ctx || !TRACKS.length) return;
+    const from = this.current, to = this.decks.find(d => d !== from) || this.decks[0];
+    const track = this.nextTrack(), t = this.ctx.currentTime + delay;
+    to.track = track; to.handedOff = false;
+    to.el.src = track.file; to.el.currentTime = 0;
+    to.gain.gain.cancelScheduledValues(t); to.gain.gain.setValueAtTime(0, t); to.gain.gain.linearRampToValueAtTime(1, t + FADE);
+    if (from) { from.gain.gain.cancelScheduledValues(t); from.gain.gain.setValueAtTime(from.gain.gain.value, t); from.gain.gain.linearRampToValueAtTime(0, t + FADE); setTimeout(() => { if (this.current !== from) from.el.pause(); }, (delay + FADE + 0.5) * 1000); }
+    this.current = to;
+    this.nowPlaying = track;
+    setTimeout(() => { if (this.current === to && this.wantMusic()) to.el.play().catch(() => {}); }, delay * 1000);
+    for (const fn of this.listeners) fn(track);
+  }
+  wantMusic() { return this.musicOn && !this.muted && !document.hidden; }
+  // Play or pause to match the settings (music off pauses the stream instead of downloading silence).
+  syncPlayback() {
+    if (!this.ctx) return;
+    if (!this.wantMusic()) { this.decks.forEach(d => d.el.pause()); return; }
+    if (!this.current) { this.advance(0); return; }
+    if (this.current.el.paused) this.current.el.play().catch(() => {});
+  }
+  skip() { if (this.current) this.advance(0); }
+  onTrack(fn) { this.listeners.push(fn); }
 
   // ------------------------------------------------------------ settings
   set({ music, nature, muted, musicVol, natureVol }) {
@@ -89,11 +121,12 @@ export class Music {
     if (musicVol != null) this.musicVol = musicVol;
     if (natureVol != null) this.natureVol = natureVol;
     this.applyVolumes();
+    this.syncPlayback();
   }
   applyVolumes() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    this.musicGain.gain.setTargetAtTime(this.muted || !this.musicOn ? 0 : this.musicVol * 0.8, t, 0.3);
+    this.musicGain.gain.setTargetAtTime(this.muted || !this.musicOn ? 0 : this.musicVol * 0.7, t, 0.3);
     this.natureGain.gain.setTargetAtTime(this.muted || !this.natureOn ? 0 : this.natureVol, t, 0.3);
   }
   // The game tells us about the weather and season so the nature sounds can follow.
@@ -103,122 +136,6 @@ export class Music {
     const t = this.ctx.currentTime;
     const rain = weather === 'rain' ? 0.16 : weather === 'snow' ? 0.035 : 0;
     this.rainGain.gain.setTargetAtTime(rain, t, 2.5);
-  }
-
-  // ------------------------------------------------------------ scheduling
-  schedule() {
-    const ctx = this.ctx;
-    if (!ctx || ctx.state !== 'running') return;
-    if (this.next < ctx.currentTime - 1) this.next = ctx.currentTime + 0.05; // after a long pause
-    while (this.next < ctx.currentTime + LOOKAHEAD) {
-      const swing = this.step % 4 === 2 ? STEP * SWING * 2 : 0;
-      this.playStep(this.step, this.next + swing);
-      this.next += STEP;
-      this.step = (this.step + 1) % 16;
-      if (this.step === 0) {
-        this.bar++;
-        if (this.bar % 8 === 0) { this.prog = (this.prog + 1 + Math.floor(Math.random() * 2)) % PROGRESSIONS.length; this.beat = Math.floor(Math.random() * BEATS.length); }
-      }
-    }
-    if (this.natureOn && !this.muted && Math.random() < 0.012) this.maybeBird();
-  }
-
-  playStep(s, t) {
-    if (!this.musicOn || this.muted) return;
-    const chord = PROGRESSIONS[this.prog][this.bar % 4], beat = BEATS[this.beat];
-    const intro = this.bar < 2; // ease in with just the keys
-    // keys: the chord on the downbeat, a softer re-strike late in the bar
-    if (s === 0) this.keys(chord, t, 0.055, STEP * 14);
-    if (s === 10 && Math.random() < 0.55) this.keys(chord.slice(1), t, 0.03, STEP * 6);
-    // bass
-    if (!intro && (s === 0 || (s === 7 && Math.random() < 0.7) || (s === 12 && Math.random() < 0.35))) this.bass(chord[0] - 12, t, s === 0 ? STEP * 6 : STEP * 3);
-    // drums
-    if (!intro) {
-      if (beat.k.includes(s)) this.kick(t);
-      if (beat.s.includes(s)) this.snare(t);
-      if (beat.h.includes(s) && Math.random() < 0.92) this.hat(t, s % 4 === 2 ? 0.035 : 0.05);
-    }
-    // a sparse melody every other phrase
-    if (!intro && Math.floor(this.bar / 4) % 2 === 1 && s % 2 === 0 && Math.random() < 0.22) {
-      const tones = chord.map(n => n + 12).concat([chord[1] + 24, chord[2] + 24]);
-      this.bell(tones[Math.floor(Math.random() * tones.length)], t);
-    }
-  }
-
-  // ------------------------------------------------------------ instruments
-  keys(notes, t, vel, len) {
-    const ctx = this.ctx;
-    for (const n of notes) {
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vel, t + 0.012);
-      g.gain.exponentialRampToValueAtTime(vel * 0.35, t + 0.9);
-      g.gain.exponentialRampToValueAtTime(0.0008, t + len + 0.6);
-      const tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 1900;
-      g.connect(tone).connect(this.musicGain);
-      for (const [type, mult, amp] of [['sine', 1, 1], ['triangle', 2, 0.18], ['sine', 3, 0.05]]) {
-        const o = ctx.createOscillator(), a = ctx.createGain();
-        o.type = type; o.frequency.value = hz(n) * mult;
-        o.detune.value = (Math.random() - 0.5) * 6;
-        this.wowAmt.connect(o.detune);
-        a.gain.value = amp;
-        o.connect(a).connect(g);
-        o.start(t); o.stop(t + len + 0.7);
-      }
-    }
-  }
-  bass(n, t, len) {
-    const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
-    o.type = 'triangle'; o.frequency.value = hz(n);
-    f.type = 'lowpass'; f.frequency.value = 320;
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.2, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.001, t + len + 0.2);
-    o.connect(f).connect(g).connect(this.musicGain);
-    o.start(t); o.stop(t + len + 0.25);
-  }
-  kick(t) {
-    const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
-    o.frequency.setValueAtTime(115, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14);
-    g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
-    o.connect(g).connect(this.drums);
-    o.start(t); o.stop(t + 0.35);
-  }
-  snare(t) {
-    const ctx = this.ctx, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-    src.buffer = this.noise; f.type = 'bandpass'; f.frequency.value = 1700; f.Q.value = 0.8;
-    g.gain.setValueAtTime(0.16, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-    src.connect(f).connect(g).connect(this.drums);
-    src.start(t, Math.random()); src.stop(t + 0.22);
-    const o = ctx.createOscillator(), og = ctx.createGain();
-    o.frequency.value = 185; og.gain.setValueAtTime(0.06, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-    o.connect(og).connect(this.drums); o.start(t); o.stop(t + 0.1);
-  }
-  hat(t, vel) {
-    const ctx = this.ctx, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-    src.buffer = this.noise; f.type = 'highpass'; f.frequency.value = 7000;
-    g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
-    src.connect(f).connect(g).connect(this.drums);
-    src.start(t, Math.random()); src.stop(t + 0.05);
-  }
-  bell(n, t) {
-    const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain(), h = ctx.createOscillator(), hg = ctx.createGain();
-    o.type = 'sine'; o.frequency.value = hz(n); this.wowAmt.connect(o.detune);
-    h.type = 'sine'; h.frequency.value = hz(n) * 4; hg.gain.value = 0.12;
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.045, t + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
-    o.connect(g); h.connect(hg).connect(g);
-    g.connect(this.musicGain); g.connect(this.delay);
-    o.start(t); h.start(t); o.stop(t + 1.2); h.stop(t + 1.2);
-  }
-  // vinyl: a bed of hiss plus sparse dust pops
-  startCrackle() {
-    const ctx = this.ctx, len = ctx.sampleRate * 4, b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * 0.02 + (Math.random() < 0.0006 ? (Math.random() - 0.5) * 0.9 : 0);
-    const src = ctx.createBufferSource(); src.buffer = b; src.loop = true;
-    const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 900;
-    const g = ctx.createGain(); g.gain.value = 0.35;
-    src.connect(f).connect(g).connect(this.musicGain);
-    src.start();
   }
 
   // ------------------------------------------------------------ nature

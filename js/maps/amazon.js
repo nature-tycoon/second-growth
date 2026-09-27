@@ -70,7 +70,10 @@ export default {
   farm: 'Fazenda Esperança',
   region: 'Pará, Brazil',
   blurb: 'An old cattle ranch cut from the rainforest: pasture grass that burns every dry season, a trampled stream, lone Brazil nut trees and a scrap of forest to grow from.',
-  campaign: false,
+  campaign: true,
+  // eco-tourists come a long way to see the Amazon and give more per visit
+  visitorValue: 1.3,
+  campaignEnd: 'You finished the campaign. Fazenda Esperança is turning back into rainforest, the igarapé runs clear, and the jaguar hunts where the cattle used to graze. Every tool is yours now: keep going as long as you like, because the forest giants are only just getting started.',
   image: 'assets/maps/amazon.jpg',
   plants: buildAmazonPlants,
   animals: buildAmazonAnimals,

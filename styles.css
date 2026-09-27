@@ -558,3 +558,5 @@ body.campaign #banner { top: 124px; }
   .settings-nav button { padding: 6px 10px; font-size: 12.5px; }
 }
 @media (max-height: 520px) { .intro-map img, .map-card img { aspect-ratio: 21 / 8; } }
+.set-row.now-playing { cursor: default; }
+.set-row.now-playing .btn { flex-shrink: 0; padding: 6px 12px; font-size: 12.5px; }

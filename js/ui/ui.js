@@ -2,6 +2,7 @@
 
 import { T, F, H, HABITAT_INFO, TERRAIN_NAMES, FEATURE_NAMES, MONTH_NAMES, SPEEDS, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp } from '../config.js';
 import { music } from '../audio/music.js';
+import { MUSIC_LICENSE } from '../audio/tracks.js';
 import { PLANTS, PLANT, LAYER_NAMES, MIX } from '../data/plants.js';
 import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many } from '../data/animals.js';
 import { TOOLS, CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
@@ -808,12 +809,12 @@ export class UI {
       camp = '<div class="section-title" style="margin-top:0">Campaign</div>' + CHAPTERS.map((c, k) => {
         const state = k < g.campaign.chapter ? 'done' : k === g.campaign.chapter ? 'now' : 'later';
         const goals = state === 'now' ? `<div class="ch-goals">${c.goals.map(o => `<div class="need"><span class="st ${o.check(g) ? 'good' : ''}">${o.check(g) ? '✓' : '•'}</span><span>${o.desc} <span class="small">(${o.prog(g)})</span></span></div>`).join('')}</div>` : '';
-        return `<div class="goal chapter ${state}"><div class="check">${state === 'done' ? '✓' : k + 1}</div><div><div class="gn">${c.title}</div>${state === 'later' ? '<div class="gd">Locked</div>' : state === 'done' ? '<div class="gd">Complete</div>' : goals}</div><div class="gr">${money(c.reward)}</div></div>`;
+        return `<div class="goal chapter ${state}"><div class="check">${state === 'done' ? '✓' : k + 1}</div><div><div class="gn">${c.title}</div>${state === 'later' ? '<div class="gd">Locked</div>' : state === 'done' ? '<div class="gd">Complete</div>' : goals}</div><div class="gr">${money(this.game.goalReward(c.reward))}</div></div>`;
       }).join('') + '<div class="section-title">Milestone grants</div>';
     }
     const html = camp + GOALS.map(goal => {
       const done = !!g.goalsDone[goal.key];
-      return `<div class="goal ${done ? 'done' : ''}"><div class="check">${done ? '✓' : ''}</div><div><div class="gn">${goal.name}</div><div class="gd">${goal.desc}</div><div class="gp">${done ? 'Completed' : goal.prog(g)}</div></div><div class="gr">${money(goal.reward)}</div></div>`;
+      return `<div class="goal ${done ? 'done' : ''}"><div class="check">${done ? '✓' : ''}</div><div><div class="gn">${goal.name}</div><div class="gd">${goal.desc}</div><div class="gp">${done ? 'Completed' : goal.prog(g)}</div></div><div class="gr">${money(this.game.goalReward(goal.reward))}</div></div>`;
     }).join('');
     this.modal('Restoration Goals', `<p class="info-desc" style="margin-top:0">The land trust pays a grant for each milestone. Monthly funding also grows with your ecosystem health score and the number of species living here.</p>${html}`, { narrow: true });
   }
@@ -887,8 +888,10 @@ export class UI {
     const TABS = {
       audio: ['Audio', `
         ${toggle('muted', 'Mute everything', 'Also the speaker button in the top bar, or press M.')}
-        ${toggle('music', 'Lo-fi music', 'Soft beats and warm keys, made live as you play.')}
+        ${toggle('music', 'Lo-fi music', 'Relaxed lo-fi tracks, shuffled. Streamed one at a time.')}
         ${slider('musicVolume', 'Music volume', '', 0, 1, pctFmt)}
+        <div class="set-row now-playing"><span><b>Now playing</b><small class="np-title">${music.nowPlaying ? `${music.nowPlaying.title} · ${music.nowPlaying.artist}` : 'Starts when you begin playing'}</small></span><button type="button" class="btn secondary np-skip">Next track</button></div>
+        <p class="small" style="margin:4px 2px 10px">Music by <a href="https://freemusicarchive.org/music/holiznacc0/" target="_blank" rel="noopener">HoliznaCC0</a>, released into the public domain under ${MUSIC_LICENSE}.</p>
         ${toggle('nature', 'Nature sounds', 'Rain when it rains, birdsong in spring and summer, a creek.')}
         ${slider('natureVolume', 'Nature volume', '', 0, 1, pctFmt)}`],
       game: ['Gameplay', `
@@ -915,6 +918,8 @@ export class UI {
       { foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>' });
     m.classList.add('settings-modal');
     m.querySelectorAll('.settings-nav [data-tab]').forEach(b => b.addEventListener('click', () => this.openSettings(b.dataset.tab)));
+    m.querySelector('.np-skip')?.addEventListener('click', () => { music.start(); if (music.nowPlaying) music.skip(); else music.syncPlayback(); });
+    if (!this.npHooked) { this.npHooked = true; music.onTrack(t => document.querySelectorAll('.np-title').forEach(e => { e.textContent = `${t.title} · ${t.artist}`; })); }
     m.querySelectorAll('[data-s]').forEach(inp => {
       const key = inp.dataset.s;
       inp.addEventListener(inp.type === 'range' ? 'input' : 'change', () => {
@@ -1071,7 +1076,7 @@ export class UI {
       <div class="ch-tools">${shown.map(t => `<div class="ch-tool"><img src="${iconThumb(t.icon)}" alt=""><span>${t.name}</span></div>`).join('')}${extra > 0 ? `<div class="ch-tool more">+${extra} more plants</div>` : ''}</div>
       <div class="section-title">How</div><p class="info-desc">${c.teach}</p>
       <div class="section-title">Goals</div>${c.goals.map(o => `<div class="need"><span class="st">•</span><span>${o.desc}</span></div>`).join('')}
-      <p class="small" style="margin-top:10px">Complete all three for a ${money(c.reward)} grant and Chapter ${k + 2 <= CHAPTERS.length ? k + 2 : 'the end'}.</p>
+      <p class="small" style="margin-top:10px">Complete all three for a ${money(this.game.goalReward(c.reward))} grant and Chapter ${k + 2 <= CHAPTERS.length ? k + 2 : 'the end'}.</p>
       </div>`, { narrow: true, foot: `<button class="btn" data-a="go">Let's go</button>`, onClose: () => this.setSpeed(resume || 1) });
     m.querySelector('[data-a=go]').addEventListener('click', () => this.closeModal());
     if (!review) for (const t of tools) this.newCats.add(t.cat);
@@ -1087,8 +1092,8 @@ export class UI {
     this.setSpeed(0);
     this.newCats ||= new Set();
     const body = next
-      ? `<p class="ch-story">You finished <b>${done.title}</b>. The land trust sent a <b>${money(done.reward)}</b> grant.</p><p class="info-desc">Next up: <b>Chapter ${index + 2}, ${next.title}</b>, with new tools to learn.</p>`
-      : `<p class="ch-story">You finished the campaign. The Hollis farm is a living valley again, and every tool is yours. Keep going as long as you like: the old forest is still growing up, and the salmon are still coming home.</p><p class="info-desc">The land trust sent a final <b>${money(done.reward)}</b> grant.</p>`;
+      ? `<p class="ch-story">You finished <b>${done.title}</b>. The land trust sent a <b>${money(this.game.goalReward(done.reward))}</b> grant.</p><p class="info-desc">Next up: <b>Chapter ${index + 2}, ${next.title}</b>, with new tools to learn.</p>`
+      : `<p class="ch-story">${biome.campaignEnd}</p><p class="info-desc">The land trust sent a final <b>${money(this.game.goalReward(done.reward))}</b> grant.</p>`;
     const m = this.modal(next ? `Chapter ${index + 1} complete!` : 'The valley is restored', `<div class="chapter-done">${body}</div>`, { narrow: true,
       foot: `<button class="btn" data-a="next">${next ? `Start Chapter ${index + 2}` : 'Keep restoring'}</button>`, onClose: () => { if (!next) this.setSpeed(resume || 1); } });
     m.querySelector('[data-a=next]').addEventListener('click', () => {

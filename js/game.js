@@ -97,7 +97,16 @@ export class Game {
   earn(c) { this.money += c; this.stats.earned += c; }
   get diff() { return DIFFICULTY[this.difficulty] || DIFFICULTY.standard; }
   // Land trust money (grants and rewards) scales with difficulty; visitor donations don't.
-  grant(c) { const v = Math.round(c * this.diff.grants); this.earn(v); return v; }
+  // kind is only bookkeeping (monthly, goal, discovery, chapter), so the balance can be checked
+  grant(c, kind = 'other') {
+    const v = Math.round(c * this.diff.grants); this.earn(v);
+    const gs = this.stats.grants ||= {}; gs[kind] = (gs[kind] || 0) + v;
+    return v;
+  }
+
+  // What a goal or chapter actually pays: rewards are listed at full size and paid at 60%,
+  // scaled by difficulty (the UI shows this figure, so it always matches the payout).
+  goalReward(r) { return Math.round(r * 0.6 * this.diff.grants); }
 
   notify(text, kind = 'info', loc = null) { this.emit('notify', { text, kind, loc, date: this.dateString() }); }
 
@@ -171,7 +180,7 @@ export class Game {
     this.wildlife.monthly();
     this.cache.nativePlants = nativePlantSpecies(this.world);
     const score = this.updateScore();
-    const grant = this.grant(monthlyGrant(this, score.total));
+    const grant = this.grant(monthlyGrant(this, score.total), 'monthly');
     this.lastGrant = grant;
     this.visitors.monthEnd();
     // season tips teach the first year; after that the top bar says the season
@@ -232,7 +241,7 @@ export class Game {
       if (this.goalsDone[g.key]) continue;
       if (g.check(this)) {
         this.goalsDone[g.key] = this.day;
-        const paid = this.grant(g.reward);
+        const paid = this.grant(g.reward * 0.6, 'goal');
         this.notify(`Goal complete: ${g.name}! The land trust awarded a ${money(paid)} grant.`, 'goal');
         this.emit('goal', g);
       }
@@ -240,7 +249,7 @@ export class Game {
   }
 
   onDiscover(def, a) {
-    const bonus = this.grant(250);
+    const bonus = this.grant(150, 'discovery');
     this.notify(`New species! ${aOne(def).replace(/^a/, 'A')} has arrived on the farm. (+${money(bonus)} discovery grant)`, 'discover', a);
     this.emit('discover', def);
   }

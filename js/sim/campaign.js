@@ -1,13 +1,17 @@
-// Campaign: eight chapters on the same farm. Each one teaches a single idea, sets a few
-// objectives, and unlocks the tools for the next step. Free Play has everything from the start.
+// Campaign: eight chapters on one map. Each one teaches a single idea, sets a few objectives,
+// and unlocks the tools for the next step. Free Play has everything from the start.
+// Each map has its own chapters (Hollis below, the Amazon ranch in campaign-amazon.js); CHAPTERS
+// is refilled when the map changes.
 
 import { T, F, H, isWater } from '../config.js';
 import { ANIMAL } from '../data/animals.js';
 import { TOOLS } from '../tools.js';
 import { speciesPresent } from './goals.js';
+import { onBiome } from '../biome.js';
+import { amazonChapters } from './campaign-amazon.js';
 
 const used = (g, ...keys) => keys.reduce((n, k) => n + (g.stats.used?.[k] || 0), 0);
-const pop = (g, k) => g.wildlife.state[ANIMAL[k].index].pop;
+const pop = (g, k) => ANIMAL[k] ? g.wildlife.state[ANIMAL[k].index].pop : 0;
 const culvertGone = w => { for (let i = 0; i < w.n; i++) if (w.feature[i] === F.CULVERT) return false; return true; };
 const edgeFence = w => {
   let n = 0;
@@ -23,8 +27,11 @@ const count = (desc, get, target, unit = '') => ({ desc, check: g => get(g) >= t
 const flag = (desc, test, doneText = 'Done', todo = 'Not yet') => ({ desc, check: test, prog: g => test(g) ? doneText : todo });
 
 const layerTools = (sub) => Object.values(TOOLS).filter(t => t.sub === sub).map(t => t.key);
+const wildlifeTools = () => Object.values(TOOLS).filter(t => t.cat === 'wildlife').map(t => t.key);
+const HELPERS = { used, pop, culvertGone, edgeFence, wetland, score, count, flag, layerTools, wildlifeTools, speciesPresent };
 
-export const CHAPTERS = [
+export const CHAPTERS = [];
+const pnwChapters = () => [
   {
     key: 'fields', title: 'Wake up the fields', reward: 2000,
     story: 'The old Hollis fields have been plowed and grazed for seventy years. Start small: look around, break up the compacted ground, and sow native meadow.',
@@ -100,14 +107,14 @@ export const CHAPTERS = [
     goals: [
       count('Connect 40 tiles of trail to a trailhead', g => g.visitors.facilities().parking ? g.visitors.net.length : 0, 40, ' tiles'),
       count('Welcome 300 visitors', g => g.visitors.total, 300, ' visitors'),
-      { desc: 'Reach a 3-star visitor rating', check: g => g.visitors.rating >= 3, prog: g => `${g.visitors.rating.toFixed(1)} / 3 stars` },
+      { desc: 'Reach a 2.5-star visitor rating', check: g => g.visitors.rating >= 2.5, prog: g => `${g.visitors.rating.toFixed(1)} / 2.5 stars` },
     ],
   },
   {
     key: 'wild', title: 'The return of the wild', reward: 10000,
     story: 'The valley is ready for the animals that cannot walk back on their own. Bring them home, and let the beavers finish the work.',
     teach: 'The <b>Wildlife</b> tools reintroduce elk, beavers, red-legged frogs, pond turtles and cutthroat trout. Each needs the right habitat first; the tool shows what it needs.',
-    unlock: Object.values(TOOLS).filter(t => t.cat === 'wildlife').map(t => t.key),
+    unlock: wildlifeTools(),
     goals: [
       flag('Beavers build their first dam', g => !!g.flags.beaverDam, 'Done', 'Waiting on beavers'),
       count('Have 18 animal species living here', g => speciesPresent(g), 18, ' species'),
@@ -141,7 +148,7 @@ export function checkCampaign(g) {
   if (!ch) return;
   if (!ch.goals.every(o => o.check(g))) return;
   g.campaign.chapter++;
-  g.grant(ch.reward);
+  g.grant(ch.reward * 0.6, 'chapter');
   g.emit('chapter', { done: ch, next: currentChapter(g), index: g.campaign.chapter - 1 });
 }
 
@@ -149,3 +156,7 @@ export function checkCampaign(g) {
 export function toolNames(keys) {
   return keys.map(k => TOOLS[k]).filter(Boolean);
 }
+
+// the chapters for whichever map is being played (built after that map's tools exist)
+const BUILDERS = { pnw: pnwChapters, amazon: () => amazonChapters(HELPERS) };
+onBiome(b => { CHAPTERS.length = 0; CHAPTERS.push(...(BUILDERS[b.id] ? BUILDERS[b.id]() : [])); });

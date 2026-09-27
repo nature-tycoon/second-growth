@@ -12,6 +12,7 @@ export default {
   region: 'Pacific Northwest',
   blurb: 'A worn-out dairy farm in a Washington valley: salmon creek, conifer forest, winter floods and summer fires.',
   campaign: true,
+  campaignEnd: 'You finished the campaign. The Hollis farm is a living valley again, and every tool is yours. Keep going as long as you like: the old forest is still growing up, and the salmon are still coming home.',
   image: 'assets/maps/pnw.jpg',
   plants: buildPnwPlants,
   animals: buildPnwAnimals,

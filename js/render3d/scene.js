@@ -268,7 +268,10 @@ export class Renderer {
     // days drifting cloud shadows (atmosphere.js) do much of the dimming, patch by patch
     const L = biome.look.light[game.season], wx = game.weather;
     const gloom = wx === 'rain' || wx === 'snow' ? 0.55 : wx === 'cloud' ? 0.88 : 1;
-    const cover = wx === 'rain' || wx === 'snow' ? 0.85 : wx === 'cloud' ? 0.62 : 0.2;
+    // clear weather is mostly truly cloudless; now and then (a few days at a time) a scatter of
+    // fair-weather clouds drifts over instead
+    const fair = wx === 'clear' && hash2(Math.floor(game.day / 5), 101, 17) < 0.3;
+    const cover = wx === 'rain' || wx === 'snow' ? 0.85 : wx === 'cloud' ? 0.62 : fair ? 0.16 : 0;
     const T = this.lightTarget, first = !this.lightReady, k = first ? 1 : Math.min(1, dt * 0.7);
     T.sun.setHex(L.sun); T.sky.setHex(L.sky); T.ground.setHex(L.ground);
     this.sun.color.lerp(T.sun, k); this.hemi.color.lerp(T.sky, k); this.hemi.groundColor.lerp(T.ground, k);
@@ -277,7 +280,10 @@ export class Renderer {
     this.lightReady = true;
     sky.uCloudT.value = this.time;
     sky.uCloudCover.value += (cover - sky.uCloudCover.value) * (first ? 1 : Math.min(1, dt * 0.25));
-    sky.uCloudAmt.value += ((this.cloudsOn === false ? 0 : 0.56) - sky.uCloudAmt.value) * Math.min(1, dt * 2);
+    // no shadows on a cloudless day, and they melt away as you zoom in close
+    const closeUp = clamp((2.1 - this.zoom) / 0.8, 0, 1);
+    const amt = this.cloudsOn === false || (cover === 0 && sky.uCloudCover.value < 0.08) ? 0 : 0.56 * closeUp;
+    sky.uCloudAmt.value += (amt - sky.uCloudAmt.value) * Math.min(1, dt * 1.5);
 
     if (this.windOn !== false) this.flora.wind.value = this.time; // otherwise plants hold still
     this.flora.setZoom(this.zoom);

@@ -28,7 +28,7 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 ## Maps
 
 - **Hollis Farm** (Cascade foothills, Washington): 33 plants and 34 animals, salmon runs, beavers, winter floods and snow, summer fires. Has the eight-chapter campaign and Free Play.
-- **Fazenda Esperança** (Pará, Brazil): an old cattle ranch where African pasture grass (braquiária) runs fence to fence and burns every dry season, with a scrap of forest reserve in one corner touching the rainforest. 27 plants (cecropia, ingá, açaí and buriti palms, Brazil nut, kapok, ipê, heliconia, bamboo, and the invasive grasses) and 26 animals (jaguar, tapir, howler and spider monkeys, sloth, giant otter, toucan, scarlet macaw, harpy eagle, caiman, anaconda, pink river dolphin, arapaima and more). Sow the muvuca seed mix, shade out the grass, keep fire off the young forest, and reconnect the canopy so arboreal animals can move in through the treetops. Agoutis are the only animals that spread Brazil nuts. Free Play only for now, with its own milestone goals.
+- **Fazenda Esperança** (Pará, Brazil): an old cattle ranch where African pasture grass (braquiária) runs fence to fence and burns every dry season, with a scrap of forest reserve in one corner touching the rainforest. 27 plants (cecropia, ingá, açaí and buriti palms, Brazil nut, kapok, ipê, heliconia, bamboo, and the invasive grasses) and 26 animals (jaguar, tapir, howler and spider monkeys, sloth, giant otter, toucan, scarlet macaw, harpy eagle, caiman, anaconda, pink river dolphin, arapaima and more). Sow the muvuca seed mix, shade out the grass, keep fire off the young forest, and reconnect the canopy so arboreal animals can move in through the treetops. Agoutis are the only animals that spread Brazil nuts. Has its own eight-chapter campaign (from pulling the first pasture grass to the jaguar's return) and Free Play with its own milestone goals.
 
 Each map keeps its own save. Choosing a different map reloads the page into it.
 
@@ -48,7 +48,8 @@ Each map keeps its own save. Choosing a different map reloads the page into it.
 - **Fire:** in late-summer droughts, lightning or a visitor's spark can start a wildfire. It spreads through dry grass, broom and blackberry, and runs uphill faster. Trails, water and bare ground stop it, and rain puts it out. Douglas-fir and oak usually survive; young trees and most shrubs don't, while native meadow plants resprout. Send a fire crew to fight it, or use controlled burns to cut the fuel ahead of time. Once every few years at most, a fire in a deep drought turns into a **crown fire** that burns through the forest canopy. It leaves standing snags, and fireweed, lupine and native grasses turn the burn into meadow until the forest returns.
 - **Floods:** long winter rains push the river over low ground beside the river and creeks. Seedlings drown, fresh silt enriches the soil, floodplain seeds (willow, cottonwood, and canarygrass too) arrive, and beaver dams can wash out. Marshes and ponds absorb part of every flood.
 - **Visitors:** build a trailhead parking lot beside a road and connect trails to it (within two tiles), with boardwalks over wetlands, viewing blinds and a visitor center. The rating depends on the wildlife seen from the trails, the scenery along them and their length. Visitors pay per head, trails cost upkeep, and people on the trails disturb shy species (elk, cougar, bear, heron, pond turtle) nearby.
-- **Funding:** money is tight at first ($30,000). A monthly grant scales with the ecosystem health score and the number of species present, visitors add donations, and each new species and restoration goal pays a bonus.
+- **Funding:** money is tight at first ($30,000). The land trust's monthly grant scales with the ecosystem health score and the number of species present, but only modestly; visitor donations become the main income once trails run through good habitat (Amazon eco-tourists give more per visit). Goals and chapters pay one-off grants (shown at the amount actually paid), and each new species a small discovery grant.
+- **Wildlife pacing:** a species needs its habitat to stay suitable for months before it finds the farm, so returns spread out over years rather than arriving all at once. Difficulty sets how readily they come.
 
 ## Project layout
 
@@ -82,7 +83,8 @@ vendor/three/               three.js 0.186 and its BufferGeometryUtils addon (MI
 js/ui/                      DOM interface
 tools/balance-sim.mjs       headless balance simulator (node tools/balance-sim.mjs restore 15)
 tools/campaign-sim.mjs      scripted campaign playthrough: days per chapter (node tools/campaign-sim.mjs 14)
-js/sim/campaign.js          campaign chapters: story, goals, unlocks
+tools/campaign-sim-amazon.mjs  the same for the Amazon campaign (node tools/campaign-sim-amazon.mjs 14 standard)
+js/sim/campaign.js          campaign chapters per map: story, goals, unlocks (Amazon chapters in campaign-amazon.js)
 ```
 
 Most tuning lives in `js/data/*.js` (species ranges, growth, spread, home ranges) and `js/sim/goals.js` (economy). Run `tools/balance-sim.mjs` after tuning to see how a farm develops over decades in a few seconds.

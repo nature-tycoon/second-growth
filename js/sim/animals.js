@@ -286,9 +286,12 @@ export class Wildlife {
         }
       }
 
-      // immigration
+      // immigration: a species has to find new habitat first, so the odds build up over the months
+      // it stays good (and a returning migrant population always knows the way)
+      st.ready = K >= def.minK ? (st.ready || 0) + 1 : 0;
       if (K >= def.minK && pop < K) {
-        const chance = def.mig * (pop === 0 ? 1 : 0.35) * clamp((K - pop) / K + 0.2, 0, 1);
+        const finding = pop === 0 && !st.discovered ? clamp((st.ready - 3) / 16, 0, 1) : 1;
+        const chance = def.mig * (pop === 0 ? 1 : 0.35) * clamp((K - pop) / K + 0.2, 0, 1) * game.diff.arrivals * finding;
         if (rng() < chance) {
           const n = def.groupSize[0] + Math.floor(rng() * (def.groupSize[1] - def.groupSize[0] + 1));
           this.immigrate(def, n);

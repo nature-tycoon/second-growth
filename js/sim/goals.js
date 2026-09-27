@@ -52,7 +52,8 @@ export function ecoScore(game) {
 }
 
 export function monthlyGrant(game, score) {
-  return Math.round(120 + score * 8 + speciesPresent(game) * 6);
+  // the land trust's steady support: enough to keep working, not enough to skip building visitor trails
+  return Math.round(80 + score * 5 + speciesPresent(game) * 4);
 }
 
 export const perimeterFence = w => {
