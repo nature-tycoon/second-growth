@@ -59,6 +59,30 @@ export function track(event, props = {}) {
   try { ph.capture(event, props); } catch (e) { /* never let analytics break the game */ }
 }
 
+// Player feedback goes straight to PostHog's capture API instead of through the tracking
+// library: it's something the player chose to send, so Do Not Track or opting out of play data
+// shouldn't swallow it, and a failure (an ad blocker, no network) is reported instead of hidden.
+// When analytics is on, it's tied to the player's session so the replay can be found.
+export const feedbackPossible = () => {
+  const local = ['localhost', '127.0.0.1', ''].includes(location.hostname) && !new URLSearchParams(location.search).has('ph');
+  return !!POSTHOG_KEY && !local;
+};
+export async function sendFeedback(props) {
+  if (!feedbackPossible()) return false;
+  const linked = ph && settings.analytics;
+  let distinct = null, session = null;
+  try { if (linked) { distinct = ph.get_distinct_id?.(); session = ph.get_session_id?.(); } } catch (e) { /* ignore */ }
+  const body = {
+    api_key: POSTHOG_KEY, event: 'feedback',
+    distinct_id: distinct || 'feedback-' + Math.random().toString(36).slice(2, 12),
+    properties: { ...props, game_version: GAME_VERSION, $current_url: location.href, ...(session ? { $session_id: session } : {}), ...(linked ? {} : { $process_person_profile: false }) },
+  };
+  try {
+    const r = await fetch(POSTHOG_HOST + '/i/v0/e/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true });
+    return r.ok;
+  } catch (e) { return false; }
+}
+
 // Game-wide properties attached to every later event (current year, score and so on).
 export function setContext(props) {
   if (!ph) return;

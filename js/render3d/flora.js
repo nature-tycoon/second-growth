@@ -7,6 +7,7 @@ import { hash2 } from '../rng.js';
 import * as G from './geometry.js';
 import { withFocusFade } from './focus.js';
 import { withSnowTops } from './snow.js';
+import { withClouds } from './atmosphere.js';
 import { waterSurfaceY } from './terrain.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
@@ -127,11 +128,11 @@ export class Flora {
     this.wind = { value: 0 };
     // everything that can hide an animal dissolves around the selected one (see focus.js)
     // ...and everything catches snow on top in winter (see snow.js)
-    this.foliage = withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind)), 0.95);
-    this.shrubs = withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind)), 0.85);
-    this.grass = withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true)), 1.3);
-    this.bark = withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1);
-    this.small = withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1);
+    this.foliage = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind)), 0.95));
+    this.shrubs = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind)), 0.85));
+    this.grass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true)), 1.3));
+    this.bark = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
+    this.small = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
     this.pools = new Map();
     this.geos = new Map();
     this.view = [0, true, true, 0];

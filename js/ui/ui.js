@@ -16,7 +16,7 @@ import * as S from '../render/sprites.js';
 import { renderPortrait, renderPlants } from '../render3d/portraits.js';
 import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
-import { track, setContext, setAnalyticsEnabled, analyticsReady, GAME_VERSION } from '../analytics.js';
+import { track, setContext, setAnalyticsEnabled, sendFeedback, feedbackPossible, GAME_VERSION } from '../analytics.js';
 
 const $ = sel => document.querySelector(sel);
 // A phone or tablet (no mouse), and a screen too short for the full layout.
@@ -956,16 +956,16 @@ export class UI {
     const ta = m.querySelector('textarea'), status = m.querySelector('.fb-status');
     setTimeout(() => ta.focus(), 30);
     m.querySelector('[data-a=cancel]').addEventListener('click', () => this.closeModal());
-    m.querySelector('[data-a=send]').addEventListener('click', () => {
+    const sendBtn = m.querySelector('[data-a=send]');
+    sendBtn.addEventListener('click', async () => {
       const message = ta.value.trim(), contact = m.querySelector('.fb-contact input').value.trim();
       if (!message && !rating) { status.textContent = 'Pick a face or write a few words first.'; return; }
-      if (!analyticsReady() || !settings.analytics) {
-        status.innerHTML = settings.analytics
-          ? 'Feedback can\'t be sent from this copy of the game. Please use the GitHub link below.'
-          : 'Feedback is sent with play data, which is turned off in Settings. Turn it on, or use the GitHub link below.';
-        return;
-      }
-      track('feedback', { rating: rating || null, message, contact: contact || null, version: GAME_VERSION, ...this.snapshot() });
+      if (!feedbackPossible()) { status.textContent = 'Feedback can\'t be sent from this copy of the game. Please use the GitHub link below.'; return; }
+      sendBtn.disabled = true; status.textContent = 'Sending…';
+      const ok = await sendFeedback({ rating: rating || null, message, contact: contact || null, map: this.game.map, ...this.snapshot() });
+      sendBtn.disabled = false;
+      // keep what they wrote if it didn't go through, so they can copy it elsewhere
+      if (!ok) { status.innerHTML = 'That didn\'t go through (an ad blocker or a lost connection can stop it). Your note is still here: please try again, or post it on GitHub below.'; return; }
       this.closeModal();
       this.game.notify('Thanks for the feedback! It really helps.', 'good');
     });

@@ -86,6 +86,12 @@ export default {
       { sun: 0xffd9a8, sunI: 2.3, sky: 0xf4e4d0, ground: 0x6a5a38, hemiI: 1.2 },
       { sun: 0xdfe8ff, sunI: 1.7, sky: 0xd2dcec, ground: 0x4a5048, hemiI: 1.15 },
     ],
+    // falling leaves, seed fluff and mist (0..1 per season), and the flocks that pass over
+    ambience: {
+      leaves: [0, 0.05, 1, 0.08], fluff: [0.55, 1, 0.3, 0], mist: [0.45, 0.05, 0.75, 0.9],
+      leafColors: ['#d89a2a', '#c8602a', '#e0b83a', '#a8482a', '#b8903a'],
+      flocks: [['geese', 'geese', 'songbirds', 'swallows'], ['swallows', 'songbirds'], ['geese', 'geese', 'songbirds'], ['geese', 'songbirds']],
+    },
     tint: ['rgba(255,250,230,0)', 'rgba(255,215,140,0.05)', 'rgba(255,160,80,0.06)', 'rgba(140,165,200,0.1)'],
   },
 };

@@ -4,6 +4,8 @@
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { snow, withSnowTops } from './snow.js';
+import { sky, withClouds } from './atmosphere.js';
+import { Ambience } from './ambience.js';
 import { biome } from '../biome.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
 import { ANIMALS } from '../data/animals.js';
@@ -44,7 +46,7 @@ export class Renderer {
     this.terrain = new Terrain(this.scene, this.atlas);
     this.flora = new Flora(this.scene);
     this.actors = new Actors(this.scene);
-    this.structMat = withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), 1.1);
+    this.structMat = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), 1.1));
     this.structs = new Map();
     this.time = 0;
     this.lastDay = -1; this.lastFlora = 0; this.editDirty = false;
@@ -55,6 +57,8 @@ export class Renderer {
     document.body.insertBefore(this.ui, canvas.nextSibling);
     this.ux = this.ui.getContext('2d');
     this.particles = []; this.weatherParticles = [];
+    this.ambience = new Ambience();
+    this.lightTarget = { sun: new THREE.Color(), sky: new THREE.Color(), ground: new THREE.Color() };
     this.v3 = new THREE.Vector3();
     this.resize();
   }
@@ -67,6 +71,7 @@ export class Renderer {
     this.gl.setPixelRatio(this.dpr);
     this.windOn = !!s.wind;
     this.weatherOn = !!s.weather;
+    this.cloudsOn = !!s.weather && s.quality !== 'fast'; // cloud shadows cost a little on every pixel
     this.resize();
   }
 
@@ -92,6 +97,7 @@ export class Renderer {
     this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
     this.ui.width = Math.floor(w * this.dpr); this.ui.height = Math.floor(h * this.dpr);
     this.ui.style.width = w + 'px'; this.ui.style.height = h + 'px';
+    this.ambience?.resize(w, h);
     this.updateCamera();
   }
 
@@ -258,11 +264,20 @@ export class Renderer {
     this.updateOverlay(game, ui, now);
     this.updatePreview(ui);
 
-    // light follows the seasons and weather
-    const L = biome.look.light[game.season];
-    const gloom = game.weather === 'rain' || game.weather === 'snow' ? 0.55 : game.weather === 'cloud' ? 0.75 : 1;
-    this.sun.color.setHex(L.sun); this.sun.intensity = L.sunI * gloom;
-    this.hemi.color.setHex(L.sky); this.hemi.groundColor.setHex(L.ground); this.hemi.intensity = L.hemiI * (gloom < 1 ? 1.1 : 1);
+    // light follows the seasons and weather, easing between them instead of snapping; on cloudy
+    // days drifting cloud shadows (atmosphere.js) do much of the dimming, patch by patch
+    const L = biome.look.light[game.season], wx = game.weather;
+    const gloom = wx === 'rain' || wx === 'snow' ? 0.55 : wx === 'cloud' ? 0.88 : 1;
+    const cover = wx === 'rain' || wx === 'snow' ? 0.85 : wx === 'cloud' ? 0.62 : 0.2;
+    const T = this.lightTarget, first = !this.lightReady, k = first ? 1 : Math.min(1, dt * 0.7);
+    T.sun.setHex(L.sun); T.sky.setHex(L.sky); T.ground.setHex(L.ground);
+    this.sun.color.lerp(T.sun, k); this.hemi.color.lerp(T.sky, k); this.hemi.groundColor.lerp(T.ground, k);
+    this.sun.intensity += (L.sunI * gloom - this.sun.intensity) * k;
+    this.hemi.intensity += (L.hemiI * (gloom < 1 ? 1.1 : 1) - this.hemi.intensity) * k;
+    this.lightReady = true;
+    sky.uCloudT.value = this.time;
+    sky.uCloudCover.value += (cover - sky.uCloudCover.value) * (first ? 1 : Math.min(1, dt * 0.25));
+    sky.uCloudAmt.value += ((this.cloudsOn === false ? 0 : 0.56) - sky.uCloudAmt.value) * Math.min(1, dt * 2);
 
     if (this.windOn !== false) this.flora.wind.value = this.time; // otherwise plants hold still
     this.flora.setZoom(this.zoom);
@@ -338,6 +353,8 @@ export class Renderer {
         ctx.beginPath(); ctx.moveTo(p.x - 3 * this.zoom, p.y); ctx.lineTo(p.x + 3 * this.zoom, p.y); ctx.stroke();
       }
     }
+
+    this.ambience.drawWorld(ctx, this, game, dt, bx0, bx1, bz0, bz1);
 
     // bees and butterflies over flowers
     const ps = this.particles;
@@ -429,7 +446,8 @@ export class Renderer {
         if (p.y > this.vh) { p.y -= this.vh + 10; p.x = Math.random() * this.vw; }
         ctx.beginPath(); ctx.arc(p.x, p.y, 1.4 * p.s, 0, Math.PI * 2); ctx.fill();
       }
-    } else if (kind === 'cloud') { ctx.fillStyle = 'rgba(60,70,80,0.06)'; ctx.fillRect(0, 0, this.vw, this.vh); }
+    } else if (kind === 'cloud') { ctx.fillStyle = 'rgba(60,70,80,0.04)'; ctx.fillRect(0, 0, this.vw, this.vh); }
+    this.ambience.drawSky(ctx, this, game, dt);
   }
 }
 

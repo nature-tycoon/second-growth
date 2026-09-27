@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/BufferGeometryUtils.js';
+import { withClouds } from './atmosphere.js';
 
 // Body parts the shader knows how to move.
 const P = { BODY: 0, LEG_FL: 1, LEG_FR: 2, LEG_BL: 3, LEG_BR: 4, TAIL: 5, WING_L: 6, WING_R: 7, HEAD: 8 };
@@ -1218,7 +1219,7 @@ class SpeciesMesh {
   constructor(scene, def) {
     const { geo, motion } = buildSpecies(def);
     this.geo = geo; this.motion = motion; this.scene = scene;
-    this.mat = faunaMaterial(motion);
+    this.mat = withClouds(faunaMaterial(motion)); // the field-guide portraits use it bare
     this.cap = 0; this.count = 0; this.mesh = null;
     this.grow(16);
   }

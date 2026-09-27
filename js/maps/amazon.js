@@ -158,6 +158,12 @@ export default {
       { sun: 0xffd8a8, sunI: 2.3, sky: 0xf0dcc8, ground: 0x6a5a38, hemiI: 1.2 },
       { sun: 0xf0f4ff, sunI: 2.1, sky: 0xdce6ec, ground: 0x4f5e40, hemiI: 1.2 },
     ],
+    // falling leaves, kapok floss and mist (0..1 per season), and the flocks that pass over
+    ambience: {
+      leaves: [0, 0.55, 0.8, 0], fluff: [0.15, 0.9, 0.6, 0.15], mist: [1, 0.3, 0.05, 0.8],
+      leafColors: ['#c8a040', '#a8783a', '#8a9a3a', '#d0b060'],
+      flocks: [['egrets', 'parrots', 'macaws'], ['parrots', 'macaws'], ['macaws', 'parrots'], ['parrots', 'egrets', 'macaws']],
+    },
     // the burning season hangs a smoky haze over everything
     tint: ['rgba(255,250,230,0)', 'rgba(255,230,160,0.04)', 'rgba(220,150,100,0.1)', 'rgba(150,180,190,0.06)'],
   },

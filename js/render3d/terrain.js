@@ -7,6 +7,7 @@ import { PLANTS, plantPhase } from '../data/plants.js';
 import { extTerrain } from '../world.js';
 import * as S from '../render/sprites.js';
 import { snow, SNOW_RGB } from './snow.js';
+import { withClouds } from './atmosphere.js';
 import { biome } from '../biome.js';
 import { hash2 } from '../rng.js';
 
@@ -142,10 +143,10 @@ export class Terrain {
     this.scene = scene;
     this.atlas = atlas;
     this.time = { value: 0 };
-    this.material = groundDetail(new THREE.MeshLambertMaterial({ map: atlas.tex, vertexColors: true }), noiseTexture());
-    this.waterMat = waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1);
-    this.floodMat = waves(new THREE.MeshPhongMaterial({ color: 0x8a9a86, transparent: true, opacity: 0.72, shininess: 60, specular: 0x556677, depthWrite: false }), this.time, 0.6);
-    this.skirtMat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+    this.material = withClouds(groundDetail(new THREE.MeshLambertMaterial({ map: atlas.tex, vertexColors: true }), noiseTexture()));
+    this.waterMat = withClouds(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1));
+    this.floodMat = withClouds(waves(new THREE.MeshPhongMaterial({ color: 0x8a9a86, transparent: true, opacity: 0.72, shininess: 60, specular: 0x556677, depthWrite: false }), this.time, 0.6));
+    this.skirtMat = withClouds(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     this.overlayMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.previewMat = this.overlayMat.clone();
   }
