@@ -162,7 +162,7 @@ export class Game {
     this.checkGoals();
     this.emit('month', { grant });
     if (m === 0 && this.day > 0) this.notify(`Year ${this.year} begins. The land trust has granted ${money(this.stats.earned)} so far.`, 'season');
-    this.save();
+    if (this.autosave !== false) this.save();
   }
 
   updateScore() {

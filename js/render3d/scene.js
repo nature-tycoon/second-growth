@@ -62,6 +62,17 @@ export class Renderer {
     this.resize();
   }
 
+  // Graphics preferences from the settings menu.
+  applySettings(s) {
+    this.sun.castShadow = !!s.shadows;
+    const cap = { high: 2, balanced: 1.5, fast: 1 }[s.quality] ?? 2;
+    this.dpr = Math.max(1, Math.min(cap, window.devicePixelRatio || 1));
+    this.gl.setPixelRatio(this.dpr);
+    this.windOn = !!s.wind;
+    this.weatherOn = !!s.weather;
+    this.resize();
+  }
+
   get fadeTrees() { return this._fade; }
   set fadeTrees(v) { this._fade = v; this.flora.setFade(v); }
 
@@ -244,7 +255,7 @@ export class Renderer {
     this.sun.color.setHex(L.sun); this.sun.intensity = L.sunI * gloom;
     this.hemi.color.setHex(L.sky); this.hemi.groundColor.setHex(L.ground); this.hemi.intensity = L.hemiI * (gloom < 1 ? 1.1 : 1);
 
-    this.flora.wind.value = this.time;
+    if (this.windOn !== false) this.flora.wind.value = this.time; // otherwise plants hold still
     this.flora.setZoom(this.zoom);
     this.terrain.time.value = this.time;
     const r = this.right();
@@ -382,7 +393,7 @@ export class Renderer {
     const tint = ['rgba(255,250,230,0)', 'rgba(255,215,140,0.05)', 'rgba(255,160,80,0.06)', 'rgba(140,165,200,0.1)'][game.season];
     ctx.fillStyle = tint; ctx.fillRect(0, 0, this.vw, this.vh);
     const wp = this.weatherParticles, kind = game.weather;
-    const want = kind === 'rain' ? 240 : kind === 'snow' ? 150 : 0;
+    const want = this.weatherOn === false ? 0 : kind === 'rain' ? 240 : kind === 'snow' ? 150 : 0;
     while (wp.length < want) wp.push({ x: Math.random() * this.vw, y: Math.random() * this.vh, s: 0.6 + Math.random() * 0.8 });
     if (wp.length > want) wp.length = want;
     const run = game.speed > 0 ? 1 : 0.15;

@@ -5,6 +5,10 @@ import { TOOLS, brushTiles, toolCost, bestSuit } from './tools.js';
 import { PLANTS } from './data/plants.js';
 import { ANIMALS } from './data/animals.js';
 import { plantLimits } from './sim/plants.js';
+import { settings } from './settings.js';
+import { track } from './analytics.js';
+
+const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
 
 export class Input {
   constructor(game, renderer, ui) {
@@ -23,7 +27,7 @@ export class Input {
     cv.addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('wheel', e => {
       e.preventDefault();
-      const f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
+      const f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015) * settings.zoomSpeed);
       this.r.zoomAt(e.clientX, e.clientY, f);
     }, { passive: false });
     window.addEventListener('keydown', e => this.key(e, true));
@@ -32,8 +36,16 @@ export class Input {
   }
 
   key(e, down) {
-    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) return;
+    const tag = e.target && e.target.tagName;
+    if (tag === 'TEXTAREA' || (tag === 'INPUT' && !['checkbox', 'radio', 'range', 'button'].includes(e.target.type))) return;
     const k = e.key.toLowerCase();
+    // A focused dropdown (like the overlay menu) would swallow WASD and arrows as list navigation.
+    // Hand the keys back to the map instead.
+    if (tag === 'SELECT' || tag === 'BUTTON' || tag === 'INPUT') {
+      if (!down || !GAME_KEYS.has(k)) return;
+      e.preventDefault();
+      e.target.blur();
+    }
     if (down) this.keys.add(k); else this.keys.delete(k);
     if (!down) return;
     if (k === 'escape') {
@@ -61,21 +73,30 @@ export class Input {
 
   update(dt) {
     if (this.ui.modalOpen) return;
-    const sp = 700 * dt;
+    const sp = 700 * dt * settings.panSpeed;
     let dx = 0, dy = 0;
     if (this.keys.has('a') || this.keys.has('arrowleft')) dx -= sp;
     if (this.keys.has('d') || this.keys.has('arrowright')) dx += sp;
     if (this.keys.has('w') || this.keys.has('arrowup')) dy -= sp;
     if (this.keys.has('s') || this.keys.has('arrowdown')) dy += sp;
-    if (this.keys.has('-') || this.keys.has('_')) this.r.zoomAt(this.r.vw / 2, this.r.vh / 2, Math.exp(-dt * 1.5));
-    if (this.keys.has('=') || this.keys.has('+')) this.r.zoomAt(this.r.vw / 2, this.r.vh / 2, Math.exp(dt * 1.5));
+    const zs = 1.5 * settings.zoomSpeed;
+    if (this.keys.has('-') || this.keys.has('_')) this.r.zoomAt(this.r.vw / 2, this.r.vh / 2, Math.exp(-dt * zs));
+    if (this.keys.has('=') || this.keys.has('+')) this.r.zoomAt(this.r.vw / 2, this.r.vh / 2, Math.exp(dt * zs));
     if (dx || dy) this.r.panBy(-dx, -dy);
+    // keep a located animal in view until the player moves the camera
+    const f = this.ui.follow;
+    if (f) {
+      if (dx || dy || this.pan || !this.game.wildlife.agents.includes(f)) this.ui.follow = null;
+      else this.r.centerOn(f.x, f.y);
+    }
     if (this.mouse.in && !this.pan) this.updateHover();
   }
 
   tool() { return this.ui.state.tool ? TOOLS[this.ui.state.tool] : null; }
 
   down(e) {
+    // clicking the map takes focus away from any menu, so the keyboard drives the camera again
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
     if (e.button === 2 || e.button === 1) {
       this.pan = { x: e.clientX, y: e.clientY };
       this.r.canvas.style.cursor = 'grabbing';
@@ -112,8 +133,11 @@ export class Input {
         for (let guard = 0; guard < 200; guard++) {
           if (x0 === t.x && y0 === t.y) break;
           const e2 = 2 * err;
-          if (e2 >= dy) { err += dy; x0 += sx; }
-          if (e2 <= dx) { err += dx; y0 += sy; }
+          const stepX = e2 >= dy, stepY = e2 <= dx;
+          if (stepX) { err += dy; x0 += sx; }
+          // fill the corner on diagonal steps so trails and creeks stay edge-connected
+          if (stepX && stepY) this.applyAt(x0, y0);
+          if (stepY) { err += dx; y0 += sy; }
           this.applyAt(x0, y0);
         }
       }
@@ -157,6 +181,8 @@ export class Input {
     }
     if (s.tool.cat === 'land' || s.tool.key === 'demolish' || s.tool.key === 'log') g.refreshEnvironment();
     else if (s.count) g.refreshEnvironment();
+    if (s.count) track('tool_used', { tool: s.tool.key, category: s.tool.cat, tiles: s.count, cost: Math.round(s.cost) });
+    else if (s.broke || s.unsuitable) track('tool_failed', { tool: s.tool.key, category: s.tool.cat, reason: s.broke ? 'money' : 'unsuitable' });
     if (s.broke) g.notify(`Not enough money. Monthly grants will top up your budget. Healthier land earns bigger grants.`, 'warn');
     if (!s.count && s.unsuitable && s.tool.species) {
       const p = PLANTS.find(q => q && q.key === s.tool.species[0]);

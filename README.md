@@ -14,11 +14,12 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 
 ## Controls
 
-- Pick a tool on the left, then click and drag to brush it. `[` and `]` change the brush size.
+- Pick a tool on the left, then click and drag to brush it. `[` and `]` change the brush size, and each tool group remembers the size you last used.
 - Right-drag or `WASD` / arrow keys to pan, scroll wheel or `+`/`-` to zoom, `Q`/`E` to rotate the view.
 - `Space` pauses, `1`–`3` set the speed. `T` sees through trees, `H` toggles the habitat overlay, `G` opens the field guide, `Tab` hides the side panels.
 - Panels collapse with their `−` button, and fade out while you paint.
-- Use **Inspect** to click a tile or an animal. The **Overlay** menu shows moisture, soil, sunlight, fish passage, or where a given species could live.
+- Use **Inspect** to click a tile or an animal. The **Overlay** menu shows moisture, soil, sunlight, fish passage, or where a given species could live. In the field guide, the pin on any species that lives here jumps the camera to one of them and follows it.
+- The gear button opens **Settings**: resolution, shadows, wind, weather, pan and zoom speed, autosave, and pausing on wildfires and floods.
 
 ## How the ecosystem works
 
@@ -30,7 +31,7 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 - **Special behaviour:** beavers coppice willow, fell alder and build dams that flood new wetlands. Coho run up connected, shaded creeks each October, spawn, die and feed the soil, and their fry return three years later. Migratory birds leave in fall and come back if the habitat is still there.
 - **Scale:** the farm is 120×90 tiles. Plants are smooth, instanced low-poly models that sway in the wind, with simpler versions used when zoomed out; animals and visitors are high-resolution sprites you can zoom right in on.
 - **Terrain:** the valley slopes from the northern foothills down to the river. Hollows are wetter and ridges drier. Digging water carves the ground, and the Raise and Lower tools reshape it.
-- **Fire:** in late-summer droughts, lightning or a visitor's spark can start a wildfire. It spreads through dry grass, broom and blackberry, and runs uphill faster. Trails, water and bare ground stop it, and rain puts it out. Douglas-fir and oak usually survive; young trees and most shrubs don't, while native meadow plants resprout. Send a fire crew to fight it, or use controlled burns to cut the fuel ahead of time.
+- **Fire:** in late-summer droughts, lightning or a visitor's spark can start a wildfire. It spreads through dry grass, broom and blackberry, and runs uphill faster. Trails, water and bare ground stop it, and rain puts it out. Douglas-fir and oak usually survive; young trees and most shrubs don't, while native meadow plants resprout. Send a fire crew to fight it, or use controlled burns to cut the fuel ahead of time. Once every few years at most, a fire in a deep drought turns into a **crown fire** that burns through the forest canopy. It leaves standing snags, and fireweed, lupine and native grasses turn the burn into meadow until the forest returns.
 - **Floods:** long winter rains push the river over low ground beside the river and creeks. Seedlings drown, fresh silt enriches the soil, floodplain seeds (willow, cottonwood, and canarygrass too) arrive, and beaver dams can wash out. Marshes and ponds absorb part of every flood.
 - **Visitors:** build a trailhead parking lot beside a road and connect trails to it (within two tiles), with boardwalks over wetlands, viewing blinds and a visitor center. The rating depends on the wildlife seen from the trails, the scenery along them and their length. Visitors pay per head, trails cost upkeep, and people on the trails disturb shy species (elk, cougar, bear, heron, pond turtle) nearby.
 - **Funding:** money is tight at first ($30,000). A monthly grant scales with the ecosystem health score and the number of species present, visitors add donations, and each new species and restoration goal pays a bonus.

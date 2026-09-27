@@ -222,7 +222,10 @@ button.ghost.on { background: var(--moss); color: #fff; border-color: var(--moss
 .guide-list { overflow-y: auto; max-height: calc(100vh - 220px); padding-right: 4px; }
 .guide-group { font-size: 12px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); margin: 10px 0 6px; }
 .guide-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
-.gcard { background: var(--paper-2); border-radius: 11px; padding: 8px 6px; text-align: center; cursor: pointer; border: 1.5px solid transparent; }
+.gcard { position: relative; background: var(--paper-2); border-radius: 11px; padding: 8px 6px; text-align: center; cursor: pointer; border: 1.5px solid transparent; }
+.gcard .locate { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; padding: 4px; border-radius: 50%; border: 1px solid var(--moss-2); background: var(--moss); color: #fff; cursor: pointer; display: grid; place-items: center; }
+.gcard .locate svg { width: 14px; height: 14px; }
+.gcard .locate:hover { filter: brightness(1.1); }
 .gcard:hover { border-color: var(--paper-3); }
 .gcard.on { border-color: var(--moss); }
 .gcard img { width: 76px; height: 60px; object-fit: contain; }
@@ -296,3 +299,28 @@ button.ghost.on { background: var(--moss); color: #fff; border-color: var(--moss
   #stat-species, #stat-season { display: none; }
   #toasts { width: 300px; }
 }
+
+/* settings */
+.icon-btn { display: inline-grid; place-items: center; }
+.icon-btn svg { display: block; }
+.settings .section-title { margin-top: 14px; }
+.settings .section-title:first-child { margin-top: 0; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.set-row > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.set-row small { color: var(--ink-2, #6a6a58); font-size: 12px; }
+.set-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--moss); flex: none; }
+.set-row select { flex: none; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--paper-2); font: inherit; }
+.set-slide { display: flex; align-items: center; gap: 8px; flex: none; }
+.set-slide input { width: 120px; accent-color: var(--moss); }
+.set-slide output { width: 34px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+
+/* feedback */
+.fb-rate { display: flex; gap: 8px; }
+.fb-rate button { font-size: 24px; width: 46px; height: 46px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--paper-2); cursor: pointer; filter: grayscale(0.6); }
+.fb-rate button:hover { filter: none; }
+.fb-rate button.on { filter: none; border-color: var(--moss); background: var(--paper-3); }
+.feedback textarea, .fb-contact input { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 13.5px; background: #fffdf6; color: var(--ink); resize: vertical; }
+.fb-contact { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.fb-status { color: var(--bad); margin-top: 8px; min-height: 1em; }
+.feedback a { color: var(--moss-2); font-weight: 700; }
+@media (max-width: 1180px) { #btn-feedback { padding-left: 8px; padding-right: 8px; } }

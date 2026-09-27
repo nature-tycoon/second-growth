@@ -186,11 +186,12 @@ export function updatePlants(game) {
   }
 }
 
-export function killTree(w, i, rng) {
+// A big tree that dies leaves a snag (standing) or a log (fallen); snagOdds sets which.
+export function killTree(w, i, rng, snagOdds = 0.7) {
   const big = w.treeG[i] > 0.6;
   w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
   if (big && !w.feature[i]) {
-    w.feature[i] = rng() < 0.7 ? F.SNAG : F.LOG;
+    w.feature[i] = rng() < snagOdds ? F.SNAG : F.LOG;
     w.featureAge[i] = 0;
   }
 }

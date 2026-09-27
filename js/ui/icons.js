@@ -3,6 +3,7 @@
 const svg = (body, vb = '0 0 32 32') => `<svg viewBox="${vb}" aria-hidden="true">${body}</svg>`;
 
 export const ICONS = {
+  pin: svg('<path d="M16 29 C16 29 7 19 7 12.5 A9 9 0 0 1 25 12.5 C25 19 16 29 16 29Z" fill="currentColor"/><circle cx="16" cy="12.5" r="3.4" fill="#fff"/>'),
   inspect: svg('<circle cx="14" cy="14" r="8" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M20 20 L27 27" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>'),
   shovel: svg('<path d="M9 23 C6 20 7 16 10 14 L13 17 L16 20 C14 23 10 24 9 23Z" fill="currentColor"/><path d="M14 16 L25 5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M22 4 L27 9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M4 28 C10 26 16 27 22 28" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" opacity=".6"/>'),
   sprout: svg('<path d="M16 28 V15" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M16 17 C16 10 11 7 5 8 C5 14 9 18 16 17Z" fill="currentColor"/><path d="M16 14 C16 8 20 4 27 5 C27 11 23 15 16 14Z" fill="currentColor" opacity=".75"/><path d="M8 28 H24" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>'),

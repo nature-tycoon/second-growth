@@ -11,6 +11,8 @@ import { GOALS, speciesPresent } from '../sim/goals.js';
 import { Game } from '../game.js';
 import * as S from '../render/sprites.js';
 import { ICONS } from './icons.js';
+import { settings, saveSettings, resetSettings } from '../settings.js';
+import { track, setContext, setAnalyticsEnabled, analyticsReady, GAME_VERSION } from '../analytics.js';
 
 const $ = sel => document.querySelector(sel);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -135,6 +137,33 @@ export class UI {
     game.on('notify', n => this.toast(n));
     game.on('reset', () => { this.journal = []; this.closeInfo(); this.refreshTop(true); });
     game.on('month', () => { if (this.state.cat !== 'inspect') this.renderToolPanel(); });
+    game.on('event', kind => { if ((kind === 'fire' || kind === 'flood') && settings.pauseOnEvents && game.speed) this.setSpeed(0); });
+    this.bindAnalytics();
+    this.applySettings();
+  }
+
+  // What we learn from players: how far they get, what they build, where they get stuck.
+  bindAnalytics() {
+    const g = this.game;
+    const snapshot = () => ({ game_year: g.year, game_month: g.month, score: Math.round(g.cache.score?.total ?? 0),
+      species: speciesPresent(g), money: Math.round(g.money), visitors: g.visitors.monthly });
+    g.on('discover', def => track('species_discovered', { species: def.key, ...snapshot() }));
+    g.on('goal', goal => track('goal_completed', { goal: goal.key, ...snapshot() }));
+    g.on('event', kind => {
+      if (kind === 'fire') track('wildfire', { crown: !!g.events.severe, ...snapshot() });
+      else if (kind === 'flood') track('flood', { tiles: g.events.floodTiles, ...snapshot() });
+    });
+    g.on('month', () => {
+      const s = snapshot();
+      setContext(s);
+      if (g.month === 0) track('year_reached', s);
+    });
+    this.snapshot = snapshot;
+  }
+
+  applySettings() {
+    this.renderer.applySettings(settings);
+    this.game.autosave = settings.autosave;
   }
 
   // ------------------------------------------------------------ top bar
@@ -147,8 +176,11 @@ export class UI {
     $('#btn-goals').addEventListener('click', () => this.openGoals());
     $('#btn-journal').addEventListener('click', () => this.openJournal());
     $('#btn-menu').addEventListener('click', () => this.openMenu());
+    $('#btn-settings').addEventListener('click', () => this.openSettings());
+    $('#btn-feedback').addEventListener('click', () => this.openFeedback());
     $('#btn-trees').addEventListener('click', () => this.toggleTrees());
-    $('#overlay').addEventListener('change', e => this.setOverlay(e.target.value));
+    // blur after picking so WASD goes back to moving the camera instead of scrolling the list
+    $('#overlay').addEventListener('change', e => { this.setOverlay(e.target.value); e.target.blur(); });
   }
   setSpeed(s) { this.game.speed = s; this.refreshTop(true); }
   toggleTrees() {
@@ -200,14 +232,15 @@ export class UI {
   renderBanner() {
     const g = this.game, b = $('#banner');
     const fire = g.events.fireTiles, flood = g.events.floodTiles;
-    const key = `${fire}|${flood}`;
+    const crown = fire && g.events.severe && g.events.heat > 0.3;
+    const key = `${fire}|${flood}|${crown}`;
     if (key === this.bannerKey) return;
     this.bannerKey = key;
     if (!fire && !flood) { b.classList.add('hidden'); return; }
     b.classList.remove('hidden');
     b.className = 'panel ' + (fire ? 'fire' : 'flood');
     b.innerHTML = fire
-      ? `<span class="bi">${ICONS.fire}</span><span><b>Wildfire</b>: ${fire} tiles burning</span><button class="btn secondary" data-b="go">Show me</button><button class="btn" data-b="crew">Fire crew</button>`
+      ? `<span class="bi">${ICONS.fire}</span><span><b>${crown ? 'Crown fire' : 'Wildfire'}</b>: ${fire} tiles burning</span><button class="btn secondary" data-b="go">Show me</button><button class="btn" data-b="crew">Fire crew</button>`
       : `<span class="bi">${ICONS.rain}</span><span><b>Flood</b>: ${flood} tiles underwater. Trails through it are closed.</span><button class="btn secondary" data-b="go">Show me</button>`;
     b.querySelector('[data-b=go]').addEventListener('click', () => {
       const w = g.world, arr = fire ? w.fire : w.flood;
@@ -257,8 +290,15 @@ export class UI {
   selectTool(key, rerender = true) {
     const t = TOOLS[key];
     this.state.tool = key;
-    this.state.brushR = t.brush ? t.size : 0;
+    // each tool category remembers the last brush size you used with it
+    this.state.brushR = t.brush ? (settings.brushSizes[t.cat] ?? t.size) : 0;
     if (rerender) this.renderToolPanel();
+  }
+  setBrush(r) {
+    const t = TOOLS[this.state.tool];
+    this.state.brushR = r;
+    if (t && t.brush) { settings.brushSizes[t.cat] = r; saveSettings(); }
+    this.renderToolPanel();
   }
   renderToolPanel() {
     const st = this.state, panel = $('#toolpanel');
@@ -332,7 +372,7 @@ export class UI {
         BRUSH_SIZES.forEach(r => {
           const b = el('button', r === st.brushR ? 'on' : '', `<span style="width:${4 + r * 2.5}px;height:${4 + r * 2.5}px"></span>`);
           b.title = `Radius ${r}  ([ and ] keys)`;
-          b.addEventListener('click', () => { st.brushR = r; this.renderToolPanel(); });
+          b.addEventListener('click', () => this.setBrush(r));
           wrap.appendChild(b);
         });
       }
@@ -343,22 +383,40 @@ export class UI {
     const t = TOOLS[this.state.tool];
     if (!t || !t.brush) return;
     const k = BRUSH_SIZES.indexOf(this.state.brushR);
-    this.state.brushR = BRUSH_SIZES[clamp(k + dir, 0, BRUSH_SIZES.length - 1)];
-    this.renderToolPanel();
+    this.setBrush(BRUSH_SIZES[clamp(k + dir, 0, BRUSH_SIZES.length - 1)]);
   }
 
   // ------------------------------------------------------------ info panel
+  // Jump the camera to one of this species' animals; calling again cycles through them.
+  locateAnimal(def) {
+    const list = this.game.wildlife.agents.filter(a => a.sp === def.index && !a.leaving);
+    if (!list.length) return false;
+    this.locateIdx = ((this.locateIdx ?? -1) + 1);
+    if (this.locateKey !== def.key) { this.locateKey = def.key; this.locateIdx = 0; }
+    const a = list[this.locateIdx % list.length];
+    if (this.modalOpen) this.closeModal();
+    const r = this.renderer;
+    if (r.zoom < 2.2) r.zoom = 2.2;
+    r.centerOn(a.x, a.y);
+    this.inspectAgent(a);
+    this.follow = a;
+    return true;
+  }
+
   closeInfo() {
+    this.follow = null;
     this.state.inspect = null;
     this.game.selectedAgent = null;
     $('#infopanel').classList.add('hidden');
   }
   inspectTile(i) {
+    this.follow = null;
     this.game.selectedAgent = null;
     this.state.inspect = { i };
     this.renderInfo();
   }
   inspectAgent(a) {
+    if (this.follow && this.follow !== a) this.follow = null;
     this.game.selectedAgent = a;
     this.state.inspect = { agent: a.id };
     this.renderInfo();
@@ -381,6 +439,7 @@ export class UI {
     panel.classList.toggle('min', !!this.infoMin);
     panel.querySelectorAll('[data-guide]').forEach(b => b.addEventListener('click', () => this.openGuide('animals', b.dataset.guide)));
     panel.querySelectorAll('[data-overlay]').forEach(b => b.addEventListener('click', () => this.setOverlay('species', +b.dataset.overlay)));
+    panel.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => this.locateAnimal(ANIMAL[b.dataset.next])));
   }
   agentHTML(a) {
     const def = ANIMALS[a.sp], st = this.game.wildlife.state[a.sp];
@@ -394,7 +453,7 @@ export class UI {
       <span class="k">Population</span><span>${st.pop} here · room for ${Math.floor(st.K)}</span></div>
       <p class="info-desc">${def.desc}</p>
       <div class="section-title">Needs</div><p class="info-desc">${def.hint}</p>
-      <div style="display:flex;gap:6px;margin-top:8px"><button class="btn" data-overlay="${def.index}">Show habitat</button><button class="btn secondary" data-guide="${def.key}">Field guide</button></div>`;
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn" data-overlay="${def.index}">Show habitat</button><button class="btn secondary" data-guide="${def.key}">Field guide</button>${st.pop > 1 ? `<button class="btn secondary" data-next="${def.key}" title="Jump to another ${def.name.toLowerCase()}">Next one</button>` : ''}</div>`;
   }
   tileHTML(i) {
     const g = this.game, w = g.world;
@@ -464,6 +523,7 @@ export class UI {
     const icon = { good: 'good', warn: 'warn', discover: 'star', goal: 'star', season: 'leaf', info: 'info', fire: 'fire', flood: 'rain' }[n.kind] || 'info';
     const t = el('div', `toast ${n.kind}` + (n.loc ? ' clickable' : ''), `<span class="ti">${ICONS[icon]}</span><span>${n.text}</span>`);
     if (n.loc) t.addEventListener('click', () => {
+      this.follow = null;
       const lx = n.loc.x ?? 0, ly = n.loc.y ?? 0;
       this.renderer.centerOn(lx, ly);
       if (n.loc.id && this.game.wildlife.agents.includes(n.loc)) this.inspectAgent(n.loc);
@@ -478,6 +538,7 @@ export class UI {
   bindMinimap() {
     let down = false;
     const go = e => {
+      this.follow = null;
       const r = this.minimap.getBoundingClientRect();
       const w = this.game.world;
       this.renderer.centerOn((e.clientX - r.left) / r.width * w.w, (e.clientY - r.top) / r.height * w.h);
@@ -556,6 +617,7 @@ export class UI {
     back.addEventListener('mousedown', e => { if (e.target === back) close(); });
     this.modalOpen = true;
     this.closeModal = close;
+    track('panel_opened', { panel: title });
     return m;
   }
 
@@ -590,8 +652,9 @@ export class UI {
         <p class="info-desc">${known ? def.desc : 'Something that might live here someday. The clue below says what it needs.'}</p>
         <div class="section-title">Habitat needs</div><p class="info-desc">${def.hint}</p>
         ${needs.map(([c, t]) => `<div class="need"><span class="st ${c === 'info' ? '' : c}">${c === 'good' ? '●' : c === 'warn' ? '▲' : '•'}</span><span>${t}</span></div>`).join('')}
-        <div style="margin-top:10px"><button class="btn" id="g-show">Show suitable habitat on map</button></div>`;
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">${st.pop > 0 ? `<button class="btn" id="g-find">Find on map${st.pop > 1 ? ` (${st.pop})` : ''}</button>` : ''}<button class="btn ${st.pop > 0 ? 'secondary' : ''}" id="g-show">Show suitable habitat on map</button></div>`;
       detail.querySelector('#g-show').addEventListener('click', () => { this.closeModal(); this.setOverlay('species', def.index); });
+      detail.querySelector('#g-find')?.addEventListener('click', () => this.locateAnimal(def));
     };
     const showPlant = p => {
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === p.key));
@@ -617,6 +680,14 @@ export class UI {
             const known = st.discovered || def.intro;
             const c = el('div', 'gcard' + (known ? '' : ' unknown'), `<img src="${animalThumb(def.key)}"><div class="nm">${known ? def.name : '???'}</div><div class="pop ${st.pop ? 'here' : ''}">${st.pop ? st.pop + ' here' : known ? 'not here' : 'undiscovered'}</div>`);
             c.dataset.key = def.key;
+            if (st.pop) {
+              const pin = el('button', 'locate', ICONS.pin);
+              pin.title = `Show me on the map${st.pop > 1 ? ' (click again in the panel for the next one)' : ''}`;
+              pin.addEventListener('click', e => { e.stopPropagation(); this.locateAnimal(def); });
+              c.appendChild(pin);
+              c.title = 'Click for details, double-click to find on the map';
+              c.addEventListener('dblclick', () => this.locateAnimal(def));
+            }
             c.addEventListener('click', () => showAnimal(def));
             grid.appendChild(c);
           }
@@ -687,15 +758,90 @@ export class UI {
 
   openMenu() {
     const m = this.modal('Menu', `<div class="menu-list">
+      <button class="btn secondary" data-a="settings">Settings</button>
+      <button class="btn secondary" data-a="feedback">Send feedback</button>
       <button class="btn secondary" data-a="help">How to play</button>
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="new">Start over on a fresh farm</button></div>`, { narrow: true });
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
+    m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
+    m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
     m.querySelector('[data-a=save]').addEventListener('click', () => { const ok = this.game.save(); this.closeModal(); this.game.notify(ok ? 'Game saved. It also autosaves every month.' : 'Could not save (browser storage unavailable).', ok ? 'good' : 'warn'); });
     const nb = m.querySelector('[data-a=new]');
     nb.addEventListener('click', () => {
       if (!nb.dataset.sure) { nb.dataset.sure = 1; nb.textContent = 'Click again to replace this farm for good'; nb.classList.add('danger'); return; }
+      track('game_restart', this.snapshot());
       Game.clearSave(); this.game.newGame(Math.floor(Math.random() * 100000)); this.closeModal(); this.afterNewGame();
+    });
+  }
+
+  openSettings() {
+    const toggle = (key, name, desc) => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><input type="checkbox" data-s="${key}" ${settings[key] ? 'checked' : ''}></label>`;
+    const choice = (key, name, desc, opts) => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><select data-s="${key}">${opts.map(([v, t]) => `<option value="${v}" ${settings[key] === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
+    const slider = (key, name, desc) => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><span class="set-slide"><input type="range" min="0.4" max="2.5" step="0.1" data-s="${key}" value="${settings[key]}"><output>${settings[key].toFixed(1)}×</output></span></label>`;
+    const m = this.modal('Settings', `<div class="settings">
+      <div class="section-title">Graphics</div>
+      ${choice('quality', 'Resolution', 'Lower it if the game feels slow.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}
+      ${toggle('shadows', 'Shadows', 'Trees and buildings cast soft shadows.')}
+      ${toggle('wind', 'Wind in the plants', 'Grass, shrubs and treetops sway.')}
+      ${toggle('weather', 'Rain and snow', 'Falling rain and snow over the view.')}
+      <div class="section-title">Controls</div>
+      ${slider('panSpeed', 'Camera pan speed', 'WASD and arrow keys.')}
+      ${slider('zoomSpeed', 'Zoom speed', 'Mouse wheel and + / − keys.')}
+      <div class="section-title">Game</div>
+      ${toggle('autosave', 'Autosave', 'Save the farm at the end of every month.')}
+      ${toggle('pauseOnEvents', 'Pause on wildfire or flood', 'Stop the clock so you can respond.')}
+      <div class="section-title">Privacy</div>
+      ${toggle('analytics', 'Share anonymous play data', 'Things like which tools get used and how far people get. No names, no cookies.')}
+      <div class="small" style="margin-top:12px">Brush sizes are remembered for each tool group. Settings are saved in this browser.</div>
+      </div>`, { narrow: true, foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>' });
+    m.querySelectorAll('[data-s]').forEach(inp => {
+      const key = inp.dataset.s;
+      inp.addEventListener(inp.type === 'range' ? 'input' : 'change', () => {
+        settings[key] = inp.type === 'checkbox' ? inp.checked : inp.type === 'range' ? +inp.value : inp.value;
+        if (inp.type === 'range') inp.nextElementSibling.textContent = settings[key].toFixed(1) + '×';
+        if (key === 'analytics') { if (!settings.analytics) track('analytics_opt_out'); setAnalyticsEnabled(settings.analytics); }
+        else track('setting_changed', { setting: key, value: settings[key] });
+        saveSettings();
+        this.applySettings();
+      });
+    });
+    m.querySelector('[data-a=done]').addEventListener('click', () => this.closeModal());
+    m.querySelector('[data-a=reset]').addEventListener('click', () => { resetSettings(); this.applySettings(); this.openSettings(); });
+  }
+
+  openFeedback() {
+    const faces = ['😞', '😕', '😐', '🙂', '😍'];
+    const m = this.modal('Send feedback', `<div class="feedback">
+      <p class="info-desc" style="margin-top:0">Second Growth is a work in progress, and every note gets read. What's fun, what's confusing, what broke?</p>
+      <div class="section-title">How are you liking it?</div>
+      <div class="fb-rate">${faces.map((f, k) => `<button type="button" data-r="${k + 1}" title="${k + 1} of 5">${f}</button>`).join('')}</div>
+      <div class="section-title">Your thoughts</div>
+      <textarea class="ph-mask" rows="6" maxlength="4000" placeholder="I wish I could… / I got stuck when… / The best part was…"></textarea>
+      <label class="fb-contact"><span class="small">Want a reply? Leave an email or Reddit username (optional)</span><input type="text" class="ph-mask" maxlength="200"></label>
+      <div class="small fb-status"></div>
+      <div class="small" style="margin-top:6px">Rather post publicly? <a href="https://github.com/nature-tycoon/second-growth/issues" target="_blank" rel="noopener">Open an issue on GitHub</a>.</div>
+      </div>`, { narrow: true, foot: '<button class="btn secondary" data-a="cancel">Cancel</button><button class="btn" data-a="send">Send</button>' });
+    let rating = 0;
+    m.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {
+      rating = +b.dataset.r;
+      m.querySelectorAll('[data-r]').forEach(o => o.classList.toggle('on', o === b));
+    }));
+    const ta = m.querySelector('textarea'), status = m.querySelector('.fb-status');
+    setTimeout(() => ta.focus(), 30);
+    m.querySelector('[data-a=cancel]').addEventListener('click', () => this.closeModal());
+    m.querySelector('[data-a=send]').addEventListener('click', () => {
+      const message = ta.value.trim(), contact = m.querySelector('.fb-contact input').value.trim();
+      if (!message && !rating) { status.textContent = 'Pick a face or write a few words first.'; return; }
+      if (!analyticsReady() || !settings.analytics) {
+        status.innerHTML = settings.analytics
+          ? 'Feedback can\'t be sent from this copy of the game. Please use the GitHub link below.'
+          : 'Feedback is sent with play data, which is turned off in Settings. Turn it on, or use the GitHub link below.';
+        return;
+      }
+      track('feedback', { rating: rating || null, message, contact: contact || null, version: GAME_VERSION, ...this.snapshot() });
+      this.closeModal();
+      this.game.notify('Thanks for the feedback! It really helps.', 'good');
     });
   }
 
@@ -766,12 +912,14 @@ export class UI {
     btn('close')?.addEventListener('click', () => this.closeModal());
     btn('continue')?.addEventListener('click', () => {
       this.closeModal();
+      track('game_start', { mode: 'continue' });
       if (!this.game.load()) { this.game.newGame(); this.game.notify('The saved game could not be loaded, so you are starting fresh.', 'warn'); }
       this.afterNewGame();
       this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
     });
     btn('new')?.addEventListener('click', () => {
       this.closeModal();
+      track('game_start', { mode: hasSave ? 'new_over_save' : 'new' });
       if (hasSave) { Game.clearSave(); this.game.newGame(Math.floor(Math.random() * 100000)); this.afterNewGame(); }
       this.game.notify('Spring, Year 1. The farm is quiet: a few voles, robins and a pair of mallards on the stock pond. Let\'s change that.', 'season');
     });

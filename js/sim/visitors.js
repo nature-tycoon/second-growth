@@ -6,6 +6,8 @@ import { T, F, H, clamp, money } from '../config.js';
 import { STRUCTURES } from '../world.js';
 
 const SEASON_DEMAND = [0.7, 0.9, 1.1, 1.3, 1.5, 1.4, 1.1, 1.0, 0.5, 0.35, 0.35, 0.5];
+// Walkers step to any of the 8 neighbours, so trails drawn on a diagonal stay connected.
+const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 const NATIVE_HABITATS = new Set([H.MEADOW, H.SHRUB, H.YOUNG_FOREST, H.MATURE_FOREST, H.RIPARIAN, H.MARSH, H.POND, H.CREEK]);
 
 export class Visitors {
@@ -49,7 +51,7 @@ export class Visitors {
     }
     for (let h = 0; h < q.length; h++) {
       const i = q[h], x = i % w.w, y = (i / w.w) | 0;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      for (const [dx, dy] of STEPS) {
         if (!w.inb(x + dx, y + dy)) continue;
         const j = w.idx(x + dx, y + dy);
         if (!seen.has(j) && this.isPath(j)) { seen.add(j); q.push(j); }
@@ -75,6 +77,24 @@ export class Visitors {
     while (this.agents.length > want + 4) this.agents.shift();
   }
 
+  // Trail tiles next to a path tile, walking on the diagonal too.
+  neighbours(i) {
+    const w = this.game.world, x = i % w.w, y = (i / w.w) | 0, out = [];
+    for (const [dx, dy] of STEPS) {
+      if (!w.inb(x + dx, y + dy)) continue;
+      const j = w.idx(x + dx, y + dy);
+      if (this.netSet.has(j)) out.push(j);
+    }
+    return out;
+  }
+
+  // Shortest route over the trail network from one tile to every other, as parent links.
+  routes(from) {
+    const prev = new Map([[from, -1]]), q = [from];
+    for (let h = 0; h < q.length; h++) for (const j of this.neighbours(q[h])) if (!prev.has(j)) { prev.set(j, q[h]); q.push(j); }
+    return { prev, order: q };
+  }
+
   spawnWalker() {
     const w = this.game.world;
     const heads = [];
@@ -85,10 +105,20 @@ export class Visitors {
       }
     }
     if (!heads.length) return;
-    const i = heads[Math.floor(Math.random() * heads.length)];
+    const start = heads[Math.floor(Math.random() * heads.length)];
+    // Hikers head for a trail end or the far reaches of the network, then walk back out.
+    const { prev, order } = this.routes(start);
+    const far = order.slice(Math.floor(order.length * 0.8));
+    const ends = order.filter(i => i !== start && this.neighbours(i).length <= 1);
+    const pool = ends.length && Math.random() < 0.9 ? ends : far;
+    const goal = pool[Math.floor(Math.random() * pool.length)];
+    const out = [];
+    for (let i = goal; i !== -1 && i != null; i = prev.get(i)) out.push(i);
+    out.reverse();
+    const path = out.concat(out.slice(0, -1).reverse());
     this.agents.push({
-      id: this.nextId++, x: (i % w.w) + 0.5, y: ((i / w.w) | 0) + 0.5, cur: i, prev: -1, next: -1,
-      look: Math.floor(Math.random() * 8), life: 25 + Math.random() * 50, phase: Math.random() * 10, facing: 1, pause: 0,
+      id: this.nextId++, x: (start % w.w) + 0.5, y: ((start / w.w) | 0) + 0.5, cur: start, path, step: 0,
+      look: Math.floor(Math.random() * 8), phase: Math.random() * 10, facing: 1, pause: 0,
     });
   }
 
@@ -98,24 +128,23 @@ export class Visitors {
       const a = this.agents[k];
       a.phase += dt * 6;
       if (a.pause > 0) { a.pause -= dt; continue; }
-      if (a.next < 0) {
-        const x = a.cur % w.w, y = (a.cur / w.w) | 0;
-        const opts = [];
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if (!w.inb(x + dx, y + dy)) continue;
-          const j = w.idx(x + dx, y + dy);
-          if (this.netSet.has(j) && j !== a.prev) opts.push(j);
-        }
-        if (!opts.length && a.prev >= 0 && this.netSet.has(a.prev)) opts.push(a.prev);
-        if (!opts.length || a.life <= 0) { this.agents.splice(k, 1); continue; }
-        a.next = opts[Math.floor(Math.random() * opts.length)];
-        // people stop to look at things
-        if (Math.random() < 0.08) a.pause = 0.5 + Math.random() * 2;
+      if (!a.path) { this.agents.splice(k, 1); continue; } // walker from an older save
+      if (a.step >= a.path.length - 1) { this.agents.splice(k, 1); continue; } // back at the trailhead
+      let next = a.path[a.step + 1];
+      if (!this.netSet.has(next)) {
+        // flooded, burning or removed ahead: turn around and head back
+        const back = a.path.slice(0, a.step + 1).reverse();
+        a.path = back; a.step = 0;
+        if (back.length < 2) { this.agents.splice(k, 1); continue; }
+        next = back[1];
       }
-      const tx = (a.next % w.w) + 0.5, ty = ((a.next / w.w) | 0) + 0.5;
+      const tx = (next % w.w) + 0.5, ty = ((next / w.w) | 0) + 0.5;
       const dx = tx - a.x, dy = ty - a.y, d = Math.hypot(dx, dy), sp = 1.3 * dt;
-      if (d <= sp) { a.x = tx; a.y = ty; a.prev = a.cur; a.cur = a.next; a.next = -1; a.life -= 1; }
-      else { a.x += dx / d * sp; a.y += dy / d * sp; }
+      if (d <= sp) {
+        a.x = tx; a.y = ty; a.cur = next; a.step++;
+        // people stop to look at things
+        if (Math.random() < 0.05) a.pause = 0.5 + Math.random() * 2;
+      } else { a.x += dx / d * sp; a.y += dy / d * sp; }
       a.dx = dx; a.dy = dy;
     }
   }

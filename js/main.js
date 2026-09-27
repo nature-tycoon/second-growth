@@ -2,6 +2,9 @@ import { Game } from './game.js';
 import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
+import { initAnalytics } from './analytics.js';
+
+initAnalytics();
 
 const game = new Game();
 game.newGame();
