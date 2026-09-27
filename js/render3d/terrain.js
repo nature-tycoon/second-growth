@@ -116,6 +116,18 @@ function turfColor(p, month, season) {
   return [base[0] / 0.86, base[1] / 0.88, base[2] / 0.8];
 }
 
+// How far water fills each kind of basin above its lowest corner, in height levels.
+const FILL = { [T.POND]: 0.4, [T.CREEK]: 0.32, [T.RIVER]: 0.35, [T.MARSH]: 0.16 };
+
+// Height of the water surface on a tile, in scene units (null on dry land).
+export function waterSurfaceY(w, x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  if (!w.inb(xi, yi)) return null;
+  const t = w.terrain[w.idx(xi, yi)];
+  if (!isWater(t)) return null;
+  return (Math.min(...w.corners(xi, yi)) + FILL[t]) * LEVEL;
+}
+
 export class Terrain {
   constructor(scene, atlas) {
     this.scene = scene;
@@ -298,7 +310,6 @@ export class Terrain {
   buildWater() {
     if (this.water) { this.scene.remove(this.water); this.water.geometry.dispose(); }
     const w = this.world, TW = this.TW, TH = this.TH, X0 = this.X0, Y0 = this.Y0;
-    const FILL = { [T.POND]: 0.4, [T.CREEK]: 0.32, [T.RIVER]: 0.35, [T.MARSH]: 0.16 };
     const COL = { [T.POND]: [0.3, 0.56, 0.66, 0.82], [T.CREEK]: [0.38, 0.63, 0.7, 0.78], [T.RIVER]: [0.28, 0.52, 0.63, 0.86], [T.MARSH]: [0.46, 0.62, 0.52, 0.55] };
     const level = new Float32Array(TW * TH).fill(NaN), kind = new Uint8Array(TW * TH), wet = new Uint8Array(TW * TH);
     for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {

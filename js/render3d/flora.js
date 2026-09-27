@@ -5,6 +5,7 @@ import { T, F, LEVEL, BORDER, isWater, clamp } from '../config.js';
 import { PLANTS, plantPhase } from '../data/plants.js';
 import { hash2 } from '../rng.js';
 import * as G from './geometry.js';
+import { withFocusFade } from './focus.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -117,11 +118,12 @@ export class Flora {
   constructor(scene) {
     this.scene = scene;
     this.wind = { value: 0 };
-    this.foliage = windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind);
-    this.shrubs = windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind);
-    this.grass = windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true);
-    this.bark = new THREE.MeshLambertMaterial({ vertexColors: true });
-    this.small = new THREE.MeshLambertMaterial({ vertexColors: true });
+    // everything that can hide an animal dissolves around the selected one (see focus.js)
+    this.foliage = withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind));
+    this.shrubs = withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind));
+    this.grass = withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true));
+    this.bark = withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true }));
+    this.small = withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true }));
     this.pools = new Map();
     this.geos = new Map();
     this.view = [0, true, true];

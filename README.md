@@ -50,8 +50,12 @@ js/sim/animals.js           wildlife agents, population dynamics, beavers, salmo
 js/sim/goals.js             score, grants, goals
 js/game.js                  clock, events, save/load
 js/tools.js                 player tools
-js/render3d/                three.js scene: terrain mesh, instanced low-poly plants, buildings, sprites, lighting
-js/render/sprites.js        procedural 2D art: terrain textures, animal and visitor sprites, UI thumbnails
+js/render3d/                three.js scene: terrain mesh, instanced plants, buildings, lighting
+js/render3d/fauna.js        3D wildlife and visitors: built from soft primitives, instanced, animated in a vertex shader
+js/render3d/portraits.js    field-guide portraits rendered from the 3D models
+js/render3d/focus.js        see-through cover around the selected animal
+js/render/sprites.js        procedural 2D art: terrain textures, fire and smoke, fallback portraits
+assets/logo.svg             the Second Growth emblem (loading screen, top bar, favicon)
 js/sim/visitors.js          trails, visitor numbers, rating and income
 js/sim/events.js            wildfires and floods
 vendor/three/               three.js 0.186 and its BufferGeometryUtils addon (MIT)

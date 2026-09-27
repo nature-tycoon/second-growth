@@ -2,6 +2,7 @@
 // A transparent 2D canvas on top carries weather, pollinators, sparkles and labels.
 
 import * as THREE from 'three';
+import { focus, withFocusFade } from './focus.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
 import { ANIMALS } from '../data/animals.js';
 import { Terrain, buildAtlas } from './terrain.js';
@@ -47,7 +48,7 @@ export class Renderer {
     this.terrain = new Terrain(this.scene, this.atlas);
     this.flora = new Flora(this.scene);
     this.actors = new Actors(this.scene);
-    this.structMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+    this.structMat = withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
     this.structs = new Map();
     this.time = 0;
     this.lastDay = -1; this.lastFlora = 0; this.editDirty = false;
@@ -71,6 +72,18 @@ export class Renderer {
     this.windOn = !!s.wind;
     this.weatherOn = !!s.weather;
     this.resize();
+  }
+
+  // Dissolve cover between the camera and the selected animal, easing in and out.
+  updateFocus(game, dt) {
+    const sel = game.selectedAgent, pose = sel && this.actors.pose.get(sel.id);
+    const amt = focus.uFocusAmt;
+    amt.value += ((pose ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
+    if (pose) {
+      focus.uFocus.value.set(pose.x, pose.y + pose.h * 0.5, pose.z);
+      focus.uFocusR.value = clamp(0.55 + pose.h * 1.6, 0.6, 1.2);
+    }
+    this.camera.getWorldDirection(focus.uViewDir.value).negate();
   }
 
   get fadeTrees() { return this._fade; }
@@ -179,9 +192,9 @@ export class Renderer {
     let best = null, bd = 26 * 26;
     const all = [...game.wildlife.agents];
     for (const a of all) {
-      const s = this.actors.sprites.get(a.id);
+      const s = this.actors.pose.get(a.id);
       if (!s) continue;
-      const p = this.project(s.position.x, s.position.y + s.scale.y * 0.12, s.position.z);
+      const p = this.project(s.x, s.y + s.h * 0.5, s.z);
       const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
       if (d < bd) { bd = d; best = a; }
     }
@@ -260,6 +273,7 @@ export class Renderer {
     this.terrain.time.value = this.time;
     const r = this.right();
     this.actors.update(game, r, this.time);
+    this.updateFocus(game, dt);
     this.actors.updateFire(game, this.time, dt);
     this.gl.render(this.scene, this.camera);
     this.drawFX(game, ui, dt);
@@ -378,9 +392,9 @@ export class Renderer {
     // label for the selected animal
     const sel = game.selectedAgent;
     if (sel) {
-      const s = this.actors.sprites.get(sel.id);
+      const s = this.actors.pose.get(sel.id);
       if (s) {
-        const p = this.project(s.position.x, s.position.y + s.scale.y * 0.5, s.position.z);
+        const p = this.project(s.x, s.y + s.h + 0.08, s.z);
         const label = ANIMALS[sel.sp].name;
         ctx.font = '700 12px Nunito, sans-serif';
         const tw = ctx.measureText(label).width + 12;

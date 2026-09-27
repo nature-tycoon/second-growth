@@ -10,6 +10,7 @@ import { layerLight } from '../sim/environment.js';
 import { GOALS, speciesPresent } from '../sim/goals.js';
 import { Game } from '../game.js';
 import * as S from '../render/sprites.js';
+import { renderPortrait } from '../render3d/portraits.js';
 import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
 import { track, setContext, setAnalyticsEnabled, analyticsReady, GAME_VERSION } from '../analytics.js';
@@ -76,7 +77,9 @@ export function animalThumb(key) {
   const k = 'a' + key;
   if (thumbCache.has(k)) return thumbCache.get(k);
   const def = ANIMAL[key];
-  const url = trim(S.animalPortrait(def), 6).toDataURL();
+  // the species' 3D model, rendered once; the old 2D art is a fallback if WebGL isn't available
+  let url;
+  try { url = trim(renderPortrait(def), 6).toDataURL(); } catch (e) { url = trim(S.animalPortrait(def), 6).toDataURL(); }
   thumbCache.set(k, url);
   return url;
 }
@@ -140,6 +143,18 @@ export class UI {
     game.on('event', kind => { if ((kind === 'fire' || kind === 'flood') && settings.pauseOnEvents && game.speed) this.setSpeed(0); });
     this.bindAnalytics();
     this.applySettings();
+    this.warmPortraits();
+  }
+
+  // Render the field-guide portraits a few at a time in the background, so the guide opens instantly.
+  warmPortraits() {
+    const queue = ANIMALS.map(a => a.key);
+    const step = () => {
+      if (!queue.length) return;
+      animalThumb(queue.shift());
+      (window.requestIdleCallback || (f => setTimeout(f, 60)))(step, { timeout: 400 });
+    };
+    setTimeout(step, 1500);
   }
 
   // What we learn from players: how far they get, what they build, where they get stuck.

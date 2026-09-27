@@ -1,4 +1,4 @@
-// Animals, visitors and flames drawn as camera-facing sprites in the 3D scene.
+// Animals (instanced 3D models, see fauna.js), plus visitors and flames drawn as camera-facing sprites.
 
 import * as THREE from 'three';
 import { LEVEL, isWater, T, clamp } from '../config.js';
@@ -6,15 +6,22 @@ import { ANIMALS } from '../data/animals.js';
 import * as S from '../render/sprites.js';
 import { TREE_SHAPES } from './geometry.js';
 import { PLANTS } from '../data/plants.js';
+import { Fauna, PERSON_LOOKS } from './fauna.js';
+import { waterSurfaceY } from './terrain.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
+// Animals that float or paddle when they're on open water.
+const FLOATERS = new Set(['duck', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake']);
+const GRAZERS = new Set(['deer', 'rabbit', 'rodent']);
+const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 
 export class Actors {
   constructor(scene) {
     this.scene = scene;
     this.textures = new Map();
-    this.sprites = new Map();   // agent id -> sprite
-    this.people = new Map();
+    this.fauna = new Fauna(scene);
+    this.pose = new Map();      // agent id -> smoothed heading, gait, wings, and where it was drawn
+    this.people = new Map();    // visitor id -> smoothed heading and gait
     this.flames = [];
     this.smoke = [];
     this.shadowGeo = new THREE.CircleGeometry(0.5, 14).rotateX(-Math.PI / 2);
@@ -35,23 +42,6 @@ export class Actors {
     return t;
   }
 
-  makeSprite(canvas) {
-    const mat = new THREE.SpriteMaterial({ map: this.tex(canvas), alphaTest: 0.35, depthWrite: true });
-    const s = new THREE.Sprite(mat);
-    s.center.set(S.ANIM_AX / S.ANIM_W, 1 - S.ANIM_AY / S.ANIM_H);
-    this.scene.add(s);
-    return s;
-  }
-
-  // Screen-facing direction from movement, relative to the camera.
-  facing(obj, x, z, right) {
-    const px = obj.userData.px ?? x, pz = obj.userData.pz ?? z;
-    const d = (x - px) * right.x + (z - pz) * right.z;
-    if (Math.abs(d) > 0.002) obj.userData.face = d > 0 ? 1 : -1;
-    obj.userData.px = x; obj.userData.pz = z;
-    return obj.userData.face || 1;
-  }
-
   update(game, camRight, time) {
     const w = game.world;
     const seen = new Set();
@@ -63,61 +53,65 @@ export class Actors {
     };
 
     // ---- wildlife
+    const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
+    this.lastT = time;
+    F.begin();
     for (const a of game.wildlife.agents) {
       const def = ANIMALS[a.sp];
-      let s = this.sprites.get(a.id);
-      if (!s) { s = this.makeSprite(S.animalSprite(def, 0, 1, 'stand')); this.sprites.set(a.id, s); }
       seen.add(a.id);
+      let st = this.pose.get(a.id);
+      if (!st) { st = { yaw: Math.random() * Math.PI * 2, gait: 0, fly: 0, graze: 0, px: a.x, py: a.y, x: a.x, y: 0, z: a.y, h: 0.2 }; this.pose.set(a.id, st); }
       const xi = Math.floor(a.x), yi = Math.floor(a.y);
       const inside = w.inb(xi, yi);
       const i = inside ? w.idx(xi, yi) : -1;
       const t = inside ? w.terrain[i] : T.RIVER;
       const onWater = isWater(t) && t !== T.MARSH;
       const kind = def.sprite.kind;
-      let pose = 'stand';
       const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05) && kind !== 'duck') || (kind === 'duck' && a.alt > 0.3) || kind === 'bat';
-      if (flying) pose = 'fly';
-      else if (def.move === 'swim' || (onWater && (a.key === 'beaver' || a.key === 'otter'))) pose = 'swim';
-      const moving = a.state !== 'idle';
-      const frame = pose === 'fly' ? Math.floor(a.phase * 1.5) % 2 : moving ? Math.floor(a.phase) % 2 : 0;
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
+      const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
+      const sc = PX * 0.62 * (a.juvenile ? 0.5 : 1) * ageF;
+      const mo = F.motion(def);
       let y = ground;
-      if (pose === 'fly') y += 0.7 + a.alt * 1.2;
+      const surf = onWater || def.move === 'swim' ? waterSurfaceY(w, a.x, a.y) : null;
+      if (flying) y += 0.7 + a.alt * 1.2;
+      else if (def.move === 'swim') y = (surf ?? ground) - 0.05 - mo.sink * sc;
+      else if (surf != null && FLOATERS.has(kind)) y = surf - mo.sink * sc;
       else if (def.move === 'fly' && inside && w.tree[i] && w.treeG[i] > 0.5 && kind !== 'duck' && kind !== 'heron') {
         y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * w.treeG[i] * 0.55;
       }
-      if (onWater) y += pose === 'swim' && def.move === 'swim' ? 0.0 : 0.02;
-      const face = this.facing(s, a.x, a.y, camRight);
-      const img = S.animalSprite(def, frame, face, pose, 2);
-      const tex = this.tex(img);
-      if (s.material.map !== tex) { s.material.map = tex; s.material.needsUpdate = true; }
-      const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
-      const sc = (a.juvenile ? 0.5 : 1) * ageF * (pose === 'swim' && def.move === 'swim' ? 0.5 : 0.62);
-      s.scale.set(S.ANIM_W * PX * sc, S.ANIM_H * PX * sc, 1);
-      s.position.set(a.x, y, a.y);
-      s.material.opacity = def.move === 'swim' ? 0.8 : 1;
-      s.material.transparent = def.move === 'swim';
-      s.renderOrder = def.move === 'swim' ? 1 : 0;
-      if (pose !== 'swim') shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * PX * 0.45 * ageF);
+      // face the way it's moving, and blend between standing, walking and flying
+      const dx = a.x - st.px, dz = a.y - st.py;
+      const moving = a.state !== 'idle' && (dx * dx + dz * dz > 1e-7 || flying);
+      if (dx * dx + dz * dz > 1e-6) st.yaw = lerpAngle(st.yaw, Math.atan2(-dz, dx), Math.min(1, k * 1.6));
+      st.px = a.x; st.py = a.y;
+      st.gait += ((moving ? 1 : 0) - st.gait) * k;
+      st.fly += ((flying ? 1 : 0) - st.fly) * k * 1.5;
+      const grazing = !moving && GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1;
+      st.graze += ((grazing ? 1 : 0) - st.graze) * k * 0.5;
+      F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, st.graze);
+      st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
+      if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * PX * 0.4 * ageF * (flying ? 0.7 : 1));
     }
-    for (const [id, s] of this.sprites) if (!seen.has(id)) { this.scene.remove(s); s.material.dispose(); this.sprites.delete(id); }
+    for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
 
-    // ---- visitors
+    // ---- visitors: same instanced 3D style as the wildlife
     const pseen = new Set();
     for (const v of game.visitors.agents) {
-      let s = this.people.get(v.id);
-      if (!s) { s = this.makeSprite(S.personSprite(v.look, 0, 1)); this.people.set(v.id, s); }
       pseen.add(v.id);
-      const face = this.facing(s, v.x, v.y, camRight);
-      const frame = v.pause > 0 ? 0 : Math.floor(v.phase) % 2;
-      const tex = this.tex(S.personSprite(v.look, frame, face, 2));
-      if (s.material.map !== tex) { s.material.map = tex; s.material.needsUpdate = true; }
-      const gy = w.heightAt(v.x, v.y) * LEVEL + (w.inb(Math.floor(v.x), Math.floor(v.y)) && isWater(w.terrain[w.idx(Math.floor(v.x), Math.floor(v.y))]) ? 0.08 : 0);
-      s.scale.set(S.ANIM_W * PX * 0.58, S.ANIM_H * PX * 0.58, 1);
-      s.position.set(v.x, gy, v.y);
-      shadow(v.x, gy, v.y, 0.09);
+      let st = this.people.get(v.id);
+      if (!st) { st = { yaw: 0, gait: 0, px: v.x, py: v.y }; this.people.set(v.id, st); }
+      const dx = v.x - st.px, dz = v.y - st.py;
+      if (dx * dx + dz * dz > 1e-7) st.yaw = lerpAngle(st.yaw, Math.atan2(-dz, dx), Math.min(1, k * 1.6));
+      st.px = v.x; st.py = v.y;
+      st.gait += ((v.pause > 0 ? 0 : 1) - st.gait) * k;
+      const onWet = w.inb(Math.floor(v.x), Math.floor(v.y)) && isWater(w.terrain[w.idx(Math.floor(v.x), Math.floor(v.y))]);
+      const gy = w.heightAt(v.x, v.y) * LEVEL + (onWet ? 0.08 : 0); // boardwalks sit above the water
+      F.add(PERSON_LOOKS[v.look % PERSON_LOOKS.length], v.x, gy, v.y, st.yaw, PX * 0.6, v.phase * Math.PI, st.gait, 0, 0);
+      shadow(v.x, gy, v.y, 0.1);
     }
-    for (const [id, s] of this.people) if (!pseen.has(id)) { this.scene.remove(s); s.material.dispose(); this.people.delete(id); }
+    F.end();
+    for (const id of this.people.keys()) if (!pseen.has(id)) this.people.delete(id);
 
     this.shadows.count = sh;
     this.shadows.instanceMatrix.needsUpdate = true;
@@ -176,8 +170,6 @@ export class Actors {
   }
 
   clear() {
-    for (const s of this.sprites.values()) { this.scene.remove(s); s.material.dispose(); }
-    for (const s of this.people.values()) { this.scene.remove(s); s.material.dispose(); }
-    this.sprites.clear(); this.people.clear();
+    this.pose.clear(); this.people.clear(); this.fauna.clear();
   }
 }
