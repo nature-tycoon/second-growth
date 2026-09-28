@@ -92,7 +92,7 @@ const pnwChapters = () => [
     key: 'disturbance', title: 'Fire and flood', reward: 5000,
     story: 'From now on, summer wildfires and winter floods can reach the farm, just as they shape every Northwest valley. Healthy land bends and recovers.',
     teach: '<b>Controlled burns</b> clear fuel and renew meadows. Send a <b>fire crew</b> if a wildfire threatens young forest. Wetlands soak up floods; check the <b>Flood risk</b> overlay to see which land the river reaches.',
-    unlock: ['burn', 'clear', 'firecrew', 'raise', 'lower'],
+    unlock: ['burn', 'clear', 'clearcut', 'firecrew', 'raise', 'lower'],
     events: true,
     goals: [
       count('Do a controlled burn on 25 tiles', g => used(g, 'burn'), 25, ' tiles'),

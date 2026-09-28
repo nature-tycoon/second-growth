@@ -178,22 +178,16 @@ tool({ key: 'pull', cat: 'remove', name: 'Pull invasives', cost: 8, icon: { plan
     return true;
   } });
 tool({ key: 'burn', cat: 'remove', name: 'Controlled burn', cost: 3, icon: { svg: 'fire' }, size: 2,
-  desc: 'A cool, careful fire keeps meadows open, the way Coast Salish peoples tended camas prairies. Kills young shrubs, saplings and invasive grass; native meadow plants resprout.',
+  desc: 'A cool, careful fire keeps meadows open, the way Coast Salish peoples tended camas prairies. Paint the area to burn and the crew lights it: the fire creeps across it over a few days, burning off underbrush, saplings, invasive grass and brush piles. It stays inside the area you painted. Native meadow plants resprout and big trees come through. Rain puts it out.',
   apply: (game, i) => {
     const w = game.world;
-    if (isWater(w.terrain[i]) || w.struct[i] >= 0 || w.terrain[i] === T.ROAD) return null;
-    let hit = false;
-    if (w.shrub[i] && (w.shrubG[i] < 0.7 || PLANTS[w.shrub[i]].invasive)) { w.shrub[i] = 0; w.shrubG[i] = 0; hit = true; }
-    if (w.tree[i] && w.treeG[i] < 0.45) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; hit = true; }
-    if (w.ground[i]) {
-      if (PLANTS[w.ground[i]].invasive) { w.ground[i] = 0; w.groundG[i] = 0; }
-      else w.groundG[i] = Math.min(w.groundG[i], 0.45);
-      hit = true;
-    }
-    if (w.feature[i] === F.BRUSH) { w.feature[i] = 0; hit = true; }
-    if (!hit) return null;
-    w.soil[i] = Math.min(1, w.soil[i] + 0.02);
-    game.stats.burned = (game.stats.burned || 0) + 1;
+    if (isWater(w.terrain[i]) || w.struct[i] >= 0 || w.terrain[i] === T.ROAD || w.terrain[i] === T.TRAIL) return null;
+    if (w.fire[i] || w.rx[i] || w.scorch[i] > 60) return null; // already burning, or burned just now
+    const fuel = w.ground[i] || w.shrub[i] || (w.tree[i] && w.treeG[i] < 0.45) || w.feature[i] === F.BRUSH || w.terrain[i] === T.PASTURE;
+    if (!fuel) return null;
+    w.rx[i] = 1;
+    // light it here and there along the line; the rest catches as the fire creeps through
+    if (!game.events.rxBurning || game.rng() < 0.2) game.events.igniteRx(i);
     return true;
   } });
 tool({ key: 'clear', cat: 'remove', name: 'Clear vegetation', cost: 6, icon: { terrain: T.SOIL }, size: 1,
@@ -202,6 +196,17 @@ tool({ key: 'clear', cat: 'remove', name: 'Clear vegetation', cost: 6, icon: { t
     const w = game.world;
     if (!w.ground[i] && !w.shrub[i] && !w.tree[i]) return null;
     w.clearPlants(i);
+    return true;
+  } });
+tool({ key: 'clearcut', cat: 'remove', name: 'Cut trees', cost: 12, icon: { svg: 'axe' }, size: 1,
+  desc: 'Fell the trees and leave everything else: grass, shrubs and wildflowers stay. Bigger trees leave a stump that rots away over a few years.',
+  apply: (game, i) => {
+    const w = game.world;
+    if (!w.tree[i]) return null;
+    const big = w.treeG[i] > 0.25;
+    w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
+    if (big && !w.feature[i]) { w.feature[i] = F.STUMP; w.featureAge[i] = 0; }
+    game.stats.treesCut = (game.stats.treesCut || 0) + 1;
     return true;
   } });
 tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: 'demolish' }, size: 0,

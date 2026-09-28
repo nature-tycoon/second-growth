@@ -45,6 +45,7 @@ export class World {
     this.elevMoist = f32();
     // events and visitors
     this.flood = u8(); this.fire = u8(); this.scorch = f32();
+    this.rx = u8(); // controlled burn: 1 = in the burn unit, waiting for the fire; 2 = burning
     this.distTrail = u8(); this.disturb = f32();
     this.hydroDirty = true;
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;

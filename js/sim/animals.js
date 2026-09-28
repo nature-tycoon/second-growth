@@ -29,6 +29,16 @@ export function passable(w, i, a) {
   return true;
 }
 
+// Young that stay close beside their mother, and for how many years (never past adulthood):
+// bear cubs for a year and a half, fawns and calves through their first year, elephant calves for years.
+// (Rodents, rabbits and birds raise their young in a nest or burrow instead.)
+const WITH_MOM = {
+  deer: 0.8, elk: 1, bear: 1.5, cougar: 1.2, bobcat: 0.7, raccoon: 0.6, coyote: 0.5, beaver: 1.5, otter: 0.8,
+  wildebeest: 0.8, zebra: 1, gazelle: 0.5, impala: 0.5, giraffe: 1.2, elephant: 3, buffalo: 1, warthog: 0.5, rhino: 2,
+  hippo: 1.5, lion: 1.5, cheetah: 1.5, leopard: 1.5, hyena: 1, ostrich: 0.6,
+  jaguar: 1.5, ocelot: 1, peccary: 0.5, tapir: 1, capybara: 0.5, anteater: 0.8, giantotter: 0.8,
+};
+
 export class Wildlife {
   constructor(game) {
     this.game = game;
@@ -311,7 +321,8 @@ export class Wildlife {
           const n = def.litter[0] + Math.floor(rng() * (def.litter[1] - def.litter[0] + 1));
           for (let k = 0; k < n; k++) {
             const pos = this.randomPassableNear(def, parentA.x - 0.5, parentA.y - 0.5, 1) || [Math.floor(parentA.x), Math.floor(parentA.y)];
-            this.spawn(def, pos[0], pos[1], { age: 0 });
+            const young = this.spawn(def, pos[0], pos[1], { age: 0 });
+            if (WITH_MOM[def.key]) young.mom = parentA.id;
             pop++; st.births++;
           }
           if (st.births === n) game.notify(`${cap(many(def))} have raised young here for the first time!`, 'good', parentA);
@@ -492,6 +503,7 @@ export class Wildlife {
     else if (edge === 'E') { a.tx = w.w + 3; a.ty = a.y; }
     else { a.tx = -3; a.ty = a.y; }
     a.state = 'leave'; a.path = null;
+    for (const o of this.agents) if (o.mom === a.id && !o.leaving) { this.leave(o); o.tx = a.tx + (Math.random() - 0.5); o.ty = a.ty + (Math.random() - 0.5); }
     if (def.herd) { a.leaveWait = Math.random() * 6; a.pace = 0.75 + Math.random() * 0.5; } // a herd moves off in dribs and drabs
     if (a.move === 'fly') { a.flying = true; }
   }
@@ -753,6 +765,8 @@ export class Wildlife {
       else if (this.roam(a, def, a.trip)) return;
     }
     a.follow = false; a.wade = false;
+    // young stay close to their mother until they're old enough to go their own way
+    if (a.mom != null && !a.leaving && this.keepWithMom(a, def)) return;
     // just climbed out of the river: the herd heads inland to find grass
     if (a.landed) {
       a.landed = false;
@@ -922,6 +936,24 @@ export class Wildlife {
     let lead = a;
     for (const o of this.agents) if (o.sp === a.sp && o.id < lead.id && !o.leaving && Math.abs(o.x - a.x) + Math.abs(o.y - a.y) < 40) lead = o;
     return lead;
+  }
+
+  // Tag along a step behind mum, trotting to catch up when she moves off.
+  keepWithMom(a, def) {
+    const years = WITH_MOM[def.key];
+    if (!years || a.age > Math.min(years, def.mature || years) * DAYS_PER_YEAR) { a.mom = null; return false; }
+    const mom = this.agents.find(o => o.id === a.mom);
+    if (!mom) { a.mom = null; return false; } // on its own now
+    if (!a.momSlot) { const ang = Math.random() * Math.PI * 2, r = 0.45 + Math.random() * 0.4; a.momSlot = [Math.cos(ang) * r, Math.sin(ang) * r]; }
+    // head for where she's going, not where she was, so the young keep pace instead of trailing
+    const w = this.game.world, dest = mom.state === 'walk' && mom.path?.length ? mom.path[0] : -1;
+    const mx = dest >= 0 ? (dest % w.w) + 0.5 : mom.x, my = dest >= 0 ? ((dest / w.w) | 0) + 0.5 : mom.y;
+    const tx = mx + a.momSlot[0], ty = my + a.momSlot[1], d = Math.hypot(a.x - tx, a.y - ty);
+    a.trip = null;
+    const settle = () => { a.wait = dest >= 0 ? 0.15 : 0.2 + Math.random() * 0.6; if (mom.drinkT > 0) a.drinkT = mom.drinkT; return true; };
+    if (d < 0.9) return settle();
+    if (this.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 0.9, 700, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty))) { a.follow = true; return true; }
+    return d < 1.8 ? settle() : false; // already as close as the tiles allow
   }
 
   keepWithHerd(a, def) {

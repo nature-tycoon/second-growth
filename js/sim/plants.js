@@ -241,12 +241,13 @@ export function updatePlants(game) {
 
     // ---- features age and rot
     const f = w.feature[i];
-    if (f === F.SNAG || f === F.LOG || f === F.BRUSH || f === F.DAM) {
+    if (f === F.SNAG || f === F.LOG || f === F.BRUSH || f === F.DAM || f === F.STUMP) {
       w.featureAge[i] += 1;
       const ay = w.featureAge[i] / 120;
       if (f === F.SNAG && ay > 8 && rng() < 0.002) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
       else if (f === F.LOG) { w.soil[i] += 0.0004; if (ay > 25 && rng() < 0.002) { w.feature[i] = 0; w.featureAge[i] = 0; } }
       else if (f === F.BRUSH && ay > 6 && rng() < 0.003) { w.feature[i] = 0; w.soil[i] += 0.05; }
+      else if (f === F.STUMP && ay > 2 && rng() < 0.004) { w.feature[i] = 0; w.featureAge[i] = 0; w.soil[i] += 0.04; }
     }
 
     // ---- soil slowly heals under living cover, faster in the growing season

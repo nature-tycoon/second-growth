@@ -58,7 +58,7 @@ export function amazonChapters(h) {
       key: 'fire', title: 'The burning season', reward: 5000, events: true,
       story: 'From now on the dry season brings fire: lightning, careless visitors, and the neighbours burning their pastures. Grass burns hot and fast, and every fire that reaches young forest sets it back years. Closed forest barely burns at all.',
       teach: '<b>Clear vegetation</b> cuts firebreaks between grass and young trees, and a <b>controlled burn</b> in the wet season clears grass before planting. Send a <b>fire crew</b> the moment a wildfire reaches trees. Shade is the lasting cure: pasture grass dies under canopy.',
-      unlock: ['burn', 'clear', 'firecrew', 'raise', 'lower'],
+      unlock: ['burn', 'clear', 'clearcut', 'firecrew', 'raise', 'lower'],
       goals: [
         count('Cut 30 tiles of firebreak', g => used(g, 'clear'), 30, ' tiles'),
         count('Pull 300 tiles of pasture grass in all', g => used(g, 'pull'), 300, ' tiles'),

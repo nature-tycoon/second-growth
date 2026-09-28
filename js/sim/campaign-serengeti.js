@@ -36,7 +36,7 @@ export function serengetiChapters(h) {
       key: 'weed', title: 'The famine weed', reward: 2500,
       story: 'Parthenium, the "famine weed", has moved onto the bare ground. Cattle won\'t eat it, it poisons the soil for other plants, and it spreads fast. Pull it out and put native grass in its place before it comes back.',
       teach: '<b>Remove → Pull invasives</b> digs out famine weed (the brush glows pink over it). Then sow <b>Grassland recovery</b> where the soil has started to build. The <b>Groundcover</b> tab has single grasses too: red oat grass needs good soil, star grass is tougher.',
-      unlock: ['pull', 'clear', 'mix_regrass', ...layerTools('ground')],
+      unlock: ['pull', 'clear', 'clearcut', 'mix_regrass', ...layerTools('ground')],
       goals: [
         count('Pull 60 tiles of invasive plants', g => used(g, 'pull'), 60, ' tiles'),
         count('Sow 150 tiles of grassland recovery', g => used(g, 'mix_regrass'), 150, ' seeded'),

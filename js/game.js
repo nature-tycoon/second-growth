@@ -23,7 +23,7 @@ const saveKey = map => map === 'pnw' ? SAVE_KEY : `${SAVE_KEY}-${map}`;
 export const PENDING_KEY = 'second-growth-pending';
 
 const WORLD_ARRAYS = ['terrain', 'baseMoist', 'moist', 'soil', 'ground', 'groundG', 'shrub', 'shrubG',
-  'tree', 'treeG', 'treeAge', 'feature', 'featureAge', 'struct', 'variant', 'vh', 'flood', 'fire', 'scorch'];
+  'tree', 'treeG', 'treeAge', 'feature', 'featureAge', 'struct', 'variant', 'vh', 'flood', 'fire', 'scorch', 'rx'];
 
 export class Game {
   constructor() {
@@ -309,7 +309,7 @@ export class Game {
     this.map = biome.id;
     this.loaded = true;
     const w = new World();
-    for (const k of WORLD_ARRAYS) fromB64(data.world.arrays[k], w[k]);
+    for (const k of WORLD_ARRAYS) if (data.world.arrays[k]) fromB64(data.world.arrays[k], w[k]);
     w.structures = data.world.structures;
     this.seed = data.seed;
     this.world = w;

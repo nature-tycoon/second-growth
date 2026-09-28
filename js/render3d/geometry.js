@@ -661,6 +661,19 @@ export function log() {
   moss.rotateZ(Math.PI / 2); moss.rotateX(-Math.PI / 2); at(moss, -0.05, 0.14, 0);
   return merge([body, moss]);
 }
+// a cut stump: pale cut face with growth rings, a few roots flaring into the ground
+export function stump(seed) {
+  const r = mulberry32(seed);
+  const parts = [at(prep(new THREE.CylinderGeometry(0.1, 0.135, 0.17, 9), 0x7a5a3e), 0, 0.085, 0)];
+  parts.push(at(prep(new THREE.CylinderGeometry(0.097, 0.097, 0.012, 9), 0xcfae7c), 0, 0.172, 0));
+  parts.push(at(prep(new THREE.CylinderGeometry(0.055, 0.055, 0.014, 9), 0xb08d60), 0, 0.174, 0));
+  parts.push(at(prep(new THREE.CylinderGeometry(0.02, 0.02, 0.016, 6), 0x9a7650), 0, 0.176, 0));
+  for (let k = 0; k < 4; k++) {
+    const a = k * 1.57 + r() * 0.6, root = prep(new THREE.CylinderGeometry(0.018, 0.035, 0.16, 4), 0x6e5038);
+    root.rotateZ(Math.PI / 2 - 0.35); root.rotateY(a); at(root, Math.cos(a) * 0.12, 0.025, -Math.sin(a) * 0.12); parts.push(root);
+  }
+  return wobble(merge(parts), 0.006, seed);
+}
 export function rocks(seed) {
   const r = mulberry32(seed);
   const parts = [];

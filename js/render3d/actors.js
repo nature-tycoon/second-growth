@@ -164,8 +164,8 @@ export class Actors {
       const f = Math.floor(time * 8 + k) % 3;
       const tex = this.tex(S.flameSprite(f));
       if (s.material.map !== tex) { s.material.map = tex; s.material.needsUpdate = true; }
-      const fl = 0.5 + 0.15 * Math.sin(time * 11 + k);
-      s.scale.set(0.55, 0.8 * fl + 0.3, 1);
+      const fl = 0.5 + 0.15 * Math.sin(time * 11 + k), low = w.rx[i] === 2 ? 0.6 : 1; // a controlled burn stays low
+      s.scale.set(0.55 * (0.7 + 0.3 * low), (0.8 * fl + 0.3) * low, 1);
       s.position.set(x, w.heightAt(x, z) * LEVEL, z);
     });
     // smoke puffs

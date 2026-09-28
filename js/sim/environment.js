@@ -202,7 +202,7 @@ export function classifyAndResources(w, month) {
     ins += nectar * 0.5;
     if (t === T.MARSH || t === T.POND) ins += 0.45;
     else if (w.distWater[i] <= 1) ins += 0.2;
-    if (f === F.LOG || f === F.SNAG) ins += 0.2;
+    if (f === F.LOG || f === F.SNAG || f === F.STUMP) ins += 0.2;
     w.insects[i] = Math.min(1, ins * insectSeason);
   }
 

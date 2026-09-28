@@ -171,8 +171,9 @@ export class Events {
     let count = 0;
     const next = [];
     const raining = g.weather === 'rain' || g.weather === 'snow';
+    this.updateRx(raining);
     for (let i = 0; i < w.n; i++) {
-      if (!w.fire[i]) continue;
+      if (!w.fire[i] || w.rx[i] === 2) continue;
       if (raining) { w.fire[i] = 0; continue; }
       count++;
       w.fire[i]--;
@@ -225,7 +226,90 @@ export class Events {
     const w = this.game.world;
     if (!w.fire[i]) return false;
     w.fire[i] = 0;
+    if (w.rx[i]) w.rx[i] = 0;
     return true;
+  }
+
+  // ------------------------------------------------------------ controlled burns
+  // The player paints a burn unit and the crew lights it. The fire creeps through the unit from
+  // day to day, low and cool, and never leaves it: the crew holds the edges.
+  igniteRx(i) {
+    const w = this.game.world, rng = this.game.rng;
+    w.rx[i] = 2;
+    w.fire[i] = 1 + (rng() < 0.6 ? 1 : 0);
+    w.scorch[i] = 130;
+    this.rxBurning = (this.rxBurning || 0) + 1;
+    this.rxBurned = (this.rxBurned || 0) + 1;
+    this.burnUnderbrush(i);
+  }
+
+  // What a cool burn takes: underbrush, saplings, invasive grass, brush piles and some old logs.
+  // Native meadow plants are burned back and resprout; resprouting shrubs come back from the root;
+  // big trees are scorched but live. On healthy land the native seed bank comes up in the ash.
+  burnUnderbrush(i) {
+    const g = this.game, w = g.world, rng = g.rng;
+    const gi = w.ground[i];
+    if (gi) {
+      const bank = w.seedbank?.[i];
+      if (PLANTS[gi].invasive && bank && rng() < (w.bankStrength || 0) + 0.2) { w.ground[i] = bank; w.groundG[i] = 0.12; }
+      else if (PLANTS[gi].invasive) { w.ground[i] = 0; w.groundG[i] = 0; }
+      else w.groundG[i] = Math.min(w.groundG[i], 0.3);
+    }
+    const si = w.shrub[i];
+    if (si) {
+      if (PLANTS[si].resprout && !PLANTS[si].invasive && w.shrubG[i] > 0.3) w.shrubG[i] = 0.15;
+      else { w.shrub[i] = 0; w.shrubG[i] = 0; }
+    }
+    if (w.tree[i] && w.treeG[i] < 0.45) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+    const f = w.feature[i];
+    if (f === F.BRUSH || (f === F.LOG && rng() < 0.25) || (f === F.STUMP && rng() < 0.3)) w.feature[i] = 0;
+    w.soil[i] = Math.min(1, w.soil[i] + 0.02);
+    g.stats.burned = (g.stats.burned || 0) + 1;
+    // animals get out of the way of a slow, low fire
+    const x = i % w.w, y = (i / w.w) | 0;
+    for (const a of g.wildlife.agents) if (Math.floor(a.x) === x && Math.floor(a.y) === y && a.move !== 'fly' && a.move !== 'swim') { a.state = 'idle'; a.wait = 0; }
+  }
+
+  // Each day: burning tiles in the unit catch their unburned neighbours in it, then go out.
+  updateRx(raining) {
+    const g = this.game, w = g.world, rng = g.rng;
+    let burning = 0, waiting = 0, doused = 0, first = -1;
+    const next = [];
+    for (let i = 0; i < w.n; i++) {
+      const r = w.rx[i];
+      if (!r) continue;
+      if (r === 1) {
+        if (w.scorch[i] > 60 && !w.fire[i]) { w.rx[i] = 0; continue; } // a wildfire got here first
+        waiting++; if (first < 0) first = i;
+        continue;
+      }
+      if (raining) { w.fire[i] = 0; w.rx[i] = 0; doused++; continue; }
+      burning++;
+      if (w.fire[i]) w.fire[i]--;
+      if (!w.fire[i]) w.rx[i] = 0;
+      const x = i % w.w, y = (i / w.w) | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy || !w.inb(x + dx, y + dy)) continue;
+        const j = w.idx(x + dx, y + dy);
+        if (w.rx[j] === 1 && rng() < (dx && dy ? 0.35 : 0.6)) next.push(j);
+      }
+    }
+    for (const j of next) if (w.rx[j] === 1) this.igniteRx(j);
+    if (raining && (waiting || doused)) {
+      for (let i = 0; i < w.n; i++) w.rx[i] = 0;
+      if (this.rxBurned) g.notify(`Rain put out your controlled burn after ${this.rxBurned} tiles. Paint the rest again on a dry day.`, 'info');
+      this.rxBurning = 0; this.rxBurned = 0;
+      return;
+    }
+    // a patch the fire couldn't reach on its own gets lit by the crew
+    if (!next.length && !burning && waiting && first >= 0) this.igniteRx(first);
+    let still = 0; for (let i = 0; i < w.n; i++) if (w.rx[i]) still++;
+    this.rxBurning = still;
+    if (!still && this.rxBurned) {
+      g.notify(`The controlled burn is out: ${this.rxBurned} tiles of underbrush burned. The native plants will push up through the ash in a few weeks.`, 'good');
+      this.rxBurned = 0;
+      w.hydroDirty = true;
+    }
   }
 
   // ------------------------------------------------------------ flood
