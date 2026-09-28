@@ -97,7 +97,7 @@ function windy(mat, amount, wind, bothSidesLit = false) {
       #endif
       float wPh = uTime * 1.1 + wOrigin.x * 0.35 + wOrigin.z * 0.27;
       float wS = (sin(wPh) * 0.6 + sin(wPh * 2.3 + wOrigin.x) * 0.25 + 0.2) * uGust
-        + (uGust - 1.0) * 0.35 * sin(uTime * 3.1 + wOrigin.x * 0.9) * sin(uTime * 0.7 + wOrigin.z * 0.5); // gusts rolling through
+        + max(uGust - 1.0, 0.0) * 0.2 * sin(uTime * 2.2 + wOrigin.x * 0.9) * sin(uTime * 0.5 + wOrigin.z * 0.5); // gusts rolling through
       float wH = max(transformed.y, 0.0);
       transformed.x += wS * wH * wH * uWind;
       transformed.z += wS * 0.5 * wH * wH * uWind;`);

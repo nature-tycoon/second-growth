@@ -361,7 +361,7 @@ export class Renderer {
     sky.uCloudAmt.value += (amt - sky.uCloudAmt.value) * Math.min(1, dt * 1.5);
 
     if (this.windOn !== false) this.flora.wind.value = this.time; // otherwise plants hold still
-    const gustTo = wx === 'rain' ? 2.3 : wx === 'snow' ? 1.6 : wx === 'cloud' ? 1.35 : 0.9;
+    const gustTo = wx === 'rain' ? 1.5 : wx === 'snow' ? 1.2 : wx === 'cloud' ? 1.0 : 0.65;
     windGust.value += (gustTo - windGust.value) * Math.min(1, dt * 0.4);
     this.flora.setZoom(this.zoom);
     this.terrain.time.value = this.time;
@@ -527,8 +527,8 @@ export class Renderer {
     const tint = biome.look.tint[game.season];
     ctx.fillStyle = tint; ctx.fillRect(0, 0, this.vw, this.vh);
     if (biome.savanna && game.month >= 3 && game.month <= 7) {
-      const gr = ctx.createLinearGradient(0, 0, 0, this.vh * 0.7);
-      gr.addColorStop(0, 'rgba(236,212,170,0.13)'); gr.addColorStop(1, 'rgba(236,212,170,0)');
+      const gr = ctx.createLinearGradient(0, 0, 0, this.vh * 0.4);
+      gr.addColorStop(0, 'rgba(236,216,180,0.05)'); gr.addColorStop(1, 'rgba(236,216,180,0)');
       ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
     }
     // golden hour and dusk wash the whole view in their light, strongest toward the sky
@@ -536,7 +536,7 @@ export class Renderer {
     if (tod && tod.sunAmt > 0.04) {
       const c = tod.sunCol, rgb = `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`;
       const gr = ctx.createLinearGradient(0, 0, 0, this.vh);
-      gr.addColorStop(0, `rgba(${rgb},${(tod.sunAmt * 0.14).toFixed(3)})`); gr.addColorStop(1, `rgba(${rgb},${(tod.sunAmt * 0.03).toFixed(3)})`);
+      gr.addColorStop(0, `rgba(${rgb},${(tod.sunAmt * 0.08).toFixed(3)})`); gr.addColorStop(1, `rgba(${rgb},${(tod.sunAmt * 0.015).toFixed(3)})`);
       ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
     }
     const wp = this.weatherParticles, kind = game.weather;
@@ -579,9 +579,9 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     if (!w.inb(xi, yi)) continue;
     const i = w.idx(xi, yi), t = w.terrain[i], def = ANIMALS[a.sp];
     const wet = isWater(t);
-    if (wet && st.gait > 0.3 && Math.random() < dt * 5 * st.gait) fx.push({ k: 'wake', x: a.x, z: a.y, y: st.y, yaw: st.yaw, life: 1.6, max: 1.6, s: Math.max(0.6, (def.sprite.len || def.sprite.size || 10) / 30) });
+    if (wet && st.gait > 0.3 && Math.random() < dt * 1.8 * st.gait) fx.push({ k: 'wake', x: a.x, z: a.y, y: st.y, yaw: st.yaw, life: 1.3, max: 1.3, s: Math.max(0.5, (def.sprite.len || def.sprite.size || 10) / 38) });
     else if (!wet && def.move === 'ground' && (def.sprite.len || 0) >= 20 && st.gait > 0.5 && (DRY.has(t) || biome.savanna && game.season > 0) && !(w.ground[i] && w.groundG[i] > 0.7 && !biome.savanna)
-      && Math.random() < dt * 4 * st.gait) fx.push({ k: 'dust', x: a.x - Math.cos(st.yaw) * 0.25, z: a.y + Math.sin(st.yaw) * 0.25, y: st.y, life: 1.6, max: 1.6, s: (def.sprite.len || 20) / 36 });
+      && Math.random() < dt * 1.4 * st.gait) fx.push({ k: 'dust', x: a.x - Math.cos(st.yaw) * 0.25, z: a.y + Math.sin(st.yaw) * 0.25, y: st.y, life: 1.6, max: 1.6, s: (def.sprite.len || 20) / 36 });
     if (a.drinkT > 0 && !a.rippled && (wet || w.distWater[i] <= 1)) { a.rippled = true; fx.push({ k: 'ring', x: a.x + Math.cos(st.yaw) * 0.3, z: a.y - Math.sin(st.yaw) * 0.3, y: st.y, life: 1.8, max: 1.8, s: 1 }); }
     if (!(a.drinkT > 0)) a.rippled = false;
   }
@@ -593,10 +593,10 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     if (p.life <= 0) { fx.splice(k, 1); continue; }
     const f = 1 - p.life / p.max, sp = this.project(p.x, p.y + (p.k === 'dust' ? 0.05 + f * 0.25 : 0.02), p.z);
     if (p.k === 'dust') {
-      ctx.fillStyle = `rgba(206,184,146,${(0.32 * (1 - f)).toFixed(3)})`;
+      ctx.fillStyle = `rgba(206,184,146,${(0.18 * (1 - f)).toFixed(3)})`;
       ctx.beginPath(); ctx.ellipse(sp.x, sp.y, (5 + f * 16) * z * p.s, (3 + f * 9) * z * p.s, 0, 0, 7); ctx.fill();
     } else {
-      ctx.strokeStyle = `rgba(236,246,244,${(0.65 * (1 - f)).toFixed(3)})`; ctx.lineWidth = 1.3;
+      ctx.strokeStyle = `rgba(236,246,244,${((p.k === 'ring' ? 0.28 : 0.24) * (1 - f)).toFixed(3)})`; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.ellipse(sp.x, sp.y, (3 + f * (p.k === 'ring' ? 16 : 11)) * z * p.s, (1.6 + f * (p.k === 'ring' ? 8 : 5.5)) * z * p.s, 0, 0, 7); ctx.stroke();
     }
   }

@@ -167,11 +167,11 @@ function waterLook(mat, time, noise, rain, sky) {
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       {
         // drifting ripples: two layers of noise sliding past each other tilt the normal
-        vec2 r1 = vWXZ * 0.9 + vec2(uTime * 0.035, uTime * 0.021) + vFlow * uTime * 0.25;
-        vec2 r2 = vWXZ * 1.7 - vec2(uTime * 0.027, -uTime * 0.041) + vFlow * uTime * 0.4;
+        vec2 r1 = vWXZ * 0.9 + vec2(uTime * 0.016, uTime * 0.01) + vFlow * uTime * 0.12;
+        vec2 r2 = vWXZ * 1.7 - vec2(uTime * 0.012, -uTime * 0.018) + vFlow * uTime * 0.18;
         float n1 = texture2D(uNoiseW, r1).r, n2 = texture2D(uNoiseW, r2).r;
         float n1x = texture2D(uNoiseW, r1 + vec2(0.02, 0.0)).r, n1z = texture2D(uNoiseW, r1 + vec2(0.0, 0.02)).r;
-        vec3 tilt = vec3(n1x - n1 + (n2 - 0.5) * 0.05, 0.0, n1z - n1 - (n2 - 0.5) * 0.05) * 1.3;
+        vec3 tilt = vec3(n1x - n1 + (n2 - 0.5) * 0.05, 0.0, n1z - n1 - (n2 - 0.5) * 0.05) * 0.9;
         normal = normalize(normal + (viewMatrix * vec4(tilt, 0.0)).xyz);
       }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
@@ -184,13 +184,13 @@ function waterLook(mat, time, noise, rain, sky) {
         float fl = length(vFlow);
         if (fl > 0.01) {
           vec2 d = vFlow / fl, p = vec2(dot(vWXZ, d), dot(vWXZ, vec2(-d.y, d.x)));
-          float st = texture2D(uNoiseW, vec2(p.x * 0.18 - uTime * 0.05, p.y * 1.1)).r;
-          diffuseColor.rgb += vec3(0.05, 0.06, 0.06) * smoothstep(0.5, 0.85, st) * fl;
+          float st = texture2D(uNoiseW, vec2(p.x * 0.18 - uTime * 0.025, p.y * 1.1)).r;
+          diffuseColor.rgb += vec3(0.035, 0.04, 0.04) * smoothstep(0.5, 0.85, st) * fl;
         }
         // foam where the water laps the bank
         float edge = 1.0 - smoothstep(0.005, 0.06, vDepth);
-        float fn = texture2D(uNoiseW, vWXZ * 1.4 + vec2(uTime * 0.05, -uTime * 0.03)).r;
-        float foam = edge * smoothstep(0.35, 0.7, fn + 0.25 * sin(uTime * 1.3 + vWXZ.x * 3.0 + vWXZ.y * 2.0));
+        float fn = texture2D(uNoiseW, vWXZ * 1.4 + vec2(uTime * 0.012, -uTime * 0.008)).r;
+        float foam = edge * smoothstep(0.4, 0.72, fn + 0.1 * sin(uTime * 0.5 + vWXZ.x * 3.0 + vWXZ.y * 2.0));
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.86), foam * 0.4);
         diffuseColor.a = max(diffuseColor.a, foam * 0.45 * step(0.001, diffuseColor.a));
         // rain rings: expanding circles in a grid of cells, each on its own clock
@@ -200,7 +200,7 @@ function waterLook(mat, time, noise, rain, sky) {
           float ph = fract(uTime * 0.9 + h);
           vec2 o = (vec2(fract(h * 7.1), fract(h * 3.7)) - 0.5) * 0.5;
           float rr = length(cf - o), ring = smoothstep(0.035, 0.0, abs(rr - ph * 0.42)) * (1.0 - ph);
-          diffuseColor.rgb += vec3(0.25) * ring * uRain;
+          diffuseColor.rgb += vec3(0.12) * ring * uRain * step(0.45, h); // only some cells ring at a time
         }
       }`);
   };
