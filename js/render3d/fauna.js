@@ -286,6 +286,7 @@ function quadruped(m, s, o) {
   m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
   if (o.nose !== false) m.ell([sn[0] + o.snout * 1.22, sn[1] + hr[1] * 0.1, 0], [hr[1] * 0.2, hr[1] * 0.17, hr[1] * 0.22], '#1c1714', { ...hd, lo: true });
   eyes(m, hp, hr[0] * 0.42, hr[1] * 0.28, hr[2] * 0.78, Math.max(0.55, H * 0.045), P.HEAD, neck);
+  m.eyeAt = [hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.28, hr[2] * 0.78]; m.eyePivot = neck; // for eye-shine at night: forward, up, apart
   if (o.mask) m.ell([hp[0] + hr[0] * 0.4, hp[1] + hr[1] * 0.2, 0], [hr[0] * 0.35, hr[1] * 0.3, hr[2] * 1.02], s.dark, hd);
   const ec = o.earColor || shade(s.color, -0.1);
   for (const side of [1, -1]) {
@@ -1438,6 +1439,7 @@ function hippo(m, s) {
     m.ell([L * 0.47, by + H * 0.4, side * H * 0.22], [H * 0.1, H * 0.09, H * 0.09], face, hd);                // eye turrets
     m.ell([L * 0.5, by + H * 0.42, side * H * 0.27], [H * 0.055, H * 0.05, H * 0.035], pink, { ...hd, lo: true });
     m.ell([L * 0.51, by + H * 0.43, side * H * 0.29], [H * 0.03, H * 0.03, H * 0.02], '#140c0a', { ...hd, lo: true });
+    m.eyeAt = [L * 0.51, by + H * 0.43, H * 0.29]; m.eyePivot = neck;
     m.ell([L * 0.39, by + H * 0.48, side * H * 0.2], [H * 0.05, H * 0.08, H * 0.04], shade(s.color, -0.2), { ...hd, rot: [side * -0.4, 0, 0.3] }); // little ears
     m.ell([L * 0.72, by - H * 0.12, side * H * 0.34], [H * 0.035, H * 0.08, H * 0.03], '#f0e8d8', { ...hd, lo: true }); // a hint of tusk at the lip
   }
@@ -1568,6 +1570,7 @@ export function buildSpecies(def) {
     case 'fish': fish(m, s); mo.wave = s.size * 0.07; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.25; mo.waveLen = s.size * 0.9; mo.sink = s.size * 0.2; mo.tail = 0.5; break;
     default: m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
   }
+  mo.eye = m.eyeAt || null; mo.eyePivot = m.eyePivot || [0, 0, 0]; // where the eyes are, in model units (for eye-shine)
   return { geo: m.build(), motion: mo };
 }
 

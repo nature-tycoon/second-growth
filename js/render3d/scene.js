@@ -703,13 +703,25 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
       const def = ANIMALS[a.sp];
       if (def.move !== 'ground' || (def.sprite.len || 0) < 20 || hash2(a.id, 3, 9) > 0.55) continue;
       const st = this.actors.pose.get(a.id);
-      if (!st || st.x < bx0 || st.x > bx1 || st.z < bz0 || st.z > bz1) continue;
+      if (!st || !st.eye || st.graze > 0.3 || st.x < bx0 || st.x > bx1 || st.z < bz0 || st.z > bz1) continue; // not while head-down grazing
       if (Math.sin(t * 0.7 + a.id * 2.3) < -0.2 || (t * 3 + a.id) % 7 < 0.15) continue; // looks away now and then, and blinks
-      const fwd = (def.sprite.len || 30) / 30 * 0.32, hx = st.x + Math.cos(st.yaw) * fwd, hz = st.z - Math.sin(st.yaw) * fwd;
-      const p = this.project(hx, st.y + st.h * 0.64, hz), sep = 1.6 * Math.max(0.8, this.zoom);
+      // each eye where the model has it, with the head dipped and bobbing as the shader moves it
+      const [ex0, ey0, ez] = st.eye, [px, py] = st.eyePivot, dip = -st.graze * 0.9;
+      const ca = Math.cos(dip), sa = Math.sin(dip), qx = ex0 - px, qy = ey0 - py;
+      const ex = px + qx * ca - qy * sa, ey = py + qx * sa + qy * ca + st.bob;
+      const c = Math.cos(st.yaw), sn = Math.sin(st.yaw), s = st.sc;
+      // only animals facing the camera shine, and only from the eye on the near side of the head
+      const cx = this.camera.position.x - st.x, cz = this.camera.position.z - st.z, cl = Math.hypot(cx, cz) || 1;
+      const face = (c * cx - sn * cz) / cl, across = (sn * cx + c * cz) / cl;
+      if (face < 0.1) continue;
       const col = def.prey ? `rgba(210,255,120,${(0.9 * n).toFixed(3)})` : `rgba(255,236,170,${(0.75 * n).toFixed(3)})`;
       ctx.fillStyle = col;
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(p.x + s * sep, p.y, 1.2 * Math.max(0.8, this.zoom * 0.8), 0, 7); ctx.fill(); }
+      for (const side of [-1, 1]) {
+        if (side * across < -0.55) continue;
+        const lx = ex * s, lz = side * ez * s;
+        const p = this.project(st.x + c * lx + sn * lz, st.y + ey * s, st.z - sn * lx + c * lz);
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.min(1.9, 0.7 + this.zoom * 0.3), 0, 7); ctx.fill();
+      }
     }
   }
 };
