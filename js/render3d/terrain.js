@@ -117,7 +117,7 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
       diffuseColor.rgb *= 0.84 + 0.24 * gn1 + 0.12 * (gn2 - 0.5);
       // after rain the ground is darker and a little richer, drying out patchily
       float wetK = uWet * smoothstep(0.25, 0.75, gn2 + uWet * 0.5);
-      diffuseColor.rgb *= 1.0 - 0.22 * wetK;`).replace('#include <color_fragment>', `
+      diffuseColor.rgb *= 1.0 - 0.1 * wetK;`).replace('#include <color_fragment>', `
       // snow: soft noisy patches that grow with the snowpack, first on high open ground
       if (uSnow > 0.01) {
         float sn = uSnow * vSnowAff + (texture2D(uNoise, vWorldXZ * 0.09 + 0.61).r - 0.5) * 0.45;
@@ -241,7 +241,7 @@ function turfColor(p, month, season) {
   const phase = plantPhase(p, month);
   let base = mixRgb(hexRgb(biome.look.pasture[season]), hexRgb(p.look.leaf), 0.55);
   if (p.look.type === 'tallgrass' || p.look.type === 'grass') {
-    if (phase === 'late' || phase === 'fall') base = mixRgb(base, hexRgb(p.look.dry || '#c9b77e'), 0.45);
+    if (phase === 'late' || phase === 'fall') base = mixRgb(base, hexRgb(p.look.dry || '#c9b77e'), 0.3); // cured, but not orange
     if (phase === 'winter') base = mixRgb(base, [0.62, 0.58, 0.44], 0.4);
   }
   if (phase === 'spring') base = mixRgb(base, [0.72, 0.84, 0.48], 0.3);

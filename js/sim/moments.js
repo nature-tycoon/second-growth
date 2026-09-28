@@ -18,7 +18,7 @@ export const MOMENTS = {
   },
   howler: {
     title: 'Howlers in the canopy',
-    text: 'Howler monkeys have travelled in through the treetops without once touching the ground. The canopy you grew now joins the reserve to the ranch, and at dawn their roaring carries for kilometres.',
+    text: 'Howler monkeys have travelled in through the treetops without once touching the ground. The canopy you grew now joins the rainforest to the ranch, and at dawn their roaring carries for kilometres.',
   },
   crossing: {
     title: 'The great crossing',

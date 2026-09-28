@@ -1,7 +1,7 @@
 // Fazenda Esperança: a cattle ranch cut out of the rainforest in southern Pará about thirty
 // years ago. Signal-grass pasture from fence to fence, a trampled stream dammed into a cattle
-// pond, lone Brazil nut trees the law wouldn't let them cut, and a ragged scrap of the legal
-// forest reserve in the north-east corner, still touching the real rainforest beyond.
+// pond, and lone Brazil nut trees the law wouldn't let them cut. The rainforest itself only
+// begins beyond the north and east fences: none of it is left on the ranch.
 
 import { World, riverRow, generateHeights } from '../world.js';
 import { T, F } from '../config.js';
@@ -31,23 +31,6 @@ export function generateRanch(seed = 2024) {
     else if (y === rt - 1 && valueNoise(x, 1, 7, 9) > 0.5) w.terrain[i] = T.GRAVEL;   // sandbars
     else if (y >= rt - 5) { w.soil[i] = 0.3; w.baseMoist[i] += 0.1; }
   }
-
-  // The legal reserve: a degraded forest remnant in the north-east, ragged at its edge.
-  // (logged over and burned at the edges: mostly young pioneers, with a few old giants left)
-  const inReserve = (x, y) => x + (valueNoise(x, y, 9, 61) - 0.5) * 9 > 94 + y * 0.45 && y < 24 + (valueNoise(x, y, 8, 63) - 0.5) * 7;
-  rect(80, 0, W - 1, 32, (i, x, y) => {
-    if (!inReserve(x, y)) return;
-    w.terrain[i] = T.DUFF; w.soil[i] = 0.38 + rng() * 0.1; w.baseMoist[i] += 0.06;
-    const r = rng();
-    const tree = r < 0.4 ? 'cecropia' : r < 0.66 ? 'inga' : r < 0.72 ? 'fig' : r < 0.76 ? 'mahogany' : r < 0.79 ? 'brazilnut' : r < 0.81 ? 'kapok' : r < 0.84 ? 'ipe' : null;
-    const old = tree === 'fig' || tree === 'mahogany' || tree === 'brazilnut' || tree === 'kapok' || tree === 'ipe';
-    if (tree) set(i, tree, 0.7 + rng() * 0.3, old ? 40 + rng() * 60 : 5 + rng() * 8);
-    const s = rng();
-    if (s < 0.3) set(i, 'heliconia', 0.7 + rng() * 0.3);
-    else if (s < 0.5) set(i, 'piper', 0.7);
-    else if (s < 0.62) set(i, 'psychotria', 0.7);
-    if (rng() < 0.5) set(i, rng() < 0.5 ? 'adiantum' : 'calathea', 0.6 + rng() * 0.3);
-  });
 
   // Everything else was pasture: signal grass nearly everywhere, head-high guinea grass in places.
   for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
@@ -127,7 +110,7 @@ export function generateRanch(seed = 2024) {
   };
   fenceRect(4, 36, 44, 70, 0.1);
   fenceRect(62, 36, 114, 72, 0.12);
-  for (let y = 0; y <= 36; y++) fence(78, y, 0.08); // the line that was supposed to keep cattle out of the reserve
+  for (let y = 0; y <= 36; y++) fence(78, y, 0.08); // an old paddock line
 
   // Lone Brazil nut trees left standing in the pasture, and the burnt wreckage of the clearing.
   for (const [x, y] of [[40, 50], [66, 54], [82, 46], [12, 58], [96, 62], [60, 16], [28, 62], [110, 70]]) {

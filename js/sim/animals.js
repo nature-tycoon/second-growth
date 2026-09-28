@@ -502,12 +502,6 @@ export class Wildlife {
     // trodden ground: where the big grazers walk day after day, a trail wears into the land
     // (how worn each tile is, fading slowly when they stop coming; drawn by the terrain)
     const trod = w.trod || (w.trod = new Float32Array(w.n));
-    // the salmon run: if no bear has made it to the bank after a few days, the moment is the fish
-    const run = this.salmonRun;
-    if (run && !run.shown && game.day - run.from >= 4) {
-      const f = this.agents.find(o => ANIMALS[o.sp].special === 'salmon' && !o.leaving && w.inb(Math.floor(o.x), Math.floor(o.y)) && w.terrain[w.idx(Math.floor(o.x), Math.floor(o.y))] === T.CREEK);
-      if (f) run.shown = moment(game, 'salmon', f) || true;
-    }
     for (let i = 0; i < w.n; i++) if (trod[i] > 0) trod[i] = trod[i] < 0.01 ? 0 : trod[i] * 0.985;
     for (const a of this.agents.slice()) {
       if (a.leaving) continue;

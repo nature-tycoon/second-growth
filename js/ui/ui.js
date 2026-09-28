@@ -324,7 +324,10 @@ export class UI {
     setText($('#stat-date'), `${MONTH_NAMES[g.month]} ${g.dayOfMonth * 3 - 2}, Year ${g.year}`);
     const scene = g.weather + g.season;
     if (scene !== this.lastScene) { this.lastScene = scene; music.setScene(g.weather, g.season); }
-    const wIcon = { clear: 'sun', cloud: 'cloud', rain: 'rain', snow: 'snow' }[g.weather] || 'sun';
+    // the soundscape follows the land around the camera (about once a second)
+    const nowT = performance.now();
+    if (!this.landAt || nowT - this.landAt > 1000) { this.landAt = nowT; music.setLand(this.landSound()); }
+    const wIcon = g.weather === 'clear' && (this.renderer.night || 0) > 0.4 ? 'moon' : { clear: 'sun', cloud: 'cloud', rain: 'rain', snow: 'snow' }[g.weather] || 'sun';
     const we = $('#stat-weather');
     if (we.dataset.w !== wIcon) { we.innerHTML = ICONS[wIcon]; we.dataset.w = wIcon; }
     document.querySelectorAll('#speed button').forEach(b => b.classList.toggle('on', +b.dataset.speed === g.speed));
@@ -1251,6 +1254,26 @@ export class UI {
       track('photo_saved', { map: g.map, kind: 'moment', moment: m.key });
     });
     track('moment', { moment: m.key, map: g.map, game_year: g.year });
+  }
+
+  // What the land around the camera sounds like: how bare it is, how alive, how near water.
+  landSound() {
+    const g = this.game, w = g.world, r = this.renderer, st = w.stats || {};
+    const land = st.land || 1, c = st.counts || {};
+    const x0 = clamp(Math.floor(r.target.x), 0, w.w - 1), y0 = clamp(Math.floor(r.target.z), 0, w.h - 1);
+    let wet = 0, n = 0;
+    for (let dy = -12; dy <= 12; dy += 3) for (let dx = -12; dx <= 12; dx += 3) {
+      const x = x0 + dx, y = y0 + dy; if (!w.inb(x, y)) continue; n++;
+      const h = w.habitat[w.idx(x, y)]; if (h === H.MARSH || h === H.POND) wet++;
+    }
+    const u = r.todU ?? 0.35;
+    return {
+      map: g.map, bare: clamp(((c[H.BARE] || 0) + (c[H.FARM] || 0)) / land, 0, 1), health: clamp((g.cache.score?.total ?? 0) / 100, 0, 1),
+      species: speciesPresent(g), water: clamp(1 - w.distWater[w.idx(x0, y0)] / 10, 0, 1), wet: n ? wet / n : 0,
+      night: r.night || 0, dawn: r.dawn || 0, dusk: u > 0.8 && u < 0.89 ? 1 - Math.abs(u - 0.845) / 0.045 : 0,
+      dry: biome.savanna && g.month >= 3 && g.month <= 7,
+      present: ANIMALS.filter(d => g.wildlife.state[d.index].pop > 0).map(d => d.key),
+    };
   }
 
   postcardText(title) {

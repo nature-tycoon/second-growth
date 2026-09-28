@@ -30,6 +30,7 @@ export const ICONS = {
   house: svg('<path d="M3 15 L16 5 L29 15Z" fill="#6a5a4a"/><rect x="6" y="15" width="20" height="13" fill="#e8dcc6"/><rect x="9" y="18" width="5" height="4" fill="#9fc4d0"/><rect x="18" y="18" width="5" height="10" fill="#7a5a3a"/><rect x="21" y="6" width="3" height="6" fill="#8a6a50"/>'),
   silo: svg('<rect x="10" y="9" width="12" height="19" fill="#b8b4a8"/><path d="M10 9 Q16 2 22 9Z" fill="#8a8a8a"/><path d="M10 14 H22 M10 19 H22 M10 24 H22" stroke="#8a867a" stroke-width="1.2"/>'),
   center: svg('<path d="M3 15 L16 5 L29 15Z" fill="#4f6a3a"/><rect x="6" y="15" width="20" height="12" fill="#8a6444"/><rect x="9" y="18" width="9" height="5" fill="#9fc4d0"/><rect x="20" y="18" width="4" height="9" fill="#4a3020"/>'),
+  moon: svg('<path d="M20.5 5.5a10.5 10.5 0 1 0 6 14.6A9 9 0 0 1 20.5 5.5z" fill="#e8e2c4"/><circle cx="12" cy="10" r="1" fill="#f7f0d4"/><circle cx="7.5" cy="16" r="0.8" fill="#f7f0d4"/>'),
   sun: svg('<circle cx="16" cy="16" r="6" fill="#f2b632"/><g stroke="#f2b632" stroke-width="2.2" stroke-linecap="round"><path d="M16 3v4M16 25v4M3 16h4M25 16h4M6.8 6.8l2.8 2.8M22.4 22.4l2.8 2.8M6.8 25.2l2.8-2.8M22.4 9.6l2.8-2.8"/></g>'),
   cloud: svg('<path d="M9 24 a6 6 0 0 1 1-12 a8 8 0 0 1 15 3 a5 5 0 0 1-1 9Z" fill="#b8c0c8"/><circle cx="23" cy="9" r="4" fill="#f2b632"/>'),
   rain: svg('<path d="M8 19 a6 6 0 0 1 1-12 a8 8 0 0 1 15 3 a5 5 0 0 1-1 9Z" fill="#8f9aa6"/><g stroke="#4d8fc0" stroke-width="2" stroke-linecap="round"><path d="M10 23l-1.5 4M16 23l-1.5 4M22 23l-1.5 4"/></g>'),

@@ -24,12 +24,12 @@ export function amazonChapters(h) {
     {
       key: 'muvuca', title: 'Seeds of the forest', reward: 2500,
       story: 'In the Xingu, farmers bring pasture back to forest with muvuca: a sack of dozens of native seeds, fast pioneers and future giants together, broadcast in one go. Start next to the forest reserve, where seed-carrying animals already live.',
-      teach: 'Sow the <b>Muvuca seed mix</b> on pulled pasture beside the reserve in the north-east. <b>Pioneer trees</b> (cecropia, balsa and ingá) shade out the grass within a few years. The <b>Trees</b> tab lets you plant single species too.',
+      teach: 'Sow the <b>Muvuca seed mix</b> on pulled pasture along the north-east fences, next to the rainforest. <b>Pioneer trees</b> (cecropia, balsa and ingá) shade out the grass within a few years. The <b>Trees</b> tab lets you plant single species too.',
       unlock: ['mix_muvuca', 'mix_pioneers', 'mulch', ...layerTools('tree')],
       goals: [
         count('Sow 200 tiles of muvuca', g => used(g, 'mix_muvuca'), 200, ' seeded'),
         count('Plant 100 trees', g => g.stats.treesPlanted || 0, 100, ' trees'),
-        count('Grow the forest to 430 tiles', forest, 430, ' tiles'),
+        count('Grow the forest to 280 tiles', forest, 280, ' tiles'),
       ],
     },
     {
@@ -68,11 +68,11 @@ export function amazonChapters(h) {
     {
       key: 'canopy', title: 'Canopy bridge', reward: 5000,
       story: 'Howler monkeys and sloths almost never come down to the ground. They will only reach the ranch through the treetops, so the new forest has to join up with the reserve and the rainforest beyond, without gaps.',
-      teach: 'Grow forest outward from the reserve in one unbroken sweep. Sow <b>Canopy giants</b> (Brazil nut, kapok, mahogany, ipê) behind the pioneers. The <b>Overlay → Species</b> view for howler monkeys shows where the canopy already connects.',
+      teach: 'Grow forest out to the rainforest beyond the fences in one unbroken sweep. Sow <b>Canopy giants</b> (Brazil nut, kapok, mahogany, ipê) behind the pioneers. The <b>Overlay → Species</b> view for howler monkeys shows where the canopy already connects.',
       unlock: ['mix_canopy'],
       goals: [
         flag('Howler monkeys move in through the treetops', g => pop(g, 'howler') > 0, 'They\'re here', 'Not yet'),
-        count('Grow the forest to 800 tiles', forest, 800, ' tiles'),
+        count('Grow the forest to 650 tiles', forest, 650, ' tiles'),
         count('Have 16 animal species living here', g => speciesPresent(g), 16, ' species'),
       ],
     },
@@ -95,7 +95,7 @@ export function amazonChapters(h) {
       goals: [
         flag('A jaguar takes up residence', g => pop(g, 'jaguar') > 0, 'The jaguar is back', 'Needs a big forest with prey'),
         count('Have 20 animal species living here', g => speciesPresent(g), 20, ' species'),
-        count('Reach an ecosystem health score of 55', score, 55),
+        count('Reach an ecosystem health score of 50', score, 50),
       ],
     },
   ];

@@ -58,7 +58,8 @@ export class Music {
     this.noise = this.makeNoise(2);
     this.startNature();
     this.applyVolumes();
-    this.timer = setInterval(() => { if (this.natureOn && !this.muted && this.ctx.state === 'running' && Math.random() < 0.012) this.maybeBird(); }, 25);
+    this.timer = setInterval(() => { if (this.natureOn && !this.muted && this.ctx.state === 'running' && Math.random() < 0.012 * this.birdLife()) this.maybeBird(); }, 25);
+    this.callTimer = setInterval(() => { if (this.natureOn && !this.muted && this.ctx.state === 'running') this.calls(0.25); }, 250);
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
       if (document.hidden) { this.ctx.suspend(); this.decks.forEach(d => d.el.pause()); }
@@ -155,6 +156,111 @@ export class Music {
     lfo.connect(la).connect(cg.gain); lfo.start();
     creek.connect(cf).connect(cg).connect(this.natureGain);
     creek.start();
+    this.creekGain = cg;
+    // wind over open ground: a low, gusting rush that fades as the land fills in
+    const wind = ctx.createBufferSource(); wind.buffer = this.noise; wind.loop = true; wind.playbackRate.value = 0.45;
+    const wf = ctx.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 420; wf.Q.value = 0.5;
+    this.windGain = ctx.createGain(); this.windGain.gain.value = 0;
+    const gust = ctx.createOscillator(), ga = ctx.createGain(); gust.frequency.value = 0.07; ga.gain.value = 0.35;
+    const windAmp = ctx.createGain(); windAmp.gain.value = 0.65;
+    gust.connect(ga).connect(windAmp.gain); gust.start();
+    wind.connect(wf).connect(windAmp).connect(this.windGain).connect(this.natureGain);
+    wind.start();
+    // insects: a thin, shimmering buzz (the Amazon's constant hum, Serengeti cicadas)
+    const bug = ctx.createBufferSource(); bug.buffer = this.noise; bug.loop = true; bug.playbackRate.value = 1.3;
+    const bf = ctx.createBiquadFilter(); bf.type = 'bandpass'; bf.frequency.value = 5600; bf.Q.value = 9;
+    this.bugGain = ctx.createGain(); this.bugGain.gain.value = 0;
+    const trem = ctx.createOscillator(), ta = ctx.createGain(), bugAmp = ctx.createGain(); trem.frequency.value = 23; ta.gain.value = 0.4; bugAmp.gain.value = 0.6;
+    trem.connect(ta).connect(bugAmp.gain); trem.start();
+    bug.connect(bf).connect(bugAmp).connect(this.bugGain).connect(this.natureGain);
+    bug.start();
+  }
+
+  // ------------------------------------------------------------ the living landscape
+  // The game describes the land around the camera every second or so: how bare it is, how many
+  // species live here, how close the water is, and whether it's dusk, night or dawn. Bare,
+  // wind-scoured ground gives way to birdsong, frogs, insects and each map's own night calls.
+  setLand(L) {
+    this.land = L;
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, wet = this.weather === 'rain';
+    this.windGain.gain.setTargetAtTime((0.018 + 0.09 * L.bare) * (wet ? 1.3 : 1) * (1 - 0.45 * L.health), t, 3);
+    this.creekGain.gain.setTargetAtTime(0.006 + 0.05 * L.water, t, 1.5);
+    const bugs = L.map === 'amazon' ? 0.006 + 0.01 * L.health + 0.012 * L.night
+      : L.map === 'serengeti' ? (L.dry ? 0.01 * (1 - L.night) * (0.4 + L.health) : 0.002) : 0;
+    this.bugGain.gain.setTargetAtTime(wet ? bugs * 0.2 : bugs, t, 3);
+  }
+  // how lively the birdsong is: more species and healthier land, a dawn chorus, quiet at night
+  birdLife() {
+    const L = this.land;
+    if (!L) return 1;
+    return Math.min(1.6, Math.max(0.12, 0.2 + L.species / 18 + L.health * 0.4)) * (1 - L.night * 0.9) * (1 + L.dawn * 1.8);
+  }
+  // Occasional calls, each only if the animal lives here: frogs at dusk by the wetlands, owls on
+  // Hollis nights, howler monkeys roaring at an Amazon dawn, hyenas whooping and lions roaring on
+  // the Serengeti after dark, crickets on summer nights.
+  calls(dt) {
+    const L = this.land;
+    if (!L || this.weather === 'snow') return;
+    const r = p => Math.random() < p * dt, has = k => L.present.includes(k);
+    const dusk = Math.max(L.night, L.dusk);
+    if (L.wet > 0.05 && r(dusk * L.wet * 1.4)) this.frog();
+    if (L.map === 'pnw' && (this.season === 1 || this.season === 2) && r(L.night * 0.8)) this.cricket();
+    if (L.map === 'pnw' && has('owl') && r(L.night * 0.05)) this.owl();
+    if (L.map === 'amazon' && has('howler') && r(L.dawn * 0.09 + L.dusk * 0.02)) this.howler();
+    if (L.map === 'serengeti' && has('hyena') && r(L.night * 0.035)) this.hyena();
+    if (L.map === 'serengeti' && has('lion') && r(dusk * 0.012)) this.lion();
+    if (L.map === 'serengeti' && r((1 - L.night) * 0.02 * (0.3 + L.health))) this.dove();
+  }
+  voice(pan = Math.random() * 1.4 - 0.7, far = 0.5) {
+    const ctx = this.ctx, p = ctx.createStereoPanner ? ctx.createStereoPanner() : null, lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 2400 - far * 1600; // distant calls lose their edge
+    if (p) { p.pan.value = pan; lp.connect(p).connect(this.natureGain); } else lp.connect(this.natureGain);
+    return lp;
+  }
+  tone(dest, type, f0, f1, t, dur, peak) {
+    const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + dur * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(dest); o.start(t); o.stop(t + dur + 0.05);
+  }
+  frog() { // a chorus frog's rising "krek-ek"
+    const d = this.voice(undefined, 0.3), t = this.ctx.currentTime + 0.02, f = 600 + Math.random() * 400;
+    for (let k = 0; k < 2 + (Math.random() < 0.5 ? 1 : 0); k++) this.tone(d, 'square', f, f * 1.3, t + k * 0.13, 0.08, 0.012);
+  }
+  cricket() {
+    const d = this.voice(undefined, 0.2), t = this.ctx.currentTime + 0.02;
+    for (let k = 0; k < 3; k++) this.tone(d, 'sine', 4300, 4200, t + k * 0.05, 0.035, 0.006);
+  }
+  owl() { // great horned owl: "hoo, hoo-hoo, hoo"
+    const d = this.voice(undefined, 0.6), t = this.ctx.currentTime + 0.05;
+    [[0, 0.32], [0.55, 0.16], [0.75, 0.16], [1.05, 0.4]].forEach(([at, len]) => this.tone(d, 'sine', 360, 330, t + at, len, 0.03));
+  }
+  dove() { // ring-necked dove: "work HARD-er"
+    const d = this.voice(undefined, 0.5), t = this.ctx.currentTime + 0.05;
+    [[0, 0.22, 560], [0.3, 0.34, 640], [0.72, 0.24, 540]].forEach(([at, len, f]) => this.tone(d, 'sine', f, f * 0.92, t + at, len, 0.014));
+  }
+  hyena() { // the spotted hyena's rising "whoo-oop", two or three times
+    const d = this.voice(undefined, 0.7), t = this.ctx.currentTime + 0.05;
+    for (let k = 0, n = 2 + (Math.random() < 0.5 ? 1 : 0); k < n; k++) this.tone(d, 'sine', 260, 900, t + k * 1.6, 1.1, 0.035);
+  }
+  roar(d, t, f0, f1, dur, peak) { // a throaty roar: a low buzzing tone with breath noise, swelling and fading
+    const ctx = this.ctx, o = ctx.createOscillator(), n = ctx.createBufferSource(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    n.buffer = this.noise; lp.type = 'lowpass'; lp.frequency.value = 520;
+    const ng = ctx.createGain(); ng.gain.value = 0.5;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(lp); n.connect(ng).connect(lp); lp.connect(g).connect(d);
+    o.start(t); n.start(t); o.stop(t + dur + 0.05); n.stop(t + dur + 0.05);
+  }
+  lion() { // one long roar, then a run of grunts that slow and fade
+    const d = this.voice(undefined, 0.75), t = this.ctx.currentTime + 0.05;
+    this.roar(d, t, 110, 70, 1.8, 0.06);
+    for (let k = 0; k < 6; k++) this.roar(d, t + 2.2 + k * (0.55 + k * 0.08), 90, 70, 0.4, 0.035 * (1 - k * 0.12));
+  }
+  howler() { // howler monkeys: a rolling, rising-and-falling roar from the canopy
+    const d = this.voice(undefined, 0.8), t = this.ctx.currentTime + 0.05;
+    for (let k = 0; k < 4; k++) this.roar(d, t + k * 0.9, 140 + Math.random() * 40, 95, 1.1, 0.045);
   }
   // A songbird phrase now and then: more in spring and summer, none in the rain.
   maybeBird() {

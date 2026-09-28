@@ -79,23 +79,23 @@ export default {
     crownOut: 'Fireweed, lupine and grasses will turn the burn into meadow for years before trees return, and woodpeckers love the snags.',
   },
   look: {
-    // colour grade: cool and a little misty
-    grade: { gain: [0.97, 1.0, 1.035], lift: [0.008, 0.012, 0.018], sat: 0.95, contrast: 1.0 },
+    // colour grade: fresh and a touch cool, crisp rather than misty
+    grade: { gain: [0.985, 1.0, 1.02], lift: [0.003, 0.005, 0.008], sat: 1.03, contrast: 1.05 },
     pasture: ['#a2b56a', '#abb26c', '#a9a46c', '#8c976a'],
     soil: [0.8, 0.66, 0.5], mud: [0.62, 0.54, 0.42],
     water: { pond: [0.3, 0.56, 0.66, 0.82], creek: [0.38, 0.63, 0.7, 0.78], river: [0.28, 0.52, 0.63, 0.86], marsh: [0.46, 0.62, 0.52, 0.55] },
     light: [
       { sun: 0xfff3dc, sunI: 2.5, sky: 0xe4eeff, ground: 0x5f6e3c, hemiI: 1.25 },
       { sun: 0xffeccc, sunI: 2.8, sky: 0xf0f0ff, ground: 0x6e6a3c, hemiI: 1.3 },
-      { sun: 0xffd9a8, sunI: 2.3, sky: 0xf4e4d0, ground: 0x6a5a38, hemiI: 1.2 },
-      { sun: 0xdfe8ff, sunI: 1.7, sky: 0xd2dcec, ground: 0x4a5048, hemiI: 1.15 },
+      { sun: 0xffe6c4, sunI: 2.5, sky: 0xeee8e0, ground: 0x6a5e3c, hemiI: 1.2 },
+      { sun: 0xeaf0ff, sunI: 2.25, sky: 0xdde5f0, ground: 0x565e4c, hemiI: 1.25 },
     ],
     // falling leaves, seed fluff and mist (0..1 per season), and the flocks that pass over
     ambience: {
-      leaves: [0, 0.05, 1, 0.08], fluff: [0.55, 1, 0.3, 0], mist: [0.45, 0.05, 0.75, 0.9],
+      leaves: [0, 0.05, 1, 0.08], fluff: [0.55, 1, 0.3, 0], mist: [0.3, 0, 0.45, 0.55],
       leafColors: ['#d89a2a', '#c8602a', '#e0b83a', '#a8482a', '#b8903a'],
       flocks: [['geese', 'geese', 'songbirds', 'swallows'], ['swallows', 'songbirds'], ['geese', 'geese', 'songbirds'], ['geese', 'songbirds']],
     },
-    tint: ['rgba(255,250,230,0)', 'rgba(255,215,140,0.05)', 'rgba(255,160,80,0.06)', 'rgba(140,165,200,0.1)'],
+    tint: ['rgba(255,250,230,0)', 'rgba(255,225,160,0.025)', 'rgba(255,190,120,0.03)', 'rgba(150,175,205,0.05)'],
   },
 };

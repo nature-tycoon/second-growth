@@ -31,7 +31,7 @@ const GOALS = [
     desc: 'Get through a whole burning season (July to October) without a fire on the ranch. Firebreaks, fire crews and closed canopy all help.',
     check: g => g.year >= 2 && g.month === 8 && g.day - g.events.lastFire > 150, prog: g => g.day - g.events.lastFire > 150 ? 'No fire yet this season' : 'A fire burned recently' },
   { key: 'canopy', name: 'Canopy bridge', reward: 4000,
-    desc: 'Howler monkeys move in. They only travel through the treetops, so the forest has to be connected to the reserve and the rainforest edge.',
+    desc: 'Howler monkeys move in. They only travel through the treetops, so the forest has to grow out and join the rainforest beyond the fences.',
     check: g => pop(g, 'howler') > 0, prog: g => `${pop(g, 'howler')} howlers here` },
   { key: 'species12', name: 'Welcome back', reward: 2000,
     desc: 'Have 12 animal species living on the ranch at the same time.',
@@ -82,23 +82,23 @@ export default {
   generate: generateRanch,
   borderCell: amazonBorderCell,
   startWildlife: [['capybara', 4, 54, 41, 3], ['armadillo', 2, 22, 50, 6], ['caiman', 1, 54, 40, 2], ['piranha', 6, 60, 86, 6],
-    ['anteater', 1, 76, 30, 4], ['agouti', 2, 102, 12, 5], ['toucan', 2, 100, 10, 5], ['hermit', 2, 96, 16, 4]],
+    ['anteater', 1, 76, 30, 4]], // the forest birds and agoutis come back from the rainforest once there's forest for them
   startText: 'The rains are ending, Year 1. Capybaras graze the cattle pond and an anteater works the pasture edge. The rainforest is right there to the north and east, waiting to come back.',
-  story: `<p><b>Your family bought Fazenda Esperança</b>, a cattle ranch in southern Pará that was cleared from the rainforest about thirty years ago. Now it is signal grass from fence to fence, burned every dry season. A thin scrap of the legal forest reserve still clings to the north-east corner, touching the real rainforest beyond. Your job is to let the forest back in.</p>`,
+  story: `<p><b>Your family bought Fazenda Esperança</b>, a cattle ranch in southern Pará that was cleared from the rainforest about thirty years ago. Now it is signal grass from fence to fence, burned every dry season. The rainforest begins right at the north and east fences, but not one patch of it is left on the ranch. Your job is to let the forest back in.</p>`,
   rules: [
     'You don\'t buy animals or upgrades. <b>You build habitat</b>, and wildlife follows its own rules: it wanders in from the rainforest, the river and the neighbouring ranches when there\'s room, raises young, hunts, and moves on when there isn\'t enough.',
     '<b>The grass is the enemy.</b> African pasture grass (braquiária and colonião) smothers tree seedlings and fuels fires, but it dies in shade. Get fast pioneer trees up and it fades.',
     '<b>Forest comes back fast here.</b> Cecropia, balsa and ingá shade a pasture within a few years. Sow the <b>muvuca</b> seed mix to plant pioneers and future giants together.',
     '<b>Fire is the big threat.</b> From July to October the grass cures to tinder and neighbours burn their pastures. Trails and bare ground stop fires; fire crews put them out.',
-    '<b>Connect the canopy.</b> Monkeys and sloths never touch the ground. Grow forest that links to the reserve and the rainforest edge, and they will move in through the treetops.',
+    '<b>Connect the canopy.</b> Monkeys and sloths never touch the ground. Grow forest that links up with the rainforest beyond the north and east fences, and they will move in through the treetops.',
     '<b>Animals plant the forest.</b> Toucans, monkeys and tapirs spread fruit seeds; agoutis are the only animals that plant Brazil nuts.',
     '<b>High water</b> floods the river flats from January to April. Clean, connected water brings caiman, giant otters and pink river dolphins.',
     '<b>Money is tight.</b> Grants grow with forest health, and eco-tourists on your trails pay their way, but crowds push shy wildlife away.',
   ],
   firstYear: [
     'Demolish the <b>culvert</b> where the lower ranch road crosses the igarapé, then plant <b>floodplain palms</b> and <b>pioneer trees</b> along its banks.',
-    'Sow <b>muvuca</b> on the pasture next to the forest reserve, so the forest grows out from its edge.',
-    'Pull out the <b>reserve fence</b> and the east boundary fences so tapirs and peccaries can wander in.',
+    'Sow <b>muvuca</b> on the pasture along the north-east fences, where the rainforest\'s seed-carrying animals can reach it.',
+    'Pull out the <b>north and east boundary fences</b> so tapirs and peccaries can wander in from the rainforest.',
     'Before the burning season (September), cut a <b>trail</b> between the pasture and your young trees as a firebreak.',
   ],
   toolText: {
@@ -153,8 +153,8 @@ export default {
   },
   look: {
     // colour grade: humid, deep and green
-    grade: { gain: [0.96, 0.98, 0.95], lift: [0.0, 0.008, 0.006], sat: 0.97, contrast: 1.04 },
-    pasture: ['#9cb85a', '#abb262', '#bcae66', '#98b65c'],
+    grade: { gain: [0.98, 1.0, 0.97], lift: [0.002, 0.005, 0.004], sat: 1.02, contrast: 1.06 },
+    pasture: ['#98b062', '#a8b066', '#b2ac6c', '#96b062'], // lush, not lime; dry, not orange
     soil: [0.74, 0.5, 0.38], mud: [0.58, 0.42, 0.32],
     // southern Pará's rivers (Xingu, Tapajós) run clear and green; the cattle pond is murkier
     water: { pond: [0.4, 0.46, 0.34, 0.86], creek: [0.32, 0.5, 0.44, 0.8], river: [0.26, 0.46, 0.42, 0.88], marsh: [0.44, 0.54, 0.4, 0.55] },
@@ -171,6 +171,6 @@ export default {
       flocks: [['egrets', 'parrots', 'macaws'], ['parrots', 'macaws'], ['macaws', 'parrots'], ['parrots', 'egrets', 'macaws']],
     },
     // the burning season hangs a smoky haze over everything
-    tint: ['rgba(255,250,230,0)', 'rgba(255,230,160,0.04)', 'rgba(220,150,100,0.1)', 'rgba(150,180,190,0.06)'],
+    tint: ['rgba(255,250,230,0)', 'rgba(255,235,180,0.02)', 'rgba(225,175,125,0.04)', 'rgba(160,185,195,0.03)'],
   },
 };

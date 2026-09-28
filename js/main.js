@@ -20,7 +20,7 @@ const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => setTi
 async function boot() {
   try {
     await nextPaint();
-    stage('Preparing the valley', 22);
+    stage('Preparing the land', 22);
     await nextPaint();
 
     // a map switch reloads the page (see UI.switchMap); otherwise open on the last map played
@@ -67,7 +67,7 @@ async function boot() {
     requestAnimationFrame(now => {
       try {
         frame(now);
-        stage('The valley is ready', 100);
+        stage('Ready', 100);
         requestAnimationFrame(() => {
           loading.classList.add('done');
           loading.addEventListener('transitionend', () => loading.remove(), { once: true });
@@ -86,7 +86,7 @@ async function boot() {
 
 function showLoadError(error) {
   console.error('Second Growth could not start:', error);
-  stage('The valley could not load', 100);
+  stage('The game could not load', 100);
   document.getElementById('loading-tip').textContent = 'Something went wrong while opening the farm. Reloading usually fixes it.';
   loadingRetry.classList.remove('hidden');
   loadingRetry.addEventListener('click', () => location.reload(), { once: true });

@@ -37,7 +37,7 @@ export default function buildAmazonAnimals(def) {
       speed: 1.6, hr: 400, max: 2, minK: 1, sources: ['N', 'E'], mig: 0.15, breed: [2], litter: [1, 2], life: 14, mature: 3,
       prey: ['capybara', 'peccary', 'caiman', 'tapir', 'agouti'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 3, 0.2),
-      req: g => Math.min(1, g.forestTiles / 1500), // far more forest than the old reserve
+      req: g => Math.min(1, g.forestTiles / 1500), // a big, grown forest
       sprite: { kind: 'feline', len: 44, h: 17, leg: 14, color: '#d8a040', belly: '#f0e0c0', dark: '#2a2018', longtail: true, rosettes: true, stocky: true },
       desc: "The Americas' greatest cat. It swims rivers, hunts caiman and capybara, and needs a huge, connected forest.",
       hint: 'Lots of connected forest, with capybara, peccaries or caiman to hunt.' });
@@ -93,7 +93,7 @@ export default function buildAmazonAnimals(def) {
     def({ key: 'howler', name: 'Red-handed howler monkey', sci: 'Alouatta belzebul', group: 'Mammals', move: 'tree',
       speed: 0.7, hr: 25, max: 20, minK: 3, groupSize: [4, 8], sources: ['N', 'E'], mig: 0.3, breed: [4, 5, 6], litter: [1, 1], life: 18, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i) * fruit(W, i),
-      req: g => Math.max(0, Math.min(1, (g.forestTiles - 450) / 300)), // forest grown beyond the old reserve
+      req: g => Math.max(0, Math.min(1, (g.forestTiles - 450) / 300)), // a good stretch of grown forest
       sprite: { kind: 'monkey', len: 16, color: '#3a1e12', belly: '#2a160c', hands: '#b8501e' },
       desc: 'Its dawn roar carries for kilometres. Howlers only travel through the treetops, so they need an unbroken canopy.',
       hint: 'Connected canopy leading in from the rainforest edge.' });

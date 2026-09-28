@@ -36,20 +36,20 @@ function installGrade(grade = {}) {
 }
 
 // Time of day, on its own slow clock (real minutes, not game days): a long day, a warm golden
-// hour with long shadows, a short blue dusk, and a rosy dawn back into day. It never gets
+// hour with long shadows, a brief moonlit night (about 15 seconds), and a rosy dawn back into day. It never gets
 // properly dark, so the land stays readable. Each key: [position in the cycle, sun strength,
 // sun colour, how much of it, sky colour, how much of it, sun elevation in degrees, sweep].
-const DAY_CYCLE = 420;
+const DAY_CYCLE = 360;
 const TOD = [
-  [0.0, 0.62, 0xffb89a, 0.55, 0xf0c8c0, 0.18, 12, -0.9],   // dawn
-  [0.08, 0.9, 0xffe0b8, 0.25, 0xf4e4d4, 0.08, 30, -0.6],
-  [0.18, 1, 0xffffff, 0, 0xffffff, 0, 52, -0.25],           // day
-  [0.6, 1, 0xffffff, 0, 0xffffff, 0, 54, 0.3],
-  [0.72, 0.95, 0xffb060, 0.6, 0xffd8a8, 0.18, 20, 0.75],   // golden hour
-  [0.8, 0.7, 0xff8a50, 0.7, 0xe8b0a0, 0.25, 9, 0.95],      // sunset
-  [0.87, 0.48, 0x8a98e8, 0.65, 0x8a9ae0, 0.35, 6, 1.0],    // blue dusk
-  [0.94, 0.5, 0xa0a8f0, 0.5, 0xb0a8e0, 0.3, 7, -1.0],      // before dawn
-  [1.0, 0.62, 0xffb89a, 0.55, 0xf0c8c0, 0.18, 12, -0.9],
+  [0.0, 0.66, 0xffb89a, 0.5, 0xf0c8c0, 0.16, 12, -0.9],    // dawn
+  [0.05, 0.9, 0xffe0b8, 0.25, 0xf4e4d4, 0.08, 30, -0.6],
+  [0.12, 1, 0xffffff, 0, 0xffffff, 0, 52, -0.25],           // day
+  [0.7, 1, 0xffffff, 0, 0xffffff, 0, 54, 0.3],
+  [0.79, 0.95, 0xffb870, 0.45, 0xffdcb0, 0.14, 20, 0.75],  // golden hour
+  [0.855, 0.74, 0xffa870, 0.4, 0xe8c4b8, 0.18, 9, 0.95],   // sunset (warm, not muddy)
+  [0.895, 0.4, 0x7a8ae8, 0.7, 0x7a8ad8, 0.42, 6, 1.0],     // night (moonlit): about 15 seconds
+  [0.935, 0.42, 0x94a0f0, 0.55, 0xa0a0e0, 0.36, 7, -1.0],  // before dawn
+  [1.0, 0.66, 0xffb89a, 0.5, 0xf0c8c0, 0.16, 12, -0.9],
 ];
 const todCol = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
 function timeOfDay(u) {
@@ -106,7 +106,7 @@ export class Renderer {
     this.particles = []; this.weatherParticles = [];
     this.ambience = new Ambience();
     this.lightTarget = { sun: new THREE.Color(), sky: new THREE.Color(), ground: new THREE.Color() };
-    this.todStart = DAY_CYCLE * 0.22; // start the session in late morning
+    this.todStart = DAY_CYCLE * 0.45; // start in the afternoon, so the first evening comes after a couple of minutes
     this.v3 = new THREE.Vector3();
     this.resize();
   }
@@ -347,20 +347,26 @@ export class Renderer {
     // light follows the seasons and weather, easing between them instead of snapping; on cloudy
     // days drifting cloud shadows (atmosphere.js) do much of the dimming, patch by patch
     const L = biome.look.light[game.season], wx = game.weather;
-    const gloom = wx === 'rain' || wx === 'snow' ? 0.55 : wx === 'cloud' ? 0.88 : 1;
+    // overcast, not murky: rain dims the sun but the soft sky light fills in the shadows
+    const gloom = wx === 'rain' ? 0.86 : wx === 'snow' ? 0.8 : wx === 'cloud' ? 0.95 : 1;
     // clear weather is mostly truly cloudless; now and then (a few days at a time) a scatter of
     // fair-weather clouds drifts over instead
     const fair = wx === 'clear' && hash2(Math.floor(game.day / 5), 101, 17) < 0.3;
-    const cover = wx === 'rain' || wx === 'snow' ? 0.85 : wx === 'cloud' ? 0.62 : fair ? 0.16 : 0;
+    const cover = wx === 'rain' || wx === 'snow' ? 0.68 : wx === 'cloud' ? 0.55 : fair ? 0.16 : 0;
     const T = this.lightTarget, first = !this.lightReady, k = first ? 1 : Math.min(1, dt * 0.7);
     T.sun.setHex(L.sun); T.sky.setHex(L.sky); T.ground.setHex(L.ground);
     // time of day warms and dims the light and swings the sun round (shadows lengthen at dusk)
-    const tod = timeOfDay(this.dayCycleOn === false ? 0.35 : ((this.time + (this.todStart ?? 0)) / DAY_CYCLE) % 1);
-    this.tod = tod;
+    const todU = this.dayCycleOn === false ? 0.35 : ((this.time + (this.todStart ?? 0)) / DAY_CYCLE) % 1;
+    const tod = timeOfDay(todU);
+    this.tod = tod; this.todU = todU;
+    // how "night" it is: the blue dusk through to just before dawn (for fireflies, eye-shine, owls)
+    const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+    this.night = ss(0.872, 0.893, todU) * (1 - ss(0.93, 0.95, todU)); // full night for about 15 s of each 6-minute day
+    this.dawn = todU > 0.97 || todU < 0.1 ? 1 - Math.min(1, Math.abs(((todU + 0.03) % 1) - 0.03) / 0.07) : 0;
     T.sun.lerp(tod.sunCol, tod.sunAmt); T.sky.lerp(tod.skyCol, tod.skyAmt);
     this.sun.color.lerp(T.sun, k); this.hemi.color.lerp(T.sky, k); this.hemi.groundColor.lerp(T.ground, k);
     this.sun.intensity += (L.sunI * gloom * tod.sun - this.sun.intensity) * k;
-    this.hemi.intensity += (L.hemiI * (gloom < 1 ? 1.1 : 1) * (0.72 + 0.28 * tod.sun) - this.hemi.intensity) * k;
+    this.hemi.intensity += (L.hemiI * (gloom < 1 ? 1.22 : 1) * (0.72 + 0.28 * tod.sun) - this.hemi.intensity) * k;
     {
       const el = THREE.MathUtils.degToRad(tod.el), az = Math.atan2(20, -30) + tod.sweep * 1.1;
       const d = 62, off = this.sunOffset || (this.sunOffset = new THREE.Vector3());
@@ -372,7 +378,7 @@ export class Renderer {
     sky.uCloudCover.value += (cover - sky.uCloudCover.value) * (first ? 1 : Math.min(1, dt * 0.25));
     // no shadows on a cloudless day, and they melt away as you zoom in close
     const closeUp = clamp((2.1 - this.zoom) / 0.8, 0, 1);
-    const amt = this.cloudsOn === false || (cover === 0 && sky.uCloudCover.value < 0.08) ? 0 : 0.56 * closeUp;
+    const amt = this.cloudsOn === false || (cover === 0 && sky.uCloudCover.value < 0.08) ? 0 : 0.44 * closeUp;
     sky.uCloudAmt.value += (amt - sky.uCloudAmt.value) * Math.min(1, dt * 1.5);
 
     if (this.windOn !== false) this.flora.wind.value = this.time; // otherwise plants hold still
@@ -383,7 +389,7 @@ export class Renderer {
     // rain rings on the water, and the ground darkening while it's wet and drying after
     const raining = game.weather === 'rain' && this.weatherOn !== false;
     this.terrain.rain.value += ((raining ? 1 : 0) - this.terrain.rain.value) * Math.min(1, dt * 1.5);
-    this.terrain.tiles.wet.value += ((raining ? 1 : 0) - this.terrain.tiles.wet.value) * Math.min(1, dt * (raining ? 0.4 : 0.08));
+    this.terrain.tiles.wet.value += ((raining ? 1 : 0) - this.terrain.tiles.wet.value) * Math.min(1, dt * (raining ? 0.4 : 0.3)); // dries within a few seconds
     this.terrain.sky.value.copy(this.hemi.color);
     const r = this.right();
     this.actors.update(game, r, this.time);
@@ -495,6 +501,7 @@ export class Renderer {
 
     this.ambience.drawWorld(ctx, this, game, dt, bx0, bx1, bz0, bz1);
     this.drawTrails(ctx, game, dt);
+    this.drawNight(ctx, game, dt, bx0, bx1, bz0, bz1);
 
     // bees and butterflies over flowers
     const ps = this.particles;
@@ -583,7 +590,7 @@ export class Renderer {
     if (wp.length > want) wp.length = want;
     const run = game.speed > 0 ? 1 : 0.15;
     if (kind === 'rain') {
-      ctx.fillStyle = 'rgba(50,60,75,0.1)'; ctx.fillRect(0, 0, this.vw, this.vh);
+      ctx.fillStyle = 'rgba(50,60,75,0.045)'; ctx.fillRect(0, 0, this.vw, this.vh);
       ctx.strokeStyle = 'rgba(210,225,240,0.45)'; ctx.lineWidth = 1; ctx.beginPath();
       for (const p of wp) {
         p.x += -120 * dt * p.s * run; p.y += 700 * dt * p.s * run;
@@ -653,6 +660,56 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     } else {
       ctx.strokeStyle = `rgba(236,246,244,${((p.k === 'ring' ? 0.28 : 0.24) * (1 - f)).toFixed(3)})`; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.ellipse(sp.x, sp.y, (3 + f * (p.k === 'ring' ? 16 : 11)) * z * p.s, (1.6 + f * (p.k === 'ring' ? 8 : 5.5)) * z * p.s, 0, 0, 7); ctx.stroke();
+    }
+  }
+};
+
+// Night-time glimpses, in the blue dusk and before dawn: fireflies drifting and blinking over
+// meadows and marshes (Hollis in summer, the Amazon all year), and eye-shine from the animals
+// out on the Serengeti grass.
+const FIREFLY_HAB = new Set([H.MEADOW, H.MARSH, H.SHRUB, H.RIPARIAN, H.YOUNG_FOREST]);
+Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
+  const n = this.night || 0, w = this.world, flies = this.flies || (this.flies = []);
+  // deepen the dusk a little so the small lights read
+  if (n > 0.02) {
+    const g = ctx.createRadialGradient(this.vw / 2, this.vh / 2, Math.min(this.vw, this.vh) * 0.2, this.vw / 2, this.vh / 2, Math.hypot(this.vw, this.vh) * 0.6);
+    g.addColorStop(0, `rgba(12,20,44,${(0.24 * n).toFixed(3)})`); g.addColorStop(1, `rgba(8,14,34,${(0.44 * n).toFixed(3)})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
+  }
+  const flyOn = (biome.id === 'pnw' && (game.season === 1 || game.season === 2)) || biome.id === 'amazon';
+  const want = n > 0.05 && flyOn && this.zoom > 0.5 && game.weather !== 'rain' ? Math.round(90 * n) : 0;
+  for (let tries = 0; flies.length < want && tries < 12; tries++) {
+    const x = bx0 + Math.floor(Math.random() * (bx1 - bx0 + 1)), z = bz0 + Math.floor(Math.random() * (bz1 - bz0 + 1));
+    if (!w.inb(x, z) || !FIREFLY_HAB.has(w.habitat[w.idx(x, z)])) continue;
+    flies.push({ x: x + Math.random(), z: z + Math.random(), h: 0.25 + Math.random() * 0.8, ph: Math.random() * 20, vx: 0, vz: 0, life: 8 + Math.random() * 10 });
+  }
+  if (flies.length > want) flies.splice(0, flies.length - want);
+  for (let k = flies.length - 1; k >= 0; k--) {
+    const f = flies[k];
+    f.life -= dt; if (f.life <= 0) { flies.splice(k, 1); continue; }
+    f.vx += (Math.random() - 0.5) * dt * 0.8; f.vz += (Math.random() - 0.5) * dt * 0.8; f.vx *= 0.98; f.vz *= 0.98;
+    f.x += f.vx * dt; f.z += f.vz * dt; f.ph += dt;
+    const blink = Math.max(0, Math.sin(f.ph * 1.3)) ** 3;
+    if (blink < 0.03) continue;
+    const p = this.project(f.x, this.heightAtScene(f.x, f.z) + f.h, f.z), r = (2.5 + 4.5 * blink) * Math.max(0.8, this.zoom * 0.75);
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2.2);
+    g.addColorStop(0, `rgba(236,255,150,${(0.95 * blink * n).toFixed(3)})`); g.addColorStop(0.35, `rgba(200,240,90,${(0.4 * blink * n).toFixed(3)})`); g.addColorStop(1, 'rgba(200,240,90,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.2, 0, 7); ctx.fill();
+  }
+  // eye-shine: a pair of small lights on the heads of animals looking toward you out on the grass
+  if (biome.savanna && n > 0.25 && this.zoom > 0.6) {
+    const t = this.time;
+    for (const a of game.wildlife.agents) {
+      const def = ANIMALS[a.sp];
+      if (def.move !== 'ground' || (def.sprite.len || 0) < 20 || hash2(a.id, 3, 9) > 0.55) continue;
+      const st = this.actors.pose.get(a.id);
+      if (!st || st.x < bx0 || st.x > bx1 || st.z < bz0 || st.z > bz1) continue;
+      if (Math.sin(t * 0.7 + a.id * 2.3) < -0.2 || (t * 3 + a.id) % 7 < 0.15) continue; // looks away now and then, and blinks
+      const fwd = (def.sprite.len || 30) / 30 * 0.32, hx = st.x + Math.cos(st.yaw) * fwd, hz = st.z - Math.sin(st.yaw) * fwd;
+      const p = this.project(hx, st.y + st.h * 0.64, hz), sep = 1.6 * Math.max(0.8, this.zoom);
+      const col = def.prey ? `rgba(210,255,120,${(0.9 * n).toFixed(3)})` : `rgba(255,236,170,${(0.75 * n).toFixed(3)})`;
+      ctx.fillStyle = col;
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(p.x + s * sep, p.y, 1.2 * Math.max(0.8, this.zoom * 0.8), 0, 7); ctx.fill(); }
     }
   }
 };

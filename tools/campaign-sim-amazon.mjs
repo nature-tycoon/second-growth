@@ -33,7 +33,7 @@ let muvucaRow = 10;
 const plans = {
   ground() { g.flags.inspected = true; for (let y = 14; y <= 30; y += 2) for (let x = 70; x <= 92; x += 2) { use('pull', x, y, 0); } for (let y = 14; y <= 30; y += 3) for (let x = 70; x <= 92; x += 3) use('mix_pastureshrubs', x, y, 1); },
   muvuca() {
-    // each visit works a new band of pasture, moving south-west away from the reserve
+    // each visit works a new band of pasture, moving south-west away from the rainforest edge
     const y0 = muvucaRow, y1 = muvucaRow + 8; muvucaRow = Math.min(80, muvucaRow + 8);
     for (let y = y0; y <= y1; y += 3) for (let x = 60; x <= 96; x += 3) { use('pull', x, y, 1); use('mix_muvuca', x, y, 1); }
     for (let y = y0; y <= y1; y += 4) for (let x = 62; x <= 94; x += 4) use('mix_pioneers', x, y, 1);
@@ -62,9 +62,9 @@ const plans = {
     let placed = false;
     for (let x = 36; x < 44 && !placed; x++) if (use('build_parking', x, 25)) placed = [x, 25];
     const px = placed ? placed[0] + 2 : 42;
-    const path = (x, y) => use('trail', x, y, 0) || use('boardwalk', x, y, 0);
+    const path = (x, y) => use('trail', x, y, 0) || use('boardwalk', x, y, 0) || (use('clear', x, y, 0) && use('trail', x, y, 0));
     for (let x = px; x <= 70; x++) path(x, 27);
-    // a loop through the young forest by the reserve, down to the stream and back
+    // a loop through the young forest by the rainforest edge, down to the stream and back
     for (let y = 27; y >= 14; y--) path(70, y);
     for (let x = 70; x <= 92; x++) path(x, 14);
     for (let y = 14; y <= 30; y++) path(92, y);
