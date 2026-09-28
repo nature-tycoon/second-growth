@@ -80,11 +80,11 @@ export default function buildSerengetiPlants(def, mix, get) {
   // ---------- Trees ----------
   def({ key: 'umbrella', name: 'Umbrella thorn', sci: 'Vachellia tortilis', layer: 2, nfix: true,
     moist: [0.03, 0.75], light: [0.45, 1], grow: 0.006, spread: 0.009, radius: 5, life: 150, matureAge: 16, cost: 18,
-    look: { type: 'umbrella', leaf: '#6a8a42', bark: '#4a3a2e', flower: '#f4f0d8', bloom: [8, 9] },
+    look: { type: 'umbrella', leaf: '#6a8a42', bark: '#4a3a2e', flower: '#f4f0d8', bloom: [8, 9], bloomTint: 0.45 },
     desc: 'The flat-topped acacia of every Serengeti sunset. Giraffe browse it, weavers nest in it, and its nitrogen-rich shade grows the best grass.' });
   def({ key: 'fevertree', name: 'Fever tree', sci: 'Vachellia xanthophloea', layer: 2, nfix: true, wetOK: false,
     moist: [0.45, 1], light: [0.45, 1], grow: 0.008, spread: 0.009, radius: 4, life: 80, matureAge: 14, cost: 20,
-    look: { type: 'fevertree', leaf: '#8aa850', bark: '#d8c860' },
+    look: { type: 'fevertree', leaf: '#8aa850', bark: '#d8c860', flower: '#f0e890', bloom: [8, 9], bloomTint: 0.35 },
     desc: 'An acacia with glowing lime-yellow bark, growing where the water table is high. Early travellers blamed it for malaria (it was the mosquitoes).' });
   def({ key: 'balanites', name: 'Desert date', sci: 'Balanites aegyptiaca', layer: 2,
     moist: [0.03, 0.7], light: [0.4, 1], grow: 0.0055, spread: 0.008, radius: 5, life: 120, matureAge: 14, cost: 16,
@@ -96,11 +96,11 @@ export default function buildSerengetiPlants(def, mix, get) {
     desc: 'A small, peeling-barked myrrh tree of the driest ground. Cuttings root easily, so it\'s used for living fences.' });
   def({ key: 'baobab', name: 'Baobab', sci: 'Adansonia digitata', layer: 2,
     moist: [0.05, 0.7], light: [0.45, 1], soil: 0.1, grow: 0.0025, spread: 0.005, radius: 6, life: 1500, matureAge: 25, mast: 0.8, cost: 32,
-    look: { type: 'baobab', leaf: '#6a8a4a', bark: '#a89080', flower: '#f4f0e0', bloom: [9, 10] },
+    look: { type: 'baobab', leaf: '#6a8a4a', bark: '#a89080', flower: '#f4f0e0', bloom: [9, 10], bloomTint: 0.3 },
     desc: 'A swollen giant that can live over a thousand years and store tonnes of water in its trunk. Bats pollinate its night flowers.' });
   def({ key: 'sausage', name: 'Sausage tree', sci: 'Kigelia africana', layer: 2,
     moist: [0.35, 0.95], light: [0.35, 1], soil: 0.15, grow: 0.0045, spread: 0.007, radius: 5, life: 200, matureAge: 14, cost: 26,
-    look: { type: 'sausage', leaf: '#4a7a3a', bark: '#7a6a58', flower: '#8a2a3a', bloom: [5, 6], berry: '#8a7a50', fruit: [8, 9, 10] },
+    look: { type: 'sausage', leaf: '#4a7a3a', bark: '#7a6a58', flower: '#8a2a3a', bloom: [5, 6], bloomTint: 0.35, berry: '#8a7a50', fruit: [8, 9, 10] },
     desc: 'Hangs enormous sausage-shaped fruit on long ropes. Hippos, giraffe and elephants eat the fallen fruit.' });
   def({ key: 'sycamorefig', name: 'Sycamore fig', sci: 'Ficus sycomorus', layer: 2,
     moist: [0.4, 0.95], light: [0.3, 1], soil: 0.15, grow: 0.005, spread: 0.008, radius: 5, life: 300, matureAge: 12, mast: 0.6, cost: 24,

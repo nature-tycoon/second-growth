@@ -152,6 +152,8 @@ export default {
     crownOut: 'Rainforest trees have thin bark and few survive. Cecropia and grass will race into the gap, so plant it fast; macaws and toucans will nest in the dead trunks.',
   },
   look: {
+    // colour grade: humid, deep and green
+    grade: { gain: [0.96, 0.98, 0.95], lift: [0.0, 0.008, 0.006], sat: 0.97, contrast: 1.04 },
     pasture: ['#9cb85a', '#abb262', '#bcae66', '#98b65c'],
     soil: [0.74, 0.5, 0.38], mud: [0.58, 0.42, 0.32],
     // southern Pará's rivers (Xingu, Tapajós) run clear and green; the cattle pond is murkier

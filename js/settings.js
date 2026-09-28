@@ -7,6 +7,7 @@ export const DEFAULTS = {
   quality: 'high',     // render resolution: high | balanced | fast
   wind: true,          // plants sway in the breeze
   weather: true,       // rain and snow drawn over the view
+  dayCycle: true,      // the light moves through golden hour, dusk and dawn
   panSpeed: 1,
   zoomSpeed: 1,
   autosave: true,

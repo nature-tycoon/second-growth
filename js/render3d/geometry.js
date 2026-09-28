@@ -593,9 +593,10 @@ export function tuft(type, seed, lo = false) {
     }
   };
   switch (type) {
-    case 'grass': blades(8, 0.17, 0.014, 0.7); break;
-    case 'tallgrass': blades(9, 0.28, 0.014, 0.8); break;
-    case 'sedge': blades(10, 0.18, 0.016, 1.1); break;
+    // thick, full clumps: many blades, wider at the base, splayed a little further out
+    case 'grass': blades(13, 0.18, 0.019, 0.75, 0.09); break;
+    case 'tallgrass': blades(14, 0.3, 0.018, 0.85, 0.1); break;
+    case 'sedge': blades(12, 0.19, 0.018, 1.1, 0.07); break;
     case 'forb': {
       for (let k = 0, m = lo ? 4 : 6; k < m; k++) {
         const a = k / m * 6.28 + r() * 0.4;

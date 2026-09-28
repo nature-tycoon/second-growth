@@ -168,6 +168,8 @@ export default {
     crownOut: 'Even the acacias burned. Standing dead trunks will host vultures and hornbills while grass takes the ground.',
   },
   look: {
+    // colour grade: warm, sunlit and a little dusty
+    grade: { gain: [1.045, 1.0, 0.92], lift: [0.018, 0.01, 0.0], sat: 1.02, contrast: 1.05 },
     pasture: ['#a8ac5a', '#c4b474', '#c8aa6a', '#b0ae62'],
     soil: [0.72, 0.54, 0.4], mud: [0.54, 0.43, 0.33],
     water: { pond: [0.34, 0.44, 0.44, 0.9], creek: [0.38, 0.46, 0.4, 0.8], river: [0.33, 0.42, 0.38, 0.9], marsh: [0.42, 0.5, 0.38, 0.55] }, // silty, but still reads as water

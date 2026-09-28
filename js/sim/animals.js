@@ -455,6 +455,10 @@ export class Wildlife {
   // -------------------------------------------------------------- daily behaviour
   daily() {
     const game = this.game, w = game.world, rng = game.rng;
+    // trodden ground: where the big grazers walk day after day, a trail wears into the land
+    // (how worn each tile is, fading slowly when they stop coming; drawn by the terrain)
+    const trod = w.trod || (w.trod = new Float32Array(w.n));
+    for (let i = 0; i < w.n; i++) if (trod[i] > 0) trod[i] = trod[i] < 0.01 ? 0 : trod[i] * 0.985;
     for (const a of this.agents.slice()) {
       if (a.leaving) continue;
       const def = ANIMALS[a.sp];
@@ -474,6 +478,7 @@ export class Wildlife {
       // On the savanna the herds nibble and trample woody seedlings wherever they feed, which
       // (with fire) is what keeps the plains open grassland instead of thornbush.
       if (biome.savanna && def.move === 'ground' && !def.prey && (def.sprite.len || 0) >= 20) this.trample(w, x, y, rng);
+      if (def.move === 'ground' && !def.prey && (def.sprite.len || 0) >= 24) trod[i] = Math.min(1, trod[i] + 0.05);
     }
   }
 

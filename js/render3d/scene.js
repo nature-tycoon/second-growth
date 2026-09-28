@@ -10,12 +10,55 @@ import { biome } from '../biome.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
 import { ANIMALS } from '../data/animals.js';
 import { Terrain, buildAtlas } from './terrain.js';
-import { Flora } from './flora.js';
+import { Flora, windGust } from './flora.js';
 import { Actors } from './actors.js';
 import { building } from './geometry.js';
 import { hash2 } from '../rng.js';
 
 const EL = THREE.MathUtils.degToRad(34);
+
+// Each map's colour grade, folded into the tone-mapping step every material already runs (so it
+// costs no extra render pass): gain and lift per channel, saturation, and a gentle contrast curve.
+function installGrade(grade = {}) {
+  const v = a => `vec3(${a.map(x => x.toFixed(4)).join(', ')})`;
+  const g = { gain: [1, 1, 1], lift: [0, 0, 0], sat: 1, contrast: 1, ...grade };
+  const code = `vec3 CustomToneMapping( vec3 color ) {
+    color = NeutralToneMapping( color );
+    color = color * ${v(g.gain)} + ${v(g.lift)};
+    float l = dot( color, vec3( 0.2126, 0.7152, 0.0722 ) );
+    color = mix( vec3( l ), color, ${g.sat.toFixed(4)} );
+    color = 0.2 * pow( max( color, vec3( 0.0 ) ) / 0.2, vec3( ${g.contrast.toFixed(4)} ) );
+    return saturate( color );
+  }`;
+  THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(/vec3 CustomToneMapping\( vec3 color \) \{[\s\S]*$/, code);
+}
+
+// Time of day, on its own slow clock (real minutes, not game days): a long day, a warm golden
+// hour with long shadows, a short blue dusk, and a rosy dawn back into day. It never gets
+// properly dark, so the land stays readable. Each key: [position in the cycle, sun strength,
+// sun colour, how much of it, sky colour, how much of it, sun elevation in degrees, sweep].
+const DAY_CYCLE = 420;
+const TOD = [
+  [0.0, 0.62, 0xffb89a, 0.55, 0xf0c8c0, 0.18, 12, -0.9],   // dawn
+  [0.08, 0.9, 0xffe0b8, 0.25, 0xf4e4d4, 0.08, 30, -0.6],
+  [0.18, 1, 0xffffff, 0, 0xffffff, 0, 52, -0.25],           // day
+  [0.6, 1, 0xffffff, 0, 0xffffff, 0, 54, 0.3],
+  [0.72, 0.95, 0xffb060, 0.6, 0xffd8a8, 0.18, 20, 0.75],   // golden hour
+  [0.8, 0.7, 0xff8a50, 0.7, 0xe8b0a0, 0.25, 9, 0.95],      // sunset
+  [0.87, 0.48, 0x8a98e8, 0.65, 0x8a9ae0, 0.35, 6, 1.0],    // blue dusk
+  [0.94, 0.5, 0xa0a8f0, 0.5, 0xb0a8e0, 0.3, 7, -1.0],      // before dawn
+  [1.0, 0.62, 0xffb89a, 0.55, 0xf0c8c0, 0.18, 12, -0.9],
+];
+const todCol = [new THREE.Color(), new THREE.Color(), new THREE.Color(), new THREE.Color()];
+function timeOfDay(u) {
+  let k = 0;
+  while (k < TOD.length - 2 && TOD[k + 1][0] <= u) k++;
+  const a = TOD[k], b = TOD[k + 1], t = (u - a[0]) / (b[0] - a[0]), s = t * t * (3 - 2 * t);
+  const L = (i) => a[i] + (b[i] - a[i]) * s;
+  todCol[0].setHex(a[2]).lerp(todCol[1].setHex(b[2]), s);
+  todCol[2].setHex(a[4]).lerp(todCol[3].setHex(b[4]), s);
+  return { sun: L(1), sunCol: todCol[0], sunAmt: L(3), skyCol: todCol[2], skyAmt: L(5), el: L(6), sweep: L(7) };
+}
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
 
 
@@ -28,7 +71,8 @@ export class Renderer {
     this.gl.shadowMap.enabled = true;
     this.gl.shadowMap.type = THREE.PCFSoftShadowMap;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
-    this.gl.toneMapping = THREE.NeutralToneMapping;
+    installGrade(biome.look.grade);
+    this.gl.toneMapping = THREE.CustomToneMapping;
     this.gl.toneMappingExposure = 1.0;
     this.scene = new THREE.Scene();
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -300, 300);
@@ -60,6 +104,7 @@ export class Renderer {
     this.particles = []; this.weatherParticles = [];
     this.ambience = new Ambience();
     this.lightTarget = { sun: new THREE.Color(), sky: new THREE.Color(), ground: new THREE.Color() };
+    this.todStart = DAY_CYCLE * 0.22; // start the session in late morning
     this.v3 = new THREE.Vector3();
     this.resize();
   }
@@ -71,8 +116,10 @@ export class Renderer {
     this.dpr = Math.max(1, Math.min(cap, window.devicePixelRatio || 1));
     this.gl.setPixelRatio(this.dpr);
     this.windOn = !!s.wind;
+    this.dayCycleOn = s.dayCycle !== false;
     this.weatherOn = !!s.weather;
     this.cloudsOn = !!s.weather && s.quality !== 'fast'; // cloud shadows cost a little on every pixel
+    this.terrain.setFast(s.quality === 'fast');
     this.resize();
   }
 
@@ -121,7 +168,7 @@ export class Renderer {
     const sc = this.sun.shadow.camera;
     sc.left = -s; sc.right = s; sc.top = s; sc.bottom = -s; sc.near = 1; sc.far = 160;
     sc.updateProjectionMatrix();
-    this.sun.position.copy(this.target).add(new THREE.Vector3(-30, 55, 20));
+    this.sun.position.copy(this.target).add(this.sunOffset || new THREE.Vector3(-30, 55, 20));
     this.sun.target.position.copy(this.target);
     this.sun.target.updateMatrixWorld();
   }
@@ -146,7 +193,14 @@ export class Renderer {
     const t = (this.target.y - r.o.y) / r.d.y;
     return r.o.clone().addScaledVector(r.d, t);
   }
-  zoomAt(sx, sy, f) {
+  // smooth: glide there over a few frames (mouse wheel); otherwise jump (pinch, keys)
+  zoomAt(sx, sy, f, smooth = false) {
+    if (smooth) {
+      const from = this.zoomGoal != null && this.zoomSet === this.zoom ? this.zoomGoal : this.zoom;
+      this.zoomGoal = clamp(from * f, 0.16, 4.5); this.zoomAnchor = [sx, sy]; this.zoomSet = this.zoom;
+      return;
+    }
+    this.zoomGoal = null;
     const before = this.groundPoint(sx, sy);
     this.zoom = clamp(this.zoom * f, 0.16, 4.5);
     this.updateCamera();
@@ -254,6 +308,16 @@ export class Renderer {
       if (Math.abs(this.azTarget - this.az) < 0.002) this.az = this.azTarget;
       this.updateCamera();
     }
+    // an eased wheel zoom glides toward its goal, holding the point under the cursor still
+    if (this.zoomGoal != null) {
+      if (this.zoomSet !== this.zoom) this.zoomGoal = null; // something else set the zoom directly
+      else {
+        const nz = Math.abs(this.zoomGoal - this.zoom) < 0.002 ? this.zoomGoal : this.zoom + (this.zoomGoal - this.zoom) * Math.min(1, dt * 12);
+        const [sx, sy] = this.zoomAnchor, goal = this.zoomGoal;
+        this.zoomAt(sx, sy, nz / this.zoom);
+        this.zoomGoal = nz === goal ? null : goal; this.zoomSet = this.zoom;
+      }
+    }
     let surface = false, flora = false;
     if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; }
     if (game.day !== this.lastDay) { this.lastDay = game.day; surface = true; flora = true; this.terrain.buildWater(); this.terrain.buildFlood(); }
@@ -275,9 +339,19 @@ export class Renderer {
     const cover = wx === 'rain' || wx === 'snow' ? 0.85 : wx === 'cloud' ? 0.62 : fair ? 0.16 : 0;
     const T = this.lightTarget, first = !this.lightReady, k = first ? 1 : Math.min(1, dt * 0.7);
     T.sun.setHex(L.sun); T.sky.setHex(L.sky); T.ground.setHex(L.ground);
+    // time of day warms and dims the light and swings the sun round (shadows lengthen at dusk)
+    const tod = timeOfDay(this.dayCycleOn === false ? 0.35 : ((this.time + (this.todStart ?? 0)) / DAY_CYCLE) % 1);
+    this.tod = tod;
+    T.sun.lerp(tod.sunCol, tod.sunAmt); T.sky.lerp(tod.skyCol, tod.skyAmt);
     this.sun.color.lerp(T.sun, k); this.hemi.color.lerp(T.sky, k); this.hemi.groundColor.lerp(T.ground, k);
-    this.sun.intensity += (L.sunI * gloom - this.sun.intensity) * k;
-    this.hemi.intensity += (L.hemiI * (gloom < 1 ? 1.1 : 1) - this.hemi.intensity) * k;
+    this.sun.intensity += (L.sunI * gloom * tod.sun - this.sun.intensity) * k;
+    this.hemi.intensity += (L.hemiI * (gloom < 1 ? 1.1 : 1) * (0.72 + 0.28 * tod.sun) - this.hemi.intensity) * k;
+    {
+      const el = THREE.MathUtils.degToRad(tod.el), az = Math.atan2(20, -30) + tod.sweep * 1.1;
+      const d = 62, off = this.sunOffset || (this.sunOffset = new THREE.Vector3());
+      off.set(Math.cos(el) * Math.cos(az) * d, Math.sin(el) * d, Math.cos(el) * Math.sin(az) * d);
+      this.sun.position.copy(this.target).add(off);
+    }
     this.lightReady = true;
     sky.uCloudT.value = this.time;
     sky.uCloudCover.value += (cover - sky.uCloudCover.value) * (first ? 1 : Math.min(1, dt * 0.25));
@@ -287,8 +361,15 @@ export class Renderer {
     sky.uCloudAmt.value += (amt - sky.uCloudAmt.value) * Math.min(1, dt * 1.5);
 
     if (this.windOn !== false) this.flora.wind.value = this.time; // otherwise plants hold still
+    const gustTo = wx === 'rain' ? 2.3 : wx === 'snow' ? 1.6 : wx === 'cloud' ? 1.35 : 0.9;
+    windGust.value += (gustTo - windGust.value) * Math.min(1, dt * 0.4);
     this.flora.setZoom(this.zoom);
     this.terrain.time.value = this.time;
+    // rain rings on the water, and the ground darkening while it's wet and drying after
+    const raining = game.weather === 'rain' && this.weatherOn !== false;
+    this.terrain.rain.value += ((raining ? 1 : 0) - this.terrain.rain.value) * Math.min(1, dt * 1.5);
+    this.terrain.tiles.wet.value += ((raining ? 1 : 0) - this.terrain.tiles.wet.value) * Math.min(1, dt * (raining ? 0.4 : 0.08));
+    this.terrain.sky.value.copy(this.hemi.color);
     const r = this.right();
     this.actors.update(game, r, this.time);
     this.updateFocus(game, dt);
@@ -298,6 +379,19 @@ export class Renderer {
     this.actors.updateFire(game, this.time, dt);
     this.gl.render(this.scene, this.camera);
     this.drawFX(game, ui, dt);
+  }
+
+  // A picture of the view for photo mode: the 3D scene and the effects layer, with a soft vignette.
+  capture(game, ui) {
+    this.draw(game, ui, 0); // render now, so the drawing buffer is still full when we copy it
+    const W = this.gl.domElement.width, H = this.gl.domElement.height;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(this.gl.domElement, 0, 0); ctx.drawImage(this.ui, 0, 0, W, H);
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.56);
+    g.addColorStop(0, 'rgba(20,24,16,0)'); g.addColorStop(1, 'rgba(20,24,16,0.42)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    return c;
   }
 
   // ------------------------------------------------------------------ tile overlays
@@ -362,6 +456,7 @@ export class Renderer {
     }
 
     this.ambience.drawWorld(ctx, this, game, dt, bx0, bx1, bz0, bz1);
+    this.drawTrails(ctx, game, dt);
 
     // bees and butterflies over flowers
     const ps = this.particles;
@@ -431,6 +526,19 @@ export class Renderer {
     // season tint and weather
     const tint = biome.look.tint[game.season];
     ctx.fillStyle = tint; ctx.fillRect(0, 0, this.vw, this.vh);
+    if (biome.savanna && game.month >= 3 && game.month <= 7) {
+      const gr = ctx.createLinearGradient(0, 0, 0, this.vh * 0.7);
+      gr.addColorStop(0, 'rgba(236,212,170,0.13)'); gr.addColorStop(1, 'rgba(236,212,170,0)');
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
+    }
+    // golden hour and dusk wash the whole view in their light, strongest toward the sky
+    const tod = this.tod;
+    if (tod && tod.sunAmt > 0.04) {
+      const c = tod.sunCol, rgb = `${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)}`;
+      const gr = ctx.createLinearGradient(0, 0, 0, this.vh);
+      gr.addColorStop(0, `rgba(${rgb},${(tod.sunAmt * 0.14).toFixed(3)})`); gr.addColorStop(1, `rgba(${rgb},${(tod.sunAmt * 0.03).toFixed(3)})`);
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
+    }
     const wp = this.weatherParticles, kind = game.weather;
     const want = this.weatherOn === false ? 0 : kind === 'rain' ? 240 : kind === 'snow' ? 150 : 0;
     while (wp.length < want) wp.push({ x: Math.random() * this.vw, y: Math.random() * this.vh, s: 0.6 + Math.random() * 0.8 });
@@ -457,6 +565,42 @@ export class Renderer {
     this.ambience.drawSky(ctx, this, game, dt);
   }
 }
+
+// Little signs of life on the ground and water, drawn in 2D over the scene: dust kicked up
+// behind hoofed animals on dry ground, a wake behind anything swimming, and rings spreading
+// where an animal drinks or a heron strikes.
+const DRY = new Set([T.PASTURE, T.FIELD, T.SOIL, T.GRAVEL, T.ROAD, T.TRAIL]);
+Renderer.prototype.drawTrails = function (ctx, game, dt) {
+  const w = this.world, fx = this.trailFx || (this.trailFx = []);
+  if (this.zoom > 0.45 && game.speed > 0) for (const a of game.wildlife.agents) {
+    const st = this.actors.pose.get(a.id);
+    if (!st || a.flying) continue;
+    const xi = Math.floor(a.x), yi = Math.floor(a.y);
+    if (!w.inb(xi, yi)) continue;
+    const i = w.idx(xi, yi), t = w.terrain[i], def = ANIMALS[a.sp];
+    const wet = isWater(t);
+    if (wet && st.gait > 0.3 && Math.random() < dt * 5 * st.gait) fx.push({ k: 'wake', x: a.x, z: a.y, y: st.y, yaw: st.yaw, life: 1.6, max: 1.6, s: Math.max(0.6, (def.sprite.len || def.sprite.size || 10) / 30) });
+    else if (!wet && def.move === 'ground' && (def.sprite.len || 0) >= 20 && st.gait > 0.5 && (DRY.has(t) || biome.savanna && game.season > 0) && !(w.ground[i] && w.groundG[i] > 0.7 && !biome.savanna)
+      && Math.random() < dt * 4 * st.gait) fx.push({ k: 'dust', x: a.x - Math.cos(st.yaw) * 0.25, z: a.y + Math.sin(st.yaw) * 0.25, y: st.y, life: 1.6, max: 1.6, s: (def.sprite.len || 20) / 36 });
+    if (a.drinkT > 0 && !a.rippled && (wet || w.distWater[i] <= 1)) { a.rippled = true; fx.push({ k: 'ring', x: a.x + Math.cos(st.yaw) * 0.3, z: a.y - Math.sin(st.yaw) * 0.3, y: st.y, life: 1.8, max: 1.8, s: 1 }); }
+    if (!(a.drinkT > 0)) a.rippled = false;
+  }
+  if (fx.length > 400) fx.splice(0, fx.length - 400);
+  const z = this.zoom;
+  for (let k = fx.length - 1; k >= 0; k--) {
+    const p = fx[k];
+    p.life -= dt;
+    if (p.life <= 0) { fx.splice(k, 1); continue; }
+    const f = 1 - p.life / p.max, sp = this.project(p.x, p.y + (p.k === 'dust' ? 0.05 + f * 0.25 : 0.02), p.z);
+    if (p.k === 'dust') {
+      ctx.fillStyle = `rgba(206,184,146,${(0.32 * (1 - f)).toFixed(3)})`;
+      ctx.beginPath(); ctx.ellipse(sp.x, sp.y, (5 + f * 16) * z * p.s, (3 + f * 9) * z * p.s, 0, 0, 7); ctx.fill();
+    } else {
+      ctx.strokeStyle = `rgba(236,246,244,${(0.65 * (1 - f)).toFixed(3)})`; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.ellipse(sp.x, sp.y, (3 + f * (p.k === 'ring' ? 16 : 11)) * z * p.s, (1.6 + f * (p.k === 'ring' ? 8 : 5.5)) * z * p.s, 0, 0, 7); ctx.stroke();
+    }
+  }
+};
 
 function hexRgb(h) { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; }
 function ramp(v, stops, alpha) {

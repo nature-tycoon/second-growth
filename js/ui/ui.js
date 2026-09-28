@@ -652,8 +652,8 @@ export class UI {
       if (n.loc.id && this.game.wildlife.agents.includes(n.loc)) this.inspectAgent(n.loc);
     });
     box.prepend(t);
-    while (box.children.length > 3) box.lastChild.remove();
-    const life = n.kind === 'discover' || n.kind === 'goal' || n.kind === 'fire' || n.kind === 'flood' ? 12000 : n.kind === 'warn' ? 9000 : 7000;
+    while (box.children.length > 2) box.lastChild.remove(); // keep the land in view; everything is in the journal
+    const life = n.kind === 'discover' || n.kind === 'goal' || n.kind === 'fire' || n.kind === 'flood' ? 10000 : n.kind === 'warn' ? 8000 : 5500;
     setTimeout(() => { t.classList.add('fade'); setTimeout(() => t.remove(), 600); }, life);
   }
 
@@ -901,6 +901,7 @@ export class UI {
       <button class="btn secondary" data-a="settings">Settings</button>
       <button class="btn secondary" data-a="journal">Field journal</button>
       <button class="btn secondary" data-a="trees">${this.renderer.fadeTrees ? 'Show trees normally' : 'See through trees'}</button>
+      <button class="btn secondary" data-a="photo">Photo mode</button>
       <button class="btn secondary" data-a="feedback">Send feedback</button>
       <button class="btn secondary" data-a="help">How to play</button>
       <button class="btn secondary" data-a="save">Save game</button>
@@ -910,6 +911,7 @@ export class UI {
     m.querySelector('[data-a=journal]').addEventListener('click', () => this.openJournal());
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
+    m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
     m.querySelector('[data-a=save]').addEventListener('click', () => { const ok = this.game.save(); this.closeModal(); this.game.notify(ok ? 'Game saved. It also autosaves every month.' : 'Could not save (browser storage unavailable).', ok ? 'good' : 'warn'); });
     m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true));
   }
@@ -941,7 +943,8 @@ export class UI {
         ${choice('quality', 'Resolution', 'Lower it if the game feels slow.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}
         ${toggle('shadows', 'Shadows', 'Trees and buildings cast soft shadows.')}
         ${toggle('wind', 'Wind in the plants', 'Grass, shrubs and treetops sway.')}
-        ${toggle('weather', 'Rain and snow', 'Falling rain and snow over the view.')}`],
+        ${toggle('weather', 'Rain and snow', 'Falling rain and snow over the view.')}
+        ${toggle('dayCycle', 'Time of day', 'The light drifts from midday through golden hour and dusk to dawn every few minutes.')}`],
       controls: ['Controls', `
         ${slider('panSpeed', 'Camera pan speed', 'WASD and arrow keys.')}
         ${slider('zoomSpeed', 'Zoom speed', 'Mouse wheel and + / − keys.')}
@@ -1165,6 +1168,33 @@ export class UI {
     q.querySelector('.q-more')?.addEventListener('click', () => this.openChapter(k, true));
   }
 
+  // Photo mode: everything but the land goes away, the edges of the view soften into a vignette,
+  // and a small bar offers to save the picture (with the vignette) to the device.
+  togglePhoto() {
+    this.photo = !this.photo;
+    document.body.classList.toggle('photo-mode', this.photo);
+    if (!this.photoBar) {
+      const v = document.createElement('div'); v.id = 'photo-vignette'; document.body.appendChild(v);
+      const b = document.createElement('div'); b.id = 'photo-bar';
+      b.innerHTML = `<span>${TOUCH ? 'Drag to move · pinch to zoom' : 'Drag to move · scroll to zoom · Q E to turn'}</span><button class="btn" data-a="snap">Save picture</button><button class="btn secondary" data-a="done">Done</button>`;
+      document.body.appendChild(b);
+      b.querySelector('[data-a=done]').addEventListener('click', () => this.togglePhoto());
+      b.querySelector('[data-a=snap]').addEventListener('click', () => {
+        const c = this.renderer.capture(this.game, this.state);
+        c.toBlob(blob => {
+          if (!blob) return;
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob); a.download = `second-growth-${this.game.map}-year-${this.game.year}.png`;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }, 'image/png');
+        track('photo_saved', { map: this.game.map });
+      });
+      this.photoBar = b;
+    }
+    if (this.photo) track('photo_mode', { map: this.game.map });
+  }
+
   togglePanels() {
     this.panelsHidden = !this.panelsHidden;
     document.body.classList.toggle('panels-hidden', this.panelsHidden);
@@ -1218,7 +1248,7 @@ export class UI {
         <li><b>Two fingers</b> move the map; <b>pinch</b> to zoom. The arrows at the bottom right rotate the view. The ☰ menu has the journal and see-through trees.</li>
         <li>For the most room, use full screen (the corner button at the top) or add the game to your home screen.</li>` : ''}
         <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag to brush</b> it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
-        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate the view. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels.</li>
+        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate the view. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode.</li>
         <li>Use <b>Inspect</b> to click any tile or animal. The <b>Overlay</b> menu shows moisture, soil, sunlight, fish passage, or where a species could live.</li>
       </ul>
       <h3>A good first year</h3>

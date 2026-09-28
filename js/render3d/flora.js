@@ -79,6 +79,8 @@ class ChunkedPool {
 }
 
 // Foliage sways in the wind: displacement grows with height above each plant's base.
+const gust = { value: 1 }; // how hard it's blowing (storms push everything further)
+export const windGust = gust;
 function windy(mat, amount, wind, bothSidesLit = false) {
   mat.onBeforeCompile = shader => {
     // thin blades: light both faces as if they faced the sky, instead of darkening the back
@@ -86,14 +88,16 @@ function windy(mat, amount, wind, bothSidesLit = false) {
       THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0'));
     shader.uniforms.uTime = wind;
     shader.uniforms.uWind = { value: amount };
-    shader.vertexShader = 'uniform float uTime;\nuniform float uWind;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    shader.uniforms.uGust = gust;
+    shader.vertexShader = 'uniform float uTime;\nuniform float uWind;\nuniform float uGust;\n' + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       #ifdef USE_INSTANCING
         vec3 wOrigin = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
       #else
         vec3 wOrigin = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
       #endif
       float wPh = uTime * 1.1 + wOrigin.x * 0.35 + wOrigin.z * 0.27;
-      float wS = sin(wPh) * 0.6 + sin(wPh * 2.3 + wOrigin.x) * 0.25 + 0.2;
+      float wS = (sin(wPh) * 0.6 + sin(wPh * 2.3 + wOrigin.x) * 0.25 + 0.2) * uGust
+        + (uGust - 1.0) * 0.35 * sin(uTime * 3.1 + wOrigin.x * 0.9) * sin(uTime * 0.7 + wOrigin.z * 0.5); // gusts rolling through
       float wH = max(transformed.y, 0.0);
       transformed.x += wS * wH * wH * uWind;
       transformed.z += wS * 0.5 * wH * wH * uWind;`);
@@ -110,6 +114,8 @@ export function leafColor(p, phase) {
   const lk = p.look;
   // trees like the pink ipê turn their whole crown to flower
   if (phase === 'bloom' && lk.crownBloom) return rgb(lk.flower);
+  // ...others are dusted with blossom (umbrella thorns cream, sausage trees wine-red)
+  if (phase === 'bloom' && lk.bloomTint) return mixc(rgb(lk.leaf), rgb(lk.flower), lk.bloomTint);
   let c = rgb(lk.leaf);
   if (phase === 'spring') c = mixc(c, [0.72, 0.86, 0.45], 0.4);
   else if (phase === 'late') c = mixc(c, lk.dry ? rgb(lk.dry) : [0.45, 0.5, 0.25], lk.dry ? 0.35 : 0.12);
@@ -193,7 +199,8 @@ export class Flora {
         const p = PLANTS[gid];
         const g = inside ? w.groundG[i] : 1;
         const type = p.look.type;
-        const n = g < 0.3 ? 2 : g < 0.65 ? 3 : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : 5);
+        const grassy = type === 'grass' || type === 'tallgrass' || type === 'sedge';
+        const n = g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 5); // a healthy sward fills its tile
         const phase = plantPhase(p, month);
         const col = leafColor(p, phase);
         const pool = this.pool(`tuft:${type}:${v}`, () => G.tuft(type, 100 + v * 17 + type.length), this.grass, { shadow: false, kind: 'grass' },

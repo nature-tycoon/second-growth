@@ -12,7 +12,7 @@ import { biome } from '../biome.js';
 import { hash2 } from '../rng.js';
 
 const ATLAS_TYPES = [T.PASTURE, T.FIELD, T.SOIL, T.GRAVEL, T.MUD, T.ROAD, T.DUFF, T.TRAIL, S.TURF, S.BED];
-const CELL = 64, GUT = 4, SLOT = CELL + GUT * 2, COLS = 28;
+const CELL = 64, GUT = 4, SLOT = CELL + GUT * 2, COLS = 28, ATLAS_W = 2048, ATLAS_H = 512;
 // grass, soil and water colours come from the active map (biome.look)
 
 const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
@@ -42,15 +42,82 @@ function noiseTexture() {
 }
 
 // Break up the tile grid: modulate the ground by large, soft world-space noise.
-function groundDetail(mat, noise) {
+// The ground texture isn't chosen per tile: each pixel looks up the tile at a position pushed
+// around by noise, so the edge between grass and hardpan, or soil and mud, wanders in soft
+// organic curves instead of following the grid (roads, trails and fields keep straighter edges).
+// Two differently warped picks are averaged, which feathers the seam.
+function groundDetail(mat, noise, tiles) {
   mat.onBeforeCompile = shader => {
     shader.uniforms.uNoise = { value: noise };
     shader.uniforms.uSnow = snow.uSnow;
+    shader.uniforms.uTiles = tiles.tex;
+    shader.uniforms.uTint = tiles.tint;
+    shader.uniforms.uTileOrigin = tiles.origin;
+    shader.uniforms.uTileSize = tiles.size;
+    shader.uniforms.uWet = tiles.wet;
     shader.vertexShader = 'attribute float aSnow;\nvarying float vSnowAff;\nvarying vec2 vWorldXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWorldXZ = (modelMatrix * vec4(transformed, 1.0)).xz;\n  vSnowAff = aSnow;');
-    shader.fragmentShader = 'uniform sampler2D uNoise;\nuniform float uSnow;\nvarying float vSnowAff;\nvarying vec2 vWorldXZ;\n' + shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+    shader.fragmentShader = `uniform sampler2D uNoise;
+uniform float uSnow;
+uniform float uWet;
+uniform sampler2D uTiles;
+uniform sampler2D uTint;
+uniform vec2 uTileOrigin;
+uniform vec2 uTileSize;
+varying float vSnowAff;
+varying vec2 vWorldXZ;
+vec4 tileAt(vec2 p) {
+  ivec2 c = ivec2(clamp(floor(p) - uTileOrigin, vec2(0.0), uTileSize - 1.0));
+  return texelFetch(uTiles, c, 0);
+}
+// Smoothly blended where neighbouring tiles are alike (no patchwork inside a meadow), but the
+// tile's own colour right where it changes sharply, so colour and texture always agree at an edge.
+vec3 tintAt(vec2 p) {
+  vec3 s = texture2D(uTint, (p - uTileOrigin) / uTileSize).rgb;
+  vec3 n = texelFetch(uTint, ivec2(clamp(floor(p) - uTileOrigin, vec2(0.0), uTileSize - 1.0)), 0).rgb;
+  vec3 c = mix(s, n, smoothstep(0.03, 0.1, length(s - n)));
+  return c * c * 1.5; // stored as sqrt(v / 1.5)
+}
+vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
+  float slot = floor(t.r * 255.0 + 0.5), rot = floor(t.g * 255.0 / 64.0 + 0.5);
+  vec2 f = fract(p);
+  if (rot > 2.5) f = vec2(f.y, 1.0 - f.x); else if (rot > 1.5) f = 1.0 - f; else if (rot > 0.5) f = vec2(1.0 - f.y, f.x);
+  vec2 cell = vec2(mod(slot, ${COLS}.0), floor(slot / ${COLS}.0));
+  vec2 px = cell * ${SLOT}.0 + ${GUT}.0 + 0.5 + f * ${CELL - 1}.0;
+  vec2 k = vec2(${CELL - 1}.0 / ${ATLAS_W}.0, -${CELL - 1}.0 / ${ATLAS_H}.0);
+  return textureGrad(atlas, vec2(px.x / ${ATLAS_W}.0, 1.0 - px.y / ${ATLAS_H}.0), gx * k, gy * k);
+}
+` + shader.fragmentShader.replace('#include <map_fragment>', `
+      vec2 gp = vWorldXZ, gdx = dFdx(gp), gdy = dFdy(gp);
+      vec2 wv;
+      #ifdef USE_MAP
+        wv = vec2(texture2D(uNoise, gp * 0.17).r, texture2D(uNoise, gp * 0.17 + vec2(0.43, 0.71)).r) - 0.5;
+        wv += (vec2(texture2D(uNoise, gp * 0.47 + 0.2).r, texture2D(uNoise, gp * 0.47 + vec2(0.8, 0.3)).r) - 0.5) * 0.38;
+        vec4 own = tileAt(gp);
+        vec4 ta = tileAt(gp + wv * 1.25), tb = tileAt(gp + wv.yx * vec2(-0.9, 0.9) + 0.12);
+        // crisp surfaces (roads, trails, plowed fields) keep near-straight edges
+        if (own.b < 0.5 || ta.b < 0.5 || tb.b < 0.5) { ta = tileAt(gp + wv * 0.14); tb = tileAt(gp + wv.yx * 0.1); }
+        #ifdef GROUND_FAST
+          vec4 sampledDiffuseColor = tileTex(map, ta, gp, gdx, gdy); // one pick: crisper seams, half the work
+        #else
+          vec4 sampledDiffuseColor = tb == ta ? tileTex(map, ta, gp, gdx, gdy) : (tileTex(map, ta, gp, gdx, gdy) + tileTex(map, tb, gp, gdx, gdy)) * 0.5;
+        #endif
+        diffuseColor *= sampledDiffuseColor;
+      #endif
+      // the tile's colour (what grows there, the season), read smoothly at the same wandering
+      // position, so colour follows the organic edges too instead of the tile grid
+      {
+        #ifdef GROUND_FAST
+          diffuseColor.rgb *= tintAt(gp + wv * 1.25);
+        #else
+          diffuseColor.rgb *= (tintAt(gp + wv * 1.25) + tintAt(gp + wv.yx * vec2(-0.9, 0.9) + 0.12)) * 0.5;
+        #endif
+      }
       float gn1 = texture2D(uNoise, vWorldXZ * 0.035).r;
       float gn2 = texture2D(uNoise, vWorldXZ * 0.16 + 0.37).r;
-      diffuseColor.rgb *= 0.84 + 0.24 * gn1 + 0.12 * (gn2 - 0.5);`).replace('#include <color_fragment>', `#include <color_fragment>
+      diffuseColor.rgb *= 0.84 + 0.24 * gn1 + 0.12 * (gn2 - 0.5);
+      // after rain the ground is darker and a little richer, drying out patchily
+      float wetK = uWet * smoothstep(0.25, 0.75, gn2 + uWet * 0.5);
+      diffuseColor.rgb *= 1.0 - 0.22 * wetK;`).replace('#include <color_fragment>', `
       // snow: soft noisy patches that grow with the snowpack, first on high open ground
       if (uSnow > 0.01) {
         float sn = uSnow * vSnowAff + (texture2D(uNoise, vWorldXZ * 0.09 + 0.61).r - 0.5) * 0.45;
@@ -58,7 +125,7 @@ function groundDetail(mat, noise) {
         diffuseColor.rgb = mix(diffuseColor.rgb, ${SNOW_RGB} * (0.92 + 0.1 * gn2), cover * 0.95);
       }`);
   };
-  mat.customProgramCacheKey = () => 'ground-snow';
+  mat.customProgramCacheKey = () => 'ground-splat';
   return mat;
 }
 
@@ -85,11 +152,68 @@ function waves(mat, time, amp) {
   return mat;
 }
 
+// Living water: deeper water darker and more opaque, shallows clear; a broken line of foam
+// where it laps the bank; drifting ripples that catch the light; slow streaks moving downstream
+// on creeks and rivers; and rain rings when it's raining.
+function waterLook(mat, time, noise, rain, sky) {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = shader => {
+    prev(shader);
+    Object.assign(shader.uniforms, { uNoiseW: { value: noise }, uRain: rain, uSky: sky });
+    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+      vDepth = aDepth; vFlow = aFlow; vWXZ = position.xz;`);
+    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
+      .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
+      {
+        // drifting ripples: two layers of noise sliding past each other tilt the normal
+        vec2 r1 = vWXZ * 0.9 + vec2(uTime * 0.035, uTime * 0.021) + vFlow * uTime * 0.25;
+        vec2 r2 = vWXZ * 1.7 - vec2(uTime * 0.027, -uTime * 0.041) + vFlow * uTime * 0.4;
+        float n1 = texture2D(uNoiseW, r1).r, n2 = texture2D(uNoiseW, r2).r;
+        float n1x = texture2D(uNoiseW, r1 + vec2(0.02, 0.0)).r, n1z = texture2D(uNoiseW, r1 + vec2(0.0, 0.02)).r;
+        vec3 tilt = vec3(n1x - n1 + (n2 - 0.5) * 0.05, 0.0, n1z - n1 - (n2 - 0.5) * 0.05) * 1.3;
+        normal = normalize(normal + (viewMatrix * vec4(tilt, 0.0)).xyz);
+      }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      {
+        float deep = smoothstep(0.05, 0.55, vDepth);
+        diffuseColor.rgb = mix(diffuseColor.rgb * 1.06 + vec3(0.0, 0.015, 0.01), diffuseColor.rgb * 0.82, deep);
+        diffuseColor.rgb = mix(diffuseColor.rgb, uSky, 0.06);                        // the sky reflected in it
+        diffuseColor.a *= mix(0.93, 1.0, deep);
+        // downstream streaks on moving water
+        float fl = length(vFlow);
+        if (fl > 0.01) {
+          vec2 d = vFlow / fl, p = vec2(dot(vWXZ, d), dot(vWXZ, vec2(-d.y, d.x)));
+          float st = texture2D(uNoiseW, vec2(p.x * 0.18 - uTime * 0.05, p.y * 1.1)).r;
+          diffuseColor.rgb += vec3(0.05, 0.06, 0.06) * smoothstep(0.5, 0.85, st) * fl;
+        }
+        // foam where the water laps the bank
+        float edge = 1.0 - smoothstep(0.005, 0.06, vDepth);
+        float fn = texture2D(uNoiseW, vWXZ * 1.4 + vec2(uTime * 0.05, -uTime * 0.03)).r;
+        float foam = edge * smoothstep(0.35, 0.7, fn + 0.25 * sin(uTime * 1.3 + vWXZ.x * 3.0 + vWXZ.y * 2.0));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.86), foam * 0.4);
+        diffuseColor.a = max(diffuseColor.a, foam * 0.45 * step(0.001, diffuseColor.a));
+        // rain rings: expanding circles in a grid of cells, each on its own clock
+        if (uRain > 0.01) {
+          vec2 c = vWXZ * 2.2, ci = floor(c), cf = fract(c) - 0.5;
+          float h = fract(sin(dot(ci, vec2(12.9898, 78.233))) * 43758.5453);
+          float ph = fract(uTime * 0.9 + h);
+          vec2 o = (vec2(fract(h * 7.1), fract(h * 3.7)) - 0.5) * 0.5;
+          float rr = length(cf - o), ring = smoothstep(0.035, 0.0, abs(rr - ph * 0.42)) * (1.0 - ph);
+          diffuseColor.rgb += vec3(0.25) * ring * uRain;
+        }
+      }`);
+  };
+  const key = mat.customProgramCacheKey();
+  mat.customProgramCacheKey = () => key + '-look';
+  return mat;
+}
+
 export function buildAtlas() {
-  const W = 2048, H = 512;
+  const W = ATLAS_W, H = ATLAS_H;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const ctx = c.getContext('2d');
-  const uv = {};
+  const uv = {}, slot = {};
   let k = 0;
   for (const t of ATLAS_TYPES) for (let season = 0; season < 4; season++) for (let v = 0; v < 4; v++) {
     const sx = (k % COLS) * SLOT, sy = Math.floor(k / COLS) * SLOT;
@@ -101,6 +225,7 @@ export function buildAtlas() {
     ctx.drawImage(c, sx, sy + GUT, SLOT, 1, sx, sy, SLOT, GUT);
     ctx.drawImage(c, sx, sy + GUT + CELL - 1, SLOT, 1, sx, sy + GUT + CELL, SLOT, GUT);
     uv[`${t}|${season}|${v}`] = [(sx + GUT + 0.5) / W, 1 - (sy + GUT + 0.5) / H, (sx + GUT + CELL - 0.5) / W, 1 - (sy + GUT + CELL - 0.5) / H];
+    slot[`${t}|${season}|${v}`] = k;
     k++;
   }
   const tex = new THREE.CanvasTexture(c);
@@ -108,7 +233,7 @@ export function buildAtlas() {
   tex.anisotropy = 4;
   tex.generateMipmaps = true;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
-  return { tex, uv };
+  return { tex, uv, slot, W, H };
 }
 
 // Tint for groundcover: a meadow's color comes from what's growing in it.
@@ -143,12 +268,24 @@ export class Terrain {
     this.scene = scene;
     this.atlas = atlas;
     this.time = { value: 0 };
-    this.material = withClouds(groundDetail(new THREE.MeshLambertMaterial({ map: atlas.tex, vertexColors: true }), noiseTexture()));
-    this.waterMat = withClouds(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1));
+    // which texture each tile shows, for the ground shader: slot, rotation, crisp-edged or not
+    this.noise = noiseTexture();
+    this.tiles = { tint: { value: null }, tex: { value: null }, origin: { value: new THREE.Vector2() }, size: { value: new THREE.Vector2(1, 1) }, wet: { value: 0 } };
+    this.material = withClouds(groundDetail(new THREE.MeshLambertMaterial({ map: atlas.tex, vertexColors: true }), this.noise, this.tiles));
+    this.rain = { value: 0 }; this.sky = { value: new THREE.Color(0.8, 0.86, 0.9) };
+    this.waterMat = withClouds(waterLook(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1), this.time, this.noise, this.rain, this.sky));
     this.floodMat = withClouds(waves(new THREE.MeshPhongMaterial({ color: 0x8a9a86, transparent: true, opacity: 0.72, shininess: 60, specular: 0x556677, depthWrite: false }), this.time, 0.6));
     this.skirtMat = withClouds(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     this.overlayMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.previewMat = this.overlayMat.clone();
+  }
+
+  // The Fast graphics setting draws the ground with one texture pick per pixel instead of two.
+  setFast(on) {
+    const d = this.material.defines || (this.material.defines = {});
+    if (!!d.GROUND_FAST === on) return;
+    if (on) d.GROUND_FAST = 1; else delete d.GROUND_FAST;
+    this.material.needsUpdate = true;
   }
 
   // (Re)build everything for a world.
@@ -168,6 +305,17 @@ export class Terrain {
     this.mesh.receiveShadow = true;
     this.scene.add(this.mesh);
     this.tint = new Float32Array(n * 3);
+    this.tileData = new Uint8Array(n * 4);
+    this.tiles.tex.value?.dispose();
+    const dt = new THREE.DataTexture(this.tileData, this.TW, this.TH, THREE.RGBAFormat, THREE.UnsignedByteType);
+    dt.magFilter = dt.minFilter = THREE.NearestFilter; dt.generateMipmaps = false; dt.flipY = false; dt.needsUpdate = true;
+    this.tiles.tex.value = dt;
+    this.tintData = new Uint8Array(n * 4);
+    this.tiles.tint.value?.dispose();
+    const tt = new THREE.DataTexture(this.tintData, this.TW, this.TH, THREE.RGBAFormat, THREE.UnsignedByteType);
+    tt.magFilter = tt.minFilter = THREE.LinearFilter; tt.generateMipmaps = false; tt.flipY = false; tt.needsUpdate = true;
+    this.tiles.tint.value = tt;
+    this.tiles.origin.value.set(this.X0, this.Y0); this.tiles.size.value.set(this.TW, this.TH);
     this.water = null; this.flood = null; this.overlay = null; this.preview = null;
     this.updateHeights();
   }
@@ -259,6 +407,13 @@ export class Terrain {
           if (canopy > 0.6 && (tex === T.FIELD || tex === T.SOIL)) tex = S.TURF;
           c = mixRgb(c, [0.5, 0.45, 0.33], clamp((canopy - 0.3) * 1.2, 0, 0.7));
         }
+        // a little soft shade where trunks and shrubs meet the ground, so they sit in the land
+        const tid2 = inside ? w.tree[i] : (bi >= 0 ? B.tree[bi] : 0), sid2 = inside ? w.shrub[i] : (bi >= 0 ? B.shrub[bi] : 0);
+        const tg = inside ? w.treeG[i] : 0.9, sg = inside ? w.shrubG[i] : 0.9;
+        if (tid2 && tg > 0.25) c = c.map(q => q * (1 - 0.14 * Math.min(1, tg)));
+        else if (sid2 && sg > 0.3) c = c.map(q => q * (1 - 0.08 * Math.min(1, sg)));
+        // game trails worn in by the herds
+        if (inside && w.trod && w.trod[i] > 0.12 && t !== T.ROAD) c = mixRgb(c, biome.look.soil, Math.min(0.45, (w.trod[i] - 0.12) * 0.7));
         if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); }
       }
       {
@@ -270,7 +425,11 @@ export class Terrain {
       const dim = inside ? 1 : 0.8;
       tint[k * 3] = lin(c[0] * b * dim); tint[k * 3 + 1] = lin(c[1] * b * dim); tint[k * 3 + 2] = lin(c[2] * b * dim);
       // UVs, rotated per tile so repeats don't line up
-      const r = this.atlas.uv[`${tex}|${season}|${v}`] || this.atlas.uv[`${T.PASTURE}|${season}|0`];
+      const key = this.atlas.uv[`${tex}|${season}|${v}`] ? `${tex}|${season}|${v}` : `${T.PASTURE}|${season}|0`;
+      const r = this.atlas.uv[key];
+      const td = this.tileData, crisp = t === T.ROAD || t === T.TRAIL || t === T.FIELD;
+      td[k * 4] = this.atlas.slot[key]; td[k * 4 + 1] = t === T.FIELD ? 0 : (v & 3) * 64; // plowed furrows all run the same way
+      td[k * 4 + 2] = crisp ? 0 : 255; td[k * 4 + 3] = 255;
       const corners = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
       const rot = v & 3;
       const cA = corners[rot % 4], cB = corners[(rot + 1) % 4], cC = corners[(rot + 2) % 4], cD = corners[(rot + 3) % 4];
@@ -297,7 +456,7 @@ export class Terrain {
       // keep a little of the tile's own color so edges stay readable
       const own = [tint[k * 3], tint[k * 3 + 1], tint[k * 3 + 2]];
       const o = k * 18;
-      const put = (j, q) => { col[o + j * 3] = q[0] * 0.8 + own[0] * 0.2; col[o + j * 3 + 1] = q[1] * 0.8 + own[1] * 0.2; col[o + j * 3 + 2] = q[2] * 0.8 + own[2] * 0.2; };
+      const put = (j, q) => { col[o + j * 3] = q[0] * 0.92 + own[0] * 0.08; col[o + j * 3 + 1] = q[1] * 0.92 + own[1] * 0.08; col[o + j * 3 + 2] = q[2] * 0.92 + own[2] * 0.08; };
       put(0, cA); put(1, cC); put(2, cB); put(3, cA); put(4, cD); put(5, cC);
     }
     // snow affinity, blended at corners like the colours so its edges fade too
@@ -316,6 +475,10 @@ export class Terrain {
       sa[o] = a; sa[o + 1] = c; sa[o + 2] = b; sa[o + 3] = a; sa[o + 4] = d; sa[o + 5] = c;
     }
     g.attributes.aSnow.needsUpdate = true;
+    this.tiles.tex.value.needsUpdate = true;
+    { const td = this.tintData, enc = v => Math.round(Math.sqrt(clamp(v / 1.5, 0, 1)) * 255);
+      for (let k = 0; k < TW * TH; k++) { td[k * 4] = enc(tint[k * 3]); td[k * 4 + 1] = enc(tint[k * 3 + 1]); td[k * 4 + 2] = enc(tint[k * 3 + 2]); td[k * 4 + 3] = 255; }
+      this.tiles.tint.value.needsUpdate = true; }
     g.attributes.uv.needsUpdate = true;
     g.attributes.color.needsUpdate = true;
   }
@@ -428,12 +591,24 @@ export class Terrain {
     const tiles = [];
     for (let k = 0; k < TW * TH; k++) if (level[k] === level[k]) tiles.push(k);
     const pos = new Float32Array(tiles.length * 18), col = new Float32Array(tiles.length * 24), nor = new Float32Array(tiles.length * 18);
-    let o = 0, oc = 0;
+    const dep = new Float32Array(tiles.length * 6), flow = new Float32Array(tiles.length * 12);
+    const moving = k => kind[k] === T.CREEK || kind[k] === T.RIVER;
+    const wetAt = (tx, ty) => tx >= 0 && ty >= 0 && tx < TW && ty < TH && wet[ty * TW + tx];
+    let o = 0, oc = 0, od = 0;
     for (const k of tiles) {
-      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
+      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0, tx = k % TW, ty = (k / TW) | 0;
+      // which way this stretch runs: downhill if the bed slopes, else along the channel
+      let fx = 0, fy = 0;
+      if (moving(k)) {
+        fx = w.vert(x - 1, y) - w.vert(x + 2, y); fy = w.vert(x, y - 1) - w.vert(x, y + 2);
+        if (Math.hypot(fx, fy) < 0.05) { const h = (wetAt(tx - 1, ty) ? 1 : 0) + (wetAt(tx + 1, ty) ? 1 : 0), v = (wetAt(tx, ty - 1) ? 1 : 0) + (wetAt(tx, ty + 1) ? 1 : 0); fx = h >= v ? 1 : 0; fy = h >= v ? 0 : 1; }
+        const l = Math.hypot(fx, fy) || 1; fx /= l; fy /= l;
+        if (kind[k] === T.CREEK) { fx *= 0.7; fy *= 0.7; }
+      }
       for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
-        const c = vColor(vx, vy);
-        pos[o] = vx; pos[o + 1] = vLevel(vx, vy) * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
+        const c = vColor(vx, vy), lv = vLevel(vx, vy);
+        pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
+        dep[od] = vWet(vx, vy) ? Math.max(0, lv - w.vert(vx, vy)) : 0; flow[od * 2] = fx; flow[od * 2 + 1] = fy; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
       }
     }
@@ -441,6 +616,8 @@ export class Terrain {
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
     g.setAttribute('color', new THREE.BufferAttribute(col, 4));
+    g.setAttribute('aDepth', new THREE.BufferAttribute(dep, 1));
+    g.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
     this.water = new THREE.Mesh(g, this.waterMat);
     this.water.renderOrder = 2;
     this.scene.add(this.water);

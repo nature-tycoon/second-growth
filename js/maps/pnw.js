@@ -79,6 +79,8 @@ export default {
     crownOut: 'Fireweed, lupine and grasses will turn the burn into meadow for years before trees return, and woodpeckers love the snags.',
   },
   look: {
+    // colour grade: cool and a little misty
+    grade: { gain: [0.97, 1.0, 1.035], lift: [0.008, 0.012, 0.018], sat: 0.95, contrast: 1.0 },
     pasture: ['#a2b56a', '#abb26c', '#a9a46c', '#8c976a'],
     soil: [0.8, 0.66, 0.5], mud: [0.62, 0.54, 0.42],
     water: { pond: [0.3, 0.56, 0.66, 0.82], creek: [0.38, 0.63, 0.7, 0.78], river: [0.28, 0.52, 0.63, 0.86], marsh: [0.46, 0.62, 0.52, 0.55] },

@@ -80,7 +80,8 @@ button, select { font-family: inherit; color: inherit; }
 
 .panel {
   position: fixed;
-  background: var(--paper);
+  background: rgba(244, 237, 219, 0.9); /* a little of the land shows through */
+  -webkit-backdrop-filter: blur(10px) saturate(1.1); backdrop-filter: blur(10px) saturate(1.1);
   border: 1px solid var(--line);
   border-radius: 14px;
   box-shadow: var(--shadow);
@@ -235,10 +236,11 @@ button.ghost.on { background: var(--moss); color: #fff; border-color: var(--moss
 #minimap { display: block; width: 200px; height: 150px; border-radius: 8px; cursor: pointer; }
 
 /* ---------------- toasts */
-#toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; width: 400px; display: flex; flex-direction: column-reverse; gap: 6px; z-index: 11; pointer-events: none; }
+#toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; width: 360px; display: flex; flex-direction: column-reverse; gap: 6px; z-index: 11; pointer-events: none; }
 .toast {
-  pointer-events: auto; background: rgba(36, 46, 34, 0.93); color: #f4eddb; border-radius: 11px; padding: 9px 12px 9px 12px;
-  font-size: 13px; line-height: 1.35; box-shadow: var(--shadow); display: flex; gap: 10px; align-items: flex-start;
+  pointer-events: auto; background: rgba(36, 46, 34, 0.8); color: #f4eddb; border-radius: 11px; padding: 7px 11px;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  font-size: 12.5px; line-height: 1.33; box-shadow: 0 4px 14px rgba(15, 25, 10, 0.25); display: flex; gap: 9px; align-items: flex-start;
   border-left: 4px solid #9ab07a; animation: toastIn 0.3s ease-out; cursor: default;
 }
 .toast.clickable { cursor: pointer; }
@@ -593,3 +595,20 @@ body.campaign #banner { top: 124px; }
 @media (max-height: 520px) { .world { max-width: 470px; margin-inline: auto; } .wm-pin em { display: none; } .wm-pin b { font-size: 11.5px; } .map-pick .map-card img { width: 34%; } }
 .set-row.now-playing { cursor: default; }
 .set-row.now-playing .btn { flex-shrink: 0; padding: 6px 12px; font-size: 12.5px; }
+
+/* photo mode: only the land, a soft vignette and blurred edges, and a small bar to save the picture */
+body.photo-mode > *:not(#view):not(#fx):not(#photo-bar):not(#photo-vignette) { visibility: hidden !important; }
+#photo-vignette, #photo-bar { display: none; }
+body.photo-mode #photo-vignette { display: block; position: fixed; inset: 0; pointer-events: none; z-index: 40;
+  background: radial-gradient(ellipse at center, rgba(20,24,16,0) 55%, rgba(20,24,16,0.42) 100%);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 52%, black 100%); mask-image: radial-gradient(ellipse at center, transparent 52%, black 100%); }
+body.photo-mode #photo-bar { display: flex; position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 41;
+  align-items: center; gap: 10px; padding: 8px 10px 8px 16px; border-radius: 999px; background: rgba(28,38,26,0.72); color: #f3ecd6;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-size: 13px; box-shadow: var(--shadow); white-space: nowrap; }
+body.photo-mode #photo-bar .btn { padding: 7px 14px; }
+@media (max-width: 520px) { body.photo-mode #photo-bar span { display: none; } }
+/* compact notifications: at most a few lines each (the full text is in the field journal), and
+   the older one steps back */
+.toast > span:last-child { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.toast + .toast { opacity: 0.82; }

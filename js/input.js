@@ -30,7 +30,7 @@ export class Input {
     cv.addEventListener('wheel', e => {
       e.preventDefault();
       const f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015) * settings.zoomSpeed);
-      this.r.zoomAt(e.clientX, e.clientY, f);
+      this.r.zoomAt(e.clientX, e.clientY, f, true); // eased
     }, { passive: false });
     // touch: one finger paints (or pans in Inspect), a tap inspects or places,
     // two fingers pan and pinch-zoom the camera
@@ -77,6 +77,7 @@ export class Input {
     else if (k === 'h') this.ui.setOverlay(this.ui.state.overlay === 'habitat' ? 'none' : 'habitat');
     else if (k === 'g') this.ui.openGuide();
     else if (k === 'm') this.ui.toggleMute();
+    else if (k === 'p') this.ui.togglePhoto();
   }
 
   update(dt) {
