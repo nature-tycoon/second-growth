@@ -11,9 +11,11 @@ import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js'
 import { ANIMALS } from '../data/animals.js';
 import { Terrain, buildAtlas } from './terrain.js';
 import { Flora, windGust } from './flora.js';
-import { Actors } from './actors.js';
+import { Actors, salmonLeap } from './actors.js';
 import { building } from './geometry.js';
 import { hash2 } from '../rng.js';
+import { Border } from '../world.js';
+import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 
 const EL = THREE.MathUtils.degToRad(34);
 
@@ -209,6 +211,11 @@ export class Renderer {
     this.clampCam(); this.updateCamera();
   }
   rotate(dir) { this.azTarget += dir * Math.PI / 2; }
+  // Glide the camera to a spot and zoom (for keystone moments), easing in and out.
+  flyTo(x, y, zoom, dur = 2.2) {
+    this.zoomGoal = null;
+    this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, 4.5), t: 0, dur };
+  }
 
   // Ray from a screen point into the scene.
   ray(sx, sy) {
@@ -308,6 +315,14 @@ export class Renderer {
       if (Math.abs(this.azTarget - this.az) < 0.002) this.az = this.azTarget;
       this.updateCamera();
     }
+    if (this.fly) {
+      const f = this.fly; f.t += dt;
+      const u = Math.min(1, f.t / f.dur), e = u * u * (3 - 2 * u);
+      this.target.x = f.x0 + (f.x1 - f.x0) * e; this.target.z = f.z0 + (f.z1 - f.z0) * e;
+      this.zoom = Math.exp(Math.log(f.zoom0) + (Math.log(f.zoom1) - Math.log(f.zoom0)) * e);
+      this.clampCam(); this.updateCamera();
+      if (u >= 1) this.fly = null;
+    }
     // an eased wheel zoom glides toward its goal, holding the point under the cursor still
     if (this.zoomGoal != null) {
       if (this.zoomSet !== this.zoom) this.zoomGoal = null; // something else set the zoom directly
@@ -382,16 +397,39 @@ export class Renderer {
   }
 
   // A picture of the view for photo mode: the 3D scene and the effects layer, with a soft vignette.
-  capture(game, ui) {
+  capture(game, ui, vignette = true) {
     this.draw(game, ui, 0); // render now, so the drawing buffer is still full when we copy it
     const W = this.gl.domElement.width, H = this.gl.domElement.height;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const ctx = c.getContext('2d');
     ctx.drawImage(this.gl.domElement, 0, 0); ctx.drawImage(this.ui, 0, 0, W, H);
+    if (!vignette) return c;
     const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.56);
     g.addColorStop(0, 'rgba(20,24,16,0)'); g.addColorStop(1, 'rgba(20,24,16,0.42)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     return c;
+  }
+
+  // Then and now: the same view of the farm as it is, and as it was on day one. The starting farm
+  // isn't stored anywhere: it's regenerated from the game's seed (the map generator is
+  // deterministic), drawn for one frame in the same season and light, and then the present is put
+  // back. Animals and visitors are left out of the "then" picture.
+  thenAndNow(game, ui) {
+    const now = this.capture(game, ui, false);
+    const keep = { world: game.world, border: game.border, agents: game.wildlife.agents, people: game.visitors.agents, sel: game.selectedAgent, fx: this.trailFx, pose: new Map(this.actors.pose) };
+    const w0 = biome.generate(game.seed);
+    game.world = w0; game.border = new Border(w0, biome.borderCell);
+    game.wildlife.agents = []; game.visitors.agents = []; game.selectedAgent = null; this.trailFx = [];
+    try {
+      w0.hydroDirty = true; updateHydrology(w0); updateEnvironment(w0, game.month, 0);
+      this.lastFlora = 0; this.floraPending = true;
+      return { then: this.capture(game, ui, false), now };
+    } finally {
+      game.world = keep.world; game.border = keep.border; game.wildlife.agents = keep.agents; game.visitors.agents = keep.people; game.selectedAgent = keep.sel; this.trailFx = keep.fx;
+      this.lastFlora = 0; this.floraPending = true;
+      this.draw(game, ui, 0);
+      for (const [k, v] of keep.pose) this.actors.pose.set(k, v); // animals keep facing the way they were
+    }
   }
 
   // ------------------------------------------------------------------ tile overlays
@@ -582,6 +620,16 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     if (wet && st.gait > 0.3 && Math.random() < dt * 1.8 * st.gait) fx.push({ k: 'wake', x: a.x, z: a.y, y: st.y, yaw: st.yaw, life: 1.3, max: 1.3, s: Math.max(0.5, (def.sprite.len || def.sprite.size || 10) / 38) });
     else if (!wet && def.move === 'ground' && (def.sprite.len || 0) >= 20 && st.gait > 0.5 && (DRY.has(t) || biome.savanna && game.season > 0) && !(w.ground[i] && w.groundG[i] > 0.7 && !biome.savanna)
       && Math.random() < dt * 1.4 * st.gait) fx.push({ k: 'dust', x: a.x - Math.cos(st.yaw) * 0.25, z: a.y + Math.sin(st.yaw) * 0.25, y: st.y, life: 1.6, max: 1.6, s: (def.sprite.len || 20) / 36 });
+    // a leaping salmon throws up a splash where it leaves the water and where it lands
+    if (def.special === 'salmon' && wet) {
+      const jp = salmonLeap(a, this.time);
+      if ((jp >= 0) !== !!a.leaping) {
+        a.leaping = jp >= 0;
+        const ahead = a.leaping ? 0 : 0.45, sx = a.x + Math.cos(st.yaw) * ahead, sz = a.y - Math.sin(st.yaw) * ahead;
+        fx.push({ k: 'ring', x: sx, z: sz, y: st.y, life: 1.2, max: 1.2, s: 0.8 });
+        for (let d = 0; d < 6; d++) fx.push({ k: 'drop', x: sx, z: sz, y: st.y, vx: (Math.random() - 0.5) * 1.2, vz: (Math.random() - 0.5) * 1.2, vy: 1.2 + Math.random() * 1.2, life: 0.6, max: 0.6 });
+      }
+    }
     if (a.drinkT > 0 && !a.rippled && (wet || w.distWater[i] <= 1)) { a.rippled = true; fx.push({ k: 'ring', x: a.x + Math.cos(st.yaw) * 0.3, z: a.y - Math.sin(st.yaw) * 0.3, y: st.y, life: 1.8, max: 1.8, s: 1 }); }
     if (!(a.drinkT > 0)) a.rippled = false;
   }
@@ -591,6 +639,13 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     const p = fx[k];
     p.life -= dt;
     if (p.life <= 0) { fx.splice(k, 1); continue; }
+    if (p.k === 'drop') {
+      p.x += p.vx * dt; p.z += p.vz * dt; p.vy -= 6 * dt; p.y += p.vy * dt * 0.35;
+      const d = this.project(p.x, p.y, p.z);
+      ctx.fillStyle = `rgba(240,248,248,${(0.85 * p.life / p.max).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(d.x, d.y, 1.3 * Math.max(1, z), 0, 7); ctx.fill();
+      continue;
+    }
     const f = 1 - p.life / p.max, sp = this.project(p.x, p.y + (p.k === 'dust' ? 0.05 + f * 0.25 : 0.02), p.z);
     if (p.k === 'dust') {
       ctx.fillStyle = `rgba(206,184,146,${(0.18 * (1 - f)).toFixed(3)})`;

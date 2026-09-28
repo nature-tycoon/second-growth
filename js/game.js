@@ -1,5 +1,6 @@
 // Game state and the simulation clock.
 
+import { moment, ARRIVAL_MOMENTS } from './sim/moments.js';
 import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, DIFFICULTY, seasonOfMonth, money } from './config.js';
 import { biome, setBiome } from './biome.js';
 import { World, Border } from './world.js';
@@ -252,6 +253,7 @@ export class Game {
     const bonus = this.grant(150, 'discovery');
     this.notify(`New species! ${aOne(def).replace(/^a/, 'A')} has arrived on the farm. (+${money(bonus)} discovery grant)`, 'discover', a);
     this.emit('discover', def);
+    if (ARRIVAL_MOMENTS[def.key]) moment(this, ARRIVAL_MOMENTS[def.key], a);
   }
 
   onPredation(pred, prey) {

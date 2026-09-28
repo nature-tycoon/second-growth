@@ -109,7 +109,10 @@ export class Events {
     if (this.severe && this.heat > 0.3 && (w.tree[i] || w.shrub[i])) return this.crownBurn(i);
     const gi = w.ground[i];
     if (gi) {
-      if (PLANTS[gi].invasive) w.groundG[i] *= 0.4;
+      const bank = w.seedbank?.[i];
+      // fire clears the weeds and the native seed bank germinates in the ash (on healthy land)
+      if (PLANTS[gi].invasive && bank && Math.random() < (w.bankStrength || 0)) { w.ground[i] = bank; w.groundG[i] = 0.12; }
+      else if (PLANTS[gi].invasive) w.groundG[i] *= 0.4;
       else w.groundG[i] = Math.min(w.groundG[i], 0.25);
     }
     const si = w.shrub[i];

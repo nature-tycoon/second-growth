@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Player Farms · Second Growth</title>
+<link rel="icon" href="assets/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --paper: #f4eddb; --paper-2: #e9dfc5; --paper-3: #dccfae; --ink: #2b3a2a; --ink-2: #4a5646; --moss: #4f7d3b; --moss-2: #3b6230; --rust: #b5602f; --line: rgba(90, 70, 35, 0.22); }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.45 Nunito, system-ui, sans-serif; }
+  header { padding: 22px 24px 12px; display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: baseline; }
+  h1 { font: 700 26px Fraunces, Georgia, serif; color: var(--moss-2); margin: 0; }
+  header p { margin: 0; color: var(--ink-2); max-width: 70ch; }
+  .load { margin: 0 24px 14px; padding: 14px 16px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 10px; }
+  .load .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .load label { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); }
+  input, select, textarea, button { font: inherit; }
+  input[type=text], input[type=password], select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fffaf0; min-width: 0; }
+  textarea { width: 100%; min-height: 70px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fffaf0; font: 12px ui-monospace, monospace; }
+  button { padding: 7px 14px; border-radius: 8px; border: 0; background: var(--moss); color: #fff; font-weight: 700; cursor: pointer; }
+  button.secondary { background: var(--paper-3); color: var(--ink); }
+  .small { font-size: 12px; color: var(--ink-2); }
+  .status { font-size: 13px; color: var(--ink-2); }
+  .status.err { color: #a03a2a; }
+  .bar { margin: 0 24px 12px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0 24px 16px; font-size: 12px; color: var(--ink-2); }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; padding: 0 24px 40px; }
+  .card { background: #fffaf0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; cursor: pointer; }
+  .card canvas { display: block; width: 100%; image-rendering: pixelated; background: var(--paper-3); }
+  .card .meta { padding: 9px 12px 11px; display: grid; gap: 3px; }
+  .card b { font-family: Fraunces, Georgia, serif; color: var(--moss-2); font-size: 15px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--paper-2); color: var(--ink-2); }
+  .empty { margin: 30px 24px; color: var(--ink-2); }
+  dialog { border: 0; border-radius: 14px; padding: 0; max-width: min(1100px, 96vw); width: 96vw; background: var(--paper); color: var(--ink); }
+  dialog::backdrop { background: rgba(20, 30, 20, 0.55); }
+  .detail { display: grid; grid-template-columns: minmax(0, 3fr) minmax(240px, 2fr); gap: 16px; padding: 16px; }
+  .detail canvas { width: 100%; image-rendering: pixelated; border-radius: 8px; }
+  .detail h2 { font: 700 20px Fraunces, Georgia, serif; margin: 0 0 6px; color: var(--moss-2); }
+  .detail h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-2); margin: 12px 0 4px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 13px; }
+  .kv span:nth-child(odd) { color: var(--ink-2); }
+  .close { position: absolute; top: 10px; right: 12px; }
+  @media (max-width: 720px) { .detail { grid-template-columns: 1fr; } header, .load, .bar, .legend, .grid { margin-left: 12px; margin-right: 12px; padding-left: 0; padding-right: 0; } .load { padding: 12px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Player farms</h1>
+  <p>Snapshots of what players built, from the <code>farm_snapshot</code> events the game sends to PostHog when someone leaves (and every ten minutes of play). Nothing is stored here: data stays in this browser.</p>
+</header>
+
+<section class="load">
+  <div class="row">
+    <label for="key">PostHog personal API key</label>
+    <input type="password" id="key" placeholder="phx_…" size="34" autocomplete="off">
+    <input type="text" id="project" value="630638" size="8" title="Project ID">
+    <select id="days"><option value="7">last 7 days</option><option value="30" selected>last 30 days</option><option value="90">last 90 days</option></select>
+    <button id="fetch">Load from PostHog</button>
+    <label class="small"><input type="checkbox" id="remember"> remember key in this browser</label>
+  </div>
+  <div class="small">Create a key in PostHog under <i>Settings → Personal API keys</i> with read access to events (Query read). Or export the events from PostHog as JSON and paste or drop the file below.</div>
+  <textarea id="paste" placeholder="…or paste exported JSON here (or drop a .json / .csv file on this box)"></textarea>
+  <div class="row"><button class="secondary" id="parse">Show pasted farms</button><span class="status" id="status"></span></div>
+</section>
+
+<div class="bar">
+  <select id="fmap"><option value="">All maps</option><option value="pnw">Hollis Farm</option><option value="amazon">Fazenda Esperança</option><option value="serengeti">Enkare Conservancy</option></select>
+  <select id="sort"><option value="recent">Newest first</option><option value="score">Highest score</option><option value="played">Longest played</option><option value="year">Furthest in time</option></select>
+  <label class="small"><input type="checkbox" id="latest" checked> latest snapshot per player only</label>
+  <input type="text" id="exclude" placeholder="exclude distinct IDs (yours), comma separated" size="40">
+  <span class="small" id="count"></span>
+</div>
+<div class="legend" id="legend"></div>
+<div class="grid" id="grid"></div>
+<p class="empty" id="empty">No farms loaded yet.</p>
+
+<dialog id="dlg"><div style="position:relative"><button class="secondary close" id="dlgClose">Close</button><div class="detail" id="detail"></div></div></dialog>
+
+<script type="module">
+// Must match js/farmsnap.js and js/config.js (habitat colours).
+const COLORS = ['#a88b62', '#c9b77a', '#8a3b5c', '#b8cf5a', '#6f9e4a', '#3f8a4e', '#1f5a36', '#4fa383', '#6fb3a1', '#3d7fa6', '#58a6c9', '#2f6690', '#8c8680',
+  '#e8d6a2', '#a0764a', '#5a4632'];
+const NAMES = ['Bare ground', 'Degraded farmland', 'Invasive', 'Meadow / grassland', 'Shrubland', 'Young forest', 'Mature forest', 'Riparian', 'Marsh', 'Pond', 'Creek', 'River', 'Buildings & roads',
+  'Trail', 'Boardwalk / blind', 'Fence'];
+const MAPS = { pnw: 'Hollis Farm', amazon: 'Fazenda Esperança', serengeti: 'Enkare Conservancy' };
+const $ = s => document.querySelector(s);
+let farms = [];
+
+$('#legend').innerHTML = NAMES.map((n, i) => `<span><i style="background:${COLORS[i]}"></i>${n}</span>`).join('');
+
+function decode(grid, n) {
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (let k = 0; k < grid.length && o < n;) {
+    const c = grid.charCodeAt(k) - 97; k++;
+    let run = 0;
+    while (k < grid.length && grid[k] >= '0' && grid[k] <= '9') run = run * 10 + (grid.charCodeAt(k++) - 48);
+    run = run || 1;
+    out.fill(c, o, Math.min(n, o + run)); o += run;
+  }
+  return out;
+}
+const rgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const PAL = COLORS.map(rgb);
+function draw(f, scale) {
+  const { width: w, height: h } = f.p;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(w, h), cells = decode(f.p.grid, w * h);
+  for (let i = 0; i < w * h; i++) { const q = PAL[cells[i]] || [255, 0, 255]; img.data.set([q[0], q[1], q[2], 255], i * 4); }
+  ctx.putImageData(img, 0, 0);
+  if (scale === 1) return c;
+  const big = document.createElement('canvas'); big.width = w * scale; big.height = h * scale;
+  const b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(c, 0, 0, big.width, big.height);
+  return big;
+}
+
+// Find snapshot events anywhere in whatever was pasted (PostHog JSON export, API results, CSV).
+function collect(data, out = []) {
+  if (!data || typeof data !== 'object') return out;
+  if (Array.isArray(data)) { data.forEach(d => collect(d, out)); return out; }
+  const props = typeof data.properties === 'string' ? safeJSON(data.properties) : data.properties;
+  if (props && props.grid && props.width) { out.push(norm(data, props)); return out; }
+  if (data.grid && data.width) { out.push(norm({}, data)); return out; }
+  for (const v of Object.values(data)) if (v && typeof v === 'object') collect(v, out);
+  return out;
+}
+function norm(ev, p) {
+  return { id: ev.uuid || ev.id || Math.random().toString(36).slice(2), t: new Date(ev.timestamp || ev.created_at || p.$time || Date.now()), who: ev.distinct_id || p.distinct_id || p.$device_id || '?', p };
+}
+const safeJSON = s => { try { return JSON.parse(s); } catch { return null; } };
+function parseCSV(text) {
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') q = false; else cell += ch; }
+    else if (ch === '"') q = true; else if (ch === ',') { row.push(cell); cell = ''; } else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; } else if (ch !== '\r') cell += ch;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  const [head, ...body] = rows;
+  return body.map(r => { const o = {}; head.forEach((h, i) => { o[h] = r[i]; }); if (o['*']) Object.assign(o, safeJSON(o['*']) || {}); return o; });
+}
+function load(text) {
+  const t = text.trim();
+  let data = t.startsWith('[') || t.startsWith('{') ? safeJSON(t) : parseCSV(t);
+  const found = collect(data);
+  add(found);
+  return found.length;
+}
+function add(list) {
+  const seen = new Set(farms.map(f => f.id));
+  for (const f of list) if (!seen.has(f.id)) { farms.push(f); seen.add(f.id); }
+  render();
+}
+
+function render() {
+  const ex = new Set($('#exclude').value.split(',').map(s => s.trim()).filter(Boolean));
+  let list = farms.filter(f => (!$('#fmap').value || f.p.map === $('#fmap').value) && !ex.has(f.who));
+  if ($('#latest').checked) {
+    const best = new Map();
+    for (const f of list) { const k = f.who + '|' + f.p.map; if (!best.has(k) || best.get(k).t < f.t) best.set(k, f); }
+    list = [...best.values()];
+  }
+  const by = { recent: (a, b) => b.t - a.t, score: (a, b) => (b.p.score || 0) - (a.p.score || 0), played: (a, b) => (b.p.active_minutes || 0) - (a.p.active_minutes || 0), year: (a, b) => (b.p.day || 0) - (a.p.day || 0) }[$('#sort').value];
+  list.sort(by);
+  $('#count').textContent = `${list.length} farm${list.length === 1 ? '' : 's'}`;
+  $('#empty').hidden = list.length > 0;
+  const g = $('#grid'); g.innerHTML = '';
+  for (const f of list) {
+    const card = document.createElement('div'); card.className = 'card';
+    card.appendChild(draw(f, 3));
+    const p = f.p, sp = Object.keys(p.populations || {}).length;
+    const m = document.createElement('div'); m.className = 'meta';
+    m.innerHTML = `<b>${MAPS[p.map] || p.map} · ${p.mode === 'campaign' ? `Campaign ch. ${p.chapter ?? '?'}` : 'Free play'}</b>
+      <span class="small">${f.t.toLocaleString()} · ${p.active_minutes ?? '?'} min played · Year ${p.game_year}</span>
+      <div class="chips"><span class="chip">score ${p.score}</span><span class="chip">${sp} species</span><span class="chip">$${(p.money || 0).toLocaleString()}</span><span class="chip">${p.visitors_total || 0} visitors</span>${[p.difficulty, p.why].filter(Boolean).map(x => `<span class="chip">${x}</span>`).join('')}</div>`;
+    card.appendChild(m);
+    card.addEventListener('click', () => open(f));
+    g.appendChild(card);
+  }
+}
+
+function open(f) {
+  const p = f.p, d = $('#detail');
+  const tools = Object.entries(p.tools_used || {}).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => `<span>${k.replace(/^plant_/, 'plant: ')}</span><span>${v}</span>`).join('');
+  const pops = Object.entries(p.populations || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ');
+  const hab = Object.entries(p.habitats || {}).filter(([, v]) => v).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span>${k.replace(/_/g, ' ')}</span><span>${v}</span>`).join('');
+  d.innerHTML = `<div id="big"></div><div>
+    <h2>${MAPS[p.map] || p.map}</h2>
+    <div class="kv"><span>When</span><span>${f.t.toLocaleString()}</span><span>Player</span><span style="word-break:break-all">${f.who}</span>
+      <span>Mode</span><span>${p.mode}${p.chapter ? `, chapter ${p.chapter}` : ''} · ${p.difficulty || ''}</span><span>Played</span><span>${p.active_minutes ?? '?'} min active · game year ${p.game_year}, day ${p.day}</span>
+      <span>Score</span><span>${p.score}</span><span>Money</span><span>$${(p.money || 0).toLocaleString()}</span><span>Visitors</span><span>${p.visitors_total || 0} · ${p.rating || 0}★</span>
+      <span>Planted</span><span>${p.planted || 0} (${p.trees_planted || 0} trees)</span><span>Goals</span><span>${p.goals_done || 0}</span><span>Snapshot</span><span>${p.why || ''}</span></div>
+    <h3>Wildlife</h3><div class="small">${pops || 'none'}</div>
+    <h3>Most-used tools</h3><div class="kv">${tools || '<span>none</span>'}</div>
+    <h3>Habitat tiles</h3><div class="kv">${hab}</div></div>`;
+  d.querySelector('#big').appendChild(draw(f, 6));
+  $('#dlg').showModal();
+}
+$('#dlgClose').addEventListener('click', () => $('#dlg').close());
+for (const id of ['#fmap', '#sort', '#latest']) $(id).addEventListener('change', render);
+$('#exclude').addEventListener('input', render);
+
+const status = (t, err = false) => { const s = $('#status'); s.textContent = t; s.classList.toggle('err', err); };
+$('#parse').addEventListener('click', () => { const n = load($('#paste').value); status(n ? `Found ${n} snapshot${n === 1 ? '' : 's'}.` : 'No farm snapshots found in that text.', !n); });
+const box = $('#paste');
+box.addEventListener('dragover', e => e.preventDefault());
+box.addEventListener('drop', async e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (!f) return; const n = load(await f.text()); status(`Found ${n} snapshot${n === 1 ? '' : 's'} in ${f.name}.`, !n); });
+
+// PostHog query API (HogQL). The key never leaves this browser except to PostHog itself.
+try { const k = localStorage.getItem('farms-ph-key'); if (k) { $('#key').value = k; $('#remember').checked = true; } } catch { /* ignore */ }
+$('#fetch').addEventListener('click', async () => {
+  const key = $('#key').value.trim(), project = $('#project').value.trim(), days = +$('#days').value;
+  if (!key) return status('Paste a personal API key first.', true);
+  try { if ($('#remember').checked) localStorage.setItem('farms-ph-key', key); else localStorage.removeItem('farms-ph-key'); } catch { /* ignore */ }
+  status('Loading…');
+  const query = `select uuid, timestamp, distinct_id, properties from events where event = 'farm_snapshot' and timestamp > now() - interval ${days} day order by timestamp desc limit 1000`;
+  try {
+    const r = await fetch(`https://us.posthog.com/api/projects/${encodeURIComponent(project)}/query/`, {
+      method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: { kind: 'HogQLQuery', query } }),
+    });
+    if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 200)}`);
+    const j = await r.json();
+    const list = (j.results || []).map(([uuid, timestamp, distinct_id, properties]) => norm({ uuid, timestamp, distinct_id }, typeof properties === 'string' ? safeJSON(properties) : properties)).filter(f => f.p && f.p.grid);
+    add(list);
+    status(`Loaded ${list.length} snapshot${list.length === 1 ? '' : 's'} from the last ${days} days.`);
+  } catch (e) { status(`Couldn't load from PostHog: ${e.message}`, true); }
+});
+</script>
+</body>
+</html>

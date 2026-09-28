@@ -6,6 +6,7 @@ import { ANIMALS, ANIMAL, many, cap } from '../data/animals.js';
 import { PLANTS } from '../data/plants.js';
 import { killTree } from './plants.js';
 import { biome } from '../biome.js';
+import { moment } from './moments.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -237,13 +238,17 @@ export class Wildlife {
     this.crossingAt = { x: cx, until: this.game.day + 12 }; // the crocodiles know
     const lag = rng() * 4; // groups that arrive the same month string out along the crossing
     for (let k = 0; k < n; k++) {
-      const x = clamp(cx + Math.round((rng() * 2 - 1) * 2.5), 0, w.w - 1);
+      // a loose crowd: bunched in the middle, stragglers out to the sides and well behind
+      const spread = (rng() + rng() + rng() - 1.5) * 5.5;
+      const x = clamp(cx + Math.round(spread), 0, w.w - 1);
       const a = this.spawn(def, x, w.h - 1);
-      a.x = x + 0.2 + rng() * 0.6; a.y = w.h + 1 + lag + k * 0.55 + rng() * 0.4;
+      a.x = x + 0.1 + rng() * 0.8; a.y = w.h + 1 + lag + rng() * 7 + k * 0.18;
+      a.pace = 0.8 + rng() * 0.45;
       const path = [];
       for (let y = Math.max(0, bank - 3 - Math.floor(rng() * 3)); y <= w.h - 1; y++) path.push(w.idx(x, y));
-      a.path = path; a.state = 'walk'; a.wait = 0;
+      a.path = path; a.state = 'walk'; a.wait = 0; a.landed = true;
     }
+    if (n >= 6) moment(this.game, 'crossing', { x: cx + 0.5, y: bank + 2.5 });
     return n;
   }
 
@@ -374,6 +379,7 @@ export class Wildlife {
       for (let k = 0; k < n; k++) placed += this.immigrateSalmon(def);
       if (placed) {
         S.spawners = placed;
+        this.startSalmonRun();
         game.notify(returns > 0
           ? `The coho are home! ${placed} salmon are running up the creek, including fish born here.`
           : `Coho salmon are running up the creek! ${placed} spawner${placed > 1 ? 's' : ''} found the open passage.`, 'good', this.agents[this.agents.length - 1]);
@@ -419,6 +425,43 @@ export class Wildlife {
     }
   }
 
+  // The run is on: bears come down to the creek to fish. If none live here, a couple wander in
+  // from the hills for the season and go again when the salmon are spent.
+  startSalmonRun() {
+    const game = this.game, w = game.world, bear = ANIMAL.bear;
+    this.salmonRun = { from: game.day, until: game.day + 22, shown: false };
+    if (!bear) return;
+    const fish = this.agents.filter(a => ANIMALS[a.sp].special === 'salmon');
+    const f = fish[fish.length - 1];
+    const have = this.agents.filter(a => a.sp === bear.index && !a.leaving).length;
+    for (let k = have; k < 2 && f; k++) {
+      // arrive out of cover a little way from the creek, so they're soon on the bank
+      const ang = Math.random() * Math.PI * 2, r = 9 + Math.random() * 5;
+      const pos = this.randomPassableNear(bear, clamp(Math.round(f.x + Math.cos(ang) * r), 1, w.w - 2), clamp(Math.round(f.y - 8 + Math.sin(ang) * r), 1, w.h - 8), 4);
+      if (!pos) continue;
+      const b = this.spawn(bear, pos[0], pos[1], { silent: true });
+      b.visit = true;
+    }
+  }
+
+  // A bear at the salmon run: go to the bank nearest a running fish, stand and watch the water,
+  // and now and then snatch one.
+  fishSalmon(a) {
+    const w = this.game.world;
+    const fish = this.agents.filter(o => ANIMALS[o.sp].special === 'salmon' && !o.leaving);
+    if (!fish.length) return false;
+    let f = fish[0], bd = Infinity;
+    for (const o of fish) { const d = (o.x - a.x) ** 2 + (o.y - a.y) ** 2; if (d < bd) { bd = d; f = o; } }
+    const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+    if (w.inb(x0, y0) && w.distWater[w.idx(x0, y0)] <= 1 && bd < 16) {
+      a.wait = 2.5 + Math.random() * 4; a.drinkT = 1.2 + Math.random(); // head down over the water
+      if (this.salmonRun && !this.salmonRun.shown && this.game.day - this.salmonRun.from >= 1) { this.salmonRun.shown = moment(this.game, 'salmon', a) || true; }
+      if (Math.random() < 0.08 && bd < 4) { this.game.onPredation(a, f); this.remove(f, 'predation'); }
+      return true;
+    }
+    return this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && (x - f.x) ** 2 + (y - f.y) ** 2 < 6, 4000);
+  }
+
   immigrateSalmon(def) {
     const w = this.game.world;
     const opts = [];
@@ -444,11 +487,12 @@ export class Wildlife {
     const def = ANIMALS[a.sp], w = this.game.world;
     const edge = def.sources[Math.floor(Math.random() * def.sources.length)];
     if (a.move === 'swim' || (edge === 'S' && a.move !== 'fly')) { a.tx = a.x; a.ty = w.h + 2; }
-    else if (edge === 'N') { a.tx = a.x; a.ty = -3; }
+    else if (edge === 'N') { a.tx = a.x + (def.herd ? (Math.random() - 0.5) * 10 : 0); a.ty = -3; }
     else if (edge === 'S') { a.tx = a.x; a.ty = w.h + 3; }
     else if (edge === 'E') { a.tx = w.w + 3; a.ty = a.y; }
     else { a.tx = -3; a.ty = a.y; }
     a.state = 'leave'; a.path = null;
+    if (def.herd) { a.leaveWait = Math.random() * 6; a.pace = 0.75 + Math.random() * 0.5; } // a herd moves off in dribs and drabs
     if (a.move === 'fly') { a.flying = true; }
   }
 
@@ -458,6 +502,12 @@ export class Wildlife {
     // trodden ground: where the big grazers walk day after day, a trail wears into the land
     // (how worn each tile is, fading slowly when they stop coming; drawn by the terrain)
     const trod = w.trod || (w.trod = new Float32Array(w.n));
+    // the salmon run: if no bear has made it to the bank after a few days, the moment is the fish
+    const run = this.salmonRun;
+    if (run && !run.shown && game.day - run.from >= 4) {
+      const f = this.agents.find(o => ANIMALS[o.sp].special === 'salmon' && !o.leaving && w.inb(Math.floor(o.x), Math.floor(o.y)) && w.terrain[w.idx(Math.floor(o.x), Math.floor(o.y))] === T.CREEK);
+      if (f) run.shown = moment(game, 'salmon', f) || true;
+    }
     for (let i = 0; i < w.n; i++) if (trod[i] > 0) trod[i] = trod[i] < 0.01 ? 0 : trod[i] * 0.985;
     for (const a of this.agents.slice()) {
       if (a.leaving) continue;
@@ -561,6 +611,7 @@ export class Wildlife {
     this.dams++;
     w.hydroDirty = true; w.renderDirty = true;
     this.game.flags.beaverDam = true;
+    moment(this.game, 'dam', { x: x + 0.5, y: y + 0.5 });
     this.game.notify('Beavers built a dam! The creek is backing up into a brand-new wetland, and the drowned trees will become snags.', 'good', { x: x + 0.5, y: y + 0.5 });
   }
 
@@ -587,7 +638,7 @@ export class Wildlife {
           const j = a.path[a.path.length - 1];
           const tx = (j % w.w) + 0.5, ty = ((j / w.w) | 0) + 0.5;
           const wading = def.crossing && w.terrain[j] === T.RIVER; // swimming the river is slow going
-          if (this.stepToward(a, tx, ty, wading ? sp * 0.55 : sp)) a.path.pop();
+          if (this.stepToward(a, tx, ty, (wading ? sp * 0.55 : sp) * (a.pace || 1))) a.path.pop();
           break;
         }
         case 'fly':
@@ -620,8 +671,9 @@ export class Wildlife {
           break;
         }
         case 'leave':
+          if (a.leaveWait > 0) { a.leaveWait -= dt; break; }
           if (a.move === 'fly') a.alt = Math.min(1, a.alt + dt * 3);
-          if (this.stepToward(a, a.tx, a.ty, sp * 1.2) || a.x < -2 || a.y < -2 || a.x > w.w + 2 || a.y > w.h + 2) this.remove(a, 'left');
+          if (this.stepToward(a, a.tx, a.ty, sp * 1.2 * (a.pace || 1)) || a.x < -2 || a.y < -2 || a.x > w.w + 2 || a.y > w.h + 2) this.remove(a, 'left');
           break;
       }
     }
@@ -641,7 +693,7 @@ export class Wildlife {
   roamChance(def, a) {
     const w = this.game.world, i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
     const inRiver = i >= 0 && w.terrain[i] === T.RIVER && !def.patrol;
-    return (0.04 + Math.min(0.06, def.hr / 1000)) * (inRiver ? 3 : 1);
+    return (0.04 + Math.min(0.06, def.hr / 1000)) * (inRiver ? 3 : 1) * (def.crossing ? 2.5 : 1); // the migrants keep moving across the plains
   }
 
   // Roaming: set off for another patch of good habitat somewhere else on the map. Walkers, swimmers
@@ -707,11 +759,32 @@ export class Wildlife {
       else if (this.roam(a, def, a.trip)) return;
     }
     a.follow = false; a.wade = false;
+    // just climbed out of the river: the herd heads inland to find grass
+    if (a.landed) {
+      a.landed = false;
+      const w = this.game.world, map = this.suit[a.sp], y0 = Math.floor(a.y);
+      if (!def.herd || this.herdLeader(a) === a) {
+        if (this.pathTo(a, (j, x, y) => y < y0 - 14 - (a.id % 9) && map[j] > 0.2, 12000)) { a.trip = null; return; }
+      }
+    }
     if (a.move === 'fly' && WADERS.has(def.sprite.kind) && !a.flying && !a.leaving && Math.random() < 0.65 && this.wade(a)) return;
+    if (this.salmonRun && def === ANIMAL.bear && !a.leaving) {
+      if (this.game.day < this.salmonRun.until) { if (this.fishSalmon(a)) return; }
+      else if (a.visit) { this.leave(a); return; }
+    }
     if (def.ambush && this.crossingAt && this.game.day < this.crossingAt.until && this.lurk(a)) return;
     if (biome.waterholes && !a.leaving && this.waterhole(a, def)) return;
     // herd animals stay together: one leads, the rest keep their place around it
     if (def.herd && !a.leaving && this.keepWithHerd(a, def)) return;
+    // herd leaders keep their distance from the next herd of their kind, so herds spread out
+    if (def.herdMax && !a.leaving && !a.juvenile && this.herdLeader(a) === a && Math.random() < 0.5) {
+      const leaders = this.agents.filter(o => o !== a && o.sp === a.sp && !o.leaving && this.herdLeader(o) === o);
+      if (leaders.some(o => (o.x - a.x) ** 2 + (o.y - a.y) ** 2 < 144)) {
+        const map = this.suit[a.sp];
+        // walk to the nearest decent ground well away from every other herd of this kind
+        if (this.pathTo(a, (j, x, y) => map[j] > 0.08 && leaders.every(o => (o.x - x) ** 2 + (o.y - y) ** 2 > 196), 9000)) { a.trip = null; return; }
+      }
+    }
     // now and then, head off along a corridor to another patch of habitat
     if (!a.leaving && !a.juvenile && Math.random() < this.roamChance(def, a) && this.roam(a, def)) return;
     if (a.move === 'fly') {
@@ -846,6 +919,12 @@ export class Wildlife {
   // The herd's leader: the longest-standing member within reach (lowest id). Herds that drift far
   // apart split, each with its own leader.
   herdLeader(a) {
+    const max = ANIMALS[a.sp].herdMax;
+    if (max) {
+      const same = this.agents.filter(o => o.sp === a.sp && !o.leaving).sort((p, q) => p.id - q.id);
+      const r = same.indexOf(a);
+      return r < 0 ? a : same[Math.floor(r / max) * max];
+    }
     let lead = a;
     for (const o of this.agents) if (o.sp === a.sp && o.id < lead.id && !o.leaving && Math.abs(o.x - a.x) + Math.abs(o.y - a.y) < 40) lead = o;
     return lead;

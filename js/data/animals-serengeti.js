@@ -37,7 +37,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, FARM: 0.35, SHRUB: 0.35, BARE: 0.1 });
-    def({ key: 'gazelle', herd: true, herdR: 3, name: "Thomson's gazelle", sci: 'Eudorcas thomsonii', group: 'Mammals', move: 'ground',
+    def({ key: 'gazelle', herd: true, herdR: 3, herdMax: 10, name: "Thomson's gazelle", sci: 'Eudorcas thomsonii', group: 'Mammals', move: 'ground',
       speed: 1.9, hr: 8, max: 30, minK: 2, groupSize: [4, 10], sources: ['N', 'E'], mig: 0.45, breed: [9, 10, 11], litter: [1, 1], life: 10, mature: 1,
       suit: (W, i) => w[W.habitat[i]] * grazing(W, i),
       sprite: { kind: 'gazelle', len: 22, h: 11, leg: 12, color: '#c8904a', belly: '#f4ece0', dark: '#2a1e18' },
@@ -46,7 +46,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ SHRUB: 1, YOUNG_FOREST: 0.9, RIPARIAN: 0.9, MEADOW: 0.55, MATURE_FOREST: 0.6 });
-    def({ key: 'impala', herd: true, herdR: 2.5, name: 'Impala', sci: 'Aepyceros melampus', group: 'Mammals', move: 'ground',
+    def({ key: 'impala', herd: true, herdR: 2.5, herdMax: 8, name: 'Impala', sci: 'Aepyceros melampus', group: 'Mammals', move: 'ground',
       speed: 1.7, hr: 8, max: 26, minK: 3, groupSize: [5, 10], sources: ['N', 'S'], mig: 0.4, breed: [9, 10], litter: [1, 1], life: 12, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 6, 0.4),
       req: g => Math.min(1, g.forestTiles / 300),
@@ -56,7 +56,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 0.9, SHRUB: 0.8, RIPARIAN: 0.7, MEADOW: 0.25 });
-    def({ key: 'giraffe', herd: true, herdR: 4, name: 'Maasai giraffe', sci: 'Giraffa tippelskirchi', group: 'Mammals', move: 'ground',
+    def({ key: 'giraffe', herd: true, herdR: 4, herdMax: 4, name: 'Maasai giraffe', sci: 'Giraffa tippelskirchi', group: 'Mammals', move: 'ground',
       speed: 1.2, hr: 40, max: 10, minK: 2, groupSize: [2, 5], sources: ['N'], mig: 0.3, breed: [4, 5], litter: [1, 1], life: 25, mature: 4,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.forestTiles / 250),
@@ -66,7 +66,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 1, RIPARIAN: 1, SHRUB: 0.8, MEADOW: 0.6, MARSH: 0.6 });
-    def({ key: 'elephant', herd: true, herdR: 2.5, name: 'African elephant', sci: 'Loxodonta africana', group: 'Mammals', move: 'ground',
+    def({ key: 'elephant', herd: true, herdR: 2.5, herdMax: 5, name: 'African elephant', sci: 'Loxodonta africana', group: 'Mammals', move: 'ground',
       speed: 1.1, hr: 160, max: 8, minK: 2, groupSize: [3, 6], sources: ['N'], mig: 0.2, intro: 16000,
       breed: [1], litter: [1, 1], life: 60, mature: 12,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.3),
@@ -77,7 +77,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ RIPARIAN: 1, MARSH: 0.8, MEADOW: 0.8, SHRUB: 0.5, YOUNG_FOREST: 0.5 });
-    def({ key: 'buffalo', herd: true, herdR: 2.2, name: 'Cape buffalo', sci: 'Syncerus caffer', group: 'Mammals', move: 'ground',
+    def({ key: 'buffalo', herd: true, herdR: 2.2, herdMax: 10, name: 'Cape buffalo', sci: 'Syncerus caffer', group: 'Mammals', move: 'ground',
       speed: 1.1, hr: 30, max: 30, minK: 4, groupSize: [6, 12], sources: ['N', 'S'], mig: 0.3, breed: [1, 2], litter: [1, 1], life: 20, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * grazing(W, i) * near(W.distWater[i], 3, 0.15),
       req: g => Math.min(1, g.meadowTiles / 1200),
@@ -96,7 +96,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ POND: 1, RIVER: 1, MARSH: 0.8 });
-    def({ key: 'hippo', name: 'Hippopotamus', sci: 'Hippopotamus amphibius', group: 'Mammals', move: 'semi',
+    def({ key: 'hippo', herd: true, herdR: 2, herdMax: 5, name: 'Hippopotamus', sci: 'Hippopotamus amphibius', group: 'Mammals', move: 'semi',
       speed: 0.8, hr: 20, max: 12, minK: 2, groupSize: [3, 6], sources: ['S'], mig: 0.3, breed: [5, 6], litter: [1, 1], life: 40, mature: 5,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.meadowTiles / 100) * Math.min(1, (g.cleanWater + 5) / 25),

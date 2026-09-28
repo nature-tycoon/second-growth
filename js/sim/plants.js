@@ -67,6 +67,8 @@ export function trySeed(w, p, i, rng) {
   if (cur === p.id) return false;
   const s = plantSuit(w, i, p);
   if (s < 0.3) return false;
+  // a healthy native seed bank in the soil stands in the way of invasive seedlings
+  if (p.invasive && w.seedbank && w.seedbank[i] && w.bankStrength > 0 && rng() < w.bankStrength * 0.85) return false;
   if (cur) {
     const cp = PLANTS[cur];
     const cs = plantSuit(w, i, cp);
@@ -137,6 +139,13 @@ export function updatePlants(game) {
   }
   const birdBoost = frugivores > 0 ? 1 : 0;
   const soilRate = 0.00012;
+  // The seed bank: every tile remembers the last native groundcover that grew well on it. When
+  // the land is healthy (plenty of native cover), those buried seeds come back up on bare or
+  // burned ground and slowly crowd out invasive weeds, instead of the weeds taking the gaps.
+  const bank = biome.seedbank ? (w.seedbank || (w.seedbank = new Uint16Array(w.n))) : null;
+  const nativeFrac = w.stats?.land ? w.stats.native / w.stats.land : 0;
+  w.bankStrength = bank ? clamp((nativeFrac - 0.3) / 0.35, 0, 1) : 0;
+  const bankK = w.bankStrength;
 
   for (let i = 0; i < w.n; i++) {
     const x = i % W, y = (i / W) | 0;
@@ -155,7 +164,17 @@ export function updatePlants(game) {
         g = Math.min(1, g); w.groundG[i] = g; cover += g;
         if (g > 0.6 && rng() < p.spread * sf * (0.4 + s * 0.6)) disperse(w, p, x, y, rng, 0);
         if (p.nfix) w.soil[i] += 0.0005 * g;
+        if (bank && !p.invasive && !p.weedy && g > 0.6) bank[i] = id;
+        // an invasive on native seed bank, in a healthy ecosystem, is slowly shaded out by natives
+        else if (bank && p.invasive && bank[i] && bankK > 0 && gf > 0.5 && rng() < 0.006 * bankK) {
+          const np = PLANTS[bank[i]];
+          if (plantSuit(w, i, np) > 0.3) { w.ground[i] = np.id; w.groundG[i] = 0.2; }
+        }
       }
+    } else if (bank && bank[i] && bankK > 0 && gf > 0.5 && rng() < 0.03 * bankK) {
+      // bare ground with native seed in it: they sprout once the rains come
+      const np = PLANTS[bank[i]];
+      if (w.terrain[i] !== T.ROAD && w.terrain[i] !== T.TRAIL && plantSuit(w, i, np) > 0.3) { w.ground[i] = np.id; w.groundG[i] = 0.06; }
     }
 
     // ---- shrubs
@@ -168,6 +187,9 @@ export function updatePlants(game) {
       else if (g < 0.9) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       else if (rng() < 0.004 * (0.3 - s) / 0.3) g = 0; // shaded out
       if (droughtKills(w, i, g, gf, rng)) g = 0;
+      // weedy bushes on healthy grassland lose out over the years (a thick native sward, hotter
+      // grass fires and browsing all work against them)
+      else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !PLANTS[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0025 * bankK) g = 0;
       if (g <= 0) { w.shrub[i] = 0; w.shrubG[i] = 0; }
       else {
         g = Math.min(1, g); w.shrubG[i] = g; cover += g;
@@ -199,6 +221,7 @@ export function updatePlants(game) {
       else if (rng() < 0.0015 * (0.3 - s) / 0.3) dies = true;
       if (ageY > p.life && rng() < 0.004) dies = true;
       else if (droughtKills(w, i, g, gf, rng)) g = 0;
+      else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !PLANTS[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
       // savanna: in the dry months, trees packed into a thicket run short of water and some die back
       else if (biome.savanna && gf < 0.6 && !p.invasive && w.distWater[i] > 3 && rng() < 0.006 && crowded(w, i, 3)) dies = true;
       if (g <= 0) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }

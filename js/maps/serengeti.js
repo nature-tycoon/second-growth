@@ -83,6 +83,8 @@ export default {
   hardpan: true,
   // open savanna: trees stay scattered (see sim/plants.js), except along the water
   savanna: true,
+  // native seed bank: on healthy land, buried native seed beats weeds into burned and bare ground
+  seedbank: true,
   // every animal walks (or flies) to water every few days to drink
   waterholes: true,
   // where the map sits on the world-map picker (degrees)

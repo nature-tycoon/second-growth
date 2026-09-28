@@ -14,6 +14,8 @@ import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chap
 import { Game, PENDING_KEY } from '../game.js';
 import { biome, BIOMES, BIOME_LIST } from '../biome.js';
 import { worldMap } from './worldmap.js';
+import { farmSnapshot } from '../farmsnap.js';
+import { makePostcard, download } from './postcard.js';
 import * as S from '../render/sprites.js';
 import { renderPortrait, renderPlants } from '../render3d/portraits.js';
 import { ICONS } from './icons.js';
@@ -159,6 +161,7 @@ export class UI {
     this.minimap.width = 400; this.minimap.height = 300;
     this.bindMinimap();
     game.on('notify', n => this.toast(n));
+    game.on('moment', m => this.playMoment(m));
     game.on('reset', () => { this.journal = []; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
     game.on('month', () => { if (this.state.cat !== 'inspect') this.renderToolPanel(); });
@@ -217,9 +220,17 @@ export class UI {
       if (idle < 120) { S.active++; if (S.active % 300 === 0) track('play_heartbeat', { active_minutes: S.active / 60, ...snapshot() }); }
       if (idle > 240 && !S.idleSent) { S.idleSent = true; track('went_idle', { active_minutes: +(S.active / 60).toFixed(1), ...snapshot(), ...doing() }); }
     }, 1000);
+    // a picture of the farm itself, when there's something to see: on leaving, and now and then
+    const worthSnapping = () => g.day >= 20 && Object.keys(g.stats.used || {}).length > 0;
+    const snap = (why, exit = false) => {
+      if (!worthSnapping()) return;
+      try { (exit ? trackExit : track)('farm_snapshot', { why, active_minutes: +(S.active / 60).toFixed(1), ...context(), ...farmSnapshot(g) }); } catch (e) { /* never break the game */ }
+    };
+    setInterval(() => { if (!document.hidden && (performance.now() - S.lastInput) < 120000) snap('periodic'); }, 10 * 60 * 1000);
     const leave = reason => {
       if (performance.now() - S.leftAt < 5000) return;
       S.leftAt = performance.now();
+      snap(reason, true);
       trackExit('game_left', { reason, active_minutes: +(S.active / 60).toFixed(1), session_minutes: +((performance.now() - S.t0) / 60000).toFixed(1),
         days_played: g.day - S.day0, idle_seconds: Math.round((performance.now() - S.lastInput) / 1000), ...snapshot(), ...doing() });
     };
@@ -1176,23 +1187,112 @@ export class UI {
     if (!this.photoBar) {
       const v = document.createElement('div'); v.id = 'photo-vignette'; document.body.appendChild(v);
       const b = document.createElement('div'); b.id = 'photo-bar';
-      b.innerHTML = `<span>${TOUCH ? 'Drag to move · pinch to zoom' : 'Drag to move · scroll to zoom · Q E to turn'}</span><button class="btn" data-a="snap">Save picture</button><button class="btn secondary" data-a="done">Done</button>`;
+      b.innerHTML = `<span>${TOUCH ? 'Drag to move · pinch to zoom' : 'Drag to move · scroll to zoom · Q E to turn'}</span>
+        <button class="btn secondary" data-a="thennow">Then &amp; now</button><button class="btn" data-a="card">Postcard</button>
+        <button class="btn secondary" data-a="snap">Picture</button><button class="btn secondary" data-a="done">Done</button>`;
       document.body.appendChild(b);
       b.querySelector('[data-a=done]').addEventListener('click', () => this.togglePhoto());
       b.querySelector('[data-a=snap]').addEventListener('click', () => {
-        const c = this.renderer.capture(this.game, this.state);
-        c.toBlob(blob => {
-          if (!blob) return;
-          const a = document.createElement('a');
-          a.href = URL.createObjectURL(blob); a.download = `second-growth-${this.game.map}-year-${this.game.year}.png`;
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-        }, 'image/png');
-        track('photo_saved', { map: this.game.map });
+        download(this.renderer.capture(this.game, this.state), `second-growth-${this.game.map}-year-${this.game.year}.png`);
+        track('photo_saved', { map: this.game.map, kind: 'picture' });
       });
+      b.querySelector('[data-a=card]').addEventListener('click', async () => {
+        const c = await makePostcard({ images: [{ canvas: this.renderer.capture(this.game, this.state, false) }], ...this.postcardText(`Greetings from ${biome.farm}`) });
+        download(c, `second-growth-${this.game.map}-postcard-year-${this.game.year}.png`);
+        track('photo_saved', { map: this.game.map, kind: 'postcard' });
+      });
+      b.querySelector('[data-a=thennow]').addEventListener('click', () => this.openThenNow());
       this.photoBar = b;
     }
     if (this.photo) track('photo_mode', { map: this.game.map });
+  }
+
+  // A keystone moment: the camera glides to it, letterbox bars slide in, the panels step aside
+  // and a title card tells the story. The game keeps running at normal speed so it plays out.
+  playMoment(m) {
+    const g = this.game, r = this.renderer;
+    if (this.moment || this.modalOpen || this.photo) { setTimeout(() => this.playMoment(m), 3000); return; } // wait until the view is free
+    this.moment = m;
+    m.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, speed: g.speed };
+    if (g.speed !== 1) this.setSpeed(1);
+    const fx = m.agent ? m.agent.x : m.x, fy = m.agent ? m.agent.y : m.y;
+    r.flyTo(fx, fy, m.agent ? 3.1 : 2.3, 2.4);
+    this.follow = null;
+    // an animal moment selects the animal, so leaves and branches in front of it dissolve
+    m.prevSel = g.selectedAgent;
+    if (m.agent) g.selectedAgent = m.agent;
+    if (m.agent) setTimeout(() => { if (this.moment === m && g.wildlife.agents.includes(m.agent)) this.follow = m.agent; }, 2500);
+    g.notify(`${m.title}. ${m.text}`, 'discover', m.agent || { x: m.x, y: m.y });
+    const o = document.createElement('div'); o.id = 'moment';
+    o.innerHTML = `<div class="lb lb-top"></div><div class="lb lb-bot"></div>
+      <div class="mo-card"><small>A moment at ${biome.farm} · Year ${g.year}</small><h2>${m.title}</h2><p>${m.text}</p>
+      <div class="mo-btns"><button class="btn secondary" data-a="card">Save postcard</button><button class="btn" data-a="go">Continue</button></div></div>`;
+    document.body.appendChild(o);
+    document.body.classList.add('moment-on');
+    requestAnimationFrame(() => o.classList.add('bars'));
+    setTimeout(() => o.classList.add('card'), 1500);
+    const end = () => {
+      if (this.moment !== m) return;
+      this.follow = null;
+      if (g.selectedAgent === m.agent) g.selectedAgent = m.prevSel && g.wildlife.agents.includes(m.prevSel) ? m.prevSel : null;
+      r.flyTo(m.prev.x, m.prev.z, m.prev.zoom, 1.6);
+      o.classList.remove('bars', 'card');
+      document.body.classList.remove('moment-on');
+      setTimeout(() => o.remove(), 700);
+      window.removeEventListener('keydown', key, true);
+      this.moment = null;
+    };
+    const key = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); end(); } };
+    window.addEventListener('keydown', key, true);
+    o.querySelector('[data-a=go]').addEventListener('click', end);
+    o.querySelector('[data-a=card]').addEventListener('click', async () => {
+      const c = await makePostcard({ images: [{ canvas: r.capture(g, this.state, false) }], ...this.postcardText(m.title) });
+      download(c, `second-growth-${g.map}-${m.key}.png`);
+      track('photo_saved', { map: g.map, kind: 'moment', moment: m.key });
+    });
+    track('moment', { moment: m.key, map: g.map, game_year: g.year });
+  }
+
+  postcardText(title) {
+    const g = this.game, season = biome.climate.seasons?.[g.season] || '';
+    return {
+      title,
+      subtitle: `${biome.region} · Year ${g.year}${season ? `, ${season.toLowerCase()}` : ''}`,
+      stats: `${speciesPresent(g)} species · ecosystem health ${Math.round(g.cache.score?.total ?? 0)}${g.visitors.total ? ` · ${g.visitors.total.toLocaleString()} visitors` : ''}`,
+      stamp: `YEAR ${g.year}`,
+    };
+  }
+
+  // Then and now: the same view on day one and today, with a slider to wipe between them, and a
+  // side-by-side postcard to save.
+  openThenNow() {
+    const g = this.game;
+    const { then, now } = this.renderer.thenAndNow(g, this.state);
+    const o = document.createElement('div'); o.id = 'thennow';
+    o.innerHTML = `<div class="tn-stage" style="--x:50%">
+        <img class="tn-now" alt="Today" src="${now.toDataURL('image/jpeg', 0.9)}">
+        <div class="tn-then"><img alt="Day one" src="${then.toDataURL('image/jpeg', 0.9)}"></div>
+        <div class="tn-handle"><span>⟷</span></div>
+        <span class="tn-tag tn-l">Day one</span><span class="tn-tag tn-r">Year ${g.year}</span>
+      </div>
+      <div class="tn-bar"><span>Drag to compare</span><button class="btn" data-a="card">Save postcard</button><button class="btn secondary" data-a="close">Close</button></div>`;
+    document.body.appendChild(o);
+    const stage = o.querySelector('.tn-stage');
+    const set = e => { const r = stage.getBoundingClientRect(); stage.style.setProperty('--x', `${Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100))}%`); };
+    let down = false;
+    stage.addEventListener('pointerdown', e => { down = true; stage.setPointerCapture(e.pointerId); set(e); });
+    stage.addEventListener('pointermove', e => { if (down) set(e); });
+    stage.addEventListener('pointerup', () => { down = false; });
+    const close = () => { o.remove(); window.removeEventListener('keydown', key, true); };
+    const key = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    window.addEventListener('keydown', key, true);
+    o.querySelector('[data-a=close]').addEventListener('click', close);
+    o.querySelector('[data-a=card]').addEventListener('click', async () => {
+      const c = await makePostcard({ images: [{ canvas: then, label: 'Day one' }, { canvas: now, label: `Year ${g.year}` }], ...this.postcardText(`${biome.farm}, then and now`) });
+      download(c, `second-growth-${g.map}-then-and-now-year-${g.year}.png`);
+      track('photo_saved', { map: g.map, kind: 'then_and_now' });
+    });
+    track('then_and_now', { map: g.map, game_year: g.year });
   }
 
   togglePanels() {

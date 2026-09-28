@@ -15,6 +15,14 @@ const FLOATERS = new Set(['duck', 'beaver', 'otter', 'frog', 'newt', 'turtle', '
 const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 
+// Where a salmon is in its leap (0..1 across the arc), or -1 when it's swimming. Each fish leaps
+// on its own clock, every three seconds or so.
+export function salmonLeap(a, time) {
+  const period = 2.4 + (a.id % 7) * 0.35, dur = 0.95;
+  const t = (time + a.id * 1.37) % period;
+  return t < dur ? t / dur : -1;
+}
+
 export class Actors {
   constructor(scene) {
     this.scene = scene;
@@ -75,13 +83,19 @@ export class Actors {
       let y = ground;
       const surf = onWater || def.move === 'swim' ? waterSurfaceY(w, a.x, a.y) : null;
       if (flying) y += 0.7 + a.alt * 1.2;
-      else if (def.move === 'swim') y = (surf ?? ground) - 0.05 - mo.sink * sc;
+      else if (def.move === 'swim') {
+        y = (surf ?? ground) - 0.05 - mo.sink * sc;
+        // running salmon leap: every few seconds one arcs clear of the water, nose up then down
+        const jp = def.special === 'salmon' && surf != null ? salmonLeap(a, time) : -1;
+        if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.75 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
+      }
       else if (surf != null && FLOATERS.has(kind)) y = surf - mo.sink * sc;
       else if (def.move === 'fly' && inside && w.tree[i] && w.treeG[i] > 0.5 && kind !== 'duck' && kind !== 'heron' && kind !== 'crane') {
         y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * w.treeG[i] * 0.55;
       } else if (def.move === 'tree' && inside) {
         // monkeys and sloths live up in the crowns (or on a snag's bare top)
-        if (w.tree[i]) y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * w.treeG[i] * 0.62;
+        // (monkeys up in the sunlit top of the canopy, sloths hanging lower down)
+        if (w.tree[i]) y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * w.treeG[i] * (kind === 'monkey' ? 0.9 : 0.62);
         else if (w.feature[i] === FEAT.SNAG) y += 0.9;
       }
       // face the way it's moving, and blend between standing, walking and flying
@@ -94,7 +108,7 @@ export class Actors {
       // heads down to graze, and for everyone drinking at the water's edge
       const grazing = !moving && (a.drinkT > 0 || (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1));
       st.graze += ((grazing ? 1 : 0) - st.graze) * k * 0.5;
-      F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, st.graze);
+      F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, st.graze, st.pitch || 0);
       st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
       if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * PX * 0.4 * ageF * (flying ? 0.7 : 1));
     }
