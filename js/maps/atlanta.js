@@ -9,6 +9,7 @@ import buildAtlantaAnimals from '../data/animals-atlanta.js';
 import { generateSubdivision, atlantaBorderCell } from './atlanta-world.js';
 import { PNW_GOALS, pop, speciesPresent } from '../sim/goals.js';
 import { PLANT, PLANTS, isBlooming } from '../data/plants.js';
+import { plantSuit } from '../sim/plants.js';
 import { riverRow } from '../world.js';
 import { T, F } from '../config.js';
 import { moment } from '../sim/moments.js';
@@ -207,6 +208,131 @@ function suburbStats(w, s, month) {
   });
 }
 
+// ------------------------------------------------------------------ gardens that close over
+// A native garden fills its own gaps: where a plant dies or a bed was left bare, its neighbours
+// seed into it within weeks in the growing season, so the beds stay full and no clay shows.
+const openGround = (w, i) => { const t = w.terrain[i]; return w.struct[i] < 0 && (t === T.SOIL || t === T.PASTURE || t === T.MUD || t === T.FIELD) && w.feature[i] !== F.FENCE; };
+function fillGaps(g) {
+  if (g.month > 7 || g.weather === 'snow') return;
+  const w = g.world, W = w.w, rng = g.rng;
+  for (let i = 0; i < w.n; i++) {
+    if (w.ground[i] || !openGround(w, i)) continue;
+    const x = i % W, y = (i / W) | 0, nb = [];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
+      const j = yy * W + xx, id = w.ground[j];
+      if (id && w.groundG[j] > 0.5 && !PLANTS[id].invasive && !PLANTS[id].exotic) nb.push(id);
+    }
+    if (nb.length < 1 || rng() > 0.05 + 0.06 * nb.length) continue;
+    const p = PLANTS[nb[Math.floor(rng() * nb.length)]];
+    if (plantSuit(w, i, p) > 0.15) { w.setPlant(i, p, 0.18); w.renderDirty = true; }
+  }
+}
+
+// ------------------------------------------------------------------ the neighbours come outside
+// The greener the neighborhood, the more people walk out of their front doors: to stand in the
+// gardens, stroll the shady streets, and watch the creek. Nobody comes out in the rain, and fewer
+// in winter.
+let RID = 1e6;
+function natureFrac(w) { const s = w.stats || {}; return s.land ? (s.native || 0) / s.land : 0; }
+function residentTarget(g) {
+  if (g.weather === 'rain' || g.weather === 'snow') return 0;
+  const f = Math.max(0, Math.min(1, (natureFrac(g.world) - 0.12) / 0.55));
+  return Math.round((1 + 34 * f) * (g.season === 3 ? 0.4 : 1));
+}
+const doorOf = s => [s.x + 1.5, s.turn ? s.y - 0.4 : s.y + s.h + 0.4];
+const walkable = (w, i) => w.struct[i] < 0 && w.feature[i] !== F.FENCE && (w.terrain[i] !== T.CREEK || w.feature[i] === F.BOARDWALK) && w.terrain[i] !== T.POND && w.terrain[i] !== T.RIVER;
+// what draws people to a spot: flowers in bloom, shade, the creek, and wildlife nearby
+function appeal(w, i) {
+  const t = w.terrain[i];
+  let a = w.nectar[i] * 2 + (w.canopy[i] > 0.4 ? 0.8 : 0) + (w.distWater[i] <= 1 ? 0.7 : 0);
+  if (t === T.ROAD) a += 0.4; // (a walk down the street)
+  if (w.ground[i] && PLANTS[w.ground[i]].sod) a *= 0.2;
+  return a;
+}
+function bfs(w, from, goal, cap = 1600) {
+  const W = w.w, prev = new Map([[from, -1]]), q = [from];
+  for (let h = 0; h < q.length && q.length < cap; h++) {
+    const i = q[h];
+    if (i !== from && goal(i)) { const path = []; for (let k = i; k !== from; k = prev.get(k)) path.push(k); return path; } // (reversed: pop() gives the next step)
+    const x = i % W, y = (i / W) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
+      const j = yy * W + xx;
+      if (prev.has(j) || !walkable(w, j)) continue;
+      prev.set(j, i); q.push(j);
+    }
+  }
+  return null;
+}
+function newOuting(g, p) {
+  const w = g.world, W = w.w, x0 = Math.floor(p.x), y0 = Math.floor(p.y);
+  if (!w.inb(x0, y0)) return false;
+  // somewhere nice within a short walk, weighted toward the most appealing spots
+  let best = -1, bs = 0;
+  for (let k = 0; k < 40; k++) {
+    const x = x0 + Math.round((g.rng() - 0.5) * 22), y = y0 + Math.round((g.rng() - 0.5) * 16);
+    if (!w.inb(x, y)) continue;
+    const i = w.idx(x, y);
+    if (!walkable(w, i)) continue;
+    const a = appeal(w, i) + g.rng() * 0.3;
+    if (a > bs) { bs = a; best = i; }
+  }
+  if (best < 0) return false;
+  const path = bfs(w, w.idx(x0, y0), i => i === best);
+  if (!path) return false;
+  p.path = path; p.pause = 0;
+  return true;
+}
+function residentsDaily(g) {
+  const want = residentTarget(g), homes = g.world.structures.filter(s => s && s.type === 'home');
+  const list = g.residents || (g.residents = []);
+  g.cache.residentsWanted = want;
+  // more come out a few at a time; when there are too many (rain, evening), some head home
+  for (let k = 0; k < 3 && list.filter(p => !p.home).length < want; k++) {
+    const h = homes[Math.floor(g.rng() * homes.length)];
+    if (!h) break;
+    const [x, y] = doorOf(h);
+    const p = { id: RID++, x, y, hx: x, hy: y, look: Math.floor(g.rng() * 8), phase: g.rng() * 10, pause: 1 + g.rng() * 2, path: null, trips: 1 + Math.floor(g.rng() * 3), home: false };
+    list.push(p);
+  }
+  let extra = list.filter(p => !p.home).length - want;
+  for (const p of list) if (extra > 0 && !p.home) { p.home = true; p.path = null; p.pause = 0; extra--; }
+}
+function residentsUpdate(g, dt) {
+  const list = g.residents;
+  if (!list || !list.length) return;
+  const w = g.world, sp = 1.8 * dt; // tiles a day: an easy stroll
+  for (let k = list.length - 1; k >= 0; k--) {
+    const p = list[k];
+    p.phase += dt * 6;
+    if (p.pause > 0) { p.pause -= dt; continue; }
+    if (!p.path || !p.path.length) {
+      if (p.home) {
+        // back at the door: go inside
+        if (Math.hypot(p.x - p.hx, p.y - p.hy) < 0.8) { list.splice(k, 1); continue; }
+        const goal = w.idx(Math.floor(p.hx), Math.floor(p.hy));
+        p.path = w.inb(Math.floor(p.x), Math.floor(p.y)) ? bfs(w, w.idx(Math.floor(p.x), Math.floor(p.y)), i => i === goal) : null;
+        if (!p.path) { list.splice(k, 1); continue; }
+      } else if (p.trips-- > 0 && newOuting(g, p)) {
+        // (on to the next spot)
+      } else { p.home = true; continue; }
+    }
+    const j = p.path[p.path.length - 1], tx = (j % w.w) + 0.5, ty = ((j / w.w) | 0) + 0.5;
+    const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
+    if (d <= sp) { p.x = tx; p.y = ty; p.path.pop(); if (!p.path.length && !p.home) p.pause = 3 + g.rng() * 6; } // stop and look for a while
+    else { p.x += dx / d * sp; p.y += dy / d * sp; }
+  }
+}
+
+function atlantaDaily(g) {
+  momentsDaily(g);
+  fillGaps(g);
+  residentsDaily(g);
+}
+
 export default {
   id: 'atlanta',
   name: 'Atlanta suburbs',
@@ -229,7 +355,10 @@ export default {
   stats: suburbStats,
   // trees and shrubs don't seed themselves into established meadows and gardens here
   meadowsHold: true,
-  daily: momentsDaily,
+  daily: atlantaDaily,
+  update: residentsUpdate,
+  // an established native garden keeps invasives out, and fills its own gaps
+  nativesHold: true,
   startView: { x: 36, y: 27, zoom: 0.85 },
   // remember how much fence and lawn the subdivision started with, for the goals
   onStart: g => { const s = g.world.stats || {}; g.flags.startCounts = { fence: s.fences || 0, turf: s.turf || 0 }; },
@@ -308,10 +437,11 @@ export default {
   look: {
     // humid Southern light: soft, green, a little hazy in summer
     grade: { gain: [1.0, 1.01, 0.98], lift: [0.004, 0.004, 0.002], sat: 1.04, contrast: 1.06 },
-    pasture: ['#7cae4c', '#86b452', '#74a646', '#80aa4e'], // sod
-    soil: [0.66, 0.36, 0.24], mud: [0.56, 0.32, 0.22],     // Georgia red clay
+    pasture: ['#7cae4c', '#86b452', '#98a45a', '#b2a878'], // sod: green in spring and summer, dormant tan by winter
+    soil: [0.4, 0.29, 0.2], mud: [0.6, 0.33, 0.22],        // planting beds are mulched; raw red clay only where banks erode
     asphalt: true,                                          // paved streets, not dirt tracks
     picket: true,                                           // white picket fences
+    lush: true,                                             // mature wildflower beds drawn thick and full
     water: { pond: [0.36, 0.46, 0.4, 0.85], creek: [0.4, 0.5, 0.44, 0.8], river: [0.44, 0.4, 0.3, 0.9], marsh: [0.4, 0.5, 0.36, 0.55] }, // the Yellow River runs red-brown with clay
     light: [
       { sun: 0xfff6ea, sunI: 2.7, sky: 0xe4eef4, ground: 0x5a6a3a, hemiI: 1.2 },
@@ -322,7 +452,8 @@ export default {
     ambience: {
       leaves: [0, 0, 0.9, 0.2], fluff: [0.4, 0.5, 0.6, 0], mist: [0.25, 0.15, 0.2, 0.3],
       leafColors: ['#d0402a', '#e8b030', '#b8603a', '#8a2a4a'],
-      flocks: [['songbirds', 'swallows'], ['swallows', 'songbirds'], ['geese', 'songbirds'], ['geese']],
+      petals: [0.8, 0, 0, 0.15],                            // blossom falling from redbud, dogwood and cherry
+      flocks: [['songbirds', 'swallows'], ['swallows', 'songbirds'], ['geese', 'songbirds', 'goldfinches'], ['goldfinches', 'goldfinches', 'geese']],
     },
     tint: ['rgba(255,250,235,0)', 'rgba(255,245,220,0.015)', 'rgba(255,240,220,0.01)', 'rgba(240,244,250,0)'],
   },

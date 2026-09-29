@@ -69,6 +69,12 @@ export function trySeed(w, p, i, rng) {
   if (s < 0.3) return false;
   // a healthy native seed bank in the soil stands in the way of invasive seedlings
   if (p.invasive && w.seedbank && w.seedbank[i] && w.bankStrength > 0 && rng() < w.bankStrength * 0.85) return false;
+  // On maps where natives hold their ground (the suburb), an established native garden is a closed
+  // community: invasive seed rarely finds a gap in it.
+  if (biome.nativesHold && p.invasive) {
+    const est = (id, g) => id && g > 0.45 && !PLANTS[id].invasive && !PLANTS[id].exotic;
+    if ((est(w.ground[i], w.groundG[i]) || est(w.shrub[i], w.shrubG[i]) || est(w.tree[i], w.treeG[i])) && rng() > 0.03) return false;
+  }
   if (cur) {
     const cp = PLANTS[cur];
     const cs = plantSuit(w, i, cp);
@@ -78,7 +84,7 @@ export function trySeed(w, p, i, rng) {
   }
   // On maps that keep their meadows (the suburb), trees and shrubs don't seed into an established
   // meadow or garden: they only grow where they're planted, or on bare and neglected ground.
-  if (biome.meadowsHold && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && !PLANTS[w.ground[i]].invasive && (!p.invasive || rng() < 0.85)) return false;
+  if (biome.meadowsHold && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && !PLANTS[w.ground[i]].invasive && (!p.invasive || rng() < (biome.nativesHold ? 0.97 : 0.85))) return false;
   // A thick sward of established groundcover is hard for woody seedlings to break through.
   let odds = s;
   const open = biome.savanna && w.distWater[i] > 3; // savanna, away from the riverine strip

@@ -117,7 +117,7 @@ export class Actors {
 
     // ---- visitors: same instanced 3D style as the wildlife
     const pseen = new Set();
-    for (const v of game.visitors.agents) {
+    for (const v of game.residents ? game.visitors.agents.concat(game.residents) : game.visitors.agents) {
       pseen.add(v.id);
       let st = this.people.get(v.id);
       if (!st) { st = { yaw: 0, gait: 0, px: v.x, py: v.y }; this.people.set(v.id, st); }

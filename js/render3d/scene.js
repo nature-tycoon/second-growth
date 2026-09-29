@@ -311,7 +311,8 @@ export class Renderer {
   // ------------------------------------------------------------------ frame
   draw(game, ui, dt) {
     this.time += dt;
-    if (game.world !== this.world) this.setWorld(game);
+    const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
+    if (swapped) this.setWorld(game);
     const w = this.world;
     const now = performance.now();
 
@@ -345,11 +346,11 @@ export class Renderer {
     // A new day repaints the ground and rebuilds the plants. They wait a frame or two so they don't
     // land in the same frame as the day's simulation and each other (a visible hitch), and at fast
     // speeds the ground repaints at most four times a second.
-    if (this.dayDirty && this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (game.speed >= 2 ? 250 : 0)) { surface = true; this.dayDirty = 0; }
+    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (game.speed >= 2 ? 250 : 0)))) { surface = true; this.dayDirty = 0; }
     if (this.editDirty && now - this.lastFlora > 120) { surface = flora = true; this.editDirty = false; this.terrain.refreshWater(); }
     if (surface) { this.terrain.updateSurface(game); this.syncStructures(); this.lastSurface = now; }
     if (flora) this.floraPending = true;
-    if (this.floraPending && !surface && this.frameN > (this.dayDirty || 0) && now - this.lastFlora > (game.speed >= 3 ? 400 : 150)) { this.flora.rebuild(game); this.lastFlora = now; this.floraPending = false; }
+    if (this.floraPending && (swapped || (!surface && this.frameN > (this.dayDirty || 0))) && now - this.lastFlora > (game.speed >= 3 ? 400 : 150)) { this.flora.rebuild(game); this.lastFlora = now; this.floraPending = false; }
 
     this.updateOverlay(game, ui, now);
     this.updatePreview(ui);

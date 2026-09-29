@@ -59,6 +59,7 @@ export class Game {
     this.rainStreak = 0; this.dryStreak = 0;
     this.snow = 0;
     this.wildlife = new Wildlife(this);
+    this.residents = null; // (maps with people living on them fill this in)
     this.visitors = new Visitors(this);
     this.events = new Events(this);
     this.refreshEnvironment();
@@ -132,6 +133,7 @@ export class Game {
       const d = Math.min(days, 0.05);
       this.wildlife.update(d);
       this.visitors.update(d);
+      biome.update?.(this, d);
       days -= d;
     }
   }
@@ -334,6 +336,7 @@ export class Game {
     this.lastGrant = data.lastGrant || 0;
     this.cache = { hunts: data.cache?.hunts || {} };
     this.wildlife = new Wildlife(this);
+    this.residents = null; // (maps with people living on them fill this in)
     this.visitors = new Visitors(this); this.visitors.load(data.visitors);
     this.events = new Events(this); this.events.load(data.events);
     w.heightDirty = true;

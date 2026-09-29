@@ -158,11 +158,11 @@ export default function buildAtlantaPlants(def, mix, get) {
     desc: 'The fast-growing pine of every Georgia old field. Brown-headed nuthatches and pine warblers live in it.' });
   def({ key: 'dogwood', name: 'Flowering dogwood', sci: 'Cornus florida', layer: 2, moist: [0.3, 0.8], light: [0.1, 0.8], soil: 0.15,
     grow: 0.0034, spread: 0.008, radius: 3, life: 80, cost: 18,
-    look: { type: 'alder', leaf: '#5f8a48', flower: '#f6f2ea', bloom: [1], bloomTint: 0.55, berry: '#d8202a', fall: '#a82a2a', deciduous: true, bark: '#6a5a4a' },
+    look: { type: 'alder', leaf: '#5f8a48', flower: '#f6f2ea', bloom: [0, 1], bloomTint: 0.65, berry: '#d8202a', fall: '#a82a2a', deciduous: true, bark: '#6a5a4a' },
     desc: 'White blossoms in April and red berries in fall for thrushes and bluebirds. A small tree that fits under power lines.' });
   def({ key: 'redbud', name: 'Eastern redbud', sci: 'Cercis canadensis', layer: 2, moist: [0.15, 0.75], light: [0.25, 1],
     grow: 0.004, spread: 0.009, radius: 3, life: 50, cost: 15,
-    look: { type: 'alder', leaf: '#6a9a50', flower: '#d062aa', bloom: [0], crownBloom: true, fall: '#d8c048', deciduous: true, bark: '#5a4a40' },
+    look: { type: 'alder', leaf: '#6a9a50', flower: '#d062aa', bloom: [0, 1], crownBloom: true, fall: '#d8c048', deciduous: true, bark: '#5a4a40' },
     desc: 'Bare branches turn magenta in March, a feast for early bees. Small, tough and fine near houses.' });
   def({ key: 'blackcherry', name: 'Black cherry', sci: 'Prunus serotina', layer: 2, moist: [0.15, 0.75], light: [0.45, 1],
     grow: 0.0045, spread: 0.01, radius: 4, life: 100, cost: 18,
@@ -226,6 +226,7 @@ export default function buildAtlantaPlants(def, mix, get) {
   for (const k of ['beautyberry', 'elderberry', 'spicebush', 'buttonbush', 'sweetspire', 'azalea', 'hydrangea', 'privet', 'honeysuckle', 'kudzu']) get(k).resprout = true;
   Object.entries({ loblolly: 0.8, whiteoak: 0.85, willowoak: 0.6, sweetgum: 0.4, redmaple: 0.35, tulippoplar: 0.5, sycamore: 0.5 })
     .forEach(([k, v]) => { get(k).fireSurvival = v; });
+  for (const k of ['goldenrod', 'aster', 'swampmilkweed', 'butterflyweed', 'joepye', 'mountainmint']) get(k).look.seed = 'plume'; // fluffy seed heads (the rest keep dark cones)
   get('redmaple').nectar = { months: [11, 0], amount: 0.35 };                         // February–March, the first flowers of the year
   get('tulippoplar').nectar = { months: [1, 2], amount: 0.5 };
   get('blackcherry').nectar = { months: [1], amount: 0.35 };

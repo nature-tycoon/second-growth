@@ -20,6 +20,7 @@ const FLOCKS = {
   vultures: { n: [3, 6], size: 11, speed: 45, flap: 1.2, color: 'rgba(70,58,44,0.8)', loose: 1.6 },
   storks: { n: [6, 12], size: 8, speed: 60, flap: 2.2, color: 'rgba(40,36,34,0.82)', loose: 1.2 },
   weavers: { n: [10, 20], size: 3.4, speed: 110, flap: 10, color: 'rgba(214,176,40,0.9)', loose: 1.3 },
+  goldfinches: { n: [8, 14], size: 3.2, speed: 85, flap: 11, color: 'rgba(176,158,60,0.9)', loose: 1.6, swoop: true },
   egrets: { n: [4, 7], size: 7.5, speed: 60, flap: 2.6, color: 'rgba(246,246,240,0.92)', loose: 1 },
 };
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -60,6 +61,18 @@ export class Ambience {
     };
     const close = zoom > 0.6;
 
+    // ---- spring petals: blossom drifting down from the flowering trees (redbud, dogwood, cherry)
+    const petalRate = (A.petals?.[season] || 0) * (wet ? 0.3 : 1);
+    if (close && petalRate > 0 && this.leaves.length < 70 * petalRate) {
+      const m = game.month;
+      for (let k = 0; k < 16; k++) { // (flowering trees are few and far between, so look harder)
+        const [x, z] = tile(), t = treeAt(x, z);
+        if (!t || t[1] < 0.5 || !t[0].look.flower || !t[0].look.bloom?.includes(m) || Math.random() > petalRate) continue;
+        const p = t[0], h = (TREE_SHAPES[p.look.type]?.height || 1.6) * t[1] * rand(0.5, 0.8);
+        const px = x + rand(0.2, 0.8), pz = z + rand(0.2, 0.8);
+        this.leaves.push({ x: px, z: pz, y: ground(px, pz) + h, ph: rand(0, 6.3), spin: rand(5, 9), life: 1.2, col: p.look.flower, petal: true });
+      }
+    }
     // ---- falling leaves
     const leafRate = A.leaves[season] * (wet ? 0.5 : 1);
     if (close && leafRate > 0 && this.leaves.length < 55 * leafRate) {
@@ -82,8 +95,9 @@ export class Ambience {
       if (L.life <= 0 || zoom <= 0.6) { this.leaves.splice(k, 1); continue; }
       const s = R.project(L.x, L.y, L.z), flip = Math.cos(L.ph * L.spin * 0.5);
       ctx.globalAlpha = Math.min(1, L.life) * 0.95;
-      ctx.fillStyle = L.col; ctx.strokeStyle = 'rgba(70,40,14,0.55)'; ctx.lineWidth = 0.8;
-      ctx.beginPath(); ctx.ellipse(s.x, s.y, (0.8 + 2.4 * Math.abs(flip)) * zoom * 1.25, 1.9 * zoom * 1.25, L.ph, 0, 7); ctx.fill(); ctx.stroke();
+      const ps = L.petal ? 0.55 : 1; // (petals are smaller, and soft-edged)
+      ctx.fillStyle = L.col; ctx.strokeStyle = L.petal ? 'rgba(255,255,255,0.35)' : 'rgba(70,40,14,0.55)'; ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.ellipse(s.x, s.y, (0.8 + 2.4 * Math.abs(flip)) * zoom * 1.25 * ps, 1.9 * zoom * 1.25 * ps, L.ph, 0, 7); ctx.fill(); ctx.stroke();
     }
 
     // ---- seed fluff and pollen motes, catching the light

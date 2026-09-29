@@ -201,14 +201,16 @@ export class Flora {
         const g = inside ? w.groundG[i] : 1;
         const type = p.look.type;
         const grassy = type === 'grass' || type === 'tallgrass' || type === 'sedge';
-        const n = g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 5); // a healthy sward fills its tile
+        // (lush: on maps whose wildflower gardens are the payoff, a mature bed is drawn thick and full)
+        const lush = biome.look.lush && (type === 'forb' || type === 'tallforb') && g >= 0.3;
+        const n = lush ? (g < 0.65 ? 6 : type === 'tallforb' ? 7 : 10) : g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 5); // a healthy sward fills its tile
         const phase = plantPhase(p, month);
         const col = leafColor(p, phase);
         const pool = this.pool(`tuft:${type}:${v}`, () => G.tuft(type, 100 + v * 17 + type.length), this.grass, { shadow: false, kind: 'grass' },
           () => G.tuft(type, 100 + v * 17 + type.length, true));
         for (let k = 0; k < n; k++) {
           const px = x + 0.08 + hash2(x, y, 20 + k) * 0.84, pz = y + 0.08 + hash2(x, y, 40 + k) * 0.84;
-          const sc = (0.5 + 0.45 * g) * (0.7 + hash2(x, y, 60 + k) * 0.5);
+          const sc = (0.5 + 0.45 * g) * (0.7 + hash2(x, y, 60 + k) * 0.5) * (lush ? 1.12 : 1);
           // lily pads float on the water surface instead of sitting on the pond bed
           const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz);
           pool.add(px, py, pz, sc, sc, sc, hash2(x, y, 80 + k) * 6.28, vary(col.map(c => c * dim), x, y, k));
@@ -217,7 +219,15 @@ export class Flora {
             const fc = rgb(p.look.flower);
             if (type === 'tallforb') for (let f = 0; f < 3; f++) dots.add(px, py + (0.22 + f * 0.04) * sc, pz, 0.8, 1.3, 0.8, 0, fc);
             else if (type === 'skunk') dots.add(px, py + 0.12, pz, 1.6, 2.6, 1.6, 0, fc);
-            else for (let f = 0; f < 3; f++) dots.add(px + (hash2(x, y, 90 + k * 3 + f) - 0.5) * 0.12, py + 0.14 * sc + f * 0.02, pz + (hash2(x, y, 95 + k * 3 + f) - 0.5) * 0.12, 0.9, 0.9, 0.9, 0, fc);
+            else for (let f = 0; f < (lush ? 4 : 3); f++) { const ds = lush ? 1.15 : 0.9; dots.add(px + (hash2(x, y, 90 + k * 3 + f) - 0.5) * 0.14, py + 0.14 * sc + f * 0.02, pz + (hash2(x, y, 95 + k * 3 + f) - 0.5) * 0.14, ds, ds, ds, 0, fc); }
+          }
+          // (lush: the gardens are left standing through fall and winter: dark cones and pale plumes, silvered by frost)
+          if (lush && (phase === 'fall' || phase === 'winter') && p.look.flower && k % 2 === 0) {
+            const plume = p.look.seed === 'plume', frost = phase === 'winter' ? 0.45 : 0;
+            const sc0 = plume ? [0.86, 0.82, 0.7] : [0.24, 0.17, 0.12];
+            const c = [sc0[0] + (0.9 - sc0[0]) * frost, sc0[1] + (0.92 - sc0[1]) * frost, sc0[2] + (0.95 - sc0[2]) * frost];
+            if (plume) dots.add(px, py + 0.2 * sc, pz, 1.1, 2.2, 1.1, 0, c);
+            else dots.add(px, py + 0.16 * sc, pz, 1.2, 1.2, 1.2, 0, c);
           }
           if (type === 'cattail' && phase !== 'spring' && k % 2 === 0) dots.add(px, py + 0.5 * sc, pz, 0.9, 2.8, 0.9, 0, rgb(p.look.head));
         }
