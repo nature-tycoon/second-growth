@@ -36,10 +36,11 @@ function installGrade(grade = {}) {
 }
 
 // Time of day, on its own slow clock (real minutes, not game days): a long day, a warm golden
-// hour with long shadows, a brief moonlit night (about 15 seconds), and a rosy dawn back into day. It never gets
+// hour with long shadows, a brief moonlit night (about 10 seconds at normal speed), and a rosy dawn back into day. It never gets
 // properly dark, so the land stays readable. Each key: [position in the cycle, sun strength,
 // sun colour, how much of it, sky colour, how much of it, sun elevation in degrees, sweep].
 const DAY_CYCLE = 360;
+const NIGHT_PACE = [1.5, 1.5, 2.6, 4]; // how much faster the dark hours pass, at each game speed (paused, normal, fast, fastest)
 const TOD = [
   [0.0, 0.66, 0xffb89a, 0.5, 0xf0c8c0, 0.16, 12, -0.9],    // dawn
   [0.05, 0.9, 0xffe0b8, 0.25, 0xf4e4d4, 0.08, 30, -0.6],
@@ -47,7 +48,7 @@ const TOD = [
   [0.7, 1, 0xffffff, 0, 0xffffff, 0, 54, 0.3],
   [0.79, 0.95, 0xffb870, 0.45, 0xffdcb0, 0.14, 20, 0.75],  // golden hour
   [0.855, 0.74, 0xffa870, 0.4, 0xe8c4b8, 0.18, 9, 0.95],   // sunset (warm, not muddy)
-  [0.895, 0.4, 0x7a8ae8, 0.7, 0x7a8ad8, 0.42, 6, 1.0],     // night (moonlit): about 15 seconds
+  [0.895, 0.4, 0x7a8ae8, 0.7, 0x7a8ad8, 0.42, 6, 1.0],     // night (moonlit)
   [0.935, 0.42, 0x94a0f0, 0.55, 0xa0a0e0, 0.36, 7, -1.0],  // before dawn
   [1.0, 0.66, 0xffb89a, 0.5, 0xf0c8c0, 0.16, 12, -0.9],
 ];
@@ -106,7 +107,7 @@ export class Renderer {
     this.particles = []; this.weatherParticles = [];
     this.ambience = new Ambience();
     this.lightTarget = { sun: new THREE.Color(), sky: new THREE.Color(), ground: new THREE.Color() };
-    this.todStart = DAY_CYCLE * 0.45; // start in the afternoon, so the first evening comes after a couple of minutes
+    this.todClock = DAY_CYCLE * 0.45; // start in the afternoon, so the first evening comes after a couple of minutes
     this.v3 = new THREE.Vector3();
     this.resize();
   }
@@ -308,6 +309,9 @@ export class Renderer {
     for (const [key, m] of this.structs) if (!live.has(key)) { this.scene.remove(m); m.geometry.dispose(); this.structs.delete(key); }
   }
 
+  // jump the clock to a point in the day (0 = dawn, 0.9 = night)
+  setTimeOfDay(u) { this.todClock = u * DAY_CYCLE; }
+
   // ------------------------------------------------------------------ frame
   draw(game, ui, dt) {
     this.time += dt;
@@ -367,12 +371,22 @@ export class Renderer {
     const T = this.lightTarget, first = !this.lightReady, k = first ? 1 : Math.min(1, dt * 0.7);
     T.sun.setHex(L.sun); T.sky.setHex(L.sky); T.ground.setHex(L.ground);
     // time of day warms and dims the light and swings the sun round (shadows lengthen at dusk)
-    const todU = this.dayCycleOn === false ? 0.35 : ((this.time + (this.todStart ?? 0)) / DAY_CYCLE) % 1;
+    // The clock runs faster through the dark hours, and faster still at the faster game speeds:
+    // at normal speed the full night is about 10 seconds, long enough for the fireflies and eye-shine;
+    // at the top speed a season goes by in a few minutes, so the night is over in a few seconds
+    // rather than hiding the land while it changes. (It eases in at dusk and out at dawn.)
+    {
+      const u = (this.todClock / DAY_CYCLE) % 1, sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+      const dark = u > 0.5 ? sm(0.8, 0.87, u) : 1 - sm(0, 0.05, u);
+      const fast = NIGHT_PACE[game.speed] ?? NIGHT_PACE[1];
+      this.todClock = (this.todClock + dt * (1 + (fast - 1) * dark)) % DAY_CYCLE;
+    }
+    const todU = this.dayCycleOn === false ? 0.35 : this.todClock / DAY_CYCLE;
     const tod = timeOfDay(todU);
     this.tod = tod; this.todU = todU;
     // how "night" it is: the blue dusk through to just before dawn (for fireflies, eye-shine, owls)
     const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
-    this.night = ss(0.872, 0.893, todU) * (1 - ss(0.93, 0.95, todU)); // full night for about 15 s of each 6-minute day
+    this.night = ss(0.872, 0.893, todU) * (1 - ss(0.93, 0.95, todU)); // full night (see NIGHT_PACE for how long it lasts)
     this.dawn = todU > 0.97 || todU < 0.1 ? 1 - Math.min(1, Math.abs(((todU + 0.03) % 1) - 0.03) / 0.07) : 0;
     T.sun.lerp(tod.sunCol, tod.sunAmt); T.sky.lerp(tod.skyCol, tod.skyAmt);
     this.sun.color.lerp(T.sun, k); this.hemi.color.lerp(T.sky, k); this.hemi.groundColor.lerp(T.ground, k);

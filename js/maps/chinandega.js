@@ -11,7 +11,7 @@ import { PLANT, PLANTS } from '../data/plants.js';
 import { ANIMAL } from '../data/animals.js';
 import { riverRow } from '../world.js';
 import { T, F } from '../config.js';
-import { moment } from '../sim/moments.js';
+import { moment, arrivalMoment } from '../sim/moments.js';
 import { plantSuit } from '../sim/plants.js';
 const MANGROVES = ['redmangrove', 'blackmangrove', 'whitemangrove'];
 
@@ -109,10 +109,7 @@ function fincaStats(w, s) {
 function fincaDaily(g) {
   const done = g.flags.moments || {}, W = g.wildlife, w = g.world;
   // the howlers are back
-  if (done.congos == null && ANIMAL.congo) {
-    const a = W.agents.find(o => o.sp === ANIMAL.congo.index && !o.leaving);
-    if (a) moment(g, 'congos', a);
-  }
+  if (done.congos == null && ANIMAL.congo) arrivalMoment(g, 'congos', ANIMAL.congo);
   // Each month the cooperative sells milk and cheese (more cows, and better milk where the pasture
   // has shade), and the fishers and cockle gatherers sell their catch (more mangroves, more fish,
   // shrimp and conchas negras: the mangroves are the nursery for the whole coast).

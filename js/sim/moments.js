@@ -44,6 +44,24 @@ export const MOMENTS = {
 // Which species' first arrival is a moment of its own.
 export const ARRIVAL_MOMENTS = { jaguar: 'jaguar', howler: 'howler', elephant: 'elephant' };
 
+// An arrival moment waits until the newcomers are well inside the property, not just stepping
+// in over the edge: one of them has to be at least a sixth of the map from every side (and not
+// leaving). If they keep to the edges for half a year, it plays on the most central one anyway.
+// Call it every day once the species is here; it returns true when the moment has played.
+export function arrivalMoment(game, key, def) {
+  const done = game.flags.moments || (game.flags.moments = {});
+  if (done[key] != null || !def) return done[key] != null;
+  const w = game.world, inset = Math.round(Math.min(w.w, w.h) / 6);
+  const room = a => Math.min(a.x, a.y, w.w - a.x, w.h - a.y);
+  const here = game.wildlife.agents.filter(a => a.sp === def.index && !a.leaving);
+  if (!here.length) return false;
+  const seen = game.flags.arrivalSeen || (game.flags.arrivalSeen = {});
+  seen[key] ??= game.day;
+  const best = here.reduce((a, b) => (room(b) > room(a) ? b : a));
+  if (room(best) < inset && game.day - seen[key] < 60) return false;
+  return moment(game, key, best);
+}
+
 // Fire a moment, once per farm. focus: { x, y } in tiles, or an animal to look at.
 export function moment(game, key, focus) {
   const done = game.flags.moments || (game.flags.moments = {});

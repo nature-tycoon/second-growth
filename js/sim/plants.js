@@ -318,3 +318,29 @@ export function seedRain(game) {
     trySeed(w, p, Math.floor(rng() * w.n), rng);
   }
 }
+
+// Roots loosen compacted ground. Where native plants have taken hold on an old plowed field or
+// pasture sod (deep-rooted wildflowers, bunchgrasses, legumes, then shrubs and trees), their roots
+// open channels that worms and soil life follow, and over a few years the hardpan breaks up on its
+// own, the way farmers use deep-rooted cover crops. It takes a patch of them, not one plant, and it
+// doesn't happen where herds trample the ground every day. Checked every few days: most of a field in about five years.
+const rooted = (w, i) => {
+  const gp = PLANTS[w.ground[i]], sp = PLANTS[w.shrub[i]], tp = PLANTS[w.tree[i]];
+  const ok = p => p && !p.invasive && !p.exotic && !p.sod && !p.weedy;
+  return (ok(gp) && w.groundG[i] >= 0.5) || (ok(sp) && w.shrubG[i] >= 0.4) || (ok(tp) && w.treeG[i] >= 0.35);
+};
+export function rootsLoosen(game) {
+  const w = game.world, W = w.w, rng = game.rng;
+  for (let i = 0; i < w.n; i++) {
+    const t = w.terrain[i];
+    if (t !== T.FIELD && t !== T.PASTURE) continue;
+    if ((w.trod && w.trod[i] > 0.1) || !rooted(w, i) || rng() > 0.008) continue;
+    const x = i % W, y = (i / W) | 0;
+    let n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && w.inb(x + dx, y + dy) && rooted(w, i + dy * W + dx)) n++;
+    if (n < 5) continue;
+    w.terrain[i] = T.SOIL;
+    w.soil[i] = Math.min(1, w.soil[i] + 0.04);
+    game.stats.rootLoosened = (game.stats.rootLoosened || 0) + 1;
+  }
+}

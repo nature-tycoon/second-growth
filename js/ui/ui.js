@@ -1253,9 +1253,9 @@ export class UI {
     m.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, speed: g.speed };
     // a night moment (the fireflies) jumps the clock to a clear, warm night, and the meadows light up
     if (m.night) {
-      r.todStart = 0.9 * 360 - r.time; if (m.fireflies) r.fireflyBoost = 8;
+      r.setTimeOfDay(0.9); if (m.fireflies) r.fireflyBoost = 8;
       // hold a clear night (no rain, no dawn) until the card is dismissed
-      m.hold = setInterval(() => { g.weather = 'clear'; g.weatherDays = 3; r.todStart = 0.9 * 360 - r.time; }, 200);
+      m.hold = setInterval(() => { g.weather = 'clear'; g.weatherDays = 3; r.setTimeOfDay(0.9); }, 200);
     }
     if (g.speed !== 1) this.setSpeed(1);
     const fx = m.agent ? m.agent.x : m.x, fy = m.agent ? m.agent.y : m.y;
