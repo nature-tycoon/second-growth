@@ -145,12 +145,12 @@ const MAP = {
 const CHAPTERS_ES = [
   ['Sombra para el hato',
     'Las vacas de la cooperativa se pasan todo el verano al sol, amontonadas bajo los últimos guanacastes. Bajan de peso y dan poca leche. El primer trabajo es la sombra: árboles creciendo en el mismo potrero, como lo hacían los viejos.',
-    'Usá <b>Inspeccionar</b> para tocar una vaca, un árbol o el zacate. Después sembrá <b>Sembrar → Árboles → Bosque seco</b> en puntos regados por los potreros. Cada árbol le da sombra al zacate de alrededor. La plata de la leche entra cada mes, y sube a medida que se extiende la sombra.',
-    ['Inspeccioná un cuadro o un animal', 'Sembrá 60 árboles en los potreros', 'Dale sombra a 150 cuadros más de potrero (los árboles cuentan cuando están a medio crecer)']],
+    'Usá <b>Inspeccionar</b> para tocar una vaca, un árbol o el zacate. Después sembrá <b>Sembrar → Árboles → Bosque seco</b> en puntos regados por los potreros. Los árboles tardan como un año en crecer lo suficiente para darle sombra al zacate; la plata de la leche sube a medida que se extiende la sombra. Mientras tanto, regá <b>Sembrar → Mezclas de semillas → Cobertura de suelo</b> sobre los parches pelados y quemados: se ponen verdes en unas semanas y empiezan a curar la tierra.',
+    ['Inspeccioná un cuadro o un animal', 'Sembrá 60 árboles en los potreros', 'Regá Cobertura de suelo en 40 cuadros de tierra pelada y quemada']],
   ['Cercas vivas',
     'Alambre de púas en postes muertos divide los potreros. Los campesinos de aquí siempre han conocido algo mejor: cortás una rama de madero negro, la clavás en la tierra, y pega raíces y crece como un poste vivo. Una línea de ellos se vuelve un seto por donde pueden pasar pájaros y monos.',
-    'Sembrá <b>Sembrar → Árboles → Cerca viva</b> justo en las líneas de alambre entre los potreros: las estacas pegan como postes. Las vacas no alcanzan los arbolitos sembrados en la línea de la cerca. <b>Quitar → Arrancar invasoras</b> limpia el jaragua alrededor.',
-    ['Sembrá 120 árboles de cerca viva', 'Arrancá 80 cuadros de jaragua o guinea', 'Dale sombra a 1,600 cuadros más de potrero en total, desde el inicio']],
+    'Sembrá <b>Sembrar → Árboles → Cerca viva</b> justo en las líneas de alambre entre los potreros: las estacas pegan como postes. Las vacas no alcanzan los arbolitos sembrados en la línea de la cerca. <b>Quitar → Arrancar invasoras</b> limpia el jaragua alrededor. Los árboles de sombra del capítulo 1 siguen creciendo mientras trabajás, y cuentan para la meta de sombra.',
+    ['Sembrá 120 árboles de cerca viva', 'Arrancá 80 cuadros de jaragua o guinea', 'Dale sombra a 1,000 cuadros más de potrero (tus árboles cuentan cuando están a medio crecer)']],
   ['La quebrada',
     'La quebrada baja del volcán y se seca en febrero. Las vacas toman agua de ella y pisotean sus orillas peladas hasta volverlas lodo, y una alcantarilla bajo el camino de la finca no deja que los peces suban del estero en el invierno.',
     '<b>Demolé</b> la alcantarilla donde el camino de la finca cruza la quebrada. Sembrá <b>Árboles de quebrada</b> y <b>Arbustos del bosque seco</b> en las orillas. La sombra mantiene el agua en las pozas más tiempo en el verano, y el guardabarranco anida en barrancos con sombra.',
@@ -276,6 +276,7 @@ onBiome(b => {
 });
 // the finca's monthly earnings message
 addPatterns([
+  [/^([\d,]+) \/ ([\d,]+) newly shaded tiles · young trees (\d+)% of the way to giving shade$/, '$1 / $2 cuadros nuevos con sombra · los árboles jóvenes van en un $3% del camino para dar sombra'],
   [/^This month the cooperative sold \$([\d,]+) of milk and cheese, and the fishers and cockle gatherers \$([\d,]+) of fish and conchas negras\. Shade trees in the pasture raise the first; mangroves raise the second\.$/,
     'Este mes la cooperativa vendió $$$1 de leche y queso, y los pescadores y las concheras $$$2 de pescado y conchas negras. Los árboles de sombra en el potrero suben lo primero; los manglares suben lo segundo.'],
 ]);

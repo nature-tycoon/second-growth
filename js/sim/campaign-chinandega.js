@@ -6,6 +6,7 @@
 // Built when the map loads, from shared helpers (see campaign.js).
 
 import { F } from '../config.js';
+import { PLANTS } from '../data/plants.js';
 
 export function chinandegaChapters(h) {
   const { used, pop, culvertGone, score, count, flag, layerTools, wildlifeTools, speciesPresent } = h;
@@ -13,28 +14,39 @@ export function chinandegaChapters(h) {
   const since = (g, key, now) => { const b = g.flags.chBase ||= {}; const k = key + ':' + g.campaign.chapter; if (b[k] == null) b[k] = now; return now - b[k]; };
   // the finca starts with plenty of shade from its old trees; the goals count only new shade
   const newShade = g => Math.max(0, st(g, 'silvo') - (g.flags.silvo0 ??= st(g, 'silvo')));
+  // until the new trees are big enough to shade the grass, show how far along they are
+  const shadeProg = target => g => {
+    const n = Math.min(newShade(g), target), w = g.world;
+    let sum = 0, k = 0;
+    for (let i = 0; i < w.n; i++) {
+      const p = w.tree[i] && PLANTS[w.tree[i]];
+      if (p && !p.invasive && !p.mangrove && w.treeAge[i] < 360 && w.treeG[i] < 0.5) { sum += w.treeG[i] / 0.5; k++; }
+    }
+    const done = `${n.toLocaleString()} / ${target.toLocaleString()} newly shaded tiles`;
+    return n < target && k ? `${done} · young trees ${Math.round(100 * sum / k)}% of the way to giving shade` : done;
+  };
   const breached = g => { let n = 0; for (let i = 0; i < g.world.n; i++) if (g.world.feature[i] === F.DIKE) n++; return Math.max(0, (g.flags.dikes0 ??= n) - n); };
   return [
     {
       key: 'shade', title: 'Shade for the herd', reward: 2000,
       story: 'The cooperative\'s cows stand in the sun all through the dry season, crowding under the last few guanacastes. They lose weight and give little milk. The first job is shade: trees growing right in the pasture, the way the old farmers did it.',
-      teach: 'Use <b>Inspect</b> to click a cow, a tree or the grass. Then plant <b>Plant → Trees → Dry forest</b> in scattered spots across the pastures. Each tree shades the grass around it. The milk money comes in every month, and it rises as the shade spreads.',
+      teach: 'Use <b>Inspect</b> to click a cow, a tree or the grass. Then plant <b>Plant → Trees → Dry forest</b> in scattered spots across the pastures. The trees take about a year to grow big enough to shade the grass; the milk money rises as the shade spreads. Meanwhile, sow <b>Plant → Seed mixes → Soil cover</b> over the bare, burned patches: it greens up within weeks and starts healing the soil.',
       unlock: ['mix_dryforest', 'mix_groundcover'],
       goals: [
         flag('Inspect a tile or an animal', g => !!g.flags.inspected),
         count('Plant 60 trees in the pastures', g => g.stats.treesPlanted || 0, 60, ' trees'),
-        count('Shade 150 more tiles of pasture (trees count once they are half grown)', newShade, 150, ' newly shaded tiles'),
+        count('Sow Soil cover on 40 tiles of bare, burned ground', g => used(g, 'mix_groundcover'), 40, ' tiles'),
       ],
     },
     {
       key: 'fences', title: 'Living fences', reward: 2500,
       story: 'Barbed wire on dead posts divides the paddocks. Farmers here have always known a better way: cut a branch of madero negro, stick it in the ground, and it takes root and grows into a living fence post. A line of them becomes a hedge that birds and monkeys can travel along.',
-      teach: 'Plant <b>Plant → Trees → Living fence</b> right along the barbed-wire lines between the paddocks: the cuttings root as fence posts. The cows can\'t get at young trees planted in the fence line. <b>Remove → Pull invasives</b> clears jaragua from around them.',
+      teach: 'Plant <b>Plant → Trees → Living fence</b> right along the barbed-wire lines between the paddocks: the cuttings root as fence posts. The cows can\'t get at young trees planted in the fence line. <b>Remove → Pull invasives</b> clears jaragua from around them. The shade trees from Chapter 1 keep growing while you work, and count toward the shade goal.',
       unlock: ['mix_livingfence', 'pull', 'clear'],
       goals: [
         count('Plant 120 living-fence trees', g => used(g, 'mix_livingfence'), 120, ' planted'),
         count('Pull 80 tiles of jaragua or guinea grass', g => used(g, 'pull'), 80, ' tiles'),
-        count('Shade 1,600 more tiles of pasture in all, since the start', newShade, 1600, ' newly shaded tiles'),
+        { desc: 'Shade 1,000 more tiles of pasture (your trees count once they are half grown)', check: g => newShade(g) >= 1000, prog: shadeProg(1000) },
       ],
     },
     {
