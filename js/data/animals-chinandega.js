@@ -115,9 +115,12 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'motmot', name: 'Turquoise-browed motmot', sci: 'Eumomota superciliosa', group: 'Birds', move: 'fly',
       speed: 2.4, hr: 10, max: 12, sources: ['N', 'E'], mig: 0.4, breed: [2, 3], litter: [2, 4], life: 6,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.insects[i] * 1.5)) * (W.distWater[i] <= 8 ? 1 : 0.6),
+      // it digs its nest burrow in the banks of a shaded quebrada: the bare, sun-baked stream the
+      // finca starts with (about an eighth of it shaded) isn't enough
+      req: g => Math.max(0, Math.min(1, (stat(g, 'shadedCreek') / Math.max(1, stat(g, 'creek')) - 0.15) / 0.2)),
       sprite: { kind: 'songbird', size: 15, color: '#3a8a6a', breast: '#c8803a', head: '#2a7a5a', face: '#50c8e8', tail: '#2a5a8a', tailTip: '#50a0d8' },
       desc: 'Guardabarranco, the national bird of Nicaragua. It swings its racket-tipped tail like a pendulum and nests in burrows it digs in the banks of the quebradas.',
-      hint: 'Dry forest near stream banks, with plenty of insects.' });
+      hint: 'Dry forest near stream banks, with plenty of insects, and a quebrada with shade along its banks (at least a sixth of it, more is better).' });
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 1, RIPARIAN: 1, MEADOW: 0.3, SHRUB: 0.5 });
@@ -161,10 +164,10 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'spoonbill', name: 'Roseate spoonbill', sci: 'Platalea ajaja', group: 'Birds', move: 'fly',
       speed: 2.2, hr: 40, max: 8, groupSize: [2, 4], sources: ['S'], mig: 0.3, breed: [], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
-      req: g => Math.min(1, stat(g, 'mangrove') / 60),
+      req: g => Math.max(0, Math.min(1, (stat(g, 'mangrove') - 180) / 120)), // more mangrove than the few left at the start
       sprite: { kind: 'heron', size: 24, color: '#e8a0b8', breast: '#f0b8c8', head: '#f0e8e0', flight: '#d85a80' },
       desc: 'Garza rosada. It sweeps its spoon-shaped bill through the shallows for shrimp, which is what turns it pink.',
-      hint: 'Shallow water and mud in and around the mangroves.' });
+      hint: 'Shallow water and mud in and around the mangroves, and more mangrove than the few patches left at the start.' });
   }
   {
     const w = habW({ MARSH: 1, POND: 1, RIVER: 0.7, CREEK: 0.7, RIPARIAN: 0.4 });

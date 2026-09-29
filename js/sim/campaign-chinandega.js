@@ -11,6 +11,8 @@ export function chinandegaChapters(h) {
   const { used, pop, culvertGone, score, count, flag, layerTools, wildlifeTools, speciesPresent } = h;
   const st = (g, k) => g.world.stats?.[k] || 0;
   const since = (g, key, now) => { const b = g.flags.chBase ||= {}; const k = key + ':' + g.campaign.chapter; if (b[k] == null) b[k] = now; return now - b[k]; };
+  // the finca starts with plenty of shade from its old trees; the goals count only new shade
+  const newShade = g => Math.max(0, st(g, 'silvo') - (g.flags.silvo0 ??= st(g, 'silvo')));
   const breached = g => { let n = 0; for (let i = 0; i < g.world.n; i++) if (g.world.feature[i] === F.DIKE) n++; return Math.max(0, (g.flags.dikes0 ??= n) - n); };
   return [
     {
@@ -21,7 +23,7 @@ export function chinandegaChapters(h) {
       goals: [
         flag('Inspect a tile or an animal', g => !!g.flags.inspected),
         count('Plant 60 trees in the pastures', g => g.stats.treesPlanted || 0, 60, ' trees'),
-        count('Give 150 tiles of pasture shade', g => st(g, 'silvo'), 150, ' shaded tiles'),
+        count('Shade 150 more tiles of pasture (trees count once they are half grown)', newShade, 150, ' newly shaded tiles'),
       ],
     },
     {
@@ -32,7 +34,7 @@ export function chinandegaChapters(h) {
       goals: [
         count('Plant 120 living-fence trees', g => used(g, 'mix_livingfence'), 120, ' planted'),
         count('Pull 80 tiles of jaragua or guinea grass', g => used(g, 'pull'), 80, ' tiles'),
-        count('Give 400 tiles of pasture shade', g => st(g, 'silvo'), 400, ' shaded tiles'),
+        count('Shade 1,600 more tiles of pasture in all, since the start', newShade, 1600, ' newly shaded tiles'),
       ],
     },
     {

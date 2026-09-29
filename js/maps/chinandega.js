@@ -19,6 +19,8 @@ const reuse = key => PNW_GOALS.find(g => g.key === key);
 const st = (g, k) => g.world.stats?.[k] || 0;
 const invPct = g => (g.cache.score?.invFrac ?? 1) * 100;
 const start = (g, k, now) => { const f = g.flags.startCounts || (g.flags.startCounts = {}); if (f[k] == null) f[k] = now; return f[k]; };
+// the finca starts with plenty of shade from its old trees; the shade goal counts only new shade
+const newShade = g => Math.max(0, st(g, 'silvo') - (g.flags.silvo0 ??= st(g, 'silvo')));
 const shadedPct = g => st(g, 'creek') ? Math.round(100 * st(g, 'shadedCreek') / st(g, 'creek')) : 0;
 
 const GOALS = [
@@ -32,11 +34,11 @@ const GOALS = [
     desc: 'Remove the culvert where the farm road crosses the quebrada, so fish can swim up from the estuary in the rainy season.',
     check: g => !culvertExists(g.world), prog: g => culvertExists(g.world) ? 'Culvert still in place' : 'Done' },
   { key: 'silvo', name: 'Shade for the herd', reward: 3000,
-    desc: 'Grow trees through the pasture so 300 tiles of grazing land have shade close by. This is silvopasture: the cows stay cool, give more milk, and wildlife can cross the farm.',
-    check: g => st(g, 'silvo') >= 300, prog: g => `${Math.min(300, st(g, 'silvo'))} / 300 shaded pasture tiles` },
+    desc: 'Grow trees through the pasture so 1,000 more tiles of grazing land have shade close by. This is silvopasture: the cows stay cool, give more milk, and wildlife can cross the farm.',
+    check: g => newShade(g) >= 1000, prog: g => `${Math.min(1000, newShade(g)).toLocaleString()} / 1,000 newly shaded pasture tiles` },
   { key: 'herd', name: 'A healthy herd', reward: 3000,
-    desc: 'Keep 30 head of cattle on the finca, well fed and shaded, alongside the wildlife.',
-    check: g => pop(g, 'cattle') >= 30, prog: g => `${pop(g, 'cattle')} / 30 cattle` },
+    desc: 'Sell $1,500 of milk and cheese in one month. Well-shaded cows give far more milk, so it takes shade trees through the pasture as well as a good herd.',
+    check: g => (g.cache.milk || 0) >= 1500, prog: g => `$${Math.min(1500, g.cache.milk || 0).toLocaleString()} / $1,500 of milk last month` },
   { key: 'shade', name: 'A shady quebrada', reward: 3000,
     desc: 'Plant trees and shrubs along half of the quebrada. Shade keeps water in it longer into the dry season.',
     check: g => shadedPct(g) >= 50, prog: g => `${shadedPct(g)}% / 50% shaded` },
