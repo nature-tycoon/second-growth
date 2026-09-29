@@ -41,7 +41,16 @@ export function loadPlants(build) {
 export function plantPhase(p, m) {
   const lk = p.look;
   if (lk.bloom && lk.bloom.includes(m)) return 'bloom';
+  if (lk.evergreen) return 'green'; // (irrigated cane: the same green all year)
   if (lk.fruit && lk.fruit.includes(m)) return 'fruit';
+  // tropical dry forest: bare through the dry season (December to April), a flush of new leaves
+  // with the first rains in May; grasses and herbs cure brown from December to April
+  if (lk.dryForest) {
+    const dryM = m >= 9 || m <= 1;
+    if (p.layer === 0) return dryM ? 'late' : 'green';
+    if (lk.deciduous) return dryM ? 'winter' : m === 8 ? 'fall' : m === 2 ? 'spring' : 'green';
+    return 'green';
+  }
   // tropical plants stay green; only grasses and herbs dry out in the June–September dry season
   if (lk.tropical) return p.layer === 0 && m >= 3 && m <= 6 ? 'late' : 'green';
   // savanna: grasses and herbs cure gold through the long dry season (June–October); trees stay green

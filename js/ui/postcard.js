@@ -2,6 +2,8 @@
 // farm's name, where it is, how far along it is, and a small stamp. Drawn onto a canvas and
 // saved as a PNG, so it's ready to share.
 
+import { tr } from '../i18n.js';
+
 const W = 1800, H = 1240, M = 56;                  // card size and margin
 const PHOTO = { x: M, y: M, w: W - M * 2, h: 900 }; // the picture area (about 3:2)
 
@@ -24,7 +26,7 @@ function label(ctx, text, x, y) {
   const tw = ctx.measureText(text).width + 36;
   ctx.fillStyle = 'rgba(28,38,26,0.72)';
   ctx.beginPath(); ctx.roundRect(x, y, tw, 52, 26); ctx.fill();
-  ctx.fillStyle = '#f7f0dc'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + 18, y + 27);
+  ctx.fillStyle = '#f7f0dc'; ctx.textBaseline = 'middle'; ctx.fillText(tr(text), x + 18, y + 27);
 }
 
 // images: [{ canvas, label? }] (one, or two for then-and-now); title, subtitle, stats: strings
@@ -54,11 +56,11 @@ export async function makePostcard({ images, title, subtitle, stats, stamp }) {
   const ty = PHOTO.y + PHOTO.h + 92;
   ctx.fillStyle = '#3b6230'; ctx.textBaseline = 'alphabetic';
   ctx.font = '700 64px Fraunces, Georgia, serif';
-  ctx.fillText(title, M + 4, ty);
+  ctx.fillText(tr(title), M + 4, ty);
   ctx.fillStyle = '#4a5646'; ctx.font = '600 30px Nunito, sans-serif';
-  ctx.fillText(subtitle, M + 6, ty + 50);
+  ctx.fillText(tr(subtitle), M + 6, ty + 50);
   ctx.fillStyle = '#6a6a52'; ctx.font = '700 26px Nunito, sans-serif';
-  ctx.fillText(stats, M + 6, ty + 94);
+  ctx.fillText(tr(stats), M + 6, ty + 94);
   // stamp: a scalloped square with the logo and the year
   const sx = W - M - 190, sy = PHOTO.y + PHOTO.h + 40, S = 190;
   ctx.save();
@@ -74,7 +76,7 @@ export async function makePostcard({ images, title, subtitle, stats, stamp }) {
   ctx.setLineDash([bump, bump * 0.6]); ctx.stroke(); ctx.setLineDash([]);
   if (logo) ctx.drawImage(logo, sx + S / 2 - 52, sy + 22, 104, 104);
   ctx.fillStyle = '#b5602f'; ctx.font = '800 22px Nunito, sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(stamp, sx + S / 2, sy + S - 30);
+  ctx.fillText(tr(stamp), sx + S / 2, sy + S - 30);
   ctx.restore();
   // where to play it
   ctx.fillStyle = '#8a8a6a'; ctx.font = '700 22px Nunito, sans-serif'; ctx.textAlign = 'right';

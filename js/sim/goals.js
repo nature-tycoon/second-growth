@@ -5,7 +5,7 @@ import { PLANTS } from '../data/plants.js';
 import { ANIMALS, ANIMAL } from '../data/animals.js';
 
 export function speciesPresent(game) {
-  return game.wildlife.state.filter(s => s.pop > 0).length;
+  return game.wildlife.state.filter((s, k) => s.pop > 0 && !ANIMALS[k]?.domestic).length; // (livestock isn't wildlife)
 }
 
 export function nativePlantSpecies(w) {

@@ -185,7 +185,7 @@ export class Game {
     this.wildlife.monthly();
     this.cache.nativePlants = nativePlantSpecies(this.world);
     const score = this.updateScore();
-    const grant = this.grant(monthlyGrant(this, score.total), 'monthly');
+    const grant = this.grant(monthlyGrant(this, score.total) * (biome.grantScale ?? 1), 'monthly');
     this.lastGrant = grant;
     this.visitors.monthEnd();
     // season tips teach the first year; after that the top bar says the season
@@ -284,6 +284,7 @@ export class Game {
         wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
         visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant,
         mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0, map: this.map,
+        plants: PLANTS.map(p => p?.key || ''), // so a later version with a changed plant list can still read it
       };
       localStorage.setItem(saveKey(this.map), JSON.stringify(data));
       localStorage.setItem(LAST_MAP_KEY, this.map);
@@ -319,6 +320,19 @@ export class Game {
     if (atob(data.world.arrays.terrain).length !== ww * wh) { console.warn('Discarding a scrambled save for', biome.id); return false; }
     const w = new World(ww, wh);
     for (const k of WORLD_ARRAYS) if (data.world.arrays[k]) fromB64(data.world.arrays[k], w[k]);
+    // plants are stored by number: match them up by name if the map's plant list has changed since
+    // the save, and don't open a save whose plants can't be matched (it would crash, or show the wrong ones)
+    const ids = data.plants ? data.plants.map(k => PLANTS.findIndex(p => p?.key === k)) : null;
+    for (const k of ['ground', 'shrub', 'tree']) {
+      const a = w[k];
+      for (let i = 0; i < a.length; i++) {
+        if (!a[i]) continue;
+        const id = ids ? ids[a[i]] : a[i];
+        if (ids && id === -1) { a[i] = 0; continue; } // a plant this version no longer has
+        if (id == null || !PLANTS[id]) { console.warn('Discarding a save with unknown plants for', biome.id); return false; }
+        a[i] = id;
+      }
+    }
     w.structures = data.world.structures;
     this.seed = data.seed;
     this.world = w;

@@ -38,10 +38,10 @@ export const isDeepWater = t => t === T.POND || t === T.CREEK || t === T.RIVER;
 // Tile features
 export const F = {
   NONE: 0, SNAG: 1, LOG: 2, ROCKS: 3, BRUSH: 4, NESTBOX: 5,
-  FENCE: 6, CULVERT: 7, DAM: 8, BOARDWALK: 9, BLIND: 10, STUMP: 11,
+  FENCE: 6, CULVERT: 7, DAM: 8, BOARDWALK: 9, BLIND: 10, STUMP: 11, DIKE: 12,
 };
 export const FEATURE_NAMES = ['', 'Snag (standing dead tree)', 'Fallen log', 'Rock pile', 'Brush pile',
-  'Nest box', 'Old fence', 'Road culvert', 'Beaver dam', 'Boardwalk', 'Wildlife viewing blind', 'Tree stump (rots away over a few years)'];
+  'Nest box', 'Old fence', 'Road culvert', 'Beaver dam', 'Boardwalk', 'Wildlife viewing blind', 'Tree stump (rots away over a few years)', 'Shrimp pond dike (Demolish it to let the tide back in)'];
 
 // Terrain height: tiles are 1 unit wide, heights are in "levels".
 export const LEVEL = 0.3;        // scene units per height level

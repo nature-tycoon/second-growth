@@ -218,7 +218,7 @@ export function broadleaf(opts, seed, lod = 0) {
 // Winter silhouette for deciduous trees: trunk and bare branches.
 export function bareTree(opts, seed) {
   const r = mulberry32(seed + 7);
-  const { height: H, trunkH, trunkR = 0.06 } = opts;
+  const { height: H, trunkR = 0.06 } = opts, trunkH = opts.trunkH ?? H * (opts.fork ?? 0.62); // (emergent crowns like ceiba and guanacaste give no trunk height)
   const parts = [trunk(trunkH, trunkR, trunkR * 0.7)];
   const branch = (x, y, z, len, rad, ax, az, depth) => {
     const c = soft(new THREE.CylinderGeometry(rad * 0.6, rad, len, 5), { transform: g => { g.translate(0, len / 2, 0); g.rotateX(ax); g.rotateZ(az); g.translate(x, y, z); } });
@@ -236,6 +236,7 @@ export function bareTree(opts, seed) {
 
 // Sizes in tiles. Kept a little under one tile across so forests have depth, not a solid carpet.
 export const TREE_SHAPES = {
+  mangrove:   { kind: 'mangrove', height: 1.2, radius: 0.45 },
   fir:        { kind: 'conifer', height: 2.3, radius: 0.38, tiers: 8 },
   cedar:      { kind: 'conifer', height: 1.95, radius: 0.48, tiers: 7, droop: 0.14 },
   hemlock:    { kind: 'conifer', height: 2.1, radius: 0.35, tiers: 9, droop: 0.09, lean: 0.35 },
@@ -277,6 +278,7 @@ export function treeParts(shape, seed, lod = 0) {
     case 'emergent': return emergent(shape, seed, lod);
     case 'baobab': return baobab(shape, seed, lod);
     case 'euphorbia': return euphorbia(shape, seed, lod);
+    case 'mangrove': return mangrove(shape, seed, lod);
     default: return broadleaf(shape, seed, lod);
   }
 }
@@ -456,6 +458,32 @@ export function baobab(opts, seed, lod = 0) {
   }
   const crown = merge(leaves);
   volumeNormals(crown, 0, top + 0.3, 0, 0.5);
+  return { crown, trunk: merge(limbs) };
+}
+
+// Red mangrove: a dense, dark, rounded crown held up on a tangle of arching stilt roots that
+// spring out of the trunk and bow down into the mud and water.
+export function mangrove(opts, seed, lod = 0) {
+  const r = mulberry32(seed), H = opts.height, base = H * 0.36;
+  const limbs = [rod([0, base - 0.05, 0], [0, H * 0.62, 0], 0.045, 0.035)];
+  const nRoots = lod ? 6 : 10;
+  for (let k = 0; k < nRoots; k++) {
+    const a = k / nRoots * 6.28 + r() * 0.4, h0 = base * (0.55 + r() * 0.5), out = 0.3 + r() * 0.14;
+    const knee = [Math.cos(a) * out * 0.45, h0 + 0.06 + r() * 0.05, Math.sin(a) * out * 0.45];
+    const foot = [Math.cos(a) * out, -0.06, Math.sin(a) * out];
+    limbs.push(rod([Math.cos(a) * 0.03, h0, Math.sin(a) * 0.03], knee, 0.022, 0.018, 4));
+    limbs.push(rod(knee, foot, 0.018, 0.014, 4));
+  }
+  const leaves = [], n = lod ? 5 : 9;
+  for (let k = 0; k < n; k++) {
+    const a = k / n * 6.28 + r(), d = k === 0 ? 0 : 0.18 + r() * 0.22, s = 0.2 + r() * 0.08;
+    const p = [Math.cos(a) * d, H * 0.72 + r() * 0.14 - d * 0.25, Math.sin(a) * d];
+    const blob = soft(new THREE.IcosahedronGeometry(s, lod ? 0 : 1), { seed: seed + k * 5, lump: s * 0.25, transform: g => { g.scale(1, 0.7, 1); g.translate(p[0], p[1], p[2]); } });
+    shadeVerts(blob, (xx, yy) => (yy > p[1] ? 1 : 0.75));
+    leaves.push(blob);
+  }
+  const crown = merge(leaves);
+  volumeNormals(crown, 0, H * 0.75, 0, 0.45);
   return { crown, trunk: merge(limbs) };
 }
 

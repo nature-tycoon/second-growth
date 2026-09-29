@@ -573,6 +573,7 @@ body.campaign #banner { top: 124px; }
 #stat-money { white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* if it still doesn't fit, fold lower-priority pieces away (set from JS) */
 #topbar.tight-1 .brand > div { display: none; }
+#stat-visitors[hidden] { display: none !important; } /* maps without visitors */
 #topbar.tight-2 #stat-weather, #topbar.tight-2 #stat-season, #topbar.tight-2 #stat-date { display: none !important; }
 #topbar.tight-3 .stat .small, #topbar.tight-3 #stat-score > div:last-child, #topbar.tight-3 #visitor-stars { display: none !important; }
 #topbar.tight-4 #stat-visitors, #topbar.tight-4 .top-actions select { display: none !important; }

@@ -10,6 +10,7 @@ import { speciesPresent } from './goals.js';
 import { onBiome } from '../biome.js';
 import { amazonChapters } from './campaign-amazon.js';
 import { serengetiChapters } from './campaign-serengeti.js';
+import { chinandegaChapters } from './campaign-chinandega.js';
 
 const used = (g, ...keys) => keys.reduce((n, k) => n + (g.stats.used?.[k] || 0), 0);
 const pop = (g, k) => ANIMAL[k] ? g.wildlife.state[ANIMAL[k].index].pop : 0;
@@ -159,5 +160,5 @@ export function toolNames(keys) {
 }
 
 // the chapters for whichever map is being played (built after that map's tools exist)
-const BUILDERS = { pnw: pnwChapters, amazon: () => amazonChapters(HELPERS), serengeti: () => serengetiChapters(HELPERS) };
+const BUILDERS = { pnw: pnwChapters, amazon: () => amazonChapters(HELPERS), serengeti: () => serengetiChapters(HELPERS), chinandega: () => chinandegaChapters(HELPERS) };
 onBiome(b => { CHAPTERS.length = 0; CHAPTERS.push(...(BUILDERS[b.id] ? BUILDERS[b.id]() : [])); });

@@ -188,6 +188,7 @@ export class Music {
     this.creekGain.gain.setTargetAtTime(0.006 + 0.05 * L.water, t, 1.5);
     const bugs = L.map === 'amazon' ? 0.006 + 0.01 * L.health + 0.012 * L.night
       : L.map === 'serengeti' ? (L.dry ? 0.01 * (1 - L.night) * (0.4 + L.health) : 0.002)
+      : L.map === 'chinandega' ? (this.season === 3 || this.season === 0 ? 0.008 * (1 - L.night) * (0.4 + L.health) : 0.006 + 0.012 * L.night * (0.3 + L.health)) // dry-season cicadas, rainy-night insects
       : L.map === 'atlanta' ? (this.season === 1 ? 0.004 + 0.008 * L.health + 0.01 * L.night : 0) : 0; // summer cicadas and katydids
     this.bugGain.gain.setTargetAtTime(wet ? bugs * 0.2 : bugs, t, 3);
   }
@@ -210,6 +211,8 @@ export class Music {
     if (temperate && (this.season === 1 || this.season === 2) && r(L.night * 0.8)) this.cricket();
     if (temperate && has('owl') && r(L.night * 0.05)) this.owl();
     if (L.map === 'amazon' && has('howler') && r(L.dawn * 0.09 + L.dusk * 0.02)) this.howler();
+    if (L.map === 'chinandega' && has('congo') && r(L.dawn * 0.09 + L.dusk * 0.02)) this.howler();
+    if (L.map === 'chinandega' && has('cattle') && r((1 - L.night) * 0.025)) this.moo();
     if (L.map === 'serengeti' && has('hyena') && r(L.night * 0.035)) this.hyena();
     if (L.map === 'serengeti' && has('lion') && r(dusk * 0.012)) this.lion();
     if (L.map === 'serengeti' && r((1 - L.night) * 0.02 * (0.3 + L.health))) this.dove();
@@ -259,6 +262,10 @@ export class Music {
     const d = this.voice(undefined, 0.75), t = this.ctx.currentTime + 0.05;
     this.roar(d, t, 110, 70, 1.8, 0.06);
     for (let k = 0; k < 6; k++) this.roar(d, t + 2.2 + k * (0.55 + k * 0.08), 90, 70, 0.4, 0.035 * (1 - k * 0.12));
+  }
+  moo() { // a cow across the pasture: a long, low call that rises and falls
+    const d = this.voice(undefined, 0.6), t = this.ctx.currentTime + 0.05;
+    this.roar(d, t, 120, 150, 0.5, 0.03); this.roar(d, t + 0.45, 150, 100, 0.9, 0.035);
   }
   howler() { // howler monkeys: a rolling, rising-and-falling roar from the canopy
     const d = this.voice(undefined, 0.8), t = this.ctx.currentTime + 0.05;

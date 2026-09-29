@@ -11,15 +11,17 @@ const rangeFit = (v, lo, hi, soft) => v < lo ? Math.max(0, 1 - (lo - v) / soft) 
 export function terrainFit(w, i, p) {
   const t = w.terrain[i];
   if (w.struct[i] >= 0) return 0;
-  if (w.feature[i] === F.FENCE && p.layer === 2) return 0;
+  if (w.feature[i] === F.FENCE && p.layer === 2 && !p.fencePost) return 0; // (living-fence trees grow right in the fence line)
   if (w.feature[i] === F.CULVERT || w.feature[i] === F.DAM) return 0;
   switch (t) {
     case T.RIVER: case T.POND: case T.CREEK: case T.ROAD: case T.TRAIL: return 0;
     // marsh stays open wetland: no trees at all (wet-loving trees line its muddy banks instead),
     // and only a thin scatter of wet-tolerant shrubs, so they can't smother the sedges and rushes
-    case T.MARSH: return p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
+    // (mangroves are the exception: trees that stand in the tidal marsh)
+    case T.MARSH: return p.mangrove ? 1 : p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
     default:
       if (p.aquatic) return t === T.MUD ? 0.8 : 0;
+      if (p.mangrove) return t === T.MUD ? 1 : 0.15; // mangroves need their feet in salty mud
       switch (t) {
         case T.GRAVEL: return p.gravelOK ? 0.7 : 0.3;
         case T.FIELD: return 0.85;
@@ -31,6 +33,7 @@ export function terrainFit(w, i, p) {
 }
 
 export function plantSuit(w, i, p) {
+  if (p.dune && w.distWater[i] < 4) return 0; // (dune plants stay back from the waves)
   const tf = terrainFit(w, i, p);
   if (!tf) return 0;
   const light = layerLight(w, i, p.layer);

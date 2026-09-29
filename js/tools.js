@@ -22,7 +22,7 @@ function dig(terrain) {
     const wasLand = land(t);
     if (terrain === T.MARSH) {
       // keep wetland plants that can handle standing water
-      if (w.tree[i]) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+      if (w.tree[i] && !PLANTS[w.tree[i]].mangrove) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
       if (w.shrub[i] && !PLANTS[w.shrub[i]].wetOK) { w.shrub[i] = 0; w.shrubG[i] = 0; }
       if (w.ground[i] && !PLANTS[w.ground[i]].wetOK && !PLANTS[w.ground[i]].aquatic) { w.ground[i] = 0; w.groundG[i] = 0; }
       if (w.feature[i] !== F.LOG) w.feature[i] = 0;
@@ -227,6 +227,7 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
     const f = w.feature[i];
     if (w.terrain[i] === T.TRAIL && !f) return 2;
     if (f === F.CULVERT) return 4000;
+    if (f === F.DIKE) return 60;
     if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return 0;
     if (f === F.FENCE) return 10;
     if (f && f !== F.DAM) return 20;
@@ -248,6 +249,12 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
     if (w.terrain[i] === T.TRAIL && !f) { w.terrain[i] = T.SOIL; return true; }
     if (!f || f === F.DAM) return null;
     if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return null; // the street's bridge over the creek stays
+    if (f === F.DIKE) {
+      // breach it: cut through to tidal marsh, and the pond behind starts to drain (see the map's daily)
+      w.feature[i] = 0; w.terrain[i] = T.MARSH; w.clearPlants(i); w.hydroDirty = true;
+      if (!game.flags.breachHint) { game.flags.breachHint = true; game.notify('The dike is breached. Over the next few weeks the tide will flood in and out of the old pond, and it will turn to tidal mud and marsh. Mangrove seedlings will drift in on the tide and take root, fastest next to healthy mangroves.', 'good', { x: i % w.w + 0.5, y: ((i / w.w) | 0) + 0.5 }); }
+      return true;
+    }
     if (f === F.CULVERT) {
       w.feature[i] = 0; w.hydroDirty = true;
       game.notify('The culvert is out! The creek now flows freely into the river, and fish can reach the upper creek.', 'good');

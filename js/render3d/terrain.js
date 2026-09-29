@@ -424,8 +424,11 @@ export class Terrain {
         const elev = (Math.max(...w.corners(x, y)) - hLo) / Math.max(0.01, hHi - hLo);
         snowT[k] = isWater(t) ? 0 : (1 - canopyS * 0.55) * (0.75 + elev * 0.55);
       }
+      // a map can colour the land beyond its edge itself (Chinandega's volcano: ash, not grass)
+      const own = !inside && !isWater(t) ? biome.look.borderTint?.(x, y, c) : null;
+      if (own) c = own;
       const b = 0.95 + hash2(x, y, 5) * 0.1;
-      const dim = inside ? 1 : 0.8;
+      const dim = inside || own ? 1 : 0.8;
       tint[k * 3] = lin(c[0] * b * dim); tint[k * 3 + 1] = lin(c[1] * b * dim); tint[k * 3 + 2] = lin(c[2] * b * dim);
       // UVs, rotated per tile so repeats don't line up
       const key = this.atlas.uv[`${tex}|${season}|${v}`] ? `${tex}|${season}|${v}` : `${T.PASTURE}|${season}|0`;

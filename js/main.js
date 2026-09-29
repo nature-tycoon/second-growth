@@ -3,6 +3,8 @@ import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
 import { initAnalytics, analyticsWillRun, track } from './analytics.js';
+import { initLang } from './i18n.js';
+import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
 const loading = document.getElementById('loading-screen');
 const loadingStatus = document.getElementById('loading-status');
@@ -19,13 +21,14 @@ const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => setTi
 
 async function boot() {
   try {
+    // a map switch reloads the page (see UI.switchMap); otherwise open on the last map played
+    let pending = null;
+    try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)); sessionStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+    initLang(pending?.map || Game.lastMap()); // the language this map is played in (see i18n.js), from the loading screen on
     await nextPaint();
     stage('Preparing the land', 22);
     await nextPaint();
 
-    // a map switch reloads the page (see UI.switchMap); otherwise open on the last map played
-    let pending = null;
-    try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)); sessionStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
     // analytics first, so events from a game started on load (after a map switch) aren't lost
     initAnalytics();
     const game = new Game();

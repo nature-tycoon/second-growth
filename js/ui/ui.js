@@ -12,8 +12,9 @@ import { layerLight } from '../sim/environment.js';
 import { GOALS, speciesPresent } from '../sim/goals.js';
 import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chapterOfTool } from '../sim/campaign.js';
 import { Game, PENDING_KEY } from '../game.js';
-import { biome, BIOMES, BIOME_LIST } from '../biome.js';
+import { biome, BIOMES, BIOME_LIST, onBiome } from '../biome.js';
 import { worldMap } from './worldmap.js';
+import { LANG_MAPS, lang, langFor, storedLang, saveLang, langWithin, tr } from '../i18n.js';
 import { farmSnapshot } from '../farmsnap.js';
 import { makePostcard, download } from './postcard.js';
 import * as S from '../render/sprites.js';
@@ -256,6 +257,7 @@ export class UI {
     $('#stat-score').addEventListener('click', () => this.openReport());
     $('#stat-species').addEventListener('click', () => this.openGuide());
     $('#stat-visitors').addEventListener('click', () => this.openVisitors());
+    onBiome(b => { $('#stat-visitors').hidden = !!b.noVisitors; }); // (maps without visitors hide the counter)
     $('#mini-toggle').addEventListener('click', () => document.body.classList.toggle('mini-collapsed', $('#minimap-wrap').classList.toggle('collapsed')));
     $('#btn-goals').addEventListener('click', () => this.openGoals());
     $('#btn-journal').addEventListener('click', () => this.openJournal());
@@ -414,7 +416,7 @@ export class UI {
     if (openOnly) list = list.filter(t => this.isOpen(t.key));
     return list;
   }
-  isOpen(key) { const u = unlockedTools(this.game); return !u || u.has(key); }
+  isOpen(key) { if (biome.noVisitors && TOOLS[key]?.cat === 'visitors') return false; const u = unlockedTools(this.game); return !u || u.has(key); }
   tabOpen(sub) { return Object.values(TOOLS).some(t => t.sub === sub && this.isOpen(t.key)); }
   selectTool(key, rerender = true) {
     const t = TOOLS[key];
@@ -902,9 +904,9 @@ export class UI {
         ctx.strokeStyle = '#c0467a'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.beginPath();
         hist.forEach((h, k) => { const x = 8 + k / (hist.length - 1) * (c.width - 16), y = c.height - 8 - (h.inv || 0) * 100 / 100 * (c.height - 16); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
         ctx.stroke(); ctx.setLineDash([]);
-        ctx.font = '700 11px Nunito'; ctx.fillStyle = '#4f7d3b'; ctx.fillText('Health', 12, 16); ctx.fillStyle = '#c0467a'; ctx.fillText('Invasive cover %', 62, 16);
+        ctx.font = '700 11px Nunito'; ctx.fillStyle = '#4f7d3b'; ctx.fillText(tr('Health'), 12, 16); ctx.fillStyle = '#c0467a'; ctx.fillText(tr('Invasive cover %'), 62, 16);
       }
-    } else { ctx.fillStyle = '#7a7a62'; ctx.font = '600 13px Nunito'; ctx.fillText('History builds up month by month.', 12, 58); }
+    } else { ctx.fillStyle = '#7a7a62'; ctx.font = '600 13px Nunito'; ctx.fillText(tr('History builds up month by month.'), 12, 58); }
   }
 
   openJournal() {
@@ -1045,11 +1047,16 @@ export class UI {
 
   // ------------------------------------------------------------ campaign
   // Pick Campaign or Free Play. replacing = start over on a new farm (after a confirm).
-  openModeChoice(replacing, pick = null) {
-    let diff = this.game.difficulty || 'standard', map = pick || this.game.map;
+  openModeChoice(replacing, pick = null, diffPick = null) {
+    let diff = diffPick || this.game.difficulty || 'standard', map = pick || this.game.map;
+    // the picker reads in the language the chosen map will be played in, so a student who taps
+    // Español can read the choices right away
+    const shownLang = () => (LANG_MAPS[map] ? langFor(map) : 'en');
     const savedYear = id => { try { return JSON.parse(localStorage.getItem(Game.saveKey(id)))?.day / DAYS_PER_YEAR + 1 | 0; } catch { return 0; } };
     const m = this.modal('How do you want to play?', `<div class="section-title" style="margin-top:0">Map</div>
       ${worldMap(BIOME_LIST, map)}<div class="map-pick"></div>
+      <div class="lang-pick" hidden><div class="section-title">Language · Idioma</div>
+      <div class="seg" data-seg="lang"><button data-l="en">English</button><button data-l="es">Español</button></div></div>
       <button class="btn secondary map-resume" data-a="resume" hidden></button>
       <div class="section-title">Difficulty</div>
       <div class="seg" data-seg="diff">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === diff ? 'on' : ''}">${d.name}</button>`).join('')}</div>
@@ -1058,8 +1065,12 @@ export class UI {
       <button class="mode-card" data-m="campaign"><b>Campaign</b><span></span></button>
       <button class="mode-card" data-m="free"><b>Free play</b><span>Every tool from the start and no chapters, just the land, the grants and the milestone goals.</span></button>
       </div><p class="small replace-note" style="margin:10px 2px 0" hidden>This replaces your saved farm.</p>`, { narrow: true });
+    const pickerLang = shownLang();
+    if (pickerLang !== lang) langWithin(m, pickerLang);
     const FREE_TEXT = m.querySelector('[data-m=free] span').textContent;
     const willReplace = () => (replacing || map !== this.game.map) && Game.hasSave(map);
+    // playing in a different language than this page is in means reloading into it
+    const relang = () => map === this.game.map && langFor(map) !== lang;
     const showMap = () => {
       const b = BIOMES[map], camp = m.querySelector('[data-m=campaign]');
       m.querySelectorAll('[data-map]').forEach(o => o.classList.toggle('on', o.dataset.map === map));
@@ -1069,14 +1080,28 @@ export class UI {
       camp.querySelector('span').textContent = b.campaign ? `Eight chapters on ${b.farm}. Each one teaches a new part of restoration and unlocks new tools as you go. Best for your first time.` : `No campaign on ${b.farm} yet. Free Play has its own milestone goals for this map.`;
       m.querySelector('[data-m=free] span').textContent = FREE_TEXT;
       m.querySelector('.replace-note').hidden = !willReplace();
+      // a map can be played in another language (Nicaragua, in Spanish): the choice is kept for next time
+      const langs = LANG_MAPS[map], lp = m.querySelector('.lang-pick');
+      lp.hidden = !langs;
+      if (langs) lp.querySelectorAll('[data-l]').forEach(o => { o.hidden = !langs.includes(o.dataset.l); o.classList.toggle('on', o.dataset.l === langFor(map)); });
       const resume = m.querySelector('[data-a=resume]');
-      resume.hidden = !Game.hasSave(map) || (map === this.game.map && this.game.loaded);
+      resume.hidden = !Game.hasSave(map) || (map === this.game.map && this.game.loaded && !relang());
       resume.textContent = `Continue your saved ${b.farm} farm`;
     };
     showMap();
-    m.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { map = b.dataset.map; showMap(); }));
+    m.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => {
+      map = b.dataset.map;
+      if (shownLang() !== pickerLang) return this.openModeChoice(replacing, map, diff);
+      showMap();
+    }));
+    m.querySelectorAll('[data-l]').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.l === storedLang() && langFor(map) === b.dataset.l) return;
+      saveLang(b.dataset.l);
+      track('setting_changed', { setting: 'language', value: b.dataset.l, map });
+      this.openModeChoice(replacing, map, diff); // redrawn in the new language
+    }));
     m.querySelector('[data-a=resume]').addEventListener('click', () => {
-      if (map !== this.game.map) return this.switchMap({ map, resume: true });
+      if (map !== this.game.map || relang()) return this.switchMap({ map, resume: true });
       this.closeModal();
       if (!this.game.load(map)) {
         this.game.newGame(1987, 'free', 'standard', map); this.afterNewGame();
@@ -1100,13 +1125,16 @@ export class UI {
         return;
       }
       this.closeModal();
+      if (relang()) return this.switchMap({ map, mode: b.dataset.m, difficulty: diff });
       this.startMode(b.dataset.m, replacing, diff, map);
     }));
   }
   // Another map means a different cast of plants and animals, so the page reloads into it:
   // every cached model, sprite and thumbnail starts clean. main.js picks up where this left off.
   switchMap(pending) {
-    if (this.game.day > 0 || Game.hasSave(this.game.map)) this.game.save();
+    // the same map in another language: keep the progress only if this game is the saved farm
+    const same = pending.map === this.game.map;
+    if (same ? this.game.loaded && this.game.day > 0 : this.game.day > 0 || Game.hasSave(this.game.map)) this.game.save();
     try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending)); } catch { /* ignore */ }
     track('map_switch', { from: this.game.map, to: pending.map, resume: !!pending.resume });
     location.reload();
@@ -1225,7 +1253,7 @@ export class UI {
     m.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, speed: g.speed };
     // a night moment (the fireflies) jumps the clock to a clear, warm night, and the meadows light up
     if (m.night) {
-      r.todStart = 0.9 * 360 - r.time; r.fireflyBoost = 8;
+      r.todStart = 0.9 * 360 - r.time; if (m.fireflies) r.fireflyBoost = 8;
       // hold a clear night (no rain, no dawn) until the card is dismissed
       m.hold = setInterval(() => { g.weather = 'clear'; g.weatherDays = 3; r.todStart = 0.9 * 360 - r.time; }, 200);
     }

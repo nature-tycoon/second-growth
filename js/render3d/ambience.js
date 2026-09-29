@@ -132,6 +132,20 @@ export class Ambience {
         break;
       }
     }
+    // ---- a volcano on the horizon (San Cristóbal): a slow plume of gas drifting off the summit
+    const V = biome.look.volcano;
+    if (V) {
+      this.plume = this.plume || []; this.plumeT = (this.plumeT || 0) - dt;
+      if (this.plumeT <= 0 && this.plume.length < 30) { this.plumeT = rand(0.5, 1.1); this.plume.push({ x: V.x + rand(-0.6, 0.6), z: V.z + rand(-0.4, 0.4), y: ground(V.x, V.z) + 0.4, t: 0, life: rand(16, 24), size: rand(2.2, 3.4) }); }
+      for (let k = this.plume.length - 1; k >= 0; k--) {
+        const p = this.plume[k];
+        p.t += dt; if (p.t > p.life) { this.plume.splice(k, 1); continue; }
+        p.y += 0.22 * dt; p.x += 0.2 * dt; p.z += 0.03 * dt; p.size += 0.12 * dt;
+        const s = R.project(p.x, p.y, p.z), u = p.t / p.life, Wp = p.size * R.ppu * 1.4;
+        ctx.globalAlpha = Math.sin(u * Math.PI) * 0.34;
+        ctx.drawImage(this.mistSprite, s.x - Wp / 2, s.y - Wp * 0.35, Wp, Wp * 0.7);
+      }
+    }
     const ppu = R.ppu;
     for (let k = this.mist.length - 1; k >= 0; k--) {
       const m = this.mist[k];
