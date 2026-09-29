@@ -1,7 +1,10 @@
 // Spanish for the Chinandega map's own content: plants, animals, seed mixes, the map's story and
 // rules, its tools, moments and campaign chapters. Applied when the map loads in Spanish.
 // Written in the Spanish of Nicaragua, with local names for plants and animals.
-import { lang, addPatterns, addStrings } from '../i18n.js';
+import { lang, addPatterns, addStrings, tr } from '../i18n.js';
+import { TOOLS, CATEGORIES, PLANT_TABS } from '../tools.js';
+import { FEATURE_NAMES } from '../config.js';
+import { LAYER_NAMES } from '../data/plants.js';
 import { BIOMES, onBiome } from '../biome.js';
 import { CHAPTERS } from '../sim/campaign.js';
 
@@ -258,9 +261,13 @@ function applyMap() {
     const prog = g.prog; if (prog) g.prog = x => trProg(prog(x));
   }
 }
-// the campaign chapters are built after the tools; translate them in place
+// the campaign chapters are built after the tools; translate them in place, and the shared tools
+// too, so their names read in Spanish wherever they turn up (the brush tip, messages)
 onBiome(b => {
   if (!on() || b.id !== 'chinandega') return;
+  for (const t of [...Object.values(TOOLS), ...CATEGORIES, ...PLANT_TABS]) { t.name = tr(t.name); if (t.desc) t.desc = tr(t.desc); }
+  FEATURE_NAMES.forEach((n, k) => { FEATURE_NAMES[k] = tr(n); });
+  LAYER_NAMES.forEach((n, k) => { LAYER_NAMES[k] = tr(n); });
   CHAPTERS.forEach((c, k) => {
     const es = CHAPTERS_ES[k]; if (!es) return;
     [c.title, c.story, c.teach] = es;

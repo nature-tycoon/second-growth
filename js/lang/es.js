@@ -85,6 +85,7 @@ addStrings({
   'Rebuild equipment shed': 'Reconstruir la bodega', 'A small equipment shed. Raccoons and bats move into sheds like this.': 'Una bodeguita para herramientas. Los mapaches y murciélagos se meten a vivir en lugares así.',
   'Rebuild farmhouse': 'Reconstruir la casa', "Put the farmhouse back up, as a caretaker's home. Bats roost in the attic.": 'Levantá otra vez la casa, para el cuidador. Los murciélagos duermen en el techo.',
   'Rebuild silo': 'Reconstruir la pila', 'A grain silo. Swifts and bats roost inside tall old silos.': 'Una pila de agua. Los vencejos y murciélagos duermen en ella.',
+  'good spot': 'buen lugar', 'okay spot': 'lugar regular', 'poor spot': 'mal lugar',
   Brush: 'Pincel', 'Click a tile to place.': 'Tocá un cuadro para ponerlo.', "Click where you'd like to release them.": 'Tocá donde los querés soltar.',
   'needs rich soil': 'necesita tierra rica', 'fixes nitrogen': 'fija nitrógeno', '(invasive)': '(invasora)', 'No trailhead parking yet': 'Todavía no hay parqueo',
   'full sun': 'pleno sol', shade: 'sombra', 'sun or deep shade': 'sol o sombra fuerte', 'sun or part shade': 'sol o media sombra',
@@ -218,6 +219,8 @@ addPatterns([
   [/^Welcome back\. It's (.+)\.$/, (_, d) => `Qué bueno verte de vuelta. Es ${low(date(d))}.`],
   // counts and units
   [/^\$([\d,]+)\/tile$/, '$$$1/cuadro'],
+  [/^earns (\$[\d,]+) salvage$/, 'ganás $1 por los materiales'],
+  [/^spent (\$[\d,]+)$/, 'gastado $1'],
   [/^([\d,]+) tiles$/, '$1 cuadros'],
   [/^([\d.]+) years$/, '$1 años'],
   [/^(\d+) ft$/, (_, n) => `${Math.round(n * 0.3048)} m`],

@@ -1,5 +1,6 @@
 // Mouse and keyboard: camera control, brushing tools across the map, inspecting.
 
+import { tr } from './i18n.js';
 import { TILE, money } from './config.js';
 import { TOOLS, brushTiles, toolCost, bestSuit } from './tools.js';
 import { PLANTS } from './data/plants.js';
@@ -331,15 +332,15 @@ export class Input {
     // cursor tip
     const i0 = w.idx(t.x, t.y);
     const cost = toolCost(g, tool, i0);
-    let txt = `${tool.name}`;
+    let txt = tr(tool.name);
     if (tool.key === 'demolish') {
-      if (w.struct[i0] >= 0 || cost) txt += cost < 0 ? ` · earns ${money(-cost)} salvage` : ` · ${money(cost)}`;
-    } else if (cost) txt += ` · ${money(cost)}${tool.brush ? '/tile' : ''}`;
+      if (w.struct[i0] >= 0 || cost) txt += cost < 0 ? ` · ${tr(`earns ${money(-cost)} salvage`)}` : ` · ${money(cost)}`;
+    } else if (cost) txt += ` · ${tool.brush ? tr(`${money(cost)}/tile`) : money(cost)}`;
     if (tool.species) {
       const s = bestSuit(g, i0, tool.species);
-      txt += s > 0.55 ? ' · good spot' : s > 0.3 ? ' · okay spot' : ' · <span class="bad">poor spot</span>';
+      txt += s > 0.55 ? ` · ${tr('good spot')}` : s > 0.3 ? ` · ${tr('okay spot')}` : ` · <span class="bad">${tr('poor spot')}</span>`;
     }
-    if (this.stroke && this.stroke.cost) txt += ` · spent ${money(this.stroke.cost)}`;
+    if (this.stroke && this.stroke.cost) txt += ` · ${tr(`spent ${money(this.stroke.cost)}`)}`;
     this.tip.innerHTML = txt;
     this.tip.classList.remove('hidden');
     const tw = this.tip.offsetWidth, th = this.tip.offsetHeight;
