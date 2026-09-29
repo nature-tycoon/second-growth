@@ -16,7 +16,7 @@ const LIMITS = { 'too shady': 'mucha sombra', 'too sunny': 'mucho sol', 'too dry
 const limits = s => s.split(', ').map(x => LIMITS[x] || x).join(', ');
 // units on progress lines ("12 / 60 trees")
 const UNITS = {
-  trees: 'árboles', tiles: 'cuadros', 'shaded tiles': 'cuadros con sombra', 'newly shaded tiles': 'cuadros nuevos con sombra', planted: 'sembrados', species: 'especies', seeded: 'sembrados',
+  trees: 'árboles', tiles: 'cuadros', 'shaded tiles': 'cuadros con sombra', 'newly shaded tiles': 'cuadros nuevos con sombra', points: 'puntos', 'dollars more a month': 'dólares más al mes', planted: 'sembrados', species: 'especies', seeded: 'sembrados',
 };
 
 addStrings({
@@ -265,7 +265,7 @@ addPatterns([
   [/^(\d+)% of land$/, '$1% del terreno'],
   [/^(\d+) of (\d+)$/, '$1 de $2'],
   [/^(-?\$[\d,]+) last month$/, '$1 el mes pasado'],
-  [/^([\d,]+) \/ ([\d,]+) (trees|tiles|shaded tiles|newly shaded tiles|planted|species|seeded)$/, (_, a, b, u) => `${a} / ${b} ${UNITS[u]}`],
+  [/^([\d,]+) \/ ([\d,]+) (trees|tiles|shaded tiles|newly shaded tiles|planted|species|seeded|points|dollars more a month)$/, (_, a, b, u) => `${a} / ${b} ${UNITS[u]}`],
   // maps, modes and chapters
   [/^(One|Two|Three|Four|Five|Six) places to bring back\. Tap a pin to pick one, or start right here at (.+)\.$/, (_, n, f) => `${{ One: 'Un lugar', Two: 'Dos lugares', Three: 'Tres lugares', Four: 'Cuatro lugares', Five: 'Cinco lugares', Six: 'Seis lugares' }[n]} para recuperar. Tocá un punto para elegir uno, o empezá aquí mismo en ${f}.`],
   [/^Saved farm, year (\d+)$/, 'Finca guardada, año $1'],

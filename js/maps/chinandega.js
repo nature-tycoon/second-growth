@@ -5,12 +5,12 @@
 
 import buildChinandegaPlants from '../data/plants-chinandega.js';
 import buildChinandegaAnimals from '../data/animals-chinandega.js';
-import { generateFinca, chinandegaBorderCell, volcanoTint, ESTUARY_X, BEACH } from './chinandega-world.js';
+import { generateFinca, chinandegaBorderCell, volcanoTint, ESTUARY_X, BEACH, SLOPE_Y } from './chinandega-world.js';
 import { PNW_GOALS, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 import { PLANT, PLANTS } from '../data/plants.js';
 import { ANIMAL } from '../data/animals.js';
 import { riverRow } from '../world.js';
-import { T, F } from '../config.js';
+import { T, F, H } from '../config.js';
 import { moment, arrivalMoment } from '../sim/moments.js';
 import { plantSuit } from '../sim/plants.js';
 const MANGROVES = ['redmangrove', 'blackmangrove', 'whitemangrove'];
@@ -46,8 +46,8 @@ const GOALS = [
     desc: 'Breach the dikes around the old shrimp ponds (Remove → Demolish a dike) so the tide flows in again. The ponds drain to tidal mud, and mangroves seed in on their own. Get the pond water below 60 tiles.',
     check: g => st(g, 'shrimpPonds') < 60, prog: g => `${st(g, 'shrimpPonds')} tiles of shrimp pond left` },
   { key: 'mangroves', name: 'The mangroves come back', reward: 4000,
-    desc: 'Grow 300 tiles of mangrove forest. Once the tide flows, mangrove seedlings drift in from the old mangroves by themselves; planting red, black and white mangroves speeds it up.',
-    check: g => st(g, 'mangrove') >= 300, prog: g => `${st(g, 'mangrove')} / 300 tiles` },
+    desc: 'Grow 150 tiles of mangrove forest where the shrimp ponds were. Once the tide flows, mangrove seedlings drift in from the old mangroves by themselves; planting red, black and white mangroves speeds it up.',
+    check: g => st(g, 'pondMangrove') >= 150, prog: g => `${Math.min(150, st(g, 'pondMangrove'))} / 150 tiles where the ponds were` },
   { key: 'dunes', name: 'Hold the dunes', reward: 2000,
     desc: 'Grow beach morning glory or sea grape on 25 tiles of the dunes at the back of the beach. It holds the sand the sea turtles nest in.',
     check: g => st(g, 'beachPlants') >= 25, prog: g => `${st(g, 'beachPlants')} / 25 tiles` },
@@ -86,7 +86,7 @@ const GOALS = [
 // ------------------------------------------------------------------ the finca's own counts
 function fincaStats(w, s) {
   const beachIds = [PLANT.pescaprae?.id, PLANT.seagrape?.id], W = w.w;
-  let mangrove = 0, ponds = 0, beach = 0, beachPlants = 0, silvo = 0, pasture = 0;
+  let mangrove = 0, ponds = 0, beach = 0, beachPlants = 0, silvo = 0, pasture = 0, forestSlope = 0;
   // shade trees: native trees grown big enough to stand in (not mangroves)
   const shade = new Uint8Array(w.n);
   for (let i = 0; i < w.n; i++) if (w.tree[i] && w.treeG[i] > 0.5 && !PLANTS[w.tree[i]].invasive && !PLANTS[w.tree[i]].mangrove) {
@@ -98,18 +98,29 @@ function fincaStats(w, s) {
     const h = w.habitat[i];
     if ((h === 1 || h === 3 || h === 2) && !w.tree[i] && t !== T.GRAVEL) { pasture++; if (shade[i]) silvo++; } // (FARM, MEADOW or INVASIVE grass: grazing land)
     if (w.tree[i] && PLANTS[w.tree[i]].mangrove && w.treeG[i] > 0.4) mangrove++;
+    if (y < SLOPE_Y && (h === H.YOUNG_FOREST || h === H.MATURE_FOREST)) forestSlope++; // (dry forest on the volcano slope)
     if (t === T.POND && y > 55) ponds++;
     if (t === T.GRAVEL && x < ESTUARY_X && y >= riverRow(x) - BEACH) {
       beach++;
       if ((beachIds.includes(w.ground[i]) && w.groundG[i] > 0.3) || (beachIds.includes(w.shrub[i]) && w.shrubG[i] > 0.3)) beachPlants++;
     }
   }
-  Object.assign(s, { mangrove, shrimpPonds: ponds, beach, beachPlants, silvo, pasture });
+  Object.assign(s, { mangrove, shrimpPonds: ponds, beach, beachPlants, silvo, pasture, forestSlope });
 }
 
 // ------------------------------------------------------------------ keystone moments
 function fincaDaily(g) {
   const done = g.flags.moments || {}, W = g.wildlife, w = g.world;
+  // The old shrimp ponds, as they were at the start (and the dikes around them): mangroves come
+  // back on them only once the tide gets in, and drained ponds are the mudflats spoonbills feed on.
+  if (!g.flags.pond0) {
+    g.flags.pond0 = []; let dikes = 0;
+    for (let i = 0; i < w.n; i++) { if (w.terrain[i] === T.POND && (i % w.w) >= ESTUARY_X && ((i / w.w) | 0) > 55) g.flags.pond0.push(i); if (w.feature[i] === F.DIKE) dikes++; }
+    g.flags.dikes0 ??= dikes;
+  }
+  { let m = 0, drained = 0;
+    for (const i of g.flags.pond0) { if (w.terrain[i] !== T.POND) drained++; if (w.tree[i] && PLANTS[w.tree[i]].mangrove && w.treeG[i] > 0.4) m++; }
+    w.stats.pondMangrove = m; w.stats.pondsDrained = drained; }
   // the howlers are back
   if (done.congos == null && ANIMAL.congo) arrivalMoment(g, 'congos', ANIMAL.congo);
   // Each month the cooperative sells milk and cheese (more cows, and better milk where the pasture

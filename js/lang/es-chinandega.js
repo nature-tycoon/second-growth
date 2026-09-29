@@ -63,12 +63,12 @@ const ANIMALS = {
   raccoon: ['Mapache cangrejero', 'mapache', 'mapaches', 'Caza cangrejos entre las raíces del manglar cuando baja la marea.', 'Manglares y lodo del estero llenos de cangrejos.'],
   ocelot: ['Tigrillo', 'tigrillo', 'tigrillos', 'Un gato manchado muy bonito que caza guatusas y garrobos de noche. Si vuelve, quiere decir que el bosque está grande y entero otra vez.', 'Mucho bosque seco conectado, con guatusas y garrobos.'],
   bat: ['Murciélago frutero', 'murciélago frutero', 'murciélagos fruteros', 'Se lleva los higos para comérselos y bota las semillas lejos, en el terreno abierto: uno de los mejores sembradores de árboles que hay.', 'Árboles con fruta, sobre todo higueras.'],
-  motmot: ['Guardabarranco', 'guardabarranco', 'guardabarrancos', 'El ave nacional de Nicaragua. Mueve su cola con raquetas como un péndulo y anida en túneles que escarba en los barrancos de las quebradas.', 'Bosque seco cerca de barrancos de quebrada, con muchos insectos, y una quebrada con sombra en sus orillas (por lo menos una sexta parte, mejor si es más).'],
+  motmot: ['Guardabarranco', 'guardabarranco', 'guardabarrancos', 'El ave nacional de Nicaragua. Mueve su cola con raquetas como un péndulo y anida en túneles que escarba en los barrancos de las quebradas.', 'Bosque seco cerca de barrancos de quebrada, con muchos insectos, y una quebrada con sombra en sus orillas (por lo menos una quinta parte, mejor si es más).'],
   lora: ['Lora nuca amarilla', 'lora', 'loras', 'Una lora que habla, tan sacada de sus nidos para mascota que ahora está en peligro crítico. Anida en huecos de árboles grandes y viejos.', 'Árboles grandes y viejos con huecos para anidar, y bosque seco con frutas.'],
   chocoyo: ['Chocoyo', 'chocoyo', 'chocoyos', 'Bandadas bulliciosas de periquitos verdes que hacen sus nidos dentro de los comejenes de los árboles.', 'Árboles con frutas, flores y semillas.'],
   urraca: ['Urraca', 'urraca', 'urracas', 'Una urraca bulliciosa, azul y blanca, con un copete rizado y una cola larguísima, siempre en pandilla.', 'Bosque seco abierto y orillas del bosque.'],
   hummingbird: ['Colibrí canelo', 'colibrí canelo', 'colibríes canelos', 'Se alimenta del coralillo, la salvia y las flores de los árboles en el verano.', 'Flores todo el año: coralillo, salvia y árboles en flor.'],
-  spoonbill: ['Garza rosada', 'garza rosada', 'garzas rosadas', 'Barre las aguas bajas con su pico en forma de cuchara buscando camarones, que son los que la vuelven rosada.', 'Aguas bajas y lodo en los manglares y alrededor, y más manglar que los pocos parches que quedan al inicio.'],
+  spoonbill: ['Garza rosada', 'garza rosada', 'garzas rosadas', 'Barre las aguas bajas con su pico en forma de cuchara buscando camarones, que son los que la vuelven rosada.', 'Lodazales de marea donde se rompieron y vaciaron camaroneras viejas, con manglares alrededor.'],
   egret: ['Garza blanca', 'garza blanca', 'garzas blancas', 'Acecha peces y cangrejos en las aguas bajas y duerme en los manglares de noche.', 'Aguas bajas, manglares y el estero.'],
   guaco: ['Guaco', 'guaco', 'guacos', 'Un halcón que caza culebras, y cuyo canto fuerte, "guaco, guaco", dice la gente que trae la lluvia.', 'Árboles altos a la orilla del bosque, con culebras para cazar.'],
   iguana: ['Garrobo verde', 'garrobo verde', 'garrobos verdes', 'Come hojas en lo alto de los árboles junto al agua y se tira al agua cuando hay peligro. Por la cacería se ha vuelto escaso.', 'Árboles a la orilla de la quebrada y el estero.'],
@@ -158,23 +158,23 @@ const CHAPTERS_ES = [
   ['Volcán arriba',
     'La parte alta de la finca sube por las faldas del San Cristóbal. Es muy empinada para el ganado y se quema cada año, y con cada tormenta su tierra negra volcánica se lava del cerro. Si le das una oportunidad, el bosque seco vuelve rápido aquí: es de la tierra más rica del país.',
     'La pestaña de <b>Árboles</b> está abierta. Sembrá <b>Bosque seco</b> en bloques en la tierra empinada del norte, y dejá que la falda se enmonte. Sembrá <b>Jardín de mariposas</b> en los claros. Los árboles grandes creciendo juntos forman el bosque que necesitan los monos y las loras.',
-    ['Sembrá 250 árboles', 'Hacé crecer 400 cuadros de bosque seco', 'Tené 12 especies de animales viviendo aquí']],
+    ['Sembrá 200 árboles más, en bloques en la falda del volcán', 'Hacé crecer 300 cuadros más de bosque seco en la falda del volcán', 'Regá Jardín de mariposas en 60 cuadros']],
   ['La temporada de quemas',
     'Desde ahora el verano trae fuego. Los vecinos queman sus potreros para que retoñe el zacate, el jaragua se seca como yesca, y una chispa puede correr por toda la finca y matar los árboles jóvenes. El bosque seco aguanta el fuego de vez en cuando, pero no cada año.',
     '<b>Limpiar vegetación</b> hace rondas alrededor de los árboles jóvenes. Una <b>quema controlada</b> al inicio del verano limpia el jaragua antes de que se acumule, pero con tiempo seco se puede escapar, así que hacé una ronda alrededor primero. Cuando venga un incendio, mandá una <b>cuadrilla de bomberos</b>. La sombra es la cura que dura: el jaragua no crece bajo los árboles.',
-    ['Hacé 40 cuadros de ronda (Limpiar vegetación)', 'Hacé crecer 700 cuadros de bosque seco', 'Llegá a 50 de salud del ecosistema']],
+    ['Hacé 40 cuadros de ronda (Limpiar vegetación)', 'Hacé crecer 300 cuadros más de bosque seco', 'Subí 8 puntos la salud del ecosistema']],
   ['Que vuelva la marea',
     'En la costa cavaron camaroneras en el manglar y las cerraron con bordos de lodo. Los pescadores y las mujeres que recogen conchas negras entre las raíces del manglar sacan menos cada año. Rompé los bordos y la marea traerá el manglar de vuelta sola.',
-    '<b>Demolé</b> un pedazo de bordo para abrir una camaronera. La marea entra y sale, la camaronera se vacía hasta quedar lodo, y las semillas de mangle llegan flotando y pegan, más rápido junto a los manglares viejos. También se pueden sembrar <b>Manglares</b>. La plata de la pesca sube con cada cuadro de manglar.',
-    ['Rompé 12 cuadros de bordo de camaronera', 'Hacé crecer 400 cuadros nuevos de manglar', 'Las garzas rosadas comen en los manglares']],
+    '<b>Demolé</b> un pedazo de bordo para abrir una camaronera. La marea entra y sale, la camaronera se vacía hasta quedar lodo, y las semillas de mangle llegan flotando y pegan, más rápido junto a los manglares viejos. Sembrar <b>Manglares</b> en las camaroneras vaciadas los hace crecer mucho más rápido, y abrir más de una camaronera ayuda. La plata de la pesca sube con cada cuadro de manglar.',
+    ['Rompé 12 cuadros de bordo de camaronera', 'Hacé crecer 60 cuadros de manglar donde estaban las camaroneras', 'Las garzas rosadas comen en las camaroneras vaciadas']],
   ['La playa de las tortugas',
     'Hace años que ninguna tortuga anida en la playa de la finca. Las dunas están peladas, los perros y las luces espantan a las tortugas, y la gente se lleva los huevos. Las paslamas volverán a una playa tranquila y oscura, con plantas que sujeten las dunas detrás.',
     'Sembrá <b>Plantas de playa</b> en las dunas de atrás, y dejá limpia la arena abierta junto a las olas: ahí es donde escarban las tortugas. Mantené la playa oscura y tranquila, y arrancá la higuerilla y el jaragua de las dunas.',
-    ['Hacé crecer plantas de duna en 25 cuadros', 'Las tortugas salen a anidar', 'Las tortuguitas llegan al mar']],
+    ['Regá Plantas de playa en 40 cuadros de las dunas', 'Las tortugas salen a anidar', 'Las tortuguitas llegan al mar']],
   ['Del volcán al mar',
     'La finca está unida otra vez: bosque en el volcán, sombra y cercas vivas en los potreros, una quebrada verde, manglares y una playa de tortugas. Ahora pueden volver los animales que necesitan todo eso junto, y algunos necesitan un poco de ayuda.',
     'Las herramientas de <b>Animales</b> pueden traer monos congos del bosque del volcán. Cada uno necesita primero el hábitat correcto; la herramienta te dice qué necesita. Cuidá también el hato: una finca que alimenta a sus familias y a sus animales silvestres es de eso que se trata.',
-    ['Los monos congos viven en el bosque', 'Hacé crecer 250 cuadros más de bosque seco, uniendo los parches', 'Ganá $5,000 en un mes con la leche y la pesca']],
+    ['Los monos congos crían en el bosque', 'Hacé crecer 250 cuadros más de bosque seco, uniendo los parches', 'Subí $1,500 al mes la plata de la leche y la pesca']],
 ];
 
 // name, description, and how the progress line reads
@@ -186,7 +186,7 @@ const GOALS = {
   herd: ['Un hato sano', 'Vendé $1,500 de leche y queso en un mes. Las vacas con buena sombra dan mucha más leche, así que se necesitan árboles de sombra en el potrero además de un buen hato.'],
   shade: ['Una quebrada con sombra', 'Sembrá árboles y arbustos en la mitad de la quebrada. La sombra mantiene el agua más tiempo en el verano.'],
   ponds: ['Abrí las camaroneras', 'Rompé los bordos de las camaroneras viejas (Quitar → Demoler un bordo) para que la marea vuelva a entrar. Las camaroneras se vacían hasta quedar lodo, y los mangles nacen solos. Bajá el agua de camaronera a menos de 60 cuadros.'],
-  mangroves: ['Vuelven los manglares', 'Hacé crecer 300 cuadros de manglar. Cuando corre la marea, las semillas de mangle llegan solas desde los manglares viejos; sembrar mangle rojo, negro y blanco lo apura.'],
+  mangroves: ['Vuelven los manglares', 'Hacé crecer 150 cuadros de manglar donde estaban las camaroneras. Cuando corre la marea, las semillas de mangle llegan solas desde los manglares viejos; sembrar mangle rojo, negro y blanco lo apura.'],
   dunes: ['Sujetá las dunas', 'Hacé crecer riñonina o uva de playa en 25 cuadros de las dunas de atrás de la playa. Sujetan la arena donde anidan las tortugas.'],
   weeds: ['Vencé al jaragua', 'Bajá las plantas invasoras a menos del 25% del terreno. El jaragua y el guinea se queman cada verano; la sombra de los árboles jóvenes es lo que al final los mata.'],
   firesafe: ['Un verano sin fuego', 'Pasá un verano entero (de enero a abril) sin fuego en la finca. Aquí el potrero se quema cada año; las rondas, las cuadrillas de bomberos y los árboles de sombra sobre el zacate ayudan.'],
@@ -203,6 +203,7 @@ const GOALS = {
 const PROG = [
   [/^(\d[\d,]*) \/ (\d[\d,]*) planted$/, '$1 / $2 sembrados'],
   [/^(\d[\d,]*) \/ (\d[\d,]*) newly shaded pasture tiles$/, '$1 / $2 cuadros nuevos de potrero con sombra'],
+  [/^(\d+) \/ 150 tiles where the ponds were$/, '$1 / 150 cuadros donde estaban las camaroneras'],
   [/^\$([\d,]+) \/ \$1,500 of milk last month$/, '$$$1 / $$1,500 de leche el mes pasado'],
   [/^(\d+)% \/ 50% shaded$/, '$1% / 50% con sombra'],
   [/^(\d[\d,]*) tiles of shrimp pond left$/, 'Quedan $1 cuadros de camaronera'],
@@ -273,6 +274,14 @@ onBiome(b => {
     [c.title, c.story, c.teach] = es;
     c.goals.forEach((g, j) => { if (es[3][j]) g.desc = es[3][j]; });
   });
+});
+// the short status lines under the campaign goals
+addStrings({
+  Open: 'Abierta', 'Still blocking the stream': 'Todavía tapa la quebrada', "It's here": 'Ya está aquí', 'Needs shady stream banks and insects': 'Necesita orillas con sombra e insectos',
+  "They're here": 'Ya están aquí', 'Needs tidal mudflats where ponds were drained': 'Necesita lodazales de marea donde se vaciaron camaroneras',
+  'They came ashore': 'Salieron a la playa', 'They come July to October to a quiet, planted beach': 'Vienen de julio a octubre a una playa tranquila y con plantas',
+  'They made it': 'Lo lograron', 'About six weeks after the nesting': 'Unas seis semanas después de la anidada',
+  'A baby in the troop': 'Un bebé en la manada', 'Needs big, connected forest (the Wildlife tools can bring a troop)': 'Necesita bosque grande y conectado (las herramientas de Animales pueden traer una manada)',
 });
 // the finca's monthly earnings message
 addPatterns([

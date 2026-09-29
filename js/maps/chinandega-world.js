@@ -171,6 +171,9 @@ export function generateFinca(seed = 1972) {
       x += Math.round((valueNoise(x, y, 5, 81) - 0.5) * 2);
       const i = w.idx(x, y);
       if (!inb(x, y) || w.terrain[i] === T.RIVER) break;
+      // a channel runs up to a pond's dike and stops there, like a shrimp farm's intake gate: it
+      // doesn't cut through, so the ponds stay sealed until the player breaches them
+      if (w.feature[i] === F.DIKE || w.terrain[i] === T.POND) continue;
       if (w.terrain[i] === T.MARSH || w.terrain[i] === T.PASTURE || w.terrain[i] === T.MUD) { w.terrain[i] = T.CREEK; w.clearPlants(i); w.feature[i] = 0; }
     }
   }
