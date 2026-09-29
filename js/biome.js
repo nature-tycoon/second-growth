@@ -11,10 +11,9 @@ import PNW from './maps/pnw.js';
 import AMAZON from './maps/amazon.js';
 import SERENGETI from './maps/serengeti.js';
 import ATLANTA from './maps/atlanta.js';
-import CHINANDEGA from './maps/chinandega.js';
 
-export const BIOMES = { pnw: PNW, amazon: AMAZON, serengeti: SERENGETI, atlanta: ATLANTA, chinandega: CHINANDEGA };
-export const BIOME_LIST = [PNW, AMAZON, SERENGETI, ATLANTA, CHINANDEGA];
+export const BIOMES = { pnw: PNW, amazon: AMAZON, serengeti: SERENGETI, atlanta: ATLANTA };
+export const BIOME_LIST = [PNW, AMAZON, SERENGETI, ATLANTA];
 
 export let biome = null;
 const hooks = [];

@@ -78,7 +78,7 @@ export class Actors {
       const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05) && kind !== 'duck') || (kind === 'duck' && a.alt > 0.3) || kind === 'bat';
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
-      const sc = PX * 0.62 * (a.juvenile ? def.sprite.juv ?? 0.5 : 1) * ageF * (def.sprite.show || 1); // (show: drawn larger than life; juv: how small the young are)
+      const sc = PX * 0.62 * (a.juvenile ? 0.5 : 1) * ageF * (def.sprite.show || 1); // (show: drawn larger than life)
       const mo = F.motion(def);
       let y = ground;
       const surf = onWater || def.move === 'swim' ? waterSurfaceY(w, a.x, a.y) : null;

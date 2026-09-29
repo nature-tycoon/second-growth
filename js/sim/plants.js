@@ -17,11 +17,9 @@ export function terrainFit(w, i, p) {
     case T.RIVER: case T.POND: case T.CREEK: case T.ROAD: case T.TRAIL: return 0;
     // marsh stays open wetland: no trees at all (wet-loving trees line its muddy banks instead),
     // and only a thin scatter of wet-tolerant shrubs, so they can't smother the sedges and rushes
-    // (mangroves are the exception: trees that stand in the tidal marsh)
-    case T.MARSH: return p.mangrove ? 1 : p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
+    case T.MARSH: return p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
     default:
       if (p.aquatic) return t === T.MUD ? 0.8 : 0;
-      if (p.mangrove) return t === T.MUD ? 1 : 0.15; // mangroves need their feet in salty mud
       switch (t) {
         case T.GRAVEL: return p.gravelOK ? 0.7 : 0.3;
         case T.FIELD: return 0.85;

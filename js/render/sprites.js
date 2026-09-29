@@ -124,13 +124,6 @@ export function terrainSprite(t, season, v) {
           if (r() < 0.5) ellipse(ctx, r() * S, r() * S, 6 + r() * 8, 4 + r() * 5, rgba('#4f5153', 0.5));
           break;
         }
-        if (t === T.GRAVEL && biome?.look?.sand) {
-          // beach sand: pale and warm, with a little shell grit and wind ripples
-          ctx.fillStyle = '#d8c9a2'; ctx.fillRect(0, 0, S, S);
-          for (let k = 0; k < 50; k++) ellipse(ctx, r() * S, r() * S, 0.6 + r() * 1.2, 0.5 + r(), shade('#d8c9a2', (r() - 0.5) * 0.25));
-          for (let k = 0; k < 4; k++) { const y = r() * S; line(ctx, 0, y, S, y + (r() - 0.5) * 6, rgba('#b8a882', 0.35), 1); }
-          break;
-        }
         const base = t === T.GRAVEL ? '#a39b8a' : '#b19a78';
         ctx.fillStyle = base; ctx.fillRect(0, 0, S, S);
         for (let k = 0; k < (t === T.GRAVEL ? 60 : 30); k++) {
@@ -638,7 +631,7 @@ export function treeSprite(id, bucket, month, v) {
       case 'fir': coniferTiers(ctx, cx, by, s, r, { height: 230, width: 44, tiers: 8, leaf, bark: lk.bark, droop: 3, leader: false }); break;
       case 'cedar': coniferTiers(ctx, cx, by, s, r, { height: 200, width: 52, tiers: 7, leaf, bark: lk.bark, droop: 9, flare: true }); break;
       case 'hemlock': coniferTiers(ctx, cx, by, s, r, { height: 215, width: 40, tiers: 9, leaf, bark: lk.bark, droop: 6, leader: true }); break;
-      default: broadleaf(ctx, cx, by, s, r, BROAD[lk.type] || BROAD.oak, phase, p); // (tropical shapes fall back to a generic broadleaf)
+      default: broadleaf(ctx, cx, by, s, r, BROAD[lk.type], phase, p);
     }
     return c;
   });

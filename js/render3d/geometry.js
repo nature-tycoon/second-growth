@@ -218,7 +218,7 @@ export function broadleaf(opts, seed, lod = 0) {
 // Winter silhouette for deciduous trees: trunk and bare branches.
 export function bareTree(opts, seed) {
   const r = mulberry32(seed + 7);
-  const { height: H, trunkR = 0.06 } = opts, trunkH = opts.trunkH ?? H * (opts.fork ?? 0.62); // (emergent crowns like ceiba and guanacaste give no trunk height)
+  const { height: H, trunkH, trunkR = 0.06 } = opts;
   const parts = [trunk(trunkH, trunkR, trunkR * 0.7)];
   const branch = (x, y, z, len, rad, ax, az, depth) => {
     const c = soft(new THREE.CylinderGeometry(rad * 0.6, rad, len, 5), { transform: g => { g.translate(0, len / 2, 0); g.rotateX(ax); g.rotateZ(az); g.translate(x, y, z); } });
