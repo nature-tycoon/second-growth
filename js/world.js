@@ -12,13 +12,17 @@ export const STRUCTURES = {
   silo:    { name: 'Silo', w: 2, h: 2, removeCost: 2500, salvage: 800, build: 3500 },
   shed:    { name: 'Equipment shed', w: 2, h: 2, removeCost: 1200, salvage: 300, build: 2200 },
   tractor: { name: 'Abandoned tractor', w: 1, h: 1, removeCost: 300, salvage: 900 },
+  // the suburb's homes and HOA amenities: people live and swim here, so they can't be removed
+  home:    { name: 'Home', w: 3, h: 2, removeCost: 0, salvage: 0, permanent: true },
+  clubhouse: { name: 'HOA clubhouse', w: 4, h: 3, removeCost: 0, salvage: 0, permanent: true },
+  pool:    { name: 'Community pool', w: 3, h: 2, removeCost: 0, salvage: 0, permanent: true },
   // visitor facilities the player can build
   parking: { name: 'Trailhead parking', w: 2, h: 2, removeCost: 300, salvage: 0, build: 3500, visitor: true },
   center:  { name: 'Visitor center', w: 3, h: 2, removeCost: 1000, salvage: 0, build: 12000, visitor: true },
 };
 
 // The river's northern edge, shared by the map and the decorative surroundings.
-export const riverRow = x => MAP_H - 6 + Math.round(valueNoise(x, 0, 13, 3) * 2.4 - 1.2);
+export const riverRow = (x, h = MAP_H) => h - 6 + Math.round(valueNoise(x, 0, 13, 3) * 2.4 - 1.2); // (h: the map's height)
 
 export class World {
   constructor(w = MAP_W, h = MAP_H) {
@@ -297,7 +301,7 @@ export function generateFarm(seed = 1987) {
 export function extTerrain(w, x, y) {
   if (w.inb(x, y)) return w.terrain[w.idx(x, y)];
   if (y >= w.h + 3) return y === w.h + 3 ? T.GRAVEL : T.PASTURE;
-  if (y >= riverRow(x)) return T.RIVER;
+  if (y >= riverRow(x, w.h)) return T.RIVER;
   return T.DUFF;
 }
 
@@ -313,7 +317,7 @@ export function generateHeights(w, fields) {
     if (x > w.w) h += (x - w.w) * 0.1;
     if (y > w.h + 3) h = 0.2 + (y - w.h - 3) * 0.3;
     const n = (valueNoise(x + 50, y + 50, 16, 31) - 0.5) * 2.4 + (valueNoise(x + 50, y + 50, 6, 37) - 0.5) * 0.6;
-    const nearRiver = clamp((riverRow(x) - 1 - y) / 9, 0, 1);
+    const nearRiver = clamp((riverRow(x, w.h) - 1 - y) / 9, 0, 1);
     h += n * (inField(x, y) ? 0.25 : 1) * (y > w.h + 3 ? 0.5 : nearRiver);
     w.setVert(x, y, h);
   }

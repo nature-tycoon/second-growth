@@ -9,6 +9,7 @@ import { settings } from './settings.js';
 
 let firstToolSent = false; // once per page load
 import { track } from './analytics.js';
+import { biome } from './biome.js';
 
 const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
 
@@ -246,6 +247,7 @@ export class Input {
     for (const i of tiles) {
       if (s.applied.has(i)) continue;
       s.applied.add(i);
+      if (biome.canEdit && !biome.canEdit(g, i)) { s.locked = s.locked ?? i; continue; }
       const cost = toolCost(g, tool, i);
       if (cost > 0 && !g.canAfford(cost)) { s.broke = true; continue; }
       const res = tool.apply(g, i, Math.random);
@@ -270,6 +272,7 @@ export class Input {
       g.flags.trailHint = true;
       g.notify('Visitors need a way in: build a Trailhead parking lot right beside a road, then connect your trail to it.', 'warn');
     }
+    if (s.locked != null && !s.count && biome.lockedNote) g.notify(biome.lockedNote(g, s.locked), 'info');
     if (s.tool.cat === 'land' || s.tool.key === 'demolish' || s.tool.key === 'log') g.refreshEnvironment();
     else if (s.count) g.refreshEnvironment();
     if (s.count) {

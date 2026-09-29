@@ -505,6 +505,12 @@ body.campaign #banner { top: 124px; }
 .wm-pin i::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: #fff8e6; }
 .wm-pin span { position: absolute; left: 50%; top: calc(100% + 4px); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; white-space: nowrap; background: rgba(250, 244, 226, 0.94); border-radius: 8px; padding: 3px 8px 4px; box-shadow: 0 1px 4px rgba(20, 30, 10, 0.2); pointer-events: none; }
 .wm-pin.wm-west span { left: auto; right: 50%; transform: translateX(16px); align-items: flex-end; }
+/* labels only on the selected pin (and on hover), so they never crowd each other */
+.wm-pin span { opacity: 0; transition: opacity 0.15s; }
+.wm-pin.on span, .wm-pin:hover span, .wm-pin:focus-visible span { opacity: 1; z-index: 2; }
+.wm-pin.on, .wm-pin:hover { z-index: 3; }
+.wm-pin.wm-east span { left: 50%; transform: translateX(-16px); align-items: flex-start; }
+.wm-pin.wm-up span { top: auto; bottom: calc(100% + 4px); }
 .wm-pin b { font-family: var(--display); font-size: 13px; color: var(--moss-2); line-height: 1.15; }
 .wm-pin em { font-style: normal; font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-2); }
 .wm-pin:hover i, .wm-pin:focus-visible i { transform: rotate(-45deg) scale(1.15); }

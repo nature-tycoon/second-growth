@@ -78,11 +78,11 @@ export class Actors {
       const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05) && kind !== 'duck') || (kind === 'duck' && a.alt > 0.3) || kind === 'bat';
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
-      const sc = PX * 0.62 * (a.juvenile ? 0.5 : 1) * ageF;
+      const sc = PX * 0.62 * (a.juvenile ? 0.5 : 1) * ageF * (def.sprite.show || 1); // (show: drawn larger than life)
       const mo = F.motion(def);
       let y = ground;
       const surf = onWater || def.move === 'swim' ? waterSurfaceY(w, a.x, a.y) : null;
-      if (flying) y += 0.7 + a.alt * 1.2;
+      if (flying) y += kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2; // pollinators flit low over the flowers
       else if (def.move === 'swim') {
         y = (surf ?? ground) - 0.05 - mo.sink * sc;
         // running salmon leap: every few seconds one arcs clear of the water, nose up then down

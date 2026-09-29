@@ -183,7 +183,11 @@ export class Renderer {
     this.target.y = w.heightAt(clamp(this.target.x, 0, w.w), clamp(this.target.z, 0, w.h)) * LEVEL;
   }
   centerOn(tx, ty) { this.target.x = tx; this.target.z = ty; this.clampCam(); this.updateCamera(); }
-  resetView() { this.zoom = 0.62; this.az = this.azTarget = Math.PI / 4; this.centerOn(this.world ? this.world.w * 0.36 : 44, this.world ? this.world.h * 0.42 : 38); }
+  resetView() {
+    const v = biome.startView;
+    this.zoom = v?.zoom ?? 0.62; this.az = this.azTarget = Math.PI / 4;
+    this.centerOn(v ? v.x : this.world ? this.world.w * 0.36 : 44, v ? v.y : this.world ? this.world.h * 0.42 : 38);
+  }
   panBy(dx, dy) {
     const u = 1 / this.ppu;
     this.target.addScaledVector(this.right(), -dx * u);
@@ -296,6 +300,7 @@ export class Renderer {
       }
       const m = new THREE.Mesh(building(s.type, s.w, s.h), this.structMat);
       m.position.set(s.x + s.w / 2, w.tileH(s.x, s.y) * LEVEL, s.y + s.h / 2);
+      if (s.turn) m.rotation.y = Math.PI; // (a building that faces north, onto the street behind it)
       m.castShadow = true; m.receiveShadow = true;
       this.scene.add(m);
       this.structs.set(key, m);
@@ -335,11 +340,16 @@ export class Renderer {
     }
     let surface = false, flora = false;
     if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; }
-    if (game.day !== this.lastDay) { this.lastDay = game.day; surface = true; flora = true; this.terrain.buildWater(); this.terrain.buildFlood(); }
-    if (this.editDirty && now - this.lastFlora > 120) { surface = flora = true; this.editDirty = false; this.terrain.buildWater(); }
-    if (surface) { this.terrain.updateSurface(game); this.syncStructures(); }
+    this.frameN = (this.frameN || 0) + 1;
+    if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; this.terrain.refreshWater(); this.terrain.refreshFlood(); }
+    // A new day repaints the ground and rebuilds the plants. They wait a frame or two so they don't
+    // land in the same frame as the day's simulation and each other (a visible hitch), and at fast
+    // speeds the ground repaints at most four times a second.
+    if (this.dayDirty && this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (game.speed >= 2 ? 250 : 0)) { surface = true; this.dayDirty = 0; }
+    if (this.editDirty && now - this.lastFlora > 120) { surface = flora = true; this.editDirty = false; this.terrain.refreshWater(); }
+    if (surface) { this.terrain.updateSurface(game); this.syncStructures(); this.lastSurface = now; }
     if (flora) this.floraPending = true;
-    if (this.floraPending && now - this.lastFlora > (game.speed >= 3 ? 400 : 150)) { this.flora.rebuild(game); this.lastFlora = now; this.floraPending = false; }
+    if (this.floraPending && !surface && this.frameN > (this.dayDirty || 0) && now - this.lastFlora > (game.speed >= 3 ? 400 : 150)) { this.flora.rebuild(game); this.lastFlora = now; this.floraPending = false; }
 
     this.updateOverlay(game, ui, now);
     this.updatePreview(ui);
@@ -676,9 +686,9 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
     g.addColorStop(0, `rgba(12,20,44,${(0.24 * n).toFixed(3)})`); g.addColorStop(1, `rgba(8,14,34,${(0.44 * n).toFixed(3)})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
   }
-  const flyOn = (biome.id === 'pnw' && (game.season === 1 || game.season === 2)) || biome.id === 'amazon';
-  const want = n > 0.05 && flyOn && this.zoom > 0.5 && game.weather !== 'rain' ? Math.round(90 * n) : 0;
-  for (let tries = 0; flies.length < want && tries < 12; tries++) {
+  const flyOn = ((biome.id === 'pnw' || biome.id === 'atlanta') && (game.season === 1 || game.season === 2)) || biome.id === 'amazon';
+  const want = n > 0.05 && flyOn && this.zoom > 0.5 && game.weather !== 'rain' ? Math.round(90 * n * (this.fireflyBoost || 1)) : 0;
+  for (let tries = 0; flies.length < want && tries < 12 * (this.fireflyBoost || 1); tries++) {
     const x = bx0 + Math.floor(Math.random() * (bx1 - bx0 + 1)), z = bz0 + Math.floor(Math.random() * (bz1 - bz0 + 1));
     if (!w.inb(x, z) || !FIREFLY_HAB.has(w.habitat[w.idx(x, z)])) continue;
     flies.push({ x: x + Math.random(), z: z + Math.random(), h: 0.25 + Math.random() * 0.8, ph: Math.random() * 20, vx: 0, vz: 0, life: 8 + Math.random() * 10 });
@@ -689,9 +699,9 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
     f.life -= dt; if (f.life <= 0) { flies.splice(k, 1); continue; }
     f.vx += (Math.random() - 0.5) * dt * 0.8; f.vz += (Math.random() - 0.5) * dt * 0.8; f.vx *= 0.98; f.vz *= 0.98;
     f.x += f.vx * dt; f.z += f.vz * dt; f.ph += dt;
-    const blink = Math.max(0, Math.sin(f.ph * 1.3)) ** 3;
+    const boost = this.fireflyBoost > 1, blink = Math.max(0, Math.sin(f.ph * 1.3)) ** (boost ? 2 : 3); // (a firefly night: more of them lit at once)
     if (blink < 0.03) continue;
-    const p = this.project(f.x, this.heightAtScene(f.x, f.z) + f.h, f.z), r = (2.5 + 4.5 * blink) * Math.max(0.8, this.zoom * 0.75);
+    const p = this.project(f.x, this.heightAtScene(f.x, f.z) + f.h, f.z), r = (2.5 + 4.5 * blink) * Math.max(0.8, this.zoom * 0.75) * (boost ? 1.15 : 1);
     const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2.2);
     g.addColorStop(0, `rgba(236,255,150,${(0.95 * blink * n).toFixed(3)})`); g.addColorStop(0.35, `rgba(200,240,90,${(0.4 * blink * n).toFixed(3)})`); g.addColorStop(1, 'rgba(200,240,90,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.2, 0, 7); ctx.fill();

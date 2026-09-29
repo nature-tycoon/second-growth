@@ -616,6 +616,8 @@ export class UI {
       if (t === T.CREEK) html += `<span class="k">For ${biome.text.creekFish}</span><span>${w.waterQ[i] > 0.43 ? '<span class="st good">Cool and shaded</span>' : '<span class="st warn">Too sunny and warm. Plant shrubs and trees along the banks.</span>'}</span>`;
     }
     html += `</div>`;
+    const note = biome.tileNote?.(this.game, i);
+    if (note) html += `<div class="info-desc">${note}</div>`;
     if (w.fire[i]) html += `<div class="info-desc st bad"><b>On fire!</b> Use the Fire crew tool to put it out.</div>`;
     else if (w.flood[i]) html += `<div class="info-desc"><b>Flooded</b> for another ${w.flood[i]} days.</div>`;
     else if (w.scorch[i] > 0) html += `<div class="info-desc">Burned recently. The ash will feed new growth.</div>`;
@@ -1076,7 +1078,11 @@ export class UI {
     m.querySelector('[data-a=resume]').addEventListener('click', () => {
       if (map !== this.game.map) return this.switchMap({ map, resume: true });
       this.closeModal();
-      if (!this.game.load(map)) return;
+      if (!this.game.load(map)) {
+        this.game.newGame(1987, 'free', 'standard', map); this.afterNewGame();
+        this.game.notify('That saved farm could not be opened, so you are starting fresh.', 'warn');
+        return;
+      }
       track('game_start', { mode: 'continue', map });
       this.afterNewGame();
       this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
@@ -1217,6 +1223,12 @@ export class UI {
     if (this.moment || this.modalOpen || this.photo) { setTimeout(() => this.playMoment(m), 3000); return; } // wait until the view is free
     this.moment = m;
     m.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, speed: g.speed };
+    // a night moment (the fireflies) jumps the clock to a clear, warm night, and the meadows light up
+    if (m.night) {
+      r.todStart = 0.9 * 360 - r.time; r.fireflyBoost = 8;
+      // hold a clear night (no rain, no dawn) until the card is dismissed
+      m.hold = setInterval(() => { g.weather = 'clear'; g.weatherDays = 3; r.todStart = 0.9 * 360 - r.time; }, 200);
+    }
     if (g.speed !== 1) this.setSpeed(1);
     const fx = m.agent ? m.agent.x : m.x, fy = m.agent ? m.agent.y : m.y;
     r.flyTo(fx, fy, m.agent ? 3.1 : 2.3, 2.4);
@@ -1237,6 +1249,8 @@ export class UI {
     const end = () => {
       if (this.moment !== m) return;
       this.follow = null;
+      r.fireflyBoost = 1;
+      if (m.hold) clearInterval(m.hold);
       if (g.selectedAgent === m.agent) g.selectedAgent = m.prevSel && g.wildlife.agents.includes(m.prevSel) ? m.prevSel : null;
       r.flyTo(m.prev.x, m.prev.z, m.prev.zoom, 1.6);
       o.classList.remove('bars', 'card');

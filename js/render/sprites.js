@@ -4,6 +4,7 @@
 import { T, F, SPR } from '../config.js';
 import { PLANTS, plantPhase } from '../data/plants.js';
 import { mulberry32, hashStr } from '../rng.js';
+import { biome } from '../biome.js';
 
 const cache = new Map();
 function cached(key, build) {
@@ -116,6 +117,13 @@ export function terrainSprite(t, season, v) {
         break;
       }
       case T.GRAVEL: case T.ROAD: {
+        if (t === T.ROAD && biome?.look?.asphalt) {
+          // paved streets: dark asphalt, a fine grain of aggregate, and the odd patch
+          ctx.fillStyle = '#5d5f61'; ctx.fillRect(0, 0, S, S);
+          for (let k = 0; k < 70; k++) ellipse(ctx, r() * S, r() * S, 0.6 + r() * 1.2, 0.6 + r() * 1, shade('#5d5f61', (r() - 0.5) * 0.35));
+          if (r() < 0.5) ellipse(ctx, r() * S, r() * S, 6 + r() * 8, 4 + r() * 5, rgba('#4f5153', 0.5));
+          break;
+        }
         const base = t === T.GRAVEL ? '#a39b8a' : '#b19a78';
         ctx.fillStyle = base; ctx.fillRect(0, 0, S, S);
         for (let k = 0; k < (t === T.GRAVEL ? 60 : 30); k++) {

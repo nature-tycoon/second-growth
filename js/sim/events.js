@@ -111,7 +111,8 @@ export class Events {
     if (gi) {
       const bank = w.seedbank?.[i];
       // fire clears the weeds and the native seed bank germinates in the ash (on healthy land)
-      if (PLANTS[gi].invasive && bank && Math.random() < (w.bankStrength || 0)) { w.ground[i] = bank; w.groundG[i] = 0.12; }
+      if (PLANTS[gi].sod) w.groundG[i] = Math.min(w.groundG[i], 0.4);
+      else if (PLANTS[gi].invasive && bank && Math.random() < (w.bankStrength || 0)) { w.ground[i] = bank; w.groundG[i] = 0.12; }
       else if (PLANTS[gi].invasive) w.groundG[i] *= 0.4;
       else w.groundG[i] = Math.min(w.groundG[i], 0.25);
     }
@@ -251,7 +252,8 @@ export class Events {
     const gi = w.ground[i];
     if (gi) {
       const bank = w.seedbank?.[i];
-      if (PLANTS[gi].invasive && bank && rng() < (w.bankStrength || 0) + 0.2) { w.ground[i] = bank; w.groundG[i] = 0.12; }
+      if (PLANTS[gi].sod) w.groundG[i] = Math.min(w.groundG[i], 0.5); // lawn browns off and grows back
+      else if (PLANTS[gi].invasive && bank && rng() < (w.bankStrength || 0) + 0.2) { w.ground[i] = bank; w.groundG[i] = 0.12; }
       else if (PLANTS[gi].invasive) { w.ground[i] = 0; w.groundG[i] = 0; }
       else w.groundG[i] = Math.min(w.groundG[i], 0.3);
     }

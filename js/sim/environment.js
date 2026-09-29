@@ -142,15 +142,16 @@ export function classifyAndResources(w, month) {
     else if (w.struct[i] >= 0 || t === T.ROAD || t === T.TRAIL) h = H.DEVELOPED;
     else {
       // invasive trees (mesquite, leucaena) make weed thickets, not woodland
-      const inv = (tp && tp.invasive ? tG : 0) + (sp && sp.invasive ? sG : 0) + (gp && gp.invasive ? gG * 0.8 : 0);
+      const inv = (tp && tp.invasive ? tG : 0) + (sp && sp.invasive ? sG : 0) + (gp && gp.invasive && !gp.sod ? gG * 0.8 : 0);
       const nearW = w.distWater[i] <= 2;
+      // (exotic: a non-native ornamental, like lawn, boxwood or crepe myrtle, that isn't habitat)
       if (inv > 0.5 && !(tp && !tp.invasive && tG > 0.6)) h = H.INVASIVE;
-      else if (tp && tG >= 0.35) {
+      else if (tp && !tp.exotic && tG >= 0.35) {
         const matureAge = tp.matureAge ?? (tp.conifer ? 12 : 18);
         const mature = tG >= 0.98 && w.treeAge[i] >= matureAge * 120;
         if (nearW && !tp.conifer && !mature) h = H.RIPARIAN;
         else h = mature ? H.MATURE_FOREST : H.YOUNG_FOREST;
-      } else if (sp && !sp.invasive && sG >= 0.4) h = nearW ? H.RIPARIAN : H.SHRUB;
+      } else if (sp && !sp.invasive && !sp.exotic && sG >= 0.4) h = nearW ? H.RIPARIAN : H.SHRUB;
       else if (gp && !gp.invasive && !gp.weedy && gG >= 0.35) h = H.MEADOW; // weedy: a native that marks overgrazing, not grassland
       else if (t === T.FIELD || t === T.PASTURE) h = H.FARM;
       else h = H.BARE;
@@ -161,7 +162,7 @@ export function classifyAndResources(w, month) {
     const land = !isWater(t) && h !== H.DEVELOPED;
     if (land) {
       st.land++;
-      if ((gp && !gp.invasive && gG > 0.3) || (sp && !sp.invasive && sG > 0.3) || (tp && tG > 0.3)) st.native++;
+      if ((gp && !gp.invasive && !gp.exotic && gG > 0.3) || (sp && !sp.invasive && !sp.exotic && sG > 0.3) || (tp && !tp.exotic && tG > 0.3)) st.native++;
       if (h === H.INVASIVE || (sp && sp.invasive && sG > 0.3) || (gp && gp.invasive && gG > 0.4)) st.invasive++;
     }
     if (h === H.FARM) st.farm++;
@@ -174,12 +175,12 @@ export function classifyAndResources(w, month) {
     // food & resources
     let nectar = 0, berries = 0, graze = 0, browse = 0;
     if (gp) {
-      if (isBlooming(gp, month)) nectar += gG * 0.8 * (gp.invasive ? 0.3 : 1);
+      if (isBlooming(gp, month)) nectar += gG * 0.8 * (gp.invasive || gp.exotic ? 0.3 : 1);
       graze += (GRASSY[gp.look.type] || 0) * gG * (gp.invasive ? 0.5 : 1);
       if (gp.look.type === 'forb' || gp.look.type === 'tallforb') browse += gG * 0.25;
     } else if (t === T.PASTURE) graze += 0.3;
     if (sp) {
-      if (isBlooming(sp, month)) nectar += sG * (sp.invasive ? 0.3 : 1);
+      if (isBlooming(sp, month)) nectar += sG * (sp.invasive || sp.exotic ? 0.3 : 1);
       if (isFruiting(sp, month)) berries += sG;
       browse += sG * sp.browse;
       if (sp.look.fruit && sG > 0.5 && !sp.invasive) st.berry++;
@@ -197,8 +198,9 @@ export function classifyAndResources(w, month) {
     w.conifer[i] = tp && tp.conifer && tG > 0.5 ? 1 : 0;
 
     let ins = 0;
-    if (gp && !gp.invasive) ins += 0.2 * gG;
-    if (sp && !sp.invasive) ins += 0.2 * sG;
+    if (gp && !gp.invasive && !gp.exotic) ins += 0.2 * gG;
+    if (sp && !sp.invasive && !sp.exotic) ins += 0.2 * sG;
+    if (tp && tp.caterpillars) ins += 0.3 * tG; // oaks and cherries: the caterpillars songbirds feed their young
     ins += nectar * 0.5;
     if (t === T.MARSH || t === T.POND) ins += 0.45;
     else if (w.distWater[i] <= 1) ins += 0.2;
@@ -243,6 +245,7 @@ export function classifyAndResources(w, month) {
     if (c) w.waterQ[i] = Math.max(w.waterQ[i], (s / c) * 0.9);
     if (t === T.RIVER) w.waterQ[i] = Math.max(w.waterQ[i], 0.55);
   }
+  biome.stats?.(w, st, month); // anything a map counts for itself
   w.stats = st;
   return st;
 }

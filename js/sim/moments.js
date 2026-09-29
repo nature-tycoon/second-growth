@@ -24,6 +24,15 @@ export const MOMENTS = {
     title: 'The great crossing',
     text: 'The migration has reached the river. Thousands of hooves churn the water as the wildebeest and zebra swim for the far bank, and the crocodiles are waiting. The herds come through Enkare again because the grass is back and the route is open.',
   },
+  monarchs: {
+    title: 'The monarchs stop over',
+    text: 'A cloud of monarchs has come down into the gardens, drinking from the flowers and laying eggs on the milkweed. Some of these butterflies are on their way to the mountains of Mexico, 2,000 miles south. The milkweed you planted is the only thing their caterpillars can eat.',
+  },
+  fireflies: {
+    title: 'A night full of fireflies',
+    text: 'The meadows are lit up. Firefly larvae spend a year or two in the leaf litter and the roots of plants that come back every summer, eating slugs and snails, and mowing, leaf blowers and lawn chemicals kill them. Your gardens have been left to grow long enough for them to hatch, all at once, on a warm June night.',
+    night: true,
+  },
   elephant: {
     title: 'The elephants come home',
     text: 'An elephant family has come to Enkare. They will open up the thornbush, dig for water in the dry lugga, and carry seeds for kilometres. Where elephants feel safe, the whole savanna is healthier.',

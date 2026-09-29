@@ -1024,6 +1024,146 @@ function bat(m, s) {
   }
 }
 
+// Butterfly: a slim dark body with clubbed antennae and big painted wings, held together
+// straight up over the back when it's perched and opened flat for the flutter of flight.
+// The wing is one outline (forewing and hindwing) in its own flat coordinates: x runs forward,
+// y out from the body. Its edge is sampled once so the paint can measure how far each point is
+// from the margin, which is where both species carry their bold borders and rows of spots.
+const quad = (p0, c, p1, n, out) => { for (let k = 1; k <= n; k++) { const t = k / n, u = 1 - t; out.push([u * u * p0[0] + 2 * u * t * c[0] + t * t * p1[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p1[1]]); } };
+function wingEdge(tails) {
+  const e = [[0.14, 0]];
+  quad([0.14, 0], [0.5, 0.3], [0.62, 0.96], 14, e);      // leading edge to the forewing tip
+  quad([0.62, 0.96], [0.36, 0.94], [0.04, 0.6], 12, e);  // forewing outer edge
+  quad([0.04, 0.6], [0.0, 0.86], [-0.34, 0.74], 12, e);  // hindwing
+  if (tails) { e.push([-0.66, 0.56], [-0.46, 0.42]); }
+  quad(e[e.length - 1], [-0.44, 0.22], [-0.16, 0], 10, e);
+  return e;
+}
+// distance from (x, y) to the wing's outer margin (not the side along the body), and how far along it
+function marginDist(edge, x, y) {
+  let best = 9, at = 0, run = 0;
+  for (let k = 1; k < edge.length; k++) {
+    const [ax, ay] = edge[k - 1], [bx, by] = edge[k], dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy);
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (L * L)));
+    const d = Math.hypot(x - ax - dx * t, y - ay - dy * t);
+    if (ay > 0.02 || by > 0.02) if (d < best) { best = d; at = run + L * t; }
+    run += L;
+  }
+  return [best, at];
+}
+// The wing as a fine grid of triangles inside the outline (colour is painted per vertex, so the
+// veins, spots and bars need vertices to land on).
+const inWing = (edge, x, y) => { let c = false; for (let k = 0, j = edge.length - 1; k < edge.length; j = k++) { const [ax, ay] = edge[k], [bx, by] = edge[j]; if ((ay > y) !== (by > y) && x < (bx - ax) * (y - ay) / (by - ay) + ax) c = !c; } return c; };
+const wingCache = new Map();
+function butterflyWing(side, tails) {
+  const key = side + ':' + !!tails;
+  if (wingCache.has(key)) return wingCache.get(key);
+  const edge = wingEdge(tails), NX = 44, NY = 32, x0 = -0.7, x1 = 0.66, y1 = 1.0;
+  const pos = [];
+  const P2 = (i, j) => [x0 + (x1 - x0) * i / NX, y1 * j / NY];
+  for (let i = 0; i < NX; i++) for (let j = 0; j < NY; j++) {
+    const a = P2(i, j), b = P2(i + 1, j), c = P2(i + 1, j + 1), d = P2(i, j + 1);
+    for (const tri of [[a, b, c], [a, c, d]]) {
+      const cx = (tri[0][0] + tri[1][0] + tri[2][0]) / 3, cy = (tri[0][1] + tri[1][1] + tri[2][1]) / 3;
+      if (!inWing(edge, cx, cy)) continue;
+      // a thin slab (scaled flat later): the top faces up, the bottom faces down
+      const p = tri.map(([x, y]) => [x, y * side]);
+      const ny = (p[1][1] - p[0][1]) * (p[2][0] - p[0][0]) - (p[1][0] - p[0][0]) * (p[2][1] - p[0][1]);
+      const up = ny > 0 ? p : [p[0], p[2], p[1]];
+      for (const [x, z] of up) pos.push(x, 0.5, z);
+      for (const [x, z] of [up[0], up[2], up[1]]) pos.push(x, -0.5, z);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const out = mergeVertices(g); // indexed, like every other part, so the model's parts merge
+  out.computeVertexNormals();
+  wingCache.set(key, out);
+  return out;
+}
+function butterfly(m, s) {
+  const S = s.size, by = S * 0.32, tiger = !!s.tails;
+  const black = col(s.vein || '#1a1410'), white = col('#f6f2e6');
+  m.ell([0, by, 0], [S * 0.3, S * 0.05, S * 0.05], u => (!tiger && Math.sin(u.x * 30) > 0.7 && u.y > -0.2 ? white : black));   // body, dotted white on a monarch
+  const neck = [S * 0.24, by, 0], hp = [S * 0.3, by + S * 0.01, 0], hd = { part: P.HEAD, pivot: neck };
+  m.ell(hp, [S * 0.06, S * 0.055, S * 0.055], black, hd);
+  for (const side of [1, -1]) {
+    const tip = [hp[0] + S * 0.3, hp[1] + S * 0.2, side * S * 0.12];
+    m.limb(hp, tip, S * 0.008, S * 0.008, black, { ...hd, caps: false });
+    m.ell(tip, [S * 0.02, S * 0.02, S * 0.02], black, { ...hd, lo: true });
+  }
+  const edge = wingEdge(tiger);
+  let paint;
+  if (!tiger) {
+    // Monarch: burnt orange, deeper on the forewing; black veins fanning from the body; a thick
+    // black border with a double row of white spots; the forewing tip black with pale spots.
+    const fore = col('#e06a12'), hind = col('#ee8a24');
+    paint = u => {
+      const x = u.x, y = Math.abs(u.z), [d, t] = marginDist(edge, x, y);
+      if (d < 0.105) {
+        const row = d < 0.052 ? 0.028 : 0.074, spot = Math.abs(d - row) < 0.012 && Math.abs(((t * (d < 0.052 ? 16 : 11)) % 1) - 0.5) < 0.11;
+        return spot ? white : black;
+      }
+      if (x > 0.34 && y > 0.66) {                                                   // the black wingtip, with its spots
+        const sp = Math.hypot(((x - 0.36) * 11) % 1 - 0.5, ((y - 0.66) * 9) % 1 - 0.5) < 0.16;
+        return sp ? (x > 0.48 ? white : col('#f2b25a')) : black;
+      }
+      if (y < 0.05) return black;                                                   // dark where it meets the body
+      const a = Math.atan2(y, x + 0.08) * 5.5;                                      // veins
+      if (Math.abs(a - Math.round(a)) < 0.06 + 0.02 * (1 - y)) return black;
+      if (x > -0.02 && x < 0.1 && y > 0.25 && y < 0.62) return black;               // the vein between fore- and hindwing
+      return tmp.copy(x > 0.04 ? fore : hind).multiplyScalar(0.92 + 0.12 * y);
+    };
+  } else {
+    // Tiger swallowtail: lemon yellow with four black bars across the forewing, a black band along
+    // the body, a black border of yellow crescents, and blue scales with an orange spot by the tail.
+    const yel = col('#f4cc2c'), pale = col('#f8dc5a'), blue = col('#3a64d0'), orange = col('#ec7e22');
+    paint = u => {
+      const x = u.x, y = Math.abs(u.z), [d, t] = marginDist(edge, x, y);
+      if (x < -0.44 && y < 0.6) return black;                                        // the tails
+      if (d < 0.12) {
+        if (x < 0.02 && d > 0.05 && d < 0.1) { const k = (t * 12) % 1; if (x < -0.18 && k < 0.45) return blue; }
+        const crescent = d > 0.02 && d < 0.055 && Math.abs(((t * 22) % 1) - 0.5) < 0.22;
+        return crescent ? yel : black;
+      }
+      if (x < -0.26 && y > 0.38 && y < 0.52) return orange;                          // the eyespot above the tail
+      if (y < 0.1) return black;                                                     // the band along the body
+      if (x > 0.06 && [0.54, 0.42, 0.29, 0.16].some(b => Math.abs(x - b + y * 0.08) < 0.035)) return black; // tiger bars
+      if (x <= 0.06 && x > -0.04 && y > 0.2) return black;                           // the long bar into the hindwing
+      return y > 0.5 ? pale : yel;
+    };
+  }
+  for (const side of [1, -1]) {
+    const pivot = [S * 0.04, by + S * 0.02, side * S * 0.03];
+    const ext = place(pivot, [0, 0, 0], [S * 0.95, S * 0.01, S * 0.95]);
+    const folded = place([pivot[0], pivot[1] + S * 0.02, pivot[2]], [-side * Math.PI * 0.47, 0, 0], [S * 0.9, S * 0.01, S * 0.9]);
+    m.add(butterflyWing(side, tiger), folded, paint, { part: side > 0 ? P.WING_L : P.WING_R, pivot, ext });
+  }
+}
+
+// Bumblebee: fuzzy yellow-and-black body, dark head, small smoky wings that blur in flight.
+function bee(m, s) {
+  const S = s.size * 1.2, by = S * 0.36;
+  const yel = col(s.color), blk = col(s.dark || '#1a1612');
+  m.ell([S * 0.12, by, 0], [S * 0.2, S * 0.19, S * 0.19], u => (u.y > -0.2 ? yel : blk));            // thorax, yellow on top
+  m.ell([-S * 0.2, by - S * 0.02, 0], [S * 0.26, S * 0.2, S * 0.2], u => (u.x > 0.1 || (u.x < -0.3 && u.x > -0.65) ? blk : yel)); // striped abdomen
+  const neck = [S * 0.28, by, 0], hd = { part: P.HEAD, pivot: neck };
+  m.ell([S * 0.36, by - S * 0.02, 0], [S * 0.11, S * 0.12, S * 0.13], blk, hd);
+  for (const side of [1, -1]) m.limb([S * 0.44, by + S * 0.04, side * S * 0.05], [S * 0.6, by + S * 0.18, side * S * 0.1], S * 0.012, S * 0.01, blk, { ...hd, caps: false });
+  for (const side of [1, -1]) for (const k of [0, 1, 2]) {
+    const x = S * (0.2 - k * 0.14);
+    m.limb([x, by - S * 0.12, side * S * 0.1], [x - S * 0.04, S * 0.02, side * S * 0.2], S * 0.02, S * 0.014, blk, { part: P.LEG_FL + k % 2, pivot: [x, by, 0] });
+  }
+  const wing = col('#d8dee2');
+  for (const side of [1, -1]) {
+    const pivot = [S * 0.14, by + S * 0.16, side * S * 0.06];
+    const ext = place(pivot, [0, 0.35 * side, 0], [S * 0.5, S * 0.01, S * 0.55]);
+    const folded = place([pivot[0] - S * 0.12, pivot[1] + S * 0.02, pivot[2]], [0, 0.9 * side, 0], [S * 0.5, S * 0.01, S * 0.3]);
+    m.add(flat(sh => { sh.moveTo(0, 0); sh.quadraticCurveTo(0.35, side * 0.5, 0, side * 1); sh.quadraticCurveTo(-0.45, side * 0.55, 0, 0); }, 'xz'),
+      folded, wing, { part: side > 0 ? P.WING_L : P.WING_R, pivot, ext });
+  }
+}
+
 // ---------------------------------------------------------------- herps and fish
 // Frogs sit up on folded hind legs: thigh back, shin forward, long foot flat on the ground.
 function frog(m, s) {
@@ -1559,6 +1699,8 @@ export function buildSpecies(def) {
       mo.sink = s.kind === 'duck' ? s.size * 0.24 : 0;
       break;
     case 'bat': bat(m, s); mo.flap = 2.6; break;
+    case 'butterfly': butterfly(m, s); mo.flap = 1.7; mo.leg = 0; mo.tail = 0; break;
+    case 'bee': bee(m, s); mo.flap = 9; mo.leg = 0.2; mo.tail = 0; break;
     case 'beetle': beetle(m, s); mo.leg = 0.7; mo.tail = 0; break;
     case 'monitor': monitor(m, s); mo.leg = 0.55; mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.3; mo.waveLen = s.size * 1.2; mo.sink = s.size * 0.1; break;
     case 'hippo': hippo(m, s); mo.leg = 0.28; mo.bob = 0.3; mo.tail = 0.5; mo.sink = s.leg + s.h * 0.55; break;

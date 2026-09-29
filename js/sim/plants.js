@@ -76,6 +76,9 @@ export function trySeed(w, p, i, rng) {
     const push = p.compete * (p.invasive && !cp.invasive ? 1 : 0.4);
     if (!((cs < 0.3 && s > cs + 0.2) || (s > cs + 0.1 && rng() < push * (cp.invasive ? 0.2 : 1) * 0.5))) return false;
   }
+  // On maps that keep their meadows (the suburb), trees and shrubs don't seed into an established
+  // meadow or garden: they only grow where they're planted, or on bare and neglected ground.
+  if (biome.meadowsHold && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && !PLANTS[w.ground[i]].invasive && (!p.invasive || rng() < 0.85)) return false;
   // A thick sward of established groundcover is hard for woody seedlings to break through.
   let odds = s;
   const open = biome.savanna && w.distWater[i] > 3; // savanna, away from the riverine strip

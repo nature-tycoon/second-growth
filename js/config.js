@@ -23,7 +23,7 @@ export const SPREAD_BY_MONTH = [0.3, 0.5, 0.8, 1.0, 1.2, 1.3, 1.3, 1.0, 0.4, 0.0
 export const MOIST_BY_MONTH = [0.07, 0.05, 0.0, -0.05, -0.12, -0.15, -0.08, 0.02, 0.09, 0.12, 0.12, 0.1];
 
 // Game days per real second at each speed setting.
-export const SPEEDS = [0, 1, 3, 8];
+export const SPEEDS = [0, 0.72, 3, 8]; // game days per real second (normal speed: a year takes about 2¾ minutes)
 
 // Terrain
 export const T = {

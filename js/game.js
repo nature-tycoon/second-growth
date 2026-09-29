@@ -64,6 +64,7 @@ export class Game {
     this.refreshEnvironment();
     this.wildlife.computeSuitability();
     this.seedStartingWildlife();
+    biome.onStart?.(this); // anything a map wants to note about its starting state
     this.updateScore();
     this.emit('reset');
   }
@@ -146,6 +147,7 @@ export class Game {
     this.visitors.daily();
     this.events.daily();
     checkCampaign(this);
+    biome.daily?.(this); // anything a map runs for itself each day
     // weather
     const r = this.rng();
     const m = this.month;
@@ -276,7 +278,7 @@ export class Game {
       const data = {
         v: 1, seed: this.seed, day: this.day, money: this.money, speed: this.speed, flags: this.flags,
         stats: this.stats, goalsDone: this.goalsDone, history: this.history,
-        world: { arrays, structures: w.structures },
+        world: { arrays, structures: w.structures, w: w.w, h: w.h },
         wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
         visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant,
         mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0, map: this.map,
@@ -308,7 +310,12 @@ export class Game {
     setBiome(data.map || 'pnw');
     this.map = biome.id;
     this.loaded = true;
-    const w = new World();
+    // Every map has a fixed size. A save whose grid doesn't match it (a smaller map's farm that an
+    // older version loaded into a full-size grid and saved again) is scrambled, so don't open it:
+    // the caller starts a fresh farm instead.
+    const fresh = biome.generate(1), ww = fresh.w, wh = fresh.h;
+    if (atob(data.world.arrays.terrain).length !== ww * wh) { console.warn('Discarding a scrambled save for', biome.id); return false; }
+    const w = new World(ww, wh);
     for (const k of WORLD_ARRAYS) if (data.world.arrays[k]) fromB64(data.world.arrays[k], w[k]);
     w.structures = data.world.structures;
     this.seed = data.seed;

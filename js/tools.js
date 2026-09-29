@@ -52,6 +52,7 @@ tool({ key: 'fill', cat: 'land', name: 'Fill & grade', cost: 25, icon: { terrain
   apply: (game, i) => {
     const w = game.world, t = w.terrain[i];
     if (t === T.RIVER || w.struct[i] >= 0 || w.feature[i] === F.CULVERT) return null;
+    if (t === T.ROAD && biome.fixedRoads) return null; // (the suburb's streets and driveways stay)
     if (!isWater(t) && t !== T.ROAD && t !== T.GRAVEL && t !== T.MUD) return null;
     w.terrain[i] = T.SOIL;
     if (w.feature[i] === F.DAM || w.feature[i] === F.BOARDWALK) w.feature[i] = 0;
@@ -100,6 +101,10 @@ function plantTool(source, cost, density) {
     const w = game.world;
     const layer = species[0].layer;
     const ids = layer === 0 ? w.ground : layer === 1 ? w.shrub : w.tree;
+    if (w.ground[i] && PLANTS[w.ground[i]].sod) { // lawn: nothing takes until the sod is dug out
+      if (!game.flags.sodHint) { game.flags.sodHint = true; game.notify('Nothing can be planted into lawn. Lift the sod first with Remove → Pull invasives, then plant.', 'info'); }
+      return 'unsuitable';
+    }
     if (ids[i]) return null;
     if (rng() > density) return null;
     // each seed ends up where it suits best: weight by suitability
@@ -170,7 +175,10 @@ tool({ key: 'pull', cat: 'remove', name: 'Pull invasives', cost: 8, icon: { plan
   apply: (game, i) => {
     const w = game.world;
     let n = 0;
-    if (w.ground[i] && PLANTS[w.ground[i]].invasive) { w.ground[i] = 0; w.groundG[i] = 0; n++; }
+    if (w.ground[i] && PLANTS[w.ground[i]].invasive) {
+      if (PLANTS[w.ground[i]].sod && w.terrain[i] === T.PASTURE) w.terrain[i] = T.SOIL; // lifting the sod leaves bare clay
+      w.ground[i] = 0; w.groundG[i] = 0; n++;
+    }
     if (w.shrub[i] && PLANTS[w.shrub[i]].invasive) { w.shrub[i] = 0; w.shrubG[i] = 0; n++; }
     if (w.tree[i] && PLANTS[w.tree[i]].invasive) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; n++; } // mesquite, leucaena
     if (!n) return null;
@@ -195,7 +203,9 @@ tool({ key: 'clear', cat: 'remove', name: 'Clear vegetation', cost: 6, icon: { t
   apply: (game, i) => {
     const w = game.world;
     if (!w.ground[i] && !w.shrub[i] && !w.tree[i]) return null;
+    const sod = w.ground[i] && PLANTS[w.ground[i]].sod;
     w.clearPlants(i);
+    if (sod && w.terrain[i] === T.PASTURE) w.terrain[i] = T.SOIL; // lifting the sod leaves bare clay
     return true;
   } });
 tool({ key: 'clearcut', cat: 'remove', name: 'Cut trees', cost: 12, icon: { svg: 'axe' }, size: 1,
@@ -213,10 +223,11 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
   desc: 'Tear out fences, old buildings, the road culvert, or habitat features. Buildings and machinery sell for salvage.',
   costFor: (game, i) => {
     const w = game.world;
-    if (w.struct[i] >= 0) { const s = w.structures[w.struct[i]]; const d = STRUCTURES[s.type]; return d.removeCost - d.salvage; }
+    if (w.struct[i] >= 0) { const s = w.structures[w.struct[i]]; const d = STRUCTURES[s.type]; return d.permanent ? 0 : d.removeCost - d.salvage; }
     const f = w.feature[i];
     if (w.terrain[i] === T.TRAIL && !f) return 2;
     if (f === F.CULVERT) return 4000;
+    if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return 0;
     if (f === F.FENCE) return 10;
     if (f && f !== F.DAM) return 20;
     return 0;
@@ -225,6 +236,10 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
     const w = game.world;
     if (w.struct[i] >= 0) {
       const s = w.structures[w.struct[i]];
+      if (STRUCTURES[s.type].permanent) {
+        if (!game.flags.permanentHint) { game.flags.permanentHint = true; game.notify('People live here: the homes, the clubhouse and the streets stay. Work around them. Every yard can still be a garden.', 'info'); }
+        return null;
+      }
       game.notify(`${STRUCTURES[s.type].name} removed. The ground underneath is bare soil now.`, 'info');
       w.removeStructure(w.struct[i]);
       return true;
@@ -232,6 +247,7 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
     const f = w.feature[i];
     if (w.terrain[i] === T.TRAIL && !f) { w.terrain[i] = T.SOIL; return true; }
     if (!f || f === F.DAM) return null;
+    if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return null; // the street's bridge over the creek stays
     if (f === F.CULVERT) {
       w.feature[i] = 0; w.hydroDirty = true;
       game.notify('The culvert is out! The creek now flows freely into the river, and fish can reach the upper creek.', 'good');

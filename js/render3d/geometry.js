@@ -718,6 +718,16 @@ export function fenceRail() {
   const b = at(prep(new THREE.BoxGeometry(1, 0.025, 0.02), 0x8a7d6a), 0.5, 0.14, 0);
   return merge([a, b]);
 }
+// a white picket fence: posts, two rails and pointed pickets (one tile long, along +x)
+export function picketPost() { return merge([at(prep(new THREE.BoxGeometry(0.07, 0.4, 0.07), 0xf2f0ea), 0, 0.2, 0), at(prep(new THREE.ConeGeometry(0.055, 0.06, 4), 0xf2f0ea), 0, 0.43, 0)]); }
+export function picketRail() {
+  const parts = [at(prep(new THREE.BoxGeometry(1, 0.03, 0.02), 0xe8e6de), 0.5, 0.28, 0), at(prep(new THREE.BoxGeometry(1, 0.03, 0.02), 0xe8e6de), 0.5, 0.12, 0)];
+  for (let k = 1; k < 9; k++) {
+    parts.push(at(prep(new THREE.BoxGeometry(0.045, 0.32, 0.015), 0xf6f4ee), k * 0.111, 0.16, 0.012));
+    const tip = prep(new THREE.ConeGeometry(0.032, 0.05, 4), 0xf6f4ee); tip.rotateY(Math.PI / 4); parts.push(at(tip, k * 0.111, 0.345, 0.012));
+  }
+  return merge(parts);
+}
 export function boardwalk() {
   const parts = [];
   for (let k = 0; k < 6; k++) parts.push(at(prep(new THREE.BoxGeometry(0.15, 0.04, 1.0), k % 2 ? 0xb08a5e : 0xa07e54), -0.4 + k * 0.16, 0.1, 0));
@@ -795,6 +805,41 @@ export function building(type, w, d) {
       // sagging porch
       parts.push(box(w * 0.5, 0.05, 0.4, 0x7a6a58, 0, 0.62, fz + 0.2));
       for (const x of [-0.7, 0.7]) parts.push(box(0.05, 0.62, 0.05, 0x6a5a48, x, 0, fz + 0.38));
+      break;
+    }
+    case 'home': {
+      // the builder's two-story plan, the same on every lot: beige siding, a two-car garage,
+      // a gable roof in grey shingle, and a little brick-front stoop
+      const H = 1.45, bw = w * 0.9, bd = d * 0.78, fz = bd / 2 + 0.01;
+      parts.push(box(bw, H, bd, 0xd9ccb2));
+      parts.push(at(gableRoof(bw, bd, 0.62, 0x54565a), 0, H, 0));
+      parts.push(box(bw + 0.02, 0.05, bd + 0.02, 0xf2eee6, 0, H * 0.5, 0));                 // band between the floors
+      parts.push(box(1.1, 0.62, 0.02, 0xf2f0ea, bw / 2 - 0.62, 0, fz));                      // garage door
+      for (let k = 1; k < 4; k++) parts.push(box(1.1, 0.012, 0.025, 0xc8c4bc, bw / 2 - 0.62, k * 0.15, fz + 0.005));
+      parts.push(box(0.42, 0.06, 0.3, 0x9a4a38, -0.25, 0, fz + 0.14));                       // brick stoop
+      parts.push(box(0.2, 0.46, 0.02, 0x3a4a5a, -0.25, 0.04, fz));                           // front door
+      for (const x of [-0.95, -0.25, 0.45]) parts.push(box(0.26, 0.28, 0.02, 0x4a5a6a, x, H * 0.62, fz)); // upstairs windows
+      parts.push(box(0.3, 0.28, 0.02, 0x4a5a6a, -0.95, 0.18, fz));
+      for (const x of [-1.1, -0.8]) parts.push(box(0.03, 0.3, 0.025, 0x3a3e44, x, 0.17, fz + 0.005)); // shutters
+      break;
+    }
+    case 'clubhouse': {
+      const H = 1.1;
+      parts.push(box(w * 0.88, H, d * 0.7, 0xe8e2d4));
+      parts.push(at(gableRoof(w * 0.88, d * 0.7, 0.55, 0x4a5058), 0, H, 0));
+      const fz = d * 0.35 + 0.01;
+      for (const x of [-1.2, -0.4, 0.4, 1.2]) parts.push(box(0.08, H * 0.9, 0.08, 0xf6f4ee, x, 0, fz + 0.3)); // porch columns
+      parts.push(box(w * 0.8, 0.05, 0.36, 0xf6f4ee, 0, H * 0.9, fz + 0.18));
+      parts.push(box(0.4, 0.6, 0.02, 0x3a4a5a, 0, 0, fz));
+      for (const x of [-1.0, 1.0]) parts.push(box(0.4, 0.4, 0.02, 0x4a5a6a, x, 0.35, fz));
+      break;
+    }
+    case 'pool': {
+      parts.push(box(w * 0.95, 0.08, d * 0.9, 0xd8d4ca));                                    // concrete deck
+      parts.push(box(w * 0.72, 0.03, d * 0.6, 0x4ab0d0, 0, 0.08, 0));                       // the water
+      for (const [x, z] of [[-1.25, 0.8], [-0.7, 0.8], [0.9, -0.8]]) parts.push(box(0.4, 0.05, 0.16, 0xf0f0ea, x, 0.1, z)); // loungers
+      parts.push(box(0.03, 0.4, 0.03, 0x8a8a8a, 1.3, 0.08, 0.8));                            // umbrella pole
+      parts.push(at(prep(new THREE.ConeGeometry(0.35, 0.14, 8), 0x2a6a9a), 1.3, 0.55, 0.8));
       break;
     }
     case 'silo': {

@@ -94,6 +94,7 @@ export class Wildlife {
     g.matureTiles = st.mature || 0;
     g.meadowTiles = st.meadow || 0;
     g.bigTrees = st.bigTrees || 0;
+    g.stats = st; // (map-specific counts, e.g. the suburb's canopy network)
     const m = this.game.month;
     g.salmonBonus = (m >= 7 && m <= 9) ? Math.min(0.6, this.salmon.spawners / 10) : this.salmon.everSpawned ? 0.1 : 0;
   }
@@ -350,7 +351,8 @@ export class Wildlife {
       if (K >= def.minK && pop < K) {
         // seasonal visitors only count their months here, so they catch on proportionally faster
         const ramp = def.season ? def.season.length / 12 : 1;
-        const finding = pop === 0 && !st.discovered ? clamp((st.ready - 3 * ramp) / (16 * ramp), 0, 1) : 1;
+        // (quick: butterflies, bees and hummingbirds find a new garden within weeks, not seasons)
+        const finding = pop === 0 && !st.discovered && !def.quick ? clamp((st.ready - 3 * ramp) / (16 * ramp), 0, 1) : 1;
         const chance = def.mig * (pop === 0 ? 1 : 0.35) * clamp((K - pop) / K + 0.2, 0, 1) * game.diff.arrivals * finding;
         if (rng() < chance) {
           const n = def.groupSize[0] + Math.floor(rng() * (def.groupSize[1] - def.groupSize[0] + 1));

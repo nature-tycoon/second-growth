@@ -187,7 +187,8 @@ export class Music {
     this.windGain.gain.setTargetAtTime((0.018 + 0.09 * L.bare) * (wet ? 1.3 : 1) * (1 - 0.45 * L.health), t, 3);
     this.creekGain.gain.setTargetAtTime(0.006 + 0.05 * L.water, t, 1.5);
     const bugs = L.map === 'amazon' ? 0.006 + 0.01 * L.health + 0.012 * L.night
-      : L.map === 'serengeti' ? (L.dry ? 0.01 * (1 - L.night) * (0.4 + L.health) : 0.002) : 0;
+      : L.map === 'serengeti' ? (L.dry ? 0.01 * (1 - L.night) * (0.4 + L.health) : 0.002)
+      : L.map === 'atlanta' ? (this.season === 1 ? 0.004 + 0.008 * L.health + 0.01 * L.night : 0) : 0; // summer cicadas and katydids
     this.bugGain.gain.setTargetAtTime(wet ? bugs * 0.2 : bugs, t, 3);
   }
   // how lively the birdsong is: more species and healthier land, a dawn chorus, quiet at night
@@ -205,8 +206,9 @@ export class Music {
     const r = p => Math.random() < p * dt, has = k => L.present.includes(k);
     const dusk = Math.max(L.night, L.dusk);
     if (L.wet > 0.05 && r(dusk * L.wet * 1.4)) this.frog();
-    if (L.map === 'pnw' && (this.season === 1 || this.season === 2) && r(L.night * 0.8)) this.cricket();
-    if (L.map === 'pnw' && has('owl') && r(L.night * 0.05)) this.owl();
+    const temperate = L.map === 'pnw' || L.map === 'atlanta';
+    if (temperate && (this.season === 1 || this.season === 2) && r(L.night * 0.8)) this.cricket();
+    if (temperate && has('owl') && r(L.night * 0.05)) this.owl();
     if (L.map === 'amazon' && has('howler') && r(L.dawn * 0.09 + L.dusk * 0.02)) this.howler();
     if (L.map === 'serengeti' && has('hyena') && r(L.night * 0.035)) this.hyena();
     if (L.map === 'serengeti' && has('lion') && r(dusk * 0.012)) this.lion();

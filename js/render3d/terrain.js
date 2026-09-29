@@ -89,13 +89,14 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
 ` + shader.fragmentShader.replace('#include <map_fragment>', `
       vec2 gp = vWorldXZ, gdx = dFdx(gp), gdy = dFdy(gp);
       vec2 wv;
+      float wk = 1.0; // how far colour wanders across tile edges (barely, on roads and trails)
       #ifdef USE_MAP
         wv = vec2(texture2D(uNoise, gp * 0.17).r, texture2D(uNoise, gp * 0.17 + vec2(0.43, 0.71)).r) - 0.5;
         wv += (vec2(texture2D(uNoise, gp * 0.47 + 0.2).r, texture2D(uNoise, gp * 0.47 + vec2(0.8, 0.3)).r) - 0.5) * 0.38;
         vec4 own = tileAt(gp);
         vec4 ta = tileAt(gp + wv * 1.25), tb = tileAt(gp + wv.yx * vec2(-0.9, 0.9) + 0.12);
         // crisp surfaces (roads, trails, plowed fields) keep near-straight edges
-        if (own.b < 0.5 || ta.b < 0.5 || tb.b < 0.5) { ta = tileAt(gp + wv * 0.14); tb = tileAt(gp + wv.yx * 0.1); }
+        if (own.b < 0.5 || ta.b < 0.5 || tb.b < 0.5) { ta = tileAt(gp + wv * 0.14); tb = tileAt(gp + wv.yx * 0.1); wk = 0.11; }
         #ifdef GROUND_FAST
           vec4 sampledDiffuseColor = tileTex(map, ta, gp, gdx, gdy); // one pick: crisper seams, half the work
         #else
@@ -107,9 +108,9 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
       // position, so colour follows the organic edges too instead of the tile grid
       {
         #ifdef GROUND_FAST
-          diffuseColor.rgb *= tintAt(gp + wv * 1.25);
+          diffuseColor.rgb *= tintAt(gp + wv * 1.25 * wk);
         #else
-          diffuseColor.rgb *= (tintAt(gp + wv * 1.25) + tintAt(gp + wv.yx * vec2(-0.9, 0.9) + 0.12)) * 0.5;
+          diffuseColor.rgb *= (tintAt(gp + wv * 1.25 * wk) + tintAt(gp + (wv.yx * vec2(-0.9, 0.9) + 0.12) * wk)) * 0.5;
         #endif
       }
       float gn1 = texture2D(uNoise, vWorldXZ * 0.035).r;
@@ -414,6 +415,8 @@ export class Terrain {
         else if (sid2 && sg > 0.3) c = c.map(q => q * (1 - 0.08 * Math.min(1, sg)));
         // game trails worn in by the herds
         if (inside && w.trod && w.trod[i] > 0.12 && t !== T.ROAD) c = mixRgb(c, biome.look.soil, Math.min(0.45, (w.trod[i] - 0.12) * 0.7));
+        // ground the player can't work yet (the suburb's other yards) is washed out toward grey
+        if (inside && biome.locked?.(game, i)) { const l = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) * 1.08; c = mixRgb(c, [l, l, l * 0.96], 0.55); }
         if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); }
       }
       {
@@ -455,6 +458,8 @@ export class Terrain {
       corner(tx, ty, cA); corner(tx + 1, ty, cB); corner(tx + 1, ty + 1, cC); corner(tx, ty + 1, cD);
       // keep a little of the tile's own color so edges stay readable
       const own = [tint[k * 3], tint[k * 3 + 1], tint[k * 3 + 2]];
+      // crisp surfaces (a one-tile driveway, a trail) keep their own colour instead of taking on the lawn's
+      if (this.tileData[k * 4 + 2] === 0) for (const q of [cA, cB, cC, cD]) { q[0] = own[0]; q[1] = own[1]; q[2] = own[2]; }
       const o = k * 18;
       const put = (j, q) => { col[o + j * 3] = q[0] * 0.92 + own[0] * 0.08; col[o + j * 3 + 1] = q[1] * 0.92 + own[1] * 0.08; col[o + j * 3 + 2] = q[2] * 0.92 + own[2] * 0.08; };
       put(0, cA); put(1, cC); put(2, cB); put(3, cA); put(4, cD); put(5, cC);
@@ -508,7 +513,25 @@ export class Terrain {
 
   // Water lies level in its basin and spills a tile onto the banks; wherever the ground rises
   // above it, the ground hides it. So shorelines follow the land's contours instead of tile edges.
+  // The water and flood meshes only change when the water does (dug ponds, a beaver dam, a flood,
+  // reshaped ground), so each new day checks a cheap fingerprint before rebuilding them.
+  waterKey() {
+    const w = this.world, t = w.terrain;
+    let h = (w.hv | 0) >>> 0;
+    for (let i = 0; i < w.n; i++) if (isWater(t[i])) h = Math.imul(h ^ (i * 16 + t[i]), 16777619) >>> 0;
+    return h;
+  }
+  floodKey() {
+    const w = this.world, f = w.flood;
+    let h = 2166136261;
+    for (let i = 0; i < w.n; i++) if (f[i]) h = Math.imul(h ^ i, 16777619) >>> 0;
+    return h;
+  }
+  refreshWater() { if (this.waterKey() !== this.waterK) this.buildWater(); }
+  refreshFlood() { if (this.floodKey() !== this.floodK) this.buildFlood(); }
+
   buildWater() {
+    this.waterK = this.waterKey();
     if (this.water) { this.scene.remove(this.water); this.water.geometry.dispose(); }
     const w = this.world, TW = this.TW, TH = this.TH, X0 = this.X0, Y0 = this.Y0;
     const wc = biome.look.water;
@@ -624,6 +647,7 @@ export class Terrain {
   }
 
   buildFlood() {
+    this.floodK = this.floodKey();
     const w = this.world;
     if (this.flood) { this.scene.remove(this.flood); this.flood.geometry.dispose(); this.flood = null; }
     const tiles = [];

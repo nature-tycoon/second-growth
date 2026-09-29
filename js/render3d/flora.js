@@ -9,6 +9,7 @@ import { withFocusFade } from './focus.js';
 import { withSnowTops } from './snow.js';
 import { withClouds } from './atmosphere.js';
 import { waterSurfaceY } from './terrain.js';
+import { biome } from '../biome.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -303,15 +304,17 @@ export class Flora {
         case F.BLIND: this.pool('blind', () => G.blind(), this.bark).add(cx, cy, cz, 1, 1, 1, Math.round(rot / 1.57) * 1.57, [1, 1, 1]); break;
         case F.BOARDWALK: {
           const surf = w.tileH(x, y) * LEVEL + 0.05;
-          const ns = (xx, yy) => w.inb(xx, yy) && (w.feature[w.idx(xx, yy)] === F.BOARDWALK || w.terrain[w.idx(xx, yy)] === T.TRAIL);
+          const ns = (xx, yy) => w.inb(xx, yy) && (w.feature[w.idx(xx, yy)] === F.BOARDWALK || w.terrain[w.idx(xx, yy)] === T.TRAIL || w.terrain[w.idx(xx, yy)] === T.ROAD); // (a street bridge runs with the street)
           const alongX = ns(x - 1, y) || ns(x + 1, y);
           this.pool('boardwalk', () => G.boardwalk(), this.bark, { shadow: true, receive: true }).add(cx, surf, cz, 1, 1, 1, alongX ? Math.PI / 2 : 0, [1, 1, 1]);
           break;
         }
         case F.FENCE: {
-          this.pool('fencepost', () => G.fencePost(), this.bark).add(cx, cy, cz, 1, 1, 1, rot * 0.1, [1, 1, 1]);
-          const rail = this.pool('fencerail', () => G.fenceRail(), this.bark);
-          const broken = hash2(x, y, 55) < 0.15;
+          const picket = !!biome.look.picket; // (the suburb's white picket fences)
+          if (picket) this.pool('picketpost', () => G.picketPost(), this.bark).add(cx, cy, cz, 1, 1, 1, 0, [1, 1, 1]);
+          else this.pool('fencepost', () => G.fencePost(), this.bark).add(cx, cy, cz, 1, 1, 1, rot * 0.1, [1, 1, 1]);
+          const rail = picket ? this.pool('picketrail', () => G.picketRail(), this.bark) : this.pool('fencerail', () => G.fenceRail(), this.bark);
+          const broken = !picket && hash2(x, y, 55) < 0.15;
           if (x + 1 < w.w && w.feature[w.idx(x + 1, y)] === F.FENCE) {
             const dh = hAt(cx + 1, cz) - cy;
             rail.add(cx, cy, cz, Math.hypot(1, dh), broken ? 0.6 : 1, 1, 0, [1, 1, 1], 0, Math.atan2(dh, 1));

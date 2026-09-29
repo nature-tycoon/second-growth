@@ -72,7 +72,9 @@ export function worldMap(places, selected = null) {
   const pins = at.map(({ b, x, y }) => {
     // a label that would run into the next pin to the east hangs off to the west instead
     const crowded = at.some(o => o.b !== b && o.x > x && o.x - x < 32 && Math.abs(o.y - y) < 16);
-    return `<button class="wm-pin${b.id === selected ? ' on' : ''}${crowded ? ' wm-west' : ''}" data-map="${b.id}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" aria-label="${b.farm}, ${b.region}">
+    // (a map can place its own label: 'ne' above the pin hanging east, 'se' below hanging east, and so on)
+    const lab = { nw: ' wm-west wm-up', ne: ' wm-east wm-up', se: ' wm-east', sw: ' wm-west' }[b.pinLabel] ?? (crowded ? ' wm-west' : '');
+    return `<button class="wm-pin${b.id === selected ? ' on' : ''}${lab}" data-map="${b.id}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" aria-label="${b.farm}, ${b.region}">
       <i></i><span><b>${b.farm}</b><em>${b.region}</em></span></button>`;
   }).join('');
   return `<div class="world">${mapSVG()}${pins}</div>`;
