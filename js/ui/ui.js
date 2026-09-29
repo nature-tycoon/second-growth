@@ -209,7 +209,7 @@ export class UI {
     const context = () => ({ map: g.map, mode: g.mode, difficulty: g.difficulty,
       chapter: campaignOn(g) ? g.campaign.chapter + 1 : null, chapter_key: currentChapter(g)?.key ?? null });
     this.analyticsContext = () => setContext(context());
-    const S = this.session = { t0: performance.now(), active: 0, lastInput: performance.now(), day0: g.day, idleSent: false, leftAt: 0 };
+    const S = this.session = { t0: performance.now(), active: 0, lastInput: performance.now(), day0: g.day, idleSent: false, leftAt: -Infinity };
     const touch = () => { S.lastInput = performance.now(); S.idleSent = false; };
     for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) window.addEventListener(ev, touch, { passive: true, capture: true });
     const doing = () => ({ speed: g.speed, open_panel: this.modalOpen ? this.lastModal : null, tool: this.state.tool || null,

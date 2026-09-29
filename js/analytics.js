@@ -10,7 +10,11 @@ const POSTHOG_KEY = 'phc_wWDczF7Egr2VV5Nj6JN2duzKW4ND298DaKjgaQ3B78sf';
 const POSTHOG_HOST = 'https://us.i.posthog.com';
 export const GAME_VERSION = '0.5';
 
-let ph = null;
+// PostHog, looked up each time rather than kept: the loader puts a stand-in on window.posthog that
+// queues calls, and when the library arrives it replaces that stand-in with the real thing. A
+// kept reference would go on feeding the stand-in's queue, which nothing reads any more.
+let started = false;
+const P = () => (started ? window.posthog : null);
 
 // Replays: the page itself (panels, clicks, tools) is recorded for everyone, which is small. The 3D
 // view is only filmed in about one browser session in five, at one frame a second: filming every
@@ -59,15 +63,16 @@ export function initAnalytics() {
   // local copies stay quiet so testing doesn't pollute the numbers (add ?ph to the URL to test tracking)
   const local = ['localhost', '127.0.0.1', ''].includes(location.hostname) && !new URLSearchParams(location.search).has('ph');
   if (!POSTHOG_KEY || local) return false;
-  ph = loadPostHog();
-  if (!settings.analytics) ph.opt_out_capturing();
+  loadPostHog(); started = true;
+  if (!settings.analytics) P().opt_out_capturing();
   return true;
 }
 
-export const analyticsReady = () => !!ph;
+export const analyticsReady = () => !!P();
 
 // For the moment the player leaves: sent with sendBeacon so it survives the tab closing.
 export function trackExit(event, props = {}) {
+  const ph = P();
   if (!ph || !settings.analytics) return;
   try { ph.capture(event, props, { transport: 'sendBeacon' }); } catch (e) { /* ignore */ }
 }
@@ -85,6 +90,7 @@ window.addEventListener('error', e => reportError('error', e.message, `${(e.file
 window.addEventListener('unhandledrejection', e => reportError('promise', e.reason?.message || e.reason, e.reason?.stack?.split('\n')[1]?.trim()));
 
 export function track(event, props = {}) {
+  const ph = P();
   if (!ph || !settings.analytics) return;
   try { ph.capture(event, props); } catch (e) { /* never let analytics break the game */ }
 }
@@ -99,7 +105,7 @@ export const feedbackPossible = () => {
 };
 export async function sendFeedback(props) {
   if (!feedbackPossible()) return false;
-  const linked = ph && settings.analytics;
+  const ph = P(), linked = ph && settings.analytics;
   let distinct = null, session = null;
   try { if (linked) { distinct = ph.get_distinct_id?.(); session = ph.get_session_id?.(); } } catch (e) { /* ignore */ }
   const body = {
@@ -115,11 +121,13 @@ export async function sendFeedback(props) {
 
 // Game-wide properties attached to every later event (current year, score and so on).
 export function setContext(props) {
+  const ph = P();
   if (!ph) return;
   try { ph.register(props); } catch (e) { /* ignore */ }
 }
 
 export function setAnalyticsEnabled(on) {
+  const ph = P();
   if (!ph) return;
   try { on ? ph.opt_in_capturing() : ph.opt_out_capturing(); } catch (e) { /* ignore */ }
 }
