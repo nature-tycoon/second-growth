@@ -603,7 +603,7 @@ export class UI {
     const sk = w.struct[i];
     if (sk >= 0) {
       const s = w.structures[sk], d = STRUCTURES[s.type];
-      html += `<p class="info-desc"><b>${d.name}.</b> Remove it with the Demolish tool for ${money(d.removeCost - d.salvage)}${d.salvage ? ` (after ${money(d.salvage)} salvage)` : ''}. Old buildings do give bats and raccoons a roost, though.</p>`;
+      html += `<p class="info-desc"><b>${d.name}.</b> ${d.roost && !d.permanent ? `Bats and owls roost in it. You can demolish it for ${money(d.removeCost - d.salvage)}${d.salvage ? ` (after ${money(d.salvage)} salvage)` : ''}, but it takes their roost away.` : `Remove it with the Demolish tool for ${money(d.removeCost - d.salvage)}${d.salvage ? ` (after ${money(d.salvage)} salvage)` : ''}.`}</p>`;
       return html;
     }
     html += `<div class="kv">

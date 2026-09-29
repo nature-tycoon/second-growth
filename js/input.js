@@ -1,6 +1,7 @@
 // Mouse and keyboard: camera control, brushing tools across the map, inspecting.
 
 import { tr } from './i18n.js';
+import { STRUCTURES } from './world.js';
 import { TILE, money } from './config.js';
 import { TOOLS, brushTiles, toolCost, bestSuit } from './tools.js';
 import { PLANTS } from './data/plants.js';
@@ -335,6 +336,7 @@ export class Input {
     let txt = tr(tool.name);
     if (tool.key === 'demolish') {
       if (w.struct[i0] >= 0 || cost) txt += cost < 0 ? ` · ${tr(`earns ${money(-cost)} salvage`)}` : ` · ${money(cost)}`;
+      if (w.struct[i0] >= 0 && STRUCTURES[w.structures[w.struct[i0]]?.type]?.roost) txt += ` · <span class="bad">${tr('bat roost')}</span>`;
     } else if (cost) txt += ` · ${tool.brush ? tr(`${money(cost)}/tile`) : money(cost)}`;
     if (tool.species) {
       const s = bestSuit(g, i0, tool.species);

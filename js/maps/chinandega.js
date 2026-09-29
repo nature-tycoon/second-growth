@@ -253,7 +253,7 @@ export default {
     marsh: { desc: 'Dig tidal marsh on low, wet ground. Mangroves can grow in it.' },
     demolish: { desc: 'Tear out fences, old buildings, the culvert, or a shrimp pond dike (breaching a dike lets the tide back into the pond).' },
     clear: { desc: 'Strip a tile back to bare soil: jaragua, whatever is on it. Then plant natives.' },
-    burn: { desc: 'A careful early burn clears jaragua before it builds up. Keep it well away from young trees.' },
+    burn: { desc: 'A careful early burn clears jaragua before it builds up. Keep it well away from young trees. In dry weather it can escape: cut a firebreak around it first.' },
   },
   structureNames: { house: 'Cooperative house', barn: 'Corral and milking shed', silo: 'Water tank', shed: 'Tool shed', tractor: 'Ox cart', parking: 'Visitor parking', center: 'Visitor center' },
   habitatNames: {

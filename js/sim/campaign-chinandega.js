@@ -60,7 +60,7 @@ export function chinandegaChapters(h) {
     {
       key: 'fire', title: 'The burning season', reward: 4000, events: true,
       story: 'From now on the dry season brings fire. Neighbours burn their pastures for new grass, the jaragua dries to tinder, and a spark can run across the whole finca and kill the young trees. The dry forest can live with fire now and then, but not every year.',
-      teach: '<b>Clear vegetation</b> cuts firebreaks around young trees. A careful <b>controlled burn</b> early in the dry season clears jaragua before it builds up. When a wildfire comes, send a <b>fire crew</b>. Shade is the lasting cure: jaragua can\'t grow under trees.',
+      teach: '<b>Clear vegetation</b> cuts firebreaks around young trees. A careful <b>controlled burn</b> early in the dry season clears jaragua before it builds up, but in dry weather it can escape, so cut a firebreak around it first. When a wildfire comes, send a <b>fire crew</b>. Shade is the lasting cure: jaragua can\'t grow under trees.',
       unlock: ['burn', 'firecrew', 'clearcut', 'raise', 'lower'],
       goals: [
         count('Cut 40 tiles of firebreak (Clear vegetation)', g => used(g, 'clear'), 40, ' tiles'),

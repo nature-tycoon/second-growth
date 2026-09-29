@@ -385,7 +385,7 @@ export default {
     pull: { icon: { plant: 'privet' }, desc: 'Dig out privet, nandina, English ivy, Japanese honeysuckle, kudzu and Bradford pear seedlings. Native plants are left alone.' },
     marsh: { name: 'Rain garden', desc: 'Dig a shallow basin that catches runoff from roofs, driveways and the street and lets it soak in. Plant it with the rain garden mix.' },
     pond: { desc: 'A wildlife pond: fish-free ponds are where toads and spring peepers breed.' },
-    burn: { desc: 'A small, careful burn clears privet seedlings and dead growth in a meadow. Not near the houses.' },
+    burn: { desc: 'A small, careful burn clears privet seedlings and dead growth in a meadow. Not near the houses. In dry weather it can escape: cut a firebreak around it first.' },
     clear: { desc: 'Strip a tile back to bare soil: lawn, boxwood, whatever is on it. Then plant natives.' },
   },
   structureNames: { parking: 'Greenway trailhead', center: 'Nature center' },

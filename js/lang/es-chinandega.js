@@ -131,7 +131,7 @@ const MAP = {
     pull: { desc: 'Arrancá el jaragua, el guinea, la higuerilla y los arbolitos de nim. Las plantas nativas se quedan.' },
     marsh: { desc: 'Cavá estero en tierra baja y húmeda. Los mangles pueden crecer en él.' },
     clear: { desc: 'Dejá un cuadro en tierra pelada: jaragua, lo que tenga. Después sembrá nativas.' },
-    burn: { desc: 'Una quema temprana y cuidadosa limpia el jaragua antes de que se acumule. Hacela lejos de los árboles jóvenes.' },
+    burn: { desc: 'Una quema temprana y cuidadosa limpia el jaragua antes de que se acumule. Hacela lejos de los árboles jóvenes. Con tiempo seco se puede escapar: hacé una ronda alrededor primero.' },
     demolish: { desc: 'Quitá cercas, edificios viejos, la alcantarilla, o un bordo de camaronera (romper un bordo deja entrar la marea a la camaronera).' },
   },
   moments: {
@@ -161,7 +161,7 @@ const CHAPTERS_ES = [
     ['Sembrá 250 árboles', 'Hacé crecer 400 cuadros de bosque seco', 'Tené 12 especies de animales viviendo aquí']],
   ['La temporada de quemas',
     'Desde ahora el verano trae fuego. Los vecinos queman sus potreros para que retoñe el zacate, el jaragua se seca como yesca, y una chispa puede correr por toda la finca y matar los árboles jóvenes. El bosque seco aguanta el fuego de vez en cuando, pero no cada año.',
-    '<b>Limpiar vegetación</b> hace rondas alrededor de los árboles jóvenes. Una <b>quema controlada</b> al inicio del verano limpia el jaragua antes de que se acumule. Cuando venga un incendio, mandá una <b>cuadrilla de bomberos</b>. La sombra es la cura que dura: el jaragua no crece bajo los árboles.',
+    '<b>Limpiar vegetación</b> hace rondas alrededor de los árboles jóvenes. Una <b>quema controlada</b> al inicio del verano limpia el jaragua antes de que se acumule, pero con tiempo seco se puede escapar, así que hacé una ronda alrededor primero. Cuando venga un incendio, mandá una <b>cuadrilla de bomberos</b>. La sombra es la cura que dura: el jaragua no crece bajo los árboles.',
     ['Hacé 40 cuadros de ronda (Limpiar vegetación)', 'Hacé crecer 700 cuadros de bosque seco', 'Llegá a 50 de salud del ecosistema']],
   ['Que vuelva la marea',
     'En la costa cavaron camaroneras en el manglar y las cerraron con bordos de lodo. Los pescadores y las mujeres que recogen conchas negras entre las raíces del manglar sacan menos cada año. Rompé los bordos y la marea traerá el manglar de vuelta sola.',

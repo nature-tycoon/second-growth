@@ -105,7 +105,7 @@ export default {
     pull: { icon: { plant: 'brachiaria' }, desc: 'Dig out braquiária and colonião grass and leucaena scrub. Native plants are left alone.' },
     pond: { desc: 'Deep, open water for caiman, river turtles, fish and capybaras.' },
     lower: { desc: 'Scoop out a swale. Hollows collect water and stay moist, which suits açaí, sedges and heliconias.' },
-    burn: { desc: 'A cool, controlled burn in the wet season clears pasture grass before planting. Kills young shrubs, saplings and grass. Keep it well away from forest.' },
+    burn: { desc: 'A cool, controlled burn in the wet season clears pasture grass before planting. Kills young shrubs, saplings and grass. Keep it well away from forest. In dry weather it can escape: cut a firebreak around it first.' },
   },
   structureNames: { house: 'Ranch house', barn: 'Cattle shed', silo: 'Water tank', shed: 'Corral', tractor: 'Old truck' },
   habitatNames: {

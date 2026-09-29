@@ -72,7 +72,7 @@ export class Events {
   }
 
   // ------------------------------------------------------------ fire
-  ignite(at = null, severe = false) {
+  ignite(at = null, severe = false, note = null) {
     const g = this.game, w = g.world, rng = g.rng;
     let best = at, bf = 0.25;
     if (best == null) {
@@ -94,7 +94,8 @@ export class Events {
     // each map names its own causes: [natural, visitors] and optionally a neighbour's burn
     const causes = biome.climate.fireCause;
     const cause = g.visitors.traffic > 0.2 && w.distTrail[best] <= 2 ? causes[1] : (causes[2] && g.rng() < 0.6 ? causes[2] : causes[0]);
-    g.notify(severe
+    if (note) g.notify(note, 'fire', { x: x + 0.5, y: y + 0.5 });
+    else g.notify(severe
       ? `Crown fire! ${cause} in a heat wave has started a fire hot enough to climb into the treetops. It can burn through forest, leaving standing snags, and meadows will take over the burn. Fire crews can hold the edges.`
       : `Wildfire! ${cause} started a fire in the dry grass. It will spread through dry fuel until rain comes. Send a fire crew (Remove tab) or let it burn: fire renews meadows but kills young forest.`, 'fire', { x: x + 0.5, y: y + 0.5 });
     g.emit('event', 'fire');
@@ -233,7 +234,8 @@ export class Events {
 
   // ------------------------------------------------------------ controlled burns
   // The player paints a burn unit and the crew lights it. The fire creeps through the unit from
-  // day to day, low and cool, and never leaves it: the crew holds the edges.
+  // day to day, low and cool, and the crew holds the edges, but not always: an ember can carry
+  // into dry fuel outside, and then it's a wildfire (see rxEscape).
   igniteRx(i) {
     const w = this.game.world, rng = this.game.rng;
     w.rx[i] = 2;
@@ -272,10 +274,21 @@ export class Events {
     for (const a of g.wildlife.agents) if (Math.floor(a.x) === x && Math.floor(a.y) === y && a.move !== 'fly' && a.move !== 'swim') { a.state = 'idle'; a.wait = 0; }
   }
 
+  // The chance, each day, that the burn escapes into a tile next to it. It takes fuel (cleared
+  // ground, roads, trails and water don't carry it, so a firebreak works), and the risk climbs
+  // with how dry that fuel is, how long it's been since rain, and the fire season: a burn after
+  // rain is fairly safe, and one in a heavy stand of dry grass in a drought is a real gamble.
+  rxEscape(j) {
+    const g = this.game, w = g.world;
+    if (this.fireTiles || w.fire[j] || w.scorch[j] > 60) return 0;
+    const dry = clamp(g.dryStreak / 6, 0.25, 1.5), season = biome.climate.fireMonths.includes(g.month) ? 1.5 : 0.7;
+    return 0.0065 * this.fuel(w, j) * dry * season * g.diff.disasters;
+  }
+
   // Each day: burning tiles in the unit catch their unburned neighbours in it, then go out.
   updateRx(raining) {
     const g = this.game, w = g.world, rng = g.rng;
-    let burning = 0, waiting = 0, doused = 0, first = -1;
+    let burning = 0, waiting = 0, doused = 0, first = -1, escaped = -1;
     const next = [];
     for (let i = 0; i < w.n; i++) {
       const r = w.rx[i];
@@ -294,7 +307,12 @@ export class Events {
         if (!dx && !dy || !w.inb(x + dx, y + dy)) continue;
         const j = w.idx(x + dx, y + dy);
         if (w.rx[j] === 1 && rng() < (dx && dy ? 0.35 : 0.6)) next.push(j);
+        else if (!w.rx[j] && !(dx && dy) && escaped < 0 && rng() < this.rxEscape(j)) escaped = j;
       }
+    }
+    if (escaped >= 0) {
+      g.stats.rxEscapes = (g.stats.rxEscapes || 0) + 1;
+      this.ignite(escaped, false, 'Your controlled burn has jumped the line! An ember carried into dry fuel outside the burn area, and now it\'s a wildfire that will spread until rain comes. Send a fire crew (Remove tab). Burning after rain, outside the fire season, and cutting a firebreak around the area first (Clear vegetation) all make this far less likely.');
     }
     for (const j of next) if (w.rx[j] === 1) this.igniteRx(j);
     if (raining && (waiting || doused)) {

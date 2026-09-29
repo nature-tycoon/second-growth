@@ -119,7 +119,7 @@ export default {
     rip: { desc: 'Break the crust on bare, trampled ground so rain soaks in instead of running off.' },
     mulch: { desc: 'Spread cut brush and old dung as mulch. It shades the soil, feeds it, and traps seed.' },
     pond: { desc: 'A waterhole for hippos, crocodiles, catfish and thirsty herds in the dry season.' },
-    burn: { desc: 'A cool burn early in the dry season clears old grass and invasive scrub; native grass comes back greener. Keep it away from young trees.' },
+    burn: { desc: 'A cool burn early in the dry season clears old grass and invasive scrub; native grass comes back greener. Keep it away from young trees. In dry weather it can escape: cut a firebreak around it first.' },
   },
   structureNames: { house: 'Ranger post', barn: 'Cattle boma', silo: 'Water tank', shed: 'Store', tractor: 'Old Land Rover' },
   habitatNames: {

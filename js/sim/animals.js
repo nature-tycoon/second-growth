@@ -1,6 +1,7 @@
 // Wildlife: individual animals wander their habitat, breed when there's room,
 // die when there isn't, hunt, migrate in from the surroundings, and (beavers) re-engineer the land.
 
+import { STRUCTURES } from '../world.js';
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { ANIMALS, ANIMAL, many, cap } from '../data/animals.js';
 import { PLANTS } from '../data/plants.js';
@@ -88,7 +89,8 @@ export class Wildlife {
     g.frogIndex = frogs;
     g.snagCount = st.snags || 0;
     g.nestboxCount = st.nestboxes || 0;
-    g.structureCount = w.structures.filter(Boolean).length;
+    // roosts: old farm buildings (lofts, attics, silos), not parking lots or visitor centers
+    g.structureCount = w.structures.filter(s => s && STRUCTURES[s.type]?.roost).length;
     g.berryTiles = st.berry || 0;
     g.forestTiles = st.forest || 0;
     g.matureTiles = st.mature || 0;

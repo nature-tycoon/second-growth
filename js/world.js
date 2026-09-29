@@ -6,14 +6,14 @@ import { PLANT } from './data/plants.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
 
 export const STRUCTURES = {
-  // farm buildings can be torn down, and rebuilt later (bats, owls and swallows roost in them)
-  house:   { name: 'Farmhouse', w: 3, h: 2, removeCost: 4000, salvage: 0, build: 9000 },
-  barn:    { name: 'Barn', w: 4, h: 3, removeCost: 5000, salvage: 1500, build: 7000 },
-  silo:    { name: 'Silo', w: 2, h: 2, removeCost: 2500, salvage: 800, build: 3500 },
-  shed:    { name: 'Equipment shed', w: 2, h: 2, removeCost: 1200, salvage: 300, build: 2200 },
+  // old farm buildings are roosts for bats, owls and swallows (roost: true); they can be torn down, and put back up
+  house:   { name: 'Farmhouse', w: 3, h: 2, removeCost: 4000, salvage: 0, build: 9000, roost: true },
+  barn:    { name: 'Barn', w: 4, h: 3, removeCost: 5000, salvage: 1500, build: 7000, roost: true },
+  silo:    { name: 'Silo', w: 2, h: 2, removeCost: 2500, salvage: 800, build: 3500, roost: true },
+  shed:    { name: 'Equipment shed', w: 2, h: 2, removeCost: 1200, salvage: 300, build: 2200, roost: true },
   tractor: { name: 'Abandoned tractor', w: 1, h: 1, removeCost: 300, salvage: 900 },
   // the suburb's homes and HOA amenities: people live and swim here, so they can't be removed
-  home:    { name: 'Home', w: 3, h: 2, removeCost: 0, salvage: 0, permanent: true },
+  home:    { name: 'Home', w: 3, h: 2, removeCost: 0, salvage: 0, permanent: true, roost: true }, // (bats in the attic)
   clubhouse: { name: 'HOA clubhouse', w: 4, h: 3, removeCost: 0, salvage: 0, permanent: true },
   pool:    { name: 'Community pool', w: 3, h: 2, removeCost: 0, salvage: 0, permanent: true },
   // visitor facilities the player can build

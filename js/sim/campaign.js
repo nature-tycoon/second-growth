@@ -80,7 +80,7 @@ const pnwChapters = () => [
   },
   {
     key: 'homes', title: 'Homes for wildlife', reward: 4000,
-    story: 'Animals need more than food. Woodpeckers carve snags, salamanders hide under logs, and bats roost in old barns. Give them places to live.',
+    story: 'Animals need more than food. Woodpeckers carve snags, salamanders hide under logs, and bats roost in barns. Give them places to live.',
     teach: 'The <b>Habitat</b> tools place snags, logs, rock and brush piles and nest boxes. You can also <b>rebuild a barn or shed</b> as a roost. Forest-floor and understory mixes fill in beneath young trees.',
     unlock: ['snag', 'log', 'rocks', 'brush', 'nestbox', 'build_barn', 'build_shed', 'build_house', 'build_silo', 'mix_forestfloor', 'mix_understory', 'mix_conifer', ...layerTools('ground')],
     goals: [
