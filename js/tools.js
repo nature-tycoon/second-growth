@@ -22,7 +22,7 @@ function dig(terrain) {
     const wasLand = land(t);
     if (terrain === T.MARSH) {
       // keep wetland plants that can handle standing water
-      if (w.tree[i]) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+      if (w.tree[i] && !PLANTS[w.tree[i]].mangrove) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
       if (w.shrub[i] && !PLANTS[w.shrub[i]].wetOK) { w.shrub[i] = 0; w.shrubG[i] = 0; }
       if (w.ground[i] && !PLANTS[w.ground[i]].wetOK && !PLANTS[w.ground[i]].aquatic) { w.ground[i] = 0; w.groundG[i] = 0; }
       if (w.feature[i] !== F.LOG) w.feature[i] = 0;

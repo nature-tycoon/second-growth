@@ -686,7 +686,7 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
     g.addColorStop(0, `rgba(12,20,44,${(0.24 * n).toFixed(3)})`); g.addColorStop(1, `rgba(8,14,34,${(0.44 * n).toFixed(3)})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
   }
-  const flyOn = ((biome.id === 'pnw' || biome.id === 'atlanta') && (game.season === 1 || game.season === 2)) || biome.id === 'amazon';
+  const flyOn = ((biome.id === 'pnw' || biome.id === 'atlanta') && (game.season === 1 || game.season === 2)) || biome.id === 'amazon' || (biome.id === 'chinandega' && (game.season === 1 || game.season === 2));
   const want = n > 0.05 && flyOn && this.zoom > 0.5 && game.weather !== 'rain' ? Math.round(90 * n * (this.fireflyBoost || 1)) : 0;
   for (let tries = 0; flies.length < want && tries < 12 * (this.fireflyBoost || 1); tries++) {
     const x = bx0 + Math.floor(Math.random() * (bx1 - bx0 + 1)), z = bz0 + Math.floor(Math.random() * (bz1 - bz0 + 1));

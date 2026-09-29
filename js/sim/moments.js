@@ -1,3 +1,5 @@
+import { biome } from '../biome.js';
+
 // Keystone moments: the handful of big natural events each map builds toward. They aren't
 // scripted: each one fires the first time the simulation gets there on its own (the salmon find
 // the freed creek, the herds reach the river), and the interface turns it into a short
@@ -45,8 +47,9 @@ export const ARRIVAL_MOMENTS = { jaguar: 'jaguar', howler: 'howler', elephant: '
 // Fire a moment, once per farm. focus: { x, y } in tiles, or an animal to look at.
 export function moment(game, key, focus) {
   const done = game.flags.moments || (game.flags.moments = {});
-  if (done[key] != null || !MOMENTS[key]) return false;
+  const m = MOMENTS[key] || biome.moments?.[key]; // (a map can bring moments of its own)
+  if (done[key] != null || !m) return false;
   done[key] = game.day;
-  game.emit('moment', { key, ...MOMENTS[key], x: focus.x, y: focus.y, agent: focus.id != null ? focus : null });
+  game.emit('moment', { key, ...m, x: focus.x, y: focus.y, agent: focus.id != null ? focus : null });
   return true;
 }
