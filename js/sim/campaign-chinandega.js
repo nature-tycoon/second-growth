@@ -25,6 +25,10 @@ export function chinandegaChapters(h) {
     const done = `${n.toLocaleString()} / ${target.toLocaleString()} newly shaded tiles`;
     return n < target && k ? `${done} · young trees ${Math.round(100 * sum / k)}% of the way to giving shade` : done;
   };
+  // Chapter 1's planting sets Chapter 2's shade goal: about 2½ new shaded tiles per tree, which
+  // brushed-in trees (clumped or in lines) reach once they're half grown, about as long as it
+  // takes to plant the living fences. (Trees spread one by one shade far more.)
+  const TREES1 = 100, SOIL1 = 80, SHADE2 = Math.round(TREES1 * 2.5);
   const breached = g => { let n = 0; for (let i = 0; i < g.world.n; i++) if (g.world.feature[i] === F.DIKE) n++; return Math.max(0, (g.flags.dikes0 ??= n) - n); };
   return [
     {
@@ -34,19 +38,19 @@ export function chinandegaChapters(h) {
       unlock: ['mix_dryforest', 'mix_groundcover'],
       goals: [
         flag('Inspect a tile or an animal', g => !!g.flags.inspected),
-        count('Plant 60 trees in the pastures', g => g.stats.treesPlanted || 0, 60, ' trees'),
-        count('Sow Soil cover on 40 tiles of bare, burned ground', g => used(g, 'mix_groundcover'), 40, ' tiles'),
+        count(`Plant ${TREES1} trees in the pastures`, g => g.stats.treesPlanted || 0, TREES1, ' trees'),
+        count(`Sow Soil cover on ${SOIL1} tiles of bare, burned ground`, g => used(g, 'mix_groundcover'), SOIL1, ' tiles'),
       ],
     },
     {
       key: 'fences', title: 'Living fences', reward: 2500,
       story: 'Barbed wire on dead posts divides the paddocks. Farmers here have always known a better way: cut a branch of madero negro, stick it in the ground, and it takes root and grows into a living fence post. A line of them becomes a hedge that birds and monkeys can travel along.',
-      teach: 'Plant <b>Plant → Trees → Living fence</b> right along the barbed-wire lines between the paddocks: the cuttings root as fence posts. The cows can\'t get at young trees planted in the fence line. <b>Remove → Pull invasives</b> clears jaragua from around them. The shade trees from Chapter 1 keep growing while you work, and count toward the shade goal.',
+      teach: 'Plant <b>Plant → Trees → Living fence</b> right along the barbed-wire lines between the paddocks: the cuttings root as fence posts. The cows can\'t get at young trees planted in the fence line. <b>Remove → Pull invasives</b> clears jaragua, and <b>Soil cover</b> sown on the bare ground it leaves keeps the jaragua from coming straight back. The shade trees from Chapter 1 keep growing while you work, and count toward the shade goal.',
       unlock: ['mix_livingfence', 'pull', 'clear'],
       goals: [
         count('Plant 120 living-fence trees', g => used(g, 'mix_livingfence'), 120, ' planted'),
-        count('Pull 80 tiles of jaragua or guinea grass', g => used(g, 'pull'), 80, ' tiles'),
-        { desc: 'Shade 1,000 more tiles of pasture (your trees count once they are half grown)', check: g => newShade(g) >= 1000, prog: shadeProg(1000) },
+        count('Pull jaragua and sow Soil cover where you pulled it, on 150 tiles', g => g.stats.pulledCovered || 0, 150, ' tiles'),
+        { desc: `Shade ${SHADE2} more tiles of pasture: the trees from Chapter 1 do it once they are half grown`, check: g => newShade(g) >= SHADE2, prog: shadeProg(SHADE2) },
       ],
     },
     {

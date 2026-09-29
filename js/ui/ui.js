@@ -379,8 +379,11 @@ export class UI {
     const bar = $('#toolbar');
     bar.innerHTML = '';
     CATEGORIES.forEach((c, n) => {
+      // a group with nothing unlocked yet in the campaign still shows, dimmed, so players know it's
+      // coming (its tools say which chapter opens them); a group with no tools here at all is hidden
       const open = c.key === 'inspect' || this.toolsFor(c.key, true, true).length > 0;
-      const b = el('button', (open ? '' : 'hidden') + (this.newCats?.has(c.key) ? ' fresh' : ''), `${ICONS[c.icon]}<span>${c.name}</span>`);
+      const exists = open || (this.toolsFor(c.key, false, true).length > 0 && !(biome.noVisitors && c.key === 'visitors'));
+      const b = el('button', (open ? '' : exists ? 'locked' : 'hidden') + (this.newCats?.has(c.key) ? ' fresh' : ''), `${ICONS[c.icon]}<span>${c.name}</span>`);
       b.dataset.cat = c.key;
       b.title = c.desc;
       b.addEventListener('click', () => this.openCategory(c.key));
@@ -404,8 +407,8 @@ export class UI {
     if (cat === 'inspect') { st.tool = null; $('#toolpanel').classList.add('hidden'); return; }
     if (cat === 'plants' && !this.toolsFor('plants', true).length) st.plantTab = PLANT_TABS.find(t => this.tabOpen(t.key))?.key || 'mixes';
     const list = this.toolsFor(cat, true);
-    if (!list.length) return;
-    if (!st.tool || TOOLS[st.tool].cat !== cat || !this.isOpen(st.tool)) this.selectTool(list[0].key, false);
+    if (!list.length) st.tool = null; // (nothing unlocked here yet: the panel shows what's coming)
+    else if (!st.tool || TOOLS[st.tool].cat !== cat || !this.isOpen(st.tool)) this.selectTool(list[0].key, false);
     this.renderToolPanel();
     $('#toolpanel').classList.remove('hidden');
   }
@@ -465,10 +468,11 @@ export class UI {
       const open = this.isOpen(t.key), ch = open ? -1 : chapterOfTool(t.key);
       const price = listPrice(this.game, t);
       const card = el('div', 'tool-card' + (t.key === st.tool ? ' on' : '') + (open && price > this.game.money ? ' poor' : '') + (open ? '' : ' locked'));
-      const costTxt = !open ? `Chapter ${ch + 1}` : t.costFor ? 'varies' : price ? money(price) + (t.brush ? '/tile' : '') : 'free';
+      const costTxt = !open ? (ch < 0 ? 'Later' : `Chapter ${ch + 1}`) : t.costFor ? 'varies' : price ? money(price) + (t.brush ? '/tile' : '') : 'free';
       card.innerHTML = `<img src="${iconThumb(t.icon)}" alt="">${open ? '' : `<span class="lock">${ICONS.lock}</span>`}<div class="nm">${t.name}</div><div class="cost">${costTxt}</div>`;
-      card.title = open ? t.desc : `Unlocks in Chapter ${ch + 1}: ${CHAPTERS[ch].title}`;
-      card.addEventListener('click', () => open ? this.selectTool(t.key) : this.game.notify(`${t.name} unlocks in Chapter ${ch + 1}, "${CHAPTERS[ch].title}". Finish this chapter's goals to get there.`, 'info'));
+      // (a few tools aren't part of any chapter and open when the campaign is finished)
+      card.title = open ? t.desc : ch < 0 ? 'Unlocks when you finish the campaign' : `Unlocks in Chapter ${ch + 1}: ${CHAPTERS[ch].title}`;
+      card.addEventListener('click', () => open ? this.selectTool(t.key) : this.game.notify(ch < 0 ? `${t.name} unlocks when you finish the campaign.` : `${t.name} unlocks in Chapter ${ch + 1}, "${CHAPTERS[ch].title}". Finish this chapter's goals to get there.`, 'info'));
       grid.appendChild(card);
     }
     panel.appendChild(grid);

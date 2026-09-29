@@ -480,6 +480,7 @@ body.campaign #banner { top: 124px; }
 .tool-card.locked .cost { color: var(--muted); }
 .tool-card .lock { position: absolute; top: 5px; right: 6px; width: 15px; height: 15px; color: var(--ink-2); }
 .tool-card .lock svg { width: 100%; height: 100%; }
+#toolbar button.locked { opacity: 0.45; } /* campaign: nothing unlocked here yet */
 #toolbar button.fresh { position: relative; }
 #toolbar button.fresh::after { content: ''; position: absolute; top: 5px; right: 8px; width: 9px; height: 9px; border-radius: 50%; background: #e8a33a; box-shadow: 0 0 0 2px var(--paper); animation: fresh-pulse 1.4s ease-in-out infinite; }
 @keyframes fresh-pulse { 50% { transform: scale(1.35); opacity: .7; } }

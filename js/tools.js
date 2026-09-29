@@ -115,6 +115,8 @@ function plantTool(source, cost, density) {
     for (let k = 0; k < species.length; k++) { r -= s[k]; if (r <= 0) { pick = species[k]; break; } }
     w.setPlant(i, pick, 0.1);
     game.stats.planted++;
+    // a native groundcover sown where invasives were pulled out: the ground is taken back for good
+    if (pick.layer === 0 && game.flags.pulled?.[i]) { delete game.flags.pulled[i]; game.stats.pulledCovered = (game.stats.pulledCovered || 0) + 1; }
     // tallies for the campaign: trees planted, and shrubs or trees planted right beside the creek
     if (pick.layer === 2) game.stats.treesPlanted = (game.stats.treesPlanted || 0) + 1;
     if (pick.layer > 0) {
@@ -178,6 +180,9 @@ tool({ key: 'pull', cat: 'remove', name: 'Pull invasives', cost: 8, icon: { plan
     if (w.ground[i] && PLANTS[w.ground[i]].invasive) {
       if (PLANTS[w.ground[i]].sod && w.terrain[i] === T.PASTURE) w.terrain[i] = T.SOIL; // lifting the sod leaves bare clay
       w.ground[i] = 0; w.groundG[i] = 0; n++;
+      // remember where the ground was cleared, so sowing natives there afterwards can be counted
+      const pulled = game.flags.pulled ||= {};
+      if (Object.keys(pulled).length < 4000) pulled[i] = 1;
     }
     if (w.shrub[i] && PLANTS[w.shrub[i]].invasive) { w.shrub[i] = 0; w.shrubG[i] = 0; n++; }
     if (w.tree[i] && PLANTS[w.tree[i]].invasive) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; n++; } // mesquite, leucaena
