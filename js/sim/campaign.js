@@ -144,11 +144,24 @@ export function disturbanceOn(g) {
   return CHAPTERS.slice(0, g.campaign.chapter + 1).some(c => c.events);
 }
 
+// A chapter goal stays done once it has been met, even if the count dips again afterwards (the
+// spoonbills fly off for a while, a fire takes a few trees): otherwise a chapter whose goals were
+// each ticked at some point could still never complete, because they weren't all true on the
+// same day.
+export function goalMet(g, o) {
+  const ch = g.campaign.chapter, j = CHAPTERS[ch]?.goals.indexOf(o);
+  if (j == null || j < 0) return o.check(g);
+  const met = g.campaign.met ||= {}, key = ch + ':' + j;
+  if (met[key]) return true;
+  if (o.check(g)) { met[key] = true; return true; }
+  return false;
+}
+
 // Called every day: completes the chapter once all its goals are met.
 export function checkCampaign(g) {
   const ch = currentChapter(g);
   if (!ch) return;
-  if (!ch.goals.every(o => o.check(g))) return;
+  if (!ch.goals.map(o => goalMet(g, o)).every(Boolean)) return;
   g.campaign.chapter++;
   g.grant(ch.reward * 0.6, 'chapter');
   g.emit('chapter', { done: ch, next: currentChapter(g), index: g.campaign.chapter - 1 });

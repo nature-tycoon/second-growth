@@ -7,7 +7,7 @@ import { ANIMALS, ANIMAL, many, cap } from '../data/animals.js';
 import { PLANTS } from '../data/plants.js';
 import { killTree } from './plants.js';
 import { biome } from '../biome.js';
-import { moment } from './moments.js';
+import { moment, momentFree } from './moments.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -261,7 +261,7 @@ export class Wildlife {
       for (let y = Math.max(0, bank - 3 - Math.floor(rng() * 3)); y <= w.h - 1; y++) path.push(w.idx(x, y));
       a.path = path; a.state = 'walk'; a.wait = 0; a.landed = true;
     }
-    if (n >= 6) moment(this.game, 'crossing', { x: cx + 0.5, y: bank + 2.5 });
+    if (n >= 6 && momentFree(this.game)) moment(this.game, 'crossing', { x: cx + 0.5, y: bank + 2.5 });
     return n;
   }
 
@@ -470,7 +470,7 @@ export class Wildlife {
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (w.inb(x0, y0) && w.distWater[w.idx(x0, y0)] <= 1 && bd < 16) {
       a.wait = 2.5 + Math.random() * 4; a.drinkT = 1.2 + Math.random(); // head down over the water
-      if (this.salmonRun && !this.salmonRun.shown && this.game.day - this.salmonRun.from >= 1) { this.salmonRun.shown = moment(this.game, 'salmon', a) || true; }
+      if (this.salmonRun && !this.salmonRun.shown && this.game.day - this.salmonRun.from >= 1 && momentFree(this.game)) { this.salmonRun.shown = moment(this.game, 'salmon', a) || true; }
       if (Math.random() < 0.08 && bd < 4) { this.game.onPredation(a, f); this.remove(f, 'predation'); }
       return true;
     }
@@ -533,7 +533,8 @@ export class Wildlife {
       else if (def.browseRate && a.state === 'idle') {
         const s = w.shrub[i];
         if (s && !PLANTS[s].invasive && w.shrubG[i] > 0.3) w.shrubG[i] -= def.browseRate;
-        if (w.tree[i] && w.treeG[i] < 0.4) w.treeG[i] = Math.max(0.05, w.treeG[i] - 0.01);
+        // (a sapling set in the fence line is out of reach, behind the wire)
+        if (w.tree[i] && w.treeG[i] < 0.4 && w.feature[i] !== F.FENCE) w.treeG[i] = Math.max(0.05, w.treeG[i] - 0.01);
       }
       // On the savanna the herds nibble and trample woody seedlings wherever they feed, which
       // (with fire) is what keeps the plains open grassland instead of thornbush.

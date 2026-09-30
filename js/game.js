@@ -1,6 +1,6 @@
 // Game state and the simulation clock.
 
-import { arrivalMoment, ARRIVAL_MOMENTS } from './sim/moments.js';
+import { arrivalMoment, momentsDaily, ARRIVAL_MOMENTS } from './sim/moments.js';
 import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, DIFFICULTY, seasonOfMonth, money } from './config.js';
 import { biome, setBiome } from './biome.js';
 import { World, Border } from './world.js';
@@ -147,6 +147,7 @@ export class Game {
     seedRain(this);
     if (this.day % 5 === 0) rootsLoosen(this);
     for (const [key, sp] of Object.entries(this.flags.arrivals || {})) if (arrivalMoment(this, key, ANIMAL[sp])) delete this.flags.arrivals[key];
+    momentsDaily(this);
     this.wildlife.daily();
     this.visitors.daily();
     this.events.daily();

@@ -96,7 +96,7 @@ export function chinandegaChapters(h) {
       unlock: ['mix_mangrove', 'mix_mangrovefloor', 'marsh', 'creek'],
       goals: [
         count('Breach 12 tiles of shrimp pond dike', g => since(g, 'breach', breached(g)), 12, ' tiles'),
-        count('Grow 60 tiles of mangrove where the shrimp ponds were', g => since(g, 'pondMangrove', st(g, 'pondMangrove')), 60, ' tiles'),
+        count('Get 60 mangroves growing where the shrimp ponds were', g => since(g, 'pondMangrove', st(g, 'pondMangrove')), 60, ' mangroves'),
         flag('Roseate spoonbills feed on the drained ponds', g => pop(g, 'spoonbill') > 0, 'They\'re here', 'Needs tidal mudflats where ponds were drained'),
       ],
     },

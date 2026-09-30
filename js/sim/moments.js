@@ -59,8 +59,16 @@ export function arrivalMoment(game, key, def) {
   seen[key] ??= game.day;
   const best = here.reduce((a, b) => (room(b) > room(a) ? b : a));
   if (room(best) < inset && game.day - seen[key] < 60) return false;
+  if (!momentFree(game)) return false; // (and never on top of another moment)
   return moment(game, key, best);
 }
+
+// Keystone moments never pile up: each is at least MOMENT_GAP game days after the last. One that
+// comes up too soon waits its turn (momentsDaily plays it once the gap has passed).
+export const MOMENT_GAP = 20;
+const lastDay = game => game.flags.lastMomentDay ?? -1e9;
+// Whether a moment could play today (for events a map times around its moment, like a hatching).
+export const momentFree = game => game.day - lastDay(game) >= MOMENT_GAP && !game.flags.momentQueue?.length;
 
 // Fire a moment, once per farm. focus: { x, y } in tiles, or an animal to look at.
 export function moment(game, key, focus) {
@@ -68,6 +76,19 @@ export function moment(game, key, focus) {
   const m = MOMENTS[key] || biome.moments?.[key]; // (a map can bring moments of its own)
   if (done[key] != null || !m) return false;
   done[key] = game.day;
-  game.emit('moment', { key, ...m, x: focus.x, y: focus.y, agent: focus.id != null ? focus : null });
+  const ev = { key, x: focus.x, y: focus.y, id: focus.id ?? null };
+  if (!momentFree(game)) (game.flags.momentQueue ||= []).push(ev);
+  else playMoment(game, ev);
   return true;
+}
+function playMoment(game, ev) {
+  game.flags.lastMomentDay = game.day;
+  const m = MOMENTS[ev.key] || biome.moments?.[ev.key];
+  const agent = ev.id != null ? game.wildlife.agents.find(a => a.id === ev.id) || null : null;
+  game.emit('moment', { key: ev.key, ...m, x: agent ? agent.x : ev.x, y: agent ? agent.y : ev.y, agent });
+}
+// Each day: play the next waiting moment once the gap since the last one has passed.
+export function momentsDaily(game) {
+  const q = game.flags.momentQueue;
+  if (q?.length && game.day - lastDay(game) >= MOMENT_GAP) playMoment(game, q.shift());
 }

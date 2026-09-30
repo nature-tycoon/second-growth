@@ -3,7 +3,7 @@
 import { tr } from './i18n.js';
 import { STRUCTURES } from './world.js';
 import { TILE, money } from './config.js';
-import { TOOLS, brushTiles, toolCost, bestSuit } from './tools.js';
+import { TOOLS, brushTiles, strokeTiles, toolCost, bestSuit } from './tools.js';
 import { PLANTS } from './data/plants.js';
 import { ANIMALS } from './data/animals.js';
 import { plantLimits } from './sim/plants.js';
@@ -245,7 +245,7 @@ export class Input {
     const s = this.stroke, g = this.game, w = g.world, tool = s.tool;
     s.last = { x, y };
     if (!w.inb(x, y)) return;
-    const tiles = tool.brush ? brushTiles(w, x, y, this.ui.state.brushR) : [w.idx(x, y)];
+    const tiles = tool.brush ? strokeTiles(w, tool, x, y, this.ui.state.brushR) : [w.idx(x, y)];
     for (const i of tiles) {
       if (s.applied.has(i)) continue;
       s.applied.add(i);
@@ -308,7 +308,7 @@ export class Input {
     ui.state.hover = w.inb(t.x, t.y) ? { x: t.x, y: t.y } : null;
     ui.state.brushR = tool && tool.brush ? ui.state.brushR : 0;
     if (!tool || !ui.state.hover) { ui.state.previewTiles = null; this.tip.classList.add('hidden'); return; }
-    let tiles = tool.brush ? brushTiles(w, t.x, t.y, ui.state.brushR) : [w.idx(t.x, t.y)];
+    let tiles = tool.brush ? strokeTiles(w, tool, t.x, t.y, ui.state.brushR) : [w.idx(t.x, t.y)];
     if (tool.footprint) {
       tiles = [];
       for (let yy = t.y; yy < t.y + tool.footprint[1]; yy++) for (let xx = t.x; xx < t.x + tool.footprint[0]; xx++) if (w.inb(xx, yy)) tiles.push(w.idx(xx, yy));

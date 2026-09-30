@@ -95,25 +95,30 @@ tool({ key: 'lower', cat: 'land', name: 'Lower ground', cost: 14, icon: { svg: '
   desc: 'Scoop out a swale. Hollows collect water and stay moist, which suits sedge, camas and cedar.', apply: reshape(-0.45) });
 
 // ---------------------------------------------------------------- planting
-function plantTool(source, cost, density) {
+// fenceLine: a hedge or living-fence mix, planted right in a fence line (see strokeTiles). On a
+// fence tile every stake or shrub is set (no gaps), starts as a well-rooted cutting, and any lawn
+// under the fence is dug out as a planting strip first.
+function plantTool(source, cost, density, fenceLine = false) {
   const species = Array.isArray(source) ? source.map(k => PLANT[k]) : [PLANT[source]];
   return (game, i, rng) => {
     const w = game.world;
     const layer = species[0].layer;
     const ids = layer === 0 ? w.ground : layer === 1 ? w.shrub : w.tree;
+    const inFence = fenceLine && w.feature[i] === F.FENCE;
+    if (inFence && w.ground[i] && PLANTS[w.ground[i]].sod) { w.ground[i] = 0; w.groundG[i] = 0; if (w.terrain[i] === T.PASTURE) w.terrain[i] = T.SOIL; }
     if (w.ground[i] && PLANTS[w.ground[i]].sod) { // lawn: nothing takes until the sod is dug out
       if (!game.flags.sodHint) { game.flags.sodHint = true; game.notify('Nothing can be planted into lawn. Lift the sod first with Remove → Pull invasives, then plant.', 'info'); }
       return 'unsuitable';
     }
     if (ids[i]) return null;
-    if (rng() > density) return null;
+    if (!inFence && rng() > density) return null;
     // each seed ends up where it suits best: weight by suitability
     let total = 0;
     const s = species.map(p => { const v = plantSuit(w, i, p); const q = v > 0.2 ? v * v : 0; total += q; return q; });
     if (total <= 0) return 'unsuitable';
     let r = rng() * total, pick = species[0];
     for (let k = 0; k < species.length; k++) { r -= s[k]; if (r <= 0) { pick = species[k]; break; } }
-    w.setPlant(i, pick, 0.1);
+    w.setPlant(i, pick, inFence ? 0.3 : 0.1);
     game.stats.planted++;
     // a native groundcover sown where invasives were pulled out: the ground is taken back for good
     if (pick.layer === 0 && game.flags.pulled?.[i]) { delete game.flags.pulled[i]; game.stats.pulledCovered = (game.stats.pulledCovered || 0) + 1; }
@@ -134,8 +139,8 @@ export const bestSuit = (game, i, keys) => Math.max(...keys.map(k => plantSuit(g
 function addPlantTools() {
 for (const m of MIXES) {
   tool({ key: m.key, cat: 'plants', sub: 'mixes', name: m.name, cost: m.cost, icon: { plant: m.species[0], mix: m.species },
-    desc: m.desc, species: m.species, layer: m.layer, size: m.layer === 2 ? 2 : 2,
-    apply: plantTool(m.species, m.cost, m.density) });
+    desc: m.desc, species: m.species, layer: m.layer, size: m.layer === 2 ? 2 : 2, fenceLine: !!m.fenceLine,
+    apply: plantTool(m.species, m.cost, m.density, !!m.fenceLine) });
 }
 for (const p of PLANTS) {
   if (!p || !p.native) continue;
@@ -397,6 +402,16 @@ export const PLANT_TABS = [
 ];
 
 export const BRUSH_SIZES = [0, 1, 2, 3, 5];
+
+// The tiles a stroke works on: the brush, except that a hedge or living-fence mix brushed over a
+// fence plants only along the fence, so a rough stroke gives a clean, unbroken line. (Brushed
+// where there's no fence, it plants like any other mix, to start a new hedge.)
+export function strokeTiles(w, tool, x, y, r) {
+  const tiles = brushTiles(w, x, y, r);
+  if (!tool.fenceLine) return tiles;
+  const fence = tiles.filter(i => w.feature[i] === F.FENCE);
+  return fence.length ? fence : tiles;
+}
 
 // Tiles covered by a brush of radius r centred on (x, y).
 export function brushTiles(w, x, y, r) {

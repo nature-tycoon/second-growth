@@ -161,8 +161,9 @@ export default function buildChinandegaAnimals(def) {
   }
   {
     const w = habW({ MARSH: 1, POND: 1, RIVER: 0.6, CREEK: 0.6 });
-    def({ key: 'spoonbill', name: 'Roseate spoonbill', sci: 'Platalea ajaja', group: 'Birds', move: 'fly',
-      speed: 2.2, hr: 40, max: 8, groupSize: [2, 4], sources: ['S'], mig: 0.3, breed: [], life: 15,
+    // (wide-ranging waders: they find fresh mudflats quickly)
+    def({ key: 'spoonbill', name: 'Roseate spoonbill', sci: 'Platalea ajaja', group: 'Birds', move: 'fly', quick: true,
+      speed: 2.2, hr: 40, max: 8, groupSize: [2, 4], sources: ['S'], mig: 0.7, breed: [], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
       req: g => Math.min(1, stat(g, 'pondsDrained') / 60), // it feeds on the tidal mudflats left where shrimp ponds are breached
       sprite: { kind: 'heron', size: 24, color: '#e8a0b8', breast: '#f0b8c8', head: '#f0e8e0', flight: '#d85a80' },

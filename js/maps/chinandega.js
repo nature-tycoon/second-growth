@@ -11,7 +11,7 @@ import { PLANT, PLANTS } from '../data/plants.js';
 import { ANIMAL } from '../data/animals.js';
 import { riverRow } from '../world.js';
 import { T, F, H } from '../config.js';
-import { moment, arrivalMoment } from '../sim/moments.js';
+import { moment, arrivalMoment, momentFree } from '../sim/moments.js';
 import { plantSuit } from '../sim/plants.js';
 const MANGROVES = ['redmangrove', 'blackmangrove', 'whitemangrove'];
 
@@ -46,8 +46,8 @@ const GOALS = [
     desc: 'Breach the dikes around the old shrimp ponds (Remove → Demolish a dike) so the tide flows in again. The ponds drain to tidal mud, and mangroves seed in on their own. Get the pond water below 60 tiles.',
     check: g => st(g, 'shrimpPonds') < 60, prog: g => `${st(g, 'shrimpPonds')} tiles of shrimp pond left` },
   { key: 'mangroves', name: 'The mangroves come back', reward: 4000,
-    desc: 'Grow 150 tiles of mangrove forest where the shrimp ponds were. Once the tide flows, mangrove seedlings drift in from the old mangroves by themselves; planting red, black and white mangroves speeds it up.',
-    check: g => st(g, 'pondMangrove') >= 150, prog: g => `${Math.min(150, st(g, 'pondMangrove'))} / 150 tiles where the ponds were` },
+    desc: 'Get 150 mangroves growing where the shrimp ponds were. Once the tide flows, mangrove seedlings drift in from the old mangroves by themselves; planting red, black and white mangroves speeds it up.',
+    check: g => st(g, 'pondMangrove') >= 150, prog: g => `${Math.min(150, st(g, 'pondMangrove'))} / 150 mangroves where the ponds were` },
   { key: 'dunes', name: 'Hold the dunes', reward: 2000,
     desc: 'Grow beach morning glory or sea grape on 25 tiles of the dunes at the back of the beach. It holds the sand the sea turtles nest in.',
     check: g => st(g, 'beachPlants') >= 25, prog: g => `${st(g, 'beachPlants')} / 25 tiles` },
@@ -119,7 +119,7 @@ function fincaDaily(g) {
     g.flags.dikes0 ??= dikes;
   }
   { let m = 0, drained = 0;
-    for (const i of g.flags.pond0) { if (w.terrain[i] !== T.POND) drained++; if (w.tree[i] && PLANTS[w.tree[i]].mangrove && w.treeG[i] > 0.4) m++; }
+    for (const i of g.flags.pond0) { if (w.terrain[i] !== T.POND) drained++; if (w.tree[i] && PLANTS[w.tree[i]].mangrove && w.treeG[i] > 0.15) m++; } // (a seedling that has taken root)
     w.stats.pondMangrove = m; w.stats.pondsDrained = drained; }
   // the howlers are back
   if (done.congos == null && ANIMAL.congo) arrivalMoment(g, 'congos', ANIMAL.congo);
@@ -145,7 +145,7 @@ function fincaDaily(g) {
     const x = i % W0, y = (i / W0) | 0;
     let open = false;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (w.inb(x + dx, y + dy) && tidal(w.idx(x + dx, y + dy))) { open = true; break; }
-    if (open && g.rng() < 0.12) { w.terrain[i] = g.rng() < 0.4 ? T.MUD : T.MARSH; w.hydroDirty = true; w.renderDirty = true; }
+    if (open && g.rng() < 0.25) { w.terrain[i] = g.rng() < 0.4 ? T.MUD : T.MARSH; w.hydroDirty = true; w.renderDirty = true; }
   }
   // Mangrove propagules: seedlings that float in on the tide and root in open mud and marsh,
   // mostly close to grown mangroves (in the rainy season, when they drop).
@@ -173,7 +173,7 @@ function fincaDaily(g) {
     const beachRow = x => riverRow(x) - 1 - Math.floor(g.rng() * 3);  // the open sand, a few steps from the waves
     // (in the campaign, not before the turtle-beach chapter)
     const beachReady = g.mode !== 'campaign' || g.campaign.chapter >= 6;
-    if (done.arribada == null && beachReady && g.month >= 4 && g.month <= 7 && W.agents.some(o => o.sp === T0.index && !o.leaving && !o.juvenile)) {
+    if (done.arribada == null && beachReady && g.month >= 4 && g.month <= 7 && momentFree(g) && W.agents.some(o => o.sp === T0.index && !o.leaving && !o.juvenile)) {
       const nests = [];
       for (let k = 0; k < 16; k++) {
         const x = 2 + Math.floor((ESTUARY_X - 6) * (k + 0.2 + g.rng() * 0.6) / 16), y = beachRow(x);
@@ -189,7 +189,9 @@ function fincaDaily(g) {
     }
     // the mothers go back to sea once they've laid
     for (const a of W.agents) if (a.nestUntil && g.day >= a.nestUntil && !a.leaving) { W.leave(a); a.ty = w.h + 4; a.nestUntil = 0; }
-    if (done.hatchlings == null && g.flags.nests && g.day - g.flags.nestDay >= 15) { // (about six weeks of game time)
+    // (about six weeks of game time, a little longer if another moment has just played: the hatching
+    // is its own moment, never on top of another)
+    if (done.hatchlings == null && g.flags.nests && g.day - g.flags.nestDay >= 15 && momentFree(g)) {
       const nests = g.flags.nests;
       moment(g, 'hatchlings', { x: nests[Math.floor(nests.length / 2)][0], y: nests[Math.floor(nests.length / 2)][1] });
       for (const [nx, ny] of nests) for (let k = 0; k < 3 + Math.floor(g.rng() * 3); k++) {

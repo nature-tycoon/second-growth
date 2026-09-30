@@ -12,7 +12,7 @@ import { PLANT, PLANTS, isBlooming } from '../data/plants.js';
 import { plantSuit } from '../sim/plants.js';
 import { riverRow } from '../world.js';
 import { T, F } from '../config.js';
-import { moment } from '../sim/moments.js';
+import { moment, momentFree } from '../sim/moments.js';
 import { ANIMAL } from '../data/animals.js';
 
 const reuse = key => PNW_GOALS.find(g => g.key === key);
@@ -38,7 +38,7 @@ function momentsDaily(g) {
       let best = m[0], bn = 0;
       const inGarden = a => { const w = g.world, x = Math.floor(a.x), y = Math.floor(a.y); return w.inb(x, y) && y >= 3 && w.habitat[w.idx(x, y)] === 3; }; // over a wildflower garden
       for (const a of m) { if (!inGarden(a)) continue; const k = m.filter(o => (o.x - a.x) ** 2 + (o.y - a.y) ** 2 < 25).length; if (k > bn) { bn = k; best = a; } }
-      if (bn >= 4 && moment(g, 'monarchs', { x: best.x, y: best.y })) {
+      if (bn >= 4 && momentFree(g) && moment(g, 'monarchs', { x: best.x, y: best.y })) {
         // the fall migration pours through: a wave of passing monarchs drops into the flowers around them
         const W = g.wildlife, w = g.world;
         for (let k = 0; k < 14; k++) {
@@ -58,7 +58,7 @@ function momentsDaily(g) {
       const p = w.ground[i] ? PLANTS[w.ground[i]] : null;
       if (p && !p.invasive && !p.exotic && p.life >= 5 && w.groundG[i] > 0.5) { n++; sx += i % w.w; sy += (i / w.w) | 0; }
     }
-    if (n >= 250) moment(g, 'fireflies', { x: sx / n + 0.5, y: sy / n + 0.5 });
+    if (n >= 250 && momentFree(g)) moment(g, 'fireflies', { x: sx / n + 0.5, y: sy / n + 0.5 });
   }
 }
 

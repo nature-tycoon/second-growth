@@ -10,7 +10,7 @@ import { STRUCTURES } from '../world.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
 import { layerLight } from '../sim/environment.js';
 import { GOALS, speciesPresent } from '../sim/goals.js';
-import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chapterOfTool } from '../sim/campaign.js';
+import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chapterOfTool, goalMet } from '../sim/campaign.js';
 import { Game, PENDING_KEY } from '../game.js';
 import { biome, BIOMES, BIOME_LIST, onBiome } from '../biome.js';
 import { worldMap } from './worldmap.js';
@@ -866,7 +866,7 @@ export class UI {
     if (campaignOn(g)) {
       camp = '<div class="section-title" style="margin-top:0">Campaign</div>' + CHAPTERS.map((c, k) => {
         const state = k < g.campaign.chapter ? 'done' : k === g.campaign.chapter ? 'now' : 'later';
-        const goals = state === 'now' ? `<div class="ch-goals">${c.goals.map(o => `<div class="need"><span class="st ${o.check(g) ? 'good' : ''}">${o.check(g) ? '✓' : '•'}</span><span>${o.desc} <span class="small">(${o.prog(g)})</span></span></div>`).join('')}</div>` : '';
+        const goals = state === 'now' ? `<div class="ch-goals">${c.goals.map(o => `<div class="need"><span class="st ${goalMet(g, o) ? 'good' : ''}">${goalMet(g, o) ? '✓' : '•'}</span><span>${o.desc} <span class="small">(${o.prog(g)})</span></span></div>`).join('')}</div>` : '';
         return `<div class="goal chapter ${state}"><div class="check">${state === 'done' ? '✓' : k + 1}</div><div><div class="gn">${c.title}</div>${state === 'later' ? '<div class="gd">Locked</div>' : state === 'done' ? '<div class="gd">Complete</div>' : goals}</div><div class="gr">${money(this.game.goalReward(c.reward))}</div></div>`;
       }).join('') + '<div class="section-title">Milestone grants</div>';
     }
@@ -1210,11 +1210,11 @@ export class UI {
     const now = performance.now();
     if (!force && now - (this.questAt || 0) < 1000) return;
     this.questAt = now;
-    const k = g.campaign.chapter, doneN = c.goals.filter(o => o.check(g)).length;
+    const k = g.campaign.chapter, doneN = c.goals.filter(o => goalMet(g, o)).length;
     q.classList.remove('hidden');
     q.classList.toggle('open', !!this.questOpen);
     const qhtml = `<button class="q-head" title="${this.questOpen ? 'Hide goals' : 'Show goals'}"><span class="q-ch">Chapter ${k + 1}/${CHAPTERS.length}</span><b>${c.title}</b><span class="q-n">${doneN}/${c.goals.length}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
-      (this.questOpen ? `<div class="q-body">${c.goals.map(o => { const ok = o.check(g); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${o.desc}<small>${o.prog(g)}</small></span></div>`; }).join('')}<button class="q-more">Chapter details</button></div>` : '');
+      (this.questOpen ? `<div class="q-body">${c.goals.map(o => { const ok = goalMet(g, o); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${o.desc}<small>${o.prog(g)}</small></span></div>`; }).join('')}<button class="q-more">Chapter details</button></div>` : '');
     if (!setHTML(q, qhtml)) return; // unchanged: keep the existing nodes (and their listeners)
     q.querySelector('.q-head').addEventListener('click', () => { this.questOpen = !this.questOpen; this.renderQuest(true); });
     q.querySelector('.q-more')?.addEventListener('click', () => this.openChapter(k, true));
@@ -1252,7 +1252,10 @@ export class UI {
   // and a title card tells the story. The game keeps running at normal speed so it plays out.
   playMoment(m) {
     const g = this.game, r = this.renderer;
-    if (this.moment || this.modalOpen || this.photo) { setTimeout(() => this.playMoment(m), 3000); return; } // wait until the view is free
+    // wait until the view is free, and leave a breather after the last one (at high speed a few
+    // game weeks go by in seconds, so two moments could otherwise come back to back)
+    const breather = 25000 - (performance.now() - (this.momentEnded ?? -1e9));
+    if (this.moment || this.modalOpen || this.photo || breather > 0) { setTimeout(() => this.playMoment(m), Math.max(3000, breather)); return; }
     this.moment = m;
     m.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, speed: g.speed };
     // a night moment (the fireflies) jumps the clock to a clear, warm night, and the meadows light up
@@ -1289,7 +1292,7 @@ export class UI {
       document.body.classList.remove('moment-on');
       setTimeout(() => o.remove(), 700);
       window.removeEventListener('keydown', key, true);
-      this.moment = null;
+      this.moment = null; this.momentEnded = performance.now();
     };
     const key = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); end(); } };
     window.addEventListener('keydown', key, true);
