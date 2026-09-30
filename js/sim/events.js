@@ -9,6 +9,7 @@ import { biome } from '../biome.js';
 
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
+const FIRE_SNAG_G = 0.85; // a tree burned in a fire leaves a snag or log only if it was nearly full grown
 
 export class Events {
   constructor(game) {
@@ -126,7 +127,7 @@ export class Events {
     if (ti) {
       const p = PLANTS[ti];
       if (w.treeG[i] < 0.5) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
-      else if (rng() > (p.fireSurvival ?? 0.4) * w.treeG[i]) killTree(w, i, rng);
+      else if (rng() > (p.fireSurvival ?? 0.4) * w.treeG[i]) killTree(w, i, rng, 0.7, FIRE_SNAG_G); // (only a big tree leaves a snag or log; smaller ones burn up)
     }
     this.burnFeaturesAndWildlife(i);
   }
@@ -144,7 +145,7 @@ export class Events {
       const p = PLANTS[ti];
       if (w.treeG[i] < 0.5) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
       // even thick-barked firs rarely survive a crown fire
-      else if (rng() > (p.fireSurvival ?? 0.4) * 0.2) killTree(w, i, rng, 0.9);
+      else if (rng() > (p.fireSurvival ?? 0.4) * 0.2) killTree(w, i, rng, 0.9, FIRE_SNAG_G);
     }
     this.severeTiles.push(i);
     this.burnFeaturesAndWildlife(i);
@@ -154,6 +155,7 @@ export class Events {
     const g = this.game, w = g.world, rng = g.rng;
     const f = w.feature[i];
     if (f === F.BRUSH || f === F.FENCE || f === F.NESTBOX || f === F.BLIND || (f === F.LOG && rng() < 0.5)) w.feature[i] = 0;
+    else if (f === F.SNAG && biome.savanna && rng() < 0.5) { w.feature[i] = F.LOG; w.featureAge[i] = 0; } // (a grass fire brings dead trees down)
     w.soil[i] = Math.min(1, w.soil[i] + 0.03);
     // wildlife caught in the flames
     const wl = g.wildlife;

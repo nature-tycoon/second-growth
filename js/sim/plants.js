@@ -23,7 +23,9 @@ export function terrainFit(w, i, p) {
       if (p.aquatic) return t === T.MUD ? 0.8 : 0;
       if (p.mangrove) return t === T.MUD ? 1 : 0.15; // mangroves need their feet in salty mud
       switch (t) {
-        case T.GRAVEL: return p.gravelOK ? 0.7 : 0.3;
+        // (on crusted hardpan only the pioneers take, rooting in its cracks; everything else needs
+        // the crust broken first by loosening the soil or digging half-moon pits)
+        case T.GRAVEL: return p.gravelOK ? 0.7 : biome.hardpan ? (p.crustOK ? 0.6 : 0.12) : 0.3;
         case T.FIELD: return 0.85;
         case T.PASTURE: return p.layer === 0 ? 0.55 : 0.75; // old sod competes with seedlings
         case T.MUD: return p.moist[1] >= 0.8 ? 1 : 0.6;
@@ -57,6 +59,7 @@ export function plantLimits(w, i, p) {
   if (m < p.moist[0] - 0.05) out.push('too dry');
   if (m > p.moist[1] + 0.05) out.push('too wet');
   if (w.soil[i] < p.soil - 0.03) out.push('soil too poor');
+  if (biome.hardpan && w.terrain[i] === T.GRAVEL && !p.gravelOK && !p.crustOK) out.push('crusted hardpan: loosen it or dig half-moon pits first');
   return out;
 }
 
@@ -256,8 +259,11 @@ export function updatePlants(game) {
     if (f === F.SNAG || f === F.LOG || f === F.BRUSH || f === F.DAM || f === F.STUMP) {
       w.featureAge[i] += 1;
       const ay = w.featureAge[i] / 120;
-      if (f === F.SNAG && ay > 8 && rng() < 0.002) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
-      else if (f === F.LOG) { w.soil[i] += 0.0004; if (ay > 25 && rng() < 0.002) { w.feature[i] = 0; w.featureAge[i] = 0; } }
+      // On the savanna, dead wood doesn't last: the yearly fires, termites and elephants bring a
+      // standing dead tree down within a couple of years and clear the log away soon after.
+      const sav = biome.savanna;
+      if (f === F.SNAG && ay > (sav ? 2 : 8) && rng() < (sav ? 0.01 : 0.002)) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
+      else if (f === F.LOG) { w.soil[i] += 0.0004; if (ay > (sav ? 4 : 25) && rng() < (sav ? 0.01 : 0.002)) { w.feature[i] = 0; w.featureAge[i] = 0; } }
       else if (f === F.BRUSH && ay > 6 && rng() < 0.003) { w.feature[i] = 0; w.soil[i] += 0.05; }
       else if (f === F.STUMP && ay > 2 && rng() < 0.004) { w.feature[i] = 0; w.featureAge[i] = 0; w.soil[i] += 0.04; }
     }
@@ -268,8 +274,10 @@ export function updatePlants(game) {
 }
 
 // A big tree that dies leaves a snag (standing) or a log (fallen); snagOdds sets which.
-export function killTree(w, i, rng, snagOdds = 0.7) {
-  const big = w.treeG[i] > 0.6;
+// (minG: how grown a tree must be to leave a snag or log; a fire burns smaller trees up entirely)
+export function killTree(w, i, rng, snagOdds = 0.7, minG = 0.6) {
+  const big = w.treeG[i] > minG;
+  if (biome.savanna) snagOdds *= 0.35; // (on the savanna a dead tree mostly falls: fire, termites and elephants)
   w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
   if (big && !w.feature[i]) {
     w.feature[i] = rng() < snagOdds ? F.SNAG : F.LOG;
@@ -333,7 +341,7 @@ export function rootsLoosen(game) {
   const w = game.world, W = w.w, rng = game.rng;
   for (let i = 0; i < w.n; i++) {
     const t = w.terrain[i];
-    if (t !== T.FIELD && t !== T.PASTURE) continue;
+    if (t !== T.FIELD && t !== T.PASTURE && !(biome.hardpan && t === T.GRAVEL)) continue; // (and crusted hardpan)
     if ((w.trod && w.trod[i] > 0.1) || !rooted(w, i) || rng() > 0.008) continue;
     const x = i % W, y = (i / W) | 0;
     let n = 0;

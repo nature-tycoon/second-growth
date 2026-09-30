@@ -2,7 +2,7 @@
 
 import { tr } from './i18n.js';
 import { STRUCTURES } from './world.js';
-import { TILE, money } from './config.js';
+import { TILE, T, money } from './config.js';
 import { TOOLS, brushTiles, strokeTiles, toolCost, bestSuit } from './tools.js';
 import { PLANTS } from './data/plants.js';
 import { ANIMALS } from './data/animals.js';
@@ -288,6 +288,11 @@ export class Input {
       const p = PLANTS.find(q => q && q.key === s.tool.species[0]);
       const lim = s.lastBad != null ? plantLimits(g.world, s.lastBad, p) : [];
       g.notify(`${s.tool.name} won't survive here${lim.length ? ` (${lim.join(', ')})` : ''}. Green previews show where it will grow.`, 'warn');
+      // the first time: why nothing takes on hardpan, and what to do about it
+      if (biome.hardpan && s.lastBad != null && g.world.terrain[s.lastBad] === T.GRAVEL && !g.flags.hardpanHint) {
+        g.flags.hardpanHint = true;
+        g.notify('This is crusted hardpan: rain runs straight off it and seed can\'t root. Break the crust first with Landscape → Loosen soil or Half-moon pits, then sow. Only the Soil builders mix will take on bare crust, slowly.', 'info', { x: s.lastBad % g.world.w + 0.5, y: ((s.lastBad / g.world.w) | 0) + 0.5 });
+      }
     }
     this.ui.renderInfo();
     if (s.tool.cat === 'visitors') this.ui.renderToolPanel();
@@ -341,6 +346,7 @@ export class Input {
     if (tool.species) {
       const s = bestSuit(g, i0, tool.species);
       txt += s > 0.55 ? ` · ${tr('good spot')}` : s > 0.3 ? ` · ${tr('okay spot')}` : ` · <span class="bad">${tr('poor spot')}</span>`;
+      if (biome.hardpan && w.terrain[i0] === T.GRAVEL && !tool.species.some(k => PLANTS.find(p => p?.key === k)?.crustOK || PLANTS.find(p => p?.key === k)?.gravelOK)) txt += ` · <span class="bad">${tr('hardpan: loosen it first')}</span>`;
     }
     if (this.stroke && this.stroke.cost) txt += ` · ${tr(`spent ${money(this.stroke.cost)}`)}`;
     this.tip.innerHTML = txt;

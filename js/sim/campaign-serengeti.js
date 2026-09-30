@@ -24,7 +24,7 @@ export function serengetiChapters(h) {
     {
       key: 'crust', title: 'Break the crust', reward: 2000,
       story: 'Too many cattle for too many years have stripped Enkare bare. The rain now runs straight off a hard crust and carries the last topsoil away. Before grass can come back, the ground has to hold water again.',
-      teach: 'Use <b>Inspect</b> to click the land. <b>Landscape → Half-moon pits</b> digs crescent hollows that catch rain and blown seed, and <b>Loosen soil</b> rips the hardpan open. Sow the <b>Soil builders</b> mix into them: dropseed and wild legumes are the only plants that take on bare ground.',
+      teach: 'Use <b>Inspect</b> to click the land. <b>Landscape → Half-moon pits</b> digs crescent hollows that catch rain and blown seed, and <b>Loosen soil</b> rips the hardpan open. Sow the <b>Soil builders</b> mix into them: dropseed and wild legumes are the only plants that take on bare ground, and even they do far better once the crust is broken. Nothing else will root in crusted hardpan until you loosen or pit it.',
       unlock: ['lower', 'rip', 'mulch', 'mix_pioneers_s'],
       goals: [
         flag('Inspect a tile or an animal', g => !!g.flags.inspected),

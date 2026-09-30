@@ -132,7 +132,7 @@ const MAP = {
     marsh: { desc: 'Cavá estero en tierra baja y húmeda. Los mangles pueden crecer en él.' },
     clear: { desc: 'Dejá un cuadro en tierra pelada: jaragua, lo que tenga. Después sembrá nativas.' },
     burn: { desc: 'Una quema temprana y cuidadosa limpia el jaragua antes de que se acumule. Hacela lejos de los árboles jóvenes. Con tiempo seco se puede escapar: hacé una ronda alrededor primero.' },
-    demolish: { desc: 'Quitá cercas, edificios viejos, la alcantarilla, o un bordo de camaronera (romper un bordo deja entrar la marea a la camaronera).' },
+    demolish: { desc: 'Quitá cercas, edificios viejos, caminos, la alcantarilla, o un bordo de camaronera (romper un bordo deja entrar la marea a la camaronera).' },
   },
   moments: {
     hatchlings: { title: 'Las tortuguitas corren al mar', text: 'Semanas después de que una paslama subió a la playa a poner sus huevos, las crías escarbaron juntas hasta salir de la arena y corren hacia las olas. Solo una de cada mil llegará a grande, y las que lo logren volverán a esta misma playa a anidar.' },

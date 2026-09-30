@@ -230,12 +230,13 @@ tool({ key: 'clearcut', cat: 'remove', name: 'Cut trees', cost: 12, icon: { svg:
     return true;
   } });
 tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: 'demolish' }, size: 0,
-  desc: 'Tear out fences, old buildings, the road culvert, or habitat features. Buildings and machinery sell for salvage.',
+  desc: 'Tear out fences, old buildings, roads, the road culvert, or habitat features. Buildings and machinery sell for salvage.',
   costFor: (game, i) => {
     const w = game.world;
     if (w.struct[i] >= 0) { const s = w.structures[w.struct[i]]; const d = STRUCTURES[s.type]; return d.permanent ? 0 : d.removeCost - d.salvage; }
     const f = w.feature[i];
     if (w.terrain[i] === T.TRAIL && !f) return 2;
+    if (w.terrain[i] === T.ROAD && !f) return biome.fixedRoads ? 0 : 15;
     if (f === F.CULVERT) return 4000;
     if (f === F.DIKE) return 60;
     if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return 0;
@@ -257,6 +258,12 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
     }
     const f = w.feature[i];
     if (w.terrain[i] === T.TRAIL && !f) { w.terrain[i] = T.SOIL; return true; }
+    // a road: dug up to bare soil (except the suburb's streets, which people drive on)
+    if (w.terrain[i] === T.ROAD && !f) {
+      if (biome.fixedRoads) { if (!game.flags.permanentHint) { game.flags.permanentHint = true; game.notify('People live here: the homes, the clubhouse and the streets stay. Work around them. Every yard can still be a garden.', 'info'); } return null; }
+      w.terrain[i] = T.SOIL; w.soil[i] = Math.min(w.soil[i], 0.12); w.hydroDirty = true;
+      return true;
+    }
     if (!f || f === F.DAM) return null;
     if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return null; // the street's bridge over the creek stays
     if (f === F.DIKE) {

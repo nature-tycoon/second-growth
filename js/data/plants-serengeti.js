@@ -119,7 +119,7 @@ export default function buildSerengetiPlants(def, mix, get) {
   for (const m of [
     { key: 'mix_pioneers_s', name: 'Soil builders', layer: 0, cost: 3, density: 0.7,
       species: ['sporobolus', 'indigofera', 'crotalaria'],
-      desc: 'Tough grass and nitrogen-fixing legumes that will take on bare, crusted ground and feed the soil for what follows.' },
+      desc: 'Tough grass and nitrogen-fixing legumes, the only mix that will take on bare, crusted hardpan: they root in its cracks, feed the soil, and their roots slowly break the crust. They take far better where the ground has been loosened or pitted first.' },
     { key: 'mix_regrass', name: 'Savanna grass seed', layer: 0, cost: 4, density: 0.7,
       species: ['stargrass', 'finger', 'redoat', 'sporobolus'],
       desc: 'Native grasses for recovering rangeland. Red oat grass only takes hold once the soil has come back.' },
@@ -145,6 +145,7 @@ export default function buildSerengetiPlants(def, mix, get) {
 
   // behaviour flags the simulation reads
   for (const k of ['commiphora', 'euphorbia', 'aloe']) get(k).gravelOK = true; // kopje succulents root even in hardpan
+  for (const k of ['sporobolus', 'indigofera', 'crotalaria']) get(k).crustOK = true; // the soil builders: pioneers that root in the cracks of crusted hardpan
   for (const k of ['redoat', 'stargrass', 'finger', 'sporobolus', 'whistling', 'croton', 'grewia', 'aloe', 'lantana']) get(k).resprout = true; // savanna plants shrug off fire
   Object.entries({ baobab: 0.9, umbrella: 0.7, balanites: 0.7, euphorbia: 0.6, fevertree: 0.5, commiphora: 0.5, sycamorefig: 0.4, sausage: 0.5, mesquite: 0.6 })
     .forEach(([k, v]) => { get(k).fireSurvival = v; });
