@@ -247,6 +247,7 @@ addPatterns([
   [/^☀ (.+)$/, (_, m) => '☀ ' + tr(m)],
   [/^(dry|moist|wet|standing water) to (dry|moist|wet|standing water)$/, (_, a, b) => `${tr(a)} a ${tr(b)}`],
   [/^(\d+) of 5$/, '$1 de 5'],
+  [/^(\d+) \/ (\d+) health$/, '$1 / $2 de salud'],
   [/^for another (\d+) days\.$/, 'por $1 días más.'],
   [/^: (\d+) tiles burning$/, ': $1 cuadros quemándose'],
   [/^: (\d+) tiles underwater\. Trails through it are closed\.$/, ': $1 cuadros bajo el agua.'],

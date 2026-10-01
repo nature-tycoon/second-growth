@@ -162,7 +162,7 @@ const CHAPTERS_ES = [
   ['La temporada de quemas',
     'Desde ahora el verano trae fuego. Los vecinos queman sus potreros para que retoñe el zacate, el jaragua se seca como yesca, y una chispa puede correr por toda la finca y matar los árboles jóvenes. El bosque seco aguanta el fuego de vez en cuando, pero no cada año.',
     '<b>Limpiar vegetación</b> hace rondas alrededor de los árboles jóvenes. Una <b>quema controlada</b> al inicio del verano limpia el jaragua antes de que se acumule, pero con tiempo seco se puede escapar, así que hacé una ronda alrededor primero. Cuando venga un incendio, mandá una <b>cuadrilla de bomberos</b>. La sombra es la cura que dura: el jaragua no crece bajo los árboles.',
-    ['Hacé 40 cuadros de ronda (Limpiar vegetación)', 'Hacé crecer 300 cuadros más de bosque seco', 'Subí 8 puntos la salud del ecosistema']],
+    ['Hacé 40 cuadros de ronda (Limpiar vegetación)', 'Hacé crecer 300 cuadros más de bosque seco', 'Subí 8 puntos la salud del ecosistema (o hasta 94, si ya está alta)']],
   ['Que vuelva la marea',
     'En la costa cavaron camaroneras en el manglar y las cerraron con bordos de lodo. Los pescadores y las mujeres que recogen conchas negras entre las raíces del manglar sacan menos cada año. Rompé los bordos y la marea traerá el manglar de vuelta sola.',
     '<b>Demolé</b> un pedazo de bordo para abrir una camaronera. La marea entra y sale, la camaronera se vacía hasta quedar lodo, y las semillas de mangle llegan flotando y pegan, más rápido junto a los manglares viejos. Sembrar <b>Manglares</b> en las camaroneras vaciadas los hace crecer mucho más rápido, y abrir más de una camaronera ayuda. La plata de la pesca sube con cada cuadro de manglar.',
@@ -174,7 +174,7 @@ const CHAPTERS_ES = [
   ['Del volcán al mar',
     'La finca está unida otra vez: bosque en el volcán, sombra y cercas vivas en los potreros, una quebrada verde, manglares y una playa de tortugas. Ahora pueden volver los animales que necesitan todo eso junto, y algunos necesitan un poco de ayuda.',
     'Las herramientas de <b>Animales</b> pueden traer monos congos del bosque del volcán. Cada uno necesita primero el hábitat correcto; la herramienta te dice qué necesita. Cuidá también el hato: una finca que alimenta a sus familias y a sus animales silvestres es de eso que se trata.',
-    ['Los monos congos crían en el bosque', 'Hacé crecer 250 cuadros más de bosque seco, uniendo los parches', 'Subí $1,500 al mes la plata de la leche y la pesca']],
+    ['Los monos congos se quedan en el bosque: una manada de 10, o una cría nacida', 'Hacé crecer 250 cuadros más de bosque seco, uniendo los parches', 'Subí $1,500 al mes la plata de la leche y la pesca (o hasta $4,200, si ya está alta)']],
 ];
 
 // name, description, and how the progress line reads
@@ -281,10 +281,11 @@ addStrings({
   "They're here": 'Ya están aquí', 'Needs tidal mudflats where ponds were drained': 'Necesita lodazales de marea donde se vaciaron camaroneras',
   'They came ashore': 'Salieron a la playa', 'They come July to October to a quiet, planted beach': 'Vienen de julio a octubre a una playa tranquila y con plantas',
   'They made it': 'Lo lograron', 'About six weeks after the nesting': 'Unas seis semanas después de la anidada',
-  'A baby in the troop': 'Un bebé en la manada', 'Needs big, connected forest (the Wildlife tools can bring a troop)': 'Necesita bosque grande y conectado (las herramientas de Animales pueden traer una manada)',
+  'The troop has settled': 'La manada se quedó', 'Needs big, connected forest (the Wildlife tools can bring a troop)': 'Necesita bosque grande y conectado (las herramientas de Animales pueden traer una manada)',
 });
 // the finca's monthly earnings message
 addPatterns([
+  [/^\$([\d,]+) \/ \$([\d,]+) a month$/, '$$$1 / $$$2 al mes'],
   [/^([\d,]+) \/ ([\d,]+) newly shaded tiles · young trees (\d+)% of the way to giving shade$/, '$1 / $2 cuadros nuevos con sombra · los árboles jóvenes van en un $3% del camino para dar sombra'],
   [/^This month the cooperative sold \$([\d,]+) of milk and cheese, and the fishers and cockle gatherers \$([\d,]+) of fish and conchas negras\. Shade trees in the pasture raise the first; mangroves raise the second\.$/,
     'Este mes la cooperativa vendió $$$1 de leche y queso, y los pescadores y las concheras $$$2 de pescado y conchas negras. Los árboles de sombra en el potrero suben lo primero; los manglares suben lo segundo.'],

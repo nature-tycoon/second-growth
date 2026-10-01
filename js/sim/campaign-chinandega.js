@@ -14,6 +14,12 @@ export function chinandegaChapters(h) {
   const st = (g, k) => g.world.stats?.[k] || 0;
   // progress within the current chapter: what was already there when it began doesn't count
   const since = (g, key, now) => { const b = g.flags.chBase ||= {}; const k = key + ':' + g.campaign.chapter; if (b[k] == null) b[k] = now; return Math.max(0, now - b[k]); };
+  // the value something had when the current chapter began (see since)
+  const base = (g, key, now) => { const b = g.flags.chBase ||= {}; const k = key + ':' + g.campaign.chapter; if (b[k] == null) b[k] = now; return b[k]; };
+  // health tops out at 100, so a farm that's already near the top only has to reach 94
+  const healthTarget = g => Math.min(base(g, 'score', Math.round(score(g))) + 8, 94);
+  const income = g => (g.cache.milk || 0) + (g.cache.catch || 0);
+  const incomeTarget = g => Math.min(base(g, 'income', income(g)) + 1500, 4200);
   const births = (g, key) => (ANIMAL[key] && g.wildlife.state[ANIMAL[key].index]?.births) || 0;
   // the finca starts with plenty of shade from its old trees; the goals count only new shade
   const newShade = g => Math.max(0, st(g, 'silvo') - (g.flags.silvo0 ??= st(g, 'silvo')));
@@ -86,7 +92,7 @@ export function chinandegaChapters(h) {
       goals: [
         count('Cut 40 tiles of firebreak (Clear vegetation)', g => since(g, 'clear', used(g, 'clear')), 40, ' tiles'),
         count('Grow 300 more tiles of dry forest', g => since(g, 'forest', st(g, 'forest')), 300, ' tiles'),
-        count('Raise the ecosystem health score by 8 points', g => since(g, 'score', Math.round(score(g))), 8, ' points'),
+        { desc: 'Raise the ecosystem health score by 8 points (or to 94, if it is already high)', check: g => Math.round(score(g)) >= healthTarget(g), prog: g => `${Math.round(score(g))} / ${healthTarget(g)} health` },
       ],
     },
     {
@@ -117,9 +123,12 @@ export function chinandegaChapters(h) {
       teach: 'The <b>Wildlife</b> tools can bring back howler monkeys from the forest on the volcano. Each needs the right habitat first; the tool shows what it needs. Keep the herd healthy too: a finca that feeds its families and its wildlife is the whole point.',
       unlock: wildlifeTools(),
       goals: [
-        flag('Monos congos raise young in the forest', g => pop(g, 'congo') > 0 && since(g, 'congoBirths', births(g, 'congo')) > 0, 'A baby in the troop', 'Needs big, connected forest (the Wildlife tools can bring a troop)'),
+        // (a troop that already fills its forest doesn't breed, so a big troop counts too)
+        flag('Monos congos settle in the forest: a troop of 10, or a baby born', g => pop(g, 'congo') >= 10 || (pop(g, 'congo') > 0 && since(g, 'congoBirths', births(g, 'congo')) > 0), 'The troop has settled', 'Needs big, connected forest (the Wildlife tools can bring a troop)'),
         count('Grow 250 more tiles of dry forest, joining the patches up', g => since(g, 'forest', st(g, 'forest')), 250, ' tiles'),
-        count('Raise the monthly milk and fish money by $1,500', g => since(g, 'income', (g.cache.milk || 0) + (g.cache.catch || 0)), 1500, ' dollars more a month'),
+        // (it tops out around $4,500-5,000 a month on a well-run finca, so a farm that's already doing
+        // well only has to reach $4,200)
+        { desc: 'Raise the monthly milk and fish money by $1,500 (or to $4,200, if it is already high)', check: g => income(g) >= incomeTarget(g), prog: g => `$${income(g).toLocaleString()} / $${incomeTarget(g).toLocaleString()} a month` },
       ],
     },
   ];
