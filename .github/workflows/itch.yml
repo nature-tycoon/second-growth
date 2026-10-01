@@ -1,0 +1,36 @@
+# Publish the game to itch.io on every push to main, with itch.io's butler tool (it uploads only
+# what changed). Needs two settings in the GitHub repo (Settings → Secrets and variables → Actions):
+#   secret   BUTLER_API_KEY  an itch.io API key (itch.io → Settings → API keys)
+#   variable ITCH_GAME       the itch.io page, as user/game (from the game's URL, user.itch.io/game)
+# Until ITCH_GAME is set, this does nothing.
+name: Publish to itch.io
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  itch:
+    runs-on: ubuntu-latest
+    if: ${{ vars.ITCH_GAME != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (the same files as tools/build-itch.sh)
+        run: |
+          mkdir -p dist/web
+          git archive HEAD index.html styles.css manifest.json js assets vendor | tar -x -C dist/web
+          ls dist/web
+
+      - name: Install butler
+        run: |
+          curl -sSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip
+          chmod +x butler
+          ./butler -V
+
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: ./butler push dist/web "${{ vars.ITCH_GAME }}:html5" --userversion "$(git rev-parse --short HEAD)"
