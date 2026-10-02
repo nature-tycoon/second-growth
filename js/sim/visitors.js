@@ -34,7 +34,7 @@ export class Visitors {
 
   isPath(i) {
     const w = this.game.world;
-    return (w.terrain[i] === T.TRAIL || w.feature[i] === F.BOARDWALK) && !w.flood[i] && !w.fire[i];
+    return (w.terrain[i] === T.TRAIL || w.feature[i] === F.BOARDWALK || (w.marks[i] & 1)) && !w.flood[i] && !w.fire[i];
   }
 
   // Trail tiles reachable on foot from a trailhead parking lot.
@@ -211,7 +211,7 @@ export class Visitors {
     g.money -= this.upkeep;
     g.stats.visitorIncome = (g.stats.visitorIncome || 0) + this.income;
     let trailTiles = 0;
-    for (let i = 0; i < g.world.n; i++) if (g.world.terrain[i] === T.TRAIL) trailTiles++;
+    for (let i = 0; i < g.world.n; i++) if (g.world.terrain[i] === T.TRAIL || (g.world.marks[i] & 1)) trailTiles++;
     if (fac.parking && trailTiles >= 4 && len < 4 && !this.warnedGap) {
       this.warnedGap = true;
       g.notify('No one can reach your trail: it isn\'t connected to the trailhead parking. Extend it to within two tiles of the lot.', 'warn');

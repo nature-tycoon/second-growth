@@ -296,6 +296,13 @@ export const TREE_SHAPES = {
   raintree:   { kind: 'broad', height: 1.75, rx: 0.98, ry: 0.36, blobs: 18, trunkH: 0.72, trunkR: 0.1, lobes: 4 },   // genízaro: a broad umbrella
   mangrovebush: { kind: 'broad', height: 0.95, rx: 0.48, ry: 0.36, blobs: 11, trunkH: 0.26, trunkR: 0.05, lobes: 2 }, // black and white mangroves
   euphorbia:  { kind: 'euphorbia', height: 1.6 },
+  // Great Barrier Reef corals (the reef map draws them as its "trees")
+  staghorn:   { kind: 'staghorn', height: 0.55 },  // branching Acropora thickets
+  tablecoral: { kind: 'tablecoral', height: 0.5 }, // a wide flat plate on a short stalk
+  boulder:    { kind: 'boulder', height: 0.5 },    // massive Porites: a lumpy dome, centuries old
+  brain:      { kind: 'brain', height: 0.36 },     // a rounded dome with meandering grooves
+  plating:    { kind: 'plating', height: 0.42 },   // Montipora: whorls of thin, overlapping plates like a cabbage
+  pisonia:    { kind: 'broad', height: 1.45, rx: 0.62, ry: 0.42, blobs: 13, trunkH: 0.5, trunkR: 0.09, lobes: 3 }, // the cay's soft-wooded forest tree
 };
 
 // Crown and trunk for any tree shape.
@@ -314,6 +321,11 @@ function treePartsRaw(shape, seed, lod) {
     case 'baobab': return baobab(shape, seed, lod);
     case 'euphorbia': return euphorbia(shape, seed, lod);
     case 'mangrove': return mangrove(shape, seed, lod);
+    case 'staghorn': return staghorn(shape, seed, lod);
+    case 'tablecoral': return tableCoral(shape, seed, lod);
+    case 'boulder': return boulderCoral(shape, seed, lod);
+    case 'brain': return brainCoral(shape, seed, lod);
+    case 'plating': return platingCoral(shape, seed, lod);
     default: return broadleaf(shape, seed, lod);
   }
 }
@@ -539,6 +551,112 @@ export function euphorbia(opts, seed, lod = 0) {
   return { crown, trunk: trunk(base + 0.05, 0.085, 0.075) };
 }
 
+// ---------------------------------------------------------------- corals
+// Each coral is its "crown" (painted with the coral's colour); its "trunk" is the little knob of old
+// reef rock it grew on, in the rock's colour.
+const reefRock = (seed, r = 0.12) => soft(new THREE.IcosahedronGeometry(r, 0), { seed, lump: r * 0.4, transform: g => { g.scale(1.3, 0.45, 1.1); } });
+
+// Staghorn: a thicket of branches forking up and out from the base, paler at the growing tips.
+export function staghorn(opts, seed, lod = 0) {
+  const r = mulberry32(seed), H = opts.height, parts = [];
+  const branch = (p0, dir, len, rad, depth) => {
+    const p1 = [p0[0] + dir[0] * len, p0[1] + dir[1] * len, p0[2] + dir[2] * len];
+    parts.push(rod(p0, p1, rad, rad * 0.72, lod ? 4 : 5));
+    if (depth === 0 || (lod && depth < 2)) { parts.push(soft(new THREE.IcosahedronGeometry(rad * 0.8, 0), { transform: g => g.translate(...p1) })); return; }
+    const forks = depth > 1 ? 3 : 2;
+    for (let k = 0; k < forks; k++) {
+      const a = r() * 6.28, out = 0.3 + r() * 0.35;
+      const d = new THREE.Vector3(dir[0] + Math.cos(a) * out, dir[1] + 0.3, dir[2] + Math.sin(a) * out).normalize();
+      branch(p1, [d.x, d.y, d.z], len * (0.6 + r() * 0.2), rad * 0.78, depth - 1);
+    }
+  };
+  // a dense, rounded thicket of stubby, finger-thick branches
+  const n = lod ? 6 : 9;
+  for (let k = 0; k < n; k++) {
+    const a = k / n * 6.28 + r() * 0.6, out = 0.35 + r() * 0.5;
+    const d = new THREE.Vector3(Math.cos(a) * out, 1, Math.sin(a) * out).normalize();
+    branch([Math.cos(a) * 0.05, 0.02, Math.sin(a) * 0.05], [d.x, d.y, d.z], H * (0.3 + r() * 0.12), 0.05, 2);
+  }
+  const crown = merge(parts);
+  shadeVerts(crown, (x, y) => 0.7 + 0.6 * Math.min(1, y / H)); // darker deep in the thicket, bright where it's growing
+  return { crown, trunk: reefRock(seed) };
+}
+
+// Table coral: a short stalk holding up a broad, nearly flat plate, its rim a little wavy and
+// its underside in shadow.
+export function tableCoral(opts, seed, lod = 0) {
+  const r = mulberry32(seed), H = opts.height, R = 0.38 + r() * 0.08;
+  const plate = soft(new THREE.CylinderGeometry(R, R * 0.82, 0.07, lod ? 10 : 22, 1), { seed, lump: 0.05, transform: g => {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), d = Math.hypot(x, z); p.setY(i, p.getY(i) + d * d * 0.18 + Math.sin(Math.atan2(z, x) * 5) * 0.015 * d); }
+    g.translate(0, H * 0.82, 0);
+  } });
+  shadeVerts(plate, (x, y, z) => (y > H * 0.84 ? 1.0 + 0.12 * Math.sin(Math.atan2(z, x) * 13) : 0.6)); // fine radial ridges on top, shadow underneath
+  const stalk = rod([0, 0, 0], [0.02, H * 0.8, 0], 0.07, 0.05, lod ? 5 : 7);
+  const parts = [plate, stalk];
+  if (!lod && r() < 0.6) { // a second, smaller plate to one side
+    const a = r() * 6.28, d = 0.18;
+    parts.push(soft(new THREE.CylinderGeometry(0.22, 0.18, 0.05, 14, 1), { seed: seed + 3, lump: 0.03, transform: g => g.translate(Math.cos(a) * d, H * 0.45, Math.sin(a) * d) }));
+    parts.push(rod([Math.cos(a) * d * 0.6, 0, Math.sin(a) * d * 0.6], [Math.cos(a) * d, H * 0.44, Math.sin(a) * d], 0.04, 0.03, 5));
+  }
+  return { crown: merge(parts), trunk: reefRock(seed, 0.1) };
+}
+
+// Boulder coral: a big, lumpy, rounded mound of smaller domes.
+export function boulderCoral(opts, seed, lod = 0) {
+  const r = mulberry32(seed), H = opts.height, parts = [];
+  const dome = (x, z, rad, h) => parts.push(soft(new THREE.IcosahedronGeometry(rad, lod ? 1 : 2), { seed: seed + parts.length * 7, lump: rad * 0.18, transform: g => { g.scale(1, h / rad, 1); g.translate(x, 0, z); } }));
+  dome(0, 0, 0.4, H);
+  for (let k = 0, m = lod ? 3 : 6; k < m; k++) { const a = r() * 6.28, d = 0.22 + r() * 0.16, rad = 0.14 + r() * 0.1; dome(Math.cos(a) * d, Math.sin(a) * d, rad, H * (0.55 + r() * 0.35)); }
+  const crown = merge(parts);
+  shadeVerts(crown, (x, y) => 0.7 + 0.42 * Math.min(1, Math.max(0, y) / H));
+  return { crown, trunk: reefRock(seed, 0.1) };
+}
+
+// Brain coral: one smooth dome, ridged all over with meandering grooves.
+export function brainCoral(opts, seed, lod = 0) {
+  const H = opts.height, R = 0.36;
+  const g = soft(new THREE.IcosahedronGeometry(R, lod ? 2 : 4), { seed, lump: 0.02, transform: gg => { gg.scale(1, H / R, 1); } });
+  const k = (seed % 7) * 0.7;
+  shadeVerts(g, (x, y, z) => {
+    const m = Math.sin(x * 26 + Math.sin(z * 17 + k) * 2.2) * Math.cos(z * 21 + Math.sin(x * 13) * 1.8);
+    return (0.68 + 0.4 * Math.min(1, Math.max(0, y) / H)) * (Math.abs(m) < 0.28 ? 0.62 : 1); // dark valleys between the ridges
+  });
+  return { crown: g, trunk: reefRock(seed, 0.08) };
+}
+
+// Plating coral: tiers of thin, wavy plates spiralling up and out from the middle.
+export function platingCoral(opts, seed, lod = 0) {
+  const r = mulberry32(seed), H = opts.height, parts = [];
+  for (let k = 0, m = lod ? 4 : 8; k < m; k++) {
+    const a = k * 2.4 + r() * 0.5, tier = k / m, R = 0.16 + (1 - tier) * 0.12 + r() * 0.04, d = 0.06 + (1 - tier) * 0.14;
+    parts.push(soft(new THREE.CircleGeometry(R, lod ? 7 : 14, 0, Math.PI * 1.3), { seed: seed + k, transform: g => {
+      const p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), q = Math.hypot(x, y); p.setZ(i, Math.sin(Math.atan2(y, x) * 4) * 0.025 * q / R - q * q * 0.5); }
+      g.rotateX(-Math.PI / 2 + 0.35); g.rotateY(a); g.translate(Math.cos(a) * d, 0.05 + tier * H * 0.85, Math.sin(a) * d);
+    } }));
+  }
+  const crown = twoSided(merge(parts));
+  shadeVerts(crown, (x, y) => 0.7 + 0.5 * Math.min(1, y / H));
+  return { crown, trunk: reefRock(seed, 0.1) };
+}
+
+// A reef star: a six-armed steel frame, coated in sand, pegged down over loose rubble; each arm
+// arches up from the middle and down to a foot. They're laid in webs, and corals are tied onto them.
+export function reefStar(seed) {
+  const r = mulberry32(seed), parts = [];
+  for (let k = 0; k < 6; k++) {
+    const a = k / 6 * Math.PI * 2 + r() * 0.08, c = Math.cos(a), s = Math.sin(a);
+    const p0 = [0, 0.09, 0], p1 = [c * 0.22, 0.1, s * 0.22], p2 = [c * 0.4, 0.05, s * 0.4], p3 = [c * 0.46, 0.0, s * 0.46];
+    parts.push(rod(p0, p1, 0.026, 0.025, 5), rod(p1, p2, 0.025, 0.024, 5), rod(p2, p3, 0.024, 0.022, 5));
+    parts.push(soft(new THREE.IcosahedronGeometry(0.032, 0), { transform: g => g.translate(...p3) })); // the foot
+  }
+  parts.push(soft(new THREE.IcosahedronGeometry(0.05, 1), { transform: g => { g.scale(1, 0.7, 1); g.translate(0, 0.09, 0); } })); // the welded hub
+  const g = merge(parts);
+  shadeVerts(g, (x, y, z) => 0.85 + 0.25 * Math.abs(Math.sin(x * 40 + z * 37))); // a rough coat of sand
+  return g;
+}
+
 // ---------------------------------------------------------------- shrubs
 export function shrub(type, seed, lod = 0) {
   const r = mulberry32(seed);
@@ -623,12 +741,111 @@ export function shrub(type, seed, lod = 0) {
       cy = 0.35;
       for (let k = 0; k < 3; k++) for (let j = 0; j < 3; j++) { const a = r() * 6.28, d = r() * 0.24; blob(Math.cos(a) * d, 0.18 + k * 0.15, Math.sin(a) * d, 0.16 - k * 0.03, 0.45, 0.8 + k * 0.1); }
       break;
+    // ---- the reef's "shrubs": soft corals, sea fans, anemones, giant clams and starfish
+    case 'softcoral': {
+      // leather coral: a thick stalk under a wide, deeply folded cap
+      cy = 0.16;
+      parts.push(rod([0, 0, 0], [0, 0.12, 0], 0.07, 0.08, 7));
+      parts.push(soft(new THREE.CylinderGeometry(0.22, 0.14, 0.06, lod ? 10 : 24, 1), { seed, transform: g => {
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), d = Math.hypot(x, z), a = Math.atan2(z, x); p.setY(i, p.getY(i) + Math.sin(a * 7 + 1) * 0.045 * d / 0.22); }
+        g.translate(0, 0.15, 0);
+      } }));
+      break;
+    }
+    case 'seafan': {
+      // a gorgonian: a broad, flat lattice fan standing up into the current
+      cy = 0.25;
+      const fan = prep(new THREE.CircleGeometry(0.3, lod ? 8 : 16, 0.15, Math.PI - 0.3).translate(0, 0.05, 0));
+      shadeVerts(fan, (x, y) => 0.8 + y * 0.6);
+      parts.push(twoSided(fan));
+      for (let k = 0; k < (lod ? 3 : 6); k++) { const a = 0.3 + k / 5 * (Math.PI - 0.6); parts.push(rod([0, 0.02, 0.005], [Math.cos(a) * 0.3, 0.05 + Math.sin(a) * 0.3, 0.005], 0.012, 0.005, 4)); }
+      parts.push(rod([0, 0, 0], [0, 0.06, 0], 0.025, 0.02, 5));
+      const g = merge(parts); return g;
+    }
+    case 'anemone': {
+      // a column topped with a mop of fat, rounded tentacles that sway in the current
+      cy = 0.12;
+      parts.push(rod([0, 0, 0], [0, 0.08, 0], 0.13, 0.15, 9));
+      for (let k = 0, m = lod ? 14 : 34; k < m; k++) {
+        const a = r() * 6.28, d = Math.sqrt(r()) * 0.15, out = d / 0.15;
+        const p0 = [Math.cos(a) * d, 0.08, Math.sin(a) * d], len = 0.07 + r() * 0.04;
+        const p1 = [p0[0] + Math.cos(a) * len * out * 0.8, p0[1] + len * (1 - out * 0.5), p0[2] + Math.sin(a) * len * out * 0.8];
+        parts.push(rod(p0, p1, 0.016, 0.014, 4));
+        parts.push(soft(new THREE.IcosahedronGeometry(0.016, 0), { transform: g => g.translate(...p1) }));
+      }
+      const g = merge(parts);
+      shadeVerts(g, (x, y) => (y < 0.08 ? 0.62 : 0.9 + y));
+      return g;
+    }
+    case 'clam': {
+      // a giant clam: two heavy fluted shells, gaping to show the bright mantle between them
+      cy = 0.1;
+      for (const side of [1, -1]) parts.push(soft(new THREE.SphereGeometry(0.2, lod ? 8 : 16, lod ? 5 : 8, 0, Math.PI * 2, 0, Math.PI / 2), { seed: seed + side, transform: g => {
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); p.setY(i, p.getY(i) * (1 + Math.sin(Math.atan2(z, x) * 6) * 0.08)); }
+        g.scale(1, 0.85, 0.55); g.rotateX(side * 1.25); g.translate(0, 0.02, side * 0.03);
+      } }));
+      shadeVerts(parts[0], () => 0.55); shadeVerts(parts[1], () => 0.55);
+      parts.push(soft(new THREE.IcosahedronGeometry(0.17, lod ? 1 : 2), { seed: seed + 5, lump: 0.03, transform: g => { g.scale(1.05, 0.35, 0.32); g.translate(0, 0.17, 0); } })); // the mantle
+      shadeVerts(parts[2], () => 1.2);
+      return merge(parts);
+    }
+    case 'starfish': {
+      // crown-of-thorns: a broad disc with a dozen and more thick arms, bristling with spines
+      cy = 0.04;
+      parts.push(soft(new THREE.IcosahedronGeometry(0.11, lod ? 1 : 2), { seed, transform: g => { g.scale(1, 0.32, 1); g.translate(0, 0.03, 0); } }));
+      const arms = lod ? 9 : 14;
+      for (let k = 0; k < arms; k++) {
+        const a = k / arms * 6.28 + r() * 0.15, len = 0.2 + r() * 0.05;
+        const tip = [Math.cos(a) * (0.08 + len), 0.012, Math.sin(a) * (0.08 + len)];
+        parts.push(rod([Math.cos(a) * 0.06, 0.03, Math.sin(a) * 0.06], tip, 0.03, 0.012, 4));
+        if (!lod) for (let j = 1; j <= 3; j++) {
+          const t = 0.25 + j * 0.2, sx = Math.cos(a) * (0.06 + (len + 0.02) * t), sz = Math.sin(a) * (0.06 + (len + 0.02) * t);
+          parts.push(shadeVerts(rod([sx, 0.035, sz], [sx + Math.cos(a) * 0.01, 0.07, sz + Math.sin(a) * 0.01], 0.008, 0.002, 3), () => 1.35));
+        }
+      }
+      for (let k = 0; k < (lod ? 0 : 14); k++) { const a = r() * 6.28, d = r() * 0.08; parts.push(rod([Math.cos(a) * d, 0.05, Math.sin(a) * d], [Math.cos(a) * d, 0.09, Math.sin(a) * d], 0.007, 0.002, 3)); }
+      return merge(parts);
+    }
+    case 'mushroom': {
+      // mushroom coral: a single loose, oval disc lying on the sand, its top ridged like a mushroom's gills
+      cy = 0.03;
+      const g = soft(new THREE.CylinderGeometry(0.16, 0.13, 0.05, lod ? 10 : 28, 1), { seed, transform: gg => {
+        const p = gg.attributes.position;
+        for (let i = 0; i < p.count; i++) { if (p.getY(i) > 0) p.setY(i, p.getY(i) + 0.03 * (1 - Math.hypot(p.getX(i), p.getZ(i)) / 0.16)); }
+        gg.scale(1.25, 1, 0.85); gg.translate(0, 0.025, 0);
+      } });
+      shadeVerts(g, (x, y, z) => (y > 0.04 ? 0.9 + 0.2 * Math.abs(Math.sin(Math.atan2(z, x) * 14)) : 0.6));
+      return g;
+    }
+    case 'seastar': {
+      // a blue sea star: five smooth, round-tipped arms
+      cy = 0.03;
+      parts.push(soft(new THREE.IcosahedronGeometry(0.05, lod ? 1 : 2), { transform: g => { g.scale(1, 0.4, 1); g.translate(0, 0.02, 0); } }));
+      for (let k = 0; k < 5; k++) {
+        const a = k / 5 * 6.28 + r() * 0.2, tip = [Math.cos(a) * 0.2, 0.012, Math.sin(a) * 0.2];
+        parts.push(rod([Math.cos(a) * 0.03, 0.02, Math.sin(a) * 0.03], tip, 0.03, 0.016, lod ? 4 : 6));
+        parts.push(soft(new THREE.IcosahedronGeometry(0.016, 0), { transform: g => g.translate(...tip) }));
+      }
+      return merge(parts);
+    }
+    case 'sponge': {
+      // a barrel sponge: a thick-walled vase, open at the top
+      cy = 0.2;
+      const outer = soft(new THREE.CylinderGeometry(0.17, 0.12, 0.34, lod ? 8 : 16, 3, true), { seed, lump: 0.02, transform: g => g.translate(0, 0.17, 0) });
+      const inner = soft(new THREE.CylinderGeometry(0.13, 0.09, 0.3, lod ? 8 : 16, 1, true), { transform: g => { g.scale(-1, 1, 1); g.translate(0, 0.2, 0); } });
+      shadeVerts(inner, () => 0.45);
+      parts.push(outer, inner, soft(new THREE.TorusGeometry(0.15, 0.025, 5, lod ? 8 : 16), { transform: g => { g.rotateX(Math.PI / 2); g.translate(0, 0.34, 0); } }));
+      shadeVerts(outer, (x, y) => 0.75 + y * 0.8);
+      return merge(parts);
+    }
     default:
       cy = 0.24;
       for (let k = 0; k < 8; k++) { const a = r() * 6.28, d = r() * 0.19; blob(Math.cos(a) * d, 0.15 + r() * 0.16, Math.sin(a) * d, 0.12 + r() * 0.06, 0.85, 0.8 + r() * 0.25); }
   }
   const g = merge(parts);
-  if (type !== 'broom') volumeNormals(g, 0, cy, 0, 0.55);
+  if (type !== 'broom' && type !== 'softcoral') volumeNormals(g, 0, cy, 0, 0.55);
   return g;
 }
 
@@ -698,6 +915,37 @@ export function tuft(type, seed, lo = false) {
     }
     case 'skunk': {
       for (let k = 0; k < 5; k++) parts.push(ribbon(0.22, 0.05, 0.5, lo ? 2 : 4, k / 5 * 6.28, 0.35, 0, 0, 0xffffff, 0.04));
+      break;
+    }
+    // ---- the reef's groundcover
+    case 'seagrass': blades(10, 0.26, 0.014, 0.5, 0.08); break; // long ribbons streaming in the current
+    case 'spoongrass': {
+      // spoon seagrass: little paired oval leaves on short stalks
+      for (let k = 0, m = lo ? 4 : 8; k < m; k++) {
+        const a = r() * 6.28, d = r() * 0.07, x = Math.cos(a) * d, z = Math.sin(a) * d, h = 0.035 + r() * 0.03;
+        parts.push(soft(new THREE.IcosahedronGeometry(0.022, lo ? 0 : 1), { transform: g => { g.scale(0.6, 0.18, 1.3); g.rotateY(r() * 6.28); g.rotateX(0.5); g.translate(x, h, z); } }));
+        if (!lo) parts.push(soft(new THREE.CylinderGeometry(0.002, 0.003, h, 3), { transform: g => g.translate(x, h / 2, z) }));
+      }
+      break;
+    }
+    case 'crust': {
+      // coralline algae: thin, knobbly pink crusts spreading over the rubble
+      for (let k = 0, m = lo ? 2 : 3; k < m; k++) {
+        const a = r() * 6.28, d = r() * 0.14, s0 = 0.04 + r() * 0.035;
+        parts.push(soft(new THREE.IcosahedronGeometry(s0, lo ? 0 : 1), { seed: seed + k, lump: s0 * 0.5, transform: g => { g.scale(1.3, 0.12, 1.1); g.translate(Math.cos(a) * d, 0.002, Math.sin(a) * d); } }));
+      }
+      break;
+    }
+    case 'turf': blades(16, 0.06, 0.013, 0.9, 0.16); break; // a low, shaggy fuzz of algae
+    case 'halimeda': {
+      // Halimeda: little upright chains of flat green discs, which crumble into white sand when they die
+      for (let k = 0, m = lo ? 2 : 4; k < m; k++) {
+        const x0 = (r() - 0.5) * 0.12, z0 = (r() - 0.5) * 0.12, lean = (r() - 0.5) * 0.5, rot = r() * 6.28;
+        for (let j = 0, n = lo ? 3 : 5; j < n; j++) {
+          const s0 = 0.022 - j * 0.002, y = 0.015 + j * 0.03;
+          parts.push(soft(new THREE.IcosahedronGeometry(s0, 0), { transform: g => { g.scale(1, 0.4, 0.25); g.rotateY(rot); g.rotateZ(1.2 + lean); g.translate(x0 + lean * y, y, z0); } }));
+        }
+      }
       break;
     }
     default: blades(8, 0.15, 0.012, 0.6);
@@ -927,6 +1175,20 @@ export function building(type, w, d) {
       for (const [x, z, rr] of [[-0.15, 0.16, 0.16], [-0.15, -0.16, 0.16], [0.22, 0.14, 0.09], [0.22, -0.14, 0.09]]) {
         const wh = prep(new THREE.CylinderGeometry(rr, rr, 0.07, 10), 0x1e1c1a); wh.rotateX(Math.PI / 2); at(wh, x, rr, z); parts.push(wh);
       }
+      break;
+    }
+    case 'jetty': {
+      // the cay's boat landing: a plank jetty on posts running out over the lagoon, and the dive
+      // boat that brings the snorkelers tied up alongside
+      for (let k = 0; k < 22; k++) parts.push(box(0.9, 0.04, 0.2, k % 2 ? 0x9a8460 : 0x8a7454, 0, 0.1, -0.6 + k * 0.22));
+      for (let k = 0; k < 6; k++) for (const x of [-0.42, 0.42]) parts.push(box(0.07, 1.2, 0.07, 0x6a5a44, x, -1.1, -0.5 + k * 0.9));
+      for (const x of [-0.45, 0.45]) parts.push(box(0.04, 0.04, 4.8, 0x7a6a50, x, 0.32, 1.7)); // handrails
+      for (let k = 0; k < 7; k++) for (const x of [-0.45, 0.45]) parts.push(box(0.04, 0.2, 0.04, 0x7a6a50, x, 0.14, -0.6 + k * 0.78));
+      // the boat: a white hull, a blue canopy on four poles
+      const hull = soft(new THREE.CylinderGeometry(0.32, 0.22, 1.8, 10, 1), { color: 0xf2f0ea, transform: g => { g.scale(1, 1, 0.55); g.rotateX(Math.PI / 2); g.translate(1.05, -0.04, 3.1); } });
+      parts.push(shadeVerts(hull, (x, y) => (y < -0.1 ? 0.55 : 1)));
+      parts.push(box(0.5, 0.03, 0.9, 0x2a6ab0, 1.05, 0.48, 3.1));
+      for (const z of [2.7, 3.5]) for (const x of [0.85, 1.25]) parts.push(box(0.025, 0.42, 0.025, 0xd8d8d8, x, 0.06, z));
       break;
     }
     case 'parking': {

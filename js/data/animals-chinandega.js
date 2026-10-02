@@ -257,7 +257,7 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'snapper', name: 'Mangrove snapper', sci: 'Lutjanus griseus', group: 'Fish', move: 'swim',
       speed: 1.4, hr: 4, max: 24, minK: 2, sources: ['S'], mig: 0.4, breed: [3, 4, 5], litter: [3, 5], life: 8, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * (0.3 + 0.7 * W.waterQ[i]) * (W.connected[i] ? 1 : 0.3),
-      sprite: { kind: 'fish', size: 14, back: '#6a5048', flank: '#b8806a', belly: '#e8cdb0', spiny: true, deep: true, finColor: '#b8503a', eye: '#d86a3a' },
+      sprite: { kind: 'fish', size: 14, back: '#6a5048', flank: '#b8806a', belly: '#e8cdb0', spiny: true, deep: true, finColor: '#b8503a', eye: '#d86a3a', tailShape: 'truncate' },
       desc: 'Pargo. Another fish that needs the mangroves as a nursery before it heads out to the reefs.',
       hint: 'Clean mangrove channels.' });
   }

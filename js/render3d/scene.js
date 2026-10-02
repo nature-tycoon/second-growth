@@ -12,6 +12,7 @@ import { ANIMALS } from '../data/animals.js';
 import { Terrain, buildAtlas } from './terrain.js';
 import { Flora, windGust } from './flora.js';
 import { Actors, salmonLeap } from './actors.js';
+import { SeaSurface } from './sea.js';
 import { building } from './geometry.js';
 import { hash2 } from '../rng.js';
 import { Border } from '../world.js';
@@ -93,6 +94,7 @@ export class Renderer {
     this.terrain = new Terrain(this.scene, this.atlas);
     this.flora = new Flora(this.scene);
     this.actors = new Actors(this.scene);
+    this.seaSurface = new SeaSurface(this.scene);
     this.structMat = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), 1.1));
     this.structs = new Map();
     this.time = 0;
@@ -279,6 +281,7 @@ export class Renderer {
   setWorld(game) {
     this.world = game.world;
     this.terrain.setWorld(game.world, game.border);
+    this.seaSurface.setWorld(game.world);
     for (const m of this.structs.values()) this.scene.remove(m);
     this.structs.clear();
     this.actors.clear();
@@ -299,7 +302,7 @@ export class Renderer {
         m.position.y = w.tileH(s.x, s.y) * LEVEL;
         return;
       }
-      const m = new THREE.Mesh(building(s.type, s.w, s.h), this.structMat);
+      const m = new THREE.Mesh(building(biome.look.structures?.[s.type] || s.type, s.w, s.h), this.structMat); // (a map can draw a building its own way: the reef's boat landing is a jetty)
       m.position.set(s.x + s.w / 2, w.tileH(s.x, s.y) * LEVEL, s.y + s.h / 2);
       if (s.turn) m.rotation.y = Math.PI; // (a building that faces north, onto the street behind it)
       m.castShadow = true; m.receiveShadow = true;
@@ -423,6 +426,7 @@ export class Renderer {
     const su = snow.uSnow;
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, dt);
+    this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game);
     this.gl.render(this.scene, this.camera);
     this.drawFX(game, ui, dt);
   }

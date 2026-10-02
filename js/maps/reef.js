@@ -1,0 +1,379 @@
+// Map: Kalinda Reef, a patch of the southern Great Barrier Reef, Queensland, Australia, off a small
+// sand cay with a research station on it. Bleached in two summer heatwaves, its branching coral
+// has died and collapsed into loose rubble; algae has grown over it, and crown-of-thorns starfish
+// are eating into what's left. An underwater map: the seabed is the "land", corals are its trees.
+
+import buildReefPlants from '../data/plants-reef.js';
+import buildReefAnimals from '../data/animals-reef.js';
+import { generateReef, reefBorderCell, SEA } from './reef-world.js';
+import { pop, speciesPresent } from '../sim/goals.js';
+import { PLANT, PLANTS } from '../data/plants.js';
+import { ANIMALS } from '../data/animals.js';
+import { T, clamp } from '../config.js';
+
+const invPct = g => (g.cache.score?.invFrac ?? 1) * 100;
+const st = (g, k) => g.world.stats?.[k] || 0;
+const dryTile = (w, i) => w.tileH(i % w.w, (i / w.w) | 0) > SEA - 0.2;
+
+const goal = (key, name, reward, desc, check, prog) => ({ key, name, reward, desc, check, prog });
+const GOALS = [
+  goal('stars', 'Hold the rubble down', 1500, 'Lay 120 tiles of reef stars (Landscape → Reef stars) over the loose rubble. Young corals can\'t take hold on rubble that rolls with every swell.',
+    g => (g.stats.used?.rip || 0) >= 120, g => `${Math.min(120, g.stats.used?.rip || 0)} / 120 tiles`),
+  goal('cull', 'Beat the outbreak', 2500, 'Cull every crown-of-thorns starfish on the reef (Remove → Cull starfish & algae).',
+    g => g.day > 5 && st(g, 'cots') === 0, g => `${st(g, 'cots')} starfish left`),
+  goal('snorkel', 'Snorkelers', 2000, 'Mark a snorkel trail out from the boat landing, and welcome your first snorkelers.',
+    g => (g.visitors?.total || 0) > 0, g => g.visitors?.total ? 'Done' : 'No snorkelers yet'),
+  goal('coral400', 'Coral comes back', 3000, 'Grow 400 tiles of living coral. Plant nursery fragments on the reef stars.',
+    g => st(g, 'coral') >= 400, g => `${st(g, 'coral').toLocaleString()} / 400 tiles`),
+  goal('nemo', 'Clownfish move in', 2000, 'Clownfish settle in the reef\'s anemones. Plant more anemones for them.',
+    g => pop(g, 'clownfish') >= 2, g => `${pop(g, 'clownfish')} / 2 clownfish`),
+  goal('cay', 'Green the cay', 2500, 'Plant 60 tiles of the cay with spinifex, octopus bush and pisonia, to hold the sand and give seabirds somewhere to nest.',
+    g => st(g, 'cayPlants') >= 60, g => `${st(g, 'cayPlants')} / 60 tiles`),
+  goal('meadow', 'Seagrass meadows', 2500, 'Grow 1,500 tiles of seagrass meadow on the lagoon sand.',
+    g => (g.world.stats.meadow || 0) >= 1500, g => `${(g.world.stats.meadow || 0).toLocaleString()} / 1,500 tiles`),
+  goal('spawn', 'Spawning night', 3000, 'Have 100 young corals settle from the reef\'s own spawn (every November). They need clean, stable ground near living coral.',
+    g => (g.flags.spawned || 0) >= 100, g => `${g.flags.spawned || 0} / 100 settled`),
+  goal('algae', 'Clean reef', 3000, 'Get algae and starfish below 10% of the reef. Parrotfish and surgeonfish graze algae back for you.',
+    g => invPct(g) < 10, g => `${invPct(g).toFixed(0)}% algae and starfish`),
+  goal('mixed', 'A mixed reef', 3500, 'Grow five kinds of hard coral, each on at least 20 tiles. A reef with fast and tough corals together comes back from heatwaves and cyclones.',
+    g => st(g, 'coralKinds') >= 5, g => `${st(g, 'coralKinds')} / 5 kinds`),
+  goal('species10', 'Full of fish', 4000, 'Have 10 kinds of animals living on the reef at once.',
+    g => speciesPresent(g) >= 10, g => `${speciesPresent(g)} / 10 species`),
+  goal('noddy', 'Noddies nest', 3000, 'Black noddies nest in the cay\'s pisonia trees.',
+    g => pop(g, 'noddy') > 0, g => `${pop(g, 'noddy')} noddies here (${st(g, 'pisonia')} pisonia trees grown)`),
+  goal('humphead', 'The starfish-eater', 4000, 'A humphead wrasse moves in: one of the few fish that eats crown-of-thorns starfish.',
+    g => pop(g, 'humphead') > 0, g => `${pop(g, 'humphead')} humphead wrasse here`),
+  goal('coral1500', 'A living reef', 6000, 'Grow 1,500 tiles of living coral.',
+    g => st(g, 'coral') >= 1500, g => `${st(g, 'coral').toLocaleString()} / 1,500 tiles`),
+  goal('shark', 'Sharks patrol', 6000, 'Whitetip reef sharks hunt the reef. They only stay where there are plenty of fish.',
+    g => pop(g, 'shark') > 0, g => `${pop(g, 'shark')} sharks here`),
+  goal('dugong', 'Sea cows', 6000, 'A dugong comes to graze. Dugongs need big seagrass meadows.',
+    g => pop(g, 'dugong') > 0, g => `${pop(g, 'dugong')} dugongs here`),
+  goal('manta', 'Mantas come to be cleaned', 8000, 'Manta rays visit in winter, when there are old coral heads with cleaner fish on them.',
+    g => pop(g, 'manta') > 0, g => `${pop(g, 'manta')} mantas here (May to October)`),
+  goal('species16', 'Teeming', 10000, 'Have 16 kinds of animals living on and over the reef at once.',
+    g => speciesPresent(g) >= 16, g => `${speciesPresent(g)} / 16 species`),
+  goal('score', 'Thriving', 12000, 'Reach an ecosystem health score of 70.',
+    g => (g.cache.score?.total ?? 0) >= 70, g => `${Math.round(g.cache.score?.total ?? 0)} / 70`),
+];
+
+// ---------------------------------------------------------------- what grows on what
+// Sand suits seagrass. Hard and soft corals need a hard, stable surface: on loose rubble they're
+// knocked over and buried by every swell, unless reef stars or coralline algae hold it together.
+function terrainFit(w, i, p) {
+  if (dryTile(w, i)) return p.cay ? 1 : 0; // (the cay is above the water: only its own plants grow there)
+  if (p.cay) return 0;
+  const t = w.terrain[i];
+  if (p.key === 'fungia') return t === T.GRAVEL ? 0.8 : t === T.PASTURE ? 0.3 : 0.6; // (the coral that lies loose on rubble, and on sand at the reef's edge)
+  if (p.key === 'halimeda') return t === T.PASTURE ? 1 : 0.5;
+  if (p.key === 'linckia') return 0.7; // (blue sea stars roam sand, rubble and reef alike)
+  if (p.key === 'cots') return w.tree[i] ? 1 : 0.15; // starfish go where there's coral to eat
+  const seagrass = p.key === 'halophila' || p.key === 'zostera';
+  const cemented = w.ground[i] === PLANT.cca?.id && w.groundG[i] > 0.4;
+  if (p.layer === 0) {
+    if (seagrass) return t === T.PASTURE ? 1 : t === T.SOIL ? 0.25 : 0.06;
+    if (p.key === 'cca') return t === T.PASTURE ? 0.12 : 1;
+    if (p.key === 'turf') return t === T.PASTURE ? 0.3 : w.tree[i] && w.treeG[i] > 0.5 ? 0.35 : 1; // (living coral fends it off)
+    return null;
+  }
+  if (t === T.SOIL) return 1;
+  if (t === T.GRAVEL) return cemented ? 0.65 : 0.14;
+  if (t === T.PASTURE) return p.layer === 1 && p.key !== 'clam' ? 0.25 : 0.12;
+  return null;
+}
+function groundNote(w, i, p) {
+  if (dryTile(w, i)) return p.cay ? null : 'above the waterline: only cay plants grow here';
+  if (p.cay) return 'under water: cay plants only grow on the island';
+  const t = w.terrain[i];
+  if (p.layer > 0 && p.key !== 'cots' && t === T.GRAVEL && !(w.ground[i] === PLANT.cca?.id && w.groundG[i] > 0.4)) return 'loose rubble: lay reef stars, or let coralline algae cement it, first';
+  if (p.layer > 0 && p.key !== 'cots' && t === T.PASTURE) return 'bare sand: corals need something hard to grow on';
+  return null;
+}
+
+// ---------------------------------------------------------------- the reef's own day
+// Marine heatwaves, crown-of-thorns starfish, and the fish that graze the algae.
+function reefDaily(g) {
+  const w = g.world, rng = g.rng, n = w.n;
+  if (!w.bleach || w.bleach.length !== n) w.bleach = new Float32Array(n);
+  const B = w.bleach, f = g.flags, year = Math.floor(g.day / 120), dom = g.day % 10;
+
+  // A heatwave may come in the first days of summer (December): the water sits a degree or two
+  // too warm for weeks, and corals expel the algae that feed and colour them.
+  if (g.month === 9 && dom === 0 && f.heatYear !== year) {
+    f.heatYear = year;
+    if (year >= 1 && rng() < 0.38 * (g.diff?.disasters ?? 1)) {
+      f.heat = { left: 24 + Math.floor(rng() * 30), sev: 0.6 + rng() * 0.6, hit: 0, dead: 0 };
+      g.notify(`Marine heatwave: the water over the reef is ${f.heat.sev > 0.9 ? 'two' : 'one and a half'} degrees warmer than normal. The corals are starting to bleach. If it doesn't last too long, most will recover.`, 'warn');
+    }
+  }
+  const heat = f.heat && f.heat.left > 0 ? f.heat : null;
+  for (let i = 0; i < n; i++) {
+    const tp = w.tree[i] ? PLANTS[w.tree[i]] : null, sp = w.shrub[i] ? PLANTS[w.shrub[i]] : null;
+    const sens = Math.max(tp?.bleach || 0, sp?.bleach || 0);
+    if (heat && sens > 0) {
+      const depth = SEA - w.tileH(i % w.w, (i / w.w) | 0), cool = clamp((depth - 4) / 8, 0, 0.5); // (deeper water stays a little cooler)
+      const b0 = B[i];
+      B[i] = Math.min(1, B[i] + 0.05 * heat.sev * sens * (1 - cool));
+      if (b0 < 0.5 && B[i] >= 0.5) heat.hit++;
+    } else if (B[i] > 0) B[i] = Math.max(0, B[i] - 0.012); // recovering, slowly, once the water cools
+    if (!sens) { B[i] = 0; continue; }
+    // coral bleached white for too long starves
+    if (B[i] > 0.8 && rng() < 0.012 * (B[i] - 0.6) / 0.4 * (tp ? (tp.bleach ?? 1) : 1)) {
+      if (tp) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; } // dead branches collapse into rubble
+      if (sp && sp.bleach) { w.shrub[i] = 0; w.shrubG[i] = 0; }
+      if (!w.ground[i] || PLANTS[w.ground[i]].key !== 'cca') { w.ground[i] = PLANT.turf.id; w.groundG[i] = 0.2; } // and algae moves in
+      B[i] = 0;
+      if (f.heat) f.heat.dead++;
+    }
+  }
+  if (heat && --heat.left === 0) {
+    g.notify(`The heatwave is over. ${heat.hit} corals bleached${heat.dead ? `, and ${heat.dead} have already died` : ''}. The rest have a few weeks to take their algae back. Heat-tolerant boulder and brain corals came through best.`, heat.dead > 40 ? 'bad' : 'info');
+  }
+
+  // Crown-of-thorns starfish eat the coral they sit on, then move on or starve.
+  const cots = PLANT.cots?.id;
+  if (cots) for (let i = 0; i < n; i++) {
+    if (w.shrub[i] !== cots) continue;
+    if (w.tree[i]) {
+      w.treeG[i] -= 0.006 * w.shrubG[i];
+      if (w.treeG[i] < 0.08) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; if (!w.ground[i]) { w.ground[i] = PLANT.turf.id; w.groundG[i] = 0.2; } }
+    } else if ((w.shrubG[i] -= 0.02) < 0.05) { w.shrub[i] = 0; w.shrubG[i] = 0; }
+  }
+  // Now and then (every several years) a new outbreak drifts in from the reefs up-current.
+  if (cots && rng() < 0.0005 * (g.day < (f.cotsBoostUntil || 0) ? 8 : 1) * (g.diff?.disasters ?? 1) && g.day > 240 && !st(g, 'cots')) {
+    const x0 = rng() < 0.5 ? 2 + Math.floor(rng() * 8) : w.w - 10 + Math.floor(rng() * 8), y0 = Math.floor(w.h * 0.5 + rng() * w.h * 0.35);
+    let k = 0;
+    for (let y = y0 - 4; y <= y0 + 4; y++) for (let x = x0 - 6; x <= x0 + 6; x++) {
+      if (!w.inb(x, y)) continue;
+      const i = w.idx(x, y);
+      if (w.tree[i] && !w.shrub[i] && rng() < 0.4) { w.shrub[i] = cots; w.shrubG[i] = 0.4; k++; }
+    }
+    if (k) g.notify('A crown-of-thorns outbreak has drifted in on the current and is eating into the coral. Cull them before they spread.', 'warn', { x: x0, y: y0 });
+  }
+
+  // Herbivores at work: parrotfish and surgeonfish graze algae down around wherever they are.
+  // ...and the humphead wrasse eats crown-of-thorns starfish, one of the very few things that will.
+  const turf = PLANT.turf?.id, grazers = { parrotfish: 0.14, tang: 0.08 };
+  if (turf) for (const a of g.wildlife.agents) {
+    const key = ANIMALS[a.sp]?.key, bite = grazers[key];
+    if (!bite && key !== 'humphead') continue;
+    const ax = Math.floor(a.x), ay = Math.floor(a.y);
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      if (!w.inb(ax + dx, ay + dy)) continue;
+      const i = w.idx(ax + dx, ay + dy);
+      if (bite && w.ground[i] === turf && (w.groundG[i] -= bite) < 0.06) { w.ground[i] = 0; w.groundG[i] = 0; }
+      if (key === 'humphead' && w.shrub[i] === cots && (w.shrubG[i] -= 0.12) < 0.05) { w.shrub[i] = 0; w.shrubG[i] = 0; }
+    }
+  }
+
+  // Coral spawning: a few nights after the November full moon, every coral on the reef releases its
+  // eggs at once. The larvae drift for days, then settle on clean, stable ground near living reef
+  // (reef stars, cemented rubble), not on loose rubble or under a mat of algae.
+  if (g.month === 8 && dom === 4 && f.spawnYear !== year) {
+    f.spawnYear = year;
+    const kinds = ['staghorn', 'staghorn', 'tablecoral', 'montipora', 'brain', 'boulder'].map(k => PLANT[k]).filter(Boolean);
+    let settled = 0;
+    for (let i = 0; i < n; i++) {
+      if (w.tree[i] || w.shrub[i] || dryTile(w, i) || w.distForest[i] > 4) continue;
+      const t = w.terrain[i], cemented = w.ground[i] === PLANT.cca?.id && w.groundG[i] > 0.4;
+      if (!(t === T.SOIL || (t === T.GRAVEL && cemented))) continue;
+      if (w.ground[i] === turf && w.groundG[i] > 0.3) continue;
+      if (rng() > 0.06) continue;
+      w.setPlant(i, kinds[Math.floor(rng() * kinds.length)], 0.06, 0); settled++;
+    }
+    f.spawned = (f.spawned || 0) + settled;
+    g.notify(settled > 10
+      ? `The corals spawned last night: pink clouds of eggs drifted up off the whole reef at once. ${settled} young corals have settled on clean, stable ground near the living reef.`
+      : `The corals spawned last night, but almost no larvae found anywhere to settle${settled ? ` (${settled})` : ''}. They need stable, clean ground near living coral: reef stars or cemented rubble, free of algae.`, settled > 10 ? 'good' : 'info');
+  }
+
+  // Cyclones: some summers one tracks across the reef, and its swell smashes branching and plate
+  // corals into rubble in a wide band, most in the shallows. Massive corals ride it out, and rubble
+  // held down by reef stars stays put.
+  if (g.month === 9 && dom === 1 && f.cycloneYear !== year) {
+    f.cycloneYear = year;
+    if (year >= 1 && rng() < 0.22 * (g.diff?.disasters ?? 1)) f.cycloneDay = g.day + 3 + Math.floor(rng() * 75);
+  }
+  if (f.cycloneDay && g.day === f.cycloneDay) {
+    f.cycloneDay = 0;
+    const cy = Math.floor(w.h * (0.4 + rng() * 0.5)), half = 12 + Math.floor(rng() * 8);
+    let broken = 0;
+    for (let y = Math.max(0, cy - half); y < Math.min(w.h, cy + half); y++) for (let x = 0; x < w.w; x++) {
+      const i = w.idx(x, y), depth = SEA - w.tileH(x, y), hit = clamp(1.5 - depth * 0.22, 0.3, 1) * (1 - Math.abs(y - cy) / half * 0.5);
+      const tp = w.tree[i] ? PLANTS[w.tree[i]] : null, sp = w.shrub[i] ? PLANTS[w.shrub[i]] : null;
+      if (tp && rng() < (tp.fragile ? 0.45 : 0.03) * hit) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; broken++; }
+      if (sp && sp.fragile && rng() < 0.3 * hit) { w.shrub[i] = 0; w.shrubG[i] = 0; }
+      if (w.ground[i] && (PLANTS[w.ground[i]].key === 'zostera' || PLANTS[w.ground[i]].key === 'halophila')) w.groundG[i] *= 0.7;
+    }
+    g.weather = 'rain';
+    g.notify(`Cyclone! A tropical cyclone passed over the reef in the night, and its waves broke ${broken} corals into rubble. Branching corals regrow fast; the old boulders came through.`, broken > 60 ? 'bad' : 'warn', { x: w.w / 2, y: cy });
+  }
+
+  // Flood plumes: after big wet-season rains on the mainland, the rivers carry mud and fertiliser
+  // out across the lagoon. The water clouds over, algae booms, and the extra nutrients feed
+  // crown-of-thorns larvae, so outbreaks follow a year or two later.
+  if ((g.month >= 10 || g.month === 0) && g.rainStreak >= 3 && f.plumeYear !== g.day - (g.day % 120) && rng() < 0.08 * (g.diff?.disasters ?? 1)) {
+    f.plumeYear = g.day - (g.day % 120);
+    f.plume = { left: 22 };
+    f.cotsBoostUntil = g.day + 300;
+    g.notify('A flood plume: after heavy rain on the mainland, the rivers have pushed muddy, fertiliser-rich water out over the reef. Algae will boom for a few weeks, and the nutrients feed crown-of-thorns larvae: watch for an outbreak.', 'warn');
+  }
+  if (f.plume && f.plume.left > 0) {
+    f.plume.left--;
+    for (let i = 0; i < n; i++) {
+      const gid = w.ground[i];
+      if (gid === turf) w.groundG[i] = Math.min(1, w.groundG[i] + 0.008);
+      else if (!gid && w.terrain[i] === T.GRAVEL && rng() < 0.01) { w.ground[i] = turf; w.groundG[i] = 0.15; }
+      else if (gid && PLANTS[gid].key === 'zostera') w.groundG[i] = Math.max(0.1, w.groundG[i] - 0.002); // (shaded by the murky water)
+    }
+  }
+}
+
+// counts for goals and the manta's cleaning stations
+function reefStats(w, s) {
+  let coral = 0, cots = 0, cleaner = 0, bleached = 0, cay = 0, pisonia = 0;
+  const cid = PLANT.cots?.id, boulder = PLANT.boulder?.id, brain = PLANT.brain?.id, pis = PLANT.pisonia?.id, kinds = {};
+  for (let i = 0; i < w.n; i++) {
+    const tp = w.tree[i] ? PLANTS[w.tree[i]] : null;
+    if (tp && !tp.cay && w.treeG[i] > 0.3) { coral++; kinds[tp.key] = (kinds[tp.key] || 0) + 1; if ((w.tree[i] === boulder || w.tree[i] === brain) && w.treeAge[i] > 40 * 120) cleaner++; }
+    if (w.shrub[i] === cid) cots++;
+    if (w.bleach && w.bleach[i] > 0.5) bleached++;
+    if ((tp?.cay && w.treeG[i] > 0.3) || (w.shrub[i] && PLANTS[w.shrub[i]].cay) || (w.ground[i] && PLANTS[w.ground[i]].cay && w.groundG[i] > 0.3)) cay++;
+    if (w.tree[i] === pis && w.treeG[i] > 0.45) pisonia++;
+  }
+  s.coral = coral; s.cots = cots; s.cleanerTiles = cleaner; s.bleached = bleached; s.cayPlants = cay; s.pisonia = pisonia;
+  s.coralKinds = Object.values(kinds).filter(k => k >= 20).length; // (hard corals growing on at least 20 tiles each)
+}
+
+export default {
+  id: 'reef',
+  name: 'Great Barrier Reef',
+  farm: 'Kalinda Reef',
+  region: 'Great Barrier Reef, Australia',
+  blurb: 'A patch of the southern reef off a little sand cay, bleached in two summer heatwaves: dead coral rubble, smothering algae, and a crown-of-thorns outbreak eating what\'s left.',
+  campaign: false,
+  campaignEnd: '',
+  image: 'assets/maps/reef.jpg',
+  // snorkelers: they come out by boat to the cay's landing and swim the snorkel trails, and pay well
+  visitorValue: 2,
+  funder: 'marine park', // (who pays the grants)
+  // dead coral rubble is the reef's "hardpan": nothing settles on it until it's held still
+  hardpan: true,
+  sandBed: true,
+  // snorkel trails are lines of buoys over the reef, not paths cut through it
+  buoyTrails: true,
+  // the planting panel and field guide: the reef's "trees" are hard corals, its "shrubs" soft corals and the rest
+  plantTabs: { mixes: 'Nursery mixes', ground: 'Seagrass & algae', shrub: 'Soft corals & more', tree: 'Hard corals' },
+  layerNames: ['Seagrass or algae', 'Soft coral', 'Hard coral'],
+  categoryDesc: { plants: 'Plant corals, seagrass and island plants.' },
+  lat: -23.4, lon: 151.9,
+  plants: buildReefPlants,
+  animals: buildReefAnimals,
+  goals: GOALS,
+  generate: generateReef,
+  borderCell: reefBorderCell,
+  terrainFit, groundNote,
+  deadTree: (w, i) => { if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; },
+  daily: reefDaily,
+  // health score: the reef's own habitats, and living coral in place of a healthy creek
+  scoreHabitats: [['MEADOW', 20], ['SHRUB', 15], ['YOUNG_FOREST', 20], ['MATURE_FOREST', 15]],
+  plantSpeciesTarget: 16,
+  scoreWater: g => ({ name: 'Living coral cover', pts: 10 * clamp((g.world.stats?.coral || 0) / 1500, 0, 1), max: 10 }),
+  stats: reefStats,
+  startView: { x: 56, y: 52, zoom: 0.7 },
+  startWildlife: [['parrotfish', 2, 60, 58, 6], ['chromis', 8, 34, 72, 3], ['butterfly', 2, 18, 56, 3], ['tang', 3, 86, 66, 4]],
+  startText: 'Autumn, Year 1. The water is cooling again after a hard summer. A few parrotfish and a school of chromis hang on around the coral that survived.',
+  story: `<p><b>The marine park has asked you to bring Kalinda Reef back.</b> Two summers of marine heatwaves bleached it white, and most of its branching coral died. The dead thickets collapsed into loose rubble that rolls with every swell, so young corals can't settle; algae has grown over it, and crown-of-thorns starfish are eating into the coral that's left. But the old boulder corals came through, and coral larvae drift in on the current every spawning season, looking for somewhere to settle.</p>`,
+  rules: [
+    'You don\'t buy animals or upgrades. <b>You build habitat</b>, and the fish follow: they drift in from the rest of the reef when there\'s coral and food for them, and leave when there isn\'t.',
+    '<b>Rubble is the problem.</b> Coral can\'t grow on rubble that rolls in the swell. <b>Lay reef stars</b> to hold it still, or sow <b>coralline algae</b> to cement it, then plant <b>coral fragments</b> from the nursery.',
+    '<b>Corals spawn</b> after the November full moon, and their larvae settle on clean, stable surfaces. Algae smothers those surfaces; <b>parrotfish and surgeonfish</b> graze it back.',
+    '<b>Crown-of-thorns starfish</b> eat coral. A few are normal; outbreaks strip reefs bare. <b>Cull them</b> whenever they turn up.',
+    '<b>Marine heatwaves</b> come some summers and bleach the corals. Short ones they survive; long ones kill the branching corals. <b>Boulder and brain corals</b> are much tougher: a reef with a mix of corals recovers.',
+    '<b>Seagrass</b> on the lagoon sand is a nursery for young fish, and grazing for green turtles and dugongs.',
+    '<b>Cyclones</b> some summers break branching corals into rubble, and <b>flood plumes</b> from the mainland\'s rivers cloud the water, feed the algae and set off starfish outbreaks.',
+    '<b>Snorkelers</b> come out by boat to the cay. Mark <b>snorkel trails</b> from the boat landing over the reef: the more fish and coral they see, the more they give.',
+    '<b>The cay</b> is bare sand. Plant spinifex, octopus bush and pisonia trees, and seabirds will nest there.',
+  ],
+  firstYear: [
+    '<b>Cull the crown-of-thorns starfish</b> in the east before they spread.',
+    'Lay <b>reef stars</b> over the rubble near the surviving coral, and plant <b>coral nursery fragments</b> on them.',
+    'Sow <b>coralline algae</b> (the Rubble starter mix) on rubble you can\'t cover with stars yet.',
+    'Plant <b>seagrass</b> in the lagoon, and a few <b>anemones</b> for clownfish.',
+    'Lay a <b>snorkel trail</b> out from the boat landing to the surviving coral, so snorkelers start paying for the work.',
+  ],
+  hideTools: ['pond', 'marsh', 'creek', 'fill', 'mulch', 'raise', 'lower', 'snag', 'log', 'brush', 'nestbox', 'burn', 'clear', 'clearcut', 'firecrew',
+    'build_barn', 'build_shed', 'build_house', 'build_silo', 'build_road', 'build_parking', 'boardwalk', 'blind'],
+  toolText: {
+    rip: { name: 'Reef stars', icon: { terrain: T.SOIL }, desc: 'Lay reef stars: small steel frames, coated in sand, pegged down in a web over loose rubble so it stops rolling. Plant coral fragments on them; in a few years the coral grows over them and you can\'t see them.' },
+    pull: { name: 'Cull starfish & algae', icon: { plant: 'cots' }, desc: 'Divers cull crown-of-thorns starfish one by one, and scrape back turf algae. Native corals and seagrass are left alone.' },
+    rocks: { name: 'Reef boulders', desc: 'A heap of limestone boulders: instant shelter for fish while the coral grows back.' },
+    trail: { name: 'Snorkel trail', desc: 'Mark out a snorkel trail with a line of buoys, starting from the boat landing on the cay. Snorkelers swim it face-down at the surface and look down at the reef; the coral and fish under it are left alone. Run it past the best coral.' },
+    build_center: { desc: 'A reef centre beside the boat landing: tanks, a guide on the boat, and a place to hire masks. Snorkelers give more and rate the reef higher.' },
+  },
+  structureNames: { house: 'Research station', shed: 'Dive shed', silo: 'Rainwater tank', parking: 'Boat landing', center: 'Reef centre' },
+  habitatNames: {
+    BARE: 'Coral rubble', FARM: 'Bare sand', INVASIVE: 'Algae and starfish', MEADOW: 'Seagrass meadow', SHRUB: 'Soft coral garden',
+    YOUNG_FOREST: 'Young reef', MATURE_FOREST: 'Old reef', RIPARIAN: 'Reef edge', DEVELOPED: 'The cay',
+  },
+  terrainNames: { PASTURE: 'Sand', GRAVEL: 'Dead coral rubble', SOIL: 'Stable reef (reef stars)', MUD: 'Silt' },
+
+  climate: {
+    // Mar–May autumn, Jun–Aug winter (dry, clear, the mantas come), Sep–Nov spring (corals spawn), Dec–Feb summer (wet, hot: heatwaves)
+    seasons: ['Autumn', 'Winter', 'Spring', 'Summer'],
+    rain: [0.38, 0.3, 0.24, 0.16, 0.12, 0.1, 0.1, 0.12, 0.2, 0.34, 0.48, 0.5],
+    growth: [0.95, 0.85, 0.75, 0.6, 0.55, 0.6, 0.75, 0.9, 1.0, 1.0, 1.0, 1.0],
+    spread: [0.4, 0.3, 0.25, 0.2, 0.2, 0.3, 0.5, 0.8, 1.4, 1.2, 0.6, 0.5], // (mass spawning in November and December)
+    moist: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    snow: null,
+    fireMonths: [], fireRate: 0, fireGap: 9999, crownFires: false,
+    floodMonths: [],
+    tips: [
+      'Autumn: the water cools after summer. Bleached corals that survived are taking their colour back.',
+      'Winter: clear, calm water. Manta rays come in to the old coral heads to be cleaned.',
+      'Spring: the corals spawn after the November full moon. Clean, stable rubble gives the larvae somewhere to settle.',
+      'Summer: the hottest water of the year. Watch for marine heatwaves and bleaching.',
+    ],
+    fireCause: ['Lightning'],
+  },
+  seedRain: {
+    N: ['halophila', 'zostera', 'halophila'],
+    E: ['staghorn', 'tablecoral', 'brain', 'cca', 'softcoral', 'turf', 'turf'],
+    W: ['staghorn', 'tablecoral', 'boulder', 'cca', 'seafan', 'turf'],
+    S: ['seafan', 'softcoral', 'staghorn', 'tablecoral'],
+  },
+  windSeeds: ['staghorn', 'tablecoral', 'cca', 'turf'], // (coral larvae drift in on the current, and settle anywhere they can)
+  berrySeeds: ['halophila'],
+  floodSeeds: ['halophila'],
+  burnSeeds: ['halophila'],
+
+  text: {
+    edges: { N: 'the lagoon to the north', E: 'the reef to the east', S: 'the open ocean', W: 'the reef to the west' },
+    creekFish: 'fish', culvertBlocks: 'fish', fenceBlocks: 'fish',
+    migrantsLeave: ['Heading back out to sea for the summer', 'They remember good places and come back next winter if it is still here.'],
+    flood: 'A big swell is running!', floodOut: '', fireOutRain: '', fireOut: '', crownOut: '',
+    hardpanHint: 'This is loose coral rubble: it rolls in every swell, so young coral can\'t take hold. Lay reef stars first (Landscape → Reef stars), or sow the Rubble starter mix so coralline algae can cement it.',
+    hardpanTip: 'loose rubble: lay reef stars first',
+    hardpanLimit: 'loose rubble: lay reef stars, or let coralline algae cement it, first',
+  },
+  look: {
+    grade: { gain: [0.99, 1.01, 1.02], lift: [0, 0.004, 0.008], sat: 1.08, contrast: 1.06 },
+    pasture: ['#e6dcc0', '#e2dac2', '#e8dec2', '#eae0c2'], // pale coral sand
+    soil: [0.74, 0.7, 0.62], mud: [0.6, 0.56, 0.48],
+    water: { pond: [0.2, 0.55, 0.6, 0.9], creek: [0.2, 0.55, 0.6, 0.8], river: [0.1, 0.4, 0.55, 0.9], marsh: [0.3, 0.55, 0.55, 0.55] },
+    structures: { parking: 'jetty' },
+    underwater: { level: SEA, shallow: [0.09, 0.44, 0.46], deep: [0.02, 0.15, 0.32], surface: [0.24, 0.66, 0.68] },
+    light: [
+      { sun: 0xfff6e8, sunI: 2.8, sky: 0xd8ecf4, ground: 0x5a8a8a, hemiI: 1.25 },
+      { sun: 0xfff8f0, sunI: 2.7, sky: 0xd8eaf4, ground: 0x5a8890, hemiI: 1.22 },
+      { sun: 0xfff6e8, sunI: 2.85, sky: 0xd8eef4, ground: 0x5a8c8a, hemiI: 1.25 },
+      { sun: 0xfff2e0, sunI: 2.95, sky: 0xdceef2, ground: 0x5a8e88, hemiI: 1.28 },
+    ],
+    ambience: {
+      leaves: [0, 0, 0, 0], fluff: [0, 0, 0, 0], mist: [0, 0, 0, 0],
+      leafColors: ['#f0f0e8'],
+      flocks: [['egrets'], ['egrets'], ['egrets', 'swallows'], ['egrets']],
+    },
+    tint: ['rgba(255,255,255,0)', 'rgba(255,255,255,0)', 'rgba(255,255,255,0)', 'rgba(255,250,235,0.01)'],
+  },
+};

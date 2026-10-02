@@ -23,7 +23,7 @@ const saveKey = map => map === 'pnw' ? SAVE_KEY : `${SAVE_KEY}-${map}`;
 export const PENDING_KEY = 'second-growth-pending';
 
 const WORLD_ARRAYS = ['terrain', 'baseMoist', 'moist', 'soil', 'ground', 'groundG', 'shrub', 'shrubG',
-  'tree', 'treeG', 'treeAge', 'feature', 'featureAge', 'struct', 'variant', 'vh', 'flood', 'fire', 'scorch', 'rx'];
+  'tree', 'treeG', 'treeAge', 'feature', 'featureAge', 'struct', 'variant', 'vh', 'flood', 'fire', 'scorch', 'rx', 'marks'];
 
 export class Game {
   constructor() {
@@ -250,7 +250,7 @@ export class Game {
       if (g.check(this)) {
         this.goalsDone[g.key] = this.day;
         const paid = this.grant(g.reward * 0.6, 'goal');
-        this.notify(`Goal complete: ${g.name}! The land trust awarded a ${money(paid)} grant.`, 'goal');
+        this.notify(`Goal complete: ${g.name}! The ${biome.funder || 'land trust'} awarded a ${money(paid)} grant.`, 'goal');
         this.emit('goal', g);
       }
     }

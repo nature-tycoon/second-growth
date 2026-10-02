@@ -75,9 +75,10 @@ export function renderPlants(list) {
     const type = p.look.type;
     if (p.layer === 2) {
       const parts = G.treeParts(G.TREE_SHAPES[type] || G.TREE_SHAPES.oak || Object.values(G.TREE_SHAPES)[0], 500 + p.id);
-      const sc = list.length > 1 ? 0.8 : 1;
+      const sh = G.TREE_SHAPES[type], small = (sh?.height || 2) < 0.8; // (a coral is far smaller than a tree)
+      const sc = list.length > 1 ? (small ? 1 : 0.8) : 1;
       put(parts.crown, leaf, x, 0, sc); put(parts.trunk, lin(p.look.bark || '#6a5a48'), x, 0, sc);
-      x += 1.3;
+      x += small ? 0.75 : 1.3;
     } else if (p.layer === 1) {
       const shape = SHRUB_SHAPES.includes(type) ? type : 'shrub';
       put(G.shrub(shape, 200 + shape.length), leaf, x);
@@ -102,7 +103,7 @@ export function renderPlants(list) {
 export function renderPortrait(def, { fly: flying = false } = {}) {
   if (!R) setup();
   const { geo, motion } = buildSpecies(def);
-  const fly = def.sprite.kind === 'bat' || flying ? 1 : 0; // bats are shown on the wing
+  const fly = def.sprite.kind === 'bat' || def.sprite.kind === 'ray' || flying ? 1 : 0; // bats are shown on the wing
   geo.setAttribute('aAnim', new THREE.InstancedBufferAttribute(new Float32Array([0, 0, fly, 0]), 4));
   const mat = faunaMaterial(motion);
   const mesh = new THREE.InstancedMesh(geo, mat, 1);

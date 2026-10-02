@@ -407,6 +407,7 @@ export class Terrain {
       const v = inside ? w.variant[i] : ((x * 7 + y * 13) & 3);
       let tex = t, c = [1, 1, 1];
       if (t === T.MARSH) { tex = S.TURF; c = [0.52, 0.58, 0.42]; }
+      else if (t === T.TRAIL && biome.sandBed) { tex = S.TURF; c = hexRgb(biome.look.pasture[season]).map(v => v * 1.04); } // (a snorkel trail is just marked with buoys over the sand)
       // pond beds share the marsh's soft texture (just darker), so the two blend at their edges
       else if (t === T.POND) { tex = S.TURF; c = [0.4, 0.44, 0.34]; }
       else if (isWater(t)) { tex = S.BED; c = [0.7, 0.66, 0.58]; }
@@ -446,6 +447,7 @@ export class Terrain {
         if (inside && w.trod && w.trod[i] > 0.12 && t !== T.ROAD) c = mixRgb(c, biome.look.soil, Math.min(0.45, (w.trod[i] - 0.12) * 0.7));
         // ground the player can't work yet (the suburb's other yards) is washed out toward grey
         if (inside && biome.locked?.(game, i)) { const l = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) * 1.08; c = mixRgb(c, [l, l, l * 0.96], 0.55); }
+        if (inside && (w.marks[i] & 1)) c = mixRgb(c, [1, 1, 0.96], 0.24); // (a snorkel trail: just a faint line on the seabed under the buoys)
         if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); }
       }
       {

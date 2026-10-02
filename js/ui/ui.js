@@ -63,7 +63,7 @@ export function plantThumb(key) {
   const m = showcaseMonth(p);
   let src;
   // tropical plants have shapes the 2D painter doesn't know: render their 3D models instead
-  if (p.look.tropical || p.look.savanna) src = trim(renderPlants([p]), 4);
+  if (p.look.tropical || p.look.savanna || biome.look.underwater) src = trim(renderPlants([p]), 4); // (and the reef's corals)
   else if (p.layer === 0) {
     const c = document.createElement('canvas'); c.width = 84; c.height = 84;
     c.getContext('2d').drawImage(S.groundSprite(p.id, 2, m, 0), 0, 0);
@@ -77,9 +77,9 @@ export function plantThumb(key) {
 function mixThumb(keys) {
   const k = 'm' + keys.join();
   if (thumbCache.has(k)) return thumbCache.get(k);
-  if (PLANT[keys[0]].look.tropical || PLANT[keys[0]].look.savanna) {
+  if (PLANT[keys[0]].look.tropical || PLANT[keys[0]].look.savanna || biome.look.underwater) {
     // tallest first so the trees stand behind: trees, then shrubs, then groundcover
-    const url = trim(renderPlants(keys.slice(0, 3).map(k => PLANT[k]).sort((a, b) => b.layer - a.layer)), 4).toDataURL();
+    const url = trim(renderPlants([...new Set(keys)].slice(0, 3).map(k => PLANT[k]).sort((a, b) => b.layer - a.layer)), 4).toDataURL(); // (each kind once, even if the mix weights one)
     thumbCache.set(k, url);
     return url;
   }
@@ -414,12 +414,12 @@ export class UI {
   }
   // Tools in a category (the current plant tab only, unless allTabs); openOnly skips campaign-locked ones.
   toolsFor(cat, openOnly = false, allTabs = false) {
-    let list = Object.values(TOOLS).filter(t => t.cat === cat);
+    let list = Object.values(TOOLS).filter(t => t.cat === cat && !biome.hideTools?.includes(t.key)); // (tools a map has no use for, like a pond on the seabed)
     if (cat === 'plants' && !allTabs) list = list.filter(t => t.sub === this.state.plantTab);
     if (openOnly) list = list.filter(t => this.isOpen(t.key));
     return list;
   }
-  isOpen(key) { if (biome.noVisitors && TOOLS[key]?.cat === 'visitors') return false; const u = unlockedTools(this.game); return !u || u.has(key); }
+  isOpen(key) { if (biome.noVisitors && TOOLS[key]?.cat === 'visitors') return false; if (biome.hideTools?.includes(key)) return false; const u = unlockedTools(this.game); return !u || u.has(key); }
   tabOpen(sub) { return Object.values(TOOLS).some(t => t.sub === sub && this.isOpen(t.key)); }
   selectTool(key, rerender = true) {
     const t = TOOLS[key];
@@ -440,7 +440,7 @@ export class UI {
     if (st.cat === 'inspect') return;
     const cat = CATEGORIES.find(c => c.key === st.cat);
     panel.innerHTML = '';
-    const head = el('div', 'tp-head', `<button class="tp-collapse" title="${st.toolCollapsed ? 'Expand panel' : 'Collapse panel'}">${st.toolCollapsed ? '+' : '−'}</button><h2>${cat.name}</h2><p>${cat.desc}</p>`);
+    const head = el('div', 'tp-head', `<button class="tp-collapse" title="${st.toolCollapsed ? 'Expand panel' : 'Collapse panel'}">${st.toolCollapsed ? '+' : '−'}</button><h2>${cat.name}</h2><p>${biome.categoryDesc?.[cat.key] || cat.desc}</p>`);
     head.querySelector('.tp-collapse').addEventListener('click', () => { st.toolCollapsed = !st.toolCollapsed; this.renderToolPanel(); });
     panel.appendChild(head);
     panel.classList.toggle('collapsed', !!st.toolCollapsed);
@@ -453,7 +453,7 @@ export class UI {
       const tabs = el('div', 'tabs');
       for (const t of PLANT_TABS) {
         if (!this.tabOpen(t.key)) continue;
-        const b = el('button', t.key === st.plantTab ? 'on' : '', t.name);
+        const b = el('button', t.key === st.plantTab ? 'on' : '', biome.plantTabs?.[t.key] || t.name); // (the reef calls its trees hard corals)
         b.addEventListener('click', () => {
           st.plantTab = t.key;
           const first = this.toolsFor('plants', true)[0];
@@ -482,14 +482,17 @@ export class UI {
       let html = `<b>${t.name}</b>`;
       if (t.species && t.species.length === 1) {
         const p = PLANT[t.species[0]];
-        html += `<div class="sci">${p.sci} · ${LAYER_NAMES[p.layer]}</div>`;
+        html += `<div class="sci">${p.sci} · ${p.kindName || biome.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>`;
       }
       html += `<div>${t.desc}</div>`;
       if (t.species) {
-        const sp = t.species.map(k => PLANT[k]);
+        const sp = [...new Set(t.species)].map(k => PLANT[k]); // (a mix can weight one species by listing it twice)
         if (sp.length === 1) {
           const p = sp[0];
-          html += `<div class="prefs"><span>💧 ${moistWord(p.moist[0], p.moist[1])}</span><span>☀ ${lightWord(p.light[0], p.light[1])}</span>${p.soil > 0.15 ? `<span>needs rich soil</span>` : ''}${p.nfix ? '<span>fixes nitrogen</span>' : ''}</div>`;
+          // (under the sea: no moisture, and light is how bright the water is; the "soil builder" is the algae that cements rubble)
+          html += biome.look.underwater && !p.cay
+            ? `<div class="prefs"><span>☀ ${p.light[0] >= 0.5 ? 'bright, shallow water' : p.light[0] <= 0.15 ? 'bright or shaded water' : 'bright or part-shaded water'}</span>${p.nfix ? '<span>cements rubble</span>' : ''}</div>`
+            : `<div class="prefs"><span>💧 ${moistWord(p.moist[0], p.moist[1])}</span><span>☀ ${lightWord(p.light[0], p.light[1])}</span>${p.soil > 0.15 ? `<span>needs rich soil</span>` : ''}${p.nfix ? '<span>fixes nitrogen</span>' : ''}</div>`;
         } else html += `<div class="prefs">${sp.map(p => `<span>${p.name}</span>`).join('')}</div>`;
       }
       if (t.cat === 'visitors') {
@@ -805,7 +808,7 @@ export class UI {
     };
     const showPlant = p => {
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === p.key));
-      detail.innerHTML = `<img class="hero" src="${plantThumb(p.key)}"><h3>${p.name}</h3><div class="small"><i>${p.sci}</i> · ${LAYER_NAMES[p.layer]}</div>
+      detail.innerHTML = `<img class="hero" src="${plantThumb(p.key)}"><h3>${p.name}</h3><div class="small"><i>${p.sci}</i> · ${p.kindName || biome.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>
         <p class="info-desc">${p.desc}</p>
         <div class="kv"><span class="k">Water</span><span>${moistWord(p.moist[0], p.moist[1])}</span>
         <span class="k">Light</span><span>${lightWord(p.light[0], p.light[1])}</span>
@@ -843,7 +846,7 @@ export class UI {
         showAnimal(key ? ANIMAL[key] : ANIMALS.find(a => wl.state[a.index].pop) || ANIMALS[0]);
       } else {
         for (let layer = 0; layer < 3; layer++) {
-          list.appendChild(el('div', 'guide-group', ['Groundcover', 'Shrubs', 'Trees'][layer]));
+          list.appendChild(el('div', 'guide-group', (biome.plantTabs ? [biome.plantTabs.ground, biome.plantTabs.shrub, biome.plantTabs.tree] : ['Groundcover', 'Shrubs', 'Trees'])[layer]));
           const grid = el('div', 'guide-grid');
           for (const p of PLANTS.filter(q => q && q.layer === layer)) {
             const c = el('div', 'gcard', `<img src="${plantThumb(p.key)}"><div class="nm">${p.name}</div><div class="pop ${counts[p.id] ? 'here' : ''}">${counts[p.id] ? counts[p.id] + ' tiles' : 'none yet'}</div>`);
@@ -874,7 +877,7 @@ export class UI {
       const done = !!g.goalsDone[goal.key];
       return `<div class="goal ${done ? 'done' : ''}"><div class="check">${done ? '✓' : ''}</div><div><div class="gn">${goal.name}</div><div class="gd">${goal.desc}</div><div class="gp">${done ? 'Completed' : goal.prog(g)}</div></div><div class="gr">${money(this.game.goalReward(goal.reward))}</div></div>`;
     }).join('');
-    this.modal('Restoration Goals', `<p class="info-desc" style="margin-top:0">The land trust pays a grant for each milestone. Monthly funding also grows with your ecosystem health score and the number of species living here.</p>${html}`, { narrow: true });
+    this.modal('Restoration Goals', `<p class="info-desc" style="margin-top:0">The ${biome.funder || 'land trust'} pays a grant for each milestone. Monthly funding also grows with your ecosystem health score and the number of species living here.</p>${html}`, { narrow: true });
   }
 
   openReport() {

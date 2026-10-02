@@ -291,7 +291,7 @@ export class Input {
       // the first time: why nothing takes on hardpan, and what to do about it
       if (biome.hardpan && s.lastBad != null && g.world.terrain[s.lastBad] === T.GRAVEL && !g.flags.hardpanHint) {
         g.flags.hardpanHint = true;
-        g.notify('This is crusted hardpan: rain runs straight off it and seed can\'t root. Break the crust first with Landscape → Loosen soil or Half-moon pits, then sow. Only the Soil builders mix will take on bare crust, slowly.', 'info', { x: s.lastBad % g.world.w + 0.5, y: ((s.lastBad / g.world.w) | 0) + 0.5 });
+        g.notify(biome.text.hardpanHint || 'This is crusted hardpan: rain runs straight off it and seed can\'t root. Break the crust first with Landscape → Loosen soil or Half-moon pits, then sow. Only the Soil builders mix will take on bare crust, slowly.', 'info', { x: s.lastBad % g.world.w + 0.5, y: ((s.lastBad / g.world.w) | 0) + 0.5 });
       }
     }
     this.ui.renderInfo();
@@ -346,7 +346,7 @@ export class Input {
     if (tool.species) {
       const s = bestSuit(g, i0, tool.species);
       txt += s > 0.55 ? ` · ${tr('good spot')}` : s > 0.3 ? ` · ${tr('okay spot')}` : ` · <span class="bad">${tr('poor spot')}</span>`;
-      if (biome.hardpan && w.terrain[i0] === T.GRAVEL && !tool.species.some(k => PLANTS.find(p => p?.key === k)?.crustOK || PLANTS.find(p => p?.key === k)?.gravelOK)) txt += ` · <span class="bad">${tr('hardpan: loosen it first')}</span>`;
+      if (biome.hardpan && w.terrain[i0] === T.GRAVEL && !tool.species.some(k => PLANTS.find(p => p?.key === k)?.crustOK || PLANTS.find(p => p?.key === k)?.gravelOK)) txt += ` · <span class="bad">${tr(biome.text.hardpanTip || 'hardpan: loosen it first')}</span>`;
     }
     if (this.stroke && this.stroke.cost) txt += ` · ${tr(`spent ${money(this.stroke.cost)}`)}`;
     this.tip.innerHTML = txt;

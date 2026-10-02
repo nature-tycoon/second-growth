@@ -140,8 +140,10 @@ export function leafColor(p, phase) {
 }
 
 const STEM = { dogwood: '#b0302a', willow: '#c8923a' };
+const BLEACHED = [0.95, 0.94, 0.9]; // coral that has lost its algae: the white skeleton shows through
 // shrub looks with a geometry of their own; everything else is a generic leafy mound
-export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo', 'aloe', 'cactus'];
+export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo', 'aloe', 'cactus',
+  'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
 
 export class Flora {
   constructor(scene) {
@@ -202,6 +204,7 @@ export class Flora {
     const dots = this.pool('dot', () => G.blob(0xffffff), this.small, { shadow: false });
     const x0 = -BORDER, y0 = -BORDER, x1 = w.w + BORDER, y1 = w.h + BORDER;
     const hAt = (x, y) => w.heightAt(x, y) * LEVEL;
+    const seaY = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
 
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
       const inside = w.inb(x, y);
@@ -266,8 +269,13 @@ export class Flora {
         const p = PLANTS[sid];
         const g = inside ? w.shrubG[i] : 1;
         const phase = plantPhase(p, month);
-        const sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
-        const sy = hAt(sx, sz);
+        let sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
+        let sy = hAt(sx, sz);
+        if (p.look.climbs && tid) { // (a crown-of-thorns starfish sits up on top of the coral it's eating)
+          const tp = PLANTS[tid], tg = inside ? w.treeG[i] : 0.9, tsc = (0.2 + 0.8 * tg) * (0.78 + hash2(x, y, 9) * 0.42);
+          sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45; sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
+          sy = hAt(sx, sz) + (G.TREE_SHAPES[tp.look.type]?.height || 0.4) * tsc * 0.85;
+        }
         const sc = (0.32 + 0.6 * g) * (p.look.small ? 0.8 : 1) * (0.8 + hash2(x, y, 6) * 0.35);
         const rot = hash2(x, y, 7) * 6.28;
         if (p.look.deciduous && phase === 'winter') {
@@ -276,7 +284,8 @@ export class Flora {
         } else {
           const type = p.look.type;
           const shape = SHRUB_SHAPES.includes(type) ? type : 'shrub';
-          const col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8);
+          let col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8);
+          if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, 200 + v * 31 + shape.length), this.shrubs, { kind: 'shrub' }, () => G.shrub(shape, 200 + v * 31 + shape.length, 1)).add(sx, sy, sz, sc, sc, sc, rot, col);
           const dotCol = phase === 'bloom' && p.look.flower ? rgb(p.look.flower) : phase === 'fruit' && p.look.berry ? rgb(p.look.berry) : null;
           if (dotCol && g > 0.3) {
@@ -316,12 +325,34 @@ export class Flora {
           }
           let leaf = leafColor(p, phase);
           if (phase === 'fall') leaf = mixc(leaf, rgb(p.look.leaf), hash2(x, y, 11) * 0.35);
+          if (inside && w.bleach && w.bleach[i] > 0) leaf = mixc(leaf, BLEACHED, w.bleach[i]); // (a coral bleaching in a marine heatwave)
           this.pools.get(`crown:${key}`).add(tx, ty, tz, sc, sc, sc, rot, vary(leaf.map(c => c * dim), x, y, 12, 0.1));
           this.pools.get(`trunk:${key}`).add(tx, ty, tz, sc, sc, sc, rot, bark);
         }
       }
 
       if (!inside) continue;
+
+      // a snorkel trail on the reef is marked out with a line of orange buoys at the surface
+      if (seaY != null && (w.marks[i] & 1) && hAt(x + 0.5, y + 0.5) < seaY) {
+        if ((x * 3 + y * 5) % 3 === 0) {
+          dots.add(x + 0.5, seaY + 0.005, y + 0.5, 2.3, 1.5, 2.3, 0, [0.98, 0.5, 0.16]);
+          dots.add(x + 0.5, seaY + 0.05, y + 0.5, 0.5, 1.6, 0.5, 0, [0.95, 0.95, 0.92]); // its little pole
+        }
+        // ...strung together with a floating rope
+        for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [-1, 1]]) {
+          if (!w.inb(x + dx, y + dy) || !(w.marks[w.idx(x + dx, y + dy)] & 1)) continue;
+          if (dx && dy && ((w.marks[w.idx(x + dx, y)] & 1) || (w.marks[w.idx(x, y + dy)] & 1))) continue; // (no rope across a corner already roped)
+          const len = Math.hypot(dx, dy);
+          dots.add(x + 0.5 + dx / 2, seaY + 0.008, y + 0.5 + dy / 2, len / 0.07, 0.22, 0.22, -Math.atan2(dy, dx), [0.95, 0.9, 0.7]);
+        }
+      }
+
+      // reef stars laid over the rubble, until the coral grown on them hides them
+      if ((w.marks[i] & 2) && !(w.tree[i] && w.treeG[i] > 0.6)) {
+        const rx = x + 0.5, rz = y + 0.5;
+        this.pool('reefstar', () => G.reefStar(77), this.small).add(rx, hAt(rx, rz) - 0.01, rz, 1.05, 1.05, 1.05, hash2(x, y, 19) * 1.05, [0.84, 0.78, 0.64]);
+      }
 
       // ---- features
       const f = w.feature[i];

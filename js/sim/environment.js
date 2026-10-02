@@ -271,7 +271,7 @@ export function updateElevation(w) {
 // How much people on the trails bother wildlife nearby (0..1).
 export function updateDisturbance(w, traffic) {
   const t = w.terrain, f = w.feature;
-  distanceField(w, w.distTrail, i => t[i] === T.TRAIL || f[i] === F.BOARDWALK || (w.struct[i] >= 0 && w.structures[w.struct[i]]?.visitor), 8);
+  distanceField(w, w.distTrail, i => t[i] === T.TRAIL || f[i] === F.BOARDWALK || (w.marks[i] & 1) || (w.struct[i] >= 0 && w.structures[w.struct[i]]?.visitor), 8);
   const base = 0.08 + 0.92 * clamp(traffic, 0, 1);
   for (let i = 0; i < w.n; i++) {
     const d = w.distTrail[i];

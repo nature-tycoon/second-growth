@@ -9,9 +9,33 @@ export const sky = {
   uCloudAmt: { value: 0 },     // how much sun a cloud blocks (0 turns the effect off)
 };
 
+// Under the sea (the reef map): everything below the surface is seen through water. Sunlight on
+// the seabed ripples into a moving net of caustics, and the deeper it is, the more the water
+// soaks up the reds and veils it in blue-green. Off (uSeaOn 0) on every other map.
+export const sea = {
+  uSeaOn: { value: 0 },
+  uSeaY: { value: 0 },                  // height of the sea surface, in scene units
+  uSeaShallow: { value: [0.1, 0.42, 0.42] }, // the colour the water scatters over the shallows...
+  uSeaDeep: { value: [0.02, 0.16, 0.3] },   // ...and in deep water
+  uSeaLight: { value: [1, 1, 1] },          // how bright the daylight is (the water's own colour dims at dusk)
+  uSeaMurk: { value: 0 },                   // a flood plume clouding the water (0 clear .. 1 murky green-brown)
+};
+
 const CLOUD_GLSL = `
   uniform float uCloudT, uCloudCover, uCloudAmt;
+  uniform float uSeaOn, uSeaY, uSeaMurk;
+  uniform vec3 uSeaShallow, uSeaDeep, uSeaLight;
   varying vec2 vCloudXZ;
+  varying float vSeaY;
+  // caustics: two warped interference patterns, kept where they're brightest, so the light gathers
+  // into thin bright lines that drift and re-knot
+  float seaCaustic(vec2 p, float t) {
+    p *= 1.35;
+    vec2 q = p + vec2(sin(p.y * 1.3 + t * 0.6), cos(p.x * 1.1 - t * 0.5)) * 0.7;
+    float a = abs(sin(q.x * 2.1 + t * 0.8) + sin(q.y * 2.3 - t * 0.7));
+    float b = abs(sin((q.x + q.y) * 1.7 - t * 0.9) + sin((q.x - q.y) * 1.9 + t * 0.6));
+    return pow(1.0 - min(a, b) * 0.5, 7.0);
+  }
   float clH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float clN(vec2 p) {
     vec2 i = floor(p), f = fract(p);
@@ -32,18 +56,33 @@ export function withClouds(mat) {
   mat.onBeforeCompile = (shader, renderer) => {
     if (prev) prev.call(mat, shader, renderer);
     Object.assign(shader.uniforms, sky);
-    shader.vertexShader = 'varying vec2 vCloudXZ;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+    Object.assign(shader.uniforms, sea);
+    shader.vertexShader = 'varying vec2 vCloudXZ;\nvarying float vSeaY;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vec4 clW = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
         clW = instanceMatrix * clW;
       #endif
-      vCloudXZ = (modelMatrix * clW).xz;`);
+      clW = modelMatrix * clW;
+      vCloudXZ = clW.xz; vSeaY = clW.y;`);
     shader.fragmentShader = CLOUD_GLSL + shader.fragmentShader.replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
       if (uCloudAmt > 0.001) {
         float clS = 1.0 - uCloudAmt * cloudShade(vCloudXZ);
         reflectedLight.directDiffuse *= clS;
         reflectedLight.directSpecular *= clS;
-      }`);
+      }
+      float seaD = uSeaOn * max(0.0, uSeaY - vSeaY);
+      if (seaD > 0.0) {
+        float ca = seaCaustic(vCloudXZ, uCloudT);
+        reflectedLight.directDiffuse *= 0.85 + ca * 0.9 * exp(-seaD * 0.6); // fading with depth
+        reflectedLight.directSpecular *= 0.3;
+      }`).replace('#include <opaque_fragment>', `if (seaD > 0.0) {
+        // the water drinks the reds first, then the greens, and scatters its own colour back in
+        vec3 absorb = exp(-seaD * vec3(0.36, 0.1, 0.07));
+        float scat = 1.0 - exp(-seaD * (0.26 + uSeaMurk * 0.7));
+        vec3 seaCol = mix(mix(uSeaShallow, uSeaDeep, clamp(seaD * 0.3, 0.0, 1.0)), vec3(0.26, 0.36, 0.26), uSeaMurk * 0.7);
+        outgoingLight = outgoingLight * absorb + seaCol * uSeaLight * scat;
+      }
+      #include <opaque_fragment>`);
   };
   mat.customProgramCacheKey = () => baseKey + '|clouds';
   return mat;

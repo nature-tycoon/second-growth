@@ -257,7 +257,7 @@ export default function buildAmazonAnimals(def) {
     def({ key: 'arapaima', name: 'Arapaima (pirarucu)', sci: 'Arapaima gigas', group: 'River life', move: 'swim',
       speed: 1, hr: 20, max: 6, minK: 2, sources: ['S'], mig: 0.2, intro: 6000, breed: [6, 7], litter: [2, 3], life: 20, mature: 5,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i],
-      sprite: { kind: 'fish', size: 34, back: '#4a5a4a', flank: '#7a8a6a', belly: '#c8b89a', spots: '#c83a30', tailRed: true },
+      sprite: { kind: 'fish', size: 34, back: '#4a5a4a', flank: '#7a8a6a', belly: '#c8b89a', spots: '#c83a30', tailRed: true, long: true, rearFins: true, tailShape: 'round' },
       desc: 'One of the largest freshwater fish on Earth, up to 3 m. It gulps air at the surface every few minutes.',
       hint: 'Deep, clean ponds and oxbow lakes.' });
   }
@@ -266,7 +266,7 @@ export default function buildAmazonAnimals(def) {
     def({ key: 'piranha', name: 'Red-bellied piranha', sci: 'Pygocentrus nattereri', group: 'River life', move: 'swim',
       speed: 1.6, hr: 4, max: 40, minK: 4, groupSize: [4, 8], sources: ['S'], mig: 0.5, breed: [10, 11, 0], litter: [4, 8], life: 6, mature: 0.8,
       suit: (W, i) => w[W.habitat[i]] * (W.connected[i] ? 1 : 0.5),
-      sprite: { kind: 'fish', size: 10, back: '#6a7078', flank: '#9aa0a8', belly: '#e0402a', spots: '#c8c8c8', deep: true },
+      sprite: { kind: 'fish', size: 10, back: '#6a7078', flank: '#9aa0a8', belly: '#e0402a', spots: '#c8c8c8', deep: true, jaw: true, tailShape: 'truncate', finEdge: '#2a2a30' },
       desc: 'More scavenger than monster. Schools clean up the river and feed caiman, otters, herons and dolphins.',
       hint: 'Rivers and connected creeks.' });
   }

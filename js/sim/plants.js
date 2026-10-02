@@ -19,7 +19,9 @@ export function terrainFit(w, i, p) {
     // and only a thin scatter of wet-tolerant shrubs, so they can't smother the sedges and rushes
     // (mangroves are the exception: trees that stand in the tidal marsh)
     case T.MARSH: return p.mangrove ? 1 : p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
-    default:
+    default: {
+      const own = biome.terrainFit?.(w, i, p); // a map with ground of its own (the reef: sand, rubble, reef stars)
+      if (own != null) return own;
       if (p.aquatic) return t === T.MUD ? 0.8 : 0;
       if (p.mangrove) return t === T.MUD ? 1 : 0.15; // mangroves need their feet in salty mud
       switch (t) {
@@ -31,6 +33,7 @@ export function terrainFit(w, i, p) {
         case T.MUD: return p.moist[1] >= 0.8 ? 1 : 0.6;
         default: return 1;
       }
+    }
   }
 }
 
@@ -59,7 +62,8 @@ export function plantLimits(w, i, p) {
   if (m < p.moist[0] - 0.05) out.push('too dry');
   if (m > p.moist[1] + 0.05) out.push('too wet');
   if (w.soil[i] < p.soil - 0.03) out.push('soil too poor');
-  if (biome.hardpan && w.terrain[i] === T.GRAVEL && !p.gravelOK && !p.crustOK) out.push('crusted hardpan: loosen it or dig half-moon pits first');
+  const why = biome.groundNote?.(w, i, p); if (why) out.push(why); // (the reef: why coral won't settle on loose rubble or sand)
+  if (biome.hardpan && w.terrain[i] === T.GRAVEL && !p.gravelOK && !p.crustOK) out.push(biome.text.hardpanLimit || 'crusted hardpan: loosen it or dig half-moon pits first');
   return out;
 }
 
@@ -279,6 +283,7 @@ export function killTree(w, i, rng, snagOdds = 0.7, minG = 0.6) {
   const big = w.treeG[i] > minG;
   if (biome.savanna) snagOdds *= 0.35; // (on the savanna a dead tree mostly falls: fire, termites and elephants)
   w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
+  if (biome.deadTree) { biome.deadTree(w, i); return; } // (the reef: dead coral breaks down into rubble, not snags and logs)
   if (big && !w.feature[i]) {
     w.feature[i] = rng() < snagOdds ? F.SNAG : F.LOG;
     w.featureAge[i] = 0;
@@ -342,6 +347,7 @@ export function rootsLoosen(game) {
   for (let i = 0; i < w.n; i++) {
     const t = w.terrain[i];
     if (t !== T.FIELD && t !== T.PASTURE && !(biome.hardpan && t === T.GRAVEL)) continue; // (and crusted hardpan)
+    if (t === T.PASTURE && biome.sandBed) continue; // (the reef's sand is meant to be sand)
     if ((w.trod && w.trod[i] > 0.1) || !rooted(w, i) || rng() > 0.008) continue;
     const x = i % W, y = (i / W) | 0;
     let n = 0;

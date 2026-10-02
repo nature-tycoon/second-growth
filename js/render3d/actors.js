@@ -6,8 +6,9 @@ import { ANIMALS } from '../data/animals.js';
 import * as S from '../render/sprites.js';
 import { TREE_SHAPES } from './geometry.js';
 import { PLANTS } from '../data/plants.js';
-import { Fauna, PERSON_LOOKS } from './fauna.js';
+import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './fauna.js';
 import { waterSurfaceY } from './terrain.js';
+import { biome } from '../biome.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
@@ -75,14 +76,23 @@ export class Actors {
       const t = inside ? w.terrain[i] : T.RIVER;
       const onWater = isWater(t) && t !== T.MARSH;
       const kind = def.sprite.kind;
-      const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05) && kind !== 'duck') || (kind === 'duck' && a.alt > 0.3) || kind === 'bat';
+      const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05) && kind !== 'duck') || (kind === 'duck' && a.alt > 0.3) || kind === 'bat' || kind === 'ray'; // (a manta "flies" through the water)
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
       const sc = PX * 0.62 * (a.juvenile ? def.sprite.juv ?? 0.5 : 1) * ageF * (def.sprite.show || 1); // (show: drawn larger than life; juv: how small the young are)
       const mo = F.motion(def);
       let y = ground;
       const surf = onWater || def.move === 'swim' ? waterSurfaceY(w, a.x, a.y) : null;
-      if (flying) y += kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2; // pollinators flit low over the flowers
+      const seaY = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
+      if (def.reef && seaY != null) {
+        // under the sea: fish, turtles and rays swim at their own depth between the seabed and the
+        // surface (clownfish right down in their anemone, sharks and mantas well up off the bottom),
+        // drifting gently up and down
+        const room = Math.max(0.15, seaY - ground - 0.12);
+        y = ground + 0.06 + room * (def.sprite.swim ?? 0.3) + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.05, room * 0.08);
+      } else if (flying && seaY != null) y = Math.max(ground, seaY) + 0.7 + a.alt * 1.2; // (seabirds fly over the water, not the seabed)
+      else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - (mo.sink || (def.sprite.size || 10) * 0.22) * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
+      else if (flying) y += kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2; // pollinators flit low over the flowers
       else if (def.move === 'swim') {
         y = (surf ?? ground) - 0.05 - mo.sink * sc;
         // running salmon leap: every few seconds one arcs clear of the water, nose up then down
@@ -111,7 +121,7 @@ export class Actors {
       F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, st.graze, st.pitch || 0);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
-      if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * PX * 0.4 * ageF * (flying ? 0.7 : 1));
+      if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * PX * 0.4 * ageF * (flying || def.reef ? 0.7 : 1));
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
 
@@ -127,6 +137,13 @@ export class Actors {
       st.gait += ((v.pause > 0 ? 0 : 1) - st.gait) * k;
       const onWet = w.inb(Math.floor(v.x), Math.floor(v.y)) && isWater(w.terrain[w.idx(Math.floor(v.x), Math.floor(v.y))]);
       const gy = w.heightAt(v.x, v.y) * LEVEL + (onWet ? 0.08 : 0); // boardwalks sit above the water
+      const sea = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
+      if (sea != null && gy < sea - 0.05) {
+        // on the reef: a snorkeler, face down at the surface, finning along the trail
+        F.add(SNORKEL_LOOKS[v.look % SNORKEL_LOOKS.length], v.x, sea - 0.035, v.y, st.yaw, PX * 0.6, v.phase * Math.PI * 0.7, Math.max(0.6, st.gait), 0, 0, -Math.PI / 2 + 0.12);
+        shadow(v.x, gy, v.y, 0.14);
+        continue;
+      }
       F.add(PERSON_LOOKS[v.look % PERSON_LOOKS.length], v.x, gy, v.y, st.yaw, PX * 0.6, v.phase * Math.PI, st.gait, 0, 0);
       shadow(v.x, gy, v.y, 0.1);
     }

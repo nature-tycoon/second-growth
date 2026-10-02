@@ -370,7 +370,8 @@ export class Wildlife {
     if (left.length) {
       const first = !game.flags.migrantsExplained;
       game.flags.migrantsExplained = true;
-      game.notify(`Heading south for the winter: ${list(left)}.${first ? ' They remember good habitat and come back in spring if it is still here.' : ''}`, 'info');
+      const lt = biome.text?.migrantsLeave; // (a map where migrants leave at a different time of year, like the reef's winter mantas)
+      game.notify(lt ? `${lt[0]}: ${list(left)}.${first ? ' ' + lt[1] : ''}` : `Heading south for the winter: ${list(left)}.${first ? ' They remember good habitat and come back in spring if it is still here.' : ''}`, 'info');
     }
     this.recount();
   }

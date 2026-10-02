@@ -65,9 +65,11 @@ tool({ key: 'rip', cat: 'land', name: 'Loosen soil', cost: 4, icon: { terrain: T
     const w = game.world, t = w.terrain[i];
     // (on maps with crusted hardpan, like the Serengeti range, this breaks the crust too)
     if (t !== T.FIELD && t !== T.PASTURE && !(biome.hardpan && t === T.GRAVEL)) return null;
+    if (biome.buoyTrails && t !== T.GRAVEL) return null; // (reef stars go over rubble, not sand)
     w.terrain[i] = T.SOIL;
     w.soil[i] = Math.min(1, w.soil[i] + 0.04);
     if (w.ground[i] && PLANTS[w.ground[i]].invasive) { w.ground[i] = 0; w.groundG[i] = 0; }
+    if (biome.buoyTrails) w.marks[i] |= 2; // (the reef: steel reef stars, pegged over the rubble)
     return true;
   } });
 tool({ key: 'mulch', cat: 'land', name: 'Compost & mulch', cost: 10, icon: { terrain: T.DUFF },
@@ -143,9 +145,10 @@ for (const m of MIXES) {
     apply: plantTool(m.species, m.cost, m.density, !!m.fenceLine) });
 }
 for (const p of PLANTS) {
-  if (!p || !p.native) continue;
+  if (!p || !p.native || p.invasive) continue; // (the reef's native nuisances, algae and starfish, aren't for planting)
   const density = p.layer === L.GROUND ? 0.8 : p.layer === L.SHRUB ? 0.5 : 0.35;
-  tool({ key: 'plant_' + p.key, cat: 'plants', sub: ['ground', 'shrub', 'tree'][p.layer], name: p.name, cost: p.cost,
+  tool({ key: 'plant_' + p.key, cat: 'plants', sub: p.tab || ['ground', 'shrub', 'tree'][p.layer], // (tab: a tab of its own, like the reef's island plants)
+    name: p.name, cost: p.cost,
     icon: { plant: p.key }, desc: p.desc, species: [p.key], layer: p.layer, size: p.layer === 2 ? 0 : 1,
     apply: plantTool(p.key, p.cost, p.layer === 2 ? 1 : density) });
 }
@@ -235,7 +238,7 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
     const w = game.world;
     if (w.struct[i] >= 0) { const s = w.structures[w.struct[i]]; const d = STRUCTURES[s.type]; return d.permanent ? 0 : d.removeCost - d.salvage; }
     const f = w.feature[i];
-    if (w.terrain[i] === T.TRAIL && !f) return 2;
+    if ((w.terrain[i] === T.TRAIL || (w.marks[i] & 1)) && !f) return 2;
     if (w.terrain[i] === T.ROAD && !f) return biome.fixedRoads ? 0 : 15;
     if (f === F.CULVERT) return 4000;
     if (f === F.DIKE) return 60;
@@ -257,6 +260,7 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
       return true;
     }
     const f = w.feature[i];
+    if (w.marks[i] & 1 && !f) { w.marks[i] &= ~1; return true; } // (lift the buoys)
     if (w.terrain[i] === T.TRAIL && !f) { w.terrain[i] = T.SOIL; return true; }
     // a road: dug up to bare soil (except the suburb's streets, which people drive on)
     if (w.terrain[i] === T.ROAD && !f) {
@@ -289,6 +293,11 @@ tool({ key: 'trail', cat: 'visitors', name: 'Nature trail', cost: 6, icon: { ter
   desc: 'A packed-earth footpath. Connect it to a trailhead parking lot. Trails also act as firebreaks, but people on them disturb shy wildlife nearby.',
   apply: (game, i) => {
     const w = game.world;
+    if (biome.buoyTrails) { // (the reef: a line of buoys at the surface; the reef underneath is left alone)
+      if (w.struct[i] >= 0 || (w.marks[i] & 1)) return null;
+      w.marks[i] |= 1;
+      return true;
+    }
     if (!openLand(w, i) || w.terrain[i] === T.TRAIL) return null;
     const f = w.feature[i];
     if (f && f !== F.FENCE && f !== F.BRUSH && f !== F.ROCKS) return null;
@@ -405,7 +414,7 @@ export const CATEGORIES = [
 
 export const PLANT_TABS = [
   { key: 'mixes', name: 'Seed mixes' }, { key: 'ground', name: 'Groundcover' },
-  { key: 'shrub', name: 'Shrubs' }, { key: 'tree', name: 'Trees' },
+  { key: 'shrub', name: 'Shrubs' }, { key: 'tree', name: 'Trees' }, { key: 'cay', name: 'Island plants' },
 ];
 
 export const BRUSH_SIZES = [0, 1, 2, 3, 5];

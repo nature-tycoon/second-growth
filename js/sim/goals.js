@@ -3,6 +3,7 @@
 import { H, F, T, clamp } from '../config.js';
 import { PLANTS } from '../data/plants.js';
 import { ANIMALS, ANIMAL } from '../data/animals.js';
+import { biome } from '../biome.js';
 
 export function speciesPresent(game) {
   return game.wildlife.state.filter((s, k) => s.pop > 0 && !ANIMALS[k]?.domestic).length; // (livestock isn't wildlife)
@@ -26,10 +27,11 @@ export function ecoScore(game) {
   const land = st.land;
   const nativeFrac = st.native / land;
   const invFrac = st.invasive / land;
-  const farmFrac = st.farm / land;
+  const farmFrac = biome.sandBed ? 0 : st.farm / land; // (on the reef, bare sand in the lagoon is natural, not degraded)
   // bare, eroded ground (the Serengeti range's hardpan) counts against the land too
   const bareFrac = (st.counts?.[H.BARE] || 0) / land;
-  const habs = [
+  // (a map can score its own habitats: the reef has no creeks or marshes)
+  const habs = biome.scoreHabitats?.map(([k, n]) => [H[k], n]) || [
     [H.MEADOW, 20], [H.SHRUB, 15], [H.YOUNG_FOREST, 20], [H.MATURE_FOREST, 15],
     [H.RIPARIAN, 15], [H.MARSH, 12], [H.POND, 10], [H.CREEK, 10],
   ];
@@ -44,8 +46,8 @@ export function ecoScore(game) {
     { name: 'Native plant cover', pts: 25 * clamp(nativeFrac / 0.85, 0, 1), max: 25 },
     { name: 'Habitat variety', pts: 20 * habCount / habs.length, max: 20 },
     { name: 'Wildlife species', pts: 30 * clamp(animals / (ANIMALS.length * 0.85), 0, 1), max: 30 },
-    { name: 'Native plant species', pts: 15 * clamp(nativePlants / 26, 0, 1), max: 15 },
-    { name: 'Healthy, connected creek', pts: (connected ? 4 : 0) + 6 * shadedCreek, max: 10 },
+    { name: 'Native plant species', pts: 15 * clamp(nativePlants / (biome.plantSpeciesTarget || 26), 0, 1), max: 15 },
+    biome.scoreWater?.(game) || { name: 'Healthy, connected creek', pts: (connected ? 4 : 0) + 6 * shadedCreek, max: 10 },
     { name: 'Invasive plants', pts: -25 * clamp(invFrac / 0.3, 0, 1), max: 0 },
     { name: 'Degraded or bare land left', pts: -10 * clamp(farmFrac, 0, 1) - 16 * clamp(bareFrac, 0, 1), max: 0 },
   ];
