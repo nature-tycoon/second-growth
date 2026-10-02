@@ -1623,7 +1623,8 @@ function finBody(m, { x0, x1, tm, cy, ry, rz, ryEnd = 0.1, rzEnd = 0.25, powF = 
   for (let i = 0; i <= R; i++) {
     const t = i / R, x = x0 + (x1 - x0) * t, d = Math.abs(t - tm) / (t < tm ? tm : 1 - tm);
     const k = Math.pow(Math.max(0, 1 - Math.pow(d, t > tm ? powF : powB)), 0.85);
-    const yy = ry * (ryEnd + (1 - ryEnd) * k), zz = rz * (rzEnd + (1 - rzEnd) * Math.pow(Math.max(0, 1 - d * d), 0.5)) * (t > tm ? 1 + (wide - 1) * d : 1);
+    // (the tail end stays open into the tail stock, at ryEnd; the snout closes off in a rounded tip)
+    const front = t > tm, yy = ry * (front ? k : ryEnd + (1 - ryEnd) * k), zz = rz * (front ? Math.pow(Math.max(0, 1 - Math.pow(d, powF)), 0.6) : rzEnd + (1 - rzEnd) * Math.pow(Math.max(0, 1 - d * d), 0.5)) * (front ? 1 + (wide - 1) * d : 1);
     const c = cy - drop * (t > tm ? smooth(0.3, 1, d) : 0);
     for (let j = 0; j <= A; j++) { const a = j / A * Math.PI * 2; pos.push(x, c + Math.cos(a) * yy, Math.sin(a) * zz); uv.push(2 * t - 1, Math.cos(a), Math.sin(a)); }
   }
@@ -1682,7 +1683,7 @@ function butterflyfish(m, s) {
 function shark(m, s) {
   const S = s.size, cy = S * 0.16, top = col(s.back || '#7a8088'), mid = col(s.flank || '#949aa2'), belly = col(s.belly || '#e4e6e8'), tip = col('#f6f6f2');
   const skin = u => (u.y > 0.15 ? tmp.copy(mid).lerp(top, smooth(0.15, 0.7, u.y)) : tmp.copy(belly).lerp(mid, smooth(-0.55, 0.05, u.y)));
-  finBody(m, { x0: -S * 0.44, x1: S * 0.5, tm: 0.42, cy, ry: S * 0.1, rz: S * 0.1, ryEnd: 0.18, rzEnd: 0.3, powF: 0.9, powB: 1.6, wide: 1.25 }, skin);
+  finBody(m, { x0: -S * 0.44, x1: S * 0.5, tm: 0.42, cy, ry: S * 0.1, rz: S * 0.1, ryEnd: 0.18, rzEnd: 0.3, powF: 2.2, powB: 1.6, wide: 1.1 }, skin); // (a broad head and a blunt, rounded snout)
   // eyes, gill slits, and a mouth tucked under the snout
   m.ell([S * 0.38, cy - S * 0.045, 0], [S * 0.035, S * 0.006, S * 0.04], '#8a8e94', { lo: true });
   for (const side of [1, -1]) {

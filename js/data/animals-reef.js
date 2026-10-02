@@ -79,7 +79,7 @@ export default function buildReefAnimals(def) {
     speed: 0.7, hr: 20, max: 4, minK: 1, groupSize: [1, 1], sources: ['E', 'W'], mig: 0.3, breed: [8], litter: [1, 2], life: 30, mature: 5,
     suit: (W, i) => reef[W.habitat[i]],
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 400) / 400),
-    sprite: { kind: 'fish', size: 30, back: '#3a7868', flank: '#4c9a84', belly: '#9ac8b0', finColor: '#3a8a7a', lines: '#2a4a5a', hump: true, tailShape: 'round', spiny: true, longAnal: true, deep: true, swim: 0.3, show: 1.7 },
+    sprite: { kind: 'fish', size: 30, back: '#3a7868', flank: '#4c9a84', belly: '#9ac8b0', finColor: '#3a8a7a', lines: '#2a4a5a', hump: true, tailShape: 'round', spiny: true, longAnal: true, deep: true, swim: 0.3, show: 2.0 },
     desc: 'A gentle green giant as long as a person, with a bulging forehead and big lips. One of the few fish that eats crown-of-thorns starfish, spines and all.',
     hint: 'A big, healthy reef.' });
   def({ key: 'trevally', reef: true, name: 'Giant trevally', sci: 'Caranx ignobilis', group: 'Fish', move: 'ground',
@@ -87,7 +87,7 @@ export default function buildReefAnimals(def) {
     prey: ['chromis', 'tang', 'idol', 'butterfly'], preyPer: 6,
     suit: (W, i) => reef[W.habitat[i]],
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 450) / 400),
-    sprite: { kind: 'fish', size: 26, back: '#56626e', flank: '#a4acb4', belly: '#dfe3e6', finColor: '#3a4048', tailShape: 'lunate', deep: true, swim: 0.45, show: 1.7 },
+    sprite: { kind: 'fish', size: 26, back: '#56626e', flank: '#a4acb4', belly: '#dfe3e6', finColor: '#3a4048', tailShape: 'lunate', deep: true, swim: 0.45, show: 1.9 },
     desc: 'A silver bruiser that hunts the reef in packs, charging into schools of small fish. Big trevally mean there are plenty of fish to eat.',
     hint: 'A big reef full of small fish.' });
 
@@ -110,7 +110,7 @@ export default function buildReefAnimals(def) {
     speed: 0.4, hr: 40, max: 4, minK: 1, groupSize: [1, 2], sources: ['N', 'E', 'W'], mig: 0.4, breed: [], life: 70, mature: 0,
     suit: (W, i) => (W.habitat[i] === 3 ? 1 : 0.1),
     req: g => Math.min(1, Math.max(0, g.meadowTiles - 1800) / 1200),
-    sprite: { kind: 'dugong', size: 40, color: '#8a8478', belly: '#b0aa9c', show: 1.5, swim: 0.15 },
+    sprite: { kind: 'dugong', size: 40, color: '#8a8478', belly: '#b0aa9c', show: 2.1, swim: 0.15 },
     desc: 'A sea cow: it grazes seagrass all day, leaving long winding trails of bare sand behind it, and can live seventy years. It needs big meadows.',
     hint: 'Big seagrass meadows.' });
   def({ key: 'shark', reef: true, name: 'Whitetip reef shark', sci: 'Triaenodon obesus', group: 'Turtles, sharks & rays', move: 'ground',
@@ -118,14 +118,14 @@ export default function buildReefAnimals(def) {
     prey: ['parrotfish', 'tang', 'chromis', 'trout'], preyPer: 12,
     suit: (W, i) => reef[W.habitat[i]],
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 500) / 500),
-    sprite: { kind: 'shark', size: 34, back: '#7a8088', flank: '#949aa2', belly: '#e4e6e8', swim: 0.4, show: 1.7 },
+    sprite: { kind: 'shark', size: 34, back: '#7a8088', flank: '#949aa2', belly: '#e4e6e8', swim: 0.4, show: 2.4 },
     desc: 'Rests in caves under the coral by day and hunts through the reef at night. Sharks keep the fish they prey on healthy; a reef with sharks is a reef in good shape.',
     hint: 'A big, old reef full of fish.' });
   def({ key: 'manta', reef: true, name: 'Reef manta ray', sci: 'Mobula alfredi', group: 'Turtles, sharks & rays', move: 'ground',
     speed: 0.9, hr: 40, max: 4, minK: 1, groupSize: [1, 3], sources: ['E', 'W'], mig: 0.7, season: [4, 5, 6, 7], breed: [], life: 40, mature: 0,
     suit: (W, i) => reef[W.habitat[i]],
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 700) / 500) * Math.min(1, (g.stats?.cleanerTiles || 0) / 20),
-    sprite: { kind: 'ray', size: 40, color: '#2e343e', belly: '#eeeee8', swim: 0.7, show: 1.7 },
+    sprite: { kind: 'ray', size: 40, color: '#2e343e', belly: '#eeeee8', swim: 0.7, show: 2.3 },
     desc: 'Four metres across, gliding in through the winter to have cleaner fish pick it over at the reef\'s "cleaning stations": old coral heads where the cleaners live.',
     hint: 'Old coral heads, in winter.' });
 
