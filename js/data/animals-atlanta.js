@@ -54,7 +54,7 @@ export default function buildAtlantaAnimals(def) {
       speed: 3, hr: 5, max: 10, sources: ['S', 'W'], mig: 0.7, breed: [2, 3], litter: [1, 2], life: 4, season: [0, 1, 2, 3, 4, 5, 6],
       suit: (W, i) => w[W.habitat[i]] * Math.min(1, 0.1 + W.nectar[i] * 1.5),
       req: g => Math.min(1, 0.3 + stat(g, 'nativeBloom') / 20),
-      sprite: { kind: 'hummer', size: 7, color: '#4a8a4a', breast: '#e8e8e0', head: '#c8203a', show: 1.5 },
+      sprite: { kind: 'hummer', size: 7, color: '#4a8a4a', breast: '#e8e8e0', head: '#4a8a4a', gorget: '#c8203a', show: 1.5 },
       desc: 'Weighs less than a nickel and crosses the Gulf of Mexico in one flight. Feeds on azalea, bergamot and cardinal flower, and on tiny insects.',
       hint: 'Tube-shaped native flowers from March to September: azalea, bergamot, cardinal flower.' });
   }
@@ -182,7 +182,7 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'chipmunk', name: 'Eastern chipmunk', sci: 'Tamias striatus', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 6, max: 24, sources: ['N', 'E'], mig: 0.35, breed: [1, 5], litter: [3, 5], life: 3, mature: 0.3,
       suit: (W, i) => w[W.habitat[i]] * (W.distLog[i] <= 3 || W.distRocks[i] <= 3 ? 1 : 0.4),
-      sprite: { kind: 'rodent', len: 12, color: '#9a6a3e', belly: '#e0c89a' },
+      sprite: { kind: 'rodent', len: 12, color: '#a8723e', belly: '#ecd8b0', stripes: true },
       desc: 'Stuffs its cheeks with seeds and acorns. Lives in burrows under logs, rock piles and shrubs.',
       hint: 'Woods and shrubs with logs or rock piles.' });
   }
@@ -219,7 +219,7 @@ export default function buildAtlantaAnimals(def) {
       speed: 1.8, hr: 140, max: 3, sources: ['N', 'S'], mig: 0.3, breed: [1], litter: [2, 4], life: 7,
       prey: ['cottontail', 'chipmunk'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 3, 0.4),
-      sprite: { kind: 'canine', len: 26, h: 11, leg: 11, color: '#8a8a88', belly: '#e8e2d4', dark: '#b8683a' },
+      sprite: { kind: 'canine', len: 26, h: 11, leg: 9, color: '#8a8a88', belly: '#f0ece2', dark: '#b8683a', fox: true },
       desc: 'The only fox that climbs trees. It hunts rabbits and chipmunks along wooded edges.',
       hint: 'Brushy woods with rabbits and chipmunks to hunt.' });
   }
@@ -297,7 +297,7 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'bluegill', name: 'Bluegill', sci: 'Lepomis macrochirus', group: 'Fish', move: 'swim',
       speed: 1.2, hr: 3, max: 30, minK: 2, sources: ['S'], mig: 0.3, breed: [2, 3, 4], litter: [3, 5], life: 5, mature: 1,
       suit: (W, i) => w[W.habitat[i]] * (0.3 + 0.7 * W.waterQ[i]),
-      sprite: { kind: 'fish', size: 9, color: '#5a7a6a', spots: '#2a3a5a', throat: '#e0902a' },
+      sprite: { kind: 'fish', size: 9, back: '#3e5a5a', flank: '#7a9a7a', belly: '#e8a040', throat: '#e8902a', deep: 2, short: true, spiny: true, bars: true, ear: '#141c2a', finColor: '#4a6058' },
       desc: 'A sunfish that fans out nests in the shallows. Food for herons, bass and kingfishers.',
       hint: 'A clean pond with planted, shady edges.' });
   }
@@ -307,7 +307,7 @@ export default function buildAtlantaAnimals(def) {
       speed: 1.5, hr: 8, max: 10, minK: 2, sources: ['S'], mig: 0.3, breed: [1, 2], litter: [2, 3], life: 10, mature: 2,
       prey: ['bluegill'], preyPer: 5,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i],
-      sprite: { kind: 'fish', size: 16, color: '#5a7a4a', spots: '#2a3a24', throat: '#c8c8a8' },
+      sprite: { kind: 'fish', size: 16, back: '#3e5a32', flank: '#8aa060', belly: '#e8e6c8', spiny: true, stripe: 'band', stripeColor: '#24301c', jaw: true, finColor: '#5a6a40' },
       desc: 'The top predator of the pond. It comes up from the Yellow River once the water is clean and shaded.',
       hint: 'Clean, shaded water with plenty of bluegill.' });
   }

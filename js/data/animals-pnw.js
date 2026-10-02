@@ -141,7 +141,7 @@ export default function buildPnwAnimals(def) {
     def({ key: 'robin', name: 'American robin', sci: 'Turdus migratorius', group: 'Birds', move: 'fly',
       speed: 3, hr: 12, max: 20, sources: ['N', 'E', 'S', 'W'], mig: 0.5, breed: [1, 2, 3], litter: [2, 3], life: 3,
       suit: (W, i) => w[W.habitat[i]] * (0.6 + 0.4 * Math.min(1, W.berries[i] + W.insects[i])),
-      sprite: { kind: 'songbird', size: 12, color: '#5a5048', breast: '#d86a2e', head: '#2e2926' },
+      sprite: { kind: 'songbird', size: 12, color: '#5a5048', breast: '#d86a2e', head: '#2e2926', bill: '#e0a830', ring: '#f2eee6' },
       desc: 'Tugs worms from lawns and gorges on berries, spreading seeds as it goes.',
       hint: 'Almost anywhere with some trees and open ground.' });
   }
@@ -150,7 +150,7 @@ export default function buildPnwAnimals(def) {
       speed: 4, hr: 6, max: 14, sources: ['S'], mig: 0.5, breed: [2, 3], litter: [1, 2], life: 4,
       season: [0, 1, 2, 3, 4, 5],
       suit: (W, i) => Math.min(1, W.nectar[i] * 1.2) * near(W.distCover[i], 3, 0.3),
-      sprite: { kind: 'hummer', size: 7, color: '#c8642e', breast: '#e8a060', head: '#4b7a3a' },
+      sprite: { kind: 'hummer', size: 7, color: '#c8642e', breast: '#f0e4d4', head: '#b8682e', gorget: '#e8482a' },
       desc: 'Flies 3,000 miles from Mexico each spring, timing its arrival with salmonberry flowers.',
       hint: 'Lots of flowers blooming in spring and summer.' });
   }

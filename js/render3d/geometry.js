@@ -107,6 +107,27 @@ function volumeNormals(g, cx, cy, cz, amount, axis = false) {
 
 const at = (g, x, y, z) => { g.translate(x, y, z); return g; };
 
+// Baked ambient occlusion: darken the places light doesn't reach, once, into the vertex colours,
+// so it costs nothing to draw. 'crown': the underside and the core of a leafy mass; 'base': where
+// a trunk, a log or a building meets the ground; 'blade': the foot of a grass tuft.
+export function bakeAO(g, mode = 'base') {
+  const p = g.attributes.position, c = g.attributes.color;
+  if (!p || !c || g.userData.ao) return g;
+  let y0 = Infinity, y1 = -Infinity, R = 1e-6;
+  for (let i = 0; i < p.count; i++) { const y = p.getY(i); y0 = Math.min(y0, y); y1 = Math.max(y1, y); R = Math.max(R, Math.hypot(p.getX(i), p.getZ(i))); }
+  const H = Math.max(1e-6, y1 - y0), ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    let f;
+    if (mode === 'crown') f = (0.7 + 0.3 * ss(0, 0.7, (y - y0) / H)) * (0.84 + 0.16 * ss(0.15, 0.9, Math.hypot(x, z) / R));
+    else if (mode === 'blade') f = 0.76 + 0.3 * ss(0, 0.9, (y - y0) / H); // (a soft foot and sunlit tips, not a dark speck)
+    else f = 0.66 + 0.34 * ss(0, Math.min(0.28, 0.35 * H + 0.04), y);
+    c.setXYZ(i, c.getX(i) * f, c.getY(i) * f, c.getZ(i) * f);
+  }
+  g.userData.ao = true;
+  return g;
+}
+
 // A curved, tapering ribbon (grass blades, fern fronds, cattail leaves).
 function ribbon(len, width, bend, segments, dir, tilt, x = 0, z = 0, color = 0xffffff, cup = 0) {
   const pos = [], col = [];
@@ -265,11 +286,25 @@ export const TREE_SHAPES = {
   sausage:    { kind: 'broad', height: 1.55, rx: 0.78, ry: 0.5, blobs: 15, trunkH: 0.6, trunkR: 0.085, lobes: 3 },
   mesquite:   { kind: 'broad', height: 1.0, rx: 0.7, ry: 0.32, blobs: 12, trunkH: 0.35, trunkR: 0.045, lobes: 3 },
   baobab:     { kind: 'baobab', height: 1.9 },
+  // Atlanta
+  pine:       { kind: 'broad', height: 2.4, rx: 0.4, ry: 0.36, blobs: 9, trunkH: 1.55, trunkR: 0.05 },        // loblolly: tall bare trunk, tufted crown
+  magnolia:   { kind: 'broad', height: 1.75, rx: 0.4, ry: 0.78, blobs: 15, trunkH: 0.3, trunkR: 0.06 },        // dense, tall, rounded cone
+  understory: { kind: 'broad', height: 1.0, rx: 0.56, ry: 0.26, blobs: 11, trunkH: 0.48, trunkR: 0.04, lobes: 3 }, // dogwood, redbud: flat layered crowns
+  vase:       { kind: 'broad', height: 1.25, rx: 0.5, ry: 0.36, blobs: 11, trunkH: 0.62, trunkR: 0.035, lobes: 3 },  // crepe myrtle
+  // Nicaragua
+  guanacaste: { kind: 'broad', height: 2.0, rx: 1.02, ry: 0.5, blobs: 20, trunkH: 0.75, trunkR: 0.12, lobes: 4 },   // a huge wide dome
+  raintree:   { kind: 'broad', height: 1.75, rx: 0.98, ry: 0.36, blobs: 18, trunkH: 0.72, trunkR: 0.1, lobes: 4 },   // genízaro: a broad umbrella
+  mangrovebush: { kind: 'broad', height: 0.95, rx: 0.48, ry: 0.36, blobs: 11, trunkH: 0.26, trunkR: 0.05, lobes: 2 }, // black and white mangroves
   euphorbia:  { kind: 'euphorbia', height: 1.6 },
 };
 
 // Crown and trunk for any tree shape.
 export function treeParts(shape, seed, lod = 0) {
+  const t = treePartsRaw(shape, seed, lod);
+  bakeAO(t.crown, 'crown'); bakeAO(t.trunk, 'base');
+  return t;
+}
+function treePartsRaw(shape, seed, lod) {
   switch (shape.kind) {
     case 'conifer': return conifer(shape, seed, lod);
     case 'palm': return palm(shape, seed, lod);
@@ -918,6 +953,6 @@ export function building(type, w, d) {
       break;
     }
   }
-  return merge(parts);
+  return bakeAO(merge(parts), 'base');
 }
 

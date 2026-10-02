@@ -278,7 +278,7 @@ export default function buildSerengetiAnimals(def) {
     def({ key: 'catfish', name: 'African catfish', sci: 'Clarias gariepinus', group: 'Reptiles & more', move: 'swim',
       speed: 1, hr: 6, max: 30, minK: 3, groupSize: [3, 6], sources: ['S'], mig: 0.5, breed: [1, 8], litter: [4, 8], life: 8, mature: 1,
       suit: (W, i) => w[W.habitat[i]] * (W.connected[i] ? 1 : 0.6),
-      sprite: { kind: 'fish', size: 18, back: '#3a3a30', flank: '#6a6a50', belly: '#c8c0a0', spots: '#2a2a20', whiskers: true },
+      sprite: { kind: 'fish', size: 18, back: '#3a3a30', flank: '#5e5e48', belly: '#c8c0a0', whiskers: true, catfish: true, long: true, finColor: '#3a3a2e' },
       desc: 'Can breathe air and even wriggle across land between pools. It survives in waterholes that nearly dry out.',
       hint: 'Waterholes and the river.' });
   }

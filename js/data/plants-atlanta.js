@@ -154,15 +154,15 @@ export default function buildAtlantaPlants(def, mix, get) {
     desc: 'Star-shaped leaves that turn wine and gold, and spiky gumballs goldfinches pick apart for the seed.' });
   def({ key: 'loblolly', name: 'Loblolly pine', sci: 'Pinus taeda', layer: 2, moist: [0.1, 0.85], light: [0.55, 1], conifer: true,
     grow: 0.0055, spread: 0.012, radius: 6, life: 150, cost: 16,
-    look: { type: 'fir', leaf: '#3f6a3a', bark: '#7a5a44' },
+    look: { type: 'pine', leaf: '#3f6a3a', bark: '#7a5a44' },
     desc: 'The fast-growing pine of every Georgia old field. Brown-headed nuthatches and pine warblers live in it.' });
   def({ key: 'dogwood', name: 'Flowering dogwood', sci: 'Cornus florida', layer: 2, moist: [0.3, 0.8], light: [0.1, 0.8], soil: 0.15,
     grow: 0.0034, spread: 0.008, radius: 3, life: 80, cost: 18,
-    look: { type: 'alder', leaf: '#5f8a48', flower: '#f6f2ea', bloom: [0, 1], bloomTint: 0.65, berry: '#d8202a', fall: '#a82a2a', deciduous: true, bark: '#6a5a4a' },
+    look: { type: 'understory', leaf: '#5f8a48', flower: '#f6f2ea', bloom: [0, 1], bloomTint: 0.65, berry: '#d8202a', fall: '#a82a2a', deciduous: true, bark: '#6a5a4a' },
     desc: 'White blossoms in April and red berries in fall for thrushes and bluebirds. A small tree that fits under power lines.' });
   def({ key: 'redbud', name: 'Eastern redbud', sci: 'Cercis canadensis', layer: 2, moist: [0.15, 0.75], light: [0.25, 1],
     grow: 0.004, spread: 0.009, radius: 3, life: 50, cost: 15,
-    look: { type: 'alder', leaf: '#6a9a50', flower: '#d062aa', bloom: [0, 1], crownBloom: true, fall: '#d8c048', deciduous: true, bark: '#5a4a40' },
+    look: { type: 'understory', leaf: '#6a9a50', flower: '#d062aa', bloom: [0, 1], crownBloom: true, fall: '#d8c048', deciduous: true, bark: '#5a4a40' },
     desc: 'Bare branches turn magenta in March, a feast for early bees. Small, tough and fine near houses.' });
   def({ key: 'blackcherry', name: 'Black cherry', sci: 'Prunus serotina', layer: 2, moist: [0.15, 0.75], light: [0.45, 1],
     grow: 0.0045, spread: 0.01, radius: 4, life: 100, cost: 18,
@@ -170,7 +170,7 @@ export default function buildAtlantaPlants(def, mix, get) {
     desc: 'After oaks, the tree that feeds the most caterpillars. Its summer cherries feed dozens of birds.' });
   def({ key: 'magnolia', name: 'Southern magnolia', sci: 'Magnolia grandiflora', layer: 2, moist: [0.3, 0.9], light: [0.2, 1],
     grow: 0.003, spread: 0.006, radius: 4, life: 120, cost: 24,
-    look: { type: 'oak', leaf: '#2f5a32', flower: '#f6f2e2', bloom: [2, 3], bloomTint: 0.2, bark: '#7a7468' },
+    look: { type: 'magnolia', leaf: '#2f5a32', flower: '#f6f2e2', bloom: [2, 3], bloomTint: 0.2, bark: '#7a7468' },
     desc: 'Glossy evergreen leaves and dinner-plate flowers. The subdivision is named for it; the builder cut the last one down.' });
   def({ key: 'sycamore', name: 'American sycamore', sci: 'Platanus occidentalis', layer: 2, moist: [0.55, 1], light: [0.5, 1], wetOK: true,
     grow: 0.0055, spread: 0.009, radius: 5, life: 200, cost: 20,
@@ -186,7 +186,7 @@ export default function buildAtlantaPlants(def, mix, get) {
     desc: 'INVASIVE. The builder planted one in every front yard. Clouds of white (and foul-smelling) blossom in March, weak limbs that split in storms, and wild seedlings everywhere. Georgia now bans its sale.' });
   def({ key: 'crepemyrtle', name: 'Crepe myrtle', sci: 'Lagerstroemia indica', layer: 2, native: false, exotic: true,
     moist: [0.05, 0.75], light: [0.55, 1], grow: 0.005, spread: 0, radius: 2, life: 50, cost: 0,
-    look: { type: 'alder', leaf: '#5a8a44', flower: '#e068a8', bloom: [3, 4, 5], bloomTint: 0.6, fall: '#d86a2a', deciduous: true, bark: '#b8906a' },
+    look: { type: 'vase', leaf: '#5a8a44', flower: '#e068a8', bloom: [3, 4, 5], bloomTint: 0.6, fall: '#d86a2a', deciduous: true, bark: '#b8906a' },
     desc: 'Pink summer flowers on every Southern street. Pretty, but few native insects can use it, and it never grows big enough to shade the street.' });
 
   // ---------- Seed mixes ----------

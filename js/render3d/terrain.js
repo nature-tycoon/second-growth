@@ -10,6 +10,7 @@ import { snow, SNOW_RGB } from './snow.js';
 import { withClouds } from './atmosphere.js';
 import { biome } from '../biome.js';
 import { hash2 } from '../rng.js';
+import { meadowPatch, patchColor } from './patches.js';
 
 const ATLAS_TYPES = [T.PASTURE, T.FIELD, T.SOIL, T.GRAVEL, T.MUD, T.ROAD, T.DUFF, T.TRAIL, S.TURF, S.BED];
 const CELL = 64, GUT = 4, SLOT = CELL + GUT * 2, COLS = 28, ATLAS_W = 2048, ATLAS_H = 512;
@@ -55,7 +56,8 @@ function groundDetail(mat, noise, tiles) {
     shader.uniforms.uTileOrigin = tiles.origin;
     shader.uniforms.uTileSize = tiles.size;
     shader.uniforms.uWet = tiles.wet;
-    shader.vertexShader = 'attribute float aSnow;\nvarying float vSnowAff;\nvarying vec2 vWorldXZ;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWorldXZ = (modelMatrix * vec4(transformed, 1.0)).xz;\n  vSnowAff = aSnow;');
+    shader.uniforms.uHRange = tiles.hRange;
+    shader.vertexShader = 'attribute float aSnow;\nvarying float vSnowAff;\nvarying vec2 vWorldXZ;\nvarying float vWorldY;\nvarying float vSlopeY;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWorldXZ = (modelMatrix * vec4(transformed, 1.0)).xz;\n  vWorldY = (modelMatrix * vec4(transformed, 1.0)).y;\n  vSlopeY = objectNormal.y;\n  vSnowAff = aSnow;');
     shader.fragmentShader = `uniform sampler2D uNoise;
 uniform float uSnow;
 uniform float uWet;
@@ -65,6 +67,9 @@ uniform vec2 uTileOrigin;
 uniform vec2 uTileSize;
 varying float vSnowAff;
 varying vec2 vWorldXZ;
+varying float vWorldY;
+varying float vSlopeY;
+uniform vec2 uHRange;
 vec4 tileAt(vec2 p) {
   ivec2 c = ivec2(clamp(floor(p) - uTileOrigin, vec2(0.0), uTileSize - 1.0));
   return texelFetch(uTiles, c, 0);
@@ -116,6 +121,9 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
       float gn1 = texture2D(uNoise, vWorldXZ * 0.035).r;
       float gn2 = texture2D(uNoise, vWorldXZ * 0.16 + 0.37).r;
       diffuseColor.rgb *= 0.84 + 0.24 * gn1 + 0.12 * (gn2 - 0.5);
+      // the lie of the land: steep slopes a little darker, hollows cooler, rises warmer
+      diffuseColor.rgb *= 1.0 - 0.16 * smoothstep(0.06, 0.45, 1.0 - vSlopeY);
+      diffuseColor.rgb *= mix(vec3(0.93, 0.955, 0.99), vec3(1.035, 1.02, 0.965), clamp((vWorldY - uHRange.x) / max(0.01, uHRange.y - uHRange.x), 0.0, 1.0));
       // after rain the ground is darker and a little richer, drying out patchily
       float wetK = uWet * smoothstep(0.25, 0.75, gn2 + uWet * 0.5);
       diffuseColor.rgb *= 1.0 - 0.1 * wetK;`).replace('#include <color_fragment>', `
@@ -175,11 +183,24 @@ function waterLook(mat, time, noise, rain, sky) {
         vec3 tilt = vec3(n1x - n1 + (n2 - 0.5) * 0.05, 0.0, n1z - n1 - (n2 - 0.5) * 0.05) * 0.9;
         normal = normalize(normal + (viewMatrix * vec4(tilt, 0.0)).xyz);
       }`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+      {
+        // the sky catches on ripples tilted away from the viewer, more toward a glancing angle
+        float flatZ = (viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).z;               // how calm water faces the camera
+        float tiltAway = flatZ - normal.z;
+        diffuseColor.rgb = mix(diffuseColor.rgb, uSky * 1.05, smoothstep(0.03, 0.22, tiltAway) * 0.12);
+      }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
       {
         float deep = smoothstep(0.05, 0.55, vDepth);
-        diffuseColor.rgb = mix(diffuseColor.rgb * 1.06 + vec3(0.0, 0.015, 0.01), diffuseColor.rgb * 0.82, deep);
-        diffuseColor.rgb = mix(diffuseColor.rgb, uSky, 0.06);                        // the sky reflected in it
+        // clear, greener shallows; deep water a richer blue-green
+        diffuseColor.rgb = mix(diffuseColor.rgb * vec3(1.06, 1.12, 1.06) + vec3(0.012, 0.03, 0.018), diffuseColor.rgb * vec3(0.66, 0.78, 0.86), deep);
+        diffuseColor.rgb = mix(diffuseColor.rgb, uSky, 0.05);                        // the sky reflected in it
+        // sunlight dancing on the bottom of the shallows
+        {
+          float ca = texture2D(uNoiseW, vWXZ * 2.3 + vec2(uTime * 0.03, uTime * 0.021)).r * texture2D(uNoiseW, vWXZ * 1.9 - vec2(uTime * 0.024, -uTime * 0.017)).r;
+          diffuseColor.rgb += vec3(0.05, 0.06, 0.045) * smoothstep(0.2, 0.45, ca) * (1.0 - deep) * smoothstep(0.01, 0.08, vDepth);
+        }
         diffuseColor.a *= mix(0.93, 1.0, deep);
         // downstream streaks on moving water
         float fl = length(vFlow);
@@ -192,7 +213,10 @@ function waterLook(mat, time, noise, rain, sky) {
         float edge = 1.0 - smoothstep(0.005, 0.06, vDepth);
         float fn = texture2D(uNoiseW, vWXZ * 1.4 + vec2(uTime * 0.012, -uTime * 0.008)).r;
         float foam = edge * smoothstep(0.4, 0.72, fn + 0.1 * sin(uTime * 0.5 + vWXZ.x * 3.0 + vWXZ.y * 2.0));
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.86), foam * 0.4);
+        // ...and soft lines of it lapping in toward the bank
+        float lap = (1.0 - smoothstep(0.0, 0.14, vDepth)) * smoothstep(0.62, 0.9, fract(vDepth * 9.0 - uTime * 0.22 + fn * 0.6)) * smoothstep(0.3, 0.6, fn);
+        foam = max(foam, lap * 0.8);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.86), foam * 0.45);
         diffuseColor.a = max(diffuseColor.a, foam * 0.45 * step(0.001, diffuseColor.a));
         // rain rings: expanding circles in a grid of cells, each on its own clock
         if (uRain > 0.01) {
@@ -271,7 +295,7 @@ export class Terrain {
     this.time = { value: 0 };
     // which texture each tile shows, for the ground shader: slot, rotation, crisp-edged or not
     this.noise = noiseTexture();
-    this.tiles = { tint: { value: null }, tex: { value: null }, origin: { value: new THREE.Vector2() }, size: { value: new THREE.Vector2(1, 1) }, wet: { value: 0 } };
+    this.tiles = { tint: { value: null }, tex: { value: null }, origin: { value: new THREE.Vector2() }, size: { value: new THREE.Vector2(1, 1) }, wet: { value: 0 }, hRange: { value: new THREE.Vector2(0, 1) } };
     this.material = withClouds(groundDetail(new THREE.MeshLambertMaterial({ map: atlas.tex, vertexColors: true }), this.noise, this.tiles));
     this.rain = { value: 0 }; this.sky = { value: new THREE.Color(0.8, 0.86, 0.9) };
     this.waterMat = withClouds(waterLook(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1), this.time, this.noise, this.rain, this.sky));
@@ -352,6 +376,10 @@ export class Terrain {
     g.attributes.position.needsUpdate = true;
     g.attributes.normal.needsUpdate = true;
     g.computeBoundingSphere();
+    // the map's own height range, for shading hollows and rises (5th to 95th percentile, so one
+    // tall peak or a deep river doesn't flatten everything else)
+    { const hs = []; for (let y = 0; y <= w.h; y += 2) for (let x = 0; x <= w.w; x += 2) hs.push(this.h(x, y)); hs.sort((a, b) => a - b);
+      this.tiles.hRange.value.set(hs[Math.floor(hs.length * 0.05)], hs[Math.floor(hs.length * 0.95)] + 0.01); }
     this.hv = w.hv;
     this.buildSkirt();
     this.buildLine();
@@ -398,6 +426,7 @@ export class Terrain {
             let tc = turfCache.get(gid);
             if (!tc) { tc = turfColor(p, month, season); turfCache.set(gid, tc); }
             const f = clamp((gg - 0.12) * 2, 0, 1);
+            if (p.layer === 0 && !p.aquatic) tc = patchColor(tc, meadowPatch(x + 0.5, y + 0.5), 1); // (the same patches as the tufts on it)
             if (tex === S.TURF) c = mixRgb(pasture, tc, f);
             else if (gg > 0.35) { tex = S.TURF; c = mixRgb(pasture, tc, f); }
             else c = mixRgb([1, 1, 1], [0.85, 1, 0.8], f);

@@ -10,6 +10,7 @@ import { withSnowTops } from './snow.js';
 import { withClouds } from './atmosphere.js';
 import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
+import { meadowPatch, patchColor } from './patches.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -82,8 +83,21 @@ class ChunkedPool {
 // Foliage sways in the wind: displacement grows with height above each plant's base.
 const gust = { value: 1 }; // how hard it's blowing (storms push everything further)
 export const windGust = gust;
-function windy(mat, amount, wind, bothSidesLit = false) {
+// Leaf light: light wraps a little way round a leafy mass (so the shaded side falls off softly
+// instead of going dark), and leaves with a low sun behind them glow where it shines through.
+// A few extra operations per pixel; nothing else changes.
+const LEAF_LIGHT = THREE.ShaderChunk.lights_lambert_pars_fragment.replace(
+  '\tfloat dotNL = saturate( dot( geometryNormal, directLight.direction ) );\n\tvec3 irradiance = dotNL * directLight.color;',
+  `\tfloat nl = dot( geometryNormal, directLight.direction );
+\tfloat dotNL = saturate( ( nl + LEAF_WRAP ) / ( 1.0 + LEAF_WRAP ) );
+\tvec3 irradiance = dotNL * directLight.color;
+\tfloat back = pow( saturate( dot( geometryViewDir, - directLight.direction ) ), 2.0 ) * saturate( 0.55 - nl * 0.45 );
+\tirradiance += back * LEAF_GLOW * directLight.color * vec3( 1.0, 0.93, 0.62 );`);
+if (LEAF_LIGHT === THREE.ShaderChunk.lights_lambert_pars_fragment) console.warn('leaf light: three.js lighting code changed, leaves use plain lighting');
+
+function windy(mat, amount, wind, bothSidesLit = false, wrap = 0.3, glow = 0.55) {
   mat.onBeforeCompile = shader => {
+    shader.fragmentShader = `#define LEAF_WRAP ${wrap.toFixed(2)}\n#define LEAF_GLOW ${glow.toFixed(2)}\n` + shader.fragmentShader.replace('#include <lights_lambert_pars_fragment>', LEAF_LIGHT);
     // thin blades: light both faces as if they faced the sky, instead of darkening the back
     if (bothSidesLit) shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_begin>',
       THREE.ShaderChunk.normal_fragment_begin.replace('gl_FrontFacing ? 1.0 : - 1.0', '1.0'));
@@ -103,7 +117,7 @@ function windy(mat, amount, wind, bothSidesLit = false) {
       transformed.x += wS * wH * wH * uWind;
       transformed.z += wS * 0.5 * wH * wH * uWind;`);
   };
-  mat.customProgramCacheKey = () => 'wind' + amount + (bothSidesLit ? 'b' : '');
+  mat.customProgramCacheKey = () => 'wind' + amount + (bothSidesLit ? 'b' : '') + ':leaf' + wrap + glow;
   return mat;
 }
 
@@ -136,8 +150,8 @@ export class Flora {
     // everything that can hide an animal dissolves around the selected one (see focus.js)
     // ...and everything catches snow on top in winter (see snow.js)
     this.foliage = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind)), 0.95));
-    this.shrubs = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind)), 0.85));
-    this.grass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true)), 1.3));
+    this.shrubs = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind, false, 0.38, 0.6)), 0.85));
+    this.grass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true, 0.5, 0.7)), 1.3));
     this.bark = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
     this.small = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
     this.pools = new Map();
@@ -147,7 +161,12 @@ export class Flora {
 
   geo(key, build) {
     let g = this.geos.get(key);
-    if (!g) { g = build(); this.geos.set(key, g); }
+    if (!g) {
+      g = build();
+      // baked shading (see geometry.js): leafy masses darker inside, grass at its foot, the rest where it meets the ground
+      if (g?.isBufferGeometry) G.bakeAO(g, key.startsWith('tuft') ? 'blade' : key.startsWith('shrub') ? 'crown' : 'base');
+      this.geos.set(key, g);
+    }
     return g;
   }
   pool(key, build, mat, opts = {}, buildLo = null) {
@@ -203,14 +222,23 @@ export class Flora {
         const grassy = type === 'grass' || type === 'tallgrass' || type === 'sedge';
         // (lush: on maps whose wildflower gardens are the payoff, a mature bed is drawn thick and full)
         const lush = biome.look.lush && (type === 'forb' || type === 'tallforb') && g >= 0.3;
-        const n = lush ? (g < 0.65 ? 6 : type === 'tallforb' ? 7 : 10) : g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 5); // a healthy sward fills its tile
+        const n0 = lush ? (g < 0.65 ? 6 : type === 'tallforb' ? 7 : 10) : g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 5); // a healthy sward fills its tile
+        // meadow patches: thicker, taller and deeper green in some places, thinner and more golden in others
+        const pt = meadowPatch(x + 0.5, y + 0.5), aquaticT = type === 'lily' || type === 'cattail' || type === 'tule';
+        const n = aquaticT ? n0 : Math.max(1, Math.round(n0 * (0.6 + pt.lush * 0.8)));
         const phase = plantPhase(p, month);
-        const col = leafColor(p, phase);
+        const col = aquaticT ? leafColor(p, phase) : patchColor(leafColor(p, phase), pt);
+        // grasses grow in clumps: one or two centres per tile that the tufts gather round
+        const clumps = grassy ? 1 + (hash2(x, y, 17) < 0.5 ? 1 : 0) : 0;
         const pool = this.pool(`tuft:${type}:${v}`, () => G.tuft(type, 100 + v * 17 + type.length), this.grass, { shadow: false, kind: 'grass' },
           () => G.tuft(type, 100 + v * 17 + type.length, true));
         for (let k = 0; k < n; k++) {
-          const px = x + 0.08 + hash2(x, y, 20 + k) * 0.84, pz = y + 0.08 + hash2(x, y, 40 + k) * 0.84;
-          const sc = (0.5 + 0.45 * g) * (0.7 + hash2(x, y, 60 + k) * 0.5) * (lush ? 1.12 : 1);
+          let px = x + 0.08 + hash2(x, y, 20 + k) * 0.84, pz = y + 0.08 + hash2(x, y, 40 + k) * 0.84;
+          if (clumps && k % 3 !== 2) { // two in three tufts close in round a clump; the rest scatter between
+            const c = k % clumps, cxp = x + 0.2 + hash2(x, y, 14 + c) * 0.6, czp = y + 0.2 + hash2(x, y, 15 + c) * 0.6, a = hash2(x, y, 21 + k) * 6.28, r = Math.sqrt(hash2(x, y, 41 + k)) * 0.2;
+            px = cxp + Math.cos(a) * r; pz = czp + Math.sin(a) * r;
+          }
+          const sc = (0.5 + 0.45 * g) * (0.7 + hash2(x, y, 60 + k) * 0.5) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26);
           // lily pads float on the water surface instead of sitting on the pond bed
           const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz);
           pool.add(px, py, pz, sc, sc, sc, hash2(x, y, 80 + k) * 6.28, vary(col.map(c => c * dim), x, y, k));

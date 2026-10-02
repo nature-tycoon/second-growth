@@ -74,11 +74,11 @@ export default function buildChinandegaPlants(def, mix, get) {
   // ---------- Trees ----------
   def({ key: 'guanacaste', name: 'Guanacaste', sci: 'Enterolobium cyclocarpum', layer: 2, moist: [0.1, 0.85], light: [0.5, 1], nfix: true,
     grow: 0.0045, spread: 0.007, radius: 5, life: 250, mast: 1, cost: 22,
-    look: { type: 'umbrella', leaf: '#5a8a40', ...dry, deciduous: true, bark: '#6a5a4a' },
+    look: { type: 'guanacaste', leaf: '#5a8a40', ...dry, deciduous: true, bark: '#6a5a4a' },
     desc: 'Guanacaste or "ear tree", for its ear-shaped seed pods. The biggest shade tree of the Pacific lowlands; its pods feed deer, peccaries and cattle.' });
   def({ key: 'genizaro', name: 'Rain tree', sci: 'Samanea saman', layer: 2, moist: [0.15, 0.85], light: [0.5, 1], nfix: true,
     grow: 0.004, spread: 0.007, radius: 5, life: 200, mast: 0.8, cost: 20,
-    look: { type: 'umbrella', leaf: '#4f8a3a', flower: '#e880a8', bloom: [0, 1], bloomTint: 0.25, bark: '#5a4a3a' },
+    look: { type: 'raintree', leaf: '#4f8a3a', flower: '#e880a8', bloom: [0, 1], bloomTint: 0.25, bark: '#5a4a3a' },
     desc: 'Genízaro. A huge umbrella of a tree whose leaves fold up at night and before rain. Its pink puffball flowers feed bats and moths.' });
   def({ key: 'ceiba', name: 'Ceiba', sci: 'Ceiba pentandra', layer: 2, moist: [0.2, 0.9], light: [0.5, 1],
     grow: 0.0048, spread: 0.006, radius: 6, life: 300, cost: 24,
@@ -122,11 +122,11 @@ export default function buildChinandegaPlants(def, mix, get) {
     desc: 'Mangle rojo. It stands on arching stilt roots in the salt water. Fish, shrimp and crabs grow up among the roots before heading out to sea.' });
   def({ key: 'blackmangrove', name: 'Black mangrove', sci: 'Avicennia germinans', layer: 2, moist: [0.65, 1], light: [0.4, 1], wetOK: true, mangrove: true,
     grow: 0.0045, spread: 0.009, radius: 3, life: 80, cost: 16,
-    look: { type: 'alder', leaf: '#4a6a44', bark: '#4a3e34' },
+    look: { type: 'mangrovebush', leaf: '#4a6a44', bark: '#4a3e34' },
     desc: 'Mangle negro. It grows a little higher on the mud, breathing through thousands of pencil-like roots that poke up out of it.' });
   def({ key: 'whitemangrove', name: 'White mangrove', sci: 'Laguncularia racemosa', layer: 2, moist: [0.6, 1], light: [0.45, 1], wetOK: true, mangrove: true,
     grow: 0.005, spread: 0.01, radius: 3, life: 60, cost: 14,
-    look: { type: 'alder', leaf: '#5a8a4a', bark: '#7a6a5a' },
+    look: { type: 'mangrovebush', leaf: '#5a8a4a', bark: '#7a6a5a' },
     desc: 'Mangle blanco, the fastest mangrove to grow back on the edge of cleared ponds and mudflats.' });
   def({ key: 'neem', name: 'Neem', sci: 'Azadirachta indica', layer: 2, native: false, invasive: true,
     moist: [0.0, 0.75], light: [0.35, 1], grow: 0.007, spread: 0.012, radius: 4, life: 60, compete: 0.6, cost: 0,

@@ -128,7 +128,7 @@ export default function buildChinandegaAnimals(def) {
       speed: 2.6, hr: 40, max: 10, groupSize: [2, 2], sources: ['N'], mig: 0.3, breed: [11, 0], litter: [1, 2], life: 40, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.berries[i] * 2)),
       req: g => Math.min(1, (g.bigTrees || 0) / 20),
-      sprite: { kind: 'macaw', size: 18, color: '#3a9a3a', breast: '#4aaa44', head: '#48a840', wing: '#3a8a3a', wingtip: '#2a5a9a' },
+      sprite: { kind: 'macaw', size: 18, color: '#3a9a3a', breast: '#4aaa44', head: '#48a840', wing: '#3a8a3a', wingtip: '#2a5a9a', shortTail: true, faceSkin: null, nape: '#e8d038' },
       desc: 'Lora nuca amarilla. A talking parrot so often taken from its nest for pets that it is now critically endangered. It nests in holes in big old trees.',
       hint: 'Big old trees for nest holes, and fruiting dry forest.' });
   }
@@ -137,7 +137,7 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'chocoyo', name: 'Orange-fronted parakeet', sci: 'Eupsittula canicularis', group: 'Birds', move: 'fly',
       speed: 3, hr: 20, max: 20, groupSize: [4, 6], sources: ['N', 'E'], mig: 0.4, breed: [0, 1], litter: [2, 4], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.berries[i] * 2 + W.nectar[i])),
-      sprite: { kind: 'macaw', size: 12, color: '#4aa844', breast: '#8ac860', head: '#4aa844', wing: '#3a9a3a', wingtip: '#3a6ab0' },
+      sprite: { kind: 'macaw', size: 12, color: '#4aa844', breast: '#8ac860', head: '#4aa844', wing: '#3a9a3a', wingtip: '#3a6ab0', faceSkin: '#f0d890', velvet: '#e8843a' },
       desc: 'Chocoyo. Noisy flocks of little green parakeets that dig their nests into termite mounds in the trees.',
       hint: 'Trees with fruit, flowers and seeds.' });
   }
@@ -248,7 +248,7 @@ export default function buildChinandegaAnimals(def) {
       speed: 1.6, hr: 6, max: 20, minK: 2, sources: ['S'], mig: 0.4, breed: [4, 5], litter: [2, 4], life: 10, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * (0.3 + 0.7 * W.waterQ[i]) * (W.connected[i] ? 1 : 0.3),
       req: g => Math.min(1, 0.3 + stat(g, 'mangrove') / 60),
-      sprite: { kind: 'fish', size: 20, back: '#6a7068', flank: '#c8c8b8', belly: '#f0eee4', spots: '#2a2a2a' },
+      sprite: { kind: 'fish', size: 20, back: '#5a6460', flank: '#d0d2c8', belly: '#f2f0e8', spiny: true, stripe: 'line', jaw: true, finColor: '#c8b860' },
       desc: 'Róbalo. The young grow up hiding among the mangrove roots; the adults feed families along the whole coast.',
       hint: 'Mangrove channels connected to the estuary.' });
   }
@@ -257,7 +257,7 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'snapper', name: 'Mangrove snapper', sci: 'Lutjanus griseus', group: 'Fish', move: 'swim',
       speed: 1.4, hr: 4, max: 24, minK: 2, sources: ['S'], mig: 0.4, breed: [3, 4, 5], litter: [3, 5], life: 8, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * (0.3 + 0.7 * W.waterQ[i]) * (W.connected[i] ? 1 : 0.3),
-      sprite: { kind: 'fish', size: 14, back: '#7a5a4a', flank: '#b88a6a', belly: '#e8d0b0', spots: '#6a3a2a' },
+      sprite: { kind: 'fish', size: 14, back: '#6a5048', flank: '#b8806a', belly: '#e8cdb0', spiny: true, deep: true, finColor: '#b8503a', eye: '#d86a3a' },
       desc: 'Pargo. Another fish that needs the mangroves as a nursery before it heads out to the reefs.',
       hint: 'Clean mangrove channels.' });
   }
