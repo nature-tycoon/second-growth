@@ -551,9 +551,22 @@ const MAMMALS = {
     return {
       H, leg, legR0: H * 0.14, legR1: H * 0.075, hoof: '#141414', neckR: H * 0.22, shoulder: 0.06, chest: 0.95,
       coat: stripes, legColor: legC, headColor: null,
-      head: [L * 0.55, by + H * 0.72], headR: [H * 0.32, H * 0.21, H * 0.17], snout: H * 0.3, muzzle: '#2a2626',
+      head: [L * 0.55, by + H * 0.72], headR: [H * 0.24, H * 0.2, H * 0.17], snout: H * 0.04, muzzle: light, nose: false,
       ears: 'point', ear: H * 0.27, earOut: 0.3, earBack: 0.1, earW: 0.3, earColor: s.color,
-      face: (m, hp, hr, hd) => m.limb([L * 0.3, by + H * 0.52, 0], [hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.9, 0], H * 0.07, H * 0.05, u => (Math.sin(u.y * 8) > 0 ? dark : light), hd),
+      face: (m, hp, hr, hd) => {
+        m.limb([L * 0.3, by + H * 0.52, 0], [hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.9, 0], H * 0.07, H * 0.05, u => (Math.sin(u.y * 8) > 0 ? dark : light), hd); // the mane
+        // a long horse face angled down, thin stripes across the bridge, ending in a soft dark muzzle
+        const a = -0.62, c = Math.cos(a), sn = Math.sin(a), at = d => [hp[0] + c * d, hp[1] + sn * d, 0];
+        m.ell(at(H * 0.24), [H * 0.3, H * 0.15, H * 0.13], u => (u.x < 0.55 && Math.sin(u.x * 13) > 0.35 ? dark : light), { ...hd, rot: [0, 0, a] });
+        const nose = col('#3a2e2a'), soft = u => tmp.copy(light).lerp(nose, smooth(-0.6, 0.3, u.x)); // fading from white into the dark nose
+        m.ell(at(H * 0.45), [H * 0.13, H * 0.125, H * 0.115], soft, { ...hd, rot: [0, 0, a] });
+        const tip = at(H * 0.55);
+        for (const side of [1, -1]) { // dark eyes set into the side of the head
+          m.ell([hp[0] + hr[0] * 0.35, hp[1] + hr[1] * 0.15, side * hr[2] * 0.92], [H * 0.04, H * 0.04, H * 0.025], '#15110e', { ...hd, lo: true });
+          m.ell([hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.25, side * hr[2] * 1.02], [H * 0.012, H * 0.012, H * 0.008], '#f4f2ea', { ...hd, lo: true });
+        }
+        for (const side of [1, -1]) m.ell([tip[0], tip[1] + H * 0.01, side * H * 0.045], [H * 0.015, H * 0.022, H * 0.02], '#141010', { ...hd, lo: true });
+      },
       tail: (m, b) => { const base = [-L * 0.46, b.by + H * 0.25, 0]; m.limb(base, [-L * 0.55, b.by - H * 0.35, 0], H * 0.04, H * 0.03, s.color, { part: P.TAIL, pivot: base }); m.ell([-L * 0.56, b.by - H * 0.45, 0], [H * 0.06, H * 0.13, H * 0.06], s.dark, { part: P.TAIL, pivot: base, lo: true }); },
     };
   },
@@ -579,9 +592,14 @@ const MAMMALS = {
       face: (m, hp, hr, hd) => {
         // the long, blunt face, angled down to a broad black nose
         const f0 = [hp[0] + hr[0] * 0.3, hp[1] - hr[1] * 0.1, 0], f1 = [hp[0] + H * 0.46, hp[1] - H * 0.42, 0];
-        m.limb(f0, f1, H * 0.17, H * 0.15, u => tmp.copy(col(s.color)).lerp(dark, 0.55), hd);
-        m.ell([f1[0] + H * 0.02, f1[1] - H * 0.02, 0], [H * 0.11, H * 0.1, H * 0.16], s.dark, hd);
-        for (const side of [1, -1]) m.ell([f1[0] + H * 0.08, f1[1] - H * 0.01, side * H * 0.08], [H * 0.03, H * 0.03, H * 0.03], '#0a0a0a', { ...hd, lo: true }); // nostrils
+        const a = Math.atan2(f1[1] - f0[1], f1[0] - f0[0]), len = Math.hypot(f1[0] - f0[0], f1[1] - f0[1]);
+        const at = d => [f0[0] + Math.cos(a) * d, f0[1] + Math.sin(a) * d, 0], faceC = tmp.copy(col(s.color)).lerp(dark, 0.55).clone();
+        // one long, deep face overlapping the skull, darkening toward the front, with a slightly wider
+        // nose filling out its end (flush with it, not a knob on the tip)
+        m.ell(at(len * 0.4), [len * 0.7, H * 0.2, H * 0.165], u => tmp.copy(faceC).lerp(dark, smooth(0.3, 0.85, u.x)), { ...hd, rot: [0, 0, a] });
+        m.ell(at(len * 0.88), [H * 0.14, H * 0.165, H * 0.175], dark, { ...hd, rot: [0, 0, a] });
+        const tip = at(len * 0.88 + H * 0.13);
+        for (const side of [1, -1]) m.ell([tip[0], tip[1] + H * 0.01, side * H * 0.06], [H * 0.018, H * 0.026, H * 0.024], '#0a0a0a', { ...hd, lo: true }); // nostrils
         // black beard hanging from the throat, and the upright mane along the neck
         m.ell([hp[0] - hr[0] * 0.2, hp[1] - hr[1] * 1.3, 0], [H * 0.14, H * 0.3, H * 0.07], s.dark, hd);
         m.ell([L * 0.38, by + H * 0.08, 0], [H * 0.16, H * 0.26, H * 0.06], s.dark, hd);
