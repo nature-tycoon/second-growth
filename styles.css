@@ -386,13 +386,17 @@ body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; ove
 #view-ctrls button { width: 40px; height: 40px; border: 0; border-radius: 10px; background: var(--paper-2); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
 #view-ctrls button svg { width: 22px; height: 22px; }
 #view-ctrls button:active { background: var(--moss); color: #fff; }
-#view-ctrls button[hidden] { display: none; }
-/* the Move / Paint switch: what one finger does on the map while a brush tool is picked */
-#view-ctrls #btn-paint { width: 46px; height: 50px; gap: 1px; align-content: center; font: 800 10px/1 var(--ui); letter-spacing: .02em; margin-bottom: 4px; }
-#view-ctrls #btn-paint svg { width: 20px; height: 20px; }
-#btn-paint .ic-paint, #btn-paint.on .ic-move { display: none; }
-#btn-paint.on .ic-paint { display: block; }
-#view-ctrls #btn-paint.on { background: var(--moss); color: #fff; }
+/* touch screens: a thumbstick in the bottom-left corner that moves the map, so one finger on
+   the map is always free to paint */
+#joystick { display: none; position: fixed; left: calc(74px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 6;
+  width: 108px; height: 108px; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none;
+  background: radial-gradient(circle, rgba(250,244,226,.10) 0 54%, rgba(250,244,226,.30) 55% 100%);
+  border: 2px solid rgba(250,244,226,.55); box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+#joystick .js-knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+  background: var(--paper-2); box-shadow: 0 2px 6px rgba(0,0,0,.3); transition: transform .12s ease-out; pointer-events: none; }
+#joystick.on .js-knob { transition: none; background: var(--moss); }
+@media (pointer: coarse) { #joystick { display: block; } }
+body.panels-hidden #joystick, body.photo-mode #joystick { display: none !important; }
 @media (pointer: coarse) {
   #view-ctrls { display: flex; }
   body.mini-collapsed #view-ctrls { bottom: 52px; }
@@ -453,7 +457,8 @@ body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; ove
   #view-ctrls { right: calc(6px + env(safe-area-inset-right)); bottom: 160px; flex-direction: column; }
   body.mini-collapsed #view-ctrls { bottom: 44px; }
   #view-ctrls button { width: 36px; height: 36px; }
-  #view-ctrls { align-items: center; }
+  #joystick { left: calc(68px + env(safe-area-inset-left)); bottom: calc(10px + env(safe-area-inset-bottom)); width: 96px; height: 96px; }
+  #joystick .js-knob { width: 40px; height: 40px; margin: -20px 0 0 -20px; }
 
   .modal { width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)); max-height: calc(100dvh - 12px); border-radius: 14px; }
   .modal-head { padding: 8px 14px; }

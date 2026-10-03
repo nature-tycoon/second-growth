@@ -18,7 +18,6 @@ export const DEFAULTS = {
   nature: true, natureVolume: 0.6,    // rain, birds and water
   notifications: 'all', // 'all' or 'important' (skip routine updates; they still go in the journal)
   brushSizes: {},      // last brush radius used with each tool
-  touchPaint: false,   // phones: one finger paints (true) or moves the map (false)
   v: 2,                // settings version (see load)
 };
 
