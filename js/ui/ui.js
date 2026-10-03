@@ -241,6 +241,7 @@ export class UI {
 
   applySettings() {
     this.renderer.applySettings(settings);
+    this.syncPaintBtn();
     this.game.autosave = settings.autosave;
     music.set({ music: settings.music, nature: settings.nature, muted: settings.muted, musicVol: settings.musicVolume, natureVol: settings.natureVolume });
     $('#btn-sound')?.classList.toggle('muted', !!settings.muted);
@@ -267,7 +268,8 @@ export class UI {
     window.addEventListener('resize', () => this.fitTopbar());
     $('#btn-feedback').addEventListener('click', () => this.openFeedback());
     // phones and tablets: on-screen rotate buttons, full screen where the browser allows it
-    document.querySelectorAll('#view-ctrls [data-v]').forEach(b => b.addEventListener('click', () => this.renderer.rotate(b.dataset.v === 'rotl' ? -1 : 1)));
+    document.querySelectorAll('#view-ctrls [data-v^=rot]').forEach(b => b.addEventListener('click', () => this.renderer.rotate(b.dataset.v === 'rotl' ? -1 : 1)));
+    $('#btn-paint')?.addEventListener('click', () => this.setTouchPaint(!settings.touchPaint));
     const fs = $('#btn-fullscreen'), root = document.documentElement;
     if (TOUCH && (root.requestFullscreen || root.webkitRequestFullscreen)) {
       fs.classList.remove('hidden');
@@ -287,6 +289,30 @@ export class UI {
     $('#overlay').addEventListener('change', e => { this.setOverlay(e.target.value); e.target.blur(); });
   }
   setSpeed(s) { this.game.speed = s; this.refreshTop(true); }
+  // Touch screens: the Move / Paint switch by the map. It shows while a brush tool is picked and
+  // says what one finger does on the map.
+  setTouchPaint(on) {
+    settings.touchPaint = !!on; saveSettings();
+    this.syncPaintBtn();
+    track('setting_changed', { setting: 'touchPaint', value: settings.touchPaint });
+  }
+  syncPaintBtn() {
+    const b = $('#btn-paint');
+    if (!b) return;
+    const t = this.state?.tool && TOOLS[this.state.tool], brush = !!(TOUCH && t && t.brush), on = !!settings.touchPaint;
+    b.hidden = !brush;
+    b.classList.toggle('on', on);
+    setAttr(b, 'aria-pressed', on);
+    setText(b.querySelector('span'), on ? 'Paint' : 'Move');
+    b.title = on ? 'One finger paints. Tap to move the map with one finger instead.' : 'One finger moves the map. Tap to paint with one finger instead.';
+  }
+  // Touch screens: touching the map folds the tool panel down to its title, so the map has room.
+  tuckToolPanel() {
+    const st = this.state;
+    if (!TOUCH || !COMPACT() || st.cat === 'inspect' || st.toolCollapsed || $('#toolpanel').classList.contains('hidden')) return;
+    st.toolCollapsed = true;
+    this.renderToolPanel();
+  }
   // If the top bar still doesn't fit, fold away lower-priority pieces one step at a time.
   fitTopbar() {
     const bar = $('#topbar');
@@ -398,19 +424,23 @@ export class UI {
   openCategory(cat) {
     const st = this.state;
     if (cat === st.cat && cat !== 'inspect' && !$('#toolpanel').classList.contains('hidden')) {
-      $('#toolpanel').classList.add('hidden');
+      // (a folded panel opens back up; an open one hides)
+      if (st.toolCollapsed) { st.toolCollapsed = false; this.renderToolPanel(); }
+      else $('#toolpanel').classList.add('hidden');
       return;
     }
     st.cat = cat;
     if (this.newCats?.delete(cat)) document.querySelector(`#toolbar [data-cat=${cat}]`)?.classList.remove('fresh');
     this.markToolbar();
-    if (cat === 'inspect') { st.tool = null; $('#toolpanel').classList.add('hidden'); return; }
+    if (cat === 'inspect') { st.tool = null; $('#toolpanel').classList.add('hidden'); this.syncPaintBtn(); return; }
     if (cat === 'plants' && !this.toolsFor('plants', true).length) st.plantTab = PLANT_TABS.find(t => this.tabOpen(t.key))?.key || 'mixes';
     const list = this.toolsFor(cat, true);
     if (!list.length) st.tool = null; // (nothing unlocked here yet: the panel shows what's coming)
     else if (!st.tool || TOOLS[st.tool].cat !== cat || !this.isOpen(st.tool)) this.selectTool(list[0].key, false);
+    if (TOUCH) st.toolCollapsed = false; // (picking a group on a phone always shows its tools)
     this.renderToolPanel();
     $('#toolpanel').classList.remove('hidden');
+    this.syncPaintBtn();
   }
   // Tools in a category (the current plant tab only, unless allTabs); openOnly skips campaign-locked ones.
   toolsFor(cat, openOnly = false, allTabs = false) {
@@ -428,6 +458,7 @@ export class UI {
     // each tool category remembers the last brush size you used with it
     this.state.brushR = t.brush ? (settings.brushSizes[t.cat] ?? t.size) : 0;
     if (rerender) this.renderToolPanel();
+    this.syncPaintBtn();
   }
   setBrush(r) {
     const t = TOOLS[this.state.tool];
@@ -965,12 +996,13 @@ export class UI {
         ${toggle('pauseOnEvents', 'Pause on wildfire or flood', 'Stop the clock so you can respond.')}
         ${choice('notifications', 'Notifications', 'Routine updates still go in the field journal.', [['all', 'Show everything'], ['important', 'Important only']])}`],
       graphics: ['Graphics', `
-        ${choice('quality', 'Resolution', 'Lower it if the game feels slow.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}
+        ${choice('quality', 'Detail', TOUCH ? 'Fast suits most phones. On a touch screen the resolution also adjusts itself to keep things smooth.' : 'Lower it if the game feels slow. Fast also uses simpler plants until you zoom in.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}
         ${toggle('shadows', 'Shadows', 'Trees and buildings cast soft shadows.')}
         ${toggle('wind', 'Wind in the plants', 'Grass, shrubs and treetops sway.')}
         ${toggle('weather', 'Rain and snow', 'Falling rain and snow over the view.')}
         ${toggle('dayCycle', 'Time of day', 'The light drifts from midday through golden hour and dusk to dawn every few minutes.')}`],
       controls: ['Controls', `
+        ${TOUCH ? toggle('touchPaint', 'One finger paints', 'On: drag one finger to brush the tool, two fingers move the map. Off: one finger moves the map, a tap uses the tool, and holding a finger still before dragging brushes. The Move / Paint button by the map switches this too.') : ''}
         ${slider('panSpeed', 'Camera pan speed', 'WASD and arrow keys.')}
         ${slider('zoomSpeed', 'Zoom speed', 'Mouse wheel and + / − keys.')}
         <div class="small" style="margin-top:10px">Brush sizes are remembered for each tool group.</div>`],
@@ -1419,8 +1451,9 @@ export class UI {
       <ul>${biome.rules.map(r => `<li>${r}</li>`).join('')}</ul>
       <h3>Controls</h3>
       <ul>
-        ${TOUCH ? `<li>Pick a tool on the left, then <b>drag one finger to brush</b> it across the land. Tap to place things or inspect a tile or animal.</li>
-        <li><b>Two fingers</b> move the map; <b>pinch</b> to zoom. The arrows at the bottom right rotate the view. The ☰ menu has the journal and see-through trees.</li>
+        ${TOUCH ? `<li><b>Drag one finger</b> to move the map, <b>pinch</b> to zoom. The arrows at the bottom right rotate the view.</li>
+        <li>Pick a tool on the left and <b>tap</b> to use it: plant, place, or inspect a tile or animal. To brush a long stroke, <b>hold your finger still for a moment, then drag</b>, or switch the <b>Move / Paint</b> button by the map to Paint (then two fingers move the map).</li>
+        <li>Touching the map folds the tool panel away; tap its tool group again to open it. The ☰ menu has the journal and see-through trees.</li>
         <li>For the most room, use full screen (the corner button at the top) or add the game to your home screen.</li>` : ''}
         <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag to brush</b> it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
         <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate the view. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode.</li>

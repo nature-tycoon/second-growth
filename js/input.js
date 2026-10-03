@@ -13,6 +13,7 @@ let firstToolSent = false; // once per page load
 import { track } from './analytics.js';
 import { biome } from './biome.js';
 
+const HOLD_MS = 380; // touch: how long a finger rests before dragging paints instead of moving the map
 const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
 
 export class Input {
@@ -95,10 +96,16 @@ export class Input {
     if (this.keys.has('-') || this.keys.has('_')) this.r.zoomAt(this.r.vw / 2, this.r.vh / 2, Math.exp(-dt * zs));
     if (this.keys.has('=') || this.keys.has('+')) this.r.zoomAt(this.r.vw / 2, this.r.vh / 2, Math.exp(dt * zs));
     if (dx || dy) this.r.panBy(-dx, -dy);
+    if (this.fling) {
+      const F = this.fling, decay = Math.exp(-dt * 4.5);
+      this.r.panBy(F.vx * dt, F.vy * dt);
+      F.vx *= decay; F.vy *= decay;
+      if (Math.hypot(F.vx, F.vy) < 12 || dx || dy) this.fling = null;
+    }
     // keep a located animal in view until the player moves the camera
     const f = this.ui.follow;
     if (f) {
-      if (dx || dy || this.pan || !this.game.wildlife.agents.includes(f)) this.ui.follow = null;
+      if (dx || dy || this.pan || this.fling || !this.game.wildlife.agents.includes(f)) this.ui.follow = null;
       else this.r.centerOn(f.x, f.y);
     }
     if (this.mouse.in && !this.pan) this.updateHover();
@@ -107,19 +114,36 @@ export class Input {
   tool() { return this.ui.state.tool ? TOOLS[this.ui.state.tool] : null; }
 
   // ------------------------------------------------------------ touch
+  // One finger moves the map (with a little glide when flicked) and a tap uses the tool: inspect,
+  // place, or dab the brush once. To brush a stroke, hold a finger still for a moment and then
+  // drag, or switch the Move / Paint button by the map to Paint, which makes one finger paint
+  // straight away. Two fingers always move and pinch-zoom the map.
   fake(x, y) { return { button: 0, clientX: x, clientY: y, preventDefault() {} }; }
   touchStart(e) {
     e.preventDefault(); // also stops the browser's emulated mouse events and page zoom
     this.touching = true;
+    this.fling = null;
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    this.ui.tuckToolPanel?.();
     const ts = e.touches;
     if (ts.length === 1) {
       const t = ts[0];
       this.ui.follow = null;
-      this.touch = { mode: 'pending', x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, moved: false };
-      // wait a moment before painting, in case a second finger is coming for a camera gesture
+      this.touch = { mode: 'pending', x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, moved: false, vx: 0, vy: 0, t: performance.now(), at: e.timeStamp };
       const tool = this.tool();
-      if (tool && tool.brush) this.touch.timer = setTimeout(() => this.beginTouchPaint(), 110);
+      if (tool && tool.brush) {
+        // Paint: start brushing after a beat, in case a second finger is coming for a camera gesture.
+        if (settings.touchPaint) this.touch.timer = setTimeout(() => this.beginTouchPaint(), 110);
+        // Move: a finger held still arms the brush (its ring shows under the finger), and dragging
+        // from there paints. Whether it was held is judged from when the finger actually moved,
+        // not when the timer ran, so a quick drag on a slow phone still moves the map.
+        else this.touch.timer = setTimeout(() => {
+          const T = this.touch;
+          if (!T || T.mode !== 'pending' || T.moved) return;
+          T.held = true; navigator.vibrate?.(12);
+          this.mouse.in = true; this.mouse.x = T.x0; this.mouse.y = T.y0;
+        }, HOLD_MS);
+      }
     } else {
       if (this.touch && this.touch.timer) clearTimeout(this.touch.timer);
       if (this.stroke) this.endStroke();
@@ -130,10 +154,11 @@ export class Input {
   }
   beginTouchPaint() {
     const T = this.touch;
-    if (!T || T.mode !== 'pending') return;
+    if (!T || T.mode !== 'pending') return false;
     T.mode = 'paint';
     this.mouse.in = true; this.mouse.x = T.x; this.mouse.y = T.y;
     this.down(this.fake(T.x, T.y));
+    return true;
   }
   touchMove(e) {
     e.preventDefault();
@@ -151,14 +176,21 @@ export class Input {
     if (!T.moved && Math.hypot(t.clientX - T.x0, t.clientY - T.y0) > 10) {
       T.moved = true;
       if (T.mode === 'pending') {
+        clearTimeout(T.timer);
         const tool = this.tool();
-        if (tool && tool.brush) { clearTimeout(T.timer); this.beginTouchPaint(); }
-        else T.mode = 'pan'; // Inspect and click-to-place tools: dragging moves the map
+        if (tool && tool.brush && (settings.touchPaint || (T.held && e.timeStamp - T.at >= HOLD_MS))) { T.x = T.x0; T.y = T.y0; this.beginTouchPaint(); }
+        else { T.mode = 'pan'; T.x = T.x0; T.y = T.y0; this.hideHover(); } // (the map follows the finger from where it landed)
       }
     }
-    if (T.mode === 'pan') this.r.panBy(t.clientX - T.x, t.clientY - T.y);
-    else if (T.mode === 'paint') { this.mouse.x = t.clientX; this.mouse.y = t.clientY; this.move(this.fake(t.clientX, t.clientY)); }
-    T.x = t.clientX; T.y = t.clientY;
+    const now = performance.now();
+    if (T.mode === 'pan') {
+      const dx = t.clientX - T.x, dy = t.clientY - T.y, dt = Math.max(1, now - (T.t || now)) / 1000;
+      this.r.panBy(dx, dy);
+      // how fast the finger is going, for the glide when it lets go
+      const k = Math.min(1, dt * 18);
+      T.vx += (dx / dt - T.vx) * k; T.vy += (dy / dt - T.vy) * k;
+    } else if (T.mode === 'paint') { this.mouse.x = t.clientX; this.mouse.y = t.clientY; this.move(this.fake(t.clientX, t.clientY)); }
+    T.x = t.clientX; T.y = t.clientY; T.t = now;
   }
   touchEnd(e) {
     e.preventDefault();
@@ -172,13 +204,17 @@ export class Input {
         this.mouse.x = T.x0; this.mouse.y = T.y0;
         this.down(this.fake(T.x0, T.y0));
         if (this.stroke) this.up(this.fake(T.x0, T.y0));
+      } else if (T.mode === 'pan' && performance.now() - T.t < 80 && Math.hypot(T.vx, T.vy) > 120) {
+        // a flick: the map glides on and slows to a stop
+        const sp = Math.hypot(T.vx, T.vy), cap = Math.min(1, 2600 / sp);
+        this.fling = { vx: T.vx * cap, vy: T.vy * cap };
       }
       this.touch = null;
       this.hideHover();
     } else if (e.touches.length === 1 && T.mode === 'gesture') {
       // one finger lifted from a pinch: keep moving the map with the other, never paint
       const t = e.touches[0];
-      this.touch = { mode: 'pan', x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, moved: true };
+      this.touch = { mode: 'pan', x0: t.clientX, y0: t.clientY, x: t.clientX, y: t.clientY, moved: true, vx: 0, vy: 0, t: performance.now() };
     }
   }
   hideHover() {

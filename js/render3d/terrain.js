@@ -395,9 +395,21 @@ export class Terrain {
     const tint = this.tint;
     // how readily each tile holds snow: open high ground most, under trees less, water not at all
     const snowT = this.snowT || (this.snowT = new Float32Array(this.TW * this.TH));
-    let hLo = Infinity, hHi = -Infinity;
-    for (let ty = 0; ty < this.TH; ty++) for (let tx = 0; tx < this.TW; tx++) { const h = Math.max(...w.corners(tx + this.X0, ty + this.Y0)); hLo = Math.min(hLo, h); hHi = Math.max(hHi, h); }
-    const turfCache = new Map();
+    // each tile's highest corner, kept until the land is reshaped
+    if (this.topHv !== this.hv || !this.top) {
+      const top = this.top = new Float32Array(this.TW * this.TH);
+      let lo = Infinity, hi = -Infinity;
+      for (let ty = 0; ty < this.TH; ty++) for (let tx = 0; tx < this.TW; tx++) {
+        const x = tx + this.X0, y = ty + this.Y0;
+        const h = Math.max(w.vert(x, y), w.vert(x + 1, y), w.vert(x + 1, y + 1), w.vert(x, y + 1));
+        top[ty * this.TW + tx] = h; if (h < lo) lo = h; if (h > hi) hi = h;
+      }
+      this.topLo = lo; this.topHi = hi; this.topHv = this.hv;
+    }
+    const top = this.top, hLo = this.topLo, hHi = this.topHi;
+    const turfCache = new Map(), atlasKeys = new Map();
+    // grassland of any kind shares one texture, tinted by what grows there
+    const pasture = hexRgb(biome.look.pasture[season]).map((v, q) => v / [0.86, 0.88, 0.8][q]);
     for (let ty = 0; ty < this.TH; ty++) for (let tx = 0; tx < this.TW; tx++) {
       const x = tx + this.X0, y = ty + this.Y0, k = ty * this.TW + tx;
       const inside = w.inb(x, y);
@@ -415,8 +427,6 @@ export class Terrain {
         const canopy = inside ? w.canopy[i] : 0;
         const gid = inside ? w.ground[i] : (bi >= 0 ? B.ground[bi] : 0);
         const gg = inside ? w.groundG[i] : 1;
-        // grassland of any kind shares one texture, tinted by what grows there
-        const pasture = hexRgb(biome.look.pasture[season]).map((v, q) => v / [0.86, 0.88, 0.8][q]);
         if (tex === T.PASTURE) { tex = S.TURF; c = pasture; }
         else if (tex === T.SOIL) { tex = S.TURF; c = biome.look.soil; }
         else if (tex === T.MUD) { tex = S.TURF; c = biome.look.mud; }
@@ -452,7 +462,7 @@ export class Terrain {
       }
       {
         const canopyS = inside ? w.canopy[i] : (bi >= 0 && B.tree?.[bi] ? 0.7 : 0.2);
-        const elev = (Math.max(...w.corners(x, y)) - hLo) / Math.max(0.01, hHi - hLo);
+        const elev = (top[k] - hLo) / Math.max(0.01, hHi - hLo);
         snowT[k] = isWater(t) ? 0 : (1 - canopyS * 0.55) * (0.75 + elev * 0.55);
       }
       // a map can colour the land beyond its edge itself (Chinandega's volcano: ash, not grass)
@@ -462,10 +472,16 @@ export class Terrain {
       const dim = inside || own ? 1 : 0.8;
       tint[k * 3] = lin(c[0] * b * dim); tint[k * 3 + 1] = lin(c[1] * b * dim); tint[k * 3 + 2] = lin(c[2] * b * dim);
       // UVs, rotated per tile so repeats don't line up
-      const key = this.atlas.uv[`${tex}|${season}|${v}`] ? `${tex}|${season}|${v}` : `${T.PASTURE}|${season}|0`;
-      const r = this.atlas.uv[key];
+      const ak = tex * 64 + v; // (season is fixed for the whole pass)
+      let at = atlasKeys.get(ak);
+      if (!at) {
+        const key = this.atlas.uv[`${tex}|${season}|${v}`] ? `${tex}|${season}|${v}` : `${T.PASTURE}|${season}|0`;
+        at = { r: this.atlas.uv[key], slot: this.atlas.slot[key] };
+        atlasKeys.set(ak, at);
+      }
+      const r = at.r;
       const td = this.tileData, crisp = t === T.ROAD || t === T.TRAIL || t === T.FIELD;
-      td[k * 4] = this.atlas.slot[key]; td[k * 4 + 1] = t === T.FIELD ? 0 : (v & 3) * 64; // plowed furrows all run the same way
+      td[k * 4] = at.slot; td[k * 4 + 1] = t === T.FIELD ? 0 : (v & 3) * 64; // plowed furrows all run the same way
       td[k * 4 + 2] = crisp ? 0 : 255; td[k * 4 + 3] = 255;
       const corners = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
       const rot = v & 3;
@@ -474,44 +490,41 @@ export class Terrain {
       const put = (j, q) => { uv[o + j * 2] = q[0]; uv[o + j * 2 + 1] = q[1]; };
       put(0, cA); put(1, cC); put(2, cB); put(3, cA); put(4, cD); put(5, cC);
     }
-    // blend colors at shared corners so neighbouring tiles fade into each other
-    const TW = this.TW, TH = this.TH;
-    const corner = (cx, cy, out) => {
-      let r = 0, gg = 0, bb = 0, n = 0;
-      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+    // blend colors at shared corners so neighbouring tiles fade into each other: each corner
+    // averages the (up to four) tiles that meet there, worked out once for the whole map
+    const TW = this.TW, TH = this.TH, VW = TW + 1;
+    const vc = this.vCol && this.vCol.length === VW * (TH + 1) * 3 ? this.vCol : (this.vCol = new Float32Array(VW * (TH + 1) * 3));
+    const vs = this.vSnow && this.vSnow.length === VW * (TH + 1) ? this.vSnow : (this.vSnow = new Float32Array(VW * (TH + 1)));
+    for (let cy = 0; cy <= TH; cy++) for (let cx = 0; cx <= TW; cx++) {
+      let r = 0, gg = 0, bb = 0, n = 0, sv = 0, dry = true;
+      for (let dy = -1; dy <= 0; dy++) for (let dx = -1; dx <= 0; dx++) {
         const tx = cx + dx, ty = cy + dy;
         if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
         const k = ty * TW + tx;
         r += tint[k * 3]; gg += tint[k * 3 + 1]; bb += tint[k * 3 + 2]; n++;
+        sv += snowT[k]; if (snowT[k] === 0) dry = false;
       }
-      out[0] = r / n; out[1] = gg / n; out[2] = bb / n;
-    };
-    const cA = [0, 0, 0], cB = [0, 0, 0], cC = [0, 0, 0], cD = [0, 0, 0];
+      const o = (cy * VW + cx) * 3;
+      vc[o] = r / n; vc[o + 1] = gg / n; vc[o + 2] = bb / n;
+      vs[cy * VW + cx] = dry ? sv / n : sv / n * 0.5; // (snow thins out where it meets water)
+    }
+    const sa = g.attributes.aSnow.array;
     for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
       const k = ty * TW + tx;
-      corner(tx, ty, cA); corner(tx + 1, ty, cB); corner(tx + 1, ty + 1, cC); corner(tx, ty + 1, cD);
+      const a = ty * VW + tx, b = a + 1, c = a + VW + 1, d = a + VW;
       // keep a little of the tile's own color so edges stay readable
-      const own = [tint[k * 3], tint[k * 3 + 1], tint[k * 3 + 2]];
+      const r0 = tint[k * 3], g0 = tint[k * 3 + 1], b0 = tint[k * 3 + 2];
       // crisp surfaces (a one-tile driveway, a trail) keep their own colour instead of taking on the lawn's
-      if (this.tileData[k * 4 + 2] === 0) for (const q of [cA, cB, cC, cD]) { q[0] = own[0]; q[1] = own[1]; q[2] = own[2]; }
+      const crisp = this.tileData[k * 4 + 2] === 0;
       const o = k * 18;
-      const put = (j, q) => { col[o + j * 3] = q[0] * 0.92 + own[0] * 0.08; col[o + j * 3 + 1] = q[1] * 0.92 + own[1] * 0.08; col[o + j * 3 + 2] = q[2] * 0.92 + own[2] * 0.08; };
-      put(0, cA); put(1, cC); put(2, cB); put(3, cA); put(4, cD); put(5, cC);
-    }
-    // snow affinity, blended at corners like the colours so its edges fade too
-    const sa = g.attributes.aSnow.array;
-    const sCorner = (cx, cy) => {
-      let v = 0, n = 0, dry = true;
-      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
-        const tx = cx + dx, ty = cy + dy;
-        if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
-        const k = ty * TW + tx; v += snowT[k]; n++; if (snowT[k] === 0) dry = false;
-      }
-      return n ? (dry ? v / n : v / n * 0.5) : 0;
-    };
-    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
-      const o = (ty * TW + tx) * 6, a = sCorner(tx, ty), b = sCorner(tx + 1, ty), c = sCorner(tx + 1, ty + 1), d = sCorner(tx, ty + 1);
-      sa[o] = a; sa[o + 1] = c; sa[o + 2] = b; sa[o + 3] = a; sa[o + 4] = d; sa[o + 5] = c;
+      const put = (j, v) => {
+        if (crisp) { col[o + j * 3] = r0; col[o + j * 3 + 1] = g0; col[o + j * 3 + 2] = b0; return; }
+        col[o + j * 3] = vc[v * 3] * 0.92 + r0 * 0.08; col[o + j * 3 + 1] = vc[v * 3 + 1] * 0.92 + g0 * 0.08; col[o + j * 3 + 2] = vc[v * 3 + 2] * 0.92 + b0 * 0.08;
+      };
+      put(0, a); put(1, c); put(2, b); put(3, a); put(4, d); put(5, c);
+      // snow affinity, blended at corners like the colours so its edges fade too
+      const so = k * 6;
+      sa[so] = vs[a]; sa[so + 1] = vs[c]; sa[so + 2] = vs[b]; sa[so + 3] = vs[a]; sa[so + 4] = vs[d]; sa[so + 5] = vs[c];
     }
     g.attributes.aSnow.needsUpdate = true;
     this.tiles.tex.value.needsUpdate = true;

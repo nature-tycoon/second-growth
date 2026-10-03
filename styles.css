@@ -386,6 +386,13 @@ body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; ove
 #view-ctrls button { width: 40px; height: 40px; border: 0; border-radius: 10px; background: var(--paper-2); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
 #view-ctrls button svg { width: 22px; height: 22px; }
 #view-ctrls button:active { background: var(--moss); color: #fff; }
+#view-ctrls button[hidden] { display: none; }
+/* the Move / Paint switch: what one finger does on the map while a brush tool is picked */
+#view-ctrls #btn-paint { width: 46px; height: 50px; gap: 1px; align-content: center; font: 800 10px/1 var(--ui); letter-spacing: .02em; margin-bottom: 4px; }
+#view-ctrls #btn-paint svg { width: 20px; height: 20px; }
+#btn-paint .ic-paint, #btn-paint.on .ic-move { display: none; }
+#btn-paint.on .ic-paint { display: block; }
+#view-ctrls #btn-paint.on { background: var(--moss); color: #fff; }
 @media (pointer: coarse) {
   #view-ctrls { display: flex; }
   body.mini-collapsed #view-ctrls { bottom: 52px; }
@@ -426,6 +433,7 @@ body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; ove
   .tp-head { padding: 8px 12px 4px; }
   .tp-head h2 { font-size: 16px; }
   .tp-head p { display: none; }
+  #toolpanel.collapsed .tp-head p { display: block; margin: 2px 0 4px; font-size: 12px; } /* folded: which tool is in hand */
   #toolpanel { overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #toolpanel .tool-grid { gap: 4px; padding: 6px 10px; overflow: visible; flex: none; }
   #toolpanel .tool-desc { flex: none; }
@@ -445,6 +453,7 @@ body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; ove
   #view-ctrls { right: calc(6px + env(safe-area-inset-right)); bottom: 160px; flex-direction: column; }
   body.mini-collapsed #view-ctrls { bottom: 44px; }
   #view-ctrls button { width: 36px; height: 36px; }
+  #view-ctrls { align-items: center; }
 
   .modal { width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)); max-height: calc(100dvh - 12px); border-radius: 14px; }
   .modal-head { padding: 8px 14px; }

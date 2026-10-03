@@ -64,6 +64,8 @@ function timeOfDay(u) {
   return { sun: L(1), sunCol: todCol[0], sunAmt: L(3), skyCol: todCol[2], skyAmt: L(5), el: L(6), sweep: L(7) };
 }
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
+// a phone or tablet (no mouse)
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
 
 export class Renderer {
@@ -116,16 +118,62 @@ export class Renderer {
 
   // Graphics preferences from the settings menu.
   applySettings(s) {
-    this.sun.castShadow = !!s.shadows;
+    const fast = s.quality === 'fast';
+    // (every setting comes through here, the volume sliders included: only a change to the
+    // detail or shadows starts the automatic resolution over)
+    const gfx = `${s.quality}|${s.shadows}`, fresh = gfx !== this.gfx;
+    this.gfx = gfx;
+    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; }
+    // Fast: a smaller shadow map (it's redrawn every frame)
+    const shadowRes = fast ? 1024 : 2048;
+    if (this.sun.shadow.mapSize.x !== shadowRes) {
+      this.sun.shadow.mapSize.set(shadowRes, shadowRes);
+      if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
+    }
     const cap = { high: 2, balanced: 1.5, fast: 1 }[s.quality] ?? 2;
-    this.dpr = Math.max(1, Math.min(cap, window.devicePixelRatio || 1));
+    this.baseDpr = Math.max(1, Math.min(cap, window.devicePixelRatio || 1));
+    // phones and tablets adjust the resolution to keep up (see autoResolution); it starts afresh
+    // whenever the settings change
+    this.autoRes = TOUCH;
+    if (fresh) { this.resScale = 1; this.resWin = null; this.roomFor = 0; }
+    this.dpr = this.baseDpr * this.resScale;
     this.gl.setPixelRatio(this.dpr);
     this.windOn = !!s.wind;
     this.dayCycleOn = s.dayCycle !== false;
     this.weatherOn = !!s.weather;
-    this.cloudsOn = !!s.weather && s.quality !== 'fast'; // cloud shadows cost a little on every pixel
-    this.terrain.setFast(s.quality === 'fast');
+    this.cloudsOn = !!s.weather && !fast; // cloud shadows cost a little on every pixel
+    this.light = fast;
+    this.terrain.setFast(fast);
+    if (this.flora.setLight(fast)) this.floraPending = true;
     this.resize();
+  }
+
+  // Phones vary enormously, so on touch screens the view sets its own resolution: it steps down
+  // while the frame rate is low and creeps back up once there's room again, never above the
+  // setting. As a last resort it turns shadows off for the rest of the session. Frames are
+  // counted against the clock (a struggling phone often delivers them in bursts, so the gaps
+  // between single frames don't tell you much).
+  autoResolution() {
+    if (!this.autoRes) return;
+    const now = performance.now(), A = this.resWin;
+    // a long gap means the game was in the background: start counting afresh
+    if (!A || now - A.last > 3000) { this.resWin = { t0: now, last: now, n: 0 }; return; }
+    A.n++; A.last = now;
+    const span = (now - A.t0) / 1000;
+    if (span < 2) return;
+    const fps = A.n / span;
+    this.resWin = { t0: now, last: now, n: 0 };
+    const min = Math.min(1, 0.55 / this.baseDpr);
+    let sc = this.resScale;
+    if (fps < 26) { sc = Math.max(min, sc * 0.82); this.roomFor = 0; }
+    else if (fps > 50) { this.roomFor += span; if (this.roomFor >= 6) { sc = Math.min(1, sc * 1.12); this.roomFor = 0; } }
+    else this.roomFor = 0;
+    if (Math.abs(sc - this.resScale) > 0.005) {
+      this.resScale = sc; this.dpr = this.baseDpr * sc;
+      this.gl.setPixelRatio(this.dpr); this.resize();
+    } else if (fps < 20 && sc <= min + 0.005 && this.sun.castShadow) {
+      this.sun.castShadow = false; this.shadowsDropped = true;
+    }
   }
 
   // Dissolve cover between the camera and the selected animal, easing in and out.
@@ -318,6 +366,7 @@ export class Renderer {
   // ------------------------------------------------------------------ frame
   draw(game, ui, dt) {
     this.time += dt;
+    if (dt > 0) this.autoResolution();
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);
     const w = this.world;
@@ -353,11 +402,14 @@ export class Renderer {
     // A new day repaints the ground and rebuilds the plants. They wait a frame or two so they don't
     // land in the same frame as the day's simulation and each other (a visible hitch), and at fast
     // speeds the ground repaints at most four times a second.
-    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (game.speed >= 2 ? 250 : 0)))) { surface = true; this.dayDirty = 0; }
-    if (this.editDirty && now - this.lastFlora > 120) { surface = flora = true; this.editDirty = false; this.terrain.refreshWater(); }
+    // (on the Fast setting the ground and plants catch up at a gentler pace, since each rebuild
+    // is a noticeable pause on a phone)
+    const light = this.light;
+    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (game.speed >= 2 ? 1200 : 600) : game.speed >= 2 ? 250 : 0)))) { surface = true; this.dayDirty = 0; }
+    if (this.editDirty && now - this.lastFlora > (light ? 260 : 120)) { surface = flora = true; this.editDirty = false; this.terrain.refreshWater(); }
     if (surface) { this.terrain.updateSurface(game); this.syncStructures(); this.lastSurface = now; }
     if (flora) this.floraPending = true;
-    if (this.floraPending && (swapped || (!surface && this.frameN > (this.dayDirty || 0))) && now - this.lastFlora > (game.speed >= 3 ? 400 : 150)) { this.flora.rebuild(game); this.lastFlora = now; this.floraPending = false; }
+    if (this.floraPending && (swapped || (!surface && this.frameN > (this.dayDirty || 0))) && now - this.lastFlora > (light ? (game.speed >= 2 ? 1200 : 400) : game.speed >= 3 ? 400 : 150)) { this.flora.rebuild(game); this.lastFlora = now; this.floraPending = false; }
 
     this.updateOverlay(game, ui, now);
     this.updatePreview(ui);
@@ -614,7 +666,7 @@ export class Renderer {
       ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
     }
     const wp = this.weatherParticles, kind = game.weather;
-    const want = this.weatherOn === false ? 0 : kind === 'rain' ? 240 : kind === 'snow' ? 150 : 0;
+    const want = this.weatherOn === false ? 0 : (kind === 'rain' ? 240 : kind === 'snow' ? 150 : 0) * (this.light ? 0.5 : 1);
     while (wp.length < want) wp.push({ x: Math.random() * this.vw, y: Math.random() * this.vh, s: 0.6 + Math.random() * 0.8 });
     if (wp.length > want) wp.length = want;
     const run = game.speed > 0 ? 1 : 0.15;
@@ -706,7 +758,7 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
     ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
   }
   const flyOn = ((biome.id === 'pnw' || biome.id === 'atlanta') && (game.season === 1 || game.season === 2)) || biome.id === 'amazon' || (biome.id === 'chinandega' && (game.season === 1 || game.season === 2));
-  const want = n > 0.05 && flyOn && this.zoom > 0.5 && game.weather !== 'rain' ? Math.round(90 * n * (this.fireflyBoost || 1)) : 0;
+  const want = n > 0.05 && flyOn && this.zoom > 0.5 && game.weather !== 'rain' ? Math.round(90 * n * (this.fireflyBoost || 1) * (this.light ? 0.5 : 1)) : 0;
   for (let tries = 0; flies.length < want && tries < 12 * (this.fireflyBoost || 1); tries++) {
     const x = bx0 + Math.floor(Math.random() * (bx1 - bx0 + 1)), z = bz0 + Math.floor(Math.random() * (bz1 - bz0 + 1));
     if (!w.inb(x, z) || !FIREFLY_HAB.has(w.habitat[w.idx(x, z)])) continue;

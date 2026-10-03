@@ -186,11 +186,25 @@ export class Flora {
   // Simpler models when zoomed out; grass blades vanish once they'd be too small to see.
   // [lod for trees and shrubs, grass visible, shrub shadows, lod for grass]
   // Grass is by far the most instances, so it switches to its light version well before close-up.
-  setZoom(zoom) {
-    const v = [zoom < 0.5 ? 1 : 0, zoom > 0.34, zoom > 0.7, zoom < 1.1 ? 1 : 0];
-    if (this.view && v.every((x, k) => x === this.view[k])) return;
+  // The Fast graphics setting (the default on phones) keeps the simple models until you're
+  // zoomed right in, hides grass blades sooner, drops shrub shadows, and draws half the tufts.
+  setZoom(zoom, force = false) {
+    this.zoom = zoom;
+    const v = this.light
+      ? [zoom < 1.4 ? 1 : 0, zoom > 0.5, false, zoom < 1.8 ? 1 : 0]
+      : [zoom < 0.5 ? 1 : 0, zoom > 0.34, zoom > 0.7, zoom < 1.1 ? 1 : 0];
+    if (!force && this.view && v.every((x, k) => x === this.view[k])) return;
     this.view = v;
     for (const p of this.pools.values()) p.setView(...v);
+  }
+
+  // returns true when the plants need rebuilding to match
+  setLight(on) {
+    on = !!on;
+    if (on === !!this.light) return false;
+    this.light = on;
+    this.setZoom(this.zoom ?? 1, true);
+    return true;
   }
 
   setFade(on) {
@@ -228,7 +242,7 @@ export class Flora {
         const n0 = lush ? (g < 0.65 ? 6 : type === 'tallforb' ? 7 : 10) : g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 5); // a healthy sward fills its tile
         // meadow patches: thicker, taller and deeper green in some places, thinner and more golden in others
         const pt = meadowPatch(x + 0.5, y + 0.5), aquaticT = type === 'lily' || type === 'cattail' || type === 'tule';
-        const n = aquaticT ? n0 : Math.max(1, Math.round(n0 * (0.6 + pt.lush * 0.8)));
+        const n = Math.max(1, Math.round((aquaticT ? n0 : n0 * (0.6 + pt.lush * 0.8)) * (this.light ? 0.5 : 1)));
         const phase = plantPhase(p, month);
         const col = aquaticT ? leafColor(p, phase) : patchColor(leafColor(p, phase), pt);
         // grasses grow in clumps: one or two centres per tile that the tufts gather round

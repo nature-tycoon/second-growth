@@ -671,7 +671,7 @@ export function shrub(type, seed, lod = 0) {
     case 'bramble':
       cy = 0.16;
       for (let k = 0; k < 10; k++) { const a = r() * 6.28, d = r() * 0.3; blob(Math.cos(a) * d, 0.1 + r() * 0.12, Math.sin(a) * d, 0.15 + r() * 0.07, 0.68, 0.8 + r() * 0.2); }
-      for (let k = 0; k < 6; k++) {
+      for (let k = 0; k < (lod ? 0 : 6); k++) { // (the thin arching canes are too fine to see on the simple model)
         const c = prep(new THREE.TorusGeometry(0.19 + r() * 0.1, 0.009, 4, 12, Math.PI), 0xb07070);
         c.rotateY(r() * Math.PI); at(c, (r() - 0.5) * 0.4, 0.04, (r() - 0.5) * 0.4); parts.push(c);
       }
