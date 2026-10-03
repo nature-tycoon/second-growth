@@ -708,6 +708,18 @@ export function featureSprite(f, v) {
         }
         break;
       }
+      case F.DAM: { // (the icon for Sumatra's canal blocks: a plank wall across a channel, water held back behind it)
+        ellipse(ctx, cx, by - 10, 40, 11, '#5a4a32');
+        ellipse(ctx, cx, by - 22, 36, 9, '#6a5a3a');
+        ctx.fillStyle = '#4a3a26'; ctx.beginPath(); ctx.ellipse(cx, by - 30, 30, 8, 0, Math.PI, 0); ctx.fill(); // peat heaped against it
+        for (let k = 0; k < 9; k++) {
+          const x = cx - 32 + k * 8, h = 34 + r() * 8;
+          ctx.fillStyle = k % 2 ? '#a07c52' : '#8a6a44'; ctx.fillRect(x, by - 8 - h, 7, h);
+          ctx.fillStyle = '#c4a272'; ctx.fillRect(x, by - 8 - h, 7, 3);
+        }
+        ctx.fillStyle = '#5e4630'; ctx.fillRect(cx - 34, by - 30, 68, 4); // the rail
+        break;
+      }
       case F.BOARDWALK: {
         for (let k = 0; k < 7; k++) { ctx.fillStyle = k % 2 ? '#b08a5e' : '#9a7a52'; ctx.fillRect(cx - 34, by - 40 + k * 7, 68, 6); }
         ctx.fillStyle = '#6a5238'; ctx.fillRect(cx - 34, by - 42, 4, 50); ctx.fillRect(cx + 30, by - 42, 4, 50);

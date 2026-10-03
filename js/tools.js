@@ -392,12 +392,13 @@ for (const a of ANIMALS) {
 // Each map can re-word the fixed tools (which invasives to pull, what a pond is for).
 const TOOL_BASE = {};
 onBiome(b => {
-  for (const k of Object.keys(TOOLS)) if (TOOLS[k].cat === 'plants' || TOOLS[k].cat === 'wildlife') delete TOOLS[k];
+  for (const k of Object.keys(TOOLS)) if (TOOLS[k].cat === 'plants' || TOOLS[k].cat === 'wildlife' || TOOLS[k].mapTool) delete TOOLS[k];
   for (const [k, base] of Object.entries(TOOL_BASE)) Object.assign(TOOLS[k], base);
   for (const [k, o] of Object.entries(b.toolText || {})) {
     TOOL_BASE[k] ||= Object.fromEntries(Object.keys(o).map(f => [f, TOOLS[k][f]]));
     Object.assign(TOOLS[k], o);
   }
+  for (const t of b.tools || []) tool({ ...t, mapTool: true }); // (tools of a map's own, like Sumatra's canal blocks)
   addPlantTools();
   addWildlifeTools();
 });

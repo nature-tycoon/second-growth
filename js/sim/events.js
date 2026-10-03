@@ -34,6 +34,7 @@ export class Events {
     if (tr) f += w.treeG[i] < 0.6 ? 0.5 * w.treeG[i] : hot ? 0.9 * this.heat : 0.2;
     const ft = w.feature[i];
     if (ft === F.SNAG || ft === F.LOG || ft === F.BRUSH) f += 0.4;
+    if (biome.fuelBonus) f += biome.fuelBonus(w, i); // (Sumatra: drained peat smoulders under the weeds)
     const dryness = hot ? clamp((0.85 - w.moist[i]) / 0.45, 0, 1) : clamp((0.62 - w.moist[i]) / 0.4, 0, 1);
     return f * dryness;
   }
@@ -408,7 +409,7 @@ export class Events {
     this.floodTiles = flooded;
     // big floods can blow out beaver dams
     let broke = 0;
-    for (let i = 0; i < w.n; i++) if (w.feature[i] === F.DAM && rng() < 0.12 * intensity) { w.feature[i] = 0; broke++; }
+    for (let i = 0; i < w.n; i++) if (w.feature[i] === F.DAM && !(w.marks[i] & 4) && rng() < 0.12 * intensity) { w.feature[i] = 0; broke++; }
     if (broke) { g.wildlife.dams = Math.max(0, g.wildlife.dams - broke); w.hydroDirty = true; }
     const soak = Math.round(sponge * 100);
     // point the notice at the middle of the flooded ground

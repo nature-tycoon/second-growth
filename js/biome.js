@@ -13,9 +13,10 @@ import SERENGETI from './maps/serengeti.js';
 import ATLANTA from './maps/atlanta.js';
 import CHINANDEGA from './maps/chinandega.js';
 import REEF from './maps/reef.js';
+import SUMATRA from './maps/sumatra.js';
 
-export const BIOMES = { pnw: PNW, amazon: AMAZON, serengeti: SERENGETI, atlanta: ATLANTA, chinandega: CHINANDEGA, reef: REEF };
-export const BIOME_LIST = [PNW, AMAZON, SERENGETI, ATLANTA, CHINANDEGA, REEF];
+export const BIOMES = { pnw: PNW, amazon: AMAZON, serengeti: SERENGETI, atlanta: ATLANTA, chinandega: CHINANDEGA, reef: REEF, sumatra: SUMATRA };
+export const BIOME_LIST = [PNW, AMAZON, SERENGETI, ATLANTA, CHINANDEGA, REEF, SUMATRA];
 
 export let biome = null;
 const hooks = [];

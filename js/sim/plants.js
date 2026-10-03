@@ -101,6 +101,7 @@ export function trySeed(w, p, i, rng) {
   if (p.layer > 0 && w.ground[i] && w.groundG[i] > 0.6) {
     const gp = PLANTS[w.ground[i]];
     if (gp.look.type === 'grass' || gp.look.type === 'sedge' || gp.look.type === 'tallgrass') odds *= open ? 0.1 : 0.3;
+    else if (gp.smother) odds *= gp.smother; // (a creeper that blankets the ground, like Sumatra's Chinese violet)
   }
   // On the savanna the roots of a grown tree take all the water around it, so native seedlings
   // only come up in the gaps and the trees stay scattered (invasive mesquite still makes thickets).

@@ -70,7 +70,7 @@
 </section>
 
 <div class="bar">
-  <select id="fmap"><option value="">All maps</option><option value="pnw">Hollis Farm</option><option value="amazon">Fazenda Esperança</option><option value="serengeti">Enkare Conservancy</option><option value="atlanta">Magnolia Ridge</option><option value="chinandega">Finca El Guanacaste</option></select>
+  <select id="fmap"><option value="">All maps</option><option value="pnw">Hollis Farm</option><option value="amazon">Fazenda Esperança</option><option value="serengeti">Enkare Conservancy</option><option value="atlanta">Magnolia Ridge</option><option value="chinandega">Finca El Guanacaste</option><option value="reef">Kalinda Reef</option><option value="sumatra">Kebun Tualang</option></select>
   <select id="sort"><option value="recent">Newest first</option><option value="score">Highest score</option><option value="played">Longest played</option><option value="year">Furthest in time</option></select>
   <label class="small"><input type="checkbox" id="latest" checked> latest snapshot per player only</label>
   <input type="text" id="exclude" placeholder="exclude distinct IDs (yours), comma separated" size="40">
@@ -88,7 +88,7 @@ const COLORS = ['#a88b62', '#c9b77a', '#8a3b5c', '#b8cf5a', '#6f9e4a', '#3f8a4e'
   '#e8d6a2', '#a0764a', '#5a4632'];
 const NAMES = ['Bare ground', 'Degraded farmland', 'Invasive', 'Meadow / grassland', 'Shrubland', 'Young forest', 'Mature forest', 'Riparian', 'Marsh', 'Pond', 'Creek', 'River', 'Buildings & roads',
   'Trail', 'Boardwalk / blind', 'Fence'];
-const MAPS = { pnw: 'Hollis Farm', amazon: 'Fazenda Esperança', serengeti: 'Enkare Conservancy', atlanta: 'Magnolia Ridge', chinandega: 'Finca El Guanacaste' };
+const MAPS = { pnw: 'Hollis Farm', amazon: 'Fazenda Esperança', serengeti: 'Enkare Conservancy', atlanta: 'Magnolia Ridge', chinandega: 'Finca El Guanacaste', reef: 'Kalinda Reef', sumatra: 'Kebun Tualang' };
 const $ = s => document.querySelector(s);
 let farms = [];
 

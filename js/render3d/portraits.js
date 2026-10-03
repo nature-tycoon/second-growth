@@ -60,8 +60,9 @@ function showMonth(p) { return p.look.bloom ? p.look.bloom[0] : p.look.fruit ? p
 export function renderPlants(list) {
   if (!R) setup();
   const added = [], box = new THREE.Box3();
-  const put = (geo, color, x, z = 0, sc = 1) => {
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: !!geo.attributes.color, color, side: THREE.DoubleSide });
+  // (one-sided, as in the valley, except for groundcover: thin leaves are built two-sided where they need it)
+  const put = (geo, color, x, z = 0, sc = 1, side = THREE.FrontSide) => {
+    const mat = new THREE.MeshLambertMaterial({ vertexColors: !!geo.attributes.color, color, side });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.set(x, 0, z); mesh.scale.setScalar(sc);
     scene.add(mesh); added.push(mesh);
@@ -78,18 +79,29 @@ export function renderPlants(list) {
       const sh = G.TREE_SHAPES[type], small = (sh?.height || 2) < 0.8; // (a coral is far smaller than a tree)
       const sc = list.length > 1 ? (small ? 1 : 0.8) : 1;
       put(parts.crown, leaf, x, 0, sc); put(parts.trunk, lin(p.look.bark || '#6a5a48'), x, 0, sc);
+      if (parts.fruit && phase === 'fruit' && p.look.berry) put(parts.fruit, lin(p.look.berry), x, 0, sc); // (the oil palm's bunches)
       x += small ? 0.75 : 1.3;
     } else if (p.layer === 1) {
       const shape = SHRUB_SHAPES.includes(type) ? type : 'shrub';
       put(G.shrub(shape, 200 + shape.length), leaf, x);
-      const c = phase === 'bloom' && p.look.flower ? p.look.flower : phase === 'fruit' && p.look.berry ? p.look.berry : null;
+      // (torch ginger's torches on stalks and pandan's hanging fruit, not dots)
+      const acc = shape === 'ginger' && phase === 'bloom' ? p.look.flower : shape === 'pandan' && phase === 'fruit' ? p.look.berry : null;
+      if (acc) put(G.accent(shape, 200 + shape.length), lin(acc), x);
+      const c = acc ? null : phase === 'bloom' && p.look.flower ? p.look.flower : phase === 'fruit' && p.look.berry ? p.look.berry : null;
       if (c) for (let k = 0; k < 7; k++) { const a = k * 2.4; dot(lin(c), x + Math.cos(a) * 0.2, 0.18 + (k % 3) * 0.08, Math.sin(a) * 0.2, 0.03); }
+      x += 0.75;
+    } else if (type === 'titan') {
+      // the corpse flower stands alone: its great leaf, or in flower its spathe and spadix
+      const seed = 100 + type.length;
+      if (phase === 'bloom') { put(G.tuft('titanbloom', seed), lin(p.look.flower || '#6a1a2a'), x); put(G.accent('titanbloom', seed), lin(p.look.head || '#e4d48c'), x); }
+      else put(G.tuft('titan', seed), leaf, x);
       x += 0.75;
     } else {
       for (let k = 0; k < 3; k++) {
         const ox = x + (k - 1) * 0.14, oz = (k % 2) * 0.12 - 0.06;
-        put(G.tuft(type, 100 + type.length), leaf, ox, oz, 1.1);
-        if (phase === 'bloom' && p.look.flower) dot(lin(p.look.flower), ox, 0.17, oz, 0.022);
+        put(G.tuft(type, 100 + type.length), leaf, ox, oz, 1.1, THREE.DoubleSide);
+        if (type === 'pitcher') put(G.accent('pitcher', 100 + type.length), lin(p.look.flower || '#a8442e'), ox, oz, 1.1, THREE.DoubleSide); // (its pitchers, always)
+        else if (phase === 'bloom' && p.look.flower) dot(lin(p.look.flower), ox, 0.17, oz, 0.022);
       }
       x += 0.55;
     }

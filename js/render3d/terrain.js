@@ -458,6 +458,7 @@ export class Terrain {
         // ground the player can't work yet (the suburb's other yards) is washed out toward grey
         if (inside && biome.locked?.(game, i)) { const l = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) * 1.08; c = mixRgb(c, [l, l, l * 0.96], 0.55); }
         if (inside && (w.marks[i] & 1)) c = mixRgb(c, [1, 1, 0.96], 0.24); // (a snorkel trail: just a faint line on the seabed under the buoys)
+        if (inside && biome.look.groundTint) c = biome.look.groundTint(w, i, c) || c; // (Sumatra: dark peat showing through)
         if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); }
       }
       {

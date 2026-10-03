@@ -22,6 +22,7 @@ const FLOCKS = {
   weavers: { n: [10, 20], size: 3.4, speed: 110, flap: 10, color: 'rgba(214,176,40,0.9)', loose: 1.3 },
   goldfinches: { n: [8, 14], size: 3.2, speed: 85, flap: 11, color: 'rgba(176,158,60,0.9)', loose: 1.6, swoop: true },
   egrets: { n: [4, 7], size: 7.5, speed: 60, flap: 2.6, color: 'rgba(246,246,240,0.92)', loose: 1 },
+  hornbills: { n: [2, 3], size: 11, speed: 58, flap: 1.8, color: 'rgba(26,24,22,0.9)', tail: 'rgba(240,236,228,0.9)', loose: 0.7 },
 };
 const rand = (a, b) => a + Math.random() * (b - a);
 const PPU = 46; // screen pixels per tile at zoom 1: flock sizes and speeds above are given at that zoom

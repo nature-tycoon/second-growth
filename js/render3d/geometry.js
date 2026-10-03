@@ -85,14 +85,27 @@ function twoSided(g) {
   return out;
 }
 
+// fn returns a shade, or [r, g, b] to tint (multipliers over 1 shift the instance colour's hue)
 function shadeVerts(g, fn) {
   const p = g.attributes.position, c = g.attributes.color;
   for (let i = 0; i < p.count; i++) {
     const v = fn(p.getX(i), p.getY(i), p.getZ(i));
-    c.setXYZ(i, c.getX(i) * v, c.getY(i) * v, c.getZ(i) * v);
+    if (typeof v === 'number') c.setXYZ(i, c.getX(i) * v, c.getY(i) * v, c.getZ(i) * v);
+    else c.setXYZ(i, c.getX(i) * v[0], c.getY(i) * v[1], c.getZ(i) * v[2]);
   }
   return g;
 }
+// Blotches: give each whole triangle of g one of two tints, picked at random by where it is.
+function blotch(g, odds, a, b, seed = 0) {
+  const p = g.attributes.position, c = g.attributes.color;
+  for (let t = 0; t < p.count; t += 3) {
+    const v = speck((p.getX(t) + p.getX(t + 1) + p.getX(t + 2)) / 3, (p.getY(t) + p.getY(t + 1) + p.getY(t + 2)) / 3, (p.getZ(t) + p.getZ(t + 1) + p.getZ(t + 2)) / 3, seed) < odds ? a : b;
+    for (let i = t; i < t + 3; i++) c.setXYZ(i, c.getX(i) * v[0], c.getY(i) * v[1], c.getZ(i) * v[2]);
+  }
+  return g;
+}
+// a fixed random number for a point, the same wherever the point is repeated (blotches, mottling)
+const speck = (x, y, z, s = 0) => { const h = Math.sin(Math.round(x * 523) * 12.9898 + Math.round(y * 517) * 78.233 + Math.round(z * 509) * 37.719 + s) * 43758.5453; return h - Math.floor(h); };
 
 // Light foliage as one soft volume: bend normals toward pointing out from a center (or axis).
 function volumeNormals(g, cx, cy, cz, amount, axis = false) {
@@ -157,6 +170,88 @@ function ribbon(len, width, bend, segments, dir, tilt, x = 0, z = 0, color = 0xf
   const n = g.attributes.normal;
   for (let i = 0; i < n.count; i++) { const ny = Math.abs(n.getY(i)); n.setXYZ(i, n.getX(i) * 0.4, 0.6 + ny * 0.4, n.getZ(i) * 0.4); }
   return g;
+}
+
+// Thin leaves built triangle by triangle (fronds, straps): each face wound to face the sky and
+// its normal bent up, as for ribbons, so both faces catch the sun.
+function sheet(pos, col, up = 0.45) {
+  const g = new THREE.BufferGeometry(), nor = new Float32Array(pos.length);
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+  for (let t = 0; t < pos.length; t += 9) {
+    a.fromArray(pos, t); b.fromArray(pos, t + 3).sub(a); c.fromArray(pos, t + 6).sub(a);
+    const n = b.cross(c).normalize();
+    if (n.y < 0) { // (swap the last two corners)
+      n.negate();
+      for (const arr of [pos, col]) for (let k = 0; k < 3; k++) { const v = arr[t + 3 + k]; arr[t + 3 + k] = arr[t + 6 + k]; arr[t + 6 + k] = v; }
+    }
+    n.lerp(UP, up).normalize();
+    for (let k = 0; k < 3; k++) n.toArray(nor, t + k * 3);
+  }
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return g;
+}
+
+// A leaf's midrib: it sets off elev above the horizontal toward az and bends down by droop by the tip.
+function midrib(base, az, elev, droop, L, segs) {
+  const fx = Math.cos(az), fz = Math.sin(az), pts = [base.slice()], tan = [];
+  for (let k = 0; k < segs; k++) {
+    const e = elev - droop * ((k + 0.5) / segs) ** 1.6, s = L / segs, p = pts[k];
+    tan.push([fx * Math.cos(e), Math.sin(e), fz * Math.cos(e)]);
+    pts.push([p[0] + fx * Math.cos(e) * s, p[1] + Math.sin(e) * s, p[2] + fz * Math.cos(e) * s]);
+  }
+  tan.push(tan[segs - 1]);
+  const side = [-fz, 0, fx];
+  const along = t => { const f = Math.min(segs - 1e-6, t * segs), k = Math.floor(f), u = f - k, p = pts[k], q = pts[k + 1]; return [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u, p[2] + (q[2] - p[2]) * u]; };
+  const up = t => { const T = tan[Math.min(segs, Math.floor(t * segs))]; return [side[1] * T[2] - side[2] * T[1], side[2] * T[0] - side[0] * T[2], side[0] * T[1] - side[1] * T[0]]; };
+  return { pts, tan, side, along, up };
+}
+
+// A pinnate palm frond into pos/col: a pale midrib with a leaflet either side every step, the
+// leaflets held in a V and alternating steep and flat (the bristly look of an oil palm), longest
+// mid-frond, swept toward the tip and hanging a little at their ends; fill is how much of the
+// midrib each leaflet's base takes up (1: no gaps). 2 triangles per segment and 2 per leaflet pair.
+function frond(o, pos, col) {
+  const { base, az, elev, droop, L, n = 10, w = 0.15, segs = 5, bare = 0.15, v = 0.45, rib = 0.01, sweep = 0.8, hang = 0.3, fill = 0.55, shade = 1, tint = [1, 1, 1] } = o;
+  const m = midrib(base, az, elev, droop, L, segs), sd = m.side;
+  const put = (p, s, pale = 1) => { pos.push(p[0], p[1], p[2]); col.push(s * tint[0] * pale, s * tint[1] * pale, s * tint[2] * pale * (pale > 1 ? 0.8 : 1)); };
+  for (let k = 0; k < segs; k++) {
+    const p = m.pts[k], q = m.pts[k + 1], w0 = rib * (1 - 0.7 * k / segs), w1 = rib * (1 - 0.7 * (k + 1) / segs);
+    const a0 = [p[0] - sd[0] * w0, p[1], p[2] - sd[2] * w0], a1 = [p[0] + sd[0] * w0, p[1], p[2] + sd[2] * w0];
+    const b0 = [q[0] - sd[0] * w1, q[1], q[2] - sd[2] * w1], b1 = [q[0] + sd[0] * w1, q[1], q[2] + sd[2] * w1];
+    for (const pt of [a0, a1, b1, a0, b1, b0]) put(pt, 0.8 * shade, 1.12);
+  }
+  for (let i = 0; i < n; i++) {
+    const u = (i + 0.5) / n, t = bare + (1 - bare) * u, A = m.along(t), B = m.along(Math.min(1, t + (1 - bare) / n * fill));
+    const T = m.tan[Math.min(segs, Math.floor(t * segs))], N = m.up(t);
+    const len = w * Math.pow(Math.sin(Math.PI * (0.1 + 0.8 * u)), 0.7);
+    for (const s of [-1, 1]) {
+      const vv = v + ((i + (s > 0 ? 1 : 0)) % 2 ? 0.4 : -0.2), cv = Math.cos(vv), sv = Math.sin(vv);
+      const D = new THREE.Vector3(sd[0] * s * cv + N[0] * sv + T[0] * sweep, sd[1] * s * cv + N[1] * sv + T[1] * sweep, sd[2] * s * cv + N[2] * sv + T[2] * sweep).normalize();
+      put(A, 0.78 * shade); put(B, 0.78 * shade); put([A[0] + D.x * len, A[1] + D.y * len - len * hang, A[2] + D.z * len], 1.06 * shade);
+    }
+  }
+}
+
+// A strap-shaped leaf into pos/col (pandan, ginger, pitcher-plant rosettes, titan leaflets):
+// pointed, or lance-shaped (narrow at both ends); it can twist along its length and be creased
+// into a V along the midrib (fold). 2 triangles per segment, 4 when folded.
+function strap(o, pos, col) {
+  const { base, az, elev, droop, L, w, segs = 4, twist = 0, lance = false, fold = 0, shade = 1, tint = [1, 1, 1] } = o;
+  const m = midrib(base, az, elev, droop, L, segs), sd = m.side;
+  const ring = j => {
+    const t = j / segs, p = m.pts[j], N = m.up(Math.min(t, 0.999)), th = twist * t, c = Math.cos(th), s = Math.sin(th);
+    const wd = lance ? w * Math.pow(Math.sin(Math.PI * (0.06 + 0.88 * t)), 0.8) : w * (1 - Math.pow(t, 1.6));
+    const W = [sd[0] * c + N[0] * s, sd[1] * c + N[1] * s, sd[2] * c + N[2] * s], K = [N[0] * c - sd[0] * s, N[1] * c - sd[1] * s, N[2] * c - sd[2] * s];
+    return { l: [p[0] - W[0] * wd, p[1] - W[1] * wd, p[2] - W[2] * wd], r: [p[0] + W[0] * wd, p[1] + W[1] * wd, p[2] + W[2] * wd], c: [p[0] + K[0] * wd * fold, p[1] + K[1] * wd * fold, p[2] + K[2] * wd * fold], s: shade * (0.72 + 0.34 * t) };
+  };
+  const put = (p, s) => { pos.push(p[0], p[1], p[2]); col.push(s * tint[0], s * tint[1], s * tint[2]); };
+  for (let j = 0; j < segs; j++) {
+    const a = ring(j), b = ring(j + 1);
+    const quad = (p0, p1, q1, q0) => { put(p0, a.s); put(p1, a.s); put(q1, b.s); put(p0, a.s); put(q1, b.s); put(q0, b.s); };
+    if (fold) { quad(a.l, a.c, b.c, b.l); quad(a.c, a.r, b.r, b.c); } else quad(a.l, a.r, b.r, b.l);
+  }
 }
 
 // ---------------------------------------------------------------- trees (unit: tiles, mature size)
@@ -275,6 +370,7 @@ export const TREE_SHAPES = {
   leucaena:   { kind: 'broad', height: 1.2, rx: 0.42, ry: 0.32, blobs: 9, trunkH: 0.62, trunkR: 0.04 },
   cecropia:   { kind: 'cecropia', height: 2.0 },
   palm:       { kind: 'palm', height: 1.9, stems: 3 },
+  oilpalm:    { kind: 'oilpalm', height: 1.7 },
   fanpalm:    { kind: 'fanpalm', height: 2.3 },
   emergent:   { kind: 'emergent', height: 3.2, rx: 0.95, ry: 0.32, trunkR: 0.1 },
   kapok:      { kind: 'emergent', height: 3.4, rx: 1.05, ry: 0.3, trunkR: 0.11, buttress: true },
@@ -315,6 +411,7 @@ function treePartsRaw(shape, seed, lod) {
   switch (shape.kind) {
     case 'conifer': return conifer(shape, seed, lod);
     case 'palm': return palm(shape, seed, lod);
+    case 'oilpalm': return oilPalm(shape, seed, lod);
     case 'fanpalm': return fanPalm(shape, seed, lod);
     case 'cecropia': return cecropia(shape, seed, lod);
     case 'emergent': return emergent(shape, seed, lod);
@@ -363,6 +460,54 @@ export function palm(opts, seed, lod = 0) {
   }
   const crown = twoSided(merge(fronds));
   return { crown, trunk: merge(trunks) };
+}
+
+// African oil palm, 20-odd years after planting: one stout, straight trunk armoured with the cut
+// stubs of old frond bases spiralling up it (a few ferns rooted among them), under a big, dense,
+// even crown of long pinnate fronds: the young ones near upright round a furled spear, the old
+// ones arching out and drooping, yellowing a little. The fruit bunches wedged in among the frond
+// bases are a part of their own (`fruit`), drawn in the berry colour while the palm is fruiting.
+// About 2 tiles across. Triangles (lod 0 / 1): crown ~2000 / ~480, trunk ~600 / 120, fruit 240 / 40.
+export function oilPalm(opts, seed, lod = 0) {
+  const r = mulberry32(seed), H = opts.height, top = H * 0.7;
+  const pos = [], col = [], n = lod ? 13 : 26;
+  for (let k = 0; k < n; k++) {
+    const u = k / (n - 1), az = k * 2.39996 + (r() - 0.5) * 0.3, old = Math.max(0, u - 0.62) / 0.38;
+    frond({ base: [Math.cos(az) * 0.05, top + 0.06 - u * 0.13, Math.sin(az) * 0.05], az,
+      elev: 1.2 - 1.0 * u + (r() - 0.5) * 0.12, droop: 0.5 + 1.3 * u + r() * 0.15, L: (0.76 + 0.46 * u) * (0.94 + r() * 0.12),
+      n: lod ? 6 : 14, w: (lod ? 0.22 : 0.23) + 0.04 * u, segs: lod ? 3 : 4, bare: 0.14, v: lod ? 0.35 : 0.5, sweep: lod ? 0.55 : 0.6, rib: 0.016, fill: lod ? 1.1 : 0.75, hang: 0.4,
+      shade: 0.94 + r() * 0.12 - old * 0.06, tint: [1 + old * 0.16, 1, 1 - old * 0.32] }, pos, col);
+  }
+  // the spear: the next frond, still furled, standing straight up out of the middle
+  strap({ base: [0, top + 0.03, 0], az: r() * 6.28, elev: 1.5, droop: 0.12, L: 0.34, w: 0.022, segs: 2, shade: 1.08, tint: [1.1, 1.08, 0.8] }, pos, col);
+  const leaves = [sheet(pos, col)];
+  // ferns rooted in the old frond bases, hanging out from the trunk
+  if (!lod) for (let k = 0; k < 3; k++) {
+    const a = r() * 6.28, y = 0.45 + k * 0.2 + r() * 0.1;
+    for (let j = 0; j < 4; j++) {
+      const f = ribbon(0.11 + r() * 0.04, 0.022, 0.9, 3, Math.PI / 2 - a + (j - 1.5) * 0.45, 0.9 + r() * 0.4, Math.cos(a) * 0.08, Math.sin(a) * 0.08, 0xffffff, 0.02);
+      leaves.push(shadeVerts(f.translate(0, y, 0), () => [1.25, 1.22, 0.85]));
+    }
+  }
+  const crown = twoSided(merge(leaves));
+  // trunk: a little swollen at the foot, its stubs cut flat, older and fewer toward the ground
+  const tr = [soft(new THREE.CylinderGeometry(0.075, 0.09, top + 0.05, lod ? 6 : 9, lod ? 1 : 4), { lump: 0.014, seed, transform: g => g.translate(0, (top + 0.05) / 2, 0) })];
+  const ns = lod ? 12 : 32;
+  for (let j = 0; j < ns; j++) {
+    const y = 0.3 + (top - 0.3) * j / (ns - 1), a = j * 2.39996 + r() * 0.3, len = 0.05 + r() * 0.025, wd = 0.034 + r() * 0.01;
+    const stub = soft(new THREE.CylinderGeometry(wd, wd * 0.75, len, 4, 1, !!lod), { transform: g => {
+      g.rotateY(Math.PI / 4); g.scale(1, 1, 0.45); g.translate(0, len / 2, 0); g.rotateZ(-0.75 - r() * 0.3); g.translate(0.062, y, 0); g.rotateY(-a);
+    } });
+    tr.push(shadeVerts(stub, (x, yy) => (yy > y + 0.025 ? 1.18 : 0.82) * (0.85 + (j % 3) * 0.08)));
+  }
+  // fruit bunches: knobbly ovals of tightly packed fruit, black-red on top, fiery orange below
+  const fr = [];
+  for (let b = 0, nb = lod ? 2 : 3; b < nb; b++) {
+    const a = b / nb * 6.28 + r() * 0.8, y = top - 0.06 + r() * 0.05, d = 0.1;
+    const bunch = soft(new THREE.IcosahedronGeometry(0.045, lod ? 0 : 1), { seed: seed + b, lump: 0.024, transform: g => { g.scale(1, 1.15, 1); g.rotateZ(-0.4); g.rotateY(-a); g.translate(Math.cos(a) * d, y, Math.sin(a) * d); } });
+    fr.push(shadeVerts(bunch, (x, yy, z) => (Math.hypot(x, z) > d + 0.012 && yy > y - 0.01 ? 0.32 : yy > y + 0.015 ? 0.5 : 1.0)));
+  }
+  return { crown, trunk: merge(tr), fruit: merge(fr) };
 }
 
 // Buriti: one straight trunk and a round head of stiff fan leaves.
@@ -658,6 +803,28 @@ export function reefStar(seed) {
 }
 
 // ---------------------------------------------------------------- shrubs
+// Pandan's branches: two or three (one to three in life, but each map only gets a couple of
+// variants), each ending in a tuft (shared by the plant and its fruit, at either lod).
+const PANDAN_TT = 0.36;
+function pandanBranches(seed) {
+  const r = mulberry32(seed * 7 + 5), nb = r() < 0.6 ? 2 : 3, out = [];
+  for (let b = 0; b < nb; b++) {
+    const a = b / nb * 6.28 + r(), d = 0.15 + r() * 0.08;
+    out.push({ tip: [Math.cos(a) * d, PANDAN_TT + 0.16 + r() * 0.12, Math.sin(a) * d], elbow: [Math.cos(a) * d * 0.6, PANDAN_TT + 0.05, Math.sin(a) * d * 0.6], a });
+  }
+  return out;
+}
+
+// Where torch ginger's flower stalks stand (shared by the plant and its torches, at either lod).
+function gingerStalks(seed) {
+  const r = mulberry32(seed * 3 + 11), out = [];
+  for (let k = 0; k < 3; k++) {
+    const a = k * 2.1 + r() * 0.9, d = 0.13 + r() * 0.07, h = 0.3 + r() * 0.13, lean = 0.08 + r() * 0.1;
+    out.push({ b: [Math.cos(a) * d, 0, Math.sin(a) * d], t: [Math.cos(a) * (d + lean * h), h, Math.sin(a) * (d + lean * h)] });
+  }
+  return out;
+}
+
 export function shrub(type, seed, lod = 0) {
   const r = mulberry32(seed);
   const parts = [];
@@ -720,6 +887,80 @@ export function shrub(type, seed, lod = 0) {
           parts.push(twoSided(ribbon(0.16, 0.03, 0.9, 2, r() * 6.28, 0.9 + r() * 0.4, bx + (tx - bx) * t, bz + (tz - bz) * t)).translate(0, ty * t, 0));
         }
       }
+      break;
+    }
+    case 'rattan': {
+      // climbing rattan (Calamus): a clump of thin, spiny canes sprawling out under arching
+      // pinnate fronds, and long whippy tendrils (cirri) reaching out to hook on and climb
+      cy = 0.25;
+      const pos = [], col = [];
+      for (let k = 0, ns = lod ? 4 : 6; k < ns; k++) {
+        const a = k / ns * 6.28 + r() * 0.8, lean = 0.35 + r() * 0.5, h = 0.3 + r() * 0.25;
+        const b = [Math.cos(a) * 0.03, 0, Math.sin(a) * 0.03], tip = [b[0] + Math.cos(a) * Math.sin(lean) * h, Math.cos(lean) * h, b[2] + Math.sin(a) * Math.sin(lean) * h];
+        parts.push(shadeVerts(rod(b, tip, 0.011, 0.007, 4), () => [0.8, 0.7, 0.45]));
+        if (!lod) for (let j = 1; j <= 3; j++) { // spines on the leaf sheaths
+          const t = j / 4, sa = a + j * 2.2, p = [b[0] + (tip[0] - b[0]) * t, tip[1] * t, b[2] + (tip[2] - b[2]) * t];
+          parts.push(shadeVerts(rod(p, [p[0] + Math.cos(sa) * 0.03, p[1] + 0.012, p[2] + Math.sin(sa) * 0.03], 0.004, 0.0006, 3), () => 0.4));
+        }
+        for (let f = 0; f < (lod ? 2 : 3); f++) {
+          const last = f === (lod ? 1 : 2), t = last ? 1 : 0.5 + f * 0.25, p = [b[0] + (tip[0] - b[0]) * t, tip[1] * t, b[2] + (tip[2] - b[2]) * t];
+          frond({ base: p, az: last ? a : a + (f % 2 ? 1 : -1) * (0.7 + r() * 0.6), elev: 0.55 + r() * 0.3, droop: 1.4, L: 0.32 + r() * 0.12,
+            n: lod ? 5 : 8, w: lod ? 0.13 : 0.11, segs: lod ? 2 : 3, bare: 0.08, v: 0.15, sweep: 0.45, hang: 0.45, rib: 0.006, fill: lod ? 0.9 : 0.6 }, pos, col);
+        }
+      }
+      // cirri: long thin whips arching out and down to the ground
+      for (let k = 0, nc = lod ? 2 : 4; k < nc; k++) {
+        const a = r() * 6.28, h0 = 0.28 + r() * 0.14, reach = 0.42 + r() * 0.2, pts = [];
+        for (let j = 0; j <= 5; j++) { const t = j / 5; pts.push([Math.cos(a) * (0.08 + reach * t), h0 + 0.16 * Math.sin(Math.PI * t * 0.7) - (h0 + 0.02) * t ** 2.2, Math.sin(a) * (0.08 + reach * t)]); }
+        for (let j = 0; j < 5; j++) parts.push(shadeVerts(rod(pts[j], pts[j + 1], 0.005 - j * 0.0007, 0.0044 - j * 0.0007, 3), () => [1.05, 1, 0.65]));
+      }
+      parts.push(twoSided(sheet(pos, col)));
+      break;
+    }
+    case 'pandan': {
+      // screw pine (Pandanus) of the peat swamps: a short trunk perched on a cone of stilt roots,
+      // forking into one to three branches, each ending in a spiralling tuft of long, stiff,
+      // keeled strap leaves, twisted and drooping at the tips
+      cy = 0.45;
+      const pos = [], col = [], wood = () => [1.25, 0.98, 0.75], tb = 0.16, tt = PANDAN_TT;
+      for (let k = 0, nr = lod ? 5 : 7; k < nr; k++) {
+        const a = k / nr * 6.28 + r() * 0.4, out = 0.12 + r() * 0.05, h0 = tb + r() * 0.07;
+        const p0 = [Math.cos(a) * 0.015, h0, Math.sin(a) * 0.015], knee = [Math.cos(a) * out * 0.55, h0 * 0.5, Math.sin(a) * out * 0.55], foot = [Math.cos(a) * out, -0.02, Math.sin(a) * out];
+        parts.push(shadeVerts(rod(p0, knee, 0.011, 0.01, 4), wood), shadeVerts(rod(knee, foot, 0.01, 0.009, 4), wood));
+      }
+      parts.push(shadeVerts(rod([0, tb - 0.03, 0], [0, tt, 0], 0.024, 0.021, lod ? 5 : 6), wood));
+      for (const { tip, elbow } of pandanBranches(seed)) {
+        parts.push(shadeVerts(rod([0, tt - 0.01, 0], elbow, 0.019, 0.017, 5), wood), shadeVerts(rod(elbow, tip, 0.017, 0.014, 5), wood));
+        for (let j = 0, m = lod ? 8 : 12; j < m; j++) {
+          const u = j / (m - 1);
+          strap({ base: tip, az: j * 2.25 + r() * 0.2, elev: 1.3 - 1.05 * u, droop: 0.8 + 0.8 * u + r() * 0.2, L: (0.3 + 0.16 * u) * (0.9 + r() * 0.2), w: lod ? 0.034 : 0.028,
+            segs: lod ? 3 : 4, twist: (r() - 0.5) * 1.6, fold: lod ? 0 : 0.7 }, pos, col);
+        }
+      }
+      parts.push(twoSided(sheet(pos, col)));
+      break;
+    }
+    case 'ginger': {
+      // torch ginger (Etlingera): a stand of tall, leafy canes, each with long narrow leaves in
+      // two ranks; the flower stalks rise apart from them, shorter, each ending in a green bud
+      // (accent('ginger') draws the waxy red torches over the buds while it blooms)
+      cy = 0.5;
+      const pos = [], col = [];
+      for (let k = 0, nk = lod ? 5 : 7; k < nk; k++) {
+        const a = r() * 6.28, d = 0.02 + r() * 0.07, lean = 0.06 + r() * 0.2, h = 0.72 + r() * 0.3;
+        const b = [Math.cos(a) * d, 0, Math.sin(a) * d], tip = [b[0] + Math.cos(a) * Math.sin(lean) * h, Math.cos(lean) * h, b[2] + Math.sin(a) * Math.sin(lean) * h];
+        parts.push(shadeVerts(rod(b, tip, 0.009, 0.006, 4), () => [0.8, 0.85, 0.6]));
+        const plane = r() * 6.28;
+        for (let l = 0, nl = lod ? 4 : 7; l < nl; l++) {
+          const t = 0.34 + 0.64 * l / (nl - 1), p = [b[0] + (tip[0] - b[0]) * t, tip[1] * t, b[2] + (tip[2] - b[2]) * t];
+          strap({ base: p, az: plane + (l % 2 ? Math.PI : 0) + (r() - 0.5) * 0.4, elev: 0.75 - 0.3 * t, droop: 1.3, L: (0.34 - 0.08 * t) * (0.9 + r() * 0.2), w: 0.024 * (lod ? 1.3 : 1), segs: 3, lance: true }, pos, col);
+        }
+      }
+      for (const s of gingerStalks(seed)) {
+        parts.push(shadeVerts(rod(s.b, s.t, 0.006, 0.005, 4), () => [1.1, 1.1, 0.7]));
+        parts.push(soft(new THREE.IcosahedronGeometry(0.017, 0), { transform: g => { g.scale(1, 1.4, 1); g.translate(s.t[0], s.t[1] + 0.012, s.t[2]); } }));
+      }
+      parts.push(twoSided(sheet(pos, col)));
       break;
     }
     case 'willow':
@@ -861,6 +1102,7 @@ export function twigs(seed, height = 0.5) {
 }
 
 // ---------------------------------------------------------------- groundcover tufts
+const TITAN_BLOOM = 1.3; // a corpse flower in bloom: about 0.4 tall at the spathe's rim, 0.86 to the spadix tip
 // lo: a light version for anything but close-ups (fewer, straighter blades, simpler flowers).
 export function tuft(type, seed, lo = false) {
   const r = mulberry32(seed);
@@ -948,7 +1190,131 @@ export function tuft(type, seed, lo = false) {
       }
       break;
     }
+    case 'pitcher': {
+      // Nepenthes on wet peat: a low rosette of strap leaves, with tendrils running out to the
+      // pitchers (accent('pitcher') draws those, in a colour of their own)
+      const pos = [], col = [];
+      for (let k = 0, m = lo ? 4 : 7; k < m; k++) strap({ base: [0, 0.008, 0], az: k / m * 6.28 + r() * 0.4, elev: 0.5, droop: 0.75, L: 0.1 + r() * 0.04, w: 0.015 * (lo ? 1.3 : 1), segs: lo ? 2 : 3, lance: true }, pos, col);
+      parts.push(sheet(pos, col));
+      if (!lo) for (const s of pitcherSpots(seed, 4)) parts.push(rod([s.x * 0.4, 0.035, s.z * 0.4], [s.x, 0.012, s.z], 0.0025, 0.002, 3));
+      break;
+    }
+    case 'titan': {
+      // Amorphophallus titanum in leaf: one tall, mottled stalk carrying a single huge leaf, split
+      // in three and forked again and again into an umbrella of leaflets, like a small tree
+      const Hs = 0.5, pos = [], col = [];
+      const mottle = g => blotch(g, 0.4, [2.0, 1.8, 2.7], [0.78, 0.86, 0.7], seed); // pale blotches on dark olive
+      parts.push(mottle(soft(new THREE.CylinderGeometry(0.014, 0.022, Hs, lo ? 5 : 7, lo ? 5 : 12), { transform: g => g.translate(0, Hs / 2, 0) })));
+      const branch = (p0, az, len, depth) => {
+        const rise = [-0.4, 0.0, 0.5][depth], p1 = [p0[0] + Math.cos(az) * len, p0[1] + rise * len, p0[2] + Math.sin(az) * len];
+        parts.push(mottle(rod(p0, p1, 0.004 + depth * 0.003, 0.003 + depth * 0.003, 3)));
+        if (depth === 0 || (lo && depth === 1)) {
+          // the leaflets: pinnate along the last fork, one at the tip
+          const big = lo ? 1.35 : 1, at = lo ? [0.4, 0.8] : [0.2, 0.5, 0.8];
+          for (const t of at) for (const s of [-1, 1]) strap({ base: [p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t, p0[2] + (p1[2] - p0[2]) * t], az: az + s * (1.1 - t * 0.4), elev: 0.1, droop: 0.6, L: 0.1 * big, w: 0.028 * big, segs: lo ? 2 : 3, lance: true }, pos, col);
+          strap({ base: p1, az, elev: 0.0, droop: 0.6, L: 0.11 * big, w: 0.03 * big, segs: lo ? 2 : 3, lance: true }, pos, col);
+          return;
+        }
+        for (const s of [-1, 1]) branch(p1, az + s * (0.45 + r() * 0.2), len * 0.8, depth - 1);
+      };
+      for (let k = 0; k < 3; k++) branch([0, Hs, 0], k * 2.094 + r() * 0.3, 0.13, 2);
+      parts.push(twoSided(sheet(pos, col)));
+      break;
+    }
+    case 'titanbloom': {
+      // ...and once in a long while in flower instead: a huge vase of a spathe, ribbed outside, its
+      // rim flared and ruffled, deep maroon within (accent('titanbloom') draws the spadix rising out of it)
+      const prof = [[0.035, 0], [0.08, 0.035], [0.1, 0.1], [0.106, 0.17], [0.12, 0.23], [0.155, 0.28], [0.2, 0.305]];
+      const seg = lo ? 12 : 22;
+      const ruffle = g => {
+        const p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x), t = y / 0.305;
+          const f = 1 + 0.12 * Math.sin(a * 9 + 0.5) * t ** 3;
+          p.setXYZ(i, x * f, y + 0.025 * Math.sin(a * 7) * t ** 3 - 0.045 * (1 + Math.cos(a)) * t * t, z * f);
+        }
+      };
+      const lathe = (k, dy) => new THREE.LatheGeometry(prof.map(([x, y]) => new THREE.Vector2(x * k, y + dy)), seg);
+      parts.push(shadeVerts(soft(lathe(1, 0), { transform: ruffle }), (x, y, z) => (0.55 + 0.25 * y / 0.3) * (0.82 + 0.18 * Math.abs(Math.sin(Math.atan2(z, x) * 11)))));
+      parts.push(shadeVerts(soft(lathe(0.93, 0.008), { transform: g => { g.scale(-1, 1, 1); ruffle(g); } }), (x, y) => 0.75 + 0.5 * y / 0.3));
+      for (const g of parts) g.scale(TITAN_BLOOM, TITAN_BLOOM, TITAN_BLOOM); // (drawn a bit bigger than life beside its leaf, so it reads as the event it is)
+      break;
+    }
     default: blades(8, 0.15, 0.012, 0.6);
+  }
+  return merge(parts);
+}
+
+// Where a pitcher plant's pitchers sit (shared by its rosette and the pitchers, at either lod):
+// mostly squat, round lower pitchers on the peat, and one taller, slender one.
+function pitcherSpots(seed, n) {
+  const r = mulberry32(seed * 5 + 3), out = [];
+  for (let k = 0; k < 4; k++) {
+    const a = k / 4 * 6.28 + r() * 0.9, d = 0.075 + r() * 0.06;
+    out.push({ x: Math.cos(a) * d, z: Math.sin(a) * d, s: 0.8 + r() * 0.45, tall: k === 1, rot: r() * 6.28, lean: (r() - 0.5) * 0.4 });
+  }
+  return out.slice(0, n);
+}
+
+// Parts of a plant drawn in a colour of their own, over the plant itself (same position, scale and
+// turn, and the same seed and lod):
+//   'ginger'     torch ginger's waxy torches on their stalks: the flower colour, while in bloom
+//   'pitcher'    the pitchers, mottled red and green: the flower colour, always
+//   'pandan'     screw pine's fruit, hanging under the leaf tufts: the berry colour, while fruiting
+//   'titanbloom' the corpse flower's tall spadix: look.head (pale yellow), while in bloom
+export function accent(type, seed, lo = false) {
+  const parts = [];
+  switch (type) {
+    case 'pandan':
+      // big, round, knobbly heads like pineapples, each on a short stalk under a tuft
+      for (const { tip, a } of pandanBranches(seed).slice(0, 2)) {
+        const f = [tip[0] + Math.cos(a + 1) * 0.03, tip[1] - 0.08, tip[2] + Math.sin(a + 1) * 0.03];
+        parts.push(shadeVerts(rod([tip[0], tip[1] - 0.01, tip[2]], f, 0.006, 0.005, 3), () => 0.5));
+        parts.push(shadeVerts(soft(new THREE.IcosahedronGeometry(0.045, lo ? 0 : 1), { seed, lump: 0.012, transform: g => { g.scale(1, 1.2, 1); g.translate(f[0], f[1] - 0.04, f[2]); } }),
+          (x, y, z) => (0.8 + 0.35 * Math.min(1, Math.max(0, (y - f[1] + 0.09) / 0.1))) * (0.85 + 0.3 * Math.abs(Math.sin(x * 240) * Math.sin(z * 240 + y * 200)))));
+      }
+      break;
+    case 'ginger':
+      for (const s of gingerStalks(seed)) {
+        const pos = [], col = [];
+        // a collar of flared, waxy outer bracts round a tight cone of inner ones
+        for (let k = 0, m = lo ? 5 : 8; k < m; k++) strap({ base: [s.t[0], s.t[1] + 0.008, s.t[2]], az: k / m * 6.28, elev: 0.35, droop: 0.9, L: 0.07, w: 0.026, segs: lo ? 1 : 2, lance: true, shade: 1.25 }, pos, col);
+        parts.push(twoSided(sheet(pos, col, 0.3)));
+        const cone = [[0.001, -0.006], [0.026, 0.004], [0.03, 0.026], [0.024, 0.05], [0.012, 0.068], [0.001, 0.075]].map(([x, y]) => new THREE.Vector2(x, y));
+        parts.push(shadeVerts(soft(new THREE.LatheGeometry(cone, lo ? 6 : 9), { transform: g => g.translate(s.t[0], s.t[1] + 0.012, s.t[2]) }), (x, y) => 0.85 + 0.3 * Math.abs(Math.sin((y - s.t[1]) * 160))));
+      }
+      break;
+    case 'pitcher':
+      for (const s of pitcherSpots(seed, lo ? 3 : 4)) {
+        // a lathed cup: swollen belly, waist, a ridged rim (the peristome) curling into a dark throat
+        const prof = s.tall ? [[0.001, 0], [0.016, 0.006], [0.022, 0.03], [0.02, 0.06], [0.016, 0.085], [0.019, 0.1], [0.015, 0.103], [0.011, 0.07]]
+          : [[0.001, 0], [0.02, 0.004], [0.029, 0.02], [0.03, 0.036], [0.024, 0.05], [0.027, 0.057], [0.021, 0.061], [0.014, 0.035]];
+        const pts = (lo ? prof.filter((p, k) => k !== 2 && k !== 5) : prof).map(([x, y]) => new THREE.Vector2(x * s.s, y * s.s));
+        const rimY = (s.tall ? 0.1 : 0.057) * s.s;
+        const cup = soft(new THREE.LatheGeometry(pts, lo ? 5 : 7), { transform: g => { g.rotateZ(s.lean); g.rotateY(s.rot); g.translate(s.x, -0.004, s.z); } });
+        shadeVerts(cup, (x, y, z) => {
+          const t = (y + 0.004) / rimY;
+          if (Math.hypot(x - s.x, z - s.z) < 0.016 * s.s && t > 0.4 && t < 0.97) return 0.28; // the throat
+          if (t > 0.9) return [1.2, 0.75, 0.8];                                               // the peristome
+          return speck(x, y, z, 7) > 0.55 ? [0.5, 3.4, 1.4] : [1, 1, 1];                       // red, mottled green
+        });
+        parts.push(cup);
+        // the lid, standing up over the mouth from the back of the rim
+        const lid = soft(new THREE.CircleGeometry(0.017 * s.s, lo ? 4 : 6), { transform: g => {
+          g.scale(1, 0.75, 1); g.translate(0, 0.012 * s.s, 0); g.rotateX(-0.35); g.translate(0, rimY, -0.02 * s.s);
+          g.rotateZ(s.lean); g.rotateY(s.rot); g.translate(s.x, -0.004, s.z);
+        } });
+        parts.push(shadeVerts(lid, () => [0.6, 2.6, 1.2]));
+      }
+      break;
+    case 'titanbloom': {
+      // the spadix: a tall, hollow, ridged spike, pale yellow, standing twice the spathe's height
+      const prof = [[0.001, 0.02], [0.04, 0.04], [0.048, 0.12], [0.046, 0.26], [0.037, 0.42], [0.024, 0.56], [0.01, 0.64], [0.001, 0.66]];
+      parts.push(shadeVerts(soft(new THREE.LatheGeometry(prof.map(([x, y]) => new THREE.Vector2(x, y)), lo ? 7 : 12)),
+        (x, y, z) => (0.78 + 0.3 * Math.min(1, y / 0.4)) * (0.88 + 0.12 * Math.abs(Math.sin(Math.atan2(z, x) * 6)))).scale(TITAN_BLOOM, TITAN_BLOOM, TITAN_BLOOM));
+      break;
+    }
+    default: return null;
   }
   return merge(parts);
 }
@@ -1054,6 +1420,30 @@ export function dam(seed) {
     const c = prep(new THREE.CylinderGeometry(0.015, 0.02, 0.5 + r() * 0.3, 3), 0x8a6a4a);
     c.rotateZ(Math.PI / 2 + (r() - 0.5) * 0.6); c.rotateY((r() - 0.5) * 0.8);
     at(c, (r() - 0.5) * 0.6, 0.08 + r() * 0.06, (r() - 0.5) * 0.3); parts.push(c);
+  }
+  return merge(parts);
+}
+// A canal block: a wall of round piles driven in across a drainage canal (one tile, across x),
+// their tops a little uneven, a rail bolted along them, and dark peat and a few sandbags heaped
+// against the upstream (+z) face and up onto the banks at either end, so the peat stays wet.
+export function canalBlock(seed) {
+  const r = mulberry32(seed), parts = [];
+  for (let k = 0; k < 10; k++) {
+    const x = -0.45 + k * 0.1, h = 0.4 + r() * 0.07;
+    const pile = prep(new THREE.CylinderGeometry(0.045, 0.048, h, 6), 0x8a7050);
+    pile.translate(x, h / 2 - 0.16, 0); shadeVerts(pile, (xx, y) => (y > h - 0.17 ? 1.2 : 0.85)); parts.push(pile); // (pale, weathered cut tops)
+  }
+  parts.push(at(prep(new THREE.BoxGeometry(1.0, 0.05, 0.03), 0x6a5238), 0, 0.15, -0.06)); // the rail, downstream
+  // packed peat against the upstream face, heaped higher where it runs up onto the banks
+  const peat = soft(new THREE.IcosahedronGeometry(0.5, 1), { color: 0x3a2c22, seed, lump: 0.05, transform: g => {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setY(i, p.getY(i) * (1 + 1.4 * (x / 0.5) ** 4)); }
+    g.scale(1.1, 0.42, 0.38); g.translate(0, 0.03, 0.17);
+  } });
+  parts.push(peat);
+  for (let k = 0; k < 5; k++) { // sandbags along the top of it
+    const bag = soft(new THREE.IcosahedronGeometry(0.06, 0), { color: 0xa89a74, seed: seed + k, lump: 0.01, transform: g => { g.scale(1.5, 0.6, 1); g.rotateY((r() - 0.5) * 0.5); g.translate(-0.3 + k * 0.15, 0.2 + Math.abs(k - 2) * 0.03, 0.12 + r() * 0.04); } });
+    parts.push(bag);
   }
   return merge(parts);
 }
