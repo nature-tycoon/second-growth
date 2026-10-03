@@ -13,6 +13,9 @@ const algae = (W, i) => (W.ground[i] === PLANT.turf?.id ? W.groundG[i] : 0);
 const branching = (W, i) => (W.tree[i] === PLANT.staghorn?.id && W.treeG[i] > 0.35 ? 1 : 0);
 // an old coral head, where cleaner wrasse set up shop
 const station = (W, i) => ((W.tree[i] === PLANT.boulder?.id || W.tree[i] === PLANT.brain?.id) && W.treeAge[i] > 40 * 120 ? 1 : 0);
+// shade to rest in under a big plate of coral (table corals, and the whorls of plate coral)
+const ledge = (W, i) => ((W.tree[i] === PLANT.tablecoral?.id || W.tree[i] === PLANT.montipora?.id) && W.treeG[i] > 0.5 ? 1 : 0);
+const table = (W, i) => (W.tree[i] === PLANT.tablecoral?.id && W.treeG[i] > 0.5 ? 1 : 0);
 const soft = (W, i) => (W.shrub[i] && (W.shrub[i] === PLANT.sponge?.id || W.shrub[i] === PLANT.softcoral?.id) && W.shrubG[i] > 0.35 ? 1 : 0);
 
 export default function buildReefAnimals(def) {
@@ -26,7 +29,7 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'fish', size: 6, back: '#e86418', flank: '#f07420', belly: '#f49038', bands: '#f6f4ee', finColor: '#ec7422', finEdge: '#141210', tailShape: 'round', spiny: true, short: true, swim: 0.1, show: 4.5 },
     desc: 'Lives its whole life in one sea anemone, sheltering among the stinging tentacles that would kill any other fish. It keeps the anemone clean, and chases off the butterflyfish that nibble it.',
     hint: 'Sea anemones to live in.' });
-  def({ key: 'chromis', reef: true, name: 'Blue-green chromis', sci: 'Chromis viridis', group: 'Fish', move: 'ground',
+  def({ key: 'chromis', reef: true, herd: true, herdR: 1.1, name: 'Blue-green chromis', sci: 'Chromis viridis', group: 'Fish', move: 'ground',
     speed: 0.7, hr: 3, max: 80, minK: 4, groupSize: [6, 12], sources: ['E', 'W'], mig: 0.5, breed: [8, 9, 10, 11], litter: [4, 8], life: 4, mature: 1,
     suit: (W, i) => branching(W, i) || coral(W, i) * 0.25,
     sprite: { kind: 'fish', size: 4, back: '#5ac0c8', flank: '#7ad4cc', belly: '#c4ecdc', finColor: '#6ac8cc', deep: true, swim: 0.4, show: 4.5 },
@@ -34,7 +37,7 @@ export default function buildReefAnimals(def) {
     hint: 'Thickets of branching staghorn coral.' });
   def({ key: 'tang', reef: true, name: 'Blue tang', sci: 'Paracanthurus hepatus', group: 'Fish', move: 'ground',
     speed: 0.8, hr: 5, max: 30, minK: 2, groupSize: [2, 5], sources: ['E', 'W'], mig: 0.4, breed: [8, 9, 10], litter: [2, 4], life: 10, mature: 1,
-    suit: (W, i) => reef[W.habitat[i]] * (0.6 + 0.4 * coral(W, i)),
+    suit: (W, i) => Math.max(reef[W.habitat[i]] * (0.6 + 0.4 * coral(W, i)), has(W, i, 'ground', 'halimeda') ? 0.7 : 0), // (it grazes Halimeda too)
     req: g => Math.min(1, g.forestTiles / 120),
     sprite: { kind: 'fish', size: 9, back: '#2450d0', flank: '#3060e0', belly: '#4a7ae8', finColor: '#1c2c8a', tailColor: '#f0cc20', palette: '#141830', spiny: true, longAnal: true, tailShape: 'truncate', deep: true, short: true, swim: 0.35, show: 3.4 },
     desc: 'Royal blue with a lemon-yellow tail. Surgeonfish like this one graze algae off the reef all day, keeping it clear for young corals.',
@@ -56,7 +59,7 @@ export default function buildReefAnimals(def) {
   def({ key: 'trout', reef: true, name: 'Coral trout', sci: 'Plectropomus leopardus', group: 'Fish', move: 'ground',
     speed: 1.0, hr: 14, max: 10, minK: 1, groupSize: [1, 2], sources: ['E', 'W'], mig: 0.3, breed: [8, 9], litter: [1, 3], life: 14, mature: 2,
     prey: ['chromis', 'tang', 'butterfly'], preyPer: 8,
-    suit: (W, i) => reef[W.habitat[i]],
+    suit: (W, i) => reef[W.habitat[i]] * (0.55 + 0.45 * table(W, i)), // (it lies in ambush under table corals)
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 250) / 300), // (a reef big enough to hold plenty of small fish)
     sprite: { kind: 'fish', size: 20, back: '#c8382a', flank: '#d84a32', belly: '#e8886a', spots: '#4ab0e8', finColor: '#c8382a', tailShape: 'truncate', spiny: true, jaw: true, swim: 0.3, show: 2.2 },
     desc: 'A red hunter speckled with electric-blue spots, lurking under table corals to ambush smaller fish. A sign of a reef with plenty of fish in it.',
@@ -82,7 +85,7 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'fish', size: 30, back: '#3a7868', flank: '#4c9a84', belly: '#9ac8b0', finColor: '#3a8a7a', lines: '#2a4a5a', hump: true, tailShape: 'round', spiny: true, longAnal: true, deep: true, swim: 0.3, show: 2.0 },
     desc: 'A gentle green giant as long as a person, with a bulging forehead and big lips. One of the few fish that eats crown-of-thorns starfish, spines and all.',
     hint: 'A big, healthy reef.' });
-  def({ key: 'trevally', reef: true, name: 'Giant trevally', sci: 'Caranx ignobilis', group: 'Fish', move: 'ground',
+  def({ key: 'trevally', reef: true, herd: true, herdR: 1.6, name: 'Giant trevally', sci: 'Caranx ignobilis', group: 'Fish', move: 'ground',
     speed: 1.3, hr: 30, max: 12, minK: 2, groupSize: [3, 6], sources: ['E', 'W'], mig: 0.5, breed: [9, 10], litter: [2, 4], life: 20, mature: 3,
     prey: ['chromis', 'tang', 'idol', 'butterfly'], preyPer: 6,
     suit: (W, i) => reef[W.habitat[i]],
@@ -115,8 +118,8 @@ export default function buildReefAnimals(def) {
     hint: 'Big seagrass meadows.' });
   def({ key: 'shark', reef: true, name: 'Whitetip reef shark', sci: 'Triaenodon obesus', group: 'Turtles, sharks & rays', move: 'ground',
     speed: 1.1, hr: 30, max: 4, minK: 1, groupSize: [1, 2], sources: ['E', 'W'], mig: 0.3, breed: [9], litter: [1, 3], life: 20, mature: 4,
-    prey: ['parrotfish', 'tang', 'chromis', 'trout'], preyPer: 12,
-    suit: (W, i) => reef[W.habitat[i]],
+    prey: ['parrotfish', 'tang', 'chromis', 'trout', 'sweetlips'], preyPer: 12,
+    suit: (W, i) => reef[W.habitat[i]] * (0.6 + 0.4 * Math.max(table(W, i), station(W, i))), // (it rests under table corals and old coral heads by day)
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 500) / 500),
     sprite: { kind: 'shark', size: 34, back: '#7a8088', flank: '#949aa2', belly: '#e4e6e8', swim: 0.4, show: 2.4 },
     desc: 'Rests in caves under the coral by day and hunts through the reef at night. Sharks keep the fish they prey on healthy; a reef with sharks is a reef in good shape.',
@@ -144,6 +147,20 @@ export default function buildReefAnimals(def) {
     desc: 'A small dark tern with a white cap. It nests by the thousand in the cay\'s pisonia trees, and its droppings feed the island and the reef around it.',
     hint: 'Pisonia trees on the cay to nest in.' });
 
+  // (added later: kept at the end so saved reefs keep their animals' places in the list)
+  def({ key: 'sweetlips', reef: true, name: 'Many-spotted sweetlips', sci: 'Plectorhinchus chaetodonoides', group: 'Fish', move: 'ground',
+    speed: 0.5, hr: 6, max: 16, minK: 2, groupSize: [2, 4], sources: ['E', 'W'], mig: 0.4, breed: [8, 9], litter: [2, 3], life: 15, mature: 2,
+    suit: (W, i) => (ledge(W, i) ? 1 : 0.12 * reef[W.habitat[i]]),
+    req: g => Math.min(1, g.forestTiles / 180),
+    sprite: { kind: 'fish', size: 18, back: '#d8ccb0', flank: '#ece4d0', belly: '#f6f0e2', spots: '#2e241c', finColor: '#e4bc3a', tailColor: '#e0b838', tailShape: 'truncate', spiny: true, deep: true, swim: 0.16, show: 2.6 },
+    desc: 'Cream, freckled all over with dark spots, with yellow fins and big fleshy lips. By day small groups hang almost still in the shade under plate and table corals; at night they come out to hunt on the sand.',
+    hint: 'Table and plate corals to shelter under.' });
+  def({ key: 'hawkfish', reef: true, name: 'Longnose hawkfish', sci: 'Oxycirrhites typus', group: 'Fish', move: 'ground',
+    speed: 0.35, hr: 1, max: 20, minK: 1, groupSize: [1, 2], sources: ['E', 'W', 'S'], mig: 0.3, breed: [8, 9], litter: [1, 2], life: 5, mature: 1,
+    suit: (W, i) => (has(W, i, 'shrub', 'seafan') ? 1 : 0),
+    sprite: { kind: 'fish', size: 5, back: '#f4efe8', flank: '#f6f2ec', belly: '#fbf9f4', grid: '#d4342c', snout: true, long: true, finColor: '#f2c8c0', tailShape: 'truncate', spiny: true, swim: 0.3, show: 4.4 },
+    desc: 'A little white fish checked all over in red, with a long snout for picking tiny shrimp out of the current. It perches in the branches of a sea fan and hardly ever leaves it.',
+    hint: 'Sea fans to perch in.' });
   return {
     groups: ['Fish', 'Turtles, sharks & rays', 'Seabirds'],
     names: {
@@ -153,9 +170,10 @@ export default function buildReefAnimals(def) {
       cleaner: ['cleaner wrasse', 'cleaner wrasse'], idol: ['Moorish idol', 'Moorish idols'], humphead: ['humphead wrasse', 'humphead wrasse'],
       trevally: ['giant trevally', 'giant trevally'], hawksbill: ['hawksbill turtle', 'hawksbill turtles'], dugong: ['dugong', 'dugongs'],
       booby: ['brown booby', 'brown boobies'], noddy: ['black noddy', 'black noddies'],
+      sweetlips: ['sweetlips', 'sweetlips'], hawkfish: ['hawkfish', 'hawkfish'],
     },
     shy: { clownfish: 0.1, chromis: 0.1, tang: 0.2, parrotfish: 0.3, butterfly: 0.2, trout: 0.4, greenturtle: 0.4, shark: 0.6, manta: 0.6,
-      cleaner: 0.1, idol: 0.2, humphead: 0.5, trevally: 0.4, hawksbill: 0.4, dugong: 0.8, booby: 0.3, noddy: 0.4 },
+      cleaner: 0.1, idol: 0.2, humphead: 0.5, trevally: 0.4, hawksbill: 0.4, dugong: 0.8, booby: 0.3, noddy: 0.4, sweetlips: 0.3, hawkfish: 0.1 },
     frugivores: [],
     fenced: [],
     damBuilders: [],

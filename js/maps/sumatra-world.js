@@ -101,17 +101,17 @@ export function generateEstate(seed = 2024) {
     else if (d <= 1.9) { water(i, T.MARSH); if (rng() < 0.5) set(i, rng() < 0.6 ? 'purun' : 'lotus', 0.7); }
   });
 
-  // The palms: triangular rows three tiles apart, across everything that could be planted. Most
-  // went in twenty-five years ago; the east block was replanted ten years ago.
+  // The palms: close triangular rows (two tiles between rows, three along them), across everything
+  // that could be planted. Most went in twenty-five years ago; the east block was replanted ten years ago.
   for (let r = 0; ; r++) {
-    const y = 1 + r * 3;
+    const y = 1 + r * 2;
     if (y >= Hh) break;
     for (let x = 1 + (r % 2 ? 2 : 0); x < W - 1; x += 3) {
       if (!w.inb(x, y) || y >= riverRow(x) - 1) continue;
       const i = w.idx(x, y);
       if (!open(i) || w.terrain[i] === T.SOIL || ravine(x, y) || scar(x, y)) continue;
       if (Math.abs(x - LAKE[0]) < 11 && Math.abs(y - LAKE[1]) < 7) continue;
-      if (rng() < 0.04) continue; // (a gap where a palm died)
+      if (rng() < 0.05) { if (rng() < 0.6) { w.feature[i] = F.LOG; w.featureAge[i] = rng() * 1200; } continue; } // (a gap where a palm died and fell)
       const young = x > ROAD_X[1] && y < peatTop(x);
       set(i, 'oilpalm', young ? 0.82 + rng() * 0.08 : 1, young ? 10 : 24 + Math.floor(rng() * 3));
     }
@@ -133,19 +133,15 @@ export function generateEstate(seed = 2024) {
     else if (r < 0.82) set(i, 'asystasia', 0.5 + rng() * 0.45);
     if (edge && rng() < 0.12) set(i, 'clidemia', 0.6 + rng() * 0.3, 3);
   }
-  // pruned fronds stacked between the rows in the older blocks
-  for (let r = 0; r * 3 + 2 < Hh; r += 2) {
-    const y = r * 3 + 2;
-    for (let x = 2; x < W - 2; x += 3) {
-      if (!w.inb(x, y) || !(x < ROAD_X[1]) || rng() < 0.55) continue;
-      const i = w.idx(x, y);
-      if (open(i) && !w.tree[i] && !w.feature[i] && w.terrain[i] === T.PASTURE && !scar(x, y) && !ravine(x, y)) { w.feature[i] = F.BRUSH; w.featureAge[i] = rng() * 360; }
-    }
+  // pruned fronds stacked in every other row between the palms, as harvesters leave them to rot
+  for (let y = 2; y < Hh; y += 4) for (let x = 1; x < W - 1; x++) {
+    const i = w.idx(x, y);
+    if (rng() < 0.45 && open(i) && !w.tree[i] && !w.feature[i] && w.terrain[i] === T.PASTURE && !scar(x, y) && !ravine(x, y)) { w.feature[i] = F.BRUSH; w.featureAge[i] = rng() * 600; }
   }
-  // dead palms standing in the burn scar
+  // dead palms in the burn scar, some still standing, more fallen
   for (let y = 60; y < 80; y++) for (let x = 14; x < 40; x++) {
     const i = w.idx(x, y);
-    if (scar(x, y) && open(i) && !w.tree[i] && (y - 1) % 3 === 0 && (x % 3 === 1 || x % 3 === 0) && rng() < 0.3) { w.feature[i] = rng() < 0.7 ? F.SNAG : F.LOG; w.featureAge[i] = 1200; }
+    if (scar(x, y) && open(i) && !w.tree[i] && (y - 1) % 2 === 0 && (x % 3 === 1 || x % 3 === 0) && rng() < 0.5) { w.feature[i] = rng() < 0.35 ? F.SNAG : F.LOG; w.featureAge[i] = 1200; }
   }
 
   // The ravine forest.
@@ -164,6 +160,10 @@ export function generateEstate(seed = 2024) {
   // The old tualang, spared for its honey, and a fig the birds planted beside it.
   { const i = w.idx(52, 41); w.clearPlants(i); w.terrain[i] = T.DUFF; set(i, 'tualang', 1, 90); w.soil[i] = 0.4;
     const j = w.idx(54, 43); if (open(j)) { w.clearPlants(j); set(j, 'fig', 0.9, 30); } }
+  // The office's own fruit trees, behind the yard: a durian, rambutans, a mangosteen.
+  for (const [x, y, k] of [[6, 15, 'durian'], [11, 14, 'rambutan'], [16, 15, 'rambutan'], [21, 14, 'mangosteen'], [26, 15, 'cempedak']]) {
+    const i = w.idx(x, y); w.clearPlants(i); w.feature[i] = 0; set(i, k, 0.95, 18); set(i, 'resam', 0.5);
+  }
   // A few native survivors along the river bank, and swamp palms round the lake.
   for (let x = 2; x < W - 2; x++) {
     const y = riverRow(x) - 2 - Math.floor(rng() * 2), i = w.idx(x, y);

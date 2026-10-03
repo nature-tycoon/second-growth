@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp } from '../config.js';
-import { ANIMALS } from '../data/animals.js';
+import { ANIMALS, drawDef } from '../data/animals.js';
 import * as S from '../render/sprites.js';
 import { TREE_SHAPES } from './geometry.js';
 import { PLANTS } from '../data/plants.js';
@@ -66,7 +66,7 @@ export class Actors {
     this.lastT = time;
     F.begin();
     for (const a of game.wildlife.agents) {
-      const def = ANIMALS[a.sp];
+      const def = drawDef(ANIMALS[a.sp], a); // (the male look, for a species whose males look different)
       seen.add(a.id);
       let st = this.pose.get(a.id);
       if (!st) { st = { yaw: Math.random() * Math.PI * 2, gait: 0, fly: 0, graze: 0, px: a.x, py: a.y, x: a.x, y: 0, z: a.y, h: 0.2 }; this.pose.set(a.id, st); }
@@ -88,8 +88,12 @@ export class Actors {
         // under the sea: fish, turtles and rays swim at their own depth between the seabed and the
         // surface (clownfish right down in their anemone, sharks and mantas well up off the bottom),
         // drifting gently up and down
+        // (each one wanders slowly up and down through its own band of water, so a school isn't a flat sheet)
         const room = Math.max(0.15, seaY - ground - 0.12);
-        y = ground + 0.06 + room * (def.sprite.swim ?? 0.3) + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.05, room * 0.08);
+        const sw = def.sprite.swim ?? 0.3, amp = Math.min(1, sw / 0.3); // (clownfish keep down in their anemone)
+        const band = clamp(sw + amp * (0.12 * Math.sin(time * 0.11 + a.id * 1.7) + 0.06 * Math.sin(time * 0.29 + a.id * 4.1)), 0.04, 0.9);
+        st.depth = st.depth == null ? band : st.depth + (band - st.depth) * k * 0.3;
+        y = Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
       } else if (flying && seaY != null) y = Math.max(ground, seaY) + 0.7 + a.alt * 1.2; // (seabirds fly over the water, not the seabed)
       else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - (mo.sink || (def.sprite.size || 10) * 0.22) * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
       else if (flying) y += kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2; // pollinators flit low over the flowers

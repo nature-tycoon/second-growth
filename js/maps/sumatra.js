@@ -9,10 +9,11 @@ import buildSumatraPlants from '../data/plants-sumatra.js';
 import buildSumatraAnimals from '../data/animals-sumatra.js';
 import { generateEstate, sumatraBorderCell, isPeat, streamX } from './sumatra-world.js';
 import { PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
-import { PLANT, PLANTS } from '../data/plants.js';
-import { ANIMAL } from '../data/animals.js';
+import { PLANT, PLANTS, isFruiting } from '../data/plants.js';
+import { ANIMAL, ANIMALS } from '../data/animals.js';
 import { T, F, clamp } from '../config.js';
 import { moment, arrivalMoment } from '../sim/moments.js';
+import { valueNoise } from '../rng.js';
 
 const reuse = key => PNW_GOALS.find(g => g.key === key);
 const st = (g, k) => g.world.stats?.[k] || 0;
@@ -119,12 +120,15 @@ function drainingCanals(w) {
   }
   const out = new Uint8Array(n);
   for (let i = 0; i < n; i++) if (canal(i) && !held[i] && down[i] >= 0) out[i] = 1;
-  return out;
+  return { drain: out, held };
 }
+// low spots in the peat, where water stands once it's wet again
+const hollow = (x, y) => valueNoise(x, y, 4, 91) * 0.7 + valueNoise(x, y, 11, 93) * 0.3 > 0.66;
 
 function peatDaily(g, rate = 0.025) {
   const w = g.world, n = w.n, W = w.w;
-  const drain = drainingCanals(w);
+  const { drain, held } = drainingCanals(w);
+  g.cache.peatDrain = drain; g.cache.peatHeld = held;
   // how far each tile of peat is from a draining canal (through the peat)
   const dist = new Uint8Array(n).fill(255), q = [];
   for (let i = 0; i < n; i++) if (drain[i]) { dist[i] = 0; q.push(i); }
@@ -145,10 +149,22 @@ function peatDaily(g, rate = 0.025) {
     w.baseMoist[i] += (target - w.baseMoist[i]) * rate;
   }
   if (rate >= 1) return; // (settling the water table at the start)
-  // a blocked canal slowly fills in with sedges and ferns and turns to swamp
+  g.cache.peatDist = dist;
+  // Behind a block the canal brims over and fills in with sedges and ferns: open water turns to swamp
+  // within a season or two. And once the peat is wet again, water stands in its low spots in the rains.
+  const rains = g.month >= 6 && g.month <= 10;
   for (let i = 0; i < n; i++) {
-    if (w.terrain[i] !== T.CREEK || drain[i] || !isPeat(w, i) || natural(w)[i] || w.feature[i] === F.DAM) continue;
-    if (g.rng() < 0.0025) { w.terrain[i] = T.MARSH; w.hydroDirty = true; w.renderDirty = true; }
+    const t = w.terrain[i];
+    if (t === T.CREEK) {
+      if (!held[i] || !isPeat(w, i) || natural(w)[i] || w.feature[i] === F.DAM) continue;
+      if (g.rng() < 0.012) { // (and sedges and swamp ferns take it over)
+        w.terrain[i] = T.MARSH; w.hydroDirty = true;
+        w.setPlant(i, PLANT[g.rng() < 0.6 ? 'purun' : 'kelakai'], 0.25);
+      }
+    } else if (rains && (t === T.PASTURE || t === T.SOIL || t === T.MUD) && !w.tree[i] && !w.feature[i] && w.struct[i] < 0 && isPeat(w, i)
+      && w.baseMoist[i] > 0.57 && hollow(i % W, (i / W) | 0) && g.rng() < 0.006) {
+      w.terrain[i] = T.MARSH; w.clearPlants(i); w.hydroDirty = true;
+    }
   }
 }
 
@@ -180,7 +196,7 @@ function estateStats(w, s) {
 }
 
 // ------------------------------------------------------------------ each day
-const PALM_RATE = 0.5; // dollars a month from a grown palm in full sun
+const PALM_RATE = 0.33; // dollars a month from a grown palm in full sun
 function estateDaily(g) {
   const w = g.world;
   peatDaily(g);
@@ -196,6 +212,24 @@ function estateDaily(g) {
     }
     const fruit = Math.round(crop * PALM_RATE);
     if (fruit > 0) { g.earn(fruit); g.cache.palmFruit = fruit; }
+    // The fruit trees in season: the village picks and sells what the wildlife leaves. The more
+    // orangutans, hornbills, bears, civets and macaques there are, the bigger their share.
+    let worth = 0; const kinds = new Set();
+    for (let i = 0; i < w.n; i++) {
+      const id = w.tree[i]; if (!id) continue;
+      const p = PLANTS[id];
+      if (p.harvest && w.treeG[i] > 0.7 && isFruiting(p, g.month)) { worth += p.harvest; kinds.add(p.name.toLowerCase()); }
+    }
+    if (worth > 0) {
+      const eaters = ANIMALS.filter(a => a.frugivore).reduce((s, a) => s + g.wildlife.state[a.index].pop, 0);
+      const share = Math.min(0.4, eaters / 250);
+      const sold = Math.round(worth * (1 - share));
+      g.earn(sold); g.cache.fruitSales = sold;
+      if (!g.flags.fruitHint && sold >= 20) {
+        g.flags.fruitHint = true;
+        g.notify(`The village picked the fruit trees this month (${[...kinds].join(', ')}) and sold $${sold.toLocaleString()} of fruit${share > 0.05 ? `, after the wildlife took about ${Math.round(share * 100)}%` : ''}. Fruit trees keep paying long after the palms are gone, and they feed the orangutans, hornbills and bears too.`, 'good');
+      }
+    } else g.cache.fruitSales = 0;
     if (!g.flags.palmHint && g.day >= 20) {
       g.flags.palmHint = true;
       g.notify(`This month the village sold $${fruit.toLocaleString()} of palm fruit to the mill and paid it into the restoration. Every palm you fell is fruit they can't sell, and palms shaded by young trees bear less. Plant forest between the rows first, and fell the palms as it takes over.`, 'info');
@@ -204,7 +238,13 @@ function estateDaily(g) {
   // the first time a block holds the water back
   if (!g.flags.peatHint && st(g, 'canalBlocks') > 0) {
     g.flags.peatHint = true;
-    g.notify('The canal block is holding. Water is backing up behind it, and over the coming weeks the peat around that stretch of canal will turn wet again. One block holds back only a short stretch: build them in a staircase up each canal, every few tiles, and block the collector canals too.', 'good');
+    g.notify('The canal block is holding. Water is backing up behind it: that stretch of canal will brim over and turn to swamp, and over the coming weeks the peat beside it turns from pale and dusty to dark and wet. One block holds back only about eight tiles: build them in a staircase up each canal, and block the collector canals too. Inspect any peat tile to see if it is drained or wet, or use Overlay → Moisture.', 'good');
+  }
+  // how much of the peat is wet, whenever it has moved on by a tenth
+  if (g.day % 10 === 5 && st(g, 'peat')) {
+    const pct = wetPct(g), shown = g.flags.wetShown ?? pct;
+    if (Math.abs(pct - shown) >= 10) g.notify(`${pct}% of the peat is wet now${pct > shown ? ', up' : ', down'} from ${shown}%. ${pct > shown ? 'The canal blocks are working.' : 'Canals still drain it: block them.'}`, pct > shown ? 'good' : 'warn');
+    if (Math.abs(pct - shown) >= 10 || g.flags.wetShown == null) g.flags.wetShown = pct;
   }
   // the orangutans, the elephants and the tiger come in
   for (const [key, sp] of [['orangutans', 'orangutan'], ['gajah', 'gajah'], ['harimau', 'tiger']]) if (ANIMAL[sp] && pop(g, sp) > 0) arrivalMoment(g, key, ANIMAL[sp]);
@@ -228,7 +268,20 @@ function estateDaily(g) {
 }
 
 // ------------------------------------------------------------------ the estate's own tools
-// Felling a palm, or pulling weeds: the chainsaw crew takes the big palms, the trunk is left to rot.
+// Felling a palm, or pulling weeds: the chainsaw crew drops the big palms and leaves the trunk to
+// rot where it fell, with its fronds stacked beside it. Beetles, termites and fungi turn them into soil.
+function dropPalm(game, i) {
+  const w = game.world, rng = game.rng, W = w.w;
+  if (!w.feature[i]) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
+  const x = i % W, y = (i / W) | 0;
+  for (let k = 0; k < 6; k++) {
+    const dx = Math.floor(rng() * 3) - 1, dy = Math.floor(rng() * 3) - 1;
+    if (!w.inb(x + dx, y + dy)) continue;
+    const j = w.idx(x + dx, y + dy), t = w.terrain[j];
+    if (j === i || w.feature[j] || w.tree[j] || w.struct[j] >= 0 || t === T.ROAD || t === T.TRAIL || t === T.CREEK || t === T.RIVER || t === T.POND || t === T.MARSH) continue;
+    w.feature[j] = F.BRUSH; w.featureAge[j] = 0; break;
+  }
+}
 function fellOrPull(game, i) {
   const w = game.world;
   let n = 0;
@@ -241,7 +294,7 @@ function fellOrPull(game, i) {
   if (w.tree[i] && PLANTS[w.tree[i]].invasive) {
     const big = w.treeG[i] > 0.4, palm = isPalm(w, i);
     w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; n++;
-    if (big && !w.feature[i]) { w.feature[i] = game.rng() < 0.35 ? F.LOG : F.STUMP; w.featureAge[i] = 0; }
+    if (big) dropPalm(game, i);
     if (big && palm) game.stats.palmsFelled = (game.stats.palmsFelled || 0) + 1;
   }
   if (!n) return null;
@@ -279,7 +332,7 @@ const MOMENTS = {
   titan: {
     title: 'The corpse flower blooms',
     text: 'After years of growing nothing but a single leaf, the corpse flower has sent up the largest flower on Earth: a frilled purple spathe taller than a person, around a pale spike that heats itself and pours out the smell of rotting meat. Carrion beetles and sweat bees come from all over the forest to pollinate it. By tomorrow night it will have collapsed.',
-    night: true,
+    reveal: true,
   },
 };
 
@@ -307,6 +360,19 @@ export default {
   daily: estateDaily,
   onStart: g => peatDaily(g, 1), // the peat starts as dry as the canals keep it
   tools: [CANAL_BLOCK],
+  // what the inspector says about peat and canals
+  tileNote: (g, i) => {
+    const w = g.world, t = w.terrain[i];
+    if (!isPeat(w, i)) return null;
+    if (t === T.CREEK && !natural(w)[i]) {
+      if (w.feature[i] === F.DAM) return '<b>Canal block.</b> It holds the water back for about eight tiles of canal upstream of it.';
+      return g.cache.peatDrain?.[i] ? '<b>Drainage canal.</b> It drains the peat within about five tiles of it. Block it to hold the water back.' : '<b>Blocked canal.</b> A block downstream holds this stretch full; it will fill in and turn to swamp.';
+    }
+    if (t === T.CREEK || t === T.RIVER || t === T.POND) return null;
+    const m = w.baseMoist[i];
+    return m >= 0.5 ? '<b>Wet peat.</b> The water table is back at the surface: it can\'t burn, and peat swamp trees will grow here. Oil palms slowly drown on it.'
+      : `<b>Drained peat.</b> A canal ${g.cache.peatDist?.[i] < 255 ? g.cache.peatDist[i] + ' tile' + (g.cache.peatDist[i] === 1 ? '' : 's') + ' away' : 'nearby'} keeps it dry: it is sinking, and it burns in the dry season. Block that canal to wet it again.`;
+  },
   // dry, drained peat is fuel in its own right: it smoulders under the weeds
   fuelBonus: (w, i) => (isPeat(w, i) && w.baseMoist[i] < 0.42 ? 0.35 * clamp((0.42 - w.baseMoist[i]) / 0.18, 0, 1) : 0),
   // health score: wet peat counts alongside a healthy stream
@@ -324,6 +390,7 @@ export default {
   rules: [
     'You don\'t buy animals or upgrades. <b>You build habitat</b>, and wildlife follows its own rules: it comes in from the Leuser forest, the river and the swamp when there\'s room, raises young, and moves on when there isn\'t enough.',
     '<b>The palms are the problem, and the income.</b> Every month the village sells the fruit of the palms still standing and puts it into the work. <b>Fell a palm</b> (Remove → Fell palms & pull weeds) and that fruit is gone; palms shaded by young trees bear less anyway. So plant forest between the rows first (<b>jangka benah</b>), and fell the palms as it closes over.',
+    '<b>Fruit trees pay too.</b> Durian, rambutan, mangosteen, cempedak, duku, petai and jengkol (Plant → Village fruit trees) bear fruit each season that the village sells, and orangutans, hornbills, sun bears and macaques eat their share. Over the years they replace the palm income.',
     '<b>Nothing lives in a monoculture.</b> Under the palms there are rats, wild pigs and weeds. Native trees bring back everything else, and the orangutans, gibbons and hornbills need them joined up with the forest beyond the north and east fences.',
     '<b>The peat must be wet.</b> The canals in the south keep the peat dry so palms can grow on it. Dry peat sinks, and in the dry season it burns underground for weeks. <b>Block the canals</b> (Landscape → Block a canal) in a staircase up each one, and the peat turns wet again. Only peat swamp trees like jelutong and nibung grow on it once it\'s wet, and the palms on it slowly drown.',
     '<b>Fire</b> comes in the dry months, June to August, and in dry spells in February. No burning: clearing land with fire is banned in Indonesia. Wet peat, canopy, firebreaks and fire crews keep it out.',
@@ -333,7 +400,7 @@ export default {
     '<b>Trekkers</b> come from all over the world to see orangutans in the wild. Trails pay, but crowds push shy wildlife away.',
   ],
   firstYear: [
-    'Sow <b>Jangka benah trees</b> between the palm rows near the north-east ravine, where the forest is, and up the stream.',
+    'Sow <b>Jangka benah trees</b> between the palm rows near the north-east ravine, where the forest is, and up the stream, and <b>Village fruit trees</b> near the estate office.',
     'Build a few <b>canal blocks</b> in the peat, starting with the canals around the burn scar in the south-west.',
     'Pull the <b>mile-a-minute</b> off the road edges, and sow <b>native ferns</b> where you pull it.',
     'Put up <b>barn owl boxes</b> in the palms, and cut a <b>trail</b> as a firebreak before the dry season in June.',
@@ -341,10 +408,20 @@ export default {
   hideTools: ['burn'],
   toolText: {
     pull: { name: 'Fell palms & pull weeds', icon: { plant: 'oilpalm' },
-      desc: 'Fell oil palms (a chainsaw crew, $20 a palm; the trunk is left to rot into the soil), and pull out palm and acacia seedlings, mile-a-minute, Chinese violet, alang-alang, Koster\'s curse and Siam weed. Native plants are left alone.',
+      desc: 'Fell oil palms (a chainsaw crew, $20 a palm; each trunk is left to rot where it falls, with its fronds stacked beside it: food and shelter for beetles, termites, sun bears and pangolins), and pull out palm and acacia seedlings, mile-a-minute, Chinese violet, alang-alang, Koster\'s curse and Siam weed. Native plants are left alone.',
       costFor: (game, i) => { const w = game.world; return w.tree[i] && PLANTS[w.tree[i]].invasive && w.treeG[i] > 0.4 ? 20 : 8; },
       apply: fellOrPull },
-    clearcut: { desc: 'Fell any trees on the tile, native or not, and leave everything else. To fell oil palms and count them as felled, use Remove → Fell palms & pull weeds.' },
+    clearcut: { desc: 'Fell any trees on the tile, native or not, and leave everything else. Oil palms fall and are left to rot, fronds and all; other big trees leave a stump that rots.',
+      apply: (game, i) => {
+        const w = game.world;
+        if (!w.tree[i]) return null;
+        const big = w.treeG[i] > 0.4, palm = isPalm(w, i);
+        w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
+        if (palm && big) { game.stats.palmsFelled = (game.stats.palmsFelled || 0) + 1; dropPalm(game, i); }
+        else if (big && !w.feature[i]) { w.feature[i] = F.STUMP; w.featureAge[i] = 0; }
+        game.stats.treesCut = (game.stats.treesCut || 0) + 1;
+        return true;
+      } },
     nestbox: { name: 'Barn owl box', desc: 'A nest box on a pole for barn owls. Plantations put them up because a family of barn owls eats over a thousand rats a year.' },
     pond: { desc: 'Deep, open water for snakeheads, arowanas, otters and monitor lizards.' },
     creek: { desc: 'Carve a channel. On the peat, any channel that runs to the river drains the peat around it, like the old canals.' },
@@ -386,7 +463,7 @@ export default {
     S: ['nibung', 'pandan', 'purun', 'lotus', 'jelutong', 'kelakai'],
   },
   windSeeds: ['meranti', 'keruing', 'mikania', 'chromolaena', 'alang'],
-  berrySeeds: ['fig', 'macaranga', 'terap', 'melastoma', 'clidemia', 'oilpalm', 'ixora', 'rattan', 'nibung', 'durian'],
+  berrySeeds: ['fig', 'macaranga', 'terap', 'melastoma', 'clidemia', 'oilpalm', 'ixora', 'rattan', 'nibung', 'durian', 'rambutan', 'cempedak'],
   floodSeeds: ['nibung', 'pandan', 'purun', 'jelutong', 'macaranga', 'kelakai'],
   burnSeeds: ['alang', 'alang', 'resam', 'mikania', 'chromolaena', 'macaranga', 'acacia'],
 
@@ -406,9 +483,14 @@ export default {
     pasture: ['#8ea456', '#a0a660', '#8aa456', '#92a65a'],
     soil: [0.66, 0.42, 0.3], mud: [0.28, 0.21, 0.16],                 // red tropical soil, black peat
     // peat-stained blackwater: tea-brown and clear
-    water: { pond: [0.2, 0.13, 0.06, 0.92], creek: [0.24, 0.16, 0.07, 0.9], river: [0.28, 0.19, 0.09, 0.92], marsh: [0.28, 0.26, 0.12, 0.6] },
-    // drained peat shows dark through the weeds
-    groundTint: (w, i, c) => isPeat(w, i) ? c.map((v, k) => v * 0.8 + [0.3, 0.24, 0.17][k] * 0.2) : null,
+    water: { pond: [0.2, 0.13, 0.06, 0.92], creek: [0.24, 0.16, 0.07, 0.9], river: [0.28, 0.19, 0.09, 0.92], marsh: [0.34, 0.42, 0.22, 0.42] },
+    // peat shows through the weeds: pale and dusty where it's drained, dark and sodden where it's wet
+    groundTint: (w, i, c) => {
+      if (!isPeat(w, i)) return null;
+      const wet = clamp((w.baseMoist[i] - 0.36) / 0.24, 0, 1);
+      const dry = [0.66, 0.55, 0.4], sod = [0.13, 0.17, 0.12], k = 0.34 + 0.06 * wet;
+      return c.map((v, q) => v * (1 - k) + (dry[q] * (1 - wet) + sod[q] * wet) * k);
+    },
     light: [
       { sun: 0xfff2dc, sunI: 2.6, sky: 0xe6eeee, ground: 0x5a6a3a, hemiI: 1.3 },
       { sun: 0xffe2bc, sunI: 2.4, sky: 0xf0e2cc, ground: 0x6a623c, hemiI: 1.24 },

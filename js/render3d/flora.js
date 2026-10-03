@@ -314,6 +314,8 @@ export class Flora {
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
           this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub' }, () => G.shrub(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, col);
+          // a giant clam's shells are pale and chalky, whatever colour its mantle is
+          if (shape === 'clam') this.pool(`clamshell:${v}`, () => G.clamShell(sseed), this.shrubs, { kind: 'shrub' }).add(sx, sy, sz, sc, sc, sc, rot, vary([0.86, 0.84, 0.76].map(c => c * dim), x, y, 10, 0.05));
           // torch ginger's flowers are torches on stalks of their own, and pandan's fruit hangs under its tufts, not dots among the leaves
           const accCol = shape === 'ginger' && phase === 'bloom' ? p.look.flower : shape === 'pandan' && phase === 'fruit' ? p.look.berry : null;
           if (accCol && g > 0.3) this.pool(`shrub:acc:${shape}:${v}`, () => G.accent(shape, sseed), this.shrubs, { kind: 'shrub' }, () => G.accent(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, vary(rgb(accCol).map(c => c * dim), x, y, 9, 0.06));
@@ -366,6 +368,16 @@ export class Flora {
             }
             this.pools.get(`fruit:${key}`).add(tx, ty, tz, sc, sc, sc, rot, vary(rgb(p.look.berry).map(c => c * dim), x, y, 14, 0.08));
           }
+          // fruit trees (durian, rambutan, mangosteen...) hang their fruit round the outside of the crown in season
+          if (p.look.hangFruit && phase === 'fruit' && p.look.berry && g > 0.6 && shapeDef.rx) {
+            // (on the surface of the crown, around its middle, where the camera can see them)
+            const fc = rgb(p.look.berry).map(c => c * dim), fs = (p.look.fruitSize || 1.3) * 1.3, ry = shapeDef.ry ?? 0.4;
+            const fy = (shapeDef.height - ry * 1.1) * sc, rr = (shapeDef.rx * 0.78 + Math.min(shapeDef.rx, ry) * 0.5) * sc;
+            for (let k = 0; k < 9; k++) {
+              const a = rot + k * 2.4 + hash2(x + k, y, 15), d = rr * (0.92 + hash2(x, y + k, 16) * 0.12);
+              dots.add(tx + Math.cos(a) * d, ty + fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25 * sc, tz + Math.sin(a) * d, fs, fs * 1.15, fs, a, fc);
+            }
+          }
         }
       }
 
@@ -385,6 +397,9 @@ export class Flora {
           dots.add(x + 0.5 + dx / 2, seaY + 0.008, y + 0.5 + dy / 2, len / 0.07, 0.22, 0.22, -Math.atan2(dy, dx), [0.95, 0.9, 0.7]);
         }
       }
+
+      // shade cloth strung just under the surface over the reef in a heatwave
+      if (seaY != null && (w.marks[i] & 8)) this.pool('shadecloth', () => G.shadeCloth(), this.small, { shadow: true }).add(x + 0.5, seaY - 0.035, y + 0.5, 1, 1, 1, 0, [0.12, 0.17, 0.15]);
 
       // reef stars laid over the rubble, until the coral grown on them hides them
       if ((w.marks[i] & 2) && !(w.tree[i] && w.treeG[i] > 0.6)) {

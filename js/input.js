@@ -120,6 +120,13 @@ export class Input {
   }
 
   tool() { return this.ui.state.tool ? TOOLS[this.ui.state.tool] : null; }
+  // The tile under the pointer. Snorkel-trail buoys float at the sea surface, so that tool picks
+  // the tile straight below the point on the surface, not the seabed further along the same line
+  // of sight (seen from above at an angle, that's a tile or two off).
+  pick(sx, sy) {
+    const surface = biome.buoyTrails && this.ui.state.tool === 'trail';
+    return this.r.screenToTile(sx, sy, surface ? this.r.seaY : null);
+  }
 
   // ------------------------------------------------------------ touch
   // With a brush tool, one finger on the map paints; with Inspect or a click-to-place tool it moves
@@ -268,7 +275,7 @@ export class Input {
     if (e.button !== 0) return;
     e.preventDefault();
     this.mouse.x = e.clientX; this.mouse.y = e.clientY;
-    const t = this.r.screenToTile(e.clientX, e.clientY);
+    const t = this.pick(e.clientX, e.clientY);
     const tool = this.tool();
     if (!tool) { this.inspectAt(t); return; }
     if (!this.game.world.inb(t.x, t.y)) return;
@@ -286,7 +293,7 @@ export class Input {
       return;
     }
     if (this.stroke && this.stroke.tool.brush) {
-      const t = this.r.screenToTile(e.clientX, e.clientY);
+      const t = this.pick(e.clientX, e.clientY);
       const last = this.stroke.last;
       if (last && (last.x !== t.x || last.y !== t.y)) {
         // walk the line between samples so fast strokes stay continuous
@@ -379,7 +386,7 @@ export class Input {
 
   updateHover() {
     const g = this.game, w = g.world, ui = this.ui;
-    const t = this.r.screenToTile(this.mouse.x, this.mouse.y);
+    const t = this.pick(this.mouse.x, this.mouse.y);
     const tool = this.tool();
     ui.state.hover = w.inb(t.x, t.y) ? { x: t.x, y: t.y } : null;
     ui.state.brushR = tool && tool.brush ? ui.state.brushR : 0;

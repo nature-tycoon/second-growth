@@ -92,19 +92,39 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'The first tree up in any gap, with leaves as big as umbrellas. Ants live in its hollow twigs and guard it; birds and squirrels eat its seeds.' });
   def({ key: 'terap', name: 'Terap', sci: 'Artocarpus elasticus', layer: 2,
     moist: [0.25, 0.9], light: [0.45, 1], grow: 0.008, spread: 0.01, radius: 5, life: 60, matureAge: 25, mast: 0.6, cost: 15,
-    look: { type: 'inga', leaf: '#3e7a3a', bark: '#a89a84', berry: '#c8a040', fruit: [5, 6, 7] },
+    look: { type: 'inga', leaf: '#3e7a3a', bark: '#a89a84', berry: '#c8a040', fruit: [5, 6, 7], hangFruit: true, fruitSize: 1.6 },
     desc: 'A fast-growing wild breadfruit with huge lobed leaves. Its big spiky fruit feed orangutans, hornbills and bears.' });
   def({ key: 'petai', name: 'Petai', sci: 'Parkia speciosa', layer: 2, nfix: true,
     moist: [0.2, 0.85], light: [0.4, 1], grow: 0.007, spread: 0.008, radius: 4, life: 80, matureAge: 15, cost: 16,
-    look: { type: 'raintree', leaf: '#4e8a3a', bark: '#8a7a64', berry: '#6a8a3a', fruit: [3, 4] },
+    look: { type: 'raintree', leaf: '#4e8a3a', bark: '#8a7a64', berry: '#7a9a3a', fruit: [3, 4], hangFruit: true, fruitSize: 1.1 },
     desc: 'A spreading legume that fixes nitrogen, with "stink bean" pods that sell well in every market. Bats pollinate its hanging flower balls at night.' });
   def({ key: 'durian', name: 'Durian', sci: 'Durio zibethinus', layer: 2,
     moist: [0.3, 0.85], light: [0.3, 1], soil: 0.25, grow: 0.0045, spread: 0.007, radius: 5, life: 150, matureAge: 15, mast: 1, cost: 22,
-    look: { type: 'mahogany', leaf: '#3f6a38', bark: '#8a6a54', berry: '#a8a838', fruit: [9, 10, 11] },
+    look: { type: 'mahogany', leaf: '#3f6a38', bark: '#8a6a54', berry: '#a8a838', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.9 },
     desc: 'The king of fruits. Bats pollinate its flowers, and when the spiky fruit fall, orangutans, sun bears, tigers and elephants all come for them, and plant the seeds as they go.' });
+  def({ key: 'rambutan', name: 'Rambutan', sci: 'Nephelium lappaceum', layer: 2,
+    moist: [0.3, 0.85], light: [0.35, 1], soil: 0.2, grow: 0.006, spread: 0.007, radius: 4, life: 80, matureAge: 10, cost: 18,
+    look: { type: 'balanites', leaf: '#3e6e36', bark: '#7a6650', berry: '#d8242a', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.1 },
+    desc: 'Clusters of hairy red fruit with sweet white flesh. The village sells them by the bunch, and macaques, hornbills and civets raid the trees.' });
+  def({ key: 'mangosteen', name: 'Mangosteen', sci: 'Garcinia mangostana', layer: 2,
+    moist: [0.35, 0.9], light: [0.15, 1], soil: 0.25, grow: 0.004, spread: 0.005, radius: 3, life: 100, matureAge: 12, cost: 20,
+    look: { type: 'magnolia', leaf: '#2e5e34', bark: '#5a4a3a', berry: '#4a1a3a', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.2 },
+    desc: 'The "queen of fruits": a dense, dark evergreen that grows happily in the shade of bigger trees, with purple fruit around snow-white segments. Slow to start bearing, but it pays for decades.' });
+  def({ key: 'cempedak', name: 'Cempedak', sci: 'Artocarpus integer', layer: 2,
+    moist: [0.3, 0.9], light: [0.3, 1], soil: 0.2, grow: 0.006, spread: 0.007, radius: 4, life: 80, matureAge: 10, cost: 16,
+    look: { type: 'ash', leaf: '#3e7038', bark: '#8a7a64', berry: '#c8b040', fruit: [10, 11, 0], hangFruit: true, fruitSize: 1.9 },
+    desc: 'A wild jackfruit whose big fruits grow straight off the trunk and branches. Orangutans, sun bears and people all love it.' });
+  def({ key: 'duku', name: 'Duku', sci: 'Lansium parasiticum', layer: 2,
+    moist: [0.35, 0.9], light: [0.2, 1], soil: 0.2, grow: 0.0045, spread: 0.006, radius: 4, life: 100, matureAge: 12, cost: 16,
+    look: { type: 'oak', leaf: '#46763a', bark: '#9a8a74', berry: '#e2d49a', fruit: [7, 8, 9], hangFruit: true, fruitSize: 1 },
+    desc: 'Bunches of pale, grape-sized fruit hang from the trunk and limbs. A shade-tolerant tree for mixed village gardens under the forest.' });
+  def({ key: 'jengkol', name: 'Jengkol', sci: 'Archidendron pauciflorum', layer: 2, nfix: true,
+    moist: [0.3, 0.9], light: [0.35, 1], grow: 0.006, spread: 0.007, radius: 4, life: 60, matureAge: 8, cost: 12,
+    look: { type: 'raintree', leaf: '#4a8040', bark: '#8a7a6a', berry: '#5a3a5a', fruit: [2, 3], hangFruit: true, fruitSize: 1.1 },
+    desc: 'A nitrogen-fixing legume with twisted dark pods of pungent beans, a favourite in Sumatran cooking. It enriches worn soil while it earns.' });
   def({ key: 'fig', name: 'Strangler fig', sci: 'Ficus stupenda', layer: 2,
     moist: [0.3, 0.95], light: [0.3, 1], soil: 0.15, grow: 0.005, spread: 0.008, radius: 5, life: 300, matureAge: 12, mast: 0.7, cost: 22,
-    look: { type: 'fig', leaf: '#3f7a44', bark: '#9a9080', berry: '#c84a2a', fruit: [0, 1, 4, 5, 8, 9] },
+    look: { type: 'fig', leaf: '#3f7a44', bark: '#9a9080', berry: '#c84a2a', fruit: [0, 1, 4, 5, 8, 9], hangFruit: true, fruitSize: 0.9 },
     desc: 'Fruits several times a year, so it feeds hornbills, gibbons and orangutans when nothing else is ripe. The single most important tree for rainforest wildlife.' });
   def({ key: 'meranti', name: 'Light red meranti', sci: 'Shorea leprosula', layer: 2,
     moist: [0.25, 0.85], light: [0.3, 1], soil: 0.25, grow: 0.0036, spread: 0.007, radius: 4, life: 300, matureAge: 16, mast: 0.8, cost: 28,
@@ -130,8 +150,11 @@ export default function buildSumatraPlants(def, mix, get) {
   // ---------- Seed mixes ----------
   for (const m of [
     { key: 'mix_interplant', name: 'Jangka benah trees', layer: 2, cost: 15, density: 0.3,
-      species: ['petai', 'durian', 'terap', 'macaranga', 'jelutong'],
+      species: ['petai', 'durian', 'rambutan', 'cempedak', 'terap', 'macaranga', 'jelutong'],
       desc: 'Forest trees and fruit trees to plant between the palm rows while the old palms are still standing. They grow up in the palms\' half-shade, and as they close over, the palms are felled. Petai and durian also pay their way.' },
+    { key: 'mix_fruit', name: 'Village fruit trees', layer: 2, cost: 17, density: 0.3,
+      species: ['durian', 'rambutan', 'mangosteen', 'cempedak', 'duku', 'petai', 'jengkol'],
+      desc: 'Fruit trees for a forest garden: the village sells their fruit every season, and orangutans, hornbills, bears and macaques eat their share. Mangosteen and duku grow well in the shade of bigger trees.' },
     { key: 'mix_pioneers', name: 'Pioneer trees', layer: 2, cost: 12, density: 0.32,
       species: ['macaranga', 'terap', 'petai'],
       desc: 'Fast, sun-loving trees that shade out the weeds within a few years. Plant them where palms have been felled.' },
@@ -161,7 +184,7 @@ export default function buildSumatraPlants(def, mix, get) {
   // behaviour flags the simulation reads
   for (const k of ['macaranga', 'acacia']) get(k).gravelOK = true;                        // colonize gravel roads and sandbars
   for (const k of ['melastoma', 'bamboo', 'ginger', 'chromolaena', 'clidemia', 'resam', 'pandan']) get(k).resprout = true;
-  Object.entries({ oilpalm: 0.7, acacia: 0.5, tualang: 0.5, keruing: 0.4, meranti: 0.35, nibung: 0.4, jelutong: 0.3, petai: 0.3, durian: 0.25, fig: 0.3, terap: 0.25, macaranga: 0.2 })
+  Object.entries({ oilpalm: 0.7, acacia: 0.5, tualang: 0.5, keruing: 0.4, meranti: 0.35, nibung: 0.4, jelutong: 0.3, petai: 0.3, durian: 0.25, rambutan: 0.25, mangosteen: 0.3, cempedak: 0.25, duku: 0.3, jengkol: 0.25, fig: 0.3, terap: 0.25, macaranga: 0.2 })
     .forEach(([k, v]) => { get(k).fireSurvival = v; });
   get('chromolaena').fuel = 1.1; get('bamboo').fuel = 1.2; get('clidemia').fuel = 0.7;
   get('ginger').nectar = { months: [8, 9, 10, 11, 0], amount: 0.5 };
@@ -170,9 +193,12 @@ export default function buildSumatraPlants(def, mix, get) {
   get('durian').nectar = { months: [6, 7], amount: 0.6 };
   get('petai').nectar = { months: [0, 1], amount: 0.5 };
   get('tualang').nectar = { months: [4, 5], amount: 0.4 };                                 // (and the bees' honey)
-  get('durian').disperser = 'orangutan';                                                // orangutans carry durian seeds far
+  get('durian').disperser = 'orangutan';
+  // fruit trees: what a grown tree's fruit sells for each month it's in season, and food for wildlife
+  Object.entries({ durian: 14, rambutan: 7, mangosteen: 9, cempedak: 7, duku: 6, petai: 6, jengkol: 5 }).forEach(([k, v]) => { get(k).harvest = v; });
+  for (const k of ['durian', 'rambutan', 'mangosteen', 'cempedak', 'duku', 'petai', 'jengkol', 'terap', 'fig']) get(k).fruitFood = 0.8;                                                // orangutans carry durian seeds far
   // evergreen rainforest plants: only the grasses and ferns of open ground brown off in a dry spell
   for (const k of ['asystasia', 'mikania', 'alang', 'resam', 'kelakai', 'purun', 'lotus', 'nepenthes', 'titan',
     'clidemia', 'chromolaena', 'melastoma', 'ixora', 'ginger', 'rattan', 'bamboo', 'pandan',
-    'oilpalm', 'acacia', 'macaranga', 'terap', 'petai', 'durian', 'fig', 'meranti', 'keruing', 'tualang', 'jelutong', 'nibung']) get(k).look.tropical = true;
+    'oilpalm', 'acacia', 'macaranga', 'terap', 'petai', 'durian', 'rambutan', 'mangosteen', 'cempedak', 'duku', 'jengkol', 'fig', 'meranti', 'keruing', 'tualang', 'jelutong', 'nibung']) get(k).look.tropical = true;
 }

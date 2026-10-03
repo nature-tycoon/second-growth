@@ -13,7 +13,7 @@ import { Terrain, buildAtlas } from './terrain.js';
 import { Flora, windGust } from './flora.js';
 import { Actors, salmonLeap } from './actors.js';
 import { SeaSurface } from './sea.js';
-import { building } from './geometry.js';
+import { building, diveBoat, JETTY_BOAT } from './geometry.js';
 import { hash2 } from '../rng.js';
 import { Border } from '../world.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
@@ -178,12 +178,15 @@ export class Renderer {
 
   // Dissolve cover between the camera and the selected animal, easing in and out.
   updateFocus(game, dt) {
-    const sel = game.selectedAgent, pose = sel && this.actors.pose.get(sel.id);
+    const sel = game.selectedAgent, pose = sel && this.actors.pose.get(sel.id), ft = !pose && this.focusTile;
     const amt = focus.uFocusAmt;
-    amt.value += ((pose ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
+    amt.value += ((pose || ft ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
     if (pose) {
       focus.uFocus.value.set(pose.x, pose.y + pose.h * 0.5, pose.z);
       focus.uFocusR.value = clamp(0.55 + pose.h * 1.6, 0.6, 1.2);
+    } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
+      focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
+      focus.uFocusR.value = 1.3;
     }
     this.camera.getWorldDirection(focus.uViewDir.value).negate();
   }
@@ -286,19 +289,23 @@ export class Renderer {
     const w = this.world;
     return w.heightAt(clamp(x, -BORDER, w.w + BORDER - 0.001), clamp(z, -BORDER, w.h + BORDER - 0.001)) * LEVEL;
   }
-  // Where a screen point lands on the terrain, in tile coordinates.
-  screenToTile(sx, sy) {
+  // the sea surface's height on an underwater map (null elsewhere)
+  get seaY() { return biome.look.underwater ? biome.look.underwater.level * LEVEL : null; }
+  // Where a screen point lands on the terrain, in tile coordinates. floor: a level the ray stops
+  // at even over lower ground (the sea surface, for buoys that float on it).
+  screenToTile(sx, sy, floor = null) {
     const { o, d } = this.ray(sx, sy);
+    const hit = (x, z) => (floor == null ? this.heightAtScene(x, z) : Math.max(floor, this.heightAtScene(x, z)));
     let t = 0, prev = 0;
     for (; t < 90; t += 0.12) {
       const x = o.x + d.x * t, y = o.y + d.y * t, z = o.z + d.z * t;
-      if (y <= this.heightAtScene(x, z)) break;
+      if (y <= hit(x, z)) break;
       prev = t;
     }
     let a = prev, b = t;
     for (let k = 0; k < 10; k++) {
       const m = (a + b) / 2, x = o.x + d.x * m, y = o.y + d.y * m, z = o.z + d.z * m;
-      if (y <= this.heightAtScene(x, z)) b = m; else a = m;
+      if (y <= hit(x, z)) b = m; else a = m;
     }
     const fx = o.x + d.x * b, fy = o.z + d.z * b;
     return { x: Math.floor(fx), y: Math.floor(fy), fx, fy };
@@ -348,16 +355,39 @@ export class Renderer {
       if (this.structs.has(key)) {
         const m = this.structs.get(key);
         m.position.y = w.tileH(s.x, s.y) * LEVEL;
+        if (m.userData.boat) m.userData.boat.userData.y0 = this.seaY - m.position.y;
         return;
       }
-      const m = new THREE.Mesh(building(biome.look.structures?.[s.type] || s.type, s.w, s.h), this.structMat); // (a map can draw a building its own way: the reef's boat landing is a jetty)
+      const look = biome.look.structures?.[s.type] || s.type;
+      const m = new THREE.Mesh(building(look, s.w, s.h), this.structMat); // (a map can draw a building its own way: the reef's boat landing is a jetty)
       m.position.set(s.x + s.w / 2, w.tileH(s.x, s.y) * LEVEL, s.y + s.h / 2);
       if (s.turn) m.rotation.y = Math.PI; // (a building that faces north, onto the street behind it)
       m.castShadow = true; m.receiveShadow = true;
+      if (look === 'jetty' && this.seaY != null) {
+        // the dive boat tied up alongside, floating on the sea (it rides the swell: see rockBoats)
+        const rise = m.position.y - this.seaY;
+        this.boatMat ||= withClouds(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+        const boat = new THREE.Mesh(diveBoat(rise + 0.24), this.boatMat);
+        boat.position.set(JETTY_BOAT.x, -rise, JETTY_BOAT.z);
+        boat.castShadow = true; boat.receiveShadow = true;
+        m.add(boat); m.userData.boat = boat;
+      }
       this.scene.add(m);
       this.structs.set(key, m);
     });
-    for (const [key, m] of this.structs) if (!live.has(key)) { this.scene.remove(m); m.geometry.dispose(); this.structs.delete(key); }
+    for (const [key, m] of this.structs) if (!live.has(key)) { this.scene.remove(m); m.geometry.dispose(); m.userData.boat?.geometry.dispose(); this.structs.delete(key); }
+  }
+  // The dive boat rides the swell at its mooring: a slow bob, a little roll and pitch.
+  rockBoats() {
+    const t = this.time;
+    for (const m of this.structs.values()) {
+      const b = m.userData.boat;
+      if (!b) continue;
+      b.userData.y0 ??= b.position.y;
+      b.position.y = b.userData.y0 + Math.sin(t * 0.9) * 0.012 + Math.sin(t * 1.7 + 1) * 0.005;
+      b.rotation.z = Math.sin(t * 0.75 + 0.5) * 0.028;
+      b.rotation.x = Math.sin(t * 0.55) * 0.012;
+    }
   }
 
   // jump the clock to a point in the day (0 = dawn, 0.9 = night)
@@ -473,6 +503,7 @@ export class Renderer {
     this.terrain.sky.value.copy(this.hemi.color);
     const r = this.right();
     this.actors.update(game, r, this.time);
+    this.rockBoats();
     this.updateFocus(game, dt);
     // snow settles and melts gradually on screen rather than popping in with the daily tick
     const su = snow.uSnow;
@@ -625,11 +656,12 @@ export class Renderer {
     // brush ring
     if (ui.hover && ui.previewTiles) {
       const cx = ui.hover.x + 0.5, cz = ui.hover.y + 0.5, R = ui.brushR + 0.5;
+      const floor = biome.buoyTrails && ui.tool === 'trail' ? this.seaY : null; // (buoys: the ring floats on the surface where they'll go)
       ctx.strokeStyle = 'rgba(255,248,220,0.9)'; ctx.lineWidth = 1.5;
       ctx.beginPath();
       for (let k = 0; k <= 36; k++) {
         const a = k / 36 * Math.PI * 2, x = cx + Math.cos(a) * R, z = cz + Math.sin(a) * R;
-        const p = this.project(x, this.heightAtScene(x, z) + 0.06, z);
+        const p = this.project(x, Math.max(floor ?? -1e9, this.heightAtScene(x, z)) + 0.06, z);
         k ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
       }
       ctx.stroke();
@@ -776,6 +808,36 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
     const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2.2);
     g.addColorStop(0, `rgba(236,255,150,${(0.95 * blink * n).toFixed(3)})`); g.addColorStop(0.35, `rgba(200,240,90,${(0.4 * blink * n).toFixed(3)})`); g.addColorStop(1, 'rgba(200,240,90,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.2, 0, 7); ctx.fill();
+  }
+  // Coral spawning night on the reef: pink and cream bundles of eggs drift up off the living coral
+  // to the surface (the night of the spawning each year, and through its keystone moment).
+  // (a night lasts many game days, so the spawning shows through the first whole night after it,
+  // once a year, rather than only on the spawning day itself)
+  const sd = game.flags.spawnDay;
+  if (sd != null && sd !== this.spawnSeen && game.day - sd < 40) {
+    if (n > 0.05) this.spawnOn = sd;
+    else if (this.spawnOn === sd) this.spawnSeen = sd; // that night is over
+  }
+  const spawnNight = biome.look.underwater && (this.spawnBoost > 0 || (this.spawnOn === sd && sd !== this.spawnSeen));
+  const eggs = this.eggs || (this.eggs = []), seaY = this.seaY;
+  const wantEggs = spawnNight && n > 0.05 && this.zoom > 0.5 ? Math.round(420 * n * (this.spawnBoost > 0 ? 1.6 : 1) * (this.light ? 0.5 : 1)) : 0;
+  for (let tries = 0; eggs.length < wantEggs && tries < 120; tries++) {
+    const x = bx0 + Math.floor(Math.random() * (bx1 - bx0 + 1)), z = bz0 + Math.floor(Math.random() * (bz1 - bz0 + 1));
+    if (!w.inb(x, z)) continue;
+    const i = w.idx(x, z);
+    if (!w.tree[i] || w.treeG[i] < 0.4) continue;
+    const x0 = x + 0.2 + Math.random() * 0.6, z0 = z + 0.2 + Math.random() * 0.6, y0 = this.heightAtScene(x0, z0) + 0.12 + Math.random() * 0.1;
+    eggs.push({ x: x0, z: z0, y: y0, vy: 0.05 + Math.random() * 0.06, ph: Math.random() * 6, life: 9 + Math.random() * 8, c: Math.random() < 0.7 ? [246, 160, 170] : [250, 226, 196] });
+  }
+  if (eggs.length > wantEggs) eggs.splice(0, eggs.length - wantEggs);
+  for (let k = eggs.length - 1; k >= 0; k--) {
+    const e = eggs[k];
+    e.life -= dt; if (e.life <= 0) { eggs.splice(k, 1); continue; }
+    e.ph += dt; e.y = Math.min(seaY - 0.02, e.y + e.vy * dt); e.x += Math.sin(e.ph * 0.7) * 0.02 * dt; e.z += 0.03 * dt;
+    const p = this.project(e.x, e.y, e.z), r = Math.max(1.8, this.zoom * 2.2), a = Math.min(1, e.life / 2, (e.y >= seaY - 0.021 ? 0.75 : 1)) * Math.min(1, n * 1.5);
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2.4);
+    g.addColorStop(0, `rgba(${e.c[0]},${e.c[1]},${e.c[2]},${a.toFixed(3)})`); g.addColorStop(0.4, `rgba(${e.c[0]},${e.c[1]},${e.c[2]},${(a * 0.6).toFixed(3)})`); g.addColorStop(1, `rgba(${e.c[0]},${e.c[1]},${e.c[2]},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.4, 0, 7); ctx.fill();
   }
   // eye-shine: a pair of small lights on the heads of animals looking toward you out on the grass
   if (biome.savanna && n > 0.25 && this.zoom > 0.6) {

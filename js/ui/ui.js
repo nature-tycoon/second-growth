@@ -4,7 +4,7 @@ import { T, F, H, HABITAT_INFO, TERRAIN_NAMES, FEATURE_NAMES, MONTH_NAMES, SPEED
 import { music } from '../audio/music.js';
 import { MUSIC_LICENSE } from '../audio/tracks.js';
 import { PLANTS, PLANT, LAYER_NAMES, MIX } from '../data/plants.js';
-import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many } from '../data/animals.js';
+import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many, isMaleVariant } from '../data/animals.js';
 import { TOOLS, CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
 import { STRUCTURES } from '../world.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
@@ -602,7 +602,7 @@ export class UI {
     const ageTxt = ageY < 1 ? `${Math.max(1, Math.round(ageY * 12))} months` : `${ageY.toFixed(1)} years`;
     return `<button class="close">×</button>
       <div class="animal-hero"><img src="${animalThumb(def.key)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
-      <div class="kv"><span class="k">Status</span><span>${status}${a.spawner ? ' (spawning run)' : ''}${a.juvenile ? ' (juvenile)' : ''}</span>
+      <div class="kv"><span class="k">Status</span><span>${status}${a.spawner ? ' (spawning run)' : ''}${a.juvenile ? ' (juvenile)' : ''}${isMaleVariant(def, a) ? ` (${def.sprite.maleName || 'adult male'})` : ''}</span>
       <span class="k">Age</span><span>${ageTxt}</span>
       <span class="k">Population</span><span>${st.pop} here · room for ${Math.floor(st.K)}</span></div>
       <p class="info-desc">${def.desc}</p>
@@ -1273,7 +1273,7 @@ export class UI {
     m.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, speed: g.speed };
     // a night moment (the fireflies) jumps the clock to a clear, warm night, and the meadows light up
     if (m.night) {
-      r.setTimeOfDay(0.9); if (m.fireflies) r.fireflyBoost = 8;
+      r.setTimeOfDay(0.9); if (m.fireflies) r.fireflyBoost = 8; if (m.spawn) r.spawnBoost = 1;
       // hold a clear night (no rain, no dawn) until the card is dismissed
       m.hold = setInterval(() => { g.weather = 'clear'; g.weatherDays = 3; r.setTimeOfDay(0.9); }, 200);
     }
@@ -1284,6 +1284,7 @@ export class UI {
     // an animal moment selects the animal, so leaves and branches in front of it dissolve
     m.prevSel = g.selectedAgent;
     if (m.agent) g.selectedAgent = m.agent;
+    else if (m.reveal) r.focusTile = { x: fx, y: fy }; // (a moment on a plant: see through the canopy over it, like Sumatra's corpse flower)
     if (m.agent) setTimeout(() => { if (this.moment === m && g.wildlife.agents.includes(m.agent)) this.follow = m.agent; }, 2500);
     g.notify(`${m.title}. ${m.text}`, 'discover', m.agent || { x: m.x, y: m.y });
     const o = document.createElement('div'); o.id = 'moment';
@@ -1297,8 +1298,9 @@ export class UI {
     const end = () => {
       if (this.moment !== m) return;
       this.follow = null;
-      r.fireflyBoost = 1;
+      r.fireflyBoost = 1; r.spawnBoost = 0;
       if (m.hold) clearInterval(m.hold);
+      r.focusTile = null;
       if (g.selectedAgent === m.agent) g.selectedAgent = m.prevSel && g.wildlife.agents.includes(m.prevSel) ? m.prevSel : null;
       r.flyTo(m.prev.x, m.prev.z, m.prev.zoom, 1.6);
       o.classList.remove('bars', 'card');

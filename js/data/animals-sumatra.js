@@ -19,8 +19,9 @@ export default function buildSumatraAnimals(def) {
       breed: [9], litter: [1, 1], life: 45, mature: 10,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i) * fruit(W, i, 0.3),
       req: g => Math.max(0, Math.min(1, (g.forestTiles - 700) / 600)), // a big, joined-up forest with fruit all year
-      sprite: { kind: 'orangutan', len: 24, color: '#b4561e', belly: '#8e3e16', face: '#3c2c24', show: 1.3 },
-      desc: 'The "person of the forest". It lives almost entirely in the trees, eats fruit above all (figs, durian, terap), builds a fresh nest of branches every night, and raises one baby at a time for seven or eight years. Fewer than 14,000 are left, and oil palm took much of their lowland forest.',
+      sprite: { kind: 'orangutan', len: 24, color: '#b4561e', belly: '#8e3e16', face: '#3c2c24', show: 1.3,
+        male: { flanged: true, len: 27 }, maleShare: 0.35, maleName: 'flanged adult male' },
+      desc: 'The "person of the forest". It lives almost entirely in the trees, eats fruit above all (figs, durian, terap), builds a fresh nest of branches every night, and raises one baby at a time for seven or eight years. Grown males develop huge cheek pads and a throat sac for the long call that carries a kilometre through the forest. Fewer than 14,000 are left, and oil palm took much of their lowland forest.',
       hint: 'Fruiting forest canopy joined to the rainforest beyond the fences. Rescued orangutans can be released once the forest is big enough.' });
   }
   {
@@ -104,7 +105,8 @@ export default function buildSumatraAnimals(def) {
       breed: [7], litter: [1, 1], life: 60, mature: 12,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.3),
       req: g => Math.min(1, g.forestTiles / 1000),
-      sprite: { kind: 'elephant', len: 40, h: 23, leg: 17, color: '#7a7672', belly: '#6c6864', dark: '#3e3a38', asian: true },
+      sprite: { kind: 'elephant', len: 40, h: 23, leg: 17, color: '#7a7672', belly: '#6c6864', dark: '#3e3a38', asian: true,
+        male: { tusker: true, len: 43, h: 25, leg: 18 }, maleShare: 0.25, maleName: 'tusker bull' },
       desc: 'The Sumatran elephant has lost most of its lowland forest to plantations in a single generation, and herds that find their old routes fenced off end up raiding crops. Give them a way through and they open up thickets, dig for water and carry seeds for kilometres.',
       hint: 'A big mix of young forest, scrub and water, with the elephant fence along the north boundary taken down.' });
   }
@@ -144,7 +146,7 @@ export default function buildSumatraAnimals(def) {
     def({ key: 'mousedeer', name: 'Lesser mouse-deer', sci: 'Tragulus kanchil', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 6, max: 24, sources: ['N', 'E'], mig: 0.35, breed: [0, 4, 8], litter: [1, 1], life: 10, mature: 0.6,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.5) * near(W.distCover[i], 1, 0.4),
-      sprite: { kind: 'agouti', len: 11, color: '#8a5a34', belly: '#ece0cc' },
+      sprite: { kind: 'agouti', len: 11, color: '#8a5a34', belly: '#ece0cc', mousedeer: true },
       desc: 'A tiny hoofed animal no bigger than a rabbit, on legs as thin as pencils. In Malay and Indonesian folk tales, Sang Kancil the mouse-deer outwits the tiger and the crocodile.',
       hint: 'Thick forest undergrowth with fallen fruit.' });
   }
@@ -223,7 +225,7 @@ export default function buildSumatraAnimals(def) {
       prey: ['woodrat'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distNest[i], 10, 0.3),
       req: g => Math.min(1, (g.nestboxCount + g.structureCount + g.snagCount / 3) / 3),
-      sprite: { kind: 'owl', size: 20, color: '#c8a46a', breast: '#f4ece0', head: '#c8a46a' },
+      sprite: { kind: 'owl', size: 20, color: '#c8a46a', breast: '#f4ece0', head: '#c8a46a', barn: true },
       desc: 'A ghost-pale owl that plantations put up nest boxes for: a pair and their chicks eat over a thousand rats a year. It hunts open ground at night.',
       hint: 'Nest boxes (or old buildings and snags) near open ground with rats.' });
   }
@@ -357,7 +359,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1.3, hr: 3, max: 24, groupSize: [1, 3], sources: ['N', 'E'], mig: 0.6, breed: [1, 5, 9], litter: [1, 3], life: 0.6, mature: 0.1,
       suit: (W, i) => w[W.habitat[i]] * (0.2 + 0.8 * Math.min(1, W.nectar[i] * 1.4)) * near(W.distWater[i], 4, 0.4),
       req: g => Math.min(1, g.forestTiles / 250),
-      sprite: { kind: 'butterfly', size: 11, color: '#141614', vein: '#0a0a0a', spots: '#2ad070', show: 1.9 },
+      sprite: { kind: 'butterfly', size: 11, color: '#141614', vein: '#0a0a0a', spots: '#2ad070', show: 1.9, birdwing: true },
       desc: 'A big, swallow-winged butterfly, velvet black with bands of emerald green. Males gather in groups to sip minerals from wet sand along forest streams.',
       hint: 'Forest streams with flowers nearby.' });
   }

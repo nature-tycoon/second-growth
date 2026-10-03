@@ -48,6 +48,18 @@ export function loadAnimals(build) {
   }
 }
 
+// A species can look different in some of its adults (Sumatra's flanged male orangutans, tusker
+// bull elephants): sprite.male holds the overrides and sprite.maleShare how many adults wear them.
+// Which ones is fixed per animal. Returns the def to draw it with.
+const variants = new Map();
+export const isMaleVariant = (def, a) => !!def.sprite.male && !a.juvenile && ((a.id * 7919) % 100) / 100 < (def.sprite.maleShare ?? 0.5);
+export function drawDef(def, a) {
+  if (!isMaleVariant(def, a)) return def;
+  let v = variants.get(def);
+  if (!v) { v = { ...def, key: def.key + ':male', sprite: { ...def.sprite, ...def.sprite.male } }; variants.set(def, v); }
+  return v;
+}
+
 export const one = def => NAMES[def.key]?.[0] ?? def.name;
 export const many = def => NAMES[def.key]?.[1] ?? def.name + 's';
 export const aOne = def => (/^[aeiou]/i.test(one(def)) ? 'an ' : 'a ') + one(def);

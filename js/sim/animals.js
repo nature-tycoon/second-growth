@@ -14,6 +14,8 @@ let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
 
 // Herons and cranes spend most of their time on foot in the shallows, not in the air.
 const WADERS = new Set(['heron', 'crane']);
+// Animals that swim in open water move in any direction, diagonals too (river fish, and everything on the reef).
+const swimmer = a => a.move === 'swim' || !!ANIMALS[a.sp]?.reef;
 const shallows = (w, i) => { const t = w.terrain[i]; return t === T.MARSH || t === T.CREEK || t === T.MUD || (w.distWater[i] === 1 && !isWater(t)); };
 
 export function passable(w, i, a) {
@@ -22,6 +24,7 @@ export function passable(w, i, a) {
   // tree dwellers (monkeys, sloths) travel through connected canopy only
   if (move === 'tree') return !!(w.tree[i] && w.treeG[i] > 0.45) || w.feature[i] === F.SNAG;
   if (w.struct[i] >= 0) return false;
+  if (biome.dryLand && ANIMAL[a.key]?.reef && biome.dryLand(w, i)) return false; // (reef animals stay in the sea, off the cay)
   const t = w.terrain[i];
   if (move === 'swim') return isWater(t) && w.feature[i] !== F.CULVERT;
   if (move === 'semi') return true;
@@ -635,13 +638,15 @@ export class Wildlife {
       if (!a) continue;
       const def = ANIMALS[a.sp];
       a.age += dt;
-      a.phase += dt * 6;
+      // (a fish beats its tail faster the faster it swims, and only sculls gently while it hovers)
+      a.phase += dt * (def.reef ? 2.5 + 5 * Math.min(1.6, (a.spd || 0) / def.speed) : 6);
       if (biome.waterholes) a.thirst = (a.thirst || 0) + dt;
       if (a.drinkT > 0) a.drinkT -= dt;
       const sp = def.speed * dt * (a.follow ? 1.3 : a.wade ? 0.3 : 1); // herd members trot to keep up; waders step slowly
       switch (a.state) {
         case 'idle':
           a.wait -= dt;
+          if (def.reef && a.spd > 0.001) this.glide(a, dt); // (a fish coasts to a stop, it doesn't brake)
           if (a.move === 'fly' && a.alt > 0) a.alt = Math.max(0, a.alt - dt * 3); // settle to the ground (or a branch) after landing
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
@@ -649,6 +654,7 @@ export class Wildlife {
           if (!a.path || !a.path.length) { a.state = 'idle'; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : 0.5 + Math.random() * 3; break; }
           const j = a.path[a.path.length - 1];
           const tx = (j % w.w) + 0.5, ty = ((j / w.w) | 0) + 0.5;
+          if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1), dt)) a.path.pop(); break; }
           const wading = def.crossing && w.terrain[j] === T.RIVER; // swimming the river is slow going
           if (this.stepToward(a, tx, ty, (wading ? sp * 0.55 : sp) * (a.pace || 1))) a.path.pop();
           break;
@@ -689,6 +695,42 @@ export class Wildlife {
           break;
       }
     }
+  }
+
+  // Swimming on the reef: a fish doesn't walk from tile centre to tile centre. It holds a heading
+  // and turns it gradually toward the next point on its path (each a little off the tile's
+  // centre, so a school doesn't line up), speeds up and slows down smoothly, and rounds the
+  // corners instead of stopping at them. Returns true once it's close enough to move on.
+  swimToward(a, j, sp, dt) {
+    const w = this.game.world, last = a.path.length === 1;
+    const h1 = hashJitter(j % w.w + a.id * 7, ((j / w.w) | 0) + a.id * 3), h2 = hashJitter(((j / w.w) | 0) - a.id * 5, j % w.w + a.id);
+    const tx = (j % w.w) + 0.5 + h1 * 0.7, ty = ((j / w.w) | 0) + 0.5 + h2 * 0.7;
+    const dx = tx - a.x, dy = ty - a.y, d = Math.hypot(dx, dy);
+    if (a.hd == null) a.hd = Math.atan2(dy, dx);
+    // turn toward the point, no faster than a fish can (bigger fish turn wider)
+    let turn = Math.atan2(dy, dx) - a.hd;
+    turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
+    const rate = (ANIMALS[a.sp].sprite.size > 25 ? 2.2 : 3.4) * dt;
+    a.hd += clamp(turn, -rate, rate);
+    // ease up to cruising speed, ease off when the point is behind it or it's nearly there
+    // (a.spd is in tiles a day, so the motion is the same at any frame rate)
+    const want = sp / Math.max(dt, 1e-6) * (0.35 + 0.65 * Math.max(0, Math.cos(turn))) * (last ? clamp(d / 0.9, 0.25, 1) : 1);
+    a.spd = (a.spd || 0) + (want - (a.spd || 0)) * Math.min(1, dt * 3);
+    const nx = a.x + Math.cos(a.hd) * a.spd * dt, ny = a.y + Math.sin(a.hd) * a.spd * dt;
+    // (rounding a corner mustn't carry it up the beach: if it would, it turns straight for the point)
+    if (w.inb(Math.floor(nx), Math.floor(ny)) && !passable(w, w.idx(Math.floor(nx), Math.floor(ny)), a) && w.inb(Math.floor(a.x), Math.floor(a.y)) && passable(w, w.idx(Math.floor(a.x), Math.floor(a.y)), a)) a.hd = Math.atan2(dy, dx);
+    else { a.x = nx; a.y = ny; }
+    if (Math.abs(Math.cos(a.hd)) > 0.1) a.facing = Math.cos(a.hd) > 0 ? 1 : -1;
+    a.swimT = (a.swimT || 0) + dt;
+    if (d < (last ? 0.25 : 0.55) || a.swimT > 4) { a.swimT = 0; return true; } // (or gives up on a point it keeps circling)
+    return false;
+  }
+  glide(a, dt) {
+    const sx = Math.cos(a.hd || 0) * a.spd * dt, sy = Math.sin(a.hd || 0) * a.spd * dt;
+    a.x += sx; a.y += sy;
+    a.spd *= Math.exp(-dt * 2.5);
+    const w = this.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
+    if (!w.inb(x, y) || !passable(w, w.idx(x, y), a)) { a.x -= sx; a.y -= sy; a.spd = 0; } // (not up onto the beach)
   }
 
   stepToward(a, tx, ty, sp) {
@@ -745,7 +787,7 @@ export class Wildlife {
       if (depth[i] >= 12 && map[i] > 0.3) { const wgt = map[i] * map[i] * (w.terrain[i] === T.RIVER && !def.patrol ? 0.25 : 1); seen += wgt; if (Math.random() * seen < wgt) pick = i; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
-        if (a.move !== 'swim' && dx && dy) continue;
+        if (!swimmer(a) && dx && dy) continue;
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
@@ -830,7 +872,7 @@ export class Wildlife {
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
     let best = start, bs = patrol ? 0 : map[start] * 0.8, far = -1, farD = 0;
     const W = w.w, cap = patrol ? 1200 : 380;
-    const diag = a.move === 'swim';
+    const diag = swimmer(a);
     const ahead = i => (((i % W) - x0) * a.heading[0] + (((i / W) | 0) - y0) * a.heading[1]) / R;
     while (head < tail && tail < cap) {
       const i = bfsQ[head++];
@@ -988,7 +1030,7 @@ export class Wildlife {
     stampN++;
     let head = 0, tail = 0, found = -1, near = -1, nd = dist ? dist(x0, y0) : 1e9;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
-    const diag = a.move === 'swim';
+    const diag = swimmer(a);
     while (head < tail && tail < cap) {
       const i = bfsQ[head++], x = i % W, y = (i / W) | 0;
       if (i !== start && goal(i, x, y)) { found = i; break; }

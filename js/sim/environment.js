@@ -189,6 +189,7 @@ export function classifyAndResources(w, month) {
     if (tp) {
       if (tG < 0.6) browse += tG * (tp.browse || 0.3);
       if (tp.mast && (month === 6 || month === 7)) berries += tp.mast * tG;
+      if (tp.fruitFood && tG > 0.6 && isFruiting(tp, month)) berries += tp.fruitFood * tG; // (a fruit tree in season: Sumatra's durian, rambutan...)
       if (tp.nectar && tp.nectar.months.includes(month)) nectar += tp.nectar.amount * tG;
     }
     w.nectar[i] = Math.min(1, nectar);

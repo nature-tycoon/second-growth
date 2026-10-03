@@ -15,6 +15,8 @@ export const ICONS = {
   fire: svg('<path d="M16 3 C18 9 25 12 24 20 C23.5 26 19.5 29 16 29 C11 29 7.5 25.5 8 20 C8.5 15 12 13 12 8 C14 10 15 12 15 14 C17 11 17 7 16 3Z" fill="#e8752a"/><path d="M16 14 C18 18 21 20 20 24 C19.5 27 17.5 28 16 28 C13.5 28 12 26 12.3 23.5 C12.7 20.5 15 19 16 14Z" fill="#f5c542"/>'),
   raise: svg('<path d="M3 26 C9 26 11 12 16 12 C21 12 23 26 29 26Z" fill="#8a7a4a"/><path d="M16 3 L21 9 H18 V14 H14 V9 H11Z" fill="#4f7d3b"/>'),
   lower: svg('<path d="M3 14 C9 14 11 26 16 26 C21 26 23 14 29 14 V28 H3Z" fill="#8a7a4a"/><path d="M16 17 L21 11 H18 V4 H14 V11 H11Z" fill="#3d7fa6"/>'),
+  // shade cloth over the reef: the sun above, a dark cloth on its floats, coral below
+  shade: svg('<circle cx="22" cy="7" r="4" fill="#f2b632"/><path d="M3 15 C8 13 12 17 16 15 C20 13 24 17 29 15" stroke="#4d8fc0" stroke-width="2" fill="none" stroke-linecap="round"/><rect x="5" y="16" width="22" height="3" rx="1.2" fill="#2e4038"/><circle cx="6" cy="16" r="1.8" fill="#f4f2ea"/><circle cx="26" cy="16" r="1.8" fill="#f4f2ea"/><path d="M11 29 C11 25 13 24 14 22 M16 29 V22 M21 29 C21 25 19 24 18 23" stroke="#e8907a" stroke-width="2" fill="none" stroke-linecap="round"/>'),
   crew: svg('<path d="M6 14 C6 8 11 5 16 5 C21 5 26 8 26 14Z" fill="#e0b030"/><rect x="4" y="13" width="24" height="3" rx="1.5" fill="#c8942a"/><path d="M9 20 C11 17 13 21 15 18 C16 22 19 18 21 21 C22 19 24 20 24 22 C24 26 20 28 16 28 C11 28 8 26 9 20Z" fill="#4d8fc0"/>'),
   // a visitor on a nature walk: sun hat, day pack and walking stick, mid-stride
   hiker: svg('<path d="M24.6 9.5 L22.2 29" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>'

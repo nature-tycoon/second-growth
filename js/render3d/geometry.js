@@ -370,7 +370,7 @@ export const TREE_SHAPES = {
   leucaena:   { kind: 'broad', height: 1.2, rx: 0.42, ry: 0.32, blobs: 9, trunkH: 0.62, trunkR: 0.04 },
   cecropia:   { kind: 'cecropia', height: 2.0 },
   palm:       { kind: 'palm', height: 1.9, stems: 3 },
-  oilpalm:    { kind: 'oilpalm', height: 1.7 },
+  oilpalm:    { kind: 'oilpalm', height: 2.3 },
   fanpalm:    { kind: 'fanpalm', height: 2.3 },
   emergent:   { kind: 'emergent', height: 3.2, rx: 0.95, ry: 0.32, trunkR: 0.1 },
   kapok:      { kind: 'emergent', height: 3.4, rx: 1.05, ry: 0.3, trunkR: 0.11, buttress: true },
@@ -470,12 +470,12 @@ export function palm(opts, seed, lod = 0) {
 // About 2 tiles across. Triangles (lod 0 / 1): crown ~2000 / ~480, trunk ~600 / 120, fruit 240 / 40.
 export function oilPalm(opts, seed, lod = 0) {
   const r = mulberry32(seed), H = opts.height, top = H * 0.7;
-  const pos = [], col = [], n = lod ? 13 : 26;
+  const pos = [], col = [], n = lod ? 13 : 22;
   for (let k = 0; k < n; k++) {
     const u = k / (n - 1), az = k * 2.39996 + (r() - 0.5) * 0.3, old = Math.max(0, u - 0.62) / 0.38;
     frond({ base: [Math.cos(az) * 0.05, top + 0.06 - u * 0.13, Math.sin(az) * 0.05], az,
       elev: 1.2 - 1.0 * u + (r() - 0.5) * 0.12, droop: 0.5 + 1.3 * u + r() * 0.15, L: (0.76 + 0.46 * u) * (0.94 + r() * 0.12),
-      n: lod ? 6 : 14, w: (lod ? 0.22 : 0.23) + 0.04 * u, segs: lod ? 3 : 4, bare: 0.14, v: lod ? 0.35 : 0.5, sweep: lod ? 0.55 : 0.6, rib: 0.016, fill: lod ? 1.1 : 0.75, hang: 0.4,
+      n: lod ? 6 : 12, w: (lod ? 0.22 : 0.23) + 0.04 * u, segs: lod ? 3 : 4, bare: 0.14, v: lod ? 0.35 : 0.5, sweep: lod ? 0.55 : 0.6, rib: 0.016, fill: lod ? 1.1 : 0.75, hang: 0.4,
       shade: 0.94 + r() * 0.12 - old * 0.06, tint: [1 + old * 0.16, 1, 1 - old * 0.32] }, pos, col);
   }
   // the spear: the next frond, still furled, standing straight up out of the middle
@@ -786,6 +786,58 @@ export function platingCoral(opts, seed, lod = 0) {
   return { crown, trunk: reefRock(seed, 0.1) };
 }
 
+// A giant clam's two shells, sunk hinge-down in the reef with the opening facing up: heavy, pale
+// and deeply fluted, each with five big ribs that run from the hinge out to the rim, so the rims
+// are zig-zagged and the two shells' points interlock along the gape. (The mantle is drawn by
+// shrub('clam'), in the clam's own colour; these take a shell colour.)
+export function clamShell(seed = 1) {
+  const parts = [], L = 0.44, W = 0.15, H = 0.085, U = 60, V = 12, PH = 0.82 * Math.PI;
+  for (const side of [1, -1]) {
+    const pos = [], col = [], idx = [];
+    for (let i = 0; i <= U; i++) {
+      const u = i / U, x = (u - 0.5) * L, R = Math.pow(Math.max(0, 1 - Math.pow(2 * u - 1, 2)), 0.45);
+      const fq = u * 2.5 + (side < 0 ? 0.5 : 0), fold = 1 - 2 * Math.abs(2 * (fq - Math.floor(fq)) - 1); // five sharp ribs (a triangle wave), offset on the other shell so the points interlock
+      for (let j = 0; j <= V; j++) {
+        const v = j / V, ph = v * PH, k = 1 + 0.3 * fold * Math.pow(v, 1.4);
+        const r = R * k;
+        pos.push(x, H * r * (1 - Math.cos(ph)), side * W * r * Math.sin(ph) + side * 0.008);
+        const sh = (0.6 + 0.4 * (fold * 0.5 + 0.5)) * (0.72 + 0.28 * v) * (j === V ? 1.12 : 1); // darker in the grooves and low down
+        col.push(sh, sh, sh);
+      }
+    }
+    for (let i = 0; i < U; i++) for (let j = 0; j < V; j++) {
+      const a = i * (V + 1) + j, b = a + V + 1;
+      side > 0 ? idx.push(a, b, a + 1, b, b + 1, a + 1) : idx.push(a, a + 1, b, b, a + 1, b + 1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(idx);
+    const ng = g.toNonIndexed(); ng.computeVertexNormals();
+    parts.push(twoSided(ng));
+  }
+  return merge(parts);
+}
+
+// Shade cloth over a patch of reef in a marine heatwave: a square of dark mesh hung just under the
+// surface on a frame, with a white float at each corner. (Unit tile, centred, at its own surface.)
+export function shadeCloth() {
+  // (an open weave of dark strips, so the corals still show through it)
+  const parts = [];
+  for (let k = 0; k < 7; k++) {
+    const o = -0.45 + k * 0.15;
+    parts.push(at(prep(new THREE.BoxGeometry(0.96, 0.01, 0.045), 0xffffff), 0, 0, o));
+    parts.push(at(prep(new THREE.BoxGeometry(0.045, 0.012, 0.96), 0xffffff), o, 0, 0));
+  }
+  for (const [x, z] of [[-0.47, -0.47], [0.47, -0.47], [-0.47, 0.47], [0.47, 0.47]]) {
+    parts.push(prep(new THREE.BoxGeometry(0.03, 0.03, 0.03), 0xffffff)); at(parts[parts.length - 1], x, 0.0, z);
+    const f = prep(new THREE.CylinderGeometry(0.045, 0.045, 0.04, 8), 0xffffff); at(f, x, 0.028, z);
+    shadeVerts(f, () => [6, 6, 6]); // (the instance colour is the cloth's dark green: floats show white)
+    parts.push(f);
+  }
+  return merge(parts);
+}
+
 // A reef star: a six-armed steel frame, coated in sand, pegged down over loose rubble; each arm
 // arches up from the middle and down to a foot. They're laid in webs, and corals are tied onto them.
 export function reefStar(seed) {
@@ -1020,16 +1072,27 @@ export function shrub(type, seed, lod = 0) {
       return g;
     }
     case 'clam': {
-      // a giant clam: two heavy fluted shells, gaping to show the bright mantle between them
+      // a giant clam's mantle: a fleshy, ruffled oval spread out between the gaping shells, in
+      // the instance colour (its blue), mottled, darker round the frilled edge, with the dark
+      // slit of its siphon at one end. The shells are their own model (clamShell), in shell colour.
       cy = 0.1;
-      for (const side of [1, -1]) parts.push(soft(new THREE.SphereGeometry(0.2, lod ? 8 : 16, lod ? 5 : 8, 0, Math.PI * 2, 0, Math.PI / 2), { seed: seed + side, transform: g => {
+      const L = 0.4, Wd = 0.1, rimY = 0.128;
+      const mantle = soft(new THREE.SphereGeometry(1, lod ? 12 : 28, lod ? 6 : 12), { seed: seed + 5, transform: g => {
         const p = g.attributes.position;
-        for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); p.setY(i, p.getY(i) * (1 + Math.sin(Math.atan2(z, x) * 6) * 0.08)); }
-        g.scale(1, 0.85, 0.55); g.rotateX(side * 1.25); g.translate(0, 0.02, side * 0.03);
-      } }));
-      shadeVerts(parts[0], () => 0.55); shadeVerts(parts[1], () => 0.55);
-      parts.push(soft(new THREE.IcosahedronGeometry(0.17, lod ? 1 : 2), { seed: seed + 5, lump: 0.03, transform: g => { g.scale(1.05, 0.35, 0.32); g.translate(0, 0.17, 0); } })); // the mantle
-      shadeVerts(parts[2], () => 1.2);
+        for (let i = 0; i < p.count; i++) {
+          const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
+          // (only the very edge ripples, in small waves, like a ruffled lip)
+          const edge = Math.max(0, Math.hypot(x, z) - 0.75) / 0.25, frill = 1 + 0.035 * Math.sin(a * 22 + seed) * edge;
+          p.setXYZ(i, x * L * 0.5 * frill, rimY + Math.max(-0.4, y) * 0.018 + 0.006 * Math.sin(a * 22 + seed) * edge, z * Wd * frill);
+        }
+      } });
+      shadeVerts(mantle, (x, y, z) => {
+        const edge = Math.hypot(x / (L * 0.5), z / Wd);
+        if (Math.hypot(x - L * 0.3, z) < 0.025 && y > rimY) return 0.25;            // the siphon
+        const spot = speck(Math.round(x * 40) / 40, 0, Math.round(z * 40) / 40, seed) > 0.8 ? 1.35 : 1; // pale flecks
+        return (edge > 0.85 ? 0.6 : 1.05) * spot * (y < rimY ? 0.7 : 1);
+      });
+      parts.push(mantle);
       return merge(parts);
     }
     case 'starfish': {
@@ -1477,6 +1540,139 @@ function gambrelRoof(len, width, rise, color) {
 }
 const box = (w, h, d, color, x = 0, y = 0, z = 0) => at(prep(new THREE.BoxGeometry(w, h, d), color), x, y + h / 2, z);
 
+// Where the dive boat lies alongside the cay's jetty, from the jetty structure's centre (tiles).
+export const JETTY_BOAT = { x: 0.82, z: 4.45 };
+
+// The dive boat that brings the snorkelers out: a white monohull about the length of two and a
+// half tiles, built around its waterline (y = 0), bow toward +z. A deep-V hull with a flared bow
+// and a sheer that rises toward it, a navy boot stripe and dark antifouling below the waterline,
+// a wheelhouse with a raked, tinted windscreen, a blue bimini over the open dive deck at the back
+// with racks of yellow tanks either side, twin outboards on the transom above a swim platform and
+// ladder, a bow rail, and white fenders hung over the side toward the jetty.
+export function diveBoat(bollardY = 0.45) { // (bollardY: how far the jetty's bollards stand above the sea)
+  const parts = [], L = 2.3, B = 0.64, z0 = -L / 2, z1 = L / 2;
+  const S = 22, C = 14; // stations along the hull, points around each half section
+  // at a station t (0 stern .. 1 bow): half beam, sheer height, keel depth
+  const beam = t => (B / 2) * (t < 0.55 ? 0.9 + 0.1 * Math.sin(t / 0.55 * Math.PI / 2) : Math.pow(Math.max(0, 1 - Math.pow((t - 0.55) / 0.45, 2.2)), 0.62));
+  const sheer = t => 0.17 + 0.1 * Math.pow(t, 2.2);
+  const keel = t => -0.13 * (t < 0.7 ? 0.62 + 0.38 * Math.sin(Math.min(1, t / 0.55) * Math.PI / 2) : Math.max(0, 1 - Math.pow((t - 0.7) / 0.3, 1.6))); // (the forefoot sweeps up into the stem)
+  // a section from the keel up to the sheer: the V bottom flattens out at a chine, then the
+  // topsides rise with a little flare (u: 0 keel .. 1 sheer)
+  const sect = (t, u) => {
+    const b = beam(t), sh = sheer(t), k = keel(t);
+    if (u < 0.5) { const v = u / 0.5; return [b * 0.86 * v, k + (k * -0.72) * Math.pow(v, 1.35)]; } // bottom: keel to chine
+    const v = (u - 0.5) / 0.5, chineY = k * 0.28;
+    return [b * (0.86 + 0.14 * Math.sin(v * Math.PI / 2)), chineY + (sh - chineY) * v];
+  };
+  const pos = [], col = [];
+  const paint = y => (y > 0.035 ? [0.95, 0.95, 0.93] : y > -0.005 ? [0.12, 0.2, 0.38] : [0.42, 0.13, 0.12]); // white, boot stripe, antifouling
+  const tri = (a, b, c, ca, cb, cc) => { pos.push(...a, ...b, ...c); col.push(...ca, ...cb, ...cc); };
+  const quad = (a, b, c, d, f) => { tri(a, b, c, f(a[1]), f(b[1]), f(c[1])); tri(a, c, d, f(a[1]), f(c[1]), f(d[1])); };
+  const P = (t, u, side) => { const [x, y] = sect(t, u); return [side * x, y, z0 + t * L]; };
+  for (let i = 0; i < S; i++) for (let j = 0; j < C; j++) for (const side of [1, -1]) {
+    const t0 = i / S, t1 = (i + 1) / S, u0 = j / C, u1 = (j + 1) / C;
+    const a = P(t0, u0, side), b = P(t1, u0, side), c = P(t1, u1, side), d = P(t0, u1, side);
+    // the sheer stripe: a navy line just under the gunwale
+    const f = y => (y > sheer((t0 + t1) / 2) - 0.045 && y < sheer((t0 + t1) / 2) - 0.022 ? [0.16, 0.3, 0.55] : paint(y));
+    side > 0 ? quad(a, d, c, b, f) : quad(a, b, c, d, f); // (wound so the faces point outward)
+  }
+  // the transom: the flat stern, filled in from the keel up
+  for (let j = 0; j < C; j++) for (const side of [1, -1]) {
+    const a = P(0, j / C, side), b = P(0, (j + 1) / C, side), c = [0, (sheer(0) + keel(0)) / 2, z0];
+    side > 0 ? tri(a, c, b, paint(a[1]), paint(c[1]), paint(b[1])) : tri(a, b, c, paint(a[1]), paint(b[1]), paint(c[1]));
+  }
+  // the deck, a little below the gunwale: pale grey non-skid
+  const deckY = t => sheer(t) - 0.035;
+  for (let i = 0; i < S; i++) {
+    const t0 = i / S, t1 = (i + 1) / S, w0 = beam(t0) * 0.92, w1 = beam(t1) * 0.92, za = z0 + t0 * L, zb = z0 + t1 * L, g = [0.8, 0.8, 0.78];
+    tri([-w0, deckY(t0), za], [-w1, deckY(t1), zb], [w1, deckY(t1), zb], g, g, g);
+    tri([-w0, deckY(t0), za], [w1, deckY(t1), zb], [w0, deckY(t0), za], g, g, g);
+  }
+  {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.computeVertexNormals();
+    parts.push(g);
+  }
+  const dy = z => deckY((z - z0) / L);
+  // gunwale cap: a thin teak rail along the top of each side
+  for (let i = 0; i < S; i++) for (const side of [1, -1]) {
+    const t0 = i / S, t1 = (i + 1) / S, a = [side * beam(t0), sheer(t0), z0 + t0 * L], b = [side * beam(t1), sheer(t1), z0 + t1 * L];
+    const dx = b[0] - a[0], dz = b[2] - a[2], len = Math.hypot(dx, dz);
+    if (len < 1e-4) continue;
+    const r = prep(new THREE.BoxGeometry(0.035, 0.018, len + 0.01), 0x8a6a48);
+    r.rotateY(Math.atan2(dx, dz)); at(r, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 0.006, (a[2] + b[2]) / 2); parts.push(r);
+  }
+  // the wheelhouse: raked windscreen at the front, tinted windows all round, a white roof
+  {
+    const zA = -0.12, zB = 0.42, H = 0.27, Wd = 0.44, y0 = dy(0.15);
+    const sideShape = sh => { sh.moveTo(zA, 0); sh.lineTo(zB, 0); sh.lineTo(zB - 0.1, H); sh.lineTo(zA, H); sh.lineTo(zA, 0); };
+    const body = new THREE.Shape(); sideShape(body);
+    const cab = prep(new THREE.ExtrudeGeometry(body, { depth: Wd, bevelEnabled: false }), 0xf4f4f0);
+    cab.rotateY(-Math.PI / 2); at(cab, Wd / 2, y0, 0); parts.push(cab);
+    const win = new THREE.Shape(); win.moveTo(zA + 0.04, H * 0.5); win.lineTo(zB - 0.05, H * 0.5); win.lineTo(zB - 0.1 + 0.012, H - 0.03); win.lineTo(zA + 0.04, H - 0.03); win.lineTo(zA + 0.04, H * 0.5);
+    const glass = prep(new THREE.ExtrudeGeometry(win, { depth: Wd + 0.012, bevelEnabled: false }), 0x1e2c38);
+    glass.rotateY(-Math.PI / 2); at(glass, (Wd + 0.012) / 2, y0, 0); parts.push(glass);
+    // the windscreen itself, across the raked front
+    const ws = prep(new THREE.BoxGeometry(Wd - 0.06, 0.13, 0.01), 0x26384a); ws.rotateX(-Math.atan2(0.1, H)); at(ws, 0, y0 + H * 0.74, zB - 0.075); parts.push(ws);
+    parts.push(box(Wd + 0.08, 0.025, zB - zA + 0.02, 0xf8f8f4, 0, y0 + H, (zA + zB) / 2 - 0.04)); // roof, overhanging
+    parts.push(box(0.03, 0.16, 0.03, 0xd8d8d8, 0, y0 + H + 0.025, 0.05)); // mast
+    parts.push(box(0.14, 0.015, 0.015, 0xd8d8d8, 0, y0 + H + 0.15, 0.05)); // and its spreader
+    const dome = prep(new THREE.SphereGeometry(0.04, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0xf4f4f0); at(dome, 0.12, y0 + H + 0.025, -0.02); parts.push(dome); // radar
+    parts.push(box(0.02, 0.025, 0.02, 0xd84a2a, -0.13, y0 + H + 0.025, 0.12)); // a port running light on the roof
+  }
+  // the open dive deck at the back: benches along each side with yellow tanks racked upright on
+  // them, and a blue bimini on stainless poles over it all
+  {
+    const za = -1.0, zb = -0.2, yd = dy(-0.6);
+    for (const side of [1, -1]) {
+      const x = side * (B / 2 - 0.09);
+      parts.push(box(0.1, 0.06, zb - za, 0x9aa0a6, x, yd, (za + zb) / 2)); // bench
+      for (let k = 0; k < 6; k++) {
+        const tank = prep(new THREE.CylinderGeometry(0.024, 0.024, 0.13, 8), 0xe8c020); at(tank, x + side * 0.015, yd + 0.06 + 0.065, za + 0.07 + k * 0.13); parts.push(tank);
+        const valve = prep(new THREE.CylinderGeometry(0.008, 0.008, 0.025, 6), 0x3a3a3c); at(valve, x + side * 0.015, yd + 0.06 + 0.14, za + 0.07 + k * 0.13); parts.push(valve);
+      }
+    }
+    const bimY = yd + 0.36, poles = [[-1, za + 0.05], [1, za + 0.05], [-1, zb - 0.02], [1, zb - 0.02]];
+    for (const [side, z] of poles) parts.push(box(0.018, bimY - yd, 0.018, 0xd8dcdc, side * (B / 2 - 0.05), yd, z));
+    const top = prep(new THREE.BoxGeometry(B - 0.02, 0.022, zb - za + 0.12), 0x1f5fa8); at(top, 0, bimY + 0.01, (za + zb) / 2); parts.push(top);
+    for (const side of [1, -1]) { const v = prep(new THREE.BoxGeometry(0.012, 0.05, zb - za + 0.12), 0x1a5098); at(v, side * (B / 2 - 0.01), bimY - 0.012, (za + zb) / 2); parts.push(v); } // its valance
+  }
+  // the stern: a swim platform, a ladder down into the water, and twin outboards
+  parts.push(box(B * 0.84, 0.03, 0.14, 0xb8b4aa, 0, 0.03, z0 - 0.065));
+  for (const x of [-0.07, 0.07]) parts.push(box(0.012, 0.3, 0.012, 0xd8dcdc, x, -0.2, z0 - 0.13));
+  for (let k = 0; k < 3; k++) parts.push(box(0.15, 0.01, 0.025, 0xd8dcdc, 0, -0.16 + k * 0.08, z0 - 0.13));
+  for (const x of [-0.16, 0.16]) {
+    const cowl = soft(new THREE.BoxGeometry(0.1, 0.14, 0.12, 2, 2, 2), { color: 0x3a3e44, transform: g => { g.translate(x, 0.24, z0 - 0.06); } });
+    parts.push(cowl);
+    parts.push(box(0.035, 0.24, 0.05, 0x2e3236, x, -0.06, z0 - 0.06)); // the leg down into the water
+    parts.push(box(0.012, 0.045, 0.012, 0xe8e8e4, x, 0.31, z0 - 0.03)); // (a white stripe on the cowl)
+  }
+  // a bow rail on stanchions round the foredeck
+  for (let k = 0; k <= 7; k++) for (const side of [1, -1]) {
+    const t = 0.6 + k * 0.05, x = side * beam(t) * 0.9, z = z0 + t * L, y = deckY(t);
+    if (k < 7 || side > 0) parts.push(box(0.012, 0.11, 0.012, 0xd8dcdc, x, y, z));
+    if (k < 7) {
+      const t2 = t + 0.05, x2 = side * beam(t2) * 0.9, z2 = z0 + t2 * L, y2 = deckY(t2);
+      const r = prep(new THREE.BoxGeometry(0.01, 0.01, Math.hypot(x2 - x, z2 - z) + 0.01), 0xd8dcdc);
+      r.rotateY(Math.atan2(x2 - x, z2 - z)); at(r, (x + x2) / 2, (y + y2) / 2 + 0.11, (z + z2) / 2); parts.push(r);
+    }
+  }
+  // fenders over the jetty side (-x), and mooring lines from bow and stern cleats to the jetty's bollards
+  for (const z of [-0.55, 0.05, 0.6]) {
+    const f = prep(new THREE.CylinderGeometry(0.03, 0.03, 0.13, 8), 0xf2f2ee); at(f, -beam((z - z0) / L) - 0.028, 0.07, z); parts.push(f);
+  }
+  for (const [zb, zj] of [[z0 + 0.12, -1.05], [z1 - 0.3, 0.95]]) {
+    const a = [-beam((zb - z0) / L) * 0.8, dy(zb) + 0.02, zb], b = [0.36 - JETTY_BOAT.x, bollardY, zj]; // (the jetty's bollards, in the boat's frame)
+    const dx = b[0] - a[0], dyy = b[1] - a[1], dz = b[2] - a[2], len = Math.hypot(dx, dyy, dz);
+    const line = prep(new THREE.CylinderGeometry(0.006, 0.006, len, 4), 0xe8dcc0);
+    line.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dyy, dz).normalize())));
+    at(line, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2); parts.push(line);
+  }
+  return merge(parts);
+}
+
 export function building(type, w, d) {
   const parts = [];
   switch (type) {
@@ -1570,15 +1766,18 @@ export function building(type, w, d) {
     case 'jetty': {
       // the cay's boat landing: a plank jetty on posts running out over the lagoon, and the dive
       // boat that brings the snorkelers tied up alongside
-      for (let k = 0; k < 22; k++) parts.push(box(0.9, 0.04, 0.2, k % 2 ? 0x9a8460 : 0x8a7454, 0, 0.1, -0.6 + k * 0.22));
-      for (let k = 0; k < 6; k++) for (const x of [-0.42, 0.42]) parts.push(box(0.07, 1.2, 0.07, 0x6a5a44, x, -1.1, -0.5 + k * 0.9));
-      for (const x of [-0.45, 0.45]) parts.push(box(0.04, 0.04, 4.8, 0x7a6a50, x, 0.32, 1.7)); // handrails
-      for (let k = 0; k < 7; k++) for (const x of [-0.45, 0.45]) parts.push(box(0.04, 0.2, 0.04, 0x7a6a50, x, 0.14, -0.6 + k * 0.78));
-      // the boat: a white hull, a blue canopy on four poles
-      const hull = soft(new THREE.CylinderGeometry(0.32, 0.22, 1.8, 10, 1), { color: 0xf2f0ea, transform: g => { g.scale(1, 1, 0.55); g.rotateX(Math.PI / 2); g.translate(1.05, -0.04, 3.1); } });
-      parts.push(shadeVerts(hull, (x, y) => (y < -0.1 ? 0.55 : 1)));
-      parts.push(box(0.5, 0.03, 0.9, 0x2a6ab0, 1.05, 0.48, 3.1));
-      for (const z of [2.7, 3.5]) for (const x of [0.85, 1.25]) parts.push(box(0.025, 0.42, 0.025, 0xd8d8d8, x, 0.06, z));
+      // (it runs on out past the beach to water deep enough for the boat)
+      const N = 29, len = N * 0.22;
+      for (let k = 0; k < N; k++) parts.push(box(0.9, 0.04, 0.2, k % 2 ? 0x9a8460 : 0x8a7454, 0, 0.1, -0.6 + k * 0.22));
+      for (const x of [-0.42, 0.42]) parts.push(box(0.05, 0.06, len, 0x6a5a44, x, 0.04, -0.7 + len / 2)); // stringers under the planks
+      for (let k = 0; k < 8; k++) for (const x of [-0.42, 0.42]) parts.push(box(0.08, 2.4, 0.08, 0x5e4f3c, x, -2.3, -0.5 + k * 0.85));
+      parts.push(box(0.04, 0.04, len - 1.9, 0x7a6a50, -0.45, 0.32, -0.7 + (len - 1.9) / 2)); // handrail on the far side all the way;
+      parts.push(box(0.04, 0.04, 2.6, 0x7a6a50, 0.45, 0.32, 0.6)); // the near side stays open where the boat ties up
+      for (let k = 0; k < 9; k++) parts.push(box(0.04, 0.2, 0.04, 0x7a6a50, -0.45, 0.14, -0.6 + k * 0.6));
+      for (let k = 0; k < 4; k++) parts.push(box(0.04, 0.2, 0.04, 0x7a6a50, 0.45, 0.14, -0.6 + k * 0.6));
+      // (the dive boat tied up alongside is its own model, floating on the sea: see diveBoat)
+      // a bollard at each end of the boat's berth, for its mooring lines
+      for (const z of [JETTY_BOAT.z - 1.05, JETTY_BOAT.z + 0.95]) parts.push(box(0.08, 0.1, 0.08, 0x3a3a3c, 0.36, 0.14, z));
       break;
     }
     case 'parking': {
