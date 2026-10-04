@@ -144,6 +144,22 @@ function seasonText(months) {
 }
 
 // ---------------------------------------------------------------- UI
+// The names of the money panel's rows (a map can rename one: biome.incomeNames), and what raises each income.
+const INCOME = {
+  grant: 'Monthly grant', reward: 'Goal and chapter rewards', discovery: 'New species bonuses', visitors: 'Visitor donations',
+  palms: 'Palm fruit sold to the mill', fruit: 'Fruit-tree harvest', coop: "The co-op's share of its sales", salvage: 'Salvage', other: 'Other',
+};
+const INCOME_TIPS = {
+  grant: 'Grows with ecosystem health and the number of species here.', reward: 'Paid once for each goal or chapter finished.',
+  visitors: 'More with longer trails, blinds, a visitor center and a good rating.',
+  palms: 'Falls as the palms are felled, shaded by young trees, and get old.', fruit: 'Fruit trees in season, less what the wildlife eats.',
+  coop: 'A fifth of its milk and fish sales. Shade trees in the pasture and mangroves on the coast raise them.',
+};
+const SPENDING = {
+  land: 'Landscape work', plants: 'Planting', features: 'Habitat', remove: 'Clearing and removal', wildlife: 'Reintroductions',
+  visitors: 'Trails and facilities', upkeep: 'Trail upkeep', work: 'Other work',
+};
+
 export class UI {
   constructor(game, renderer) {
     this.game = game;
@@ -256,6 +272,7 @@ export class UI {
   bindTopbar() {
     document.querySelectorAll('#speed button').forEach(b => b.addEventListener('click', () => this.setSpeed(+b.dataset.speed)));
     $('#stat-score').addEventListener('click', () => this.openReport());
+    $('#stat-money').addEventListener('click', () => this.openMoney());
     $('#stat-species').addEventListener('click', () => this.openGuide());
     $('#stat-visitors').addEventListener('click', () => this.openVisitors());
     onBiome(b => { $('#stat-visitors').hidden = !!b.noVisitors; }); // (maps without visitors hide the counter)
@@ -329,7 +346,7 @@ export class UI {
     const mt = moneyShort(g.money);
     if (m.textContent !== mt) { m.textContent = mt; this.fitTopbar(); }
     m.classList.toggle('low', g.money < 2000);
-    setAttr(m, 'title', `Conservation budget: ${money(g.money)}. Last monthly grant: ${money(g.lastGrant || 0)}`);
+    setAttr(m, 'title', `Conservation budget: ${money(g.money)}. Tap to see where the money comes from.`);
     setText($('#stat-season'), g.seasonName());
     setText($('#stat-date'), `${MONTH_NAMES[g.month]} ${g.dayOfMonth * 3 - 2}, Year ${g.year}`);
     const scene = g.weather + g.season;
@@ -898,6 +915,29 @@ export class UI {
     this.modal('Restoration Goals', `<p class="info-desc" style="margin-top:0">The ${biome.funder || 'land trust'} pays a grant for each milestone. Monthly funding also grows with your ecosystem health score and the number of species living here.</p>${html}`, { narrow: true });
   }
 
+  // Where the money comes from and where it goes: last month, and since the start.
+  budgetHTML() {
+    const g = this.game, last = g.lastLedger, all = g.stats.ledger || { in: {}, out: {} };
+    const side = (k, names, always) => {
+      const keys = [...new Set([...always, ...Object.keys(last?.[k] || {}), ...Object.keys(all[k] || {})])].filter(x => names[x] || all[k]?.[x]);
+      keys.sort((a, b) => (all[k]?.[b] || 0) - (all[k]?.[a] || 0));
+      const sum = o => keys.reduce((t, x) => t + (o?.[x] || 0), 0);
+      const row = x => `<span class="k">${names[x] || 'Other'}${INCOME_TIPS[x] && k === 'in' ? `<small>${biome.incomeTips?.[x] || INCOME_TIPS[x]}</small>` : ''}</span><span>${last ? money(last[k]?.[x] || 0) : '-'}</span><span>${money(all[k]?.[x] || 0)}</span>`;
+      return { html: keys.map(row).join(''), last: last ? sum(last[k]) : 0, all: sum(all[k]) };
+    };
+    const inc = side('in', { ...INCOME, ...(biome.incomeNames || {}) }, ['grant', ...(biome.noVisitors ? [] : ['visitors']), ...(biome.income || [])]);
+    const out = side('out', SPENDING, []);
+    const head = t => `<span class="k mh">${t}</span><span class="mh">Last month</span><span class="mh">Since the start</span>`;
+    return `<div class="ledger">${head('Money in')}${inc.html}<span class="k tot">Total in</span><span class="tot">${money(inc.last)}</span><span class="tot">${money(inc.all)}</span>
+      ${head('Money out')}${out.html || '<span class="k">Nothing spent yet</span><span></span><span></span>'}<span class="k tot">Total out</span><span class="tot">${money(out.last)}</span><span class="tot">${money(out.all)}</span>
+      <span class="k tot">Net</span><span class="tot ${inc.last - out.last < 0 ? 'neg' : ''}">${inc.last - out.last < 0 ? '-' : '+'}${money(Math.abs(inc.last - out.last))}</span><span class="tot ${inc.all - out.all < 0 ? 'neg' : ''}">${inc.all - out.all < 0 ? '-' : '+'}${money(Math.abs(inc.all - out.all))}</span></div>`;
+  }
+  openMoney() {
+    const g = this.game;
+    this.modal('Money', `<p class="info-desc" style="margin-top:0">You have ${money(g.money)}. ${g.lastLedger ? 'Last month' : 'At the end of each month this shows last month'}, and everything since the start, by where it came from.</p>${this.budgetHTML()}`, { narrow: true });
+    track('panel_opened', { panel: 'money', map: g.map });
+  }
+
   openReport() {
     const g = this.game, s = g.updateScore(), w = g.world, st = w.stats;
     const rows = s.parts.map(p => {
@@ -911,8 +951,7 @@ export class UI {
     const body = `<div class="report">
       <div><h4>Ecosystem health: ${Math.round(s.total)} / 100</h4>${rows}
         <h4 style="margin-top:18px">Score over time</h4><canvas id="spark" class="ph-no-capture" width="420" height="110" style="width:100%;height:110px;background:var(--paper-2);border-radius:10px"></canvas>
-        <h4 style="margin-top:18px">Budget</h4>
-        <div class="kv" style="grid-template-columns:150px 1fr"><span class="k">Last monthly grant</span><span>${money(g.lastGrant || 0)}</span><span class="k">Total grants</span><span>${money(g.stats.earned)}</span><span class="k">Total spent</span><span>${money(g.stats.spent)}</span><span class="k">Plants planted</span><span>${g.stats.planted.toLocaleString()}</span><span class="k">Visitor donations</span><span>${money(g.visitors.income)} last month</span><span class="k">Trail upkeep</span><span>${g.visitors.upkeep ? '-' : ''}${money(g.visitors.upkeep)} last month</span></div>
+        <h4 style="margin-top:18px">Budget</h4>${this.budgetHTML()}
       </div>
       <div><h4>Land cover</h4>${habRows}
         <div class="kv" style="grid-template-columns:150px 1fr;margin-top:12px"><span class="k">Native cover</span><span>${pct(s.nativeFrac || 0)} of land</span><span class="k">Invasive cover</span><span>${pct(s.invFrac || 0)}</span><span class="k">Native plant species</span><span>${s.nativePlants}</span><span class="k">Animal species</span><span>${s.animals} of ${ANIMALS.length}</span></div>

@@ -114,10 +114,10 @@ export default function buildSumatraPlants(def, mix, get) {
     moist: [0.3, 0.9], light: [0.3, 1], soil: 0.2, grow: 0.006, spread: 0.007, radius: 4, life: 80, matureAge: 10, cost: 16,
     look: { type: 'ash', leaf: '#3e7038', bark: '#8a7a64', berry: '#c8b040', fruit: [10, 11, 0], hangFruit: true, fruitSize: 1.9 },
     desc: 'A wild jackfruit whose big fruits grow straight off the trunk and branches. Orangutans, sun bears and people all love it.' });
-  def({ key: 'duku', name: 'Duku', sci: 'Lansium parasiticum', layer: 2,
-    moist: [0.35, 0.9], light: [0.2, 1], soil: 0.2, grow: 0.0045, spread: 0.006, radius: 4, life: 100, matureAge: 12, cost: 16,
-    look: { type: 'oak', leaf: '#46763a', bark: '#9a8a74', berry: '#e2d49a', fruit: [7, 8, 9], hangFruit: true, fruitSize: 1 },
-    desc: 'Bunches of pale, grape-sized fruit hang from the trunk and limbs. A shade-tolerant tree for mixed village gardens under the forest.' });
+  def({ key: 'banana', was: 'duku', name: 'Banana', sci: 'Musa acuminata', layer: 2,
+    moist: [0.35, 0.9], light: [0.35, 1], soil: 0.2, grow: 0.03, spread: 0.006, radius: 2, life: 40, matureAge: 2, cost: 8,
+    look: { type: 'banana', leaf: '#5a9a40', bark: '#6e7a44', berry: '#9cba48', fruit: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+    desc: 'Not a tree at all but a giant herb: its "trunk" is rolled leaf sheaths. Wild bananas are native to Sumatra, and every village garden has a clump. Each stem fruits once and dies, and a sucker comes up to take its place, so a clump bears all year round. Quick to plant and quick to pay, while the slow fruit trees grow up around it.' });
   def({ key: 'jengkol', name: 'Jengkol', sci: 'Archidendron pauciflorum', layer: 2, nfix: true,
     moist: [0.3, 0.9], light: [0.35, 1], grow: 0.006, spread: 0.007, radius: 4, life: 60, matureAge: 8, cost: 12,
     look: { type: 'raintree', leaf: '#4a8040', bark: '#8a7a6a', berry: '#5a3a5a', fruit: [2, 3], hangFruit: true, fruitSize: 1.1 },
@@ -153,8 +153,8 @@ export default function buildSumatraPlants(def, mix, get) {
       species: ['petai', 'durian', 'rambutan', 'cempedak', 'terap', 'macaranga', 'jelutong'],
       desc: 'Forest trees and fruit trees to plant between the palm rows while the old palms are still standing. They grow up in the palms\' half-shade, and as they close over, the palms are felled. Petai and durian also pay their way.' },
     { key: 'mix_fruit', name: 'Village fruit trees', layer: 2, cost: 17, density: 0.3,
-      species: ['durian', 'rambutan', 'mangosteen', 'cempedak', 'duku', 'petai', 'jengkol'],
-      desc: 'Fruit trees for a forest garden: the village sells their fruit every season, and orangutans, hornbills, bears and macaques eat their share. Mangosteen and duku grow well in the shade of bigger trees.' },
+      species: ['durian', 'rambutan', 'mangosteen', 'cempedak', 'banana', 'petai', 'jengkol'],
+      desc: 'Fruit trees for a forest garden: the village sells their fruit every season, and orangutans, hornbills, bears and macaques eat their share. Bananas bear within a couple of years; mangosteen grows well in the shade of bigger trees.' },
     { key: 'mix_pioneers', name: 'Pioneer trees', layer: 2, cost: 12, density: 0.32,
       species: ['macaranga', 'terap', 'petai'],
       desc: 'Fast, sun-loving trees that shade out the weeds within a few years. Plant them where palms have been felled.' },
@@ -184,7 +184,7 @@ export default function buildSumatraPlants(def, mix, get) {
   // behaviour flags the simulation reads
   for (const k of ['macaranga', 'acacia']) get(k).gravelOK = true;                        // colonize gravel roads and sandbars
   for (const k of ['melastoma', 'bamboo', 'ginger', 'chromolaena', 'clidemia', 'resam', 'pandan']) get(k).resprout = true;
-  Object.entries({ oilpalm: 0.7, acacia: 0.5, tualang: 0.5, keruing: 0.4, meranti: 0.35, nibung: 0.4, jelutong: 0.3, petai: 0.3, durian: 0.25, rambutan: 0.25, mangosteen: 0.3, cempedak: 0.25, duku: 0.3, jengkol: 0.25, fig: 0.3, terap: 0.25, macaranga: 0.2 })
+  Object.entries({ oilpalm: 0.7, acacia: 0.5, tualang: 0.5, keruing: 0.4, meranti: 0.35, nibung: 0.4, jelutong: 0.3, petai: 0.3, durian: 0.25, rambutan: 0.25, mangosteen: 0.3, cempedak: 0.25, banana: 0.2, jengkol: 0.25, fig: 0.3, terap: 0.25, macaranga: 0.2 })
     .forEach(([k, v]) => { get(k).fireSurvival = v; });
   get('chromolaena').fuel = 1.1; get('bamboo').fuel = 1.2; get('clidemia').fuel = 0.7;
   get('ginger').nectar = { months: [8, 9, 10, 11, 0], amount: 0.5 };
@@ -195,10 +195,10 @@ export default function buildSumatraPlants(def, mix, get) {
   get('tualang').nectar = { months: [4, 5], amount: 0.4 };                                 // (and the bees' honey)
   get('durian').disperser = 'orangutan';
   // fruit trees: what a grown tree's fruit sells for each month it's in season, and food for wildlife
-  Object.entries({ durian: 14, rambutan: 7, mangosteen: 9, cempedak: 7, duku: 6, petai: 6, jengkol: 5 }).forEach(([k, v]) => { get(k).harvest = v; });
-  for (const k of ['durian', 'rambutan', 'mangosteen', 'cempedak', 'duku', 'petai', 'jengkol', 'terap', 'fig']) get(k).fruitFood = 0.8;                                                // orangutans carry durian seeds far
+  Object.entries({ durian: 14, rambutan: 7, mangosteen: 9, cempedak: 7, banana: 1.5, petai: 6, jengkol: 5 }).forEach(([k, v]) => { get(k).harvest = v; });
+  for (const k of ['durian', 'rambutan', 'mangosteen', 'cempedak', 'banana', 'petai', 'jengkol', 'terap', 'fig']) get(k).fruitFood = 0.8;                                                // orangutans carry durian seeds far
   // evergreen rainforest plants: only the grasses and ferns of open ground brown off in a dry spell
   for (const k of ['asystasia', 'mikania', 'alang', 'resam', 'kelakai', 'purun', 'lotus', 'nepenthes', 'titan',
     'clidemia', 'chromolaena', 'melastoma', 'ixora', 'ginger', 'rattan', 'bamboo', 'pandan',
-    'oilpalm', 'acacia', 'macaranga', 'terap', 'petai', 'durian', 'rambutan', 'mangosteen', 'cempedak', 'duku', 'jengkol', 'fig', 'meranti', 'keruing', 'tualang', 'jelutong', 'nibung']) get(k).look.tropical = true;
+    'oilpalm', 'acacia', 'macaranga', 'terap', 'petai', 'durian', 'rambutan', 'mangosteen', 'cempedak', 'banana', 'jengkol', 'fig', 'meranti', 'keruing', 'tualang', 'jelutong', 'nibung']) get(k).look.tropical = true;
 }

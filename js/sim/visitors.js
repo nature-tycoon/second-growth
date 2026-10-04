@@ -207,8 +207,8 @@ export class Visitors {
     this.income = Math.round(this.monthly * perVisitor);
     this.upkeep = Math.round(len * 0.4 + fac.boardwalk * 1.5 + fac.center * 120 + fac.parking * 30);
     this.traffic = clamp(this.monthly / 320, 0, 1);
-    g.earn(this.income);
-    g.money -= this.upkeep;
+    g.earn(this.income, 'visitors');
+    g.pay(this.upkeep, 'upkeep');
     g.stats.visitorIncome = (g.stats.visitorIncome || 0) + this.income;
     let trailTiles = 0;
     for (let i = 0; i < g.world.n; i++) if (g.world.terrain[i] === T.TRAIL || (g.world.marks[i] & 1)) trailTiles++;

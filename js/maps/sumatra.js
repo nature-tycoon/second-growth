@@ -196,6 +196,7 @@ function estateStats(w, s) {
 }
 
 // ------------------------------------------------------------------ each day
+const ALL_MONTHS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]; // (in bloom whatever the month, while it lasts)
 const PALM_RATE = 0.33; // dollars a month from a grown palm in full sun
 function estateDaily(g) {
   const w = g.world;
@@ -211,7 +212,7 @@ function estateDaily(g) {
       crop += clamp(1 - w.nbCanopy[i] * 1.3, 0.15, 1) * clamp(1 - (age - 22) * 0.06, 0.25, 1); // (past about 22 years a palm bears less every year)
     }
     const fruit = Math.round(crop * PALM_RATE);
-    if (fruit > 0) { g.earn(fruit); g.cache.palmFruit = fruit; }
+    if (fruit > 0) { g.earn(fruit, 'palms'); g.cache.palmFruit = fruit; }
     // The fruit trees in season: the village picks and sells what the wildlife leaves. The more
     // orangutans, hornbills, bears, civets and macaques there are, the bigger their share.
     let worth = 0; const kinds = new Set();
@@ -224,7 +225,7 @@ function estateDaily(g) {
       const eaters = ANIMALS.filter(a => a.frugivore).reduce((s, a) => s + g.wildlife.state[a.index].pop, 0);
       const share = Math.min(0.4, eaters / 250);
       const sold = Math.round(worth * (1 - share));
-      g.earn(sold); g.cache.fruitSales = sold;
+      g.earn(sold, 'fruit'); g.cache.fruitSales = sold;
       if (!g.flags.fruitHint && sold >= 20) {
         g.flags.fruitHint = true;
         g.notify(`The village picked the fruit trees this month (${[...kinds].join(', ')}) and sold $${sold.toLocaleString()} of fruit${share > 0.05 ? `, after the wildlife took about ${Math.round(share * 100)}%` : ''}. Fruit trees keep paying long after the palms are gone, and they feed the orangutans, hornbills and bears too.`, 'good');
@@ -249,16 +250,21 @@ function estateDaily(g) {
   // the orangutans, the elephants and the tiger come in
   for (const [key, sp] of [['orangutans', 'orangutan'], ['gajah', 'gajah'], ['harimau', 'tiger']]) if (ANIMAL[sp] && pop(g, sp) > 0) arrivalMoment(g, key, ANIMAL[sp]);
   // The corpse flower: years after it's planted (or found in the ravine), one sends up its giant
-  // flower in the wet season. It blooms for a single month.
+  // flower in the wet season. The real spathe opens for a day or two and stands for a week or so
+  // before it collapses; here it stands for a season (30 days, about 40 seconds at normal speed),
+  // long enough to go and see it.
   const tp = PLANT.titan;
   if (tp) {
     const done = g.flags.moments || {};
-    if (g.flags.titanMonth != null && g.flags.titanMonth !== g.month) { tp.look.bloom = []; g.flags.titanMonth = null; w.renderDirty = true; }
-    if (g.flags.titanMonth == null && g.year >= 2 && g.month >= 8 && g.rng() < (done.titan == null ? 0.01 : 0.0015)) {
+    if (g.flags.titanMonth != null) g.flags.titanMonth = null; // (older saves: a bloom that lasted until the month changed)
+    const blooming = g.flags.titanUntil != null && g.day < g.flags.titanUntil;
+    if (g.flags.titanUntil != null && !blooming) { tp.look.bloom = []; g.flags.titanUntil = null; w.renderDirty = true; }
+    else if (blooming && !tp.look.bloom.length) { tp.look.bloom = ALL_MONTHS; w.renderDirty = true; } // (back in bloom after loading a save)
+    if (g.flags.titanUntil == null && g.year >= 2 && g.month >= 8 && g.rng() < (done.titan == null ? 0.01 : 0.0015)) {
       let at = -1;
       for (let i = 0; i < w.n; i++) if (w.ground[i] === tp.id && w.groundG[i] > 0.9 && (at < 0 || g.rng() < 0.3)) at = i;
       if (at >= 0) {
-        tp.look.bloom = [g.month]; g.flags.titanMonth = g.month; w.renderDirty = true;
+        tp.look.bloom = ALL_MONTHS; g.flags.titanUntil = g.day + 30; w.renderDirty = true;
         const pos = { x: at % w.w + 0.5, y: ((at / w.w) | 0) + 0.5 };
         if (done.titan == null) moment(g, 'titan', pos);
         else g.notify('A corpse flower is in bloom again, and the smell of it carries across the forest.', 'good', pos);
@@ -340,6 +346,7 @@ export default {
   id: 'sumatra',
   name: 'Sumatra',
   farm: 'Kebun Tualang',
+  income: ['palms', 'fruit'], // (its own money rows: see the money panel)
   region: 'North Sumatra, Indonesia',
   blurb: 'An old oil palm estate on the edge of the Leuser rainforest: palms in rows from fence to fence, peat drained by canals that burns in the dry season, an elephant fence across the old routes, and one ancient honey tree.',
   campaign: false,
@@ -390,7 +397,7 @@ export default {
   rules: [
     'You don\'t buy animals or upgrades. <b>You build habitat</b>, and wildlife follows its own rules: it comes in from the Leuser forest, the river and the swamp when there\'s room, raises young, and moves on when there isn\'t enough.',
     '<b>The palms are the problem, and the income.</b> Every month the village sells the fruit of the palms still standing and puts it into the work. <b>Fell a palm</b> (Remove → Fell palms & pull weeds) and that fruit is gone; palms shaded by young trees bear less anyway. So plant forest between the rows first (<b>jangka benah</b>), and fell the palms as it closes over.',
-    '<b>Fruit trees pay too.</b> Durian, rambutan, mangosteen, cempedak, duku, petai and jengkol (Plant → Village fruit trees) bear fruit each season that the village sells, and orangutans, hornbills, sun bears and macaques eat their share. Over the years they replace the palm income.',
+    '<b>Fruit trees pay too.</b> Durian, rambutan, mangosteen, cempedak, bananas, petai and jengkol (Plant → Village fruit trees) bear fruit each season that the village sells, and orangutans, hornbills, sun bears and macaques eat their share. Over the years they replace the palm income.',
     '<b>Nothing lives in a monoculture.</b> Under the palms there are rats, wild pigs and weeds. Native trees bring back everything else, and the orangutans, gibbons and hornbills need them joined up with the forest beyond the north and east fences.',
     '<b>The peat must be wet.</b> The canals in the south keep the peat dry so palms can grow on it. Dry peat sinks, and in the dry season it burns underground for weeks. <b>Block the canals</b> (Landscape → Block a canal) in a staircase up each one, and the peat turns wet again. Only peat swamp trees like jelutong and nibung grow on it once it\'s wet, and the palms on it slowly drown.',
     '<b>Fire</b> comes in the dry months, June to August, and in dry spells in February. No burning: clearing land with fire is banned in Indonesia. Wet peat, canopy, firebreaks and fire crews keep it out.',

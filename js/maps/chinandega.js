@@ -134,7 +134,7 @@ function fincaDaily(g) {
     const catchV = Math.round((w.stats.mangrove || 0) * 2 + (pop(g, 'snook') + pop(g, 'snapper')) * 14);
     // (the co-op keeps most of it to live on: about a fifth of the sales goes into the restoration)
     const share = Math.round((milk + catchV) * 0.2);
-    if (share > 0) { g.earn(share); g.cache.milk = milk; g.cache.catch = catchV; }
+    if (share > 0) { g.earn(share, 'coop'); g.cache.milk = milk; g.cache.catch = catchV; }
     if (!g.flags.incomeHint && g.day >= 20) {
       g.flags.incomeHint = true;
       g.notify(`This month the cooperative sold $${milk.toLocaleString()} of milk and cheese, and the fishers and cockle gatherers $${catchV.toLocaleString()} of fish and conchas negras, and put $${share.toLocaleString()} of it into the restoration. Shade trees in the pasture raise the first; mangroves raise the second.`, 'info');
@@ -228,6 +228,7 @@ export default {
   id: 'chinandega',
   name: 'Nicaragua',
   farm: 'Finca El Guanacaste',
+  income: ['coop'], // (its own money rows: see the money panel)
   region: 'Chinandega, Nicaragua',
   blurb: 'A cattle finca running from the slopes of the San Cristóbal volcano down to the Pacific: burned-over pasture where the dry forest was, a bare quebrada, shrimp ponds in the mangroves, and a beach the sea turtles stopped using.',
   campaign: true,

@@ -57,6 +57,7 @@ export class Game {
     this.speed = 1;
     this.flags = {};
     this.stats = { planted: 0, dug: 0, removed: 0, spent: 0, earned: 0, used: {} };
+    this.ledger = { in: {}, out: {} }; this.lastLedger = null;
     this.goalsDone = {};
     this.history = [];
     this.weather = 'clear';
@@ -95,18 +96,29 @@ export class Game {
   seasonName() { return biome.climate.seasons[this.season]; }
 
   canAfford(c) { return this.money >= c; }
-  spend(c) {
+  // Every dollar in and out is booked under where it came from or went (see INCOME and SPENDING
+  // in ui.js for the names), month by month, so the money panel can show the player what pays.
+  spend(c, what = 'work') {
     if (c <= 0) return true;
     if (this.money < c) return false;
     this.money -= c; this.stats.spent += c;
+    this.book('out', what, c);
     return true;
   }
-  earn(c) { this.money += c; this.stats.earned += c; }
+  earn(c, from = 'other') { this.money += c; this.stats.earned += c; this.book('in', from, c); }
+  // a bill that's paid whether or not there's money for it (trail upkeep)
+  pay(c, what) { if (c > 0) { this.money -= c; this.stats.spent += c; this.book('out', what, c); } }
+  book(side, key, c) {
+    const l = this.ledger ||= { in: {}, out: {} };
+    l[side][key] = (l[side][key] || 0) + c;
+    const t = (this.stats.ledger ||= { in: {}, out: {} })[side]; // (and since the start)
+    t[key] = (t[key] || 0) + c;
+  }
   get diff() { return DIFFICULTY[this.difficulty] || DIFFICULTY.standard; }
   // Land trust money (grants and rewards) scales with difficulty; visitor donations don't.
   // kind is only bookkeeping (monthly, goal, discovery, chapter), so the balance can be checked
   grant(c, kind = 'other') {
-    const v = Math.round(c * this.diff.grants); this.earn(v);
+    const v = Math.round(c * this.diff.grants); this.earn(v, kind === 'monthly' ? 'grant' : kind === 'discovery' ? 'discovery' : 'reward');
     const gs = this.stats.grants ||= {}; gs[kind] = (gs[kind] || 0) + v;
     return v;
   }
@@ -195,6 +207,8 @@ export class Game {
     const grant = this.grant(monthlyGrant(this, score.total) * (biome.grantScale ?? 1), 'monthly');
     this.lastGrant = grant;
     this.visitors.monthEnd();
+    // close the month's books (the map's own sales on the 1st, the grant and the visitors are all in)
+    this.lastLedger = this.ledger || { in: {}, out: {} }; this.ledger = { in: {}, out: {} };
     // season tips teach the first year; after that the top bar says the season
     if (m % 3 === 0 && this.year === 1) {
       const tips = biome.climate.tips;
@@ -291,7 +305,7 @@ export class Game {
         stats: this.stats, goalsDone: this.goalsDone, history: this.history,
         world: { arrays, structures: w.structures, w: w.w, h: w.h, bloomTick: w.bloomTick },
         wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
-        visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant,
+        visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant, ledger: this.ledger, lastLedger: this.lastLedger,
         mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0, map: this.map,
         plants: PLANTS.map(p => p?.key || ''), // so a later version with a changed plant list can still read it
       };
@@ -333,7 +347,9 @@ export class Game {
     if (data.world.bloomTick != null) w.bloomTick = data.world.bloomTick;
     // plants are stored by number: match them up by name if the map's plant list has changed since
     // the save, and don't open a save whose plants can't be matched (it would crash, or show the wrong ones)
-    const ids = data.plants ? data.plants.map(k => PLANTS.findIndex(p => p?.key === k)) : null;
+    // (a plant that's been replaced says which one it was: duku became banana, say)
+    const find = k => { const i = PLANTS.findIndex(p => p?.key === k); return i >= 0 ? i : PLANTS.findIndex(p => p?.was === k); };
+    const ids = data.plants ? data.plants.map(find) : null;
     for (const k of ['ground', 'shrub', 'tree']) {
       const a = w[k];
       for (let i = 0; i < a.length; i++) {
@@ -359,6 +375,7 @@ export class Game {
     this.weather = 'clear';
     this.rainStreak = 0; this.dryStreak = 0;
     this.lastGrant = data.lastGrant || 0;
+    this.ledger = data.ledger || { in: {}, out: {} }; this.lastLedger = data.lastLedger || null;
     this.cache = { hunts: data.cache?.hunts || {} };
     this.wildlife = new Wildlife(this);
     this.residents = null; // (maps with people living on them fill this in)

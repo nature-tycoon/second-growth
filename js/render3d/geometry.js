@@ -238,11 +238,13 @@ function frond(o, pos, col) {
 // pointed, or lance-shaped (narrow at both ends); it can twist along its length and be creased
 // into a V along the midrib (fold). 2 triangles per segment, 4 when folded.
 function strap(o, pos, col) {
-  const { base, az, elev, droop, L, w, segs = 4, twist = 0, lance = false, fold = 0, shade = 1, tint = [1, 1, 1] } = o;
+  const { base, az, elev, droop, L, w, segs = 4, twist = 0, lance = false, blunt = false, fold = 0, shade = 1, tint = [1, 1, 1] } = o;
   const m = midrib(base, az, elev, droop, L, segs), sd = m.side;
   const ring = j => {
     const t = j / segs, p = m.pts[j], N = m.up(Math.min(t, 0.999)), th = twist * t, c = Math.cos(th), s = Math.sin(th);
-    const wd = lance ? w * Math.pow(Math.sin(Math.PI * (0.06 + 0.88 * t)), 0.8) : w * (1 - Math.pow(t, 1.6));
+    const wd = lance ? w * Math.pow(Math.sin(Math.PI * (0.06 + 0.88 * t)), 0.8)
+      : blunt ? w * Math.min(1, 0.25 + t / 0.12) * Math.sqrt(Math.max(0.04, 1 - Math.pow(Math.max(0, (t - 0.72) / 0.28), 2))) // (an oblong paddle with a rounded end: a banana leaf)
+      : w * (1 - Math.pow(t, 1.6));
     const W = [sd[0] * c + N[0] * s, sd[1] * c + N[1] * s, sd[2] * c + N[2] * s], K = [N[0] * c - sd[0] * s, N[1] * c - sd[1] * s, N[2] * c - sd[2] * s];
     return { l: [p[0] - W[0] * wd, p[1] - W[1] * wd, p[2] - W[2] * wd], r: [p[0] + W[0] * wd, p[1] + W[1] * wd, p[2] + W[2] * wd], c: [p[0] + K[0] * wd * fold, p[1] + K[1] * wd * fold, p[2] + K[2] * wd * fold], s: shade * (0.72 + 0.34 * t) };
   };
@@ -371,6 +373,7 @@ export const TREE_SHAPES = {
   cecropia:   { kind: 'cecropia', height: 2.0 },
   palm:       { kind: 'palm', height: 1.9, stems: 3 },
   oilpalm:    { kind: 'oilpalm', height: 2.3 },
+  banana:     { kind: 'banana', height: 0.9 },
   fanpalm:    { kind: 'fanpalm', height: 2.3 },
   emergent:   { kind: 'emergent', height: 3.2, rx: 0.95, ry: 0.32, trunkR: 0.1 },
   kapok:      { kind: 'emergent', height: 3.4, rx: 1.05, ry: 0.3, trunkR: 0.11, buttress: true },
@@ -412,6 +415,7 @@ function treePartsRaw(shape, seed, lod) {
     case 'conifer': return conifer(shape, seed, lod);
     case 'palm': return palm(shape, seed, lod);
     case 'oilpalm': return oilPalm(shape, seed, lod);
+    case 'banana': return banana(shape, seed, lod);
     case 'fanpalm': return fanPalm(shape, seed, lod);
     case 'cecropia': return cecropia(shape, seed, lod);
     case 'emergent': return emergent(shape, seed, lod);
@@ -508,6 +512,54 @@ export function oilPalm(opts, seed, lod = 0) {
     fr.push(shadeVerts(bunch, (x, yy, z) => (Math.hypot(x, z) > d + 0.012 && yy > y - 0.01 ? 0.32 : yy > y + 0.015 ? 0.5 : 1.0)));
   }
   return { crown, trunk: merge(tr), fruit: merge(fr) };
+}
+
+// Banana: not a tree but a giant herb. A smooth green "trunk" (the pseudostem, rolled leaf
+// sheaths) under a crown of huge, blunt paddle leaves: the newest standing up round a furled
+// one, the older arching out, the oldest hanging down dry and brown against the stem. A young
+// sucker comes up at its foot. Its bunch (`fruit`) hangs from the top on a curving stalk: tiers
+// of green hands, with the maroon flower bud (the heart) dangling at the end in the bark colour.
+export function banana(opts, seed, lod = 0) {
+  const r = mulberry32(seed), H = opts.height, top = H * 0.56;
+  const pos = [], col = [], n = lod ? 6 : 9;
+  for (let k = 0; k < n; k++) {
+    const u = k / (n - 1), az = k * 2.39996 + (r() - 0.5) * 0.4;
+    strap({ base: [Math.cos(az) * 0.025, top - u * 0.05, Math.sin(az) * 0.025], az, elev: 1.3 - 0.95 * u + (r() - 0.5) * 0.15, droop: 0.7 + 1.3 * u,
+      L: 0.5 + 0.16 * u + r() * 0.08, w: 0.075 + r() * 0.012, segs: lod ? 3 : 7, blunt: true, fold: 0.1, twist: (r() - 0.5) * 0.4,
+      shade: 0.95 + r() * 0.1, tint: u > 0.85 ? [1.05, 0.98, 0.8] : [1, 1, 1] }, pos, col);
+  }
+  // the newest leaf, still rolled into a spike
+  strap({ base: [0, top, 0], az: r() * 6.28, elev: 1.52, droop: 0.05, L: 0.2, w: 0.016, segs: 2, shade: 1.1, tint: [1.08, 1.06, 0.88] }, pos, col);
+  // old leaves hanging dead against the stem
+  for (let k = 0, m = lod ? 1 : 2; k < m; k++) {
+    const az = r() * 6.28;
+    strap({ base: [Math.cos(az) * 0.035, top - 0.06, Math.sin(az) * 0.035], az, elev: -1.25, droop: 0.15, L: 0.22, w: 0.045, segs: 2, fold: 0.3, shade: 0.8, tint: [1.75, 1.15, 0.5] }, pos, col);
+  }
+  // a sucker at the foot: a short stem and a few small upright leaves
+  const sa = r() * 6.28, sx = Math.cos(sa) * 0.09, sz = Math.sin(sa) * 0.09, sh = H * 0.16;
+  for (let k = 0; k < (lod ? 2 : 4); k++) {
+    const az = k * 2.39996 + r();
+    strap({ base: [sx, sh, sz], az, elev: 1.1 - k * 0.15, droop: 0.3, L: 0.16 + r() * 0.04, w: 0.04, segs: 3, blunt: true, shade: 1.02, tint: [1.02, 1.04, 0.92] }, pos, col);
+  }
+  const crown = twoSided(sheet(pos, col));
+  const stem = soft(new THREE.CylinderGeometry(0.036, 0.05, top, lod ? 6 : 9, 2), { lump: 0.006, seed, transform: g => g.translate(0, top / 2, 0) });
+  shadeVerts(stem, (x, y) => [0.95 + 0.25 * (y / top), 1.1 + 0.15 * (y / top), 0.85]); // greener and paler toward the top
+  const sucker = soft(new THREE.CylinderGeometry(0.018, 0.026, sh, 6, 1), { transform: g => g.translate(sx, sh / 2, sz) });
+  shadeVerts(sucker, () => [1, 1.2, 0.9]);
+  const heartAt = [0.14, top - 0.33, 0.03];
+  const heart = soft(new THREE.IcosahedronGeometry(0.036, lod ? 0 : 1), { transform: g => { g.scale(0.8, 1.6, 0.8); g.rotateZ(0.2); g.translate(...heartAt); } });
+  shadeVerts(heart, () => [1.15, 0.45, 0.75]); // (maroon, from the stem's bark colour)
+  // the bunch: a stalk arching out from the crown and hanging down, ringed with tiers of hands
+  const fr = [], stalk = [[0.02, top - 0.02, 0], [0.1, top - 0.05, 0.01], [0.135, top - 0.13, 0.02], [0.14, top - 0.3, 0.03]];
+  for (let k = 1; k < stalk.length; k++) fr.push(rod(stalk[k - 1], stalk[k], 0.014, 0.011, 4));
+  for (let t = 0, tiers = lod ? 4 : 6; t < tiers; t++) {
+    const y = top - 0.1 - t * 0.03, rad = 0.05 - t * 0.003, cx = 0.135 + t * 0.001, cz = 0.022 + t * 0.001;
+    for (let f = 0, nf = lod ? 6 : 10; f < nf; f++) {
+      const a = f / nf * 6.28 + t * 0.4, ox = Math.cos(a) * rad, oz = Math.sin(a) * rad;
+      fr.push(rod([cx + ox * 0.45, y, cz + oz * 0.45], [cx + ox * 1.2, y + 0.055, cz + oz * 1.2], 0.011, 0.008, lod ? 3 : 4)); // (bananas point up, curving away from the stalk)
+    }
+  }
+  return { crown, trunk: merge([stem, sucker, heart]), fruit: merge(fr) };
 }
 
 // Buriti: one straight trunk and a round head of stiff fan leaves.

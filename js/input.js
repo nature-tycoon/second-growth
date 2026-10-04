@@ -335,7 +335,7 @@ export class Input {
         g.stats.used ||= {};
         g.stats.used[tool.key] = (g.stats.used[tool.key] || 0) + 1;
         this.r.markTileDirty(i % w.w, (i / w.w) | 0);
-        if (cost > 0) g.spend(cost); else if (cost < 0) g.earn(-cost);
+        if (cost > 0) g.spend(cost, tool.cat); else if (cost < 0) g.earn(-cost, 'salvage');
         s.cost += cost; s.count++;
         s.lastOk = i;
       } else if (res === 'unsuitable') { s.unsuitable++; s.lastBad = i; }
