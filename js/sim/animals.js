@@ -141,9 +141,10 @@ export class Wildlife {
 
   // -------------------------------------------------------------- spawning
   spawn(def, x, y, opts = {}) {
+    const id = this.nextId++, [ox, oy] = spotIn({ id }, x * 977 + y, true); // (not all on one point: a litter, a flock released together)
     const a = {
-      id: this.nextId++, sp: def.index, key: def.key, move: def.move,
-      x: x + 0.5, y: y + 0.5, tx: x + 0.5, ty: y + 0.5, path: null,
+      id, sp: def.index, key: def.key, move: def.move,
+      x: x + 0.5 + ox, y: y + 0.5 + oy, tx: x + 0.5, ty: y + 0.5, path: null,
       state: 'idle', wait: Math.random() * 2, age: opts.age ?? def.mature * DAYS_PER_YEAR * (1 + Math.random() * 2),
       facing: Math.random() < 0.5 ? -1 : 1, phase: Math.random() * 10, hunger: Math.random() * 3,
       flying: false, alt: 0, leaving: false, spawner: !!opts.spawner, juvenile: !!opts.juvenile,
@@ -653,8 +654,12 @@ export class Wildlife {
         case 'walk': {
           if (!a.path || !a.path.length) { a.state = 'idle'; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : 0.5 + Math.random() * 3; break; }
           const j = a.path[a.path.length - 1];
-          const tx = (j % w.w) + 0.5, ty = ((j / w.w) | 0) + 0.5;
           if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1), dt)) a.path.pop(); break; }
+          // each animal keeps to its own line through a tile and stops at its own spot in the last
+          // one, so two walking the same way don't trace one track, and a group doesn't pile onto
+          // a single point
+          const [ox, oy] = spotIn(a, j, a.path.length === 1);
+          const tx = (j % w.w) + 0.5 + ox, ty = ((j / w.w) | 0) + 0.5 + oy;
           const wading = def.crossing && w.terrain[j] === T.RIVER; // swimming the river is slow going
           if (this.stepToward(a, tx, ty, (wading ? sp * 0.55 : sp) * (a.pace || 1))) a.path.pop();
           break;
@@ -859,6 +864,18 @@ export class Wildlife {
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (!w.inb(x0, y0)) { a.x = clamp(a.x, 0.5, w.w - 0.5); a.y = clamp(a.y, 0.5, w.h - 0.5); a.wait = 1; return; }
     const start = w.idx(x0, y0);
+    // others of its kind nearby, counted by the tile they're on or heading for: a spot that's
+    // already taken is worth less, so they spread out over the habitat instead of crowding together
+    const crowd = new Map();
+    for (const o of this.agents) {
+      if (o === a || o.sp !== a.sp || o.leaving || Math.abs(o.x - a.x) > 14 || Math.abs(o.y - a.y) > 14) continue;
+      const j = o.state === 'walk' && o.path?.length ? o.path[0] : w.idx(clamp(Math.floor(o.x), 0, w.w - 1), clamp(Math.floor(o.y), 0, w.h - 1));
+      crowd.set(j, (crowd.get(j) || 0) + 1);
+    }
+    // and the last few places it went: with only two good spots around (two lone trees in a
+    // pasture) it would otherwise shuttle between them in a straight line, back and forth
+    const recent = a.recent || (a.recent = []);
+    const worth = i => 1 / (1 + 1.5 * (crowd.get(i) || 0)) * (recent.includes(i) ? 0.3 : 1);
     // Patrollers (river dolphins, giant otters) cruise long stretches of water instead of
     // milling about one spot: they hold a heading, favour water well ahead of them, and turn
     // around at dead ends, following the channel toward its farthest reach.
@@ -870,15 +887,16 @@ export class Wildlife {
     stampN++;
     let head = 0, tail = 0;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
-    let best = start, bs = patrol ? 0 : map[start] * 0.8, far = -1, farD = 0;
+    let best = start, bs = patrol ? 0 : map[start] * 0.8 * worth(start), far = -1, farD = 0;
     const W = w.w, cap = patrol ? 1200 : 380;
     const diag = swimmer(a);
     const ahead = i => (((i % W) - x0) * a.heading[0] + (((i / W) | 0) - y0) * a.heading[1]) / R;
+    let poke = -1, pokeN = 0; // a random nearby spot it could live on, for a short wander
     while (head < tail && tail < cap) {
       const i = bfsQ[head++];
       const x = i % W, y = (i / W) | 0;
       if (Math.abs(x - x0) > R || Math.abs(y - y0) > R) continue;
-      let s = map[i] * (0.55 + 0.45 * Math.random());
+      let s = map[i] * (0.45 + 0.55 * Math.random()) * (patrol || i === start ? 1 : worth(i));
       if (patrol) {
         const d2 = (x - x0) ** 2 + (y - y0) ** 2;
         if (map[i] > 0.15 && d2 > farD) { farD = d2; far = i; }
@@ -886,6 +904,7 @@ export class Wildlife {
         s *= f > 0 ? 0.3 + f : 0.03;
       }
       if (s > bs) { bs = s; best = i; }
+      if (i !== start && map[i] > 0.01 && Math.abs(x - x0) + Math.abs(y - y0) <= 4 && !recent.includes(i) && Math.random() * ++pokeN < 1) poke = i;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         if (!diag && dx && dy) continue;
@@ -896,6 +915,9 @@ export class Wildlife {
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }
+    // nothing better around: now and then it potters off a few steps anyway (foraging, sniffing
+    // about), rather than standing on one tile or shuttling between the same two
+    if (!patrol && best === start && poke >= 0 && Math.random() < 0.5) best = poke;
     if (patrol) {
       // blocked (a bank or the end of the channel): turn toward the farthest open water instead
       if (best === start || ahead(best) < 0.35) {
@@ -911,6 +933,7 @@ export class Wildlife {
     const path = [];
     for (let i = best; i !== start && i >= 0; i = parent[i]) path.push(i);
     a.path = path; a.state = 'walk';
+    recent.push(start); if (recent.length > 4) recent.shift();
   }
 
   // -------------------------------------------------------------- herds and waterholes
@@ -1091,6 +1114,14 @@ export class Wildlife {
     this.salmon = d.salmon; this.dams = d.dams;
     this.recount();
   }
+}
+
+// Where in tile j this animal walks: a small sideways offset of its own on the way through, and
+// a spot of its own anywhere in the tile when it's the last one (same tile, same spot, so it
+// doesn't shuffle about while standing).
+function spotIn(a, j, last) {
+  if (!last) return [hashJitter(a.id, 3.7) * 0.4, hashJitter(a.id, 9.1) * 0.4];
+  return [hashJitter(j + a.id * 13, a.id) * 0.9, hashJitter(a.id * 7, j - a.id) * 0.9];
 }
 
 function hashJitter(x, y) {

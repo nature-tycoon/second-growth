@@ -134,7 +134,7 @@ export default function buildAtlantaPlants(def, mix, get) {
   // ---------- Trees ----------
   def({ key: 'whiteoak', name: 'White oak', sci: 'Quercus alba', layer: 2, moist: [0.1, 0.7], light: [0.45, 1],
     grow: 0.0026, spread: 0.006, radius: 4, life: 300, mast: 1, cost: 26,
-    look: { type: 'oak', leaf: '#5b8040', fall: '#9a4a2a', deciduous: true, bark: '#8a8478' },
+    look: { type: 'oak', leaf: '#5b8040', fall: '#9a4a2a', deciduous: true, bark: '#8a8478', scale: 1.33 },
     desc: 'The keystone tree of the Piedmont. Over 500 kinds of caterpillars eat oak leaves, and those caterpillars feed nearly every songbird\'s nestlings.' });
   def({ key: 'willowoak', name: 'Willow oak', sci: 'Quercus phellos', layer: 2, moist: [0.3, 1], light: [0.45, 1],
     grow: 0.0036, spread: 0.006, radius: 4, life: 150, mast: 0.8, cost: 22,
@@ -154,7 +154,7 @@ export default function buildAtlantaPlants(def, mix, get) {
     desc: 'Star-shaped leaves that turn wine and gold, and spiky gumballs goldfinches pick apart for the seed.' });
   def({ key: 'loblolly', name: 'Loblolly pine', sci: 'Pinus taeda', layer: 2, moist: [0.1, 0.85], light: [0.55, 1], conifer: true,
     grow: 0.0055, spread: 0.012, radius: 6, life: 150, cost: 16,
-    look: { type: 'pine', leaf: '#3f6a3a', bark: '#7a5a44' },
+    look: { type: 'pine', leaf: '#3f6a3a', bark: '#7a5a44', scale: 0.84 },
     desc: 'The fast-growing pine of every Georgia old field. Brown-headed nuthatches and pine warblers live in it.' });
   def({ key: 'dogwood', name: 'Flowering dogwood', sci: 'Cornus florida', layer: 2, moist: [0.3, 0.8], light: [0.1, 0.8], soil: 0.15,
     grow: 0.0034, spread: 0.008, radius: 3, life: 80, cost: 18,
@@ -182,11 +182,11 @@ export default function buildAtlantaPlants(def, mix, get) {
     desc: 'Peeling cinnamon bark, and roots that hold the riverbank together through floods.' });
   def({ key: 'callery', name: 'Bradford pear', sci: 'Pyrus calleryana', layer: 2, native: false, invasive: true,
     moist: [0.05, 0.85], light: [0.35, 1], grow: 0.006, spread: 0.012, radius: 4, life: 25, compete: 0.6, cost: 0,
-    look: { type: 'ash', leaf: '#4f7e3a', flower: '#f6f4ee', bloom: [0], crownBloom: true, fall: '#a8302a', deciduous: true, bark: '#5a524a' },
+    look: { type: 'ash', leaf: '#4f7e3a', flower: '#f6f4ee', bloom: [0], crownBloom: true, fall: '#a8302a', deciduous: true, bark: '#5a524a', scale: 0.8 },
     desc: 'INVASIVE. The builder planted one in every front yard. Clouds of white (and foul-smelling) blossom in March, weak limbs that split in storms, and wild seedlings everywhere. Georgia now bans its sale.' });
   def({ key: 'crepemyrtle', name: 'Crepe myrtle', sci: 'Lagerstroemia indica', layer: 2, native: false, exotic: true,
     moist: [0.05, 0.75], light: [0.55, 1], grow: 0.005, spread: 0, radius: 2, life: 50, cost: 0,
-    look: { type: 'vase', leaf: '#5a8a44', flower: '#e068a8', bloom: [3, 4, 5], bloomTint: 0.6, fall: '#d86a2a', deciduous: true, bark: '#b8906a' },
+    look: { type: 'vase', leaf: '#5a8a44', flower: '#e068a8', bloom: [3, 4, 5], bloomTint: 0.6, fall: '#d86a2a', deciduous: true, bark: '#b8906a', scale: 0.7 },
     desc: 'Pink summer flowers on every Southern street. Pretty, but few native insects can use it, and it never grows big enough to shade the street.' });
 
   // ---------- Seed mixes ----------

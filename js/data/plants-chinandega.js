@@ -82,7 +82,7 @@ export default function buildChinandegaPlants(def, mix, get) {
     desc: 'Genízaro. A huge umbrella of a tree whose leaves fold up at night and before rain. Its pink puffball flowers feed bats and moths.' });
   def({ key: 'ceiba', name: 'Ceiba', sci: 'Ceiba pentandra', layer: 2, moist: [0.2, 0.9], light: [0.5, 1],
     grow: 0.0048, spread: 0.006, radius: 6, life: 300, cost: 24,
-    look: { type: 'kapok', leaf: '#5f9048', ...dry, deciduous: true, bark: '#9a9a8a' },
+    look: { type: 'kapok', leaf: '#5f9048', ...dry, deciduous: true, bark: '#9a9a8a', scale: 0.85 },
     desc: 'The giant of the forest, with its buttress roots. Its flowers open at night for bats, and its seeds float away on silky kapok fluff.' });
   def({ key: 'madrono', name: 'Madroño', sci: 'Calycophyllum candidissimum', layer: 2, moist: [0.05, 0.75], light: [0.4, 1],
     grow: 0.0035, spread: 0.007, radius: 4, life: 150, cost: 20,
@@ -90,7 +90,7 @@ export default function buildChinandegaPlants(def, mix, get) {
     desc: 'The national tree of Nicaragua. It covers itself in white flowers around Christmas, and its orange bark peels away smooth.' });
   def({ key: 'cortes', name: 'Cortez', sci: 'Handroanthus ochraceus', layer: 2, moist: [0.0, 0.7], light: [0.5, 1],
     grow: 0.003, spread: 0.007, radius: 4, life: 150, cost: 20,
-    look: { type: 'ipe', leaf: '#5a8a40', flower: '#f4c820', bloom: [11, 0], crownBloom: true, ...dry, deciduous: true, bark: '#6a5a4a' },
+    look: { type: 'ipe', leaf: '#5a8a40', flower: '#f4c820', bloom: [11, 0], crownBloom: true, ...dry, deciduous: true, bark: '#6a5a4a', scale: 0.73 },
     desc: 'Cortés. In the driest weeks of the year, with no leaves at all, it bursts into solid golden yellow flowers for a few days.' });
   def({ key: 'macuelizo', name: 'Pink trumpet tree', sci: 'Tabebuia rosea', layer: 2, moist: [0.1, 0.85], light: [0.45, 1],
     grow: 0.0038, spread: 0.008, radius: 4, life: 100, cost: 18,
@@ -106,7 +106,7 @@ export default function buildChinandegaPlants(def, mix, get) {
     desc: 'A fast, tough pioneer tree of old pastures. Its hard black fruits feed deer, iguanas and parrots through the dry season.' });
   def({ key: 'jinocuabo', name: 'Gumbo-limbo', sci: 'Bursera simaruba', layer: 2, moist: [0.0, 0.75], light: [0.45, 1],
     grow: 0.005, spread: 0.009, radius: 4, life: 80, cost: 12,
-    look: { type: 'balanites', leaf: '#6a9a4a', ...dry, deciduous: true, bark: '#b0603a' },
+    look: { type: 'balanites', leaf: '#6a9a4a', ...dry, deciduous: true, bark: '#b0603a', scale: 1.19 },
     desc: 'Jiñocuabo, the "tourist tree", for its red, peeling bark. Its small red fruits feed dozens of kinds of birds.' });
   def({ key: 'jicaro', name: 'Calabash tree', sci: 'Crescentia alata', layer: 2, moist: [0.1, 0.8], light: [0.5, 1],
     grow: 0.004, spread: 0.007, radius: 3, life: 60, cost: 12,
@@ -130,7 +130,7 @@ export default function buildChinandegaPlants(def, mix, get) {
     desc: 'Mangle blanco, the fastest mangrove to grow back on the edge of cleared ponds and mudflats.' });
   def({ key: 'neem', name: 'Neem', sci: 'Azadirachta indica', layer: 2, native: false, invasive: true,
     moist: [0.0, 0.75], light: [0.35, 1], grow: 0.007, spread: 0.012, radius: 4, life: 60, compete: 0.6, cost: 0,
-    look: { type: 'mahogany', leaf: '#4f8a3a', bark: '#5a4a3e' },
+    look: { type: 'mahogany', leaf: '#4f8a3a', bark: '#5a4a3e', scale: 0.68 },
     desc: 'INVASIVE. Nim, planted from India for shade and medicine, now seeds itself everywhere and shades out the native dry forest.' });
 
   // ---------- Seed mixes ----------

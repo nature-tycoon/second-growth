@@ -80,23 +80,23 @@ export default function buildSumatraPlants(def, mix, get) {
   // ---------- Trees ----------
   def({ key: 'oilpalm', name: 'Oil palm', sci: 'Elaeis guineensis', layer: 2, native: false, invasive: true,
     moist: [0.2, 0.78], light: [0.68, 1], grow: 0.0045, spread: 0.001, radius: 5, life: 80, matureAge: 99, compete: 0.5, cost: 0,
-    look: { type: 'oilpalm', scale: 0.8, leaf: '#4e7430', bark: '#6a5a40', berry: '#b03c18', fruit: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+    look: { type: 'oilpalm', scale: 0.65, leaf: '#4e7430', bark: '#6a5a40', berry: '#b03c18', fruit: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
     desc: 'INVASIVE here: the West African palm this estate was planted with. Its fruit bunches give palm oil; under them, little else lives. Civets, rats and wild pigs carry its seeds into the forest, so stray seedlings keep coming up. On peat that is wet again, it slowly drowns.' });
   def({ key: 'acacia', name: 'Brown salwood', sci: 'Acacia mangium', layer: 2, native: false, invasive: true, nfix: true,
     moist: [0.1, 0.85], light: [0.55, 1], grow: 0.011, spread: 0.016, radius: 4, life: 30, matureAge: 99, compete: 0.6, cost: 0,
-    look: { type: 'leucaena', leaf: '#5e7e3a', bark: '#8a7a64' },
+    look: { type: 'leucaena', leaf: '#5e7e3a', bark: '#8a7a64', scale: 1.53 },
     desc: 'INVASIVE. An Australian pulpwood tree that seeds into burned ground and old clearings. Fire makes its seeds sprout by the thousand.' });
   def({ key: 'macaranga', name: 'Mahang', sci: 'Macaranga gigantea', layer: 2,
     moist: [0.2, 0.95], light: [0.6, 1], grow: 0.011, spread: 0.014, radius: 6, life: 25, matureAge: 99, cost: 12,
-    look: { type: 'cecropia', leaf: '#7aa45a', bark: '#cfc8b4', berry: '#6a8a3a', fruit: [7, 8] },
+    look: { type: 'cecropia', leaf: '#7aa45a', bark: '#cfc8b4', berry: '#6a8a3a', fruit: [7, 8], scale: 0.81 },
     desc: 'The first tree up in any gap, with leaves as big as umbrellas. Ants live in its hollow twigs and guard it; birds and squirrels eat its seeds.' });
   def({ key: 'terap', name: 'Terap', sci: 'Artocarpus elasticus', layer: 2,
     moist: [0.25, 0.9], light: [0.45, 1], grow: 0.008, spread: 0.01, radius: 5, life: 60, matureAge: 25, mast: 0.6, cost: 15,
-    look: { type: 'inga', leaf: '#3e7a3a', bark: '#a89a84', berry: '#c8a040', fruit: [5, 6, 7], hangFruit: true, fruitSize: 1.6 },
+    look: { type: 'inga', leaf: '#3e7a3a', bark: '#a89a84', berry: '#c8a040', fruit: [5, 6, 7], hangFruit: true, fruitSize: 1.6, scale: 1.35 },
     desc: 'A fast-growing wild breadfruit with huge lobed leaves. Its big spiky fruit feed orangutans, hornbills and bears.' });
   def({ key: 'petai', name: 'Petai', sci: 'Parkia speciosa', layer: 2, nfix: true,
     moist: [0.2, 0.85], light: [0.4, 1], grow: 0.007, spread: 0.008, radius: 4, life: 80, matureAge: 15, cost: 16,
-    look: { type: 'raintree', leaf: '#4e8a3a', bark: '#8a7a64', berry: '#7a9a3a', fruit: [3, 4], hangFruit: true, fruitSize: 1.1 },
+    look: { type: 'raintree', leaf: '#4e8a3a', bark: '#8a7a64', berry: '#7a9a3a', fruit: [3, 4], hangFruit: true, fruitSize: 1.1, scale: 1.25 },
     desc: 'A spreading legume that fixes nitrogen, with "stink bean" pods that sell well in every market. Bats pollinate its hanging flower balls at night.' });
   def({ key: 'durian', name: 'Durian', sci: 'Durio zibethinus', layer: 2,
     moist: [0.3, 0.85], light: [0.3, 1], soil: 0.25, grow: 0.0045, spread: 0.007, radius: 5, life: 150, matureAge: 15, mast: 1, cost: 22,
@@ -108,7 +108,7 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'Clusters of hairy red fruit with sweet white flesh. The village sells them by the bunch, and macaques, hornbills and civets raid the trees.' });
   def({ key: 'mangosteen', name: 'Mangosteen', sci: 'Garcinia mangostana', layer: 2,
     moist: [0.35, 0.9], light: [0.15, 1], soil: 0.25, grow: 0.004, spread: 0.005, radius: 3, life: 100, matureAge: 12, cost: 20,
-    look: { type: 'magnolia', leaf: '#2e5e34', bark: '#5a4a3a', berry: '#4a1a3a', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.2 },
+    look: { type: 'magnolia', leaf: '#2e5e34', bark: '#5a4a3a', berry: '#4a1a3a', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.2, scale: 0.86 },
     desc: 'The "queen of fruits": a dense, dark evergreen that grows happily in the shade of bigger trees, with purple fruit around snow-white segments. Slow to start bearing, but it pays for decades.' });
   def({ key: 'cempedak', name: 'Cempedak', sci: 'Artocarpus integer', layer: 2,
     moist: [0.3, 0.9], light: [0.3, 1], soil: 0.2, grow: 0.006, spread: 0.007, radius: 4, life: 80, matureAge: 10, cost: 16,
@@ -132,7 +132,7 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'A dipterocarp, the giant timber trees of Southeast Asia. Every few years all of them fruit at once, and their two-winged seeds spin down by the million.' });
   def({ key: 'keruing', name: 'Keruing', sci: 'Dipterocarpus grandiflorus', layer: 2,
     moist: [0.25, 0.85], light: [0.3, 1], soil: 0.25, grow: 0.0034, spread: 0.006, radius: 4, life: 300, matureAge: 16, mast: 0.6, cost: 28,
-    look: { type: 'kapok', leaf: '#3e6a36', bark: '#9a8a7a' },
+    look: { type: 'kapok', leaf: '#3e6a36', bark: '#9a8a7a', scale: 0.78 },
     desc: 'A towering dipterocarp with a straight grey trunk, resin that was once used to caulk boats, and big winged fruit that whirl down like shuttlecocks.' });
   def({ key: 'tualang', name: 'Tualang', sci: 'Koompassia excelsa', layer: 2,
     moist: [0.2, 0.85], light: [0.35, 1], soil: 0.2, grow: 0.0032, spread: 0.005, radius: 5, life: 400, matureAge: 18, cost: 30,
@@ -140,7 +140,7 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'The tallest tree in the Asian tropics, with a smooth silver trunk. Giant honey bees hang dozens of combs from its branches, so honey hunters never let it be felled.' });
   def({ key: 'jelutong', name: 'Jelutong', sci: 'Dyera polyphylla', layer: 2, wetOK: true,
     moist: [0.55, 1], light: [0.3, 1], soil: 0.15, grow: 0.0045, spread: 0.007, radius: 4, life: 200, matureAge: 15, cost: 22,
-    look: { type: 'ipe', leaf: '#4a7a3e', bark: '#b0a690' },
+    look: { type: 'ipe', leaf: '#4a7a3e', bark: '#b0a690', scale: 1.31 },
     desc: 'A tall peat-swamp tree, tapped for its latex once used in chewing gum. One of the few big trees that grows well when drained peat is wet again.' });
   def({ key: 'nibung', name: 'Nibung palm', sci: 'Oncosperma tigillarium', layer: 2, wetOK: true,
     moist: [0.6, 1], light: [0.3, 1], grow: 0.006, spread: 0.01, radius: 4, life: 80, matureAge: 10, cost: 16,

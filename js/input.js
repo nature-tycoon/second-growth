@@ -119,7 +119,7 @@ export class Input {
     if (this.mouse.in && !this.pan) this.updateHover();
   }
 
-  tool() { return this.ui.state.tool ? TOOLS[this.ui.state.tool] : null; }
+  tool() { return this.ui.state.tool && !this.ui.state.clean ? TOOLS[this.ui.state.tool] : null; } // (no painting through a keystone moment)
   // The tile under the pointer. Snorkel-trail buoys float at the sea surface, so that tool picks
   // the tile straight below the point on the surface, not the seabed further along the same line
   // of sight (seen from above at an angle, that's a tile or two off).

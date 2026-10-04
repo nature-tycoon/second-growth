@@ -151,6 +151,7 @@ export class UI {
     this.state = {
       cat: 'inspect', tool: null, plantTab: 'mixes', brushR: 1, overlay: 'none', overlaySpecies: null,
       hover: null, previewTiles: null, inspect: null,
+      clean: false, // a keystone moment or photo mode: no brush, previews, overlays or selection markers
     };
     this.journal = [];
     this.lastTop = 0; this.lastInfo = 0; this.lastMini = 0;
@@ -1244,6 +1245,7 @@ export class UI {
   // and a small bar offers to save the picture (with the vignette) to the device.
   togglePhoto() {
     this.photo = !this.photo;
+    this.state.clean = this.photo || !!this.moment;
     document.body.classList.toggle('photo-mode', this.photo);
     if (!this.photoBar) {
       const v = document.createElement('div'); v.id = 'photo-vignette'; document.body.appendChild(v);
@@ -1277,6 +1279,7 @@ export class UI {
     const breather = 25000 - (performance.now() - (this.momentEnded ?? -1e9));
     if (this.moment || this.modalOpen || this.photo || breather > 0) { setTimeout(() => this.playMoment(m), Math.max(3000, breather)); return; }
     this.moment = m;
+    this.state.clean = true; // (the land and the animals only: no brush, overlay or selection ring)
     m.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, speed: g.speed };
     // a night moment (the fireflies) jumps the clock to a clear, warm night, and the meadows light up
     if (m.night) {
@@ -1315,6 +1318,7 @@ export class UI {
       setTimeout(() => o.remove(), 700);
       window.removeEventListener('keydown', key, true);
       this.moment = null; this.momentEnded = performance.now();
+      this.state.clean = !!this.photo;
     };
     const key = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); end(); } };
     window.addEventListener('keydown', key, true);

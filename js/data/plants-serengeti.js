@@ -80,7 +80,7 @@ export default function buildSerengetiPlants(def, mix, get) {
   // ---------- Trees ----------
   def({ key: 'umbrella', name: 'Umbrella thorn', sci: 'Vachellia tortilis', layer: 2, nfix: true,
     moist: [0.03, 0.75], light: [0.45, 1], grow: 0.006, spread: 0.009, radius: 5, life: 150, matureAge: 16, cost: 18,
-    look: { type: 'umbrella', leaf: '#6a8a42', bark: '#4a3a2e', flower: '#f4f0d8', bloom: [8, 9], bloomTint: 0.45 },
+    look: { type: 'umbrella', leaf: '#6a8a42', bark: '#4a3a2e', flower: '#f4f0d8', bloom: [8, 9], bloomTint: 0.45, scale: 0.94 },
     desc: 'The flat-topped acacia of every Serengeti sunset. Giraffe browse it, weavers nest in it, and its nitrogen-rich shade grows the best grass.' });
   def({ key: 'fevertree', name: 'Fever tree', sci: 'Vachellia xanthophloea', layer: 2, nfix: true, wetOK: false,
     moist: [0.45, 1], light: [0.45, 1], grow: 0.008, spread: 0.009, radius: 4, life: 80, matureAge: 14, cost: 20,
@@ -112,7 +112,7 @@ export default function buildSerengetiPlants(def, mix, get) {
     desc: 'A giant succulent shaped like a candelabra, growing out of the granite kopjes. Its milky sap is poisonous.' });
   def({ key: 'mesquite', name: 'Mesquite', sci: 'Prosopis juliflora', layer: 2, native: false, invasive: true, nfix: true,
     moist: [0.0, 0.8], light: [0.45, 1], grow: 0.011, spread: 0.007, radius: 4, life: 60, matureAge: 99, compete: 0.6, cost: 0,
-    look: { type: 'mesquite', leaf: '#7a9a4a', bark: '#5a4a3a' },
+    look: { type: 'mesquite', leaf: '#7a9a4a', bark: '#5a4a3a', scale: 1.24 },
     desc: 'INVASIVE. Planted to stop the desert spreading, it spread instead: impenetrable thorn thickets that drink the groundwater and crowd out grass.' });
 
   // ---------- Seed mixes ----------

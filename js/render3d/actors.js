@@ -158,7 +158,7 @@ export class Actors {
     this.shadows.instanceMatrix.needsUpdate = true;
 
     // ---- selection ring
-    const sel = game.selectedAgent;
+    const sel = this.clean ? null : game.selectedAgent;
     if (sel) {
       this.ring.visible = true;
       this.ring.position.set(sel.x, w.heightAt(clamp(sel.x, -9, w.w + 9), clamp(sel.y, -9, w.h + 9)) * LEVEL + 0.03, sel.y);

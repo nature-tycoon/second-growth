@@ -75,7 +75,7 @@ export default function buildAmazonPlants(def, mix, get) {
   // ---------- Trees ----------
   def({ key: 'cecropia', name: 'Embaúba (cecropia)', sci: 'Cecropia pachystachya', layer: 2,
     moist: [0.25, 0.95], light: [0.6, 1], grow: 0.01, spread: 0.014, radius: 6, life: 25, matureAge: 99, cost: 14,
-    look: { type: 'cecropia', leaf: '#8ab06a', bark: '#d8d4c4' },
+    look: { type: 'cecropia', leaf: '#8ab06a', bark: '#d8d4c4', scale: 0.73 },
     desc: 'The first tree up in any clearing: pale trunk and giant umbrella leaves. Sloths love it, and ants guard it.' });
   def({ key: 'inga', name: 'Ice-cream bean (ingá)', sci: 'Inga edulis', layer: 2, nfix: true,
     moist: [0.3, 0.95], light: [0.45, 1], grow: 0.008, spread: 0.01, radius: 4, life: 40, matureAge: 30, mast: 0.5, cost: 16,
@@ -103,7 +103,7 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'The queen of the forest, with a buttressed trunk and a crown above the canopy. Its seeds float away on cotton.' });
   def({ key: 'mahogany', name: 'Big-leaf mahogany', sci: 'Swietenia macrophylla', layer: 2,
     moist: [0.25, 0.85], light: [0.25, 1], soil: 0.25, grow: 0.0034, spread: 0.006, radius: 4, life: 250, matureAge: 14, cost: 30,
-    look: { type: 'mahogany', leaf: '#3f6a3a', bark: '#7a5a44' },
+    look: { type: 'mahogany', leaf: '#3f6a3a', bark: '#7a5a44', scale: 1.18 },
     desc: 'Logged almost to extinction for its red timber. Replanting it rebuilds the canopy for the long run.' });
   def({ key: 'ipe', name: 'Pink ipê', sci: 'Handroanthus impetiginosus', layer: 2,
     moist: [0.1, 0.75], light: [0.4, 1], soil: 0.15, grow: 0.0036, spread: 0.008, radius: 5, life: 200, matureAge: 14, cost: 26,

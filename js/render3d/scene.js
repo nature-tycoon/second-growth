@@ -502,6 +502,7 @@ export class Renderer {
     this.terrain.tiles.wet.value += ((raining ? 1 : 0) - this.terrain.tiles.wet.value) * Math.min(1, dt * (raining ? 0.4 : 0.3)); // dries within a few seconds
     this.terrain.sky.value.copy(this.hemi.color);
     const r = this.right();
+    this.actors.clean = !!ui.clean;
     this.actors.update(game, r, this.time);
     this.rockBoats();
     this.updateFocus(game, dt);
@@ -520,6 +521,11 @@ export class Renderer {
     const W = this.gl.domElement.width, H = this.gl.domElement.height;
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const ctx = c.getContext('2d');
+    // the page's backdrop shows through past the horizon (behind Chinandega's volcano, say): paint
+    // it in, or a saved picture is black there (the same gradient as the body's in styles.css)
+    const bg = ctx.createRadialGradient(W / 2, H * 0.35, 0, W / 2, H * 0.35, Math.hypot(W, H) * 0.6);
+    bg.addColorStop(0, '#56715a'); bg.addColorStop(0.55, '#34493a'); bg.addColorStop(1, '#1f2c24');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
     ctx.drawImage(this.gl.domElement, 0, 0); ctx.drawImage(this.ui, 0, 0, W, H);
     if (!vignette) return c;
     const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.56);
@@ -552,7 +558,7 @@ export class Renderer {
 
   // ------------------------------------------------------------------ tile overlays
   updateOverlay(game, ui, now) {
-    const mode = ui.overlay || 'none';
+    const mode = ui.clean ? 'none' : ui.overlay || 'none';
     if (mode === 'none') { if (this.overlayMode !== 'none') this.terrain.setOverlay(null); this.overlayMode = 'none'; return; }
     if (mode === this.overlayMode && ui.overlaySpecies === this.overlaySpecies && now - this.overlayAt < 800) return;
     this.overlayMode = mode; this.overlaySpecies = ui.overlaySpecies; this.overlayAt = now;
@@ -578,7 +584,7 @@ export class Renderer {
   }
 
   updatePreview(ui) {
-    const list = ui.hover && ui.previewTiles ? ui.previewTiles : null;
+    const list = ui.hover && ui.previewTiles && !ui.clean ? ui.previewTiles : null;
     const key = list ? list.map(p => p.i + p.color).join() : '';
     if (key === this.previewKey) return;
     this.previewKey = key;
@@ -654,7 +660,7 @@ export class Renderer {
     ctx.globalAlpha = 1;
 
     // brush ring
-    if (ui.hover && ui.previewTiles) {
+    if (ui.hover && ui.previewTiles && !ui.clean) {
       const cx = ui.hover.x + 0.5, cz = ui.hover.y + 0.5, R = ui.brushR + 0.5;
       const floor = biome.buoyTrails && ui.tool === 'trail' ? this.seaY : null; // (buoys: the ring floats on the surface where they'll go)
       ctx.strokeStyle = 'rgba(255,248,220,0.9)'; ctx.lineWidth = 1.5;
@@ -668,7 +674,7 @@ export class Renderer {
     }
 
     // label for the selected animal
-    const sel = game.selectedAgent;
+    const sel = ui.clean ? null : game.selectedAgent;
     if (sel) {
       const s = this.actors.pose.get(sel.id);
       if (s) {
