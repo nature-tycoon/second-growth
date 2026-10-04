@@ -83,6 +83,7 @@ export class Renderer {
     this.scene = new THREE.Scene();
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -300, 300);
     this.target = new THREE.Vector3(40, 1, 32);
+    this.frame = { x: 0.5, y: 0.5 }; this.frameGoal = { x: 0.5, y: 0.5 }; // (see updateCamera)
     this.az = Math.PI / 4; this.azTarget = this.az;
     this.zoom = 1;
     this.hemi = new THREE.HemisphereLight(0xe4eeff, 0x5f6e3c, 1.25);
@@ -135,7 +136,7 @@ export class Renderer {
     // phones and tablets adjust the resolution to keep up (see autoResolution); it starts afresh
     // whenever the settings change
     this.autoRes = TOUCH;
-    if (fresh) { this.resScale = 1; this.resWin = null; this.roomFor = 0; }
+    if (fresh) { this.resScale = 1; this.resWin = null; this.roomFor = 0; this.resStart = null; this.peakFps = 0; this.resTried = null; this.resNoGain = false; this.slowN = 0; this.resCeil = null; }
     this.dpr = this.baseDpr * this.resScale;
     this.gl.setPixelRatio(this.dpr);
     this.windOn = !!s.wind;
@@ -150,30 +151,54 @@ export class Renderer {
 
   // Phones vary enormously, so on touch screens the view sets its own resolution: it steps down
   // while the frame rate is low and creeps back up once there's room again, never above the
-  // setting. As a last resort it turns shadows off for the rest of the session. Frames are
-  // counted against the clock (a struggling phone often delivers them in bursts, so the gaps
-  // between single frames don't tell you much).
+  // setting. As a last resort it turns shadows off for the rest of the session.
+  // - It waits out the first seconds (loading, the first plant builds) before judging anything.
+  // - It reads the typical frame (the median gap over two seconds), so the hitch of a new day's
+  //   repaint doesn't count as a slow phone.
+  // - A phone held to 30 frames a second (low power mode) isn't pushed down for running at 30,
+  //   and "room to spare" means close to the fastest it has run, so it can climb back up.
+  // - If a step down doesn't make it any faster, pixels weren't the problem (the simulation is):
+  //   the step is undone and it stops trading sharpness for nothing.
+  // - It never goes below one pixel per screen point.
   autoResolution() {
     if (!this.autoRes) return;
     const now = performance.now(), A = this.resWin;
+    this.resStart ??= now;
     // a long gap means the game was in the background: start counting afresh
-    if (!A || now - A.last > 3000) { this.resWin = { t0: now, last: now, n: 0 }; return; }
-    A.n++; A.last = now;
-    const span = (now - A.t0) / 1000;
-    if (span < 2) return;
-    const fps = A.n / span;
-    this.resWin = { t0: now, last: now, n: 0 };
-    const min = Math.min(1, 0.55 / this.baseDpr);
+    if (!A || now - A.last > 3000) { this.resWin = { t0: now, last: now, gaps: [] }; return; }
+    A.gaps.push(now - A.last); A.last = now;
+    if (now - A.t0 < 2000) return;
+    this.resWin = { t0: now, last: now, gaps: [] };
+    if (now - this.resStart < 6000) return;
+    const g = A.gaps.sort((a, b) => a - b), fps = 1000 / Math.max(1, g[g.length >> 1]);
+    this.peakFps = Math.min(120, Math.max(this.peakFps || 0, fps));
+    const min = Math.min(1, 1 / this.baseDpr), peak = this.peakFps;
     let sc = this.resScale;
-    if (fps < 26) { sc = Math.max(min, sc * 0.82); this.roomFor = 0; }
-    else if (fps > 50) { this.roomFor += span; if (this.roomFor >= 6) { sc = Math.min(1, sc * 1.12); this.roomFor = 0; } }
-    else this.roomFor = 0;
-    if (Math.abs(sc - this.resScale) > 0.005) {
-      this.resScale = sc; this.dpr = this.baseDpr * sc;
-      this.gl.setPixelRatio(this.dpr); this.resize();
-    } else if (fps < 20 && sc <= min + 0.005 && this.sun.castShadow) {
-      this.sun.castShadow = false; this.shadowsDropped = true;
+    // judge the last step down: no faster means it didn't help, so take it back for good
+    const tried = this.resTried;
+    if (tried) {
+      this.resTried = null;
+      if (fps < tried.fps * 1.1) { this.resNoGain = true; this.setRes(tried.sc); return; }
     }
+    // (a screen that tops out near 30 is held there: only a real stumble below that counts)
+    const slow = fps < (peak > 27 && peak < 35 ? 24 : 26);
+    this.slowN = slow ? (this.slowN || 0) + 1 : 0;
+    if (slow && this.slowN >= 2 && !this.resNoGain && sc > min + 0.005) {
+      this.resTried = { fps, sc }; this.slowN = 0;
+      // too slow right after a step up: that step was one too far, so don't climb that high again
+      if (now - (this.raisedAt || -1e9) < 12000) this.resCeil = sc - 0.001;
+      this.setRes(Math.max(min, sc * 0.85));
+    } else if (fps >= peak * 0.9 && sc < Math.min(1, this.resCeil ?? 1)) {
+      this.roomFor += 2;
+      if (this.roomFor >= 6) { this.roomFor = 0; this.raisedAt = now; this.setRes(Math.min(1, this.resCeil ?? 1, sc * 1.12)); }
+    } else {
+      this.roomFor = 0;
+      if (fps < 20 && (sc <= min + 0.005 || this.resNoGain) && this.sun.castShadow) { this.sun.castShadow = false; this.shadowsDropped = true; }
+    }
+  }
+  setRes(sc) {
+    this.resScale = sc; this.dpr = this.baseDpr * sc;
+    this.gl.setPixelRatio(this.dpr); this.resize();
   }
 
   // Dissolve cover between the camera and the selected animal, easing in and out.
@@ -213,14 +238,17 @@ export class Renderer {
 
   updateCamera() {
     const c = this.camera, hw = this.vw / 2 / this.ppu, hh = this.vh / 2 / this.ppu;
-    c.left = -hw; c.right = hw; c.top = hh; c.bottom = -hh;
+    // the camera's target sits at this point on screen (the middle, unless a keystone moment's
+    // title card needs the subject framed beside it): fractions of the width and height from top-left
+    const fr = this.frame;
+    c.left = -fr.x * 2 * hw; c.right = (1 - fr.x) * 2 * hw; c.top = fr.y * 2 * hh; c.bottom = -(1 - fr.y) * 2 * hh;
     c.position.copy(this.target).addScaledVector(this.viewDir(), 120);
     c.up.set(0, 1, 0);
     c.lookAt(this.target);
     c.updateProjectionMatrix();
     c.updateMatrixWorld();
     // keep the shadow map fitted to what's on screen
-    const s = Math.max(hw, hh) * 1.35 + 3;
+    const s = Math.max(hw, hh) * (1.35 + 2 * Math.max(Math.abs(fr.x - 0.5), Math.abs(fr.y - 0.5))) + 3;
     const sc = this.sun.shadow.camera;
     sc.left = -s; sc.right = s; sc.top = s; sc.bottom = -s; sc.near = 1; sc.far = 160;
     sc.updateProjectionMatrix();
@@ -282,7 +310,8 @@ export class Renderer {
     const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(c.quaternion);
     const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(c.quaternion);
     const d = this.viewDir();
-    const o = this.target.clone().addScaledVector(camRight, nx * c.right).addScaledVector(camUp, ny * c.top).addScaledVector(d, 40);
+    const ox = c.left + (nx + 1) / 2 * (c.right - c.left), oy = c.bottom + (ny + 1) / 2 * (c.top - c.bottom);
+    const o = this.target.clone().addScaledVector(camRight, ox).addScaledVector(camUp, oy).addScaledVector(d, 40);
     return { o, d: d.clone().negate() };
   }
   heightAtScene(x, z) {
@@ -405,6 +434,13 @@ export class Renderer {
     if (Math.abs(this.azTarget - this.az) > 0.001) {
       this.az += (this.azTarget - this.az) * Math.min(1, dt * 8);
       if (Math.abs(this.azTarget - this.az) < 0.002) this.az = this.azTarget;
+      this.updateCamera();
+    }
+    const fr = this.frame, fg = this.frameGoal;
+    if (Math.abs(fg.x - fr.x) + Math.abs(fg.y - fr.y) > 0.0005) {
+      const k = Math.min(1, dt * 3);
+      fr.x += (fg.x - fr.x) * k; fr.y += (fg.y - fr.y) * k;
+      if (Math.abs(fg.x - fr.x) + Math.abs(fg.y - fr.y) <= 0.0005) { fr.x = fg.x; fr.y = fg.y; }
       this.updateCamera();
     }
     if (this.fly) {

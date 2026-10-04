@@ -1303,6 +1303,16 @@ export class UI {
       <div class="mo-btns"><button class="btn secondary" data-a="card">Save postcard</button><button class="btn" data-a="go">Continue</button></div></div>`;
     document.body.appendChild(o);
     document.body.classList.add('moment-on');
+    // keep the subject out from under the title card: frame it in the open part of the screen
+    // (beside the card, or above it if there isn't room beside), which matters most on a phone
+    const card = o.querySelector('.mo-card');
+    const reframe = () => {
+      const vw = innerWidth, vh = innerHeight, x0 = card.offsetLeft, x1 = x0 + card.offsetWidth, y0 = card.offsetTop;
+      const covers = x0 < vw * 0.62 && x1 > vw * 0.38 && y0 < vh * 0.68;
+      r.frameGoal = !covers ? { x: 0.5, y: 0.5 } : vw - x1 >= vw * 0.3 ? { x: (x1 + vw) / 2 / vw, y: 0.48 } : { x: 0.5, y: Math.max(0.2, y0 / 2 / vh) };
+    };
+    reframe();
+    window.addEventListener('resize', reframe);
     requestAnimationFrame(() => o.classList.add('bars'));
     setTimeout(() => o.classList.add('card'), 1500);
     const end = () => {
@@ -1313,6 +1323,8 @@ export class UI {
       r.focusTile = null;
       if (g.selectedAgent === m.agent) g.selectedAgent = m.prevSel && g.wildlife.agents.includes(m.prevSel) ? m.prevSel : null;
       r.flyTo(m.prev.x, m.prev.z, m.prev.zoom, 1.6);
+      r.frameGoal = { x: 0.5, y: 0.5 };
+      window.removeEventListener('resize', reframe);
       o.classList.remove('bars', 'card');
       document.body.classList.remove('moment-on');
       setTimeout(() => o.remove(), 700);
