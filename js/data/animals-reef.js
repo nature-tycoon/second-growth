@@ -121,7 +121,7 @@ export default function buildReefAnimals(def) {
     prey: ['parrotfish', 'tang', 'chromis', 'trout', 'sweetlips'], preyPer: 12,
     suit: (W, i) => reef[W.habitat[i]] * (0.6 + 0.4 * Math.max(table(W, i), station(W, i))), // (it rests under table corals and old coral heads by day)
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 500) / 500),
-    sprite: { kind: 'shark', size: 34, back: '#7a8088', flank: '#949aa2', belly: '#e4e6e8', swim: 0.4, show: 2.04 },
+    sprite: { kind: 'shark', size: 34, back: '#7a8088', flank: '#949aa2', belly: '#e4e6e8', swim: 0.4, show: 2.04, beat: 0.5 },
     desc: 'Rests in caves under the coral by day and hunts through the reef at night. Sharks keep the fish they prey on healthy; a reef with sharks is a reef in good shape.',
     hint: 'A big, old reef full of fish.' });
   def({ key: 'manta', reef: true, name: 'Reef manta ray', sci: 'Mobula alfredi', group: 'Turtles, sharks & rays', move: 'ground',

@@ -296,6 +296,12 @@ export class Flora {
         const g = inside ? w.shrubG[i] : 1;
         const phase = plantPhase(p, month);
         let sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
+        // a blue sea star sharing a tile with a coral lies on the sand beside it, at the far side
+        // of the tile from the coral, rather than in the same spot with its arms poking through
+        if (p.look.type === 'seastar' && tid) {
+          const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5; // (where the coral stands: see trees below)
+          sx = x + 0.5 - Math.sign(ox || 1) * 0.34; sz = y + 0.5 - Math.sign(oz || 1) * 0.34;
+        }
         let sy = hAt(sx, sz);
         if (p.look.climbs && tid) { // (a crown-of-thorns starfish sits up on top of the coral it's eating)
           const tp = PLANTS[tid], tg = inside ? w.treeG[i] : 0.9, tsc = (0.2 + 0.8 * tg) * (0.78 + hash2(x, y, 9) * 0.42) * (tp.look.scale ?? 1);
@@ -401,10 +407,15 @@ export class Flora {
       // shade cloth strung just under the surface over the reef in a heatwave
       if (seaY != null && (w.marks[i] & 8)) this.pool('shadecloth', () => G.shadeCloth(), this.small, { shadow: true }).add(x + 0.5, seaY - 0.035, y + 0.5, 1, 1, 1, 0, [0.12, 0.17, 0.15]);
 
-      // reef stars laid over the rubble, until the coral grown on them hides them
-      if ((w.marks[i] & 2) && !(w.tree[i] && w.treeG[i] > 0.6)) {
-        const rx = x + 0.5, rz = y + 0.5;
-        this.pool('reefstar', () => G.reefStar(77), this.small).add(rx, hAt(rx, rz) - 0.01, rz, 1.05, 1.05, 1.05, hash2(x, y, 19) * 1.05, [0.84, 0.78, 0.64]);
+      // reef stars laid over the rubble: bare sand-coated steel at first, then, as the coral tied
+      // onto them grows, crusted over with pink coralline algae and settling into the rubble,
+      // until the coral has grown over them altogether
+      // (and a bare one crusts over with the coralline algae spreading across its rubble, low and pink)
+      const crust = Math.max(w.tree[i] ? clamp(w.treeG[i] / 0.45, 0, 1) : 0, w.ground[i] && PLANTS[w.ground[i]].crustOK ? w.groundG[i] * 0.85 : 0);
+      if ((w.marks[i] & 2) && crust < 1) {
+        const rx = x + 0.5, rz = y + 0.5, s = 0.85 * (1 - 0.3 * crust);
+        this.pool('reefstar', () => G.reefStar(77), this.small).add(rx, hAt(rx, rz) - 0.01 - 0.035 * crust, rz, s, s * (1 - 0.5 * crust), s, hash2(x, y, 19) * 1.05,
+          mixc([0.84, 0.78, 0.64], [0.6, 0.47, 0.5], Math.min(1, crust * 1.4)).map(c => c * dim));
       }
 
       // ---- features

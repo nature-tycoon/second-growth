@@ -3154,7 +3154,10 @@ export function buildSpecies(def) {
     case 'snake': snake(m, s); mo.wave = s.size * 0.13; mo.waveK = 5.2 / (s.size * 2.4); mo.waveHead = s.size * 1.3; mo.waveLen = s.size * 2.4; mo.sink = s.size * 0.05; break;
     case 'person': person(m, s.look, !!s.snorkel); mo.leg = 0.5; mo.bob = 0.5; mo.len = 8; break;
     case 'butterflyfish': butterflyfish(m, s); mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.1; mo.waveLen = s.size * 0.6; mo.sink = s.size * 0.32; mo.tail = 0.5; break;
-    case 'shark': shark(m, s); mo.wave = s.size * 0.06; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.3; mo.waveLen = s.size * 0.9; mo.sink = s.size * 0.16; mo.tail = 0.6; break;
+    // (a shark swims with its whole back half: about one wave along the body, the head almost
+    // still and the sweep growing toward the tail, which rides the same wave rather than flicking
+    // on its own; and it curves into a C as it turns: see bend in actors.js)
+    case 'shark': shark(m, s); mo.wave = s.size * 0.085; mo.waveK = 6.28 / (s.size * 1.05); mo.waveHead = s.size * 0.42; mo.waveLen = s.size * 1.1; mo.waveMin = 0.04; mo.wavePow = 1.8; mo.bend = s.size * 0.22; mo.sink = s.size * 0.16; mo.tail = 0; break;
     case 'idol': idol(m, s); mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.1; mo.waveLen = s.size * 0.6; mo.sink = s.size * 0.32; mo.tail = 0.5; break;
     case 'fish': fish(m, s); mo.wave = s.size * 0.07; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.25; mo.waveLen = s.size * 0.9; mo.sink = s.size * 0.2; mo.tail = 0.5; break;
     default: m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
@@ -3169,12 +3172,13 @@ export function faunaMaterial(motion) {
   const u = {
     uLeg: { value: motion.leg }, uBob: { value: motion.bob }, uTail: { value: motion.tail }, uFlap: { value: motion.flap },
     uHead: { value: motion.head ?? 0.9 }, uWave: { value: motion.wave }, uWaveK: { value: motion.waveK }, uWaveHead: { value: motion.waveHead }, uWaveLen: { value: motion.waveLen },
+    uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uBend: { value: motion.bend ?? 0 },
   };
   mat.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
       attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim;
-      uniform float uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen;
+      uniform float uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uBend;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
       vec3 rotY(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c); }
       vec3 rotZ(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c - q.y * s, q.x * s + q.y * c, q.z); }
@@ -3202,7 +3206,9 @@ export function faunaMaterial(motion) {
         transformed.y += abs(sin(ph)) * uBob * gait * (1.0 - fly);
         if (uWave > 0.0) {
           float t = clamp((uWaveHead - transformed.x) / uWaveLen, 0.0, 1.0);
-          transformed.z += sin(transformed.x * uWaveK - ph * 1.4) * uWave * mix(0.25, 1.0, t) * (0.35 + gait);
+          transformed.z += sin(transformed.x * uWaveK - ph * 1.4) * uWave * mix(uWaveMin, 1.0, pow(t, uWavePow)) * (0.35 + gait);
+          // a swimmer turning curves its body into the turn (the anim's last slot carries how hard)
+          if (uBend > 0.0) transformed.z += graze * uBend * t * t;
         }
       `);
   };

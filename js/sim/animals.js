@@ -640,7 +640,7 @@ export class Wildlife {
       const def = ANIMALS[a.sp];
       a.age += dt;
       // (a fish beats its tail faster the faster it swims, and only sculls gently while it hovers)
-      a.phase += dt * (def.reef ? 2.5 + 5 * Math.min(1.6, (a.spd || 0) / def.speed) : 6);
+      a.phase += dt * (def.reef ? 2.5 + 5 * Math.min(1.6, (a.spd || 0) / def.speed) : 6) * (def.sprite.beat ?? 1); // (beat: a big, slow swimmer's tail)
       if (biome.waterholes) a.thirst = (a.thirst || 0) + dt;
       if (a.drinkT > 0) a.drinkT -= dt;
       const sp = def.speed * dt * (a.follow ? 1.3 : a.wade ? 0.3 : 1); // herd members trot to keep up; waders step slowly

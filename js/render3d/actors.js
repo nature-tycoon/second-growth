@@ -113,16 +113,23 @@ export class Actors {
         else if (w.feature[i] === FEAT.SNAG) y += 0.9;
       }
       // face the way it's moving, and blend between standing, walking and flying
-      const dx = a.x - st.px, dz = a.y - st.py;
+      const dx = a.x - st.px, dz = a.y - st.py, yaw0 = st.yaw;
       const moving = a.state !== 'idle' && (dx * dx + dz * dz > 1e-7 || flying);
       if (dx * dx + dz * dz > 1e-6) st.yaw = lerpAngle(st.yaw, Math.atan2(-dz, dx), Math.min(1, k * 1.6));
+      // a swimmer that bends (the shark) curves into its turns: the tail swings to the inside
+      if (mo.bend) {
+        let dy = st.yaw - yaw0; dy -= Math.round(dy / (Math.PI * 2)) * Math.PI * 2;
+        const rate = dy / Math.max(1e-3, time - (st.t ?? time - 0.016));
+        st.bend = (st.bend || 0) + (clamp(-rate * 0.45, -1, 1) - (st.bend || 0)) * Math.min(1, k * 0.8);
+      }
+      st.t = time;
       st.px = a.x; st.py = a.y;
       st.gait += ((moving ? 1 : 0) - st.gait) * k;
       st.fly += ((flying ? 1 : 0) - st.fly) * k * 1.5;
       // heads down to graze, and for everyone drinking at the water's edge
       const grazing = !moving && (a.drinkT > 0 || (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1));
       st.graze += ((grazing ? 1 : 0) - st.graze) * k * 0.5;
-      F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, st.graze, st.pitch || 0);
+      F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, st.pitch || 0);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
       if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * PX * 0.4 * ageF * (flying || def.reef ? 0.7 : 1));

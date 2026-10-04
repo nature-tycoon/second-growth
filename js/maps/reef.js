@@ -88,7 +88,17 @@ function terrainFit(w, i, p) {
   if (p.cay) return 0;
   const t = w.terrain[i];
   if (p.key === 'cots') return w.tree[i] ? 1 : 0.15; // starfish go where there's coral to eat
-  if (p.key === 'linckia') return 0.7; // (blue sea stars roam sand, rubble and reef alike)
+  // (blue sea stars roam sand, rubble and reef alike, but they're scattered singly, a few to a
+  // reef flat, not a carpet: a new one only settles away from the others, and only while the
+  // reef has no more than it started with, about one tile in sixty)
+  if (p.key === 'linckia') {
+    if ((w.stats?.seastars || 0) > w.n * 0.016) return 0;
+    const x = i % w.w, y = (i / w.w) | 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      if ((dx || dy) && w.inb(x + dx, y + dy) && w.shrub[w.idx(x + dx, y + dy)] === p.id) return 0;
+    }
+    return 0.7;
+  }
   if (holder(w, i, p)) return 0.05;
   if (p.key === 'fungia') return t === T.GRAVEL ? 0.8 : t === T.PASTURE ? 0.7 : 0.6; // (the coral that lies loose on rubble and sand)
   if (p.key === 'clam') return t === T.GRAVEL && !cemented(w, i) ? 0.6 : 0.9; // (giant clams sit on sand and rubble)
@@ -132,8 +142,11 @@ function reefDaily(g) {
   // clean the water around it is (algae and flood plumes make it worse).
   if (g.month === 8 && dom === 0 && f.heatYear !== year) {
     f.heatYear = year;
-    if (year >= 1 && rng() < 0.38 * (g.diff?.disasters ?? 1)) {
-      f.heatSoon = { sev: 0.6 + rng() * 0.6, len: 24 + Math.floor(rng() * 30) };
+    // (none on Relaxed; otherwise about one summer in four, and never two summers running: the
+    // reef always gets at least a year to recover)
+    if (year >= 1 && g.difficulty !== 'relaxed' && year - (f.heatLastYear ?? -9) >= 2 && rng() < 0.25 * (g.diff?.disasters ?? 1)) {
+      f.heatLastYear = year;
+      f.heatSoon = { sev: 0.6 + rng() * 0.6, len: 18 + Math.floor(rng() * 26) };
       g.notify(`Heat outlook: the weather bureau expects the water over the reef to run ${f.heatSoon.sev > 0.9 ? 'two' : 'one and a half'} degrees too warm this summer, from December. To protect the corals: string shade cloth over the ones you care about most (Landscape → Shade cloth), keep the algae down (dirty water makes bleaching worse), and remember that boulder and brain corals, and corals in deeper water, cope far better than staghorn and table coral.`, 'warn');
     }
   }
@@ -153,9 +166,9 @@ function reefDaily(g) {
       const depth = SEA - w.tileH(i % w.w, (i / w.w) | 0), cool = clamp((depth - 4) / 8, 0, 0.5); // (deeper water stays a little cooler)
       const shade = w.marks[i] & 8 ? 0.75 : 0; // (shade cloth: much less sun on a hot, still day)
       const b0 = B[i];
-      B[i] = Math.min(1, B[i] + 0.05 * heat.sev * sens * (1 - cool) * (1 - shade) * (1 + dirty));
+      B[i] = Math.min(1, B[i] + 0.03 * heat.sev * sens * (1 - cool) * (1 - shade) * (1 + dirty));
       if (b0 < 0.5 && B[i] >= 0.5) heat.hit++;
-    } else if (B[i] > 0) B[i] = Math.max(0, B[i] - (dirty ? 0.01 : 0.018)); // recovering, slowly, once the water cools (faster in clean water)
+    } else if (B[i] > 0) B[i] = Math.max(0, B[i] - (dirty ? 0.012 : 0.024)); // recovering, slowly, once the water cools (faster in clean water)
     // coral bleached white for too long starves
     if (B[i] > 0.8 && rng() < 0.012 * (B[i] - 0.6) / 0.4 * (tp ? (tp.bleach ?? 1) : 1)) {
       if (tp) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; } // dead branches collapse into rubble
@@ -344,19 +357,20 @@ function reefMoments(g) {
 
 // counts for goals and the manta's cleaning stations
 function reefStats(w, s) {
-  let coral = 0, cots = 0, cleaner = 0, bleached = 0, cay = 0, pisonia = 0, clams = 0, soft = 0;
-  const clam = PLANT.clam?.id, cid = PLANT.cots?.id, boulder = PLANT.boulder?.id, brain = PLANT.brain?.id, pis = PLANT.pisonia?.id, kinds = {};
+  let coral = 0, cots = 0, cleaner = 0, bleached = 0, cay = 0, pisonia = 0, clams = 0, soft = 0, stars = 0;
+  const star = PLANT.linckia?.id, clam = PLANT.clam?.id, cid = PLANT.cots?.id, boulder = PLANT.boulder?.id, brain = PLANT.brain?.id, pis = PLANT.pisonia?.id, kinds = {};
   for (let i = 0; i < w.n; i++) {
     const tp = w.tree[i] ? PLANTS[w.tree[i]] : null;
     if (tp && !tp.cay && w.treeG[i] > 0.3) { coral++; kinds[tp.key] = (kinds[tp.key] || 0) + 1; if ((w.tree[i] === boulder || w.tree[i] === brain) && w.treeAge[i] > 40 * 120) cleaner++; }
     if (w.shrub[i] === cid) cots++;
+    else if (w.shrub[i] === star) stars++;
     else if (w.shrub[i] === clam && w.shrubG[i] > 0.5) clams++;
     if (w.shrub[i] && w.shrubG[i] > 0.4 && ['softcoral', 'seafan', 'sponge'].includes(PLANTS[w.shrub[i]].key)) soft++;
     if (w.bleach && w.bleach[i] > 0.5) bleached++;
     if ((tp?.cay && w.treeG[i] > 0.3) || (w.shrub[i] && PLANTS[w.shrub[i]].cay) || (w.ground[i] && PLANTS[w.ground[i]].cay && w.groundG[i] > 0.3)) cay++;
     if (w.tree[i] === pis && w.treeG[i] > 0.45) pisonia++;
   }
-  s.coral = coral; s.cots = cots; s.cleanerTiles = cleaner; s.bleached = bleached; s.cayPlants = cay; s.pisonia = pisonia; s.clams = clams; s.softCoral = soft;
+  s.coral = coral; s.cots = cots; s.cleanerTiles = cleaner; s.bleached = bleached; s.cayPlants = cay; s.pisonia = pisonia; s.clams = clams; s.softCoral = soft; s.seastars = stars;
   s.coralKinds = Object.values(kinds).filter(k => k >= 20).length; // (hard corals growing on at least 20 tiles each)
 }
 
@@ -439,7 +453,7 @@ export default {
     '<b>Rubble is the problem.</b> Coral can\'t grow on rubble that rolls in the swell. <b>Lay reef stars</b> to hold it still, or sow <b>coralline algae</b> to cement it, then plant <b>coral fragments</b> from the nursery.',
     '<b>Corals spawn</b> after the November full moon, and their larvae settle on clean, stable surfaces. Algae smothers those surfaces; <b>parrotfish and surgeonfish</b> graze it back.',
     '<b>Crown-of-thorns starfish</b> eat coral. A few are normal; outbreaks strip reefs bare. They breed each summer, and flood plumes let far more of their young survive; a reef full of fish eats most of them. <b>Cull them</b> whenever they turn up.',
-    '<b>Marine heatwaves</b> come some summers and bleach the corals; the weather bureau warns you in November. Short ones they survive; long ones kill the branching corals. <b>Boulder and brain corals</b> are much tougher, deeper water stays cooler, <b>shade cloth</b> protects the corals under it for the summer, and corals in clean water (little algae) bleach less and recover faster.',
+    '<b>Marine heatwaves</b> come some summers (never on Relaxed) and bleach the corals; the weather bureau warns you in November. Short ones they survive; long ones kill the branching corals. <b>Boulder and brain corals</b> are much tougher, deeper water stays cooler, <b>shade cloth</b> protects the corals under it for the summer, and corals in clean water (little algae) bleach less and recover faster.',
     '<b>Sand</b> is for seagrass, but <b>reef boulders</b> dropped on it give corals somewhere to grow, and mushroom corals and giant clams live on it anyway.',
     '<b>Corals compete for room</b>: a spot held by a soft coral, sponge or clam stays theirs, so plant soft coral gardens between the hard corals and they\'ll hold their own.',
     '<b>Seagrass</b> on the lagoon sand is a nursery for young fish, and grazing for green turtles and dugongs.',
@@ -486,7 +500,7 @@ export default {
       'Autumn: the water cools after summer. Bleached corals that survived are taking their colour back.',
       'Winter: clear, calm water. Manta rays come in to the old coral heads to be cleaned.',
       'Spring: the corals spawn after the November full moon. Clean, stable rubble gives the larvae somewhere to settle.',
-      'Summer: the hottest water of the year. Watch for marine heatwaves and bleaching.',
+      'Summer: the hottest water of the year, when a marine heatwave can bleach the corals.',
     ],
     fireCause: ['Lightning'],
   },
