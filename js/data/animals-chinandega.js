@@ -15,7 +15,7 @@ export default function buildChinandegaAnimals(def) {
       speed: 0.7, hr: 60, max: 12, minK: 3, groupSize: [3, 5], sources: ['N'], mig: 0.3, intro: 6000, breed: [2, 3, 4], litter: [1, 1], life: 20, mature: 3,
       suit: (W, i) => (W.tree[i] && W.treeG[i] > 0.6 ? 1 : 0),
       req: g => Math.min(1, (g.forestTiles || 0) / 250),
-      sprite: { kind: 'monkey', len: 18, color: '#2a1a12', belly: '#3a2418', hands: '#6a3a1e' },
+      sprite: { kind: 'monkey', len: 18, color: '#2a1a12', belly: '#3a2418', hands: '#6a3a1e', show: 1.3 },
       desc: 'Mono congo. Its roar at dawn carries for kilometres. It eats leaves and never comes down to the ground, so it can only live where the tree crowns join up.',
       hint: 'Tall dry forest whose crowns connect, joined to the forest on the volcano.' });
   }
@@ -24,7 +24,7 @@ export default function buildChinandegaAnimals(def) {
       speed: 1.2, hr: 80, max: 10, minK: 3, groupSize: [3, 5], sources: ['N'], mig: 0.25, breed: [2, 3], litter: [1, 1], life: 25, mature: 4,
       suit: (W, i) => (W.tree[i] && W.treeG[i] > 0.6 ? 0.6 + 0.4 * Math.min(1, W.berries[i] * 2) : 0),
       req: g => Math.min(1, (g.forestTiles || 0) / 350),
-      sprite: { kind: 'monkey', len: 16, color: '#1a1612', belly: '#1a1612', face: '#f0e8d8' },
+      sprite: { kind: 'monkey', len: 16, color: '#1a1612', belly: '#1a1612', face: '#f0e8d8', show: 1.25 },
       desc: 'Mono cara blanca. A clever, noisy monkey that eats fruit, insects and eggs, and uses stones as tools.',
       hint: 'Big patches of dry forest with fruit trees.' });
   }
@@ -166,7 +166,7 @@ export default function buildChinandegaAnimals(def) {
       speed: 2.2, hr: 40, max: 8, groupSize: [2, 4], sources: ['S'], mig: 0.7, breed: [], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
       req: g => Math.min(1, stat(g, 'pondsDrained') / 60), // it feeds on the tidal mudflats left where shrimp ponds are breached
-      sprite: { kind: 'heron', size: 24, color: '#e8a0b8', breast: '#f0b8c8', head: '#f0e8e0', flight: '#d85a80' },
+      sprite: { kind: 'heron', size: 24, color: '#e8a0b8', breast: '#f0b8c8', head: '#f0e8e0', flight: '#d85a80', show: 0.85 },
       desc: 'Garza rosada. It sweeps its spoon-shaped bill through the shallows for shrimp, which is what turns it pink.',
       hint: 'Tidal mudflats where old shrimp ponds have been breached and drained, with mangroves around them.' });
   }
@@ -175,7 +175,7 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'egret', name: 'Great egret', sci: 'Ardea alba', group: 'Birds', move: 'fly',
       speed: 2.2, hr: 40, max: 8, sources: ['S', 'W'], mig: 0.4, breed: [3, 4], litter: [2, 3], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
-      sprite: { kind: 'heron', size: 26, color: '#f4f4ee', breast: '#fafaf6', head: '#f8f8f4', flight: '#f0f0ea' },
+      sprite: { kind: 'heron', size: 26, color: '#f4f4ee', breast: '#fafaf6', head: '#f8f8f4', flight: '#f0f0ea', show: 0.9 },
       desc: 'Garza blanca. It stalks fish and crabs in the shallows and roosts in the mangroves at night.',
       hint: 'Shallow water, mangroves and the estuary.' });
   }
@@ -215,7 +215,7 @@ export default function buildChinandegaAnimals(def) {
       speed: 0.4, hr: 30, max: 5, sources: ['N', 'E'], mig: 0.2, breed: [3], litter: [6, 10], life: 20, mature: 3,
       prey: ['agouti', 'ctenosaur'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]],
-      sprite: { kind: 'snake', size: 30, color: '#9a8a6a', stripe: '#9a8a6a', side: '#3a2a1e', blotches: '#5a3a24', belly: '#d8c8a0' },
+      sprite: { kind: 'snake', size: 30, color: '#9a8a6a', stripe: '#9a8a6a', side: '#3a2a1e', blotches: '#5a3a24', belly: '#d8c8a0', show: 0.78 },
       desc: 'Boa. Big and harmless to people, it keeps the rats down around the farms.',
       hint: 'Forest and shrubs with small animals to eat.' });
   }

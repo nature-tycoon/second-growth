@@ -45,7 +45,7 @@ export default function buildSumatraPlants(def, mix, get) {
 
   // ---------- Shrubs ----------
   def({ key: 'clidemia', name: "Koster's curse", sci: 'Clidemia hirta', layer: 1, native: false, invasive: true,
-    moist: [0.25, 0.95], light: [0.25, 1], grow: 0.02, spread: 0.024, radius: 3, life: 12, compete: 0.7, cost: 0,
+    moist: [0.25, 0.95], light: [0.42, 1], grow: 0.02, spread: 0.024, radius: 3, life: 12, compete: 0.7, cost: 0,
     look: { type: 'shrub', leaf: '#4a7a3a', berry: '#3a2a4a', fruit: [7, 8, 9, 10] },
     desc: 'INVASIVE. A hairy shrub from tropical America that birds spread everywhere. It forms thickets on plantation edges and in forest gaps.' });
   def({ key: 'chromolaena', name: 'Siam weed', sci: 'Chromolaena odorata', layer: 1, native: false, invasive: true,
@@ -62,7 +62,7 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'Red-orange flower heads in the shady understory. Sunbirds and butterflies work every one.' });
   def({ key: 'ginger', name: 'Torch ginger', sci: 'Etlingera elatior', layer: 1,
     moist: [0.45, 1], light: [0.15, 0.75], soil: 0.2, grow: 0.012, spread: 0.012, radius: 2, life: 20, cost: 9,
-    look: { type: 'ginger', leaf: '#3e8040', flower: '#e02a3a', bloom: [8, 9, 10, 11, 0] },
+    look: { type: 'ginger', scale: 0.72, leaf: '#3e8040', flower: '#e02a3a', bloom: [8, 9, 10, 11, 0] },
     desc: 'Leafy canes taller than a person, and waxy red flower torches on their own stalks near the ground. A forest-edge plant of damp gullies.' });
   def({ key: 'rattan', name: 'Rattan', sci: 'Calamus manan', layer: 1,
     moist: [0.35, 0.95], light: [0.05, 0.7], soil: 0.25, grow: 0.008, spread: 0.008, radius: 3, life: 60, cost: 12,
@@ -70,7 +70,7 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'A spiny climbing palm that hauls itself up into the canopy on whip-like hooks. Its canes become furniture; harvested carefully, it pays people to keep the forest standing.' });
   def({ key: 'bamboo', name: 'Giant bamboo', sci: 'Gigantochloa apus', layer: 1, wetOK: true,
     moist: [0.35, 1], light: [0.4, 1], grow: 0.02, spread: 0.01, radius: 3, life: 40, compete: 0.5, cost: 8,
-    look: { type: 'bamboo', leaf: '#86a64a' },
+    look: { type: 'bamboo', leaf: '#86a64a', scale: 1.4 },
     desc: 'Native clumping bamboo along streams. It binds riverbanks against floods and grows a stem as thick as a leg in a few months.' });
   def({ key: 'pandan', name: 'Swamp screw pine', sci: 'Pandanus helicopus', layer: 1, wetOK: true,
     moist: [0.65, 1], light: [0.25, 1], grow: 0.012, spread: 0.012, radius: 3, life: 40, cost: 10,
@@ -80,7 +80,7 @@ export default function buildSumatraPlants(def, mix, get) {
   // ---------- Trees ----------
   def({ key: 'oilpalm', name: 'Oil palm', sci: 'Elaeis guineensis', layer: 2, native: false, invasive: true,
     moist: [0.2, 0.78], light: [0.68, 1], grow: 0.0045, spread: 0.001, radius: 5, life: 80, matureAge: 99, compete: 0.5, cost: 0,
-    look: { type: 'oilpalm', leaf: '#4e7430', bark: '#6a5a40', berry: '#b03c18', fruit: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+    look: { type: 'oilpalm', scale: 0.8, leaf: '#4e7430', bark: '#6a5a40', berry: '#b03c18', fruit: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
     desc: 'INVASIVE here: the West African palm this estate was planted with. Its fruit bunches give palm oil; under them, little else lives. Civets, rats and wild pigs carry its seeds into the forest, so stray seedlings keep coming up. On peat that is wet again, it slowly drowns.' });
   def({ key: 'acacia', name: 'Brown salwood', sci: 'Acacia mangium', layer: 2, native: false, invasive: true, nfix: true,
     moist: [0.1, 0.85], light: [0.55, 1], grow: 0.011, spread: 0.016, radius: 4, life: 30, matureAge: 99, compete: 0.6, cost: 0,

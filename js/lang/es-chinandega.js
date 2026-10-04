@@ -145,7 +145,7 @@ const MAP = {
 const CHAPTERS_ES = [
   ['Sombra para el hato',
     'Las vacas de la cooperativa se pasan todo el verano al sol, amontonadas bajo los últimos guanacastes. Bajan de peso y dan poca leche. El primer trabajo es la sombra: árboles creciendo en el mismo potrero, como lo hacían los viejos.',
-    'Usá <b>Inspeccionar</b> para tocar una vaca, un árbol o el zacate. Después sembrá <b>Sembrar → Árboles → Bosque seco</b> en puntos regados por los potreros. Los árboles tardan como un año en crecer lo suficiente para darle sombra al zacate; la plata de la leche sube a medida que se extiende la sombra. Mientras tanto, regá <b>Sembrar → Mezclas de semillas → Cobertura de suelo</b> sobre los parches pelados y quemados: se ponen verdes en unas semanas y empiezan a curar la tierra.',
+    'Usá <b>Mirar</b> para tocar una vaca, un árbol o el zacate. Después sembrá <b>Sembrar → Árboles → Bosque seco</b> en puntos regados por los potreros. Los árboles tardan como un año en crecer lo suficiente para darle sombra al zacate; la plata de la leche sube a medida que se extiende la sombra. Mientras tanto, regá <b>Sembrar → Mezclas de semillas → Cobertura de suelo</b> sobre los parches pelados y quemados: se ponen verdes en unas semanas y empiezan a curar la tierra.',
     ['Inspeccioná un cuadro o un animal', 'Sembrá 100 árboles en los potreros', 'Regá Cobertura de suelo en 80 cuadros de tierra pelada y quemada']],
   ['Cercas vivas',
     'Alambre de púas en postes muertos divide los potreros. Los campesinos de aquí siempre han conocido algo mejor: cortás una rama de madero negro, la clavás en la tierra, y pega raíces y crece como un poste vivo. Una línea de ellos se vuelve un seto por donde pueden pasar pájaros y monos.',
@@ -287,6 +287,6 @@ addStrings({
 addPatterns([
   [/^\$([\d,]+) \/ \$([\d,]+) a month$/, '$$$1 / $$$2 al mes'],
   [/^([\d,]+) \/ ([\d,]+) newly shaded tiles · young trees (\d+)% of the way to giving shade$/, '$1 / $2 cuadros nuevos con sombra · los árboles jóvenes van en un $3% del camino para dar sombra'],
-  [/^This month the cooperative sold \$([\d,]+) of milk and cheese, and the fishers and cockle gatherers \$([\d,]+) of fish and conchas negras\. Shade trees in the pasture raise the first; mangroves raise the second\.$/,
-    'Este mes la cooperativa vendió $$$1 de leche y queso, y los pescadores y las concheras $$$2 de pescado y conchas negras. Los árboles de sombra en el potrero suben lo primero; los manglares suben lo segundo.'],
+  [/^This month the cooperative sold \$([\d,]+) of milk and cheese, and the fishers and cockle gatherers \$([\d,]+) of fish and conchas negras, and put \$([\d,]+) of it into the restoration\. Shade trees in the pasture raise the first; mangroves raise the second\.$/,
+    'Este mes la cooperativa vendió $$$1 de leche y queso, y los pescadores y las concheras $$$2 de pescado y conchas negras, y pusieron $$$3 en la restauración. Los árboles de sombra en el potrero suben lo primero; los manglares suben lo segundo.'],
 ]);

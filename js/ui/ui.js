@@ -623,11 +623,12 @@ export class UI {
       html += `<p class="info-desc"><b>${d.name}.</b> ${d.roost && !d.permanent ? `Bats and owls roost in it. You can demolish it for ${money(d.removeCost - d.salvage)}${d.salvage ? ` (after ${money(d.salvage)} salvage)` : ''}, but it takes their roost away.` : `Remove it with the Demolish tool for ${money(d.removeCost - d.salvage)}${d.salvage ? ` (after ${money(d.salvage)} salvage)` : ''}.`}</p>`;
       return html;
     }
+    const sea = biome.look.underwater, depth = sea ? sea.level - w.tileH(x, y) : 0; // (on the reef: how deep the water is)
     html += `<div class="kv">
-      <span class="k">Moisture</span>${bar(w.moist[i], '#4d8fc0')}
-      <span class="k">Soil health</span>${bar(w.soil[i], '#8a6a3a')}
+      ${sea ? '' : `<span class="k">Moisture</span>${bar(w.moist[i], '#4d8fc0')}`}
+      <span class="k">${sea ? 'Reef surface' : 'Soil health'}</span>${bar(w.soil[i], '#8a6a3a')}
       <span class="k">Sunlight</span>${bar(1 - w.canopy[i], '#e0b02a')}
-      <span class="k">Elevation</span><span>${Math.round(180 + w.tileH(x, y) * 40)} ft</span>
+      ${sea ? `<span class="k">Depth</span><span>${depth > 0 ? `${Math.max(1, Math.round(depth * 1.6))} m at low tide` : 'Above the waterline'}</span>` : `<span class="k">Elevation</span><span>${Math.round(180 + w.tileH(x, y) * 40)} ft</span>`}
       ${w.disturb[i] > 0.05 ? `<span class="k">Disturbance</span>${bar(w.disturb[i], '#d0703a')}` : ''}`;
     if (isWater(t)) {
       html += `<span class="k">Water quality</span>${bar(w.waterQ[i], '#5ab0a0')}
@@ -653,7 +654,7 @@ export class UI {
       return `<div class="plant-row"><img src="${plantThumb(p.key)}"><div style="flex:1"><div class="nm">${p.name}${p.invasive ? ' <span class="st bad">(invasive)</span>' : ''}</div>
         <div class="st ${cls}">${word}${lim.length && s < 0.55 ? ': ' + lim.join(', ') : ''} · ${pct(gg)} grown${extra}</div></div></div>`;
     });
-    html += `<div class="section-title">Plants</div>` + (rows.length ? rows.join('') : `<div class="info-desc">Nothing growing here${t === T.PASTURE ? ' but tired pasture grass' : ''}.</div>`);
+    html += `<div class="section-title">Plants</div>` + (rows.length ? rows.join('') : `<div class="info-desc">Nothing growing here${t === T.PASTURE && !biome.sandBed ? ' but tired pasture grass' : ''}.</div>`);
     // animals nearby
     const near = g.wildlife.agents.filter(a => Math.abs(a.x - x - 0.5) < 2 && Math.abs(a.y - y - 0.5) < 2);
     if (near.length) {
@@ -687,7 +688,12 @@ export class UI {
       if (n.loc.id && this.game.wildlife.agents.includes(n.loc)) this.inspectAgent(n.loc);
     });
     box.prepend(t);
-    while (box.children.length > 2) box.lastChild.remove(); // keep the land in view; everything is in the journal
+    // keep the land in view (everything is in the journal): routine notes go first, so a warning
+    // isn't pushed off the screen by two bits of news that came in just after it
+    while (box.children.length > 2) {
+      const kids = [...box.children], routine = kids.slice(1).reverse().find(c => /\b(info|season|good)\b/.test(c.className));
+      (routine || box.lastChild).remove();
+    }
     const life = n.kind === 'discover' || n.kind === 'goal' || n.kind === 'fire' || n.kind === 'flood' ? 10000 : n.kind === 'warn' ? 8000 : 5500;
     setTimeout(() => { t.classList.add('fade'); setTimeout(() => t.remove(), 600); }, life);
   }
@@ -807,7 +813,7 @@ export class UI {
       needs.push(['info', `Arrives from ${[...new Set(def.sources.map(s => biome.text.edges[s]))].join(', ')}.`]);
       if (def.intro) needs.push(['info', `Can be reintroduced (${money(def.intro)}) from the Wildlife tools.`]);
       if (def.fenced) needs.push(['info', 'Blocked by fences along the property edge.']);
-      detail.innerHTML = `<img class="hero" src="${animalThumb(def.key)}" style="${known ? '' : 'filter:brightness(0) opacity(.35)'}">
+      detail.innerHTML = `<div class="hero-wrap"><img class="hero" src="${animalThumb(def.key)}"${known ? '' : ' style="filter:brightness(0) opacity(.35);background:none"'}></div>
         <h3>${known ? def.name : 'Not yet seen'}</h3><div class="small"><i>${known ? def.sci : def.group}</i></div>
         <p class="info-desc">${known ? def.desc : 'Something that might live here someday. The clue below says what it needs.'}</p>
         <div class="section-title">Habitat needs</div><p class="info-desc">${def.hint}</p>
@@ -817,16 +823,17 @@ export class UI {
       detail.querySelector('#g-find')?.addEventListener('click', () => this.locateAnimal(def));
     };
     const showPlant = p => {
+      const sea = !!biome.look.underwater;
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === p.key));
       detail.innerHTML = `<img class="hero" src="${plantThumb(p.key)}"><h3>${p.name}</h3><div class="small"><i>${p.sci}</i> · ${p.kindName || biome.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>
         <p class="info-desc">${p.desc}</p>
-        <div class="kv"><span class="k">Water</span><span>${moistWord(p.moist[0], p.moist[1])}</span>
+        <div class="kv">${sea ? '' : `<span class="k">Water</span><span>${moistWord(p.moist[0], p.moist[1])}</span>`}
         <span class="k">Light</span><span>${lightWord(p.light[0], p.light[1])}</span>
-        <span class="k">Soil</span><span>${p.soil >= 0.35 ? 'rich, forest soil' : p.soil >= 0.15 ? 'decent soil' : 'any, even worn out'}</span>
+        ${sea ? '' : `<span class="k">Soil</span><span>${p.soil >= 0.35 ? 'rich, forest soil' : p.soil >= 0.15 ? 'decent soil' : 'any, even worn out'}</span>`}
         <span class="k">Growth</span><span>${p.grow >= 0.015 ? 'fast' : p.grow >= 0.005 ? 'moderate' : 'slow'}</span>
         <span class="k">On the farm</span><span>${counts[p.id] || 0} tiles</span></div>
-        ${p.nfix ? '<div class="need"><span class="st good">●</span><span>Fixes nitrogen and improves soil.</span></div>' : ''}
-        ${p.invasive ? '<div class="need"><span class="st bad">▲</span><span>Invasive. Remove with Pull invasives, or shade it out with trees.</span></div>' : ''}`;
+        ${p.nfix ? `<div class="need"><span class="st good">●</span><span>${sea ? 'Cements loose rubble together, so corals can settle on it.' : 'Fixes nitrogen and improves soil.'}</span></div>` : ''}
+        ${p.invasive ? `<div class="need"><span class="st bad">▲</span><span>${TOOLS.pull.name === 'Pull invasives' ? 'Invasive. Remove with Pull invasives, or shade it out with trees.' : sea ? `A nuisance. Clear it with ${TOOLS.pull.name}.` : `Invasive. Remove with ${TOOLS.pull.name}, or shade it out with trees.`}</span></div>` : ''}`;
     };
     const renderList = tab => {
       m.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
@@ -904,7 +911,7 @@ export class UI {
       <div><h4>Ecosystem health: ${Math.round(s.total)} / 100</h4>${rows}
         <h4 style="margin-top:18px">Score over time</h4><canvas id="spark" class="ph-no-capture" width="420" height="110" style="width:100%;height:110px;background:var(--paper-2);border-radius:10px"></canvas>
         <h4 style="margin-top:18px">Budget</h4>
-        <div class="kv" style="grid-template-columns:150px 1fr"><span class="k">Last monthly grant</span><span>${money(g.lastGrant || 0)}</span><span class="k">Total grants</span><span>${money(g.stats.earned)}</span><span class="k">Total spent</span><span>${money(g.stats.spent)}</span><span class="k">Plants planted</span><span>${g.stats.planted.toLocaleString()}</span><span class="k">Visitor donations</span><span>${money(g.visitors.income)} last month</span><span class="k">Trail upkeep</span><span>-${money(g.visitors.upkeep)} last month</span></div>
+        <div class="kv" style="grid-template-columns:150px 1fr"><span class="k">Last monthly grant</span><span>${money(g.lastGrant || 0)}</span><span class="k">Total grants</span><span>${money(g.stats.earned)}</span><span class="k">Total spent</span><span>${money(g.stats.spent)}</span><span class="k">Plants planted</span><span>${g.stats.planted.toLocaleString()}</span><span class="k">Visitor donations</span><span>${money(g.visitors.income)} last month</span><span class="k">Trail upkeep</span><span>${g.visitors.upkeep ? '-' : ''}${money(g.visitors.upkeep)} last month</span></div>
       </div>
       <div><h4>Land cover</h4>${habRows}
         <div class="kv" style="grid-template-columns:150px 1fr;margin-top:12px"><span class="k">Native cover</span><span>${pct(s.nativeFrac || 0)} of land</span><span class="k">Invasive cover</span><span>${pct(s.invFrac || 0)}</span><span class="k">Native plant species</span><span>${s.nativePlants}</span><span class="k">Animal species</span><span>${s.animals} of ${ANIMALS.length}</span></div>
@@ -1395,7 +1402,7 @@ export class UI {
     if (f.parking && v.net.length < 40) tips.push('Longer trails bring more visitors. Loop them past water, meadows and old trees.');
     if (!f.center && f.parking) tips.push('A <b>visitor center</b> nearly doubles what each visitor gives.');
     if (f.blinds < 2) tips.push('<b>Viewing blinds</b> let people watch wildlife without scaring it off.');
-    const shy = ANIMALS.filter(a => a.shy >= 0.5).sort((a, b) => b.shy - a.shy).slice(0, 5).map(a => a.name.toLowerCase());
+    const shy = ANIMALS.filter(a => a.shy >= 0.5).sort((a, b) => b.shy - a.shy).slice(0, 5).map(a => a.name);
     tips.push(`Shy animals (${shy.join(', ')}) avoid busy trails. Keep some of the land quiet.`);
     const stars = n => '★★★★★'.slice(0, Math.round(n)) + '☆☆☆☆☆'.slice(0, 5 - Math.round(n));
     // where the stars come from, and the single biggest thing to fix
@@ -1413,7 +1420,7 @@ export class UI {
         <span class="k">Visitors</span><span>${v.monthly.toLocaleString()}</span>
         <span class="k">Rating</span><span class="stars">${stars(v.rating)} <span class="small">${v.rating.toFixed(1)}</span></span>
         <span class="k">Donations</span><span>${money(v.income)}</span>
-        <span class="k">Trail upkeep</span><span>-${money(v.upkeep)}</span>
+        <span class="k">Trail upkeep</span><span>${v.upkeep ? '-' : ''}${money(v.upkeep)}</span>
         <span class="k">Total visitors</span><span>${v.total.toLocaleString()}</span>
         <span class="k">Connected trail</span><span>${v.net.length} tiles</span>
         <span class="k">Facilities</span><span>${f.parking} parking · ${f.center} visitor center${f.center === 1 ? '' : 's'} · ${f.blinds} blind${f.blinds === 1 ? '' : 's'} · ${f.boardwalk} boardwalk tiles</span></div>
@@ -1424,7 +1431,7 @@ export class UI {
 
   openIntro(first = true, hasSave = false, onClose = null) {
     // first visit: every place pinned on a world map, so the choice is obvious at a glance
-    const maps = first ? `${worldMap(BIOME_LIST)}<p class="small wm-cap">${['One', 'Two', 'Three', 'Four', 'Five', 'Six'][BIOME_LIST.length - 1] || BIOME_LIST.length} places to bring back. Tap a pin to pick one, or start right here at ${biome.farm}.</p>` : '';
+    const maps = first ? `${worldMap(BIOME_LIST)}<p class="small wm-cap">${['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'][BIOME_LIST.length - 1] || BIOME_LIST.length} places to bring back. Tap a pin to pick one, or start right here at ${biome.farm}.</p>` : '';
     const body = `<div class="intro">${maps}
       ${biome.story}
       <h3>How nature works here</h3>

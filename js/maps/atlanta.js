@@ -80,7 +80,7 @@ const GOALS = [
     check: g => st(g, 'milkweed') >= 20, prog: g => `${st(g, 'milkweed')} / 20 tiles of milkweed` },
   { key: 'monarch', name: 'Monarchs', reward: 3000,
     desc: 'Monarch butterflies stop to breed here on their way north in spring and south in fall.',
-    check: g => pop(g, 'monarch') > 0, prog: g => `${pop(g, 'monarch')} monarchs here` },
+    check: g => pop(g, 'monarch') > 0 && st(g, 'milkweed') > 0, prog: g => st(g, 'milkweed') ? `${pop(g, 'monarch')} monarchs here` : 'No milkweed for them to breed on yet' },
   { key: 'bloom', name: 'Spring to frost', reward: 4000,
     desc: 'Have native flowers in bloom in every month from March to November. A bumblebee colony starves if there\'s a gap. Coreopsis and phlox in spring, coneflower and milkweed in summer, goldenrod and aster in fall.',
     check: g => st(g, 'bloomMonths') >= 9,
@@ -346,7 +346,7 @@ export default {
   // the streets, driveways and houses stay: people live here
   fixedRoads: true,
   lat: 33.95, lon: -84.02,
-  pinLabel: 'se',
+  pinLabel: 'e', // (over the Atlantic)
   plants: buildAtlantaPlants,
   animals: buildAtlantaAnimals,
   goals: GOALS,
@@ -381,6 +381,7 @@ export default {
     'Plant <b>shrubs and trees along Hollins Creek</b> to shade it, and dig a <b>rain garden</b> or two where the yards drain toward it.',
     'Pull the <b>privet</b> along the back fences and the creek, and cut the <b>Bradford pears</b>.',
   ],
+  hideTools: ['build_barn', 'build_shed', 'build_house', 'build_silo'], // (no farm buildings in a subdivision)
   toolText: {
     pull: { icon: { plant: 'privet' }, desc: 'Dig out privet, nandina, English ivy, Japanese honeysuckle, kudzu and Bradford pear seedlings. Native plants are left alone.' },
     marsh: { name: 'Rain garden', desc: 'Dig a shallow basin that catches runoff from roofs, driveways and the street and lets it soak in. Plant it with the rain garden mix.' },

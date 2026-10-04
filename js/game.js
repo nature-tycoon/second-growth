@@ -24,6 +24,10 @@ export const PENDING_KEY = 'second-growth-pending';
 
 const WORLD_ARRAYS = ['terrain', 'baseMoist', 'moist', 'soil', 'ground', 'groundG', 'shrub', 'shrubG',
   'tree', 'treeG', 'treeAge', 'feature', 'featureAge', 'struct', 'variant', 'vh', 'flood', 'fire', 'scorch', 'rx', 'marks'];
+// Arrays a map or system adds to the world only once it needs them (the reef's bleaching, the
+// savanna's seed bank, worn game trails, the suburb's bloom calendar): saved when they exist, and
+// rebuilt with the same type on load.
+const EXTRA_ARRAYS = { bleach: Float32Array, seedbank: Uint16Array, trod: Float32Array, bloomLast: Int32Array };
 
 export class Game {
   constructor() {
@@ -281,10 +285,11 @@ export class Game {
       const w = this.world;
       const arrays = {};
       for (const k of WORLD_ARRAYS) arrays[k] = toB64(w[k]);
+      for (const k of Object.keys(EXTRA_ARRAYS)) if (w[k]) arrays[k] = { n: w[k].length, b: toB64(w[k]) };
       const data = {
         v: 1, seed: this.seed, day: this.day, money: this.money, speed: this.speed, flags: this.flags,
         stats: this.stats, goalsDone: this.goalsDone, history: this.history,
-        world: { arrays, structures: w.structures, w: w.w, h: w.h },
+        world: { arrays, structures: w.structures, w: w.w, h: w.h, bloomTick: w.bloomTick },
         wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
         visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant,
         mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0, map: this.map,
@@ -324,6 +329,8 @@ export class Game {
     if (atob(data.world.arrays.terrain).length !== ww * wh) { console.warn('Discarding a scrambled save for', biome.id); return false; }
     const w = new World(ww, wh);
     for (const k of WORLD_ARRAYS) if (data.world.arrays[k]) fromB64(data.world.arrays[k], w[k]);
+    for (const [k, Type] of Object.entries(EXTRA_ARRAYS)) { const a = data.world.arrays[k]; if (a?.b) { w[k] = new Type(a.n); fromB64(a.b, w[k]); } }
+    if (data.world.bloomTick != null) w.bloomTick = data.world.bloomTick;
     // plants are stored by number: match them up by name if the map's plant list has changed since
     // the save, and don't open a save whose plants can't be matched (it would crash, or show the wrong ones)
     const ids = data.plants ? data.plants.map(k => PLANTS.findIndex(p => p?.key === k)) : null;

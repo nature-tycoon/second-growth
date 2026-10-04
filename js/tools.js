@@ -168,7 +168,7 @@ function featureTool(f, needsLand = true) {
   };
 }
 tool({ key: 'snag', cat: 'features', name: 'Snag', cost: 150, brush: false, icon: { feature: F.SNAG },
-  desc: 'A standing dead tree. Woodpeckers carve it, then owls, bats and ducks move into the holes.', apply: featureTool(F.SNAG) });
+  desc: 'A standing dead tree. Woodpeckers carve holes in it, and owls, bats and other hole-nesters move in after them.', apply: featureTool(F.SNAG) });
 tool({ key: 'log', cat: 'features', name: 'Fallen log', cost: 80, brush: false, icon: { feature: F.LOG },
   desc: 'Basking spot for turtles, cover for wrens and newts, and a nursery for hemlock and huckleberry. Can go in ponds.',
   apply: (game, i) => { const w = game.world; if (w.terrain[i] === T.POND || w.terrain[i] === T.MARSH) { if (w.feature[i]) return null; w.feature[i] = F.LOG; return true; } return featureTool(F.LOG)(game, i); } });
@@ -356,7 +356,8 @@ function buildTool(type, desc, { cat = 'visitors', needsRoad = true, done = null
         w.terrain[j] = T.GRAVEL;
       }
       w.addStructure(type, x, y);
-      if (done) { game.notify(done, 'good'); return true; }
+      const doneText = TOOLS['build_' + type].doneText ?? done; // (the roosts say it in their own map's words)
+      if (doneText) { game.notify(doneText, 'good'); return true; }
       game.notify(type === 'parking' ? 'Trailhead parking built. Now lay a trail out from it into the best habitat.' : 'The visitor center is open. Visitors give more, and the gift shop and exhibits raise your rating.', 'good');
       return true;
     } });
@@ -365,10 +366,17 @@ buildTool('parking', 'Where visitors park and start their walk. Must be next to 
 buildTool('center', 'Exhibits, a gift shop and restrooms. Visitors give more and rate the preserve higher. Must be next to a road or parking lot.');
 // Farm buildings you tore down can go back up. Old buildings are roosts for bats, owls and swallows.
 const roost = { cat: 'features', needsRoad: false };
-buildTool('barn', 'A timber barn. Its loft is a roost for little brown bats and a nest site for owls and swallows.', { ...roost, done: 'The barn is up. Bats and owls will find the loft.' });
-buildTool('shed', 'A small equipment shed. Raccoons and bats move into sheds like this.', { ...roost, done: 'Shed rebuilt.' });
-buildTool('house', 'Put the farmhouse back up, as a caretaker\'s home. Bats roost in the attic.', { ...roost, done: 'The farmhouse stands again.' });
-buildTool('silo', 'A grain silo. Swifts and bats roost inside tall old silos.', { ...roost, done: 'Silo rebuilt.' });
+const ROOSTS = ['barn', 'shed', 'house', 'silo'];
+for (const type of ROOSTS) buildTool(type, '', roost);
+// (named after this map's own buildings: a cattle shed in Pará, a boma on the Serengeti)
+function nameRoosts() {
+  for (const type of ROOSTS) {
+    const n = STRUCTURES[type].name.toLowerCase(), t = TOOLS['build_' + type];
+    t.name = 'Rebuild ' + n;
+    t.desc = `Put the ${n} back up. Old buildings are roosts: bats move into the roof space, and owls and swallows nest inside.`;
+    t.doneText = `The ${n} is back up.`;
+  }
+}
 
 // ---------------------------------------------------------------- wildlife introductions
 function addWildlifeTools() {
@@ -394,6 +402,7 @@ const TOOL_BASE = {};
 onBiome(b => {
   for (const k of Object.keys(TOOLS)) if (TOOLS[k].cat === 'plants' || TOOLS[k].cat === 'wildlife' || TOOLS[k].mapTool) delete TOOLS[k];
   for (const [k, base] of Object.entries(TOOL_BASE)) Object.assign(TOOLS[k], base);
+  nameRoosts();
   for (const [k, o] of Object.entries(b.toolText || {})) {
     TOOL_BASE[k] ||= Object.fromEntries(Object.keys(o).map(f => [f, TOOLS[k][f]]));
     Object.assign(TOOLS[k], o);

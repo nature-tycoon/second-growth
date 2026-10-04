@@ -75,7 +75,7 @@ export default function buildAmazonAnimals(def) {
     def({ key: 'anteater', name: 'Giant anteater', sci: 'Myrmecophaga tridactyla', group: 'Mammals', move: 'ground',
       speed: 0.9, hr: 60, max: 4, sources: ['W', 'N'], mig: 0.25, breed: [3], litter: [1, 1], life: 15, mature: 2.5,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.insects[i])),
-      sprite: { kind: 'anteater', len: 40, color: '#6a5a48', belly: '#4a3a30', stripe: '#1a1410' },
+      sprite: { kind: 'anteater', len: 40, color: '#6a5a48', belly: '#4a3a30', stripe: '#1a1410', show: 0.78 },
       desc: 'Rips open termite mounds with huge claws and licks up tens of thousands of insects a day. Fire kills many.',
       hint: 'Open native grassland and scrub near forest, with plenty of insects.' });
   }
@@ -94,7 +94,7 @@ export default function buildAmazonAnimals(def) {
       speed: 0.7, hr: 25, max: 20, minK: 3, groupSize: [4, 8], sources: ['N', 'E'], mig: 0.3, breed: [4, 5, 6], litter: [1, 1], life: 18, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i) * fruit(W, i),
       req: g => Math.max(0, Math.min(1, (g.forestTiles - 450) / 300)), // a good stretch of grown forest
-      sprite: { kind: 'monkey', len: 16, color: '#3a1e12', belly: '#2a160c', hands: '#b8501e' },
+      sprite: { kind: 'monkey', len: 16, color: '#3a1e12', belly: '#2a160c', hands: '#b8501e', show: 1.35 },
       desc: 'Its dawn roar carries for kilometres. Howlers only travel through the treetops, so they need an unbroken canopy.',
       hint: 'Connected canopy leading in from the rainforest edge.' });
   }
@@ -105,7 +105,7 @@ export default function buildAmazonAnimals(def) {
       breed: [9], litter: [1, 1], life: 25, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i) * fruit(W, i),
       req: g => Math.min(1, g.forestTiles / 1000),
-      sprite: { kind: 'monkey', len: 18, color: '#18140f', belly: '#221c16', face: '#e8dcc8', long: true },
+      sprite: { kind: 'monkey', len: 18, color: '#18140f', belly: '#221c16', face: '#e8dcc8', long: true, show: 1.3 },
       desc: 'An acrobat that swings by a grasping tail and eats mostly ripe fruit, spreading more seeds than almost any other animal.',
       hint: 'Tall, fruit-rich forest canopy.' });
   }
@@ -125,7 +125,7 @@ export default function buildAmazonAnimals(def) {
       prey: ['piranha', 'arapaima'], preyPer: 4,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i],
       req: g => Math.min(1, g.fishIndex / 15) * Math.min(1, g.cleanWater / 50),
-      sprite: { kind: 'otter', len: 44, color: '#4a3426', belly: '#6a5040', throat: '#e8dcc0' },
+      sprite: { kind: 'otter', len: 44, color: '#4a3426', belly: '#6a5040', throat: '#e8dcc0', show: 0.8 },
       desc: 'Two metres long and loud: families patrol clean creeks and oxbow lakes, fishing together.',
       hint: 'Clean, shaded creeks and ponds full of fish.' });
   }
@@ -208,7 +208,7 @@ export default function buildAmazonAnimals(def) {
       speed: 0.9, hr: 20, max: 8, sources: ['S'], mig: 0.3, breed: [7, 8], litter: [3, 5], life: 40, mature: 5,
       prey: ['piranha', 'capybara'], preyPer: 5,
       suit: (W, i) => w[W.habitat[i]],
-      sprite: { kind: 'caiman', len: 40, color: '#4a4a34', belly: '#b0a880' },
+      sprite: { kind: 'caiman', len: 40, color: '#4a4a34', belly: '#b0a880', show: 1.3 },
       desc: 'Hunted nearly to extinction for leather, now recovering. Mothers guard their nests and carry hatchlings to the water.',
       hint: 'Ponds, marshes and slow water.' });
   }
@@ -236,7 +236,7 @@ export default function buildAmazonAnimals(def) {
     def({ key: 'riverturtle', name: 'Yellow-spotted river turtle', sci: 'Podocnemis unifilis', group: 'Reptiles & amphibians', move: 'semi',
       speed: 0.4, hr: 12, max: 14, sources: ['S'], mig: 0.3, breed: [6, 7], litter: [3, 5], life: 40, mature: 5,
       suit: (W, i) => w[W.habitat[i]] * (W.distLog[i] <= 3 ? 1 : 0.6),
-      sprite: { kind: 'turtle', size: 13, color: '#2a2a24', dark: '#3a3a30', spots: '#f0c020' },
+      sprite: { kind: 'turtle', size: 13, color: '#2a2a24', dark: '#3a3a30', spots: '#f0c020', show: 1.2 },
       desc: 'Basks on logs and lays eggs on sandy beaches when the river drops in the dry season.',
       hint: 'Ponds and slow water with basking logs.' });
   }
@@ -248,7 +248,7 @@ export default function buildAmazonAnimals(def) {
       speed: 1.6, hr: 30, max: 4, sources: ['S'], mig: 0.25, breed: [10], litter: [1, 1], life: 30, mature: 5,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i] * (W.connected[i] ? 1 : 0),
       req: g => Math.min(1, g.fishIndex / 12) * Math.min(1, g.cleanWater / 40), // clean, shaded, connected creeks
-      sprite: { kind: 'dolphin', size: 30, color: '#e0a0a8', belly: '#f4c8cc' },
+      sprite: { kind: 'dolphin', size: 30, color: '#e0a0a8', belly: '#f4c8cc', show: 1.4 },
       desc: 'The pink boto of legend. It swims into flooded forest in the high-water season, hunting between the trunks.',
       hint: 'A clean, fish-filled river and connected creeks.' });
   }
@@ -266,7 +266,7 @@ export default function buildAmazonAnimals(def) {
     def({ key: 'piranha', name: 'Red-bellied piranha', sci: 'Pygocentrus nattereri', group: 'River life', move: 'swim',
       speed: 1.6, hr: 4, max: 40, minK: 4, groupSize: [4, 8], sources: ['S'], mig: 0.5, breed: [10, 11, 0], litter: [4, 8], life: 6, mature: 0.8,
       suit: (W, i) => w[W.habitat[i]] * (W.connected[i] ? 1 : 0.5),
-      sprite: { kind: 'fish', size: 10, back: '#6a7078', flank: '#9aa0a8', belly: '#e0402a', spots: '#c8c8c8', deep: true, jaw: true, tailShape: 'truncate', finEdge: '#2a2a30' },
+      sprite: { kind: 'fish', size: 10, back: '#6a7078', flank: '#9aa0a8', belly: '#e0402a', spots: '#c8c8c8', deep: true, jaw: true, tailShape: 'truncate', finEdge: '#2a2a30', show: 1.3 },
       desc: 'More scavenger than monster. Schools clean up the river and feed caiman, otters, herons and dolphins.',
       hint: 'Rivers and connected creeks.' });
   }

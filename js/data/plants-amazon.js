@@ -65,7 +65,7 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'Chocolate starts here: a native understory tree whose pods grow straight from the trunk. Monkeys raid them.' });
   def({ key: 'guadua', name: 'Guadua bamboo', sci: 'Guadua weberbaueri', layer: 1,
     moist: [0.4, 1], light: [0.4, 1], grow: 0.02, spread: 0.012, radius: 3, life: 30, compete: 0.5, cost: 8,
-    look: { type: 'bamboo', leaf: '#8aa84a' },
+    look: { type: 'bamboo', leaf: '#8aa84a', scale: 1.3 },
     desc: 'Giant native bamboo. Grows metres a month and fills gaps fast, sometimes too fast.' });
   def({ key: 'vismia', name: 'Lacre', sci: 'Vismia guianensis', layer: 1,
     moist: [0.15, 0.8], light: [0.55, 1], grow: 0.02, spread: 0.018, radius: 3, life: 20, cost: 6,

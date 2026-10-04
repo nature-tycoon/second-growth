@@ -69,13 +69,10 @@ function mapSVG() {
 // A world map with a pin for each place. Pins are buttons carrying data-map; the page wires up clicks.
 export function worldMap(places, selected = null) {
   const at = places.filter(b => b.lat != null).map(b => ({ b, x: px(b.lon) / W * 100, y: py(b.lat) / H * 100 }));
-  const pins = at.map(({ b, x, y }) => {
-    // a label that would run into the next pin to the east hangs off to the west instead
-    const crowded = at.some(o => o.b !== b && o.x > x && o.x - x < 32 && Math.abs(o.y - y) < 16);
-    // (a map can place its own label: 'ne' above the pin hanging east, 'se' below hanging east, and so on)
-    const lab = { nw: ' wm-west wm-up', ne: ' wm-east wm-up', se: ' wm-east', sw: ' wm-west' }[b.pinLabel] ?? (crowded ? ' wm-west' : '');
-    return `<button class="wm-pin${b.id === selected ? ' on' : ''}${lab}" data-map="${b.id}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" aria-label="${b.farm}, ${b.region}">
-      <i></i><span><b>${b.farm}</b><em>${b.region}</em></span></button>`;
-  }).join('');
+  // Every pin wears its place's name all the time (the region joins it on hover or once picked).
+  // Each map says which side of its pin the name goes (pinLabel: n, s, e, w, or sw / se below and to one side), chosen so no name
+  // covers another pin or runs off the edge of the map.
+  const pins = at.map(({ b, x, y }) => `<button class="wm-pin wm-${b.pinLabel || 's'}${b.id === selected ? ' on' : ''}" data-map="${b.id}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" aria-label="${b.farm}, ${b.region}">
+      <i></i><span><b>${b.farm}</b><em>${b.region}</em></span></button>`).join('');
   return `<div class="world">${mapSVG()}${pins}</div>`;
 }

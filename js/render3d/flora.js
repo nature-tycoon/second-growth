@@ -298,11 +298,11 @@ export class Flora {
         let sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
         let sy = hAt(sx, sz);
         if (p.look.climbs && tid) { // (a crown-of-thorns starfish sits up on top of the coral it's eating)
-          const tp = PLANTS[tid], tg = inside ? w.treeG[i] : 0.9, tsc = (0.2 + 0.8 * tg) * (0.78 + hash2(x, y, 9) * 0.42);
+          const tp = PLANTS[tid], tg = inside ? w.treeG[i] : 0.9, tsc = (0.2 + 0.8 * tg) * (0.78 + hash2(x, y, 9) * 0.42) * (tp.look.scale ?? 1);
           sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45; sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
           sy = hAt(sx, sz) + (G.TREE_SHAPES[tp.look.type]?.height || 0.4) * tsc * 0.85;
         }
-        const sc = (0.32 + 0.6 * g) * (p.look.small ? 0.8 : 1) * (0.8 + hash2(x, y, 6) * 0.35);
+        const sc = (0.32 + 0.6 * g) * (p.look.small ? 0.8 : 1) * (p.look.scale ?? 1) * (0.8 + hash2(x, y, 6) * 0.35); // (look.scale: a plant drawn bigger or smaller than its shape's usual size)
         const rot = hash2(x, y, 7) * 6.28;
         if (p.look.deciduous && phase === 'winter') {
           const stem = rgb(STEM[p.key] || '#7a6a52');
@@ -339,7 +339,7 @@ export class Flora {
         const phase = p.conifer ? 'green' : plantPhase(p, month);
         const tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
         const ty = hAt(tx, tz) - 0.02;
-        const sc = (0.2 + 0.8 * g) * (0.78 + hash2(x, y, 9) * 0.42);
+        const sc = (0.2 + 0.8 * g) * (0.78 + hash2(x, y, 9) * 0.42) * (p.look.scale ?? 1);
         const rot = hash2(x, y, 10) * 6.28;
         const bark = rgb(p.look.bark).map(c => c * dim);
         const key = `${p.look.type}:${v}`;

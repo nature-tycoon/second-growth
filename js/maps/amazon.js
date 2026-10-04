@@ -29,7 +29,7 @@ const GOALS = [
     check: g => invPct(g) < 40, prog: g => `${invPct(g).toFixed(0)}% invasive` },
   { key: 'firesafe', name: 'A dry season without fire', reward: 3000,
     desc: 'Get through a whole burning season (July to October) without a fire on the ranch. Firebreaks, fire crews and closed canopy all help.',
-    check: g => g.year >= 2 && g.month === 8 && g.day - g.events.lastFire > 150, prog: g => g.day - g.events.lastFire > 150 ? 'No fire yet this season' : 'A fire burned recently' },
+    check: g => g.year >= 2 && g.month === 8 && g.events.lastFire < g.day - (g.day % 120) + 40, prog: g => g.events.lastFire < g.day - (g.day % 120) + 40 ? 'No fire yet this season' : 'A fire burned recently' }, // (since this July)
   { key: 'canopy', name: 'Canopy bridge', reward: 4000,
     desc: 'Howler monkeys move in. They only travel through the treetops, so the forest has to grow out and join the rainforest beyond the fences.',
     check: g => pop(g, 'howler') > 0, prog: g => `${pop(g, 'howler')} howlers here` },
@@ -75,7 +75,7 @@ export default {
   visitorValue: 1.3,
   campaignEnd: 'You finished the campaign. Fazenda Esperança is turning back into rainforest, the igarapé runs clear, and the jaguar hunts where the cattle used to graze. Every tool is yours now: keep going as long as you like, because the forest giants are only just getting started.',
   image: 'assets/maps/amazon.jpg',
-  lat: -6.6, lon: -51.9,
+  lat: -6.6, lon: -51.9, pinLabel: 's',
   plants: buildAmazonPlants,
   animals: buildAmazonAnimals,
   goals: GOALS,

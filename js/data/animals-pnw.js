@@ -21,7 +21,7 @@ export default function buildPnwAnimals(def) {
     def({ key: 'rabbit', name: 'Brush rabbit', sci: 'Sylvilagus bachmani', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 14, max: 20, sources: ['W', 'E'], mig: 0.4, breed: [0, 1, 2, 3, 4, 5], litter: [2, 4], life: 3, mature: 0.3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.3),
-      sprite: { kind: 'rabbit', len: 18, color: '#7a6448', belly: '#a89478' },
+      sprite: { kind: 'rabbit', len: 18, color: '#7a6448', belly: '#a89478', show: 1.3 },
       desc: 'A small, dark rabbit that never strays far from dense brush.',
       hint: 'Dense shrubs next to open ground.' });
   }
@@ -30,7 +30,7 @@ export default function buildPnwAnimals(def) {
     def({ key: 'squirrel', name: 'Douglas squirrel', sci: 'Tamiasciurus douglasii', group: 'Mammals', move: 'ground',
       speed: 1.4, hr: 12, max: 20, sources: ['N', 'E'], mig: 0.4, breed: [1, 2], litter: [2, 4], life: 5, mature: 0.5,
       suit: (W, i) => w[W.habitat[i]] * (W.conifer[i] ? 1 : 0.25),
-      sprite: { kind: 'squirrel', len: 14, color: '#6e4a2e', belly: '#d9954a' },
+      sprite: { kind: 'squirrel', len: 14, color: '#6e4a2e', belly: '#d9954a', show: 1.25 },
       desc: 'The chattering "chickaree" of conifer forests. Stashes cones and plants accidental forests.',
       hint: 'Maturing conifer forest.' });
   }
@@ -325,7 +325,7 @@ export default function buildPnwAnimals(def) {
     def({ key: 'cutthroat', name: 'Coastal cutthroat trout', sci: 'Oncorhynchus clarkii clarkii', group: 'Fish', move: 'swim',
       speed: 1.5, hr: 6, max: 20, minK: 3, sources: ['S'], mig: 0.4, intro: 1500, breed: [11, 0], litter: [2, 3], life: 5,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i] * (W.connected[i] ? 1 : 0.6),
-      sprite: { kind: 'fish', size: 12, color: '#8a9a6a', spots: '#2a2a1a', throat: '#e04a2a' },
+      sprite: { kind: 'fish', size: 12, color: '#8a9a6a', spots: '#2a2a1a', throat: '#e04a2a', show: 1.25 },
       desc: 'Named for the red slash under its jaw. Needs cool, shaded, clean water.',
       hint: 'Shaded creeks connected to the river.' });
   }

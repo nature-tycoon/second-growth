@@ -23,6 +23,8 @@ const start = (g, k, now) => { const f = g.flags.startCounts || (g.flags.startCo
 const newShade = g => Math.max(0, st(g, 'silvo') - (g.flags.silvo0 ??= st(g, 'silvo')));
 const shadedPct = g => st(g, 'creek') ? Math.round(100 * st(g, 'shadedCreek') / st(g, 'creek')) : 0;
 
+// the first day of this dry season (January), for the no-fire goal
+const dryStart = g => g.day - (g.day % 120) - (g.month >= 10 ? -100 : 20);
 const GOALS = [
   { key: 'plant', name: 'First trees', reward: 1000,
     desc: 'Plant 200 native plants anywhere on the finca.',
@@ -56,7 +58,7 @@ const GOALS = [
     check: g => invPct(g) < 25, prog: g => `${invPct(g).toFixed(0)}% invasive` },
   { key: 'firesafe', name: 'A dry season without fire', reward: 3000,
     desc: 'Get through a whole dry season (January to April) with no fire on the finca. Pasture is burned every year here; firebreaks, fire crews and shade trees over the grass all help.',
-    check: g => g.year >= 2 && g.month === 2 && g.day - g.events.lastFire > 130, prog: g => g.day - g.events.lastFire > 130 ? 'No fire yet this dry season' : 'A fire burned recently' },
+    check: g => g.year >= 2 && g.month === 2 && g.events.lastFire < dryStart(g), prog: g => g.events.lastFire < dryStart(g) ? 'No fire yet this dry season' : 'A fire burned recently' },
   { key: 'forest', name: 'Dry forest', reward: 5000,
     desc: 'Grow 600 tiles of dry forest.',
     check: g => (g.world.stats.forest || 0) >= 600, prog: g => `${(g.world.stats.forest || 0).toLocaleString()} / 600 tiles` },
@@ -130,10 +132,12 @@ function fincaDaily(g) {
     const n = ANIMAL.cattle ? pop(g, 'cattle') : 0, shadeFrac = w.stats.pasture ? (w.stats.silvo || 0) / w.stats.pasture : 0;
     const milk = Math.round(n * 38 * (0.55 + 0.9 * Math.min(1, shadeFrac * 2)));
     const catchV = Math.round((w.stats.mangrove || 0) * 2 + (pop(g, 'snook') + pop(g, 'snapper')) * 14);
-    if (milk + catchV > 0) { g.earn(milk + catchV); g.cache.milk = milk; g.cache.catch = catchV; }
+    // (the co-op keeps most of it to live on: about a fifth of the sales goes into the restoration)
+    const share = Math.round((milk + catchV) * 0.2);
+    if (share > 0) { g.earn(share); g.cache.milk = milk; g.cache.catch = catchV; }
     if (!g.flags.incomeHint && g.day >= 20) {
       g.flags.incomeHint = true;
-      g.notify(`This month the cooperative sold $${milk.toLocaleString()} of milk and cheese, and the fishers and cockle gatherers $${catchV.toLocaleString()} of fish and conchas negras. Shade trees in the pasture raise the first; mangroves raise the second.`, 'info');
+      g.notify(`This month the cooperative sold $${milk.toLocaleString()} of milk and cheese, and the fishers and cockle gatherers $${catchV.toLocaleString()} of fish and conchas negras, and put $${share.toLocaleString()} of it into the restoration. Shade trees in the pasture raise the first; mangroves raise the second.`, 'info');
     }
   }
   // Breached shrimp ponds drain: the tide washes in through the gap, and pond water next to the
@@ -232,7 +236,7 @@ export default {
   campaignEnd: 'You finished the campaign. Finca El Guanacaste runs from forest on the volcano, through shaded pastures and living fences, to mangroves and a turtle beach, and the herd is healthier for it. Every tool is yours now: keep going as long as you like.',
   image: 'assets/maps/chinandega.jpg',
   lat: 12.63, lon: -87.13,
-  pinLabel: 'se',
+  pinLabel: 'sw', // (below the pin, out over the Pacific)
   plants: buildChinandegaPlants,
   animals: buildChinandegaAnimals,
   goals: GOALS,

@@ -30,7 +30,7 @@ export default function buildAtlantaAnimals(def) {
       season: [0, 1, 2, 3, 4, 5, 6, 7],
       suit: (W, i) => w[W.habitat[i]] * Math.min(1, 0.2 + W.nectar[i] * 1.5),
       req: g => Math.min(1, 0.3 + stat(g, 'hostSwallow') / 6),
-      sprite: { kind: 'butterfly', size: 10, color: '#f0cc2a', vein: '#1a1612', spots: '#3a6ad0', tails: true, show: 1.9 },
+      sprite: { kind: 'butterfly', size: 10, color: '#f0cc2a', vein: '#1a1612', spots: '#3a6ad0', tails: true, show: 1.48 },
       desc: 'Georgia\'s state butterfly: big, yellow and striped like a tiger. The caterpillars grow up on tulip poplar, black cherry and spicebush.',
       hint: 'Tulip poplar, black cherry or spicebush for the caterpillars, and flowers like Joe-Pye weed and bergamot.' });
   }
@@ -42,7 +42,7 @@ export default function buildAtlantaAnimals(def) {
       suit: (W, i) => w[W.habitat[i]] * Math.min(1, 0.1 + W.nectar[i] * 1.8),
       // a colony has to eat every month from the queen's first spring flight to the fall: gaps in bloom starve it
       req: g => Math.min(1, 0.35 + stat(g, 'bloomMonths') / 9) * Math.min(1, 0.3 + stat(g, 'nativeBloom') / 20),
-      sprite: { kind: 'bee', size: 5, color: '#e8c02a', dark: '#1a1612', show: 2.4 },
+      sprite: { kind: 'bee', size: 5, color: '#e8c02a', dark: '#1a1612', show: 1.32 },
       desc: 'A fuzzy bee that buzzes pollen loose from flowers. The colony needs flowers every month from March to November, and a clump of bunchgrass or leaf litter to nest in.',
       hint: 'Native flowers blooming through the whole season, and unmown meadow or leaf litter for nests.' });
   }
@@ -54,7 +54,7 @@ export default function buildAtlantaAnimals(def) {
       speed: 3, hr: 5, max: 10, sources: ['S', 'W'], mig: 0.7, breed: [2, 3], litter: [1, 2], life: 4, season: [0, 1, 2, 3, 4, 5, 6],
       suit: (W, i) => w[W.habitat[i]] * Math.min(1, 0.1 + W.nectar[i] * 1.5),
       req: g => Math.min(1, 0.3 + stat(g, 'nativeBloom') / 20),
-      sprite: { kind: 'hummer', size: 7, color: '#4a8a4a', breast: '#e8e8e0', head: '#4a8a4a', gorget: '#c8203a', show: 1.5 },
+      sprite: { kind: 'hummer', size: 7, color: '#4a8a4a', breast: '#e8e8e0', head: '#4a8a4a', gorget: '#c8203a', show: 1.02 },
       desc: 'Weighs less than a nickel and crosses the Gulf of Mexico in one flight. Feeds on azalea, bergamot and cardinal flower, and on tiny insects.',
       hint: 'Tube-shaped native flowers from March to September: azalea, bergamot, cardinal flower.' });
   }
@@ -164,7 +164,7 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'graysquirrel', name: 'Eastern gray squirrel', sci: 'Sciurus carolinensis', group: 'Mammals', move: 'tree',
       speed: 1.4, hr: 10, max: 24, sources: ['N', 'E', 'W', 'S'], mig: 0.4, breed: [0, 5], litter: [2, 3], life: 5, mature: 0.6,
       suit: (W, i) => (W.tree[i] && W.treeG[i] > 0.45 ? 0.4 + 0.6 * net(W, i, 20) : 0),
-      sprite: { kind: 'squirrel', len: 16, color: '#8a8a86', belly: '#e2ddd2' },
+      sprite: { kind: 'squirrel', len: 16, color: '#8a8a86', belly: '#e2ddd2', show: 1.35 },
       desc: 'Travels the neighborhood through the treetops, leaping crown to crown. It buries acorns and forgets half of them, planting oaks.',
       hint: 'Trees, ideally with crowns that touch. Oaks for acorns.' });
   }
@@ -191,7 +191,7 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'cottontail', name: 'Eastern cottontail', sci: 'Sylvilagus floridanus', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 14, max: 22, sources: ['W', 'E', 'N'], mig: 0.4, breed: [0, 1, 2, 3, 4, 5], litter: [2, 4], life: 3, mature: 0.3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.3),
-      sprite: { kind: 'rabbit', len: 18, color: '#8a7050', belly: '#d8ccb4' },
+      sprite: { kind: 'rabbit', len: 18, color: '#8a7050', belly: '#d8ccb4', show: 1.4 },
       desc: 'Grazes the lawn edges at dusk and dashes for cover. Hawks, owls and foxes all depend on it.',
       hint: 'Grass or meadow right next to dense shrubs.' });
   }
@@ -297,7 +297,7 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'bluegill', name: 'Bluegill', sci: 'Lepomis macrochirus', group: 'Fish', move: 'swim',
       speed: 1.2, hr: 3, max: 30, minK: 2, sources: ['S'], mig: 0.3, breed: [2, 3, 4], litter: [3, 5], life: 5, mature: 1,
       suit: (W, i) => w[W.habitat[i]] * (0.3 + 0.7 * W.waterQ[i]),
-      sprite: { kind: 'fish', size: 9, back: '#3e5a5a', flank: '#7a9a7a', belly: '#e8a040', throat: '#e8902a', deep: 2, short: true, spiny: true, bars: true, ear: '#141c2a', finColor: '#4a6058' },
+      sprite: { kind: 'fish', size: 9, back: '#3e5a5a', flank: '#7a9a7a', belly: '#e8a040', throat: '#e8902a', deep: 2, short: true, spiny: true, bars: true, ear: '#141c2a', finColor: '#4a6058', show: 1.35 },
       desc: 'A sunfish that fans out nests in the shallows. Food for herons, bass and kingfishers.',
       hint: 'A clean pond with planted, shady edges.' });
   }

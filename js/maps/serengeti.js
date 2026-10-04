@@ -16,6 +16,8 @@ const countPlant = (w, key, layer = 'ground', minG = 0.4) => {
 };
 const invPct = g => (g.cache.score?.invFrac ?? 1) * 100;
 
+// true once cond has held for `days` days in a row (the start is remembered in flags.held)
+const held = (g, k, cond, days) => { const h = g.flags.held || (g.flags.held = {}); if (!cond) { delete h[k]; return false; } h[k] ??= g.day; return g.day - h[k] >= days; };
 const GOALS = [
   { key: 'plant', name: 'Break ground', reward: 1000,
     desc: 'Plant 200 native plants anywhere on the range.',
@@ -34,7 +36,7 @@ const GOALS = [
     check: g => perimeterFence(g.world) === 0, prog: g => `${perimeterFence(g.world)} fence tiles left` },
   { key: 'weeds', name: 'Beat the famine weed', reward: 3000,
     desc: 'Get invasive plants below 8% of the land. Famine weed, prickly pear, lantana and mesquite all spread fastest on bare ground.',
-    check: g => invPct(g) < 8, prog: g => `${invPct(g).toFixed(0)}% invasive` },
+    check: g => held(g, 'weeds', invPct(g) < 8, 120), prog: g => invPct(g) < 8 ? `Below 8% for ${Math.min(120, g.day - (g.flags.held?.weeds ?? g.day))} of 120 days` : `${invPct(g).toFixed(0)}% invasive` }, // (for a whole year, not a good month)
   { key: 'grass', name: 'Grass comes home', reward: 4000,
     desc: 'Grow 2,000 tiles of savanna grassland.',
     check: g => (g.world.stats.meadow || 0) >= 2000, prog: g => `${(g.world.stats.meadow || 0).toLocaleString()} / 2,000 tiles` },
@@ -88,7 +90,7 @@ export default {
   // every animal walks (or flies) to water every few days to drink
   waterholes: true,
   // where the map sits on the world-map picker (degrees)
-  lat: -2.3, lon: 34.8,
+  lat: -2.3, lon: 34.8, pinLabel: 's',
   plants: buildSerengetiPlants,
   animals: buildSerengetiAnimals,
   goals: GOALS,

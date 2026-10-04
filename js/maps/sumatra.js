@@ -345,7 +345,7 @@ export default {
   campaign: false,
   campaignEnd: '',
   image: 'assets/maps/sumatra.jpg',
-  lat: 3.9, lon: 98.0,
+  lat: 3.9, lon: 98.0, pinLabel: 'n',
   // trekkers come to Sumatra to see orangutans, and give well
   visitorValue: 1.25,
   funder: 'restoration fund',

@@ -31,7 +31,7 @@ export default function buildSerengetiAnimals(def) {
       breed: [10, 11], litter: [1, 1], life: 20, mature: 2.5,
       suit: (W, i) => w[W.habitat[i]] * grazing(W, i) * near(W.distWater[i], 10, 0.3),
       req: g => Math.min(1, g.meadowTiles / 180),
-      sprite: { kind: 'zebra', len: 34, h: 18, leg: 16, color: '#f0ece2', belly: '#f4f0e6', dark: '#1a1a1a' },
+      sprite: { kind: 'zebra', len: 34, h: 18, leg: 16, color: '#f0ece2', belly: '#f4f0e6', dark: '#1a1a1a', show: 1.1 },
       desc: 'Zebras lead the migration, cropping the tall, coarse grass so the wildebeest behind them can reach the tender shoots.',
       hint: 'Open grassland, even coarse tall grass, with water nearby.' });
   }
@@ -71,7 +71,7 @@ export default function buildSerengetiAnimals(def) {
       breed: [1], litter: [1, 1], life: 60, mature: 12,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.3),
       req: g => Math.min(1, g.forestTiles / 400) * Math.min(1, (g.cleanWater + 10) / 30),
-      sprite: { kind: 'elephant', len: 46, h: 26, leg: 20, color: '#8a8480', belly: '#7a7470', dark: '#4a4440' },
+      sprite: { kind: 'elephant', len: 46, h: 26, leg: 20, color: '#8a8480', belly: '#7a7470', dark: '#4a4440', show: 1.45 },
       desc: 'Walks tens of kilometres a day, opening up thick bush and planting desert dates in its dung. A family herd needs a lot of room and water.',
       hint: 'Big areas of woodland and grass with permanent water. Fences keep them out.' });
   }
@@ -81,7 +81,7 @@ export default function buildSerengetiAnimals(def) {
       speed: 1.1, hr: 30, max: 30, minK: 4, groupSize: [6, 12], sources: ['N', 'S'], mig: 0.3, breed: [1, 2], litter: [1, 1], life: 20, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * grazing(W, i) * near(W.distWater[i], 3, 0.15),
       req: g => Math.min(1, g.meadowTiles / 1200),
-      sprite: { kind: 'buffalo', len: 38, h: 20, leg: 14, color: '#3e3832', belly: '#4a433a', dark: '#1c1a16' },
+      sprite: { kind: 'buffalo', len: 38, h: 20, leg: 14, color: '#3e3832', belly: '#4a433a', dark: '#1c1a16', show: 1.2 },
       desc: 'Moody, heavy and never far from water. A herd will turn on lions together.',
       hint: 'Tall grass right beside water.' });
   }
@@ -100,7 +100,7 @@ export default function buildSerengetiAnimals(def) {
       speed: 0.8, hr: 20, max: 12, minK: 2, groupSize: [3, 6], sources: ['S'], mig: 0.3, breed: [5, 6], litter: [1, 1], life: 40, mature: 5,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.meadowTiles / 100) * Math.min(1, (g.cleanWater + 5) / 25),
-      sprite: { kind: 'hippo', len: 40, h: 18, leg: 8, color: '#6a5a5a', belly: '#b89088', dark: '#3a3232' },
+      sprite: { kind: 'hippo', len: 40, h: 18, leg: 8, color: '#6a5a5a', belly: '#b89088', dark: '#3a3232', show: 1.3 },
       desc: 'Spends the day in the water and walks out at night to graze. Its dung feeds the whole river food web.',
       hint: 'Deep waterholes or river pools with grassland to graze nearby.' });
   }
@@ -110,7 +110,7 @@ export default function buildSerengetiAnimals(def) {
       speed: 1, hr: 60, max: 4, minK: 1, groupSize: [1, 2], sources: ['N'], mig: 0, intro: 22000, breed: [2], litter: [1, 1], life: 40, mature: 7,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.4),
       req: g => Math.min(1, g.forestTiles / 250),
-      sprite: { kind: 'rhino', len: 38, h: 20, leg: 12, color: '#6a6660', belly: '#5a5650', dark: '#3a3834' },
+      sprite: { kind: 'rhino', len: 38, h: 20, leg: 12, color: '#6a6660', belly: '#5a5650', dark: '#3a3834', show: 1.25 },
       desc: 'Critically endangered: poaching took the Serengeti down to a handful. A browser with a hooked lip for stripping thornbush.',
       hint: 'Thick thornbush and young woodland, quiet and with water.' });
   }
@@ -122,7 +122,7 @@ export default function buildSerengetiAnimals(def) {
       prey: ['wildebeest', 'zebra', 'buffalo', 'warthog', 'gazelle'], preyPer: 7,
       suit: (W, i) => w[W.habitat[i]] * (0.6 + 0.4 * shade(W, i)),
       req: g => Math.min(1, g.meadowTiles / 350),
-      sprite: { kind: 'feline', len: 46, h: 18, leg: 15, color: '#c89a5a', belly: '#e8d4ae', dark: '#6a4a2a', longtail: true, stocky: true, mane: '#7a4a24' },
+      sprite: { kind: 'feline', len: 46, h: 18, leg: 15, color: '#c89a5a', belly: '#e8d4ae', dark: '#6a4a2a', longtail: true, stocky: true, mane: '#7a4a24', show: 0.88 },
       desc: 'Prides rest in the shade of a lone acacia or kopje all day and hunt the herds at night.',
       hint: 'Big open grasslands with plenty of large grazers, and shade to rest in.' });
   }
@@ -178,7 +178,7 @@ export default function buildSerengetiAnimals(def) {
       needs: ['wildebeest', 'zebra', 'buffalo', 'gazelle'], needsPer: 8,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, (g.bigTrees + 2) / 8),
-      sprite: { kind: 'vulture', size: 34, color: '#8a7a64', breast: '#b8a88e', head: '#9a9aa0', tail: '#2a2622', flight: '#2a2622', bill: '#2a2a2a' },
+      sprite: { kind: 'vulture', size: 34, color: '#8a7a64', breast: '#b8a88e', head: '#9a9aa0', tail: '#2a2622', flight: '#2a2622', bill: '#2a2a2a', show: 0.78 },
       desc: 'Circles high on thermals, watching for other vultures dropping to a carcass. Critically endangered, mostly from poisoned baits.',
       hint: 'Big herds of grazers (it cleans up after them) and tall trees to nest in.' });
   }
@@ -269,7 +269,7 @@ export default function buildSerengetiAnimals(def) {
       speed: 0.3, hr: 2, max: 30, minK: 2, groupSize: [2, 4], sources: ['N', 'E'], mig: 0.5, breed: [0, 1, 8, 9], litter: [3, 5], life: 1, mature: 0.2,
       needs: ['wildebeest', 'zebra', 'buffalo', 'elephant', 'gazelle', 'impala', 'warthog'], needsPer: 1.5,
       suit: (W, i) => w[W.habitat[i]],
-      sprite: { kind: 'beetle', size: 5, color: '#1a1a14' },
+      sprite: { kind: 'beetle', size: 5, color: '#1a1a14', show: 0.55 },
       desc: 'Rolls balls of dung away and buries them, fertilising the soil and planting seeds. A herd is only as healthy as its beetles.',
       hint: 'Wherever big grazers leave dung.' });
   }
@@ -278,7 +278,7 @@ export default function buildSerengetiAnimals(def) {
     def({ key: 'catfish', name: 'African catfish', sci: 'Clarias gariepinus', group: 'Reptiles & more', move: 'swim',
       speed: 1, hr: 6, max: 30, minK: 3, groupSize: [3, 6], sources: ['S'], mig: 0.5, breed: [1, 8], litter: [4, 8], life: 8, mature: 1,
       suit: (W, i) => w[W.habitat[i]] * (W.connected[i] ? 1 : 0.6),
-      sprite: { kind: 'fish', size: 18, back: '#3a3a30', flank: '#5e5e48', belly: '#c8c0a0', whiskers: true, catfish: true, long: true, finColor: '#3a3a2e' },
+      sprite: { kind: 'fish', size: 18, back: '#3a3a30', flank: '#5e5e48', belly: '#c8c0a0', whiskers: true, catfish: true, long: true, finColor: '#3a3a2e', show: 1.15 },
       desc: 'Can breathe air and even wriggle across land between pools. It survives in waterholes that nearly dry out.',
       hint: 'Waterholes and the river.' });
   }

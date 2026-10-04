@@ -105,11 +105,11 @@ export class Actors {
       }
       else if (surf != null && FLOATERS.has(kind)) y = surf - mo.sink * sc;
       else if (def.move === 'fly' && inside && w.tree[i] && w.treeG[i] > 0.5 && kind !== 'duck' && kind !== 'heron' && kind !== 'crane') {
-        y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * w.treeG[i] * 0.55;
+        y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * (PLANTS[w.tree[i]].look.scale ?? 1) * w.treeG[i] * 0.55;
       } else if (def.move === 'tree' && inside) {
         // monkeys and sloths live up in the crowns (or on a snag's bare top)
         // (monkeys up in the sunlit top of the canopy, sloths hanging lower down)
-        if (w.tree[i]) y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * w.treeG[i] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
+        if (w.tree[i]) y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * (PLANTS[w.tree[i]].look.scale ?? 1) * w.treeG[i] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
         else if (w.feature[i] === FEAT.SNAG) y += 0.9;
       }
       // face the way it's moving, and blend between standing, walking and flying

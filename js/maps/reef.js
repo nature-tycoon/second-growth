@@ -19,6 +19,8 @@ const dryTile = (w, i) => w.tileH(i % w.w, (i / w.w) | 0) > SEA - 0.2;
 // (the seabed here never changes height, so it's worked out once per world)
 const shoreMask = w => w._shore || (w._shore = Uint8Array.from({ length: w.n }, (_, i) => (w.tileH(i % w.w, (i / w.w) | 0) > SEA - 0.45 ? 1 : 0)));
 
+// soft coral grown since the start (the reef starts with some)
+const softNew = g => { const f = g.flags; if (f.soft0 == null && g.world.stats?.softCoral != null) f.soft0 = st(g, 'softCoral'); return f.soft0 == null ? 0 : Math.max(0, st(g, 'softCoral') - f.soft0); };
 const goal = (key, name, reward, desc, check, prog) => ({ key, name, reward, desc, check, prog });
 const GOALS = [
   goal('stars', 'Hold the rubble down', 1500, 'Lay 120 tiles of reef stars (Landscape → Reef stars) over the loose rubble. Young corals can\'t take hold on rubble that rolls with every swell.',
@@ -43,8 +45,8 @@ const GOALS = [
     g => st(g, 'coralKinds') >= 5, g => `${st(g, 'coralKinds')} / 5 kinds`),
   goal('clams', 'Giants on the sand', 2500, 'Grow 12 giant clams. They sit happily on sand or rubble, and filter the water clean around them so algae struggles.',
     g => st(g, 'clams') >= 12, g => `${st(g, 'clams')} / 12 giant clams`),
-  goal('garden', 'Soft coral gardens', 3000, 'Grow 150 tiles of soft corals, sea fans and sponges among the hard corals. A spot one holds stays theirs.',
-    g => st(g, 'softCoral') >= 150, g => `${st(g, 'softCoral')} / 150 tiles`),
+  goal('garden', 'Soft coral gardens', 3000, 'Grow 150 more tiles of soft corals, sea fans and sponges among the hard corals. A spot one holds stays theirs.',
+    g => softNew(g) >= 150, g => `${softNew(g)} / 150 new tiles`),
   goal('species10', 'Full of fish', 4000, 'Have 10 kinds of animals living on the reef at once.',
     g => speciesPresent(g) >= 10, g => `${speciesPresent(g)} / 10 species`),
   goal('noddy', 'Noddies nest', 3000, 'Black noddies nest in the cay\'s pisonia trees.',
@@ -412,8 +414,8 @@ export default {
   // the planting panel and field guide: the reef's "trees" are hard corals, its "shrubs" soft corals and the rest
   plantTabs: { mixes: 'Nursery mixes', ground: 'Seagrass & algae', shrub: 'Soft corals & more', tree: 'Hard corals' },
   layerNames: ['Seagrass or algae', 'Soft coral', 'Hard coral'],
-  categoryDesc: { plants: 'Plant corals, seagrass and island plants.' },
-  lat: -23.4, lon: 151.9,
+  categoryDesc: { plants: 'Plant corals, seagrass and island plants.', land: 'Hold the rubble still, and shade the reef in a heatwave.', features: 'Drop limestone boulders: shelter for fish, and somewhere hard for corals to grow.', remove: 'Cull crown-of-thorns starfish, scrape back algae, and lift buoys.' },
+  lat: -23.4, lon: 151.9, pinLabel: 'sw', // (below the pin, clear of the map's right edge)
   plants: buildReefPlants,
   animals: buildReefAnimals,
   goals: GOALS,

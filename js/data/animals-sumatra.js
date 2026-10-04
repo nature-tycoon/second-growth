@@ -31,7 +31,7 @@ export default function buildSumatraAnimals(def) {
       breed: [3], litter: [1, 1], life: 35, mature: 6,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i) * fruit(W, i),
       req: g => Math.max(0, Math.min(1, (g.forestTiles - 300) / 300)),
-      sprite: { kind: 'monkey', len: 18, color: '#141210', belly: '#1c1a18', ape: true, sac: '#8a7c74' },
+      sprite: { kind: 'monkey', len: 18, color: '#141210', belly: '#1c1a18', ape: true, sac: '#8a7c74', show: 1.2 },
       desc: 'The biggest gibbon. Families swing arm over arm through the canopy, and every morning the pair sings a duet you can hear kilometres away, booming through the bare throat sac.',
       hint: 'Tall, fruiting forest canopy. Siamangs never come to the ground.' });
   }
@@ -42,7 +42,7 @@ export default function buildSumatraAnimals(def) {
       breed: [5, 6], litter: [1, 1], life: 20, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i),
       req: g => Math.max(0, Math.min(1, (g.forestTiles - 150) / 250)),
-      sprite: { kind: 'monkey', len: 15, color: '#8a8884', belly: '#e8e6e0', face: '#ece8e0', crest: '#3a3836', long: true },
+      sprite: { kind: 'monkey', len: 15, color: '#8a8884', belly: '#e8e6e0', face: '#ece8e0', crest: '#3a3836', long: true, show: 1.35 },
       desc: 'A grey leaf monkey with a punk crest and a white face, found only in northern Sumatra. It eats young leaves, so it settles into young forest sooner than the fruit eaters.',
       hint: 'Young or old forest canopy, especially along streams.' });
   }
@@ -52,7 +52,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1.2, hr: 30, max: 22, minK: 4, groupSize: [5, 10], sources: ['N', 'E', 'W'], mig: 0.35,
       breed: [8, 9, 10], litter: [1, 1], life: 25, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.5),
-      sprite: { kind: 'monkey', len: 16, color: '#8a6a44', belly: '#c8b08a', face: '#c89a88', shortTail: true },
+      sprite: { kind: 'monkey', len: 16, color: '#8a6a44', belly: '#c8b08a', face: '#c89a88', shortTail: true, show: 1.4 },
       desc: 'Bold troops that spend as much time on the ground as in the trees, and raid oil palm fruit along the plantation edge. In villages, some are trained to pick coconuts.',
       hint: 'Forest and scrub with fruit. They will forage in the palms too.' });
   }
@@ -63,7 +63,7 @@ export default function buildSumatraAnimals(def) {
       prey: ['sambar', 'boar', 'mousedeer', 'tapir', 'macaque'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 3, 0.2),
       req: g => Math.min(1, g.forestTiles / 2400) * Math.min(1, g.matureTiles / 120), // a big, grown forest, joined to Leuser
-      sprite: { kind: 'feline', len: 46, h: 17, leg: 13, color: '#d8742a', belly: '#f2ebdc', dark: '#1a1410', stripes: true },
+      sprite: { kind: 'feline', len: 46, h: 17, leg: 13, color: '#d8742a', belly: '#f2ebdc', dark: '#1a1410', stripes: true, show: 0.9 },
       desc: 'The smallest, darkest and most densely striped tiger, and the last of the island tigers. Perhaps 600 are left. It needs a huge forest with plenty of deer and wild pigs, and forest corridors to move between.',
       hint: 'A large, connected forest with sambar deer and wild boar to hunt.' });
   }
@@ -94,7 +94,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1, hr: 120, max: 4, sources: ['N', 'E'], mig: 0.18, breed: [7], litter: [1, 2], life: 25, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * (0.3 + 0.35 * Math.min(1, W.berries[i]) + 0.35 * Math.min(1, W.insects[i])),
       req: g => Math.min(1, g.forestTiles / 700) * Math.min(1, (g.snagCount + g.bigTrees / 6) / 6),
-      sprite: { kind: 'bear', len: 26, h: 11, leg: 7, color: '#1c1714', muzzle: '#c8a070', chest: '#e8b45a' },
+      sprite: { kind: 'bear', len: 26, h: 11, leg: 7, color: '#1c1714', muzzle: '#c8a070', chest: '#e8b45a', show: 1.2 },
       desc: 'The smallest bear, with a golden blaze on its chest. It rips open rotten logs and tree trunks for termites and grubs, and climbs for honey and fruit with an extraordinarily long tongue.',
       hint: 'Forest with fruit, dead wood and big old trees.' });
   }
@@ -106,7 +106,7 @@ export default function buildSumatraAnimals(def) {
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.3),
       req: g => Math.min(1, g.forestTiles / 1000),
       sprite: { kind: 'elephant', len: 40, h: 23, leg: 17, color: '#7a7672', belly: '#6c6864', dark: '#3e3a38', asian: true,
-        male: { tusker: true, len: 43, h: 25, leg: 18 }, maleShare: 0.25, maleName: 'tusker bull' },
+        male: { tusker: true, len: 43, h: 25, leg: 18 }, maleShare: 0.25, maleName: 'tusker bull', show: 1.38 },
       desc: 'The Sumatran elephant has lost most of its lowland forest to plantations in a single generation, and herds that find their old routes fenced off end up raiding crops. Give them a way through and they open up thickets, dig for water and carry seeds for kilometres.',
       hint: 'A big mix of young forest, scrub and water, with the elephant fence along the north boundary taken down.' });
   }
@@ -116,7 +116,7 @@ export default function buildSumatraAnimals(def) {
       speed: 0.8, hr: 300, max: 2, sources: ['N'], mig: 0.04, breed: [8], litter: [1, 1], life: 35, mature: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 4, 0.3),
       req: g => Math.min(1, g.forestTiles / 2800) * Math.min(1, g.matureTiles / 300), // old, quiet forest
-      sprite: { kind: 'rhino', len: 30, h: 15, leg: 9, color: '#6a5242', belly: '#5a4636', dark: '#3a2c22', hairy: true },
+      sprite: { kind: 'rhino', len: 30, h: 15, leg: 9, color: '#6a5242', belly: '#5a4636', dark: '#3a2c22', hairy: true, show: 1.3 },
       desc: 'The smallest and hairiest rhino, and the most endangered: fewer than fifty are left. It browses saplings in old forest and wallows in mud every day.',
       hint: 'Old, undisturbed forest with mud wallows, joined to Leuser. It almost never comes.' });
   }
@@ -146,7 +146,7 @@ export default function buildSumatraAnimals(def) {
     def({ key: 'mousedeer', name: 'Lesser mouse-deer', sci: 'Tragulus kanchil', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 6, max: 24, sources: ['N', 'E'], mig: 0.35, breed: [0, 4, 8], litter: [1, 1], life: 10, mature: 0.6,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.5) * near(W.distCover[i], 1, 0.4),
-      sprite: { kind: 'agouti', len: 11, color: '#8a5a34', belly: '#ece0cc', mousedeer: true },
+      sprite: { kind: 'agouti', len: 11, color: '#8a5a34', belly: '#ece0cc', mousedeer: true, show: 1.4 },
       desc: 'A tiny hoofed animal no bigger than a rabbit, on legs as thin as pencils. In Malay and Indonesian folk tales, Sang Kancil the mouse-deer outwits the tiger and the crocodile.',
       hint: 'Thick forest undergrowth with fallen fruit.' });
   }
@@ -173,7 +173,7 @@ export default function buildSumatraAnimals(def) {
     def({ key: 'civet', name: 'Common palm civet', sci: 'Paradoxurus hermaphroditus', group: 'Mammals', move: 'ground',
       speed: 1.1, hr: 10, max: 16, sources: ['W', 'N', 'E'], mig: 0.4, breed: [2, 8], litter: [2, 3], life: 12, mature: 1,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.5),
-      sprite: { kind: 'raccoon', len: 24, color: '#6e665a', belly: '#c8c0b0', dark: '#1c1a18', civet: true },
+      sprite: { kind: 'raccoon', len: 24, color: '#6e665a', belly: '#c8c0b0', dark: '#1c1a18', civet: true, show: 0.78 },
       desc: 'A masked, cat-sized fruit eater that climbs at night. It swallows fruit whole and spreads the seeds, which is how oil palm seedlings turn up deep in the forest, and how kopi luwak coffee is made.',
       hint: 'Anywhere with fruit: forest, scrub and palms.' });
   }
@@ -182,7 +182,7 @@ export default function buildSumatraAnimals(def) {
     def({ key: 'woodrat', name: 'Malaysian wood rat', sci: 'Rattus tiomanicus', group: 'Mammals', move: 'ground',
       speed: 1.2, hr: 1.2, max: 90, minK: 2, groupSize: [2, 4], sources: ['W'], mig: 0.6, breed: [0, 2, 4, 6, 8, 10], litter: [3, 6], life: 1, mature: 0.25,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.6),
-      sprite: { kind: 'rodent', len: 12, color: '#7a6650', belly: '#c8b8a0' },
+      sprite: { kind: 'rodent', len: 12, color: '#7a6650', belly: '#c8b8a0', show: 1.2 },
       desc: 'The plantation rat. It lives on fallen palm fruit and can eat a tenth of an estate\'s harvest. Barn owls, leopard cats and pythons keep it in check; as the palms go, so do most of the rats.',
       hint: 'Oil palms and weedy ground.' });
   }
@@ -214,7 +214,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1.3, hr: 60, max: 6, minK: 2, groupSize: [2, 2], sources: ['N', 'E'], mig: 0.25, breed: [0, 1], litter: [1, 2], life: 35, mature: 5,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i),
       req: g => Math.min(1, (g.snagCount + g.bigTrees / 6) / 5) * Math.min(1, g.forestTiles / 600),
-      sprite: { kind: 'hornbill', size: 28, color: '#141210', breast: '#141210', head: '#141210', bill: '#f2e6b0', casque: '#e8601e', tail: '#f4f0e8', tailBand: '#141210', perch: true },
+      sprite: { kind: 'hornbill', size: 28, color: '#141210', breast: '#141210', head: '#141210', bill: '#f2e6b0', casque: '#e8601e', tail: '#f4f0e8', tailBand: '#141210', perch: true, show: 0.85 },
       desc: 'A huge black-and-white hornbill with an upturned orange casque, and wings that whoosh like a passing train. The female seals herself into a tree hollow to nest, and the male feeds her figs through a slit for months.',
       hint: 'Big old trees with hollows, or snags, and plenty of figs.' });
   }
@@ -246,7 +246,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1, hr: 50, max: 4, sources: ['S'], mig: 0.2, breed: [7, 8], litter: [2, 2], life: 18, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i] * near(W.distForest[i], 3, 0.3),
       req: g => Math.min(1, g.fishIndex / 10) * Math.min(1, g.forestTiles / 700),
-      sprite: { kind: 'heron', size: 26, color: '#1a1a1a', breast: '#f2f2ee', head: '#1a1a1a', flight: '#141414', bill: '#d8281e', stork: true },
+      sprite: { kind: 'heron', size: 26, color: '#1a1a1a', breast: '#f2f2ee', head: '#1a1a1a', flight: '#141414', bill: '#d8281e', stork: true, show: 0.85 },
       desc: 'One of the rarest storks on Earth, with a red bill and golden eye-rings. It feeds alone along streams and pools inside peat swamp and riverside forest, never in the open.',
       hint: 'Clean streams and wet peat inside forest.' });
   }
@@ -316,7 +316,7 @@ export default function buildSumatraAnimals(def) {
     def({ key: 'flyingfrog', name: "Wallace's flying frog", sci: 'Rhacophorus nigropalmatus', group: 'Reptiles & amphibians', move: 'semi',
       speed: 0.6, hr: 3, max: 30, sources: ['N', 'E'], mig: 0.3, breed: [7, 8, 9], litter: [3, 6], life: 4, mature: 0.6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 4, 0.3) * canopy(W, i),
-      sprite: { kind: 'frog', size: 7, color: '#3aa04a', dark: '#2a6a34' },
+      sprite: { kind: 'frog', size: 7, color: '#3aa04a', dark: '#2a6a34', show: 1.3 },
       desc: 'A tree frog that glides from branch to branch on huge webbed feet, and lays its eggs in a foam nest over a pool, so the tadpoles drop straight in.',
       hint: 'Forest canopy over swamp pools and streams.' });
   }
@@ -347,7 +347,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1.4, hr: 8, max: 18, minK: 2, groupSize: [2, 4], sources: ['S'], mig: 0.35, breed: [8, 9], litter: [3, 6], life: 15, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i] * (W.connected[i] ? 1 : 0.2),
       req: g => Math.min(1, g.cleanWater / 30),
-      sprite: { kind: 'fish', size: 18, back: '#4a5a4a', flank: '#b8a878', belly: '#e8e0c8', finColor: '#c8603a', tailShape: 'fork' },
+      sprite: { kind: 'fish', size: 18, back: '#4a5a4a', flank: '#b8a878', belly: '#e8e0c8', finColor: '#c8603a', tailShape: 'fork', show: 1.3 },
       desc: 'Ikan kelah: a big, bronze-scaled river fish that swims up clear forest streams to eat fallen fruit and seeds. It vanishes when streams run muddy and bare.',
       hint: 'Clear, shaded streams connected to the river.' });
   }

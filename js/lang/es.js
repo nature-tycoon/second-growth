@@ -56,7 +56,7 @@ addStrings({
   'Hide goals': 'Ocultar metas', 'Show goals': 'Mostrar metas', 'Chapter details': 'Detalles del capítulo',
 
   // ---------------------------------------------------------------- tool groups and tools
-  Inspect: 'Inspeccionar', 'Click tiles and animals to learn about them.': 'Tocá cuadros y animales para conocerlos.',
+  Inspect: 'Mirar', // (short enough for the toolbar button) 'Click tiles and animals to learn about them.': 'Tocá cuadros y animales para conocerlos.',
   Landscape: 'Terreno', 'Shape water and soil.': 'Dale forma al agua y la tierra.',
   Plant: 'Sembrar', 'Brush in native plants.': 'Pintá plantas nativas.',
   Habitat: 'Hábitat', 'Place snags, logs and shelters.': 'Poné árboles muertos, troncos y refugios.',
@@ -199,7 +199,7 @@ addStrings({
   'Two fingers': 'Dos dedos', 'move the map;': 'mueven el mapa;', pinch: 'pellizcá', 'to zoom. The arrows at the bottom right rotate the view. The ☰ menu has the journal and see-through trees.': 'para acercar. Las flechas de abajo a la derecha giran la vista. El menú ☰ tiene el diario y ver a través de los árboles.',
   'Move the map with the': 'Mové el mapa con la', thumbstick: 'palanca', 'at the bottom left or with': 'de abajo a la izquierda o con', 'two fingers': 'dos dedos', ', and': ', y',
   'to zoom. The arrows at the bottom right rotate the view.': 'para acercar. Las flechas de abajo a la derecha giran la vista.',
-  'drag one finger': 'arrastrá un dedo', 'to brush it across the land, or tap to place things or inspect a tile or animal. With Inspect, one finger moves the map too.': 'para pintarla sobre el terreno, o tocá para poner cosas o ver un cuadro o un animal. Con Inspeccionar, un dedo también mueve el mapa.',
+  'drag one finger': 'arrastrá un dedo', 'to brush it across the land, or tap to place things or inspect a tile or animal. With Inspect, one finger moves the map too.': 'para pintarla sobre el terreno, o tocá para poner cosas o ver un cuadro o un animal. Con Mirar, un dedo también mueve el mapa.',
   'Drag to move the map': 'Arrastrá para mover el mapa', 'Move the map': 'Mover el mapa',
   'Touching the map folds the tool panel away; tap its tool group again to open it. The ☰ menu has the journal and see-through trees.': 'Al tocar el mapa se pliega el panel de herramientas; tocá su grupo otra vez para abrirlo. El menú ☰ tiene el diario y ver a través de los árboles.',
   'For the most room, use full screen (the corner button at the top) or add the game to your home screen.': 'Para tener más espacio, usá pantalla completa (el botón de la esquina de arriba) o agregá el juego a tu pantalla de inicio.',
@@ -267,6 +267,10 @@ addPatterns([
   [/^For (\S+)$/, 'Para $1'],
   [/^· (Groundcover|Shrub|Tree)$/, (_, l) => '· ' + tr(l)],
   [/^(.+\.) Grants ×([\d.]+), costs ×([\d.]+), fire and flood ×([\d.]+)\.$/, (_, d, a, b, c) => `${tr(d)} Ayudas ×${a}, costos ×${b}, fuego y llenas ×${c}.`],
+  // the rebuild tools, named after each map's own buildings (see tools.js)
+  [/^Rebuild (.+)$/, (_, n) => `Reconstruir: ${n}`],
+  [/^Put the (.+) back up\. Old buildings are roosts: bats move into the roof space, and owls and swallows nest inside\.$/, (_, n) => `Levantá otra vez: ${n}. Los edificios viejos son refugio: los murciélagos duermen bajo el techo, y las lechuzas y golondrinas anidan adentro.`],
+  [/^The (.+) is back up\.$/, (_, n) => `Ya está otra vez en pie: ${n}.`],
   // top bar, report, goals
   [/^Conservation budget: (\$[\d,]+)\. Last monthly grant: (-?\$[\d,]+)$/, 'Presupuesto: $1. Última ayuda del mes: $2'],
   [/^Ecosystem health: (\d+) \/ 100$/, 'Salud del ecosistema: $1 / 100'],
@@ -275,7 +279,7 @@ addPatterns([
   [/^(-?\$[\d,]+) last month$/, '$1 el mes pasado'],
   [/^([\d,]+) \/ ([\d,]+) (trees|tiles|shaded tiles|newly shaded tiles|planted|species|seeded|points|dollars more a month|mangroves)$/, (_, a, b, u) => `${a} / ${b} ${UNITS[u]}`],
   // maps, modes and chapters
-  [/^(One|Two|Three|Four|Five|Six) places to bring back\. Tap a pin to pick one, or start right here at (.+)\.$/, (_, n, f) => `${{ One: 'Un lugar', Two: 'Dos lugares', Three: 'Tres lugares', Four: 'Cuatro lugares', Five: 'Cinco lugares', Six: 'Seis lugares' }[n]} para recuperar. Tocá un punto para elegir uno, o empezá aquí mismo en ${f}.`],
+  [/^(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten) places to bring back\. Tap a pin to pick one, or start right here at (.+)\.$/, (_, n, f) => `${{ One: 'Un lugar', Two: 'Dos lugares', Three: 'Tres lugares', Four: 'Cuatro lugares', Five: 'Cinco lugares', Six: 'Seis lugares', Seven: 'Siete lugares', Eight: 'Ocho lugares', Nine: 'Nueve lugares', Ten: 'Diez lugares' }[n]} para recuperar. Tocá un punto para elegir uno, o empezá aquí mismo en ${f}.`],
   [/^Saved farm, year (\d+)$/, 'Finca guardada, año $1'],
   [/^Continue your saved (.+) farm$/, 'Seguir con tu finca guardada: $1'],
   [/^Eight chapters on (.+)\. Each one teaches a new part of restoration and unlocks new tools as you go\. Best for your first time\.$/, 'Ocho capítulos en la $1. Cada uno te enseña una parte nueva de la restauración y abre herramientas nuevas. Lo mejor para la primera vez.'],
