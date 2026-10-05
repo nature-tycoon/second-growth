@@ -29,7 +29,8 @@ export class Music {
 
   // Browsers only allow audio after the player has clicked or pressed something.
   start() {
-    if (this.ctx) { if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume(); this.syncPlayback(); return; }
+    // (an iPhone can refuse to start the audio device, say during a call: try again on the next tap)
+    if (this.ctx) { if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume().catch(() => {}); this.syncPlayback(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = this.ctx = new AC();
@@ -63,7 +64,7 @@ export class Music {
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
       if (document.hidden) { this.ctx.suspend(); this.decks.forEach(d => d.el.pause()); }
-      else { this.ctx.resume(); this.syncPlayback(); }
+      else { this.ctx.resume().catch(() => {}); this.syncPlayback(); }
     });
     // iOS only lets a media element start inside a tap: start the first track now (it fades in),
     // and unlock the second deck with a moment of silence so later crossfades can play too

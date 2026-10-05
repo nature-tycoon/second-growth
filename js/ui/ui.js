@@ -252,10 +252,24 @@ export class UI {
       S.leftAt = performance.now();
       snap(reason, true);
       trackExit('game_left', { reason, active_minutes: +(S.active / 60).toFixed(1), session_minutes: +((performance.now() - S.t0) / 60000).toFixed(1),
-        days_played: g.day - S.day0, idle_seconds: Math.round((performance.now() - S.lastInput) / 1000), ...snapshot(), ...doing() });
+        days_played: g.day - S.day0, idle_seconds: Math.round((performance.now() - S.lastInput) / 1000), rotate_prompt_up: S.rotateSince != null, ...snapshot(), ...doing() });
     };
     document.addEventListener('visibilitychange', () => { if (document.hidden) leave('hidden'); });
     window.addEventListener('pagehide', () => leave('closed'));
+    // the "turn your phone sideways" screen: how many players meet it, how long they take to turn
+    // the phone, and (in game_left) whether it was still up when they gave up
+    const upright = window.matchMedia('(orientation: portrait) and (max-width: 700px)');
+    const rotate = () => {
+      if (upright.matches && S.rotateSince == null) {
+        S.rotateSince = performance.now();
+        if ((S.rotateShown = (S.rotateShown || 0) + 1) <= 3) track('rotate_prompt_shown', { times: S.rotateShown, seconds_since_load: Math.round(performance.now() / 1000) });
+      } else if (!upright.matches && S.rotateSince != null) {
+        if (S.rotateShown <= 3) track('rotate_prompt_cleared', { seconds: Math.round((performance.now() - S.rotateSince) / 1000), times: S.rotateShown });
+        S.rotateSince = null;
+      }
+    };
+    rotate();
+    upright.addEventListener?.('change', rotate);
   }
 
   applySettings() {
@@ -536,8 +550,9 @@ export class UI {
       const costTxt = !open ? (ch < 0 ? 'Later' : `Chapter ${ch + 1}`) : t.costFor ? 'varies' : price ? money(price) + (t.brush ? '/tile' : '') : 'free';
       card.innerHTML = `<img src="${iconThumb(t.icon)}" alt="">${open ? '' : `<span class="lock">${ICONS.lock}</span>`}<div class="nm">${t.name}</div><div class="cost">${costTxt}</div>`;
       // (a few tools aren't part of any chapter and open when the campaign is finished)
-      card.title = open ? t.desc : ch < 0 ? 'Unlocks when you finish the campaign' : `Unlocks in Chapter ${ch + 1}: ${CHAPTERS[ch].title}`;
-      card.addEventListener('click', () => open ? this.selectTool(t.key) : this.game.notify(ch < 0 ? `${t.name} unlocks when you finish the campaign.` : `${t.name} unlocks in Chapter ${ch + 1}, "${CHAPTERS[ch].title}". Finish this chapter's goals to get there.`, 'info'));
+      const chName = CHAPTERS[ch]?.title; // (a tool a chapter on another map unlocks has no chapter here)
+      card.title = open ? t.desc : ch < 0 || !chName ? 'Unlocks when you finish the campaign' : `Unlocks in Chapter ${ch + 1}: ${chName}`;
+      card.addEventListener('click', () => open ? this.selectTool(t.key) : this.game.notify(ch < 0 || !chName ? `${t.name} unlocks when you finish the campaign.` : `${t.name} unlocks in Chapter ${ch + 1}, "${chName}". Finish this chapter's goals to get there.`, 'info'));
       grid.appendChild(card);
     }
     panel.appendChild(grid);
