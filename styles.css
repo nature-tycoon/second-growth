@@ -686,3 +686,33 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
 .ledger .tot { font-weight: 800; border-top: 1px solid var(--line); padding-top: 4px; }
 .ledger .neg { color: var(--bad); }
 @media (max-height: 520px) { .ledger { font-size: 12px; column-gap: 10px; } .ledger .k small { display: none; } }
+
+/* the date for phones, and the overlay menu as a button where the dropdown doesn't fit */
+#stat-date-short { display: none; font-weight: 800; font-size: 12px; white-space: nowrap; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+#btn-overlay { display: none; }
+#btn-overlay.on { background: var(--moss); color: #fff; }
+#topbar.tight-4 #btn-overlay { display: inline-grid !important; }
+@media (max-height: 520px) {
+  #stat-date-short { display: block !important; }
+  .top-actions select { display: none !important; }
+  #btn-overlay { display: inline-grid !important; }
+  /* notifications: one at a time, two lines, out of the way (the field journal has them in full) */
+  #toasts { width: min(320px, 40vw); }
+  #toasts .toast:nth-child(n+2) { display: none; }
+  .toast > span:last-child, .toast.season > span:last-child { -webkit-line-clamp: 2; }
+  .toast .ti { width: 16px; height: 16px; }
+}
+/* the Undo button at the foot of the toolbar */
+#toolbar button.undo:disabled { opacity: 0.38; cursor: default; }
+.toast.open > span:last-child, .toast.season.open > span:last-child { -webkit-line-clamp: unset; display: block; max-height: 50vh; overflow-y: auto; }
+.toast:not(.clickable) { cursor: pointer; }
+#btn-undo-float { display: none; }
+@media (max-height: 520px) {
+  #toolbar button.undo, #toolbar .sep:last-of-type { display: none; }
+  #btn-undo-float { display: grid; place-items: center; position: fixed; z-index: 7; left: calc(176px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom));
+    width: 42px; height: 42px; border-radius: 50%; border: 0; background: var(--paper-2); color: var(--ink-2); box-shadow: 0 3px 10px rgba(20, 30, 15, 0.25); }
+  #btn-undo-float svg { width: 22px; height: 22px; }
+  #btn-undo-float:disabled { opacity: 0.45; }
+  #btn-undo-float:active:not(:disabled) { background: var(--moss); color: #fff; }
+  body.moment-on #btn-undo-float, body.photo-mode #btn-undo-float { opacity: 0; pointer-events: none; }
+}

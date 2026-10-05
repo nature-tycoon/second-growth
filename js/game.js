@@ -22,12 +22,12 @@ const saveKey = map => map === 'pnw' ? SAVE_KEY : `${SAVE_KEY}-${map}`;
 // a map switch in progress across a page reload (see UI.switchMap)
 export const PENDING_KEY = 'second-growth-pending';
 
-const WORLD_ARRAYS = ['terrain', 'baseMoist', 'moist', 'soil', 'ground', 'groundG', 'shrub', 'shrubG',
+export const WORLD_ARRAYS = ['terrain', 'baseMoist', 'moist', 'soil', 'ground', 'groundG', 'shrub', 'shrubG',
   'tree', 'treeG', 'treeAge', 'feature', 'featureAge', 'struct', 'variant', 'vh', 'flood', 'fire', 'scorch', 'rx', 'marks'];
 // Arrays a map or system adds to the world only once it needs them (the reef's bleaching, the
 // savanna's seed bank, worn game trails, the suburb's bloom calendar): saved when they exist, and
 // rebuilt with the same type on load.
-const EXTRA_ARRAYS = { bleach: Float32Array, seedbank: Uint16Array, trod: Float32Array, bloomLast: Int32Array };
+export const EXTRA_ARRAYS = { bleach: Float32Array, seedbank: Uint16Array, trod: Float32Array, bloomLast: Int32Array };
 
 export class Game {
   constructor() {

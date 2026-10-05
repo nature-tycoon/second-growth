@@ -282,6 +282,10 @@ addPatterns([
   [/^Put the (.+) back up\. Old buildings are roosts: bats move into the roof space, and owls and swallows nest inside\.$/, (_, n) => `Levantá otra vez: ${n}. Los edificios viejos son refugio: los murciélagos duermen bajo el techo, y las lechuzas y golondrinas anidan adentro.`],
   [/^The (.+) is back up\.$/, (_, n) => `Ya está otra vez en pie: ${n}.`],
   // top bar, report, goals
+  [/^(Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Jan|Feb) (\d+) · Y(\d+)$/, (_, m, d, y) => `${d} ${{ Mar: 'mar', Apr: 'abr', May: 'may', Jun: 'jun', Jul: 'jul', Aug: 'ago', Sep: 'sep', Oct: 'oct', Nov: 'nov', Dec: 'dic', Jan: 'ene', Feb: 'feb' }[m]} · A${y}`],
+  [/^Undid (.+) on (\d+) tiles?(.*)\.$/, 'Deshecho: $1 en $2 casillas$3.'],
+  ['Map overlay', 'Capa del mapa'], ['No overlay', 'Sin capa'], ['Undo', 'Deshacer'],
+  ['Nothing to undo. Work with a tool can be undone for about a month.', 'No hay nada que deshacer. El trabajo con una herramienta se puede deshacer durante un mes.'],
   [/^Conservation budget: (\$[\d,]+)\. Tap to see where the money comes from\.$/, 'Presupuesto: $1. Toque para ver de dónde viene el dinero.'],
   [/^You have (\$[\d,]+)\. Last month, and everything since the start, by where it came from\.$/, 'Tiene $1. El mes pasado, y todo desde el inicio, según de dónde vino.'],
   [/^You have (\$[\d,]+)\. At the end of each month this shows last month, and everything since the start, by where it came from\.$/, 'Tiene $1. Al final de cada mes aquí aparece el mes pasado, y todo desde el inicio, según de dónde vino.'],

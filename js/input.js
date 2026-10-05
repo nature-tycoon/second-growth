@@ -13,6 +13,7 @@ let firstToolSent = false; // once per page load
 import { track } from './analytics.js';
 import { biome } from './biome.js';
 
+const SHIFTED = { '-': '_', '_': '-', '=': '+', '+': '=' };
 const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
 
 export class Input {
@@ -43,13 +44,27 @@ export class Input {
     this.bindStick();
     window.addEventListener('keydown', e => this.key(e, true));
     window.addEventListener('keyup', e => this.key(e, false));
-    window.addEventListener('blur', () => this.keys.clear());
+    // leaving the page (another app, a phone call, the tab hidden) lets go of everything held
+    const release = () => { this.keys.clear(); this.stickEnd?.(); };
+    window.addEventListener('blur', release);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) release(); });
+    window.addEventListener('pagehide', release);
   }
 
   key(e, down) {
+    const k = (e.key || '').toLowerCase();
+    // A key let go always counts, wherever the focus is: a W released while a button or the
+    // feedback box has focus used to be ignored, and the map kept scrolling on its own. (The
+    // shifted twin goes too: a + pressed as = comes back up as =.)
+    if (!down) {
+      this.keys.delete(k); this.keys.delete(SHIFTED[k] ?? k);
+      // on a Mac, letting go of ⌘ is the only notice of keys released while it was held
+      if (k === 'meta' || k === 'control' || k === 'os') this.keys.clear();
+    }
     const tag = e.target && e.target.tagName;
     if (tag === 'TEXTAREA' || (tag === 'INPUT' && !['checkbox', 'radio', 'range', 'button'].includes(e.target.type))) return;
-    const k = e.key.toLowerCase();
+    if (down && (e.ctrlKey || e.metaKey) && k === 'z' && !e.shiftKey && !this.ui.modalOpen) { e.preventDefault(); this.ui.undoLast(); return; }
+    if (down && (e.metaKey || e.ctrlKey) && GAME_KEYS.has(k)) return; // (a ⌘ shortcut, not a camera move: its key-up may never come)
     // A focused dropdown (like the overlay menu) would swallow WASD and arrows as list navigation.
     // Hand the keys back to the map instead.
     if (tag === 'SELECT' || tag === 'BUTTON' || tag === 'INPUT') {
@@ -57,7 +72,7 @@ export class Input {
       e.preventDefault();
       e.target.blur();
     }
-    if (down) this.keys.add(k); else this.keys.delete(k);
+    if (down) this.keys.add(k);
     if (!down) return;
     if (k === 'escape') {
       if (this.ui.modalOpen) this.ui.closeModal();
@@ -238,15 +253,22 @@ export class Input {
       const m = Math.min(1, d / R), f = m < 0.12 ? 0 : (m - 0.12) / 0.88; // (a small dead zone in the middle)
       this.stickV = d ? { x: dx / Math.max(d, 1e-6) * f * f, y: dy / Math.max(d, 1e-6) * f * f } : null;
     };
-    const end = e => {
-      if (e.pointerId !== id) return;
-      id = null; this.stickV = null;
-      el.classList.remove('on'); knob.style.transform = '';
-    };
+    const stop = () => { id = null; this.stickV = null; el.classList.remove('on'); knob.style.transform = ''; };
+    const end = e => { if (e.pointerId === id) stop(); };
+    this.stickEnd = stop;
+    // Backstops for a lift the stick never hears about (a notification or the app switcher taking
+    // the touch, or a browser that drops pointer capture quietly): any pointer coming up anywhere
+    // with that id, or the last finger on the stick leaving the screen, lets it go.
+    window.addEventListener('pointerup', end, true);
+    window.addEventListener('pointercancel', end, true);
+    const fingersOff = e => { if (id !== null && ![...e.touches].some(t => el.contains(t.target))) stop(); };
+    window.addEventListener('touchend', fingersOff, true);
+    window.addEventListener('touchcancel', fingersOff, true);
     el.addEventListener('pointerdown', e => {
       if (id !== null) return;
       e.preventDefault();
-      id = e.pointerId; el.setPointerCapture?.(id);
+      id = e.pointerId;
+      try { el.setPointerCapture?.(id); } catch { /* (the finger is already up: the backstops below still let go) */ }
       const r = el.getBoundingClientRect();
       cx = r.left + r.width / 2; cy = r.top + r.height / 2; R = r.width * 0.36;
       el.classList.add('on');
@@ -280,6 +302,7 @@ export class Input {
     if (!tool) { this.inspectAt(t); return; }
     if (!this.game.world.inb(t.x, t.y)) return;
     this.stroke = { applied: new Set(), cost: 0, count: 0, unsuitable: 0, broke: false, last: null, tool };
+    this.ui.undo.begin(tool);
     if (tool.brush) document.body.classList.add('painting');
     this.applyAt(t.x, t.y);
     if (!tool.brush) this.endStroke();
@@ -335,6 +358,7 @@ export class Input {
         g.stats.used ||= {};
         g.stats.used[tool.key] = (g.stats.used[tool.key] || 0) + 1;
         this.r.markTileDirty(i % w.w, (i / w.w) | 0);
+        this.ui.undo.touch(i);
         if (cost > 0) g.spend(cost, tool.cat); else if (cost < 0) g.earn(-cost, 'salvage');
         s.cost += cost; s.count++;
         s.lastOk = i;
@@ -372,6 +396,8 @@ export class Input {
         g.notify(biome.text.hardpanHint || 'This is crusted hardpan: rain runs straight off it and seed can\'t root. Break the crust first with Landscape → Loosen soil or Half-moon pits, then sow. Only the Soil builders mix will take on bare crust, slowly.', 'info', { x: s.lastBad % g.world.w + 0.5, y: ((s.lastBad / g.world.w) | 0) + 0.5 });
       }
     }
+    this.ui.undo.end(s);
+    this.ui.refreshUndo();
     this.ui.renderInfo();
     if (s.tool.cat === 'visitors') this.ui.renderToolPanel();
   }

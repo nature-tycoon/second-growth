@@ -21,6 +21,7 @@ import * as S from '../render/sprites.js';
 import { renderPortrait, renderPlants } from '../render3d/portraits.js';
 import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
+import { Undo } from '../undo.js';
 import { track, trackExit, setContext, setAnalyticsEnabled, sendFeedback, feedbackPossible, GAME_VERSION } from '../analytics.js';
 
 const $ = sel => document.querySelector(sel);
@@ -173,6 +174,7 @@ export class UI {
     this.lastTop = 0; this.lastInfo = 0; this.lastMini = 0;
     this.toastCount = 0;
     this.newCats = new Set(); // tool categories a chapter just unlocked (they glow until opened)
+    this.undo = new Undo(game);
     this.buildToolbar();
     this.bindTopbar();
     this.minimap = $('#minimap');
@@ -180,7 +182,7 @@ export class UI {
     this.bindMinimap();
     game.on('notify', n => this.toast(n));
     game.on('moment', m => this.playMoment(m));
-    game.on('reset', () => { this.journal = []; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
+    game.on('reset', () => { this.undo.clear(); this.journal = []; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
     game.on('month', () => { if (this.state.cat !== 'inspect') this.renderToolPanel(); });
     game.on('event', kind => { if ((kind === 'fire' || kind === 'flood') && settings.pauseOnEvents && game.speed) this.setSpeed(0); });
@@ -303,6 +305,7 @@ export class UI {
     $('#btn-trees').addEventListener('click', () => this.toggleTrees());
     // blur after picking so WASD goes back to moving the camera instead of scrolling the list
     $('#overlay').addEventListener('change', e => { this.setOverlay(e.target.value); e.target.blur(); });
+    $('#btn-overlay').addEventListener('click', () => this.openOverlayPicker()); // (phones, and narrow top bars: the menu as a button)
   }
   setSpeed(s) { this.game.speed = s; this.refreshTop(true); }
   // Touch screens: touching the map folds the tool panel down to its title, so the map has room.
@@ -328,6 +331,7 @@ export class UI {
     this.state.overlay = v;
     if (species != null) this.state.overlaySpecies = species;
     $('#overlay').value = v;
+    $('#btn-overlay')?.classList.toggle('on', v !== 'none');
     if (v === 'species') {
       const opt = $('#overlay option[value="species"]');
       opt.textContent = 'Habitat for: ' + ANIMALS[this.state.overlaySpecies].name;
@@ -349,6 +353,8 @@ export class UI {
     setAttr(m, 'title', `Conservation budget: ${money(g.money)}. Tap to see where the money comes from.`);
     setText($('#stat-season'), g.seasonName());
     setText($('#stat-date'), `${MONTH_NAMES[g.month]} ${g.dayOfMonth * 3 - 2}, Year ${g.year}`);
+    setText($('#stat-date-short'), `${MONTH_NAMES[g.month].slice(0, 3)} ${g.dayOfMonth * 3 - 2} · Y${g.year}`); // (phones)
+    this.refreshUndo();
     const scene = g.weather + g.season;
     if (scene !== this.lastScene) { this.lastScene = scene; music.setScene(g.weather, g.season); }
     // the soundscape follows the land around the camera (about once a second)
@@ -415,7 +421,38 @@ export class UI {
       bar.appendChild(b);
       if (n === 0) bar.appendChild(el('div', 'sep'));
     });
+    // take back the last thing a tool did (also Ctrl+Z / ⌘Z)
+    bar.appendChild(el('div', 'sep'));
+    const u = el('button', 'undo undo-btn', `${ICONS.undo}<span>Undo</span>`);
+    u.id = 'btn-undo';
+    u.addEventListener('click', () => this.undoLast());
+    bar.appendChild(u);
+    // (on a phone the toolbar scrolls, so Undo also sits by the thumbstick, always in reach)
+    if (!$('#btn-undo-float')) {
+      const f = el('button', 'undo-btn', ICONS.undo);
+      f.id = 'btn-undo-float';
+      f.addEventListener('click', () => this.undoLast());
+      document.body.appendChild(f);
+    }
     this.markToolbar();
+    this.refreshUndo();
+  }
+  // the Undo button says what it would take back, and is dimmed when there's nothing to undo
+  refreshUndo() {
+    const c = this.undo.last;
+    for (const b of document.querySelectorAll('.undo-btn')) {
+      b.disabled = !c;
+      b.title = c ? `Undo: ${c.tool.name} (${c.count} ${c.count === 1 ? 'tile' : 'tiles'}). Ctrl+Z` : 'Nothing to undo. Tool work can be undone for a month.';
+    }
+  }
+  undoLast() {
+    const r = this.undo.undo(this.renderer);
+    if (!r) { this.game.notify('Nothing to undo. Work with a tool can be undone for about a month.', 'info'); this.refreshUndo(); return; }
+    const m = r.cost > 0 ? `, and ${money(r.cost)} came back` : r.cost < 0 ? `, and the ${money(-r.cost)} it raised went back` : '';
+    this.game.notify(`Undid ${r.tool.name.toLowerCase()} on ${r.count} ${r.count === 1 ? 'tile' : 'tiles'}${m}.`, 'info');
+    track('undo', { tool: r.tool.key, tiles: r.count, map: this.game.map });
+    this.refreshUndo(); this.refreshTop(true); this.renderInfo();
+    if (r.tool.cat === 'visitors') this.renderToolPanel();
   }
   markToolbar() {
     document.querySelectorAll('#toolbar button').forEach(b => b.classList.toggle('on', b.dataset.cat === this.state.cat));
@@ -705,6 +742,11 @@ export class UI {
       this.renderer.centerOn(lx, ly);
       if (n.loc.id && this.game.wildlife.agents.includes(n.loc)) this.inspectAgent(n.loc);
     });
+    // a plain note: tap to read it all, tap again to put it away
+    else t.addEventListener('click', () => {
+      if (!t.classList.contains('open') && t.lastChild.scrollHeight > t.lastChild.clientHeight + 2) { t.classList.add('open'); return; }
+      t.classList.add('fade'); setTimeout(() => t.remove(), 500);
+    });
     box.prepend(t);
     // keep the land in view (everything is in the journal): routine notes go first, so a warning
     // isn't pushed off the screen by two bits of news that came in just after it
@@ -978,8 +1020,16 @@ export class UI {
     this.modal('Field Journal', rows, { narrow: true });
   }
 
+  // The overlay menu as a list (on a phone, or wherever the top bar has no room for the dropdown)
+  openOverlayPicker() {
+    const opts = [...$('#overlay').options].map(o => [o.value, o.value === 'none' ? 'No overlay' : o.textContent]);
+    const m = this.modal('Map overlay', `<div class="menu-list">${opts.map(([v, t]) => `<button class="btn ${v === this.state.overlay ? '' : 'secondary'}" data-v="${v}">${t}</button>`).join('')}</div>`, { narrow: true });
+    m.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => { this.setOverlay(b.dataset.v); this.closeModal(); }));
+  }
+
   openMenu() {
     const m = this.modal('Menu', `<div class="menu-list">
+      <button class="btn secondary" data-a="overlay">Map overlay</button>
       <button class="btn secondary" data-a="settings">Settings</button>
       <button class="btn secondary" data-a="journal">Field journal</button>
       <button class="btn secondary" data-a="trees">${this.renderer.fadeTrees ? 'Show trees normally' : 'See through trees'}</button>
@@ -989,6 +1039,7 @@ export class UI {
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
+    m.querySelector('[data-a=overlay]').addEventListener('click', () => this.openOverlayPicker());
     m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
     m.querySelector('[data-a=journal]').addEventListener('click', () => this.openJournal());
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
