@@ -177,7 +177,7 @@ export default function buildAmazonAnimals(def) {
       speed: 1.1, hr: 30, max: 6, sources: ['S'], mig: 0.35, breed: [6, 7], litter: [2, 3], life: 15, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i],
       req: g => Math.min(1, g.fishIndex / 10),
-      sprite: { kind: 'heron', size: 26, color: '#9aa4ac', breast: '#f0f0ec', head: '#e8e8e4', flight: '#262628' },
+      sprite: { scale: 0.72, kind: 'heron', size: 26, color: '#9aa4ac', breast: '#f0f0ec', head: '#e8e8e4', flight: '#262628' },
       desc: 'The Amazon\'s great heron. Stands motionless in the shallows, then spears a fish.',
       hint: 'Shallow water with fish.' });
   }
@@ -186,7 +186,7 @@ export default function buildAmazonAnimals(def) {
     def({ key: 'hermit', name: 'Long-tailed hermit', sci: 'Phaethornis superciliosus', group: 'Birds', move: 'fly',
       speed: 1.6, hr: 6, max: 20, sources: ['N', 'E'], mig: 0.5, breed: [8, 9, 10], litter: [2, 2], life: 5, mature: 0.5,
       suit: (W, i) => w[W.habitat[i]] * (0.2 + 0.8 * Math.min(1, W.nectar[i] * 1.5)),
-      sprite: { kind: 'hummer', size: 8, color: '#6a7a4a', breast: '#c8a070', head: '#5a6a3a' },
+      sprite: { kind: 'hummer', size: 8, color: '#6a7a4a', breast: '#c8a070', head: '#5a6a3a', tailLength: 0.68, tailGraduation: 0.52, centralTailTip: '#eee4d2' },
       desc: 'A hummingbird that "traplines" the same heliconia flowers every day, along a route it memorises.',
       hint: 'Heliconias, gingers and flowering trees.' });
   }

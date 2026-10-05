@@ -39,7 +39,7 @@ export default function buildSumatraPlants(def, mix, get) {
     look: { type: 'pitcher', leaf: '#6a9a3a', flower: '#a8442e', bloom: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
     desc: 'Grows on poor, wet peat where nothing else can: its cup-shaped pitchers catch falling leaves and insects for the nutrients the soil lacks.' });
   def({ key: 'titan', name: 'Corpse flower', sci: 'Amorphophallus titanum', layer: 0,
-    moist: [0.45, 0.9], light: [0.05, 0.6], soil: 0.3, grow: 0.006, spread: 0.004, radius: 3, life: 40, cost: 25,
+    moist: [0.45, 0.9], light: [0.05, 0.6], soil: 0.3, grow: 0.006, spread: 0.0002, radius: 3, life: 40, cost: 25,
     look: { type: 'titan', leaf: '#5e8a46', flower: '#6a1a2a', bloom: [] },
     desc: 'Found only in the rainforests of Sumatra. For years it grows a single leaf as big as a small tree; then, once in a long while, it sends up the largest flower on Earth, which smells of rotting meat to bring in beetles and flies for a single night.' });
 
@@ -138,14 +138,21 @@ export default function buildSumatraPlants(def, mix, get) {
     moist: [0.2, 0.85], light: [0.35, 1], soil: 0.2, grow: 0.0032, spread: 0.005, radius: 5, life: 400, matureAge: 18, cost: 30,
     look: { type: 'kapok', leaf: '#557e3e', bark: '#d8d2c2' },
     desc: 'The tallest tree in the Asian tropics, with a smooth silver trunk. Giant honey bees hang dozens of combs from its branches, so honey hunters never let it be felled.' });
-  def({ key: 'jelutong', name: 'Jelutong', sci: 'Dyera polyphylla', layer: 2, wetOK: true,
+  def({ key: 'jelutong', name: 'Jelutong', sci: 'Dyera polyphylla', layer: 2, wetOK: true, swampTree: true,
     moist: [0.55, 1], light: [0.3, 1], soil: 0.15, grow: 0.0045, spread: 0.007, radius: 4, life: 200, matureAge: 15, cost: 22,
     look: { type: 'ipe', leaf: '#4a7a3e', bark: '#b0a690', scale: 1.31 },
     desc: 'A tall peat-swamp tree, tapped for its latex once used in chewing gum. One of the few big trees that grows well when drained peat is wet again.' });
-  def({ key: 'nibung', name: 'Nibung palm', sci: 'Oncosperma tigillarium', layer: 2, wetOK: true,
+  def({ key: 'nibung', name: 'Nibung palm', sci: 'Oncosperma tigillarium', layer: 2, wetOK: true, swampTree: true,
     moist: [0.6, 1], light: [0.3, 1], grow: 0.006, spread: 0.01, radius: 4, life: 80, matureAge: 10, cost: 16,
     look: { type: 'palm', leaf: '#4a7438', bark: '#6a6050', berry: '#2a2030', fruit: [6, 7, 8] },
     desc: 'A clumping, spiny-trunked native palm of swamps and riverbanks, with drooping feathery fronds. Hornbills and pigeons eat its fruit.' });
+
+  // Common shade cover gives the mineral-soil forest a floor without carpeting it in rare titans.
+  // Appended to preserve existing species IDs as well as the save loader's key-based remapping.
+  def({ key: 'spikemoss', name: 'Peacock spikemoss', sci: 'Selaginella willdenowii', layer: 0,
+    moist: [0.35, 0.95], light: [0, 0.7], soil: 0.15, grow: 0.018, spread: 0.022, radius: 2, life: 20, cost: 4,
+    look: { type: 'fern', leaf: '#438477', scale: 0.7 },
+    desc: 'A native forest-floor lycophyte with fine blue-green fronds. It spreads in damp shade beneath the rainforest, while resam fern takes the sunny gaps.' });
 
   // ---------- Seed mixes ----------
   for (const m of [
@@ -174,8 +181,8 @@ export default function buildSumatraPlants(def, mix, get) {
       species: ['pandan', 'bamboo'],
       desc: 'Screw pines and bamboo for wet peat and stream banks.' },
     { key: 'mix_groundcover', name: 'Native ferns', layer: 0, cost: 3, density: 0.7,
-      species: ['resam', 'kelakai'],
-      desc: 'Native ferns to cover bare ground where weeds were pulled, without choking tree seedlings.' },
+      species: ['resam', 'kelakai', 'spikemoss'],
+      desc: 'Resam for sunny gaps, kelakai for wet peat, and peacock spikemoss for the shady forest floor. Cover ground where weeds were pulled without choking tree seedlings.' },
     { key: 'mix_peatfloor', name: 'Peat swamp floor', layer: 0, cost: 5, density: 0.6,
       species: ['kelakai', 'purun', 'nepenthes', 'lotus'],
       desc: 'Ferns, sedges, pitcher plants and water lilies for rewetted peat and the pools of blocked canals.' },
@@ -198,7 +205,7 @@ export default function buildSumatraPlants(def, mix, get) {
   Object.entries({ durian: 14, rambutan: 7, mangosteen: 9, cempedak: 7, banana: 1.5, petai: 6, jengkol: 5 }).forEach(([k, v]) => { get(k).harvest = v; });
   for (const k of ['durian', 'rambutan', 'mangosteen', 'cempedak', 'banana', 'petai', 'jengkol', 'terap', 'fig']) get(k).fruitFood = 0.8;                                                // orangutans carry durian seeds far
   // evergreen rainforest plants: only the grasses and ferns of open ground brown off in a dry spell
-  for (const k of ['asystasia', 'mikania', 'alang', 'resam', 'kelakai', 'purun', 'lotus', 'nepenthes', 'titan',
+  for (const k of ['asystasia', 'mikania', 'alang', 'resam', 'kelakai', 'purun', 'lotus', 'nepenthes', 'titan', 'spikemoss',
     'clidemia', 'chromolaena', 'melastoma', 'ixora', 'ginger', 'rattan', 'bamboo', 'pandan',
     'oilpalm', 'acacia', 'macaranga', 'terap', 'petai', 'durian', 'rambutan', 'mangosteen', 'cempedak', 'banana', 'jengkol', 'fig', 'meranti', 'keruing', 'tualang', 'jelutong', 'nibung']) get(k).look.tropical = true;
 }

@@ -143,7 +143,7 @@ export default function buildReefAnimals(def) {
   def({ key: 'noddy', name: 'Black noddy', sci: 'Anous minutus', group: 'Seabirds', move: 'fly',
     speed: 2.6, hr: 30, max: 40, minK: 4, groupSize: [4, 8], sources: ['N', 'E'], mig: 0.6, breed: [7, 8, 9], litter: [1, 1], life: 18, mature: 2,
     suit: (W, i) => (W.tree[i] === PLANT.pisonia?.id && W.treeG[i] > 0.45 ? 1 : 0),
-    sprite: { kind: 'songbird', size: 12, color: '#2e2a28', breast: '#3a3430', head: '#34302c', cap: '#ecebe6', wingShape: 'pointed', bill: '#1a1a1a' },
+    sprite: { kind: 'songbird', size: 12, color: '#2e2a28', breast: '#3a3430', head: '#34302c', cap: '#ecebe6', tailLength: 0.4, tailGraduation: -0.08, wingShape: 'pointed', bill: '#1a1a1a' },
     desc: 'A small dark tern with a white cap. It nests by the thousand in the cay\'s pisonia trees, and its droppings feed the island and the reef around it.',
     hint: 'Pisonia trees on the cay to nest in.' });
 

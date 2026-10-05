@@ -74,7 +74,7 @@ export default function buildSumatraAnimals(def) {
       prey: ['langur', 'macaque', 'mousedeer', 'civet'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i),
       req: g => Math.min(1, g.forestTiles / 900),
-      sprite: { kind: 'feline', len: 32, h: 11, leg: 8, color: '#a89068', belly: '#e0d4bc', dark: '#2a2218', clouds: true },
+      sprite: { scale: 0.78, kind: 'feline', len: 32, h: 11, leg: 8, color: '#a89068', belly: '#e0d4bc', dark: '#2a2218', clouds: true },
       desc: 'A secretive cat with cloud-shaped markings, the longest canine teeth for its size of any cat, and ankles that let it climb down trees head first.',
       hint: 'Tall forest with monkeys and mouse-deer.' });
   }
@@ -137,7 +137,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1.3, hr: 50, max: 14, minK: 2, groupSize: [2, 4], sources: ['N', 'E'], mig: 0.25,
       breed: [7, 8], litter: [1, 1], life: 16, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.browse[i] + W.graze[i])),
-      sprite: { kind: 'deer', len: 38, h: 18, leg: 17, color: '#5e4a38', belly: '#6e5a46', dark: '#2e241a', antlers: true },
+      sprite: { scale: 0.85, kind: 'deer', len: 38, h: 18, leg: 17, color: '#5e4a38', belly: '#6e5a46', dark: '#2e241a', antlers: true },
       desc: 'A big, shaggy forest deer with a dark coat, and the tiger\'s main prey. It browses young leaves along forest edges and in regrowth.',
       hint: 'Young forest, scrub and clearings. Fences keep it out.' });
   }
@@ -246,7 +246,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1, hr: 50, max: 4, sources: ['S'], mig: 0.2, breed: [7, 8], litter: [2, 2], life: 18, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i] * near(W.distForest[i], 3, 0.3),
       req: g => Math.min(1, g.fishIndex / 10) * Math.min(1, g.forestTiles / 700),
-      sprite: { kind: 'heron', size: 26, color: '#1a1a1a', breast: '#f2f2ee', head: '#1a1a1a', flight: '#141414', bill: '#d8281e', stork: true, show: 0.85 },
+      sprite: { scale: 0.76, kind: 'heron', size: 26, color: '#1a1a1a', breast: '#f2f2ee', head: '#1a1a1a', flight: '#141414', bill: '#d8281e', stork: true, show: 0.85 },
       desc: 'One of the rarest storks on Earth, with a red bill and golden eye-rings. It feeds alone along streams and pools inside peat swamp and riverside forest, never in the open.',
       hint: 'Clean streams and wet peat inside forest.' });
   }

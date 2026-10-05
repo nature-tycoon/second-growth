@@ -37,6 +37,26 @@ Then open http://localhost:8347. The game autosaves to browser storage every in-
 
 ## How the ecosystem works
 
+The restored landscape is different on each map:
+
+| Map | What a successful restoration should look like |
+| --- | --- |
+| Hollis Farm | Mixed Douglas-fir, cedar and hemlock forest with a fern understory, broadleaf trees along the creek, and open marshes. Meadows persist where you maintain them; unmanaged uplands eventually become forest. |
+| Fazenda Esperança | Connected, evergreen rainforest with mixed crowns, palms and a shaded understory. Pasture grass retreats as the canopy closes. |
+| Enkare Conservancy | Open grassland, green after rain and gold in the dry season, with scattered thorn trees and baobabs. Denser woodland stays close to water. |
+| Magnolia Ridge | A lived-in neighborhood: houses and streets among native flower gardens, shade trees, wooded creek banks and rain gardens. Established native beds stay open. |
+| Finca El Guanacaste | Dry forest on the volcano slopes, open cattle paddocks with scattered planted shade trees, living fences, streamside forest, coastal mangroves and a sandy turtle beach. Many dry-forest crowns lose their leaves in the dry season. |
+| Kalinda Reef | A patchwork of hard and soft corals on stable substrate, seagrass and scattered giant clams on lagoon sand, open channels and a vegetated sand cay. Natural clam recruitment is slow and spaced out; existing adults and player planting retain their normal suitability. |
+| Kebun Tualang | Mixed lowland rainforest and fruit gardens on mineral soil, with jelutong and nibung peat-swamp forest on rewetted peat. Peacock spikemoss covers the shady forest floor; corpse flowers spread slowly. Flooded swamp supports specialist trees; ordinary forest trees and oil palms struggle there. |
+
+These targets combine each map's restoration story with regional habitat references: [Washington lowland forests (NPS)](https://www.nps.gov/mora/learn/nature/plants.htm), [Amazon canopy seasonality (NASA)](https://science.nasa.gov/earth/earth-observatory/defying-dry-amazon-greener-in-dry-season-than-wet/), [Georgia forest and wetland mosaics (USFWS)](https://www.fws.gov/refuge/piedmont), [Serengeti habitats (Tanzania National Parks)](https://tanzaniaparks.go.tz/serengeti/wildlife), [silvopasture in Nicaragua (FAO)](https://www.fao.org/docrep/013/i1881e/i1881e00.pdf), [Reef habitats (Reef Authority)](https://www.gbrmpa.gov.au/learn/coastal-ecosystems-great-barrier-reef), and [Leuser forest types (UNESCO)](https://www.unesco.org/en/mab/gunung-leuser?hub=66369). Garden and farming layouts are game-specific restoration choices, not claims that every regional ecosystem has that layout.
+
+For repeatable checks, run `node tools/map-audit-check.mjs` (focused ecological regressions) and `node tools/map-audit.mjs 30 all 1987 --export` (30 years of plant succession from restored habitat fixtures). Open `http://localhost:8347/tools/map-audit.html?result=1` to inspect the exported landscapes with the game's renderer, switch maps and compare seasons. Without `result=1`, the viewer starts from the initial restored fixture. These checks isolate vegetation, seasonal moisture and seed rain; they do not simulate a campaign, wildlife grazing, fire, floods or player upkeep, and do not touch browser saves. The percentages count occupied tree tiles and local canopy openness, not real-world measured canopy cover. Reef "tree" tiles represent hard coral.
+
+Run `node tools/animal-size-audit.mjs` to check all 196 animal models and adult variants across seven maps, including geometry validity, relative sizes and preserved visibility boosts. The report goes to the ignored `tools/map-audit-output/animal-size-audit.json`. Open `http://localhost:8347/tools/animal-size-review.html` to compare models using one fixed camera, a visitor reference and quarter-tile grid. `sprite.scale` adjusts relative proportions independently of `sprite.show`, which keeps small animals visible; game sizes deliberately compress real-world differences. The optional local `animal-size-audit-before.json` snapshot enables before/after comparison. The size audit corrected oversized tall birds and several mammal comparisons, guided by [Cornell's heron measurements](https://www.allaboutbirds.org/guide/great_blue_heron/id), [San Diego Zoo's ostrich heights](https://animals.sandiegozoo.org/animals/ostrich) and [ISEC's Sunda clouded leopard profile](https://wildcatconservation.org/wild-cats/asia/sunda-clouded-leopard/).
+
+Sumatra's shade-groundcover choice is supported by [NParks' forest-floor description of peacock spikemoss](https://www.nparks.gov.sg/florafaunaweb/flora/1/5/1578) and [Kew's native-range record including Sumatra](https://powo.science.kew.org/taxon/urn:lsid:ipni.org:names:60471496-2). The slower corpse-flower spread is a gameplay tuning choice to retain the plant's rarity, described by [Kew](https://www.kew.org/about-us/press-media/first-corpse-flower-2026).
+
 (Described for the Hollis farm; the Amazon and Serengeti maps run the same rules with their own species, seasons and climate.)
 
 - **Time:** 1 game day per second at normal speed, 10 days a month, 120 days a year. Seasons change growth, moisture, blooming, fruiting and migration.

@@ -52,7 +52,8 @@ export default function buildReefPlants(def, mix, get) {
     look: { type: 'anemone', leaf: '#e0c8b8', evergreen: true },
     desc: 'A mop of stinging tentacles that clownfish live in, safe from everything else. In return they chase off the fish that would eat it.' });
   def({ key: 'clam', name: 'Giant clam', sci: 'Tridacna gigas', layer: 1, kindName: 'Giant clam',
-    moist: sea, light: [0.6, 1], soil: 0.05, grow: 0.008, spread: 0.004, radius: 2, life: 100, cost: 18,
+    // Occasional settlers drift into separated gaps; clams should never carpet the lagoon sand.
+    moist: sea, light: [0.6, 1], soil: 0.05, grow: 0.008, spread: 0.0008, radius: 6, seedSpacing: 3, life: 100, cost: 18,
     look: { type: 'clam', leaf: '#4a72c8', evergreen: true },
     desc: 'The largest shellfish in the world, farmed back onto reefs where it was taken. Its blue mantle is full of the same algae corals carry, and it filters the water as it feeds, so turf algae has a harder time around it. It sits happily on sand or rubble.' });
   def({ key: 'fungia', name: 'Mushroom coral', sci: 'Fungia fungites', layer: 1, kindName: 'Hard coral (free-living)',

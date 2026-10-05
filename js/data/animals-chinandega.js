@@ -118,7 +118,7 @@ export default function buildChinandegaAnimals(def) {
       // it digs its nest burrow in the banks of a shaded quebrada: the bare, sun-baked stream the
       // finca starts with (about an eighth of it shaded) isn't enough
       req: g => Math.max(0, Math.min(1, (stat(g, 'shadedCreek') / Math.max(1, stat(g, 'creek')) - 0.18) / 0.2)),
-      sprite: { kind: 'songbird', size: 15, color: '#3a8a6a', breast: '#c8803a', head: '#2a7a5a', face: '#50c8e8', tail: '#2a5a8a', tailTip: '#50a0d8' },
+      sprite: { kind: 'songbird', size: 15, color: '#3a8a6a', breast: '#c8803a', head: '#2a7a5a', face: '#50c8e8', tail: '#2a5a8a', tailTip: '#50a0d8', tailRackets: true, tailLength: 0.3 },
       desc: 'Guardabarranco, the national bird of Nicaragua. It swings its racket-tipped tail like a pendulum and nests in burrows it digs in the banks of the quebradas.',
       hint: 'Dry forest near stream banks, with plenty of insects, and a quebrada with shade along its banks (at least a fifth of it, more is better).' });
   }
@@ -166,7 +166,7 @@ export default function buildChinandegaAnimals(def) {
       speed: 2.2, hr: 40, max: 8, groupSize: [2, 4], sources: ['S'], mig: 0.7, breed: [], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
       req: g => Math.min(1, stat(g, 'pondsDrained') / 60), // it feeds on the tidal mudflats left where shrimp ponds are breached
-      sprite: { kind: 'heron', size: 24, color: '#e8a0b8', breast: '#f0b8c8', head: '#f0e8e0', flight: '#d85a80', show: 0.85 },
+      sprite: { scale: 0.72, kind: 'heron', size: 24, color: '#e8a0b8', breast: '#f0b8c8', head: '#f0e8e0', flight: '#d85a80', show: 0.85 },
       desc: 'Garza rosada. It sweeps its spoon-shaped bill through the shallows for shrimp, which is what turns it pink.',
       hint: 'Tidal mudflats where old shrimp ponds have been breached and drained, with mangroves around them.' });
   }
@@ -175,7 +175,7 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'egret', name: 'Great egret', sci: 'Ardea alba', group: 'Birds', move: 'fly',
       speed: 2.2, hr: 40, max: 8, sources: ['S', 'W'], mig: 0.4, breed: [3, 4], litter: [2, 3], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
-      sprite: { kind: 'heron', size: 26, color: '#f4f4ee', breast: '#fafaf6', head: '#f8f8f4', flight: '#f0f0ea', show: 0.9 },
+      sprite: { scale: 0.72, kind: 'heron', size: 26, color: '#f4f4ee', breast: '#fafaf6', head: '#f8f8f4', flight: '#f0f0ea', show: 0.9 },
       desc: 'Garza blanca. It stalks fish and crabs in the shallows and roosts in the mangroves at night.',
       hint: 'Shallow water, mangroves and the estuary.' });
   }

@@ -365,6 +365,11 @@ export default {
   borderCell: sumatraBorderCell,
   stats: estateStats,
   daily: estateDaily,
+  // A high water table floods the roots even when the seasonal surface moisture falls.
+  // Keep the rewetted peat distinct from the mineral-soil rainforest and fruit gardens.
+  terrainFit: (w, i, p) => isPeat(w, i) && w.baseMoist[i] >= 0.5 && p.layer === 2 && !p.swampTree ? 0.1 : null,
+  groundNote: (w, i, p) => isPeat(w, i) && w.baseMoist[i] >= 0.5 && p.layer === 2 && !p.swampTree
+    ? 'waterlogged peat: plant peat swamp trees here' : null,
   onStart: g => peatDaily(g, 1), // the peat starts as dry as the canals keep it
   tools: [CANAL_BLOCK],
   // what the inspector says about peat and canals
@@ -464,8 +469,8 @@ export default {
     fireCause: ['A fire smouldering underground in the dry peat', "A visitor's cigarette", 'A neighbour clearing land with fire'],
   },
   seedRain: {
-    N: ['macaranga', 'macaranga', 'fig', 'terap', 'meranti', 'keruing', 'durian', 'petai', 'ginger', 'rattan', 'ixora', 'kelakai'],
-    E: ['macaranga', 'fig', 'terap', 'meranti', 'tualang', 'bamboo', 'ginger', 'rattan', 'melastoma', 'kelakai'],
+    N: ['macaranga', 'macaranga', 'fig', 'terap', 'meranti', 'keruing', 'durian', 'petai', 'ginger', 'rattan', 'ixora', 'kelakai', 'spikemoss'],
+    E: ['macaranga', 'fig', 'terap', 'meranti', 'tualang', 'bamboo', 'ginger', 'rattan', 'melastoma', 'kelakai', 'spikemoss'],
     W: ['oilpalm', 'asystasia', 'asystasia', 'mikania', 'chromolaena', 'clidemia', 'alang', 'acacia'],
     S: ['nibung', 'pandan', 'purun', 'lotus', 'jelutong', 'kelakai'],
   },

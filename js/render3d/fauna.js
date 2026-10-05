@@ -82,7 +82,7 @@ const place = (pos, rot, scl) => new THREE.Matrix4().compose(V(...pos), Q.setFro
 const WING_CACHE = new Map();
 const PLANFORM = {
   round: t => [0.5 + 0.1 * Math.sin(Math.PI * t) - 0.55 * t ** 4, -0.5 + 0.34 * t * t - 0.05 * Math.abs(Math.sin(Math.PI * t * 7))],
-  pointed: t => [0.5 - 0.1 * t - 0.55 * t * t, -0.5 + 0.1 * t + 0.25 * t * t - 0.03 * Math.abs(Math.sin(Math.PI * t * 5)) * (1 - t)],
+  pointed: t => [0.5 - 0.1 * t - 0.55 * t * t + 0.035 * t ** 8, -0.5 + 0.1 * t + 0.25 * t * t - 0.035 * t ** 8 - 0.03 * Math.abs(Math.sin(Math.PI * t * 5)) * (1 - t)],
   fingered: t => [0.5 + 0.05 * Math.sin(Math.PI * t), -0.5 + 0.22 * t * t - 0.04 * Math.abs(Math.sin(Math.PI * t * 6))],
 };
 function wingShape(kind, side) {
@@ -166,26 +166,51 @@ class Model {
   // front: how far forward of the fold point the folded wing begins (the shoulder)
   // up: how high round the body the folded wing sits (radians up from the flank's midline)
   wing(side, pivot, span, chord, thick, paint, fold, kind = 'round', R = chord, tilt = 0, foldLen = 1, front = span * 0.5 * foldLen, up = 0.3) {
-    const unit = wingShape(kind, side);
-    // spread, a real wing is broad: roughly 2.5 times as long as it is wide
-    const ext = place([pivot[0] - chord * 0.25, pivot[1], pivot[2]], [0, 0, 0], [chord * 1.9, thick, span * 1.7]);
-    const g = unit.clone(), p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) {
-      let x = p.getX(i), t = Math.abs(p.getZ(i));
-      const y = p.getY(i);
-      // folded, spread primaries slide over one another into a single tapering tip (otherwise
-      // they'd stick out past the tail like the teeth of a comb)
-      if (kind === 'fingered' && t > 0.56) { const k = Math.min(1, (t - 0.56) / 0.08); x = x * (1 - k * 0.85) + 0.04 * k; t = 0.56 + (t - 0.56) * 0.55; }
-      // the shoulder end rounds off instead of stopping square, and the wing curves in to hug the
-      // body as it narrows toward the tail, so it lies along the flank rather than standing off it
-      x *= 0.4 + 0.6 * smooth(0, 0.2, t);
-      const along = span * 1.2 * foldLen * t, th = up + (x * chord * 0.9) / R, r = R * (1 - 0.3 * t * t) + y * thick * 2 + chord * 0.01;
-      // then tip the whole folded wing with the body (owls and woodpeckers sit upright)
-      const lx = front - along, ly = r * Math.sin(th) - along * 0.06, c = Math.cos(tilt), sn = Math.sin(tilt);
-      p.setXYZ(i, fold[0] + lx * c - ly * sn, fold[1] + lx * sn + ly * c, side * r * Math.cos(th));
+    // A thin flight-feather layer, with a shorter, softly raised covert layer over its shoulder.
+    // Both stay in the same animated part, preserving the species' spread-wing silhouette.
+    for (const coverts of [false, true]) {
+      const shape = coverts ? 'round' : kind, source = wingShape(shape, side);
+      const unit = source.clone(), paintGeo = source.clone(), paintPos = paintGeo.attributes.position;
+      const spreadPos = unit.attributes.position;
+      for (let i = 0; i < spreadPos.count; i++) {
+        const x = spreadPos.getX(i), y = spreadPos.getY(i), t = Math.abs(spreadPos.getZ(i));
+        if (coverts) {
+          const dome = Math.sin(Math.PI * t) * Math.max(0, 1 - 4 * x * x);
+          spreadPos.setXYZ(i, x * 0.7 + 0.12, y * 0.65 + 0.9 + dome * 0.5, side * t * 0.66);
+          paintPos.setXYZ(i, x * 0.7 + 0.12, y, side * t * 0.66);
+        }
+      }
+      unit.computeVertexNormals();
+      const ext = place([pivot[0] - chord * 0.25, pivot[1], pivot[2]], [0, 0, 0], [chord * 1.9, thick, span * 1.7]);
+      const g = source.clone(), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), t0 = Math.abs(p.getZ(i));
+        const [leading, trailing] = (PLANFORM[shape] || PLANFORM.round)(t0);
+        let across = Math.max(0, Math.min(1, (x - trailing) / Math.max(0.001, leading - trailing))) - 0.5;
+        let t = coverts ? t0 * 0.66 : t0;
+        // Fold spread primaries over one another, keeping their old compact reach.
+        if (!coverts && kind === 'fingered' && t > 0.56) {
+          across *= 1 - smooth(0.56, 0.64, t) * 0.85;
+          t = 0.56 + (t - 0.56) * 0.55;
+        }
+        // The folded outline is independent of the spread planform: broad near the shoulder,
+        // tapering all the way to the tailward tip, instead of a narrow neck and blunt paddle.
+        const taper = 0.045 + 0.955 * Math.pow(1 - (coverts ? t : t0), kind === 'pointed' ? 0.85 : 0.65);
+        const shoulder = 0.8 + 0.2 * Math.sin(Math.PI * Math.min(1, t / 0.3));
+        const width = chord * 0.95 * taper * shoulder;
+        const edge = coverts ? 1 - smooth(0.65, 1, t0) : 1;
+        const wrap = width * (coverts ? 0.2 + across * 0.72 * edge : across);
+        const lift = coverts ? thick * (0.9 + Math.sin(Math.PI * t0) * (1 - 4 * across * across) * 0.6) : 0;
+        const along = span * 1.2 * foldLen * t, th = up + wrap / R;
+        const r = R * (1 - 0.3 * t * t) + y * thick * (coverts ? 0.8 : 1.2) + chord * 0.01 + lift;
+        // Retain the body wrap and upright-body tilt, so the new layers don't stand off the flank.
+        const lx = front - along, ly = r * Math.sin(th) - along * 0.06, c = Math.cos(tilt), sn = Math.sin(tilt);
+        p.setXYZ(i, fold[0] + lx * c - ly * sn, fold[1] + lx * sn + ly * c, side * r * Math.cos(th));
+      }
+      g.computeVertexNormals();
+      this.add(g, new THREE.Matrix4(), paint, { part: side > 0 ? P.WING_L : P.WING_R, pivot, ext, extSrc: unit, paintGeo });
+      g.dispose(); unit.dispose(); paintGeo.dispose();
     }
-    g.computeVertexNormals();
-    this.add(g, new THREE.Matrix4(), paint, { part: side > 0 ? P.WING_L : P.WING_R, pivot, ext, extSrc: unit, paintGeo: unit });
   }
   build() {
     const g = mergeGeometries(this.parts);
@@ -1487,18 +1512,123 @@ const BIRDS = {
   macaw: s => ({ legH: 0.14, tilt: 0.55, span: 0.95, chord: 0.28, beak: 0.13, beakColor: '#e8e2d4', legColor: '#5a5048', tail: 0.45, hook: true, head: 0.21, macaw: true }),
   ostrich: s => ({ legH: 1.15, tilt: 0.05, span: 0.45, chord: 0.3, beak: 0.1, beakColor: '#c8a088', legColor: '#d0a898', tail: -0.6, neck: true, tall: true, head: 0.09, fluffy: true }),
   // brown booby: a sleek seabird with a long, pointed dagger of a bill, resting on the water between dives
-  booby: s => ({ legH: 0.06, tilt: 0.12, span: 1.05, chord: 0.22, beak: 0.3, beakR: 0.065, beakColor: s.bill || '#e0c860', legColor: '#e0c860', tail: 0.35, swimmer: true, head: 0.145, headLong: 1.2, taper: true, long: 1.05, gape: true, up: 0.85 }),
+  booby: s => ({ legH: 0.06, tilt: 0.12, span: 1.05, chord: 0.22, beak: 0.3, beakR: 0.065, beakColor: s.bill || '#e0c860', legColor: '#e0c860', tail: 0.35, swimmer: true, head: 0.145, headLong: 1.2, taper: true, long: 1.05, gape: true, up: 0.48 }),
   owl: s => ({ legH: 0.12, tilt: 1.3, span: 0.85, chord: 0.3, beak: 0.08, beakColor: '#3a3028', legColor: '#8a7a5a', tail: 1.2, owl: true, head: 0.22 }),
 };
 
 const WING_KIND = { vulture: 'fingered', secretary: 'fingered', crane: 'fingered', hornbill: 'fingered', ostrich: 'round', songbird: 'round', woodpecker: 'round', owl: 'round', toucan: 'round', hummer: 'pointed', duck: 'pointed', booby: 'pointed', macaw: 'pointed', heron: 'fingered', raptor: 'fingered' };
+
+// Family proportions keep the silhouette recognisable before colours and markings are added.
+const BIRD_BODY = {
+  songbird: [0.38, 0.25, 0.23], hummer: [0.34, 0.2, 0.18], woodpecker: [0.43, 0.23, 0.21],
+  heron: [0.44, 0.22, 0.22], duck: [0.46, 0.24, 0.28], booby: [0.5, 0.22, 0.22],
+  raptor: [0.41, 0.29, 0.26], vulture: [0.46, 0.27, 0.26], owl: [0.37, 0.3, 0.28],
+  macaw: [0.41, 0.26, 0.23], toucan: [0.4, 0.27, 0.24], hornbill: [0.46, 0.26, 0.25],
+  secretary: [0.44, 0.25, 0.23], crane: [0.46, 0.24, 0.24], ostrich: [0.5, 0.32, 0.3],
+};
+// A closed, slightly arched feather with a broad shaft and softly rounded end. Shared by tails;
+// unlike an ellipsoid it stays broad along its length instead of swelling into a leaf at the middle.
+function tailFeather() {
+  const rows = 20, across = 3, pos = [], idx = [];
+  for (const face of [0.5, -0.5]) for (let i = 0; i <= rows; i++) {
+    const t = i / rows;
+    const half = t <= 0.78 ? 0.24 + 0.26 * smooth(0, 0.65, t) : Math.max(0.005, 0.5 * Math.sqrt(Math.max(0, 1 - ((t - 0.78) / 0.22) ** 2)));
+    for (let j = 0; j <= across; j++) pos.push(-t, face + 0.2 * Math.sin(t * Math.PI), (j / across * 2 - 1) * half);
+  }
+  const faceCount = (rows + 1) * (across + 1);
+  for (let face = 0; face < 2; face++) for (let i = 0; i < rows; i++) for (let j = 0; j < across; j++) {
+    const a = face * faceCount + i * (across + 1) + j, b = a + across + 1;
+    if (face === 0) idx.push(a, a + 1, b, b, a + 1, b + 1);
+    else idx.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+  // Close the thin edges, with shared vertices for a gently rounded rim.
+  for (let i = 0; i < rows; i++) for (const j of [0, across]) {
+    const a = i * (across + 1) + j, b = a + across + 1;
+    if (j === 0) idx.push(a, b, a + faceCount, b, b + faceCount, a + faceCount);
+    else idx.push(a, a + faceCount, b, b, a + faceCount, b + faceCount);
+  }
+  for (const i of [0, rows]) for (let j = 0; j < across; j++) {
+    const a = i * (across + 1) + j;
+    if (i === 0) idx.push(a, a + faceCount, a + 1, a + 1, a + faceCount, a + 1 + faceCount);
+    else idx.push(a, a + 1, a + faceCount, a + 1, a + 1 + faceCount, a + faceCount);
+  }
+  // Length runs toward -x, so reverse the grid's winding to point each face outward.
+  for (let i = 0; i < idx.length; i += 3) [idx[i + 1], idx[i + 2]] = [idx[i + 2], idx[i + 1]];
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
+}
+// Interior rows preserve bands, bars, and coloured tips when painting the feathers.
+const TAIL_FEATHER = tailFeather();
+// Motmot central feathers: a narrow bare shaft ending in a broad racket.
+const RACKET_FEATHER = flat(sh => {
+  sh.moveTo(0, -0.15); sh.lineTo(-0.3, -0.12); sh.lineTo(-0.72, -0.035);
+  sh.quadraticCurveTo(-0.76, -0.48, -0.88, -0.5); sh.quadraticCurveTo(-1, -0.48, -1, 0);
+  sh.quadraticCurveTo(-1, 0.48, -0.88, 0.5); sh.quadraticCurveTo(-0.76, 0.48, -0.72, 0.035);
+  sh.lineTo(-0.3, 0.12); sh.lineTo(0, 0.15); sh.closePath();
+}, 'xz', 4);
+const TAIL_PROFILE = {
+  songbird: [0.43, 0.15, 0.25, 0.06], hummer: [0.3, 0.11, 0.18, 0.04],
+  woodpecker: [0.46, 0.13, 0.2, 0.18], heron: [0.27, 0.12, 0.2, 0.08],
+  duck: [0.3, 0.15, 0.23, 0.12], booby: [0.52, 0.13, 0.23, 0.28],
+  raptor: [0.42, 0.21, 0.34, 0.04], vulture: [0.38, 0.18, 0.31, 0.08],
+  owl: [0.26, 0.15, 0.24, 0.04], macaw: [0.98, 0.1, 0.18, 0.42],
+  toucan: [0.43, 0.17, 0.25, 0.03], hornbill: [0.62, 0.18, 0.27, 0.04],
+  secretary: [0.35, 0.15, 0.23, 0.05], crane: [0.25, 0.16, 0.24, 0.06],
+  ostrich: [0.28, 0.24, 0.3, 0.12],
+};
+function birdTail(m, s, o, by, bodyR) {
+  const S = s.size, c = Math.cos(o.tilt), sn = Math.sin(o.tilt);
+  // The base follows the tilted rump, with the feather roots buried beneath rump coverts.
+  const base = [-bodyR[0] * 0.76 * c - S * 0.025 * sn, by - bodyR[0] * 0.76 * sn + S * 0.025 * c, 0];
+  let [length, width, flightWidth, graduation] = TAIL_PROFILE[s.kind];
+  if (s.shortTail) { length = 0.36; width = 0.15; flightWidth = 0.24; graduation = 0; }
+  if (s.tailTip) length = 0.66;
+  if (s.cocked) length = 0.3;
+  length = s.tailLength ?? length;
+  width = s.tailWidth ?? width;
+  flightWidth = s.tailFan ?? flightWidth;
+  graduation = s.tailGraduation ?? graduation;
+  const angle = s.cocked ? -1.05 : o.owl ? 1.15 : o.duck ? -0.08 : o.tall ? -0.35 : 0.12 + o.tilt * 0.45;
+  const paint = u => {
+    const t = -u.x;
+    if (s.tailTip && t > 0.78) return col(s.tailTip);
+    if (o.macaw && !s.shortTail && t > 0.56) return col(s.wingtip || s.tail || s.color);
+    if (s.tailBand && t > 0.48 && t < 0.7) return col(s.tailBand);
+    if (s.tailBars && Math.sin(t * 26) > 0.45) return col(s.tailBars);
+    return col(s.tail || s.color);
+  };
+  for (let f = -3; f <= 3; f++) {
+    const edge = Math.abs(f) / 3, L = S * length * (1 - graduation * edge);
+    const root = [base[0], base[1] + S * (0.008 - edge * 0.004), f * S * 0.013];
+    const fan = (w, pitch) => place(root, [0, Math.atan2(f / 3 * S * w, L), pitch], [L, S * 0.013, S * (width * 0.78)]);
+    m.add(TAIL_FEATHER, fan(width * 0.65, angle), u => shade(s.centralTailTip && Math.abs(f) <= 1 && -u.x > 0.82 ? s.centralTailTip : paint(u), edge * -0.055), {
+      part: P.TAIL, pivot: base, ext: fan(flightWidth, angle * 0.45),
+    });
+  }
+  if (s.tailRackets) for (const side of [-1, 1]) {
+    const root = [base[0], base[1], side * S * 0.025];
+    const pose = pitch => place(root, [0, side * 0.06, pitch], [S * 0.95, S * 0.012, S * 0.095]);
+    m.add(RACKET_FEATHER, pose(angle), u => -u.x > 0.9 ? col('#182a30') : col(s.tailTip || s.tail),
+      { part: P.TAIL, pivot: base, ext: pose(angle * 0.45) });
+  }
+  // The secretarybird's two long central streamers extend beyond the compact fan.
+  if (o.secretary) for (const side of [-1, 1]) {
+    const root = [base[0], base[1], side * S * 0.025];
+    m.add(TAIL_FEATHER, place(root, [0, side * 0.045, 0.22], [S * 0.95, S * 0.012, S * 0.05]),
+      u => -u.x > 0.72 ? col('#1a1a1a') : col(s.color), { part: P.TAIL, pivot: base });
+  }
+  m.ell([base[0] + S * 0.035 * c, base[1] + S * 0.035 * sn, 0], [S * 0.13, S * 0.065, S * width * 0.65],
+    s.tail || s.color, { rot: [0, 0, o.tilt] });
+}
 
 function bird(m, s) {
   const S = s.size, o = BIRDS[s.kind](s);
   const by = o.legH * S + S * 0.26;
   // (bib: a sharp line between a dark back and chest and a white belly, as on a booby)
   const body = s.bib ? u => (u.y > -0.1 || u.x > 0.62 ? col(s.color) : col(s.breast)) : grad(s.color, s.breast || s.color, -0.15, 0.4);
-  m.ell([0, by, 0], o.owl ? [S * 0.37, S * 0.3, S * 0.28] : [S * 0.4, S * (o.duck ? 0.24 : 0.25), S * (o.duck ? 0.27 : 0.23)], body, { rot: [0, 0, o.tilt] }); // owls are fluffed-out barrels
+  const bodyR = BIRD_BODY[s.kind].map(r => r * S);
+  m.ell([0, by, 0], bodyR, body, { rot: [0, 0, o.tilt] });
   if (s.band) m.ell([S * 0.12, by - S * 0.02, 0], [S * 0.12, S * 0.22, S * 0.235], s.band, { rot: [0, 0, o.tilt] });
   if (s.vee) m.ell([S * 0.22, by + S * 0.02, 0], [S * 0.06, S * 0.16, S * 0.2], '#1e1a18', { rot: [0, 0, o.tilt + 0.3] });
   if (s.spots) for (let k = 0; k < 7; k++) m.ell([S * (0.1 + (k % 3) * 0.06), by - S * (0.04 + (k % 4) * 0.035), (k % 2 ? 1 : -1) * S * (0.14 + (k % 3) * 0.03)], [S * 0.03, S * 0.03, S * 0.03], '#4a3a28', { lo: true });
@@ -1510,12 +1640,13 @@ function bird(m, s) {
   else if (o.tall) hp = [S * 0.45, by + S * 1.0, 0];
   else if (o.vulture) hp = [S * 0.5, by + S * 0.1, 0];
   else if (o.neck) hp = [S * 0.5, by + S * 0.6, 0];
+  else if (s.kind === 'booby') hp = [S * 0.48, by + S * 0.2, 0];
   else if (o.duck) hp = [S * 0.38, by + S * 0.28, 0];
   else hp = [S * 0.34 + Math.sin(o.tilt) * S * 0.02, by + S * 0.2 + Math.sin(o.tilt) * S * 0.12, 0];
   const neckBase = [S * 0.25, by + S * 0.1, 0], hd = { part: P.HEAD, pivot: neckBase };
   // a short, thick neck, so the head grows smoothly out of the body instead of sitting on it like a ball
   if (!o.owl && !o.tall && !o.neck && !o.vulture && !o.duck) {
-    const n0 = [S * 0.2, by + S * 0.05, 0], n1 = [hp[0] - hr * 0.35, hp[1] - hr * 0.25, 0];
+    const n0 = [S * (s.kind === 'booby' ? 0.3 : 0.2), by + S * 0.05, 0], n1 = [hp[0] - hr * 0.35, hp[1] - hr * 0.25, 0];
     const nc = s.kind === 'woodpecker' ? s.color : s.head; // (a woodpecker's "head" colour is its crest)
     m.limb(n0, n1, S * 0.17, hr * 0.84, grad(nc, s.breast || s.color, 0.1, 0.5), { ...hd, caps: false });
   }
@@ -1636,16 +1767,7 @@ function bird(m, s) {
     if (o.hook) m.ell(bb, [S * 0.06, S * 0.06, S * 0.06], o.beakColor, { ...hd, lo: true });
   }
 
-  // tail
-  const tb = [-S * 0.3, by - S * 0.02, 0];
-  if (o.owl) m.ell([-S * 0.16, by - S * 0.3, 0], [S * 0.2, S * 0.04, S * 0.14], s.tail || s.color, { rot: [0, 0, 1.15], part: P.TAIL, pivot: tb }); // a short tail, tucked down along the back
-  else if (o.secretary) for (const z of [-0.025, 0.025]) m.limb([-S * 0.4, by - S * 0.06, S * z], [-S * 1.05, by - S * 0.32, S * z * 2], S * 0.03, S * 0.012, u => u.y > 0.8 ? col('#1a1a1a') : col(s.color), { part: P.TAIL, pivot: tb, caps: false }); // the long central streamers
-  if (o.owl) { /* tail above */ } else if (o.macaw && s.shortTail) m.ell([-S * 0.5, by - S * 0.2, 0], [S * 0.3, S * 0.035, S * 0.12], u => u.x < -0.55 ? col(s.wingtip) : col(s.color), { rot: [0, 0, 0.6], part: P.TAIL, pivot: tb }); // amazon parrots: short and square
-  else if (o.macaw) m.ell([-S * 0.8, by - S * 0.3, 0], [S * 0.6, S * 0.03, S * 0.09], u => u.x < -0.5 ? col(s.wingtip) : col(s.color), { rot: [0, 0, 0.45], part: P.TAIL, pivot: tb });
-  else if (s.tailTip) m.ell([-S * 0.62, by - S * 0.12, 0], [S * 0.42, S * 0.04, S * 0.16], u => u.x < -0.6 ? col(s.tailTip) : col(s.tail || s.color), { rot: [0, 0, 0.35], part: P.TAIL, pivot: tb });
-  else if (s.tailBand) m.ell([-S * 0.62, by - S * 0.1 + Math.sin(-o.tail * 0.3) * S * 0.2, 0], [S * 0.42, S * 0.04, S * 0.15], u => Math.abs(u.x + 0.05) < 0.28 ? col(s.tailBand) : col(s.tail || s.color), { rot: [0, 0, o.tail * 0.6 + 0.15], part: P.TAIL, pivot: tb }); // a pale tail crossed by a broad dark band
-  else if (s.tailBars) m.ell([-S * 0.52, by - S * 0.08 + Math.sin(-o.tail * 0.3) * S * 0.2, 0], [S * 0.3, S * 0.035, S * 0.13], u => Math.sin(u.x * 11) > 0.4 ? col(s.tailBars) : col(s.tail || s.color), { rot: [0, 0, o.tail * 0.6 + 0.15], part: P.TAIL, pivot: tb });
-  else m.ell([-S * 0.52, by - S * 0.08 + Math.sin(-o.tail * 0.3) * S * 0.2, 0], [S * 0.3, S * 0.035, S * 0.13], s.tail || s.color, { rot: [0, 0, o.tail * 0.6 + 0.15], part: P.TAIL, pivot: tb });
+  birdTail(m, s, o, by, bodyR);
   // a coloured patch under the tail (a bulbul's red vent, a rhinoceros hornbill's white one)
   const vent = s.vent || (o.hornbill && s.casque ? s.tail : null);
   if (vent) m.ell([-S * 0.2, by - S * 0.14, 0], [S * 0.17, S * 0.1, S * 0.13], vent, { rot: [0, 0, o.tilt] });
@@ -1660,7 +1782,23 @@ function bird(m, s) {
       m.ell([S * 0.1, S * 0.025, side * S * 0.11], [S * 0.09, S * 0.03, S * 0.045], shade(o.legColor, -0.15), { ...lp, lo: true });
     }
     if (o.secretary) m.limb(hip, [S * 0.03, by - S * 0.62, side * S * 0.08], S * 0.075, S * 0.05, '#1a1a1a', lp); // feathered black thighs
+    if (!o.tall && !s.bigFeet) {
+      const z = side * S * 0.08, foot = [S * 0.04, S * 0.02, z];
+      const grip = o.macaw || pecker || o.toucan;
+      for (const t of [-1, 0, 1]) {
+        const back = grip && t === -1, dx = back ? -0.065 : 0.075;
+        m.limb(foot, [foot[0] + S * dx, S * 0.009, z + t * S * 0.032], S * 0.01, S * 0.005, o.legColor, { ...lp, caps: false });
+      }
+      m.limb(foot, [foot[0] - S * 0.05, S * 0.012, z + S * 0.017], S * 0.009, S * 0.004, o.legColor, { ...lp, caps: false });
+    }
     if (s.bigFeet) for (const t of [-1, 0, 1]) m.limb([S * 0.04, S * 0.02, side * S * 0.08], [S * (0.04 + 0.07 * (t === 0 ? 1 : 0.6)), S * 0.005, side * S * 0.08 + t * S * 0.04], S * 0.02, S * 0.01, '#2a2420', { ...lp, caps: false });
+  }
+
+  if (o.duck || o.swimmer) for (const side of [-1, 1]) {
+    const hip = [-S * 0.08, by - S * 0.14, side * S * 0.12], lp = { part: side > 0 ? P.LEG_FL : P.LEG_FR, pivot: hip };
+    const foot = [-S * 0.04, S * 0.025, side * S * 0.14];
+    m.limb(hip, foot, S * 0.025, S * 0.018, o.legColor, lp);
+    m.add(TAIL_FEATHER, place([foot[0] + S * 0.08, foot[1], foot[2]], [0, 0, 0], [S * 0.13, S * 0.014, S * 0.1]), o.legColor, lp);
   }
 
   // wings
@@ -1678,8 +1816,8 @@ function bird(m, s) {
   for (const side of [1, -1]) {
     // folded, a wing starts at the shoulder and reaches about to the tail tip, however long it is spread
     // (an owl's end at its tail, not below it)
-    const L = Math.min(1.2 * o.span, o.owl ? 0.75 : o.long || 1.0), foldLen = L / (1.2 * o.span);
-    m.wing(side, [S * 0.1, by + S * 0.1, side * S * 0.14], S * o.span, S * o.chord * (shape === 'fingered' ? 1.15 : 1), S * 0.02, wc, [-S * 0.02, by, 0], shape, S * (o.duck ? 0.285 : 0.245), o.tilt * 0.8, foldLen, S * Math.min(o.span * 0.5 * foldLen, 0.3), o.up ?? 0.55); // (resting, folded wings ride up over the back)
+    const L = Math.min(1.2 * o.span, o.owl ? 0.75 : s.kind === 'booby' ? 0.92 : o.long || 1.0), foldLen = L / (1.2 * o.span);
+    m.wing(side, [S * 0.1, by + S * 0.1, side * S * 0.14], S * o.span, S * o.chord * (shape === 'fingered' ? 1.15 : 1), S * 0.02, wc, [-S * 0.02, by, 0], shape, bodyR[2] * 1.04, o.tilt * 0.8, foldLen, S * Math.min(o.span * 0.5 * foldLen, 0.3), o.up ?? 0.55); // (resting, folded wings ride up over the back)
   }
 }
 
@@ -3137,8 +3275,9 @@ export function buildSpecies(def) {
     }
     case 'songbird': case 'hummer': case 'woodpecker': case 'heron': case 'duck': case 'booby': case 'raptor': case 'owl': case 'toucan': case 'macaw': case 'ostrich': case 'hornbill': case 'vulture': case 'secretary': case 'crane':
       bird(m, s);
-      mo.flap = s.kind === 'hummer' ? 7 : s.kind === 'heron' || s.kind === 'raptor' || s.kind === 'owl' || s.kind === 'macaw' || s.kind === 'vulture' || s.kind === 'crane' || s.kind === 'secretary' ? 0.9 : 2;
-      mo.leg = 0.5; mo.tail = 0.1;
+      mo.flap = s.kind === 'hummer' ? 7 : s.kind === 'booby' ? 1.25 : s.kind === 'heron' || s.kind === 'raptor' || s.kind === 'owl' || s.kind === 'macaw' || s.kind === 'vulture' || s.kind === 'crane' || s.kind === 'secretary' ? 0.9 : 2;
+      mo.leg = 0.5; mo.tail = s.cocked ? 0.13 : 0.065; mo.bird = 1;
+      mo.wingSpan = s.size * BIRDS[s.kind](s).span * 1.7;
       mo.sink = s.kind === 'duck' || s.kind === 'booby' ? s.size * 0.24 : 0;
       break;
     case 'bat': bat(m, s); mo.flap = 2.6; break;
@@ -3170,6 +3309,7 @@ export function buildSpecies(def) {
 export function faunaMaterial(motion) {
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
   const u = {
+    uBird: { value: motion.bird ?? 0 }, uWingSpan: { value: motion.wingSpan ?? 1 },
     uLeg: { value: motion.leg }, uBob: { value: motion.bob }, uTail: { value: motion.tail }, uFlap: { value: motion.flap },
     uHead: { value: motion.head ?? 0.9 }, uWave: { value: motion.wave }, uWaveK: { value: motion.waveK }, uWaveHead: { value: motion.waveHead }, uWaveLen: { value: motion.waveLen },
     uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uBend: { value: motion.bend ?? 0 },
@@ -3178,31 +3318,51 @@ export function faunaMaterial(motion) {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
       attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim;
-      uniform float uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uBend;
+      uniform float uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uBend, uBird, uWingSpan;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
       vec3 rotY(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c); }
       vec3 rotZ(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c - q.y * s, q.x * s + q.y * c, q.z); }
+      // Rotate lighting normals alongside each rigid part. Birds also flex the outer wing and
+      // interpolate a compact resting tail into a modest flight fan; other fauna keep their poses.
+      void animatePart(inout vec3 p, inout vec3 n) {
+        float ph = aAnim.x, gait = aAnim.y, fly = aAnim.z;
+        vec3 zero = vec3(0.0);
+        bool wing = aPart > 5.5 && aPart < 7.5;
+        bool tail = aPart > 4.5 && aPart < 5.5;
+        if (wing || (tail && uBird > 0.5)) {
+          p = mix(position, aExt, fly);
+          n = normalize(mix(normal, aExtN, fly));
+        }
+        if (wing) {
+          float side = aPart < 6.5 ? 1.0 : -1.0;
+          float tip = smoothstep(0.58, 1.0, abs(aExt.z - aPivot.z) / uWingSpan);
+          float flex = -side * uBird * fly * tip * sin(ph * uFlap - 0.65) * 0.22;
+          vec3 wrist = aPivot + vec3(0.0, 0.0, side * uWingSpan * 0.58);
+          p = rotX(p, wrist, flex); n = rotX(n, zero, flex);
+          float beat = -side * fly * sin(ph * uFlap) * 0.75;
+          p = rotX(p, aPivot, beat); n = rotX(n, zero, beat);
+        } else if (aPart > 0.5 && aPart < 4.5) {
+          float off = (aPart < 1.5 || aPart > 3.5) ? 0.0 : 3.14159;
+          float swing = sin(ph + off) * uLeg * gait * (1.0 - fly) - fly * 1.35;
+          p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
+        } else if (tail) {
+          float sway = sin(ph * 0.5 + 1.3) * uTail * (0.35 + gait);
+          p = rotY(p, aPivot, sway); n = rotY(n, zero, sway);
+          float pitch = uBird * fly * sin(ph * uFlap - 0.4) * 0.045;
+          p = rotZ(p, aPivot, pitch); n = rotZ(n, zero, pitch);
+        } else if (aPart > 7.5) {
+          p = rotZ(p, aPivot, -aAnim.w * uHead); n = rotZ(n, zero, -aAnim.w * uHead);
+        }
+      }
     ` + shader.vertexShader
       .replace('#include <beginnormal_vertex>', `
-        bool isWing = aPart > 5.5 && aPart < 7.5;
-        vec3 objectNormal = isWing ? normalize(mix(normal, aExtN, aAnim.z)) : normal;
+        vec3 objectNormal = normal;
+        vec3 faunaPosition = position;
+        animatePart(faunaPosition, objectNormal);
       `)
       .replace('#include <begin_vertex>', `
         float ph = aAnim.x, gait = aAnim.y, fly = aAnim.z, graze = aAnim.w;
-        vec3 transformed = position;
-        if (isWing) {
-          transformed = mix(position, aExt, fly);
-          float side = aPart < 6.5 ? 1.0 : -1.0;
-          transformed = rotX(transformed, aPivot, -side * fly * sin(ph * uFlap) * 0.75);
-        } else if (aPart > 0.5 && aPart < 4.5) {
-          float off = (aPart < 1.5 || aPart > 3.5) ? 0.0 : 3.14159;
-          // walking legs swing; in flight they tuck back under the tail
-          transformed = rotZ(transformed, aPivot, sin(ph + off) * uLeg * gait * (1.0 - fly) - fly * 1.35);
-        } else if (aPart > 4.5 && aPart < 5.5) {
-          transformed = rotY(transformed, aPivot, sin(ph * 0.5 + 1.3) * uTail * (0.35 + gait));
-        } else if (aPart > 7.5) {
-          transformed = rotZ(transformed, aPivot, -graze * uHead);
-        }
+        vec3 transformed = faunaPosition;
         transformed.y += abs(sin(ph)) * uBob * gait * (1.0 - fly);
         if (uWave > 0.0) {
           float t = clamp((uWaveHead - transformed.x) / uWaveLen, 0.0, 1.0);

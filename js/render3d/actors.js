@@ -7,6 +7,7 @@ import * as S from '../render/sprites.js';
 import { TREE_SHAPES } from './geometry.js';
 import { PLANTS } from '../data/plants.js';
 import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './fauna.js';
+import { adultAnimalScale } from './animal-scale.js';
 import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
 
@@ -79,7 +80,7 @@ export class Actors {
       const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05) && kind !== 'duck') || (kind === 'duck' && a.alt > 0.3) || kind === 'bat' || kind === 'ray'; // (a manta "flies" through the water)
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
-      const sc = PX * 0.62 * (a.juvenile ? def.sprite.juv ?? 0.5 : 1) * ageF * (def.sprite.show || 1); // (show: drawn larger than life; juv: how small the young are)
+      const sc = adultAnimalScale(def.sprite) * (a.juvenile ? def.sprite.juv ?? 0.5 : 1) * ageF; // (scale: relative proportions; show: display boost; juv: how small the young are)
       const mo = F.motion(def);
       let y = ground;
       const surf = onWater || def.move === 'swim' ? waterSurfaceY(w, a.x, a.y) : null;
@@ -132,7 +133,7 @@ export class Actors {
       F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, st.pitch || 0);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
-      if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * PX * 0.4 * ageF * (flying || def.reef ? 0.7 : 1));
+      if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
 

@@ -5,7 +5,7 @@
 
 import buildChinandegaPlants from '../data/plants-chinandega.js';
 import buildChinandegaAnimals from '../data/animals-chinandega.js';
-import { generateFinca, chinandegaBorderCell, volcanoTint, ESTUARY_X, BEACH, SLOPE_Y } from './chinandega-world.js';
+import { generateFinca, chinandegaBorderCell, volcanoTint, ESTUARY_X, BEACH, SLOPE_Y, FARM_ROAD } from './chinandega-world.js';
 import { PNW_GOALS, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 import { PLANT, PLANTS } from '../data/plants.js';
 import { ANIMAL } from '../data/animals.js';
@@ -246,6 +246,12 @@ export default {
   borderCell: chinandegaBorderCell,
   stats: fincaStats,
   daily: fincaDaily,
+  // The cooperative keeps grazing these paddocks. Native grass holds the gaps between planted
+  // shade trees; forest can still regenerate on the slope, stream banks and living fence lines.
+  meadowsHold: (w, i) => {
+    const y = (i / w.w) | 0;
+    return y >= SLOPE_Y && y < FARM_ROAD && w.distWater[i] > 3 && w.feature[i] !== F.FENCE;
+  },
   startView: { x: 60, y: 8, zoom: 0.3 }, // the herd in the paddocks, San Cristóbal behind
   startWildlife: [['cattle', 12, 66, 30, 4], ['cattle', 10, 30, 38, 6], ['ctenosaur', 5, 96, 40, 10], ['urraca', 3, 60, 6, 10], ['armadillo', 2, 14, 4, 6], ['egret', 2, 90, 72, 8],
     ['iguana', 2, 42, 60, 6], ['snapper', 6, 100, 84, 6], ['raccoon', 1, 80, 78, 6], ['chocoyo', 4, 104, 4, 6]],

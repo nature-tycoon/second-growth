@@ -17,8 +17,8 @@ export function terrainFit(w, i, p) {
     case T.RIVER: case T.POND: case T.CREEK: case T.ROAD: case T.TRAIL: return 0;
     // marsh stays open wetland: no trees at all (wet-loving trees line its muddy banks instead),
     // and only a thin scatter of wet-tolerant shrubs, so they can't smother the sedges and rushes
-    // (mangroves are the exception: trees that stand in the tidal marsh)
-    case T.MARSH: return p.mangrove ? 1 : p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
+    // (mangroves and peat-swamp specialists are trees that stand in flooded ground)
+    case T.MARSH: return p.mangrove || p.swampTree ? 1 : p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
     default: {
       const own = biome.terrainFit?.(w, i, p); // a map with ground of its own (the reef: sand, rubble, reef stars)
       if (own != null) return own;
@@ -75,6 +75,17 @@ export function trySeed(w, p, i, rng) {
   const [ids, gs] = layerArrays(w, p.layer);
   const cur = ids[i];
   if (cur === p.id) return false;
+  // Sparse species recruit into gaps, counting juveniles too so a batch of settlers can't
+  // fill one patch. This only limits natural recruitment; adults and player planting keep
+  // their usual suitability. Wider dispersal lets larvae reach gaps beyond their parent.
+  if (p.seedSpacing) {
+    const r = p.seedSpacing, x = i % w.w, y = (i / w.w) | 0;
+    for (let yy = Math.max(0, y - r); yy <= Math.min(w.h - 1, y + r); yy++) {
+      for (let xx = Math.max(0, x - r); xx <= Math.min(w.w - 1, x + r); xx++) {
+        if (ids[yy * w.w + xx] === p.id) return false;
+      }
+    }
+  }
   const s = plantSuit(w, i, p);
   if (s < 0.3) return false;
   // a healthy native seed bank in the soil stands in the way of invasive seedlings
@@ -92,9 +103,10 @@ export function trySeed(w, p, i, rng) {
     const push = p.compete * (p.invasive && !cp.invasive ? 1 : 0.4);
     if (!((cs < 0.3 && s > cs + 0.2) || (s > cs + 0.1 && rng() < push * (cp.invasive ? 0.2 : 1) * 0.5))) return false;
   }
-  // On maps that keep their meadows (the suburb), trees and shrubs don't seed into an established
-  // meadow or garden: they only grow where they're planted, or on bare and neglected ground.
-  if (biome.meadowsHold && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && !PLANTS[w.ground[i]].invasive && (!p.invasive || rng() < (biome.nativesHold ? 0.97 : 0.85))) return false;
+  // Managed gardens and grazing paddocks keep their native meadow gaps: trees and shrubs
+  // grow where planted, or on bare and neglected ground. A map can limit this to its paddocks.
+  const holdsMeadow = typeof biome.meadowsHold === 'function' ? biome.meadowsHold(w, i) : biome.meadowsHold;
+  if (holdsMeadow && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && !PLANTS[w.ground[i]].invasive && (!p.invasive || rng() < (biome.nativesHold ? 0.97 : 0.85))) return false;
   // A thick sward of established groundcover is hard for woody seedlings to break through.
   let odds = s;
   const open = biome.savanna && w.distWater[i] > 3; // savanna, away from the riverine strip

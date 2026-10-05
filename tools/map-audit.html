@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Second Growth — restored map audit</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body { margin: 0; font: 14px system-ui; background: #cbd8ca; color: #233c2b }
+#view, #fx { position: fixed; inset: 0; } #fx { pointer-events: none; }
+aside { position: fixed; top: 14px; left: 14px; z-index: 2; padding: 16px; background: #fffffff0; border-radius: 12px; max-width: 420px; }
+h1 { font-size: 18px; margin: 0 0 12px } p { line-height: 1.5; margin: 10px 0 0 }
+select, button { font: inherit; padding: 6px; margin: 3px 0; } #status { font-size: 12px; overflow-wrap: anywhere }
+</style>
+<canvas id="view"></canvas>
+<aside>
+  <h1>Restored landscapes</h1>
+  <label>Map <select id="map"></select></label>
+  <label>Season <select id="month"><option value="2">May</option><option value="5">August</option><option value="8">November</option><option value="10">January</option></select></label>
+  <p id="target"></p>
+  <p>Habitat fixtures rendered with the game’s models. These show a restoration target, not a completed campaign. Your saves are untouched.</p>
+  <button id="age">Run 10 years of succession</button>
+  <button id="reset">Reset fixture</button>
+  <button id="rotate">Rotate</button>
+  <button id="zoom">Zoom in / out</button>
+  <button id="photo">Save landscape image</button>
+  <p id="status">Loading…</p>
+</aside>
+<script type="module">
+import { restoredGame, successionDay, landscapeMetrics, TARGETS } from './map-audit-fixtures.mjs';
+import { BIOME_LIST } from '../js/biome.js';
+import { EXTRA_ARRAYS } from '../js/game.js';
+import { Renderer } from '../js/render3d/scene.js';
+import { updateEnvironment } from '../js/sim/environment.js';
+const map = document.querySelector('#map'), month = document.querySelector('#month'), status = document.querySelector('#status');
+const params = new URLSearchParams(location.search);
+map.innerHTML = BIOME_LIST.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+map.value = BIOME_LIST.some(b => b.id === params.get('map')) ? params.get('map') : 'pnw';
+if ([...month.options].some(o => o.value === params.get('month'))) month.value = params.get('month');
+let g = restoredGame(map.value), age = 0, running = false;
+if (params.has('result')) {
+  const response = await fetch(`./map-audit-output/${map.value}.json`);
+  if (!response.ok) {
+    status.textContent = 'No exported result for this map yet. Run node tools/map-audit.mjs 30 all 1987 --export first.';
+    throw new Error(status.textContent);
+  }
+  const result = await response.json();
+  for (const [key, values] of Object.entries(result.arrays)) {
+    if (!g.world[key]) g.world[key] = new EXTRA_ARRAYS[key](values.length);
+    g.world[key].set(values);
+  }
+  g.day = result.day; age = result.years;
+  g.world.hydroDirty = g.world.heightDirty = true;
+}
+let r = new Renderer(document.querySelector('#view'));
+function season() {
+  g.day = age * 120 + Number(month.value) * 10;
+  updateEnvironment(g.world, g.month); g.world.renderDirty = true;
+  document.querySelector('#target').textContent = TARGETS[map.value];
+  const m = landscapeMetrics(g);
+  status.textContent = `After ${age} years of succession · ${g.map === 'reef' ? 'Hard coral / cay trees' : 'Trees'} on ${m.treeTilesPct}% of ${g.map === 'reef' ? 'substrate' : 'land'} tiles · Open canopy on ${m.openTilesPct}%${g.map === 'chinandega' ? ` · Trees on ${m.paddockTreePct}% of paddock tiles` : ''}${g.map === 'reef' ? ` · ${m.clams} clams, occupying ${m.sandClamPct}% of sand tiles` : ''}`;
+}
+season(); r.setWorld(g); r.zoom = 0.21; r.centerOn(g.world.w / 2, g.world.h / 2);
+function frame() { if (!running) r.draw(g, { clean: true }, 0.016); requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+map.onchange = () => location.href = `?map=${map.value}&month=${month.value}${params.has('result') ? '&result=1' : ''}`;
+month.onchange = season;
+document.querySelector('#reset').onclick = () => location.reload();
+document.querySelector('#rotate').onclick = () => { r.azTarget += Math.PI / 2; };
+document.querySelector('#zoom').onclick = () => { r.zoom = r.zoom < 0.3 ? 0.42 : 0.21; r.updateCamera(); };
+document.querySelector('#photo').onclick = () => {
+  r.draw(g, { clean: true }, 0.016);
+  const canvas = r.capture(g, { clean: true }, false), ctx = canvas.getContext('2d');
+  const scale = canvas.width / r.vw;
+  ctx.scale(scale, scale);
+  ctx.fillStyle = '#fffffff0'; ctx.fillRect(18, 18, Math.min(r.vw - 36, 750), 82);
+  ctx.fillStyle = '#233c2b'; ctx.font = 'bold 18px system-ui';
+  ctx.fillText(`${BIOME_LIST.find(b => b.id === g.map).farm} · ${age} years of succession`, 32, 44);
+  ctx.font = '12px system-ui'; ctx.fillText(TARGETS[g.map], 32, 65, Math.min(r.vw - 64, 720));
+  ctx.fillText(`Restored habitat fixture · ${month.selectedOptions[0].text} · vegetation and seed rain only`, 32, 85);
+  const a = document.querySelector('#snapshot') || document.createElement('a');
+  a.id = 'snapshot'; a.href = canvas.toDataURL('image/png'); a.download = `restored-${g.map}-${age}-years.png`;
+  a.textContent = 'Download landscape image'; a.style.display = 'block';
+  document.querySelector('aside').append(a);
+};
+document.querySelector('#age').onclick = async () => {
+  if (running) return;
+  running = true;
+  try {
+    for (let d = 0; d < 1200; d++) {
+      successionDay(g);
+      if (d % 20 === 0) { status.textContent = `Simulating ${Math.round(d / 12)}%`; await new Promise(resolve => setTimeout(resolve, 0)); }
+    }
+    age += 10; season();
+  } catch (error) { status.textContent = error.stack; }
+  finally { running = false; }
+};
+window.addEventListener('resize', () => r.resize());
+</script>
+</html>

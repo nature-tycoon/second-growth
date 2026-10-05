@@ -143,7 +143,7 @@ export default function buildAtlantaAnimals(def) {
       speed: 2.2, hr: 60, max: 3, sources: ['S'], mig: 0.3, breed: [], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
       req: g => Math.min(1, (g.fishIndex || 0) / 6),
-      sprite: { kind: 'heron', size: 26, color: '#7c8ea0', breast: '#b9c3cc', head: '#e8ecee', flight: '#2a2e38' },
+      sprite: { scale: 0.72, kind: 'heron', size: 26, color: '#7c8ea0', breast: '#b9c3cc', head: '#e8ecee', flight: '#2a2e38' },
       desc: 'Stalks the retention pond at dawn like a statue, waiting for a fish.',
       hint: 'A pond or river with fish, and shallow, planted edges to wade in.' });
   }

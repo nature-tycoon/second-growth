@@ -122,7 +122,7 @@ export default function buildSerengetiAnimals(def) {
       prey: ['wildebeest', 'zebra', 'buffalo', 'warthog', 'gazelle'], preyPer: 7,
       suit: (W, i) => w[W.habitat[i]] * (0.6 + 0.4 * shade(W, i)),
       req: g => Math.min(1, g.meadowTiles / 350),
-      sprite: { kind: 'feline', len: 46, h: 18, leg: 15, color: '#c89a5a', belly: '#e8d4ae', dark: '#6a4a2a', longtail: true, stocky: true, mane: '#7a4a24', show: 0.88 },
+      sprite: { scale: 1.14, kind: 'feline', len: 46, h: 18, leg: 15, color: '#c89a5a', belly: '#e8d4ae', dark: '#6a4a2a', longtail: true, stocky: true, mane: '#7a4a24', show: 0.88 },
       desc: 'Prides rest in the shade of a lone acacia or kopje all day and hunt the herds at night.',
       hint: 'Big open grasslands with plenty of large grazers, and shade to rest in.' });
   }
@@ -167,7 +167,7 @@ export default function buildSerengetiAnimals(def) {
       speed: 1.8, hr: 20, max: 12, minK: 2, groupSize: [2, 5], sources: ['N', 'E'], mig: 0.35, breed: [5, 6], litter: [3, 6], life: 30, mature: 3,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.meadowTiles / 1200),
-      sprite: { kind: 'ostrich', size: 34, color: '#1e1c1a', breast: '#1e1c1a', head: '#c8a0a0', tail: '#f2f0ea' },
+      sprite: { scale: 0.72, kind: 'ostrich', size: 34, color: '#1e1c1a', breast: '#1e1c1a', head: '#c8a0a0', tail: '#f2f0ea' },
       desc: 'The biggest bird alive, too heavy to fly but able to run at 70 km/h. Often grazes alongside zebras.',
       hint: 'Open grass and short scrub.' });
   }
@@ -188,7 +188,7 @@ export default function buildSerengetiAnimals(def) {
       speed: 1.2, hr: 40, max: 4, minK: 1, groupSize: [1, 2], sources: ['N'], mig: 0.2, breed: [9], litter: [1, 2], life: 15, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.insects[i])),
       req: g => Math.min(1, g.meadowTiles / 1200),
-      sprite: { kind: 'secretary', size: 30, color: '#b8b8b4', breast: '#d8d8d2', head: '#c8c8c2', flight: '#1a1a1a', quills: true, face: '#e87a2a', eye: '#6a4a2a' },
+      sprite: { scale: 0.68, kind: 'secretary', size: 30, color: '#b8b8b4', breast: '#d8d8d2', head: '#c8c8c2', flight: '#1a1a1a', quills: true, face: '#e87a2a', eye: '#6a4a2a' },
       desc: 'An eagle on stilts that strides through the grass and stamps snakes to death with its feet.',
       hint: 'Tall native grassland with insects and snakes.' });
   }
@@ -198,7 +198,7 @@ export default function buildSerengetiAnimals(def) {
       speed: 1.2, hr: 16, max: 8, minK: 2, groupSize: [2, 4], sources: ['S', 'W'], mig: 0.3, breed: [1, 2], litter: [2, 3], life: 20, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 4, 0.3),
       req: g => Math.min(1, g.meadowTiles / 900),
-      sprite: { kind: 'crane', size: 26, color: '#8a8e94', breast: '#6a6e74', head: '#8a8e94', flight: '#8a3a1a', crown: '#e8c040', face: '#f4f2ee', eye: '#e8e8e0', velvet: '#141414', wattle: '#d02820' },
+      sprite: { scale: 0.7, kind: 'crane', size: 26, color: '#8a8e94', breast: '#6a6e74', head: '#8a8e94', flight: '#8a3a1a', crown: '#e8c040', face: '#f4f2ee', eye: '#e8e8e0', velvet: '#141414', wattle: '#d02820' },
       desc: 'Wears a crown of stiff golden feathers and dances to court its mate. Needs wet grassland to nest.',
       hint: 'Marsh and wet grassland.' });
   }
@@ -208,7 +208,7 @@ export default function buildSerengetiAnimals(def) {
       speed: 0.9, hr: 40, max: 6, minK: 2, groupSize: [2, 4], sources: ['N'], mig: 0.2, breed: [8], litter: [1, 1], life: 40, mature: 6,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.insects[i])),
       req: g => Math.min(1, g.meadowTiles / 1500, (g.bigTrees + 2) / 10),
-      sprite: { kind: 'hornbill', size: 30, color: '#161616', breast: '#1a1a1a', head: '#161616', wattle: '#d8281e', face: '#d8281e', eye: '#e8d060', flight: '#262422' },
+      sprite: { scale: 0.9, kind: 'hornbill', size: 30, color: '#161616', breast: '#1a1a1a', head: '#161616', wattle: '#d8281e', face: '#d8281e', eye: '#e8d060', flight: '#262422' },
       desc: 'A turkey-sized hornbill that walks the grassland in family groups, booming like a lion before dawn. Nests in big hollow trees.',
       hint: 'Grassland with insects, and big old trees or dead trunks to nest in.' });
   }

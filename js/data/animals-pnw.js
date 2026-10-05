@@ -50,7 +50,7 @@ export default function buildPnwAnimals(def) {
       breed: [2, 3], litter: [1, 1], life: 14, mature: 2,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.forestTiles / 120),
-      sprite: { kind: 'deer', len: 48, h: 22, leg: 22, color: '#8f6b45', belly: '#b89770', dark: '#4a3322', neck: '#4f3a28', rump: '#d9c6a0', antlers: 'elk' },
+      sprite: { scale: 0.85, kind: 'deer', len: 48, h: 22, leg: 22, color: '#8f6b45', belly: '#b89770', dark: '#4a3322', neck: '#4f3a28', rump: '#d9c6a0', antlers: 'elk' },
       desc: 'The largest elk in North America. Herds graze meadows and shelter in old forest.',
       hint: 'Large native meadows beside forest.' });
   }
@@ -188,7 +188,7 @@ export default function buildPnwAnimals(def) {
       speed: 2.5, hr: 60, max: 4, sources: ['S'], mig: 0.4, breed: [1, 2], litter: [1, 2], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
       req: g => Math.min(1, (g.fishIndex + g.frogIndex) / 5),
-      sprite: { kind: 'heron', size: 26, color: '#7c8ea0', breast: '#b9c3cc', head: '#e8ecee', flight: '#2a2e38' },
+      sprite: { scale: 0.72, kind: 'heron', size: 26, color: '#7c8ea0', breast: '#b9c3cc', head: '#e8ecee', flight: '#2a2e38' },
       desc: 'Stands motionless in the shallows, then strikes. Hunts fish, frogs, and voles.',
       hint: 'Shallow marshes with fish and frogs.' });
   }

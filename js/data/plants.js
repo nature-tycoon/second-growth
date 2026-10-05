@@ -4,6 +4,7 @@
 // Months: 0=Mar 1=Apr 2=May 3=Jun 4=Jul 5=Aug 6=Sep 7=Oct 8=Nov 9=Dec 10=Jan 11=Feb
 // moist / light are preferred ranges on a 0..1 scale. soil = minimum soil health.
 // grow = maturity gained per day in ideal conditions. spread = daily seeding chance once mature.
+// seedSpacing = same-species exclusion radius for natural recruits only (including juveniles).
 
 export const L = { GROUND: 0, SHRUB: 1, TREE: 2 };
 export const LAYER_NAMES = ['Groundcover', 'Shrub', 'Tree'];

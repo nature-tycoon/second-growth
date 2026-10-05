@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Second Growth — bird model review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body { margin: 0; padding: 24px; color: #26392e; background: #edf0e8; font: 15px system-ui; }
+h1 { margin: 0 0 8px; font-size: 24px; } p { margin: 8px 0 16px; }
+label { margin-right: 16px; } select, button { font: inherit; padding: 6px; }
+main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+article[hidden] { display: none; }
+article { padding: 12px; background: #fafbf7; border: 1px solid #d1d9cd; border-radius: 10px; }
+h2 { font-size: 15px; margin: 0 0 6px; } .pair { display: flex; } figure { margin: 0; min-width: 0; flex: 1; }
+canvas { width: 100%; aspect-ratio: 4 / 3; display: block; } figcaption { text-align: center; font-size: 12px; color: #536553; }
+#status { font-size: 13px; } @media(max-width: 650px) { main { grid-template-columns: 1fr; } }
+</style>
+<h1>Bird model review</h1>
+<p>The game's models, with the same lighting and camera for each comparison. No saves are used.</p>
+<label>Map <select id="map"><option value="all">All maps</option></select></label>
+<label>Pose <select id="pose"><option value="0">Folded</option><option value="0.5">Unfolding</option><option value="1">Flying</option></select></label>
+<label>View <select id="angle"><option value="quarter">Three-quarter</option><option value="side">Side</option><option value="above">Above</option><option value="back">Rear</option></select></label>
+<label><input id="animate" type="checkbox"> Animate wingbeat</label>
+<button id="photo">Prepare comparison image</button> <a id="download" hidden>Download comparison image</a>
+<p id="status">Loading models…</p><main id="birds"></main>
+<script type="module">
+import * as THREE from 'three';
+const reviewVersion = Date.now();
+const { buildSpecies, faunaMaterial } = await import('../js/render3d/fauna.js?review=' + reviewVersion);
+import { loadAnimals, ANIMALS } from '../js/data/animals.js';
+const maps = ['pnw', 'atlanta', 'amazon', 'reef', 'sumatra', 'chinandega', 'serengeti'];
+const birdKinds = new Set('songbird hummer woodpecker heron duck booby raptor owl toucan macaw ostrich hornbill vulture secretary crane'.split(' '));
+const mapControl = document.querySelector('#map');
+for (const map of maps) mapControl.add(new Option(map, map));
+mapControl.value = new URLSearchParams(location.search).get("map") || "pnw";
+const pose = document.querySelector('#pose'), angle = document.querySelector('#angle'), animate = document.querySelector('#animate');
+const response = await fetch('./map-audit-output/bird-models-before.json');
+const before = response.ok ? await response.json() : [];
+const loader = new THREE.BufferGeometryLoader(), entries = [];
+const R = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+R.setSize(320, 240); R.outputColorSpace = THREE.SRGBColorSpace; R.toneMapping = THREE.NeutralToneMapping;
+const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(24, 4 / 3, 0.1, 1000);
+scene.add(new THREE.HemisphereLight(0xe4eeff, 0x6f7a4c, 1.35));
+const sun = new THREE.DirectionalLight(0xfff3dc, 2.3); sun.position.set(2, 4, 3); scene.add(sun);
+for (const map of maps) {
+  loadAnimals((await import(`../js/data/animals-${map}.js?review=${reviewVersion}`)).default);
+  for (const def of ANIMALS.filter(d => birdKinds.has(d.sprite.kind))) {
+    const key = def.key, current = buildSpecies(def);
+    const original = before.find(b => b.map === map && b.key === key);
+    const article = document.createElement('article'), heading = document.createElement('h2'), pair = document.createElement('div');
+    article.dataset.map = map; heading.textContent = def.name; pair.className = 'pair'; article.append(heading, pair); document.querySelector('#birds').append(article);
+    const variants = original ? [{ geo: loader.parse(original.geometry), motion: original.motion, label: 'Before' }, { ...current, label: 'After' }] : [{ ...current, label: 'Current' }];
+    for (const variant of variants) {
+      const canvas = document.createElement('canvas'), figure = document.createElement('figure'), caption = document.createElement('figcaption');
+      canvas.width = 320; canvas.height = 240; caption.textContent = variant.label; figure.append(canvas, caption); pair.append(figure);
+      const anim = new THREE.InstancedBufferAttribute(new Float32Array([0, 0, 0, 0]), 4);
+      variant.geo.setAttribute('aAnim', anim);
+      const mesh = new THREE.InstancedMesh(variant.geo, faunaMaterial(variant.motion), 1); mesh.setMatrixAt(0, new THREE.Matrix4());
+      entries.push({ ...variant, map, article, name: def.name, canvas, mesh, anim, size: def.sprite.size });
+    }
+  }
+}
+function draw(time = 0) {
+  const fly = Number(pose.value), dirs = { quarter: [0.5, 0.42, 1], side: [0, 0.15, 1], above: [0.3, 1.6, 0.7], back: [-0.6, 0.35, 1] };
+  const dir = new THREE.Vector3(...dirs[angle.value]).normalize();
+  const boxes = new Map(), v = new THREE.Vector3();
+  for (const e of entries) e.article.hidden = mapControl.value !== 'all' && e.map !== mapControl.value;
+  const shown = entries.filter(e => mapControl.value === 'all' || e.map === mapControl.value);
+  for (const e of shown) {
+    const box = boxes.get(e.map + ':' + e.name) || new THREE.Box3();
+    const pos = e.geo.attributes.position, ext = e.geo.attributes.aExt, part = e.geo.attributes.aPart;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      if (part.getX(i) > 4.5 && part.getX(i) < 7.5) v.lerp(new THREE.Vector3().fromBufferAttribute(ext, i), fly);
+      box.expandByPoint(v);
+    }
+    boxes.set(e.map + ':' + e.name, box);
+  }
+  for (const e of shown) {
+    e.anim.setXYZW(0, animate.checked ? time / 1000 : 0, 0, fly, 0); e.anim.needsUpdate = true;
+    // Fixed framing across the two versions; leave room for up/down strokes in flight.
+    const box = boxes.get(e.map + ':' + e.name), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+    const radius = Math.max(size.x * 0.55, size.y * 0.75, size.z * 0.55) * (animate.checked && fly ? 1.25 : 1.05);
+    const distance = radius / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    camera.position.copy(center).addScaledVector(dir, distance); camera.lookAt(center);
+    camera.near = distance * 0.1; camera.far = distance * 10; camera.updateProjectionMatrix();
+    scene.add(e.mesh); R.render(scene, camera); scene.remove(e.mesh);
+    const ctx = e.canvas.getContext('2d'); ctx.clearRect(0, 0, 320, 240); ctx.drawImage(R.domElement, 0, 0);
+  }
+}
+for (const control of [pose, angle, animate, mapControl]) control.addEventListener('change', () => { document.querySelector('#download').hidden = true; draw(); });
+function tick(time) { if (animate.checked) draw(time); requestAnimationFrame(tick); }
+draw(); requestAnimationFrame(tick);
+document.querySelector('#status').textContent = `${entries.length / 2} bird types · ${before.length ? 'Models captured before the tail and body pass' : 'Showing current models; no local baseline capture'} · Folded, unfolding and flying poses available.`;
+document.querySelector('#photo').addEventListener('click', () => {
+  const visible = entries.filter(e => !e.article.hidden);
+  const names = [...new Set(visible.map(e => e.name))];
+  const image = document.createElement('canvas'); image.width = 1280; image.height = 70 + Math.ceil(names.length / 4) * 240;
+  const ctx = image.getContext('2d'); ctx.fillStyle = '#edf0e8'; ctx.fillRect(0, 0, image.width, image.height);
+  ctx.fillStyle = '#26392e'; ctx.font = 'bold 25px system-ui'; ctx.fillText('Bird models — ' + pose.selectedOptions[0].text + ' · ' + angle.selectedOptions[0].text, 24, 40);
+  names.forEach((name, index) => {
+    const x = index % 4 * 320, y = 70 + Math.floor(index / 4) * 240;
+    ctx.font = 'bold 16px system-ui'; ctx.fillText(name, x + 16, y + 20);
+    visible.filter(e => e.name === name).forEach((e, k) => {
+      ctx.drawImage(e.canvas, x + k * 160, y + 50, 160, 120);
+      ctx.font = '13px system-ui'; ctx.fillText(e.label, x + k * 160 + 60, y + 195);
+    });
+  });
+  const link = document.querySelector('#download'); link.href = image.toDataURL('image/png'); link.download = 'bird-model-comparison.png'; link.hidden = false;
+});
+</script>
+</html>
