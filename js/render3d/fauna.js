@@ -391,7 +391,7 @@ function quadruped(m, s, o) {
       const b = Math.min(r0 * 0.9, leg * 0.14), elbow = [x - b * 0.35, leg * 0.62, z], wrist = [x + b * 0.15, leg * 0.26, z];
       foot = [x + b * 0.1, r1, z];
       if (o.smoothLegs) tube(m, [hip, elbow, wrist, foot], [r0, rm, r1 * 1.08, r1], c, lo);
-      else { m.limb(hip, elbow, r0, rm, c, lo); m.limb(elbow, wrist, rm, r1 * 1.08, r1, c, lo); m.limb(wrist, foot, r1 * 1.08, r1, c, lo); }
+      else { m.limb(hip, elbow, r0, rm, c, lo); m.limb(elbow, wrist, rm, r1 * 1.08, c, lo); m.limb(wrist, foot, r1 * 1.08, r1, c, lo); }
     }
     if (o.nails) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 0.91, r1 * 0.5, z + t * r1 * 0.57], [r1 * 0.22, r1 * 0.26, r1 * 0.23], '#a89e8d', lo);
     if (o.hoof) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z], [r1 * 1.3, r1 * 0.85, r1 * 1.15], o.hoof, { part, pivot: hip, lo: true });
