@@ -42,6 +42,13 @@ for(const key of ['pnw/bat','atlanta/bat','chinandega/bat','sumatra/flyingfox'])
 const lion=get('serengeti','lion');
 const lowerLeg=size(bounds(lion,1,false,(x,y)=>y<lion.sprite.leg*.3));
 assert(lowerLeg.z<lion.sprite.leg*.32,'Lion has tapered lower legs and compact paws');
+const jaguar=get('amazon','jaguar');
+for (const part of [1,2,3,4]) {
+  const lower=size(bounds(jaguar,part,false,(x,y)=>y<jaguar.sprite.leg*.3));
+  const upper=size(bounds(jaguar,part,false,(x,y)=>y>jaguar.sprite.leg*.75));
+  assert(lower.z<jaguar.sprite.h*.24,'Jaguar wrists and paws stay compact');
+  assert(upper.z>lower.z*1.5,'Jaguar legs taper from muscular upper limbs to the paws');
+}
 const dolphin=get('amazon','dolphin');
 // Trace the lower jaw in narrow axial bins: it should rise smoothly into the beak,
 // without the notch produced by tilted rings at the head/body transition.

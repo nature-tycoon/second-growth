@@ -5,7 +5,7 @@ import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const { loadAnimals, ANIMAL, drawDef, isMaleVariant } = await import('../js/data/animals.js');
 const { buildSpecies } = await import('../js/render3d/fauna.js');
-const { Box3, Vector3 } = await import('three');
+const { Box3, Vector3, Color } = await import('three');
 const targets = { serengeti: ['lion'], pnw: ['deer', 'elk'], atlanta: ['deer'], chinandega: ['deer'], sumatra: ['sambar'] };
 function bounds(model, part) {
   const box = new Box3(), p = model.geo.attributes.position, parts = model.geo.attributes.aPart;
@@ -39,6 +39,11 @@ for (const [map, keys] of Object.entries(targets)) {
     assert(maleBody.x > baseBody.x && maleBody.z > baseBody.z, `${map}/${key}: males are visibly larger`);
     if (key === 'lion') {
       assert(maleHead.getSize(new Vector3()).z > baseHead.getSize(new Vector3()).z * 1.4, 'The male mane widens the head silhouette');
+      const coat = new Color(male.sprite.color), maneVertices = [];
+      const p = maleModel.geo.attributes.position, c = maleModel.geo.attributes.color, parts = maleModel.geo.attributes.aPart;
+      for (let i = 0; i < p.count; i++) if (parts.getX(i) === 8 && c.getX(i) > 0.05 && c.getX(i) < coat.r * 0.7 && c.getY(i) < coat.g * 0.8) maneVertices.push(p.getX(i));
+      assert(maneVertices.length > 100, 'The male has a substantial dark mane');
+      assert(Math.max(...maneVertices) < male.sprite.len * 0.5 + male.sprite.h * 0.2, 'The mane frames the back of the head without covering the face');
       // Both sexes keep the dark tuft, including the maneless base model.
       for (const model of [baseModel, maleModel]) {
         const colors = model.geo.attributes.color, parts = model.geo.attributes.aPart;

@@ -973,10 +973,10 @@ const MAMMALS = {
     };
   },
   feline: s => {
-    // jaguars are built like wrestlers: deep chest, thick legs, a broad heavy head and a shorter tail
+    // Jaguars carry their bulk in the chest and thighs, with tapered wrists and compact paws.
     // Lionesses keep lion proportions and a tail tuft without inheriting a jaguar's stocky build.
     const lion = !!(s.lion || s.mane), k = s.stocky && !lion ? 1 : 0;
-    const L = s.len, H = s.h * (1 + k * 0.12), leg = s.leg * (lion ? 0.95 : 0.85 - k * 0.08), by = leg + H * 0.5;
+    const L = s.len, H = s.h * (1 + k * 0.08), leg = s.leg * (lion ? 0.95 : 0.85), by = leg + H * 0.5;
     const hs = lion ? (s.mane ? 1.1 : 1) : 1 + k * 0.18;
     // (The Sumatran tiger, stripes, has a builder of its own: see tiger.)
     // Sunda clouded leopard (clouds): long and low, dark-rimmed cloud blotches, a huge thick ringed tail.
@@ -984,24 +984,41 @@ const MAMMALS = {
     const dk = col(s.dark), base = grad(s.color, s.belly || s.color, -0.3, 0.5);
     const coat = s.clouds ? b => cloudCoat(b, s.dark, H * 0.42) : null;
     const legColor = s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.16); return gap > 0.36 && id > 0.25 ? dk : col(shade(s.color, -0.05)); }
-      : s.spotted ? (u, p) => (hash3(Math.round(p.x * 1.4), Math.round(p.y * 1.4), Math.round(p.z * 1.4)) > 0.78 ? dk : col(shade(s.color, 0.05))) : null;
+      : s.spotted ? (u, p) => (hash3(Math.round(p.x * 1.4), Math.round(p.y * 1.4), Math.round(p.z * 1.4)) > 0.78 ? dk : col(shade(s.color, 0.05)))
+      : k ? (u, p) => { const [gap, id] = cells(p, H * 0.18); return gap > 0.43 && id > 0.25 ? dk : col(s.color); } : null;
     const ring = (w, f) => (u, p) => (Math.sin(p.x * 2 * Math.PI / (H * w)) > 0.35 ? tmp.copy(col(s.color)).lerp(dk, f) : col(s.color));
     return {
-      H, leg, wide: lion && !s.mane ? 0.94 : 1, chest: 1 + k * 0.1, legR0: H * (lion ? (s.mane ? 0.2 : 0.18) : s.cheetah ? 0.16 : 0.22 + k * 0.08), legR1: H * (lion ? 0.095 : s.cheetah ? 0.09 : 0.14 + k * 0.06), neckR: H * (lion && !s.mane ? 0.27 : 0.3 + k * 0.08), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
+      H, leg, wide: lion && !s.mane ? 0.94 : 1, chest: 1 + k * 0.07,
+      shoulder: lion ? 0.09 : 0.04, haunch: lion ? 0.94 : 1, sag: lion ? 0.01 : 0.04,
+      legR0: H * (lion ? (s.mane ? 0.19 : 0.18) : k ? 0.205 : s.cheetah ? 0.16 : 0.22),
+      legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : 0.14),
+      neckR: H * (lion ? 0.25 : 0.3 + k * 0.04), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
       coat, legColor, fine: s.clouds, legRings: legColor ? 8 : undefined,
       paws: true, toes: true, smoothLegs: true, // soft, articulated paws
-      head: [L * 0.5, by + H * (0.38 - k * 0.1)], headR: [H * 0.36 * hs, H * 0.33 * hs, H * 0.34 * hs], snout: H * 0.15 * hs,
-      ears: s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : s.rosettes || s.cheetah ? 0.27 : s.mane ? 0.24 : s.clouds ? 0.22 : 0.24), earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
+      head: [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.4 : 0.36) * hs, H * (lion ? 0.29 : 0.33) * hs, H * (lion ? 0.3 : 0.34) * hs], snout: H * (lion ? 0.19 : 0.15) * hs,
+      nose: lion ? false : undefined, eyeR: lion ? H * 0.038 : undefined,
+      ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : 0.24), earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
       earColor: null,
       headPaint: s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.1); return gap > 0.4 && id > 0.3 && u.y > -0.3 ? dk : base(u); } : null,
       extra: (m, b) => {
         // Rounded scapulae and haunches meet the upper limbs inside the coat.
         for (const side of [-1, 1]) {
-          m.ell([L * 0.24, b.by - H * 0.1, side * H * 0.23], [H * 0.25, H * 0.36, H * 0.19], b.coat);
-          m.ell([-L * 0.25, b.by - H * 0.13, side * H * 0.23], [H * 0.31, H * 0.35, H * 0.2], b.coat);
+          m.ell([L * 0.24, b.by - H * 0.1, side * H * (lion || k ? 0.18 : 0.23)], [H * 0.25, H * 0.36, H * 0.19], b.coat);
+          m.ell([-L * 0.25, b.by - H * 0.13, side * H * (lion || k ? 0.19 : 0.23)], [H * 0.31, H * 0.35, H * 0.2], b.coat);
         }
       },
       face: (m, hp, hr, hd) => {
+        if (lion) {
+          // A low brow and a broad, flat nose keep the longer muzzle feline.
+          for (const side of [-1, 1]) {
+            m.ell([hp[0] + hr[0] * 0.37, hp[1] + hr[1] * 0.5, side * hr[2] * 0.74], [H * 0.12, H * 0.022, H * 0.07], s.color, { ...hd, rot: [0, 0, -0.16] });
+            m.ell([hp[0] - hr[0] * 0.3, hp[1] + hr[1] * 0.86, side * hr[2] * 0.83], [H * 0.065, H * 0.09, H * 0.075], shade(s.mane || s.color, -0.25), hd);
+            m.ell([hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.87, side * hr[2] * 0.84], [H * 0.04, H * 0.065, H * 0.055], s.color, hd);
+          }
+          const noseX = hp[0] + hr[0] * 0.78 + H * 0.19 * hs * 1.18;
+          m.ell([noseX, hp[1] - hr[1] * 0.17, 0], [H * 0.045, H * 0.04, H * 0.078], '#34251d', hd);
+          m.limb([noseX, hp[1] - hr[1] * 0.28, 0], [noseX - H * 0.025, hp[1] - hr[1] * 0.49, 0], H * 0.013, H * 0.01, '#34251d', { ...hd, caps: false });
+        }
         for (const side of [-1, 1]) m.ell([hp[0] + hr[0] * 0.9, hp[1] - hr[1] * 0.3, side * hr[2] * 0.24], [hr[0] * 0.33, hr[1] * 0.24, hr[2] * 0.34], s.belly || s.color, hd);
         m.ell([hp[0] + hr[0] * 0.7, hp[1] - hr[1] * 0.65, 0], [hr[0] * 0.4, hr[1] * 0.14, hr[2] * 0.39], s.belly || s.color, hd);
         const markings = s.spotted ? (m, hp, hr, hd) => {
@@ -1009,10 +1026,26 @@ const MAMMALS = {
           for (const z of [-0.18, 0.18]) m.limb([hp[0] + hr[0] * 0.55, hp[1] + hr[1] * 0.62, z * hr[2]], [hp[0] - hr[0] * 0.75, hp[1] + hr[1] * 0.72, z * hr[2] * 1.6], hr[1] * 0.07, hr[1] * 0.07, s.dark, hd);
           for (const side of [1, -1]) m.limb([hp[0] + hr[0] * 0.75, hp[1] + hr[1] * 0.45, side * hr[2] * 0.42], [hp[0] + hr[0] * 0.2, hp[1] + hr[1] * 0.85, side * hr[2] * 0.42], hr[1] * 0.06, hr[1] * 0.05, s.belly, hd);
         } : s.mane ? (m, hp, hr, hd) => {
-          // a lion's mane: a shaggy ruff around the head and down the neck
-          const mane = u => tmp.copy(col(s.mane)).multiplyScalar(0.8 + hash3(Math.round(u.x * 7), Math.round(u.y * 7), Math.round(u.z * 7)) * 0.4);
-          m.ell([hp[0] - hr[0] * 0.55, hp[1] - hr[1] * 0.15, 0], [hr[0] * 0.95, hr[1] * 1.45, hr[2] * 1.45], mane, hd);
-          m.ell([hp[0] - hr[0] * 1.3, hp[1] - hr[1] * 0.7, 0], [hr[0] * 0.9, hr[1] * 1.1, hr[2] * 1.15], mane, hd);
+          // One swept ruff, with a scalloped fringe and a longer dark throat/chest.
+          // Deform the surface rather than stacking spherical tufts around the face.
+          const ruff = SPH_HI.clone(), positions = ruff.attributes.position;
+          for (let i = 0; i < positions.count; i++) {
+            const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i);
+            const angle = Math.atan2(z, y), fringe = 1 + 0.075 * Math.sin(angle * 11 + x * 5) + 0.035 * Math.cos(angle * 17 - x * 3);
+            const rear = 1 - smooth(-0.9, 0.35, x), beard = Math.max(0, -y);
+            positions.setXYZ(i, x - rear * 0.28 - beard * 0.12, y * fringe - rear * 0.25 - beard * 0.22, z * fringe * (1 - rear * 0.18));
+          }
+          ruff.computeVertexNormals();
+          const mane = u => {
+            const edge = smooth(-0.3, 0.8, u.x) * smooth(-0.8, 0.4, u.y);
+            return tmp.copy(col(s.mane)).lerp(col(s.color), edge * 0.48).multiplyScalar(0.88 + 0.1 * Math.sin(Math.atan2(u.z, u.y) * 11 + u.x * 5));
+          };
+          m.add(ruff, place([hp[0] - H * 0.5, hp[1] - H * 0.04, 0], [0, 0, 0], [H * 0.65, H * 0.49, H * 0.5]), mane, hd);
+          ruff.dispose();
+          for (const side of [-1, 1]) {
+            locks(m, [hp[0] - H * 0.88, hp[1] - H * 0.1, side * H * 0.34], [hp[0] - H * 0.3, hp[1] - H * 0.28, side * H * 0.4], 10, H * 0.25, H * 0.065, shade(s.mane, 0.03), hd, 7, [-0.35, -1, side * 0.12]);
+            locks(m, [hp[0] - H * 0.68, hp[1] - H * 0.49, side * H * 0.14], [hp[0] - H * 0.31, hp[1] - H * 0.42, side * H * 0.18], 6, H * 0.24, H * 0.07, shade(s.mane, -0.15), hd, 11, [-0.25, -1, 0]);
+          }
         } : s.cheetah ? (m, hp, hr, hd) => {
           // cheetah: black "tear" lines from the eyes to the mouth
           for (const side of [1, -1]) m.limb([hp[0] + hr[0] * 0.5, hp[1] + hr[1] * 0.1, side * hr[2] * 0.62], [hp[0] + hr[0] * 0.95, hp[1] - hr[1] * 0.45, side * hr[2] * 0.42], hr[1] * 0.06, hr[1] * 0.05, s.dark, { ...hd, caps: false });
@@ -1023,14 +1056,14 @@ const MAMMALS = {
         const base = [-L * 0.42, b.by + H * 0.15, 0], o = { part: P.TAIL, pivot: base };
         if (s.bobtail) { m.ell([-L * 0.47, b.by + H * 0.22, 0], [H * 0.2, H * 0.12, H * 0.12], s.color, { ...o, rot: [0, 0, 0.5] }); return; }
         const tl = s.clouds ? 1.45 : s.spotted ? 0.85 : s.stocky ? 0.72 : 1;
-        const r = H * (s.clouds ? 0.18 : 0.105);
+        const r = H * (s.clouds ? 0.18 : lion ? 0.065 : 0.105);
         const end = [-L * (0.42 + 0.53 * tl), b.by - H * (s.clouds ? 0.32 : 0.2), 0];
         const paint = s.clouds ? ring(0.55, 0.85) : s.spotted || s.cheetah ? ring(0.4, 0.65) : s.color;
         tube(m, [base, [-L * (0.42 + 0.15 * tl), b.by - H * 0.08, 0],
           [-L * (0.42 + 0.32 * tl), b.by - H * 0.35, 0],
           [-L * (0.42 + 0.45 * tl), b.by - H * 0.36, 0], end],
           [r, r * 0.98, r * 0.9, r * 0.8, r * 0.65], paint, { ...o, sub: 5, seg: 12 });
-        if (lion) m.ell(end, [r * 1.5, r * 1.25, r * 1.25], s.dark, o);
+        if (lion) m.ell(end, [r * 1.9, r * 1.05, r * 1.15], s.dark, { ...o, rot: [0, 0, 0.35] });
 
       },
     };
