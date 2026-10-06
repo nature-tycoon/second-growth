@@ -39,7 +39,8 @@ export default function buildPnwAnimals(def) {
     def({ key: 'deer', name: 'Black-tailed deer', sci: 'Odocoileus hemionus columbianus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 45, max: 14, minK: 1.5, groupSize: [1, 2], sources: ['N', 'E'], mig: 0.35, breed: [2, 3], litter: [1, 2], life: 10,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 4, 0.3) * (0.6 + 0.4 * Math.min(1, W.browse[i])),
-      sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#8a6a48', belly: '#c9b595', dark: '#3a2c20' },
+      sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#8a6a48', belly: '#c9b595', dark: '#3a2c20',
+        male: { len: 37, h: 18, leg: 17, antlers: 'mule', neckWidth: 0.23 }, maleName: 'adult buck' },
       desc: 'Coastal mule deer. Browses shrubs along forest edges and hides fawns in tall grass.',
       hint: 'A patchwork of shrubs, young forest and meadow. Fences stop deer from wandering in.' });
   }
@@ -50,7 +51,8 @@ export default function buildPnwAnimals(def) {
       breed: [2, 3], litter: [1, 1], life: 14, mature: 2,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.forestTiles / 120),
-      sprite: { scale: 0.85, kind: 'deer', len: 48, h: 22, leg: 22, color: '#8f6b45', belly: '#b89770', dark: '#4a3322', neck: '#4f3a28', rump: '#d9c6a0', antlers: 'elk' },
+      sprite: { scale: 0.85, kind: 'deer', len: 48, h: 22, leg: 22, color: '#8f6b45', belly: '#b89770', dark: '#4a3322', neck: '#4f3a28', rump: '#d9c6a0',
+        male: { len: 52, h: 24, leg: 23, antlers: 'elk', neckWidth: 0.26 }, maleName: 'adult bull' },
       desc: 'The largest elk in North America. Herds graze meadows and shelter in old forest.',
       hint: 'Large native meadows beside forest.' });
   }

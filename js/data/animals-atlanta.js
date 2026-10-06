@@ -228,7 +228,8 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'deer', name: 'White-tailed deer', sci: 'Odocoileus virginianus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 50, max: 10, minK: 1.5, groupSize: [1, 3], sources: ['N', 'S'], mig: 0.35, breed: [2, 3], litter: [1, 2], life: 10,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 4, 0.3) * (0.6 + 0.4 * Math.min(1, W.browse[i])),
-      sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#9a7250', belly: '#e8dcc4', dark: '#3a2c20' },
+      sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#9a7250', belly: '#e8dcc4', dark: '#3a2c20',
+        male: { len: 37, h: 18, leg: 17, antlers: 'whitetail', neckWidth: 0.23 }, maleName: 'adult buck' },
       desc: 'Moves through the neighborhood at dawn along the wooded edges, and eats the hostas. Backyard fences stop it.',
       hint: 'Wooded edges and shrubs. Fences keep deer out.' });
   }

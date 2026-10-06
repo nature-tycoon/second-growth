@@ -899,7 +899,7 @@ const MAMMALS = {
   deer: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
-      H, leg, legR0: H * 0.12, legR1: H * 0.055, hoof: '#2a211a', neckR: H * 0.17, neckColor: s.neck,
+      H, leg, legR0: H * 0.12, legR1: H * 0.055, hoof: '#2a211a', neckR: H * (s.neckWidth ?? 0.17), neckColor: s.neck,
       head: [L * 0.5, by + H * 0.95], headR: [H * 0.3, H * 0.24, H * 0.21], snout: H * 0.28,
       ears: 'point', ear: H * 0.34, earOut: 0.8, earBack: 0.1, earW: 0.3, headColor: s.neck ? s.neck : null,
       extra: s.rump ? (m, b) => m.ell([-L * 0.33, b.by + H * 0.08, 0], [L * 0.12, H * 0.34, H * 0.36], s.rump) : null,
@@ -908,13 +908,39 @@ const MAMMALS = {
         for (const side of [1, -1]) {
           const z = side * hr[2] * 0.5, base = [hp[0] - hr[0] * 0.3, hp[1] + hr[1] * 0.7, z];
           const r = H * 0.05, bone = '#cdb994', tip = '#efe6d0';
+          const point = (x, y, spread) => [base[0] + H * x, base[1] + H * y, z + side * H * spread];
+          const branch = (a, b, thick = 0.7) => m.limb(a, b, r * thick, r * 0.16, tip, { ...hd, caps: false });
+          if (s.antlers === 'mule') {
+            // Black-tailed bucks: the rack forks, rather than having tines along one beam.
+            const stem = point(-0.12, 0.35, 0.2);
+            m.limb(base, stem, r, r * 0.8, bone, hd);
+            for (const x of [-0.38, 0.18]) {
+              const fork = point(x, 0.7, 0.4);
+              m.limb(stem, fork, r * 0.8, r * 0.5, bone, hd);
+              branch(fork, point(x - 0.17, 1.03, 0.48));
+              branch(fork, point(x + 0.15, 1.0, 0.58));
+            }
+            continue;
+          }
+          if (s.antlers === 'whitetail' || s.antlers === 'sambar') {
+            // White-tailed racks curl forward; sambar stags have a simple three-point rack.
+            const white = s.antlers === 'whitetail';
+            const beam = white ? [point(-0.15, 0.3, 0.25), point(-0.12, 0.56, 0.48), point(0.22, 0.65, 0.55), point(0.52, 0.56, 0.42)]
+              : [point(-0.14, 0.35, 0.18), point(-0.33, 0.72, 0.3), point(-0.48, 1.02, 0.34)];
+            let prev = base;
+            beam.forEach((pt, n) => { m.limb(prev, pt, r * (1 - n * 0.18), r * (0.8 - n * 0.18), bone, hd); prev = pt; });
+            branch(beam[0], point(0.23, 0.55, 0.18));
+            if (white) for (const n of [1, 2]) branch(beam[n], [beam[n][0], beam[n][1] + H * 0.4, beam[n][2] + side * H * 0.05]);
+            else branch(beam[1], point(-0.08, 1.0, 0.42));
+            continue;
+          }
           const beam = [[base[0] - H * 0.12, base[1] + H * 0.35, z + side * H * 0.22], [base[0] - H * 0.38, base[1] + H * 0.7, z + side * H * 0.42],
             [base[0] - H * 0.66, base[1] + H * 0.95, z + side * H * 0.5], [base[0] - H * 0.9, base[1] + H * 1.05, z + side * H * 0.42]];
           let prev = base;
           beam.forEach((pt, n) => { m.limb(prev, pt, r * (1 - n * 0.12), r * (0.9 - n * 0.14), n === 3 ? tip : bone, hd); prev = pt; });
           // brow tine forward, then upswept tines along the beam
           m.limb(beam[0], [beam[0][0] + H * 0.32, beam[0][1] + H * 0.1, beam[0][2] + side * H * 0.05], r * 0.7, r * 0.2, tip, { ...hd, caps: false });
-          for (const n of [1, 2]) m.limb(beam[n], [beam[n][0] + H * 0.08, beam[n][1] + H * 0.36, beam[n][2] + side * H * 0.04], r * 0.65, r * 0.18, tip, { ...hd, caps: false });
+          for (const n of [1, 2, ...(s.antlers === 'elk' ? [3] : [])]) m.limb(beam[n], [beam[n][0] + H * 0.08, beam[n][1] + H * 0.36, beam[n][2] + side * H * 0.04], r * 0.65, r * 0.18, tip, { ...hd, caps: false });
         }
       } : null,
     };
@@ -948,9 +974,10 @@ const MAMMALS = {
   },
   feline: s => {
     // jaguars are built like wrestlers: deep chest, thick legs, a broad heavy head and a shorter tail
-    const lion = !!s.mane, k = s.stocky && !lion ? 1 : 0;
+    // Lionesses keep lion proportions and a tail tuft without inheriting a jaguar's stocky build.
+    const lion = !!(s.lion || s.mane), k = s.stocky && !lion ? 1 : 0;
     const L = s.len, H = s.h * (1 + k * 0.12), leg = s.leg * (lion ? 0.95 : 0.85 - k * 0.08), by = leg + H * 0.5;
-    const hs = lion ? 1.1 : 1 + k * 0.18;
+    const hs = lion ? (s.mane ? 1.1 : 1) : 1 + k * 0.18;
     // (The Sumatran tiger, stripes, has a builder of its own: see tiger.)
     // Sunda clouded leopard (clouds): long and low, dark-rimmed cloud blotches, a huge thick ringed tail.
     // Leopard cat (spotted): small, tawny with solid black spots and dark lines over the head.
@@ -960,7 +987,7 @@ const MAMMALS = {
       : s.spotted ? (u, p) => (hash3(Math.round(p.x * 1.4), Math.round(p.y * 1.4), Math.round(p.z * 1.4)) > 0.78 ? dk : col(shade(s.color, 0.05))) : null;
     const ring = (w, f) => (u, p) => (Math.sin(p.x * 2 * Math.PI / (H * w)) > 0.35 ? tmp.copy(col(s.color)).lerp(dk, f) : col(s.color));
     return {
-      H, leg, chest: 1 + k * 0.1, legR0: H * (lion ? 0.2 : s.cheetah ? 0.16 : 0.22 + k * 0.08), legR1: H * (lion ? 0.095 : s.cheetah ? 0.09 : 0.14 + k * 0.06), neckR: H * (0.3 + k * 0.08), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
+      H, leg, wide: lion && !s.mane ? 0.94 : 1, chest: 1 + k * 0.1, legR0: H * (lion ? (s.mane ? 0.2 : 0.18) : s.cheetah ? 0.16 : 0.22 + k * 0.08), legR1: H * (lion ? 0.095 : s.cheetah ? 0.09 : 0.14 + k * 0.06), neckR: H * (lion && !s.mane ? 0.27 : 0.3 + k * 0.08), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
       coat, legColor, fine: s.clouds, legRings: legColor ? 8 : undefined,
       paws: true, toes: true, smoothLegs: true, // soft, articulated paws
       head: [L * 0.5, by + H * (0.38 - k * 0.1)], headR: [H * 0.36 * hs, H * 0.33 * hs, H * 0.34 * hs], snout: H * 0.15 * hs,
@@ -1003,7 +1030,7 @@ const MAMMALS = {
           [-L * (0.42 + 0.32 * tl), b.by - H * 0.35, 0],
           [-L * (0.42 + 0.45 * tl), b.by - H * 0.36, 0], end],
           [r, r * 0.98, r * 0.9, r * 0.8, r * 0.65], paint, { ...o, sub: 5, seg: 12 });
-        if (s.mane) m.ell(end, [r * 1.5, r * 1.25, r * 1.25], s.dark, o);
+        if (lion) m.ell(end, [r * 1.5, r * 1.25, r * 1.25], s.dark, o);
 
       },
     };

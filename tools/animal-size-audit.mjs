@@ -30,7 +30,7 @@ for (const map of maps) {
     geo.dispose();
   }
 }
-const at = (map, key) => rows.find(r => r.map === map && r.key === key && r.variant === 'default');
+const at = (map, key, variant = 'default') => rows.find(r => r.map === map && r.key === key && r.variant === variant);
 const height = (map, key) => at(map, key).world[1], length = (map, key) => at(map, key).world[0];
 // Relative-size regressions for the outliers found during the audit, rather than exact tuning values.
 assert(height('serengeti', 'giraffe') > height('serengeti', 'elephant'));
@@ -38,7 +38,9 @@ assert(height('serengeti', 'elephant') > height('serengeti', 'ostrich'));
 assert(height('serengeti', 'ostrich') > height('serengeti', 'secretary'));
 assert(height('serengeti', 'secretary') > height('serengeti', 'crane'));
 assert(height('serengeti', 'crane') < height('serengeti', 'zebra') * 0.85);
-assert(length('serengeti', 'lion') > length('serengeti', 'cheetah') * 1.1);
+assert(at('serengeti', 'lion', 'male').world[0] > length('serengeti', 'cheetah') * 1.1);
+assert(length('serengeti', 'lion') > length('serengeti', 'cheetah'));
+assert(length('serengeti', 'lion') < at('serengeti', 'lion', 'male').world[0]);
 assert(length('sumatra', 'clouded') < length('sumatra', 'tiger') * 0.75);
 assert(height('sumatra', 'sambar') < height('sumatra', 'gajah'));
 assert(height('pnw', 'heron') < height('pnw', 'deer'));

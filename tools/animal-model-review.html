@@ -11,7 +11,7 @@ body{margin:0;padding:24px;background:#edf0e8;color:#26392e;font:15px system-ui}
 <label>Map <select id="map"></select></label>
 <label>Models <select id="version"><option value="current">Current</option><option value="before">Before refinement</option></select></label>
 <label>View <select id="view"><option value="side">Side</option><option value="quarter">Three-quarter</option><option value="above">Above</option></select></label>
-<label>Scope <select id="scope"><option value="improved">Improved models</option><option value="all">All models</option></select></label>
+<label>Scope <select id="scope"><option value="improved">Improved models</option><option value="splits">Lion and deer sex splits</option><option value="all">All models</option></select></label>
 <label>Phase <select id="phase"><option value="1.1">1</option><option value="3">2</option><option value="5">3</option></select></label>
 <label>Zoom <select id="zoom"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
 <label><input id="boost" type="checkbox" checked> Visibility boosts</label>
@@ -26,6 +26,7 @@ const maps=['pnw','atlanta','amazon','reef','sumatra','chinandega','serengeti'];
 const controls=Object.fromEntries(['map','version','view','zoom','boost','fly','pose','scope','phase'].map(id=>[id,document.getElementById(id)]));
 for(const map of maps)controls.map.add(new Option(map,map));
 controls.map.value=new URLSearchParams(location.search).get('map')||'serengeti';
+controls.scope.value=new URLSearchParams(location.search).get('scope')||'improved';
 const response=await fetch('./map-audit-output/models-before-refinement.json');
 const before=response.ok?await response.json():[];
 controls.version.querySelector('[value="before"]').disabled=before.length===0;
@@ -47,8 +48,9 @@ for(const map of maps){
     models[version]={...built,mesh,anim,sprite};
    }
    const article=document.createElement('article'),h=document.createElement('h2'),canvas=document.createElement('canvas'),details=document.createElement('small');canvas.width=360;canvas.height=270;
-   h.textContent=def.name+(male?' · '+(def.sprite.maleName||'male'):'');article.append(h,canvas,details);
-   const e={map,name:def.name,move:def.move,kind:def.sprite.kind,models,article,canvas,details,improved:!!(def.sprite.opossum||def.sprite.coati||def.sprite.barred||def.sprite.fancy||def.sprite.spoonbill||def.sprite.ridley||['dolphin','bat','snake','monitor','heron','crane','secretary'].includes(def.sprite.kind)||def.sprite.kind==='feline'&&!def.sprite.stripes||def.sprite.kind==='elephant'&&!def.sprite.asian)};entries.push(e);
+   const split=!!(def.sprite.lion||def.sprite.kind==='deer'&&def.sprite.male);
+   h.textContent=def.name+(male?' · '+(def.sprite.maleName||'male'):split?' · female / juvenile appearance':'');article.append(h,canvas,details);
+   const e={map,name:def.name,move:def.move,kind:def.sprite.kind,models,article,canvas,details,split,improved:!!(split||def.sprite.opossum||def.sprite.coati||def.sprite.barred||def.sprite.fancy||def.sprite.spoonbill||def.sprite.ridley||['dolphin','bat','snake','monitor','heron','crane','secretary'].includes(def.sprite.kind)||def.sprite.kind==='feline'&&!def.sprite.stripes||def.sprite.kind==='elephant'&&!def.sprite.asian)};entries.push(e);
   }
  }
 }
@@ -61,7 +63,7 @@ function draw(){
  camera.left=-1.35/zoom;camera.right=1.35/zoom;camera.top=1.0125/zoom;camera.bottom=-1.0125/zoom;camera.position.copy(new THREE.Vector3(0,.68/zoom,0)).addScaledVector(dir,5);camera.lookAt(0,.68/zoom,0);camera.updateProjectionMatrix();
  let count=0;
  for(const e of entries){
-  e.article.hidden=e.map!==controls.map.value||(controls.scope.value==='improved'&&!e.improved);if(e.article.hidden)continue;count++;
+  e.article.hidden=e.map!==controls.map.value||(controls.scope.value==='improved'&&!e.improved)||(controls.scope.value==='splits'&&!e.split);if(e.article.hidden)continue;count++;
   const b=e.models[controls.version.value],show=controls.boost.checked?(b.sprite.show||1):1,sc=adultAnimalScale(b.sprite,controls.boost.checked),box=b.geo.boundingBox;
   const pose=controls.pose.value,fly=e.move==='fly'&&(controls.fly.checked||pose==='fly')||e.kind==='ray'?1:0;b.anim.setXYZW(0,Number(controls.phase.value),pose==='walk'?1:0,fly,pose==='graze'?0.65:0);b.anim.needsUpdate=true;
   const bounds=box.clone(),p=b.geo.attributes.position,ext=b.geo.attributes.aExt,part=b.geo.attributes.aPart;

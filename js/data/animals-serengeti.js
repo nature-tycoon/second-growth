@@ -122,7 +122,8 @@ export default function buildSerengetiAnimals(def) {
       prey: ['wildebeest', 'zebra', 'buffalo', 'warthog', 'gazelle'], preyPer: 7,
       suit: (W, i) => w[W.habitat[i]] * (0.6 + 0.4 * shade(W, i)),
       req: g => Math.min(1, g.meadowTiles / 350),
-      sprite: { scale: 1.14, kind: 'feline', len: 46, h: 18, leg: 15, color: '#c89a5a', belly: '#e8d4ae', dark: '#6a4a2a', longtail: true, stocky: true, mane: '#7a4a24', show: 0.88 },
+      sprite: { scale: 1.14, kind: 'feline', lion: true, len: 42, h: 16, leg: 14, color: '#c89a5a', belly: '#e8d4ae', dark: '#6a4a2a', longtail: true, stocky: true,
+        male: { len: 46, h: 18, leg: 15, mane: '#7a4a24' }, maleShare: 0.3, maleName: 'adult male', show: 0.88 },
       desc: 'Prides rest in the shade of a lone acacia or kopje all day and hunt the herds at night.',
       hint: 'Big open grasslands with plenty of large grazers, and shade to rest in.' });
   }

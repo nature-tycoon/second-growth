@@ -137,7 +137,8 @@ export default function buildSumatraAnimals(def) {
       speed: 1.3, hr: 50, max: 14, minK: 2, groupSize: [2, 4], sources: ['N', 'E'], mig: 0.25,
       breed: [7, 8], litter: [1, 1], life: 16, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.browse[i] + W.graze[i])),
-      sprite: { scale: 0.85, kind: 'deer', len: 38, h: 18, leg: 17, color: '#5e4a38', belly: '#6e5a46', dark: '#2e241a', antlers: true },
+      sprite: { scale: 0.85, kind: 'deer', len: 38, h: 18, leg: 17, color: '#5e4a38', belly: '#6e5a46', dark: '#2e241a',
+        male: { len: 42, h: 20, leg: 18, antlers: 'sambar', neckWidth: 0.26 }, maleName: 'adult stag' },
       desc: 'A big, shaggy forest deer with a dark coat, and the tiger\'s main prey. It browses young leaves along forest edges and in regrowth.',
       hint: 'Young forest, scrub and clearings. Fences keep it out.' });
   }
