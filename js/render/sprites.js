@@ -1044,12 +1044,18 @@ function drawAnimal(ctx, s, frame, pose) {
       ellipse(ctx, 0, 0, S * 0.6, S * 0.15, 'rgba(255,255,255,0.25)');
       ellipse(ctx, 0, by, S * 0.55, S * 0.28, s.color);
       ellipse(ctx, S * 0.2, by, S * 0.25, S * 0.22, s.breast);
+      if (s.mottled) for (let q = 0; q < 26; q++) {
+        const x = ((q * 7) % 17) / 17 * S * 0.86 - S * 0.43, y = ((q * 11) % 13) / 13 * S * 0.36 - S * 0.18;
+        ellipse(ctx, x, by + y, S * 0.025, S * 0.04, shade(s.color, -0.3), -0.35);
+      }
       ctx.fillStyle = shade(s.color, -0.2); ctx.beginPath(); ctx.moveTo(-S * 0.45, by - 2); ctx.lineTo(-S * 0.75, by - S * 0.25); ctx.lineTo(-S * 0.4, by + 2); ctx.fill();
       const hx = S * 0.42, hy = by - S * 0.4;
       ellipse(ctx, hx, hy, S * 0.2, S * 0.19, s.head);
       if (s.fancy) { ctx.fillStyle = s.head; ctx.beginPath(); ctx.moveTo(hx - 1, hy - 2); ctx.lineTo(hx - S * 0.35, hy + 1); ctx.lineTo(hx - 1, hy + 2); ctx.fill(); line(ctx, hx - 2, hy - 2, hx + 3, hy - 2.5, '#f0ece4', 0.9); ellipse(ctx, hx + 1, hy + 2, 1.5, 1, '#f0ece4'); }
-      else line(ctx, hx - 3, hy + S * 0.2, hx + 2, hy + S * 0.2, '#f0ece4', 1.2);
-      ctx.fillStyle = s.fancy ? '#d84a2a' : '#e0b02a'; ctx.beginPath(); ctx.moveTo(hx + S * 0.15, hy - 1); ctx.lineTo(hx + S * 0.38, hy + 1); ctx.lineTo(hx + S * 0.15, hy + 2); ctx.fill();
+      else if (s.collar || !s.woodduck && !s.mallard) line(ctx, hx - 3, hy + S * 0.2, hx + 2, hy + S * 0.2, '#f0ece4', 1.2);
+      if (s.eyePatch) ellipse(ctx, hx + 1, hy - 1, 1.65, 1.4, '#f0ece4');
+      if (s.faceStripe) line(ctx, hx - S * 0.17, hy - 1, hx + S * 0.13, hy - 1, '#54432e', 0.9);
+      ctx.fillStyle = s.fancy ? '#d84a2a' : s.bill || '#e0b02a'; ctx.beginPath(); ctx.moveTo(hx + S * 0.15, hy - 1); ctx.lineTo(hx + S * 0.38, hy + 1); ctx.lineTo(hx + S * 0.15, hy + 2); ctx.fill();
       ellipse(ctx, hx + 2, hy - 1, 0.9, 0.9, s.fancy ? '#d8322a' : '#0a0806');
       break;
     }

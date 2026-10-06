@@ -149,7 +149,7 @@ class Model {
     g.setAttribute('aExtN', e.attributes.normal.clone());
     this.parts.push(g);
   }
-  ell(pos, r, paint, o = {}) { this.add(o.lo ? SPH_LO : SPH, place(pos, o.rot || [0, 0, 0], r), paint, o); }
+  ell(pos, r, paint, o = {}) { this.add(o.fine ? SPH_HI : o.lo ? SPH_LO : SPH, place(pos, o.rot || [0, 0, 0], r), paint, o); }
   // A tapered limb from p0 (radius r0) to p1 (radius r1), with rounded ends.
   limb(p0, p1, r0, r1, paint, o = {}) {
     const a = V(...p0), d = V(...p1).sub(a), len = d.length() || 1e-3;
@@ -227,13 +227,14 @@ function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
 // One smooth body: a tube along x whose oval cross-section swells from haunch to chest and
 // rounds off at both ends (no seams between separate blobs). Paint gets (ny, x, side) in
 // unit-like coordinates, so countershading and spots work as they do on a sphere.
-function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, fine = false }, paint, o = {}) {
-  const R = fine === 2 ? 84 : fine ? 56 : 22, A = fine === 2 ? 60 : fine ? 36 : 14, pos = [], idx = [], u = [];
+function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false }, paint, o = {}) {
+  const R = fine === 3 ? 128 : fine === 2 ? 84 : fine ? 56 : 22, A = fine === 3 ? 88 : fine === 2 ? 60 : fine ? 36 : 14, pos = [], idx = [], u = [];
   for (let i = 0; i <= R; i++) {
     const t = i / R, x = x0 + (x1 - x0) * t;
     const w = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(2 * t - 1), 2.6))); // rounded, blunt ends
     const e = t * t * (3 - 2 * t);
-    const ry = (ry0 + (ry1 - ry0) * e) * w, rz = (rz0 + (rz1 - rz0) * e) * w, cy = cy0 + (cy1 - cy0) * e - sag * Math.sin(t * Math.PI);
+    const bulk = shoulderBulk * Math.exp(-(((t - 0.73) / 0.18) ** 2));
+    const ry = (ry0 + (ry1 - ry0) * e) * w * (1 + bulk), rz = (rz0 + (rz1 - rz0) * e) * w * (1 + bulk * 0.5), cy = cy0 + (cy1 - cy0) * e - sag * Math.sin(t * Math.PI);
     for (let j = 0; j <= A; j++) {
       const a = j / A * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
       pos.push(x, cy + c * ry, sn * rz);
@@ -327,6 +328,33 @@ function rosettes(base, dark, belly, chains = false) {
   };
 }
 
+// Jaguar rosettes use one coat coordinate system across the torso and shoulder muscles.
+// Jittered, wavy rings and occasional central dots avoid a repeated checkerboard pattern.
+function jaguarCoat(s, H, by) {
+  const base = grad(s.color, s.belly, -0.3, 0.5), dark = col(s.dark), mid = shade(s.color, -0.12);
+  return (u, p) => {
+    const height = (p.y - by) / (H * 0.55);
+    if (height < -0.5) return base({ y: height });
+    const gx = p.x / (H * 0.34), ga = Math.atan2(p.z, p.y - by) * 1.55;
+    const ix = Math.floor(gx), ia = Math.floor(ga), id = hash3(ix, ia, 3);
+    const dx = gx - ix - 0.5 - (hash3(ix, ia, 1) - 0.5) * 0.35;
+    const da = ga - ia - 0.5 - (hash3(ix, ia, 2) - 0.5) * 0.35, angle = Math.atan2(da, dx);
+    const d = Math.hypot(dx, da) / (1 + Math.sin(angle * 5 + id * 8) * 0.14);
+    if (d > 0.2 && d < 0.39 && Math.sin(angle * 3 + id * 8) > -0.85 || d < 0.075 && id > 0.25) return dark;
+    return d < 0.2 ? mid : base({ y: height });
+  };
+}
+
+function felineSpots(s, H) {
+  const base = col(s.color), dark = col(s.dark);
+  return (u, p) => {
+    const x = p.x / (H * 0.15), y = p.y / (H * 0.15), ix = Math.floor(x), iy = Math.floor(y);
+    const dx = x - ix - 0.5 - (hash3(ix, iy, 1) - 0.5) * 0.3;
+    const dy = y - iy - 0.5 - (hash3(ix, iy, 2) - 0.5) * 0.3;
+    return Math.hypot(dx, dy) < 0.23 + hash3(ix, iy, 3) * 0.07 ? dark : base;
+  };
+}
+
 // Solid round spots on a jittered grid (cheetah, hyena); size is the spot radius in cell units.
 function dots(base, dark, cells, size) {
   const d = col(dark);
@@ -363,7 +391,7 @@ function quadruped(m, s, o) {
     x0: -L * 0.47, x1: L * 0.45,
     cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
     ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
-    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), fine: o.rosettes || o.dots || o.fine ? 2 : false,
+    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: o.rosettes && o.detail ? 3 : o.rosettes || o.dots || o.fine && !o.detail ? 2 : o.fine || false,
   }, coat);
   if (o.extra) o.extra(m, { L, H, leg, by, W, coat });
 
@@ -374,7 +402,7 @@ function quadruped(m, s, o) {
     // set in far enough that even thick upper legs stay inside the body's outline
     const z = side * Math.min(H * 0.24, H * 0.42 - o.legR0) * W, hip = [x, by - H * 0.05, z];
     const r0 = o.legR0, r1 = o.legR1, rm = (r0 + r1) * 0.55, hind = part >= P.LEG_BL;
-    const c = part < P.LEG_BL && o.frontLeg ? o.frontLeg : lc, lo = { part, pivot: hip, rings: o.legRings };
+    const c = part < P.LEG_BL && o.frontLeg ? o.frontLeg : lc, lo = { part, pivot: hip, rings: o.legRings, seg: o.legSeg };
     let foot = [x, r1, z];
     if (o.straight) { // pillar legs (elephant, rhino)
       const knee = [x + (hind ? -r0 * 0.5 : r0 * 0.2), leg * 0.5, z];
@@ -394,9 +422,11 @@ function quadruped(m, s, o) {
       else { m.limb(hip, elbow, r0, rm, c, lo); m.limb(elbow, wrist, rm, r1 * 1.08, c, lo); m.limb(wrist, foot, r1 * 1.08, r1, c, lo); }
     }
     if (o.nails) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 0.91, r1 * 0.5, z + t * r1 * 0.57], [r1 * 0.22, r1 * 0.26, r1 * 0.23], '#a89e8d', lo);
-    if (o.hoof) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z], [r1 * 1.3, r1 * 0.85, r1 * 1.15], o.hoof, { part, pivot: hip, lo: true });
+    if (o.foot) o.foot(m, foot, r1, lo, hind);
+    else if (o.hoof && o.splitHoof) for (const toe of [-1, 1]) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z + toe * r1 * 0.52], [r1 * 1.25, r1 * 0.85, r1 * 0.48], o.hoof, { part, pivot: hip });
+    else if (o.hoof) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z], [r1 * 1.3, r1 * 0.85, r1 * 1.15], o.hoof, { part, pivot: hip, lo: true });
     else if (o.paws && (o.toes || o.smoothLegs)) {
-      m.ell([foot[0] + r1 * 0.45, r1 * 0.63, z], [r1 * 1.35, r1 * 0.62, r1 * 1.1], c, { part, pivot: hip });
+      m.ell([foot[0] + r1 * 0.45, r1 * 0.63, z], [r1 * 1.35, r1 * 0.62, r1 * 1.1], c, { part, pivot: hip, fine: o.detail });
       if (o.toes) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 1.15, r1 * 0.48, z + t * r1 * 0.52], [r1 * 0.42, r1 * 0.38, r1 * 0.32], c, { part, pivot: hip });
     }
     else if (o.paws) m.ell([foot[0] + r1 * 0.4, r1 * 0.72, z], [r1 * 1.4, r1 * 0.75, r1 * 1.12], c, { part, pivot: hip, lo: true });
@@ -406,14 +436,16 @@ function quadruped(m, s, o) {
   const neck = [L * 0.3, by + H * 0.12, 0];
   const hp = o.head, hr = o.headR;
   const hc = o.headPaint || (o.headColor ? grad(o.headColor, s.belly || o.headColor, -0.4, 0.5) : coat);
-  const hd = { part: P.HEAD, pivot: neck };
-  if (o.neckR) m.limb(neck, [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], o.neckR, o.neckR * 0.8, o.neckColor ? solid(o.neckColor) : hc, { ...hd, seg: o.neckSeg, rings: o.neckRings });
+  const hd = { part: P.HEAD, pivot: neck, fine: o.detail };
+  const nc = o.neckColor ? solid(o.neckColor) : hc;
+  if (o.neckPath) tube(m, o.neckPath, o.neckRadii, nc, { ...hd, seg: o.neckSeg ?? 16, sub: o.neckSub ?? 6 });
+  else if (o.neckR) m.limb(neck, [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], o.neckR, o.neckR * 0.8, nc, { ...hd, seg: o.neckSeg ?? (o.detail ? 14 : undefined), rings: o.neckRings });
   m.ell(hp, hr, hc, hd);
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28, 0];
-  m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
+  if (!o.noMuzzle) m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
   if (o.nose !== false) m.ell([sn[0] + o.snout * 1.22, sn[1] + hr[1] * 0.1, 0], [hr[1] * 0.2, hr[1] * 0.17, hr[1] * 0.22], '#1c1714', { ...hd, lo: true });
-  eyes(m, hp, hr[0] * 0.42, hr[1] * 0.28, hr[2] * 0.78, o.eyeR ?? Math.max(0.55, H * 0.045), P.HEAD, neck);
-  m.eyeAt = [hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.28, hr[2] * 0.78]; m.eyePivot = neck; // for eye-shine at night: forward, up, apart
+  eyes(m, hp, hr[0] * 0.42, hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78), o.eyeR ?? Math.max(0.55, H * 0.045), P.HEAD, neck);
+  m.eyeAt = [hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78)]; m.eyePivot = neck; // for eye-shine at night: forward, up, apart
   if (o.mask) m.ell([hp[0] + hr[0] * 0.4, hp[1] + hr[1] * 0.2, 0], [hr[0] * 0.35, hr[1] * 0.3, hr[2] * 1.02], s.dark, hd);
   const ec = o.earColor || shade(s.color, -0.1);
   for (const side of [1, -1]) {
@@ -895,6 +927,42 @@ function mouseDeer(s) {
   };
 }
 
+// Compact facial and foot shapes for the river mammals. Every detail shares the
+// existing head or leg pivot, so it remains attached during movement and swimming.
+function riverMammalFace(m, s, hp, hr, H, hd, raccoon = false) {
+  const tip = raccoon ? [hp[0] + H * 0.475, hp[1] - H * 0.06, 0]
+    : [hp[0] + hr[0] * 0.78 + H * 0.245, hp[1] - hr[1] * 0.26, 0];
+  if (raccoon) {
+    // One tapered snout: separate pale jaw/cheek blobs made a protruding lip.
+    tube(m, [[hp[0] + H * 0.1, hp[1] - H * 0.015, 0], [hp[0] + H * 0.3, hp[1] - H * 0.045, 0], [hp[0] + H * 0.44, hp[1] - H * 0.06, 0]],
+      [[H * 0.21, H * 0.2], [H * 0.13, H * 0.11], [H * 0.055, H * 0.05]], u => col(u.y > 0.25 ? shade(s.belly, -0.08) : s.belly), { ...hd, sub: 8, seg: 16 });
+    m.ell(tip, [H * 0.045, H * 0.04, H * 0.053], '#241b17', hd);
+  } else {
+    m.ell(tip, [H * 0.043, H * 0.028, H * 0.062], '#241b17', hd);
+    m.ell([tip[0] - H * 0.07, tip[1] - H * 0.065, 0], [H * 0.13, H * 0.026, H * 0.11], s.belly, hd);
+  }
+  for (const side of [-1, 1]) {
+    if (raccoon) tube(m, [[hp[0] + H * 0.3, hp[1] - H * 0.12, side * H * 0.105], [hp[0] + H * 0.42, hp[1] - H * 0.1, side * H * 0.055]], [H * 0.0025, H * 0.001], '#4b4237', { ...hd, sub: 3, seg: 4 });
+    else m.ell([tip[0] - H * 0.065, tip[1] - H * 0.018, side * H * 0.068], [H * 0.075, H * 0.035, H * 0.055], s.belly, hd);
+    for (let i = 0; i < 3; i++) {
+      const root = [tip[0] - H * (0.08 + i * 0.025), tip[1] - H * 0.015, side * H * (raccoon ? 0.075 + i * 0.015 : 0.11)];
+      tube(m, [root, [root[0] - H * 0.06, root[1] + H * (0.025 - i * 0.02), side * H * 0.23], [root[0] - H * 0.15, root[1] + H * (0.05 - i * 0.045), side * H * 0.36]], [H * 0.0035, H * 0.0025, H * 0.0008], '#c7bca7', { ...hd, sub: 2, seg: 4 });
+    }
+    const ear = [hp[0] - hr[0] * 0.38, hp[1] + hr[1] * 0.88, side * hr[2] * 0.7];
+    m.ell(ear, [H * 0.07, H * (raccoon ? 0.115 : 0.065), H * 0.045], s.color, hd);
+    m.ell([ear[0] + H * 0.045, ear[1], ear[2]], [H * 0.026, H * (raccoon ? 0.075 : 0.04), H * 0.029], raccoon ? s.belly : shade(s.color, -0.22), { ...hd, fine: false });
+  }
+}
+
+function riverMammalFoot(m, foot, r, o, color, webbed = false) {
+  m.ell([foot[0] + r * 0.55, r * 0.62, foot[2]], [r * 1.4, r * 0.62, r * 1.25], color, o);
+  for (let toe = -2; toe <= 2; toe++) {
+    const reach = 1.4 - Math.abs(toe) * 0.15;
+    m.ell([foot[0] + r * reach, r * 0.37, foot[2] + toe * r * 0.43], [r * (webbed ? 0.72 : 0.67), r * 0.37, r * 0.24], color, { ...o, lo: true });
+    if (!webbed) m.ell([foot[0] + r * (reach + 0.51), r * 0.31, foot[2] + toe * r * 0.43], [r * 0.2, r * 0.12, r * 0.1], '#b3a18a', { ...o, lo: true });
+  }
+}
+
 const MAMMALS = {
   deer: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
@@ -982,10 +1050,10 @@ const MAMMALS = {
     // Sunda clouded leopard (clouds): long and low, dark-rimmed cloud blotches, a huge thick ringed tail.
     // Leopard cat (spotted): small, tawny with solid black spots and dark lines over the head.
     const dk = col(s.dark), base = grad(s.color, s.belly || s.color, -0.3, 0.5);
-    const coat = s.clouds ? b => cloudCoat(b, s.dark, H * 0.42) : null;
+    const coat = s.clouds ? b => cloudCoat(b, s.dark, H * 0.42) : k ? () => jaguarCoat(s, H, by) : null;
     const legColor = s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.16); return gap > 0.36 && id > 0.25 ? dk : col(shade(s.color, -0.05)); }
       : s.spotted ? (u, p) => (hash3(Math.round(p.x * 1.4), Math.round(p.y * 1.4), Math.round(p.z * 1.4)) > 0.78 ? dk : col(shade(s.color, 0.05)))
-      : k ? (u, p) => { const [gap, id] = cells(p, H * 0.18); return gap > 0.43 && id > 0.25 ? dk : col(s.color); } : null;
+      : k ? felineSpots(s, H) : null;
     const ring = (w, f) => (u, p) => (Math.sin(p.x * 2 * Math.PI / (H * w)) > 0.35 ? tmp.copy(col(s.color)).lerp(dk, f) : col(s.color));
     return {
       H, leg, wide: lion && !s.mane ? 0.94 : 1, chest: 1 + k * 0.07,
@@ -993,21 +1061,31 @@ const MAMMALS = {
       legR0: H * (lion ? (s.mane ? 0.19 : 0.18) : k ? 0.205 : s.cheetah ? 0.16 : 0.22),
       legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : 0.14),
       neckR: H * (lion ? 0.25 : 0.3 + k * 0.04), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
-      coat, legColor, fine: s.clouds, legRings: legColor ? 8 : undefined,
+      coat, legColor, fine: s.clouds ? 2 : lion, detail: !!(lion || k), legRings: legColor ? 8 : undefined,
       paws: true, toes: true, smoothLegs: true, // soft, articulated paws
       head: [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.4 : 0.36) * hs, H * (lion ? 0.29 : 0.33) * hs, H * (lion ? 0.3 : 0.34) * hs], snout: H * (lion ? 0.19 : 0.15) * hs,
-      nose: lion ? false : undefined, eyeR: lion ? H * 0.038 : undefined,
+      nose: lion || k ? false : undefined, eyeR: lion ? H * 0.038 : undefined,
       ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : 0.24), earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
       earColor: null,
-      headPaint: s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.1); return gap > 0.4 && id > 0.3 && u.y > -0.3 ? dk : base(u); } : null,
+      headPaint: s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.1); return gap > 0.4 && id > 0.3 && u.y > -0.3 ? dk : base(u); } : k ? felineSpots(s, H) : null,
       extra: (m, b) => {
         // Rounded scapulae and haunches meet the upper limbs inside the coat.
         for (const side of [-1, 1]) {
-          m.ell([L * 0.24, b.by - H * 0.1, side * H * (lion || k ? 0.18 : 0.23)], [H * 0.25, H * 0.36, H * 0.19], b.coat);
-          m.ell([-L * 0.25, b.by - H * 0.13, side * H * (lion || k ? 0.19 : 0.23)], [H * 0.31, H * 0.35, H * 0.2], b.coat);
+          m.ell([L * 0.24, b.by - H * 0.1, side * H * (lion || k ? 0.18 : 0.23)], [H * 0.25, H * 0.36, H * 0.19], b.coat, { fine: !!(lion || k) });
+          m.ell([-L * 0.25, b.by - H * 0.13, side * H * (lion || k ? 0.19 : 0.23)], [H * 0.31, H * 0.35, H * 0.2], b.coat, { fine: !!(lion || k) });
         }
       },
       face: (m, hp, hr, hd) => {
+        if (k) m.ell([hp[0] + hr[0] * 0.78 + H * 0.15 * hs * 1.18, hp[1] - hr[1] * 0.17, 0], [H * 0.045, H * 0.035, H * 0.075], '#34251d', hd);
+        if (lion || k) for (const side of [-1, 1]) {
+          // Set the eye into a narrow lid, with a little light on the lower rim.
+          m.ell([hp[0] + hr[0] * 0.4, hp[1] + hr[1] * 0.17, side * hr[2] * 0.8], [H * 0.095, H * 0.023, H * 0.035], s.belly, hd);
+          for (let row = 0; row < 3; row++) {
+            const x = hp[0] + hr[0] * (0.83 + row * 0.12), y = hp[1] - hr[1] * (0.34 + row % 2 * 0.12), z = side * hr[2] * 0.5;
+            m.ell([x, y, z], [H * 0.017, H * 0.013, H * 0.015], '#443428', { ...hd, fine: false, lo: true });
+            tube(m, [[x, y, z], [x - H * 0.035, y + H * 0.01, z + side * H * 0.08], [x - H * (0.12 + row * 0.025), y + H * (0.025 - row * 0.025), z + side * H * (0.19 + row * 0.025)]], [H * 0.004, H * 0.003, H * 0.001], '#d5c7aa', { ...hd, sub: 2, seg: 4 });
+          }
+        }
         if (lion) {
           // A low brow and a broad, flat nose keep the longer muzzle feline.
           for (const side of [-1, 1]) {
@@ -1019,6 +1097,7 @@ const MAMMALS = {
           m.ell([noseX, hp[1] - hr[1] * 0.17, 0], [H * 0.045, H * 0.04, H * 0.078], '#34251d', hd);
           m.limb([noseX, hp[1] - hr[1] * 0.28, 0], [noseX - H * 0.025, hp[1] - hr[1] * 0.49, 0], H * 0.013, H * 0.01, '#34251d', { ...hd, caps: false });
         }
+        if (lion || k) for (const side of [-1, 1]) tube(m, [[hp[0] + hr[0] * 0.72, hp[1] - hr[1] * 0.58, side * hr[2] * 0.37], [hp[0] + hr[0] * 1.1, hp[1] - hr[1] * 0.57, side * hr[2] * 0.34]], [H * 0.01, H * 0.007], '#443428', { ...hd, sub: 3, seg: 5 });
         for (const side of [-1, 1]) m.ell([hp[0] + hr[0] * 0.9, hp[1] - hr[1] * 0.3, side * hr[2] * 0.24], [hr[0] * 0.33, hr[1] * 0.24, hr[2] * 0.34], s.belly || s.color, hd);
         m.ell([hp[0] + hr[0] * 0.7, hp[1] - hr[1] * 0.65, 0], [hr[0] * 0.4, hr[1] * 0.14, hr[2] * 0.39], s.belly || s.color, hd);
         const markings = s.spotted ? (m, hp, hr, hd) => {
@@ -1028,7 +1107,7 @@ const MAMMALS = {
         } : s.mane ? (m, hp, hr, hd) => {
           // One swept ruff, with a scalloped fringe and a longer dark throat/chest.
           // Deform the surface rather than stacking spherical tufts around the face.
-          const ruff = SPH_HI.clone(), positions = ruff.attributes.position;
+          const ruff = SPH_XL.clone(), positions = ruff.attributes.position;
           for (let i = 0; i < positions.count; i++) {
             const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i);
             const angle = Math.atan2(z, y), fringe = 1 + 0.075 * Math.sin(angle * 11 + x * 5) + 0.035 * Math.cos(angle * 17 - x * 3);
@@ -1080,30 +1159,39 @@ const MAMMALS = {
   raccoon: s => {
     if (s.civet) return civet(s);
     if (s.opossum || s.coati) return longSnoutedMammal(s);
-    const L = s.len, H = L * 0.46, leg = L * 0.2, by = leg + H * 0.5;
+    const L = s.len, H = L * 0.4, leg = L * 0.2, by = leg + H * 0.5;
     return {
-      H, leg, wide: 1.1, legR0: H * 0.22, legR1: H * 0.14, legColor: s.dark, neckR: H * 0.32, hip: 0.18, haunch: 1.12,
-      head: [L * 0.47, by + H * 0.3], headR: [H * 0.4, H * 0.35, H * 0.38], snout: H * 0.32, muzzle: shade(s.belly, 0.3), mask: true,
-      ears: 'point', ear: H * 0.28, earOut: 0.3, earW: 0.45, earColor: shade(s.belly, 0.2),
+      H, leg, detail: true, fine: true, smoothLegs: true, legSeg: 12, wide: 1.05, legR0: H * 0.18, legR1: H * 0.095, legColor: s.dark, neckR: H * 0.25, hip: 0.12, haunch: 1.08,
+      coat: base => (u, p) => tmp.copy(base(u)).multiplyScalar(0.94 + hash3(Math.round(p.x / H * 24), Math.round(p.y / H * 22), Math.round(p.z / H * 22)) * 0.12),
+      legMotion: 0.42, bobMotion: 0.025,
+      foot: (m, foot, r, o) => riverMammalFoot(m, foot, r, o, s.dark),
+      head: [L * 0.49, by + H * 0.23], headR: [H * 0.32, H * 0.27, H * 0.29], snout: H * 0.23, noMuzzle: true, nose: false,
+      headPaint: u => Math.abs(u.z) > 0.45 && ((u.x - 0.38) / 0.65) ** 2 + ((u.y - 0.23) / 0.37) ** 2 < 1 ? col(s.dark) : col(u.y > 0.48 ? s.color : s.belly),
+      ears: 'none', eyeR: H * 0.037, eyeOut: 0.89,
+      face: (m, hp, hr, hd) => riverMammalFace(m, s, hp, hr, H, hd, true),
       tail: (m, b) => {
-        const base = [-L * 0.4, b.by + H * 0.05, 0], o = { part: P.TAIL, pivot: base };
-        for (let k = 0; k < 5; k++) {
-          const t0 = k / 5, t1 = (k + 1) / 5;
-          const p = t => [base[0] - L * 0.5 * t, base[1] - H * 0.55 * t, 0];
-          m.limb(p(t0), p(t1), H * (0.2 - t0 * 0.05), H * (0.2 - t1 * 0.05), k % 2 ? s.dark : s.belly, { ...o, caps: k === 4 });
-        }
+        const base = [-L * 0.4, b.by + H * 0.05, 0];
+        tube(m, [base, [-L * 0.57, b.by - H * 0.12, 0], [-L * 0.76, b.by - H * 0.37, 0], [-L * 0.9, b.by - H * 0.4, 0]], [H * 0.17, H * 0.19, H * 0.14, H * 0.045], u => Math.sin((u.x + 1) * Math.PI * 2.5) > 0 ? col(s.dark) : col(s.belly), { part: P.TAIL, pivot: base, sub: 8, seg: 14 });
       },
     };
   },
   otter: s => {
-    const L = s.len, H = L * 0.3, leg = L * 0.14, by = leg + H * 0.5;
+    const L = s.len, H = L * 0.24, leg = L * 0.105, by = leg + H * 0.5;
     return {
-      H, leg, wide: 1.05, legR0: H * 0.2, legR1: H * 0.14, neckR: H * 0.36,
-      head: [L * 0.48, by + H * 0.3], headR: [H * 0.44, H * 0.36, H * 0.4], snout: H * 0.22, muzzle: shade(s.belly, 0.2),
-      ears: 'round', ear: H * 0.12,
-      // giant otters carry a creamy throat blotch, different on every animal
-      face: s.throat ? (m, hp, hr, hd) => m.ell([hp[0] + hr[0] * 0.1, hp[1] - hr[1] * 0.75, 0], [hr[0] * 0.75, hr[1] * 0.45, hr[2] * 0.8], s.throat, hd) : null,
-      tail: (m, b) => { const base = [-L * 0.36, b.by, 0]; m.limb(base, [-L * 0.85, H * 0.3, 0], H * 0.34, H * 0.07, s.color, { part: P.TAIL, pivot: base }); },
+      H, leg, detail: true, fine: true, smoothLegs: true, legSeg: 12, wide: 1.12, legR0: H * 0.18, legR1: H * 0.12, neckR: H * 0.27, sag: 0.015,
+      legMotion: 0.4, bobMotion: 0.018,
+      foot: (m, foot, r, o) => riverMammalFoot(m, foot, r, o, shade(s.color, -0.18), true),
+      head: [L * 0.48, by + H * 0.12], headR: [H * 0.34, H * 0.27, H * 0.31], snout: H * 0.18, muzzle: shade(s.belly, 0.1), nose: false,
+      ears: 'none', eyeR: H * 0.036, eyeOut: 0.87,
+      // Giant otters retain their individual creamy throat patch.
+      face: (m, hp, hr, hd) => {
+        riverMammalFace(m, s, hp, hr, H, hd);
+        if (s.throat) m.ell([hp[0] + hr[0] * 0.1, hp[1] - hr[1] * 0.75, 0], [hr[0] * 0.75, hr[1] * 0.32, hr[2] * 0.8], s.throat, hd);
+      },
+      tail: (m, b) => {
+        const base = [-L * 0.4, b.by - H * 0.06, 0];
+        tube(m, [base, [-L * 0.57, b.by - H * 0.12, 0], [-L * 0.77, b.by - H * 0.24, 0], [-L * 0.97, b.by - H * 0.23, 0]], [[H * 0.22, H * 0.28], [H * 0.13, H * 0.2], [H * 0.07, H * 0.12], [H * 0.018, H * 0.025]], s.color, { part: P.TAIL, pivot: base, sub: 8, seg: 14 });
+      },
     };
   },
   beaver: s => {
@@ -1217,16 +1305,24 @@ const MAMMALS = {
       if (u.y < -0.7) return belly;
       const a = Math.abs(Math.atan2(u.z, u.y));
       const rump = u.x < -0.35 ? (u.x + 0.35) * a * 6 : 0;
-      return Math.sin(u.x * 24 + rump + a * 1.2) > 0.15 ? dark : light;
+      return Math.sin(u.x * 24 + rump + a * 1.2 + Math.sin(a * 4 + u.x * 7) * 0.35) > 0.15 ? dark : light;
     };
     const legC = u => (Math.sin(u.y * 9) > 0.2 ? dark : light);
     return {
-      H, leg, legR0: H * 0.14, legR1: H * 0.075, hoof: '#141414', neckR: H * 0.22, shoulder: 0.06, chest: 0.95,
+      H, leg, detail: true, fine: 2, smoothLegs: true, legSeg: 14, legR0: H * 0.14, legR1: H * 0.065, shoulder: 0.08, chest: 0.97,
+      legMotion: 0.36, bobMotion: 0.022,
+      neckPath: [[L * 0.28, by + H * 0.15, 0], [L * 0.4, by + H * 0.48, 0], [L * 0.52, by + H * 0.67, 0]], neckRadii: [[H * 0.28, H * 0.21], [H * 0.23, H * 0.17], [H * 0.17, H * 0.13]], neckSub: 8,
+      foot: (m, foot, r, o) => m.ell([foot[0] + r * 0.25, r * 0.68, foot[2]], [r * 1.15, r * 0.68, r * 1.0], '#141414', o),
       coat: stripes, legColor: legC, headColor: null,
       head: [L * 0.55, by + H * 0.72], headR: [H * 0.24, H * 0.2, H * 0.17], snout: H * 0.04, muzzle: light, nose: false,
-      ears: 'point', ear: H * 0.27, earOut: 0.3, earBack: 0.1, earW: 0.3, earColor: s.color,
+      ears: 'none', eyeR: H * 0.035,
       face: (m, hp, hr, hd) => {
-        m.limb([L * 0.3, by + H * 0.52, 0], [hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.9, 0], H * 0.07, H * 0.05, u => (Math.sin(u.y * 8) > 0 ? dark : light), hd); // the mane
+        tube(m, [[L * 0.25, by + H * 0.52, 0], [L * 0.34, by + H * 0.7, 0], [hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.86, 0]], [[H * 0.06, H * 0.023], [H * 0.09, H * 0.03], [H * 0.04, H * 0.023]], u => Math.sin(u.x * 22) > 0 ? dark : light, { ...hd, sub: 10, seg: 8 });
+        for (const side of [-1, 1]) {
+          const ear = [hp[0] - H * 0.08, hp[1] + H * 0.26, side * H * 0.14];
+          m.ell(ear, [H * 0.065, H * 0.17, H * 0.05], s.color, { ...hd, rot: [side * 0.28, 0, -0.1] });
+          m.ell([ear[0] + H * 0.04, ear[1], ear[2]], [H * 0.02, H * 0.115, H * 0.035], s.dark, { ...hd, fine: false, rot: [side * 0.28, 0, -0.1] });
+        }
         // a long horse face angled down, thin stripes across the bridge, ending in a soft dark muzzle
         const a = -0.62, c = Math.cos(a), sn = Math.sin(a), at = d => [hp[0] + c * d, hp[1] + sn * d, 0];
         m.ell(at(H * 0.24), [H * 0.3, H * 0.15, H * 0.13], u => (u.x < 0.55 && Math.sin(u.x * 13) > 0.35 ? dark : light), { ...hd, rot: [0, 0, a] });
@@ -1249,19 +1345,25 @@ const MAMMALS = {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     const dark = col(s.dark);
     return {
-      H, leg, hip: -0.16, shoulder: 0.22, chest: 1.12, haunch: 0.8, legR0: H * 0.14, legR1: H * 0.055, hoof: '#141414', neckR: H * 0.24,
+      H, leg, detail: true, fine: true, smoothLegs: true, legSeg: 14, splitHoof: true, hip: -0.16, shoulder: 0.24, chest: 1.14, haunch: 0.8, legR0: H * 0.145, legR1: H * 0.055, hoof: '#141414', neckR: H * 0.26,
+      legMotion: 0.36, bobMotion: 0.022,
       legColor: u => tmp.copy(col(s.color)).lerp(dark, smooth(0.6, 0.1, u.y) * 0.6),
       coat: base => u => (u.x > -0.05 && u.y > -0.55 && Math.sin(u.x * 26 + u.y * 2) > 0.45 ? col(shade(s.color, -0.28)) : base(u)), // the brindled bands
       head: [L * 0.57, by + H * 0.22], headR: [H * 0.24, H * 0.24, H * 0.19], snout: H * 0.04, muzzle: s.dark, nose: false,
-      ears: 'point', ear: H * 0.17, earOut: 1.0, earBack: 0.05, earW: 0.35, earColor: s.color,
+      ears: 'none', eyeR: H * 0.033,
       antlers: (m, hp, hr, hd) => {
         for (const side of [1, -1]) {
           const b0 = [hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.75, side * hr[2] * 0.5], b1 = [b0[0] - H * 0.02, b0[1] - H * 0.03, side * H * 0.42];
           const b2 = [b1[0] + H * 0.03, b1[1] + H * 0.18, side * H * 0.44], b3 = [b2[0] - H * 0.03, b2[1] + H * 0.1, side * H * 0.32];
-          m.limb(b0, b1, H * 0.055, H * 0.045, '#4a4640', hd); m.limb(b1, b2, H * 0.045, H * 0.03, '#3a3632', hd); m.limb(b2, b3, H * 0.03, H * 0.008, '#2a2826', { ...hd, caps: false });
+          tube(m, [b0, b1, b2, b3], [H * 0.065, H * 0.046, H * 0.028, H * 0.002], u => tmp.copy(col('#4a4640')).lerp(col('#2a2826'), (u.x + 1) * 0.5), { ...hd, sub: 8, seg: 12 });
         }
       },
       face: (m, hp, hr, hd) => {
+        for (const side of [-1, 1]) {
+          const ear = [hp[0] - H * 0.05, hp[1] + H * 0.1, side * H * 0.25];
+          m.ell(ear, [H * 0.065, H * 0.145, H * 0.055], s.color, { ...hd, rot: [side * 1.05, 0, -0.12] });
+          m.ell([ear[0] + H * 0.042, ear[1], ear[2]], [H * 0.022, H * 0.09, H * 0.04], s.dark, { ...hd, fine: false, rot: [side * 1.05, 0, -0.12] });
+        }
         // the long, blunt face, angled down to a broad black nose
         const f0 = [hp[0] + hr[0] * 0.3, hp[1] - hr[1] * 0.1, 0], f1 = [hp[0] + H * 0.46, hp[1] - H * 0.42, 0];
         const a = Math.atan2(f1[1] - f0[1], f1[0] - f0[0]), len = Math.hypot(f1[0] - f0[0], f1[1] - f0[1]);
@@ -1273,12 +1375,8 @@ const MAMMALS = {
         const tip = at(len * 0.88 + H * 0.13);
         for (const side of [1, -1]) m.ell([tip[0], tip[1] + H * 0.01, side * H * 0.06], [H * 0.018, H * 0.026, H * 0.024], '#0a0a0a', { ...hd, lo: true }); // nostrils
         // black beard hanging from the throat, and the upright mane along the neck
-        m.ell([hp[0] - hr[0] * 0.2, hp[1] - hr[1] * 1.3, 0], [H * 0.14, H * 0.3, H * 0.07], s.dark, hd);
-        m.ell([L * 0.38, by + H * 0.08, 0], [H * 0.16, H * 0.26, H * 0.06], s.dark, hd);
-        for (let k = 0; k < 7; k++) {
-          const t = k / 6, p = [L * 0.22 + (hp[0] - hr[0] * 0.5 - L * 0.22) * t, by + H * 0.56 + (hp[1] + hr[1] * 0.8 - by - H * 0.56) * t, 0];
-          m.ell(p, [H * 0.09, H * 0.11, H * 0.035], s.dark, { ...hd, lo: true });
-        }
+        tube(m, [[hp[0] - H * 0.03, hp[1] - H * 0.18, 0], [hp[0] - H * 0.06, hp[1] - H * 0.42, 0], [hp[0] - H * 0.12, hp[1] - H * 0.66, 0]], [[H * 0.1, H * 0.08], [H * 0.09, H * 0.055], [H * 0.025, H * 0.02]], s.dark, { ...hd, sub: 7, seg: 10 });
+        tube(m, [[L * 0.2, by + H * 0.61, 0], [L * 0.37, by + H * 0.62, 0], [hp[0] - H * 0.12, hp[1] + H * 0.19, 0]], [[H * 0.065, H * 0.026], [H * 0.075, H * 0.034], [H * 0.045, H * 0.023]], s.dark, { ...hd, sub: 9, seg: 8 });
       },
       tail: (m, b) => {
         const base = [-L * 0.46, b.by + H * 0.08, 0];
@@ -1306,14 +1404,25 @@ const MAMMALS = {
   impala: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
-      H, leg, legR0: H * 0.12, legR1: H * 0.055, legColor: shade(s.color, -0.05), hoof: '#1a1612', neckR: H * 0.19,
+      H, leg, detail: true, fine: true, splitHoof: true, legR0: H * 0.12, legR1: H * 0.055, legColor: shade(s.color, -0.05), hoof: '#1a1612', neckR: H * (s.neckWidth ?? 0.19),
       coat: base => u => (u.y < -0.55 ? col(s.belly) : u.y < -0.2 ? col(shade(s.color, 0.2)) : base(u)),
       head: [L * 0.53, by + H * 0.85], headR: [H * 0.27, H * 0.2, H * 0.17], snout: H * 0.26,
-      ears: 'point', ear: H * 0.32, earOut: 0.5, earBack: 0.1, earW: 0.32,
+      ears: 'none', nose: false, eyeR: H * 0.037,
+      face: (m, hp, hr, hd) => {
+        for (const side of [-1, 1]) {
+          const ear = [hp[0] - H * 0.08, hp[1] + H * 0.27, side * H * 0.21], rot = [side * 0.64, 0, 0.12];
+          m.ell(ear, [H * 0.075, H * 0.23, H * 0.065], u => u.y > 0.7 ? col(s.dark) : col(s.color), { ...hd, rot });
+          m.ell([ear[0] + H * 0.055, ear[1], ear[2]], [H * 0.028, H * 0.17, H * 0.048], s.belly, { ...hd, rot });
+          m.ell([hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.19, side * hr[2] * 0.73], [H * 0.064, H * 0.042, H * 0.025], shade(s.color, 0.3), hd);
+          tube(m, [[hp[0] + H * 0.16, hp[1] - H * 0.08, side * H * 0.115], [hp[0] + H * 0.35, hp[1] - H * 0.13, side * H * 0.08], [hp[0] + H * 0.49, hp[1] - H * 0.12, side * H * 0.065]], [H * 0.008, H * 0.009, H * 0.004], s.dark, { ...hd, sub: 3, seg: 5 });
+        }
+        m.ell([hp[0] + H * 0.29, hp[1] - H * 0.14, 0], [H * 0.19, H * 0.038, H * 0.09], s.belly, hd);
+        m.ell([hp[0] + hr[0] * 0.78 + H * 0.26 * 1.18, hp[1] - hr[1] * 0.2, 0], [H * 0.038, H * 0.027, H * 0.055], s.dark, hd);
+      },
       antlers: s.lyre ? (m, hp, hr, hd) => {
         for (const side of [1, -1]) {
-          const pts = [[hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.8, side * hr[2] * 0.3], [hp[0] - H * 0.22, hp[1] + H * 0.42, side * H * 0.22], [hp[0] - H * 0.22, hp[1] + H * 0.82, side * H * 0.12], [hp[0] - H * 0.08, hp[1] + H * 1.05, side * H * 0.2]];
-          for (let k = 1; k < pts.length; k++) m.limb(pts[k - 1], pts[k], H * (0.05 - k * 0.012), H * (0.04 - k * 0.012), '#2e2620', { ...hd, caps: false });
+          const pts = [[hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.8, side * hr[2] * 0.55], [hp[0] - H * 0.25, hp[1] + H * 0.38, side * H * 0.28], [hp[0] - H * 0.3, hp[1] + H * 0.7, side * H * 0.32], [hp[0] - H * 0.18, hp[1] + H * 0.94, side * H * 0.22], [hp[0] - H * 0.03, hp[1] + H * 1.08, side * H * 0.16]];
+          tube(m, pts, [H * 0.052, H * 0.047, H * 0.034, H * 0.018, H * 0.003], (u, p) => Math.sin((p.y - hp[1]) / H * 85) > 0.3 ? col('#40362c') : col('#25211c'), { ...hd, sub: 8, seg: 10 });
         }
       } : null,
       tail: (m, b) => m.ell([-L * 0.48, b.by + H * 0.12, 0], [H * 0.05, H * 0.16, H * 0.07], s.belly, { part: P.TAIL, pivot: [-L * 0.45, b.by + H * 0.2, 0] }),
@@ -1364,73 +1473,123 @@ const MAMMALS = {
       tail: (m, b) => { const base = [-L * 0.44, b.by, 0]; m.limb(base, [-L * 0.55, b.by - H * 0.4, 0], H * 0.07, H * 0.09, s.dark, { part: P.TAIL, pivot: base }); },
     };
   },
-  // Black rhino: heavy and grey, with two horns and a hooked upper lip for browsing.
-  // (The Sumatran rhino, hairy, has a builder of its own: see sumatranRhino.)
+  // Black rhino: a broad shoulder saddle, tapered pillar legs and a browsing lip.
+  // The hairy Sumatran rhino keeps its separate builder.
   rhino: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
-    const hide = base => u => tmp.copy(base(u)).multiplyScalar(0.92 + hash3(Math.round(u.x * 14), Math.round(u.y * 7), Math.round(u.z * 7)) * 0.12);
+    const hide = base => (u, p) => tmp.copy(base(u)).multiplyScalar(0.97 + Math.sin(p.x / H * 34 + Math.sin(p.y / H * 12)) * 0.025);
     return {
-      H, leg, wide: 1.15, hip: 0.06, shoulder: 0.1, chest: 1.05, legR0: H * 0.2, legR1: H * 0.15, hoof: '#2a2826', straight: true, neckR: H * 0.36, coat: hide,
-      head: [L * 0.52, by - H * 0.12], headR: [H * 0.36, H * 0.25, H * 0.22], snout: H * 0.3, muzzle: shade(s.color, -0.05), nose: false,
-      ears: 'point', ear: H * 0.2, earOut: 0.25, earBack: 0.15, earW: 0.4,
-      face: (m, hp, hr, hd, sn) => {
-        m.limb([sn[0] + H * 0.18, sn[1] + H * 0.12, 0], [sn[0] + H * 0.34, sn[1] + H * 0.62, 0], H * 0.1, H * 0.01, '#8a8478', { ...hd, caps: false });   // front horn
-        m.limb([sn[0] - H * 0.08, sn[1] + H * 0.2, 0], [sn[0] - H * 0.05, sn[1] + H * 0.44, 0], H * 0.08, H * 0.01, '#8a8478', { ...hd, caps: false }); // back horn
-        m.ell([sn[0] + H * 0.3, sn[1] - H * 0.08, 0], [H * 0.09, H * 0.06, H * 0.08], shade(s.color, -0.05), hd);                                    // pointed, hooked upper lip
+      H, leg, detail: true, fine: true, wide: 1.2, hip: 0.03, shoulder: 0.11, chest: 1.07, shoulderBulk: 0.13, haunch: 0.96,
+      legR0: H * 0.22, legR1: H * 0.13, straight: true, smoothLegs: true, legSeg: 14, coat: hide, legMotion: 0.23, bobMotion: 0.018,
+      neckPath: [[L * 0.25, by + H * 0.07, 0], [L * 0.39, by + H * 0.06, 0], [L * 0.5, by - H * 0.08, 0]], neckRadii: [H * 0.38, H * 0.32, H * 0.22],
+      head: [L * 0.53, by - H * 0.12], headR: [H * 0.39, H * 0.26, H * 0.24], snout: H * 0.3, muzzle: shade(s.color, -0.04), nose: false, eyeR: H * 0.03, ears: 'none',
+      foot: (m, foot, r, o) => {
+        m.ell([foot[0] + r * 0.12, r * 0.73, foot[2]], [r * 1.18, r * 0.73, r * 1.12], s.color, o);
+        for (const toe of [-1, 0, 1]) m.ell([foot[0] + r * (toe === 0 ? 1 : 0.68), r * 0.32, foot[2] + toe * r * 0.68], [r * 0.45, r * 0.32, r * 0.4], '#3d3933', o);
       },
-      tail: (m, b) => { const base = [-L * 0.46, b.by + H * 0.2, 0]; m.limb(base, [-L * 0.5, b.by - H * 0.2, 0], H * 0.03, H * 0.025, s.color, { part: P.TAIL, pivot: base }); },
+      face: (m, hp, hr, hd, sn) => {
+        tube(m, [[sn[0] + H * 0.18, sn[1] + H * 0.13, 0], [sn[0] + H * 0.22, sn[1] + H * 0.33, 0], [sn[0] + H * 0.31, sn[1] + H * 0.61, 0]], [H * 0.11, H * 0.071, H * 0.003], '#8a8478', { ...hd, sub: 8, seg: 14 });
+        tube(m, [[sn[0] - H * 0.1, sn[1] + H * 0.21, 0], [sn[0] - H * 0.08, sn[1] + H * 0.34, 0], [sn[0] - H * 0.04, sn[1] + H * 0.46, 0]], [H * 0.08, H * 0.048, H * 0.002], '#8a8478', { ...hd, sub: 6, seg: 12 });
+        m.ell([sn[0] + H * 0.3, sn[1] - H * 0.01, 0], [H * 0.105, H * 0.065, H * 0.09], s.color, { ...hd, rot: [0, 0, 0.3] });
+        for (const side of [-1, 1]) {
+          const ear = [hp[0] - hr[0] * 0.55, hp[1] + hr[1] * 0.88, side * hr[2] * 0.7];
+          m.ell(ear, [H * 0.085, H * 0.16, H * 0.065], s.color, { ...hd, rot: [side * 0.4, 0, -0.18] });
+          m.ell([ear[0] + H * 0.053, ear[1], ear[2]], [H * 0.028, H * 0.11, H * 0.046], shade(s.color, -0.24), { ...hd, fine: false, rot: [side * 0.4, 0, -0.18] });
+          m.ell([sn[0] + H * 0.24, sn[1] + H * 0.07, side * H * 0.12], [H * 0.042, H * 0.019, H * 0.025], '#302d28', { ...hd, fine: false });
+          tube(m, [[sn[0] + H * 0.03, sn[1] - H * 0.07, side * H * 0.13], [sn[0] + H * 0.24, sn[1] - H * 0.065, side * H * 0.09]], [H * 0.009, H * 0.004], shade(s.color, -0.3), { ...hd, sub: 3, seg: 5 });
+        }
+      },
+      tail: (m, b) => {
+        const base = [-L * 0.45, b.by + H * 0.14, 0];
+        tube(m, [base, [-L * 0.52, b.by - H * 0.08, 0], [-L * 0.52, b.by - H * 0.29, 0]], [H * 0.04, H * 0.029, H * 0.014], s.color, { part: P.TAIL, pivot: base, sub: 6 });
+        m.ell([-L * 0.52, b.by - H * 0.31, 0], [H * 0.028, H * 0.06, H * 0.028], s.dark, { part: P.TAIL, pivot: base, lo: true });
+      },
     };
   },
-  // Masai giraffe: long legs, a sloping back, and a neck twice the body's height, with jagged
-  // chestnut patches on cream and two ossicones.
   giraffe: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
-    // jagged chestnut patches split by a network of cream lines, over the body, neck and head
     const patch = () => {
-      const light = col(s.belly), d = col(s.dark), m2 = col(s.color);
+      const light = col(s.belly), dark = col(s.dark), warm = col(s.color);
       return (u, p) => {
         if (p.y < leg * 0.7) return light;
         const [gap, id] = cells(p, H * 0.3);
-        if (gap < 0.16) return light;
-        return tmp.copy(m2).lerp(d, id * 0.8);
+        if (gap < 0.12 + Math.sin(p.y / H * 8) * 0.025) return light;
+        return tmp.copy(warm).lerp(dark, id * 0.7);
       };
     };
+    const neck = [[L * 0.27, by + H * 0.17, 0], [L * 0.46, by + H * 0.88, 0], [L * 0.64, by + H * 1.9, 0], [L * 0.76, by + H * 2.66, 0]];
     return {
-      H, leg, hip: -0.14, shoulder: 0.2, chest: 1.1, haunch: 0.88, legR0: H * 0.16, legR1: H * 0.07, hoof: '#2a211a', neckR: H * 0.27,
-      legColor: (u, p) => (p.y < leg * 0.62 ? col(s.belly) : patch()(u, p)), coat: patch, fine: true, neckSeg: 14, neckRings: 18,
-      head: [L * 0.8, by + H * 2.7], headR: [H * 0.28, H * 0.18, H * 0.16], snout: H * 0.24, muzzle: shade(s.belly, -0.1),
-      ears: 'point', ear: H * 0.2, earOut: 0.9, earBack: 0.1, earW: 0.35,
-      antlers: (m, hp, hr, hd) => { for (const side of [1, -1]) { const b0 = [hp[0] - hr[0] * 0.3, hp[1] + hr[1] * 0.8, side * hr[2] * 0.35]; m.limb(b0, [b0[0] - H * 0.04, b0[1] + H * 0.22, b0[2]], H * 0.04, H * 0.035, s.color, hd); m.ell([b0[0] - H * 0.04, b0[1] + H * 0.24, b0[2]], [H * 0.05, H * 0.05, H * 0.05], '#2a2018', { ...hd, lo: true }); } },
-      face: (m, hp, hr, hd) => m.limb([L * 0.34, by + H * 0.6, 0], [hp[0] - hr[0] * 0.8, hp[1] + hr[1] * 0.2, 0], H * 0.05, H * 0.035, s.dark, hd), // short mane
-      tail: (m, b) => { const base = [-L * 0.46, b.by, 0]; m.limb(base, [-L * 0.52, b.by - H * 0.9, 0], H * 0.03, H * 0.025, s.color, { part: P.TAIL, pivot: base }); m.ell([-L * 0.52, b.by - H * 1.0, 0], [H * 0.06, H * 0.14, H * 0.06], '#1e1612', { part: P.TAIL, pivot: base, lo: true }); },
-    };
-  },
-  // African elephant: pillar legs, a domed head, big flapping ears, tusks and a long trunk.
-  // (The Sumatran elephant, asian, has a builder of its own: see sumatranElephant.)
-  elephant: s => {
-    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
-    const hide = base => u => tmp.copy(base(u)).multiplyScalar(0.94 + hash3(Math.round(u.x * 18), Math.round(u.y * 9), Math.round(u.z * 9)) * 0.1);
-    return {
-      H, leg, wide: 1.12, hip: 0.02, shoulder: 0.1, chest: 1.05, legR0: H * 0.18, legR1: H * 0.16, paws: true, nails: true, straight: true, smoothLegs: true, neckR: H * 0.4, coat: hide,
-      head: [L * 0.5, by + H * 0.25], headR: [H * 0.38, H * 0.4, H * 0.34], snout: H * 0.1, nose: false,
-      ears: 'none',
-      face: (m, hp, hr, hd) => {
-        // A continuous taper hangs from the forehead and curls forward at the tip.
-        const t0 = [hp[0] + hr[0] * 0.75, hp[1] - hr[1] * 0.2, 0], t1 = [t0[0] + H * 0.14, t0[1] - H * 0.5, 0], t2 = [t1[0] + H * 0.02, t1[1] - H * 0.45, 0], t3 = [t2[0] + H * 0.1, t2[1] - H * 0.2, 0];
-        tube(m, [t0, t1, t2, t3, [t3[0] + H * 0.055, t3[1] + H * 0.075, 0]], [H * 0.15, H * 0.1, H * 0.07, H * 0.045, H * 0.025], hide(solid(s.color)), { ...hd, sub: 6, seg: 16 });
-        for (const side of [1, -1]) {
-          tube(m, [[hp[0] + hr[0] * 0.55, hp[1] - hr[1] * 0.45, side * hr[2] * 0.4], [hp[0] + hr[0] * 1.0, hp[1] - hr[1] * 0.9, side * hr[2] * 0.55], [hp[0] + hr[0] * 1.38, hp[1] - hr[1] * 0.78, side * hr[2] * 0.65]], [H * 0.05, H * 0.035, H * 0.005], '#ece4d0', hd); // curved tusks
-          const ear = flat(sh => {
-            sh.moveTo(0.55, 0.72); sh.quadraticCurveTo(-0.15, 1.2, -0.68, 0.85);
-            sh.quadraticCurveTo(-1.02, 0.4, -0.76, -0.35); sh.quadraticCurveTo(-0.35, -1.12, 0.03, -1.02);
-            sh.quadraticCurveTo(0.55, -0.6, 0.6, 0.2); sh.lineTo(0.55, 0.72);
-          });
-          m.add(ear, place([hp[0] - hr[0] * 0.28, hp[1], side * hr[2] * 1.05], [side * 0.25, side * -0.35, 0], [hr[0], hr[1], H * 0.07]),
-            u => tmp.copy(col(s.color)).multiplyScalar(0.88 + 0.12 * smooth(-0.6, 0.4, u.x)), hd);
-          m.limb([hp[0] - hr[0] * 0.15, hp[1] + hr[1] * 0.6, side * hr[2] * 1.08], [hp[0] - hr[0] * 0.05, hp[1] - hr[1] * 0.1, side * hr[2] * 1.09], H * 0.022, H * 0.012, shade(s.color, -0.1), hd); // ear fold
+      H, leg, detail: true, fine: 2, smoothLegs: true, legSeg: 14, splitHoof: true, hip: -0.14, shoulder: 0.2, chest: 1.1, haunch: 0.88, legR0: H * 0.15, legR1: H * 0.066, hoof: '#2a211a',
+      legMotion: 0.28, bobMotion: 0.018,
+      legColor: (u, p) => p.y < leg * 0.62 ? col(s.belly) : patch()(u, p), coat: patch,
+      neckPath: neck, neckRadii: [[H * 0.35, H * 0.29], [H * 0.28, H * 0.22], [H * 0.205, H * 0.16], [H * 0.16, H * 0.13]], neckSeg: 20, neckSub: 9,
+      head: [L * 0.8, by + H * 2.7], headR: [H * 0.29, H * 0.18, H * 0.17], snout: H * 0.24, muzzle: shade(s.belly, -0.08), nose: false, eyeR: H * 0.031, ears: 'none',
+      antlers: (m, hp, hr, hd) => {
+        for (const side of [-1, 1]) {
+          const base = [hp[0] - hr[0] * 0.3, hp[1] + hr[1] * 0.8, side * hr[2] * 0.45];
+          tube(m, [base, [base[0] - H * 0.025, base[1] + H * 0.12, base[2]], [base[0] - H * 0.04, base[1] + H * 0.23, base[2]]], [H * 0.045, H * 0.035, H * 0.03], s.color, { ...hd, sub: 4, seg: 10 });
+          m.ell([base[0] - H * 0.04, base[1] + H * 0.24, base[2]], [H * 0.045, H * 0.043, H * 0.043], '#2a2018', { ...hd, fine: false });
         }
       },
-      tail: (m, b) => { const base = [-L * 0.46, b.by + H * 0.2, 0]; m.limb(base, [-L * 0.5, b.by - H * 0.45, 0], H * 0.03, H * 0.025, s.color, { part: P.TAIL, pivot: base }); m.ell([-L * 0.5, b.by - H * 0.5, 0], [H * 0.04, H * 0.08, H * 0.04], s.dark, { part: P.TAIL, pivot: base, lo: true }); },
+      face: (m, hp, hr, hd, sn) => {
+        // A thin mane follows the curved rear edge of the neck instead of a rod.
+        tube(m, neck.map((p, i) => [p[0] - H * [0.26, 0.23, 0.18, 0.14][i], p[1] + H * 0.06, 0]), [[H * 0.06, H * 0.024], [H * 0.07, H * 0.025], [H * 0.055, H * 0.023], [H * 0.025, H * 0.018]], s.dark, { ...hd, sub: 9, seg: 8 });
+        for (const side of [-1, 1]) {
+          const ear = [hp[0] - H * 0.12, hp[1] + H * 0.15, side * H * 0.27];
+          m.ell(ear, [H * 0.1, H * 0.19, H * 0.07], s.belly, { ...hd, rot: [side * 0.95, 0, -0.28] });
+          m.ell([ear[0] + H * 0.062, ear[1], ear[2]], [H * 0.025, H * 0.13, H * 0.045], shade(s.color, -0.1), { ...hd, fine: false, rot: [side * 0.95, 0, -0.28] });
+          m.ell([sn[0] + H * 0.235, sn[1] + H * 0.027, side * H * 0.07], [H * 0.034, H * 0.013, H * 0.021], '#443428', { ...hd, fine: false });
+          tube(m, [[sn[0] + H * 0.04, sn[1] - H * 0.06, side * H * 0.09], [sn[0] + H * 0.25, sn[1] - H * 0.035, side * H * 0.055]], [H * 0.008, H * 0.004], '#443428', { ...hd, sub: 3, seg: 5 });
+        }
+      },
+      tail: (m, b) => {
+        const base = [-L * 0.46, b.by, 0];
+        tube(m, [base, [-L * 0.51, b.by - H * 0.42, 0], [-L * 0.53, b.by - H * 0.9, 0]], [H * 0.035, H * 0.025, H * 0.018], s.color, { part: P.TAIL, pivot: base, sub: 6 });
+        m.ell([-L * 0.53, b.by - H * 1.0, 0], [H * 0.05, H * 0.14, H * 0.045], '#1e1612', { part: P.TAIL, pivot: base });
+      },
+    };
+  },
+  // African elephant. The Asian elephant keeps its sculpted, separate builder.
+  elephant: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
+    const hide = base => (u, p) => tmp.copy(base(u)).multiplyScalar(0.96 + 0.035 * Math.sin(p.x / H * 35 + Math.sin(p.y / H * 18)));
+    return {
+      H, leg, detail: true, fine: true, wide: 1.16, hip: 0.06, shoulder: 0.14, chest: 1.07, sag: 0.095,
+      legR0: H * 0.22, legR1: H * 0.16, straight: true, smoothLegs: true, legSeg: 16, coat: hide, legMotion: 0.22, bobMotion: 0.015,
+      neckPath: [[L * 0.29, by + H * 0.16, 0], [L * 0.4, by + H * 0.24, 0], [L * 0.5, by + H * 0.26, 0]], neckRadii: [H * 0.36, H * 0.33, H * 0.3],
+      head: [L * 0.51, by + H * 0.25], headR: [H * 0.36, H * 0.4, H * 0.32], snout: H * 0.1, noMuzzle: true, nose: false, eyeR: H * 0.025, ears: 'none',
+      foot: (m, foot, r, o) => {
+        m.ell([foot[0] + r * 0.08, r * 0.85, foot[2]], [r * 1.08, r * 0.85, r * 1.08], s.color, o);
+        for (const toe of [-1, 0, 1]) m.ell([foot[0] + r * (toe === 0 ? 1.0 : 0.8), r * 0.34, foot[2] + toe * r * 0.58], [r * 0.16, r * 0.19, r * 0.2], '#8b857b', o);
+      },
+      face: (m, hp, hr, hd) => {
+        // The broad trunk root grows out of the forehead; the tip has two fingers.
+        const t0 = [hp[0] + hr[0] * 0.69, hp[1] - hr[1] * 0.12, 0], t1 = [t0[0] + H * 0.16, t0[1] - H * 0.42, 0], t2 = [t1[0] + H * 0.015, t1[1] - H * 0.46, 0], t3 = [t2[0] + H * 0.08, t2[1] - H * 0.28, 0], tip = [t3[0] + H * 0.06, t3[1] + H * 0.065, 0];
+        tube(m, [t0, t1, t2, t3, tip], [H * 0.19, H * 0.13, H * 0.085, H * 0.048, H * 0.035], hide(solid(s.color)), { ...hd, sub: 9, seg: 20 });
+        for (const dy of [-1, 1]) m.ell([tip[0] + H * 0.025, tip[1] + dy * H * 0.026, 0], [H * 0.035, H * 0.015, H * 0.025], s.color, { ...hd, fine: false });
+        for (const side of [-1, 1]) {
+          tube(m, [[hp[0] + hr[0] * 0.48, hp[1] - hr[1] * 0.43, side * hr[2] * 0.48], [hp[0] + hr[0] * 0.99, hp[1] - hr[1] * 0.78, side * hr[2] * 0.65], [hp[0] + hr[0] * 1.4, hp[1] - hr[1] * 0.67, side * hr[2] * 0.73]], [H * 0.055, H * 0.036, H * 0.003], '#ece4d0', { ...hd, sub: 9, seg: 12 });
+          // A cupped fan with a thin rim, rather than a perfectly flat plate.
+          const ear = flat(sh => {
+            sh.moveTo(0.4, 0.75); sh.quadraticCurveTo(-0.15, 1.15, -0.68, 0.85);
+            sh.quadraticCurveTo(-1.0, 0.4, -0.8, -0.3); sh.quadraticCurveTo(-0.55, -1.07, -0.1, -1.0);
+            sh.quadraticCurveTo(0.4, -0.75, 0.47, -0.2); sh.quadraticCurveTo(0.53, 0.32, 0.4, 0.75);
+          }, 'xy', 16), ep = ear.attributes.position;
+          for (let i = 0; i < ep.count; i++) {
+            const x = ep.getX(i), y = ep.getY(i), z = ep.getZ(i);
+            ep.setZ(i, z * 0.035 + 0.12 * (1 - y * y) * (0.5 - x));
+          }
+          ear.computeVertexNormals();
+          m.add(ear, place([hp[0] - hr[0] * 0.5, hp[1] - H * 0.025, side * H * 0.36], [side * 0.15, side * -0.35, 0], [H * 0.48, H * 0.48, H * 0.48]), hide(solid(shade(s.color, 0.055))), hd); ear.dispose();
+          tube(m, [[hp[0] - hr[0] * 0.5, hp[1] + H * 0.29, side * H * 0.3], [hp[0] - H * 0.27, hp[1] + H * 0.1, side * H * 0.43], [hp[0] - H * 0.31, hp[1] - H * 0.18, side * H * 0.44]], [H * 0.014, H * 0.01, H * 0.005], shade(s.color, -0.17), { ...hd, sub: 4, seg: 5 });
+          m.ell([hp[0] + hr[0] * 0.35, hp[1] + hr[1] * 0.21, side * hr[2] * 0.83], [H * 0.068, H * 0.019, H * 0.023], shade(s.color, -0.1), { ...hd, fine: false });
+        }
+      },
+      tail: (m, b) => {
+        const base = [-L * 0.46, b.by + H * 0.2, 0];
+        tube(m, [base, [-L * 0.5, b.by - H * 0.12, 0], [-L * 0.51, b.by - H * 0.5, 0]], [H * 0.035, H * 0.026, H * 0.016], s.color, { part: P.TAIL, pivot: base, sub: 6 });
+        m.ell([-L * 0.51, b.by - H * 0.55, 0], [H * 0.035, H * 0.085, H * 0.03], s.dark, { part: P.TAIL, pivot: base });
+      },
     };
   },
 };
@@ -1611,7 +1770,7 @@ const BIRDS = {
   hummer: s => ({ legH: 0.1, tilt: 0.2, span: 0.7, chord: 0.2, beak: 0.44, beakColor: '#1e1a18', legColor: '#1e1a18', tail: 0.2, beakR: 0.03 }),
   woodpecker: s => ({ legH: 0.14, tilt: 0.75, span: 0.62, chord: 0.26, beak: 0.26, beakColor: '#2a2622', legColor: '#4a4440', tail: 0.5 }),
   heron: s => ({ legH: 1.05, tilt: 0.3, span: 0.9, chord: 0.3, beak: s.stork ? 0.38 : 0.42, beakR: s.stork ? 0.05 : null, beakColor: s.bill || '#e0b030', legColor: s.stork ? '#c0543e' : '#b8a060', tail: 0.2, neck: true, head: 0.13 }), // (stork: a stouter, straight bill)
-  duck: s => ({ legH: 0.08, tilt: 0.05, span: 0.6, chord: 0.24, beak: 0.2, beakColor: '#d8a030', legColor: '#e08a30', tail: -0.4, duck: true }),
+  duck: s => ({ legH: 0.08, tilt: 0.05, span: 0.6, chord: 0.24, head: s.woodduck || s.mallard ? 0.17 : 0.19, headLong: s.woodduck || s.mallard ? 1.18 : 1.05, beak: 0.2, beakColor: s.bill || '#d8a030', legColor: '#e08a30', tail: -0.4, duck: true }),
   raptor: s => ({ legH: 0.16, tilt: 0.45, span: 0.95, chord: 0.3, beak: 0.14, beakColor: s.bill || '#e0b030', legColor: '#e0b030', tail: 0.35, hook: true }),
   vulture: s => ({ legH: 0.2, tilt: 0.3, span: 0.95, chord: 0.34, beak: 0.13, beakColor: s.bill || '#2a2a2a', legColor: '#5a5650', tail: 0.2, hook: true, head: 0.12, vulture: true }),
   secretary: s => ({ legH: 1.05, tilt: 0.18, span: 1.0, chord: 0.3, beak: 0.09, beakColor: '#8a8a88', legColor: '#e2c49a', tail: 0.1, hook: true, neck: true, head: 0.13, secretary: true }),
@@ -1734,14 +1893,24 @@ function birdTail(m, s, o, by, bodyR) {
 
 function bird(m, s) {
   const S = s.size, o = BIRDS[s.kind](s), bodyBase = grad(s.color, s.breast || s.color, -0.15, 0.4);
+  const detailedDuck = !!(s.woodduck || s.mallard);
+  // Hens have small dark feather centres rather than a drake's solid colour blocks.
+  const mottling = (u, base) => {
+    const angle = Math.atan2(u.z, u.y), row = Math.floor(angle * 10), x = u.x * 22 + row * 0.47;
+    const feather = Math.sin(x * Math.PI) * Math.sin(angle * 31);
+    return tmp.copy(base(u)).multiplyScalar(feather > 0.3 ? 0.58 : 0.9 + hash3(Math.floor(x), row, 4) * 0.2);
+  };
   const by = o.legH * S + S * 0.26;
   // (bib: a sharp line between a dark back and chest and a white belly, as on a booby)
   const body = s.barred ? u => {
     const bars = u.y > -0.12 ? Math.sin(u.y * 24) : Math.sin(u.z * 25);
     return u.x > 0.05 && u.y < 0.35 && bars > 0.35 ? col(s.color) : bodyBase(u);
-  } : s.fancy ? u => u.x > 0.25 ? (hash3(Math.round(u.x * 24), Math.round(u.y * 24), Math.round(u.z * 24)) > 0.77 ? col('#efddbd') : col('#794c3b')) : bodyBase(u) : s.bib ? u => (u.y > -0.1 || u.x > 0.62 ? col(s.color) : col(s.breast)) : grad(s.color, s.breast || s.color, -0.15, 0.4);
+  } : s.mottled ? u => mottling(u, bodyBase)
+    : s.fancy ? u => u.x > 0.25 ? (hash3(Math.round(u.x * 24), Math.round(u.y * 24), Math.round(u.z * 24)) > 0.77 ? col('#efddbd') : col('#794c3b')) : bodyBase(u)
+    : s.mallard ? u => u.x > 0.5 ? col(s.breast) : u.x < -0.68 ? col('#282b24') : col(s.color)
+    : s.bib ? u => (u.y > -0.1 || u.x > 0.62 ? col(s.color) : col(s.breast)) : grad(s.color, s.breast || s.color, -0.15, 0.4);
   const bodyR = BIRD_BODY[s.kind].map(r => r * S);
-  m.add(s.barred || s.fancy ? SPH_XL : SPH, place([0, by, 0], [0, 0, o.tilt], bodyR), body);
+  m.add(s.barred || s.fancy || s.mottled ? SPH_XL : s.mallard ? SPH_HI : SPH, place([0, by, 0], [0, 0, o.tilt], bodyR), body);
   if (s.band) m.ell([S * 0.12, by - S * 0.02, 0], [S * 0.12, S * 0.22, S * 0.235], s.band, { rot: [0, 0, o.tilt] });
   if (s.vee) m.ell([S * 0.22, by + S * 0.02, 0], [S * 0.06, S * 0.16, S * 0.2], '#1e1a18', { rot: [0, 0, o.tilt + 0.3] });
   if (s.spots) for (let k = 0; k < 7; k++) m.ell([S * (0.1 + (k % 3) * 0.06), by - S * (0.04 + (k % 4) * 0.035), (k % 2 ? 1 : -1) * S * (0.14 + (k % 3) * 0.03)], [S * 0.03, S * 0.03, S * 0.03], '#4a3a28', { lo: true });
@@ -1754,9 +1923,9 @@ function bird(m, s) {
   else if (o.vulture) hp = [S * 0.5, by + S * 0.1, 0];
   else if (o.neck) hp = [S * 0.5, by + S * 0.6, 0];
   else if (s.kind === 'booby') hp = [S * 0.48, by + S * 0.2, 0];
-  else if (o.duck) hp = [S * 0.38, by + S * 0.28, 0];
+  else if (o.duck) hp = [S * 0.38, by + S * (s.woodduck || s.mallard ? 0.4 : 0.28), 0];
   else hp = [S * 0.34 + Math.sin(o.tilt) * S * 0.02, by + S * 0.2 + Math.sin(o.tilt) * S * 0.12, 0];
-  const neckBase = [S * 0.25, by + S * 0.1, 0], hd = { part: P.HEAD, pivot: neckBase };
+  const neckBase = [S * 0.25, by + S * 0.1, 0], hd = { part: P.HEAD, pivot: neckBase, fine: detailedDuck };
   // a short, thick neck, so the head grows smoothly out of the body instead of sitting on it like a ball
   if (!o.owl && !o.tall && !o.neck && !o.vulture && !o.duck) {
     const n0 = [S * (s.kind === 'booby' ? 0.3 : 0.2), by + S * 0.05, 0], n1 = [hp[0] - hr * 0.35, hp[1] - hr * 0.25, 0];
@@ -1776,7 +1945,8 @@ function bird(m, s) {
   } else if (o.neck) {
     tube(m, [[S * 0.3, by + S * 0.08, 0], [S * 0.39, by + S * 0.28, 0], [S * 0.41, by + S * 0.46, 0], [hp[0] - hr * 0.4, hp[1] - hr * 0.2, 0]], [S * 0.09, S * 0.075, S * 0.061, S * 0.06], s.breast, hd);
   }
-  if (o.duck) m.limb([S * 0.3, by + S * 0.08, 0], hp, S * 0.12, S * 0.11, s.head, hd);
+  if (o.duck) m.limb([S * 0.3, by + S * 0.08, 0], hp, S * (detailedDuck ? 0.095 : 0.12), S * (detailedDuck ? 0.085 : 0.11), s.head, { ...hd, seg: detailedDuck ? 16 : undefined });
+  if (s.collar) m.limb([S * 0.326, by + S * 0.185, 0], [S * 0.332, by + S * 0.21, 0], S * 0.096, S * 0.095, '#f4efde', { ...hd, caps: false, seg: 16 });
   const pecker = s.kind === 'woodpecker';
   m.ell(hp, [hr * (o.headLong || 1.05), hr, hr * (o.owl ? 1.1 : 0.95)], pecker ? s.color : s.head, hd);
   if (o.taper) m.ell([hp[0] + hr * 0.75, hp[1] - hr * 0.12, 0], [hr * 0.7, hr * 0.62, hr * 0.62], s.head, hd); // (a streamlined face sloping into the bill, as on a booby)
@@ -1803,6 +1973,12 @@ function bird(m, s) {
       for (const side of [1, -1]) m.ell([hp[0] + hr * 0.62, hp[1], side * hr * 0.42], [hr * 0.25, hr * 0.52, hr * 0.45], s.breast, hd);
       eyes(m, hp, hr * 0.85, hr * 0.08, hr * 0.4, hr * 0.17, P.HEAD, neckBase, '#e8c030');
       eyes(m, hp, hr * 0.97, hr * 0.08, hr * 0.4, hr * 0.09, P.HEAD, neckBase);
+    }
+  } else if (s.eyePatch) {
+    // Wood duck hen: the white ring trails into a teardrop behind the dark eye.
+    for (const side of [-1, 1]) {
+      m.ell([hp[0] + hr * 0.32, hp[1] + hr * 0.23, side * hr * 0.83], [hr * 0.34, hr * 0.23, hr * 0.16], '#f0ece3', hd);
+      m.ell([hp[0] + hr * 0.44, hp[1] + hr * 0.25, side * hr * 0.93], [hr * 0.13, hr * 0.13, hr * 0.08], '#262420', hd);
     }
   } else if (s.eye) {
     // coloured eyes (the hoatzin's red eye in a patch of bare blue skin)
@@ -1845,6 +2021,11 @@ function bird(m, s) {
       tube(m, [[hp[0] + hr * 0.58, hp[1] - hr * 0.35, side * hr * 0.8], [hp[0] - hr * 0.08, hp[1] - hr * 0.63, side * hr * 0.72], [hp[0] - hr * 0.98, hp[1] - hr * 0.26, side * hr * 0.43]], [hr * 0.075, hr * 0.08, hr * 0.04], '#f6f0db', hd);
       tube(m, [[hp[0] + hr * 0.15, hp[1] + hr * 0.56, side * hr * 0.78], [hp[0] - hr * 0.65, hp[1] + hr * 0.42, side * hr * 0.7], [hp[0] - hr * 1.42, hp[1] + hr * 0.07, side * hr * 0.15]], [hr * 0.055, hr * 0.055, hr * 0.025], '#f6f0db', hd);
     }
+  } else if (s.woodduck) {
+    tube(m, [[hp[0] - hr * 0.15, hp[1] + hr * 0.62, 0], [hp[0] - hr * 0.7, hp[1] + hr * 0.4, 0], [hp[0] - hr * 1.12, hp[1] + hr * 0.05, 0]], [[hr * 0.22, hr * 0.5], [hr * 0.16, hr * 0.35], [hr * 0.03, hr * 0.05]], s.head, hd);
+  }
+  if (s.faceStripe) for (const side of [-1, 1]) {
+    tube(m, [[hp[0] + hr * 0.78, hp[1] + hr * 0.23, side * hr * 0.6], [hp[0] + hr * 0.32, hp[1] + hr * 0.25, side * hr * 0.88], [hp[0] - hr * 0.62, hp[1] + hr * 0.1, side * hr * 0.7]], [hr * 0.05, hr * 0.07, hr * 0.035], '#54432e', hd);
   }
   const bb = [hp[0] + hr * 0.85, hp[1] - hr * (o.duck ? 0.25 : 0.1), 0], bl = S * o.beak;
   if (o.toucan) {
@@ -1877,7 +2058,13 @@ function bird(m, s) {
   } else if (s.spoonbill) {
     m.ell([bb[0] + bl * 0.36, bb[1], 0], [bl * 0.48, hr * 0.13, hr * 0.18], '#a2a48b', hd);
     m.ell([bb[0] + bl * 0.86, bb[1] - hr * 0.025, 0], [bl * 0.24, hr * 0.12, hr * 0.44], '#92977f', hd);
-  } else if (o.duck) m.ell([bb[0] + bl * 0.45, bb[1], 0], [bl * 0.6, hr * 0.18, hr * 0.42], s.fancy ? u => u.x > 0.65 ? col('#241a19') : u.y > 0.3 ? col('#e5cbaa') : col('#b94c44') : o.beakColor, hd);
+  } else if (o.duck) {
+    m.ell([bb[0] + bl * 0.45, bb[1], 0], [bl * 0.6, hr * 0.18, hr * 0.42], s.fancy ? u => u.x > 0.65 ? col('#241a19') : u.y > 0.3 ? col('#e5cbaa') : col('#b94c44') : s.mallard && s.mottled ? u => u.y > 0.35 ? col('#594632') : col(o.beakColor) : o.beakColor, hd);
+    if (detailedDuck) for (const side of [-1, 1]) {
+      m.ell([bb[0] + bl * 0.38, bb[1] + hr * 0.14, side * hr * 0.19], [S * 0.026, S * 0.008, S * 0.012], '#332d24', hd);
+      tube(m, [[bb[0], bb[1] - hr * 0.025, side * hr * 0.3], [bb[0] + bl * 0.48, bb[1] - hr * 0.04, side * hr * 0.39], [bb[0] + bl * 0.93, bb[1] - hr * 0.015, side * hr * 0.2]], [S * 0.004, S * 0.005, S * 0.002], '#44362a', { ...hd, sub: 2, seg: 4 });
+    }
+  }
   else {
     if (o.macaw) {
       // bare white face and a deep, hooked two-tone bill
@@ -1893,6 +2080,10 @@ function bird(m, s) {
   }
 
   birdTail(m, s, o, by, bodyR);
+  if (s.curlTail) for (const side of [-1, 1]) {
+    const base = [-S * 0.48, by + S * 0.06, side * S * 0.025];
+    tube(m, [base, [-S * 0.59, by + S * 0.09, base[2]], [-S * 0.6, by + S * 0.16, base[2]], [-S * 0.54, by + S * 0.17, base[2]]], [S * 0.012, S * 0.011, S * 0.009, S * 0.004], '#252a24', { part: P.TAIL, pivot: base });
+  }
   // a coloured patch under the tail (a bulbul's red vent, a rhinoceros hornbill's white one)
   const vent = s.vent || (o.hornbill && s.casque ? s.tail : null);
   if (vent) m.ell([-S * 0.2, by - S * 0.14, 0], [S * 0.17, S * 0.1, S * 0.13], vent, { rot: [0, 0, o.tilt] });
@@ -1929,13 +2120,15 @@ function bird(m, s) {
   // wings
   // coverts in the body colour, darker flight feathers along the trailing edge and out to the tip
   const covert = col(o.owl ? s.color : shade(s.color, 0.1)), flight = col(s.flight || shade(s.color, o.owl ? -0.15 : -0.4));
+  const covertBase = solid(covert);
   const spec = s.speculum ? col(s.speculum) : null;
   const wc = u => {
     const a = Math.abs(u.z), x = u.x, back = x < -0.08 + a * 0.12; // the flight-feather zone
     if (s.barred) return Math.sin(a * 25) > 0.3 ? col(shade(s.breast, -0.12)) : covert;
     if (s.wing) return a > 0.62 || x < -0.12 ? col(s.wingtip) : x < 0.14 ? col(s.wing) : col(s.color); // scarlet macaw: red, yellow band, blue
-    if (spec && back && a > 0.18 && a < 0.5) return spec;                                        // a duck's speculum
+    if (spec && back && a > 0.18 && a < 0.5) return (s.woodduck || s.mallard) && (x < -0.35 || x > -0.14 + a * 0.12) ? col('#eae5d8') : spec; // white-edged speculum on both sexes
     if (back || a > 0.72) return flight;
+    if (s.mottled) return mottling(u, covertBase);
     return x > 0.36 && a < 0.5 ? col(shade(s.color, 0.2)) : covert;                                // pale leading edge
   };
   const shape = s.wingShape || WING_KIND[s.kind] || 'round';
@@ -1944,6 +2137,17 @@ function bird(m, s) {
     // (an owl's end at its tail, not below it)
     const L = Math.min(1.2 * o.span, o.owl ? 0.75 : s.kind === 'booby' ? 0.92 : o.long || 1.0), foldLen = L / (1.2 * o.span);
     m.wing(side, [S * 0.1, by + S * 0.1, side * S * 0.14], S * o.span, S * o.chord * (shape === 'fingered' ? 1.15 : 1), S * 0.02, wc, [-S * 0.02, by, 0], shape, bodyR[2] * 1.04, o.tilt * 0.8, foldLen, S * Math.min(o.span * 0.5 * foldLen, 0.3), o.up ?? 0.55); // (resting, folded wings ride up over the back)
+    if (detailedDuck) {
+      // Shingled scapular feathers follow the folded flank and spread with the wing.
+      const pivot = [S * 0.1, by + S * 0.1, side * S * 0.14], part = side > 0 ? P.WING_L : P.WING_R;
+      for (let f = 0; f < 7; f++) {
+        const t = f / 6, root = [S * (0.22 - t * 0.44), by + S * (0.16 - t * 0.03), side * S * (0.2 + Math.sin(t * Math.PI) * 0.035)];
+        const paint = u => shade(s.color, -u.x > 0.7 ? -0.22 : 0.08 + f % 2 * 0.035);
+        const folded = place(root, [side * 0.16, side * 0.12, 0.14], [S * 0.22, S * 0.008, S * 0.1]);
+        const spread = place([S * (0.09 - t * 0.03), by + S * 0.1, side * S * (0.15 + t * 0.42)], [0, side * 0.38, 0], [S * 0.2, S * 0.008, S * 0.1]);
+        m.add(TAIL_FEATHER, folded, paint, { part, pivot, ext: spread });
+      }
+    }
   }
 }
 
@@ -3454,8 +3658,8 @@ export function buildSpecies(def) {
       if (own) { Object.assign(mo, own(m, s)); break; }
       const o = MAMMALS[s.kind](s);
       quadruped(m, s, o);
-      mo.bob = o.H * (s.kind === 'rabbit' ? 0.35 : s.kind === 'rodent' || s.kind === 'squirrel' ? 0.12 : 0.04);
-      mo.leg = s.kind === 'elephant' || s.kind === 'rhino' ? 0.3 : s.kind === 'giraffe' ? 0.38 : 0.55;
+      mo.bob = o.H * (o.bobMotion ?? (s.kind === 'rabbit' ? 0.35 : s.kind === 'rodent' || s.kind === 'squirrel' ? 0.12 : 0.04));
+      mo.leg = o.legMotion ?? (s.kind === 'elephant' || s.kind === 'rhino' ? 0.3 : s.kind === 'giraffe' ? 0.38 : 0.55);
       mo.sink = o.leg + o.H * 0.45;
       break;
     }

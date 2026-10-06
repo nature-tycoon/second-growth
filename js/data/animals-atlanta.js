@@ -153,7 +153,8 @@ export default function buildAtlantaAnimals(def) {
       speed: 2.4, hr: 30, max: 6, sources: ['S'], mig: 0.3, breed: [1, 2], litter: [2, 4], life: 5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 3, 0.3),
       req: g => Math.min(1, ((g.snagCount || 0) * 2 + (g.nestboxCount || 0) * 4) / 8),
-      sprite: { kind: 'duck', size: 15, color: '#6a4a3a', head: '#2a6a4a', breast: '#8a3a2a', fancy: true, speculum: '#2a5aa0' },
+      sprite: { kind: 'duck', size: 15, woodduck: true, color: '#786958', head: '#777873', breast: '#ada18a', mottled: true, eyePatch: true, bill: '#575a53', speculum: '#2a5aa0',
+        male: { color: '#9d8866', head: '#2a6a4a', breast: '#8a3a2a', fancy: true, eye: '#b44736', mottled: false, eyePatch: false }, maleName: 'adult drake' },
       desc: 'The most beautiful duck in North America nests in tree holes above the water. The ducklings jump out the day they hatch.',
       hint: 'A pond ringed with trees, and nest boxes or dead trees for nesting.' });
   }

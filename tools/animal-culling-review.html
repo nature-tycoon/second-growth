@@ -3,9 +3,10 @@
 <style>body{margin:24px;background:#e9ede2;color:#26392e;font:15px system-ui}h1{font-size:24px;margin:0 0 8px}p{max-width:1000px}button,select{font:inherit;padding:7px;margin-right:12px}main{display:grid;grid-template-columns:1fr 1fr;gap:16px}article{background:#fbfcf7;border-radius:10px;padding:12px}h2{font-size:17px;margin:0 0 8px}canvas{display:block;width:100%}#results{white-space:pre-wrap;font-variant-numeric:tabular-nums;line-height:1.6}small{display:block;margin-top:6px}</style>
 <h1>Animal rendering review</h1><p>The same populated scene, drawn with every animal and with offscreen animals skipped. Models, shadows and animation come from the game. These fixtures never read or write saved games.</p>
 <label>Map <select id="map"><option>serengeti</option><option>pnw</option><option>amazon</option><option>atlanta</option><option>chinandega</option><option>reef</option><option>sumatra</option></select></label>
+<label>Models <select id="models"><option value="current">Current</option><option value="before">Before detail pass</option></select></label>
 <label>Zoom <select id="zoom"><option value="1.8">Close view</option><option value="0.62">Normal view</option><option value="0.12">Whole map</option></select></label>
 <label>Camera <select id="camera"><option value="30">Southwest</option><option value="80">Northeast</option><option value="turn">Rotated</option></select></label>
-<button id="audit">Check all 7 maps</button>
+<button id="audit">Check all 7 maps</button><button id="bench">Measure drawing performance</button>
 <p id="status">Preparing models…</p><main><article><h2>Every animal submitted</h2><canvas id="before" width="720" height="420"></canvas><small id="beforeInfo"></small></article><article><h2>Offscreen animals skipped</h2><canvas id="after" width="720" height="420"></canvas><small id="afterInfo"></small></article></main><p id="results"></p>
 <script type="module">
 import * as THREE from 'three';
@@ -17,10 +18,15 @@ import {mulberry32} from '../js/rng.js';
 const W=720,H=420,renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
 renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;
 const camera=new THREE.OrthographicCamera(-1,1,1,-1,.01,300),right=new THREE.Vector3(1,0,0),scratch=document.createElement('canvas');scratch.width=W;scratch.height=H;
-const controls=Object.fromEntries(['map','zoom','camera','status','results','audit'].map(id=>[id,document.getElementById(id)]));
+const controls=Object.fromEntries(['map','models','zoom','camera','status','results','audit','bench'].map(id=>[id,document.getElementById(id)]));
+const polish=new URLSearchParams(location.search).get('baseline')==='polish';
+controls.models.querySelector('[value=before]').textContent=polish?'Before polish pass':'Before detail pass';
+const response=await fetch(polish?'./map-audit-output/models-before-polish.json':'./map-audit-output/models-before-detail.json');
+const baseline=response.ok?await response.json():[];controls.models.querySelector('[value=before]').disabled=!baseline.length;
 let game,actors,scene;
+function modelVersion(version){for(const p of actors.fauna.species.values()){p.geo=version==='before'&&p.beforeGeo?p.beforeGeo:p.currentGeo;p.geo.setAttribute('aAnim',p.anim);p.mesh.geometry=p.geo;}}
 function setup(map){
- if(actors){for(const p of actors.fauna.species.values()){p.mesh.dispose();p.geo.dispose();p.mat.dispose();}actors.shadowGeo.dispose();actors.shadowMat.dispose();actors.shadows.dispose();actors.ring.geometry.dispose();actors.ring.material.dispose();}
+ if(actors){for(const p of actors.fauna.species.values()){p.mesh.dispose();for(const geo of new Set([p.geo,p.currentGeo,p.beforeGeo]))geo?.dispose();p.mat.dispose();}actors.shadowGeo.dispose();actors.shadowMat.dispose();actors.shadows.dispose();actors.ring.geometry.dispose();actors.ring.material.dispose();}
  game=new Game();game.newGame(1987,'free','standard',map);game.speed=0;game.wildlife.agents=[];game.wildlife.recount();game.visitors.agents=[];game.residents=[];
  const w=game.world;w.vh.fill(0);w.tree.fill(0);w.ground.fill(0);w.shrub.fill(0);w.feature.fill(0);w.struct.fill(-1);w.terrain.fill(map==='reef'?T.CREEK:T.SOIL);
  scene=new THREE.Scene();scene.background=new THREE.Color('#e3e8d5');scene.add(new THREE.HemisphereLight(0xe4eeff,0x727753,1.4));const sun=new THREE.DirectionalLight(0xfff3df,2.2);sun.position.set(25,40,35);scene.add(sun);
@@ -29,6 +35,8 @@ function setup(map){
  const random=mulberry32(1987);let k=0;
  for(let y=2;y<88;y+=4)for(let x=2;x<118;x+=4){const def=ANIMALS[k++%ANIMALS.length],a=game.wildlife.spawn(def,x,y,{silent:true});a.phase=random()*10;a.orientation=random()*Math.PI*2;a.wait=100;if(a.move==='fly'&&k%3===0){a.flying=true;a.alt=1;}}
  actors=new Actors(scene);actors.cullOffscreen=false;for(let k=0;k<50;k++)actors.update(game,right,k/60);actors.update(game,right,1);
+ for(const [key,p]of actors.fauna.species){p.currentGeo=p.geo;const male=key.endsWith(':male'),entry=baseline.find(e=>e.map===map&&e.key===(male?key.slice(0,-5):key)&&e.male===male);p.beforeGeo=entry?new THREE.BufferGeometryLoader().parse(entry.geometry):null;}
+ modelVersion(controls.models.value);
 }
 function view(zoom=Number(controls.zoom.value),az=controls.camera.value==='turn'?Math.PI/2:Math.PI/4,x=controls.camera.value==='80'?80:30,z=controls.camera.value==='80'?65:30){
  const ppu=46*zoom;camera.left=-W/2/ppu;camera.right=W/2/ppu;camera.top=H/2/ppu;camera.bottom=-H/2/ppu;
@@ -41,12 +49,12 @@ function draw(cull,canvas){
  scratch.getContext('2d').drawImage(renderer.domElement,0,0);return{count,triangles,calls,pixels:scratch.getContext('2d').getImageData(0,0,W,H).data};
 }
 function compare(a,b){let pixels=0,max=0;for(let i=0;i<a.length;i+=4){let d=0;for(let c=0;c<4;c++)d=Math.max(d,Math.abs(a[i+c]-b[i+c]));if(d>1)pixels++;max=Math.max(max,d);}return{pixels,max};}
-function refresh(){view();const before=draw(false,document.getElementById('before')),after=draw(true,document.getElementById('after')),diff=compare(before.pixels,after.pixels);
+function refresh(){modelVersion(controls.models.value);view();const before=draw(false,document.getElementById('before')),after=draw(true,document.getElementById('after')),diff=compare(before.pixels,after.pixels);
  document.getElementById('beforeInfo').textContent=`${before.count} animals · ${before.triangles.toLocaleString()} triangles · ${before.calls} draw calls`;
  document.getElementById('afterInfo').textContent=`${after.count} animals · ${after.triangles.toLocaleString()} triangles · ${after.calls} draw calls`;
  controls.status.textContent=`${diff.pixels===0?'PASS: matching images':'CHECK: '+diff.pixels+' changed pixels'} · ${Math.round((1-after.triangles/before.triangles)*100)}% fewer submitted triangles · ${diff.max} maximum channel difference.`;
 }
-for(const c of [controls.zoom,controls.camera])c.addEventListener('change',refresh);
+for(const c of [controls.models,controls.zoom,controls.camera])c.addEventListener('change',refresh);
 controls.map.addEventListener('change',()=>{setup(controls.map.value);refresh();});
 controls.audit.addEventListener('click',async()=>{
  controls.audit.disabled=true;let total=0,failures=0;const rows=[];
@@ -56,6 +64,23 @@ controls.audit.addEventListener('click',async()=>{
   rows.push(`${map}: camera, whole map and close views checked.`);
  }
  controls.results.textContent=`${total} rendering comparisons · ${failures} failures\n`+rows.join('\n');setup(controls.map.value);refresh();controls.audit.disabled=false;
+});
+controls.bench.addEventListener('click',async()=>{
+ controls.audit.disabled=controls.bench.disabled=true;const rows=[],gl=renderer.getContext();
+ const timed=(cull,version='current')=>{modelVersion(version);actors.cullOffscreen=cull;const start=performance.now();actors.update(game,right,1,camera,H);renderer.render(scene,camera);gl.finish();return{ms:performance.now()-start,count:actors.visibleWildlife.length,triangles:renderer.info.render.triangles,calls:renderer.info.render.calls};};
+ try{
+  for(const map of ['pnw','amazon','serengeti']){
+   setup(map);
+   for(const zoom of [1.8,.62,.12]){
+    view(zoom);for(let k=0;k<4;k++){timed(false);timed(true,'before');timed(true);}
+    const samples=[[],[],[]];let full,before,culled;
+    for(let k=0;k<11;k++)for(const i of k%2?[2,1,0]:[0,1,2]){const result=timed(i>0,i===1?'before':'current');samples[i].push(result.ms);if(i===2)culled=result;else if(i===1)before=result;else full=result;}
+    const median=i=>samples[i].sort((a,b)=>a-b)[5].toFixed(2);
+    rows.push(`${map}, zoom ${zoom}: all ${median(0)} ms / ${full.count} animals / ${full.triangles.toLocaleString()} tri; ${baseline.length?`culled before ${median(1)} ms / ${before.triangles.toLocaleString()} tri`:'detail baseline unavailable'}; culled current ${median(2)} ms / ${culled.count} animals / ${culled.triangles.toLocaleString()} tri / ${culled.calls} calls`);
+    controls.results.textContent=rows.join('\n');await new Promise(requestAnimationFrame);
+   }
+  }
+ }finally{setup(controls.map.value);refresh();controls.audit.disabled=controls.bench.disabled=false;}
 });
 try{setup(controls.map.value);refresh();}catch(e){controls.status.textContent='ERROR: '+e.message;throw e;}
 </script></html>

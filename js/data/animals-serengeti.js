@@ -50,7 +50,8 @@ export default function buildSerengetiAnimals(def) {
       speed: 1.7, hr: 8, max: 26, minK: 3, groupSize: [5, 10], sources: ['N', 'S'], mig: 0.4, breed: [9, 10], litter: [1, 1], life: 12, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 6, 0.4),
       req: g => Math.min(1, g.forestTiles / 300),
-      sprite: { kind: 'impala', len: 26, h: 13, leg: 14, color: '#b87a44', belly: '#f2e8da', dark: '#1e1612', lyre: true },
+      sprite: { kind: 'impala', len: 26, h: 13, leg: 14, color: '#b87a44', belly: '#f2e8da', dark: '#1e1612', lyre: false,
+        male: { len: 28, h: 14, leg: 15, lyre: true, neckWidth: 0.21 }, maleName: 'adult ram' },
       desc: 'Graceful leapers that both graze and browse, so they do well on the edge between thornbush and grass.',
       hint: 'Thornbush and open woodland near water.' });
   }
