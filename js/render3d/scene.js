@@ -14,7 +14,7 @@ import { Flora, windGust } from './flora.js';
 import { Actors, salmonLeap } from './actors.js';
 import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry.js';
-import { hash2 } from '../rng.js';
+import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 
@@ -203,7 +203,8 @@ export class Renderer {
 
   // Dissolve cover between the camera and the selected animal, easing in and out.
   updateFocus(game, dt) {
-    const sel = game.selectedAgent, pose = sel && this.actors.pose.get(sel.id), ft = !pose && this.focusTile;
+    const sel = game.selectedAgent, st = sel && this.actors.pose.get(sel.id);
+    const pose = st?.visible ? st : null, ft = !pose && this.focusTile;
     const amt = focus.uFocusAmt;
     amt.value += ((pose || ft ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
     if (pose) {
@@ -348,7 +349,7 @@ export class Renderer {
     const all = [...game.wildlife.agents];
     for (const a of all) {
       const s = this.actors.pose.get(a.id);
-      if (!s) continue;
+      if (!s?.visible) continue;
       const p = this.project(s.x, s.y + s.h * 0.5, s.z);
       const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
       if (d < bd) { bd = d; best = a; }
@@ -539,7 +540,7 @@ export class Renderer {
     this.terrain.sky.value.copy(this.hemi.color);
     const r = this.right();
     this.actors.clean = !!ui.clean;
-    this.actors.update(game, r, this.time);
+    this.actors.update(game, r, this.time, this.camera, this.vh);
     this.rockBoats();
     this.updateFocus(game, dt);
     // snow settles and melts gradually on screen rather than popping in with the daily tick
@@ -713,7 +714,7 @@ export class Renderer {
     const sel = ui.clean ? null : game.selectedAgent;
     if (sel) {
       const s = this.actors.pose.get(sel.id);
-      if (s) {
+      if (s?.visible) {
         const p = this.project(s.x, s.y + s.h + 0.08, s.z);
         const label = ANIMALS[sel.sp].name;
         ctx.font = '700 12px Nunito, sans-serif';
@@ -772,28 +773,29 @@ export class Renderer {
 const DRY = new Set([T.PASTURE, T.FIELD, T.SOIL, T.GRAVEL, T.ROAD, T.TRAIL]);
 Renderer.prototype.drawTrails = function (ctx, game, dt) {
   const w = this.world, fx = this.trailFx || (this.trailFx = []);
-  if (this.zoom > 0.45 && game.speed > 0) for (const a of game.wildlife.agents) {
+  const random = this.trailRng || (this.trailRng = mulberry32(0x74726169)); // visual-only randomness
+  if (this.zoom > 0.45 && game.speed > 0) for (const a of this.actors.visibleWildlife) {
     const st = this.actors.pose.get(a.id);
     if (!st || a.flying) continue;
     const xi = Math.floor(a.x), yi = Math.floor(a.y);
     if (!w.inb(xi, yi)) continue;
     const i = w.idx(xi, yi), t = w.terrain[i], def = ANIMALS[a.sp];
     const wet = isWater(t);
-    if (wet && st.gait > 0.3 && Math.random() < dt * 1.8 * st.gait) fx.push({ k: 'wake', x: a.x, z: a.y, y: st.y, yaw: st.yaw, life: 1.3, max: 1.3, s: Math.max(0.5, (def.sprite.len || def.sprite.size || 10) / 38) });
+    if (wet && st.gait > 0.3 && random() < dt * 1.8 * st.gait) fx.push({ k: 'wake', x: a.x, z: a.y, y: st.y, yaw: st.yaw, life: 1.3, max: 1.3, s: Math.max(0.5, (def.sprite.len || def.sprite.size || 10) / 38) });
     else if (!wet && def.move === 'ground' && (def.sprite.len || 0) >= 20 && st.gait > 0.5 && (DRY.has(t) || biome.savanna && game.season > 0) && !(w.ground[i] && w.groundG[i] > 0.7 && !biome.savanna)
-      && Math.random() < dt * 1.4 * st.gait) fx.push({ k: 'dust', x: a.x - Math.cos(st.yaw) * 0.25, z: a.y + Math.sin(st.yaw) * 0.25, y: st.y, life: 1.6, max: 1.6, s: (def.sprite.len || 20) / 36 });
+      && random() < dt * 1.4 * st.gait) fx.push({ k: 'dust', x: a.x - Math.cos(st.yaw) * 0.25, z: a.y + Math.sin(st.yaw) * 0.25, y: st.y, life: 1.6, max: 1.6, s: (def.sprite.len || 20) / 36 });
     // a leaping salmon throws up a splash where it leaves the water and where it lands
     if (def.special === 'salmon' && wet) {
       const jp = salmonLeap(a, this.time);
-      if ((jp >= 0) !== !!a.leaping) {
-        a.leaping = jp >= 0;
-        const ahead = a.leaping ? 0 : 0.45, sx = a.x + Math.cos(st.yaw) * ahead, sz = a.y - Math.sin(st.yaw) * ahead;
+      if ((jp >= 0) !== !!st.leaping) {
+        st.leaping = jp >= 0;
+        const ahead = st.leaping ? 0 : 0.45, sx = a.x + Math.cos(st.yaw) * ahead, sz = a.y - Math.sin(st.yaw) * ahead;
         fx.push({ k: 'ring', x: sx, z: sz, y: st.y, life: 1.2, max: 1.2, s: 0.8 });
-        for (let d = 0; d < 6; d++) fx.push({ k: 'drop', x: sx, z: sz, y: st.y, vx: (Math.random() - 0.5) * 1.2, vz: (Math.random() - 0.5) * 1.2, vy: 1.2 + Math.random() * 1.2, life: 0.6, max: 0.6 });
+        for (let d = 0; d < 6; d++) fx.push({ k: 'drop', x: sx, z: sz, y: st.y, vx: (random() - 0.5) * 1.2, vz: (random() - 0.5) * 1.2, vy: 1.2 + random() * 1.2, life: 0.6, max: 0.6 });
       }
     }
-    if (a.drinkT > 0 && !a.rippled && (wet || w.distWater[i] <= 1)) { a.rippled = true; fx.push({ k: 'ring', x: a.x + Math.cos(st.yaw) * 0.3, z: a.y - Math.sin(st.yaw) * 0.3, y: st.y, life: 1.8, max: 1.8, s: 1 }); }
-    if (!(a.drinkT > 0)) a.rippled = false;
+    if (a.drinkT > 0 && !st.rippled && (wet || w.distWater[i] <= 1)) { st.rippled = true; fx.push({ k: 'ring', x: a.x + Math.cos(st.yaw) * 0.3, z: a.y - Math.sin(st.yaw) * 0.3, y: st.y, life: 1.8, max: 1.8, s: 1 }); }
+    if (!(a.drinkT > 0)) st.rippled = false;
   }
   if (fx.length > 400) fx.splice(0, fx.length - 400);
   const z = this.zoom;
@@ -803,11 +805,13 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     if (p.life <= 0) { fx.splice(k, 1); continue; }
     if (p.k === 'drop') {
       p.x += p.vx * dt; p.z += p.vz * dt; p.vy -= 6 * dt; p.y += p.vy * dt * 0.35;
+      if (!this.actors.view.visible(p.x, p.y, p.y, p.z, 1)) continue;
       const d = this.project(p.x, p.y, p.z);
       ctx.fillStyle = `rgba(240,248,248,${(0.85 * p.life / p.max).toFixed(3)})`;
       ctx.beginPath(); ctx.arc(d.x, d.y, 1.3 * Math.max(1, z), 0, 7); ctx.fill();
       continue;
     }
+    if (!this.actors.view.visible(p.x, p.y, p.y + 0.3, p.z, 1)) continue;
     const f = 1 - p.life / p.max, sp = this.project(p.x, p.y + (p.k === 'dust' ? 0.05 + f * 0.25 : 0.02), p.z);
     if (p.k === 'dust') {
       ctx.fillStyle = `rgba(206,184,146,${(0.18 * (1 - f)).toFixed(3)})`;
@@ -884,7 +888,7 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
   // eye-shine: a pair of small lights on the heads of animals looking toward you out on the grass
   if (biome.savanna && n > 0.25 && this.zoom > 0.6) {
     const t = this.time;
-    for (const a of game.wildlife.agents) {
+    for (const a of this.actors.visibleWildlife) {
       const def = ANIMALS[a.sp];
       if (def.move !== 'ground' || (def.sprite.len || 0) < 20 || hash2(a.id, 3, 9) > 0.55) continue;
       const st = this.actors.pose.get(a.id);

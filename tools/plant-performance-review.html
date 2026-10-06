@@ -1,0 +1,67 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Plant performance review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>body{margin:24px;background:#e9ede2;color:#26392e;font:15px system-ui}h1{font-size:24px;margin:0 0 8px}p{max-width:1080px;line-height:1.5}button,select{font:inherit;padding:7px;margin:0 12px 8px 0}main{display:grid;grid-template-columns:1fr 1fr;gap:16px}article{background:#fbfcf7;border-radius:10px;padding:12px}h2{font-size:17px;margin:0 0 8px}canvas{display:block;width:100%}pre{white-space:pre-wrap;font:13px/1.6 ui-monospace,monospace}small{display:block;margin-top:6px}</style>
+<h1>Plant performance review</h1><p>Restored landscapes drawn with the game’s plant models, wind and shadows. Compare the existing 48-tile groups with smaller groups and updates limited to changed areas. Saved games are untouched.</p>
+<label>Map <select id="map"><option>pnw</option><option>amazon</option><option>serengeti</option><option>atlanta</option><option>chinandega</option><option>reef</option><option>sumatra</option></select></label>
+<label>Group size <select id="size"><option>24</option><option>32</option><option>16</option><option value="48-local">48 with local updates</option></select></label>
+<label>Zoom <select id="zoom"><option value=".8">Close view</option><option value=".4">Normal view</option><option value=".12">Whole map</option></select></label>
+<button id="audit">Check all 7 maps</button><button id="bench">Measure drawing performance</button><button id="edit">Test a small planting edit</button>
+<p id="status">Preparing plants…</p>
+<main><article><h2>Existing plant groups</h2><canvas id="before" width="640" height="400"></canvas><small id="beforeInfo"></small></article><article><h2>Smaller groups and local updates</h2><canvas id="after" width="640" height="400"></canvas><small id="afterInfo"></small></article></main><pre id="results"></pre>
+<script type="module">
+import * as THREE from 'three';
+import { Flora } from '../js/render3d/flora.js';
+import { focus } from '../js/render3d/focus.js';
+import { MAPS,plantFixture,editPlants } from './plant-performance-fixtures.mjs';
+import { LEVEL,BORDER } from '../js/config.js';
+const W=640,H=400,gl=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});gl.setSize(W,H);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;gl.shadowMap.enabled=true;gl.shadowMap.type=THREE.PCFSoftShadowMap;
+const camera=new THREE.OrthographicCamera(-1,1,1,-1,-300,300),scratch=document.createElement('canvas');scratch.width=W;scratch.height=H;
+const c=Object.fromEntries(['map','size','zoom','audit','bench','edit','status','results'].map(id=>[id,document.getElementById(id)]));
+let game,views=[];
+function dispose(){for(const v of views){v.scene.traverse(o=>{o.dispose?.();o.geometry?.dispose();if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();});v.sun.shadow.dispose();}views=[];}
+function setup(map){dispose();game=plantFixture(map);
+ for(const key of ['original','48-local','32','24','16']){
+  const size=key==='original'||key==='48-local'?48:Number(key);
+  const scene=new THREE.Scene();scene.background=new THREE.Color('#dde5d5');scene.add(new THREE.HemisphereLight(0xe4eeff,0x5f6e3c,1.25));
+  const sun=new THREE.DirectionalLight(0xfff3dc,2.5);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0006;sun.shadow.normalBias=.03;scene.add(sun,sun.target);
+  const w=game.world,geo=new THREE.PlaneGeometry(w.w+2*BORDER,w.h+2*BORDER,w.w+2*BORDER,w.h+2*BORDER).rotateX(-Math.PI/2).translate(w.w/2,0,w.h/2),p=geo.attributes.position;
+  for(let k=0;k<p.count;k++)p.setY(k,w.heightAt(p.getX(k),p.getZ(k))*LEVEL);geo.computeVertexNormals();
+  const ground=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:map==='reef'?0x9caea4:0xb1b88c}));ground.receiveShadow=true;scene.add(ground);
+  const flora=key==='48-local'?new Flora(scene):new Flora(scene,{chunkSize:size,incremental:key!=='original'});flora.wind.value=17;flora.setZoom(Number(c.zoom.value));flora.rebuild(game);views.push({scene,sun,flora,size,key});
+ }
+}
+function view(zoom=Number(c.zoom.value),az=Math.PI/4){const ppu=46*zoom;camera.left=-W/2/ppu;camera.right=W/2/ppu;camera.top=H/2/ppu;camera.bottom=-H/2/ppu;
+ const target=new THREE.Vector3(40,1,32),el=34*Math.PI/180;camera.position.copy(target).add(new THREE.Vector3(Math.sin(az)*Math.cos(el),Math.sin(el),Math.cos(az)*Math.cos(el)).multiplyScalar(120));camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld();
+ for(const v of views){v.flora.setZoom(zoom);v.sun.position.copy(target).add(new THREE.Vector3(-30,55,20));v.sun.target.position.copy(target);v.sun.target.updateMatrixWorld();const s=Math.max(W,H)/2/ppu*1.35+3,sc=v.sun.shadow.camera;sc.left=sc.bottom=-s;sc.right=sc.top=s;sc.near=1;sc.far=160;sc.updateProjectionMatrix();}
+}
+function draw(v,canvas,pixels=true){gl.render(v.scene,camera);if(canvas)canvas.getContext('2d').drawImage(gl.domElement,0,0);const result={triangles:gl.info.render.triangles,calls:gl.info.render.calls};if(pixels){scratch.getContext('2d').drawImage(gl.domElement,0,0);result.pixels=scratch.getContext('2d').getImageData(0,0,W,H).data;}return result;}
+function compare(a,b){let changed=0,max=0;for(let i=0;i<a.length;i+=4){let d=0;for(let k=0;k<4;k++)d=Math.max(d,Math.abs(a[i+k]-b[i+k]));if(d>1)changed++;max=Math.max(max,d);}return{changed,max};}
+function refresh(){view();const a=draw(views[0],document.getElementById('before')),b=draw(views.find(v=>v.key===c.size.value),document.getElementById('after')),diff=compare(a.pixels,b.pixels);
+ document.querySelector('main article:last-child h2').textContent=c.size.value==='48-local'?'Same groups, local updates':'Smaller groups and local updates';
+ for(const [id,d] of [['beforeInfo',a],['afterInfo',b]])document.getElementById(id).textContent=`${d.triangles.toLocaleString()} triangles · ${d.calls} draw calls (including shadows)`;
+ c.status.textContent=`${diff.changed?'CHECK: '+diff.changed+' changed pixels':'PASS: matching plants and shadows'} · ${Math.round((1-b.triangles/a.triangles)*100)}% fewer submitted triangles · maximum channel difference ${diff.max}.`;
+}
+function busy(on){for(const id of ['map','size','zoom','audit','bench','edit'])c[id].disabled=on;}
+async function run(fn){busy(true);try{await fn();}catch(e){c.status.textContent='ERROR: '+e.message;throw e;}finally{busy(false);}}
+for(const id of ['size','zoom'])c[id].addEventListener('change',refresh);c.map.addEventListener('change',()=>{setup(c.map.value);refresh();});
+c.edit.onclick=()=>{editPlants(game);const times=[];for(const v of views){const t=performance.now();v.flora.rebuild(game);times.push(`${v.key==='original'?'Original renderer':v.size+'-tile local updates'}: ${(performance.now()-t).toFixed(1)} ms, ${v.flora.lastRebuild.tiles} source tiles rebuilt`);}refresh();c.results.textContent=times.join('\n');};
+c.audit.onclick=()=>run(async()=>{let total=0,failures=0;const rows=[];
+ for(const map of MAPS){c.status.textContent=`Checking ${map}…`;await new Promise(requestAnimationFrame);setup(map);
+  for(const zoom of [.12,.4,.8])for(const az of [0,Math.PI/4,Math.PI/2]){view(zoom,az);const a=draw(views[0]);for(const v of views.slice(1)){const b=draw(v),d=compare(a.pixels,b.pixels);total++;if(d.changed){failures++;rows.push(`${map} / ${v.size} / zoom ${zoom} / angle ${az.toFixed(2)}: ${d.changed} changed pixels, max ${d.max}`);}}}
+  editPlants(game);for(const v of views)v.flora.rebuild(game);view();const a=draw(views[0]);for(const v of views.slice(1)){const d=compare(a.pixels,draw(v).pixels);total++;if(d.changed){failures++;rows.push(`${map} local edit / ${v.key}: ${d.changed} changed pixels, max ${d.max}`);}}
+  focus.uFocus.value.set(40,game.world.heightAt(40,32)*LEVEL+1,32);focus.uFocusAmt.value=1;focus.uViewDir.value.copy(camera.position).sub(new THREE.Vector3(40,1,32)).normalize();
+  const focused=draw(views[0]);for(const v of views.slice(1)){const d=compare(focused.pixels,draw(v).pixels);total++;if(d.changed){failures++;rows.push(`${map} animal focus / ${v.key}: ${d.changed} changed pixels, max ${d.max}`);}}focus.uFocusAmt.value=0;
+  for(const v of views)v.flora.setFade(true);const faded=draw(views[0]);for(const v of views.slice(1)){const d=compare(faded.pixels,draw(v).pixels);total++;if(d.changed){failures++;rows.push(`${map} see-through trees / ${v.key}: ${d.changed} changed pixels, max ${d.max}`);}}for(const v of views)v.flora.setFade(false);
+  rows.push(`${map}: plants, wind, shadows, rotation, wide/close views and local edits checked.`);
+ }
+ c.results.textContent=`${total} rendering comparisons · ${failures} differences\n`+rows.join('\n');setup(c.map.value);refresh();
+});
+c.bench.onclick=()=>run(async()=>{const rows=['Render plus synchronous pixel readback: median of 9 samples after warm-up; includes drawing, shadows and readback overhead. This is not gameplay FPS.'],ctx=gl.getContext(),probe=new Uint8Array(4);
+ const complete=()=>ctx.readPixels(0,0,1,1,ctx.RGBA,ctx.UNSIGNED_BYTE,probe);
+ for(const map of ['pnw','amazon','serengeti']){c.status.textContent=`Measuring ${map}…`;await new Promise(requestAnimationFrame);setup(map);
+  for(const zoom of [.12,.4,.8]){view(zoom);for(const v of views)for(let k=0;k<4;k++){draw(v,null,false);complete();}const timings=new Map(views.map(v=>[v,[]]));for(let k=0;k<9;k++)for(const v of k%2?views:[...views].reverse()){const t=performance.now();draw(v,null,false);complete();timings.get(v).push(performance.now()-t);}const data=views.map(v=>{const a=timings.get(v).sort((a,b)=>a-b),d=draw(v,null,false);return `${v.size}: ${a[4].toFixed(2)} ms (${d.triangles.toLocaleString()} tri, ${d.calls} calls)`;});rows.push(`${map}, zoom ${zoom}: `+data.join(' | '));c.results.textContent=rows.join('\n');await new Promise(requestAnimationFrame);}
+ }
+ setup(c.map.value);refresh();
+});
+try{setup(c.map.value);refresh();}catch(e){c.status.textContent='ERROR: '+e.message;throw e;}
+</script></html>

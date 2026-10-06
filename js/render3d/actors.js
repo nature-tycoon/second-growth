@@ -10,6 +10,7 @@ import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './fauna.js';
 import { adultAnimalScale } from './animal-scale.js';
 import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
+import { ActorView, animalViewRadius } from './actor-view.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
@@ -31,6 +32,9 @@ export class Actors {
     this.textures = new Map();
     this.fauna = new Fauna(scene);
     this.pose = new Map();      // agent id -> smoothed heading, gait, wings, and where it was drawn
+    this.view = new ActorView();
+    this.visibleWildlife = [];
+    this.cullOffscreen = true;
     this.people = new Map();    // visitor id -> smoothed heading and gait
     this.flames = [];
     this.smoke = [];
@@ -52,12 +56,22 @@ export class Actors {
     return t;
   }
 
-  update(game, camRight, time) {
+  update(game, camRight, time, camera = null, viewportHeight = 0) {
     const w = game.world;
+    this.view.update(camera, viewportHeight, this.cullOffscreen);
+    this.visibleWildlife.length = 0;
     const seen = new Set();
     let sh = 0;
     const shadow = (x, y, z, r) => {
-      if (sh >= 600) return;
+      if (sh >= this.shadows.instanceMatrix.count) {
+        // Keep every visible shadow in dense scenes; a fixed quota would change which
+        // animals have shadows as offscreen instances are omitted.
+        const old = this.shadows;
+        this.shadows = new THREE.InstancedMesh(this.shadowGeo, this.shadowMat, old.instanceMatrix.count * 2);
+        this.shadows.instanceMatrix.array.set(old.instanceMatrix.array);
+        this.shadows.frustumCulled = false; this.shadows.renderOrder = 1;
+        this.scene.remove(old); old.dispose(); this.scene.add(this.shadows);
+      }
       this.m.makeScale(r, 1, r); this.m.setPosition(x, y + 0.012, z);
       this.shadows.setMatrixAt(sh++, this.m);
     };
@@ -70,7 +84,6 @@ export class Actors {
       const def = drawDef(ANIMALS[a.sp], a); // (the male look, for a species whose males look different)
       seen.add(a.id);
       let st = this.pose.get(a.id);
-      if (!st) { st = { yaw: Math.random() * Math.PI * 2, gait: 0, fly: 0, graze: 0, px: a.x, py: a.y, x: a.x, y: 0, z: a.y, h: 0.2 }; this.pose.set(a.id, st); }
       const xi = Math.floor(a.x), yi = Math.floor(a.y);
       const inside = w.inb(xi, yi);
       const i = inside ? w.idx(xi, yi) : -1;
@@ -79,12 +92,44 @@ export class Actors {
       const kind = def.sprite.kind;
       const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05) && kind !== 'duck') || (kind === 'duck' && a.alt > 0.3) || kind === 'bat' || kind === 'ray'; // (a manta "flies" through the water)
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
+      const seaY = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
+      if (this.view.enabled) {
+        let low = ground, high = ground;
+        if (onWater || def.move === 'swim') {
+          const surface = waterSurfaceY(w, a.x, a.y) ?? ground;
+          low = Math.min(low, surface); high = Math.max(high, surface + 0.75); // leaping salmon
+        }
+        if (seaY != null) { low = Math.min(low, seaY); high = Math.max(high, seaY); }
+        if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground) + 2;
+        else if (inside && (def.move === 'fly' || def.move === 'tree')) {
+          if (w.tree[i]) {
+            const p = PLANTS[w.tree[i]];
+            high += (TREE_SHAPES[p.look.type]?.height || 2) * (p.look.scale ?? 1) * w.treeG[i];
+          } else if (w.feature[i] === FEAT.SNAG) high += 0.9;
+        }
+        if (!this.view.visible(a.x, low, high, a.y, animalViewRadius(def))) {
+          if (st) st.visible = false;
+          continue;
+        }
+      }
+      this.visibleWildlife.push(a);
+      const returning = st?.visible === false;
+      if (!st) { st = { yaw: -(a.hd ?? a.orientation ?? (a.facing < 0 ? Math.PI : 0)), gait: 0, fly: 0, graze: 0, px: a.x, py: a.y, x: a.x, y: 0, z: a.y, h: 0.2 }; this.pose.set(a.id, st); }
+      if (returning) {
+        // Resume from the current simulation state, not the position/turn/depth last drawn
+        // minutes ago. The edge margin gives normal animation blending room to resume.
+        st.yaw = -(a.hd ?? a.orientation ?? (a.facing < 0 ? Math.PI : 0));
+        st.px = a.x; st.py = a.y; st.depth = null; st.bend = 0; st.t = time;
+        st.gait = game.speed > 0 && a.state !== 'idle' ? 1 : 0;
+        st.fly = flying ? 1 : 0; st.graze = 0;
+        st.rippled = a.drinkT > 0; st.leaping = salmonLeap(a, time) >= 0;
+      }
+      st.visible = true;
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
       const sc = adultAnimalScale(def.sprite) * (a.juvenile ? def.sprite.juv ?? 0.5 : 1) * ageF; // (scale: relative proportions; show: display boost; juv: how small the young are)
       const mo = F.motion(def);
       let y = ground;
       const surf = onWater || def.move === 'swim' ? waterSurfaceY(w, a.x, a.y) : null;
-      const seaY = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
       if (def.reef && seaY != null) {
         // under the sea: fish, turtles and rays swim at their own depth between the seabed and the
         // surface (clownfish right down in their anemone, sharks and mantas well up off the bottom),
@@ -116,7 +161,11 @@ export class Actors {
       // face the way it's moving, and blend between standing, walking and flying
       const dx = a.x - st.px, dz = a.y - st.py, yaw0 = st.yaw;
       const moving = a.state !== 'idle' && (dx * dx + dz * dz > 1e-7 || flying);
-      if (dx * dx + dz * dz > 1e-6) st.yaw = lerpAngle(st.yaw, Math.atan2(-dz, dx), Math.min(1, k * 1.6));
+      // Intentional heading wins over small spacing corrections, which mustn't turn a resting
+      // animal sideways. Drink direction also updates while it is standing still.
+      const heading = a.drinkT > 0 && a.drinkAt ? a.orientation : a.hd ?? a.orientation;
+      if (heading != null) st.yaw = lerpAngle(st.yaw, -heading, Math.min(1, k * 1.6));
+      else if (dx * dx + dz * dz > 1e-6) st.yaw = lerpAngle(st.yaw, Math.atan2(-dz, dx), Math.min(1, k * 1.6));
       // a swimmer that bends (the shark) curves into its turns: the tail swings to the inside
       if (mo.bend) {
         let dy = st.yaw - yaw0; dy -= Math.round(dy / (Math.PI * 2)) * Math.PI * 2;
@@ -128,7 +177,8 @@ export class Actors {
       st.gait += ((moving ? 1 : 0) - st.gait) * k;
       st.fly += ((flying ? 1 : 0) - st.fly) * k * 1.5;
       // heads down to graze, and for everyone drinking at the water's edge
-      const grazing = !moving && (a.drinkT > 0 || (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1));
+      const aligned = heading == null || Math.cos(st.yaw + heading) > 0.95;
+      const grazing = !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1));
       st.graze += ((grazing ? 1 : 0) - st.graze) * k * 0.5;
       F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, st.pitch || 0);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
@@ -163,11 +213,16 @@ export class Actors {
     for (const id of this.people.keys()) if (!pseen.has(id)) this.people.delete(id);
 
     this.shadows.count = sh;
-    this.shadows.instanceMatrix.needsUpdate = true;
+    this.shadows.visible = sh > 0;
+    if (sh) {
+      this.shadows.instanceMatrix.clearUpdateRanges();
+      this.shadows.instanceMatrix.addUpdateRange(0, sh * 16);
+      this.shadows.instanceMatrix.needsUpdate = true;
+    }
 
     // ---- selection ring
     const sel = this.clean ? null : game.selectedAgent;
-    if (sel) {
+    if (sel && this.pose.get(sel.id)?.visible) {
       this.ring.visible = true;
       this.ring.position.set(sel.x, w.heightAt(clamp(sel.x, -9, w.w + 9), clamp(sel.y, -9, w.h + 9)) * LEVEL + 0.03, sel.y);
       const s = 1 + Math.sin(time * 4) * 0.08;
@@ -219,6 +274,6 @@ export class Actors {
   }
 
   clear() {
-    this.pose.clear(); this.people.clear(); this.fauna.clear();
+    this.pose.clear(); this.people.clear(); this.visibleWildlife.length = 0; this.fauna.clear();
   }
 }

@@ -3566,7 +3566,12 @@ export class Fauna {
   end() {
     for (const p of this.species.values()) {
       p.mesh.count = p.count;
-      if (p.count) { p.mesh.instanceMatrix.needsUpdate = true; p.anim.needsUpdate = true; }
+      p.mesh.visible = p.count > 0;
+      if (p.count) {
+        p.mesh.instanceMatrix.clearUpdateRanges(); p.mesh.instanceMatrix.addUpdateRange(0, p.count * 16);
+        p.anim.clearUpdateRanges(); p.anim.addUpdateRange(0, p.count * 4);
+        p.mesh.instanceMatrix.needsUpdate = true; p.anim.needsUpdate = true;
+      }
     }
   }
   clear() { this.begin(); this.end(); }

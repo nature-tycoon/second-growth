@@ -9,6 +9,7 @@ import { killTree } from './plants.js';
 import { biome } from '../biome.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
+import { AnimalSpacing, facePoint, shoreSpot } from './animal-positioning.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -61,6 +62,7 @@ export class Wildlife {
   constructor(game) {
     this.game = game;
     this.agents = [];
+    this.spacing = new AnimalSpacing();
     this.nextId = 1;
     this.state = ANIMALS.map(() => ({ pop: 0, K: 0, suitSum: 0, discovered: false, lastYear: 0, blockedNotified: false, births: 0 }));
     this.suit = ANIMALS.map(() => new Float32Array(game.world.n));
@@ -178,8 +180,10 @@ export class Wildlife {
       facing: Math.random() < 0.5 ? -1 : 1, phase: Math.random() * 10, hunger: Math.random() * 3,
       flying: false, alt: 0, leaving: false, spawner: !!opts.spawner, juvenile: !!opts.juvenile,
     };
+    a.orientation = a.phase * Math.PI / 5; // an initial direction without another random draw
     if (opts.flyIn) { a.flying = true; a.alt = 1; a.state = 'fly'; a.tx = x + 0.5; a.ty = y + 0.5; a.x = opts.fromX; a.y = opts.fromY; }
     this.agents.push(a);
+    this.spacingDirty = true;
     const st = this.state[def.index];
     st.pop++;
     if (!st.discovered && !opts.silent) {
@@ -190,6 +194,7 @@ export class Wildlife {
   }
 
   remove(a, cause) {
+    this.spacingDirty = true;
     const k = this.agents.indexOf(a);
     if (k >= 0) this.agents.splice(k, 1);
     if (!a.leaving) this.state[a.sp].pop = Math.max(0, this.state[a.sp].pop - 1);
@@ -505,6 +510,7 @@ export class Wildlife {
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (w.inb(x0, y0) && w.distWater[w.idx(x0, y0)] <= 1 && bd < 16) {
       a.wait = 2.5 + Math.random() * 4; a.drinkT = 1.2 + Math.random(); // head down over the water
+      a.drinkAt = [f.x, f.y]; facePoint(a, f.x, f.y);
       if (this.salmonRun && !this.salmonRun.shown && this.game.day - this.salmonRun.from >= 1 && momentFree(this.game)) { this.salmonRun.shown = moment(this.game, 'salmon', a) || true; }
       if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, f, ANIMALS[a.sp], 0.08) && bd < 4) {
         if (this.game.diff.ecology) a.hunger = 0;
@@ -695,7 +701,9 @@ export class Wildlife {
 
   // -------------------------------------------------------------- per-frame movement
   update(dt) {
+    if (!(dt > 0)) return;
     const w = this.game.world;
+    this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
     for (let k = this.agents.length - 1; k >= 0; k--) {
       const a = this.agents[k];
       if (!a) continue;
@@ -704,7 +712,17 @@ export class Wildlife {
       // (a fish beats its tail faster the faster it swims, and only sculls gently while it hovers)
       a.phase += dt * (def.reef ? 2.5 + 5 * Math.min(1.6, (a.spd || 0) / def.speed) : 6) * (def.sprite.beat ?? 1); // (beat: a big, slow swimmer's tail)
       if (biome.waterholes) a.thirst = (a.thirst || 0) + dt;
-      if (a.drinkT > 0) a.drinkT -= dt;
+      if (a.drinkT > 0) {
+        a.drinkT -= dt;
+        if (a.drinkT <= 0) a.drinkAt = null;
+        else if (biome.waterholes && !a.drinkAt) {
+          // Older saves can contain a head-down pose with no direction (even a calf on dry
+          // ground). Repair it on the next simulation step rather than waiting for another trip.
+          const bank = this.bankSpot(a);
+          if (bank) { a.drinkAt = bank.water; facePoint(a, ...bank.water); }
+          else a.drinkT = 0;
+        }
+      }
       const sp = def.speed * dt * (a.follow ? 1.3 : a.wade ? 0.3 : 1); // herd members trot to keep up; waders step slowly
       switch (a.state) {
         case 'idle':
@@ -721,11 +739,30 @@ export class Wildlife {
           // one, so two walking the same way don't trace one track, and a group doesn't pile onto
           // a single point
           const [ox, oy] = spotIn(a, j, a.path.length === 1);
-          const tx = (j % w.w) + 0.5 + ox, ty = ((j / w.w) | 0) + 0.5 + oy;
+          if (a.path.length === 1 && a.restSpot?.[0] !== j) {
+            const bank = biome.waterholes && a.thirst > (def.drinkEvery ?? 5 + a.id % 5) * 0.5 ? this.bankSpot(a, j) : null;
+            a.restSpot = [j, ...(bank && bank.crowd < 0.08 ? [bank.x, bank.y] : this.spacing.restSpot(a, j, ox, oy))];
+          }
+          const tx = a.path.length === 1 ? a.restSpot[1] : (j % w.w) + 0.5 + ox;
+          const ty = a.path.length === 1 ? a.restSpot[2] : ((j / w.w) | 0) + 0.5 + oy;
           const wading = def.crossing && w.terrain[j] === T.RIVER; // swimming the river is slow going
+          // A waypoint isn't a pin that every animal must stand on. Step past occupied
+          // transit points, or finish beside an occupied destination when already clear.
+          const remaining = Math.hypot(a.x - tx, a.y - ty);
+          if ((a.path.length > 1 && remaining < 0.35 && w.idx(Math.floor(a.x), Math.floor(a.y)) === j) ||
+            (a.path.length === 1 && remaining < 0.9 && this.spacing.crowd(a, tx, ty) > 0.08 &&
+            this.spacing.crowd(a, a.x, a.y) < 0.04)) {
+            a.path.pop(); break;
+          }
           if (this.stepToward(a, tx, ty, (wading ? sp * 0.55 : sp) * (a.pace || 1))) a.path.pop();
           break;
         }
+        case 'approach':
+          if (a.move === 'fly') a.alt = Math.max(0, a.alt - dt * 3);
+          if (!a.localGoal || !this.bankSpot(a) || this.stepToward(a, ...a.localGoal, sp)) {
+            a.localGoal = null; a.state = 'idle'; a.wait = 0;
+          }
+          break;
         case 'fly':
           a.alt = Math.min(1, a.alt + dt * 3);
           if (this.stepToward(a, a.tx, a.ty, sp)) {
@@ -771,6 +808,8 @@ export class Wildlife {
           break;
       }
     }
+    this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
+    this.spacing.separate(dt, passable);
   }
 
   // Swimming on the reef: a fish doesn't walk from tile centre to tile centre. It holds a heading
@@ -812,6 +851,7 @@ export class Wildlife {
   stepToward(a, tx, ty, sp) {
     const dx = tx - a.x, dy = ty - a.y;
     const d = Math.hypot(dx, dy);
+    if (d > 0.02 && sp > 0) facePoint(a, tx, ty);
     if (Math.abs(dx) > 0.02) a.facing = dx > 0 ? 1 : -1;
     if (d <= sp) { a.x = tx; a.y = ty; return true; }
     a.x += dx / d * sp; a.y += dy / d * sp;
@@ -880,6 +920,8 @@ export class Wildlife {
   }
 
   chooseTarget(a, def) {
+    a.restSpot = null;
+    a.drinkAt = null;
     const w = this.game.world;
     const map = this.suit[a.sp];
     // on a trip: carry on to the destination (a hunt or a rest may have interrupted it)
@@ -1008,16 +1050,33 @@ export class Wildlife {
   }
 
   // -------------------------------------------------------------- herds and waterholes
+  bankSpot(a, j = null) {
+    const w = this.game.world;
+    if (this.spacing.w !== w || this.spacingDirty) {
+      this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
+    }
+    if (j == null) {
+      if (!w.inb(Math.floor(a.x), Math.floor(a.y))) return null;
+      j = w.idx(Math.floor(a.x), Math.floor(a.y));
+    }
+    return shoreSpot(w, a, j, this.spacing, passable);
+  }
+
   // Every few days, animals walk (or fly) to the nearest water to drink, then stand with their
   // heads down at the edge for a while. Returns true if that's what it's doing now.
   waterhole(a, def) {
     if (def.move === 'swim' || def.noDrink) return false;
     const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (!w.inb(x0, y0)) return false;
-    const here = w.idx(x0, y0), atWater = w.distWater[here] <= 1;
+    const here = w.idx(x0, y0), bank = this.bankSpot(a, here);
     const every = def.drinkEvery ?? 5 + (a.id % 5);
-    if (atWater && a.thirst > every * 0.5) {
-      a.thirst = 0; a.drinkT = 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false;
+    if (bank && bank.crowd < 0.08 && a.thirst > every * 0.5) {
+      if (Math.hypot(a.x - bank.x, a.y - bank.y) > 0.09) {
+        a.localGoal = [bank.x, bank.y]; a.state = 'approach'; a.flying = false;
+        return true;
+      }
+      a.drinkAt = bank.water; facePoint(a, ...bank.water);
+      a.thirst = 0; a.drinkT = 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false; a.alt = 0;
       return true;
     }
     if (a.thirst < every || a.juvenile && def.herd) return false;
@@ -1028,15 +1087,16 @@ export class Wildlife {
         const xx = x0 + Math.round((Math.random() * 2 - 1) * 30), yy = y0 + Math.round((Math.random() * 2 - 1) * 30);
         if (!w.inb(xx, yy)) continue;
         const j = w.idx(xx, yy);
-        if (w.distWater[j] !== 1) continue;
+        if (w.distWater[j] !== 1 || !this.bankSpot(a, j)) continue;
         const d = Math.hypot(xx - x0, yy - y0);
         if (d < bd) { bd = d; best = j; }
       }
       if (best < 0) { a.thirst = 0; return false; }
-      a.tx = (best % w.w) + 0.5; a.ty = ((best / w.w) | 0) + 0.5; a.state = 'fly'; a.flying = true;
+      const spot = this.bankSpot(a, best);
+      a.tx = spot.x; a.ty = spot.y; a.state = 'fly'; a.flying = true;
       return true;
     }
-    const goal = this.pathTo(a, j => w.distWater[j] <= 1, 5000);
+    const goal = this.pathTo(a, j => w.distWater[j] <= 1 && (this.bankSpot(a, j)?.crowd ?? Infinity) < 0.08, 5000);
     if (!goal) { a.thirst = 0; return false; } // no water it can reach: it gets by on dew and green grass
     return true;
   }
@@ -1048,7 +1108,11 @@ export class Wildlife {
     if (!w.inb(x0, y0) || !shallows(w, w.idx(x0, y0))) return false;
     if (Math.random() < 0.55) {
       a.wait = 3 + Math.random() * 6;
-      if (Math.random() < 0.45) a.drinkT = 1 + Math.random(); // head down: a strike at a fish or frog
+      if (Math.random() < 0.45) {
+        a.drinkT = 1 + Math.random(); // head down: a strike at a fish or frog
+        const bank = this.bankSpot(a);
+        if (bank) { a.drinkAt = bank.water; facePoint(a, ...bank.water); }
+      }
       return true;
     }
     const ok = this.pathTo(a, (j, x, y) => shallows(w, j) && Math.hypot(x - x0, y - y0) >= 1.5 && Math.random() < 0.35, 90);
@@ -1086,13 +1150,14 @@ export class Wildlife {
     if (!years || a.age > Math.min(years, def.mature || years) * DAYS_PER_YEAR) { a.mom = null; return false; }
     const mom = this.agents.find(o => o.id === a.mom);
     if (!mom) { a.mom = null; return false; } // on its own now
+    if (biome.waterholes && mom.drinkT > 0 && this.waterhole(a, def)) return true;
     if (!a.momSlot) { const ang = Math.random() * Math.PI * 2, r = 0.45 + Math.random() * 0.4; a.momSlot = [Math.cos(ang) * r, Math.sin(ang) * r]; }
     // head for where she's going, not where she was, so the young keep pace instead of trailing
     const w = this.game.world, dest = mom.state === 'walk' && mom.path?.length ? mom.path[0] : -1;
     const mx = dest >= 0 ? (dest % w.w) + 0.5 : mom.x, my = dest >= 0 ? ((dest / w.w) | 0) + 0.5 : mom.y;
     const tx = mx + a.momSlot[0], ty = my + a.momSlot[1], d = Math.hypot(a.x - tx, a.y - ty);
     a.trip = null;
-    const settle = () => { a.wait = dest >= 0 ? 0.15 : 0.2 + Math.random() * 0.6; if (mom.drinkT > 0) a.drinkT = mom.drinkT; return true; };
+    const settle = () => { a.wait = dest >= 0 ? 0.15 : 0.2 + Math.random() * 0.6; return true; };
     if (d < 0.9) return settle();
     if (this.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 0.9, 700, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty))) { a.follow = true; return true; }
     return d < 1.8 ? settle() : false; // already as close as the tiles allow
@@ -1104,7 +1169,8 @@ export class Wildlife {
     // the leader is drinking: crowd down to the water beside it
     if (lead.drinkT > 0 && a.thirst > 1) {
       const w = this.game.world;
-      if (this.pathTo(a, (j, x, y) => w.distWater[j] <= 1 && Math.abs(x - lead.x) + Math.abs(y - lead.y) < 7, 900)) { a.follow = true; a.trip = null; return true; }
+      if (this.pathTo(a, (j, x, y) => w.distWater[j] <= 1 && Math.abs(x - lead.x) + Math.abs(y - lead.y) < 7 &&
+        (this.bankSpot(a, j)?.crowd ?? Infinity) < 0.08, 900)) { a.follow = true; a.trip = null; return true; }
     }
     if (!a.slot) { const ang = Math.random() * Math.PI * 2, r = 0.8 + Math.random() * (def.herdR ?? 2.5); a.slot = [Math.cos(ang) * r, Math.sin(ang) * r]; }
     const tx = lead.x + a.slot[0], ty = lead.y + a.slot[1];
@@ -1179,7 +1245,9 @@ export class Wildlife {
     };
   }
   load(d) {
-    this.agents = d.agents.map(a => ({ ...a, state: a.state === 'walk' ? 'idle' : a.state, wait: 0.5 }));
+    this.spacingDirty = true;
+    this.agents = d.agents.map(a => ({ ...a, state: a.state === 'walk' ? 'idle' : a.state,
+      wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5 }));
     this.nextId = d.nextId;
     d.state.forEach((s, k) => { if (this.state[k]) Object.assign(this.state[k], s); });
     this.salmon = d.salmon; this.dams = d.dams;

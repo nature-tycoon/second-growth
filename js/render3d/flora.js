@@ -11,6 +11,7 @@ import { withClouds } from './atmosphere.js';
 import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
 import { meadowPatch, patchColor } from './patches.js';
+import { FloraChanges, floraChunkKey } from './flora-changes.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -66,18 +67,19 @@ class Pool {
 }
 
 // Splits instances into map chunks so off-screen plants aren't drawn.
-const CHUNK = 48;
 class ChunkedPool {
-  constructor(make) { this.make = make; this.subs = new Map(); this.view = [0, true, true, 0]; }
+  constructor(make, flora) { this.make = make; this.flora = flora; this.subs = new Map(); this.view = [0, true, true, 0]; }
   setView(...v) { this.view = v; for (const p of this.subs.values()) p.setView(...v); }
-  begin() { for (const p of this.subs.values()) p.begin(); }
+  begin(dirty) { for (const [k, p] of this.subs) if (!dirty || dirty.has(k)) p.begin(); }
   add(x, y, z, ...rest) {
-    const k = Math.floor((x + BORDER) / CHUNK) * 64 + Math.floor((z + BORDER) / CHUNK);
+    // Keep a source tile's flowers, fruit and connecting features together when rebuilding
+    // selected regions, even when a piece extends past a region's boundary.
+    const k = this.flora.incremental ? this.flora.activeChunk : floraChunkKey(x, z, this.flora.chunkSize);
     let p = this.subs.get(k);
     if (!p) { p = this.make(); p.lod = p.kind === 'grass' ? this.view[3] : this.view[0]; this.subs.set(k, p); }
     p.add(x, y, z, ...rest);
   }
-  end() { for (const p of this.subs.values()) { p.end(); p.setView(...this.view); } }
+  end(dirty) { for (const [k, p] of this.subs) if (!dirty || dirty.has(k)) { p.end(); p.setView(...this.view); } }
 }
 
 // Foliage sways in the wind: displacement grows with height above each plant's base.
@@ -148,8 +150,10 @@ export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vi
   'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
 
 export class Flora {
-  constructor(scene) {
+  constructor(scene, { chunkSize = 48, incremental = true } = {}) {
     this.scene = scene;
+    this.chunkSize = chunkSize; this.incremental = incremental;
+    this.changes = new FloraChanges(chunkSize);
     this.wind = { value: 0 };
     // everything that can hide an animal dissolves around the selected one (see focus.js)
     // ...and everything catches snow on top in winter (see snow.js)
@@ -178,7 +182,7 @@ export class Flora {
     if (!p) {
       const geo = this.geo(key, build);
       const geoLo = buildLo ? this.geo(key + ':lo', buildLo) : geo;
-      p = new ChunkedPool(() => new Pool(this.scene, geo, mat, { ...opts, geoLo }));
+      p = new ChunkedPool(() => new Pool(this.scene, geo, mat, { ...opts, geoLo }), this);
       p.setView(...this.view);
       this.pools.set(key, p);
     }
@@ -213,16 +217,22 @@ export class Flora {
     for (const m of [this.foliage, this.shrubs, this.bark]) { m.transparent = on; m.opacity = on ? 0.28 : 1; m.depthWrite = !on; m.needsUpdate = true; }
   }
 
-  // ------------------------------------------------------------ rebuild everything from the world
-  rebuild(game) {
+  // Rebuild changed source regions. World, season, height and graphics changes rebuild fully.
+  rebuild(game, force = false) {
     const w = game.world, B = game.border, month = game.month;
-    for (const p of this.pools.values()) p.begin();
+    const dirty = this.incremental && !force ? this.changes.find(game, this.light) : null;
+    this.lastRebuild = { full: !dirty, tiles: 0, regions: dirty?.size ?? null };
+    if (dirty && !dirty.size) return;
+    for (const p of this.pools.values()) p.begin(dirty);
     const dots = this.pool('dot', () => G.blob(0xffffff), this.small, { shadow: false });
     const x0 = -BORDER, y0 = -BORDER, x1 = w.w + BORDER, y1 = w.h + BORDER;
     const hAt = (x, y) => w.heightAt(x, y) * LEVEL;
     const seaY = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
 
     for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      this.activeChunk = floraChunkKey(x, y, this.chunkSize);
+      if (dirty && !dirty.has(this.activeChunk)) continue;
+      this.lastRebuild.tiles++;
       const inside = w.inb(x, y);
       const i = inside ? w.idx(x, y) : -1;
       const bi = inside ? -1 : B.bi(x, y);
@@ -356,8 +366,8 @@ export class Flora {
           let shape = this.geos.get(`treeparts:${key}`);
           if (!shape) { shape = build(); shape.lo = build(1); this.geos.set(`treeparts:${key}`, shape); }
           if (!this.pools.has(`crown:${key}`)) {
-            const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown }));
-            const trunkP = new ChunkedPool(() => new Pool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk }));
+            const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown }), this);
+            const trunkP = new ChunkedPool(() => new Pool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk }), this);
             crown.setView(...this.view); trunkP.setView(...this.view);
             this.pools.set(`crown:${key}`, crown); this.pools.set(`trunk:${key}`, trunkP);
           }
@@ -369,7 +379,7 @@ export class Flora {
           // trees with a fruit part of their own (the oil palm's bunches) show it, in the berry colour, once old enough to bear
           if (shape.fruit && phase === 'fruit' && p.look.berry && g > 0.45) {
             if (!this.pools.has(`fruit:${key}`)) {
-              const fp = new ChunkedPool(() => new Pool(this.scene, shape.fruit, this.bark, { geoLo: shape.lo.fruit }));
+              const fp = new ChunkedPool(() => new Pool(this.scene, shape.fruit, this.bark, { geoLo: shape.lo.fruit }), this);
               fp.setView(...this.view); this.pools.set(`fruit:${key}`, fp);
             }
             this.pools.get(`fruit:${key}`).add(tx, ty, tz, sc, sc, sc, rot, vary(rgb(p.look.berry).map(c => c * dim), x, y, 14, 0.08));
@@ -469,6 +479,7 @@ export class Flora {
         }
       }
     }
-    for (const p of this.pools.values()) p.end();
+    for (const p of this.pools.values()) p.end(dirty);
+    if (this.incremental) this.changes.remember(game, this.light);
   }
 }
