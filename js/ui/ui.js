@@ -22,6 +22,8 @@ import { renderPortrait, renderPlants } from '../render3d/portraits.js';
 import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
 import { Undo } from '../undo.js';
+import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
+import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
 import { track, trackExit, setContext, setAnalyticsEnabled, sendFeedback, feedbackPossible, GAME_VERSION } from '../analytics.js';
 
 const $ = sel => document.querySelector(sel);
@@ -184,7 +186,10 @@ export class UI {
     game.on('moment', m => this.playMoment(m));
     game.on('reset', () => { this.undo.clear(); this.journal = []; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
-    game.on('month', () => { if (this.state.cat !== 'inspect') this.renderToolPanel(); });
+    game.on('month', () => {
+      if (this.state.cat !== 'inspect') this.renderToolPanel();
+      this.refreshWildlifeGuide?.();
+    });
     game.on('event', kind => { if ((kind === 'fire' || kind === 'flood') && settings.pauseOnEvents && game.speed) this.setSpeed(0); });
     this.bindAnalytics();
     this.applySettings();
@@ -565,6 +570,7 @@ export class UI {
         html += `<div class="sci">${p.sci} · ${p.kindName || biome.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>`;
       }
       html += `<div>${t.desc}</div>`;
+      if (this.game.diff.ecology && CHALLENGE_TOOL_ADVICE[t.key] && !biome.look.underwater) html += `<div>${CHALLENGE_TOOL_ADVICE[t.key]}</div>`;
       if (t.species) {
         const sp = [...new Set(t.species)].map(k => PLANT[k]); // (a mix can weight one species by listing it twice)
         if (sp.length === 1) {
@@ -677,7 +683,13 @@ export class UI {
       <span class="k">Population</span><span>${st.pop} here · room for ${Math.floor(st.K)}</span></div>
       <p class="info-desc">${def.desc}</p>
       <div class="section-title">Needs</div><p class="info-desc">${def.hint}</p>
+      ${this.wildlifeDiagnosticHTML(def)}
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn" data-overlay="${def.index}">Show habitat</button><button class="btn secondary" data-guide="${def.key}">Field guide</button>${st.pop > 1 ? `<button class="btn secondary" data-next="${def.key}" title="Jump to another ${def.name.toLowerCase()}">Next one</button>` : ''}</div>`;
+  }
+  wildlifeDiagnosticHTML(def) {
+    const d = wildlifeDiagnostics(this.game, def);
+    return `<div class="section-title">Wildlife status</div><p class="info-desc st ${d.tone === 'info' ? '' : d.tone}"><b>${d.status}</b></p>
+      ${d.rows.map(row => `<div class="need"><span class="st ${row.tone === 'info' ? '' : row.tone}" aria-hidden="true">${row.tone === 'good' ? '●' : row.tone === 'warn' ? '▲' : '•'}</span><span><b>${row.title}</b><br>${row.text}</span></div>`).join('')}`;
   }
   tileHTML(i) {
     const g = this.game, w = g.world;
@@ -708,6 +720,7 @@ export class UI {
     html += `</div>`;
     const note = biome.tileNote?.(this.game, i);
     if (note) html += `<div class="info-desc">${note}</div>`;
+    for (const pressure of pressureTileNotes(g, i)) html += `<div class="info-desc">${pressure}</div>`;
     if (w.fire[i]) html += `<div class="info-desc st bad"><b>On fire!</b> Use the Fire crew tool to put it out.</div>`;
     else if (w.flood[i]) html += `<div class="info-desc"><b>Flooded</b> for another ${w.flood[i]} days.</div>`;
     else if (w.scorch[i] > 0) html += `<div class="info-desc">Burned recently. The ash will feed new growth.</div>`;
@@ -866,38 +879,36 @@ export class UI {
     const g = this.game;
     const wl = g.wildlife;
     wl.computeSuitability();
-    const m = this.modal('Field Guide', `<div class="tabs" style="padding:0 0 8px"><button data-tab="animals">Wildlife</button><button data-tab="plants">Plants</button></div><div class="guide"><div class="guide-list"></div><div class="guide-detail"></div></div>`);
+    const m = this.modal('Field Guide', `<div class="tabs" style="padding:0 0 8px"><button data-tab="animals">Wildlife</button><button data-tab="plants">Plants</button></div><div class="guide"><div class="guide-list"></div><div class="guide-detail"></div></div>`, { onClose: () => { this.refreshWildlifeGuide = null; } });
     const list = m.querySelector('.guide-list'), detail = m.querySelector('.guide-detail');
     const counts = {};
     const w = g.world;
     for (let i = 0; i < w.n; i++) for (const id of [w.ground[i], w.shrub[i], w.tree[i]]) if (id) counts[id] = (counts[id] || 0) + 1;
 
     const showAnimal = def => {
+      this.refreshWildlifeGuide = () => {
+        if (!m.isConnected) { this.refreshWildlifeGuide = null; return; }
+        showAnimal(def); // Wildlife.monthly() already refreshed the capacity fields.
+      };
       const st = wl.state[def.index];
       const known = st.discovered || def.intro;
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === def.key));
       const needs = [];
-      const cap = st.K;
-      if (st.pop > 0) needs.push(['good', `${st.pop} living here now.`]);
       if (def.season) needs.push(['info', `Migratory: here from ${seasonText(def.season)}.`]);
-      if (def.special === 'salmon') {
-        needs.push([g.flags.salmonSpawned ? 'good' : 'info', 'Runs arrive in October if the creek is connected to the river.']);
-      } else if (cap >= def.minK) needs.push(['good', `The habitat here has room for about ${Math.floor(cap)}.`]);
-      else needs.push(['warn', `Not enough habitat yet (room for ${cap.toFixed(1)}, needs ${def.minK}).`]);
-      if (def.prey && st.preyK != null && st.preyK < (st.habitatK ?? 0)) needs.push(['warn', `Limited by prey. More ${def.prey.map(k => many(ANIMAL[k])).join(' or ')} would help.`]);
-      needs.push(['info', `Arrives from ${[...new Set(def.sources.map(s => biome.text.edges[s]))].join(', ')}.`]);
+      if (def.sources.length) needs.push(['info', `Arrives from ${[...new Set(def.sources.map(s => biome.text.edges[s]))].join(', ')}.`]);
       if (def.intro) needs.push(['info', `Can be reintroduced (${money(def.intro)}) from the Wildlife tools.`]);
-      if (def.fenced) needs.push(['info', 'Blocked by fences along the property edge.']);
       detail.innerHTML = `<div class="hero-wrap"><img class="hero" src="${animalThumb(def.key)}"${known ? '' : ' style="filter:brightness(0) opacity(.35);background:none"'}></div>
         <h3>${known ? def.name : 'Not yet seen'}</h3><div class="small"><i>${known ? def.sci : def.group}</i></div>
         <p class="info-desc">${known ? def.desc : 'Something that might live here someday. The clue below says what it needs.'}</p>
         <div class="section-title">Habitat needs</div><p class="info-desc">${def.hint}</p>
+        ${this.wildlifeDiagnosticHTML(def)}
         ${needs.map(([c, t]) => `<div class="need"><span class="st ${c === 'info' ? '' : c}">${c === 'good' ? '●' : c === 'warn' ? '▲' : '•'}</span><span>${t}</span></div>`).join('')}
         <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">${st.pop > 0 ? `<button class="btn" id="g-find">Find on map${st.pop > 1 ? ` (${st.pop})` : ''}</button>` : ''}<button class="btn ${st.pop > 0 ? 'secondary' : ''}" id="g-show">Show suitable habitat on map</button></div>`;
       detail.querySelector('#g-show').addEventListener('click', () => { this.closeModal(); this.setOverlay('species', def.index); });
       detail.querySelector('#g-find')?.addEventListener('click', () => this.locateAnimal(def));
     };
     const showPlant = p => {
+      this.refreshWildlifeGuide = null;
       const sea = !!biome.look.underwater;
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === p.key));
       detail.innerHTML = `<img class="hero" src="${plantThumb(p.key)}"><h3>${p.name}</h3><div class="small"><i>${p.sci}</i> · ${p.kindName || biome.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>
@@ -1120,6 +1131,7 @@ export class UI {
     });
     m.querySelectorAll('[data-seg=difficulty] [data-d]').forEach(b => b.addEventListener('click', () => {
       g.difficulty = b.dataset.d;
+      g.wildlife.computeSuitability();
       track('setting_changed', { setting: 'difficulty', value: g.difficulty });
       this.openSettings('game');
       if (this.state.cat !== 'inspect') this.renderToolPanel();

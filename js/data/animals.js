@@ -15,6 +15,11 @@ export const near = (d, n, far = 0.15) => d <= n ? 1 : far;
 export const ANIMALS = [];
 export const ANIMAL = {};
 
+// Additional diets are active only in Challenging; existing food webs retain
+// their diets in every difficulty. The registry compiles fish keys once per map.
+export const preyFor = (def, game) => def.prey || (game.diff.ecology ? def.challengePrey : null);
+export const preyPer = (def, game) => def.prey ? def.preyPer : game.diff.ecology ? def.challengePreyPer || def.preyPer : def.preyPer;
+
 function def(a) {
   const o = Object.assign({
     minK: 1, groupSize: [1, 1], mig: 0.3, intro: null, breed: [1, 2], litter: [1, 2],
@@ -45,6 +50,9 @@ export function loadAnimals(build) {
     a.fenced = !!meta.fenced?.includes(a.key);
     a.damBuilder = !!meta.damBuilders?.includes(a.key);
     a.browseRate = meta.browsers?.[a.key] || 0;
+    const diet = meta.fishHunters?.[a.key];
+    a.challengePrey = diet ? ANIMALS.filter(p => !p.notPrey && (p.sprite.kind === 'fish' && p.move === 'swim' || diet === 'fish-frogs' && p.sprite.kind === 'frog')).map(p => p.key) : null;
+    a.challengePreyPer = a.sprite.kind === 'otter' ? 4 : 2;
   }
 }
 
@@ -64,4 +72,3 @@ export const one = def => NAMES[def.key]?.[0] ?? def.name;
 export const many = def => NAMES[def.key]?.[1] ?? def.name + 's';
 export const aOne = def => (/^[aeiou]/i.test(one(def)) ? 'an ' : 'a ') + one(def);
 export const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-

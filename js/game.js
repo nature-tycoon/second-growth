@@ -27,7 +27,7 @@ export const WORLD_ARRAYS = ['terrain', 'baseMoist', 'moist', 'soil', 'ground', 
 // Arrays a map or system adds to the world only once it needs them (the reef's bleaching, the
 // savanna's seed bank, worn game trails, the suburb's bloom calendar): saved when they exist, and
 // rebuilt with the same type on load.
-export const EXTRA_ARRAYS = { bleach: Float32Array, seedbank: Uint16Array, trod: Float32Array, bloomLast: Int32Array };
+export const EXTRA_ARRAYS = { bleach: Float32Array, seedbank: Uint16Array, trod: Float32Array, bloomLast: Int32Array, mulchDays: Uint16Array, browseDamage: Float32Array };
 
 export class Game {
   constructor() {

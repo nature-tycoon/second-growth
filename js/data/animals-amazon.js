@@ -295,5 +295,6 @@ export default function buildAmazonAnimals(def) {
     fenced: ['tapir'],
     damBuilders: [],
     browsers: { tapir: 0.006 },
+    fishHunters: { cocoi: 'fish', amkingfisher: 'fish', dolphin: 'fish' },
   };
 }

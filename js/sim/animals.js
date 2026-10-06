@@ -3,11 +3,12 @@
 
 import { STRUCTURES } from '../world.js';
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { ANIMALS, ANIMAL, many, cap } from '../data/animals.js';
+import { ANIMALS, ANIMAL, many, cap, preyFor, preyPer } from '../data/animals.js';
 import { PLANTS } from '../data/plants.js';
 import { killTree } from './plants.js';
 import { biome } from '../biome.js';
 import { moment, momentFree } from './moments.js';
+import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -17,6 +18,19 @@ const WADERS = new Set(['heron', 'crane']);
 // Animals that swim in open water move in any direction, diagonals too (river fish, and everything on the reef).
 const swimmer = a => a.move === 'swim' || !!ANIMALS[a.sp]?.reef;
 const shallows = (w, i) => { const t = w.terrain[i]; return t === T.MARSH || t === T.CREEK || t === T.MUD || (w.distWater[i] === 1 && !isWater(t)); };
+
+export const SALMON_RUN_MONTH = 7;
+export const SALMON_MIN_HABITAT = 15;
+export const migrationFenceCount = w => {
+  let count = 0;
+  for (let x = 0; x < w.w; x++) if (w.feature[w.idx(x, 0)] === F.FENCE) count++;
+  return count;
+};
+export function arrivalFinding(def, st) {
+  if (st.pop > 0 || st.discovered || def.quick) return 1;
+  const ramp = def.season ? def.season.length / 12 : 1;
+  return clamp(((st.ready || 0) - 3 * ramp) / (16 * ramp), 0, 1);
+}
 
 export function passable(w, i, a) {
   const move = a.move;
@@ -109,32 +123,47 @@ export class Wildlife {
     this.updateGlobals();
     for (const def of ANIMALS) {
       const map = this.suit[def.index];
-      let sum = 0;
+      let sum = 0, calmSum = 0, rawSum = 0, salmonHabitat = 0;
       // The river is the neighbours' habitat: animals pass through it, but it counts little toward what lives here.
       const shy = def.shy, onLand = def.move === 'ground';
       for (let i = 0; i < w.n; i++) {
-        let s = def.suit(w, i) * (1 - shy * w.disturb[i]);
+        const raw = def.suit(w, i);
+        let calm = raw;
+        let s = raw * (1 - shy * w.disturb[i]);
         if (w.fire[i]) s = 0;
         else if (w.flood[i] && onLand) s *= 0.15;
+        if (w.fire[i]) calm = 0;
+        else if (w.flood[i] && onLand) calm *= 0.15;
         map[i] = s;
-        sum += w.terrain[i] === T.RIVER ? s * 0.12 : s;
+        const weight = w.terrain[i] === T.RIVER ? 0.12 : 1;
+        sum += s * weight; calmSum += calm * weight; rawSum += raw * weight;
+        if (def.special === 'salmon' && s > 0.25 && w.terrain[i] === T.CREEK) salmonHabitat++;
       }
       const st = this.state[def.index];
       st.suitSum = sum;
-      let K = sum / def.hr * clamp(def.req(this.g), 0, 1.5);
+      st.baseK = sum / def.hr;
+      st.calmK = calmSum / def.hr;
+      st.rawK = rawSum / def.hr;
+      st.resourceFactor = clamp(def.req(this.g), 0, 1.5);
+      let K = st.baseK * st.resourceFactor;
       st.habitatK = K;
-      if (def.prey) {
+      st.preyK = null; st.hostK = null;
+      const diet = preyFor(def, this.game);
+      if (diet) {
         let prey = 0;
-        for (const pk of def.prey) if (ANIMAL[pk]) prey += this.state[ANIMAL[pk].index].pop;
-        st.preyK = prey / def.preyPer;
+        for (const pk of diet) if (ANIMAL[pk]) prey += this.state[ANIMAL[pk].index].pop;
+        st.preyK = prey / preyPer(def, this.game);
         K = Math.min(K, st.preyK);
       }
       // species it lives off without hunting (vultures follow the herds, dung beetles their dung)
       if (def.needs) {
         let host = 0;
         for (const hk of def.needs) if (ANIMAL[hk]) host += this.state[ANIMAL[hk].index].pop;
-        K = Math.min(K, host / def.needsPer);
+        st.hostK = host / def.needsPer;
+        K = Math.min(K, st.hostK);
       }
+      // The spawning run uses qualifying creek tiles, rather than the ordinary capacity rule.
+      if (def.special === 'salmon') { st.salmonHabitat = salmonHabitat; K = salmonHabitat / def.hr; }
       st.K = Math.min(def.max, K);
     }
   }
@@ -240,8 +269,7 @@ export class Wildlife {
   // through on their way north to the park, so while the north fence cuts that route, they don't come.
   crossRiver(def, n) {
     const w = this.game.world, rng = this.game.rng, st = this.state[def.index];
-    let fence = 0;
-    for (let x = 0; x < w.w; x++) if (w.feature[w.idx(x, 0)] === F.FENCE) fence++;
+    const fence = migrationFenceCount(w);
     if (fence > 4) {
       if (!st.blockedNotified) {
         st.blockedNotified = true;
@@ -320,7 +348,7 @@ export class Wildlife {
 
       // births
       if (def.breed.includes(m) && pop >= 2 && pop < K) {
-        const adults = mine.filter(a => a.age >= def.mature * DAYS_PER_YEAR);
+        const adults = mine.filter(a => a.age >= def.mature * DAYS_PER_YEAR && !hungryPredator(game, a, def));
         const pairs = Math.floor(adults.length / 2);
         for (let p = 0; p < pairs && pop < K * 1.15; p++) {
           if (rng() > 0.75 * (1 - pop / Math.max(K, 1))) continue;
@@ -339,6 +367,9 @@ export class Wildlife {
       // deaths and departures
       const over = pop > K * 1.1 ? (pop - K) / pop : 0;
       for (const a of mine) {
+        if (hungryPredator(game, a, def) && rng() < 0.2) {
+          this.leave(a); foodDeparture(game, a); pop--; continue;
+        }
         let p = 1 / (def.life * 12);
         if (over) p += 0.3 * over;
         if (K < 0.5) p += 0.12;
@@ -356,9 +387,8 @@ export class Wildlife {
       st.ready = K >= def.minK ? (st.ready || 0) + 1 : 0;
       if (K >= def.minK && pop < K) {
         // seasonal visitors only count their months here, so they catch on proportionally faster
-        const ramp = def.season ? def.season.length / 12 : 1;
         // (quick: butterflies, bees and hummingbirds find a new garden within weeks, not seasons)
-        const finding = pop === 0 && !st.discovered && !def.quick ? clamp((st.ready - 3 * ramp) / (16 * ramp), 0, 1) : 1;
+        const finding = arrivalFinding(def, { ...st, pop });
         const chance = def.mig * (pop === 0 ? 1 : 0.35) * clamp((K - pop) / K + 0.2, 0, 1) * game.diff.arrivals * finding;
         if (rng() < chance) {
           const n = def.groupSize[0] + Math.floor(rng() * (def.groupSize[1] - def.groupSize[0] + 1));
@@ -391,7 +421,7 @@ export class Wildlife {
     }
     st.K = Math.min(def.max, habitat / def.hr);
     const year = game.year;
-    if (m === 7 && habitat >= 15) {
+    if (m === SALMON_RUN_MONTH && habitat >= SALMON_MIN_HABITAT) {
       const returns = Math.round((S.fry[year - 3] || 0) * 0.025);
       const strays = Math.floor(rng() * 3) + 1;
       const n = Math.min(def.max, Math.max(1, Math.min(Math.ceil(st.K), strays + returns)));
@@ -476,7 +506,10 @@ export class Wildlife {
     if (w.inb(x0, y0) && w.distWater[w.idx(x0, y0)] <= 1 && bd < 16) {
       a.wait = 2.5 + Math.random() * 4; a.drinkT = 1.2 + Math.random(); // head down over the water
       if (this.salmonRun && !this.salmonRun.shown && this.game.day - this.salmonRun.from >= 1 && momentFree(this.game)) { this.salmonRun.shown = moment(this.game, 'salmon', a) || true; }
-      if (Math.random() < 0.08 && bd < 4) { this.game.onPredation(a, f); this.remove(f, 'predation'); }
+      if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, f, ANIMALS[a.sp], 0.08) && bd < 4) {
+        if (this.game.diff.ecology) a.hunger = 0;
+        this.game.onPredation(a, f); this.remove(f, 'predation');
+      }
       return true;
     }
     return this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && (x - f.x) ** 2 + (y - f.y) ** 2 < 6, 4000);
@@ -519,11 +552,14 @@ export class Wildlife {
 
   // -------------------------------------------------------------- daily behaviour
   daily() {
-    const game = this.game, w = game.world, rng = game.rng;
+    const game = this.game, w = game.world, rng = game.rng, ecology = !!game.diff.ecology;
     // trodden ground: where the big grazers walk day after day, a trail wears into the land
     // (how worn each tile is, fading slowly when they stop coming; drawn by the terrain)
     const trod = w.trod || (w.trod = new Float32Array(w.n));
-    for (let i = 0; i < w.n; i++) if (trod[i] > 0) trod[i] = trod[i] < 0.01 ? 0 : trod[i] * 0.985;
+    for (let i = 0; i < w.n; i++) {
+      if (trod[i] > 0) trod[i] = trod[i] < 0.01 ? 0 : trod[i] * 0.985;
+      if (ecology && w.browseDamage?.[i] > 0) w.browseDamage[i] = w.browseDamage[i] < 0.001 ? 0 : w.browseDamage[i] * 0.94;
+    }
     for (const a of this.agents.slice()) {
       if (a.leaving) continue;
       const def = ANIMALS[a.sp];
@@ -532,14 +568,16 @@ export class Wildlife {
       const i = w.idx(x, y);
       a.hunger += 1;
 
-      if (def.prey && a.state !== 'hunt' && a.hunger > 7 && rng() < 0.4) this.startHunt(a, def);
+      const diet = preyFor(def, game);
+      if (diet && a.state !== 'hunt' && a.hunger > 7 && rng() < 0.4) this.startHunt(a, def, diet);
 
       if (def.damBuilder) this.beaverDay(a, x, y, i);
       else if (def.browseRate && a.state === 'idle') {
         const s = w.shrub[i];
         if (s && !PLANTS[s].invasive && w.shrubG[i] > 0.3) w.shrubG[i] -= def.browseRate;
         // (a sapling set in the fence line is out of reach, behind the wire)
-        if (w.tree[i] && w.treeG[i] < 0.4 && w.feature[i] !== F.FENCE) w.treeG[i] = Math.max(0.05, w.treeG[i] - 0.01);
+        if (ecology) browseSapling(game, a, def);
+        else if (w.tree[i] && w.treeG[i] < 0.4 && w.feature[i] !== F.FENCE) w.treeG[i] = Math.max(0.05, w.treeG[i] - 0.01);
       }
       // On the savanna the herds nibble and trample woody seedlings wherever they feed, which
       // (with fire) is what keeps the plains open grassland instead of thornbush.
@@ -557,15 +595,39 @@ export class Wildlife {
     }
   }
 
-  startHunt(a, def) {
+  startHunt(a, def, diet = preyFor(def, this.game)) {
     let best = null, bd = 12 * 12;
-    const preySet = new Set(def.prey.map(k => ANIMAL[k].index));
+    const preySet = new Set(diet.map(k => ANIMAL[k].index));
     for (const b of this.agents) {
       if (!preySet.has(b.sp) || b.leaving) continue;
+      if (this.game.diff.ecology && def.move !== 'fly' && (b.flying || b.alt > 0.2)) continue;
       const d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
       if (d < bd) { bd = d; best = b; }
     }
     if (best) { a.state = 'hunt'; a.target = best.id; a.huntTime = 3; a.path = null; if (a.move === 'fly') a.flying = true; }
+  }
+
+  evadeHunt(a, predator) {
+    const w = this.game.world, def = ANIMALS[a.sp], pd = ANIMALS[predator.sp];
+    const x = Math.floor(a.x), y = Math.floor(a.y);
+    const distance = (a.x - predator.x) ** 2 + (a.y - predator.y) ** 2;
+    let best = -1, score = -Infinity;
+    // Only evaluate neighbouring tiles after a failed catch: no extra pathfinding
+    // or searches in the ordinary per-frame movement loop.
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if ((!dx && !dy) || !w.inb(x + dx, y + dy)) continue;
+      const j = w.idx(x + dx, y + dy);
+      if (!passable(w, j, def)) continue;
+      if (dx && dy && def.move !== 'fly' && (!w.inb(x + dx, y) || !w.inb(x, y + dy) || !passable(w, w.idx(x + dx, y), def) || !passable(w, w.idx(x, y + dy), def))) continue;
+      const d = (x + dx + 0.5 - predator.x) ** 2 + (y + dy + 0.5 - predator.y) ** 2;
+      if (d <= distance) continue;
+      const s = d + preyCover(w, { sp: a.sp, x: x + dx, y: y + dy }, pd) * 2;
+      if (s > score) { best = j; score = s; }
+    }
+    if (best < 0) return;
+    a.follow = false;
+    if (def.move === 'fly') { a.state = 'fly'; a.flying = true; a.tx = best % w.w + 0.5; a.ty = (best / w.w | 0) + 0.5; }
+    else { a.state = 'walk'; a.path = [best]; }
   }
 
   beaverDay(a, x, y, i) {
@@ -673,9 +735,16 @@ export class Wildlife {
           }
           break;
         case 'hunt': {
+          // A difficulty change also stops hunts that only exist in Challenging.
+          if (!preyFor(def, this.game)) { a.state = 'idle'; a.wait = 1; a.flying = false; break; }
           a.huntTime -= dt;
           const b = this.agents.find(o => o.id === a.target);
-          if (!b || b.leaving || a.huntTime <= 0) { a.state = 'idle'; a.wait = 1; break; }
+          if (!b || b.leaving || a.huntTime <= 0) {
+            a.state = 'idle'; a.wait = 1;
+            if (this.game.diff.ecology && a.move === 'fly') a.flying = false;
+            break;
+          }
+          if (this.game.diff.ecology && a.move !== 'fly' && (b.flying || b.alt > 0.2)) { a.state = 'idle'; a.wait = 1; break; }
           if (a.move === 'fly') a.alt = Math.min(1, a.alt + dt * 2);
           const nx = a.x + Math.sign(b.x - a.x) * 0.3, ny = a.y + Math.sign(b.y - a.y) * 0.3;
           if (a.move !== 'fly' && w.inb(Math.floor(nx), Math.floor(ny))) {
@@ -684,11 +753,13 @@ export class Wildlife {
             if (!passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2)) { a.state = 'idle'; a.wait = 1; break; }
           }
           if (this.stepToward(a, b.x, b.y, sp * 1.6) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25) {
-            a.state = 'idle'; a.wait = 1.5; a.hunger = 0;
-            if (Math.random() < 0.45) {
+            a.state = 'idle'; a.wait = 1.5;
+            if (!this.game.diff.ecology) a.hunger = 0;
+            if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def)) {
+              a.hunger = 0;
               this.game.onPredation(a, b);
               this.remove(b, 'predation');
-            }
+            } else if (this.game.diff.ecology) this.evadeHunt(b, a);
             if (a.move === 'fly') a.flying = false;
           }
           break;

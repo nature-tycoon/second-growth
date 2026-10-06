@@ -281,5 +281,6 @@ export default function buildChinandegaAnimals(def) {
     },
     frugivores: ['capuchin', 'coati', 'agouti', 'bat', 'lora', 'chocoyo', 'urraca'], fenced: ['deer'],
     browsers: { deer: 0.012, cattle: 0.02 },
+    fishHunters: { egret: 'fish' },
   };
 }

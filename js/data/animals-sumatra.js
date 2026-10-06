@@ -391,5 +391,6 @@ export default function buildSumatraAnimals(def) {
     fenced: ['gajah', 'tapir', 'sambar', 'sumrhino'],
     damBuilders: [],
     browsers: { gajah: 0.01, sambar: 0.004, tapir: 0.004 },
+    fishHunters: { kingfisher: 'fish', stork: 'fish' },
   };
 }

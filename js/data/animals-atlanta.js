@@ -336,5 +336,6 @@ export default function buildAtlantaAnimals(def) {
     },
     frugivores: ['cardinal', 'bluebird', 'opossum', 'boxturtle'], fenced: ['deer', 'fox', 'boxturtle'],
     browsers: { deer: 0.012 },
+    fishHunters: { heron: 'fish' },
   };
 }

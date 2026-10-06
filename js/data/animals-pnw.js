@@ -371,5 +371,6 @@ export default function buildPnwAnimals(def) {
     // dam builders, and browsers that nibble shrubs down
     frugivores: ['robin', 'thrush', 'jay', 'bear'], fenced: ['deer', 'elk'], damBuilders: ['beaver'],
     browsers: { deer: 0.012, elk: 0.02 },
+    fishHunters: { otter: 'fish', heron: 'fish-frogs', kingfisher: 'fish', eagle: 'fish' },
   };
 }

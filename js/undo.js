@@ -49,6 +49,8 @@ export class Undo {
     }
     for (let i = 0; i < w.n; i++) if (A.struct[i] !== w.struct[i]) back.add(i); // (a whole building, however far it reaches)
     for (const i of back) for (const k in A) if (k !== 'vh' && w[k] && A[k].length === w.n) w[k][i] = A[k][i];
+    // The first mulch stroke can create its array after the snapshot was taken.
+    if (c.tool.key === 'mulch' && w.mulchDays && !A.mulchDays) for (const i of back) w.mulchDays[i] = 0;
     for (const k in A) if (w[k] && A[k].length !== w.n) w[k].set(A[k]); // (the height grid isn't one value a tile: put it all back)
     w.structures = c.structures;
     // the money and the books

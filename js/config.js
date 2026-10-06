@@ -77,8 +77,8 @@ export const DIFFICULTY = {
                  desc: 'More money, cheaper work, fewer fires and floods. Just enjoy the valley coming back.' },
   standard:    { name: 'Standard', startMoney: 30000, grants: 1, costs: 1, disasters: 1, invasives: 1, arrivals: 0.5,
                  desc: 'The intended balance: money is tight, wildlife takes its time to return, and visitors become your main income.' },
-  challenging: { name: 'Challenging', startMoney: 22000, grants: 0.75, costs: 1.25, disasters: 1.5, invasives: 1.4, arrivals: 0.35,
-                 desc: 'Smaller grants, pricier work, more disasters and pushier invasives. Every dollar counts.' },
+  challenging: { name: 'Challenging', startMoney: 22000, grants: 0.75, costs: 1.25, disasters: 1.5, invasives: 1.4, arrivals: 0.35, ecology: true,
+                 desc: 'Wildlife can browse seedlings and deplete prey populations. Shelter helps prey survive, predators need successful hunts, and young plants face drought and competing grass, alongside tighter budgets and more disasters.' },
 };
 // Big balances in a short form for tight spaces ($2.08M, $152k).
 export const moneyShort = n => {

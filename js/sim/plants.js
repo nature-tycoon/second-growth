@@ -5,6 +5,7 @@ import { biome } from '../biome.js';
 import { ANIMAL } from '../data/animals.js';
 import { PLANTS, PLANT } from '../data/plants.js';
 import { layerLight } from './environment.js';
+import { stressYoungPlant } from './ecological-pressure.js';
 
 const rangeFit = (v, lo, hi, soft) => v < lo ? Math.max(0, 1 - (lo - v) / soft) : v > hi ? Math.max(0, 1 - (v - hi) / soft) : 1;
 
@@ -160,6 +161,7 @@ function disperse(w, p, x, y, rng, radiusBoost) {
 
 export function updatePlants(game) {
   const w = game.world, rng = game.rng, m = game.month;
+  const ecology = !!game.diff?.ecology;
   const gf = biome.climate.growth[m], sf = biome.climate.spread[m];
   const W = w.w;
   const frugivores = game.frugivoreCount || 0;
@@ -222,6 +224,7 @@ export function updatePlants(game) {
       // weedy bushes on healthy grassland lose out over the years (a thick native sward, hotter
       // grass fires and browsing all work against them)
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !PLANTS[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0025 * bankK) g = 0;
+      if (ecology && g > 0) g = stressYoungPlant(game, i, p, g);
       if (g <= 0) { w.shrub[i] = 0; w.shrubG[i] = 0; }
       else {
         g = Math.min(1, g); w.shrubG[i] = g; cover += g;
@@ -256,6 +259,7 @@ export function updatePlants(game) {
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !PLANTS[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
       // savanna: in the dry months, trees packed into a thicket run short of water and some die back
       else if (biome.savanna && gf < 0.6 && !p.invasive && w.distWater[i] > 3 && rng() < 0.006 && crowded(w, i, 3)) dies = true;
+      if (ecology && !dies && g > 0) g = stressYoungPlant(game, i, p, g);
       if (g <= 0) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
       else if (dies) killTree(w, i, rng);
       else {
@@ -287,6 +291,7 @@ export function updatePlants(game) {
 
     // ---- soil slowly heals under living cover, faster in the growing season
     w.soil[i] = clamp(w.soil[i] + soilRate * cover * (0.3 + gf), 0, 1);
+    if (ecology && w.mulchDays?.[i] > 0) w.mulchDays[i]--;
   }
 }
 

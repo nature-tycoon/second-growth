@@ -6,6 +6,7 @@ import { ANIMALS, ANIMAL, many } from './data/animals.js';
 import { STRUCTURES } from './world.js';
 import { plantSuit } from './sim/plants.js';
 import { onBiome, biome } from './biome.js';
+import { MULCH_DAYS } from './sim/ecological-pressure.js';
 
 const land = t => !isWater(t);
 const DEPTH = { [T.POND]: 0.6, [T.MARSH]: 0.2, [T.CREEK]: 0.4 };
@@ -76,8 +77,14 @@ tool({ key: 'mulch', cat: 'land', name: 'Compost & mulch', cost: 10, icon: { ter
   desc: 'Spread compost and wood chips. Gives worn-out soil a head start.',
   apply: (game, i) => {
     const w = game.world, t = w.terrain[i];
-    if (isWater(t) || t === T.ROAD || w.struct[i] >= 0 || w.soil[i] >= 0.75) return null;
-    w.soil[i] = Math.min(0.8, w.soil[i] + 0.15);
+    if (isWater(t) || t === T.ROAD || w.struct[i] >= 0) return null;
+    const protect = game.diff.ecology && !biome.look.underwater;
+    if (w.soil[i] >= 0.75 && (!protect || w.mulchDays?.[i] >= MULCH_DAYS - 30)) return null;
+    w.soil[i] = Math.max(w.soil[i], Math.min(0.8, w.soil[i] + 0.15));
+    if (protect) {
+      const mulch = w.mulchDays ||= new Uint16Array(w.n);
+      mulch[i] = MULCH_DAYS;
+    }
     return true;
   } });
 
