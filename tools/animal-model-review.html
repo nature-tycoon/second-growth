@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Second Growth — animal model review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{margin:0;padding:24px;background:#edf0e8;color:#26392e;font:15px system-ui}h1{font-size:24px;margin:0 0 8px}p{margin:8px 0 16px}label{margin-right:16px}select{font:inherit;padding:6px}main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}article{background:#fafbf7;border:1px solid #d1d9cd;border-radius:10px;padding:12px}article[hidden]{display:none}h2{font-size:15px;margin:0}canvas{display:block;width:100%;aspect-ratio:4/3}small{display:block;color:#536553;font-variant-numeric:tabular-nums}#status{font-size:13px}@media(max-width:850px){main{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:550px){main{grid-template-columns:1fr}}
+</style>
+<h1>Animal model inspection</h1>
+<p>Models enlarged for silhouette inspection. Use moving and flying poses to check joints and folded wings. Each model fits its frame; sizes are not comparable.</p>
+<label>Map <select id="map"></select></label>
+<label>Models <select id="version"><option value="current">Current</option><option value="before">Before refinement</option></select></label>
+<label>View <select id="view"><option value="side">Side</option><option value="quarter">Three-quarter</option><option value="above">Above</option></select></label>
+<label>Scope <select id="scope"><option value="improved">Improved models</option><option value="all">All models</option></select></label>
+<label>Phase <select id="phase"><option value="1.1">1</option><option value="3">2</option><option value="5">3</option></select></label>
+<label>Zoom <select id="zoom"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+<label><input id="boost" type="checkbox" checked> Visibility boosts</label>
+<label><input id="fly" type="checkbox"> Spread wings</label>
+<label>Pose <select id="pose"><option value="rest">Resting</option><option value="walk">Moving</option><option value="fly">Flying</option><option value="graze">Head down</option></select></label><p id="status">Loading models…</p><main></main>
+<script type="module">
+import * as THREE from 'three';
+import {adultAnimalScale} from '../js/render3d/animal-scale.js';
+import {loadAnimals,ANIMALS} from '../js/data/animals.js';
+const revision=Date.now(),{buildSpecies,faunaMaterial}=await import('../js/render3d/fauna.js?sizeReview='+revision);
+const maps=['pnw','atlanta','amazon','reef','sumatra','chinandega','serengeti'];
+const controls=Object.fromEntries(['map','version','view','zoom','boost','fly','pose','scope','phase'].map(id=>[id,document.getElementById(id)]));
+for(const map of maps)controls.map.add(new Option(map,map));
+controls.map.value=new URLSearchParams(location.search).get('map')||'serengeti';
+const response=await fetch('./map-audit-output/models-before-refinement.json');
+const before=response.ok?await response.json():[];
+controls.version.querySelector('[value="before"]').disabled=before.length===0;
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setSize(360,270);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;
+const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-1.35,1.35,1.0125,-1.0125,.01,100);
+scene.add(new THREE.HemisphereLight(0xe4eeff,0x6f7a4c,1.35));const sun=new THREE.DirectionalLight(0xfff3dc,2.3);sun.position.set(2,4,3);scene.add(sun);
+const entries=[];
+for(const map of maps){
+ loadAnimals((await import(`../js/data/animals-${map}.js?sizeReview=${revision}`)).default);
+ for(const def of ANIMALS){
+  for(const male of [false,...(def.sprite.male?[true]:[])]){
+   const previous=before.find(d=>d.map===map&&d.key===def.key&&d.male===male);
+   const old=previous?.sprite||def.sprite;
+   const variants={current:male?{...def.sprite,...def.sprite.male}:def.sprite,before:old};
+   const models={};
+   for(const [version,sprite]of Object.entries(variants)){
+    const built=version==='before'&&previous?{geo:new THREE.BufferGeometryLoader().parse(previous.geometry),motion:previous.motion}:buildSpecies({...def,sprite});const anim=new THREE.InstancedBufferAttribute(new Float32Array(4),4);built.geo.setAttribute('aAnim',anim);
+    const mesh=new THREE.InstancedMesh(built.geo,faunaMaterial(built.motion),1);built.geo.computeBoundingBox();
+    models[version]={...built,mesh,anim,sprite};
+   }
+   const article=document.createElement('article'),h=document.createElement('h2'),canvas=document.createElement('canvas'),details=document.createElement('small');canvas.width=360;canvas.height=270;
+   h.textContent=def.name+(male?' · '+(def.sprite.maleName||'male'):'');article.append(h,canvas,details);
+   const e={map,name:def.name,move:def.move,kind:def.sprite.kind,models,article,canvas,details,improved:!!(def.sprite.opossum||def.sprite.coati||def.sprite.barred||def.sprite.fancy||def.sprite.spoonbill||def.sprite.ridley||['dolphin','bat','snake','monitor','heron','crane','secretary'].includes(def.sprite.kind)||def.sprite.kind==='feline'&&!def.sprite.stripes||def.sprite.kind==='elephant'&&!def.sprite.asian)};entries.push(e);
+  }
+ }
+}
+entries.sort((a,b)=>{
+ const max=e=>{const b=e.models.current.geo.boundingBox,s=adultAnimalScale(e.models.current.sprite);return Math.max(b.max.x-b.min.x,b.max.y-b.min.y,b.max.z-b.min.z)*s;};return max(b)-max(a);
+});
+for(const e of entries)document.querySelector('main').append(e.article);
+function draw(){
+ const zoom=Number(controls.zoom.value),dir=new THREE.Vector3(...({side:[0,0,1],quarter:[.4,.25,1],above:[.05,1,.12]}[controls.view.value])).normalize();
+ camera.left=-1.35/zoom;camera.right=1.35/zoom;camera.top=1.0125/zoom;camera.bottom=-1.0125/zoom;camera.position.copy(new THREE.Vector3(0,.68/zoom,0)).addScaledVector(dir,5);camera.lookAt(0,.68/zoom,0);camera.updateProjectionMatrix();
+ let count=0;
+ for(const e of entries){
+  e.article.hidden=e.map!==controls.map.value||(controls.scope.value==='improved'&&!e.improved);if(e.article.hidden)continue;count++;
+  const b=e.models[controls.version.value],show=controls.boost.checked?(b.sprite.show||1):1,sc=adultAnimalScale(b.sprite,controls.boost.checked),box=b.geo.boundingBox;
+  const pose=controls.pose.value,fly=e.move==='fly'&&(controls.fly.checked||pose==='fly')||e.kind==='ray'?1:0;b.anim.setXYZW(0,Number(controls.phase.value),pose==='walk'?1:0,fly,pose==='graze'?0.65:0);b.anim.needsUpdate=true;
+  const bounds=box.clone(),p=b.geo.attributes.position,ext=b.geo.attributes.aExt,part=b.geo.attributes.aPart;
+  if(fly)for(let i=0;i<p.count;i++)if(part.getX(i)>4.5&&part.getX(i)<7.5)bounds.expandByPoint(new THREE.Vector3().fromBufferAttribute(ext,i));
+  bounds.min.multiplyScalar(sc);bounds.max.multiplyScalar(sc);
+  const center=bounds.getCenter(new THREE.Vector3()),dimensions=bounds.getSize(new THREE.Vector3());
+  const radius=Math.max(dimensions.x*.53,dimensions.y*.72,dimensions.z*.6)*1.35/zoom;
+  camera.left=-radius*4/3;camera.right=radius*4/3;camera.top=radius;camera.bottom=-radius;
+  camera.position.copy(center).addScaledVector(dir,5);camera.lookAt(center);camera.updateProjectionMatrix();
+  b.mesh.setMatrixAt(0,new THREE.Matrix4().makeScale(sc,sc,sc));b.mesh.instanceMatrix.needsUpdate=true;
+  scene.add(b.mesh);renderer.render(scene,camera);scene.remove(b.mesh);
+  const ctx=e.canvas.getContext('2d');ctx.clearRect(0,0,360,270);ctx.drawImage(renderer.domElement,0,0);
+  const d=box.getSize(new THREE.Vector3()).multiplyScalar(sc);e.details.textContent=`Length ${d.x.toFixed(2)} · height ${d.y.toFixed(2)} · width ${d.z.toFixed(2)} tiles · size ×${b.sprite.scale??1} · display ×${show}`;
+ }
+ document.getElementById('status').textContent=`${count} models on this map · ${entries.length} models and adult variants audited · enlarged inspection portraits · movement shown at a fixed phase`;
+}
+for(const control of Object.values(controls))control.addEventListener('change',draw);draw();
+</script>
+</html>

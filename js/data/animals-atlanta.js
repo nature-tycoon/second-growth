@@ -123,7 +123,7 @@ export default function buildAtlantaAnimals(def) {
       prey: ['chipmunk', 'toad', 'peeper'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * net(W, i, 60),
       req: g => Math.min(1, stat(g, 'canopyLargest') / 110),
-      sprite: { kind: 'owl', size: 20, color: '#8a7658', breast: '#e0d4ba', head: '#8a7658' },
+      sprite: { kind: 'owl', barred: true, size: 20, color: '#8a7658', breast: '#e0d4ba', head: '#8a7658' },
       desc: '"Who cooks for you, who cooks for you-all?" The owl of Southern river swamps. Needs a big, connected canopy with old trees to nest in.',
       hint: 'A large, unbroken canopy near water.' });
   }
@@ -200,7 +200,7 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'opossum', name: 'Virginia opossum', sci: 'Didelphis virginiana', group: 'Mammals', move: 'ground',
       speed: 0.9, hr: 30, max: 8, sources: ['N', 'E', 'W', 'S'], mig: 0.4, breed: [0, 3], litter: [3, 6], life: 3,
       suit: (W, i) => w[W.habitat[i]],
-      sprite: { kind: 'raccoon', len: 22, color: '#a8a4a0', belly: '#e8e4de', dark: '#3a3634' },
+      sprite: { kind: 'raccoon', opossum: true, len: 22, color: '#a8a4a0', belly: '#e8e4de', dark: '#3a3634' },
       desc: 'North America\'s only marsupial. It eats ticks, slugs and fallen fruit, and plays dead when cornered.',
       hint: 'Anywhere with some cover. Loves a messy garden.' });
   }
@@ -258,7 +258,7 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'anole', name: 'Green anole', sci: 'Anolis carolinensis', group: 'Reptiles & amphibians', move: 'ground',
       speed: 0.9, hr: 3, max: 30, sources: ['N', 'E', 'S', 'W'], mig: 0.4, breed: [2, 3, 4], litter: [1, 2], life: 4, mature: 0.4,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.insects[i] * 1.5)),
-      sprite: { kind: 'monitor', size: 9, color: '#5ab040', belly: '#c8e0a0' },
+      sprite: { kind: 'monitor', lizard: 'anole', size: 9, color: '#5ab040', belly: '#c8e0a0' },
       desc: 'Georgia\'s little native lizard. It changes from green to brown and flashes a pink throat fan to show off.',
       hint: 'Sunny shrubs and garden beds full of insects.' });
   }
@@ -286,7 +286,7 @@ export default function buildAtlantaAnimals(def) {
       speed: 0.6, hr: 20, max: 6, sources: ['N', 'S', 'E'], mig: 0.25, breed: [3], litter: [3, 6], life: 15, mature: 3,
       prey: ['chipmunk', 'toad'], preyPer: 4,
       suit: (W, i) => w[W.habitat[i]] * (W.distLog[i] <= 4 || W.distRocks[i] <= 4 ? 1 : 0.5),
-      sprite: { kind: 'snake', size: 20, color: '#6a6a60', stripe: '#3a3a34', side: '#8a8a7e' },
+      sprite: { kind: 'snake', mottled: true, size: 20, color: '#6a6a60', stripe: '#3a3a34', side: '#8a8a7e' },
       desc: 'A big, harmless climbing snake that keeps mice and chipmunks in check. It spends half its time up in the trees.',
       hint: 'Woods and brushy edges with logs or rock piles.' });
   }

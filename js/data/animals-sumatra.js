@@ -202,7 +202,7 @@ export default function buildSumatraAnimals(def) {
     def({ key: 'flyingfox', name: 'Large flying fox', sci: 'Pteropus vampyrus', group: 'Mammals', move: 'fly',
       speed: 1.4, hr: 40, max: 24, minK: 3, groupSize: [3, 6], sources: ['N', 'E', 'S'], mig: 0.45, breed: [1, 2], litter: [1, 1], life: 15, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * (0.3 + 0.7 * Math.min(1, W.berries[i] + W.nectar[i])),
-      sprite: { kind: 'bat', size: 22, color: '#4a3426' },
+      sprite: { kind: 'bat', batType: 'fox', size: 22, color: '#4a3426' },
       desc: 'A fruit bat with a wingspan wider than a person is tall. Flying foxes pollinate durian and petai flowers at night, and carry seeds for many kilometres.',
       hint: 'Fruit and flowering trees, durian and petai especially.' });
   }
@@ -296,7 +296,7 @@ export default function buildSumatraAnimals(def) {
       speed: 0.5, hr: 30, max: 4, sources: ['S', 'W'], mig: 0.2, breed: [6], litter: [4, 6], life: 20, mature: 3,
       prey: ['woodrat', 'boar', 'macaque'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 4, 0.4),
-      sprite: { kind: 'snake', size: 30, color: '#8a7a4a', stripe: '#8a7a4a', side: '#2a2016', blotches: '#e0c870', belly: '#e8dcb8' },
+      sprite: { kind: 'snake', reticulated: true, size: 30, color: '#8a7a4a', stripe: '#8a7a4a', side: '#2a2016', blotches: '#e0c870', belly: '#e8dcb8' },
       desc: 'The longest snake in the world, patterned like a net. It waits near water and in the palms, where it eats a great many rats.',
       hint: 'Swamp, streamside forest and palms with rats.' });
   }

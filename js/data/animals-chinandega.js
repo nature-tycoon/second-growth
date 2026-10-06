@@ -42,7 +42,7 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'coati', name: 'White-nosed coati', sci: 'Nasua narica', group: 'Mammals', move: 'ground',
       speed: 1.2, hr: 40, max: 12, groupSize: [3, 5], sources: ['N', 'E'], mig: 0.3, breed: [3], litter: [2, 4], life: 8,
       suit: (W, i) => w[W.habitat[i]] * (0.5 + 0.5 * Math.min(1, W.berries[i] + W.insects[i])),
-      sprite: { kind: 'raccoon', len: 26, color: '#8a6a44', belly: '#c8b08a', dark: '#3a2a1a' },
+      sprite: { kind: 'raccoon', coati: true, len: 26, color: '#8a6a44', belly: '#c8b08a', dark: '#3a2a1a' },
       desc: 'Pizote. Bands of females and young roam the forest floor with their tails in the air, rooting for insects and fruit.',
       hint: 'Forest with fruit and leaf litter.' });
   }
@@ -89,7 +89,7 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'bat', name: 'Jamaican fruit bat', sci: 'Artibeus jamaicensis', group: 'Mammals', move: 'fly',
       speed: 3, hr: 10, max: 20, sources: ['N', 'E', 'S', 'W'], mig: 0.4, breed: [2, 8], litter: [1, 1], life: 8,
       suit: (W, i) => w[W.habitat[i]] * (0.3 + 0.7 * Math.min(1, W.berries[i] * 2 + W.nectar[i])),
-      sprite: { kind: 'bat', size: 12, color: '#5a4a3e' },
+      sprite: { kind: 'bat', batType: 'fruit', size: 12, color: '#5a4a3e' },
       desc: 'Murciélago frutero. It carries figs away to eat and drops the seeds far across the open land: one of the best tree planters there is.',
       hint: 'Fruiting trees, especially figs.' });
   }
@@ -166,7 +166,7 @@ export default function buildChinandegaAnimals(def) {
       speed: 2.2, hr: 40, max: 8, groupSize: [2, 4], sources: ['S'], mig: 0.7, breed: [], life: 15,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * W.waterQ[i]),
       req: g => Math.min(1, stat(g, 'pondsDrained') / 60), // it feeds on the tidal mudflats left where shrimp ponds are breached
-      sprite: { scale: 0.72, kind: 'heron', size: 24, color: '#e8a0b8', breast: '#f0b8c8', head: '#f0e8e0', flight: '#d85a80', show: 0.85 },
+      sprite: { scale: 0.72, kind: 'heron', spoonbill: true, size: 24, color: '#e8a0b8', breast: '#f0b8c8', head: '#a8b994', eye: '#ad493b', flight: '#d85a80', show: 0.85 },
       desc: 'Garza rosada. It sweeps its spoon-shaped bill through the shallows for shrimp, which is what turns it pink.',
       hint: 'Tidal mudflats where old shrimp ponds have been breached and drained, with mangroves around them.' });
   }
@@ -196,7 +196,7 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'iguana', name: 'Green iguana', sci: 'Iguana iguana', group: 'Reptiles', move: 'semi',
       speed: 0.7, hr: 8, max: 20, sources: ['S', 'N', 'E'], mig: 0.3, breed: [0, 1], litter: [4, 8], life: 15, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 6, 0.35),
-      sprite: { kind: 'monitor', size: 26, color: '#5a9a3a', belly: '#b8c878' },
+      sprite: { kind: 'monitor', lizard: 'iguana', size: 26, color: '#5a9a3a', belly: '#b8c878' },
       desc: 'Garrobo verde. It eats leaves high in the trees along water, and dives in when danger comes. Hunted for food, it has become rare.',
       hint: 'Trees along the quebrada and the estuary.' });
   }
@@ -205,7 +205,7 @@ export default function buildChinandegaAnimals(def) {
     def({ key: 'ctenosaur', name: 'Black spiny-tailed iguana', sci: 'Ctenosaura similis', group: 'Reptiles', move: 'ground',
       speed: 1.2, hr: 6, max: 20, sources: ['N', 'E', 'W'], mig: 0.4, breed: [0], litter: [4, 8], life: 12, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * (W.distRocks[i] <= 4 || W.distLog[i] <= 4 ? 1 : 0.6),
-      sprite: { kind: 'monitor', size: 22, color: '#4a4a3a', belly: '#9a9a70' },
+      sprite: { kind: 'monitor', lizard: 'ctenosaur', size: 22, color: '#4a4a3a', belly: '#9a9a70' },
       desc: 'Garrobo negro. It basks on rocks and old fences and is the fastest lizard in the world on land.',
       hint: 'Sunny rocks, logs and shrubs.' });
   }
@@ -215,7 +215,7 @@ export default function buildChinandegaAnimals(def) {
       speed: 0.4, hr: 30, max: 5, sources: ['N', 'E'], mig: 0.2, breed: [3], litter: [6, 10], life: 20, mature: 3,
       prey: ['agouti', 'ctenosaur'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]],
-      sprite: { kind: 'snake', size: 30, color: '#9a8a6a', stripe: '#9a8a6a', side: '#3a2a1e', blotches: '#5a3a24', belly: '#d8c8a0', show: 0.78 },
+      sprite: { kind: 'snake', saddles: true, size: 30, color: '#9a8a6a', stripe: '#9a8a6a', side: '#3a2a1e', blotches: '#5a3a24', belly: '#d8c8a0', show: 0.78 },
       desc: 'Boa. Big and harmless to people, it keeps the rats down around the farms.',
       hint: 'Forest and shrubs with small animals to eat.' });
   }
@@ -236,7 +236,7 @@ export default function buildChinandegaAnimals(def) {
       // nests on clean, dark, quiet beach sand with dune plants behind it
       suit: (W, i) => (W.terrain[i] === T.GRAVEL && W.distWater[i] <= 3 ? 1 : 0) * (1 - Math.min(1, W.disturb[i] * 2)),
       req: g => Math.min(1, stat(g, 'beach') / 30) * Math.min(1, Math.max(0, stat(g, 'beachPlants') - 8) / 20), // (the bare beach isn't enough: it needs dune plants)
-      sprite: { kind: 'turtle', size: 20, color: '#5a6a4a', dark: '#7a8a5a', show: 1.3, juv: 0.55 },
+      sprite: { kind: 'turtle', sea: true, ridley: true, size: 20, color: '#5a6a4a', dark: '#7a8a5a', show: 1.3, juv: 0.55 },
       desc: 'Paslama. From July to December the females crawl up the beach at night to dig a nest and lay about 100 eggs. Poaching, dogs and lights all drive them away.',
       hint: 'A quiet stretch of beach sand, with dune plants and no trail or buildings close by. They come July to November.' });
   }

@@ -207,7 +207,7 @@ export default function buildPnwAnimals(def) {
     def({ key: 'woodduck', name: 'Wood duck', sci: 'Aix sponsa', group: 'Birds', move: 'fly',
       speed: 2.5, hr: 20, max: 10, groupSize: [1, 2], sources: ['S'], mig: 0.4, breed: [1, 2], litter: [2, 4], life: 4,
       suit: (W, i) => w[W.habitat[i]] * (W.distForest[i] <= 2 || W.distNest[i] <= 3 ? 1 : 0.2),
-      sprite: { kind: 'duck', size: 15, color: '#6a4a3a', head: '#2a6a4a', breast: '#8a3a2a', fancy: true, speculum: '#2a5aa0' },
+      sprite: { kind: 'duck', size: 15, color: '#6a4a3a', head: '#2a6a4a', breast: '#8a3a2a', fancy: true, eye: '#b44736', speculum: '#2a5aa0' },
       desc: 'The most ornate duck in North America. Nests in tree cavities or nest boxes near wooded ponds.',
       hint: 'Ponds with trees or nest boxes close by.' });
   }
