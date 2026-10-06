@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Second Growth — nature sound review</title>
+<style>
+body{font:16px system-ui;background:#f1f5ef;color:#213a2b;max-width:950px;margin:40px auto;padding:0 24px}h1{font-size:28px}label{display:inline-flex;flex-direction:column;gap:6px;margin:8px 14px 14px 0}select,button{font:inherit;padding:9px;border:1px solid #a7b6a7;border-radius:7px;background:white;color:inherit}button{cursor:pointer;margin:4px}button.primary{background:#2c6844;color:white}pre{background:#fff;padding:20px;border-radius:10px;white-space:pre-wrap;font-size:13px}#audit{font-size:13px}p{line-height:1.55}.controls{padding:12px 0}#status{font-weight:600}a{color:#2c6844}
+</style>
+<h1>Nature sound review</h1>
+<p>Compare the seven maps with music off. This showcase assumes all of a map’s vocal wildlife is nearby in restored habitat; the game only plays calls from animals near the camera. Animal voices are procedural approximations.</p>
+<div class="controls">
+<label>Map<select id="map"></select></label><label>Season<select id="season"></select></label>
+<label>Time<select id="time"><option value="dawn">Dawn</option><option value="day">Day</option><option value="dusk">Dusk</option><option value="night">Night</option></select></label>
+<label>Weather<select id="weather"><option>clear</option><option>cloud</option><option>rain</option><option>snow</option></select></label>
+<label>Habitat<select id="habitat"><option value="restored">Restored, by water</option><option value="bare">Bare, away from water</option><option value="shore">Reef cay / Nicaragua coast</option></select></label>
+<br><button class="primary" id="play">Play soundscape</button><button id="pause">Pause</button><button id="run">Run audio audit</button>
+</div>
+<p id="status">Ready. Choose a map, then play.</p>
+<p id="call-hint"></p>
+<div id="voices"></div><pre id="mix"></pre><pre id="audit">Rendering audio checks…</pre>
+<script type="module">
+import { Music } from '../js/audio/music.js';
+import { SOUNDSCAPES, BIRD_PHRASES, natureMix, natureCallRates } from '../js/audio/nature.js';
+import { BIOMES, setBiome } from '../js/biome.js';
+import { ANIMALS } from '../js/data/animals.js';
+const $ = id => document.getElementById(id), catalog = {};
+for (const [id, biome] of Object.entries(BIOMES)) {
+  setBiome(id); catalog[id] = ANIMALS.map(d => d.key);
+  const option = document.createElement('option'); option.value = id; option.textContent = biome.name || id; $('map').append(option);
+}
+const times = { dawn: { night: 0, dawn: 1, dusk: 0, tod: 0 }, day: { night: 0, dawn: 0, dusk: 0, tod: 0.25 }, dusk: { night: 0.1, dawn: 0, dusk: 1, tod: 0.845 }, night: { night: 1, dawn: 0, dusk: 0, tod: 0.91 } };
+function scene(map, season, time = 'dawn', habitat = 'restored') {
+  const bare = habitat === 'bare', month = season * 3;
+  return { map, month, ...times[time], present: bare ? [] : catalog[map], species: bare ? 0 : catalog[map].length,
+    health: bare ? 0.1 : 0.85, bare: bare ? 1 : 0.1, canopy: bare ? 0 : 0.7, water: bare ? 0 : 0.8, creek: bare ? 0 : 0.8, river: bare ? 0 : 0.6, wet: bare ? 0 : 0.6,
+    shore: habitat === 'shore' ? 1 : 0, dry: (map === 'chinandega' && (month >= 9 || month <= 1)) || (map === 'serengeti' && month >= 3 && month <= 7) };
+}
+let player;
+function refresh(seasons = false) {
+  const map = $('map').value;
+  if (seasons) {
+    const previous = $('season').value || '0'; $('season').replaceChildren();
+    BIOMES[map].climate.seasons.forEach((name, i) => { const option = document.createElement('option'); option.value = i; option.textContent = name; $('season').append(option); });
+    $('season').value = previous;
+  }
+  const season = +$('season').value, weather = $('weather').value, L = scene(map, season, $('time').value, $('habitat').value);
+  player?.setScene(weather, season); player?.setLand(L);
+  $('call-hint').textContent = map === 'serengeti' ? 'Lion and hyena calls occur at dusk or night. Their buttons below let you hear them immediately.' : map === 'chinandega' ? 'Cattle moo during daylight. The cattle button below lets you hear a call immediately.' : '';
+  $('mix').textContent = JSON.stringify({ layers: natureMix(L, weather, season), eligibleCalls: natureCallRates(L, weather, season) }, null, 2);
+  $('voices').replaceChildren();
+  const entries = Object.entries(SOUNDSCAPES[map].birds).map(([key, style]) => [key, () => player.birdPhrase(style)]);
+  entries.push(...SOUNDSCAPES[map].calls.map(([key, voice]) => [key, () => player[voice]() ]));
+  for (const [label, play] of entries) {
+    const b = document.createElement('button'); b.textContent = label; b.title = 'Audition this voice on its own (ignores season and habitat)';
+    b.onclick = () => { ensurePlayer(); player.set({ nature: true, muted: false }); play(); $('status').textContent = `Auditioning ${label}`; }; $('voices').append(b);
+  }
+}
+function ensurePlayer() {
+  if (!player) { player = new Music(); player.set({ music: false }); refresh(); }
+  player.start();
+}
+$('play').onclick = () => { ensurePlayer(); player.set({ nature: true, muted: false }); $('status').textContent = `Playing ${$('map').selectedOptions[0].textContent}`; };
+$('pause').onclick = () => { player?.set({ nature: false }); $('status').textContent = 'Paused'; };
+$('map').onchange = () => refresh(true);
+for (const id of ['season', 'time', 'weather', 'habitat']) $(id).onchange = () => refresh();
+refresh(true);
+
+// Real browser DSP checks, separate from the ecological/routing checks in the Node audit.
+function offline(L, weather, season, seconds = 10, panner = true) {
+  const m = new Music(), ctx = m.ctx = new OfflineAudioContext(2, seconds * 44100, 44100);
+  if (!panner) ctx.createStereoPanner = undefined;
+  m.out = ctx.createDynamicsCompressor(); m.out.threshold.value = -18; m.out.ratio.value = 3; m.out.connect(ctx.destination);
+  m.natureGain = ctx.createGain(); m.natureGain.gain.value = 0.6; m.natureGain.connect(m.out);
+  m.musicGain = ctx.createGain(); m.musicOn = false; m.decks = [];
+  m.noise = m.makeNoise(11); m.setScene(weather, season); if (L) m.setLand(L); m.startNature();
+  return m;
+}
+function measure(buffer, from = 0) {
+  let peak = 0, squares = 0, count = 0;
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) for (const v of buffer.getChannelData(ch).subarray(Math.floor(from * buffer.sampleRate))) {
+    if (!Number.isFinite(v)) throw new Error('Non-finite audio sample'); peak = Math.max(peak, Math.abs(v)); squares += v * v; count++;
+  }
+  return { peak, rms: Math.sqrt(squares / count) };
+}
+let running = false;
+async function audit() {
+  if (running) return; running = true; $('run').disabled = true;
+  const reports = [], assert = (ok, message) => { if (!ok) throw new Error(message); };
+  try {
+    let renders = 0, highest = 0;
+    for (const map of Object.keys(BIOMES)) {
+      $('audit').textContent = `Rendering ${map}…`;
+      for (let season = 0; season < 4; season++) for (const time of ['dawn', 'night']) {
+        const L = scene(map, season, time), m = offline(L, season === 1 ? 'rain' : 'clear', season);
+        for (const { voice } of natureCallRates(L, m.weather, season)) m[voice]();
+        if (time === 'dawn') for (const style of Object.values(SOUNDSCAPES[map].birds)) m.birdPhrase(style);
+        const stats = measure(await m.ctx.startRendering());
+        assert(stats.rms > 0.0001 && stats.peak < 0.95, `${map} invalid or clipped mix ${JSON.stringify(stats)}`);
+        assert(m.activeSources.size === 0, `${map} left ${m.activeSources.size} finished sources connected`);
+        highest = Math.max(highest, stats.peak); renders++;
+      }
+      reports.push(`PASS ${map}: all 4 seasons, dawn/night; calls released after playback`);
+    }
+    // Every individual voice must produce a signal, including high-frequency insects and
+    // the mono fallback. No ambient bed can hide a broken or nearly inaudible animal call.
+    const callVoices = new Set(['cricket', 'reefSnap', ...Object.values(SOUNDSCAPES).flatMap(P => P.calls.map(c => c[1]))]);
+    for (const voice of callVoices) {
+      const m = offline(null, 'clear', 0, 10, false); m[voice](); const stats = measure(await m.ctx.startRendering());
+      assert(stats.rms > 0.00002 && stats.peak < 0.95, `${voice} inaudible or clipped`); assert(m.activeSources.size === 0, `${voice} source leak`); renders++;
+      if (['moo', 'lion', 'hyena'].includes(voice)) assert(stats.peak > 0.025, `${voice} is too faint on the nature bus`);
+    }
+    reports.push(`PASS ${callVoices.size} isolated voices, including stereo-panner fallback`);
+    // Drive the real scheduler through a few seconds of browser audio time. Calling a voice
+    // directly is not enough to prove players will ever hear it during normal playback.
+    for (const [map, key, voice, time] of [['chinandega', 'cattle', 'moo', 'day'], ['serengeti', 'lion', 'lion', 'night'], ['serengeti', 'hyena', 'hyena', 'night']]) {
+      const L = scene(map, 0, time); L.present = [key];
+      const m = offline(L, 'clear', 0, 14), starts = [], play = m[voice].bind(m);
+      m[voice] = () => { starts.push(m.ctx.currentTime); play(); };
+      m.calls(0.25);
+      const pauses = Array.from({ length: 24 }, (_, i) => m.ctx.suspend((i + 1) * 0.25));
+      const rendered = m.ctx.startRendering();
+      for (const pause of pauses) { await pause; m.calls(0.25); await m.ctx.resume(); }
+      const stats = measure(await rendered);
+      assert(starts.length === 1 && starts[0] <= 4.3, `${voice} didn't start promptly: ${starts}`);
+      assert(stats.peak > 0.025 && stats.peak < 0.95 && m.activeSources.size === 0, `${voice} scheduling/render failure`); renders++;
+    }
+    reports.push('PASS cattle, lion and hyena: normal scheduler produces an audible call within four seconds');
+    const silent = offline(null, 'clear', 0, 2); assert(measure(await silent.ctx.startRendering()).peak === 0, 'Scene-less ambience is not silent'); renders++;
+    for (const setting of [{ muted: true }, { nature: false }, { natureVol: 0 }]) {
+      const m = offline(scene('sumatra', 0), 'rain', 0, 8); m.howler(); m.set(setting);
+      assert(measure(await m.ctx.startRendering(), 7).peak < 0.00001, `Audio setting failed: ${JSON.stringify(setting)}`); renders++;
+    }
+    reports.push('PASS pre-unlock rain; mute, nature off and zero volume; no phantom creek before a scene');
+    const switched = offline(scene('amazon', 0), 'clear', 0, 2); switched.howler(); switched.setLand(scene('reef', 0));
+    assert(switched.creekGain.gain.value >= 0, 'Invalid map transition'); await switched.ctx.startRendering(); assert(switched.activeSources.size === 0, 'Old map calls persisted'); renders++;
+    reports.push('PASS changing maps cancels current and future animal calls');
+    reports.push(`${renders} browser audio renders passed. Highest mixed peak: ${highest.toFixed(3)} (clipping starts at 1).`);
+    $('audit').textContent = reports.join('\n'); $('audit').dataset.result = 'passed';
+  } catch (error) { $('audit').textContent = [...reports, `FAIL ${error.stack}`].join('\n'); $('audit').dataset.result = 'failed'; }
+  finally { running = false; $('run').disabled = false; }
+}
+$('run').onclick = audit;
+audit();
+</script></html>

@@ -2,6 +2,7 @@
 
 import { T, F, H, HABITAT_INFO, TERRAIN_NAMES, FEATURE_NAMES, MONTH_NAMES, SPEEDS, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp } from '../config.js';
 import { music } from '../audio/music.js';
+import { sampleSoundLand } from '../audio/land.js';
 import { MUSIC_LICENSE } from '../audio/tracks.js';
 import { PLANTS, PLANT, LAYER_NAMES, MIX } from '../data/plants.js';
 import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many, isMaleVariant } from '../data/animals.js';
@@ -378,7 +379,7 @@ export class UI {
     if (scene !== this.lastScene) { this.lastScene = scene; music.setScene(g.weather, g.season); }
     // the soundscape follows the land around the camera (about once a second)
     const nowT = performance.now();
-    if (!this.landAt || nowT - this.landAt > 1000) { this.landAt = nowT; music.setLand(this.landSound()); }
+    if (force || !this.landAt || nowT - this.landAt > 1000) { this.landAt = nowT; music.setLand(this.landSound()); }
     const wIcon = g.weather === 'clear' && (this.renderer.night || 0) > 0.4 ? 'moon' : { clear: 'sun', cloud: 'cloud', rain: 'rain', snow: 'snow' }[g.weather] || 'sun';
     const we = $('#stat-weather');
     if (we.dataset.w !== wIcon) { we.innerHTML = ICONS[wIcon]; we.dataset.w = wIcon; }
@@ -1089,7 +1090,7 @@ export class UI {
         ${slider('musicVolume', 'Music volume', '', 0, 1, pctFmt)}
         <div class="set-row now-playing"><span><b>Now playing</b><small class="np-title">${music.nowPlaying ? `${music.nowPlaying.title} · ${music.nowPlaying.artist}` : 'Starts when you begin playing'}</small></span><button type="button" class="btn secondary np-skip">Next track</button></div>
         <p class="small" style="margin:4px 2px 10px">Music by <a href="https://freemusicarchive.org/music/holiznacc0/" target="_blank" rel="noopener">HoliznaCC0</a>, released into the public domain under ${MUSIC_LICENSE}.</p>
-        ${toggle('nature', 'Nature sounds', 'Rain when it rains, birdsong in spring and summer, a creek.')}
+        ${toggle('nature', 'Nature sounds', 'Local wildlife, water, wind and insects, following each map’s seasons and time of day.')}
         ${slider('natureVolume', 'Nature volume', '', 0, 1, pctFmt)}`],
       game: ['Gameplay', `
         <div class="section-title" style="margin-top:0">Difficulty on this farm</div>
@@ -1462,22 +1463,7 @@ export class UI {
 
   // What the land around the camera sounds like: how bare it is, how alive, how near water.
   landSound() {
-    const g = this.game, w = g.world, r = this.renderer, st = w.stats || {};
-    const land = st.land || 1, c = st.counts || {};
-    const x0 = clamp(Math.floor(r.target.x), 0, w.w - 1), y0 = clamp(Math.floor(r.target.z), 0, w.h - 1);
-    let wet = 0, n = 0;
-    for (let dy = -12; dy <= 12; dy += 3) for (let dx = -12; dx <= 12; dx += 3) {
-      const x = x0 + dx, y = y0 + dy; if (!w.inb(x, y)) continue; n++;
-      const h = w.habitat[w.idx(x, y)]; if (h === H.MARSH || h === H.POND) wet++;
-    }
-    const u = r.todU ?? 0.35;
-    return {
-      map: g.map, bare: clamp(((c[H.BARE] || 0) + (c[H.FARM] || 0)) / land, 0, 1), health: clamp((g.cache.score?.total ?? 0) / 100, 0, 1),
-      species: speciesPresent(g), water: clamp(1 - w.distWater[w.idx(x0, y0)] / 10, 0, 1), wet: n ? wet / n : 0,
-      night: r.night || 0, dawn: r.dawn || 0, dusk: u > 0.8 && u < 0.89 ? 1 - Math.abs(u - 0.845) / 0.045 : 0,
-      dry: biome.savanna && g.month >= 3 && g.month <= 7,
-      present: ANIMALS.filter(d => g.wildlife.state[d.index].pop > 0).map(d => d.key),
-    };
+    return sampleSoundLand(this.game, this.renderer, biome, ANIMALS);
   }
 
   postcardText(title) {
