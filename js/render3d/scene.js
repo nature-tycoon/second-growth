@@ -208,7 +208,7 @@ export class Renderer {
     const amt = focus.uFocusAmt;
     amt.value += ((pose || ft ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
     if (pose) {
-      focus.uFocus.value.set(pose.x, pose.y + pose.h * 0.5, pose.z);
+      focus.uFocus.value.copy(pose.center);
       focus.uFocusR.value = clamp(0.55 + pose.h * 1.6, 0.6, 1.2);
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
@@ -265,13 +265,41 @@ export class Renderer {
     this.target.z = clamp(this.target.z, -BORDER + 4, w.h + BORDER - 4);
     this.target.y = w.heightAt(clamp(this.target.x, 0, w.w), clamp(this.target.z, 0, w.h)) * LEVEL;
   }
-  centerOn(tx, ty) { this.target.x = tx; this.target.z = ty; this.clampCam(); this.updateCamera(); }
+  centerOn(tx, ty, height = null) {
+    this.target.x = tx; this.target.z = ty; this.clampCam();
+    if (height != null) this.target.y = height;
+    this.animalCentered = height != null;
+    this.updateCamera();
+  }
+  centerOnAnimal(a) {
+    this.fly = null; this.zoomGoal = null;
+    this.followAgent = a;
+    const pose = this.actors.pose.get(a.id);
+    if (pose?.visible) this.centerOn(pose.center.x, pose.center.z, pose.center.y);
+    else this.centerOn(a.x, a.y); // next draw computes its fresh pose, even if offscreen
+  }
+  updateAnimalCamera() {
+    const pose = this.followAgent && this.actors.pose.get(this.followAgent.id);
+    if (!pose?.visible) return;
+    this.centerOn(pose.center.x, pose.center.z, pose.center.y);
+    this.actors.ring.quaternion.copy(this.camera.quaternion);
+  }
+  groundCamera() {
+    if (!this.animalCentered) return;
+    // Return the target to the terrain along the same line of sight. Moving
+    // away from a canopy animal must not jump the whole view down to its tile.
+    const p = this.screenToTile(this.frame.x * this.vw, this.frame.y * this.vh);
+    this.target.set(p.fx, this.heightAtScene(p.fx, p.fy), p.fy);
+    this.animalCentered = false;
+    this.updateCamera();
+  }
   resetView() {
     const v = biome.startView;
     this.zoom = v?.zoom ?? 0.62; this.az = this.azTarget = v?.az ?? Math.PI / 4;
     this.centerOn(v ? v.x : this.world ? this.world.w * 0.36 : 44, v ? v.y : this.world ? this.world.h * 0.42 : 38);
   }
   panBy(dx, dy) {
+    this.groundCamera();
     const u = 1 / this.ppu;
     this.target.addScaledVector(this.right(), -dx * u);
     this.target.addScaledVector(this.forward(), dy * u / Math.sin(EL));
@@ -290,6 +318,7 @@ export class Renderer {
       return;
     }
     this.zoomGoal = null;
+    this.groundCamera();
     const before = this.groundPoint(sx, sy);
     this.zoom = clamp(this.zoom * f, 0.16, 4.5);
     this.updateCamera();
@@ -300,6 +329,7 @@ export class Renderer {
   rotate(dir) { this.azTarget += dir * Math.PI / 2; }
   // Glide the camera to a spot and zoom (for keystone moments), easing in and out.
   flyTo(x, y, zoom, dur = 2.2) {
+    this.groundCamera();
     this.zoomGoal = null;
     this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, 4.5), t: 0, dur };
   }
@@ -350,7 +380,7 @@ export class Renderer {
     for (const a of all) {
       const s = this.actors.pose.get(a.id);
       if (!s?.visible) continue;
-      const p = this.project(s.x, s.y + s.h * 0.5, s.z);
+      const p = this.project(s.center.x, s.center.y, s.center.z);
       const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
       if (d < bd) { bd = d; best = a; }
     }
@@ -540,7 +570,9 @@ export class Renderer {
     this.terrain.sky.value.copy(this.hemi.color);
     const r = this.right();
     this.actors.clean = !!ui.clean;
+    this.actors.followAgent = this.followAgent;
     this.actors.update(game, r, this.time, this.camera, this.vh);
+    this.updateAnimalCamera();
     this.rockBoats();
     this.updateFocus(game, dt);
     // snow settles and melts gradually on screen rather than popping in with the daily tick

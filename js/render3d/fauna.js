@@ -3692,7 +3692,12 @@ export function buildSpecies(def) {
     default: m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
   }
   mo.eye = m.eyeAt || null; mo.eyePivot = m.eyePivot || [0, 0, 0]; // where the eyes are, in model units (for eye-shine)
-  return { geo: m.build(), motion: mo };
+  const geo = m.build();
+  geo.computeBoundingBox();
+  // A shared anchor for locating, picking and highlighting the visible model,
+  // including models that hang below their origin or have an offset body.
+  mo.center = geo.boundingBox.getCenter(new THREE.Vector3());
+  return { geo, motion: mo };
 }
 
 // ---------------------------------------------------------------- material with the animation shader

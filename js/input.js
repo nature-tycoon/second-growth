@@ -100,6 +100,11 @@ export class Input {
   }
 
   update(dt) {
+    this.r.followAgent = null;
+    if (!this.ui.follow && this.r.animalFraming) {
+      if (!this.ui.moment) this.r.frameGoal = { x: 0.5, y: 0.5 };
+      this.r.animalFraming = false;
+    }
     if (this.ui.modalOpen) return;
     const sp = 700 * dt * settings.panSpeed;
     let dx = 0, dy = 0;
@@ -129,7 +134,10 @@ export class Input {
     const f = this.ui.follow;
     if (f) {
       if (dx || dy || sv || this.pan || this.fling || !this.game.wildlife.agents.includes(f)) this.ui.follow = null;
-      else this.r.centerOn(f.x, f.y);
+      else {
+        this.r.followAgent = f; // renderer follows this frame's visible body, including height
+        if (!this.ui.moment) { this.r.frameGoal = this.ui.animalFrame(); this.r.animalFraming = true; }
+      }
     }
     if (this.mouse.in && !this.pan) this.updateHover();
   }

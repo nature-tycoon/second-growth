@@ -668,10 +668,29 @@ export class UI {
     if (this.modalOpen) this.closeModal();
     const r = this.renderer;
     if (r.zoom < 2.2) r.zoom = 2.2;
-    r.centerOn(a.x, a.y);
+    r.centerOnAnimal(a);
     this.inspectAgent(a);
+    // In portrait on a phone the full inspector covers the screen's centre.
+    // Keep its compact header available while giving the located animal room.
+    const panel = $('#infopanel'), box = panel.getBoundingClientRect();
+    if (TOUCH && box.left < innerWidth / 2 && box.right > innerWidth / 2 && box.top < innerHeight / 2 && box.bottom > innerHeight / 2) {
+      this.infoMin = true; this.renderInfo();
+    }
+    r.frameGoal = this.animalFrame(); r.animalFraming = true;
     this.follow = a;
     return true;
+  }
+
+  animalFrame() {
+    if (!TOUCH) return { x: 0.5, y: 0.5 };
+    const panel = $('#infopanel'), box = panel.getBoundingClientRect();
+    const toolbar = $('#toolbar').getBoundingClientRect(), topbar = $('#topbar').getBoundingClientRect();
+    const left = toolbar.right + 12;
+    // Frame the animal in the open map beside the full inspector, rather than
+    // behind it or its edge. Recomputed while following for rotation/collapse.
+    const right = box.width > 0 && box.height > 0 && !panel.classList.contains('hidden') && !panel.classList.contains('min') ? box.left - 16 : innerWidth - 12;
+    return { x: clamp((left + right) / 2 / innerWidth, 0.2, 0.8),
+      y: clamp((topbar.bottom + 20 + innerHeight - 24) / 2 / innerHeight, 0.3, 0.7) };
   }
 
   closeInfo() {
@@ -699,6 +718,9 @@ export class UI {
     const ins = this.state.inspect;
     if (!ins) { panel.classList.add('hidden'); return; }
     panel.classList.remove('hidden');
+    panel.classList.toggle('min', !!this.infoMin);
+    const existingMini = panel.querySelector('.minimize');
+    if (existingMini) { setText(existingMini, this.infoMin ? '+' : '−'); setAttr(existingMini, 'title', tr(this.infoMin ? 'Expand' : 'Collapse')); }
     if (ins.agent) {
       const a = this.game.wildlife.agents.find(o => o.id === ins.agent);
       if (!a) { if (!setHTML(panel, `<button class="close">×</button><h3>Gone</h3><p class="info-desc">This animal has moved on, or didn't make it.</p>`)) return; }

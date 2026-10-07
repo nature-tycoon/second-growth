@@ -44,7 +44,7 @@ export class Actors {
     this.shadows.frustumCulled = false;
     this.shadows.renderOrder = 1;
     scene.add(this.shadows);
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffe68a, transparent: true, opacity: 0.9, depthWrite: false }));
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 24), new THREE.MeshBasicMaterial({ color: 0xffe68a, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false }));
     this.ring.visible = false; this.ring.renderOrder = 6;
     scene.add(this.ring);
     this.m = new THREE.Matrix4();
@@ -93,7 +93,9 @@ export class Actors {
       const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05) && kind !== 'duck') || (kind === 'duck' && a.alt > 0.3) || kind === 'bat' || kind === 'ray'; // (a manta "flies" through the water)
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
       const seaY = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
-      if (this.view.enabled) {
+      // A located animal must acquire a fresh pose even before the camera has
+      // reached it. Otherwise an offscreen canopy animal can never be followed.
+      if (this.view.enabled && a !== this.followAgent) {
         let low = ground, high = ground;
         if (onWater || def.move === 'swim') {
           const surface = waterSurfaceY(w, a.x, a.y) ?? ground;
@@ -183,6 +185,9 @@ export class Actors {
       F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, st.pitch || 0);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
+      st.center ||= new THREE.Vector3();
+      st.center.copy(mo.center); st.center.y += st.bob;
+      st.center.applyMatrix4(F.m); // same heading, pitch, scale and height as the instance
       if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
@@ -222,11 +227,13 @@ export class Actors {
 
     // ---- selection ring
     const sel = this.clean ? null : game.selectedAgent;
-    if (sel && this.pose.get(sel.id)?.visible) {
+    const selectedPose = sel && this.pose.get(sel.id);
+    if (selectedPose?.visible) {
       this.ring.visible = true;
-      this.ring.position.set(sel.x, w.heightAt(clamp(sel.x, -9, w.w + 9), clamp(sel.y, -9, w.h + 9)) * LEVEL + 0.03, sel.y);
-      const s = 1 + Math.sin(time * 4) * 0.08;
-      this.ring.scale.set(s, 1, s);
+      this.ring.position.copy(selectedPose.center);
+      if (camera) this.ring.quaternion.copy(camera.quaternion);
+      const s = (1 + Math.sin(time * 4) * 0.08) * clamp(0.35 + selectedPose.h * 0.25, 0.35, 0.9) / 0.36;
+      this.ring.scale.set(s, s, s);
     } else this.ring.visible = false;
   }
 
