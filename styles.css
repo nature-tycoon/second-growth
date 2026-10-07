@@ -604,6 +604,10 @@ body.campaign #banner { top: 124px; }
 #topbar.tight-2 #stat-weather, #topbar.tight-2 #stat-season, #topbar.tight-2 #stat-date { display: none !important; }
 #topbar.tight-3 .stat .small, #topbar.tight-3 #stat-score > div:last-child, #topbar.tight-3 #visitor-stars { display: none !important; }
 #topbar.tight-4 #stat-visitors, #topbar.tight-4 .top-actions select { display: none !important; }
+/* small phones: the species count (it's in the field guide) and then the mute button (it's in Settings) */
+#topbar.tight-5 #stat-species { display: none !important; }
+#topbar.tight-6 #btn-sound, #topbar.tight-6 #btn-goals .gl { display: none !important; } /* (Goals shrinks to its 3/17 badge) */
+#topbar.tight-6 #btn-goals .badge { margin-left: 0; }
 #btn-sound .snd-x { display: none; }
 #btn-sound.muted .snd-x { display: inline; }
 #btn-sound.muted .snd-waves { display: none; }
@@ -716,6 +720,11 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
   #btn-undo-float:active:not(:disabled) { background: var(--moss); color: #fff; }
   body.moment-on #btn-undo-float, body.photo-mode #btn-undo-float { opacity: 0; pointer-events: none; }
 }
-#save-status { display: block; font: 700 10px/1.2 var(--ui); color: var(--green, #4f7d3b); }
-#save-status:empty { display: none; }
+/* save status: a small tag tucked under the right end of the top bar, outside its row so it never
+   pushes the buttons around. "Saved" fades after a moment; a failed save stays. */
+#save-status { position: fixed; top: 72px; right: 16px; z-index: 11; pointer-events: none;
+  font: 700 11px/1 var(--ui); color: var(--moss-2); background: var(--paper); border: 1px solid var(--line);
+  border-radius: 8px; padding: 4px 8px; box-shadow: 0 2px 6px rgba(0,0,0,.12); transition: opacity .4s; }
+#save-status:empty, #save-status.faded { opacity: 0; }
 #save-status.error { color: #ae443c; }
+@media (max-height: 520px) { #save-status { top: 56px; right: calc(10px + env(safe-area-inset-right)); font-size: 10px; padding: 3px 6px; } }

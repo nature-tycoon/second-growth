@@ -233,9 +233,12 @@ export class UI {
     const status = g.saveStatus || { state: 'idle' };
     label.textContent = status.state === 'saving' ? 'Saving…' : status.state === 'saved' ? 'Saved' : status.state === 'error' ? 'Save failed' : g.autosave === false ? 'Autosave off' : '';
     label.classList.toggle('error', status.state === 'error');
+    // "Saved" (and "Autosave off") show for a moment and fade; "Saving…" and a failed save stay
+    clearTimeout(this.saveFade);
+    label.classList.remove('faded');
+    if (status.state !== 'saving' && status.state !== 'error') this.saveFade = setTimeout(() => label.classList.add('faded'), 2500);
     label.title = status.state === 'saved' ? `Saved on this device${status.savedAt ? ' at ' + new Date(status.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}.` :
       status.state === 'error' ? 'Open the menu and try Save game again.' : 'Progress saves automatically on this device.';
-    this.fitTopbar();
   }
 
   // Render the field-guide portraits a few at a time in the background, so the guide opens instantly.
@@ -378,8 +381,8 @@ export class UI {
   fitTopbar() {
     const bar = $('#topbar');
     if (!bar) return;
-    for (let k = 1; k <= 4; k++) bar.classList.remove('tight-' + k);
-    for (let k = 1; k <= 4 && bar.scrollWidth > bar.clientWidth + 1; k++) bar.classList.add('tight-' + k);
+    for (let k = 1; k <= 6; k++) bar.classList.remove('tight-' + k);
+    for (let k = 1; k <= 6 && bar.scrollWidth > bar.clientWidth + 1; k++) bar.classList.add('tight-' + k);
   }
   toggleTrees() {
     this.renderer.fadeTrees = !this.renderer.fadeTrees;
@@ -437,7 +440,7 @@ export class UI {
     setText($('#visitor-stars'), v.facilities().parking ? '★'.repeat(Math.round(v.rating)) + '☆'.repeat(5 - Math.round(v.rating)) : 'no trailhead');
     this.renderBanner();
     const open = GOALS.filter(x => !g.goalsDone[x.key]).length;
-    setHTML($('#btn-goals'), `Goals<span class="badge">${GOALS.length - open}/${GOALS.length}</span>`);
+    setHTML($('#btn-goals'), `<span class="gl">Goals</span><span class="badge">${GOALS.length - open}/${GOALS.length}</span>`);
     this.renderQuest();
   }
 
