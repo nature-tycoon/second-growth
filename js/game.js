@@ -2,7 +2,8 @@
 
 import { arrivalMoment, momentsDaily, ARRIVAL_MOMENTS } from './sim/moments.js';
 import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, DIFFICULTY, seasonOfMonth, money } from './config.js';
-import { biome, setBiome } from './biome.js';
+import { biome, BIOME_LIST, setBiome } from './biome.js';
+import { saves, legacySaveKey, bytesFromBase64, intact } from './saves.js';
 import { World, Border } from './world.js';
 import { mulberry32 } from './rng.js';
 import { updateEnvironment, updateHydrology } from './sim/environment.js';
@@ -15,10 +16,6 @@ import { Visitors } from './sim/visitors.js';
 import { Events } from './sim/events.js';
 import { checkCampaign } from './sim/campaign.js';
 
-const SAVE_KEY = 'second-growth-save-v3';
-const LAST_MAP_KEY = 'second-growth-last-map';
-// one save slot per map (the Hollis farm keeps the original key so old saves still load)
-const saveKey = map => map === 'pnw' ? SAVE_KEY : `${SAVE_KEY}-${map}`;
 // a map switch in progress across a page reload (see UI.switchMap)
 export const PENDING_KEY = 'second-growth-pending';
 
@@ -44,6 +41,9 @@ export class Game {
     setBiome(map);
     this.map = biome.id;
     this.loaded = false; // true once a save has been loaded into this game
+    this.saveReady = false; // the welcome screen must never overwrite a saved farm
+    this.saveEpoch = (this.saveEpoch || 0) + 1;
+    this.saveStatus = { state: 'idle' };
     this.seed = seed;
     this.mode = mode;
     this.difficulty = DIFFICULTY[difficulty] ? difficulty : 'standard';
@@ -226,7 +226,7 @@ export class Game {
       const sign = v => (v > 0 ? '+' : '') + v;
       this.notify(`Year ${this.year} begins. Over the past year health went ${sign(ds)} to ${Math.round(score.total)}, and ${speciesPresent(this)} species live here (${sign(dn)}).`, 'season');
     }
-    if (this.autosave !== false) this.save();
+    if (this.saveReady && this.autosave !== false) void this.save();
   }
 
   // Warn as invasive cover crosses 10%, 20% and 30%, pointing at the worst patch. The warning
@@ -294,56 +294,114 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ save / load
-  save() {
+  saveData() {
+    const w = this.world, arrays = {};
+    const bytes = a => new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+    for (const k of WORLD_ARRAYS) arrays[k] = bytes(w[k]);
+    for (const k of Object.keys(EXTRA_ARRAYS)) if (w[k]) arrays[k] = { n: w[k].length, b: bytes(w[k]) };
+    return structuredClone({
+      v: 2, seed: this.seed, day: this.day, money: this.money, speed: this.speed, flags: this.flags,
+      stats: this.stats, goalsDone: this.goalsDone, history: this.history,
+      world: { arrays, structures: w.structures, w: w.w, h: w.h, bloomTick: w.bloomTick },
+      wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
+      visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant, ledger: this.ledger, lastLedger: this.lastLedger,
+      mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0, map: this.map,
+      weather: this.weather, weatherDays: this.weatherDays, rainStreak: this.rainStreak, dryStreak: this.dryStreak,
+      plants: PLANTS.map(p => p?.key || ''),
+    });
+  }
+
+  async save({ speed = this.speed } = {}) {
+    const map = this.map, epoch = this.saveEpoch, request = this.saveRequest = (this.saveRequest || 0) + 1;
+    this.saveStatus = { state: 'saving' }; this.emit('save', this.saveStatus);
     try {
-      const w = this.world;
-      const arrays = {};
-      for (const k of WORLD_ARRAYS) arrays[k] = toB64(w[k]);
-      for (const k of Object.keys(EXTRA_ARRAYS)) if (w[k]) arrays[k] = { n: w[k].length, b: toB64(w[k]) };
-      const data = {
-        v: 1, seed: this.seed, day: this.day, money: this.money, speed: this.speed, flags: this.flags,
-        stats: this.stats, goalsDone: this.goalsDone, history: this.history,
-        world: { arrays, structures: w.structures, w: w.w, h: w.h, bloomTick: w.bloomTick },
-        wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
-        visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant, ledger: this.ledger, lastLedger: this.lastLedger,
-        mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0, map: this.map,
-        plants: PLANTS.map(p => p?.key || ''), // so a later version with a changed plant list can still read it
-      };
-      localStorage.setItem(saveKey(this.map), JSON.stringify(data));
-      localStorage.setItem(LAST_MAP_KEY, this.map);
+      const data = this.saveData();
+      data.speed = speed;
+      Game.prepareSaves();
+      await saves.write(map, data);
+      if (this.map === map && this.saveEpoch === epoch && this.saveRequest === request) {
+        this.saveStatus = { state: 'saved', savedAt: Date.now(), day: data.day };
+        this.emit('save', this.saveStatus);
+      }
       return true;
     } catch (e) {
       console.warn('Save failed', e);
+      if (this.map === map && this.saveEpoch === epoch && this.saveRequest === request) {
+        this.saveStatus = { state: 'error' }; this.emit('save', this.saveStatus);
+      }
       return false;
     }
   }
 
-  static saveKey(map) { return saveKey(map); }
-  static hasSave(map = Game.lastMap()) {
-    try { return !!localStorage.getItem(saveKey(map)); } catch { return false; }
-  }
-  static clearSave(map = Game.lastMap()) { try { localStorage.removeItem(saveKey(map)); } catch { /* ignore */ } }
-  // the map played most recently (the one "Continue" opens)
-  static lastMap() {
-    try { const m = localStorage.getItem(LAST_MAP_KEY); if (m && localStorage.getItem(saveKey(m))) return m; } catch { /* ignore */ }
-    return 'pnw';
+  static prepareSaves() { return saves.init(BIOME_LIST.map(b => b.id)); }
+  static saveKey(map) { return legacySaveKey(map); }
+  static hasSave(map = Game.lastMap()) { return saves.has(map); }
+  static clearSave(map = Game.lastMap()) { Game.prepareSaves(); return saves.clear(map); }
+  static lastMap() { return saves.lastMap(); }
+
+  async load(map = Game.lastMap(), checksum = null) {
+    await Game.prepareSaves();
+    try {
+      const candidates = await saves.candidates(map);
+      for (let i = 0; i < candidates.length; i++) {
+        const snapshot = candidates[i];
+        if ((checksum != null && snapshot.checksum !== checksum) || !intact(snapshot)) continue;
+        if (this.restoreSnapshot(snapshot, map)) {
+          if (i > 0 && checksum == null) this.notify('Your latest save could not be opened. An earlier automatic backup was recovered.', 'warn');
+          return true;
+        }
+      }
+    } catch (error) { console.warn('Could not open browser save', error); }
+    setBiome(this.map); // A failed cross-map validation must leave the active registries intact.
+    return false;
   }
 
-  load(map = Game.lastMap()) {
-    let data;
-    try { data = JSON.parse(localStorage.getItem(saveKey(map))); } catch { return false; }
-    if (!data || data.v !== 1) return false;
+  restoreSnapshot(snapshot, map = this.map) {
+    try {
+      if (!intact(snapshot) || (snapshot.data.map || 'pnw') !== map) return false;
+      // Validate off to the side so a rejected save cannot partially replace the farm.
+      const restored = new Game();
+      if (!restored.restoreSave(structuredClone(snapshot.data))) { setBiome(this.map); return false; }
+      const { listeners, ...state } = restored;
+      Object.assign(this, state);
+      this.wildlife.game = this; this.visitors.game = this; this.events.game = this;
+      this.loaded = true; this.saveReady = true;
+      this.saveEpoch = (this.saveEpoch || 0) + 1;
+      this.saveStatus = { state: 'saved', savedAt: snapshot.savedAt, day: this.day };
+      this.emit('reset'); this.emit('save', this.saveStatus);
+      return true;
+    } catch (error) {
+      setBiome(this.map); console.warn('Trying another saved snapshot', map, error); return false;
+    }
+  }
+
+  restoreSave(data) {
+    if (!data || (data.v !== 1 && data.v !== 2) || !data.world?.arrays || !Array.isArray(data.world.structures) ||
+      !Array.isArray(data.wildlife?.agents) || !Array.isArray(data.wildlife?.state) ||
+      !data.flags || !data.stats || !data.goalsDone || !Number.isFinite(data.money) ||
+      !Number.isInteger(data.day) || data.day < 0 || !Number.isFinite(data.rng)) return false;
     setBiome(data.map || 'pnw');
     this.map = biome.id;
-    this.loaded = true;
     // Every map has a fixed size. A save whose grid doesn't match it (a smaller map's farm that an
     // older version loaded into a full-size grid and saved again) is scrambled, so don't open it:
     // the caller starts a fresh farm instead.
     const fresh = biome.generate(1), ww = fresh.w, wh = fresh.h;
-    if (atob(data.world.arrays.terrain).length !== ww * wh) { console.warn('Discarding a scrambled save for', biome.id); return false; }
+    const terrain = arrayBytes(data.world.arrays.terrain);
+    if (terrain.length !== ww * wh || data.world.w !== ww || data.world.h !== wh) { console.warn('Discarding a scrambled save for', biome.id); return false; }
     const w = new World(ww, wh);
-    for (const k of WORLD_ARRAYS) if (data.world.arrays[k]) fromB64(data.world.arrays[k], w[k]);
-    for (const [k, Type] of Object.entries(EXTRA_ARRAYS)) { const a = data.world.arrays[k]; if (a?.b) { w[k] = new Type(a.n); fromB64(a.b, w[k]); } }
+    for (const k of WORLD_ARRAYS) {
+      const a = data.world.arrays[k];
+      if (a) restoreArray(a, w[k]);
+      else if (data.v === 2) return false;
+    }
+    for (const [k, Type] of Object.entries(EXTRA_ARRAYS)) {
+      const a = data.world.arrays[k];
+      if (a?.b) {
+        if (!Number.isInteger(a.n) || a.n < 0 || a.n > w.n) return false;
+        w[k] = new Type(a.n); restoreArray(a.b, w[k]);
+      }
+    }
+    if (data.wildlife.agents.some(a => !ANIMALS[a.sp] || !Number.isFinite(a.x) || !Number.isFinite(a.y))) return false;
     if (data.world.bloomTick != null) w.bloomTick = data.world.bloomTick;
     // plants are stored by number: match them up by name if the map's plant list has changed since
     // the save, and don't open a save whose plants can't be matched (it would crash, or show the wrong ones)
@@ -365,15 +423,15 @@ export class Game {
     this.world = w;
     this.border = new Border(w, biome.borderCell);
     this.rng = mulberry32(1); this.rng.setState(data.rng);
-    this.day = data.day; this.acc = 0; this.money = data.money; this.speed = data.speed || 1;
+    this.day = data.day; this.acc = 0; this.money = data.money; this.speed = SPEEDS[data.speed] != null ? data.speed : 1;
     this.flags = data.flags; this.stats = data.stats; this.goalsDone = data.goalsDone; this.history = data.history || [];
     this.stats.used ||= {};
     this.mode = data.mode || 'free'; // saves from before the campaign are free play
     this.campaign = data.campaign || { chapter: 0 };
     this.difficulty = data.difficulty || 'standard';
     this.snow = data.snow || 0;
-    this.weather = 'clear';
-    this.rainStreak = 0; this.dryStreak = 0;
+    this.weather = data.weather || 'clear'; this.weatherDays = data.weatherDays || 0;
+    this.rainStreak = data.rainStreak || 0; this.dryStreak = data.dryStreak || 0;
     this.lastGrant = data.lastGrant || 0;
     this.ledger = data.ledger || { in: {}, out: {} }; this.lastLedger = data.lastLedger || null;
     this.cache = { hunts: data.cache?.hunts || {} };
@@ -387,19 +445,17 @@ export class Game {
     this.wildlife.computeSuitability();
     this.cache.nativePlants = nativePlantSpecies(w);
     this.updateScore();
-    this.emit('reset');
     return true;
   }
 }
 
-function toB64(arr) {
-  const u8 = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
-  let s = '';
-  for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
-  return btoa(s);
+function arrayBytes(value) {
+  if (typeof value === 'string') return bytesFromBase64(value);
+  if (!(value instanceof Uint8Array)) throw new Error('Invalid saved landscape');
+  return value;
 }
-function fromB64(str, arr) {
-  const s = atob(str);
-  const u8 = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
-  for (let i = 0; i < s.length && i < u8.length; i++) u8[i] = s.charCodeAt(i);
+function restoreArray(value, arr) {
+  const bytes = arrayBytes(value), target = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+  if (bytes.length !== target.length) throw new Error('Incomplete saved landscape');
+  target.set(bytes);
 }

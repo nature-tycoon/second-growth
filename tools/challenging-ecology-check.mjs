@@ -15,7 +15,11 @@ import '../js/lang/es.js';
 
 const g = new Game();
 let checks = 0;
-function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
+function check(name, fn) {
+  const result = fn(), done = () => { checks++; console.log(`PASS ${name}`); };
+  if (result?.then) return result.then(done);
+  done();
+}
 function reset(mode = 'challenging', map = 'pnw') {
   g.newGame(1987, 'free', mode, map);
   g.wildlife.agents = []; g.wildlife.recount();
@@ -270,18 +274,18 @@ check('Terrestrial predators and their prey both get actionable diagnostics, inc
   }
   assert.ok(g.wildlife.agents.includes(prey));
 });
-check('New pressure state survives save/load and older saves still load', () => {
+await check('New pressure state survives save/load and older saves still load', async () => {
   reset(); const i = tile(); sapling(i); g.rng = () => 0;
   browseSapling(g, browser(), ANIMAL.deer); TOOLS.mulch.apply(g, i); g.rng = mulberry32(7);
   const hunter = g.wildlife.spawn(ANIMAL.bobcat, 30, 30, { silent: true }); hunter.hunger = 42;
   const memory = new Map(); globalThis.localStorage = { getItem: k => memory.get(k) ?? null, setItem: (k, v) => memory.set(k, v) };
-  const damage = g.world.browseDamage[i]; assert.equal(g.save(), true); assert.equal(g.load('pnw'), true);
+  const damage = g.world.browseDamage[i]; assert.equal(await g.save(), true); assert.equal(await g.load('pnw'), true);
   assert.equal(g.world.mulchDays[i], MULCH_DAYS); assert.equal(g.world.browseDamage[i], damage);
   assert.ok(hungryPredator(g, g.wildlife.agents.find(a => a.id === hunter.id)));
   assert.equal(g.stats.saplingsBrowsed, 1); assert.ok(g.flags.ecologyNotices.browse != null);
   const key = Game.saveKey('pnw'), old = JSON.parse(memory.get(key));
   delete old.world.arrays.mulchDays; delete old.world.arrays.browseDamage; memory.set(key, JSON.stringify(old));
-  assert.equal(g.load('pnw'), true); assert.equal(g.world.mulchDays, undefined); assert.equal(g.world.browseDamage, undefined);
+  assert.equal(await g.load('pnw'), true); assert.equal(g.world.mulchDays, undefined); assert.equal(g.world.browseDamage, undefined);
 });
 check('Undo refunds mulch and restores both initial and renewed protection', () => {
   reset(); const i = tile(), undo = new Undo(g), tool = TOOLS.mulch, money = g.money;

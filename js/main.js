@@ -24,6 +24,8 @@ async function boot() {
     // a map switch reloads the page (see UI.switchMap); otherwise open on the last map played
     let pending = null;
     try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)); sessionStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+    stage('Opening your saved farms', 12);
+    await Game.prepareSaves();
     initLang(pending?.map || Game.lastMap()); // the language this map is played in (see i18n.js), from the loading screen on
     await nextPaint();
     stage('Preparing the land', 22);
@@ -45,12 +47,12 @@ async function boot() {
     window.addEventListener('resize', () => { renderer.resize(); renderer.clampCam(); });
 
     if (pending?.resume) {
-      if (!game.load(pending.map)) { game.newGame(1987, 'free', 'standard', pending.map); setTimeout(() => game.notify('That saved farm could not be opened, so you are starting fresh.', 'warn'), 1500); }
+      if (!await game.load(pending.map)) { game.newGame(1987, 'free', 'standard', pending.map); setTimeout(() => game.notify('That saved farm could not be opened. Your stored saves have been kept. Choose a new game to start over.', 'warn'), 1500); }
       else {
         track('game_start', { mode: 'continue', saved_mode: game.mode, map: game.map, difficulty: game.difficulty, game_year: game.year });
         game.notify(`Welcome back. It's ${game.dateString()}.`, 'season');
       }
-    } else if (pending) ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map);
+    } else if (pending) await ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map);
     else ui.openIntro(true, Game.hasSave(), () => { if (game.speed === 0) ui.setSpeed(1); });
     ui.afterNewGame();
     ui.refreshTop(true);

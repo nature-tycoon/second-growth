@@ -810,6 +810,82 @@ export class Wildlife {
     }
     this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
     this.spacing.separate(dt, passable);
+    // Measure progress after spacing: movement can appear successful and then be
+    // completely undone by a neighbour pushing the animal back in the same frame.
+    for (const a of this.agents) this.checkMovementProgress(a, dt);
+  }
+
+  checkMovementProgress(a, dt) {
+    if (((a.state !== 'walk' || !a.path?.length) && a.state !== 'approach') || ANIMALS[a.sp].reef) {
+      a.moveProgress = null;
+      return;
+    }
+    const w = this.game.world, j = a.state === 'walk' ? a.path[a.path.length - 1] : -1;
+    let tx = a.localGoal?.[0], ty = a.localGoal?.[1];
+    if (j >= 0) {
+      const [ox, oy] = spotIn(a, j, a.path.length === 1);
+      const rest = a.path.length === 1 && a.restSpot?.[0] === j;
+      tx = rest ? a.restSpot[1] : j % w.w + 0.5 + ox;
+      ty = rest ? a.restSpot[2] : (j / w.w | 0) + 0.5 + oy;
+    }
+    if (tx == null || ty == null) { a.moveProgress = null; return; }
+    const distance = Math.hypot(a.x - tx, a.y - ty), p = a.moveProgress;
+    if (!p || p.j !== j || p.tx !== tx || p.ty !== ty) {
+      a.moveProgress = { j, tx, ty, best: distance, stalled: 0 };
+      return;
+    }
+    if (distance < p.best - 0.04) { p.best = distance; p.stalled = 0; }
+    else p.stalled += dt;
+    if (p.stalled >= 3) this.recoverMovement(a);
+  }
+
+  recoverMovement(a) {
+    const w = this.game.world, approaching = a.state === 'approach';
+    const dest = approaching ? w.idx(Math.floor(a.localGoal[0]), Math.floor(a.localGoal[1])) : a.path[0];
+    const tx = dest % w.w + 0.5, ty = (dest / w.w | 0) + 0.5;
+    const wasFollowing = a.follow, inTransit = !approaching && a.path.length > 1;
+    a.moveProgress = null; a.restSpot = null; a.localGoal = null;
+    // A fixed herd slot can be occupied by another animal for years. Let the
+    // next herd decision choose a new slot instead of returning to that jam.
+    if (wasFollowing) { a.slot = null; a.momSlot = null; }
+    const spots = new Map();
+    const freeSpot = j => {
+      if (!spots.has(j)) {
+        if (approaching) spots.set(j, this.bankSpot(a, j));
+        else {
+          const [ox, oy] = spotIn(a, j, true);
+          const [x, y] = this.spacing.restSpot(a, j, ox, oy);
+          spots.set(j, { x, y, crowd: this.spacing.crowd(a, x, y) });
+        }
+      }
+      return spots.get(j);
+    };
+    const goal = (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 4 &&
+      (freeSpot(j)?.crowd ?? Infinity) < 0.04;
+    // First try walking around occupied transit tiles. If packed in on every
+    // side, allow an escape through the crowd; the progress timer still bounds it.
+    const clear = j => {
+      const [ox, oy] = spotIn(a, j, false);
+      return this.spacing.crowd(a, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy) < 0.08;
+    };
+    if (this.pathTo(a, goal, 900, null, clear) || this.pathTo(a, goal, 900)) {
+      const j = a.path[0], spot = freeSpot(j);
+      a.restSpot = [j, spot.x, spot.y];
+      return;
+    }
+    // Long trips can extend beyond this local search. Step into nearby room,
+    // then resume the original journey rather than forgetting the destination.
+    if (inTransit && this.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - a.x, y + 0.5 - a.y) < 4 &&
+      freeSpot(j).crowd < 0.04, 300)) {
+      const j = a.path[0], spot = freeSpot(j);
+      a.restSpot = [j, spot.x, spot.y];
+      if (!wasFollowing) a.trip = dest;
+      return;
+    }
+    // No reachable space right now. Rest briefly and make a fresh decision;
+    // never leave a failed route running forever or teleport across a barrier.
+    a.path = null; a.trip = null; a.follow = false;
+    a.state = 'idle'; a.wait = 0.5 + (a.id % 7) * 0.15;
   }
 
   // Swimming on the reef: a fish doesn't walk from tile centre to tile centre. It holds a heading
@@ -1182,8 +1258,9 @@ export class Wildlife {
 
   // Breadth-first walk to the nearest tile passing goal(j, x, y); if none turns up within `cap`
   // tiles and a distance function is given, head for the searched tile closest to the target.
+  // Recovery can additionally avoid occupied tiles, without changing ordinary habitat paths.
   // Sets up the path and returns true if the animal is now walking.
-  pathTo(a, goal, cap, dist = null) {
+  pathTo(a, goal, cap, dist = null, canVisit = null) {
     const w = this.game.world, W = w.w, n = w.n;
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y), start = w.idx(x0, y0);
     if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
@@ -1201,7 +1278,7 @@ export class Wildlife {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !passable(w, j, a)) continue;
+        if (stamp[j] === stampN || !passable(w, j, a) || (canVisit && !canVisit(j))) continue;
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }
@@ -1238,7 +1315,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(a => ({ ...a, path: null })),
+      agents: this.agents.map(({ moveProgress, ...a }) => ({ ...a, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,
@@ -1246,7 +1323,7 @@ export class Wildlife {
   }
   load(d) {
     this.spacingDirty = true;
-    this.agents = d.agents.map(a => ({ ...a, state: a.state === 'walk' ? 'idle' : a.state,
+    this.agents = d.agents.map(a => ({ ...a, moveProgress: null, state: a.state === 'walk' ? 'idle' : a.state,
       wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5 }));
     this.nextId = d.nextId;
     d.state.forEach((s, k) => { if (this.state[k]) Object.assign(this.state[k], s); });

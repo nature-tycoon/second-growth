@@ -1,0 +1,234 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Browser save checks</title>
+<style>body { font: 15px/1.6 monospace; padding: 24px; background: #f4eddb; color: #2b3a2a; } pre { white-space: pre-wrap; }</style>
+<h1>Browser save checks</h1>
+<p>Uses a temporary database and in-memory preferences. Your saved farms are untouched.</p>
+<pre id="output">Starting…</pre>
+<script type="module">
+import { Game, WORLD_ARRAYS } from '../js/game.js';
+import { BIOME_LIST, biome } from '../js/biome.js';
+import { BrowserSaves, saves, legacySaveKey, LAST_MAP_KEY, intact, saveChecksum } from '../js/saves.js';
+
+const database = `second-growth-save-check-${crypto.randomUUID()}`;
+const memory = new Map();
+const storage = { getItem: k => memory.get(k) ?? null, setItem: (k, v) => memory.set(k, String(v)), removeItem: k => memory.delete(k) };
+const result = window.saveChecks = { done: false, passed: [], error: null };
+const output = document.querySelector('#output');
+const assert = (ok, message) => { if (!ok) throw new Error(message); };
+const equal = (a, b, message) => assert(JSON.stringify(a) === JSON.stringify(b), `${message}: ${JSON.stringify(a)} / ${JSON.stringify(b)}`);
+async function check(name, fn) { await fn(); result.passed.push(name); output.textContent = result.passed.map(n => `PASS ${n}`).join('\n'); }
+function put(record) {
+  return new Promise((resolve, reject) => {
+    const tx = saves.db.transaction('farms', 'readwrite'); tx.objectStore('farms').put(record);
+    tx.oncomplete = resolve; tx.onabort = () => reject(tx.error);
+  });
+}
+const legacy = new BrowserSaves({ storage });
+legacy.ready = Promise.resolve(); // Exercise the real localStorage fallback without opening a database.
+const game = new Game(), originals = new Map();
+try {
+  await check('Existing saves on all seven maps migrate only after the database commits', async () => {
+    for (const b of BIOME_LIST) {
+      game.newGame(1987, 'free', 'challenging', b.id);
+      game.flags.saveCheck = b.id; game.day = 120;
+      game.world.mulchDays = new Uint16Array(game.world.n); game.world.mulchDays[100] = 73;
+      game.world.browseDamage = new Float32Array(game.world.n); game.world.browseDamage[100] = 0.125;
+      const data = game.saveData(); originals.set(b.id, data); await legacy.write(b.id, data);
+    }
+    const legacyBytes = [...memory].filter(([k]) => k !== LAST_MAP_KEY).reduce((n, [, v]) => n + new TextEncoder().encode(v).length, 0);
+    saves.database = database; saves.storage = storage;
+    await Game.prepareSaves();
+    assert(saves.backend === 'indexeddb', 'IndexedDB must be used in a real browser');
+    let binaryBytes = 0;
+    for (const b of BIOME_LIST) {
+      assert(!memory.has(legacySaveKey(b.id)), `Legacy ${b.id} removed after commit`);
+      const [snapshot] = await saves.candidates(b.id);
+      assert(intact(snapshot), `Valid ${b.id} checksum`);
+      assert(snapshot.data.world.arrays.terrain instanceof Uint8Array, 'Landscape stored as binary');
+      binaryBytes += Object.values(snapshot.data.world.arrays).reduce((n, a) => n + (a.b || a).byteLength, 0);
+      binaryBytes += new TextEncoder().encode(JSON.stringify({ ...snapshot.data, world: { ...snapshot.data.world, arrays: undefined } })).length;
+    }
+    assert(binaryBytes < legacyBytes * 0.8, 'Binary saves should use at least 20% less payload');
+    result.sizes = { legacyBytes, binaryBytes };
+  });
+  await check('Binary saves restore every map, including ecological pressure, flags and RNG', async () => {
+    for (const b of BIOME_LIST) {
+      assert(await game.load(b.id), `Load ${b.id}`);
+      assert(game.flags.saveCheck === b.id && game.day === 120, 'Metadata restored');
+      assert(game.world.mulchDays[100] === 73 && game.world.browseDamage[100] === 0.125, 'Typed pressure arrays restored');
+      assert(game.rng.state() === originals.get(b.id).rng, 'RNG restored');
+      for (const key of ['terrain', 'ground', 'shrub', 'tree', 'treeAge', 'feature', 'marks']) {
+        const a = game.saveData().world.arrays[key], b0 = originals.get(b.id).world.arrays[key];
+        assert(a.length === b0.length && a.every((v, i) => v === b0[i]), `${b.id} ${key} restored`);
+      }
+      assert(game.wildlife.game === game && game.visitors.game === game && game.events.game === game, 'Simulation references retargeted');
+    }
+  });
+  await check('Only the latest and two previous distinct snapshots are kept', async () => {
+    game.newGame(1987, 'free', 'standard', 'pnw');
+    for (const day of [10, 20, 30, 40, 50]) { game.day = day; assert(await game.save(), 'Save commits'); }
+    equal((await saves.candidates('pnw')).map(s => s.data.day), [50, 40, 30], 'Backups rotate');
+    assert(await game.save(), 'Unchanged save commits');
+    equal((await saves.candidates('pnw')).map(s => s.data.day), [50, 40, 30], 'Unchanged saves retain backups');
+  });
+  await check('Queued saves capture immutable state and finish in request order', async () => {
+    const writes = [];
+    for (const day of [60, 70, 80, 90]) { game.day = day; game.flags.immutable = day; writes.push(game.save()); }
+    game.day = 999; game.flags.immutable = 999;
+    assert((await Promise.all(writes)).every(Boolean), 'Queued saves succeed');
+    const candidates = await saves.candidates('pnw');
+    equal(candidates.map(s => s.data.day), [90, 80, 70], 'Last requested state wins');
+    assert(candidates[0].data.flags.immutable === 90 && game.saveStatus.day === 90, 'Metadata cannot change during queued write');
+  });
+  await check('An aborted write reports failure and keeps all previous snapshots intact', async () => {
+    const before = (await saves.candidates('pnw')).map(s => s.checksum), transaction = saves.db.transaction;
+    saves.db.transaction = function(...args) {
+      const tx = transaction.apply(this, args);
+      if (args[1] === 'readwrite') queueMicrotask(() => tx.abort());
+      return tx;
+    };
+    try { assert(!await game.save(), 'Failed save must return false'); }
+    finally { saves.db.transaction = transaction; }
+    assert(game.saveStatus.state === 'error', 'Save status exposes failure');
+    equal((await saves.candidates('pnw')).map(s => s.checksum), before, 'Abort preserves previous data');
+  });
+  await check('A quota error while writing a record aborts cleanly and preserves backups', async () => {
+    const before = (await saves.candidates('pnw')).map(s => s.checksum), original = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = () => { throw new DOMException('Storage full', 'QuotaExceededError'); };
+    try { assert(!await game.save(), 'Quota error must return false'); }
+    finally { IDBObjectStore.prototype.put = original; }
+    equal((await saves.candidates('pnw')).map(s => s.checksum), before, 'Failed put preserves snapshots');
+  });
+  await check('A blocked database request falls back without reading its unavailable error property', async () => {
+    const original = indexedDB.open;
+    indexedDB.open = () => {
+      const request = { readyState: 'pending', get error() { throw new DOMException('Pending request', 'InvalidStateError'); } };
+      queueMicrotask(() => request.onblocked()); return request;
+    };
+    try {
+      const blocked = new BrowserSaves({ storage });
+      await Promise.race([blocked.init(), new Promise((_, reject) => setTimeout(() => reject(new Error('Blocked request hung')), 500))]);
+      assert(blocked.backend === 'local' && !blocked.db, 'Blocked request completes via fallback');
+    } finally { indexedDB.open = original; }
+  });
+  await check('A damaged latest save automatically falls back to a valid backup', async () => {
+    const record = await saves.readRecord('pnw'); record.snapshots[0].data.money++;
+    await put(record);
+    let warning = ''; game.on('notify', n => { warning = n.text; });
+    assert(await game.load('pnw'), 'Backup loads');
+    assert(game.day === 80 && /backup/.test(warning), 'Recovery is visible and uses previous state');
+  });
+  await check('A valid checksum with malformed landscape also triggers backup recovery', async () => {
+    const record = await saves.readRecord('pnw');
+    delete record.snapshots[0].data.world.arrays.soil;
+    record.snapshots[0].checksum = saveChecksum(record.snapshots[0].data); await put(record);
+    assert(await game.load('pnw') && game.day === 80, 'Schema validation tries the backup');
+  });
+  await check('Total corruption never partially replaces the currently open farm', async () => {
+    const record = await saves.readRecord('pnw'); for (const s of record.snapshots) s.checksum = -1; await put(record);
+    game.newGame(1987, 'free', 'standard', 'amazon'); const world = game.world;
+    assert(!await game.load('pnw'), 'All invalid snapshots rejected');
+    assert(game.world === world && game.map === 'amazon' && biome.id === 'amazon', 'Farm and registries preserved');
+  });
+  await check('An earlier snapshot can be restored even after a safety save rotates it out', async () => {
+    game.newGame(1987, 'free', 'standard', 'pnw');
+    for (const day of [10, 20, 30]) { game.day = day; await game.save(); }
+    const selected = (await saves.candidates('pnw'))[2];
+    game.day = 40; await game.save();
+    assert(!(await saves.candidates('pnw')).some(s => s.checksum === selected.checksum), 'Oldest snapshot rotated out');
+    assert(game.restoreSnapshot(selected, 'pnw') && game.day === 10, 'Selected snapshot still restored');
+    await game.save();
+    assert((await saves.candidates('pnw'))[1].data.day === 40, 'Pre-restore progress retained as backup');
+  });
+  await check('Blocked localStorage preferences do not break IndexedDB saving', async () => {
+    saves.storage = { getItem() { throw new Error('Blocked'); }, setItem() { throw new Error('Blocked'); }, removeItem() { throw new Error('Blocked'); } };
+    game.newGame(1987, 'free', 'standard', 'reef'); game.day = 123;
+    assert(await game.save(), 'Database save succeeds without preferences');
+    assert(Game.hasSave('reef') && await game.load('reef'), 'Continue works without preferences');
+    assert(Game.lastMap() === 'reef', 'Latest database metadata supplies the map');
+    saves.storage = storage;
+  });
+  await check('Migration failures preserve legacy data for retry', async () => {
+    const copy = new Map(), old = new BrowserSaves({ storage: { ...storage, getItem: k => copy.get(k) ?? null, removeItem: k => copy.delete(k) } });
+    copy.set(legacySaveKey('reef'), memory.get(legacySaveKey('reef')) || (() => {
+      const value = originals.get('reef'), arrays = {};
+      for (const [key, a] of Object.entries(value.world.arrays)) {
+        const bytes = a.b || a; let str = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) str += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        arrays[key] = a.b ? { n: a.n, b: btoa(str) } : btoa(str);
+      }
+      return JSON.stringify({ ...value, v: 1, world: { ...value.world, arrays } });
+    })());
+    old.database = database + '-migration-failure'; old.writeRecord = async () => { throw new Error('Simulated failed commit'); };
+    await old.init(['reef']);
+    assert(copy.has(legacySaveKey('reef')), 'Original retained');
+    old.db.close(); await new Promise(resolve => { const r = indexedDB.deleteDatabase(old.database); r.onsuccess = resolve; });
+  });
+  await check('The localStorage fallback handles quota failure without destroying the old save', async () => {
+    game.newGame(1987, 'free', 'standard', 'pnw'); await legacy.write('pnw', game.saveData());
+    const previous = memory.get(legacySaveKey('pnw')), original = storage.setItem;
+    storage.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); };
+    try {
+      let failed = false; try { await legacy.write('pnw', game.saveData()); } catch { failed = true; }
+      assert(failed && memory.get(legacySaveKey('pnw')) === previous, 'Quota failure preserves old snapshot');
+    } finally { storage.setItem = original; }
+  });
+  await check('Older saves missing a subsequently added array remain loadable', async () => {
+    const old = JSON.parse(memory.get(legacySaveKey('pnw'))); delete old.world.arrays.rx;
+    memory.set(legacySaveKey('pnw'), JSON.stringify(old));
+    const candidate = (await legacy.candidates('pnw'))[0];
+    assert(game.restoreSnapshot(candidate, 'pnw'), 'Legacy array defaults retained');
+  });
+  await check('A newer fallback save is reconciled when IndexedDB becomes available again', async () => {
+    const values = new Map(), local = { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v), removeItem: k => values.delete(k) };
+    const name = database + '-reconcile', primary = new BrowserSaves({ database: name, storage: local });
+    await primary.init(['pnw']); game.day = 11; await primary.write('pnw', game.saveData());
+    const previous = (await primary.candidates('pnw'))[0]; primary.db.close();
+    const fallback = new BrowserSaves({ storage: local }); fallback.ready = Promise.resolve();
+    game.day = 22; await fallback.write('pnw', game.saveData());
+    const json = JSON.parse(values.get(legacySaveKey('pnw'))); json.savedAt = previous.savedAt + 100;
+    values.set(legacySaveKey('pnw'), JSON.stringify(json));
+    const retry = new BrowserSaves({ database: name, storage: local });
+    retry.writeRecord = async () => { throw new Error('Still unable to migrate'); };
+    await retry.init(['pnw']);
+    assert((await retry.candidates('pnw'))[0].data.day === 22 && retry.summary('pnw').day === 22, 'Newer fallback remains available while migration fails');
+    retry.db.close();
+    const restored = new BrowserSaves({ database: name, storage: local }); await restored.init(['pnw']);
+    equal((await restored.candidates('pnw')).map(s => s.data.day), [22, 11], 'Fallback wins while older database progress remains a backup');
+    assert(!values.has(legacySaveKey('pnw')), 'Fallback removed only after reconciliation commit');
+    restored.db.close(); await new Promise(resolve => { const r = indexedDB.deleteDatabase(name); r.onsuccess = resolve; });
+  });
+  await check('Replacing a farm clears only that map and waits for queued writes', async () => {
+    game.day = 30; const write = game.save(), clear = Game.clearSave('pnw');
+    await write; await clear;
+    assert(!Game.hasSave('pnw') && Game.hasSave('reef'), 'Only selected map cleared');
+    game.day = 0; await game.save(); assert((await saves.candidates('pnw')).length === 1, 'Fresh farm has no old backups');
+  });
+  await check('A new database connection discovers saved maps and Continue metadata', async () => {
+    const reopened = new BrowserSaves({ database, storage }); await reopened.init(BIOME_LIST.map(b => b.id));
+    assert(reopened.has('reef') && reopened.summary('reef').day === 123, 'Saved map survives reconnect');
+    assert(intact((await reopened.candidates('reef'))[0]), 'Binary snapshot survives reconnect');
+    reopened.db.close();
+  });
+  await check('Persistence requests respect browser denial, approval and unavailable APIs', async () => {
+    const original = Object.getOwnPropertyDescriptor(navigator, 'storage');
+    try {
+      let calls = 0;
+      Object.defineProperty(navigator, 'storage', { configurable: true, value: { persisted: async () => false, persist: async () => { calls++; return false; } } });
+      const denied = new BrowserSaves({ storage });
+      assert(!await denied.requestPersistence() && !await denied.requestPersistence() && calls === 1, 'Denial is handled without repeated prompts');
+      Object.defineProperty(navigator, 'storage', { configurable: true, value: { persisted: async () => true, persist: async () => { throw new Error('Already protected'); } } });
+      assert(await new BrowserSaves({ storage }).requestPersistence(), 'Existing permission needs no new request');
+      Object.defineProperty(navigator, 'storage', { configurable: true, value: undefined });
+      assert(!await new BrowserSaves({ storage }).requestPersistence(), 'Missing API remains usable');
+    } finally { if (original) Object.defineProperty(navigator, 'storage', original); else delete navigator.storage; }
+  });
+  result.done = true; output.textContent += `\n${result.passed.length} browser save checks passed.\n${JSON.stringify(result.sizes)}`;
+} catch (error) {
+  result.error = error.stack; result.done = true; output.textContent += `\nFAIL ${error.stack}`;
+} finally {
+  saves.db?.close();
+  await new Promise(resolve => { const r = indexedDB.deleteDatabase(database); r.onsuccess = r.onerror = r.onblocked = resolve; });
+}
+</script>

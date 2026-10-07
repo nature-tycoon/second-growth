@@ -24,6 +24,7 @@ import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
 import { Undo } from '../undo.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
+import { saves, intact } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
 import { track, trackExit, setContext, setAnalyticsEnabled, sendFeedback, feedbackPossible, GAME_VERSION } from '../analytics.js';
 
@@ -194,10 +195,47 @@ export class UI {
     game.on('event', kind => { if ((kind === 'fire' || kind === 'flood') && settings.pauseOnEvents && game.speed) this.setSpeed(0); });
     this.bindAnalytics();
     this.applySettings();
+    this.bindSaving();
     this.warmPortraits();
     const wake = () => { music.start(); music.setScene(game.weather, game.season); };
     window.addEventListener('pointerdown', wake, true);
     window.addEventListener('keydown', wake, true);
+  }
+
+  bindSaving() {
+    const g = this.game;
+    const save = () => {
+      if (g.saveReady && g.autosave !== false) void g.save();
+    };
+    // Wall-clock saves also protect paused games and work done between game months.
+    setInterval(() => { if (!document.hidden) save(); }, 30000);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+    window.addEventListener('pagehide', save);
+    const protect = () => {
+      if (!g.saveReady) return;
+      void saves.requestPersistence();
+      window.removeEventListener('pointerdown', protect);
+    };
+    window.addEventListener('pointerdown', protect);
+    g.on('save', status => {
+      this.refreshSaveStatus();
+      if (status.state === 'error' && !this.saveWarning) {
+        this.saveWarning = true;
+        g.notify('Your progress could not be saved in this browser. Keep this tab open and try Save game again.', 'warn');
+      } else if (status.state === 'saved') this.saveWarning = false;
+    });
+    this.refreshSaveStatus();
+  }
+
+  refreshSaveStatus() {
+    const label = $('#save-status'), g = this.game;
+    if (!label) return;
+    const status = g.saveStatus || { state: 'idle' };
+    label.textContent = status.state === 'saving' ? 'Saving…' : status.state === 'saved' ? 'Saved' : status.state === 'error' ? 'Save failed' : g.autosave === false ? 'Autosave off' : '';
+    label.classList.toggle('error', status.state === 'error');
+    label.title = status.state === 'saved' ? `Saved on this device${status.savedAt ? ' at ' + new Date(status.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}.` :
+      status.state === 'error' ? 'Open the menu and try Save game again.' : 'Progress saves automatically on this device.';
+    this.fitTopbar();
   }
 
   // Render the field-guide portraits a few at a time in the background, so the guide opens instantly.
@@ -281,6 +319,7 @@ export class UI {
   applySettings() {
     this.renderer.applySettings(settings);
     this.game.autosave = settings.autosave;
+    this.refreshSaveStatus();
     music.set({ music: settings.music, nature: settings.nature, muted: settings.muted, musicVol: settings.musicVolume, natureVol: settings.natureVolume });
     $('#btn-sound')?.classList.toggle('muted', !!settings.muted);
   }
@@ -1064,6 +1103,7 @@ export class UI {
       <button class="btn secondary" data-a="feedback">Send feedback</button>
       <button class="btn secondary" data-a="help">How to play</button>
       <button class="btn secondary" data-a="save">Save game</button>
+      <button class="btn secondary" data-a="backups">Restore an earlier save</button>
       <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
     m.querySelector('[data-a=overlay]').addEventListener('click', () => this.openOverlayPicker());
@@ -1072,8 +1112,43 @@ export class UI {
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
     m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
-    m.querySelector('[data-a=save]').addEventListener('click', () => { const ok = this.game.save(); this.closeModal(); this.game.notify(ok ? 'Game saved. It also autosaves every month.' : 'Could not save (browser storage unavailable).', ok ? 'good' : 'warn'); });
+    m.querySelector('[data-a=save]').addEventListener('click', async event => {
+      const button = event.currentTarget; button.disabled = true;
+      const ok = await this.game.save();
+      if (ok) { this.closeModal(); this.game.notify('Game saved on this device.', 'good'); }
+      else button.disabled = false;
+    });
+    m.querySelector('[data-a=backups]').addEventListener('click', () => this.openSaveRecovery());
     m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true));
+  }
+
+  async openSaveRecovery() {
+    const g = this.game, map = g.map, speed = g.speed;
+    this.setSpeed(0);
+    const m = this.modal('Earlier saves', '<p>Opening your saved farms…</p>', { narrow: true, onClose: () => this.setSpeed(speed) });
+    try {
+      const candidates = await saves.candidates(map);
+      if (!m.isConnected) return;
+      const backups = candidates.slice(1).filter(intact);
+      const body = m.querySelector('.modal-body');
+      body.innerHTML = `<p class="info-desc">Saves stay in this browser on this device. Restoring an earlier save replaces your current progress.</p>` +
+        (backups.length ? `<div class="menu-list">${backups.map((s, k) => `<button class="btn secondary" data-backup="${k}">Year ${Math.floor(s.data.day / DAYS_PER_YEAR) + 1} · ${new Date(s.savedAt).toLocaleString()}</button>`).join('')}</div>` :
+          '<p>No earlier saves yet. Previous versions are kept automatically as you play.</p>');
+      body.querySelectorAll('[data-backup]').forEach(button => button.addEventListener('click', async () => {
+        if (!button.dataset.sure) { button.dataset.sure = '1'; button.textContent = 'Click again to restore this save'; return; }
+        body.querySelectorAll('button').forEach(b => { b.disabled = true; });
+        // Commit current progress before switching, so it becomes an undo backup.
+        if (g.saveReady && !await g.save()) { this.closeModal(); return; }
+        if (!g.restoreSnapshot(backups[+button.dataset.backup], map)) {
+          this.closeModal(); g.notify('That earlier save could not be restored. Your current farm has been kept.', 'warn'); return;
+        }
+        this.closeModal(); this.afterNewGame();
+        await g.save();
+        g.notify('Earlier save restored.', 'good');
+      }));
+    } catch {
+      this.closeModal(); g.notify('Earlier saves could not be opened. Your current farm has been kept.', 'warn');
+    }
   }
 
   openSettings(tab = this.settingsTab || 'audio') {
@@ -1096,7 +1171,8 @@ export class UI {
         <div class="section-title" style="margin-top:0">Difficulty on this farm</div>
         <div class="seg" data-seg="difficulty">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === (g.difficulty || 'standard') ? 'on' : ''}">${d.name}</button>`).join('')}</div>
         <p class="small diff-desc">${g.diff.desc} Grants ×${g.diff.grants}, costs ×${g.diff.costs}, fire and flood ×${g.diff.disasters}.</p>
-        ${toggle('autosave', 'Autosave', 'Save the farm at the end of every month.')}
+        ${toggle('autosave', 'Autosave', 'Save every 30 seconds, at the end of each month, and when you leave the tab.')}
+        <p class="small">Progress stays in this browser on this device. Clearing site data removes it.</p>
         ${toggle('pauseOnEvents', 'Pause on wildfire or flood', 'Stop the clock so you can respond.')}
         ${choice('notifications', 'Notifications', 'Routine updates still go in the field journal.', [['all', 'Show everything'], ['important', 'Important only']])}`],
       graphics: ['Graphics', `
@@ -1177,6 +1253,7 @@ export class UI {
   }
 
   afterNewGame() {
+    this.refreshSaveStatus();
     this.analyticsContext?.();
     if (this.session) this.session.day0 = this.game.day;
     const sub = document.querySelector('#topbar .subtitle, .subtitle');
@@ -1195,7 +1272,7 @@ export class UI {
     // the picker reads in the language the chosen map will be played in, so a student who taps
     // Español can read the choices right away
     const shownLang = () => (LANG_MAPS[map] ? langFor(map) : 'en');
-    const savedYear = id => { try { return JSON.parse(localStorage.getItem(Game.saveKey(id)))?.day / DAYS_PER_YEAR + 1 | 0; } catch { return 0; } };
+    const savedYear = id => Math.floor((saves.summary(id)?.day || 0) / DAYS_PER_YEAR) + 1;
     const m = this.modal('How do you want to play?', `<div class="section-title" style="margin-top:0">Map</div>
       ${worldMap(BIOME_LIST, map)}<div class="map-pick"></div>
       <div class="lang-pick" hidden><div class="section-title">Language · Idioma</div>
@@ -1243,14 +1320,17 @@ export class UI {
       track('setting_changed', { setting: 'language', value: b.dataset.l, map });
       this.openModeChoice(replacing, map, diff); // redrawn in the new language
     }));
-    m.querySelector('[data-a=resume]').addEventListener('click', () => {
+    m.querySelector('[data-a=resume]').addEventListener('click', async event => {
+      event.currentTarget.disabled = true;
       if (map !== this.game.map || relang()) return this.switchMap({ map, resume: true });
       this.closeModal();
-      if (!this.game.load(map)) {
-        this.game.newGame(1987, 'free', 'standard', map); this.afterNewGame();
-        this.game.notify('That saved farm could not be opened, so you are starting fresh.', 'warn');
+      const speed = this.game.speed; this.setSpeed(0);
+      if (!await this.game.load(map)) {
+        this.setSpeed(speed);
+        this.game.notify('That saved farm could not be opened. Your stored saves have been kept.', 'warn');
         return;
       }
+      void saves.requestPersistence();
       track('game_start', { mode: 'continue', map });
       this.afterNewGame();
       this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
@@ -1260,36 +1340,51 @@ export class UI {
       m.querySelectorAll('[data-d]').forEach(o => o.classList.toggle('on', o === b));
       m.querySelector('.diff-desc').textContent = DIFFICULTY[diff].desc;
     }));
-    m.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => {
+    m.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', async () => {
       if (b.disabled) return;
       if (willReplace() && !b.dataset.sure) {
         m.querySelectorAll('[data-m]').forEach(o => { delete o.dataset.sure; o.classList.remove('danger'); });
         b.dataset.sure = 1; b.classList.add('danger'); b.querySelector('span').textContent = 'Click again to replace your saved farm for good.';
         return;
       }
+      m.querySelectorAll('[data-m]').forEach(o => { o.disabled = true; });
       this.closeModal();
       if (relang()) return this.switchMap({ map, mode: b.dataset.m, difficulty: diff });
-      this.startMode(b.dataset.m, replacing, diff, map);
+      await this.startMode(b.dataset.m, replacing, diff, map);
     }));
   }
   // Another map means a different cast of plants and animals, so the page reloads into it:
   // every cached model, sprite and thumbnail starts clean. main.js picks up where this left off.
-  switchMap(pending) {
+  async switchMap(pending) {
     // the same map in another language: keep the progress only if this game is the saved farm
     const same = pending.map === this.game.map;
-    if (same ? this.game.loaded && this.game.day > 0 : this.game.day > 0 || Game.hasSave(this.game.map)) this.game.save();
-    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending)); } catch { /* ignore */ }
+    const speed = this.game.speed; this.setSpeed(0);
+    if (this.game.saveReady && (same ? this.game.loaded : true) && !await this.game.save({ speed })) {
+      this.setSpeed(speed); return; // Keep the current farm open if its save did not commit.
+    }
+    try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending)); } catch {
+      this.setSpeed(speed); this.game.notify('This browser could not switch farms. Your current farm is still open.', 'warn'); return;
+    }
     track('map_switch', { from: this.game.map, to: pending.map, resume: !!pending.resume });
     location.reload();
   }
-  startMode(mode, fresh, difficulty = 'standard', map = this.game.map) {
+  async startMode(mode, fresh, difficulty = 'standard', map = this.game.map) {
     const g = this.game;
     if (map !== g.map) return this.switchMap({ map, mode, difficulty });
-    if (fresh) { track('game_restart', this.snapshot()); Game.clearSave(map); g.newGame(Math.floor(Math.random() * 100000), mode, difficulty, map); }
+    if (fresh) {
+      const speed = g.speed; this.setSpeed(0);
+      try { await Game.clearSave(map); } catch {
+        this.setSpeed(speed); g.notify('The saved farm could not be replaced. Your current farm is still open.', 'warn'); return;
+      }
+      track('game_restart', this.snapshot()); g.newGame(Math.floor(Math.random() * 100000), mode, difficulty, map);
+    }
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
     track('game_start', { mode, fresh, difficulty, map });
     this.newCats = new Set();
     this.afterNewGame();
+    g.saveReady = true;
+    void saves.requestPersistence();
+    if (g.autosave !== false) void g.save();
     if (g.speed === 0) this.setSpeed(1);
     if (mode === 'campaign') this.openChapter(0);
     else g.notify(biome.startText, 'season');
@@ -1574,10 +1669,16 @@ export class UI {
     const m = this.modal(first ? 'Welcome to Second Growth' : 'How to play', body, { narrow: true, foot, onClose });
     const btn = a => m.querySelector(`[data-a=${a}]`);
     btn('close')?.addEventListener('click', () => this.closeModal());
-    btn('continue')?.addEventListener('click', () => {
+    btn('continue')?.addEventListener('click', async event => {
+      event.currentTarget.disabled = true;
       this.closeModal();
+      this.setSpeed(0);
       track('game_start', { mode: 'continue', saved_mode: this.game.mode, map: this.game.map, difficulty: this.game.difficulty, game_year: this.game.year });
-      if (!this.game.load()) { this.game.newGame(); this.game.notify('The saved game could not be loaded, so you are starting fresh.', 'warn'); }
+      if (!await this.game.load()) {
+        this.game.notify('The saved farm could not be opened. Your stored saves have been kept.', 'warn');
+        this.openModeChoice(true); return;
+      }
+      void saves.requestPersistence();
       this.afterNewGame();
       this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
     });

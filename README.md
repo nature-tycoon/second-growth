@@ -10,7 +10,13 @@ There's no build step. The game is plain JavaScript modules plus a vendored copy
 python3 -m http.server 8347
 ```
 
-Then open http://localhost:8347. The game autosaves to browser storage every in-game month.
+Then open http://localhost:8347. The game autosaves on this device every 30 seconds, every in-game month, and when the tab becomes hidden. No account or save server is needed.
+
+Browser saves use IndexedDB with compact binary map arrays, an integrity check, and the latest snapshot plus two previous distinct versions per map. Existing localStorage saves migrate automatically and are removed only after the database commit succeeds. Continue automatically tries a backup if the newest snapshot is damaged or incompatible. Menu → Restore an earlier save also lets players roll back inside the game, while keeping their current progress as a backup. Starting a new farm clears that map's older versions after the existing replacement confirmation.
+
+The Saved / Saving / Save failed indicator reports completed writes. Autosave also protects paused games, and map switches wait for the current save before reloading. The game requests persistent browser storage when play begins; browsers may grant or deny it. Saves remain tied to this site's browser profile and device, and clearing site data removes them. If IndexedDB is unavailable, saving falls back to the original localStorage format with its smaller capacity and no rotating backups. Autosave can still be disabled in Settings; manual Save game remains available.
+
+Run `node tools/browser-save-check.mjs` for real IndexedDB migration, binary round trips on all seven maps, backup rotation and recovery, failed writes, queued saves, persistence handling, and the actual Continue, recovery and map-switch UI. It launches Google Chrome in an isolated temporary profile and serves the game on a temporary localhost port; set `CHROME_PATH` for another Chromium installation. `tools/browser-save-check.html` runs storage checks in a temporary database with in-memory legacy storage, leaving existing farms untouched.
 
 ## Controls
 

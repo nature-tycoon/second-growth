@@ -155,6 +155,98 @@ check('Animals walking to the same tile settle without shuffling indefinitely', 
   assert.ok(herd.every(a => a.state === 'idle'), herd.map(a => a.state).join(','));
   for (const a of herd) for (const b of herd) if (a.id < b.id) assert.ok(gap(a, b) > -0.015);
 });
+check('A dense elephant herd gives up crowded waypoints and finds room to settle', () => {
+  reset(); const w = g.world;
+  const herd = Array.from({ length: 24 }, (_, k) => spawn('elephant', 28, 29 + k % 3));
+  for (const a of herd) { a.path = [w.idx(30, 30), w.idx(29, 30)]; a.state = 'walk'; }
+  const choose = g.wildlife.chooseTarget;
+  g.wildlife.chooseTarget = a => { a.wait = 1000; };
+  try { for (let k = 0; k < 2000; k++) g.wildlife.update(0.05); }
+  finally { g.wildlife.chooseTarget = choose; }
+  assert.ok(herd.every(a => a.state === 'idle'), `${herd.filter(a => a.state === 'walk').length} elephants still walking after 100 days`);
+  for (const a of herd) for (const b of herd) if (a.id < b.id) assert.ok(gap(a, b) > -0.015, `${a.id}/${b.id}: ${gap(a, b)}`);
+});
+check('Crowded herd recovery works across species, seeds and movement step sizes', () => {
+  for (const [map, key] of [['serengeti', 'buffalo'], ['serengeti', 'zebra'], ['sumatra', 'gajah'], ['chinandega', 'cattle']]) {
+    for (const dt of [0.01, 0.05]) {
+      Math.random = mulberry32(dt === 0.01 ? 17 : 1987);
+      reset(map); const w = g.world;
+      const herd = Array.from({ length: 20 }, (_, k) => spawn(key, 28, 29 + k % 3));
+      for (const a of herd) { a.path = [w.idx(30, 30), w.idx(29, 30)]; a.state = 'walk'; }
+      const choose = g.wildlife.chooseTarget;
+      g.wildlife.chooseTarget = a => { a.wait = 1000; };
+      try { for (let t = 0; t < 40; t += dt) g.wildlife.update(dt); }
+      finally { g.wildlife.chooseTarget = choose; }
+      assert.ok(herd.every(a => a.state === 'idle'), `${key}, dt=${dt}: unfinished walkers`);
+      for (const a of herd) for (const b of herd) if (a.id < b.id) assert.ok(gap(a, b) > -0.015, `${key}: ${gap(a, b)}`);
+    }
+  }
+});
+check('A stalled long trip takes a local detour and remembers its distant destination', () => {
+  reset(); const w = g.world, a = spawn('elephant', 29, 30), dest = w.idx(100, 30);
+  a.path = [dest, w.idx(30, 30)]; a.state = 'walk';
+  g.wildlife.spacing.rebuild(w, g.wildlife.agents);
+  const before = [a.x, a.y]; g.wildlife.recoverMovement(a);
+  assert.deepEqual([a.x, a.y], before); // Recovery plans a walk; it never teleports.
+  assert.equal(a.trip, dest); assert.equal(a.state, 'walk');
+  assert.ok(Math.hypot(a.restSpot[1] - a.x, a.restSpot[2] - a.y) < 5);
+  for (const j of a.path) assert.ok(passable(w, j, a));
+});
+check('Herd followers replace blocked formation slots while keeping family links', () => {
+  reset(); const w = g.world, mom = spawn('elephant'), calf = spawn('elephant', 28, 30, { juvenile: true, age: 10 });
+  calf.mom = mom.id; calf.slot = [0, 0]; calf.momSlot = [0, 0]; calf.follow = true;
+  calf.path = [w.idx(30, 30), w.idx(29, 30)]; calf.state = 'walk';
+  g.wildlife.spacing.rebuild(w, g.wildlife.agents); g.wildlife.recoverMovement(calf);
+  assert.equal(calf.slot, null); assert.equal(calf.momSlot, null); assert.equal(calf.mom, mom.id);
+  for (let k = 0; k < 200; k++) g.wildlife.update(0.05);
+  assert.ok(calf.momSlot && Math.hypot(...calf.momSlot) > 0.4);
+  assert.ok(Math.hypot(calf.x - mom.x, calf.y - mom.y) < 3);
+});
+check('Crowded shoreline approaches recover to real water without leaving the bank', () => {
+  reset(); pond(); const w = g.world;
+  const herd = Array.from({ length: 8 }, () => spawn('elephant', 27, 30));
+  for (const a of herd) { a.localGoal = [27.84, 30.5]; a.state = 'approach'; a.thirst = 20; }
+  let drank = false;
+  for (let k = 0; k < 800; k++) {
+    g.wildlife.update(0.05);
+    for (const a of herd) {
+      assert.ok(passable(w, w.idx(Math.floor(a.x), Math.floor(a.y)), a));
+      if (a.drinkT > 0) {
+        drank = true; assert.ok(a.drinkAt);
+        assert.ok(isWater(w.terrain[w.idx(Math.floor(a.drinkAt[0]), Math.floor(a.drinkAt[1]))]));
+      }
+    }
+  }
+  assert.ok(drank); assert.ok(herd.every(a => (a.moveProgress?.stalled || 0) < 3));
+});
+check('A trapped herd cancels failed routes without crossing water, structures or fences', () => {
+  reset(); const w = g.world;
+  for (let y = 29; y <= 31; y++) for (let x = 29; x <= 31; x++) {
+    if (x === 30 && y === 30) continue;
+    const j = w.idx(x, y);
+    if (x === 29) w.terrain[j] = T.POND;
+    else if (x === 31) w.feature[j] = F.FENCE;
+    else w.struct[j] = 0;
+  }
+  const herd = Array.from({ length: 4 }, () => spawn('elephant'));
+  for (const a of herd) { a.path = [w.idx(30, 30)]; a.state = 'walk'; }
+  const choose = g.wildlife.chooseTarget;
+  g.wildlife.chooseTarget = a => { a.wait = 1000; };
+  try { for (let k = 0; k < 400; k++) g.wildlife.update(0.05); }
+  finally { g.wildlife.chooseTarget = choose; }
+  assert.ok(herd.every(a => a.state === 'idle'));
+  for (const a of herd) assert.equal(w.idx(Math.floor(a.x), Math.floor(a.y)), w.idx(30, 30));
+});
+check('Progress tracking pauses with the game and starts fresh after loading a save', () => {
+  reset(); const a = spawn('elephant', 29, 30), w = g.world;
+  a.path = [w.idx(32, 30), w.idx(30, 30)]; a.state = 'walk';
+  g.wildlife.update(0.05); assert.ok(a.moveProgress);
+  const before = JSON.stringify(g.wildlife.agents); g.wildlife.update(0);
+  assert.equal(JSON.stringify(g.wildlife.agents), before);
+  const data = g.wildlife.serialize(); assert.ok(!('moveProgress' in data.agents[0]));
+  g.wildlife.load(data); assert.equal(g.wildlife.agents[0].moveProgress, null);
+  assert.equal(g.wildlife.agents[0].state, 'idle');
+});
 check('Legacy drinking poses are repaired immediately and survive the restored rest timer', () => {
   reset(); pond(); const a = spawn('zebra', 30, 27), dry = spawn('zebra', 25, 30);
   a.drinkT = dry.drinkT = 4; delete a.orientation;

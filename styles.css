@@ -716,3 +716,6 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
   #btn-undo-float:active:not(:disabled) { background: var(--moss); color: #fff; }
   body.moment-on #btn-undo-float, body.photo-mode #btn-undo-float { opacity: 0; pointer-events: none; }
 }
+#save-status { display: block; font: 700 10px/1.2 var(--ui); color: var(--green, #4f7d3b); }
+#save-status:empty { display: none; }
+#save-status.error { color: #ae443c; }

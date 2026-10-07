@@ -8,7 +8,11 @@ import { T, F } from '../js/config.js';
 
 const g = new Game();
 let checks = 0;
-function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
+function check(name, fn) {
+  const result = fn(), done = () => { checks++; console.log(`PASS ${name}`); };
+  if (result?.then) return result.then(done);
+  done();
+}
 function tile(x, y, terrain = T.SOIL, moisture = 0.5) {
   const w = g.world, i = w.idx(x, y);
   w.clearPlants(i); w.struct[i] = -1; w.feature[i] = 0;
@@ -68,15 +72,15 @@ check('Sumatra has common groundcover for a closed rainforest canopy', () => {
   assert.ok(PLANT.titan.spread * 50 < PLANT.spikemoss.spread);
   assert.equal(plantPhase(PLANT.spikemoss, 10), 'green');
 });
-check('Sumatra saves from before the new groundcover retain their plants', () => {
+await check('Sumatra saves from before the new groundcover retain their plants', async () => {
   const memory = new Map();
   globalThis.localStorage = { getItem: k => memory.get(k) ?? null, setItem: (k, v) => memory.set(k, v) };
   const i = tile(20, 20, T.DUFF, 0.65); g.world.setPlant(i, PLANT.meranti, 0.9);
-  assert.equal(g.save(), true);
+  assert.equal(await g.save(), true);
   const key = Game.saveKey('sumatra'), old = JSON.parse(memory.get(key));
   assert.equal(old.plants.pop(), 'spikemoss');
   memory.set(key, JSON.stringify(old));
-  assert.equal(g.load('sumatra'), true);
+  assert.equal(await g.load('sumatra'), true);
   assert.equal(g.world.tree[i], PLANT.meranti.id);
 });
 
