@@ -7,6 +7,7 @@ import { STRUCTURES } from './world.js';
 import { plantSuit } from './sim/plants.js';
 import { onBiome, biome } from './biome.js';
 import { MULCH_DAYS } from './sim/ecological-pressure.js';
+import { plantAffinity } from './plant-patterns.js';
 
 const land = t => !isWater(t);
 const DEPTH = { [T.POND]: 0.6, [T.MARSH]: 0.2, [T.CREEK]: 0.4 };
@@ -123,7 +124,11 @@ function plantTool(source, cost, density, fenceLine = false) {
     if (!inFence && rng() > density) return null;
     // each seed ends up where it suits best: weight by suitability
     let total = 0;
-    const s = species.map(p => { const v = plantSuit(w, i, p); const q = v > 0.2 ? v * v : 0; total += q; return q; });
+    const s = species.map(p => {
+      const v = plantSuit(w, i, p);
+      const q = v > 0.2 ? v * v * (species.length > 1 ? plantAffinity(p, i % w.w, Math.floor(i / w.w)) : 1) : 0;
+      total += q; return q;
+    });
     if (total <= 0) return 'unsuitable';
     let r = rng() * total, pick = species[0];
     for (let k = 0; k < species.length; k++) { r -= s[k]; if (r <= 0) { pick = species[k]; break; } }

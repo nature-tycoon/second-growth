@@ -5,6 +5,8 @@ import { T, F, LEVEL, BORDER, isWater, clamp } from '../config.js';
 import { PLANTS, plantPhase } from '../data/plants.js';
 import { hash2 } from '../rng.js';
 import * as G from './geometry.js';
+import * as Botanical from './botanical.js';
+import { flowerForm, grassForm } from '../plant-patterns.js';
 import { withFocusFade } from './focus.js';
 import { withSnowTops } from './snow.js';
 import { withClouds } from './atmosphere.js';
@@ -160,6 +162,7 @@ export class Flora {
     this.foliage = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind)), 0.95));
     this.shrubs = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind, false, 0.38, 0.6)), 0.85));
     this.grass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true, 0.5, 0.7)), 1.3));
+    this.tallGrass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 0.4, this.wind, true, 0.5, 0.7)), 1.3));
     this.bark = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
     this.small = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
     this.pools = new Map();
@@ -187,6 +190,34 @@ export class Flora {
       this.pools.set(key, p);
     }
     return p;
+  }
+
+  // Points on a shrub's outer, upper surface, lifted clear of the leaves so heads sit on them rather
+  // than in them. A shrub is several lumpy masses: only the points on the outermost shell count,
+  // the farthest from the centre in their own direction, not those tucked between two masses.
+  shrubSpots(key) {
+    let spots = this.geos.get(key + ':spots');
+    if (!spots) {
+      const g = this.geos.get(key), p = g.attributes.position, nor = g.attributes.normal;
+      let top = 0;
+      for (let i = 0; i < p.count; i++) top = Math.max(top, p.getY(i));
+      const cy = top * 0.35, bin = (x, y, z) => Math.floor((Math.atan2(z, x) / Math.PI + 1) * 6) % 12 * 4 + Math.min(3, Math.max(0, Math.floor(Math.atan2(y - cy, Math.hypot(x, z)) / (Math.PI / 2) * 4)));
+      const far = new Float32Array(48), cand = [];
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+        if (y < top * 0.4 || nor.getY(i) < -0.1) continue;
+        const d = Math.hypot(x, y - cy, z), b = bin(x, y, z);
+        far[b] = Math.max(far[b], d); cand.push([x, y, z, d, b, i]);
+      }
+      spots = [];
+      for (const [x, y, z, d, b, i] of cand) if (d > far[b] * 0.93) {
+        const lift = 0.035;
+        spots.push([x + nor.getX(i) * lift, y + Math.max(0.3, nor.getY(i)) * lift, z + nor.getZ(i) * lift]);
+      }
+      if (!spots.length) spots.push([0, top, 0]);
+      this.geos.set(key + ':spots', spots);
+    }
+    return spots;
   }
 
   // Simpler models when zoomed out; grass blades vanish once they'd be too small to see.
@@ -248,22 +279,41 @@ export class Flora {
         const p = PLANTS[gid];
         const g = inside ? w.groundG[i] : 1;
         const type = p.look.type;
+        const form = flowerForm(p), drawType = grassForm(p);
+        const tall = ['savannagrass', 'dropseed', 'papyrus'].includes(drawType);
         const grassy = type === 'grass' || type === 'tallgrass' || type === 'sedge';
         // (lush: on maps whose wildflower gardens are the payoff, a mature bed is drawn thick and full)
         const lush = biome.look.lush && (type === 'forb' || type === 'tallforb') && g >= 0.3;
         const titan = type === 'titan'; // (one to a tile, a little tree of a leaf, so drawn with the shrubs)
-        const n0 = titan ? 1 : lush ? (g < 0.65 ? 6 : type === 'tallforb' ? 7 : 10) : g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 5); // a healthy sward fills its tile
+        const n0 = titan ? 1 : lush ? (g < 0.65 ? 4 : 6) : g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 4); // a healthy sward fills its tile
         // meadow patches: thicker, taller and deeper green in some places, thinner and more golden in others
         const pt = meadowPatch(x + 0.5, y + 0.5), aquaticT = type === 'lily' || type === 'cattail' || type === 'tule';
         const n = Math.max(1, Math.round((aquaticT ? n0 : n0 * (0.6 + pt.lush * 0.8)) * (this.light ? 0.5 : 1)));
         const phase = plantPhase(p, month);
         const col = aquaticT ? leafColor(p, phase) : patchColor(leafColor(p, phase), pt);
         // grasses grow in clumps: one or two centres per tile that the tufts gather round
-        const clumps = grassy ? 1 + (hash2(x, y, 17) < 0.5 ? 1 : 0) : 0;
-        const tseed = 100 + v * 17 + type.length;
+        const clumps = grassy || form && !p.aquatic ? 1 + (hash2(x, y, 17) < 0.5 ? 1 : 0) : 0;
+        const tseed = 100 + v * 17 + (form || drawType).length;
         const bloomT = titan && phase === 'bloom' ? 'titanbloom' : type; // (in its rare flowering, the corpse flower is a spathe instead of a leaf)
+        let botanical;
+        if (form) {
+          const key = `botanical:${form}:${p.look.flower}:${v}`;
+          botanical = this.geos.get(key);
+          if (!botanical) {
+            botanical = Botanical.wildflowerParts(form, tseed, p.look.flower);
+            botanical.lo = Botanical.wildflowerParts(form, tseed, p.look.flower, true);
+            this.geos.set(key, botanical);
+          }
+        }
+        const flowerLeaves = form && (type === 'forb' || type === 'tallforb');
+        const mat = tall ? this.tallGrass : this.grass;
         const pool = titan ? this.pool(`tuft:${bloomT}:${v}`, () => G.tuft(bloomT, tseed), this.shrubs, { kind: 'shrub' }, () => G.tuft(bloomT, tseed, true))
-          : this.pool(`tuft:${type}:${v}`, () => G.tuft(type, tseed), this.grass, { shadow: false, kind: 'grass' }, () => G.tuft(type, tseed, true));
+          : flowerLeaves ? this.pool(`tuft:flower:${form}:${v}`, () => botanical.foliage, mat, { shadow: false, kind: 'grass' }, () => botanical.lo.foliage)
+          : form ? this.pool(`tuft:flower:${type}:${form}:${v}`, () => G.merge([G.tuft(drawType,tseed),botanical.foliage]), mat, { shadow: false, kind: 'grass' }, () => G.merge([G.tuft(drawType,tseed,true),botanical.lo.foliage]))
+          : this.pool(`tuft:${drawType}:${v}`, () => G.tuft(drawType, tseed), mat, { shadow: false, kind: 'grass' }, () => G.tuft(drawType, tseed, true));
+        const blossoms = form && phase === 'bloom' ? this.pool(`flower:${form}:${p.look.flower}:${v}`, () => botanical.blossom, this.grass, { shadow: false, kind: 'grass' }, () => botanical.lo.blossom) : null;
+        const seedHeads = flowerLeaves && (phase === 'late' || phase === 'fall' || phase === 'winter') ? this.pool(`seed:${form}:${v}`, () => botanical.seed, this.grass, { shadow: false, kind: 'grass' }, () => botanical.lo.seed) : null;
+        const grassHeads = tall && g > 0.55 ? this.pool(`grasshead:${drawType}:${v}`, () => Botanical.grassHeads(drawType, tseed), mat, { shadow: false, kind: 'grass' }, () => Botanical.grassHeads(drawType, tseed, true)) : null;
         // parts in a colour of their own: the pitchers (always), the spadix (in flower)
         const acc = type === 'pitcher' ? this.pool(`tuft:acc:pitcher:${v}`, () => G.accent('pitcher', tseed), this.grass, { shadow: false, kind: 'grass' }, () => G.accent('pitcher', tseed, true))
           : bloomT === 'titanbloom' ? this.pool(`tuft:acc:titanbloom:${v}`, () => G.accent('titanbloom', tseed), this.shrubs, { kind: 'shrub' }, () => G.accent('titanbloom', tseed, true)) : null;
@@ -275,21 +325,24 @@ export class Flora {
             const c = k % clumps, cxp = x + 0.2 + hash2(x, y, 14 + c) * 0.6, czp = y + 0.2 + hash2(x, y, 15 + c) * 0.6, a = hash2(x, y, 21 + k) * 6.28, r = Math.sqrt(hash2(x, y, 41 + k)) * 0.2;
             px = cxp + Math.cos(a) * r; pz = czp + Math.sin(a) * r;
           }
-          const sc = (0.5 + 0.45 * g) * (0.7 + hash2(x, y, 60 + k) * 0.5) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26);
+          const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26);
           // lily pads float on the water surface instead of sitting on the pond bed
           const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz);
           const turn = hash2(x, y, 80 + k) * 6.28;
           pool.add(px, py, pz, sc, sc, sc, turn, bloomT === 'titanbloom' ? rgb(p.look.flower || '#6a1a2a').map(c => c * dim) : vary(col.map(c => c * dim), x, y, k));
+          if (blossoms) blossoms.add(px, py, pz, sc, sc, sc, turn, vary([dim, dim, dim], x, y, k, 0.035));
+          if (seedHeads && k % 2 === 0) seedHeads.add(px, py, pz, sc, sc, sc, turn, [dim, dim, dim]);
+          if (grassHeads && (drawType === 'papyrus' || k % 2 === 0)) grassHeads.add(px, py, pz, sc, sc, sc, turn, [dim, dim, dim]);
           if (acc) acc.add(px, py, pz, sc, sc, sc, turn, vary(accCol.map(c => c * dim), x, y, 70 + k));
           // flowers, seed heads and spathes
-          if (phase === 'bloom' && p.look.flower && !acc && !titan) {
+          if (phase === 'bloom' && p.look.flower && !acc && !titan && !form) {
             const fc = rgb(p.look.flower);
             if (type === 'tallforb') for (let f = 0; f < 3; f++) dots.add(px, py + (0.22 + f * 0.04) * sc, pz, 0.8, 1.3, 0.8, 0, fc);
             else if (type === 'skunk') dots.add(px, py + 0.12, pz, 1.6, 2.6, 1.6, 0, fc);
             else for (let f = 0; f < (lush ? 4 : 3); f++) { const ds = lush ? 1.15 : 0.9; dots.add(px + (hash2(x, y, 90 + k * 3 + f) - 0.5) * 0.14, py + 0.14 * sc + f * 0.02, pz + (hash2(x, y, 95 + k * 3 + f) - 0.5) * 0.14, ds, ds, ds, 0, fc); }
           }
           // (lush: the gardens are left standing through fall and winter: dark cones and pale plumes, silvered by frost)
-          if (lush && (phase === 'fall' || phase === 'winter') && p.look.flower && k % 2 === 0) {
+          if (lush && !form && (phase === 'fall' || phase === 'winter') && p.look.flower && k % 2 === 0) {
             const plume = p.look.seed === 'plume', frost = phase === 'winter' ? 0.45 : 0;
             const sc0 = plume ? [0.86, 0.82, 0.7] : [0.24, 0.17, 0.12];
             const c = [sc0[0] + (0.9 - sc0[0]) * frost, sc0[1] + (0.92 - sc0[1]) * frost, sc0[2] + (0.95 - sc0[2]) * frost];
@@ -338,10 +391,23 @@ export class Flora {
           const dotCol = accCol ? null : phase === 'bloom' && p.look.flower ? rgb(p.look.flower) : phase === 'fruit' && p.look.berry ? rgb(p.look.berry) : null;
           if (dotCol && g > 0.3) {
             const n = 4 + Math.round(g * 5);
-            const R = (shape === 'bramble' ? 0.38 : 0.25) * sc, Hh = (shape === 'willow' ? 0.7 : 0.38) * sc;
+            const flowering = phase === 'bloom', fruiting = !flowering;
+            const flowerShape = p.key === 'buttonbush' ? 'puff' : p.key === 'hydrangea' || p.look.plume ? 'plume'
+              : p.key === 'elderberry' || p.key === 'lantana' || p.key === 'oceanspray' ? 'umbel'
+              : p.key === 'salal' ? 'bells'
+              : p.key === 'broom' || p.key === 'oregongrape' || p.key === 'aloe' || p.key === 'sweetspire' ? 'spike' : 'star';
+            const headShape = flowering ? flowerShape : p.key === 'piper' ? 'catkin' : null; // (spiked pepper's fruit is a curved spike, not a berry)
+            const heads = headShape ? this.pool(`shrubflower:${headShape}:${flowering ? p.look.flower : p.look.berry}`, () => Botanical.blossomHead(headShape, flowering ? p.look.flower : p.look.berry), this.grass, { shadow: false, kind: 'shrub' }, () => Botanical.blossomHead(headShape, flowering ? p.look.flower : p.look.berry, true)) : null;
+            // flowers and fruit sit on the bush's own outer surface, wherever its leaves actually are
+            const spots = this.shrubSpots(`shrub:${shape}:${v}`);
+            const cr = Math.cos(rot), sr = Math.sin(rot);
             for (let k = 0; k < n; k++) {
-              const a = hash2(x, y, 110 + k) * 6.28, d = 0.5 + hash2(x, y, 130 + k) * 0.5;
-              dots.add(sx + Math.cos(a) * R * d, sy + Hh * (0.45 + hash2(x, y, 150 + k) * 0.55), sz + Math.sin(a) * R * d, 1, 1, 1, 0, dotCol);
+              const [ox, oy, oz] = spots[Math.floor(hash2(x, y, 110 + k) * spots.length)];
+              const wx = ox * cr + oz * sr, wz = -ox * sr + oz * cr, fx = sx + wx * sc, fy = sy + oy * sc, fz = sz + wz * sc;
+              // (a bell spray arches along the bush's surface, not out into the air; its spray points 0.6 rad round in its own frame)
+              const yaw = headShape === 'bells' ? 0.6 - Math.atan2(wz, wx) - (hash2(x, y, 130 + k) < 0.5 ? 1.4 : -1.4) : hash2(x, y, 130 + k) * 6.28;
+              if (heads) heads.add(fx, fy, fz, sc, sc, sc, yaw, [dim, dim, dim]);
+              else dots.add(fx, fy, fz, 1, 1, 1, 0, dotCol);
             }
           }
         }
@@ -351,14 +417,19 @@ export class Flora {
       if (tid) {
         const p = PLANTS[tid];
         const g = inside ? w.treeG[i] : (B.treeG[bi] || 0.9);
-        const shapeDef = G.TREE_SHAPES[p.look.type];
+        const baseShape = G.TREE_SHAPES[p.look.type];
+        const habit = ['oak', 'whiteoak', 'willowoak', 'guanacaste', 'genizaro'].includes(p.key) ? 'spread'
+          : ['cottonwood', 'tulippoplar', 'sweetgum', 'blackcherry', 'magnolia'].includes(p.key) ? 'spire'
+          : p.key === 'dogwood' && p.layer === 2 ? 'layered'
+          : ['redbud', 'riverbirch', 'vinemaple'].includes(p.key) ? 'vase' : baseShape.habit;
+        const shapeDef = habit === baseShape.habit ? baseShape : { ...baseShape, habit };
         const phase = p.conifer ? 'green' : plantPhase(p, month);
         const tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
         const ty = hAt(tx, tz) - 0.02;
         const sc = (0.2 + 0.8 * g) * (0.78 + hash2(x, y, 9) * 0.42) * (p.look.scale ?? 1);
         const rot = hash2(x, y, 10) * 6.28;
         const bark = rgb(p.look.bark).map(c => c * dim);
-        const key = `${p.look.type}:${v}`;
+        const key = `${p.look.type}:${p.key}:${v}`;
         const build = (lod = 0) => G.treeParts(shapeDef, 500 + v * 13 + p.id, lod);
         if (!p.conifer && phase === 'winter') {
           this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark).add(tx, ty, tz, sc, sc, sc, rot, bark);
@@ -376,6 +447,17 @@ export class Flora {
           if (inside && w.bleach && w.bleach[i] > 0) leaf = mixc(leaf, BLEACHED, w.bleach[i]); // (a coral bleaching in a marine heatwave)
           this.pools.get(`crown:${key}`).add(tx, ty, tz, sc, sc, sc, rot, vary(leaf.map(c => c * dim), x, y, 12, 0.1));
           this.pools.get(`trunk:${key}`).add(tx, ty, tz, sc, sc, sc, rot, bark);
+          if (phase === 'bloom' && ['dogwood', 'magnolia', 'ipe', 'redbud'].includes(p.key) && shapeDef.rx && g > 0.45) {
+            const form = p.key === 'magnolia' ? 'waterlily' : p.key === 'ipe' ? 'trumpet' : 'star';
+            const flowers = this.pool(`treeflower:${form}:${p.look.flower}`, () => Botanical.blossomHead(form, p.look.flower), this.grass,
+              { shadow: false }, () => Botanical.blossomHead(form, p.look.flower, true));
+            for (let k = 0; k < 12; k++) {
+              const a = rot + k * 2.4, d = shapeDef.rx * (0.5 + hash2(x, y, k + 121) * 0.36) * sc;
+              const fy = (shapeDef.height - shapeDef.ry * (0.6 + hash2(x, y, k + 133) * 0.65)) * sc;
+              const size = sc * (p.key === 'magnolia' ? 1.3 : 0.85);
+              flowers.add(tx + Math.cos(a) * d, ty + fy, tz + Math.sin(a) * d, size, size, size, a, [dim, dim, dim]);
+            }
+          }
           // trees with a fruit part of their own (the oil palm's bunches) show it, in the berry colour, once old enough to bear
           if (shape.fruit && phase === 'fruit' && p.look.berry && g > 0.45) {
             if (!this.pools.has(`fruit:${key}`)) {

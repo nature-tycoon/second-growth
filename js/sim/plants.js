@@ -152,7 +152,10 @@ function crowded(w, i, need, layer = 'tree', r = 1) {
 
 function disperse(w, p, x, y, rng, radiusBoost) {
   const r = p.radius + radiusBoost;
-  const dx = Math.round((rng() * 2 - 1) * r), dy = Math.round((rng() * 2 - 1) * r);
+  // Most groundcover seed lands near its parent, growing a drift outwards. A few seeds
+  // still reach the full dispersal radius; animal-carried and woody seed keep their range.
+  const offset = () => { const u = rng() * 2 - 1; return Math.round(r * (p.layer === 0 && !p.aquatic ? Math.sign(u) * Math.pow(Math.abs(u), 1.6) : u)); };
+  const dx = offset(), dy = offset();
   if (!dx && !dy) return;
   const xx = x + dx, yy = y + dy;
   if (!w.inb(xx, yy)) return;
