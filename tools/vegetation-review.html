@@ -27,8 +27,9 @@ let BeforeFlora; try { ({ Flora: BeforeFlora } = await import('./map-audit-outpu
 let SpecialistBefore; try { ({ Flora: SpecialistBefore } = await import('./map-audit-output/specialist-trees-before/flora.js')); } catch { SpecialistBefore = null; }
 let EvergreenBefore; try { ({ Flora: EvergreenBefore } = await import('./map-audit-output/conifer-shrubs-before/flora.js')); } catch { EvergreenBefore = null; }
 let GrovesBefore; try { ({ Flora: GrovesBefore } = await import('./map-audit-output/groves-before/flora.js')); } catch { GrovesBefore = null; }
+let BroadleafBefore; try { ({ Flora: BroadleafBefore } = await import('./map-audit-output/broadleaf-before/flora.js')); } catch { BroadleafBefore = null; }
 let PalettesBefore; try { ({ Flora: PalettesBefore } = await import('./map-audit-output/palettes-before/flora.js')); } catch { PalettesBefore = null; }
-const baselineFor = def => controls.snowCompare.checked ? null : controls.palettes.checked ? PalettesBefore : def.pass === 'groves' ? GrovesBefore : def.pass === 'evergreen' ? EvergreenBefore : def.tree ? SpecialistBefore : BeforeFlora;
+const baselineFor = def => controls.snowCompare.checked ? null : controls.palettes.checked ? PalettesBefore : def.pass === 'broadleaf' ? BroadleafBefore : def.pass === 'groves' ? GrovesBefore : def.pass === 'evergreen' ? EvergreenBefore : def.tree ? SpecialistBefore : BeforeFlora;
 const W = 800, H = 500, gl = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 gl.setSize(W, H); gl.outputColorSpace = THREE.SRGBColorSpace; gl.toneMapping = THREE.NeutralToneMapping;
 gl.shadowMap.enabled = true; gl.shadowMap.type = THREE.PCFShadowMap;
@@ -49,7 +50,7 @@ function dispose() {
     const geos = new Set();
     for (const value of v.flora.geos.values()) for (const part of [value, ...Object.values(value), ...Object.values(value.lo || {})]) if (part?.isBufferGeometry) geos.add(part);
     for (const geo of geos) geo.dispose();
-    for (const mat of [v.flora.foliage,v.flora.shrubs,v.flora.grass,v.flora.tallGrass,v.flora.bark,v.flora.small]) mat?.dispose();
+    for (const mat of [v.flora.foliage,v.flora.shrubs,v.flora.grass,v.flora.tallGrass,v.flora.bark,v.flora.small,v.flora.contact]) mat?.dispose();
   }
   views = [];
 }

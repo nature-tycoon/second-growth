@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<title>Second Growth — riverbank review</title>
+<title>Second Growth — water review</title>
 <script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
 <style>
 body{margin:24px;background:#eef0e8;color:#27392d;font:15px system-ui}
@@ -13,29 +13,30 @@ h2{font-size:17px;margin:0 0 10px}canvas{width:100%;display:block;aspect-ratio:8
 small{display:block;margin-top:8px;font-size:12px;color:#5b6857}
 @media(max-width:900px){main{grid-template-columns:1fr}}
 </style>
-<h1>Riverbank review</h1>
-<p>Hollis Farm’s actual creek and river, with identical land and planting on both sides. A muddy waterline, gravel pockets, wetland grasses and occasional washed-up branches follow the shoreline. These independent fixtures leave saved games untouched.</p>
+<h1>Water review</h1>
+<p>Hollis Farm’s actual creek and river, with identical land and planting on both sides. Lighter shallows, soft bank highlights, drifting sky reflections and short ripples at creek bends. These independent fixtures leave saved games untouched.</p>
 <label>Place <select id="place"><option value="bend">Creek bend</option><option value="river">River edge</option><option value="pond">Stock pond</option></select></label>
 <label>Habitat <select id="habitat"><option value="restored">Restored banks</option><option value="initial">Initial farm</option></select></label>
 <label>Season <select id="month"><option value="2">May</option><option value="5">August</option><option value="10">January</option></select></label>
 <label>Graphics <select id="detail"><option value="full">Full</option><option value="fast">Fast</option></select></label>
-<button id="rotate">Rotate view</button><p id="status">Preparing riverbanks…</p>
+<label>Motion <select id="motion"><option value="still">Still frame</option><option value="animate">Animate</option></select></label>
+<button id="rotate">Rotate view</button><p id="status">Preparing water…</p>
 <main><article><h2>Before</h2><canvas id="before" width="800" height="500"></canvas><small id="before-info"></small></article>
 <article><h2>Current</h2><canvas id="after" width="800" height="500"></canvas><small id="after-info"></small></article></main>
 <script type="module">
 import * as THREE from 'three';
-import { Terrain, buildAtlas } from '../js/render3d/terrain.js?riverbanks=1';
+import { Terrain, buildAtlas } from '../js/render3d/terrain.js?water=1';
 import { Flora } from '../js/render3d/flora.js';
 import { Game } from '../js/game.js';
 import { restoredGame } from './map-audit-fixtures.mjs';
 import { snow } from '../js/render3d/snow.js';
 let BeforeTerrain;
-try { ({ Terrain: BeforeTerrain } = await import('./map-audit-output/riverbanks-before/terrain.js')); } catch { BeforeTerrain = null; }
+try { ({ Terrain: BeforeTerrain } = await import('./map-audit-output/water-before/terrain.js')); } catch { BeforeTerrain = null; }
 const W=800,H=500, gl=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
 gl.setSize(W,H);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;
 gl.shadowMap.enabled=true;gl.shadowMap.type=THREE.PCFShadowMap;
 const camera=new THREE.OrthographicCamera(-1,1,1,-1,.1,200);
-const controls=Object.fromEntries(['place','habitat','month','detail','rotate','status'].map(id=>[id,document.getElementById(id)]));
+const controls=Object.fromEntries(['place','habitat','month','detail','rotate','status','motion'].map(id=>[id,document.getElementById(id)]));
 const atlas=buildAtlas();let views=[],angle=Math.PI/4;
 function dispose(){
   for(const v of views){
@@ -60,7 +61,7 @@ function setup(){
     const sun=new THREE.DirectionalLight(0xfff3dc,2.5);sun.castShadow=true;
     sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0006;sun.shadow.normalBias=.015;scene.add(sun,sun.target);
     const Builder=version==='before'&&BeforeTerrain?BeforeTerrain:Terrain,terrain=new Builder(scene,atlas);
-    terrain.setWorld(game.world,game.border);terrain.setFast(controls.detail.value==='fast');terrain.updateSurface(game);
+    terrain.setWorld(game.world,game.border);terrain.setFast(controls.detail.value==='fast');terrain.updateSurface(game);terrain.time.value=8;terrain.sky.value.set(0xd1dfec);
     const flora=new Flora(scene);flora.setLight(controls.detail.value==='fast');flora.setZoom(1.2);flora.rebuild(game);
     views.push({version,scene,sun,terrain,flora,game});
   }
@@ -82,10 +83,11 @@ function refresh(){
     const d=v.terrain.banks?.details,details=d?' · '+d.stones.length+' stones, '+d.grasses.length+' grass tufts, '+d.wood.length+' branches across the map':'';
     document.getElementById(v.version+'-info').textContent=gl.info.render.calls+' draw calls, including shadows'+details;
   }
-  controls.status.textContent='Ready · '+controls.place.selectedOptions[0].text+' · '+controls.detail.selectedOptions[0].text+' detail'+(BeforeTerrain?' · before/after comparison':' · local baseline unavailable; both panes show current riverbanks');
+  controls.status.textContent='Ready · '+controls.place.selectedOptions[0].text+' · '+controls.detail.selectedOptions[0].text+' detail'+(BeforeTerrain?' · before/after comparison':' · local baseline unavailable; both panes show current water');
 }
 controls.place.onchange=refresh;controls.rotate.onclick=()=>{angle+=Math.PI/2;refresh();};
 for(const id of ['habitat','month','detail'])controls[id].onchange=setup;
 setup();
+let last=0;function tick(now){if(controls.motion.value==='animate'&&now-last>80){for(const v of views)v.terrain.time.value=now/1000;refresh();last=now;}requestAnimationFrame(tick);}requestAnimationFrame(tick);
 </script>
 </html>

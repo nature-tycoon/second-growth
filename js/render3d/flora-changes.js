@@ -16,8 +16,9 @@ export class FloraChanges {
     for (let i = 0; i < w.vh.length; i++) if (w.vh[i] !== s.height[i]) return null;
     const dirty = new Set();
     const mark = (x, y) => {
-      // Adjacent boardwalks, fences and snorkel ropes depend on their neighbours.
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) dirty.add(floraChunkKey(x + dx, y + dy, this.size));
+      // Adjacent boardwalks, fences and snorkel ropes depend on their neighbours, and a wood's
+      // edge fringe on trees up to two tiles away.
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) dirty.add(floraChunkKey(x + dx, y + dy, this.size));
     };
     for (const f of FIELDS) {
       const a = w[f], old = s.inside[f];

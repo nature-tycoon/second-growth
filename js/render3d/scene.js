@@ -48,8 +48,10 @@ const TOD = [
   [0.05, 0.9, 0xffe0b8, 0.25, 0xf4e4d4, 0.08, 30, -0.6],
   [0.12, 1, 0xffffff, 0, 0xffffff, 0, 52, -0.25],           // day
   [0.7, 1, 0xffffff, 0, 0xffffff, 0, 54, 0.3],
-  [0.79, 0.95, 0xffb870, 0.45, 0xffdcb0, 0.14, 20, 0.75],  // golden hour
-  [0.855, 0.74, 0xffa870, 0.4, 0xe8c4b8, 0.18, 9, 0.95],   // sunset (warm, not muddy)
+  // golden hour: a low sun lights flat ground at a glancing angle, so it shines stronger and warmer
+  // to keep the land glowing rather than dim (about three quarters of midday on open ground)
+  [0.79, 1.55, 0xffb46a, 0.55, 0xffd6a6, 0.22, 22, 0.75],  // golden hour
+  [0.855, 1.1, 0xff9e64, 0.5, 0xf2c2b0, 0.24, 11, 0.95],   // sunset (warm, not muddy)
   [0.895, 0.4, 0x7a8ae8, 0.7, 0x7a8ad8, 0.42, 6, 1.0],     // night (moonlit)
   [0.935, 0.42, 0x94a0f0, 0.55, 0xa0a0e0, 0.36, 7, -1.0],  // before dawn
   [1.0, 0.66, 0xffb89a, 0.5, 0xf0c8c0, 0.16, 12, -0.9],
@@ -550,7 +552,8 @@ export class Renderer {
     this.night = ss(0.872, 0.893, todU) * (1 - ss(0.93, 0.95, todU)); // full night (see NIGHT_PACE for how long it lasts)
     this.dawn = todU > 0.97 || todU < 0.1 ? 1 - Math.min(1, Math.abs(((todU + 0.03) % 1) - 0.03) / 0.07) : 0;
     T.sun.lerp(tod.sunCol, tod.sunAmt); T.sky.lerp(tod.skyCol, tod.skyAmt);
-    const balance = this.lightingDepth ? lightingBalance(wx, tod.sun, !!biome.look.underwater)
+    // (how high the sun stands, not how strong it shines: the golden-hour sun is strong but low)
+    const balance = this.lightingDepth ? lightingBalance(wx, clamp((tod.el - 30) / 24, 0, 1), !!biome.look.underwater)
       : { key: 1, fill: 1, cool: 0, trim: 0, haze: 0 };
     // A little sky colour in the bounce light keeps shade cooler than sunlit surfaces, under a high sun.
     T.ground.lerp(T.sky, balance.cool).multiplyScalar(1 - balance.trim);
@@ -561,9 +564,9 @@ export class Renderer {
     haze.uHazeDir.value.set(-Math.sin(this.az), -Math.cos(this.az));
     haze.uHazeSpan.value = Math.max(8, this.vh / (2 * this.ppu * Math.sin(EL)));
     const humid = biome.id === 'amazon' || biome.id === 'sumatra';
-    const hazeTo = balance.haze * (humid ? 1.25 : 1) * (this.light ? .75 : 1) * (0.6 + .4 * tod.sun);
+    const hazeTo = balance.haze * (humid ? 1.25 : 1) * (this.light ? .75 : 1) * (0.6 + .4 * Math.min(1, tod.sun));
     haze.uHazeAmount.value += (hazeTo - haze.uHazeAmount.value) * k;
-    haze.uHazeColor.value.copy(this.hemi.color).multiplyScalar(.5 * (0.65 + .35 * Math.max(tod.sun, 1 - this.night))); // (a veil as light as the sky until nightfall)
+    haze.uHazeColor.value.copy(this.hemi.color).multiplyScalar(.5 * (0.65 + .35 * Math.min(1, Math.max(tod.sun, 1 - this.night)))); // (a veil as light as the sky until nightfall)
     {
       const el = THREE.MathUtils.degToRad(tod.el), az = Math.atan2(20, -30) + tod.sweep * 1.1;
       const d = 62, off = this.sunOffset || (this.sunOffset = new THREE.Vector3());
@@ -582,6 +585,10 @@ export class Renderer {
     const gustTo = wx === 'rain' ? 1.5 : wx === 'snow' ? 1.2 : wx === 'cloud' ? 1.0 : 0.65;
     windGust.value += (gustTo - windGust.value) * Math.min(1, dt * 0.4);
     this.flora.setZoom(this.zoom);
+    // plant contact shadows only stand in for the sun's when those are off (by choice, or dropped to
+    // keep up): alongside real shadows they'd only smudge the ground around each trunk
+    this.flora.contact.visible = !this.sun.castShadow;
+    this.actors.shadowMat.opacity = this.sun.castShadow ? 0.32 : 0.5;
     this.terrain.time.value = this.time;
     // rain rings on the water, and the ground darkening while it's wet and drying after
     const raining = game.weather === 'rain' && this.weatherOn !== false;

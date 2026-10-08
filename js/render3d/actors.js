@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp } from '../config.js';
 import { ANIMALS, drawDef } from '../data/animals.js';
 import * as S from '../render/sprites.js';
-import { TREE_SHAPES } from './geometry.js';
+import { TREE_SHAPES, contactShadow } from './geometry.js';
 import { PLANTS } from '../data/plants.js';
 import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './fauna.js';
 import { adultAnimalScale } from './animal-scale.js';
@@ -38,8 +38,9 @@ export class Actors {
     this.people = new Map();    // visitor id -> smoothed heading and gait
     this.flames = [];
     this.smoke = [];
-    this.shadowGeo = new THREE.CircleGeometry(0.5, 14).rotateX(-Math.PI / 2);
-    this.shadowMat = new THREE.MeshBasicMaterial({ color: 0x0a1206, transparent: true, opacity: 0.22, depthWrite: false });
+    // a soft-edged shadow under each animal (the same fading disc as under plants)
+    this.shadowGeo = contactShadow(14).scale(0.5, 1, 0.5);
+    this.shadowMat = new THREE.MeshBasicMaterial({ color: 0x0a1206, vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
     this.shadows = new THREE.InstancedMesh(this.shadowGeo, this.shadowMat, 600);
     this.shadows.frustumCulled = false;
     this.shadows.renderOrder = 1;

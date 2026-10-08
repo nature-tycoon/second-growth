@@ -189,10 +189,11 @@ function waterLook(mat, time, noise, rain, sky) {
   mat.onBeforeCompile = shader => {
     prev(shader);
     Object.assign(shader.uniforms, { uNoiseW: { value: noise }, uRain: rain, uSky: sky });
-    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
+    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute float aBend;\nattribute float aQual;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
+      // Fade wave displacement at the bank, while retaining signed bed depth for shading.
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-      vDepth = aDepth; vFlow = aFlow; vWXZ = position.xz;`);
-    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
+      vDepth = aDepth; vFlow = aFlow; vBend = aBend; vQual = aQual; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
+    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       {
         // drifting ripples: two layers of noise sliding past each other tilt the normal
@@ -208,35 +209,57 @@ function waterLook(mat, time, noise, rain, sky) {
         // the sky catches on ripples tilted away from the viewer, more toward a glancing angle
         float flatZ = (viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).z;               // how calm water faces the camera
         float tiltAway = flatZ - normal.z;
-        diffuseColor.rgb = mix(diffuseColor.rgb, uSky * 1.05, smoothstep(0.03, 0.22, tiltAway) * 0.12);
+        float reflection = texture2D(uNoiseW, vWXZ * 0.075 + vec2(uTime * 0.003, -uTime * 0.002)).r;
+        float facing = 1.0 - abs(dot(normal, isOrthographic ? vec3(0.0, 0.0, 1.0) : normalize(vViewPosition))); // (the game's camera is orthographic: one view direction everywhere)
+        diffuseColor.rgb = mix(diffuseColor.rgb, uSky, (0.035 + facing * facing * 0.12)
+          * smoothstep(0.28, 0.72, reflection) + smoothstep(0.02, 0.18, tiltAway) * 0.08);
       }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
       {
-        float deep = smoothstep(0.05, 0.55, vDepth);
+        float deep = smoothstep(0.015, 0.42, vDepth);
+        // water quality (the simulation's waterQ): bare, sunbaked banks leave it murky with silt;
+        // shaded, planted banks run it clear, so a creek visibly clears as its banks are restored
+        float murk = 1.0 - smoothstep(0.25, 0.66, vQual), clear = smoothstep(0.6, 0.95, vQual);
         // clear, greener shallows; deep water a richer blue-green
-        diffuseColor.rgb = mix(diffuseColor.rgb * vec3(1.06, 1.12, 1.06) + vec3(0.012, 0.03, 0.018), diffuseColor.rgb * vec3(0.66, 0.78, 0.86), deep);
-        diffuseColor.rgb = mix(diffuseColor.rgb, uSky, 0.05);                        // the sky reflected in it
+        diffuseColor.rgb = mix(diffuseColor.rgb * vec3(1.12, 1.22, 1.13) + vec3(0.035, 0.075, 0.055), diffuseColor.rgb * vec3(0.65, 0.79, 0.88), deep);
         // sunlight dancing on the bottom of the shallows
         {
           float ca = texture2D(uNoiseW, vWXZ * 2.3 + vec2(uTime * 0.03, uTime * 0.021)).r * texture2D(uNoiseW, vWXZ * 1.9 - vec2(uTime * 0.024, -uTime * 0.017)).r;
-          diffuseColor.rgb += vec3(0.05, 0.06, 0.045) * smoothstep(0.2, 0.45, ca) * (1.0 - deep) * smoothstep(0.01, 0.08, vDepth);
+          diffuseColor.rgb += vec3(0.05, 0.06, 0.045) * smoothstep(0.2, 0.45, ca) * (1.0 - deep) * smoothstep(0.01, 0.08, vDepth) * (1.0 - murk) * (1.0 + clear * 0.6);
         }
         diffuseColor.a *= mix(0.93, 1.0, deep);
+        {
+          // cloudy, warm silt drifting with the current, hiding the bed...
+          float plume = texture2D(uNoiseW, vWXZ * 0.35 - vFlow * uTime * 0.05 + vec2(uTime * 0.004, 0.0)).r;
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.25, 0.25, 0.09) * (0.9 + 0.22 * plume), murk * (0.6 + 0.14 * plume));
+          diffuseColor.a = min(1.0, diffuseColor.a * (1.0 + murk * 0.12));
+          // ...or clear, cool water whose shallows show more of the bed
+          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.96, 1.03, 1.06), clear);
+          diffuseColor.a *= 1.0 - clear * 0.2 * (1.0 - deep);
+        }
         // downstream streaks on moving water
         float fl = length(vFlow);
         if (fl > 0.01) {
           vec2 d = vFlow / fl, p = vec2(dot(vWXZ, d), dot(vWXZ, vec2(-d.y, d.x)));
           float st = texture2D(uNoiseW, vec2(p.x * 0.18 - uTime * 0.025, p.y * 1.1)).r;
           diffuseColor.rgb += vec3(0.035, 0.04, 0.04) * smoothstep(0.5, 0.85, st) * fl;
+          // Short, bowed wavelets collect at bends; quieter stretches keep faint streaks.
+          float phase = p.x * 13.0 + sin(p.y * 3.2 + uTime * 0.45) * 1.3 - uTime * 1.6;
+          float width = max(fwidth(phase) * 0.65, 0.16);
+          float ripple = 1.0 - smoothstep(0.12, 0.12 + width, abs(sin(phase)));
+          float broken = smoothstep(0.45, 0.7, texture2D(uNoiseW, vWXZ * 0.7 + d * uTime * 0.015).r);
+          diffuseColor.rgb += vec3(0.085, 0.11, 0.115) * ripple * broken
+            * (0.15 + vBend * 0.85) * fl * smoothstep(0.008, 0.09, vDepth);
         }
         // foam where the water laps the bank
-        float edge = 1.0 - smoothstep(0.005, 0.06, vDepth);
+        // Signed depth crosses zero at the actual ground/water intersection.
+        float edge = (1.0 - smoothstep(0.0, 0.075, abs(vDepth)));
         float fn = texture2D(uNoiseW, vWXZ * 1.4 + vec2(uTime * 0.012, -uTime * 0.008)).r;
-        float foam = edge * smoothstep(0.4, 0.72, fn + 0.1 * sin(uTime * 0.5 + vWXZ.x * 3.0 + vWXZ.y * 2.0));
+        float foam = edge * (0.35 + 0.65 * smoothstep(0.32, 0.7, fn + 0.08 * sin(uTime * 0.5 + vWXZ.x * 3.0 + vWXZ.y * 2.0)));
         // ...and soft lines of it lapping in toward the bank
-        float lap = (1.0 - smoothstep(0.0, 0.14, vDepth)) * smoothstep(0.62, 0.9, fract(vDepth * 9.0 - uTime * 0.22 + fn * 0.6)) * smoothstep(0.3, 0.6, fn);
+        float lap = smoothstep(0.0, 0.025, vDepth) * (1.0 - smoothstep(0.04, 0.16, vDepth)) * smoothstep(0.62, 0.9, fract(vDepth * 9.0 - uTime * 0.22 + fn * 0.6)) * smoothstep(0.3, 0.6, fn);
         foam = max(foam, lap * 0.8);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.86), foam * 0.45);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.65, 0.79, 0.76), foam * 0.5);
         diffuseColor.a = max(diffuseColor.a, foam * 0.45 * step(0.001, diffuseColor.a));
         // rain rings: expanding circles in a grid of cells, each on its own clock
         if (uRain > 0.01) {
@@ -250,7 +273,7 @@ function waterLook(mat, time, noise, rain, sky) {
       }`);
   };
   const key = mat.customProgramCacheKey();
-  mat.customProgramCacheKey = () => key + '-look';
+  mat.customProgramCacheKey = () => key + '-living-water-quality';
   return mat;
 }
 
@@ -419,6 +442,7 @@ export class Terrain {
 
   // Textures and colors: what's on each tile this season.
   updateSurface(game) {
+    this.refreshWaterQuality();
     const w = this.world, B = this.border, g = this.mesh.geometry;
     const uv = g.attributes.uv.array, col = g.attributes.color.array;
     const month = game.month, season = game.season;
@@ -716,24 +740,51 @@ export class Terrain {
     const tiles = [];
     for (let k = 0; k < TW * TH; k++) if (level[k] === level[k]) tiles.push(k);
     const pos = new Float32Array(tiles.length * 18), col = new Float32Array(tiles.length * 24), nor = new Float32Array(tiles.length * 18);
-    const dep = new Float32Array(tiles.length * 6), flow = new Float32Array(tiles.length * 12);
+    const dep = new Float32Array(tiles.length * 6), flow = new Float32Array(tiles.length * 12), bend = new Float32Array(tiles.length * 6);
     const moving = k => kind[k] === T.CREEK || kind[k] === T.RIVER;
-    const wetAt = (tx, ty) => tx >= 0 && ty >= 0 && tx < TW && ty < TH && wet[ty * TW + tx];
-    let o = 0, oc = 0, od = 0;
+    const wetAt = (tx, ty) => tx >= 0 && ty >= 0 && tx < TW && ty < TH && wet[ty * TW + tx] && moving(ty * TW + tx);
+    const tileFlow = new Float32Array(TW * TH * 2), tileBend = new Float32Array(TW * TH);
     for (const k of tiles) {
       const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0, tx = k % TW, ty = (k / TW) | 0;
-      // which way this stretch runs: downhill if the bed slopes, else along the channel
-      let fx = 0, fy = 0;
-      if (moving(k)) {
-        fx = w.vert(x - 1, y) - w.vert(x + 2, y); fy = w.vert(x, y - 1) - w.vert(x, y + 2);
-        if (Math.hypot(fx, fy) < 0.05) { const h = (wetAt(tx - 1, ty) ? 1 : 0) + (wetAt(tx + 1, ty) ? 1 : 0), v = (wetAt(tx, ty - 1) ? 1 : 0) + (wetAt(tx, ty + 1) ? 1 : 0); fx = h >= v ? 1 : 0; fy = h >= v ? 0 : 1; }
-        const l = Math.hypot(fx, fy) || 1; fx /= l; fy /= l;
-        if (kind[k] === T.CREEK) { fx *= 0.7; fy *= 0.7; }
+      if (!moving(k)) continue;
+      // Find the channel's axis, rather than flowing down a steep bank across it.
+      let xx = 0, yy = 0, xy = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (wetAt(tx + dx, ty + dy)) {
+        xx += dx * dx; yy += dy * dy; xy += dx * dy;
       }
+      const angle = 0.5 * Math.atan2(2 * xy, xx - yy);
+      let fx = Math.cos(angle), fy = Math.sin(angle);
+      const downhill = fx * (w.vert(x - 1, y) - w.vert(x + 2, y)) + fy * (w.vert(x, y - 1) - w.vert(x, y + 2));
+      if (downhill < -0.05 || (Math.abs(downhill) <= 0.05 && fy < -0.01)) { fx = -fx; fy = -fy; }
+      const speed = kind[k] === T.CREEK ? 0.7 : 1;
+      tileFlow[k * 2] = fx * speed; tileFlow[k * 2 + 1] = fy * speed;
+      const h = Number(wetAt(tx - 1, ty)) + Number(wetAt(tx + 1, ty));
+      const v = Number(wetAt(tx, ty - 1)) + Number(wetAt(tx, ty + 1));
+      tileBend[k] = h && v && h + v <= 3 ? 1 : 0;
+    }
+    // Shared corner samples avoid visible seams in flow and bend highlights.
+    const vertexFlow = new Float32Array((TW + 1) * (TH + 1) * 3);
+    for (let vy = 0; vy <= TH; vy++) for (let vx = 0; vx <= TW; vx++) {
+      let fx = 0, fy = 0, b = 0, n = 0;
+      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+        const tx = vx + dx, ty = vy + dy;
+        if (tx < 0 || ty < 0 || tx >= TW || ty >= TH) continue;
+        const k = ty * TW + tx;
+        if (!Number.isFinite(level[k])) continue;
+        fx += tileFlow[k * 2]; fy += tileFlow[k * 2 + 1]; b += tileBend[k]; n++;
+      }
+      const vi = (vy * (TW + 1) + vx) * 3;
+      if (n) { vertexFlow[vi] = fx / n; vertexFlow[vi + 1] = fy / n; vertexFlow[vi + 2] = b / n; }
+    }
+    let o = 0, oc = 0, od = 0;
+    for (const k of tiles) {
+      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
       for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
         const c = vColor(vx, vy), lv = vLevel(vx, vy);
         pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
-        dep[od] = vWet(vx, vy) ? Math.max(0, lv - w.vert(vx, vy)) : 0; flow[od * 2] = fx; flow[od * 2 + 1] = fy; od++;
+        dep[od] = lv - w.vert(vx, vy);
+        const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
+        flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
       }
     }
@@ -743,9 +794,31 @@ export class Terrain {
     g.setAttribute('color', new THREE.BufferAttribute(col, 4));
     g.setAttribute('aDepth', new THREE.BufferAttribute(dep, 1));
     g.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
+    g.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
+    g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(od), 1));
     this.water = new THREE.Mesh(g, this.waterMat);
     this.water.renderOrder = 2;
     this.scene.add(this.water);
+    this.refreshWaterQuality();
+  }
+
+  // How clean the water is at each corner: the simulation's water quality on the tiles around it.
+  // Water beyond the property runs moderately clean; the reef's sea is always clear.
+  refreshWaterQuality() {
+    const a = this.water?.geometry.attributes.aQual;
+    if (!a) return;
+    const w = this.world, p = this.water.geometry.attributes.position, sea = !!biome.look.underwater;
+    for (let v = 0; v < a.count; v++) {
+      const vx = Math.round(p.getX(v)), vy = Math.round(p.getZ(v));
+      let s = 0, n = 0;
+      for (let dy = -1; dy <= 0; dy++) for (let dx = -1; dx <= 0; dx++) {
+        const x = vx + dx, y = vy + dy;
+        if (!isWater(this.terrainAt(x, y))) continue;
+        s += sea ? 1 : w.inb(x, y) ? w.waterQ[w.idx(x, y)] : 0.6; n++;
+      }
+      a.array[v] = n ? s / n : 0.6;
+    }
+    a.needsUpdate = true;
   }
 
   buildFlood() {

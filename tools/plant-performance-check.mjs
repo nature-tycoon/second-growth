@@ -28,7 +28,7 @@ function dispose(f) {
   const geos = new Set();
   for(const value of f.geos.values())for(const part of [value,...Object.values(value),...Object.values(value.lo||{})])if(part?.isBufferGeometry)geos.add(part);
   for(const geo of geos)geo.dispose();
-  for(const m of [f.foliage,f.shrubs,f.grass,f.tallGrass,f.bark,f.small])m.dispose();
+  for(const m of [f.foliage,f.shrubs,f.grass,f.tallGrass,f.bark,f.small,f.contact])m.dispose();
 }
 check('The default game renderer uses 48-tile groups and updates only changed regions',()=>{
   const g=plantFixture('pnw'),f=new Flora(new THREE.Scene()),reference=make(48,true);

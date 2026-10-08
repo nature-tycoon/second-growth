@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { T, F, LEVEL, BORDER, isWater, clamp } from '../config.js';
 import { PLANTS, plantPhase } from '../data/plants.js';
-import { hash2 } from '../rng.js';
+import { hash2, valueNoise } from '../rng.js';
 import * as G from './geometry.js';
 import * as Botanical from './botanical.js';
 import { flowerForm, grassForm } from '../plant-patterns.js';
@@ -139,6 +139,15 @@ const STEM = { dogwood: '#b0302a', willow: '#c8923a' };
 const SPADIX = '#e4d48c'; // (a corpse flower's spadix, unless its look gives a head colour)
 const BLEACHED = [0.95, 0.94, 0.9]; // coral that has lost its algae: the white skeleton shows through
 // shrub looks with a geometry of their own; everything else is a generic leafy mound
+// Broadleaf shrubs drawn by growth habit rather than one shared mound (see G.shrub).
+const SHRUB_HABIT = {
+  salmonberry: 'arching', rose: 'arching', oceanspray: 'arching', beautyberry: 'arching', sweetspire: 'arching',
+  elderberry: 'vase', dogwood: 'vase', spicebush: 'vase', azalea: 'vase', hamelia: 'vase', piper: 'vase', vismia: 'vase', croton: 'vase',
+  huckleberry: 'airy', snowberry: 'airy', grewia: 'airy', cornizuelo: 'airy',
+  hydrangea: 'bigleaf', castor: 'bigleaf', seagrape: 'bigleaf', cacao: 'bigleaf',
+};
+export const shrubShape = p => SHRUB_HABIT[p.key] || (SHRUB_SHAPES.includes(p.look.type) ? p.look.type : 'shrub');
+const SEA_SHAPES = new Set(['softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']);
 export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo', 'aloe', 'cactus',
   'rattan', 'pandan', 'ginger', // (Sumatra)
   'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
@@ -157,6 +166,11 @@ export class Flora {
     this.tallGrass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 0.4, this.wind, true, 0.5, 0.7)), 1.3));
     this.bark = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
     this.small = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
+    // soft contact shadows on the ground under trees and bushes, so they still sit on the land
+    // when the sun's shadows are off (see Renderer.draw)
+    this.contact = new THREE.MeshBasicMaterial({ color: 0x0a1206, vertexColors: true, transparent: true, opacity: 0.48, depthWrite: false,
+      side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    this.contact.visible = false; // (the renderer shows them only while the sun's shadows are off)
     this.pools = new Map();
     this.geos = new Map();
     this.view = [0, true, true, 0];
@@ -182,6 +196,33 @@ export class Flora {
       this.pools.set(key, p);
     }
     return p;
+  }
+
+  // A soft shadow disc of radius r at (x, z), tilted to lie on the slope.
+  contactShadow(hAt, x, z, r) {
+    const e = 0.3, sx = (hAt(x + e, z) - hAt(x - e, z)) / (2 * e), sz = (hAt(x, z + e) - hAt(x, z - e)) / (2 * e);
+    this.pool('contact', () => G.contactShadow(), this.contact, { shadow: false, kind: 'contact' }, () => G.contactShadow(8))
+      .add(x, hAt(x, z) + 0.02, z, r, 1, r, 0, [1, 1, 1], -Math.atan(sz), Math.atan(sx));
+  }
+
+  // How much a treeless tile sits on a wood's edge: nearby mature trees (within two tiles) on open,
+  // unbuilt land, with a patchy noise so the fringe is ragged. Returns the strength and a nearby
+  // tree and shrub species to echo, or null.
+  forestEdge(w, x, y, i) {
+    const t = w.terrain[i];
+    if (isWater(t) || t === T.ROAD || t === T.TRAIL || t === T.FIELD || w.struct[i] >= 0 || w.feature[i]) return null;
+    let n = 0, tree = 0, shrub = 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      if (!dx && !dy || !w.inb(x + dx, y + dy)) continue;
+      const j = w.idx(x + dx, y + dy), near = Math.max(Math.abs(dx), Math.abs(dy)) === 1 ? 1 : 0.45;
+      if (w.tree[j] && w.treeG[j] > 0.45 && PLANTS[w.tree[j]]?.layer === 2 && !PLANTS[w.tree[j]].aquatic) {
+        n += near; if (!tree || hash2(x + dx, y + dy, 615) < 0.4) tree = w.tree[j];
+      }
+      if (w.shrub[j] && w.shrubG[j] > 0.3 && (!shrub || hash2(x + dx, y + dy, 616) < 0.4)) shrub = w.shrub[j];
+    }
+    if (n < 1) return null;
+    const e = Math.min(1, n / 4) * (0.45 + 0.9 * valueNoise(x, y, 3.5, 617));
+    return e > 0.15 ? { e: Math.min(1, e), tree, shrub } : null;
   }
 
   // Points on a shrub's outer, upper surface, lifted clear of the leaves so heads sit on them rather
@@ -274,10 +315,19 @@ export class Flora {
       const bi = inside ? -1 : B.bi(x, y);
       if (!inside && bi < 0) continue;
       const v = (inside ? w.variant[i] : (x * 7 + y * 13)) & 1;
-      const tid = inside ? w.tree[i] : B.tree[bi];
-      const sid = inside ? w.shrub[i] : B.shrub[bi];
+      let tid = inside ? w.tree[i] : B.tree[bi];
+      let sid = inside ? w.shrub[i] : B.shrub[bi];
       const gid = inside ? w.ground[i] : B.ground[bi];
       const dim = inside ? 1 : 0.82;
+      const aquaticTile = biome.look.underwater || isWater(inside ? w.terrain[i] : B.terrain[bi]);
+      // where the property's own woods meet open ground, a soft fringe: saplings, edge shrubs and
+      // taller grass, so a stand thins into meadow instead of stopping at a line (drawn only)
+      const edge = inside && !tid ? this.forestEdge(w, x, y, i) : null;
+      let fringeG = 0, fringeS = 0;
+      if (edge) {
+        if (hash2(x, y, 611) < edge.e * 0.32) { tid = edge.tree; fringeG = 0.14 + hash2(x, y, 612) * 0.2; }
+        else if (!sid && edge.shrub && hash2(x, y, 613) < edge.e * 0.4) { sid = edge.shrub; fringeS = 0.45 + hash2(x, y, 614) * 0.3; }
+      }
 
       // ---- groundcover tufts
       if (gid) {
@@ -330,7 +380,7 @@ export class Flora {
             const c = k % clumps, cxp = x + 0.2 + hash2(x, y, 14 + c) * 0.6, czp = y + 0.2 + hash2(x, y, 15 + c) * 0.6, a = hash2(x, y, 21 + k) * 6.28, r = Math.sqrt(hash2(x, y, 41 + k)) * 0.2;
             px = cxp + Math.cos(a) * r; pz = czp + Math.sin(a) * r;
           }
-          const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26);
+          const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
           // lily pads float on the water surface instead of sitting on the pond bed
           const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz);
           const turn = hash2(x, y, 80 + k) * 6.28;
@@ -361,7 +411,7 @@ export class Flora {
       // ---- shrubs
       if (sid) {
         const p = PLANTS[sid];
-        const g = inside ? w.shrubG[i] : 1;
+        const g = fringeS || (inside ? w.shrubG[i] : 1);
         const phase = plantPhase(p, month);
         let sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
         // a blue sea star sharing a tile with a coral lies on the sand beside it, at the far side
@@ -383,11 +433,12 @@ export class Flora {
           this.pool(`twig:${v}`, () => G.twigs(300 + v), this.bark).add(sx, sy, sz, sc, sc * (p.key === 'willow' ? 1.6 : 1), sc, rot, stem.map(c => c * dim));
         } else {
           const type = p.look.type;
-          const shape = SHRUB_SHAPES.includes(type) ? type : 'shrub';
+          const shape = shrubShape(p);
           let col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8, 0.045);
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
           this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub' }, () => G.shrub(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, col);
+          if (!aquaticTile && !SEA_SHAPES.has(shape)) this.contactShadow(hAt, sx, sz, 0.34 * sc);
           // a giant clam's shells are pale and chalky, whatever colour its mantle is
           if (shape === 'clam') this.pool(`clamshell:${v}`, () => G.clamShell(sseed), this.shrubs, { kind: 'shrub' }).add(sx, sy, sz, sc, sc, sc, rot, vary([0.86, 0.84, 0.76].map(c => c * dim), x, y, 10, 0.05));
           // torch ginger's flowers are torches on stalks of their own, and pandan's fruit hangs under its tufts, not dots among the leaves
@@ -421,7 +472,7 @@ export class Flora {
       // ---- trees
       if (tid) {
         const p = PLANTS[tid];
-        const g = inside ? w.treeG[i] : (B.treeG[bi] || 0.9);
+        const g = fringeG || (inside ? w.treeG[i] : (B.treeG[bi] || 0.9));
         const baseShape = G.TREE_SHAPES[p.look.type];
         const habit = ['oak', 'whiteoak', 'willowoak', 'guanacaste', 'genizaro'].includes(p.key) ? 'spread'
           : ['cottonwood', 'tulippoplar', 'sweetgum', 'blackcherry', 'magnolia'].includes(p.key) ? 'spire'
@@ -462,6 +513,7 @@ export class Flora {
           if (inside && w.bleach && w.bleach[i] > 0) leaf = mixc(leaf, BLEACHED, w.bleach[i]); // (a coral bleaching in a marine heatwave)
           this.pools.get(`crown:${key}`).add(tx, ty, tz, sx, sy, sz, rot, vary(leaf.map(c => c * dim * grove.tint), x, y, 12, 0.045));
           this.pools.get(`trunk:${key}`).add(tx, ty, tz, sx, sy, sz, rot, bark);
+          if (!aquaticTile) this.contactShadow(hAt, tx, tz, (shapeDef.rx ?? shapeDef.radius ?? 0.35) * sx * 1.05);
           if (phase === 'bloom' && ['dogwood', 'magnolia', 'ipe', 'redbud'].includes(p.key) && shapeDef.rx && g > 0.45) {
             const form = p.key === 'magnolia' ? 'waterlily' : p.key === 'ipe' ? 'trumpet' : 'star';
             const flowers = this.pool(`treeflower:${form}:${p.look.flower}`, () => Botanical.blossomHead(form, p.look.flower), this.grass,

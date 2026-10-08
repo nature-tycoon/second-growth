@@ -354,44 +354,66 @@ export function conifer(opts, seed, lod = 0) {
   return { crown, trunk: trunk(base + 0.35, h.trunkR, 0.035) };
 }
 
+// Broadleaf crowns grow on a branching scaffold: main limbs fork into smaller branches, and
+// each branch tip carries a leafy clump on the crown's outer shell. That gives a lobed outline
+// with gaps at its edges where limbs show through, a shaded interior and a sunlit top. The habit
+// sets the envelope and how the limbs rise: 'round' (alder, ash, maple), 'spread' (oaks: wide,
+// low, near-level limbs), 'spire' (cottonwood, tulip poplar: tall and upright), 'layered'
+// (dogwood: flat tiers) and 'vase' (redbud: a V that opens into a broad top).
 export function broadleaf(opts, seed, lod = 0) {
   const rng = mulberry32(seed), { height: H, rx, ry, trunkH, trunkR = 0.06 } = opts;
   const habit = opts.habit || 'round', cy = H - ry;
-  const crownParts = [], limbs = [], n = lod ? 4 : 6;
-  const forkY = habit === 'spread' ? trunkH * 0.72 : habit === 'vase' ? H * 0.16 : trunkH * 0.86;
-  limbs.push(trunk(Math.max(forkY + 0.08, trunkH), trunkR, trunkR * 0.58));
-  const cloud = (x, y, z, sx, sy, sz, salt) => {
-    const g = soft(new THREE.IcosahedronGeometry(1, lod ? 0 : 1), { seed: seed + salt, lump: 0.12,
-      transform: g => g.scale(sx, sy, sz).translate(x, y, z) });
-    shadeVerts(g, (xx, yy) => 0.78 + Math.max(0, Math.min(0.28, (yy - (cy - ry)) / (ry * 2) * 0.28)));
+  const crownParts = [], limbs = [];
+  const forkY = habit === 'spread' ? trunkH * 0.75 : habit === 'vase' ? Math.min(trunkH, H * 0.22) : habit === 'spire' ? Math.min(trunkH, cy - ry * 0.6) : trunkH * 0.9;
+  limbs.push(trunk(forkY + 0.06, trunkR, trunkR * 0.62));
+  // the crown's centre leans a little off the trunk, as real crowns grow toward the light
+  const lx = (rng() - 0.5) * rx * 0.16, lz = (rng() - 0.5) * rx * 0.16;
+  const shell = (a, e, f = 1) => [lx + Math.cos(e) * Math.cos(a) * rx * f, cy + Math.sin(e) * ry * f, lz + Math.cos(e) * Math.sin(a) * rx * f];
+  const clump = (c, s, sy, shade, salt) => {
+    const g = soft(new THREE.IcosahedronGeometry(1, lod ? 0 : 1), { seed: seed + salt, lump: 0.09,
+      transform: g => g.scale(s, s * sy, s).translate(...c) });
+    // dark underneath, bright where it faces the sky
+    shadeVerts(g, (x, y) => shade * (0.62 + 0.48 * Math.min(1, Math.max(0, (y - c[1]) / (s * sy) * 0.5 + 0.5))));
     crownParts.push(g);
-    if (!lod) for (let l = 0; l < 3; l++) {
-      const a = rng() * 6.28, leaf = soft(new THREE.IcosahedronGeometry(1, 0), {
-        transform: g => g.scale(sx * 0.32, sy * 0.12, sx * 0.16).rotateY(a)
-          .translate(x + Math.cos(a) * sx * 0.9, y + sy * 0.12, z + Math.sin(a) * sz * 0.9) });
-      crownParts.push(leaf);
-    }
   };
-  // Connected scaffold: foliage follows forks and branch tips rather than floating spheres.
-  for (let k = 0; k < n; k++) {
-    const a = k * 2.4 + rng() * 0.25;
-    const tier = habit === 'layered' || habit === 'spire' ? k / (n - 1) : rng();
-    const d = rx * (habit === 'spire' ? 0.75 - tier * 0.55 : 0.52 + rng() * 0.22);
-    const y = habit === 'layered' || habit === 'spire' ? H - ry * 1.65 + tier * ry * 1.3 : cy + (tier - 0.5) * ry * 0.65;
-    const mid = [Math.cos(a) * d * 0.43, forkY + (y - forkY) * 0.55, Math.sin(a) * d * 0.43];
-    const tip = [Math.cos(a) * d, y, Math.sin(a) * d];
-    limbs.push(rod([0, forkY, 0], mid, trunkR * 0.58, trunkR * 0.36));
-    limbs.push(rod(mid, tip, trunkR * 0.36, trunkR * 0.11));
-    const sy = ry * (habit === 'layered' ? 0.35 : habit === 'spire' ? 0.4 : 0.56);
-    cloud(...tip, rx * 0.4, sy, rx * 0.36, k * 7);
-    if (!lod) {
-      const aa = a + 0.55, out = [tip[0] + Math.cos(aa) * rx * 0.18, y + ry * 0.16, tip[2] + Math.sin(aa) * rx * 0.18];
-      limbs.push(rod(mid, out, trunkR * 0.24, trunkR * 0.06));
-      cloud(...out, rx * 0.25, sy * 0.75, rx * 0.22, 100 + k);
+  // elevation of the limbs' targets on the crown shell, by habit
+  const elev = t => habit === 'spread' ? -0.15 + t * 0.75 : habit === 'spire' ? -0.35 + t * 1.25
+    : habit === 'vase' ? 0.15 + t * 0.7 : -0.3 + t * 1.05;
+  const primaries = habit === 'layered' ? 0 : lod ? 4 : habit === 'spire' ? 6 : 5, seconds = lod ? 2 : 3;
+  for (let k = 0; k < primaries; k++) {
+    const t = (k + 0.5) / primaries, a = k * 2.4 + rng() * 0.5, e = elev(t);
+    const end = shell(a, e, 0.55), r0 = trunkR * 0.62, r1 = trunkR * 0.32;
+    const from = [0, forkY, 0], kink = [end[0] * 0.5, forkY + (end[1] - forkY) * (habit === 'spread' ? 0.35 : 0.55), end[2] * 0.5];
+    limbs.push(rod(from, kink, r0, (r0 + r1) / 2, lod ? 4 : 5), rod(kink, end, (r0 + r1) / 2, r1, lod ? 4 : 5));
+    for (let j = 0; j < seconds; j++) {
+      const aa = a + (j - (seconds - 1) / 2) * 0.62 + (rng() - 0.5) * 0.2, ee = e + (rng() - 0.4) * 0.5 + (habit === 'spire' ? 0.15 : 0);
+      const tip = shell(aa, ee, 0.68 + rng() * 0.3); // (some branches reach further than others: a lobed outline)
+      if (!lod) limbs.push(rod(end, tip, r1, r1 * 0.3, 3));
+      const s = rx * (0.24 + rng() * 0.16) * (habit === 'spire' ? 0.85 : 1);
+      clump(tip, s, habit === 'spread' ? 0.62 : 0.78, 0.9 + Math.sin(ee) * 0.12 + rng() * 0.06, k * 10 + j);
     }
   }
-  cloud(0, cy + ry * 0.16, 0, rx * 0.44, ry * 0.68, rx * 0.42, 201);
-  const crown = merge(crownParts); volumeNormals(crown, 0, cy, 0, 0.4);
+  if (habit === 'layered') {
+    // flat tiers of foliage held out on level branches
+    for (let tier = 0; tier < 3; tier++) {
+      const y = cy - ry * 0.55 + tier * ry * 0.62, f = 1 - tier * 0.28, n = lod ? 4 - Math.floor(tier / 2) : 6 - tier;
+      for (let k = 0; k < n; k++) {
+        const a = k / n * 6.28 + tier * 0.9 + rng() * 0.4, d = rx * f * (0.62 + rng() * 0.18);
+        const tip = [lx * f + Math.cos(a) * d, y, lz * f + Math.sin(a) * d];
+        limbs.push(rod([0, Math.min(y, forkY + tier * 0.12), 0], tip, trunkR * 0.4, trunkR * 0.12, lod ? 3 : 4));
+        clump(tip, rx * 0.3 * (0.85 + rng() * 0.3), 0.42, 0.88 + tier * 0.08, 300 + tier * 10 + k);
+      }
+    }
+  }
+  // a leafy core, set back inside the shell, so the crown is full in the middle and open at its edges
+  const core = habit === 'layered' ? 0 : lod ? 1 : 2;
+  for (let k = 0; k < core; k++) {
+    const a = k * 2.1 + rng(), c = shell(a, habit === 'spread' ? 0.2 : 0.15 + k * 0.2, 0.32);
+    clump(c, rx * (habit === 'spire' ? 0.38 : 0.44), habit === 'spread' ? 0.6 : 0.85, 0.66, 200 + k);
+  }
+  // the crown's top: a sunlit clump or two
+  if (habit !== 'layered') clump(shell(rng() * 6.28, 1.25, 0.82), rx * 0.34, habit === 'spread' ? 0.55 : 0.75, 1.06, 250);
+  const crown = merge(crownParts); volumeNormals(crown, lx, cy, lz, 0.35);
   return { crown, trunk: merge(limbs) };
 }
 
@@ -1038,6 +1060,8 @@ export function shrub(type, seed, lod = 0) {
     shadeVerts(g, (xx, yy) => shade * (0.8 + Math.min(0.3, (yy - y + s) / (2 * s) * 0.3)));
     parts.push(g);
   };
+  // woody stems, darkened to read as bark under the leaf colour the instance carries
+  const stem = (p, q, r0, r1, sides = lod ? 3 : 4) => parts.push(shadeVerts(rod(p, q, r0, r1, sides), () => [0.62, 0.5, 0.42]));
   switch (type) {
     case 'bramble':
       cy = 0.16;
@@ -1296,12 +1320,71 @@ export function shrub(type, seed, lod = 0) {
       shadeVerts(outer, (x, y) => 0.75 + y * 0.8);
       return merge(parts);
     }
+    // ---- growth habits of the broadleaf shrubs (see SHRUB_HABIT in flora.js)
+    case 'arching': {
+      // canes rising from a leafy crown and arching over, leafy along their outer half (salmonberry, roses)
+      cy = 0.24;
+      blob(0, 0.15, 0, 0.15, 0.75, 0.78); blob(0.05, 0.27, -0.04, 0.1, 0.8, 0.9);
+      for (let k = 0, n = 5; k < n; k++) {
+        const a = k / n * 6.28 + r() * 0.8, h = 0.36 + r() * 0.14, reach = 0.3 + r() * 0.12;
+        const at = t => [Math.cos(a) * reach * t, h * (2 * t - t * t) - 0.14 * t * t * t, Math.sin(a) * reach * t];
+        if (!lod) for (let j = 0; j < 3; j++) stem(at(j / 3), at((j + 1) / 3), 0.011 - j * 0.002, 0.009 - j * 0.002);
+        for (let j = 0; j < 3; j++) { const [x, y, z] = at(0.42 + j * 0.27); blob(x, y, z, 0.095 + r() * 0.025 - j * 0.012, 0.66, 0.84 + j * 0.08 + r() * 0.1); }
+      }
+      break;
+    }
+    case 'vase': {
+      // several upright stems from a spreading base, bare low down, opening into a leafy top (elderberry, red-osier dogwood)
+      cy = 0.34;
+      for (let k = 0, n = 5; k < n; k++) {
+        const a = k / n * 6.28 + r() * 0.6, lean = 0.22 + r() * 0.2, h = 0.42 + r() * 0.16;
+        const base = [Math.cos(a) * 0.08, 0, Math.sin(a) * 0.08], tip = [base[0] + Math.cos(a) * Math.sin(lean) * h, Math.cos(lean) * h, base[2] + Math.sin(a) * Math.sin(lean) * h];
+        const along = t => [base[0] + (tip[0] - base[0]) * t, tip[1] * t, base[2] + (tip[2] - base[2]) * t];
+        stem(base, tip, 0.014, 0.007);
+        blob(tip[0], tip[1] - 0.02, tip[2], 0.11 + r() * 0.03, 0.75, 0.92 + r() * 0.12);
+        const m = along(0.68); blob(m[0] * 1.2, m[1], m[2] * 1.2, 0.085 + r() * 0.02, 0.7, 0.82 + r() * 0.1);
+        const l = along(0.36); blob(l[0] * 1.3, l[1], l[2] * 1.3, 0.06 + r() * 0.02, 0.7, 0.72 + r() * 0.08);
+      }
+      break;
+    }
+    case 'airy': {
+      // a loose, open dome: fine twigs from a few stems, small sprays of leaves along and at their tips (huckleberry, snowberry)
+      cy = 0.22;
+      blob(0, 0.13, 0, 0.1, 0.8, 0.75);
+      for (let k = 0, n = 12; k < n; k++) {
+        const a = k * 2.4 + r() * 0.5, up = 0.45 + r() * 0.8, L = 0.24 + r() * 0.14;
+        const root = [Math.cos(k * 2.1) * 0.04, 0.03, Math.sin(k * 2.1) * 0.04];
+        const tip = [root[0] + Math.cos(a) * Math.cos(up) * L, 0.05 + Math.sin(up) * L * 1.15, root[2] + Math.sin(a) * Math.cos(up) * L];
+        if (!lod) parts.push(shadeVerts(rod(root, tip, 0.005, 0.002, 3), () => [0.8, 0.7, 0.6]));
+        blob(tip[0], tip[1], tip[2], 0.065 + r() * 0.025, 0.75, 0.86 + r() * 0.2);
+      }
+      break;
+    }
+    case 'bigleaf': {
+      // broad leaves held out on short stalks around a leafy core (oakleaf hydrangea, castor bean, sea grape)
+      cy = 0.24;
+      blob(0, 0.16, 0, 0.13, 0.85, 0.72); blob(0.04, 0.27, -0.03, 0.09, 0.8, 0.8);
+      for (let k = 0, n = lod ? 12 : 20; k < n; k++) {
+        const t = k / n, a = k * 2.4 + r() * 0.3, y = 0.1 + t * 0.26 + r() * 0.04, d = 0.13 - t * 0.06;
+        const len = 0.13 + r() * 0.04, wid = len * (0.6 + r() * 0.2), tilt = 0.5 - t * 0.55 + r() * 0.2;
+        const leaf = soft(new THREE.CircleGeometry(1, lod ? 5 : 8), { seed: seed + k, transform: g => {
+          g.rotateX(-Math.PI / 2); g.scale(len, 1, wid); g.translate(len * 0.85, 0, 0);
+          const p = g.attributes.position; // cupped along the midrib, tips falling away
+          for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); p.setY(i, z * z * 2.2 - x * x * 0.6); }
+          g.rotateZ(-tilt); g.rotateY(-a); g.translate(Math.cos(a) * d, y, Math.sin(a) * d);
+        } });
+        const nr = leaf.attributes.normal; // (thin: let both faces catch the sky)
+        for (let i = 0; i < nr.count; i++) { const v = new THREE.Vector3(nr.getX(i), Math.abs(nr.getY(i)), nr.getZ(i)).lerp(new THREE.Vector3(0, 1, 0), 0.5).normalize(); nr.setXYZ(i, v.x, v.y, v.z); }
+        parts.push(shadeVerts(twoSided(leaf), () => 0.84 + t * 0.2 + r() * 0.08));
+      }
+      break;
+    }
     default:
       cy = 0.24;
       for (let k = 0; k < 8; k++) { const a = r() * 6.28, d = r() * 0.19; blob(Math.cos(a) * d, 0.15 + r() * 0.16, Math.sin(a) * d, 0.12 + r() * 0.06, 0.85, 0.8 + r() * 0.25); }
   }
   const g = merge(parts);
-  if (type !== 'broom' && type !== 'softcoral') volumeNormals(g, 0, cy, 0, 0.55);
+  if (type !== 'broom' && type !== 'softcoral' && type !== 'bigleaf') volumeNormals(g, 0, cy, 0, 0.55);
   return g;
 }
 
@@ -1675,6 +1758,26 @@ export function culvert() {
   const hole1 = prep(new THREE.CircleGeometry(0.12, 10), 0x1e2224); at(hole1, 0, -0.02, 0.5);
   return merge([deck, pipe, hole1]);
 }
+// A soft contact shadow: a flat disc of radius 1 on the ground, darkest in the middle and fading
+// to nothing at its rim (alpha in the vertex colours), to sit under trees, bushes and animals.
+export function contactShadow(segs = 16) {
+  const rings = [[0, 1], [0.4, 0.78], [0.72, 0.32], [1, 0]], pos = [], col = [];
+  const at = (r, k) => [Math.cos(k / segs * Math.PI * 2) * r, 0, Math.sin(k / segs * Math.PI * 2) * r];
+  const put = (r, k, a) => { pos.push(...at(r, k)); col.push(1, 1, 1, a); };
+  for (let j = 0; j + 1 < rings.length; j++) for (let k = 0; k < segs; k++) {
+    const [r0, a0] = rings[j], [r1, a1] = rings[j + 1];
+    if (!r0) { put(0, 0, a0); put(r1, k + 1, a1); put(r1, k, a1); continue; } // (the centre: one triangle per segment)
+    put(r0, k, a0); put(r1, k + 1, a1); put(r1, k, a1);
+    put(r0, k, a0); put(r0, k + 1, a0); put(r1, k + 1, a1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(pos.map((_, i) => i % 3 === 1 ? 1 : 0), 3));
+  g.userData.ao = true; // (no baked shading: it is a shadow)
+  return g;
+}
+
 export function blob(color, r = 0.035) { return prep(new THREE.IcosahedronGeometry(r, 0), color); }
 
 // ---------------------------------------------------------------- buildings (unit: tiles)

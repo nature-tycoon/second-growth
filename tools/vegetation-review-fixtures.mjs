@@ -54,6 +54,18 @@ export const VEGETATION_SCENES = {
   tropicalshrubs: { map: 'sumatra', pass: 'evergreen', name: 'Rainforest flowering shrubs', target: [40, .3, 32], zoom: 2.8,
     bushes: ['melastoma','ixora','chromolaena'],
     note: 'Previously finished rainforest shrub flowers, retained in this pass.' },
+  pnwbroadleaf: { map: 'pnw', pass: 'broadleaf', name: 'Northwest broadleaf trees', target: [40, .7, 32], zoom: 2.2,
+    trees: ['alder','maple','ash','oak','cottonwood'],
+    note: 'Red alder, bigleaf maple, Oregon ash, Oregon white oak and black cottonwood.' },
+  southbroadleaf: { map: 'atlanta', pass: 'broadleaf', name: 'Southern broadleaf trees', target: [40, .7, 32], zoom: 2.2,
+    trees: ['whiteoak','tulippoplar','sweetgum','dogwood','redbud','magnolia'],
+    note: 'White oak, tulip poplar, sweetgum, dogwood, redbud and southern magnolia.' },
+  pnwhabits: { map: 'pnw', pass: 'evergreen', name: 'Northwest shrub habits', target: [40, .3, 32], zoom: 2.8, month: 3,
+    bushes: ['salmonberry','elderberry','huckleberry','rose','snowberry','salal'],
+    note: 'Arching salmonberry and rose, vase-shaped elderberry, airy huckleberry and snowberry, mounded salal.' },
+  warmhabits: { map: 'chinandega', pass: 'evergreen', name: 'Dry-forest shrub habits', target: [40, .3, 32], zoom: 2.8,
+    bushes: ['seagrape','castor','hamelia','cornizuelo','lantana'],
+    note: 'Broad-leaved sea grape and castor bean, upright firebush, twiggy bullhorn acacia and mounded lantana.' },
   hydrangea: { map: 'atlanta', bush: 'hydrangea', month: 2, pass: 'evergreen', name: 'Oakleaf hydrangea — blooms', target: [40.5,.3,32.5], zoom: 8,
     note: 'Restored the earlier white flower clusters. Blooms in May and June.' },
   salal: { map: 'pnw', bush: 'salal', month: 2, pass: 'evergreen', name: 'Salal — blooms', target: [40.5,.3,32.5], zoom: 8,
@@ -78,6 +90,7 @@ export function vegetationFixture(scene, month = 2, patterned = true) {
   const put = (key, x, y, growth = 1) => { const p = PLANT[key]; if (p) w.setPlant(w.idx(x, y), p, growth); };
   if (def.tree) { put(def.tree,40,32); return g; }
   if (def.bush) { put(def.bush,40,32); return g; }
+  if (def.trees) { def.trees.forEach((key,k) => put(key,37 + k % 3 * 3,31 + Math.floor(k / 3) * 3)); return g; }
   if (def.bushes) {
     def.bushes.forEach((key,k) => put(key,38 + k % 3 * 2,31 + Math.floor(k / 3) * 2));
     return g;

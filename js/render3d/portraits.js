@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { buildSpecies, faunaMaterial } from './fauna.js';
 import * as G from './geometry.js';
-import { leafColor, SHRUB_SHAPES } from './flora.js';
+import { leafColor, shrubShape } from './flora.js';
 import { plantPhase } from '../data/plants.js';
 
 let R = null, scene, camera;
@@ -82,7 +82,7 @@ export function renderPlants(list) {
       if (parts.fruit && phase === 'fruit' && p.look.berry) put(parts.fruit, lin(p.look.berry), x, 0, sc); // (the oil palm's bunches)
       x += small ? 0.75 : 1.3;
     } else if (p.layer === 1) {
-      const shape = SHRUB_SHAPES.includes(type) ? type : 'shrub';
+      const shape = shrubShape(p);
       put(G.shrub(shape, 200 + shape.length), leaf, x);
       // (torch ginger's torches on stalks and pandan's hanging fruit, not dots)
       const acc = shape === 'ginger' && phase === 'bloom' ? p.look.flower : shape === 'pandan' && phase === 'fruit' ? p.look.berry : null;
