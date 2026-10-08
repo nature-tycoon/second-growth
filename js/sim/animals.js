@@ -20,6 +20,15 @@ const WADERS = new Set(['heron', 'crane']);
 const swimmer = a => a.move === 'swim' || !!ANIMALS[a.sp]?.reef;
 const shallows = (w, i) => { const t = w.terrain[i]; return t === T.MARSH || t === T.CREEK || t === T.MUD || (w.distWater[i] === 1 && !isWater(t)); };
 
+// Flight can cross any terrain; landing needs land, a perch, or suitable water.
+export function canLand(w, i, def) {
+  if (def.move !== 'fly' || !isWater(w.terrain[i])) return true;
+  const kind = def.sprite.kind;
+  if (kind === 'duck' || kind === 'booby' || def.group === 'Seabirds') return true;
+  if (WADERS.has(kind)) return shallows(w, i);
+  return !!(w.tree[i] && w.treeG[i] > 0.5);
+}
+
 export const SALMON_RUN_MONTH = 7;
 export const SALMON_MIN_HABITAT = 15;
 export const migrationFenceCount = w => {
@@ -208,7 +217,7 @@ export class Wildlife {
       const xx = Math.round(x + (Math.random() * 2 - 1) * r), yy = Math.round(y + (Math.random() * 2 - 1) * r);
       if (!w.inb(xx, yy)) continue;
       const i = w.idx(xx, yy);
-      if (passable(w, i, def) && (def.move !== 'swim' || isWater(w.terrain[i]))) return [xx, yy];
+      if (passable(w, i, def) && canLand(w, i, def) && (def.move !== 'swim' || isWater(w.terrain[i]))) return [xx, yy];
     }
     return null;
   }
@@ -308,8 +317,21 @@ export class Wildlife {
     for (let k = 0; k < n; k++) {
       const xx = Math.round(x + (Math.random() * 2 - 1) * r), yy = Math.round(y + (Math.random() * 2 - 1) * r);
       if (!w.inb(xx, yy)) continue;
+      if (!canLand(w, w.idx(xx, yy), def)) continue;
       const s = map[w.idx(xx, yy)] * (0.6 + 0.4 * Math.random());
       if (s > bs) { bs = s; best = [xx, yy]; }
+    }
+    // Sampling can miss a narrow bank. Find the nearest landing tile only in that case.
+    best = best.map(Math.floor);
+    if (!canLand(w, w.idx(...best), def)) {
+      let nearest = best, distance = Infinity;
+      for (let i = 0; i < w.n; i++) {
+        if (!canLand(w, i, def)) continue;
+        const xx = i % w.w, yy = (i / w.w) | 0;
+        const d = (xx - best[0]) ** 2 + (yy - best[1]) ** 2;
+        if (d < distance) { distance = d; nearest = [xx, yy]; }
+      }
+      return nearest;
     }
     return best;
   }
@@ -623,7 +645,7 @@ export class Wildlife {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if ((!dx && !dy) || !w.inb(x + dx, y + dy)) continue;
       const j = w.idx(x + dx, y + dy);
-      if (!passable(w, j, def)) continue;
+      if (!passable(w, j, def) || !canLand(w, j, def)) continue;
       if (dx && dy && def.move !== 'fly' && (!w.inb(x + dx, y) || !w.inb(x, y + dy) || !passable(w, w.idx(x + dx, y), def) || !passable(w, w.idx(x, y + dy), def))) continue;
       const d = (x + dx + 0.5 - predator.x) ** 2 + (y + dy + 0.5 - predator.y) ** 2;
       if (d <= distance) continue;
@@ -728,6 +750,13 @@ export class Wildlife {
         case 'idle':
           a.wait -= dt;
           if (def.reef && a.spd > 0.001) this.glide(a, dt); // (a fish coasts to a stop, it doesn't brake)
+          // Repair saved landings and terrain edits without settling into open water.
+          if (a.move === 'fly' && w.inb(Math.floor(a.x), Math.floor(a.y)) &&
+            !canLand(w, w.idx(Math.floor(a.x), Math.floor(a.y)), def)) {
+            a.flying = true; a.alt = Math.max(0.1, a.alt);
+            if (a.wait <= 0) this.chooseTarget(a, def);
+            break;
+          }
           if (a.move === 'fly' && a.alt > 0) a.alt = Math.max(0, a.alt - dt * 3); // settle to the ground (or a branch) after landing
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
@@ -768,6 +797,7 @@ export class Wildlife {
           if (this.stepToward(a, a.tx, a.ty, sp)) {
             a.state = 'idle'; a.flying = false;
             const i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
+            if (i >= 0 && !canLand(w, i, def)) { a.flying = true; a.wait = 0; break; }
             a.wait = WADERS.has(def.sprite.kind) && i >= 0 && shallows(w, i) ? 4 + Math.random() * 6 : 0.5 + Math.random() * 3; // a wader settles in
           }
           break;
@@ -953,7 +983,7 @@ export class Wildlife {
       let best = -1, bs = 0;
       for (let k = 0; k < 60; k++) {
         const j = Math.floor(Math.random() * n), x = j % W, y = (j / W) | 0;
-        if (Math.hypot(x - x0, y - y0) < 14 || map[j] < 0.25) continue;
+        if (Math.hypot(x - x0, y - y0) < 14 || map[j] < 0.25 || !canLand(w, j, def)) continue;
         const sc = map[j] * (0.6 + 0.4 * Math.random()) * (w.terrain[j] === T.RIVER ? 0.5 : 1);
         if (sc > bs) { bs = sc; best = j; }
       }
@@ -1295,7 +1325,7 @@ export class Wildlife {
     const w = this.game.world;
     if (!w.inb(x, y)) return 'Off the property.';
     const i = w.idx(x, y);
-    if (!passable(w, i, def) || (def.move === 'swim' && !isWater(w.terrain[i]))) return def.move === 'swim' ? 'Fish need to be released into water.' : 'They can\'t be released here.';
+    if (!passable(w, i, def) || !canLand(w, i, def) || (def.move === 'swim' && !isWater(w.terrain[i]))) return def.move === 'swim' ? 'Fish need to be released into water.' : 'They can\'t be released here.';
     this.computeSuitability();
     const st = this.state[def.index];
     if (st.K < def.minK * 0.8) return `There isn't enough habitat yet (room for ${st.K.toFixed(1)}; needs ${def.minK}). ${def.hint}`;

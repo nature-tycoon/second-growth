@@ -3669,6 +3669,8 @@ export function buildSpecies(def) {
       mo.leg = 0.5; mo.tail = s.cocked ? 0.13 : 0.065; mo.bird = 1;
       mo.wingSpan = s.size * BIRDS[s.kind](s).span * 1.7;
       mo.sink = s.kind === 'duck' || s.kind === 'booby' ? s.size * 0.24 : 0;
+      // Wading can cover the lower legs, while the belly stays above the surface.
+      if (s.kind === 'heron' || s.kind === 'crane') mo.wadeDepth = BIRDS[s.kind](s).legH * s.size * 0.55;
       break;
     case 'bat': bat(m, s); mo.flap = 2.6; break;
     case 'butterfly': butterfly(m, s); mo.flap = 1.7; mo.leg = 0; mo.tail = 0; break;

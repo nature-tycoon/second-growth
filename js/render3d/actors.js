@@ -14,7 +14,7 @@ import { ActorView, animalViewRadius } from './actor-view.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
-const FLOATERS = new Set(['duck', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
+const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
 const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 
@@ -90,14 +90,14 @@ export class Actors {
       const t = inside ? w.terrain[i] : T.RIVER;
       const onWater = isWater(t) && t !== T.MARSH;
       const kind = def.sprite.kind;
-      const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05) && kind !== 'duck') || (kind === 'duck' && a.alt > 0.3) || kind === 'bat' || kind === 'ray'; // (a manta "flies" through the water)
+      const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05)) || kind === 'bat' || kind === 'ray'; // (a manta "flies" through the water)
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
       const seaY = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
       // A located animal must acquire a fresh pose even before the camera has
       // reached it. Otherwise an offscreen canopy animal can never be followed.
       if (this.view.enabled && a !== this.followAgent) {
         let low = ground, high = ground;
-        if (onWater || def.move === 'swim') {
+        if (onWater || def.move === 'swim' || def.move === 'fly' && isWater(t)) {
           const surface = waterSurfaceY(w, a.x, a.y) ?? ground;
           low = Math.min(low, surface); high = Math.max(high, surface + 0.75); // leaping salmon
         }
@@ -130,8 +130,9 @@ export class Actors {
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
       const sc = adultAnimalScale(def.sprite) * (a.juvenile ? def.sprite.juv ?? 0.5 : 1) * ageF; // (scale: relative proportions; show: display boost; juv: how small the young are)
       const mo = F.motion(def);
-      let y = ground;
-      const surf = onWater || def.move === 'swim' ? waterSurfaceY(w, a.x, a.y) : null;
+      const surf = onWater || def.move === 'swim' || def.move === 'fly' && isWater(t) ? waterSurfaceY(w, a.x, a.y) : null;
+      // Flyers descend relative to the visible surface, even above a deeply carved basin.
+      let y = def.move === 'fly' ? Math.max(ground, surf ?? ground) : ground;
       if (def.reef && seaY != null) {
         // under the sea: fish, turtles and rays swim at their own depth between the seabed and the
         // surface (clownfish right down in their anemone, sharks and mantas well up off the bottom),
@@ -143,7 +144,7 @@ export class Actors {
         st.depth = st.depth == null ? band : st.depth + (band - st.depth) * k * 0.3;
         y = Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
       } else if (flying && seaY != null) y = Math.max(ground, seaY) + 0.7 + a.alt * 1.2; // (seabirds fly over the water, not the seabed)
-      else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - (mo.sink || (def.sprite.size || 10) * 0.22) * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
+      else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
       else if (flying) y += kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2; // pollinators flit low over the flowers
       else if (def.move === 'swim') {
         y = (surf ?? ground) - 0.05 - mo.sink * sc;
@@ -151,7 +152,8 @@ export class Actors {
         const jp = def.special === 'salmon' && surf != null ? salmonLeap(a, time) : -1;
         if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.75 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
       }
-      else if (surf != null && FLOATERS.has(kind)) y = surf - mo.sink * sc;
+      else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
+      else if (surf != null && FLOATERS.has(kind)) y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
       else if (def.move === 'fly' && inside && w.tree[i] && w.treeG[i] > 0.5 && kind !== 'duck' && kind !== 'heron' && kind !== 'crane') {
         y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * (PLANTS[w.tree[i]].look.scale ?? 1) * w.treeG[i] * 0.55;
       } else if (def.move === 'tree' && inside) {
