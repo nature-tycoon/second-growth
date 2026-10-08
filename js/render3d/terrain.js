@@ -133,10 +133,13 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
           * smoothstep(0.05, 0.6, vShore.y);
         float bars = texture2D(uNoise, gp * 0.36 + 0.63).r;
         float grit = texture2D(uNoise, gp * 5.5).r;
+        // in patches along the bank, not an unbroken ring: grass runs down to the water in between
+        float reach = texture2D(uNoise, gp * 0.11 + 0.21).r;
+        fringe *= smoothstep(0.3, 0.62, reach) * (1.0 - 0.45 * smoothstep(0.0, 0.12, rise));
         float gravel = smoothstep(0.43, 0.72, bars) * smoothstep(-0.02, 0.07, rise);
-        vec3 mud = vec3(0.17, 0.135, 0.09) * (0.82 + grit * 0.28);
-        vec3 stones = vec3(0.32, 0.30, 0.25) * (0.82 + grit * 0.35);
-        diffuseColor.rgb = mix(diffuseColor.rgb, mix(mud, stones, gravel), fringe * 0.8);
+        vec3 mud = vec3(0.25, 0.205, 0.145) * (0.85 + grit * 0.25);
+        vec3 stones = vec3(0.4, 0.375, 0.32) * (0.82 + grit * 0.35);
+        diffuseColor.rgb = mix(diffuseColor.rgb, mix(mud, stones, gravel), fringe * 0.62);
       }
       // the lie of the land: steep slopes a little darker, hollows cooler, rises warmer
       diffuseColor.rgb *= 1.0 - 0.16 * smoothstep(0.06, 0.45, 1.0 - vSlopeY);

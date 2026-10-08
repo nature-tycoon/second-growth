@@ -551,9 +551,9 @@ export class Renderer {
     this.dawn = todU > 0.97 || todU < 0.1 ? 1 - Math.min(1, Math.abs(((todU + 0.03) % 1) - 0.03) / 0.07) : 0;
     T.sun.lerp(tod.sunCol, tod.sunAmt); T.sky.lerp(tod.skyCol, tod.skyAmt);
     const balance = this.lightingDepth ? lightingBalance(wx, tod.sun, !!biome.look.underwater)
-      : { key: 1, fill: 1, cool: 0, haze: 0 };
-    // A little sky colour in the bounce light keeps shade cooler than sunlit surfaces.
-    T.ground.lerp(T.sky, balance.cool).multiplyScalar(this.lightingDepth && !biome.look.underwater ? .88 : 1);
+      : { key: 1, fill: 1, cool: 0, trim: 0, haze: 0 };
+    // A little sky colour in the bounce light keeps shade cooler than sunlit surfaces, under a high sun.
+    T.ground.lerp(T.sky, balance.cool).multiplyScalar(1 - balance.trim);
     this.sun.color.lerp(T.sun, k); this.hemi.color.lerp(T.sky, k); this.hemi.groundColor.lerp(T.ground, k);
     this.sun.intensity += (L.sunI * gloom * tod.sun * balance.key - this.sun.intensity) * k;
     this.hemi.intensity += (L.hemiI * (gloom < 1 ? 1.22 : 1) * (0.72 + 0.28 * tod.sun) * balance.fill - this.hemi.intensity) * k;
@@ -563,7 +563,7 @@ export class Renderer {
     const humid = biome.id === 'amazon' || biome.id === 'sumatra';
     const hazeTo = balance.haze * (humid ? 1.25 : 1) * (this.light ? .75 : 1) * (0.6 + .4 * tod.sun);
     haze.uHazeAmount.value += (hazeTo - haze.uHazeAmount.value) * k;
-    haze.uHazeColor.value.copy(this.hemi.color).multiplyScalar(.5 * (0.65 + .35 * tod.sun));
+    haze.uHazeColor.value.copy(this.hemi.color).multiplyScalar(.5 * (0.65 + .35 * Math.max(tod.sun, 1 - this.night))); // (a veil as light as the sky until nightfall)
     {
       const el = THREE.MathUtils.degToRad(tod.el), az = Math.atan2(20, -30) + tod.sweep * 1.1;
       const d = 62, off = this.sunOffset || (this.sunOffset = new THREE.Vector3());

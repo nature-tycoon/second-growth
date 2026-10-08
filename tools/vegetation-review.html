@@ -79,7 +79,7 @@ function setup() {
     const geo = new THREE.PlaneGeometry(24, 22, 48, 44).rotateX(-Math.PI / 2).translate(40, -.015, 32);
     const pos = geo.attributes.position, colors = [];
     let base = name === 'savannah' && Number(controls.month.value) >= 3 && Number(controls.month.value) <= 7 ? [.57,.49,.31] : name === 'woodland' || name === 'groves' ? [.36,.40,.25] : [.45,.51,.30];
-    if (controls.palettes.checked && palette && version === 'after') base = colorRgb(palette.pasture[game.season]).map(c => c * .65);
+    if (controls.palettes.checked && palette && version === 'after') { const pal = colorRgb(palette.pasture[game.season]).map(c => c * .65); base = base.map((c, k) => c + (pal[k] - c) * .45); } // (as the game's pastureColor: a nudge, not a replacement)
     for (let k = 0; k < pos.count; k++) { const c = patchColor(base, meadowPatch(pos.getX(k), pos.getZ(k))); const tint = new THREE.Color().setRGB(...c, THREE.SRGBColorSpace); colors.push(tint.r,tint.g,tint.b); }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     const ground = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })); ground.receiveShadow = true; scene.add(ground);

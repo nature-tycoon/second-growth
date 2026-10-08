@@ -49,8 +49,9 @@ export function bankDetails(world, border, cells, waterAt, terrainAt, underwater
       if (rise < -.055 || rise > .17) continue;
       const r = hash2(x, z, 401 + k), angle = hash2(x, z, 421 + k) * Math.PI * 2;
       // Gravel collects in patches, with a few larger stones defining the bank.
-      if (r < .15 + patch * .65 && rise < .12) {
-        const size = .025 + hash2(x, z, 441 + k) * .058;
+      // (fewer stones, big enough to read at the usual zoom)
+      if (r < .04 + patch * .2 && rise < .12) {
+        const size = .05 + hash2(x, z, 441 + k) * .06;
         out.stones.push({ x: px, y: ground + size * .2, z: pz, size, angle,
           tone: .46 + hash2(x, z, 461 + k) * .2, wet: rise < .018 });
       }

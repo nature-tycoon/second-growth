@@ -16,7 +16,7 @@ export function snowCrown(geometry) {
   return geometry;
 }
 
-// Crowns fade from snowy tips to green bases; other surfaces catch snow on their tops.
+// Everything catches snow on its upward-facing surfaces; tree crowns hold a little more up high.
 export function withSnowTops(mat, strength = 1, { crown = false } = {}) {
   const prev = mat.onBeforeCompile;
   const baseKey = mat.customProgramCacheKey();
@@ -38,15 +38,11 @@ export function withSnowTops(mat, strength = 1, { crown = false } = {}) {
     shader.fragmentShader = `uniform float uSnow;\nvarying float vSnowUp;\nvarying vec2 vSnowXZ;\n` + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
       if (uSnow > 0.01) {
         float snGrain = fract(sin(dot(floor(vSnowXZ * 9.0), vec2(12.9898, 78.233))) * 43758.5453);
-        ${crown ? `// A soft snowline descends through the crown as the snowpack builds.
-        float snLoad = clamp(uSnow, 0.0, 1.0);
-        float snLine = 1.05 - snLoad * 1.5 * ${strength.toFixed(2)};
-        float snHeight = vSnowHeight + (snGrain - 0.5) * 0.035;
-        float snGradient = smoothstep(snLine - 0.22, snLine + 0.18, snHeight);
-        float snFacing = mix(0.78, 1.0, smoothstep(-0.25, 0.65, vSnowUp));
-        float snCover = snGradient * snFacing * (0.94 + 0.06 * snGrain);
-        // Deep snow blankets even the lower and sheltered foliage.
-        snCover = mix(snCover, 1.0, smoothstep(0.72, 1.0, snLoad));
+        ${crown ? `// A dusting on whatever faces the sky, a little heavier up the crown than in its sheltered base.
+        float snDust = uSnow * ${strength.toFixed(2)} * smoothstep(0.25, 0.8, vSnowUp) * (0.7 + 0.3 * snGrain) * (0.75 + 0.4 * vSnowHeight);
+        // A deep snowpack loads every branch that faces the sky, but never the undersides: the crown keeps its shape.
+        float snDeep = smoothstep(0.6, 1.0, uSnow) * smoothstep(0.1, 0.6, vSnowUp) * (0.42 + 0.3 * snGrain) * (0.8 + 0.25 * vSnowHeight);
+        float snCover = clamp(max(snDust * 1.15, snDeep), 0.0, 0.8);
         diffuseColor.rgb = mix(diffuseColor.rgb, ${SNOW_RGB}, snCover);` : `
         float snCover = uSnow * ${strength.toFixed(2)} * smoothstep(0.25, 0.8, vSnowUp) * (0.7 + 0.3 * snGrain);
         diffuseColor.rgb = mix(diffuseColor.rgb, ${SNOW_RGB}, clamp(snCover * 1.15, 0.0, 0.9));`}

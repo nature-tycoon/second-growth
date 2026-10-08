@@ -61,7 +61,9 @@ const compiled = Object.fromEntries(Object.entries(PALETTES).map(([id, p]) => [i
     [k, Array.isArray(v) ? v.map(colorRgb) : colorRgb(v)]))]));
 
 export function pastureColor(map, season, fallback) {
-  return compiled[map]?.pasture[season] || colorRgb(fallback);
+  // The palette nudges the map's own meadow colour rather than replacing it, so grass keeps its life.
+  const pal = compiled[map]?.pasture[season];
+  return pal ? mix(colorRgb(fallback), pal, .45) : colorRgb(fallback);
 }
 
 function green(p, pal) {
@@ -73,7 +75,9 @@ function green(p, pal) {
   // Keep a species' relative lightness; darker salal remains darker than new alder leaves.
   const lightness = source[0] * .25 + source[1] * .6 + source[2] * .15;
   const t = Math.max(0, Math.min(1, (lightness - .22) / .42));
-  return mix(source, mix(pal[role][0], pal[role][1], t), .72);
+  // A light pull toward the region's greens: species keep their own hue, so fir, cedar and
+  // hemlock still read apart, and the scene keeps its saturation.
+  return mix(source, mix(pal[role][0], pal[role][1], t), .38);
 }
 
 export function paletteLeafColor(p, phase, map) {
