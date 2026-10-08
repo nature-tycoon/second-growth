@@ -3,6 +3,16 @@
 // ground keeps its sky light (as real cloud shadows do). Few and small on clear days, large
 // and frequent under a cloudy sky.
 
+import { Vector2, Color } from 'three';
+
+export const haze = {
+  uHazeOrigin: { value: new Vector2() },
+  uHazeDir: { value: new Vector2() },
+  uHazeSpan: { value: 1 },
+  uHazeColor: { value: new Color('#b9cdcf') },
+  uHazeAmount: { value: 0 },
+};
+
 export const sky = {
   uCloudT: { value: 0 },       // seconds of drift
   uCloudCover: { value: 0.25 }, // 0 = clear sky .. 1 = overcast
@@ -25,6 +35,9 @@ const CLOUD_GLSL = `
   uniform float uCloudT, uCloudCover, uCloudAmt;
   uniform float uSeaOn, uSeaY, uSeaMurk;
   uniform vec3 uSeaShallow, uSeaDeep, uSeaLight;
+  uniform vec2 uHazeOrigin, uHazeDir;
+  uniform float uHazeSpan, uHazeAmount;
+  uniform vec3 uHazeColor;
   varying vec2 vCloudXZ;
   varying float vSeaY;
   // caustics: two warped interference patterns, kept where they're brightest, so the light gathers
@@ -57,6 +70,7 @@ export function withClouds(mat) {
     if (prev) prev.call(mat, shader, renderer);
     Object.assign(shader.uniforms, sky);
     Object.assign(shader.uniforms, sea);
+    Object.assign(shader.uniforms, haze);
     shader.vertexShader = 'varying vec2 vCloudXZ;\nvarying float vSeaY;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vec4 clW = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
@@ -82,8 +96,12 @@ export function withClouds(mat) {
         vec3 seaCol = mix(mix(uSeaShallow, uSeaDeep, clamp(seaD * 0.3, 0.0, 1.0)), vec3(0.26, 0.36, 0.26), uSeaMurk * 0.7);
         outgoingLight = outgoingLight * absorb + seaCol * uSeaLight * scat;
       }
+      // Orthographic views have no perspective falloff: veil only scenery beyond the focus.
+      float hzDepth = dot(vCloudXZ - uHazeOrigin, uHazeDir) / max(1.0, uHazeSpan);
+      float hzAmount = smoothstep(0.1, 1.0, hzDepth) * uHazeAmount;
+      outgoingLight = mix(outgoingLight, uHazeColor, hzAmount);
       #include <opaque_fragment>`);
   };
-  mat.customProgramCacheKey = () => baseKey + '|clouds';
+  mat.customProgramCacheKey = () => baseKey + '|clouds:haze';
   return mat;
 }

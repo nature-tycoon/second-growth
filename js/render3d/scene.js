@@ -4,7 +4,8 @@
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { snow, withSnowTops } from './snow.js';
-import { sky, withClouds } from './atmosphere.js';
+import { sky, haze, withClouds } from './atmosphere.js';
+import { lightingBalance } from './lighting.js';
 import { Ambience } from './ambience.js';
 import { biome } from '../biome.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
@@ -75,7 +76,7 @@ export class Renderer {
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
     this.gl.setPixelRatio(this.dpr);
     this.gl.shadowMap.enabled = true;
-    this.gl.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.gl.shadowMap.type = THREE.PCFShadowMap;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
     installGrade(biome.look.grade);
     this.gl.toneMapping = THREE.CustomToneMapping;
@@ -96,6 +97,7 @@ export class Renderer {
     this.atlas = buildAtlas();
     this.terrain = new Terrain(this.scene, this.atlas);
     this.flora = new Flora(this.scene);
+    this.lightingDepth = true;
     this.actors = new Actors(this.scene);
     this.seaSurface = new SeaSurface(this.scene);
     this.structMat = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), 1.1));
@@ -453,6 +455,13 @@ export class Renderer {
   // jump the clock to a point in the day (0 = dawn, 0.9 = night)
   setTimeOfDay(u) { this.todClock = u * DAY_CYCLE; }
 
+  // Comparison tools use the previous balance on the same scene and geometry.
+  setLightingDepth(on) {
+    this.lightingDepth = on;
+    this.flora.setLightingDepth(on);
+    this.lightReady = false;
+  }
+
   // ------------------------------------------------------------------ frame
   draw(game, ui, dt) {
     this.time += dt;
@@ -541,9 +550,20 @@ export class Renderer {
     this.night = ss(0.872, 0.893, todU) * (1 - ss(0.93, 0.95, todU)); // full night (see NIGHT_PACE for how long it lasts)
     this.dawn = todU > 0.97 || todU < 0.1 ? 1 - Math.min(1, Math.abs(((todU + 0.03) % 1) - 0.03) / 0.07) : 0;
     T.sun.lerp(tod.sunCol, tod.sunAmt); T.sky.lerp(tod.skyCol, tod.skyAmt);
+    const balance = this.lightingDepth ? lightingBalance(wx, tod.sun, !!biome.look.underwater)
+      : { key: 1, fill: 1, cool: 0, haze: 0 };
+    // A little sky colour in the bounce light keeps shade cooler than sunlit surfaces.
+    T.ground.lerp(T.sky, balance.cool).multiplyScalar(this.lightingDepth && !biome.look.underwater ? .88 : 1);
     this.sun.color.lerp(T.sun, k); this.hemi.color.lerp(T.sky, k); this.hemi.groundColor.lerp(T.ground, k);
-    this.sun.intensity += (L.sunI * gloom * tod.sun - this.sun.intensity) * k;
-    this.hemi.intensity += (L.hemiI * (gloom < 1 ? 1.22 : 1) * (0.72 + 0.28 * tod.sun) - this.hemi.intensity) * k;
+    this.sun.intensity += (L.sunI * gloom * tod.sun * balance.key - this.sun.intensity) * k;
+    this.hemi.intensity += (L.hemiI * (gloom < 1 ? 1.22 : 1) * (0.72 + 0.28 * tod.sun) * balance.fill - this.hemi.intensity) * k;
+    haze.uHazeOrigin.value.set(this.target.x, this.target.z);
+    haze.uHazeDir.value.set(-Math.sin(this.az), -Math.cos(this.az));
+    haze.uHazeSpan.value = Math.max(8, this.vh / (2 * this.ppu * Math.sin(EL)));
+    const humid = biome.id === 'amazon' || biome.id === 'sumatra';
+    const hazeTo = balance.haze * (humid ? 1.25 : 1) * (this.light ? .75 : 1) * (0.6 + .4 * tod.sun);
+    haze.uHazeAmount.value += (hazeTo - haze.uHazeAmount.value) * k;
+    haze.uHazeColor.value.copy(this.hemi.color).multiplyScalar(.5 * (0.65 + .35 * tod.sun));
     {
       const el = THREE.MathUtils.degToRad(tod.el), az = Math.atan2(20, -30) + tod.sweep * 1.1;
       const d = 62, off = this.sunOffset || (this.sunOffset = new THREE.Vector3());

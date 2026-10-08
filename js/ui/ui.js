@@ -608,6 +608,7 @@ export class UI {
     if (t) {
       const d = el('div', 'tool-desc');
       let html = `<b>${t.name}</b>`;
+      html += `<details class="tool-notes"${st.toolNotesOpen ? ' open' : ''}><summary>Details and conditions</summary><div class="tool-notes-body">`;
       if (t.species && t.species.length === 1) {
         const p = PLANT[t.species[0]];
         html += `<div class="sci">${p.sci} · ${p.kindName || biome.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>`;
@@ -633,11 +634,14 @@ export class UI {
         const a = ANIMAL[t.animal];
         html += `<div class="prefs"><span>Needs: ${a.hint}</span></div>`;
       }
+      html += '</div></details>';
       if (t.brush) {
         html += `<div class="brush">Brush <span class="bsz"></span></div>`;
       } else if (t.cat !== 'wildlife') html += `<div class="small" style="margin-top:6px">Click a tile to place.</div>`;
       else html += `<div class="small" style="margin-top:6px">Click where you'd like to release them.</div>`;
       d.innerHTML = html;
+      const notes = d.querySelector('.tool-notes');
+      notes.addEventListener('toggle', () => { st.toolNotesOpen = notes.open; });
       if (t.brush) {
         const wrap = d.querySelector('.bsz');
         BRUSH_SIZES.forEach(r => {

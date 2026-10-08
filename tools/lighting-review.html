@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Second Growth — lighting review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{margin:24px;background:#eef0e8;color:#27392d;font:15px system-ui}h1{font-size:24px;margin:0 0 8px}p{line-height:1.5;max-width:1080px}label{display:inline-block;margin:0 14px 12px 0}select,button{font:inherit;padding:6px}main{display:grid;grid-template-columns:1fr 1fr;gap:14px}article{background:#fafbf5;border:1px solid #d3dccd;border-radius:12px;padding:12px}h2{font-size:17px;margin:0 0 10px}canvas{width:100%;display:block}small{display:block;margin-top:8px;font-size:12px;color:#5b6857}#engine,#fx{display:none!important}@media(max-width:900px){main{grid-template-columns:1fr}}
+</style>
+<h1>Lighting depth</h1>
+<p>Identical restored landscapes in the game’s renderer: sun and sky balance, shadows across crowns and a subtle veil on distant scenery. Independent fixtures; saved games are untouched.</p>
+<label>Map <select id="map"></select></label>
+<label>Season <select id="month"><option value="2">May</option><option value="5">August</option><option value="8">November</option><option value="10">January</option></select></label>
+<label>Light <select id="time"><option value=".35">Daylight</option><option value=".79">Golden hour</option><option value=".91">Moonlight</option></select></label>
+<label>Weather <select id="weather"><option value="clear">Clear</option><option value="cloud">Cloudy</option><option value="rain">Rain</option><option value="snow">Snow</option></select></label>
+<label>View <select id="zoom"><option value=".42">Landscape</option><option value=".23">Overview</option><option value=".8">Close</option></select></label>
+<label>Graphics <select id="detail"><option value="high">Full</option><option value="fast">Fast</option></select></label>
+<button id="rotate">Rotate</button><p id="status">Preparing lighting…</p>
+<main><article><h2>Before</h2><canvas id="before"></canvas><small id="before-info"></small></article><article><h2>Current</h2><canvas id="after"></canvas><small id="after-info"></small></article></main>
+<canvas id="engine"></canvas>
+<script type="module">
+import { Renderer } from '../js/render3d/scene.js';
+import { BIOME_LIST } from '../js/biome.js';
+import { restoredGame } from './map-audit-fixtures.mjs';
+import { updateEnvironment } from '../js/sim/environment.js';
+import { snow } from '../js/render3d/snow.js';
+const controls=Object.fromEntries(['map','month','time','weather','zoom','detail','status','rotate'].map(id=>[id,document.getElementById(id)]));
+for(const b of BIOME_LIST)controls.map.add(new Option(b.name,b.id));
+const params=new URLSearchParams(location.search);
+for(const id of ['map','month','time','weather','zoom','detail'])if([...controls[id].options].some(o=>o.value===params.get(id)))controls[id].value=params.get(id);
+let game=restoredGame(controls.map.value), renderer=new Renderer(document.getElementById('engine'),{preserveDrawingBuffer:true}), angle=Math.PI/4;
+// Keep preview images at a fixed aspect ratio, including during full-page capture.
+renderer.resize=()=>{
+  renderer.vw=window.innerWidth;renderer.vh=Math.round(renderer.vw*9/16);
+  renderer.gl.setSize(renderer.vw,renderer.vh,false);
+  renderer.ui.width=Math.floor(renderer.vw*renderer.dpr);renderer.ui.height=Math.floor(renderer.vh*renderer.dpr);
+  renderer.ambience.resize(renderer.vw,renderer.vh);renderer.updateCamera();
+};
+renderer.setWorld(game);
+function render(){
+  game.day=Number(controls.month.value)*10; game.weather=controls.weather.value;
+  game.snow=game.weather==='snow'?.22:0; updateEnvironment(game.world,game.month);
+  renderer.applySettings({quality:controls.detail.value,shadows:true,wind:false,dayCycle:true,weather:false});
+  renderer.zoom=Number(controls.zoom.value); renderer.az=renderer.azTarget=angle;
+  renderer.centerOn(game.world.w*.5,game.world.h*.44);
+  renderer.terrain.updateSurface(game); renderer.flora.rebuild(game);
+  renderer.syncStructures(); renderer.lastDay=game.day; renderer.dayDirty=0; renderer.floraPending=false;
+  snow.uSnow.value=game.snow;
+  for(const [version,on] of [['before',false],['after',true]]){
+    renderer.setLightingDepth(on); renderer.setTimeOfDay(Number(controls.time.value));
+    renderer.draw(game,{clean:true},0);
+    const canvas=document.getElementById(version);canvas.width=renderer.gl.domElement.width;canvas.height=renderer.gl.domElement.height;
+    canvas.getContext('2d').drawImage(renderer.gl.domElement,0,0);
+    document.getElementById(version+'-info').textContent=`${renderer.gl.info.render.triangles.toLocaleString()} submitted triangles · ${renderer.gl.info.render.calls} draw calls, including shadows`;
+  }
+  controls.status.textContent=`Ready · ${controls.map.selectedOptions[0].text} · ${controls.time.selectedOptions[0].text} · ${controls.weather.selectedOptions[0].text} · ${controls.detail.selectedOptions[0].text}`;
+}
+controls.map.onchange=()=>{const next=new URLSearchParams();for(const id of ['map','month','time','weather','zoom','detail'])next.set(id,controls[id].value);location.search=next.toString();};
+for(const id of ['month','time','weather','zoom','detail'])controls[id].onchange=render;
+controls.rotate.onclick=()=>{angle+=Math.PI/2;render();};
+window.addEventListener('resize',()=>{renderer.resize();render();});
+render();
+</script></html>

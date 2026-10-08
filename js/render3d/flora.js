@@ -8,12 +8,14 @@ import * as G from './geometry.js';
 import * as Botanical from './botanical.js';
 import { flowerForm, grassForm } from '../plant-patterns.js';
 import { withFocusFade } from './focus.js';
-import { withSnowTops } from './snow.js';
+import { withSnowTops, snowCrown } from './snow.js';
 import { withClouds } from './atmosphere.js';
 import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
 import { meadowPatch, patchColor } from './patches.js';
 import { FloraChanges, floraChunkKey } from './flora-changes.js';
+import { groveForm } from './groves.js';
+import { paletteLeafColor } from './palettes.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -130,17 +132,7 @@ const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a
 const vary = (c, x, y, salt, amt = 0.08) => { const f = 1 + (hash2(x, y, salt) - 0.5) * amt * 2; return [c[0] * f, c[1] * f, c[2] * f]; };
 
 export function leafColor(p, phase) {
-  const lk = p.look;
-  // trees like the pink ipê turn their whole crown to flower
-  if (phase === 'bloom' && lk.crownBloom) return rgb(lk.flower);
-  // ...others are dusted with blossom (umbrella thorns cream, sausage trees wine-red)
-  if (phase === 'bloom' && lk.bloomTint) return mixc(rgb(lk.leaf), rgb(lk.flower), lk.bloomTint);
-  let c = rgb(lk.leaf);
-  if (phase === 'spring') c = mixc(c, [0.72, 0.86, 0.45], 0.4);
-  else if (phase === 'late') c = mixc(c, lk.dry ? rgb(lk.dry) : [0.45, 0.5, 0.25], lk.dry ? 0.35 : 0.12);
-  else if (phase === 'fall') c = lk.fall ? (p.layer === 0 ? mixc(rgb(lk.fall), [0.55, 0.45, 0.3], 0.5) : rgb(lk.fall)) : lk.dry ? mixc(c, rgb(lk.dry), 0.7) : mixc(c, [0.6, 0.54, 0.28], 0.4);
-  else if (phase === 'winter') c = lk.dry ? mixc(rgb(lk.dry), [0.55, 0.48, 0.35], 0.3) : mixc(c, [0.42, 0.42, 0.3], p.layer === 0 && lk.type !== 'fern' && lk.type !== 'sedge' ? 0.5 : 0.12);
-  return c;
+  return paletteLeafColor(p, phase, biome.id);
 }
 
 const STEM = { dogwood: '#b0302a', willow: '#c8923a' };
@@ -159,7 +151,7 @@ export class Flora {
     this.wind = { value: 0 };
     // everything that can hide an animal dissolves around the selected one (see focus.js)
     // ...and everything catches snow on top in winter (see snow.js)
-    this.foliage = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind)), 0.95));
+    this.foliage = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind)), 0.95, { crown: true }));
     this.shrubs = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind, false, 0.38, 0.6)), 0.85));
     this.grass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true, 0.5, 0.7)), 1.3));
     this.tallGrass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 0.4, this.wind, true, 0.5, 0.7)), 1.3));
@@ -241,7 +233,20 @@ export class Flora {
     if (on === !!this.light) return false;
     this.light = on;
     this.setZoom(this.zoom ?? 1, true);
+    this.setLightingDepth(this.lightingDepth !== false);
     return true;
+  }
+
+  // Crowns and trunks catch neighbouring branch shadows in the full landscape lighting.
+  setLightingDepth(on) {
+    this.lightingDepth = on;
+    const receive = on && !this.light && !biome.look.underwater;
+    for (const [key, pool] of this.pools) if (key.startsWith('crown:') || key.startsWith('trunk:')) {
+      for (const p of pool.subs.values()) {
+        p.receive = receive;
+        if (p.mesh) p.mesh.receiveShadow = receive;
+      }
+    }
   }
 
   setFade(on) {
@@ -379,7 +384,7 @@ export class Flora {
         } else {
           const type = p.look.type;
           const shape = SHRUB_SHAPES.includes(type) ? type : 'shrub';
-          let col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8);
+          let col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8, 0.045);
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
           this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub' }, () => G.shrub(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, col);
@@ -427,35 +432,45 @@ export class Flora {
         const tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
         const ty = hAt(tx, tz) - 0.02;
         const sc = (0.2 + 0.8 * g) * (0.78 + hash2(x, y, 9) * 0.42) * (p.look.scale ?? 1);
+        const grove = groveForm(x, y, g, shapeDef);
+        const sx = sc * grove.width, sy = sc * grove.height, sz = sc * grove.width;
         const rot = hash2(x, y, 10) * 6.28;
+        // Fruit and blossom follow the same stretched scaffold as the crown.
+        const onTree = (lx, ly, lz) => [tx + Math.cos(rot) * lx * sx + Math.sin(rot) * lz * sz,
+          ty + ly * sy, tz - Math.sin(rot) * lx * sx + Math.cos(rot) * lz * sz];
         const bark = rgb(p.look.bark).map(c => c * dim);
         const key = `${p.look.type}:${p.key}:${v}`;
         const build = (lod = 0) => G.treeParts(shapeDef, 500 + v * 13 + p.id, lod);
         if (!p.conifer && phase === 'winter') {
-          this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark).add(tx, ty, tz, sc, sc, sc, rot, bark);
+          this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark).add(tx, ty, tz, sx, sy, sz, rot, bark);
         } else {
           let shape = this.geos.get(`treeparts:${key}`);
-          if (!shape) { shape = build(); shape.lo = build(1); this.geos.set(`treeparts:${key}`, shape); }
+          if (!shape) {
+            shape = build(); shape.lo = build(1);
+            snowCrown(shape.crown); snowCrown(shape.lo.crown);
+            this.geos.set(`treeparts:${key}`, shape);
+          }
           if (!this.pools.has(`crown:${key}`)) {
-            const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown }), this);
-            const trunkP = new ChunkedPool(() => new Pool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk }), this);
+            const receive = () => this.lightingDepth !== false && !this.light && !biome.look.underwater;
+            const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, receive: receive() }), this);
+            const trunkP = new ChunkedPool(() => new Pool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk, receive: receive() }), this);
             crown.setView(...this.view); trunkP.setView(...this.view);
             this.pools.set(`crown:${key}`, crown); this.pools.set(`trunk:${key}`, trunkP);
           }
           let leaf = leafColor(p, phase);
           if (phase === 'fall') leaf = mixc(leaf, rgb(p.look.leaf), hash2(x, y, 11) * 0.35);
           if (inside && w.bleach && w.bleach[i] > 0) leaf = mixc(leaf, BLEACHED, w.bleach[i]); // (a coral bleaching in a marine heatwave)
-          this.pools.get(`crown:${key}`).add(tx, ty, tz, sc, sc, sc, rot, vary(leaf.map(c => c * dim), x, y, 12, 0.1));
-          this.pools.get(`trunk:${key}`).add(tx, ty, tz, sc, sc, sc, rot, bark);
+          this.pools.get(`crown:${key}`).add(tx, ty, tz, sx, sy, sz, rot, vary(leaf.map(c => c * dim * grove.tint), x, y, 12, 0.045));
+          this.pools.get(`trunk:${key}`).add(tx, ty, tz, sx, sy, sz, rot, bark);
           if (phase === 'bloom' && ['dogwood', 'magnolia', 'ipe', 'redbud'].includes(p.key) && shapeDef.rx && g > 0.45) {
             const form = p.key === 'magnolia' ? 'waterlily' : p.key === 'ipe' ? 'trumpet' : 'star';
             const flowers = this.pool(`treeflower:${form}:${p.look.flower}`, () => Botanical.blossomHead(form, p.look.flower), this.grass,
               { shadow: false }, () => Botanical.blossomHead(form, p.look.flower, true));
             for (let k = 0; k < 12; k++) {
-              const a = rot + k * 2.4, d = shapeDef.rx * (0.5 + hash2(x, y, k + 121) * 0.36) * sc;
-              const fy = (shapeDef.height - shapeDef.ry * (0.6 + hash2(x, y, k + 133) * 0.65)) * sc;
+              const a = k * 2.4, d = shapeDef.rx * (0.5 + hash2(x, y, k + 121) * 0.36);
+              const fy = shapeDef.height - shapeDef.ry * (0.6 + hash2(x, y, k + 133) * 0.65);
               const size = sc * (p.key === 'magnolia' ? 1.3 : 0.85);
-              flowers.add(tx + Math.cos(a) * d, ty + fy, tz + Math.sin(a) * d, size, size, size, a, [dim, dim, dim]);
+              flowers.add(...onTree(Math.cos(a) * d, fy, Math.sin(a) * d), size, size, size, rot + a, [dim, dim, dim]);
             }
           }
           // trees with a fruit part of their own (the oil palm's bunches) show it, in the berry colour, once old enough to bear
@@ -464,16 +479,16 @@ export class Flora {
               const fp = new ChunkedPool(() => new Pool(this.scene, shape.fruit, this.bark, { geoLo: shape.lo.fruit }), this);
               fp.setView(...this.view); this.pools.set(`fruit:${key}`, fp);
             }
-            this.pools.get(`fruit:${key}`).add(tx, ty, tz, sc, sc, sc, rot, vary(rgb(p.look.berry).map(c => c * dim), x, y, 14, 0.08));
+            this.pools.get(`fruit:${key}`).add(tx, ty, tz, sx, sy, sz, rot, vary(rgb(p.look.berry).map(c => c * dim), x, y, 14, 0.08));
           }
           // fruit trees (durian, rambutan, mangosteen...) hang their fruit round the outside of the crown in season
           if (p.look.hangFruit && phase === 'fruit' && p.look.berry && g > 0.6 && shapeDef.rx) {
             // (on the surface of the crown, around its middle, where the camera can see them)
             const fc = rgb(p.look.berry).map(c => c * dim), fs = (p.look.fruitSize || 1.3) * 1.3, ry = shapeDef.ry ?? 0.4;
-            const fy = (shapeDef.height - ry * 1.1) * sc, rr = (shapeDef.rx * 0.78 + Math.min(shapeDef.rx, ry) * 0.5) * sc;
+            const fy = shapeDef.height - ry * 1.1, rr = shapeDef.rx * 0.78 + Math.min(shapeDef.rx, ry) * 0.5;
             for (let k = 0; k < 9; k++) {
-              const a = rot + k * 2.4 + hash2(x + k, y, 15), d = rr * (0.92 + hash2(x, y + k, 16) * 0.12);
-              dots.add(tx + Math.cos(a) * d, ty + fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25 * sc, tz + Math.sin(a) * d, fs, fs * 1.15, fs, a, fc);
+              const a = k * 2.4 + hash2(x + k, y, 15), d = rr * (0.92 + hash2(x, y + k, 16) * 0.12);
+              dots.add(...onTree(Math.cos(a) * d, fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, Math.sin(a) * d), fs, fs * 1.15, fs, rot + a, fc);
             }
           }
         }

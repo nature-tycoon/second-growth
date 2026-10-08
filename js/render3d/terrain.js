@@ -11,6 +11,8 @@ import { withClouds } from './atmosphere.js';
 import { biome } from '../biome.js';
 import { hash2 } from '../rng.js';
 import { meadowPatch, patchColor } from './patches.js';
+import { Riverbanks, bankAllowed, surfaceHeight } from './riverbanks.js';
+import { PALETTES, paletteLeafColor, pastureColor } from './palettes.js';
 
 const ATLAS_TYPES = [T.PASTURE, T.FIELD, T.SOIL, T.GRAVEL, T.MUD, T.ROAD, T.DUFF, T.TRAIL, S.TURF, S.BED];
 const CELL = 64, GUT = 4, SLOT = CELL + GUT * 2, COLS = 28, ATLAS_W = 2048, ATLAS_H = 512;
@@ -57,7 +59,7 @@ function groundDetail(mat, noise, tiles) {
     shader.uniforms.uTileSize = tiles.size;
     shader.uniforms.uWet = tiles.wet;
     shader.uniforms.uHRange = tiles.hRange;
-    shader.vertexShader = 'attribute float aSnow;\nvarying float vSnowAff;\nvarying vec2 vWorldXZ;\nvarying float vWorldY;\nvarying float vSlopeY;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWorldXZ = (modelMatrix * vec4(transformed, 1.0)).xz;\n  vWorldY = (modelMatrix * vec4(transformed, 1.0)).y;\n  vSlopeY = objectNormal.y;\n  vSnowAff = aSnow;');
+    shader.vertexShader = 'attribute vec2 aShore;\nvarying vec2 vShore;\nattribute float aSnow;\nvarying float vSnowAff;\nvarying vec2 vWorldXZ;\nvarying float vWorldY;\nvarying float vSlopeY;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vShore = aShore;\n  vWorldXZ = (modelMatrix * vec4(transformed, 1.0)).xz;\n  vWorldY = (modelMatrix * vec4(transformed, 1.0)).y;\n  vSlopeY = objectNormal.y;\n  vSnowAff = aSnow;');
     shader.fragmentShader = `uniform sampler2D uNoise;
 uniform float uSnow;
 uniform float uWet;
@@ -70,6 +72,7 @@ varying vec2 vWorldXZ;
 varying float vWorldY;
 varying float vSlopeY;
 uniform vec2 uHRange;
+varying vec2 vShore;
 vec4 tileAt(vec2 p) {
   ivec2 c = ivec2(clamp(floor(p) - uTileOrigin, vec2(0.0), uTileSize - 1.0));
   return texelFetch(uTiles, c, 0);
@@ -121,6 +124,20 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
       float gn1 = texture2D(uNoise, vWorldXZ * 0.035).r;
       float gn2 = texture2D(uNoise, vWorldXZ * 0.16 + 0.37).r;
       diffuseColor.rgb *= 0.84 + 0.24 * gn1 + 0.12 * (gn2 - 0.5);
+      // A broken waterline fringe: dark damp silt, pale gravel pockets, then grass.
+      // Heights interpolate on the same triangles as the water, so the fringe hugs its contours.
+      if (vShore.y > 0.01) {
+        float rise = vWorldY - vShore.x / max(vShore.y, 0.001);
+        float fringe = smoothstep(-0.16, -0.06, rise)
+          * (1.0 - smoothstep(0.025, 0.2 + gn2 * 0.12, rise + (gn2 - 0.5) * 0.055))
+          * smoothstep(0.05, 0.6, vShore.y);
+        float bars = texture2D(uNoise, gp * 0.36 + 0.63).r;
+        float grit = texture2D(uNoise, gp * 5.5).r;
+        float gravel = smoothstep(0.43, 0.72, bars) * smoothstep(-0.02, 0.07, rise);
+        vec3 mud = vec3(0.17, 0.135, 0.09) * (0.82 + grit * 0.28);
+        vec3 stones = vec3(0.32, 0.30, 0.25) * (0.82 + grit * 0.35);
+        diffuseColor.rgb = mix(diffuseColor.rgb, mix(mud, stones, gravel), fringe * 0.8);
+      }
       // the lie of the land: steep slopes a little darker, hollows cooler, rises warmer
       diffuseColor.rgb *= 1.0 - 0.16 * smoothstep(0.06, 0.45, 1.0 - vSlopeY);
       diffuseColor.rgb *= mix(vec3(0.93, 0.955, 0.99), vec3(1.035, 1.02, 0.965), clamp((vWorldY - uHRange.x) / max(0.01, uHRange.y - uHRange.x), 0.0, 1.0));
@@ -134,7 +151,7 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
         diffuseColor.rgb = mix(diffuseColor.rgb, ${SNOW_RGB} * (0.92 + 0.1 * gn2), cover * 0.95);
       }`);
   };
-  mat.customProgramCacheKey = () => 'ground-splat';
+  mat.customProgramCacheKey = () => 'ground-splat-shore';
   return mat;
 }
 
@@ -263,15 +280,21 @@ export function buildAtlas() {
 
 // Tint for groundcover: a meadow's color comes from what's growing in it.
 function turfColor(p, month, season) {
-  const phase = plantPhase(p, month);
-  let base = mixRgb(hexRgb(biome.look.pasture[season]), hexRgb(p.look.leaf), 0.55);
-  if (p.look.type === 'tallgrass' || p.look.type === 'grass') {
-    if (phase === 'late' || phase === 'fall') base = mixRgb(base, hexRgb(p.look.dry || '#c9b77e'), 0.3); // cured, but not orange
-    if (phase === 'winter') base = mixRgb(base, [0.62, 0.58, 0.44], 0.4);
+  const pasture = pastureColor(biome.id, season, biome.look.pasture[season]);
+  // The ground and blades share the same seasonal palette, with quieter ground contrast.
+  if (!PALETTES[biome.id]) {
+    // Preserve reef substrate colouring, where the registry includes corals and animals.
+    const phase = plantPhase(p, month);
+    let base = mixRgb(pasture, hexRgb(p.look.leaf), .55);
+    if (p.look.type === 'tallgrass' || p.look.type === 'grass') {
+      if (phase === 'late' || phase === 'fall') base = mixRgb(base, hexRgb(p.look.dry || '#c9b77e'), .3);
+      if (phase === 'winter') base = mixRgb(base, [.62, .58, .44], .4);
+    }
+    if (phase === 'spring') base = mixRgb(base, [.72, .84, .48], .3);
+    base = mixRgb(base, pasture, .25);
+    return base.map((v, k) => v / [.86, .88, .8][k]);
   }
-  if (phase === 'spring') base = mixRgb(base, [0.72, 0.84, 0.48], 0.3);
-  // pull every meadow toward one shared color so mixed stands don't look like a quilt
-  base = mixRgb(base, hexRgb(biome.look.pasture[season]), 0.25);
+  const base = mixRgb(pasture, paletteLeafColor(p, plantPhase(p, month), biome.id), .42);
   // divide out the turf texture's own brightness
   return [base[0] / 0.86, base[1] / 0.88, base[2] / 0.8];
 }
@@ -303,10 +326,13 @@ export class Terrain {
     this.skirtMat = withClouds(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     this.overlayMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.previewMat = this.overlayMat.clone();
+    this.banks = new Riverbanks(scene);
+    this.bankTerrainAt = (x, y) => this.terrainAt(x, y);
   }
 
   // The Fast graphics setting draws the ground with one texture pick per pixel instead of two.
   setFast(on) {
+    this.banks.setFast(on);
     const d = this.material.defines || (this.material.defines = {});
     if (!!d.GROUND_FAST === on) return;
     if (on) d.GROUND_FAST = 1; else delete d.GROUND_FAST;
@@ -325,6 +351,7 @@ export class Terrain {
     g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
     g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
     g.setAttribute('aSnow', new THREE.BufferAttribute(new Float32Array(n * 6), 1));
+    g.setAttribute('aShore', new THREE.BufferAttribute(new Float32Array(n * 12), 2));
     g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 12), 2));
     this.mesh = new THREE.Mesh(g, this.material);
     this.mesh.receiveShadow = true;
@@ -409,7 +436,7 @@ export class Terrain {
     const top = this.top, hLo = this.topLo, hHi = this.topHi;
     const turfCache = new Map(), atlasKeys = new Map();
     // grassland of any kind shares one texture, tinted by what grows there
-    const pasture = hexRgb(biome.look.pasture[season]).map((v, q) => v / [0.86, 0.88, 0.8][q]);
+    const pasture = pastureColor(biome.id, season, biome.look.pasture[season]).map((v, q) => v / [0.86, 0.88, 0.8][q]);
     for (let ty = 0; ty < this.TH; ty++) for (let tx = 0; tx < this.TW; tx++) {
       const x = tx + this.X0, y = ty + this.Y0, k = ty * this.TW + tx;
       const inside = w.inb(x, y);
@@ -419,7 +446,7 @@ export class Terrain {
       const v = inside ? w.variant[i] : ((x * 7 + y * 13) & 3);
       let tex = t, c = [1, 1, 1];
       if (t === T.MARSH) { tex = S.TURF; c = [0.52, 0.58, 0.42]; }
-      else if (t === T.TRAIL && biome.sandBed) { tex = S.TURF; c = hexRgb(biome.look.pasture[season]).map(v => v * 1.04); } // (a snorkel trail is just marked with buoys over the sand)
+      else if (t === T.TRAIL && biome.sandBed) { tex = S.TURF; c = pastureColor(biome.id, season, biome.look.pasture[season]).map(v => v * 1.04); } // (a snorkel trail is just marked with buoys over the sand)
       // pond beds share the marsh's soft texture (just darker), so the two blend at their edges
       else if (t === T.POND) { tex = S.TURF; c = [0.4, 0.44, 0.34]; }
       else if (isWater(t)) { tex = S.BED; c = [0.7, 0.66, 0.58]; }
@@ -509,7 +536,7 @@ export class Terrain {
       vc[o] = r / n; vc[o + 1] = gg / n; vc[o + 2] = bb / n;
       vs[cy * VW + cx] = dry ? sv / n : sv / n * 0.5; // (snow thins out where it meets water)
     }
-    const sa = g.attributes.aSnow.array;
+    const sa = g.attributes.aSnow.array, shore = g.attributes.aShore.array;
     for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
       const k = ty * TW + tx;
       const a = ty * VW + tx, b = a + 1, c = a + VW + 1, d = a + VW;
@@ -526,7 +553,14 @@ export class Terrain {
       // snow affinity, blended at corners like the colours so its edges fade too
       const so = k * 6;
       sa[so] = vs[a]; sa[so + 1] = vs[c]; sa[so + 2] = vs[b]; sa[so + 3] = vs[a]; sa[so + 4] = vs[d]; sa[so + 5] = vs[c];
+      const eligible = !biome.look.underwater && bankAllowed(w, B, this.bankTerrainAt, tx + this.X0, ty + this.Y0);
+      for (const [j, v] of [a, c, b, a, d, c].entries()) {
+        shore[k * 12 + j * 2] = eligible ? this.shoreVertices[v * 2] : 0;
+        shore[k * 12 + j * 2 + 1] = eligible ? this.shoreVertices[v * 2 + 1] : 0;
+      }
     }
+    g.attributes.aShore.needsUpdate = true;
+    this.banks.refresh(game.month);
     g.attributes.aSnow.needsUpdate = true;
     this.tiles.tex.value.needsUpdate = true;
     { const td = this.tintData, enc = v => Math.round(Math.sqrt(clamp(v / 1.5, 0, 1)) * 255);
@@ -645,6 +679,23 @@ export class Terrain {
       }
       return false;
     };
+    const shoreVertices = this.shoreVertices = new Float32Array((TW + 1) * (TH + 1) * 2);
+    for (let vy = 0; vy <= TH; vy++) for (let vx = 0; vx <= TW; vx++) {
+      const L = vLevel(vx + X0, vy + Y0), k = (vy * (TW + 1) + vx) * 2;
+      if (Number.isFinite(L)) { shoreVertices[k] = L * LEVEL; shoreVertices[k + 1] = 1; }
+    }
+    // Only scatter where all four corners share a water sheet. This avoids stray objects
+    // on the outer ring where the water mesh ends and its opacity falls to zero.
+    const cells = [];
+    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
+      if (Number.isFinite(level[ty * TW + tx])) cells.push([tx + X0, ty + Y0]);
+    }
+    const waterAt = (x, z) => {
+      const xx = Math.floor(x), zz = Math.floor(z);
+      if ([vLevel(xx, zz), vLevel(xx + 1, zz), vLevel(xx + 1, zz + 1), vLevel(xx, zz + 1)].some(v => !Number.isFinite(v))) return NaN;
+      return surfaceHeight(vLevel, x, z) * LEVEL;
+    };
+    this.banks.bind(w, this.border, cells, waterAt, this.bankTerrainAt, !!biome.look.underwater);
     // blend the water's colour across tile corners, so pond, marsh and creek shade into each other
     const vColor = (vx, vy) => {
       const out = [0, 0, 0, 0]; let n = 0;

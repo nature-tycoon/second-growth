@@ -5,6 +5,12 @@ import { T } from '../js/config.js';
 import { hash2, valueNoise } from '../js/rng.js';
 import { plantAffinity } from '../js/plant-patterns.js';
 export const VEGETATION_SCENES = {
+  groves: { map: 'pnw', pass: 'groves', name: 'Woodland groves and clearing', target: [40, 0.8, 32], zoom: 0.85,
+    note: 'Identical planted trees before and after: gently wider mature crowns, varied heights and young trees around an open clearing.' },
+  amazonforest: { map: 'amazon', name: 'Amazon jade canopy', target: [40, .7, 32], zoom: 1.15,
+    note: 'Layered jade foliage, lighter pioneer crowns and native orchid and coral accents.' },
+  sumatraforest: { map: 'sumatra', name: 'Sumatra emerald forest', target: [40, .7, 32], zoom: 1.15,
+    note: 'Deep emerald trees with fern greens and bronze dry-season tones.' },
   garden: { map: 'atlanta', name: 'Native flower garden', target: [40, 0.2, 32], zoom: 2.4,
     note: 'Coneflowers, black-eyed Susans, milkweed, bee balm and goldenrod in soft overlapping drifts.' },
   prairie: { map: 'pnw', name: 'Spring prairie', target: [40, 0.1, 32], zoom: 2.4,
@@ -79,7 +85,9 @@ export function vegetationFixture(scene, month = 2, patterned = true) {
   const ground = scene === 'garden' ? ['coneflower', 'blackeyed', 'butterflyweed', 'beebalm', 'coreopsis', 'mountainmint', 'goldenrod', 'bluestem']
     : scene === 'prairie' ? ['camas', 'lupine', 'yarrow', 'sunshine', 'fescue']
     : scene === 'savannah' ? ['redoat', 'stargrass', 'finger', 'sporobolus']
-    : scene === 'woodland' ? ['fern', 'sedge', 'yarrow'] : ['sedge', 'phlox', 'mountainmint'];
+    : scene === 'amazonforest' ? ['adiantum', 'cyperus', 'calathea']
+    : scene === 'sumatraforest' ? ['kelakai', 'purun', 'resam']
+    : scene === 'woodland' || scene === 'groves' ? ['fern', 'sedge', 'yarrow'] : ['sedge', 'phlox', 'mountainmint'];
   const species = ground.map(k => PLANT[k]).filter(Boolean);
   for (let y = 24; y < 41; y++) for (let x = 30; x < 51; x++) {
     // Winding gaps leave breathing room between beds, rather than a solid square carpet.
@@ -94,10 +102,30 @@ export function vegetationFixture(scene, month = 2, patterned = true) {
     put('umbrella', 36, 29); put('umbrella', 43, 26, 0.82); put('baobab', 46, 32); put('fevertree', 33, 34);
     put('aloe', 46, 33); put('grewia', 35, 29);
   }
+  if (scene === 'groves') {
+    const trees = ['fir', 'cedar', 'hemlock', 'alder', 'maple'];
+    for (let y = 26; y <= 38; y++) for (let x = 32; x <= 48; x++) {
+      const grove = Math.min(Math.hypot((x - 36) / 4.4, (y - 29) / 3.2),
+        Math.hypot((x - 44) / 3.8, (y - 30) / 3.7), Math.hypot((x - 35) / 3, (y - 36) / 2.4));
+      const clearing = Math.hypot((x - 40) / 2.5, (y - 35) / 3.2);
+      if (grove > 1.12 || clearing < 1 || hash2(x, y, 251) < 0.12) continue;
+      const species = hash2(x, y, 252);
+      put(trees[species < .38 ? 0 : species < .63 ? 1 : species < .85 ? 2 : species < .94 ? 3 : 4],
+        x, y, grove > .88 ? .28 + hash2(x, y, 253) * .32 : .72 + hash2(x, y, 253) * .28);
+      if (hash2(x, y, 254) > .6) put('salal', x, y);
+      put('fern', x, y);
+    }
+  }
   if (scene === 'woodland') {
     for (const [key, x, y] of [['fir', 35, 28], ['cedar', 38, 29], ['hemlock', 41, 27], ['maple', 44, 30], ['oak', 46, 33], ['alder', 34, 33]]) put(key, x, y);
     for (let y = 26; y < 36; y++) for (let x = 33; x < 47; x++) if ((x + y) % 3) put('fern', x, y);
     put('salal', 38, 30); put('salmonberry', 34, 34);
+  }
+  if (scene === 'amazonforest' || scene === 'sumatraforest') {
+    const trees = scene === 'amazonforest' ? ['cecropia','inga','balsa','kapok','mahogany','acai'] : ['meranti','jelutong','keruing','fig','nibung','tualang'];
+    const shrubs = scene === 'amazonforest' ? ['heliconia','piper','guadua'] : ['rattan','ginger','ixora'];
+    for (const [k, x, y] of [[0,35,29],[1,38,27],[2,42,28],[3,44,31],[4,46,33],[5,34,33]]) put(trees[k],x,y);
+    shrubs.forEach((key, k) => put(key, 36 + k * 3, 33 + k % 2));
   }
   if (scene === 'southern') for (const [key, x, y] of [['whiteoak', 35, 29], ['loblolly', 38, 27], ['magnolia', 42, 28], ['dogwood', 44, 31], ['redbud', 46, 33]]) put(key, x, y);
   return g;
