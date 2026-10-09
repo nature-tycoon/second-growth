@@ -284,7 +284,11 @@ export class UI {
       if (document.hidden) return;
       const idle = (performance.now() - S.lastInput) / 1000;
       // active time: the tab is visible and the player has touched something in the last two minutes
-      if (idle < 120) { S.active++; if (S.active % 300 === 0) track('play_heartbeat', { active_minutes: S.active / 60, ...snapshot() }); }
+      if (idle < 120) {
+        S.active++; if (S.active % 300 === 0) track('play_heartbeat', { active_minutes: S.active / 60, ...snapshot() });
+        // how smoothly it's running: early (many phone sessions are short), then every five minutes
+        if (S.active === 30 || S.active === 120 || S.active % 300 === 0) track('perf_sample', { active_minutes: +(S.active / 60).toFixed(1), ...this.renderer.perfSample?.() });
+      }
       if (idle > 240 && !S.idleSent) { S.idleSent = true; track('went_idle', { active_minutes: +(S.active / 60).toFixed(1), ...snapshot(), ...doing() }); }
     }, 1000);
     // a picture of the farm itself, when there's something to see: on leaving, and now and then
@@ -294,12 +298,13 @@ export class UI {
       try { (exit ? trackExit : track)('farm_snapshot', { why, active_minutes: +(S.active / 60).toFixed(1), ...context(), ...farmSnapshot(g) }); } catch (e) { /* never break the game */ }
     };
     setInterval(() => { if (!document.hidden && (performance.now() - S.lastInput) < 120000) snap('periodic'); }, 10 * 60 * 1000);
+    const perfAtExit = () => { const p = this.renderer.perfSample?.(false); return p ? { fps: p.fps, slow_frames_pct: p.slow_frames_pct } : {}; };
     const leave = reason => {
       if (performance.now() - S.leftAt < 5000) return;
       S.leftAt = performance.now();
       snap(reason, true);
       trackExit('game_left', { reason, active_minutes: +(S.active / 60).toFixed(1), session_minutes: +((performance.now() - S.t0) / 60000).toFixed(1),
-        days_played: g.day - S.day0, idle_seconds: Math.round((performance.now() - S.lastInput) / 1000), rotate_prompt_up: S.rotateSince != null, ...snapshot(), ...doing() });
+        days_played: g.day - S.day0, idle_seconds: Math.round((performance.now() - S.lastInput) / 1000), rotate_prompt_up: S.rotateSince != null, ...snapshot(), ...doing(), ...perfAtExit() });
     };
     document.addEventListener('visibilitychange', () => { if (document.hidden) leave('hidden'); });
     window.addEventListener('pagehide', () => leave('closed'));

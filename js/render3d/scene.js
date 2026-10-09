@@ -124,6 +124,7 @@ export class Renderer {
   // Graphics preferences from the settings menu.
   applySettings(s) {
     const fast = s.quality === 'fast';
+    this.quality = s.quality;
     // (every setting comes through here, the volume sliders included: only a change to the
     // detail or shadows starts the automatic resolution over)
     const gfx = `${s.quality}|${s.shadows}`, fresh = gfx !== this.gfx;
@@ -464,9 +465,38 @@ export class Renderer {
     this.lightReady = false;
   }
 
+  // How smoothly the game has been drawing since the last sample, and with what: for the analytics,
+  // so we can see how real phones cope. reset = false peeks without starting a new window.
+  perfSample(reset = true) {
+    const P = this.perf || { frames: 0, time: 0, slow: 0 }, info = this.gl.info.render;
+    const out = {
+      fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
+      slow_frames_pct: P.frames ? Math.round(P.slow / P.frames * 100) : null,
+      quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
+      shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped,
+      triangles: info.triangles, draw_calls: info.calls, zoom: +(this.zoom ?? 1).toFixed(2), gpu: this.gpuName(),
+    };
+    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; }
+    return out;
+  }
+  // the graphics chip, e.g. "Adreno (TM) 610" or "Apple GPU": a better guide to a phone's power than its model
+  gpuName() {
+    if (this._gpu === undefined) {
+      try { const gl = this.gl.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); this._gpu = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)).slice(0, 80) : null; }
+      catch (e) { this._gpu = null; }
+    }
+    return this._gpu;
+  }
+
   // ------------------------------------------------------------------ frame
   draw(game, ui, dt) {
     this.time += dt;
+    // frame timing for the analytics' performance samples (see perfSample): real time between frames
+    {
+      const t = performance.now(), P = this.perf ||= { frames: 0, time: 0, slow: 0, last: t };
+      const ms = t - P.last; P.last = t;
+      if (ms > 0 && ms < 1000) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; longer gaps are a hidden tab)
+    }
     if (dt > 0) this.autoResolution();
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);

@@ -66,7 +66,7 @@ class Pool {
     if (!this.mesh) return;
     this.mesh.geometry = lod ? this.geoLo : this.geo;
     if (this.kind === 'grass') this.mesh.visible = grass && this.n > 0;
-    if (this.kind === 'shrub') this.mesh.castShadow = shrubShadow;
+    if (this.kind === 'shrub') this.mesh.castShadow = this.shadow && shrubShadow; // (flower heads and fruit on a bush never cast shadows)
   }
 }
 
@@ -453,7 +453,7 @@ export class Flora {
               : p.key === 'salal' ? 'bells'
               : p.key === 'broom' || p.key === 'oregongrape' || p.key === 'aloe' || p.key === 'sweetspire' ? 'spike' : 'star';
             const headShape = flowering ? flowerShape : p.key === 'piper' ? 'catkin' : null; // (spiked pepper's fruit is a curved spike, not a berry)
-            const heads = headShape ? this.pool(`shrubflower:${headShape}:${flowering ? p.look.flower : p.look.berry}`, () => Botanical.blossomHead(headShape, flowering ? p.look.flower : p.look.berry), this.grass, { shadow: false, kind: 'shrub' }, () => Botanical.blossomHead(headShape, flowering ? p.look.flower : p.look.berry, true)) : null;
+            const heads = headShape ? this.pool(`shrubflower:${headShape}:${flowering ? p.look.flower : p.look.berry}`, () => Botanical.blossomHead(headShape, flowering ? p.look.flower : p.look.berry), this.grass, { shadow: false, kind: 'shrub' }, () => G.blob(flowering ? p.look.flower : p.look.berry, 0.035)) : null; // (from afar, a dot of colour is all a flower head shows)
             // flowers and fruit sit on the bush's own outer surface, wherever its leaves actually are
             const spots = this.shrubSpots(`shrub:${shape}:${v}`);
             const cr = Math.cos(rot), sr = Math.sin(rot);

@@ -282,7 +282,8 @@ function skirt(y, r, drop, h, rng, lod) {
     reach.push(prof * (u <= 0.25 ? lens[j] : u >= 0.75 ? next : (lens[j] + next) / 2));
     ang.push(phase + (i / M) * Math.PI * 2 + (lod ? 0 : (rng() - 0.5) * 0.05));
   }
-  const rings = lod ? [0.55, 1] : [0.38, 0.72, 1], pos = [y], top = [], belly = [];
+  // (the distant model is one ring and a flat belly: a few dozen triangles per tier)
+  const rings = lod ? [1] : [0.38, 0.72, 1], pos = [y], top = [], belly = [];
   const vert = (s, i) => {
     const f = reach[i], tip = Math.min(1, Math.max(0, (f - 0.6) / 0.4)), end = Math.min(1, Math.max(0, (s - 0.7) / 0.3));
     const yy = y - drop * (0.3 * s + 0.7 * s ** 1.6) - h.sag * drop * s * s * tip + h.curl * drop * end * end * tip;
@@ -303,7 +304,7 @@ function skirt(y, r, drop, h, rng, lod) {
   const C = P.length - 1;
   for (let i = 0; i < M; i++) {
     const a = id(rim, i), b = id(rim, i + 1), c = B0 + (i + 1) % M, d = B0 + i;
-    belly.push(a, b, c, a, c, d, d, c, C);
+    if (lod) belly.push(a, b, C); else belly.push(a, b, c, a, c, d, d, c, C);
   }
   const build = (idx, shade) => {
     const g = new THREE.BufferGeometry();
@@ -335,7 +336,7 @@ function pineTree(opts, seed, lod) {
 export function conifer(opts, seed, lod = 0) {
   if (opts.habit === 'pine') return pineTree(opts, seed, lod);
   const rng = mulberry32(seed), { height: H, radius: R, tiers } = opts, h = CONIFER_HABITS[opts.habit] || CONIFER_HABITS.fir;
-  const base = H * h.base, n = tiers + 2, parts = [];
+  const base = H * h.base, n = lod ? Math.ceil((tiers + 2) * 0.6) : tiers + 2, parts = [];
   const span = H * 0.88 - base, drop = span / n * h.drop;
   for (let k = 0; k < n; k++) {
     const t = k / (n - 1), y = base + drop + (span - drop) * t;
