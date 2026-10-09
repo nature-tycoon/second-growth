@@ -792,6 +792,8 @@ export class UI {
       if (t === T.CREEK) html += `<span class="k">For ${biome.text.creekFish}</span><span>${w.waterQ[i] > 0.43 ? '<span class="st good">Cool and shaded</span>' : '<span class="st warn">Too sunny and warm. Plant shrubs and trees along the banks.</span>'}</span>`;
     }
     html += `</div>`;
+    const waterNote = g.water?.note(i);
+    if (waterNote) html += `<div class="info-desc">${waterNote}</div>`;
     const note = biome.tileNote?.(this.game, i);
     if (note) html += `<div class="info-desc">${note}</div>`;
     for (const pressure of pressureTileNotes(g, i)) html += `<div class="info-desc">${pressure}</div>`;

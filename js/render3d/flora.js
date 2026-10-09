@@ -647,7 +647,13 @@ export class Flora {
           const vertical = wet(x, y - 1) || wet(x, y + 1);
           const surf = Math.max(...w.corners(x, y)) * LEVEL;
           if (f === F.DAM && (w.marks[i] & 4)) this.pool('canalblock', () => G.canalBlock(985), this.bark).add(cx, w.tileH(x, y) * LEVEL, cz, 1, 1, 1, vertical ? 0 : Math.PI / 2, [1, 1, 1]); // (a canal block across a drainage canal)
-          else if (f === F.DAM) this.pool('dam', () => G.dam(980), this.bark).add(cx, w.tileH(x, y) * LEVEL + 0.03, cz, 1, 1, 1, vertical ? 0 : Math.PI / 2, [1, 1, 1]);
+          else if (f === F.DAM) {
+            const basin = game.water?.basins.find(b => b.kind === 'dam' && b.site === i);
+            const baseY = w.tileH(x, y) * LEVEL + .03;
+            const damHeight = basin ? Math.max(1, (basin.crest * LEVEL - baseY + .025) / .16) : 1;
+            const angle = basin ? (basin.axis[1] ? 0 : Math.PI / 2) : vertical ? 0 : Math.PI / 2;
+            this.pool('dam', () => G.dam(980), this.bark).add(cx, baseY, cz, 1, damHeight, 1, angle, [1, 1, 1]);
+          }
           else this.pool('culvert', () => G.culvert(), this.small).add(cx, surf, cz, 1, 1, 1, vertical ? 0 : Math.PI / 2, [1, 1, 1]);
           break;
         }

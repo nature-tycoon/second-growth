@@ -86,6 +86,7 @@ export function updateMoisture(w, month) {
     if (t === T.MUD) m += 0.22;
     if (w.flood[i]) m += 0.4;
     if (w.feature[i] === F.LOG) m += 0.05;
+    if (w.waterManaged?.[i] && w.waterDepth[i] > .01) m = Math.max(m, .86 + Math.min(.13, w.waterDepth[i]));
     w.moist[i] = clamp(m, 0, 0.99);
   }
 }

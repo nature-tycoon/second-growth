@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Second Growth — Hollis living water</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{margin:24px;background:#eef0e8;color:#27392d;font:15px system-ui}
+h1{font-size:24px;margin:0 0 10px}p{line-height:1.5;max-width:1080px}
+label{display:inline-block;margin:0 16px 12px 0}select,button{font:inherit;padding:6px}
+main{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+article{background:#fafbf5;border:1px solid #d3dccd;border-radius:12px;padding:12px}
+h2{font-size:17px;margin:0 0 10px}canvas{width:100%;display:block;aspect-ratio:8/5}
+small{display:block;margin-top:8px;font-size:12px;color:#5b6857}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+</style>
+<h1>Hollis: water changes the land</h1>
+<p>The first integration uses the game’s terrain, plants and renderer. Compare a creek before and after beavers hold water behind a dam, or a pond after rain and summer drawdown. These isolated farms never write to your saves.</p>
+<label>Scene <select id="place"><option value="dam">Beaver pool</option><option value="pond">Seasonal stock pond</option></select></label>
+<label>Stage <select id="stage"><option value="wet">After 10 rainy days</option><option value="dry">After 40 dry summer days</option><option value="breach">30 days after the dam is gone</option></select></label>
+<label>Season <select id="month"><option value="2">May</option><option value="5">August</option><option value="10">January</option></select></label>
+<label>Graphics <select id="detail"><option value="full">Full</option><option value="fast">Fast</option></select></label>
+<label>Motion <select id="motion"><option value="still">Still frame</option><option value="animate">Animate</option></select></label>
+<button id="rotate">Rotate view</button><p id="status">Preparing water…</p>
+<main><article><h2>Starting water</h2><canvas id="before" width="800" height="500"></canvas><small id="before-info"></small></article>
+<article><h2>Water after time passes</h2><canvas id="after" width="800" height="500"></canvas><small id="after-info"></small></article></main>
+<script type="module">
+import * as THREE from 'three';
+import { Terrain, buildAtlas } from '../js/render3d/terrain.js?water=1';
+import { Flora } from '../js/render3d/flora.js';
+import { Game } from '../js/game.js';
+import { snow } from '../js/render3d/snow.js';
+
+const W=800,H=500, gl=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+gl.setSize(W,H);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;
+gl.shadowMap.enabled=true;gl.shadowMap.type=THREE.PCFShadowMap;
+const camera=new THREE.OrthographicCamera(-1,1,1,-1,.1,200);
+const controls=Object.fromEntries(['place','stage','month','detail','rotate','status','motion'].map(id=>[id,document.getElementById(id)]));
+const atlas=buildAtlas();let views=[],angle=Math.PI/4;
+function dispose(){
+  for(const v of views){
+    v.terrain.banks?.dispose();
+    v.scene.traverse(o=>{if(o.isInstancedMesh)o.dispose();else o.geometry?.dispose();});
+    const geos=new Set();
+    for(const f of v.flora.geos.values())for(const g of [f,...Object.values(f),...Object.values(f.lo||{})])if(g?.isBufferGeometry)geos.add(g);
+    for(const g of geos)g.dispose();
+    for(const m of [v.flora.foliage,v.flora.shrubs,v.flora.grass,v.flora.tallGrass,v.flora.bark,v.flora.small,v.flora.contact,
+      v.terrain.material,v.terrain.waterMat,v.terrain.floodMat,v.terrain.skirtMat,v.terrain.overlayMat,v.terrain.previewMat])m.dispose();
+    v.terrain.noise.dispose();v.terrain.tiles.tex.value?.dispose();v.terrain.tiles.tint.value?.dispose();v.sun.shadow.dispose();
+  }views=[];
+}
+function setup(){
+  dispose();
+  for(const version of ['before','after']){
+    const game=new Game();game.newGame(1987,'free','standard','pnw');
+    const w=game.world;
+    if(version==='after'){
+      if(controls.place.value==='dam')game.wildlife.buildDam(w.idx(54,58));
+      game.weather='rain';for(let k=0;k<10;k++)game.water.step(game);
+      if(controls.stage.value!=='wet'){
+        game.day=50;game.weather='clear';
+        if(controls.stage.value==='breach')w.feature[w.idx(54,58)]=0;
+        for(let k=0;k<(controls.stage.value==='breach'?30:40);k++)game.water.step(game);
+      }
+    }
+    game.refreshEnvironment();
+    game.day=Number(controls.month.value)*10;
+    const scene=new THREE.Scene();scene.background=new THREE.Color('#d7decf');
+    scene.add(new THREE.HemisphereLight(0xe4eeff,0x5f6e3c,1.25));
+    const sun=new THREE.DirectionalLight(0xfff3dc,2.5);sun.castShadow=true;
+    sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-.0006;sun.shadow.normalBias=.015;scene.add(sun,sun.target);
+    const terrain=new Terrain(scene,atlas);
+    terrain.setWorld(game.world,game.border);terrain.setFast(controls.detail.value==='fast');terrain.updateSurface(game);terrain.time.value=8;terrain.sky.value.set(0xd1dfec);
+    const flora=new Flora(scene);flora.setLight(controls.detail.value==='fast');flora.setZoom(1.2);flora.rebuild(game);
+    views.push({version,scene,sun,terrain,flora,game});
+  }
+  snow.uSnow.value=Number(controls.month.value)===10?.35:0;
+  refresh();
+}
+function refresh(){
+  const point=controls.place.value==='pond'?[93,37]:[54,56];
+  const ground=views[0].game.world.heightAt(...point)*.3;
+  const target=new THREE.Vector3(point[0],ground+.12,point[1]),extent=controls.place.value==='pond'?9:7;
+  camera.left=-extent;camera.right=extent;camera.top=extent*H/W;camera.bottom=-extent*H/W;
+  const el=34*Math.PI/180;
+  camera.position.copy(target).addScaledVector(new THREE.Vector3(Math.sin(angle)*Math.cos(el),Math.sin(el),Math.cos(angle)*Math.cos(el)),80);
+  camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld();
+  for(const v of views){
+    v.sun.position.copy(target).add(new THREE.Vector3(-20,35,12));v.sun.target.position.copy(target);v.sun.target.updateMatrixWorld();
+    const sc=v.sun.shadow.camera;sc.left=sc.bottom=-18;sc.right=sc.top=18;sc.near=1;sc.far=100;sc.updateProjectionMatrix();
+    gl.render(v.scene,camera);document.getElementById(v.version).getContext('2d').drawImage(gl.domElement,0,0);
+    const basin=controls.place.value==='pond'?v.game.water.basins.find(b=>b.kind==='pond'):v.game.water.basins.find(b=>b.kind!=='pond');
+    const details=basin?' · '+Math.round(basin.volume/basin.capacity*100)+'% of basin storage · '+basin.cells.filter(vv=>v.game.world.waterDepth[vv.i]>.04).length+' wet tiles':' · flowing creek, before the dam';
+    document.getElementById(v.version+'-info').textContent=gl.info.render.calls+' draw calls, including shadows'+details;
+  }
+  controls.status.textContent='Ready · '+controls.place.selectedOptions[0].text+' · '+controls.detail.selectedOptions[0].text+' detail'+' · '+controls.stage.selectedOptions[0].text;
+}
+controls.place.onchange=setup;controls.rotate.onclick=()=>{angle+=Math.PI/2;refresh();};
+for(const id of ['stage','month','detail'])controls[id].onchange=setup;
+setup();
+let last=0;function tick(now){if(controls.motion.value==='animate'&&now-last>80){for(const v of views)v.terrain.time.value=now/1000;refresh();last=now;}requestAnimationFrame(tick);}requestAnimationFrame(tick);
+</script>
+</html>

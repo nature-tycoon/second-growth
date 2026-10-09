@@ -699,7 +699,7 @@ export class Wildlife {
     const w = this.game.world, rng = this.game.rng;
     const x = site % w.w, y = (site / w.w) | 0;
     w.feature[site] = F.DAM; w.featureAge[site] = 0;
-    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+    if (!this.game.water) for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
       const xx = x + dx, yy = y + dy;
       if (!w.inb(xx, yy)) continue;
       const j = w.idx(xx, yy);
@@ -714,11 +714,12 @@ export class Wildlife {
         if (!isWater(t)) floodTile(w, j, rng() < 0.5 ? T.MARSH : T.MUD, rng);
       }
     }
+    this.game.water?.sync();
     this.dams++;
     w.hydroDirty = true; w.renderDirty = true;
     this.game.flags.beaverDam = true;
     moment(this.game, 'dam', { x: x + 0.5, y: y + 0.5 });
-    this.game.notify('Beavers built a dam! The creek is backing up into a brand-new wetland, and the drowned trees will become snags.', 'good', { x: x + 0.5, y: y + 0.5 });
+    this.game.notify(this.game.water ? 'Beavers built a dam! Creek water will gather behind it, filling the low ground uphill. Watch its banks become wetland.' : 'Beavers built a dam! The creek is backing up into a brand-new wetland, and the drowned trees will become snags.', 'good', { x: x + 0.5, y: y + 0.5 });
   }
 
   // -------------------------------------------------------------- per-frame movement

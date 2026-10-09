@@ -7,6 +7,7 @@ import { saves, legacySaveKey, bytesFromBase64, intact } from './saves.js';
 import { World, Border } from './world.js';
 import { mulberry32 } from './rng.js';
 import { updateEnvironment, updateHydrology } from './sim/environment.js';
+import { HollisWater } from './sim/hollis-water.js';
 import { updatePlants, seedRain, rootsLoosen } from './sim/plants.js';
 import { Wildlife } from './sim/animals.js';
 import { ANIMALS, ANIMAL, aOne } from './data/animals.js';
@@ -49,6 +50,7 @@ export class Game {
     this.difficulty = DIFFICULTY[difficulty] ? difficulty : 'standard';
     this.campaign = { chapter: 0 };
     this.world = biome.generate(seed);
+    this.water = this.map === 'pnw' ? new HollisWater(this.world) : null;
     this.border = new Border(this.world, biome.borderCell);
     this.rng = mulberry32(seed * 31 + 7);
     this.day = 0;
@@ -130,6 +132,7 @@ export class Game {
   notify(text, kind = 'info', loc = null) { this.emit('notify', { text, kind, loc, date: this.dateString() }); }
 
   refreshEnvironment() {
+    this.water?.sync();
     this.world.hydroDirty = true;
     updateHydrology(this.world);
     updateEnvironment(this.world, this.month, this.visitors ? this.visitors.traffic : 0);
@@ -158,6 +161,7 @@ export class Game {
     const prevMonth = this.month;
     this.day++;
     const w = this.world;
+    this.water?.step(this);
     const st = updateEnvironment(w, this.month, this.visitors.traffic);
     updatePlants(this);
     seedRain(this);
@@ -302,7 +306,7 @@ export class Game {
     return structuredClone({
       v: 2, seed: this.seed, day: this.day, money: this.money, speed: this.speed, flags: this.flags,
       stats: this.stats, goalsDone: this.goalsDone, history: this.history,
-      world: { arrays, structures: w.structures, w: w.w, h: w.h, bloomTick: w.bloomTick },
+      world: { arrays, structures: w.structures, w: w.w, h: w.h, bloomTick: w.bloomTick, water: this.water?.serialize() },
       wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
       visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant, ledger: this.ledger, lastLedger: this.lastLedger,
       mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0, map: this.map,
@@ -419,6 +423,7 @@ export class Game {
       }
     }
     w.structures = data.world.structures;
+    this.water = this.map === 'pnw' ? new HollisWater(w, data.world.water || null) : null;
     this.seed = data.seed;
     this.world = w;
     this.border = new Border(w, biome.borderCell);

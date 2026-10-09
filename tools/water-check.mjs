@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
-const { Terrain } = await import('../js/render3d/terrain.js');
+const { Terrain, waterSurfaceY } = await import('../js/render3d/terrain.js');
 import { Game } from '../js/game.js';
 import { T, F, LEVEL } from '../js/config.js';
 let checks = 0;
@@ -75,6 +75,27 @@ check('Digging and filling water refresh the depth/flow buffers without changing
   for(const [key,value] of Object.entries(state))assert.deepEqual(w[key],value,key+' unchanged');
   assert.equal(game.rng.state(),rng);
   w.terrain[i]=T.PASTURE;t.refreshWater();assert.ok(t.water.geometry.attributes.aDepth.array.every(Number.isFinite));
+  dispose(t);
+});
+check('Gameplay water planes match actor samples and disappear from a dried pond bed', () => {
+  const {game,terrain:t}=make(),w=game.world;
+  game.wildlife.buildDam(w.idx(54,58));game.weather='rain';for(let k=0;k<10;k++)game.water.step(game);
+  t.refreshWater();const b=game.water.basins.find(b=>b.kind==='dam');
+  const i=b.cells.find(v=>game.water.base[v.i]!==T.CREEK&&w.waterDepth[v.i]>.15).i,x=i%w.w,z=Math.floor(i/w.w);
+  assert.ok(Math.abs(waterSurfaceY(w,x+.5,z+.5)-w.waterLevel[i]*LEVEL)<1e-7);
+  const p=t.water.geometry.attributes.position;
+  let found=false;for(let k=0;k<p.count;k+=6)if(p.getX(k)===x&&p.getZ(k)===z){
+    found=true;for(let v=k;v<k+6;v++)assert.ok(Math.abs(p.getY(v)-w.waterLevel[i]*LEVEL)<1e-7);
+  }
+  assert.ok(found);
+  game.day=50;game.weather='clear';for(let k=0;k<60;k++)game.water.step(game);t.refreshWater();
+  // (a pond keeps water in its deep middle through summer; its shallow edge dries out)
+  const pondB=game.water.basins.find(b=>b.kind==='pond'),edge=pondB.cells.find(v=>!Number.isFinite(w.waterLevel[v.i]))?.i;
+  assert.ok(edge!=null,'a drawn-down pond exposes some of its bed');
+  const ex=edge%w.w,ez=Math.floor(edge/w.w);
+  assert.equal(waterSurfaceY(w,ex+.5,ez+.5),null);
+  const dry=t.water.geometry.attributes.position;
+  for(let k=0;k<dry.count;k+=6)assert.ok(dry.getX(k)!==ex||dry.getZ(k)!==ez,'no phantom water on a dried basin');
   dispose(t);
 });
 console.log(checks + ' water checks passed.');

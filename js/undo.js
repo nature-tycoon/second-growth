@@ -16,7 +16,7 @@ export class Undo {
   begin(tool) {
     const g = this.game, w = g.world, arrays = {};
     for (const k of [...WORLD_ARRAYS, ...Object.keys(EXTRA_ARRAYS)]) if (w[k]) arrays[k] = w[k].slice();
-    this.cur = { tool, world: w, arrays, structures: JSON.parse(JSON.stringify(w.structures || [])), day: g.day,
+    this.cur = { tool, world: w, arrays, water: g.water?.serialize(), structures: JSON.parse(JSON.stringify(w.structures || [])), day: g.day,
       nextId: g.wildlife.nextId, stats: { planted: g.stats.planted, dug: g.stats.dug, removed: g.stats.removed }, touched: new Set() };
   }
   touch(i) { this.cur?.touched.add(i); }
@@ -63,6 +63,7 @@ export class Undo {
     if (t.cat === 'wildlife') { g.wildlife.agents = g.wildlife.agents.filter(a => a.id < c.nextId); g.wildlife.recount(); }
     // and let everything else catch up
     w.hv = (w.hv || 0) + 1; w.heightDirty = true; w.hydroDirty = true; w.renderDirty = true;
+    if (c.water) g.water?.restoreEdit(c.water, back);
     g.refreshEnvironment();
     g.wildlife.computeSuitability();
     for (const i of back) renderer?.markTileDirty(i % W, (i / W) | 0);

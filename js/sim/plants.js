@@ -55,7 +55,7 @@ export function plantSuit(w, i, p) {
 // Explain the limiting factor for a plant on a tile (for the inspector).
 export function plantLimits(w, i, p) {
   const out = [];
-  if (!terrainFit(w, i, p)) return ['cannot grow on this ground'];
+  if (!terrainFit(w, i, p)) return [w.waterDepth?.[i] > .04 ? 'standing water: use wetland plants here' : 'cannot grow on this ground'];
   const light = layerLight(w, i, p.layer);
   if (light < p.light[0] - 0.05) out.push('too shady');
   if (light > p.light[1] + 0.05) out.push('too sunny');
@@ -257,6 +257,8 @@ export function updatePlants(game) {
         else if (rng() < 0.002 * (0.3 - s) / 0.3) dies = true;
       } else if (s >= 0.3) g = Math.min(1, g + p.grow * gf * 0.5);
       else if (rng() < 0.0015 * (0.3 - s) / 0.3) dies = true;
+      // Sustained inundation, rather than the day a dam is built, creates snags.
+      if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) dies = true;
       if (ageY > p.life && rng() < 0.004) dies = true;
       else if (droughtKills(w, i, g, gf, rng)) g = 0;
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !PLANTS[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
