@@ -32,6 +32,8 @@ export function bankDetails(world, border, cells, waterAt, terrainAt, underwater
   const groundAt = (x, z) => surfaceHeight((xx, zz) => world.vert(xx, zz) * LEVEL, x, z);
   for (const [x, z] of cells) {
     if (!bankAllowed(world, border, terrainAt, x, z)) continue;
+    // a marsh is a sheet of sedge and mud, not a gravel bar: no stones or driftwood in it or on its edge
+    const marshy = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => terrainAt(x + dx, z + dz) === T.MARSH);
     const i = world.inb(x, z) ? world.idx(x, z) : -1, bi = i < 0 ? border.bi(x, z) : -1;
     const source = i < 0 ? border : world, index = i < 0 ? bi : i;
     const gp = index >= 0 && PLANTS[source.ground[index]];
@@ -50,7 +52,7 @@ export function bankDetails(world, border, cells, waterAt, terrainAt, underwater
       const r = hash2(x, z, 401 + k), angle = hash2(x, z, 421 + k) * Math.PI * 2;
       // Gravel collects in patches, with a few larger stones defining the bank.
       // (fewer stones, big enough to read at the usual zoom)
-      if (r < .04 + patch * .2 && rise < .12) {
+      if (!marshy && r < .03 + patch * .14 && rise < .12) {
         const size = .05 + hash2(x, z, 441 + k) * .06;
         out.stones.push({ x: px, y: ground + size * .2, z: pz, size, angle,
           tone: .46 + hash2(x, z, 461 + k) * .2, wet: rise < .018 });
@@ -62,7 +64,7 @@ export function bankDetails(world, border, cells, waterAt, terrainAt, underwater
       }
     }
     // Short washed-up branches, sparse and restricted to wooded banks.
-    if (hash2(x, z, 503) > .045) continue;
+    if (marshy || hash2(x, z, 503) > .045) continue;
     let wooded = false;
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
       const xx = x + dx, zz = z + dz, inside = world.inb(xx, zz);

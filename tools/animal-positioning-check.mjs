@@ -38,6 +38,7 @@ function pond() {
   const w = g.world;
   for (let y = 28; y <= 32; y++) for (let x = 28; x <= 32; x++) {
     w.terrain[w.idx(x, y)] = T.POND; w.distWater[w.idx(x, y)] = 0;
+    w.carve(x, y, 0.6); // (dug like a real pond, so its water sits below the surrounding bank)
   }
   for (let y = 27; y <= 33; y++) for (let x = 27; x <= 33; x++) {
     const i = w.idx(x, y); if (!isWater(w.terrain[i])) w.distWater[i] = 1;
@@ -94,7 +95,7 @@ check('Reef animals share space only within a similar depth band and remain in w
 check('Drinkers approach a bank and face real water on all four sides', () => {
   for (const [x, y, dx, dy] of [[27, 30, 1, 0], [33, 30, -1, 0], [30, 27, 0, 1], [30, 33, 0, -1]]) {
     reset(); pond(); const a = spawn('zebra', x, y); a.x = x + 0.5; a.y = y + 0.5; a.thirst = 20;
-    assert.equal(g.wildlife.waterhole(a, ANIMAL.zebra), true); assert.equal(a.state, 'approach'); assert.ok(!(a.drinkT > 0));
+    assert.equal(g.wildlife.waterhole(a, ANIMAL.zebra), true); assert.ok(a.state === 'approach' || a.drinkT > 0); // (the dry spot at the waterline can be where it already stands)
     for (let k = 0; k < 30 && !(a.drinkT > 0); k++) g.wildlife.update(0.05);
     assert.ok(a.drinkT > 0); assert.equal(a.alt, 0);
     assert.ok(Math.cos(a.orientation) * dx + Math.sin(a.orientation) * dy > 0.99);

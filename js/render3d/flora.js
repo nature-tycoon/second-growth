@@ -15,6 +15,7 @@ import { biome } from '../biome.js';
 import { meadowPatch, patchColor } from './patches.js';
 import { FloraChanges, floraChunkKey } from './flora-changes.js';
 import { groveForm } from './groves.js';
+import { underWater, groundAt, visibleLevel } from '../sim/waterline.js';
 import { paletteLeafColor } from './palettes.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
@@ -147,6 +148,7 @@ const SHRUB_HABIT = {
   hydrangea: 'bigleaf', castor: 'bigleaf', seagrape: 'bigleaf', cacao: 'bigleaf',
 };
 export const shrubShape = p => SHRUB_HABIT[p.key] || (SHRUB_SHAPES.includes(p.look.type) ? p.look.type : 'shrub');
+const grassyWet = type => type === 'sedge' || type === 'cattail' || type === 'tule' || type === 'lily' || type === 'papyrus';
 const SEA_SHAPES = new Set(['softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']);
 export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo', 'aloe', 'cactus',
   'rattan', 'pandan', 'ginger', // (Sumatra)
@@ -196,6 +198,23 @@ export class Flora {
       this.pools.set(key, p);
     }
     return p;
+  }
+
+  // A spot on tile (x, y) clear of the drawn water: the given one if it stands well above the
+  // waterline, otherwise the nearest point of a small grid that does, or failing that the
+  // tile's highest point. (Well above: a trunk right at the water's edge still reads as wading.)
+  dryPoint(w, x, y, px, pz) {
+    const L = visibleLevel(w, x, y), margin = 0.12;
+    if (L == null || groundAt(w, px, pz) > L + margin) return [px, pz];
+    let best = null, bd = Infinity, high = [px, pz], hh = groundAt(w, px, pz);
+    for (let v = 0; v < 5; v++) for (let u = 0; u < 5; u++) {
+      const qx = x + 0.12 + u * 0.19, qz = y + 0.12 + v * 0.19, h = groundAt(w, qx, qz);
+      if (h > hh) { hh = h; high = [qx, qz]; }
+      if (h <= L + margin) continue;
+      const d = (qx - px) ** 2 + (qz - pz) ** 2;
+      if (d < bd) { bd = d; best = [qx, qz]; }
+    }
+    return best || high;
   }
 
   // A soft shadow disc of radius r at (x, z), tilted to lie on the slope.
@@ -320,6 +339,9 @@ export class Flora {
       const gid = inside ? w.ground[i] : B.ground[bi];
       const dim = inside ? 1 : 0.82;
       const aquaticTile = biome.look.underwater || isWater(inside ? w.terrain[i] : B.terrain[bi]);
+      // a land tile beside water: a carved channel's water reaches part-way up it, so plants here
+      // keep to the dry side of the drawn waterline (see waterline.js)
+      const bankTile = inside && !aquaticTile && w.distWater[i] <= 2 && visibleLevel(w, x, y) != null;
       // where the property's own woods meet open ground, a soft fringe: saplings, edge shrubs and
       // taller grass, so a stand thins into meadow instead of stopping at a line (drawn only)
       const edge = inside && !tid ? this.forestEdge(w, x, y, i) : null;
@@ -382,6 +404,7 @@ export class Flora {
           }
           const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
           // lily pads float on the water surface instead of sitting on the pond bed
+          if (bankTile && !aquaticT && !grassyWet(type) && underWater(w, px, pz)) continue; // (dry-land groundcover doesn't grow in the creek)
           const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz);
           const turn = hash2(x, y, 80 + k) * 6.28;
           pool.add(px, py, pz, sc, sc, sc, turn, bloomT === 'titanbloom' ? rgb(p.look.flower || '#6a1a2a').map(c => c * dim) : vary(col.map(c => c * dim), x, y, k));
@@ -414,6 +437,7 @@ export class Flora {
         const g = fringeS || (inside ? w.shrubG[i] : 1);
         const phase = plantPhase(p, month);
         let sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
+        if (bankTile) [sx, sz] = this.dryPoint(w, x, y, sx, sz);
         // a blue sea star sharing a tile with a coral lies on the sand beside it, at the far side
         // of the tile from the coral, rather than in the same spot with its arms poking through
         if (p.look.type === 'seastar' && tid) {
@@ -480,7 +504,8 @@ export class Flora {
           : ['redbud', 'riverbirch', 'vinemaple'].includes(p.key) ? 'vase' : baseShape.habit;
         const shapeDef = habit === baseShape.habit ? baseShape : { ...baseShape, habit };
         const phase = p.conifer ? 'green' : plantPhase(p, month);
-        const tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
+        let tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
+        if (bankTile && !p.aquatic) [tx, tz] = this.dryPoint(w, x, y, tx, tz);
         const ty = hAt(tx, tz) - 0.02;
         const sc = (0.2 + 0.8 * g) * (0.78 + hash2(x, y, 9) * 0.42) * (p.look.scale ?? 1);
         const grove = groveForm(x, y, g, shapeDef);

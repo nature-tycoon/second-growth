@@ -3,6 +3,7 @@
 import { ANIMALS, drawDef } from '../data/animals.js';
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
+import { lastDry } from './waterline.js';
 
 export function animalRadius(a) {
   const def = drawDef(ANIMALS[a.sp], a), s = def.sprite;
@@ -132,10 +133,21 @@ export function shoreSpot(w, a, j, spacing, canStand) {
     if (!isWater(w.terrain[water]) || w.feature[water] === F.CULVERT || w.struct[water] >= 0) continue;
     for (let k = 0; k < 5; k++) {
       const t = 0.18 + k * 0.16;
-      const px = dx ? x + 0.5 + dx * 0.34 : x + t;
-      const py = dy ? y + 0.5 + dy * 0.34 : y + t;
-      const wx = dx ? x + 0.5 + dx * 0.55 : px;
-      const wy = dy ? y + 0.5 + dy * 0.55 : py;
+      // Stand at the drawn waterline, not the tile edge: a carved creek's water reaches part-way
+      // up the bank tile, so walk from the landward side toward the water and stop where it's
+      // still dry (up to most of a tile further back, where the bank is low).
+      // (where the water covers the near approach, start further back: up to two tiles from the water)
+      let sx = dx ? x + 0.5 - dx * 0.9 : x + t, sy = dy ? y + 0.5 - dy * 0.9 : y + t;
+      const ex = dx ? x + 0.5 + dx * 0.55 : sx, ey = dy ? y + 0.5 + dy * 0.55 : sy;
+      let dry = lastDry(w, sx, sy, ex, ey, 18);
+      if (!dry) { sx -= dx * 0.9; sy -= dy * 0.9; dry = lastDry(w, sx, sy, ex, ey, 30); }
+      if (!dry) continue;
+      const back = Math.min(0.12, Math.hypot(dry[0] - sx, dry[1] - sy)); // (the body stands a little up the bank; its head reaches the water)
+      const px = dry[0] - dx * back, py = dry[1] - dy * back;
+      if (!w.inb(Math.floor(px), Math.floor(py))) continue;
+      const pj = w.idx(Math.floor(px), Math.floor(py));
+      if (pj !== j && (!canStand(w, pj, a) || w.struct[pj] >= 0)) continue;
+      const wx = ex, wy = ey; // (faces the water tile itself, straight ahead)
       const crowd = spacing.crowd(a, px, py);
       const s = crowd * 8 + Math.hypot(a.x - px, a.y - py);
       if (s < score) { score = s; best = { x: px, y: py, water: [wx, wy], crowd }; }

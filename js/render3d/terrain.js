@@ -13,6 +13,7 @@ import { hash2 } from '../rng.js';
 import { meadowPatch, patchColor } from './patches.js';
 import { Riverbanks, bankAllowed, surfaceHeight } from './riverbanks.js';
 import { PALETTES, paletteLeafColor, pastureColor } from './palettes.js';
+import { WATER_FILL } from '../sim/waterline.js';
 
 const ATLAS_TYPES = [T.PASTURE, T.FIELD, T.SOIL, T.GRAVEL, T.MUD, T.ROAD, T.DUFF, T.TRAIL, S.TURF, S.BED];
 const CELL = 64, GUT = 4, SLOT = CELL + GUT * 2, COLS = 28, ATLAS_W = 2048, ATLAS_H = 512;
@@ -326,7 +327,7 @@ function turfColor(p, month, season) {
 }
 
 // How far water fills each kind of basin above its lowest corner, in height levels.
-const FILL = { [T.POND]: 0.4, [T.CREEK]: 0.32, [T.RIVER]: 0.35, [T.MARSH]: 0.16 };
+const FILL = WATER_FILL;
 
 // Height of the water surface on a tile, in scene units (null on dry land).
 export function waterSurfaceY(w, x, y) {

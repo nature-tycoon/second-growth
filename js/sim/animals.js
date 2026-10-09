@@ -788,7 +788,7 @@ export class Wildlife {
         }
         case 'approach':
           if (a.move === 'fly') a.alt = Math.max(0, a.alt - dt * 3);
-          if (!a.localGoal || !this.bankSpot(a) || this.stepToward(a, ...a.localGoal, sp)) {
+          if (!a.localGoal || !(this.heldBank(a) || this.bankSpot(a)) || this.stepToward(a, ...a.localGoal, sp)) {
             a.localGoal = null; a.state = 'idle'; a.wait = 0;
           }
           break;
@@ -1168,19 +1168,32 @@ export class Wildlife {
     return shoreSpot(w, a, j, this.spacing, passable);
   }
 
+  // The bank spot an animal is heading for, while its water is still there.
+  heldBank(a) {
+    const b = a.bankGoal, w = this.game.world;
+    if (!b) return null;
+    const x = Math.floor(b.water[0]), y = Math.floor(b.water[1]);
+    if (!w.inb(x, y) || !isWater(w.terrain[w.idx(x, y)])) { a.bankGoal = null; return null; }
+    return b;
+  }
+
   // Every few days, animals walk (or fly) to the nearest water to drink, then stand with their
   // heads down at the edge for a while. Returns true if that's what it's doing now.
   waterhole(a, def) {
     if (def.move === 'swim' || def.noDrink) return false;
     const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (!w.inb(x0, y0)) return false;
-    const here = w.idx(x0, y0), bank = this.bankSpot(a, here);
-    const every = def.drinkEvery ?? 5 + (a.id % 5);
+    const here = w.idx(x0, y0), every = def.drinkEvery ?? 5 + (a.id % 5);
+    // (a low bank's dry spot can lie a tile back from the water: keep heading for the one chosen)
+    const held = this.heldBank(a) && Math.hypot(a.x - a.bankGoal.x, a.y - a.bankGoal.y) < 1.5 ? a.bankGoal : null;
+    const bank = held || this.bankSpot(a, here);
+    if (!held) a.bankGoal = null;
     if (bank && bank.crowd < 0.08 && a.thirst > every * 0.5) {
       if (Math.hypot(a.x - bank.x, a.y - bank.y) > 0.09) {
-        a.localGoal = [bank.x, bank.y]; a.state = 'approach'; a.flying = false;
+        a.localGoal = [bank.x, bank.y]; a.state = 'approach'; a.flying = false; a.bankGoal = bank;
         return true;
       }
+      a.bankGoal = null;
       a.drinkAt = bank.water; facePoint(a, ...bank.water);
       a.thirst = 0; a.drinkT = 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false; a.alt = 0;
       return true;
