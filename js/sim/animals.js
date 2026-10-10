@@ -1431,7 +1431,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, ...a }) => ({ ...a, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, ...a }) => ({ ...a, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,

@@ -189,7 +189,17 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
     }
     return;
   }
-  a.state = 'flee'; a.path = null; a.threat = threat.id;
+  if (a.move === 'tree') {
+    // Up in the canopy there's only the way the branches go: climb off along connected crowns to
+    // somewhere further from the danger, or, with nowhere to go, freeze and watch it.
+    const d0 = Math.hypot(a.x - threat.x, a.y - threat.y), far = (d0 + 4) ** 2;
+    facePoint(a, threat.x, threat.y);
+    if (wl.pathTo(a, (j, x, y) => (x + 0.5 - threat.x) ** 2 + (y + 0.5 - threat.y) ** 2 > far, 600)) {
+      a.run = speed / Math.max(0.01, def.speed); a.trip = null;
+    } else { a.state = 'idle'; a.path = null; a.wait = a.alertT = Math.max(0.8, time); }
+    return;
+  }
+  a.state = 'flee'; a.path = null; a.threat = threat.id; a.fleeOff = 0;
   a.fx = fx; a.fy = fy; a.fleeT = time; a.fleeSpeed = speed; a.fleeDelay = delay;
   a.fleeSide = Math.random() < 0.5 ? -1 : 1;
   a.run = speed / Math.max(0.01, def.speed);
@@ -213,7 +223,9 @@ export function fleeUpdate(wl, a, def, dt) {
   const step = a.fleeSpeed * dt, base = Math.atan2(a.fy, a.fx);
   let moved = false;
   // (burning ground only as a last resort)
-  if (a.fleeT > 0) for (let pass = 0; pass < 2 && !moved; pass++) for (const off of TURNS) {
+  // (the turn that worked last time is tried first, so it doesn't zigzag along an edge)
+  const turns = a.fleeOff ? [a.fleeOff, ...TURNS] : TURNS;
+  if (a.fleeT > 0) for (let pass = 0; pass < 2 && !moved; pass++) for (const off of turns) {
     const ang = base + off * a.fleeSide, c = Math.cos(ang), s = Math.sin(ang);
     const nx = a.x + c * step, ny = a.y + s * step, lx = a.x + c * Math.max(step, 0.45), ly = a.y + s * Math.max(step, 0.45);
     if (!w.inb(Math.floor(lx), Math.floor(ly)) || !w.inb(Math.floor(nx), Math.floor(ny))) continue;
@@ -221,6 +233,7 @@ export function fleeUpdate(wl, a, def, dt) {
     if (!passable(w, ahead, a) || !passable(w, w.idx(Math.floor(nx), Math.floor(ny)), a) || (!pass && w.fire[ahead])) continue;
     a.x = nx; a.y = ny; facePoint(a, nx + c, ny + s);
     if (off) { a.fx = a.fx * 0.6 + c * 0.4; a.fy = a.fy * 0.6 + s * 0.4; }
+    a.fleeOff = off;
     moved = true;
     break;
   }
