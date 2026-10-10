@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp } from '../config.js';
-import { ANIMALS, drawDef } from '../data/animals.js';
+import { ANIMALS, drawDef, animalDef } from '../data/animals.js';
 import * as S from '../render/sprites.js';
 import { TREE_SHAPES, contactShadow } from './geometry.js';
 import { PLANTS } from '../data/plants.js';
@@ -87,8 +87,8 @@ export class Actors {
     const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
     this.lastT = time;
     F.begin();
-    for (const a of game.wildlife.agents) {
-      const def = drawDef(ANIMALS[a.sp], a); // (the male look, for a species whose males look different)
+    for (const a of game.wildlife.viewAgents) {
+      const def = drawDef(animalDef(a), a); // (the male look, for a species whose males look different)
       seen.add(a.id);
       let st = this.pose.get(a.id);
       const xi = Math.floor(a.x), yi = Math.floor(a.y);
@@ -109,7 +109,7 @@ export class Actors {
           low = Math.min(low, surface); high = Math.max(high, surface + 0.75); // leaping salmon
         }
         if (seaY != null) { low = Math.min(low, seaY); high = Math.max(high, seaY); }
-        if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground) + 2;
+        if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground, a.flightY ?? -Infinity) + 2;
         else if (inside && (def.move === 'fly' || def.move === 'tree')) {
           if (w.tree[i]) {
             const p = PLANTS[w.tree[i]];
@@ -170,9 +170,13 @@ export class Actors {
         if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.75 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
       }
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
-      else if (surf != null && FLOATERS.has(kind)) y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
-      else if (def.move === 'fly' && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && kind !== 'duck' && kind !== 'heron' && kind !== 'crane') {
+      else if (surf != null && FLOATERS.has(kind) && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
+      else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
         const c = ci(); y += (TREE_SHAPES[PLANTS[w.tree[c]].look.type]?.height || 2) * (PLANTS[w.tree[c]].look.scale ?? 1) * w.treeG[c] * 0.55;
+      } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
+        y += 0.9;
+      } else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) {
+        y += 0.65;
       } else if (def.move === 'tree' && inside) {
         // monkeys and sloths live up in the crowns (or on a snag's bare top)
         // (monkeys up in the sunlit top of the canopy, sloths hanging lower down)
@@ -182,7 +186,13 @@ export class Actors {
       }
       // Moving between crowns of different heights, a climber (or a perched bird hopping along a
       // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
-      const perched = def.move === 'tree' || (def.move === 'fly' && !flying && inside && !!w.tree[i]);
+      if (a.passing) y = a.flightY + (a.passage.swoop ? Math.sin(a.passage.t * 1.8 + a.passage.phase) * 0.12 : 0);
+      if (flying && inside && !def.reef && w.tree[i] && (a.passing || a.birdGoal)) {
+        const p = PLANTS[w.tree[i]], crown = ground + (TREE_SHAPES[p.look.type]?.height || 2) * (p.look.scale ?? 1) * w.treeG[i];
+        y = Math.max(y, crown + (a.passing ? 0.8 : 0.2));
+      }
+      if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
+      const perched = def.move === 'tree' || (def.move === 'fly' && !a.birdGround && !flying && inside && !!w.tree[i]);
       if (perched && st.canopyY != null && !returning) {
         const gap = y - st.canopyY;
         st.canopyY += gap * Math.min(1, k * 0.9);
@@ -207,14 +217,18 @@ export class Actors {
       st.px = a.x; st.py = a.y;
       // a longer stride at a sprint, a shorter one at a creep
       st.gait += ((moving ? Math.min(1.35, 0.55 + 0.45 * (a.run || 1)) : 0) - st.gait) * k;
-      st.fly += ((flying ? 1 : 0) - st.fly) * k * 1.5;
+      const bathing = a.bird?.kind === 'bathe', preening = a.bird?.kind === 'preen';
+      const birdWings = bathing ? 0.16 + Math.abs(Math.sin(a.phase * 1.7)) * 0.2 : preening ? 0.08 : 0;
+      st.fly += ((flying ? 1 : birdWings) - st.fly) * k * 1.5;
       // heads down to graze, and for everyone drinking at the water's edge or feeding at a kill;
       // low while stalking, sniffing at a neighbour or locking horns, up when something's wrong
       const aligned = heading == null || Math.cos(st.yaw + heading) > 0.95;
       const stalking = a.state === 'hunt' && a.hunt?.phase === 'creep';
       const fight = this.bout(game, a, st, time);
       const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
-      const head = fight ? fight.head : bugling ? -0.75 : a.state === 'feed' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3
+      const birdHead = a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
+        : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
+      const head = fight ? fight.head : bugling ? -0.75 : a.state === 'feed' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
         : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
       st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
       if (fight) st.gait += (fight.gait - st.gait) * k;
@@ -222,7 +236,7 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       const ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
-      F.add(def, ax, y, az, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), fight?.roll || 0);
+      F.add(def, ax, y, az, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0));
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;

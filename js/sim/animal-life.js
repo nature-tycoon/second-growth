@@ -1,12 +1,13 @@
 // Everyday wildlife behaviour on top of the population rules: predators prowl, stalk, rush and
 // feed at a kill, prey keep watch and bolt, scavengers gather at carcasses, the young play, and
 // neighbours greet or spar. All of it uses Math.random, never game.rng, and the catch roll still
-// happens once, on contact, so catch odds, hunger and breeding are exactly as before.
+// happens once, on contact. Shared carcass meals also satisfy hunger, using the same food-stress rules.
 
 import { clamp, DAYS_PER_YEAR } from '../config.js';
 import { ANIMALS, ANIMAL, preyFor, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { passable, canLand } from './animals.js';
+import { followCervid } from './cervid-groups.js';
 
 // How each kind of hunter closes in. approach, creep and sprint are multiples of its usual
 // speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles.
@@ -49,13 +50,17 @@ function predatorsOf(wl, sp) {
 }
 
 // ---------------------------------------------------------------- hunting
+// Immediate danger and an ongoing meal take priority over starting another hunt.
+export const canStartHunt = a => !a.leaving && !a.fromFire && a.state !== 'hunt' &&
+  a.state !== 'feed' && (a.state !== 'flee' || a.play);
+
 export function beginHunt(wl, a, def, b) {
   a.hunt = { phase: 'approach' };
   if (!PACK.has(def.key)) return;
   // the rest of the pride or pack nearby joins in, fanning out to either side
   let side = 1;
   for (const o of wl.agents) {
-    if (o === a || o.sp !== a.sp || o.leaving || o.state !== 'idle' || young(o, def) || dist(o, a) > 7) continue;
+    if (o === a || o.sp !== a.sp || !canStartHunt(o) || o.state !== 'idle' || young(o, def) || dist(o, a) > 7) continue;
     o.state = 'hunt'; o.target = b.id; o.huntTime = a.huntTime; o.path = null; o.assist = true;
     o.hunt = { phase: 'approach', flank: side * (1.1 + Math.random() * 0.8) };
     side = -side;
@@ -156,6 +161,9 @@ export function startFeed(wl, a, def, b) {
   const c = { id: b.id, sp: b.sp, x: b.x, y: b.y, yaw: b.orientation ?? 0, age: b.age, side: Math.random() < 0.5 ? -1 : 1,
     by: a.sp, t: a.feedT + 7 + Math.random() * 4 };
   c.max = c.t;
+  // The successful hunter has already eaten. Larger prey leaves more meals for
+  // companions and scavengers, but a single kill cannot feed them indefinitely.
+  c.meals = Math.max(1, Math.ceil(bd.sprite.len / 20));
   wl.carcasses.push(c);
   if (wl.carcasses.length > 16) wl.carcasses.shift();
   a.carcass = c.id;
@@ -176,6 +184,8 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   const l = Math.hypot(fx, fy);
   if (l < 1e-3) { const r = Math.random() * Math.PI * 2; fx = Math.cos(r); fy = Math.sin(r); } else { fx /= l; fy /= l; }
   a.drinkT = 0; a.drinkAt = null; a.localGoal = null; a.bankGoal = null; a.follow = false;
+  a.bird = null; a.birdGoal = null; a.birdGround = false;
+  a.socialWith = null; a.socialUntil = 0; a.sparPath = null;
   a.greet = null; a.goal = null; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
   if (a.state === 'hunt' || a.state === 'feed') { endHunt(a); a.feedAt = null; a.carcass = null; }
   if (a.move === 'fly') {
@@ -221,6 +231,7 @@ export function fleeUpdate(wl, a, def, dt) {
     const n = Math.hypot(a.fx, a.fy) || 1; a.fx /= n; a.fy /= n;
   }
   const step = a.fleeSpeed * dt, base = Math.atan2(a.fy, a.fx);
+  const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
   let moved = false;
   // (burning ground only as a last resort)
   // (the turn that worked last time is tried first, so it doesn't zigzag along an edge)
@@ -231,6 +242,11 @@ export function fleeUpdate(wl, a, def, dt) {
     if (!w.inb(Math.floor(lx), Math.floor(ly)) || !w.inb(Math.floor(nx), Math.floor(ny))) continue;
     const ahead = w.idx(Math.floor(lx), Math.floor(ly));
     if (!passable(w, ahead, a) || !passable(w, w.idx(Math.floor(nx), Math.floor(ny)), a) || (!pass && w.fire[ahead])) continue;
+    // Like normal paths and spacing, an escape cannot cut diagonally between
+    // blocked tiles. Check the lookahead too, so it turns before entering a jam.
+    const xx = Math.floor(lx), yy = Math.floor(ly);
+    if (xx !== x0 && yy !== y0 &&
+      (!passable(w, w.idx(xx, y0), a) || !passable(w, w.idx(x0, yy), a))) continue;
     a.x = nx; a.y = ny; facePoint(a, nx + c, ny + s);
     if (off) { a.fx = a.fx * 0.6 + c * 0.4; a.fy = a.fy * 0.6 + s * 0.4; }
     a.fleeOff = off;
@@ -299,17 +315,17 @@ export function prowl(wl, a, def) {
 
 // Scavengers (and the hunter's pack) come to a carcass and feed.
 export function scavenge(wl, a, def) {
-  if (!wl.carcasses.length || a.juvenile) return false;
+  if (!wl.carcasses.length || a.juvenile || a.hunger < 3) return false;
   const scav = SCAVENGERS.has(def.key);
   let c = null, bd = Infinity;
   for (const k of wl.carcasses) {
     if (!scav && k.by !== a.sp) continue;
     const r = scav ? (def.move === 'fly' ? 40 : 22) : 10, d = Math.hypot(k.x - a.x, k.y - a.y);
-    if (d < r && d < bd && k.t > 1) { bd = d; c = k; }
+    if (d < r && d < bd && k.t > 1 && k.meals > 0) { bd = d; c = k; }
   }
   if (!c || Math.random() > 0.75) return false;
   if (wl.agents.filter(o => o.state === 'feed' && o.carcass === c.id).length >= 5) return false;
-  if (bd < 1.4) { feedAt(a, c); return true; }
+  if (bd < 1.4) return feedAt(a, c);
   a.goal = { carcass: c.id };
   if (a.move === 'fly') {
     const ang = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 0.5;
@@ -321,9 +337,14 @@ export function scavenge(wl, a, def) {
   return false;
 }
 function feedAt(a, c) {
+  // Claim the meal only on arrival, so distant visitors cannot reserve food.
+  // As with a successful catch, the first bite satisfies hunger immediately.
+  if (c.t <= 0 || !(c.meals > 0)) return false;
+  c.meals--; a.hunger = 0;
   a.state = 'feed'; a.feedT = 1 + Math.random() * 1.5; a.feedAt = [c.x, c.y]; a.carcass = c.id;
   a.flying = false; a.path = null;
   facePoint(a, c.x, c.y);
+  return true;
 }
 
 // Young of the same kind chase each other about, taking turns.
@@ -367,35 +388,70 @@ const rutting = (wl, def, a) => antlered(def, a) && RUT.includes(wl.game.month);
 
 // Now and then an adult goes over to another of its kind: they touch noses, or two rivals
 // square up and spar for a while. In the rut, stags go looking for another stag to fight.
+const available = a => !a.leaving && !a.fromFire && !a.drinkT && !a.socialWith &&
+  a.greet == null && (a.state === 'idle' || a.state === 'walk');
+
+// An invited partner waits for the actual journey, not an arbitrary short pause.
+// Danger is checked before this bounded hold; the partner resumes drinking afterward.
+export function socialHold(wl, a, def) {
+  if (a.socialWith == null) return false;
+  const visitor = byId(wl, a.socialWith);
+  if (!visitor || visitor.leaving || visitor.greet !== a.id || a.socialUntil <= a.age) {
+    a.socialWith = null; a.socialUntil = 0;
+    return false;
+  }
+  a.wait = 0.5; facePoint(a, visitor.x, visitor.y);
+  return true;
+}
+function releaseInvitation(wl, a) {
+  const o = byId(wl, a.greet);
+  if (o?.socialWith === a.id) { o.socialWith = null; o.socialUntil = 0; o.wait = 0; }
+  a.greet = null;
+}
+function invite(wl, a, o, def) {
+  if (dist(a, o) < 2.5) {
+    a.greet = o.id;
+    if (HAREM.has(def.key) && rutting(wl, def, a) && bull(def, o)) meetRival(wl, a, o);
+    else meet(wl, a);
+    return a.state === 'spar' || a.greetT > 0;
+  }
+  const distance = (x, y) => Math.hypot(x + 0.5 - o.x, y + 0.5 - o.y);
+  const oldState = a.state, oldPath = a.path, w = wl.game.world;
+  if (!wl.pathTo(a, (j, x, y) => distance(x, y) < 1.8, 1800, distance)) return false;
+  const end = a.path[0];
+  if (distance(end % w.w, end / w.w | 0) >= 1.8) {
+    a.state = oldState; a.path = oldPath; a.socialCooldown = a.age + 4;
+    return false;
+  }
+  const time = a.path.length / Math.max(0.1, def.speed) + 4;
+  a.greet = o.id; a.trip = null;
+  o.socialWith = a.id; o.socialUntil = o.age + time;
+  o.state = 'idle'; o.path = null; o.wait = 0.5; o.waterTrip = false;
+  facePoint(o, a.x, a.y);
+  return true;
+}
 export function greet(wl, a, def) {
   const rut = rutting(wl, def, a);
-  if (!ashore(def) || young(a, def) || Math.random() > (rut ? 0.35 : def.herd ? 0.06 : 0.12)) return false;
-  let o = null, bd = rut ? 144 : 49;
+  if (!ashore(def) || young(a, def) || !available(a) || a.socialCooldown > a.age ||
+    rut && a.rutCooldown > a.age || Math.random() > (rut ? 0.45 : def.herd ? 0.06 : 0.12)) return false;
+  let o = null, bd = rut ? 400 : 49;
   for (const b of wl.agents) {
-    if (b === a || b.sp !== a.sp || b.leaving || b.state !== 'idle' || young(b, def) || (rut && !antlered(def, b))) continue;
+    if (b === a || b.sp !== a.sp || !available(b) || (!rut && b.state !== 'idle') ||
+      young(b, def) || b.socialCooldown > b.age || (rut && (!antlered(def, b) || b.rutCooldown > b.age))) continue;
     const d2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
     if (d2 < bd) { bd = d2; o = b; }
   }
-  if (!o) return false;
-  a.greet = o.id;
-  if (bd < 1.7 * 1.7) { meet(wl, a); return true; }
-  const ox = Math.floor(o.x), oy = Math.floor(o.y);
-  if (wl.pathTo(a, (j, x, y) => Math.max(Math.abs(x - ox), Math.abs(y - oy)) <= 1, 400)) {
-    o.wait = Math.max(o.wait, 1.5); // (it waits for the visitor)
-    return true;
-  }
-  a.greet = null;
-  return false;
+  return !!o && invite(wl, a, o, def);
 }
 function meet(wl, a) {
   const o = byId(wl, a.greet), def = ANIMALS[a.sp];
-  a.greet = null;
-  if (!o || o.leaving || o.state !== 'idle' || dist(a, o) > 2.2) return;
+  releaseInvitation(wl, a);
+  if (!o || o.leaving || (o.state !== 'idle' && o.state !== 'walk') || dist(a, o) > 2.5) return;
   const t = 1.5 + Math.random() * 2;
   facePoint(a, o.x, o.y); facePoint(o, a.x, a.y);
   a.wait = t; o.wait = Math.max(o.wait, t);
+  a.socialCooldown = a.age + 10; o.socialCooldown = o.age + 10;
   const rivals = SPARRERS.has(def.sprite.kind) && (!def.sprite.male || (isMaleVariant(def, a) && isMaleVariant(def, o)));
-  // (antlered stags fight mostly in the rut; out of season they only now and then test each other)
   const odds = def.sprite.male?.antlers ? (rutting(wl, def, a) ? 0.95 : 0.25) : 0.6;
   if (!(rivals && Math.random() < odds && squareUp(wl, a, o))) { a.greetT = o.greetT = t; }
 }
@@ -413,35 +469,58 @@ function squareUp(wl, a, o) {
   const mx = (a.x + o.x) / 2, my = (a.y + o.y) / 2;
   const sa = [mx - ux * gap / 2, my - uy * gap / 2], so = [mx + ux * gap / 2, my + uy * gap / 2];
   for (const [x, y] of [sa, so]) if (!w.inb(Math.floor(x), Math.floor(y)) || !passable(w, w.idx(Math.floor(x), Math.floor(y)), a)) return false;
+  const routes = [];
+  for (const [b, at] of [[a, sa], [o, so]]) {
+    const tile = w.idx(Math.floor(at[0]), Math.floor(at[1]));
+    if (tile === w.idx(Math.floor(b.x), Math.floor(b.y))) { routes.push([]); continue; }
+    const state = b.state, path = b.path;
+    const ok = wl.pathTo(b, j => j === tile, 600);
+    const route = ok ? b.path : null;
+    b.state = state; b.path = path;
+    if (!route) return false;
+    routes.push(route);
+  }
   const t = 3 + Math.random() * 3, loser = Math.random() < 0.5 ? a.id : o.id;
   for (const [b, at, other] of [[a, sa, o], [o, so, a]]) {
     b.state = 'spar'; b.sparWith = other.id; b.sparAt = at; b.sparT = t; b.sparLoser = loser;
-    b.path = null; b.greetT = 0; b.drinkT = 0; b.drinkAt = null;
+    b.sparPath = routes.shift(); b.socialWith = null; b.socialUntil = 0; b.greet = null;
+    b.path = null; b.trip = null; b.follow = false; b.waterTrip = false; b.greetT = 0; b.drinkT = 0; b.drinkAt = null;
   }
   return true;
 }
 
 // One step of a bout: get into the stance, face the rival, and when it's over, settle it.
-export function sparUpdate(wl, a, def, sp) {
-  const o = byId(wl, a.sparWith);
+export function sparUpdate(wl, a, def, sp, elapsed = dt(sp, def)) {
+  const o = byId(wl, a.sparWith), w = wl.game.world;
   if (!o || o.state !== 'spar' || o.sparWith !== a.id || a.leaving) return endSpar(wl, a, null, false);
+  if (a.sparPath?.length) {
+    const tile = a.sparPath[a.sparPath.length - 1];
+    if (!passable(w, tile, a)) { endSpar(wl, a, null, false); endSpar(wl, o, null, false); return; }
+    if (wl.stepToward(a, tile % w.w + 0.5, (tile / w.w | 0) + 0.5, sp * 0.6)) a.sparPath.pop();
+    return;
+  }
   if (a.sparAt && Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]) > 0.01) {
+    const tile = w.idx(Math.floor(a.sparAt[0]), Math.floor(a.sparAt[1]));
+    if (!passable(w, tile, a)) { endSpar(wl, a, null, false); endSpar(wl, o, null, false); return; }
     wl.stepToward(a, a.sparAt[0], a.sparAt[1], sp * 0.6);
-    a.sparT = Math.max(a.sparT, 0.5); // (the bout starts once both are in place)
     return;
   }
   facePoint(a, o.x, o.y);
+  if (o.sparPath?.length || !o.sparAt || Math.hypot(o.x - o.sparAt[0], o.y - o.sparAt[1]) > 0.01) return;
+  a.sparT -= elapsed;
   if (a.sparT > 0) return;
   const lost = a.sparLoser === a.id;
   endSpar(wl, a, o, lost);
   endSpar(wl, o, a, !lost);
 }
 function endSpar(wl, a, rival, lost) {
-  a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.wait = 0.5 + Math.random();
+  a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.sparPath = null; a.wait = 2 + Math.random() * 2;
+  a.rutCooldown = a.age + 12 + Math.random() * 6; a.socialCooldown = a.rutCooldown;
   if (!rival) return;
   if (lost) {
     bolt(wl, a, rival, ANIMALS[a.sp].speed * 1.5, 0.6 + Math.random() * 0.4, 0.1);
     // a beaten harem bull loses his cows to the winner
+    if (a.haremCenter && wl.agents.some(c => c.haremOf === a.id)) rival.haremCenter = a.haremCenter.slice();
     for (const c of wl.agents) if (c.haremOf === a.id) c.haremOf = rival.id;
   } else { a.alertT = 1.5 + Math.random(); a.wait = a.alertT; facePoint(a, rival.x, rival.y); }
 }
@@ -461,14 +540,21 @@ export function harem(wl, a, def) {
 // Daily: harems break up when the rut ends, and cows whose bull has gone are free again.
 export function haremDay(wl) {
   const rut = RUT.includes(wl.game.month);
-  for (const a of wl.agents) if (a.haremOf != null && (!rut || !byId(wl, a.haremOf) || byId(wl, a.haremOf).leaving)) { a.haremOf = null; a.haremSlot = null; }
+  for (const a of wl.agents) {
+    if (a.haremOf != null && (!rut || !byId(wl, a.haremOf) || byId(wl, a.haremOf).leaving)) { a.haremOf = null; a.haremSlot = null; }
+    if (!rut) { a.rutActive = false; a.haremCenter = null; a.haremAngle = null; a.satelliteSlot = null; }
+    else if (ANIMALS[a.sp].familyHerd && antlered(ANIMALS[a.sp], a)) {
+      if (!a.rutActive && a.trip != null && a.state === 'walk') { a.state = 'idle'; a.path = null; a.wait = 0; }
+      a.rutActive = true; a.trip = null; a.herdOf = null;
+    }
+  }
 }
 function bugle(a) {
   a.bugleT = 0.8 + Math.random() * 0.5; a.wait = a.bugleT + 0.3;
 }
 function bullDay(wl, a, def) {
   a.trip = null; // (no wandering off across the map in the rut)
-  if (a.thirst > (def.drinkEvery ?? 5 + a.id % 5)) return false; // (he leads the harem down to water)
+  if (a.thirst > (def.drinkEvery ?? 5 + a.id % 5) && wl.waterhole(a, def)) return true; // lead the harem down to reachable water
   // gather the unclaimed cows nearby (and win back any whose bull is gone or far away)
   const cows = [];
   for (const c of wl.agents) {
@@ -477,12 +563,17 @@ function bullDay(wl, a, def) {
     if (!owner || owner.leaving || dist(c, owner) > 15) c.haremOf = a.id; // (only a fight takes another bull's cows)
     if (c.haremOf === a.id) cows.push(c);
   }
+  if (cows.length && !a.haremCenter) a.haremCenter = [cows.reduce((s, c) => s + c.x, 0) / cows.length, cows.reduce((s, c) => s + c.y, 0) / cows.length];
   // a rival bull close by: charge him (the fight itself is the usual bout)
-  let rival = null, rd = 64;
+  let rival = null, rd = 144;
   for (const o of wl.agents) {
-    if (o === a || o.sp !== a.sp || o.leaving || !bull(def, o) || o.state === 'spar') continue;
+    if (o === a || o.sp !== a.sp || !bull(def, o) || !available(o) || o.rutCooldown > o.age) continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
     if (d2 < rd) { rd = d2; rival = o; }
+  }
+  if (rival && !(a.rutCooldown > a.age) && Math.random() < 0.6 && invite(wl, a, rival, def)) {
+    if (a.state === 'walk') a.run = 1.6;
+    return true;
   }
   if (!cows.length) {
     // a satellite: shadow the nearest harem from its edge, bugling back
@@ -492,20 +583,17 @@ function bullDay(wl, a, def) {
     }
     if (!master) return false;
     if (Math.random() < 0.3) { bugle(a); facePoint(a, master.x, master.y); return true; }
-    const ang = Math.atan2(a.y - master.y, a.x - master.x) + (Math.random() - 0.5) * 0.8, r = 6 + Math.random() * 2.5;
-    const tx = master.x + Math.cos(ang) * r, ty = master.y + Math.sin(ang) * r;
-    return wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 1.2, 900, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty));
-  }
-  if (rival && Math.random() < 0.6) {
-    a.greet = rival.id; rival.wait = Math.max(rival.wait, 1.5);
-    if (rd < 1.7 * 1.7) { meetRival(wl, a, rival); return true; }
-    const ox = Math.floor(rival.x), oy = Math.floor(rival.y);
-    if (wl.pathTo(a, (j, x, y) => Math.max(Math.abs(x - ox), Math.abs(y - oy)) <= 1, 600)) { a.run = 1.6; return true; }
-    a.greet = null;
+    const home = master.haremCenter || [master.x, master.y];
+    if (!a.satelliteSlot) {
+      const angle = Math.atan2(a.y - home[1], a.x - home[0]), radius = 6 + Math.random() * 1.5;
+      a.satelliteSlot = [Math.cos(angle) * radius, Math.sin(angle) * radius];
+    }
+    return followCervid(wl, a, home, 'satelliteSlot', 1.4);
   }
   if (Math.random() < 0.3) { bugle(a); return true; }
   // the cow furthest from the others, if she's wandered off: go and turn her back
   const cx = cows.reduce((s, c) => s + c.x, 0) / cows.length, cy = cows.reduce((s, c) => s + c.y, 0) / cows.length;
+  if (!a.haremCenter || Math.hypot(cx - a.haremCenter[0], cy - a.haremCenter[1]) > 8) a.haremCenter = [cx, cy];
   let stray = null, sd = 16;
   for (const c of cows) { const d2 = (c.x - cx) ** 2 + (c.y - cy) ** 2; if (d2 > sd) { sd = d2; stray = c; } }
   if (stray) {
@@ -514,13 +602,16 @@ function bullDay(wl, a, def) {
     stray.wait = 0; stray.haremHome = [cx, cy];
     return wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 1, 900, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty));
   }
-  // otherwise circle the harem
-  const ang = Math.random() * Math.PI * 2, r = 2 + Math.random() * 2, tx = cx + Math.cos(ang) * r, ty = cy + Math.sin(ang) * r;
+  // Graze and watch between patrols; advance around the same herd rather than
+  // picking a fresh point across it every time and pulling the cows back and forth.
+  if (Math.random() < 0.65) { a.wait = 3 + Math.random() * 3; return true; }
+  a.haremAngle = (a.haremAngle ?? Math.atan2(a.y - cy, a.x - cx)) + 0.7;
+  const ang = a.haremAngle, r = 3, tx = a.haremCenter[0] + Math.cos(ang) * r, ty = a.haremCenter[1] + Math.sin(ang) * r;
   return wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 1, 600, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty));
 }
 function meetRival(wl, a, o) {
-  a.greet = null;
-  if (o.state !== 'idle' || !squareUp(wl, a, o)) { a.alertT = 1.2; facePoint(a, o.x, o.y); }
+  releaseInvitation(wl, a);
+  if (o.leaving || dist(a, o) > 2.5 || !['idle', 'walk'].includes(o.state) || !squareUp(wl, a, o)) { a.alertT = 1.2; facePoint(a, o.x, o.y); }
 }
 function cowDay(wl, a, def) {
   const b = byId(wl, a.haremOf);
@@ -528,18 +619,16 @@ function cowDay(wl, a, def) {
   a.trip = null;
   // the harem drinks together: when the bull is at the water, so are the cows
   const w = wl.game.world, bi = w.inb(Math.floor(b.x), Math.floor(b.y)) ? w.idx(Math.floor(b.x), Math.floor(b.y)) : -1;
-  if (a.thirst > 1 && (b.drinkT > 0 || (bi >= 0 && w.distWater[bi] <= 2))) return false;
-  // graze close around the bull (driven back toward the others if she strayed)
-  // (head for where the bull is going, not where he was, so the harem moves with him)
-  const going = b.state === 'walk' && b.path?.length ? b.path[0] : -1;
-  const home = a.haremHome || (going >= 0 ? [going % w.w + 0.5, (going / w.w | 0) + 0.5] : [b.x, b.y]);
+  const atWater = b.drinkT > 0 || (bi >= 0 && w.distWater[bi] <= 2);
+  if (atWater) {
+    b.haremCenter = [b.x, b.y];
+    if (a.thirst > 1 && wl.waterhole(a, def)) return true;
+  }
+  // The cows stay around their grazing centre while the bull patrols it.
+  // When he leads them to water, follow his current position instead.
+  const home = a.haremHome || (b.waterTrip ? [b.x, b.y] : b.haremCenter || [b.x, b.y]);
   a.haremHome = null;
-  if (!a.haremSlot) { const ang = Math.random() * Math.PI * 2, r = 0.8 + Math.random() * 2.2; a.haremSlot = [Math.cos(ang) * r, Math.sin(ang) * r]; }
-  const tx = home[0] + a.haremSlot[0], ty = home[1] + a.haremSlot[1];
-  if (Math.hypot(a.x - tx, a.y - ty) < 1.5) { a.wait = going >= 0 ? 0.3 + Math.random() * 0.5 : 1 + Math.random() * 2.5; if (Math.random() < 0.3) a.haremSlot = null; return true; }
-  if (!wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 1, 900, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty))) return false;
-  a.follow = Math.hypot(a.x - tx, a.y - ty) > 4; // (trotting to catch up)
-  return true;
+  return followCervid(wl, a, home, 'haremSlot', 1.5);
 }
 
 // Arrived at the end of a walk or a flight with something in mind.

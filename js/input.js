@@ -133,7 +133,7 @@ export class Input {
     // keep a located animal in view until the player moves the camera
     const f = this.ui.follow;
     if (f) {
-      if (dx || dy || sv || this.pan || this.fling || !this.game.wildlife.agents.includes(f)) this.ui.follow = null;
+      if (dx || dy || sv || this.pan || this.fling || !this.game.wildlife.hasAgent(f)) this.ui.follow = null;
       else {
         this.r.followAgent = f; // renderer follows this frame's visible body, including height
         if (!this.ui.moment) { this.r.frameGoal = this.ui.animalFrame(); this.r.animalFraming = true; }

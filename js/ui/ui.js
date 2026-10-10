@@ -5,7 +5,8 @@ import { music } from '../audio/music.js';
 import { sampleSoundLand } from '../audio/land.js';
 import { MUSIC_LICENSE } from '../audio/tracks.js';
 import { PLANTS, PLANT, LAYER_NAMES, MIX } from '../data/plants.js';
-import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many, isMaleVariant } from '../data/animals.js';
+import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many, isMaleVariant, animalDef } from '../data/animals.js';
+import { PASSAGE_SPECIES } from '../data/bird-passage.js';
 import { TOOLS, CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
 import { STRUCTURES } from '../world.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
@@ -105,7 +106,7 @@ function mixThumb(keys) {
 export function animalThumb(key) {
   const k = 'a' + key;
   if (thumbCache.has(k)) return thumbCache.get(k);
-  const def = ANIMAL[key];
+  const def = ANIMAL[key] || PASSAGE_SPECIES[key];
   // the species' 3D model, rendered once; the old 2D art is a fallback if WebGL isn't available
   let url;
   try { url = trim(renderPortrait(def), 6).toDataURL(); } catch (e) { url = trim(S.animalPortrait(def), 6).toDataURL(); }
@@ -749,7 +750,7 @@ export class UI {
     const existingMini = panel.querySelector('.minimize');
     if (existingMini) { setText(existingMini, this.infoMin ? '+' : '−'); setAttr(existingMini, 'title', tr(this.infoMin ? 'Expand' : 'Collapse')); }
     if (ins.agent) {
-      const a = this.game.wildlife.agents.find(o => o.id === ins.agent);
+      const a = this.game.wildlife.findAgent(ins.agent);
       if (!a) { if (!setHTML(panel, `<button class="close">×</button><h3>Gone</h3><p class="info-desc">This animal has moved on, or didn't make it.</p>`)) return; }
       else if (!setHTML(panel, this.agentHTML(a))) return;
     } else if (!setHTML(panel, this.tileHTML(ins.i))) return;
@@ -762,14 +763,30 @@ export class UI {
     panel.querySelectorAll('[data-guide]').forEach(b => b.addEventListener('click', () => this.openGuide('animals', b.dataset.guide)));
     panel.querySelectorAll('[data-overlay]').forEach(b => b.addEventListener('click', () => this.setOverlay('species', +b.dataset.overlay)));
     panel.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => this.locateAnimal(ANIMAL[b.dataset.next])));
+    panel.querySelector('[data-follow]')?.addEventListener('click', () => {
+      const a = this.game.wildlife.findAgent(ins.agent);
+      if (!a) return;
+      this.renderer.zoom = Math.max(2.2, this.renderer.zoom);
+      this.renderer.centerOnAnimal(a);
+      this.renderer.frameGoal = this.animalFrame(); this.renderer.animalFraming = true;
+      this.follow = a;
+    });
   }
   agentHTML(a) {
-    const def = ANIMALS[a.sp], st = this.game.wildlife.state[a.sp];
+    const def = animalDef(a), st = this.game.wildlife.state[a.sp];
+    if (a.passing) return `<button class="close">×</button>
+      <div class="animal-hero"><img src="${animalThumb(def.key)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
+      <div class="kv"><span class="k">Status</span><span>Flying through</span><span class="k">Flock</span><span>${this.game.wildlife.flyovers.filter(b => b.flock === a.flock).length} birds</span></div>
+      <p class="info-desc">This bird is passing over the map. It does not live on the property or count toward its resident population.</p>
+      <p class="info-desc">${def.desc}</p><button class="btn" data-follow>Follow bird</button>`;
     const ageY = a.age / 120;
     const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey' }[a.hunt?.phase] || 'Hunting';
+    const birdStatus = { forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting' }[a.bird?.kind];
+    const grouped = def.familyHerd && (a.herdOf != null && a.herdOf !== a.id || this.game.wildlife.agents.some(c => c !== a && (c.herdOf === a.id || c.mom === a.id)));
+    const familyStatus = a.mom != null ? (a.follow ? 'Following mother' : 'With a family herd') : grouped ? (isMaleVariant(def, a) ? 'With a bachelor group' : 'With a family herd') : null;
     const status = a.leaving ? 'Leaving the property' : a.fromFire && a.state === 'fly' ? 'Fleeing the fire' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : a.fromFire ? 'Fleeing the fire' : 'Running from danger')
       : a.state === 'play' ? 'Playing' : a.state === 'feed' ? 'Feeding' : a.drinkT > 0 ? 'Drinking' : a.state === 'spar' ? (def.sprite.male?.antlers ? 'Clashing antlers with a rival' : 'Sparring with a rival')
-      : a.bugleT > 0 ? 'Bugling' : a.haremOf != null ? 'In a bull’s harem' : this.game.wildlife.agents.some(c => c.haremOf === a.id) ? 'Guarding his harem' : a.greetT > 0 ? 'Greeting a neighbour' : a.alertT > 0 ? 'On the alert' : a.state === 'walk' || a.state === 'fly' ? (a.move === 'fly' ? 'Flying' : 'Wandering') : 'Resting / foraging';
+      : a.greet != null && def.sprite.male?.antlers && isMaleVariant(def, a) ? 'Approaching a rival' : a.socialWith != null ? 'Watching an approaching neighbour' : a.bugleT > 0 ? 'Bugling' : a.haremOf != null ? 'In a bull’s harem' : this.game.wildlife.agents.some(c => c.haremOf === a.id) ? 'Guarding his harem' : a.greetT > 0 ? 'Greeting a neighbour' : a.alertT > 0 ? 'On the alert' : familyStatus || birdStatus || (a.state === 'walk' || a.state === 'fly' ? (a.birdGround ? 'Hopping between feeding spots' : a.move === 'fly' ? 'Flying' : 'Wandering') : 'Resting / foraging');
     const ageTxt = ageY < 1 ? `${Math.max(1, Math.round(ageY * 12))} months` : `${ageY.toFixed(1)} years`;
     return `<button class="close">×</button>
       <div class="animal-hero"><img src="${animalThumb(def.key)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>

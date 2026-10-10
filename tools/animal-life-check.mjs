@@ -3,16 +3,19 @@
 // animals get clear of a fire, and reef fish swim nose-first.
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
-import { T } from '../js/config.js';
+import { T, F } from '../js/config.js';
 import { ANIMAL, ANIMALS, isMaleVariant } from '../js/data/animals.js';
-import { greet } from '../js/sim/animal-life.js';
+import { greet, fleeUpdate, fleeFire, startFeed, scavenge, arrive } from '../js/sim/animal-life.js';
+import { mulberry32 } from '../js/rng.js';
+Math.random = mulberry32(1987);
 import { passable } from '../js/sim/animals.js';
+import { hungryPredator } from '../js/sim/ecological-pressure.js';
 
 const g = new Game();
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
-function reset(map = 'pnw') {
-  g.newGame(1987, 'free', 'standard', map);
+function reset(map = 'pnw', mode = 'standard') {
+  g.newGame(1987, 'free', mode, map);
   g.wildlife.agents = []; g.wildlife.recount();
   const w = g.world;
   for (let y = 15; y < 50; y++) for (let x = 20; x < 70; x++) {
@@ -78,7 +81,7 @@ check('In the rut bull elk gather harems, keep their cows close, and a winning r
   assert.ok(n && spread / n < 4.5, `cows stay near their bull (${(spread / n).toFixed(2)})`);
   // a satellite that wins the bout takes the harem
   for (const c of cows) c.haremOf = b1.id;
-  b1.x = 40.5; b2.x = 41.8; b1.y = b2.y = 30.5; b1.state = b2.state = 'idle'; b2.wait = 99;
+  b1.x = 40.5; b2.x = 41.8; b1.y = b2.y = 30.5; b1.state = b2.state = 'idle'; b1.rutCooldown = b2.rutCooldown = b1.socialCooldown = b2.socialCooldown = 0; b1.greet = b2.greet = b1.socialWith = b2.socialWith = null; b1.drinkT = b2.drinkT = 0; b2.wait = 99;
   assert.equal(rigged(() => greet(wl, b1, ANIMAL.elk)), true); b1.sparLoser = b2.sparLoser = b1.id;
   for (let s = 0; s < 200 && b1.state === 'spar'; s++) wl.update(0.05);
   assert.ok(cows.every(c => c.haremOf === b2.id), 'harem passes to the winner');
@@ -100,6 +103,126 @@ check('Animals near a fire run clear of it without stepping onto burning ground'
     }
     assert.ok(mean() > x0 + 2, `${map}: ${x0} -> ${mean()}`);
   }
+});
+check('Fleeing respects blocked diagonal corners in every direction and still uses open corners', () => {
+  for (const barrier of ['structure', 'fence', 'pond']) for (const dx of [-1, 1]) for (const dy of [-1, 1]) for (const dt of [0.01, 0.05]) {
+    reset(); const wl = g.wildlife, w = g.world;
+    const a = wl.spawn(ANIMAL.deer, 40, 30, { silent: true });
+    const pose = { x: 40 + (dx > 0 ? 0.99 : 0.01), y: 30 + (dy > 0 ? 0.99 : 0.01),
+      state: 'flee', fleeT: 2, fleeDelay: 0, fleeSpeed: 2, fx: dx * Math.SQRT1_2, fy: dy * Math.SQRT1_2, fleeSide: 1 };
+    Object.assign(a, pose);
+    const sides = [w.idx(40 + dx, 30), w.idx(40, 30 + dy)];
+    for (const i of sides) {
+      if (barrier === 'structure') w.struct[i] = 0;
+      if (barrier === 'fence') w.feature[i] = F.FENCE;
+      if (barrier === 'pond') w.terrain[i] = T.POND;
+    }
+    fleeUpdate(wl, a, ANIMAL.deer, dt);
+    assert.equal(Math.floor(a.x), 40, `${barrier}/${dx}/${dy}/${dt}: crossed x`);
+    assert.equal(Math.floor(a.y), 30, `${barrier}/${dx}/${dy}/${dt}: crossed y`);
+    assert.ok(passable(w, w.idx(Math.floor(a.x), Math.floor(a.y)), a));
+    for (const i of sides) { w.struct[i] = -1; w.feature[i] = 0; w.terrain[i] = T.SOIL; }
+    Object.assign(a, pose);
+    fleeUpdate(wl, a, ANIMAL.deer, dt);
+    assert.equal(Math.floor(a.x), 40 + dx, 'open diagonal remains usable');
+    assert.equal(Math.floor(a.y), 30 + dy, 'open diagonal remains usable');
+  }
+});
+function kill(key, preyKey) {
+  const wl = g.wildlife, a = wl.spawn(ANIMAL[key], 40, 30, { silent: true });
+  const prey = wl.spawn(ANIMAL[preyKey], 40, 30, { silent: true });
+  a.x = prey.x = 40.5; a.y = prey.y = 30.5; a.hunger = 0;
+  wl.remove(prey, 'predation'); startFeed(wl, a, ANIMAL[key], prey);
+  return wl.carcasses[0];
+}
+check('A shared meal satisfies a hungry scavenger and an exhausted carcass feeds no more visitors', () => {
+  reset('pnw', 'challenging');
+  const wl = g.wildlife, c = kill('cougar', 'deer'), meals = c.meals;
+  assert.ok(meals > 0);
+  for (let k = 0; k < meals; k++) {
+    const a = wl.spawn(ANIMAL.coyote, 40, 30, { silent: true });
+    a.x = c.x + 0.3; a.y = c.y; a.hunger = 40;
+    assert.ok(hungryPredator(g, a));
+    assert.equal(rigged(() => scavenge(wl, a, ANIMAL.coyote)), true);
+    assert.equal(a.state, 'feed'); assert.equal(a.hunger, 0);
+    assert.equal(hungryPredator(g, a), false);
+  }
+  assert.equal(c.meals, 0);
+  const late = wl.spawn(ANIMAL.raccoon, 40, 30, { silent: true });
+  late.x = c.x + 0.3; late.y = c.y; late.hunger = 40;
+  assert.equal(rigged(() => scavenge(wl, late, ANIMAL.raccoon)), false);
+  assert.equal(late.hunger, 40);
+  // A visitor already travelling to the kill cannot take a nonexistent meal either.
+  late.goal = { carcass: c.id }; arrive(wl, late);
+  assert.equal(late.state, 'idle'); assert.equal(late.hunger, 40);
+});
+check('Larger carcasses feed pack members and scavengers without consuming additional prey', () => {
+  reset('serengeti', 'challenging');
+  const wl = g.wildlife, c = kill('lion', 'buffalo'), pop = wl.agents.length, meals = c.meals;
+  assert.ok(meals >= 2, 'large prey provides multiple leftover meals');
+  for (const key of ['lion', 'hyena']) {
+    const a = wl.spawn(ANIMAL[key], 40, 30, { silent: true });
+    a.x = c.x + 0.3; a.y = c.y; a.hunger = 40;
+    assert.equal(rigged(() => scavenge(wl, a, ANIMAL[key])), true);
+    assert.equal(a.hunger, 0); assert.equal(hungryPredator(g, a), false);
+  }
+  assert.equal(wl.agents.length, pop + 2); assert.equal(c.meals, meals - 2);
+});
+check('Travelling and satisfied visitors do not consume carcass meals; expired kills cannot feed them', () => {
+  reset(); const wl = g.wildlife, c = kill('cougar', 'deer'), meals = c.meals;
+  const a = wl.spawn(ANIMAL.coyote, 44, 30, { silent: true });
+  a.x = c.x + 4; a.y = c.y; a.hunger = 40;
+  assert.equal(rigged(() => scavenge(wl, a, ANIMAL.coyote)), true);
+  assert.equal(a.state, 'walk'); assert.equal(a.hunger, 40); assert.equal(c.meals, meals);
+  a.x = c.x + 0.3; a.y = c.y; a.state = 'idle';
+  arrive(wl, a);
+  assert.equal(a.state, 'feed'); assert.equal(a.hunger, 0); assert.equal(c.meals, meals - 1);
+  a.state = 'idle'; c.meals = meals;
+  assert.equal(rigged(() => scavenge(wl, a, ANIMAL.coyote)), false);
+  assert.equal(c.meals, meals, 'a satisfied visitor leaves food for others');
+  a.hunger = 40; a.goal = { carcass: c.id }; c.t = 0;
+  arrive(wl, a);
+  assert.equal(a.state, 'idle'); assert.equal(a.hunger, 40); assert.equal(c.meals, meals);
+});
+check('Hungry predators keep escaping fire through daily checks, including birds', () => {
+  for (const mode of ['relaxed', 'standard', 'challenging']) for (const key of ['coyote', 'hawk']) {
+    reset('pnw', mode);
+    const wl = g.wildlife, w = g.world;
+    const a = wl.spawn(ANIMAL[key], 40, 30, { silent: true });
+    const prey = wl.spawn(ANIMAL.rabbit, 41, 30, { silent: true });
+    a.x = 40.5; a.y = 30.5; a.hunger = 40;
+    w.fire[w.idx(39, 30)] = 3;
+    rigged(() => fleeFire(wl));
+    assert.equal(a.fromFire, true); const escape = a.state;
+    assert.equal(escape, key === 'hawk' ? 'fly' : 'flee');
+    const rng = g.rng; g.rng = () => 0;
+    try { wl.daily(); wl.startHunt(a, ANIMAL[key]); } finally { g.rng = rng; }
+    assert.equal(a.state, escape); assert.equal(a.fromFire, true);
+    assert.ok(wl.agents.includes(prey));
+    // Once safe, the ordinary daily hunting rule resumes.
+    a.state = 'idle'; a.fromFire = false; a.flying = false; a.alt = 0;
+    g.rng = () => 0;
+    try { wl.daily(); } finally { g.rng = rng; }
+    assert.equal(a.state, 'hunt');
+  }
+});
+check('Daily hunting preserves danger escapes and feeding, and packs do not recruit fire evacuees', () => {
+  reset(); const wl = g.wildlife;
+  const a = wl.spawn(ANIMAL.coyote, 40, 30, { silent: true });
+  wl.spawn(ANIMAL.rabbit, 41, 30, { silent: true });
+  const rng = g.rng; g.rng = () => 0;
+  try {
+    for (const state of ['flee', 'feed']) {
+      a.state = state; a.hunger = 40; a.fromFire = false; a.play = false;
+      wl.daily(); wl.startHunt(a, ANIMAL.coyote);
+      assert.equal(a.state, state);
+    }
+    const companion = wl.spawn(ANIMAL.coyote, 40, 31, { silent: true });
+    companion.fromFire = true; companion.state = 'idle'; companion.hunger = 40;
+    a.state = 'idle'; wl.startHunt(a, ANIMAL.coyote);
+    assert.equal(a.state, 'hunt'); assert.equal(companion.state, 'idle');
+    assert.equal(companion.fromFire, true);
+  } finally { g.rng = rng; }
 });
 check('Reef predators turn and swim nose-first at their prey', () => {
   g.newGame(1987, 'free', 'standard', 'reef'); g.wildlife.agents = []; g.wildlife.recount();

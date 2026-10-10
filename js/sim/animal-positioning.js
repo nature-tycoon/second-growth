@@ -1,12 +1,12 @@
 // Local spacing in tile units, using the same display scale as the models. No geometry or
 // physics engine is needed: only animals in neighbouring spatial buckets are compared.
-import { ANIMALS, drawDef } from '../data/animals.js';
+import { ANIMALS, drawDef, animalDef } from '../data/animals.js';
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
 import { lastDry } from './waterline.js';
 
 export function animalRadius(a) {
-  const def = drawDef(ANIMALS[a.sp], a), s = def.sprite;
+  const def = drawDef(animalDef(a), a), s = def.sprite;
   const age = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * DAYS_PER_YEAR), 0.55, 1) : 1;
   return Math.max(0.06, (s.len || s.size || 10) * adultAnimalScale(s) *
     (a.juvenile ? s.juv ?? 0.5 : 1) * age * 0.65);

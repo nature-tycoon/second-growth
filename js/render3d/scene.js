@@ -9,7 +9,7 @@ import { lightingBalance } from './lighting.js';
 import { Ambience } from './ambience.js';
 import { biome } from '../biome.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
-import { ANIMALS } from '../data/animals.js';
+import { ANIMALS, animalDef } from '../data/animals.js';
 import { Terrain, buildAtlas } from './terrain.js';
 import { Flora, windGust, floraVersion } from './flora.js';
 import { Actors, salmonLeap } from './actors.js';
@@ -401,7 +401,7 @@ export class Renderer {
   }
   pickAgent(game, sx, sy, radius = 26) {
     let best = null, bd = radius * radius;
-    const all = [...game.wildlife.agents];
+    const all = game.wildlife.viewAgents;
     for (const a of all) {
       const s = this.actors.pose.get(a.id);
       if (!s?.visible) continue;
@@ -708,16 +708,16 @@ export class Renderer {
   // back. Animals and visitors are left out of the "then" picture.
   thenAndNow(game, ui) {
     const now = this.capture(game, ui, false);
-    const keep = { world: game.world, border: game.border, agents: game.wildlife.agents, people: game.visitors.agents, sel: game.selectedAgent, fx: this.trailFx, pose: new Map(this.actors.pose) };
+    const keep = { world: game.world, border: game.border, agents: game.wildlife.agents, flyovers: game.wildlife.flyovers, people: game.visitors.agents, sel: game.selectedAgent, fx: this.trailFx, pose: new Map(this.actors.pose) };
     const w0 = biome.generate(game.seed);
     game.world = w0; game.border = new Border(w0, biome.borderCell);
-    game.wildlife.agents = []; game.visitors.agents = []; game.selectedAgent = null; this.trailFx = [];
+    game.wildlife.agents = []; game.wildlife.flyovers = []; game.visitors.agents = []; game.selectedAgent = null; this.trailFx = [];
     try {
       w0.hydroDirty = true; updateHydrology(w0); updateEnvironment(w0, game.month, 0);
       this.lastFlora = 0; this.floraPending = true;
       return { then: this.capture(game, ui, false), now };
     } finally {
-      game.world = keep.world; game.border = keep.border; game.wildlife.agents = keep.agents; game.visitors.agents = keep.people; game.selectedAgent = keep.sel; this.trailFx = keep.fx;
+      game.world = keep.world; game.border = keep.border; game.wildlife.agents = keep.agents; game.wildlife.flyovers = keep.flyovers; game.visitors.agents = keep.people; game.selectedAgent = keep.sel; this.trailFx = keep.fx;
       this.lastFlora = 0; this.floraPending = true;
       this.draw(game, ui, 0);
       for (const [k, v] of keep.pose) this.actors.pose.set(k, v); // animals keep facing the way they were
@@ -850,7 +850,7 @@ export class Renderer {
         // body and its modelled height, a fixed gap above that on screen, with a short stem.
         const top = Math.max(s.y + s.h, s.center.y + s.h * 0.6) + 0.06;
         const p = this.project(s.x, top, s.z), lift = 14;
-        const label = ANIMALS[sel.sp].name, y = p.y - lift;
+        const label = animalDef(sel).name, y = p.y - lift;
         ctx.font = '700 11px Nunito, sans-serif';
         const tw = ctx.measureText(label).width + 16, th = 19;
         ctx.save();
@@ -919,7 +919,7 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     if (!st || a.flying) continue;
     const xi = Math.floor(a.x), yi = Math.floor(a.y);
     if (!w.inb(xi, yi)) continue;
-    const i = w.idx(xi, yi), t = w.terrain[i], def = ANIMALS[a.sp];
+    const i = w.idx(xi, yi), t = w.terrain[i], def = animalDef(a);
     const wet = isWater(t);
     if (wet && st.gait > 0.3 && random() < dt * 1.8 * st.gait) fx.push({ k: 'wake', x: a.x, z: a.y, y: st.y, yaw: st.yaw, life: 1.3, max: 1.3, s: Math.max(0.5, (def.sprite.len || def.sprite.size || 10) / 38) });
     else if (!wet && def.move === 'ground' && (def.sprite.len || 0) >= 20 && st.gait > 0.5 && (DRY.has(t) || biome.savanna && game.season > 0) && !(w.ground[i] && w.groundG[i] > 0.7 && !biome.savanna)
@@ -936,6 +936,10 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     }
     if (a.drinkT > 0 && !st.rippled && (wet || w.distWater[i] <= 1)) { st.rippled = true; fx.push({ k: 'ring', x: a.x + Math.cos(st.yaw) * 0.3, z: a.y - Math.sin(st.yaw) * 0.3, y: st.y, life: 1.8, max: 1.8, s: 1 }); }
     if (!(a.drinkT > 0)) st.rippled = false;
+    if (a.bird?.kind === 'bathe' && a.bird.water && random() < dt * 2) {
+      const [x, z] = a.bird.water, surface = waterSurfaceY(w, x, z);
+      if (surface != null) fx.push({ k: 'ring', x, z, y: surface, life: 1.1, max: 1.1, s: 0.45 });
+    }
   }
   if (fx.length > 400) fx.splice(0, fx.length - 400);
   const z = this.zoom;
@@ -1029,7 +1033,7 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
   if (biome.savanna && n > 0.25 && this.zoom > 0.6) {
     const t = this.time;
     for (const a of this.actors.visibleWildlife) {
-      const def = ANIMALS[a.sp];
+      const def = animalDef(a);
       if (def.move !== 'ground' || (def.sprite.len || 0) < 20 || hash2(a.id, 3, 9) > 0.55) continue;
       const st = this.actors.pose.get(a.id);
       if (!st || !st.eye || st.graze > 0.3 || st.x < bx0 || st.x > bx1 || st.z < bz0 || st.z > bz1) continue; // not while head-down grazing

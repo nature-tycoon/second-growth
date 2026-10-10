@@ -1770,7 +1770,7 @@ const BIRDS = {
   hummer: s => ({ legH: 0.1, tilt: 0.2, span: 0.7, chord: 0.2, beak: 0.44, beakColor: '#1e1a18', legColor: '#1e1a18', tail: 0.2, beakR: 0.03 }),
   woodpecker: s => ({ legH: 0.14, tilt: 0.75, span: 0.62, chord: 0.26, beak: 0.26, beakColor: '#2a2622', legColor: '#4a4440', tail: 0.5 }),
   heron: s => ({ legH: 1.05, tilt: 0.3, span: 0.9, chord: 0.3, beak: s.stork ? 0.38 : 0.42, beakR: s.stork ? 0.05 : null, beakColor: s.bill || '#e0b030', legColor: s.stork ? '#c0543e' : '#b8a060', tail: 0.2, neck: true, head: 0.13 }), // (stork: a stouter, straight bill)
-  duck: s => ({ legH: 0.08, tilt: 0.05, span: 0.6, chord: 0.24, head: s.woodduck || s.mallard ? 0.17 : 0.19, headLong: s.woodduck || s.mallard ? 1.18 : 1.05, beak: 0.2, beakColor: s.bill || '#d8a030', legColor: '#e08a30', tail: -0.4, duck: true }),
+  duck: s => ({ legH: 0.08, tilt: 0.05, span: s.goose ? 0.95 : 0.6, chord: 0.24, head: s.goose ? 0.14 : s.woodduck || s.mallard ? 0.17 : 0.19, headLong: s.woodduck || s.mallard ? 1.18 : 1.05, beak: s.goose ? 0.14 : 0.2, beakColor: s.bill || '#d8a030', legColor: s.goose ? '#33322c' : '#e08a30', tail: -0.4, duck: true }),
   raptor: s => ({ legH: 0.16, tilt: 0.45, span: 0.95, chord: 0.3, beak: 0.14, beakColor: s.bill || '#e0b030', legColor: '#e0b030', tail: 0.35, hook: true }),
   vulture: s => ({ legH: 0.2, tilt: 0.3, span: 0.95, chord: 0.34, beak: 0.13, beakColor: s.bill || '#2a2a2a', legColor: '#5a5650', tail: 0.2, hook: true, head: 0.12, vulture: true }),
   secretary: s => ({ legH: 1.05, tilt: 0.18, span: 1.0, chord: 0.3, beak: 0.09, beakColor: '#8a8a88', legColor: '#e2c49a', tail: 0.1, hook: true, neck: true, head: 0.13, secretary: true }),
@@ -1868,7 +1868,7 @@ function birdTail(m, s, o, by, bodyR) {
     return col(s.tail || s.color);
   };
   for (let f = -3; f <= 3; f++) {
-    const edge = Math.abs(f) / 3, L = S * length * (1 - graduation * edge);
+    const edge = Math.abs(f) / 3, L = S * length * (s.forkTail ? 0.42 + 0.58 * edge : 1 - graduation * edge);
     const root = [base[0], base[1] + S * (0.008 - edge * 0.004), f * S * 0.013];
     const fan = (w, pitch) => place(root, [0, Math.atan2(f / 3 * S * w, L), pitch], [L, S * 0.013, S * (width * 0.78)]);
     m.add(TAIL_FEATHER, fan(width * 0.65, angle), u => shade(s.centralTailTip && Math.abs(f) <= 1 && -u.x > 0.82 ? s.centralTailTip : paint(u), edge * -0.055), {
@@ -1923,7 +1923,7 @@ function bird(m, s) {
   else if (o.vulture) hp = [S * 0.5, by + S * 0.1, 0];
   else if (o.neck) hp = [S * 0.5, by + S * 0.6, 0];
   else if (s.kind === 'booby') hp = [S * 0.48, by + S * 0.2, 0];
-  else if (o.duck) hp = [S * 0.38, by + S * (s.woodduck || s.mallard ? 0.4 : 0.28), 0];
+  else if (o.duck) hp = [S * (s.goose ? 0.66 : 0.38), by + S * (s.goose ? 0.48 : s.woodduck || s.mallard ? 0.4 : 0.28), 0];
   else hp = [S * 0.34 + Math.sin(o.tilt) * S * 0.02, by + S * 0.2 + Math.sin(o.tilt) * S * 0.12, 0];
   const neckBase = [S * 0.25, by + S * 0.1, 0], hd = { part: P.HEAD, pivot: neckBase, fine: detailedDuck };
   // a short, thick neck, so the head grows smoothly out of the body instead of sitting on it like a ball
@@ -1936,7 +1936,7 @@ function bird(m, s) {
     // white-backed vulture: a long, bare grey neck hanging forward out of a thick white ruff
     m.limb([S * 0.26, by + S * 0.12, 0], [S * 0.4, by + S * 0.18, 0], S * 0.05, S * 0.04, s.head, hd);
     m.limb([S * 0.4, by + S * 0.18, 0], [hp[0] - hr * 0.5, hp[1], 0], S * 0.04, S * 0.035, s.head, hd);
-    m.ell([S * 0.24, by + S * 0.1, 0], [S * 0.13, S * 0.12, S * 0.17], '#f2eee6', hd);
+    m.ell([S * 0.24, by + S * 0.1, 0], [S * 0.13, S * 0.12, S * 0.17], s.darkRuff ? s.color : '#f2eee6', hd);
   }
   if (o.tall) {
     // ostrich: a bare pinkish neck rising straight up out of the black plumes
@@ -1949,6 +1949,7 @@ function bird(m, s) {
   if (s.collar) m.limb([S * 0.326, by + S * 0.185, 0], [S * 0.332, by + S * 0.21, 0], S * 0.096, S * 0.095, '#f4efde', { ...hd, caps: false, seg: 16 });
   const pecker = s.kind === 'woodpecker';
   m.ell(hp, [hr * (o.headLong || 1.05), hr, hr * (o.owl ? 1.1 : 0.95)], pecker ? s.color : s.head, hd);
+  if (s.goose) for (const side of [-1, 1]) m.ell([hp[0] + hr * 0.12, hp[1] - hr * 0.25, side * hr * 0.9], [hr * 0.72, hr * 0.4, hr * 0.12], '#eeeade', hd);
   if (o.taper) m.ell([hp[0] + hr * 0.75, hp[1] - hr * 0.12, 0], [hr * 0.7, hr * 0.62, hr * 0.62], s.head, hd); // (a streamlined face sloping into the bill, as on a booby)
   if (pecker) {
     // pileated: a flaming red crest, and a white stripe from the bill down the neck

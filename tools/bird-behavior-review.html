@@ -1,0 +1,51 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Second Growth — bird behavior review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>body{margin:0;background:#edf0e8;color:#26392e;font:15px system-ui}header{padding:18px}h1{font-size:22px;margin:0 0 6px}p{margin:7px 0}button,select{font:inherit;padding:6px;margin-right:10px}canvas{display:block}#infopanel{position:fixed;right:16px;top:170px;width:255px;padding:16px;background:#fafbf4;border-radius:10px;box-shadow:0 4px 20px #0003;z-index:2}.hidden{display:none}.animal-hero{display:flex;align-items:center;gap:10px}.animal-hero img{width:80px}.animal-hero h3{margin:0 0 6px}.small{font-size:12px}.kv{display:grid;grid-template-columns:70px 1fr;gap:8px;margin:14px 0}.info-desc{font-size:13px;line-height:1.5}.close,.minimize{float:right}.btn{background:#dce5d3;border:1px solid #869578;border-radius:6px}#fx{position:absolute;pointer-events:none}#status{min-height:20px}</style>
+<header><h1>Bird behavior review</h1><p>Actual game simulation and models. Independent fixtures leave saved games untouched.</p>
+<label>Map <select id="map"><option>pnw</option><option>atlanta</option><option>amazon</option><option>serengeti</option><option>chinandega</option><option>sumatra</option><option>reef</option></select></label>
+<label>Activity <select id="activity"><option value="passage">Passing flock</option><option value="perch">Perch and preen (PNW)</option><option value="forage">Hop and peck (PNW)</option><option value="bathe">Shore bath (PNW)</option><option value="nest">Nest box visit (Atlanta)</option></select></label>
+<button id="reset">Restart activity</button><button id="pause">Pause</button><button id="inspect">Inspect passing bird</button><p id="status"></p></header><canvas id="engine"></canvas><aside id="infopanel" class="hidden"></aside>
+<script type="module">
+import {UI} from '../js/ui/ui.js';
+import {Game} from '../js/game.js';
+import {Renderer} from '../js/render3d/scene.js';
+import {ANIMAL,animalDef} from '../js/data/animals.js';
+import {PASSAGE_SPECIES} from '../js/data/bird-passage.js';
+import {passageChoices,spawnPassage} from '../js/sim/bird-passage.js';
+import {birdChoose} from '../js/sim/bird-behavior.js';
+import {PLANTS} from '../js/data/plants.js';
+import {T,F} from '../js/config.js';
+const map=document.querySelector('#map'),activity=document.querySelector('#activity'),status=document.querySelector('#status');
+const g=new Game();g.newGame(1987,'free','standard','pnw');
+const r=new Renderer(document.querySelector('#engine'),{preserveDrawingBuffer:true});
+r.resize=()=>{r.vw=innerWidth;r.vh=560;r.gl.setSize(r.vw,r.vh,false);r.canvas.style.width=r.vw+'px';r.canvas.style.height=r.vh+'px';r.ui.width=r.vw*r.dpr;r.ui.height=r.vh*r.dpr;r.ui.style.width=r.vw+'px';r.ui.style.height=r.vh+'px';r.ui.style.top=document.querySelector('header').offsetHeight+'px';r.ambience.resize(r.vw,r.vh);r.updateCamera();};
+r.weatherOn=false;r.shadowOn=false;r.light=true;r.zoom=2.2;
+const ui=Object.assign(Object.create(UI.prototype),{game:g,renderer:r,state:{inspect:null},infoMin:false});
+let focus,paused=false;
+function setup(){
+ if(activity.value!=='passage')map.value=activity.value==='nest'?'atlanta':'pnw';
+ g.newGame(1987,'free','standard',map.value);g.speed=1;g.day=20;g.weather='clear';
+ const wl=g.wildlife,w=g.world;wl.agents=[];wl.flyovers=[];wl.passageWait=1e6;g.visitors.agents=[];g.residents=[];
+ w.vh.fill(0);w.tree.fill(0);w.shrub.fill(0);w.ground.fill(0);w.feature.fill(0);w.struct.fill(-1);w.fire.fill(0);w.terrain.fill(T.SOIL);w.distWater.fill(20);wl.suit.forEach(s=>s.fill(1));
+ if(activity.value==='passage'){
+  const def=map.value==='pnw'||map.value==='atlanta'?PASSAGE_SPECIES.canada_goose:passageChoices(g)[0];
+  const flock=spawnPassage(wl,def,{angle:0,n:def.sprite.goose?9:6,speed:1.2}),dx=40-flock[0].x,dy=30-flock[0].y;
+  flock.forEach(a=>{a.x+=dx;a.y+=dy;a.flightY=map.value==='reef'?14:2.6;});focus=flock[0];
+ }else{
+  const key=activity.value==='nest'?'chickadee':'robin';focus=wl.spawn(ANIMAL[key],40,30,{silent:true});Object.assign(focus,{x:40.5,y:30.5,state:'idle',flying:false,alt:0,wait:0,thirst:0});
+  const i=w.idx(40,30);let roll=.5;
+  if(activity.value==='perch'){w.tree[i]=PLANTS.find(p=>p?.layer===2&&!p.invasive).id;w.treeG[i]=1;roll=.8;}
+  if(activity.value==='nest'){w.feature[i]=F.NESTBOX;g.day=ANIMAL[key].breed[0]*10;roll=.05;}
+  if(activity.value==='bathe'){w.terrain[w.idx(41,30)]=T.POND;w.distWater[i]=1;roll=.2;}
+  const before=Math.random;let calls=0;Math.random=()=>activity.value==='perch'&&calls++>0?.2:roll;
+  try{birdChoose(wl,focus,ANIMAL[key]);}finally{Math.random=before;}
+ }
+ ui.closeInfo();g.selectedAgent=focus;document.querySelector('#inspect').hidden=!focus.passing;r.setWorld(g);r.resize();r.centerOnAnimal(focus);r.zoom=activity.value==='passage'?2.2:5;r.updateCamera();
+}
+map.onchange=()=>{activity.value='passage';setup();};activity.onchange=setup;document.querySelector('#reset').onclick=setup;
+document.querySelector('#pause').onclick=()=>{paused=!paused;g.speed=paused?0:1;document.querySelector('#pause').textContent=paused?'Resume':'Pause';};
+document.querySelector('#inspect').onclick=()=>ui.inspectAgent(focus);
+setup();let last=performance.now();
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(!paused)g.wildlife.update(dt*.2);g.speed=paused?0:1;r.centerOnAnimal(focus);r.draw(g,{clean:false},paused?0:dt);status.textContent=animalDef(focus).name+' · '+(focus.bird?.kind||focus.birdGoal?.kind||focus.state)+' · '+g.wildlife.agents.length+' residents · '+g.wildlife.flyovers.length+' passing birds'+(ui.follow===focus?' · following bird':'');requestAnimationFrame(frame);}
+requestAnimationFrame(frame);
+</script>

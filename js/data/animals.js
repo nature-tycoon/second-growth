@@ -3,7 +3,7 @@
 // Each species says where it can live (suit: per-tile 0..1) and what it needs across the whole
 // property (req: multiplier on carrying capacity). K = sum(suit) / hr (home range), capped at max.
 
-import { H } from '../config.js';
+import { H, DAYS_PER_YEAR } from '../config.js';
 
 export const habW = obj => {
   const a = new Float32Array(13);
@@ -14,6 +14,7 @@ export const near = (d, n, far = 0.15) => d <= n ? 1 : far;
 
 export const ANIMALS = [];
 export const ANIMAL = {};
+export const animalDef = a => a.passageDef || ANIMALS[a.sp];
 
 // Additional diets are active only in Challenging; existing food webs retain
 // their diets in every difficulty. The registry compiles fish keys once per map.
@@ -60,7 +61,7 @@ export function loadAnimals(build) {
 // bull elephants): sprite.male holds the overrides and sprite.maleShare how many adults wear them.
 // Which ones is fixed per animal. Returns the def to draw it with.
 const variants = new Map();
-export const isMaleVariant = (def, a) => !!def.sprite.male && !a.juvenile && ((a.id * 7919) % 100) / 100 < (def.sprite.maleShare ?? 0.5);
+export const isMaleVariant = (def, a) => !!def.sprite.male && !a.juvenile && (a.age == null || a.age >= def.mature * DAYS_PER_YEAR) && ((a.id * 7919) % 100) / 100 < (def.sprite.maleShare ?? 0.5);
 export function drawDef(def, a) {
   if (!isMaleVariant(def, a)) return def;
   let v = variants.get(def);

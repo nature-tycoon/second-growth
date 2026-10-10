@@ -2,7 +2,7 @@
 //   - leaves tumbling out of broadleaf trees in autumn (and in the Amazon's dry season)
 //   - seed fluff and pollen drifting on the breeze in the growing season
 //   - mist wisps hanging over ponds, marshes and the river in cool, damp seasons
-//   - flocks crossing the sky now and then: geese in V formation, swallows, parrots, macaws
+//   - passing birds are simulated wildlife, rendered by actors.js
 //   - a soft vignette, and a wash of warm light from the sun's side on clear days
 // What appears when comes from each map (biome.look.ambience), per season.
 
@@ -11,27 +11,12 @@ import { PLANTS } from '../data/plants.js';
 import { BORDER, LEVEL, T, isWater, clamp } from '../config.js';
 import { TREE_SHAPES } from './geometry.js';
 
-const FLOCKS = {
-  geese: { n: [7, 11], vee: true, size: 8, speed: 70, flap: 3.2, color: 'rgba(38,36,32,0.72)' },
-  songbirds: { n: [10, 18], size: 3.6, speed: 95, flap: 9, color: 'rgba(42,38,32,0.7)', loose: 1 },
-  swallows: { n: [5, 8], size: 4.4, speed: 140, flap: 7, color: 'rgba(30,36,48,0.75)', loose: 1.6, swoop: true },
-  parrots: { n: [5, 9], size: 5, speed: 105, flap: 8, color: 'rgba(58,160,70,0.85)', loose: 1.2 },
-  macaws: { n: [2, 4], size: 8, speed: 80, flap: 4, color: 'rgba(214,40,30,0.9)', tail: 'rgba(40,90,200,0.9)', loose: 0.7 },
-  vultures: { n: [3, 6], size: 11, speed: 45, flap: 1.2, color: 'rgba(70,58,44,0.8)', loose: 1.6 },
-  storks: { n: [6, 12], size: 8, speed: 60, flap: 2.2, color: 'rgba(40,36,34,0.82)', loose: 1.2 },
-  weavers: { n: [10, 20], size: 3.4, speed: 110, flap: 10, color: 'rgba(214,176,40,0.9)', loose: 1.3 },
-  goldfinches: { n: [8, 14], size: 3.2, speed: 85, flap: 11, color: 'rgba(176,158,60,0.9)', loose: 1.6, swoop: true },
-  egrets: { n: [4, 7], size: 7.5, speed: 60, flap: 2.6, color: 'rgba(246,246,240,0.92)', loose: 1 },
-  hornbills: { n: [2, 3], size: 11, speed: 58, flap: 1.8, color: 'rgba(26,24,22,0.9)', tail: 'rgba(240,236,228,0.9)', loose: 0.7 },
-};
 const rand = (a, b) => a + Math.random() * (b - a);
-const PPU = 46; // screen pixels per tile at zoom 1: flock sizes and speeds above are given at that zoom
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
 export class Ambience {
   constructor() {
-    this.leaves = []; this.fluff = []; this.mist = []; this.flocks = [];
-    this.nextFlock = 10 + Math.random() * 15;
+    this.leaves = []; this.fluff = []; this.mist = [];
     this.mistSprite = makeMist();
   }
 
@@ -163,7 +148,7 @@ export class Ambience {
 
   // sky-level effects and the light over everything, drawn last
   drawSky(ctx, R, game, dt) {
-    const A = biome.look.ambience, vw = R.vw, vh = R.vh;
+    const vw = R.vw, vh = R.vh;
     // warm light from the sun's side of the sky on clear days (strongest late in the season's light)
     const clear = game.weather === 'clear' ? 1 : game.weather === 'cloud' ? 0.4 : 0;
     this.sunWash = (this.sunWash ?? clear) + (clear - (this.sunWash ?? clear)) * Math.min(1, dt * 0.6);
@@ -175,35 +160,6 @@ export class Ambience {
       ctx.fillStyle = grad; ctx.fillRect(0, 0, vw, vh);
     }
 
-    // flocks passing over
-    if (A && R.weatherOn !== false) {
-      this.nextFlock -= dt;
-      if (this.nextFlock <= 0 && game.weather !== 'snow') {
-        this.nextFlock = rand(30, 75) * (game.weather === 'rain' ? 2 : 1);
-        this.spawnFlock(pick(A.flocks[game.season]), R);
-      }
-    }
-    // Flocks live in the world, high over the land: they grow as you zoom in and move with the
-    // map when you pan or rotate, instead of hanging on the screen while the valley slides past.
-    const zs = R.zoom;
-    for (let k = this.flocks.length - 1; k >= 0; k--) {
-      const F = this.flocks[k], S = FLOCKS[F.kind];
-      F.t += dt;
-      F.x += F.dir[0] * F.speed * dt; F.z += F.dir[1] * F.speed * dt;
-      if (F.t > F.life) { this.flocks.splice(k, 1); continue; }
-      const [ca, sa] = F.dir;
-      // which way the flock is heading on screen, so every bird faces along its flight
-      const p0 = R.project(F.x, F.y, F.z), p1 = R.project(F.x + ca, F.y, F.z + sa);
-      const heading = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-      for (const b of F.birds) {
-        const wob = (S.swoop ? Math.sin(F.t * 2.2 + b.ph) * 14 : Math.sin(F.t * 0.9 + b.ph) * 2.5 * (S.loose || 0)) / PPU;
-        const bx = F.x + b.dx * ca - (b.dy + wob) * sa, bz = F.z + b.dx * sa + (b.dy + wob) * ca;
-        const p = R.project(bx, F.y + b.dy * 0.08, bz);
-        if (p.x < -60 || p.y < -60 || p.x > vw + 60 || p.y > vh + 60) continue;
-        drawBird(ctx, p.x, p.y, S, Math.sin(F.t * S.flap + b.ph), b.s * zs, heading);
-      }
-    }
-
     // vignette
     if (this.vignette) {
       ctx.globalAlpha = game.weather === 'rain' || game.weather === 'snow' ? 1 : 0.8;
@@ -212,49 +168,6 @@ export class Ambience {
     }
   }
 
-  spawnFlock(kind, R) {
-    const S = FLOCKS[kind];
-    if (!S || !R.world) return;
-    // cross the current view on a random heading, starting just beyond its edge, high above the ground
-    const cx = R.target.x, cz = R.target.z;
-    const radius = Math.max(8, ...R.viewportPolygon().map(([x, z]) => Math.hypot(x - cx, z - cz)));
-    const ang = Math.random() * Math.PI * 2, dir = [Math.cos(ang), Math.sin(ang)], side = rand(-0.45, 0.45) * radius;
-    const speed = S.speed / PPU * rand(0.85, 1.15);
-    const n = Math.round(rand(S.n[0], S.n[1] + 0.99)), birds = [];
-    for (let i = 0; i < n; i++) {
-      if (S.vee) {
-        // a V: the leader in front, the rest trailing back on alternate arms
-        const arm = i === 0 ? 0 : (i % 2 ? 1 : -1), rank = Math.ceil(i / 2);
-        birds.push({ dx: -rank * 18 / PPU, dy: arm * rank * 13 / PPU, ph: i * 0.7, s: 1 });
-      } else birds.push({ dx: -rand(0, 70) / PPU, dy: rand(-22, 22) * (S.loose || 1) / PPU, ph: rand(0, 6.3), s: rand(0.85, 1.15) });
-    }
-    const w = R.world, gy = w.heightAt(clamp(cx, 0, w.w - 0.01), clamp(cz, 0, w.h - 0.01)) * LEVEL;
-    this.flocks.push({ kind, x: cx - dir[0] * (radius + 4) - dir[1] * side, z: cz - dir[1] * (radius + 4) + dir[0] * side,
-      y: gy + rand(2.8, 4.2), dir, speed, t: 0, life: (2 * radius + 10) / speed, birds });
-  }
-}
-
-// A bird seen from above: body and head pointing along its heading, two crescent wings out to the
-// sides. The wingbeat shows as the wings sweeping and foreshortening (seen from above they
-// shorten at the top and bottom of each beat). Drawn in the bird's own frame, head toward -y.
-function drawBird(ctx, x, y, S, beat, scale, heading = -Math.PI / 2) {
-  const s = S.size * scale, span = s * (0.78 + 0.22 * beat), sweep = s * (0.12 - 0.16 * beat);
-  ctx.save();
-  ctx.translate(x, y); ctx.rotate(heading + Math.PI / 2);
-  ctx.fillStyle = S.color;
-  ctx.beginPath();
-  for (const side of [-1, 1]) {
-    // leading edge bows forward out to the tip, trailing edge curves back to the body
-    ctx.moveTo(0, -s * 0.12);
-    ctx.quadraticCurveTo(side * span * 0.5, -s * 0.34 + sweep * 0.3, side * span, sweep);
-    ctx.quadraticCurveTo(side * span * 0.55, s * 0.02 + sweep * 0.5, 0, s * 0.16);
-  }
-  ctx.fill();
-  ctx.beginPath(); ctx.ellipse(0, 0, s * 0.12, s * 0.3, 0, 0, 7); ctx.fill();          // body
-  ctx.beginPath(); ctx.arc(0, -s * 0.34, s * 0.1, 0, 7); ctx.fill();                   // head
-  if (S.tail) { ctx.fillStyle = S.tail; ctx.beginPath(); ctx.moveTo(-s * 0.07, s * 0.22); ctx.lineTo(s * 0.07, s * 0.22); ctx.lineTo(0, s * 0.95); ctx.fill(); }
-  else { ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.22); ctx.lineTo(s * 0.1, s * 0.22); ctx.lineTo(0, s * 0.46); ctx.fill(); } // a short tail
-  ctx.restore();
 }
 
 function makeMist() {

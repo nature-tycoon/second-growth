@@ -9,7 +9,7 @@ const { focus } = await import('../js/render3d/focus.js');
 import { Game } from '../js/game.js';
 import { ANIMALS, ANIMAL, drawDef, isMaleVariant } from '../js/data/animals.js';
 import { PLANTS } from '../js/data/plants.js';
-import { T, LEVEL } from '../js/config.js';
+import { T, LEVEL, DAYS_PER_YEAR } from '../js/config.js';
 import { mulberry32 } from '../js/rng.js';
 Math.random = mulberry32(1987);
 let checks = 0, subjects = 0;
@@ -61,10 +61,11 @@ check('Every species, adult variant and juvenile centres on its visible body in 
   for (const map of ['pnw', 'amazon', 'serengeti', 'atlanta', 'chinandega', 'reef', 'sumatra']) {
     const { game, r } = setup(map);
     for (const def of ANIMALS) for (const stage of ['adult', ...(def.sprite.male ? ['male'] : []), 'juvenile']) {
-      const a = game.wildlife.spawn(def, 30, 30, { silent: true, juvenile: stage === 'juvenile', age: 1000 });
+      const a = game.wildlife.spawn(def, 30, 30, { silent: true, juvenile: stage === 'juvenile', age: stage === 'juvenile' ? 10 : def.mature * DAYS_PER_YEAR + 10 });
       // Variant selection is deterministic by id; cover both adult looks.
       if (def.sprite.male && stage !== 'juvenile') {
-        while (isMaleVariant(def, a) !== (stage === 'male')) a.id++;
+        for (let n = 0; n < 100 && isMaleVariant(def, a) !== (stage === 'male'); n++) a.id++;
+        assert.equal(isMaleVariant(def, a), stage === 'male', `${map}/${def.key}: requested adult variant`);
       }
       game.wildlife.agents = [a]; game.selectedAgent = a;
       tree(game, a); a.phase = 0.4; a.hd = 1.2;

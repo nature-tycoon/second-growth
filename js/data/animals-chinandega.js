@@ -30,7 +30,7 @@ export default function buildChinandegaAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 0.9, SHRUB: 1, RIPARIAN: 0.9, MEADOW: 0.6, FARM: 0.1, INVASIVE: 0.2 });
-    def({ key: 'deer', name: 'White-tailed deer', sci: 'Odocoileus virginianus', group: 'Mammals', move: 'ground',
+    def({ key: 'deer', herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'White-tailed deer', sci: 'Odocoileus virginianus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 50, max: 12, minK: 1.5, groupSize: [1, 3], sources: ['N', 'E'], mig: 0.35, breed: [3, 4], litter: [1, 2], life: 10,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 4, 0.3),
       sprite: { kind: 'deer', len: 32, h: 15, leg: 15, color: '#a07850', belly: '#e8dcc4', dark: '#3a2c20',

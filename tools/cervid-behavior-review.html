@@ -1,0 +1,46 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Second Growth — deer and elk behavior review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>body{margin:0;background:#edf0e8;color:#26392e;font:15px system-ui}header{padding:18px}h1{font-size:22px;margin:0 0 6px}p{margin:7px 0}button,select{font:inherit;padding:6px;margin-right:10px}canvas{display:block}#status{min-height:22px}#fx{position:absolute;pointer-events:none}#inspector{position:fixed;right:16px;top:170px;width:245px;padding:16px;background:#fafbf4;border-radius:10px;box-shadow:0 4px 20px #0003;z-index:2;font-size:13px}.animal-hero img{width:80px}.animal-hero h3{margin:5px 0}.kv{display:grid;grid-template-columns:80px 1fr;gap:6px}.info-desc{line-height:1.4}.section-title{font-weight:600;margin-top:12px}#inspector button{display:none}</style>
+<header><h1>Deer and elk behavior review</h1><p>Live game simulation and models in independent fixtures.</p>
+<select id="activity"><option value="deer-family">Deer family</option><option value="elk-family">Elk cow/calf herd</option><option value="deer-rut">Deer rut</option><option value="elk-rut">Elk rut and harem</option></select>
+<label>Days / second <select id="speed"><option>0.5</option><option selected>2</option><option>5</option></select></label><button id="reset">Restart</button><button id="pause">Pause</button><p id="status"></p></header>
+<canvas id="engine"></canvas><aside id="inspector"></aside>
+<script type="module">
+import { Game } from '../js/game.js';
+import { Renderer } from '../js/render3d/scene.js';
+import { UI } from '../js/ui/ui.js';
+import { ANIMAL, isMaleVariant } from '../js/data/animals.js';
+import { T, H, DAYS_PER_YEAR } from '../js/config.js';
+import { mulberry32 } from '../js/rng.js';
+const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw');
+const r = new Renderer(document.querySelector('#engine'), { preserveDrawingBuffer: true });
+const ui = Object.assign(Object.create(UI.prototype), { game: g, renderer: r });
+const activity = document.querySelector('#activity'), status = document.querySelector('#status');
+r.resize = () => { r.vw = innerWidth; r.vh = 620; r.gl.setSize(r.vw, r.vh, false); r.canvas.style.width = r.vw+'px'; r.canvas.style.height = r.vh+'px'; r.ui.width = r.vw*r.dpr; r.ui.height = r.vh*r.dpr; r.ui.style.width=r.vw+'px'; r.ui.style.height=r.vh+'px'; r.ui.style.top=document.querySelector('header').offsetHeight+'px'; r.ambience.resize(r.vw,r.vh); r.updateCamera(); };
+r.weatherOn=false; r.shadowOn=false; r.light=true;
+let focus, elapsed=0, paused=false, bouts=0, lastSpar=false;
+function adult(key, male, x, y) {
+ const wl=g.wildlife, def=ANIMAL[key];
+ for (let n=0;n<100;n++) { const a=wl.spawn(def,Math.floor(x),Math.floor(y),{silent:true,age:3*DAYS_PER_YEAR});Object.assign(a,{x,y,wait:0,thirst:0});if(isMaleVariant(def,a)===male)return a;wl.remove(a); }
+}
+function setup() {
+ Math.random=mulberry32(3);g.newGame(1987,'free','standard','pnw');g.day=activity.value.endsWith('rut')?70:10;g.weather='clear';
+ const wl=g.wildlife,w=g.world;wl.agents=[];wl.flyovers=[];wl.passageWait=1e6;g.visitors.agents=[];g.residents=[];
+ w.vh.fill(0);w.tree.fill(0);w.shrub.fill(0);w.ground.fill(0);w.feature.fill(0);w.struct.fill(-1);w.fire.fill(0);w.terrain.fill(T.SOIL);w.habitat.fill(H.MEADOW);w.distWater.fill(99);wl.suit.forEach(s=>s.fill(1));wl.state.forEach(s=>s.K=14);g.forestTiles=500;
+ const key=activity.value.startsWith('deer')?'deer':'elk', rut=activity.value.endsWith('rut');
+ focus=adult(key,rut,40.5,30.5);
+ if(rut){ adult(key,true,47.5,30.5);if(key==='elk')for(let n=0;n<4;n++){const c=adult(key,false,39.5+n,34.5);c.haremOf=focus.id;} }
+ else { adult(key,false,45.5,32.5);adult(key,false,43.5,27.5);const c=wl.spawn(ANIMAL[key],41,31,{silent:true,age:10});c.mom=focus.id; }
+ wl.recount();elapsed=0;bouts=0;lastSpar=false;r.setWorld(g);r.resize();r.zoom=3.6;r.centerOnAnimal(focus);r.updateCamera();
+}
+activity.onchange=setup;document.querySelector('#reset').onclick=setup;document.querySelector('#pause').onclick=()=>{paused=!paused;document.querySelector('#pause').textContent=paused?'Resume':'Pause';};
+setup();let last=performance.now(),inspectorAt=0;
+function frame(now){const dt=Math.max(0,Math.min(.05,(now-last)/1000));last=now;g.speed=paused?0:1;
+ if(!paused){const days=dt*Number(document.querySelector('#speed').value);g.wildlife.update(days);const before=Math.floor(elapsed);elapsed+=days;if(Math.floor(elapsed)!==before)g.wildlife.daily();}
+ const fighting=g.wildlife.agents.some(a=>a.state==='spar');if(fighting&&!lastSpar)bouts++;lastSpar=fighting;
+ if(fighting)focus=g.wildlife.agents.find(a=>a.state==='spar');r.centerOnAnimal(focus);r.draw(g,{clean:false},paused?0:dt);
+ status.textContent=`${activity.value.endsWith('rut')?'October':'April'} · ${elapsed.toFixed(1)} simulated days · ${bouts} bouts · `+g.wildlife.agents.map(a=>a.state==='spar'?'antler clash':a.greet!=null?'approaching rival':a.bugleT>0?'bugling':a.follow?'following family':a.state==='idle'?'grazing':a.state).join(' / ');
+ if(now-inspectorAt>200){document.querySelector('#inspector').innerHTML=ui.agentHTML(focus);inspectorAt=now;}requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

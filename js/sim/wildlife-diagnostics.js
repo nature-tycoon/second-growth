@@ -107,7 +107,7 @@ export function wildlifeDiagnostics(game, def) {
         ? 'Every successful hunt removes a prey animal. Coral structure and seagrass give prey cover. Failed hunts do not feed predators; hungry adults breed less and may move on.'
         : 'Every successful hunt removes a prey animal. Shrubs and tall groundcover shelter prey; brush, logs and rock piles help small animals hide. Failed hunts do not feed predators; hungry adults breed less and may move on.');
       const hungry = wl.agents.filter(a => a.sp === def.index && !a.leaving && hungryPredator(game, a, def)).length;
-      if (hungry) add('hunger', 'warn', 'Predators are short of food', `${hungry} adults have gone at least ${HUNGRY_DAYS} days without a catch. Restore connected prey habitat; these adults cannot breed until they feed and may move away.`);
+      if (hungry) add('hunger', 'warn', 'Predators are short of food', `${hungry} adults have gone at least ${HUNGRY_DAYS} days without a meal. Restore connected prey habitat; these adults cannot breed until they feed and may move away.`);
     }
     const hunters = ANIMALS.filter(d => preyFor(d, game)?.includes(def.key));
     if (hunters.length) {

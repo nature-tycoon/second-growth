@@ -20,6 +20,13 @@ const UNITS = {
 };
 
 addStrings({
+  'Flying through': 'Pasando en vuelo', Flock: 'Bandada', 'Follow bird': 'Seguir al ave',
+  'Canada goose': 'Ganso canadiense', 'Barn swallow': 'Golondrina común', 'Great egret': 'Garza blanca',
+  'White stork': 'Cigüeña blanca', 'Black vulture': 'Zopilote negro', 'Blue-crowned hanging parrot': 'Lorículo de corona azul',
+  'Pecking for food': 'Picoteando para buscar comida', 'Resting on a perch': 'Descansando en una rama',
+  'Preening feathers': 'Arreglándose las plumas', 'Bathing at the water’s edge': 'Bañándose a la orilla del agua',
+  'Visiting a nest site': 'Visitando un sitio de anidación', 'Hopping between feeding spots': 'Saltando entre sitios de alimentación',
+  'This bird is passing over the map. It does not live on the property or count toward its resident population.': 'Esta ave está pasando sobre el mapa. No vive en la finca ni cuenta en su población residente.',
   // ---------------------------------------------------------------- loading screen
   'Loading Second Growth': 'Cargando Second Growth', 'From salmon creeks to the Serengeti': 'De las quebradas de salmones al Serengueti',
   'Waking the land': 'Despertando la tierra', 'Preparing the land': 'Preparando la tierra', 'Growing the landscape': 'Haciendo crecer el paisaje', 'Welcoming the wild': 'Recibiendo a los animales',
@@ -98,6 +105,7 @@ addStrings({
   'Leaving the property': 'Saliendo de la finca', Hunting: 'Cazando', Flying: 'Volando', Wandering: 'Caminando', 'Resting / foraging': 'Descansando / comiendo',
   'Stalking prey': 'Acechando a su presa', 'Chasing prey': 'Persiguiendo a su presa', 'Circling over prey': 'Volando en círculos sobre su presa',
   Playing: 'Jugando', 'Running from danger': 'Huyendo del peligro', 'Fleeing the fire': 'Huyendo del fuego', Feeding: 'Comiendo', Drinking: 'Bebiendo',
+  'Following mother': 'Siguiendo a su madre', 'With a bachelor group': 'En un grupo de machos', 'With a family herd': 'Con su grupo familiar', 'Approaching a rival': 'Acercándose a un rival', 'Watching an approaching neighbour': 'Observando a un vecino que se acerca',
   'Sparring with a rival': 'Midiéndose con un rival', 'Clashing antlers with a rival': 'Chocando cornamentas con un rival', Bugling: 'Bramando', 'In a bull’s harem': 'En el harén de un macho', 'Guarding his harem': 'Cuidando su harén', 'Greeting a neighbour': 'Saludando a un vecino', 'On the alert': 'Alerta',
   'Show habitat': 'Ver hábitat', 'Field guide': 'Guía de campo', 'Next one': 'El siguiente',
   Age: 'Edad', Needs: 'Necesita', Population: 'Población', Status: 'Estado', Disturbance: 'Molestia',
@@ -333,7 +341,8 @@ addStrings({
 });
 
 addPatterns([
-  [/^(\d+) adults have gone at least (\d+) days without a catch\. Restore connected prey habitat; these adults cannot breed until they feed and may move away\.$/, '$1 adultos llevan al menos $2 días sin capturar una presa. Restaurá hábitats conectados para las presas; estos adultos no pueden tener crías hasta comer y pueden irse.'],
+  [/^(\d+) birds$/, '$1 aves'],
+  [/^(\d+) adults have gone at least (\d+) days without a meal\. Restore connected prey habitat; these adults cannot breed until they feed and may move away\.$/, '$1 adultos llevan al menos $2 días sin comer. Restaurá hábitats conectados para las presas; estos adultos no pueden tener crías hasta comer y pueden irse.'],
   [/^Predators here: (\d+)\. Potential hunters: (.+)\. Successful catches reduce this population; habitat and shelter help survivors recover\.$/, 'Depredadores aquí: $1. Cazadores posibles: $2. Las capturas reducen esta población; el hábitat y los refugios ayudan a los sobrevivientes a recuperarse.'],
   [/^Mulch establishment protection: (\d+) days remaining\.$/, 'Protección de abono y hojarasca: quedan $1 días.'],
   [/^Current capacity: ([\d.]+); new natural arrivals need at least ([\d.]+)\. (\d+) living here now\.$/, 'Capacidad actual: $1; las nuevas llegadas naturales necesitan al menos $2. Hay $3 aquí.'],
