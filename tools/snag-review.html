@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Second Growth — snag alignment review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{margin:24px;background:#eef0e8;color:#27392d;font:15px system-ui}h1{font-size:24px;margin:0 0 8px}p{line-height:1.5;max-width:1000px}select{font:inherit;padding:6px}main{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}article{background:#fafbf5;border:1px solid #d3dccd;border-radius:12px;padding:12px}h2{font-size:17px;margin:0 0 10px}canvas{display:block;width:100%;aspect-ratio:1.4}#status{font-size:13px}@media(max-width:800px){main{grid-template-columns:1fr}}
+</style>
+<h1>Snag alignment</h1>
+<p>All six snag variants used by the game, with the same bark material and instance tint. Inspect the tops from different sides. Saved games are untouched.</p>
+<label>View <select id="view"><option value="quarter">Game angle</option><option value="front">Front</option><option value="back">Back</option><option value="tops">Close tops</option></select></label>
+<p id="status">Preparing models…</p>
+<main><article><h2>Before</h2><canvas id="before"></canvas></article><article><h2>Aligned tops</h2><canvas id="after"></canvas></article></main>
+<script type="module">
+import * as THREE from 'three';
+import { snag } from '../js/render3d/geometry.js';
+let before;try{({snag:before}=await import('./map-audit-output/snag-before.js'));}catch{before=snag;document.querySelector('h2').textContent='Current (before snapshot unavailable)';}
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setSize(700,500);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;
+const scenes=[before,snag].map(builder=>{
+  const scene=new THREE.Scene();scene.background=new THREE.Color('#e4e8db');
+  scene.add(new THREE.HemisphereLight(0xe9f2ff,0x697149,1.45));
+  const sun=new THREE.DirectionalLight(0xffedcf,2.3);sun.position.set(-3,6,4);scene.add(sun);
+  const material=new THREE.MeshLambertMaterial({vertexColors:true,color:new THREE.Color().setRGB(.62,.58,.52)});
+  for(let k=0;k<6;k++){
+    const model=new THREE.Mesh(builder(900+k),material);model.position.set((k%3-1)*.65,0,Math.floor(k/3)*.65-.325);model.rotation.y=k*1.1;scene.add(model);
+  }
+  return scene;
+});
+const camera=new THREE.OrthographicCamera(-1,1,1,-1,.01,50);
+function draw(){
+  const view=document.querySelector('#view').value;
+  const scale=view==='tops'?.75:1.1;camera.left=-scale*1.4;camera.right=scale*1.4;camera.top=scale;camera.bottom=-scale;camera.updateProjectionMatrix();
+  const target=new THREE.Vector3(0,view==='tops'?1.48:.86,0);
+  camera.position.copy(target).add(view==='front'?new THREE.Vector3(0,.1,6):view==='back'?new THREE.Vector3(0,.1,-6):new THREE.Vector3(3,2,5));camera.lookAt(target);
+  scenes.forEach((scene,k)=>{renderer.render(scene,camera);const canvas=document.querySelector(k?'#after':'#before');canvas.width=700;canvas.height=500;canvas.getContext('2d').drawImage(renderer.domElement,0,0);});
+  document.querySelector('#status').textContent='Six seeded variants rendered at identical positions and rotations.';
+}
+document.querySelector('#view').addEventListener('change',draw);draw();
+</script>

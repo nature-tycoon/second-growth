@@ -12,6 +12,20 @@ export function passageChoices(game) {
     (routes[kind] || []).map(key => ANIMAL[key] || PASSAGE_SPECIES[key]).filter(d => d?.move === 'fly'));
 }
 
+// The field guide's passing birds: species that only fly over this map (residents seen in
+// passage flocks already have their own entry), with the seasons their flocks come through.
+export function passageGuide(game) {
+  const routes = PASSAGE_ROUTES[game.map] || {}, seasons = new Map();
+  (biome.look.ambience?.flocks || []).forEach((kinds, season) => {
+    for (const kind of kinds) for (const key of routes[kind] || []) {
+      if (ANIMAL[key] || !PASSAGE_SPECIES[key]) continue;
+      if (!seasons.has(key)) seasons.set(key, new Set());
+      seasons.get(key).add(season);
+    }
+  });
+  return [...seasons].map(([key, s]) => ({ def: PASSAGE_SPECIES[key], seasons: [...s].sort() }));
+}
+
 export function spawnPassage(wl, def, opts = {}) {
   if (!def || def.move !== 'fly' || wl.flyovers.length >= 28) return [];
   const w = wl.game.world, goose = !!def.sprite.goose, swoop = def.key === 'barn_swallow';
@@ -30,7 +44,8 @@ export function spawnPassage(wl, def, opts = {}) {
     const tree = w.tree[i] && PLANTS[w.tree[i]];
     flightY = Math.max(flightY, w.heightAt(xx, yy) * LEVEL + (tree ? 5 * (tree.look.scale ?? 1) * w.treeG[i] : 0) + 2.2);
   }
-  const flock = wl.nextId, speed = opts.speed ?? (goose ? 8 : swoop ? 12 : def.sprite.kind === 'vulture' ? 6 : 9);
+  // (tiles a second: unhurried enough to watch a flock cross the view)
+  const flock = wl.nextId, speed = opts.speed ?? (goose ? 3.2 : swoop ? 4.8 : def.sprite.kind === 'vulture' ? 2.4 : 3.6);
   const n = Math.min(opts.n ?? (goose ? 7 + Math.floor(Math.random() * 4) : ['macaw', 'hornbill', 'vulture', 'heron'].includes(def.sprite.kind) ? 2 + Math.floor(Math.random() * 3) : 5 + Math.floor(Math.random() * 5)), 28 - wl.flyovers.length);
   const out = [];
   for (let k = 0; k < n; k++) {

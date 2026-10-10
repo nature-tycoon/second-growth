@@ -25,7 +25,8 @@ for (const map of ['pnw', 'atlanta', 'amazon', 'reef', 'sumatra', 'chinandega', 
     const { geo, motion } = buildSpecies({ ...def, sprite }), triangles = geo.index.count / 3;
     const before = baseline.find(row => row.map === map && row.key === def.key && row.male === male);
     if (!isPolishModel(sprite)) {
-      if (before) assert.equal(triangles, before.triangles, `${map}/${def.key}: preserve geometry outside this pass`);
+      // Snakes were subsequently refined and have their own geometry/budget audit.
+      if (before && sprite.kind !== 'snake') assert.equal(triangles, before.triangles, `${map}/${def.key}: preserve geometry outside this pass`);
       geo.dispose(); continue;
     }
     assert(triangles < 25000, `${map}/${def.key}: mesh budget`);

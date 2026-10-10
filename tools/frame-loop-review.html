@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Second Growth — frame recovery check</title>
+<style>body{margin:0;background:#edf0e8;color:#26392e;font:15px system-ui}header{padding:16px}h1{font-size:21px;margin:0 0 8px}button{font:inherit;padding:6px;margin-right:8px}iframe{width:100%;height:680px;border:0}#status{margin:10px 0 0}</style>
+<header><h1>Frame recovery check</h1><p>Independent, paused farm. Saves are disabled. Inject a failure and check that frames and controls keep working.</p>
+<button id="render" disabled>Inject drawing error</button><button id="sim" disabled>Inject simulation error</button><button id="lose" disabled>Interrupt graphics</button><button id="restore" disabled>Restore graphics</button><p id="status">Loading…</p></header>
+<iframe title="Independent test farm"></iframe>
+<script type="module">
+const view = document.querySelector('iframe'), status = document.querySelector('#status');
+// Use the full game page and main.js, including the actual startup and frame loop.
+const html = await (await fetch('../index.html')).text();
+view.srcdoc = html.replace('<head>', '<head><base href="../">');
+let game, renderer, ui, frames = 0, controls = 0, injected = 'none', extension;
+const ready = setInterval(() => {
+  const app = view.contentWindow?.secondGrowth;
+  if (!app || view.contentDocument.querySelector('#loading-screen')) return;
+  clearInterval(ready); ({ game, renderer, ui } = app);
+  game.autosave = false; game.saveReady = false; ui.closeModal(); game.speed = 0;
+  const draw = renderer.draw, frame = ui.frame;
+  renderer.draw = function(...args) { const result = draw.apply(this, args); if (!this.contextLost) frames++; return result; };
+  ui.frame = function(...args) { controls++; return frame.apply(this, args); };
+  extension = renderer.gl.getContext().getExtension('WEBGL_lose_context');
+  document.querySelectorAll('#render, #sim').forEach(b => b.disabled = false);
+  document.querySelectorAll('#lose, #restore').forEach(b => b.disabled = !extension);
+}, 100);
+function failOnce(obj, method, label) {
+  const original = obj[method]; injected = label;
+  obj[method] = function(...args) { obj[method] = original; throw new Error(`Intentional recovery check: ${label}`); };
+}
+document.querySelector('#render').onclick = () => failOnce(renderer, 'draw', 'drawing error');
+document.querySelector('#sim').onclick = () => failOnce(game, 'update', 'simulation error');
+document.querySelector('#lose').onclick = () => { injected = 'graphics interruption'; extension.loseContext(); };
+document.querySelector('#restore').onclick = () => { injected = 'graphics restoration'; extension.restoreContext(); };
+setInterval(() => {
+  if (!game) return;
+  status.textContent = `Successful draws: ${frames} · Interface frames: ${controls} · Latest check: ${injected} · Graphics: ${renderer.contextLost ? 'interrupted' : 'ready'} · Game speed: ${game.speed} · Saves disabled`;
+}, 200);
+</script>

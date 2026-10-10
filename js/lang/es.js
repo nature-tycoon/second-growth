@@ -20,7 +20,14 @@ const UNITS = {
 };
 
 addStrings({
+  'The simulation hit a problem and was paused. Reload to continue from your saved farm.': 'La simulación tuvo un problema y se pausó. Recargá la página para continuar desde tu finca guardada.',
+  'The game hit a display problem. If the view does not recover, reload to continue.': 'El juego tuvo un problema con la vista. Si la vista no se recupera, recargá la página para continuar.',
+  'Graphics were interrupted. The farm is waiting for the view to recover.': 'Los gráficos se interrumpieron. La finca está esperando a que se recupere la vista.',
+  'The view has recovered.': 'La vista se recuperó.',
   'Flying through': 'Pasando en vuelo', Flock: 'Bandada', 'Follow bird': 'Seguir al ave',
+  'Passing birds': 'Aves de paso', 'Passes over': 'Pasa en', 'Overhead now': 'Volando encima ahora', None: 'Ninguna',
+  'overhead now': 'volando encima', 'passing through': 'de paso', 'Follow a bird': 'Seguir a un ave',
+  "Flocks cross the property on their way somewhere else. They don't live here, so they don't count toward your species.": 'Las bandadas cruzan la finca de camino a otro lugar. No viven aquí, así que no cuentan entre tus especies.',
   'Canada goose': 'Ganso canadiense', 'Barn swallow': 'Golondrina común', 'Great egret': 'Garza blanca',
   'White stork': 'Cigüeña blanca', 'Black vulture': 'Zopilote negro', 'Blue-crowned hanging parrot': 'Lorículo de corona azul',
   'Pecking for food': 'Picoteando para buscar comida', 'Resting on a perch': 'Descansando en una rama',

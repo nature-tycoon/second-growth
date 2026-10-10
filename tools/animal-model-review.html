@@ -11,7 +11,7 @@ body{margin:0;padding:24px;background:#edf0e8;color:#26392e;font:15px system-ui}
 <label>Map <select id="map"></select></label>
 <label>Models <select id="version"><option value="current">Current</option><option value="before">Before refinement</option></select></label>
 <label>View <select id="view"><option value="side">Side</option><option value="quarter">Three-quarter</option><option value="above">Above</option></select></label>
-<label>Scope <select id="scope"><option value="improved">Improved models</option><option value="splits">Male and female splits</option><option value="detail">Recent model details</option><option value="polish">Latest polish pass</option><option value="ducks-impala">Ducks and impala splits</option><option value="cats">Lion and jaguar</option><option value="all">All models</option></select></label>
+<label>Scope <select id="scope"><option value="improved">Improved models</option><option value="splits">Male and female splits</option><option value="detail">Recent model details</option><option value="polish">Latest polish pass</option><option value="snakes">Snakes</option><option value="ducks-impala">Ducks and impala splits</option><option value="cats">Lion and jaguar</option><option value="all">All models</option></select></label>
 <label>Phase <select id="phase"><option value="1.1">1</option><option value="3">2</option><option value="5">3</option></select></label>
 <label>Zoom <select id="zoom"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
 <label>Framing <select id="framing"><option value="portrait">Inspection portrait</option><option value="game">Gameplay scale</option></select></label>
@@ -31,7 +31,8 @@ controls.map.value=new URLSearchParams(location.search).get('map')||'serengeti';
 controls.scope.value=new URLSearchParams(location.search).get('scope')||'improved';
 const baseline=new URLSearchParams(location.search).get('baseline');
 if(baseline==='polish')controls.version.querySelector('[value="before"]').textContent='Before polish pass';
-const response=await fetch(baseline==='polish'?'./map-audit-output/models-before-polish.json':baseline==='detail'?'./map-audit-output/models-before-detail.json':baseline==='cats'?'./map-audit-output/cats-before-refinement.json':'./map-audit-output/models-before-refinement.json');
+if(baseline==='snakes')controls.version.querySelector('[value="before"]').textContent='Before snake refinement';
+const response=await fetch(baseline==='snakes'?'./map-audit-output/models-before-snakes.json':baseline==='polish'?'./map-audit-output/models-before-polish.json':baseline==='detail'?'./map-audit-output/models-before-detail.json':baseline==='cats'?'./map-audit-output/cats-before-refinement.json':'./map-audit-output/models-before-refinement.json');
 const before=response.ok?await response.json():[];
 controls.version.querySelector('[value="before"]').disabled=before.length===0;
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setSize(360,270);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;
@@ -71,7 +72,7 @@ function draw(){
  for(const e of ordered)document.querySelector('main').append(e.article);
  let count=0;
  for(const e of entries){
-  e.article.hidden=(controls.map.value!=='all'&&e.map!==controls.map.value)||(controls.scope.value==='cats'&&!e.cat)||(controls.scope.value==='detail'&&!e.detail)||(controls.scope.value==='polish'&&!e.polish)||(controls.scope.value==='ducks-impala'&&!e.ducksImpala)||(controls.scope.value==='improved'&&!e.improved)||(controls.scope.value==='splits'&&!e.split);if(e.article.hidden)continue;count++;
+  e.article.hidden=(controls.map.value!=='all'&&e.map!==controls.map.value)||(controls.scope.value==='snakes'&&e.kind!=='snake')||(controls.scope.value==='cats'&&!e.cat)||(controls.scope.value==='detail'&&!e.detail)||(controls.scope.value==='polish'&&!e.polish)||(controls.scope.value==='ducks-impala'&&!e.ducksImpala)||(controls.scope.value==='improved'&&!e.improved)||(controls.scope.value==='splits'&&!e.split);if(e.article.hidden)continue;count++;
   const b=e.models[controls.version.value],show=controls.boost.checked?(b.sprite.show||1):1,sc=adultAnimalScale(b.sprite,controls.boost.checked),box=b.geo.boundingBox;
   const pose=controls.pose.value,fly=e.move==='fly'&&(controls.fly.checked||pose==='fly')||e.kind==='ray'?1:0;b.anim.setXYZW(0,Number(controls.phase.value),pose==='walk'?1:0,fly,pose==='graze'?0.65:0);b.anim.needsUpdate=true;
   const bounds=box.clone(),p=b.geo.attributes.position,ext=b.geo.attributes.aExt,part=b.geo.attributes.aPart;

@@ -10,7 +10,7 @@ import { Ambience } from './ambience.js';
 import { biome } from '../biome.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
 import { ANIMALS, animalDef } from '../data/animals.js';
-import { Terrain, buildAtlas } from './terrain.js';
+import { Terrain, buildAtlas, waterSurfaceY } from './terrain.js';
 import { Flora, windGust, floraVersion } from './flora.js';
 import { Actors, salmonLeap } from './actors.js';
 import { SeaSurface } from './sea.js';
@@ -76,6 +76,16 @@ export class Renderer {
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
+    canvas.addEventListener('webglcontextlost', event => {
+      event.preventDefault(); // allow the browser and Three.js to restore the context
+      this.contextLost = true;
+      this.onContextLost?.();
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.contextLost = false;
+      this.perf = null;
+      this.onContextRestored?.();
+    });
     this.gl.setPixelRatio(this.dpr);
     this.gl.shadowMap.enabled = true;
     this.gl.shadowMap.type = THREE.PCFShadowMap;
@@ -531,6 +541,7 @@ export class Renderer {
 
   // ------------------------------------------------------------------ frame
   draw(game, ui, dt) {
+    if (this.contextLost) return;
     this.time += dt;
     // frame timing for the analytics' performance samples (see perfSample): real time between frames
     {
@@ -761,9 +772,20 @@ export class Renderer {
 
   // ------------------------------------------------------------------ 2D effects layer
   drawFX(game, ui, dt) {
-    const ctx = this.ux, w = this.world;
+    const ctx = this.ux;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.vw, this.vh);
+    // The light over everything (sun wash and vignette) goes on last even if an effect fails:
+    // the frame loop carries on past the error, and a frame without it flashes bright at the edges.
+    try { this.drawEffects(game, ui, dt); }
+    finally {
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      this.ambience.drawSky(ctx, this, game, dt);
+    }
+  }
+  drawEffects(game, ui, dt) {
+    const ctx = this.ux, w = this.world;
     const vp = this.viewportPolygon();
     const xs = vp.map(p => p[0]), zs = vp.map(p => p[1]);
     const bx0 = Math.max(-BORDER, Math.floor(Math.min(...xs)) - 2), bx1 = Math.min(w.w + BORDER - 1, Math.ceil(Math.max(...xs)) + 2);
@@ -903,7 +925,6 @@ export class Renderer {
         ctx.beginPath(); ctx.arc(p.x, p.y, 1.4 * p.s, 0, Math.PI * 2); ctx.fill();
       }
     } else if (kind === 'cloud') { ctx.fillStyle = 'rgba(60,70,80,0.04)'; ctx.fillRect(0, 0, this.vw, this.vh); }
-    this.ambience.drawSky(ctx, this, game, dt);
   }
 }
 

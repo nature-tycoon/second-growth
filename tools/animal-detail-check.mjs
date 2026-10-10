@@ -24,7 +24,7 @@ for (const map of ['pnw', 'atlanta', 'amazon', 'reef', 'sumatra', 'chinandega', 
     const { geo } = buildSpecies({ ...def, sprite }), triangles = geo.index.count / 3;
     const before = baseline.find(r => r.map === map && r.key === def.key && r.male === male);
     if (!targets.has(def.key)) {
-      if (before && !isPolishModel(sprite)) assert.equal(triangles, before.triangles, `${map}/${def.key}: preserve models outside the detail pass`);
+      if (before && !isPolishModel(sprite) && sprite.kind !== 'snake') assert.equal(triangles, before.triangles, `${map}/${def.key}: preserve models outside the detail pass`);
     } else {
       const limit = sprite.kind === 'duck' ? 22000 : def.key === 'impala' ? 18000 : def.key === 'jaguar' ? 45000 : 32000;
       assert(triangles < limit, `${map}/${def.key}: ${triangles} triangles exceeds the ${limit} budget`);

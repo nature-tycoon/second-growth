@@ -30,6 +30,10 @@ export function cervidLeader(wl, a) {
 // A member already grazing near its slot must not keep stepping to the tile
 // on its opposite side just because the exact sub-tile point is unreachable.
 export function followCervid(wl, a, home, field = 'slot', radius = 1.5) {
+  if (a.familyRetryUntil > a.age) {
+    a.wait = Math.max(a.wait, a.familyRetryUntil - a.age);
+    return true;
+  }
   if (!a[field]) {
     const angle = Math.random() * Math.PI * 2, r = radius * (0.6 + Math.random());
     a[field] = [Math.cos(angle) * r, Math.sin(angle) * r];
@@ -38,6 +42,7 @@ export function followCervid(wl, a, home, field = 'slot', radius = 1.5) {
   const settled = a.familySettled === field;
   a.trip = null;
   if (d < radius || settled && d < radius + 1) {
+    a.familyRetryUntil = null;
     a.familySettled = field; a.follow = false; a.wait = 2 + Math.random() * 3;
     return true;
   }
@@ -45,12 +50,15 @@ export function followCervid(wl, a, home, field = 'slot', radius = 1.5) {
   const w = wl.game.world, dist = (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty);
   if (wl.pathTo(a, (j, x, y) => dist(x, y) < radius && dist(x, y) < d - 0.6, 900, dist)) {
     const end = a.path[0], gain = d - dist(end % w.w, end / w.w | 0);
-    if (gain > 0.6 && passable(w, end, a)) { a.follow = true; a.familyFailures = 0; return true; }
+    if (gain > 0.6 && passable(w, end, a)) { a.follow = true; a.familyFailures = 0; a.familyRetryUntil = null; return true; }
     a.state = 'idle'; a.path = null;
   }
   // If the tile grid cannot improve a near-enough position, graze here. A
   // genuinely blocked route eventually releases the group, rather than pacing.
   a.follow = false; a.wait = 2 + Math.random() * 2;
+  // A blocked calf/harem member still belongs to its family. The distance-based
+  // wake-up must respect this wait, rather than repeating a BFS every substep.
+  a.familyRetryUntil = a.age + a.wait;
   if (d < radius + 1.5) { a.familySettled = field; return true; }
   a.familyFailures = (a.familyFailures || 0) + 1;
   return a.familyFailures < 3;
@@ -68,6 +76,7 @@ export function keepCervidGroup(wl, a, def) {
 // A resting follower wakes when its family moves away. Long grazing rests are
 // fine while everyone is stationary, but must not leave a calf several tiles behind.
 export function cervidNeedsRejoin(wl, a, def) {
+  if (a.familyRetryUntil > a.age) return false;
   const maternal = a.mom != null, harem = !maternal && a.haremOf != null;
   const id = maternal ? a.mom : harem ? a.haremOf : a.herdOf;
   if (id == null || id === a.id) return false;

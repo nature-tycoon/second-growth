@@ -11,7 +11,7 @@ import { mergeGeometries, mergeVertices } from 'three/addons/BufferGeometryUtils
 import { withClouds } from './atmosphere.js';
 
 // Body parts the shader knows how to move.
-const P = { BODY: 0, LEG_FL: 1, LEG_FR: 2, LEG_BL: 3, LEG_BR: 4, TAIL: 5, WING_L: 6, WING_R: 7, HEAD: 8 };
+const P = { BODY: 0, LEG_FL: 1, LEG_FR: 2, LEG_BL: 3, LEG_BR: 4, TAIL: 5, WING_L: 6, WING_R: 7, HEAD: 8, TONGUE: 9 };
 
 // ---------------------------------------------------------------- colour helpers
 const colorCache = new Map();
@@ -2529,42 +2529,107 @@ function turtle(m, s) {
   m.limb([-S * 0.42, S * 0.16, 0], [-S * 0.58, S * 0.08, 0], S * 0.05, S * 0.015, skin, { part: P.TAIL, pivot: [-S * 0.42, S * 0.16, 0] });
 }
 
-// Snakes share a continuous S-curve with a gradual taper. Radial paint keeps dorsal stripes,
-// constrictor saddles and python networks aligned as the body bends.
+// One closed surface from the blunt snout through the skull, neck, body and tail.
+// Paint follows length and radial coordinates, so patterns stay on the back/flanks
+// rather than drifting across the body when it curves. No separate head blob.
 function snake(m, s) {
-  const S = s.size, Ls = S * 2.2, N = 24, cy = S * (s.heavy ? 0.11 : 0.08);
-  const paint = (u, p) => {
-    if (u.y < -0.5) return col(s.belly || shade(s.color, 0.4));
-    if (s.reticulated) {
-      const a = Math.atan2(u.z, u.y), q = p.x / (S * 0.13);
-      const net = Math.abs(Math.sin(q + a * 2.4) * Math.sin(q - a * 2.4));
-      return net < 0.16 ? col(s.side || '#302b20') : net < 0.3 ? col(s.stripe || '#d5c58d') : col(s.color);
-    }
-    if (s.saddles) {
-      const q = p.x / (S * 0.14), d = Math.abs(Math.sin(q));
-      return u.y > 0.25 && d < 0.48 ? col(s.blotches) : Math.abs(u.z) > 0.5 && d > 0.8 ? col(s.side) : col(s.color);
-    }
-    if (s.mottled) return Math.sin(p.x / (S * 0.13) + u.z * 2) > 0.25 && u.y > -0.25 ? col(s.stripe) : col(s.color);
-    if (s.blotches) {
-      const q = p.x / (S * 0.16), dx = (q - Math.floor(q) - 0.5) / 0.32, a = Math.atan2(u.z, u.y);
-      const da = Math.min(Math.abs(a - 0.78), Math.abs(a + 0.78)) / 0.5;
-      return dx * dx + da * da < 1 ? col(s.blotches) : col(s.color);
-    }
-    if (u.y > 0.92 && s.stripe) return col(s.stripe);
-    if (Math.abs(u.z) > 0.86 && Math.abs(u.y) < 0.35 && s.side) return Math.sin(p.x / (S * 0.055)) > 0 ? col(s.side) : col(s.stripe || s.color);
-    return col(s.color);
+  const S = s.size, heavy = !!s.heavy, python = !!s.reticulated, boa = !!s.saddles, rat = !!s.mottled;
+  const bulk = heavy ? .148 : boa ? .118 : python ? .102 : rat ? .075 : .060;
+  const headW = heavy ? .088 : boa ? .096 : python ? .087 : rat ? .065 : .054;
+  const headH = heavy ? .052 : boa || python ? .046 : .035;
+  const length = python ? 2.6 : 2.4, noseX = length * .49, tailAt = heavy ? .86 : boa ? .79 : python ? .80 : .69;
+  const back = col(s.color), belly = col(s.belly || shade(s.color, .42)), dark = col(s.side || s.stripe || '#29291f');
+  const light = col(s.blotches || s.stripe || shade(s.color, .18));
+  // [length fraction, half-width, half-height, height above the resting belly]
+  const K = [[0, 0, 0, .020], [.007, headW * .48, headH * .65, .020],
+    [.022, headW * .80, headH * .92, .022], [.045, headW, headH, .022],
+    [.068, headW * .89, headH * .90, .020], [.095, bulk * .55, headH * .68, .013],
+    [.15, bulk * .75, bulk * .58, .006], [.27, bulk, bulk * .77, .004],
+    [.52, bulk * .97, bulk * .75, .004], [tailAt, bulk * .72, bulk * .55, .004],
+    [(tailAt + 1) / 2, bulk * .28, bulk * .22, .004], [.985, .004, .003, .004], [1, 0, 0, .004]];
+  const profile = t => {
+    let k = 0; while (k < K.length - 2 && K[k + 1][0] < t) k++;
+    const a = K[k], b = K[k + 1], f = smooth(a[0], b[0], t);
+    const width = a[1] + (b[1] - a[1]) * f, height = a[2] + (b[2] - a[2]) * f;
+    const lift = a[3] + (b[3] - a[3]) * f;
+    const z = Math.sin(t * Math.PI * 2) * (heavy ? .27 : python ? .35 : .38) * smooth(.09, .22, t);
+    return { x: (noseX - t * length) * S, y: (height * .74 + lift) * S, z: z * S, width: width * S, height: height * S };
   };
-  const pts = [], rad = [];
-  for (let k = 0; k <= N; k++) {
-    const t = k / N, r = S * (s.heavy ? 0.13 : 0.1) * (t < 0.08 ? 0.75 + t * 3.125 : t > 0.64 ? 1 - smooth(0.64, 1, t) * 0.965 : 1);
-    pts.push([Ls * (0.45 - t), cy * (0.55 + r / S * 4.5), Math.sin(t * Math.PI * 1.7 + 0.3) * S * 0.4 * (0.45 + t * 0.55)]);
-    rad.push([r * 0.82, r]);
+  const blotch = (t, angle, count, center, spread, offset = 0) => {
+    const q = t * count + offset, cell = Math.floor(q), jitter = (hash3(cell, count, 3) - .5) * .14;
+    const dx = (q - cell - .5 - jitter) / (.32 + hash3(cell, 5, count) * .08);
+    return dx * dx + ((angle - center) / spread) ** 2;
+  };
+  const paint = u => {
+    const t = (u.x + 1) / 2, angle = Math.atan2(u.z, u.y), a = Math.abs(angle);
+    // Pale broad belly scutes, low contrast so they don't sparkle at map scale.
+    if (u.y < -.58) return tmp.copy(belly).multiplyScalar(.95 + .05 * Math.abs(Math.sin(t * 220)));
+    let color = back;
+    if (t < .092) {
+      if (!heavy && !python && !boa && !rat && a < .18) color = col(s.stripe);
+      else if ((boa || python) && a < .13 && t > .018) color = dark;
+      else if (a > .95 && a < 1.5 && t > .034) color = heavy ? col('#b8954c') : dark;
+      return tmp.copy(color).lerp(belly, smooth(-.15, -.58, u.y) * .45);
+    }
+    if (s.reticulated) {
+      const q = t * 15 + Math.sin(t * 31) * .13;
+      const net = Math.min(Math.abs(Math.sin(Math.PI * (q + angle * 1.65))), Math.abs(Math.sin(Math.PI * (q - angle * 1.65))));
+      color = net < .19 ? dark : net < .39 ? light : a > 1.1 && net > .67 ? belly : back;
+    } else if (boa) {
+      const q = t * 12, cell = Math.floor(q), dx = Math.abs(q - cell - .5);
+      const saddle = dx / (.20 + .17 * smooth(.15, 1.2, a)) + (a / 1.65) ** 4;
+      const side = blotch(t, a, 12, 1.78, .34, .5);
+      color = saddle < 1 ? col(s.blotches) : saddle < 1.22 || side < 1 ? dark : back;
+      if (t > .77 && saddle < 1) color = col('#794b35');
+    } else if (rat) {
+      const saddle = blotch(t, angle, 14, 0, 1.05), side = blotch(t, a, 14, 1.55, .35, .5);
+      color = saddle < 1 || side < 1 ? col(s.stripe) : saddle < 1.3 || side < 1.3 ? dark : col(s.side);
+    } else if (heavy) {
+      const spot = Math.min(blotch(t, angle, 13, .72, .48), blotch(t, angle, 13, -.72, .48, .42));
+      const eye = blotch(t, a, 13, 1.75, .27, .35);
+      color = spot < 1 || eye > .48 && eye < 1.3 ? light : eye < .48 ? belly : back;
+    } else {
+      // Three uninterrupted yellow stripes, red flank patches and dark checks.
+      const stripe = a < .17 || Math.abs(a - 1.82) < .13;
+      const q = Math.floor(t * 40 + Math.floor(a * 4) * .5);
+      color = stripe ? col(s.stripe) : a > .55 && a < 1.65 && q % 2 === 0 ? col(s.side) : back;
+    }
+    return tmp.copy(color).lerp(belly, smooth(-.20, -.58, u.y) * .45)
+      .multiplyScalar(.97 + .03 * Math.cos(t * 260 + Math.floor(angle * 9) * Math.PI));
+  };
+  const R = 144, A = 32, pos = [], unit = [], idx = [];
+  for (let i = 0; i <= R; i++) {
+    const t = i / R, p = profile(t);
+    // Align oval cross sections to the horizontal tangent; keep the belly flat.
+    const ahead = profile(Math.max(0, t - .001)), behind = profile(Math.min(1, t + .001));
+    const dx = ahead.x - behind.x, dz = ahead.z - behind.z, d = Math.hypot(dx, dz), nx = -dz / d, nz = dx / d;
+    for (let j = 0; j <= A; j++) {
+      const a = j / A * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+      pos.push(p.x + nx * sa * p.width, p.y + ca * p.height * (ca < 0 ? .74 : 1), p.z + nz * sa * p.width);
+      unit.push(2 * t - 1, ca, sa);
+    }
   }
-  tube(m, pts, rad, paint, { seg: 24, sub: 4 });
-  const hp = [Ls * 0.49, pts[0][1], pts[0][2]], broad = s.heavy || s.reticulated;
-  m.ell(hp, [S * 0.13, S * 0.06, S * (broad ? 0.115 : 0.085)], u => u.y < -0.3 ? col(s.belly || shade(s.color, 0.4)) : col(s.color));
-  eyes(m, hp, S * 0.05, S * 0.025, S * (broad ? 0.09 : 0.065), S * 0.018, P.BODY, null);
-
+  for (let i = 0; i < R; i++) for (let j = 0; j < A; j++) { const a = i * (A + 1) + j, b = a + A + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry(), paintGeo = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  paintGeo.setAttribute('position', new THREE.Float32BufferAttribute(unit, 3));
+  m.add(g, new THREE.Matrix4(), paint, { paintGeo }); g.dispose(); paintGeo.dispose();
+  // Lateral eyes for the land snakes; the anaconda's eyes sit higher on its head.
+  const eyeT = .043, e = profile(eyeT), ey = heavy ? .70 : .35, er = S * (heavy ? .014 : .012);
+  for (const side of [-1, 1]) {
+    const eye = [e.x, e.y + e.height * ey, e.z + side * e.width * Math.sqrt(1 - ey * ey)];
+    m.ell(eye, [er * 1.2, er, er * .72], heavy || python || boa ? '#b5a054' : '#94885e', { lo: true });
+    m.ell([eye[0] + er * .12, eye[1] + er * .10, eye[2] + side * er * .50],
+      [er * (boa || python ? .24 : .55), er * .66, er * .28], '#131410', { lo: true });
+    m.ell([eye[0] + er * .27, eye[1] + er * .45, eye[2] + side * er * .63], [er * .20, er * .20, er * .16], '#e5dfc8', { lo: true });
+    const n = profile(.017);
+    m.ell([n.x, n.y + n.height * (heavy ? .85 : .5), side * n.width * (heavy ? .45 : .82)], [S * .006, S * .003, S * .004], '#24261b', { lo: true });
+    const jaw = [.010, .026, .046, .067].map(t => { const p = profile(t); return [p.x, p.y - p.height * .24, p.z + side * p.width * .99]; });
+    tube(m, jaw, jaw.map(() => S * .0018), '#423f2c', { seg: 5, sub: 2, capRings: 1 });
+  }
+  const tip = profile(.002), root = [noseX * S, tip.y - S * .005, 0], tongue = { part: P.TONGUE, pivot: root, seg: 5, caps: false };
+  m.limb(root, [root[0] + S * .085, root[1], 0], S * .005, S * .003, '#493038', tongue);
+  for (const side of [-1, 1]) m.limb([root[0] + S * .080, root[1], 0], [root[0] + S * .126, root[1] - S * .002, side * S * .019], S * .003, S * .001, '#493038', tongue);
 }
 
 // Fish share one body plan, varied per species:
@@ -3683,7 +3748,7 @@ export function buildSpecies(def) {
     case 'newt': newt(m, s); mo.leg = 0.5; mo.wave = s.size * 0.05; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.4; mo.waveLen = s.size * 1.2; mo.sink = s.size * 0.12; break;
     case 'turtle': if (s.sea) { seaTurtle(m, s); mo.leg = 0.55; mo.bob = 0; } else turtle(m, s); mo.leg ??= 0.35; mo.sink = s.size * 0.2; break;
     case 'dugong': dugong(m, s); mo.leg = 0.32; mo.tail = 0; break; // (the flukes beat up and down: see dugong)
-    case 'snake': snake(m, s); mo.wave = s.size * 0.13; mo.waveK = 5.2 / (s.size * 2.4); mo.waveHead = s.size * 1.3; mo.waveLen = s.size * 2.4; mo.sink = s.size * 0.05; break;
+    case 'snake': snake(m, s); mo.wave = s.size * (s.heavy ? .065 : .085); mo.waveK = Math.PI * 2 / (s.size * 1.7); mo.waveHead = s.size * 1.3; mo.waveLen = s.size * (s.reticulated ? 2.6 : 2.4); mo.waveMin = .12; mo.wavePow = .7; mo.waveRest = .015; mo.tongue = 1; mo.sink = s.size * (s.heavy ? .095 : .045); break;
     case 'person': person(m, s.look, !!s.snorkel); mo.leg = 0.5; mo.bob = 0.5; mo.len = 8; break;
     case 'butterflyfish': butterflyfish(m, s); mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.1; mo.waveLen = s.size * 0.6; mo.sink = s.size * 0.32; mo.tail = 0.5; break;
     // (a shark swims with its whole back half: about one wave along the body, the head almost
@@ -3710,13 +3775,13 @@ export function faunaMaterial(motion) {
     uBird: { value: motion.bird ?? 0 }, uWingSpan: { value: motion.wingSpan ?? 1 },
     uLeg: { value: motion.leg }, uBob: { value: motion.bob }, uTail: { value: motion.tail }, uFlap: { value: motion.flap },
     uHead: { value: motion.head ?? 0.9 }, uWave: { value: motion.wave }, uWaveK: { value: motion.waveK }, uWaveHead: { value: motion.waveHead }, uWaveLen: { value: motion.waveLen },
-    uVerticalWave: { value: motion.verticalWave ?? 0 }, uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uBend: { value: motion.bend ?? 0 },
+    uVerticalWave: { value: motion.verticalWave ?? 0 }, uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uWaveRest: { value: motion.waveRest ?? .35 }, uTongue: { value: motion.tongue ?? 0 }, uBend: { value: motion.bend ?? 0 },
   };
   mat.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
       attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim;
-      uniform float uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uVerticalWave, uBend, uBird, uWingSpan;
+      uniform float uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
       vec3 rotY(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c); }
       vec3 rotZ(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c - q.y * s, q.x * s + q.y * c, q.z); }
@@ -3749,6 +3814,9 @@ export function faunaMaterial(motion) {
           else { p = rotY(p, aPivot, sway); n = rotY(n, zero, sway); }
           float pitch = uBird * fly * sin(ph * uFlap - 0.4) * 0.045;
           p = rotZ(p, aPivot, pitch); n = rotZ(n, zero, pitch);
+        } else if (aPart > 8.5 && uTongue > 0.5) {
+          float flick = smoothstep(0.91, 0.99, sin(ph * 0.31));
+          p = aPivot + (p - aPivot) * flick;
         } else if (aPart > 7.5) {
           p = rotZ(p, aPivot, -aAnim.w * uHead); n = rotZ(n, zero, -aAnim.w * uHead);
         }
@@ -3765,7 +3833,7 @@ export function faunaMaterial(motion) {
         transformed.y += abs(sin(ph)) * uBob * gait * (1.0 - fly);
         if (uWave > 0.0) {
           float t = clamp((uWaveHead - transformed.x) / uWaveLen, 0.0, 1.0);
-          float wave = sin(transformed.x * uWaveK - ph * 1.4) * uWave * mix(uWaveMin, 1.0, pow(t, uWavePow)) * (0.35 + gait);
+          float wave = sin(transformed.x * uWaveK - ph * 1.4) * uWave * mix(uWaveMin, 1.0, pow(t, uWavePow)) * (uWaveRest + gait);
           transformed.y += wave * uVerticalWave;
           transformed.z += wave * (1.0 - uVerticalWave);
           // a swimmer turning curves its body into the turn (the anim's last slot carries how hard)

@@ -132,6 +132,21 @@ check('Blocked families release unreachable leaders without crossing a fence', (
   assert.equal(a.herdOf, null); assert.equal(a.familyBlockedBy, lead.id); assert.equal(a.follow, false);
   run(g, 20); assert.ok(a.x > 44 && lead.x < 44);
 });
+check('Calves separated by a fence wait between failed searches and rejoin after the fence opens', () => {
+  const g = setup(5), wl = g.wildlife, w = g.world;
+  const mother = spawn(g, 'deer', false, 43.5, 30.5), calf = wl.spawn(ANIMAL.deer, 45, 30, { silent: true, age: 10 });
+  Object.assign(mother, { wait: 1e4, thirst: 0 });
+  Object.assign(calf, { x: 45.5, y: 30.5, mom: mother.id, momSlot: [-.5, 0], wait: 0, thirst: 0 });
+  for (let y = 0; y < w.h; y++) w.feature[w.idx(44, y)] = F.FENCE;
+  let searches = 0; const pathTo = wl.pathTo;
+  wl.pathTo = function(a, ...args) { if (a === calf) searches++; return pathTo.call(this, a, ...args); };
+  run(g, 20);
+  assert.ok(searches < 20, `bounded retries (${searches} searches in 400 steps)`);
+  assert.equal(calf.mom, mother.id); assert.ok(calf.x > 44 && mother.x < 44);
+  for (let y = 0; y < w.h; y++) w.feature[w.idx(44, y)] = 0;
+  run(g, 8);
+  assert.ok(Math.hypot(calf.x - mother.x, calf.y - mother.y) < 1.8, 'calf rejoins once a route is available');
+});
 check('Young male identities have no antlers; mothers, saved groups and leader death are handled', () => {
   const g = setup(), wl = g.wildlife;
   const mother = spawn(g, 'deer', false, 40.5, 30.5), aunt = spawn(g, 'deer', false, 44.5, 30.5), buck = spawn(g, 'deer', true, 46.5, 30.5);
