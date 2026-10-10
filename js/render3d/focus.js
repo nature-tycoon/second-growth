@@ -1,7 +1,10 @@
 // "Look through" for the selected animal: trees, shrubs and buildings standing between the
-// camera and the animal dissolve with a dithered fade, so it stays visible behind cover.
-// Only what sits in a narrow column along the line of sight is affected, and only while
-// an animal is selected. Dithering (instead of true transparency) keeps depth sorting simple.
+// camera and the animal open up in a clean round window, so it stays visible behind cover.
+// The middle of the window is fully clear; its edge feathers out over a soft band and the
+// leaves left standing at the rim catch a faint warm glow, like looking through a lens. Only
+// what sits in a column along the line of sight is affected, and only while an animal is
+// selected. The feathering is dithered with interleaved gradient noise, so there is still no
+// transparency to depth-sort.
 
 import * as THREE from 'three';
 
@@ -26,14 +29,19 @@ export function withFocusFade(mat) {
       vFocusW = (modelMatrix * fcW).xyz;`);
     shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; varying vec3 vFocusW;\n' +
       shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+      float focusRim = 0.0;
       if (uFocusAmt > 0.001) {
         vec3 fd = vFocusW - uFocus;
         float along = dot(fd, uViewDir);                 // > 0: between the animal and the camera
         float across = length(fd - along * uViewDir);    // distance from the line of sight
-        float f = uFocusAmt * (1.0 - smoothstep(uFocusR * 0.72, uFocusR, across)) * smoothstep(-0.2, 0.2, along);
+        float front = smoothstep(-0.15, 0.25, along);
+        float f = uFocusAmt * (1.0 - smoothstep(uFocusR * 0.8, uFocusR, across)) * front;
         float n = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-        if (n < f * 0.9) discard;
-      }`);
+        if (f > 0.995 || n < f * f * (3.0 - 2.0 * f)) discard;
+        // the leaves still standing around the window's edge
+        focusRim = uFocusAmt * front * smoothstep(uFocusR * 0.8, uFocusR * 0.98, across) * (1.0 - smoothstep(uFocusR, uFocusR * 1.12, across));
+      }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0, 0.95, 0.8), focusRim * 0.2);`);
   };
   mat.customProgramCacheKey = () => baseKey + '|focus';
   return mat;

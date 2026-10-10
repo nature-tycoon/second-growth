@@ -993,6 +993,20 @@ export class Wildlife {
   stepToward(a, tx, ty, sp) {
     const dx = tx - a.x, dy = ty - a.y;
     const d = Math.hypot(dx, dy);
+    // A reef fish never slides sideways at a target (hunting, leaving): it turns its nose toward
+    // it, no faster than a fish can, and swims along its heading, easing off in a tight turn.
+    if (a.hd != null && ANIMALS[a.sp].reef && d > sp && sp > 0) {
+      let turn = Math.atan2(dy, dx) - a.hd;
+      turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
+      const rate = sp * 3.5;
+      a.hd += clamp(turn, -rate, rate);
+      const step = sp * Math.max(0.25, Math.cos(turn));
+      const nx = a.x + Math.cos(a.hd) * step, ny = a.y + Math.sin(a.hd) * step, w = this.game.world;
+      if (!w.inb(Math.floor(nx), Math.floor(ny)) || passable(w, w.idx(Math.floor(nx), Math.floor(ny)), a)) { a.x = nx; a.y = ny; }
+      a.orientation = a.hd;
+      if (Math.abs(Math.cos(a.hd)) > 0.1) a.facing = Math.cos(a.hd) > 0 ? 1 : -1;
+      return Math.hypot(tx - a.x, ty - a.y) <= sp;
+    }
     if (d > 0.02 && sp > 0) facePoint(a, tx, ty);
     if (Math.abs(dx) > 0.02) a.facing = dx > 0 ? 1 : -1;
     if (d <= sp) { a.x = tx; a.y = ty; return true; }

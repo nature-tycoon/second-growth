@@ -99,6 +99,12 @@ export class AnimalSpacing {
       if (x !== Math.floor(a.x) && y !== Math.floor(a.y) &&
         (!canStand(w, w.idx(x, Math.floor(a.y)), a) || !canStand(w, w.idx(Math.floor(a.x), y), a))) return false;
       a.x = nx; a.y = ny; e.moved += d;
+      // a reef fish nudged aside veers that way, rather than drifting sideways
+      if (a.hd != null && e.band === 'reef') {
+        let turn = Math.atan2(dy, dx) - a.hd;
+        turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
+        if (Math.abs(turn) < Math.PI * 0.75) a.hd += clamp(turn, -d * 3, d * 3);
+      }
       return true;
     };
     for (const e of this.entries) for (const f of this.near(e.a.x, e.a.y)) {

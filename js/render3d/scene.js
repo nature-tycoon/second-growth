@@ -231,7 +231,7 @@ export class Renderer {
     amt.value += ((pose || ft ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
     if (pose) {
       focus.uFocus.value.copy(pose.center);
-      focus.uFocusR.value = clamp(0.55 + pose.h * 1.6, 0.6, 1.2);
+      focus.uFocusR.value = clamp(0.75 + pose.h * 1.7, 0.85, 1.45); // (a roomier window than the animal itself)
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
@@ -304,7 +304,6 @@ export class Renderer {
     const pose = this.followAgent && this.actors.pose.get(this.followAgent.id);
     if (!pose?.visible) return;
     this.centerOn(pose.center.x, pose.center.z, pose.center.y);
-    this.actors.ring.quaternion.copy(this.camera.quaternion);
   }
   groundCamera() {
     if (!this.animalCentered) return;
@@ -843,12 +842,21 @@ export class Renderer {
     if (sel) {
       const s = this.actors.pose.get(sel.id);
       if (s?.visible) {
-        const p = this.project(s.x, s.y + s.h + 0.08, s.z);
-        const label = ANIMALS[sel.sp].name;
-        ctx.font = '700 12px Nunito, sans-serif';
-        const tw = ctx.measureText(label).width + 12;
-        ctx.fillStyle = 'rgba(30,40,28,0.85)'; ctx.beginPath(); ctx.roundRect(p.x - tw / 2, p.y - 24, tw, 18, 6); ctx.fill();
-        ctx.fillStyle = '#fff6dc'; ctx.textAlign = 'center'; ctx.fillText(label, p.x, p.y - 11); ctx.textAlign = 'left';
+        // A small name tag floating clear above the animal: anchored above the highest of its
+        // body and its modelled height, a fixed gap above that on screen, with a short stem.
+        const top = Math.max(s.y + s.h, s.center.y + s.h * 0.6) + 0.06;
+        const p = this.project(s.x, top, s.z), lift = 14;
+        const label = ANIMALS[sel.sp].name, y = p.y - lift;
+        ctx.font = '700 11px Nunito, sans-serif';
+        const tw = ctx.measureText(label).width + 16, th = 19;
+        ctx.save();
+        ctx.globalAlpha = 0.92;
+        ctx.strokeStyle = 'rgba(255,241,184,0.7)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(p.x, y); ctx.lineTo(p.x, y + lift - 4); ctx.stroke();
+        ctx.fillStyle = 'rgba(22,30,24,0.72)'; ctx.beginPath(); ctx.roundRect(p.x - tw / 2, y - th, tw, th, th / 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,241,184,0.35)'; ctx.stroke();
+        ctx.fillStyle = '#fff6dc'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, p.x, y - th / 2 + 0.5);
+        ctx.restore();
       }
     }
 
