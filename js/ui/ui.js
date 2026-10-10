@@ -7,6 +7,7 @@ import { MUSIC_LICENSE } from '../audio/tracks.js';
 import { PLANTS, PLANT, LAYER_NAMES, MIX } from '../data/plants.js';
 import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many, isMaleVariant, animalDef } from '../data/animals.js';
 import { PASSAGE_SPECIES } from '../data/bird-passage.js';
+import { passageGuide } from '../sim/bird-passage.js';
 import { TOOLS, CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
 import { STRUCTURES } from '../world.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
@@ -778,7 +779,7 @@ export class UI {
       <div class="animal-hero"><img src="${animalThumb(def.key)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
       <div class="kv"><span class="k">Status</span><span>Flying through</span><span class="k">Flock</span><span>${this.game.wildlife.flyovers.filter(b => b.flock === a.flock).length} birds</span></div>
       <p class="info-desc">This bird is passing over the map. It does not live on the property or count toward its resident population.</p>
-      <p class="info-desc">${def.desc}</p><button class="btn" data-follow>Follow bird</button>`;
+      <p class="info-desc">${def.desc}</p><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-follow>Follow bird</button><button class="btn secondary" data-guide="${def.key}">Field guide</button></div>`;
     const ageY = a.age / 120;
     const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey' }[a.hunt?.phase] || 'Hunting';
     const birdStatus = { forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting' }[a.bird?.kind];
@@ -1021,6 +1022,32 @@ export class UI {
       detail.querySelector('#g-show').addEventListener('click', () => { this.closeModal(); this.setOverlay('species', def.index); });
       detail.querySelector('#g-find')?.addEventListener('click', () => this.locateAnimal(def));
     };
+    // Birds that only fly over: no habitat to build for them, but worth knowing when to look up.
+    const passing = passageGuide(g);
+    const overhead = def => wl.flyovers.filter(a => a.key === def.key);
+    const showPassing = ({ def, seasons }) => {
+      this.refreshWildlifeGuide = null;
+      m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === def.key));
+      const now = overhead(def).length;
+      detail.innerHTML = `<div class="hero-wrap"><img class="hero" src="${animalThumb(def.key)}"></div>
+        <h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div>
+        <p class="info-desc">${def.desc}</p>
+        <div class="kv"><span class="k">Passes over</span><span>${seasons.map(s => biome.climate.seasons[s]).join(', ')}</span>
+        <span class="k">Overhead now</span><span>${now ? `${now} birds` : 'None'}</span></div>
+        <p class="info-desc">Flocks cross the property on their way somewhere else. They don't live here, so they don't count toward your species.</p>
+        ${now ? '<div style="margin-top:10px"><button class="btn" id="g-follow">Follow a bird</button></div>' : ''}`;
+      detail.querySelector('#g-follow')?.addEventListener('click', () => {
+        const a = overhead(def)[0];
+        if (!a) return;
+        this.closeModal();
+        const r = this.renderer;
+        r.zoom = Math.max(2.2, r.zoom);
+        r.centerOnAnimal(a);
+        this.inspectAgent(a);
+        r.frameGoal = this.animalFrame(); r.animalFraming = true;
+        this.follow = a;
+      });
+    };
     const showPlant = p => {
       this.refreshWildlifeGuide = null;
       const sea = !!biome.look.underwater;
@@ -1060,7 +1087,21 @@ export class UI {
           }
           list.appendChild(grid);
         }
-        showAnimal(key ? ANIMAL[key] : ANIMALS.find(a => wl.state[a.index].pop) || ANIMALS[0]);
+        if (passing.length) {
+          list.appendChild(el('div', 'guide-group', 'Passing birds'));
+          const grid = el('div', 'guide-grid');
+          for (const p of passing) {
+            const n = overhead(p.def).length;
+            const c = el('div', 'gcard', `<img src="${animalThumb(p.def.key)}"><div class="nm">${p.def.name}</div><div class="pop ${n ? 'here' : ''}">${n ? 'overhead now' : 'passing through'}</div>`);
+            c.dataset.key = p.def.key;
+            c.addEventListener('click', () => showPassing(p));
+            grid.appendChild(c);
+          }
+          list.appendChild(grid);
+        }
+        const pass = key && passing.find(p => p.def.key === key);
+        if (pass) showPassing(pass);
+        else showAnimal(key && ANIMAL[key] || ANIMALS.find(a => wl.state[a.index].pop) || ANIMALS[0]);
       } else {
         for (let layer = 0; layer < 3; layer++) {
           list.appendChild(el('div', 'guide-group', (biome.plantTabs ? [biome.plantTabs.ground, biome.plantTabs.shrub, biome.plantTabs.tree] : ['Groundcover', 'Shrubs', 'Trees'])[layer]));

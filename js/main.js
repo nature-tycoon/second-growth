@@ -2,6 +2,7 @@ import { Game, PENDING_KEY } from './game.js';
 import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
+import { createFrameLoop } from './frame-loop.js';
 import { settings } from './settings.js';
 import { initAnalytics, analyticsWillRun, track } from './analytics.js';
 import { initLang } from './i18n.js';
@@ -67,22 +68,41 @@ async function boot() {
     let onBattery = false;
     navigator.getBattery?.().then(b => { const upd = () => { onBattery = !b.charging; }; upd(); b.addEventListener('chargingchange', upd); }).catch(() => {});
     const targetFps = () => settings.fps === '60' ? 60 : settings.fps === '30' ? 30 : touch || onBattery ? 30 : 60;
-    let last = performance.now();
-    function frame(now) {
-      // (skip this refresh if it comes too soon; the small allowance keeps 30 steady on a 60 Hz screen)
-      if (now - last < 1000 / targetFps() - 3) { requestAnimationFrame(frame); return; }
-      const dt = Math.min(0.1, (now - last) / 1000);
-      last = now;
-      game.update(dt);
-      input.update(dt);
-      renderer.draw(game, ui.state, dt);
-      ui.frame(dt);
-      requestAnimationFrame(frame);
-    }
+    const frameErrors = new Set();
+    const frame = createFrameLoop({
+      targetFps,
+      steps: [
+        ['simulation', dt => { if (!renderer.contextLost) game.update(dt); }],
+        ['input', dt => input.update(dt)],
+        ['render', dt => renderer.draw(game, ui.state, dt)],
+        ['interface', dt => ui.frame(dt)],
+      ],
+      onError(error, phase) {
+        if (phase === 'simulation') {
+          game.speed = 0;
+          game.saveReady = false; // keep automatic saves from replacing the last intact farm
+        }
+        const message = String(error?.message || error), key = `${phase}|${message}`;
+        if (frameErrors.has(key) || frameErrors.size >= 5) return;
+        frameErrors.add(key);
+        console.error(`Second Growth frame failed (${phase}):`, error);
+        track('js_error', { kind: 'frame', stage: phase, message: message.slice(0, 300),
+          where: String(error?.stack?.split('\n')[1] || '').trim().slice(0, 200),
+          map: game.map, day: game.day, animals: game.wildlife.agents.length });
+        game.notify(phase === 'simulation'
+          ? 'The simulation hit a problem and was paused. Reload to continue from your saved farm.'
+          : 'The game hit a display problem. If the view does not recover, reload to continue.', 'warn');
+      },
+    });
+    renderer.onContextLost = () => game.notify('Graphics were interrupted. The farm is waiting for the view to recover.', 'warn');
+    renderer.onContextRestored = () => game.notify('The view has recovered.', 'info');
 
     // The scene gets its first frame before the loading page fades away.
     requestAnimationFrame(now => {
       try {
+        // Startup failures still show the loading error instead of opening a blank farm.
+        renderer.draw(game, ui.state, 0);
+        ui.frame(0);
         frame(now);
         stage('Ready', 100);
         requestAnimationFrame(() => {

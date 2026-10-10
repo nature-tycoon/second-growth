@@ -30,6 +30,26 @@ function spawn(g, key, x = 40.5, y = 30.5) {
 }
 function fixed(value, fn) { const before = Math.random; Math.random = () => value; try { return fn(); } finally { Math.random = before; } }
 const idx = (g, a) => g.world.idx(Math.floor(a.x), Math.floor(a.y));
+check('A bathing bird renders splash rings without crashing the frame, including a removed water tile', () => {
+  const g = setup(), w = g.world, a = spawn(g, 'robin');
+  const water = w.idx(41, 30); w.terrain[water] = T.POND;
+  w.waterManaged?.fill(0);
+  a.bird = { kind: 'bathe', water: [41.5, 30.5] };
+  const r = { world: w, zoom: 1, trailRng: () => 0,
+    actors: { visibleWildlife: [a], pose: new Map([[a.id, { gait: 0, y: 0, yaw: 0 }]]), view: { visible: () => true } },
+    project: (x, y, z) => ({ x: x - z, y }),
+  };
+  let drawn = 0;
+  const ctx = { beginPath() {}, ellipse(...args) { assert.ok(args.every(Number.isFinite)); drawn++; }, stroke() {} };
+  Renderer.prototype.drawTrails.call(r, ctx, g, .1);
+  assert.equal(drawn, 1); assert.equal(r.trailFx.length, 1);
+  const ring = r.trailFx[0]; assert.equal(ring.k, 'ring');
+  assert.deepEqual([ring.x, ring.z], a.bird.water); assert.ok(Number.isFinite(ring.y) && ring.y > 0);
+  r.trailFx = []; g.speed = 0;
+  Renderer.prototype.drawTrails.call(r, ctx, g, .1); assert.equal(r.trailFx.length, 0);
+  g.speed = 1; w.terrain[water] = T.SOIL;
+  Renderer.prototype.drawTrails.call(r, ctx, g, .1); assert.equal(r.trailFx.length, 0);
+});
 check('Every map and season uses real flyable species; reef passage is seabirds', () => {
   for (const map of ['pnw', 'atlanta', 'amazon', 'serengeti', 'chinandega', 'sumatra', 'reef']) {
     const g = setup(map);
