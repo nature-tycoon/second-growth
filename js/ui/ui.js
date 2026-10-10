@@ -766,7 +766,10 @@ export class UI {
   agentHTML(a) {
     const def = ANIMALS[a.sp], st = this.game.wildlife.state[a.sp];
     const ageY = a.age / 120;
-    const status = a.leaving ? 'Leaving the property' : a.state === 'hunt' ? 'Hunting' : a.state === 'walk' || a.state === 'fly' ? (a.move === 'fly' ? 'Flying' : 'Wandering') : 'Resting / foraging';
+    const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey' }[a.hunt?.phase] || 'Hunting';
+    const status = a.leaving ? 'Leaving the property' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : 'Running from danger')
+      : a.state === 'play' ? 'Playing' : a.state === 'feed' ? 'Feeding' : a.drinkT > 0 ? 'Drinking' : a.sparT > 0 ? 'Sparring with a rival'
+      : a.greetT > 0 ? 'Greeting a neighbour' : a.alertT > 0 ? 'On the alert' : a.state === 'walk' || a.state === 'fly' ? (a.move === 'fly' ? 'Flying' : 'Wandering') : 'Resting / foraging';
     const ageTxt = ageY < 1 ? `${Math.max(1, Math.round(ageY * 12))} months` : `${ageY.toFixed(1)} years`;
     return `<button class="close">×</button>
       <div class="animal-hero"><img src="${animalThumb(def.key)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>

@@ -234,7 +234,12 @@ check('A missed land hunt leaves Challenging predators hungry and gives prey an 
       assert.equal(predator.hunger, 12); assert.equal(prey.state, 'walk');
       const initial = Math.hypot(prey.x - predator.x, prey.y - predator.y);
       g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - predator.x, prey.y - predator.y) > initial);
-    } else { assert.equal(predator.hunger, 0); assert.equal(prey.state, 'idle'); }
+    } else {
+      // Standard keeps its hunger rule; the surviving prey still bolts away from the predator.
+      assert.equal(predator.hunger, 0); assert.equal(prey.state, 'flee');
+      const initial = Math.hypot(prey.x - predator.x, prey.y - predator.y);
+      g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - predator.x, prey.y - predator.y) > initial);
+    }
   }
 });
 check('Fleeing fish cannot escape a pond across dry land', () => {

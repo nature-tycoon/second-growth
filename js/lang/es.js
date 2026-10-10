@@ -96,6 +96,9 @@ addStrings({
   // ---------------------------------------------------------------- inspector
   Gone: 'Se fue', "This animal has moved on, or didn't make it.": 'Este animal se fue, o no sobrevivió.',
   'Leaving the property': 'Saliendo de la finca', Hunting: 'Cazando', Flying: 'Volando', Wandering: 'Caminando', 'Resting / foraging': 'Descansando / comiendo',
+  'Stalking prey': 'Acechando a su presa', 'Chasing prey': 'Persiguiendo a su presa', 'Circling over prey': 'Volando en círculos sobre su presa',
+  Playing: 'Jugando', 'Running from danger': 'Huyendo del peligro', Feeding: 'Comiendo', Drinking: 'Bebiendo',
+  'Sparring with a rival': 'Midiéndose con un rival', 'Greeting a neighbour': 'Saludando a un vecino', 'On the alert': 'Alerta',
   'Show habitat': 'Ver hábitat', 'Field guide': 'Guía de campo', 'Next one': 'El siguiente',
   Age: 'Edad', Needs: 'Necesita', Population: 'Población', Status: 'Estado', Disturbance: 'Molestia',
   'Water quality': 'Calidad del agua', 'Fish access': 'Paso de peces', 'Connected to the river': 'Unido al estero', 'Cut off from the river': 'Aislado del estero',

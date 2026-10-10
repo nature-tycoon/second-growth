@@ -10,6 +10,7 @@ import { biome } from '../biome.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, facePoint, shoreSpot } from './animal-positioning.js';
+import { beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, watch, prowl, scavenge, play, greet, arrive } from './animal-life.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -72,6 +73,7 @@ export class Wildlife {
     this.game = game;
     this.agents = [];
     this.spacing = new AnimalSpacing();
+    this.carcasses = []; // kills being eaten (drawn, and visited by scavengers; not saved)
     this.nextId = 1;
     this.state = ANIMALS.map(() => ({ pop: 0, K: 0, suitSum: 0, discovered: false, lastYear: 0, blockedNotified: false, births: 0 }));
     this.suit = ANIMALS.map(() => new Float32Array(game.world.n));
@@ -192,6 +194,7 @@ export class Wildlife {
     a.orientation = a.phase * Math.PI / 5; // an initial direction without another random draw
     if (opts.flyIn) { a.flying = true; a.alt = 1; a.state = 'fly'; a.tx = x + 0.5; a.ty = y + 0.5; a.x = opts.fromX; a.y = opts.fromY; }
     this.agents.push(a);
+    this.ids?.set(id, a);
     this.spacingDirty = true;
     const st = this.state[def.index];
     st.pop++;
@@ -206,6 +209,7 @@ export class Wildlife {
     this.spacingDirty = true;
     const k = this.agents.indexOf(a);
     if (k >= 0) this.agents.splice(k, 1);
+    this.ids?.delete(a.id);
     if (!a.leaving) this.state[a.sp].pop = Math.max(0, this.state[a.sp].pop - 1);
     if (this.game.selectedAgent === a) this.game.selectedAgent = null;
     if (cause === 'predation' || cause === 'starved') this.game.stats.deaths = (this.game.stats.deaths || 0) + 1;
@@ -632,7 +636,11 @@ export class Wildlife {
       const d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
       if (d < bd) { bd = d; best = b; }
     }
-    if (best) { a.state = 'hunt'; a.target = best.id; a.huntTime = 3; a.path = null; if (a.move === 'fly') a.flying = true; }
+    if (best) {
+      a.state = 'hunt'; a.target = best.id; a.huntTime = 5; a.path = null; a.assist = false; a.drinkT = 0; a.drinkAt = null;
+      if (a.move === 'fly') a.flying = true;
+      beginHunt(this, a, def, best);
+    }
   }
 
   evadeHunt(a, predator) {
@@ -727,18 +735,22 @@ export class Wildlife {
     if (!(dt > 0)) return;
     const w = this.game.world;
     this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
+    this.ids = new Map(this.agents.map(a => [a.id, a])); // (hunters, chasers and the chased look each other up every step)
     for (let k = this.agents.length - 1; k >= 0; k--) {
       const a = this.agents[k];
       if (!a) continue;
       const def = ANIMALS[a.sp];
       a.age += dt;
       // (a fish beats its tail faster the faster it swims, and only sculls gently while it hovers)
-      a.phase += dt * (def.reef ? 2.5 + 5 * Math.min(1.6, (a.spd || 0) / def.speed) : 6) * (def.sprite.beat ?? 1); // (beat: a big, slow swimmer's tail)
-      if (biome.waterholes) a.thirst = (a.thirst || 0) + dt;
+      a.phase += dt * (def.reef ? 2.5 + 5 * Math.min(1.6, (a.spd || 0) / def.speed) : 6 * clamp(a.run || 1, 0.45, 2.6)) * (def.sprite.beat ?? 1); // (beat: a big, slow swimmer's tail; a.run: legs going faster at a sprint, slower at a creep)
+      if (this.drinks(def)) a.thirst = (a.thirst || 0) + dt;
+      if (a.alertT > 0) a.alertT -= dt;
+      if (a.sparT > 0) a.sparT -= dt;
+      if (a.greetT > 0) a.greetT -= dt;
       if (a.drinkT > 0) {
         a.drinkT -= dt;
         if (a.drinkT <= 0) a.drinkAt = null;
-        else if (biome.waterholes && !a.drinkAt) {
+        else if (this.drinks(def) && !a.drinkAt) {
           // Older saves can contain a head-down pose with no direction (even a calf on dry
           // ground). Repair it on the next simulation step rather than waiting for another trip.
           const bank = this.bankSpot(a);
@@ -747,6 +759,7 @@ export class Wildlife {
         }
       }
       const sp = def.speed * dt * (a.follow ? 1.3 : a.wade ? 0.3 : 1); // herd members trot to keep up; waders step slowly
+      if (a.state !== 'hunt' && a.state !== 'flee' && a.state !== 'play' && a.state !== 'walk' && a.run) a.run = null;
       switch (a.state) {
         case 'idle':
           a.wait -= dt;
@@ -762,7 +775,7 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
-          if (!a.path || !a.path.length) { a.state = 'idle'; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : 0.5 + Math.random() * 3; break; }
+          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : 0.5 + Math.random() * 3; arrive(this, a); break; }
           const j = a.path[a.path.length - 1];
           if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1), dt)) a.path.pop(); break; }
           // each animal keeps to its own line through a tile and stops at its own spot in the last
@@ -770,7 +783,7 @@ export class Wildlife {
           // a single point
           const [ox, oy] = spotIn(a, j, a.path.length === 1);
           if (a.path.length === 1 && a.restSpot?.[0] !== j) {
-            const bank = biome.waterholes && a.thirst > (def.drinkEvery ?? 5 + a.id % 5) * 0.5 ? this.bankSpot(a, j) : null;
+            const bank = this.drinks(def) && a.thirst > (def.drinkEvery ?? 5 + a.id % 5) * 0.5 ? this.bankSpot(a, j) : null;
             a.restSpot = [j, ...(bank && bank.crowd < 0.08 ? [bank.x, bank.y] : this.spacing.restSpot(a, j, ox, oy))];
           }
           const tx = a.path.length === 1 ? a.restSpot[1] : (j % w.w) + 0.5 + ox;
@@ -784,7 +797,7 @@ export class Wildlife {
             this.spacing.crowd(a, a.x, a.y) < 0.04)) {
             a.path.pop(); break;
           }
-          if (this.stepToward(a, tx, ty, (wading ? sp * 0.55 : sp) * (a.pace || 1))) a.path.pop();
+          if (this.stepToward(a, tx, ty, (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1))) a.path.pop(); // (a.run: a startled animal dashing for cover)
           break;
         }
         case 'approach':
@@ -800,38 +813,57 @@ export class Wildlife {
             const i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
             if (i >= 0 && !canLand(w, i, def)) { a.flying = true; a.wait = 0; break; }
             a.wait = WADERS.has(def.sprite.kind) && i >= 0 && shallows(w, i) ? 4 + Math.random() * 6 : 0.5 + Math.random() * 3; // a wader settles in
+            arrive(this, a);
           }
           break;
         case 'hunt': {
           // A difficulty change also stops hunts that only exist in Challenging.
-          if (!preyFor(def, this.game)) { a.state = 'idle'; a.wait = 1; a.flying = false; break; }
+          if (!preyFor(def, this.game)) { a.state = 'idle'; a.wait = 1; a.flying = false; endHunt(a); break; }
           a.huntTime -= dt;
-          const b = this.agents.find(o => o.id === a.target);
+          const b = this.ids.get(a.target);
           if (!b || b.leaving || a.huntTime <= 0) {
-            a.state = 'idle'; a.wait = 1;
+            a.state = 'idle'; a.wait = 1; endHunt(a);
             if (this.game.diff.ecology && a.move === 'fly') a.flying = false;
             break;
           }
-          if (this.game.diff.ecology && a.move !== 'fly' && (b.flying || b.alt > 0.2)) { a.state = 'idle'; a.wait = 1; break; }
+          if (this.game.diff.ecology && a.move !== 'fly' && (b.flying || b.alt > 0.2)) { a.state = 'idle'; a.wait = 1; endHunt(a); break; }
           if (a.move === 'fly') a.alt = Math.min(1, a.alt + dt * 2);
           const nx = a.x + Math.sign(b.x - a.x) * 0.3, ny = a.y + Math.sign(b.y - a.y) * 0.3;
           if (a.move !== 'fly' && w.inb(Math.floor(nx), Math.floor(ny))) {
             const j = w.idx(Math.floor(nx), Math.floor(ny));
             // water hunters (caiman, anaconda, giant otter) strike from the water's edge, not across the fields
-            if (!passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2)) { a.state = 'idle'; a.wait = 1; break; }
+            if (!passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2)) { a.state = 'idle'; a.wait = 1; endHunt(a); break; }
           }
-          if (this.stepToward(a, b.x, b.y, sp * 1.6) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25) {
-            a.state = 'idle'; a.wait = 1.5;
-            if (!this.game.diff.ecology) a.hunger = 0;
-            if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def)) {
-              a.hunger = 0;
-              this.game.onPredation(a, b);
-              this.remove(b, 'predation');
-            } else if (this.game.diff.ecology) this.evadeHunt(b, a);
-            if (a.move === 'fly') a.flying = false;
+          // approach, stalk or circle, then rush (animal-life.js); the catch is decided on contact
+          const reached = huntStep(this, a, def, b, sp);
+          if (a.state !== 'hunt' || !reached) break;
+          a.state = 'idle'; a.wait = 1.5;
+          if (a.assist) { endHunt(a); if (a.move === 'fly') a.flying = false; break; } // (the pack's flankers leave the kill to the one in front)
+          endHunt(a);
+          if (!this.game.diff.ecology) a.hunger = 0;
+          if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def)) {
+            a.hunger = 0;
+            this.game.onPredation(a, b);
+            this.remove(b, 'predation');
+            startFeed(this, a, def, b);
+          } else {
+            if (this.game.diff.ecology) this.evadeHunt(b, a);
+            missed(this, b, a);
           }
+          if (a.move === 'fly' && a.state !== 'feed') a.flying = false;
           break;
         }
+        case 'flee':
+          fleeUpdate(this, a, def, dt);
+          break;
+        case 'play':
+          playUpdate(this, a, def, sp);
+          break;
+        case 'feed':
+          a.feedT -= dt;
+          if (a.move === 'fly') { a.alt = Math.max(0, a.alt - dt * 3); a.flying = false; }
+          if (a.feedT <= 0) { a.state = 'idle'; a.wait = 1 + Math.random() * 2; a.feedAt = null; a.carcass = null; } // then a rest
+          break;
         case 'leave':
           if (a.leaveWait > 0) { a.leaveWait -= dt; break; }
           if (a.move === 'fly') a.alt = Math.min(1, a.alt + dt * 3);
@@ -839,6 +871,7 @@ export class Wildlife {
           break;
       }
     }
+    for (let k = this.carcasses.length - 1; k >= 0; k--) if ((this.carcasses[k].t -= dt) <= 0) this.carcasses.splice(k, 1);
     this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
     this.spacing.separate(dt, passable);
     // Measure progress after spacing: movement can appear successful and then be
@@ -1029,8 +1062,11 @@ export class Wildlife {
   chooseTarget(a, def) {
     a.restSpot = null;
     a.drinkAt = null;
+    a.run = null;
     const w = this.game.world;
     const map = this.suit[a.sp];
+    // a predator close by comes before anything else
+    if (!a.leaving && watch(this, a, def)) return;
     // on a trip: carry on to the destination (a hunt or a rest may have interrupted it)
     if (a.trip != null) {
       const tx = (a.trip % w.w) + 0.5, ty = ((a.trip / w.w) | 0) + 0.5;
@@ -1038,7 +1074,9 @@ export class Wildlife {
       else if (this.roam(a, def, a.trip)) return;
     }
     a.follow = false; a.wade = false;
-    // young stay close to their mother until they're old enough to go their own way
+    // the young play-chase each other, and otherwise stay close to their mother until they're old
+    // enough to go their own way
+    if (!a.leaving && play(this, a, def)) return;
     if (a.mom != null && !a.leaving && this.keepWithMom(a, def)) return;
     // just climbed out of the river: the herd heads inland to find grass
     if (a.landed) {
@@ -1054,7 +1092,10 @@ export class Wildlife {
       else if (a.visit) { this.leave(a); return; }
     }
     if (def.ambush && this.crossingAt && this.game.day < this.crossingAt.until && this.lurk(a)) return;
-    if (biome.waterholes && !a.leaving && this.waterhole(a, def)) return;
+    if (!a.leaving && scavenge(this, a, def)) return; // a fresh kill nearby
+    if (!a.leaving && prowl(this, a, def)) return;    // predators: lie up after a meal, go looking when hungry
+    if (this.drinks(def) && !a.leaving && this.waterhole(a, def)) return;
+    if (!a.leaving && greet(this, a, def)) return;    // say hello to a neighbour (or spar with a rival)
     // herd animals stay together: one leads, the rest keep their place around it
     if (def.herd && !a.leaving && this.keepWithHerd(a, def)) return;
     // herd leaders keep their distance from the next herd of their kind, so herds spread out
@@ -1157,6 +1198,14 @@ export class Wildlife {
   }
 
   // -------------------------------------------------------------- herds and waterholes
+  // Who walks to water to drink: on the savanna everything that isn't a fish or a beetle; on the
+  // other maps the land mammals (and the cattle). Birds, reptiles and insects there drink where they are.
+  drinks(def) {
+    if (def.move === 'swim' || def.noDrink || def.reef || biome.look?.underwater) return false;
+    if (biome.waterholes) return true;
+    return (def.group === 'Mammals' || def.herd) && (def.move === 'ground' || (def.move === 'semi' && !def.patrol));
+  }
+
   bankSpot(a, j = null) {
     const w = this.game.world;
     if (this.spacing.w !== w || this.spacingDirty) {
@@ -1270,7 +1319,7 @@ export class Wildlife {
     if (!years || a.age > Math.min(years, def.mature || years) * DAYS_PER_YEAR) { a.mom = null; return false; }
     const mom = this.agents.find(o => o.id === a.mom);
     if (!mom) { a.mom = null; return false; } // on its own now
-    if (biome.waterholes && mom.drinkT > 0 && this.waterhole(a, def)) return true;
+    if (this.drinks(def) && mom.drinkT > 0 && this.waterhole(a, def)) return true;
     if (!a.momSlot) { const ang = Math.random() * Math.PI * 2, r = 0.45 + Math.random() * 0.4; a.momSlot = [Math.cos(ang) * r, Math.sin(ang) * r]; }
     // head for where she's going, not where she was, so the young keep pace instead of trailing
     const w = this.game.world, dest = mom.state === 'walk' && mom.path?.length ? mom.path[0] : -1;
@@ -1367,6 +1416,7 @@ export class Wildlife {
   }
   load(d) {
     this.spacingDirty = true;
+    this.carcasses = [];
     this.agents = d.agents.map(a => ({ ...a, moveProgress: null, state: a.state === 'walk' ? 'idle' : a.state,
       wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5 }));
     this.nextId = d.nextId;

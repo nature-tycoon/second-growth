@@ -3808,7 +3808,7 @@ export class Fauna {
     this.scene = scene;
     this.species = new Map();
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.v = new THREE.Vector3(); this.s = new THREE.Vector3();
-    this.yAxis = new THREE.Vector3(0, 1, 0); this.zAxis = new THREE.Vector3(0, 0, 1); this.qp = new THREE.Quaternion();
+    this.yAxis = new THREE.Vector3(0, 1, 0); this.zAxis = new THREE.Vector3(0, 0, 1); this.xAxis = new THREE.Vector3(1, 0, 0); this.qp = new THREE.Quaternion();
   }
   pool(def) {
     let p = this.species.get(def.key);
@@ -3818,7 +3818,7 @@ export class Fauna {
   motion(def) { return this.pool(def).motion; }
   begin() { for (const p of this.species.values()) p.count = 0; }
   // One animal this frame. scale converts model pixels to scene units.
-  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0) {
+  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0) {
     const p = this.pool(def);
     if (p.count >= p.cap) {
       // carry over what this frame has already written, then grow
@@ -3829,6 +3829,7 @@ export class Fauna {
     const k = p.count++;
     this.q.setFromAxisAngle(this.yAxis, yaw);
     if (pitch) this.q.multiply(this.qp.setFromAxisAngle(this.zAxis, pitch)); // nose up or down (a leaping fish)
+    if (roll) this.q.multiply(this.qp.setFromAxisAngle(this.xAxis, roll)); // over on its side (a kill)
     this.m.compose(this.v.set(x, y, z), this.q, this.s.set(scale, scale, scale));
     p.mesh.setMatrixAt(k, this.m);
     const a = p.anim.array;
