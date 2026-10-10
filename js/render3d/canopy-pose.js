@@ -93,7 +93,7 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   const step = Math.max(0, Math.min(.1, dt));
   // A body well behind its simulation position also keeps moving: a brief brush
   // with bark is less visible than the reset jump that a growing lag ends in.
-  const forced = st.canopyForce > 0 || st.canopyLag > 1;
+  const forced = st.canopyForce > 0 || st.canopyLag > 1.8;
   if (forced) st.canopyForce -= step;
   if (current && !forced && !clear(next)) {
     const requested = st.branchPoint.clone(), limit = step * (mo.primate === 2 ? 1 : 1.5);

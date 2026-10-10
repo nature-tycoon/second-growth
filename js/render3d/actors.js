@@ -258,7 +258,7 @@ export class Actors {
           const invalidRoute = !supportsValid;
           const firstHold = !st.branchPoint;
           if (firstHold || returning || invalidRoute) st.canopyQuaternion = null;
-          const motion = canopyStep(st, anchor, def, game, time, returning || invalidRoute);
+          const motion = canopyStep(st, anchor, def, game, time, returning || invalidRoute, { x: a.x, z: a.y });
           const route = st.branchRoute;
           if (route && this.flora.treeSites.get(route.fromSite.tile) === route.fromSite) canopySites.add(route.fromSite);
           st.gait = game.speed > 0 ? gait0 + (motion.gait - gait0) * Math.min(1, k * 2) : gait0;

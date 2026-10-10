@@ -14,6 +14,7 @@ import { canStartHunt, beginHunt, endHunt, huntStep, startFeed, missed, fleeUpda
 import { birdChoose, birdArrive, birdUpdate } from './bird-behavior.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
+import { travelSpeed } from './climb-pace.js';
 import { updatePassage } from './bird-passage.js';
 
 
@@ -778,7 +779,7 @@ export class Wildlife {
           else a.drinkT = 0;
         }
       }
-      const sp = def.speed * dt * (a.follow ? 1.3 : a.wade ? 0.3 : 1); // herd members trot to keep up; waders step slowly
+      const sp = travelSpeed(def) * dt * (a.follow ? 1.3 : a.wade ? 0.3 : 1); // herd members trot to keep up; waders step slowly
       if (a.state !== 'hunt' && a.state !== 'flee' && a.state !== 'play' && a.state !== 'walk' && a.run) a.run = null;
       switch (a.state) {
         case 'idle':
@@ -898,7 +899,7 @@ export class Wildlife {
         case 'leave':
           if (a.leaveWait > 0) { a.leaveWait -= dt; break; }
           if (a.move === 'fly') a.alt = Math.min(1, a.alt + dt * 3);
-          if (this.stepToward(a, a.tx, a.ty, sp * 1.2 * (a.pace || 1)) || a.x < -2 || a.y < -2 || a.x > w.w + 2 || a.y > w.h + 2) this.remove(a, 'left');
+          if (this.stepToward(a, a.tx, a.ty, sp * (a.move === 'tree' ? 1 : 1.2) * (a.pace || 1)) || a.x < -2 || a.y < -2 || a.x > w.w + 2 || a.y > w.h + 2) this.remove(a, 'left');
           break;
       }
     }
