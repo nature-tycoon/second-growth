@@ -17,6 +17,7 @@ import { FloraChanges, floraChunkKey } from './flora-changes.js';
 import { groveForm } from './groves.js';
 import { underWater, groundAt, visibleLevel } from '../sim/waterline.js';
 import { paletteLeafColor } from './palettes.js';
+import { CanopySite } from './canopy-support.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -202,6 +203,10 @@ export class Flora {
     this.tallGrass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 0.4, this.wind, true, 0.5, 0.7)), 1.3));
     this.bark = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
     this.small = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
+    // Occupied branches stay solid when foliage is revealed. They use the real
+    // tree scaffold, with no focus cutout, wind deformation or global tree fade.
+    this.canopyBark = withClouds(withSnowTops(new THREE.MeshLambertMaterial({ vertexColors: true }), 1));
+    this.treeSites = new Map(); this.canopyPools = new Map(); this.canopyVisible = new Set();
     // soft contact shadows on the ground under trees and bushes, so they still sit on the land
     // when the sun's shadows are off (see Renderer.draw)
     this.contact = new THREE.MeshBasicMaterial({ color: 0x0a1206, vertexColors: true, transparent: true, opacity: 0.48, depthWrite: false,
@@ -348,12 +353,25 @@ export class Flora {
     for (const m of [this.foliage, this.shrubs, this.bark]) { m.transparent = on; m.opacity = on ? 0.28 : 1; m.depthWrite = !on; m.needsUpdate = true; }
   }
 
+  showCanopySites(sites) {
+    if (sites.size === this.canopyVisible.size && [...sites].every(s => this.canopyVisible.has(s))) return;
+    this.canopyVisible = sites;
+    for (const p of this.canopyPools.values()) p.begin();
+    for (const site of sites) {
+      let p = this.canopyPools.get(site.geo);
+      if (!p) { p = new Pool(this.scene, site.geo, this.canopyBark, { shadow: false, receive: true }); this.canopyPools.set(site.geo, p); }
+      p.add(...site.transform, site.color);
+    }
+    for (const p of this.canopyPools.values()) p.end();
+  }
+
   // Rebuild changed source regions. World, season, height and graphics changes rebuild fully.
   rebuild(game, force = false) {
     const w = game.world, B = game.border, month = game.month;
     const dirty = this.incremental && !force ? this.changes.find(game, this.light) : null;
     this.lastRebuild = { full: !dirty, tiles: 0, regions: dirty?.size ?? null };
     if (dirty && !dirty.size) return;
+    if (!dirty) this.treeSites.clear();
     for (const p of this.pools.values()) p.begin(dirty);
     const dots = this.pool('dot', () => G.blob(0xffffff), this.small, { shadow: false });
     const x0 = -BORDER, y0 = -BORDER, x1 = w.w + BORDER, y1 = w.h + BORDER;
@@ -366,6 +384,7 @@ export class Flora {
       this.lastRebuild.tiles++;
       const inside = w.inb(x, y);
       const i = inside ? w.idx(x, y) : -1;
+      if (inside) this.treeSites.delete(i);
       const bi = inside ? -1 : B.bi(x, y);
       if (!inside && bi < 0) continue;
       const v = (inside ? w.variant[i] : (x * 7 + y * 13)) & 1;
@@ -553,7 +572,9 @@ export class Flora {
         const key = `${p.look.type}:${p.key}:${v}`;
         const build = (lod = 0) => G.treeParts(shapeDef, 500 + v * 13 + p.id, lod);
         if (!p.conifer && phase === 'winter') {
-          this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark).add(tx, ty, tz, sx, sy, sz, rot, bark);
+          const bare = this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark);
+          bare.add(tx, ty, tz, sx, sy, sz, rot, bark);
+          if (inside && w.tree[i] && !p.aquatic) this.treeSites.set(i, new CanopySite(this.geos.get(`bare:${key}`), [tx, ty, tz, sx, sy, sz, rot], bark, i, p.id));
         } else {
           let shape = this.geos.get(`treeparts:${key}`);
           if (!shape) {
@@ -561,6 +582,7 @@ export class Flora {
             snowCrown(shape.crown); snowCrown(shape.lo.crown); if (shape.mid.crown !== shape.crown) snowCrown(shape.mid.crown);
             this.geos.set(`treeparts:${key}`, shape);
           }
+          if (inside && w.tree[i] && !p.aquatic) this.treeSites.set(i, new CanopySite(shape.trunk, [tx, ty, tz, sx, sy, sz, rot], bark, i, p.id));
           if (!this.pools.has(`crown:${key}`)) {
             const receive = () => this.lightingDepth !== false && !this.light && !biome.look.underwater;
             const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, shadowGeo: shape.lo.crown, receive: receive() }), this);

@@ -185,6 +185,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   if (l < 1e-3) { const r = Math.random() * Math.PI * 2; fx = Math.cos(r); fy = Math.sin(r); } else { fx /= l; fy /= l; }
   a.drinkT = 0; a.drinkAt = null; a.localGoal = null; a.bankGoal = null; a.follow = false;
   a.bird = null; a.birdGoal = null; a.birdGround = false;
+  a.fruitMeal = null; a.fruitGoal = null;
   a.socialWith = null; a.socialUntil = 0; a.sparPath = null;
   a.greet = null; a.goal = null; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
   if (a.state === 'hunt' || a.state === 'feed') { endHunt(a); a.feedAt = null; a.carcass = null; }

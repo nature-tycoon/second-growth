@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Canopy footing review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>body{margin:24px;background:#eef0e8;color:#27392d;font:15px system-ui}h1{font-size:24px;margin-bottom:8px}p{max-width:900px}label{display:inline-block;margin:8px 18px 8px 0}select{font:inherit;padding:6px}main{display:grid;grid-template-columns:1fr 1fr;gap:16px}article{background:#fafbf5;border-radius:10px;padding:12px}h2{font-size:17px}canvas{width:100%;display:block}#status{font-size:13px}</style>
+<h1>Canopy footing</h1><p>Actual tree and animal models. The right view keeps the occupied tree's woody scaffold visible and places the animal on its branches. These fixtures leave saved farms untouched.</p>
+<label>Animal <select id="animal"><option value="amazon:howler">Amazon howler</option><option value="amazon:spider">Spider monkey</option><option value="sumatra:orangutan">Orangutan</option><option value="sumatra:siamang">Siamang</option><option value="sumatra:langur">Thomas's langur</option><option value="chinandega:congo">Mantled howler</option><option value="chinandega:capuchin">Capuchin</option><option value="amazon:sloth">Sloth</option><option value="atlanta:graysquirrel">Gray squirrel</option></select></label>
+<label>Reveal <select id="reveal"><option value="both">See-through trees + selected animal</option><option value="focus">Selected animal only</option><option value="fade">See-through trees only</option><option value="none">Opaque trees</option></select></label>
+<label>Growth <select id="growth"><option value="1">Mature</option><option value=".55">Young</option></select></label>
+<label>Graphics <select id="graphics"><option value="full">Full</option><option value="fast">Fast</option></select></label>
+<label>View <select id="view"><option value="0.785">Southwest</option><option value="2.356">Southeast</option><option value="3.927">Northeast</option></select></label>
+<label>Position <select id="position"><option value=".68">Crown centre</option><option value=".99">Tile boundary</option><option value="1.35">Next tree</option></select></label>
+<p id="status">Preparing…</p><main><article><h2>Previous canopy placement</h2><canvas id="before" width="640" height="480"></canvas></article><article><h2>Branch support</h2><canvas id="after" width="640" height="480"></canvas></article></main>
+<script type="module">
+import * as THREE from 'three';
+import { Flora } from '../js/render3d/flora.js';
+import { Actors } from '../js/render3d/actors.js';
+import { focus } from '../js/render3d/focus.js';
+import { Renderer } from '../js/render3d/scene.js';
+import { canopyFixture } from './canopy-support-fixture.mjs';
+const controls=Object.fromEntries(['animal','reveal','growth','graphics','view','position','status'].map(id=>[id,document.getElementById(id)]));
+const gl=new THREE.WebGLRenderer({antialias:true});gl.setSize(640,480);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;
+const camera=new THREE.OrthographicCamera(-2,2,1.5,-1.5,.01,100),right=new THREE.Vector3(1,0,0);let fixture,views=[];
+function setup(){
+ for(const v of views){for(const p of v.flora.pools.values())for(const s of p.subs.values())s.dispose();for(const p of v.flora.canopyPools.values())p.dispose();for(const p of v.actors.fauna.species.values()){p.geo.dispose();p.mat.dispose();p.mesh.dispose();}}
+ const [map,key]=controls.animal.value.split(':');fixture=canopyFixture(map,key,Number(controls.growth.value));views=[];
+ for(const improved of [false,true]){
+  const scene=new THREE.Scene();scene.background=new THREE.Color('#e5e7d6');scene.add(new THREE.HemisphereLight(0xe9f2ff,0x697149,1.45));const sun=new THREE.DirectionalLight(0xffedcf,2.3);sun.position.set(30,50,35);scene.add(sun);
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(12,12).rotateX(-Math.PI/2),new THREE.MeshLambertMaterial({color:0xb3bc90}));ground.position.set(40,-.025,32);scene.add(ground);
+  const flora=new Flora(scene);flora.setLight(controls.graphics.value==='fast');flora.setZoom(1.2);flora.rebuild(fixture.game,true);const actors=new Actors(scene,improved?flora:null);actors.clean=true;
+  views.push({scene,flora,actors,improved});
+ }
+ draw();
+}
+function draw(){
+ const {game,a}=fixture;a.x=40+Number(controls.position.value);
+ const site=views[1].flora.treeSites.get(game.world.idx(40,32));site.geo.computeBoundingBox();
+ const top=site.transform[1]+site.geo.boundingBox.max.y*site.transform[4],half=Math.max(1.5,(top+.65)*.52);
+ camera.left=-half*4/3;camera.right=half*4/3;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();
+ const angle=Number(controls.view.value),target=new THREE.Vector3(40.5,Math.max(1.2,top*.5),32.5);camera.position.copy(target).add(new THREE.Vector3(Math.sin(angle)*.83,.56,Math.cos(angle)*.83).multiplyScalar(20));camera.lookAt(target);camera.updateMatrixWorld();
+ for(const v of views){
+  v.flora.setFade(['both','fade'].includes(controls.reveal.value));v.actors.update(game,right,1,camera,480);
+  Renderer.prototype.updateFocus.call({actors:v.actors,camera,world:game.world},game,1);if(!['both','focus'].includes(controls.reveal.value))focus.uFocusAmt.value=0;
+  gl.render(v.scene,camera);document.getElementById(v.improved?'after':'before').getContext('2d').drawImage(gl.domElement,0,0);
+ }
+ const st=views[1].actors.pose.get(a.id),anchor=st.branch;
+ controls.status.textContent=anchor?`Animal attached to real branch surface · ${views[1].flora.canopyVisible.size} occupied tree scaffold · ${anchor.site.triangles.length} cached support surfaces · unchanged simulation position`:'No branch anchor';
+}
+for(const id of ['animal','growth','graphics'])controls[id].addEventListener('change',setup);for(const id of ['reveal','view','position'])controls[id].addEventListener('change',draw);setup();
+</script></html>
