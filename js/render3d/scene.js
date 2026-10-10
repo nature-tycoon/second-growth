@@ -1,6 +1,7 @@
 // The isometric 3D view: an orthographic camera over a lit, shadowed heightmap diorama.
 // A transparent 2D canvas on top carries weather, pollinators, sparkles and labels.
 
+import { easeAnimalTarget } from './animal-camera.js';
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { snow, withSnowTops } from './snow.js';
@@ -110,7 +111,7 @@ export class Renderer {
     this.terrain = new Terrain(this.scene, this.atlas);
     this.flora = new Flora(this.scene);
     this.lightingDepth = true;
-    this.actors = new Actors(this.scene);
+    this.actors = new Actors(this.scene, this.flora);
     this.seaSurface = new SeaSurface(this.scene);
     this.structMat = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), 1.1));
     this.structs = new Map();
@@ -310,14 +311,19 @@ export class Renderer {
   centerOnAnimal(a) {
     this.fly = null; this.zoomGoal = null;
     this.followAgent = a;
+    this.followPoseId = null;
     const pose = this.actors.pose.get(a.id);
-    if (pose?.visible) this.centerOn(pose.center.x, pose.center.z, pose.center.y);
+    if (pose?.visible) { this.centerOn(pose.center.x, pose.center.z, pose.center.y); this.followPoseId = a.id; }
     else this.centerOn(a.x, a.y); // next draw computes its fresh pose, even if offscreen
   }
-  updateAnimalCamera() {
+  updateAnimalCamera(dt = 1 / 60) {
     const pose = this.followAgent && this.actors.pose.get(this.followAgent.id);
     if (!pose?.visible) return;
-    this.centerOn(pose.center.x, pose.center.z, pose.center.y);
+    if (pose.branchPoint && this.followPoseId === this.followAgent.id) {
+      easeAnimalTarget(this.target, pose.center, dt);
+      this.animalCentered = true; this.updateCamera();
+    } else this.centerOn(pose.center.x, pose.center.z, pose.center.y);
+    this.followPoseId = this.followAgent.id;
   }
   groundCamera() {
     if (!this.animalCentered) return;
@@ -681,7 +687,7 @@ export class Renderer {
     this.actors.clean = !!ui.clean;
     this.actors.followAgent = this.followAgent;
     this.actors.update(game, r, this.time, this.camera, this.vh);
-    this.updateAnimalCamera();
+    this.updateAnimalCamera(dt);
     this.rockBoats();
     this.updateFocus(game, dt);
     // snow settles and melts gradually on screen rather than popping in with the daily tick

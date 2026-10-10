@@ -13,6 +13,7 @@ import { AnimalSpacing, facePoint, shoreSpot } from './animal-positioning.js';
 import { canStartHunt, beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate } from './bird-behavior.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
+import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
 import { updatePassage } from './bird-passage.js';
 
 
@@ -795,7 +796,7 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
-          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? 3 + Math.random() * 4 : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); break; }
+          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? 3 + Math.random() * 4 : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); break; }
           const j = a.path[a.path.length - 1];
           if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1), dt)) a.path.pop(); break; }
           // each animal keeps to its own line through a tile and stops at its own spot in the last
@@ -874,6 +875,9 @@ export class Wildlife {
           if (a.move === 'fly' && a.state !== 'feed') a.flying = false;
           break;
         }
+        case 'primate':
+          primateUpdate(this, a, def, dt);
+          break;
         case 'bird':
           birdUpdate(this, a, def, dt);
           break;
@@ -1120,6 +1124,7 @@ export class Wildlife {
     a.drinkAt = null; a.waterTrip = false;
     a.run = null;
     a.bird = null; a.birdGoal = null; a.birdGround = false;
+    a.fruitMeal = null; a.fruitGoal = null;
     const w = this.game.world;
     const map = this.suit[a.sp];
     // a predator close by comes before anything else
@@ -1157,6 +1162,7 @@ export class Wildlife {
     if (!a.leaving && harem(this, a, def)) return;    // elk in the rut: bulls gather and guard harems
     if (this.drinks(def) && !a.leaving && this.waterhole(a, def)) return;
     if (!a.leaving && birdChoose(this, a, def)) return;
+    if (!a.leaving && primateChoose(this, a, def)) return;
     if (!a.leaving && greet(this, a, def)) return;    // say hello to a neighbour (or spar with a rival)
     // herd animals stay together: one leads, the rest keep their place around it
     if (def.herd && !a.leaving && this.keepWithHerd(a, def)) return;
@@ -1485,7 +1491,7 @@ export class Wildlife {
     this.spacingDirty = true;
     this.carcasses = [];
     this.flyovers = []; this.passageWait = 8 + Math.random() * 10;
-    this.agents = d.agents.map(a => ({ ...a, moveProgress: null, state: a.state === 'walk' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
+    this.agents = d.agents.map(a => ({ ...a, moveProgress: null, fruitGoal: null, state: a.state === 'walk' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
       wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5 }));
     this.nextId = d.nextId;
     d.state.forEach((s, k) => { if (this.state[k]) Object.assign(this.state[k], s); });

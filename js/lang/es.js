@@ -30,6 +30,7 @@ addStrings({
   "Flocks cross the property on their way somewhere else. They don't live here, so they don't count toward your species.": 'Las bandadas cruzan la finca de camino a otro lugar. No viven aquí, así que no cuentan entre tus especies.',
   'Canada goose': 'Ganso canadiense', 'Barn swallow': 'Golondrina común', 'Great egret': 'Garza blanca',
   'White stork': 'Cigüeña blanca', 'Black vulture': 'Zopilote negro', 'Blue-crowned hanging parrot': 'Lorículo de corona azul',
+  'Eating fruit': 'Comiendo fruta', 'Looking for fruit': 'Buscando fruta', 'Climbing through the canopy': 'Trepando entre las copas',
   'Pecking for food': 'Picoteando para buscar comida', 'Resting on a perch': 'Descansando en una rama',
   'Preening feathers': 'Arreglándose las plumas', 'Bathing at the water’s edge': 'Bañándose a la orilla del agua',
   'Visiting a nest site': 'Visitando un sitio de anidación', 'Hopping between feeding spots': 'Saltando entre sitios de alimentación',

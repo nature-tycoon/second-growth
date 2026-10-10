@@ -65,6 +65,10 @@ export function merge(list) {
     o += g.attributes.position.count;
   }
   const out = new THREE.BufferGeometry();
+  const branches = list.flatMap(g => g.userData.canopyBranches || []);
+  if (branches.length) out.userData.canopyBranches = branches;
+  const trunks = list.flatMap(g => g.userData.canopyTrunks || []);
+  if (trunks.length) out.userData.canopyTrunks = trunks;
   out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   out.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -259,7 +263,10 @@ function strap(o, pos, col) {
 // ---------------------------------------------------------------- trees (unit: tiles, mature size)
 export const MID = 0.5; // the in-between level of detail (see treeParts)
 function trunk(h, r0, r1, color = 0xffffff, sides = 7) {
-  return soft(new THREE.CylinderGeometry(r1, r0, h, sides, 3), { color, transform: g => g.translate(0, h / 2, 0), lump: r0 * 0.25, seed: 5 });
+  const g = soft(new THREE.CylinderGeometry(r1, r0, h, sides, 3), { color, transform: g => g.translate(0, h / 2, 0), lump: r0 * 0.25, seed: 5 });
+  // Collision clearance also needs the trunk, which is not a traversable limb.
+  g.userData.canopyTrunks = [{ from: [0, 0, 0], to: [0, h, 0], r0: r0 * 1.25, r1: r1 * 1.25 }];
+  return g;
 }
 
 // Evergreen crowns: a stack of dense, lobed branch tiers. Each tier is a skirt whose lobes are
@@ -707,11 +714,7 @@ export function cecropia(opts, seed, lod = 0) {
   for (let k = 0; k < n; k++) {
     const a = k / n * 6.28 + r() * 0.5, len = H - fork + (r() - 0.5) * 0.2, out = 0.22 + r() * 0.15;
     const ex = Math.cos(a) * out, ez = Math.sin(a) * out, ey = fork + len;
-    const b = soft(new THREE.CylinderGeometry(0.018, 0.026, Math.hypot(ex, len, ez), 5), { transform: g => {
-      g.translate(0, Math.hypot(ex, len, ez) / 2, 0);
-      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(ex, len, ez).normalize()));
-      g.translate(0, fork, 0);
-    } });
+    const b = rod([0, fork, 0], [ex, ey, ez], .026, .018);
     limbs.push(b);
     // umbrella: a few overlapping flattened lobes, pale underneath
     for (let l = 0; l < (lod ? 3 : 6); l++) {
@@ -749,9 +752,9 @@ export function emergent(opts, seed, lod = 0) {
   const limbs = [trunk(cy, trunkR, trunkR * 0.72)];
   for (let k = 0; k < 5; k++) {
     const a = k / 5 * 6.28 + r() * 0.5, len = rx * 0.75;
-    const l = soft(new THREE.CylinderGeometry(trunkR * 0.28, trunkR * 0.5, len, 5), { transform: g => {
-      g.translate(0, len / 2, 0); g.rotateZ(-1.05); g.rotateY(-a); g.translate(0, cy - ry * 0.4, 0);
-    } });
+    const base = [0, cy - ry * .4, 0];
+    const tip = [Math.cos(a) * Math.sin(1.05) * len, base[1] + Math.cos(1.05) * len, Math.sin(a) * Math.sin(1.05) * len];
+    const l = rod(base, tip, trunkR * .5, trunkR * .28);
     limbs.push(l);
   }
   if (opts.buttress) for (let k = 0; k < 5; k++) {
@@ -798,11 +801,13 @@ function thornTree(opts, seed, lod) {
 // A tapered branch between two points.
 function rod(p0, p1, r0, r1, sides = 5) {
   const a = new THREE.Vector3(...p0), d = new THREE.Vector3(...p1).sub(a), len = d.length() || 1e-3;
-  return soft(new THREE.CylinderGeometry(r1, r0, len, sides), { transform: g => {
+  const g = soft(new THREE.CylinderGeometry(r1, r0, len, sides), { transform: g => {
     g.translate(0, len / 2, 0);
     g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
     g.translate(a.x, a.y, a.z);
   } });
+  g.userData.canopyBranches = [{ from: p0, to: p1, r0, r1 }];
+  return g;
 }
 
 // Baobab: a swollen bottle of a trunk, stubby branches like roots in the air, a thin crown.

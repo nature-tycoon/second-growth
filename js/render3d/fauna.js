@@ -8,10 +8,11 @@
 
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/BufferGeometryUtils.js';
+import { SIAMANG_SWING_GLSL } from './siamang-swing.js';
 import { withClouds } from './atmosphere.js';
 
 // Body parts the shader knows how to move.
-const P = { BODY: 0, LEG_FL: 1, LEG_FR: 2, LEG_BL: 3, LEG_BR: 4, TAIL: 5, WING_L: 6, WING_R: 7, HEAD: 8, TONGUE: 9 };
+const P = { BODY: 0, LEG_FL: 1, LEG_FR: 2, LEG_BL: 3, LEG_BR: 4, TAIL: 5, WING_L: 6, WING_R: 7, HEAD: 8, TONGUE: 9, FRUIT: 10 };
 
 // ---------------------------------------------------------------- colour helpers
 const colorCache = new Map();
@@ -297,6 +298,7 @@ function tube(m, pts, rad, paint, o = {}) {
 // Long hair hanging off a limb or a flank: thin tapering locks falling from points along a line
 // (a to b), each a little different in length and lean. down: [dx, dy, dz] per unit of length.
 function locks(m, a, b, count, len, r, paint, o = {}, seed = 1, down = [0, -1, 0]) {
+  const first = m.parts.length;
   for (let k = 0; k < count; k++) {
     const j = hash3(k, seed, 3.1), j2 = hash3(seed, k, 7.7), t = Math.min(1, Math.max(0, (k + 0.2 + j2 * 0.6) / count));
     const p0 = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
@@ -309,6 +311,7 @@ function locks(m, a, b, count, len, r, paint, o = {}, seed = 1, down = [0, -1, 0
     m.limb(p0, p1, rr, rr * 0.62, paint, { ...o, caps: false, seg: 5 });
     m.limb(p1, p2, rr * 0.62, rr * 0.1, paint, { ...o, caps: false, seg: 5 });
   }
+  for (let i = first; i < m.parts.length; i++) m.parts[i].userData.canopyFur = true;
 }
 
 // Jaguar and ocelot rosettes: broken dark rings with a warmer centre, laid on a jittered grid
@@ -3077,10 +3080,8 @@ function armadillo(m, s) {
 }
 
 // Sumatran orangutan, clambering over the top of the canopy: no branch of its own (it's drawn on
-// the crown of its tree), so it holds a pose that reads anywhere in the foliage. Leaning forward,
-// one very long arm reaches far ahead and down to the leaves and the other out to the side, the
-// hands hooked into the foliage at the crown's surface; short legs splay out behind, bent at the
-// knee, with hand-like feet gripping. Long, ragged rust-orange hair hangs in locks off the arms,
+// an actual woody branch), with long forward arms, bent elbows and short tucked legs.
+// Both hands and hand-like feet grip along the wood. Long, ragged rust-orange hair hangs in locks off the arms,
 // thighs and flanks. A high domed crown, a small dark bare face with a pale muzzle, and no tail.
 // As it moves the arms reach and the legs step, swinging from the shoulders and hips; the head
 // dips from the neck.
@@ -3106,10 +3107,9 @@ function orangutan(m, s) {
     const x = c[0] / L + Math.cos(a) * 0.14 * B, z = Math.sin(a) * 0.155 * B;
     locks(m, U(x, c[1] / L + 0.03, z), U(x * 1.02, c[1] / L - 0.05, z * 1.05), 2, L * 0.17 * (fl ? 1.4 : 1), L * 0.04, lock, {}, k + 1);
   }
-  // arms: long, one reaching far ahead and down, the other out to the side; hands hooked into
-  // the leaves, fingers curled down into them
-  const arms = [[1, P.LEG_FL, U(0.07, 0.56, 0.13 * B), U(0.27, 0.42, 0.3), U(0.45, 0.15, 0.3), U(0.5, 0.06, 0.3)],
-    [-1, P.LEG_FR, U(0.04, 0.56, -0.13 * B), U(0.12, 0.38, -0.36), U(0.13, 0.15, -0.44), U(0.14, 0.06, -0.46)]];
+  // Long arms in a balanced climbing stance, with curled fingers gripping the wood.
+  const arms = [[1, P.LEG_FL, U(0.07, 0.56, 0.13 * B), U(0.19, 0.31, 0.15), U(0.28, 0.13, 0.14), U(0.3, 0.06, 0.14)],
+    [-1, P.LEG_FR, U(0.07, 0.56, -0.13 * B), U(0.19, 0.31, -0.15), U(0.28, 0.13, -0.14), U(0.3, 0.06, -0.14)]];
   for (const [side, part, sh, el, wr, hand] of arms) {
     const o = { part, pivot: sh };
     tube(m, [sh, el, wr], [0.075 * B, 0.06 * B, 0.044].map(r => r * L), hair, { ...o, seg: 10, sub: 5 });
@@ -3125,11 +3125,11 @@ function orangutan(m, s) {
       locks(m, [el[0], el[1] - L * 0.035, el[2] + dz], [wr[0] + (el[0] - wr[0]) * 0.25, wr[1] + (el[1] - wr[1]) * 0.25 - L * 0.03, wr[2] + (el[2] - wr[2]) * 0.25 + dz], fl ? 7 : 5, L * 0.17 * HL, L * 0.032 * (fl ? 1.2 : 1), lock, o, side * 5 + dz);
     }
   }
-  // legs: short, splayed out behind and bent at the knee, the hand-like feet gripping
-  for (const [side, part, kn, an] of [[1, P.LEG_BL, U(0.06, 0.2, 0.25), U(-0.05, 0.07, 0.28)], [-1, P.LEG_BR, U(-0.14, 0.19, -0.23), U(-0.3, 0.08, -0.21)]]) {
+  // Short bent legs with both hand-like feet pointing along the branch.
+  for (const [side, part, kn, an] of [[1, P.LEG_BL, U(-0.12, 0.16, 0.12), U(-0.18, 0.07, 0.12)], [-1, P.LEG_BR, U(-0.12, 0.16, -0.12), U(-0.18, 0.07, -0.12)]]) {
     const hip = U(-0.07, 0.27, side * 0.08 * B), o = { part, pivot: hip };
     tube(m, [hip, kn, an], [0.072 * B, 0.056 * B, 0.042].map(r => r * L), hair, { ...o, seg: 10, sub: 3 });
-    const fwd = side > 0 ? [0.6, 0, 0.8] : [-0.8, 0, -0.2];
+    const fwd = [1, 0, 0];
     m.ell([an[0] + fwd[0] * L * 0.035, an[1] - L * 0.035, an[2] + fwd[2] * L * 0.035], [L * 0.06, L * 0.026, L * 0.04], skin, { ...o, lo: true, rot: [0, Math.atan2(-fwd[2], fwd[0]), 0] }); // the foot
     for (const f of [-1, 1]) { const b0 = [an[0] + fwd[0] * L * 0.07 - fwd[2] * f * L * 0.018, an[1] - L * 0.035, an[2] + fwd[2] * L * 0.07 + fwd[0] * f * L * 0.018]; m.limb(b0, [b0[0] + fwd[0] * L * 0.02, b0[1] - L * 0.04, b0[2] + fwd[2] * L * 0.02], L * 0.015, L * 0.01, skin, { ...o, seg: 5 }); } // toes curled down
     locks(m, [hip[0] + L * 0.01, hip[1] - L * 0.03, hip[2]], [kn[0], kn[1] - L * 0.03, kn[2]], fl ? 6 : 5, L * 0.12 * (fl ? 1.4 : 1), L * 0.036, lock, o, side * 7);
@@ -3217,23 +3217,19 @@ function pangolin(m, s) {
   }
 }
 
-// Siamang (a gibbon), brachiating: it swings hand over hand under its own branch, one very long
-// arm straight up and hooked over it, the other flung out ahead for the next hold (that one swings
-// as it travels), legs drawn up beneath a slim body. All shaggy black, with a small round head
+// Siamang (a gibbon), swinging below the real tree scaffold with alternating
+// catches. Its resting pose grips with the right hand, freeing the left for fruit;
+// both arms have a second climbing pose for the next handover. Legs tuck below. All shaggy black, with a small round head
 // and the big bare grey throat sac blown up under the chin.
 function siamang(m, s) {
   const L = s.len, bY = L * 1.38, black = col(s.color), sacC = col(s.sac);
   const fur = (u, p) => tmp.copy(black).multiplyScalar(1 + hash3(Math.round(p.x * 2), Math.round(p.y * 0.6), Math.round(p.z * 2)) * 0.9);
   const skin = col(shade(s.color, 0.08));
-  const bark = (u, p) => tmp.copy(col('#5e4630')).multiplyScalar(0.8 + hash3(Math.round(p.x * 1.2), 1, Math.round(u.y * 3)) * 0.35);
-  tube(m, [[-L * 0.55, bY + L * 0.02, 0], [L * 0.1, bY, 0], [L * 0.75, bY + L * 0.05, L * 0.02]], [L * 0.04, L * 0.036, L * 0.028], bark, { seg: 8, sub: 3, capRings: 2 });
-  for (const [x, z, a] of [[0.7, 0.06, 0.5], [0.78, -0.05, -0.5], [-0.5, 0.05, 2.6]])
-    m.ell([L * x, bY + L * 0.05, L * z], [L * 0.08, L * 0.012, L * 0.03], '#4a7a32', { rot: [0.3, a, 0.25] });
   // a slim body hanging straight down from the high arm
   tube(m, [[L * 0.0, L * 0.42, 0], [L * 0.01, L * 0.58, 0], [L * 0.03, L * 0.76, 0], [L * 0.05, L * 0.88, 0]],
     [[L * 0.085, L * 0.09], [L * 0.11, L * 0.115], [L * 0.105, L * 0.13], [L * 0.07, L * 0.11]], fur, { up: [1, 0, 0], seg: 12, sub: 3 });
-  // the high arm, hooked over the branch (it holds still)
-  const grip = { part: P.TAIL, pivot: [0, L * 0.84, 0] }, sh1 = [L * 0.05, L * 0.84, L * 0.1], hand = [L * 0.14, bY - L * 0.025, L * 0.02];
+  // Right hand supports the resting body; it releases after the left catches.
+  const sh1 = [L * 0.05, L * 0.84, L * 0.1], grip = { part: P.LEG_FR, pivot: sh1 }, hand = [L * 0.14, bY - L * 0.025, L * 0.02];
   tube(m, [sh1, [L * 0.13, L * 1.1, L * 0.12], hand], [L * 0.055, L * 0.042, L * 0.034], fur, { ...grip, seg: 8, sub: 4 });
   m.ell([hand[0], hand[1], hand[2]], [L * 0.04, L * 0.045, L * 0.035], skin, { ...grip, lo: true });
   m.ell([hand[0] + L * 0.02, bY + L * 0.035, hand[2] * 0.4], [L * 0.05, L * 0.02, L * 0.035], skin, { ...grip, lo: true }); // hooked fingers
@@ -3710,7 +3706,7 @@ export function buildSpecies(def) {
     case 'tapir': tapir(m, s); mo.leg = 0.45; mo.bob = 0.3; mo.sink = s.leg + s.h * 0.4; break;
     case 'armadillo': armadillo(m, s); mo.leg = 0.7; mo.bob = 0.3; mo.sink = s.len * 0.2; break;
     case 'monkey': if (s.ape) { siamang(m, s); mo.leg = 0.45; mo.bob = 0.4; mo.tail = 0; mo.head = 0.45; } else { monkey(m, s); mo.leg = 0.6; mo.bob = 0.6; mo.tail = 0.15; } break;
-    case 'orangutan': orangutan(m, s); mo.leg = 0.3; mo.bob = 0.3; mo.tail = 0; mo.head = 0.45; mo.sink = s.len * 0.4; break;
+    case 'orangutan': orangutan(m, s); mo.leg = 0.3; mo.bob = 0; mo.tail = 0; mo.head = 0.45; mo.sink = s.len * 0.4; break;
     case 'pangolin': pangolin(m, s); mo.leg = 0.5; mo.bob = 0.25; mo.tail = 0.12; mo.sink = s.len * 0.22; break;
     case 'sloth': sloth(m, s); mo.leg = 0.12; mo.tail = 0; break;
     case 'caiman': caiman(m, s); mo.leg = 0.4; mo.tail = 0.35; mo.wave = s.len * 0.025; mo.waveK = 6 / s.len; mo.waveHead = s.len * 0.1; mo.waveLen = s.len * 0.7; mo.sink = s.len * 0.09; break;
@@ -3760,18 +3756,103 @@ export function buildSpecies(def) {
     default: m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
   }
   mo.eye = m.eyeAt || null; mo.eyePivot = m.eyePivot || [0, 0, 0]; // where the eyes are, in model units (for eye-shine)
+  if (['monkey', 'orangutan'].includes(s.kind)) {
+    mo.primate = s.kind === 'orangutan' ? 2 : s.ape ? 3 : 1;
+    mo.bob = 0; mo.len = s.len;
+    const hand = s.kind === 'orangutan' ? [.3, .06, .14] : s.ape ? [.6, 1.02, -.1] : [.32, .03, .12];
+    m.ell(hand.map((v, i) => (v + (i === 0 ? .035 : 0)) * s.len), [s.len * .045, s.len * .045, s.len * .045], '#d9a342', { part: P.FRUIT, pivot: hand.map(v => v * s.len), lo: true });
+  }
   const geo = m.build();
+  if (mo.primate) feedingPose(geo, s);
+  if (s.ape) swingPoses(geo, s.len);
   geo.computeBoundingBox();
+  if (def.move === 'tree') {
+    // Tails and orangutan hair can hang below the grips. Use actual toes for
+    // orangutans, the high hand for a gibbon, and limb bounds for other climbers.
+    const p = geo.attributes.position, parts = geo.attributes.aPart;
+    let foot = Infinity;
+    for (let i = 0; i < p.count; i++) if (parts.getX(i) >= 1 && parts.getX(i) <= 4) foot = Math.min(foot, p.getY(i));
+    mo.supportY = s.ape ? s.len * 1.38 : s.kind === 'orangutan' ? -s.len * .015 : s.kind === 'sloth' ? s.len * .95 : Number.isFinite(foot) ? foot : 0;
+  }
+  if (s.ape) { mo.gripX = s.len * .14; mo.gripZ = s.len * .02; }
   // A shared anchor for locating, picking and highlighting the visible model,
   // including models that hang below their origin or have an offset body.
   mo.center = geo.boundingBox.getCenter(new THREE.Vector3());
+  if (mo.primate) {
+    // Deduplicate the actual body surface for clearance at crowded woody forks.
+    // Hands, feet, fruit and the tail are allowed to touch their support.
+    const cells = new Map(), cell = s.len * .001; let offset = 0;
+    geo.userData.canopyCore = [];
+    for (const part of m.parts) {
+      const p = part.attributes.position, id = part.attributes.aPart.getX(0);
+      if (!part.userData.canopyFur && (id === P.BODY || id === P.HEAD)) {
+        geo.userData.canopyCore.push([offset, offset + p.count]);
+        for (let i = 0; i < p.count; i++) {
+          const v = new THREE.Vector3().fromBufferAttribute(p, i), key = [v.x, v.y, v.z].map(n => Math.round(n / cell)).join(':');
+          if (!cells.has(key)) cells.set(key, v);
+        }
+      }
+      offset += p.count;
+    }
+    mo.canopyBody = [...cells.values()];
+    mo.canopyBounds = new THREE.Box3().setFromPoints(mo.canopyBody);
+  }
   return { geo, motion: mo };
+}
+
+// Fold the feeding arm at its elbow into a hand-to-mouth pose. The second
+// position/normal attributes are already shared by the fauna shader for wing poses.
+function feedingPose(geo, s) {
+  const L = s.len, ape = !!s.ape, orang = s.kind === 'orangutan', by = s.long ? .62 : .45;
+  const shoulder = orang ? [.07, .56, .13 * (s.flanged ? 1.15 : 1)] : ape ? [.04, .84, -.1] : [.22, by + .06, .1];
+  const elbow = orang ? [.19, .31, .15] : ape ? [.32, .8, -.18] : [.26, by * .5, .12];
+  const hand = orang ? [.3, .06, .14] : ape ? [.6, 1.02, -.1] : [.32, .03, .12];
+  const target = orang ? [.32, .615, .09] : ape ? [.28, .95, -.08] : [s.shortTail ? .59 : .55, by + .19, .08];
+  poseArm(geo, P.LEG_FL, L, shoulder, elbow, hand, target, 'aExt', 'aExtN', ape ? 0 : 1);
+  const pos = geo.attributes.position, ext = geo.attributes.aExt, part = geo.attributes.aPart;
+  for (let i = 0; i < pos.count; i++) if (part.getX(i) === P.FRUIT) {
+    // Keep the fruit just beyond the fingers instead of rotating it inside the face.
+    ext.setXYZ(i, pos.getX(i) + (target[0] - hand[0]) * L, pos.getY(i) + (target[1] - hand[1]) * L, pos.getZ(i) + (target[2] - hand[2]) * L);
+  }
+}
+
+function swingPoses(geo, L) {
+  // Only gibbons need these extra static attributes; instance data stays unchanged.
+  geo.setAttribute('aSwing', geo.attributes.position.clone());
+  geo.setAttribute('aSwingN', geo.attributes.normal.clone());
+  poseArm(geo, P.LEG_FL, L, [.04, .84, -.1], [.32, .8, -.18], [.6, 1.02, -.1], [.14, 1.355, -.02], 'aSwing', 'aSwingN', 0);
+  poseArm(geo, P.LEG_FR, L, [.05, .84, .1], [.13, 1.1, .12], [.14, 1.355, .02], [.53, 1.02, .1], 'aSwing', 'aSwingN', 1);
+}
+
+// Two-bone elbow bend baked into an alternate pose, including matching normals.
+function poseArm(geo, id, L, shoulder, elbow, hand, target, positions, normals, axis) {
+  const a = Math.hypot(elbow[0] - shoulder[0], elbow[1] - shoulder[1]), b = Math.hypot(hand[0] - elbow[0], hand[1] - elbow[1]);
+  const dx = target[0] - shoulder[0], dy = target[1] - shoulder[1], d = Math.min(a + b - .001, Math.max(Math.abs(a - b) + .001, Math.hypot(dx, dy)));
+  const angle = Math.atan2(dy, dx) - Math.acos(THREE.MathUtils.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1));
+  const e = [shoulder[0] + a * Math.cos(angle), shoulder[1] + a * Math.sin(angle)];
+  const upper = angle - Math.atan2(elbow[1] - shoulder[1], elbow[0] - shoulder[0]);
+  const lower = Math.atan2(target[1] - e[1], target[0] - e[0]) - Math.atan2(hand[1] - elbow[1], hand[0] - elbow[0]);
+  const pos = geo.attributes.position, ext = geo.attributes[positions], normal = geo.attributes.normal, extN = geo.attributes[normals], part = geo.attributes.aPart;
+  for (let i = 0; i < pos.count; i++) {
+    if (part.getX(i) !== id) continue;
+    const x = pos.getX(i) / L, y = pos.getY(i) / L, z = pos.getZ(i) / L;
+    let t = smooth(elbow[axis] - .03, elbow[axis] + .03, axis === 0 ? x : y);
+    if (hand[axis] < shoulder[axis]) t = 1 - t;
+    const transform = (ox, oy, tx, ty, angle) => [tx + (x - ox) * Math.cos(angle) - (y - oy) * Math.sin(angle), ty + (x - ox) * Math.sin(angle) + (y - oy) * Math.cos(angle)];
+    const u = transform(shoulder[0], shoulder[1], shoulder[0], shoulder[1], upper), v = transform(elbow[0], elbow[1], e[0], e[1], lower);
+    const reach = Math.min(1, Math.hypot(x - shoulder[0], y - shoulder[1]) / Math.hypot(hand[0] - shoulder[0], hand[1] - shoulder[1]));
+    ext.setXYZ(i, (u[0] * (1 - t) + v[0] * t) * L, (u[1] * (1 - t) + v[1] * t) * L, (z + (target[2] - hand[2]) * reach) * L);
+    const turn = upper * (1 - t) + lower * t, nx = normal.getX(i), ny = normal.getY(i);
+    extN.setXYZ(i, nx * Math.cos(turn) - ny * Math.sin(turn), nx * Math.sin(turn) + ny * Math.cos(turn), normal.getZ(i));
+  }
 }
 
 // ---------------------------------------------------------------- material with the animation shader
 export function faunaMaterial(motion) {
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  mat.defaultAttributeValues = { aSwing: [0, 0, 0], aSwingN: [0, 1, 0] };
   const u = {
+    uPrimate: { value: motion.primate ?? 0 }, uLength: { value: motion.len || 1 },
     uBird: { value: motion.bird ?? 0 }, uWingSpan: { value: motion.wingSpan ?? 1 },
     uLeg: { value: motion.leg }, uBob: { value: motion.bob }, uTail: { value: motion.tail }, uFlap: { value: motion.flap },
     uHead: { value: motion.head ?? 0.9 }, uWave: { value: motion.wave }, uWaveK: { value: motion.waveK }, uWaveHead: { value: motion.waveHead }, uWaveLen: { value: motion.waveLen },
@@ -3780,11 +3861,12 @@ export function faunaMaterial(motion) {
   mat.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
-      attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim;
-      uniform float uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan;
+      attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim; attribute vec3 aSwing; attribute vec3 aSwingN;
+      uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
       vec3 rotY(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c); }
       vec3 rotZ(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c - q.y * s, q.x * s + q.y * c, q.z); }
+      ${SIAMANG_SWING_GLSL}
       // Rotate lighting normals alongside each rigid part. Birds also flex the outer wing and
       // interpolate a compact resting tail into a modest flight fan; other fauna keep their poses.
       void animatePart(inout vec3 p, inout vec3 n) {
@@ -3792,6 +3874,12 @@ export function faunaMaterial(motion) {
         vec3 zero = vec3(0.0);
         bool wing = aPart > 5.5 && aPart < 7.5;
         bool tail = aPart > 4.5 && aPart < 5.5;
+        if (uPrimate > 0.5 && aPart > 9.5) {
+          float bite = smoothstep(0.0, 1.0, fly);
+          p = mix(position, aExt, bite); n = normalize(mix(normal, aExtN, bite));
+          p = mix(mix(aPivot, aExt, bite), p, step(0.01, fly));
+          return;
+        }
         if (wing || (tail && uBird > 0.5)) {
           p = mix(position, aExt, fly);
           n = normalize(mix(normal, aExtN, fly));
@@ -3805,9 +3893,32 @@ export function faunaMaterial(motion) {
           float beat = -side * fly * sin(ph * uFlap) * 0.75;
           p = rotX(p, aPivot, beat); n = rotX(n, zero, beat);
         } else if (aPart > 0.5 && aPart < 4.5) {
+          if (uPrimate > 0.5) {
+            if (uPrimate > 2.5) {
+              if (aPart < 2.5) {
+                vec3 catches = siamangWeights(ph, gait, fly);
+                float catchPose = aPart < 1.5 ? catches.x : catches.y;
+                p = mix(position, aSwing, catchPose); n = normalize(mix(normal, aSwingN, catchPose));
+              } else {
+                float swing = sin(ph + aPart) * .12 * gait;
+                p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
+              }
+            } else {
+              // Long stance, short placement: one hand or foot advances at a time.
+              float offset = aPart < 1.5 ? 0.0 : aPart < 2.5 ? .5 : aPart < 3.5 ? .25 : .75;
+              float cycle = fract(ph / 6.283185 + offset);
+              float stepT = clamp((cycle - .75) * 4.0, 0.0, 1.0);
+              float stride = cycle < .75 ? .5 - cycle / .75 : -.5 + stepT;
+              float weight = 1.0 - smoothstep(.04 * uLength, aPivot.y, p.y);
+              p.x += stride * uLength * (uPrimate > 1.5 ? .13 : .2) * gait * weight;
+              p.y += sin(stepT * 3.14159) * uLength * .06 * gait * weight;
+            }
+            if (aPart < 1.5) { float bite = smoothstep(0.0, 1.0, fly); p = mix(p, aExt, bite); n = normalize(mix(n, aExtN, bite)); }
+          } else {
           float off = (aPart < 1.5 || aPart > 3.5) ? 0.0 : 3.14159;
           float swing = sin(ph + off) * uLeg * gait * (1.0 - fly) - fly * 1.35;
           p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
+          }
         } else if (tail) {
           float sway = sin(ph * 0.5 + 1.3) * uTail * (0.35 + gait);
           if (uVerticalWave > 0.5) { p = rotZ(p, aPivot, sway); n = rotZ(n, zero, sway); }
@@ -3826,10 +3937,15 @@ export function faunaMaterial(motion) {
         vec3 objectNormal = normal;
         vec3 faunaPosition = position;
         animatePart(faunaPosition, objectNormal);
+        if (uPrimate > 2.5) objectNormal = rotZ(objectNormal, vec3(0.0), sin(aAnim.x) * .12 * aAnim.y * (1.0 - aAnim.z));
       `)
       .replace('#include <begin_vertex>', `
         float ph = aAnim.x, gait = aAnim.y, fly = aAnim.z, graze = aAnim.w;
         vec3 transformed = faunaPosition;
+        if (uPrimate > 2.5) {
+          transformed -= (siamangHold(siamangWeights(ph, gait, fly)) - vec3(.14, 1.38, .02)) * uLength;
+          transformed = rotZ(transformed, vec3(.14, 1.38, .02) * uLength, sin(ph) * .12 * gait * (1.0 - fly));
+        }
         transformed.y += abs(sin(ph)) * uBob * gait * (1.0 - fly);
         if (uWave > 0.0) {
           float t = clamp((uWaveHead - transformed.x) / uWaveLen, 0.0, 1.0);

@@ -10,6 +10,9 @@ import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './fauna.js';
 import { adultAnimalScale } from './animal-scale.js';
 import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
+import { siamangSwing } from './siamang-swing.js';
+import { canopyStep, rebaseCanopy } from './canopy-motion.js';
+import { canopyLean, canopyRotation } from './canopy-pose.js';
 import { ActorView, animalViewRadius } from './actor-view.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
@@ -28,10 +31,14 @@ export function salmonLeap(a, time) {
 }
 
 export class Actors {
-  constructor(scene) {
+  constructor(scene, flora = null) {
     this.scene = scene;
+    this.flora = flora;
     this.textures = new Map();
     this.fauna = new Fauna(scene);
+    this.swingGrip = new THREE.Vector3(); this.swingBase = new THREE.Vector3();
+    this.swingAxis = new THREE.Vector3(0, 0, 1);
+    this.holdOffset = new THREE.Vector3(); this.holdRotation = new THREE.Quaternion();
     this.pose = new Map();      // agent id -> smoothed heading, gait, wings, and where it was drawn
     this.view = new ActorView();
     this.visibleWildlife = [];
@@ -68,6 +75,7 @@ export class Actors {
     this.view.update(camera, viewportHeight, this.cullOffscreen);
     this.visibleWildlife.length = 0;
     const seen = new Set();
+    const canopySites = new Set();
     let sh = 0;
     const shadow = (x, y, z, r) => {
       if (sh >= this.shadows.instanceMatrix.count) {
@@ -116,7 +124,9 @@ export class Actors {
             high += (TREE_SHAPES[p.look.type]?.height || 2) * (p.look.scale ?? 1) * w.treeG[i];
           } else if (w.feature[i] === FEAT.SNAG) high += 0.9;
         }
-        if (!this.view.visible(a.x, low, high, a.y, animalViewRadius(def))) {
+        const travellingHold = def.move === 'tree' && st?.branchPoint && st.visible !== false &&
+          this.view.visible(st.x, st.y, st.y + st.h, st.z, animalViewRadius(def));
+        if (!travellingHold && !this.view.visible(a.x, low, high, a.y, animalViewRadius(def))) {
           if (st) st.visible = false;
           continue;
         }
@@ -200,7 +210,7 @@ export class Actors {
         else y = st.canopyY;
       } else st.canopyY = perched ? y : null;
       // face the way it's moving, and blend between standing, walking and flying
-      const dx = a.x - st.px, dz = a.y - st.py, yaw0 = st.yaw;
+      const dx = a.x - st.px, dz = a.y - st.py, yaw0 = st.yaw, gait0 = st.gait;
       const moving = a.state !== 'idle' && (dx * dx + dz * dz > 1e-7 || flying);
       // Intentional heading wins over small spacing corrections, which mustn't turn a resting
       // animal sideways. Drink direction also updates while it is standing still.
@@ -235,19 +245,87 @@ export class Actors {
       // stalking cats sink low to the ground
       st.crouch = (st.crouch || 0) + ((stalking ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
-      const ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
-      F.add(def, ax, y, az, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0));
-      st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
+      let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      let branchPitch = 0, branchRoll = 0, branchYaw = 0;
+      if (def.move === 'tree' && inside) {
+        const site = this.flora?.treeSites.get(ci());
+        const supportsValid = !this.flora || rebaseCanopy(st, this.flora);
+        const anchor = site?.anchor(a.x, a.y, returning ? null : st.branch, mo.len * sc * .34, mo.primate === 3, mo.primate ? { motion: mo, scale: sc } : null);
+        st.branch = anchor ?? null;
+        if (anchor) {
+          canopySites.add(site);
+          st.sc = sc;
+          const invalidRoute = !supportsValid;
+          const firstHold = !st.branchPoint;
+          if (firstHold || returning || invalidRoute) st.canopyQuaternion = null;
+          const motion = canopyStep(st, anchor, def, game, time, returning || invalidRoute);
+          const route = st.branchRoute;
+          if (route && this.flora.treeSites.get(route.fromSite.tile) === route.fromSite) canopySites.add(route.fromSite);
+          st.gait = game.speed > 0 ? gait0 + (motion.gait - gait0) * Math.min(1, k * 2) : gait0;
+          const dir = motion.delta.lengthSq() > 1e-8 ? motion.delta : (st.branchAt || anchor).direction;
+          let yaw = Math.atan2(-dir.z, dir.x), sign = 1;
+          // Back down a steep main limb with the head uphill. Turning headfirst
+          // at its base swings the long torso into the neighbouring forks.
+          if ((mo.primate === 1 || mo.primate === 2) && dir.y < -.35 * dir.length()) { yaw += Math.PI; sign = -1; }
+          if (motion.delta.lengthSq() <= 1e-8 && Math.cos(yaw - st.yaw) < 0) { yaw += Math.PI; sign = -1; }
+          st.yaw = returning || firstHold ? yaw : motion.delta.lengthSq() > 1e-8 ? lerpAngle(yaw0, yaw, Math.min(1, k * (kind === 'orangutan' ? .7 : 1.2))) : yaw0;
+          // Follow a steep main limb with the whole body rather than holding a
+          // nearly level torso through it. Rotate around the actual hold.
+          const pitchLimit = mo.primate === 1 || mo.primate === 2 ? 1.2 : .35;
+          const pitch = mo.primate === 3 ? 0 : clamp(Math.atan2(dir.y * sign, Math.hypot(dir.x, dir.z)), -pitchLimit, pitchLimit);
+          if (game.speed > 0 || firstHold || returning) st.branchSlope = firstHold || returning ? pitch
+            : (st.branchSlope || 0) + (pitch - (st.branchSlope || 0)) * Math.min(1, k * 2.4);
+          branchPitch = st.branchPitch || 0;
+          if (game.speed > 0 || firstHold || returning) {
+            const lean = canopyLean(st, mo, new Set([site, st.branchAt?.site, route?.fromSite]), st.branchSlope || 0, st.gait,
+              a.fruitMeal ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0, motion.dt, motion.before);
+            if (route && st.branchPoint.distanceTo(motion.before) + 1e-8 < motion.delta.length()) route.cursor = motion.cursor;
+            st.branchRoll = lean.roll; st.branchPitch = lean.pitch; st.branchYaw = lean.yaw; branchPitch = lean.pitch;
+          }
+          branchRoll = st.branchRoll || 0;
+          branchYaw = st.branchYaw || 0;
+          // A hanging gibbon's high hand, rather than its feet, is the attachment.
+          this.holdOffset.set(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0).multiplyScalar(sc)
+            .applyQuaternion(canopyRotation(st.yaw + branchYaw, branchPitch, branchRoll, this.holdRotation));
+          ax = st.branchPoint.x - this.holdOffset.x; az = st.branchPoint.z - this.holdOffset.z;
+          y = st.branchPoint.y + motion.lift - this.holdOffset.y; st.canopyY = y;
+        } else { st.branchRoute = null; st.branchAt = null; st.branchPoint = null; }
+      } else if (def.move === 'tree') { st.branch = null; st.branchRoute = null; st.branchAt = null; st.branchPoint = null; }
+      else st.branch = null;
+      // Climbing down off the last tree (often to leave the map) or back up into
+      // one, ease from the drawn body to the new position rather than jumping.
+      if (def.move === 'tree') {
+        if (st.onBranch !== undefined && !!st.branch !== st.onBranch && !returning) st.shiftOffset = { x: st.x - ax, y: st.y - y, z: st.z - az, time };
+        st.onBranch = !!st.branch;
+        if (returning) st.shiftOffset = null;
+        else if (st.shiftOffset) {
+          const o = st.shiftOffset, fade = game.speed > 0 ? Math.exp(-6 * Math.max(0, Math.min(.1, time - o.time))) : 1;
+          o.time = time; o.x *= fade; o.y *= fade; o.z *= fade;
+          ax += o.x; y += o.y; az += o.z;
+          if (Math.hypot(o.x, o.y, o.z) < .002) st.shiftOffset = null;
+        }
+      }
+      const eating = mo.primate && a.state === 'primate' && a.fruitMeal;
+      const eatPose = eating ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0;
+      const phase = st.branch && mo.primate ? st.branchPhase : a.phase * Math.PI;
+      if (eating) st.graze = 0;
+      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : st.fly, mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0)));
+      st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
       st.foot = (def.sprite.len || def.sprite.size || 10) * sc;
-      st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
+      st.x = ax; st.y = y; st.z = az; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
       st.center ||= new THREE.Vector3();
       st.center.copy(mo.center); st.center.y += st.bob;
+      if (mo.primate === 3) {
+        const swing = siamangSwing(phase, st.gait, eatPose);
+        st.center.sub(this.swingGrip.set(...swing.grip).multiplyScalar(mo.len)).applyAxisAngle(this.swingAxis, swing.sway).add(this.swingBase.set(.14, 1.38, .02).multiplyScalar(mo.len));
+      }
       st.center.applyMatrix4(F.m); // same heading, pitch, scale and height as the instance
-      if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
+      if (!st.branch && def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
+    this.flora?.showCanopySites(canopySites);
 
     // ---- kills: the prey lying on its side where it fell, sinking away as it's eaten
     for (const c of game.wildlife.carcasses || []) {
