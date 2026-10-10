@@ -168,6 +168,14 @@ export class Actors {
         if (w.tree[i]) y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * (PLANTS[w.tree[i]].look.scale ?? 1) * w.treeG[i] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
         else if (w.feature[i] === FEAT.SNAG) y += 0.9;
       }
+      // Moving between crowns of different heights, a climber (or a perched bird hopping along a
+      // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
+      const perched = def.move === 'tree' || (def.move === 'fly' && !flying && inside && !!w.tree[i]);
+      if (perched && st.canopyY != null && !returning) {
+        const gap = y - st.canopyY;
+        st.canopyY += gap * Math.min(1, k * 0.9);
+        y = st.canopyY + Math.min(0.12, Math.abs(y - st.canopyY) * 0.3);
+      } else st.canopyY = perched ? y : null;
       // face the way it's moving, and blend between standing, walking and flying
       const dx = a.x - st.px, dz = a.y - st.py, yaw0 = st.yaw;
       const moving = a.state !== 'idle' && (dx * dx + dz * dz > 1e-7 || flying);

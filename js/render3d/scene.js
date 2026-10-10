@@ -230,8 +230,12 @@ export class Renderer {
     const amt = focus.uFocusAmt;
     amt.value += ((pose || ft ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
     if (pose) {
-      focus.uFocus.value.copy(pose.center);
-      focus.uFocusR.value = clamp(0.75 + pose.h * 1.7, 0.85, 1.45); // (a roomier window than the animal itself)
+      // follow the animal smoothly, and hold one size for it: climbing between trees of different
+      // heights or switching animals glides the window rather than jumping it
+      const e = this.focusFor === sel.id ? Math.min(1, dt * 10) : 1;
+      this.focusFor = sel.id;
+      focus.uFocus.value.lerp(pose.center, e);
+      focus.uFocusR.value += (clamp(0.75 + pose.h * 1.7, 0.85, 1.45) - focus.uFocusR.value) * e; // (a roomier window than the animal itself)
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;

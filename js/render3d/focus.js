@@ -1,10 +1,10 @@
 // "Look through" for the selected animal: trees, shrubs and buildings standing between the
-// camera and the animal open up in a clean round window, so it stays visible behind cover.
-// The middle of the window is fully clear; its edge feathers out over a soft band and the
-// leaves left standing at the rim catch a faint warm glow, like looking through a lens. Only
-// what sits in a column along the line of sight is affected, and only while an animal is
-// selected. The feathering is dithered with interleaved gradient noise, so there is still no
-// transparency to depth-sort.
+// camera and the animal open in a clean round window, so it stays visible behind cover. The
+// window has a crisp edge (no dithered fade, which reads as pixel noise inside a crown) and the
+// leaves left standing around it catch a faint warm rim. It opens and closes by growing and
+// shrinking, and follows the animal smoothly (see Renderer.updateFocus). Only what sits in a
+// column along the line of sight, in front of the animal, is affected, and only while an animal
+// is selected. Fragments are discarded, so there is no transparency to depth-sort.
 
 import * as THREE from 'three';
 
@@ -34,12 +34,10 @@ export function withFocusFade(mat) {
         vec3 fd = vFocusW - uFocus;
         float along = dot(fd, uViewDir);                 // > 0: between the animal and the camera
         float across = length(fd - along * uViewDir);    // distance from the line of sight
-        float front = smoothstep(-0.15, 0.25, along);
-        float f = uFocusAmt * (1.0 - smoothstep(uFocusR * 0.8, uFocusR, across)) * front;
-        float n = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
-        if (f > 0.995 || n < f * f * (3.0 - 2.0 * f)) discard;
-        // the leaves still standing around the window's edge
-        focusRim = uFocusAmt * front * smoothstep(uFocusR * 0.8, uFocusR * 0.98, across) * (1.0 - smoothstep(uFocusR, uFocusR * 1.12, across));
+        float r = uFocusR * uFocusAmt;                   // (the window irises open)
+        if (along > -0.08 * uFocusR && across < r) discard;
+        // the leaves still standing around the window's edge, in front of the animal
+        focusRim = smoothstep(-0.3 * uFocusR, 0.0, along) * (1.0 - smoothstep(0.0, 0.18 * uFocusR, abs(across - r) - 0.02)) * uFocusAmt;
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
       gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0, 0.95, 0.8), focusRim * 0.2);`);
   };
