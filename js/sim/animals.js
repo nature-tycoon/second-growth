@@ -10,7 +10,7 @@ import { biome } from '../biome.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, facePoint, shoreSpot } from './animal-positioning.js';
-import { beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, watch, prowl, scavenge, play, greet, arrive } from './animal-life.js';
+import { beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, watch, prowl, scavenge, play, greet, arrive, fleeFire } from './animal-life.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -736,6 +736,8 @@ export class Wildlife {
     const w = this.game.world;
     this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
     this.ids = new Map(this.agents.map(a => [a.id, a])); // (hunters, chasers and the chased look each other up every step)
+    // (a fire is noticed within a few hours of game time)
+    if ((this.fireCheck = (this.fireCheck || 0) - dt) <= 0) { this.fireCheck = 0.2; fleeFire(this); }
     for (let k = this.agents.length - 1; k >= 0; k--) {
       const a = this.agents[k];
       if (!a) continue;

@@ -169,18 +169,19 @@ export function missed(wl, prey, pred) {
 }
 
 // ---------------------------------------------------------------- fleeing
-export function bolt(wl, a, threat, speed, time, delay = 0) {
+export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   const def = ANIMALS[a.sp], w = wl.game.world;
   if (a.leaving || def.reef) return;
   let fx = a.x - threat.x, fy = a.y - threat.y;
   const l = Math.hypot(fx, fy);
   if (l < 1e-3) { const r = Math.random() * Math.PI * 2; fx = Math.cos(r); fy = Math.sin(r); } else { fx /= l; fy /= l; }
   a.drinkT = 0; a.drinkAt = null; a.localGoal = null; a.bankGoal = null; a.follow = false;
-  a.greet = null; a.goal = null; a.sparT = 0; a.greetT = 0; a.play = false;
+  a.greet = null; a.goal = null; a.sparT = 0; a.greetT = 0; a.play = false; a.fromFire = false;
+  if (a.state === 'hunt' || a.state === 'feed') { endHunt(a); a.feedAt = null; a.carcass = null; }
   if (a.move === 'fly') {
     // birds just take off and settle again a little way off
     for (let k = 0; k < 6; k++) {
-      const ang = Math.atan2(fy, fx) + (Math.random() - 0.5) * 1.4, r = 4 + Math.random() * 4;
+      const ang = Math.atan2(fy, fx) + (Math.random() - 0.5) * 1.4, r = range + Math.random() * range;
       const x = clamp(a.x + Math.cos(ang) * r, 0.5, w.w - 0.5), y = clamp(a.y + Math.sin(ang) * r, 0.5, w.h - 0.5);
       if (k < 5 && !canLand(w, w.idx(Math.floor(x), Math.floor(y)), def)) continue;
       a.tx = x; a.ty = y; a.state = 'fly'; a.flying = true; a.path = null;
@@ -211,11 +212,13 @@ export function fleeUpdate(wl, a, def, dt) {
   }
   const step = a.fleeSpeed * dt, base = Math.atan2(a.fy, a.fx);
   let moved = false;
-  if (a.fleeT > 0) for (const off of TURNS) {
+  // (burning ground only as a last resort)
+  if (a.fleeT > 0) for (let pass = 0; pass < 2 && !moved; pass++) for (const off of TURNS) {
     const ang = base + off * a.fleeSide, c = Math.cos(ang), s = Math.sin(ang);
     const nx = a.x + c * step, ny = a.y + s * step, lx = a.x + c * Math.max(step, 0.45), ly = a.y + s * Math.max(step, 0.45);
     if (!w.inb(Math.floor(lx), Math.floor(ly)) || !w.inb(Math.floor(nx), Math.floor(ny))) continue;
-    if (!passable(w, w.idx(Math.floor(lx), Math.floor(ly)), a) || !passable(w, w.idx(Math.floor(nx), Math.floor(ny)), a)) continue;
+    const ahead = w.idx(Math.floor(lx), Math.floor(ly));
+    if (!passable(w, ahead, a) || !passable(w, w.idx(Math.floor(nx), Math.floor(ny)), a) || (!pass && w.fire[ahead])) continue;
     a.x = nx; a.y = ny; facePoint(a, nx + c, ny + s);
     if (off) { a.fx = a.fx * 0.6 + c * 0.4; a.fy = a.fy * 0.6 + s * 0.4; }
     moved = true;
@@ -226,7 +229,7 @@ export function fleeUpdate(wl, a, def, dt) {
   a.state = 'idle'; a.run = null; a.fleeT = 0;
   a.wait = a.play ? 0.3 + Math.random() * 0.5 : 0.6 + Math.random();
   if (th && !a.play) { facePoint(a, th.x, th.y); a.alertT = 1.2 + Math.random(); }
-  a.play = false; a.threat = null;
+  a.play = false; a.threat = null; a.fromFire = false;
 }
 
 // ---------------------------------------------------------------- daily choices
@@ -379,10 +382,44 @@ function meet(wl, a) {
 
 // Arrived at the end of a walk or a flight with something in mind.
 export function arrive(wl, a) {
+  a.fromFire = false;
   if (a.greet != null) meet(wl, a);
   if (a.goal?.carcass != null) {
     const c = wl.carcasses.find(k => k.id === a.goal.carcass);
     a.goal = null;
     if (c && Math.hypot(c.x - a.x, c.y - a.y) < 1.6) feedAt(a, c);
+  }
+}
+
+// ---------------------------------------------------------------- fire
+// Anything that sees, hears or smells a fire close by gets away from it: herds stampede off,
+// birds lift out of the smoke, predators drop a hunt or a kill. They run from the burning ground
+// as a whole (the flames weighted by how close they are), avoiding burning tiles where they can.
+// Checked a few times a game day, only while something is burning.
+const FIRE_R = 7;
+export function fleeFire(wl) {
+  const w = wl.game.world, fires = [];
+  for (let i = 0; i < w.n; i++) if (w.fire[i]) fires.push(i);
+  if (!fires.length) return;
+  for (const a of wl.agents) {
+    const def = ANIMALS[a.sp];
+    if (a.leaving || def.reef || a.move === 'swim') continue;
+    if (a.fromFire && (a.state === 'flee' && a.fleeT > 0.3 || a.state === 'fly')) continue; // (already on its way)
+    let sx = 0, sy = 0, sw = 0, near = Infinity;
+    for (const i of fires) {
+      const dx = i % w.w + 0.5 - a.x, dy = (i / w.w | 0) + 0.5 - a.y;
+      if (Math.abs(dx) > FIRE_R || Math.abs(dy) > FIRE_R) continue;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > FIRE_R * FIRE_R) continue;
+      const wt = 1 / (d2 + 0.5);
+      sx += dx * wt; sy += dy * wt; sw += wt; near = Math.min(near, d2);
+    }
+    if (!sw) continue;
+    // a far-off glow: some wait and watch before going; close flames: everyone goes now
+    const d = Math.sqrt(near);
+    if (d > 4 && Math.random() < 0.5) { if (a.state === 'idle') { a.alertT = 1; facePoint(a, a.x + sx / sw, a.y + sy / sw); } continue; }
+    const threat = { id: null, x: a.x + sx / sw, y: a.y + sy / sw };
+    bolt(wl, a, threat, def.speed * (2 + Math.random() * 0.4), 1.2 + Math.random() * 0.8, d < 2 ? 0 : 0.05 + Math.random() * 0.2, 9);
+    a.fromFire = true;
   }
 }
