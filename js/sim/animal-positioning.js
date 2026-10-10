@@ -111,6 +111,7 @@ export class AnimalSpacing {
       if (e.a.id >= f.a.id || !this.compatible(e.a, f, e.band)) continue;
       const a = e.a, b = f.a;
       if (a.state === 'hunt' && a.target === b.id || b.state === 'hunt' && b.target === a.id) continue;
+      if (a.state === 'spar' && a.sparWith === b.id) continue; // (rivals locked head to head)
       this.comparisons++;
       let dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy);
       const overlap = e.r + f.r + 0.025 - d;

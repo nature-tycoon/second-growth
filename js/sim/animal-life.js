@@ -5,7 +5,7 @@
 
 import { clamp, DAYS_PER_YEAR } from '../config.js';
 import { ANIMALS, ANIMAL, preyFor, isMaleVariant } from '../data/animals.js';
-import { facePoint } from './animal-positioning.js';
+import { facePoint, animalRadius } from './animal-positioning.js';
 import { passable, canLand } from './animals.js';
 
 // How each kind of hunter closes in. approach, creep and sprint are multiples of its usual
@@ -176,7 +176,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   const l = Math.hypot(fx, fy);
   if (l < 1e-3) { const r = Math.random() * Math.PI * 2; fx = Math.cos(r); fy = Math.sin(r); } else { fx /= l; fy /= l; }
   a.drinkT = 0; a.drinkAt = null; a.localGoal = null; a.bankGoal = null; a.follow = false;
-  a.greet = null; a.goal = null; a.sparT = 0; a.greetT = 0; a.play = false; a.fromFire = false;
+  a.greet = null; a.goal = null; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
   if (a.state === 'hunt' || a.state === 'feed') { endHunt(a); a.feedAt = null; a.carcass = null; }
   if (a.move === 'fly') {
     // birds just take off and settle again a little way off
@@ -347,13 +347,19 @@ export function playUpdate(wl, a, def, sp) {
   a.state = 'idle'; a.wait = 0.5 + Math.random(); a.run = null; a.target = null;
 }
 
+// Deer, elk and sambar stags fight in the autumn rut (Sep-Nov; months count from March).
+const RUT = [6, 7, 8];
+const antlered = (def, a) => !!def.sprite.male?.antlers && isMaleVariant(def, a);
+const rutting = (wl, def, a) => antlered(def, a) && RUT.includes(wl.game.month);
+
 // Now and then an adult goes over to another of its kind: they touch noses, or two rivals
-// square up and spar for a while.
+// square up and spar for a while. In the rut, stags go looking for another stag to fight.
 export function greet(wl, a, def) {
-  if (!ashore(def) || young(a, def) || Math.random() > (def.herd ? 0.06 : 0.12)) return false;
-  let o = null, bd = 49;
+  const rut = rutting(wl, def, a);
+  if (!ashore(def) || young(a, def) || Math.random() > (rut ? 0.35 : def.herd ? 0.06 : 0.12)) return false;
+  let o = null, bd = rut ? 144 : 49;
   for (const b of wl.agents) {
-    if (b === a || b.sp !== a.sp || b.leaving || b.state !== 'idle' || young(b, def)) continue;
+    if (b === a || b.sp !== a.sp || b.leaving || b.state !== 'idle' || young(b, def) || (rut && !antlered(def, b))) continue;
     const d2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
     if (d2 < bd) { bd = d2; o = b; }
   }
@@ -376,8 +382,51 @@ function meet(wl, a) {
   facePoint(a, o.x, o.y); facePoint(o, a.x, a.y);
   a.wait = t; o.wait = Math.max(o.wait, t);
   const rivals = SPARRERS.has(def.sprite.kind) && (!def.sprite.male || (isMaleVariant(def, a) && isMaleVariant(def, o)));
-  if (rivals && Math.random() < 0.6) { a.sparT = o.sparT = t; }
-  else { a.greetT = o.greetT = t; }
+  // (antlered stags fight mostly in the rut; out of season they only now and then test each other)
+  const odds = def.sprite.male?.antlers ? (rutting(wl, def, a) ? 0.95 : 0.25) : 0.6;
+  if (!(rivals && Math.random() < odds && squareUp(wl, a, o))) { a.greetT = o.greetT = t; }
+}
+
+// Two rivals walk into a head-to-head stance (close enough for antlers or horns to meet), then
+// fight a bout: locked together, shoving back and forth, breaking off and crashing back in
+// (drawn in actors.js). The loser gives ground and trots off; the winner stands and watches.
+function squareUp(wl, a, o) {
+  const w = wl.game.world, d = dist(a, o);
+  if (d < 1e-3) return false;
+  const ux = (o.x - a.x) / d, uy = (o.y - a.y) / d;
+  // centre to centre: about one body length (half each), a little less so the antlers interlock
+  const gap = (animalRadius(a) + animalRadius(o)) / 0.65 * 0.5 * 1.3;
+  const mx = (a.x + o.x) / 2, my = (a.y + o.y) / 2;
+  const sa = [mx - ux * gap / 2, my - uy * gap / 2], so = [mx + ux * gap / 2, my + uy * gap / 2];
+  for (const [x, y] of [sa, so]) if (!w.inb(Math.floor(x), Math.floor(y)) || !passable(w, w.idx(Math.floor(x), Math.floor(y)), a)) return false;
+  const t = 3 + Math.random() * 3, loser = Math.random() < 0.5 ? a.id : o.id;
+  for (const [b, at, other] of [[a, sa, o], [o, so, a]]) {
+    b.state = 'spar'; b.sparWith = other.id; b.sparAt = at; b.sparT = t; b.sparLoser = loser;
+    b.path = null; b.greetT = 0; b.drinkT = 0; b.drinkAt = null;
+  }
+  return true;
+}
+
+// One step of a bout: get into the stance, face the rival, and when it's over, settle it.
+export function sparUpdate(wl, a, def, sp) {
+  const o = byId(wl, a.sparWith);
+  if (!o || o.state !== 'spar' || o.sparWith !== a.id || a.leaving) return endSpar(wl, a, null, false);
+  if (a.sparAt && Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]) > 0.01) {
+    wl.stepToward(a, a.sparAt[0], a.sparAt[1], sp * 0.6);
+    a.sparT = Math.max(a.sparT, 0.5); // (the bout starts once both are in place)
+    return;
+  }
+  facePoint(a, o.x, o.y);
+  if (a.sparT > 0) return;
+  const lost = a.sparLoser === a.id;
+  endSpar(wl, a, o, lost);
+  endSpar(wl, o, a, !lost);
+}
+function endSpar(wl, a, rival, lost) {
+  a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.wait = 0.5 + Math.random();
+  if (!rival) return;
+  if (lost) bolt(wl, a, rival, ANIMALS[a.sp].speed * 1.5, 0.6 + Math.random() * 0.4, 0.1);
+  else { a.alertT = 1.5 + Math.random(); a.wait = a.alertT; facePoint(a, rival.x, rival.y); }
 }
 
 // Arrived at the end of a walk or a flight with something in mind.

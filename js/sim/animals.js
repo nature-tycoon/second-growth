@@ -10,7 +10,7 @@ import { biome } from '../biome.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, facePoint, shoreSpot } from './animal-positioning.js';
-import { beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, watch, prowl, scavenge, play, greet, arrive, fleeFire } from './animal-life.js';
+import { beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, arrive, fleeFire } from './animal-life.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -860,6 +860,9 @@ export class Wildlife {
           break;
         case 'play':
           playUpdate(this, a, def, sp);
+          break;
+        case 'spar':
+          sparUpdate(this, a, def, sp);
           break;
         case 'feed':
           a.feedT -= dt;
