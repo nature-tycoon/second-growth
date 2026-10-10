@@ -806,7 +806,12 @@ export class Wildlife {
           const [ox, oy] = spotIn(a, j, a.path.length === 1);
           if (a.path.length === 1 && a.restSpot?.[0] !== j) {
             const bank = this.drinks(def) && a.thirst > (def.drinkEvery ?? 5 + a.id % 5) * 0.5 ? this.bankSpot(a, j) : null;
-            a.restSpot = [j, ...(bank && bank.crowd < 0.08 ? [bank.x, bank.y] : this.spacing.restSpot(a, j, ox, oy))];
+            const drink = bank && bank.crowd < 0.08;
+            a.restSpot = [j, ...(drink ? [bank.x, bank.y] : this.spacing.restSpot(a, j, ox, oy))];
+            // (on a low bank the dry spot can be a tile or two back from the water, off the tile
+            // it walked to: remember it, or on arrival it doesn't know it's at the water and sets
+            // off for the bank again, pacing back and forth without ever drinking)
+            if (drink) a.bankGoal = bank;
           }
           const tx = a.path.length === 1 ? a.restSpot[1] : (j % w.w) + 0.5 + ox;
           const ty = a.path.length === 1 ? a.restSpot[2] : ((j / w.w) | 0) + 0.5 + oy;
