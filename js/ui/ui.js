@@ -571,6 +571,15 @@ export class UI {
     const st = this.state, panel = $('#toolpanel');
     if (st.cat === 'inspect') return;
     const cat = CATEGORIES.find(c => c.key === st.cat);
+    // Selection and monthly updates rebuild the DOM. Keep the current list's
+    // viewport; another category, plant tab or map starts with its own top row.
+    const view = `${this.game.map}|${st.cat}|${st.cat === 'plants' ? st.plantTab : ''}`;
+    const sameList = this.toolPanelView === view;
+    const gridScroll = sameList ? panel.querySelector('.tool-grid')?.scrollTop || 0 : 0;
+    const panelScroll = sameList ? panel.scrollTop : 0;
+    const descScroll = sameList && this.toolPanelTool === st.tool ? panel.querySelector('.tool-desc')?.scrollTop || 0 : 0;
+    this.toolPanelView = view;
+    this.toolPanelTool = st.tool;
     panel.innerHTML = '';
     const head = el('div', 'tp-head', `<button class="tp-collapse" title="${st.toolCollapsed ? 'Expand panel' : 'Collapse panel'}">${st.toolCollapsed ? '+' : '−'}</button><h2>${cat.name}</h2><p>${biome.categoryDesc?.[cat.key] || cat.desc}</p>`);
     head.querySelector('.tp-collapse').addEventListener('click', () => { st.toolCollapsed = !st.toolCollapsed; this.renderToolPanel(); });
@@ -657,7 +666,10 @@ export class UI {
         });
       }
       panel.appendChild(d);
+      d.scrollTop = descScroll;
     }
+    grid.scrollTop = gridScroll;
+    panel.scrollTop = panelScroll;
   }
   nudgeBrush(dir) {
     const t = TOOLS[this.state.tool];

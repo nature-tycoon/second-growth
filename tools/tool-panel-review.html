@@ -1,0 +1,39 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Hollis tree selection check</title>
+<link rel="stylesheet" href="../styles.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{overflow:auto;background:var(--paper);padding:24px 24px 24px 430px;min-height:100vh}
+h1{font:28px var(--display);color:var(--moss)}
+p{max-width:650px;line-height:1.6}
+#toolpanel{top:24px;max-height:calc(100dvh - 48px)}
+#result{white-space:pre-wrap;margin-block:20px;font:14px/1.7 monospace}
+</style>
+<h1>Hollis tree selection check</h1>
+<p>The actual game tool panel, using an isolated Hollis farm. Scroll to the bottom and select a tree. The list should stay in place. Changing plant tabs should start at the top. Your saved farms are untouched.</p>
+<button id="month" class="btn secondary">Refresh for next month</button>
+<button id="brush" class="btn secondary">Change brush size</button>
+<div id="result" role="status"></div>
+<div id="toolpanel" class="panel"></div>
+<script type="module">
+import { UI } from '../js/ui/ui.js';
+import { Game } from '../js/game.js';
+import { TOOLS } from '../js/tools.js';
+const game = new Game();game.newGame(1987,'free','standard','pnw');game.speed=0;
+const ui=Object.create(UI.prototype);ui.game=game;
+ui.state={cat:'plants',plantTab:'tree',tool:'plant-fir',brushR:1,toolCollapsed:false,toolNotesOpen:false};
+ui.state.tool=ui.toolsFor('plants',true)[0].key;
+ui.renderToolPanel();
+const output=document.querySelector('#result');
+function report(){
+  const grid=document.querySelector('.tool-grid');
+  output.textContent=`Selected: ${TOOLS[ui.state.tool].name}\nList scroll: ${Math.round(grid.scrollTop)} px\nPanel scroll: ${Math.round(document.querySelector('#toolpanel').scrollTop)} px\nList maximum: ${Math.round(grid.scrollHeight-grid.clientHeight)} px`;
+}
+document.querySelector('#toolpanel').addEventListener('click',report);
+document.querySelector('#toolpanel').addEventListener('scroll',report,true);
+document.querySelector('#month').onclick=()=>{ui.renderToolPanel();report();};
+// Exercise the same rerender without persisting the user's brush preferences.
+document.querySelector('#brush').onclick=()=>{ui.state.brushR=ui.state.brushR===1?2:1;ui.renderToolPanel();report();};
+report();
+</script>
