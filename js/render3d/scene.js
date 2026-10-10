@@ -124,7 +124,7 @@ export class Renderer {
   // Graphics preferences from the settings menu.
   applySettings(s) {
     const fast = s.quality === 'fast';
-    this.quality = s.quality;
+    this.quality = s.quality; this.qualityChosen = !!s.qualityChosen;
     // (every setting comes through here, the volume sliders included: only a change to the
     // detail or shadows starts the automatic resolution over)
     const gfx = `${s.quality}|${s.shadows}`, fresh = gfx !== this.gfx;
@@ -200,6 +200,23 @@ export class Renderer {
       this.roomFor = 0;
       if (fps < 20 && (sc <= min + 0.005 || this.resNoGain) && this.sun.castShadow) { this.sun.castShadow = false; this.shadowsDropped = true; }
     }
+  }
+  // On a computer that can't keep up (a few frames a second on many older laptops' built-in
+  // graphics), step the Detail setting down once, to Fast, and say so. Only while the player
+  // hasn't chosen a Detail level themselves; it waits out loading, and needs three slow
+  // three-second spells in a row, so a busy moment doesn't count.
+  autoQuality() {
+    if (TOUCH || !this.onSlow || this.quality === 'fast' || this.qualityChosen) return;
+    const now = performance.now(), A = this.qWin;
+    this.qStart ??= now;
+    if (!A || now - A.last > 3000) { this.qWin = { t0: now, last: now, gaps: [] }; return; }
+    A.gaps.push(now - A.last); A.last = now;
+    if (now - A.t0 < 3000) return;
+    this.qWin = { t0: now, last: now, gaps: [] };
+    if (now - this.qStart < 8000) return;
+    const g = A.gaps.sort((a, b) => a - b), fps = 1000 / Math.max(1, g[g.length >> 1]);
+    this.qSlow = fps < 20 ? (this.qSlow || 0) + 1 : 0;
+    if (this.qSlow >= 3) { this.qSlow = 0; this.qStart = null; this.onSlow('fast', Math.round(fps)); }
   }
   setRes(sc) {
     this.resScale = sc; this.dpr = this.baseDpr * sc;
@@ -497,7 +514,7 @@ export class Renderer {
       const ms = t - P.last; P.last = t;
       if (ms > 0 && ms < 1000) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; longer gaps are a hidden tab)
     }
-    if (dt > 0) this.autoResolution();
+    if (dt > 0) { this.autoResolution(); this.autoQuality(); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);
     const w = this.world;

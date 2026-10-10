@@ -2,6 +2,7 @@ import { Game, PENDING_KEY } from './game.js';
 import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
+import { settings } from './settings.js';
 import { initAnalytics, analyticsWillRun, track } from './analytics.js';
 import { initLang } from './i18n.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
@@ -59,8 +60,17 @@ async function boot() {
     stage('Welcoming the wild', 82);
     await nextPaint();
 
+    // Frame rate: a slow, calm game reads just as well at 30 frames a second, and half the
+    // drawing keeps phones cool and laptop batteries going. Auto means 30 on touch screens and
+    // while a laptop runs on battery (where the browser says so), 60 otherwise.
+    const touch = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
+    let onBattery = false;
+    navigator.getBattery?.().then(b => { const upd = () => { onBattery = !b.charging; }; upd(); b.addEventListener('chargingchange', upd); }).catch(() => {});
+    const targetFps = () => settings.fps === '60' ? 60 : settings.fps === '30' ? 30 : touch || onBattery ? 30 : 60;
     let last = performance.now();
     function frame(now) {
+      // (skip this refresh if it comes too soon; the small allowance keeps 30 steady on a 60 Hz screen)
+      if (now - last < 1000 / targetFps() - 3) { requestAnimationFrame(frame); return; }
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       game.update(dt);

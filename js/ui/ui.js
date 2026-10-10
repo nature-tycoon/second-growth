@@ -325,6 +325,12 @@ export class UI {
   }
 
   applySettings() {
+    // the renderer asks for a lighter Detail level when this computer can't keep up
+    this.renderer.onSlow ??= (quality, fps) => {
+      track('auto_quality', { from: settings.quality, to: quality, fps });
+      settings.quality = quality; saveSettings(); this.applySettings();
+      this.game.notify('The game was running slowly on this computer, so Detail is now Fast. You can change it back in Settings.', 'info');
+    };
     this.renderer.applySettings(settings);
     this.game.autosave = settings.autosave;
     this.refreshSaveStatus();
@@ -1226,6 +1232,7 @@ export class UI {
       graphics: ['Graphics', `
         ${choice('quality', 'Detail', TOUCH ? 'Fast suits most phones. On a touch screen the resolution also adjusts itself to keep things smooth.' : 'Lower it if the game feels slow. Fast also uses simpler plants until you zoom in.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}
         ${toggle('shadows', 'Shadows', 'Trees and buildings cast soft shadows.')}
+        ${choice('fps', 'Frame rate', 'Auto runs at 30 frames a second on phones and on battery power, which keeps devices cool, and 60 otherwise.', [['auto', 'Auto'], ['60', 'Smooth (60)'], ['30', 'Battery saver (30)']])}
         ${toggle('wind', 'Wind in the plants', 'Grass, shrubs and treetops sway.')}
         ${toggle('weather', 'Rain and snow', 'Falling rain and snow over the view.')}
         ${toggle('dayCycle', 'Time of day', 'The light drifts from midday through golden hour and dusk to dawn every few minutes.')}`],
@@ -1250,6 +1257,7 @@ export class UI {
         if (inp.type === 'range') inp.nextElementSibling.textContent = inp.dataset.fmt === 'pct' ? pctFmt(settings[key]) : settings[key].toFixed(1) + '×';
         if (key === 'analytics') { if (!settings.analytics) track('analytics_opt_out'); setAnalyticsEnabled(settings.analytics); }
         else if (inp.type !== 'range') track('setting_changed', { setting: key, value: settings[key] });
+        if (key === 'quality') settings.qualityChosen = true; // (the player's choice: never lowered for them)
         saveSettings();
         this.applySettings();
       });

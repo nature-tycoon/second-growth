@@ -257,6 +257,7 @@ function strap(o, pos, col) {
 }
 
 // ---------------------------------------------------------------- trees (unit: tiles, mature size)
+export const MID = 0.5; // the in-between level of detail (see treeParts)
 function trunk(h, r0, r1, color = 0xffffff, sides = 7) {
   return soft(new THREE.CylinderGeometry(r1, r0, h, sides, 3), { color, transform: g => g.translate(0, h / 2, 0), lump: r0 * 0.25, seed: 5 });
 }
@@ -271,8 +272,11 @@ const CONIFER_HABITS = {
   cedar:   { lobes: 9, profile: 0.78, sag: 0.5, curl: 0.3, drop: 2.3, gap: 0.08, base: 0.1, trunkR: 0.09 },
   hemlock: { lobes: 10, profile: 0.9, sag: 0.38, curl: 0.05, drop: 2.1, gap: 0.1, base: 0.13, trunkR: 0.06, nod: 0.5 },
 };
+// lod: 0 close, 1 distant, MID the in-between model for the normal play zoom (the close model's
+// outline with fewer points; it draws the same random numbers so the two match exactly)
 function skirt(y, r, drop, h, rng, lod) {
-  const per = lod ? 2 : 4, M = h.lobes * per, phase = rng() * 6.28;
+  const far = lod === 1, mid = lod === MID;
+  const per = far || mid ? 2 : 4, M = h.lobes * per, phase = rng() * 6.28;
   const lens = Array.from({ length: h.lobes }, () => rng() < h.gap ? 0.5 + rng() * 0.15 : 0.84 + rng() * 0.3);
   const reach = [], ang = [];
   for (let i = 0; i < M; i++) {
@@ -280,10 +284,11 @@ function skirt(y, r, drop, h, rng, lod) {
     // a lobe's tip, its shoulders and the notch before the next branch
     const prof = per === 4 ? [1, 0.84, 0.62, 0.84][i % per] : [1, 0.64][i % per];
     reach.push(prof * (u <= 0.25 ? lens[j] : u >= 0.75 ? next : (lens[j] + next) / 2));
-    ang.push(phase + (i / M) * Math.PI * 2 + (lod ? 0 : (rng() - 0.5) * 0.05));
+    ang.push(phase + (i / M) * Math.PI * 2 + (far ? 0 : (rng() - 0.5) * 0.05 * (mid ? 2 : 1)));
+    if (mid) rng(); // (as many draws as the close model, two points per lobe-quarter pair)
   }
   // (the distant model is one ring and a flat belly: a few dozen triangles per tier)
-  const rings = lod ? [1] : [0.38, 0.72, 1], pos = [y], top = [], belly = [];
+  const rings = far ? [1] : mid ? [0.55, 1] : [0.38, 0.72, 1], pos = [y], top = [], belly = [];
   const vert = (s, i) => {
     const f = reach[i], tip = Math.min(1, Math.max(0, (f - 0.6) / 0.4)), end = Math.min(1, Math.max(0, (s - 0.7) / 0.3));
     const yy = y - drop * (0.3 * s + 0.7 * s ** 1.6) - h.sag * drop * s * s * tip + h.curl * drop * end * end * tip;
@@ -304,7 +309,7 @@ function skirt(y, r, drop, h, rng, lod) {
   const C = P.length - 1;
   for (let i = 0; i < M; i++) {
     const a = id(rim, i), b = id(rim, i + 1), c = B0 + (i + 1) % M, d = B0 + i;
-    if (lod) belly.push(a, b, C); else belly.push(a, b, c, a, c, d, d, c, C);
+    if (far || mid) belly.push(a, b, C); else belly.push(a, b, c, a, c, d, d, c, C);
   }
   const build = (idx, shade) => {
     const g = new THREE.BufferGeometry();
@@ -334,9 +339,9 @@ function pineTree(opts, seed, lod) {
   return { crown: lod ? merge(cores) : merge([...cores, twoSided(sheet(pos, col))]), trunk: merge(limbs) };
 }
 export function conifer(opts, seed, lod = 0) {
-  if (opts.habit === 'pine') return pineTree(opts, seed, lod);
+  if (opts.habit === 'pine') return pineTree(opts, seed, lod === MID ? 0 : lod);
   const rng = mulberry32(seed), { height: H, radius: R, tiers } = opts, h = CONIFER_HABITS[opts.habit] || CONIFER_HABITS.fir;
-  const base = H * h.base, n = lod ? Math.ceil((tiers + 2) * 0.6) : tiers + 2, parts = [];
+  const base = H * h.base, n = lod === 1 ? Math.ceil((tiers + 2) * 0.6) : tiers + 2, parts = [];
   const span = H * 0.88 - base, drop = span / n * h.drop;
   for (let k = 0; k < n; k++) {
     const t = k / (n - 1), y = base + drop + (span - drop) * t;
@@ -362,6 +367,8 @@ export function conifer(opts, seed, lod = 0) {
 // low, near-level limbs), 'spire' (cottonwood, tulip poplar: tall and upright), 'layered'
 // (dogwood: flat tiers) and 'vase' (redbud: a V that opens into a broad top).
 export function broadleaf(opts, seed, lod = 0) {
+  // (the in-between model is the close one with plainer leaf clumps: same branches, same outline)
+  if (lod === MID) return broadleaf(opts, seed, -1);
   const rng = mulberry32(seed), { height: H, rx, ry, trunkH, trunkR = 0.06 } = opts;
   const habit = opts.habit || 'round', cy = H - ry;
   const crownParts = [], limbs = [];
@@ -371,7 +378,7 @@ export function broadleaf(opts, seed, lod = 0) {
   const lx = (rng() - 0.5) * rx * 0.16, lz = (rng() - 0.5) * rx * 0.16;
   const shell = (a, e, f = 1) => [lx + Math.cos(e) * Math.cos(a) * rx * f, cy + Math.sin(e) * ry * f, lz + Math.cos(e) * Math.sin(a) * rx * f];
   const clump = (c, s, sy, shade, salt) => {
-    const g = soft(new THREE.IcosahedronGeometry(1, lod ? 0 : 1), { seed: seed + salt, lump: 0.09,
+    const g = soft(new THREE.IcosahedronGeometry(1, lod ? 0 : 1), { seed: seed + salt, lump: lod === -1 ? 0.14 : 0.09,
       transform: g => g.scale(s, s * sy, s).translate(...c) });
     // dark underneath, bright where it faces the sky
     shadeVerts(g, (x, y) => shade * (0.62 + 0.48 * Math.min(1, Math.max(0, (y - c[1]) / (s * sy) * 0.5 + 0.5))));
@@ -380,7 +387,7 @@ export function broadleaf(opts, seed, lod = 0) {
   // elevation of the limbs' targets on the crown shell, by habit
   const elev = t => habit === 'spread' ? -0.15 + t * 0.75 : habit === 'spire' ? -0.35 + t * 1.25
     : habit === 'vase' ? 0.15 + t * 0.7 : -0.3 + t * 1.05;
-  const primaries = habit === 'layered' ? 0 : lod ? 4 : habit === 'spire' ? 6 : 5, seconds = lod ? 2 : 3;
+  const primaries = habit === 'layered' ? 0 : lod === 1 ? 4 : habit === 'spire' ? 6 : 5, seconds = lod === 1 ? 2 : 3;
   for (let k = 0; k < primaries; k++) {
     const t = (k + 0.5) / primaries, a = k * 2.4 + rng() * 0.5, e = elev(t);
     const end = shell(a, e, 0.55), r0 = trunkR * 0.62, r1 = trunkR * 0.32;
@@ -389,7 +396,7 @@ export function broadleaf(opts, seed, lod = 0) {
     for (let j = 0; j < seconds; j++) {
       const aa = a + (j - (seconds - 1) / 2) * 0.62 + (rng() - 0.5) * 0.2, ee = e + (rng() - 0.4) * 0.5 + (habit === 'spire' ? 0.15 : 0);
       const tip = shell(aa, ee, 0.68 + rng() * 0.3); // (some branches reach further than others: a lobed outline)
-      if (!lod) limbs.push(rod(end, tip, r1, r1 * 0.3, 3));
+      if (lod !== 1) limbs.push(rod(end, tip, r1, r1 * 0.3, 3));
       const s = rx * (0.24 + rng() * 0.16) * (habit === 'spire' ? 0.85 : 1);
       clump(tip, s, habit === 'spread' ? 0.62 : 0.78, 0.9 + Math.sin(ee) * 0.12 + rng() * 0.06, k * 10 + j);
     }
@@ -397,7 +404,7 @@ export function broadleaf(opts, seed, lod = 0) {
   if (habit === 'layered') {
     // flat tiers of foliage held out on level branches
     for (let tier = 0; tier < 3; tier++) {
-      const y = cy - ry * 0.55 + tier * ry * 0.62, f = 1 - tier * 0.28, n = lod ? 4 - Math.floor(tier / 2) : 6 - tier;
+      const y = cy - ry * 0.55 + tier * ry * 0.62, f = 1 - tier * 0.28, n = lod === 1 ? 4 - Math.floor(tier / 2) : 6 - tier;
       for (let k = 0; k < n; k++) {
         const a = k / n * 6.28 + tier * 0.9 + rng() * 0.4, d = rx * f * (0.62 + rng() * 0.18);
         const tip = [lx * f + Math.cos(a) * d, y, lz * f + Math.sin(a) * d];
@@ -407,7 +414,7 @@ export function broadleaf(opts, seed, lod = 0) {
     }
   }
   // a leafy core, set back inside the shell, so the crown is full in the middle and open at its edges
-  const core = habit === 'layered' ? 0 : lod ? 1 : 2;
+  const core = habit === 'layered' ? 0 : lod === 1 ? 1 : 2;
   for (let k = 0; k < core; k++) {
     const a = k * 2.1 + rng(), c = shell(a, habit === 'spread' ? 0.2 : 0.15 + k * 0.2, 0.32);
     clump(c, rx * (habit === 'spire' ? 0.38 : 0.44), habit === 'spread' ? 0.6 : 0.85, 0.66, 200 + k);
@@ -496,6 +503,8 @@ export function treeParts(shape, seed, lod = 0) {
   return t;
 }
 function treePartsRaw(shape, seed, lod) {
+  // (only the conifers and broadleaf crowns have an in-between model; the rest use their close one)
+  if (lod === MID && shape.kind !== 'conifer' && shape.kind !== 'broad' && shape.kind) lod = 0;
   switch (shape.kind) {
     case 'conifer': return conifer(shape, seed, lod);
     case 'palm': return palm(shape, seed, lod);
@@ -1628,8 +1637,11 @@ export function accent(type, seed, lo = false) {
 // ---------------------------------------------------------------- features & props
 export function snag(seed) {
   const r = mulberry32(seed);
-  const parts = [trunk(1.5, 0.09, 0.05, 0xffffff, 6)];
-  const top = prep(new THREE.ConeGeometry(0.06, 0.2, 5)); at(top, 0.02, 1.58, 0); parts.push(top);
+  // The broken tip shares the trunk's upper ring, so the bark wobble cannot
+  // pull two separate, differently sized parts out of alignment.
+  const profile = [[0, 0], [0.09, 0], [0.077, 0.5], [0.063, 1], [0.05, 1.5], [0, 1.68]];
+  const parts = [soft(new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(x, y)), 6),
+    { lump: 0.09 * 0.25, seed: 5 })];
   for (let k = 0; k < 2; k++) {
     const b = prep(new THREE.CylinderGeometry(0.015, 0.03, 0.35, 4));
     b.translate(0, 0.17, 0); b.rotateZ(k ? 1.1 : -1.2); b.rotateY(r() * 6.28); at(b, 0, 0.8 + k * 0.3, 0); parts.push(b);
