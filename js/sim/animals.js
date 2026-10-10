@@ -63,6 +63,14 @@ export function passable(w, i, a) {
   return true;
 }
 
+// Young born here that leave home once independent to find a patch of their own: the walkers and
+// waders that don't live in herds (herds and deer families keep their young with them).
+const disperses = def => !def.herd && !def.familyHerd && !def.patrol && !def.reef && (def.move === 'ground' || def.move === 'semi');
+// how old (in days) a youngster is when it goes its own way
+const independentAge = def => (WITH_MOM[def.key] ? Math.min(WITH_MOM[def.key], def.mature || 1) : (def.mature || 1) * 0.5) * DAYS_PER_YEAR;
+// How far (in tiles) an animal that lives alone keeps from others of its kind; 0 for herds and groups.
+const territory = def => def.herd || def.familyHerd || def.patrol || def.reef ? 0 : clamp(Math.sqrt(def.hr) * 0.6, 1, 3);
+
 // Young that stay close beside their mother, and for how many years (never past adulthood):
 // bear cubs for a year and a half, fawns and calves through their first year, elephant calves for years.
 // (Rodents, rabbits and birds raise their young in a nest or burrow instead.)
@@ -400,6 +408,7 @@ export class Wildlife {
             const pos = this.randomPassableNear(def, parentA.x - 0.5, parentA.y - 0.5, 1) || [Math.floor(parentA.x), Math.floor(parentA.y)];
             const young = this.spawn(def, pos[0], pos[1], { age: 0 });
             if (WITH_MOM[def.key]) young.mom = parentA.id;
+            if (disperses(def)) young.disperse = true; // (once independent it leaves home: see disperse())
             pop++; st.births++;
           }
           if (st.births === n) game.notify(`${cap(many(def))} have raised young here for the first time!`, 'good', parentA);
@@ -1131,6 +1140,48 @@ export class Wildlife {
     return true;
   }
 
+  // Natal dispersal: a youngster leaves where it was born for a patch of good habitat of its own,
+  // a little way off and with as few of its kind about as it can find. Without it every litter
+  // stays piled up around the nest. Walks there along a corridor of habitat, like roam().
+  disperse(a, def) {
+    const w = this.game.world, map = this.suit[a.sp], W = w.w, n = w.n;
+    const x0 = clamp(Math.floor(a.x), 0, W - 1), y0 = clamp(Math.floor(a.y), 0, w.h - 1), start = w.idx(x0, y0);
+    if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
+    if (!depth || depth.length < n) depth = new Int16Array(n);
+    const wet = a.move !== 'ground', keep = Math.max(2, territory(def) * 1.5);
+    const minD = Math.round(clamp(2 + Math.sqrt(def.hr) * 1.2, 4, 12)), maxD = minD * 3;
+    const kin = this.agents.filter(o => o !== a && o.sp === a.sp && !o.leaving && Math.abs(o.x - a.x) < maxD + keep && Math.abs(o.y - a.y) < maxD + keep);
+    const corridor = j => passable(w, j, a) && (map[j] > 0.04 || (wet && isWater(w.terrain[j])));
+    stampN++;
+    let head = 0, tail = 0, pick = -1, bs = 0;
+    bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1; depth[start] = 0;
+    while (head < tail && tail < 6000) {
+      const i = bfsQ[head++], x = i % W, y = (i / W) | 0;
+      // (a sample of the far, good tiles is enough to find an empty one)
+      if (depth[i] >= minD && map[i] > 0.25 && Math.random() < 0.3) {
+        let others = 0;
+        for (const o of kin) { const d = Math.hypot(o.x - x - 0.5, o.y - y - 0.5); if (d < keep) others += 1 - d / keep; }
+        const sc = map[i] * (0.6 + 0.4 * Math.random()) / (1 + 3 * others);
+        if (sc > bs) { bs = sc; pick = i; }
+      }
+      if (depth[i] >= maxD) continue;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        if (!swimmer(a) && dx && dy) continue;
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
+        const j = yy * W + xx;
+        if (stamp[j] === stampN || !corridor(j)) continue;
+        stamp[j] = stampN; parent[j] = i; depth[j] = depth[i] + 1; bfsQ[tail++] = j;
+      }
+    }
+    if (pick < 0) return false;
+    const path = [];
+    for (let i = pick; i !== start && i >= 0; i = parent[i]) path.push(i);
+    a.path = path; a.state = 'walk'; a.trip = pick;
+    return true;
+  }
+
   chooseTarget(a, def) {
     a.restSpot = null;
     a.drinkAt = null; a.waterTrip = false;
@@ -1155,6 +1206,7 @@ export class Wildlife {
     // enough to go their own way
     if (!a.leaving && play(this, a, def)) return;
     if (a.mom != null && !a.leaving && this.keepWithMom(a, def)) return;
+    if (a.disperse && !a.leaving && a.mom == null && a.age >= independentAge(def)) { a.disperse = false; if (this.disperse(a, def)) return; }
     // just climbed out of the river: the herd heads inland to find grass
     if (a.landed) {
       a.landed = false;
@@ -1207,17 +1259,28 @@ export class Wildlife {
     const start = w.idx(x0, y0);
     // others of its kind nearby, counted by the tile they're on or heading for: a spot that's
     // already taken is worth less, so they spread out over the habitat instead of crowding together
-    const crowd = new Map();
+    // Animals that live alone also keep a little way from the neighbours, not just off their tile:
+    // each settles into its own patch rather than the lot knotting together where the food is.
+    const crowd = new Map(), near = [], keep = territory(def);
     for (const o of this.agents) {
       if (o === a || o.sp !== a.sp || o.leaving || Math.abs(o.x - a.x) > 14 || Math.abs(o.y - a.y) > 14) continue;
       const j = o.state === 'walk' && o.path?.length ? o.path[0] : w.idx(clamp(Math.floor(o.x), 0, w.w - 1), clamp(Math.floor(o.y), 0, w.h - 1));
       crowd.set(j, (crowd.get(j) || 0) + 1);
+      if (keep) near.push(j);
     }
+    const nearby = i => {
+      let n = crowd.get(i) || 0;
+      if (keep) for (const j of near) {
+        const d = Math.hypot((j % w.w) - (i % w.w), ((j / w.w) | 0) - ((i / w.w) | 0));
+        if (d > 0 && d < keep) n += 1 - d / keep;
+      }
+      return n;
+    };
     // and the last few places it went: with only two good spots around (two lone trees in a
     // pasture) it would otherwise shuttle between them in a straight line, back and forth
     if (def.familyHerd && map[start] > 0.15 && Math.random() < 0.6) { a.wait = 3 + Math.random() * 4; return; }
     const recent = a.recent || (a.recent = []);
-    const worth = i => 1 / (1 + 1.5 * (crowd.get(i) || 0)) * (recent.includes(i) ? 0.3 : 1);
+    const worth = i => 1 / (1 + 1.5 * nearby(i)) * (recent.includes(i) ? 0.3 : 1);
     // Patrollers (river dolphins, giant otters) cruise long stretches of water instead of
     // milling about one spot: they hold a heading, favour water well ahead of them, and turn
     // around at dead ends, following the channel toward its farthest reach.
@@ -1283,6 +1346,8 @@ export class Wildlife {
   // other maps the land mammals (and the cattle). Birds, reptiles and insects there drink where they are.
   drinks(def) {
     if (def.move === 'swim' || def.noDrink || def.reef || biome.look?.underwater) return false;
+    // (voles, rats, chipmunks and squirrels get their water from food and dew: no treks to the creek)
+    if (def.sprite.kind === 'rodent' || def.sprite.kind === 'squirrel') return false;
     if (biome.waterholes) return true;
     return (def.group === 'Mammals' || def.herd) && (def.move === 'ground' || (def.move === 'semi' && !def.patrol));
   }
