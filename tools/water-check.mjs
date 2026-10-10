@@ -5,6 +5,7 @@ register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
 const { Terrain, waterSurfaceY } = await import('../js/render3d/terrain.js');
 import { Game } from '../js/game.js';
+import { waterModel } from '../js/sim/hollis-water.js';
 import { T, F, LEVEL } from '../js/config.js';
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log('PASS ' + name); };
@@ -78,6 +79,7 @@ check('Digging and filling water refresh the depth/flow buffers without changing
   dispose(t);
 });
 check('Gameplay water planes match actor samples and disappear from a dried pond bed', () => {
+  waterModel.enabled = true; // (off in play until it's ready)
   const {game,terrain:t}=make(),w=game.world;
   game.wildlife.buildDam(w.idx(54,58));game.weather='rain';for(let k=0;k<10;k++)game.water.step(game);
   t.refreshWater();const b=game.water.basins.find(b=>b.kind==='dam');

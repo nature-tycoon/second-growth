@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { World } from '../js/world.js';
-import { HollisWater, tileWaterVolume } from '../js/sim/hollis-water.js';
+import { HollisWater, tileWaterVolume, waterModel } from '../js/sim/hollis-water.js';
+waterModel.enabled = true; // (the model is off in play until it's ready)
 import { T, F } from '../js/config.js';
 import { PLANT } from '../js/data/plants.js';
 import { updatePlants, plantLimits } from '../js/sim/plants.js';
@@ -107,6 +108,17 @@ check('Reservoirs are exclusive to Hollis; all other maps keep their terrain and
   for(const map of ['amazon','serengeti','atlanta','chinandega','sumatra','reef']){
     const g=new Game();g.newGame(1987,'free','standard',map);assert.equal(g.water,null);assert.equal(g.world.waterLevel,undefined);assert.equal(g.saveData().world.water,undefined);
   }
+});
+check('Switched off, Hollis plays as before and saves made under the model load back to their ground', () => {
+  const g=farm(),w=g.world;g.weather='clear';g.day=50;for(let k=0;k<60;k++)g.water.step(g);
+  const base=g.water.base.slice(),data=g.saveData();assert.ok(data.world.water);
+  assert.ok(base.some((t,i)=>t!==w.terrain[i]),'the summer drawdown changed the published terrain');
+  waterModel.enabled=false;
+  try{
+    const off=new Game();off.newGame(1987,'free','standard','pnw');assert.equal(off.water,null);assert.equal(off.world.waterLevel,undefined);assert.equal(off.saveData().world.water,undefined);
+    const back=new Game();assert.ok(back.restoreSave(structuredClone(data)));assert.equal(back.water,null);
+    assert.ok(Array.from(back.world.terrain).every((t,i)=>t===base[i]),'ponds and wetlands return to their underlying ground');
+  }finally{waterModel.enabled=true;}
 });
 const g=farm();g.wildlife.buildDam(g.world.idx(54,58));const start=performance.now();for(let k=0;k<120;k++)g.water.step(g);
 console.log(`${checks} Hollis water checks passed. Water-only 120-day benchmark: ${(performance.now()-start).toFixed(1)} ms.`);

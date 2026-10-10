@@ -1,13 +1,13 @@
 // Game state and the simulation clock.
 
 import { arrivalMoment, momentsDaily, ARRIVAL_MOMENTS } from './sim/moments.js';
-import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, DIFFICULTY, seasonOfMonth, money } from './config.js';
+import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, DIFFICULTY, seasonOfMonth, money, T } from './config.js';
 import { biome, BIOME_LIST, setBiome } from './biome.js';
 import { saves, legacySaveKey, bytesFromBase64, intact } from './saves.js';
 import { World, Border } from './world.js';
 import { mulberry32 } from './rng.js';
 import { updateEnvironment, updateHydrology } from './sim/environment.js';
-import { HollisWater } from './sim/hollis-water.js';
+import { HollisWater, waterModelOn } from './sim/hollis-water.js';
 import { updatePlants, seedRain, rootsLoosen } from './sim/plants.js';
 import { Wildlife } from './sim/animals.js';
 import { ANIMALS, ANIMAL, aOne } from './data/animals.js';
@@ -50,7 +50,7 @@ export class Game {
     this.difficulty = DIFFICULTY[difficulty] ? difficulty : 'standard';
     this.campaign = { chapter: 0 };
     this.world = biome.generate(seed);
-    this.water = this.map === 'pnw' ? new HollisWater(this.world) : null;
+    this.water = waterModelOn(this.map) ? new HollisWater(this.world) : null;
     this.border = new Border(this.world, biome.borderCell);
     this.rng = mulberry32(seed * 31 + 7);
     this.day = 0;
@@ -423,7 +423,13 @@ export class Game {
       }
     }
     w.structures = data.world.structures;
-    this.water = this.map === 'pnw' ? new HollisWater(w, data.world.water || null) : null;
+    const savedWater = data.world.water || null;
+    // (a farm saved while the water model was briefly live: put its ponds and wetlands back to
+    // their underlying ground, undoing the model's seasonal mud and pooled water)
+    if (!waterModelOn(this.map) && savedWater?.base?.length === w.n && savedWater.base.every(v => Number.isInteger(v) && v >= 0 && v <= T.TRAIL)) {
+      w.terrain.set(savedWater.base);
+    }
+    this.water = waterModelOn(this.map) ? new HollisWater(w, savedWater) : null;
     this.seed = data.seed;
     this.world = w;
     this.border = new Border(w, biome.borderCell);

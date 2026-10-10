@@ -37,6 +37,14 @@ export function tileWaterVolume(c, level) {
 }
 export function groundCentre(c) { return (c[0] + c[2]) / 2; }
 
+// OFF until it's ready for play. When off, Hollis keeps its original fixed ponds and the old beaver
+// dam flooding, and nothing about this model reaches saves. Tests switch it on with
+// waterModel.enabled = true; a browser can try it with ?water=1 in the address.
+export const waterModel = {
+  enabled: typeof location !== 'undefined' && new URLSearchParams(location.search).get('water') === '1',
+};
+export const waterModelOn = map => waterModel.enabled && map === 'pnw';
+
 export class HollisWater {
   constructor(w, saved = null) {
     this.w = w; this.basins = []; this.hv = -1;
