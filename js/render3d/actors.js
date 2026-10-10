@@ -146,7 +146,7 @@ export class Actors {
         y = Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
       } else if (flying && seaY != null) y = Math.max(ground, seaY) + 0.7 + a.alt * 1.2; // (seabirds fly over the water, not the seabed)
       else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
-      else if (flying) y += kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2; // pollinators flit low over the flowers
+      else if (flying) y += (kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
       else if (def.move === 'swim') {
         y = (surf ?? ground) - 0.05 - mo.sink * sc;
         // running salmon leap: every few seconds one arcs clear of the water, nose up then down
@@ -179,13 +179,23 @@ export class Actors {
       }
       st.t = time;
       st.px = a.x; st.py = a.y;
-      st.gait += ((moving ? 1 : 0) - st.gait) * k;
+      // a longer stride at a sprint, a shorter one at a creep
+      st.gait += ((moving ? Math.min(1.35, 0.55 + 0.45 * (a.run || 1)) : 0) - st.gait) * k;
       st.fly += ((flying ? 1 : 0) - st.fly) * k * 1.5;
-      // heads down to graze, and for everyone drinking at the water's edge
+      // heads down to graze, and for everyone drinking at the water's edge or feeding at a kill;
+      // low while stalking, sniffing at a neighbour or locking horns, up when something's wrong
       const aligned = heading == null || Math.cos(st.yaw + heading) > 0.95;
-      const grazing = !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1));
-      st.graze += ((grazing ? 1 : 0) - st.graze) * k * 0.5;
-      F.add(def, a.x, y, a.y, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, st.pitch || 0);
+      const stalking = a.state === 'hunt' && a.hunt?.phase === 'creep';
+      const head = a.state === 'feed' || a.sparT > 0 ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3
+        : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
+      st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : 0.5);
+      // stalking cats sink low to the ground
+      st.crouch = (st.crouch || 0) + ((stalking ? 1 : 0) - (st.crouch || 0)) * k;
+      if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
+      // sparring rivals lunge at each other and back
+      let ax = a.x, az = a.y;
+      if (a.sparT > 0) { const lunge = Math.max(0, Math.sin(time * 5 + (a.id & 1) * Math.PI)) * 0.08; ax += Math.cos(st.yaw) * lunge; az -= Math.sin(st.yaw) * lunge; }
+      F.add(def, ax, y, az, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, st.pitch || 0);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
       st.center ||= new THREE.Vector3();
@@ -194,6 +204,21 @@ export class Actors {
       if (def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
+
+    // ---- kills: the prey lying on its side where it fell, sinking away as it's eaten
+    for (const c of game.wildlife.carcasses || []) {
+      const cdef = ANIMALS[c.sp];
+      if (!cdef) continue;
+      const def = drawDef(cdef, c);
+      const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * c.age / (def.mature * 120), 0.55, 1) : 1;
+      const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
+      const left = clamp(c.t / (c.max * 0.3), 0, 1); // (the last stretch: bones and a dark patch)
+      const lift = (def.sprite.h || 10) * sc * 0.32 * left - (1 - left) * (def.sprite.h || 10) * sc * 0.2;
+      const yaw = -c.yaw;
+      if (this.view.enabled && !this.view.visible(c.x, ground - 0.2, ground + 0.6, c.y, animalViewRadius(def))) continue;
+      F.add(def, c.x, ground + lift, c.y, yaw, sc, 0, 0, 0, 0.6, 0, c.side * Math.PI / 2);
+      shadow(c.x, ground, c.y, (def.sprite.len || 10) * sc * 0.55);
+    }
 
     // ---- visitors: same instanced 3D style as the wildlife
     const pseen = new Set();
