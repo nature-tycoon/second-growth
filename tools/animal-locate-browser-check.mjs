@@ -88,7 +88,7 @@ try {
     return { name: (game.map + '/' + a.key), pose: !!st?.visible,
       centered: !!p && Math.abs(p.x - r.vw * r.frame.x) < 1 && Math.abs(p.y - r.vh * r.frame.y) < 1,
       clear: !!p && !(p.x >= b.left && p.x <= b.right && p.y >= b.top && p.y <= b.bottom),
-      ring: !!st?.center && r.actors.ring.position.distanceTo(st.center) < 0.001,
+      ring: !!st?.center && Math.hypot(r.actors.ring.position.x - st.center.x, r.actors.ring.position.z - st.center.z) < 0.001,
       follow: ui.follow === a && r.followAgent === a, collapsed: panel.classList.contains('min'),
       touch: matchMedia('(pointer: coarse)').matches, width: r.vw, height: r.vh };
   }`);

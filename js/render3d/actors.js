@@ -45,8 +45,13 @@ export class Actors {
     this.shadows.frustumCulled = false;
     this.shadows.renderOrder = 1;
     scene.add(this.shadows);
-    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 24), new THREE.MeshBasicMaterial({ color: 0xffe68a, transparent: true, opacity: 0.9, depthWrite: false, depthTest: false }));
-    this.ring.visible = false; this.ring.renderOrder = 6;
+    // The selected animal's marker: a thin ring with a faint glow lying flat on the ground under
+    // it (or on the water, the branch or the seabed it's at), so nothing is drawn over the animal
+    // itself. Depth-tested, so legs and bodies pass in front of it.
+    const flat = { color: 0xfff1b8, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 };
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ ...flat, opacity: 0.95 }));
+    this.ring.add(new THREE.Mesh(new THREE.RingGeometry(0.5, 0.86, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ ...flat, opacity: 0.16 })));
+    this.ring.visible = false; this.ring.renderOrder = 2;
     scene.add(this.ring);
     this.m = new THREE.Matrix4();
   }
@@ -197,6 +202,9 @@ export class Actors {
       if (a.sparT > 0) { const lunge = Math.max(0, Math.sin(time * 5 + (a.id & 1) * Math.PI)) * 0.08; ax += Math.cos(st.yaw) * lunge; az -= Math.sin(st.yaw) * lunge; }
       F.add(def, ax, y, az, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, st.pitch || 0);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
+      // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
+      st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
+      st.foot = (def.sprite.len || def.sprite.size || 10) * sc;
       st.x = a.x; st.y = y; st.z = a.y; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
       st.center ||= new THREE.Vector3();
       st.center.copy(mo.center); st.center.y += st.bob;
@@ -258,10 +266,10 @@ export class Actors {
     const selectedPose = sel && this.pose.get(sel.id);
     if (selectedPose?.visible) {
       this.ring.visible = true;
-      this.ring.position.copy(selectedPose.center);
-      if (camera) this.ring.quaternion.copy(camera.quaternion);
-      const s = (1 + Math.sin(time * 4) * 0.08) * clamp(0.35 + selectedPose.h * 0.25, 0.35, 0.9) / 0.36;
-      this.ring.scale.set(s, s, s);
+      this.ring.position.set(selectedPose.center.x, selectedPose.base + 0.02, selectedPose.center.z);
+      // a slow breathing pulse, sized to the animal's footprint
+      const s = (1 + Math.sin(time * 2.5) * 0.05) * clamp(selectedPose.foot * 0.62, 0.16, 1.4);
+      this.ring.scale.set(s, 1, s);
     } else this.ring.visible = false;
   }
 

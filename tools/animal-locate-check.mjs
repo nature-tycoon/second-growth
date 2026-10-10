@@ -40,9 +40,13 @@ function verify(game, r, a, label) {
   const p = r.project(st.center.x, st.center.y, st.center.z);
   near(p.x, r.vw * r.frame.x, `${label}: screen x`); near(p.y, r.vh * r.frame.y, `${label}: screen y`);
   assert.equal(r.pickAgent(game, p.x, p.y), a, `${label}: pick the visible animal`);
-  assert.ok(r.actors.ring.visible); near(r.actors.ring.position.distanceTo(st.center), 0, `${label}: ring`);
+  // the marker lies flat under the animal (never over its body), and the foliage opens at the body
+  assert.ok(r.actors.ring.visible);
+  near(Math.hypot(r.actors.ring.position.x - st.center.x, r.actors.ring.position.z - st.center.z), 0, `${label}: ring under the animal`);
+  near(r.actors.ring.position.y, st.base + 0.02, `${label}: ring at its footing`);
+  if (ANIMALS[a.sp].move !== 'swim') assert.ok(r.actors.ring.position.y <= st.center.y + 0.03, `${label}: ring at or below the body`); // (a fish is marked at the surface above it)
+  near(r.actors.ring.quaternion.angleTo(new r.camera.quaternion.constructor()), 0, `${label}: flat ring`);
   near(focus.uFocus.value.distanceTo(st.center), 0, `${label}: reveal foliage at the body`);
-  near(r.actors.ring.quaternion.angleTo(r.camera.quaternion), 0, `${label}: camera-facing ring`);
 }
 function tree(game, a) {
   const p = PLANTS.find(p => p?.layer === 2), i = game.world.idx(Math.floor(a.x), Math.floor(a.y));
