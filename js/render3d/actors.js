@@ -226,7 +226,9 @@ export class Actors {
       st.t = time;
       st.px = a.x; st.py = a.y;
       // a longer stride at a sprint, a shorter one at a creep
-      st.gait += ((moving ? Math.min(1.35, 0.55 + 0.45 * (a.run || 1)) : 0) - st.gait) * k;
+      // (standing but nudged over by a neighbour: a little shuffle of the feet, not a glide)
+      const shuffle = !moving && !flying && a.state === 'idle' && dx * dx + dz * dz > 1e-8;
+      st.gait += ((moving ? Math.min(1.35, 0.55 + 0.45 * (a.run || 1)) : shuffle ? 0.35 : 0) - st.gait) * k;
       const bathing = a.bird?.kind === 'bathe', preening = a.bird?.kind === 'preen';
       const birdWings = bathing ? 0.16 + Math.abs(Math.sin(a.phase * 1.7)) * 0.2 : preening ? 0.08 : 0;
       st.fly += ((flying ? 1 : birdWings) - st.fly) * k * 1.5;

@@ -76,11 +76,59 @@ export class AnimalSpacing {
     }
     return best;
   }
+  // Walking past others: look a little way ahead and curve round anyone in the way, before
+  // touching, rather than walking into them and being shoved aside. Keeps to the side it chose so
+  // it doesn't wobble, and slows to edge past when there's no room either side. Returns a nearer
+  // point to head for and a pace factor, or null to walk straight on.
+  steer(a, tx, ty, canStand) {
+    const w = this.w, band = layer(w, a);
+    if (band == null || band === 'reef') return null;
+    let dx = tx - a.x, dy = ty - a.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 0.05) return null;
+    dx /= d; dy /= d;
+    const r = animalRadius(a), look = Math.min(d, r * 2 + 0.6);
+    let need = [0, 0], any = false; // clearance angle needed passing on the left [0] or the right [1]
+    for (const e of this.near(a.x, a.y)) {
+      if (!this.compatible(a, e, band)) continue;
+      const ox = e.a.x - a.x, oy = e.a.y - a.y, reach = r + e.r + 0.04;
+      const along = ox * dx + oy * dy, lat = oy * dx - ox * dy; // (lat > 0: it's on the left)
+      if (along <= 0.02 || along > look + reach || Math.abs(lat) >= reach) continue;
+      // coming the other way: both keep to their own right, so they don't mirror each other's dodge
+      const toward = e.a.state === 'walk' && Math.cos(e.a.orientation ?? 0) * dx + Math.sin(e.a.orientation ?? 0) * dy < -0.5;
+      const at = Math.max(0.15, along);
+      need[0] = Math.max(need[0], Math.atan2(reach + lat, at) + (toward ? 0.6 : 0));
+      need[1] = Math.max(need[1], Math.atan2(reach - lat, at));
+      any = true;
+    }
+    if (!any) { a.avoidSide = 0; return null; }
+    // the cheaper side, unless it's already committed to one that still works
+    let side = need[0] < need[1] ? 0 : 1;
+    if (a.avoidSide && need[a.avoidSide > 0 ? 0 : 1] < 1.3) side = a.avoidSide > 0 ? 0 : 1;
+    const turn = Math.min(need[side], 1.3) * (side === 0 ? 1 : -1);
+    const open = t => {
+      const c = Math.cos(t), s = Math.sin(t), px = a.x + (dx * c - dy * s) * look, py = a.y + (dx * s + dy * c) * look;
+      return w.inb(Math.floor(px), Math.floor(py)) && canStand(w, w.idx(Math.floor(px), Math.floor(py)), a) ? [px, py] : null;
+    };
+    let p = open(turn);
+    if (!p) { side = 1 - side; p = open(Math.min(need[side], 1.3) * (side === 0 ? 1 : -1)); }
+    if (!p) return null;
+    a.avoidSide = side === 0 ? 1 : -1;
+    return [p[0], p[1], need[side] > 1.3 ? 0.35 : 1 - 0.3 * Math.min(1, need[side] / 1.3)];
+  }
+
   separate(dt, canStand) {
-    const w = this.w, budget = Math.min(0.12, dt * 1.8);
+    const w = this.w;
     this.comparisons = 0;
+    // Standing, drinking or eating, an animal holds its ground against those walking past: they
+    // give way round it, rather than shoving it aside. Between two standing on top of each other,
+    // the one only standing about shuffles over (one drinking or eating stays put).
+    const settled = a => a.state === 'idle' || a.state === 'feed' || a.drinkT > 0;
+    const yields = a => a.state === 'idle' && !(a.drinkT > 0);
     const shift = (e, dx, dy, amount) => {
       const a = e.a;
+      // (nudges no quicker than a slow step, except in a chase where everything moves fast)
+      const budget = Math.min(0.12, dt * (a.state === 'flee' || a.state === 'hunt' || a.state === 'play' ? 1.8 : settled(a) ? 0.45 : 0.7));
       // A push straight back against the last one is how a crowd that can't spread out (a troop
       // packed into one treetop, a herd jammed against a bank) starts ping-ponging every frame:
       // damp it, so a packed group settles into a slight overlap rather than shaking.
@@ -124,6 +172,20 @@ export class AnimalSpacing {
       if (overlap <= 0.005) continue;
       if (d < 1e-6) { const angle = (a.id + b.id * 7) * 2.39996; dx = Math.cos(angle); dy = Math.sin(angle); d = 1; }
       dx /= d; dy /= d;
+      if (e.band !== 'reef' && (settled(a) || settled(b))) {
+        if (!settled(a) || !settled(b)) {
+          const [still, walker, s] = settled(a) ? [e, f, -1] : [f, e, 1];
+          // (one hemmed in, getting nowhere: those only standing about shuffle aside to let it through)
+          const squeeze = yields(still.a) && walker.a.moveProgress?.stalled > 0.5;
+          if (shift(walker, dx * s, dy * s, overlap * (squeeze ? 0.5 : 1)) && !squeeze || !yields(still.a)) continue;
+          shift(still, -dx * s, -dy * s, overlap * (squeeze ? 0.5 : 1));
+          continue;
+        }
+        if (yields(a) !== yields(b)) {
+          const [mover, s] = yields(a) ? [e, 1] : [f, -1];
+          if (shift(mover, dx * s, dy * s, overlap)) continue;
+        }
+      }
       const ea = shift(e, dx, dy, overlap * 0.5), fb = shift(f, -dx, -dy, overlap * 0.5);
       if (!ea && fb) shift(f, -dx, -dy, overlap * 0.5);
       if (!fb && ea) shift(e, dx, dy, overlap * 0.5);

@@ -821,10 +821,16 @@ export class Wildlife {
           const remaining = Math.hypot(a.x - tx, a.y - ty);
           if ((a.path.length > 1 && remaining < 0.35 && w.idx(Math.floor(a.x), Math.floor(a.y)) === j) ||
             (a.path.length === 1 && remaining < 0.9 && this.spacing.crowd(a, tx, ty) > 0.08 &&
-            this.spacing.crowd(a, a.x, a.y) < 0.04)) {
+            this.spacing.crowd(a, a.x, a.y) < 0.04) ||
+            // (its spot's been taken and it's getting no closer edging round the others: stop short)
+            (a.path.length === 1 && remaining < 1.5 && a.moveProgress?.stalled > 0.3 && this.spacing.crowd(a, tx, ty) > 0.08)) {
             a.path.pop(); break;
           }
-          if (this.stepToward(a, tx, ty, (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1))) a.path.pop(); // (a.run: a startled animal dashing for cover)
+          const pace = (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1); // (a.run: a startled animal dashing for cover)
+          // curve round anyone in the way rather than walking into them (not on a dash for cover)
+          const round = a.run ? null : this.spacing.steer(a, tx, ty, passable);
+          if (round) { this.stepToward(a, round[0], round[1], pace * round[2]); if (Math.hypot(a.x - tx, a.y - ty) <= pace) a.path.pop(); }
+          else if (this.stepToward(a, tx, ty, pace)) a.path.pop();
           break;
         }
         case 'approach':
