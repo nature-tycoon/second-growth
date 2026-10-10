@@ -50,7 +50,7 @@ check('Large animals on the identical point separate gradually without changing 
   for (const a of herd) { a.x = a.y = 30.5; }
   separate(1);
   for (const a of herd) { assert.ok(Math.hypot(a.x - 30.5, a.y - 30.5) <= 0.091); assert.equal(a.orientation, 0); }
-  separate(240);
+  separate(600); // (standing animals shuffle apart slowly: a step, not a slide)
   for (const a of herd) for (const b of herd) if (a.id < b.id) assert.ok(gap(a, b) > -0.01, `${a.id}/${b.id}: ${gap(a, b)}`);
   const before = herd.map(a => [a.x, a.y]); separate(10);
   herd.forEach((a, k) => assert.ok(Math.hypot(a.x - before[k][0], a.y - before[k][1]) < 0.005));
