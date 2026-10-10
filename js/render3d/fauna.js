@@ -3816,6 +3816,23 @@ export class Fauna {
     return p;
   }
   motion(def) { return this.pool(def).motion; }
+  // How far forward of its origin the model reaches with its head fully lowered (antler or horn
+  // tips, in model units): two rivals stand so these just interlock. Measured once per model.
+  headReach(def) {
+    const p = this.pool(def);
+    if (p.reach == null) {
+      const pos = p.geo.attributes.position, part = p.geo.attributes.aPart, piv = p.geo.attributes.aPivot;
+      const ang = -(p.motion.head ?? 0.9), c = Math.cos(ang), s = Math.sin(ang);
+      let reach = 0;
+      for (let k = 0; k < pos.count; k++) {
+        let x = pos.getX(k);
+        if (part.getX(k) > 7.5) x = piv.getX(k) + (x - piv.getX(k)) * c - (pos.getY(k) - piv.getY(k)) * s;
+        reach = Math.max(reach, x);
+      }
+      p.reach = reach;
+    }
+    return p.reach;
+  }
   begin() { for (const p of this.species.values()) p.count = 0; }
   // One animal this frame. scale converts model pixels to scene units.
   add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0) {

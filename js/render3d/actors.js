@@ -16,6 +16,7 @@ const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
 const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
 const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
+const SPAR_FIT = { elk: 0.97, sambar: 0.86 }; // per antler type, as a share of the two heads' full reach
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 
 // Where a salmon is in its leap (0..1 across the arc), or -1 when it's swimming. Each fish leaps
@@ -200,7 +201,8 @@ export class Actors {
       const aligned = heading == null || Math.cos(st.yaw + heading) > 0.95;
       const stalking = a.state === 'hunt' && a.hunt?.phase === 'creep';
       const fight = this.bout(game, a, st, time);
-      const head = fight ? fight.head : a.state === 'feed' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3
+      const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
+      const head = fight ? fight.head : bugling ? -0.75 : a.state === 'feed' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3
         : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
       st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
       if (fight) st.gait += (fight.gait - st.gait) * k;
@@ -208,7 +210,7 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       const ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
-      F.add(def, ax, y, az, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, (st.pitch || 0) + (fight?.pitch || 0), fight?.roll || 0);
+      F.add(def, ax, y, az, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), fight?.roll || 0);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
@@ -301,7 +303,15 @@ export class Actors {
     // break apart and crash back in: back off over a moment, then lunge
     const c = ((time / 2.6 + seed) % 1 + 1) % 1, apart = c < 0.24 ? Math.sin(c / 0.24 * Math.PI) : 0;
     const crash = c >= 0.24 && c < 0.3 ? Math.sin((c - 0.24) / 0.06 * Math.PI) : 0; // (the impact jolt)
-    const back = (apart * 0.16 - crash * 0.04) * d;
+    // stand so the lowered antlers (or horns) of the two just interlock, wherever the
+    // simulation put them: each steps back or in by half the difference
+    const F = this.fauna, oDef = drawDef(ANIMALS[o.sp], o), oSt = this.pose.get(o.id);
+    const reach = F.headReach(drawDef(ANIMALS[a.sp], a)) * (st.sc || 0) + F.headReach(oDef) * (oSt?.sc || st.sc || 0);
+    // (how far the racks interlock: a small whitetail or mule deer rack meets close in; an elk's
+    // long, sweeping beams would reach right past the other bull's face, so elk stand further off)
+    const span = reach * (SPAR_FIT[drawDef(ANIMALS[a.sp], a).sprite.antlers] ?? 0.8);
+    const fit = (d - span) / 2;
+    const back = (apart * 0.16 - crash * 0.04) * span - fit;
     // each steps back along its own facing (away from the rival) while the pair shoves together
     const bx = -(o.x - a.x) / d * back, bz = -(o.y - a.y) / d * back;
     return {
