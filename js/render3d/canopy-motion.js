@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SPEEDS } from '../config.js';
+import { climbPace } from '../sim/climb-pace.js';
 
 function crownRoute(from, to, point) {
   if (from.site === to.site) { const points = from.site.route(from, to, point); return { points, sites: points.map(() => from.site), gap: -1 }; }
@@ -49,7 +50,7 @@ export function rebaseCanopy(st, flora) {
 }
 
 // Rendering follows the branch network; simulation positions and tile paths stay authoritative.
-export function canopyStep(st, anchor, def, game, time, reset = false) {
+export function canopyStep(st, anchor, def, game, time, reset = false, sim = null) {
   const dt = Math.max(0, Math.min(.1, time - (st.branchTime ?? time)));
   st.branchTime = time;
   if (reset || !st.branchPoint || !st.branchAt || Math.hypot(st.branchPoint.x - anchor.point.x, st.branchPoint.z - anchor.point.z) > 3) {
@@ -63,13 +64,16 @@ export function canopyStep(st, anchor, def, game, time, reset = false) {
     }
     const route = st.branchRoute;
     if (route && route.target.site === anchor.site && route.target.index === anchor.index) route.points[route.points.length - 1].copy(anchor.point);
-    // Heavy apes place each hold deliberately. Gibbons travel faster under the branch.
-    // The simulation walks straight between tiles, with pace, dashes and departures
-    // on top; the wood route is longer and slower. Speed up smoothly as the body
-    // falls behind, so it never reaches the reset distance and jumps there.
-    const lag = st.canopyLag = Math.hypot(st.branchPoint.x - anchor.point.x, st.branchPoint.z - anchor.point.z);
-    const catchUp = 1 + THREE.MathUtils.clamp((lag - .5) * 3, 0, 15);
-    const speed = Math.max(.3, def.speed) * (def.sprite.ape ? .55 : 1) * (def.sprite.kind === 'orangutan' ? .8 : 1) * catchUp * (SPEEDS[game.speed] || 0);
+    // The simulation keeps to the climbing pace (see climbSpeed), but dashes from
+    // danger and departures still run ahead. Only once the body is well behind the
+    // simulation position (not merely far from its next hold, as at the start of
+    // every crown crossing) ease into a faster pace, so it never reaches the reset
+    // distance and jumps there.
+    const lag = st.canopyLag = sim ? Math.hypot(st.branchPoint.x - sim.x, st.branchPoint.z - sim.z) : 0;
+    const goal = 1 + THREE.MathUtils.clamp((lag - 1.2) * 2.5, 0, 12);
+    // Ramp over game time, so a fast game speed doesn't leave the pace trailing behind.
+    st.catchUp = (st.catchUp || 1) + (goal - (st.catchUp || 1)) * (1 - Math.exp(-4 * dt * (SPEEDS[game.speed] || 0)));
+    const speed = climbPace(def) * st.catchUp * (SPEEDS[game.speed] || 0);
     let budget = speed * dt;
     if (route) {
       while (budget > 0 && route.cursor < route.points.length) {

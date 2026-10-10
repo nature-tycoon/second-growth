@@ -8,6 +8,7 @@ import { ANIMALS, ANIMAL, preyFor, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { passable, canLand } from './animals.js';
 import { followCervid } from './cervid-groups.js';
+import { travelSpeed } from './climb-pace.js';
 
 // How each kind of hunter closes in. approach, creep and sprint are multiples of its usual
 // speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles.
@@ -424,7 +425,7 @@ function invite(wl, a, o, def) {
     a.state = oldState; a.path = oldPath; a.socialCooldown = a.age + 4;
     return false;
   }
-  const time = a.path.length / Math.max(0.1, def.speed) + 4;
+  const time = a.path.length / Math.max(0.1, travelSpeed(def)) + 4;
   a.greet = o.id; a.trip = null;
   o.socialWith = a.id; o.socialUntil = o.age + time;
   o.state = 'idle'; o.path = null; o.wait = 0.5; o.waterTrip = false;
