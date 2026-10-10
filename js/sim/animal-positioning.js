@@ -80,9 +80,14 @@ export class AnimalSpacing {
     const w = this.w, budget = Math.min(0.12, dt * 1.8);
     this.comparisons = 0;
     const shift = (e, dx, dy, amount) => {
-      const d = Math.min(amount, budget - e.moved);
-      if (d <= 0) return false;
       const a = e.a;
+      // A push straight back against the last one is how a crowd that can't spread out (a troop
+      // packed into one treetop, a herd jammed against a bank) starts ping-ponging every frame:
+      // damp it, so a packed group settles into a slight overlap rather than shaking.
+      const back = e.band !== 'reef' && (a.pushX || 0) * dx + (a.pushY || 0) * dy < -0.2; // (fish just veer round each other)
+      const d = Math.min(amount * (back ? 0.2 : 1), budget - e.moved);
+      if (d <= 0) return false;
+      if (a.state === 'spar') return false; // (rivals in a bout hold their ground; others step round them)
       // Drinking animals yield along the bank, not backwards away from the water.
       if (a.drinkT > 0 && a.drinkAt) {
         const hx = Math.cos(a.orientation), hy = Math.sin(a.orientation), dot = dx * hx + dy * hy;
@@ -99,6 +104,7 @@ export class AnimalSpacing {
       if (x !== Math.floor(a.x) && y !== Math.floor(a.y) &&
         (!canStand(w, w.idx(x, Math.floor(a.y)), a) || !canStand(w, w.idx(Math.floor(a.x), y), a))) return false;
       a.x = nx; a.y = ny; e.moved += d;
+      a.pushX = dx; a.pushY = dy;
       // a reef fish nudged aside veers that way, rather than drifting sideways
       if (a.hd != null && e.band === 'reef') {
         let turn = Math.atan2(dy, dx) - a.hd;
@@ -122,6 +128,7 @@ export class AnimalSpacing {
       if (!ea && fb) shift(f, -dx, -dy, overlap * 0.5);
       if (!fb && ea) shift(e, dx, dy, overlap * 0.5);
     }
+    for (const e of this.entries) if (!e.moved && e.a.pushX) { e.a.pushX = 0; e.a.pushY = 0; }
     for (const { a } of this.entries) if (a.drinkT > 0 && a.drinkAt) facePoint(a, ...a.drinkAt);
   }
 }

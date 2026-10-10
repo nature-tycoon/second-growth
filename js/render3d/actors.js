@@ -140,6 +140,16 @@ export class Actors {
       const surf = onWater || def.move === 'swim' || def.move === 'fly' && isWater(t) ? waterSurfaceY(w, a.x, a.y) : null;
       // Flyers descend relative to the visible surface, even above a deeply carved basin.
       let y = def.move === 'fly' ? Math.max(ground, surf ?? ground) : ground;
+      // Which crown a climber or percher is in: it keeps the tree it's in until it's clearly into
+      // the next one, so an animal nudged back and forth across the line between two trees of
+      // different heights doesn't bob up and down between them.
+      const ci = () => {
+        if (st.ctile != null && st.ctile !== i && !returning && st.ctile < w.n) {
+          const ox = st.ctile % w.w, oy = (st.ctile / w.w) | 0;
+          if (Math.max(ox - a.x, a.x - ox - 1, oy - a.y, a.y - oy - 1) < 0.25 && (w.tree[st.ctile] || w.feature[st.ctile] === FEAT.SNAG)) return st.ctile;
+        }
+        return (st.ctile = i);
+      };
       if (def.reef && seaY != null) {
         // under the sea: fish, turtles and rays swim at their own depth between the seabed and the
         // surface (clownfish right down in their anemone, sharks and mantas well up off the bottom),
@@ -161,13 +171,14 @@ export class Actors {
       }
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
       else if (surf != null && FLOATERS.has(kind)) y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
-      else if (def.move === 'fly' && inside && w.tree[i] && w.treeG[i] > 0.5 && kind !== 'duck' && kind !== 'heron' && kind !== 'crane') {
-        y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * (PLANTS[w.tree[i]].look.scale ?? 1) * w.treeG[i] * 0.55;
+      else if (def.move === 'fly' && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && kind !== 'duck' && kind !== 'heron' && kind !== 'crane') {
+        const c = ci(); y += (TREE_SHAPES[PLANTS[w.tree[c]].look.type]?.height || 2) * (PLANTS[w.tree[c]].look.scale ?? 1) * w.treeG[c] * 0.55;
       } else if (def.move === 'tree' && inside) {
         // monkeys and sloths live up in the crowns (or on a snag's bare top)
         // (monkeys up in the sunlit top of the canopy, sloths hanging lower down)
-        if (w.tree[i]) y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * (PLANTS[w.tree[i]].look.scale ?? 1) * w.treeG[i] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
-        else if (w.feature[i] === FEAT.SNAG) y += 0.9;
+        const c = ci();
+        if (w.tree[c]) y += (TREE_SHAPES[PLANTS[w.tree[c]].look.type]?.height || 2) * (PLANTS[w.tree[c]].look.scale ?? 1) * w.treeG[c] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
+        else if (w.feature[c] === FEAT.SNAG) y += 0.9;
       }
       // Moving between crowns of different heights, a climber (or a perched bird hopping along a
       // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
@@ -175,7 +186,8 @@ export class Actors {
       if (perched && st.canopyY != null && !returning) {
         const gap = y - st.canopyY;
         st.canopyY += gap * Math.min(1, k * 0.9);
-        y = st.canopyY + Math.min(0.12, Math.abs(y - st.canopyY) * 0.3);
+        if (a.state !== 'idle') y = st.canopyY + Math.min(0.12, Math.abs(y - st.canopyY) * 0.3); // (a hop only when it's actually moving)
+        else y = st.canopyY;
       } else st.canopyY = perched ? y : null;
       // face the way it's moving, and blend between standing, walking and flying
       const dx = a.x - st.px, dz = a.y - st.py, yaw0 = st.yaw;
