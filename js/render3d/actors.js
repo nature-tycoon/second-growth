@@ -16,6 +16,7 @@ const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
 const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
 const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
+const SPAR_FIT = { elk: 0.97, sambar: 0.86 }; // per antler type, as a share of the two heads' full reach
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 
 // Where a salmon is in its leap (0..1 across the arc), or -1 when it's swimming. Each fish leaps
@@ -168,6 +169,14 @@ export class Actors {
         if (w.tree[i]) y += (TREE_SHAPES[PLANTS[w.tree[i]].look.type]?.height || 2) * (PLANTS[w.tree[i]].look.scale ?? 1) * w.treeG[i] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
         else if (w.feature[i] === FEAT.SNAG) y += 0.9;
       }
+      // Moving between crowns of different heights, a climber (or a perched bird hopping along a
+      // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
+      const perched = def.move === 'tree' || (def.move === 'fly' && !flying && inside && !!w.tree[i]);
+      if (perched && st.canopyY != null && !returning) {
+        const gap = y - st.canopyY;
+        st.canopyY += gap * Math.min(1, k * 0.9);
+        y = st.canopyY + Math.min(0.12, Math.abs(y - st.canopyY) * 0.3);
+      } else st.canopyY = perched ? y : null;
       // face the way it's moving, and blend between standing, walking and flying
       const dx = a.x - st.px, dz = a.y - st.py, yaw0 = st.yaw;
       const moving = a.state !== 'idle' && (dx * dx + dz * dz > 1e-7 || flying);
@@ -191,16 +200,17 @@ export class Actors {
       // low while stalking, sniffing at a neighbour or locking horns, up when something's wrong
       const aligned = heading == null || Math.cos(st.yaw + heading) > 0.95;
       const stalking = a.state === 'hunt' && a.hunt?.phase === 'creep';
-      const head = a.state === 'feed' || a.sparT > 0 ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3
+      const fight = this.bout(game, a, st, time);
+      const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
+      const head = fight ? fight.head : bugling ? -0.75 : a.state === 'feed' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3
         : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
-      st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : 0.5);
+      st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
+      if (fight) st.gait += (fight.gait - st.gait) * k;
       // stalking cats sink low to the ground
       st.crouch = (st.crouch || 0) + ((stalking ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
-      // sparring rivals lunge at each other and back
-      let ax = a.x, az = a.y;
-      if (a.sparT > 0) { const lunge = Math.max(0, Math.sin(time * 5 + (a.id & 1) * Math.PI)) * 0.08; ax += Math.cos(st.yaw) * lunge; az -= Math.sin(st.yaw) * lunge; }
-      F.add(def, ax, y, az, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, st.pitch || 0);
+      const ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      F.add(def, ax, y, az, st.yaw, sc, a.phase * Math.PI, st.gait, st.fly, mo.bend ? st.bend : st.graze, (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), fight?.roll || 0);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(a.phase * Math.PI)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
@@ -271,6 +281,46 @@ export class Actors {
       const s = (1 + Math.sin(time * 2.5) * 0.05) * clamp(selectedPose.foot * 0.62, 0.16, 1.4);
       this.ring.scale.set(s, 1, s);
     } else this.ring.visible = false;
+  }
+
+  // Two rivals in a bout, once both stand in their head-to-head stance: heads down with antlers
+  // (or horns) locked, the pair shoving back and forth together as one gains ground and then the
+  // other; every couple of seconds they wrench apart, lift their heads and crash back in; heads
+  // twist against each other and legs churn and brace. Both animals use the same clock (seeded
+  // by the lower id), so they always move as one. Returns null when this animal isn't fighting.
+  bout(game, a, st, time) {
+    if (a.state !== 'spar' || a.sparWith == null) return null;
+    const o = game.wildlife.ids?.get(a.sparWith) ?? game.wildlife.agents.find(b => b.id === a.sparWith);
+    if (!o || o.state !== 'spar') return null;
+    const settled = a.sparAt && o.sparAt && Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]) < 0.02 && Math.hypot(o.x - o.sparAt[0], o.y - o.sparAt[1]) < 0.02;
+    if (!settled) return { head: 0.3, gait: 0.6, dx: 0, dz: 0, pitch: 0, roll: 0 }; // (heads low, stepping in)
+    const lo = Math.min(a.id, o.id), seed = (lo % 97) * 0.731, side = a.id === lo ? 1 : -1;
+    const d = Math.hypot(o.x - a.x, o.y - a.y) || 1;
+    // the pair's axis, from the lower id toward the other (the same for both animals)
+    const ux = (o.x - a.x) / d * side, uz = (o.y - a.y) / d * side;
+    // the push: an uneven tug of war, one gaining ground and then the other
+    const push = (0.6 * Math.sin(time * 1.3 + seed) + 0.4 * Math.sin(time * 0.47 + seed * 2.1) + 0.15 * Math.sin(time * 4.1 + seed)) * d * 0.09;
+    // break apart and crash back in: back off over a moment, then lunge
+    const c = ((time / 2.6 + seed) % 1 + 1) % 1, apart = c < 0.24 ? Math.sin(c / 0.24 * Math.PI) : 0;
+    const crash = c >= 0.24 && c < 0.3 ? Math.sin((c - 0.24) / 0.06 * Math.PI) : 0; // (the impact jolt)
+    // stand so the lowered antlers (or horns) of the two just interlock, wherever the
+    // simulation put them: each steps back or in by half the difference
+    const F = this.fauna, oDef = drawDef(ANIMALS[o.sp], o), oSt = this.pose.get(o.id);
+    const reach = F.headReach(drawDef(ANIMALS[a.sp], a)) * (st.sc || 0) + F.headReach(oDef) * (oSt?.sc || st.sc || 0);
+    // (how far the racks interlock: a small whitetail or mule deer rack meets close in; an elk's
+    // long, sweeping beams would reach right past the other bull's face, so elk stand further off)
+    const span = reach * (SPAR_FIT[drawDef(ANIMALS[a.sp], a).sprite.antlers] ?? 0.8);
+    const fit = (d - span) / 2;
+    const back = (apart * 0.16 - crash * 0.04) * span - fit;
+    // each steps back along its own facing (away from the rival) while the pair shoves together
+    const bx = -(o.x - a.x) / d * back, bz = -(o.y - a.y) / d * back;
+    return {
+      head: 1 - apart * 0.6,                                   // antlers down and forward, lifted to break off
+      gait: 0.35 + Math.abs(Math.cos(time * 1.3 + seed)) * 0.4 + apart * 0.3, // legs churning, bracing
+      dx: ux * push + bx, dz: uz * push + bz,
+      pitch: -0.07 * (1 - apart) - crash * 0.05,               // leaning into it
+      roll: side * 0.09 * Math.sin(time * 2.2 + seed) * (1 - apart), // heads twisting against each other
+    };
   }
 
   // Flames on burning tiles, smoke drifting off them.

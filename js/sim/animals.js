@@ -10,7 +10,7 @@ import { biome } from '../biome.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, facePoint, shoreSpot } from './animal-positioning.js';
-import { beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, watch, prowl, scavenge, play, greet, arrive, fleeFire } from './animal-life.js';
+import { beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire } from './animal-life.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -592,6 +592,8 @@ export class Wildlife {
       if (trod[i] > 0) trod[i] = trod[i] < 0.01 ? 0 : trod[i] * 0.985;
       if (ecology && w.browseDamage?.[i] > 0) w.browseDamage[i] = w.browseDamage[i] < 0.001 ? 0 : w.browseDamage[i] * 0.94;
     }
+    this.ids = new Map(this.agents.map(a => [a.id, a]));
+    haremDay(this);
     for (const a of this.agents.slice()) {
       if (a.leaving) continue;
       const def = ANIMALS[a.sp];
@@ -749,6 +751,7 @@ export class Wildlife {
       if (a.alertT > 0) a.alertT -= dt;
       if (a.sparT > 0) a.sparT -= dt;
       if (a.greetT > 0) a.greetT -= dt;
+      if (a.bugleT > 0) a.bugleT -= dt;
       if (a.drinkT > 0) {
         a.drinkT -= dt;
         if (a.drinkT <= 0) a.drinkAt = null;
@@ -860,6 +863,9 @@ export class Wildlife {
           break;
         case 'play':
           playUpdate(this, a, def, sp);
+          break;
+        case 'spar':
+          sparUpdate(this, a, def, sp);
           break;
         case 'feed':
           a.feedT -= dt;
@@ -1110,6 +1116,7 @@ export class Wildlife {
     if (def.ambush && this.crossingAt && this.game.day < this.crossingAt.until && this.lurk(a)) return;
     if (!a.leaving && scavenge(this, a, def)) return; // a fresh kill nearby
     if (!a.leaving && prowl(this, a, def)) return;    // predators: lie up after a meal, go looking when hungry
+    if (!a.leaving && harem(this, a, def)) return;    // elk in the rut: bulls gather and guard harems
     if (this.drinks(def) && !a.leaving && this.waterhole(a, def)) return;
     if (!a.leaving && greet(this, a, def)) return;    // say hello to a neighbour (or spar with a rival)
     // herd animals stay together: one leads, the rest keep their place around it

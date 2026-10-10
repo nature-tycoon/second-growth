@@ -98,7 +98,7 @@ addStrings({
   'Leaving the property': 'Saliendo de la finca', Hunting: 'Cazando', Flying: 'Volando', Wandering: 'Caminando', 'Resting / foraging': 'Descansando / comiendo',
   'Stalking prey': 'Acechando a su presa', 'Chasing prey': 'Persiguiendo a su presa', 'Circling over prey': 'Volando en círculos sobre su presa',
   Playing: 'Jugando', 'Running from danger': 'Huyendo del peligro', 'Fleeing the fire': 'Huyendo del fuego', Feeding: 'Comiendo', Drinking: 'Bebiendo',
-  'Sparring with a rival': 'Midiéndose con un rival', 'Greeting a neighbour': 'Saludando a un vecino', 'On the alert': 'Alerta',
+  'Sparring with a rival': 'Midiéndose con un rival', 'Clashing antlers with a rival': 'Chocando cornamentas con un rival', Bugling: 'Bramando', 'In a bull’s harem': 'En el harén de un macho', 'Guarding his harem': 'Cuidando su harén', 'Greeting a neighbour': 'Saludando a un vecino', 'On the alert': 'Alerta',
   'Show habitat': 'Ver hábitat', 'Field guide': 'Guía de campo', 'Next one': 'El siguiente',
   Age: 'Edad', Needs: 'Necesita', Population: 'Población', Status: 'Estado', Disturbance: 'Molestia',
   'Water quality': 'Calidad del agua', 'Fish access': 'Paso de peces', 'Connected to the river': 'Unido al estero', 'Cut off from the river': 'Aislado del estero',
