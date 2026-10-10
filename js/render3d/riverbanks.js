@@ -100,7 +100,7 @@ function driftwoodGeometry() {
 
 export class Riverbanks {
   constructor(scene) {
-    this.scene = scene; this.meshes = []; this.key = null;
+    this.scene = scene; this.meshes = []; this.key = null; this.version = 0; // (bumped when the stones and branches change: their shadows need redrawing)
     this.geometries = [prep(new THREE.IcosahedronGeometry(1, 0)), tuft('sedge', 379, true), driftwoodGeometry()];
     this.materials = this.geometries.map((_, k) => withClouds(withSnowTops(
       new THREE.MeshLambertMaterial({ vertexColors: true, side: k === 1 ? THREE.DoubleSide : THREE.FrontSide }), k === 1 ? 1.2 : .8)));
@@ -111,6 +111,7 @@ export class Riverbanks {
     this.key = null; this.refresh();
   }
   refresh(month = this.month ?? 2) {
+    this.version++;
     this.month = month;
     // Only the bank tiles' planting and feature changes require re-scattering.
     let key = 2166136261 ^ month;
@@ -163,6 +164,7 @@ export class Riverbanks {
     this.setFast(this.fast);
   }
   setFast(on) {
+    this.version++;
     this.fast = on;
     // Halve gravel and grass on phones; preserve the sparse driftwood.
     for (const mesh of this.meshes) mesh.count = on && mesh.geometry !== this.geometries[2]

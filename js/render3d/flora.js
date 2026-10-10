@@ -28,6 +28,9 @@ const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 // Shadow stand-ins: drawn into the sun's shadow map, but write nothing to the view itself.
 // (three.js picks shadow casters by the view camera's layers, so they stay on the default layer.)
 const shadowOnly = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+// Bumped whenever any plant mesh changes (built, moved, swapped for another level of detail),
+// so the renderer knows its reused shadow map is out of date (see Renderer.shadowsStale).
+export const floraVersion = { n: 0 };
 
 // lod: 0 close, 1 distant, 2 in-between (geoMid, where a plant has one). shadowGeo: a simpler
 // model that casts this pool's shadow in its place (soft shadows look the same from the
@@ -59,6 +62,7 @@ class Pool {
     const c = this.c[k]; c[0] = lin(color[0]); c[1] = lin(color[1]); c[2] = lin(color[2]);
   }
   end() {
+    floraVersion.n++;
     if (this.n > this.cap) {
       this.dispose();
       this.cap = Math.max(16, Math.ceil(this.n * 1.5));
@@ -85,11 +89,13 @@ class Pool {
     if (this.proxy) { this.proxy.count = this.n; if (this.n) this.proxy.boundingSphere = this.mesh.boundingSphere.clone(); this.useProxy(); }
   }
   dispose() {
+    floraVersion.n++;
     if (this.mesh) { this.scene.remove(this.mesh); this.mesh.dispose(); }
     if (this.proxy) { this.scene.remove(this.proxy); this.proxy.dispose(); this.proxy = null; }
   }
   setView(lod, grass, shrubShadow, grassLod = lod) {
     if (this.kind === 'grass') lod = grassLod;
+    floraVersion.n++;
     this.lod = lod;
     if (!this.mesh) return;
     this.mesh.geometry = this.geoFor(lod);

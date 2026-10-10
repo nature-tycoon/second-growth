@@ -11,7 +11,7 @@ import { biome } from '../biome.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
 import { ANIMALS } from '../data/animals.js';
 import { Terrain, buildAtlas } from './terrain.js';
-import { Flora, windGust } from './flora.js';
+import { Flora, windGust, floraVersion } from './flora.js';
 import { Actors, salmonLeap } from './actors.js';
 import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry.js';
@@ -435,8 +435,9 @@ export class Renderer {
       const key = `${k}:${s.type}`;
       live.add(key);
       if (this.structs.has(key)) {
-        const m = this.structs.get(key);
-        m.position.y = w.tileH(s.x, s.y) * LEVEL;
+        const m = this.structs.get(key), y = w.tileH(s.x, s.y) * LEVEL;
+        if (m.position.y !== y) this.structVersion = (this.structVersion || 0) + 1;
+        m.position.y = y;
         if (m.userData.boat) m.userData.boat.userData.y0 = this.seaY - m.position.y;
         return;
       }
@@ -455,9 +456,9 @@ export class Renderer {
         m.add(boat); m.userData.boat = boat;
       }
       this.scene.add(m);
-      this.structs.set(key, m);
+      this.structs.set(key, m); this.structVersion = (this.structVersion || 0) + 1;
     });
-    for (const [key, m] of this.structs) if (!live.has(key)) { this.scene.remove(m); m.geometry.dispose(); m.userData.boat?.geometry.dispose(); this.structs.delete(key); }
+    for (const [key, m] of this.structs) if (!live.has(key)) { this.structVersion = (this.structVersion || 0) + 1; this.scene.remove(m); m.geometry.dispose(); m.userData.boat?.geometry.dispose(); this.structs.delete(key); }
   }
   // The dive boat rides the swell at its mooring: a slow bob, a little roll and pitch.
   rockBoats() {
@@ -470,6 +471,26 @@ export class Renderer {
       b.rotation.z = Math.sin(t * 0.75 + 0.5) * 0.028;
       b.rotation.x = Math.sin(t * 0.55) * 0.012;
     }
+  }
+
+  // The sun's shadow map is reused from frame to frame rather than redrawn every time (nothing
+  // in it sways: animals have soft blob shadows of their own, and wind doesn't move the shadows).
+  // It's redrawn at once when the view moves, a plant, building or bank stone changes, the
+  // shadow settings change, or the sun has moved a fraction of a degree; and at least twice a
+  // second regardless, so anything slow and unforeseen (the reef's rocking dive boat) keeps up.
+  shadowsStale() {
+    const sm = this.gl.shadowMap;
+    sm.autoUpdate = false;
+    const c = this.camera, sun = this.sun, now = performance.now(), S = this.shadowState ||= { key: '', dir: new THREE.Vector3(), at: 0 };
+    const key = [c.left, c.right, c.top, c.bottom, c.position.x, c.position.y, c.position.z, floraVersion.n, this.terrain.banks?.version ?? 0,
+      this.structVersion || 0, sun.castShadow, sun.shadow.mapSize.x, !!sun.shadow.map].join('|');
+    const dir = sun.position.clone().sub(sun.target.position).normalize();
+    if (key !== S.key || dir.angleTo(S.dir) > 0.003 || now - S.at > 500) {
+      S.key = key; S.dir.copy(dir); S.at = now;
+      this.shadowRedraws = (this.shadowRedraws || 0) + 1;
+      return true;
+    }
+    return false;
   }
 
   // jump the clock to a point in the day (0 = dawn, 0.9 = night)
@@ -654,6 +675,7 @@ export class Renderer {
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, dt);
     this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game);
+    this.gl.shadowMap.needsUpdate = this.shadowsStale();
     this.gl.render(this.scene, this.camera);
     this.drawFX(game, ui, dt);
   }
