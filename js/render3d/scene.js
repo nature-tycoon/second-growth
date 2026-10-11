@@ -513,18 +513,20 @@ export class Renderer {
 
   // The sun's shadow map is reused from frame to frame rather than redrawn every time (nothing
   // in it sways: animals have soft blob shadows of their own, and wind doesn't move the shadows).
-  // It's redrawn at once when the view moves, a plant, building or bank stone changes, the
+  // It's redrawn at once when the view moves, a selected caster, building or bank stone changes, the
   // shadow settings change, or the sun has moved a fraction of a degree; and at least twice a
   // second regardless, so anything slow and unforeseen (the reef's rocking dive boat) keeps up.
   shadowsStale() {
     const sm = this.gl.shadowMap;
     sm.autoUpdate = false;
-    const c = this.camera, sun = this.sun, now = performance.now(), S = this.shadowState ||= { key: '', dir: new THREE.Vector3(), at: 0 };
-    const key = [c.left, c.right, c.top, c.bottom, c.position.x, c.position.y, c.position.z, floraVersion.n, this.terrain.banks?.version ?? 0,
-      this.structVersion || 0, sun.castShadow, sun.shadow.mapSize.x, !!sun.shadow.map].join('|');
+    const c = this.camera, sun = this.sun, now = performance.now(), S = this.shadowState ||= { key: '', dir: new THREE.Vector3(), at: 0, plants: -1 };
+    if (!sun.castShadow) { S.key = ''; return false; }
+    const plants = this.flora.plantShadows.enabled ? this.flora.plantShadows.version : floraVersion.n;
+    const key = [c.left, c.right, c.top, c.bottom, c.position.x, c.position.y, c.position.z, this.terrain.banks?.version ?? 0,
+      this.structVersion || 0, sun.castShadow, sun.shadow.mapSize.x].join('|');
     const dir = sun.position.clone().sub(sun.target.position).normalize();
-    if (key !== S.key || dir.angleTo(S.dir) > 0.003 || now - S.at > 500) {
-      S.key = key; S.dir.copy(dir); S.at = now;
+    if (!sun.shadow.map || key !== S.key || plants !== S.plants || dir.angleTo(S.dir) > 0.003 || now - S.at > 500) {
+      S.key = key; S.dir.copy(dir); S.at = now; S.plants = plants;
       this.shadowRedraws = (this.shadowRedraws || 0) + 1;
       return true;
     }
@@ -551,12 +553,20 @@ export class Renderer {
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
       shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped,
       triangles: info.triangles, draw_calls: info.calls, zoom: +(this.zoom ?? 1).toFixed(2), gpu: this.gpuName(),
-      renderer_revision: 'plant-view-1',
+      renderer_revision: 'plant-index-shadow-1',
       batched_plant_candidates: this.flora.plantView.stats.candidates,
       batched_plant_instances: this.flora.plantView.stats.visible,
       plant_view_batches: this.flora.plantView.stats.batches,
+      plant_geometry_source_vertices: this.flora.geometryIndex.stats.sourceVertices,
+      plant_geometry_shared_vertices: this.flora.geometryIndex.stats.sharedVertices,
+      plant_geometry_source_bytes: this.flora.geometryIndex.stats.sourceBytes,
+      plant_geometry_shared_bytes: this.flora.geometryIndex.stats.sharedBytes,
+      plant_shadow_candidates: this.flora.plantShadows.stats.candidates,
+      plant_shadow_instances: this.flora.plantShadows.stats.instances,
+      plant_shadow_batches: this.flora.plantShadows.stats.batches,
+      shadow_redraws: this.shadowRedraws || 0,
     };
-    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; }
+    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; }
     return out;
   }
   // the graphics chip, e.g. "Adreno (TM) 610" or "Apple GPU": a better guide to a phone's power than its model
@@ -722,8 +732,16 @@ export class Renderer {
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, dt);
     this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game);
+    this.flora.syncShadows();
     this.flora.updateView(this.camera);
-    this.gl.shadowMap.needsUpdate = this.shadowsStale();
+    const redrawShadows = this.shadowsStale();
+    if (redrawShadows) {
+      this.flora.updateShadows(this.sun, this.camera);
+      // Selecting casters for a moved sun can change the plant revision in this
+      // very frame. Record it now rather than scheduling a duplicate redraw.
+      if (this.flora.plantShadows.enabled) this.shadowState.plants = this.flora.plantShadows.version;
+    }
+    this.gl.shadowMap.needsUpdate = redrawShadows;
     this.gl.render(this.scene, this.camera);
     this.drawFX(game, ui, dt);
   }

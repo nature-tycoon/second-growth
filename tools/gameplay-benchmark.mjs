@@ -4,7 +4,7 @@ import { TOOLS, toolCost } from '../js/tools.js';
 import { PLANTS } from '../js/data/plants.js';
 
 const percentile = (values, p) => [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * p))];
-export async function measureGameplay({ map, scene }) {
+export async function measureGameplay({ map, scene, optimizations }) {
   const { game, renderer, ui } = window.secondGrowth;
   const fixture = releaseGame(map, scene);
   if (!game.restoreSave(fixture.game.saveData())) throw new Error('Gameplay fixture restore failed');
@@ -12,6 +12,7 @@ export async function measureGameplay({ map, scene }) {
   if (ui.modalOpen) ui.closeModal();
   ui.afterNewGame(); ui.refreshTop(true);
   renderer.applySettings({ quality: 'fast', qualityChosen: true, shadows: true, wind: true, weather: true, dayCycle: false });
+  if (optimizations) renderer.flora.setOptimizations(optimizations);
   renderer.autoRes = false; renderer.zoom = scene === 'herd' ? .65 : .7;
   renderer.centerOn(...fixture.center); renderer.updateCamera();
   const original = { update: game.update, draw: renderer.draw, frame: ui.frame };
