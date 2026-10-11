@@ -10,11 +10,17 @@ export class FloraChanges {
   constructor(size) { this.size = size; this.saved = null; }
   find(game, light) {
     const s = this.saved, w = game.world, b = game.border;
-    if (!s || s.world !== w || s.border !== b || s.month !== game.month || s.light !== !!light) return null;
+    if (!s || s.world !== w || s.border !== b || s.light !== !!light) return null;
     // Heights affect interpolated plant positions, water levels and connecting rails. Keep
-    // this uncommon operation conservative; season and graphics changes also rebuild fully.
+    // this uncommon operation conservative; graphics changes also rebuild fully.
     for (let i = 0; i < w.vh.length; i++) if (w.vh[i] !== s.height[i]) return null;
     const dirty = new Set();
+    // A new season changes every region, but as regions rather than one complete rebuild, so the
+    // renderer can spread it over a few frames (see Flora.rebuild's maxRegions)
+    if (s.month !== game.month) {
+      for (let y = -BORDER; y < w.h + BORDER; y += this.size) for (let x = -BORDER; x < w.w + BORDER; x += this.size) dirty.add(floraChunkKey(x, y, this.size));
+      return dirty;
+    }
     const mark = (x, y) => {
       // Adjacent boardwalks, fences and snorkel ropes depend on their neighbours, and a wood's
       // edge fringe on trees up to two tiles away.

@@ -45,7 +45,7 @@ check('World swaps and restored worlds rebuild fully instead of reusing stale pl
   assert.equal(f.lastRebuild.full,true);same(f,reference,'swapped world');
   f.rebuild(g);reference.rebuild(g,true);assert.equal(f.lastRebuild.full,true);same(f,reference,'restored world');
   g.world.carve(35,35,.3);f.rebuild(g);assert.equal(f.lastRebuild.full,true);
-  g.day=100;f.rebuild(g);assert.equal(f.lastRebuild.full,true);
+  g.day=100;f.rebuild(g);reference.rebuild(g,true);assert.equal(f.lastRebuild.full,false);same(f,reference,'new season by regions');
   f.setLight(true);f.rebuild(g);assert.equal(f.lastRebuild.full,true);
   dispose(f);dispose(reference);
 });
@@ -69,6 +69,15 @@ for(const size of [48,24]) for(const map of MAPS) check(map+' / '+size+': change
     ['graphics setting',()=>{a.setLight(true);b.setLight(true);}],
   ]){edit();a.rebuild(g);b.rebuild(g,true);same(a,b,map+'/'+name);}
   dispose(a);dispose(b);
+});
+check('A region budget spreads daily growth and a new season over several calls with the same result',()=>{
+  const g=plantFixture('pnw'),f=make(48,true),reference=make(48,true);f.rebuild(g);
+  for(const [name,edit] of [['daily succession',()=>growPlants(g)],['new season',()=>g.day=50]]){
+    edit();let calls=1;while(f.rebuild(g,false,1))calls++;
+    assert.ok(calls>1,name+' took more than one call');reference.rebuild(g,true);same(f,reference,'budget/'+name);
+  }
+  growPlants(g);assert.equal(f.rebuild(g,false,1),true);editPlants(g,35,35);while(f.rebuild(g,false,1));reference.rebuild(g,true);same(f,reference,'budget/edit while waiting');
+  dispose(f);dispose(reference);
 });
 check('Local edits update neighbouring regions, leaving distant buffers untouched',()=>{
   const g=plantFixture('pnw'),f=make(24,true);f.rebuild(g);

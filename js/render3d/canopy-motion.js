@@ -7,9 +7,12 @@ function crownRoute(from, to, point) {
   const a = from.site, b = to.site; a.prepare(); b.prepare();
   // Transfer where the two crowns actually approach one another.
   let best = Infinity, exit = from, entry = to;
+  // (each limb's end hold once, rather than again for every pairing: finding a hold is dear)
+  const ends = (site, anchor) => site.branches.map((br, i) => br.length < Math.max(.1, (anchor.reach || 0) * 2) ? null : site.endpoint(i, 1, anchor));
+  const exits = ends(a, from), entries = ends(b, to);
   for (let i = 0; i < a.branches.length; i++) for (let j = 0; j < b.branches.length; j++) {
-    if (a.branches[i].length < Math.max(.1, (from.reach || 0) * 2) || b.branches[j].length < Math.max(.1, (to.reach || 0) * 2)) continue;
-    const aa = a.endpoint(i, 1, from), bb = b.endpoint(j, 1, to);
+    const aa = exits[i], bb = entries[j];
+    if (!aa || !bb) continue;
     if (aa.point.y < a.transform[1] + a.geo.boundingBox.max.y * a.transform[4] * .45 ||
       bb.point.y < b.transform[1] + b.geo.boundingBox.max.y * b.transform[4] * .45) continue;
     const score = aa.point.distanceToSquared(bb.point) + .08 * (point.distanceToSquared(aa.point) + to.point.distanceToSquared(bb.point));

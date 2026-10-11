@@ -85,7 +85,7 @@ export class CanopySite {
       if (saved) { const copy = saved.clone(); copy.canopyPose = saved.canopyPose; return copy; }
     }
     const p = point.clone(), near = new THREE.Vector3(), radial = new THREE.Vector3();
-    let best = Infinity, hold = p.clone(), bestPose = null;
+    let hold = p.clone(), bestPose = null;
     const candidates = this.wood.map(b => {
       const along = near.copy(p).sub(b.from).dot(b.dir), t = THREE.MathUtils.clamp(along / b.length, 0, 1);
       near.copy(b.from).lerp(b.to, t); radial.copy(p).sub(near);
@@ -113,17 +113,36 @@ export class CanopySite {
       near.copy(centre).add(radial).addScaledVector(b.dir, end ? .002 : -.002);
       if (near.distanceTo(p) < reach * 2 + .05) candidates.push({ b, near: near.clone(), normal: b.dir.clone().multiplyScalar(end ? 1 : -1), radius: 0, distance: near.distanceTo(p) });
     }
-    const body = new THREE.Vector3(), candidate = new THREE.Vector3(), normal = new THREE.Vector3(), pose = new THREE.Quaternion();
+    const body = new THREE.Vector3(), pose = new THREE.Quaternion(), options = [];
     for (const c of candidates) for (const angle of reach ? contactAngles : [0]) {
       if (!c.radius && angle) continue;
-      normal.copy(c.normal).applyAxisAngle(c.b.dir, angle); candidate.copy(c.near).addScaledVector(normal, c.radius);
-      body.copy(candidate).addScaledVector(normal, reach * (hanging ? 2 : 1.4));
-      let blocked = 0, buried = false;
-      for (const b of this.wood) {
-        if (woodDistance(candidate, b) < -.0005) { buried = true; break; }
-        blocked = Math.max(blocked, reach * .65 - woodDistance(body, b));
+      const normal = c.normal.clone().applyAxisAngle(c.b.dir, angle), candidate = c.near.clone().addScaledVector(normal, c.radius);
+      options.push({ c, normal, candidate, order: options.length, near: candidate.distanceToSquared(point) });
+    }
+    // The best-scoring contact the body fits wins. Scoring a contact and testing the body there are
+    // the dear steps (a new branch route used to make tens of thousands of body tests in one frame,
+    // a visible stall), so contacts are taken nearest first: a contact's score is never less than
+    // its distance, so once the best scored one beats every remaining distance, the rest can't win.
+    // Ties keep their original order, so the same contact wins as when every one was scored.
+    options.sort((a, b) => a.near - b.near || a.order - b.order);
+    const scored = [], before = (a, b) => a.score - b.score || a.order - b.order;
+    let next = 0;
+    for (;;) {
+      while (next < options.length && (!scored.length || options[next].near <= scored[0].score)) {
+        const o = options[next++], { normal, candidate } = o;
+        body.copy(candidate).addScaledVector(normal, reach * (hanging ? 2 : 1.4));
+        let blocked = 0, buried = false;
+        for (const b of this.wood) {
+          if (woodDistance(candidate, b) < -.0005) { buried = true; break; }
+          blocked = Math.max(blocked, reach * .65 - woodDistance(body, b));
+        }
+        if (buried) continue;
+        o.score = o.near + Math.max(0, blocked) ** 2 * 20 + (hanging ? Math.max(0, normal.y - .3) ** 2 * reach ** 2 * 5 : 0);
+        let k = scored.length; while (k > 0 && before(o, scored[k - 1]) < 0) k--;
+        scored.splice(k, 0, o);
       }
-      if (buried) continue;
+      if (!scored.length) break;
+      const { c, normal, candidate } = scored.shift();
       if (profile && ![1, -1].some(sign => {
         woodFrame(c.b, normal, hanging, sign, surfacePose);
         if (localUp.clone().applyQuaternion(surfacePose).y < -.00001) return false;
@@ -133,9 +152,8 @@ export class CanopySite {
         }
         return false;
       })) continue;
-      const score = candidate.distanceToSquared(point) + Math.max(0, blocked) ** 2 * 20
-        + (hanging ? Math.max(0, normal.y - .3) ** 2 * reach ** 2 * 5 : 0);
-      if (score < best) { best = score; hold.copy(candidate); bestPose = profile ? pose.clone() : null; }
+      hold.copy(candidate); bestPose = profile ? pose.clone() : null;
+      break;
     }
     // At overlapping forks, the contact belongs to the outside of the whole
     // scaffold, rather than the buried surface of one cylinder.
