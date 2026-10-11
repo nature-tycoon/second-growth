@@ -75,6 +75,14 @@ const territory = def => def.herd || def.familyHerd || def.patrol || def.reef ? 
 // Young that stay close beside their mother, and for how many years (never past adulthood):
 // bear cubs for a year and a half, fawns and calves through their first year, elephant calves for years.
 // (Rodents, rabbits and birds raise their young in a nest or burrow instead.)
+// A migrant swimming the river at the crossing while the migration is coming over.
+function inCrossing(wl, b) {
+  const c = wl.crossingAt, w = wl.game.world;
+  if (!c || !(wl.game.day < c.until) || !ANIMALS[b.sp].crossing) return false;
+  const x = Math.floor(b.x), y = Math.floor(b.y);
+  return w.inb(x, y) && w.terrain[w.idx(x, y)] === T.RIVER;
+}
+
 const WITH_MOM = {
   deer: 0.8, elk: 1, bear: 1.5, cougar: 1.2, bobcat: 0.7, raccoon: 0.6, coyote: 0.5, beaver: 1.5, otter: 0.8,
   wildebeest: 0.8, zebra: 1, gazelle: 0.5, impala: 0.5, giraffe: 1.2, elephant: 3, buffalo: 1, warthog: 0.5, rhino: 2,
@@ -701,12 +709,12 @@ export class Wildlife {
     }
   }
 
-  startHunt(a, def, diet = preyFor(def, this.game)) {
-    if (!canStartHunt(a)) return;
-    let best = null, bd = 12 * 12;
+  startHunt(a, def, diet = preyFor(def, this.game), reach = 12, only = null) {
+    if (!canStartHunt(a)) return false;
+    let best = null, bd = reach * reach;
     const preySet = new Set(diet.map(k => ANIMAL[k].index));
     for (const b of this.agents) {
-      if (!preySet.has(b.sp) || b.leaving) continue;
+      if (!preySet.has(b.sp) || b.leaving || (only && !only(b))) continue;
       if (this.game.diff.ecology && def.move !== 'fly' && (b.flying || b.alt > 0.2)) continue;
       const d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
       if (d < bd) { bd = d; best = b; }
@@ -717,6 +725,7 @@ export class Wildlife {
       if (a.move === 'fly') a.flying = true;
       beginHunt(this, a, def, best);
     }
+    return !!best;
   }
 
   evadeHunt(a, predator) {
@@ -995,8 +1004,11 @@ export class Wildlife {
           if (a.assist) { endHunt(a); if (a.move === 'fly') a.flying = false; break; } // (the pack's flankers leave the kill to the one in front)
           endHunt(a);
           if (!this.game.diff.ecology) a.hunger = 0;
-          if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def)) {
+          // (a swimmer in the crossing can't run or turn: the crocodiles' best chance all year)
+          const swimmer = def.ambush && inCrossing(this, b);
+          if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def, swimmer ? 0.7 : 0.45)) {
             a.hunger = 0;
+            if (swimmer) a.crossRest = this.game.day + 2;
             this.game.onPredation(a, b);
             this.remove(b, 'predation');
             startFeed(this, a, def, b);
@@ -1548,11 +1560,17 @@ export class Wildlife {
   }
 
   // Crocodiles gather in the river at the crossing while the migration is swimming over: head
-  // there, then lie in wait (hunting is the usual daily check, and swimmers are easy to reach).
+  // there, then lie in wait and take swimmers that come within reach, hungry or not. After a
+  // kill each one rests a couple of days before striking again, so a crossing costs the herds a
+  // handful of animals per crocodile rather than one, without emptying the column.
   lurk(a) {
-    const w = this.game.world, cx = this.crossingAt.x;
+    const w = this.game.world, cx = this.crossingAt.x, def = ANIMALS[a.sp];
     const at = (x, y) => Math.abs(x - cx) <= 5 && w.inb(x, y) && w.terrain[w.idx(x, y)] === T.RIVER && y < w.h - 1;
-    if (at(Math.floor(a.x), Math.floor(a.y))) { a.wait = 1 + Math.random() * 3; a.trip = null; return true; }
+    if (at(Math.floor(a.x), Math.floor(a.y))) {
+      const diet = preyFor(def, this.game);
+      if (diet && !(this.game.day < (a.crossRest ?? -1)) && this.startHunt(a, def, diet, 4, b => inCrossing(this, b))) return true;
+      a.wait = 1 + Math.random() * 3; a.trip = null; return true;
+    }
     a.trip = null;
     return this.pathTo(a, (j, x, y) => at(x, y), 14000);
   }
