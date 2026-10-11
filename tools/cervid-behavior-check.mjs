@@ -128,6 +128,26 @@ check('Rutting bachelors leave their group, find a distant harem and challenge i
   }
   assert.ok(bullFights >= 2, `harem bull challenged ${bullFights} times`);
 });
+check('Stags spar lightly the month either side of the rut, and nobody runs off beaten', () => {
+  for (const key of ['deer', 'elk']) for (const [month, expect] of [[4, false], [5, true], [9, true], [10, false]]) {
+    let light = 0, heavy = 0, fled = 0;
+    for (const seed of [1, 2, 3]) {
+      const g = setup(seed, 'pnw', month), wl = g.wildlife;
+      const males = Array.from({ length: 4 }, (_, i) => spawn(g, key, true, 40.5 + i * 2, 30.5));
+      run(g, 10, () => {
+        for (const a of wl.agents) a.thirst = 0;
+        for (const m of males) {
+          if (m.state === 'spar' && m.sparLight) light++;
+          if (m.state === 'spar' && !m.sparLight) heavy++;
+          if (m.state === 'flee') fled++;
+        }
+      });
+    }
+    assert.equal(heavy, 0, `${key}/${month}: only light matches outside the rut`);
+    assert.equal(fled, 0, `${key}/${month}: no beaten stag bolts`);
+    assert.equal(light > 0, expect, `${key}/${month}: sparring ${light}`);
+  }
+});
 check('Near-enough followers graze without alternating adjacent tile targets', () => {
   const g = setup(), wl = g.wildlife;
   const lead = spawn(g, 'deer', false, 40.1, 30.1), a = spawn(g, 'deer', false, 42, 31.5);
