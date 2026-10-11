@@ -21,7 +21,9 @@ export async function measureGameplay({ map, scene, optimizations }) {
   const began = performance.now();
   try {
     await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Live gameplay measurement timed out')), 90000);
+      // (a stall guard only: CI's software compositor presents about one frame a second, so 72
+      // frames take 60-90 s there; frame-work limits are asserted separately)
+      const timeout = setTimeout(() => reject(new Error('Live gameplay measurement timed out')), 240000);
       const fail = error => { clearTimeout(timeout); reject(error); };
       game.update = function () {
         try {

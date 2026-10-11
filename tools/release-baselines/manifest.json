@@ -6,7 +6,7 @@
   ],
   "pixelThreshold": 16,
   "maxChangedFraction": 0.005,
-  "maxMeanDifference": 0.5,
+  "maxMeanDifference": 0.75,
   "scenes": {
     "pnw-forest-fast": {
       "map": "pnw",

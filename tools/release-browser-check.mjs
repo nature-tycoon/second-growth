@@ -24,7 +24,9 @@ const saveImage = (path, data) => writeFile(path, Buffer.from(data.split(',')[1]
 const dataImage = async path => 'data:image/png;base64,' + (await readFile(path)).toString('base64');
 const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
 const pendingImages = new Map();
-const references = { version: 2, viewport: [960, 600], pixelThreshold: 16, maxChangedFraction: .005, maxMeanDifference: .5, scenes: {}, performance: [] };
+// (mean .75: references captured with SwiftShader's LLVM backend on a Mac differ by about half a
+// colour level from CI's Subzero backend, with no changed pixels; a blank view is still rejected)
+const references = { version: 2, viewport: [960, 600], pixelThreshold: 16, maxChangedFraction: .005, maxMeanDifference: .75, scenes: {}, performance: [] };
 async function load(config) {
   await browser.navigate('/tools/release-scenes.html?' + new URLSearchParams(config));
   await browser.waitFor(`!!window.releaseScene?.ready && window.releaseScene.map === ${JSON.stringify(config.map)} && window.releaseScene.kind === ${JSON.stringify(config.scene)} && window.releaseScene.quality === ${JSON.stringify(config.quality)}`, 'Release scene did not finish');
