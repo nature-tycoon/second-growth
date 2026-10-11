@@ -75,6 +75,18 @@ const territory = def => def.herd || def.familyHerd || def.patrol || def.reef ? 
 // Young that stay close beside their mother, and for how many years (never past adulthood):
 // bear cubs for a year and a half, fawns and calves through their first year, elephant calves for years.
 // (Rodents, rabbits and birds raise their young in a nest or burrow instead.)
+// Where an animal can be: where it can walk, and for the migration also the river it swims at the
+// crossing (so swimmers can sidestep a crocodile or each other instead of jamming in a line).
+function standable(w, i, a) {
+  return passable(w, i, a) || (!!ANIMALS[a.sp]?.crossing && w.terrain[i] === T.RIVER);
+}
+
+// An animal standing (or swimming) in a river tile.
+export function inRiver(wl, a) {
+  const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
+  return w.inb(x, y) && w.terrain[w.idx(x, y)] === T.RIVER;
+}
+
 // A migrant swimming the river at the crossing while the migration is coming over.
 function inCrossing(wl, b) {
   const c = wl.crossingAt, w = wl.game.world;
@@ -657,7 +669,7 @@ export class Wildlife {
     else { a.tx = -3; a.ty = a.y; }
     a.state = 'leave'; a.path = null;
     for (const o of this.agents) if (o.mom === a.id && !o.leaving) { this.leave(o); o.tx = a.tx + (Math.random() - 0.5); o.ty = a.ty + (Math.random() - 0.5); }
-    if (def.herd) { a.leaveWait = Math.random() * 6; a.pace = 0.75 + Math.random() * 0.5; } // a herd moves off in dribs and drabs
+    if (def.herd) { a.leaveWait = inRiver(this, a) ? 0 : Math.random() * 6; a.pace = 0.75 + Math.random() * 0.5; } // a herd moves off in dribs and drabs (not one in the water, though)
     if (a.move === 'fly') { a.flying = true; }
     this.leaveRoute(a);
   }
@@ -973,7 +985,7 @@ export class Wildlife {
           }
           const pace = (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1); // (a.run: a startled animal dashing for cover)
           // curve round anyone in the way rather than walking into them (not on a dash for cover)
-          const round = a.run ? null : this.spacing.steer(a, tx, ty, passable);
+          const round = a.run ? null : this.spacing.steer(a, tx, ty, standable);
           if (round) { this.stepToward(a, round[0], round[1], pace * round[2]); if (Math.hypot(a.x - tx, a.y - ty) <= pace) a.path.pop(); }
           else if (this.stepToward(a, tx, ty, pace)) a.path.pop();
           break;
@@ -1069,7 +1081,7 @@ export class Wildlife {
     }
     for (let k = this.carcasses.length - 1; k >= 0; k--) if ((this.carcasses[k].t -= dt) <= 0) this.carcasses.splice(k, 1);
     this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
-    this.spacing.separate(dt, passable);
+    this.spacing.separate(dt, standable);
     // Measure progress after spacing: movement can appear successful and then be
     // completely undone by a neighbour pushing the animal back in the same frame.
     for (const a of this.agents) this.checkMovementProgress(a, dt);
@@ -1101,6 +1113,10 @@ export class Wildlife {
 
   recoverMovement(a) {
     const w = this.game.world, approaching = a.state === 'approach';
+    if (ANIMALS[a.sp].crossing && inRiver(this, a)) { // (a swimmer jammed in the river: on for the far bank)
+      const y0 = Math.floor(a.y);
+      if (this.pathTo(a, (j, x, y) => y < y0 - 2 - (a.id % 3) && passable(w, j, a), 4000, null, null, standable)) { a.landed = true; a.moveProgress = null; return; }
+    }
     const dest = approaching ? w.idx(Math.floor(a.localGoal[0]), Math.floor(a.localGoal[1])) : a.path[0];
     const tx = dest % w.w + 0.5, ty = (dest / w.w | 0) + 0.5;
     const wasFollowing = a.follow, inTransit = !approaching && a.path.length > 1;
@@ -1208,10 +1224,12 @@ export class Wildlife {
       const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
       // (an animal stranded where it can't stand, say in a pond, may still move about its own tile
       // and step out of it: otherwise every step lands in the same tile and it freezes there)
+      // (and the migration swims the river at the crossing, walking in from beyond the map's edge)
+      const crosser = !!ANIMALS[a.sp].crossing;
+      const can = (xx, yy) => !w.inb(xx, yy) ? crosser && !w.inb(x0, y0) : passable(w, w.idx(xx, yy), a) || (crosser && w.terrain[w.idx(xx, yy)] === T.RIVER);
       const safe = (x, y) => {
         const xx = Math.floor(x), yy = Math.floor(y);
-        return w.inb(xx, yy) && (passable(w, w.idx(xx, yy), a) || (xx === x0 && yy === y0)) &&
-          (xx === x0 || yy === y0 || passable(w, w.idx(xx, y0), a) && passable(w, w.idx(x0, yy), a));
+        return (can(xx, yy) || (xx === x0 && yy === y0)) && (xx === x0 || yy === y0 || can(xx, y0) && can(x0, yy));
       };
       if (!safe(nx, ny)) {
         // Tile offsets and spacing can turn an orthogonal route into a diagonal
@@ -1336,7 +1354,13 @@ export class Wildlife {
     a.fruitMeal = null; a.fruitGoal = null;
     const w = this.game.world;
     const map = this.suit[a.sp];
-    // a predator close by comes before anything else
+    // a migrant left treading water in the river (a crocodile, a scare): swim on to the far bank
+    // (before anything else: in the water there's no stopping to stare at a crocodile)
+    if (def.crossing && !a.leaving && inRiver(this, a)) {
+      const y0 = Math.floor(a.y);
+      if (this.pathTo(a, (j, x, y) => y < y0 - 2 - (a.id % 3) && passable(w, j, a), 4000, null, null, standable)) { a.landed = true; a.trip = null; return; }
+    }
+    // a predator close by comes before anything else (on land)
     if (!a.leaving && watch(this, a, def)) return;
     if (!a.leaving && socialHold(this, a, def)) return;
     // A newly formed family supersedes an old independent roaming trip.
