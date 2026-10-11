@@ -227,12 +227,15 @@ export class Flora {
     }
     return g;
   }
-  pool(key, build, mat, opts = {}, buildLo = null) {
+  // buildMid: the in-between model, or 'lo' to show the distant one at play zoom too
+  pool(key, build, mat, opts = {}, buildLo = null, buildMid = null) {
     let p = this.pools.get(key);
     if (!p) {
       const geo = this.geo(key, build);
       const geoLo = buildLo ? this.geo(key + ':lo', buildLo) : geo;
-      p = new ChunkedPool(() => new Pool(this.scene, geo, mat, { ...opts, geoLo }), this);
+      let geoMid = buildMid === 'lo' ? geoLo : buildMid ? this.geo(key + ':mid', buildMid) : geo;
+      if (typeof buildMid === 'function' && geoMid !== geo && geoMid.attributes.position.count === geo.attributes.position.count) { this.geos.delete(key + ':mid'); geoMid.dispose(); geoMid = geo; } // (no lighter after all)
+      p = new ChunkedPool(() => new Pool(this.scene, geo, mat, { ...opts, geoLo, geoMid }), this);
       p.setView(...this.view);
       this.pools.set(key, p);
     }
@@ -259,7 +262,7 @@ export class Flora {
   // A soft shadow disc of radius r at (x, z), tilted to lie on the slope.
   contactShadow(hAt, x, z, r) {
     const e = 0.3, sx = (hAt(x + e, z) - hAt(x - e, z)) / (2 * e), sz = (hAt(x, z + e) - hAt(x, z - e)) / (2 * e);
-    this.pool('contact', () => G.contactShadow(), this.contact, { shadow: false, kind: 'contact' }, () => G.contactShadow(8))
+    this.pool('contact', () => G.contactShadow(), this.contact, { shadow: false, kind: 'contact' }, () => G.contactShadow(8), 'lo')
       .add(x, hAt(x, z) + 0.02, z, r, 1, r, 0, [1, 1, 1], -Math.atan(sz), Math.atan(sx));
   }
 
@@ -515,7 +518,7 @@ export class Flora {
           let col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8, 0.045);
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
-          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub' }, () => G.shrub(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, col);
+          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub' }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
           if (!aquaticTile && !SEA_SHAPES.has(shape)) this.contactShadow(hAt, sx, sz, 0.34 * sc);
           // a giant clam's shells are pale and chalky, whatever colour its mantle is
           if (shape === 'clam') this.pool(`clamshell:${v}`, () => G.clamShell(sseed), this.shrubs, { kind: 'shrub' }).add(sx, sy, sz, sc, sc, sc, rot, vary([0.86, 0.84, 0.76].map(c => c * dim), x, y, 10, 0.05));
@@ -531,7 +534,7 @@ export class Flora {
               : p.key === 'salal' ? 'bells'
               : p.key === 'broom' || p.key === 'oregongrape' || p.key === 'aloe' || p.key === 'sweetspire' ? 'spike' : 'star';
             const headShape = flowering ? flowerShape : p.key === 'piper' ? 'catkin' : null; // (spiked pepper's fruit is a curved spike, not a berry)
-            const heads = headShape ? this.pool(`shrubflower:${headShape}:${flowering ? p.look.flower : p.look.berry}`, () => Botanical.blossomHead(headShape, flowering ? p.look.flower : p.look.berry), this.grass, { shadow: false, kind: 'shrub' }, () => G.blob(flowering ? p.look.flower : p.look.berry, 0.035)) : null; // (from afar, a dot of colour is all a flower head shows)
+            const heads = headShape ? this.pool(`shrubflower:${headShape}:${flowering ? p.look.flower : p.look.berry}`, () => Botanical.blossomHead(headShape, flowering ? p.look.flower : p.look.berry), this.grass, { shadow: false, kind: 'shrub' }, () => G.blob(flowering ? p.look.flower : p.look.berry, 0.035), 'lo') : null; // (from afar, and at play zoom, a dot of colour is all a flower head shows)
             // flowers and fruit sit on the bush's own outer surface, wherever its leaves actually are
             const spots = this.shrubSpots(`shrub:${shape}:${v}`);
             const cr = Math.cos(rot), sr = Math.sin(rot);

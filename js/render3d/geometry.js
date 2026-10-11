@@ -1066,23 +1066,28 @@ function gingerStalks(seed) {
   return out;
 }
 
+// lod: 0 close, 1 distant, 2 in-between (play zoom): the close model's shape and branches, with
+// plainer leaf clumps, which are most of a shrub's triangles. Shapes without leaf clumps come out
+// the same as the close model.
 export function shrub(type, seed, lod = 0) {
   const r = mulberry32(seed);
   const parts = [];
+  const mid = lod === 2;
+  if (mid) lod = 0;
   let cy = 0.2;
   const blob = (x, y, z, s, sy = 0.85, shade = 1) => {
-    const g = soft(new THREE.IcosahedronGeometry(s * (lod ? 1.15 : 1), lod ? 0 : 1), { seed: seed + parts.length * 3, lump: s * 0.3, transform: gg => { gg.scale(1, sy, 1); gg.translate(x, y, z); } });
+    const g = soft(new THREE.IcosahedronGeometry(s * (lod ? 1.15 : mid ? 1.06 : 1), lod || mid ? 0 : 1), { seed: seed + parts.length * 3, lump: s * 0.3, transform: gg => { gg.scale(1, sy, 1); gg.translate(x, y, z); } });
     shadeVerts(g, (xx, yy) => shade * (0.8 + Math.min(0.3, (yy - y + s) / (2 * s) * 0.3)));
     parts.push(g);
   };
   // woody stems, darkened to read as bark under the leaf colour the instance carries
-  const stem = (p, q, r0, r1, sides = lod ? 3 : 4) => parts.push(shadeVerts(rod(p, q, r0, r1, sides), () => [0.62, 0.5, 0.42]));
+  const stem = (p, q, r0, r1, sides = lod || mid ? 3 : 4) => parts.push(shadeVerts(rod(p, q, r0, r1, sides), () => [0.62, 0.5, 0.42]));
   switch (type) {
     case 'bramble':
       cy = 0.16;
       for (let k = 0; k < 10; k++) { const a = r() * 6.28, d = r() * 0.3; blob(Math.cos(a) * d, 0.1 + r() * 0.12, Math.sin(a) * d, 0.15 + r() * 0.07, 0.68, 0.8 + r() * 0.2); }
       for (let k = 0; k < (lod ? 0 : 6); k++) { // (the thin arching canes are too fine to see on the simple model)
-        const c = prep(new THREE.TorusGeometry(0.19 + r() * 0.1, 0.009, 4, 12, Math.PI), 0xb07070);
+        const c = prep(new THREE.TorusGeometry(0.19 + r() * 0.1, 0.009, mid ? 3 : 4, mid ? 7 : 12, Math.PI), 0xb07070);
         c.rotateY(r() * Math.PI); at(c, (r() - 0.5) * 0.4, 0.04, (r() - 0.5) * 0.4); parts.push(c);
       }
       break;
