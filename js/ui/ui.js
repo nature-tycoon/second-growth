@@ -3,7 +3,9 @@
 import { T, F, H, HABITAT_INFO, TERRAIN_NAMES, FEATURE_NAMES, MONTH_NAMES, SPEEDS, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp } from '../config.js';
 import { music } from '../audio/music.js';
 import { sampleSoundLand } from '../audio/land.js';
+import { rutSounds } from '../audio/rut-events.js';
 import { MUSIC_LICENSE } from '../audio/tracks.js';
+import { SOUND_CREDITS } from '../audio/sounds.js';
 import { PLANTS, PLANT, LAYER_NAMES, MIX } from '../data/plants.js';
 import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many, isMaleVariant, animalDef } from '../data/animals.js';
 import { PASSAGE_SPECIES } from '../data/bird-passage.js';
@@ -865,6 +867,7 @@ export class UI {
   // ------------------------------------------------------------ per-frame
   frame() {
     this.refreshTop();
+    rutSounds(this.game, this.renderer, music, this.renderer.time);
     const now = performance.now();
     if (this.state.inspect && now - this.lastInfo > 600) { this.lastInfo = now; this.renderInfo(); }
     if (now - this.lastMini > 120) { this.lastMini = now; this.drawMinimap(now - this.lastMiniFull > 1500); }
@@ -1281,7 +1284,8 @@ export class UI {
         <div class="set-row now-playing"><span><b>Now playing</b><small class="np-title">${music.nowPlaying ? `${music.nowPlaying.title} · ${music.nowPlaying.artist}` : 'Starts when you begin playing'}</small></span><button type="button" class="btn secondary np-skip">Next track</button></div>
         <p class="small" style="margin:4px 2px 10px">Music by <a href="https://freemusicarchive.org/music/holiznacc0/" target="_blank" rel="noopener">HoliznaCC0</a>, released into the public domain under ${MUSIC_LICENSE}.</p>
         ${toggle('nature', 'Nature sounds', 'Local wildlife, water, wind and insects, following each map’s seasons and time of day.')}
-        ${slider('natureVolume', 'Nature volume', '', 0, 1, pctFmt)}`],
+        ${slider('natureVolume', 'Nature volume', '', 0, 1, pctFmt)}
+        <p class="small" style="margin:4px 2px 0">${SOUND_CREDITS.map(c => `${c.what}: ${c.by}, <a href="${c.source}" target="_blank" rel="noopener">${c.license}</a>.`).join(' ')}</p>`],
       game: ['Gameplay', `
         <div class="section-title" style="margin-top:0">Difficulty on this farm</div>
         <div class="seg" data-seg="difficulty">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === (g.difficulty || 'standard') ? 'on' : ''}">${d.name}</button>`).join('')}</div>
