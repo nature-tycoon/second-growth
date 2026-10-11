@@ -10,6 +10,7 @@ import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './fauna.js';
 import { adultAnimalScale } from './animal-scale.js';
 import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
+import { boutCycle, CRASH } from './bout-clock.js';
 import { siamangSwing } from './siamang-swing.js';
 import { canopyStep, rebaseCanopy } from './canopy-motion.js';
 import { canopyLean, canopyRotation } from './canopy-pose.js';
@@ -409,8 +410,8 @@ export class Actors {
     const k = a.sparLight ? 0.45 : 1;
     const push = k * (0.6 * Math.sin(time * 1.3 + seed) + 0.4 * Math.sin(time * 0.47 + seed * 2.1) + 0.15 * Math.sin(time * 4.1 + seed)) * d * 0.09;
     // break apart and crash back in: back off over a moment, then lunge
-    const c = ((time / 2.6 + seed) % 1 + 1) % 1, apart = a.sparLight ? 0 : c < 0.24 ? Math.sin(c / 0.24 * Math.PI) : 0;
-    const crash = !a.sparLight && c >= 0.24 && c < 0.3 ? Math.sin((c - 0.24) / 0.06 * Math.PI) : 0; // (the impact jolt)
+    const c = boutCycle(lo, time), apart = a.sparLight ? 0 : c < CRASH[0] ? Math.sin(c / CRASH[0] * Math.PI) : 0;
+    const crash = !a.sparLight && c >= CRASH[0] && c < CRASH[1] ? Math.sin((c - CRASH[0]) / (CRASH[1] - CRASH[0]) * Math.PI) : 0; // (the impact jolt)
     // stand so the lowered antlers (or horns) of the two just interlock, wherever the
     // simulation put them: each steps back or in by half the difference
     const F = this.fauna, oDef = drawDef(ANIMALS[o.sp], o), oSt = this.pose.get(o.id);

@@ -5,6 +5,7 @@
 
 import { TRACKS } from './tracks.js';
 import { SOUNDSCAPES, BIRD_PHRASES, PROMINENT_CALLS, natureMix, natureCallRates } from './nature.js';
+import { RUT_SOUNDS, RACK_PITCH, soundFile } from './sounds.js';
 
 const FADE = 4;        // seconds of crossfade between tracks
 const GAP = 1.5;       // quiet seconds after a track fails to load, before the next
@@ -28,6 +29,7 @@ export class Music {
     this.listeners = [];
     this.activeSources = new Set(); this.cooldowns = new Map(); this.nextBird = 0;
     this.callDue = new Map(); this.foregroundUntil = 0;
+    this.rutClips = new Map(); this.rutLast = 0; this.rutBulls = new Map();
   }
 
   // Browsers only allow audio after the player has clicked or pressed something.
@@ -169,7 +171,7 @@ export class Music {
 
   setLand(L) {
     if (this.land?.map !== L.map) {
-      this.cooldowns.clear(); this.callDue.clear(); this.foregroundUntil = 0; this.nextBird = 0;
+      this.cooldowns.clear(); this.callDue.clear(); this.foregroundUntil = 0; this.nextBird = 0; this.rutBulls.clear();
       if (this.ctx && this.callGain) {
         // Retire already scheduled calls as well as the current voice when switching maps.
         const t = this.ctx.currentTime, old = this.callGain;
@@ -357,6 +359,42 @@ export class Music {
   zebra() {
     const d = this.voice(undefined, 0.6), t = this.ctx.currentTime + 0.03;
     for (let k = 0; k < 3; k++) this.tone(d, 'triangle', 550, 900, t + k * 0.36, 0.22, 0.018);
+  }
+  // ------------------------------------------------------------ the rut
+  // Recorded bugles and antler clashes (sounds.js), fetched and decoded once the animals that
+  // make them are around, so nothing downloads on maps without them.
+  warmRut(racks) {
+    if (!this.ctx) return;
+    const names = new Set(racks.length ? [...RUT_SOUNDS.clash, ...RUT_SOUNDS.rattle] : []);
+    if (racks.includes('elk')) RUT_SOUNDS.bugle.forEach(n => names.add(n));
+    for (const name of names) if (!this.rutClips.has(name)) {
+      this.rutClips.set(name, null); // (loading)
+      fetch(soundFile(name)).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(data => new Promise((ok, fail) => this.ctx.decodeAudioData(data, ok, fail))) // (callback form for older Safari)
+        .then(clip => this.rutClips.set(name, clip), () => this.rutClips.delete(name)); // (a failed load is tried again later)
+    }
+  }
+  rut(kind, { rack = 'elk', far = 0, pan = 0, id = 0 } = {}) {
+    if (!this.ctx || !this.natureOn || this.muted || this.ctx.state !== 'running') return;
+    const t = this.ctx.currentTime, bugling = kind === 'bugle' || kind === 'answer';
+    // One bugle at a time, so a rival can answer but never talks over him, and each bull
+    // rests between calls: at fast game speed the herd would otherwise bugle without a break.
+    if (bugling && (t < this.rutLast || t < (this.rutBulls.get(id) ?? 0))) return;
+    const ready = RUT_SOUNDS[kind].map(n => this.rutClips.get(n)).filter(Boolean);
+    if (!ready.length) return; // (still loading)
+    const src = this.ctx.createBufferSource(), g = this.ctx.createGain();
+    src.buffer = ready[Math.floor(Math.random() * ready.length)];
+    // each bull keeps his own voice: a steady pitch offset per animal, not per call
+    src.playbackRate.value = bugling ? 0.97 + (id * 0.6180339 % 1) * 0.06 : (RACK_PITCH[rack] ?? 1) * (0.96 + Math.random() * 0.08);
+    const level = { bugle: 0.14, answer: 0.12, clash: 0.2, rattle: 0.12 }[kind];
+    g.gain.value = level * (1 - far) ** (bugling ? 1.2 : 2);
+    const d = this.voice(pan, far, bugling ? 7000 : 9000);
+    src.connect(g).connect(d); this.trackSource(src, [g], d); src.start(t + 0.01);
+    if (bugling) {
+      const ends = t + src.buffer.duration / src.playbackRate.value;
+      this.rutLast = ends + 0.6 + Math.random() * 1.5; this.rutBulls.set(id, ends + 12 + Math.random() * 10);
+      this.foregroundUntil = Math.max(this.foregroundUntil, ends);
+    }
   }
   reefSnap() {
     const d = this.voice(undefined, 0.15, 12000);

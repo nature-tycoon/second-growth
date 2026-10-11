@@ -573,8 +573,12 @@ export function haremDay(wl) {
     }
   }
 }
-function bugle(a) {
+// Bugles for the soundscape to hear (js/audio/rut-events.js drains this). Kept short, so a
+// headless run with nobody listening never piles them up; it doesn't touch the simulation.
+export const bugles = [];
+function bugle(a, answer = false) {
   a.bugleT = 0.8 + Math.random() * 0.5; a.wait = a.bugleT + 0.3;
+  if (bugles.push({ id: a.id, answer }) > 16) bugles.shift();
 }
 function bullDay(wl, a, def) {
   a.trip = null; // (no wandering off across the map in the rut)
@@ -623,7 +627,7 @@ function bullDay(wl, a, def) {
       a.run = 1.5;
       return true;
     }
-    if (Math.random() < 0.3) { bugle(a); facePoint(a, master.x, master.y); return true; }
+    if (Math.random() < 0.3) { bugle(a, true); facePoint(a, master.x, master.y); return true; }
     if (!a.satelliteSlot) {
       const angle = Math.atan2(a.y - home[1], a.x - home[0]), radius = 6 + Math.random() * 1.5;
       a.satelliteSlot = [Math.cos(angle) * radius, Math.sin(angle) * radius];
