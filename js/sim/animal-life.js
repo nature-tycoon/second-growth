@@ -6,7 +6,7 @@
 import { clamp, DAYS_PER_YEAR } from '../config.js';
 import { ANIMALS, ANIMAL, preyFor, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
-import { passable, canLand } from './animals.js';
+import { passable, canLand, inRiver } from './animals.js';
 import { followCervid } from './cervid-groups.js';
 import { travelSpeed } from './climb-pace.js';
 
@@ -181,6 +181,8 @@ export function missed(wl, prey, pred) {
 export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   const def = ANIMALS[a.sp], w = wl.game.world;
   if (a.leaving || def.reef) return;
+  // a migrant swimming the crossing can't turn and run: it swims on for the bank, harder
+  if (def.crossing && inRiver(wl, a)) { if (a.state === 'walk' && a.path?.length) a.run = Math.max(a.run || 1, speed / Math.max(0.01, def.speed)); return; }
   let fx = a.x - threat.x, fy = a.y - threat.y;
   const l = Math.hypot(fx, fy);
   if (l < 1e-3) { const r = Math.random() * Math.PI * 2; fx = Math.cos(r); fy = Math.sin(r); } else { fx /= l; fy /= l; }
