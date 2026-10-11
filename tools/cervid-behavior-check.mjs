@@ -109,6 +109,25 @@ check('An elk satellite can challenge a harem bull and cows retain a grazing cen
   assert.ok(ownerChanged, 'winning satellite took the cows');
   assert.ok(samples && spread / samples < 4, `cow spread ${spread / samples}`);
 });
+check('Rutting bachelors leave their group, find a distant harem and challenge its bull', () => {
+  let bullFights = 0;
+  for (const seed of [1, 2, 3]) {
+    const g = setup(seed, 'pnw', 7), wl = g.wildlife;
+    const bull = spawn(g, 'elk', true, 30.5, 30.5);
+    for (let i = 0; i < 5; i++) spawn(g, 'elk', false, 29.5 + i, 32.5);
+    const bachelors = Array.from({ length: 5 }, (_, i) => spawn(g, 'elk', true, 60.5 + i * 1.5, 30.5 + (i % 2)));
+    let closest = Infinity, fighting = false;
+    run(g, 30, () => {
+      for (const a of wl.agents) a.thirst = 0; // (no water on this test ground)
+      const home = bull.haremCenter || [bull.x, bull.y];
+      for (const b of bachelors) closest = Math.min(closest, Math.hypot(b.x - home[0], b.y - home[1]));
+      if (bull.state === 'spar' && !fighting) bullFights++;
+      fighting = bull.state === 'spar';
+    });
+    assert.ok(closest < 9, `seed ${seed}: bachelors reached the harem (${closest.toFixed(1)})`);
+  }
+  assert.ok(bullFights >= 2, `harem bull challenged ${bullFights} times`);
+});
 check('Near-enough followers graze without alternating adjacent tile targets', () => {
   const g = setup(), wl = g.wildlife;
   const lead = spawn(g, 'deer', false, 40.1, 30.1), a = spawn(g, 'deer', false, 42, 31.5);

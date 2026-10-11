@@ -425,7 +425,9 @@ function invite(wl, a, o, def) {
     a.state = oldState; a.path = oldPath; a.socialCooldown = a.age + 4;
     return false;
   }
-  const time = a.path.length / Math.max(0.1, travelSpeed(def)) + 4;
+  const rut = rutting(wl, def, a);
+  if (rut) a.run = 1.6; // (a rutting male trots over to his rival)
+  const time = a.path.length / Math.max(0.1, travelSpeed(def) * (rut ? 1.6 : 1)) + 4;
   a.greet = o.id; a.trip = null;
   o.socialWith = a.id; o.socialUntil = o.age + time;
   o.state = 'idle'; o.path = null; o.wait = 0.5; o.waterTrip = false;
@@ -436,7 +438,7 @@ export function greet(wl, a, def) {
   const rut = rutting(wl, def, a);
   if (!ashore(def) || young(a, def) || !available(a) || a.socialCooldown > a.age ||
     rut && a.rutCooldown > a.age || Math.random() > (rut ? 0.45 : def.herd ? 0.06 : 0.12)) return false;
-  let o = null, bd = rut ? 400 : 49;
+  let o = null, bd = rut ? 900 : 49; // (a rutting male goes a long way to find a rival)
   for (const b of wl.agents) {
     if (b === a || b.sp !== a.sp || !available(b) || (!rut && b.state !== 'idle') ||
       young(b, def) || b.socialCooldown > b.age || (rut && (!antlered(def, b) || b.rutCooldown > b.age))) continue;
@@ -517,7 +519,10 @@ export function sparUpdate(wl, a, def, sp, elapsed = dt(sp, def)) {
 }
 function endSpar(wl, a, rival, lost) {
   a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.sparPath = null; a.wait = 2 + Math.random() * 2;
-  a.rutCooldown = a.age + 12 + Math.random() * 6; a.socialCooldown = a.rutCooldown;
+  // Rutting males fight again within days (a beaten one takes longer to come back); outside
+  // the rut a sparring match settles things for a good while.
+  const rut = RUT.includes(wl.game.month) && antlered(ANIMALS[a.sp], a);
+  a.rutCooldown = a.age + (rut ? (lost ? 4 : 2) + Math.random() * 2 : 12 + Math.random() * 6); a.socialCooldown = a.rutCooldown;
   if (!rival) return;
   if (lost) {
     bolt(wl, a, rival, ANIMALS[a.sp].speed * 1.5, 0.6 + Math.random() * 0.4, 0.1);
@@ -562,30 +567,46 @@ function bullDay(wl, a, def) {
   for (const c of wl.agents) {
     if (c.sp !== a.sp || c.leaving || bull(def, c) || young(c, def) || dist(c, a) > 12) continue;
     const owner = c.haremOf != null && c.haremOf !== a.id ? byId(wl, c.haremOf) : null;
-    if (!owner || owner.leaving || dist(c, owner) > 15) c.haremOf = a.id; // (only a fight takes another bull's cows)
+    if (c.haremOf !== a.id && (!owner || owner.leaving || dist(c, owner) > 15)) { // (only a fight takes another bull's cows)
+      c.haremOf = a.id;
+      // a cow he gathers stops any long walk she was on, rather than leading him off after her
+      if (c.state === 'walk' && !c.follow && c.greet == null) { c.trip = null; c.state = 'idle'; c.path = null; c.wait = 0; }
+    }
     if (c.haremOf === a.id) cows.push(c);
   }
   if (cows.length && !a.haremCenter) a.haremCenter = [cows.reduce((s, c) => s + c.x, 0) / cows.length, cows.reduce((s, c) => s + c.y, 0) / cows.length];
-  // a rival bull close by: charge him (the fight itself is the usual bout)
+  // a rival bull close by: charge him (the fight itself is the usual bout). A bull without
+  // cows goes for whoever holds them, rather than another bull hanging about at the edge.
   let rival = null, rd = 144;
   for (const o of wl.agents) {
     if (o === a || o.sp !== a.sp || !bull(def, o) || !available(o) || o.rutCooldown > o.age) continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
-    if (d2 < rd) { rd = d2; rival = o; }
+    if (d2 >= 144) continue;
+    const score = !cows.length && wl.agents.some(c => c.haremOf === o.id) ? d2 * 0.2 : d2;
+    if (score < rd) { rd = score; rival = o; }
   }
   if (rival && !(a.rutCooldown > a.age) && Math.random() < 0.6 && invite(wl, a, rival, def)) {
     if (a.state === 'walk') a.run = 1.6;
     return true;
   }
   if (!cows.length) {
-    // a satellite: shadow the nearest harem from its edge, bugling back
-    let master = null, md = 400;
-    for (const o of wl.agents) if (o !== a && o.sp === a.sp && bull(def, o) && wl.agents.some(c => c.haremOf === o.id)) {
+    // a satellite: shadow the nearest harem from its edge, bugling back. Bulls leave their
+    // bachelor group for the rut and go looking for a harem wherever it is on the map.
+    let master = null, md = Infinity;
+    for (const o of wl.agents) if (o !== a && o.sp === a.sp && bull(def, o) && !o.leaving && wl.agents.some(c => c.haremOf === o.id)) {
       const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2; if (d2 < md) { md = d2; master = o; }
     }
     if (!master) return false;
+    const home = master.haremCenter || [master.x, master.y], far = Math.hypot(a.x - home[0], a.y - home[1]);
+    if (far > 12) {
+      // too far to hear: walk over (a long search, unlike the short hops around the harem edge)
+      const near = (x, y) => Math.hypot(x + 0.5 - home[0], y + 0.5 - home[1]);
+      a.satelliteSlot = null;
+      if (!wl.pathTo(a, (j, x, y) => near(x, y) < 9, 8000, near)) return false;
+      a.run = 1.5;
+      return true;
+    }
     if (Math.random() < 0.3) { bugle(a); facePoint(a, master.x, master.y); return true; }
-    const home = master.haremCenter || [master.x, master.y];
     if (!a.satelliteSlot) {
       const angle = Math.atan2(a.y - home[1], a.x - home[0]), radius = 6 + Math.random() * 1.5;
       a.satelliteSlot = [Math.cos(angle) * radius, Math.sin(angle) * radius];
@@ -606,7 +627,7 @@ function bullDay(wl, a, def) {
   }
   // Graze and watch between patrols; advance around the same herd rather than
   // picking a fresh point across it every time and pulling the cows back and forth.
-  if (Math.random() < 0.65) { a.wait = 3 + Math.random() * 3; return true; }
+  if (Math.random() < 0.65) { a.wait = 1.5 + Math.random() * 2; return true; }
   a.haremAngle = (a.haremAngle ?? Math.atan2(a.y - cy, a.x - cx)) + 0.7;
   const ang = a.haremAngle, r = 3, tx = a.haremCenter[0] + Math.cos(ang) * r, ty = a.haremCenter[1] + Math.sin(ang) * r;
   return wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 1, 600, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty));

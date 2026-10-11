@@ -806,7 +806,7 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
-          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? 3 + Math.random() * 4 : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); break; }
+          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); break; }
           const j = a.path[a.path.length - 1];
           if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1), dt)) a.path.pop(); break; }
           // each animal keeps to its own line through a tile and stops at its own spot in the last
