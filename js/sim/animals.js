@@ -659,6 +659,21 @@ export class Wildlife {
     for (const o of this.agents) if (o.mom === a.id && !o.leaving) { this.leave(o); o.tx = a.tx + (Math.random() - 0.5); o.ty = a.ty + (Math.random() - 0.5); }
     if (def.herd) { a.leaveWait = Math.random() * 6; a.pace = 0.75 + Math.random() * 0.5; } // a herd moves off in dribs and drabs
     if (a.move === 'fly') { a.flying = true; }
+    this.leaveRoute(a);
+  }
+
+  // Walkers head off the map round ponds and buildings rather than straight through them. Rivers
+  // they still swim (the way out may lie across one, as the migration's does), and fences they
+  // still cross on the way out, as before.
+  leaveRoute(a) {
+    const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+    if (a.move !== 'ground' || !w.inb(x0, y0)) return;
+    const out = a.ty < 0 ? (x, y) => y === 0 : a.ty > w.h ? (x, y) => y === w.h - 1 : a.tx > w.w ? (x) => x === w.w - 1 : (x) => x === 0;
+    if (out(x0, y0)) return;
+    const pass = (w, j) => w.struct[j] < 0 && w.terrain[j] !== T.POND;
+    const ok = this.pathTo(a, (j, x, y) => out(x, y), w.n, (x, y) => Math.hypot(x + 0.5 - a.tx, y + 0.5 - a.ty), null, pass);
+    a.state = 'leave';
+    if (!ok) a.path = null;
   }
 
   // -------------------------------------------------------------- daily behaviour
@@ -1042,6 +1057,11 @@ export class Wildlife {
         case 'leave':
           if (a.leaveWait > 0) { a.leaveWait -= dt; break; }
           if (a.move === 'fly') a.alt = Math.min(1, a.alt + dt * 3);
+          if (a.path?.length) { // (round the ponds first: see leaveRoute)
+            const j = a.path[a.path.length - 1];
+            if (this.stepToward(a, (j % w.w) + 0.5, ((j / w.w) | 0) + 0.5, sp * 1.2 * (a.pace || 1))) a.path.pop();
+            break;
+          }
           if (this.stepToward(a, a.tx, a.ty, sp * (a.move === 'tree' ? 1 : 1.2) * (a.pace || 1)) || a.x < -2 || a.y < -2 || a.x > w.w + 2 || a.y > w.h + 2) this.remove(a, 'left');
           break;
       }
@@ -1185,9 +1205,11 @@ export class Wildlife {
     const step = Math.min(d, sp), nx = d ? a.x + dx / d * step : a.x, ny = d ? a.y + dy / d * step : a.y;
     if (a.move !== 'fly' && !swimmer(a) && !a.leaving) {
       const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+      // (an animal stranded where it can't stand, say in a pond, may still move about its own tile
+      // and step out of it: otherwise every step lands in the same tile and it freezes there)
       const safe = (x, y) => {
         const xx = Math.floor(x), yy = Math.floor(y);
-        return w.inb(xx, yy) && passable(w, w.idx(xx, yy), a) &&
+        return w.inb(xx, yy) && (passable(w, w.idx(xx, yy), a) || (xx === x0 && yy === y0)) &&
           (xx === x0 || yy === y0 || passable(w, w.idx(xx, y0), a) && passable(w, w.idx(x0, yy), a));
       };
       if (!safe(nx, ny)) {
@@ -1632,7 +1654,7 @@ export class Wildlife {
   // tiles and a distance function is given, head for the searched tile closest to the target.
   // Recovery can additionally avoid occupied tiles, without changing ordinary habitat paths.
   // Sets up the path and returns true if the animal is now walking.
-  pathTo(a, goal, cap, dist = null, canVisit = null) {
+  pathTo(a, goal, cap, dist = null, canVisit = null, canPass = passable) {
     const w = this.game.world, W = w.w, n = w.n;
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y), start = w.idx(x0, y0);
     if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
@@ -1650,7 +1672,7 @@ export class Wildlife {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !passable(w, j, a) || (canVisit && !canVisit(j))) continue;
+        if (stamp[j] === stampN || !canPass(w, j, a) || (canVisit && !canVisit(j))) continue;
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }
