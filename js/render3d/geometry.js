@@ -1666,6 +1666,39 @@ export function log() {
   moss.rotateZ(Math.PI / 2); moss.rotateX(-Math.PI / 2); at(moss, -0.05, 0.14, 0);
   return merge([body, moss]);
 }
+// The forest floor under a closed canopy (drawn only, no gameplay): a drift of fallen leaves, a
+// dead branch and, in some, a little cluster of mushrooms. Low enough to sit under any animal.
+export function floorLitter(seed) {
+  const r = mulberry32(seed);
+  const parts = [];
+  const LEAF = [0x8a5a32, 0x9c6a3a, 0x6e4a2c, 0xa8803e, 0x5e5a30];
+  for (let k = 0, n = 9 + Math.floor(r() * 5); k < n; k++) {
+    const g = prep(new THREE.CircleGeometry(0.022 + r() * 0.018, 5), LEAF[Math.floor(r() * LEAF.length)]);
+    g.rotateX(-Math.PI / 2 + (r() - 0.5) * 0.5); g.rotateY(r() * 6.28);
+    const a = r() * 6.28, d = Math.sqrt(r()) * 0.2;
+    at(g, Math.cos(a) * d, 0.006 + r() * 0.01, Math.sin(a) * d * 0.8); parts.push(g);
+  }
+  if (r() < 0.75) { // a dead branch, with a side twig
+    const len = 0.28 + r() * 0.22, br = prep(new THREE.CylinderGeometry(0.011, 0.016, len, 4), 0x6a5038);
+    br.rotateZ(Math.PI / 2); br.rotateY(r() * 6.28); at(br, (r() - 0.5) * 0.12, 0.014, (r() - 0.5) * 0.12); parts.push(br);
+    const tw = prep(new THREE.CylinderGeometry(0.004, 0.007, len * 0.4, 3), 0x6a5038);
+    tw.rotateZ(Math.PI / 2 - 0.6); tw.rotateY(r() * 6.28); at(tw, (r() - 0.5) * 0.1, 0.02, (r() - 0.5) * 0.1); parts.push(tw);
+  }
+  if (r() < 0.55) { // mushrooms
+    const cap = r() < 0.5 ? 0xd8c8a8 : 0xb06a3a, bx = (r() - 0.5) * 0.24, bz = (r() - 0.5) * 0.24;
+    for (let k = 0, n = 2 + Math.floor(r() * 3); k < n; k++) {
+      const h = 0.025 + r() * 0.03, x = bx + (r() - 0.5) * 0.06, z = bz + (r() - 0.5) * 0.06;
+      parts.push(at(prep(new THREE.CylinderGeometry(0.004, 0.005, h, 4), 0xeee4cc), x, h / 2, z));
+      const c = prep(new THREE.SphereGeometry(0.012 + r() * 0.008, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), cap);
+      c.scale(1, 0.6, 1); parts.push(at(c, x, h, z));
+    }
+  }
+  if (r() < 0.5) { // a cushion of moss
+    const m = prep(new THREE.SphereGeometry(0.05 + r() * 0.03, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), 0x5f7a32);
+    m.scale(1.3, 0.35, 1); parts.push(at(m, (r() - 0.5) * 0.25, 0, (r() - 0.5) * 0.25));
+  }
+  return merge(parts);
+}
 // a cut stump: pale cut face with growth rings, a few roots flaring into the ground
 export function stump(seed) {
   const r = mulberry32(seed);

@@ -7,7 +7,9 @@
 //    another down to the animal;
 //  - foliage lining the funnel is shaded, darker the deeper it sits, like the inside of a crown;
 //    the ground and the animal at the bottom keep full light (see Renderer.drawFocusLens for the
-//    soft dimming of the screen around the opening).
+//    soft dimming of the screen around the opening);
+//  - shrubs, groundcover and litter on the floor stay, whole, where they show below the animal's
+//    feet or beside it on screen, so the floor of the gap isn't bare.
 // It opens and closes by growing and shrinking, and follows the animal smoothly (see
 // Renderer.updateFocus). Only what sits in front of the animal along the line of sight is
 // affected, and only while an animal is selected. Fragments are discarded (a crisp edge, no
@@ -20,6 +22,9 @@ export const focus = {
   uFocusAmt: { value: 0 },                  // 0 = off, 1 = fully see-through
   uFocusR: { value: 0.9 },                  // radius of the see-through column (scene units)
   uViewDir: { value: new THREE.Vector3(0, 1, 0) }, // from the scene toward the camera
+  uCamUp: { value: new THREE.Vector3(0, 1, 0) },   // up on screen, in world space
+  uFocusFoot: { value: 0 },                 // the height of the animal's feet
+  uFocusHalfW: { value: 0.3 },              // half the animal's size across the screen, at most
 };
 
 const FOCUS_NOISE = `
@@ -31,19 +36,28 @@ float focusNoise(vec3 x) {
 }
 `;
 
-export function withFocusFade(mat) {
+// keep: for shrubs, groundcover and floor litter, about how far one plant reaches (scene units at
+// scale 1). Each one stays whole in the window when all of it shows below the animal's feet or
+// off to its side on screen (see above). Trees and buildings (no keep) open fully: keeping part of
+// one would leave a sliced-off skirt behind.
+export function withFocusFade(mat, keep = 0) {
   const prev = mat.onBeforeCompile;
   const baseKey = mat.customProgramCacheKey();
   mat.onBeforeCompile = (shader, renderer) => {
     if (prev) prev.call(mat, shader, renderer);
     Object.assign(shader.uniforms, focus);
-    shader.vertexShader = 'varying vec3 vFocusW;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+    shader.vertexShader = 'varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vec4 fcW = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
         fcW = instanceMatrix * fcW;
       #endif
-      vFocusW = (modelMatrix * fcW).xyz;`);
-    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; varying vec3 vFocusW;\n' + FOCUS_NOISE +
+      vFocusW = (modelMatrix * fcW).xyz;
+      #ifdef USE_INSTANCING
+        vFocusBase = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vFocusS = length(instanceMatrix[0].xyz);
+      #else
+        vFocusBase = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vFocusS = 1.0;
+      #endif`);
+    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; uniform vec3 uCamUp; uniform float uFocusFoot; uniform float uFocusHalfW; varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + FOCUS_NOISE +
       shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
       float focusWall = 0.0;
       if (uFocusAmt > 0.001) {
@@ -56,7 +70,17 @@ export function withFocusFade(mat) {
         // a ragged edge that follows leaf clumps, at two scales
         float n = focusNoise(vFocusW * 2.6) * 0.62 + focusNoise(vFocusW * 6.3 + 11.0) * 0.38;
         r *= 0.8 + 0.4 * n;
-        if (along > -0.08 * uFocusR && across < r) discard;
+        // a plant on the floor stays whole wherever all of it shows below the animal's feet or off to
+        // its side on screen: there it can't cover the animal, and the floor of the gap stays alive
+        bool keep = false;
+        ${keep ? `{
+          float ext = ${keep.toFixed(2)} * vFocusS;
+          vec3 bd = vFocusBase - uFocus; vec3 bp = bd - dot(bd, uViewDir) * uViewDir;
+          float bu = dot(bp, uCamUp), bx = length(bp - bu * uCamUp);
+          bool low = vFocusBase.y - uFocusFoot < 0.4;
+          keep = low && (bu + ext * (uCamUp.y + 0.5) < (uFocusFoot - uFocus.y) * uCamUp.y - 0.03 || bx - ext * 0.6 > uFocusHalfW + 0.06);
+        }` : ''}
+        if (along > -0.08 * uFocusR && across < r && !keep) discard;
         // the walls of the gap: what still stands near the edge, above the animal, falls into shade,
         // deepest low down by the animal and easing off toward the open top of the funnel
         float edge = 1.0 - smoothstep(0.0, 0.8 * uFocusR, across - r);
@@ -66,6 +90,6 @@ export function withFocusFade(mat) {
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
       gl_FragColor.rgb *= mix(vec3(1.0), vec3(0.3, 0.38, 0.36), focusWall);`);
   };
-  mat.customProgramCacheKey = () => baseKey + '|focus';
+  mat.customProgramCacheKey = () => baseKey + '|focus' + keep;
   return mat;
 }
