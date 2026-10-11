@@ -1,0 +1,20 @@
+Second Growth
+Copyright (c) 2026 Cole Weiler. All rights reserved.
+
+This repository is public so the game can be played and its development followed. That does
+not grant permission to copy, modify, redistribute, republish or sell the game, its code or
+its artwork, in whole or in part, without written permission from the copyright holder.
+Viewing and forking on GitHub are permitted only as GitHub's Terms of Service require.
+
+Third-party material keeps its own terms:
+
+- three.js (vendor/three/): MIT License, copyright the three.js authors. See
+  vendor/three/LICENSE.
+- Music (assets/music/): tracks by HoliznaCC0, released under CC0 1.0 Universal. Sources are
+  listed in js/audio/tracks.js.
+- Elk bugles (assets/sounds/elk-bugle-*.m4a): National Park Service, Yellowstone sound
+  library (Neal Herbert). Public domain.
+- Antler clashes (assets/sounds/antler-*.m4a): trimmed and filtered from "Red deer rut" by Dan
+  Davison, Wikimedia Commons, licensed CC BY 2.0
+  (https://creativecommons.org/licenses/by/2.0/).
+  Source: https://commons.wikimedia.org/wiki/File:Red_deer_rut.webm
