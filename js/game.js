@@ -434,7 +434,7 @@ export class Game {
     this.world = w;
     this.border = new Border(w, biome.borderCell);
     this.rng = mulberry32(1); this.rng.setState(data.rng);
-    this.day = data.day; this.acc = 0; this.money = data.money; this.speed = SPEEDS[data.speed] != null ? data.speed : 1;
+    this.day = data.day; this.acc = 0; this.money = data.money; this.speed = data.speed > 0 && SPEEDS[data.speed] != null ? data.speed : 1; // (a farm always opens running, even if it was saved paused)
     this.flags = data.flags; this.stats = data.stats; this.goalsDone = data.goalsDone; this.history = data.history || [];
     this.stats.used ||= {};
     this.mode = data.mode || 'free'; // saves from before the campaign are free play

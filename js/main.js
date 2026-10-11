@@ -55,7 +55,10 @@ async function boot() {
         game.notify(`Welcome back. It's ${game.dateString()}.`, 'season');
       }
     } else if (pending) await ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map);
-    else ui.openIntro(true, Game.hasSave(), () => { if (game.speed === 0) ui.setSpeed(1); });
+    else {
+      ui.startPause = true; // (see UI.modal: closing the start-up screens, however they're closed, unpauses)
+      ui.openIntro(true, Game.hasSave(), () => { if (game.speed === 0) ui.setSpeed(1); });
+    }
     ui.afterNewGame();
     ui.refreshTop(true);
     stage('Welcoming the wild', 82);

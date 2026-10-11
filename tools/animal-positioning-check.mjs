@@ -301,4 +301,14 @@ check('Neighbour checks stay local with hundreds of animals', () => {
   const t = performance.now(); for (let k = 0; k < 100; k++) g.wildlife.update(0.01);
   console.log(`  ${n} animals, ${g.wildlife.spacing.comparisons} local pairs; ${((performance.now() - t) / 100).toFixed(2)} ms/update`);
 });
+check('Fish swim around a bank corner instead of cutting across the land', () => {
+  reset('pnw');
+  const w = g.world;
+  // Two creek tiles touching only at a corner, joined the long way round.
+  for (const [x, y] of [[30, 30], [29, 30], [29, 31], [29, 32], [30, 32], [31, 32], [31, 31]]) w.terrain[w.idx(x, y)] = T.CREEK;
+  const fish = spawn('cutthroat', 30, 30), goal = w.idx(31, 31);
+  assert.ok(g.wildlife.pathTo(fish, i => i === goal, 200));
+  assert.ok(fish.path.every(i => isWater(w.terrain[i])), 'every step is water');
+  assert.equal(fish.path.length, 6, 'no shortcut over the dry corner');
+});
 console.log(`${checks} animal positioning checks passed.`);

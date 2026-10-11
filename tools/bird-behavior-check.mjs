@@ -104,6 +104,11 @@ check('Perch and preen routines stay on a tree, and react to its removal', () =>
   const g = setup(), wl = g.wildlife, a = spawn(g, 'robin'), i = idx(g, a);
   g.world.tree[i] = 1; g.world.treeG[i] = 1;
   fixed(0.8, () => birdChoose(wl, a, ANIMAL.robin)); assert.equal(a.bird.kind, 'perch');
+  // Having sat in this tree, it moves on to another a few trees away rather than settling in again.
+  const far = g.world.idx(44, 30); g.world.tree[far] = 1; g.world.treeG[far] = 1;
+  fixed(0.8, () => birdChoose(wl, a, ANIMAL.robin));
+  assert.equal(a.state, 'fly'); assert.equal(a.birdGoal.kind, 'perch'); assert.equal(a.birdGoal.i, far);
+  Object.assign(a, { state: 'idle', flying: false, birdGoal: null, perchedAt: null });
   const random = Math.random; let calls = 0; Math.random = () => calls++ ? 0.2 : 0.8;
   try { birdChoose(wl, a, ANIMAL.robin); } finally { Math.random = random; }
   assert.equal(a.bird.kind, 'preen');
