@@ -120,6 +120,17 @@ export class Wildlife {
   }
 
   // -------------------------------------------------------------- population bookkeeping
+  get agents() { return this._agents; }
+  set agents(agents) {
+    this._agents = agents;
+    this.ids ||= new Map();
+    this.reindexAgents();
+    this.spacingDirty = true;
+  }
+  reindexAgents() {
+    this.ids.clear();
+    for (const a of this.agents) this.ids.set(a.id, a);
+  }
   get viewAgents() { return this.agents.concat(this.flyovers); }
   findAgent(id) { return this.agents.find(a => a.id === id) || this.flyovers.find(a => a.id === id); }
   hasAgent(a) { return this.agents.includes(a) || this.flyovers.includes(a); }
@@ -131,6 +142,7 @@ export class Wildlife {
   }
 
   recount() {
+    this.reindexAgents();
     for (const s of this.state) s.pop = 0;
     for (const a of this.agents) if (!a.leaving) this.state[a.sp].pop++;
     let f = 0;
@@ -698,7 +710,6 @@ export class Wildlife {
       if (trod[i] > 0) trod[i] = trod[i] < 0.01 ? 0 : trod[i] * 0.985;
       if (ecology && w.browseDamage?.[i] > 0) w.browseDamage[i] = w.browseDamage[i] < 0.001 ? 0 : w.browseDamage[i] * 0.94;
     }
-    this.ids = new Map(this.agents.map(a => [a.id, a]));
     haremDay(this);
     this.damDay();
     for (const a of this.agents.slice()) {
@@ -909,7 +920,8 @@ export class Wildlife {
     updatePassage(this, dt);
     const w = this.game.world;
     this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
-    this.ids = new Map(this.agents.map(a => [a.id, a])); // (hunters, chasers and the chased look each other up every step)
+    // Spawn, removal, load and undo maintain the ID map. Movement changes the
+    // existing agents in place, so their lookups remain current without a rebuild.
     // (a fire is noticed within a few hours of game time)
     if ((this.fireCheck = (this.fireCheck || 0) - dt) <= 0) { this.fireCheck = 0.2; fleeFire(this); }
     for (let k = this.agents.length - 1; k >= 0; k--) {

@@ -550,6 +550,10 @@ export class Renderer {
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
       shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped,
       triangles: info.triangles, draw_calls: info.calls, zoom: +(this.zoom ?? 1).toFixed(2), gpu: this.gpuName(),
+      renderer_revision: 'plant-view-1',
+      batched_plant_candidates: this.flora.plantView.stats.candidates,
+      batched_plant_instances: this.flora.plantView.stats.visible,
+      plant_view_batches: this.flora.plantView.stats.batches,
     };
     if (reset) { P.frames = 0; P.time = 0; P.slow = 0; }
     return out;
@@ -713,6 +717,7 @@ export class Renderer {
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, dt);
     this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game);
+    this.flora.updateView(this.camera);
     this.gl.shadowMap.needsUpdate = this.shadowsStale();
     this.gl.render(this.scene, this.camera);
     this.drawFX(game, ui, dt);

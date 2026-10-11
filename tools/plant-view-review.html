@@ -1,0 +1,53 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Plant visibility review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>body{margin:24px;background:#e9ede2;color:#26392e;font:15px system-ui}h1{font-size:24px}p{max-width:1050px;line-height:1.5}button,select{font:inherit;padding:7px;margin:0 10px 8px 0}main{display:grid;grid-template-columns:1fr 1fr;gap:16px}article{background:#fbfcf7;padding:12px;border-radius:10px}canvas{width:100%;display:block}pre{white-space:pre-wrap;font:13px/1.6 ui-monospace,monospace}</style>
+<h1>Plant visibility review</h1><p>Compare complete source regions with visible plants packed into shared batches. Models, wind, lighting and shadow casters stay the same. These restored habitat fixtures do not access saved games.</p>
+<label>Map <select id="map"><option>pnw</option><option>amazon</option><option>serengeti</option><option>atlanta</option><option>chinandega</option><option>reef</option><option>sumatra</option></select></label>
+<label>Detail <select id="detail"><option value="fast">Fast</option><option value="high">High</option></select></label>
+<label>Zoom <select id="zoom"><option value=".8">Normal</option><option value="1.5">Close</option><option value=".2">Whole map</option></select></label>
+<button id="audit">Check all maps</button><button id="bench">Measure drawing</button><button id="edit">Planting edit</button>
+<p id="status">Preparing…</p><main><article><h2>Complete regions</h2><canvas id="before" width="960" height="540"></canvas></article><article><h2>Visible plants in shared batches</h2><canvas id="after" width="960" height="540"></canvas></article></main><pre id="results"></pre>
+<script type="module">
+import * as THREE from 'three';
+import { Flora } from '../js/render3d/flora.js';
+import { focus } from '../js/render3d/focus.js';
+import { MAPS, plantFixture, editPlants } from './plant-performance-fixtures.mjs';
+import { LEVEL, BORDER } from '../js/config.js';
+const W=960,H=540,gl=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});gl.setSize(W,H);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;gl.shadowMap.enabled=true;gl.shadowMap.type=THREE.PCFShadowMap;
+const camera=new THREE.OrthographicCamera(-1,1,1,-1,-300,300),ctx=gl.getContext(),pixels=new Uint8Array(W*H*4);
+const c=Object.fromEntries(['map','detail','zoom','audit','bench','edit','status','results'].map(id=>[id,document.getElementById(id)]));
+let game,scene,sun,flora;
+window.plantViewChecks={done:false,passed:[],metrics:[],error:null};
+const yieldPaint=()=>new Promise(resolve=>setTimeout(resolve,0));
+function dispose(){if(!flora)return;for(const cp of flora.pools.values())for(const p of cp.subs.values())p.dispose();for(const b of flora.plantView.batches.values())b.dispose();const geos=new Set();function free(value){if(!value||typeof value!=='object'||geos.has(value))return;geos.add(value);if(value.isBufferGeometry)value.dispose();else if(Array.isArray(value)||Object.getPrototypeOf(value)===Object.prototype)for(const part of Object.values(value))free(part);}for(const value of flora.geos.values())free(value);for(const mat of [flora.foliage,flora.shrubs,flora.grass,flora.tallGrass,flora.bark,flora.small,flora.canopyBark,flora.contact])mat.dispose();sun.shadow.dispose();scene.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh){o.geometry.dispose();o.material.dispose();}});}
+function setup(map){dispose();game=plantFixture(map);scene=new THREE.Scene();scene.background=new THREE.Color('#dde5d5');scene.add(new THREE.HemisphereLight(0xe4eeff,0x5f6e3c,1.25));sun=new THREE.DirectionalLight(0xfff3dc,2.5);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.bias=-.0006;sun.shadow.normalBias=.03;scene.add(sun,sun.target);
+ const w=game.world,geo=new THREE.PlaneGeometry(w.w+2*BORDER,w.h+2*BORDER,w.w+2*BORDER,w.h+2*BORDER).rotateX(-Math.PI/2).translate(w.w/2,0,w.h/2),p=geo.attributes.position;for(let k=0;k<p.count;k++)p.setY(k,w.heightAt(p.getX(k),p.getZ(k))*LEVEL);geo.computeVertexNormals();const ground=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:map==='reef'?0x9caea4:0xb1b88c}));ground.receiveShadow=true;scene.add(ground);
+ flora=new Flora(scene);flora.wind.value=17;detail(c.detail.value);view();}
+function detail(value){flora.setLight(value==='fast');flora.rebuild(game);}
+function view(zoom=Number(c.zoom.value),az=Math.PI/4,x=40,z=32){const ppu=46*zoom;camera.left=-W/2/ppu;camera.right=W/2/ppu;camera.top=H/2/ppu;camera.bottom=-H/2/ppu;const target=new THREE.Vector3(x,game.world.heightAt(x,z)*LEVEL,z),el=34*Math.PI/180;camera.position.copy(target).add(new THREE.Vector3(Math.sin(az)*Math.cos(el),Math.sin(el),Math.cos(az)*Math.cos(el)).multiplyScalar(120));camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld();flora.setZoom(zoom);sun.position.copy(target).add(new THREE.Vector3(-30,55,20));sun.target.position.copy(target);sun.target.updateMatrixWorld();const s=Math.max(W,H)/2/ppu*1.35+3,sc=sun.shadow.camera;sc.left=sc.bottom=-s;sc.right=sc.top=s;sc.near=1;sc.far=160;sc.updateProjectionMatrix();}
+function draw(enabled,canvas,read=true){flora.cullInstances=enabled;flora.updateView(camera);gl.shadowMap.autoUpdate=false;gl.shadowMap.needsUpdate=true;gl.render(scene,camera);if(canvas)canvas.getContext('2d').drawImage(gl.domElement,0,0);const out={triangles:gl.info.render.triangles,calls:gl.info.render.calls,visible:flora.plantView.stats.visible,candidates:flora.plantView.stats.candidates};if(read){ctx.readPixels(0,0,W,H,ctx.RGBA,ctx.UNSIGNED_BYTE,pixels);out.pixels=pixels.slice();}return out;}
+function compare(a,b){let changed=0,max=0;for(let i=0;i<a.length;i+=4){let d=0;for(let k=0;k<4;k++)d=Math.max(d,Math.abs(a[i+k]-b[i+k]));if(d>1)changed++;max=Math.max(max,d);}return{changed,max};}
+// Allow at most eight raster-edge pixels (under 0.002% of the image), with
+// a maximum channel difference of 32; substantial clipping or shadow changes fail.
+function pair(label,show=false){const a=draw(false,show?document.getElementById('before'):null),b=draw(true,show?document.getElementById('after'):null),diff=compare(a.pixels,b.pixels);const row={label,changed:diff.changed,max:diff.max,before:{triangles:a.triangles,calls:a.calls},after:{triangles:b.triangles,calls:b.calls}};if(diff.changed>8||diff.max>32)throw new Error(`${label}: ${diff.changed} changed pixels; max channel difference ${diff.max}`);return row;}
+function refresh(){view();const row=pair(`${c.map.value}/${c.detail.value}/${c.zoom.value}`,true);c.status.textContent=`Matching appearance (up to 8 raster-edge pixels allowed). Triangles ${row.before.triangles.toLocaleString()} → ${row.after.triangles.toLocaleString()}; draws ${row.before.calls} → ${row.after.calls} (including shadows).`;}
+function busy(value){for(const id of ['map','detail','zoom','audit','bench','edit'])c[id].disabled=value;}
+async function runAudit(){busy(true);const result=window.plantViewChecks={done:false,passed:[],metrics:[],error:null};try{
+ for(const map of MAPS){c.status.textContent=`Checking ${map}…`;await yieldPaint();setup(map);
+  for(const value of ['fast','high']){detail(value);for(const [zoom,az,x,z] of [[.2,0,40,32],[.8,Math.PI/4,40,32],[1.5,Math.PI/2,40,32],[1.5,Math.PI,70,55]]){view(zoom,az,x,z);result.metrics.push(pair(`${map}/${value}/zoom${zoom}/angle${az.toFixed(2)}`));await yieldPaint();}}
+  editPlants(game);let waiting=true,frames=0;while(waiting){waiting=flora.rebuild(game,false,2);view(.8);pair(map+'/local edit frame '+frames);if(++frames>40)throw new Error('Region updates did not finish');await yieldPaint();}
+  game.day=100;flora.rebuild(game);pair(map+'/winter');game.day=0;flora.rebuild(game);
+  focus.uFocus.value.set(40,game.world.heightAt(40,32)*LEVEL+1,32);focus.uFocusAmt.value=1;focus.uViewDir.value.copy(camera.position).sub(new THREE.Vector3(40,1,32)).normalize();pair(map+'/animal canopy opening');focus.uFocusAmt.value=0;
+  flora.setFade(true);pair(map+'/see-through trees');flora.setFade(false);pair(map+'/opaque restored');
+  result.passed.push(`${map}: Fast and High, rotation, pan, zoom, editing, seasons, focus and see-through trees match`);c.results.textContent=result.passed.join('\n');await yieldPaint();
+ }
+ result.done=true;c.status.textContent='All plant rendering comparisons passed.';setup(c.map.value);refresh();
+}catch(e){result.done=true;result.error=e.stack||e.message;c.status.textContent='ERROR: '+e.message;}finally{focus.uFocusAmt.value=0;busy(false);}return result;}
+async function benchmark(){busy(true);const result=window.plantViewBenchmark={done:false,rows:[],error:null};try{const probe=new Uint8Array(4);const complete=()=>ctx.readPixels(0,0,1,1,ctx.RGBA,ctx.UNSIGNED_BYTE,probe);
+ for(const map of ['pnw','amazon','serengeti']){setup(map);for(const value of ['fast','high']){detail(value);for(const zoom of [.8,1.5]){view(zoom);const row={map,detail:value,zoom};for(const enabled of [false,true]){draw(enabled,null,false);complete();for(let k=0;k<3;k++){gl.render(scene,camera);complete();}const times=[];for(let k=0;k<9;k++){const t=performance.now();gl.shadowMap.needsUpdate=false;gl.render(scene,camera);complete();times.push(performance.now()-t);}times.sort((a,b)=>a-b);const stationary={ms:times[4],triangles:gl.info.render.triangles,calls:gl.info.render.calls};const moving=[];for(let k=0;k<9;k++){view(zoom,Math.PI/4,40+k*.1,32);const t=performance.now();flora.updateView(camera);gl.shadowMap.needsUpdate=false;gl.render(scene,camera);complete();moving.push(performance.now()-t);}moving.sort((a,b)=>a-b);row[enabled?'after':'before']={...stationary,movingMs:moving[4]};view(zoom);}result.rows.push(row);c.results.textContent=JSON.stringify(result.rows,null,2);await yieldPaint();}}
+ }result.done=true;const ext=ctx.getExtension('WEBGL_debug_renderer_info');result.gpu=ext?ctx.getParameter(ext.UNMASKED_RENDERER_WEBGL):null;c.status.textContent='Drawing measurements complete; includes synchronous readback, excludes simulation.';
+}catch(e){result.error=e.stack;result.done=true;}finally{busy(false);}return result;}
+for(const id of ['zoom'])c[id].onchange=refresh;c.map.onchange=()=>{setup(c.map.value);refresh();};c.detail.onchange=()=>{detail(c.detail.value);refresh();};c.audit.onclick=runAudit;c.bench.onclick=benchmark;c.edit.onclick=()=>{editPlants(game);flora.rebuild(game);refresh();};
+window.runPlantViewAudit=runAudit;window.runPlantViewBenchmark=benchmark;
+try{setup(c.map.value);refresh();if(new URLSearchParams(location.search).has('audit'))runAudit();}catch(e){window.plantViewChecks.error=e.stack;window.plantViewChecks.done=true;c.status.textContent='ERROR: '+e.message;}
+</script></html>

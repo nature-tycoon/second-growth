@@ -18,6 +18,7 @@ import { groveForm } from './groves.js';
 import { underWater, groundAt, visibleLevel } from '../sim/waterline.js';
 import { paletteLeafColor } from './palettes.js';
 import { CanopySite } from './canopy-support.js';
+import { PlantView, shadowOnly, skipMainDraw } from './plant-view.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -28,7 +29,6 @@ const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 // A growable InstancedMesh.
 // Shadow stand-ins: drawn into the sun's shadow map, but write nothing to the view itself.
 // (three.js picks shadow casters by the view camera's layers, so they stay on the default layer.)
-const shadowOnly = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
 // Bumped whenever any plant mesh changes (built, moved, swapped for another level of detail),
 // so the renderer knows its reused shadow map is out of date (see Renderer.shadowsStale).
 export const floraVersion = { n: 0 };
@@ -72,7 +72,7 @@ class Pool {
       this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 3), 3);
       this.scene.add(this.mesh);
       if (this.shadow && this.shadowGeo) {
-        const p = this.proxy = new THREE.InstancedMesh(this.shadowGeo, shadowOnly, this.cap);
+        const p = this.proxy = skipMainDraw(new THREE.InstancedMesh(this.shadowGeo, shadowOnly, this.cap));
         p.instanceMatrix = this.mesh.instanceMatrix; // (the same trees, in the same places)
         p.castShadow = true;
         this.scene.add(p);
@@ -93,6 +93,7 @@ class Pool {
     floraVersion.n++;
     if (this.mesh) { this.scene.remove(this.mesh); this.mesh.dispose(); }
     if (this.proxy) { this.scene.remove(this.proxy); this.proxy.dispose(); this.proxy = null; }
+    if (this.viewShadow) { this.scene.remove(this.viewShadow); this.viewShadow.dispose(); this.viewShadow = null; }
   }
   setView(lod, grass, shrubShadow, grassLod = lod) {
     if (this.kind === 'grass') lod = grassLod;
@@ -191,8 +192,9 @@ export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vi
   'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
 
 export class Flora {
-  constructor(scene, { chunkSize = 48, incremental = true } = {}) {
+  constructor(scene, { chunkSize = 48, incremental = true, cullInstances = true } = {}) {
     this.scene = scene;
+    this.cullInstances = cullInstances; this.plantView = new PlantView(scene);
     this.chunkSize = chunkSize; this.incremental = incremental;
     this.changes = new FloraChanges(chunkSize);
     this.wind = { value: 0 };
@@ -343,6 +345,7 @@ export class Flora {
 
   // Crowns and trunks catch neighbouring branch shadows in the full landscape lighting.
   setLightingDepth(on) {
+    floraVersion.n++;
     this.lightingDepth = on;
     const receive = on && !this.light && !biome.look.underwater;
     for (const [key, pool] of this.pools) if (key.startsWith('crown:') || key.startsWith('trunk:')) {
@@ -354,8 +357,11 @@ export class Flora {
   }
 
   setFade(on) {
+    floraVersion.n++;
     for (const m of [this.foliage, this.shrubs, this.bark]) { m.transparent = on; m.opacity = on ? 0.28 : 1; m.depthWrite = !on; m.needsUpdate = true; }
   }
+
+  updateView(camera) { return this.plantView.update(this, camera, floraVersion.n, this.cullInstances); }
 
   showCanopySites(sites) {
     if (sites.size === this.canopyVisible.size && [...sites].every(s => this.canopyVisible.has(s))) return;
