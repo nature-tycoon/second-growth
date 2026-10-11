@@ -42,7 +42,7 @@ node tools/release-browser-check.mjs --update-visuals
 
 Inspect the review page and the changed images, then commit the approved `tools/release-baselines/` files with the code. Reference updates are refused in CI and are saved only after all scenes and performance checks succeed. Normal checks never rewrite references. Historical detail/polish/size comparisons against ignored snapshots require `--historical-baseline`; those snapshots describe earlier passes and may no longer match later intentional changes.
 
-The GitHub checks workflow runs on pull requests and branch pushes. The itch.io publishing workflow waits for both simulation and browser checks on the exact commit it packages. Manual packaging with `tools/build-itch.sh` also runs all checks and requires committed release files so it cannot test one version and package another.
+The GitHub checks workflow runs the headless simulation checks on pull requests; the slower browser checks run when it is started by hand. The itch.io publishing workflow waits for both simulation and browser checks on the exact commit it packages. Manual packaging with `tools/build-itch.sh` also runs all checks and requires committed release files so it cannot test one version and package another.
 
 Keep these shared contracts when adding features:
 
