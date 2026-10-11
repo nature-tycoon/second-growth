@@ -375,12 +375,21 @@ export class Flora {
     for (const p of this.canopyPools.values()) p.end();
   }
 
-  // Rebuild changed source regions. World, season, height and graphics changes rebuild fully.
-  rebuild(game, force = false) {
+  // Rebuild changed source regions. World, height and graphics changes rebuild fully.
+  // maxRegions: rebuild at most this many changed regions now and leave the rest for the next
+  // call (a day's growth or a new season changes nearly every region, and doing them all in one
+  // frame is a visible hitch). Returns true while regions are still waiting.
+  rebuild(game, force = false, maxRegions = Infinity) {
     const w = game.world, B = game.border, month = game.month;
-    const dirty = this.incremental && !force ? this.changes.find(game, this.light) : null;
+    let dirty = this.incremental && !force ? this.changes.find(game, this.light) : null;
+    if (dirty) for (const k of this.waitingRegions || []) dirty.add(k);
+    this.waitingRegions = null;
+    if (dirty && dirty.size > maxRegions) {
+      const all = [...dirty];
+      dirty = new Set(all.slice(0, maxRegions)); this.waitingRegions = new Set(all.slice(maxRegions));
+    }
     this.lastRebuild = { full: !dirty, tiles: 0, regions: dirty?.size ?? null };
-    if (dirty && !dirty.size) return;
+    if (dirty && !dirty.size) return false;
     if (!dirty) this.treeSites.clear();
     for (const p of this.pools.values()) p.begin(dirty);
     const dots = this.pool('dot', () => G.blob(0xffffff), this.small, { shadow: false });
@@ -746,5 +755,6 @@ export class Flora {
     }
     for (const p of this.pools.values()) p.end(dirty);
     if (this.incremental) this.changes.remember(game, this.light);
+    return !!this.waitingRegions;
   }
 }

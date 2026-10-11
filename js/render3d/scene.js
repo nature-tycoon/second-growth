@@ -68,6 +68,7 @@ function timeOfDay(u) {
   return { sun: L(1), sunCol: todCol[0], sunAmt: L(3), skyCol: todCol[2], skyAmt: L(5), el: L(6), sweep: L(7) };
 }
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
+const FLORA_REGIONS_PER_FRAME = 1; // plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild)
 // a phone or tablet (no mouse)
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
@@ -627,7 +628,11 @@ export class Renderer {
     if (this.editDirty && now - this.lastFlora > (light ? 260 : 120)) { surface = flora = true; this.editDirty = false; this.terrain.refreshWater(); }
     if (surface) { this.terrain.updateSurface(game); this.syncStructures(); this.lastSurface = now; }
     if (flora) this.floraPending = true;
-    if (this.floraPending && (swapped || (!surface && this.frameN > (this.dayDirty || 0))) && now - this.lastFlora > (light ? (game.speed >= 2 ? 1200 : 400) : game.speed >= 3 ? 400 : 150)) { this.flora.rebuild(game); this.lastFlora = now; this.floraPending = false; }
+    if (this.floraPending && (swapped || (!surface && this.frameN > (this.dayDirty || 0))) && now - this.lastFlora > (light ? (game.speed >= 2 ? 1200 : 400) : game.speed >= 3 ? 400 : 150)) {
+      // a region a frame, so a day's growth or a new season doesn't land as one long pause (the
+      // rest follow on the next frames, with no wait between them)
+      if (!this.flora.rebuild(game, false, swapped ? Infinity : FLORA_REGIONS_PER_FRAME)) { this.lastFlora = now; this.floraPending = false; }
+    }
 
     this.updateOverlay(game, ui, now);
     this.updatePreview(ui);
