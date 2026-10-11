@@ -254,6 +254,20 @@ export class Renderer {
     this.camera.getWorldDirection(focus.uViewDir.value).negate();
   }
 
+  // Around the see-through gap the rest of the view dims a little, softly, as if looking in from
+  // under the canopy: the eye goes to the lit opening and the animal at the bottom of it.
+  drawFocusLens(ctx) {
+    const amt = focus.uFocusAmt.value;
+    if (amt < 0.01) return;
+    const c = focus.uFocus.value, p = this.project(c.x, c.y, c.z);
+    const r = focus.uFocusR.value * this.ppu * amt;
+    const g = ctx.createRadialGradient(p.x, p.y, r * 0.85, p.x, p.y, r * 3.2);
+    g.addColorStop(0, 'rgba(14,22,16,0)');
+    g.addColorStop(0.45, `rgba(14,22,16,${0.16 * amt})`);
+    g.addColorStop(1, `rgba(14,22,16,${0.34 * amt})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
+  }
+
   get fadeTrees() { return this._fade; }
   set fadeTrees(v) { this._fade = v; this.flora.setFade(v); }
 
@@ -787,6 +801,7 @@ export class Renderer {
     finally {
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      this.drawFocusLens(ctx);
       this.ambience.drawSky(ctx, this, game, dt);
     }
   }
