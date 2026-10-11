@@ -474,9 +474,10 @@ export class Wildlife {
     st.K = Math.min(def.max, habitat / def.hr);
     const year = game.year;
     if (m === SALMON_RUN_MONTH && habitat >= SALMON_MIN_HABITAT) {
-      const returns = Math.round((S.fry[year - 3] || 0) * 0.025);
-      const strays = Math.floor(rng() * 3) + 1;
-      const n = Math.min(def.max, Math.max(1, Math.min(Math.ceil(st.K), strays + returns)));
+      // a bigger run than the bare minimum, so a few lost to bears still leaves plenty to spawn
+      const returns = Math.round((S.fry[year - 3] || 0) * 0.05);
+      const strays = Math.floor(rng() * 5) + 5;
+      const n = Math.min(def.max, Math.max(1, Math.min(Math.ceil(st.K * 1.5), strays + returns)));
       let placed = 0;
       for (let k = 0; k < n; k++) placed += this.immigrateSalmon(def);
       if (placed) {
