@@ -148,6 +148,17 @@ check('Stags spar lightly the month either side of the rut, and nobody runs off 
     assert.equal(light > 0, expect, `${key}/${month}: sparring ${light}`);
   }
 });
+check('Stags that have been drinking can still be challenged afterwards', () => {
+  const g = setup(3, 'pnw', 7), wl = g.wildlife;
+  const a = spawn(g, 'deer', true, 40.5, 30.5), b = spawn(g, 'deer', true, 46.5, 30.5);
+  for (const s of [a, b]) Object.assign(s, { drinkT: 0.03, drinkAt: [s.x, s.y + 1], wait: 0.03 });
+  wl.update(0.05);
+  assert.equal(a.drinkT, 0, 'the drink timer ends at exactly zero');
+  b.drinkT = -0.02; wl.update(0.05); assert.equal(b.drinkT, 0, 'older saves repaired');
+  let fought = false;
+  run(g, 20, () => { if (a.state === 'spar') fought = true; });
+  assert.ok(fought, 'the two stags fought after drinking');
+});
 check('Near-enough followers graze without alternating adjacent tile targets', () => {
   const g = setup(), wl = g.wildlife;
   const lead = spawn(g, 'deer', false, 40.1, 30.1), a = spawn(g, 'deer', false, 42, 31.5);

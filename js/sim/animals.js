@@ -10,7 +10,7 @@ import { biome } from '../biome.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, facePoint, shoreSpot } from './animal-positioning.js';
-import { canStartHunt, beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold } from './animal-life.js';
+import { canStartHunt, beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate } from './bird-behavior.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
@@ -912,9 +912,10 @@ export class Wildlife {
       if (a.sparT > 0 && a.state !== 'spar') a.sparT -= dt;
       if (a.greetT > 0) a.greetT -= dt;
       if (a.bugleT > 0) a.bugleT -= dt;
+      if (a.drinkT < 0) a.drinkT = 0; // (older saves: a timer left just below zero read as still drinking)
       if (a.drinkT > 0) {
         a.drinkT -= dt;
-        if (a.drinkT <= 0) a.drinkAt = null;
+        if (a.drinkT <= 0) { a.drinkT = 0; a.drinkAt = null; } // (exactly 0: elsewhere a non-zero timer means drinking)
         else if (this.drinks(def) && !a.drinkAt) {
           // Older saves can contain a head-down pose with no direction (even a calf on dry
           // ground). Repair it on the next simulation step rather than waiting for another trip.
@@ -1536,7 +1537,7 @@ export class Wildlife {
       }
       a.bankGoal = null;
       a.drinkAt = bank.water; facePoint(a, ...bank.water);
-      a.waterTrip = false; a.thirst = 0; a.drinkT = 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false; a.alt = 0;
+      a.waterTrip = false; a.thirst = 0; a.drinkT = restless(this, def, a) ? 0.6 + Math.random() * 0.6 : 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false; a.alt = 0;
       return true;
     }
     if (a.thirst < every || a.juvenile && def.herd) return false;

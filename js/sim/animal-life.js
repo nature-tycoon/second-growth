@@ -393,6 +393,8 @@ const rutting = (wl, def, a) => antlered(def, a) && RUT.includes(wl.game.month);
 // other in light sparring matches: short, gentle, and nobody runs off beaten.
 const SPAR_SEASON = [5, 9];
 const sparring = (wl, def, a) => antlered(def, a) && !young(a, def) && SPAR_SEASON.includes(wl.game.month);
+// Stags in the rut or the sparring months: they drink quickly and look up for a rival.
+export const restless = (wl, def, a) => rutting(wl, def, a) || sparring(wl, def, a);
 
 // Now and then an adult goes over to another of its kind: they touch noses, or two rivals
 // square up and spar for a while. In the rut, stags go looking for another stag to fight.
@@ -436,7 +438,7 @@ function invite(wl, a, o, def) {
   const time = a.path.length / Math.max(0.1, travelSpeed(def) * (rut ? 1.6 : 1)) + 4;
   a.greet = o.id; a.trip = null;
   o.socialWith = a.id; o.socialUntil = o.age + time;
-  o.state = 'idle'; o.path = null; o.wait = 0.5; o.waterTrip = false;
+  o.state = 'idle'; o.path = null; o.wait = 0.5; o.waterTrip = false; o.drinkT = 0; o.drinkAt = null;
   facePoint(o, a.x, a.y);
   return true;
 }
@@ -445,8 +447,10 @@ export function greet(wl, a, def) {
   if (!ashore(def) || young(a, def) || !available(a) || a.socialCooldown > a.age ||
     rut && a.rutCooldown > a.age || Math.random() > (rut ? 0.45 : light ? 0.25 : def.herd ? 0.06 : 0.12)) return false;
   let o = null, bd = rut ? 900 : light ? 144 : 49; // (a rutting male goes a long way to find a rival)
+  // (a rival at the water is still fair game: he lifts his head from drinking to meet the challenge)
+  const free = b => available(b) || ((rut || light) && b.drinkT > 0 && b.state === 'idle' && !b.leaving && !b.fromFire && !b.socialWith && b.greet == null);
   for (const b of wl.agents) {
-    if (b === a || b.sp !== a.sp || !available(b) || (!rut && b.state !== 'idle') ||
+    if (b === a || b.sp !== a.sp || !free(b) || (!rut && b.state !== 'idle') ||
       young(b, def) || b.socialCooldown > b.age || (rut && (!antlered(def, b) || b.rutCooldown > b.age)) ||
       (light && !antlered(def, b))) continue;
     const d2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
