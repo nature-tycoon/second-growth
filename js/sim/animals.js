@@ -16,24 +16,15 @@ import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin }
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
 import { travelSpeed } from './climb-pace.js';
 import { updatePassage } from './bird-passage.js';
+import { passable, canLand, WADERS, shallows } from './animal-terrain.js';
+// Retain the existing public imports used by tools and older feature modules.
+export { passable, canLand } from './animal-terrain.js';
 
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
 
-// Herons and cranes spend most of their time on foot in the shallows, not in the air.
-const WADERS = new Set(['heron', 'crane']);
 // Animals that swim in open water move in any direction, diagonals too (river fish, and everything on the reef).
 const swimmer = a => a.move === 'swim' || !!ANIMALS[a.sp]?.reef;
-const shallows = (w, i) => { const t = w.terrain[i]; return t === T.MARSH || t === T.CREEK || t === T.MUD || (w.distWater[i] === 1 && !isWater(t)); };
-
-// Flight can cross any terrain; landing needs land, a perch, or suitable water.
-export function canLand(w, i, def) {
-  if (def.move !== 'fly' || !isWater(w.terrain[i])) return true;
-  const kind = def.sprite.kind;
-  if (kind === 'duck' || kind === 'booby' || def.group === 'Seabirds') return true;
-  if (WADERS.has(kind)) return shallows(w, i);
-  return !!(w.tree[i] && w.treeG[i] > 0.5);
-}
 
 export const SALMON_RUN_MONTH = 7;
 export const SALMON_MIN_HABITAT = 15;
@@ -47,21 +38,6 @@ export function arrivalFinding(def, st) {
   if (st.pop > 0 || st.discovered || def.quick) return 1;
   const ramp = def.season ? def.season.length / 12 : 1;
   return clamp(((st.ready || 0) - 3 * ramp) / (16 * ramp), 0, 1);
-}
-
-export function passable(w, i, a) {
-  const move = a.move;
-  if (move === 'fly') return true;
-  // tree dwellers (monkeys, sloths) travel through connected canopy only
-  if (move === 'tree') return !!(w.tree[i] && w.treeG[i] > 0.45) || w.feature[i] === F.SNAG;
-  if (w.struct[i] >= 0) return false;
-  if (biome.dryLand && ANIMAL[a.key]?.reef && biome.dryLand(w, i)) return false; // (reef animals stay in the sea, off the cay)
-  const t = w.terrain[i];
-  if (move === 'swim') return isWater(t) && w.feature[i] !== F.CULVERT;
-  if (move === 'semi') return true;
-  if (t === T.POND || t === T.RIVER) return false;
-  if (w.feature[i] === F.FENCE && ANIMAL[a.key]?.fenced) return false; // big grazers can't cross fences
-  return true;
 }
 
 // Young born here that leave home once independent to find a patch of their own: the walkers and

@@ -1,55 +1,13 @@
 // Actual phone UI checks in an isolated Chrome profile: node tools/animal-locate-browser-check.mjs
-// Requires Google Chrome; set CHROME_PATH for another Chromium installation.
-import { spawn } from 'node:child_process';
-import { createServer } from 'node:http';
-import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, extname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { openBrowser } from './browser-session.mjs';
 
-const root = fileURLToPath(new URL('../', import.meta.url));
-const profile = await mkdtemp(join(tmpdir(), 'second-growth-locate-check-'));
-const chromePath = process.env.CHROME_PATH || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'google-chrome');
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.mp3': 'audio/mpeg' };
-const server = createServer(async (req, res) => {
-  try {
-    const pathname = new URL(req.url, 'http://localhost').pathname;
-    const path = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
-    if (!path.startsWith(root)) throw new Error('Invalid path');
-    const data = await readFile(path);
-    res.writeHead(200, { 'Content-Type': mime[extname(path)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(data);
-  } catch { res.writeHead(404); res.end(); }
-});
-await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const origin = `http://127.0.0.1:${server.address().port}`;
-const chrome = spawn(chromePath, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
-let socket;
+const browser = await openBrowser({ label: 'locate' });
+const { send, evaluate, origin, sessionId } = browser;
 try {
-  const debug = await new Promise((resolve, reject) => {
-    let log = ''; const timeout = setTimeout(() => reject(new Error('Chrome did not start')), 15000);
-    chrome.on('error', reject); chrome.on('exit', code => reject(new Error(`Chrome exited ${code}`)));
-    chrome.stderr.on('data', data => { log += data; const match = log.match(/DevTools listening on (ws:\/\/[^\s]+)/); if (match) { clearTimeout(timeout); resolve(match[1]); } });
-  });
-  socket = new WebSocket(debug);
-  await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
-  let next = 0; const pending = new Map();
-  socket.onmessage = ({ data }) => {
-    const message = JSON.parse(data), request = pending.get(message.id);
-    if (!request) return; pending.delete(message.id); clearTimeout(request.timeout);
-    if (message.error) request.reject(new Error(message.error.message)); else request.resolve(message.result);
-  };
-  const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
-    const id = ++next, timeout = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out`)); }, 60000);
-    pending.set(id, { resolve, reject, timeout }); socket.send(JSON.stringify({ id, method, params, sessionId }));
-  });
-  const { targetId } = await send('Target.createTarget', { url: origin + '/'  });
-  const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
-  const evaluate = async expression => {
-    const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId);
-    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
-    return r.result.value;
-  };
-
+  await browser.navigate('/');
   await send('Emulation.setDeviceMetricsOverride', { width: 667, height: 375, deviceScaleFactor: 1, mobile: true }, sessionId);
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 }, sessionId);
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'pointer', value: 'coarse' }, { name: 'hover', value: 'none' }] }, sessionId);
@@ -61,7 +19,7 @@ try {
     for (let k = 0; k < 150; k++) { if (await evaluate(expression)) return; await pause(100); }
     throw new Error(message);
   }
-  await waitFor('!!window.secondGrowth', 'Game did not boot');
+  await waitFor('!!window.secondGrowth && (!document.getElementById("loading-screen") || document.getElementById("loading-screen").classList.contains("done"))', 'Game did not boot');
   await evaluate(`window.checkLocate = async (map, key, flight = false) => {
     const { game, renderer: r, ui } = window.secondGrowth;
     const { ANIMAL } = await import('/js/data/animals.js');
@@ -87,6 +45,7 @@ try {
     const panel = document.getElementById('infopanel'), b = panel.getBoundingClientRect();
     return { name: (game.map + '/' + a.key), pose: !!st?.visible,
       centered: !!p && Math.abs(p.x - r.vw * r.frame.x) < 1 && Math.abs(p.y - r.vh * r.frame.y) < 1,
+      offsetPixels: p ? Math.hypot(p.x - r.vw * r.frame.x, p.y - r.vh * r.frame.y) : null,
       clear: !!p && !(p.x >= b.left && p.x <= b.right && p.y >= b.top && p.y <= b.bottom),
       ring: !!st?.center && Math.hypot(r.actors.ring.position.x - st.center.x, r.actors.ring.position.z - st.center.z) < 0.001,
       follow: ui.follow === a && r.followAgent === a, collapsed: panel.classList.contains('min'),
@@ -96,7 +55,12 @@ try {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: true }, sessionId);
     for (const [map, key, flight] of [['sumatra', 'orangutan', false], ['sumatra', 'hornbill', true], ['amazon', 'sloth', false], ['serengeti', 'giraffe', false], ['reef', 'shark', false]]) {
       await evaluate(`window.checkLocate(${JSON.stringify(map)}, ${JSON.stringify(key)}, ${flight})`);
-      const result = await evaluate('window.locateResult()');
+      // Climbing Follow deliberately eases into a pose. Two RAF callbacks may only
+      // include one 30-FPS game frame, especially on software graphics.
+      // Keep the snapshot that satisfied the wait. A later CDP call can land in a
+      // different frame while the deliberately eased canopy camera is moving.
+      await waitFor('(window.settledLocateResult = window.locateResult()).centered', `Locate camera did not settle: ${map}/${key}`);
+      const result = await evaluate('window.settledLocateResult');
       if (!result.pose || !result.centered || !result.clear || !result.ring || !result.follow || !result.touch) throw new Error('Locate failed: ' + JSON.stringify(result));
       console.log(`PASS Guide Locate: ${map}/${key} at ${width}×${height}, body centred and unobscured`);
       if (key === 'orangutan') {
@@ -124,7 +88,5 @@ try {
   await waitFor('!window.secondGrowth.ui.follow && !window.secondGrowth.renderer.followAgent', 'Touch drag failed to release Follow');
   console.log('PASS Touch camera movement releases Follow');
 } finally {
-  socket?.close(); chrome.kill('SIGTERM'); server.close();
-  await new Promise(resolve => { if (chrome.exitCode != null) resolve(); else { chrome.once('exit', resolve); setTimeout(resolve, 3000); } });
-  await rm(profile, { recursive: true, force: true });
+  await browser.close();
 }

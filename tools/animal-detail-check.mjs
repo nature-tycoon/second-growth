@@ -10,7 +10,9 @@ const { buildSpecies } = await import('../js/render3d/fauna.js');
 const { Color } = await import('three');
 const targets = new Set(['lion', 'jaguar', 'woodduck', 'mallard', 'impala']);
 const baselinePath = new URL('./map-audit-output/detail-budget-before.json', import.meta.url);
-const baseline = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [];
+// Historical pass comparisons must be requested: ignored snapshots differ between machines
+// and intentionally become obsolete after later model changes. Release images are tracked.
+const baseline = process.argv.includes('--historical-baseline') ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [];
 const rows = [];
 function coloredVertices(geo, part, hex) {
   const wanted = new Color(hex), c = geo.attributes.color, parts = geo.attributes.aPart, indices = [];

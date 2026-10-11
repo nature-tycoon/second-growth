@@ -3,7 +3,8 @@
 import { T, F, MONTH_NAMES, clamp } from '../config.js';
 import { ANIMALS, ANIMAL, many, preyFor } from '../data/animals.js';
 import { biome } from '../biome.js';
-import { passable, arrivalFinding, migrationFenceCount, SALMON_RUN_MONTH, SALMON_MIN_HABITAT } from './animals.js';
+import { passable } from './animal-terrain.js';
+import { arrivalFinding, migrationFenceCount, SALMON_RUN_MONTH, SALMON_MIN_HABITAT } from './animals.js';
 import { hungryPredator, HUNGRY_DAYS } from './ecological-pressure.js';
 
 const amount = n => Math.max(0, n).toFixed(1);

@@ -2,7 +2,7 @@
 // groups outside the rut. Group membership never changes population or RNG state.
 import { DAYS_PER_YEAR } from '../config.js';
 import { ANIMALS, isMaleVariant } from '../data/animals.js';
-import { passable } from './animals.js';
+import { passable } from './animal-terrain.js';
 export const inRut = game => [6, 7, 8].includes(game.month);
 const adult = (a, d) => !a.juvenile && a.age >= d.mature * DAYS_PER_YEAR;
 const male = (a, d) => adult(a, d) && isMaleVariant(d, a);

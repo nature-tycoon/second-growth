@@ -50,7 +50,7 @@ assert(at('reef', 'manta').world[2] > at('reef', 'greenturtle').world[2]);
 assert(adultAnimalScale({ scale: 0.7, show: 3 }, false) === ANIMAL_MODEL_UNIT * 0.7, 'Disabling visibility boosts must retain proportion tuning');
 const baselineURL = new URL('./map-audit-output/animal-size-audit-before.json', import.meta.url);
 let changes = [];
-if (fs.existsSync(baselineURL)) {
+if (process.argv.includes('--historical-baseline')) {
   const before = JSON.parse(fs.readFileSync(baselineURL, 'utf8'));
   for (const row of rows.filter(r => r.variant === 'default')) {
     const old = before.find(r => r.map === row.map && r.key === row.key);
@@ -63,5 +63,5 @@ if (fs.existsSync(baselineURL)) {
 const output = new URL('./map-audit-output/animal-size-audit.json', import.meta.url);
 fs.mkdirSync(new URL('./map-audit-output/', import.meta.url), { recursive: true });
 fs.writeFileSync(output, JSON.stringify({ rows, changes }, null, 2));
-console.log(`${rows.length} models and adult variants; ${new Set(rows.map(r => r.sci)).size} distinct species; ${maps.length} maps. Geometry, relative-size, and visibility-preservation checks passed.`);
+console.log(`${rows.length} models and adult variants; ${new Set(rows.map(r => r.sci)).size} distinct species; ${maps.length} maps. Geometry and relative-size checks passed${process.argv.includes('--historical-baseline') ? ', including historical visibility preservation' : ''}.`);
 for (const c of changes) console.log(`${c.map}/${c.key}: ${Math.round((c.factor - 1) * 100)}% · height ${c.before[1].toFixed(2)} → ${c.after[1].toFixed(2)} tiles`);

@@ -1,54 +1,10 @@
 // Real IndexedDB checks with an isolated Chrome profile: node tools/browser-save-check.mjs
-// Requires Google Chrome; set CHROME_PATH for another Chromium installation.
-import { spawn } from 'node:child_process';
-import { createServer } from 'node:http';
-import { readFile, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join, extname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { openBrowser } from './browser-session.mjs';
 
-const root = fileURLToPath(new URL('../', import.meta.url));
-const profile = await mkdtemp(join(tmpdir(), 'second-growth-save-check-'));
-const chromePath = process.env.CHROME_PATH || (process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : 'google-chrome');
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.mp3': 'audio/mpeg' };
-const server = createServer(async (req, res) => {
-  try {
-    const pathname = new URL(req.url, 'http://localhost').pathname;
-    const path = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
-    if (!path.startsWith(root)) throw new Error('Invalid path');
-    const data = await readFile(path);
-    res.writeHead(200, { 'Content-Type': mime[extname(path)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(data);
-  } catch { res.writeHead(404); res.end(); }
-});
-await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-const origin = `http://127.0.0.1:${server.address().port}`;
-const chrome = spawn(chromePath, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
-let socket;
+const browser = await openBrowser({ label: 'save' });
+const { send, evaluate, origin, sessionId } = browser;
 try {
-  const debug = await new Promise((resolve, reject) => {
-    let log = ''; const timeout = setTimeout(() => reject(new Error('Chrome did not start')), 15000);
-    chrome.on('error', reject); chrome.on('exit', code => reject(new Error(`Chrome exited ${code}`)));
-    chrome.stderr.on('data', data => { log += data; const match = log.match(/DevTools listening on (ws:\/\/[^\s]+)/); if (match) { clearTimeout(timeout); resolve(match[1]); } });
-  });
-  socket = new WebSocket(debug);
-  await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
-  let next = 0; const pending = new Map();
-  socket.onmessage = ({ data }) => {
-    const message = JSON.parse(data), request = pending.get(message.id);
-    if (!request) return; pending.delete(message.id); clearTimeout(request.timeout);
-    if (message.error) request.reject(new Error(message.error.message)); else request.resolve(message.result);
-  };
-  const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
-    const id = ++next, timeout = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out`)); }, 60000);
-    pending.set(id, { resolve, reject, timeout }); socket.send(JSON.stringify({ id, method, params, sessionId }));
-  });
-  const { targetId } = await send('Target.createTarget', { url: origin + '/tools/browser-save-check.html' });
-  const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
-  const evaluate = async expression => {
-    const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId);
-    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
-    return r.result.value;
-  };
+  await browser.navigate('/tools/browser-save-check.html');
   let result;
   for (let i = 0; i < 300; i++) {
     result = await evaluate('window.saveChecks');
@@ -141,11 +97,24 @@ try {
     const { game } = window.secondGrowth; game.speed = 0; game.autosave = true; game.day = 88;
     Object.defineProperty(document, 'hidden', { configurable: true, value: true });
     document.dispatchEvent(new Event('visibilitychange'));
-    await new Promise(resolve => setTimeout(resolve, 300)); delete document.hidden;
-    if (game.saveStatus.day !== 88) throw new Error('Hidden-tab save failed');
+    // Wait for the database commit, rather than a fixed delay on a busy renderer.
+    await new Promise((resolve, reject) => {
+      const deadline = performance.now() + 15000;
+      const poll = () => {
+        if (game.saveStatus.state === 'error') return reject(new Error('Hidden-tab save failed'));
+        if (game.saveStatus.state === 'saved' && game.saveStatus.day === 88) return resolve();
+        if (performance.now() > deadline) return reject(new Error('Hidden-tab save timed out'));
+        setTimeout(poll, 50);
+      }; poll();
+    });
+    delete document.hidden;
     game.day = 89; window.dispatchEvent(new Event('pagehide'));
-    await new Promise(resolve => setTimeout(resolve, 300));
-    if (game.saveStatus.day !== 89) throw new Error('Pagehide save failed');
+  })()`);
+  await browser.waitFor('window.secondGrowth.game.saveStatus.state === \"saved\" && window.secondGrowth.game.saveStatus.day === 89', 'Pagehide save did not commit', 15000);
+  await evaluate(`(async () => {
+    const { saves } = await import('/js/saves.js');
+    const records = await saves.candidates('pnw');
+    if (records[0]?.data.day !== 89) throw new Error('Leaving the page did not persist its save');
   })()`);
   console.log('PASS Leaving a paused game saves its current progress');
   await evaluate(`window.secondGrowth.game.day = 90`);
@@ -156,7 +125,5 @@ try {
   if (!await evaluate('window.secondGrowth.game.saveStatus.day === 90 && window.secondGrowth.game.speed === 0')) throw new Error('Wall-clock autosave failed on a paused game');
   console.log('PASS Wall-clock autosaves protect paused games between game months');
 } finally {
-  socket?.close(); chrome.kill('SIGTERM'); server.close();
-  await new Promise(resolve => { if (chrome.exitCode != null) resolve(); else { chrome.once('exit', resolve); setTimeout(resolve, 3000); } });
-  await rm(profile, { recursive: true, force: true });
+  await browser.close();
 }

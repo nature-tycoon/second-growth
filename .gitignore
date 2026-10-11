@@ -3,3 +3,4 @@
 node_modules/
 dist/
 tools/map-audit-output/
+tools/release-output/

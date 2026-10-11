@@ -3,7 +3,7 @@
 import { ANIMALS, preyFor } from '../data/animals.js';
 import { F, isWater } from '../config.js';
 import { biome } from '../biome.js';
-import { canLand } from './animals.js';
+import { canLand } from './animal-terrain.js';
 import { bolt } from './animal-life.js';
 import { facePoint } from './animal-positioning.js';
 

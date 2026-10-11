@@ -10,7 +10,8 @@ const { buildSpecies } = await import('../js/render3d/fauna.js');
 const { Box3, Vector3, Color } = await import('three');
 const directory = new URL('./map-audit-output/', import.meta.url);
 const baselinePath = new URL('polish-budget-before.json', directory);
-const baseline = fs.existsSync(baselinePath) ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [];
+// Only compare an archival pass when explicitly requested; release references are tracked.
+const baseline = process.argv.includes('--historical-baseline') ? JSON.parse(fs.readFileSync(baselinePath, 'utf8')) : [];
 const rows = [];
 function bounds(geo, part, filter = () => true) {
   const box = new Box3(), p = geo.attributes.position, parts = geo.attributes.aPart;

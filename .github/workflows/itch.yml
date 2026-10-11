@@ -11,11 +11,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml
   itch:
+    needs: checks
     runs-on: ubuntu-latest
     if: ${{ vars.ITCH_GAME != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build (the same files as tools/build-itch.sh)
         run: |

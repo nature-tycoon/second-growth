@@ -1,6 +1,6 @@
 # Second Growth
 
-A rewilding tycoon game shown as an isometric 3D diorama, with three maps: a worn-out dairy farm in the Pacific Northwest foothills, a cattle ranch cut from the Amazon rainforest, and an overgrazed range on the edge of the Serengeti. You don't buy animals or upgrades. You shape water and soil, brush in native plants, pull invasives, and tear out the old farm. Wildlife then follows its own rules: it wanders in from the surrounding forest, river and farms when there's room, raises young, hunts, and moves on when there isn't enough.
+A rewilding tycoon game shown as an isometric 3D diorama, with seven regional maps: the Pacific Northwest, Amazon, Serengeti, Atlanta, Nicaragua, a tropical reef, and Sumatra. You don't buy animals or upgrades. You shape water and soil, brush in native plants, pull invasives, and tear out the old farm. Wildlife then follows its own rules: it wanders in from the surrounding forest, river and farms when there's room, raises young, hunts, and moves on when there isn't enough.
 
 ## Running it
 
@@ -17,6 +17,40 @@ Browser saves use IndexedDB with compact binary map arrays, an integrity check, 
 The Saved / Saving / Save failed indicator reports completed writes. Autosave also protects paused games, and map switches wait for the current save before reloading. The game requests persistent browser storage when play begins; browsers may grant or deny it. Saves remain tied to this site's browser profile and device, and clearing site data removes them. If IndexedDB is unavailable, saving falls back to the original localStorage format with its smaller capacity and no rotating backups. Autosave can still be disabled in Settings; manual Save game remains available.
 
 Run `node tools/browser-save-check.mjs` for real IndexedDB migration, binary round trips on all seven maps, backup rotation and recovery, failed writes, queued saves, persistence handling, and the actual Continue, recovery and map-switch UI. It launches Google Chrome in an isolated temporary profile and serves the game on a temporary localhost port; set `CHROME_PATH` for another Chromium installation. `tools/browser-save-check.html` runs storage checks in a temporary database with in-memory legacy storage, leaving existing farms untouched.
+
+## Release checks and shared rules
+
+Use Node 22 or newer and Google Chrome (or set `CHROME_PATH` to a Chromium executable). Run one command before releasing:
+
+```bash
+node tools/check-release.mjs
+```
+
+`--headless` runs the simulation, model, scale and interaction checks without a browser. `--browser` runs real saving, touch controls, plant rendering, visual references and gameplay performance. Each script runs in its own process so map registries and random state cannot leak between checks. Any failed script blocks the release. Per-script logs, JSON reports and the image review page are in the ignored `tools/release-output/` directory. Browser checks use an isolated temporary profile and localhost server.
+
+The new `consistency-check.mjs` exercises all seven maps at all three difficulties: terrain editing and refunds, seasonal ecology, population bookkeeping, and save/restore after changing maps. All 206 regional adult appearances and variants must have valid geometry; the size audit checks shared scaling and relative proportions. Existing focused checks protect hunting, herds, birds, climbing, water, plant growth and rendering. A new dynamic needs a focused test of its intended outcome plus interactions with the systems it changes, especially pause, removal of habitat, undo and persistence. Prefer reproducing an actual bug over tests that merely repeat implementation details.
+
+`release-browser-check.mjs` compares 21 tracked visual references: each map's landscape in Fast and Full detail, plus every adult animal appearance in production field-guide portraits. Open `tools/release-output/review.html` after a run to compare reference, current and difference images. Portraits use inspection framing; their image sizes do not represent relative animal sizes. The live world galleries also render adults, variants and juveniles for geometry budgets and edit/restore checks. Images hold camera, viewport, pixel ratio, lighting time, weather and random seeds fixed. Simulation and live animation are checked separately.
+
+The gameplay measurements run the actual `main.js` loop, including input updates, 3D rendering, decorative overlays and DOM interface work. They cover a restored landscape, a 96-animal herd and repeated planting while panning. Simulated time is fixed per frame, with 12 warm-up frames and 60 measured frames. GPU completion is included. Frame-work timings measure the live loop; frame-interval timings also show browser painting and scheduling delays. CI uses software graphics: these numbers detect regressions and stalls, and are not a promise of phone or laptop frame rates. Timing regressions compare matching CPU, browser and GPU environments; draw-call, triangle and resource budgets apply on every machine. A short play session on a real phone remains part of release review.
+
+For an intentional visual change, capture candidate references explicitly:
+
+```bash
+node tools/release-browser-check.mjs --update-visuals
+```
+
+Inspect the review page and the changed images, then commit the approved `tools/release-baselines/` files with the code. Reference updates are refused in CI and are saved only after all scenes and performance checks succeed. Normal checks never rewrite references. Historical detail/polish/size comparisons against ignored snapshots require `--historical-baseline`; those snapshots describe earlier passes and may no longer match later intentional changes.
+
+The GitHub checks workflow runs on pull requests and branch pushes. The itch.io publishing workflow waits for both simulation and browser checks on the exact commit it packages. Manual packaging with `tools/build-itch.sh` also runs all checks and requires committed release files so it cannot test one version and package another.
+
+Keep these shared contracts when adding features:
+
+- **Gameplay:** time, difficulty, costs, habitat capacity and saved state belong in the simulation and data modules. Every map uses the shared tool, undo and persistence paths. Map hooks express regional ecology; common mechanics should have one implementation.
+- **Movement:** hunting, groups, landing and explanations use `js/sim/animal-terrain.js`. Put exceptions in that shared policy instead of redefining barriers inside each behaviour.
+- **Art:** reuse `render3d` models, materials, animation parts, scale helpers and regional palettes. Animals share soft model forms, readable silhouettes, coherent proportions and ground/water/canopy contact. Each map keeps its own climate, flora and colour palette within that common treatment. Inspect both gameplay scale and field-guide portraits, including young and adult variants.
+- **Rendering:** read simulation state and use the existing dirty/rebuild paths for edits and restores. Decorative effects must not silently change habitat or gameplay. Record detail level, resolution and shadows with performance results so automatic quality changes cannot conceal extra work.
+- **Experiments:** keep standalone simulations and review tools under `tools/` until they are deliberately integrated through these shared systems. Production releases package only game files.
 
 ## Controls
 
@@ -117,7 +151,7 @@ Bird phrases and most species calls require a living animal within 28 tiles of t
 
 Vocal character references: Cornell's [barred owl](https://www.allaboutbirds.org/guide/Barred_owl/sounds) and [pileated woodpecker](https://www.allaboutbirds.org/guide/pileated_woodpecker/sounds), NPS's [spring peeper](https://www.nps.gov/chat/learn/nature/spring-peeper.htm), Smithsonian's [siamang vocalizations](https://www.nationalzoo.si.edu/animals/news/day-life-siamangs-adi-and-guntur), and NOAA's [reef soundscapes](https://sanctuaries.noaa.gov/news/dec21/oh-snap.html). These informed the synthesized voices; no recordings were copied.
 
-Run `node tools/animal-size-audit.mjs` to check all 206 animal models and adult variants across seven maps, including geometry validity, relative sizes and preserved visibility boosts. The report goes to the ignored `tools/map-audit-output/animal-size-audit.json`. Open `http://localhost:8347/tools/animal-size-review.html` to compare models using one fixed camera, a visitor reference and quarter-tile grid. `sprite.scale` adjusts relative proportions independently of `sprite.show`, which keeps small animals visible; game sizes deliberately compress real-world differences. The optional local `animal-size-audit-before.json` snapshot enables before/after comparison. The size audit corrected oversized tall birds and several mammal comparisons, guided by [Cornell's heron measurements](https://www.allaboutbirds.org/guide/great_blue_heron/id), [San Diego Zoo's ostrich heights](https://animals.sandiegozoo.org/animals/ostrich) and [ISEC's Sunda clouded leopard profile](https://wildcatconservation.org/wild-cats/asia/sunda-clouded-leopard/).
+Run `node tools/animal-size-audit.mjs` to check all 206 animal models and adult variants across seven maps, including geometry validity, relative sizes and preserved visibility boosts. The report goes to the ignored `tools/map-audit-output/animal-size-audit.json`. Open `http://localhost:8347/tools/animal-size-review.html` to compare models using one fixed camera, a visitor reference and quarter-tile grid. `sprite.scale` adjusts relative proportions independently of `sprite.show`, which keeps small animals visible; game sizes deliberately compress real-world differences. Pass `--historical-baseline` to compare with a compatible local `animal-size-audit-before.json` snapshot. The size audit corrected oversized tall birds and several mammal comparisons, guided by [Cornell's heron measurements](https://www.allaboutbirds.org/guide/great_blue_heron/id), [San Diego Zoo's ostrich heights](https://animals.sandiegozoo.org/animals/ostrich) and [ISEC's Sunda clouded leopard profile](https://wildcatconservation.org/wild-cats/asia/sunda-clouded-leopard/).
 
 Open `http://localhost:8347/tools/animal-model-review.html` for enlarged model inspection across all maps, with side, three-quarter and overhead views and three phases of resting, moving, flying and head-down poses. The default filter shows the refined species; choose All models for the full roster. The optional local `tools/map-audit-output/models-before-refinement.json` geometry snapshot enables before/after comparisons. This pass gives opossums, coatis, barred owls, spoonbills, wood ducks and olive ridleys distinct anatomy, smooths cat and reptile tails and elephant trunks, separates fruit bats from insect-eating bats, and gives river dolphins continuous foreheads and vertical swimming motion. Run `node tools/animal-model-check.mjs` for anatomy and animation regressions; the existing size audit still checks proportions and visibility.
 
@@ -137,7 +171,7 @@ Sumatra's shade-groundcover choice is supported by [NParks' forest-floor descrip
 - **Water:** moisture falls off with distance from water. Creek shade sets water quality. Fish can only reach water that connects to the river, and the old culvert blocks it.
 - **Wildlife** (34 species): each species rates every tile's habitat. Carrying capacity is the total suitable habitat divided by the home-range size, limited by needs across the whole property: prey for predators, snags for woodpeckers and bats, berries for bears, fish for otters and herons. Animals breed in season when there's room, die or leave when there isn't, and immigrate from their source edge. Deer and elk are blocked by the boundary fences.
 - **Special behaviour:** beavers coppice willow, fell alder and build dams that flood new wetlands. Coho run up connected, shaded creeks each October, spawn, die and feed the soil, and their fry return three years later. Migratory birds leave in fall and come back if the habitat is still there.
-- **Scale:** the farm is 120×90 tiles. Plants are smooth, instanced low-poly models that sway in the wind, with simpler versions used when zoomed out; animals and visitors are high-resolution sprites you can zoom right in on.
+- **Scale:** the farm is 120×90 tiles. Plants are smooth, instanced low-poly models that sway in the wind, with simpler versions used when zoomed out; animals and visitors use shared 3D model, scale and animation systems.
 - **Terrain:** the valley slopes from the northern foothills down to the river. Hollows are wetter and ridges drier. Digging water carves the ground, and the Raise and Lower tools reshape it.
 - **Snow:** Dec–Feb storms sometimes come in cold. A snowpack builds on snowy days, lingers on high open ground, stays thin under trees, and melts in rain and spring warmth.
 - **Fire:** in late-summer droughts, lightning or a visitor's spark can start a wildfire. It spreads through dry grass, broom and blackberry, and runs uphill faster. Trails, water and bare ground stop it, and rain puts it out. Douglas-fir and oak usually survive; young trees and most shrubs don't, while native meadow plants resprout. Send a fire crew to fight it, or use controlled burns to cut the fuel ahead of time. Once every few years at most, a fire in a deep drought turns into a **crown fire** that burns through the forest canopy. It leaves standing snags, and fireweed, lupine and native grasses turn the burn into meadow until the forest returns.
@@ -162,6 +196,7 @@ js/world.js                 map arrays, farm generation, surroundings
 js/sim/environment.js       water, moisture, canopy, distance fields, habitat classes, food
 js/sim/plants.js            growth, seeding, competition, soil
 js/sim/animals.js           wildlife agents, population dynamics, beavers, salmon
+js/sim/animal-terrain.js    shared movement and landing boundaries for all maps and behaviours
 js/sim/animal-life.js       everyday behaviour: hunting styles, kills and scavengers, fleeing, play, greeting, sparring
 js/sim/goals.js             score, grants, goals
 js/game.js                  clock, events, save/load

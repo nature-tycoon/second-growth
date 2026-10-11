@@ -6,7 +6,8 @@
 import { clamp, DAYS_PER_YEAR } from '../config.js';
 import { ANIMALS, ANIMAL, preyFor, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
-import { passable, canLand, inRiver } from './animals.js';
+import { passable, canLand } from './animal-terrain.js';
+import { inRiver } from './animals.js';
 import { followCervid } from './cervid-groups.js';
 import { travelSpeed } from './climb-pace.js';
 
