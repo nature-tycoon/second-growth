@@ -25,6 +25,8 @@ let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
 
 // Animals that swim in open water move in any direction, diagonals too (river fish, and everything on the reef).
 const swimmer = a => a.move === 'swim' || !!ANIMALS[a.sp]?.reef;
+// ...but only between two open sides: a diagonal step past a bank corner would cut across land.
+const cutsCorner = (W, x, y, dx, dy, ok) => dx && dy && !(ok(y * W + x + dx) && ok((y + dy) * W + x));
 
 export const SALMON_RUN_MONTH = 7;
 export const SALMON_MIN_HABITAT = 15;
@@ -1280,7 +1282,7 @@ export class Wildlife {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !corridor(j)) continue;
+        if (stamp[j] === stampN || !corridor(j) || cutsCorner(W, x, y, dx, dy, corridor)) continue;
         stamp[j] = stampN; parent[j] = i; depth[j] = Math.min(32000, depth[i] + 1); bfsQ[tail++] = j;
       }
     }
@@ -1323,7 +1325,7 @@ export class Wildlife {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !corridor(j)) continue;
+        if (stamp[j] === stampN || !corridor(j) || cutsCorner(W, x, y, dx, dy, corridor)) continue;
         stamp[j] = stampN; parent[j] = i; depth[j] = depth[i] + 1; bfsQ[tail++] = j;
       }
     }
@@ -1474,7 +1476,7 @@ export class Wildlife {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !passable(w, j, a)) continue;
+        if (stamp[j] === stampN || !passable(w, j, a) || cutsCorner(W, x, y, dx, dy, k => passable(w, k, a))) continue;
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }
@@ -1685,7 +1687,7 @@ export class Wildlife {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !canPass(w, j, a) || (canVisit && !canVisit(j))) continue;
+        if (stamp[j] === stampN || !canPass(w, j, a) || (canVisit && !canVisit(j)) || cutsCorner(W, x, y, dx, dy, k => canPass(w, k, a))) continue;
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }
