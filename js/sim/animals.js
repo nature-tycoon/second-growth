@@ -37,6 +37,7 @@ export function canLand(w, i, def) {
 
 export const SALMON_RUN_MONTH = 7;
 export const SALMON_MIN_HABITAT = 15;
+const SALMON_REACH = 2.2; // (tiles: how far a bear on the bank can lunge into the creek)
 export const migrationFenceCount = w => {
   let count = 0;
   for (let x = 0; x < w.w; x++) if (w.feature[w.idx(x, 0)] === F.FENCE) count++;
@@ -533,12 +534,12 @@ export class Wildlife {
     this.salmonRun = { from: game.day, until: game.day + 22, shown: false };
     if (!bear) return;
     const fish = this.agents.filter(a => ANIMALS[a.sp].special === 'salmon');
-    const f = fish[fish.length - 1];
+    const f = fish[fish.length - 1], mouth = f && (this.creekMouth(f) || [f.x, f.y - 6]);
     const have = this.agents.filter(a => a.sp === bear.index && !a.leaving).length;
     for (let k = have; k < 2 && f; k++) {
-      // arrive out of cover a little way from the creek, so they're soon on the bank
-      const ang = Math.random() * Math.PI * 2, r = 9 + Math.random() * 5;
-      const pos = this.randomPassableNear(bear, clamp(Math.round(f.x + Math.cos(ang) * r), 1, w.w - 2), clamp(Math.round(f.y - 8 + Math.sin(ang) * r), 1, w.h - 8), 4);
+      // arrive out of cover a little way up the creek from its mouth, so they're soon on the bank
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2, r = 4 + Math.random() * 3;
+      const pos = this.randomPassableNear(bear, clamp(Math.round(mouth[0] + Math.cos(ang) * r), 1, w.w - 2), clamp(Math.round(mouth[1] + Math.sin(ang) * r), 1, w.h - 8), 4);
       if (!pos) continue;
       const b = this.spawn(bear, pos[0], pos[1], { silent: true });
       b.visit = true;
@@ -546,40 +547,84 @@ export class Wildlife {
   }
 
   // A bear at the salmon run: go to the bank nearest a running fish, stand and watch the water,
-  // and now and then snatch one.
+  // and swipe at any salmon that comes within reach. A caught fish is eaten there on the bank,
+  // and a fed bear rests a while before fishing again, so the bears take some of the run, not all.
   fishSalmon(a) {
-    const w = this.game.world;
+    const w = this.game.world, def = ANIMALS[a.sp];
     const fish = this.agents.filter(o => ANIMALS[o.sp].special === 'salmon' && !o.leaving);
     if (!fish.length) return false;
-    let f = fish[0], bd = Infinity;
-    for (const o of fish) { const d = (o.x - a.x) ** 2 + (o.y - a.y) ** 2; if (d < bd) { bd = d; f = o; } }
+    // (a fish in the creek, or near a river bank, is within reach; one out in the deep river isn't)
+    const reachable = o => { const i = w.inb(Math.floor(o.x), Math.floor(o.y)) ? w.idx(Math.floor(o.x), Math.floor(o.y)) : -1;
+      return i >= 0 && (w.terrain[i] === T.CREEK || this.nearBank(o.x, o.y)); };
+    let f = null, bd = Infinity;
+    for (const o of fish) { const d = (o.x - a.x) ** 2 + (o.y - a.y) ** 2 + (reachable(o) ? 0 : 400); if (d < bd) { bd = d; f = o; } }
+    bd = (f.x - a.x) ** 2 + (f.y - a.y) ** 2;
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (w.inb(x0, y0) && w.distWater[w.idx(x0, y0)] <= 1 && bd < 16) {
-      a.wait = 2.5 + Math.random() * 4; a.drinkT = 1.2 + Math.random(); // head down over the water
-      a.drinkAt = [f.x, f.y]; facePoint(a, f.x, f.y);
+      facePoint(a, f.x, f.y);
       if (this.salmonRun && !this.salmonRun.shown && this.game.day - this.salmonRun.from >= 1 && momentFree(this.game)) { this.salmonRun.shown = moment(this.game, 'salmon', a) || true; }
-      if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, f, ANIMALS[a.sp], 0.08) && bd < 4) {
-        if (this.game.diff.ecology) a.hunger = 0;
-        this.game.onPredation(a, f); this.remove(f, 'predation');
+      if (bd < SALMON_REACH * SALMON_REACH) {
+        // the swipe
+        if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, f, def, 0.22)) {
+          if (this.game.diff.ecology) a.hunger = 0;
+          this.game.onPredation(a, f);
+          const fx = f.x, fy = f.y;
+          this.remove(f, 'predation');
+          a.state = 'feed'; a.feedAt = [fx, fy]; a.feedT = 1.5 + Math.random(); a.drinkT = 0; a.drinkAt = null;
+          a.wait = 0; a.fishFed = a.age + 6 + Math.random() * 3; // (full for a few days)
+          return true;
+        }
+        a.wait = 0.6 + Math.random() * 0.6; a.drinkT = 0.5; a.drinkAt = [f.x, f.y]; // missed: head down, eyes on the water
+        return true;
       }
+      // watching: short waits, so a fish swimming past doesn't go unnoticed
+      a.wait = 0.8 + Math.random() * 0.8; a.drinkT = 0.6 + Math.random() * 0.4; a.drinkAt = [f.x, f.y];
       return true;
     }
-    return this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && (x - f.x) ** 2 + (y - f.y) ** 2 < 6, 4000);
+    // walk (at a purposeful trot) to the bank beside it; if no bank is in reach, wait where the
+    // creek meets the river, which every salmon has to swim past
+    const near = (x, y) => Math.hypot(x + 0.5 - f.x, y + 0.5 - f.y);
+    let ok = this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && near(x, y) < SALMON_REACH, 4000, near);
+    const mouth = !ok && this.creekMouth(f);
+    if (mouth) { const m = (x, y) => Math.hypot(x + 0.5 - mouth[0], y + 0.5 - mouth[1]); ok = this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && m(x, y) < 2.5, 4000, m); }
+    if (ok) a.run = 1.4;
+    return ok;
+  }
+  nearBank(x, y) {
+    const w = this.game.world;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const xx = Math.floor(x) + dx, yy = Math.floor(y) + dy;
+      if (w.inb(xx, yy) && w.distWater[w.idx(xx, yy)] === 1) return true;
+    }
+    return false;
+  }
+  // the creek tile at a river mouth nearest a fish
+  creekMouth(f) {
+    const w = this.game.world;
+    let best = null, bd = Infinity;
+    for (let i = 0; i < w.n; i++) {
+      if (w.terrain[i] !== T.CREEK) continue;
+      const x = i % w.w, y = (i / w.w) | 0;
+      if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => w.inb(x + dx, y + dy) && w.terrain[w.idx(x + dx, y + dy)] === T.RIVER)) continue;
+      const d = (x + 0.5 - f.x) ** 2 + (y + 0.5 - f.y) ** 2;
+      if (d < bd) { bd = d; best = [x + 0.5, y + 0.5]; }
+    }
+    return best;
   }
 
   immigrateSalmon(def) {
     const w = this.game.world;
-    const opts = [];
-    for (let x = 0; x < w.w; x++) for (let y = w.h - 1; y > w.h - 6; y--) {
-      const i = w.idx(x, y);
-      if (w.terrain[i] === T.RIVER && w.connected[i]) {
-        // prefer river tiles close to a connected creek mouth
-        if (y > 0 && w.terrain[i - w.w] === T.CREEK) opts.push(i, i, i, i);
-        else if (Math.random() < 0.1) opts.push(i);
-      }
+    const opts = [], mouths = [];
+    for (let i = 0; i < w.n; i++) {
+      if (w.terrain[i] !== T.RIVER || !w.connected[i]) continue;
+      const x = i % w.w, y = (i / w.w) | 0;
+      // most arrive at a connected creek mouth, ready to turn up it; a few further along the river
+      if ([[0, -1], [1, 0], [-1, 0]].some(([dx, dy]) => w.inb(x + dx, y + dy) && w.terrain[w.idx(x + dx, y + dy)] === T.CREEK && w.connected[w.idx(x + dx, y + dy)])) mouths.push(i);
+      else if (y > w.h - 6 && Math.random() < 0.1) opts.push(i);
     }
-    if (!opts.length) return 0;
-    const i = opts[Math.floor(Math.random() * opts.length)];
+    const pick = mouths.length && (!opts.length || Math.random() < 0.8) ? mouths : opts;
+    if (!pick.length) return 0;
+    const i = pick[Math.floor(Math.random() * pick.length)];
     const a = this.spawn(def, i % w.w, (i / w.w) | 0, { spawner: true });
     a.wait = 0;
     return 1;
@@ -1279,7 +1324,7 @@ export class Wildlife {
     }
     if (a.move === 'fly' && WADERS.has(def.sprite.kind) && !a.flying && !a.leaving && Math.random() < 0.65 && this.wade(a)) return;
     if (this.salmonRun && def === ANIMAL.bear && !a.leaving) {
-      if (this.game.day < this.salmonRun.until) { if (this.fishSalmon(a)) return; }
+      if (this.game.day < this.salmonRun.until) { if (!(a.fishFed > a.age) && this.fishSalmon(a)) return; }
       else if (a.visit) { this.leave(a); return; }
     }
     if (def.ambush && this.crossingAt && this.game.day < this.crossingAt.until && this.lurk(a)) return;
