@@ -37,6 +37,7 @@ export function canLand(w, i, def) {
 
 export const SALMON_RUN_MONTH = 7;
 export const SALMON_MIN_HABITAT = 15;
+const SALMON_REACH = 2.2; // (tiles: how far a bear on the bank can lunge into the creek)
 export const migrationFenceCount = w => {
   let count = 0;
   for (let x = 0; x < w.w; x++) if (w.feature[w.idx(x, 0)] === F.FENCE) count++;
@@ -473,9 +474,10 @@ export class Wildlife {
     st.K = Math.min(def.max, habitat / def.hr);
     const year = game.year;
     if (m === SALMON_RUN_MONTH && habitat >= SALMON_MIN_HABITAT) {
-      const returns = Math.round((S.fry[year - 3] || 0) * 0.025);
-      const strays = Math.floor(rng() * 3) + 1;
-      const n = Math.min(def.max, Math.max(1, Math.min(Math.ceil(st.K), strays + returns)));
+      // a bigger run than the bare minimum, so a few lost to bears still leaves plenty to spawn
+      const returns = Math.round((S.fry[year - 3] || 0) * 0.05);
+      const strays = Math.floor(rng() * 5) + 5;
+      const n = Math.min(def.max, Math.max(1, Math.min(Math.ceil(st.K * 1.5), strays + returns)));
       let placed = 0;
       for (let k = 0; k < n; k++) placed += this.immigrateSalmon(def);
       if (placed) {
@@ -533,12 +535,12 @@ export class Wildlife {
     this.salmonRun = { from: game.day, until: game.day + 22, shown: false };
     if (!bear) return;
     const fish = this.agents.filter(a => ANIMALS[a.sp].special === 'salmon');
-    const f = fish[fish.length - 1];
+    const f = fish[fish.length - 1], mouth = f && (this.creekMouth(f) || [f.x, f.y - 6]);
     const have = this.agents.filter(a => a.sp === bear.index && !a.leaving).length;
     for (let k = have; k < 2 && f; k++) {
-      // arrive out of cover a little way from the creek, so they're soon on the bank
-      const ang = Math.random() * Math.PI * 2, r = 9 + Math.random() * 5;
-      const pos = this.randomPassableNear(bear, clamp(Math.round(f.x + Math.cos(ang) * r), 1, w.w - 2), clamp(Math.round(f.y - 8 + Math.sin(ang) * r), 1, w.h - 8), 4);
+      // arrive out of cover a little way up the creek from its mouth, so they're soon on the bank
+      const ang = -Math.PI / 2 + (Math.random() - 0.5) * 2, r = 4 + Math.random() * 3;
+      const pos = this.randomPassableNear(bear, clamp(Math.round(mouth[0] + Math.cos(ang) * r), 1, w.w - 2), clamp(Math.round(mouth[1] + Math.sin(ang) * r), 1, w.h - 8), 4);
       if (!pos) continue;
       const b = this.spawn(bear, pos[0], pos[1], { silent: true });
       b.visit = true;
@@ -546,40 +548,84 @@ export class Wildlife {
   }
 
   // A bear at the salmon run: go to the bank nearest a running fish, stand and watch the water,
-  // and now and then snatch one.
+  // and swipe at any salmon that comes within reach. A caught fish is eaten there on the bank,
+  // and a fed bear rests a while before fishing again, so the bears take some of the run, not all.
   fishSalmon(a) {
-    const w = this.game.world;
+    const w = this.game.world, def = ANIMALS[a.sp];
     const fish = this.agents.filter(o => ANIMALS[o.sp].special === 'salmon' && !o.leaving);
     if (!fish.length) return false;
-    let f = fish[0], bd = Infinity;
-    for (const o of fish) { const d = (o.x - a.x) ** 2 + (o.y - a.y) ** 2; if (d < bd) { bd = d; f = o; } }
+    // (a fish in the creek, or near a river bank, is within reach; one out in the deep river isn't)
+    const reachable = o => { const i = w.inb(Math.floor(o.x), Math.floor(o.y)) ? w.idx(Math.floor(o.x), Math.floor(o.y)) : -1;
+      return i >= 0 && (w.terrain[i] === T.CREEK || this.nearBank(o.x, o.y)); };
+    let f = null, bd = Infinity;
+    for (const o of fish) { const d = (o.x - a.x) ** 2 + (o.y - a.y) ** 2 + (reachable(o) ? 0 : 400); if (d < bd) { bd = d; f = o; } }
+    bd = (f.x - a.x) ** 2 + (f.y - a.y) ** 2;
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (w.inb(x0, y0) && w.distWater[w.idx(x0, y0)] <= 1 && bd < 16) {
-      a.wait = 2.5 + Math.random() * 4; a.drinkT = 1.2 + Math.random(); // head down over the water
-      a.drinkAt = [f.x, f.y]; facePoint(a, f.x, f.y);
+      facePoint(a, f.x, f.y);
       if (this.salmonRun && !this.salmonRun.shown && this.game.day - this.salmonRun.from >= 1 && momentFree(this.game)) { this.salmonRun.shown = moment(this.game, 'salmon', a) || true; }
-      if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, f, ANIMALS[a.sp], 0.08) && bd < 4) {
-        if (this.game.diff.ecology) a.hunger = 0;
-        this.game.onPredation(a, f); this.remove(f, 'predation');
+      if (bd < SALMON_REACH * SALMON_REACH) {
+        // the swipe
+        if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, f, def, 0.22)) {
+          if (this.game.diff.ecology) a.hunger = 0;
+          this.game.onPredation(a, f);
+          const fx = f.x, fy = f.y;
+          this.remove(f, 'predation');
+          a.state = 'feed'; a.feedAt = [fx, fy]; a.feedT = 1.5 + Math.random(); a.drinkT = 0; a.drinkAt = null;
+          a.wait = 0; a.fishFed = a.age + 6 + Math.random() * 3; // (full for a few days)
+          return true;
+        }
+        a.wait = 0.6 + Math.random() * 0.6; a.drinkT = 0.5; a.drinkAt = [f.x, f.y]; // missed: head down, eyes on the water
+        return true;
       }
+      // watching: short waits, so a fish swimming past doesn't go unnoticed
+      a.wait = 0.8 + Math.random() * 0.8; a.drinkT = 0.6 + Math.random() * 0.4; a.drinkAt = [f.x, f.y];
       return true;
     }
-    return this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && (x - f.x) ** 2 + (y - f.y) ** 2 < 6, 4000);
+    // walk (at a purposeful trot) to the bank beside it; if no bank is in reach, wait where the
+    // creek meets the river, which every salmon has to swim past
+    const near = (x, y) => Math.hypot(x + 0.5 - f.x, y + 0.5 - f.y);
+    let ok = this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && near(x, y) < SALMON_REACH, 4000, near);
+    const mouth = !ok && this.creekMouth(f);
+    if (mouth) { const m = (x, y) => Math.hypot(x + 0.5 - mouth[0], y + 0.5 - mouth[1]); ok = this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && m(x, y) < 2.5, 4000, m); }
+    if (ok) a.run = 1.4;
+    return ok;
+  }
+  nearBank(x, y) {
+    const w = this.game.world;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      const xx = Math.floor(x) + dx, yy = Math.floor(y) + dy;
+      if (w.inb(xx, yy) && w.distWater[w.idx(xx, yy)] === 1) return true;
+    }
+    return false;
+  }
+  // the creek tile at a river mouth nearest a fish
+  creekMouth(f) {
+    const w = this.game.world;
+    let best = null, bd = Infinity;
+    for (let i = 0; i < w.n; i++) {
+      if (w.terrain[i] !== T.CREEK) continue;
+      const x = i % w.w, y = (i / w.w) | 0;
+      if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => w.inb(x + dx, y + dy) && w.terrain[w.idx(x + dx, y + dy)] === T.RIVER)) continue;
+      const d = (x + 0.5 - f.x) ** 2 + (y + 0.5 - f.y) ** 2;
+      if (d < bd) { bd = d; best = [x + 0.5, y + 0.5]; }
+    }
+    return best;
   }
 
   immigrateSalmon(def) {
     const w = this.game.world;
-    const opts = [];
-    for (let x = 0; x < w.w; x++) for (let y = w.h - 1; y > w.h - 6; y--) {
-      const i = w.idx(x, y);
-      if (w.terrain[i] === T.RIVER && w.connected[i]) {
-        // prefer river tiles close to a connected creek mouth
-        if (y > 0 && w.terrain[i - w.w] === T.CREEK) opts.push(i, i, i, i);
-        else if (Math.random() < 0.1) opts.push(i);
-      }
+    const opts = [], mouths = [];
+    for (let i = 0; i < w.n; i++) {
+      if (w.terrain[i] !== T.RIVER || !w.connected[i]) continue;
+      const x = i % w.w, y = (i / w.w) | 0;
+      // most arrive at a connected creek mouth, ready to turn up it; a few further along the river
+      if ([[0, -1], [1, 0], [-1, 0]].some(([dx, dy]) => w.inb(x + dx, y + dy) && w.terrain[w.idx(x + dx, y + dy)] === T.CREEK && w.connected[w.idx(x + dx, y + dy)])) mouths.push(i);
+      else if (y > w.h - 6 && Math.random() < 0.1) opts.push(i);
     }
-    if (!opts.length) return 0;
-    const i = opts[Math.floor(Math.random() * opts.length)];
+    const pick = mouths.length && (!opts.length || Math.random() < 0.8) ? mouths : opts;
+    if (!pick.length) return 0;
+    const i = pick[Math.floor(Math.random() * pick.length)];
     const a = this.spawn(def, i % w.w, (i / w.w) | 0, { spawner: true });
     a.wait = 0;
     return 1;
@@ -616,6 +662,7 @@ export class Wildlife {
     }
     this.ids = new Map(this.agents.map(a => [a.id, a]));
     haremDay(this);
+    this.damDay();
     for (const a of this.agents.slice()) {
       if (a.leaving) continue;
       const def = ANIMALS[a.sp];
@@ -741,11 +788,12 @@ export class Wildlife {
       const d = Math.hypot(dx, dy) + hashJitter(xx, yy);
       const t = w.terrain[j];
       if (w.struct[j] >= 0 || t === T.ROAD || t === T.RIVER || w.feature[j] === F.CULVERT) continue;
+      // (marks remember what the pool drowned, so it can drain back if the dam goes)
       if (d <= 2.2) {
-        if (t === T.CREEK || t === T.POND) w.terrain[j] = T.POND;
-        else if (t !== T.POND) floodTile(w, j, T.MARSH, rng);
+        if (t === T.CREEK) { w.terrain[j] = T.POND; w.marks[j] |= POOL_CREEK; }
+        else if (t !== T.POND) { floodTile(w, j, T.MARSH, rng); w.marks[j] |= POOL_LAND; }
       } else if (d <= 3.4) {
-        if (!isWater(t)) floodTile(w, j, rng() < 0.5 ? T.MARSH : T.MUD, rng);
+        if (!isWater(t)) { floodTile(w, j, rng() < 0.5 ? T.MARSH : T.MUD, rng); w.marks[j] |= POOL_LAND; }
       }
     }
     this.game.water?.sync();
@@ -754,6 +802,66 @@ export class Wildlife {
     this.game.flags.beaverDam = true;
     moment(this.game, 'dam', { x: x + 0.5, y: y + 0.5 });
     this.game.notify(this.game.water ? 'Beavers built a dam! Creek water will gather behind it, filling the low ground uphill. Watch its banks become wetland.' : 'Beavers built a dam! The creek is backing up into a brand-new wetland, and the drowned trees will become snags.', 'good', { x: x + 0.5, y: y + 0.5 });
+  }
+
+  // Daily: a dam is only as good as the beavers keeping it up. One no beaver has tended for
+  // half a year starts to leak and, usually within the year after, washes out.
+  damDay() {
+    const w = this.game.world, rng = this.game.rng, keepers = this.agents.filter(a => ANIMALS[a.sp].damBuilder && !a.leaving);
+    let dams = 0;
+    for (let i = 0; i < w.n; i++) {
+      if (w.feature[i] !== F.DAM || (w.marks[i] & 4)) continue; // (canal blocks are people's work)
+      const x = i % w.w + 0.5, y = (i / w.w | 0) + 0.5;
+      if (keepers.some(a => Math.abs(a.x - x) < 8 && Math.abs(a.y - y) < 8)) w.featureAge[i] = 0; // (featureAge: days since tended)
+      else if (w.featureAge[i] > 60 && rng() < 1 / 120) { this.breakDam(i); this.game.notify('An abandoned beaver dam has washed out. The pond behind it is draining and the creek runs through again.', 'info', { x, y }); continue; }
+      dams++;
+    }
+    if (!this.game.water) this.dams = dams; // (also puts the count right after an undo)
+  }
+
+  // A dam goes (washed out, abandoned or pulled apart): its pond drains back to creek, and
+  // the ground it flooded is left as damp, rich soil or marsh (a beaver meadow).
+  breakDam(site) {
+    const w = this.game.world, x0 = site % w.w, y0 = (site / w.w) | 0;
+    w.feature[site] = 0; w.featureAge[site] = 0;
+    this.dams = Math.max(0, this.dams - 1);
+    if (!this.game.water) {
+      let marked = false;
+      for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+        const x = x0 + dx, y = y0 + dy;
+        if (!w.inb(x, y)) continue;
+        const j = w.idx(x, y);
+        if (w.marks[j] & POOL_CREEK) { if (w.terrain[j] === T.POND) w.terrain[j] = T.CREEK; marked = true; }
+        if ((w.marks[j] & POOL_LAND) && w.terrain[j] === T.MUD) { w.terrain[j] = T.SOIL; w.soil[j] = Math.max(w.soil[j], 0.5); }
+        w.marks[j] &= ~(POOL_CREEK | POOL_LAND);
+      }
+      if (!marked) this.reopenCreek(site); // (a dam from an older save: no record of the old channel)
+    }
+    this.game.water?.sync();
+    w.hydroDirty = true; w.renderDirty = true;
+  }
+
+  // Cut the creek back through an old dam's pond: from the dam to the creek where it leaves the
+  // pool on each side, by the shortest way across the pond.
+  reopenCreek(site) {
+    const w = this.game.world, x0 = site % w.w, y0 = (site / w.w) | 0, parent = new Map([[site, -1]]), q = [site], ends = [];
+    while (q.length) {
+      const i = q.shift(), x = i % w.w, y = (i / w.w) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx, yy = y + dy;
+        if (!w.inb(xx, yy) || Math.abs(xx - x0) > 5 || Math.abs(yy - y0) > 5) continue;
+        const j = w.idx(xx, yy);
+        if (parent.has(j)) continue;
+        if (w.terrain[j] === T.CREEK || w.terrain[j] === T.RIVER) { parent.set(j, i); ends.push(j); }
+        else if (w.terrain[j] === T.POND) { parent.set(j, i); q.push(j); }
+      }
+    }
+    if (!ends.length) return;
+    // the two creek ends furthest apart: upstream and downstream
+    const at = j => [j % w.w, (j / w.w) | 0], far = (a, b) => Math.hypot(at(a)[0] - at(b)[0], at(a)[1] - at(b)[1]);
+    let best = [ends[0], ends[0]], bd = -1;
+    for (const a of ends) for (const b of ends) if (far(a, b) > bd) { bd = far(a, b); best = [a, b]; }
+    for (const e of new Set(best)) for (let j = parent.get(e); j > -1 && j !== site; j = parent.get(j)) w.terrain[j] = T.CREEK;
   }
 
   // -------------------------------------------------------------- per-frame movement
@@ -806,7 +914,7 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
-          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? 3 + Math.random() * 4 : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); break; }
+          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); break; }
           const j = a.path[a.path.length - 1];
           if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1), dt)) a.path.pop(); break; }
           // each animal keeps to its own line through a tile and stops at its own spot in the last
@@ -1217,7 +1325,7 @@ export class Wildlife {
     }
     if (a.move === 'fly' && WADERS.has(def.sprite.kind) && !a.flying && !a.leaving && Math.random() < 0.65 && this.wade(a)) return;
     if (this.salmonRun && def === ANIMAL.bear && !a.leaving) {
-      if (this.game.day < this.salmonRun.until) { if (this.fishSalmon(a)) return; }
+      if (this.game.day < this.salmonRun.until) { if (!(a.fishFed > a.age) && this.fishSalmon(a)) return; }
       else if (a.visit) { this.leave(a); return; }
     }
     if (def.ambush && this.crossingAt && this.game.day < this.crossingAt.until && this.lurk(a)) return;
@@ -1585,6 +1693,8 @@ function spotIn(a, j, last) {
   return [hashJitter(j + a.id * 13, a.id) * 0.9, hashJitter(a.id * 7, j - a.id) * 0.9];
 }
 
+// world.marks bits under a beaver pool (1, 2, 4 and 8 are taken by trails, reef stars, canal blocks and shade cloth)
+const POOL_CREEK = 16, POOL_LAND = 32;
 function hashJitter(x, y) {
   const h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
   return (h - Math.floor(h)) * 0.8 - 0.4;

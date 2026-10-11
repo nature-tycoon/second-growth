@@ -409,8 +409,7 @@ export class Events {
     this.floodTiles = flooded;
     // big floods can blow out beaver dams
     let broke = 0;
-    for (let i = 0; i < w.n; i++) if (w.feature[i] === F.DAM && !(w.marks[i] & 4) && rng() < 0.12 * intensity) { w.feature[i] = 0; broke++; }
-    if (broke) { g.wildlife.dams = Math.max(0, g.wildlife.dams - broke); w.hydroDirty = true; }
+    for (let i = 0; i < w.n; i++) if (w.feature[i] === F.DAM && !(w.marks[i] & 4) && rng() < 0.12 * intensity) { g.wildlife.breakDam(i); broke++; }
     const soak = Math.round(sponge * 100);
     // point the notice at the middle of the flooded ground
     let sx = 0, sy = 0, n = 0;

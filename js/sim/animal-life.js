@@ -188,7 +188,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   a.bird = null; a.birdGoal = null; a.birdGround = false;
   a.fruitMeal = null; a.fruitGoal = null;
   a.socialWith = null; a.socialUntil = 0; a.sparPath = null;
-  a.greet = null; a.goal = null; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
+  a.greet = null; a.goal = null; a.sparT = 0; a.sparLight = false; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
   if (a.state === 'hunt' || a.state === 'feed') { endHunt(a); a.feedAt = null; a.carcass = null; }
   if (a.move === 'fly') {
     // birds just take off and settle again a little way off
@@ -387,6 +387,10 @@ export function playUpdate(wl, a, def, sp) {
 const RUT = [6, 7, 8];
 const antlered = (def, a) => !!def.sprite.male?.antlers && isMaleVariant(def, a);
 const rutting = (wl, def, a) => antlered(def, a) && RUT.includes(wl.game.month);
+// The month either side of it (August, December), stags in hard antler push and test each
+// other in light sparring matches: short, gentle, and nobody runs off beaten.
+const SPAR_SEASON = [5, 9];
+const sparring = (wl, def, a) => antlered(def, a) && !young(a, def) && SPAR_SEASON.includes(wl.game.month);
 
 // Now and then an adult goes over to another of its kind: they touch noses, or two rivals
 // square up and spar for a while. In the rut, stags go looking for another stag to fight.
@@ -425,7 +429,9 @@ function invite(wl, a, o, def) {
     a.state = oldState; a.path = oldPath; a.socialCooldown = a.age + 4;
     return false;
   }
-  const time = a.path.length / Math.max(0.1, travelSpeed(def)) + 4;
+  const rut = rutting(wl, def, a);
+  if (rut) a.run = 1.6; // (a rutting male trots over to his rival)
+  const time = a.path.length / Math.max(0.1, travelSpeed(def) * (rut ? 1.6 : 1)) + 4;
   a.greet = o.id; a.trip = null;
   o.socialWith = a.id; o.socialUntil = o.age + time;
   o.state = 'idle'; o.path = null; o.wait = 0.5; o.waterTrip = false;
@@ -433,13 +439,14 @@ function invite(wl, a, o, def) {
   return true;
 }
 export function greet(wl, a, def) {
-  const rut = rutting(wl, def, a);
+  const rut = rutting(wl, def, a), light = !rut && sparring(wl, def, a);
   if (!ashore(def) || young(a, def) || !available(a) || a.socialCooldown > a.age ||
-    rut && a.rutCooldown > a.age || Math.random() > (rut ? 0.45 : def.herd ? 0.06 : 0.12)) return false;
-  let o = null, bd = rut ? 400 : 49;
+    rut && a.rutCooldown > a.age || Math.random() > (rut ? 0.45 : light ? 0.25 : def.herd ? 0.06 : 0.12)) return false;
+  let o = null, bd = rut ? 900 : light ? 144 : 49; // (a rutting male goes a long way to find a rival)
   for (const b of wl.agents) {
     if (b === a || b.sp !== a.sp || !available(b) || (!rut && b.state !== 'idle') ||
-      young(b, def) || b.socialCooldown > b.age || (rut && (!antlered(def, b) || b.rutCooldown > b.age))) continue;
+      young(b, def) || b.socialCooldown > b.age || (rut && (!antlered(def, b) || b.rutCooldown > b.age)) ||
+      (light && !antlered(def, b))) continue;
     const d2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
     if (d2 < bd) { bd = d2; o = b; }
   }
@@ -454,14 +461,15 @@ function meet(wl, a) {
   a.wait = t; o.wait = Math.max(o.wait, t);
   a.socialCooldown = a.age + 10; o.socialCooldown = o.age + 10;
   const rivals = SPARRERS.has(def.sprite.kind) && (!def.sprite.male || (isMaleVariant(def, a) && isMaleVariant(def, o)));
-  const odds = def.sprite.male?.antlers ? (rutting(wl, def, a) ? 0.95 : 0.25) : 0.6;
-  if (!(rivals && Math.random() < odds && squareUp(wl, a, o))) { a.greetT = o.greetT = t; }
+  const light = !rutting(wl, def, a) && sparring(wl, def, a) && sparring(wl, def, o);
+  const odds = def.sprite.male?.antlers ? (rutting(wl, def, a) ? 0.95 : light ? 0.85 : 0.25) : 0.6;
+  if (!(rivals && Math.random() < odds && squareUp(wl, a, o, light))) { a.greetT = o.greetT = t; }
 }
 
 // Two rivals walk into a head-to-head stance (close enough for antlers or horns to meet), then
 // fight a bout: locked together, shoving back and forth, breaking off and crashing back in
 // (drawn in actors.js). The loser gives ground and trots off; the winner stands and watches.
-function squareUp(wl, a, o) {
+function squareUp(wl, a, o, light = false) {
   const w = wl.game.world, d = dist(a, o);
   if (d < 1e-3) return false;
   const ux = (o.x - a.x) / d, uy = (o.y - a.y) / d;
@@ -482,9 +490,9 @@ function squareUp(wl, a, o) {
     if (!route) return false;
     routes.push(route);
   }
-  const t = 3 + Math.random() * 3, loser = Math.random() < 0.5 ? a.id : o.id;
+  const t = light ? 1.5 + Math.random() * 1.5 : 3 + Math.random() * 3, loser = Math.random() < 0.5 ? a.id : o.id;
   for (const [b, at, other] of [[a, sa, o], [o, so, a]]) {
-    b.state = 'spar'; b.sparWith = other.id; b.sparAt = at; b.sparT = t; b.sparLoser = loser;
+    b.state = 'spar'; b.sparWith = other.id; b.sparAt = at; b.sparT = t; b.sparLoser = loser; b.sparLight = light;
     b.sparPath = routes.shift(); b.socialWith = null; b.socialUntil = 0; b.greet = null;
     b.path = null; b.trip = null; b.follow = false; b.waterTrip = false; b.greetT = 0; b.drinkT = 0; b.drinkAt = null;
   }
@@ -516,9 +524,14 @@ export function sparUpdate(wl, a, def, sp, elapsed = dt(sp, def)) {
   endSpar(wl, o, a, !lost);
 }
 function endSpar(wl, a, rival, lost) {
-  a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.sparPath = null; a.wait = 2 + Math.random() * 2;
-  a.rutCooldown = a.age + 12 + Math.random() * 6; a.socialCooldown = a.rutCooldown;
+  const light = a.sparLight;
+  a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.sparPath = null; a.sparLight = false; a.wait = 2 + Math.random() * 2;
+  // Rutting males fight again within days (a beaten one takes longer to come back), and
+  // sparring partners within a week; otherwise a match settles things for a good while.
+  const rut = RUT.includes(wl.game.month) && antlered(ANIMALS[a.sp], a);
+  a.rutCooldown = a.age + (rut ? (lost ? 4 : 2) + Math.random() * 2 : light ? 4 + Math.random() * 3 : 12 + Math.random() * 6); a.socialCooldown = a.rutCooldown;
   if (!rival) return;
+  if (light) { a.alertT = 0.8 + Math.random() * 0.6; a.wait = 1 + Math.random(); facePoint(a, rival.x, rival.y); return; } // (break off, look, and go back to grazing)
   if (lost) {
     bolt(wl, a, rival, ANIMALS[a.sp].speed * 1.5, 0.6 + Math.random() * 0.4, 0.1);
     // a beaten harem bull loses his cows to the winner
@@ -562,30 +575,46 @@ function bullDay(wl, a, def) {
   for (const c of wl.agents) {
     if (c.sp !== a.sp || c.leaving || bull(def, c) || young(c, def) || dist(c, a) > 12) continue;
     const owner = c.haremOf != null && c.haremOf !== a.id ? byId(wl, c.haremOf) : null;
-    if (!owner || owner.leaving || dist(c, owner) > 15) c.haremOf = a.id; // (only a fight takes another bull's cows)
+    if (c.haremOf !== a.id && (!owner || owner.leaving || dist(c, owner) > 15)) { // (only a fight takes another bull's cows)
+      c.haremOf = a.id;
+      // a cow he gathers stops any long walk she was on, rather than leading him off after her
+      if (c.state === 'walk' && !c.follow && c.greet == null) { c.trip = null; c.state = 'idle'; c.path = null; c.wait = 0; }
+    }
     if (c.haremOf === a.id) cows.push(c);
   }
   if (cows.length && !a.haremCenter) a.haremCenter = [cows.reduce((s, c) => s + c.x, 0) / cows.length, cows.reduce((s, c) => s + c.y, 0) / cows.length];
-  // a rival bull close by: charge him (the fight itself is the usual bout)
+  // a rival bull close by: charge him (the fight itself is the usual bout). A bull without
+  // cows goes for whoever holds them, rather than another bull hanging about at the edge.
   let rival = null, rd = 144;
   for (const o of wl.agents) {
     if (o === a || o.sp !== a.sp || !bull(def, o) || !available(o) || o.rutCooldown > o.age) continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
-    if (d2 < rd) { rd = d2; rival = o; }
+    if (d2 >= 144) continue;
+    const score = !cows.length && wl.agents.some(c => c.haremOf === o.id) ? d2 * 0.2 : d2;
+    if (score < rd) { rd = score; rival = o; }
   }
   if (rival && !(a.rutCooldown > a.age) && Math.random() < 0.6 && invite(wl, a, rival, def)) {
     if (a.state === 'walk') a.run = 1.6;
     return true;
   }
   if (!cows.length) {
-    // a satellite: shadow the nearest harem from its edge, bugling back
-    let master = null, md = 400;
-    for (const o of wl.agents) if (o !== a && o.sp === a.sp && bull(def, o) && wl.agents.some(c => c.haremOf === o.id)) {
+    // a satellite: shadow the nearest harem from its edge, bugling back. Bulls leave their
+    // bachelor group for the rut and go looking for a harem wherever it is on the map.
+    let master = null, md = Infinity;
+    for (const o of wl.agents) if (o !== a && o.sp === a.sp && bull(def, o) && !o.leaving && wl.agents.some(c => c.haremOf === o.id)) {
       const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2; if (d2 < md) { md = d2; master = o; }
     }
     if (!master) return false;
+    const home = master.haremCenter || [master.x, master.y], far = Math.hypot(a.x - home[0], a.y - home[1]);
+    if (far > 12) {
+      // too far to hear: walk over (a long search, unlike the short hops around the harem edge)
+      const near = (x, y) => Math.hypot(x + 0.5 - home[0], y + 0.5 - home[1]);
+      a.satelliteSlot = null;
+      if (!wl.pathTo(a, (j, x, y) => near(x, y) < 9, 8000, near)) return false;
+      a.run = 1.5;
+      return true;
+    }
     if (Math.random() < 0.3) { bugle(a); facePoint(a, master.x, master.y); return true; }
-    const home = master.haremCenter || [master.x, master.y];
     if (!a.satelliteSlot) {
       const angle = Math.atan2(a.y - home[1], a.x - home[0]), radius = 6 + Math.random() * 1.5;
       a.satelliteSlot = [Math.cos(angle) * radius, Math.sin(angle) * radius];
@@ -606,7 +635,7 @@ function bullDay(wl, a, def) {
   }
   // Graze and watch between patrols; advance around the same herd rather than
   // picking a fresh point across it every time and pulling the cows back and forth.
-  if (Math.random() < 0.65) { a.wait = 3 + Math.random() * 3; return true; }
+  if (Math.random() < 0.65) { a.wait = 1.5 + Math.random() * 2; return true; }
   a.haremAngle = (a.haremAngle ?? Math.atan2(a.y - cy, a.x - cx)) + 0.7;
   const ang = a.haremAngle, r = 3, tx = a.haremCenter[0] + Math.cos(ang) * r, ty = a.haremCenter[1] + Math.sin(ang) * r;
   return wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 1, 600, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty));

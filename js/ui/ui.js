@@ -840,7 +840,7 @@ export class UI {
     else if (w.flood[i]) html += `<div class="info-desc"><b>Flooded</b> for another ${w.flood[i]} days.</div>`;
     else if (w.scorch[i] > 0) html += `<div class="info-desc">Burned recently. The ash will feed new growth.</div>`;
     const f = w.feature[i];
-    if (f) html += `<div class="section-title">Feature</div><div class="info-desc">${f === F.DAM && (w.marks[i] & 4) ? 'Canal block: it holds the water back, so the peat upstream stays wet' : f === F.FENCE && biome.text.fenceName ? biome.text.fenceName : FEATURE_NAMES[f]}${f === F.CULVERT ? `: blocks ${biome.text.culvertBlocks}. Demolish it to reopen the creek.` : f === F.FENCE ? `: blocks ${biome.text.fenceBlocks}.` : ''}</div>`;
+    if (f) html += `<div class="section-title">Feature</div><div class="info-desc">${f === F.DAM && (w.marks[i] & 4) ? 'Canal block: it holds the water back, so the peat upstream stays wet' : f === F.FENCE && biome.text.fenceName ? biome.text.fenceName : FEATURE_NAMES[f]}${f === F.CULVERT ? `: blocks ${biome.text.culvertBlocks}. Demolish it to reopen the creek.` : f === F.DAM && !(w.marks[i] & 4) ? '. Beavers keep it up; left untended it washes out within a year or two. Demolish it to drain the pond.' : f === F.FENCE ? `: blocks ${biome.text.fenceBlocks}.` : ''}</div>`;
     const layers = [[w.ground[i], w.groundG[i]], [w.shrub[i], w.shrubG[i]], [w.tree[i], w.treeG[i]]];
     const rows = layers.filter(l => l[0]).map(([id, gg]) => {
       const p = PLANTS[id];
