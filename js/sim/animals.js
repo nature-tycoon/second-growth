@@ -616,6 +616,7 @@ export class Wildlife {
     }
     this.ids = new Map(this.agents.map(a => [a.id, a]));
     haremDay(this);
+    this.damDay();
     for (const a of this.agents.slice()) {
       if (a.leaving) continue;
       const def = ANIMALS[a.sp];
@@ -741,11 +742,12 @@ export class Wildlife {
       const d = Math.hypot(dx, dy) + hashJitter(xx, yy);
       const t = w.terrain[j];
       if (w.struct[j] >= 0 || t === T.ROAD || t === T.RIVER || w.feature[j] === F.CULVERT) continue;
+      // (marks remember what the pool drowned, so it can drain back if the dam goes)
       if (d <= 2.2) {
-        if (t === T.CREEK || t === T.POND) w.terrain[j] = T.POND;
-        else if (t !== T.POND) floodTile(w, j, T.MARSH, rng);
+        if (t === T.CREEK) { w.terrain[j] = T.POND; w.marks[j] |= POOL_CREEK; }
+        else if (t !== T.POND) { floodTile(w, j, T.MARSH, rng); w.marks[j] |= POOL_LAND; }
       } else if (d <= 3.4) {
-        if (!isWater(t)) floodTile(w, j, rng() < 0.5 ? T.MARSH : T.MUD, rng);
+        if (!isWater(t)) { floodTile(w, j, rng() < 0.5 ? T.MARSH : T.MUD, rng); w.marks[j] |= POOL_LAND; }
       }
     }
     this.game.water?.sync();
@@ -754,6 +756,66 @@ export class Wildlife {
     this.game.flags.beaverDam = true;
     moment(this.game, 'dam', { x: x + 0.5, y: y + 0.5 });
     this.game.notify(this.game.water ? 'Beavers built a dam! Creek water will gather behind it, filling the low ground uphill. Watch its banks become wetland.' : 'Beavers built a dam! The creek is backing up into a brand-new wetland, and the drowned trees will become snags.', 'good', { x: x + 0.5, y: y + 0.5 });
+  }
+
+  // Daily: a dam is only as good as the beavers keeping it up. One no beaver has tended for
+  // half a year starts to leak and, usually within the year after, washes out.
+  damDay() {
+    const w = this.game.world, rng = this.game.rng, keepers = this.agents.filter(a => ANIMALS[a.sp].damBuilder && !a.leaving);
+    let dams = 0;
+    for (let i = 0; i < w.n; i++) {
+      if (w.feature[i] !== F.DAM || (w.marks[i] & 4)) continue; // (canal blocks are people's work)
+      const x = i % w.w + 0.5, y = (i / w.w | 0) + 0.5;
+      if (keepers.some(a => Math.abs(a.x - x) < 8 && Math.abs(a.y - y) < 8)) w.featureAge[i] = 0; // (featureAge: days since tended)
+      else if (w.featureAge[i] > 60 && rng() < 1 / 120) { this.breakDam(i); this.game.notify('An abandoned beaver dam has washed out. The pond behind it is draining and the creek runs through again.', 'info', { x, y }); continue; }
+      dams++;
+    }
+    if (!this.game.water) this.dams = dams; // (also puts the count right after an undo)
+  }
+
+  // A dam goes (washed out, abandoned or pulled apart): its pond drains back to creek, and
+  // the ground it flooded is left as damp, rich soil or marsh (a beaver meadow).
+  breakDam(site) {
+    const w = this.game.world, x0 = site % w.w, y0 = (site / w.w) | 0;
+    w.feature[site] = 0; w.featureAge[site] = 0;
+    this.dams = Math.max(0, this.dams - 1);
+    if (!this.game.water) {
+      let marked = false;
+      for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+        const x = x0 + dx, y = y0 + dy;
+        if (!w.inb(x, y)) continue;
+        const j = w.idx(x, y);
+        if (w.marks[j] & POOL_CREEK) { if (w.terrain[j] === T.POND) w.terrain[j] = T.CREEK; marked = true; }
+        if ((w.marks[j] & POOL_LAND) && w.terrain[j] === T.MUD) { w.terrain[j] = T.SOIL; w.soil[j] = Math.max(w.soil[j], 0.5); }
+        w.marks[j] &= ~(POOL_CREEK | POOL_LAND);
+      }
+      if (!marked) this.reopenCreek(site); // (a dam from an older save: no record of the old channel)
+    }
+    this.game.water?.sync();
+    w.hydroDirty = true; w.renderDirty = true;
+  }
+
+  // Cut the creek back through an old dam's pond: from the dam to the creek where it leaves the
+  // pool on each side, by the shortest way across the pond.
+  reopenCreek(site) {
+    const w = this.game.world, x0 = site % w.w, y0 = (site / w.w) | 0, parent = new Map([[site, -1]]), q = [site], ends = [];
+    while (q.length) {
+      const i = q.shift(), x = i % w.w, y = (i / w.w) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx, yy = y + dy;
+        if (!w.inb(xx, yy) || Math.abs(xx - x0) > 5 || Math.abs(yy - y0) > 5) continue;
+        const j = w.idx(xx, yy);
+        if (parent.has(j)) continue;
+        if (w.terrain[j] === T.CREEK || w.terrain[j] === T.RIVER) { parent.set(j, i); ends.push(j); }
+        else if (w.terrain[j] === T.POND) { parent.set(j, i); q.push(j); }
+      }
+    }
+    if (!ends.length) return;
+    // the two creek ends furthest apart: upstream and downstream
+    const at = j => [j % w.w, (j / w.w) | 0], far = (a, b) => Math.hypot(at(a)[0] - at(b)[0], at(a)[1] - at(b)[1]);
+    let best = [ends[0], ends[0]], bd = -1;
+    for (const a of ends) for (const b of ends) if (far(a, b) > bd) { bd = far(a, b); best = [a, b]; }
+    for (const e of new Set(best)) for (let j = parent.get(e); j > -1 && j !== site; j = parent.get(j)) w.terrain[j] = T.CREEK;
   }
 
   // -------------------------------------------------------------- per-frame movement
@@ -1585,6 +1647,8 @@ function spotIn(a, j, last) {
   return [hashJitter(j + a.id * 13, a.id) * 0.9, hashJitter(a.id * 7, j - a.id) * 0.9];
 }
 
+// world.marks bits under a beaver pool (1, 2, 4 and 8 are taken by trails, reef stars, canal blocks and shade cloth)
+const POOL_CREEK = 16, POOL_LAND = 32;
 function hashJitter(x, y) {
   const h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
   return (h - Math.floor(h)) * 0.8 - 0.4;

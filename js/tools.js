@@ -256,7 +256,8 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
     if (f === F.DIKE) return 60;
     if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return 0;
     if (f === F.FENCE) return 10;
-    if (f && f !== F.DAM) return 20;
+    if (f === F.DAM) return w.marks[i] & 4 ? 0 : 25; // (a beaver dam: canal blocks stay)
+    if (f) return 20;
     return 0;
   },
   apply: (game, i) => {
@@ -280,7 +281,13 @@ tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: '
       w.terrain[i] = T.SOIL; w.soil[i] = Math.min(w.soil[i], 0.12); w.hydroDirty = true;
       return true;
     }
-    if (!f || f === F.DAM) return null;
+    if (f === F.DAM) {
+      if (w.marks[i] & 4) return null;
+      game.wildlife.breakDam(i);
+      game.notify('Beaver dam pulled apart. The pond is draining and the creek runs through again. Beavers still living nearby may build another.', 'info', { x: i % w.w + 0.5, y: ((i / w.w) | 0) + 0.5 });
+      return true;
+    }
+    if (!f) return null;
     if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return null; // the street's bridge over the creek stays
     if (f === F.DIKE) {
       // breach it: cut through to tidal marsh, and the pond behind starts to drain (see the map's daily)
