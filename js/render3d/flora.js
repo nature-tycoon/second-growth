@@ -165,6 +165,7 @@ function windy(mat, amount, wind, bothSidesLit = false, wrap = 0.3, glow = 0.55)
 
 const rgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const FLOOR_FERN = [0.32, 0.46, 0.22]; // (forest-floor ferns: see the floor in rebuild)
 const vary = (c, x, y, salt, amt = 0.08) => { const f = 1 + (hash2(x, y, salt) - 0.5) * amt * 2; return [c[0] * f, c[1] * f, c[2] * f]; };
 
 export function leafColor(p, phase) {
@@ -198,11 +199,11 @@ export class Flora {
     // everything that can hide an animal dissolves around the selected one (see focus.js)
     // ...and everything catches snow on top in winter (see snow.js)
     this.foliage = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, this.wind)), 0.95, { crown: true }));
-    this.shrubs = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind, false, 0.38, 0.6)), 0.85));
-    this.grass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true, 0.5, 0.7)), 1.3));
-    this.tallGrass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 0.4, this.wind, true, 0.5, 0.7)), 1.3));
+    this.shrubs = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, this.wind, false, 0.38, 0.6), 0.75), 0.85));
+    this.grass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, this.wind, true, 0.5, 0.7), 0.4), 1.3));
+    this.tallGrass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 0.4, this.wind, true, 0.5, 0.7), 0.9), 1.3));
     this.bark = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
-    this.small = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
+    this.small = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.35), 1));
     // Occupied branches stay solid when foliage is revealed. They use the real
     // tree scaffold, with no focus cutout, wind deformation or global tree fade.
     this.canopyBark = withClouds(withSnowTops(new THREE.MeshLambertMaterial({ vertexColors: true }), 1));
@@ -485,6 +486,24 @@ export class Flora {
             else dots.add(px, py + 0.16 * sc, pz, 1.2, 1.2, 1.2, 0, c);
           }
           if (type === 'cattail' && phase !== 'spring' && k % 2 === 0) dots.add(px, py + 0.5 * sc, pz, 0.9, 2.8, 0.9, 0, rgb(p.look.head));
+        }
+      }
+
+      // ---- the forest floor: under a closed canopy, a drift of leaves, a dead branch, mushrooms
+      // and moss, and ferns where nothing else grows (drawn only). Keeps a young or old forest's
+      // floor from reading as bare dirt, close up and through the see-through window.
+      if (inside && tid && !aquaticTile && !bankTile && w.treeG[i] > 0.45 && w.canopy[i] > 0.5 && !biome.look.underwater && (!this.light || hash2(x, y, 701) < 0.5)) {
+        const lv = (x * 3 + y * 5) & 3, ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
+        // (on the far side of the tile from the trunk: see trees below)
+        const lx = x + 0.5 - Math.sign(ox || 1) * (0.22 + hash2(x, y, 702) * 0.1), lz = y + 0.5 - Math.sign(oz || 1) * (0.22 + hash2(x, y, 703) * 0.1);
+        this.pool(`litter:${lv}`, () => G.floorLitter(760 + lv), this.small, { shadow: false, kind: 'grass' })
+          .add(lx, hAt(lx, lz), lz, 1.4, 1.4, 1.4, hash2(x, y, 704) * 6.28, vary([dim, dim, dim], x, y, 705, 0.06));
+        if (!gid && !biome.savanna) {
+          const fern = this.pool(`floorfern:${v}`, () => G.tuft('fern', 730 + v), this.grass, { shadow: false, kind: 'grass' }, () => G.tuft('fern', 730 + v, true));
+          for (let k = 0, n = hash2(x, y, 706) < 0.4 ? 2 : 3; k < n; k++) {
+            const fx = x + 0.15 + hash2(x, y, 707 + k) * 0.7, fz = y + 0.15 + hash2(x, y, 709 + k) * 0.7, fs = 0.8 + hash2(x, y, 711 + k) * 0.5;
+            fern.add(fx, hAt(fx, fz), fz, fs, fs, fs, hash2(x, y, 713 + k) * 6.28, vary(FLOOR_FERN.map(c => c * dim), x, y, 715 + k));
+          }
         }
       }
 

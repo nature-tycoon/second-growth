@@ -247,11 +247,15 @@ export class Renderer {
       this.focusFor = sel.id;
       focus.uFocus.value.lerp(pose.center, e);
       focus.uFocusR.value += (clamp(0.75 + pose.h * 1.7, 0.85, 1.45) - focus.uFocusR.value) * e; // (a roomier window than the animal itself)
+      focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
+      focus.uFocusHalfW.value = Math.max(pose.h, pose.foot || 0) * 0.55;
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
+      focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
     }
     this.camera.getWorldDirection(focus.uViewDir.value).negate();
+    focus.uCamUp.value.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
   }
 
   // Around the see-through gap the rest of the view dims a little, softly, as if looking in from
