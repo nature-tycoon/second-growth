@@ -3,7 +3,7 @@
 
 import { STRUCTURES } from '../world.js';
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { ANIMALS, ANIMAL, many, cap, preyFor, preyPer, isMaleVariant } from '../data/animals.js';
+import { ANIMALS, ANIMAL, many, cap, preyFor, preyPer, isMale, isMaleVariant } from '../data/animals.js';
 import { PLANTS } from '../data/plants.js';
 import { killTree } from './plants.js';
 import { biome } from '../biome.js';
@@ -399,7 +399,10 @@ export class Wildlife {
       // births
       if (def.breed.includes(m) && pop >= 2 && pop < K) {
         const adults = mine.filter(a => a.age >= def.mature * DAYS_PER_YEAR && !hungryPredator(game, a, def));
-        const mothers = def.familyHerd ? adults.filter(a => !isMaleVariant(def, a)) : adults;
+        // (the young follow a female: in family herds the adults without the male look, otherwise any
+        // female adult, or any adult at all if there are no females)
+        const females = def.familyHerd ? null : adults.filter(a => !isMale(def, a));
+        const mothers = def.familyHerd ? adults.filter(a => !isMaleVariant(def, a)) : females.length ? females : adults;
         const pairs = def.familyHerd ? (adults.length > mothers.length ? mothers.length : 0) : Math.floor(adults.length / 2);
         for (let p = 0; p < pairs && pop < K * 1.15; p++) {
           if (rng() > 0.75 * (1 - pop / Math.max(K, 1))) continue;

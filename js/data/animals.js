@@ -61,7 +61,10 @@ export function loadAnimals(build) {
 // bull elephants): sprite.male holds the overrides and sprite.maleShare how many adults wear them.
 // Which ones is fixed per animal. Returns the def to draw it with.
 const variants = new Map();
-export const isMaleVariant = (def, a) => !!def.sprite.male && !a.juvenile && (a.age == null || a.age >= def.mature * DAYS_PER_YEAR) && ((a.id * 7919) % 100) / 100 < (def.sprite.maleShare ?? 0.5);
+// Each animal's sex, fixed by its id: the species' share of males where adults look different
+// (antlers, manes: see isMaleVariant), otherwise half and half.
+export const isMale = (def, a) => ((a.id * 7919) % 100) / 100 < (def.sprite.male ? def.sprite.maleShare ?? 0.5 : 0.5);
+export const isMaleVariant = (def, a) => !!def.sprite.male && !a.juvenile && (a.age == null || a.age >= def.mature * DAYS_PER_YEAR) && isMale(def, a);
 export function drawDef(def, a) {
   if (!isMaleVariant(def, a)) return def;
   let v = variants.get(def);
