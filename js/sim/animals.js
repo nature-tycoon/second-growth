@@ -3,7 +3,7 @@
 
 import { STRUCTURES } from '../world.js';
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { ANIMALS, ANIMAL, many, cap, preyFor, preyPer, isMaleVariant } from '../data/animals.js';
+import { ANIMALS, ANIMAL, many, cap, preyFor, preyPer, isMale, isMaleVariant } from '../data/animals.js';
 import { PLANTS } from '../data/plants.js';
 import { killTree } from './plants.js';
 import { biome } from '../biome.js';
@@ -75,6 +75,14 @@ const territory = def => def.herd || def.familyHerd || def.patrol || def.reef ? 
 // Young that stay close beside their mother, and for how many years (never past adulthood):
 // bear cubs for a year and a half, fawns and calves through their first year, elephant calves for years.
 // (Rodents, rabbits and birds raise their young in a nest or burrow instead.)
+// A migrant swimming the river at the crossing while the migration is coming over.
+function inCrossing(wl, b) {
+  const c = wl.crossingAt, w = wl.game.world;
+  if (!c || !(wl.game.day < c.until) || !ANIMALS[b.sp].crossing) return false;
+  const x = Math.floor(b.x), y = Math.floor(b.y);
+  return w.inb(x, y) && w.terrain[w.idx(x, y)] === T.RIVER;
+}
+
 const WITH_MOM = {
   deer: 0.8, elk: 1, bear: 1.5, cougar: 1.2, bobcat: 0.7, raccoon: 0.6, coyote: 0.5, beaver: 1.5, otter: 0.8,
   wildebeest: 0.8, zebra: 1, gazelle: 0.5, impala: 0.5, giraffe: 1.2, elephant: 3, buffalo: 1, warthog: 0.5, rhino: 2,
@@ -399,7 +407,10 @@ export class Wildlife {
       // births
       if (def.breed.includes(m) && pop >= 2 && pop < K) {
         const adults = mine.filter(a => a.age >= def.mature * DAYS_PER_YEAR && !hungryPredator(game, a, def));
-        const mothers = def.familyHerd ? adults.filter(a => !isMaleVariant(def, a)) : adults;
+        // (the young follow a female: in family herds the adults without the male look, otherwise any
+        // female adult, or any adult at all if there are no females)
+        const females = def.familyHerd ? null : adults.filter(a => !isMale(def, a));
+        const mothers = def.familyHerd ? adults.filter(a => !isMaleVariant(def, a)) : females.length ? females : adults;
         const pairs = def.familyHerd ? (adults.length > mothers.length ? mothers.length : 0) : Math.floor(adults.length / 2);
         for (let p = 0; p < pairs && pop < K * 1.15; p++) {
           if (rng() > 0.75 * (1 - pop / Math.max(K, 1))) continue;
@@ -648,6 +659,21 @@ export class Wildlife {
     for (const o of this.agents) if (o.mom === a.id && !o.leaving) { this.leave(o); o.tx = a.tx + (Math.random() - 0.5); o.ty = a.ty + (Math.random() - 0.5); }
     if (def.herd) { a.leaveWait = Math.random() * 6; a.pace = 0.75 + Math.random() * 0.5; } // a herd moves off in dribs and drabs
     if (a.move === 'fly') { a.flying = true; }
+    this.leaveRoute(a);
+  }
+
+  // Walkers head off the map round ponds and buildings rather than straight through them. Rivers
+  // they still swim (the way out may lie across one, as the migration's does), and fences they
+  // still cross on the way out, as before.
+  leaveRoute(a) {
+    const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+    if (a.move !== 'ground' || !w.inb(x0, y0)) return;
+    const out = a.ty < 0 ? (x, y) => y === 0 : a.ty > w.h ? (x, y) => y === w.h - 1 : a.tx > w.w ? (x) => x === w.w - 1 : (x) => x === 0;
+    if (out(x0, y0)) return;
+    const pass = (w, j) => w.struct[j] < 0 && w.terrain[j] !== T.POND;
+    const ok = this.pathTo(a, (j, x, y) => out(x, y), w.n, (x, y) => Math.hypot(x + 0.5 - a.tx, y + 0.5 - a.ty), null, pass);
+    a.state = 'leave';
+    if (!ok) a.path = null;
   }
 
   // -------------------------------------------------------------- daily behaviour
@@ -698,12 +724,12 @@ export class Wildlife {
     }
   }
 
-  startHunt(a, def, diet = preyFor(def, this.game)) {
-    if (!canStartHunt(a)) return;
-    let best = null, bd = 12 * 12;
+  startHunt(a, def, diet = preyFor(def, this.game), reach = 12, only = null) {
+    if (!canStartHunt(a)) return false;
+    let best = null, bd = reach * reach;
     const preySet = new Set(diet.map(k => ANIMAL[k].index));
     for (const b of this.agents) {
-      if (!preySet.has(b.sp) || b.leaving) continue;
+      if (!preySet.has(b.sp) || b.leaving || (only && !only(b))) continue;
       if (this.game.diff.ecology && def.move !== 'fly' && (b.flying || b.alt > 0.2)) continue;
       const d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
       if (d < bd) { bd = d; best = b; }
@@ -714,6 +740,7 @@ export class Wildlife {
       if (a.move === 'fly') a.flying = true;
       beginHunt(this, a, def, best);
     }
+    return !!best;
   }
 
   evadeHunt(a, predator) {
@@ -992,8 +1019,11 @@ export class Wildlife {
           if (a.assist) { endHunt(a); if (a.move === 'fly') a.flying = false; break; } // (the pack's flankers leave the kill to the one in front)
           endHunt(a);
           if (!this.game.diff.ecology) a.hunger = 0;
-          if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def)) {
+          // (a swimmer in the crossing can't run or turn: the crocodiles' best chance all year)
+          const swimmer = def.ambush && inCrossing(this, b);
+          if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def, swimmer ? 0.7 : 0.45)) {
             a.hunger = 0;
+            if (swimmer) a.crossRest = this.game.day + 2;
             this.game.onPredation(a, b);
             this.remove(b, 'predation');
             startFeed(this, a, def, b);
@@ -1027,6 +1057,11 @@ export class Wildlife {
         case 'leave':
           if (a.leaveWait > 0) { a.leaveWait -= dt; break; }
           if (a.move === 'fly') a.alt = Math.min(1, a.alt + dt * 3);
+          if (a.path?.length) { // (round the ponds first: see leaveRoute)
+            const j = a.path[a.path.length - 1];
+            if (this.stepToward(a, (j % w.w) + 0.5, ((j / w.w) | 0) + 0.5, sp * 1.2 * (a.pace || 1))) a.path.pop();
+            break;
+          }
           if (this.stepToward(a, a.tx, a.ty, sp * (a.move === 'tree' ? 1 : 1.2) * (a.pace || 1)) || a.x < -2 || a.y < -2 || a.x > w.w + 2 || a.y > w.h + 2) this.remove(a, 'left');
           break;
       }
@@ -1170,9 +1205,11 @@ export class Wildlife {
     const step = Math.min(d, sp), nx = d ? a.x + dx / d * step : a.x, ny = d ? a.y + dy / d * step : a.y;
     if (a.move !== 'fly' && !swimmer(a) && !a.leaving) {
       const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+      // (an animal stranded where it can't stand, say in a pond, may still move about its own tile
+      // and step out of it: otherwise every step lands in the same tile and it freezes there)
       const safe = (x, y) => {
         const xx = Math.floor(x), yy = Math.floor(y);
-        return w.inb(xx, yy) && passable(w, w.idx(xx, yy), a) &&
+        return w.inb(xx, yy) && (passable(w, w.idx(xx, yy), a) || (xx === x0 && yy === y0)) &&
           (xx === x0 || yy === y0 || passable(w, w.idx(xx, y0), a) && passable(w, w.idx(x0, yy), a));
       };
       if (!safe(nx, ny)) {
@@ -1545,11 +1582,17 @@ export class Wildlife {
   }
 
   // Crocodiles gather in the river at the crossing while the migration is swimming over: head
-  // there, then lie in wait (hunting is the usual daily check, and swimmers are easy to reach).
+  // there, then lie in wait and take swimmers that come within reach, hungry or not. After a
+  // kill each one rests a couple of days before striking again, so a crossing costs the herds a
+  // handful of animals per crocodile rather than one, without emptying the column.
   lurk(a) {
-    const w = this.game.world, cx = this.crossingAt.x;
+    const w = this.game.world, cx = this.crossingAt.x, def = ANIMALS[a.sp];
     const at = (x, y) => Math.abs(x - cx) <= 5 && w.inb(x, y) && w.terrain[w.idx(x, y)] === T.RIVER && y < w.h - 1;
-    if (at(Math.floor(a.x), Math.floor(a.y))) { a.wait = 1 + Math.random() * 3; a.trip = null; return true; }
+    if (at(Math.floor(a.x), Math.floor(a.y))) {
+      const diet = preyFor(def, this.game);
+      if (diet && !(this.game.day < (a.crossRest ?? -1)) && this.startHunt(a, def, diet, 4, b => inCrossing(this, b))) return true;
+      a.wait = 1 + Math.random() * 3; a.trip = null; return true;
+    }
     a.trip = null;
     return this.pathTo(a, (j, x, y) => at(x, y), 14000);
   }
@@ -1611,7 +1654,7 @@ export class Wildlife {
   // tiles and a distance function is given, head for the searched tile closest to the target.
   // Recovery can additionally avoid occupied tiles, without changing ordinary habitat paths.
   // Sets up the path and returns true if the animal is now walking.
-  pathTo(a, goal, cap, dist = null, canVisit = null) {
+  pathTo(a, goal, cap, dist = null, canVisit = null, canPass = passable) {
     const w = this.game.world, W = w.w, n = w.n;
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y), start = w.idx(x0, y0);
     if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
@@ -1629,7 +1672,7 @@ export class Wildlife {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !passable(w, j, a) || (canVisit && !canVisit(j))) continue;
+        if (stamp[j] === stampN || !canPass(w, j, a) || (canVisit && !canVisit(j))) continue;
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }

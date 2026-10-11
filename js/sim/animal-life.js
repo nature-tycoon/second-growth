@@ -243,7 +243,9 @@ export function fleeUpdate(wl, a, def, dt) {
     const nx = a.x + c * step, ny = a.y + s * step, lx = a.x + c * Math.max(step, 0.45), ly = a.y + s * Math.max(step, 0.45);
     if (!w.inb(Math.floor(lx), Math.floor(ly)) || !w.inb(Math.floor(nx), Math.floor(ny))) continue;
     const ahead = w.idx(Math.floor(lx), Math.floor(ly));
-    if (!passable(w, ahead, a) || !passable(w, w.idx(Math.floor(nx), Math.floor(ny)), a) || (!pass && w.fire[ahead])) continue;
+    // (stranded where it can't stand, it may still run within its own tile and out of it)
+    const here = w.idx(x0, y0), can = j => passable(w, j, a) || j === here;
+    if (!can(ahead) || !can(w.idx(Math.floor(nx), Math.floor(ny))) || (!pass && w.fire[ahead])) continue;
     // Like normal paths and spacing, an escape cannot cut diagonally between
     // blocked tiles. Check the lookahead too, so it turns before entering a jam.
     const xx = Math.floor(lx), yy = Math.floor(ly);

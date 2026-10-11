@@ -355,7 +355,8 @@ export class Terrain {
     this.material = withClouds(groundDetail(new THREE.MeshLambertMaterial({ map: atlas.tex, vertexColors: true }), this.noise, this.tiles));
     this.rain = { value: 0 }; this.sky = { value: new THREE.Color(0.8, 0.86, 0.9) };
     this.waterMat = withClouds(waterLook(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1), this.time, this.noise, this.rain, this.sky));
-    this.floodMat = withClouds(waves(new THREE.MeshPhongMaterial({ color: 0x8a9a86, transparent: true, opacity: 0.72, shininess: 60, specular: 0x556677, depthWrite: false }), this.time, 0.6));
+    // floodwater uses the same living water as ponds and rivers (silty, running downhill: see buildFlood)
+    this.floodMat = withClouds(waterLook(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 110, specular: 0x9aaab0, depthWrite: false }), this.time, 0.45), this.time, this.noise, this.rain, this.sky));
     this.skirtMat = withClouds(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     this.overlayMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.previewMat = this.overlayMat.clone();
@@ -894,17 +895,65 @@ export class Terrain {
     a.needsUpdate = true;
   }
 
+  // Floodwater: a shallow, silty sheet over the flooded land in the living-water look. It follows
+  // the ground rather than lying level (a flood spreads over the floodplain's slopes), a little
+  // deeper where it covers a whole stretch, and dips under the ground at its edges so the
+  // waterline follows the land's contours with foam where it meets it, instead of tile squares.
+  // It runs downhill, carrying the drifting silt and streaks of the water shader with it.
   buildFlood() {
     this.floodK = this.floodKey();
     const w = this.world;
     if (this.flood) { this.scene.remove(this.flood); this.flood.geometry.dispose(); this.flood = null; }
     const tiles = [];
-    for (let i = 0; i < w.n; i++) if (w.flood[i]) {
-      const x = i % w.w, y = (i / w.w) | 0;
-      tiles.push([x, y]);
-    }
+    for (let i = 0; i < w.n; i++) if (w.flood[i]) tiles.push(i);
     if (!tiles.length) return;
-    this.flood = this.quadMesh(tiles, 0.09, this.floodMat, () => [1, 1, 1]);
+    // how much of the land around a corner is under water (flooded, or the river it rose from)
+    const wetTile = (x, y) => w.inb(x, y) && (w.flood[w.idx(x, y)] > 0 || isWater(w.terrain[w.idx(x, y)]));
+    const cover = (vx, vy) => Number(wetTile(vx - 1, vy - 1)) + Number(wetTile(vx, vy - 1)) + Number(wetTile(vx - 1, vy)) + Number(wetTile(vx, vy));
+    // where it meets the river or creek it rose from, it shades into that water instead of ending in a line
+    const wc = biome.look.water, COL = { [T.POND]: wc.pond, [T.CREEK]: wc.creek, [T.RIVER]: wc.river, [T.MARSH]: wc.marsh };
+    const beside = (vx, vy) => {
+      let n = 0; const c = [0, 0, 0];
+      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+        const x = vx + dx, y = vy + dy;
+        if (!w.inb(x, y) || !isWater(w.terrain[w.idx(x, y)])) continue;
+        const k = COL[w.terrain[w.idx(x, y)]]; c[0] += k[0]; c[1] += k[1]; c[2] += k[2]; n++;
+      }
+      return n ? { n, c: c.map(e => e / n) } : null;
+    };
+    const DEPTH = [-0.08, -0.06, 0.05, 0.13, 0.2]; // (in height levels, by how many of the four tiles are wet)
+    const vert = (x, y) => w.vert(clamp(x, 0, w.w), clamp(y, 0, w.h));
+    const muddy = biome.look.flood || [0.46, 0.41, 0.28, 0.9];
+    const n = tiles.length * 6;
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 4);
+    const dep = new Float32Array(n), flow = new Float32Array(n * 2), bend = new Float32Array(n), qual = new Float32Array(n).fill(0.12);
+    let v = 0;
+    for (const i of tiles) {
+      const x = i % w.w, y = (i / w.w) | 0;
+      for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
+        const c = cover(vx, vy), d = DEPTH[c], g = w.vert(vx, vy);
+        pos[v * 3] = vx; pos[v * 3 + 1] = (g + d) * LEVEL; pos[v * 3 + 2] = vy; nor[v * 3 + 1] = 1;
+        dep[v] = d;
+        // downhill, quicker on steeper ground
+        let fx = vert(vx - 1, vy) - vert(vx + 1, vy), fy = vert(vx, vy - 1) - vert(vx, vy + 1);
+        const l = Math.hypot(fx, fy);
+        if (l > 1e-4) { const sp = clamp(l * 2.5, 0.2, 0.8) / l; fx *= sp; fy *= sp; } else fx = fy = 0;
+        flow[v * 2] = fx; flow[v * 2 + 1] = fy;
+        const near = beside(vx, vy), m = near ? near.n / c : 0, rgb = near ? muddy.map((e, k) => e + (near.c[k] - e) * m) : muddy;
+        if (near) qual[v] = 0.12 + 0.5 * m;
+        col[v * 4] = lin(rgb[0]); col[v * 4 + 1] = lin(rgb[1]); col[v * 4 + 2] = lin(rgb[2]); col[v * 4 + 3] = c >= 2 ? muddy[3] : 0;
+        v++;
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
+    geo.setAttribute('aDepth', new THREE.BufferAttribute(dep, 1));
+    geo.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
+    geo.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
+    geo.setAttribute('aQual', new THREE.BufferAttribute(qual, 1));
+    this.flood = new THREE.Mesh(geo, this.floodMat);
     this.flood.renderOrder = 3;
     this.scene.add(this.flood);
   }

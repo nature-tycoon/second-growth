@@ -10,7 +10,7 @@ import { lightingBalance } from './lighting.js';
 import { Ambience } from './ambience.js';
 import { biome } from '../biome.js';
 import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
-import { ANIMALS, animalDef } from '../data/animals.js';
+import { ANIMALS, animalDef, isMale } from '../data/animals.js';
 import { Terrain, buildAtlas, waterSurfaceY } from './terrain.js';
 import { Flora, windGust, floraVersion } from './flora.js';
 import { Actors, salmonLeap } from './actors.js';
@@ -252,6 +252,20 @@ export class Renderer {
       focus.uFocusR.value = 1.3;
     }
     this.camera.getWorldDirection(focus.uViewDir.value).negate();
+  }
+
+  // Around the see-through gap the rest of the view dims a little, softly, as if looking in from
+  // under the canopy: the eye goes to the lit opening and the animal at the bottom of it.
+  drawFocusLens(ctx) {
+    const amt = focus.uFocusAmt.value;
+    if (amt < 0.01) return;
+    const c = focus.uFocus.value, p = this.project(c.x, c.y, c.z);
+    const r = focus.uFocusR.value * this.ppu * amt;
+    const g = ctx.createRadialGradient(p.x, p.y, r * 0.85, p.x, p.y, r * 3.2);
+    g.addColorStop(0, 'rgba(14,22,16,0)');
+    g.addColorStop(0.45, `rgba(14,22,16,${0.16 * amt})`);
+    g.addColorStop(1, `rgba(14,22,16,${0.34 * amt})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
   }
 
   get fadeTrees() { return this._fade; }
@@ -787,6 +801,7 @@ export class Renderer {
     finally {
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      this.drawFocusLens(ctx);
       this.ambience.drawSky(ctx, this, game, dt);
     }
   }
@@ -878,16 +893,23 @@ export class Renderer {
         // body and its modelled height, a fixed gap above that on screen, with a short stem.
         const top = Math.max(s.y + s.h, s.center.y + s.h * 0.6) + 0.06;
         const p = this.project(s.x, top, s.z), lift = 14;
-        const label = animalDef(sel).name, y = p.y - lift;
+        const def = animalDef(sel), label = def.name, y = p.y - lift;
+        // ...with a ♂ or ♀ after the name
+        const male = isMale(def, sel), sym = male ? '\u2642' : '\u2640';
         ctx.font = '700 11px Nunito, sans-serif';
-        const tw = ctx.measureText(label).width + 16, th = 19;
+        const nw = ctx.measureText(label).width;
+        ctx.font = '700 14px Nunito, "Segoe UI Symbol", "Apple Symbols", sans-serif';
+        const sw = ctx.measureText(sym).width, gap = 4;
+        const tw = nw + gap + sw + 16, th = 19, x0 = p.x - (nw + gap + sw) / 2, ty = y - th / 2 + 0.5;
         ctx.save();
         ctx.globalAlpha = 0.92;
         ctx.strokeStyle = 'rgba(255,241,184,0.7)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(p.x, y); ctx.lineTo(p.x, y + lift - 4); ctx.stroke();
         ctx.fillStyle = 'rgba(22,30,24,0.72)'; ctx.beginPath(); ctx.roundRect(p.x - tw / 2, y - th, tw, th, th / 2); ctx.fill();
         ctx.strokeStyle = 'rgba(255,241,184,0.35)'; ctx.stroke();
-        ctx.fillStyle = '#fff6dc'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, p.x, y - th / 2 + 0.5);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.font = '700 11px Nunito, sans-serif'; ctx.fillStyle = '#fff6dc'; ctx.fillText(label, x0, ty);
+        ctx.font = '700 14px Nunito, "Segoe UI Symbol", "Apple Symbols", sans-serif'; ctx.fillStyle = male ? '#8ccbff' : '#ffa8c6'; ctx.fillText(sym, x0 + nw + gap, ty);
         ctx.restore();
       }
     }
