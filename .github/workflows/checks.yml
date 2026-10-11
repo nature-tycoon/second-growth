@@ -1,9 +1,9 @@
+# Pull requests get the fast headless suite. The slower browser suite runs before the
+# itch.io upload on main (itch.yml calls this workflow) and whenever it's started by hand.
 name: Release checks
 
 on:
   pull_request:
-  push:
-    branches-ignore: [main]
   workflow_dispatch:
   workflow_call:
 
@@ -28,6 +28,7 @@ jobs:
           path: tools/release-output/
           retention-days: 14
   browser:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
