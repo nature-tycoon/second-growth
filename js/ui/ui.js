@@ -332,7 +332,7 @@ export class UI {
     // the renderer asks for a lighter Detail level when this computer can't keep up
     this.renderer.onSlow ??= (quality, fps) => {
       track('auto_quality', { from: settings.quality, to: quality, fps });
-      settings.quality = quality; saveSettings(); this.applySettings();
+      settings.quality = quality; settings.slowFps = fps; saveSettings(); this.applySettings();
       this.game.notify('The game was running slowly on this computer, so Detail is now Fast. You can change it back in Settings.', 'info');
     };
     this.renderer.applySettings(settings);
@@ -1327,6 +1327,10 @@ export class UI {
         if (key === 'analytics') { if (!settings.analytics) track('analytics_opt_out'); setAnalyticsEnabled(settings.analytics); }
         else if (inp.type !== 'range') track('setting_changed', { setting: key, value: settings[key] });
         if (key === 'quality') settings.qualityChosen = true; // (the player's choice: never lowered for them)
+        // back up from Fast on a computer that already struggled: say what to expect
+        if (key === 'quality' && settings.quality !== 'fast' && settings.slowFps) {
+          g.notify(`This computer ran at about ${settings.slowFps} frames a second before Detail went to Fast, so expect some lag. If it gets slow, the game lowers the resolution and turns shadows off on its own; Fast is smoothest.`, 'warn');
+        }
         saveSettings();
         this.applySettings();
       });

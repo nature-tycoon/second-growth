@@ -449,14 +449,32 @@ export class Terrain {
   }
 
   // Textures and colors: what's on each tile this season.
-  updateSurface(game) {
-    this.refreshWaterQuality();
+  // With `area` ({ x0, y0, x1, y1 }, world tiles, inclusive) only that patch is repainted and sent
+  // to the graphics chip, for brush strokes: a whole-map repaint uploads about 3 MB, several
+  // times a second while painting, which older built-in graphics can't keep up with. Anything
+  // that changes the whole map (a new month, reshaped land, another world) repaints everything.
+  updateSurface(game, area = null) {
     const w = this.world, B = this.border, g = this.mesh.geometry;
     const uv = g.attributes.uv.array, col = g.attributes.color.array;
     const month = game.month, season = game.season;
     const tint = this.tint;
+    const TW = this.TW, TH = this.TH, VW = TW + 1;
     // how readily each tile holds snow: open high ground most, under trees less, water not at all
     const snowT = this.snowT || (this.snowT = new Float32Array(this.TW * this.TH));
+    // a patch: its tiles plus two around them (shade and canopy reach that far), and a ring
+    // more for the shared corners that blend them into their neighbours
+    let span = null;
+    if (area && this.paintedSeason === season && this.paintedMonth === month && this.topHv === this.hv && this.top && this.vCol) {
+      const m = 2, tx0 = Math.max(0, area.x0 - this.X0 - m), ty0 = Math.max(0, area.y0 - this.Y0 - m);
+      const tx1 = Math.min(TW - 1, area.x1 - this.X0 + m), ty1 = Math.min(TH - 1, area.y1 - this.Y0 + m);
+      // (a big patch costs about as much as the whole map, so just do that)
+      if (tx1 >= tx0 && ty1 >= ty0 && (tx1 - tx0 + 1) * (ty1 - ty0 + 1) < TW * TH * 0.35) span = { tx0, ty0, tx1, ty1 };
+    }
+    const T0 = span ? span : { tx0: 0, ty0: 0, tx1: TW - 1, ty1: TH - 1 };
+    const C0 = span ? { cx0: T0.tx0, cy0: T0.ty0, cx1: T0.tx1 + 1, cy1: T0.ty1 + 1 } : { cx0: 0, cy0: 0, cx1: TW, cy1: TH };
+    const R0 = span ? { tx0: Math.max(0, T0.tx0 - 1), ty0: Math.max(0, T0.ty0 - 1), tx1: Math.min(TW - 1, T0.tx1 + 1), ty1: Math.min(TH - 1, T0.ty1 + 1) } : T0;
+    if (!span) { this.refreshWaterQuality(); this.paintedSeason = season; this.paintedMonth = month; }
+    this.lastPaint = span ? (R0.tx1 - R0.tx0 + 1) * (R0.ty1 - R0.ty0 + 1) : TW * TH;
     // each tile's highest corner, kept until the land is reshaped
     if (this.topHv !== this.hv || !this.top) {
       const top = this.top = new Float32Array(this.TW * this.TH);
@@ -472,7 +490,7 @@ export class Terrain {
     const turfCache = new Map(), atlasKeys = new Map();
     // grassland of any kind shares one texture, tinted by what grows there
     const pasture = pastureColor(biome.id, season, biome.look.pasture[season]).map((v, q) => v / [0.86, 0.88, 0.8][q]);
-    for (let ty = 0; ty < this.TH; ty++) for (let tx = 0; tx < this.TW; tx++) {
+    for (let ty = T0.ty0; ty <= T0.ty1; ty++) for (let tx = T0.tx0; tx <= T0.tx1; tx++) {
       const x = tx + this.X0, y = ty + this.Y0, k = ty * this.TW + tx;
       const inside = w.inb(x, y);
       const i = inside ? w.idx(x, y) : -1;
@@ -555,10 +573,9 @@ export class Terrain {
     }
     // blend colors at shared corners so neighbouring tiles fade into each other: each corner
     // averages the (up to four) tiles that meet there, worked out once for the whole map
-    const TW = this.TW, TH = this.TH, VW = TW + 1;
     const vc = this.vCol && this.vCol.length === VW * (TH + 1) * 3 ? this.vCol : (this.vCol = new Float32Array(VW * (TH + 1) * 3));
     const vs = this.vSnow && this.vSnow.length === VW * (TH + 1) ? this.vSnow : (this.vSnow = new Float32Array(VW * (TH + 1)));
-    for (let cy = 0; cy <= TH; cy++) for (let cx = 0; cx <= TW; cx++) {
+    for (let cy = C0.cy0; cy <= C0.cy1; cy++) for (let cx = C0.cx0; cx <= C0.cx1; cx++) {
       let r = 0, gg = 0, bb = 0, n = 0, sv = 0, dry = true;
       for (let dy = -1; dy <= 0; dy++) for (let dx = -1; dx <= 0; dx++) {
         const tx = cx + dx, ty = cy + dy;
@@ -572,7 +589,7 @@ export class Terrain {
       vs[cy * VW + cx] = dry ? sv / n : sv / n * 0.5; // (snow thins out where it meets water)
     }
     const sa = g.attributes.aSnow.array, shore = g.attributes.aShore.array;
-    for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
+    for (let ty = R0.ty0; ty <= R0.ty1; ty++) for (let tx = R0.tx0; tx <= R0.tx1; tx++) {
       const k = ty * TW + tx;
       const a = ty * VW + tx, b = a + 1, c = a + VW + 1, d = a + VW;
       // keep a little of the tile's own color so edges stay readable
@@ -594,15 +611,22 @@ export class Terrain {
         shore[k * 12 + j * 2 + 1] = eligible ? this.shoreVertices[v * 2 + 1] : 0;
       }
     }
-    g.attributes.aShore.needsUpdate = true;
     this.banks.refresh(game.month);
-    g.attributes.aSnow.needsUpdate = true;
-    this.tiles.tex.value.needsUpdate = true;
     { const td = this.tintData, enc = v => Math.round(Math.sqrt(clamp(v / 1.5, 0, 1)) * 255);
-      for (let k = 0; k < TW * TH; k++) { td[k * 4] = enc(tint[k * 3]); td[k * 4 + 1] = enc(tint[k * 3 + 1]); td[k * 4 + 2] = enc(tint[k * 3 + 2]); td[k * 4 + 3] = 255; }
-      this.tiles.tint.value.needsUpdate = true; }
-    g.attributes.uv.needsUpdate = true;
-    g.attributes.color.needsUpdate = true;
+      for (let ty = T0.ty0; ty <= T0.ty1; ty++) for (let tx = T0.tx0; tx <= T0.tx1; tx++) {
+        const k = ty * TW + tx;
+        td[k * 4] = enc(tint[k * 3]); td[k * 4 + 1] = enc(tint[k * 3 + 1]); td[k * 4 + 2] = enc(tint[k * 3 + 2]); td[k * 4 + 3] = 255;
+      } }
+    // (the two tile textures are small, 70 KB each, so they always go up whole)
+    this.tiles.tex.value.needsUpdate = true; this.tiles.tint.value.needsUpdate = true;
+    // send up only the rows the patch covers (tiles are stored row by row)
+    const k0 = R0.ty0 * TW + R0.tx0, k1 = R0.ty1 * TW + R0.tx1 + 1;
+    for (const [name, per] of [['color', 18], ['aSnow', 6], ['aShore', 12], ['uv', 12]]) {
+      const attr = g.attributes[name];
+      attr.clearUpdateRanges();
+      if (span) attr.addUpdateRange(k0 * per, (k1 - k0) * per);
+      attr.needsUpdate = true;
+    }
   }
 
   quadMesh(tiles, lift, material, colorFn, alpha = false) {

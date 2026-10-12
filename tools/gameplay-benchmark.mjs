@@ -4,7 +4,7 @@ import { TOOLS, toolCost } from '../js/tools.js';
 import { PLANTS } from '../js/data/plants.js';
 
 const percentile = (values, p) => [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * p))];
-export async function measureGameplay({ map, scene, optimizations }) {
+export async function measureGameplay({ map, scene, optimizations, zoom }) {
   const { game, renderer, ui } = window.secondGrowth;
   const fixture = releaseGame(map, scene);
   if (!game.restoreSave(fixture.game.saveData())) throw new Error('Gameplay fixture restore failed');
@@ -13,7 +13,9 @@ export async function measureGameplay({ map, scene, optimizations }) {
   ui.afterNewGame(); ui.refreshTop(true);
   renderer.applySettings({ quality: 'fast', qualityChosen: true, shadows: true, wind: true, weather: true, dayCycle: false });
   if (optimizations) renderer.flora.setOptimizations(optimizations);
-  renderer.autoRes = false; renderer.zoom = scene === 'herd' ? .65 : .7;
+  // (fixed work to measure: full resolution and shadows, whatever the automatic resolution did while loading)
+  renderer.autoRes = false; renderer.setRes(1); renderer.sun.castShadow = true; renderer.shadowsDropped = false;
+  renderer.zoom = zoom ?? (scene === 'herd' ? .65 : .7);
   renderer.centerOn(...fixture.center); renderer.updateCamera();
   const original = { update: game.update, draw: renderer.draw, frame: ui.frame };
   const gl = renderer.gl.getContext(), frames = [], simulation = [], drawing = [], interfaceMs = [], gaps = [];
@@ -38,7 +40,7 @@ export async function measureGameplay({ map, scene, optimizations }) {
               const plant = TOOLS['plant_' + p.key], cost = toolCost(game, plant, i);
               if (plant.apply(game, i, () => 0) === true) game.spend(cost, plant.cat);
             }
-            renderer.markTileDirty(); game.refreshEnvironment();
+            renderer.markTileDirty(i % game.world.w, (i / game.world.w) | 0); game.refreshEnvironment(); // (as a brush marks it)
           }
           renderer.target.x = fixture.center[0] + Math.sin(n / 20) * 3;
           renderer.updateCamera();
