@@ -252,6 +252,7 @@ addStrings({
   'drag one finger': 'arrastrá un dedo', 'to brush it across the land, or tap to place things or inspect a tile or animal. With Inspect, one finger moves the map too.': 'para pintarla sobre el terreno, o tocá para poner cosas o ver un cuadro o un animal. Con Mirar, un dedo también mueve el mapa.',
   'Drag to move the map': 'Arrastrá para mover el mapa', 'Move the map': 'Mover el mapa',
   'Touching the map folds the tool panel away; tap its tool group again to open it. The ☰ menu has the journal and see-through trees.': 'Al tocar el mapa se pliega el panel de herramientas; tocá su grupo otra vez para abrirlo. El menú ☰ tiene el diario y ver a través de los árboles.',
+  'For a full screen experience, add the game to your home screen: tap Share, then Add to Home Screen.': 'Para jugar en pantalla completa, agregá el juego a tu pantalla de inicio: tocá Compartir y después Agregar a inicio.',
   'For the most room, use full screen (the corner button at the top) or add the game to your home screen.': 'Para tener más espacio, usá pantalla completa (el botón de la esquina de arriba) o agregá el juego a tu pantalla de inicio.',
   'How do you want to play?': '¿Cómo querés jugar?', Difficulty: 'Dificultad', Mode: 'Modo', Campaign: 'Campaña', 'Free play': 'Juego libre',
   Relaxed: 'Tranquilo', Standard: 'Normal', Challenging: 'Difícil',
