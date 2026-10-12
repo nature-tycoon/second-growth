@@ -266,7 +266,8 @@ export default function buildSumatraAnimals(def) {
     def({ key: 'sunbird', name: 'Crimson sunbird', sci: 'Aethopyga siparaja', group: 'Birds', move: 'fly',
       speed: 1.6, hr: 4, max: 24, sources: ['N', 'E', 'W'], mig: 0.5, breed: [1, 2, 7, 8], litter: [2, 2], life: 5, mature: 0.5,
       suit: (W, i) => w[W.habitat[i]] * (0.15 + 0.85 * Math.min(1, W.nectar[i] * 1.5)),
-      sprite: { kind: 'hummer', size: 8, color: '#5a5a3a', breast: '#d8281e', head: '#c81e1e' },
+      sprite: { kind: 'hummer', size: 8, color: '#7a844a', breast: '#d4cf82', head: '#7a844a', tail: '#5a683c',
+        male: { color: '#5a5a3a', breast: '#868478', head: '#c81e1e', gorget: '#d8281e', tail: '#263c2a' }, maleName: 'adult male' },
       desc: 'The Old World\'s answer to a hummingbird: the male is scarlet, with a long curved bill for torch ginger and ixora flowers. It perches to feed rather than hovering.',
       hint: 'Flowering shrubs: torch ginger, ixora and senduduk.' });
   }

@@ -3,6 +3,7 @@
 // Each species says where it can live (suit: per-tile 0..1) and what it needs across the whole
 // property (req: multiplier on carrying capacity). K = sum(suit) / hr (home range), capped at max.
 
+import { behaviorFor } from './animal-behavior.js';
 import { H, DAYS_PER_YEAR } from '../config.js';
 
 export const habW = obj => {
@@ -27,6 +28,8 @@ function def(a) {
     life: 5, mature: 1, season: null, prey: null, preyPer: 5, speed: 1, max: 10,
     req: () => 1, hint: '',
   }, a);
+  // fixedMax preserves the configured ceiling; strictMax additionally prevents recruitment
+  // and whole litters from overshooting it (including animals still walking out).
   // the maps are larger than the original design, so there's room for more of most species
   if (!o.fixedMax) o.max = Math.round(o.max * 1.4);
   o.index = ANIMALS.length;
@@ -46,6 +49,7 @@ export function loadAnimals(build) {
   ANIMAL_GROUPS.length = 0; ANIMAL_GROUPS.push(...meta.groups);
   NAMES = meta.names || {}; SHY = meta.shy || {};
   for (const a of ANIMALS) {
+    a.behavior = behaviorFor(a);
     a.shy = SHY[a.key] ?? 0.2;
     a.frugivore = !!meta.frugivores?.includes(a.key);
     a.fenced = !!meta.fenced?.includes(a.key);
@@ -65,12 +69,22 @@ const variants = new Map();
 // (antlers, manes: see isMaleVariant), otherwise half and half.
 export const isMale = (def, a) => ((a.id * 7919) % 100) / 100 < (def.sprite.male ? def.sprite.maleShare ?? 0.5 : 0.5);
 export const isMaleVariant = (def, a) => !!def.sprite.male && !a.juvenile && (a.age == null || a.age >= def.mature * DAYS_PER_YEAR) && isMale(def, a);
-export function drawDef(def, a) {
-  if (!isMaleVariant(def, a)) return def;
-  let v = variants.get(def);
-  if (!v) { v = { ...def, key: def.key + ':male', sprite: { ...def.sprite, ...def.sprite.male } }; variants.set(def, v); }
-  return v;
+export function drawDef(def, a, month = null) {
+  let look = def;
+  if (isMaleVariant(def, a)) {
+    look = variants.get(def);
+    if (!look) { look = { ...def, key: def.key + ':male', sprite: { ...def.sprite, ...def.sprite.male } }; variants.set(def, look); }
+  }
+  // Without a calendar (field-guide/model previews), show breeding plumage.
+  // Winter only changes drawing; the animal's sex, identity and ecology stay fixed.
+  if (month != null && def.sprite.winter && !def.sprite.breedingPlumage.includes(month)) {
+    let winter = winterVariants.get(look);
+    if (!winter) { winter = { ...look, key: look.key + ':winter', sprite: { ...look.sprite, ...def.sprite.winter } }; winterVariants.set(look, winter); }
+    return winter;
+  }
+  return look;
 }
+const winterVariants = new WeakMap();
 
 export const one = def => NAMES[def.key]?.[0] ?? def.name;
 export const many = def => NAMES[def.key]?.[1] ?? def.name + 's';

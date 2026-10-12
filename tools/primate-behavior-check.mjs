@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { mulberry32 } from '../js/rng.js';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
@@ -121,6 +122,7 @@ check('Tree monkeys straddle a narrow limb with their grips and hold fruit in th
 });
 check('Climbers keep up with their simulation position at every game speed, without reset jumps on or off the trees',()=>{
   for(const [map,key,tree] of [['amazon','spider','fig'],['sumatra','siamang','meranti']]) for(const speed of [1,3]){
+    Math.random = mulberry32(1987);
     const {game}=canopyFixture(map,key),w=game.world;game.wildlife.agents=[];
     for(let x=34;x<46;x++)for(let y=26;y<38;y++)if((x*7+y*3)%11)w.setPlant(w.idx(x,y),PLANT[tree],1);
     const ags=[0,1,2].map(n=>game.wildlife.spawn(ANIMAL[key],36+n*3,30+n*2,{silent:true,age:1200}));

@@ -152,7 +152,8 @@ export default function buildPnwAnimals(def) {
       speed: 4, hr: 6, max: 14, sources: ['S'], mig: 0.5, breed: [2, 3], litter: [1, 2], life: 4,
       season: [0, 1, 2, 3, 4, 5],
       suit: (W, i) => Math.min(1, W.nectar[i] * 1.2) * near(W.distCover[i], 3, 0.3),
-      sprite: { kind: 'hummer', size: 7, color: '#c8642e', breast: '#f0e4d4', head: '#b8682e', gorget: '#e8482a' },
+      sprite: { kind: 'hummer', size: 7, color: '#588254', breast: '#f0e4d4', head: '#588254', flanks: '#c8844e', tail: '#b8682e', tailTip: '#eeeae2',
+        male: { color: '#c8642e', head: '#b8682e', gorget: '#e8482a', flanks: null, tailTip: null }, maleName: 'adult male' },
       desc: 'Flies 3,000 miles from Mexico each spring, timing its arrival with salmonberry flowers.',
       hint: 'Lots of flowers blooming in spring and summer.' });
   }

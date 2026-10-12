@@ -120,7 +120,7 @@ export default function buildSerengetiAnimals(def) {
     const w = habW({ MEADOW: 1, SHRUB: 0.8, YOUNG_FOREST: 0.7, RIPARIAN: 0.8 });
     def({ key: 'lion', name: 'Lion', sci: 'Panthera leo', group: 'Mammals', move: 'ground', fixedMax: true,
       speed: 1.4, hr: 200, max: 8, minK: 2, groupSize: [2, 4], sources: ['N'], mig: 0.15, breed: [3, 9], litter: [2, 3], life: 15, mature: 4,
-      prey: ['wildebeest', 'zebra', 'buffalo', 'warthog', 'gazelle'], preyPer: 7,
+      prey: ['topi', 'hartebeest', 'wildebeest', 'zebra', 'buffalo', 'warthog', 'gazelle'], preyPer: 7,
       suit: (W, i) => w[W.habitat[i]] * (0.6 + 0.4 * shade(W, i)),
       req: g => Math.min(1, g.meadowTiles / 350),
       sprite: { scale: 1.14, kind: 'feline', lion: true, len: 42, h: 16, leg: 14, color: '#c89a5a', belly: '#e8d4ae', dark: '#6a4a2a', longtail: true, stocky: true,
@@ -154,7 +154,7 @@ export default function buildSerengetiAnimals(def) {
     const w = habW({ MEADOW: 1, SHRUB: 0.8, FARM: 0.5, BARE: 0.3, RIPARIAN: 0.6 });
     def({ key: 'hyena', name: 'Spotted hyena', sci: 'Crocuta crocuta', group: 'Mammals', move: 'ground',
       speed: 1.4, hr: 90, max: 12, minK: 2, groupSize: [2, 5], sources: ['N', 'E'], mig: 0.25, breed: [0, 6], litter: [1, 2], life: 18, mature: 2.5,
-      prey: ['wildebeest', 'zebra', 'gazelle', 'warthog'], preyPer: 5,
+      prey: ['topi', 'hartebeest', 'wildebeest', 'zebra', 'gazelle', 'warthog'], preyPer: 5,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.meadowTiles / 1200),
       sprite: { kind: 'hyena', len: 32, h: 16, leg: 13, color: '#b09a74', belly: '#c8b48c', dark: '#3a2e22' },
@@ -169,7 +169,8 @@ export default function buildSerengetiAnimals(def) {
       speed: 1.8, hr: 20, max: 12, minK: 2, groupSize: [2, 5], sources: ['N', 'E'], mig: 0.35, breed: [5, 6], litter: [3, 6], life: 30, mature: 3,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.meadowTiles / 1200),
-      sprite: { scale: 0.72, kind: 'ostrich', size: 34, color: '#1e1c1a', breast: '#1e1c1a', head: '#c8a0a0', tail: '#f2f0ea' },
+      sprite: { scale: 0.72, kind: 'ostrich', size: 34, color: '#8c8070', breast: '#a09480', head: '#b4a494', tail: '#b4a894',
+        male: { color: '#1e1c1a', breast: '#1e1c1a', head: '#c8a0a0', tail: '#f2f0ea', flight: '#f2f0ea' }, maleName: 'adult male' },
       desc: 'The biggest bird alive, too heavy to fly but able to run at 70 km/h. Often grazes alongside zebras.',
       hint: 'Open grass and short scrub.' });
   }
@@ -177,7 +178,7 @@ export default function buildSerengetiAnimals(def) {
     const w = habW({ MEADOW: 1, SHRUB: 0.7, YOUNG_FOREST: 0.6, MATURE_FOREST: 0.6, FARM: 0.4 });
     def({ key: 'vulture', name: 'White-backed vulture', sci: 'Gyps africanus', group: 'Birds', move: 'fly',
       speed: 1.4, hr: 60, max: 12, minK: 2, groupSize: [2, 4], sources: ['N'], mig: 0.3, breed: [5], litter: [1, 1], life: 25, mature: 5,
-      needs: ['wildebeest', 'zebra', 'buffalo', 'gazelle'], needsPer: 8,
+      needs: ['topi', 'hartebeest', 'wildebeest', 'zebra', 'buffalo', 'gazelle'], needsPer: 8,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, (g.bigTrees + 2) / 8),
       sprite: { kind: 'vulture', size: 34, color: '#8a7a64', breast: '#b8a88e', head: '#9a9aa0', tail: '#2a2622', flight: '#2a2622', bill: '#2a2a2a', show: 0.78 },
@@ -269,7 +270,7 @@ export default function buildSerengetiAnimals(def) {
     const w = habW({ MEADOW: 1, SHRUB: 0.7, FARM: 0.5, RIPARIAN: 0.5 });
     def({ key: 'dungbeetle', noDrink: true, name: 'Dung beetle', sci: 'Scarabaeus satyrus', group: 'Reptiles & more', move: 'ground',
       speed: 0.3, hr: 2, max: 30, minK: 2, groupSize: [2, 4], sources: ['N', 'E'], mig: 0.5, breed: [0, 1, 8, 9], litter: [3, 5], life: 1, mature: 0.2,
-      needs: ['wildebeest', 'zebra', 'buffalo', 'elephant', 'gazelle', 'impala', 'warthog'], needsPer: 1.5,
+      needs: ['topi', 'hartebeest', 'wildebeest', 'zebra', 'buffalo', 'elephant', 'gazelle', 'impala', 'warthog'], needsPer: 1.5,
       suit: (W, i) => w[W.habitat[i]],
       sprite: { kind: 'beetle', size: 5, color: '#1a1a14', show: 0.55 },
       desc: 'Rolls balls of dung away and buries them, fertilising the soil and planting seeds. A herd is only as healthy as its beetles.',
@@ -285,6 +286,32 @@ export default function buildSerengetiAnimals(def) {
       hint: 'Waterholes and the river.' });
   }
 
+  // Small resident herds; appended to preserve saved species indices.
+  {
+    const w = habW({ MEADOW: 1, RIPARIAN: 0.5, SHRUB: 0.2, FARM: 0.04 });
+    def({ key: 'topi', name: 'Topi', sci: 'Damaliscus lunatus jimela', group: 'Mammals', move: 'ground',
+      fixedMax: true, strictMax: true, herd: true, herdR: 2, herdMax: 5,
+      speed: 1.7, hr: 180, max: 8, minK: 2, groupSize: [2, 3], sources: ['N', 'E'], mig: 0.2,
+      breed: [9, 10], litter: [1, 1], life: 15, mature: 2,
+      suit: (W, i) => w[W.habitat[i]] * grazing(W, i) * near(W.distWater[i], 8, 0.25),
+      req: g => Math.min(1, g.meadowTiles / 900),
+      sprite: { kind: 'antelope', len: 33, h: 16, leg: 17, color: '#985b3d', belly: '#b37b52', dark: '#3d393c' },
+      desc: 'A chestnut antelope with dark shoulder and thigh patches. Small herds graze open plains, and sentinels watch from termite mounds.',
+      hint: 'Wide stretches of restored grassland near water.' });
+  }
+  {
+    const w = habW({ MEADOW: 1, SHRUB: 0.3, RIPARIAN: 0.2, FARM: 0.04 });
+    def({ key: 'hartebeest', name: "Coke's hartebeest", sci: 'Alcelaphus buselaphus cokii', group: 'Mammals', move: 'ground',
+      fixedMax: true, strictMax: true, herd: true, herdR: 2, herdMax: 4,
+      speed: 1.6, hr: 220, max: 6, minK: 2, groupSize: [2, 3], sources: ['N', 'E'], mig: 0.18,
+      breed: [9, 10], litter: [1, 1], life: 18, mature: 2,
+      suit: (W, i) => w[W.habitat[i]] * grazing(W, i),
+      req: g => Math.min(1, g.meadowTiles / 1100),
+      sprite: { kind: 'antelope', hartebeest: true, len: 35, h: 17, leg: 18, color: '#b77b42', belly: '#c99963', dark: '#423024' },
+      desc: 'Kongoni: a long-faced grazer with high shoulders and sharply bent horns. Small herds need extensive open grassland.',
+      hint: 'Large connected plains with established native grass.' });
+  }
+
   return {
     groups: ['Mammals', 'Birds', 'Reptiles & more'],
     names: {
@@ -295,15 +322,16 @@ export default function buildSerengetiAnimals(def) {
       vulture: ['white-backed vulture', 'vultures'], secretary: ['secretary bird', 'secretary birds'], crane: ['crowned crane', 'crowned cranes'],
       hornbill: ['ground hornbill', 'ground hornbills'], weaver: ["Speke's weaver", 'weavers'], roller: ['lilac-breasted roller', 'rollers'],
       crocodile: ['Nile crocodile', 'crocodiles'], monitor: ['Nile monitor', 'monitor lizards'], tortoise: ['leopard tortoise', 'leopard tortoises'],
+      topi: ['topi', 'topi'], hartebeest: ["Coke's hartebeest", "Coke's hartebeest"],
       dungbeetle: ['dung beetle', 'dung beetles'], catfish: ['catfish', 'catfish'],
     },
     shy: {
-      rhino: 1, cheetah: 0.9, leopard: 0.9, elephant: 0.6, lion: 0.5, hippo: 0.6, buffalo: 0.5, giraffe: 0.4, crocodile: 0.4, hyena: 0.6,
+      topi: 0.45, hartebeest: 0.45, rhino: 1, cheetah: 0.9, leopard: 0.9, elephant: 0.6, lion: 0.5, hippo: 0.6, buffalo: 0.5, giraffe: 0.4, crocodile: 0.4, hyena: 0.6,
       secretary: 0.5, crane: 0.5, hornbill: 0.5, vulture: 0.5, ostrich: 0.5, impala: 0.3, gazelle: 0.3, zebra: 0.25, wildebeest: 0.25,
       warthog: 0.3, weaver: 0.05, roller: 0.1, monitor: 0.4, tortoise: 0.2, dungbeetle: 0, catfish: 0.1,
     },
     frugivores: ['elephant', 'hornbill', 'impala'],
-    fenced: ['wildebeest', 'zebra', 'buffalo', 'elephant', 'giraffe', 'rhino'],
+    fenced: ['topi', 'hartebeest', 'wildebeest', 'zebra', 'buffalo', 'elephant', 'giraffe', 'rhino'],
     damBuilders: [],
     browsers: { giraffe: 0.01, elephant: 0.03, rhino: 0.012, impala: 0.004 },
   };

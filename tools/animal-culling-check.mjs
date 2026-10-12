@@ -115,6 +115,18 @@ check('Reef depth and swimmer turns resume cleanly without a huge bend or old de
   aim(30, 30); frame(400);
   assert.ok(st.depth < 0.7); assert.equal(st.bend, 0); assert.ok(Math.abs(st.yaw + a.hd) < 1e-8);
 });
+check('Sea cucumbers and urchins stay on the seabed through depth changes', () => {
+  for (const key of ['seacucumber', 'urchin']) {
+    reset('reef'); spawn(key); frame();
+    const pool = actors.fauna.species.get(key), matrix = new THREE.Matrix4();
+    assert.equal(pool.mesh.count, 1);
+    pool.mesh.getMatrixAt(0, matrix);
+    assert.ok(Math.abs(matrix.elements[13] - 0.008) < 1e-6, `${key}: rests on the seabed`);
+    g.world.vh.fill(-2); frame(20);
+    pool.mesh.getMatrixAt(0, matrix);
+    assert.ok(Math.abs(matrix.elements[13] - (-2 * LEVEL + 0.008)) < 1e-6, `${key}: follows changed seabed height`);
+  }
+});
 check('Only active instance data is uploaded, even when a pool has grown for a large herd', () => {
   reset(); for (let k = 0; k < 40; k++) spawn(); frame(); const p = actors.fauna.species.get('zebra');
   assert.ok(p.cap >= 40); const survivor = g.wildlife.agents[0]; g.wildlife.agents = [survivor]; frame(2);

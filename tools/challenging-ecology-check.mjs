@@ -224,7 +224,7 @@ check('Cover helps land prey against raptors and snakes, but a small refuge cann
   const shrub = PLANTS.find(p => p?.layer === 1); g.world.setPlant(lion.i, shrub, 1);
   assert.ok(predationCatchChance(g, lion.prey, ANIMAL.lion) < open);
 });
-check('A missed land hunt leaves Challenging predators hungry and gives prey an escape route', () => {
+check('A missed land hunt leaves predators hungry in every difficulty and gives prey an escape route', () => {
   for (const mode of ['relaxed', 'standard', 'challenging']) {
     reset(mode); const { prey, predator } = huntPair('coyote', 'rabbit');
     const random = Math.random; Math.random = g.rng = () => 0.99;
@@ -235,8 +235,8 @@ check('A missed land hunt leaves Challenging predators hungry and gives prey an 
       const initial = Math.hypot(prey.x - predator.x, prey.y - predator.y);
       g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - predator.x, prey.y - predator.y) > initial);
     } else {
-      // Standard keeps its hunger rule; the surviving prey still bolts away from the predator.
-      assert.equal(predator.hunger, 0); assert.equal(prey.state, 'flee');
+      // A miss never counts as a meal; the surviving prey still bolts away.
+      assert.equal(predator.hunger, 12); assert.equal(prey.state, 'flee');
       const initial = Math.hypot(prey.x - predator.x, prey.y - predator.y);
       g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - predator.x, prey.y - predator.y) > initial);
     }

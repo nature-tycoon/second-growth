@@ -6,7 +6,7 @@ register('./three-loader.mjs', import.meta.url);
 const { loadAnimals, ANIMAL, drawDef, isMaleVariant } = await import('../js/data/animals.js');
 const { buildSpecies } = await import('../js/render3d/fauna.js');
 const { Box3, Vector3, Color } = await import('three');
-const targets = { serengeti: ['lion', 'impala'], pnw: ['deer', 'elk', 'woodduck', 'mallard'], atlanta: ['deer', 'woodduck'], chinandega: ['deer'], sumatra: ['sambar'] };
+const targets = { serengeti: ['lion', 'impala', 'ostrich'], pnw: ['deer', 'elk', 'woodduck', 'mallard', 'hummingbird'], atlanta: ['deer', 'woodduck', 'hummingbird', 'cardinal', 'goldfinch'], chinandega: ['deer'], sumatra: ['sambar', 'sunbird'] };
 function bounds(model, part) {
   const box = new Box3(), p = model.geo.attributes.position, parts = model.geo.attributes.aPart;
   for (let i = 0; i < p.count; i++) if (parts.getX(i) === part) box.expandByPoint(new Vector3().fromBufferAttribute(p, i));
@@ -35,6 +35,7 @@ for (const [map, keys] of Object.entries(targets)) {
       const young = drawDef(def, juvenile);
       assert.equal(young, def, `${map}/${key}: all juveniles use the unadorned model`);
       assert(!young.sprite.antlers && !young.sprite.mane && !young.sprite.lyre && !young.sprite.fancy && !young.sprite.collar);
+      assert.equal(drawDef(def, { ...adult, age: 0 }), def, `${map}/${key}: immature animals lack adult traits even without a juvenile flag`);
     }
     const baseModel = buildSpecies(def), maleModel = buildSpecies(male);
     for (const model of [baseModel, maleModel]) for (const attr of Object.values(model.geo.attributes)) {
@@ -58,6 +59,32 @@ for (const [map, keys] of Object.entries(targets)) {
         assert(colorCount(maleModel, 8, '#f4efde') > 20, 'Mallard drake has a white neck collar');
         assert.equal(colorCount(baseModel, 8, '#f4efde'), 0, 'Mallard hen has no drake collar');
         assert(colorCount(maleModel, 5, '#252a24') > 0, 'Mallard drake has curled dark tail feathers');
+      }
+    } else if (['songbird', 'hummer', 'ostrich'].includes(def.sprite.kind)) {
+      assert.notDeepEqual(baseModel.geo.attributes.color.array, maleModel.geo.attributes.color.array, `${map}/${key}: drawn plumage differs`);
+      assert(colorCount(maleModel, 8, male.sprite.head) > 0, `${map}/${key}: adult male head palette reaches the mesh`);
+      assert(colorCount(baseModel, 8, def.sprite.head) > 0, `${map}/${key}: female head palette reaches the mesh`);
+      if (male.sprite.gorget) {
+        assert(colorCount(maleModel, 8, male.sprite.gorget) > 0, 'Adult male throat patch is rendered');
+        assert.equal(colorCount(baseModel, 8, male.sprite.gorget), 0, 'Females and juveniles lack the male throat patch');
+      }
+      if (key === 'goldfinch') {
+        assert(colorCount(maleModel, 8, male.sprite.cap) > 0, 'Breeding male has a black cap rather than a wholly black head');
+        for (const adult of [males[0], females[0]]) {
+          const summer = drawDef(def, adult, 6), winter = drawDef(def, adult, 0);
+          assert.equal(drawDef(def, adult, 6), summer, 'Summer appearance is cached');
+          assert.equal(drawDef(def, { ...adult }, 11), winter, 'Winter appearance is stable after identity reload');
+          assert.equal(winter.sprite.cap, null, 'Winter birds lack the breeding cap');
+          const winterModel = buildSpecies(winter);
+          assert.equal(colorCount(winterModel, 8, male.sprite.cap), 0, 'Winter mesh removes the black cap');
+          assert(colorCount(winterModel, 8, def.sprite.winter.head) > 0, 'Winter head palette is rendered');
+          winterModel.geo.dispose();
+          for (let month = 0; month < 12; month++) assert.equal(drawDef(def, adult, month), def.sprite.breedingPlumage.includes(month) ? summer : winter);
+        }
+      }
+      if (key === 'ostrich') for (const part of [6, 7]) {
+        assert(colorCount(maleModel, part, '#f2f0ea') > 0, 'Male ostrich has white flight feathers');
+        assert.equal(colorCount(baseModel, part, '#f2f0ea'), 0, 'Female ostrich retains brown wing feathers');
       }
     } else if (key === 'impala') {
       assert(maleBody.x > baseBody.x && maleBody.z > baseBody.z, 'Impala ram is slightly larger');
@@ -100,4 +127,4 @@ for (const [map, keys] of Object.entries(targets)) {
     baseModel.geo.dispose(); maleModel.geo.dispose(); checked++;
   }
 }
-console.log(`${checked} adult splits passed: stable identity, juvenile exclusions, paired horns/antlers, duck plumage, and valid geometry.`);
+console.log(`${checked} adult splits passed: stable identity, juvenile exclusions, paired horns/antlers, bird plumage including winter goldfinches, and valid geometry.`);

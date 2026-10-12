@@ -1390,6 +1390,36 @@ const MAMMALS = {
       },
     };
   },
+  // Alcelaphine antelopes: sloping back, long face and short recurved horns.
+  antelope: s => {
+    const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5, kongoni = !!s.hartebeest;
+    return {
+      H, leg, fine: true, splitHoof: true, wide: 0.8, hip: -0.08, shoulder: kongoni ? 0.23 : 0.14,
+      chest: 1.05, neckR: H * 0.23, legR0: H * 0.13, legR1: H * 0.055,
+      legColor: kongoni ? s.color : s.dark, hoof: '#211c18',
+      coat: base => (u, p) => !kongoni && Math.abs(p.z) > H * 0.23 &&
+        (Math.abs(p.x - L * 0.28) < L * 0.13 || Math.abs(p.x + L * 0.3) < L * 0.11) ? col(s.dark) : base(u),
+      head: [L * 0.54, by + H * (kongoni ? 0.94 : 0.8)],
+      headR: [H * (kongoni ? 0.36 : 0.29), H * 0.23, H * 0.17], snout: H * (kongoni ? 0.43 : 0.32),
+      ears: 'point', ear: H * 0.34, earW: 0.35, earOut: 0.5, earBack: 0.15,
+      headColor: kongoni ? s.color : s.dark,
+      antlers: (m, hp, hr, hd) => {
+        for (const side of [-1, 1]) {
+          const pts = [[hp[0] - H * 0.13, hp[1] + hr[1] * 0.8, side * H * 0.1],
+            [hp[0] - H * 0.2, hp[1] + H * 0.49, side * H * (kongoni ? 0.24 : 0.17)],
+            [hp[0] - H * (kongoni ? 0.12 : 0.3), hp[1] + H * 0.68, side * H * 0.23],
+            [hp[0] - H * (kongoni ? 0.36 : 0.39), hp[1] + H * (kongoni ? 0.76 : 0.69), side * H * 0.21]];
+          tube(m, pts, [H * 0.055, H * 0.047, H * 0.03, H * 0.004],
+            (u, p) => Math.sin(p.y / H * 70) > 0.2 ? col('#584b3d') : col('#30291f'), { ...hd, sub: 3, seg: 7 });
+        }
+      },
+      tail: (m, b) => {
+        const pivot = [-L * 0.44, b.by + H * 0.05, 0];
+        m.limb(pivot, [-L * 0.52, b.by - H * 0.55, 0], H * 0.035, H * 0.025, s.color, { part: P.TAIL, pivot });
+        m.ell([-L * 0.52, b.by - H * 0.58, 0], [H * 0.055, H * 0.12, H * 0.06], s.dark, { part: P.TAIL, pivot });
+      },
+    };
+  },
   // Thomson's gazelle: slim and small, tan with a black flank band, white belly and ringed horns.
   gazelle: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
@@ -1916,6 +1946,8 @@ function bird(m, s) {
     : s.bib ? u => (u.y > -0.1 || u.x > 0.62 ? col(s.color) : col(s.breast)) : grad(s.color, s.breast || s.color, -0.15, 0.4);
   const bodyR = BIRD_BODY[s.kind].map(r => r * S);
   m.add(s.barred || s.fancy || s.mottled ? SPH_XL : s.mallard ? SPH_HI : SPH, place([0, by, 0], [0, 0, o.tilt], bodyR), body);
+  // Rufous hummingbird hens have cinnamon flanks beneath a green back.
+  if (s.flanks) for (const side of [-1, 1]) m.ell([-S * 0.04, by - S * 0.07, side * bodyR[2] * 0.82], [S * 0.2, S * 0.11, S * 0.06], s.flanks, { rot: [0, 0, o.tilt] });
   if (s.band) m.ell([S * 0.12, by - S * 0.02, 0], [S * 0.12, S * 0.22, S * 0.235], s.band, { rot: [0, 0, o.tilt] });
   if (s.vee) m.ell([S * 0.22, by + S * 0.02, 0], [S * 0.06, S * 0.16, S * 0.2], '#1e1a18', { rot: [0, 0, o.tilt + 0.3] });
   if (s.spots) for (let k = 0; k < 7; k++) m.ell([S * (0.1 + (k % 3) * 0.06), by - S * (0.04 + (k % 4) * 0.035), (k % 2 ? 1 : -1) * S * (0.14 + (k % 3) * 0.03)], [S * 0.03, S * 0.03, S * 0.03], '#4a3a28', { lo: true });
@@ -3702,6 +3734,36 @@ function beetle(m, s) {
 // Species whose sprite shares a builder kind with a different-looking animal, recognised by key until
 // their sprites carry the flag themselves (mousedeer: the agouti kind; birdwing: the butterfly kind;
 // barn: an owl without the great horned owl's ear tufts).
+// Small bottom-dwelling reef animals, built with the same soft primitives as the fish.
+function seaCucumber(m, s) {
+  const S = s.size;
+  loftBody(m, { x0: -S * 0.5, x1: S * 0.5, cy0: S * 0.12, cy1: S * 0.12,
+    ry0: S * 0.12, ry1: S * 0.13, rz0: S * 0.14, rz1: S * 0.14 }, grad(s.color, s.belly));
+  for (let row = 0; row < 3; row++) for (let j = 0; j < 9; j++) {
+    const x = (j / 8 - 0.5) * S * 0.75, z = (row - 1) * S * 0.085;
+    m.ell([x, S * (row === 1 ? 0.245 : 0.21), z], [S * 0.018, S * 0.024, S * 0.018], s.belly, { lo: true });
+  }
+  for (const side of [-1, 1]) for (let j = 0; j < 7; j++)
+    m.ell([(j / 6 - 0.5) * S * 0.72, S * 0.035, side * S * 0.12], [S * 0.023, S * 0.035, S * 0.023], s.belly, { lo: true });
+}
+function seaUrchin(m, s) {
+  const S = s.size, centre = [0, S * 0.24, 0];
+  m.ell(centre, [S * 0.36, S * 0.24, S * 0.36], s.color);
+  // Short, cream-tipped spines across a flattened dome; no fish fins or eyes.
+  for (let row = 0; row < 5; row++) {
+    const theta = (row + 0.4) / 5 * Math.PI * 0.52, n = row === 0 ? 8 : 16;
+    for (let j = 0; j < n; j++) {
+      const phi = (j + row * 0.5) / n * Math.PI * 2;
+      const d = [Math.sin(theta) * Math.cos(phi), Math.cos(theta), Math.sin(theta) * Math.sin(phi)];
+      const base = d.map((v, k) => centre[k] + v * S * (k === 1 ? 0.22 : 0.33));
+      const tip = base.map((v, k) => v + d[k] * S * 0.15);
+      m.limb(base, tip, S * 0.018, S * 0.003, j % 3 ? s.spine : '#b48874', { caps: false, seg: 5 });
+    }
+  }
+  for (let j = 0; j < 3; j++) m.ell([(j - 1) * S * 0.13, S * 0.46, (j % 2 - 0.5) * S * 0.18],
+    [S * 0.1, S * 0.02, S * 0.07], j === 1 ? '#65925d' : '#c6baa2', { lo: true });
+}
+
 export function buildSpecies(def) {
   const s = def.sprite, m = new Model();
   const mo = { leg: 0.55, bob: 0, tail: 0.25, flap: 1.6, wave: 0, waveK: 0, waveHead: 0, waveLen: 1, sink: 0, len: s.len || s.size };
@@ -3722,7 +3784,7 @@ export function buildSpecies(def) {
     case 'dolphin': dolphin(m, s); mo.verticalWave = 1; mo.tail = 0.12; mo.wave = s.size * 0.03; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.2; mo.waveLen = s.size * 0.8; mo.sink = s.size * 0.1; break;
     case 'deer': case 'canine': case 'feline': case 'raccoon': case 'otter': case 'beaver':
     case 'peccary': case 'agouti': case 'anteater':
-    case 'zebra': case 'wildebeest': case 'gazelle': case 'impala': case 'buffalo': case 'warthog': case 'hyena': case 'rhino': case 'giraffe': case 'elephant': {
+    case 'antelope': case 'zebra': case 'wildebeest': case 'gazelle': case 'impala': case 'buffalo': case 'warthog': case 'hyena': case 'rhino': case 'giraffe': case 'elephant': {
       // Sumatra's tiger, elephant and rhino have builders of their own
       const own = s.kind === 'feline' && s.stripes ? tiger : s.kind === 'elephant' && s.asian ? sumatranElephant : s.kind === 'rhino' && s.hairy ? sumatranRhino : null;
       if (own) { Object.assign(mo, own(m, s)); break; }
@@ -3736,7 +3798,7 @@ export function buildSpecies(def) {
     case 'songbird': case 'hummer': case 'woodpecker': case 'heron': case 'duck': case 'booby': case 'raptor': case 'owl': case 'toucan': case 'macaw': case 'ostrich': case 'hornbill': case 'vulture': case 'secretary': case 'crane':
       bird(m, s);
       mo.flap = s.kind === 'hummer' ? 7 : s.kind === 'booby' ? 1.25 : s.kind === 'heron' || s.kind === 'raptor' || s.kind === 'owl' || s.kind === 'macaw' || s.kind === 'vulture' || s.kind === 'crane' || s.kind === 'secretary' ? 0.9 : 2;
-      mo.leg = 0.5; mo.tail = s.cocked ? 0.13 : 0.065; mo.bird = 1;
+      mo.leg = 0.5; mo.tail = s.cocked ? 0.13 : 0.065; mo.bird = 1; mo.billSweep = !!s.spoonbill;
       mo.wingSpan = s.size * BIRDS[s.kind](s).span * 1.7;
       mo.sink = s.kind === 'duck' || s.kind === 'booby' ? s.size * 0.24 : 0;
       // Wading can cover the lower legs, while the belly stays above the surface.
@@ -3745,6 +3807,8 @@ export function buildSpecies(def) {
     case 'bat': bat(m, s); mo.flap = 2.6; break;
     case 'butterfly': butterfly(m, s); mo.flap = 1.7; mo.leg = 0; mo.tail = 0; break;
     case 'bee': bee(m, s); mo.flap = 9; mo.leg = 0.2; mo.tail = 0; break;
+    case 'seacucumber': seaCucumber(m, s); mo.leg = 0; mo.tail = 0; break;
+    case 'urchin': seaUrchin(m, s); mo.leg = 0; mo.tail = 0; break;
     case 'beetle': beetle(m, s); mo.leg = 0.7; mo.tail = 0; break;
     case 'monitor': monitor(m, s); mo.leg = 0.55; mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.3; mo.waveLen = s.size * 1.2; mo.sink = s.size * 0.1; break;
     case 'hippo': hippo(m, s); mo.leg = 0.28; mo.bob = 0.3; mo.tail = 0.5; mo.sink = s.leg + s.h * 0.55; break;
@@ -4012,6 +4076,7 @@ export function faunaMaterial(motion) {
           float flick = smoothstep(0.91, 0.99, sin(ph * 0.31));
           p = aPivot + (p - aPivot) * flick;
         } else if (aPart > 7.5) {
+          ${motion.billSweep ? 'float sweep = sin(ph * 1.6) * max(0.0, aAnim.w) * .45; p = rotY(p, aPivot, sweep); n = rotY(n, zero, sweep);' : ''}
           p = rotZ(p, aPivot, -${motion.canopyFeet ? 'max(0.0, aAnim.w)' : 'aAnim.w'} * uHead); n = rotZ(n, zero, -${motion.canopyFeet ? 'max(0.0, aAnim.w)' : 'aAnim.w'} * uHead);
         }
       }
@@ -4041,7 +4106,7 @@ export function faunaMaterial(motion) {
         }
       `);
   };
-  mat.customProgramCacheKey = () => `fauna:${motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'orangutan-swing' : 'base'}`;
+  mat.customProgramCacheKey = () => `fauna:${motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'orangutan-swing' : 'base'}${motion.billSweep ? ':bill-sweep' : ''}`;
   return mat;
 }
 

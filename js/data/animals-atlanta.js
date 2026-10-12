@@ -54,7 +54,8 @@ export default function buildAtlantaAnimals(def) {
       speed: 3, hr: 5, max: 10, sources: ['S', 'W'], mig: 0.7, breed: [2, 3], litter: [1, 2], life: 4, season: [0, 1, 2, 3, 4, 5, 6],
       suit: (W, i) => w[W.habitat[i]] * Math.min(1, 0.1 + W.nectar[i] * 1.5),
       req: g => Math.min(1, 0.3 + stat(g, 'nativeBloom') / 20),
-      sprite: { kind: 'hummer', size: 7, color: '#4a8a4a', breast: '#e8e8e0', head: '#4a8a4a', gorget: '#c8203a', show: 1.02 },
+      sprite: { kind: 'hummer', size: 7, color: '#4a8a4a', breast: '#e8e8e0', head: '#4a8a4a', tailTip: '#eeeae2', show: 1.02,
+        male: { gorget: '#c8203a', tailTip: null }, maleName: 'adult male' },
       desc: 'Weighs less than a nickel and crosses the Gulf of Mexico in one flight. Feeds on azalea, bergamot and cardinal flower, and on tiny insects.',
       hint: 'Tube-shaped native flowers from March to September: azalea, bergamot, cardinal flower.' });
   }
@@ -63,8 +64,9 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'cardinal', name: 'Northern cardinal', sci: 'Cardinalis cardinalis', group: 'Birds', move: 'fly',
       speed: 2.5, hr: 10, max: 18, sources: ['N', 'E', 'S', 'W'], mig: 0.5, breed: [1, 2, 3, 4], litter: [2, 3], life: 3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.4),
-      sprite: { kind: 'songbird', size: 12, color: '#c8202a', breast: '#d83a30', head: '#c8202a', crest: true },
-      desc: 'The bright red bird at every Georgia feeder. Nests low in dense shrubs.',
+      sprite: { kind: 'songbird', size: 12, color: '#a88b6a', breast: '#c8ac88', head: '#b89a78', crest: true, flight: '#a64a42', tail: '#b45648', bill: '#e87832', face: '#5a4438',
+        male: { color: '#c8202a', breast: '#d83a30', head: '#c8202a', flight: '#a82028', tail: '#b82028', face: '#24201c' }, maleName: 'adult male' },
+      desc: 'Males are bright red; females are warm brown with red wings and tails. Both have crests and orange bills, and nest low in dense shrubs.',
       hint: 'Thick shrubs next to open ground.' });
   }
   {
@@ -91,7 +93,9 @@ export default function buildAtlantaAnimals(def) {
       speed: 2.6, hr: 10, max: 16, sources: ['N', 'E', 'S', 'W'], mig: 0.5, breed: [4, 5], litter: [2, 4], life: 3,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, (g.meadowTiles || 0) / 70),
-      sprite: { kind: 'songbird', size: 10, color: '#e8c828', breast: '#f0d030', head: '#1a1a14', flight: '#2a2a1a' },
+      sprite: { kind: 'songbird', size: 10, color: '#92904e', breast: '#c8bd72', head: '#a49c58', flight: '#2a2a1a', tail: '#2a2a1a',
+        male: { color: '#e8c828', breast: '#f0d030', head: '#e8c828', cap: '#1a1a14' }, maleName: 'adult male',
+        breedingPlumage: [3, 4, 5, 6, 7, 8], winter: { color: '#9a9178', breast: '#c4b99a', head: '#a89c80', cap: null } },
       desc: 'Waits until late summer to nest, when the coneflowers and thistles go to seed, and lines the nest with the fluff.',
       hint: 'Wildflowers left standing to go to seed: coneflower, black-eyed Susan, aster.' });
   }
@@ -314,6 +318,31 @@ export default function buildAtlantaAnimals(def) {
       hint: 'Clean, shaded water with plenty of bluegill.' });
   }
 
+  // Append additions so existing saves retain their species indices. Small resident populations
+  // share the creek and suburban prey base with the animals already here.
+  {
+    const w = habW({ POND: 1, CREEK: 0.9, RIVER: 0.8, MARSH: 0.5, RIPARIAN: 0.2 });
+    def({ key: 'otter', name: 'North American river otter', sci: 'Lontra canadensis', group: 'Mammals', move: 'semi',
+      fixedMax: true, strictMax: true, speed: 1.6, hr: 45, max: 2, sources: ['S'], mig: 0.18,
+      breed: [1], litter: [1, 2], life: 10, mature: 2,
+      prey: ['bluegill', 'bass'], preyPer: 12,
+      suit: (W, i) => w[W.habitat[i]] * W.waterQ[i] * (W.connected[i] ? 1 : 0.15),
+      sprite: { kind: 'otter', len: 30, color: '#4a3526', belly: '#8a7358' },
+      desc: 'Follows the Yellow River into clean tributaries to hunt fish. Only a small family can share the neighborhood creek.',
+      hint: 'Clean water connected to the river, with plenty of fish and sheltered banks.' });
+  }
+  {
+    const w = habW({ MEADOW: 1, SHRUB: 0.8, YOUNG_FOREST: 0.6, RIPARIAN: 0.5, MATURE_FOREST: 0.3, FARM: 0.1, DEVELOPED: 0.04 });
+    def({ key: 'coyote', name: 'Coyote', sci: 'Canis latrans', group: 'Mammals', move: 'ground',
+      fixedMax: true, strictMax: true, speed: 2, hr: 350, max: 2, sources: ['N', 'E'], mig: 0.15,
+      breed: [1], litter: [1, 2], life: 8,
+      prey: ['cottontail', 'chipmunk'], preyPer: 12,
+      suit: (W, i) => w[W.habitat[i]],
+      sprite: { kind: 'canine', len: 30, h: 12, leg: 13, color: '#9c8466', belly: '#cdbfa6', dark: '#4a3b2c' },
+      desc: 'An adaptable hunter that follows wooded corridors through the suburbs. Rabbits and small mammals support just a few residents.',
+      hint: 'Connected meadow and brushy woodland with plenty of rabbits and chipmunks.' });
+  }
+
   return {
     groups: ['Pollinators', 'Birds', 'Mammals', 'Reptiles & amphibians', 'Fish'],
     names: {
@@ -327,16 +356,17 @@ export default function buildAtlantaAnimals(def) {
       raccoon: ['raccoon', 'raccoons'], fox: ['gray fox', 'gray foxes'], deer: ['white-tailed deer', 'white-tailed deer'],
       bat: ['big brown bat', 'big brown bats'], boxturtle: ['box turtle', 'box turtles'], anole: ['green anole', 'green anoles'],
       toad: ['American toad', 'American toads'], peeper: ['spring peeper', 'spring peepers'], ratsnake: ['rat snake', 'rat snakes'],
+      otter: ['river otter', 'river otters'], coyote: ['coyote', 'coyotes'],
       bluegill: ['bluegill', 'bluegill'], bass: ['largemouth bass', 'largemouth bass'],
     },
     // suburban wildlife is used to people; a few species still keep well away from the trails
     shy: {
-      deer: 0.4, fox: 0.6, owl: 0.4, woodpecker: 0.35, hawk: 0.25, heron: 0.4, woodduck: 0.4, boxturtle: 0.4,
+      otter: 0.6, coyote: 0.5, deer: 0.4, fox: 0.6, owl: 0.4, woodpecker: 0.35, hawk: 0.25, heron: 0.4, woodduck: 0.4, boxturtle: 0.4,
       flyingsquirrel: 0.2, ratsnake: 0.2, bluebird: 0.15, chickadee: 0.05, cardinal: 0, wren: 0.05, goldfinch: 0.05,
       graysquirrel: 0, chipmunk: 0.05, cottontail: 0.1, opossum: 0, raccoon: 0, bat: 0.05, anole: 0, toad: 0.05,
       peeper: 0.1, monarch: 0, swallowtail: 0, bumblebee: 0, hummingbird: 0, bluegill: 0.05, bass: 0.1,
     },
-    frugivores: ['cardinal', 'bluebird', 'opossum', 'boxturtle'], fenced: ['deer', 'fox', 'boxturtle'],
+    frugivores: ['cardinal', 'bluebird', 'opossum', 'boxturtle'], fenced: ['deer', 'fox', 'boxturtle', 'coyote'],
     browsers: { deer: 0.012 },
     fishHunters: { heron: 'fish' },
   };

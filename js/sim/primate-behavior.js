@@ -52,7 +52,7 @@ export function primateUpdate(wl, a, def, dt) {
   }
   meal.elapsed += dt;
   if (meal.elapsed >= meal.duration) {
-    a.fruitMeal = null; a.state = 'idle'; a.wait = 1 + wl.game.rng();
+    a.hunger = 0; a.fruitMeal = null; a.state = 'idle'; a.wait = 1 + wl.game.rng();
     a.fruitAfter = a.age + 6 + wl.game.rng() * 6;
   }
 }

@@ -891,6 +891,35 @@ function drawAnimal(ctx, s, frame, pose) {
   const k = s.kind;
   const shadow = (rx) => ellipse(ctx, 0, 0, rx, rx * 0.25, 'rgba(10,15,5,0.3)');
   switch (k) {
+    case 'seacucumber': {
+      const S = s.size;
+      shadow(S * 0.6); ellipse(ctx, 0, -S * 0.13, S * 0.5, S * 0.16, s.color);
+      for (let j = 0; j < 8; j++) ellipse(ctx, (j / 7 - 0.5) * S * 0.7, -S * 0.2, S * 0.018, S * 0.022, s.belly);
+      break;
+    }
+    case 'urchin': {
+      const S = s.size;
+      shadow(S * 0.5); ellipse(ctx, 0, -S * 0.35, S * 0.35, S * 0.3, s.color);
+      ctx.strokeStyle = s.spine; ctx.lineWidth = 0.7;
+      for (let j = 0; j < 24; j++) {
+        const a = j / 24 * Math.PI * 2;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * S * 0.26, -S * 0.35 + Math.sin(a) * S * 0.23);
+        ctx.lineTo(Math.cos(a) * S * 0.48, -S * 0.35 + Math.sin(a) * S * 0.43); ctx.stroke();
+      }
+      break;
+    }
+    case 'antelope': {
+      const L = s.len, H = s.h, by = -s.leg - H * 0.5;
+      shadow(L * 0.5); legs(ctx, [L * 0.3, -L * 0.3], -s.leg, s.leg, s.color, frame, 2);
+      ellipse(ctx, 0, by, L * 0.45, H * 0.5, s.color);
+      ellipse(ctx, L * 0.5, by - H * 0.55, H * 0.32, H * 0.25, s.hartebeest ? s.color : s.dark);
+      ctx.strokeStyle = s.dark; ctx.lineWidth = 2;
+      for (const side of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(L * 0.45 + side * 2, by - H * 0.7);
+        ctx.lineTo(L * 0.45 + side * 4, by - H * 1.2); ctx.lineTo(L * 0.3 + side * 3, by - H * 1.35); ctx.stroke();
+      }
+      break;
+    }
     case 'deer': case 'canine': case 'feline': {
       const L = s.len, Hh = s.h, leg = s.leg;
       shadow(L * 0.55);
