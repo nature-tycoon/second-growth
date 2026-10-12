@@ -242,6 +242,10 @@ export class Flora {
     // Occupied branches stay solid when foliage is revealed. They use the real
     // tree scaffold, with no focus cutout, wind deformation or global tree fade.
     this.canopyBark = withClouds(withSnowTops(new THREE.MeshLambertMaterial({ vertexColors: true }), 1));
+    // Keep the occupied tree's leaves beneath the feet as well as its wood.
+    // Higher foliage still opens around a selected animal so it remains visible.
+    this.canopyCrown = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), 0, { supportCrown: true }), .95, { crown: true }));
     this.treeSites = new Map(); this.canopyPools = new Map(); this.canopyVisible = new Set();
     // soft contact shadows on the ground under trees and bushes, so they still sit on the land
     // when the sun's shadows are off (see Renderer.draw)
@@ -435,6 +439,12 @@ export class Flora {
       let p = this.canopyPools.get(site.geo);
       if (!p) { p = new Pool(this.scene, site.geo, this.canopyBark, { shadow: false, receive: true, geometryIndex: this.geometryIndex }); this.canopyPools.set(site.geo, p); }
       p.add(...site.transform, site.color);
+      if (site.crown) {
+        const { geo, color } = site.crown;
+        let crown = this.canopyPools.get(geo);
+        if (!crown) { crown = new Pool(this.scene, geo, this.canopyCrown, { shadow: false, receive: true, geometryIndex: this.geometryIndex }); this.canopyPools.set(geo, crown); }
+        crown.add(...site.transform, color);
+      }
     }
     for (const p of this.canopyPools.values()) p.end();
   }
@@ -486,7 +496,7 @@ export class Flora {
       if (kept && !(inside && w.feature[i] === F.DAM)) {
         for (let n = 0; n < kept.n; n++) kept.pools[n].replay(kept.vals, n * 19);
         // (a new site each rebuild, as when worked out afresh: climbers expect one)
-        if (kept.site) { const k = kept.site; this.treeSites.set(canopyKey, new CanopySite(k.geo, k.transform, k.color, k.tile, k.plant, k.cell)); }
+        if (kept.site) { const k = kept.site; this.treeSites.set(canopyKey, new CanopySite(k.geo, k.transform, k.color, k.tile, k.plant, k.cell, k.crown)); }
         continue;
       }
       this.lastRebuild.worked++; stale[tk] = 0;
@@ -706,7 +716,6 @@ export class Flora {
             shape.far = { crown: farHull(shape.lo.crown, { rings: shapeDef.kind === 'conifer' }), trunk: farTrunk(shape.lo.trunk) };
             this.geos.set(`treeparts:${key}`, shape);
           }
-          if (!fringeG && !p.aquatic) this.site(canopyKey, new CanopySite(shape.trunk, [tx, ty, tz, sx, sy, sz, rot], bark, canopyKey, p.id, [x, y]));
           if (!this.pools.has(`crown:${key}`)) {
             const receive = () => this.lightingDepth !== false && !this.light && !biome.look.underwater;
             const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, geoFar: shape.far.crown, shadowGeo: shape.lo.crown, receive: receive(), geometryIndex: this.geometryIndex }), this);
@@ -717,7 +726,9 @@ export class Flora {
           let leaf = leafColor(p, phase);
           if (phase === 'fall') leaf = mixc(leaf, rgb(p.look.leaf), hash2(x, y, 11) * 0.35);
           if (inside && w.bleach && w.bleach[i] > 0) leaf = mixc(leaf, BLEACHED, w.bleach[i]); // (a coral bleaching in a marine heatwave)
-          this.pools.get(`crown:${key}`).add(tx, ty, tz, sx, sy, sz, rot, vary(leaf.map(c => c * dim * grove.tint), x, y, 12, 0.045));
+          const crownColor = vary(leaf.map(c => c * dim * grove.tint), x, y, 12, 0.045);
+          if (!fringeG && !p.aquatic) this.site(canopyKey, new CanopySite(shape.trunk, [tx, ty, tz, sx, sy, sz, rot], bark, canopyKey, p.id, [x, y], { geo: shape.crown, color: crownColor }));
+          this.pools.get(`crown:${key}`).add(tx, ty, tz, sx, sy, sz, rot, crownColor);
           this.pools.get(`trunk:${key}`).add(tx, ty, tz, sx, sy, sz, rot, bark);
           if (!aquaticTile) this.contactShadow(hAt, tx, tz, (shapeDef.rx ?? shapeDef.radius ?? 0.35) * sx * 1.05);
           if (phase === 'bloom' && ['dogwood', 'magnolia', 'ipe', 'redbud'].includes(p.key) && shapeDef.rx && g > 0.45) {

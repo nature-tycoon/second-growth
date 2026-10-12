@@ -33,9 +33,10 @@ export function canopyTile(world, border, x, z) {
 }
 
 export class CanopySite {
-  constructor(geo, transform, color, tile = -1, plant = null, cell = null) {
+  constructor(geo, transform, color, tile = -1, plant = null, cell = null, crown = null) {
     this.geo = geo; this.transform = transform; this.color = color; this.tile = tile; this.plant = plant;
     this.cell = cell;
+    this.crown = crown;
   }
 
   prepare() {

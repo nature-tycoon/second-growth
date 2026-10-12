@@ -21,7 +21,7 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
     a.x = 40.35; actors.update(game, right, 1); game.speed = 1;
     const mo = actors.fauna.motion(ANIMALS[a.sp]);
     let previousDelta = new THREE.Vector3(), reversals = 0, releases = 0, placements = 0, changes = 0;
-    let limb = actors.pose.get(a.id).branch.index;
+    let limb = actors.pose.get(a.id).branch.index, leapFrames = 0, maxLift = 0, pausedLeap = false;
     for (let frame = 1; frame <= 2400; frame++) {
       a.x = Math.min(41.65, a.x + (key === 'sloth' ? .001 : .004)); a.state = a.x < 41.65 ? 'walk' : 'idle';
       const st = actors.pose.get(a.id), before = st.branchPoint.clone();
@@ -34,6 +34,17 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
         previousDelta.copy(delta);
       }
       if (limb !== st.branch.index) { changes++; limb = st.branch.index; }
+      if (st.canopyLeap?.lift > 0) {
+        leapFrames++; maxLift = Math.max(maxLift, st.canopyLeap.lift);
+        assert.ok(st.gripFeet.every(foot => foot.free && !foot.site && !foot.from), `${key}: all limbs release during the leap`);
+        if (!pausedLeap && st.canopyLeap.t > .3 && st.canopyLeap.t < .7) {
+          const center = st.center.clone(), airborneFeet = st.gripFeet.map(foot => foot.point.clone());
+          game.speed = 0; actors.update(game, right, 1 + frame / 60);
+          assert.ok(st.center.distanceTo(center) < 1e-8, 'pause freezes the airborne body');
+          st.gripFeet.forEach((foot, i) => assert.ok(foot.point.distanceTo(airborneFeet[i]) < 1e-8, 'pause freezes the tucked limbs'));
+          game.speed = 1; pausedLeap = true;
+        }
+      }
       for (let i = 0; i < 4; i++) {
         const foot = st.gripFeet[i], local = mo.canopyFeet[i].clone().add(st.gripOffsets[i]);
         const reach = mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08;
@@ -54,6 +65,11 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
     if (['spider', 'howler', 'sloth'].includes(key)) assert.ok(releases > 0, `${key}: limbs can release during a transfer`);
     assert.ok(placements > 100, `${key}: catches the branch again`);
     assert.equal(Boolean(actors.pose.get(a.id).branchRoute), false, `${key}: finishes the crossing`);
+    if (['howler', 'spider', 'langur', 'congo'].includes(key)) {
+      assert.ok(leapFrames > 0 && maxLift > .03, `${key}: crossing has a visible airborne arc`);
+      assert.ok(pausedLeap, `${key}: exercised a pause during flight`);
+      assert.equal(actors.pose.get(a.id).canopyLeap, null, `${key}: clears the leap state after landing`);
+    } else assert.equal(leapFrames, 0, `${key}: retains its existing crossing animation`);
     const settled = actors.pose.get(a.id).gripFeet.filter(foot => !foot.free).length;
     assert.ok(settled >= 2, `${key}: regains multiple bark grips after crossing`);
     if (['spider', 'howler'].includes(key)) assert.equal(settled, 4, 'all four feet settle on the final limb');

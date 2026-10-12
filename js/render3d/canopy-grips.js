@@ -69,6 +69,24 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
     });
     st.gripSwing = -1;
   }
+  if (st.canopyLeap && st.canopyLeap.t > 0 && st.canopyLeap.t < 1) {
+    // Release all four contacts on takeoff. Tuck the rear feet and reach
+    // forward with the hands as the body descends toward the landing branch.
+    const t = st.canopyLeap.t, tuck = Math.sin(Math.PI * t);
+    st.gripSwing = -1;
+    st.gripOffsets ||= mo.canopyFeet.map(() => new THREE.Vector3());
+    for (let i = 0; i < 4; i++) {
+      air.copy(mo.canopyFeet[i]);
+      air.x += mo.len * (i < 2 ? .18 * tuck : -.07 * tuck);
+      air.y += mo.len * (i < 2 ? .12 : .16) * tuck;
+      air.sub(mo.canopyJoints[i]).clampLength(0, reach[i]).add(mo.canopyJoints[i]);
+      st.gripOffsets[i].copy(air).sub(mo.canopyFeet[i]);
+      const foot = st.gripFeet[i];
+      foot.point.copy(air).applyMatrix4(matrix);
+      foot.free = true; foot.site = null; foot.from = foot.to = null;
+    }
+    return st.gripOffsets;
+  }
   if (dt || fresh) for (let i = 0; i < 4; i++) {
     const foot = st.gripFeet[i];
     if (!foot.free && !reachable(foot.point, i)) {

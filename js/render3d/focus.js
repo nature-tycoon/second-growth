@@ -40,7 +40,7 @@ float focusNoise(vec3 x) {
 // scale 1). Each one stays whole in the window when all of it shows below the animal's feet or
 // off to its side on screen (see above). Trees and buildings (no keep) open fully: keeping part of
 // one would leave a sliced-off skirt behind.
-export function withFocusFade(mat, keep = 0) {
+export function withFocusFade(mat, keep = 0, { supportCrown = false } = {}) {
   const prev = mat.onBeforeCompile;
   const baseKey = mat.customProgramCacheKey();
   mat.onBeforeCompile = (shader, renderer) => {
@@ -73,6 +73,7 @@ export function withFocusFade(mat, keep = 0) {
         // a plant on the floor stays whole wherever all of it shows below the animal's feet or off to
         // its side on screen: there it can't cover the animal, and the floor of the gap stays alive
         bool keep = false;
+        ${supportCrown ? 'keep = vFocusW.y <= uFocusFoot + 0.02;' : ''}
         ${keep ? `{
           float ext = ${keep.toFixed(2)} * vFocusS;
           vec3 bd = vFocusBase - uFocus; vec3 bp = bd - dot(bd, uViewDir) * uViewDir;
@@ -90,6 +91,6 @@ export function withFocusFade(mat, keep = 0) {
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
       gl_FragColor.rgb *= mix(vec3(1.0), vec3(0.3, 0.38, 0.36), focusWall);`);
   };
-  mat.customProgramCacheKey = () => baseKey + '|focus' + keep;
+  mat.customProgramCacheKey = () => baseKey + '|focus' + keep + (supportCrown ? '|support-crown' : '');
   return mat;
 }

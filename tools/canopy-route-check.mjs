@@ -143,4 +143,34 @@ check('Animal follow camera eases torso shifts with a bounded speed and converge
     assert.ok(target.distanceTo(before) <= .25 + 1e-8, 'a dropped frame cannot jerk the camera across the map');
   }
 });
+check('Tree leaps rise and land continuously at every game speed and frame rate', () => {
+  for (const key of ['howler', 'spider', 'langur', 'congo']) for (const fps of [15, 30, 60]) for (const speed of [1, 2, 3]) {
+    const def = { key, speed: 1, sprite: { kind: 'monkey', len: 16 } }, game = { speed }, st = { sc: .02 };
+    const site = {}, direction = new THREE.Vector3(1, 0, 0);
+    const start = { site, index: 0, point: new THREE.Vector3(), direction }, end = { ...start, site: {}, point: new THREE.Vector3(2, .2, 0) };
+    canopyStep(st, start, def, game, 0);
+    st.branchRoute = { points: [start.point.clone(), end.point.clone()], sites: [site, end.site], gap: 1, cursor: 1, target: end };
+    let previousT = 0, maxLift = 0, ascending = false, descending = false, previousLift = 0;
+    for (let frame = 1; frame <= fps * 3 && st.branchRoute; frame++) {
+      const before = st.branchPoint.clone();
+      const motion = canopyStep(st, end, def, game, frame / fps);
+      ascending ||= motion.lift > previousLift;
+      descending ||= motion.lift < previousLift;
+      maxLift = Math.max(maxLift, motion.lift); previousLift = motion.lift;
+      if (st.canopyLeap) {
+        assert.ok(st.canopyLeap.t >= previousT, 'flight only advances toward the destination');
+        previousT = st.canopyLeap.t;
+        const hold = st.branchPoint.clone(); game.speed = 0;
+        const paused = canopyStep(st, end, def, game, frame / fps);
+        assert.ok(st.branchPoint.distanceTo(hold) < 1e-10);
+        assert.equal(paused.lift, motion.lift, 'pause holds the same arc height'); game.speed = speed;
+      }
+      assert.ok(st.branchPoint.distanceTo(before) <= 2.6 * [0, .72, 3, 8][speed] / fps + 1e-8, 'flight has no position snaps');
+    }
+    assert.ok(ascending && descending && maxLift > .3, `${key}, ${fps}fps, speed ${speed}: visible ascent and descent`);
+    assert.equal(st.branchRoute, null, 'lands and completes the route');
+    assert.equal(st.canopyLeap, null, 'clears flight state on landing');
+    assert.ok(st.branchPoint.distanceTo(end.point) < 1e-10);
+  }
+});
 console.log(`${checks} canopy route checks passed.`);

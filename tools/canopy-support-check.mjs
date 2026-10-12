@@ -7,7 +7,7 @@ const { Flora, floraVersion } = await import('../js/render3d/flora.js');
 const { Actors } = await import('../js/render3d/actors.js');
 const { focus } = await import('../js/render3d/focus.js');
 const { canopyTile } = await import('../js/render3d/canopy-support.js');
-const { PLANTS } = await import('../js/data/plants.js');
+const { PLANTS, PLANT } = await import('../js/data/plants.js');
 const { Renderer } = await import('../js/render3d/scene.js');
 const { canopyFixture } = await import('./canopy-support-fixture.mjs');
 const right = new THREE.Vector3(1, 0, 0);
@@ -25,7 +25,7 @@ function dispose({ flora, actors }) {
   const geos = new Set();
   for (const v of flora.geos.values()) for (const g of [v, ...Object.values(v), ...Object.values(v.lo || {}), ...Object.values(v.mid || {})]) if (g?.isBufferGeometry) geos.add(g);
   for (const geo of geos) geo.dispose();
-  for (const m of [flora.foliage, flora.shrubs, flora.grass, flora.tallGrass, flora.bark, flora.small, flora.contact, flora.canopyBark]) m.dispose();
+  for (const m of [flora.foliage, flora.shrubs, flora.grass, flora.tallGrass, flora.bark, flora.small, flora.contact, flora.canopyBark, flora.canopyCrown]) m.dispose();
   for (const p of actors.fauna.species.values()) { p.geo.dispose(); p.mat.dispose(); p.mesh.dispose(); }
   actors.shadows.dispose(); actors.shadowGeo.dispose(); actors.shadowMat.dispose(); actors.ring.geometry.dispose(); actors.ring.material.dispose();
 }
@@ -58,6 +58,25 @@ check('Occupied wood remains opaque through both global transparency and selecte
   f.flora.canopyBark.onBeforeCompile(shader);
   assert.equal(shader.uniforms.uFocus, undefined);
   f.flora.setFade(false); assert.equal(f.flora.foliage.opacity, 1); focus.uFocusAmt.value = 0; dispose(f);
+});
+check('Monkeys on palms retain a solid leafy crown through tree transparency and animal reveal', () => {
+  for (const [map, key, plant] of [['amazon', 'howler', 'acai'], ['amazon', 'spider', 'buriti'], ['sumatra', 'langur', 'oilpalm']]) for (const fast of [false, true]) {
+    const f = setup(map, key, 1, fast), { game, flora, actors, a } = f;
+    for (const x of [40, 41]) game.world.setPlant(game.world.idx(x, 32), PLANT[plant], 1);
+    flora.rebuild(game, true); actors.pose.clear(); actors.update(game, right, 1);
+    const site = actors.pose.get(a.id).branch.site, crown = flora.canopyPools.get(site.crown.geo), wood = flora.canopyPools.get(site.geo);
+    assert.equal(crown.mesh.count, 1, `${plant}: occupied crown is rendered`);
+    assert.deepEqual([...crown.mesh.instanceMatrix.array.slice(0, 16)], [...wood.mesh.instanceMatrix.array.slice(0, 16)], 'leaves share the supporting trunk transform');
+    flora.setFade(true); focus.uFocusAmt.value = 1;
+    assert.equal(crown.mat.opacity, 1); assert.equal(crown.mat.transparent, false); assert.equal(crown.mat.depthWrite, true);
+    const shader = { uniforms: {}, vertexShader: '#include <project_vertex>', fragmentShader: '#include <clipping_planes_fragment>\n#include <dithering_fragment>' };
+    crown.mat.onBeforeCompile(shader);
+    assert.equal(shader.uniforms.uFocusFoot, focus.uFocusFoot);
+    assert.ok(shader.fragmentShader.includes('keep = vFocusW.y <= uFocusFoot + 0.02;'), 'reveal retains leaves below the feet');
+    assert.ok(shader.fragmentShader.includes('across < r && !keep) discard'), 'higher leaves still reveal the animal');
+    assert.notEqual(crown.mat.customProgramCacheKey(), flora.foliage.customProgramCacheKey(), 'support crown compiles its own reveal shader');
+    focus.uFocusAmt.value = 0; dispose(f);
+  }
 });
 check('Boundary hysteresis keeps the current tree until a climber reaches the next crown', () => {
   const f = setup(), { a, actors, game, flora } = f;
@@ -122,6 +141,7 @@ check('Cached plant replays preserve inside and border tree holds while paused',
     assert.ok(flora.lastRebuild.worked < flora.lastRebuild.tiles, 'unchanged tiles are replayed from cache');
     const live = flora.treeSites.get(key);
     assert.ok(live && live !== old && live.geo === old.geo, 'replay recreates the same supporting scaffold');
+    assert.equal(live.crown, old.crown, 'cached rebuild retains the supporting leaves and seasonal color');
     assert.equal(live.tile, key); assert.deepEqual(live.cell, [40, z]);
     assert.deepEqual(live.transform, old.transform);
     actors.update(game, right, 1.1);
