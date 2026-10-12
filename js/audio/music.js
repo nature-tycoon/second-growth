@@ -8,6 +8,7 @@ import { SOUNDSCAPES, PROMINENT_CALLS, natureMix, natureCallRates } from './natu
 import { RUT_SOUNDS, RACK_PITCH, soundFile } from './sounds.js';
 import { FIELD_RECORDINGS, MAP_RECORDINGS, RECORDED_BEDS } from './recordings.js';
 import { seamlessLoop } from './loop.js';
+import { makeRainBuffer, createRainSource } from './rain.js';
 
 const FADE = 4;        // seconds of crossfade between tracks
 const GAP = 1.5;       // quiet seconds after a track fails to load, before the next
@@ -34,6 +35,7 @@ export class Music {
     this.rutClips = new Map(); this.rutLast = 0; this.rutBulls = new Map();
     this.fieldClips = new Map(); this.fieldLoads = new Map(); this.fieldRetry = new Map();
     this.fieldBeds = new Map();
+    this.rainClip = null;
   }
 
   // Browsers only allow audio after the player has clicked or pressed something.
@@ -144,12 +146,16 @@ export class Music {
   startNature() {
     const ctx = this.ctx;
     this.callGain = ctx.createGain(); this.callGain.connect(this.natureGain);
-    // The environment controls levels as before; the beds themselves are field recordings.
-    for (const name of Object.keys(RECORDED_BEDS)) {
+    // Wildlife and habitat beds are recorded; rain is a steady synthesized hiss.
+    for (const name of ['rain', ...Object.keys(RECORDED_BEDS)]) {
       const gain = this[name + 'Gain'] = ctx.createGain();
       gain.gain.value = 0; gain.connect(this.natureGain);
     }
     this.updateNature();
+  }
+
+  rainBuffer() {
+    return this.rainClip ??= makeRainBuffer(this.ctx);
   }
 
   setLand(L) {
@@ -170,8 +176,14 @@ export class Music {
   updateNature() {
     if (!this.ctx || !this.rainGain) return;
     const mix = natureMix(this.land, this.weather, this.season), t = this.ctx.currentTime;
+    this.rainGain.gain.setTargetAtTime(mix.rain, t, 2.5);
+    if (mix.rain > 0 && this.natureOn && !this.muted && !this.fieldBeds.has('rain')) {
+      const source = createRainSource(this.ctx, this.rainBuffer(), this.rainGain);
+      source.start(0, Math.random() * source.buffer.duration);
+      this.fieldBeds.set('rain', source);
+    }
     for (const [name, id] of Object.entries(RECORDED_BEDS)) {
-      this[name + 'Gain'].gain.setTargetAtTime(mix[name], t, name === 'rain' ? 2.5 : 1.5);
+      this[name + 'Gain'].gain.setTargetAtTime(mix[name], t, 1.5);
       if (mix[name] > 0 && this.natureOn && !this.muted && FIELD_RECORDINGS[id] && !this.fieldBeds.has(name)) {
         this.loadField(id).then(() => {
           if (this.fieldBeds.has(name) || !this.natureOn || this.muted || !natureMix(this.land, this.weather, this.season)[name]) return;

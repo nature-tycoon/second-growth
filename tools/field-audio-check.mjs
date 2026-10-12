@@ -5,6 +5,7 @@ import { FIELD_RECORDINGS, MAP_RECORDINGS, RECORDED_BEDS } from '../js/audio/rec
 import { SOUNDSCAPES } from '../js/audio/nature.js';
 import { SOUND_CREDITS, soundFile } from '../js/audio/sounds.js';
 import { Music } from '../js/audio/music.js';
+import { makeRainBuffer } from '../js/audio/rain.js';
 
 const sources = JSON.parse(readFileSync(new URL('../assets/sounds/field-sources.json', import.meta.url)));
 const audit = JSON.parse(readFileSync(new URL('./audio-voice-audit.json', import.meta.url)));
@@ -36,6 +37,25 @@ for (const [map, P] of Object.entries(SOUNDSCAPES)) {
   for (const [, voice] of P.calls) assert.ok(audit[map].calls[voice]);
 }
 for (const id of Object.values(RECORDED_BEDS)) assert.ok(FIELD_RECORDINGS[id], `${id}: recorded ambience`);
+assert.ok(!RECORDED_BEDS.rain && !FIELD_RECORDINGS['bed-rain'], 'short patterned rain recording is retired');
+
+// Synthetic rain must not have the old excerpt's short repeating signature or swells.
+const rainContext = { sampleRate: 32000, createBuffer(channels, length, rate) {
+  const data = new Float32Array(length);
+  return { numberOfChannels: channels, length, sampleRate: rate, duration: length / rate, getChannelData: () => data };
+} };
+const rain = makeRainBuffer(rainContext), data = rain.getChannelData(0), levels = [];
+assert.ok(rain.duration >= 59.9, 'rain has a minute-long buffer');
+for (let second = 0; second < 60; second++) {
+  let sum = 0; for (let i = second * rain.sampleRate; i < (second + 1) * rain.sampleRate; i++) sum += data[i] ** 2;
+  levels.push(Math.sqrt(sum / rain.sampleRate));
+}
+assert.ok(Math.max(...levels) / Math.min(...levels) < 1.08, 'steady rain level without modulation');
+for (const seconds of [1, 2, 4, 5, 8]) {
+  const lag = seconds * rain.sampleRate; let product = 0, energy = 0;
+  for (let i = lag; i < data.length; i += 17) { product += data[i] * data[i - lag]; energy += data[i] ** 2; }
+  assert.ok(Math.abs(product / energy) < 0.03, `rain does not repeat every ${seconds} seconds`);
+}
 
 // Verify the real playback path, not an oscillator substitute, and source cleanup.
 const m = new Music(), nodes = [];

@@ -267,17 +267,6 @@ export const FIELD_RECORDINGS = {
     "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
     "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
   },
-  "bed-rain": {
-    "clips": [
-      "field-bed-rain-1"
-    ],
-    "gain": 0.32,
-    "source": "https://www.nps.gov/subjects/sound/sounds-rain.htm",
-    "by": "National Park Service",
-    "license": "Public domain",
-    "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
-    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
-  },
   "cow": {
     "clips": [
       "field-cow-1",
@@ -560,4 +549,4 @@ export const MAP_RECORDINGS = {
   }
 };
 
-export const RECORDED_BEDS = { rain: "bed-rain", creek: "bed-stream", river: "bed-stream", surf: "bed-ocean", bugs: "bed-crickets", reef: "bed-reef", wind: "bed-wind", leaves: "bed-wind" };
+export const RECORDED_BEDS = { creek: "bed-stream", river: "bed-stream", surf: "bed-ocean", bugs: "bed-crickets", reef: "bed-reef", wind: "bed-wind", leaves: "bed-wind" };

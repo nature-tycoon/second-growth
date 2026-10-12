@@ -54,8 +54,30 @@ try {
       return rows;
     } finally {await ctx.close();}
   })()`,60000);
-  assert.equal(loops.length,6);
-  console.log('All six continuous recordings loop for three passes without restart gaps, seam clicks or abrupt level changes.');
+  assert.equal(loops.length,5);
+  console.log('All five continuous recordings loop for three passes without restart gaps, seam clicks or abrupt level changes.');
+  const rain = await b.evaluate(`(async () => {
+    const { Music }=await import('/js/audio/music.js');
+    const { createRainSource }=await import('/js/audio/rain.js');
+    const ctx=new AudioContext(), player=new Music();player.ctx=ctx;
+    try {
+      const clip=player.rainBuffer();if(clip!==player.rainBuffer())throw new Error('Rain buffer regenerated');
+      if(clip.duration<59.9)throw new Error('Rain repeats too soon');
+      const offline=new OfflineAudioContext(1,Math.ceil(62*clip.sampleRate),clip.sampleRate);
+      const source=createRainSource(offline,clip,offline.destination);source.start();
+      const data=(await offline.startRendering()).getChannelData(0), levels=[];
+      for(let second=0;second<62;second++){
+        let sum=0;for(let i=second*clip.sampleRate;i<(second+1)*clip.sampleRate;i++)sum+=data[i]**2;
+        levels.push(Math.sqrt(sum/clip.sampleRate));
+      }
+      const low=Math.min(...levels),high=Math.max(...levels);
+      if(low<0.01 || high/low>1.08)throw new Error('Rain swells rhythmically or drops at its seam');
+      let peak=0;for(const v of data)peak=Math.max(peak,Math.abs(v));if(peak>=0.99)throw new Error('Rain clips');
+      return {duration:clip.duration,low,high,peak};
+    } finally {await ctx.close();}
+  })()`,60000);
+  assert.ok(rain.duration>=59.9);
+  console.log('Synthesized rain stays steady through its minute-long loop: no volume pulses, seam drops or clipping.');
   const bedButton=await b.evaluate(`(() => {const button=document.querySelector('[data-bed="bed-stream"]');button.scrollIntoView();const r=button.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
   await b.send('Input.dispatchMouseEvent',{type:'mousePressed',...bedButton,button:'left',clickCount:1});
   await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',...bedButton,button:'left',clickCount:1});
@@ -63,6 +85,9 @@ try {
   assert.ok(await b.evaluate(`window.getPreviewBed().buffer===window.getPreviewPlayer().fieldClips.get('field-bed-stream-1')`),'preview uses the game loop buffer');
   await b.evaluate(`document.getElementById('pause').click()`);
   assert.equal(await b.evaluate(`window.getPreviewBed()`),null,'Stop releases the individual loop');
+  await b.evaluate(`document.querySelector('[data-bed="rain"]').click()`);
+  assert.ok(await b.evaluate(`window.getPreviewBed()?.buffer===window.getPreviewPlayer().rainClip`),'rain preview uses the game noise buffer');
+  await b.evaluate(`document.getElementById('pause').click()`);
   const runtime = await b.evaluate(`(async () => {
     const { Music } = await import('/js/audio/music.js');
     const { FIELD_RECORDINGS, MAP_RECORDINGS } = await import('/js/audio/recordings.js');
@@ -117,8 +142,10 @@ try {
         rows.push({map:music.land.map,beds:music.fieldBeds.size,clips:music.fieldClips.size});
         if(music.land.map!==map)throw new Error('Stale map soundscape');
       }
+      music.setScene('rain',0);
+      if(music.fieldBeds.get('rain')?.buffer!==music.rainClip || !music.rainClip)throw new Error('Game rain did not use synthesis');
+      for(const source of music.fieldBeds.values())if(!source.loop || (source.buffer!==music.rainClip && ![...music.fieldClips.values()].includes(source.buffer)))throw new Error('Game bed bypassed seamless buffer');
       music.set({muted:true});
-      for(const source of music.fieldBeds.values())if(!source.loop || ![...music.fieldClips.values()].includes(source.buffer))throw new Error('Game bed bypassed seamless buffer');
       if(music.lion()!==0)throw new Error('Muted wildlife still schedules');
       return rows;
     } finally { ui.frame=frame; }

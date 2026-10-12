@@ -17,11 +17,12 @@
 <p id="rut-note" class="intro"></p>
 <h2>Wildlife recordings</h2><div id="voices"></div>
 <details><summary>Quiet voices from the audit</summary><p class="intro">Synthesized approximations were removed where a correctly identified, reusable recording could not be verified.</p><div id="quiet"></div></details>
-<h2>Weather, water and insects</h2><p class="intro">Continuous previews use the same seamless loop buffers as the game.</p><div id="beds"></div>
+<h2>Weather, water and insects</h2><p class="intro">Continuous previews use the same seamless playback as the game. Rain is a steady synthesized hiss; the other layers use field recordings.</p><div id="beds"></div>
 <details><summary>Current mix and eligible calls</summary><pre id="mix"></pre></details>
 <pre id="audit">The file check decodes every recording and checks for silence, clipping and audio size.</pre>
 <script type="module">
 import { Music } from '../js/audio/music.js';
+import { createRainSource } from '../js/audio/rain.js';
 import { SOUNDSCAPES, natureMix, natureCallRates } from '../js/audio/nature.js';
 import { FIELD_RECORDINGS, MAP_RECORDINGS } from '../js/audio/recordings.js';
 import { soundFile, RUT_SOUNDS, SOUND_CREDITS } from '../js/audio/sounds.js';
@@ -88,17 +89,18 @@ function refresh(newMap=false) {
   const quiet=[];for(const [kind,entries] of Object.entries(voiceAudit[map]))for(const [key,item] of Object.entries(entries))if(!item.recording){const animal=kind==='birds'?key:SOUNDSCAPES[map].calls.find(c=>c[1]===key)?.[0];quiet.push(catalog[map][animal]||key);}
   $('quiet').textContent=quiet.length?quiet.join(', '):'Every original wildlife voice has a verified recording.';
 }
-for(const [id,def] of Object.entries(FIELD_RECORDINGS))if(id.startsWith('bed-')){
-  const div=document.createElement('div');div.className='bed';const label=document.createElement('b');label.textContent=id.replace('bed-','');
+for(const [id,def] of [...Object.entries(FIELD_RECORDINGS).filter(([id])=>id.startsWith('bed-')),['rain',null]]){
+  const div=document.createElement('div');div.className='bed';const label=document.createElement('b');label.textContent=def?id.replace('bed-',''):'rain · synthesized';
   const button=document.createElement('button');button.textContent='Play loop';button.dataset.bed=id;
   button.onclick=async()=>{
     const stopping=soloButton===button;stopSolo();if(stopping)return;
     for(const a of document.querySelectorAll('audio'))a.pause();
     ensurePlayer();player.set({muted:true});const request=soloRequest;soloButton=button;button.textContent='Loading…';
-    await player.loadField(id);if(request!==soloRequest)return;
-    const clip=player.fieldClips.get(def.clips[0]);if(!clip){button.textContent='Retry loop';soloButton=null;return;}
-    soloBed=player.ctx.createBufferSource();soloBed.buffer=clip;soloBed.loop=true;
-    soloBed.connect(player.ctx.destination);soloBed.start();button.textContent='Stop loop';
+    if(def)await player.loadField(id);if(request!==soloRequest)return;
+    const clip=def?player.fieldClips.get(def.clips[0]):player.rainBuffer();if(!clip){button.textContent='Retry loop';soloButton=null;return;}
+    if(def){soloBed=player.ctx.createBufferSource();soloBed.buffer=clip;soloBed.loop=true;soloBed.connect(player.ctx.destination);}
+    else soloBed=createRainSource(player.ctx,clip,player.ctx.destination);
+    soloBed.start();button.textContent='Stop loop';
   };
   div.append(label,document.createElement('br'),button);$('beds').append(div);
 }

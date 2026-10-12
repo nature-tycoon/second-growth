@@ -188,14 +188,6 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - License: Public domain — https://www.nps.gov/subjects/sound/gallery.htm
 - Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.
 
-## bed-rain
-
-- Files: `field-bed-rain-1.m4a`
-- Creator: National Park Service
-- Source: https://www.nps.gov/subjects/sound/sounds-rain.htm
-- License: Public domain — https://www.nps.gov/subjects/sound/gallery.htm
-- Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.
-
 ## cow
 
 - Files: `field-cow-1.m4a`, `field-cow-2.m4a`
