@@ -108,15 +108,44 @@ check('Every snake has distinct high-contrast markings, attached eyes and a fork
   }
   assert.equal(signatures.size, 5);
 });
-check('Slithering grows toward the tail; resting motion is subtle and tongue flicks reach the shader', () => {
-  for (const [key, { motion }] of models) {
-    assert.ok(motion.waveMin <= .15 && motion.waveRest < .03 && motion.wavePow < 1, `${key}: quiet head/resting pose`);
-    assert.equal(motion.bob, 0); assert.equal(motion.tongue, 1);
+check('Crawling bends stay put on the ground, keep the body\'s girth, and tongue flicks reach the shader', () => {
+  // A replica of the shader's slither(): each ring of the spine turns with the travelling curve.
+  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  for (const [key, { geo, motion }] of models) {
+    const { amp, len, nose } = motion.slither;
+    const rest = x => { const t = (nose - x) / len; return amp * smooth(.09, .22, t) * Math.sin(t * Math.PI * 2); };
+    const crawl = (x, ph) => { const t = (nose - x) / len; return amp * smooth(-.02, .32, t) * Math.sin(t * Math.PI * 2 - ph); };
+    const slope = (f, x) => (f(x + len * .01) - f(x - len * .01)) / (len * .02);
+    const p = geo.attributes.position, piv = geo.attributes.aPivot, parts = geo.attributes.aPart, rings = new Map();
+    for (let i = 0; i < p.count; i++) if (parts.getX(i) === 11) {
+      const k = piv.getX(i).toFixed(4); if (!rings.has(k)) rings.set(k, []); rings.get(k).push(i);
+    }
+    assert.ok(rings.size > 100, `${key}: the body is one spine part`);
+    for (const ring of rings.values()) {
+      const c = new Vector3().fromBufferAttribute(piv, ring[0]);
+      assert.ok(Math.abs(c.z - rest(c.x)) < amp * 1e-3, `${key}: each ring's pivot is its point on the resting spine`);
+    }
+    // girth through the bends: every ring keeps its width as the curve passes through it
+    for (const ph of [1, 2.5, 4]) for (const ring of rings.values()) {
+      const c = new Vector3().fromBufferAttribute(piv, ring[0]), turn = Math.atan(slope(x => crawl(x, ph), c.x)) - Math.atan(slope(rest, c.x));
+      const moved = ring.map(i => { const ox = p.getX(i) - c.x, oz = p.getZ(i) - c.z; return [c.x + ox * Math.cos(turn) - oz * Math.sin(turn), crawl(c.x, ph) + ox * Math.sin(turn) + oz * Math.cos(turn)]; });
+      const span = pts => Math.max(...pts.flatMap(a => pts.map(b => Math.hypot(a[0] - b[0], a[1] - b[1]))));
+      const before = span(ring.map(i => [p.getX(i), p.getZ(i)]));
+      assert.ok(Math.abs(span(moved) - before) < before * .02 + 1e-3, `${key}: girth holds at phase ${ph}`);
+    }
+    // ground-fixed: moved forward by d with the phase advanced 2πd/len, a mid-body bend is where it was
+    for (const d of [len * .1, len * .3]) for (const x of [nose - len * .5, nose - len * .7])
+      assert.ok(Math.abs(crawl(x - d, Math.PI * 2 * d / len) - crawl(x, 0)) < amp * 1e-6, `${key}: bends stay put as it crawls`);
+    // the head barely swings
+    assert.ok(Math.abs(crawl(nose, 1.5)) < amp * .02, `${key}: the head leads steadily`);
+    assert.equal(motion.bob, 0); assert.equal(motion.tongue, 1); assert.equal(motion.wave, 0);
     const material = faunaMaterial(motion), shader = { uniforms: {}, vertexShader: '' }; material.onBeforeCompile(shader);
-    assert.equal(shader.uniforms.uWaveRest.value, motion.waveRest); assert.equal(shader.uniforms.uTongue.value, 1); material.dispose();
+    assert.equal(shader.uniforms.uSlither.value, amp); assert.equal(shader.uniforms.uSlitherLen.value, len);
+    assert.equal(shader.uniforms.uTongue.value, 1); assert.ok(shader.vertexShader.includes('void slither('));
+    material.dispose();
   }
   const material = faunaMaterial({ wave: 0 }), shader = { uniforms: {}, vertexShader: '' }; material.onBeforeCompile(shader);
-  assert.equal(shader.uniforms.uWaveRest.value, .35); assert.equal(shader.uniforms.uTongue.value, 0); material.dispose();
+  assert.equal(shader.uniforms.uSlither.value, 0); assert.equal(shader.uniforms.uTongue.value, 0); material.dispose();
 });
 for (const { geo } of models.values()) geo.dispose();
 console.log(`${checks} snake model checks passed.`);

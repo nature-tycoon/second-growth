@@ -12,7 +12,8 @@ import { SIAMANG_SWING_GLSL } from './siamang-swing.js';
 import { withClouds } from './atmosphere.js';
 
 // Body parts the shader knows how to move.
-const P = { BODY: 0, LEG_FL: 1, LEG_FR: 2, LEG_BL: 3, LEG_BR: 4, TAIL: 5, WING_L: 6, WING_R: 7, HEAD: 8, TONGUE: 9, FRUIT: 10 };
+const P = { BODY: 0, LEG_FL: 1, LEG_FR: 2, LEG_BL: 3, LEG_BR: 4, TAIL: 5, WING_L: 6, WING_R: 7, HEAD: 8, TONGUE: 9, FRUIT: 10, SPINE: 11 };
+// (SPINE: a snake's body, whose every vertex carries its ring's point on the spine as its pivot)
 
 // ---------------------------------------------------------------- colour helpers
 const colorCache = new Map();
@@ -1044,11 +1045,12 @@ const MAMMALS = {
     };
   },
   feline: s => {
-    // Jaguars carry their bulk in the chest and thighs, with tapered wrists and compact paws.
+    // Jaguars carry their bulk in the chest and thighs, with tapered wrists and compact paws,
+    // but stay compact: a tucked belly, a body no deeper than the legs are long, a broad (not huge) head.
     // Lionesses keep lion proportions and a tail tuft without inheriting a jaguar's stocky build.
     const lion = !!(s.lion || s.mane), k = s.stocky && !lion ? 1 : 0;
-    const L = s.len, H = s.h * (1 + k * 0.08), leg = s.leg * (lion ? 0.95 : 0.85), by = leg + H * 0.5;
-    const hs = lion ? (s.mane ? 1.1 : 1) : 1 + k * 0.18;
+    const L = s.len, H = s.h * (1 + k * 0.02), leg = s.leg * (lion ? 0.95 : k ? 0.92 : 0.85), by = leg + H * 0.5;
+    const hs = lion ? (s.mane ? 1.1 : 1) : 1 + k * 0.08;
     // (The Sumatran tiger, stripes, has a builder of its own: see tiger.)
     // Sunda clouded leopard (clouds): long and low, dark-rimmed cloud blotches, a huge thick ringed tail.
     // Leopard cat (spotted): small, tawny with solid black spots and dark lines over the head.
@@ -1059,14 +1061,14 @@ const MAMMALS = {
       : k ? felineSpots(s, H) : null;
     const ring = (w, f) => (u, p) => (Math.sin(p.x * 2 * Math.PI / (H * w)) > 0.35 ? tmp.copy(col(s.color)).lerp(dk, f) : col(s.color));
     return {
-      H, leg, wide: lion && !s.mane ? 0.94 : 1, chest: 1 + k * 0.07,
-      shoulder: lion ? 0.09 : 0.04, haunch: lion ? 0.94 : 1, sag: lion ? 0.01 : 0.04,
+      H, leg, wide: lion && !s.mane ? 0.94 : k ? 0.9 : 1, chest: 1 - k * 0.03,
+      shoulder: lion ? 0.09 : k ? 0.07 : 0.04, haunch: lion ? 0.94 : k ? 0.9 : 1, sag: lion ? 0.01 : k ? -0.02 : 0.04,
       legR0: H * (lion ? (s.mane ? 0.19 : 0.18) : k ? 0.205 : s.cheetah ? 0.16 : 0.22),
       legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : 0.14),
-      neckR: H * (lion ? 0.25 : 0.3 + k * 0.04), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
+      neckR: H * (lion ? 0.25 : 0.3 - k * 0.02), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
       coat, legColor, fine: s.clouds ? 2 : lion, detail: !!(lion || k), legRings: legColor ? 8 : undefined,
       paws: true, toes: true, smoothLegs: true, // soft, articulated paws
-      head: [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.4 : 0.36) * hs, H * (lion ? 0.29 : 0.33) * hs, H * (lion ? 0.3 : 0.34) * hs], snout: H * (lion ? 0.19 : 0.15) * hs,
+      head: [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.34 : 0.36) * hs, H * (lion ? 0.31 : 0.33) * hs, H * (lion ? 0.32 : 0.34) * hs], snout: H * 0.15 * hs,
       nose: lion || k ? false : undefined, eyeR: lion ? H * 0.038 : undefined,
       ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : 0.24), earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
       earColor: null,
@@ -1090,13 +1092,13 @@ const MAMMALS = {
           }
         }
         if (lion) {
-          // A low brow and a broad, flat nose keep the longer muzzle feline.
+          // A low brow and a broad, flat nose on a short, deep muzzle.
           for (const side of [-1, 1]) {
             m.ell([hp[0] + hr[0] * 0.37, hp[1] + hr[1] * 0.5, side * hr[2] * 0.74], [H * 0.12, H * 0.022, H * 0.07], s.color, { ...hd, rot: [0, 0, -0.16] });
             m.ell([hp[0] - hr[0] * 0.3, hp[1] + hr[1] * 0.86, side * hr[2] * 0.83], [H * 0.065, H * 0.09, H * 0.075], shade(s.mane || s.color, -0.25), hd);
             m.ell([hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.87, side * hr[2] * 0.84], [H * 0.04, H * 0.065, H * 0.055], s.color, hd);
           }
-          const noseX = hp[0] + hr[0] * 0.78 + H * 0.19 * hs * 1.18;
+          const noseX = hp[0] + hr[0] * 0.78 + H * 0.15 * hs * 1.18;
           m.ell([noseX, hp[1] - hr[1] * 0.17, 0], [H * 0.045, H * 0.04, H * 0.078], '#34251d', hd);
           m.limb([noseX, hp[1] - hr[1] * 0.28, 0], [noseX - H * 0.025, hp[1] - hr[1] * 0.49, 0], H * 0.013, H * 0.01, '#34251d', { ...hd, caps: false });
         }
@@ -2541,6 +2543,7 @@ function snake(m, s) {
   const headW = heavy ? .088 : boa ? .096 : python ? .087 : rat ? .065 : .054;
   const headH = heavy ? .052 : boa || python ? .046 : .035;
   const length = python ? 2.6 : 2.4, noseX = length * .49, tailAt = heavy ? .86 : boa ? .79 : python ? .80 : .69;
+  const curve = heavy ? .27 : python ? .35 : .38; // (the resting S: one full bend along the body)
   const back = col(s.color), belly = col(s.belly || shade(s.color, .42)), dark = col(s.side || s.stripe || '#29291f');
   const light = col(s.blotches || s.stripe || shade(s.color, .18));
   // [length fraction, half-width, half-height, height above the resting belly]
@@ -2555,7 +2558,7 @@ function snake(m, s) {
     const a = K[k], b = K[k + 1], f = smooth(a[0], b[0], t);
     const width = a[1] + (b[1] - a[1]) * f, height = a[2] + (b[2] - a[2]) * f;
     const lift = a[3] + (b[3] - a[3]) * f;
-    const z = Math.sin(t * Math.PI * 2) * (heavy ? .27 : python ? .35 : .38) * smooth(.09, .22, t);
+    const z = Math.sin(t * Math.PI * 2) * curve * smooth(.09, .22, t);
     return { x: (noseX - t * length) * S, y: (height * .74 + lift) * S, z: z * S, width: width * S, height: height * S };
   };
   const blotch = (t, angle, count, center, spread, offset = 0) => {
@@ -2616,7 +2619,9 @@ function snake(m, s) {
   const g = new THREE.BufferGeometry(), paintGeo = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   paintGeo.setAttribute('position', new THREE.Float32BufferAttribute(unit, 3));
-  m.add(g, new THREE.Matrix4(), paint, { paintGeo }); g.dispose(); paintGeo.dispose();
+  m.add(g, new THREE.Matrix4(), paint, { paintGeo, part: P.SPINE }); g.dispose(); paintGeo.dispose();
+  const spine = m.parts[m.parts.length - 1].attributes.aPivot;
+  for (let i = 0; i <= R; i++) { const c = profile(i / R); for (let j = 0; j <= A; j++) spine.setXYZ(i * (A + 1) + j, c.x, c.y, c.z); }
   // Lateral eyes for the land snakes; the anaconda's eyes sit higher on its head.
   const eyeT = .043, e = profile(eyeT), ey = heavy ? .70 : .35, er = S * (heavy ? .014 : .012);
   for (const side of [-1, 1]) {
@@ -2633,6 +2638,7 @@ function snake(m, s) {
   const tip = profile(.002), root = [noseX * S, tip.y - S * .005, 0], tongue = { part: P.TONGUE, pivot: root, seg: 5, caps: false };
   m.limb(root, [root[0] + S * .085, root[1], 0], S * .005, S * .003, '#493038', tongue);
   for (const side of [-1, 1]) m.limb([root[0] + S * .080, root[1], 0], [root[0] + S * .126, root[1] - S * .002, side * S * .019], S * .003, S * .001, '#493038', tongue);
+  return { amp: curve * S, len: length * S, nose: noseX * S }; // the resting curve, for the crawl
 }
 
 // Fish share one body plan, varied per species:
@@ -3746,7 +3752,8 @@ export function buildSpecies(def) {
     case 'newt': newt(m, s); mo.leg = 0.5; mo.wave = s.size * 0.05; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.4; mo.waveLen = s.size * 1.2; mo.sink = s.size * 0.12; break;
     case 'turtle': if (s.sea) { seaTurtle(m, s); mo.leg = 0.55; mo.bob = 0; } else turtle(m, s); mo.leg ??= 0.35; mo.sink = s.size * 0.2; break;
     case 'dugong': dugong(m, s); mo.leg = 0.32; mo.tail = 0; break; // (the flukes beat up and down: see dugong)
-    case 'snake': snake(m, s); mo.wave = s.size * (s.heavy ? .065 : .085); mo.waveK = Math.PI * 2 / (s.size * 1.7); mo.waveHead = s.size * 1.3; mo.waveLen = s.size * (s.reticulated ? 2.6 : 2.4); mo.waveMin = .12; mo.wavePow = .7; mo.waveRest = .015; mo.tongue = 1; mo.sink = s.size * (s.heavy ? .095 : .045); break;
+    // (a snake's S-curve rides back along its body as it crawls; see uSlither in the shader)
+    case 'snake': mo.slither = snake(m, s); mo.tongue = 1; mo.sink = s.size * (s.heavy ? .095 : .045); break;
     case 'person': person(m, s.look, !!s.snorkel); mo.leg = 0.5; mo.bob = 0.5; mo.len = 8; break;
     case 'butterflyfish': butterflyfish(m, s); mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.1; mo.waveLen = s.size * 0.6; mo.sink = s.size * 0.32; mo.tail = 0.5; break;
     // (a shark swims with its whole back half: about one wave along the body, the head almost
@@ -3868,6 +3875,7 @@ export function faunaMaterial(motion) {
     uLeg: { value: motion.leg }, uBob: { value: motion.bob }, uTail: { value: motion.tail }, uFlap: { value: motion.flap },
     uHead: { value: motion.head ?? 0.9 }, uWave: { value: motion.wave }, uWaveK: { value: motion.waveK }, uWaveHead: { value: motion.waveHead }, uWaveLen: { value: motion.waveLen },
     uVerticalWave: { value: motion.verticalWave ?? 0 }, uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uWaveRest: { value: motion.waveRest ?? .35 }, uTongue: { value: motion.tongue ?? 0 }, uBend: { value: motion.bend ?? 0 },
+    uSlither: { value: motion.slither?.amp ?? 0 }, uSlitherLen: { value: motion.slither?.len ?? 1 }, uSlitherNose: { value: motion.slither?.nose ?? 0 },
   };
   mat.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, u);
@@ -3875,14 +3883,30 @@ export function faunaMaterial(motion) {
       attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim;
       ${motion.primate === 3 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
       ${motion.canopyFeet ? 'attribute vec4 aGripA; attribute vec4 aGripB; attribute vec4 aGripC;' : ''}
-      uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan;
+      uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan, uSlither, uSlitherLen, uSlitherNose;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
       vec3 rotY(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c); }
       vec3 rotZ(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c - q.y * s, q.x * s + q.y * c, q.z); }
       ${SIAMANG_SWING_GLSL}
+      // Serpentine crawl: the model's resting S travels tailward as fast as the snake moves forward
+      // (the actor advances the phase by distance, in the fly slot), so each bend stays put on the
+      // ground while the body flows through it. A stopped snake holds its shape. Each slice of the
+      // body turns with the curve, so steep bends keep their girth.
+      float slitherRest(float x) { float t = (uSlitherNose - x) / uSlitherLen; return uSlither * smoothstep(.09, .22, t) * sin(t * 6.283185); }
+      // (the neck eases into the bends over a longer stretch than the resting pose, so the head leads smoothly)
+      float slitherCrawl(float x, float ph) { float t = (uSlitherNose - x) / uSlitherLen; return uSlither * smoothstep(-.02, .32, t) * sin(t * 6.283185 - ph); }
+      void slither(inout vec3 p, inout vec3 n, float ph) {
+        if (aPart < 10.5) { p.z += slitherCrawl(p.x, ph) - slitherRest(p.x); return; } // (eyes, jaw, tongue: carried along with the head)
+        float x = aPivot.x, e = uSlitherLen * .01;
+        float turn = atan((slitherCrawl(x + e, ph) - slitherCrawl(x - e, ph)) / (2.0 * e)) - atan((slitherRest(x + e) - slitherRest(x - e)) / (2.0 * e));
+        vec3 q = rotY(p, aPivot, -turn);
+        p = vec3(q.x, q.y, q.z - aPivot.z + slitherCrawl(x, ph));
+        n = rotY(n, vec3(0.0), -turn);
+      }
       // Rotate lighting normals alongside each rigid part. Birds also flex the outer wing and
       // interpolate a compact resting tail into a modest flight fan; other fauna keep their poses.
       void animatePart(inout vec3 p, inout vec3 n) {
+        if (aPart > 10.5) return; // (a snake's spine: see slither)
         float ph = aAnim.x, gait = aAnim.y, fly = aAnim.z;
         vec3 zero = vec3(0.0);
         bool wing = aPart > 5.5 && aPart < 7.5;
@@ -3970,6 +3994,7 @@ export function faunaMaterial(motion) {
         vec3 objectNormal = normal;
         vec3 faunaPosition = position;
         animatePart(faunaPosition, objectNormal);
+        if (uSlither > 0.0) slither(faunaPosition, objectNormal, aAnim.z);
         if (uPrimate > 2.5) objectNormal = rotZ(objectNormal, vec3(0.0), sin(aAnim.x) * .12 * aAnim.y * (1.0 - aAnim.z));
       `)
       .replace('#include <begin_vertex>', `

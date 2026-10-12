@@ -10,7 +10,7 @@ export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.m4a': 'audio/mp4' };
 export const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function openBrowser({ label = 'release', root = projectRoot, software = true, width = 960, height = 600 } = {}) {
+export async function openBrowser({ label = 'release', root = projectRoot, software = true, width = 960, height = 600, pixelRatio = 1 } = {}) {
   if (typeof WebSocket !== 'function') throw new Error('Browser checks require Node 22 or newer.');
   const server = createServer(async (req, res) => {
     try {
@@ -73,7 +73,7 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
     const { sessionId } = await request('Target.attachToTarget', { targetId, flatten: true });
     const send = (method, params = {}, session = sessionId) => request(method, params, session);
     await send('Runtime.enable'); await send('Log.enable'); await send('Page.bringToFront');
-    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: pixelRatio, mobile: false });
     const evaluate = async expression => {
       const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
       if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);

@@ -78,6 +78,7 @@ export class Renderer {
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
+    document.addEventListener('visibilitychange', () => { if (this.perf) this.perf.last = performance.now(); });
     canvas.addEventListener('webglcontextlost', event => {
       event.preventDefault(); // allow the browser and Three.js to restore the context
       this.contextLost = true;
@@ -514,18 +515,20 @@ export class Renderer {
 
   // The sun's shadow map is reused from frame to frame rather than redrawn every time (nothing
   // in it sways: animals have soft blob shadows of their own, and wind doesn't move the shadows).
-  // It's redrawn at once when the view moves, a plant, building or bank stone changes, the
+  // It's redrawn at once when the view moves, a selected caster, building or bank stone changes, the
   // shadow settings change, or the sun has moved a fraction of a degree; and at least twice a
   // second regardless, so anything slow and unforeseen (the reef's rocking dive boat) keeps up.
   shadowsStale() {
     const sm = this.gl.shadowMap;
     sm.autoUpdate = false;
-    const c = this.camera, sun = this.sun, now = performance.now(), S = this.shadowState ||= { key: '', dir: new THREE.Vector3(), at: 0 };
-    const key = [c.left, c.right, c.top, c.bottom, c.position.x, c.position.y, c.position.z, floraVersion.n, this.terrain.banks?.version ?? 0,
-      this.structVersion || 0, sun.castShadow, sun.shadow.mapSize.x, !!sun.shadow.map].join('|');
+    const c = this.camera, sun = this.sun, now = this.diagnosticTime ?? performance.now(), S = this.shadowState ||= { key: '', dir: new THREE.Vector3(), at: 0, plants: -1 };
+    if (!sun.castShadow) { S.key = ''; return false; }
+    const plants = this.flora.plantShadows.enabled ? this.flora.plantShadows.version : floraVersion.n;
+    const key = [c.left, c.right, c.top, c.bottom, c.position.x, c.position.y, c.position.z, this.terrain.banks?.version ?? 0,
+      this.structVersion || 0, sun.castShadow, sun.shadow.mapSize.x].join('|');
     const dir = sun.position.clone().sub(sun.target.position).normalize();
-    if (key !== S.key || dir.angleTo(S.dir) > 0.003 || now - S.at > 500) {
-      S.key = key; S.dir.copy(dir); S.at = now;
+    if (!sun.shadow.map || key !== S.key || plants !== S.plants || dir.angleTo(S.dir) > 0.003 || now - S.at > 500) {
+      S.key = key; S.dir.copy(dir); S.at = now; S.plants = plants;
       this.shadowRedraws = (this.shadowRedraws || 0) + 1;
       return true;
     }
@@ -552,12 +555,20 @@ export class Renderer {
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
       shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped,
       triangles: info.triangles, draw_calls: info.calls, zoom: +(this.zoom ?? 1).toFixed(2), gpu: this.gpuName(),
-      renderer_revision: 'plant-view-1',
+      renderer_revision: 'plant-index-shadow-1',
       batched_plant_candidates: this.flora.plantView.stats.candidates,
       batched_plant_instances: this.flora.plantView.stats.visible,
       plant_view_batches: this.flora.plantView.stats.batches,
+      plant_geometry_source_vertices: this.flora.geometryIndex.stats.sourceVertices,
+      plant_geometry_shared_vertices: this.flora.geometryIndex.stats.sharedVertices,
+      plant_geometry_source_bytes: this.flora.geometryIndex.stats.sourceBytes,
+      plant_geometry_shared_bytes: this.flora.geometryIndex.stats.sharedBytes,
+      plant_shadow_candidates: this.flora.plantShadows.stats.candidates,
+      plant_shadow_instances: this.flora.plantShadows.stats.instances,
+      plant_shadow_batches: this.flora.plantShadows.stats.batches,
+      shadow_redraws: this.shadowRedraws || 0,
     };
-    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; }
+    if (reset) { P.frames = 0; P.time = 0; P.slow = 0; this.shadowRedraws = 0; }
     return out;
   }
   // the graphics chip, e.g. "Adreno (TM) 610" or "Apple GPU": a better guide to a phone's power than its model
@@ -577,13 +588,13 @@ export class Renderer {
     {
       const t = performance.now(), P = this.perf ||= { frames: 0, time: 0, slow: 0, last: t };
       const ms = t - P.last; P.last = t;
-      if (ms > 0 && ms < 1000) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; longer gaps are a hidden tab)
+      if (!document.hidden && ms > 0) { P.frames++; P.time += ms; if (ms > 34) P.slow++; }
     }
     if (dt > 0) { this.autoResolution(); this.autoQuality(); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);
     const w = this.world;
-    const now = performance.now();
+    const now = this.diagnosticTime ?? performance.now();
 
     if (Math.abs(this.azTarget - this.az) > 0.001) {
       this.az += (this.azTarget - this.az) * Math.min(1, dt * 8);
@@ -723,8 +734,17 @@ export class Renderer {
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, dt);
     this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game);
+    this.flora.syncShadows();
     this.flora.updateView(this.camera);
-    this.gl.shadowMap.needsUpdate = this.shadowsStale();
+    const redrawShadows = this.shadowsStale();
+    if (redrawShadows) {
+      this.flora.updateShadows(this.sun, this.camera);
+      // Selecting casters for a moved sun can change the plant revision in this
+      // very frame. Record it now rather than scheduling a duplicate redraw.
+      if (this.flora.plantShadows.enabled) this.shadowState.plants = this.flora.plantShadows.version;
+    }
+    this.gl.shadowMap.needsUpdate = redrawShadows;
+    this.lastShadowRedraw = redrawShadows;
     this.gl.render(this.scene, this.camera);
     this.drawFX(game, ui, dt);
   }

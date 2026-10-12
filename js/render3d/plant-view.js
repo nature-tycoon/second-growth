@@ -14,8 +14,8 @@ export function skipMainDraw(mesh) {
   return mesh;
 }
 
-class Batch {
-  constructor(scene) { this.scene = scene; this.mesh = null; this.capacity = 0; this.indices = []; this.count = 0; }
+export class PlantBatch {
+  constructor(scene, shadow = false) { this.scene = scene; this.shadow = shadow; this.mesh = null; this.capacity = 0; this.indices = []; this.count = 0; }
   write(sources, geometry, material, receiveShadow) {
     const count = this.count;
     if (count > this.capacity) {
@@ -23,8 +23,11 @@ class Batch {
       this.capacity = Math.max(16, Math.ceil(count * 1.5));
       this.mesh = new THREE.InstancedMesh(geometry, material, this.capacity);
       this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity * 3), 3);
-      this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      if (this.shadow) { this.mesh.castShadow = true; skipMainDraw(this.mesh); }
+      else {
+        this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity * 3), 3);
+        this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+      }
       // Instances have already been tested against the camera. The source
       // meshes retain the conservative bounds used by the shadow camera.
       this.mesh.frustumCulled = false;
@@ -34,17 +37,20 @@ class Batch {
     if (!mesh) return;
     mesh.geometry = geometry; mesh.material = material; mesh.receiveShadow = receiveShadow;
     mesh.count = count; mesh.visible = count > 0;
-    const matrices = mesh.instanceMatrix.array, colors = mesh.instanceColor.array;
+    const matrices = mesh.instanceMatrix.array, colors = mesh.instanceColor?.array;
     for (let k = 0; k < count; k++) {
       const source = this.indices[k * 2], index = this.indices[k * 2 + 1], original = sources[source].mesh;
-      const m = original.instanceMatrix.array, c = original.instanceColor.array;
+      const m = original.instanceMatrix.array, c = original.instanceColor?.array;
       for (let j = 0; j < 16; j++) matrices[k * 16 + j] = m[index * 16 + j];
-      colors[k * 3] = c[index * 3]; colors[k * 3 + 1] = c[index * 3 + 1]; colors[k * 3 + 2] = c[index * 3 + 2];
+      if (colors) { colors[k * 3] = c[index * 3]; colors[k * 3 + 1] = c[index * 3 + 1]; colors[k * 3 + 2] = c[index * 3 + 2]; }
     }
     if (count) {
       mesh.instanceMatrix.clearUpdateRanges(); mesh.instanceMatrix.addUpdateRange(0, count * 16);
-      mesh.instanceColor.clearUpdateRanges(); mesh.instanceColor.addUpdateRange(0, count * 3);
-      mesh.instanceMatrix.needsUpdate = mesh.instanceColor.needsUpdate = true;
+      mesh.instanceMatrix.needsUpdate = true;
+      if (colors) {
+        mesh.instanceColor.clearUpdateRanges(); mesh.instanceColor.addUpdateRange(0, count * 3);
+        mesh.instanceColor.needsUpdate = true;
+      }
       mesh.computeBoundingSphere(); // also used for draw ordering by Three.js
     }
   }
@@ -145,7 +151,7 @@ export class PlantView {
     const stats = this.stats; stats.candidates = stats.visible = stats.batches = 0; stats.updates++;
     for (const pool of flora.pools.values()) {
       let batch = this.batches.get(pool);
-      if (!batch) { batch = new Batch(this.scene); this.batches.set(pool, batch); }
+      if (!batch) { batch = new PlantBatch(this.scene); this.batches.set(pool, batch); }
       batch.count = 0;
       const sources = [...pool.subs.values()].filter(p => p.mesh);
       const first = sources[0]?.mesh;

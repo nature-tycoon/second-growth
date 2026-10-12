@@ -384,7 +384,7 @@ export class UI {
     $('#overlay').addEventListener('change', e => { this.setOverlay(e.target.value); e.target.blur(); });
     $('#btn-overlay').addEventListener('click', () => this.openOverlayPicker()); // (phones, and narrow top bars: the menu as a button)
   }
-  setSpeed(s) { this.game.speed = s; this.refreshTop(true); }
+  setSpeed(s) { this.startPause = false; this.game.speed = s; this.refreshTop(true); }
   // Touch screens: touching the map folds the tool panel down to its title, so the map has room.
   tuckToolPanel() {
     const st = this.state;
@@ -983,7 +983,11 @@ export class UI {
     m.innerHTML = `<div class="modal-head"><h2>${title}</h2><button class="x" title="Close (Esc)">×</button></div><div class="modal-body">${bodyHTML}</div>` + (foot ? `<div class="modal-foot">${foot}</div>` : '');
     back.appendChild(m);
     root.appendChild(back);
-    const close = () => { root.innerHTML = ''; this.modalOpen = false; if (onClose) onClose(); };
+    const close = () => {
+      root.innerHTML = ''; this.modalOpen = false; if (onClose) onClose();
+      // Dismissing the start-up screens (the welcome, the map and mode chooser) starts the clock.
+      if (this.startPause && !this.modalOpen) this.setSpeed(1);
+    };
     m.querySelector('.x').addEventListener('click', close);
     back.addEventListener('mousedown', e => { if (e.target === back) close(); });
     this.modalOpen = true;

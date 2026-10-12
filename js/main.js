@@ -3,6 +3,7 @@ import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
 import { createFrameLoop } from './frame-loop.js';
+import { PerformanceOverlay } from './performance.js';
 import { settings } from './settings.js';
 import { initAnalytics, analyticsWillRun, track } from './analytics.js';
 import { initLang } from './i18n.js';
@@ -55,7 +56,10 @@ async function boot() {
         game.notify(`Welcome back. It's ${game.dateString()}.`, 'season');
       }
     } else if (pending) await ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map);
-    else ui.openIntro(true, Game.hasSave(), () => { if (game.speed === 0) ui.setSpeed(1); });
+    else {
+      ui.startPause = true; // (see UI.modal: closing the start-up screens, however they're closed, unpauses)
+      ui.openIntro(true, Game.hasSave(), () => { if (game.speed === 0) ui.setSpeed(1); });
+    }
     ui.afterNewGame();
     ui.refreshTop(true);
     stage('Welcoming the wild', 82);
@@ -69,8 +73,12 @@ async function boot() {
     navigator.getBattery?.().then(b => { const upd = () => { onBattery = !b.charging; }; upd(); b.addEventListener('chargingchange', upd); }).catch(() => {});
     const targetFps = () => settings.fps === '60' ? 60 : settings.fps === '30' ? 30 : touch || onBattery ? 30 : 60;
     const frameErrors = new Set();
+    const diagnostics = new URLSearchParams(location.search).get('perf') === '1'
+      ? new PerformanceOverlay(game, renderer) : null;
     const frame = createFrameLoop({
       targetFps,
+      onFrameStart: diagnostics ? () => diagnostics.begin() : null,
+      onFrame: diagnostics ? sample => diagnostics.record(sample) : null,
       steps: [
         ['simulation', dt => { if (!renderer.contextLost) game.update(dt); }],
         ['input', dt => input.update(dt)],
@@ -115,7 +123,7 @@ async function boot() {
     });
 
     // Handy for debugging from the console.
-    window.secondGrowth = { game, renderer, ui };
+    window.secondGrowth = { game, renderer, ui, diagnostics };
   } catch (error) {
     showLoadError(error);
   }

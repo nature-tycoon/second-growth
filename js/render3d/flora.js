@@ -19,6 +19,8 @@ import { underWater, groundAt, visibleLevel } from '../sim/waterline.js';
 import { paletteLeafColor } from './palettes.js';
 import { CanopySite, canopyTile } from './canopy-support.js';
 import { PlantView, shadowOnly, skipMainDraw } from './plant-view.js';
+import { GeometryIndex } from './geometry-index.js';
+import { PlantShadows } from './plant-shadows.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler(), tmpS = new THREE.Vector3(), tmpP = new THREE.Vector3();
 const tmpC = new THREE.Color();
@@ -37,21 +39,24 @@ export const floraVersion = { n: 0 };
 // model that casts this pool's shadow in its place (soft shadows look the same from the
 // distant tree model, at a fraction of the cost).
 class Pool {
-  constructor(scene, geo, mat, { shadow = true, receive = false, geoLo = null, geoMid = null, shadowGeo = null, kind = 'plant' } = {}) {
+  constructor(scene, geo, mat, { shadow = true, receive = false, geoLo = null, geoMid = null, shadowGeo = null, kind = 'plant', geometryIndex = null } = {}) {
     this.scene = scene; this.geo = geo; this.geoLo = geoLo || geo; this.geoMid = geoMid || geo; this.shadowGeo = shadowGeo;
     this.mat = mat; this.shadow = shadow; this.receive = receive;
     this.kind = kind; this.lod = 0;
+    this.geometryIndex = geometryIndex; this.castsShadow = shadow; this.packedShadows = false;
     this.cap = 0; this.mesh = null; this.proxy = null; this.n = 0;
     this.m = []; this.c = [];
   }
   geoFor(lod) { return lod === 1 ? this.geoLo : lod === 2 ? this.geoMid : this.geo; }
+  renderGeo(geometry) { return this.geometryIndex?.get(geometry) || geometry; }
+  shadowGeometry() { return this.shadowGeo && this.lod !== 1 ? this.shadowGeo : this.geoFor(this.lod); }
   // The stand-in casts the shadow only while the view shows a more detailed model than it; when
   // the distant model is on show anyway, that casts its own shadow and the stand-in rests.
   useProxy() {
-    if (!this.proxy) return;
-    const stand = this.lod !== 1 && this.shadow;
-    this.proxy.visible = stand && this.mesh.visible;
-    this.mesh.castShadow = this.shadow && !stand;
+    if (!this.mesh) return;
+    const stand = !!(this.proxy && this.lod !== 1 && this.castsShadow);
+    if (this.proxy) this.proxy.visible = stand && this.mesh.visible && !this.packedShadows;
+    this.mesh.castShadow = this.castsShadow && !stand && !this.packedShadows;
   }
   begin() { this.n = 0; }
   add(x, y, z, sx, sy, sz, rotY, color, rotX = 0, rotZ = 0) {
@@ -67,12 +72,12 @@ class Pool {
     if (this.n > this.cap) {
       this.dispose();
       this.cap = Math.max(16, Math.ceil(this.n * 1.5));
-      this.mesh = new THREE.InstancedMesh(this.geoFor(this.lod), this.mat, this.cap);
+      this.mesh = new THREE.InstancedMesh(this.renderGeo(this.geoFor(this.lod)), this.mat, this.cap);
       this.mesh.castShadow = this.shadow && !this.shadowGeo; this.mesh.receiveShadow = this.receive;
       this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 3), 3);
       this.scene.add(this.mesh);
       if (this.shadow && this.shadowGeo) {
-        const p = this.proxy = skipMainDraw(new THREE.InstancedMesh(this.shadowGeo, shadowOnly, this.cap));
+        const p = this.proxy = skipMainDraw(new THREE.InstancedMesh(this.renderGeo(this.shadowGeo), shadowOnly, this.cap));
         p.instanceMatrix = this.mesh.instanceMatrix; // (the same trees, in the same places)
         p.castShadow = true;
         this.scene.add(p);
@@ -100,10 +105,11 @@ class Pool {
     floraVersion.n++;
     this.lod = lod;
     if (!this.mesh) return;
-    this.mesh.geometry = this.geoFor(lod);
-    this.useProxy();
+    this.mesh.geometry = this.renderGeo(this.geoFor(lod));
+    if (this.proxy) this.proxy.geometry = this.renderGeo(this.shadowGeo);
     if (this.kind === 'grass') this.mesh.visible = grass && this.n > 0;
-    if (this.kind === 'shrub') this.mesh.castShadow = this.shadow && shrubShadow; // (flower heads and fruit on a bush never cast shadows)
+    this.castsShadow = this.shadow && (this.kind !== 'shrub' || shrubShadow);
+    this.useProxy(); // flower heads and fruit on a bush never cast shadows
   }
 }
 
@@ -192,9 +198,10 @@ export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vi
   'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
 
 export class Flora {
-  constructor(scene, { chunkSize = 48, incremental = true, cullInstances = true } = {}) {
+  constructor(scene, { chunkSize = 48, incremental = true, cullInstances = true, indexedGeometry = true, cullShadows = true } = {}) {
     this.scene = scene;
     this.cullInstances = cullInstances; this.plantView = new PlantView(scene);
+    this.geometryIndex = new GeometryIndex(indexedGeometry); this.plantShadows = new PlantShadows(scene, cullShadows);
     this.chunkSize = chunkSize; this.incremental = incremental;
     this.changes = new FloraChanges(chunkSize);
     this.wind = { value: 0 };
@@ -238,7 +245,7 @@ export class Flora {
       const geoLo = buildLo ? this.geo(key + ':lo', buildLo) : geo;
       let geoMid = buildMid === 'lo' ? geoLo : buildMid ? this.geo(key + ':mid', buildMid) : geo;
       if (typeof buildMid === 'function' && geoMid !== geo && geoMid.attributes.position.count === geo.attributes.position.count) { this.geos.delete(key + ':mid'); geoMid.dispose(); geoMid = geo; } // (no lighter after all)
-      p = new ChunkedPool(() => new Pool(this.scene, geo, mat, { ...opts, geoLo, geoMid }), this);
+      p = new ChunkedPool(() => new Pool(this.scene, geo, mat, { ...opts, geoLo, geoMid, geometryIndex: this.geometryIndex }), this);
       p.setView(...this.view);
       this.pools.set(key, p);
     }
@@ -362,6 +369,15 @@ export class Flora {
   }
 
   updateView(camera) { return this.plantView.update(this, camera, floraVersion.n, this.cullInstances); }
+  syncShadows() { this.plantShadows.sync(this, floraVersion.n); }
+  updateShadows(light, camera) { this.plantShadows.update(this, light, camera, floraVersion.n); }
+  setOptimizations({ indexedGeometry = this.geometryIndex.enabled, cullShadows = this.plantShadows.enabled } = {}) {
+    if (indexedGeometry === this.geometryIndex.enabled && cullShadows === this.plantShadows.enabled) return;
+    this.geometryIndex.enabled = indexedGeometry; this.plantShadows.setEnabled(cullShadows, this);
+    for (const pool of this.pools.values()) pool.setView(...pool.view);
+    for (const pool of this.canopyPools.values()) pool.setView(pool.lod, true, true);
+    floraVersion.n++; this.plantShadows.floraVersion = -1; this.plantShadows.version++;
+  }
 
   showCanopySites(sites) {
     if (sites.size === this.canopyVisible.size && [...sites].every(s => this.canopyVisible.has(s))) return;
@@ -369,7 +385,7 @@ export class Flora {
     for (const p of this.canopyPools.values()) p.begin();
     for (const site of sites) {
       let p = this.canopyPools.get(site.geo);
-      if (!p) { p = new Pool(this.scene, site.geo, this.canopyBark, { shadow: false, receive: true }); this.canopyPools.set(site.geo, p); }
+      if (!p) { p = new Pool(this.scene, site.geo, this.canopyBark, { shadow: false, receive: true, geometryIndex: this.geometryIndex }); this.canopyPools.set(site.geo, p); }
       p.add(...site.transform, site.color);
     }
     for (const p of this.canopyPools.values()) p.end();
@@ -623,8 +639,8 @@ export class Flora {
           if (!fringeG && !p.aquatic) this.treeSites.set(canopyKey, new CanopySite(shape.trunk, [tx, ty, tz, sx, sy, sz, rot], bark, canopyKey, p.id, [x, y]));
           if (!this.pools.has(`crown:${key}`)) {
             const receive = () => this.lightingDepth !== false && !this.light && !biome.look.underwater;
-            const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, shadowGeo: shape.lo.crown, receive: receive() }), this);
-            const trunkP = new ChunkedPool(() => new Pool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk, geoMid: shape.mid.trunk, shadowGeo: shape.lo.trunk, receive: receive() }), this);
+            const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, shadowGeo: shape.lo.crown, receive: receive(), geometryIndex: this.geometryIndex }), this);
+            const trunkP = new ChunkedPool(() => new Pool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk, geoMid: shape.mid.trunk, shadowGeo: shape.lo.trunk, receive: receive(), geometryIndex: this.geometryIndex }), this);
             crown.setView(...this.view); trunkP.setView(...this.view);
             this.pools.set(`crown:${key}`, crown); this.pools.set(`trunk:${key}`, trunkP);
           }
@@ -648,7 +664,7 @@ export class Flora {
           // trees with a fruit part of their own (the oil palm's bunches) show it, in the berry colour, once old enough to bear
           if (shape.fruit && phase === 'fruit' && p.look.berry && g > 0.45) {
             if (!this.pools.has(`fruit:${key}`)) {
-              const fp = new ChunkedPool(() => new Pool(this.scene, shape.fruit, this.bark, { geoLo: shape.lo.fruit }), this);
+              const fp = new ChunkedPool(() => new Pool(this.scene, shape.fruit, this.bark, { geoLo: shape.lo.fruit, geometryIndex: this.geometryIndex }), this);
               fp.setView(...this.view); this.pools.set(`fruit:${key}`, fp);
             }
             this.pools.get(`fruit:${key}`).add(tx, ty, tz, sx, sy, sz, rot, vary(rgb(p.look.berry).map(c => c * dim), x, y, 14, 0.08));
