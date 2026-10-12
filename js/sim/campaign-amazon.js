@@ -79,10 +79,10 @@ export function amazonChapters(h) {
     {
       key: 'public', title: 'Eco-tourism', reward: 6000,
       story: 'Birdwatchers and nature lovers want to see a ranch turning back into rainforest. Their donations can carry the work from here, but crowds on the trails push shy animals away, so plan the route with care.',
-      teach: 'Build <b>trailhead parking</b> beside a road, then run a <b>nature trail</b> out through your best forest and past the water. <b>Boardwalks</b> cross the stream and marsh, and <b>viewing blinds</b> let people watch without disturbing. Weedy pasture along the trail puts visitors off.',
+      teach: 'Choose <b>Visitors → Trailhead parking</b>: the parking lot is the trailhead, and visitors need one before they can arrive. Place its <b>2 × 2 footprint on dry ground right beside a road</b>, inside the property, clear of buildings, water and trails. Use an existing road or lay one with <b>Visitors → Gravel road</b>. Then draw a <b>Nature trail</b> from within two tiles of the lot through your best forest and past the water. Connect at least <b>40 trail tiles</b>. <b>Boardwalks</b> cross the stream and marsh, and <b>Viewing blinds</b> let people watch without disturbing. Pull weeds along the trail. Visitor totals and ratings update at the <b>end of each month</b>.',
       unlock: ['trail', 'boardwalk', 'blind', 'build_parking', 'build_center', 'build_road'],
       goals: [
-        count('Connect 40 tiles of trail to a trailhead', g => g.visitors.facilities().parking ? g.visitors.net.length : 0, 40, ' tiles'),
+        count('Build trailhead parking and connect 40 tiles of trail to it', g => g.visitors.facilities().parking ? g.visitors.net.length : 0, 40, ' tiles'),
         count('Welcome 300 visitors', g => g.visitors.total, 300, ' visitors'),
         { desc: 'Reach a 2-star visitor rating', check: g => g.visitors.rating >= 2, prog: g => `${g.visitors.rating.toFixed(1)} / 2 stars` },
       ],

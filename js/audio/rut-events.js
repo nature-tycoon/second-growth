@@ -1,29 +1,49 @@
-// Hears the rut: bull elk bugling (from the simulation) and antlers clashing in a bout (timed
+// Hears the rut: bull elk bugling across the landscape and antlers clashing in a bout (timed
 // to the drawn fight, so the crack lands as the racks meet). Called every frame by the UI.
 import { ANIMALS, isMaleVariant } from '../data/animals.js';
-import { bugles } from '../sim/animal-life.js';
+import { bugles, RUT } from '../sim/animal-life.js';
+import { DAYS_PER_YEAR } from '../config.js';
 import { boutCycle, CRASH } from '../render3d/bout-clock.js';
 
-const BUGLE_RANGE = 70, CLASH_RANGE = 26; // tiles: a bugle carries a long way, antlers don't
+const BUGLE_RANGE = 160, CLASH_RANGE = 26; // bugles carry across the landscape; antlers stay local
 const bouts = new Map(); // lower id of a fighting pair -> { c: last cycle, next: next light rattle }
-let lastWarm = 0;
+const soundscapes = new WeakMap(); // wildlife instance -> real-time call schedule
 
 export function rutSounds(game, renderer, music, time) {
   if (!music.ctx) { bugles.length = 0; return; }
   const wl = game.wildlife, cx = renderer.target.x, cy = renderer.target.z;
   const right = renderer.right(), half = Math.max(8, renderer.vw / 2 / renderer.ppu);
-  const place = (x, y, range) => {
+  const place = (x, y, range, carries = false) => {
     const d = Math.hypot(x - cx, y - cy);
-    return d > range ? null : { far: d / range, pan: Math.max(-0.85, Math.min(0.85, ((x - cx) * right.x + (y - cy) * right.z) / half)) };
+    return d > range && !carries ? null : { far: carries ? Math.min(0.65, d / range) : d / range, pan: Math.max(-0.85, Math.min(0.85, ((x - cx) * right.x + (y - cy) * right.z) / half)) };
   };
   const byId = id => wl.ids?.get(id) ?? wl.agents.find(b => b.id === id);
+  const now = music.ctx.currentTime ?? time;
+  let landscape = soundscapes.get(wl);
+  if (!landscape) { landscape = { next: now + 2, lastId: null, warmAt: -Infinity }; soundscapes.set(wl, landscape); }
+  const heard = id => { landscape.next = now + 8 + Math.random() * 6; landscape.lastId = id; };
   while (bugles.length) {
-    const { id, answer } = bugles.shift(), a = byId(id), at = a && place(a.x, a.y, BUGLE_RANGE);
-    if (at) music.rut(answer ? 'answer' : 'bugle', { ...at, id });
+    const { id, answer } = bugles.shift(), a = byId(id), at = a && !a.leaving && place(a.x, a.y, BUGLE_RANGE, true);
+    if (at && music.rut(answer ? 'answer' : 'bugle', { ...at, id })) heard(id);
+  }
+  // The landscape keeps calling even when a bull is off screen or its next
+  // simulation action is grazing. Use audio time so game speed cannot cram calls together.
+  if (!RUT.includes(game.month)) landscape.next = now + 2;
+  else if (now >= landscape.next && music.natureOn !== false && !music.muted && (!music.ctx.state || music.ctx.state === 'running')) {
+    const bulls = wl.agents.filter(a => {
+      const def = ANIMALS[a.sp];
+      return def.key === 'elk' && isMaleVariant(def, a) && a.age >= def.mature * DAYS_PER_YEAR && !a.leaving && a.state !== 'spar';
+    });
+    const rivals = bulls.filter(a => a.id !== landscape.lastId), pool = rivals.length ? rivals : bulls;
+    landscape.next = now + 1; // retry clips still loading or a bull still on its playback cooldown
+    if (pool.length) {
+      const a = pool[Math.floor(Math.random() * pool.length)];
+      if (music.rut(landscape.lastId != null && a.id !== landscape.lastId ? 'answer' : 'bugle', { ...place(a.x, a.y, BUGLE_RANGE, true), id: a.id })) heard(a.id);
+    }
   }
   // build the clips for the antlered animals here, a little at a time, before anyone fights
-  if (time - lastWarm > 5) {
-    lastWarm = time;
+  if (now - landscape.warmAt > 5) {
+    landscape.warmAt = now;
     const racks = new Set();
     for (const a of wl.agents) { const r = ANIMALS[a.sp].sprite.male?.antlers; if (r && isMaleVariant(ANIMALS[a.sp], a)) racks.add(r); }
     if (racks.size) music.warmRut([...racks]);

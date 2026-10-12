@@ -1,10 +1,12 @@
-// Recorded wildlife sounds, trimmed and re-encoded to 96 kbps mono AAC. Sources and licences
+// Recorded wildlife sounds, trimmed and re-encoded to 80–96 kbps mono AAC. Sources and licences
 // were checked on each original page.
+import { FIELD_RECORDINGS } from './recordings.js';
 const NPS = 'https://www.nps.gov/yell/learn/photosmultimedia/sounds-elk.htm';
 const DEER = 'https://commons.wikimedia.org/wiki/File:Red_deer_rut.webm';
 export const SOUND_CREDITS = [
   { what: 'Bull elk bugles', by: 'National Park Service (Neal Herbert), Yellowstone sound library', license: 'Public domain', source: NPS },
-  { what: 'Antler clashes', by: 'Dan Davison, "Red deer rut" (Wikimedia Commons)', license: 'CC BY 2.0', source: DEER },
+  { what: 'Antler clashes', by: 'Dan Davison, "Red deer rut" (Wikimedia Commons)', license: 'CC BY 2.0', licenseUrl: 'https://creativecommons.org/licenses/by/2.0/', source: DEER },
+  ...Object.entries(FIELD_RECORDINGS).map(([id, d]) => ({ what: id.replaceAll('-', ' '), by: d.by, license: d.license, licenseUrl: d.licenseUrl, source: d.source, modified: d.modified })),
 ];
 // kind -> clips. A satellite bull's answer uses the shorter bugles.
 export const RUT_SOUNDS = {

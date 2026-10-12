@@ -389,7 +389,7 @@ export function playUpdate(wl, a, def, sp) {
 }
 
 // Deer, elk and sambar stags fight in the autumn rut (Sep-Nov; months count from March).
-const RUT = [6, 7, 8];
+export const RUT = [6, 7, 8];
 const antlered = (def, a) => !!def.sprite.male?.antlers && isMaleVariant(def, a);
 const rutting = (wl, def, a) => antlered(def, a) && RUT.includes(wl.game.month);
 // The month either side of it (August, December), stags in hard antler push and test each

@@ -1,0 +1,243 @@
+{
+  "pnw": {
+    "birds": {
+      "robin": {
+        "recording": "robin",
+        "decision": "Field recording"
+      },
+      "wren": {
+        "recording": "pacific-wren",
+        "decision": "Field recording"
+      },
+      "thrush": {
+        "recording": "swainsons-thrush",
+        "decision": "Field recording"
+      },
+      "meadowlark": {
+        "recording": "meadowlark",
+        "decision": "Field recording"
+      },
+      "jay": {
+        "recording": "stellers-jay",
+        "decision": "Field recording"
+      },
+      "kingfisher": {
+        "recording": "belted-kingfisher",
+        "decision": "Field recording"
+      }
+    },
+    "calls": {
+      "frog": {
+        "recording": "pacific-frog",
+        "decision": "Field recording"
+      },
+      "owl": {
+        "recording": "great-horned-owl",
+        "decision": "Field recording"
+      },
+      "drum": {
+        "recording": "pileated-woodpecker",
+        "decision": "Field recording"
+      }
+    }
+  },
+  "atlanta": {
+    "birds": {
+      "cardinal": {
+        "recording": "cardinal",
+        "decision": "Field recording"
+      },
+      "wren": {
+        "recording": "carolina-wren",
+        "decision": "Field recording"
+      },
+      "chickadee": {
+        "recording": "carolina-chickadee",
+        "decision": "Field recording"
+      },
+      "bluebird": {
+        "recording": "bluebird",
+        "decision": "Field recording"
+      },
+      "goldfinch": {
+        "recording": "goldfinch",
+        "decision": "Field recording"
+      }
+    },
+    "calls": {
+      "peeper": {
+        "recording": "spring-peeper",
+        "decision": "Field recording"
+      },
+      "toad": {
+        "recording": "american-toad",
+        "decision": "Field recording"
+      },
+      "barredOwl": {
+        "recording": "barred-owl",
+        "decision": "Field recording"
+      },
+      "drum": {
+        "recording": "pileated-woodpecker",
+        "decision": "Field recording"
+      }
+    }
+  },
+  "amazon": {
+    "birds": {
+      "toucan": {
+        "recording": "toco-toucan",
+        "decision": "Field recording"
+      },
+      "macaw": {
+        "recording": "scarlet-macaw",
+        "decision": "Field recording"
+      },
+      "amkingfisher": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "hoatzin": {
+        "recording": "hoatzin",
+        "decision": "Field recording"
+      },
+      "hermit": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      }
+    },
+    "calls": {
+      "howler": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "dartfrog": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      }
+    }
+  },
+  "serengeti": {
+    "birds": {
+      "weaver": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "roller": {
+        "recording": "roller",
+        "decision": "Field recording"
+      }
+    },
+    "calls": {
+      "hyena": {
+        "recording": "hyena",
+        "decision": "Field recording"
+      },
+      "lion": {
+        "recording": "lion",
+        "decision": "Field recording"
+      },
+      "groundHornbill": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "hippo": {
+        "recording": "hippo",
+        "decision": "Field recording"
+      },
+      "zebra": {
+        "recording": "zebra",
+        "decision": "Field recording"
+      }
+    }
+  },
+  "chinandega": {
+    "birds": {
+      "motmot": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "lora": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "chocoyo": {
+        "recording": "orange-fronted-parakeet",
+        "decision": "Field recording"
+      },
+      "urraca": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "guaco": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "hummingbird": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      }
+    },
+    "calls": {
+      "howler": {
+        "recording": "mantled-howler",
+        "decision": "Field recording"
+      },
+      "moo": {
+        "recording": "cow",
+        "decision": "Field recording"
+      }
+    }
+  },
+  "sumatra": {
+    "birds": {
+      "hornbill": {
+        "recording": "rhinoceros-hornbill",
+        "decision": "Field recording"
+      },
+      "bulbul": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "sunbird": {
+        "recording": "crimson-sunbird",
+        "decision": "Field recording"
+      },
+      "kingfisher": {
+        "recording": "stork-billed-kingfisher",
+        "decision": "Field recording"
+      },
+      "serpenteagle": {
+        "recording": "serpent-eagle",
+        "decision": "Field recording"
+      }
+    },
+    "calls": {
+      "siamang": {
+        "recording": "siamang",
+        "decision": "Field recording"
+      },
+      "barnOwl": {
+        "recording": "barn-owl",
+        "decision": "Field recording"
+      },
+      "treeFrog": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      }
+    }
+  },
+  "reef": {
+    "birds": {
+      "booby": {
+        "recording": null,
+        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "noddy": {
+        "recording": "black-noddy",
+        "decision": "Field recording"
+      }
+    },
+    "calls": {}
+  }
+}

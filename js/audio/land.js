@@ -16,16 +16,24 @@ export function sampleSoundLand(game, renderer, biome, animals) {
     if (w.terrain[i] === T.RIVER) river = Math.max(river, near);
     if (game.map === 'reef' && biome.dryLand(w, i)) shore = Math.max(shore, near);
   }
-  const local = new Set(), audible = new Set();
+  const local = new Set(), audible = new Set(), callPositions = {};
+  const right = renderer.right?.() ?? { x: 1, z: 0 };
   for (const a of game.wildlife.agents) {
     if (a.leaving) continue;
     const key = animals[a.sp].key, distance = Math.hypot(a.x - x0, a.y - y0);
     if (distance <= 28) local.add(key);
-    if (distance <= (CALL_RANGE[key] ?? 28)) audible.add(key);
+    const range = CALL_RANGE[key] ?? 28;
+    if (distance <= range) {
+      audible.add(key);
+      if (!callPositions[key] || distance < callPositions[key].distance) callPositions[key] = {
+        distance, far: Math.min(0.65, distance / range),
+        pan: clamp(((a.x - x0) * right.x + (a.y - y0) * right.z) / 35, -0.85, 0.85),
+      };
+    }
   }
   const present = [...local], callPresent = [...audible];
   const u = renderer.todU ?? 0.35;
-  return { map: game.map, month: game.month, tod: u, present, callPresent, species: present.length,
+  return { map: game.map, month: game.month, tod: u, present, callPresent, callPositions, species: present.length,
     bare: n ? bare / n : 0, canopy: n ? clamp(canopy / n, 0, 1) : 0, health: clamp((game.cache.score?.total ?? 0) / 100, 0, 1),
     creek, river, shore, water: clamp(1 - w.distWater[w.idx(x0, y0)] / 10, 0, 1), wet: n ? Math.max(wet / n, wetNear * 0.65) : 0,
     night: renderer.night || 0, dawn: renderer.dawn || 0, dusk: u > 0.8 && u < 0.89 ? 1 - Math.abs(u - 0.845) / 0.045 : 0,

@@ -425,7 +425,8 @@ export class Input {
     const t = this.pick(this.mouse.x, this.mouse.y);
     const tool = this.tool();
     ui.state.hover = w.inb(t.x, t.y) ? { x: t.x, y: t.y } : null;
-    ui.state.brushR = tool && tool.brush ? ui.state.brushR : 0;
+    // Hover only builds the preview. A moment or photo mode temporarily hides the
+    // tool; keep its selected radius so preview and painting resume at the same size.
     if (!tool || !ui.state.hover) { ui.state.previewTiles = null; this.tip.classList.add('hidden'); return; }
     let tiles = tool.brush ? strokeTiles(w, tool, t.x, t.y, ui.state.brushR) : [w.idx(t.x, t.y)];
     if (tool.footprint) {

@@ -11,6 +11,8 @@ import { bugles } from '../js/sim/animal-life.js';
 import { boutCycle, CRASH } from '../js/render3d/bout-clock.js';
 import { rutSounds } from '../js/audio/rut-events.js';
 import { mulberry32 } from '../js/rng.js';
+import { Music } from '../js/audio/music.js';
+import { FIELD_RECORDINGS } from '../js/audio/recordings.js';
 
 const root = new URL('../', import.meta.url);
 let checks = 0;
@@ -23,11 +25,12 @@ check('Every rut sound is a small AAC file in assets/sounds, and every file ther
     assert.equal(head, 'ftyp', `${name} is an MPEG-4 audio file`);
     assert.ok(statSync(file).size < 120_000, `${name} stays small`);
   }
-  for (const f of readdirSync(new URL('assets/sounds/', root))) assert.ok(names.has(f.replace(/\.m4a$/, '')), `${f} is listed in sounds.js`);
+  const used = new Set([...names, ...Object.values(FIELD_RECORDINGS).flatMap(d => d.clips)]);
+  for (const f of readdirSync(new URL('assets/sounds/', root)).filter(f => f.endsWith('.m4a'))) assert.ok(used.has(f.replace(/\.m4a$/, '')), `${f} is listed in the sound catalogs`);
 });
 check('The recordings are credited with their licence and source', () => {
   assert.ok(SOUND_CREDITS.length >= 2 && SOUND_CREDITS.every(c => c.by && c.license && /^https:/.test(c.source)));
-  const readme = readFileSync(new URL('README.md', root), 'utf8');
+  const readme = readFileSync(new URL('README.md', root), 'utf8') + readFileSync(new URL('assets/sounds/LICENSES.md', root), 'utf8');
   for (const c of SOUND_CREDITS) assert.ok(readme.includes(c.source), `README credits ${c.what}`);
 });
 check('Every antlered species has a rack pitch', () => {
@@ -91,5 +94,54 @@ check('Clashes land in the drawn impact jolt, one per crash cycle', () => {
   const clashes = heard.filter(h => h.kind === 'clash');
   assert.ok(clashes.length >= 9 && clashes.length <= 10, `${clashes.length} clashes in 26 s of 2.6 s cycles`);
   for (const h of clashes) assert.ok(h.c >= CRASH[0] && h.c < CRASH[1], `clash at cycle ${h.c.toFixed(3)}`);
+});
+check('Off-screen bulls call throughout the rut using audio time, with no overlapping recordings', () => {
+  const g = setup(55), a = spawn(g, true, 110, 80), b = spawn(g, true, 100, 70);
+  const heard = [], music = new Music();
+  const node = () => ({ gain: { value: 0 }, playbackRate: { value: 1 }, connect() { return this; } });
+  music.ctx = { state: 'running', currentTime: 0, createGain: node, createBufferSource() {
+    const src = node(); src.start = () => heard.push({ t: music.ctx.currentTime, duration: src.buffer.duration / src.playbackRate.value }); return src;
+  } };
+  music.warmRut = () => {};
+  music.voice = (pan, far) => { assert.ok(far <= 0.65 && far > 0, 'distant bulls remain audible'); assert.ok(Math.abs(pan) <= 0.85); return node(); };
+  music.trackSource = () => {};
+  for (const name of RUT_SOUNDS.bugle) music.rutClips.set(name, { duration: 4 });
+  const renderer = { target: { x: 0, z: 0 }, right: () => ({ x: 1, z: 0 }), vw: 960, ppu: 30 };
+  bugles.length = 0;
+  for (let frame = 0; frame < 120 * 20; frame++) {
+    music.ctx.currentTime = frame / 20;
+    rutSounds(g, renderer, music, frame * 100); // wildly faster simulation/renderer clock
+  }
+  assert.ok(heard.length >= 8 && heard.length <= 15, `${heard.length} spaced calls in two real minutes`);
+  for (let i = 1; i < heard.length; i++) assert.ok(heard[i].t > heard[i - 1].t + heard[i - 1].duration, 'calls do not overlap');
+  assert.ok(music.rutBulls.has(a.id) && music.rutBulls.has(b.id), 'rival bulls take turns');
+  const n = heard.length;
+  g.day = 0; // March, outside the rut
+  for (let k = 0; k < 30; k++) { music.ctx.currentTime++; rutSounds(g, renderer, music, k); }
+  assert.equal(heard.length, n, 'no ambient bugles outside the rut');
+  g.day = 7 * DAYS_PER_MONTH;
+  music.muted = true;
+  for (let k = 0; k < 30; k++) { music.ctx.currentTime++; rutSounds(g, renderer, music, k); }
+  assert.equal(heard.length, n, 'mute silences rut calls');
+  music.muted = false; music.natureOn = false;
+  for (let k = 0; k < 30; k++) { music.ctx.currentTime++; rutSounds(g, renderer, music, k); }
+  assert.equal(heard.length, n, 'nature toggle silences rut calls');
+  music.natureOn = true;
+  a.leaving = b.leaving = true;
+  for (let k = 0; k < 30; k++) { music.ctx.currentTime++; rutSounds(g, renderer, music, k); }
+  assert.equal(heard.length, n, 'no phantom bugles after bulls leave');
+});
+check('A lone bull calls without a harem, but females and calves do not', () => {
+  const g = setup(66), a = spawn(g, true, 110, 80), heard = [];
+  const music = { ctx: { currentTime: 0, state: 'running' }, warmRut() {}, rut: (kind, opts) => { heard.push({kind, ...opts}); return true; } };
+  const renderer = { target: { x: -100, z: -100 }, right: () => ({x:1,z:0}), vw:960, ppu:30 };
+  bugles.length = 0;
+  for (let k = 0; k < 40; k++) { music.ctx.currentTime = k; rutSounds(g, renderer, music, k); }
+  assert.ok(heard.length >= 3, 'lone bull fills quiet stretches across the map');
+  a.age = 0;
+  spawn(g, false, 90, 70);
+  const n = heard.length;
+  for (let k = 40; k < 80; k++) { music.ctx.currentTime = k; rutSounds(g, renderer, music, k); }
+  assert.equal(heard.length, n, 'calves and cows do not bugle');
 });
 console.log(`${checks} rut audio checks passed`);

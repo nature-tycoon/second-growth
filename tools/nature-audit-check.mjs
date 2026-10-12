@@ -4,9 +4,10 @@ import { BIOMES, biome } from '../js/biome.js';
 import { Game } from '../js/game.js';
 import { ANIMALS } from '../js/data/animals.js';
 import { T, H } from '../js/config.js';
-import { SOUNDSCAPES, BIRD_PHRASES, natureMix, natureCallRates } from '../js/audio/nature.js';
+import { SOUNDSCAPES, natureMix, natureCallRates } from '../js/audio/nature.js';
 import { sampleSoundLand } from '../js/audio/land.js';
 import { Music } from '../js/audio/music.js';
+import { FIELD_RECORDINGS, MAP_RECORDINGS } from '../js/audio/recordings.js';
 
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
@@ -18,7 +19,7 @@ check('All seven maps have valid native voices across 448 season/weather/time co
   for (const map of Object.keys(BIOMES)) {
     g.newGame(1987, 'free', 'standard', map);
     const keys = ANIMALS.map(d => d.key), P = SOUNDSCAPES[map];
-    for (const [key, style] of Object.entries(P.birds)) { assert(keys.includes(key), `${map}/${key}`); assert(BIRD_PHRASES[style]); }
+    for (const [key, style] of Object.entries(P.birds)) { assert(keys.includes(key), `${map}/${key}`); const id = MAP_RECORDINGS[map].birds[key]; if (id) assert(FIELD_RECORDINGS[id], `${map}/${key}: valid recording`); }
     for (const [key, voice] of P.calls) { assert(keys.includes(key), `${map}/${key}`); assert.equal(typeof Music.prototype[voice], 'function', voice); }
     for (let season = 0; season < 4; season++) for (const weather of ['clear', 'cloud', 'rain', 'snow']) for (const time of [{}, { dawn: 1, tod: 0 }, { dusk: 1, tod: 0.845 }, { night: 1, tod: 0.91 }]) {
       const L = land(map, { present: keys, month: season * 3, ...time }), mix = natureMix(L, weather, season);
@@ -33,7 +34,7 @@ check('Reef has surf and underwater texture, with no freshwater, frogs or terres
   const L = land('reef', { night: 1, present: ['booby', 'noddy'] }), mix = natureMix(L, 'clear', 3);
   assert.equal(mix.creek, 0); assert.equal(mix.river, 0); assert.equal(mix.bugs, 0); assert.equal(mix.leaves, 0);
   assert(mix.surf > 0 && mix.reef > 0);
-  assert.deepEqual(voices(L), ['reefSnap']);
+  assert.deepEqual(voices(L), [], 'shrimp are now part of the recorded underwater bed');
   assert.deepEqual(Object.keys(SOUNDSCAPES.reef.birds).sort(), ['booby', 'noddy']);
 });
 check('Tropical rainy/fruit seasons keep daytime birds and Sumatra insects', () => {
@@ -50,7 +51,7 @@ check('Frogs require the right species, habitat, calendar and time of day', () =
   assert(!voices(land('pnw', { night: 1, month: 6, present: ['treefrog'] }), 'clear', 2).includes('frog'));
   assert(voices(land('atlanta', { night: 1, present: ['peeper'] })).includes('peeper'));
   assert(!voices(land('atlanta', { night: 1, month: 4, present: ['peeper'] }), 'clear', 1).includes('peeper'));
-  assert(voices(land('amazon', { present: ['dartfrog'], wet: 0 })).includes('dartfrog'));
+  assert(!voices(land('amazon', { present: ['dartfrog'], wet: 0 })).includes('dartfrog'), 'no fabricated frog voice when a verified recording is unavailable');
   assert(!voices(land('amazon', { present: ['dartfrog'], night: 1 })).includes('dartfrog'));
 });
 check('Each owl and primate keeps its map and activity', () => {
@@ -126,7 +127,7 @@ check('Prominent calls happen promptly even when random chance would never fire'
   try {
     for (const [map, key, voice, time] of [['chinandega', 'cattle', 'moo', {}], ['serengeti', 'lion', 'lion', { night: 1 }], ['serengeti', 'hyena', 'hyena', { night: 1 }]]) {
       const m = new Music(); m.ctx = { currentTime: 0 }; m.land = land(map, { present: [key], ...time });
-      let played = 0; m[voice] = () => played++;
+      let played = 0; m[voice] = () => { played++; return voice === 'lion' ? 8.5 : voice === 'hyena' ? 4.5 : 2.5; };
       for (let tick = 0; tick <= 16; tick++) { m.ctx.currentTime = tick / 4; m.calls(0.25); }
       assert.equal(played, 1, `${voice} should play within four seconds`);
       for (let tick = 17; tick <= 40; tick++) { m.ctx.currentTime = tick / 4; m.calls(0.25); }
@@ -136,7 +137,7 @@ check('Prominent calls happen promptly even when random chance would never fire'
       m.ctx.currentTime = 100; m.calls(0.25); assert.equal(played, 1, 'Wrong time of day must stay quiet');
     }
     const m = new Music(); m.ctx = { currentTime: 0 }; m.land = land('serengeti', { night: 1, present: ['lion', 'hyena'] });
-    const starts = []; m.lion = () => starts.push(['lion', m.ctx.currentTime]); m.hyena = () => starts.push(['hyena', m.ctx.currentTime]);
+    const starts = []; m.lion = () => { starts.push(['lion', m.ctx.currentTime]); return 8.5; }; m.hyena = () => { starts.push(['hyena', m.ctx.currentTime]); return 4.5; };
     for (let tick = 0; tick <= 48; tick++) { m.ctx.currentTime = tick / 4; m.calls(0.25); }
     assert.deepEqual(starts.map(c => c[0]), ['hyena', 'lion']); assert(starts[1][1] - starts[0][1] >= 5, 'Featured calls should not mask each other');
   } finally { Math.random = random; }
