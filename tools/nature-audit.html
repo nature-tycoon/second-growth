@@ -14,6 +14,7 @@
 <button id="play">Play soundscape</button><button class="secondary" id="pause">Stop</button><button class="secondary" id="check">Check audio files</button>
 </div>
 <p id="status">Choose a map and time of day. Lions and hyenas call at dusk and night.</p>
+<p id="rut-note" class="intro"></p>
 <h2>Wildlife recordings</h2><div id="voices"></div>
 <details><summary>Quiet voices from the audit</summary><p class="intro">Synthesized approximations were removed where a correctly identified, reusable recording could not be verified.</p><div id="quiet"></div></details>
 <h2>Weather, water and insects</h2><div id="beds"></div>
@@ -23,9 +24,11 @@
 import { Music } from '../js/audio/music.js';
 import { SOUNDSCAPES, natureMix, natureCallRates } from '../js/audio/nature.js';
 import { FIELD_RECORDINGS, MAP_RECORDINGS } from '../js/audio/recordings.js';
-import { soundFile } from '../js/audio/sounds.js';
+import { soundFile, RUT_SOUNDS, SOUND_CREDITS } from '../js/audio/sounds.js';
+import { rutSounds } from '../js/audio/rut-events.js';
 import { BIOMES, setBiome } from '../js/biome.js';
-import { ANIMALS } from '../js/data/animals.js';
+import { ANIMALS, ANIMAL, isMaleVariant } from '../js/data/animals.js';
+import { DAYS_PER_YEAR } from '../js/config.js';
 const $ = id => document.getElementById(id), catalog = {};
 const voiceAudit = await fetch('./audio-voice-audit.json').then(r => r.json());
 for (const [id, biome] of Object.entries(BIOMES)) {
@@ -33,7 +36,20 @@ for (const [id, biome] of Object.entries(BIOMES)) {
   const option = document.createElement('option'); option.value = id; option.textContent = biome.name || id; $('map').append(option);
 }
 const times = { dawn:{night:0,dawn:1,dusk:0,tod:0.05},day:{night:0,dawn:0,dusk:0,tod:0.3},dusk:{night:0.1,dawn:0,dusk:1,tod:0.845},night:{night:1,dawn:0,dusk:0,tod:0.91} };
-let player;
+let player, previewRut;
+const rutCamera = {target:{x:40,z:30},right:()=>({x:1,z:0}),vw:960,ppu:30};
+function rutScene(L) {
+  const agents=[];
+  if(L.map==='pnw' && L.present.includes('elk')) {
+    const def=ANIMAL.elk;
+    for(let id=1000;agents.length<2;id++) {
+      const a={id,sp:def.index,age:4*DAYS_PER_YEAR,state:'idle',x:60+agents.length*30,y:45};
+      if(isMaleVariant(def,a))agents.push(a);
+    }
+  }
+  return {month:L.month,wildlife:{agents,ids:new Map(agents.map(a=>[a.id,a]))}};
+}
+setInterval(()=>{if(player?.ctx && !player.muted && previewRut && scene().map==='pnw')rutSounds(previewRut,rutCamera,player,player.ctx.currentTime);},250);
 function scene() {
   const map=$('map').value, season=+$('season').value, bare=$('habitat').value==='bare';
   const present=bare?[]:Object.keys(catalog[map]);
@@ -42,13 +58,22 @@ function scene() {
 function audio(name, loop=false) { const a=document.createElement('audio');a.controls=true;a.preload='none';a.src=soundFile(name);a.loop=loop;a.addEventListener('play',()=>{player?.set({muted:true});for(const other of document.querySelectorAll('audio'))if(other!==a)other.pause();});return a; }
 function refresh(newMap=false) {
   const map=$('map').value;
+  setBiome(map);
   if(newMap){$('season').replaceChildren();BIOMES[map].climate.seasons.forEach((name,i)=>{const o=document.createElement('option');o.value=i;o.textContent=name;$('season').append(o);});}
-  const L=scene();player?.setScene($('weather').value,+$('season').value);player?.setLand(L);
+  const L=scene();previewRut=rutScene(L);player?.setScene($('weather').value,+$('season').value);player?.setLand(L);
+  $('rut-note').textContent=map==='pnw'?'Elk bugles join the Cascade soundscape in Autumn. Select Autumn and Play soundscape, or audition the individual bugles below in any season.':'';
   $('mix').textContent=JSON.stringify({layers:natureMix(L,$('weather').value,+$('season').value),calls:natureCallRates(L,$('weather').value,+$('season').value)},null,2);
   const table=document.createElement('table');table.innerHTML='<thead><tr><th>Animal</th><th>Recording</th><th>Source and license</th></tr></thead>';const body=document.createElement('tbody');table.append(body);
   for(const [kind,entries] of Object.entries(MAP_RECORDINGS[map]))for(const [key,id] of Object.entries(entries)){
     const def=FIELD_RECORDINGS[id], animal=kind==='birds'?key:SOUNDSCAPES[map].calls.find(c=>c[1]===key)?.[0];
     for(const [index,name] of def.clips.entries()) {const row=document.createElement('tr'),label=document.createElement('td'),clip=document.createElement('td'),credit=document.createElement('td');label.textContent=catalog[map][animal]||id;const n=document.createElement('small');n.textContent='Take '+(index+1);label.append(n);clip.append(audio(name));const link=document.createElement('a');link.href=def.source;link.target='_blank';link.rel='noopener';link.textContent=def.by;credit.append(link);const license=document.createElement('small');license.textContent=def.license;credit.append(license);row.append(label,clip,credit);body.append(row);}
+  }
+  if(map==='pnw') {
+    const groups=[['Elk bugle',RUT_SOUNDS.bugle,SOUND_CREDITS[0]],['Antler clash',[...new Set([...RUT_SOUNDS.clash,...RUT_SOUNDS.rattle])],SOUND_CREDITS[1]]];
+    for(const [title,names,def] of groups)for(const [index,name] of names.entries()) {
+      const row=document.createElement('tr'),label=document.createElement('td'),clip=document.createElement('td'),credit=document.createElement('td');row.dataset.rut=title==='Elk bugle'?'bugle':'clash';
+      label.textContent=title;const n=document.createElement('small');n.textContent='Take '+(index+1);label.append(n);clip.append(audio(name));const link=document.createElement('a');link.href=def.source;link.target='_blank';link.rel='noopener';link.textContent=def.by;credit.append(link);const license=document.createElement('small');license.textContent=def.license;credit.append(license);row.append(label,clip,credit);body.append(row);
+    }
   }
   $('voices').replaceChildren(table);
   const quiet=[];for(const [kind,entries] of Object.entries(voiceAudit[map]))for(const [key,item] of Object.entries(entries))if(!item.recording){const animal=kind==='birds'?key:SOUNDSCAPES[map].calls.find(c=>c[1]===key)?.[0];quiet.push(catalog[map][animal]||key);}
@@ -63,5 +88,5 @@ window.auditFieldFiles = async () => {
   try{for(const [id,def] of Object.entries(FIELD_RECORDINGS))for(const name of def.clips){const data=await fetch(soundFile(name)).then(r=>{if(!r.ok)throw new Error(name+': '+r.status);return r.arrayBuffer();});bytes+=data.byteLength;const buffer=await ctx.decodeAudioData(data);let peak=0,sum=0;for(let ch=0;ch<buffer.numberOfChannels;ch++)for(const v of buffer.getChannelData(ch)){peak=Math.max(peak,Math.abs(v));sum+=v*v;}const rms=Math.sqrt(sum/buffer.length/buffer.numberOfChannels);if(peak>=0.99||rms<0.001||buffer.numberOfChannels!==1)throw new Error(name+': silence, clipping or incorrect channels');results.push({id,name,duration:buffer.duration,peak,rms});$('audit').textContent='Checked '+results.length+' recordings…';}return {files:results.length,bytes,results};}finally{await ctx.close();}
 };
 $('check').onclick=async()=>{$('check').disabled=true;try{const result=await window.auditFieldFiles();$('audit').textContent=`PASS ${result.files} mono recordings: no silent or clipped clips. ${(result.bytes/1e6).toFixed(2)} MB total.`;}catch(e){$('audit').textContent='FAIL '+e.message;}finally{$('check').disabled=false;}};
-refresh(true);window.audioReviewReady=true;
+refresh(true);window.audioReviewReady=true;window.getPreviewPlayer=()=>player;
 </script></html>

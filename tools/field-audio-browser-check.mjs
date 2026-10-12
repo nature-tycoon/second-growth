@@ -6,6 +6,15 @@ const b = await openBrowser({ label: 'field-audio', width: 1280, height: 800 });
 try {
   await b.navigate('/tools/nature-audit.html');
   await b.waitFor('window.audioReviewReady', 'Sound review loaded', 30000);
+  assert.equal(await b.evaluate(`document.querySelectorAll('[data-rut="bugle"] audio').length`), 3, 'Cascade review includes every elk bugle');
+  await b.evaluate(`document.getElementById('season').value='2';document.getElementById('season').dispatchEvent(new Event('change'))`);
+  const play = await b.evaluate(`(() => {const r=document.getElementById('play').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+  await b.send('Input.dispatchMouseEvent', { type:'mousePressed',...play,button:'left',clickCount:1 });
+  await b.send('Input.dispatchMouseEvent', { type:'mouseReleased',...play,button:'left',clickCount:1 });
+  await b.waitFor(`window.getPreviewPlayer()?.rutBulls.size>0`, 'Autumn Cascade preview plays an elk bugle', 15000);
+  await b.evaluate(`document.getElementById('pause').click();document.getElementById('map').value='reef';document.getElementById('map').dispatchEvent(new Event('change'))`);
+  assert.equal(await b.evaluate(`document.querySelectorAll('[data-rut="bugle"]').length`), 0, 'reef preview does not show elk');
+  console.log('Cascade review includes three bugles and Autumn playback through the game rut audio path.');
   const decoded = await b.evaluate('window.auditFieldFiles()', 60000);
   assert.ok(decoded.files >= 60);
   assert.ok(decoded.bytes < 6_000_000);
