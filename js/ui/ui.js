@@ -1393,6 +1393,24 @@ export class UI {
     this.openCategory('inspect');
     this.buildToolbar();
     this.renderQuest(true);
+    this.homeScreenHint();
+  }
+  // iPhone Safari can't go full screen, but a home-screen launch drops the browser bars. Suggest it
+  // (a few times, once per visit) to landscape players who still have the bars.
+  homeScreenHint() {
+    if (this.hintedHomeScreen || !/iPhone|iPod/.test(navigator.userAgent)) return;
+    this.hintedHomeScreen = true;
+    let shown = 0;
+    try { shown = +localStorage.getItem('sg-homescreen-hint') || 0; } catch (e) { /* storage unavailable */ }
+    if (shown >= 3) return;
+    setTimeout(() => {
+      const standalone = navigator.standalone || matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches;
+      // (inside itch's frame the launch mode can't be read, so also check whether the page already fills the screen)
+      const bars = innerHeight < Math.min(screen.width, screen.height) - 8;
+      if (standalone || !bars || innerWidth < innerHeight) return;
+      try { localStorage.setItem('sg-homescreen-hint', shown + 1); } catch (e) { /* storage unavailable */ }
+      this.game.notify('For a full screen experience, add the game to your home screen: tap Share, then Add to Home Screen.', 'tip');
+    }, 4000);
   }
 
   // ------------------------------------------------------------ campaign
