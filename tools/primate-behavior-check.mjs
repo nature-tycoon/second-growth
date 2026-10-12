@@ -39,6 +39,11 @@ check('Fruit is reached through connected canopy and never invented on young or 
   if(off!=null){game.day=off*10;wl.update(.05);assert.equal(a.state,'idle');assert.equal(a.fruitMeal,null);}
   w.clearPlants(next);a.x=40.5;a.y=32.5;a.fruitAfter=0;a.age+=20;assert.equal(primateChoose(wl,a,ANIMAL.orangutan),false);
 });
+check('A completed ordinary climb ends with a longer pause; departures keep their urgency',()=>{
+  const {game,a}=fruitFixture('amazon','howler');a.wait=.5;a.state='idle';
+  primateArrive(game.wildlife,a);assert.ok(a.wait>=3&&a.wait<=7);
+  a.leaving=true;a.wait=.5;primateArrive(game.wildlife,a);assert.equal(a.wait,.5);
+});
 check('Cutting, replacement, fire, threats and save/load never leave a stranded meal or fruit goal',()=>{
   for(const reason of ['cut','replace','fire','danger','load']) {
     const {game,a}=fruitFixture(),wl=game.wildlife,w=game.world,i=w.idx(40,32);
@@ -70,7 +75,10 @@ check('Branch changes route through shared forks, stay continuous, and freeze wh
     for(let k=0;k<20;k++)actors.update(game,right,time+k/60);
     assert.ok(st.branchPoint.distanceTo(point)<1e-8);assert.equal(st.branchPhase,phase);assert.equal(st.gait,gait);assert.equal(st.yaw,yaw);assert.equal(st.branchPitch,pitch);
     game.speed=1;a.state='idle';for(let k=0;k<1500;k++)actors.update(game,right,time+1+k/60);
-    assert.equal(Boolean(st.branchRoute),false, `${key}: canopy transfer must finish`);assert.ok(st.branchPoint.distanceTo(st.branch.point)<1e-5);assert.ok(st.gait<.001,'resting limbs settle');
+    assert.equal(Boolean(st.branchRoute),false, `${key}: canopy transfer must finish`);
+    // Keep the final bark hold within the renderer's 3 mm rest tolerance;
+    // chasing sub-millimetre anchor reprojections makes an idle ape twitch.
+    assert.ok(st.branchPoint.distanceTo(st.branch.point)<=.003);assert.ok(st.gait<.001,'resting limbs settle');
   }
 });
 check('Routine tree rebuilds preserve a climb in progress instead of snapping to a new hold',()=>{
@@ -96,6 +104,20 @@ check('Primate models have jointed feeding poses and real grip heights, includin
     if(s.kind==='orangutan')assert.equal(motion.supportY,-s.len*.015,'long hair must not lift the feet off the branch');
     geo.dispose();
   }
+});
+check('Tree monkeys straddle a narrow limb with their grips and hold fruit in the same hand',()=>{
+  for(const [map,key] of [['amazon','howler'],['amazon','spider'],['sumatra','langur'],['chinandega','congo'],['chinandega','capuchin']]){
+    canopyFixture(map,key);const def=ANIMAL[key],{geo}=buildSpecies(def),L=def.sprite.len;
+    const p=geo.attributes.position,part=geo.attributes.aPart;let span=0,fruitZ=0,fruitN=0;
+    for(let i=0;i<p.count;i++){
+      if(part.getX(i)>=1&&part.getX(i)<=4&&p.getY(i)<L*.065)span=Math.max(span,Math.abs(p.getZ(i)));
+      if(part.getX(i)===10){fruitZ+=p.getZ(i);fruitN++;}
+    }
+    assert.ok(span<L*.11,`${key}: feet grip beside a thin branch instead of standing widely in midair`);
+    assert.ok(Math.abs(fruitZ/fruitN)<L*.08,`${key}: fruit follows the narrower hand`);geo.dispose();
+  }
+  canopyFixture('sumatra','macaque');const {geo}=buildSpecies(ANIMAL.macaque),p=geo.attributes.position,part=geo.attributes.aPart;
+  assert.ok(Array.from({length:p.count},(_,i)=>part.getX(i)>=1&&part.getX(i)<=4&&p.getY(i)<1?Math.abs(p.getZ(i)):0).some(z=>z>ANIMAL.macaque.sprite.len*.12),'ground macaques retain a walking stance');geo.dispose();
 });
 check('Climbers keep up with their simulation position at every game speed, without reset jumps on or off the trees',()=>{
   for(const [map,key,tree] of [['amazon','spider','fig'],['sumatra','siamang','meranti']]) for(const speed of [1,3]){

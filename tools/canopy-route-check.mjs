@@ -111,6 +111,26 @@ check('Siamang handovers have a slow, bounded cadence at every game speed and fr
     assert.equal(st.branchPhase, phase, 'pause also freezes the cadence');
   }
 });
+check('Ordinary monkey travel stays upright while turning between uphill headings and settles at rest', () => {
+  for (const [map, key] of [['amazon', 'howler'], ['amazon', 'spider'], ['sumatra', 'langur'], ['chinandega', 'congo'], ['chinandega', 'capuchin']]) {
+    const { game, a } = canopyFixture(map, key), scene = new THREE.Scene(), flora = new Flora(scene);
+    flora.rebuild(game, true);
+    const actors = new Actors(scene, flora), right = new THREE.Vector3(1, 0, 0);
+    a.x = 40.35; actors.update(game, right, 1); game.speed = 1;
+    let switches = 0, limb = actors.pose.get(a.id).branch.index;
+    for (let frame = 1; frame <= 900; frame++) {
+      a.x = Math.min(41.65, a.x + .004); a.state = a.x < 41.65 ? 'walk' : 'idle';
+      actors.update(game, right, 1 + frame / 60);
+      const st = actors.pose.get(a.id);
+      assert.ok(Math.abs(st.branchRoll) <= .3 + 1e-6, `${key}: no sideways banking during a turn`);
+      if (st.branch.index !== limb) { switches++; limb = st.branch.index; }
+    }
+    const st = actors.pose.get(a.id), before = st.center.clone();
+    actors.update(game, right, 17);
+    assert.ok(st.center.distanceTo(before) < .001, `${key}: a resting body stops changing direction`);
+    assert.ok(switches < 12, `${key}: does not continually reselect limbs`);
+  }
+});
 check('Animal follow camera eases torso shifts with a bounded speed and converges to a resting body', () => {
   for (const fps of [15, 30, 60]) {
     const target = new THREE.Vector3(), centre = new THREE.Vector3(.4, .3, -.2);

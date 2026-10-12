@@ -2,7 +2,7 @@
 <script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
 <style>body{margin:24px;background:#eef0e8;color:#27392d;font:15px system-ui}h1{font-size:24px;margin-bottom:8px}p{max-width:900px}label{display:inline-block;margin:8px 18px 8px 0}select{font:inherit;padding:6px}main{display:grid;grid-template-columns:1fr 1fr;gap:16px}article{background:#fafbf5;border-radius:10px;padding:12px}h2{font-size:17px}canvas{width:100%;display:block}#status{font-size:13px}</style>
 <h1>Primate movement and fruit</h1><p>Live game models: connected branch travel on the left and movement or feeding close-ups on the right. Use Restart travel to watch a transfer between the two crowns. These fixtures leave saved farms untouched.</p>
-<label>Animal <select id="animal"><option value="sumatra:orangutan">Orangutan</option><option value="amazon:howler">Amazon howler</option><option value="amazon:spider">Spider monkey</option><option value="sumatra:siamang">Siamang</option><option value="sumatra:langur">Thomas's langur</option><option value="chinandega:congo">Mantled howler</option><option value="chinandega:capuchin">Capuchin</option><option value="sumatra:macaque">Pig-tailed macaque</option></select></label>
+<label>Animal <select id="animal"><option value="sumatra:orangutan">Orangutan</option><option value="amazon:howler">Amazon howler</option><option value="amazon:spider">Spider monkey</option><option value="amazon:sloth">Brown-throated sloth</option><option value="sumatra:siamang">Siamang</option><option value="sumatra:langur">Thomas's langur</option><option value="chinandega:congo">Mantled howler</option><option value="chinandega:capuchin">Capuchin</option><option value="sumatra:macaque">Pig-tailed macaque</option></select></label>
 <label>Reveal <select id="reveal"><option value="both">See-through trees + selected animal</option><option value="focus">Selected animal only</option><option value="fade">See-through trees only</option><option value="none">Opaque trees</option></select></label>
 <label>Growth <select id="growth"><option value="1">Mature</option><option value=".55">Young</option></select></label>
 <label>Graphics <select id="graphics"><option value="full">Full</option><option value="fast">Fast</option></select></label>
@@ -20,6 +20,9 @@ import { easeAnimalTarget } from '../js/render3d/animal-camera.js';
 import { siamangSwing } from '../js/render3d/siamang-swing.js';
 import { Renderer } from '../js/render3d/scene.js';
 import { PLANTS } from '../js/data/plants.js';
+import { ANIMALS } from '../js/data/animals.js';
+import { SPEEDS } from '../js/config.js';
+import { climbSpeed } from '../js/sim/climb-pace.js';
 import { primateArrive } from '../js/sim/primate-behavior.js';
 import { canopyFixture } from './canopy-support-fixture.mjs';
 const controls=Object.fromEntries(['animal','reveal','growth','graphics','view','position','status','bite','restart','pause','step','detail','swing','detail-title'].map(id=>[id,document.getElementById(id)]));
@@ -28,9 +31,9 @@ const camera=new THREE.OrthographicCamera(-2,2,1.5,-1.5,.01,100),right=new THREE
 function setup(){
  for(const v of views){for(const p of v.flora.pools.values())for(const s of p.subs.values())s.dispose();for(const p of v.flora.canopyPools.values())p.dispose();for(const p of v.actors.fauna.species.values()){p.geo.dispose();p.mat.dispose();p.mesh.dispose();}}
  const [map,key]=controls.animal.value.split(':');fixture=canopyFixture(map,key,Number(controls.growth.value));views=[];
- const fruit=PLANTS.find(p=>p?.layer===2&&p.look.fruit?.length&&p.key==='fig')||PLANTS.find(p=>p?.layer===2&&p.look.fruit?.length);
+ const fruit=PLANTS.find(p=>p?.layer===2&&p.look.fruit?.length&&p.look.type==='fig')||PLANTS.find(p=>p?.layer===2&&p.look.fruit?.length);
  if(fruit){fixture.game.day=fruit.look.fruit[0]*10;for(const x of [40,41])fixture.game.world.setPlant(fixture.game.world.idx(x,32),fruit,Number(controls.growth.value));}
- fixture.a.x=40.35;fixture.a.state='walk';fixture.game.speed=1;travel=true;time=1;last=0;
+ fixture.a.x=40.35;fixture.a.state='walk';fixture.game.speed=1;travel=true;time=controls.position.value==='fork'&&controls.animal.value==='amazon:sloth'?17:1;last=0;
  controls.pause.textContent='Pause travel';
  for(const improved of [false,true]){
   const scene=new THREE.Scene();scene.background=new THREE.Color('#e5e7d6');scene.add(new THREE.HemisphereLight(0xe9f2ff,0x697149,1.45));const sun=new THREE.DirectionalLight(0xffedcf,2.3);sun.position.set(30,50,35);scene.add(sun);
@@ -56,11 +59,12 @@ function draw(){
     const st=v.actors.pose.get(a.id);st.gait=1;st.branchPhase=controls.swing.value==='live'?time*2:Number(controls.swing.value);
   }
   let forkSite,originalAnchor;
+  const forkPeriod=controls.animal.value==='amazon:sloth'?22:6;
   if(controls.position.value==='fork'){
     a.x=40.5;a.y=32.5;a.state='walk';a.fruitMeal=null;
     forkSite=v.flora.treeSites.get(game.world.idx(40,32));forkSite.prepare();originalAnchor=forkSite.anchor;
     const first=forkSite.branches[0],other=forkSite.branches.findIndex((b,i)=>i>0&&b.from.distanceTo(first.from)<.001);
-    forkSite.anchor=(x,z,previous,reach,hanging,body)=>forkSite.endpoint(Math.floor(time/6)%2?other:0,1,{reach,hanging,body});
+    forkSite.anchor=(x,z,previous,reach,hanging,body)=>forkSite.endpoint(Math.floor(time/forkPeriod)%2?other:0,1,{reach,hanging,body});
   }
   v.actors.update(game,right,time,camera,480);if(forkSite)forkSite.anchor=originalAnchor;Object.assign(a,saved);game.speed=speed;
   if(v.improved){const st=v.actors.pose.get(a.id);if(st){
@@ -78,7 +82,8 @@ function draw(){
  const mealAvailable=Number(controls.growth.value)>.65;
  controls.status.textContent=anchor?`Branch route ${views[0].actors.pose.get(a.id)?.branchRoute?'in progress':'holding'} · ${views[0].flora.canopyVisible.size} supported crowns · ${PLANTS[game.world.tree[anchor.site.tile]]?.name||'Fruit tree'}${gripText} · ${controls.position.value==='fork'?'crossing the trunk fork':controls.detail.value==='swing'?'alternating catches':mealAvailable?'ripe fruit meal':'young tree: no fruit meal'}`:'No branch anchor';
 }
-for(const id of ['animal','growth','graphics'])controls[id].addEventListener('change',setup);for(const id of ['reveal','view','bite','detail','swing'])controls[id].addEventListener('change',draw);controls.position.addEventListener('change',()=>{const fork=controls.position.value==='fork';fixture.a.x=fork?40.5:40+Number(controls.position.value);travel=fork;fixture.game.speed=fork?1:0;if(fork)controls.detail.value='travel';time=1;for(const v of views){v.actors.pose.clear();delete v.followTarget;delete v.followTime;}draw();});controls.restart.addEventListener('click',setup);controls.pause.addEventListener('click',()=>{travel=!travel;fixture.game.speed=travel?1:0;controls.pause.textContent=travel?'Pause travel':'Resume travel';draw();});setup();
-controls.step.addEventListener('click',()=>{travel=false;fixture.game.speed=1;if(!views[0].actors.pose.get(fixture.a.id)?.branchRoute)time=(Math.floor(time/6)+1)*6;time+=.1;draw();fixture.game.speed=0;controls.pause.textContent='Resume travel';draw();});
-function frame(now){const dt=last?Math.min(.05,(now-last)/1000):0;last=now;if(travel||controls.position.value!=='fork')time+=dt;if(travel&&controls.position.value!=='fork'){fixture.a.x=Math.min(41.65,fixture.a.x+dt*.24);fixture.a.state=fixture.a.x<41.65?'walk':'idle';}draw();requestAnimationFrame(frame);}requestAnimationFrame(frame);
+for(const id of ['animal','growth','graphics'])controls[id].addEventListener('change',setup);for(const id of ['reveal','view','bite','detail','swing'])controls[id].addEventListener('change',draw);controls.position.addEventListener('change',()=>{const fork=controls.position.value==='fork';fixture.a.x=fork?40.5:40+Number(controls.position.value);travel=fork;fixture.game.speed=fork?1:0;if(fork)controls.detail.value='travel';time=fork&&controls.animal.value==='amazon:sloth'?17:1;for(const v of views){v.actors.pose.clear();delete v.followTarget;delete v.followTime;}draw();});controls.restart.addEventListener('click',setup);controls.pause.addEventListener('click',()=>{travel=!travel;fixture.game.speed=travel?1:0;controls.pause.textContent=travel?'Pause travel':'Resume travel';draw();});
+const params=new URLSearchParams(location.search);for(const id of ['animal','detail','reveal','position']){const value=params.get(id);if([...controls[id].options].some(o=>o.value===value))controls[id].value=value;}setup();
+controls.step.addEventListener('click',()=>{travel=false;fixture.game.speed=1;const period=controls.animal.value==='amazon:sloth'?22:6;if(!views[0].actors.pose.get(fixture.a.id)?.branchRoute)time=(Math.floor(time/period)+1)*period;time+=.1;draw();fixture.game.speed=0;controls.pause.textContent='Resume travel';draw();});
+function frame(now){const dt=last?Math.min(.05,(now-last)/1000):0;last=now;if(travel||controls.position.value!=='fork')time+=dt;if(travel&&controls.position.value!=='fork'){fixture.a.x=Math.min(41.65,fixture.a.x+dt*Math.min(.24,climbSpeed(ANIMALS[fixture.a.sp])*SPEEDS[1]));fixture.a.state=fixture.a.x<41.65?'walk':'idle';}draw();requestAnimationFrame(frame);}requestAnimationFrame(frame);
 </script></html>
