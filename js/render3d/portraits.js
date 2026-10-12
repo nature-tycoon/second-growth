@@ -123,8 +123,13 @@ export function renderPortrait(def, { fly: flying = false } = {}) {
   const mesh = new THREE.InstancedMesh(geo, mat, 1);
   mesh.setMatrixAt(0, new THREE.Matrix4());
   scene.add(mesh);
+  // A sloth hangs from the real tree in the valley; in the field guide, from a branch of its own
+  // (where its hooked hands reach, as the model once carried it)
+  const branch = motion.canopyHanging ? hangingBranch(def.sprite.len) : null;
+  if (branch) scene.add(branch);
 
   const box = bounds(geo, fly), c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+  if (branch) box.expandByObject(branch), box.getCenter(c), box.getSize(size);
   // three-quarter view; bats from above so their wings read
   const dir = (fly ? new THREE.Vector3(0.35, 1.3, 0.75) : new THREE.Vector3(0.5, 0.42, 1)).normalize();
   const radius = Math.max(size.x * 0.55, size.y * 0.75, size.z * 0.55);
@@ -138,5 +143,18 @@ export function renderPortrait(def, { fly: flying = false } = {}) {
   out.width = W; out.height = H;
   out.getContext('2d').drawImage(R.domElement, 0, 0);
   scene.remove(mesh); geo.dispose(); mat.dispose(); mesh.dispose();
+  if (branch) { scene.remove(branch); branch.geometry.dispose(); branch.material.dispose(); }
   return out;
+}
+
+// A bark-brown branch across the top of a hanging animal of body length L, slightly tapered and
+// rising to one end.
+function hangingBranch(L) {
+  const from = new THREE.Vector3(-L * 0.7, L * 0.95, 0), to = new THREE.Vector3(L * 0.7, L * 0.98, 0);
+  const geo = new THREE.CylinderGeometry(L * 0.045, L * 0.05, from.distanceTo(to), 7);
+  const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: new THREE.Color('#6a5238') }));
+  mesh.position.copy(from).add(to).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
+  mesh.updateMatrixWorld();
+  return mesh;
 }
