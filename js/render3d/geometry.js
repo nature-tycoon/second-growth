@@ -441,12 +441,15 @@ export function bareTree(opts, seed, lod = 0) {
   const sides = lod === 3 ? 3 : lod === 1 ? 4 : 5, finest = lod === 3 ? 2 : lod === 1 ? 1 : 0;
   const parts = [trunk(trunkH, trunkR, trunkR * 0.7, 0xffffff, lod ? 5 : 7)];
   const branch = (x, y, z, len, rad, ax, az, depth) => {
-    // (every limb still draws its random numbers, so the ones kept don't move; on its own, a far
-    // tree's main limb reaches about as far as its branches would have)
+    // Every limb still draws its random numbers, so the retained limbs do not move.
     const shown = lod === 3 ? len * 1.9 : len;
-    if (depth >= finest) parts.push(soft(new THREE.CylinderGeometry(rad * 0.6, rad, shown, sides), { transform: g => { g.translate(0, shown / 2, 0); g.rotateX(ax); g.rotateZ(az); g.translate(x, y, z); } }));
-    if (depth <= 0) return;
     const ex = x - Math.sin(az) * len * Math.cos(ax), ey = y + Math.cos(az) * Math.cos(ax) * len, ez = z + Math.sin(ax) * len;
+    if (depth >= finest) {
+      const c = soft(new THREE.CylinderGeometry(rad * .6, rad, shown, sides), { transform: g => { g.translate(0, shown / 2, 0); g.rotateX(ax); g.rotateZ(az); g.translate(x, y, z); } });
+      c.userData.canopyBranches = [{ from: [x, y, z], to: [x - Math.sin(az) * shown * Math.cos(ax), y + Math.cos(az) * Math.cos(ax) * shown, z + Math.sin(ax) * shown], r0: rad, r1: rad * .6 }];
+      parts.push(c);
+    }
+    if (depth <= 0) return;
     for (let k = 0; k < 2; k++) branch(ex, ey, ez, len * 0.66, rad * 0.62, ax + (r() - 0.5) * 0.9, az + (k ? 0.5 : -0.5) + (r() - 0.5) * 0.4, depth - 1);
   };
   for (let k = 0; k < 6; k++) {

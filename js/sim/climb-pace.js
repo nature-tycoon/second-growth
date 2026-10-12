@@ -1,6 +1,6 @@
 // How fast a climber moves along the drawn wood. Heavy apes place each hold
 // deliberately; gibbons and monkeys travel faster.
-export const climbPace = def => Math.max(.3, def.speed) * (def.sprite.ape ? .55 : 1) * (def.sprite.kind === 'orangutan' ? .8 : 1);
+export const climbPace = def => Math.max(def.sprite.kind === 'sloth' ? .1 : .3, def.speed) * (def.sprite.ape ? .55 : 1) * (def.sprite.kind === 'orangutan' ? .8 : 1);
 // The simulation moves a climber in straight lines between tiles, while the
 // drawn body follows forks and crown crossings about a third longer. Keep the
 // simulation within that pace, so the drawing never has to race to catch up.
