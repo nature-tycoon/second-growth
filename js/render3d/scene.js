@@ -78,6 +78,7 @@ export class Renderer {
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
+    document.addEventListener('visibilitychange', () => { if (this.perf) this.perf.last = performance.now(); });
     canvas.addEventListener('webglcontextlost', event => {
       event.preventDefault(); // allow the browser and Three.js to restore the context
       this.contextLost = true;
@@ -539,7 +540,7 @@ export class Renderer {
   shadowsStale() {
     const sm = this.gl.shadowMap;
     sm.autoUpdate = false;
-    const c = this.camera, sun = this.sun, now = performance.now(), S = this.shadowState ||= { key: '', dir: new THREE.Vector3(), at: 0, plants: -1 };
+    const c = this.camera, sun = this.sun, now = this.diagnosticTime ?? performance.now(), S = this.shadowState ||= { key: '', dir: new THREE.Vector3(), at: 0, plants: -1 };
     if (!sun.castShadow) { S.key = ''; return false; }
     const plants = this.flora.plantShadows.enabled ? this.flora.plantShadows.version : floraVersion.n;
     const key = [c.left, c.right, c.top, c.bottom, c.position.x, c.position.y, c.position.z, this.terrain.banks?.version ?? 0,
@@ -606,13 +607,13 @@ export class Renderer {
     {
       const t = performance.now(), P = this.perf ||= { frames: 0, time: 0, slow: 0, last: t };
       const ms = t - P.last; P.last = t;
-      if (ms > 0 && ms < 1000) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; longer gaps are a hidden tab)
+      if (!document.hidden && ms > 0) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; a hidden tab's gap doesn't count, and a laptop's long stalls do)
     }
     if (dt > 0) { this.autoResolution(); this.autoQuality(); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);
     const w = this.world;
-    const now = performance.now();
+    const now = this.diagnosticTime ?? performance.now();
 
     if (Math.abs(this.azTarget - this.az) > 0.001) {
       this.az += (this.azTarget - this.az) * Math.min(1, dt * 8);
@@ -767,6 +768,7 @@ export class Renderer {
       if (this.flora.plantShadows.enabled) this.shadowState.plants = this.flora.plantShadows.version;
     }
     this.gl.shadowMap.needsUpdate = redrawShadows;
+    this.lastShadowRedraw = redrawShadows;
     this.gl.render(this.scene, this.camera);
     this.drawFX(game, ui, dt);
   }
