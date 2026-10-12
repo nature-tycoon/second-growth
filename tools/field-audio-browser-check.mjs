@@ -19,6 +19,50 @@ try {
   assert.ok(decoded.files >= 60);
   assert.ok(decoded.bytes < 6_000_000);
   console.log(`${decoded.files} AAC clips decoded; peaks, RMS, mono channels and download budget passed.`);
+  const loops = await b.evaluate(`(async () => {
+    const { Music }=await import('/js/audio/music.js');
+    const { FIELD_RECORDINGS }=await import('/js/audio/recordings.js');
+    const ctx=new AudioContext(), player=new Music();player.ctx=ctx;
+    try {
+      const rows=[];
+      for(const [id,def] of Object.entries(FIELD_RECORDINGS))if(id.startsWith('bed-')){
+        await player.loadField(id);const clip=player.fieldClips.get(def.clips[0]);
+        if(!clip)throw new Error(id+' failed to load');
+        const data=clip.getChannelData(0), jump=Math.abs(data[0]-data.at(-1));
+        let maxStep=0,peak=0;for(let i=1;i<data.length;i++){maxStep=Math.max(maxStep,Math.abs(data[i]-data[i-1]));peak=Math.max(peak,Math.abs(data[i]));}
+        if(peak>=0.99)throw new Error(id+' clips during its crossfade');
+        if(jump>maxStep)throw new Error(id+' clicks at the seam');
+        const offline=new OfflineAudioContext(1,clip.length*3,clip.sampleRate);
+        const source=offline.createBufferSource();source.buffer=clip;source.loop=true;source.connect(offline.destination);source.start();
+        const rendered=(await offline.startRendering()).getChannelData(0);
+        // Web Audio interpolates fractional loop boundaries. Check energy across
+        // each wrap instead of requiring bit-identical resampled waveform values.
+        const window=Math.round(clip.sampleRate*0.01);
+        for(let pass=1;pass<=2;pass++)for(let offset=-window*5;offset<=window*5;offset+=window){
+          let actual=0,expected=0;
+          for(let j=0;j<window;j++){
+            const i=pass*data.length+offset+j;
+            actual+=rendered[i]**2;expected+=data[(i+data.length)%data.length]**2;
+          }
+          if(actual<expected*0.7 || actual>expected*1.3)throw new Error(id+' has a playback gap or surge');
+        }
+        const rms=(start,n)=>Math.sqrt(data.subarray(start,start+n).reduce((s,v)=>s+v*v,0)/n);
+        const n=Math.round(clip.sampleRate*0.05), head=rms(0,n), tail=rms(data.length-n,n);
+        if(id!=='bed-crickets' && (tail/head<0.5 || tail/head>2))throw new Error(id+' drops or surges at the seam');
+        rows.push({id,duration:clip.duration,jump,head,tail});
+      }
+      return rows;
+    } finally {await ctx.close();}
+  })()`,60000);
+  assert.equal(loops.length,6);
+  console.log('All six continuous recordings loop for three passes without restart gaps, seam clicks or abrupt level changes.');
+  const bedButton=await b.evaluate(`(() => {const button=document.querySelector('[data-bed="bed-stream"]');button.scrollIntoView();const r=button.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+  await b.send('Input.dispatchMouseEvent',{type:'mousePressed',...bedButton,button:'left',clickCount:1});
+  await b.send('Input.dispatchMouseEvent',{type:'mouseReleased',...bedButton,button:'left',clickCount:1});
+  await b.waitFor(`window.getPreviewBed()?.loop===true`,'Individual stream preview uses a continuous buffer loop',15000);
+  assert.ok(await b.evaluate(`window.getPreviewBed().buffer===window.getPreviewPlayer().fieldClips.get('field-bed-stream-1')`),'preview uses the game loop buffer');
+  await b.evaluate(`document.getElementById('pause').click()`);
+  assert.equal(await b.evaluate(`window.getPreviewBed()`),null,'Stop releases the individual loop');
   const runtime = await b.evaluate(`(async () => {
     const { Music } = await import('/js/audio/music.js');
     const { FIELD_RECORDINGS, MAP_RECORDINGS } = await import('/js/audio/recordings.js');
@@ -74,6 +118,7 @@ try {
         if(music.land.map!==map)throw new Error('Stale map soundscape');
       }
       music.set({muted:true});
+      for(const source of music.fieldBeds.values())if(!source.loop || ![...music.fieldClips.values()].includes(source.buffer))throw new Error('Game bed bypassed seamless buffer');
       if(music.lion()!==0)throw new Error('Muted wildlife still schedules');
       return rows;
     } finally { ui.frame=frame; }

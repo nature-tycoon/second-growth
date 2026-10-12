@@ -495,12 +495,12 @@
         "name": "field-bed-stream-1",
         "offset": 0,
         "duration": 4.068,
-        "bytes": 42930
+        "bytes": 50612
       }
     ],
     "sha256": "4d55ce7e299b7d2d9ab50aee2d28233f05662886cbb57e792aa210d39dd73744",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.",
-    "loopCrossfade": 1.0
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
   },
   "bed-ocean": {
     "url": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-OceanOlympicNP.mp3",
@@ -515,12 +515,12 @@
         "name": "field-bed-ocean-1",
         "offset": 0,
         "duration": 5.609,
-        "bytes": 58289
+        "bytes": 57801
       }
     ],
     "sha256": "372d12d439a03b5ca1e4eb87b0c7305e352f0a3492adecf99636cfc3813d92f4",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.",
-    "loopCrossfade": 1.0
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
   },
   "bed-crickets": {
     "url": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-Cricket.mp3",
@@ -535,12 +535,12 @@
         "name": "field-bed-crickets-1",
         "offset": 0,
         "duration": 23.0,
-        "bytes": 231242
+        "bytes": 226437
       }
     ],
     "sha256": "e15a0818d8476a0d8dfb7293cf8d3072a897adc21901d0985108b181fa856081",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.",
-    "loopCrossfade": 1.0
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
   },
   "bed-rain": {
     "url": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-RainDEPO.mp3",
@@ -555,12 +555,12 @@
         "name": "field-bed-rain-1",
         "offset": 0,
         "duration": 3.971,
-        "bytes": 43466
+        "bytes": 43571
       }
     ],
     "sha256": "8f349402462580e1faca6a51bc13fea4655698624966e976195d2b2fd08a5337",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.",
-    "loopCrossfade": 0.993
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
   },
   "cow": {
     "url": "https://cdn.freesound.org/previews/163/163727_1661766-hq.mp3",
@@ -650,12 +650,12 @@
         "name": "field-bed-reef-1",
         "offset": 0,
         "duration": 23.0,
-        "bytes": 258095
+        "bytes": 255631
       }
     ],
     "sha256": "562028db924b87284f8ee09f4d11ae19d78fd92b5d8bd7ae5b5d5a93a67121ee",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.",
-    "loopCrossfade": 1.0
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
   },
   "carolina-chickadee": {
     "title": "Poecile carolinensis XC870687",
@@ -720,12 +720,12 @@
         "name": "field-bed-wind-1",
         "offset": 0,
         "duration": 23.0,
-        "bytes": 234575
+        "bytes": 234717
       }
     ],
     "sha256": "2c85fc702cdd0ff6c60a184766b6149d89063d2e60a6a426d5e28d8f6a1d00f6",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.",
-    "loopCrossfade": 1.0
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
   },
   "american-toad": {
     "url": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Anaxyrus_americanus_-_American_Toad_Vocalization.wav",

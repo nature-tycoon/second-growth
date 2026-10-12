@@ -170,7 +170,7 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - Creator: National Park Service
 - Source: https://www.nps.gov/subjects/sound/sounds-stream.htm
 - License: Public domain — https://www.nps.gov/subjects/sound/gallery.htm
-- Changes: Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.
+- Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.
 
 ## bed-ocean
 
@@ -178,7 +178,7 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - Creator: National Park Service
 - Source: https://www.nps.gov/subjects/sound/sounds-ocean.htm
 - License: Public domain — https://www.nps.gov/subjects/sound/gallery.htm
-- Changes: Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.
+- Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.
 
 ## bed-crickets
 
@@ -186,7 +186,7 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - Creator: National Park Service
 - Source: https://www.nps.gov/subjects/sound/sounds-crickets.htm
 - License: Public domain — https://www.nps.gov/subjects/sound/gallery.htm
-- Changes: Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.
+- Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.
 
 ## bed-rain
 
@@ -194,7 +194,7 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - Creator: National Park Service
 - Source: https://www.nps.gov/subjects/sound/sounds-rain.htm
 - License: Public domain — https://www.nps.gov/subjects/sound/gallery.htm
-- Changes: Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.
+- Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.
 
 ## cow
 
@@ -226,7 +226,7 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - Creator: nathanwolek
 - Source: https://freesound.org/people/nathanwolek/sounds/737242/
 - License: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
-- Changes: Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.
+- Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.
 
 ## carolina-chickadee
 
@@ -250,7 +250,7 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - Creator: alppdcjr12
 - Source: https://freesound.org/people/alppdcjr12/sounds/662575/
 - License: CC0 — https://creativecommons.org/publicdomain/zero/1.0/
-- Changes: Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license.
+- Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.
 
 ## american-toad
 

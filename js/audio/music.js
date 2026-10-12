@@ -7,6 +7,7 @@ import { TRACKS } from './tracks.js';
 import { SOUNDSCAPES, PROMINENT_CALLS, natureMix, natureCallRates } from './nature.js';
 import { RUT_SOUNDS, RACK_PITCH, soundFile } from './sounds.js';
 import { FIELD_RECORDINGS, MAP_RECORDINGS, RECORDED_BEDS } from './recordings.js';
+import { seamlessLoop } from './loop.js';
 
 const FADE = 4;        // seconds of crossfade between tracks
 const GAP = 1.5;       // quiet seconds after a track fails to load, before the next
@@ -241,7 +242,7 @@ export class Music {
       if (this.ctx.currentTime < (this.fieldRetry.get(name) ?? 0)) return Promise.resolve();
       const request = fetch(soundFile(name)).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
         .then(data => new Promise((ok, fail) => this.ctx.decodeAudioData(data, ok, fail)))
-        .then(clip => { this.fieldClips.set(name, clip); this.fieldRetry.delete(name); }, () => { this.fieldRetry.set(name, this.ctx.currentTime + 30); })
+        .then(clip => { this.fieldClips.set(name, id.startsWith('bed-') ? seamlessLoop(this.ctx, clip) : clip); this.fieldRetry.delete(name); }, () => { this.fieldRetry.set(name, this.ctx.currentTime + 30); })
         .finally(() => this.fieldLoads.delete(name));
       this.fieldLoads.set(name, request);
       return request;

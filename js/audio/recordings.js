@@ -243,7 +243,7 @@ export const FIELD_RECORDINGS = {
     "by": "National Park Service",
     "license": "Public domain",
     "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license."
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
   },
   "bed-ocean": {
     "clips": [
@@ -254,7 +254,7 @@ export const FIELD_RECORDINGS = {
     "by": "National Park Service",
     "license": "Public domain",
     "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license."
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
   },
   "bed-crickets": {
     "clips": [
@@ -265,7 +265,7 @@ export const FIELD_RECORDINGS = {
     "by": "National Park Service",
     "license": "Public domain",
     "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license."
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
   },
   "bed-rain": {
     "clips": [
@@ -276,7 +276,7 @@ export const FIELD_RECORDINGS = {
     "by": "National Park Service",
     "license": "Public domain",
     "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license."
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
   },
   "cow": {
     "clips": [
@@ -323,7 +323,7 @@ export const FIELD_RECORDINGS = {
     "by": "nathanwolek",
     "license": "CC BY 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license."
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
   },
   "carolina-chickadee": {
     "clips": [
@@ -358,7 +358,7 @@ export const FIELD_RECORDINGS = {
     "by": "alppdcjr12",
     "license": "CC0",
     "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-    "modified": "Trimmed, joined with an overlapping loop seam, high-pass filtered, loudness normalized and encoded as mono AAC. Derived clips retain the source license."
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
   },
   "american-toad": {
     "clips": [
