@@ -90,10 +90,10 @@ export function serengetiChapters(h) {
     {
       key: 'public', title: 'Safari', reward: 6000,
       story: 'Safari visitors will pay well to see a range coming back to life, and the fees can carry the work from here. But vehicles and crowds disturb shy animals, so lay the tracks with care.',
-      teach: 'Build <b>trailhead parking</b> beside a road, then run a <b>game-viewing trail</b> out past the water and the kopjes. <b>Viewing blinds</b> let people watch without disturbing. Bare, weedy ground along the trail puts visitors off.',
+      teach: 'Choose <b>Visitors → Trailhead parking</b>: the parking lot is the trailhead, and visitors need one before they can arrive. Place its <b>2 × 2 footprint on dry ground right beside a road</b>, inside the property, clear of buildings, water and trails. Use an existing road or lay one with <b>Visitors → Gravel road</b>. Then draw a <b>game-viewing trail</b> from within two tiles of the lot past the water and kopjes. Connect at least <b>40 trail tiles</b>. <b>Viewing blinds</b> let people watch without disturbing. Pull weeds along the trail. Visitor totals and ratings update at the <b>end of each month</b>.',
       unlock: ['trail', 'boardwalk', 'blind', 'build_parking', 'build_center', 'build_road'],
       goals: [
-        count('Connect 40 tiles of trail to a trailhead', g => g.visitors.facilities().parking ? g.visitors.net.length : 0, 40, ' tiles'),
+        count('Build trailhead parking and connect 40 tiles of trail to it', g => g.visitors.facilities().parking ? g.visitors.net.length : 0, 40, ' tiles'),
         count('Welcome 300 visitors', g => g.visitors.total, 300, ' visitors'),
         { desc: 'Reach a 2.5-star visitor rating', check: g => g.visitors.rating >= 2.5, prog: g => `${g.visitors.rating.toFixed(1)} / 2.5 stars` },
       ],

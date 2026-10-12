@@ -520,13 +520,16 @@ body.panels-hidden #joystick, body.photo-mode #joystick { display: none !importa
 #quest .q-ch { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
 #quest .q-n { font-size: 12px; font-weight: 800; background: var(--moss); color: #fff; border-radius: 10px; padding: 1px 8px; }
 #quest .q-caret { color: var(--muted); font-size: 12px; }
-#quest .q-body { padding: 6px 16px 14px; border-top: 1px solid var(--line); }
+#quest .q-body { padding: 6px 16px 14px; border-top: 1px solid var(--line); max-height: min(480px, calc(100dvh - var(--ui-top) - 100px)); overflow-y: auto; }
 .q-goal { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; font-size: 12.5px; line-height: 1.35; }
 .q-goal small { display: block; color: var(--muted); font-weight: 700; margin-top: 1px; }
 .q-goal.ok > span:last-child { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(0,0,0,.25); }
 .q-box { flex: none; width: 16px; height: 16px; margin-top: 1px; border-radius: 5px; border: 1.5px solid var(--moss); display: grid; place-items: center; font-size: 11px; font-weight: 900; color: #fff; }
 .q-goal.ok .q-box { background: var(--moss); }
 .q-more { margin-top: 4px; border: 0; background: transparent; color: var(--moss-2); font: 800 12px var(--ui); cursor: pointer; padding: 2px 0; }
+.q-tip, .q-help-text { font-size: 12px; line-height: 1.45; margin: 8px 0; }
+.q-tip { padding: 8px 10px; background: var(--paper-2); border-left: 3px solid var(--moss); border-radius: 4px; }
+.q-help { display: block; border: 0; background: transparent; color: var(--moss-2); font: 800 12px var(--ui); cursor: pointer; padding: 6px 0; text-align: left; }
 body.campaign #banner { top: 154px; }
 
 .tool-card { position: relative; }
@@ -630,6 +633,10 @@ body.campaign #banner { top: 154px; }
   #quest .q-head { padding: 5px 10px; }
   #quest .q-ch { display: none; }
   body.campaign #banner { top: 96px; }
+}
+/* There is no room between the side panels on phones; keep campaign help readable. */
+@media (max-width: 800px) {
+  #quest { left: auto; right: max(12px, env(safe-area-inset-right)); transform: none; width: min(320px, calc(100vw - 24px)); }
 }
 
 /* ---------------------------------------------------------------- top bar fitting */

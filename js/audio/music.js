@@ -1,11 +1,14 @@
 // The soundtrack and the valley's sounds.
 // Music: real lo-fi tracks (public domain, see tracks.js), shuffled and crossfaded, streamed one
-// at a time so only what's playing gets downloaded. Each map has its own procedural
+// at a time so only what's playing gets downloaded. Each map has its own recorded
 // nature mix, following local habitat, wildlife, weather and time of day.
 
 import { TRACKS } from './tracks.js';
-import { SOUNDSCAPES, BIRD_PHRASES, PROMINENT_CALLS, natureMix, natureCallRates } from './nature.js';
+import { SOUNDSCAPES, PROMINENT_CALLS, natureMix, natureCallRates } from './nature.js';
 import { RUT_SOUNDS, RACK_PITCH, soundFile } from './sounds.js';
+import { FIELD_RECORDINGS, MAP_RECORDINGS, RECORDED_BEDS } from './recordings.js';
+import { seamlessLoop } from './loop.js';
+import { makeRainBuffer, createRainSource } from './rain.js';
 
 const FADE = 4;        // seconds of crossfade between tracks
 const GAP = 1.5;       // quiet seconds after a track fails to load, before the next
@@ -30,6 +33,9 @@ export class Music {
     this.activeSources = new Set(); this.cooldowns = new Map(); this.nextBird = 0;
     this.callDue = new Map(); this.foregroundUntil = 0;
     this.rutClips = new Map(); this.rutLast = 0; this.rutBulls = new Map();
+    this.fieldClips = new Map(); this.fieldLoads = new Map(); this.fieldRetry = new Map();
+    this.fieldBeds = new Map();
+    this.rainClip = null;
   }
 
   // Browsers only allow audio after the player has clicked or pressed something.
@@ -61,7 +67,6 @@ export class Music {
       });
       return deck;
     });
-    this.noise = this.makeNoise(11);
     this.startNature();
     this.applyVolumes();
     this.timer = setInterval(() => { if (this.natureOn && !this.muted && this.ctx.state === 'running') this.maybeBird(); }, 250);
@@ -76,12 +81,6 @@ export class Music {
     this.syncPlayback();
     const spare = this.decks.find(d => d !== this.current);
     if (spare) { spare.el.src = SILENCE; spare.el.play().then(() => spare.el.pause()).catch(() => {}); }
-  }
-
-  makeNoise(seconds) {
-    const b = this.ctx.createBuffer(1, this.ctx.sampleRate * seconds, this.ctx.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    return b;
   }
 
   // ------------------------------------------------------------ the soundtrack
@@ -129,6 +128,7 @@ export class Music {
     if (natureVol != null) this.natureVol = natureVol;
     this.applyVolumes();
     this.syncPlayback();
+    this.updateNature();
   }
   applyVolumes() {
     if (!this.ctx) return;
@@ -146,27 +146,16 @@ export class Music {
   startNature() {
     const ctx = this.ctx;
     this.callGain = ctx.createGain(); this.callGain.connect(this.natureGain);
-    // Independent noise beds and offsets avoid a short, synchronized noise loop. Modulation
-    // sits before each level control so a silent creek really is silent, even between updates.
-    const bed = (name, type, hz, q, rate, speed, depth) => {
-      const source = ctx.createBufferSource(); source.buffer = this.noise; source.loop = true; source.playbackRate.value = rate;
-      const filter = ctx.createBiquadFilter(); filter.type = type; filter.frequency.value = hz; filter.Q.value = q;
-      const gain = this[name + 'Gain'] = ctx.createGain(); gain.gain.value = 0;
-      const amp = ctx.createGain(); amp.gain.value = 1 - depth;
-      const lfo = ctx.createOscillator(), amount = ctx.createGain(); lfo.frequency.value = speed; amount.gain.value = depth;
-      lfo.connect(amount).connect(amp.gain); lfo.start();
-      source.connect(filter).connect(amp).connect(gain).connect(this.natureGain);
-      source.start(0, Math.random() * this.noise.duration);
-    };
-    bed('rain', 'lowpass', 2800, 0.7, 1, 0.19, 0.12);
-    bed('creek', 'bandpass', 850, 0.8, 0.7, 0.23, 0.24);
-    bed('river', 'lowpass', 480, 0.7, 0.55, 0.11, 0.18);
-    bed('wind', 'bandpass', 380, 0.5, 0.45, 0.07, 0.45);
-    bed('leaves', 'highpass', 1800, 0.7, 0.9, 0.17, 0.3);
-    bed('bugs', 'bandpass', 5600, 5, 1.3, 23, 0.4);
-    bed('surf', 'lowpass', 1100, 0.7, 0.65, 0.09, 0.48);
-    bed('reef', 'lowpass', 220, 0.7, 0.5, 0.06, 0.15);
+    // Wildlife and habitat beds are recorded; rain is a steady synthesized hiss.
+    for (const name of ['rain', ...Object.keys(RECORDED_BEDS)]) {
+      const gain = this[name + 'Gain'] = ctx.createGain();
+      gain.gain.value = 0; gain.connect(this.natureGain);
+    }
     this.updateNature();
+  }
+
+  rainBuffer() {
+    return this.rainClip ??= makeRainBuffer(this.ctx);
   }
 
   setLand(L) {
@@ -187,7 +176,26 @@ export class Music {
   updateNature() {
     if (!this.ctx || !this.rainGain) return;
     const mix = natureMix(this.land, this.weather, this.season), t = this.ctx.currentTime;
-    for (const name of ['rain', 'wind', 'creek', 'river', 'leaves', 'surf', 'reef', 'bugs']) this[name + 'Gain'].gain.setTargetAtTime(mix[name], t, name === 'rain' ? 2.5 : 1.5);
+    this.rainGain.gain.setTargetAtTime(mix.rain, t, 2.5);
+    if (mix.rain > 0 && this.natureOn && !this.muted && !this.fieldBeds.has('rain')) {
+      const source = createRainSource(this.ctx, this.rainBuffer(), this.rainGain);
+      source.start(0, Math.random() * source.buffer.duration);
+      this.fieldBeds.set('rain', source);
+    }
+    for (const [name, id] of Object.entries(RECORDED_BEDS)) {
+      this[name + 'Gain'].gain.setTargetAtTime(mix[name], t, 1.5);
+      if (mix[name] > 0 && this.natureOn && !this.muted && FIELD_RECORDINGS[id] && !this.fieldBeds.has(name)) {
+        this.loadField(id).then(() => {
+          if (this.fieldBeds.has(name) || !this.natureOn || this.muted || !natureMix(this.land, this.weather, this.season)[name]) return;
+          const clip = this.fieldClips.get(FIELD_RECORDINGS[id].clips[0]);
+          if (!clip) return;
+          const source = this.ctx.createBufferSource(); source.buffer = clip; source.loop = true;
+          source.connect(this[name + 'Gain']); source.start(0, Math.random() * clip.duration);
+          this.fieldBeds.set(name, source);
+        });
+      }
+    }
+    this.warmField();
   }
   birdLife() { return natureMix(this.land, this.weather, this.season).birds; }
   calls(dt) {
@@ -201,15 +209,19 @@ export class Music {
         const wait = ([min, max]) => min + Math.random() * (max - min);
         if (!this.callDue.has(voice)) this.callDue.set(voice, t + wait(prominent.first));
         if (t < this.callDue.get(voice) || t < this.foregroundUntil || t < (this.cooldowns.get(voice) ?? 0)) continue;
-        this[voice](); this.foregroundUntil = t + prominent.duration + 0.5;
+        const duration = this[voice]();
+        if (duration === 0) continue; // loading: keep the call due, without pretending it played
+        const playedFor = duration ?? prominent.duration;
+        this.foregroundUntil = t + playedFor + 0.5;
         this.callDue.set(voice, t + wait(prominent.repeat));
-        this.cooldowns.set(voice, t + prominent.duration + 0.5);
+        this.cooldowns.set(voice, t + playedFor + 0.5);
         continue;
       }
       if (t < (this.cooldowns.get(voice) ?? 0) || Math.random() >= 1 - Math.exp(-rate * dt)) continue;
-      this[voice]();
+      const duration = this[voice]();
+      if (duration === 0) continue;
       const gap = { lion: 22, howler: 16, siamang: 18, hyena: 12, barredOwl: 10, owl: 9, drum: 8, reefSnap: 0.15 }[voice] ?? 3;
-      this.cooldowns.set(voice, t + gap);
+      this.cooldowns.set(voice, t + Math.max(gap, (duration ?? 0) + 1));
     }
   }
   // Each source releases its gain/filter nodes after playback; a finished voice releases its
@@ -231,134 +243,78 @@ export class Music {
     lp._voice = { count: 0, nodes: p ? [lp, p] : [lp] };
     return lp;
   }
-  tone(dest, type, f0, f1, t, dur, peak) {
-    const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + dur * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(dest); this.trackSource(o, [g], dest); o.start(t); o.stop(t + dur + 0.05);
+  // Only assets for audible animals and active environment layers are fetched. A failed
+  // request backs off; loading never triggers a delayed call after the map has changed.
+  loadField(id) {
+    const def = FIELD_RECORDINGS[id];
+    if (!this.ctx || !def) return Promise.resolve();
+    return Promise.all(def.clips.map(name => {
+      if (this.fieldClips.has(name)) return Promise.resolve();
+      if (this.fieldLoads.has(name)) return this.fieldLoads.get(name);
+      if (this.ctx.currentTime < (this.fieldRetry.get(name) ?? 0)) return Promise.resolve();
+      const request = fetch(soundFile(name)).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(data => new Promise((ok, fail) => this.ctx.decodeAudioData(data, ok, fail)))
+        .then(clip => { this.fieldClips.set(name, id.startsWith('bed-') ? seamlessLoop(this.ctx, clip) : clip); this.fieldRetry.delete(name); }, () => { this.fieldRetry.set(name, this.ctx.currentTime + 30); })
+        .finally(() => this.fieldLoads.delete(name));
+      this.fieldLoads.set(name, request);
+      return request;
+    }));
   }
-  frog() { // a chorus frog's rising "krek-ek"
-    const d = this.voice(undefined, 0.3), t = this.ctx.currentTime + 0.02, f = 600 + Math.random() * 400;
-    for (let k = 0; k < 2 + (Math.random() < 0.5 ? 1 : 0); k++) this.tone(d, 'square', f, f * 1.3, t + k * 0.13, 0.08, 0.012);
+  warmField() {
+    if (!this.land || !this.ctx || !this.natureOn || this.muted) return;
+    const map = MAP_RECORDINGS[this.land.map];
+    for (const [key, id] of Object.entries(map?.birds || {})) if (this.land.present.includes(key)) this.loadField(id);
+    for (const { voice } of natureCallRates(this.land, this.weather, this.season)) this.loadField(map?.calls[voice]);
   }
-  cricket() {
-    const d = this.voice(undefined, 0.2, 7000), t = this.ctx.currentTime + 0.02;
-    for (let k = 0; k < 3; k++) this.tone(d, 'sine', 4300, 4200, t + k * 0.05, 0.035, 0.006);
+  playField(id, { far = 0.2, pan, offset = 0, length } = {}) {
+    if (!this.ctx || !this.natureOn || this.muted || this.ctx.state !== 'running' || !this.callGain) return 0;
+    const def = FIELD_RECORDINGS[id];
+    if (!def) return 0;
+    const ready = def.clips.map(n => this.fieldClips.get(n)).filter(Boolean);
+    if (!ready.length) { this.loadField(id); return 0; }
+    const clip = ready[Math.floor(Math.random() * ready.length)], duration = Math.min(length ?? clip.duration, clip.duration - offset);
+    if (duration <= 0) return 0;
+    const t = this.ctx.currentTime, source = this.ctx.createBufferSource(), gain = this.ctx.createGain();
+    source.buffer = clip; // Preserve the animal's real pitch and pace.
+    const level = def.gain * (1 - far) ** 1.2;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(level, t + Math.min(0.04, duration / 4));
+    gain.gain.setValueAtTime(level, t + Math.max(0.04, duration - 0.08));
+    gain.gain.linearRampToValueAtTime(0, t + duration);
+    const dest = this.voice(pan, far, 12000);
+    source.connect(gain).connect(dest); this.trackSource(source, [gain], dest);
+    source.start(t, offset, duration);
+    return duration;
   }
-  owl() { // great horned owl: "hoo, hoo-hoo, hoo"
-    const d = this.voice(undefined, 0.6), t = this.ctx.currentTime + 0.05;
-    [[0, 0.32], [0.55, 0.16], [0.75, 0.16], [1.05, 0.4]].forEach(([at, len]) => this.tone(d, 'sine', 360, 330, t + at, len, 0.03));
+  recordedCall(voice) {
+    const key = SOUNDSCAPES[this.land?.map]?.calls.find(c => c[1] === voice)?.[0];
+    return this.playField(MAP_RECORDINGS[this.land?.map]?.calls[voice], this.land?.callPositions?.[key]);
   }
-  hyena() { // the spotted hyena's rising "whoo-oop", two or three times
-    const d = this.voice(undefined, 0.35, 4000), t = this.ctx.currentTime + 0.05;
-    for (let k = 0, n = 2 + (Math.random() < 0.5 ? 1 : 0); k < n; k++) {
-      this.tone(d, 'sine', 260, 900, t + k * 1.6, 1.1, 0.075);
-      this.tone(d, 'triangle', 520, 1800, t + k * 1.6, 1.1, 0.018);
-    }
-  }
-  roar(d, t, f0, f1, dur, peak) { // a throaty roar: a low buzzing tone with breath noise, swelling and fading
-    const ctx = this.ctx, o = ctx.createOscillator(), n = ctx.createBufferSource(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
-    o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    n.buffer = this.noise; lp.type = 'lowpass'; lp.frequency.value = 520;
-    const ng = ctx.createGain(); ng.gain.value = 0.5;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + dur * 0.35); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(lp); n.connect(ng).connect(lp); lp.connect(g).connect(d);
-    this.trackSource(o, [], d); this.trackSource(n, [ng, lp, g], d);
-    o.start(t); n.start(t); o.stop(t + dur + 0.05); n.stop(t + dur + 0.05);
-  }
-  lion() { // one long roar, then a run of grunts that slow and fade
-    const d = this.voice(undefined, 0.35, 3800), t = this.ctx.currentTime + 0.05;
-    this.roar(d, t, 110, 70, 1.8, 0.14);
-    // Upper harmonics keep the low roar audible on small speakers.
-    this.tone(d, 'triangle', 330, 210, t, 1.8, 0.04);
-    for (let k = 0; k < 6; k++) this.roar(d, t + 2.2 + k * (0.55 + k * 0.08), 90, 70, 0.4, 0.08 * (1 - k * 0.12));
-  }
-  moo() { // a cow across the pasture: a long, low call that rises and falls
-    const d = this.voice(undefined, 0.25, 3800), t = this.ctx.currentTime + 0.05;
-    this.roar(d, t, 120, 165, 0.6, 0.075); this.roar(d, t + 0.55, 165, 110, 1.2, 0.09);
-    this.tone(d, 'triangle', 360, 495, t, 0.6, 0.025);
-    this.tone(d, 'triangle', 495, 330, t + 0.55, 1.2, 0.03);
-  }
-  howler() { // howler monkeys: a rolling, rising-and-falling roar from the canopy
-    const d = this.voice(undefined, 0.8), t = this.ctx.currentTime + 0.05;
-    for (let k = 0; k < 4; k++) this.roar(d, t + k * 0.9, 140 + Math.random() * 40, 95, 1.1, 0.045);
-  }
-  // Species-dependent phrases. Tropical seasons stay active, and seabirds keep their rough
-  // calls. No local animal means no invented chorus; insects and weather still fill the space.
-  birdPhrase(style) {
-    const [f0, f1, dur, gap, count, type] = BIRD_PHRASES[style];
-    const pitch = 0.94 + Math.random() * 0.12, pace = 0.93 + Math.random() * 0.14;
-    const d = this.voice(undefined, 0.1 + Math.random() * 0.5, 10000), t = this.ctx.currentTime + 0.03;
-    for (let k = 0; k < count; k++) {
-      const lift = 1 + Math.sin(k * 1.9) * 0.13;
-      this.tone(d, type, f0 * pitch * lift, f1 * pitch * lift, t + k * gap * pace, dur * pace, type === 'sawtooth' ? 0.008 : 0.016);
-    }
-    return count * gap * pace;
-  }
+  frog() { return this.recordedCall('frog'); }
+  owl() { return this.recordedCall('owl'); }
+  hyena() { return this.recordedCall('hyena'); }
+  lion() { return this.recordedCall('lion'); }
+  moo() { return this.recordedCall('moo'); }
+  howler() { return this.recordedCall('howler'); }
+  peeper() { return this.recordedCall('peeper'); }
+  toad() { return this.recordedCall('toad'); }
+  dartfrog() { return this.recordedCall('dartfrog'); }
+  treeFrog() { return this.recordedCall('treeFrog'); }
+  barredOwl() { return this.recordedCall('barredOwl'); }
+  barnOwl() { return this.recordedCall('barnOwl'); }
+  drum() { return this.recordedCall('drum'); }
+  siamang() { return this.recordedCall('siamang'); }
+  groundHornbill() { return this.recordedCall('groundHornbill'); }
+  hippo() { return this.recordedCall('hippo'); }
+  zebra() { return this.recordedCall('zebra'); }
+  birdPhrase(key) { return this.playField(MAP_RECORDINGS[this.land?.map]?.birds[key], this.land?.callPositions?.[key]); }
   maybeBird() {
-    if (!this.ctx || !this.land || this.ctx.currentTime < this.nextBird) return;
-    const choices = Object.entries(SOUNDSCAPES[this.land.map]?.birds || {}).filter(([key]) => this.land.present.includes(key));
+    if (!this.ctx || !this.land || this.ctx.currentTime < this.nextBird || this.ctx.currentTime < this.foregroundUntil) return;
+    const choices = Object.keys(MAP_RECORDINGS[this.land.map]?.birds || {}).filter(key => this.land.present.includes(key));
     const life = this.birdLife();
     if (!choices.length || Math.random() >= 1 - Math.exp(-0.38 * life * 0.25)) return;
-    const [, style] = choices[Math.floor(Math.random() * choices.length)];
-    const duration = this.birdPhrase(style);
-    this.nextBird = this.ctx.currentTime + duration + 0.8 + Math.random() * 1.8;
-  }
-  noiseCall(dest, t, dur, peak, hz = 2200, q = 0.8) {
-    const ctx = this.ctx, n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-    n.buffer = this.noise; f.type = 'bandpass'; f.frequency.value = hz; f.Q.value = q;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + Math.min(0.015, dur * 0.2)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    n.connect(f).connect(g).connect(dest); this.trackSource(n, [f, g], dest);
-    n.start(t, Math.random() * (this.noise.duration - dur)); n.stop(t + dur + 0.02);
-  }
-  peeper() {
-    const d = this.voice(undefined, 0.25, 6500), t = this.ctx.currentTime + 0.03;
-    const f = 2900 + Math.random() * 450;
-    for (let k = 0; k < 3; k++) this.tone(d, 'sine', f, f * 1.08, t + k * 0.9, 0.16, 0.012);
-  }
-  toad() {
-    const d = this.voice(undefined, 0.35, 5000), t = this.ctx.currentTime + 0.03;
-    for (let k = 0; k < 25; k++) this.tone(d, 'sine', 2200, 2200, t + k * 0.055, 0.04, 0.007);
-  }
-  dartfrog() {
-    const d = this.voice(undefined, 0.25, 6000), t = this.ctx.currentTime + 0.03;
-    for (let k = 0; k < 7; k++) this.tone(d, 'sine', 3200, 3400, t + k * 0.085, 0.045, 0.005);
-  }
-  treeFrog() {
-    const d = this.voice(undefined, 0.4, 4500), t = this.ctx.currentTime + 0.03;
-    for (let k = 0; k < 4; k++) this.tone(d, 'triangle', 850, 1100, t + k * 0.22, 0.12, 0.008);
-  }
-  barredOwl() {
-    const d = this.voice(undefined, 0.5), t = this.ctx.currentTime + 0.03;
-    [[0, 0.18], [0.24, 0.18], [0.48, 0.18], [0.74, 0.4], [1.5, 0.18], [1.74, 0.18], [1.98, 0.18], [2.24, 0.65]].forEach(([at, dur]) => this.tone(d, 'sine', 540, at > 2 ? 340 : 480, t + at, dur, 0.025));
-  }
-  barnOwl() {
-    const d = this.voice(undefined, 0.45, 6500);
-    this.noiseCall(d, this.ctx.currentTime + 0.03, 0.95, 0.04, 2800, 1.6);
-  }
-  drum() {
-    const d = this.voice(undefined, 0.4), t = this.ctx.currentTime + 0.03;
-    for (let k = 0; k < 14; k++) this.noiseCall(d, t + k * 0.11, 0.045, 0.06 * (1 - k * 0.035), 800, 2);
-  }
-  siamang() {
-    const d = this.voice(undefined, 0.6, 4200), t = this.ctx.currentTime + 0.03;
-    for (let k = 0; k < 5; k++) {
-      const at = t + k * 0.9;
-      this.tone(d, 'sine', 280, 340, at, 0.4, 0.03);
-      this.tone(d, 'triangle', 650, 1000, at + 0.42, 0.3, 0.014);
-    }
-  }
-  groundHornbill() {
-    const d = this.voice(undefined, 0.6), t = this.ctx.currentTime + 0.03;
-    for (let k = 0; k < 3; k++) this.tone(d, 'sine', 190, 145, t + k * 0.85, 0.5, 0.026);
-  }
-  hippo() {
-    const d = this.voice(undefined, 0.6), t = this.ctx.currentTime + 0.03;
-    for (let k = 0; k < 4; k++) this.roar(d, t + k * 0.42, 160, 110, 0.22, 0.018);
-  }
-  zebra() {
-    const d = this.voice(undefined, 0.6), t = this.ctx.currentTime + 0.03;
-    for (let k = 0; k < 3; k++) this.tone(d, 'triangle', 550, 900, t + k * 0.36, 0.22, 0.018);
+    const duration = this.birdPhrase(choices[Math.floor(Math.random() * choices.length)]);
+    if (duration) this.nextBird = this.ctx.currentTime + duration + 1.5 + Math.random() * 2.5;
   }
   // ------------------------------------------------------------ the rut
   // Recorded bugles and antler clashes (sounds.js), fetched and decoded once the animals that
@@ -375,13 +331,13 @@ export class Music {
     }
   }
   rut(kind, { rack = 'elk', far = 0, pan = 0, id = 0 } = {}) {
-    if (!this.ctx || !this.natureOn || this.muted || this.ctx.state !== 'running') return;
+    if (!this.ctx || !this.natureOn || this.muted || this.ctx.state !== 'running') return false;
     const t = this.ctx.currentTime, bugling = kind === 'bugle' || kind === 'answer';
     // One bugle at a time, so a rival can answer but never talks over him, and each bull
     // rests between calls: at fast game speed the herd would otherwise bugle without a break.
-    if (bugling && (t < this.rutLast || t < (this.rutBulls.get(id) ?? 0))) return;
+    if (bugling && (t < this.rutLast || t < (this.rutBulls.get(id) ?? 0))) return false;
     const ready = RUT_SOUNDS[kind].map(n => this.rutClips.get(n)).filter(Boolean);
-    if (!ready.length) return; // (still loading)
+    if (!ready.length) return false; // (still loading)
     const src = this.ctx.createBufferSource(), g = this.ctx.createGain();
     src.buffer = ready[Math.floor(Math.random() * ready.length)];
     // each bull keeps his own voice: a steady pitch offset per animal, not per call
@@ -392,14 +348,12 @@ export class Music {
     src.connect(g).connect(d); this.trackSource(src, [g], d); src.start(t + 0.01);
     if (bugling) {
       const ends = t + src.buffer.duration / src.playbackRate.value;
-      this.rutLast = ends + 0.6 + Math.random() * 1.5; this.rutBulls.set(id, ends + 12 + Math.random() * 10);
+      this.rutLast = ends + 0.6 + Math.random() * 1.5; this.rutBulls.set(id, ends + 6 + Math.random() * 6);
       this.foregroundUntil = Math.max(this.foregroundUntil, ends);
     }
+    return true;
   }
-  reefSnap() {
-    const d = this.voice(undefined, 0.15, 12000);
-    this.noiseCall(d, this.ctx.currentTime + 0.01, 0.025, 0.035, 6500, 0.7);
-  }
+
 }
 
 export const music = new Music();

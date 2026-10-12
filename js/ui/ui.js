@@ -15,7 +15,7 @@ import { STRUCTURES } from '../world.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
 import { layerLight } from '../sim/environment.js';
 import { GOALS, speciesPresent } from '../sim/goals.js';
-import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chapterOfTool, goalMet } from '../sim/campaign.js';
+import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chapterOfTool, goalMet, campaignVisitorHint } from '../sim/campaign.js';
 import { Game, PENDING_KEY } from '../game.js';
 import { biome, BIOMES, BIOME_LIST, onBiome } from '../biome.js';
 import { worldMap } from './worldmap.js';
@@ -1289,7 +1289,8 @@ export class UI {
         <p class="small" style="margin:4px 2px 10px">Music by <a href="https://freemusicarchive.org/music/holiznacc0/" target="_blank" rel="noopener">HoliznaCC0</a>, released into the public domain under ${MUSIC_LICENSE}.</p>
         ${toggle('nature', 'Nature sounds', 'Local wildlife, water, wind and insects, following each map’s seasons and time of day.')}
         ${slider('natureVolume', 'Nature volume', '', 0, 1, pctFmt)}
-        <p class="small" style="margin:4px 2px 0">${SOUND_CREDITS.map(c => `${c.what}: ${c.by}, <a href="${c.source}" target="_blank" rel="noopener">${c.license}</a>.`).join(' ')}</p>`],
+        <p class="small" style="margin:4px 2px 0">Wildlife and environment recordings are trimmed and mixed for the game; each clip retains its source license.</p>
+        <p class="small" style="margin:4px 2px 0">${SOUND_CREDITS.map(c => `${c.what}: ${c.by}, <a href="${c.source}" target="_blank" rel="noopener">recording source</a> · ${c.licenseUrl ? `<a href="${c.licenseUrl}" target="_blank" rel="noopener">${c.license}</a>` : c.license}.`).join(' ')}</p>`],
       game: ['Gameplay', `
         <div class="section-title" style="margin-top:0">Difficulty on this farm</div>
         <div class="seg" data-seg="difficulty">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === (g.difficulty || 'standard') ? 'on' : ''}">${d.name}</button>`).join('')}</div>
@@ -1574,12 +1575,14 @@ export class UI {
     if (!force && now - (this.questAt || 0) < 1000) return;
     this.questAt = now;
     const k = g.campaign.chapter, doneN = c.goals.filter(o => goalMet(g, o)).length;
+    const hint = campaignVisitorHint(g), helpOpen = this.questHelpChapter === c.key;
     q.classList.remove('hidden');
     q.classList.toggle('open', !!this.questOpen);
     const qhtml = `<button class="q-head" title="${this.questOpen ? 'Hide goals' : 'Show goals'}"><span class="q-ch">Chapter ${k + 1}/${CHAPTERS.length}</span><b>${c.title}</b><span class="q-n">${doneN}/${c.goals.length}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
-      (this.questOpen ? `<div class="q-body">${c.goals.map(o => { const ok = goalMet(g, o); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${o.desc}<small>${o.prog(g)}</small></span></div>`; }).join('')}<button class="q-more">Chapter details</button></div>` : '');
+      (this.questOpen ? `<div class="q-body">${c.goals.map(o => { const ok = goalMet(g, o); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${o.desc}<small>${o.prog(g)}</small></span></div>`; }).join('')}${hint ? `<p class="q-tip">${hint}</p>` : ''}<button class="q-help" aria-expanded="${helpOpen}" aria-controls="quest-help">${helpOpen ? 'Hide help' : 'Need help? Where and how'}</button>${helpOpen ? `<div id="quest-help" class="q-help-text">${c.teach}</div>` : ''}<button class="q-more">Chapter details</button></div>` : '');
     if (!setHTML(q, qhtml)) return; // unchanged: keep the existing nodes (and their listeners)
     q.querySelector('.q-head').addEventListener('click', () => { this.questOpen = !this.questOpen; this.renderQuest(true); });
+    q.querySelector('.q-help')?.addEventListener('click', () => { this.questHelpChapter = helpOpen ? null : c.key; this.renderQuest(true); });
     q.querySelector('.q-more')?.addEventListener('click', () => this.openChapter(k, true));
   }
 

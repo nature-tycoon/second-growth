@@ -1,5 +1,6 @@
+import { MAP_RECORDINGS } from './recordings.js';
 // Soundscape rules independent of Web Audio, so every map/season can be audited.
-// Voices are quiet, stylized synthesis, not field recordings or identification aids.
+// Wildlife voices and ambience use verified field recordings (recordings.js).
 // Month numbers follow the game calendar: March = 0, February = 11.
 export const CALL_RANGE = { cattle: 42, lion: 64, hyena: 64 };
 // Prominent voices use bounded waits instead of a chance that can miss an entire night.
@@ -30,22 +31,6 @@ export const SOUNDSCAPES = {
   reef: { birds: { booby: 'booby', noddy: 'noddy' }, seasons: [0.8, 0.7, 1, 1], insects: [0, 0, 0, 0], calls: [] },
 };
 
-export const BIRD_PHRASES = {
-  // [starting Hz, ending Hz, duration, gap, notes, waveform]
-  robin: [2100, 2900, 0.14, 0.22, 4, 'sine'], wren: [3400, 4500, 0.065, 0.1, 12, 'sine'],
-  thrush: [1900, 4200, 0.2, 0.26, 5, 'sine'], meadowlark: [2400, 1500, 0.23, 0.3, 5, 'sine'],
-  cardinal: [3000, 1800, 0.17, 0.24, 5, 'sine'], carolinaWren: [2900, 3800, 0.1, 0.15, 9, 'sine'],
-  chickadee: [4000, 3500, 0.11, 0.2, 3, 'sine'], bluebird: [1900, 2500, 0.16, 0.27, 3, 'sine'],
-  goldfinch: [3300, 4200, 0.1, 0.18, 4, 'sine'], jay: [1200, 750, 0.23, 0.45, 3, 'sawtooth'],
-  rattle: [1900, 1500, 0.035, 0.07, 10, 'triangle'], toucan: [650, 550, 0.18, 0.4, 5, 'triangle'],
-  parrot: [1100, 750, 0.3, 0.55, 3, 'sawtooth'], parakeet: [2100, 1700, 0.15, 0.3, 4, 'sawtooth'],
-  rasp: [800, 620, 0.22, 0.4, 3, 'sawtooth'], hummer: [6200, 5400, 0.045, 0.12, 4, 'sine'],
-  weaver: [3600, 2400, 0.07, 0.14, 7, 'triangle'], motmot: [650, 800, 0.18, 0.4, 2, 'sine'],
-  falcon: [1300, 1000, 0.19, 0.28, 8, 'triangle'], hornbill: [520, 430, 0.32, 0.65, 4, 'triangle'],
-  bulbul: [2300, 3400, 0.12, 0.2, 5, 'sine'], sunbird: [4700, 5700, 0.06, 0.13, 6, 'sine'],
-  eagle: [2200, 3200, 0.28, 0.65, 3, 'sine'], booby: [550, 400, 0.32, 0.6, 2, 'sawtooth'],
-  noddy: [1300, 900, 0.17, 0.27, 4, 'triangle'],
-};
 
 export function natureMix(L, weather, season) {
   if (!L || !SOUNDSCAPES[L.map]) return { rain: 0, wind: 0, creek: 0, river: 0, leaves: 0, surf: 0, reef: 0, bugs: 0, birds: 0 };
@@ -77,8 +62,5 @@ export function natureCallRates(L, weather, season) {
     wetNight: evening * L.wet, dampDay: day * L.canopy, water: L.water };
   const rates = SOUNDSCAPES[L.map].calls.filter(([key, , , , months]) => (L.callPresent ?? L.present).includes(key) && (!months || months.includes(month)))
     .map(([, voice, when, rate]) => ({ voice, rate: rate * activity[when] * (weather === 'rain' ? (when === 'wetNight' ? 1.2 : 0.35) : 1) }));
-  if ((L.map === 'pnw' || L.map === 'atlanta') && (season === 1 || season === 2)) rates.push({ voice: 'cricket', rate: L.night * (0.03 + 0.14 * L.health) * (weather === 'rain' ? 0.2 : 1) });
-  // A general underwater texture, like insect ambience: shrimp aren't individual game agents.
-  if (L.map === 'reef') rates.push({ voice: 'reefSnap', rate: (0.4 + 2 * L.health) * (1 - L.shore * 0.95) });
-  return rates.filter(c => c.rate > 0);
+  return rates.filter(c => c.rate > 0 && MAP_RECORDINGS[L.map]?.calls[c.voice]);
 }

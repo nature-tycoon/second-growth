@@ -1,0 +1,954 @@
+{
+  "robin": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/6/6a/Turdus_migratorius_-_American_Robin_-_XC107523.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Turdus_migratorius_-_American_Robin_-_XC107523.ogg",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": "Species American Robin ( Turdus migratorius ) Recordist Jonathon Jongsma Remarks Calling from the sidewalk in front of a house. Bird seen yes Playback used no Location Sioux Center, IA Elevation 440 m Country United States",
+    "size": 317346,
+    "title": "Turdus migratorius - American Robin - XC107523.ogg",
+    "clips": [
+      {
+        "name": "field-robin-1",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 52698
+      },
+      {
+        "name": "field-robin-2",
+        "offset": 14,
+        "duration": 5,
+        "bytes": 53030
+      }
+    ],
+    "sha256": "77c6dd816cad2087a8e327b38cb9c2ce7082011f58939d54d148aafd8ec6d533",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "pacific-wren": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/6/68/Troglodytes_pacificus_-_Pacific_Wren_XC120847.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Troglodytes_pacificus_-_Pacific_Wren_XC120847.ogg",
+    "by": "Alejandro Erickson",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": ":possible bewick's wren at 44s.  Second pacific wren joins at around 37. bird-seen:yes playback-used:no Common name: Pacific Wren Type: call Genus: Troglodytes Species: pacificus Location: Saanich (near  Victoria), Capital, British Columbia Elevation: 25 m",
+    "size": 6544849,
+    "title": "Troglodytes pacificus - Pacific Wren XC120847.ogg",
+    "clips": [
+      {
+        "name": "field-pacific-wren-1",
+        "offset": 40,
+        "duration": 5,
+        "bytes": 53741
+      },
+      {
+        "name": "field-pacific-wren-2",
+        "offset": 1,
+        "duration": 5,
+        "bytes": 53735
+      }
+    ],
+    "sha256": "9c5fee538be4a9b5bc2f217370094ac44995ea3b84dc35b7f5e07154493f6a1e",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "swainsons-thrush": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Catharus_ustulatus_-_Swainson%27s_Thrush_XC613535.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Catharus_ustulatus_-_Swainson%27s_Thrush_XC613535.mp3",
+    "by": "Doug Hynes",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":Bird singing on breeding grounds bird-seen:no playback-used:no Common name: Swainson's Thrush Type: song Genus: Catharus Species: ustulatus Location: Little Mecatina River, Newfoundland and Labrador Country: Canada Elevation: 280 m",
+    "size": 1063181,
+    "title": "Catharus ustulatus - Swainson's Thrush XC613535.mp3",
+    "clips": [
+      {
+        "name": "field-swainsons-thrush-1",
+        "offset": 6,
+        "duration": 5,
+        "bytes": 52600
+      },
+      {
+        "name": "field-swainsons-thrush-2",
+        "offset": 21,
+        "duration": 5,
+        "bytes": 52302
+      }
+    ],
+    "sha256": "ac088a184cb3bb4d0a3c9d6dfcd372dc5d5d3d31e54cb7450efbc7dbe97ae636",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "meadowlark": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/9/93/Sturnella_neglecta_-_Western_Meadowlark_-_XC104522.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Sturnella_neglecta_-_Western_Meadowlark_-_XC104522.ogg",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": "Species Western Meadowlark ( Sturnella neglecta ) Recordist Jonathon Jongsma Remarks Calls and partial songs from a fencepost in short grass prairie. Presumably somewhat agitated by my presence. Location Custer State Park, SD Elevation 1200 m Country United States",
+    "size": 342658,
+    "title": "Sturnella neglecta - Western Meadowlark - XC104522.ogg",
+    "clips": [
+      {
+        "name": "field-meadowlark-1",
+        "offset": 14,
+        "duration": 5,
+        "bytes": 54650
+      },
+      {
+        "name": "field-meadowlark-2",
+        "offset": 8,
+        "duration": 5,
+        "bytes": 54306
+      }
+    ],
+    "sha256": "79f532110cd9ef80dced1bb393a20820bc3c544c491283222ec3ac26d107219f",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "stellers-jay": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Cyanocitta_stelleri_-_Steller%27s_Jay_-_XC109654.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Cyanocitta_stelleri_-_Steller%27s_Jay_-_XC109654.ogg",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": "Species Steller's Jay ( Cyanocitta stelleri ) Recordist Jonathon Jongsma Remarks Foraging in undergrowth along the edge of a creek. Bird seen yes Playback used no Location McClellan Ranch Preserve, Santa Clara, CA Elevation 100 m Country United States",
+    "size": 75104,
+    "title": "Cyanocitta stelleri - Steller's Jay - XC109654.ogg",
+    "clips": [
+      {
+        "name": "field-stellers-jay-1",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 52390
+      }
+    ],
+    "sha256": "a64eec80657e6f4f3f1de35f74f8ae706d2d085f30b42f84688ec8abe0982d1d",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "belted-kingfisher": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/9/94/Megaceryle_alcyon_-_Belted_Kingfisher_XC132873.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Megaceryle_alcyon_-_Belted_Kingfisher_XC132873.ogg",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": ":Interaction calls from 3 kingfishers chasing eachother around the mouth of the creek. The lake is still frozen, so several kingfishers were congregating around the open water of the creek mouth. Recorded with Sennheiser ME66. bird-seen:yes playback-used:no Common name: Belted Kingfisher Type: call Genus: Megaceryle Species: alcyon Location: Lake Bemidji State Park, Beltrami, MN Elevation: 420 m",
+    "size": 2166443,
+    "title": "Megaceryle alcyon - Belted Kingfisher XC132873.ogg",
+    "clips": [
+      {
+        "name": "field-belted-kingfisher-1",
+        "offset": 4,
+        "duration": 5,
+        "bytes": 55494
+      },
+      {
+        "name": "field-belted-kingfisher-2",
+        "offset": 40,
+        "duration": 5,
+        "bytes": 53439
+      }
+    ],
+    "sha256": "e5bd26978ba1d82898f103f3c7cb570b915a0e107d7e969b991fe7eb73ef1666",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "great-horned-owl": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/f/f1/Bubo_virginianus_-_Great_Horned_Owl_XC428421.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Bubo_virginianus_-_Great_Horned_Owl_XC428421.mp3",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":Recorded from inside tent before sunrise, as evidenced by some tent rustling and stomach rumbling. bird-seen:no playback-used:no Common name: Great Horned Owl Type: song Genus: Bubo Species: virginianus Location: Glacial Lakes State Park, Pope County, Minnesota Country: United States Elevation: 380 m",
+    "size": 2099942,
+    "title": "Bubo virginianus - Great Horned Owl XC428421.mp3",
+    "clips": [
+      {
+        "name": "field-great-horned-owl-1",
+        "offset": 19,
+        "duration": 5,
+        "bytes": 52580
+      },
+      {
+        "name": "field-great-horned-owl-2",
+        "offset": 1,
+        "duration": 5,
+        "bytes": 52655
+      }
+    ],
+    "sha256": "f2e57f8bc5a8e0eb942961ad9f70c65ea6c2114d76b1e741a4d8fabe96f5a0d2",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "pileated-woodpecker": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/c/c6/Dryocopus_pileatus_-_Pileated_Woodpecker_XC61518.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Dryocopus_pileatus_-_Pileated_Woodpecker_XC61518.mp3",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": ":Calling from near the top of a wooden telephone/light pole in parking lot. bird-seen:yes playback-used:no Common name: Pileated Woodpecker Type: call Genus: Dryocopus Species: pileatus Location: Tettegouche State Park, Lake, Minnesota Country: United States Elevation: 200 m",
+    "size": 86240,
+    "title": "Dryocopus pileatus - Pileated Woodpecker XC61518.mp3",
+    "clips": [
+      {
+        "name": "field-pileated-woodpecker-1",
+        "offset": 0,
+        "duration": 4.981,
+        "bytes": 52000
+      }
+    ],
+    "sha256": "98f6e64e5892c741a1f1fa4eec3bcab19e4cf53535331c6b7de37b354214c0f2",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "cardinal": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/76/Cardinalis_cardinalis_-_Northern_Cardinal_XC175226.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Cardinalis_cardinalis_-_Northern_Cardinal_XC175226.mp3",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":Call from a bird at the top of a leafless tree. Several song phrases end with churrrs . Recording level a bit too hot. Overcast and cold. Recorded with homemade parabolic reflector and Sony PCM-M10. HPF. bird-seen:yes playback-used:no Common name: Northern Cardinal Type: song Genus: Cardinalis Species: cardinalis Location: Miesville Ravine Park Reserve, Goodhue County, Minnesota Country: United States Elevation: 220 m",
+    "size": 2658705,
+    "title": "Cardinalis cardinalis - Northern Cardinal XC175226.mp3",
+    "clips": [
+      {
+        "name": "field-cardinal-1",
+        "offset": 7,
+        "duration": 5,
+        "bytes": 53149
+      },
+      {
+        "name": "field-cardinal-2",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 53028
+      }
+    ],
+    "sha256": "77d42018b085757ff238aef85a19e88f0ac2685155a0480a306496a8c90fe0b7",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "carolina-wren": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/9/9b/Thryothorus_ludovicianus_-_Carolina_Wren_XC384609.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Thryothorus_ludovicianus_-_Carolina_Wren_XC384609.mp3",
+    "by": "Matthias Sirch",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":bird-seen:no playback-used:no Common name: Carolina Wren Type: song Genus: Thryothorus Species: ludovicianus Location: South Hero, Grand Isle County, Vermont Country: United States Elevation: 40 m",
+    "size": 627451,
+    "title": "Thryothorus ludovicianus - Carolina Wren XC384609.mp3",
+    "clips": [
+      {
+        "name": "field-carolina-wren-1",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 52758
+      },
+      {
+        "name": "field-carolina-wren-2",
+        "offset": 17,
+        "duration": 5,
+        "bytes": 53069
+      }
+    ],
+    "sha256": "95e3c0883b04b4f80cc53151a6f3ae4c41accb28a1f1bacbf0487c3ce2f791ee",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "bluebird": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/7c/Sialia_sialis_-_Eastern_Bluebird_-_XC100032.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Sialia_sialis_-_Eastern_Bluebird_-_XC100032.ogg",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": "Species Eastern Bluebird ( Sialia sialis ) Recordist Jonathon Jongsma Remarks Begging calls from a nest hole just after the male had visited the nest with some food. The birds are probably less than 3 days old. Location Powderhorn Park, Minneapolis, MN Elevation 250 m Country United States",
+    "size": 114300,
+    "title": "Sialia sialis - Eastern Bluebird - XC100032.ogg",
+    "clips": [
+      {
+        "name": "field-bluebird-1",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 52815
+      }
+    ],
+    "sha256": "9b3ad8f036eee868135e12be623e1df63377a14b87932a2e10405c6369e7d302",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "goldfinch": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/0/07/Spinus_tristis_-_American_Goldfinch_XC127600.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Spinus_tristis_-_American_Goldfinch_XC127600.ogg",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": ":Singing continuously from a tree in residential yard.  Around 5:00, another goldfinch flew into the tree (~5m from the original bird), and the original bird switches from song to call for a while. Recorded from about 10m using Olympus LS-10S and homemade parabolic reflector.  Filtered low frequecies (below 2kHz) slightly for significant traffic / airplane noise. bird-seen:yes playback-used:no Common name: American Goldfinch Type: song Genus: Spinus Species: tristis Location: Powderhorn Park, Minneapolis, MN Elevation: 260 m",
+    "size": 11539234,
+    "title": "Spinus tristis - American Goldfinch XC127600.ogg",
+    "clips": [
+      {
+        "name": "field-goldfinch-1",
+        "offset": 26,
+        "duration": 5,
+        "bytes": 55911
+      },
+      {
+        "name": "field-goldfinch-2",
+        "offset": 32,
+        "duration": 5,
+        "bytes": 56056
+      }
+    ],
+    "sha256": "4a0e5fbfb96dcb1ec5b719cbe66a93e7e883b8a10e4c859de7e7896bab6ee974",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "barred-owl": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/8/8e/Strix_varia_-_Barred_Owl_XC457078.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Strix_varia_-_Barred_Owl_XC457078.mp3",
+    "by": "Rob Porter",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":Captured by field recorder station. Originally posted as Unknown call. Long-eared Owl and Great Horned Owl present in recordings earlier that night. Spectogram matches nicely to XC436990. bird-seen:no playback-used:no Common name: Barred Owl Type: call Genus: Strix Species: varia Location: Hayesland Swamp Nature Sanctuary Country: Canada Elevation: 260 m",
+    "size": 244107,
+    "title": "Strix varia - Barred Owl XC457078.mp3",
+    "clips": [
+      {
+        "name": "field-barred-owl-1",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 53284
+      }
+    ],
+    "sha256": "a373bc185249eefff9a95a61379ce23b643a9d649f58f5cda2beae7488a48f0a",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "toco-toucan": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/a8/Toco_Toucan_call_%28Ramphastos_toco%29.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Toco_Toucan_call_(Ramphastos_toco).ogg",
+    "by": "Fabrício Grigolin",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "description": "Call of the Toco Toucan",
+    "size": 96704,
+    "title": "Toco toucan XC1054733",
+    "clips": [
+      {
+        "name": "field-toco-toucan-1",
+        "offset": 5,
+        "duration": 5,
+        "bytes": 51686
+      }
+    ],
+    "sha256": "ad6bb4c96b047312eb6056bfbce5558472bd678222656105139c4746c86e0abe",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "lion": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/7d/Lion_raring-sound1TamilNadu178.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Lion_raring-sound1TamilNadu178.ogg",
+    "by": "த*உழவன்",
+    "license": "Public domain",
+    "licenseUrl": "",
+    "description": "the roaring of a lion in captivity தமிழ்: விலங்கியல் பூங்காவிலுள்ள, ஆண் சிங்கத்தின் குரல்.ஒலி சீரமைப்புச் செய்யப்பட்டது.",
+    "size": 77611,
+    "title": "Lion raring-sound1TamilNadu178.ogg",
+    "clips": [
+      {
+        "name": "field-lion-1",
+        "offset": 0,
+        "duration": 9.02,
+        "bytes": 91745
+      }
+    ],
+    "sha256": "ab237d0f960e83412251d0c11f69959f3c2e8d3b14595f7181c3056f7fa18bf7",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "mantled-howler": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/8/81/Mantled_Howler_Monkey_%28Alouatta_palliata%29_%28W_ALOUATTA_PALLIATA_R1_C2%29.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Mantled_Howler_Monkey_(Alouatta_palliata)_(W_ALOUATTA_PALLIATA_R1_C2).ogg",
+    "by": "Richard Ranft / British Library",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "description": "Mantled Howler Monkey calls, recorded in Santa Rosa National Park, Costa Rica",
+    "size": 962590,
+    "title": "Mantled Howler Monkey (Alouatta palliata) (W ALOUATTA PALLIATA R1 C2).ogg",
+    "clips": [
+      {
+        "name": "field-mantled-howler-1",
+        "offset": 1,
+        "duration": 10,
+        "bytes": 102678
+      },
+      {
+        "name": "field-mantled-howler-2",
+        "offset": 13,
+        "duration": 10,
+        "bytes": 102423
+      }
+    ],
+    "sha256": "fd26f27ee7947ff165f6ab9de2c5606d034d14dd68b7996574ebd1d24885c33c",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "crimson-sunbird": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/e/e2/Aethopyga_siparaja_-_Crimson_Sunbird_XC203106.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Aethopyga_siparaja_-_Crimson_Sunbird_XC203106.mp3",
+    "by": "Surya Fajriani",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":You will be like this bird-seen:yes Common name: Crimson Sunbird Type: call, male, song Genus: Aethopyga Species: siparaja Location: Anggana, Kutai Kartanegara, East Kalimantan Country: Indonesia Elevation: 2 m",
+    "size": 2592101,
+    "title": "Aethopyga siparaja - Crimson Sunbird XC203106.mp3",
+    "clips": [
+      {
+        "name": "field-crimson-sunbird-1",
+        "offset": 5,
+        "duration": 5,
+        "bytes": 53894
+      },
+      {
+        "name": "field-crimson-sunbird-2",
+        "offset": 15,
+        "duration": 5,
+        "bytes": 53328
+      }
+    ],
+    "sha256": "228d0d1a09bd9a81d7799ebc531ab3006314cc06c37a67bff6e48a72396101db",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "stork-billed-kingfisher": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/b/b8/Pelargopsis_capensis_-_Stork-billed_Kingfisher_XC360661.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Pelargopsis_capensis_-_Stork-billed_Kingfisher_XC360661.mp3",
+    "by": "Sunit",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":bird-seen:yes playback-used:no Common name: Stork-billed Kingfisher Type: call Genus: Pelargopsis Species: capensis Location: Ratnagiri, Maharashtra Country: India Elevation: 20 m",
+    "size": 1548169,
+    "title": "Pelargopsis capensis - Stork-billed Kingfisher XC360661.mp3",
+    "clips": [
+      {
+        "name": "field-stork-billed-kingfisher-1",
+        "offset": 17,
+        "duration": 5,
+        "bytes": 52476
+      },
+      {
+        "name": "field-stork-billed-kingfisher-2",
+        "offset": 33,
+        "duration": 5,
+        "bytes": 53479
+      }
+    ],
+    "sha256": "4761ce577ec4c7fa46527d57d162186722f1c24eccba9214bed51d8fd9b68e32",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "barn-owl": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/1/15/Tyto_alba_-_Western_Barn_Owl_XC592539.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Tyto_alba_-_Western_Barn_Owl_XC592539.mp3",
+    "by": "Jens Loose",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":2 calls at 0:01 and 1:00; Nocturnal recording in the city with Telinga Foldable V2 Dish, mic Stereo MK3 and recorder ZOOM H5. High Pass filter applied bird-seen:no playback-used:no Common name: Western Barn Owl Type: nocturnal flight call Genus: Tyto Species: alba Location: Dresden, Dresden, Sachsen Country: Germany Elevation: 110 m",
+    "size": 2087218,
+    "title": "Tyto alba - Western Barn Owl XC592539.mp3",
+    "clips": [
+      {
+        "name": "field-barn-owl-1",
+        "offset": 13,
+        "duration": 5,
+        "bytes": 52601
+      },
+      {
+        "name": "field-barn-owl-2",
+        "offset": 7,
+        "duration": 5,
+        "bytes": 52807
+      }
+    ],
+    "sha256": "0e4e4ecc37a876cda73e0cb6ff2db9813af2cad51e8a88b06dbc93b928b5ab56",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "siamang": {
+    "url": "https://cdn.freesound.org/previews/819/819670_754558-hq.mp3",
+    "source": "https://freesound.org/people/ikbenraar/sounds/819670/",
+    "by": "ikbenraar",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "siamang monkeys",
+    "title": "siamang monkeys",
+    "clips": [
+      {
+        "name": "field-siamang-1",
+        "offset": 26,
+        "duration": 10,
+        "bytes": 102711
+      },
+      {
+        "name": "field-siamang-2",
+        "offset": 14,
+        "duration": 10,
+        "bytes": 102766
+      }
+    ],
+    "sha256": "ff6b5499d84b9210a8f7629c5e14478901bafc652531e70fae9f25e921bd1482",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "bed-stream": {
+    "url": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-StreamMUWO.mp3",
+    "source": "https://www.nps.gov/subjects/sound/sounds-stream.htm",
+    "by": "National Park Service",
+    "license": "Public domain",
+    "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
+    "description": "stream field recording",
+    "title": "stream",
+    "clips": [
+      {
+        "name": "field-bed-stream-1",
+        "offset": 0,
+        "duration": 4.068,
+        "bytes": 50612
+      }
+    ],
+    "sha256": "4d55ce7e299b7d2d9ab50aee2d28233f05662886cbb57e792aa210d39dd73744",
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
+  },
+  "bed-ocean": {
+    "url": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-OceanOlympicNP.mp3",
+    "source": "https://www.nps.gov/subjects/sound/sounds-ocean.htm",
+    "by": "National Park Service",
+    "license": "Public domain",
+    "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
+    "description": "ocean field recording",
+    "title": "ocean",
+    "clips": [
+      {
+        "name": "field-bed-ocean-1",
+        "offset": 0,
+        "duration": 5.609,
+        "bytes": 57801
+      }
+    ],
+    "sha256": "372d12d439a03b5ca1e4eb87b0c7305e352f0a3492adecf99636cfc3813d92f4",
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
+  },
+  "bed-crickets": {
+    "url": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-Cricket.mp3",
+    "source": "https://www.nps.gov/subjects/sound/sounds-crickets.htm",
+    "by": "National Park Service",
+    "license": "Public domain",
+    "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
+    "description": "crickets field recording",
+    "title": "crickets",
+    "clips": [
+      {
+        "name": "field-bed-crickets-1",
+        "offset": 0,
+        "duration": 23.0,
+        "bytes": 226437
+      }
+    ],
+    "sha256": "e15a0818d8476a0d8dfb7293cf8d3072a897adc21901d0985108b181fa856081",
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
+  },
+  "cow": {
+    "url": "https://cdn.freesound.org/previews/163/163727_1661766-hq.mp3",
+    "source": "https://freesound.org/people/felix.blume/sounds/163727/",
+    "by": "felix.blume",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "Cow mooing in south of France (Limousin)",
+    "title": "Cow mooing in south of France (Limousin)",
+    "clips": [
+      {
+        "name": "field-cow-1",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 51943
+      },
+      {
+        "name": "field-cow-2",
+        "offset": 5,
+        "duration": 5,
+        "bytes": 52341
+      }
+    ],
+    "sha256": "4715fb5622dd53d3d4fe95dfd5a9dede8a016eaea560c76077957f7183fd0fa7",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "hippo": {
+    "url": "https://cdn.freesound.org/previews/103/103118_1745410-hq.mp3",
+    "source": "https://freesound.org/people/geronimo83/sounds/103118/",
+    "by": "geronimo83",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "Hippo.mp3",
+    "title": "Hippo.mp3",
+    "clips": [
+      {
+        "name": "field-hippo-1",
+        "offset": 10,
+        "duration": 5,
+        "bytes": 52129
+      },
+      {
+        "name": "field-hippo-2",
+        "offset": 32,
+        "duration": 5,
+        "bytes": 52344
+      }
+    ],
+    "sha256": "c3b4d00e2699c497ea1e669d34eff193673e20162262bb2ce5c4b7cf6b278fb4",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "pacific-frog": {
+    "url": "https://cdn.freesound.org/previews/429/429590_3173615-hq.mp3",
+    "source": "https://freesound.org/people/superfreq/sounds/429590/",
+    "by": "superfreq",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "Pacific Treefrogs in Mating Season",
+    "title": "Pacific Treefrogs in Mating Season",
+    "clips": [
+      {
+        "name": "field-pacific-frog-1",
+        "offset": 21,
+        "duration": 5,
+        "bytes": 52172
+      },
+      {
+        "name": "field-pacific-frog-2",
+        "offset": 31,
+        "duration": 5,
+        "bytes": 52229
+      }
+    ],
+    "sha256": "f55dacf01ac68d5b108b68f6cde1455e15a6a7ae0061779494d2854187af4041",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "bed-reef": {
+    "url": "https://cdn.freesound.org/previews/737/737242_15709406-hq.mp3",
+    "source": "https://freesound.org/people/nathanwolek/sounds/737242/",
+    "by": "nathanwolek",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "description": "ANMLAqua-snapping-shrimp-choppy-water-20240223",
+    "title": "ANMLAqua-snapping-shrimp-choppy-water-20240223",
+    "clips": [
+      {
+        "name": "field-bed-reef-1",
+        "offset": 0,
+        "duration": 23.0,
+        "bytes": 255631
+      }
+    ],
+    "sha256": "562028db924b87284f8ee09f4d11ae19d78fd92b5d8bd7ae5b5d5a93a67121ee",
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
+  },
+  "carolina-chickadee": {
+    "title": "Poecile carolinensis XC870687",
+    "url": "https://xeno-canto.org/870687/download",
+    "source": "https://xeno-canto.org/870687",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "by": "steve",
+    "description": "Carolina Chickadee Poecile carolinensis 0:18 steve 2024-02-01 08:30 United States Chapel Hill, Orange County, North Carolina 80 call, song [also] [sono] A B C D E XC870687",
+    "clips": [
+      {
+        "name": "field-carolina-chickadee-1",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 51916
+      },
+      {
+        "name": "field-carolina-chickadee-2",
+        "offset": 8,
+        "duration": 5,
+        "bytes": 52051
+      }
+    ],
+    "sha256": "b8005db4c50db851fe069129811fe2efed7e42bd3a4f74aaf0f8497252b3821b",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "spring-peeper": {
+    "url": "https://cdn.freesound.org/previews/184/184950_1213320-hq.mp3",
+    "source": "https://freesound.org/people/BudJillett/sounds/184950/",
+    "by": "BudJillett",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "description": "Spring Peepers | Clean Recording | South Berwick, Maine 2013",
+    "title": "Spring Peepers | Clean Recording | South Berwick, Maine 2013",
+    "clips": [
+      {
+        "name": "field-spring-peeper-1",
+        "offset": 6,
+        "duration": 5,
+        "bytes": 52187
+      },
+      {
+        "name": "field-spring-peeper-2",
+        "offset": 15,
+        "duration": 5,
+        "bytes": 52167
+      }
+    ],
+    "sha256": "10a66d3acfe5d3db8b1ec9da26da2eacbf3953258047d2fb716dc73b53a02405",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "bed-wind": {
+    "url": "https://cdn.freesound.org/previews/662/662575_14530623-hq.mp3",
+    "source": "https://freesound.org/people/alppdcjr12/sounds/662575/",
+    "by": "alppdcjr12",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "Wind in trees 1.mp3",
+    "title": "Wind in trees 1.mp3",
+    "clips": [
+      {
+        "name": "field-bed-wind-1",
+        "offset": 0,
+        "duration": 23.0,
+        "bytes": 234717
+      }
+    ],
+    "sha256": "2c85fc702cdd0ff6c60a184766b6149d89063d2e60a6a426d5e28d8f6a1d00f6",
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "loop": true
+  },
+  "american-toad": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Anaxyrus_americanus_-_American_Toad_Vocalization.wav",
+    "source": "https://commons.wikimedia.org/wiki/File:Anaxyrus_americanus_-_American_Toad_Vocalization.wav",
+    "by": "SwampVids",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "description": "Song of American Toad, Anaxyrus americanus",
+    "size": 779732,
+    "title": "Anaxyrus americanus - American Toad Vocalization.wav",
+    "clips": [
+      {
+        "name": "field-american-toad-1",
+        "offset": 0,
+        "duration": 4.031,
+        "bytes": 36237
+      }
+    ],
+    "sha256": "a9375dbac8fa621ad331f6d34ab3f664855b87f0d8242f171cfb74684861a6c0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "scarlet-macaw": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/8/89/Scarlet_macaw_01.wav",
+    "source": "https://commons.wikimedia.org/wiki/File:Scarlet_macaw_01.wav",
+    "by": "Ganesh Mohan T",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": "Sound of Scarlet macaw.",
+    "size": 3166252,
+    "title": "Scarlet macaw 01.wav",
+    "clips": [
+      {
+        "name": "field-scarlet-macaw-1",
+        "offset": 11,
+        "duration": 5,
+        "bytes": 51792
+      },
+      {
+        "name": "field-scarlet-macaw-2",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 52411
+      }
+    ],
+    "sha256": "9e253fef86e0ff0be7a898e2dc80a739f7c41846ea439e7fad018865f22caaa4",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "hyena": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/0/07/Spotted_Hyaena_%28Crocuta_crocuta%29_%28W1CDR0000381_BD12%29.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Spotted_Hyaena_(Crocuta_crocuta)_(W1CDR0000381_BD12).ogg",
+    "by": "David Watts / British Library",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "description": "Spotted Hyaena whoop, recorded in Hluhluwe–Imfolozi Park , South Africa",
+    "size": 425772,
+    "title": "Spotted Hyaena (Crocuta crocuta) (W1CDR0000381 BD12).ogg",
+    "clips": [
+      {
+        "name": "field-hyena-1",
+        "offset": 11,
+        "duration": 10,
+        "bytes": 102621
+      },
+      {
+        "name": "field-hyena-2",
+        "offset": 1,
+        "duration": 10,
+        "bytes": 102814
+      }
+    ],
+    "sha256": "375a597512b26ed16a1a77d9b80830b810338f93b3832497f2891faabb30a976",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "rhinoceros-hornbill": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/aa/Rhinoceros_hornbill_call.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Rhinoceros_hornbill_call.ogg",
+    "by": "soundbytez",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "description": "rhinoceros hornbill call",
+    "size": 181029,
+    "title": "Rhinoceros hornbill call.ogg",
+    "clips": [
+      {
+        "name": "field-rhinoceros-hornbill-1",
+        "offset": 0,
+        "duration": 5,
+        "bytes": 52284
+      },
+      {
+        "name": "field-rhinoceros-hornbill-2",
+        "offset": 6,
+        "duration": 5,
+        "bytes": 52077
+      }
+    ],
+    "sha256": "219fb20e41d3f3715117a7a460f750b806e197c5702bccad5c3d740441f773d9",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "serpent-eagle": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/b/b9/Crested_Serpent_Eagle_from_Dhoni.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Crested_Serpent_Eagle_from_Dhoni.ogg",
+    "by": "Raghu.kuttan",
+    "license": "Public domain",
+    "licenseUrl": "",
+    "description": "Crested Serpent Eagle call recorded from Dhoni",
+    "size": 393651,
+    "title": "Crested Serpent Eagle from Dhoni.ogg",
+    "clips": [
+      {
+        "name": "field-serpent-eagle-1",
+        "offset": 9,
+        "duration": 5,
+        "bytes": 52696
+      },
+      {
+        "name": "field-serpent-eagle-2",
+        "offset": 1,
+        "duration": 5,
+        "bytes": 52280
+      }
+    ],
+    "sha256": "753ff7a460c185a57f7cb9903a98c8a88b232883eabcd6b939e0d9a154b59a63",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "black-noddy": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/a6/Black_Noddy06.ogv",
+    "source": "https://commons.wikimedia.org/wiki/File:Black_Noddy06.ogv",
+    "by": "Aviceda",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": "Black Noddy ( Anous minutus ) Lady Elliot Island, Qld, Australia",
+    "size": 3359003,
+    "title": "Black Noddy06.ogg",
+    "clips": [
+      {
+        "name": "field-black-noddy-1",
+        "offset": 9,
+        "duration": 5,
+        "bytes": 52190
+      },
+      {
+        "name": "field-black-noddy-2",
+        "offset": 3,
+        "duration": 5,
+        "bytes": 52147
+      }
+    ],
+    "sha256": "283b86688dbef2226f4de83e377a92eea7b6fa36375ccb2cc35016bb59432142",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "roller": {
+    "title": "Coracias caudatus caudatus, roep in vlug te Krokodilspruit, 2022-05-28 13h18, a.mp3",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/5/5a/Coracias_caudatus_caudatus%2C_roep_in_vlug_te_Krokodilspruit%2C_2022-05-28_13h18%2C_a.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Coracias_caudatus_caudatus,_roep_in_vlug_te_Krokodilspruit,_2022-05-28_13h18,_a.mp3",
+    "by": "JMK",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": "Call of Lilac-breasted roller ( Coracias caudatus caudatus ) in flight at Krokodilspruit in eastern Gauteng, South Africa. It flew overhead to a perch on a tall electricity pylon. The area beside the spruit is a mix of Terminalia sericea woodland, grassland and copses of gum trees.",
+    "clips": [
+      {
+        "name": "field-roller-1",
+        "offset": 2,
+        "duration": 5,
+        "bytes": 52342
+      },
+      {
+        "name": "field-roller-2",
+        "offset": 7,
+        "duration": 5,
+        "bytes": 51985
+      }
+    ],
+    "sha256": "788c16ccfe86d47a4266f150d5ac1873a8dfde8d3f10ed31214cbb7aba73c982",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "hoatzin": {
+    "title": "Opisthocomus hoazin - Hoatzin XC251282.mp3",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/70/Opisthocomus_hoazin_-_Hoatzin_XC251282.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Opisthocomus_hoazin_-_Hoatzin_XC251282.mp3",
+    "by": "Niels Krabbe",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":Pair. Lake in humid forest bird-seen:yes playback-used:no Common name: Hoatzin Type: call Genus: Opisthocomus Species: hoazin Location: Sucumbíos: 'La Selva Jungle Lodge', n bank Río Napo Country: Ecuador Elevation: 230 m",
+    "clips": [
+      {
+        "name": "field-hoatzin-1",
+        "offset": 28,
+        "duration": 5,
+        "bytes": 52787
+      },
+      {
+        "name": "field-hoatzin-2",
+        "offset": 16,
+        "duration": 5,
+        "bytes": 53288
+      }
+    ],
+    "sha256": "a2a655be35b4a2039c02d7c959c0dd065d15908fec2c0069df5ee33a5a7af2f6",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "orange-fronted-parakeet": {
+    "title": "Orange-fronted-parakeet-song.wav",
+    "url": "https://upload.wikimedia.org/wikipedia/commons/3/3c/Orange-fronted-parakeet-song.wav",
+    "source": "https://commons.wikimedia.org/wiki/File:Orange-fronted-parakeet-song.wav",
+    "by": "Unknown author Unknown author",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "description": "Captive orange-fronted parakeet giving territorial calls in response to recordings from tape recorder and other captive yellow-crowned parakeets nearby.",
+    "clips": [
+      {
+        "name": "field-orange-fronted-parakeet-1",
+        "offset": 36,
+        "duration": 5,
+        "bytes": 52273
+      },
+      {
+        "name": "field-orange-fronted-parakeet-2",
+        "offset": 10,
+        "duration": 5,
+        "bytes": 52567
+      }
+    ],
+    "sha256": "017627f1b19142238c4bdfbf98d927fcc8c6fe939cdf1b724e03fba0f9f3aa41",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "zebra": {
+    "title": "Zebra Whinny",
+    "source": "https://opengameart.org/content/zebra-whinny",
+    "by": "Peet J van Eeden; audio extraction and cleanup by AntumDeluge",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "description": "Zebra whinny; extracted from a real video recording with background noise removed.",
+    "url": "https://opengameart.org/sites/default/files/zebra_0.ogg",
+    "clips": [
+      {
+        "name": "field-zebra-1",
+        "offset": 0,
+        "duration": 2.229,
+        "bytes": 23960
+      }
+    ],
+    "sha256": "bf86ad3b577de097126643af56ac5513dd6cd9d8d56fb71482a1b2f950181712",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  }
+}

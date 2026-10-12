@@ -104,10 +104,10 @@ const pnwChapters = () => [
   {
     key: 'public', title: 'Open to the public', reward: 6000,
     story: 'People want to see what you have done. Visitors pay their way with donations, but crowds on the trails push shy animals away, so plan the route with care.',
-    teach: 'Build <b>trailhead parking</b> beside a road (you can lay new <b>roads</b> too), then run a <b>nature trail</b> out from it. <b>Boardwalks</b> cross wetlands and <b>viewing blinds</b> let people watch without disturbing.',
+    teach: 'Choose <b>Visitors → Trailhead parking</b>: the parking lot is the trailhead, and visitors need one before they can arrive. Place its <b>2 × 2 footprint on dry ground right beside a road</b>, inside the property, clear of buildings, water and trails. Use an existing road or lay one with <b>Visitors → Gravel road</b>. Then draw a <b>Nature trail</b> from within two tiles of the lot into your best habitat. Connect at least <b>40 trail tiles</b>. <b>Boardwalks</b> cross wetlands and <b>Viewing blinds</b> let people watch without disturbing. Visitor totals and ratings update at the <b>end of each month</b>.',
     unlock: ['trail', 'boardwalk', 'blind', 'build_parking', 'build_center', 'build_road'],
     goals: [
-      count('Connect 40 tiles of trail to a trailhead', g => g.visitors.facilities().parking ? g.visitors.net.length : 0, 40, ' tiles'),
+      count('Build trailhead parking and connect 40 tiles of trail to it', g => g.visitors.facilities().parking ? g.visitors.net.length : 0, 40, ' tiles'),
       count('Welcome 300 visitors', g => g.visitors.total, 300, ' visitors'),
       { desc: 'Reach a 2.5-star visitor rating', check: g => g.visitors.rating >= 2.5, prog: g => `${g.visitors.rating.toFixed(1)} / 2.5 stars` },
     ],
@@ -128,6 +128,17 @@ const pnwChapters = () => [
 export const campaignOn = g => g.mode === 'campaign';
 export const campaignDone = g => campaignOn(g) && g.campaign.chapter >= CHAPTERS.length;
 export const currentChapter = g => campaignOn(g) ? CHAPTERS[g.campaign.chapter] || null : null;
+
+// Keep the next visitor step visible after the chapter introduction closes.
+export function campaignVisitorHint(g) {
+  const c = currentChapter(g);
+  if (!c?.unlock.includes('build_parking')) return '';
+  if (!g.visitors.facilities().parking) return 'Visitors need parking first. Choose Visitors → Trailhead parking and place the 2 × 2 lot on dry ground beside a road, inside the property. The parking lot is your trailhead.';
+  if (g.visitors.net.length < 4) return 'Connect your trail to the parking lot: start within two tiles of its edge, then draw a continuous trail into the habitat. Use boardwalks over water.';
+  if (!goalMet(g, c.goals[0])) return 'Extend the connected trail to 40 tiles. Only trails reachable from your trailhead count; join any gaps and use boardwalks over water.';
+  if (!goalMet(g, c.goals[2])) return 'For more stars, route trails past water, native meadow and forest where wildlife feeds. Add viewing blinds beside the trail and pull nearby weeds. Ratings update at month end.';
+  return 'Keep the trailhead and trails open, then let time run. Visitors arrive and the campaign visitor total updates at the end of each month.';
+}
 
 // The tools the player may use (null means everything, as in Free Play).
 export function unlockedTools(g) {
