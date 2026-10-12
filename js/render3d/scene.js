@@ -141,7 +141,8 @@ export class Renderer {
     // detail or shadows starts the automatic resolution over)
     const gfx = `${s.quality}|${s.shadows}`, fresh = gfx !== this.gfx;
     this.gfx = gfx;
-    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; }
+    // (and the far tree models, only for a computer the game has already found too slow)
+    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; this.useFar(!!s.slowFps); }
     // Fast: a smaller shadow map (it's redrawn every frame)
     const shadowRes = fast ? 1024 : 2048;
     if (this.sun.shadow.mapSize.x !== shadowRes) {
@@ -150,9 +151,9 @@ export class Renderer {
     }
     const cap = { high: 2, balanced: 1.5, fast: 1 }[s.quality] ?? 2;
     this.baseDpr = Math.max(1, Math.min(cap, window.devicePixelRatio || 1));
-    // phones and tablets adjust the resolution to keep up (see autoResolution); it starts afresh
-    // whenever the settings change
-    this.autoRes = TOUCH;
+    // the view adjusts its resolution to keep up (see autoResolution); it starts afresh whenever
+    // the settings change
+    this.autoRes = true;
     if (fresh) { this.resScale = 1; this.resWin = null; this.roomFor = 0; this.resStart = null; this.peakFps = 0; this.resTried = null; this.resNoGain = false; this.slowN = 0; this.resCeil = null; }
     this.dpr = this.baseDpr * this.resScale;
     this.gl.setPixelRatio(this.dpr);
@@ -166,17 +167,23 @@ export class Renderer {
     this.resize();
   }
 
-  // Phones vary enormously, so on touch screens the view sets its own resolution: it steps down
+  // Simpler far-away trees (see far-models.js), for a computer that can't keep up.
+  useFar(on) { this.farOn = !!on; this.flora.setFar(this.farOn); }
+
+  // Phones and older laptops vary enormously, so the view sets its own resolution: it steps down
   // while the frame rate is low and creeps back up once there's room again, never above the
-  // setting. As a last resort it turns shadows off for the rest of the session.
+  // setting. Before the first step it switches the far tree models on; as a last resort it turns
+  // shadows off for the rest of the session.
   // - It waits out the first seconds (loading, the first plant builds) before judging anything.
-  // - It reads the typical frame (the median gap over two seconds), so the hitch of a new day's
-  //   repaint doesn't count as a slow phone.
+  // - It reads the slower frames (the 75th-percentile gap over two seconds): a new day's repaint
+  //   is one hitch and doesn't count, but a view where most frames drag does, even when the
+  //   typical one looks fine.
   // - A phone held to 30 frames a second (low power mode) isn't pushed down for running at 30,
   //   and "room to spare" means close to the fastest it has run, so it can climb back up.
   // - If a step down doesn't make it any faster, pixels weren't the problem (the simulation is):
   //   the step is undone and it stops trading sharpness for nothing.
-  // - It never goes below one pixel per screen point.
+  // - It never goes below one pixel per screen point on a phone; a computer can go a little
+  //   lower (built-in graphics on older laptops) before the shadows go.
   autoResolution() {
     if (!this.autoRes) return;
     const now = performance.now(), A = this.resWin;
@@ -187,9 +194,9 @@ export class Renderer {
     if (now - A.t0 < 2000) return;
     this.resWin = { t0: now, last: now, gaps: [] };
     if (now - this.resStart < 6000) return;
-    const g = A.gaps.sort((a, b) => a - b), fps = 1000 / Math.max(1, g[g.length >> 1]);
+    const g = A.gaps.sort((a, b) => a - b), fps = 1000 / Math.max(1, g[Math.floor(g.length * 0.75)]);
     this.peakFps = Math.min(120, Math.max(this.peakFps || 0, fps));
-    const min = Math.min(1, 1 / this.baseDpr), peak = this.peakFps;
+    const min = Math.min(1, (TOUCH ? 1 : 0.7) / this.baseDpr), peak = this.peakFps;
     let sc = this.resScale;
     // judge the last step down: no faster means it didn't help, so take it back for good
     const tried = this.resTried;
@@ -200,6 +207,11 @@ export class Renderer {
     // (a screen that tops out near 30 is held there: only a real stumble below that counts)
     const slow = fps < (peak > 27 && peak < 35 ? 24 : 26);
     this.slowN = slow ? (this.slowN || 0) + 1 : 0;
+    if (slow && this.slowN >= 2 && !this.farOn) {
+      this.useFar(true);
+      // (zoomed out, that alone may be enough: see whether it is before touching the resolution)
+      if (this.flora.view[0] === 3) { this.slowN = 0; return; }
+    }
     if (slow && this.slowN >= 2 && !this.resNoGain && sc > min + 0.005) {
       this.resTried = { fps, sc }; this.slowN = 0;
       // too slow right after a step up: that step was one too far, so don't climb that high again
@@ -226,9 +238,9 @@ export class Renderer {
     if (now - A.t0 < 3000) return;
     this.qWin = { t0: now, last: now, gaps: [] };
     if (now - this.qStart < 8000) return;
-    const g = A.gaps.sort((a, b) => a - b), fps = 1000 / Math.max(1, g[g.length >> 1]);
+    const g = A.gaps.sort((a, b) => a - b), fps = 1000 / Math.max(1, g[Math.floor(g.length * 0.75)]);
     this.qSlow = fps < 20 ? (this.qSlow || 0) + 1 : 0;
-    if (this.qSlow >= 3) { this.qSlow = 0; this.qStart = null; this.onSlow('fast', Math.round(fps)); }
+    if (this.qSlow >= 3) { this.qSlow = 0; this.qStart = null; this.useFar(true); this.onSlow('fast', Math.round(fps)); }
   }
   setRes(sc) {
     this.resScale = sc; this.dpr = this.baseDpr * sc;
@@ -450,7 +462,14 @@ export class Renderer {
   viewportPolygon() {
     return [[0, 0], [this.vw, 0], [this.vw, this.vh], [0, this.vh]].map(([x, y]) => { const p = this.groundPoint(x, y); return [p.x, p.z]; });
   }
-  markTileDirty() { this.editDirty = true; }
+  // An edited tile (from a brush or undo): only that patch of ground is repainted. With no tile,
+  // the whole map is (after a stroke, when its effect on shade and moisture has spread).
+  markTileDirty(x, y) {
+    this.editDirty = true;
+    if (x == null || this.editArea === 'all') { this.editArea = 'all'; return; }
+    const a = this.editArea ||= { x0: x, y0: y, x1: x, y1: y };
+    if (x < a.x0) a.x0 = x; if (x > a.x1) a.x1 = x; if (y < a.y0) a.y0 = y; if (y > a.y1) a.y1 = y;
+  }
 
   // ------------------------------------------------------------------ world sync
   setWorld(game) {
@@ -551,9 +570,9 @@ export class Renderer {
       fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
       slow_frames_pct: P.frames ? Math.round(P.slow / P.frames * 100) : null,
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
-      shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped,
+      shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped, far_models: !!this.farOn,
       triangles: info.triangles, draw_calls: info.calls, zoom: +(this.zoom ?? 1).toFixed(2), gpu: this.gpuName(),
-      renderer_revision: 'plant-index-shadow-1',
+      renderer_revision: 'low-end-1',
       batched_plant_candidates: this.flora.plantView.stats.candidates,
       batched_plant_instances: this.flora.plantView.stats.visible,
       plant_view_batches: this.flora.plantView.stats.batches,
@@ -635,8 +654,13 @@ export class Renderer {
     // is a noticeable pause on a phone)
     const light = this.light;
     if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (game.speed >= 2 ? 1200 : 600) : game.speed >= 2 ? 250 : 0)))) { surface = true; this.dayDirty = 0; }
-    if (this.editDirty && now - this.lastFlora > (light ? 260 : 120)) { surface = flora = true; this.editDirty = false; this.terrain.refreshWater(); }
-    if (surface) { this.terrain.updateSurface(game); this.syncStructures(); this.lastSurface = now; }
+    let patch = null;
+    if (this.editDirty && now - this.lastFlora > (light ? 260 : 120)) {
+      // (just the edited patch, unless something else this frame needs the whole map)
+      if (!surface && this.editArea && this.editArea !== 'all') patch = this.editArea;
+      surface = flora = true; this.editDirty = false; this.editArea = null; this.terrain.refreshWater();
+    }
+    if (surface) { this.terrain.updateSurface(game, patch); this.syncStructures(); this.lastSurface = now; }
     if (flora) this.floraPending = true;
     if (this.floraPending && (swapped || (!surface && this.frameN > (this.dayDirty || 0))) && now - this.lastFlora > (light ? (game.speed >= 2 ? 1200 : 400) : game.speed >= 3 ? 400 : 150)) {
       // a region a frame, so a day's growth or a new season doesn't land as one long pause (the

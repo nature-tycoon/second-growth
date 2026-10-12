@@ -433,13 +433,18 @@ export function broadleaf(opts, seed, lod = 0) {
 }
 
 // Winter silhouette for deciduous trees: trunk and bare branches.
-export function bareTree(opts, seed) {
+// lod: 0 every twig, 1 distant (no finest twigs, four-sided limbs), 3 far (the main limbs only,
+// three-sided). The same limbs in the same places at every level.
+export function bareTree(opts, seed, lod = 0) {
   const r = mulberry32(seed + 7);
   const { height: H, trunkR = 0.06 } = opts, trunkH = opts.trunkH ?? H * (opts.fork ?? 0.62); // (emergent crowns like ceiba and guanacaste give no trunk height)
-  const parts = [trunk(trunkH, trunkR, trunkR * 0.7)];
+  const sides = lod === 3 ? 3 : lod === 1 ? 4 : 5, finest = lod === 3 ? 2 : lod === 1 ? 1 : 0;
+  const parts = [trunk(trunkH, trunkR, trunkR * 0.7, 0xffffff, lod ? 5 : 7)];
   const branch = (x, y, z, len, rad, ax, az, depth) => {
-    const c = soft(new THREE.CylinderGeometry(rad * 0.6, rad, len, 5), { transform: g => { g.translate(0, len / 2, 0); g.rotateX(ax); g.rotateZ(az); g.translate(x, y, z); } });
-    parts.push(c);
+    // (every limb still draws its random numbers, so the ones kept don't move; on its own, a far
+    // tree's main limb reaches about as far as its branches would have)
+    const shown = lod === 3 ? len * 1.9 : len;
+    if (depth >= finest) parts.push(soft(new THREE.CylinderGeometry(rad * 0.6, rad, shown, sides), { transform: g => { g.translate(0, shown / 2, 0); g.rotateX(ax); g.rotateZ(az); g.translate(x, y, z); } }));
     if (depth <= 0) return;
     const ex = x - Math.sin(az) * len * Math.cos(ax), ey = y + Math.cos(az) * Math.cos(ax) * len, ez = z + Math.sin(ax) * len;
     for (let k = 0; k < 2; k++) branch(ex, ey, ez, len * 0.66, rad * 0.62, ax + (r() - 0.5) * 0.9, az + (k ? 0.5 : -0.5) + (r() - 0.5) * 0.4, depth - 1);

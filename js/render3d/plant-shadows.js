@@ -58,7 +58,7 @@ export class PlantShadows {
       const mesh = source.mesh;
       if (!mesh) continue;
       // Custom depth/alpha materials keep their original drawing path.
-      const proxy = source.shadowGeo && source.lod !== 1;
+      const proxy = source.standIn();
       const packed = !!(proxy || (!source.mat.map && !source.mat.alphaMap && !source.mat.alphaTest && source.mat.side === THREE.FrontSide && source.mat.shadowSide == null && !mesh.customDepthMaterial));
       source.packedShadows = packed; source.useProxy();
       if (packed && source.viewShadow) source.viewShadow.visible = false;

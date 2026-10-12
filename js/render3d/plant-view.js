@@ -76,7 +76,7 @@ export class PlantView {
     // branch. The existing region bounds allow three units for wind; retain
     // that same margin around each instance.
     this.box.makeEmpty();
-    for (const geometry of new Set([pool.geo, pool.geoLo, pool.geoMid])) {
+    for (const geometry of new Set([pool.geo, pool.geoLo, pool.geoMid, pool.geoFar])) {
       if (!geometry.boundingBox) geometry.computeBoundingBox();
       this.box.union(geometry.boundingBox);
     }

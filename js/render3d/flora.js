@@ -9,6 +9,7 @@ import * as Botanical from './botanical.js';
 import { flowerForm, grassForm } from '../plant-patterns.js';
 import { withFocusFade } from './focus.js';
 import { withSnowTops, snowCrown } from './snow.js';
+import { farHull, farTrunk } from './far-models.js';
 import { withClouds } from './atmosphere.js';
 import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
@@ -35,26 +36,29 @@ const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 // so the renderer knows its reused shadow map is out of date (see Renderer.shadowsStale).
 export const floraVersion = { n: 0 };
 
-// lod: 0 close, 1 distant, 2 in-between (geoMid, where a plant has one). shadowGeo: a simpler
+// lod: 0 close, 1 distant, 2 in-between (geoMid, where a plant has one), 3 far (geoFar, with the
+// whole valley in view: see far-models.js; pools without one keep the distant model). shadowGeo: a simpler
 // model that casts this pool's shadow in its place (soft shadows look the same from the
 // distant tree model, at a fraction of the cost).
 class Pool {
-  constructor(scene, geo, mat, { shadow = true, receive = false, geoLo = null, geoMid = null, shadowGeo = null, kind = 'plant', geometryIndex = null } = {}) {
-    this.scene = scene; this.geo = geo; this.geoLo = geoLo || geo; this.geoMid = geoMid || geo; this.shadowGeo = shadowGeo;
+  constructor(scene, geo, mat, { shadow = true, receive = false, geoLo = null, geoMid = null, geoFar = null, shadowGeo = null, kind = 'plant', geometryIndex = null } = {}) {
+    this.scene = scene; this.geo = geo; this.geoLo = geoLo || geo; this.geoMid = geoMid || geo; this.geoFar = geoFar || this.geoLo; this.shadowGeo = shadowGeo;
     this.mat = mat; this.shadow = shadow; this.receive = receive;
     this.kind = kind; this.lod = 0;
     this.geometryIndex = geometryIndex; this.castsShadow = shadow; this.packedShadows = false;
     this.cap = 0; this.mesh = null; this.proxy = null; this.n = 0;
     this.m = []; this.c = [];
   }
-  geoFor(lod) { return lod === 1 ? this.geoLo : lod === 2 ? this.geoMid : this.geo; }
+  geoFor(lod) { return lod === 1 ? this.geoLo : lod === 2 ? this.geoMid : lod === 3 ? this.geoFar : this.geo; }
   renderGeo(geometry) { return this.geometryIndex?.get(geometry) || geometry; }
-  shadowGeometry() { return this.shadowGeo && this.lod !== 1 ? this.shadowGeo : this.geoFor(this.lod); }
+  // the stand-in only casts while the view shows a more detailed model than it
+  standIn() { return !!this.shadowGeo && (this.lod === 0 || this.lod === 2); }
+  shadowGeometry() { return this.standIn() ? this.shadowGeo : this.geoFor(this.lod); }
   // The stand-in casts the shadow only while the view shows a more detailed model than it; when
-  // the distant model is on show anyway, that casts its own shadow and the stand-in rests.
+  // the distant or far model is on show anyway, that casts its own shadow and the stand-in rests.
   useProxy() {
     if (!this.mesh) return;
-    const stand = !!(this.proxy && this.lod !== 1 && this.castsShadow);
+    const stand = !!(this.proxy && this.standIn() && this.castsShadow);
     if (this.proxy) this.proxy.visible = stand && this.mesh.visible && !this.packedShadows;
     this.mesh.castShadow = this.castsShadow && !stand && !this.packedShadows;
   }
@@ -66,6 +70,14 @@ class Pool {
     if (k >= this.m.length) { this.m.push(new Float32Array(16)); this.c.push([1, 1, 1]); }
     tmpM.toArray(this.m[k]);
     const c = this.c[k]; c[0] = lin(color[0]); c[1] = lin(color[1]); c[2] = lin(color[2]);
+  }
+  // an instance exactly as recorded from add (16 matrix numbers, then 3 colour numbers)
+  addRaw(v, o) {
+    const k = this.n++;
+    if (k >= this.m.length) { this.m.push(new Float32Array(16)); this.c.push([1, 1, 1]); }
+    const m = this.m[k], c = this.c[k];
+    for (let j = 0; j < 16; j++) m[j] = v[o + j];
+    c[0] = v[o + 16]; c[1] = v[o + 17]; c[2] = v[o + 18];
   }
   end() {
     floraVersion.n++;
@@ -122,10 +134,24 @@ class ChunkedPool {
     // Keep a source tile's flowers, fruit and connecting features together when rebuilding
     // selected regions, even when a piece extends past a region's boundary.
     const k = this.flora.incremental ? this.flora.activeChunk : floraChunkKey(x, z, this.flora.chunkSize);
+    const p = this.sub(k);
+    p.add(x, y, z, ...rest);
+    // (kept for the tile, so the next rebuild of its region can reuse it: see Flora.rebuild)
+    const rec = this.flora.rec;
+    if (rec) {
+      // (written over the tile's last record in place: no new arrays each rebuild)
+      const m = p.m[p.n - 1], c = p.c[p.n - 1], v = rec.vals, o = rec.n * 19;
+      rec.pools[rec.n++] = this;
+      for (let j = 0; j < 16; j++) v[o + j] = m[j];
+      v[o + 16] = c[0]; v[o + 17] = c[1]; v[o + 18] = c[2];
+    }
+  }
+  sub(k) {
     let p = this.subs.get(k);
     if (!p) { p = this.make(); p.lod = p.kind === 'grass' ? this.view[3] : this.view[0]; this.subs.set(k, p); }
-    p.add(x, y, z, ...rest);
+    return p;
   }
+  replay(v, o) { this.sub(this.flora.activeChunk).addRaw(v, o); }
   end(dirty) { for (const [k, p] of this.subs) if (!dirty || dirty.has(k)) { p.end(); p.setView(...this.view); } }
 }
 
@@ -225,6 +251,7 @@ export class Flora {
     this.pools = new Map();
     this.geos = new Map();
     this.view = [0, true, true, 0];
+    this.far = false; // (far models allowed: only once the game has found this computer slow, see setFar)
   }
 
   geo(key, build) {
@@ -237,15 +264,22 @@ export class Flora {
     }
     return g;
   }
-  // buildMid: the in-between model, or 'lo' to show the distant one at play zoom too
-  pool(key, build, mat, opts = {}, buildLo = null, buildMid = null) {
+  // buildMid: the in-between model, or 'lo' to show the distant one at play zoom too;
+  // opts.far: a far model, made from the distant one (true: see far-models.js) or by its own builder
+  pool(key, build, mat, { far = false, ...opts } = {}, buildLo = null, buildMid = null) {
     let p = this.pools.get(key);
     if (!p) {
       const geo = this.geo(key, build);
       const geoLo = buildLo ? this.geo(key + ':lo', buildLo) : geo;
+      let geoFar = null;
+      if (typeof far === 'function') geoFar = this.geo(key + ':far', far);
+      else if (far) { // (made from the distant model, its colours already shaded)
+        if (!this.geos.has(key + ':far')) this.geos.set(key + ':far', farHull(geoLo) || false); // (false: none)
+        geoFar = this.geos.get(key + ':far') || null;
+      }
       let geoMid = buildMid === 'lo' ? geoLo : buildMid ? this.geo(key + ':mid', buildMid) : geo;
       if (typeof buildMid === 'function' && geoMid !== geo && geoMid.attributes.position.count === geo.attributes.position.count) { this.geos.delete(key + ':mid'); geoMid.dispose(); geoMid = geo; } // (no lighter after all)
-      p = new ChunkedPool(() => new Pool(this.scene, geo, mat, { ...opts, geoLo, geoMid, geometryIndex: this.geometryIndex }), this);
+      p = new ChunkedPool(() => new Pool(this.scene, geo, mat, { ...opts, geoLo, geoMid, geoFar, geometryIndex: this.geometryIndex }), this);
       p.setView(...this.view);
       this.pools.set(key, p);
     }
@@ -272,7 +306,7 @@ export class Flora {
   // A soft shadow disc of radius r at (x, z), tilted to lie on the slope.
   contactShadow(hAt, x, z, r) {
     const e = 0.3, sx = (hAt(x + e, z) - hAt(x - e, z)) / (2 * e), sz = (hAt(x, z + e) - hAt(x, z - e)) / (2 * e);
-    this.pool('contact', () => G.contactShadow(), this.contact, { shadow: false, kind: 'contact' }, () => G.contactShadow(8), 'lo')
+    this.pool('contact', () => G.contactShadow(), this.contact, { shadow: false, kind: 'contact', far: () => G.contactShadow(5) }, () => G.contactShadow(8), 'lo')
       .add(x, hAt(x, z) + 0.02, z, r, 1, r, 0, [1, 1, 1], -Math.atan(sz), Math.atan(sx));
   }
 
@@ -332,13 +366,27 @@ export class Flora {
   setZoom(zoom, force = false) {
     this.zoom = zoom;
     // (trees: the close model only once zoomed right in, the in-between one at play zoom)
+    // (when allowed, the far models once a tile is about 16 pixels across, or 23 on Fast)
+    const far = this.far;
     const v = this.light
-      ? [zoom < 1.4 ? 1 : zoom < 2.2 ? 2 : 0, zoom > 0.5, false, zoom < 1.8 ? 1 : 0]
-      : [zoom < 0.5 ? 1 : zoom < 1.35 ? 2 : 0, zoom > 0.34, zoom > 0.7, zoom < 1.1 ? 1 : 0];
+      ? [far && zoom < 0.5 ? 3 : zoom < 1.4 ? 1 : zoom < 2.2 ? 2 : 0, zoom > 0.5, false, zoom < 1.8 ? 1 : 0]
+      : [far && zoom < 0.36 ? 3 : zoom < 0.5 ? 1 : zoom < 1.35 ? 2 : 0, zoom > 0.34, zoom > 0.7, zoom < 1.1 ? 1 : 0];
     if (!force && this.view && v.every((x, k) => x === this.view[k])) return;
     this.view = v;
     for (const p of this.pools.values()) p.setView(...v);
   }
+
+  // Far models (see far-models.js) for a computer that can't keep up; a computer that can keeps
+  // the distant models at every zoom.
+  setFar(on) {
+    on = !!on;
+    if (on === this.far) return;
+    this.far = on;
+    this.setZoom(this.zoom ?? 1, true);
+  }
+
+  // a tree climbers can use, remembered with the tile's plants
+  site(i, s) { this.treeSites.set(i, s); if (this.rec) this.rec.site = s; }
 
   // returns true when the plants need rebuilding to match
   setLight(on) {
@@ -395,16 +443,26 @@ export class Flora {
   // maxRegions: rebuild at most this many changed regions now and leave the rest for the next
   // call (a day's growth or a new season changes nearly every region, and doing them all in one
   // frame is a visible hitch). Returns true while regions are still waiting.
+  // A changed region is drawn again, but only its tiles near a change are worked out afresh (a
+  // brush stroke touches a few tiles of a 48-tile region): every other tile repeats the plants
+  // it drew last time, exactly, from this.tileCache. A tile stays marked stale (this.stale) from
+  // the change until it is worked out again, even if its region waits for a later call.
   rebuild(game, force = false, maxRegions = Infinity) {
     const w = game.world, B = game.border, month = game.month;
     let dirty = this.incremental && !force ? this.changes.find(game, this.light) : null;
     if (dirty) for (const k of this.waitingRegions || []) dirty.add(k);
     this.waitingRegions = null;
+    const GW = w.w + BORDER * 2, N = GW * (w.h + BORDER * 2);
+    if (this.tileCache?.length !== N) { this.tileCache = new Array(N); this.stale = new Uint8Array(N); }
+    const cache = this.tileCache, stale = this.stale;
+    // (without the changed tiles, a new season or a different world: every tile afresh)
+    if (!dirty?.tiles) stale.fill(1);
+    else for (let k = 0; k < N; k++) stale[k] |= dirty.tiles[k];
     if (dirty && dirty.size > maxRegions) {
       const all = [...dirty];
       dirty = new Set(all.slice(0, maxRegions)); this.waitingRegions = new Set(all.slice(maxRegions));
     }
-    this.lastRebuild = { full: !dirty, tiles: 0, regions: dirty?.size ?? null };
+    this.lastRebuild = { full: !dirty, tiles: 0, worked: 0, regions: dirty?.size ?? null };
     if (dirty && !dirty.size) return false;
     if (!dirty) this.treeSites.clear();
     for (const p of this.pools.values()) p.begin(dirty);
@@ -420,6 +478,17 @@ export class Flora {
       const inside = w.inb(x, y);
       const i = inside ? w.idx(x, y) : -1;
       if (inside) this.treeSites.delete(i);
+      const tk = (y + BORDER) * GW + x + BORDER, kept = this.incremental && !stale[tk] ? cache[tk] : null;
+      // (a dam's height follows the water behind it, so it is always worked out afresh)
+      if (kept && !(inside && w.feature[i] === F.DAM)) {
+        for (let n = 0; n < kept.n; n++) kept.pools[n].replay(kept.vals, n * 19);
+        // (a new site each rebuild, as when worked out afresh: climbers expect one)
+        if (kept.site) { const k = kept.site; this.treeSites.set(i, new CanopySite(k.geo, k.transform, k.color, k.tile, k.plant)); }
+        continue;
+      }
+      this.lastRebuild.worked++; stale[tk] = 0;
+      const rec = this.rec = this.incremental ? (cache[tk] ||= { n: 0, pools: [], vals: [], site: null }) : null;
+      if (rec) { rec.n = 0; rec.site = null; }
       const bi = inside ? -1 : B.bi(x, y);
       if (!inside && bi < 0) continue;
       const v = (inside ? w.variant[i] : (x * 7 + y * 13)) & 1;
@@ -568,13 +637,13 @@ export class Flora {
           let col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8, 0.045);
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
-          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub' }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
+          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub', far: true }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
           if (!aquaticTile && !SEA_SHAPES.has(shape)) this.contactShadow(hAt, sx, sz, 0.34 * sc);
           // a giant clam's shells are pale and chalky, whatever colour its mantle is
           if (shape === 'clam') this.pool(`clamshell:${v}`, () => G.clamShell(sseed), this.shrubs, { kind: 'shrub' }).add(sx, sy, sz, sc, sc, sc, rot, vary([0.86, 0.84, 0.76].map(c => c * dim), x, y, 10, 0.05));
           // torch ginger's flowers are torches on stalks of their own, and pandan's fruit hangs under its tufts, not dots among the leaves
           const accCol = shape === 'ginger' && phase === 'bloom' ? p.look.flower : shape === 'pandan' && phase === 'fruit' ? p.look.berry : null;
-          if (accCol && g > 0.3) this.pool(`shrub:acc:${shape}:${v}`, () => G.accent(shape, sseed), this.shrubs, { kind: 'shrub' }, () => G.accent(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, vary(rgb(accCol).map(c => c * dim), x, y, 9, 0.06));
+          if (accCol && g > 0.3) this.pool(`shrub:acc:${shape}:${v}`, () => G.accent(shape, sseed), this.shrubs, { kind: 'shrub', far: true }, () => G.accent(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, vary(rgb(accCol).map(c => c * dim), x, y, 9, 0.06));
           const dotCol = accCol ? null : phase === 'bloom' && p.look.flower ? rgb(p.look.flower) : phase === 'fruit' && p.look.berry ? rgb(p.look.berry) : null;
           if (dotCol && g > 0.3) {
             const n = 4 + Math.round(g * 5);
@@ -625,21 +694,22 @@ export class Flora {
         const key = `${p.look.type}:${p.key}:${v}`;
         const build = (lod = 0) => G.treeParts(shapeDef, 500 + v * 13 + p.id, lod);
         if (!p.conifer && phase === 'winter') {
-          const bare = this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark);
+          const bare = this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark, { far: () => G.bareTree(shapeDef, 700 + v, 3) }, () => G.bareTree(shapeDef, 700 + v, 1));
           bare.add(tx, ty, tz, sx, sy, sz, rot, bark);
-          if (inside && w.tree[i] && !p.aquatic) this.treeSites.set(i, new CanopySite(this.geos.get(`bare:${key}`), [tx, ty, tz, sx, sy, sz, rot], bark, i, p.id));
+          if (inside && w.tree[i] && !p.aquatic) this.site(i, new CanopySite(this.geos.get(`bare:${key}`), [tx, ty, tz, sx, sy, sz, rot], bark, i, p.id));
         } else {
           let shape = this.geos.get(`treeparts:${key}`);
           if (!shape) {
             shape = build(); shape.lo = build(1); shape.mid = build(G.MID);
             snowCrown(shape.crown); snowCrown(shape.lo.crown); if (shape.mid.crown !== shape.crown) snowCrown(shape.mid.crown);
+            shape.far = { crown: farHull(shape.lo.crown, { rings: shapeDef.kind === 'conifer' }), trunk: farTrunk(shape.lo.trunk) };
             this.geos.set(`treeparts:${key}`, shape);
           }
-          if (inside && w.tree[i] && !p.aquatic) this.treeSites.set(i, new CanopySite(shape.trunk, [tx, ty, tz, sx, sy, sz, rot], bark, i, p.id));
+          if (inside && w.tree[i] && !p.aquatic) this.site(i, new CanopySite(shape.trunk, [tx, ty, tz, sx, sy, sz, rot], bark, i, p.id));
           if (!this.pools.has(`crown:${key}`)) {
             const receive = () => this.lightingDepth !== false && !this.light && !biome.look.underwater;
-            const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, shadowGeo: shape.lo.crown, receive: receive(), geometryIndex: this.geometryIndex }), this);
-            const trunkP = new ChunkedPool(() => new Pool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk, geoMid: shape.mid.trunk, shadowGeo: shape.lo.trunk, receive: receive(), geometryIndex: this.geometryIndex }), this);
+            const crown = new ChunkedPool(() => new Pool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, geoFar: shape.far.crown, shadowGeo: shape.lo.crown, receive: receive(), geometryIndex: this.geometryIndex }), this);
+            const trunkP = new ChunkedPool(() => new Pool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk, geoMid: shape.mid.trunk, geoFar: shape.far.trunk, shadowGeo: shape.lo.trunk, receive: receive(), geometryIndex: this.geometryIndex }), this);
             crown.setView(...this.view); trunkP.setView(...this.view);
             this.pools.set(`crown:${key}`, crown); this.pools.set(`trunk:${key}`, trunkP);
           }
@@ -769,6 +839,7 @@ export class Flora {
         }
       }
     }
+    this.rec = null;
     for (const p of this.pools.values()) p.end(dirty);
     if (this.incremental) this.changes.remember(game, this.light);
     return !!this.waitingRegions;

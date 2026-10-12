@@ -387,6 +387,8 @@ export class Input {
     if (s.locked != null && !s.count && biome.lockedNote) g.notify(biome.lockedNote(g, s.locked), 'info');
     if (s.tool.cat === 'land' || s.tool.key === 'demolish' || s.tool.key === 'log') g.refreshEnvironment();
     else if (s.count) g.refreshEnvironment();
+    // (the stroke's shade and moisture reach past the painted tiles: repaint the whole ground once)
+    if (s.count) this.r.markTileDirty();
     if (s.count) {
       track('tool_used', { tool: s.tool.key, category: s.tool.cat, tiles: s.count, cost: Math.round(s.cost) });
       // how long it takes a new player to do anything at all
