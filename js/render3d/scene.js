@@ -247,7 +247,8 @@ export class Renderer {
       const e = this.focusFor === sel.id ? Math.min(1, dt * 10) : 1;
       this.focusFor = sel.id;
       focus.uFocus.value.lerp(pose.center, e);
-      focus.uFocusR.value += (clamp(0.75 + pose.h * 1.7, 0.85, 1.45) - focus.uFocusR.value) * e; // (a roomier window than the animal itself)
+      const radius = pose.branch ? clamp(.4 + pose.h * 1.2, .55, .95) : clamp(.75 + pose.h * 1.7, .85, 1.45);
+      focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
       focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
       focus.uFocusHalfW.value = Math.max(pose.h, pose.foot || 0) * 0.55;
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)

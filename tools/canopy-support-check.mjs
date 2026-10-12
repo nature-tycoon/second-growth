@@ -6,6 +6,8 @@ const THREE = await import('three');
 const { Flora, floraVersion } = await import('../js/render3d/flora.js');
 const { Actors } = await import('../js/render3d/actors.js');
 const { focus } = await import('../js/render3d/focus.js');
+const { canopyTile } = await import('../js/render3d/canopy-support.js');
+const { PLANTS } = await import('../js/data/plants.js');
 const { Renderer } = await import('../js/render3d/scene.js');
 const { canopyFixture } = await import('./canopy-support-fixture.mjs');
 const right = new THREE.Vector3(1, 0, 0);
@@ -64,7 +66,43 @@ check('Boundary hysteresis keeps the current tree until a climber reaches the ne
   assert.equal(actors.pose.get(a.id).branch.site, old);
   a.x = 41.35; actors.update(game, right, 1.2);
   assert.equal(actors.pose.get(a.id).branch.site, flora.treeSites.get(game.world.idx(41, 32)));
-  assert.equal(flora.canopyVisible.size, 1); dispose(f);
+  assert.ok(flora.canopyVisible.has(old), 'the paused contacts retain their original supporting tree');
+  assert.ok(flora.canopyVisible.has(actors.pose.get(a.id).branch.site), 'the new destination scaffold is also visible'); dispose(f);
+});
+check('Small spacing nudges keep a resting monkey on the same limb', () => {
+  const f = setup('amazon', 'spider'), { a, actors, game } = f;
+  const limb = actors.pose.get(a.id).branch.index;
+  game.speed = 1;
+  for (let frame = 1; frame <= 180; frame++) {
+    a.x = 40.68 + Math.sin(frame * 1.7) * .03; a.y = 32.44 + Math.cos(frame * 2.1) * .03;
+    actors.update(game, right, 1 + frame / 60);
+    assert.equal(actors.pose.get(a.id).branch.index, limb, 'spacing cannot trigger a fork crossing');
+    assert.equal(actors.pose.get(a.id).branchRoute, null);
+  }
+  dispose(f);
+});
+check('Surrounding forest supplies solid branch attachments across the property boundary and cleans up after edits', () => {
+  const f = setup(), { game, a, actors, flora } = f, w = game.world, border = game.border;
+  const plant = PLANTS[w.tree[w.idx(40, 32)]], bi = border.bi(40, -1);
+  w.setPlant(w.idx(40, 0), plant, 1); border.tree[bi] = plant.id; border.treeG[bi] = 1;
+  flora.rebuild(game); a.x = 40.68; a.y = -.6;
+  actors.pose.clear(); actors.update(game, right, 1);
+  const key = canopyTile(w, border, 40, -1), st = actors.pose.get(a.id);
+  assert.ok(key < 0 && st.branch.site === flora.treeSites.get(key), 'outside trees use their own support');
+  assert.ok(flora.canopyVisible.has(st.branch.site), 'the actual outside scaffold stays visible');
+  const mo = actors.fauna.species.values().next().value.motion;
+  const hold = new THREE.Vector3(mo.gripX || 0, mo.supportY, mo.gripZ || 0).applyMatrix4(actors.fauna.m);
+  assert.ok(hold.distanceTo(st.branchPoint) < 1e-6, 'outside feet attach to the wood');
+  game.speed = 1; a.state = 'walk';
+  for (let frame = 1; frame <= 600; frame++) {
+    const before = st.center.clone(); a.y = Math.min(.5, a.y + .004);
+    actors.update(game, right, 1 + frame / 60);
+    assert.ok(st.center.distanceTo(before) < .15, 'crossing the boundary does not drop the body to the ground');
+  }
+  assert.equal(st.branch.site.tile, w.idx(40, 0));
+  border.tree[bi] = 0; flora.rebuild(game);
+  assert.equal(flora.treeSites.has(key), false, 'incremental border edits remove stale supports');
+  dispose(f);
 });
 check('Cut trees, culled animals and removed animals leave no stale solid scaffold', () => {
   const f = setup(), { game, a, actors, flora } = f;

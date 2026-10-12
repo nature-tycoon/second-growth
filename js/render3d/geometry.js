@@ -439,9 +439,10 @@ export function bareTree(opts, seed) {
   const parts = [trunk(trunkH, trunkR, trunkR * 0.7)];
   const branch = (x, y, z, len, rad, ax, az, depth) => {
     const c = soft(new THREE.CylinderGeometry(rad * 0.6, rad, len, 5), { transform: g => { g.translate(0, len / 2, 0); g.rotateX(ax); g.rotateZ(az); g.translate(x, y, z); } });
+    const ex = x - Math.sin(az) * len * Math.cos(ax), ey = y + Math.cos(az) * Math.cos(ax) * len, ez = z + Math.sin(ax) * len;
+    c.userData.canopyBranches = [{ from: [x, y, z], to: [ex, ey, ez], r0: rad, r1: rad * .6 }];
     parts.push(c);
     if (depth <= 0) return;
-    const ex = x - Math.sin(az) * len * Math.cos(ax), ey = y + Math.cos(az) * Math.cos(ax) * len, ez = z + Math.sin(ax) * len;
     for (let k = 0; k < 2; k++) branch(ex, ey, ez, len * 0.66, rad * 0.62, ax + (r() - 0.5) * 0.9, az + (k ? 0.5 : -0.5) + (r() - 0.5) * 0.4, depth - 1);
   };
   for (let k = 0; k < 6; k++) {

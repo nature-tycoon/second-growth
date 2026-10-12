@@ -1,6 +1,7 @@
 // Visible fruit meals use the same mature, seasonal fruit that already supports
 // wildlife and reduces the harvest. They don't create a second fruit economy.
 import { PLANTS, isFruiting } from '../data/plants.js';
+import { ANIMALS } from '../data/animals.js';
 import { watch } from './animal-life.js';
 
 export const isPrimate = def => ['monkey', 'orangutan'].includes(def?.sprite.kind);
@@ -30,6 +31,10 @@ export function primateChoose(wl, a, def) {
   return true;
 }
 export function primateArrive(wl, a) {
+  // Let a climb end in a settled pause instead of immediately picking a new
+  // direction. Threats still interrupt idle animals through the usual watch.
+  if (a.state === 'idle' && isPrimate(ANIMALS[a.sp]) && !a.leaving && !a.fromFire && !a.drinkT)
+    a.wait = Math.max(a.wait || 0, 3 + wl.game.rng() * 4);
   const goal = a.fruitGoal; a.fruitGoal = null;
   if (!goal || a.state !== 'idle' || !fruitAt(wl.game, goal.i, goal.plant)) return;
   const w = wl.game.world;

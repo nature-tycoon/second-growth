@@ -2,6 +2,8 @@
 // Geometry is shared by many trees; prepare its upper surfaces only once.
 import * as THREE from 'three';
 import { woodDistance, woodFrame, bodyFitsWood } from './wood-clearance.js';
+import { readableCanopyPose } from './canopy-pose.js';
+import { barkGrip } from './canopy-grips.js';
 
 const surfaces = new WeakMap();
 const contactAngles = [0];
@@ -22,9 +24,18 @@ function upperSurfaces(geo) {
   return triangles;
 }
 
+// Farm tiles use their simulation index; surrounding trees use a disjoint
+// negative key so departures can keep their real branches beyond the fence.
+export function canopyTile(world, border, x, z) {
+  if (world.inb(x, z)) return world.idx(x, z);
+  const i = border?.bi(x, z) ?? -1;
+  return i < 0 ? null : -i - 1;
+}
+
 export class CanopySite {
-  constructor(geo, transform, color, tile = -1, plant = null) {
+  constructor(geo, transform, color, tile = -1, plant = null, cell = null) {
     this.geo = geo; this.transform = transform; this.color = color; this.tile = tile; this.plant = plant;
+    this.cell = cell;
   }
 
   prepare() {
@@ -148,6 +159,7 @@ export class CanopySite {
         if (localUp.clone().applyQuaternion(surfacePose).y < -.00001) return false;
         for (const turn of [0, Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2]) {
           pose.copy(surfacePose).multiply(aroundHold.setFromAxisAngle(localUp, turn));
+          if (!readableCanopyPose(pose, hanging && !profile.motion.canopyHanging)) continue;
           if (this.bodyFit(profile, candidate, pose)) return true;
         }
         return false;
@@ -181,7 +193,20 @@ export class CanopySite {
     if (!entry || entry.scale !== profile.scale) { entry = { scale: profile.scale, holds: new Map() }; this.bodyClearance.set(profile.motion, entry); }
     const key = [...point.toArray(), ...pose.toArray()].map(n => Math.round(n * 1000)).join(':');
     if (entry.holds.has(key)) return entry.holds.get(key);
-    const fits = bodyFitsWood(profile, point, pose, this.wood);
+    let fits = bodyFitsWood(profile, point, pose, this.wood);
+    if (fits && profile.motion.canopyHanging) {
+      const mo = profile.motion, origin = new THREE.Vector3(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0);
+      const inverse = pose.clone().invert(); let contacts = 0;
+      for (let i = 0; i < 4; i++) {
+        const rest = mo.canopyFeet[i].clone().sub(origin).multiplyScalar(profile.scale).applyQuaternion(pose).add(point);
+        const grip = barkGrip(rest, this.wood);
+        if (!grip) continue;
+        grip.sub(point).applyQuaternion(inverse).divideScalar(profile.scale).add(origin);
+        if (grip.distanceTo(mo.canopyJoints[i]) <= mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08 &&
+            grip.distanceTo(mo.canopyFeet[i]) <= mo.len * (i < 2 ? .24 : .18) && grip.y <= mo.canopyFeet[i].y + mo.len * .04) contacts++;
+      }
+      fits = contacts >= 2;
+    }
     if (entry.holds.size >= 4096) entry.holds.clear();
     entry.holds.set(key, fits); return fits;
   }
@@ -204,7 +229,39 @@ export class CanopySite {
       }
       previous = target;
     }
-    return out;
+    if (!body?.motion.canopyFeet && body?.motion.primate !== 2) return out;
+    // Independently projected fork holds can alternate between overlapping
+    // limbs. Remove those excursions only when the whole shortcut still hugs
+    // exposed bark; keep the turns needed to go around the trunk.
+    const smooth = [], sample = new THREE.Vector3(), pose = new THREE.Quaternion();
+    const clear = (a, b) => {
+      const length = a.distanceTo(b);
+      if (length > Math.max(.025, reach * 2)) return false;
+      const steps = Math.max(1, Math.ceil(length / .005));
+      for (let k = 1; k < steps; k++) {
+        sample.copy(a).lerp(b, k / steps);
+        let nearest = Infinity;
+        for (const wood of this.wood) {
+          const distance = woodDistance(sample, wood);
+          if (distance < -.002) return false;
+          nearest = Math.min(nearest, distance);
+        }
+        if (nearest > .01) return false;
+        if (body.motion.canopyHanging) {
+          const aPose = a.canopyPose || from.point.canopyPose, bPose = b.canopyPose;
+          if (!aPose || !bPose || !this.bodyFit(body, sample, pose.copy(aPose).slerp(bPose, k / steps))) return false;
+        }
+      }
+      return true;
+    };
+    let at = first;
+    for (let i = 0; i < out.length;) {
+      let end = i;
+      for (let j = out.length - 1; j > i; j--) if (clear(at, out[j])) { end = j; break; }
+      if (at.distanceToSquared(out[end]) > 1e-10) smooth.push(out[end]);
+      at = out[end]; i = end + 1;
+    }
+    return smooth;
   }
 
   forkRoute(points, nodes, reach, hanging = false) {
@@ -259,11 +316,11 @@ export class CanopySite {
       if (n.base.distanceToSquared(near) < radius * radius) { n.trunk = true; n.radius = Math.max(n.radius, radius); }
     }
   }
-  route(from, to, point = from.point) {
+  distances(from, point = from.point) {
     this.graph();
-    const a = this.branches[from.index], b = this.branches[to.index];
-    if (!a || !b || from.index === to.index) return this.clearRoute([point, to.point], from, to);
+    const a = this.branches[from.index];
     const dist = this.nodes.map(() => Infinity), prev = this.nodes.map(() => -1), seen = new Set();
+    if (!a) return { dist, prev };
     for (const i of a.ends) dist[i] = point.distanceTo(this.nodes[i].point);
     for (let k = 0; k < this.nodes.length; k++) {
       let n = -1;
@@ -272,6 +329,17 @@ export class CanopySite {
       seen.add(n);
       for (const [i, cost] of this.edges[n]) if (dist[n] + cost < dist[i]) { dist[i] = dist[n] + cost; prev[i] = n; }
     }
+    return { dist, prev };
+  }
+  routeCost(from, to, distances, point = from.point) {
+    if (from.index === to.index) return point.distanceTo(to.point);
+    return Math.min(...this.branches[to.index].ends.map(i => distances.dist[i] + this.nodes[i].point.distanceTo(to.point)));
+  }
+  route(from, to, point = from.point) {
+    this.graph();
+    const a = this.branches[from.index], b = this.branches[to.index];
+    if (!a || !b || from.index === to.index) return this.clearRoute([point, to.point], from, to);
+    const { dist, prev } = this.distances(from, point);
     const end = b.ends.reduce((best, i) => dist[i] + this.nodes[i].point.distanceTo(to.point) < dist[best] + this.nodes[best].point.distanceTo(to.point) ? i : best);
     if (!Number.isFinite(dist[end])) return this.clearRoute([point, to.point], from, to); // specialist scaffold without connected rods
     const route = [], nodes = [];
@@ -283,7 +351,7 @@ export class CanopySite {
     // Route holds need the same hand/foot span as ordinary anchors. Placing a
     // torso at a bare tip puts its forward limbs past the branch into a fork.
     const margin = Math.min(.45, (profile.reach || 0) / b.length), t = end ? 1 - margin : margin;
-    const point = b.from.clone().lerp(b.to, t).addScaledVector(b.up, THREE.MathUtils.lerp(b.r0, b.r1, t));
+    const point = b.from.clone().lerp(b.to, t).addScaledVector(b.up, (profile.body?.motion.canopyHanging ? -1 : 1) * THREE.MathUtils.lerp(b.r0, b.r1, t));
     return { site: this, index, direction: b.dir, reach: profile.reach, hanging: profile.hanging, body: profile.body,
       point: this.clearPoint(point, profile.reach, profile.hanging, profile.body) };
   }
@@ -292,21 +360,33 @@ export class CanopySite {
     this.prepare();
     if (this.branches.length) {
       let score = Infinity, index = -1, point = null, direction = null;
+      const oldBranch = previous?.site === this && !previous.surface ? this.branches[previous.index] : null;
+      const committed = oldBranch?.length >= reach * 2 && (body?.motion.canopyFeet || body?.motion.primate === 2) ? previous.index : -1;
       const height = this.transform[1] + this.geo.boundingBox.max.y * this.transform[4] * .8;
-      for (let k = 0; k < this.branches.length; k++) {
+      const order = [...this.branches.keys()];
+      if (committed >= 0) { order.splice(order.indexOf(committed), 1); order.unshift(committed); }
+      for (const k of order) {
+        if (committed >= 0 && k !== committed && (!body?.motion.canopyHanging || index === committed)) continue;
         const b = this.branches[k];
         if (b.length < reach * 2 || Math.max(b.from.y, b.to.y) < this.transform[1] + this.geo.boundingBox.max.y * this.transform[4] * .45) continue;
         if (hanging && Math.abs(b.dir.y) > .7) continue;
         // Leave enough branch on either side for the animal's hands and feet.
         const t = THREE.MathUtils.clamp(((x - b.from.x) * b.dir.x + (height - b.from.y) * b.dir.y + (z - b.from.z) * b.dir.z) / b.length,
           reach / b.length, 1 - reach / b.length);
-        this.point.copy(b.from).lerp(b.to, t).addScaledVector(b.up, b.r0 + (b.r1 - b.r0) * t);
-        const stable = previous?.site === this && previous.index === k ? .006 : 0;
+        this.point.copy(b.from).lerp(b.to, t).addScaledVector(b.up, (body?.motion.canopyHanging ? -1 : 1) * (b.r0 + (b.r1 - b.r0) * t));
+        // Small spacing nudges must not send a resting animal down one fork
+        // and up another. Switch only when a new limb is clearly nearer.
+        const stable = previous?.site === this && previous.index === k ? (body ? .06 : .006) : 0;
         const clearance = hanging ? Math.max(0, reach * 2 - Math.hypot(this.point.x - this.transform[0], this.point.z - this.transform[2])) : 0;
-        const d = (this.point.x - x) ** 2 + (this.point.z - z) ** 2 + .18 * (this.point.y - height) ** 2 + (hanging ? .2 * b.dir.y ** 2 + clearance * 2 : 0) - stable;
-        if (d < score) { score = d; index = k; point = this.point.clone(); direction = b.dir; }
+        const slope = body?.motion.primate === 1 ? .16 * b.dir.y ** 2 : 0;
+        const d = (this.point.x - x) ** 2 + (this.point.z - z) ** 2 + .18 * (this.point.y - height) ** 2 + slope + (hanging ? .2 * b.dir.y ** 2 + clearance * 2 : 0) - stable;
+        if (d < score) {
+          const hold = body?.motion.canopyHanging ? this.clearPoint(this.point, reach, hanging, body) : this.point.clone();
+          if (body?.motion.canopyHanging && !hold.canopyPose) continue;
+          score = d; index = k; point = hold; direction = b.dir;
+        }
       }
-      if (point) return { site: this, index, point: this.clearPoint(point, reach, hanging, body), direction, reach, hanging, body };
+      if (point) return { site: this, index, point: body?.motion.canopyHanging ? point : this.clearPoint(point, reach, hanging, body), direction, reach, hanging, body };
       if (hanging) return this.anchor(x, z, previous, reach, false, body);
     }
     if (!this.triangles.length) return null;
@@ -323,6 +403,6 @@ export class CanopySite {
     }
     const triangle = this.triangles[index], edges = [triangle.b.clone().sub(triangle.a), triangle.c.clone().sub(triangle.a), triangle.c.clone().sub(triangle.b)];
     const direction = edges.sort((a, b) => b.lengthSq() - a.lengthSq())[0].transformDirection(this.matrix);
-    return { site: this, index, point: this.clearPoint(this.best.clone().applyMatrix4(this.matrix), reach, hanging, body), direction, reach, hanging, body };
+    return { site: this, index, surface: true, point: this.clearPoint(this.best.clone().applyMatrix4(this.matrix), reach, hanging, body), direction, reach, hanging, body };
   }
 }

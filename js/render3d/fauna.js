@@ -3270,8 +3270,11 @@ function siamang(m, s) {
 // pinkish-brown face with a long muzzle, and a short, thin tail carried in an arch like a pig's.
 // (The siamang and other apes (ape) have their own builder: see siamang.)
 // The head sits on a short neck growing out of the shoulders, which is where it dips from.
-function monkey(m, s) {
+function monkey(m, s, onBranches = false) {
   const L = s.len, long = !!s.long, mac = !!s.shortTail, lang = !!s.crest, legL = L * (long ? 0.62 : 0.45), by = legL;
+  // A branch is held between the hands/feet. A broad ground-walking stance
+  // leaves all four grips visibly floating beside a narrow canopy limb.
+  const stance = onBranches ? .04 : .12;
   const limbC = shade(s.color, -0.05), hands = s.hands || (mac ? shade(s.face || s.color, -0.25) : limbC);
   const g0 = grad(s.color, s.belly, -0.2, 0.5);
   // the macaque's coat is grizzled, darker down the middle of the back
@@ -3318,13 +3321,13 @@ function monkey(m, s) {
     const sh = [L * 0.22, by + L * 0.06, side * L * 0.1], fl = { part: side > 0 ? P.LEG_FL : P.LEG_FR, pivot: sh };
     const el = [L * 0.26, by * 0.5, side * L * 0.12];
     m.limb(sh, el, L * 0.065, L * 0.05, limbC, fl);
-    m.limb(el, [L * 0.3, L * 0.04, side * L * 0.12], L * 0.05, L * 0.04, limbC, fl);
-    m.ell([L * 0.32, L * 0.03, side * L * 0.12], [L * 0.06, L * 0.03, L * 0.045], hands, { ...fl, lo: true });
+    m.limb(el, [L * 0.3, L * 0.04, side * L * stance], L * 0.05, L * 0.04, limbC, fl);
+    m.ell([L * 0.32, L * 0.03, side * L * stance], [L * 0.06, L * 0.03, L * 0.045], hands, { ...fl, lo: true });
     const hip = [-L * 0.26, by, side * L * 0.1], hl = { part: side > 0 ? P.LEG_BL : P.LEG_BR, pivot: hip };
     const kn = [-L * 0.16, by * 0.52, side * L * 0.13];
     m.limb(hip, kn, L * 0.08, L * 0.055, limbC, hl);
-    m.limb(kn, [-L * 0.24, L * 0.04, side * L * 0.12], L * 0.055, L * 0.04, limbC, hl);
-    m.ell([-L * 0.2, L * 0.03, side * L * 0.12], [L * 0.07, L * 0.03, L * 0.045], hands, { ...hl, lo: true });
+    m.limb(kn, [-L * 0.24, L * 0.04, side * L * stance], L * 0.055, L * 0.04, limbC, hl);
+    m.ell([-L * 0.2, L * 0.03, side * L * stance], [L * 0.07, L * 0.03, L * 0.045], hands, { ...hl, lo: true });
   }
   if (s.shortTail) {
     // a short, thin tail arching up and over like a pig's
@@ -3359,7 +3362,6 @@ function sloth(m, s) {
   const L = s.len, bY = L * 0.95, cy = L * 0.5;
   const shag = u => tmp.copy(col(s.color)).lerp(col('#7a8a52'), hash3(Math.round(u.x * 7), Math.round(u.y * 5), 11) > 0.72 ? 0.35 : 0)
     .multiplyScalar(0.82 + hash3(Math.round(u.x * 14), Math.round(u.y * 8), Math.round(u.z * 8)) * 0.3);
-  m.limb([-L * 0.7, bY, 0], [L * 0.7, bY + L * 0.03, 0], L * 0.05, L * 0.045, '#6a5238', { seg: 7 }); // the branch
   loftBody(m, { x0: -L * 0.36, x1: L * 0.28, cy0: cy, cy1: cy + L * 0.02, ry0: L * 0.17, ry1: L * 0.15, rz0: L * 0.18, rz1: L * 0.16, sag: -L * 0.05 }, shag);
   const claw = '#e0d8c0', parts = [P.LEG_FL, P.LEG_FR, P.LEG_BL, P.LEG_BR];
   [[L * 0.18, 1, L * 0.36], [L * 0.18, -1, L * 0.36], [-L * 0.26, 1, -L * 0.4], [-L * 0.26, -1, -L * 0.4]].forEach(([x, side, hx], k) => {
@@ -3705,10 +3707,10 @@ export function buildSpecies(def) {
     case 'capybara': capybara(m, s); mo.leg = 0.45; mo.bob = 0.4; mo.sink = s.len * 0.3; break;
     case 'tapir': tapir(m, s); mo.leg = 0.45; mo.bob = 0.3; mo.sink = s.leg + s.h * 0.4; break;
     case 'armadillo': armadillo(m, s); mo.leg = 0.7; mo.bob = 0.3; mo.sink = s.len * 0.2; break;
-    case 'monkey': if (s.ape) { siamang(m, s); mo.leg = 0.45; mo.bob = 0.4; mo.tail = 0; mo.head = 0.45; } else { monkey(m, s); mo.leg = 0.6; mo.bob = 0.6; mo.tail = 0.15; } break;
+    case 'monkey': if (s.ape) { siamang(m, s); mo.leg = 0.45; mo.bob = 0.4; mo.tail = 0; mo.head = 0.45; } else { monkey(m, s, def.move === 'tree'); mo.leg = 0.6; mo.bob = 0.6; mo.tail = 0.15; } break;
     case 'orangutan': orangutan(m, s); mo.leg = 0.3; mo.bob = 0; mo.tail = 0; mo.head = 0.45; mo.sink = s.len * 0.4; break;
     case 'pangolin': pangolin(m, s); mo.leg = 0.5; mo.bob = 0.25; mo.tail = 0.12; mo.sink = s.len * 0.22; break;
-    case 'sloth': sloth(m, s); mo.leg = 0.12; mo.tail = 0; break;
+    case 'sloth': sloth(m, s); mo.leg = 0.12; mo.tail = 0; mo.canopyHanging = true; break;
     case 'caiman': caiman(m, s); mo.leg = 0.4; mo.tail = 0.35; mo.wave = s.len * 0.025; mo.waveK = 6 / s.len; mo.waveHead = s.len * 0.1; mo.waveLen = s.len * 0.7; mo.sink = s.len * 0.09; break;
     case 'ray': ray(m, s); mo.flap = 0.9; mo.tail = 0.3; mo.leg = 0; break;
     case 'dolphin': dolphin(m, s); mo.verticalWave = 1; mo.tail = 0.12; mo.wave = s.size * 0.03; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.2; mo.waveLen = s.size * 0.8; mo.sink = s.size * 0.1; break;
@@ -3759,11 +3761,11 @@ export function buildSpecies(def) {
   if (['monkey', 'orangutan'].includes(s.kind)) {
     mo.primate = s.kind === 'orangutan' ? 2 : s.ape ? 3 : 1;
     mo.bob = 0; mo.len = s.len;
-    const hand = s.kind === 'orangutan' ? [.3, .06, .14] : s.ape ? [.6, 1.02, -.1] : [.32, .03, .12];
+    const hand = s.kind === 'orangutan' ? [.3, .06, .14] : s.ape ? [.6, 1.02, -.1] : [.32, .03, def.move === 'tree' ? .04 : .12];
     m.ell(hand.map((v, i) => (v + (i === 0 ? .035 : 0)) * s.len), [s.len * .045, s.len * .045, s.len * .045], '#d9a342', { part: P.FRUIT, pivot: hand.map(v => v * s.len), lo: true });
   }
   const geo = m.build();
-  if (mo.primate) feedingPose(geo, s);
+  if (mo.primate) feedingPose(geo, s, def.move === 'tree');
   if (s.ape) swingPoses(geo, s.len);
   geo.computeBoundingBox();
   if (def.move === 'tree') {
@@ -3772,13 +3774,22 @@ export function buildSpecies(def) {
     const p = geo.attributes.position, parts = geo.attributes.aPart;
     let foot = Infinity;
     for (let i = 0; i < p.count; i++) if (parts.getX(i) >= 1 && parts.getX(i) <= 4) foot = Math.min(foot, p.getY(i));
-    mo.supportY = s.ape ? s.len * 1.38 : s.kind === 'orangutan' ? -s.len * .015 : s.kind === 'sloth' ? s.len * .95 : Number.isFinite(foot) ? foot : 0;
+    mo.supportY = s.ape ? s.len * 1.38 : s.kind === 'orangutan' ? -s.len * .015 : s.kind === 'sloth' ? s.len * .98 : Number.isFinite(foot) ? foot : 0;
   }
   if (s.ape) { mo.gripX = s.len * .14; mo.gripZ = s.len * .02; }
+  if (def.move === 'tree' && mo.primate === 1) {
+    mo.canopyFeet = [[.32, 0, .04], [.32, 0, -.04], [-.2, 0, .04], [-.2, 0, -.04]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
+    const height = s.long ? .62 : .45;
+    mo.canopyJoints = [[.22, height + .06, .1], [.22, height + .06, -.1], [-.26, height, .1], [-.26, height, -.1]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
+  }
+  if (def.move === 'tree' && mo.canopyHanging) {
+    mo.canopyFeet = [[.4, .98, .02], [.4, .98, -.02], [-.44, .98, .02], [-.44, .98, -.02]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
+    mo.canopyJoints = [[.18, .56, .12], [.18, .56, -.12], [-.26, .56, .12], [-.26, .56, -.12]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
+  }
   // A shared anchor for locating, picking and highlighting the visible model,
   // including models that hang below their origin or have an offset body.
   mo.center = geo.boundingBox.getCenter(new THREE.Vector3());
-  if (mo.primate) {
+  if (mo.primate || mo.canopyHanging) {
     // Deduplicate the actual body surface for clearance at crowded woody forks.
     // Hands, feet, fruit and the tail are allowed to touch their support.
     const cells = new Map(), cell = s.len * .001; let offset = 0;
@@ -3802,11 +3813,11 @@ export function buildSpecies(def) {
 
 // Fold the feeding arm at its elbow into a hand-to-mouth pose. The second
 // position/normal attributes are already shared by the fauna shader for wing poses.
-function feedingPose(geo, s) {
+function feedingPose(geo, s, onBranches) {
   const L = s.len, ape = !!s.ape, orang = s.kind === 'orangutan', by = s.long ? .62 : .45;
   const shoulder = orang ? [.07, .56, .13 * (s.flanged ? 1.15 : 1)] : ape ? [.04, .84, -.1] : [.22, by + .06, .1];
   const elbow = orang ? [.19, .31, .15] : ape ? [.32, .8, -.18] : [.26, by * .5, .12];
-  const hand = orang ? [.3, .06, .14] : ape ? [.6, 1.02, -.1] : [.32, .03, .12];
+  const hand = orang ? [.3, .06, .14] : ape ? [.6, 1.02, -.1] : [.32, .03, onBranches ? .04 : .12];
   const target = orang ? [.32, .615, .09] : ape ? [.28, .95, -.08] : [s.shortTail ? .59 : .55, by + .19, .08];
   poseArm(geo, P.LEG_FL, L, shoulder, elbow, hand, target, 'aExt', 'aExtN', ape ? 0 : 1);
   const pos = geo.attributes.position, ext = geo.attributes.aExt, part = geo.attributes.aPart;
@@ -3861,7 +3872,9 @@ export function faunaMaterial(motion) {
   mat.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
-      attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim; attribute vec3 aSwing; attribute vec3 aSwingN;
+      attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim;
+      ${motion.primate === 3 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
+      ${motion.canopyFeet ? 'attribute vec4 aGripA; attribute vec4 aGripB; attribute vec4 aGripC;' : ''}
       uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
       vec3 rotY(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c); }
@@ -3894,7 +3907,7 @@ export function faunaMaterial(motion) {
           p = rotX(p, aPivot, beat); n = rotX(n, zero, beat);
         } else if (aPart > 0.5 && aPart < 4.5) {
           if (uPrimate > 0.5) {
-            if (uPrimate > 2.5) {
+            ${motion.primate === 3 ? `if (uPrimate > 2.5) {
               if (aPart < 2.5) {
                 vec3 catches = siamangWeights(ph, gait, fly);
                 float catchPose = aPart < 1.5 ? catches.x : catches.y;
@@ -3903,7 +3916,7 @@ export function faunaMaterial(motion) {
                 float swing = sin(ph + aPart) * .12 * gait;
                 p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
               }
-            } else {
+            } else` : ''} {
               // Long stance, short placement: one hand or foot advances at a time.
               float offset = aPart < 1.5 ? 0.0 : aPart < 2.5 ? .5 : aPart < 3.5 ? .25 : .75;
               float cycle = fract(ph / 6.283185 + offset);
@@ -3912,12 +3925,32 @@ export function faunaMaterial(motion) {
               float weight = 1.0 - smoothstep(.04 * uLength, aPivot.y, p.y);
               p.x += stride * uLength * (uPrimate > 1.5 ? .13 : .2) * gait * weight;
               p.y += sin(stepT * 3.14159) * uLength * .06 * gait * weight;
+              ${motion.canopyFeet ? `
+              vec3 grip = aPart < 1.5 ? aGripA.xyz : aPart < 2.5 ? vec3(aGripA.w, aGripB.xy) : aPart < 3.5 ? vec3(aGripB.zw, aGripC.x) : aGripC.yzw;
+              if (aAnim.w < -.5) {
+                p = position + grip * weight;
+                float t = clamp((position.y - .04 * uLength) / (aPivot.y - .04 * uLength), 0.0, 1.0);
+                float derivative = -6.0 * t * (1.0 - t) / (aPivot.y - .04 * uLength);
+                n.y -= derivative * dot(grip, n) / max(.2, 1.0 + grip.y * derivative);
+                n = normalize(n);
+              }` : ''}
             }
             if (aPart < 1.5) { float bite = smoothstep(0.0, 1.0, fly); p = mix(p, aExt, bite); n = normalize(mix(n, aExtN, bite)); }
           } else {
+          ${motion.canopyHanging ? `if (aAnim.w < -.5) {
+            vec3 grip = aPart < 1.5 ? aGripA.xyz : aPart < 2.5 ? vec3(aGripA.w, aGripB.xy) : aPart < 3.5 ? vec3(aGripB.zw, aGripC.x) : aGripC.yzw;
+            float span = .94 * uLength - aPivot.y;
+            float t = clamp((position.y - aPivot.y) / span, 0.0, 1.0);
+            float weight = t * t * (3.0 - 2.0 * t);
+            p = position + grip * weight;
+            float derivative = 6.0 * t * (1.0 - t) / span;
+            n.y -= derivative * dot(grip, n) / max(.2, 1.0 + grip.y * derivative);
+            n = normalize(n);
+          } else` : ''} {
           float off = (aPart < 1.5 || aPart > 3.5) ? 0.0 : 3.14159;
           float swing = sin(ph + off) * uLeg * gait * (1.0 - fly) - fly * 1.35;
           p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
+          }
           }
         } else if (tail) {
           float sway = sin(ph * 0.5 + 1.3) * uTail * (0.35 + gait);
@@ -3929,7 +3962,7 @@ export function faunaMaterial(motion) {
           float flick = smoothstep(0.91, 0.99, sin(ph * 0.31));
           p = aPivot + (p - aPivot) * flick;
         } else if (aPart > 7.5) {
-          p = rotZ(p, aPivot, -aAnim.w * uHead); n = rotZ(n, zero, -aAnim.w * uHead);
+          p = rotZ(p, aPivot, -${motion.canopyFeet ? 'max(0.0, aAnim.w)' : 'aAnim.w'} * uHead); n = rotZ(n, zero, -${motion.canopyFeet ? 'max(0.0, aAnim.w)' : 'aAnim.w'} * uHead);
         }
       }
     ` + shader.vertexShader
@@ -3957,7 +3990,7 @@ export function faunaMaterial(motion) {
         }
       `);
   };
-  mat.customProgramCacheKey = () => 'fauna';
+  mat.customProgramCacheKey = () => `fauna:${motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : 'base'}`;
   return mat;
 }
 
@@ -3976,6 +4009,10 @@ class SpeciesMesh {
     this.anim = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4);
     this.anim.setUsage(THREE.DynamicDrawUsage);
     this.geo.setAttribute('aAnim', this.anim);
+    this.grips = this.motion.canopyFeet ? ['aGripA', 'aGripB', 'aGripC'].map(name => {
+      const attribute = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4);
+      attribute.setUsage(THREE.DynamicDrawUsage); this.geo.setAttribute(name, attribute); return attribute;
+    }) : null;
     this.mesh = new THREE.InstancedMesh(this.geo, this.mat, cap);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
@@ -4020,13 +4057,15 @@ export class Fauna {
   }
   begin() { for (const p of this.species.values()) p.count = 0; }
   // One animal this frame. scale converts model pixels to scene units.
-  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0) {
+  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null) {
     const p = this.pool(def);
     if (p.count >= p.cap) {
       // carry over what this frame has already written, then grow
       const oldM = p.mesh.instanceMatrix.array.slice(0, p.count * 16), oldA = p.anim.array.slice(0, p.count * 4), n = p.count;
+      const oldGrips = p.grips?.map(a => a.array.slice(0, n * 4));
       p.grow(p.cap * 2);
       p.mesh.instanceMatrix.array.set(oldM); p.anim.array.set(oldA); p.count = n;
+      oldGrips?.forEach((a, i) => p.grips[i].array.set(a));
     }
     const k = p.count++;
     this.q.setFromAxisAngle(this.yAxis, yaw);
@@ -4035,7 +4074,13 @@ export class Fauna {
     this.m.compose(this.v.set(x, y, z), this.q, this.s.set(scale, scale, scale));
     p.mesh.setMatrixAt(k, this.m);
     const a = p.anim.array;
-    a[k * 4] = phase; a[k * 4 + 1] = gait; a[k * 4 + 2] = fly; a[k * 4 + 3] = graze;
+    a[k * 4] = phase; a[k * 4 + 1] = gait; a[k * 4 + 2] = fly; a[k * 4 + 3] = grips ? -1 : graze;
+    if (p.grips) {
+      // Four xyz offsets occupy three attributes, staying within WebGL's
+      // minimum attribute budget. Primates do not use the grazing slot.
+      const offsets = grips ? grips.flatMap(v => v.toArray()) : Array(12).fill(0);
+      p.grips.forEach((attribute, i) => attribute.setXYZW(k, ...offsets.slice(i * 4, i * 4 + 4)));
+    }
   }
   end() {
     for (const p of this.species.values()) {
@@ -4045,6 +4090,7 @@ export class Fauna {
         p.mesh.instanceMatrix.clearUpdateRanges(); p.mesh.instanceMatrix.addUpdateRange(0, p.count * 16);
         p.anim.clearUpdateRanges(); p.anim.addUpdateRange(0, p.count * 4);
         p.mesh.instanceMatrix.needsUpdate = true; p.anim.needsUpdate = true;
+        p.grips?.forEach(a => { a.clearUpdateRanges(); a.addUpdateRange(0, p.count * 4); a.needsUpdate = true; });
       }
     }
   }

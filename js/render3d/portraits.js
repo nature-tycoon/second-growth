@@ -117,6 +117,8 @@ export function renderPortrait(def, { fly: flying = false } = {}) {
   const { geo, motion } = buildSpecies(def);
   const fly = def.sprite.kind === 'bat' || def.sprite.kind === 'ray' || flying ? 1 : 0; // bats are shown on the wing
   geo.setAttribute('aAnim', new THREE.InstancedBufferAttribute(new Float32Array([0, 0, fly, 0]), 4));
+  if (motion.canopyFeet) for (const name of ['aGripA', 'aGripB', 'aGripC'])
+    geo.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(4), 4));
   const mat = faunaMaterial(motion);
   const mesh = new THREE.InstancedMesh(geo, mat, 1);
   mesh.setMatrixAt(0, new THREE.Matrix4());
