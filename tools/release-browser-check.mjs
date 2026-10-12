@@ -83,7 +83,7 @@ try {
       await evaluate(`localStorage.setItem('second-growth-settings', JSON.stringify({ analytics: false, autosave: false, quality: 'fast', qualityChosen: true, shadows: true, wind: true, weather: true, dayCycle: false, fps: '60', muted: true, music: false, nature: false })); sessionStorage.setItem('second-growth-pending', JSON.stringify(${JSON.stringify({ map: config.map, mode: 'free', difficulty: 'standard' })}));`);
       await browser.navigate('/');
       await browser.waitFor(`window.secondGrowth?.game.map === ${JSON.stringify(config.map)} && (!document.getElementById("loading-screen") || document.getElementById("loading-screen").classList.contains("done"))`, 'Live game did not finish loading');
-      const row = await evaluate(`(async () => { const { measureGameplay } = await import('/tools/gameplay-benchmark.mjs'); return measureGameplay(${JSON.stringify(config)}); })()`); browser.assertHealthy();
+      const row = await evaluate(`(async () => { const { measureGameplay } = await import('/tools/gameplay-benchmark.mjs'); return measureGameplay(${JSON.stringify(config)}); })()`, 300000); // (past the measurement's own 240 s stall guard: CI's software renderer draws about a frame a second) browser.assertHealthy();
       // Catch catastrophic stalls on software CI; these are not a 30/60 FPS hardware promise.
       assert.ok(row.frameP95Ms < 1500 && row.simulationP95Ms < 500, `${config.scene}: excessive frame/simulation stalls`);
       assert.equal(row.quality, 'fast'); assert.equal(row.res_scale, 1); assert.equal(row.shadows, true);

@@ -65,17 +65,18 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
       pending.delete(message.id); clearTimeout(request.timeout);
       if (message.error) request.reject(new Error(message.error.message)); else request.resolve(message.result);
     };
-    const request = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
-      const id = ++sequence, timeout = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out`)); }, 120000);
+    const request = (method, params = {}, sessionId, timeoutMs = 120000) => new Promise((resolve, reject) => {
+      const id = ++sequence, timeout = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out`)); }, timeoutMs);
       pending.set(id, { resolve, reject, timeout }); socket.send(JSON.stringify({ id, method, params, sessionId }));
     });
     const { targetId } = await request('Target.createTarget', { url: origin + '/assets/logo.svg' });
     const { sessionId } = await request('Target.attachToTarget', { targetId, flatten: true });
-    const send = (method, params = {}, session = sessionId) => request(method, params, session);
+    const send = (method, params = {}, session = sessionId, timeoutMs) => request(method, params, session, timeoutMs);
     await send('Runtime.enable'); await send('Log.enable'); await send('Page.bringToFront');
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
-    const evaluate = async expression => {
-      const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+    // (timeoutMs: for a long measurement, longer than the page's own stall guard)
+    const evaluate = async (expression, timeoutMs) => {
+      const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId, timeoutMs);
       if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
       return r.result.value;
     };
