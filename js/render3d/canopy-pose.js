@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { siamangSwing } from './siamang-swing.js';
+import { orangutanHold, orangutanSwing } from './orangutan-swing.js';
 import { woodDistance, woodNormal, woodFrame, outlineFitsWood } from './wood-clearance.js';
 
 const up = new THREE.Vector3(0, 1, 0), forward = new THREE.Vector3(1, 0, 0), side = new THREE.Vector3(0, 0, 1);
@@ -51,7 +52,7 @@ function uprightTurn(current, goal, limit, target) {
 export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, before = st.branchPoint, motion = null) {
   canopyRotation(st.yaw, pitch, 0, preferred);
   if (!mo.canopyBody?.length) return { roll: 0, pitch, yaw: 0 };
-  support.set(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0);
+  orangutanHold(st, mo, support);
   const swing = mo.primate === 3 ? siamangSwing(st.branchPhase, gait, eating) : null;
   let outline = st.canopyOutline?.model === mo && st.canopyOutline.scale === st.sc ? st.canopyOutline.points : null;
   const fresh = !outline;
@@ -59,13 +60,17 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
     outline = mo.canopyBody.map(v => v.clone());
     st.canopyOutline = { model: mo, scale: st.sc, points: outline, bounds: new THREE.Box3() };
   }
-  if (fresh || swing) for (let i = 0; i < outline.length; i++) {
+  const changedHold = mo.primate === 2 && !st.canopyOutline.support?.equals(support);
+  if (fresh || swing || changedHold) for (let i = 0; i < outline.length; i++) {
     const q = outline[i].copy(mo.canopyBody[i]);
     if (swing) q.sub(p.set(...swing.grip).multiplyScalar(mo.len)).applyAxisAngle(side, swing.sway)
       .add(p.set(.14, 1.38, .02).multiplyScalar(mo.len));
     q.sub(support).multiplyScalar(st.sc);
   }
-  if (fresh || swing) st.canopyOutline.bounds.setFromPoints(outline);
+  if (fresh || swing || changedHold) {
+    st.canopyOutline.bounds.setFromPoints(outline);
+    st.canopyOutline.support ||= new THREE.Vector3(); st.canopyOutline.support.copy(support);
+  }
   const margin = mo.len * st.sc * .008;
   let extent = margin;
   for (const v of outline) extent = Math.max(extent, v.length() + margin);
@@ -84,8 +89,19 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
     near.addScaledVector(b.dir, -along);
     return Math.abs(along) < .004 && near.length() < b.r1;
   })) canopyRotation(st.yaw, 0, 0, preferred);
-  const clear = (q, point = st.branchPoint) => outlineFitsWood(outline, st.canopyOutline.bounds, point, q, wood, margin);
+  const clear = (q, point = st.branchPoint) => {
+    // During a leap the body clears wood above the straight transfer line.
+    // Keep branchPoint on that line for route progress and landing contacts.
+    let lifted = st.canopyLeap && point === st.branchPoint ? point.clone().add(new THREE.Vector3(0, motion?.lift || 0, 0)) : point;
+    if (mo.primate === 2 && st.orangutanSwing) {
+      const swing = orangutanSwing(st.branchRoute, point);
+      const origin = swing ? new THREE.Vector3(...swing.grip).multiplyScalar(mo.len) : new THREE.Vector3(0, mo.supportY, 0);
+      lifted = point.clone().add(origin.sub(support).multiplyScalar(-st.sc).applyQuaternion(q));
+    }
+    return outlineFitsWood(outline, st.canopyOutline.bounds, lifted, q, wood, margin);
+  };
   if (mo.canopyHanging && motion?.pose && clear(motion.pose)) preferred.copy(motion.pose);
+  if (st.orangutanSwing && motion?.pose && clear(motion.pose)) preferred.copy(motion.pose);
   const current = st.canopyQuaternion;
   const route = st.branchRoute;
   let ahead = st.branchPoint;
@@ -111,7 +127,7 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   };
   if (ahead.canopyPose) consider(ahead.canopyPose);
   if (st.branch?.point.canopyPose) consider(st.branch.point.canopyPose);
-  if (mo.canopyHanging && motion?.pose && clear(motion.pose)) goal = motion.pose.clone();
+  if ((mo.canopyHanging || st.orangutanSwing) && motion?.pose && clear(motion.pose)) goal = motion.pose.clone();
   else if (clear(preferred) && clear(preferred, ahead)) goal = preferred.clone();
   else if (current && clear(current) && clear(current, ahead) && (!(mo.canopyFeet || mo.primate === 2) || current.angleTo(preferred) < .2)) goal = current.clone();
   else {
@@ -136,12 +152,14 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   }
   // Hold a safe orangutan pose through small changes in the fork normal.
   // Repeatedly chasing those corrections makes its long torso wobble.
-  if (mo.primate === 2 && goal && st.canopyGoal && goal.angleTo(st.canopyGoal) < .25 &&
+  if (mo.primate === 2 && !st.orangutanSwing && goal && st.canopyGoal && goal.angleTo(st.canopyGoal) < .25 &&
       clear(st.canopyGoal) && clear(st.canopyGoal, ahead)) goal.copy(st.canopyGoal);
   if (goal) { st.canopyGoal ||= new THREE.Quaternion(); st.canopyGoal.copy(goal); }
   next.copy(current || goal || preferred);
+  const transitioning = mo.primate === 2 && st.orangutanSwing && (st.orangutanSwing.t < .35 || st.orangutanSwing.t >= .65);
+  const turnRate = mo.primate === 2 ? transitioning ? 2.4 : 1 : 1.5;
   if (current && goal) {
-    const limit = Math.max(0, Math.min(.1, dt)) * (mo.primate === 2 ? Math.min(1, current.angleTo(goal) * 4) : 1.5);
+    const limit = Math.max(0, Math.min(.1, dt)) * (mo.primate === 2 ? Math.min(turnRate, current.angleTo(goal) * (transitioning ? 8 : 4)) : turnRate);
     if (mo.primate === 3 || mo.canopyHanging) next.rotateTowards(goal, limit);
     else uprightTurn(current, goal, limit, next);
   }
@@ -157,7 +175,7 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   const forced = st.canopyForce > 0 || st.canopyLag > 1.8;
   if (forced) st.canopyForce -= step;
   if (current && !forced && !clear(next)) {
-    const requested = st.branchPoint.clone(), limit = step * (mo.primate === 2 ? 1 : 1.5);
+    const requested = st.branchPoint.clone(), limit = step * turnRate;
     const stepPoint = fraction => {
       if (!motion?.trace.length) return hold.copy(before).lerp(requested, fraction);
       let remaining = motion.travelled * fraction;

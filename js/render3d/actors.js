@@ -12,6 +12,7 @@ import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
 import { boutCycle, CRASH } from './bout-clock.js';
 import { siamangSwing } from './siamang-swing.js';
+import { orangutanHold } from './orangutan-swing.js';
 import { canopyStep, settleCanopyStep, rebaseCanopy } from './canopy-motion.js';
 import { canopyLean, canopyRotation } from './canopy-pose.js';
 import { canopyTile } from './canopy-support.js';
@@ -286,7 +287,8 @@ export class Actors {
           // Orangutans back down a steep main limb with the head uphill.
           // Turning headfirst swings their long torso into neighbouring forks.
           if (mo.primate === 2) {
-            if (steering) {
+            if (st.orangutanSwing) st.canopyReverse = false;
+            else if (steering) {
               const slope = dir.y / dir.length();
               if (motion.journey) {
                 // A fork's small surface corrections are not new descents.
@@ -323,12 +325,12 @@ export class Actors {
           st.gait = game.speed > 0 ? gait0 + (motion.gait - gait0) * Math.min(1, k * 2) : gait0;
           branchRoll = st.branchRoll || 0;
           branchYaw = st.branchYaw || 0;
-          // A hanging gibbon's high hand, rather than its feet, is the attachment.
-          this.holdOffset.set(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0).multiplyScalar(sc)
+          // Hanging apes attach by the supporting hand; branch walkers use feet.
+          orangutanHold(st, mo, this.holdOffset).multiplyScalar(sc)
             .applyQuaternion(canopyRotation(st.yaw + branchYaw, branchPitch, branchRoll, this.holdRotation));
           ax = st.branchPoint.x - this.holdOffset.x; az = st.branchPoint.z - this.holdOffset.z;
           y = st.branchPoint.y + motion.lift - this.holdOffset.y; st.canopyY = y;
-        } else { st.branchRoute = null; st.branchAt = null; st.branchPoint = null; }
+        } else { st.branchRoute = null; st.branchAt = null; st.branchPoint = null; st.orangutanSwing = null; }
       } else st.branch = null;
       // Climbing down off the last tree (often to leave the map) or back up into
       // one, ease from the drawn body to the new position rather than jumping.
@@ -345,7 +347,7 @@ export class Actors {
       }
       const eating = mo.primate && a.state === 'primate' && a.fruitMeal;
       const eatPose = eating ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0;
-      const phase = st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase : a.phase * Math.PI;
+      const phase = st.orangutanSwing ? st.orangutanSwing.phase : st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase : a.phase * Math.PI;
       if (eating) st.graze = 0;
       // A crawling snake's bends advance by the distance it covers, so they stay put on the ground
       // (one full bend per body length; see uSlither in fauna.js, which reads it from the fly slot).
@@ -361,7 +363,7 @@ export class Actors {
         for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite])
           if (site && this.flora.treeSites.get(site.tile) === site) canopySites.add(site);
       } else { st.gripFeet = null; st.gripTime = time; }
-      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0)), grips);
+      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? st.orangutanSwing?.blend || 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0)), grips);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;

@@ -3774,6 +3774,7 @@ export function buildSpecies(def) {
   const geo = m.build();
   if (mo.primate) feedingPose(geo, s, def.move === 'tree');
   if (s.ape) swingPoses(geo, s.len);
+  if (s.kind === 'orangutan') orangutanSwingPoses(geo, s);
   geo.computeBoundingBox();
   if (def.move === 'tree') {
     // Tails and orangutan hair can hang below the grips. Use actual toes for
@@ -3842,6 +3843,15 @@ function swingPoses(geo, L) {
   poseArm(geo, P.LEG_FR, L, [.05, .84, .1], [.13, 1.1, .12], [.14, 1.355, .02], [.53, 1.02, .1], 'aSwing', 'aSwingN', 1);
 }
 
+function orangutanSwingPoses(geo, s) {
+  const L = s.len, bulk = s.flanged ? 1.15 : 1;
+  geo.setAttribute('aSwing', geo.attributes.position.clone());
+  geo.setAttribute('aSwingN', geo.attributes.normal.clone());
+  for (const [id, side] of [[P.LEG_FL, 1], [P.LEG_FR, -1]])
+    poseArm(geo, id, L, [.07, .56, side * .13 * bulk], [.19, .31, side * .15], [.3, .06, side * .14],
+      [.07, 1.09, side * .04], 'aSwing', 'aSwingN', 1);
+}
+
 // Two-bone elbow bend baked into an alternate pose, including matching normals.
 function poseArm(geo, id, L, shoulder, elbow, hand, target, positions, normals, axis) {
   const a = Math.hypot(elbow[0] - shoulder[0], elbow[1] - shoulder[1]), b = Math.hypot(hand[0] - elbow[0], hand[1] - elbow[1]);
@@ -3881,7 +3891,7 @@ export function faunaMaterial(motion) {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
       attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim;
-      ${motion.primate === 3 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
+      ${motion.primate === 3 || motion.primate === 2 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
       ${motion.canopyFeet ? 'attribute vec4 aGripA; attribute vec4 aGripB; attribute vec4 aGripC;' : ''}
       uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan, uSlither, uSlitherLen, uSlitherNose;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
@@ -3960,6 +3970,22 @@ export function faunaMaterial(motion) {
               }` : ''}
             }
             if (aPart < 1.5) { float bite = smoothstep(0.0, 1.0, fly); p = mix(p, aExt, bite); n = normalize(mix(n, aExtN, bite)); }
+            ${motion.primate === 2 ? `
+            float crossing = clamp(aAnim.w, 0.0, 1.0);
+            if (crossing > 0.0) {
+              if (aPart < 2.5) {
+                vec3 catches = siamangWeights(ph, 1.0, 0.0);
+                float catchPose = aPart < 1.5 ? catches.x : 1.0 - catches.y;
+                float reach = -.9 * (1.0 - catchPose);
+                vec3 arm = rotZ(aSwing, aPivot, reach);
+                vec3 armN = rotZ(aSwingN, zero, reach);
+                p = mix(p, arm, crossing); n = normalize(mix(n, armN, crossing));
+              } else {
+                vec3 tucked = rotZ(position, aPivot, .55);
+                p = mix(p, tucked, crossing);
+                n = normalize(mix(n, rotZ(normal, zero, .55), crossing));
+              }
+            }` : ''}
           } else {
           ${motion.canopyHanging ? `if (aAnim.w < -.5) {
             vec3 grip = aPart < 1.5 ? aGripA.xyz : aPart < 2.5 ? vec3(aGripA.w, aGripB.xy) : aPart < 3.5 ? vec3(aGripB.zw, aGripC.x) : aGripC.yzw;
@@ -4015,7 +4041,7 @@ export function faunaMaterial(motion) {
         }
       `);
   };
-  mat.customProgramCacheKey = () => `fauna:${motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : 'base'}`;
+  mat.customProgramCacheKey = () => `fauna:${motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'orangutan-swing' : 'base'}`;
   return mat;
 }
 

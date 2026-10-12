@@ -3,6 +3,20 @@ import { SPEEDS } from '../config.js';
 import { climbPace } from '../sim/climb-pace.js';
 import { bodyFitsWood } from './wood-clearance.js';
 import { interpolateCanopyPose } from './canopy-pose.js';
+import { orangutanSwing, orangutanSwingPose } from './orangutan-swing.js';
+
+const leapers = new Set(['howler', 'congo', 'spider', 'langur']);
+const leapSpeed = 2.6;
+
+function canopyLeap(st, def) {
+  const route = st.branchRoute;
+  if (!leapers.has(def.key?.split(':')[0]) || !route || route.cursor !== route.gap) return null;
+  const start = route.points[route.gap - 1], end = route.points[route.gap], gap = start.distanceTo(end);
+  if (gap < .025) return null;
+  const t = THREE.MathUtils.clamp(1 - st.branchPoint.distanceTo(end) / gap, 0, 1);
+  const height = Math.min(.5, Math.max((def.sprite.len || 14) * st.sc * .65, gap * .35));
+  return { t, lift: 4 * t * (1 - t) * height };
+}
 
 function copyHold(point) {
   const copy = point.clone();
@@ -34,20 +48,32 @@ function crownRoute(from, to, point) {
       const qa = aa.point.canopyPose, qb = bb.point.canopyPose;
       if (!qa || !qb) continue;
       const steps = Math.max(2, Math.ceil(aa.point.distanceTo(bb.point) / .025));
-      let clear = true;
-      for (let k = 0; k <= steps; k++) {
-        sample.copy(aa.point).lerp(bb.point, k / steps);
-        if (clearanceBody.motion.primate === 2) interpolateCanopyPose(qa, qb, k / steps, pose);
-        else pose.copy(qa).slerp(qb, k / steps);
-        if (!bodyFitsWood(clearanceBody, sample, pose, wood)) { clear = false; break; }
-      }
-      if (!clear) continue;
+      const crossing = { points: [aa.point, bb.point], gap: 1, cursor: 1 };
+      const clearCrossing = () => {
+        for (let k = 0; k <= steps; k++) {
+          sample.copy(aa.point).lerp(bb.point, k / steps);
+          if (clearanceBody.motion.primate === 2) orangutanSwingPose(crossing, sample, pose);
+          else pose.copy(qa).slerp(qb, k / steps);
+          let profile = clearanceBody;
+          if (clearanceBody.motion.primate === 2) {
+            const swing = orangutanSwing(crossing, sample);
+            if (swing) {
+              const mo = clearanceBody.motion;
+              profile = { ...clearanceBody, motion: { ...mo, gripX: swing.grip[0] * mo.len, supportY: swing.grip[1] * mo.len, gripZ: swing.grip[2] * mo.len } };
+            }
+          }
+          if (!bodyFitsWood(profile, sample, pose, wood)) return false;
+        }
+        return true;
+      };
+      if (!clearCrossing()) continue;
     }
     if (score < best) { best = score; exit = aa; entry = bb; }
   }
   const out = a.route(from, exit, point), into = b.route(entry, to);
   if (!out.length) out.push(copyHold(exit.point));
-  return { points: [...out, copyHold(entry.point), ...into], sites: [...out.map(() => a), b, ...into.map(() => b)], gap: out.length };
+  return { points: [...out, copyHold(entry.point), ...into], sites: [...out.map(() => a), b, ...into.map(() => b)], gap: out.length,
+    swingable: Number.isFinite(best) };
 }
 
 function routeHeading(route, point, span, fallback) {
@@ -62,14 +88,15 @@ function routeHeading(route, point, span, fallback) {
   return heading.lengthSq() > 1e-8 ? heading : fallback.clone();
 }
 
-function routePose(route, point) {
+function routePose(route, point, upright = false) {
   if (!route) return null;
+  if (upright && route.cursor === route.gap && route.swingable !== false) return orangutanSwingPose(route, point);
   const from = route.cursor ? route.points[route.cursor - 1] : route.startPoint;
   const to = route.points[route.cursor];
   const a = from?.canopyPose || route.startPose, b = to?.canopyPose;
   if (!a || !b) return b || a;
   const distance = from.distanceTo(to), t = distance ? Math.min(1, from.distanceTo(point) / distance) : 1;
-  return a.clone().slerp(b, t);
+  return upright ? interpolateCanopyPose(a, b, t, new THREE.Quaternion()) : a.clone().slerp(b, t);
 }
 
 // Daily growth and neighbouring tile edits can rebuild a tree instance. Carry
@@ -149,11 +176,18 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
     const speed = climbPace(def) * st.catchUp * (SPEEDS[game.speed] || 0);
     let budget = speed * dt;
     const catchUpTurn = THREE.MathUtils.clamp((lag - 1.2) / .6, 0, 1);
-    if (route && st.canopyQuaternion && def.sprite.kind === 'sloth') {
-      const pose = routePose(route, st.branchPoint);
+    if (route && st.canopyQuaternion && (def.sprite.kind === 'sloth' || def.sprite.kind === 'orangutan' && route.cursor === route.gap)) {
+      const pose = routePose(route, st.branchPoint, def.sprite.kind === 'orangutan');
       if (pose) {
-        const turnPace = .2 + .8 * THREE.MathUtils.clamp((.5 - st.canopyQuaternion.angleTo(pose)) / .35, 0, 1);
-        budget *= THREE.MathUtils.lerp(turnPace, 1, catchUpTurn);
+        const angle = st.canopyQuaternion.angleTo(pose);
+        const swing = def.sprite.kind === 'orangutan' && orangutanSwing(route, st.branchPoint);
+        // Finish facing the crossing before advancing the arm handover. A
+        // minimum walking pace here let the body travel sideways while turning.
+        if (swing && swing.t > .08 && angle > .12) budget = 0;
+        else {
+          const turnPace = .2 + .8 * THREE.MathUtils.clamp((.5 - angle) / .35, 0, 1);
+          budget *= THREE.MathUtils.lerp(turnPace, 1, catchUpTurn);
+        }
       }
     } else if (route && st.canopyQuaternion && def.sprite.kind === 'monkey' && !def.sprite.ape) {
       const heading = routeHeading(route, st.branchPoint, Math.max(.08, (def.sprite.len || 14) * st.sc * .6), anchor.direction);
@@ -169,8 +203,36 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
     if (route) {
       while (budget > 0 && route.cursor < route.points.length) {
         const target = route.points[route.cursor], distance = st.branchPoint.distanceTo(target);
-        if (distance <= budget) { st.branchPoint.copy(target); budget -= distance; travelled += distance; route.cursor++; }
-        else { st.branchPoint.lerp(target, budget / distance); travelled += budget; budget = 0; }
+        // Monkeys leap quickly; orangutans use a slower handover in the gap.
+        // Charge the same time budget so a frame spanning takeoff or landing
+        // still walks the remaining wood at its ordinary climbing pace.
+        let boost = 1, span = distance, advance = true;
+        if (route.cursor === route.gap) {
+          if (leapers.has(def.key?.split(':')[0])) boost = leapSpeed;
+          else if (def.sprite.kind === 'orangutan' && route.swingable) {
+            const swing = orangutanSwing(route, st.branchPoint);
+            boost = .55;
+            if (swing && swing.t < .35 - 1e-8) {
+              // Enter and leave the hanging stance promptly. Split frames at
+              // both transitions to preserve the deliberate handover pace.
+              boost = 1.1;
+              const gap = route.points[route.gap - 1].distanceTo(target);
+              span = gap * (.35 - swing.t); advance = false;
+            } else if (swing && swing.t < .65 - 1e-8) {
+              const gap = route.points[route.gap - 1].distanceTo(target);
+              span = gap * (.65 - swing.t); advance = false;
+            } else if (swing) {
+              boost = 1.1;
+            }
+          }
+        }
+        const step = budget * boost;
+        if (span <= step) {
+          if (advance) { st.branchPoint.copy(target); route.cursor++; }
+          else st.branchPoint.lerp(target, span / distance);
+          budget -= span / boost; travelled += span;
+        }
+        else { st.branchPoint.lerp(target, step / distance); travelled += step; budget = 0; }
         trace.push({ point: st.branchPoint.clone(), cursor: route.cursor });
       }
       if (route.cursor >= route.points.length) { st.branchAt = route.target; st.branchRoute = null; }
@@ -186,7 +248,10 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
   // each centimetre-sized bark correction at a fork.
   const heading = routeHeading(route, st.branchPoint, Math.max(.08, (def.sprite.len || 14) * st.sc * .6), delta);
   let lift = 0;
-  if (transfer && def.sprite.kind === 'monkey' && !def.sprite.ape) {
+  st.canopyLeap = canopyLeap(st, def);
+  st.orangutanSwing = def.sprite.kind === 'orangutan' ? orangutanSwing(route, st.branchPoint) : null;
+  if (st.canopyLeap) lift = st.canopyLeap.lift;
+  else if (transfer && def.sprite.kind === 'monkey' && !def.sprite.ape) {
     const start = route.points[route.gap - 1], end = route.points[route.gap], gap = start.distanceTo(end);
     const t = gap > 0 ? THREE.MathUtils.clamp(1 - st.branchPoint.distanceTo(end) / gap, 0, 1) : 1;
     lift = Math.sin(t * Math.PI) * Math.min(.15, gap * .2);
@@ -195,10 +260,10 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
   const stride = Math.max(.06, (def.sprite.len || 14) * st.sc * (def.sprite.ape ? 1.6 : .65));
   const phaseStep = travelled / stride * Math.PI * 2;
   st.branchPhase += def.sprite.ape ? Math.min(phaseStep, dt * 2.8) : phaseStep;
-  return { delta, heading, pose: def.sprite.kind === 'sloth' ? routePose(route, st.branchPoint) || journey?.target.point.canopyPose || st.branchAt?.point.canopyPose : null,
+  return { delta, heading, pose: def.sprite.kind === 'sloth' || st.orangutanSwing ? routePose(route, st.branchPoint, def.sprite.kind === 'orangutan') || journey?.target.point.canopyPose || st.branchAt?.point.canopyPose : null,
     before, requested: st.branchPoint.clone(), cursor, dt, phase, at, journey, trace, travelled, stride, ape: def.sprite.ape,
     pace: Math.max(.25, def.speed * (SPEEDS[game.speed] || 1)), gait: dt > 0 && game.speed > 0 ? Math.min(1, travelled / dt / Math.max(.25, def.speed * (SPEEDS[game.speed] || 1))) : 0,
-    transfer, lift };
+    transfer, lift, def };
 }
 
 // A blocked step can span several tiny bark waypoints. Commit only the distance
@@ -223,5 +288,9 @@ export function settleCanopyStep(st, motion) {
   const phaseStep = distance / motion.stride * Math.PI * 2;
   st.branchPhase = motion.phase + (motion.ape ? Math.min(phaseStep, motion.dt * 2.8) : phaseStep);
   motion.gait = motion.dt > 0 ? Math.min(1, distance / motion.dt / motion.pace) : 0;
+  // Clearance can shorten a step. Draw the arc at the accepted position.
+  st.canopyLeap = canopyLeap(st, motion.def);
+  st.orangutanSwing = motion.def?.sprite.kind === 'orangutan' ? orangutanSwing(st.branchRoute, st.branchPoint) : null;
+  if (leapers.has(motion.def?.key?.split(':')[0])) motion.lift = st.canopyLeap?.lift || 0;
   return distance;
 }
