@@ -36,6 +36,12 @@ export class Input {
       const f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015) * settings.zoomSpeed);
       this.r.zoomAt(e.clientX, e.clientY, f, true); // eased
     }, { passive: false });
+    // A pinch over a panel would zoom the whole page instead of the map, and once the map fills
+    // the zoomed page every later pinch lands on the map, so the page can't be zoomed back out
+    // and the menus stay off screen. Never let a pinch zoom the page. (Trackpads send it as a
+    // ctrl + wheel; Safari, on Macs and iPads, as gesture events.)
+    window.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+    for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
     // touch: one finger paints (or pans in Inspect), a tap inspects or places,
     // two fingers pan and pinch-zoom the camera
     for (const [ev, fn] of [['touchstart', 'touchStart'], ['touchmove', 'touchMove'], ['touchend', 'touchEnd'], ['touchcancel', 'touchEnd']]) {
