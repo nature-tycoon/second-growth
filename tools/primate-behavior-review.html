@@ -46,6 +46,8 @@ function setup(){
 function draw(){
  controls.step.disabled=controls.position.value!=='fork';
  const {game,a}=fixture;
+ const clamber=controls.animal.value==='sumatra:orangutan';
+ controls.detail.options[1].textContent=clamber?'Clambering':'Swinging';controls.swing.disabled=clamber;
  const site=views[1].flora.treeSites.get(game.world.idx(40,32));site.geo.computeBoundingBox();
  const top=site.transform[1]+site.geo.boundingBox.max.y*site.transform[4],half=Math.max(1.5,(top+.65)*.52);
  camera.left=-half*4/3;camera.right=half*4/3;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();
@@ -53,13 +55,13 @@ function draw(){
  for(const v of views){
   v.flora.setFade(['both','fade'].includes(controls.reveal.value));const saved={state:a.state,fruitMeal:a.fruitMeal,x:a.x,y:a.y},speed=game.speed;
   if(v.improved&&controls.detail.value==='fruit'){a.x=40.68;a.y=32.44;game.speed=0;a.state='idle';a.fruitGoal={i:game.world.idx(Math.floor(a.x),Math.floor(a.y)),plant:game.world.tree[game.world.idx(Math.floor(a.x),Math.floor(a.y))]};primateArrive(game.wildlife,a);if(a.fruitMeal)a.fruitMeal.elapsed=Number(controls.bite.value);}
-  if(v.improved&&controls.detail.value==='swing'){
+  if(v.improved&&controls.detail.value==='swing'&&!clamber){
     a.x=40.68;a.y=32.44;game.speed=0;a.state='walk';a.fruitMeal=null;
     if(!v.actors.pose.has(a.id))v.actors.update(game,right,time,camera,480);
-    const st=v.actors.pose.get(a.id);st.gait=1;st.branchPhase=controls.swing.value==='live'?time*2:Number(controls.swing.value);
+    const st=v.actors.pose.get(a.id);st.gait=1;st.branchPhase=clamber?time*4.2:controls.swing.value==='live'?time*2:Number(controls.swing.value);
   }
   let forkSite,originalAnchor;
-  const forkPeriod=controls.animal.value==='amazon:sloth'?22:6;
+  const forkPeriod=controls.animal.value==='amazon:sloth'?22:clamber?12:controls.animal.value==='sumatra:siamang'?20:6;
   if(controls.position.value==='fork'){
     a.x=40.5;a.y=32.5;a.state='walk';a.fruitMeal=null;
     forkSite=v.flora.treeSites.get(game.world.idx(40,32));forkSite.prepare();originalAnchor=forkSite.anchor;
@@ -76,7 +78,7 @@ function draw(){
   gl.render(v.scene,camera);document.getElementById(v.improved?'after':'before').getContext('2d').drawImage(gl.domElement,0,0);
  }
  const st=views[1].actors.pose.get(a.id),anchor=st.branch;
- controls['detail-title'].textContent=controls.detail.value==='swing'?'Swinging close-up':controls.detail.value==='travel'?'Branch travel close-up':'Fruit eating';
+ controls['detail-title'].textContent=controls.detail.value==='swing'?(clamber?'Clambering close-up':'Swinging close-up'):controls.detail.value==='travel'?'Branch travel close-up':'Fruit eating';
  const catches=siamangSwing(st.branchPhase,st.gait);
  const gripText=controls.detail.value==='swing'&&controls.animal.value==='sumatra:siamang'?` · ${catches.support>.95?'Left hand supporting':catches.support<.05?'Right hand supporting':'Both hands catching'}`:'';
  const mealAvailable=Number(controls.growth.value)>.65;
@@ -84,6 +86,6 @@ function draw(){
 }
 for(const id of ['animal','growth','graphics'])controls[id].addEventListener('change',setup);for(const id of ['reveal','view','bite','detail','swing'])controls[id].addEventListener('change',draw);controls.position.addEventListener('change',()=>{const fork=controls.position.value==='fork';fixture.a.x=fork?40.5:40+Number(controls.position.value);travel=fork;fixture.game.speed=fork?1:0;if(fork)controls.detail.value='travel';time=fork&&controls.animal.value==='amazon:sloth'?17:1;for(const v of views){v.actors.pose.clear();delete v.followTarget;delete v.followTime;}draw();});controls.restart.addEventListener('click',setup);controls.pause.addEventListener('click',()=>{travel=!travel;fixture.game.speed=travel?1:0;controls.pause.textContent=travel?'Pause travel':'Resume travel';draw();});
 const params=new URLSearchParams(location.search);for(const id of ['animal','detail','reveal','position']){const value=params.get(id);if([...controls[id].options].some(o=>o.value===value))controls[id].value=value;}setup();
-controls.step.addEventListener('click',()=>{travel=false;fixture.game.speed=1;const period=controls.animal.value==='amazon:sloth'?22:6;if(!views[0].actors.pose.get(fixture.a.id)?.branchRoute)time=(Math.floor(time/period)+1)*period;time+=.1;draw();fixture.game.speed=0;controls.pause.textContent='Resume travel';draw();});
+controls.step.addEventListener('click',()=>{travel=false;fixture.game.speed=1;const period=controls.animal.value==='amazon:sloth'?22:controls.animal.value==='sumatra:orangutan'?12:controls.animal.value==='sumatra:siamang'?20:6;if(!views[0].actors.pose.get(fixture.a.id)?.branchRoute)time=(Math.floor(time/period)+1)*period;time+=.1;draw();fixture.game.speed=0;controls.pause.textContent='Resume travel';draw();});
 function frame(now){const dt=last?Math.min(.05,(now-last)/1000):0;last=now;if(travel||controls.position.value!=='fork')time+=dt;if(travel&&controls.position.value!=='fork'){fixture.a.x=Math.min(41.65,fixture.a.x+dt*Math.min(.24,climbSpeed(ANIMALS[fixture.a.sp])*SPEEDS[1]));fixture.a.state=fixture.a.x<41.65?'walk':'idle';}draw();requestAnimationFrame(frame);}requestAnimationFrame(frame);
 </script></html>

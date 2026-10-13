@@ -32,6 +32,24 @@ export function barkGrip(point, wood, triangles = [], owners = null) {
   return Number.isFinite(best) ? grip : null;
 }
 
+// Count physically reachable contacts for a proposed torso pose. This is
+// separate from planted state: free limbs still need time to reach those holds.
+export function canopyContactCount(profile, point, pose, wood) {
+  const { motion: mo, scale } = profile;
+  const origin = new THREE.Vector3(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0), inversePose = pose.clone().invert();
+  let contacts = 0;
+  for (let i = 0; i < 4; i++) {
+    const rest = mo.canopyFeet[i].clone().sub(origin).multiplyScalar(scale).applyQuaternion(pose).add(point);
+    const grip = barkGrip(rest, wood);
+    if (!grip) continue;
+    grip.sub(point).applyQuaternion(inversePose).divideScalar(scale).add(origin);
+    if (grip.distanceTo(mo.canopyJoints[i]) <= mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08 &&
+        grip.distanceTo(mo.canopyFeet[i]) <= mo.len * (mo.canopyFootReach?.[i] ?? (i < 2 ? .24 : .18)) &&
+        (mo.canopyHanging ? grip.y <= mo.canopyFeet[i].y + mo.len * .04 : grip.y >= -mo.len * .04)) contacts++;
+  }
+  return contacts;
+}
+
 // Keep a bark contact while it is within the limb's reach. Rear feet can
 // release and tuck under the body during a crown crossing instead of stretching
 // back to the old tree. A free limb catches again when wood is within reach.
@@ -58,7 +76,7 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
   const reachable = (point, i) => {
     local.copy(point).applyMatrix4(inverse);
     return local.distanceTo(mo.canopyJoints[i]) <= reach[i] &&
-      local.distanceTo(mo.canopyFeet[i]) <= mo.len * (i < 2 ? .24 : .18) &&
+      local.distanceTo(mo.canopyFeet[i]) <= mo.len * (mo.canopyFootReach?.[i] ?? (i < 2 ? .24 : .18)) &&
       (hanging ? local.y <= mo.canopyFeet[i].y + mo.len * .04 : local.y >= -mo.len * .04);
   };
   const fresh = reset || !st.gripFeet || st.gripFeet.some((foot, i) => foot.point.distanceTo(rests[i]) > size * 2);
@@ -67,7 +85,7 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
       const point = barkGrip(p, wood, triangles, owners) || p.clone();
       return { point, site: point.canopySite, from: null, to: null, elapsed: 0, free: !point.canopySite };
     });
-    st.gripSwing = -1;
+    st.gripSwing = -1; st.gripNext = 0;
   }
   if (st.canopyLeap && st.canopyLeap.t > 0 && st.canopyLeap.t < 1) {
     // Release all four contacts on takeoff. Tuck the rear feet and reach
@@ -95,6 +113,14 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
     }
     if (foot.free) {
       air.copy(mo.canopyFeet[i]); air.y += (hanging ? -1 : 1) * mo.len * (i < 2 ? .06 : .14); air.x += mo.len * (i < 2 ? .05 : .04);
+      if (mo.primate === 1 && i < 2) {
+        // A free hand reaches for its next hold instead of staying rigidly
+        // tucked beside a moving shoulder. Opposite phases alternate hands;
+        // planted contacts and the airborne leap pose remain independent.
+        const phase = (st.branchPhase || 0) + i * Math.PI;
+        air.x += mo.len * .045 * Math.sin(phase) * st.gait;
+        air.y += mo.len * .025 * Math.cos(phase) * st.gait;
+      }
       air.applyMatrix4(matrix);
       foot.point.lerp(air, Math.min(1, dt * (hanging ? 4 : 16)));
       // Bound the release itself, including a fast frame or a sharp turn.
@@ -104,7 +130,8 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
   }
   if (dt && st.gripSwing < 0) {
     let worst = size * .12, limb = -1;
-    for (let i = 0; i < 4; i++) {
+    for (let order = 0; order < 4; order++) {
+      const i = mo.primate === 2 ? ((st.gripNext || 0) + order) % 4 : order;
       const foot = st.gripFeet[i];
       desired.copy(rests[i]).addScaledVector(forward, size * .1 * st.gait);
       const target = barkGrip(desired, wood, triangles, owners);
@@ -118,8 +145,9 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
       // the planted grip. At rest or during a turn there is no forward reach.
       desired.copy(rests[limb]).addScaledVector(forward, size * .1 * st.gait);
       const target = barkGrip(desired, wood, triangles, owners);
-      if (target.distanceTo(foot.point) > size * .025) {
+      if (target.distanceTo(foot.point) > size * .025 || mo.primate === 2 && foot.free) {
         foot.from = foot.point.clone(); foot.to = target; foot.elapsed = 0; foot.free = false; st.gripSwing = limb;
+        if (mo.primate === 2) st.gripNext = (limb + 1) % 4;
       } else if (foot.free) {
         foot.point.copy(target); foot.site = target.canopySite; foot.free = false;
       }
@@ -127,8 +155,8 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
   }
   if (dt && st.gripSwing >= 0) {
     const limb = st.gripSwing, foot = st.gripFeet[limb];
-    foot.elapsed += dt * (SPEEDS[speed] / SPEEDS[1]);
-    const t = Math.min(1, foot.elapsed / (hanging ? .45 : .12)), ease = t * t * (3 - 2 * t);
+    foot.elapsed += dt * (mo.primate === 2 ? Math.min(2, SPEEDS[speed] / SPEEDS[1]) : SPEEDS[speed] / SPEEDS[1]);
+    const t = Math.min(1, foot.elapsed / (hanging ? .45 : mo.primate === 2 ? .24 : .12)), ease = t * t * (3 - 2 * t);
     foot.point.copy(foot.from).lerp(foot.to, ease);
     const lift = (hanging ? -1 : 1) * Math.sin(t * Math.PI) * size * .045;
     air.copy(foot.point); foot.point.y += lift;
@@ -151,7 +179,7 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
       foot.free = true; foot.site = null; foot.from = foot.to = null;
       if (st.gripSwing === i) st.gripSwing = -1;
       local.copy(foot.point).applyMatrix4(inverse);
-      local.sub(mo.canopyFeet[i]).clampLength(0, mo.len * (i < 2 ? .24 : .18)).add(mo.canopyFeet[i]);
+      local.sub(mo.canopyFeet[i]).clampLength(0, mo.len * (mo.canopyFootReach?.[i] ?? (i < 2 ? .24 : .18))).add(mo.canopyFeet[i]);
       local.y = hanging ? Math.min(mo.canopyFeet[i].y + mo.len * .04, local.y) : Math.max(-mo.len * .04, local.y);
       local.sub(mo.canopyJoints[i]).clampLength(0, reach[i]).add(mo.canopyJoints[i]);
       foot.point.copy(local.applyMatrix4(matrix));

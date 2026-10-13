@@ -121,7 +121,7 @@ check('Tree monkeys straddle a narrow limb with their grips and hold fruit in th
   assert.ok(Array.from({length:p.count},(_,i)=>part.getX(i)>=1&&part.getX(i)<=4&&p.getY(i)<1?Math.abs(p.getZ(i)):0).some(z=>z>ANIMAL.macaque.sprite.len*.12),'ground macaques retain a walking stance');geo.dispose();
 });
 check('Climbers keep up with their simulation position at every game speed, without reset jumps on or off the trees',()=>{
-  for(const [map,key,tree] of [['amazon','spider','fig'],['sumatra','siamang','meranti']]) for(const speed of [1,3]){
+  for(const [map,key,tree] of [['amazon','spider','fig'],['sumatra','siamang','meranti'],['sumatra','orangutan','meranti']]) for(const speed of [1,3]){
     Math.random = mulberry32(1987);
     const {game}=canopyFixture(map,key),w=game.world;game.wildlife.agents=[];
     for(let x=34;x<46;x++)for(let y=26;y<38;y++)if((x*7+y*3)%11)w.setPlant(w.idx(x,y),PLANT[tree],1);
@@ -133,11 +133,16 @@ check('Climbers keep up with their simulation position at every game speed, with
       const sim=new Map(ags.map(a=>[a.id,[a.x,a.y]]));
       game.update(1/60);time+=1/60;flora.rebuild(game);actors.update(game,right,time);
       for(const a of ags){const st=actors.pose.get(a.id);if(!st?.visible)continue;const q=last.get(a.id),s0=sim.get(a.id);last.set(a.id,[st.x,st.z]);
+        const route=st.branchRoute;
+        if(['spider','orangutan','siamang'].includes(key)&&route?.gap>=0&&route.fromSite.cell&&route.target.site.cell){
+          const from=route.fromSite.cell,to=route.target.site.cell;
+          assert.ok(Math.max(Math.abs(from[0]-to[0]),Math.abs(from[1]-to[1]))<=1,'fast travel visits adjacent supporting trees instead of skipping to the simulation position');
+        }
         if(q)worst=Math.max(worst,Math.hypot(st.x-q[0],st.z-q[1])-Math.hypot(a.x-s0[0],a.y-s0[1]));}
     }
-    // (the bug this guards is the 3-tile reset jump. At speed 3 a fast climber's worst honest step
-    // is about 0.8 tiles here and 1.06 on CI's machine, where float rounding takes another path)
-    assert.ok(worst<(speed>1?1.5:.3),`${key} at speed ${speed}: drawn body jumped ${worst.toFixed(2)} tiles beyond its own step`);
+    // Guard the 3-tile reset jump, retaining CI's float-rounding allowance
+    // for fast monkey travel and the tighter bound for orangutan clambering.
+    assert.ok(worst<(key==='orangutan'?.1:speed>1?1.5:.3),`${key} at speed ${speed}: drawn body jumped ${worst.toFixed(2)} tiles beyond its own step`);
   }
 });
 console.log(`${n} primate behavior checks passed.`);
