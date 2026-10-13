@@ -1,7 +1,7 @@
 // node tools/plant-replay-check.mjs
 // A brush stroke rebuilds its plant region, but only the tiles near the change are worked out
 // again; the rest repeat what they drew last time. The result must always equal a complete
-// rebuild, including after shade or water changes that don't themselves rebuild a region.
+// rebuild, including shade changes without any plant edits and deferred water changes.
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -45,7 +45,7 @@ for (const map of ['pnw', 'sumatra', 'chinandega']) check(`${map}: a brush strok
   }
 });
 
-check('Shade that changed while a region was idle is worked out when it next rebuilds', () => {
+check('Shade changes refresh idle regions without waiting for another plant edit', () => {
   const g = plantFixture('pnw'), w = g.world, a = make(), b = make(), before = make();
   a.rebuild(g, true); before.rebuild(g, true);
   // a grown tree's tile in the same region as a later edit, but out of the edit's reach
@@ -55,11 +55,12 @@ check('Shade that changed while a region was idle is worked out when it next reb
     if (w.tree[j] && w.treeG[j] > 0.6) i = j;
   }
   assert.ok(i >= 0, 'a grown tree to shade');
-  w.canopy[i] = w.canopy[i] > 0.5 ? 0.1 : 0.95; // (shade only: no region rebuilds for it...)
-  a.rebuild(g); assert.equal(a.lastRebuild.regions, 0);
+  w.canopy[i] = w.canopy[i] > 0.5 ? 0.1 : 0.95;
+  a.rebuild(g); assert.ok(a.lastRebuild.regions > 0);
   b.rebuild(g, true);
   assert.throws(() => same(before, b, 'shade'), undefined, 'the shade change is drawn');
-  editPlants(g, 34, 34); a.rebuild(g); b.rebuild(g, true); // (...until something else nearby changes)
+  same(a, b, 'shade-only change');
+  editPlants(g, 34, 34); a.rebuild(g); b.rebuild(g, true);
   same(a, b, 'idle shade change');
 });
 
