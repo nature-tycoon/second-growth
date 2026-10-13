@@ -1,15 +1,14 @@
-// Animals (instanced 3D models, see fauna.js), plus visitors and flames drawn as camera-facing sprites.
+// Animals (instanced 3D models, see animals/animal-model.js), plus visitors and flames drawn as camera-facing sprites.
 
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp } from '../config.js';
-import { ANIMALS, drawDef, animalDef } from '../data/animals.js';
+import { drawDef, animalDef } from '../data/animals.js';
 import * as S from '../render/sprites.js';
-import { TREE_SHAPES, contactShadow } from './geometry.js';
-import { PLANTS } from '../data/plants.js';
-import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './fauna.js';
+import { TREE_SHAPES } from './geometry/trees.js';
+import { contactShadow } from './geometry/features.js';
+import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './animals/animal-pools.js';
 import { adultAnimalScale } from './animal-scale.js';
 import { waterSurfaceY } from './terrain.js';
-import { biome } from '../biome.js';
 import { boutCycle, CRASH } from './bout-clock.js';
 import { siamangSwing } from './siamang-swing.js';
 import { orangutanHold } from './orangutan-swing.js';
@@ -75,6 +74,7 @@ export class Actors {
   }
 
   update(game, camRight, time, camera = null, viewportHeight = 0) {
+    this.catalog = game.catalog;
     const w = game.world;
     this.view.update(camera, viewportHeight, this.cullOffscreen);
     this.visibleWildlife.length = 0;
@@ -100,7 +100,7 @@ export class Actors {
     this.lastT = time;
     F.begin();
     for (const a of game.wildlife.viewAgents) {
-      const def = drawDef(animalDef(a), a, game.month); // Adult sex traits and seasonal plumage.
+      const def = drawDef(animalDef(a, game.catalog), a, game.month); // Adult sex traits and seasonal plumage.
       seen.add(a.id);
       let st = this.pose.get(a.id);
       const xi = Math.floor(a.x), yi = Math.floor(a.y);
@@ -112,7 +112,7 @@ export class Actors {
       const kind = def.sprite.kind;
       const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05)) || kind === 'bat' || kind === 'ray'; // (a manta "flies" through the water)
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
-      const seaY = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
+      const seaY = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : null;
       // A located animal must acquire a fresh pose even before the camera has
       // reached it. Otherwise an offscreen canopy animal can never be followed.
       if (this.view.enabled && a !== this.followAgent) {
@@ -125,7 +125,7 @@ export class Actors {
         if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground, a.flightY ?? -Infinity) + 2;
         else if (inside && (def.move === 'fly' || def.move === 'tree')) {
           if (w.tree[i]) {
-            const p = PLANTS[w.tree[i]];
+            const p = game.catalog.plants[w.tree[i]];
             high += (TREE_SHAPES[p.look.type]?.height || 2) * (p.look.scale ?? 1) * w.treeG[i];
           } else if (w.feature[i] === FEAT.SNAG) high += 0.9;
         }
@@ -199,7 +199,7 @@ export class Actors {
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
       else if (surf != null && FLOATERS.has(kind) && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
       else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
-        const c = ci(); y += (TREE_SHAPES[PLANTS[w.tree[c]].look.type]?.height || 2) * (PLANTS[w.tree[c]].look.scale ?? 1) * w.treeG[c] * 0.55;
+        const c = ci(); y += (TREE_SHAPES[game.catalog.plants[w.tree[c]].look.type]?.height || 2) * (game.catalog.plants[w.tree[c]].look.scale ?? 1) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
         y += 0.9;
       } else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) {
@@ -208,14 +208,14 @@ export class Actors {
         // monkeys and sloths live up in the crowns (or on a snag's bare top)
         // (monkeys up in the sunlit top of the canopy, sloths hanging lower down)
         const c = ci();
-        if (w.tree[c]) y += (TREE_SHAPES[PLANTS[w.tree[c]].look.type]?.height || 2) * (PLANTS[w.tree[c]].look.scale ?? 1) * w.treeG[c] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
+        if (w.tree[c]) y += (TREE_SHAPES[game.catalog.plants[w.tree[c]].look.type]?.height || 2) * (game.catalog.plants[w.tree[c]].look.scale ?? 1) * w.treeG[c] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
         else if (w.feature[c] === FEAT.SNAG) y += 0.9;
       }
       // Moving between crowns of different heights, a climber (or a perched bird hopping along a
       // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
       if (a.passing) y = a.flightY + (a.passage.swoop ? Math.sin(a.passage.t * 1.8 + a.passage.phase) * 0.12 : 0);
       if (flying && inside && !def.reef && w.tree[i] && (a.passing || a.birdGoal)) {
-        const p = PLANTS[w.tree[i]], crown = ground + (TREE_SHAPES[p.look.type]?.height || 2) * (p.look.scale ?? 1) * w.treeG[i];
+        const p = game.catalog.plants[w.tree[i]], crown = ground + (TREE_SHAPES[p.look.type]?.height || 2) * (p.look.scale ?? 1) * w.treeG[i];
         y = Math.max(y, crown + (a.passing ? 0.8 : 0.2));
       }
       if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
@@ -350,7 +350,7 @@ export class Actors {
       const phase = st.orangutanSwing ? st.orangutanSwing.phase : st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase : a.phase * Math.PI;
       if (eating) st.graze = 0;
       // A crawling snake's bends advance by the distance it covers, so they stay put on the ground
-      // (one full bend per body length; see uSlither in fauna.js, which reads it from the fly slot).
+      // (one full bend per body length; see uSlither in animals/animal-material.js, which reads it from the fly slot).
       if (mo.slither) st.slither = ((st.slither ?? a.id * 2.3) + Math.min(0.5, Math.hypot(dx, dz)) / (mo.slither.len * sc) * Math.PI * 2) % (Math.PI * 2);
       let grips = null;
       if (st.branch && mo.canopyFeet) {
@@ -383,7 +383,7 @@ export class Actors {
 
     // ---- kills: the prey lying on its side where it fell, sinking away as it's eaten
     for (const c of game.wildlife.carcasses || []) {
-      const cdef = ANIMALS[c.sp];
+      const cdef = game.catalog.animals[c.sp];
       if (!cdef) continue;
       const def = drawDef(cdef, c, game.month);
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * c.age / (def.mature * 120), 0.55, 1) : 1;
@@ -408,7 +408,7 @@ export class Actors {
       st.gait += ((v.pause > 0 ? 0 : 1) - st.gait) * k;
       const onWet = w.inb(Math.floor(v.x), Math.floor(v.y)) && isWater(w.terrain[w.idx(Math.floor(v.x), Math.floor(v.y))]);
       const gy = w.heightAt(v.x, v.y) * LEVEL + (onWet ? 0.08 : 0); // boardwalks sit above the water
-      const sea = biome.look.underwater ? biome.look.underwater.level * LEVEL : null;
+      const sea = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : null;
       if (sea != null && gy < sea - 0.05) {
         // on the reef: a snorkeler, face down at the surface, finning along the trail
         F.add(SNORKEL_LOOKS[v.look % SNORKEL_LOOKS.length], v.x, sea - 0.035, v.y, st.yaw, PX * 0.6, v.phase * Math.PI * 0.7, Math.max(0.6, st.gait), 0, 0, -Math.PI / 2 + 0.12);
@@ -471,11 +471,11 @@ export class Actors {
     const crash = !a.sparLight && c >= CRASH[0] && c < CRASH[1] ? Math.sin((c - CRASH[0]) / (CRASH[1] - CRASH[0]) * Math.PI) : 0; // (the impact jolt)
     // stand so the lowered antlers (or horns) of the two just interlock, wherever the
     // simulation put them: each steps back or in by half the difference
-    const F = this.fauna, oDef = drawDef(ANIMALS[o.sp], o), oSt = this.pose.get(o.id);
-    const reach = F.headReach(drawDef(ANIMALS[a.sp], a)) * (st.sc || 0) + F.headReach(oDef) * (oSt?.sc || st.sc || 0);
+    const F = this.fauna, oDef = drawDef(game.catalog.animals[o.sp], o), oSt = this.pose.get(o.id);
+    const reach = F.headReach(drawDef(game.catalog.animals[a.sp], a)) * (st.sc || 0) + F.headReach(oDef) * (oSt?.sc || st.sc || 0);
     // (how far the racks interlock: a small whitetail or mule deer rack meets close in; an elk's
     // long, sweeping beams would reach right past the other bull's face, so elk stand further off)
-    const span = reach * (SPAR_FIT[drawDef(ANIMALS[a.sp], a).sprite.antlers] ?? 0.8);
+    const span = reach * (SPAR_FIT[drawDef(game.catalog.animals[a.sp], a).sprite.antlers] ?? 0.8);
     const fit = (d - span) / 2;
     const back = (apart * 0.16 - crash * 0.04) * span - fit;
     // each steps back along its own facing (away from the rival) while the pair shoves together

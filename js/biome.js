@@ -1,9 +1,10 @@
-// The active map ("biome"): its plants, wildlife, goals, climate, layout and look.
-// Maps live in js/maps/. setBiome() swaps every shared registry in place, then tells the
-// modules that build things from those registries (tools, UI) to rebuild.
+// Map definitions and stable catalogs: plants, wildlife, goals, names and tool rules.
+// setBiome selects the UI/legacy defaults. Live games and worlds retain their catalog.
 
-import { loadPlants } from './data/plants.js';
-import { loadAnimals } from './data/animals.js';
+import { createPlants, selectPlants } from './data/plants.js';
+import { createAnimals, selectAnimals } from './data/animals.js';
+import { selectCatalog } from './data/catalog.js';
+import { assertMapDefinition, assertCatalog } from './data/contracts.js';
 import { loadGoals } from './sim/goals.js';
 import { STRUCTURES } from './world.js';
 import { H, T, HABITAT_INFO, TERRAIN_NAMES } from './config.js';
@@ -27,12 +28,35 @@ const baseNames = Object.fromEntries(Object.entries(STRUCTURES).map(([k, s]) => 
 const baseHabitats = HABITAT_INFO.map(h => h.name);
 const baseTerrains = [...TERRAIN_NAMES];
 
+const catalogs = new Map();
+/** @returns {import('./data/catalog.js').MapCatalog} */
+export function mapCatalog(id) {
+  const definition = BIOMES[id] || PNW;
+  if (!catalogs.has(definition.id)) {
+    assertMapDefinition(definition);
+    const catalog = {
+      definition,
+      ...createPlants(definition.plants, definition.id),
+      ...createAnimals(definition.animals, definition.id),
+      goals: definition.goals,
+      structures: Object.fromEntries(Object.entries(STRUCTURES).map(([key, value]) => [key, { ...value, name: definition.structureNames?.[key] || baseNames[key] }])),
+      habitatInfo: HABITAT_INFO.map((value, index) => ({ ...value, name: definition.habitatNames?.[Object.keys(H).find(key => H[key] === index)] || baseHabitats[index] })),
+      terrainNames: baseTerrains.map((name, index) => definition.terrainNames?.[Object.keys(T).find(key => T[key] === index)] || name),
+    };
+    assertCatalog(catalog);
+    catalogs.set(definition.id, catalog);
+  }
+  return catalogs.get(definition.id);
+}
+
 export function setBiome(id) {
   const next = BIOMES[id] || PNW;
   if (biome === next) return biome;
   biome = next;
-  loadPlants(next.plants);
-  loadAnimals(next.animals);
+  const catalog = mapCatalog(next.id);
+  selectCatalog(catalog);
+  selectPlants(catalog);
+  selectAnimals(catalog);
   loadGoals(next.goals);
   // the same kinds of old buildings go by local names (a barn in Washington, a cattle shed in Pará)
   for (const [k, s] of Object.entries(STRUCTURES)) s.name = next.structureNames?.[k] || baseNames[k];

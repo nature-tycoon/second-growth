@@ -1,7 +1,6 @@
 // Instrument the live main.js loop, retaining input, overlays and DOM interface work.
 import { releaseGame } from './release-fixtures.mjs';
 import { performanceFixture, ecosystemCounts, ecosystemSignature } from './performance-fixtures.mjs';
-import { TOOLS, toolCost } from '../js/tools.js';
 import { PLANTS } from '../js/data/plants.js';
 import { biome } from '../js/biome.js';
 import { settings } from '../js/settings.js';
@@ -73,15 +72,10 @@ export async function measureGameplay({ map, scene = 'ecosystem', density, optim
           renderer.diagnosticTime = clockOrigin + (n + 1) * 1000 / 30;
           if (previous != null && n >= warmup) gaps.push(started - previous); previous = started;
           if (scene === 'planting' && n % 12 === 0) {
-            const i = game.world.idx(42 + Math.floor(n / 12), 32), clear = TOOLS.clear;
-            const cost = toolCost(game, clear, i);
-            if (clear.apply(game, i, game.rng) === true) game.spend(cost, clear.cat);
+            const i = game.world.idx(42 + Math.floor(n / 12), 32);
+            ui.actions.apply('clear', [i], { random: game.rng });
             const p = PLANTS.find(p => p?.native && p.layer === 0 && !p.invasive);
-            if (p) {
-              const plant = TOOLS['plant_' + p.key], cost = toolCost(game, plant, i);
-              if (plant.apply(game, i, () => 0) === true) game.spend(cost, plant.cat);
-            }
-            renderer.markTileDirty(i % game.world.w, (i / game.world.w) | 0); game.refreshEnvironment(); // (as a brush marks it)
+            if (p) ui.actions.apply('plant_' + p.key, [i], { random: () => 0 });
           }
           renderer.target.x = fixture.center[0] + (motion ? Math.sin(n / 20) * 3 : 0);
           renderer.updateCamera();

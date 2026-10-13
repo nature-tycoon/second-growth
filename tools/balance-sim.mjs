@@ -5,7 +5,7 @@
 const root = new URL('../js/', import.meta.url).href;
 globalThis.localStorage = { getItem(){return null}, setItem(){}, removeItem(){} };
 const { Game } = await import(root + 'game.js');
-const { TOOLS, brushTiles } = await import(root + 'tools.js');
+const { ToolActions } = await import(root + 'tool-actions.js');
 const { ANIMALS } = await import(root + 'data/animals.js');
 const { T, F } = await import(root + 'config.js');
 const mode = process.argv[2] || 'idle';
@@ -16,7 +16,13 @@ g.on('notify', n => notes.push(`[${g.dateString()}] ${n.text}`));
 const w = g.world;
 // The scripted plan below was written for the original 80x60 farm; coordinates scale up to the real map.
 const SC = w.w / 80;
-const useRaw = (key, x, y, r=1) => { const t = TOOLS[key]; let n=0; for (const i of (t.brush ? brushTiles(w,x,y,r) : [w.idx(x,y)])) { const c = t.costFor ? t.costFor(g,i) : t.cost; if (c>0 && !g.canAfford(c)) continue; if (t.apply(g,i,Math.random)===true){ if(c>0) g.spend(c); else if (c<0) g.earn(-c); n++;} } return n; };
+// The restoration plan batches edits; dailyTick refreshes the environment afterward.
+const actions = new ToolActions(g, { refreshEnvironment: false });
+const useRaw = (key, x, y, radius = 1) => {
+  const stroke = actions.begin(key);
+  actions.paint(stroke, x, y, radius);
+  return actions.end(stroke).count;
+};
 const use = (key, x, y, r=1) => useRaw(key, Math.round(x * SC), Math.round(y * SC), Math.max(r, Math.round(r * SC)));
 const rect = (key,x0,y0,x1,y1,step=1,r=0) => { let n=0; const S = v => Math.round(v * SC); for (let y=S(y0);y<=S(y1);y+=step) for (let x=S(x0);x<=S(x1);x+=step) n+=useRaw(key,x,y,r); return n; };
 function restoreYear1() {

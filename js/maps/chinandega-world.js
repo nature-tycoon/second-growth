@@ -7,7 +7,7 @@
 
 import { World, riverRow, generateHeights } from '../world.js';
 import { T, F } from '../config.js';
-import { PLANT } from '../data/plants.js';
+import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
 // the quebrada, down the map from the volcano to the estuary
@@ -48,13 +48,13 @@ export function volcanoTint(x, y, c) {
 // how far up the cone a spot is: 0 at the foot, 1 at the rim
 export const volcanoUp = (x, y) => Math.max(0, 1 - coneR(x, y) / VOLCANO.R);
 
-export function generateFinca(seed = 1972) {
-  const w = new World();
+export function generateFinca(seed = 1972, catalog = activeCatalog) {
+  const w = new World(undefined, undefined, catalog);
   const rng = mulberry32(seed);
   const W = w.w, Hh = w.h;
   const inb = (x, y) => w.inb(x, y);
   const rect = (x0, y0, x1, y1, fn) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (inb(x, y)) fn(w.idx(x, y), x, y); };
-  const set = (i, key, g, years = 0) => w.setPlant(i, PLANT[key], g, years * 120);
+  const set = (i, key, g, years = 0) => w.setPlant(i, catalog.plant[key], g, years * 120);
   const open = i => { const t = w.terrain[i]; return t !== T.CREEK && t !== T.RIVER && t !== T.POND && t !== T.ROAD && t !== T.MARSH && w.struct[i] < 0; };
   const road = i => { w.terrain[i] = T.ROAD; w.clearPlants(i); w.feature[i] = 0; };
   const rr = x => riverRow(x);
@@ -195,7 +195,7 @@ export function generateFinca(seed = 1972) {
 // Around the finca: the forested upper slopes of San Cristóbal to the north, the neighbours' cattle
 // pasture to the west and east, and across the estuary a sandbar beach with the Pacific beyond.
 export function chinandegaBorderCell(x, y, r, r2, world) {
-  const P = k => PLANT[k].id;
+  const P = k => world.catalog.plant[k].id;
   const rt = riverRow(x);
   if (y >= world.h + 3) return { t: T.GRAVEL, shrub: r < 0.12 ? P('seagrape') : 0, g: 0.9, ground: r2 < 0.25 ? P('pescaprae') : 0 };
   if (y >= rt) return { t: T.RIVER };

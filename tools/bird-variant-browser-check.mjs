@@ -31,9 +31,9 @@ try {
           renderer.draw(game, {clean: true, overlay: 'none'}, 0);
           const winter = month === 0 || month === 11;
           const key = 'goldfinch:male' + (winter ? ':winter' : '');
-          if (!(renderer.actors.fauna.species.get(key)?.count > 0)) throw Error('Production renderer missed ' + key);
+          if (!(renderer.actors.fauna.species.get(game.map + ':' + key)?.count > 0)) throw Error('Production renderer missed ' + key);
           const inactive = 'goldfinch:male' + (winter ? '' : ':winter');
-          if (renderer.actors.fauna.species.get(inactive)?.count > 0) throw Error('Old seasonal plumage remains active');
+          if (renderer.actors.fauna.species.get(game.map + ':' + inactive)?.count > 0) throw Error('Old seasonal plumage remains active');
         }
         game.day = originalDay;
         const after = game.wildlife.agents.map(a => [a.id, a.sp, isMale(ANIMALS[a.sp], a)]);

@@ -10,6 +10,7 @@ const canopy = (W, i) => (W.canopy[i] > 0.45 ? 1 : 0);
 const fruit = (W, i, base = 0.4) => base + (1 - base) * Math.min(1, W.berries[i]);
 const bugs = (W, i, base = 0.4) => base + (1 - base) * Math.min(1, W.insects[i]);
 
+/** @param {import('./contracts.js').DefineAnimal} def */
 export default function buildSumatraAnimals(def) {
   // ------------------------------------------------------------------ Mammals
   {

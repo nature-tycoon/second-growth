@@ -1,6 +1,7 @@
 // Lightweight frame CPU summaries; deeper diagnostics remain opt-in.
 // No GPU synchronization or method wrapping during normal play.
-export const PERFORMANCE_BENCHMARK_REVISION = 'ecosystem-profile-1';
+// Planting now measures the complete production action, including Undo history.
+export const PERFORMANCE_BENCHMARK_REVISION = 'ecosystem-profile-2';
 export const percentile = (values, p) => values.length
   ? [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * p))] : null;
 

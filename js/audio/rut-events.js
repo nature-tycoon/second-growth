@@ -1,6 +1,6 @@
 // Hears the rut: bull elk bugling across the landscape and antlers clashing in a bout (timed
 // to the drawn fight, so the crack lands as the racks meet). Called every frame by the UI.
-import { ANIMALS, isMaleVariant } from '../data/animals.js';
+import { isMaleVariant } from '../data/animals.js';
 import { bugles, RUT } from '../sim/animal-life.js';
 import { DAYS_PER_YEAR } from '../config.js';
 import { boutCycle, CRASH } from '../render3d/bout-clock.js';
@@ -31,7 +31,7 @@ export function rutSounds(game, renderer, music, time) {
   if (!RUT.includes(game.month)) landscape.next = now + 2;
   else if (now >= landscape.next && music.natureOn !== false && !music.muted && (!music.ctx.state || music.ctx.state === 'running')) {
     const bulls = wl.agents.filter(a => {
-      const def = ANIMALS[a.sp];
+      const def = game.catalog.animals[a.sp];
       return def.key === 'elk' && isMaleVariant(def, a) && a.age >= def.mature * DAYS_PER_YEAR && !a.leaving && a.state !== 'spar';
     });
     const rivals = bulls.filter(a => a.id !== landscape.lastId), pool = rivals.length ? rivals : bulls;
@@ -45,14 +45,14 @@ export function rutSounds(game, renderer, music, time) {
   if (now - landscape.warmAt > 5) {
     landscape.warmAt = now;
     const racks = new Set();
-    for (const a of wl.agents) { const r = ANIMALS[a.sp].sprite.male?.antlers; if (r && isMaleVariant(ANIMALS[a.sp], a)) racks.add(r); }
+    for (const a of wl.agents) { const r = game.catalog.animals[a.sp].sprite.male?.antlers; if (r && isMaleVariant(game.catalog.animals[a.sp], a)) racks.add(r); }
     if (racks.size) music.warmRut([...racks]);
   }
   const live = new Set();
   for (const a of wl.agents) {
     if (a.state !== 'spar' || a.sparWith == null || a.sparWith < a.id) continue; // (each pair once)
-    const rack = ANIMALS[a.sp].sprite.male?.antlers, o = byId(a.sparWith);
-    if (!rack || !isMaleVariant(ANIMALS[a.sp], a) || !o || o.state !== 'spar') continue;
+    const rack = game.catalog.animals[a.sp].sprite.male?.antlers, o = byId(a.sparWith);
+    if (!rack || !isMaleVariant(game.catalog.animals[a.sp], a) || !o || o.state !== 'spar') continue;
     // only once both stand head to head, as the drawing does
     const settled = [a, o].every(b => b.sparAt && !b.sparPath?.length && Math.hypot(b.x - b.sparAt[0], b.y - b.sparAt[1]) < 0.02);
     const at = settled && place((a.x + o.x) / 2, (a.y + o.y) / 2, CLASH_RANGE);

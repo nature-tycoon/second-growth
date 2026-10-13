@@ -2,7 +2,8 @@
 // three-quarter view under the same soft daylight as the valley.
 
 import * as THREE from 'three';
-import { buildSpecies, faunaMaterial } from './fauna.js';
+import { buildSpecies } from './animals/animal-model.js';
+import { faunaMaterial } from './animals/animal-material.js';
 import * as G from './geometry.js';
 import { leafColor, shrubShape } from './flora.js';
 import { plantPhase } from '../data/plants.js';

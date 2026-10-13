@@ -5,6 +5,9 @@
 // exotic: a non-native ornamental that isn't invasive but feeds almost nothing (lawn, boxwood,
 // crepe myrtle). host: a caterpillar food plant (milkweed for monarchs, and so on).
 
+/** @param {import('./contracts.js').DefinePlant} def
+ * @param {function(import('./contracts.js').SeedMix):void} mix
+ * @param {function(string):import('./contracts.js').PlantDefinition} get */
 export default function buildAtlantaPlants(def, mix, get) {
   // ---------- Groundcover ----------
   // sod: a lawn so thick nothing can be planted into it, and fire won't shift it. Pull it up first.

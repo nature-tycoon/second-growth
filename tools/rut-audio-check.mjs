@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, statSync, readdirSync } from 'node:fs';
 import { RUT_SOUNDS, SOUND_CREDITS, RACK_PITCH, soundFile } from '../js/audio/sounds.js';
+import { mapCatalog } from '../js/biome.js';
 import { Game } from '../js/game.js';
 import { T, DAYS_PER_YEAR, DAYS_PER_MONTH } from '../js/config.js';
 import { ANIMAL, ANIMALS, isMaleVariant } from '../js/data/animals.js';
@@ -87,7 +88,7 @@ check('Clashes land in the drawn impact jolt, one per crash cycle', () => {
   const def = ANIMAL.elk; let male = 0;
   while (!isMaleVariant(def, { ...a, id: male, age: 9e9 }) || !isMaleVariant(def, { ...o, id: male + 1, age: 9e9 })) male++;
   a.id = lo = male; o.id = male + 1; a.sparWith = o.id; o.sparWith = a.id; a.age = o.age = 9e9;
-  const game = { wildlife: { agents: [a, o], ids: new Map([[a.id, a], [o.id, o]]) } };
+  const game = { catalog: mapCatalog('pnw'), wildlife: { agents: [a, o], ids: new Map([[a.id, a], [o.id, o]]) } };
   const renderer = { target: { x: 10, z: 10 }, right: () => ({ x: 1, z: 0 }), vw: 960, ppu: 30 };
   let time = 0;
   for (let i = 0; i < 60 * 26; i++) { time += 1 / 60; rutSounds(game, renderer, music, time); }

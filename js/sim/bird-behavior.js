@@ -1,8 +1,8 @@
 // Short, visible activities for resident birds. Population and breeding still
 // use the existing habitat rules; nest visits do not manufacture extra births.
-import { ANIMALS, preyFor } from '../data/animals.js';
+import { preyFor } from '../data/animals.js';
 import { F, isWater } from '../config.js';
-import { biome } from '../biome.js';
+import { activeCatalog } from '../data/catalog.js';
 import { canLand } from './animal-terrain.js';
 import { bolt } from './animal-life.js';
 import { facePoint } from './animal-positioning.js';
@@ -10,12 +10,12 @@ import { facePoint } from './animal-positioning.js';
 export const isBird = def => def?.move === 'fly' && (def.group === 'Birds' || def.group === 'Seabirds');
 const groundFeeders = new Set(['robin', 'thrush', 'cardinal', 'goldfinch', 'bluebird', 'wren', 'weaver', 'roller', 'jay', 'urraca']);
 const cavityKeys = new Set(['bluebird', 'chickadee', 'woodduck', 'barnowl', 'owl', 'woodpecker', 'macaw', 'lora', 'chocoyo', 'hornbill', 'toucan']);
-export function birdProfile(def) {
+export function birdProfile(def, catalog = activeCatalog) {
   const kind = def.sprite.kind;
   return { ground: groundFeeders.has(def.key) || ['secretary', 'crane'].includes(kind) || kind === 'songbird' && !['sunbird', 'kingfisher', 'motmot', 'noddy'].includes(def.key),
     perch: !['heron', 'crane', 'duck', 'booby'].includes(kind),
     cavity: cavityKeys.has(def.key) || ['woodpecker', 'owl', 'macaw', 'hornbill', 'toucan'].includes(kind),
-    social: ['songbird', 'macaw', 'duck', 'booby'].includes(kind), bath: kind !== 'hummer' && !biome.look.underwater };
+    social: ['songbird', 'macaw', 'duck', 'booby'].includes(kind), bath: kind !== 'hummer' && !catalog.definition.look.underwater };
 }
 
 function groundTile(w, i) {
@@ -31,7 +31,7 @@ function perchTile(w, i) {
 function nestTile(w, i, profile) {
   if (w.fire[i]) return false;
   if (profile.cavity) return w.feature[i] === F.NESTBOX || w.feature[i] === F.SNAG || w.tree[i] && w.treeG[i] > 0.85;
-  if (biome.look.underwater) return w.tree[i] && w.treeG[i] > 0.55;
+  if (w.catalog.definition.look.underwater) return w.tree[i] && w.treeG[i] > 0.55;
   return w.tree[i] && w.treeG[i] > 0.55 || w.shrub[i] && w.shrubG[i] > 0.6;
 }
 function bathValid(w, a, water) {
@@ -55,8 +55,8 @@ function nearby(wl, a, good, radius = 8, min = 0) {
 // Small songbirds, hummingbirds and woodpeckers never keep still for long.
 const BRISK = new Set(['songbird', 'hummer', 'woodpecker']);
 const tileKey = a => Math.floor(a.y) * 1e4 + Math.floor(a.x);
-function hold(a, kind, t = 1.5 + Math.random() * 2, water = null) {
-  if (BRISK.has(ANIMALS[a.sp].sprite.kind) && kind !== 'nest') t *= 0.5;
+function hold(wl, a, kind, t = 1.5 + Math.random() * 2, water = null) {
+  if (BRISK.has(wl.game.catalog.animals[a.sp].sprite.kind) && kind !== 'nest') t *= 0.5;
   a.state = 'bird'; a.bird = { kind, t, water }; a.birdGoal = null;
   if (kind === 'perch' || kind === 'preen') a.perchedAt = tileKey(a);
   if (kind === 'forage') a.foragedAt = tileKey(a);
@@ -83,7 +83,7 @@ export function birdAlarm(wl, a, def) {
   if (!isBird(def) || a.leaving || a.fromFire) return false;
   let threat = null, best = 16;
   for (const p of wl.agents) {
-    if (p === a || p.leaving || p.state === 'feed' || !birdThreat(ANIMALS[p.sp], def, wl.game)) continue;
+    if (p === a || p.leaving || p.state === 'feed' || !birdThreat(wl.game.catalog.animals[p.sp], def, wl.game)) continue;
     const d = (a.x - p.x) ** 2 + (a.y - p.y) ** 2;
     if (d < best) { best = d; threat = p; }
   }
@@ -105,7 +105,7 @@ export function birdChoose(wl, a, def) {
   if ((preyFor(def, wl.game) || def.key === 'vulture') && a.hunger >= 3) return false;
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   if (!w.inb(x, y)) return false;
-  const i = w.idx(x, y), profile = birdProfile(def), roll = Math.random();
+  const i = w.idx(x, y), profile = birdProfile(def, wl.game.catalog), roll = Math.random();
   const suit = wl.suit[a.sp];
   // A breeding bird returns to a remembered suitable site. Removing the tree,
   // snag or nest box makes it choose another; the visit is a visible routine.
@@ -113,7 +113,7 @@ export function birdChoose(wl, a, def) {
     if (a.nestSite == null || !nestTile(w, a.nestSite, profile))
       a.nestSite = nearby(wl, a, j => nestTile(w, j, profile) && suit[j] > 0.05);
     if (a.nestSite >= 0) {
-      if (a.nestSite === i) hold(a, 'nest');
+      if (a.nestSite === i) hold(wl, a, 'nest');
       else flyTo(a, w, a.nestSite, 'nest');
       return true;
     }
@@ -122,7 +122,7 @@ export function birdChoose(wl, a, def) {
     const bank = wl.bankSpot(a);
     if (bank) {
       if (Math.hypot(a.x - bank.x, a.y - bank.y) > 0.09) flyTo(a, w, i, 'bathe', bank.x, bank.y, bank.water);
-      else hold(a, 'bathe', 1.5 + Math.random() * 2, bank.water);
+      else hold(wl, a, 'bathe', 1.5 + Math.random() * 2, bank.water);
       return true;
     }
     const j = nearby(wl, a, j => w.distWater[j] === 1 && groundTile(w, j) && !!wl.bankSpot(a, j), 6);
@@ -138,14 +138,14 @@ export function birdChoose(wl, a, def) {
       if (j >= 0 && (a.foragedAt === tileKey(a) || Math.random() < 0.55) && wl.pathTo(a, k => k === j, 12, null, k => forageTile(w, k))) {
         a.flying = false; a.alt = 0; a.birdGround = true; a.birdGoal = { kind: 'forage', i: j }; return true;
       }
-      if (a.foragedAt !== tileKey(a)) { hold(a, 'forage'); return true; }
+      if (a.foragedAt !== tileKey(a)) { hold(wl, a, 'forage'); return true; }
     }
     const j = nearby(wl, a, j => j !== i && forageTile(w, j) && suit[j] > 0.05, 5, 2);
     if (j >= 0) { flyTo(a, w, j, 'forage'); return true; }
   }
   if (profile.perch && roll < 0.9) {
     // One spell in a tree, then on to another a few trees away, not the next trunk over.
-    if (perchTile(w, i) && a.perchedAt !== tileKey(a)) { hold(a, Math.random() < 0.4 ? 'preen' : 'perch', 2 + Math.random() * 4); return true; }
+    if (perchTile(w, i) && a.perchedAt !== tileKey(a)) { hold(wl, a, Math.random() < 0.4 ? 'preen' : 'perch', 2 + Math.random() * 4); return true; }
     const j = nearby(wl, a, j => j !== i && perchTile(w, j) && suit[j] > 0.03, 8, 3);
     if (j >= 0) { flyTo(a, w, j, 'perch'); return true; }
   }
@@ -167,12 +167,12 @@ export function birdArrive(wl, a) {
   const goal = a.birdGoal;
   if (!goal) return;
   a.birdGoal = null;
-  const w = wl.game.world, i = w.idx(Math.floor(a.x), Math.floor(a.y)), def = ANIMALS[a.sp];
+  const w = wl.game.world, i = w.idx(Math.floor(a.x), Math.floor(a.y)), def = wl.game.catalog.animals[a.sp];
   if (!w.inb(Math.floor(a.x), Math.floor(a.y)) || !canLand(w, i, def) || w.fire[i]) return;
   if (goal.kind === 'forage' && !forageTile(w, i) || goal.kind === 'perch' && !perchTile(w, i) ||
-    goal.kind === 'nest' && !nestTile(w, i, birdProfile(def))) return;
+    goal.kind === 'nest' && !nestTile(w, i, birdProfile(def, wl.game.catalog))) return;
   if (goal.kind === 'bathe' && !bathValid(w, a, goal.water)) return;
-  hold(a, goal.kind, undefined, goal.water);
+  hold(wl, a, goal.kind, undefined, goal.water);
 }
 export function birdUpdate(wl, a, def, dt) {
   const w = wl.game.world, i = w.idx(Math.floor(a.x), Math.floor(a.y)), b = a.bird;
@@ -181,7 +181,7 @@ export function birdUpdate(wl, a, def, dt) {
   if (a.birdAlertCheck <= 0) { a.birdAlertCheck = 0.3; if (birdAlarm(wl, a, def)) return; }
   b.t -= dt;
   const invalid = w.fire[i] || (b.kind === 'perch' || b.kind === 'preen') && !perchTile(w, i) ||
-    b.kind === 'forage' && !forageTile(w, i) || b.kind === 'nest' && !nestTile(w, i, birdProfile(def)) ||
+    b.kind === 'forage' && !forageTile(w, i) || b.kind === 'nest' && !nestTile(w, i, birdProfile(def, wl.game.catalog)) ||
     b.kind === 'bathe' && !bathValid(w, a, b.water);
   if (invalid || b.t <= 0) { a.bird = null; a.state = 'idle'; a.wait = invalid ? 0 : 0.3 + Math.random() * 0.5; }
 }

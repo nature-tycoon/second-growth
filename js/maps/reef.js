@@ -7,8 +7,6 @@ import buildReefPlants from '../data/plants-reef.js';
 import buildReefAnimals from '../data/animals-reef.js';
 import { generateReef, reefBorderCell, SEA } from './reef-world.js';
 import { pop, speciesPresent } from '../sim/goals.js';
-import { PLANT, PLANTS } from '../data/plants.js';
-import { ANIMALS, ANIMAL } from '../data/animals.js';
 import { T, F, clamp } from '../config.js';
 import { moment, arrivalMoment, momentFree } from '../sim/moments.js';
 
@@ -75,12 +73,12 @@ const GOALS = [
 // coral, sponge or clam to settle, and the other way round. So the soft corals keep patches of
 // their own between the hard ones for good, instead of dying out in their shade.
 const MOBILE = { cots: 1, linckia: 1 }; // (starfish crawl about, rather than holding a spot)
-const cemented = (w, i) => w.ground[i] === PLANT.cca?.id && w.groundG[i] > 0.4;
+const cemented = (w, i) => w.ground[i] === w.catalog.plant.cca?.id && w.groundG[i] > 0.4;
 // who already holds this spot, if it isn't free for p (or null)
 function holder(w, i, p) {
   if (MOBILE[p.key] || p.layer === 0) return null;
-  if (p.layer === 2 && w.tree[i] !== p.id && w.shrub[i] && !MOBILE[PLANTS[w.shrub[i]].key] && w.shrubG[i] > 0.3) return PLANTS[w.shrub[i]];
-  if (p.layer === 1 && w.shrub[i] !== p.id && w.tree[i] && w.treeG[i] > 0.3) return PLANTS[w.tree[i]];
+  if (p.layer === 2 && w.tree[i] !== p.id && w.shrub[i] && !MOBILE[w.catalog.plants[w.shrub[i]].key] && w.shrubG[i] > 0.3) return w.catalog.plants[w.shrub[i]];
+  if (p.layer === 1 && w.shrub[i] !== p.id && w.tree[i] && w.treeG[i] > 0.3) return w.catalog.plants[w.tree[i]];
   return null;
 }
 function terrainFit(w, i, p) {
@@ -156,9 +154,9 @@ function reefDaily(g) {
     g.notify(`Marine heatwave: the water over the reef is ${f.heat.sev > 0.9 ? 'two' : 'one and a half'} degrees warmer than normal. The corals are starting to bleach. If it doesn't last too long, most will recover.`, 'warn');
   }
   const heat = f.heat && f.heat.left > 0 ? f.heat : null, plume = f.plume && f.plume.left > 0;
-  const turf = PLANT.turf?.id;
+  const turf = g.catalog.plant.turf?.id;
   for (let i = 0; i < n; i++) {
-    const tp = w.tree[i] ? PLANTS[w.tree[i]] : null, sp = w.shrub[i] ? PLANTS[w.shrub[i]] : null;
+    const tp = w.tree[i] ? g.catalog.plants[w.tree[i]] : null, sp = w.shrub[i] ? g.catalog.plants[w.shrub[i]] : null;
     const sens = Math.max(tp?.bleach || 0, sp?.bleach || 0);
     if (!sens) { B[i] = 0; continue; }
     const dirty = (w.ground[i] === turf && w.groundG[i] > 0.4 ? 0.3 : 0) + (plume ? 0.2 : 0);
@@ -173,7 +171,7 @@ function reefDaily(g) {
     if (B[i] > 0.8 && rng() < 0.012 * (B[i] - 0.6) / 0.4 * (tp ? (tp.bleach ?? 1) : 1)) {
       if (tp) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; } // dead branches collapse into rubble
       if (sp && sp.bleach) { w.shrub[i] = 0; w.shrubG[i] = 0; }
-      if (!w.ground[i] || PLANTS[w.ground[i]].key !== 'cca') { w.ground[i] = turf; w.groundG[i] = 0.2; } // and algae moves in
+      if (!w.ground[i] || g.catalog.plants[w.ground[i]].key !== 'cca') { w.ground[i] = turf; w.groundG[i] = 0.2; } // and algae moves in
       B[i] = 0;
       if (f.heat) f.heat.dead++;
     }
@@ -192,7 +190,7 @@ function reefDaily(g) {
   // next coral, or starve. Fish pick off young starfish, so a reef full of fish keeps them few;
   // and they breed once a summer, when only a flood plume's nutrients let many of their larvae
   // survive. So outbreaks follow plumes, and a healthy reef wears them down between times.
-  const cots = PLANT.cots?.id;
+  const cots = g.catalog.plant.cots?.id;
   const fishy = clamp(speciesPresent(g) / 14, 0, 1);
   if (cots) {
     const eaten = 0.0012 + 0.0025 * fishy, moved = new Set();
@@ -250,7 +248,7 @@ function reefDaily(g) {
   }
 
   // Giant clams filter the water as they feed: turf algae struggles around them.
-  const clam = PLANT.clam?.id;
+  const clam = g.catalog.plant.clam?.id;
   if (clam && turf) for (let i = 0; i < n; i++) {
     if (w.shrub[i] !== clam || w.shrubG[i] < 0.5) continue;
     const x = i % w.w, y = (i / w.w) | 0;
@@ -268,7 +266,7 @@ function reefDaily(g) {
   const grazers = { parrotfish: 0.14, tang: 0.08, urchin: 0.025 };
   if (turf) for (const a of g.wildlife.agents) {
     if (a.leaving) continue;
-    const key = ANIMALS[a.sp]?.key, bite = grazers[key];
+    const key = g.catalog.animals[a.sp]?.key, bite = grazers[key];
     if (!bite && key !== 'humphead') continue;
     const ax = Math.floor(a.x), ay = Math.floor(a.y);
     const radius = key === 'urchin' ? 0 : 2; // slow benthic grazers only nibble their own tile
@@ -289,8 +287,8 @@ function reefDaily(g) {
   if (g.month === 8 && dom === 4 && f.spawnYear !== year) {
     f.spawnYear = year;
     // (soft corals spawn too, and about a quarter of what settles is soft coral)
-    const kinds = ['staghorn', 'staghorn', 'tablecoral', 'montipora', 'brain', 'boulder'].map(k => PLANT[k]).filter(Boolean);
-    const softs = ['softcoral', 'softcoral', 'seafan'].map(k => PLANT[k]).filter(Boolean);
+    const kinds = ['staghorn', 'staghorn', 'tablecoral', 'montipora', 'brain', 'boulder'].map(k => g.catalog.plant[k]).filter(Boolean);
+    const softs = ['softcoral', 'softcoral', 'seafan'].map(k => g.catalog.plant[k]).filter(Boolean);
     let settled = 0, sx = 0, sy = 0;
     for (let i = 0; i < n; i++) {
       if (w.tree[i] || w.shrub[i] || dryTile(w, i) || w.distForest[i] > 4) continue;
@@ -326,10 +324,10 @@ function reefDaily(g) {
     let broken = 0;
     for (let y = Math.max(0, cy - half); y < Math.min(w.h, cy + half); y++) for (let x = 0; x < w.w; x++) {
       const i = w.idx(x, y), depth = SEA - w.tileH(x, y), hit = clamp(1.5 - depth * 0.22, 0.3, 1) * (1 - Math.abs(y - cy) / half * 0.5);
-      const tp = w.tree[i] ? PLANTS[w.tree[i]] : null, sp = w.shrub[i] ? PLANTS[w.shrub[i]] : null;
+      const tp = w.tree[i] ? g.catalog.plants[w.tree[i]] : null, sp = w.shrub[i] ? g.catalog.plants[w.shrub[i]] : null;
       if (tp && rng() < (tp.fragile ? 0.45 : 0.03) * hit) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; broken++; }
       if (sp && sp.fragile && rng() < 0.3 * hit) { w.shrub[i] = 0; w.shrubG[i] = 0; }
-      if (w.ground[i] && (PLANTS[w.ground[i]].key === 'zostera' || PLANTS[w.ground[i]].key === 'halophila')) w.groundG[i] *= 0.7;
+      if (w.ground[i] && (g.catalog.plants[w.ground[i]].key === 'zostera' || g.catalog.plants[w.ground[i]].key === 'halophila')) w.groundG[i] *= 0.7;
     }
     g.weather = 'rain';
     g.notify(`Cyclone! A tropical cyclone passed over the reef in the night, and its waves broke ${broken} corals into rubble. Branching corals regrow fast; the old boulders came through.`, broken > 60 ? 'bad' : 'warn', { x: w.w / 2, y: cy });
@@ -350,29 +348,29 @@ function reefDaily(g) {
       const gid = w.ground[i];
       if (gid === turf) w.groundG[i] = Math.min(1, w.groundG[i] + 0.008);
       else if (!gid && w.terrain[i] === T.GRAVEL && rng() < 0.01) { w.ground[i] = turf; w.groundG[i] = 0.15; }
-      else if (gid && PLANTS[gid].key === 'zostera') w.groundG[i] = Math.max(0.1, w.groundG[i] - 0.002); // (shaded by the murky water)
+      else if (gid && g.catalog.plants[gid].key === 'zostera') w.groundG[i] = Math.max(0.1, w.groundG[i] - 0.002); // (shaded by the murky water)
     }
   }
 }
 
 // the big arrivals: each a keystone moment the first time
 function reefMoments(g) {
-  for (const [key, sp] of [['dugong', 'dugong'], ['manta', 'manta']]) if (ANIMAL[sp] && pop(g, sp) > 0) arrivalMoment(g, key, ANIMAL[sp]);
+  for (const [key, sp] of [['dugong', 'dugong'], ['manta', 'manta']]) if (g.catalog.animal[sp] && pop(g, sp) > 0) arrivalMoment(g, key, g.catalog.animal[sp]);
 }
 
 // counts for goals and the manta's cleaning stations
 function reefStats(w, s) {
   let coral = 0, cots = 0, cleaner = 0, bleached = 0, cay = 0, pisonia = 0, clams = 0, soft = 0, stars = 0;
-  const star = PLANT.linckia?.id, clam = PLANT.clam?.id, cid = PLANT.cots?.id, boulder = PLANT.boulder?.id, brain = PLANT.brain?.id, pis = PLANT.pisonia?.id, kinds = {};
+  const star = w.catalog.plant.linckia?.id, clam = w.catalog.plant.clam?.id, cid = w.catalog.plant.cots?.id, boulder = w.catalog.plant.boulder?.id, brain = w.catalog.plant.brain?.id, pis = w.catalog.plant.pisonia?.id, kinds = {};
   for (let i = 0; i < w.n; i++) {
-    const tp = w.tree[i] ? PLANTS[w.tree[i]] : null;
+    const tp = w.tree[i] ? w.catalog.plants[w.tree[i]] : null;
     if (tp && !tp.cay && w.treeG[i] > 0.3) { coral++; kinds[tp.key] = (kinds[tp.key] || 0) + 1; if ((w.tree[i] === boulder || w.tree[i] === brain) && w.treeAge[i] > 40 * 120) cleaner++; }
     if (w.shrub[i] === cid) cots++;
     else if (w.shrub[i] === star) stars++;
     else if (w.shrub[i] === clam && w.shrubG[i] > 0.5) clams++;
-    if (w.shrub[i] && w.shrubG[i] > 0.4 && ['softcoral', 'seafan', 'sponge'].includes(PLANTS[w.shrub[i]].key)) soft++;
+    if (w.shrub[i] && w.shrubG[i] > 0.4 && ['softcoral', 'seafan', 'sponge'].includes(w.catalog.plants[w.shrub[i]].key)) soft++;
     if (w.bleach && w.bleach[i] > 0.5) bleached++;
-    if ((tp?.cay && w.treeG[i] > 0.3) || (w.shrub[i] && PLANTS[w.shrub[i]].cay) || (w.ground[i] && PLANTS[w.ground[i]].cay && w.groundG[i] > 0.3)) cay++;
+    if ((tp?.cay && w.treeG[i] > 0.3) || (w.shrub[i] && w.catalog.plants[w.shrub[i]].cay) || (w.ground[i] && w.catalog.plants[w.ground[i]].cay && w.groundG[i] > 0.3)) cay++;
     if (w.tree[i] === pis && w.treeG[i] > 0.45) pisonia++;
   }
   s.coral = coral; s.cots = cots; s.cleanerTiles = cleaner; s.bleached = bleached; s.cayPlants = cay; s.pisonia = pisonia; s.clams = clams; s.softCoral = soft; s.seastars = stars;

@@ -1,11 +1,12 @@
-// Plant registry: the active map's species. Each map supplies a builder (plants-pnw.js,
-// plants-amazon.js) and loadPlants() refills these tables in place, so every module that
-// imported them sees the new map's plants.
+// Each map supplies a species builder. createPlants builds independent tables for its catalog.
+// The uppercase exports are selected-map adapters for older tools and standalone previews.
 // Months: 0=Mar 1=Apr 2=May 3=Jun 4=Jul 5=Aug 6=Sep 7=Oct 8=Nov 9=Dec 10=Jan 11=Feb
 // moist / light are preferred ranges on a 0..1 scale. soil = minimum soil health.
 // grow = maturity gained per day in ideal conditions. spread = daily seeding chance once mature.
 // seedSpacing = same-species exclusion radius for natural recruits only (including juveniles).
 // floating = foliage on still pond water; other aquatic plants occupy shallow shores/marshes.
+
+import { assertPlantSpec, assertSeedMix, ContractError } from './contracts.js';
 
 export const L = { GROUND: 0, SHRUB: 1, TREE: 2 };
 export const LAYER_NAMES = ['Groundcover', 'Shrub', 'Tree'];
@@ -13,7 +14,10 @@ export const LAYER_NAMES = ['Groundcover', 'Shrub', 'Tree'];
 export const PLANTS = [null];
 export const PLANT = {};
 
-function def(p) {
+function definePlant(plants, plant, p) {
+  const path = `${p.mapId || 'map'}.plants.${p.key || '?'}`;
+  assertPlantSpec(p, path);
+  if (Object.hasOwn(plant, p.key)) throw new ContractError(path, 'a unique species key');
   const o = Object.assign({
     native: true, invasive: false, nfix: false, aquatic: false, wetOK: false, nurse: false,
     conifer: false, compete: 0.15, soil: 0, spread: 0.02, radius: 2, life: 10, cost: 5,
@@ -21,22 +25,39 @@ function def(p) {
   }, p);
   // Real restoration is slow: meadows take a season or two, shrubs a few years, forests decades.
   o.grow *= [0.45, 0.6, 0.65][o.layer];
-  o.id = PLANTS.length;
-  PLANTS.push(o);
-  PLANT[o.key] = o;
+  o.id = plants.length;
+  plants.push(o);
+  plant[o.key] = o;
   return o;
 }
 
 export const MIXES = [];
 export const MIX = {};
 
-// Replace the registry with another map's plants and seed mixes.
+// Build one map without changing the selected-map adapters.
+/** @param {import('./contracts.js').PlantBuilder} build
+ * @param {string} [mapId]
+ * @returns {import('./contracts.js').PlantCatalog} */
+export function createPlants(build, mapId) {
+  const plants = [null], plant = {}, mixes = [], mix = {};
+  build(p => definePlant(plants, plant, { ...p, mapId }), m => {
+    if (Object.hasOwn(mix, m.key)) throw new ContractError(`${mapId || 'map'}.mixes.${m.key}`, 'a unique mix key');
+    mixes.push(m); mix[m.key] = m;
+  }, key => plant[key]);
+  for (const m of mixes) assertSeedMix(m, plant, `${mapId || 'map'}.mixes.${m.key}`);
+  return { plants, plant, mixes, mix };
+}
+
+export function selectPlants(catalog) {
+  PLANTS.splice(0, PLANTS.length, ...catalog.plants);
+  MIXES.splice(0, MIXES.length, ...catalog.mixes);
+  for (const key in PLANT) delete PLANT[key];
+  for (const key in MIX) delete MIX[key];
+  Object.assign(PLANT, catalog.plant); Object.assign(MIX, catalog.mix);
+}
+
 export function loadPlants(build) {
-  PLANTS.length = 1;
-  for (const k in PLANT) delete PLANT[k];
-  MIXES.length = 0;
-  for (const k in MIX) delete MIX[k];
-  build(def, m => { MIXES.push(m); MIX[m.key] = m; }, key => PLANT[key]);
+  selectPlants(createPlants(build));
 }
 
 // Appearance phase for a plant in a given month. Used by the renderer and for food.

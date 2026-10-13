@@ -7,21 +7,21 @@
 
 import { World, riverRow, generateHeights } from '../world.js';
 import { T, F } from '../config.js';
-import { PLANT } from '../data/plants.js';
+import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
 // granite outcrops: [x, y, radius]
 export const KOPJES = [[96, 22, 6], [38, 60, 5], [104, 64, 4.5]];
 
-export function generateRange(seed = 2024) {
-  const w = new World();
+export function generateRange(seed = 2024, catalog = activeCatalog) {
+  const w = new World(undefined, undefined, catalog);
   const rng = mulberry32(seed);
   const W = w.w, Hh = w.h;
   const rect = (x0, y0, x1, y1, fn) => {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (w.inb(x, y)) fn(w.idx(x, y), x, y);
   };
   const open = i => { const t = w.terrain[i]; return t !== T.CREEK && t !== T.RIVER && t !== T.POND && t !== T.ROAD && t !== T.MARSH && w.struct[i] < 0; };
-  const set = (i, key, g, years = 0) => w.setPlant(i, PLANT[key], g, years * 120);
+  const set = (i, key, g, years = 0) => w.setPlant(i, catalog.plant[key], g, years * 120);
   const onKopje = (x, y) => KOPJES.some(([kx, ky, r]) => Math.hypot(x - kx, y - ky) < r);
 
   // Base: overgrazed rangeland on thin, worn-out soil, a little damper toward the river.
@@ -194,7 +194,7 @@ export function generateRange(seed = 2024) {
 // The land around Enkare: the national park north, the neighbours' overgrazed range east,
 // village farms west, and the river south with gallery forest on the far bank.
 export function serengetiBorderCell(x, y, r, r2, world) {
-  const P = k => PLANT[k].id;
+  const P = k => world.catalog.plant[k].id;
   const rt = riverRow(x);
   if (y >= world.h + 3) {
     const tree = r < 0.45 ? P(r2 < 0.45 ? 'fevertree' : r2 < 0.7 ? 'sycamorefig' : r2 < 0.85 ? 'sausage' : 'balanites') : 0;

@@ -1,37 +1,37 @@
 // DOM interface: top bar, tool palette, inspector, notifications, minimap and modal screens.
 
-import { T, F, H, HABITAT_INFO, TERRAIN_NAMES, FEATURE_NAMES, MONTH_NAMES, SPEEDS, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp } from '../config.js';
+import { T, F, FEATURE_NAMES, MONTH_NAMES, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp } from '../config.js';
 import { music } from '../audio/music.js';
 import { sampleSoundLand } from '../audio/land.js';
 import { rutSounds } from '../audio/rut-events.js';
 import { MUSIC_LICENSE } from '../audio/tracks.js';
 import { SOUND_CREDITS } from '../audio/sounds.js';
-import { PLANTS, PLANT, LAYER_NAMES, MIX } from '../data/plants.js';
-import { ANIMALS, ANIMAL, ANIMAL_GROUPS, many, isMaleVariant, animalDef } from '../data/animals.js';
-import { PASSAGE_SPECIES } from '../data/bird-passage.js';
+import { LAYER_NAMES } from '../data/plants.js';
+import { many, isMaleVariant, animalDef } from '../data/animals.js';
 import { passageGuide } from '../sim/bird-passage.js';
-import { TOOLS, CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
-import { STRUCTURES } from '../world.js';
+import { CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
-import { layerLight } from '../sim/environment.js';
-import { GOALS, speciesPresent } from '../sim/goals.js';
-import { CHAPTERS, campaignOn, campaignDone, currentChapter, unlockedTools, chapterOfTool, goalMet, campaignVisitorHint } from '../sim/campaign.js';
+import { speciesPresent } from '../sim/goals.js';
+import { campaignOn, currentChapter, unlockedTools, chapterOfTool, goalMet, campaignVisitorHint } from '../sim/campaign.js';
 import { Game, PENDING_KEY } from '../game.js';
-import { biome, BIOMES, BIOME_LIST, onBiome } from '../biome.js';
+import { BIOMES, BIOME_LIST } from '../biome.js';
 import { worldMap } from './worldmap.js';
 import { LANG_MAPS, lang, langFor, storedLang, saveLang, langWithin, tr } from '../i18n.js';
-import { farmSnapshot } from '../farmsnap.js';
 import { makePostcard, download } from './postcard.js';
-import * as S from '../render/sprites.js';
-import { renderPortrait, renderPlants } from '../render3d/portraits.js';
 import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
 import { Undo } from '../undo.js';
+import { ToolActions } from '../tool-actions.js';
+import { SaveControls } from './save-controls.js';
+import { SessionAnalytics } from './session-analytics.js';
+import { Cinematics } from './cinematics.js';
+import { animalThumb, plantThumb, iconThumb } from './thumbnails.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
-import { momentScene } from '../sim/moments.js';
-import { saves, intact } from '../saves.js';
+import { saves } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
-import { track, trackExit, setContext, setAnalyticsEnabled, sendFeedback, feedbackPossible, GAME_VERSION } from '../analytics.js';
+import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible } from '../analytics.js';
+
+export { animalThumb, plantThumb } from './thumbnails.js';
 
 const $ = sel => document.querySelector(sel);
 // A phone or tablet (no mouse), and a screen too short for the full layout.
@@ -44,97 +44,6 @@ const pct = v => Math.round(v * 100) + '%';
 const setText = (e, v) => { v = String(v); if (e && e.textContent !== v) e.textContent = v; };
 const setHTML = (e, html) => { if (!e || e._html === html) return false; e._html = html; e.innerHTML = html; return true; };
 const setAttr = (e, k, v) => { v = String(v); if (e && e.getAttribute(k) !== v) e.setAttribute(k, v); };
-
-// ---------------------------------------------------------------- thumbnails
-const thumbCache = new Map();
-function trim(src, pad = 3) {
-  const ctx = src.getContext('2d');
-  const { width: w, height: h } = src;
-  const d = ctx.getImageData(0, 0, w, h).data;
-  let x0 = w, y0 = h, x1 = 0, y1 = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    if (d[(y * w + x) * 4 + 3] > 12) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  }
-  if (x1 < x0) return src;
-  const c = document.createElement('canvas');
-  c.width = x1 - x0 + 1 + pad * 2; c.height = y1 - y0 + 1 + pad * 2;
-  c.getContext('2d').drawImage(src, x0, y0, c.width - pad * 2, c.height - pad * 2, pad, pad, c.width - pad * 2, c.height - pad * 2);
-  return c;
-}
-function showcaseMonth(p) {
-  if (p.look.bloom) return p.look.bloom[0];
-  if (p.look.fruit) return p.look.fruit[0];
-  return 3;
-}
-export function plantThumb(key) {
-  const k = 'p' + key;
-  if (thumbCache.has(k)) return thumbCache.get(k);
-  const p = PLANT[key];
-  const m = showcaseMonth(p);
-  let src;
-  // tropical plants have shapes the 2D painter doesn't know: render their 3D models instead
-  if (p.look.tropical || p.look.savanna || biome.look.underwater) src = trim(renderPlants([p]), 4); // (and the reef's corals)
-  else if (p.layer === 0) {
-    const c = document.createElement('canvas'); c.width = 84; c.height = 84;
-    c.getContext('2d').drawImage(S.groundSprite(p.id, 2, m, 0), 0, 0);
-    src = trim(c);
-  } else if (p.layer === 1) src = trim(S.shrubSprite(p.id, 2, m, 0));
-  else src = trim(S.treeSprite(p.id, 3, 3, 0));
-  const url = src.toDataURL();
-  thumbCache.set(k, url);
-  return url;
-}
-function mixThumb(keys) {
-  const k = 'm' + keys.join();
-  if (thumbCache.has(k)) return thumbCache.get(k);
-  if (PLANT[keys[0]].look.tropical || PLANT[keys[0]].look.savanna || biome.look.underwater) {
-    // tallest first so the trees stand behind: trees, then shrubs, then groundcover
-    const url = trim(renderPlants([...new Set(keys)].slice(0, 3).map(k => PLANT[k]).sort((a, b) => b.layer - a.layer)), 4).toDataURL(); // (each kind once, even if the mix weights one)
-    thumbCache.set(k, url);
-    return url;
-  }
-  const c = document.createElement('canvas'); c.width = 120; c.height = 120;
-  const ctx = c.getContext('2d');
-  const pick = keys.slice(0, 3);
-  pick.forEach((key, n) => {
-    const p = PLANT[key], m = showcaseMonth(p);
-    const img = p.layer === 0 ? S.groundSprite(p.id, 2, m, n & 1) : p.layer === 1 ? S.shrubSprite(p.id, 2, m, n & 1) : S.treeSprite(p.id, 2, 3, n & 1);
-    const sc = p.layer === 2 ? 0.42 : p.layer === 1 ? 0.62 : 0.75;
-    const x = 10 + n * 32, y = 120 - img.height * sc - (n === 1 ? 6 : 0);
-    ctx.drawImage(img, x - (p.layer === 2 ? 20 : 8), y, img.width * sc, img.height * sc);
-  });
-  const url = trim(c).toDataURL();
-  thumbCache.set(k, url);
-  return url;
-}
-export function animalThumb(key) {
-  const k = 'a' + key;
-  if (thumbCache.has(k)) return thumbCache.get(k);
-  const def = ANIMAL[key] || PASSAGE_SPECIES[key];
-  // the species' 3D model, rendered once; the old 2D art is a fallback if WebGL isn't available
-  let url;
-  try { url = trim(renderPortrait(def), 6).toDataURL(); } catch (e) { url = trim(S.animalPortrait(def), 6).toDataURL(); }
-  thumbCache.set(k, url);
-  return url;
-}
-function iconThumb(icon) {
-  if (icon.mix) return mixThumb(icon.mix);
-  if (icon.plant) return plantThumb(icon.plant);
-  if (icon.animal) return animalThumb(icon.animal);
-  const k = JSON.stringify(icon);
-  if (thumbCache.has(k)) return thumbCache.get(k);
-  let url;
-  if (icon.terrain != null) {
-    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
-    const ctx = c.getContext('2d');
-    if (isWater(icon.terrain)) ctx.drawImage(S.waterSprite(icon.terrain, 0, 1), 0, 0);
-    else { ctx.beginPath(); ctx.roundRect(4, 4, 56, 56, 12); ctx.clip(); ctx.drawImage(S.terrainSprite(icon.terrain, 0, 1), 0, 0); }
-    url = c.toDataURL();
-  } else if (icon.feature != null) url = trim(S.featureSprite(icon.feature, 0)).toDataURL();
-  else if (icon.svg) url = 'data:image/svg+xml;utf8,' + encodeURIComponent(ICONS[icon.svg].replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"'));
-  thumbCache.set(k, url);
-  return url;
-}
 
 // ---------------------------------------------------------------- text helpers
 function moistWord(lo, hi) {
@@ -184,6 +93,19 @@ export class UI {
     this.toastCount = 0;
     this.newCats = new Set(); // tool categories a chapter just unlocked (they glow until opened)
     this.undo = new Undo(game);
+    this.actions = new ToolActions(game, { undo: this.undo });
+    this.saving = new SaveControls(game, {
+      openModal: (...args) => this.modal(...args), closeModal: () => this.closeModal(),
+      setSpeed: speed => this.setSpeed(speed), afterRestore: () => this.afterNewGame(),
+    });
+    this.analytics = new SessionAnalytics(game, renderer, () => ({
+      open_panel: this.modalOpen ? this.lastModal : null, tool: this.state.tool || null, category: this.state.cat || null,
+    }));
+    this.cinematics = new Cinematics(game, renderer, this.state, {
+      isBusy: () => this.modalOpen || this.photo, isPhoto: () => !!this.photo,
+      setSpeed: speed => this.setSpeed(speed), setFollow: agent => { this.follow = agent; },
+      postcardText: title => this.postcardText(title),
+    });
     this.buildToolbar();
     this.bindTopbar();
     this.minimap = $('#minimap');
@@ -199,136 +121,40 @@ export class UI {
       this.refreshWildlifeGuide?.();
     });
     game.on('event', kind => { if ((kind === 'fire' || kind === 'flood') && settings.pauseOnEvents && game.speed) this.setSpeed(0); });
-    this.bindAnalytics();
+    this.analytics.bind();
+    game.on('tool', stroke => this.onToolAction(stroke));
     this.applySettings();
-    this.bindSaving();
+    this.saving.bind();
     this.warmPortraits();
     const wake = () => { music.start(); music.setScene(game.weather, game.season); };
     window.addEventListener('pointerdown', wake, true);
     window.addEventListener('keydown', wake, true);
   }
 
-  bindSaving() {
-    const g = this.game;
-    const save = () => {
-      if (g.saveReady && g.autosave !== false) void g.save();
-    };
-    // Wall-clock saves also protect paused games and work done between game months.
-    setInterval(() => { if (!document.hidden) save(); }, 30000);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
-    window.addEventListener('pagehide', save);
-    const protect = () => {
-      if (!g.saveReady) return;
-      void saves.requestPersistence();
-      window.removeEventListener('pointerdown', protect);
-    };
-    window.addEventListener('pointerdown', protect);
-    g.on('save', status => {
-      this.refreshSaveStatus();
-      if (status.state === 'error' && !this.saveWarning) {
-        this.saveWarning = true;
-        g.notify('Your progress could not be saved in this browser. Keep this tab open and try Save game again.', 'warn');
-      } else if (status.state === 'saved') this.saveWarning = false;
-    });
-    this.refreshSaveStatus();
-  }
+  refreshSaveStatus() { this.saving.refresh(); }
 
-  refreshSaveStatus() {
-    const label = $('#save-status'), g = this.game;
-    if (!label) return;
-    const status = g.saveStatus || { state: 'idle' };
-    label.textContent = status.state === 'saving' ? 'Saving…' : status.state === 'saved' ? 'Saved' : status.state === 'error' ? 'Save failed' : g.autosave === false ? 'Autosave off' : '';
-    label.classList.toggle('error', status.state === 'error');
-    // "Saved" (and "Autosave off") show for a moment and fade; "Saving…" and a failed save stay
-    clearTimeout(this.saveFade);
-    label.classList.remove('faded');
-    if (status.state !== 'saving' && status.state !== 'error') this.saveFade = setTimeout(() => label.classList.add('faded'), 2500);
-    label.title = status.state === 'saved' ? `Saved on this device${status.savedAt ? ' at ' + new Date(status.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}.` :
-      status.state === 'error' ? 'Open the menu and try Save game again.' : 'Progress saves automatically on this device.';
+  onToolAction(stroke) {
+    // Shade and moisture reach beyond the stroke, including scripted UI actions.
+    if (stroke.count) this.renderer.markTileDirty();
+    this.refreshUndo();
+    this.renderInfo();
+    if (stroke.tool.cat === 'visitors') this.renderToolPanel();
   }
 
   // Render the field-guide portraits a few at a time in the background, so the guide opens instantly.
   warmPortraits() {
-    const queue = ANIMALS.map(a => a.key);
+    const queue = this.game.catalog.animals.map(a => a.key);
     const step = () => {
       if (!queue.length) return;
-      animalThumb(queue.shift());
+      animalThumb(queue.shift(), this.game.catalog);
       (window.requestIdleCallback || (f => setTimeout(f, 60)))(step, { timeout: 400 });
     };
     setTimeout(step, 1500);
   }
 
-  // What we learn from players: how far they get, what they build, where they get stuck.
-  bindAnalytics() {
-    const g = this.game;
-    const snapshot = () => ({ game_year: g.year, game_month: g.month, score: Math.round(g.cache.score?.total ?? 0),
-      species: speciesPresent(g), money: Math.round(g.money), visitors: g.visitors.monthly });
-    g.on('discover', def => track('species_discovered', { species: def.key, ...snapshot() }));
-    g.on('goal', goal => track('goal_completed', { goal: goal.key, ...snapshot() }));
-    g.on('event', kind => {
-      if (kind === 'fire') track('wildfire', { crown: !!g.events.severe, ...snapshot() });
-      else if (kind === 'flood') track('flood', { tiles: g.events.floodTiles, ...snapshot() });
-    });
-    g.on('month', () => {
-      const s = snapshot();
-      setContext({ ...s, ...context() });
-      if (g.month === 0) track('year_reached', s);
-    });
-    this.snapshot = snapshot;
-
-    // ---- sessions: how long people play each map and mode, and what they were doing when they
-    // drifted off or left. Map, mode, difficulty and chapter ride along on every event.
-    const context = () => ({ map: g.map, mode: g.mode, difficulty: g.difficulty,
-      chapter: campaignOn(g) ? g.campaign.chapter + 1 : null, chapter_key: currentChapter(g)?.key ?? null });
-    this.analyticsContext = () => setContext(context());
-    const S = this.session = { t0: performance.now(), active: 0, lastInput: performance.now(), day0: g.day, idleSent: false, leftAt: -Infinity };
-    const touch = () => { S.lastInput = performance.now(); S.idleSent = false; };
-    for (const ev of ['pointerdown', 'keydown', 'wheel', 'touchstart']) window.addEventListener(ev, touch, { passive: true, capture: true });
-    const doing = () => ({ speed: g.speed, open_panel: this.modalOpen ? this.lastModal : null, tool: this.state.tool || null,
-      category: this.state.cat || null, goals_done: Object.keys(g.goalsDone).length });
-    setInterval(() => {
-      if (document.hidden) return;
-      const idle = (performance.now() - S.lastInput) / 1000;
-      // active time: the tab is visible and the player has touched something in the last two minutes
-      if (idle < 120) {
-        S.active++; if (S.active % 300 === 0) track('play_heartbeat', { active_minutes: S.active / 60, ...snapshot() });
-        // how smoothly it's running: early (many phone sessions are short), then every five minutes
-        if (S.active === 30 || S.active === 120 || S.active % 300 === 0) track('perf_sample', { active_minutes: +(S.active / 60).toFixed(1), ...this.renderer.perfSample?.() });
-      }
-      if (idle > 240 && !S.idleSent) { S.idleSent = true; track('went_idle', { active_minutes: +(S.active / 60).toFixed(1), ...snapshot(), ...doing() }); }
-    }, 1000);
-    // a picture of the farm itself, when there's something to see: on leaving, and now and then
-    const worthSnapping = () => g.day >= 20 && Object.keys(g.stats.used || {}).length > 0;
-    const snap = (why, exit = false) => {
-      if (!worthSnapping()) return;
-      try { (exit ? trackExit : track)('farm_snapshot', { why, active_minutes: +(S.active / 60).toFixed(1), ...context(), ...farmSnapshot(g) }); } catch (e) { /* never break the game */ }
-    };
-    setInterval(() => { if (!document.hidden && (performance.now() - S.lastInput) < 120000) snap('periodic'); }, 10 * 60 * 1000);
-    const perfAtExit = () => { const p = this.renderer.perfSample?.(false); return p ? { fps: p.fps, slow_frames_pct: p.slow_frames_pct } : {}; };
-    const leave = reason => {
-      if (performance.now() - S.leftAt < 5000) return;
-      S.leftAt = performance.now();
-      snap(reason, true);
-      trackExit('game_left', { reason, active_minutes: +(S.active / 60).toFixed(1), session_minutes: +((performance.now() - S.t0) / 60000).toFixed(1),
-        days_played: g.day - S.day0, idle_seconds: Math.round((performance.now() - S.lastInput) / 1000), rotate_prompt_up: S.rotateSince != null, ...snapshot(), ...doing(), ...perfAtExit() });
-    };
-    document.addEventListener('visibilitychange', () => { if (document.hidden) leave('hidden'); });
-    window.addEventListener('pagehide', () => leave('closed'));
-    // the "turn your phone sideways" screen: how many players meet it, how long they take to turn
-    // the phone, and (in game_left) whether it was still up when they gave up
-    const upright = window.matchMedia('(orientation: portrait) and (max-width: 700px)');
-    const rotate = () => {
-      if (upright.matches && S.rotateSince == null) {
-        S.rotateSince = performance.now();
-        if ((S.rotateShown = (S.rotateShown || 0) + 1) <= 3) track('rotate_prompt_shown', { times: S.rotateShown, seconds_since_load: Math.round(performance.now() / 1000) });
-      } else if (!upright.matches && S.rotateSince != null) {
-        if (S.rotateShown <= 3) track('rotate_prompt_cleared', { seconds: Math.round((performance.now() - S.rotateSince) / 1000), times: S.rotateShown });
-        S.rotateSince = null;
-      }
-    };
-    rotate();
-    upright.addEventListener?.('change', rotate);
-  }
+  snapshot() { return this.analytics.snapshot(); }
+  analyticsContext() { this.analytics.updateContext(); }
+  get session() { return this.analytics.session; }
 
   applySettings() {
     // the renderer asks for a lighter Detail level when this computer can't keep up
@@ -356,7 +182,6 @@ export class UI {
     $('#stat-money').addEventListener('click', () => this.openMoney());
     $('#stat-species').addEventListener('click', () => this.openGuide());
     $('#stat-visitors').addEventListener('click', () => this.openVisitors());
-    onBiome(b => { $('#stat-visitors').hidden = !!b.noVisitors; }); // (maps without visitors hide the counter)
     $('#mini-toggle').addEventListener('click', () => document.body.classList.toggle('mini-collapsed', $('#minimap-wrap').classList.toggle('collapsed')));
     $('#btn-goals').addEventListener('click', () => this.openGoals());
     $('#btn-journal').addEventListener('click', () => this.openJournal());
@@ -406,14 +231,14 @@ export class UI {
     $('#btn-trees').classList.toggle('on', this.renderer.fadeTrees);
   }
   setOverlay(v, species = null) {
-    if (v === 'species' && species == null) species = this.state.overlaySpecies ?? (ANIMAL.deer ?? ANIMALS[0]).index;
+    if (v === 'species' && species == null) species = this.state.overlaySpecies ?? (this.game.catalog.animal.deer ?? this.game.catalog.animals[0]).index;
     this.state.overlay = v;
     if (species != null) this.state.overlaySpecies = species;
     $('#overlay').value = v;
     $('#btn-overlay')?.classList.toggle('on', v !== 'none');
     if (v === 'species') {
       const opt = $('#overlay option[value="species"]');
-      opt.textContent = 'Habitat for: ' + ANIMALS[this.state.overlaySpecies].name;
+      opt.textContent = 'Habitat for: ' + this.game.catalog.animals[this.state.overlaySpecies].name;
       this.game.wildlife.computeSuitability();
     }
     this.renderLegend();
@@ -421,6 +246,7 @@ export class UI {
 
   refreshTop(force = false) {
     const g = this.game;
+    $('#stat-visitors').hidden = !!g.mapDefinition.noVisitors;
     const now = performance.now();
     if (!force && now - this.lastTop < 250) return;
     this.lastTop = now;
@@ -456,8 +282,8 @@ export class UI {
     setText($('#visitor-num'), v.monthly.toLocaleString());
     setText($('#visitor-stars'), v.facilities().parking ? '★'.repeat(Math.round(v.rating)) + '☆'.repeat(5 - Math.round(v.rating)) : 'no trailhead');
     this.renderBanner();
-    const open = GOALS.filter(x => !g.goalsDone[x.key]).length;
-    setHTML($('#btn-goals'), `<span class="gl">Goals</span><span class="badge">${GOALS.length - open}/${GOALS.length}</span>`);
+    const open = this.game.catalog.goals.filter(x => !g.goalsDone[x.key]).length;
+    setHTML($('#btn-goals'), `<span class="gl">Goals</span><span class="badge">${this.game.catalog.goals.length - open}/${this.game.catalog.goals.length}</span>`);
     this.renderQuest();
   }
 
@@ -492,7 +318,7 @@ export class UI {
       // a group with nothing unlocked yet in the campaign still shows, dimmed, so players know it's
       // coming (its tools say which chapter opens them); a group with no tools here at all is hidden
       const open = c.key === 'inspect' || this.toolsFor(c.key, true, true).length > 0;
-      const exists = open || (this.toolsFor(c.key, false, true).length > 0 && !(biome.noVisitors && c.key === 'visitors'));
+      const exists = open || (this.toolsFor(c.key, false, true).length > 0 && !(this.game.catalog.definition.noVisitors && c.key === 'visitors'));
       const b = el('button', (open ? '' : exists ? 'locked' : 'hidden') + (this.newCats?.has(c.key) ? ' fresh' : ''), `${ICONS[c.icon]}<span>${c.name}</span>`);
       b.dataset.cat = c.key;
       b.title = c.desc;
@@ -551,22 +377,22 @@ export class UI {
     if (cat === 'plants' && !this.toolsFor('plants', true).length) st.plantTab = PLANT_TABS.find(t => this.tabOpen(t.key))?.key || 'mixes';
     const list = this.toolsFor(cat, true);
     if (!list.length) st.tool = null; // (nothing unlocked here yet: the panel shows what's coming)
-    else if (!st.tool || TOOLS[st.tool].cat !== cat || !this.isOpen(st.tool)) this.selectTool(list[0].key, false);
+    else if (!st.tool || this.game.catalog.tools[st.tool].cat !== cat || !this.isOpen(st.tool)) this.selectTool(list[0].key, false);
     if (TOUCH) st.toolCollapsed = false; // (picking a group on a phone always shows its tools)
     this.renderToolPanel();
     $('#toolpanel').classList.remove('hidden');
   }
   // Tools in a category (the current plant tab only, unless allTabs); openOnly skips campaign-locked ones.
   toolsFor(cat, openOnly = false, allTabs = false) {
-    let list = Object.values(TOOLS).filter(t => t.cat === cat && !biome.hideTools?.includes(t.key)); // (tools a map has no use for, like a pond on the seabed)
+    let list = Object.values(this.game.catalog.tools).filter(t => t.cat === cat && !this.game.catalog.definition.hideTools?.includes(t.key)); // (tools a map has no use for, like a pond on the seabed)
     if (cat === 'plants' && !allTabs) list = list.filter(t => t.sub === this.state.plantTab);
     if (openOnly) list = list.filter(t => this.isOpen(t.key));
     return list;
   }
-  isOpen(key) { if (biome.noVisitors && TOOLS[key]?.cat === 'visitors') return false; if (biome.hideTools?.includes(key)) return false; const u = unlockedTools(this.game); return !u || u.has(key); }
-  tabOpen(sub) { return Object.values(TOOLS).some(t => t.sub === sub && this.isOpen(t.key)); }
+  isOpen(key) { if (this.game.catalog.definition.noVisitors && this.game.catalog.tools[key]?.cat === 'visitors') return false; if (this.game.catalog.definition.hideTools?.includes(key)) return false; const u = unlockedTools(this.game); return !u || u.has(key); }
+  tabOpen(sub) { return Object.values(this.game.catalog.tools).some(t => t.sub === sub && this.isOpen(t.key)); }
   selectTool(key, rerender = true) {
-    const t = TOOLS[key];
+    const t = this.game.catalog.tools[key];
     if (!this.isOpen(key)) return;
     this.state.tool = key;
     // each tool category remembers the last brush size you used with it
@@ -574,7 +400,7 @@ export class UI {
     if (rerender) this.renderToolPanel();
   }
   setBrush(r) {
-    const t = TOOLS[this.state.tool];
+    const t = this.game.catalog.tools[this.state.tool];
     this.state.brushR = r;
     if (t && t.brush) { settings.brushSizes[t.cat] = r; saveSettings(); }
     this.renderToolPanel();
@@ -593,12 +419,12 @@ export class UI {
     this.toolPanelView = view;
     this.toolPanelTool = st.tool;
     panel.innerHTML = '';
-    const head = el('div', 'tp-head', `<button class="tp-collapse" title="${st.toolCollapsed ? 'Expand panel' : 'Collapse panel'}">${st.toolCollapsed ? '+' : '−'}</button><h2>${cat.name}</h2><p>${biome.categoryDesc?.[cat.key] || cat.desc}</p>`);
+    const head = el('div', 'tp-head', `<button class="tp-collapse" title="${st.toolCollapsed ? 'Expand panel' : 'Collapse panel'}">${st.toolCollapsed ? '+' : '−'}</button><h2>${cat.name}</h2><p>${this.game.catalog.definition.categoryDesc?.[cat.key] || cat.desc}</p>`);
     head.querySelector('.tp-collapse').addEventListener('click', () => { st.toolCollapsed = !st.toolCollapsed; this.renderToolPanel(); });
     panel.appendChild(head);
     panel.classList.toggle('collapsed', !!st.toolCollapsed);
     if (st.toolCollapsed) {
-      const t = TOOLS[st.tool];
+      const t = this.game.catalog.tools[st.tool];
       if (t) head.querySelector('p').textContent = `Using: ${t.name}`;
       return;
     }
@@ -606,7 +432,7 @@ export class UI {
       const tabs = el('div', 'tabs');
       for (const t of PLANT_TABS) {
         if (!this.tabOpen(t.key)) continue;
-        const b = el('button', t.key === st.plantTab ? 'on' : '', biome.plantTabs?.[t.key] || t.name); // (the reef calls its trees hard corals)
+        const b = el('button', t.key === st.plantTab ? 'on' : '', this.game.catalog.definition.plantTabs?.[t.key] || t.name); // (the reef calls its trees hard corals)
         b.addEventListener('click', () => {
           st.plantTab = t.key;
           const first = this.toolsFor('plants', true)[0];
@@ -618,35 +444,35 @@ export class UI {
     }
     const grid = el('div', 'tool-grid');
     for (const t of this.toolsFor(st.cat)) {
-      const open = this.isOpen(t.key), ch = open ? -1 : chapterOfTool(t.key);
+      const open = this.isOpen(t.key), ch = open ? -1 : chapterOfTool(t.key, this.game);
       const price = listPrice(this.game, t);
       const card = el('div', 'tool-card' + (t.key === st.tool ? ' on' : '') + (open && price > this.game.money ? ' poor' : '') + (open ? '' : ' locked'));
       const costTxt = !open ? (ch < 0 ? 'Later' : `Chapter ${ch + 1}`) : t.costFor ? 'varies' : price ? money(price) + (t.brush ? '/tile' : '') : 'free';
-      card.innerHTML = `<img src="${iconThumb(t.icon)}" alt="">${open ? '' : `<span class="lock">${ICONS.lock}</span>`}<div class="nm">${t.name}</div><div class="cost">${costTxt}</div>`;
+      card.innerHTML = `<img src="${iconThumb(t.icon, this.game.catalog)}" alt="">${open ? '' : `<span class="lock">${ICONS.lock}</span>`}<div class="nm">${t.name}</div><div class="cost">${costTxt}</div>`;
       // (a few tools aren't part of any chapter and open when the campaign is finished)
-      const chName = CHAPTERS[ch]?.title; // (a tool a chapter on another map unlocks has no chapter here)
+      const chName = this.game.catalog.chapters[ch]?.title; // (a tool a chapter on another map unlocks has no chapter here)
       card.title = open ? t.desc : ch < 0 || !chName ? 'Unlocks when you finish the campaign' : `Unlocks in Chapter ${ch + 1}: ${chName}`;
       card.addEventListener('click', () => open ? this.selectTool(t.key) : this.game.notify(ch < 0 || !chName ? `${t.name} unlocks when you finish the campaign.` : `${t.name} unlocks in Chapter ${ch + 1}, "${chName}". Finish this chapter's goals to get there.`, 'info'));
       grid.appendChild(card);
     }
     panel.appendChild(grid);
-    const t = TOOLS[st.tool];
+    const t = this.game.catalog.tools[st.tool];
     if (t) {
       const d = el('div', 'tool-desc');
       let html = `<b>${t.name}</b>`;
       html += `<details class="tool-notes"${st.toolNotesOpen ? ' open' : ''}><summary>Details and conditions</summary><div class="tool-notes-body">`;
       if (t.species && t.species.length === 1) {
-        const p = PLANT[t.species[0]];
-        html += `<div class="sci">${p.sci} · ${p.kindName || biome.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>`;
+        const p = this.game.catalog.plant[t.species[0]];
+        html += `<div class="sci">${p.sci} · ${p.kindName || this.game.catalog.definition.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>`;
       }
       html += `<div>${t.desc}</div>`;
-      if (this.game.diff.ecology && CHALLENGE_TOOL_ADVICE[t.key] && !biome.look.underwater) html += `<div>${CHALLENGE_TOOL_ADVICE[t.key]}</div>`;
+      if (this.game.diff.ecology && CHALLENGE_TOOL_ADVICE[t.key] && !this.game.catalog.definition.look.underwater) html += `<div>${CHALLENGE_TOOL_ADVICE[t.key]}</div>`;
       if (t.species) {
-        const sp = [...new Set(t.species)].map(k => PLANT[k]); // (a mix can weight one species by listing it twice)
+        const sp = [...new Set(t.species)].map(k => this.game.catalog.plant[k]); // (a mix can weight one species by listing it twice)
         if (sp.length === 1) {
           const p = sp[0];
           // (under the sea: no moisture, and light is how bright the water is; the "soil builder" is the algae that cements rubble)
-          html += biome.look.underwater && !p.cay
+          html += this.game.catalog.definition.look.underwater && !p.cay
             ? `<div class="prefs"><span>☀ ${p.light[0] >= 0.5 ? 'bright, shallow water' : p.light[0] <= 0.15 ? 'bright or shaded water' : 'bright or part-shaded water'}</span>${p.nfix ? '<span>cements rubble</span>' : ''}</div>`
             : `<div class="prefs"><span>💧 ${moistWord(p.moist[0], p.moist[1])}</span><span>☀ ${lightWord(p.light[0], p.light[1])}</span>${p.soil > 0.15 ? `<span>needs rich soil</span>` : ''}${p.nfix ? '<span>fixes nitrogen</span>' : ''}</div>`;
         } else html += `<div class="prefs">${sp.map(p => `<span>${p.name}</span>`).join('')}</div>`;
@@ -657,7 +483,7 @@ export class UI {
         html += `<div class="prefs"><span>${f.parking ? `${v.net.length} trail tiles connected to a trailhead` : 'No trailhead parking yet'}</span></div>`;
       }
       if (t.animal) {
-        const a = ANIMAL[t.animal];
+        const a = this.game.catalog.animal[t.animal];
         html += `<div class="prefs"><span>Needs: ${a.hint}</span></div>`;
       }
       html += '</div></details>';
@@ -684,7 +510,7 @@ export class UI {
     panel.scrollTop = panelScroll;
   }
   nudgeBrush(dir) {
-    const t = TOOLS[this.state.tool];
+    const t = this.game.catalog.tools[this.state.tool];
     if (!t || !t.brush) return;
     const k = BRUSH_SIZES.indexOf(this.state.brushR);
     this.setBrush(BRUSH_SIZES[clamp(k + dir, 0, BRUSH_SIZES.length - 1)]);
@@ -767,7 +593,7 @@ export class UI {
     panel.classList.toggle('min', !!this.infoMin);
     panel.querySelectorAll('[data-guide]').forEach(b => b.addEventListener('click', () => this.openGuide('animals', b.dataset.guide)));
     panel.querySelectorAll('[data-overlay]').forEach(b => b.addEventListener('click', () => this.setOverlay('species', +b.dataset.overlay)));
-    panel.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => this.locateAnimal(ANIMAL[b.dataset.next])));
+    panel.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => this.locateAnimal(this.game.catalog.animal[b.dataset.next])));
     panel.querySelector('[data-follow]')?.addEventListener('click', () => {
       const a = this.game.wildlife.findAgent(ins.agent);
       if (!a) return;
@@ -778,9 +604,9 @@ export class UI {
     });
   }
   agentHTML(a) {
-    const def = animalDef(a), st = this.game.wildlife.state[a.sp];
+    const def = animalDef(a, this.game.catalog), st = this.game.wildlife.state[a.sp];
     if (a.passing) return `<button class="close">×</button>
-      <div class="animal-hero"><img src="${animalThumb(def.key)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
+      <div class="animal-hero"><img src="${animalThumb(def.key, this.game.catalog)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
       <div class="kv"><span class="k">Status</span><span>Flying through</span><span class="k">Flock</span><span>${this.game.wildlife.flyovers.filter(b => b.flock === a.flock).length} birds</span></div>
       <p class="info-desc">This bird is passing over the map. It does not live on the property or count toward its resident population.</p>
       <p class="info-desc">${def.desc}</p><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-follow>Follow bird</button><button class="btn secondary" data-guide="${def.key}">Field guide</button></div>`;
@@ -795,7 +621,7 @@ export class UI {
       : a.greet != null && def.sprite.male?.antlers && isMaleVariant(def, a) ? 'Approaching a rival' : a.socialWith != null ? 'Watching an approaching neighbour' : a.bugleT > 0 ? 'Bugling' : a.haremOf != null ? 'In a bull’s harem' : this.game.wildlife.agents.some(c => c.haremOf === a.id) ? 'Guarding his harem' : a.greetT > 0 ? 'Greeting a neighbour' : a.alertT > 0 ? 'On the alert' : familyStatus || birdStatus || (a.state === 'walk' || a.state === 'fly' ? (a.birdGround ? 'Hopping between feeding spots' : a.move === 'fly' ? 'Flying' : a.move === 'tree' && ['monkey', 'orangutan'].includes(def.sprite.kind) ? 'Climbing through the canopy' : 'Wandering') : 'Resting / foraging');
     const ageTxt = ageY < 1 ? `${Math.max(1, Math.round(ageY * 12))} months` : `${ageY.toFixed(1)} years`;
     return `<button class="close">×</button>
-      <div class="animal-hero"><img src="${animalThumb(def.key)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
+      <div class="animal-hero"><img src="${animalThumb(def.key, this.game.catalog)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
       <div class="kv"><span class="k">Status</span><span>${status}${a.spawner ? ' (spawning run)' : ''}${a.juvenile ? ' (juvenile)' : ''}${isMaleVariant(def, a) ? ` (${def.sprite.maleName || 'adult male'})` : ''}</span>
       <span class="k">Age</span><span>${ageTxt}</span>
       <span class="k">Population</span><span>${st.pop} here · room for ${Math.floor(st.K)}</span></div>
@@ -812,18 +638,18 @@ export class UI {
   tileHTML(i) {
     const g = this.game, w = g.world;
     const x = i % w.w, y = (i / w.w) | 0;
-    const h = w.habitat[i], hi = HABITAT_INFO[h];
+    const h = w.habitat[i], hi = this.game.catalog.habitatInfo[h];
     const t = w.terrain[i];
     const bar = (v, col = 'var(--moss)') => `<div class="bar"><i style="width:${pct(clamp(v, 0, 1))};background:${col}"></i></div>`;
     let html = `<button class="close">×</button><h3><span class="chip" style="background:${hi.color}"></span>${hi.name}</h3>
-      <div class="small">Tile ${x}, ${y} · ${TERRAIN_NAMES[t]}</div>`;
+      <div class="small">Tile ${x}, ${y} · ${this.game.catalog.terrainNames[t]}</div>`;
     const sk = w.struct[i];
     if (sk >= 0) {
-      const s = w.structures[sk], d = STRUCTURES[s.type];
+      const s = w.structures[sk], d = this.game.catalog.structures[s.type];
       html += `<p class="info-desc"><b>${d.name}.</b> ${d.roost && !d.permanent ? `Bats and owls roost in it. You can demolish it for ${money(d.removeCost - d.salvage)}${d.salvage ? ` (after ${money(d.salvage)} salvage)` : ''}, but it takes their roost away.` : `Remove it with the Demolish tool for ${money(d.removeCost - d.salvage)}${d.salvage ? ` (after ${money(d.salvage)} salvage)` : ''}.`}</p>`;
       return html;
     }
-    const sea = biome.look.underwater, depth = sea ? sea.level - w.tileH(x, y) : 0; // (on the reef: how deep the water is)
+    const sea = this.game.catalog.definition.look.underwater, depth = sea ? sea.level - w.tileH(x, y) : 0; // (on the reef: how deep the water is)
     html += `<div class="kv">
       ${sea ? '' : `<span class="k">Moisture</span>${bar(w.moist[i], '#4d8fc0')}`}
       <span class="k">${sea ? 'Reef surface' : 'Soil health'}</span>${bar(w.soil[i], '#8a6a3a')}
@@ -833,35 +659,35 @@ export class UI {
     if (isWater(t)) {
       html += `<span class="k">Water quality</span>${bar(w.waterQ[i], '#5ab0a0')}
         <span class="k">Fish access</span><span>${w.connected[i] ? '<span class="st good">Connected to the river</span>' : '<span class="st bad">Cut off from the river</span>'}</span>`;
-      if (t === T.CREEK) html += `<span class="k">For ${biome.text.creekFish}</span><span>${w.waterQ[i] > 0.43 ? '<span class="st good">Cool and shaded</span>' : '<span class="st warn">Too sunny and warm. Plant shrubs and trees along the banks.</span>'}</span>`;
+      if (t === T.CREEK) html += `<span class="k">For ${this.game.catalog.definition.text.creekFish}</span><span>${w.waterQ[i] > 0.43 ? '<span class="st good">Cool and shaded</span>' : '<span class="st warn">Too sunny and warm. Plant shrubs and trees along the banks.</span>'}</span>`;
     }
     html += `</div>`;
     const waterNote = g.water?.note(i);
     if (waterNote) html += `<div class="info-desc">${waterNote}</div>`;
-    const note = biome.tileNote?.(this.game, i);
+    const note = this.game.catalog.definition.tileNote?.(this.game, i);
     if (note) html += `<div class="info-desc">${note}</div>`;
     for (const pressure of pressureTileNotes(g, i)) html += `<div class="info-desc">${pressure}</div>`;
     if (w.fire[i]) html += `<div class="info-desc st bad"><b>On fire!</b> Use the Fire crew tool to put it out.</div>`;
     else if (w.flood[i]) html += `<div class="info-desc"><b>Flooded</b> for another ${w.flood[i]} days.</div>`;
     else if (w.scorch[i] > 0) html += `<div class="info-desc">Burned recently. The ash will feed new growth.</div>`;
     const f = w.feature[i];
-    if (f) html += `<div class="section-title">Feature</div><div class="info-desc">${f === F.DAM && (w.marks[i] & 4) ? 'Canal block: it holds the water back, so the peat upstream stays wet' : f === F.FENCE && biome.text.fenceName ? biome.text.fenceName : FEATURE_NAMES[f]}${f === F.CULVERT ? `: blocks ${biome.text.culvertBlocks}. Demolish it to reopen the creek.` : f === F.DAM && !(w.marks[i] & 4) ? '. Beavers keep it up; left untended it washes out within a year or two. Demolish it to drain the pond.' : f === F.FENCE ? `: blocks ${biome.text.fenceBlocks}.` : ''}</div>`;
+    if (f) html += `<div class="section-title">Feature</div><div class="info-desc">${f === F.DAM && (w.marks[i] & 4) ? 'Canal block: it holds the water back, so the peat upstream stays wet' : f === F.FENCE && this.game.catalog.definition.text.fenceName ? this.game.catalog.definition.text.fenceName : FEATURE_NAMES[f]}${f === F.CULVERT ? `: blocks ${this.game.catalog.definition.text.culvertBlocks}. Demolish it to reopen the creek.` : f === F.DAM && !(w.marks[i] & 4) ? '. Beavers keep it up; left untended it washes out within a year or two. Demolish it to drain the pond.' : f === F.FENCE ? `: blocks ${this.game.catalog.definition.text.fenceBlocks}.` : ''}</div>`;
     const layers = [[w.ground[i], w.groundG[i]], [w.shrub[i], w.shrubG[i]], [w.tree[i], w.treeG[i]]];
     const rows = layers.filter(l => l[0]).map(([id, gg]) => {
-      const p = PLANTS[id];
+      const p = this.game.catalog.plants[id];
       const s = plantSuit(w, i, p);
       const lim = plantLimits(w, i, p);
       const cls = s >= 0.55 ? 'good' : s >= 0.3 ? 'warn' : 'bad';
       const word = s >= 0.55 ? 'Thriving' : s >= 0.3 ? 'Getting by' : 'Struggling';
       const extra = p.layer === 2 && w.treeAge[i] ? ` · ${(w.treeAge[i] / 120).toFixed(0)} yrs` : '';
-      return `<div class="plant-row"><img src="${plantThumb(p.key)}"><div style="flex:1"><div class="nm">${p.name}${p.invasive ? ' <span class="st bad">(invasive)</span>' : ''}</div>
+      return `<div class="plant-row"><img src="${plantThumb(p.key, this.game.catalog)}"><div style="flex:1"><div class="nm">${p.name}${p.invasive ? ' <span class="st bad">(invasive)</span>' : ''}</div>
         <div class="st ${cls}">${word}${lim.length && s < 0.55 ? ': ' + lim.join(', ') : ''} · ${pct(gg)} grown${extra}</div></div></div>`;
     });
-    html += `<div class="section-title">Plants</div>` + (rows.length ? rows.join('') : `<div class="info-desc">Nothing growing here${t === T.PASTURE && !biome.sandBed ? ' but tired pasture grass' : ''}.</div>`);
+    html += `<div class="section-title">Plants</div>` + (rows.length ? rows.join('') : `<div class="info-desc">Nothing growing here${t === T.PASTURE && !this.game.catalog.definition.sandBed ? ' but tired pasture grass' : ''}.</div>`);
     // animals nearby
     const near = g.wildlife.agents.filter(a => Math.abs(a.x - x - 0.5) < 2 && Math.abs(a.y - y - 0.5) < 2);
     if (near.length) {
-      const names = [...new Set(near.map(a => ANIMALS[a.sp].name))];
+      const names = [...new Set(near.map(a => this.game.catalog.animals[a.sp].name))];
       html += `<div class="section-title">Nearby</div><div class="info-desc">${names.join(', ')}</div>`;
     }
     return html;
@@ -929,7 +755,7 @@ export class UI {
       const m = this.miniImg.getContext('2d');
       for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
         const i = w.idx(x, y);
-        m.fillStyle = HABITAT_INFO[w.habitat[i]].color;
+        m.fillStyle = this.game.catalog.habitatInfo[w.habitat[i]].color;
         m.fillRect(x * sx, y * sy, sx + 0.5, sy + 0.5);
       }
     }
@@ -961,7 +787,7 @@ export class UI {
     let html = '';
     if (mode === 'habitat') {
       const counts = this.game.world.stats.counts || [];
-      html = '<b>Habitat types</b>' + HABITAT_INFO.map((h, k) => counts[k] ? `<div class="row"><span class="chip" style="background:${h.color}"></span>${h.name}<span class="small" style="margin-left:auto">${counts[k]}</span></div>` : '').join('');
+      html = '<b>Habitat types</b>' + this.game.catalog.habitatInfo.map((h, k) => counts[k] ? `<div class="row"><span class="chip" style="background:${h.color}"></span>${h.name}<span class="small" style="margin-left:auto">${counts[k]}</span></div>` : '').join('');
     }
     else if (mode === 'moisture') html = '<b>Moisture</b>' + grad(['#d9b36a', '#8fc07a', '#2f6fa8'], 'dry', 'saturated');
     else if (mode === 'soil') html = '<b>Soil health</b>' + grad(['#c8b89a', '#8a6a3a', '#3a2614'], 'worn out', 'rich');
@@ -971,7 +797,7 @@ export class UI {
     else if (mode === 'flood') html = '<b>Flood risk</b><div class="row"><span class="chip" style="background:#1f6bf2"></span>Underwater right now</div><div class="row"><span class="chip" style="background:#3380d9"></span>Floods most winters</div><div class="row"><span class="chip" style="background:#8cc7f2"></span>Only in a big flood</div><div class="small" style="margin-top:4px">Marshes, ponds and beaver dams soak up floodwater and shrink these zones.</div>';
     else if (mode === 'fish') html = '<b>Fish passage</b><div class="row"><span class="chip" style="background:#c83c32"></span>Cut off from the river</div>' + grad(['#d88a4a', '#e8d86a', '#5ad0a0'], 'connected, poor', 'connected, clean & shaded');
     else if (mode === 'species') {
-      const def = ANIMALS[this.state.overlaySpecies];
+      const def = this.game.catalog.animals[this.state.overlaySpecies];
       html = `<b>Where ${many(def)} could live</b>` + grad(['#c8584a', '#e8c85a', '#4ac86a'], 'poor', 'ideal') + `<div class="small" style="margin-top:4px">${def.hint}</div>`;
     }
     lg.innerHTML = html;
@@ -1020,9 +846,9 @@ export class UI {
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === def.key));
       const needs = [];
       if (def.season) needs.push(['info', `Migratory: here from ${seasonText(def.season)}.`]);
-      if (def.sources.length) needs.push(['info', `Arrives from ${[...new Set(def.sources.map(s => biome.text.edges[s]))].join(', ')}.`]);
+      if (def.sources.length) needs.push(['info', `Arrives from ${[...new Set(def.sources.map(s => this.game.catalog.definition.text.edges[s]))].join(', ')}.`]);
       if (def.intro) needs.push(['info', `Can be reintroduced (${money(def.intro)}) from the Wildlife tools.`]);
-      detail.innerHTML = `<div class="hero-wrap"><img class="hero" src="${animalThumb(def.key)}"${known ? '' : ' style="filter:brightness(0) opacity(.35);background:none"'}></div>
+      detail.innerHTML = `<div class="hero-wrap"><img class="hero" src="${animalThumb(def.key, this.game.catalog)}"${known ? '' : ' style="filter:brightness(0) opacity(.35);background:none"'}></div>
         <h3>${known ? def.name : 'Not yet seen'}</h3><div class="small"><i>${known ? def.sci : def.group}</i></div>
         <p class="info-desc">${known ? def.desc : 'Something that might live here someday. The clue below says what it needs.'}</p>
         <div class="section-title">Habitat needs</div><p class="info-desc">${def.hint}</p>
@@ -1039,10 +865,10 @@ export class UI {
       this.refreshWildlifeGuide = null;
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === def.key));
       const now = overhead(def).length;
-      detail.innerHTML = `<div class="hero-wrap"><img class="hero" src="${animalThumb(def.key)}"></div>
+      detail.innerHTML = `<div class="hero-wrap"><img class="hero" src="${animalThumb(def.key, this.game.catalog)}"></div>
         <h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div>
         <p class="info-desc">${def.desc}</p>
-        <div class="kv"><span class="k">Passes over</span><span>${seasons.map(s => biome.climate.seasons[s]).join(', ')}</span>
+        <div class="kv"><span class="k">Passes over</span><span>${seasons.map(s => this.game.catalog.definition.climate.seasons[s]).join(', ')}</span>
         <span class="k">Overhead now</span><span>${now ? `${now} birds` : 'None'}</span></div>
         <p class="info-desc">Flocks cross the property on their way somewhere else. They don't live here, so they don't count toward your species.</p>
         ${now ? '<div style="margin-top:10px"><button class="btn" id="g-follow">Follow a bird</button></div>' : ''}`;
@@ -1060,9 +886,9 @@ export class UI {
     };
     const showPlant = p => {
       this.refreshWildlifeGuide = null;
-      const sea = !!biome.look.underwater;
+      const sea = !!this.game.catalog.definition.look.underwater;
       m.querySelectorAll('.gcard').forEach(c => c.classList.toggle('on', c.dataset.key === p.key));
-      detail.innerHTML = `<img class="hero" src="${plantThumb(p.key)}"><h3>${p.name}</h3><div class="small"><i>${p.sci}</i> · ${p.kindName || biome.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>
+      detail.innerHTML = `<img class="hero" src="${plantThumb(p.key, this.game.catalog)}"><h3>${p.name}</h3><div class="small"><i>${p.sci}</i> · ${p.kindName || this.game.catalog.definition.layerNames?.[p.layer] || LAYER_NAMES[p.layer]}</div>
         <p class="info-desc">${p.desc}</p>
         <div class="kv">${sea ? '' : `<span class="k">Water</span><span>${moistWord(p.moist[0], p.moist[1])}</span>`}
         <span class="k">Light</span><span>${lightWord(p.light[0], p.light[1])}</span>
@@ -1070,19 +896,19 @@ export class UI {
         <span class="k">Growth</span><span>${p.grow >= 0.015 ? 'fast' : p.grow >= 0.005 ? 'moderate' : 'slow'}</span>
         <span class="k">On the farm</span><span>${counts[p.id] || 0} tiles</span></div>
         ${p.nfix ? `<div class="need"><span class="st good">●</span><span>${sea ? 'Cements loose rubble together, so corals can settle on it.' : 'Fixes nitrogen and improves soil.'}</span></div>` : ''}
-        ${p.invasive ? `<div class="need"><span class="st bad">▲</span><span>${TOOLS.pull.name === 'Pull invasives' ? 'Invasive. Remove with Pull invasives, or shade it out with trees.' : sea ? `A nuisance. Clear it with ${TOOLS.pull.name}.` : `Invasive. Remove with ${TOOLS.pull.name}, or shade it out with trees.`}</span></div>` : ''}`;
+        ${p.invasive ? `<div class="need"><span class="st bad">▲</span><span>${this.game.catalog.tools.pull.name === 'Pull invasives' ? 'Invasive. Remove with Pull invasives, or shade it out with trees.' : sea ? `A nuisance. Clear it with ${this.game.catalog.tools.pull.name}.` : `Invasive. Remove with ${this.game.catalog.tools.pull.name}, or shade it out with trees.`}</span></div>` : ''}`;
     };
     const renderList = tab => {
       m.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
       list.innerHTML = '';
       if (tab === 'animals') {
-        for (const grp of ANIMAL_GROUPS) {
+        for (const grp of this.game.catalog.animalGroups) {
           list.appendChild(el('div', 'guide-group', grp));
           const grid = el('div', 'guide-grid');
-          for (const def of ANIMALS.filter(a => a.group === grp)) {
+          for (const def of this.game.catalog.animals.filter(a => a.group === grp)) {
             const st = wl.state[def.index];
             const known = st.discovered || def.intro;
-            const c = el('div', 'gcard' + (known ? '' : ' unknown'), `<img src="${animalThumb(def.key)}"><div class="nm">${known ? def.name : '???'}</div><div class="pop ${st.pop ? 'here' : ''}">${st.pop ? st.pop + ' here' : known ? 'not here' : 'undiscovered'}</div>`);
+            const c = el('div', 'gcard' + (known ? '' : ' unknown'), `<img src="${animalThumb(def.key, this.game.catalog)}"><div class="nm">${known ? def.name : '???'}</div><div class="pop ${st.pop ? 'here' : ''}">${st.pop ? st.pop + ' here' : known ? 'not here' : 'undiscovered'}</div>`);
             c.dataset.key = def.key;
             if (st.pop) {
               const pin = el('button', 'locate', ICONS.pin);
@@ -1102,7 +928,7 @@ export class UI {
           const grid = el('div', 'guide-grid');
           for (const p of passing) {
             const n = overhead(p.def).length;
-            const c = el('div', 'gcard', `<img src="${animalThumb(p.def.key)}"><div class="nm">${p.def.name}</div><div class="pop ${n ? 'here' : ''}">${n ? 'overhead now' : 'passing through'}</div>`);
+            const c = el('div', 'gcard', `<img src="${animalThumb(p.def.key, this.game.catalog)}"><div class="nm">${p.def.name}</div><div class="pop ${n ? 'here' : ''}">${n ? 'overhead now' : 'passing through'}</div>`);
             c.dataset.key = p.def.key;
             c.addEventListener('click', () => showPassing(p));
             grid.appendChild(c);
@@ -1111,20 +937,20 @@ export class UI {
         }
         const pass = key && passing.find(p => p.def.key === key);
         if (pass) showPassing(pass);
-        else showAnimal(key && ANIMAL[key] || ANIMALS.find(a => wl.state[a.index].pop) || ANIMALS[0]);
+        else showAnimal(key && this.game.catalog.animal[key] || this.game.catalog.animals.find(a => wl.state[a.index].pop) || this.game.catalog.animals[0]);
       } else {
         for (let layer = 0; layer < 3; layer++) {
-          list.appendChild(el('div', 'guide-group', (biome.plantTabs ? [biome.plantTabs.ground, biome.plantTabs.shrub, biome.plantTabs.tree] : ['Groundcover', 'Shrubs', 'Trees'])[layer]));
+          list.appendChild(el('div', 'guide-group', (this.game.catalog.definition.plantTabs ? [this.game.catalog.definition.plantTabs.ground, this.game.catalog.definition.plantTabs.shrub, this.game.catalog.definition.plantTabs.tree] : ['Groundcover', 'Shrubs', 'Trees'])[layer]));
           const grid = el('div', 'guide-grid');
-          for (const p of PLANTS.filter(q => q && q.layer === layer)) {
-            const c = el('div', 'gcard', `<img src="${plantThumb(p.key)}"><div class="nm">${p.name}</div><div class="pop ${counts[p.id] ? 'here' : ''}">${counts[p.id] ? counts[p.id] + ' tiles' : 'none yet'}</div>`);
+          for (const p of this.game.catalog.plants.filter(q => q && q.layer === layer)) {
+            const c = el('div', 'gcard', `<img src="${plantThumb(p.key, this.game.catalog)}"><div class="nm">${p.name}</div><div class="pop ${counts[p.id] ? 'here' : ''}">${counts[p.id] ? counts[p.id] + ' tiles' : 'none yet'}</div>`);
             c.dataset.key = p.key;
             c.addEventListener('click', () => showPlant(p));
             grid.appendChild(c);
           }
           list.appendChild(grid);
         }
-        showPlant(key ? PLANT[key] : PLANTS[1]);
+        showPlant(key ? this.game.catalog.plant[key] : this.game.catalog.plants[1]);
       }
     };
     m.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { key = null; renderList(b.dataset.tab); }));
@@ -1135,17 +961,17 @@ export class UI {
     const g = this.game;
     let camp = '';
     if (campaignOn(g)) {
-      camp = '<div class="section-title" style="margin-top:0">Campaign</div>' + CHAPTERS.map((c, k) => {
+      camp = '<div class="section-title" style="margin-top:0">Campaign</div>' + this.game.catalog.chapters.map((c, k) => {
         const state = k < g.campaign.chapter ? 'done' : k === g.campaign.chapter ? 'now' : 'later';
         const goals = state === 'now' ? `<div class="ch-goals">${c.goals.map(o => `<div class="need"><span class="st ${goalMet(g, o) ? 'good' : ''}">${goalMet(g, o) ? '✓' : '•'}</span><span>${o.desc} <span class="small">(${o.prog(g)})</span></span></div>`).join('')}</div>` : '';
         return `<div class="goal chapter ${state}"><div class="check">${state === 'done' ? '✓' : k + 1}</div><div><div class="gn">${c.title}</div>${state === 'later' ? '<div class="gd">Locked</div>' : state === 'done' ? '<div class="gd">Complete</div>' : goals}</div><div class="gr">${money(this.game.goalReward(c.reward))}</div></div>`;
       }).join('') + '<div class="section-title">Milestone grants</div>';
     }
-    const html = camp + GOALS.map(goal => {
+    const html = camp + this.game.catalog.goals.map(goal => {
       const done = !!g.goalsDone[goal.key];
       return `<div class="goal ${done ? 'done' : ''}"><div class="check">${done ? '✓' : ''}</div><div><div class="gn">${goal.name}</div><div class="gd">${goal.desc}</div><div class="gp">${done ? 'Completed' : goal.prog(g)}</div></div><div class="gr">${money(this.game.goalReward(goal.reward))}</div></div>`;
     }).join('');
-    this.modal('Restoration Goals', `<p class="info-desc" style="margin-top:0">The ${biome.funder || 'land trust'} pays a grant for each milestone. Monthly funding also grows with your ecosystem health score and the number of species living here.</p>${html}`, { narrow: true });
+    this.modal('Restoration Goals', `<p class="info-desc" style="margin-top:0">The ${this.game.catalog.definition.funder || 'land trust'} pays a grant for each milestone. Monthly funding also grows with your ecosystem health score and the number of species living here.</p>${html}`, { narrow: true });
   }
 
   // Where the money comes from and where it goes: last month, and since the start.
@@ -1155,10 +981,10 @@ export class UI {
       const keys = [...new Set([...always, ...Object.keys(last?.[k] || {}), ...Object.keys(all[k] || {})])].filter(x => names[x] || all[k]?.[x]);
       keys.sort((a, b) => (all[k]?.[b] || 0) - (all[k]?.[a] || 0));
       const sum = o => keys.reduce((t, x) => t + (o?.[x] || 0), 0);
-      const row = x => `<span class="k">${names[x] || 'Other'}${INCOME_TIPS[x] && k === 'in' ? `<small>${biome.incomeTips?.[x] || INCOME_TIPS[x]}</small>` : ''}</span><span>${last ? money(last[k]?.[x] || 0) : '-'}</span><span>${money(all[k]?.[x] || 0)}</span>`;
+      const row = x => `<span class="k">${names[x] || 'Other'}${INCOME_TIPS[x] && k === 'in' ? `<small>${this.game.catalog.definition.incomeTips?.[x] || INCOME_TIPS[x]}</small>` : ''}</span><span>${last ? money(last[k]?.[x] || 0) : '-'}</span><span>${money(all[k]?.[x] || 0)}</span>`;
       return { html: keys.map(row).join(''), last: last ? sum(last[k]) : 0, all: sum(all[k]) };
     };
-    const inc = side('in', { ...INCOME, ...(biome.incomeNames || {}) }, ['grant', ...(biome.noVisitors ? [] : ['visitors']), ...(biome.income || [])]);
+    const inc = side('in', { ...INCOME, ...(this.game.catalog.definition.incomeNames || {}) }, ['grant', ...(this.game.catalog.definition.noVisitors ? [] : ['visitors']), ...(this.game.catalog.definition.income || [])]);
     const out = side('out', SPENDING, []);
     const head = t => `<span class="k mh">${t}</span><span class="mh">Last month</span><span class="mh">Since the start</span>`;
     return `<div class="ledger">${head('Money in')}${inc.html}<span class="k tot">Total in</span><span class="tot">${money(inc.last)}</span><span class="tot">${money(inc.all)}</span>
@@ -1179,7 +1005,7 @@ export class UI {
       return `<div class="srow"><span>${p.name}</span><div class="bar"><i class="${neg ? 'neg' : ''}" style="width:${pct(clamp(width, 0, 1))}"></i></div><span class="v">${neg ? '' : '+'}${p.pts.toFixed(1)}</span></div>`;
     }).join('');
     const land = st.land || 1;
-    const habRows = HABITAT_INFO.map((h, k) => [h, st.counts[k] || 0]).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1])
+    const habRows = this.game.catalog.habitatInfo.map((h, k) => [h, st.counts[k] || 0]).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1])
       .map(([h, c]) => `<div class="srow"><span><span class="chip" style="background:${h.color}"></span> ${h.name}</span><div class="bar"><i style="width:${pct(c / w.n * 2.5)};background:${h.color}"></i></div><span class="v">${c}</span></div>`).join('');
     const body = `<div class="report">
       <div><h4>Ecosystem health: ${Math.round(s.total)} / 100</h4>${rows}
@@ -1187,7 +1013,7 @@ export class UI {
         <h4 style="margin-top:18px">Budget</h4>${this.budgetHTML()}
       </div>
       <div><h4>Land cover</h4>${habRows}
-        <div class="kv" style="grid-template-columns:150px 1fr;margin-top:12px"><span class="k">Native cover</span><span>${pct(s.nativeFrac || 0)} of land</span><span class="k">Invasive cover</span><span>${pct(s.invFrac || 0)}</span><span class="k">Native plant species</span><span>${s.nativePlants}</span><span class="k">Animal species</span><span>${s.animals} of ${ANIMALS.length}</span></div>
+        <div class="kv" style="grid-template-columns:150px 1fr;margin-top:12px"><span class="k">Native cover</span><span>${pct(s.nativeFrac || 0)} of land</span><span class="k">Invasive cover</span><span>${pct(s.invFrac || 0)}</span><span class="k">Native plant species</span><span>${s.nativePlants}</span><span class="k">Animal species</span><span>${s.animals} of ${this.game.catalog.animals.length}</span></div>
       </div></div>`;
     const m = this.modal('Ecosystem Report', body);
     const c = m.querySelector('#spark'), ctx = c.getContext('2d');
@@ -1237,44 +1063,12 @@ export class UI {
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
     m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
-    m.querySelector('[data-a=save]').addEventListener('click', async event => {
-      const button = event.currentTarget; button.disabled = true;
-      const ok = await this.game.save();
-      if (ok) { this.closeModal(); this.game.notify('Game saved on this device.', 'good'); }
-      else button.disabled = false;
-    });
+    m.querySelector('[data-a=save]').addEventListener('click', event => this.saving.manualSave(event.currentTarget));
     m.querySelector('[data-a=backups]').addEventListener('click', () => this.openSaveRecovery());
     m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true));
   }
 
-  async openSaveRecovery() {
-    const g = this.game, map = g.map, speed = g.speed;
-    this.setSpeed(0);
-    const m = this.modal('Earlier saves', '<p>Opening your saved farms…</p>', { narrow: true, onClose: () => this.setSpeed(speed) });
-    try {
-      const candidates = await saves.candidates(map);
-      if (!m.isConnected) return;
-      const backups = candidates.slice(1).filter(intact);
-      const body = m.querySelector('.modal-body');
-      body.innerHTML = `<p class="info-desc">Saves stay in this browser on this device. Restoring an earlier save replaces your current progress.</p>` +
-        (backups.length ? `<div class="menu-list">${backups.map((s, k) => `<button class="btn secondary" data-backup="${k}">Year ${Math.floor(s.data.day / DAYS_PER_YEAR) + 1} · ${new Date(s.savedAt).toLocaleString()}</button>`).join('')}</div>` :
-          '<p>No earlier saves yet. Previous versions are kept automatically as you play.</p>');
-      body.querySelectorAll('[data-backup]').forEach(button => button.addEventListener('click', async () => {
-        if (!button.dataset.sure) { button.dataset.sure = '1'; button.textContent = 'Click again to restore this save'; return; }
-        body.querySelectorAll('button').forEach(b => { b.disabled = true; });
-        // Commit current progress before switching, so it becomes an undo backup.
-        if (g.saveReady && !await g.save()) { this.closeModal(); return; }
-        if (!g.restoreSnapshot(backups[+button.dataset.backup], map)) {
-          this.closeModal(); g.notify('That earlier save could not be restored. Your current farm has been kept.', 'warn'); return;
-        }
-        this.closeModal(); this.afterNewGame();
-        await g.save();
-        g.notify('Earlier save restored.', 'good');
-      }));
-    } catch {
-      this.closeModal(); g.notify('Earlier saves could not be opened. Your current farm has been kept.', 'warn');
-    }
-  }
+  openSaveRecovery() { return this.saving.openRecovery(); }
 
   openSettings(tab = this.settingsTab || 'audio') {
     this.settingsTab = tab;
@@ -1390,7 +1184,7 @@ export class UI {
     this.analyticsContext?.();
     if (this.session) this.session.day0 = this.game.day;
     const sub = document.querySelector('#topbar .subtitle, .subtitle');
-    if (sub) sub.textContent = `${biome.farm} restoration`;
+    if (sub) sub.textContent = `${this.game.catalog.definition.farm} restoration`;
     this.renderer.resetView();
     this.setOverlay('none');
     this.openCategory('inspect');
@@ -1538,25 +1332,25 @@ export class UI {
     if (g.autosave !== false) void g.save();
     if (g.speed === 0) this.setSpeed(1);
     if (mode === 'campaign') this.openChapter(0);
-    else g.notify(biome.startText, 'season');
+    else g.notify(this.game.catalog.definition.startText, 'season');
   }
 
   // A chapter's introduction: the story, what to do, the goals, and the tools it unlocks.
   openChapter(k, review = false) {
-    const g = this.game, c = CHAPTERS[k];
+    const g = this.game, c = this.game.catalog.chapters[k];
     if (!c) return;
     if (!review && !(g.campaign.seen ||= {})[c.key]) { g.campaign.seen[c.key] = true; track('chapter_started', { chapter: k + 1, key: c.key, ...this.snapshot() }); }
-    const tools = c.unlock.map(key => TOOLS[key]).filter(Boolean);
+    const tools = c.unlock.map(key => this.game.catalog.tools[key]).filter(Boolean);
     const shown = tools.filter(t => !t.sub || t.sub === 'mixes').slice(0, 10);
     const extra = tools.length - shown.length;
     const resume = g.speed; this.setSpeed(0);
     const m = this.modal(`Chapter ${k + 1}: ${c.title}`, `<div class="chapter-intro">
       <p class="ch-story">${c.story}</p>
       <div class="section-title">New tools</div>
-      <div class="ch-tools">${shown.map(t => `<div class="ch-tool"><img src="${iconThumb(t.icon)}" alt=""><span>${t.name}</span></div>`).join('')}${extra > 0 ? `<div class="ch-tool more">+${extra} more plants</div>` : ''}</div>
+      <div class="ch-tools">${shown.map(t => `<div class="ch-tool"><img src="${iconThumb(t.icon, this.game.catalog)}" alt=""><span>${t.name}</span></div>`).join('')}${extra > 0 ? `<div class="ch-tool more">+${extra} more plants</div>` : ''}</div>
       <div class="section-title">How</div><p class="info-desc">${c.teach}</p>
       <div class="section-title">Goals</div>${c.goals.map(o => `<div class="need"><span class="st">•</span><span>${o.desc}</span></div>`).join('')}
-      <p class="small" style="margin-top:10px">Complete all three for a ${money(this.game.goalReward(c.reward))} grant and Chapter ${k + 2 <= CHAPTERS.length ? k + 2 : 'the end'}.</p>
+      <p class="small" style="margin-top:10px">Complete all three for a ${money(this.game.goalReward(c.reward))} grant and Chapter ${k + 2 <= this.game.catalog.chapters.length ? k + 2 : 'the end'}.</p>
       </div>`, { narrow: true, foot: `<button class="btn" data-a="go">Let's go</button>`, onClose: () => this.setSpeed(resume || 1) });
     m.querySelector('[data-a=go]').addEventListener('click', () => this.closeModal());
     if (!review) for (const t of tools) this.newCats.add(t.cat);
@@ -1575,7 +1369,7 @@ export class UI {
     this.newCats ||= new Set();
     const body = next
       ? `<p class="ch-story">You finished <b>${done.title}</b>. The land trust sent a <b>${money(this.game.goalReward(done.reward))}</b> grant.</p><p class="info-desc">Next up: <b>Chapter ${index + 2}, ${next.title}</b>, with new tools to learn.</p>`
-      : `<p class="ch-story">${biome.campaignEnd}</p><p class="info-desc">The land trust sent a final <b>${money(this.game.goalReward(done.reward))}</b> grant.</p>`;
+      : `<p class="ch-story">${this.game.catalog.definition.campaignEnd}</p><p class="info-desc">The land trust sent a final <b>${money(this.game.goalReward(done.reward))}</b> grant.</p>`;
     const m = this.modal(next ? `Chapter ${index + 1} complete!` : 'The valley is restored', `<div class="chapter-done">${body}</div>`, { narrow: true,
       foot: `<button class="btn" data-a="next">${next ? `Start Chapter ${index + 2}` : 'Keep restoring'}</button>`, onClose: () => { if (!next) this.setSpeed(resume || 1); } });
     m.querySelector('[data-a=next]').addEventListener('click', () => {
@@ -1599,7 +1393,7 @@ export class UI {
     const hint = campaignVisitorHint(g), helpOpen = this.questHelpChapter === c.key;
     q.classList.remove('hidden');
     q.classList.toggle('open', !!this.questOpen);
-    const qhtml = `<button class="q-head" title="${this.questOpen ? 'Hide goals' : 'Show goals'}"><span class="q-ch">Chapter ${k + 1}/${CHAPTERS.length}</span><b>${c.title}</b><span class="q-n">${doneN}/${c.goals.length}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
+    const qhtml = `<button class="q-head" title="${this.questOpen ? 'Hide goals' : 'Show goals'}"><span class="q-ch">Chapter ${k + 1}/${this.game.catalog.chapters.length}</span><b>${c.title}</b><span class="q-n">${doneN}/${c.goals.length}</span><span class="q-caret">${this.questOpen ? '▴' : '▾'}</span></button>` +
       (this.questOpen ? `<div class="q-body">${c.goals.map(o => { const ok = goalMet(g, o); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${o.desc}<small>${o.prog(g)}</small></span></div>`; }).join('')}${hint ? `<p class="q-tip">${hint}</p>` : ''}<button class="q-help" aria-expanded="${helpOpen}" aria-controls="quest-help">${helpOpen ? 'Hide help' : 'Need help? Where and how'}</button>${helpOpen ? `<div id="quest-help" class="q-help-text">${c.teach}</div>` : ''}<button class="q-more">Chapter details</button></div>` : '');
     if (!setHTML(q, qhtml)) return; // unchanged: keep the existing nodes (and their listeners)
     q.querySelector('.q-head').addEventListener('click', () => { this.questOpen = !this.questOpen; this.renderQuest(true); });
@@ -1626,7 +1420,7 @@ export class UI {
         track('photo_saved', { map: this.game.map, kind: 'picture' });
       });
       b.querySelector('[data-a=card]').addEventListener('click', async () => {
-        const c = await makePostcard({ images: [{ canvas: this.renderer.capture(this.game, this.state, false) }], ...this.postcardText(`Greetings from ${biome.farm}`) });
+        const c = await makePostcard({ images: [{ canvas: this.renderer.capture(this.game, this.state, false) }], ...this.postcardText(`Greetings from ${this.game.catalog.definition.farm}`) });
         download(c, `second-growth-${this.game.map}-postcard-year-${this.game.year}.png`);
         track('photo_saved', { map: this.game.map, kind: 'postcard' });
       });
@@ -1636,126 +1430,21 @@ export class UI {
     if (this.photo) track('photo_mode', { map: this.game.map });
   }
 
-  // A keystone moment: the camera glides to it, letterbox bars slide in, the panels step aside
-  // and a title card tells the story. The game keeps running at normal speed so it plays out.
-  playMoment(m) {
-    const g = this.game, r = this.renderer;
-    // wait until the view is free, and leave a breather after the last one (at high speed a few
-    // game weeks go by in seconds, so two moments could otherwise come back to back)
-    const breather = 25000 - (performance.now() - (this.momentEnded ?? -1e9));
-    if (this.moment || this.modalOpen || this.photo || breather > 0) { setTimeout(() => this.playMoment(m), Math.max(3000, breather)); return; }
-    this.moment = m;
-    this.state.clean = true; // (the land and the animals only: no brush, overlay or selection ring)
-    m.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, speed: g.speed };
-    // a night moment (the fireflies) jumps the clock to a clear, warm night, and the meadows light up
-    if (m.night) {
-      r.setTimeOfDay(0.9); if (m.fireflies) r.fireflyBoost = 8; if (m.spawn) r.spawnBoost = 1;
-      // hold a clear night (no rain, no dawn) until the card is dismissed
-      m.hold = setInterval(() => { g.weather = 'clear'; g.weatherDays = 3; r.setTimeOfDay(0.9); }, 200);
-    }
-    if (g.speed !== 1) this.setSpeed(1);
-    const first = momentScene(g, m);
-    const fx = first?.x ?? m.agent?.x ?? m.x, fy = first?.y ?? m.agent?.y ?? m.y;
-    r.flyTo(fx, fy, first?.zoom ?? (m.agent ? 3.1 : 2.3), 2.4);
-    this.follow = null;
-    // an animal moment selects the animal, so leaves and branches in front of it dissolve
-    m.prevSel = g.selectedAgent;
-    if (m.agent) g.selectedAgent = m.agent;
-    else if (m.reveal) r.focusTile = { x: fx, y: fy }; // (a moment on a plant: see through the canopy over it, like Sumatra's corpse flower)
-    m.followTimer = setTimeout(() => {
-      if (this.moment !== m) return;
-      const scene = momentScene(g, m);
-      if (scene) this.follow = scene.follow ? scene.agent : null;
-      else if (m.agent && g.wildlife.agents.includes(m.agent)) this.follow = m.agent;
-    }, 2500);
-    g.notify(`${m.title}. ${m.text}`, 'discover', m.agent || { x: m.x, y: m.y });
-    const o = document.createElement('div'); o.id = 'moment';
-    o.innerHTML = `<div class="lb lb-top"></div><div class="lb lb-bot"></div>
-      <div class="mo-card"><small>A moment at ${biome.farm} · Year ${g.year}</small><h2>${m.title}</h2><div class="mo-beat" hidden></div><p class="mo-text">${m.text}</p>
-      <div class="mo-btns"><button class="btn secondary" data-a="card">Save postcard</button><button class="btn" data-a="go">Continue</button></div></div>`;
-    document.body.appendChild(o);
-    document.body.classList.add('moment-on');
-    // keep the subject out from under the title card: frame it in the open part of the screen
-    // (beside the card, or above it if there isn't room beside), which matters most on a phone
-    const card = o.querySelector('.mo-card');
-    const reframe = () => {
-      const vw = innerWidth, vh = innerHeight, x0 = card.offsetLeft, x1 = x0 + card.offsetWidth, y0 = card.offsetTop;
-      const covers = x0 < vw * 0.62 && x1 > vw * 0.38 && y0 < vh * 0.68;
-      r.frameGoal = !covers ? { x: 0.5, y: 0.5 } : vw - x1 >= vw * 0.3 ? { x: (x1 + vw) / 2 / vw, y: 0.48 } : { x: 0.5, y: Math.max(0.2, y0 / 2 / vh) };
-    };
-    reframe();
-    const phases = new Set();
-    const updateScene = () => {
-      if (this.moment !== m) return;
-      const scene = momentScene(g, m);
-      if (!scene) return;
-      if (scene.stage === m.stage && scene.agent === m.sceneAgent) return;
-      const initial = m.stage == null;
-      const changed = scene.stage !== m.stage;
-      m.stage = scene.stage; m.sceneAgent = scene.agent;
-      const beat = o.querySelector('.mo-beat'); beat.hidden = false; beat.textContent = scene.caption;
-      o.querySelector('.mo-text').textContent = scene.text;
-      this.follow = null;
-      g.selectedAgent = scene.agent;
-      r.focusTile = scene.agent ? null : { x: scene.x, y: scene.y };
-      if (!initial) {
-        r.flyTo(scene.x, scene.y, scene.zoom, 1.1);
-        clearTimeout(m.followTimer);
-        m.followTimer = setTimeout(() => {
-          if (this.moment !== m) return;
-          const current = momentScene(g, m);
-          this.follow = current?.follow ? current.agent : null;
-        }, 1100);
-      }
-      reframe();
-      if (!initial && changed && !phases.has(scene.stage)) g.notify(`${m.title} · ${scene.caption}. ${scene.text}`, 'discover', scene.agent || { x: scene.x, y: scene.y });
-      phases.add(scene.stage);
-    };
-    updateScene();
-    if (m.live) m.sceneTimer = setInterval(updateScene, 200);
-    window.addEventListener('resize', reframe);
-    requestAnimationFrame(() => o.classList.add('bars'));
-    setTimeout(() => o.classList.add('card'), 1500);
-    const end = (restore = true) => {
-      if (this.moment !== m) return;
-      this.follow = null;
-      r.fireflyBoost = 1; r.spawnBoost = 0;
-      if (m.hold) clearInterval(m.hold);
-      clearInterval(m.sceneTimer); clearTimeout(m.followTimer);
-      r.focusTile = null;
-      if (m.live || g.selectedAgent === m.agent) g.selectedAgent = m.prevSel && g.wildlife.agents.includes(m.prevSel) ? m.prevSel : null;
-      if (restore) { r.flyTo(m.prev.x, m.prev.z, m.prev.zoom, 1.6); this.setSpeed(m.prev.speed); }
-      r.frameGoal = { x: 0.5, y: 0.5 };
-      window.removeEventListener('resize', reframe);
-      o.classList.remove('bars', 'card');
-      document.body.classList.remove('moment-on');
-      setTimeout(() => o.remove(), 700);
-      window.removeEventListener('keydown', key, true);
-      this.moment = null; this.momentEnded = performance.now();
-      this.state.clean = !!this.photo;
-    };
-    m.end = end;
-    const key = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); end(); } };
-    window.addEventListener('keydown', key, true);
-    o.querySelector('[data-a=go]').addEventListener('click', end);
-    o.querySelector('[data-a=card]').addEventListener('click', async () => {
-      const c = await makePostcard({ images: [{ canvas: r.capture(g, this.state, false) }], ...this.postcardText(m.title) });
-      download(c, `second-growth-${g.map}-${m.key}.png`);
-      track('photo_saved', { map: g.map, kind: 'moment', moment: m.key });
-    });
-    track('moment', { moment: m.key, map: g.map, game_year: g.year });
-  }
+  playMoment(moment) { this.cinematics.play(moment); }
+  get moment() { return this.cinematics.moment; }
+  get momentEnded() { return this.cinematics.momentEnded; }
+  set momentEnded(time) { this.cinematics.momentEnded = time; }
 
   // What the land around the camera sounds like: how bare it is, how alive, how near water.
   landSound() {
-    return sampleSoundLand(this.game, this.renderer, biome, ANIMALS);
+    return sampleSoundLand(this.game, this.renderer, this.game.catalog.definition, this.game.catalog.animals);
   }
 
   postcardText(title) {
-    const g = this.game, season = biome.climate.seasons?.[g.season] || '';
+    const g = this.game, season = this.game.catalog.definition.climate.seasons?.[g.season] || '';
     return {
       title,
-      subtitle: `${biome.region} · Year ${g.year}${season ? `, ${season.toLowerCase()}` : ''}`,
+      subtitle: `${this.game.catalog.definition.region} · Year ${g.year}${season ? `, ${season.toLowerCase()}` : ''}`,
       stats: `${speciesPresent(g)} species · ecosystem health ${Math.round(g.cache.score?.total ?? 0)}${g.visitors.total ? ` · ${g.visitors.total.toLocaleString()} visitors` : ''}`,
       stamp: `YEAR ${g.year}`,
     };
@@ -1786,7 +1475,7 @@ export class UI {
     window.addEventListener('keydown', key, true);
     o.querySelector('[data-a=close]').addEventListener('click', close);
     o.querySelector('[data-a=card]').addEventListener('click', async () => {
-      const c = await makePostcard({ images: [{ canvas: then, label: 'Day one' }, { canvas: now, label: `Year ${g.year}` }], ...this.postcardText(`${biome.farm}, then and now`) });
+      const c = await makePostcard({ images: [{ canvas: then, label: 'Day one' }, { canvas: now, label: `Year ${g.year}` }], ...this.postcardText(`${this.game.catalog.definition.farm}, then and now`) });
       download(c, `second-growth-${g.map}-then-and-now-year-${g.year}.png`);
       track('photo_saved', { map: g.map, kind: 'then_and_now' });
     });
@@ -1800,13 +1489,13 @@ export class UI {
 
   openVisitors() {
     const g = this.game, v = g.visitors, f = v.facilities();
-    const seen = v.seenLast.map(k => ANIMALS[k].name);
+    const seen = v.seenLast.map(k => this.game.catalog.animals[k].name);
     const tips = [];
     if (!f.parking) tips.push('Build a <b>trailhead parking</b> lot beside a road (Visitors tab), then run a trail out from it.');
     if (f.parking && v.net.length < 40) tips.push('Longer trails bring more visitors. Loop them past water, meadows and old trees.');
     if (!f.center && f.parking) tips.push('A <b>visitor center</b> nearly doubles what each visitor gives.');
     if (f.blinds < 2) tips.push('<b>Viewing blinds</b> let people watch wildlife without scaring it off.');
-    const shy = ANIMALS.filter(a => a.shy >= 0.5).sort((a, b) => b.shy - a.shy).slice(0, 5).map(a => a.name);
+    const shy = this.game.catalog.animals.filter(a => a.shy >= 0.5).sort((a, b) => b.shy - a.shy).slice(0, 5).map(a => a.name);
     tips.push(`Shy animals (${shy.join(', ')}) avoid busy trails. Keep some of the land quiet.`);
     const stars = n => '★★★★★'.slice(0, Math.round(n)) + '☆☆☆☆☆'.slice(0, 5 - Math.round(n));
     // where the stars come from, and the single biggest thing to fix
@@ -1835,11 +1524,11 @@ export class UI {
 
   openIntro(first = true, hasSave = false, onClose = null) {
     // first visit: every place pinned on a world map, so the choice is obvious at a glance
-    const maps = first ? `${worldMap(BIOME_LIST)}<p class="small wm-cap">${['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'][BIOME_LIST.length - 1] || BIOME_LIST.length} places to bring back. Tap a pin to pick one, or start right here at ${biome.farm}.</p>` : '';
+    const maps = first ? `${worldMap(BIOME_LIST)}<p class="small wm-cap">${['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'][BIOME_LIST.length - 1] || BIOME_LIST.length} places to bring back. Tap a pin to pick one, or start right here at ${this.game.catalog.definition.farm}.</p>` : '';
     const body = `<div class="intro">${maps}
-      ${biome.story}
+      ${this.game.catalog.definition.story}
       <h3>How nature works here</h3>
-      <ul>${biome.rules.map(r => `<li>${r}</li>`).join('')}</ul>
+      <ul>${this.game.catalog.definition.rules.map(r => `<li>${r}</li>`).join('')}</ul>
       <h3>Controls</h3>
       <ul>
         ${TOUCH ? `<li>Move the map with the <b>thumbstick</b> at the bottom left or with <b>two fingers</b>, and <b>pinch</b> to zoom. The arrows at the bottom right rotate the view.</li>
@@ -1851,7 +1540,7 @@ export class UI {
         <li>Use <b>Inspect</b> to click any tile or animal. The <b>Overlay</b> menu shows moisture, soil, sunlight, fish passage, or where a species could live.</li>
       </ul>
       <h3>A good first year</h3>
-      <ul>${biome.firstYear.map(r => `<li>${r}</li>`).join('')}</ul></div>`;
+      <ul>${this.game.catalog.definition.firstYear.map(r => `<li>${r}</li>`).join('')}</ul></div>`;
     const foot = first
       ? (hasSave ? `<button class="btn secondary" data-a="new">New game</button><button class="btn" data-a="continue">Continue restoration</button>`
         : `<button class="btn" data-a="start">Start restoring</button>`)

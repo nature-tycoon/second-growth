@@ -5,7 +5,8 @@ import { ANIMALS } from '../js/data/animals.js';
 import { renderPortrait } from '../js/render3d/portraits.js';
 import { T } from '../js/config.js';
 import { releaseGame } from './release-fixtures.mjs';
-import { TOOLS, toolCost } from '../js/tools.js';
+import { TOOLS } from '../js/tools.js';
+import { ToolActions } from '../js/tool-actions.js';
 import { Undo } from '../js/undo.js';
 
 const params = new URLSearchParams(location.search), map = params.get('map') || 'pnw';
@@ -61,9 +62,9 @@ try {
   function interactions() {
     const undo = new Undo(game), before = game.saveData(), money = game.money;
     const i = w.terrain.findIndex((t, i) => t !== T.RIVER && w.struct[i] < 0), tool = TOOLS.raise;
-    undo.begin(tool); undo.touch(i); const cost = toolCost(game, tool, i);
-    if (tool.apply(game, i, game.rng) !== true || !game.spend(cost, tool.cat)) throw new Error('Landscape tool failed');
-    undo.end({ cost, count: 1 }); renderer.markTileDirty(); draw();
+    const actions = new ToolActions(game, { undo });
+    if (actions.apply(tool, [i], { random: game.rng }).count !== 1) throw new Error('Landscape tool failed');
+    renderer.markTileDirty(); draw();
     if (!undo.undo(renderer) || game.money !== money) throw new Error('Landscape undo failed');
     if (!game.restoreSave(before)) throw new Error('World restore failed');
     draw();

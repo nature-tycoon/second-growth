@@ -6,11 +6,11 @@
 // Built when the map loads, from shared helpers (see campaign.js).
 
 import { perimeterFence } from './goals.js';
-import { PLANT } from '../data/plants.js';
+
 
 // tiles where a given ground plant has properly established
 const established = (w, key) => {
-  const id = PLANT[key]?.id; let n = 0;
+  const id = w.catalog.plant[key]?.id; let n = 0;
   for (let i = 0; i < w.n; i++) if (w.ground[i] === id && w.groundG[i] > 0.4) n++;
   return n;
 };

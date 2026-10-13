@@ -2,7 +2,7 @@
 // decorative surroundings (forest to the north and east, river to the south, road west).
 
 import { MAP_W, MAP_H, BORDER, T, F, isWater, clamp } from './config.js';
-import { PLANT } from './data/plants.js';
+import { activeCatalog } from './data/catalog.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
 
 export const STRUCTURES = {
@@ -25,7 +25,8 @@ export const STRUCTURES = {
 export const riverRow = (x, h = MAP_H) => h - 6 + Math.round(valueNoise(x, 0, 13, 3) * 2.4 - 1.2); // (h: the map's height)
 
 export class World {
-  constructor(w = MAP_W, h = MAP_H) {
+  constructor(w = MAP_W, h = MAP_H, catalog = activeCatalog) {
+    this.catalog = catalog;
     this.w = w; this.h = h; const n = this.n = w * h;
     const u8 = () => new Uint8Array(n), f32 = () => new Float32Array(n);
     this.terrain = u8(); this.baseMoist = f32(); this.moist = f32(); this.soil = f32();
@@ -116,7 +117,7 @@ export class World {
   }
 
   addStructure(type, x, y) {
-    const d = STRUCTURES[type];
+    const d = this.catalog.structures[type];
     const s = { type, x, y, w: d.w, h: d.h };
     const k = this.structures.length;
     this.structures.push(s);
@@ -147,8 +148,8 @@ export class World {
 
 // ---------------------------------------------------------------- Farm generation
 
-export function generateFarm(seed = 1987) {
-  const w = new World();
+export function generateFarm(seed = 1987, catalog = activeCatalog) {
+  const w = new World(undefined, undefined, catalog);
   const rng = mulberry32(seed);
   const W = w.w, Hh = w.h;
   const riverTop = riverRow;
@@ -238,7 +239,7 @@ export function generateFarm(seed = 1987) {
   const plant = (key, x, y, g = 1, ageYears = 30) => {
     const i = w.idx(x, y);
     if (w.struct[i] >= 0) return;
-    w.setPlant(i, PLANT[key], g, ageYears * 120);
+    w.setPlant(i, catalog.plant[key], g, ageYears * 120);
     w.soil[i] = Math.max(w.soil[i], 0.45);
   };
   plant('maple', 25, 24, 1, 70);
@@ -263,14 +264,14 @@ export function generateFarm(seed = 1987) {
       if (w.inb(xx, yy) && w.terrain[w.idx(xx, yy)] === T.CREEK) nearDitch = true;
     }
     if (nearDitch) {
-      if (rng() < 0.6) w.setPlant(i, PLANT.canarygrass, 0.7 + rng() * 0.3);
-      if (rng() < 0.28) w.setPlant(i, PLANT.blackberry, 0.6 + rng() * 0.4);
+      if (rng() < 0.6) w.setPlant(i, catalog.plant.canarygrass, 0.7 + rng() * 0.3);
+      if (rng() < 0.28) w.setPlant(i, catalog.plant.blackberry, 0.6 + rng() * 0.4);
     }
-    if (w.feature[i] === F.FENCE && x > 0 && y > 0 && x < W - 1 && rng() < 0.3) w.setPlant(i, PLANT.blackberry, 0.5 + rng() * 0.5);
-    if (t === T.MUD && rng() < 0.35) w.setPlant(i, PLANT.canarygrass, 0.6);
+    if (w.feature[i] === F.FENCE && x > 0 && y > 0 && x < W - 1 && rng() < 0.3) w.setPlant(i, catalog.plant.blackberry, 0.5 + rng() * 0.5);
+    if (t === T.MUD && rng() < 0.35) w.setPlant(i, catalog.plant.canarygrass, 0.6);
     const riverBank = y >= riverTop(x) - 4;
-    if (riverBank && t !== T.GRAVEL && rng() < 0.35) w.setPlant(i, PLANT.canarygrass, 0.8);
-    if (riverBank && rng() < 0.12) w.setPlant(i, PLANT.blackberry, 0.8);
+    if (riverBank && t !== T.GRAVEL && rng() < 0.35) w.setPlant(i, catalog.plant.canarygrass, 0.8);
+    if (riverBank && rng() < 0.12) w.setPlant(i, catalog.plant.blackberry, 0.8);
   }
   // Blackberry thickets by the river road and the barn, broom on the dry hill.
   const blob = (cx, cy, rx, ry, key, dens) => {
@@ -278,7 +279,7 @@ export function generateFarm(seed = 1987) {
       const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
       const t = w.terrain[i];
       if (d < 1 && rng() < dens * (1.2 - d) && w.struct[i] < 0 && t !== T.ROAD && t !== T.CREEK && t !== T.RIVER && t !== T.POND)
-        w.setPlant(i, PLANT[key], 0.6 + rng() * 0.4);
+        w.setPlant(i, catalog.plant[key], 0.6 + rng() * 0.4);
     });
   };
   blob(10, 79, 7, 3, 'blackberry', 0.9);
@@ -349,29 +350,29 @@ export function pnwBorderCell(x, y, r, r2, world) {
   if (y >= world.h + 3) {
     // far bank of the river
     t = y === world.h + 3 ? T.GRAVEL : T.PASTURE;
-    if (y > world.h + 3 && r < 0.45) { tree = r2 < 0.6 ? PLANT.cottonwood.id : PLANT.alder.id; g = 0.8 + r2 * 0.2; }
-    if (y > world.h + 3 && r > 0.6) shrub = PLANT.willow.id;
+    if (y > world.h + 3 && r < 0.45) { tree = r2 < 0.6 ? world.catalog.plant.cottonwood.id : world.catalog.plant.alder.id; g = 0.8 + r2 * 0.2; }
+    if (y > world.h + 3 && r > 0.6) shrub = world.catalog.plant.willow.id;
   } else if (y >= rt) {
     t = T.RIVER;
   } else if (x < 0) {
     if (x === -2) t = T.ROAD;
-    else if (x === -1) { t = T.PASTURE; if (r < 0.3) shrub = PLANT.blackberry.id; }
-    else if (y < 0) { t = T.DUFF; tree = PLANT.fir.id; g = 0.7 + r2 * 0.3; if (r < 0.2) tree = 0; }
-    else { t = T.FIELD; if (x === -3 && r < 0.5) shrub = PLANT.blackberry.id; }
+    else if (x === -1) { t = T.PASTURE; if (r < 0.3) shrub = world.catalog.plant.blackberry.id; }
+    else if (y < 0) { t = T.DUFF; tree = world.catalog.plant.fir.id; g = 0.7 + r2 * 0.3; if (r < 0.2) tree = 0; }
+    else { t = T.FIELD; if (x === -3 && r < 0.5) shrub = world.catalog.plant.blackberry.id; }
   } else if (y < 0) {
     t = T.DUFF;
     if (r < 0.82) {
       const s = r2 < 0.45 ? 'fir' : r2 < 0.75 ? 'hemlock' : r2 < 0.9 ? 'cedar' : 'maple';
-      tree = PLANT[s].id; g = 0.75 + hash2(x, y, 45) * 0.25;
-    } else shrub = r2 < 0.5 ? PLANT.vinemaple.id : PLANT.salal.id;
-    ground = PLANT.swordfern.id;
+      tree = world.catalog.plant[s].id; g = 0.75 + hash2(x, y, 45) * 0.25;
+    } else shrub = r2 < 0.5 ? world.catalog.plant.vinemaple.id : world.catalog.plant.salal.id;
+    ground = world.catalog.plant.swordfern.id;
   } else if (x >= world.w) {
     t = T.DUFF;
     if (r < 0.72) {
       const s = r2 < 0.35 ? 'alder' : r2 < 0.55 ? 'maple' : r2 < 0.85 ? 'fir' : 'cedar';
-      tree = PLANT[s].id; g = 0.7 + hash2(x, y, 45) * 0.3;
-    } else shrub = r2 < 0.5 ? PLANT.salmonberry.id : PLANT.snowberry.id;
-    ground = PLANT.swordfern.id;
+      tree = world.catalog.plant[s].id; g = 0.7 + hash2(x, y, 45) * 0.3;
+    } else shrub = r2 < 0.5 ? world.catalog.plant.salmonberry.id : world.catalog.plant.snowberry.id;
+    ground = world.catalog.plant.swordfern.id;
   }
   return { t, tree, g, shrub, ground };
 }

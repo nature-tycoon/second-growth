@@ -5,20 +5,21 @@
 
 import { H } from '../config.js';
 import { habW } from './animals.js';
-import { PLANT } from './plants.js';
+
 
 // what's living on a tile
 const coral = (W, i) => (W.tree[i] && W.treeG[i] > 0.3 ? 1 : 0);
-const has = (W, i, layer, key) => W[layer][i] === PLANT[key]?.id && W[layer + 'G'][i] > 0.35;
-const algae = (W, i) => (W.ground[i] === PLANT.turf?.id ? W.groundG[i] : 0);
-const branching = (W, i) => (W.tree[i] === PLANT.staghorn?.id && W.treeG[i] > 0.35 ? 1 : 0);
+const has = (W, i, layer, key) => W[layer][i] === W.catalog.plant[key]?.id && W[layer + 'G'][i] > 0.35;
+const algae = (W, i) => (W.ground[i] === W.catalog.plant.turf?.id ? W.groundG[i] : 0);
+const branching = (W, i) => (W.tree[i] === W.catalog.plant.staghorn?.id && W.treeG[i] > 0.35 ? 1 : 0);
 // an old coral head, where cleaner wrasse set up shop
-const station = (W, i) => ((W.tree[i] === PLANT.boulder?.id || W.tree[i] === PLANT.brain?.id) && W.treeAge[i] > 40 * 120 ? 1 : 0);
+const station = (W, i) => ((W.tree[i] === W.catalog.plant.boulder?.id || W.tree[i] === W.catalog.plant.brain?.id) && W.treeAge[i] > 40 * 120 ? 1 : 0);
 // shade to rest in under a big plate of coral (table corals, and the whorls of plate coral)
-const ledge = (W, i) => ((W.tree[i] === PLANT.tablecoral?.id || W.tree[i] === PLANT.montipora?.id) && W.treeG[i] > 0.5 ? 1 : 0);
-const table = (W, i) => (W.tree[i] === PLANT.tablecoral?.id && W.treeG[i] > 0.5 ? 1 : 0);
-const soft = (W, i) => (W.shrub[i] && (W.shrub[i] === PLANT.sponge?.id || W.shrub[i] === PLANT.softcoral?.id) && W.shrubG[i] > 0.35 ? 1 : 0);
+const ledge = (W, i) => ((W.tree[i] === W.catalog.plant.tablecoral?.id || W.tree[i] === W.catalog.plant.montipora?.id) && W.treeG[i] > 0.5 ? 1 : 0);
+const table = (W, i) => (W.tree[i] === W.catalog.plant.tablecoral?.id && W.treeG[i] > 0.5 ? 1 : 0);
+const soft = (W, i) => (W.shrub[i] && (W.shrub[i] === W.catalog.plant.sponge?.id || W.shrub[i] === W.catalog.plant.softcoral?.id) && W.shrubG[i] > 0.35 ? 1 : 0);
 
+/** @param {import('./contracts.js').DefineAnimal} def */
 export default function buildReefAnimals(def) {
   const reef = habW({ YOUNG_FOREST: 0.8, MATURE_FOREST: 1, SHRUB: 0.6, MEADOW: 0.25, INVASIVE: 0.25, BARE: 0.1 });
   const meadow = habW({ MEADOW: 1, YOUNG_FOREST: 0.3, MATURE_FOREST: 0.4, SHRUB: 0.3 });
@@ -143,7 +144,7 @@ export default function buildReefAnimals(def) {
     hint: 'Plenty of fish near the surface.' });
   def({ key: 'noddy', name: 'Black noddy', sci: 'Anous minutus', group: 'Seabirds', move: 'fly',
     speed: 2.6, hr: 30, max: 40, minK: 4, groupSize: [4, 8], sources: ['N', 'E'], mig: 0.6, breed: [7, 8, 9], litter: [1, 1], life: 18, mature: 2,
-    suit: (W, i) => (W.tree[i] === PLANT.pisonia?.id && W.treeG[i] > 0.45 ? 1 : 0),
+    suit: (W, i) => (W.tree[i] === W.catalog.plant.pisonia?.id && W.treeG[i] > 0.45 ? 1 : 0),
     sprite: { kind: 'songbird', size: 12, color: '#2e2a28', breast: '#3a3430', head: '#34302c', cap: '#ecebe6', tailLength: 0.4, tailGraduation: -0.08, wingShape: 'pointed', bill: '#1a1a1a' },
     desc: 'A small dark tern with a white cap. It nests by the thousand in the cay\'s pisonia trees, and its droppings feed the island and the reef around it.',
     hint: 'Pisonia trees on the cay to nest in.' });

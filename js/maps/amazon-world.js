@@ -5,11 +5,11 @@
 
 import { World, riverRow, generateHeights } from '../world.js';
 import { T, F } from '../config.js';
-import { PLANT } from '../data/plants.js';
+import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
-export function generateRanch(seed = 2024) {
-  const w = new World();
+export function generateRanch(seed = 2024, catalog = activeCatalog) {
+  const w = new World(undefined, undefined, catalog);
   const rng = mulberry32(seed);
   const W = w.w, Hh = w.h;
 
@@ -17,7 +17,7 @@ export function generateRanch(seed = 2024) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (w.inb(x, y)) fn(w.idx(x, y), x, y);
   };
   const open = i => { const t = w.terrain[i]; return t !== T.CREEK && t !== T.RIVER && t !== T.POND && t !== T.ROAD && t !== T.MARSH && w.struct[i] < 0; };
-  const set = (i, key, g, years = 0) => w.setPlant(i, PLANT[key], g, years * 120);
+  const set = (i, key, g, years = 0) => w.setPlant(i, catalog.plant[key], g, years * 120);
 
   // Base: compacted pasture on poor red soil, wetter toward the river.
   for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
@@ -139,7 +139,7 @@ export function generateRanch(seed = 2024) {
 // The land around the ranch: rainforest north and east, a neighbour's pasture west,
 // the river south with flooded forest on the far bank.
 export function amazonBorderCell(x, y, r, r2, world) {
-  const P = k => PLANT[k].id;
+  const P = k => world.catalog.plant[k].id;
   const rt = riverRow(x);
   if (y >= world.h + 3) {
     const tree = r < 0.55 ? P(r2 < 0.35 ? 'acai' : r2 < 0.55 ? 'cecropia' : r2 < 0.75 ? 'kapok' : r2 < 0.9 ? 'buriti' : 'fig') : 0;

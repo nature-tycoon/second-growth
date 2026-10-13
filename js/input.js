@@ -1,17 +1,10 @@
 // Mouse and keyboard: camera control, brushing tools across the map, inspecting.
 
 import { tr } from './i18n.js';
-import { STRUCTURES } from './world.js';
-import { TILE, T, money } from './config.js';
-import { TOOLS, brushTiles, strokeTiles, toolCost, bestSuit } from './tools.js';
-import { PLANTS } from './data/plants.js';
-import { ANIMALS } from './data/animals.js';
-import { plantLimits } from './sim/plants.js';
+import { T, money } from './config.js';
+import { strokeTiles, toolCost, bestSuit } from './tools.js';
 import { settings } from './settings.js';
 
-let firstToolSent = false; // once per page load
-import { track } from './analytics.js';
-import { biome } from './biome.js';
 
 const SHIFTED = { '-': '_', '_': '-', '=': '+', '+': '=' };
 const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
@@ -159,12 +152,12 @@ export class Input {
     if (this.mouse.in && !this.pan) this.updateHover();
   }
 
-  tool() { return this.ui.state.tool && !this.ui.state.clean ? TOOLS[this.ui.state.tool] : null; } // (no painting through a keystone moment)
+  tool() { return this.ui.state.tool && !this.ui.state.clean ? this.game.catalog.tools[this.ui.state.tool] : null; } // (no painting through a keystone moment)
   // The tile under the pointer. Snorkel-trail buoys float at the sea surface, so that tool picks
   // the tile straight below the point on the surface, not the seabed further along the same line
   // of sight (seen from above at an angle, that's a tile or two off).
   pick(sx, sy) {
-    const surface = biome.buoyTrails && this.ui.state.tool === 'trail';
+    const surface = this.game.catalog.definition.buoyTrails && this.ui.state.tool === 'trail';
     return this.r.screenToTile(sx, sy, surface ? this.r.seaY : null);
   }
 
@@ -176,7 +169,7 @@ export class Input {
   // here (targetTouches): a thumb resting on the stick doesn't turn a stroke into a pinch.
   fake(x, y) { return { button: 0, clientX: x, clientY: y, preventDefault() {} }; }
   touchStart(e) {
-    e.preventDefault(); // also stops the browser's emulated mouse events and page zoom
+    if (e.cancelable) e.preventDefault(); // also stops emulated mouse events and page zoom
     this.touching = true;
     this.fling = null;
     if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
@@ -205,7 +198,7 @@ export class Input {
     this.down(this.fake(T.x, T.y));
   }
   touchMove(e) {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     const T = this.touch, ts = e.targetTouches;
     if (!T) return;
     if (T.mode === 'gesture' && ts.length >= 2) {
@@ -236,7 +229,7 @@ export class Input {
     T.x = t.clientX; T.y = t.clientY; T.t = now;
   }
   touchEnd(e) {
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
     const T = this.touch;
     if (!T) return;
     const ts = e.targetTouches;
@@ -326,8 +319,8 @@ export class Input {
     const tool = this.tool();
     if (!tool) { this.inspectAt(t); return; }
     if (!this.game.world.inb(t.x, t.y)) return;
-    this.stroke = { applied: new Set(), cost: 0, count: 0, unsuitable: 0, broke: false, last: null, tool };
-    this.ui.undo.begin(tool);
+    this.stroke = this.ui.actions.begin(tool);
+    if (!this.stroke) return;
     if (tool.brush) document.body.classList.add('painting');
     this.applyAt(t.x, t.y);
     if (!tool.brush) this.endStroke();
@@ -368,66 +361,18 @@ export class Input {
   }
 
   applyAt(x, y) {
-    const s = this.stroke, g = this.game, w = g.world, tool = s.tool;
-    s.last = { x, y };
-    if (!w.inb(x, y)) return;
-    const tiles = tool.brush ? strokeTiles(w, tool, x, y, this.ui.state.brushR) : [w.idx(x, y)];
-    for (const i of tiles) {
-      if (s.applied.has(i)) continue;
-      s.applied.add(i);
-      if (biome.canEdit && !biome.canEdit(g, i)) { s.locked = s.locked ?? i; continue; }
-      const cost = toolCost(g, tool, i);
-      if (cost > 0 && !g.canAfford(cost)) { s.broke = true; continue; }
-      const res = tool.apply(g, i, Math.random);
-      if (res === true) {
-        g.stats.used ||= {};
-        g.stats.used[tool.key] = (g.stats.used[tool.key] || 0) + 1;
-        this.r.markTileDirty(i % w.w, (i / w.w) | 0);
-        this.ui.undo.touch(i);
-        if (cost > 0) g.spend(cost, tool.cat); else if (cost < 0) g.earn(-cost, 'salvage');
-        s.cost += cost; s.count++;
-        s.lastOk = i;
-      } else if (res === 'unsuitable') { s.unsuitable++; s.lastBad = i; }
-    }
-    w.renderDirty = true;
+    const w = this.game.world;
+    const changed = this.ui.actions.paint(this.stroke, x, y, this.ui.state.brushR);
+    for (const i of changed) this.r.markTileDirty(i % w.w, Math.floor(i / w.w));
     this.hoverKey = null;
   }
 
   endStroke() {
-    const s = this.stroke, g = this.game;
+    const s = this.stroke;
     this.stroke = null; this.hoverKey = null;
     document.body.classList.remove('painting');
     if (!s) return;
-    if ((s.tool.key === 'trail' || s.tool.key === 'boardwalk' || s.tool.key === 'blind') && s.count && !g.visitors.facilities().parking && !g.flags.trailHint) {
-      g.flags.trailHint = true;
-      g.notify('Visitors need a way in: build a Trailhead parking lot right beside a road, then connect your trail to it.', 'warn');
-    }
-    if (s.locked != null && !s.count && biome.lockedNote) g.notify(biome.lockedNote(g, s.locked), 'info');
-    if (s.tool.cat === 'land' || s.tool.key === 'demolish' || s.tool.key === 'log') g.refreshEnvironment();
-    else if (s.count) g.refreshEnvironment();
-    // (the stroke's shade and moisture reach past the painted tiles: repaint the whole ground once)
-    if (s.count) this.r.markTileDirty();
-    if (s.count) {
-      track('tool_used', { tool: s.tool.key, category: s.tool.cat, tiles: s.count, cost: Math.round(s.cost) });
-      // how long it takes a new player to do anything at all
-      if (!firstToolSent) { firstToolSent = true; track('first_tool', { tool: s.tool.key, category: s.tool.cat, seconds_since_load: Math.round(performance.now() / 1000) }); }
-    }
-    else if (s.broke || s.unsuitable) track('tool_failed', { tool: s.tool.key, category: s.tool.cat, reason: s.broke ? 'money' : 'unsuitable' });
-    if (s.broke) g.notify(`Not enough money. Monthly grants will top up your budget. Healthier land earns bigger grants.`, 'warn');
-    if (!s.count && s.unsuitable && s.tool.species) {
-      const p = PLANTS.find(q => q && q.key === s.tool.species[0]);
-      const lim = s.lastBad != null ? plantLimits(g.world, s.lastBad, p) : [];
-      g.notify(`${s.tool.name} won't survive here${lim.length ? ` (${lim.join(', ')})` : ''}. Green previews show where it will grow.`, 'warn');
-      // the first time: why nothing takes on hardpan, and what to do about it
-      if (biome.hardpan && s.lastBad != null && g.world.terrain[s.lastBad] === T.GRAVEL && !g.flags.hardpanHint) {
-        g.flags.hardpanHint = true;
-        g.notify(biome.text.hardpanHint || 'This is crusted hardpan: rain runs straight off it and seed can\'t root. Break the crust first with Landscape → Loosen soil or Half-moon pits, then sow. Only the Soil builders mix will take on bare crust, slowly.', 'info', { x: s.lastBad % g.world.w + 0.5, y: ((s.lastBad / g.world.w) | 0) + 0.5 });
-      }
-    }
-    this.ui.undo.end(s);
-    this.ui.refreshUndo();
-    this.ui.renderInfo();
-    if (s.tool.cat === 'visitors') this.ui.renderToolPanel();
+    this.ui.actions.end(s);
   }
 
   inspectAt(t) {
@@ -461,12 +406,12 @@ export class Input {
     for (const i of tiles) {
       let color = 'rgba(255,250,230,0.16)';
       if (tool.species) {
-        const layer = PLANTS.find(p => p && p.key === tool.species[0]).layer;
+        const layer = this.game.catalog.plants.find(p => p && p.key === tool.species[0]).layer;
         const occupied = layer === 0 ? w.ground[i] : layer === 1 ? w.shrub[i] : w.tree[i];
         const s = bestSuit(g, i, tool.species);
         color = occupied ? 'rgba(80,80,80,0.2)' : s > 0.55 ? 'rgba(110,220,110,0.36)' : s > 0.3 ? 'rgba(235,210,90,0.36)' : 'rgba(220,90,70,0.34)';
       } else if (tool.key === 'pull') {
-        const inv = (w.ground[i] && PLANTS[w.ground[i]].invasive) || (w.shrub[i] && PLANTS[w.shrub[i]].invasive);
+        const inv = (w.ground[i] && this.game.catalog.plants[w.ground[i]].invasive) || (w.shrub[i] && this.game.catalog.plants[w.shrub[i]].invasive);
         color = inv ? 'rgba(230,90,160,0.4)' : 'rgba(255,250,230,0.1)';
       } else if (tool.key === 'demolish') {
         color = toolCost(g, tool, i) !== 0 || w.struct[i] >= 0 ? 'rgba(230,120,70,0.45)' : 'rgba(255,250,230,0.1)';
@@ -480,12 +425,12 @@ export class Input {
     let txt = tr(tool.name);
     if (tool.key === 'demolish') {
       if (w.struct[i0] >= 0 || cost) txt += cost < 0 ? ` · ${tr(`earns ${money(-cost)} salvage`)}` : ` · ${money(cost)}`;
-      if (w.struct[i0] >= 0 && STRUCTURES[w.structures[w.struct[i0]]?.type]?.roost) txt += ` · <span class="bad">${tr('bat roost')}</span>`;
+      if (w.struct[i0] >= 0 && this.game.catalog.structures[w.structures[w.struct[i0]]?.type]?.roost) txt += ` · <span class="bad">${tr('bat roost')}</span>`;
     } else if (cost) txt += ` · ${tool.brush ? tr(`${money(cost)}/tile`) : money(cost)}`;
     if (tool.species) {
       const s = bestSuit(g, i0, tool.species);
       txt += s > 0.55 ? ` · ${tr('good spot')}` : s > 0.3 ? ` · ${tr('okay spot')}` : ` · <span class="bad">${tr('poor spot')}</span>`;
-      if (biome.hardpan && w.terrain[i0] === T.GRAVEL && !tool.species.some(k => PLANTS.find(p => p?.key === k)?.crustOK || PLANTS.find(p => p?.key === k)?.gravelOK)) txt += ` · <span class="bad">${tr(biome.text.hardpanTip || 'hardpan: loosen it first')}</span>`;
+      if (this.game.catalog.definition.hardpan && w.terrain[i0] === T.GRAVEL && !tool.species.some(k => this.game.catalog.plants.find(p => p?.key === k)?.crustOK || this.game.catalog.plants.find(p => p?.key === k)?.gravelOK)) txt += ` · <span class="bad">${tr(this.game.catalog.definition.text.hardpanTip || 'hardpan: loosen it first')}</span>`;
     }
     if (this.stroke && this.stroke.cost) txt += ` · ${tr(`spent ${money(this.stroke.cost)}`)}`;
     this.tip.innerHTML = txt;

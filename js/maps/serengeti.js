@@ -5,11 +5,11 @@ import buildSerengetiPlants from '../data/plants-serengeti.js';
 import buildSerengetiAnimals from '../data/animals-serengeti.js';
 import { generateRange, serengetiBorderCell } from './serengeti-world.js';
 import { PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
-import { PLANT } from '../data/plants.js';
+
 
 const reuse = key => PNW_GOALS.find(g => g.key === key);
 const countPlant = (w, key, layer = 'ground', minG = 0.4) => {
-  const id = PLANT[key]?.id; let n = 0;
+  const id = w.catalog.plant[key]?.id; let n = 0;
   const ids = w[layer], gs = w[layer + 'G'];
   for (let i = 0; i < w.n; i++) if (ids[i] === id && gs[i] > minG) n++;
   return n;

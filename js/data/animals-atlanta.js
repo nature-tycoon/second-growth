@@ -7,6 +7,7 @@
 
 import { habW, near } from './animals.js';
 
+/** @param {import('./contracts.js').DefineAnimal} def */
 export default function buildAtlantaAnimals(def) {
   const stat = (g, k) => g.stats?.[k] || 0;
   const net = (W, i, n) => Math.min(1, (W.canopyNet?.[i] || 0) / n);

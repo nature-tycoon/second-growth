@@ -15,7 +15,7 @@ function fixture(map, terrain = T.SOIL, moisture = .65) {
   const w = new World(9, 9);
   w.terrain.fill(terrain); w.moist.fill(moisture); w.baseMoist.fill(moisture);
   w.soil.fill(.8); w.distWater.fill(10); w.distLog.fill(255);
-  return { world: w, month: 4, rng: () => 1, diff: {}, flags: {}, stats: { planted: 0, dug: 0 } };
+  return { world: w, catalog: w.catalog, month: 4, rng: () => 1, diff: {}, flags: {}, stats: { planted: 0, dug: 0 } };
 }
 check('Floating plants establish, survive and grow in pond interiors on three maps', () => {
   for (const [map, keys] of [['amazon', ['waterlily', 'hyacinth']], ['serengeti', ['bluelily']], ['sumatra', ['lotus']]]) {

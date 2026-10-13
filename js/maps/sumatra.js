@@ -9,8 +9,7 @@ import buildSumatraPlants from '../data/plants-sumatra.js';
 import buildSumatraAnimals from '../data/animals-sumatra.js';
 import { generateEstate, sumatraBorderCell, isPeat, streamX } from './sumatra-world.js';
 import { PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
-import { PLANT, PLANTS, isFruiting } from '../data/plants.js';
-import { ANIMAL, ANIMALS } from '../data/animals.js';
+import { isFruiting } from '../data/plants.js';
 import { T, F, clamp } from '../config.js';
 import { moment, arrivalMoment } from '../sim/moments.js';
 import { valueNoise } from '../rng.js';
@@ -20,7 +19,7 @@ const st = (g, k) => g.world.stats?.[k] || 0;
 const invPct = g => (g.cache.score?.invFrac ?? 1) * 100;
 const wetPct = g => st(g, 'peat') ? Math.round(100 * st(g, 'peatWet') / st(g, 'peat')) : 0;
 const felled = g => g.stats.palmsFelled || 0;
-const isPalm = (w, i) => w.tree[i] && PLANTS[w.tree[i]].key === 'oilpalm';
+const isPalm = (w, i) => w.tree[i] && w.catalog.plants[w.tree[i]].key === 'oilpalm';
 
 const GOALS = [
   { key: 'plant', name: 'First seedlings', reward: 1000,
@@ -159,7 +158,7 @@ function peatDaily(g, rate = 0.025) {
       if (!held[i] || !isPeat(w, i) || natural(w)[i] || w.feature[i] === F.DAM) continue;
       if (g.rng() < 0.012) { // (and sedges and swamp ferns take it over)
         w.terrain[i] = T.MARSH; w.hydroDirty = true;
-        w.setPlant(i, PLANT[g.rng() < 0.6 ? 'purun' : 'kelakai'], 0.25);
+        w.setPlant(i, g.catalog.plant[g.rng() < 0.6 ? 'purun' : 'kelakai'], 0.25);
       }
     } else if (rains && (t === T.PASTURE || t === T.SOIL || t === T.MUD) && !w.tree[i] && !w.feature[i] && w.struct[i] < 0 && isPeat(w, i)
       && w.baseMoist[i] > 0.57 && hollow(i % W, (i / W) | 0) && g.rng() < 0.006) {
@@ -179,7 +178,7 @@ function estateStats(w, s) {
       if (t !== T.CREEK && t !== T.RIVER && t !== T.POND && t !== T.ROAD) { peat++; if (w.baseMoist[i] >= 0.5 || t === T.MARSH) peatWet++; }
     }
     if (!w.tree[i]) continue;
-    const p = PLANTS[w.tree[i]];
+    const p = w.catalog.plants[w.tree[i]];
     if (p.key === 'oilpalm') { if (w.treeG[i] > 0.6) palms++; continue; }
     if (p.invasive || w.treeG[i] < 0.5) continue;
     // a forest tree growing up among the palms
@@ -218,11 +217,11 @@ function estateDaily(g) {
     let worth = 0; const kinds = new Set();
     for (let i = 0; i < w.n; i++) {
       const id = w.tree[i]; if (!id) continue;
-      const p = PLANTS[id];
+      const p = g.catalog.plants[id];
       if (p.harvest && w.treeG[i] > 0.7 && isFruiting(p, g.month)) { worth += p.harvest; kinds.add(p.name.toLowerCase()); }
     }
     if (worth > 0) {
-      const eaters = ANIMALS.filter(a => a.frugivore).reduce((s, a) => s + g.wildlife.state[a.index].pop, 0);
+      const eaters = g.catalog.animals.filter(a => a.frugivore).reduce((s, a) => s + g.wildlife.state[a.index].pop, 0);
       const share = Math.min(0.4, eaters / 250);
       const sold = Math.round(worth * (1 - share));
       g.earn(sold, 'fruit'); g.cache.fruitSales = sold;
@@ -248,12 +247,12 @@ function estateDaily(g) {
     if (Math.abs(pct - shown) >= 10 || g.flags.wetShown == null) g.flags.wetShown = pct;
   }
   // the orangutans, the elephants and the tiger come in
-  for (const [key, sp] of [['orangutans', 'orangutan'], ['gajah', 'gajah'], ['harimau', 'tiger']]) if (ANIMAL[sp] && pop(g, sp) > 0) arrivalMoment(g, key, ANIMAL[sp]);
+  for (const [key, sp] of [['orangutans', 'orangutan'], ['gajah', 'gajah'], ['harimau', 'tiger']]) if (g.catalog.animal[sp] && pop(g, sp) > 0) arrivalMoment(g, key, g.catalog.animal[sp]);
   // The corpse flower: years after it's planted (or found in the ravine), one sends up its giant
   // flower in the wet season. The real spathe opens for a day or two and stands for a week or so
   // before it collapses; here it stands for a season (30 days, about 40 seconds at normal speed),
   // long enough to go and see it.
-  const tp = PLANT.titan;
+  const tp = g.catalog.plant.titan;
   if (tp) {
     const done = g.flags.moments || {};
     if (g.flags.titanMonth != null) g.flags.titanMonth = null; // (older saves: a bloom that lasted until the month changed)
@@ -291,13 +290,13 @@ function dropPalm(game, i) {
 function fellOrPull(game, i) {
   const w = game.world;
   let n = 0;
-  if (w.ground[i] && PLANTS[w.ground[i]].invasive) {
+  if (w.ground[i] && game.catalog.plants[w.ground[i]].invasive) {
     w.ground[i] = 0; w.groundG[i] = 0; n++;
     const pulled = game.flags.pulled ||= {};
     if (Object.keys(pulled).length < 4000) pulled[i] = 1;
   }
-  if (w.shrub[i] && PLANTS[w.shrub[i]].invasive) { w.shrub[i] = 0; w.shrubG[i] = 0; n++; }
-  if (w.tree[i] && PLANTS[w.tree[i]].invasive) {
+  if (w.shrub[i] && game.catalog.plants[w.shrub[i]].invasive) { w.shrub[i] = 0; w.shrubG[i] = 0; n++; }
+  if (w.tree[i] && game.catalog.plants[w.tree[i]].invasive) {
     const big = w.treeG[i] > 0.4, palm = isPalm(w, i);
     w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; n++;
     if (big) dropPalm(game, i);
@@ -421,7 +420,7 @@ export default {
   toolText: {
     pull: { name: 'Fell palms & pull weeds', icon: { plant: 'oilpalm' },
       desc: 'Fell oil palms (a chainsaw crew, $20 a palm; each trunk is left to rot where it falls, with its fronds stacked beside it: food and shelter for beetles, termites, sun bears and pangolins), and pull out palm and acacia seedlings, mile-a-minute, Chinese violet, alang-alang, Koster\'s curse and Siam weed. Native plants are left alone.',
-      costFor: (game, i) => { const w = game.world; return w.tree[i] && PLANTS[w.tree[i]].invasive && w.treeG[i] > 0.4 ? 20 : 8; },
+      costFor: (game, i) => { const w = game.world; return w.tree[i] && game.catalog.plants[w.tree[i]].invasive && w.treeG[i] > 0.4 ? 20 : 8; },
       apply: fellOrPull },
     clearcut: { desc: 'Fell any trees on the tile, native or not, and leave everything else. Oil palms fall and are left to rot, fronds and all; other big trees leave a stump that rots.',
       apply: (game, i) => {

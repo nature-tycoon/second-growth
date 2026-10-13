@@ -27,8 +27,8 @@ import { SOUNDSCAPES, natureMix, natureCallRates } from '../js/audio/nature.js';
 import { FIELD_RECORDINGS, MAP_RECORDINGS } from '../js/audio/recordings.js';
 import { soundFile, RUT_SOUNDS, SOUND_CREDITS } from '../js/audio/sounds.js';
 import { rutSounds } from '../js/audio/rut-events.js';
-import { BIOMES, setBiome } from '../js/biome.js';
-import { ANIMALS, ANIMAL, isMaleVariant } from '../js/data/animals.js';
+import { BIOMES, setBiome, mapCatalog } from '../js/biome.js';
+import { ANIMALS, isMaleVariant } from '../js/data/animals.js';
 import { DAYS_PER_YEAR } from '../js/config.js';
 const $ = id => document.getElementById(id), catalog = {};
 const voiceAudit = await fetch('./audio-voice-audit.json').then(r => r.json());
@@ -49,15 +49,15 @@ function ensurePlayer() {
 }
 const rutCamera = {target:{x:40,z:30},right:()=>({x:1,z:0}),vw:960,ppu:30};
 function rutScene(L) {
-  const agents=[];
+  const agents=[], definitions=mapCatalog(L.map);
   if(L.map==='pnw' && L.present.includes('elk')) {
-    const def=ANIMAL.elk;
+    const def=definitions.animal.elk;
     for(let id=1000;agents.length<2;id++) {
       const a={id,sp:def.index,age:4*DAYS_PER_YEAR,state:'idle',x:60+agents.length*30,y:45};
       if(isMaleVariant(def,a))agents.push(a);
     }
   }
-  return {month:L.month,wildlife:{agents,ids:new Map(agents.map(a=>[a.id,a]))}};
+  return {catalog:definitions,month:L.month,wildlife:{agents,ids:new Map(agents.map(a=>[a.id,a]))}};
 }
 setInterval(()=>{if(player?.ctx && !player.muted && previewRut && scene().map==='pnw')rutSounds(previewRut,rutCamera,player,player.ctx.currentTime);},250);
 function scene() {

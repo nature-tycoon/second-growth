@@ -4,7 +4,6 @@
 
 import { T, F, H, clamp, money } from '../config.js';
 import { STRUCTURES } from '../world.js';
-import { biome } from '../biome.js';
 
 const SEASON_DEMAND = [0.7, 0.9, 1.1, 1.3, 1.5, 1.4, 1.1, 1.0, 0.5, 0.35, 0.35, 0.5];
 // Walkers step to any of the 8 neighbours, so trails drawn on a diagonal stay connected.
@@ -203,7 +202,7 @@ export class Visitors {
     const capacity = fac.parking * 220 + fac.center * 380;
     this.monthly = Math.round(Math.min(capacity, demand));
     this.total += this.monthly;
-    const perVisitor = (4 + (fac.center ? 5 : 0) + this.rep * 1.1) * (biome.visitorValue ?? 1);
+    const perVisitor = (4 + (fac.center ? 5 : 0) + this.rep * 1.1) * (g.mapDefinition.visitorValue ?? 1);
     this.income = Math.round(this.monthly * perVisitor);
     this.upkeep = Math.round(len * 0.4 + fac.boardwalk * 1.5 + fac.center * 120 + fac.parking * 30);
     this.traffic = clamp(this.monthly / 320, 0, 1);

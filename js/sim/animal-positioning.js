@@ -1,12 +1,13 @@
 // Local spacing in tile units, using the same display scale as the models. No geometry or
 // physics engine is needed: only animals in neighbouring spatial buckets are compared.
-import { ANIMALS, drawDef, animalDef } from '../data/animals.js';
+import { drawDef, animalDef } from '../data/animals.js';
+import { activeCatalog } from '../data/catalog.js';
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
 import { lastDry } from './waterline.js';
 
-export function animalRadius(a) {
-  const def = drawDef(animalDef(a), a), s = def.sprite;
+export function animalRadius(a, catalog = activeCatalog) {
+  const def = drawDef(animalDef(a, catalog), a), s = def.sprite;
   const age = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * DAYS_PER_YEAR), 0.55, 1) : 1;
   return Math.max(0.06, (s.len || s.size || 10) * adultAnimalScale(s) *
     (a.juvenile ? s.juv ?? 0.5 : 1) * age * 0.65);
@@ -22,7 +23,7 @@ function layer(w, a) {
   if (a.flying || a.alt > 0.05 || a.leaving) return null;
   const x = Math.floor(a.x), y = Math.floor(a.y);
   if (!w.inb(x, y)) return null;
-  const i = w.idx(x, y), def = ANIMALS[a.sp];
+  const i = w.idx(x, y), def = w.catalog.animals[a.sp];
   if (def.reef) return 'reef';
   if (a.move === 'tree' || a.move === 'fly' && w.tree[i] && w.treeG[i] > 0.5 &&
     !['duck', 'heron', 'crane'].includes(def.sprite.kind)) return 'canopy';
@@ -37,7 +38,7 @@ export class AnimalSpacing {
     for (const a of agents) {
       const band = layer(w, a);
       if (band == null) continue;
-      const e = { a, band, r: animalRadius(a), moved: 0 };
+      const e = { a, band, r: animalRadius(a, w.catalog), moved: 0 };
       this.entries.push(e);
       const key = `${Math.floor(a.x / 3)},${Math.floor(a.y / 3)}`;
       let bucket = this.buckets.get(key);
@@ -54,11 +55,11 @@ export class AnimalSpacing {
   }
   compatible(a, e, band = layer(this.w, a)) {
     return e.a !== a && band === e.band && (band !== 'reef' ||
-      Math.abs((ANIMALS[a.sp].sprite.swim ?? 0.3) - (ANIMALS[e.a.sp].sprite.swim ?? 0.3)) < 0.18);
+      Math.abs((this.w.catalog.animals[a.sp].sprite.swim ?? 0.3) - (this.w.catalog.animals[e.a.sp].sprite.swim ?? 0.3)) < 0.18);
   }
   crowd(a, x, y) {
     let cost = 0;
-    const r = animalRadius(a);
+    const r = animalRadius(a, this.w.catalog);
     const band = layer(this.w, { ...a, x, y, flying: false, alt: 0 });
     for (const e of this.near(x, y)) if (this.compatible(a, e, band)) {
       cost += Math.max(0, r + e.r + 0.04 - Math.hypot(x - e.a.x, y - e.a.y));
@@ -87,7 +88,7 @@ export class AnimalSpacing {
     const d = Math.hypot(dx, dy);
     if (d < 0.05) return null;
     dx /= d; dy /= d;
-    const r = animalRadius(a), look = Math.min(d, r * 2 + 0.6);
+    const r = animalRadius(a, this.w.catalog), look = Math.min(d, r * 2 + 0.6);
     let need = [0, 0], any = false; // clearance angle needed passing on the left [0] or the right [1]
     for (const e of this.near(a.x, a.y)) {
       if (!this.compatible(a, e, band)) continue;
@@ -146,7 +147,7 @@ export class AnimalSpacing {
       if (!w.inb(x, y)) return false;
       const j = w.idx(x, y), old = w.idx(Math.floor(a.x), Math.floor(a.y));
       if (!canStand(w, j, a) || w.struct[j] >= 0 ||
-        (w.feature[j] === F.FENCE && ANIMALS[a.sp].fenced) ||
+        (w.feature[j] === F.FENCE && this.w.catalog.animals[a.sp].fenced) ||
         isWater(w.terrain[j]) !== isWater(w.terrain[old])) return false;
       // Never slip diagonally through a blocked corner.
       if (x !== Math.floor(a.x) && y !== Math.floor(a.y) &&
@@ -200,7 +201,7 @@ export class AnimalSpacing {
 export function shoreSpot(w, a, j, spacing, canStand) {
   if (!canStand(w, j, a) || w.struct[j] >= 0) return null;
   if (a.move === 'fly' && w.tree[j] && w.treeG[j] > 0.5 &&
-    !['duck', 'heron', 'crane'].includes(ANIMALS[a.sp].sprite.kind)) return null;
+    !['duck', 'heron', 'crane'].includes(w.catalog.animals[a.sp].sprite.kind)) return null;
   const x = j % w.w, y = (j / w.w) | 0;
   let best = null, score = Infinity;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {

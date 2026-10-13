@@ -1,8 +1,7 @@
 // Derived environment fields: water, moisture, canopy, distances, habitat classes, food.
 
 import { T, F, H, isWater, clamp } from '../config.js';
-import { biome } from '../biome.js';
-import { PLANTS, isBlooming, isFruiting, plantLeafCover } from '../data/plants.js';
+import { isBlooming, isFruiting, plantLeafCover } from '../data/plants.js';
 
 const FAR = 255;
 let queue = null;
@@ -58,7 +57,7 @@ export function updateCanopy(w, month = 0) {
   w.canopyMonth = month;
   if (!ownCover || ownCover.length < w.n) ownCover = new Float32Array(w.n);
   const own = ownCover;
-  const cover = PLANTS.map(p => p ? (p.conifer ? 1 : 0.85) * plantLeafCover(p, month) : 0);
+  const cover = w.catalog.plants.map(p => p ? (p.conifer ? 1 : 0.85) * plantLeafCover(p, month) : 0);
   for (let i = 0; i < w.n; i++) {
     const id = w.tree[i];
     own[i] = id ? Math.min(1, w.treeG[i] * 1.15) * cover[id] : 0;
@@ -79,7 +78,7 @@ export function updateCanopy(w, month = 0) {
 }
 
 export function updateMoisture(w, month) {
-  const off = biome.climate.moist[month];
+  const off = w.catalog.definition.climate.moist[month];
   for (let i = 0; i < w.n; i++) {
     const t = w.terrain[i];
     if (isWater(t)) { w.moist[i] = t === T.MARSH ? 0.97 : 1; continue; }
@@ -98,7 +97,7 @@ export function layerLight(w, i, layer) {
   if (layer === 0) {
     let shade = w.canopy[i] * 0.9;
     const s = w.shrub[i];
-    if (s) shade += w.shrubG[i] * (PLANTS[s].look.type === 'bramble' ? 0.85 : 0.45) * plantLeafCover(PLANTS[s], w.canopyMonth ?? 0);
+    if (s) shade += w.shrubG[i] * (w.catalog.plants[s].look.type === 'bramble' ? 0.85 : 0.45) * plantLeafCover(w.catalog.plants[s], w.canopyMonth ?? 0);
     return clamp(1 - shade, 0, 1);
   }
   if (layer === 1) return clamp(1 - w.canopy[i] * 0.85, 0, 1);
@@ -114,7 +113,7 @@ export function updateDistances(w) {
   distanceField(w, w.distLog, i => f[i] === F.LOG);
   distanceField(w, w.distNest, i => f[i] === F.NESTBOX || f[i] === F.SNAG);
   distanceField(w, w.distRocks, i => f[i] === F.ROCKS || f[i] === F.BRUSH);
-  distanceField(w, w.distWoody, i => (sh[i] && PLANTS[sh[i]].beaverFood && sg[i] > 0.3) || (tr[i] && PLANTS[tr[i]].beaverFood && tg[i] > 0.2));
+  distanceField(w, w.distWoody, i => (sh[i] && w.catalog.plants[sh[i]].beaverFood && sg[i] > 0.3) || (tr[i] && w.catalog.plants[tr[i]].beaverFood && tg[i] > 0.2));
 }
 
 const GRASSY = { grass: 1, sedge: 0.7, tallgrass: 0.4, tallforb: 0.2, forb: 0.3 };
@@ -129,7 +128,7 @@ export function classifyAndResources(w, month) {
   for (let i = 0; i < n; i++) {
     const t = w.terrain[i];
     const g = w.ground[i], s = w.shrub[i], tr = w.tree[i];
-    const gp = g ? PLANTS[g] : null, sp = s ? PLANTS[s] : null, tp = tr ? PLANTS[tr] : null;
+    const gp = g ? w.catalog.plants[g] : null, sp = s ? w.catalog.plants[s] : null, tp = tr ? w.catalog.plants[tr] : null;
     const gG = w.groundG[i], sG = w.shrubG[i], tG = w.treeG[i];
     const f = w.feature[i];
     if (f === F.SNAG) st.snags++;
@@ -226,14 +225,14 @@ export function classifyAndResources(w, month) {
       const j = yy * W + xx;
       if (isWater(w.terrain[j]) && w.terrain[j] !== T.MARSH) continue;
       cnt++;
-      const treeShade = w.tree[j] && w.treeG[j] > 0.4 ? plantLeafCover(PLANTS[w.tree[j]], month) : 0;
-      const shrubShade = w.shrub[j] && w.shrubG[j] > 0.5 && !PLANTS[w.shrub[j]].invasive ? plantLeafCover(PLANTS[w.shrub[j]], month) : 0;
+      const treeShade = w.tree[j] && w.treeG[j] > 0.4 ? plantLeafCover(w.catalog.plants[w.tree[j]], month) : 0;
+      const shrubShade = w.shrub[j] && w.shrubG[j] > 0.5 && !w.catalog.plants[w.shrub[j]].invasive ? plantLeafCover(w.catalog.plants[w.shrub[j]], month) : 0;
       shade += Math.max(treeShade, shrubShade);
       const gj = w.ground[j];
-      if (gj && !PLANTS[gj].invasive) veg++;
-      if ((gj && PLANTS[gj].invasive) || (w.shrub[j] && PLANTS[w.shrub[j]].invasive)) inv++;
+      if (gj && !w.catalog.plants[gj].invasive) veg++;
+      if ((gj && w.catalog.plants[gj].invasive) || (w.shrub[j] && w.catalog.plants[w.shrub[j]].invasive)) inv++;
     }
-    const own = w.ground[i] && PLANTS[w.ground[i]].aquatic ? 0.15 : 0;
+    const own = w.ground[i] && w.catalog.plants[w.ground[i]].aquatic ? 0.15 : 0;
     const q = cnt ? 0.25 + 0.5 * shade / cnt + 0.25 * veg / cnt - 0.15 * inv / cnt : 0.35;
     w.waterQ[i] = clamp(q + own, 0, 1);
     if (t === T.CREEK) { st.creek++; if (cnt && shade / cnt >= 0.35) st.shadedCreek++; }
@@ -251,7 +250,7 @@ export function classifyAndResources(w, month) {
     if (c) w.waterQ[i] = Math.max(w.waterQ[i], (s / c) * 0.9);
     if (t === T.RIVER) w.waterQ[i] = Math.max(w.waterQ[i], 0.55);
   }
-  biome.stats?.(w, st, month); // anything a map counts for itself
+  w.catalog.definition.stats?.(w, st, month); // anything a map counts for itself
   w.stats = st;
   return st;
 }

@@ -2,7 +2,7 @@
 // Each part is one reusable geometry, instanced over whole beds, with a lighter distant form.
 import * as THREE from 'three';
 import { mulberry32 } from '../rng.js';
-import { prep, merge } from './geometry.js';
+import { prep, merge } from './geometry/primitives.js';
 
 function stem(a, b, radius, color = 0xffffff, lo = false) {
   const start = new THREE.Vector3(...a), end = new THREE.Vector3(...b), delta = end.clone().sub(start);

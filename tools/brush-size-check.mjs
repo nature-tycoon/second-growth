@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
 globalThis.window = { innerWidth: 1280, innerHeight: 800, addEventListener() {} };
 const { Input } = await import('../js/input.js');
+const { ToolActions } = await import('../js/tool-actions.js');
 const { Game } = await import('../js/game.js');
 const { TOOLS, BRUSH_SIZES, strokeTiles } = await import('../js/tools.js');
 
@@ -15,7 +16,7 @@ input.mouse = { x: 400, y: 300 };
 input.pick = () => ({ x: 30, y: 50 });
 input.tip = { classList: { add() {}, remove() {} }, style: {}, offsetWidth: 100, offsetHeight: 20 };
 input.r = { markTileDirty() {} };
-input.ui = { state: { tool: 'rip', clean: false }, undo: { touch() {} } };
+input.ui = { state: { tool: 'rip', clean: false }, actions: new ToolActions(g) };
 
 for (const radius of BRUSH_SIZES) {
   input.ui.state.brushR = radius;
@@ -32,9 +33,10 @@ for (const radius of BRUSH_SIZES) {
     input.ui.state.clean = false;
     input.updateHover();
     assert.deepEqual(input.ui.state.previewTiles.map(p => p.i), expected, 'preview resumes at selected size');
-    input.stroke = { tool: TOOLS.rip, applied: new Set(), cost: 0, count: 0 };
+    input.stroke = input.ui.actions.begin('rip');
     input.applyAt(30, 50);
     assert.deepEqual([...input.stroke.applied], expected, 'painting uses the same footprint as the preview');
+    input.ui.actions.end(input.stroke);
     input.stroke = null;
   }
 }

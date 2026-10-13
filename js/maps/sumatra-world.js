@@ -7,7 +7,7 @@
 
 import { World, riverRow, generateHeights } from '../world.js';
 import { T, F } from '../config.js';
-import { PLANT } from '../data/plants.js';
+import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
 // The edge of the peat: north of it is mineral soil on the low hills, south of it deep peat.
@@ -29,15 +29,15 @@ export const MAIN_ROAD_Y = 28;           // the main road in from the village
 // the stream, meandering down from the hills (it keeps its old bed through the peat)
 export const streamX = y => Math.round(60 + Math.sin(y / 10) * 5 + Math.sin(y / 23 + 2) * 3);
 
-export function generateEstate(seed = 2024) {
-  const w = new World();
+export function generateEstate(seed = 2024, catalog = activeCatalog) {
+  const w = new World(undefined, undefined, catalog);
   const rng = mulberry32(seed);
   const W = w.w, Hh = w.h;
   const rect = (x0, y0, x1, y1, fn) => {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (w.inb(x, y)) fn(w.idx(x, y), x, y);
   };
   const open = i => { const t = w.terrain[i]; return t !== T.CREEK && t !== T.RIVER && t !== T.POND && t !== T.ROAD && t !== T.MARSH && w.struct[i] < 0; };
-  const set = (i, key, g, years = 0) => w.setPlant(i, PLANT[key], g, years * 120);
+  const set = (i, key, g, years = 0) => w.setPlant(i, catalog.plant[key], g, years * 120);
   const water = (i, t) => { w.terrain[i] = t; w.clearPlants(i); w.feature[i] = 0; };
 
   // Base: weeded plantation ground on leached red soil in the north, drained peat in the south.
@@ -188,7 +188,7 @@ export function generateEstate(seed = 2024) {
 // south-east), the village's smallholder palms west, and the river south with swamp forest on
 // the far bank.
 export function sumatraBorderCell(x, y, r, r2, world) {
-  const P = k => PLANT[k].id;
+  const P = k => world.catalog.plant[k].id;
   const rt = riverRow(x);
   if (y >= world.h + 3) {
     const tree = r < 0.6 ? P(r2 < 0.35 ? 'jelutong' : r2 < 0.6 ? 'nibung' : r2 < 0.8 ? 'fig' : 'macaranga') : 0;

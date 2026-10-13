@@ -3,6 +3,9 @@
 // Months: 0=Mar 1=Apr 2=May 3=Jun 4=Jul 5=Aug 6=Sep 7=Oct 8=Nov 9=Dec 10=Jan 11=Feb
 // Wet season Dec–Apr, dry season Jun–Sep.
 
+/** @param {import('./contracts.js').DefinePlant} def
+ * @param {function(import('./contracts.js').SeedMix):void} mix
+ * @param {function(string):import('./contracts.js').PlantDefinition} get */
 export default function buildAmazonPlants(def, mix, get) {
   // ---------- Groundcover ----------
   def({ key: 'brachiaria', name: 'Signal grass (braquiária)', sci: 'Urochloa brizantha', layer: 0, native: false, invasive: true,

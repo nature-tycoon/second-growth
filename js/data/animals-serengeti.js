@@ -11,6 +11,7 @@ import { habW, near } from './animals.js';
 const grazing = (W, i) => (W.ground[i] && W.groundG[i] > 0.25 ? 1 : 0.15);
 const shade = (W, i) => near(W.distForest[i], 3, 0.35);
 
+/** @param {import('./contracts.js').DefineAnimal} def */
 export default function buildSerengetiAnimals(def) {
   // ------------------------------------------------------------------ Grazers and browsers
   {

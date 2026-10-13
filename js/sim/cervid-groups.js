@@ -1,7 +1,7 @@
 // Small, stable deer families and elk cow/calf herds; adult males form bachelor
 // groups outside the rut. Group membership never changes population or RNG state.
 import { DAYS_PER_YEAR } from '../config.js';
-import { ANIMALS, isMaleVariant } from '../data/animals.js';
+import { isMaleVariant } from '../data/animals.js';
 import { passable } from './animal-terrain.js';
 export const inRut = game => [6, 7, 8].includes(game.month);
 const adult = (a, d) => !a.juvenile && a.age >= d.mature * DAYS_PER_YEAR;
@@ -14,7 +14,7 @@ function membership(a, id) {
   a.herdOf = id;
 }
 export function cervidLeader(wl, a) {
-  const d = ANIMALS[a.sp];
+  const d = wl.game.catalog.animals[a.sp];
   if ((male(a, d) && inRut(wl.game)) || solitary(wl, a, d)) { membership(a, null); return a; }
   const mother = a.mom != null && wl.agents.find(b => b.id === a.mom && b.sp === a.sp && !b.leaving && adult(b, d) && !male(b, d));
   if (!adult(a, d) && mother) return cervidLeader(wl, mother);

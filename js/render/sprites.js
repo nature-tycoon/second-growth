@@ -2,9 +2,9 @@
 // Everything is drawn at SPR (64) pixels per tile and scaled down by the renderer.
 
 import { T, F, SPR } from '../config.js';
-import { PLANTS, plantPhase } from '../data/plants.js';
+import { plantPhase } from '../data/plants.js';
 import { mulberry32, hashStr } from '../rng.js';
-import { biome } from '../biome.js';
+import { activeCatalog } from '../data/catalog.js';
 
 const cache = new Map();
 function cached(key, build) {
@@ -61,8 +61,8 @@ const PASTURE = ['#a4b36b', '#b6b172', '#a9a46c', '#8c976a'];
 export const TURF = 20, BED = 21;
 const FIELD = ['#8a6848', '#93704c', '#85634a', '#6e553e'];
 
-export function terrainSprite(t, season, v) {
-  return cached(`t${t}|${season}|${v}`, () => {
+export function terrainSprite(t, season, v, catalog = activeCatalog) {
+  return cached(`${catalog.definition.id}:t${t}|${season}|${v}`, () => {
     const [c, ctx] = mk(SPR, SPR);
     const r = mulberry32(hashStr(`terrain${t}${season}${v}`));
     const S = SPR;
@@ -117,14 +117,14 @@ export function terrainSprite(t, season, v) {
         break;
       }
       case T.GRAVEL: case T.ROAD: {
-        if (t === T.ROAD && biome?.look?.asphalt) {
+        if (t === T.ROAD && catalog.definition.look.asphalt) {
           // paved streets: dark asphalt, a fine grain of aggregate, and the odd patch
           ctx.fillStyle = '#5d5f61'; ctx.fillRect(0, 0, S, S);
           for (let k = 0; k < 70; k++) ellipse(ctx, r() * S, r() * S, 0.6 + r() * 1.2, 0.6 + r() * 1, shade('#5d5f61', (r() - 0.5) * 0.35));
           if (r() < 0.5) ellipse(ctx, r() * S, r() * S, 6 + r() * 8, 4 + r() * 5, rgba('#4f5153', 0.5));
           break;
         }
-        if (t === T.GRAVEL && biome?.look?.sand) {
+        if (t === T.GRAVEL && catalog.definition.look.sand) {
           // beach sand: pale and warm, with a little shell grit and wind ripples
           ctx.fillStyle = '#d8c9a2'; ctx.fillRect(0, 0, S, S);
           for (let k = 0; k < 50; k++) ellipse(ctx, r() * S, r() * S, 0.6 + r() * 1.2, 0.5 + r(), shade('#d8c9a2', (r() - 0.5) * 0.25));
@@ -232,10 +232,10 @@ function seasonalLeaf(p, phase) {
   return lk.leaf;
 }
 
-export function groundSprite(id, bucket, month, v) {
-  const p = PLANTS[id];
+export function groundSprite(id, bucket, month, v, catalog = activeCatalog) {
+  const p = catalog.plants[id];
   const phase = plantPhase(p, month);
-  return cached(`g${id}|${bucket}|${phase}|${v}`, () => {
+  return cached(`${catalog.definition.id}:g${id}|${bucket}|${phase}|${v}`, () => {
     const S = SPR + GPAD * 2;
     const [c, ctx] = mk(S, S);
     const r = mulberry32(hashStr(`ground${id}${v}${bucket}`));
@@ -430,10 +430,10 @@ function twigs(ctx, x, y, len, ang, depth, color, r, w = 1.5) {
 }
 
 export const SHRUB_W = 112, SHRUB_H = 104, SHRUB_AX = 56, SHRUB_AY = 92;
-export function shrubSprite(id, bucket, month, v) {
-  const p = PLANTS[id];
+export function shrubSprite(id, bucket, month, v, catalog = activeCatalog) {
+  const p = catalog.plants[id];
   const phase = plantPhase(p, month);
-  return cached(`s${id}|${bucket}|${phase}|${v}`, () => {
+  return cached(`${catalog.definition.id}:s${id}|${bucket}|${phase}|${v}`, () => {
     const [c, ctx] = mk(SHRUB_W, SHRUB_H);
     const r = mulberry32(hashStr(`shrub${id}${v}${bucket}`));
     const lk = p.look;
@@ -624,10 +624,10 @@ const BROAD = {
   oak: { height: 140, rx: 62, ry: 42, trunkW: 14, blobs: 32, blobR: 13, lobes: 4 },
 };
 
-export function treeSprite(id, bucket, month, v) {
-  const p = PLANTS[id];
+export function treeSprite(id, bucket, month, v, catalog = activeCatalog) {
+  const p = catalog.plants[id];
   const phase = p.conifer ? (month >= 9 || month === 11 ? 'winter' : 'green') : plantPhase(p, month);
-  return cached(`tr${id}|${bucket}|${phase}|${v}`, () => {
+  return cached(`${catalog.definition.id}:tr${id}|${bucket}|${phase}|${v}`, () => {
     const [c, ctx] = mk(TREE_W, TREE_H);
     const r = mulberry32(hashStr(`tree${id}${v}${bucket}`));
     const s = TREE_SCALE[bucket] * (0.9 + r() * 0.2);
@@ -858,7 +858,7 @@ export function structureSprite(type, w, h) {
 export const ANIM_W = 128, ANIM_H = 112, ANIM_AX = 64, ANIM_AY = 96;
 
 export function animalSprite(def, frame, dir, pose, res = 1) {
-  return cached(`a${def.key}|${frame}|${dir}|${pose}|${res}`, () => {
+  return cached(`${def.mapId || 'passage'}:a${def.key}|${frame}|${dir}|${pose}|${res}`, () => {
     const [c, ctx] = mk(ANIM_W * res, ANIM_H * res);
     ctx.scale(res, res);
     ctx.translate(ANIM_AX, ANIM_AY);
@@ -870,7 +870,7 @@ export function animalSprite(def, frame, dir, pose, res = 1) {
 
 // Large, crisp version for the field guide and inspector.
 export function animalPortrait(def, scale = 4) {
-  return cached(`ap${def.key}|${scale}`, () => {
+  return cached(`${def.mapId || 'passage'}:ap${def.key}|${scale}`, () => {
     const [c, ctx] = mk(ANIM_W * scale, ANIM_H * scale);
     ctx.scale(scale, scale);
     ctx.translate(ANIM_AX, ANIM_AY);

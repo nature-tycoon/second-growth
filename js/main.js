@@ -43,7 +43,7 @@ async function boot() {
     await nextPaint();
 
     // session replays can only see the 3D view if its drawing buffer is kept between frames
-    const renderer = new Renderer(document.getElementById('view'), { preserveDrawingBuffer: analyticsWillRun() });
+    const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog, preserveDrawingBuffer: analyticsWillRun() });
     const ui = new UI(game, renderer);
     const input = new Input(game, renderer, ui);
     renderer.resetView();

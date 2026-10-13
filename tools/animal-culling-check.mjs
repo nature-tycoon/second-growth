@@ -52,7 +52,7 @@ check('Visible instances and their ground shadows remain; hidden species pools g
   assert.deepEqual(actors.visibleWildlife, [a]); assert.equal(count(), 1); assert.equal(actors.shadows.count, 1);
   aim(100, 80); frame(2);
   assert.deepEqual(actors.visibleWildlife, [b]);
-  const pool = actors.fauna.species.get('zebra'); assert.equal(pool.mesh.count, 0); assert.equal(pool.mesh.visible, false);
+  const pool = actors.fauna.species.get(actors.fauna.modelKey(g.catalog.animal.zebra)); assert.equal(pool.mesh.count, 0); assert.equal(pool.mesh.visible, false);
   const version = pool.mesh.instanceMatrix.version; frame(3); assert.equal(pool.mesh.instanceMatrix.version, version);
 });
 check('A 96-pixel margin preserves animals just past all four screen edges at any zoom', () => {
@@ -84,7 +84,7 @@ check('Returning animals resume at their current position and direction, includi
   aim(31, 32); g.speed = 0; frame(80);
   assert.equal(st.visible, true); assert.equal(st.x, a.x); assert.equal(st.z, a.y);
   assert.ok(Math.abs(st.yaw + a.orientation) < 1e-8); assert.equal(st.gait, 0);
-  const p = actors.fauna.species.get('zebra');
+  const p = actors.fauna.species.get(actors.fauna.modelKey(g.catalog.animal.zebra));
   assert.equal(p.anim.getX(0), Math.fround(a.phase * Math.PI));
   assert.ok([...p.mesh.instanceMatrix.array.slice(0, 16)].every(Number.isFinite));
 });
@@ -118,7 +118,7 @@ check('Reef depth and swimmer turns resume cleanly without a huge bend or old de
 check('Sea cucumbers and urchins stay on the seabed through depth changes', () => {
   for (const key of ['seacucumber', 'urchin']) {
     reset('reef'); spawn(key); frame();
-    const pool = actors.fauna.species.get(key), matrix = new THREE.Matrix4();
+    const pool = actors.fauna.species.get(actors.fauna.modelKey(g.catalog.animal[key])), matrix = new THREE.Matrix4();
     assert.equal(pool.mesh.count, 1);
     pool.mesh.getMatrixAt(0, matrix);
     assert.ok(Math.abs(matrix.elements[13] - 0.008) < 1e-6, `${key}: rests on the seabed`);
@@ -128,7 +128,7 @@ check('Sea cucumbers and urchins stay on the seabed through depth changes', () =
   }
 });
 check('Only active instance data is uploaded, even when a pool has grown for a large herd', () => {
-  reset(); for (let k = 0; k < 40; k++) spawn(); frame(); const p = actors.fauna.species.get('zebra');
+  reset(); for (let k = 0; k < 40; k++) spawn(); frame(); const p = actors.fauna.species.get(actors.fauna.modelKey(g.catalog.animal.zebra));
   assert.ok(p.cap >= 40); const survivor = g.wildlife.agents[0]; g.wildlife.agents = [survivor]; frame(2);
   assert.equal(p.count, 1); assert.deepEqual(p.mesh.instanceMatrix.updateRanges, [{ start: 0, count: 16 }]);
   assert.deepEqual(p.anim.updateRanges, [{ start: 0, count: 4 }]);

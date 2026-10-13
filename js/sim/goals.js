@@ -1,12 +1,10 @@
 // Ecosystem score, grant income, and restoration goals.
 
 import { H, F, T, clamp } from '../config.js';
-import { PLANTS } from '../data/plants.js';
-import { ANIMALS, ANIMAL } from '../data/animals.js';
-import { biome } from '../biome.js';
+
 
 export function speciesPresent(game) {
-  return game.wildlife.state.filter((s, k) => s.pop > 0 && !ANIMALS[k]?.domestic).length; // (livestock isn't wildlife)
+  return game.wildlife.state.filter((s, k) => s.pop > 0 && !game.catalog.animals[k]?.domestic).length; // (livestock isn't wildlife)
 }
 
 export function nativePlantSpecies(w) {
@@ -17,7 +15,7 @@ export function nativePlantSpecies(w) {
     if (w.tree[i] && w.treeG[i] > 0.4) seen.add(w.tree[i]);
   }
   let n = 0;
-  for (const id of seen) if (PLANTS[id].native) n++;
+  for (const id of seen) if (w.catalog.plants[id].native) n++;
   return n;
 }
 
@@ -27,11 +25,11 @@ export function ecoScore(game) {
   const land = st.land;
   const nativeFrac = st.native / land;
   const invFrac = st.invasive / land;
-  const farmFrac = biome.sandBed ? 0 : st.farm / land; // (on the reef, bare sand in the lagoon is natural, not degraded)
+  const farmFrac = game.catalog.definition.sandBed ? 0 : st.farm / land; // (on the reef, bare sand in the lagoon is natural, not degraded)
   // bare, eroded ground (the Serengeti range's hardpan) counts against the land too
   const bareFrac = (st.counts?.[H.BARE] || 0) / land;
   // (a map can score its own habitats: the reef has no creeks or marshes)
-  const habs = biome.scoreHabitats?.map(([k, n]) => [H[k], n]) || [
+  const habs = game.catalog.definition.scoreHabitats?.map(([k, n]) => [H[k], n]) || [
     [H.MEADOW, 20], [H.SHRUB, 15], [H.YOUNG_FOREST, 20], [H.MATURE_FOREST, 15],
     [H.RIPARIAN, 15], [H.MARSH, 12], [H.POND, 10], [H.CREEK, 10],
   ];
@@ -45,9 +43,9 @@ export function ecoScore(game) {
   const parts = [
     { name: 'Native plant cover', pts: 25 * clamp(nativeFrac / 0.85, 0, 1), max: 25 },
     { name: 'Habitat variety', pts: 20 * habCount / habs.length, max: 20 },
-    { name: 'Wildlife species', pts: 30 * clamp(animals / (ANIMALS.length * 0.85), 0, 1), max: 30 },
-    { name: 'Native plant species', pts: 15 * clamp(nativePlants / (biome.plantSpeciesTarget || 26), 0, 1), max: 15 },
-    biome.scoreWater?.(game) || { name: 'Healthy, connected creek', pts: (connected ? 4 : 0) + 6 * shadedCreek, max: 10 },
+    { name: 'Wildlife species', pts: 30 * clamp(animals / (game.catalog.animals.length * 0.85), 0, 1), max: 30 },
+    { name: 'Native plant species', pts: 15 * clamp(nativePlants / (game.catalog.definition.plantSpeciesTarget || 26), 0, 1), max: 15 },
+    game.catalog.definition.scoreWater?.(game) || { name: 'Healthy, connected creek', pts: (connected ? 4 : 0) + 6 * shadedCreek, max: 10 },
     { name: 'Invasive plants', pts: -25 * clamp(invFrac / 0.3, 0, 1), max: 0 },
     { name: 'Degraded or bare land left', pts: -10 * clamp(farmFrac, 0, 1) - 16 * clamp(bareFrac, 0, 1), max: 0 },
   ];
@@ -67,7 +65,7 @@ export const perimeterFence = w => {
   return n;
 };
 export const culvertExists = w => { for (let i = 0; i < w.n; i++) if (w.feature[i] === F.CULVERT) return true; return false; };
-export const pop = (g, k) => ANIMAL[k] ? g.wildlife.state[ANIMAL[k].index].pop : 0;
+export const pop = (g, k) => g.catalog.animal[k] ? g.wildlife.state[g.catalog.animal[k].index].pop : 0;
 
 // The active map's milestone goals (refilled by loadGoals when the map changes).
 export const GOALS = [];

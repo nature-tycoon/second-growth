@@ -1,5 +1,5 @@
-import { biome } from '../biome.js';
-import { ANIMAL, ANIMALS, isMaleVariant } from '../data/animals.js';
+
+import { isMaleVariant } from '../data/animals.js';
 import { DAYS_PER_YEAR } from '../config.js';
 
 // Keystone moments: the handful of big natural events each map builds toward. They aren't
@@ -76,7 +76,7 @@ function interesting(game, key, a) {
   if (type === 'seagrass') return a.state === 'forage' && a.forage?.food === 'seagrass';
   if (type === 'cleaning') {
     const partner = byId(game, a.forage?.partner);
-    return a.state === 'forage' && a.forage?.food === 'cleaned' && living(partner) && ANIMALS[partner.sp]?.key === 'cleaner' &&
+    return a.state === 'forage' && a.forage?.food === 'cleaned' && living(partner) && game.catalog.animals[partner.sp]?.key === 'cleaner' &&
       partner.state === 'forage' && partner.forage?.food === 'cleaning' && partner.forage?.partner === a.id;
   }
   return true;
@@ -106,21 +106,21 @@ export function arrivalMoment(game, key, def) {
 export function momentsUpdate(game) {
   if (!momentFree(game)) return;
   for (const [key, [species]] of Object.entries(BEHAVIOR_MOMENTS)) {
-    if (!(MOMENTS[key] || biome.moments?.[key])) continue;
-    if (arrivalMoment(game, key, ANIMAL[species])) {
+    if (!(MOMENTS[key] || game.catalog.definition.moments?.[key])) continue;
+    if (arrivalMoment(game, key, game.catalog.animal[species])) {
       if (!momentFree(game)) return;
     }
   }
   const agents = game.wildlife.agents;
-  if (ANIMAL.elk && game.flags.moments?.elkRut == null && [6, 7, 8].includes(game.month)) {
-    const adultBull = a => living(a) && a.sp === ANIMAL.elk.index && !a.juvenile && a.age >= ANIMAL.elk.mature * DAYS_PER_YEAR && isMaleVariant(ANIMAL.elk, a);
+  if (game.catalog.animal.elk && game.flags.moments?.elkRut == null && [6, 7, 8].includes(game.month)) {
+    const adultBull = a => living(a) && a.sp === game.catalog.animal.elk.index && !a.juvenile && a.age >= game.catalog.animal.elk.mature * DAYS_PER_YEAR && isMaleVariant(game.catalog.animal.elk, a);
     const a = agents.find(a => adultBull(a) && a.state === 'spar' && !a.sparLight && adultBull(byId(game, a.sparWith)) &&
       agents.some(c => living(c) && (c.haremOf === a.id || c.haremOf === a.sparWith) && distance(a, c) < 10));
     if (a) { moment(game, 'elkRut', a, { live: true, rival: a.sparWith, loser: a.sparLoser }); return; }
   }
-  if (ANIMAL.lion && game.flags.moments?.lionHunt == null) {
-    const a = agents.find(a => living(a) && a.sp === ANIMAL.lion.index && huntInView(game, a) &&
-      ANIMALS[byId(game, a.target).sp]?.key === 'wildebeest');
+  if (game.catalog.animal.lion && game.flags.moments?.lionHunt == null) {
+    const a = agents.find(a => living(a) && a.sp === game.catalog.animal.lion.index && huntInView(game, a) &&
+      game.catalog.animals[byId(game, a.target).sp]?.key === 'wildebeest');
     if (a) moment(game, 'lionHunt', a, { live: true, prey: a.target });
   }
 }
@@ -135,7 +135,7 @@ export const momentFree = game => game.day - lastDay(game) >= MOMENT_GAP && !gam
 // Fire a moment, once per farm. focus: { x, y } in tiles, or an animal to look at.
 export function moment(game, key, focus, story = {}) {
   const done = game.flags.moments || (game.flags.moments = {});
-  const m = MOMENTS[key] || biome.moments?.[key]; // (a map can bring moments of its own)
+  const m = MOMENTS[key] || game.catalog.definition.moments?.[key]; // (a map can bring moments of its own)
   if (done[key] != null || !m || story.live && !momentFree(game)) return false;
   done[key] = game.day;
   const ev = { key, x: focus.x, y: focus.y, id: focus.id ?? null, sp: focus.sp ?? null, ...story };
@@ -145,7 +145,7 @@ export function moment(game, key, focus, story = {}) {
 }
 function playMoment(game, ev) {
   game.flags.lastMomentDay = game.day;
-  const m = MOMENTS[ev.key] || biome.moments?.[ev.key];
+  const m = MOMENTS[ev.key] || game.catalog.definition.moments?.[ev.key];
   const agent = ev.id != null ? game.wildlife.agents.find(a => a.id === ev.id) || null : null;
   game.emit('moment', { ...m, ...ev, x: agent ? agent.x : ev.x, y: agent ? agent.y : ev.y, agent });
 }
@@ -191,10 +191,10 @@ export function momentScene(game, m) {
   if (m.key === 'lionHunt' || BEHAVIOR_MOMENTS[m.key]?.[1] === 'hunt') {
     const c = game.wildlife.carcasses.find(c => c.id === m.prey && c.by === m.sp && c.t > 0);
     if (c) {
-      const visitors = game.wildlife.agents.filter(b => living(b) && b.state === 'feed' && b.carcass === c.id && ['hyena', 'vulture'].includes(ANIMALS[b.sp]?.key));
+      const visitors = game.wildlife.agents.filter(b => living(b) && b.state === 'feed' && b.carcass === c.id && ['hyena', 'vulture'].includes(game.catalog.animals[b.sp]?.key));
       // Remember visitors who actually took a meal, even if they finish at different times.
       const seen = m.scavengers ||= [];
-      for (const b of visitors) { const key = ANIMALS[b.sp].key; if (!seen.includes(key)) seen.push(key); }
+      for (const b of visitors) { const key = game.catalog.animals[b.sp].key; if (!seen.includes(key)) seen.push(key); }
       if (seen.length) {
         const both = seen.includes('hyena') && seen.includes('vulture');
         return shot(both ? 'foodweb' : 'scavengers', both ? 'Hyenas and vultures share the kill' : seen.includes('hyena') ? 'Hyenas take a meal' : 'Vultures take a meal',

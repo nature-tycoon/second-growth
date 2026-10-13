@@ -1,14 +1,14 @@
 // Read-only explanations of the same capacity and arrival rules used by Wildlife.
 // Run when a species is inspected, not in the rendering or daily simulation loop.
 import { T, F, MONTH_NAMES, clamp } from '../config.js';
-import { ANIMALS, ANIMAL, many, preyFor } from '../data/animals.js';
-import { biome } from '../biome.js';
+import { many, preyFor } from '../data/animals.js';
+import { activeCatalog } from '../data/catalog.js';
 import { passable } from './animal-terrain.js';
 import { arrivalFinding, migrationFenceCount, SALMON_RUN_MONTH, SALMON_MIN_HABITAT } from './animals.js';
 import { hungryPredator, HUNGRY_DAYS } from './ecological-pressure.js';
 
 const amount = n => Math.max(0, n).toFixed(1);
-const names = keys => keys.filter(k => ANIMAL[k]).map(k => many(ANIMAL[k])).join(', ');
+const names = (game, keys) => keys.filter(k => game.catalog.animal[k]).map(k => many(game.catalog.animal[k])).join(', ');
 const nextMonth = (months, current) => {
   for (let offset = 1; offset <= 12; offset++) if (months.includes((current + offset) % 12)) return MONTH_NAMES[(current + offset) % 12];
   return null;
@@ -41,7 +41,7 @@ const RESOURCE_GROUPS = [
   ['cleaners', [], ['cleanerTiles'], 'Cleaning stations', 'Protect old coral heads that support cleaning stations.'],
 ];
 
-export function resourceDiagnostics(def, globals) {
+export function resourceDiagnostics(def, globals, catalog = activeCatalog) {
   const factor = clamp(def.req(globals), 0, 1.5);
   if (factor >= 1) return [];
   const abundant = { ...globals, stats: { ...globals.stats } };
@@ -57,8 +57,8 @@ export function resourceDiagnostics(def, globals) {
     return clamp(def.req(probe), 0, 1.5) < ceiling - 0.001 ? [{ key, title, text }] : [];
   }).map(row => {
     // On the reef these shared simulation counters represent coral and seagrass.
-    if (biome.look.underwater && row.key === 'forest') return { ...row, title: 'Coral habitat', text: 'Restore living coral and protect it as it grows.' };
-    if (biome.look.underwater && row.key === 'meadow') return { ...row, title: 'Seagrass habitat', text: 'Restore a larger area of healthy seagrass.' };
+    if (catalog.definition.look.underwater && row.key === 'forest') return { ...row, title: 'Coral habitat', text: 'Restore living coral and protect it as it grows.' };
+    if (catalog.definition.look.underwater && row.key === 'meadow') return { ...row, title: 'Seagrass habitat', text: 'Restore a larger area of healthy seagrass.' };
     return row;
   });
 }
@@ -101,19 +101,19 @@ export function wildlifeDiagnostics(game, def) {
   const inSeason = !def.season || def.season.includes(game.month);
   const low = st.K < def.minK;
   const needMore = low || st.pop >= st.K;
-  if (game.diff.ecology && def.browseRate && !biome.look.underwater) add('browsing', 'info', 'Browses young trees', 'In Challenging, browsing can kill saplings. Brush piles shelter nearby young trees; establish protected patches before opening more wildlife corridors.');
+  if (game.diff.ecology && def.browseRate && !game.catalog.definition.look.underwater) add('browsing', 'info', 'Browses young trees', 'In Challenging, browsing can kill saplings. Brush piles shelter nearby young trees; establish protected patches before opening more wildlife corridors.');
   if (game.diff.ecology) {
     if (preyFor(def, game)) {
-      add('predation', 'info', 'Hunts live prey', biome.look.underwater
+      add('predation', 'info', 'Hunts live prey', game.catalog.definition.look.underwater
         ? 'Every successful hunt removes a prey animal. Coral structure and seagrass give prey cover. Failed hunts do not feed predators; hungry adults breed less and may move on.'
         : 'Every successful hunt removes a prey animal. Shrubs and tall groundcover shelter prey; brush, logs and rock piles help small animals hide. Failed hunts do not feed predators; hungry adults breed less and may move on.');
       const hungry = wl.agents.filter(a => a.sp === def.index && !a.leaving && hungryPredator(game, a, def)).length;
       if (hungry) add('hunger', 'warn', 'Predators are short of food', `${hungry} adults have gone at least ${HUNGRY_DAYS} days without a meal. Restore connected prey habitat; these adults cannot breed until they feed and may move away.`);
     }
-    const hunters = ANIMALS.filter(d => preyFor(d, game)?.includes(def.key));
+    const hunters = game.catalog.animals.filter(d => preyFor(d, game)?.includes(def.key));
     if (hunters.length) {
       const present = hunters.reduce((n, d) => n + wl.state[d.index].pop, 0);
-      add('hunted', present ? 'warn' : 'info', 'Part of the prey population', `Predators here: ${present}. Potential hunters: ${names(hunters.map(d => d.key))}. Successful catches reduce this population; habitat and shelter help survivors recover.`);
+      add('hunted', present ? 'warn' : 'info', 'Part of the prey population', `Predators here: ${present}. Potential hunters: ${names(game, hunters.map(d => d.key))}. Successful catches reduce this population; habitat and shelter help survivors recover.`);
     }
   }
   if (def.special === 'salmon') {
@@ -153,12 +153,12 @@ export function wildlifeDiagnostics(game, def) {
     : `Current capacity: ${amount(st.K)}; new natural arrivals need at least ${amount(def.minK)}. ${st.pop} living here now.`);
   if (st.baseK < def.minK) add('habitat', 'warn', 'Suitable habitat is too limited', `Expand the habitat described above. The species habitat overlay shows where conditions suit it.`);
   if (st.resourceFactor < 1) {
-    const limits = resourceDiagnostics(def, wl.g);
+    const limits = resourceDiagnostics(def, wl.g, game.catalog);
     for (const row of limits) add(`resource-${row.key}`, needMore ? 'warn' : 'info', row.title, row.text);
     if (!limits.length) add('resources', needMore ? 'warn' : 'info', 'Additional habitat needs', 'The landscape does not fully meet this species’ additional needs. Follow its habitat advice above.');
   }
-  if (st.preyK != null && (st.preyK < def.minK || st.preyK < Math.min(st.habitatK, def.max))) add('prey', needMore ? 'warn' : 'info', 'Limited by prey', `Current prey supports ${amount(st.preyK)} animals. Restore habitat for ${names(preyFor(def, game))} to support more.`);
-  if (st.hostK != null && (st.hostK < def.minK || st.hostK < Math.min(st.habitatK, def.max, st.preyK ?? Infinity))) add('hosts', needMore ? 'warn' : 'info', 'Needs animals to follow', `Current herds support ${amount(st.hostK)}. Restore habitat for ${names(def.needs)}; this species depends on them without hunting them.`);
+  if (st.preyK != null && (st.preyK < def.minK || st.preyK < Math.min(st.habitatK, def.max))) add('prey', needMore ? 'warn' : 'info', 'Limited by prey', `Current prey supports ${amount(st.preyK)} animals. Restore habitat for ${names(game, preyFor(def, game))} to support more.`);
+  if (st.hostK != null && (st.hostK < def.minK || st.hostK < Math.min(st.habitatK, def.max, st.preyK ?? Infinity))) add('hosts', needMore ? 'warn' : 'info', 'Needs animals to follow', `Current herds support ${amount(st.hostK)}. Restore habitat for ${names(game, def.needs)}; this species depends on them without hunting them.`);
   const loss = st.calmK - st.baseK;
   if (loss > 0.05 && loss / Math.max(st.calmK, 0.001) > 0.05) add('disturbance', needMore ? 'warn' : 'info', 'Disturbance reduces habitat', 'Disturbance is reducing suitable habitat. Keep busy visitor routes away from quiet wildlife areas.');
   if (st.rawK - st.calmK > 0.05) add('disaster', 'info', 'Fire or flooding reduces habitat', 'Active fire or flooding is temporarily reducing suitable habitat. Protect habitat and reassess as it recovers.');

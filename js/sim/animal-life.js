@@ -4,7 +4,7 @@
 // happens once, on contact. Shared carcass meals also satisfy hunger, using the same food-stress rules.
 
 import { clamp, DAYS_PER_YEAR } from '../config.js';
-import { ANIMALS, ANIMAL, preyFor, isMale, isMaleVariant } from '../data/animals.js';
+import { preyFor, isMale, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { passable, canLand } from './animal-terrain.js';
 import { inRiver } from './animals.js';
@@ -55,10 +55,10 @@ const ashore = def => !def.reef && (def.move === 'ground' || def.move === 'semi'
 // Which species hunt each species on this map (Challenging adds a few, so it's rebuilt on a change).
 function predatorsOf(wl, sp) {
   const eco = !!wl.game.diff.ecology;
-  if (!wl.preds || wl.preds.eco !== eco || wl.preds.n !== ANIMALS.length) {
-    const sets = ANIMALS.map(() => null);
-    for (const d of ANIMALS) for (const k of preyFor(d, wl.game) || []) if (ANIMAL[k]) (sets[ANIMAL[k].index] ||= new Set()).add(d.index);
-    wl.preds = { eco, n: ANIMALS.length, sets };
+  if (!wl.preds || wl.preds.eco !== eco || wl.preds.n !== wl.game.catalog.animals.length) {
+    const sets = wl.game.catalog.animals.map(() => null);
+    for (const d of wl.game.catalog.animals) for (const k of preyFor(d, wl.game) || []) if (wl.game.catalog.animal[k]) (sets[wl.game.catalog.animal[k].index] ||= new Set()).add(d.index);
+    wl.preds = { eco, n: wl.game.catalog.animals.length, sets };
   }
   return wl.preds.sets[sp];
 }
@@ -156,12 +156,12 @@ function giveUp(wl, a) {
 // hunter, so contact and the catch roll still decide it), and anything nearby the hunter would
 // also take scatters away from it.
 function alarm(wl, pred, pdef, target, sprint, time) {
-  const preySet = new Set((preyFor(pdef, wl.game) || []).map(k => ANIMAL[k]?.index));
+  const preySet = new Set((preyFor(pdef, wl.game) || []).map(k => wl.game.catalog.animal[k]?.index));
   for (const o of wl.agents) {
     if (o === pred || o.leaving || o.state === 'hunt') continue;
     if (o.sp !== target.sp && !preySet.has(o.sp)) continue;
     if ((o.x - target.x) ** 2 + (o.y - target.y) ** 2 > 25) continue;
-    const odef = ANIMALS[o.sp];
+    const odef = wl.game.catalog.animals[o.sp];
     if (odef.reef || odef.move === 'swim') {
       o.forage = null; o.forageGoal = null;
       wl.evadeHunt(o, pred); o.run = 1.7;
@@ -177,7 +177,7 @@ function alarm(wl, pred, pdef, target, sprint, time) {
 // A catch: big prey leaves a carcass the hunter feeds at (and its pack and the scavengers come to);
 // small prey is eaten on the spot.
 export function startFeed(wl, a, def, b) {
-  const bd = ANIMALS[b.sp], big = (bd.sprite.len || 0) >= 20 && bd.move !== 'swim' && bd.move !== 'fly';
+  const bd = wl.game.catalog.animals[b.sp], big = (bd.sprite.len || 0) >= 20 && bd.move !== 'swim' && bd.move !== 'fly';
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   a.carcass = null;
   // (a bird that snatched a fish from open water eats it on the wing)
@@ -199,7 +199,7 @@ export function startFeed(wl, a, def, b) {
 
 // Missed: the prey keeps running (Challenging already sent it toward cover).
 export function missed(wl, prey, pred) {
-  const def = ANIMALS[prey.sp];
+  const def = wl.game.catalog.animals[prey.sp];
   if (def.reef || def.move === 'swim') {
     prey.forage = null; prey.forageGoal = null;
     wl.evadeHunt(prey, pred); prey.run = 1.7; return;
@@ -210,7 +210,7 @@ export function missed(wl, prey, pred) {
 
 // ---------------------------------------------------------------- fleeing
 export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
-  const def = ANIMALS[a.sp], w = wl.game.world;
+  const def = wl.game.catalog.animals[a.sp], w = wl.game.world;
   if (a.leaving || def.reef) return;
   // a migrant swimming the crossing can't turn and run: it swims on for the bank, harder
   if (def.crossing && inRiver(wl, a)) { if (a.state === 'walk' && a.path?.length) a.run = Math.max(a.run || 1, speed / Math.max(0.01, def.speed)); return; }
@@ -316,7 +316,7 @@ export function watch(wl, a, def) {
   // (a hunter's own target freezes: the hunt decides what happens next)
   if (!stalked && p.state !== 'feed' && (d < 3 || p.state === 'hunt')) {
     bolt(wl, a, p, def.speed * 1.7, 0.6 + Math.random() * 0.5);
-    for (const o of wl.agents) if (o !== a && o.sp === a.sp && o.state !== 'flee' && !o.leaving && dist(o, a) < 4) bolt(wl, o, p, ANIMALS[o.sp].speed * 1.7, 0.5 + Math.random() * 0.5, 0.05 + Math.random() * 0.2);
+    for (const o of wl.agents) if (o !== a && o.sp === a.sp && o.state !== 'flee' && !o.leaving && dist(o, a) < 4) bolt(wl, o, p, wl.game.catalog.animals[o.sp].speed * 1.7, 0.5 + Math.random() * 0.5, 0.05 + Math.random() * 0.2);
     return true;
   }
   if (stalked || !(a.alertUntil > a.age)) {
@@ -334,7 +334,7 @@ export function prowl(wl, a, def) {
   if (!diet || def.reef || a.juvenile) return false;
   if (a.hunger < 3 && Math.random() < 0.45) { a.wait = 2 + Math.random() * 3; return true; }
   if (a.hunger < 5 || Math.random() < 0.5) return false;
-  const preySet = new Set(diet.map(k => ANIMAL[k]?.index));
+  const preySet = new Set(diet.map(k => wl.game.catalog.animal[k]?.index));
   let b = null, bd = 24 * 24;
   for (const o of wl.agents) {
     if (!preySet.has(o.sp) || o.leaving) continue;
@@ -399,7 +399,7 @@ export function play(wl, a, def) {
 }
 function chase(wl, a, o, n) {
   a.state = 'play'; a.target = o.id; a.playT = 0.5 + Math.random() * 0.6; a.playN = n; a.run = 1.7; a.path = null;
-  bolt(wl, o, a, ANIMALS[o.sp].speed * 1.5, a.playT + 0.3, 0.05);
+  bolt(wl, o, a, wl.game.catalog.animals[o.sp].speed * 1.5, a.playT + 0.3, 0.05);
   if (o.state === 'flee') o.play = true;
   facePoint(a, o.x, o.y);
 }
@@ -492,7 +492,7 @@ export function greet(wl, a, def) {
   return !!o && invite(wl, a, o, def);
 }
 function meet(wl, a) {
-  const o = byId(wl, a.greet), def = ANIMALS[a.sp];
+  const o = byId(wl, a.greet), def = wl.game.catalog.animals[a.sp];
   releaseInvitation(wl, a);
   if (!o || o.leaving || (o.state !== 'idle' && o.state !== 'walk') || dist(a, o) > 2.5) return;
   const t = 1.5 + Math.random() * 2;
@@ -517,7 +517,7 @@ function squareUp(wl, a, o, light = false) {
   // chests) meet; the drawing fine-tunes this to each model's actual antler reach
   const gap = (animalRadius(a) + animalRadius(o)) / 0.65;
   const mx = (a.x + o.x) / 2, my = (a.y + o.y) / 2;
-  const necking = ANIMALS[a.sp].behavior?.combat === 'necking';
+  const necking = wl.game.catalog.animals[a.sp].behavior?.combat === 'necking';
   const sa = [mx - ux * gap / 2, my - uy * gap / 2], so = [mx + ux * gap / 2, my + uy * gap / 2];
   const heading = Math.atan2(uy, ux) + Math.PI / 2;
   for (const [x, y] of [sa, so]) if (!w.inb(Math.floor(x), Math.floor(y)) || !passable(w, w.idx(Math.floor(x), Math.floor(y)), a)) return false;
@@ -572,12 +572,12 @@ function endSpar(wl, a, rival, lost) {
   a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.sparPath = null; a.sparLight = false; a.wait = 2 + Math.random() * 2;
   // Rutting males fight again within days (a beaten one takes longer to come back), and
   // sparring partners within a week; otherwise a match settles things for a good while.
-  const rut = RUT.includes(wl.game.month) && antlered(ANIMALS[a.sp], a);
+  const rut = RUT.includes(wl.game.month) && antlered(wl.game.catalog.animals[a.sp], a);
   a.rutCooldown = a.age + (rut ? (lost ? 4 : 2) + Math.random() * 2 : light ? 4 + Math.random() * 3 : 12 + Math.random() * 6); a.socialCooldown = a.rutCooldown;
   if (!rival) return;
   if (light) { a.alertT = 0.8 + Math.random() * 0.6; a.wait = 1 + Math.random(); facePoint(a, rival.x, rival.y); return; } // (break off, look, and go back to grazing)
   if (lost) {
-    bolt(wl, a, rival, ANIMALS[a.sp].speed * 1.5, 0.6 + Math.random() * 0.4, 0.1);
+    bolt(wl, a, rival, wl.game.catalog.animals[a.sp].speed * 1.5, 0.6 + Math.random() * 0.4, 0.1);
     // a beaten harem bull loses his cows to the winner
     if (a.haremCenter && wl.agents.some(c => c.haremOf === a.id)) rival.haremCenter = a.haremCenter.slice();
     for (const c of wl.agents) if (c.haremOf === a.id) c.haremOf = rival.id;
@@ -602,7 +602,7 @@ export function haremDay(wl) {
   for (const a of wl.agents) {
     if (a.haremOf != null && (!rut || !byId(wl, a.haremOf) || byId(wl, a.haremOf).leaving)) { a.haremOf = null; a.haremSlot = null; }
     if (!rut) { a.rutActive = false; a.haremCenter = null; a.haremAngle = null; a.satelliteSlot = null; }
-    else if (ANIMALS[a.sp].familyHerd && antlered(ANIMALS[a.sp], a)) {
+    else if (wl.game.catalog.animals[a.sp].familyHerd && antlered(wl.game.catalog.animals[a.sp], a)) {
       if (!a.rutActive) {
         // An old bachelor-following walk must end too, even without a roaming trip.
         if ((a.trip != null || a.follow) && a.state === 'walk') { a.state = 'idle'; a.path = null; a.wait = 0; }
@@ -720,7 +720,7 @@ export function arrive(wl, a) {
   a.fromFire = false;
   if (a.greet != null) {
     const o = byId(wl, a.greet);
-    if (o && HAREM.has(ANIMALS[a.sp].key) && RUT.includes(wl.game.month) && bull(ANIMALS[a.sp], a) && bull(ANIMALS[a.sp], o)) meetRival(wl, a, o);
+    if (o && HAREM.has(wl.game.catalog.animals[a.sp].key) && RUT.includes(wl.game.month) && bull(wl.game.catalog.animals[a.sp], a) && bull(wl.game.catalog.animals[a.sp], o)) meetRival(wl, a, o);
     else meet(wl, a);
   }
   if (a.goal?.carcass != null) {
@@ -741,7 +741,7 @@ export function fleeFire(wl) {
   for (let i = 0; i < w.n; i++) if (w.fire[i]) fires.push(i);
   if (!fires.length) return;
   for (const a of wl.agents) {
-    const def = ANIMALS[a.sp];
+    const def = wl.game.catalog.animals[a.sp];
     if (a.leaving || def.reef || a.move === 'swim') continue;
     if (a.fromFire && (a.state === 'flee' && a.fleeT > 0.3 || a.state === 'fly')) continue; // (already on its way)
     let sx = 0, sy = 0, sw = 0, near = Infinity;

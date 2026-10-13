@@ -1,9 +1,6 @@
 // Daily plant life: growth, decline, natural seeding, competition, succession, soil building.
 
 import { T, F, isWater, clamp } from '../config.js';
-import { biome } from '../biome.js';
-import { ANIMAL } from '../data/animals.js';
-import { PLANTS, PLANT } from '../data/plants.js';
 import { layerLight } from './environment.js';
 import { stressYoungPlant } from './ecological-pressure.js';
 
@@ -34,14 +31,14 @@ export function terrainFit(w, i, p) {
     // (mangroves and peat-swamp specialists are trees that stand in flooded ground)
     case T.MARSH: return p.mangrove || p.swampTree ? 1 : p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
     default: {
-      const own = biome.terrainFit?.(w, i, p); // a map with ground of its own (the reef: sand, rubble, reef stars)
+      const own = w.catalog.definition.terrainFit?.(w, i, p); // a map with ground of its own (the reef: sand, rubble, reef stars)
       if (own != null) return own;
       if (p.aquatic) return t === T.MUD ? 0.8 : 0;
       if (p.mangrove) return t === T.MUD ? 1 : 0.15; // mangroves need their feet in salty mud
       switch (t) {
         // (on crusted hardpan only the pioneers take, rooting in its cracks; everything else needs
         // the crust broken first by loosening the soil or digging half-moon pits)
-        case T.GRAVEL: return p.gravelOK ? 0.7 : biome.hardpan ? (p.crustOK ? 0.6 : 0.12) : 0.3;
+        case T.GRAVEL: return p.gravelOK ? 0.7 : w.catalog.definition.hardpan ? (p.crustOK ? 0.6 : 0.12) : 0.3;
         case T.FIELD: return 0.85;
         case T.PASTURE: return p.layer === 0 ? 0.55 : 0.75; // old sod competes with seedlings
         case T.MUD: return p.moist[1] >= 0.8 ? 1 : 0.6;
@@ -76,8 +73,8 @@ export function plantLimits(w, i, p) {
   if (m < p.moist[0] - 0.05) out.push('too dry');
   if (m > p.moist[1] + 0.05) out.push('too wet');
   if (w.soil[i] < p.soil - 0.03) out.push('soil too poor');
-  const why = biome.groundNote?.(w, i, p); if (why) out.push(why); // (the reef: why coral won't settle on loose rubble or sand)
-  if (biome.hardpan && w.terrain[i] === T.GRAVEL && !p.gravelOK && !p.crustOK) out.push(biome.text.hardpanLimit || 'crusted hardpan: loosen it or dig half-moon pits first');
+  const why = w.catalog.definition.groundNote?.(w, i, p); if (why) out.push(why); // (the reef: why coral won't settle on loose rubble or sand)
+  if (w.catalog.definition.hardpan && w.terrain[i] === T.GRAVEL && !p.gravelOK && !p.crustOK) out.push(w.catalog.definition.text.hardpanLimit || 'crusted hardpan: loosen it or dig half-moon pits first');
   return out;
 }
 
@@ -91,7 +88,7 @@ export function trySeed(w, p, i, rng) {
   if (cur === p.id) return false;
   // One canopy tree per tile: a seed cannot remove a living tree, its age or its wood.
   // Succession recruits beside pioneers and into gaps left by their normal mortality.
-  if (cur && p.layer === 2 && (!biome.look.underwater || p.cay)) return false;
+  if (cur && p.layer === 2 && (!w.catalog.definition.look.underwater || p.cay)) return false;
   // Sparse species recruit into gaps, counting juveniles too so a batch of settlers can't
   // fill one patch. This only limits natural recruitment; adults and player planting keep
   // their usual suitability. Wider dispersal lets larvae reach gaps beyond their parent.
@@ -109,12 +106,12 @@ export function trySeed(w, p, i, rng) {
   if (p.invasive && w.seedbank && w.seedbank[i] && w.bankStrength > 0 && rng() < w.bankStrength * 0.85) return false;
   // On maps where natives hold their ground (the suburb), an established native garden is a closed
   // community: invasive seed rarely finds a gap in it.
-  if (biome.nativesHold && p.invasive) {
-    const est = (id, g) => id && g > 0.45 && !PLANTS[id].invasive && !PLANTS[id].exotic;
+  if (w.catalog.definition.nativesHold && p.invasive) {
+    const est = (id, g) => id && g > 0.45 && !w.catalog.plants[id].invasive && !w.catalog.plants[id].exotic;
     if ((est(w.ground[i], w.groundG[i]) || est(w.shrub[i], w.shrubG[i]) || est(w.tree[i], w.treeG[i])) && rng() > 0.03) return false;
   }
   if (cur) {
-    const cp = PLANTS[cur];
+    const cp = w.catalog.plants[cur];
     const cs = plantSuit(w, i, cp);
     // Struggling residents get replaced by better-suited newcomers; invasives push harder.
     const push = p.compete * (p.invasive && !cp.invasive ? 1 : 0.4);
@@ -122,13 +119,13 @@ export function trySeed(w, p, i, rng) {
   }
   // Managed gardens and grazing paddocks keep their native meadow gaps: trees and shrubs
   // grow where planted, or on bare and neglected ground. A map can limit this to its paddocks.
-  const holdsMeadow = typeof biome.meadowsHold === 'function' ? biome.meadowsHold(w, i) : biome.meadowsHold;
-  if (holdsMeadow && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && !PLANTS[w.ground[i]].invasive && (!p.invasive || rng() < (biome.nativesHold ? 0.97 : 0.85))) return false;
+  const holdsMeadow = typeof w.catalog.definition.meadowsHold === 'function' ? w.catalog.definition.meadowsHold(w, i) : w.catalog.definition.meadowsHold;
+  if (holdsMeadow && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && !w.catalog.plants[w.ground[i]].invasive && (!p.invasive || rng() < (w.catalog.definition.nativesHold ? 0.97 : 0.85))) return false;
   // A thick sward of established groundcover is hard for woody seedlings to break through.
   let odds = s;
-  const open = biome.savanna && w.distWater[i] > 3; // savanna, away from the riverine strip
+  const open = w.catalog.definition.savanna && w.distWater[i] > 3; // savanna, away from the riverine strip
   if (p.layer > 0 && w.ground[i] && w.groundG[i] > 0.6) {
-    const gp = PLANTS[w.ground[i]];
+    const gp = w.catalog.plants[w.ground[i]];
     if (gp.look.type === 'grass' || gp.look.type === 'sedge' || gp.look.type === 'tallgrass') odds *= open ? 0.1 : 0.3;
     else if (gp.smother) odds *= gp.smother; // (a creeper that blankets the ground, like Sumatra's Chinese violet)
   }
@@ -147,9 +144,9 @@ export function trySeed(w, p, i, rng) {
 // grass roots get to it first. Most seedlings die unless fire, grazing or a gap opens the sward.
 const GRASS_LOOK = { grass: 1, tallgrass: 1, sedge: 1 };
 function droughtKills(w, i, g, gf, rng) {
-  if (!biome.savanna || gf >= 0.6 || g >= 0.45 || w.distWater[i] <= 3) return false;
+  if (!w.catalog.definition.savanna || gf >= 0.6 || g >= 0.45 || w.distWater[i] <= 3) return false;
   const gi = w.ground[i];
-  return !!gi && w.groundG[i] > 0.6 && GRASS_LOOK[PLANTS[gi].look.type] && rng() < 0.012;
+  return !!gi && w.groundG[i] > 0.6 && GRASS_LOOK[w.catalog.plants[gi].look.type] && rng() < 0.012;
 }
 
 // Grown plants of a layer on the tiles around (at least `need` of them, within r tiles).
@@ -181,13 +178,13 @@ function disperse(w, p, x, y, rng, radiusBoost) {
 export function updatePlants(game) {
   const w = game.world, rng = game.rng, m = game.month;
   const ecology = !!game.diff?.ecology;
-  const gf = biome.climate.growth[m], sf = biome.climate.spread[m];
+  const gf = game.catalog.definition.climate.growth[m], sf = game.catalog.definition.climate.spread[m];
   const W = w.w;
   const frugivores = game.frugivoreCount || 0;
   // trees that depend on one animal to carry their seed (a Brazil nut needs agoutis to bury its nuts)
   const disperserMult = [];
-  for (const p of PLANTS) if (p && p.disperser) {
-    const a = game.wildlife?.state && ANIMAL[p.disperser];
+  for (const p of game.catalog.plants) if (p && p.disperser) {
+    const a = game.wildlife?.state && game.catalog.animal[p.disperser];
     disperserMult[p.id] = a && game.wildlife.state[a.index].pop > 0 ? 1.6 : 0.12;
   }
   const birdBoost = frugivores > 0 ? 1 : 0;
@@ -195,7 +192,7 @@ export function updatePlants(game) {
   // The seed bank: every tile remembers the last native groundcover that grew well on it. When
   // the land is healthy (plenty of native cover), those buried seeds come back up on bare or
   // burned ground and slowly crowd out invasive weeds, instead of the weeds taking the gaps.
-  const bank = biome.seedbank ? (w.seedbank || (w.seedbank = new Uint16Array(w.n))) : null;
+  const bank = game.catalog.definition.seedbank ? (w.seedbank || (w.seedbank = new Uint16Array(w.n))) : null;
   const nativeFrac = w.stats?.land ? w.stats.native / w.stats.land : 0;
   w.bankStrength = bank ? clamp((nativeFrac - 0.3) / 0.35, 0, 1) : 0;
   const bankK = w.bankStrength;
@@ -207,7 +204,7 @@ export function updatePlants(game) {
     // ---- groundcover
     let id = w.ground[i];
     if (id) {
-      const p = PLANTS[id];
+      const p = game.catalog.plants[id];
       const s = plantSuit(w, i, p);
       let g = w.groundG[i];
       if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4;
@@ -220,20 +217,20 @@ export function updatePlants(game) {
         if (bank && !p.invasive && !p.weedy && g > 0.6) bank[i] = id;
         // an invasive on native seed bank, in a healthy ecosystem, is slowly shaded out by natives
         else if (bank && p.invasive && bank[i] && bankK > 0 && gf > 0.5 && rng() < 0.006 * bankK) {
-          const np = PLANTS[bank[i]];
+          const np = game.catalog.plants[bank[i]];
           if (plantSuit(w, i, np) > 0.3) { w.ground[i] = np.id; w.groundG[i] = 0.2; }
         }
       }
     } else if (bank && bank[i] && bankK > 0 && gf > 0.5 && rng() < 0.03 * bankK) {
       // bare ground with native seed in it: they sprout once the rains come
-      const np = PLANTS[bank[i]];
+      const np = game.catalog.plants[bank[i]];
       if (w.terrain[i] !== T.ROAD && w.terrain[i] !== T.TRAIL && plantSuit(w, i, np) > 0.3) { w.ground[i] = np.id; w.groundG[i] = 0.06; }
     }
 
     // ---- shrubs
     id = w.shrub[i];
     if (id) {
-      const p = PLANTS[id];
+      const p = game.catalog.plants[id];
       const s = plantSuit(w, i, p);
       let g = w.shrubG[i];
       if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4;
@@ -242,7 +239,7 @@ export function updatePlants(game) {
       if (droughtKills(w, i, g, gf, rng)) g = 0;
       // weedy bushes on healthy grassland lose out over the years (a thick native sward, hotter
       // grass fires and browsing all work against them)
-      else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !PLANTS[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0025 * bankK) g = 0;
+      else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0025 * bankK) g = 0;
       if (ecology && g > 0) g = stressYoungPlant(game, i, p, g);
       if (g <= 0) { w.shrub[i] = 0; w.shrubG[i] = 0; }
       else {
@@ -261,7 +258,7 @@ export function updatePlants(game) {
     // ---- trees
     id = w.tree[i];
     if (id) {
-      const p = PLANTS[id];
+      const p = game.catalog.plants[id];
       const s = plantSuit(w, i, p);
       let g = w.treeG[i];
       w.treeAge[i] += 1;
@@ -277,9 +274,9 @@ export function updatePlants(game) {
       if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) dies = true;
       if (ageY > p.life && rng() < 0.004) dies = true;
       else if (droughtKills(w, i, g, gf, rng)) g = 0;
-      else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !PLANTS[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
+      else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
       // savanna: in the dry months, trees packed into a thicket run short of water and some die back
-      else if (biome.savanna && gf < 0.6 && !p.invasive && w.distWater[i] > 3 && rng() < 0.006 && crowded(w, i, 3)) dies = true;
+      else if (game.catalog.definition.savanna && gf < 0.6 && !p.invasive && w.distWater[i] > 3 && rng() < 0.006 && crowded(w, i, 3)) dies = true;
       if (ecology && !dies && g > 0) g = stressYoungPlant(game, i, p, g);
       if (g <= 0) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
       else if (dies) killTree(w, i, rng);
@@ -303,7 +300,7 @@ export function updatePlants(game) {
       const ay = w.featureAge[i] / 120;
       // On the savanna, dead wood doesn't last: the yearly fires, termites and elephants bring a
       // standing dead tree down within a couple of years and clear the log away soon after.
-      const sav = biome.savanna;
+      const sav = game.catalog.definition.savanna;
       if (f === F.SNAG && ay > (sav ? 2 : 8) && rng() < (sav ? 0.01 : 0.002)) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
       else if (f === F.LOG) { w.soil[i] += 0.0004; if (ay > (sav ? 4 : 25) && rng() < (sav ? 0.01 : 0.002)) { w.feature[i] = 0; w.featureAge[i] = 0; } }
       else if (f === F.BRUSH && ay > 6 && rng() < 0.003) { w.feature[i] = 0; w.soil[i] += 0.05; }
@@ -320,9 +317,9 @@ export function updatePlants(game) {
 // (minG: how grown a tree must be to leave a snag or log; a fire burns smaller trees up entirely)
 export function killTree(w, i, rng, snagOdds = 0.7, minG = 0.6) {
   const big = w.treeG[i] > minG;
-  if (biome.savanna) snagOdds *= 0.35; // (on the savanna a dead tree mostly falls: fire, termites and elephants)
+  if (w.catalog.definition.savanna) snagOdds *= 0.35; // (on the savanna a dead tree mostly falls: fire, termites and elephants)
   w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
-  if (biome.deadTree) { biome.deadTree(w, i); return; } // (the reef: dead coral breaks down into rubble, not snags and logs)
+  if (w.catalog.definition.deadTree) { w.catalog.definition.deadTree(w, i); return; } // (the reef: dead coral breaks down into rubble, not snags and logs)
   if (big && !w.feature[i]) {
     w.feature[i] = rng() < snagOdds ? F.SNAG : F.LOG;
     w.featureAge[i] = 0;
@@ -335,15 +332,15 @@ export function killTree(w, i, rng, snagOdds = 0.7, minG = 0.6) {
 
 export function seedRain(game) {
   const w = game.world, rng = game.rng, m = game.month;
-  const sf = biome.climate.spread[m];
+  const sf = game.catalog.definition.climate.spread[m];
   const tries = 3;
   for (let k = 0; k < tries; k++) {
     if (rng() > 0.5 * sf) continue;
     const edge = ['N', 'E', 'W', 'S'][Math.floor(rng() * 4)];
-    const src = biome.seedRain[edge];
+    const src = game.catalog.definition.seedRain[edge];
     if (!src || !src.length) continue;
     const key = src[Math.floor(rng() * src.length)];
-    const p = PLANT[key];
+    const p = game.catalog.plant[key];
     const depth = Math.floor(rng() * rng() * (p.radius + 4)) ;
     let x, y;
     if (edge === 'N') { x = Math.floor(rng() * w.w); y = depth; }
@@ -359,14 +356,14 @@ export function seedRain(game) {
   }
   // Birds carry berry seeds from far away once they are visiting.
   if (game.frugivoreCount > 0 && rng() < 0.08 * sf) {
-    const opts = biome.berrySeeds;
-    const p = PLANT[opts[Math.floor(rng() * opts.length)]];
+    const opts = game.catalog.definition.berrySeeds;
+    const p = game.catalog.plant[opts[Math.floor(rng() * opts.length)]];
     const i = Math.floor(rng() * w.n);
     trySeed(w, p, i, rng);
   }
   // Wind-carried seeds can land anywhere.
   if (rng() < 0.05 * sf) {
-    const p = PLANT[biome.windSeeds[Math.floor(rng() * biome.windSeeds.length)]];
+    const p = game.catalog.plant[game.catalog.definition.windSeeds[Math.floor(rng() * game.catalog.definition.windSeeds.length)]];
     trySeed(w, p, Math.floor(rng() * w.n), rng);
   }
 }
@@ -377,7 +374,7 @@ export function seedRain(game) {
 // own, the way farmers use deep-rooted cover crops. It takes a patch of them, not one plant, and it
 // doesn't happen where herds trample the ground every day. Checked every few days: most of a field in about five years.
 const rooted = (w, i) => {
-  const gp = PLANTS[w.ground[i]], sp = PLANTS[w.shrub[i]], tp = PLANTS[w.tree[i]];
+  const gp = w.catalog.plants[w.ground[i]], sp = w.catalog.plants[w.shrub[i]], tp = w.catalog.plants[w.tree[i]];
   const ok = p => p && !p.invasive && !p.exotic && !p.sod && !p.weedy;
   return (ok(gp) && w.groundG[i] >= 0.5) || (ok(sp) && w.shrubG[i] >= 0.4) || (ok(tp) && w.treeG[i] >= 0.35);
 };
@@ -385,8 +382,8 @@ export function rootsLoosen(game) {
   const w = game.world, W = w.w, rng = game.rng;
   for (let i = 0; i < w.n; i++) {
     const t = w.terrain[i];
-    if (t !== T.FIELD && t !== T.PASTURE && !(biome.hardpan && t === T.GRAVEL)) continue; // (and crusted hardpan)
-    if (t === T.PASTURE && biome.sandBed) continue; // (the reef's sand is meant to be sand)
+    if (t !== T.FIELD && t !== T.PASTURE && !(game.catalog.definition.hardpan && t === T.GRAVEL)) continue; // (and crusted hardpan)
+    if (t === T.PASTURE && game.catalog.definition.sandBed) continue; // (the reef's sand is meant to be sand)
     if ((w.trod && w.trod[i] > 0.1) || !rooted(w, i) || rng() > 0.008) continue;
     const x = i % W, y = (i / W) | 0;
     let n = 0;

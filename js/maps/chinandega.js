@@ -7,8 +7,6 @@ import buildChinandegaPlants from '../data/plants-chinandega.js';
 import buildChinandegaAnimals from '../data/animals-chinandega.js';
 import { generateFinca, chinandegaBorderCell, volcanoTint, ESTUARY_X, BEACH, SLOPE_Y, FARM_ROAD } from './chinandega-world.js';
 import { PNW_GOALS, culvertExists, pop, speciesPresent } from '../sim/goals.js';
-import { PLANT, PLANTS } from '../data/plants.js';
-import { ANIMAL } from '../data/animals.js';
 import { riverRow } from '../world.js';
 import { T, F, H } from '../config.js';
 import { moment, arrivalMoment, momentFree } from '../sim/moments.js';
@@ -87,11 +85,11 @@ const GOALS = [
 
 // ------------------------------------------------------------------ the finca's own counts
 function fincaStats(w, s) {
-  const beachIds = [PLANT.pescaprae?.id, PLANT.seagrape?.id], W = w.w;
+  const beachIds = [w.catalog.plant.pescaprae?.id, w.catalog.plant.seagrape?.id], W = w.w;
   let mangrove = 0, ponds = 0, beach = 0, beachPlants = 0, silvo = 0, pasture = 0, forestSlope = 0;
   // shade trees: native trees grown big enough to stand in (not mangroves)
   const shade = new Uint8Array(w.n);
-  for (let i = 0; i < w.n; i++) if (w.tree[i] && w.treeG[i] > 0.5 && !PLANTS[w.tree[i]].invasive && !PLANTS[w.tree[i]].mangrove) {
+  for (let i = 0; i < w.n; i++) if (w.tree[i] && w.treeG[i] > 0.5 && !w.catalog.plants[w.tree[i]].invasive && !w.catalog.plants[w.tree[i]].mangrove) {
     const x = i % W, y = (i / W) | 0;
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (w.inb(x + dx, y + dy)) shade[(y + dy) * W + x + dx] = 1;
   }
@@ -99,7 +97,7 @@ function fincaStats(w, s) {
     const x = i % w.w, y = (i / w.w) | 0, t = w.terrain[i];
     const h = w.habitat[i];
     if ((h === 1 || h === 3 || h === 2) && !w.tree[i] && t !== T.GRAVEL) { pasture++; if (shade[i]) silvo++; } // (FARM, MEADOW or INVASIVE grass: grazing land)
-    if (w.tree[i] && PLANTS[w.tree[i]].mangrove && w.treeG[i] > 0.4) mangrove++;
+    if (w.tree[i] && w.catalog.plants[w.tree[i]].mangrove && w.treeG[i] > 0.4) mangrove++;
     if (y < SLOPE_Y && (h === H.YOUNG_FOREST || h === H.MATURE_FOREST)) forestSlope++; // (dry forest on the volcano slope)
     if (t === T.POND && y > 55) ponds++;
     if (t === T.GRAVEL && x < ESTUARY_X && y >= riverRow(x) - BEACH) {
@@ -121,15 +119,15 @@ function fincaDaily(g) {
     g.flags.dikes0 ??= dikes;
   }
   { let m = 0, drained = 0;
-    for (const i of g.flags.pond0) { if (w.terrain[i] !== T.POND) drained++; if (w.tree[i] && PLANTS[w.tree[i]].mangrove && w.treeG[i] > 0.15) m++; } // (a seedling that has taken root)
+    for (const i of g.flags.pond0) { if (w.terrain[i] !== T.POND) drained++; if (w.tree[i] && g.catalog.plants[w.tree[i]].mangrove && w.treeG[i] > 0.15) m++; } // (a seedling that has taken root)
     w.stats.pondMangrove = m; w.stats.pondsDrained = drained; }
   // the howlers are back
-  if (done.congos == null && ANIMAL.congo) arrivalMoment(g, 'congos', ANIMAL.congo);
+  if (done.congos == null && g.catalog.animal.congo) arrivalMoment(g, 'congos', g.catalog.animal.congo);
   // Each month the cooperative sells milk and cheese (more cows, and better milk where the pasture
   // has shade), and the fishers and cockle gatherers sell their catch (more mangroves, more fish,
   // shrimp and conchas negras: the mangroves are the nursery for the whole coast).
   if (g.day % 10 === 0) {
-    const n = ANIMAL.cattle ? pop(g, 'cattle') : 0, shadeFrac = w.stats.pasture ? (w.stats.silvo || 0) / w.stats.pasture : 0;
+    const n = g.catalog.animal.cattle ? pop(g, 'cattle') : 0, shadeFrac = w.stats.pasture ? (w.stats.silvo || 0) / w.stats.pasture : 0;
     const milk = Math.round(n * 38 * (0.55 + 0.9 * Math.min(1, shadeFrac * 2)));
     const catchV = Math.round((w.stats.mangrove || 0) * 2 + (pop(g, 'snook') + pop(g, 'snapper')) * 14);
     // (the co-op keeps most of it to live on: about a fifth of the sales goes into the restoration)
@@ -154,7 +152,7 @@ function fincaDaily(g) {
   // Mangrove propagules: seedlings that float in on the tide and root in open mud and marsh,
   // mostly close to grown mangroves (in the rainy season, when they drop).
   if (g.month >= 3 && g.month <= 7) {
-    const ids = MANGROVES.map(k => PLANT[k]?.id).filter(Boolean);
+    const ids = MANGROVES.map(k => g.catalog.plant[k]?.id).filter(Boolean);
     for (let i = 0; i < w.n; i++) {
       const t = w.terrain[i];
       if ((t !== T.MARSH && t !== T.MUD) || w.tree[i] || w.feature[i] === F.DIKE) continue;
@@ -166,14 +164,14 @@ function fincaDaily(g) {
         const j = w.idx(x + dx, y + dy);
         if (ids.includes(w.tree[j]) && w.treeG[j] > 0.6) { near++; if (g.rng() < 1 / near) pick = w.tree[j]; }
       }
-      if (near && g.rng() < 0.004 * near) { const p = PLANTS[pick]; if (plantSuit(w, i, p) > 0.2) w.setPlant(i, p, 0.06); }
+      if (near && g.rng() < 0.004 * near) { const p = g.catalog.plants[pick]; if (plantSuit(w, i, p) > 0.2) w.setPlant(i, p, 0.06); }
     }
   }
   // Sea turtles: when they first come to a beach that's ready for them, many come ashore on the same
   // night along its whole length (an arribada); about six weeks later the hatchlings come out of
   // every nest and race for the sea.
-  if (ANIMAL.seaturtle) {
-    const T0 = ANIMAL.seaturtle;
+  if (g.catalog.animal.seaturtle) {
+    const T0 = g.catalog.animal.seaturtle;
     const beachRow = x => riverRow(x) - 1 - Math.floor(g.rng() * 3);  // the open sand, a few steps from the waves
     // (in the campaign, not before the turtle-beach chapter)
     const beachReady = g.mode !== 'campaign' || g.campaign.chapter >= 6;

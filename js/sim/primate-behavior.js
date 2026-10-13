@@ -1,12 +1,11 @@
 // Visible fruit meals use the same mature, seasonal fruit that already supports
 // wildlife and reduces the harvest. They don't create a second fruit economy.
-import { PLANTS, isFruiting } from '../data/plants.js';
-import { ANIMALS } from '../data/animals.js';
+import { isFruiting } from '../data/plants.js';
 import { watch } from './animal-life.js';
 
 export const isPrimate = def => ['monkey', 'orangutan'].includes(def?.sprite.kind);
 export function fruitAt(game, i, plant = null) {
-  const w = game.world, p = PLANTS[w.tree[i]];
+  const w = game.world, p = game.catalog.plants[w.tree[i]];
   return !!(p && (!plant || p.id === plant) && w.treeG[i] > .65 && !w.fire[i] && isFruiting(p, game.month));
 }
 function meal(wl, a, i) {
@@ -33,7 +32,7 @@ export function primateChoose(wl, a, def) {
 export function primateArrive(wl, a) {
   // Let a climb end in a settled pause instead of immediately picking a new
   // direction. Threats still interrupt idle animals through the usual watch.
-  if (a.state === 'idle' && isPrimate(ANIMALS[a.sp]) && !a.leaving && !a.fromFire && !a.drinkT)
+  if (a.state === 'idle' && isPrimate(wl.game.catalog.animals[a.sp]) && !a.leaving && !a.fromFire && !a.drinkT)
     a.wait = Math.max(a.wait || 0, 3 + wl.game.rng() * 4);
   const goal = a.fruitGoal; a.fruitGoal = null;
   if (!goal || a.state !== 'idle' || !fruitAt(wl.game, goal.i, goal.plant)) return;

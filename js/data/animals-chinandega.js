@@ -5,6 +5,7 @@
 import { habW, near } from './animals.js';
 import { T } from '../config.js';
 
+/** @param {import('./contracts.js').DefineAnimal} def */
 export default function buildChinandegaAnimals(def) {
   const stat = (g, k) => g.stats?.[k] || 0;
   const rainy = [2, 3, 4, 5, 6, 7];

@@ -5,7 +5,8 @@
 const root = new URL('../js/', import.meta.url).href;
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
 const { Game } = await import(root + 'game.js');
-const { TOOLS, brushTiles, toolCost } = await import(root + 'tools.js');
+const { TOOLS } = await import(root + 'tools.js');
+const { ToolActions } = await import(root + 'tool-actions.js');
 const { CHAPTERS, currentChapter, toolUnlocked } = await import(root + 'sim/campaign.js');
 const { T, F, isWater } = await import(root + 'config.js');
 const { PLANTS } = await import(root + 'data/plants.js');
@@ -17,19 +18,12 @@ const w = g.world;
 const log = [];
 g.on('chapter', e => log.push(`day ${g.day} (Y${g.year} ${g.dateString()}): finished "${e.done.title}"  $${Math.round(g.money)}`));
 
-// use a tool the way the input layer does: pay, apply, count it
-function use(key, x, y, r = null) {
-  const t = TOOLS[key];
+const actions = new ToolActions(g);
+function use(key, x, y, radius = null) {
   if (!toolUnlocked(g, key)) throw new Error(`locked tool used: ${key}`);
-  const tiles = t.brush ? brushTiles(w, x, y, r ?? t.size) : [w.idx(x, y)];
-  let n = 0;
-  for (const i of tiles) {
-    const c = toolCost(g, t, i);
-    if (c > 0 && !g.canAfford(c)) continue;
-    if (t.apply(g, i, Math.random) === true) { if (c > 0) g.spend(c); else if (c < 0) g.earn(-c); g.stats.used[key] = (g.stats.used[key] || 0) + 1; n++; }
-  }
-  if (n) g.refreshEnvironment();
-  return n;
+  const stroke = actions.begin(key);
+  actions.paint(stroke, x, y, radius ?? stroke.tool.size);
+  return actions.end(stroke).count;
 }
 const each = (pred, fn) => { for (let i = 0; i < w.n; i++) if (pred(i)) fn(i % w.w, (i / w.w) | 0, i); };
 const near = (i, test, r = 1) => { const x = i % w.w, y = (i / w.w) | 0; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (w.inb(x + dx, y + dy) && test(w.idx(x + dx, y + dy))) return true; return false; };

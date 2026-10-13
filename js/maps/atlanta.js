@@ -8,12 +8,12 @@ import buildAtlantaPlants from '../data/plants-atlanta.js';
 import buildAtlantaAnimals from '../data/animals-atlanta.js';
 import { generateSubdivision, atlantaBorderCell } from './atlanta-world.js';
 import { PNW_GOALS, pop, speciesPresent } from '../sim/goals.js';
-import { PLANT, PLANTS, isBlooming } from '../data/plants.js';
+import { isBlooming } from '../data/plants.js';
 import { plantSuit } from '../sim/plants.js';
 import { riverRow } from '../world.js';
 import { T, F } from '../config.js';
 import { moment, momentFree } from '../sim/moments.js';
-import { ANIMAL } from '../data/animals.js';
+
 
 const reuse = key => PNW_GOALS.find(g => g.key === key);
 const st = (g, k) => g.world.stats?.[k] || 0;
@@ -31,8 +31,8 @@ const MONTHS = ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
 function momentsDaily(g) {
   const done = g.flags.moments || {};
   // (the monarchs' stopover is the fall migration south, September and October)
-  if (done.monarchs == null && ANIMAL.monarch && g.month >= 6 && g.month <= 7) {
-    const m = g.wildlife.agents.filter(a => a.sp === ANIMAL.monarch.index && !a.leaving);
+  if (done.monarchs == null && g.catalog.animal.monarch && g.month >= 6 && g.month <= 7) {
+    const m = g.wildlife.agents.filter(a => a.sp === g.catalog.animal.monarch.index && !a.leaving);
     if (m.length >= 8) {
       // look at the thickest cloud of them, over the gardens (not following one butterfly)
       let best = m[0], bn = 0;
@@ -44,7 +44,7 @@ function momentsDaily(g) {
         for (let k = 0; k < 14; k++) {
           const x = Math.round(best.x + (g.rng() - 0.5) * 8), y = Math.round(best.y + (g.rng() - 0.5) * 6);
           if (!w.inb(x, y)) continue;
-          const a = W.spawn(ANIMAL.monarch, x, y, { silent: true, age: 0.2 * 120 });
+          const a = W.spawn(g.catalog.animal.monarch, x, y, { silent: true, age: 0.2 * 120 });
           a.passing = true; a.age = 0.3 * 120; // (they move on south within a few weeks)
         }
       }
@@ -55,7 +55,7 @@ function momentsDaily(g) {
     const w = g.world;
     let n = 0, sx = 0, sy = 0;
     for (let i = 0; i < w.n; i++) {
-      const p = w.ground[i] ? PLANTS[w.ground[i]] : null;
+      const p = w.ground[i] ? g.catalog.plants[w.ground[i]] : null;
       if (p && !p.invasive && !p.exotic && p.life >= 5 && w.groundG[i] > 0.5) { n++; sx += i % w.w; sy += (i / w.w) | 0; }
     }
     if (n >= 250 && momentFree(g)) moment(g, 'fireflies', { x: sx / n + 0.5, y: sy / n + 0.5 });
@@ -132,21 +132,21 @@ const GOALS = [
 // Run after each day's habitat update (see sim/environment.js).
 function suburbStats(w, s, month) {
   const n = w.n, W = w.w, Hh = w.h;
-  const milk = [PLANT.butterflyweed?.id, PLANT.swampmilkweed?.id], pear = PLANT.callery?.id, turf = PLANT.turf?.id;
+  const milk = [w.catalog.plant.butterflyweed?.id, w.catalog.plant.swampmilkweed?.id], pear = w.catalog.plant.callery?.id, turf = w.catalog.plant.turf?.id;
   let milkweed = 0, hostSwallow = 0, catTrees = 0, pears = 0, turfN = 0, fences = 0, marsh = 0, bloom = 0, edge = 0, shade = 0;
   // a native tree crown big enough to count as canopy
-  const crown = i => { const t = w.tree[i]; if (!t || w.treeG[i] < 0.5) return 0; const p = PLANTS[t]; return p.invasive || p.exotic ? 0 : w.treeG[i] >= 0.85 ? 2 : 1; };
+  const crown = i => { const t = w.tree[i]; if (!t || w.treeG[i] < 0.5) return 0; const p = w.catalog.plants[t]; return p.invasive || p.exotic ? 0 : w.treeG[i] >= 0.85 ? 2 : 1; };
   for (let i = 0; i < n; i++) {
     const g = w.ground[i], sh = w.shrub[i], tr = w.tree[i], t = w.terrain[i];
     if (g && w.groundG[i] > 0.4) {
       if (milk.includes(g)) milkweed++;
       if (g === turf) turfN++;
-      const p = PLANTS[g];
+      const p = w.catalog.plants[g];
       if (!p.invasive && !p.exotic && isBlooming(p, month)) bloom++;
     }
-    if (sh && w.shrubG[i] > 0.4) { const p = PLANTS[sh]; if (p.host === 'swallowtail') hostSwallow++; if (!p.invasive && !p.exotic && isBlooming(p, month)) bloom++; }
+    if (sh && w.shrubG[i] > 0.4) { const p = w.catalog.plants[sh]; if (p.host === 'swallowtail') hostSwallow++; if (!p.invasive && !p.exotic && isBlooming(p, month)) bloom++; }
     if (tr && w.treeG[i] > 0.5) {
-      const p = PLANTS[tr];
+      const p = w.catalog.plants[tr];
       if (tr === pear) pears++;
       if (p.host === 'swallowtail') hostSwallow++;
       if (p.caterpillars) catTrees++;
@@ -222,10 +222,10 @@ function fillGaps(g) {
       const xx = x + dx, yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
       const j = yy * W + xx, id = w.ground[j];
-      if (id && w.groundG[j] > 0.5 && !PLANTS[id].invasive && !PLANTS[id].exotic) nb.push(id);
+      if (id && w.groundG[j] > 0.5 && !g.catalog.plants[id].invasive && !g.catalog.plants[id].exotic) nb.push(id);
     }
     if (nb.length < 1 || rng() > 0.05 + 0.06 * nb.length) continue;
-    const p = PLANTS[nb[Math.floor(rng() * nb.length)]];
+    const p = g.catalog.plants[nb[Math.floor(rng() * nb.length)]];
     if (plantSuit(w, i, p) > 0.15) { w.setPlant(i, p, 0.18); w.renderDirty = true; }
   }
 }
@@ -248,7 +248,7 @@ function appeal(w, i) {
   const t = w.terrain[i];
   let a = w.nectar[i] * 2 + (w.canopy[i] > 0.4 ? 0.8 : 0) + (w.distWater[i] <= 1 ? 0.7 : 0);
   if (t === T.ROAD) a += 0.4; // (a walk down the street)
-  if (w.ground[i] && PLANTS[w.ground[i]].sod) a *= 0.2;
+  if (w.ground[i] && w.catalog.plants[w.ground[i]].sod) a *= 0.2;
   return a;
 }
 function bfs(w, from, goal, cap = 1600) {

@@ -8,6 +8,9 @@
 // Months: 0=Mar ... 9=Dec 10=Jan 11=Feb. Southern hemisphere: summer is Dec–Feb, when the water
 // is warmest and corals bleach; corals spawn together a few nights after the November full moon.
 
+/** @param {import('./contracts.js').DefinePlant} def
+ * @param {function(import('./contracts.js').SeedMix):void} mix
+ * @param {function(string):import('./contracts.js').PlantDefinition} get */
 export default function buildReefPlants(def, mix, get) {
   const sea = [0, 1]; // (everything here is underwater: "moisture" never limits anything)
 

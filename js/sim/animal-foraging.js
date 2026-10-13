@@ -1,7 +1,7 @@
 // Short meals at real habitat resources, with a bounded search through shared terrain policy.
 // These use existing insect/nectar/vegetation indices; no new food or population economy.
-import { ANIMALS, preyFor } from '../data/animals.js';
-import { PLANTS, isFruiting } from '../data/plants.js';
+import { preyFor } from '../data/animals.js';
+import { isFruiting } from '../data/plants.js';
 import { passable, canLand } from './animal-terrain.js';
 import { watch } from './animal-life.js';
 
@@ -9,7 +9,7 @@ const grass = p => p && ['grass', 'tallgrass', 'sedge'].includes(p.look.type);
 export function foodAt(wl, def, i) {
   const w = wl.game.world;
   if (i < 0 || i >= w.n || w.fire[i] || w.struct[i] >= 0 || !passable(w, i, def)) return null;
-  const ground = PLANTS[w.ground[i]], shrub = PLANTS[w.shrub[i]], tree = PLANTS[w.tree[i]];
+  const ground = wl.game.catalog.plants[w.ground[i]], shrub = wl.game.catalog.plants[w.shrub[i]], tree = wl.game.catalog.plants[w.tree[i]];
   for (const food of def.behavior.forage) {
     if (food === 'grass' && grass(ground) && w.groundG[i] > 0.25) return food;
     if (food === 'browse' && (shrub && !shrub.invasive && w.shrubG[i] > 0.3 || tree && !tree.invasive && w.treeG[i] > 0.6)) return food;
@@ -24,7 +24,7 @@ export function foodAt(wl, def, i) {
     if (food === 'algae' && ['turf', 'halimeda'].includes(ground?.key) && w.groundG[i] > 0.15) return food;
     if (food === 'sediment' && !tree && !shrub && wl.suit[def.index][i] > 0.1) return food;
     if (food === 'plankton' && wl.suit[def.index][i] > 0.15) return food;
-    if (food === 'dung' && wl.agents.some(a => !a.leaving && def.needs?.includes(ANIMALS[a.sp].key) && Math.hypot(a.x - (i % w.w + 0.5), a.y - ((i / w.w | 0) + 0.5)) < 3)) return food;
+    if (food === 'dung' && wl.agents.some(a => !a.leaving && def.needs?.includes(wl.game.catalog.animals[a.sp].key) && Math.hypot(a.x - (i % w.w + 0.5), a.y - ((i / w.w | 0) + 0.5)) < 3)) return food;
   }
   return null;
 }
@@ -43,7 +43,7 @@ export function cleanerChoose(wl, a, def) {
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   if (!w.inb(x, y) || wl.suit[def.index][w.idx(x, y)] <= 0.15) return false;
   const client = wl.agents.find(b => b !== a && !b.leaving && b.state === 'idle' &&
-    ANIMALS[b.sp].reef && !ANIMALS[b.sp].benthic && ANIMALS[b.sp].key !== 'cleaner' &&
+    wl.game.catalog.animals[b.sp].reef && !wl.game.catalog.animals[b.sp].benthic && wl.game.catalog.animals[b.sp].key !== 'cleaner' &&
     Math.hypot(a.x - b.x, a.y - b.y) < 2);
   if (!client || Math.random() > 0.5) return false;
   const left = 2 + Math.random();
@@ -86,7 +86,7 @@ export function forageArrive(wl, a) {
   const goal = a.forageGoal; a.forageGoal = null;
   if (goal == null || a.state !== 'idle' || a.leaving || a.fromFire) return;
   const w = wl.game.world, i = w.idx(Math.floor(a.x), Math.floor(a.y));
-  if (i === goal) beginMeal(wl, a, ANIMALS[a.sp], i);
+  if (i === goal) beginMeal(wl, a, wl.game.catalog.animals[a.sp], i);
 }
 export function forageUpdate(wl, a, def, dt) {
   const meal = a.forage;
@@ -113,7 +113,7 @@ export function forageUpdate(wl, a, def, dt) {
   a.forageAfter = a.age + 6 + Math.random() * 6;
 }
 function foodAtStation(wl, a, partner, i) {
-  const cleaner = ANIMALS[a.sp].key === 'cleaner' ? a : partner;
-  return ANIMALS[cleaner.sp].key === 'cleaner' && wl.suit[cleaner.sp][i] > 0.15 &&
+  const cleaner = wl.game.catalog.animals[a.sp].key === 'cleaner' ? a : partner;
+  return wl.game.catalog.animals[cleaner.sp].key === 'cleaner' && wl.suit[cleaner.sp][i] > 0.15 &&
     wl.game.world.tree[i] && wl.game.world.treeG[i] > 0.3 && !wl.game.world.fire[i];
 }

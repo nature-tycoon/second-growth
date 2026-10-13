@@ -5,6 +5,9 @@
 // December to April, a flush of new green with the first rains in May), and many flower while bare.
 // mangrove: a tree that grows in tidal marsh.
 
+/** @param {import('./contracts.js').DefinePlant} def
+ * @param {function(import('./contracts.js').SeedMix):void} mix
+ * @param {function(string):import('./contracts.js').PlantDefinition} get */
 export default function buildChinandegaPlants(def, mix, get) {
   const dry = { dryForest: true };
   // ---------- Groundcover ----------

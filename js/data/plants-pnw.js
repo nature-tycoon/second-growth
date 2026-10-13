@@ -3,6 +3,9 @@
 // moist / light are preferred ranges on a 0..1 scale. soil = minimum soil health.
 // grow = maturity gained per day in ideal conditions. spread = daily seeding chance once mature.
 
+/** @param {import('./contracts.js').DefinePlant} def
+ * @param {function(import('./contracts.js').SeedMix):void} mix
+ * @param {function(string):import('./contracts.js').PlantDefinition} get */
 export default function buildPnwPlants(def, mix, get) {
   // ---------- Groundcover ----------
   def({ key: 'fescue', name: "Roemer's fescue", sci: 'Festuca roemeri', layer: 0, moist: [0.05, 0.6], light: [0.55, 1],

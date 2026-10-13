@@ -4,7 +4,7 @@
 // A typical farm comes to a few kilobytes.
 
 import { H, T, F } from './config.js';
-import { ANIMALS } from './data/animals.js';
+
 
 export const SNAP_VERSION = 1;
 // codes 0-12 are the habitat classes (config.js H); then what the player laid down
@@ -29,7 +29,7 @@ export function encodeGrid(w) {
 
 export function farmSnapshot(g) {
   const w = g.world, pops = {};
-  for (const def of ANIMALS) { const p = g.wildlife.state[def.index].pop; if (p > 0) pops[def.key] = p; }
+  for (const def of g.catalog.animals) { const p = g.wildlife.state[def.index].pop; if (p > 0) pops[def.key] = p; }
   const counts = {};
   for (const [k, v] of Object.entries(H)) counts[k.toLowerCase()] = w.stats.counts?.[v] || 0;
   return {

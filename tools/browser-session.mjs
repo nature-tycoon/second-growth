@@ -39,6 +39,9 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
       const timeout = setTimeout(() => chrome.kill('SIGKILL'), 3000);
       await stopped; clearTimeout(timeout);
     }
+    // A Chrome helper can retain the inherited stderr pipe after the browser exits.
+    // Release our read end so a completed check does not keep Node alive.
+    chrome?.stderr?.destroy();
     await new Promise(resolve => server.close(resolve));
     if (profile) await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }

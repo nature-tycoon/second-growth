@@ -5,6 +5,7 @@
 
 import { habW, near } from './animals.js';
 
+/** @param {import('./contracts.js').DefineAnimal} def */
 export default function buildPnwAnimals(def) {
   // ------------------------------------------------------------------ Mammals
   {

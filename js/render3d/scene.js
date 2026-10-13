@@ -8,14 +8,14 @@ import { snow, withSnowTops } from './snow.js';
 import { sky, haze, withClouds } from './atmosphere.js';
 import { lightingBalance } from './lighting.js';
 import { Ambience } from './ambience.js';
-import { biome } from '../biome.js';
-import { BORDER, LEVEL, T, H, HABITAT_INFO, isWater, clamp } from '../config.js';
-import { ANIMALS, animalDef, isMale } from '../data/animals.js';
+import { activeCatalog } from '../data/catalog.js';
+import { BORDER, LEVEL, T, H, isWater, clamp } from '../config.js';
+import { animalDef, isMale } from '../data/animals.js';
 import { Terrain, buildAtlas, waterSurfaceY } from './terrain.js';
 import { Flora, windGust, floraVersion } from './flora.js';
 import { Actors, salmonLeap } from './actors.js';
 import { SeaSurface } from './sea.js';
-import { building, diveBoat, JETTY_BOAT } from './geometry.js';
+import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
 import { FrameCpuStats, CPU_STAGES } from '../performance.js';
@@ -75,7 +75,8 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 
 
 export class Renderer {
-  constructor(canvas, { preserveDrawingBuffer = false } = {}) {
+  constructor(canvas, { preserveDrawingBuffer = false, catalog = activeCatalog } = {}) {
+    this.catalog = catalog;
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
@@ -98,7 +99,7 @@ export class Renderer {
     this.gl.shadowMap.enabled = true;
     this.gl.shadowMap.type = THREE.PCFShadowMap;
     this.gl.outputColorSpace = THREE.SRGBColorSpace;
-    installGrade(biome.look.grade);
+    installGrade(this.catalog.definition.look.grade);
     this.gl.toneMapping = THREE.CustomToneMapping;
     this.gl.toneMappingExposure = 1.0;
     this.scene = new THREE.Scene();
@@ -114,9 +115,9 @@ export class Renderer {
     this.sun.shadow.bias = -0.0006;
     this.sun.shadow.normalBias = 0.03;
     this.scene.add(this.hemi, this.sun, this.sun.target);
-    this.atlas = buildAtlas();
+    this.atlas = buildAtlas(this.catalog);
     this.terrain = new Terrain(this.scene, this.atlas);
-    this.flora = new Flora(this.scene);
+    this.flora = new Flora(this.scene, { catalog: this.catalog });
     this.lightingDepth = true;
     this.actors = new Actors(this.scene, this.flora);
     this.seaSurface = new SeaSurface(this.scene);
@@ -359,7 +360,7 @@ export class Renderer {
     this.updateCamera();
   }
   resetView() {
-    const v = biome.startView;
+    const v = this.catalog.definition.startView;
     this.zoom = v?.zoom ?? 0.62; this.az = this.azTarget = v?.az ?? Math.PI / 4;
     this.centerOn(v ? v.x : this.world ? this.world.w * 0.36 : 44, v ? v.y : this.world ? this.world.h * 0.42 : 38);
   }
@@ -415,7 +416,7 @@ export class Renderer {
     return w.heightAt(clamp(x, -BORDER, w.w + BORDER - 0.001), clamp(z, -BORDER, w.h + BORDER - 0.001)) * LEVEL;
   }
   // the sea surface's height on an underwater map (null elsewhere)
-  get seaY() { return biome.look.underwater ? biome.look.underwater.level * LEVEL : null; }
+  get seaY() { return this.catalog.definition.look.underwater ? this.catalog.definition.look.underwater.level * LEVEL : null; }
   // Where a screen point lands on the terrain, in tile coordinates. floor: a level the ray stops
   // at even over lower ground (the sea surface, for buoys that float on it).
   screenToTile(sx, sy, floor = null) {
@@ -466,6 +467,14 @@ export class Renderer {
 
   // ------------------------------------------------------------------ world sync
   setWorld(game) {
+    if (this.catalog !== game.catalog) {
+      const old = this.atlas;
+      this.atlas = buildAtlas(game.catalog);
+      this.terrain.atlas = this.atlas;
+      this.terrain.material.map = this.atlas.tex;
+      old.tex.dispose();
+    }
+    this.catalog = game.catalog;
     this.world = game.world;
     this.terrain.setWorld(game.world, game.border);
     this.seaSurface.setWorld(game.world);
@@ -491,7 +500,7 @@ export class Renderer {
         if (m.userData.boat) m.userData.boat.userData.y0 = this.seaY - m.position.y;
         return;
       }
-      const look = biome.look.structures?.[s.type] || s.type;
+      const look = this.catalog.definition.look.structures?.[s.type] || s.type;
       const m = new THREE.Mesh(building(look, s.w, s.h), this.structMat); // (a map can draw a building its own way: the reef's boat landing is a jetty)
       m.position.set(s.x + s.w / 2, w.tileH(s.x, s.y) * LEVEL, s.y + s.h / 2);
       if (s.turn) m.rotation.y = Math.PI; // (a building that faces north, onto the street behind it)
@@ -673,7 +682,7 @@ export class Renderer {
 
     // light follows the seasons and weather, easing between them instead of snapping; on cloudy
     // days drifting cloud shadows (atmosphere.js) do much of the dimming, patch by patch
-    const L = biome.look.light[game.season], wx = game.weather;
+    const L = game.catalog.definition.look.light[game.season], wx = game.weather;
     // overcast, not murky: rain dims the sun but the soft sky light fills in the shadows
     const gloom = wx === 'rain' ? 0.86 : wx === 'snow' ? 0.8 : wx === 'cloud' ? 0.95 : 1;
     // clear weather is mostly truly cloudless; now and then (a few days at a time) a scatter of
@@ -702,7 +711,7 @@ export class Renderer {
     this.dawn = todU > 0.97 || todU < 0.1 ? 1 - Math.min(1, Math.abs(((todU + 0.03) % 1) - 0.03) / 0.07) : 0;
     T.sun.lerp(tod.sunCol, tod.sunAmt); T.sky.lerp(tod.skyCol, tod.skyAmt);
     // (how high the sun stands, not how strong it shines: the golden-hour sun is strong but low)
-    const balance = this.lightingDepth ? lightingBalance(wx, clamp((tod.el - 30) / 24, 0, 1), !!biome.look.underwater)
+    const balance = this.lightingDepth ? lightingBalance(wx, clamp((tod.el - 30) / 24, 0, 1), !!game.catalog.definition.look.underwater)
       : { key: 1, fill: 1, cool: 0, trim: 0, haze: 0 };
     // A little sky colour in the bounce light keeps shade cooler than sunlit surfaces, under a high sun.
     T.ground.lerp(T.sky, balance.cool).multiplyScalar(1 - balance.trim);
@@ -712,7 +721,7 @@ export class Renderer {
     haze.uHazeOrigin.value.set(this.target.x, this.target.z);
     haze.uHazeDir.value.set(-Math.sin(this.az), -Math.cos(this.az));
     haze.uHazeSpan.value = Math.max(8, this.vh / (2 * this.ppu * Math.sin(EL)));
-    const humid = biome.id === 'amazon' || biome.id === 'sumatra';
+    const humid = game.catalog.definition.id === 'amazon' || game.catalog.definition.id === 'sumatra';
     const hazeTo = balance.haze * (humid ? 1.25 : 1) * (this.light ? .75 : 1) * (0.6 + .4 * Math.min(1, tod.sun));
     haze.uHazeAmount.value += (hazeTo - haze.uHazeAmount.value) * k;
     haze.uHazeColor.value.copy(this.hemi.color).multiplyScalar(.5 * (0.65 + .35 * Math.min(1, Math.max(tod.sun, 1 - this.night)))); // (a veil as light as the sky until nightfall)
@@ -799,8 +808,8 @@ export class Renderer {
   thenAndNow(game, ui) {
     const now = this.capture(game, ui, false);
     const keep = { world: game.world, border: game.border, agents: game.wildlife.agents, flyovers: game.wildlife.flyovers, people: game.visitors.agents, sel: game.selectedAgent, fx: this.trailFx, pose: new Map(this.actors.pose) };
-    const w0 = biome.generate(game.seed);
-    game.world = w0; game.border = new Border(w0, biome.borderCell);
+    const w0 = game.catalog.definition.generate(game.seed, game.catalog);
+    game.world = w0; game.border = new Border(w0, game.catalog.definition.borderCell);
     game.wildlife.agents = []; game.wildlife.flyovers = []; game.visitors.agents = []; game.selectedAgent = null; this.trailFx = [];
     try {
       w0.hydroDirty = true; updateHydrology(w0); updateEnvironment(w0, game.month, 0);
@@ -827,7 +836,7 @@ export class Renderer {
     const risk = mode === 'flood' ? game.events.floodRisk() : null;
     for (let i = 0; i < w.n; i++) {
       let c = null;
-      if (mode === 'habitat') c = [...hexRgb(HABITAT_INFO[w.habitat[i]].color), 0.72];
+      if (mode === 'habitat') c = [...hexRgb(game.catalog.habitatInfo[w.habitat[i]].color), 0.72];
       else if (mode === 'moisture') c = ramp(w.moist[i], [[0, '#d9b36a'], [0.5, '#8fc07a'], [1, '#2f6fa8']], 0.66);
       else if (mode === 'soil') c = ramp(w.soil[i], [[0, '#c8b89a'], [0.4, '#8a6a3a'], [0.8, '#3a2614']], 0.7);
       else if (mode === 'light') c = ramp(1 - w.canopy[i], [[0, '#1c2a3a'], [0.5, '#6a8a6a'], [1, '#f2e08a']], 0.62);
@@ -931,7 +940,7 @@ export class Renderer {
     // brush ring
     if (ui.hover && ui.previewTiles && !ui.clean) {
       const cx = ui.hover.x + 0.5, cz = ui.hover.y + 0.5, R = ui.brushR + 0.5;
-      const floor = biome.buoyTrails && ui.tool === 'trail' ? this.seaY : null; // (buoys: the ring floats on the surface where they'll go)
+      const floor = game.catalog.definition.buoyTrails && ui.tool === 'trail' ? this.seaY : null; // (buoys: the ring floats on the surface where they'll go)
       ctx.strokeStyle = 'rgba(255,248,220,0.9)'; ctx.lineWidth = 1.5;
       ctx.beginPath();
       for (let k = 0; k <= 36; k++) {
@@ -951,7 +960,7 @@ export class Renderer {
         // body and its modelled height, a fixed gap above that on screen, with a short stem.
         const top = Math.max(s.y + s.h, s.center.y + s.h * 0.6) + 0.06;
         const p = this.project(s.x, top, s.z), lift = 14;
-        const def = animalDef(sel), label = def.name, y = p.y - lift;
+        const def = animalDef(sel, game.catalog), label = def.name, y = p.y - lift;
         // ...with a ♂ or ♀ after the name
         const male = isMale(def, sel), sym = male ? '\u2642' : '\u2640';
         ctx.font = '700 11px Nunito, sans-serif';
@@ -973,9 +982,9 @@ export class Renderer {
     }
 
     // season tint and weather
-    const tint = biome.look.tint[game.season];
+    const tint = game.catalog.definition.look.tint[game.season];
     ctx.fillStyle = tint; ctx.fillRect(0, 0, this.vw, this.vh);
-    if (biome.savanna && game.month >= 3 && game.month <= 7) {
+    if (game.catalog.definition.savanna && game.month >= 3 && game.month <= 7) {
       const gr = ctx.createLinearGradient(0, 0, 0, this.vh * 0.4);
       gr.addColorStop(0, 'rgba(236,216,180,0.05)'); gr.addColorStop(1, 'rgba(236,216,180,0)');
       ctx.fillStyle = gr; ctx.fillRect(0, 0, this.vw, this.vh);
@@ -1026,10 +1035,10 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     if (!st || a.flying) continue;
     const xi = Math.floor(a.x), yi = Math.floor(a.y);
     if (!w.inb(xi, yi)) continue;
-    const i = w.idx(xi, yi), t = w.terrain[i], def = animalDef(a);
+    const i = w.idx(xi, yi), t = w.terrain[i], def = animalDef(a, game.catalog);
     const wet = isWater(t);
     if (wet && st.gait > 0.3 && random() < dt * 1.8 * st.gait) fx.push({ k: 'wake', x: a.x, z: a.y, y: st.y, yaw: st.yaw, life: 1.3, max: 1.3, s: Math.max(0.5, (def.sprite.len || def.sprite.size || 10) / 38) });
-    else if (!wet && def.move === 'ground' && (def.sprite.len || 0) >= 20 && st.gait > 0.5 && (DRY.has(t) || biome.savanna && game.season > 0) && !(w.ground[i] && w.groundG[i] > 0.7 && !biome.savanna)
+    else if (!wet && def.move === 'ground' && (def.sprite.len || 0) >= 20 && st.gait > 0.5 && (DRY.has(t) || game.catalog.definition.savanna && game.season > 0) && !(w.ground[i] && w.groundG[i] > 0.7 && !game.catalog.definition.savanna)
       && random() < dt * 1.4 * st.gait) fx.push({ k: 'dust', x: a.x - Math.cos(st.yaw) * 0.25, z: a.y + Math.sin(st.yaw) * 0.25, y: st.y, life: 1.6, max: 1.6, s: (def.sprite.len || 20) / 36 });
     // a leaping salmon throws up a splash where it leaves the water and where it lands
     if (def.special === 'salmon' && wet) {
@@ -1086,7 +1095,7 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
     g.addColorStop(0, `rgba(12,20,44,${(0.24 * n).toFixed(3)})`); g.addColorStop(1, `rgba(8,14,34,${(0.44 * n).toFixed(3)})`);
     ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
   }
-  const flyOn = ((biome.id === 'pnw' || biome.id === 'atlanta') && (game.season === 1 || game.season === 2)) || biome.id === 'amazon' || (biome.id === 'chinandega' && (game.season === 1 || game.season === 2));
+  const flyOn = ((game.catalog.definition.id === 'pnw' || game.catalog.definition.id === 'atlanta') && (game.season === 1 || game.season === 2)) || game.catalog.definition.id === 'amazon' || (game.catalog.definition.id === 'chinandega' && (game.season === 1 || game.season === 2));
   const want = n > 0.05 && flyOn && this.zoom > 0.5 && game.weather !== 'rain' ? Math.round(90 * n * (this.fireflyBoost || 1) * (this.light ? 0.5 : 1)) : 0;
   for (let tries = 0; flies.length < want && tries < 12 * (this.fireflyBoost || 1); tries++) {
     const x = bx0 + Math.floor(Math.random() * (bx1 - bx0 + 1)), z = bz0 + Math.floor(Math.random() * (bz1 - bz0 + 1));
@@ -1115,7 +1124,7 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
     if (n > 0.05) this.spawnOn = sd;
     else if (this.spawnOn === sd) this.spawnSeen = sd; // that night is over
   }
-  const spawnNight = biome.look.underwater && (this.spawnBoost > 0 || (this.spawnOn === sd && sd !== this.spawnSeen));
+  const spawnNight = game.catalog.definition.look.underwater && (this.spawnBoost > 0 || (this.spawnOn === sd && sd !== this.spawnSeen));
   const eggs = this.eggs || (this.eggs = []), seaY = this.seaY;
   const wantEggs = spawnNight && n > 0.05 && this.zoom > 0.5 ? Math.round(420 * n * (this.spawnBoost > 0 ? 1.6 : 1) * (this.light ? 0.5 : 1)) : 0;
   for (let tries = 0; eggs.length < wantEggs && tries < 120; tries++) {
@@ -1137,10 +1146,10 @@ Renderer.prototype.drawNight = function (ctx, game, dt, bx0, bx1, bz0, bz1) {
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.4, 0, 7); ctx.fill();
   }
   // eye-shine: a pair of small lights on the heads of animals looking toward you out on the grass
-  if (biome.savanna && n > 0.25 && this.zoom > 0.6) {
+  if (game.catalog.definition.savanna && n > 0.25 && this.zoom > 0.6) {
     const t = this.time;
     for (const a of this.actors.visibleWildlife) {
-      const def = animalDef(a);
+      const def = animalDef(a, game.catalog);
       if (def.move !== 'ground' || (def.sprite.len || 0) < 20 || hash2(a.id, 3, 9) > 0.55) continue;
       const st = this.actors.pose.get(a.id);
       if (!st || !st.eye || st.graze > 0.3 || st.x < bx0 || st.x > bx1 || st.z < bz0 || st.z > bz1) continue; // not while head-down grazing

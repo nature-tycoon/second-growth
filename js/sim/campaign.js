@@ -4,16 +4,16 @@
 // is refilled when the map changes.
 
 import { T, F, H, isWater } from '../config.js';
-import { ANIMAL } from '../data/animals.js';
 import { TOOLS } from '../tools.js';
 import { speciesPresent } from './goals.js';
-import { onBiome } from '../biome.js';
+import { onBiome, mapCatalog } from '../biome.js';
 import { amazonChapters } from './campaign-amazon.js';
 import { serengetiChapters } from './campaign-serengeti.js';
 import { chinandegaChapters } from './campaign-chinandega.js';
+import { assertChapters } from '../data/contracts.js';
 
 const used = (g, ...keys) => keys.reduce((n, k) => n + (g.stats.used?.[k] || 0), 0);
-const pop = (g, k) => ANIMAL[k] ? g.wildlife.state[ANIMAL[k].index].pop : 0;
+const pop = (g, k) => g.catalog.animal[k] ? g.wildlife.state[g.catalog.animal[k].index].pop : 0;
 const culvertGone = w => { for (let i = 0; i < w.n; i++) if (w.feature[i] === F.CULVERT) return false; return true; };
 const edgeFence = w => {
   let n = 0;
@@ -28,12 +28,10 @@ const score = g => Math.round(g.cache.score?.total ?? 0);
 const count = (desc, get, target, unit = '') => ({ desc, check: g => get(g) >= target, prog: g => `${Math.min(get(g), target).toLocaleString()} / ${target.toLocaleString()}${unit}` });
 const flag = (desc, test, doneText = 'Done', todo = 'Not yet') => ({ desc, check: test, prog: g => test(g) ? doneText : todo });
 
-const layerTools = (sub) => Object.values(TOOLS).filter(t => t.sub === sub).map(t => t.key);
-const wildlifeTools = () => Object.values(TOOLS).filter(t => t.cat === 'wildlife').map(t => t.key);
-const HELPERS = { used, pop, culvertGone, edgeFence, wetland, score, count, flag, layerTools, wildlifeTools, speciesPresent };
+const HELPERS = { used, pop, culvertGone, edgeFence, wetland, score, count, flag, speciesPresent };
 
 export const CHAPTERS = [];
-const pnwChapters = () => [
+const pnwChapters = ({ layerTools, wildlifeTools }) => [
   {
     key: 'fields', title: 'Wake up the fields', reward: 2000,
     story: 'The old Hollis fields have been plowed and grazed for seventy years. Start small: look around, break up the compacted ground, and sow native meadow.',
@@ -126,8 +124,8 @@ const pnwChapters = () => [
 ];
 
 export const campaignOn = g => g.mode === 'campaign';
-export const campaignDone = g => campaignOn(g) && g.campaign.chapter >= CHAPTERS.length;
-export const currentChapter = g => campaignOn(g) ? CHAPTERS[g.campaign.chapter] || null : null;
+export const campaignDone = g => campaignOn(g) && g.campaign.chapter >= g.catalog.chapters.length;
+export const currentChapter = g => campaignOn(g) ? g.catalog.chapters[g.campaign.chapter] || null : null;
 
 // Keep the next visitor step visible after the chapter introduction closes.
 export function campaignVisitorHint(g) {
@@ -144,15 +142,15 @@ export function campaignVisitorHint(g) {
 export function unlockedTools(g) {
   if (!campaignOn(g) || campaignDone(g)) return null;
   const set = new Set();
-  for (let k = 0; k <= g.campaign.chapter; k++) for (const t of CHAPTERS[k].unlock) set.add(t);
+  for (let k = 0; k <= g.campaign.chapter; k++) for (const t of g.catalog.chapters[k].unlock) set.add(t);
   return set;
 }
 export function toolUnlocked(g, key) { const s = unlockedTools(g); return !s || s.has(key); }
-export function chapterOfTool(key) { return CHAPTERS.findIndex(c => c.unlock.includes(key)); }
+export function chapterOfTool(key, game) { return (game?.catalog.chapters || CHAPTERS).findIndex(c => c.unlock.includes(key)); }
 // Wildfires and floods arrive with Chapter 6 in the campaign.
 export function disturbanceOn(g) {
   if (!campaignOn(g) || campaignDone(g)) return true;
-  return CHAPTERS.slice(0, g.campaign.chapter + 1).some(c => c.events);
+  return g.catalog.chapters.slice(0, g.campaign.chapter + 1).some(c => c.events);
 }
 
 // A chapter goal stays done once it has been met, even if the count dips again afterwards (the
@@ -160,7 +158,7 @@ export function disturbanceOn(g) {
 // each ticked at some point could still never complete, because they weren't all true on the
 // same day.
 export function goalMet(g, o) {
-  const ch = g.campaign.chapter, j = CHAPTERS[ch]?.goals.indexOf(o);
+  const ch = g.campaign.chapter, j = g.catalog.chapters[ch]?.goals.indexOf(o);
   if (j == null || j < 0) return o.check(g);
   const met = g.campaign.met ||= {}, key = ch + ':' + j;
   if (met[key]) return true;
@@ -184,5 +182,20 @@ export function toolNames(keys) {
 }
 
 // the chapters for whichever map is being played (built after that map's tools exist)
-const BUILDERS = { pnw: pnwChapters, amazon: () => amazonChapters(HELPERS), serengeti: () => serengetiChapters(HELPERS), chinandega: () => chinandegaChapters(HELPERS) };
-onBiome(b => { CHAPTERS.length = 0; CHAPTERS.push(...(BUILDERS[b.id] ? BUILDERS[b.id]() : [])); });
+const BUILDERS = { pnw: pnwChapters, amazon: amazonChapters, serengeti: serengetiChapters, chinandega: chinandegaChapters };
+/** @param {import('../data/catalog.js').MapCatalog} catalog
+ * @returns {import('../data/contracts.js').ChapterDefinition[]} */
+export function createChapters(catalog) {
+  const helpers = { ...HELPERS,
+    layerTools: sub => Object.values(catalog.tools).filter(t => t.sub === sub).map(t => t.key),
+    wildlifeTools: () => Object.values(catalog.tools).filter(t => t.cat === 'wildlife').map(t => t.key),
+  };
+  const chapters = BUILDERS[catalog.definition.id]?.(helpers) || [];
+  assertChapters({ ...catalog, chapters });
+  return chapters;
+}
+onBiome(b => {
+  const catalog = mapCatalog(b.id);
+  catalog.chapters ||= createChapters(catalog);
+  CHAPTERS.length = 0; CHAPTERS.push(...catalog.chapters);
+});

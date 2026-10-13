@@ -2,11 +2,11 @@
 import * as THREE from 'three';
 import { T, LEVEL } from '../config.js';
 import { hash2, valueNoise } from '../rng.js';
-import { PLANTS, plantPhase } from '../data/plants.js';
-import { prep, merge, tuft } from './geometry.js';
+import { plantPhase } from '../data/plants.js';
+import { prep, merge } from './geometry/primitives.js';
+import { tuft } from './geometry/groundcover.js';
 import { withClouds } from './atmosphere.js';
 import { withSnowTops } from './snow.js';
-import { biome } from '../biome.js';
 import { paletteLeafColor } from './palettes.js';
 
 // Match the two triangles used by the ground and water, rather than bilinear heightAt.
@@ -36,10 +36,10 @@ export function bankDetails(world, border, cells, waterAt, terrainAt, underwater
     const marshy = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => terrainAt(x + dx, z + dz) === T.MARSH);
     const i = world.inb(x, z) ? world.idx(x, z) : -1, bi = i < 0 ? border.bi(x, z) : -1;
     const source = i < 0 ? border : world, index = i < 0 ? bi : i;
-    const gp = index >= 0 && PLANTS[source.ground[index]];
+    const gp = index >= 0 && world.catalog.plants[source.ground[index]];
     const wetPlant = gp && ['sedge', 'tule', 'cattail', 'papyrus'].includes(gp.look.type);
     const phase = gp ? plantPhase(gp, month) : '';
-    const grassColor = gp && paletteLeafColor(gp, phase, biome.id);
+    const grassColor = gp && paletteLeafColor(gp, phase, world.catalog.definition.id);
     const plantGrowth = i < 0 ? 1 : world.groundG[i];
     const patch = valueNoise(x + 47, z + 113, 3.8, 371);
     for (let k = 0; k < 10; k++) {

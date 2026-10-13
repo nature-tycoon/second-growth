@@ -6,8 +6,7 @@
 // Built when the map loads, from shared helpers (see campaign.js).
 
 import { F } from '../config.js';
-import { PLANTS } from '../data/plants.js';
-import { ANIMAL } from '../data/animals.js';
+
 
 export function chinandegaChapters(h) {
   const { used, pop, culvertGone, score, count, flag, layerTools, wildlifeTools, speciesPresent } = h;
@@ -20,7 +19,7 @@ export function chinandegaChapters(h) {
   const healthTarget = g => Math.min(base(g, 'score', Math.round(score(g))) + 8, 94);
   const income = g => (g.cache.milk || 0) + (g.cache.catch || 0);
   const incomeTarget = g => Math.min(base(g, 'income', income(g)) + 1500, 4200);
-  const births = (g, key) => (ANIMAL[key] && g.wildlife.state[ANIMAL[key].index]?.births) || 0;
+  const births = (g, key) => (g.catalog.animal[key] && g.wildlife.state[g.catalog.animal[key].index]?.births) || 0;
   // the finca starts with plenty of shade from its old trees; the goals count only new shade
   const newShade = g => Math.max(0, st(g, 'silvo') - (g.flags.silvo0 ??= st(g, 'silvo')));
   // until the new trees are big enough to shade the grass, show how far along they are
@@ -28,7 +27,7 @@ export function chinandegaChapters(h) {
     const n = Math.min(newShade(g), target), w = g.world;
     let sum = 0, k = 0;
     for (let i = 0; i < w.n; i++) {
-      const p = w.tree[i] && PLANTS[w.tree[i]];
+      const p = w.tree[i] && g.catalog.plants[w.tree[i]];
       if (p && !p.invasive && !p.mangrove && w.treeAge[i] < 360 && w.treeG[i] < 0.5) { sum += w.treeG[i] / 0.5; k++; }
     }
     const done = `${n.toLocaleString()} / ${target.toLocaleString()} newly shaded tiles`;

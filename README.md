@@ -46,7 +46,7 @@ The GitHub checks workflow runs the headless simulation checks on pull requests;
 
 Keep these shared contracts when adding features:
 
-- **Gameplay:** time, difficulty, costs, habitat capacity and saved state belong in the simulation and data modules. Every map uses the shared tool, undo and persistence paths. Map hooks express regional ecology; common mechanics should have one implementation.
+- **Gameplay:** time, difficulty, costs, habitat capacity and saved state belong in the simulation and data modules. Every map uses the shared tool, undo and persistence paths. Player input and scripted plans use `ToolActions` in `js/tool-actions.js`: `begin` → `paint` → `end` for a gesture, or `apply` for explicit tiles. It owns campaign eligibility, prices, duplicate suppression, payment, statistics, optional Undo recording, completion hints and environment refresh. `tools.js` defines the tile mutations; controls and the renderer handle gestures and drawing. Low-level tests may call a mutation directly to isolate it. Map hooks express regional ecology; common mechanics should have one implementation.
 - **Movement:** hunting, groups, landing and explanations use `js/sim/animal-terrain.js`. Put exceptions in that shared policy instead of redefining barriers inside each behaviour.
 - **Art:** reuse `render3d` models, materials, animation parts, scale helpers and regional palettes. Animals share soft model forms, readable silhouettes, coherent proportions and ground/water/canopy contact. Each map keeps its own climate, flora and colour palette within that common treatment. Inspect both gameplay scale and field-guide portraits, including young and adult variants.
 - **Rendering:** read simulation state and use the existing dirty/rebuild paths for edits and restores. Decorative effects must not silently change habitat or gameplay. Record detail level, resolution and shadows with performance results so automatic quality changes cannot conceal extra work.
@@ -215,13 +215,16 @@ Sumatra's shade-groundcover choice is supported by [NParks' forest-floor descrip
 ```
 index.html, styles.css      page shell and UI styling
 js/config.js                constants, terrain / feature / habitat enums
-js/biome.js                 the active map: swaps species, goals, climate and look
+js/biome.js                 stable map catalogs and selected-map compatibility adapters
 js/maps/pnw.js, amazon.js, serengeti.js  each map's story, climate, seasons, look, goals and generator hooks
 js/maps/amazon-world.js     the ranch layout and its rainforest surroundings
 js/maps/serengeti-world.js  the grazing range, kopjes, lugga and the park beyond the fence
 js/maps/sumatra-world.js    the oil palm estate, its peat canals, and the Leuser forest around it
-js/data/plants.js           plant registry (species in plants-pnw.js, plants-amazon.js, plants-serengeti.js)
-js/data/animals.js          animal registry (species in animals-pnw.js, animals-amazon.js, animals-serengeti.js)
+js/data/catalog.js          selected-map compatibility default; live farms retain their catalog
+js/data/contracts.js        JSDoc data shapes and validation at catalog, action and restore boundaries
+js/data/world-schema.js     saved landscape array names and storage types
+js/data/plants.js           plant catalog builder (species in plants-pnw.js, plants-amazon.js, plants-serengeti.js)
+js/data/animals.js          wildlife catalog builder (species in animals-pnw.js, animals-amazon.js, animals-serengeti.js)
 js/world.js                 map arrays, farm generation, surroundings
 js/sim/environment.js       water, moisture, canopy, distance fields, habitat classes, food
 js/sim/plants.js            growth, seeding, competition, soil
@@ -230,9 +233,18 @@ js/sim/animal-terrain.js    shared movement and landing boundaries for all maps 
 js/sim/animal-life.js       everyday behaviour: hunting styles, kills and scavengers, fleeing, play, greeting, sparring
 js/sim/goals.js             score, grants, goals
 js/game.js                  clock, events, save/load
+js/farm-state.js            shared defaults and restoration of farm-owned values
 js/tools.js                 player tools
+js/tool-actions.js          shared player-action lifecycle for controls and scripted plans
 js/render3d/                three.js scene: terrain mesh, instanced plants, buildings, lighting
-js/render3d/fauna.js        3D wildlife and visitors: built from soft primitives, instanced, animated in a vertex shader
+js/render3d/fauna.js        compatibility exports for animal models, materials and pools
+js/render3d/animals/        animal model families, shared primitives, motion metadata, shaders and instance buffers
+js/render3d/geometry.js     compatibility exports for world geometry
+js/render3d/geometry/       separate tree, coral, shrub, groundcover, feature and building builders
+js/render3d/plant-pools.js  plant buffers, detail levels, chunk replay and shadow proxies
+js/render3d/plant-materials.js  foliage wind, lighting, focus, snow and contact-shadow materials
+js/render3d/terrain-materials.js  ground blending and animated water shaders
+js/render3d/terrain-atlas.js  terrain texture construction and shader sampling layout
 js/render3d/portraits.js    field-guide portraits (animals and tropical plants) rendered from the 3D models
 js/render3d/focus.js        see-through cover around the selected animal
 js/render3d/snow.js         winter snow on the ground, plants and roofs
@@ -250,6 +262,10 @@ js/sim/visitors.js          trails, visitor numbers, rating and income
 js/sim/events.js            wildfires and floods
 vendor/three/               three.js 0.186 and its BufferGeometryUtils addon (MIT)
 js/ui/                      DOM interface (worldmap.js: the map picker's world map)
+js/ui/save-controls.js      autosave triggers, save status and recovery screens
+js/ui/session-analytics.js  session measurements and completed-action reporting
+js/ui/cinematics.js         keystone scene presentation, camera controls and timer cleanup
+js/ui/thumbnails.js         cached field-guide portraits and tool icons
 tools/balance-sim.mjs       headless balance simulator (node tools/balance-sim.mjs restore 15)
 tools/campaign-sim.mjs      scripted campaign playthrough: days per chapter (node tools/campaign-sim.mjs 14)
 tools/campaign-sim-amazon.mjs  the same for the Amazon campaign (node tools/campaign-sim-amazon.mjs 14 standard)
@@ -257,7 +273,21 @@ tools/campaign-sim-serengeti.mjs  and for the Serengeti campaign (node tools/cam
 js/sim/campaign.js          campaign chapters per map: story, goals, unlocks (Amazon and Serengeti chapters in campaign-amazon.js, campaign-serengeti.js)
 ```
 
+Rendering models, GPU materials and instance buffers have separate owners. For a new animal shape, start in `js/render3d/animals/` and its `animal-model.js` dispatch; for animation changes, use `animal-material.js`; for GPU capacity/upload changes, use `animal-pools.js`. World geometry is grouped under `js/render3d/geometry/`. `Flora` coordinates placement and caches while `plant-pools.js` manages buffers and `plant-materials.js` builds materials. The original `fauna.js` and `geometry.js` imports remain compatible. `node tools/render-boundaries-check.mjs` checks that geometry/model builders do not import gameplay or instance management, and that these rendering modules stay free of dependency cycles.
+
 Most tuning lives in `js/data/*.js` (species ranges, growth, spread, home ranges) and `js/sim/goals.js` (economy). Run `tools/balance-sim.mjs` after tuning to see how a farm develops over decades in a few seconds.
+
+`Game.mapDefinition` identifies the configuration owned by that farm. `Game.catalog` and `World.catalog` retain stable map-specific plants, wildlife, diets, goals, names, tools and campaign chapters. Simulation, save remapping, inspectors and rendering read these catalogs explicitly. Portrait, sprite and animal-model caches distinguish species from different maps, including shared names such as deer and raccoon.
+
+The uppercase exports (`PLANTS`, `ANIMALS`, `TOOLS`, etc.) remain selected-map compatibility adapters for older scripts and language setup; live farms do not depend on those tables. Fresh farms and restored saves share the defaults in `farm-state.js`; farm caches and counters reset while UI listeners and browser preferences remain attached to the session. The playable map picker still reloads the page to reset presentation and language state. Renderer shader uniforms, audio and page styling remain session-wide; this change does not introduce multiple game views on one page.
+
+Run `node tools/map-catalog-check.mjs` for interleaved simulation, save restoration and drawing isolation across all seven maps. Run `node tools/farm-state-check.mjs` for initialization, older save defaults and map ownership checks, and `node tools/tool-actions-check.mjs` for shared action outcomes. The browser release suite checks real mouse and phone actions through `tool-actions-browser-check.mjs` and artwork/toolbar isolation through `map-catalog-browser-check.mjs`.
+
+Shared data contracts live in `js/data/contracts.js`: plant specs and compiled definitions, seed mixes, animal specs and metadata, tools and their outcomes, map climate/hooks, goals/chapters, farm state and the save envelope. JSDoc types connect those shapes to species builders, catalogs, actions and persistence for editor hints. Runtime checks run when catalogs are built, farms are created/restored and tools are applied. These are dependency-free JavaScript checks; the project has no TypeScript compiler or build step. World array names and types have one schema in `world-schema.js`, shared by persistence and validation.
+
+An error points to its source, for example `pnw.plants.fescue.growth: expected a declared field (possible spelling mistake)`. Plant and animal keys must be unique. Mixes, diets, metadata, tools and chapter unlocks must refer to entries in their own map; mixes must use one plant layer. Tile arrays must use their declared type and length, and restored plant IDs must match their layer. Tool callbacks return `true` for a paid change, `null` for no change, or `blocked`/`unsuitable`; computed prices must be finite. Salvage prices and farm debt can be negative. Catalog/world validation stays outside simulation and rendering loops; each tool attempt checks only its computed price and return value.
+
+To add a shared species field, document it on `PlantSpec` or `AnimalSpec` and declare its validation alongside the existing fields. Regional flags, sprite art options and save extensions stay extensible. Saved data remains version 2 and reads legacy version 1/base64 payloads, species remapping and older missing optional fields. Invalid shared metadata or world contents are rejected before the current farm is replaced. Run `node tools/data-contracts-check.mjs` for all seven maps, malformed definitions and saves, legacy round trips and action bookkeeping; `node tools/check-release.mjs --headless` discovers this check automatically.
 
 Run `node tools/wildlife-diagnostics-check.mjs` for read-only diagnostic checks across all seven maps, including capacity limits, alternative roosts, access, seasonal timing, arrival readiness and salmon runs.
 

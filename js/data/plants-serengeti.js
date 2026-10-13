@@ -4,6 +4,9 @@
 // Months: 0=Mar 1=Apr 2=May 3=Jun 4=Jul 5=Aug 6=Sep 7=Oct 8=Nov 9=Dec 10=Jan 11=Feb
 // Long rains Mar–May, long dry season Jun–Oct, short rains Nov–Dec, a short dry spell Jan–Feb.
 
+/** @param {import('./contracts.js').DefinePlant} def
+ * @param {function(import('./contracts.js').SeedMix):void} mix
+ * @param {function(string):import('./contracts.js').PlantDefinition} get */
 export default function buildSerengetiPlants(def, mix, get) {
   // ---------- Groundcover ----------
   def({ key: 'parthenium', name: 'Famine weed', sci: 'Parthenium hysterophorus', layer: 0, native: false, invasive: true,

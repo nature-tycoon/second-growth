@@ -11,7 +11,7 @@
 
 import { World } from '../world.js';
 import { T, BORDER } from '../config.js';
-import { PLANT } from '../data/plants.js';
+import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
 export const SEA = 6;
@@ -36,11 +36,11 @@ export function reefHeight(x, y, W, H) {
 }
 const BOMMIES = [[62, 22, 3.5], [90, 30, 3], [44, 32, 2.5], [104, 16, 3]];
 
-export function generateReef(seed = 2026) {
-  const w = new World();
+export function generateReef(seed = 2026, catalog = activeCatalog) {
+  const w = new World(undefined, undefined, catalog);
   const rng = mulberry32(seed);
   const W = w.w, Hh = w.h;
-  const set = (i, key, g, years = 0) => w.setPlant(i, PLANT[key], g, years * 120);
+  const set = (i, key, g, years = 0) => w.setPlant(i, catalog.plant[key], g, years * 120);
   const blob = (cx, cy, rx, ry, fn) => {
     for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
       if (!w.inb(x, y)) continue;
@@ -86,7 +86,7 @@ export function generateReef(seed = 2026) {
   });
   for (const [cx, cy, rx, ry, dens] of [[18, 56, 7, 4, 0.55], [52, 62, 5, 3, 0.5], [86, 66, 8, 4, 0.6], [108, 52, 4, 3, 0.45], [34, 72, 6, 3, 0.65]]) blob(cx, cy, rx, ry, (i, x, y, d) => {
     w.terrain[i] = T.SOIL; w.soil[i] = 0.2 + rng() * 0.08;
-    if (w.ground[i] === PLANT.turf.id) set(i, 'cca', 0.5);
+    if (w.ground[i] === catalog.plant.turf.id) set(i, 'cca', 0.5);
     if (rng() < dens * (1.1 - d)) set(i, rng() < 0.65 ? 'staghorn' : 'tablecoral', 0.6 + rng() * 0.4, 3 + rng() * 5);
     else if (rng() < 0.15) set(i, 'brain', 0.7 + rng() * 0.3, 20);
   });
@@ -128,7 +128,7 @@ export function generateReef(seed = 2026) {
 // Beyond the map: more reef to the east and west (some of it in better shape), the lagoon to the
 // north, and the reef slope falling into deep blue water to the south.
 export function reefBorderCell(x, y, r, r2, world) {
-  const P = k => PLANT[k].id, H = world.h;
+  const P = k => world.catalog.plant[k].id, H = world.h;
   if (onCay(x, y)) return { t: T.PASTURE };
   if (y >= H) return { t: T.PASTURE, shrub: y < H + 4 && r < 0.12 ? P(r2 < 0.5 ? 'seafan' : 'softcoral') : 0 };
   if (y < H * 0.4) return { t: T.PASTURE, ground: r < 0.4 ? P(r2 < 0.6 ? 'halophila' : 'zostera') : 0 };

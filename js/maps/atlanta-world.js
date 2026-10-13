@@ -8,7 +8,7 @@
 
 import { World, riverRow, generateHeights } from '../world.js';
 import { T, F } from '../config.js';
-import { PLANT } from '../data/plants.js';
+import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
 export const SIZE = [72, 60];
@@ -40,13 +40,13 @@ export function lotAt(x, y) {
 // The player's own house, where the game starts: the middle of the second row, facing the upper street.
 export const HOME_LOT = LOTS.find(l => l.row === 1 && l.col === 2).id;
 
-export function generateSubdivision(seed = 2006) {
-  const w = new World(SIZE[0], SIZE[1]);
+export function generateSubdivision(seed = 2006, catalog = activeCatalog) {
+  const w = new World(SIZE[0], SIZE[1], catalog);
   const rng = mulberry32(seed);
   const W = w.w, Hh = w.h;
   const inb = (x, y) => w.inb(x, y);
   const rect = (x0, y0, x1, y1, fn) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (inb(x, y)) fn(w.idx(x, y), x, y); };
-  const set = (i, key, g, years = 0) => w.setPlant(i, PLANT[key], g, years * 120);
+  const set = (i, key, g, years = 0) => w.setPlant(i, catalog.plant[key], g, years * 120);
   const road = i => { w.terrain[i] = T.ROAD; w.clearPlants(i); w.feature[i] = 0; };
   const isLawn = i => w.terrain[i] === T.PASTURE && w.struct[i] < 0;
   const rr = x => riverRow(x, Hh);
@@ -176,7 +176,7 @@ export function generateSubdivision(seed = 2006) {
 // road and another subdivision to the west, more subdivision to the east, and the Yellow River's
 // wooded floodplain across the water to the south.
 export function atlantaBorderCell(x, y, r, r2, world) {
-  const P = k => PLANT[k].id;
+  const P = k => world.catalog.plant[k].id;
   const rt = riverRow(x, world.h);
   if (y >= world.h + 3) {
     const tree = r < 0.6 ? P(r2 < 0.35 ? 'sycamore' : r2 < 0.6 ? 'riverbirch' : r2 < 0.85 ? 'redmaple' : 'sweetgum') : 0;

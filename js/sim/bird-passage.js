@@ -1,24 +1,22 @@
-import { ANIMAL } from '../data/animals.js';
+
 import { PASSAGE_SPECIES, PASSAGE_ROUTES } from '../data/bird-passage.js';
-import { biome } from '../biome.js';
-import { PLANTS } from '../data/plants.js';
 import { LEVEL, clamp } from '../config.js';
 import { facePoint } from './animal-positioning.js';
 
 const rand = (lo, hi) => lo + Math.random() * (hi - lo);
 export function passageChoices(game) {
   const routes = PASSAGE_ROUTES[game.map] || {};
-  return (biome.look.ambience?.flocks?.[game.season] || []).flatMap(kind =>
-    (routes[kind] || []).map(key => ANIMAL[key] || PASSAGE_SPECIES[key]).filter(d => d?.move === 'fly'));
+  return (game.catalog.definition.look.ambience?.flocks?.[game.season] || []).flatMap(kind =>
+    (routes[kind] || []).map(key => game.catalog.animal[key] || PASSAGE_SPECIES[key]).filter(d => d?.move === 'fly'));
 }
 
 // The field guide's passing birds: species that only fly over this map (residents seen in
 // passage flocks already have their own entry), with the seasons their flocks come through.
 export function passageGuide(game) {
   const routes = PASSAGE_ROUTES[game.map] || {}, seasons = new Map();
-  (biome.look.ambience?.flocks || []).forEach((kinds, season) => {
+  (game.catalog.definition.look.ambience?.flocks || []).forEach((kinds, season) => {
     for (const kind of kinds) for (const key of routes[kind] || []) {
-      if (ANIMAL[key] || !PASSAGE_SPECIES[key]) continue;
+      if (game.catalog.animal[key] || !PASSAGE_SPECIES[key]) continue;
       if (!seasons.has(key)) seasons.set(key, new Set());
       seasons.get(key).add(season);
     }
@@ -38,10 +36,10 @@ export function spawnPassage(wl, def, opts = {}) {
   const x = cx - ux * radius, y = cy - uy * radius;
   // One altitude for the whole route, above both terrain and mature crowns.
   // This avoids terrain-following flocks diving into hills or tall forest.
-  let flightY = biome.look.underwater ? biome.look.underwater.level * LEVEL + 2 : 2;
+  let flightY = wl.game.catalog.definition.look.underwater ? wl.game.catalog.definition.look.underwater.level * LEVEL + 2 : 2;
   for (let t = 0; t <= distance; t += 1) {
     const xx = clamp(x + ux * t, 0, w.w - 0.01), yy = clamp(y + uy * t, 0, w.h - 0.01), i = w.idx(Math.floor(xx), Math.floor(yy));
-    const tree = w.tree[i] && PLANTS[w.tree[i]];
+    const tree = w.tree[i] && wl.game.catalog.plants[w.tree[i]];
     flightY = Math.max(flightY, w.heightAt(xx, yy) * LEVEL + (tree ? 5 * (tree.look.scale ?? 1) * w.treeG[i] : 0) + 2.2);
   }
   // (tiles a second: unhurried enough to watch a flock cross the view)

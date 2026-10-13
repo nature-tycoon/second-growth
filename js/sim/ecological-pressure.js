@@ -1,9 +1,8 @@
 // Challenging-only pressures, using local habitat and the existing daily loop.
 // Rates represent gameplay time and populations, not real-world measured rates.
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { PLANTS } from '../data/plants.js';
-import { ANIMALS, preyFor } from '../data/animals.js';
-import { biome } from '../biome.js';
+import { preyFor } from '../data/animals.js';
+
 
 export const MULCH_DAYS = 120;
 export const HUNGRY_DAYS = 30;
@@ -27,14 +26,14 @@ export function brushProtection(w, i) {
 }
 
 export function browseSapling(game, a, def) {
-  if (!game.diff.ecology || !def.browseRate || a.leaving || a.state !== 'idle' || biome.look.underwater) return false;
+  if (!game.diff.ecology || !def.browseRate || a.leaving || a.state !== 'idle' || game.catalog.definition.look.underwater) return false;
   const w = game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   let target = -1, size = Infinity;
   // Feed on the current tile or one directly adjacent. Never browse through a
   // fence or across water/buildings; a planted fence-line tree stays protected.
   for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) {
     if (!w.inb(x + dx, y + dy)) continue;
-    const i = w.idx(x + dx, y + dy), p = PLANTS[w.tree[i]];
+    const i = w.idx(x + dx, y + dy), p = game.catalog.plants[w.tree[i]];
     if (!p || isWater(w.terrain[i]) || w.struct[i] >= 0 || w.feature[i] === F.FENCE || w.treeG[i] >= 0.55) continue;
     if (w.treeG[i] < size) { target = i; size = w.treeG[i]; }
   }
@@ -54,10 +53,10 @@ export function browseSapling(game, a, def) {
 }
 
 export function establishmentStress(w, i, p, growth) {
-  if (growth >= 0.55 || p.layer === 0 || p.aquatic || p.mangrove || p.swampTree || p.cay || biome.look.underwater) return 0;
+  if (growth >= 0.55 || p.layer === 0 || p.aquatic || p.mangrove || p.swampTree || p.cay || w.catalog.definition.look.underwater) return 0;
   const dry = clamp((p.moist[0] + 0.08 - w.moist[i]) / 0.2, 0, 1);
   if (!dry) return 0;
-  const ground = PLANTS[w.ground[i]];
+  const ground = w.catalog.plants[w.ground[i]];
   const competition = ground && w.groundG[i] > 0.5 && (ground.sod || ground.invasive || ['grass', 'tallgrass', 'sedge'].includes(ground.look.type)) ? w.groundG[i] : 0;
   // Mulch buys an establishment window rather than permanently fixing a dry site.
   const mulched = w.mulchDays?.[i] > 0;
@@ -65,7 +64,7 @@ export function establishmentStress(w, i, p, growth) {
 }
 
 export function stressYoungPlant(game, i, p, growth) {
-  if (!game.diff.ecology || biome.climate.growth[game.month] <= 0.2) return growth;
+  if (!game.diff.ecology || game.catalog.definition.climate.growth[game.month] <= 0.2) return growth;
   const loss = establishmentStress(game.world, i, p, growth);
   if (!loss) return growth;
   const remaining = growth - loss;
@@ -76,13 +75,13 @@ export function stressYoungPlant(game, i, p, growth) {
 
 const SMALL_PREY = new Set(['rodent', 'rabbit', 'squirrel', 'frog', 'newt', 'lizard', 'songbird', 'hummer', 'bat']);
 export function preyCover(w, prey, predator) {
-  const def = ANIMALS[prey.sp], x = Math.floor(prey.x), y = Math.floor(prey.y);
+  const def = w.catalog.animals[prey.sp], x = Math.floor(prey.x), y = Math.floor(prey.y);
   if (!w.inb(x, y)) return 0;
   const i = w.idx(x, y);
-  if (biome.look.underwater) return clamp(w.nbCanopy[i] * 0.65 + (['seagrass', 'spoongrass'].includes(PLANTS[w.ground[i]]?.look.type) ? w.groundG[i] * 0.35 : 0), 0, 0.9);
+  if (w.catalog.definition.look.underwater) return clamp(w.nbCanopy[i] * 0.65 + (['seagrass', 'spoongrass'].includes(w.catalog.plants[w.ground[i]]?.look.type) ? w.groundG[i] * 0.35 : 0), 0, 0.9);
   if (def.move === 'swim') return clamp((w.distLog[i] <= 1 ? 0.65 : 0) + (w.terrain[i] === T.MARSH ? 0.3 : 0) + (w.distWoody[i] <= 1 || w.nbCanopy[i] > 0.3 ? 0.25 : 0), 0, 0.9);
   const small = SMALL_PREY.has(def.sprite.kind) || def.sprite.kind === 'snake' && def.sprite.size <= 20;
-  const grass = PLANTS[w.ground[i]];
+  const grass = w.catalog.plants[w.ground[i]];
   const ground = grass && (grass.aquatic || ['grass', 'tallgrass', 'sedge', 'fern'].includes(grass.look.type)) ? w.groundG[i] : 0;
   const shrubs = w.shrub[i] ? w.shrubG[i] : 0;
   // A pile can hide a vole, not a buffalo. Vegetation still helps larger prey,
@@ -99,7 +98,7 @@ export function predationCatchChance(game, prey, predator, base = 0.45) {
   return clamp(base * 1.2 * (1 - preyCover(game.world, prey, predator) * 0.7), 0, 1);
 }
 
-export function hungryPredator(game, a, def = ANIMALS[a.sp]) {
+export function hungryPredator(game, a, def = game.catalog.animals[a.sp]) {
   return !!(game.diff.ecology && preyFor(def, game) && a.age >= def.mature * DAYS_PER_YEAR && a.hunger >= HUNGRY_DAYS);
 }
 
@@ -115,7 +114,7 @@ export function pressureTileNotes(game, i) {
   if (w.browseDamage?.[i] > 0.01) out.push('Recent browsing pressure: young trees here have lost growth to herbivores.');
   if (w.tree[i] && w.treeG[i] < 0.55 && brushProtection(w, i)) out.push('Nearby brush protects this sapling from most browsing damage.');
   if (w.mulchDays?.[i] > 0) out.push(`Mulch establishment protection: ${w.mulchDays[i]} days remaining.`);
-  const vulnerable = [[w.shrub[i], w.shrubG[i]], [w.tree[i], w.treeG[i]]].some(([id, growth]) => id && establishmentStress(w, i, PLANTS[id], growth) > 0);
-  if (vulnerable && biome.climate.growth[game.month] > 0.2) out.push('Young woody plants face additional dry-season establishment stress here. Mulch reduces this pressure.');
+  const vulnerable = [[w.shrub[i], w.shrubG[i]], [w.tree[i], w.treeG[i]]].some(([id, growth]) => id && establishmentStress(w, i, game.catalog.plants[id], growth) > 0);
+  if (vulnerable && game.catalog.definition.climate.growth[game.month] > 0.2) out.push('Young woody plants face additional dry-season establishment stress here. Mulch reduces this pressure.');
   return out;
 }

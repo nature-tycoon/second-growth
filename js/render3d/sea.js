@@ -4,7 +4,6 @@
 
 import * as THREE from 'three';
 import { BORDER, LEVEL } from '../config.js';
-import { biome } from '../biome.js';
 import { sea } from './atmosphere.js';
 
 const VERT = `
@@ -59,7 +58,7 @@ export class SeaSurface {
   // Lay the surface over this map (or take it away on a map that's on land).
   setWorld(world) {
     if (this.mesh) { this.scene.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh = null; }
-    const o = biome.look.underwater;
+    const o = world.catalog.definition.look.underwater;
     sea.uSeaOn.value = o ? 1 : 0;
     if (!o) return;
     const y = o.level * LEVEL;

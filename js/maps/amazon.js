@@ -4,11 +4,11 @@ import buildAmazonPlants from '../data/plants-amazon.js';
 import buildAmazonAnimals from '../data/animals-amazon.js';
 import { generateRanch, amazonBorderCell } from './amazon-world.js';
 import { PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
-import { PLANT } from '../data/plants.js';
+
 
 const reuse = key => PNW_GOALS.find(g => g.key === key);
 // established trees only: seedlings in a fresh muvuca sowing don't count yet
-const countTrees = (w, key) => { const id = PLANT[key]?.id; let n = 0; for (let i = 0; i < w.n; i++) if (w.tree[i] === id && w.treeG[i] > 0.5) n++; return n; };
+const countTrees = (w, key) => { const id = w.catalog.plant[key]?.id; let n = 0; for (let i = 0; i < w.n; i++) if (w.tree[i] === id && w.treeG[i] > 0.5) n++; return n; };
 const invPct = g => (g.cache.score?.invFrac ?? 1) * 100;
 
 const GOALS = [

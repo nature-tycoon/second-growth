@@ -7,7 +7,8 @@ const { Game, WORLD_ARRAYS } = await import('../js/game.js');
 const { BIOME_LIST } = await import('../js/biome.js');
 const { ANIMALS, ANIMAL, drawDef, isMaleVariant, preyFor } = await import('../js/data/animals.js');
 const { PLANTS, PLANT, MIXES } = await import('../js/data/plants.js');
-const { TOOLS, toolCost } = await import('../js/tools.js');
+const { TOOLS } = await import('../js/tools.js');
+const { ToolActions } = await import('../js/tool-actions.js');
 const { Undo } = await import('../js/undo.js');
 const { mulberry32 } = await import('../js/rng.js');
 const { T, DAYS_PER_YEAR } = await import('../js/config.js');
@@ -52,11 +53,10 @@ for (const map of BIOME_LIST.map(b => b.id)) {
     // Landscape work must refund and restore correctly before daily ecology and persistence.
     const i = g.world.terrain.findIndex((t, i) => t !== T.RIVER && g.world.struct[i] < 0);
     const undo = new Undo(g), tool = TOOLS.raise, height = g.world.vh.slice(), money = g.money;
-    undo.begin(tool); undo.touch(i);
-    const cost = toolCost(g, tool, i);
-    assert.equal(tool.apply(g, i, g.rng), true, `${map}: shared terrain edit`);
-    assert.equal(g.spend(cost, tool.cat), true); g.stats.used[tool.key] = 1;
-    undo.end({ cost, count: 1 }); assert.ok(undo.undo());
+    const actions = new ToolActions(g, { undo });
+    const stroke = actions.apply(tool, [i], { random: g.rng });
+    assert.equal(stroke.count, 1, `${map}: shared terrain edit`);
+    assert.ok(undo.undo());
     assert.deepEqual(g.world.vh, height, `${map}: undo restores height grid`); assert.equal(g.money, money, `${map}: undo refunds work`);
     // Cross month and season boundaries with all daily systems enabled.
     for (const day of [8, 38, 68, 98]) {

@@ -4,12 +4,11 @@
 //   - mist wisps hanging over ponds, marshes and the river in cool, damp seasons
 //   - passing birds are simulated wildlife, rendered by actors.js
 //   - a soft vignette, and a wash of warm light from the sun's side on clear days
-// What appears when comes from each map (biome.look.ambience), per season.
+// What appears when comes from the farm’s map catalog, per season.
 
-import { biome } from '../biome.js';
-import { PLANTS } from '../data/plants.js';
+
 import { BORDER, LEVEL, T, isWater, clamp } from '../config.js';
-import { TREE_SHAPES } from './geometry.js';
+import { TREE_SHAPES } from './geometry/trees.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -34,16 +33,16 @@ export class Ambience {
 
   // world-anchored effects, drawn under the animals' labels and the weather
   drawWorld(ctx, R, game, dt, bx0, bx1, bz0, bz1) {
-    const A = biome.look.ambience;
+    const A = game.catalog.definition.look.ambience;
     if (!A || R.weatherOn === false) { this.leaves.length = this.fluff.length = this.mist.length = 0; return; }
     const w = R.world, B = game.border, season = game.season, zoom = R.zoom;
     const wet = game.weather === 'rain' || game.weather === 'snow';
     const ground = (x, z) => w.heightAt(clamp(x, -BORDER, w.w + BORDER - 0.01), clamp(z, -BORDER, w.h + BORDER - 0.01)) * LEVEL;
     const tile = () => [Math.floor(rand(bx0, bx1 + 1)), Math.floor(rand(bz0, bz1 + 1))];
     const treeAt = (x, z) => {
-      if (w.inb(x, z)) { const i = w.idx(x, z); return w.tree[i] ? [PLANTS[w.tree[i]], w.treeG[i]] : null; }
+      if (w.inb(x, z)) { const i = w.idx(x, z); return w.tree[i] ? [game.catalog.plants[w.tree[i]], w.treeG[i]] : null; }
       const bi = B.bi(x, z);
-      return bi >= 0 && B.tree[bi] ? [PLANTS[B.tree[bi]], B.treeG[bi] || 0.9] : null;
+      return bi >= 0 && B.tree[bi] ? [game.catalog.plants[B.tree[bi]], B.treeG[bi] || 0.9] : null;
     };
     const close = zoom > 0.6;
 
@@ -119,7 +118,7 @@ export class Ambience {
       }
     }
     // ---- a volcano on the horizon (San Cristóbal): a slow plume of gas drifting off the summit
-    const V = biome.look.volcano;
+    const V = game.catalog.definition.look.volcano;
     if (V) {
       this.plume = this.plume || []; this.plumeT = (this.plumeT || 0) - dt;
       if (this.plumeT <= 0 && this.plume.length < 30) { this.plumeT = rand(0.5, 1.1); this.plume.push({ x: V.x + rand(-0.6, 0.6), z: V.z + rand(-0.4, 0.4), y: ground(V.x, V.z) + 0.4, t: 0, life: rand(16, 24), size: rand(2.2, 3.4) }); }
@@ -153,7 +152,7 @@ export class Ambience {
     const clear = game.weather === 'clear' ? 1 : game.weather === 'cloud' ? 0.4 : 0;
     this.sunWash = (this.sunWash ?? clear) + (clear - (this.sunWash ?? clear)) * Math.min(1, dt * 0.6);
     if (this.sunWash > 0.02) {
-      const sun = biome.look.light[game.season].sun, r = (sun >> 16) & 255, g = (sun >> 8) & 255, b = sun & 255;
+      const sun = game.catalog.definition.look.light[game.season].sun, r = (sun >> 16) & 255, g = (sun >> 8) & 255, b = sun & 255;
       const grad = ctx.createLinearGradient(0, 0, vw * 0.7, vh * 0.9);
       grad.addColorStop(0, `rgba(${r},${g},${b},${0.13 * this.sunWash})`);
       grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
