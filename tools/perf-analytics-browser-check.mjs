@@ -33,7 +33,7 @@ try {
     assert.ok(result.event, 'existing perf_sample event is sent');
     assert.equal(result.event.props.cpu_frames, result.frames); assert.equal(result.remaining, 0, 'event starts a new CPU window');
     assert.equal(result.event.props.active_minutes, .5, 'same first-event cadence');
-    for (const stage of ['simulation', 'render', 'interface']) {
+    for (const stage of ['simulation', 'render', 'interface', 'submit']) {
       for (const field of [`cpu_${stage}_ms`, `cpu_${stage}_p95_ms`]) {
         assert.ok(Number.isFinite(result.event.props[field]) && result.event.props[field] >= 0, `${field} is numeric`);
       }

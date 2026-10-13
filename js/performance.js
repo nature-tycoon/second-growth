@@ -6,24 +6,24 @@ export const percentile = (values, p) => values.length
 
 // Aggregate the whole analytics window without retaining an object for every frame.
 // Tenths-of-a-millisecond bins give the same displayed precision as the overlay.
-const CPU_STAGES = ['simulation', 'render', 'interface'];
+export const CPU_STAGES = ['simulation', 'render', 'interface'];
 export class FrameCpuStats {
-  constructor() { this.reset(); }
+  constructor(keys = CPU_STAGES) { this.keys = keys; this.reset(); }
   reset() {
     this.frames = 0;
-    this.stages = CPU_STAGES.map(() => ({ total: 0, bins: new Map() }));
+    this.stages = this.keys.map(() => ({ total: 0, bins: new Map() }));
   }
   record({ timings }) {
-    if (!CPU_STAGES.every(key => Number.isFinite(timings?.[key]) && timings[key] >= 0)) return;
+    if (!this.keys.every(key => Number.isFinite(timings?.[key]) && timings[key] >= 0)) return;
     this.frames++;
-    CPU_STAGES.forEach((key, i) => {
+    this.keys.forEach((key, i) => {
       const s = this.stages[i], ms = timings[key], bin = Math.round(ms * 10);
       s.total += ms; s.bins.set(bin, (s.bins.get(bin) || 0) + 1);
     });
   }
   sample(reset = true) {
     const out = { cpu_frames: this.frames };
-    CPU_STAGES.forEach((key, i) => {
+    this.keys.forEach((key, i) => {
       const s = this.stages[i]; let count = 0, p95 = null;
       for (const [bin, n] of [...s.bins].sort((a, b) => a[0] - b[0])) {
         count += n;

@@ -3,7 +3,7 @@ import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
 const { createFrameLoop } = await import('../js/frame-loop.js');
-const { withoutVegetation, renderObjectCounts, PerformancePhases, FrameCpuStats } = await import('../js/performance.js');
+const { withoutVegetation, renderObjectCounts, PerformancePhases, FrameCpuStats, CPU_STAGES } = await import('../js/performance.js');
 const { Renderer } = await import('../js/render3d/scene.js');
 const { performanceFixture, ecosystemCounts } = await import('./performance-fixtures.mjs');
 let checks = 0;
@@ -51,18 +51,19 @@ check('Normal frame timing measures thrown work without counting frame-cap waits
   assert.equal(simulated, .1); assert.equal(s.cpu_frames, 1);
   assert.equal(s.cpu_simulation_ms, 2); assert.equal(s.cpu_render_ms, 8); assert.equal(s.cpu_interface_ms, 3);
 });
-check('Renderer exports CPU fields through perfSample and excludes hidden/resume frames', () => {
+check('Renderer exports CPU fields, including the draw call, through perfSample and excludes hidden/resume frames', () => {
   const previousDocument = globalThis.document;
   globalThis.document = { hidden: false };
   try {
     const r = Object.assign(Object.create(Renderer.prototype), {
-      cpuPerf: new FrameCpuStats(), gl: { info: { render: { triangles: 10, calls: 2 } } }, sun: { castShadow: true }, gpuName: () => 'test',
+      cpuPerf: new FrameCpuStats([...CPU_STAGES, 'submit']), submitMs: 1.5, gl: { info: { render: { triangles: 10, calls: 2 } } }, sun: { castShadow: true }, gpuName: () => 'test',
       flora: { plantView: { stats: {} }, geometryIndex: { stats: {} }, plantShadows: { stats: {} } },
     });
     const sample = { timings: { simulation: 1, render: 2, interface: 3 } };
     r.recordCpuFrame(sample); document.hidden = true; r.recordCpuFrame(sample);
     document.hidden = false; r.recordCpuFrame(sample); r.recordCpuFrame(sample);
     const peek = r.perfSample(false); assert.equal(peek.cpu_frames, 2); assert.equal(peek.cpu_render_p95_ms, 2);
+    assert.equal(peek.cpu_submit_ms, 1.5, 'the gl.render share of render is reported on its own');
     assert.equal(r.perfSample().cpu_frames, 2); assert.equal(r.perfSample(false).cpu_frames, 0);
     assert.equal(peek.draw_calls, 2, 'existing performance payload remains available');
   } finally { if (previousDocument === undefined) delete globalThis.document; else globalThis.document = previousDocument; }

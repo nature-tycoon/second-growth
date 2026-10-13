@@ -18,7 +18,7 @@ import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
-import { FrameCpuStats } from '../performance.js';
+import { FrameCpuStats, CPU_STAGES } from '../performance.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 
 const EL = THREE.MathUtils.degToRad(34);
@@ -79,7 +79,9 @@ export class Renderer {
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
-    this.cpuPerf = new FrameCpuStats();
+    // (submit: the gl.render call alone, part of render. The rest of render is getting the frame
+    // ready, plants above all, so a slow laptop shows which side of the hand-off holds it up.)
+    this.cpuPerf = new FrameCpuStats([...CPU_STAGES, 'submit']);
     document.addEventListener('visibilitychange', () => { if (this.perf) this.perf.last = performance.now(); this.cpuSkipNext = true; });
     canvas.addEventListener('webglcontextlost', event => {
       event.preventDefault(); // allow the browser and Three.js to restore the context
@@ -553,13 +555,14 @@ export class Renderer {
     this.lightReady = false;
   }
 
-  // How smoothly the game has been drawing since the last sample, and with what: for the analytics,
-  // so we can see how real phones cope. reset = false peeks without starting a new window.
+  // Each frame's processor time by stage, for perfSample. The frame after a hidden spell is skipped.
   recordCpuFrame(sample) {
     if (document.hidden) { this.cpuSkipNext = true; return; }
     if (this.cpuSkipNext) { this.cpuSkipNext = false; return; }
-    this.cpuPerf.record(sample);
+    this.cpuPerf.record({ timings: { ...sample.timings, submit: this.submitMs ?? 0 } });
   }
+  // How smoothly the game has been drawing since the last sample, and with what: for the analytics,
+  // so we can see how real phones cope. reset = false peeks without starting a new window.
   perfSample(reset = true) {
     const P = this.perf || { frames: 0, time: 0, slow: 0 }, info = this.gl.info.render;
     const out = {
@@ -764,7 +767,9 @@ export class Renderer {
     }
     this.gl.shadowMap.needsUpdate = redrawShadows;
     this.lastShadowRedraw = redrawShadows;
+    const at = performance.now();
     this.gl.render(this.scene, this.camera);
+    this.submitMs = performance.now() - at;
     this.drawFX(game, ui, dt);
   }
 
