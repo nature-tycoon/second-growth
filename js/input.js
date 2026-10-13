@@ -379,11 +379,12 @@ export class Input {
       } else if (res === 'unsuitable') { s.unsuitable++; s.lastBad = i; }
     }
     w.renderDirty = true;
+    this.hoverKey = null;
   }
 
   endStroke() {
     const s = this.stroke, g = this.game;
-    this.stroke = null;
+    this.stroke = null; this.hoverKey = null;
     document.body.classList.remove('painting');
     if (!s) return;
     if ((s.tool.key === 'trail' || s.tool.key === 'boardwalk' || s.tool.key === 'blind') && s.count && !g.visitors.facilities().parking && !g.flags.trailHint) {
@@ -433,7 +434,13 @@ export class Input {
     ui.state.hover = w.inb(t.x, t.y) ? { x: t.x, y: t.y } : null;
     // Hover only builds the preview. A moment or photo mode temporarily hides the
     // tool; keep its selected radius so preview and painting resume at the same size.
-    if (!tool || !ui.state.hover) { ui.state.previewTiles = null; this.tip.classList.add('hidden'); return; }
+    if (!tool || !ui.state.hover) { ui.state.previewTiles = null; this.tip.classList.add('hidden'); this.hoverKey = null; return; }
+    // The preview and tip only change with the tile, tool, brush size or the land under them, so
+    // they're worked out again then (painting clears the key) or twice a second for growth and
+    // seasons, not every frame: on a slow laptop that alone was a few percent of each frame.
+    const now = performance.now(), key = `${t.x},${t.y},${tool.key},${ui.state.brushR}`;
+    if (key === this.hoverKey && now - this.hoverAt < 500 && ui.state.previewTiles && !this.tip.classList.contains('hidden')) { this.placeTip(); return; }
+    this.hoverKey = key; this.hoverAt = now;
     let tiles = tool.brush ? strokeTiles(w, tool, t.x, t.y, ui.state.brushR) : [w.idx(t.x, t.y)];
     if (tool.footprint) {
       tiles = [];
@@ -472,7 +479,13 @@ export class Input {
     if (this.stroke && this.stroke.cost) txt += ` · ${tr(`spent ${money(this.stroke.cost)}`)}`;
     this.tip.innerHTML = txt;
     this.tip.classList.remove('hidden');
-    const tw = this.tip.offsetWidth, th = this.tip.offsetHeight;
+    this.tipSize = { w: this.tip.offsetWidth, h: this.tip.offsetHeight };
+    this.placeTip();
+  }
+  // The tip follows the pointer every frame, from its size when last written (reading the size
+  // every frame would make the browser lay the page out again each time)
+  placeTip() {
+    const tw = this.tipSize.w, th = this.tipSize.h;
     const left = this.mouse.x + 16 + tw > window.innerWidth - 8 ? this.mouse.x - 12 - tw : this.mouse.x + 16;
     const top = this.mouse.y + 18 + th > window.innerHeight - 8 ? this.mouse.y - 12 - th : this.mouse.y + 18;
     this.tip.style.left = Math.max(4, left) + 'px';
