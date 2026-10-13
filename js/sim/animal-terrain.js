@@ -30,3 +30,17 @@ export function passable(w, i, a) {
   if (w.feature[i] === F.FENCE && ANIMAL[a.key]?.fenced) return false; // big grazers can't cross fences
   return true;
 }
+
+// Swimming arcs and momentum must obey the same shore boundary as route finding.
+// Check the swept segment, including the two sides of a diagonal tile crossing.
+export function reefMoveSafe(w, a, nx, ny) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(nx - a.x, ny - a.y) / 0.2));
+  const open = (x, y) => w.inb(x, y) ? passable(w, w.idx(x, y), a) : !!a.leaving;
+  let x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+  for (let k = 1; k <= steps; k++) {
+    const x = Math.floor(a.x + (nx - a.x) * k / steps), y = Math.floor(a.y + (ny - a.y) * k / steps);
+    if (!open(x, y) || x !== x0 && y !== y0 && (!open(x, y0) || !open(x0, y))) return false;
+    x0 = x; y0 = y;
+  }
+  return true;
+}

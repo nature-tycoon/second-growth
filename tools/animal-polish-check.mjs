@@ -65,7 +65,7 @@ for (const map of ['pnw', 'atlanta', 'amazon', 'reef', 'sumatra', 'chinandega', 
     geo.dispose();
   }
 }
-assert.equal(rows.length, 11, 'All regional appearances in the five requested groups are covered');
+assert.equal(rows.length, 12, 'All regional appearances in the five requested groups are covered');
 fs.mkdirSync(directory, { recursive: true });
 fs.writeFileSync(new URL('animal-polish-budget.json', directory), JSON.stringify(rows, null, 2));
 console.log(`${rows.length} polished appearances passed mesh budgets, ground contact, tapered-neck and swimming-tail checks${baseline.length ? '; other species retained their mesh budgets' : ''}.`);

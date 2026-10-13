@@ -100,7 +100,7 @@ export class Actors {
     this.lastT = time;
     F.begin();
     for (const a of game.wildlife.viewAgents) {
-      const def = drawDef(animalDef(a), a); // (the male look, for a species whose males look different)
+      const def = drawDef(animalDef(a), a, game.month); // Adult sex traits and seasonal plumage.
       seen.add(a.id);
       let st = this.pose.get(a.id);
       const xi = Math.floor(a.x), yi = Math.floor(a.y);
@@ -186,7 +186,7 @@ export class Actors {
         const sw = def.sprite.swim ?? 0.3, amp = Math.min(1, sw / 0.3); // (clownfish keep down in their anemone)
         const band = clamp(sw + amp * (0.12 * Math.sin(time * 0.11 + a.id * 1.7) + 0.06 * Math.sin(time * 0.29 + a.id * 4.1)), 0.04, 0.9);
         st.depth = st.depth == null ? band : st.depth + (band - st.depth) * k * 0.3;
-        y = Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
+        y = def.benthic ? ground + 0.008 : Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
       } else if (flying && seaY != null) y = Math.max(ground, seaY) + 0.7 + a.alt * 1.2; // (seabirds fly over the water, not the seabed)
       else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
       else if (flying) y += (kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
@@ -257,7 +257,7 @@ export class Actors {
       const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
       const birdHead = a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
         : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
-      const head = fight ? fight.head : bugling ? -0.75 : a.state === 'feed' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
+      const head = fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
         : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
       st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
       if (fight) st.gait += (fight.gait - st.gait) * k;
@@ -385,7 +385,7 @@ export class Actors {
     for (const c of game.wildlife.carcasses || []) {
       const cdef = ANIMALS[c.sp];
       if (!cdef) continue;
-      const def = drawDef(cdef, c);
+      const def = drawDef(cdef, c, game.month);
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * c.age / (def.mature * 120), 0.55, 1) : 1;
       const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
       const left = clamp(c.t / (c.max * 0.3), 0, 1); // (the last stretch: bones and a dark patch)
@@ -456,6 +456,12 @@ export class Actors {
     const d = Math.hypot(o.x - a.x, o.y - a.y) || 1;
     // the pair's axis, from the lower id toward the other (the same for both animals)
     const ux = (o.x - a.x) / d * side, uz = (o.y - a.y) / d * side;
+    if (a.sparStyle === 'necking') {
+      // Giraffe males stand alongside one another and swing their necks, rather than lock horns.
+      const swing = Math.sin(time * 1.8 + seed + (side > 0 ? 0 : Math.PI));
+      return { head: 0.35 + 0.45 * Math.max(0, swing), gait: 0.12,
+        dx: ux * swing * 0.015, dz: uz * swing * 0.015, pitch: 0, roll: side * swing * 0.035 };
+    }
     // the push: an uneven tug of war, one gaining ground and then the other
     // (a light sparring match outside the rut: gentler shoving, no breaking off and crashing in)
     const k = a.sparLight ? 0.45 : 1;

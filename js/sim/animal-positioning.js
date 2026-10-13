@@ -123,7 +123,7 @@ export class AnimalSpacing {
     // Standing, drinking or eating, an animal holds its ground against those walking past: they
     // give way round it, rather than shoving it aside. Between two standing on top of each other,
     // the one only standing about shuffles over (one drinking or eating stays put).
-    const settled = a => a.state === 'idle' || a.state === 'feed' || a.drinkT > 0;
+    const settled = a => a.state === 'idle' || a.state === 'feed' || a.state === 'forage' || a.drinkT > 0;
     const yields = a => a.state === 'idle' && !(a.drinkT > 0);
     const shift = (e, dx, dy, amount) => {
       const a = e.a;

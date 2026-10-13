@@ -4,7 +4,7 @@
 // happens once, on contact. Shared carcass meals also satisfy hunger, using the same food-stress rules.
 
 import { clamp, DAYS_PER_YEAR } from '../config.js';
-import { ANIMALS, ANIMAL, preyFor, isMaleVariant } from '../data/animals.js';
+import { ANIMALS, ANIMAL, preyFor, isMale, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { passable, canLand } from './animal-terrain.js';
 import { inRiver } from './animals.js';
@@ -18,14 +18,27 @@ const STYLES = {
   chase: { approach: 1.15, near: 0, creep: 1.15, rush: 4.5, sprint: 2.1 }, // dogs and hyenas trot in, then run it down
   ambush: { approach: 0.8, near: 3, creep: 0.5, rush: 1.5, sprint: 3.2 },  // snakes, crocodiles and monitors inch closer, then strike
   stoop: { approach: 1.2, near: 0, creep: 1, rush: 2.2, sprint: 2.8, circle: true }, // raptors and fishing birds circle, then dive
+  wade: { approach: 0.65, near: 3, creep: 0.35, rush: 1.15, sprint: 1.8, grounded: true }, // stalk on foot, then strike
   pursue: { approach: 1, near: 0, creep: 1, rush: 2.5, sprint: 1.9 },      // otters, bears and the rest
 };
 const KIND_STYLE = { feline: 'stalk', canine: 'chase', hyena: 'chase', snake: 'ambush', caiman: 'ambush', monitor: 'ambush' };
 const CHEETAH = { ...STYLES.stalk, near: 8, rush: 5.5, sprint: 3.4 }; // a long, flat-out sprint from further away
 export function huntStyle(def) {
+  if (def.behavior?.hunt === 'wade') return STYLES.wade;
   if (def.key === 'cheetah') return CHEETAH;
   if (def.move === 'fly') return STYLES.stoop;
   return STYLES[KIND_STYLE[def.sprite.kind]] || STYLES.pursue;
+}
+
+export function canHuntPrey(wl, a, def, prey) {
+  if (prey.leaving || (def.move !== 'fly' || huntStyle(def).grounded) && (prey.flying || prey.alt > 0.2)) return false;
+  if (!huntStyle(def).grounded) return true;
+  const w = wl.game.world, x = Math.floor(prey.x), y = Math.floor(prey.y);
+  if (!w.inb(x, y) || a.flying || a.alt > 0.2) return false;
+  // A bird on foot can spear shoreline prey, but cannot walk across a deep pool.
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++)
+    if (w.inb(x + dx, y + dy) && canLand(w, w.idx(x + dx, y + dy), def)) return true;
+  return false;
 }
 
 // Pack hunters bring their companions along on a hunt, and share the kill.
@@ -33,11 +46,10 @@ const PACK = new Set(['lion', 'hyena', 'coyote', 'giantotter']);
 // Species that come in to a carcass someone else killed.
 const SCAVENGERS = new Set(['vulture', 'hyena', 'coyote', 'monitor', 'eagle', 'raccoon', 'opossum', 'fox', 'coati']);
 // Kinds whose rivals square up head to head (only males, where the species has a male look).
-const SPARRERS = new Set(['deer', 'buffalo', 'zebra', 'impala', 'gazelle', 'giraffe', 'wildebeest', 'elephant', 'rhino', 'peccary', 'hippo']);
 
 const byId = (wl, id) => id == null ? null : (wl.ids ? wl.ids.get(id) : wl.agents.find(o => o.id === id)) || null;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-const young = (a, def) => def.mature > 0 && a.age < def.mature * DAYS_PER_YEAR && !a.juvenile;
+const young = (a, def) => !!a.juvenile || def.mature > 0 && a.age < def.mature * DAYS_PER_YEAR;
 const ashore = def => !def.reef && (def.move === 'ground' || def.move === 'semi' || def.move === 'tree');
 
 // Which species hunt each species on this map (Challenging adds a few, so it's rebuilt on a change).
@@ -54,18 +66,20 @@ function predatorsOf(wl, sp) {
 // ---------------------------------------------------------------- hunting
 // Immediate danger and an ongoing meal take priority over starting another hunt.
 export const canStartHunt = a => !a.leaving && !a.fromFire && a.state !== 'hunt' &&
-  a.state !== 'feed' && (a.state !== 'flee' || a.play);
+  a.state !== 'feed' && a.state !== 'forage' && (a.state !== 'flee' || a.play);
 
 export function beginHunt(wl, a, def, b) {
   a.hunt = { phase: 'approach' };
   if (!PACK.has(def.key)) return;
+  let remaining = def.behavior?.partners ?? 3;
   // the rest of the pride or pack nearby joins in, fanning out to either side
   let side = 1;
   for (const o of wl.agents) {
+    if (remaining <= 0) break;
     if (o === a || o.sp !== a.sp || !canStartHunt(o) || o.state !== 'idle' || young(o, def) || dist(o, a) > 7) continue;
     o.state = 'hunt'; o.target = b.id; o.huntTime = a.huntTime; o.path = null; o.assist = true;
     o.hunt = { phase: 'approach', flank: side * (1.1 + Math.random() * 0.8) };
-    side = -side;
+    side = -side; remaining--;
   }
 }
 
@@ -77,6 +91,7 @@ export function endHunt(a) {
 export function huntStep(wl, a, def, b, sp) {
   const S = huntStyle(def), H = a.hunt || (a.hunt = { phase: 'approach' });
   const d = dist(a, b);
+  if (S.grounded && d < 1.15) { a.run = 0; return true; } // a long bill reaches into the shallows
   if (d * d < 0.25) return true;
   if (H.phase === 'approach' || H.phase === 'creep') {
     if (S.circle && d < S.rush + 1.4) { H.phase = 'circle'; H.t = 0.5 + Math.random() * 0.8; H.ang = Math.atan2(a.y - b.y, a.x - b.x); }
@@ -108,6 +123,12 @@ export function huntStep(wl, a, def, b, sp) {
     const ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
     tx += -uy * H.flank; ty += ux * H.flank;
   }
+  if (S.grounded) {
+    const w = wl.game.world, step = Math.min(d, sp * mul);
+    const nx = a.x + (tx - a.x) / Math.max(d, 0.01) * step, ny = a.y + (ty - a.y) / Math.max(d, 0.01) * step;
+    if (!w.inb(Math.floor(nx), Math.floor(ny)) || !canLand(w, w.idx(Math.floor(nx), Math.floor(ny)), def)) return giveUp(wl, a);
+    a.flying = false; a.alt = 0;
+  }
   return (wl.stepToward(a, tx, ty, sp * mul) && tx === b.x) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25;
 }
 // (sp is speed × dt, so the elapsed game time is sp / speed)
@@ -137,10 +158,15 @@ function giveUp(wl, a) {
 function alarm(wl, pred, pdef, target, sprint, time) {
   const preySet = new Set((preyFor(pdef, wl.game) || []).map(k => ANIMAL[k]?.index));
   for (const o of wl.agents) {
-    if (o === pred || o.leaving || o.state === 'hunt' || ANIMALS[o.sp].reef) continue;
+    if (o === pred || o.leaving || o.state === 'hunt') continue;
     if (o.sp !== target.sp && !preySet.has(o.sp)) continue;
     if ((o.x - target.x) ** 2 + (o.y - target.y) ** 2 > 25) continue;
     const odef = ANIMALS[o.sp];
+    if (odef.reef || odef.move === 'swim') {
+      o.forage = null; o.forageGoal = null;
+      wl.evadeHunt(o, pred); o.run = 1.7;
+      continue;
+    }
     if (o === target) {
       if (o.move !== 'fly' && !o.flying) bolt(wl, o, pred, Math.min(odef.speed * 1.9, sprint * 0.5), time + 0.6, 0.12 + Math.random() * 0.18);
     } else if (o.state !== 'flee') bolt(wl, o, pred, odef.speed * (1.6 + Math.random() * 0.4), 0.7 + Math.random() * 0.6, 0.05 + Math.random() * 0.25);
@@ -174,6 +200,10 @@ export function startFeed(wl, a, def, b) {
 // Missed: the prey keeps running (Challenging already sent it toward cover).
 export function missed(wl, prey, pred) {
   const def = ANIMALS[prey.sp];
+  if (def.reef || def.move === 'swim') {
+    prey.forage = null; prey.forageGoal = null;
+    wl.evadeHunt(prey, pred); prey.run = 1.7; return;
+  }
   if (prey.state === 'walk') { prey.run = 1.8; prey.alertT = 0; return; }
   if (!prey.leaving && !def.reef && def.move !== 'swim') bolt(wl, prey, pred, def.speed * 1.8, 0.8 + Math.random() * 0.5, 0);
 }
@@ -189,7 +219,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   if (l < 1e-3) { const r = Math.random() * Math.PI * 2; fx = Math.cos(r); fy = Math.sin(r); } else { fx /= l; fy /= l; }
   a.drinkT = 0; a.drinkAt = null; a.localGoal = null; a.bankGoal = null; a.follow = false;
   a.bird = null; a.birdGoal = null; a.birdGround = false;
-  a.fruitMeal = null; a.fruitGoal = null;
+  a.fruitMeal = null; a.fruitGoal = null; a.forage = null; a.forageGoal = null;
   a.socialWith = null; a.socialUntil = 0; a.sparPath = null;
   a.greet = null; a.goal = null; a.sparT = 0; a.sparLight = false; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
   if (a.state === 'hunt' || a.state === 'feed') { endHunt(a); a.feedAt = null; a.carcass = null; }
@@ -469,7 +499,8 @@ function meet(wl, a) {
   facePoint(a, o.x, o.y); facePoint(o, a.x, a.y);
   a.wait = t; o.wait = Math.max(o.wait, t);
   a.socialCooldown = a.age + 10; o.socialCooldown = o.age + 10;
-  const rivals = SPARRERS.has(def.sprite.kind) && (!def.sprite.male || (isMaleVariant(def, a) && isMaleVariant(def, o)));
+  const rivals = !!def.behavior?.combat && isMale(def, a) && isMale(def, o) &&
+    (!def.sprite.male || (isMaleVariant(def, a) && isMaleVariant(def, o)));
   const light = !rutting(wl, def, a) && sparring(wl, def, a) && sparring(wl, def, o);
   const odds = def.sprite.male?.antlers ? (rutting(wl, def, a) ? 0.95 : light ? 0.85 : 0.25) : 0.6;
   if (!(rivals && Math.random() < odds && squareUp(wl, a, o, light))) { a.greetT = o.greetT = t; }
@@ -486,7 +517,9 @@ function squareUp(wl, a, o, light = false) {
   // chests) meet; the drawing fine-tunes this to each model's actual antler reach
   const gap = (animalRadius(a) + animalRadius(o)) / 0.65;
   const mx = (a.x + o.x) / 2, my = (a.y + o.y) / 2;
+  const necking = ANIMALS[a.sp].behavior?.combat === 'necking';
   const sa = [mx - ux * gap / 2, my - uy * gap / 2], so = [mx + ux * gap / 2, my + uy * gap / 2];
+  const heading = Math.atan2(uy, ux) + Math.PI / 2;
   for (const [x, y] of [sa, so]) if (!w.inb(Math.floor(x), Math.floor(y)) || !passable(w, w.idx(Math.floor(x), Math.floor(y)), a)) return false;
   const routes = [];
   for (const [b, at] of [[a, sa], [o, so]]) {
@@ -501,6 +534,7 @@ function squareUp(wl, a, o, light = false) {
   }
   const t = light ? 1.5 + Math.random() * 1.5 : 3 + Math.random() * 3, loser = Math.random() < 0.5 ? a.id : o.id;
   for (const [b, at, other] of [[a, sa, o], [o, so, a]]) {
+    b.sparStyle = necking ? 'necking' : 'horns'; b.sparHeading = necking ? heading : null;
     b.state = 'spar'; b.sparWith = other.id; b.sparAt = at; b.sparT = t; b.sparLoser = loser; b.sparLight = light;
     b.sparPath = routes.shift(); b.socialWith = null; b.socialUntil = 0; b.greet = null;
     b.path = null; b.trip = null; b.follow = false; b.waterTrip = false; b.greetT = 0; b.drinkT = 0; b.drinkAt = null;
@@ -524,7 +558,8 @@ export function sparUpdate(wl, a, def, sp, elapsed = dt(sp, def)) {
     wl.stepToward(a, a.sparAt[0], a.sparAt[1], sp * 0.6);
     return;
   }
-  facePoint(a, o.x, o.y);
+  if (a.sparStyle === 'necking') facePoint(a, a.x + Math.cos(a.sparHeading), a.y + Math.sin(a.sparHeading));
+  else facePoint(a, o.x, o.y);
   if (o.sparPath?.length || !o.sparAt || Math.hypot(o.x - o.sparAt[0], o.y - o.sparAt[1]) > 0.01) return;
   a.sparT -= elapsed;
   if (a.sparT > 0) return;
@@ -533,7 +568,7 @@ export function sparUpdate(wl, a, def, sp, elapsed = dt(sp, def)) {
   endSpar(wl, o, a, !lost);
 }
 function endSpar(wl, a, rival, lost) {
-  const light = a.sparLight;
+  const light = a.sparLight; a.sparStyle = null; a.sparHeading = null;
   a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.sparPath = null; a.sparLight = false; a.wait = 2 + Math.random() * 2;
   // Rutting males fight again within days (a beaten one takes longer to come back), and
   // sparring partners within a week; otherwise a match settles things for a good while.

@@ -3,6 +3,7 @@
 // the south. Everything here swims (reef: true), drawn at its own depth between seabed and surface.
 // Months: 0=Mar ... 9=Dec 10=Jan 11=Feb.
 
+import { H } from '../config.js';
 import { habW } from './animals.js';
 import { PLANT } from './plants.js';
 
@@ -161,8 +162,29 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'fish', size: 5, back: '#f4efe8', flank: '#f6f2ec', belly: '#fbf9f4', grid: '#d4342c', snout: true, long: true, finColor: '#f2c8c0', tailShape: 'truncate', spiny: true, swim: 0.3, show: 3.52 },
     desc: 'A little white fish checked all over in red, with a long snout for picking tiny shrimp out of the current. It perches in the branches of a sea fan and hardly ever leaves it.',
     hint: 'Sea fans to perch in.' });
+  // Benthic invertebrates: visible individuals, not a carpet across every suitable tile.
+  // Keep these at the end for save compatibility, and cap all arrivals and offspring.
+  def({ key: 'seacucumber', reef: true, benthic: true, notPrey: true, noDrink: true,
+    name: 'Black sea cucumber', sci: 'Holothuria atra', group: 'Invertebrates', move: 'ground',
+    fixedMax: true, strictMax: true, speed: 0.07, hr: 180, max: 10, minK: 2,
+    groupSize: [1, 2], sources: ['E', 'W'], mig: 0.18, breed: [8], litter: [1, 1], life: 10, mature: 2,
+    suit: (W, i) => !W.tree[i] && !W.shrub[i] ? meadow[W.habitat[i]] + (W.habitat[i] === H.FARM ? 0.25 : 0) : 0,
+    req: g => Math.min(1, g.meadowTiles / 180),
+    sprite: { kind: 'seacucumber', size: 10, color: '#302b28', belly: '#64564a', show: 1.8, swim: 0 },
+    desc: 'Lollyfish: a soft black sea cucumber that crawls over lagoon sand, swallowing sediment and recycling the organic matter in it.',
+    hint: 'Open sand beside restored seagrass meadows.' });
+  def({ key: 'urchin', reef: true, benthic: true, notPrey: true, noDrink: true,
+    name: 'Collector sea urchin', sci: 'Tripneustes gratilla', group: 'Invertebrates', move: 'ground',
+    fixedMax: true, strictMax: true, speed: 0.06, hr: 200, max: 8, minK: 2,
+    groupSize: [1, 2], sources: ['E', 'W'], mig: 0.16, breed: [8], litter: [1, 1], life: 6, mature: 1,
+    suit: (W, i) => !W.shrub[i] ? reef[W.habitat[i]] * (0.2 + Math.min(0.8, algae(W, i))) : 0,
+    req: g => Math.min(1, g.forestTiles / 300),
+    sprite: { kind: 'urchin', size: 6, color: '#604a70', spine: '#ede1cb', show: 2.2, swim: 0 },
+    desc: 'A round, short-spined grazer that carries bits of shell and algae as camouflage. It nibbles turf algae from the reef floor.',
+    hint: 'Established reef with patches of turf algae to graze.' });
+
   return {
-    groups: ['Fish', 'Turtles, sharks & rays', 'Seabirds'],
+    groups: ['Fish', 'Turtles, sharks & rays', 'Seabirds', 'Invertebrates'],
     names: {
       clownfish: ['clownfish', 'clownfish'], chromis: ['chromis', 'chromis'], tang: ['blue tang', 'blue tangs'],
       parrotfish: ['parrotfish', 'parrotfish'], butterfly: ['butterflyfish', 'butterflyfish'], trout: ['coral trout', 'coral trout'],
@@ -170,9 +192,10 @@ export default function buildReefAnimals(def) {
       cleaner: ['cleaner wrasse', 'cleaner wrasse'], idol: ['Moorish idol', 'Moorish idols'], humphead: ['humphead wrasse', 'humphead wrasse'],
       trevally: ['giant trevally', 'giant trevally'], hawksbill: ['hawksbill turtle', 'hawksbill turtles'], dugong: ['dugong', 'dugongs'],
       booby: ['brown booby', 'brown boobies'], noddy: ['black noddy', 'black noddies'],
+      seacucumber: ['sea cucumber', 'sea cucumbers'], urchin: ['sea urchin', 'sea urchins'],
       sweetlips: ['sweetlips', 'sweetlips'], hawkfish: ['hawkfish', 'hawkfish'],
     },
-    shy: { clownfish: 0.1, chromis: 0.1, tang: 0.2, parrotfish: 0.3, butterfly: 0.2, trout: 0.4, greenturtle: 0.4, shark: 0.6, manta: 0.6,
+    shy: { seacucumber: 0.1, urchin: 0.1, clownfish: 0.1, chromis: 0.1, tang: 0.2, parrotfish: 0.3, butterfly: 0.2, trout: 0.4, greenturtle: 0.4, shark: 0.6, manta: 0.6,
       cleaner: 0.1, idol: 0.2, humphead: 0.5, trevally: 0.4, hawksbill: 0.4, dugong: 0.8, booby: 0.3, noddy: 0.4, sweetlips: 0.3, hawkfish: 0.1 },
     frugivores: [],
     fenced: [],
