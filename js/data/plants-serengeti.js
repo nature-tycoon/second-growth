@@ -46,7 +46,7 @@ export default function buildSerengetiPlants(def, mix, get) {
     moist: [0.7, 1], light: [0.3, 1], grow: 0.025, spread: 0.02, radius: 2, life: 12, cost: 4,
     look: { type: 'sedge', leaf: '#6a9a45', dry: '#a0a060' },
     desc: 'Tall green sedge with feather-duster heads, lining swamps and river pools. Hippos wallow in it.' });
-  def({ key: 'bluelily', name: 'Blue water lily', sci: 'Nymphaea nouchali', layer: 0, aquatic: true,
+  def({ key: 'bluelily', name: 'Blue water lily', sci: 'Nymphaea nouchali', layer: 0, aquatic: true, floating: true,
     moist: [0.9, 1], light: [0.6, 1], grow: 0.02, spread: 0.016, radius: 2, life: 8, cost: 6,
     look: { type: 'lily', leaf: '#4f8a3f', flower: '#8a9ae8', bloom: [0, 1, 2, 8, 9], small: true },
     desc: 'Floating pads and pale blue flowers on the waterholes that last into the dry season.' });

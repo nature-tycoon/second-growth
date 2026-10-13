@@ -1,6 +1,6 @@
 // Daily plant life: growth, decline, natural seeding, competition, succession, soil building.
 
-import { T, F, clamp } from '../config.js';
+import { T, F, isWater, clamp } from '../config.js';
 import { biome } from '../biome.js';
 import { ANIMAL } from '../data/animals.js';
 import { PLANTS, PLANT } from '../data/plants.js';
@@ -15,8 +15,21 @@ export function terrainFit(w, i, p) {
   if (w.feature[i] === F.FENCE && p.layer === 2 && !p.fencePost) return 0; // (living-fence trees grow right in the fence line)
   if (w.feature[i] === F.CULVERT || w.feature[i] === F.DAM) return 0;
   switch (t) {
-    case T.RIVER: case T.POND: case T.CREEK: case T.ROAD: case T.TRAIL: return 0;
-    // marsh stays open wetland: no trees at all (wet-loving trees line its muddy banks instead),
+    case T.RIVER: case T.CREEK: case T.ROAD: case T.TRAIL: return 0;
+    case T.POND: {
+      if (!p.aquatic) return 0;
+      if (p.floating) return 1; // floating foliage belongs on still water, not only muddy banks
+      // Emergent reeds occupy the shallow shore, not the whole pond interior.
+      const x = i % w.w, y = (i / w.w) | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (w.inb(x + dx, y + dy)) {
+          const t = w.terrain[w.idx(x + dx, y + dy)];
+          if (!isWater(t) || t === T.MARSH || t === T.MUD) return 1;
+        }
+      }
+      return 0;
+    }
+    // Marsh stays open wetland except for explicitly flood-adapted forest specialists;
     // and only a thin scatter of wet-tolerant shrubs, so they can't smother the sedges and rushes
     // (mangroves and peat-swamp specialists are trees that stand in flooded ground)
     case T.MARSH: return p.mangrove || p.swampTree ? 1 : p.aquatic ? 1 : !p.wetOK || p.layer === 2 ? 0 : p.layer === 1 ? 0.45 : 0.8;
@@ -76,6 +89,9 @@ export function trySeed(w, p, i, rng) {
   const [ids, gs] = layerArrays(w, p.layer);
   const cur = ids[i];
   if (cur === p.id) return false;
+  // One canopy tree per tile: a seed cannot remove a living tree, its age or its wood.
+  // Succession recruits beside pioneers and into gaps left by their normal mortality.
+  if (cur && p.layer === 2 && (!biome.look.underwater || p.cay)) return false;
   // Sparse species recruit into gaps, counting juveniles too so a batch of settlers can't
   // fill one patch. This only limits natural recruitment; adults and player planting keep
   // their usual suitability. Wider dispersal lets larvae reach gaps beyond their parent.

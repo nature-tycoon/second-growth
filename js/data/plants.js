@@ -5,6 +5,7 @@
 // moist / light are preferred ranges on a 0..1 scale. soil = minimum soil health.
 // grow = maturity gained per day in ideal conditions. spread = daily seeding chance once mature.
 // seedSpacing = same-species exclusion radius for natural recruits only (including juveniles).
+// floating = foliage on still pond water; other aquatic plants occupy shallow shores/marshes.
 
 export const L = { GROUND: 0, SHRUB: 1, TREE: 2 };
 export const LAYER_NAMES = ['Groundcover', 'Shrub', 'Tree'];
@@ -67,3 +68,13 @@ export function plantPhase(p, m) {
 
 export const isBlooming = (p, m) => !!(p.look.bloom && p.look.bloom.includes(m));
 export const isFruiting = (p, m) => !!(p.look.fruit && p.look.fruit.includes(m));
+
+// Leaf shade independently of flowers and fruit (bare branches can still carry either).
+// Residual winter shade represents woody branches; monthly leaf-out/drop is approximate.
+export function plantLeafCover(p, m) {
+  const lk = p.look;
+  if (!lk.deciduous || lk.evergreen || p.conifer) return 1;
+  if (lk.dryForest) return m >= 9 || m <= 1 ? 0.15 : m === 2 ? 0.65 : m === 8 ? 0.55 : 1;
+  if (lk.tropical || lk.savanna) return 1;
+  return m >= 9 ? 0.15 : m === 0 ? 0.65 : m === 7 ? 0.7 : m === 8 ? 0.35 : 1;
+}

@@ -78,7 +78,7 @@ async function boot() {
     const frame = createFrameLoop({
       targetFps,
       onFrameStart: diagnostics ? () => diagnostics.begin() : null,
-      onFrame: diagnostics ? sample => diagnostics.record(sample) : null,
+      onFrame: sample => { renderer.recordCpuFrame(sample); diagnostics?.record(sample); },
       steps: [
         ['simulation', dt => { if (!renderer.contextLost) game.update(dt); }],
         ['input', dt => input.update(dt)],

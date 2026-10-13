@@ -276,7 +276,10 @@ function reefDaily(g) {
       if (!w.inb(ax + dx, ay + dy)) continue;
       const i = w.idx(ax + dx, ay + dy);
       if (bite && w.ground[i] === turf && (w.groundG[i] -= bite) < 0.06) { w.ground[i] = 0; w.groundG[i] = 0; }
-      if (key === 'humphead' && w.shrub[i] === cots && (w.shrubG[i] -= 0.12) < 0.05) { w.shrub[i] = 0; w.shrubG[i] = 0; }
+      if (key === 'humphead' && w.shrub[i] === cots) {
+        if (momentFree(g)) moment(g, 'humphead', a, { live: true });
+        if ((w.shrubG[i] -= 0.12) < 0.05) { w.shrub[i] = 0; w.shrubG[i] = 0; }
+      }
     }
   }
 
@@ -354,7 +357,7 @@ function reefDaily(g) {
 
 // the big arrivals: each a keystone moment the first time
 function reefMoments(g) {
-  for (const [key, sp] of [['humphead', 'humphead'], ['dugong', 'dugong'], ['manta', 'manta']]) if (ANIMAL[sp] && pop(g, sp) > 0) arrivalMoment(g, key, ANIMAL[sp]);
+  for (const [key, sp] of [['dugong', 'dugong'], ['manta', 'manta']]) if (ANIMAL[sp] && pop(g, sp) > 0) arrivalMoment(g, key, ANIMAL[sp]);
 }
 
 // counts for goals and the manta's cleaning stations
@@ -398,7 +401,7 @@ const MOMENTS = {
   },
   humphead: {
     title: 'The starfish-eater',
-    text: 'A humphead wrasse has moved onto the reef: a gentle green giant as long as a person, with a bulging forehead and thick lips. It is one of the very few animals that eats crown-of-thorns starfish, spines and all, and it only settles where the reef is big and healthy. Humpheads can live thirty years.',
+    text: 'A humphead wrasse is feeding on crown-of-thorns starfish among the corals. Those starfish eat living coral; the wrasse is one of the few animals that can eat them, spines and all. A reef with room for this giant has a living defence against the outbreak.',
   },
   dugong: {
     title: 'A sea cow in the meadow',

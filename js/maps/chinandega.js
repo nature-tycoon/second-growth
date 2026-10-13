@@ -214,8 +214,8 @@ const MOMENTS = {
     text: 'Weeks after a paslama crawled up the beach to lay her eggs, the babies have dug their way out of the sand together and are racing for the waves. Only about one in a thousand will grow up, and the ones that do will come back to this beach to nest.',
   },
   congos: {
-    title: 'The monos congo are back',
-    text: 'A troop of howler monkeys has travelled in from the volcano through the treetops, and at dawn you can hear them roar across the finca. The forest you planted is big enough, and connected enough, for them to live in again.',
+    title: 'The canopy feeds the congos',
+    text: 'A howler has stopped to eat above the finca. The treetops you joined to the volcano forest now provide meals as well as a way through. The troop can feed, rest and travel above the pasture: this is a working forest canopy again.',
   },
   arribada: {
     title: 'The turtles come ashore',

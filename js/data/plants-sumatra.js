@@ -30,7 +30,7 @@ export default function buildSumatraPlants(def, mix, get) {
     moist: [0.72, 1], light: [0.35, 1], grow: 0.022, spread: 0.018, radius: 2, life: 12, cost: 4,
     look: { type: 'sedge', leaf: '#6a9446', dry: '#a4a060' },
     desc: 'Tall, hollow, rush-like stems in swampy pools on peat. Women weave its stems into mats and baskets.' });
-  def({ key: 'lotus', name: 'Water lily', sci: 'Nymphaea pubescens', layer: 0, aquatic: true,
+  def({ key: 'lotus', name: 'Water lily', sci: 'Nymphaea pubescens', layer: 0, aquatic: true, floating: true,
     moist: [0.9, 1], light: [0.6, 1], grow: 0.02, spread: 0.016, radius: 2, life: 8, cost: 6,
     look: { type: 'lily', leaf: '#4f8a3f', flower: '#f2d2e0', bloom: [7, 8, 9, 10, 11, 0] },
     desc: 'Floating pads and pink-white flowers on still water. Fish shelter under the pads.' });

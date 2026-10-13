@@ -1,6 +1,6 @@
 // Game state and the simulation clock.
 
-import { arrivalMoment, momentsDaily, ARRIVAL_MOMENTS } from './sim/moments.js';
+import { arrivalMoment, momentsDaily, momentsUpdate, ARRIVAL_MOMENTS } from './sim/moments.js';
 import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, DIFFICULTY, seasonOfMonth, money, T } from './config.js';
 import { biome, BIOME_LIST, setBiome } from './biome.js';
 import { saves, legacySaveKey, bytesFromBase64, intact } from './saves.js';
@@ -155,6 +155,7 @@ export class Game {
       biome.update?.(this, d);
       days -= d;
     }
+    momentsUpdate(this);
   }
 
   dailyTick() {

@@ -18,6 +18,7 @@ import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
+import { FrameCpuStats } from '../performance.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 
 const EL = THREE.MathUtils.degToRad(34);
@@ -78,7 +79,8 @@ export class Renderer {
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
-    document.addEventListener('visibilitychange', () => { if (this.perf) this.perf.last = performance.now(); });
+    this.cpuPerf = new FrameCpuStats();
+    document.addEventListener('visibilitychange', () => { if (this.perf) this.perf.last = performance.now(); this.cpuSkipNext = true; });
     canvas.addEventListener('webglcontextlost', event => {
       event.preventDefault(); // allow the browser and Three.js to restore the context
       this.contextLost = true;
@@ -87,6 +89,7 @@ export class Renderer {
     canvas.addEventListener('webglcontextrestored', () => {
       this.contextLost = false;
       this.perf = null;
+      this.cpuPerf.reset(); this.cpuSkipNext = true;
       this.onContextRestored?.();
     });
     this.gl.setPixelRatio(this.dpr);
@@ -271,20 +274,6 @@ export class Renderer {
     }
     this.camera.getWorldDirection(focus.uViewDir.value).negate();
     focus.uCamUp.value.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
-  }
-
-  // Around the see-through gap the rest of the view dims a little, softly, as if looking in from
-  // under the canopy: the eye goes to the lit opening and the animal at the bottom of it.
-  drawFocusLens(ctx) {
-    const amt = focus.uFocusAmt.value;
-    if (amt < 0.01) return;
-    const c = focus.uFocus.value, p = this.project(c.x, c.y, c.z);
-    const r = focus.uFocusR.value * this.ppu * amt;
-    const g = ctx.createRadialGradient(p.x, p.y, r * 0.85, p.x, p.y, r * 3.2);
-    g.addColorStop(0, 'rgba(14,22,16,0)');
-    g.addColorStop(0.45, `rgba(14,22,16,${0.16 * amt})`);
-    g.addColorStop(1, `rgba(14,22,16,${0.34 * amt})`);
-    ctx.fillStyle = g; ctx.fillRect(0, 0, this.vw, this.vh);
   }
 
   get fadeTrees() { return this._fade; }
@@ -566,9 +555,15 @@ export class Renderer {
 
   // How smoothly the game has been drawing since the last sample, and with what: for the analytics,
   // so we can see how real phones cope. reset = false peeks without starting a new window.
+  recordCpuFrame(sample) {
+    if (document.hidden) { this.cpuSkipNext = true; return; }
+    if (this.cpuSkipNext) { this.cpuSkipNext = false; return; }
+    this.cpuPerf.record(sample);
+  }
   perfSample(reset = true) {
     const P = this.perf || { frames: 0, time: 0, slow: 0 }, info = this.gl.info.render;
     const out = {
+      ...this.cpuPerf?.sample(reset),
       fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
       slow_frames_pct: P.frames ? Math.round(P.slow / P.frames * 100) : null,
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
@@ -860,7 +855,6 @@ export class Renderer {
     finally {
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
-      this.drawFocusLens(ctx);
       this.ambience.drawSky(ctx, this, game, dt);
     }
   }

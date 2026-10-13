@@ -6,8 +6,7 @@
 //  - the opening flares toward the camera, a funnel, so the canopy layers step back one behind
 //    another down to the animal;
 //  - foliage lining the funnel is shaded, darker the deeper it sits, like the inside of a crown;
-//    the ground and the animal at the bottom keep full light (see Renderer.drawFocusLens for the
-//    soft dimming of the screen around the opening);
+//    the ground, animal and surrounding landscape keep their normal light;
 //  - shrubs, groundcover and litter on the floor stay, whole, where they show below the animal's
 //    feet or beside it on screen, so the floor of the gap isn't bare.
 // It opens and closes by growing and shrinking, and follows the animal smoothly (see

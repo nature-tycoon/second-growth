@@ -12,7 +12,7 @@ const logoReady = new Promise(res => {
   const img = new Image();
   img.onload = () => { logo = img; res(); };
   img.onerror = () => res();
-  img.src = 'assets/logo.svg';
+  img.src = new URL('../../assets/logo.svg', import.meta.url).href;
 });
 
 // Crop a capture to fill a box, keeping its centre.
