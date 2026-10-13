@@ -305,6 +305,7 @@ export function palm(opts, seed, lod = 0) {
         const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(x1 - x0, y1 - y0, z1 - z0).normalize());
         g.applyQuaternion(q); g.translate(x0, y0, z0);
       } });
+      c.userData.canopyTrunks = [{ from: [x0, y0, z0], to: [x1, y1, z1], r0: .028, r1: .022 }];
       trunks.push(c);
     }
     const n = lod ? 6 : 9;
@@ -353,6 +354,7 @@ export function oilPalm(opts, seed, lod = 0) {
   const crown = twoSided(merge(leaves));
   // trunk: a little swollen at the foot, its stubs cut flat, older and fewer toward the ground
   const tr = [soft(new THREE.CylinderGeometry(0.075, 0.09, top + 0.05, lod ? 6 : 9, lod ? 1 : 4), { lump: 0.014, seed, transform: g => g.translate(0, (top + 0.05) / 2, 0) })];
+  tr[0].userData.canopyTrunks = [{ from: [0, 0, 0], to: [0, top + .05, 0], r0: .09, r1: .075 }];
   const ns = lod ? 12 : 32;
   for (let j = 0; j < ns; j++) {
     const y = 0.3 + (top - 0.3) * j / (ns - 1), a = j * 2.39996 + r() * 0.3, len = 0.05 + r() * 0.025, wd = 0.034 + r() * 0.01;

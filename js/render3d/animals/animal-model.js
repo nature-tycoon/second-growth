@@ -85,7 +85,6 @@ export function buildSpecies(def) {
   const geo = m.build();
   if (mo.primate) feedingPose(geo, s, def.move === 'tree');
   if (s.ape) swingPoses(geo, s.len);
-  if (s.kind === 'orangutan') orangutanSwingPoses(geo, s);
   geo.computeBoundingBox();
   if (def.move === 'tree') {
     // Tails and orangutan hair can hang below the grips. Use actual toes for
@@ -100,6 +99,15 @@ export function buildSpecies(def) {
     mo.canopyFeet = [[.32, 0, .04], [.32, 0, -.04], [-.2, 0, .04], [-.2, 0, -.04]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
     const height = s.long ? .62 : .45;
     mo.canopyJoints = [[.22, height + .06, .1], [.22, height + .06, -.1], [-.26, height, .1], [-.26, height, -.1]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
+  }
+  if (def.move === 'tree' && mo.primate === 2) {
+    // Actual curled finger/toe contacts, and the shoulders/hips above them.
+    // The clamber is supported by these contacts instead of a sliding cycle.
+    const bulk = s.flanged ? 1.15 : 1;
+    mo.canopyFeet = [[.32, -.005, .14], [.32, -.005, -.14], [-.125, -.015, .12], [-.125, -.015, -.12]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
+    mo.canopyJoints = [[.07, .56, .13 * bulk], [.07, .56, -.13 * bulk], [-.07, .27, .08 * bulk], [-.07, .27, -.08 * bulk]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
+    mo.canopyFootReach = [.36, .36, .18, .18];
+    mo.canopyPitchLimit = 1.25;
   }
   if (def.move === 'tree' && mo.canopyHanging) {
     mo.canopyFeet = [[.4, .98, .02], [.4, .98, -.02], [-.44, .98, .02], [-.44, .98, -.02]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
@@ -152,15 +160,6 @@ function swingPoses(geo, L) {
   geo.setAttribute('aSwingN', geo.attributes.normal.clone());
   poseArm(geo, P.LEG_FL, L, [.04, .84, -.1], [.32, .8, -.18], [.6, 1.02, -.1], [.14, 1.355, -.02], 'aSwing', 'aSwingN', 0);
   poseArm(geo, P.LEG_FR, L, [.05, .84, .1], [.13, 1.1, .12], [.14, 1.355, .02], [.53, 1.02, .1], 'aSwing', 'aSwingN', 1);
-}
-
-function orangutanSwingPoses(geo, s) {
-  const L = s.len, bulk = s.flanged ? 1.15 : 1;
-  geo.setAttribute('aSwing', geo.attributes.position.clone());
-  geo.setAttribute('aSwingN', geo.attributes.normal.clone());
-  for (const [id, side] of [[P.LEG_FL, 1], [P.LEG_FR, -1]])
-    poseArm(geo, id, L, [.07, .56, side * .13 * bulk], [.19, .31, side * .15], [.3, .06, side * .14],
-      [.07, 1.09, side * .04], 'aSwing', 'aSwingN', 1);
 }
 
 // Two-bone elbow bend baked into an alternate pose, including matching normals.
