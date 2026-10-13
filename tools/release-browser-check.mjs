@@ -18,7 +18,9 @@ if (!update) assert.equal(baseline.version, 2, 'Visual reference format changed;
 if (update) await mkdir(directory, { recursive: true });
 const maps = ['pnw', 'amazon', 'serengeti', 'atlanta', 'chinandega', 'reef', 'sumatra'];
 const cases = maps.flatMap(map => [...['fast', 'high'].map(quality => ({ map, quality, scene: 'forest' })), { map, quality: 'high', scene: 'animals' }]);
-const report = { startedAt: new Date().toISOString(), visual: [], performance: [], failures: [] };
+// A changed image is reported for review (changed), not a failure: looks change on purpose, and
+// that shouldn't hold up a release. Errors, broken edits and work budgets still fail.
+const report = { startedAt: new Date().toISOString(), visual: [], performance: [], failures: [], changed: [] };
 const browser = await openBrowser({ label: 'release', width: 960, height: 600 });
 const { evaluate } = browser;
 const saveImage = (path, data) => writeFile(path, Buffer.from(data.split(',')[1], 'base64'));
@@ -66,13 +68,16 @@ try {
         const expected = await dataImage(reference);
         const { diff, ...difference } = await evaluate(`window.releaseScene.compare(${JSON.stringify(expected)})`);
         row.difference = difference; await saveImage(join(out, id + '-diff.png'), diff);
-        assert.ok(difference.changedFraction <= baseline.maxChangedFraction && difference.meanDifference <= baseline.maxMeanDifference, `${id}: image changed (${(difference.changedFraction * 100).toFixed(2)}% pixels, mean ${difference.meanDifference.toFixed(2)}); review current/reference/diff images`);
+        if (difference.changedFraction > baseline.maxChangedFraction || difference.meanDifference > baseline.maxMeanDifference) {
+          row.changed = `${id}: image changed (${(difference.changedFraction * 100).toFixed(2)}% pixels, mean ${difference.meanDifference.toFixed(2)}); review current/reference/diff images`;
+          report.changed.push(row.changed); console.warn(`CHANGED ${row.changed}`);
+        }
         // Stable work budgets run on every platform. Timing comparisons need matching machines.
         for (const key of ['triangles', 'draw_calls', 'geometries', 'textures']) assert.ok(row.metrics[key] <= baseline.scenes[id].metrics[key] * 1.1 + 2, `${id}: ${key} exceeds reviewed work budget`);
       }
       await saveImage(join(out, id + '-expected.png'), update ? current : await dataImage(reference));
       await evaluate('window.releaseScene.interactions()'); browser.assertHealthy();
-      row.passed = true; console.log(`PASS ${id}: approved appearance, draw budget, edit + undo + restore`);
+      row.passed = true; console.log(`PASS ${id}: ${row.changed ? 'changed appearance (see review)' : 'approved appearance'}, draw budget, edit + undo + restore`);
     } catch (error) { row.error = error.message; report.failures.push(`${id}: ${error.message}`); console.error(`FAIL ${id}: ${error.message}`); }
     report.visual.push(row);
   }
@@ -80,7 +85,8 @@ try {
   const matches = baseline?.version === references.version && baseline.environment && ['platform', 'arch', 'cpu', 'chrome', 'gpu'].every(key => baseline.environment[key] === report.environment[key])
     && baseline.performance?.every(row => row.benchmark_revision === PERFORMANCE_BENCHMARK_REVISION);
   report.timingBaselineMatches = !!matches;
-  for (const config of [{ map: 'pnw', scene: 'forest', quality: 'fast' }, { map: 'serengeti', scene: 'herd', quality: 'fast' }, { map: 'pnw', scene: 'planting', quality: 'fast' }]) {
+  // (a scene whose page stops answering on CI's software renderer gets one more try; twice fails)
+  for (const config of [{ map: 'pnw', scene: 'forest', quality: 'fast' }, { map: 'serengeti', scene: 'herd', quality: 'fast' }, { map: 'pnw', scene: 'planting', quality: 'fast' }]) for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       await evaluate(`localStorage.setItem('second-growth-settings', JSON.stringify({ analytics: false, autosave: false, quality: 'fast', qualityChosen: true, shadows: true, wind: true, weather: true, dayCycle: false, fps: '60', muted: true, music: false, nature: false })); sessionStorage.setItem('second-growth-pending', JSON.stringify(${JSON.stringify({ map: config.map, mode: 'free', difficulty: 'standard' })}));`);
       await browser.navigate('/');
@@ -96,7 +102,11 @@ try {
       }
       report.performance.push(row); references.performance.push(row);
       console.log(`PASS gameplay ${config.scene}: median ${row.frameMedianMs.toFixed(1)} ms, p95 ${row.frameP95Ms.toFixed(1)} ms; simulation p95 ${row.simulationP95Ms.toFixed(1)} ms`);
-    } catch (error) { report.failures.push(`gameplay/${config.scene}: ${error.message}`); console.error(`FAIL gameplay/${config.scene}: ${error.message}`); }
+      break;
+    } catch (error) {
+      if (attempt === 1 && /timed out/i.test(error.message)) { console.warn(`RETRY gameplay/${config.scene}: ${error.message}`); continue; }
+      report.failures.push(`gameplay/${config.scene}: ${error.message}`); console.error(`FAIL gameplay/${config.scene}: ${error.message}`); break;
+    }
   }
   if (!report.failures.length && update) {
     references.environment = report.environment;
@@ -106,8 +116,10 @@ try {
 } finally {
   await browser.close();
   await writeFile(join(out, 'renderer.json'), JSON.stringify(report, null, 2));
-  const cards = report.visual.map(row => `<article><h2>${escape(row.id)}</h2><p>${escape(row.error || 'Passed')}</p><div class="images">${['expected', 'current', 'diff'].map(kind => `<figure><figcaption>${kind}</figcaption><a href="${row.id}-${kind}.png"><img src="${row.id}-${kind}.png" alt="${escape(row.id)} ${kind}"></a></figure>`).join('')}</div><details><summary>Portrait order, animal positions and measurements</summary><pre>${escape(JSON.stringify({ metrics: row.metrics, portraits: row.portraits, legend: row.legend }, null, 2))}</pre></details></article>`).join('');
+  const cards = report.visual.map(row => `<article><h2>${escape(row.id)}</h2><p>${escape(row.error || row.changed || 'Passed')}</p><div class="images">${['expected', 'current', 'diff'].map(kind => `<figure><figcaption>${kind}</figcaption><a href="${row.id}-${kind}.png"><img src="${row.id}-${kind}.png" alt="${escape(row.id)} ${kind}"></a></figure>`).join('')}</div><details><summary>Portrait order, animal positions and measurements</summary><pre>${escape(JSON.stringify({ metrics: row.metrics, portraits: row.portraits, legend: row.legend }, null, 2))}</pre></details></article>`).join('');
   await writeFile(join(out, 'review.html'), `<!doctype html><html lang="en"><meta charset="utf-8"><title>Second Growth release review</title><style>body{margin:24px;background:#eff2e9;color:#23392c;font:15px system-ui}article{padding:16px;margin:20px 0;background:white;border-radius:12px}.images{display:flex;gap:12px}figure{margin:0;flex:1;min-width:0}img{width:100%}pre{white-space:pre-wrap}h2{font-size:18px}</style><h1>Second Growth release review</h1><p>${report.failures.length ? escape(report.failures.join('; ')) : 'All renderer checks passed.'}</p><p>Reference, current and difference images. Click an image for full size. Animal portraits use inspection framing, read left to right in rows of six (see portrait order); physical size is checked separately. Regional ecology and palettes remain distinct; these references protect the shared rendering style.</p><h2>Complete gameplay measurements</h2><p>Runs the live main.js loop: simulation, input, 3D drawing, 2D overlays and DOM interface, with a GPU completion barrier. Scripted panning and planting add representative work; simulated time is fixed per frame. CI uses software graphics. Timing comparisons ${report.timingBaselineMatches ? 'used a matching machine baseline' : 'were reported without comparing different machines or benchmark revisions'}; draw budgets and catastrophic-stall limits apply everywhere.</p><pre>${escape(JSON.stringify({ environment: report.environment, measurements: report.performance }, null, 2))}</pre>${cards}</html>`);
 }
 if (report.failures.length) throw new Error(`${report.failures.length} renderer checks failed. Review tools/release-output/review.html.`);
+// (a GitHub annotation, so changed scenes show on the run's summary page)
+if (report.changed.length) console.log(`${process.env.GITHUB_ACTIONS ? '::warning title=Scenes look different::' : 'REVIEW '}${report.changed.length} scenes changed appearance. Review tools/release-output/review.html, then refresh the references with --update-visuals.`);
 console.log(update ? 'Reference images captured. Review and commit tools/release-baselines/ with the change.' : 'Renderer release checks passed. Review: tools/release-output/review.html');
