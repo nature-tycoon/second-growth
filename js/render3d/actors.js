@@ -12,10 +12,10 @@ import { waterSurfaceY } from './terrain.js';
 import { biome } from '../biome.js';
 import { boutCycle, CRASH } from './bout-clock.js';
 import { siamangSwing } from './siamang-swing.js';
-import { orangutanHold } from './orangutan-swing.js';
 import { canopyStep, settleCanopyStep, rebaseCanopy } from './canopy-motion.js';
 import { canopyLean, canopyRotation } from './canopy-pose.js';
 import { canopyTile } from './canopy-support.js';
+import { ORANGUTAN_CADENCE } from './orangutan-motion.js';
 import { canopyGrips } from './canopy-grips.js';
 import { ActorView, animalViewRadius } from './actor-view.js';
 
@@ -267,9 +267,33 @@ export class Actors {
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
       let branchPitch = 0, branchRoll = 0, branchYaw = 0;
       if (def.move === 'tree') {
-        const site = this.flora?.treeSites.get(ci());
+        let site = this.flora?.treeSites.get(ci());
+        const requestedSite = site;
         const supportsValid = !this.flora || rebaseCanopy(st, this.flora);
-        const anchor = site?.anchor(a.x, a.y, returning ? null : st.branch, mo.len * sc * (mo.canopyHanging ? .48 : .34), mo.primate === 3 || mo.canopyHanging, mo.primate || mo.canopyFeet ? { motion: mo, scale: sc } : null);
+        const deliberateTransfer = mo.primate === 1 || mo.primate === 2 || mo.primate === 3;
+        const planned = deliberateTransfer && supportsValid && !returning && st.branchRoute && !st.branchRoute.blocked ? st.branchRoute.target : null;
+        if (site && planned) site = planned.site;
+        else if (site && deliberateTransfer && supportsValid && !returning && st.branchAt?.site.cell && site.cell) {
+          const [x, z] = st.branchAt.site.cell;
+          if (Math.max(Math.abs(site.cell[0] - x), Math.abs(site.cell[1] - z)) > 1) {
+            // At fast game speeds the simulation can pass several trees while
+            // a drawn catch finishes. Follow adjacent real supports in turn,
+            // instead of requesting a distant jump and resetting onto it.
+            let next = null, best = Infinity;
+            for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+              if (!dx && !dz) continue;
+              const neighbor = this.flora.treeSites.get(canopyTile(w, game.border, x + dx, z + dz));
+              if (!neighbor) continue;
+              const distance = (x + dx + .5 - a.x) ** 2 + (z + dz + .5 - a.y) ** 2;
+              if (distance < best) { best = distance; next = neighbor; }
+            }
+            if (next) site = next;
+          }
+        }
+        const intermediate = site !== requestedSite && site?.cell;
+        const x = intermediate ? clamp(a.x, site.cell[0] + .1, site.cell[0] + .9) : a.x;
+        const z = intermediate ? clamp(a.y, site.cell[1] + .1, site.cell[1] + .9) : a.y;
+        const anchor = site && planned ? planned : site?.anchor(x, z, returning ? null : st.branch, mo.len * sc * (mo.canopyHanging ? .48 : .34), mo.primate === 3 || mo.canopyHanging, mo.primate || mo.canopyFeet ? { motion: mo, scale: sc } : null);
         st.branch = anchor ?? null;
         if (anchor) {
           canopySites.add(site);
@@ -281,31 +305,15 @@ export class Actors {
           const route = st.branchRoute;
           if (route && this.flora.treeSites.get(route.fromSite.tile) === route.fromSite) canopySites.add(route.fromSite);
           const steering = game.speed > 0 && motion.heading.lengthSq() > 1e-8;
-          const settlePose = mo.primate !== 2 || steering || firstHold || returning || invalidRoute;
+          const settlePose = (mo.primate !== 2 && mo.primate !== 3) || steering || (mo.primate === 3 && gait0 > .01) || firstHold || returning || invalidRoute;
           const dir = steering ? motion.heading : (st.branchAt || anchor).direction;
           let yaw = Math.atan2(-dir.z, dir.x), sign = 1;
           // Orangutans back down a steep main limb with the head uphill.
           // Turning headfirst swings their long torso into neighbouring forks.
           if (mo.primate === 2) {
-            if (st.orangutanSwing) st.canopyReverse = false;
-            else if (steering) {
-              const slope = dir.y / dir.length();
-              if (motion.journey) {
-                // A fork's small surface corrections are not new descents.
-                // Choose a facing once, then keep it through the handover.
-                if (st.canopyTurnRoute !== motion.journey) {
-                  const facing = new THREE.Vector3(1, 0, 0).applyQuaternion(st.canopyQuaternion || new THREE.Quaternion());
-                  st.canopyReverse = facing.x * dir.x + facing.z * dir.z < 0;
-                }
-              } else {
-                if (slope < -.45) st.canopyReverse = true;
-                else if (slope > -.1) st.canopyReverse = false;
-              }
-            }
-            st.canopyTurnRoute = motion.journey;
             if (st.canopyReverse) { yaw += Math.PI; sign = -1; }
           }
-          if (!steering && Math.cos(yaw - st.yaw) < 0) { yaw += Math.PI; sign = -1; }
+          if (!steering && Math.cos(yaw - yaw0) < 0) { yaw += Math.PI; sign = -1; }
           st.yaw = returning || firstHold ? yaw : steering ? lerpAngle(yaw0, yaw, Math.min(1, k * (kind === 'orangutan' ? .7 : 1.2))) : yaw0;
           // Follow a steep main limb with the whole body rather than holding a
           // nearly level torso through it. Rotate around the actual hold.
@@ -317,20 +325,20 @@ export class Actors {
           if (settlePose && (game.speed > 0 || firstHold || returning)) {
             const supportSites = new Set([site, st.branchAt?.site, route?.fromSite, route?.target.site]);
             for (const supportSite of supportSites) if (supportSite) canopySites.add(supportSite);
-            const lean = canopyLean(st, mo, supportSites, st.branchSlope || 0, st.gait,
+            const lean = canopyLean(st, mo, supportSites, st.branchSlope || 0, mo.primate === 3 ? gait0 : st.gait,
               a.fruitMeal ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0, motion.dt, motion.before, motion);
             settleCanopyStep(st, motion);
             st.branchRoll = lean.roll; st.branchPitch = lean.pitch; st.branchYaw = lean.yaw; branchPitch = lean.pitch;
           }
-          st.gait = game.speed > 0 ? gait0 + (motion.gait - gait0) * Math.min(1, k * 2) : gait0;
+          st.gait = game.speed > 0 ? gait0 + (motion.gait - gait0) * Math.min(1, k * (mo.primate === 3 ? .35 : 2)) : gait0;
           branchRoll = st.branchRoll || 0;
           branchYaw = st.branchYaw || 0;
           // Hanging apes attach by the supporting hand; branch walkers use feet.
-          orangutanHold(st, mo, this.holdOffset).multiplyScalar(sc)
+          this.holdOffset.set(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0).multiplyScalar(sc)
             .applyQuaternion(canopyRotation(st.yaw + branchYaw, branchPitch, branchRoll, this.holdRotation));
           ax = st.branchPoint.x - this.holdOffset.x; az = st.branchPoint.z - this.holdOffset.z;
           y = st.branchPoint.y + motion.lift - this.holdOffset.y; st.canopyY = y;
-        } else { st.branchRoute = null; st.branchAt = null; st.branchPoint = null; st.orangutanSwing = null; }
+        } else { st.branchRoute = null; st.branchAt = null; st.branchPoint = null; }
       } else st.branch = null;
       // Climbing down off the last tree (often to leave the map) or back up into
       // one, ease from the drawn body to the new position rather than jumping.
@@ -339,7 +347,13 @@ export class Actors {
         st.onBranch = !!st.branch;
         if (returning) st.shiftOffset = null;
         else if (st.shiftOffset) {
-          const o = st.shiftOffset, fade = game.speed > 0 ? Math.exp(-6 * Math.max(0, Math.min(.1, time - o.time))) : 1;
+          const o = st.shiftOffset, step = Math.max(0, Math.min(.1, time - o.time));
+          let fade = game.speed > 0 ? Math.exp(-6 * step) : 1;
+          if (mo.primate === 2) {
+            // A delayed climb must not become a dash when leaving the wood.
+            const distance = Math.hypot(o.x, o.y, o.z);
+            fade = Math.max(fade, 1 - step * mo.len * sc * 3 / Math.max(distance, 1e-9));
+          }
           o.time = time; o.x *= fade; o.y *= fade; o.z *= fade;
           ax += o.x; y += o.y; az += o.z;
           if (Math.hypot(o.x, o.y, o.z) < .002) st.shiftOffset = null;
@@ -347,7 +361,18 @@ export class Actors {
       }
       const eating = mo.primate && a.state === 'primate' && a.fruitMeal;
       const eatPose = eating ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0;
-      const phase = st.orangutanSwing ? st.orangutanSwing.phase : st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase : a.phase * Math.PI;
+      if (mo.primate === 2 && !st.branch) {
+        const step = Math.max(0, Math.min(.1, time - (st.groundTime ?? time)));
+        if (game.speed === 0) st.yaw = yaw0;
+        else if (!returning) {
+          const turn = st.yaw - yaw0 - Math.round((st.yaw - yaw0) / (2 * Math.PI)) * 2 * Math.PI;
+          st.yaw = yaw0 + clamp(turn, -step, step);
+          const travelled = Math.hypot(ax - st.x, az - st.z);
+          st.branchPhase = (st.branchPhase || 0) + Math.min(travelled / Math.max(.06, mo.len * sc * .65) * Math.PI * 2, step * ORANGUTAN_CADENCE);
+        }
+      }
+      st.groundTime = time;
+      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : a.phase * Math.PI;
       if (eating) st.graze = 0;
       // A crawling snake's bends advance by the distance it covers, so they stay put on the ground
       // (one full bend per body length; see uSlither in fauna.js, which reads it from the fly slot).
@@ -363,7 +388,7 @@ export class Actors {
         for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite])
           if (site && this.flora.treeSites.get(site.tile) === site) canopySites.add(site);
       } else { st.gripFeet = null; st.gripTime = time; }
-      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? st.orangutanSwing?.blend || 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0)), grips);
+      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0)), grips);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;

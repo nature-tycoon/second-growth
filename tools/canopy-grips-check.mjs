@@ -10,6 +10,7 @@ const { ANIMALS } = await import('../js/data/animals.js');
 const { PLANT } = await import('../js/data/plants.js');
 const { canopyStep, settleCanopyStep } = await import('../js/render3d/canopy-motion.js');
 const { woodDistance, bodyFitsWood } = await import('../js/render3d/wood-clearance.js');
+const { canopyGrips } = await import('../js/render3d/canopy-grips.js');
 const { climbPace } = await import('../js/sim/climb-pace.js');
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
@@ -20,14 +21,21 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
     const actors = new Actors(scene, flora), right = new THREE.Vector3(1, 0, 0);
     a.x = 40.35; actors.update(game, right, 1); game.speed = 1;
     const mo = actors.fauna.motion(ANIMALS[a.sp]);
+    const handSteps = [0, 0];
     let previousDelta = new THREE.Vector3(), reversals = 0, releases = 0, placements = 0, changes = 0;
     let limb = actors.pose.get(a.id).branch.index, leapFrames = 0, maxLift = 0, pausedLeap = false;
     for (let frame = 1; frame <= 2400; frame++) {
       a.x = Math.min(41.65, a.x + (key === 'sloth' ? .001 : .004)); a.state = a.x < 41.65 ? 'walk' : 'idle';
       const st = actors.pose.get(a.id), before = st.branchPoint.clone();
+      const journey = st.branchRoute, cursor = journey?.cursor;
+      const nextHold = journey?.points[cursor]?.clone();
       const feet = st.gripFeet.map(foot => ({ point: foot.point.clone(), free: foot.free, swing: !!foot.from }));
       actors.update(game, right, 1 + frame / 60);
       const delta = st.branchPoint.clone().sub(before);
+      if (journey && journey === st.branchRoute) {
+        assert.ok(st.branchRoute.cursor >= cursor, 'accepted route progress never returns to a passed hold');
+        if (st.branchRoute.cursor === cursor) assert.ok(delta.dot(nextHold.sub(before)) >= -1e-10, 'a shortened step still advances toward its next hold');
+      }
       assert.ok(!st.canopyForce, `${key}: crown route does not force the body through wood`);
       if (delta.length() > .0001) {
         if (previousDelta.length() > .0001 && delta.dot(previousDelta) < 0) reversals++;
@@ -51,6 +59,7 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
         assert.ok(local.distanceTo(mo.canopyJoints[i]) <= reach + 1e-7, `${key}: limb cannot elongate to maintain contact`);
         assert.ok(local.distanceTo(mo.canopyFeet[i]) <= mo.len * (i < 2 ? .24 : .18) + 1e-6, `${key}: placement stays within a short reach`);
         assert.ok(local.applyMatrix4(actors.fauna.m).distanceTo(foot.point) < 1e-7, 'shader offset reaches the drawn contact');
+        if (i < 2 && foot.from && !feet[i].swing) handSteps[i]++;
         if (foot.free) releases++;
         if (!foot.free && !foot.from) {
           placements++;
@@ -60,9 +69,12 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
         }
       }
     }
-    assert.equal(reversals, 0, `${key}: no corrective backtracking`);
+    // Shorter, bounded jumps may approach a different limb via its fork.
+    // Allow its deliberate bend while the cursor checks forbid backtracking.
+    assert.ok(reversals <= 2, `${key}: no repeated corrective backtracking`);
     assert.ok(changes <= 1, `${key}: keeps a limb until reaching the next crown`);
     if (['spider', 'howler', 'sloth'].includes(key)) assert.ok(releases > 0, `${key}: limbs can release during a transfer`);
+    if (key === 'langur') assert.ok(handSteps.every(n => n > 0), 'both langur hands lift and place new bark grips during ordinary travel');
     assert.ok(placements > 100, `${key}: catches the branch again`);
     assert.equal(Boolean(actors.pose.get(a.id).branchRoute), false, `${key}: finishes the crossing`);
     if (['howler', 'spider', 'langur', 'congo'].includes(key)) {
@@ -80,6 +92,38 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
     st.gripFeet.forEach((foot, i) => assert.ok(foot.point.distanceTo(feet[i]) < 1e-8, 'pause freezes supported and free limbs'));
     console.log(`${key}: ${reversals} reversals, ${changes} limb changes, limbs released and caught again`);
   }
+});
+check('Langur free hands alternate reaching while planted rear feet retain their bark contacts', () => {
+  canopyFixture('sumatra', 'langur');
+  const { motion: mo, geo } = buildSpecies(ANIMALS.find(d => d?.key === 'langur'));
+  const sc = .02, size = mo.len * sc;
+  // A limb ends beneath the rear feet; both front hands are beyond its tip.
+  const wood = [{ from: new THREE.Vector3(-size * 3, 0, 0), to: new THREE.Vector3(0, 0, 0),
+    dir: new THREE.Vector3(1, 0, 0), up: new THREE.Vector3(0, 1, 0), length: size * 3, r0: size * .05, r1: size * .05 }];
+  const site = { wood, prepare() {} }, matrix = new THREE.Matrix4().makeScale(sc, sc, sc);
+  for (const fps of [15, 60]) {
+    const st = { sc, gait: 1, branchPhase: 0 };
+    canopyGrips(st, mo, [site], matrix, 0, 1);
+    const rear = st.gripFeet.slice(2).map(f => f.point.clone()), samples = [[], []];
+    for (let frame = 1; frame <= fps * 2; frame++) {
+      st.branchPhase = frame / fps * Math.PI * 2;
+      canopyGrips(st, mo, [site], matrix, frame / fps, 1);
+      for (let i = 0; i < 2; i++) {
+        const local = mo.canopyFeet[i].clone().add(st.gripOffsets[i]);
+        assert.ok(st.gripFeet[i].free, 'no invented wood beyond the branch tip');
+        assert.ok(local.distanceTo(mo.canopyJoints[i]) <= mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08 + 1e-8);
+        if (frame > fps) samples[i].push(st.gripOffsets[i].x);
+      }
+      for (let i = 2; i < 4; i++) assert.ok(st.gripFeet[i].point.distanceTo(rear[i - 2]) < 1e-8, 'planted feet stay on the bark');
+    }
+    for (const hand of samples) assert.ok(Math.max(...hand) - Math.min(...hand) > mo.len * .06, 'each front hand visibly reaches instead of holding a static pose');
+    const left = samples[0], right = samples[1], lm = left.reduce((a,b)=>a+b)/left.length, rm = right.reduce((a,b)=>a+b)/right.length;
+    assert.ok(left.reduce((sum,x,i)=>sum+(x-lm)*(right[i]-rm),0) < 0, 'hands alternate instead of reaching in unison');
+    const before = st.gripFeet.map(f => f.point.clone()); st.branchPhase += 1;
+    canopyGrips(st, mo, [site], matrix, 3, 0);
+    st.gripFeet.forEach((f,i)=>assert.ok(f.point.distanceTo(before[i]) < 1e-8, 'pause freezes the reach'));
+  }
+  geo.dispose();
 });
 check('Repeated main-fork handovers stay clear and do not oscillate between projected bark holds', () => {
   for (const [map, key] of [['amazon', 'spider'], ['amazon', 'howler'], ['amazon', 'sloth'], ['sumatra', 'langur'], ['chinandega', 'congo'], ['chinandega', 'capuchin']]) for (const fps of [15, 60]) {

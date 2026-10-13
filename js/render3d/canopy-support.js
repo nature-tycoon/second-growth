@@ -2,8 +2,8 @@
 // Geometry is shared by many trees; prepare its upper surfaces only once.
 import * as THREE from 'three';
 import { woodDistance, woodFrame, bodyFitsWood } from './wood-clearance.js';
-import { readableCanopyPose } from './canopy-pose.js';
-import { barkGrip } from './canopy-grips.js';
+import { canopyRotation, readableCanopyPose } from './canopy-pose.js';
+import { canopyContactCount } from './canopy-grips.js';
 
 const surfaces = new WeakMap();
 const contactAngles = [0];
@@ -56,7 +56,8 @@ export class CanopySite {
       return { from, to, dir, up, length, r0: b.r0 * sx, r1: b.r1 * sx };
     };
     this.branches = (geo.userData.canopyBranches || []).map(transformWood);
-    this.wood = [...this.branches, ...(geo.userData.canopyTrunks || []).map(transformWood)];
+    this.trunks = (geo.userData.canopyTrunks || []).map(transformWood);
+    this.wood = [...this.branches, ...this.trunks];
     this.target = new THREE.Vector3(); this.point = new THREE.Vector3(); this.best = new THREE.Vector3();
   }
 
@@ -92,7 +93,7 @@ export class CanopySite {
       this.surfaceCache ||= new WeakMap();
       cache = this.surfaceCache.get(profile.motion);
       if (!cache || cache.scale !== profile.scale) { cache = { scale: profile.scale, holds: new Map() }; this.surfaceCache.set(profile.motion, cache); }
-      key = `${Math.round(point.x * 1000)}:${Math.round(point.y * 1000)}:${Math.round(point.z * 1000)}:${reach}:${hanging}`;
+      key = `${Math.round(point.x * 1000)}:${Math.round(point.y * 1000)}:${Math.round(point.z * 1000)}:${reach}:${hanging}:${!!profile.trunkClimbing}`;
       const saved = cache.holds.get(key);
       if (saved) { const copy = saved.clone(); copy.canopyPose = saved.canopyPose; return copy; }
     }
@@ -160,7 +161,14 @@ export class CanopySite {
         if (localUp.clone().applyQuaternion(surfacePose).y < -.00001) return false;
         for (const turn of [0, Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2]) {
           pose.copy(surfacePose).multiply(aroundHold.setFromAxisAngle(localUp, turn));
-          if (!readableCanopyPose(pose, hanging && !profile.motion.canopyHanging)) continue;
+          if (!readableCanopyPose(pose, hanging && !profile.motion.canopyHanging, profile.motion.canopyPitchLimit)) continue;
+          if (this.bodyFit(profile, candidate, pose)) return true;
+        }
+        // On a near-vertical trunk, the exact bark frame pitches a walker
+        // through 90 degrees. Keep its belly outside the bark and its limbs
+        // underneath it with the same steep-climb limit used by Actors.
+        if (profile.trunkClimbing && profile.motion.primate === 1 && Math.abs(c.b.dir.y) > .9 && Math.abs(normal.y) < .5) {
+          canopyRotation(Math.atan2(normal.z, -normal.x), 1.2, 0, pose);
           if (this.bodyFit(profile, candidate, pose)) return true;
         }
         return false;
@@ -196,24 +204,15 @@ export class CanopySite {
     if (entry.holds.has(key)) return entry.holds.get(key);
     let fits = bodyFitsWood(profile, point, pose, this.wood);
     if (fits && profile.motion.canopyHanging) {
-      const mo = profile.motion, origin = new THREE.Vector3(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0);
-      const inverse = pose.clone().invert(); let contacts = 0;
-      for (let i = 0; i < 4; i++) {
-        const rest = mo.canopyFeet[i].clone().sub(origin).multiplyScalar(profile.scale).applyQuaternion(pose).add(point);
-        const grip = barkGrip(rest, this.wood);
-        if (!grip) continue;
-        grip.sub(point).applyQuaternion(inverse).divideScalar(profile.scale).add(origin);
-        if (grip.distanceTo(mo.canopyJoints[i]) <= mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08 &&
-            grip.distanceTo(mo.canopyFeet[i]) <= mo.len * (i < 2 ? .24 : .18) && grip.y <= mo.canopyFeet[i].y + mo.len * .04) contacts++;
-      }
-      fits = contacts >= 2;
+      fits = canopyContactCount(profile, point, pose, this.wood) >= 2;
     }
     if (entry.holds.size >= 4096) entry.holds.clear();
     entry.holds.set(key, fits); return fits;
   }
 
   clearRoute(points, from, to) {
-    const reach = from.reach || to.reach || 0, hanging = from.hanging || to.hanging || false, body = to.body || from.body;
+    const reach = from.reach || to.reach || 0, hanging = from.hanging || to.hanging || false, profile = to.body || from.body;
+    const body = profile && (from.trunk != null || to.trunk != null) ? { ...profile, trunkClimbing: true } : profile;
     const first = points[0];
     const out = []; let previous = first;
     const append = (a, b, depth = 0) => {
@@ -230,7 +229,7 @@ export class CanopySite {
       }
       previous = target;
     }
-    if (!body?.motion.canopyFeet && body?.motion.primate !== 2) return out;
+    if (!body?.motion.canopyFeet && body?.motion.primate !== 2 && body?.motion.primate !== 3) return out;
     // Independently projected fork holds can alternate between overlapping
     // limbs. Remove those excursions only when the whole shortcut still hugs
     // exposed bark; keep the turns needed to go around the trunk.
@@ -310,6 +309,12 @@ export class CanopySite {
       const [a, c] = b.ends;
       this.edges[a].push([c, b.length]); this.edges[c].push([a, b.length]);
     }
+    // Palms have a trunk cap instead of a woody crown graph. Connect their
+    // recorded stem segments so a trunk catch can still climb to that cap.
+    if (!this.branches.length) for (const b of this.trunks) {
+      const a = node(b.from, localUp, 0), c = node(b.to, localUp, 0);
+      this.edges[a].push([c, b.length]); this.edges[c].push([a, b.length]);
+    }
     const near = new THREE.Vector3();
     for (const n of this.nodes) for (const b of this.wood.slice(this.branches.length)) {
       const t = THREE.MathUtils.clamp(near.copy(n.base).sub(b.from).dot(b.dir) / b.length, 0, 1), radius = THREE.MathUtils.lerp(b.r0, b.r1, t);
@@ -321,8 +326,9 @@ export class CanopySite {
     this.graph();
     const a = this.branches[from.index];
     const dist = this.nodes.map(() => Infinity), prev = this.nodes.map(() => -1), seen = new Set();
-    if (!a) return { dist, prev };
-    for (const i of a.ends) dist[i] = point.distanceTo(this.nodes[i].point);
+    const starts = from.trunk != null ? this.trunkNodes(from.trunk) : a?.ends || (from.surface && this.nodes.length ?
+      [this.nodes.reduce((best, n, i) => n.point.distanceToSquared(point) < this.nodes[best].point.distanceToSquared(point) ? i : best, 0)] : []);
+    for (const i of starts) dist[i] = point.distanceTo(this.nodes[i].point);
     for (let k = 0; k < this.nodes.length; k++) {
       let n = -1;
       for (let i = 0; i < dist.length; i++) if (!seen.has(i) && (n < 0 || dist[i] < dist[n])) n = i;
@@ -333,15 +339,21 @@ export class CanopySite {
     return { dist, prev };
   }
   routeCost(from, to, distances, point = from.point) {
+    if (from.trunk != null && from.trunk === to.trunk) return point.distanceTo(to.point);
+    if (to.trunk != null) return Math.min(...this.trunkNodes(to.trunk).map(i => distances.dist[i] + this.nodes[i].point.distanceTo(to.point)));
+    if (to.surface) return Math.min(...this.nodes.map((node, i) => distances.dist[i] + node.point.distanceTo(to.point)));
     if (from.index === to.index) return point.distanceTo(to.point);
     return Math.min(...this.branches[to.index].ends.map(i => distances.dist[i] + this.nodes[i].point.distanceTo(to.point)));
   }
   route(from, to, point = from.point) {
     this.graph();
     const a = this.branches[from.index], b = this.branches[to.index];
-    if (!a || !b || from.index === to.index) return this.clearRoute([point, to.point], from, to);
+    if ((!a && from.trunk == null && !from.surface) || (!b && to.trunk == null && !to.surface) ||
+        (from.trunk != null ? from.trunk === to.trunk : to.trunk == null && from.index === to.index)) return this.clearRoute([point, to.point], from, to);
     const { dist, prev } = this.distances(from, point);
-    const end = b.ends.reduce((best, i) => dist[i] + this.nodes[i].point.distanceTo(to.point) < dist[best] + this.nodes[best].point.distanceTo(to.point) ? i : best);
+    const ends = to.trunk != null ? this.trunkNodes(to.trunk) : b?.ends || this.nodes.map((_, i) => i);
+    if (!ends.length) return [];
+    const end = ends.reduce((best, i) => dist[i] + this.nodes[i].point.distanceTo(to.point) < dist[best] + this.nodes[best].point.distanceTo(to.point) ? i : best);
     if (!Number.isFinite(dist[end])) return this.clearRoute([point, to.point], from, to); // specialist scaffold without connected rods
     const route = [], nodes = [];
     for (let i = end; i >= 0; i = prev[i]) { route.unshift(this.nodes[i].point.clone()); nodes.unshift(i); }
@@ -352,9 +364,40 @@ export class CanopySite {
     // Route holds need the same hand/foot span as ordinary anchors. Placing a
     // torso at a bare tip puts its forward limbs past the branch into a fork.
     const margin = Math.min(.45, (profile.reach || 0) / b.length), t = end ? 1 - margin : margin;
-    const point = b.from.clone().lerp(b.to, t).addScaledVector(b.up, (profile.body?.motion.canopyHanging ? -1 : 1) * THREE.MathUtils.lerp(b.r0, b.r1, t));
+    const point = b.from.clone().lerp(b.to, t).addScaledVector(b.up, (profile.body?.motion.canopyHanging || profile.body?.motion.primate === 3 ? -1 : 1) * THREE.MathUtils.lerp(b.r0, b.r1, t));
     return { site: this, index, direction: b.dir, reach: profile.reach, hanging: profile.hanging, body: profile.body,
       point: this.clearPoint(point, profile.reach, profile.hanging, profile.body) };
+  }
+
+  trunkNodes(index) {
+    this.graph();
+    this.trunkConnections ||= [];
+    if (this.trunkConnections[index]) return this.trunkConnections[index];
+    const trunk = this.trunks[index], near = new THREE.Vector3();
+    return this.trunkConnections[index] = this.nodes.flatMap((node, i) => {
+      const t = THREE.MathUtils.clamp(near.copy(node.base).sub(trunk.from).dot(trunk.dir) / trunk.length, 0, 1);
+      near.copy(trunk.from).lerp(trunk.to, t);
+      return node.base.distanceTo(near) <= THREE.MathUtils.lerp(trunk.r0, trunk.r1, t) + .02 ? [i] : [];
+    });
+  }
+
+  // Catch the facing side of a receiving trunk near the takeoff height, then
+  // follow that real trunk into the connected branch graph.
+  trunkAnchors(point, profile = {}) {
+    this.prepare();
+    return this.trunks.flatMap((trunk, index) => {
+      if (!this.trunkNodes(index).length || trunk.length < (profile.reach || 0) * 2) return [];
+      const margin = Math.min(.45, (profile.reach || 0) / trunk.length);
+      const t = THREE.MathUtils.clamp(point.clone().sub(trunk.from).dot(trunk.dir) / trunk.length, margin, 1 - margin);
+      const centre = trunk.from.clone().lerp(trunk.to, t), normal = point.clone().sub(centre);
+      normal.addScaledVector(trunk.dir, -normal.dot(trunk.dir));
+      if (normal.lengthSq() < 1e-8) normal.set(1, 0, 0);
+      const hold = centre.addScaledVector(normal.normalize(), THREE.MathUtils.lerp(trunk.r0, trunk.r1, t) + .002);
+      const body = profile.body && { ...profile.body, trunkClimbing: true };
+      const cleared = this.woodSurface(hold, profile.reach, false, body);
+      if ((body && !cleared.canopyPose) || Math.abs(woodDistance(cleared, trunk)) > .01) return [];
+      return [{ site: this, index: -1, trunk: index, point: cleared, direction: trunk.dir, reach: profile.reach, hanging: false, body: profile.body }];
+    });
   }
 
   anchor(x, z, previous = null, reach = .08, hanging = false, body = null) {
@@ -362,7 +405,7 @@ export class CanopySite {
     if (this.branches.length) {
       let score = Infinity, index = -1, point = null, direction = null;
       const oldBranch = previous?.site === this && !previous.surface ? this.branches[previous.index] : null;
-      const committed = oldBranch?.length >= reach * 2 && (body?.motion.canopyFeet || body?.motion.primate === 2) ? previous.index : -1;
+      const committed = oldBranch?.length >= reach * 2 && (body?.motion.canopyFeet || body?.motion.primate === 2 || body?.motion.primate === 3) ? previous.index : -1;
       const height = this.transform[1] + this.geo.boundingBox.max.y * this.transform[4] * .8;
       const order = [...this.branches.keys()];
       if (committed >= 0) { order.splice(order.indexOf(committed), 1); order.unshift(committed); }
@@ -374,7 +417,9 @@ export class CanopySite {
         // Leave enough branch on either side for the animal's hands and feet.
         const t = THREE.MathUtils.clamp(((x - b.from.x) * b.dir.x + (height - b.from.y) * b.dir.y + (z - b.from.z) * b.dir.z) / b.length,
           reach / b.length, 1 - reach / b.length);
-        this.point.copy(b.from).lerp(b.to, t).addScaledVector(b.up, (body?.motion.canopyHanging ? -1 : 1) * (b.r0 + (b.r1 - b.r0) * t));
+        // Start a siamang hold underneath the limb. Projecting from its top
+        // alternates between equally good side surfaces and reverses travel.
+        this.point.copy(b.from).lerp(b.to, t).addScaledVector(b.up, (body?.motion.canopyHanging || body?.motion.primate === 3 ? -1 : 1) * (b.r0 + (b.r1 - b.r0) * t));
         // Small spacing nudges must not send a resting animal down one fork
         // and up another. Switch only when a new limb is clearly nearer.
         const stable = previous?.site === this && previous.index === k ? (body ? .06 : .006) : 0;
