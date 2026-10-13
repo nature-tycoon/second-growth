@@ -8,4 +8,3 @@ export function orangutanReverse(heading, descending = false, facing = null) {
   const uphillFacing = !facing || facing.x * heading.x + facing.z * heading.z < 0;
   return (slope < -.45 && uphillFacing) || (descending && slope <= -.1);
 }
-
