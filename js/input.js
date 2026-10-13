@@ -33,6 +33,7 @@ export class Input {
     cv.addEventListener('contextmenu', e => e.preventDefault());
     cv.addEventListener('wheel', e => {
       e.preventDefault();
+      if (e.ctrlKey && this.pinch != null) return; // (Safari's own pinch, below, already zooms)
       const f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015) * settings.zoomSpeed);
       this.r.zoomAt(e.clientX, e.clientY, f, true); // eased
     }, { passive: false });
@@ -41,7 +42,17 @@ export class Input {
     // and the menus stay off screen. Never let a pinch zoom the page. (Trackpads send it as a
     // ctrl + wheel; Safari, on Macs and iPads, as gesture events.)
     window.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
-    for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+    // Safari's trackpad pinch carries its scale since the fingers went down; over the map it zooms
+    // the camera. (On an iPad the same events come with the touches, which already zoom: skip them.)
+    this.pinch = null;
+    document.addEventListener('gesturestart', e => { e.preventDefault(); this.pinch = e.target === cv && !this.touch ? e.scale || 1 : null; }, { passive: false });
+    document.addEventListener('gesturechange', e => {
+      e.preventDefault();
+      if (this.pinch == null || !(e.scale > 0)) return;
+      this.r.zoomAt(e.clientX, e.clientY, e.scale / this.pinch, true); // eased, like the wheel
+      this.pinch = e.scale;
+    }, { passive: false });
+    document.addEventListener('gestureend', e => { e.preventDefault(); this.pinch = null; }, { passive: false });
     // touch: one finger paints (or pans in Inspect), a tap inspects or places,
     // two fingers pan and pinch-zoom the camera
     for (const [ev, fn] of [['touchstart', 'touchStart'], ['touchmove', 'touchMove'], ['touchend', 'touchEnd'], ['touchcancel', 'touchEnd']]) {
