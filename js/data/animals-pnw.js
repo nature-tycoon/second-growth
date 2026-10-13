@@ -46,7 +46,9 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, YOUNG_FOREST: 0.6, MATURE_FOREST: 0.55, RIPARIAN: 0.6, SHRUB: 0.5, MARSH: 0.25 });
-    def({ key: 'elk', herd: true, familyHerd: true, familySize: 7, herdR: 1.6, name: 'Roosevelt elk', sci: 'Cervus canadensis roosevelti', group: 'Mammals', move: 'ground',
+    def({ key: 'elk', herd: true, familyHerd: true, familySize: 7, herdR: 1.6,
+      bachelorSize: 3, bachelorR: 4.5, bachelorJoin: 8, bachelorSoloAge: 6,
+      name: 'Roosevelt elk', sci: 'Cervus canadensis roosevelti', group: 'Mammals', move: 'ground',
       speed: 1.5, hr: 120, max: 14, minK: 3, groupSize: [3, 5], sources: ['N'], mig: 0.3, intro: 15000,
       breed: [2, 3], litter: [1, 1], life: 14, mature: 2,
       suit: (W, i) => w[W.habitat[i]],

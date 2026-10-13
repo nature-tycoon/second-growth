@@ -603,7 +603,12 @@ export function haremDay(wl) {
     if (a.haremOf != null && (!rut || !byId(wl, a.haremOf) || byId(wl, a.haremOf).leaving)) { a.haremOf = null; a.haremSlot = null; }
     if (!rut) { a.rutActive = false; a.haremCenter = null; a.haremAngle = null; a.satelliteSlot = null; }
     else if (ANIMALS[a.sp].familyHerd && antlered(ANIMALS[a.sp], a)) {
-      if (!a.rutActive && a.trip != null && a.state === 'walk') { a.state = 'idle'; a.path = null; a.wait = 0; }
+      if (!a.rutActive) {
+        // An old bachelor-following walk must end too, even without a roaming trip.
+        if ((a.trip != null || a.follow) && a.state === 'walk') { a.state = 'idle'; a.path = null; a.wait = 0; }
+        a.follow = false; a.slot = null; a.bachelorSlot = null;
+        a.familySettled = null; a.familyRetryUntil = null;
+      }
       a.rutActive = true; a.trip = null; a.herdOf = null;
     }
   }
@@ -664,7 +669,7 @@ function bullDay(wl, a, def) {
     }
     if (Math.random() < 0.3) { bugle(a, true); facePoint(a, master.x, master.y); return true; }
     if (!a.satelliteSlot) {
-      const angle = Math.atan2(a.y - home[1], a.x - home[0]), radius = 6 + Math.random() * 1.5;
+      const angle = a.id * 2.39996, radius = 7 + Math.random() * 2;
       a.satelliteSlot = [Math.cos(angle) * radius, Math.sin(angle) * radius];
     }
     return followCervid(wl, a, home, 'satelliteSlot', 1.4);

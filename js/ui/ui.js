@@ -28,6 +28,7 @@ import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
 import { Undo } from '../undo.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
+import { momentScene } from '../sim/moments.js';
 import { saves, intact } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
 import { track, trackExit, setContext, setAnalyticsEnabled, sendFeedback, feedbackPossible, GAME_VERSION } from '../analytics.js';
@@ -190,7 +191,8 @@ export class UI {
     this.bindMinimap();
     game.on('notify', n => this.toast(n));
     game.on('moment', m => this.playMoment(m));
-    game.on('reset', () => { this.undo.clear(); this.journal = []; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
+    game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
+    game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
     game.on('month', () => {
       if (this.state.cat !== 'inspect') this.renderToolPanel();
@@ -1652,18 +1654,24 @@ export class UI {
       m.hold = setInterval(() => { g.weather = 'clear'; g.weatherDays = 3; r.setTimeOfDay(0.9); }, 200);
     }
     if (g.speed !== 1) this.setSpeed(1);
-    const fx = m.agent ? m.agent.x : m.x, fy = m.agent ? m.agent.y : m.y;
-    r.flyTo(fx, fy, m.agent ? 3.1 : 2.3, 2.4);
+    const first = momentScene(g, m);
+    const fx = first?.x ?? m.agent?.x ?? m.x, fy = first?.y ?? m.agent?.y ?? m.y;
+    r.flyTo(fx, fy, first?.zoom ?? (m.agent ? 3.1 : 2.3), 2.4);
     this.follow = null;
     // an animal moment selects the animal, so leaves and branches in front of it dissolve
     m.prevSel = g.selectedAgent;
     if (m.agent) g.selectedAgent = m.agent;
     else if (m.reveal) r.focusTile = { x: fx, y: fy }; // (a moment on a plant: see through the canopy over it, like Sumatra's corpse flower)
-    if (m.agent) setTimeout(() => { if (this.moment === m && g.wildlife.agents.includes(m.agent)) this.follow = m.agent; }, 2500);
+    m.followTimer = setTimeout(() => {
+      if (this.moment !== m) return;
+      const scene = momentScene(g, m);
+      if (scene) this.follow = scene.follow ? scene.agent : null;
+      else if (m.agent && g.wildlife.agents.includes(m.agent)) this.follow = m.agent;
+    }, 2500);
     g.notify(`${m.title}. ${m.text}`, 'discover', m.agent || { x: m.x, y: m.y });
     const o = document.createElement('div'); o.id = 'moment';
     o.innerHTML = `<div class="lb lb-top"></div><div class="lb lb-bot"></div>
-      <div class="mo-card"><small>A moment at ${biome.farm} · Year ${g.year}</small><h2>${m.title}</h2><p>${m.text}</p>
+      <div class="mo-card"><small>A moment at ${biome.farm} · Year ${g.year}</small><h2>${m.title}</h2><div class="mo-beat" hidden></div><p class="mo-text">${m.text}</p>
       <div class="mo-btns"><button class="btn secondary" data-a="card">Save postcard</button><button class="btn" data-a="go">Continue</button></div></div>`;
     document.body.appendChild(o);
     document.body.classList.add('moment-on');
@@ -1676,17 +1684,47 @@ export class UI {
       r.frameGoal = !covers ? { x: 0.5, y: 0.5 } : vw - x1 >= vw * 0.3 ? { x: (x1 + vw) / 2 / vw, y: 0.48 } : { x: 0.5, y: Math.max(0.2, y0 / 2 / vh) };
     };
     reframe();
+    const phases = new Set();
+    const updateScene = () => {
+      if (this.moment !== m) return;
+      const scene = momentScene(g, m);
+      if (!scene) return;
+      if (scene.stage === m.stage && scene.agent === m.sceneAgent) return;
+      const initial = m.stage == null;
+      const changed = scene.stage !== m.stage;
+      m.stage = scene.stage; m.sceneAgent = scene.agent;
+      const beat = o.querySelector('.mo-beat'); beat.hidden = false; beat.textContent = scene.caption;
+      o.querySelector('.mo-text').textContent = scene.text;
+      this.follow = null;
+      g.selectedAgent = scene.agent;
+      r.focusTile = scene.agent ? null : { x: scene.x, y: scene.y };
+      if (!initial) {
+        r.flyTo(scene.x, scene.y, scene.zoom, 1.1);
+        clearTimeout(m.followTimer);
+        m.followTimer = setTimeout(() => {
+          if (this.moment !== m) return;
+          const current = momentScene(g, m);
+          this.follow = current?.follow ? current.agent : null;
+        }, 1100);
+      }
+      reframe();
+      if (!initial && changed && !phases.has(scene.stage)) g.notify(`${m.title} · ${scene.caption}. ${scene.text}`, 'discover', scene.agent || { x: scene.x, y: scene.y });
+      phases.add(scene.stage);
+    };
+    updateScene();
+    if (m.live) m.sceneTimer = setInterval(updateScene, 200);
     window.addEventListener('resize', reframe);
     requestAnimationFrame(() => o.classList.add('bars'));
     setTimeout(() => o.classList.add('card'), 1500);
-    const end = () => {
+    const end = (restore = true) => {
       if (this.moment !== m) return;
       this.follow = null;
       r.fireflyBoost = 1; r.spawnBoost = 0;
       if (m.hold) clearInterval(m.hold);
+      clearInterval(m.sceneTimer); clearTimeout(m.followTimer);
       r.focusTile = null;
-      if (g.selectedAgent === m.agent) g.selectedAgent = m.prevSel && g.wildlife.agents.includes(m.prevSel) ? m.prevSel : null;
-      r.flyTo(m.prev.x, m.prev.z, m.prev.zoom, 1.6);
+      if (m.live || g.selectedAgent === m.agent) g.selectedAgent = m.prevSel && g.wildlife.agents.includes(m.prevSel) ? m.prevSel : null;
+      if (restore) { r.flyTo(m.prev.x, m.prev.z, m.prev.zoom, 1.6); this.setSpeed(m.prev.speed); }
       r.frameGoal = { x: 0.5, y: 0.5 };
       window.removeEventListener('resize', reframe);
       o.classList.remove('bars', 'card');
@@ -1696,6 +1734,7 @@ export class UI {
       this.moment = null; this.momentEnded = performance.now();
       this.state.clean = !!this.photo;
     };
+    m.end = end;
     const key = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); end(); } };
     window.addEventListener('keydown', key, true);
     o.querySelector('[data-a=go]').addEventListener('click', end);

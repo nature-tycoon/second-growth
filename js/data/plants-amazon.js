@@ -37,11 +37,11 @@ export default function buildAmazonPlants(def, mix, get) {
     moist: [0.7, 1], light: [0.3, 1], grow: 0.025, spread: 0.02, radius: 2, life: 12, cost: 4,
     look: { type: 'sedge', leaf: '#5f8f45', dry: '#9a9a5a' },
     desc: 'Tall papyrus-like sedge of floodplain marshes. Capybaras graze its shoots.' });
-  def({ key: 'waterlily', name: 'Giant water lily', sci: 'Victoria amazonica', layer: 0, aquatic: true,
+  def({ key: 'waterlily', name: 'Giant water lily', sci: 'Victoria amazonica', layer: 0, aquatic: true, floating: true,
     moist: [0.9, 1], light: [0.6, 1], grow: 0.02, spread: 0.014, radius: 2, life: 8, cost: 8,
     look: { type: 'lily', leaf: '#4f8a3f', flower: '#f4eef0', bloom: [0, 1, 10, 11] },
     desc: 'Pads up to three meters across, strong enough to hold a child. Its flowers open white and blush pink by the second night.' });
-  def({ key: 'hyacinth', name: 'Water hyacinth', sci: 'Eichhornia azurea', layer: 0, aquatic: true,
+  def({ key: 'hyacinth', name: 'Water hyacinth', sci: 'Eichhornia azurea', layer: 0, aquatic: true, floating: true,
     moist: [0.88, 1], light: [0.5, 1], grow: 0.03, spread: 0.028, radius: 2, life: 5, cost: 3,
     look: { type: 'lily', leaf: '#4f9a4a', flower: '#9a7ae0', bloom: [9, 10, 11, 0], small: true },
     desc: 'Floating rafts of lavender flowers on still water. Fish shelter and spawn among its roots.' });
@@ -85,11 +85,11 @@ export default function buildAmazonPlants(def, mix, get) {
     moist: [0.25, 0.9], light: [0.65, 1], grow: 0.011, spread: 0.012, radius: 6, life: 30, matureAge: 99, cost: 14,
     look: { type: 'balsa', leaf: '#7aa05a', bark: '#c8c0b0' },
     desc: 'Among the fastest-growing trees on Earth, with wood lighter than cork. Its night flowers feed bats.' });
-  def({ key: 'acai', name: 'Açaí palm', sci: 'Euterpe oleracea', layer: 2, wetOK: true,
+  def({ key: 'acai', name: 'Açaí palm', sci: 'Euterpe oleracea', layer: 2, wetOK: true, swampTree: true,
     moist: [0.55, 1], light: [0.2, 1], grow: 0.006, spread: 0.01, radius: 4, life: 60, matureAge: 10, cost: 18,
     look: { type: 'palm', leaf: '#4f7a3a', bark: '#8a8070', berry: '#3a1a3a', fruit: [4, 5, 6, 7] },
     desc: 'Clumps of slender palms on flooded ground. Toucans, macaws and people all come for the purple fruit.' });
-  def({ key: 'buriti', name: 'Buriti palm', sci: 'Mauritia flexuosa', layer: 2, wetOK: true,
+  def({ key: 'buriti', name: 'Buriti palm', sci: 'Mauritia flexuosa', layer: 2, wetOK: true, swampTree: true,
     moist: [0.65, 1], light: [0.5, 1], grow: 0.004, spread: 0.006, radius: 4, life: 100, matureAge: 14, mast: 0.4, cost: 22,
     look: { type: 'fanpalm', leaf: '#6a8a3a', bark: '#7a6a50' },
     desc: 'The "tree of life" of Amazon swamps. Dead buriti trunks are where scarlet macaws nest.' });

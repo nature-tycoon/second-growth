@@ -2,7 +2,7 @@
 
 import { T, F, H, isWater, clamp } from '../config.js';
 import { biome } from '../biome.js';
-import { PLANTS, isBlooming, isFruiting } from '../data/plants.js';
+import { PLANTS, isBlooming, isFruiting, plantLeafCover } from '../data/plants.js';
 
 const FAR = 255;
 let queue = null;
@@ -53,13 +53,15 @@ export function updateHydrology(w) {
 
 let ownCover = null;
 
-export function updateCanopy(w) {
+export function updateCanopy(w, month = 0) {
   const W = w.w, Hh = w.h;
+  w.canopyMonth = month;
   if (!ownCover || ownCover.length < w.n) ownCover = new Float32Array(w.n);
   const own = ownCover;
+  const cover = PLANTS.map(p => p ? (p.conifer ? 1 : 0.85) * plantLeafCover(p, month) : 0);
   for (let i = 0; i < w.n; i++) {
     const id = w.tree[i];
-    own[i] = id ? Math.min(1, w.treeG[i] * 1.15) * (PLANTS[id].conifer ? 1 : 0.85) : 0;
+    own[i] = id ? Math.min(1, w.treeG[i] * 1.15) * cover[id] : 0;
   }
   for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
     let s = 0, c = 0;
@@ -96,7 +98,7 @@ export function layerLight(w, i, layer) {
   if (layer === 0) {
     let shade = w.canopy[i] * 0.9;
     const s = w.shrub[i];
-    if (s) shade += w.shrubG[i] * (PLANTS[s].look.type === 'bramble' ? 0.85 : 0.45);
+    if (s) shade += w.shrubG[i] * (PLANTS[s].look.type === 'bramble' ? 0.85 : 0.45) * plantLeafCover(PLANTS[s], w.canopyMonth ?? 0);
     return clamp(1 - shade, 0, 1);
   }
   if (layer === 1) return clamp(1 - w.canopy[i] * 0.85, 0, 1);
@@ -224,7 +226,9 @@ export function classifyAndResources(w, month) {
       const j = yy * W + xx;
       if (isWater(w.terrain[j]) && w.terrain[j] !== T.MARSH) continue;
       cnt++;
-      if ((w.tree[j] && w.treeG[j] > 0.4) || (w.shrub[j] && w.shrubG[j] > 0.5 && !PLANTS[w.shrub[j]].invasive)) shade++;
+      const treeShade = w.tree[j] && w.treeG[j] > 0.4 ? plantLeafCover(PLANTS[w.tree[j]], month) : 0;
+      const shrubShade = w.shrub[j] && w.shrubG[j] > 0.5 && !PLANTS[w.shrub[j]].invasive ? plantLeafCover(PLANTS[w.shrub[j]], month) : 0;
+      shade += Math.max(treeShade, shrubShade);
       const gj = w.ground[j];
       if (gj && !PLANTS[gj].invasive) veg++;
       if ((gj && PLANTS[gj].invasive) || (w.shrub[j] && PLANTS[w.shrub[j]].invasive)) inv++;
@@ -296,7 +300,7 @@ export function updateEnvironment(w, month, traffic = 0) {
   if (w.heightDirty) updateElevation(w);
   if (w.hydroDirty) updateHydrology(w);
   updateDisturbance(w, traffic);
-  updateCanopy(w);
+  updateCanopy(w, month);
   updateMoisture(w, month);
   updateDistances(w);
   return classifyAndResources(w, month);

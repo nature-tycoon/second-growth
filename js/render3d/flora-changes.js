@@ -2,11 +2,13 @@
 // ecological system that can alter them. No hashes or quantization: small growth still shows.
 import { BORDER } from '../config.js';
 
-const FIELDS = ['ground', 'groundG', 'shrub', 'shrubG', 'tree', 'treeG', 'variant', 'feature', 'featureAge', 'marks', 'terrain', 'bleach'];
+const FIELDS = ['ground', 'groundG', 'shrub', 'shrubG', 'tree', 'treeG', 'variant', 'feature', 'featureAge', 'marks', 'terrain', 'bleach', 'canopy'];
 const BORDER_FIELDS = ['tree', 'treeG', 'shrub', 'ground'];
 // Also read for plants under shade and beside water, but set by the simulation: they choose which
 // tiles of a changing region are worked out afresh (see `tiles`), not which regions change.
-const TILE_FIELDS = ['canopy', 'distWater', 'waterLevel', 'waterManaged'];
+// Canopy belongs in FIELDS: seasonal shade can change forest-floor geometry in a region
+// whose plant identities and growth haven't changed.
+const TILE_FIELDS = ['distWater', 'waterLevel', 'waterManaged'];
 const differ = (a, b) => a !== b && !(a !== a && b !== b); // (two missing water levels are the same)
 export const floraChunkKey = (x, y, size) => Math.floor((x + BORDER) / size) * 65536 + Math.floor((y + BORDER) / size);
 

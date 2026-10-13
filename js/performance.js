@@ -1,7 +1,41 @@
-// Opt-in diagnostics. No GPU synchronization or method wrapping during normal play.
+// Lightweight frame CPU summaries; deeper diagnostics remain opt-in.
+// No GPU synchronization or method wrapping during normal play.
 export const PERFORMANCE_BENCHMARK_REVISION = 'ecosystem-profile-1';
 export const percentile = (values, p) => values.length
   ? [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * p))] : null;
+
+// Aggregate the whole analytics window without retaining an object for every frame.
+// Tenths-of-a-millisecond bins give the same displayed precision as the overlay.
+export const CPU_STAGES = ['simulation', 'render', 'interface'];
+export class FrameCpuStats {
+  constructor(keys = CPU_STAGES) { this.keys = keys; this.reset(); }
+  reset() {
+    this.frames = 0;
+    this.stages = this.keys.map(() => ({ total: 0, bins: new Map() }));
+  }
+  record({ timings }) {
+    if (!this.keys.every(key => Number.isFinite(timings?.[key]) && timings[key] >= 0)) return;
+    this.frames++;
+    this.keys.forEach((key, i) => {
+      const s = this.stages[i], ms = timings[key], bin = Math.round(ms * 10);
+      s.total += ms; s.bins.set(bin, (s.bins.get(bin) || 0) + 1);
+    });
+  }
+  sample(reset = true) {
+    const out = { cpu_frames: this.frames };
+    this.keys.forEach((key, i) => {
+      const s = this.stages[i]; let count = 0, p95 = null;
+      for (const [bin, n] of [...s.bins].sort((a, b) => a[0] - b[0])) {
+        count += n;
+        if (count > Math.floor(this.frames * .95)) { p95 = bin / 10; break; }
+      }
+      out[`cpu_${key}_ms`] = this.frames ? +(s.total / this.frames).toFixed(1) : null;
+      out[`cpu_${key}_p95_ms`] = p95;
+    });
+    if (reset) this.reset();
+    return out;
+  }
+}
 
 export function renderObjectCounts(scene) {
   let meshes = 0, visibleMeshes = 0, instances = 0;

@@ -7,6 +7,7 @@ const { Flora } = await import('../js/render3d/flora.js');
 import { MAPS, plantFixture, editPlants, growPlants, restoreNativeTree } from './plant-performance-fixtures.mjs';
 import { mulberry32 } from '../js/rng.js';
 import { floraChunkKey } from '../js/render3d/flora-changes.js';
+import { updateCanopy } from '../js/sim/environment.js';
 Math.random = mulberry32(1987);
 let checks = 0;
 const report = [];
@@ -37,6 +38,17 @@ check('The default game renderer uses 48-tile groups and updates only changed re
   editPlants(g,35,35);f.rebuild(g);reference.rebuild(g,true);same(f,reference,'default edit');
   assert.equal(f.lastRebuild.full,false);assert.ok(f.lastRebuild.tiles<g.world.n);
   f.rebuild(g);assert.equal(f.lastRebuild.tiles,0);dispose(f);dispose(reference);
+});
+check('Shade-only updates refresh forest-floor geometry across region boundaries',()=>{
+  const g=plantFixture('atlanta'),f=make(24,true),reference=make(24,true);
+  f.rebuild(g);
+  const trees=g.world.tree.slice(),growth=g.world.treeG.slice(),canopy=g.world.canopy.slice();
+  updateCanopy(g.world,g.month);
+  assert.notDeepEqual(g.world.canopy,canopy,'leaf-out changes shade independently of tree growth');
+  assert.deepEqual(g.world.tree,trees);assert.deepEqual(g.world.treeG,growth);
+  f.rebuild(g);reference.rebuild(g,true);same(f,reference,'shade-only update');
+  assert.equal(f.lastRebuild.full,false);assert.ok(f.lastRebuild.regions>1);
+  dispose(f);dispose(reference);
 });
 check('World swaps and restored worlds rebuild fully instead of reusing stale plant graphics',()=>{
   const g=plantFixture('pnw'),other=plantFixture('pnw'),f=new Flora(new THREE.Scene()),reference=make(48,true);

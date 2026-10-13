@@ -1150,7 +1150,7 @@ export class Wildlife {
     a.moveProgress = null; a.restSpot = null; a.localGoal = null;
     // A fixed herd slot can be occupied by another animal for years. Let the
     // next herd decision choose a new slot instead of returning to that jam.
-    if (wasFollowing) { a.slot = null; a.momSlot = null; }
+    if (wasFollowing) { a.slot = null; a.bachelorSlot = null; a.momSlot = null; }
     const spots = new Map();
     const freeSpot = j => {
       if (!spots.has(j)) {

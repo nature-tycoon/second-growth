@@ -324,16 +324,16 @@ const CANAL_BLOCK = {
 
 const MOMENTS = {
   orangutans: {
-    title: 'Orang hutan',
-    text: 'An orangutan has come in through the treetops from Leuser, and tonight it will bend branches into a nest in a tree you planted. It eats fruit above all, and it will spend its days travelling between the figs, durians and terap, dropping seeds as it goes. The forest is big enough, and joined up enough, for the "person of the forest" again.',
+    title: 'A meal above the old plantation',
+    text: 'An orangutan has settled into a meal in the canopy. Native trees now offer food above the old palm rows, and connected crowns give the ape a route onward. Fruit feeds the orangutan; the seeds it carries help grow the next forest.',
   },
   gajah: {
-    title: 'The elephants come home',
-    text: 'A Sumatran elephant family has walked in along the old route the fence used to block. For years herds like this ended up raiding the plantations around Leuser, because there was nowhere else for them to go. Now they browse the young trees, dig for water by the stream, and move on through, carrying seeds for kilometres.',
+    title: 'The corridor comes alive',
+    text: 'A Sumatran elephant is browsing with its family nearby, along the route the electric fence used to block. The young forest has become food and shelter on a journey through the estate. As the herd feeds and moves on, it opens thickets and carries seeds into new ground.',
   },
   harimau: {
-    title: 'Harimau',
-    text: 'There are tiger tracks in the mud by the stream. A Sumatran tiger has made the estate part of its range, which means the forest is big enough and full enough of deer and wild pigs to feed one. Perhaps 600 are left, on this one island. The village calls it "datuk", grandfather, and does not say its name in the forest.',
+    title: 'Harimau on the hunt',
+    text: 'A Sumatran tiger is stalking prey through the estate. Young forest hides the approach, but the prey can still get away. The habitat you restored now supports a hunter as well as the animals it follows. The village calls the tiger "datuk", grandfather.',
   },
   titan: {
     title: 'The corpse flower blooms',

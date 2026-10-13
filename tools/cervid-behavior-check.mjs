@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { T, F, H, DAYS_PER_YEAR } from '../js/config.js';
 import { ANIMAL, isMaleVariant, drawDef } from '../js/data/animals.js';
-import { cervidLeader, keepCervidGroup } from '../js/sim/cervid-groups.js';
-import { greet, socialHold, bolt, haremDay } from '../js/sim/animal-life.js';
+import { cervidLeader, keepCervidGroup, cervidNeedsRejoin } from '../js/sim/cervid-groups.js';
+import { greet, socialHold, bolt, haremDay, harem } from '../js/sim/animal-life.js';
 import { mulberry32 } from '../js/rng.js';
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
@@ -72,6 +72,74 @@ check('Initially isolated deer can join a family when they encounter one later',
   const a = spawn(g, 'deer', false, 30.5, 30.5), b = spawn(g, 'deer', false, 65.5, 30.5);
   assert.equal(cervidLeader(wl, a), a); assert.equal(cervidLeader(wl, b), b);
   b.x = 40.5; assert.equal(cervidLeader(wl, b), a);
+});
+check('Elk bachelor groups stay small and graze with more space than cow/calf herds', () => {
+  for (const month of [0, 3, 10]) {
+    const g = setup(71, 'pnw', month), wl = g.wildlife;
+    const bulls = Array.from({ length: 8 }, (_, i) => spawn(g, 'elk', true, 40.5 + i * .5, 30.5));
+    bulls.forEach(a => cervidLeader(wl, a));
+    const sizes = new Map();
+    for (const a of bulls) sizes.set(a.herdOf, (sizes.get(a.herdOf) || 0) + 1);
+    assert.ok([...sizes.values()].every(n => n <= ANIMAL.elk.bachelorSize), `${month}: group sizes ${[...sizes.values()]}`);
+    const leader = bulls[0], followers = bulls.filter(a => a !== leader && a.herdOf === leader.id);
+    assert.ok(followers.length > 0, 'nearby young bulls can form bachelor groups');
+    leader.wait = 1e4;
+    let spread = 0, samples = 0;
+    run(g, 25, t => {
+      for (const a of bulls) a.thirst = 0;
+      if (t > 10) for (const a of followers) { spread += Math.hypot(a.x - leader.x, a.y - leader.y); samples++; }
+    });
+    assert.ok(samples && spread / samples > 3, `${month}: loose feeding spread ${(spread / samples).toFixed(2)}`);
+    for (const a of followers) if (a.herdOf === leader.id) assert.ok(a.bachelorSlot, 'separate bachelor feeding slot');
+  }
+});
+check('Bull elk join nearby companions rather than dragging distant bulls into one group', () => {
+  const g = setup(), wl = g.wildlife;
+  const a = spawn(g, 'elk', true, 30.5, 30.5), b = spawn(g, 'elk', true, 49.5, 30.5);
+  assert.equal(cervidLeader(wl, a), a); assert.equal(cervidLeader(wl, b), b);
+  b.x = 36.5; assert.equal(cervidLeader(wl, b), a);
+});
+check('Older bull elk feed independently in spring/summer and can rejoin in winter', () => {
+  const g = setup(), wl = g.wildlife;
+  const young = spawn(g, 'elk', true, 40.5, 30.5), old = spawn(g, 'elk', true, 42.5, 30.5);
+  old.age = 7 * DAYS_PER_YEAR; old.herdOf = young.id; old.slot = [1, 0]; old.bachelorSlot = [5, 0];
+  assert.equal(cervidLeader(wl, old), old); assert.equal(old.herdOf, null); assert.equal(old.bachelorSlot, null);
+  assert.equal(keepCervidGroup(wl, old, ANIMAL.elk), false);
+  g.day = 100; assert.equal(cervidLeader(wl, old), young);
+  keepCervidGroup(wl, old, ANIMAL.elk);
+  assert.equal(cervidNeedsRejoin(wl, old, ANIMAL.elk), true, 'wide feeding slot wakes a resting bull');
+});
+check('Oversized bachelor groups in an existing save split into smaller groups on load', () => {
+  const g = setup(5, 'pnw', 10), wl = g.wildlife;
+  const bulls = Array.from({ length: 7 }, (_, i) => spawn(g, 'elk', true, 40.5 + i * .3, 30.5));
+  for (const a of bulls) { a.herdOf = bulls[0].id; a.slot = [1, 0]; }
+  wl.load(wl.serialize()); wl.agents.forEach(a => cervidLeader(wl, a));
+  const groups = new Map();
+  for (const a of wl.agents) groups.set(a.herdOf, (groups.get(a.herdOf) || 0) + 1);
+  assert.ok([...groups.values()].every(n => n <= ANIMAL.elk.bachelorSize));
+  assert.ok(groups.size >= 3, `split into ${groups.size} groups`);
+});
+check('Bulls entering the rut abandon bachelor-following walks as well as roaming trips', () => {
+  const g = setup(), wl = g.wildlife;
+  const a = spawn(g, 'elk', true, 40.5, 30.5), b = spawn(g, 'elk', true, 44.5, 30.5);
+  b.herdOf = a.id; b.bachelorSlot = [5, 0]; b.familySettled = 'bachelorSlot'; b.familyRetryUntil = b.age + 20;
+  assert.ok(wl.pathTo(b, (j, x, y) => x === 46 && y === 30, 1000)); b.follow = true; b.trip = null;
+  g.day = 60; haremDay(wl);
+  assert.equal(b.state, 'idle'); assert.equal(b.path, null); assert.equal(b.herdOf, null); assert.equal(b.follow, false);
+  assert.equal(b.bachelorSlot, null); assert.equal(b.familyRetryUntil, null);
+});
+check('Rut satellites arriving from one direction choose different sides of the harem', () => {
+  const g = setup(5, 'pnw', 7), wl = g.wildlife;
+  const bull = spawn(g, 'elk', true, 40.5, 30.5), cow = spawn(g, 'elk', false, 40.5, 32.5);
+  cow.haremOf = bull.id; bull.haremCenter = [40.5, 31.5]; bull.socialCooldown = bull.age + 100;
+  const rivals = Array.from({ length: 5 }, (_, i) => spawn(g, 'elk', true, 40 + i * .2, 39.5));
+  for (const a of [bull, ...rivals]) a.rutCooldown = a.age + 100; // watch positioning between challenges
+  const random = Math.random; Math.random = () => .5;
+  try { for (const a of rivals) harem(wl, a, ANIMAL.elk); } finally { Math.random = random; }
+  const slots = rivals.map(a => a.satelliteSlot); assert.ok(slots.every(Boolean));
+  let min = Infinity;
+  for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) min = Math.min(min, Math.hypot(slots[i][0] - slots[j][0], slots[i][1] - slots[j][1]));
+  assert.ok(min > 3, `rival positions separated by at least ${min.toFixed(1)} tiles`);
 });
 check('Rut rivals meet naturally, including a moving partner, and fight a full bout', () => {
   for (const key of ['deer', 'elk']) for (const seed of [3, 17, 42]) {

@@ -7,22 +7,32 @@ export const inRut = game => [6, 7, 8].includes(game.month);
 const adult = (a, d) => !a.juvenile && a.age >= d.mature * DAYS_PER_YEAR;
 const male = (a, d) => adult(a, d) && isMaleVariant(d, a);
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const bachelor = (a, d) => !!d.bachelorSize && male(a, d);
+const solitary = (wl, a, d) => bachelor(a, d) && a.age >= d.bachelorSoloAge * DAYS_PER_YEAR && wl.game.month >= 1 && wl.game.month <= 5;
+function membership(a, id) {
+  if (a.herdOf !== id) { a.slot = null; a.bachelorSlot = null; a.familySettled = null; a.familyRetryUntil = null; }
+  a.herdOf = id;
+}
 export function cervidLeader(wl, a) {
   const d = ANIMALS[a.sp];
-  if (male(a, d) && inRut(wl.game)) { a.herdOf = null; return a; }
+  if ((male(a, d) && inRut(wl.game)) || solitary(wl, a, d)) { membership(a, null); return a; }
   const mother = a.mom != null && wl.agents.find(b => b.id === a.mom && b.sp === a.sp && !b.leaving && adult(b, d) && !male(b, d));
   if (!adult(a, d) && mother) return cervidLeader(wl, mother);
-  const eligible = b => b.sp === a.sp && !b.leaving && adult(b, d) && male(b, d) === male(a, d) &&
-    distance(a, b) < 28 && !(a.familyBlockedBy === b.id && a.familyBlockedUntil > a.age);
-  const held = wl.agents.find(b => b.id === a.herdOf && eligible(b));
+  const loose = bachelor(a, d), size = loose ? d.bachelorSize : d.familySize || 6;
+  const eligible = b => b.sp === a.sp && !b.leaving && adult(b, d) && male(b, d) === male(a, d) && !solitary(wl, b, d) &&
+    distance(a, b) < (loose ? d.bachelorJoin * 2 : 28) && !(a.familyBlockedBy === b.id && a.familyBlockedUntil > a.age);
+  // Split oversized bachelor groups from older saves as well as capping new ones.
+  const held = wl.agents.find(b => b.id === a.herdOf && eligible(b) && (!loose ||
+    (!b.herdOf || b.herdOf === b.id) && wl.agents.filter(c => c !== b && c.id < a.id && c.herdOf === b.id && !c.leaving).length < size - 1));
   if (held && held !== a) return held;
   // Keep existing families stable, but let a solitary animal join a family
   // it encounters later instead of holding itself as leader forever.
   if (held === a && wl.agents.some(b => b !== a && b.herdOf === a.id && !b.leaving)) return a;
   let lead = a;
   for (const b of wl.agents) if (eligible(b) && b.id < lead.id &&
-    (!b.herdOf || b.herdOf === b.id) && wl.agents.filter(c => c !== b && c.herdOf === b.id && !c.leaving).length < (d.familySize || 6) - 1) lead = b;
-  a.herdOf = lead.id;
+    (!loose || distance(a, b) < d.bachelorJoin) &&
+    (!b.herdOf || b.herdOf === b.id) && wl.agents.filter(c => c !== b && c.herdOf === b.id && !c.leaving).length < size - 1) lead = b;
+  membership(a, lead.id);
   return lead;
 }
 
@@ -67,9 +77,16 @@ export function keepCervidGroup(wl, a, def) {
   const lead = cervidLeader(wl, a);
   if (lead === a) return false;
   if (lead.drinkT > 0 && a.thirst > 1 && wl.waterhole(a, def)) return true;
-  if (followCervid(wl, a, [lead.x, lead.y], 'slot', def.herdR || 1.6)) return true;
+  const loose = bachelor(a, def), field = loose ? 'bachelorSlot' : 'slot';
+  if (loose && !a[field]) {
+    // Loose feeding companions occupy different sides of the group, even when
+    // they arrived in a line. Settling tolerance stays smaller than the spread.
+    const angle = a.id * 2.39996, r = def.bachelorR + Math.random() * 2;
+    a[field] = [Math.cos(angle) * r, Math.sin(angle) * r];
+  }
+  if (followCervid(wl, a, [lead.x, lead.y], field, def.herdR || 1.6)) return true;
   a.familyBlockedBy = lead.id; a.familyBlockedUntil = a.age + 20; a.herdOf = null;
-  a.familyFailures = 0; a.slot = null;
+  a.familyFailures = 0; a.slot = null; a.bachelorSlot = null;
   return false;
 }
 
@@ -82,7 +99,7 @@ export function cervidNeedsRejoin(wl, a, def) {
   if (id == null || id === a.id) return false;
   const lead = wl.ids?.get(id) || wl.agents.find(b => b.id === id);
   if (!lead || lead.leaving) return false;
-  const field = maternal ? 'momSlot' : harem ? 'haremSlot' : 'slot';
+  const field = maternal ? 'momSlot' : harem ? 'haremSlot' : bachelor(a, def) ? 'bachelorSlot' : 'slot';
   if (!a[field]) return false;
   const home = harem && !lead.waterTrip && lead.haremCenter ? lead.haremCenter : [lead.x, lead.y];
   const radius = maternal ? 0.9 : harem ? 1.5 : def.herdR || 1.6;
