@@ -116,6 +116,7 @@ export function buildSpecies(def) {
   // A shared anchor for locating, picking and highlighting the visible model,
   // including models that hang below their origin or have an offset body.
   mo.center = geo.boundingBox.getCenter(new THREE.Vector3());
+  mo.revealBounds = geo.boundingBox.clone();
   if (mo.primate || mo.canopyHanging) {
     // Deduplicate the actual body surface for clearance at crowded woody forks.
     // Hands, feet, fruit and the tail are allowed to touch their support.

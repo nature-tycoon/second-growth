@@ -64,7 +64,7 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
         if (!foot.free && !foot.from) {
           placements++;
           assert.ok(Math.min(...foot.site.wood.map(b => Math.abs(woodDistance(foot.point, b)))) < .003, 'planted grip touches real bark');
-          assert.ok(flora.canopyVisible.has(foot.site), 'a supporting tree stays solid until the foot releases it');
+          assert.ok(foot.site.transient ? actors.slothBridges.visible.has(foot.site) : flora.canopyVisible.has(foot.site), 'supporting wood stays solid until the foot releases it');
           if (!feet[i].free && !feet[i].swing) assert.ok(foot.point.distanceTo(feet[i].point) < 1e-8, 'planted feet do not skate');
         }
       }

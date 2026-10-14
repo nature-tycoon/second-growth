@@ -24,6 +24,8 @@ export const focus = {
   uCamUp: { value: new THREE.Vector3(0, 1, 0) },   // up on screen, in world space
   uFocusFoot: { value: 0 },                 // the height of the animal's feet
   uFocusHalfW: { value: 0.3 },              // half the animal's size across the screen, at most
+  uFocusBottom: { value: -0.3 },            // bottom of the body in camera-up coordinates
+  uFocusBack: { value: -0.08 },             // rear of the body along the view ray
 };
 
 const FOCUS_NOISE = `
@@ -56,7 +58,7 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false } = {}) {
       #else
         vFocusBase = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vFocusS = 1.0;
       #endif`);
-    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; uniform vec3 uCamUp; uniform float uFocusFoot; uniform float uFocusHalfW; varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + FOCUS_NOISE +
+    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; uniform vec3 uCamUp; uniform float uFocusFoot; uniform float uFocusHalfW; uniform float uFocusBottom; uniform float uFocusBack; varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + FOCUS_NOISE +
       shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
       float focusWall = 0.0;
       if (uFocusAmt > 0.001) {
@@ -72,7 +74,7 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false } = {}) {
         // a plant on the floor stays whole wherever all of it shows below the animal's feet or off to
         // its side on screen: there it can't cover the animal, and the floor of the gap stays alive
         bool keep = false;
-        ${supportCrown ? 'keep = vFocusW.y <= uFocusFoot + 0.02;' : ''}
+        ${supportCrown ? 'keep = vFocusW.y <= uFocusFoot + 0.02 && dot(fd, uCamUp) < uFocusBottom;' : ''}
         ${keep ? `{
           float ext = ${keep.toFixed(2)} * vFocusS;
           vec3 bd = vFocusBase - uFocus; vec3 bp = bd - dot(bd, uViewDir) * uViewDir;
@@ -80,7 +82,7 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false } = {}) {
           bool low = vFocusBase.y - uFocusFoot < 0.4;
           keep = low && (bu + ext * (uCamUp.y + 0.5) < (uFocusFoot - uFocus.y) * uCamUp.y - 0.03 || bx - ext * 0.6 > uFocusHalfW + 0.06);
         }` : ''}
-        if (along > -0.08 * uFocusR && across < r && !keep) discard;
+        if (along > uFocusBack && across < r && !keep) discard;
         // the walls of the gap: what still stands near the edge, above the animal, falls into shade,
         // deepest low down by the animal and easing off toward the open top of the funnel
         float edge = 1.0 - smoothstep(0.0, 0.8 * uFocusR, across - r);
