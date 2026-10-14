@@ -1,12 +1,16 @@
 // Pixel-check cached pans against precise batching without resetting the retained cache.
 import assert from 'node:assert/strict';
 import { openBrowser } from './browser-session.mjs';
-const browser = await openBrowser({ label: 'plant-cache', software: !!process.env.CI });
-try {
-  await browser.navigate('/tools/plant-view-review.html');
-  await browser.waitFor('!!window.plantReview', 'Plant review boot');
-  const result = await browser.evaluate(`(async()=>{
-    const review=window.plantReview,result=[];
+const results = [];
+// Software rendering on CI needs a separate time budget and fresh GPU buffers per case.
+for (const map of ['pnw', 'sumatra', 'serengeti', 'amazon', 'atlanta', 'chinandega', 'reef']) for (const quality of ['fast', 'high']) {
+  console.log('Checking plant cache: ' + map + '/' + quality);
+  const browser = await openBrowser({ label: 'plant-cache-' + map + '-' + quality, software: !!process.env.CI });
+  try {
+    await browser.navigate('/tools/plant-view-review.html?map=' + map);
+    await browser.waitFor('!!window.plantReview', 'Plant review boot');
+    const result = await browser.evaluate(`(async()=>{
+    const review=window.plantReview,map=${JSON.stringify(map)},quality=${JSON.stringify(quality)};
     const {editPlants}=await import('/tools/plant-performance-fixtures.mjs');
     const fullReference=()=>{
       const {flora,gl,ctx,scene,camera}=review.get(),sources=[],batches=[];
@@ -49,7 +53,7 @@ try {
         Object.assign(view,state);
       }
     };
-    for(const map of ['pnw','sumatra','serengeti','amazon','atlanta','chinandega','reef'])for(const quality of ['fast','high']){
+    {
       review.setup(map);review.detail(quality);
       review.view(.8,Math.PI/4,40,32);
       const sourceDiff=review.compare(review.draw(true).pixels,fullReference());
@@ -64,7 +68,7 @@ try {
         if(diff.changed>8||diff.max>32)throw new Error(map+'/'+quality+'/pan '+frame+': '+JSON.stringify(diff));
       }
       if(reused<12)throw new Error('Panning cache did not reuse enough frames: '+reused);
-      result.push({map,quality,reused,changed,max});
+      const result={map,quality,reused,changed,max};
       for(const [zoom,az] of [[1.5,Math.PI/4],[.8,Math.PI/2],[.2,Math.PI]]){
         review.view(zoom,az,43,34);const diff=review.compare(review.draw(true).pixels,reference());
         if(diff.changed>8||diff.max>32)throw new Error('Zoom/rotation clipping: '+JSON.stringify(diff));
@@ -80,10 +84,12 @@ try {
       const site=[...flora.treeSites.values()][0];
       if(site){flora.showCanopySites(new Set([site]));checkEdit('Canopy scaffold');flora.showCanopySites(new Set());checkEdit('Canopy cleared');}
       await review.yieldPaint();
+      return result;
     }
-    return result;
-  })()`, 240000);
-  assert.equal(result.length, 14);
-  browser.assertHealthy();
-  for (const row of result) console.log('PASS ' + JSON.stringify(row));
-} finally { await browser.close(); }
+    })()`, 240000);
+    browser.assertHealthy();
+    results.push(result);
+    console.log('PASS ' + JSON.stringify(result));
+  } finally { await browser.close(); }
+}
+assert.equal(results.length, 14);
