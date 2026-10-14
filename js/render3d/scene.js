@@ -479,7 +479,8 @@ export class Renderer {
   // An edited tile (from a brush or undo): only that patch of ground is repainted. With no tile,
   // the whole map is (after a stroke, when its effect on shade and moisture has spread).
   markTileDirty(x, y) {
-    this.editDirty = true;
+    this.editDirty = true; this.floraEditPending = true;
+    if (x != null) this.flora.prioritize(x, y);
     if (x == null || this.editArea === 'all') { this.editArea = 'all'; return; }
     const a = this.editArea ||= { x0: x, y0: y, x1: x, y1: y };
     if (x < a.x0) a.x0 = x; if (x > a.x1) a.x1 = x; if (y < a.y0) a.y0 = y; if (y > a.y1) a.y1 = y;
@@ -601,7 +602,7 @@ export class Renderer {
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
       shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped, far_models: !!this.farOn,
       triangles: info.triangles, draw_calls: info.calls, zoom: +(this.zoom ?? 1).toFixed(2), gpu: this.gpuName(),
-      renderer_revision: 'low-end-1',
+      renderer_revision: 'plant-view-cache-1',
       batched_plant_candidates: this.flora.plantView.stats.candidates,
       batched_plant_instances: this.flora.plantView.stats.visible,
       plant_view_batches: this.flora.plantView.stats.batches,
@@ -626,6 +627,40 @@ export class Renderer {
     return this._gpu;
   }
 
+  // Schedule ground and plant updates independently of camera and drawing work.
+  refreshWorld(game, swapped, now) {
+    const w = this.world;
+    let surface = false, flora = false;
+    if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; }
+    this.frameN = (this.frameN || 0) + 1;
+    if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; this.terrain.refreshWater(); this.terrain.refreshFlood(); }
+    // A new day repaints the ground and rebuilds the plants. They wait a frame or two so they don't
+    // land in the same frame as the day's simulation and each other (a visible hitch), and at fast
+    // speeds the ground repaints at most four times a second.
+    // (on the Fast setting the ground and plants catch up at a gentler pace, since each rebuild
+    // is a noticeable pause on a phone)
+    const light = this.light;
+    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (game.speed >= 2 ? 1200 : 600) : game.speed >= 2 ? 250 : 0)))) { surface = true; this.dayDirty = 0; }
+    let patch = null;
+    if (this.editDirty) {
+      // (just the edited patch, unless something else this frame needs the whole map)
+      if (!surface && this.editArea && this.editArea !== 'all') patch = this.editArea;
+      surface = flora = true; this.editDirty = false; this.editArea = null; this.terrain.refreshWater();
+    }
+    if (surface) { this.terrain.updateSurface(game, patch); this.syncStructures(); this.lastSurface = now; }
+    if (flora) this.floraPending = true;
+    // Player edits must not wait for the growth cooldown or an idle surface frame: a continuous
+    // stroke repaints ground every frame and used to prevent any plants from catching up.
+    // Once a budgeted rebuild starts, finish its remaining regions on consecutive frames.
+    const continuing = this.flora.waitingRegions?.size > 0;
+    const growthReady = !surface && this.frameN > (this.dayDirty || 0) && now - this.lastFlora > (light ? (game.speed >= 2 ? 1200 : 400) : game.speed >= 3 ? 400 : 150);
+    if (this.floraPending && (swapped || this.floraEditPending || continuing || growthReady)) {
+      if (!this.flora.rebuild(game, false, swapped ? Infinity : FLORA_REGIONS_PER_FRAME)) {
+        this.lastFlora = now; this.floraPending = false; this.floraEditPending = false;
+      }
+    }
+  }
+
   // ------------------------------------------------------------------ frame
   draw(game, ui, dt) {
     if (this.contextLost) return;
@@ -639,7 +674,6 @@ export class Renderer {
     if (dt > 0) { this.autoResolution(); this.autoQuality(); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);
-    const w = this.world;
     const now = this.diagnosticTime ?? performance.now();
 
     if (Math.abs(this.azTarget - this.az) > 0.001) {
@@ -672,30 +706,7 @@ export class Renderer {
         this.zoomGoal = nz === goal ? null : goal; this.zoomSet = this.zoom;
       }
     }
-    let surface = false, flora = false;
-    if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; }
-    this.frameN = (this.frameN || 0) + 1;
-    if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; this.terrain.refreshWater(); this.terrain.refreshFlood(); }
-    // A new day repaints the ground and rebuilds the plants. They wait a frame or two so they don't
-    // land in the same frame as the day's simulation and each other (a visible hitch), and at fast
-    // speeds the ground repaints at most four times a second.
-    // (on the Fast setting the ground and plants catch up at a gentler pace, since each rebuild
-    // is a noticeable pause on a phone)
-    const light = this.light;
-    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (game.speed >= 2 ? 1200 : 600) : game.speed >= 2 ? 250 : 0)))) { surface = true; this.dayDirty = 0; }
-    let patch = null;
-    if (this.editDirty && now - this.lastFlora > (light ? 260 : 120)) {
-      // (just the edited patch, unless something else this frame needs the whole map)
-      if (!surface && this.editArea && this.editArea !== 'all') patch = this.editArea;
-      surface = flora = true; this.editDirty = false; this.editArea = null; this.terrain.refreshWater();
-    }
-    if (surface) { this.terrain.updateSurface(game, patch); this.syncStructures(); this.lastSurface = now; }
-    if (flora) this.floraPending = true;
-    if (this.floraPending && (swapped || (!surface && this.frameN > (this.dayDirty || 0))) && now - this.lastFlora > (light ? (game.speed >= 2 ? 1200 : 400) : game.speed >= 3 ? 400 : 150)) {
-      // a region a frame, so a day's growth or a new season doesn't land as one long pause (the
-      // rest follow on the next frames, with no wait between them)
-      if (!this.flora.rebuild(game, false, swapped ? Infinity : FLORA_REGIONS_PER_FRAME)) { this.lastFlora = now; this.floraPending = false; }
-    }
+    this.refreshWorld(game, swapped, now);
 
     this.updateOverlay(game, ui, now);
     this.updatePreview(ui);

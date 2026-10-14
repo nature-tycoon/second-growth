@@ -61,6 +61,7 @@ export class Flora {
     this.geometryIndex = new GeometryIndex(indexedGeometry); this.plantShadows = new PlantShadows(scene, cullShadows);
     this.chunkSize = chunkSize; this.incremental = incremental;
     this.changes = new FloraChanges(chunkSize);
+    this.editRegions = new Set();
     this.wind = { value: 0 };
     Object.assign(this, createPlantMaterials(this.wind));
     this.treeSites = new Map(); this.canopyPools = new Map(); this.canopyVisible = new Set();
@@ -235,7 +236,9 @@ export class Flora {
   updateView(camera) { return this.plantView.update(this, camera, floraVersion.n, this.cullInstances); }
   syncShadows() { this.plantShadows.sync(this, floraVersion.n); }
   updateShadows(light, camera) { this.plantShadows.update(this, light, camera, floraVersion.n); }
-  setOptimizations({ indexedGeometry = this.geometryIndex.enabled, cullShadows = this.plantShadows.enabled } = {}) {
+  setOptimizations({ indexedGeometry = this.geometryIndex.enabled, cullShadows = this.plantShadows.enabled,
+    panMargin = this.plantView.panMargin, incrementalView = this.plantView.incremental } = {}) {
+    this.plantView.configure({ panMargin, incremental: incrementalView });
     if (indexedGeometry === this.geometryIndex.enabled && cullShadows === this.plantShadows.enabled) return;
     this.geometryIndex.enabled = indexedGeometry; this.plantShadows.setEnabled(cullShadows, this);
     for (const pool of this.pools.values()) pool.setView(...pool.view);
@@ -261,7 +264,17 @@ export class Flora {
     for (const p of this.canopyPools.values()) p.end();
   }
 
-  // Rebuild changed source regions. World, height and graphics changes rebuild fully.
+  // The most recent brush position goes first, followed by its edited neighbours. A day's
+  // growth or a season change may already have queued regions on the other side of the map.
+  prioritize(x, y) {
+    this.editFocus = floraChunkKey(x, y, this.chunkSize);
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+      this.editRegions.add(floraChunkKey(x + dx, y + dy, this.chunkSize));
+    }
+  }
+
+  // Rebuild changed source regions. World and graphics changes rebuild fully. Heights
+  // invalidate every tile too, but a budgeted terrain brush spreads them across regions.
   // maxRegions: rebuild at most this many changed regions now and leave the rest for the next
   // call (a day's growth or a new season changes nearly every region, and doing them all in one
   // frame is a visible hitch). Returns true while regions are still waiting.
@@ -273,6 +286,15 @@ export class Flora {
     this.catalog = game.catalog;
     const w = game.world, B = game.border, month = game.month;
     let dirty = this.incremental && !force ? this.changes.find(game, this.light) : null;
+    const saved = this.changes.saved;
+    if (!dirty && this.incremental && !force && maxRegions < Infinity && saved?.world === w && saved.border === B && saved.light === !!this.light) {
+      // A height edit on the same farm: keep the conservative invalidation, without turning
+      // every sample of a digging/reshaping stroke into one complete forest rebuild.
+      dirty = new Set();
+      for (let y = -BORDER; y < w.h + BORDER; y += this.chunkSize) for (let x = -BORDER; x < w.w + BORDER; x += this.chunkSize) {
+        dirty.add(floraChunkKey(x, y, this.chunkSize));
+      }
+    }
     if (dirty) for (const k of this.waitingRegions || []) dirty.add(k);
     this.waitingRegions = null;
     const GW = w.w + BORDER * 2, N = GW * (w.h + BORDER * 2);
@@ -281,10 +303,18 @@ export class Flora {
     // (without the changed tiles, a new season or a different world: every tile afresh)
     if (!dirty?.tiles) stale.fill(1);
     else for (let k = 0; k < N; k++) stale[k] |= dirty.tiles[k];
+    if (dirty && this.editRegions.size) {
+      const ordered = new Set();
+      if (this.editRegions.has(this.editFocus) && dirty.has(this.editFocus)) ordered.add(this.editFocus);
+      for (const k of this.editRegions) if (dirty.has(k)) ordered.add(k);
+      for (const k of dirty) ordered.add(k);
+      dirty = ordered;
+    }
     if (dirty && dirty.size > maxRegions) {
       const all = [...dirty];
       dirty = new Set(all.slice(0, maxRegions)); this.waitingRegions = new Set(all.slice(maxRegions));
     }
+    for (const k of this.editRegions) if (!this.waitingRegions?.has(k)) this.editRegions.delete(k);
     this.lastRebuild = { full: !dirty, tiles: 0, worked: 0, regions: dirty?.size ?? null };
     if (dirty && !dirty.size) return false;
     if (!dirty) this.treeSites.clear();

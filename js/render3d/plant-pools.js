@@ -60,6 +60,7 @@ export class PlantPool {
   }
   end() {
     floraVersion.n++;
+    this.onChange?.();
     if (this.n > this.cap) {
       this.dispose();
       this.cap = Math.max(16, Math.ceil(this.n * 1.5));
@@ -87,6 +88,7 @@ export class PlantPool {
   }
   dispose() {
     floraVersion.n++;
+    this.onChange?.();
     if (this.mesh) { this.scene.remove(this.mesh); this.mesh.dispose(); }
     if (this.proxy) { this.scene.remove(this.proxy); this.proxy.dispose(); this.proxy = null; }
     if (this.viewShadow) { this.scene.remove(this.viewShadow); this.viewShadow.dispose(); this.viewShadow = null; }
@@ -94,6 +96,7 @@ export class PlantPool {
   setView(lod, grass, shrubShadow, grassLod = lod) {
     if (this.kind === 'grass') lod = grassLod;
     floraVersion.n++;
+    this.onChange?.();
     this.lod = lod;
     if (!this.mesh) return;
     this.mesh.geometry = this.renderGeo(this.geoFor(lod));
@@ -112,7 +115,7 @@ export class ChunkedPlantPool {
    *   rec?: {n: number, pools: ChunkedPlantPool[], vals: Float32Array}|null}} placement
    * Live placement/replay state; the pool does not read a farm or species catalog.
    */
-  constructor(make, placement) { this.make = make; this.placement = placement; this.subs = new Map(); this.view = [0, true, true, 0]; }
+  constructor(make, placement) { this.make = make; this.placement = placement; this.subs = new Map(); this.view = [0, true, true, 0]; this.revision = 0; }
   setView(...v) { this.view = v; for (const p of this.subs.values()) p.setView(...v); }
   begin(dirty) { for (const [k, p] of this.subs) if (!dirty || dirty.has(k)) p.begin(); }
   add(x, y, z, ...rest) {
@@ -133,7 +136,13 @@ export class ChunkedPlantPool {
   }
   sub(k) {
     let p = this.subs.get(k);
-    if (!p) { p = this.make(); p.lod = p.kind === 'grass' ? this.view[3] : this.view[0]; this.subs.set(k, p); }
+    if (!p) {
+      p = this.make(); p.lod = p.kind === 'grass' ? this.view[3] : this.view[0];
+      // Keep model invalidation local; separate canopy scaffolds still use the global shadow
+      // revision without forcing every ordinary plant model to repack its visible instances.
+      p.onChange = () => { this.revision++; };
+      this.subs.set(k, p); this.revision++;
+    }
     return p;
   }
   replay(v, o) { this.sub(this.placement.activeChunk).addRaw(v, o); }
