@@ -43,6 +43,28 @@ check('Unchanged frames reuse packed instance buffers without uploads or visibil
   assert.equal(flora.updateView(camera), false);
   assert.equal(batch.mesh.instanceMatrix.version, version); assert.equal(flora.plantView.stats.updates, updates);
 });
+check('Small pans reuse buffers, then refresh before leaving the padded view', () => {
+  aim(4); flora.updateView(camera);
+  const batch = flora.plantView.batches.get(pool), version = batch.mesh.instanceMatrix.version;
+  aim(4.2);
+  assert.equal(flora.updateView(camera), false);
+  assert.equal(batch.mesh.instanceMatrix.version, version, 'no upload during a covered pan');
+  aim(4.8);
+  assert.equal(flora.updateView(camera), true, 'the margin boundary refreshes visibility');
+});
+check('Panning never changes a model batch\'s draw-order bounds', () => {
+  aim(4); flora.updateView(camera);
+  const sphere = flora.plantView.batches.get(pool).mesh.boundingSphere.clone();
+  aim(70); flora.updateView(camera);
+  assert.deepEqual(flora.plantView.batches.get(pool).mesh.boundingSphere, sphere);
+});
+check('Zoom and rotation invalidate a covered pan immediately', () => {
+  aim(4); flora.updateView(camera);
+  aim(4, Math.PI / 4 + .01); assert.equal(flora.updateView(camera), true);
+  camera.left = -4.9; camera.updateProjectionMatrix();
+  assert.equal(flora.updateView(camera), true);
+  camera.left = -5; aim(4);
+});
 check('Panning and rotation immediately bring offscreen plants back with their original colours', () => {
   for (const az of [0, Math.PI / 4, Math.PI / 2, Math.PI]) {
     aim(70, az); flora.updateView(camera);
@@ -76,6 +98,48 @@ check('A rebuilt region invalidates visibility and removes old plant instances',
   pool.begin(); pool.add(110, 0, 4, 1, 1, 1, 0, [.4, .5, .2]); pool.end(); flora.updateView(camera);
   assert.equal(flora.plantView.batches.get(pool).mesh.count, 0);
   aim(110); flora.updateView(camera); assert.equal(flora.plantView.batches.get(pool).mesh.count, 1);
+});
+function batchFixture() {
+  const f = new Flora(new THREE.Scene(), { incremental: false });
+  const make = key => f.pool(key, () => new THREE.BoxGeometry(1, 2, 1), material);
+  const a = make('a'), b = make('b');
+  const paint = (p, x, color = [.4, .5, .2]) => { p.begin(); p.add(x, 0, 4, 1, 1, 1, 0, color); p.end(); };
+  paint(a, 4); paint(b, 4); aim(4); f.updateView(camera);
+  return { f, a, b, paint };
+}
+check('A local edit uploads its model while other models keep their instance buffers', () => {
+  const { f, a, b, paint } = batchFixture();
+  const unchanged = f.plantView.batches.get(b).mesh.instanceMatrix.version;
+  paint(a, 5); f.updateView(camera);
+  assert.equal(f.plantView.batches.get(a).mesh.instanceMatrix.array[12], 5);
+  assert.equal(f.plantView.batches.get(b).mesh.instanceMatrix.version, unchanged);
+});
+check('An offscreen edit to the same model does not upload its visible buffer', () => {
+  const { f, a } = batchFixture();
+  a.begin(); a.add(4, 0, 4, 1, 1, 1, 0, [.4, .5, .2]); a.add(70, 0, 4, 1, 1, 1, 0, [.4, .5, .2]); a.end();
+  f.updateView(camera);
+  const visible = f.plantView.batches.get(a).mesh.instanceMatrix.version;
+  const source = [...a.subs.values()][1];
+  source.begin(); source.add(71, 0, 4, 1, 1, 1, 0, [.4, .5, .2]); source.end();
+  f.updateView(camera);
+  assert.equal(f.plantView.batches.get(a).mesh.instanceMatrix.version, visible);
+  aim(71); f.updateView(camera);
+  assert.equal(f.plantView.batches.get(a).mesh.instanceMatrix.array[12], 71, 'panning reveals the edited source');
+});
+check('Colour-only edits and hidden grass update immediately inside a cached pan', () => {
+  const { f, a, paint } = batchFixture();
+  const batch = f.plantView.batches.get(a), before = batch.mesh.instanceColor.array.slice(0, 3);
+  paint(a, 4, [.8, .2, .1]); aim(4.1); f.updateView(camera);
+  assert.notDeepEqual(batch.mesh.instanceColor.array.slice(0, 3), before);
+  const source = [...a.subs.values()][0]; source.kind = 'grass'; source.setView(0, false, true);
+  f.updateView(camera); assert.equal(batch.mesh.count, 0); assert.equal(batch.mesh.visible, false);
+});
+check('Canopy-only revisions keep all ordinary plant batches intact', () => {
+  const { f, a, b } = batchFixture();
+  const versions = [a, b].map(p => f.plantView.batches.get(p).mesh.instanceMatrix.version);
+  f.showCanopySites(new Set([{ geo: new THREE.BoxGeometry(1, 1, 1), transform: [4, 0, 4, 1, 1, 1, 0], color: [.4, .5, .2] }]));
+  assert.equal(f.updateView(camera), false);
+  assert.deepEqual([a, b].map(p => f.plantView.batches.get(p).mesh.instanceMatrix.version), versions);
 });
 check('The persistent animal ID index stays correct across movement, spawn, removal, replacement and load', () => {
   const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw'); const wl = g.wildlife;

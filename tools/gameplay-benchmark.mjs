@@ -117,6 +117,7 @@ export async function measureGameplay({ map, scene = 'ecosystem', density, optim
   }
   if (gl.getError() !== gl.NO_ERROR) throw new Error('WebGL error in live gameplay');
   const values = key => rows.map(row => row[key]);
+  const mean = key => values(key).reduce((a, b) => a + b, 0) / rows.length;
   const phaseLabels = ['daily', 'wildlife', 'plants', 'terrain', 'actors', 'visibility', 'shadowSelection'];
   const phaseSummary = Object.fromEntries(phaseLabels.map(key => {
     const all = rows.map(r => r.phases[key] || 0), active = rows.filter(r => r.calls[key]).map(r => r.phases[key] || 0);
@@ -129,11 +130,11 @@ export async function measureGameplay({ map, scene = 'ecosystem', density, optim
   const intervalMeanMs = gaps.reduce((a, b) => a + b, 0) / gaps.length;
   return { ...renderer.perfSample(false), benchmark_revision: PERFORMANCE_BENCHMARK_REVISION, scenario: scene, map, density: density || null, isolation, motion, speed, samples: rows.length, warmup,
     elapsedMs: performance.now() - began, fps: 1000 / intervalMeanMs, intervalMeanMs, intervalP95Ms: percentile(gaps, .95),
-    frameMedianMs: percentile(values('work'), .5), frameP95Ms: percentile(values('work'), .95), frameMaxMs: Math.max(...values('work')),
+    frameMeanMs: mean('work'), frameMedianMs: percentile(values('work'), .5), frameP95Ms: percentile(values('work'), .95), frameMaxMs: Math.max(...values('work')),
     simulationMedianMs: percentile(values('simulation'), .5), simulationP95Ms: percentile(values('simulation'), .95),
     drawingMedianMs: percentile(values('drawing'), .5), drawingP95Ms: percentile(values('drawing'), .95),
     renderCpuP95Ms: percentile(values('renderCpu'), .95), submissionP95Ms: percentile(values('submission'), .95),
-    gpuWaitP95Ms: percentile(values('gpuWait'), .95), interfaceP95Ms: percentile(values('interface'), .95),
+    gpuWaitMeanMs: mean('gpuWait'), gpuWaitP95Ms: percentile(values('gpuWait'), .95), interfaceP95Ms: percentile(values('interface'), .95),
     isolationOverheadMedianMs: percentile(values('isolationOverhead'), .5), isolationOverheadP95Ms: percentile(values('isolationOverhead'), .95),
     drawCallsMedian: percentile(values('draws'), .5), drawCallsP95: percentile(values('draws'), .95),
     trianglesMedian: percentile(values('triangles'), .5), trianglesP95: percentile(values('triangles'), .95),
