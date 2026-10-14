@@ -256,6 +256,8 @@ export class Renderer {
 
   // Dissolve cover between the camera and the selected animal, easing in and out.
   updateFocus(game, dt) {
+    this.camera.getWorldDirection(focus.uViewDir.value).negate();
+    focus.uCamUp.value.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
     const sel = game.selectedAgent, st = sel && this.actors.pose.get(sel.id);
     const pose = st?.visible ? st : null, ft = !pose && this.focusTile;
     const amt = focus.uFocusAmt;
@@ -266,17 +268,35 @@ export class Renderer {
       const e = this.focusFor === sel.id ? Math.min(1, dt * 10) : 1;
       this.focusFor = sel.id;
       focus.uFocus.value.lerp(pose.center, e);
-      const radius = pose.branch ? clamp(.4 + pose.h * 1.2, .55, .95) : clamp(.75 + pose.h * 1.7, .85, 1.45);
+      let radius = pose.branch ? clamp(.4 + pose.h * 1.2, .55, .95) : clamp(.75 + pose.h * 1.7, .85, 1.45);
+      let bodyRadius = 0;
+      let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius;
+      if (pose.branch && pose.revealBounds && pose.revealMatrix) {
+        // A downhill body can sit below its foot plane. Protect only leaves
+        // below its projected silhouette, and clear cover through its full
+        // depth rather than stopping at the centre of the animal.
+        const point = this.focusCorner ||= new THREE.Vector3(), bounds = pose.revealBounds;
+        let span = 0;
+        for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
+          point.set(x, y, z).applyMatrix4(pose.revealMatrix).sub(focus.uFocus.value);
+          const along = point.dot(focus.uViewDir.value), height = point.dot(focus.uCamUp.value);
+          bottom = Math.min(bottom, height - .025); back = Math.min(back, along - .025);
+          span = Math.max(span, Math.sqrt(Math.max(0, point.lengthSq() - along * along)));
+        }
+        bodyRadius = (span + .04) / .8;
+        radius = Math.max(radius, bodyRadius);
+      }
       focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
+      focus.uFocusR.value = Math.max(focus.uFocusR.value, bodyRadius);
+      focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
       focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
       focus.uFocusHalfW.value = Math.max(pose.h, pose.foot || 0) * 0.55;
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
       focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
+      focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value;
     }
-    this.camera.getWorldDirection(focus.uViewDir.value).negate();
-    focus.uCamUp.value.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
   }
 
   get fadeTrees() { return this._fade; }

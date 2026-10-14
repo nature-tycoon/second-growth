@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SPEEDS } from '../config.js';
 import { climbPace } from '../sim/climb-pace.js';
-import { bodyFitsWood } from './wood-clearance.js';
+import { bodyFitsWood, woodDistance } from './wood-clearance.js';
 import { canopyRotation, interpolateCanopyPose } from './canopy-pose.js';
 import { canopyContactCount } from './canopy-grips.js';
 import { ORANGUTAN_CADENCE, orangutanReverse } from './orangutan-motion.js';
@@ -128,6 +128,65 @@ function crownRoute(from, to, point, def, scale) {
     bridgePose, swingable: Number.isFinite(best), landingTrunk: entry.trunk ?? null, trunkTransfer: exit.trunk != null || entry.trunk != null };
 }
 
+// A transfer can have a reachable gap but an unusable final bark hold. Keep
+// the accepted body position and take another adjacent route instead of
+// repeatedly steering into that same obstruction for months of game time.
+export function recoverCanopyRoute(st, anchorsForSite, def, time, sim) {
+  const old = st.branchRoute;
+  if (!old) return false;
+  let site = null, index = -1, distance = Infinity;
+  for (const support of new Set(old.sites)) {
+    support.prepare();
+    for (let i = 0; i < support.wood.length; i++) {
+      const d = Math.abs(woodDistance(st.branchPoint, support.wood[i]));
+      if (d < distance) { distance = d; index = i; site = support; }
+    }
+  }
+  if (index < 0 || distance > Math.max(.015, (st.branchAt.reach || 0) * .5)) return false;
+  const body = st.branchAt.body;
+  if (distance > .015 && body && canopyContactCount(body, st.branchPoint, st.canopyQuaternion, [...new Set(old.sites)].flatMap(s => s.wood)) < 1) return false;
+  const point = st.branchPoint.clone(); point.canopyPose = st.canopyQuaternion?.clone();
+  const from = { ...st.branchAt, site, index: index < site.branches.length ? index : -1,
+    trunk: index < site.branches.length ? undefined : index - site.branches.length,
+    point, direction: site.wood[index].dir };
+  st.canopyAvoid ||= new Map();
+  for (const [tile, until] of st.canopyAvoid) if (until <= time) st.canopyAvoid.delete(tile);
+  st.canopyAvoid.set(old.target.site.tile, time + 8);
+  let best = Infinity, route = null;
+  const local = index < site.branches.length ? [site.endpoint(index, 0, from), site.endpoint(index, 1, from)] : [];
+  for (const target of [...anchorsForSite(site), ...local]) {
+    if (!target || target.point.distanceTo(point) < .08 || target.site !== site && (st.canopyAvoid.get(target.site.tile) || 0) > time) continue;
+    const planned = crownRoute(from, target, point, def, st.sc);
+    if (planned.blocked) continue;
+    // Prefer a route that can actually leave this hold in the current safe
+    // pose. Merely choosing another crown can repeat the same blocked turn.
+    const wood = [...new Set(planned.sites)].flatMap(s => s.wood);
+    let clearDistance = 0, sample = point.clone();
+    for (const next of planned.points) {
+      const span = sample.distanceTo(next), steps = Math.max(1, Math.ceil(span / .005));
+      let clear = true;
+      for (let k = 1; k <= steps && clearDistance < .08; k++) {
+        const at = sample.clone().lerp(next, k / steps);
+        if (!bodyFitsWood(body, at, st.canopyQuaternion, wood)) { clear = false; break; }
+        clearDistance += span / steps;
+      }
+      if (!clear || clearDistance >= .08) break;
+      sample.copy(next);
+    }
+    if (target.site === site && clearDistance < .04) continue;
+    let length = 0, previous = point;
+    for (const next of planned.points) { length += previous.distanceTo(next); previous = next; }
+    const score = Math.hypot(target.point.x - sim.x, target.point.z - sim.z) + length * .15 - Math.min(.08, clearDistance) * 30;
+    if (score < best) {
+      best = score;
+      route = { ...planned, target, fromSite: site, cursor: 0, plannedAt: time, recovery: true, startPoint: point.clone(), startPose: st.canopyQuaternion?.clone() };
+    }
+  }
+  if (!route) return false;
+  st.branchAt = from; st.branchRoute = route; st.canopyGoal = null;
+  return true;
+}
+
 function routeHeading(route, point, span, fallback) {
   const heading = fallback.clone();
   if (!route) return heading;
@@ -148,6 +207,18 @@ function routePose(route, point, upright = false) {
   if (!a || !b) return b || a;
   const distance = from.distanceTo(to), t = distance ? Math.min(1, from.distanceTo(point) / distance) : 1;
   return upright ? interpolateCanopyPose(a, b, t, new THREE.Quaternion()) : a.clone().slerp(b, t);
+}
+
+function slothRoutePose(st, route, point) {
+  const pose = routePose(route, point);
+  const bridge = st.slothBridge;
+  if (!pose || !route || bridge?.route !== route || route.cursor !== route.gap) return pose;
+  const length = bridge.start.distanceTo(bridge.end);
+  const t = THREE.MathUtils.clamp(bridge.start.distanceTo(point) / length, 0, 1);
+  // Keep the real limb's safe catch pose at either end, then hang along the
+  // connecting stick through the middle of the gap.
+  const amount = THREE.MathUtils.smoothstep(t, 0, .25) * (1 - THREE.MathUtils.smoothstep(t, .75, 1));
+  return pose.clone().slerp(bridge.pose, amount);
 }
 
 function monkeyTrunkPose(route, point, heading) {
@@ -173,8 +244,14 @@ function monkeyTrunkPose(route, point, heading) {
 // Daily growth and neighbouring tile edits can rebuild a tree instance. Carry
 // the current hold and route into its new transform, without restarting the climb.
 export function rebaseCanopy(st, flora) {
-  const route = st.branchRoute, sites = new Set([st.branchAt?.site, ...(route?.sites || []), ...(st.gripFeet || []).flatMap(foot => [foot.site, foot.to?.canopySite])].filter(Boolean)), changes = new Map();
+  const route = st.branchRoute, sites = new Set([st.branchAt?.site, st.slothBridge, ...(route?.sites || []), ...(st.gripFeet || []).flatMap(foot => [foot.site, foot.to?.canopySite])].filter(Boolean)), changes = new Map();
   for (const old of sites) {
+    if (old.transient) {
+      const live = old.rebase(flora);
+      if (!live) return false;
+      if (live !== old) changes.set(old, live);
+      continue;
+    }
     const live = flora.treeSites.get(old.tile);
     if (live === old) continue;
     if (!live || live.plant !== old.plant) return false;
@@ -198,6 +275,7 @@ export function rebaseCanopy(st, flora) {
     return { ...a, site: live, point, direction: live.branches[a.index]?.dir || a.direction };
   };
   st.branchAt = anchor(st.branchAt); st.branch = anchor(st.branch);
+  st.slothBridge = changes.get(st.slothBridge) || st.slothBridge;
   if (route) {
     if (route.startPoint) {
       if (route.startPose) route.startPoint.canopyPose = route.startPose;
@@ -252,17 +330,23 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
     // every crown crossing) ease into a faster pace, so it never reaches the reset
     // distance and jumps there.
     const lag = st.canopyLag = sim ? Math.hypot(st.branchPoint.x - sim.x, st.branchPoint.z - sim.z) : 0;
-    const goal = 1 + THREE.MathUtils.clamp((lag - 1.2) * 2.5, 0, 12);
+    const monkey = def.sprite.kind === 'monkey' && !def.sprite.ape;
+    // A long trunk descent can build lag without any urgency in the animal's
+    // movement. Recover gently instead of racing through the next holds.
+    const maxCatchUp = monkey ? 1.5 : 13;
+    const goal = 1 + THREE.MathUtils.clamp((lag - 1.2) * 2.5, 0, maxCatchUp - 1);
     // Ramp over game time, so a fast game speed doesn't leave the pace trailing behind.
-    st.catchUp = (st.catchUp || 1) + (goal - (st.catchUp || 1)) * (1 - Math.exp(-4 * dt * (SPEEDS[game.speed] || 0)));
+    const catchUp = Math.min(maxCatchUp, st.catchUp || 1);
+    st.catchUp = catchUp + (goal - catchUp) * (1 - Math.exp(-4 * dt * (SPEEDS[game.speed] || 0)));
     const speed = climbPace(def) * st.catchUp * (SPEEDS[game.speed] || 0);
     const animationSpeed = st.catchUp * (SPEEDS[game.speed] || SPEEDS[1]) / SPEEDS[1];
     let budget = route?.blocked ? 0 : speed * dt, facingPace = 1;
     const shufflePace = .05 * SPEEDS[1] / (st.catchUp * (SPEEDS[game.speed] || SPEEDS[1]));
     const orangutanFacing = def.sprite.kind === 'orangutan' && intent && st.canopyQuaternion && new THREE.Vector3(1, 0, 0).applyQuaternion(st.canopyQuaternion);
-    const catchUpTurn = THREE.MathUtils.clamp((lag - 1.2) / .6, 0, 1);
+    // Being behind must not cancel a monkey's careful turn into the next hold.
+    const catchUpTurn = monkey ? 0 : THREE.MathUtils.clamp((lag - 1.2) / .6, 0, 1);
     if (route && st.canopyQuaternion && def.sprite.kind === 'sloth') {
-      const pose = routePose(route, st.branchPoint);
+      const pose = slothRoutePose(st, route, st.branchPoint);
       if (pose) {
         const angle = st.canopyQuaternion.angleTo(pose);
         const turnPace = .2 + .8 * THREE.MathUtils.clamp((.5 - angle) / .35, 0, 1);
@@ -294,6 +378,12 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
     if (route) {
       while (budget > 0 && route.cursor < route.points.length) {
         const target = route.points[route.cursor], distance = st.branchPoint.distanceTo(target);
+        // Turn into the validated crossing pose while still at the departure
+        // hold. Entering first can strand the torso halfway between the trees,
+        // where there is no room left to finish that turn.
+        if (def.sprite.kind === 'orangutan' && route.cursor === route.gap && route.bridgePose &&
+            st.branchPoint.distanceTo(route.points[route.gap - 1]) < .005 &&
+            st.canopyQuaternion && st.canopyQuaternion.angleTo(route.bridgePose) > .005) break;
         // Monkeys leap quickly; other climbers keep their usual handover pace.
         // Charge the same time budget so a frame spanning takeoff or landing
         // still walks the remaining wood at its ordinary climbing pace.
@@ -352,7 +442,7 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
   st.branchPhase += cadence ? Math.min(phaseStep, dt * cadence) : phaseStep;
   const pose = def.sprite.kind === 'orangutan' && transfer ? route.bridgePose
     : def.sprite.kind === 'monkey' && !def.sprite.ape ? monkeyTrunkPose(route, st.branchPoint, heading)
-    : def.sprite.kind === 'sloth' ? routePose(route, st.branchPoint) || journey?.target.point.canopyPose || st.branchAt?.point.canopyPose : null;
+    : def.sprite.kind === 'sloth' ? slothRoutePose(st, route, st.branchPoint) || journey?.target.point.canopyPose || st.branchAt?.point.canopyPose : null;
   const pace = def.sprite.ape ? Math.min(Math.max(.25, def.speed * (SPEEDS[game.speed] || 1)), swingPace) : Math.max(.25, def.speed * (SPEEDS[game.speed] || 1));
   return { delta, heading, pose,
     before, requested: st.branchPoint.clone(), cursor, dt, phase, at, journey, trace, travelled, stride, ape: def.sprite.ape, cadence, animationSpeed: (st.catchUp || 1) * (SPEEDS[game.speed] || SPEEDS[1]) / SPEEDS[1],

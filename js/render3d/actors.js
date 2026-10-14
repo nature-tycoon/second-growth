@@ -11,11 +11,12 @@ import { adultAnimalScale } from './animal-scale.js';
 import { waterSurfaceY } from './terrain.js';
 import { boutCycle, CRASH } from './bout-clock.js';
 import { siamangSwing } from './siamang-swing.js';
-import { canopyStep, settleCanopyStep, rebaseCanopy } from './canopy-motion.js';
+import { canopyStep, settleCanopyStep, rebaseCanopy, recoverCanopyRoute } from './canopy-motion.js';
 import { canopyLean, canopyRotation } from './canopy-pose.js';
 import { canopyTile } from './canopy-support.js';
 import { ORANGUTAN_CADENCE } from './orangutan-motion.js';
 import { canopyGrips } from './canopy-grips.js';
+import { SlothBridges, slothBridge } from './sloth-bridge.js';
 import { ActorView, animalViewRadius } from './actor-view.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
@@ -37,6 +38,7 @@ export class Actors {
   constructor(scene, flora = null) {
     this.scene = scene;
     this.flora = flora;
+    this.slothBridges = flora ? new SlothBridges(scene, flora) : null;
     this.textures = new Map();
     this.fauna = new Fauna(scene);
     this.swingGrip = new THREE.Vector3(); this.swingBase = new THREE.Vector3();
@@ -80,6 +82,7 @@ export class Actors {
     this.visibleWildlife.length = 0;
     const seen = new Set();
     const canopySites = new Set();
+    const bridges = new Set();
     let sh = 0;
     const shadow = (x, y, z, r) => {
       if (sh >= this.shadows.instanceMatrix.count) {
@@ -271,6 +274,23 @@ export class Actors {
         const requestedSite = site;
         const supportsValid = !this.flora || rebaseCanopy(st, this.flora);
         const deliberateTransfer = mo.primate === 1 || mo.primate === 2 || mo.primate === 3;
+        if (game.speed > 0 && supportsValid && !returning && mo.primate === 2 && st.canopyWait > 1 && st.branchRoute &&
+            Math.hypot(st.branchPoint.x - a.x, st.branchPoint.z - a.y) > 1.8 &&
+            (st.branchRoute.recovery || st.branchRoute.fromSite !== st.branchRoute.target.site)) {
+          recoverCanopyRoute(st, source => {
+            const [cx, cz] = source.cell, alternatives = [];
+            for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+              if (!dx && !dz) continue;
+              const neighbor = this.flora.treeSites.get(canopyTile(w, game.border, cx + dx, cz + dz));
+              if (!neighbor) continue;
+              const next = neighbor.anchor(clamp(a.x, cx + dx + .1, cx + dx + .9), clamp(a.y, cz + dz + .1, cz + dz + .9),
+                null, mo.len * sc * .34, false, { motion: mo, scale: sc });
+              if (next) alternatives.push(next);
+            }
+            return alternatives;
+          }, def, time, { x: a.x, z: a.y });
+          st.canopyWait = 0;
+        }
         const planned = deliberateTransfer && supportsValid && !returning && st.branchRoute && !st.branchRoute.blocked ? st.branchRoute.target : null;
         if (site && planned) site = planned.site;
         else if (site && deliberateTransfer && supportsValid && !returning && st.branchAt?.site.cell && site.cell) {
@@ -300,8 +320,12 @@ export class Actors {
           st.sc = sc;
           const invalidRoute = !supportsValid;
           const firstHold = !st.branchPoint;
-          if (firstHold || returning || invalidRoute) { st.canopyQuaternion = null; st.canopyGoal = null; st.gripFeet = null; st.canopyReverse = false; }
+          if (firstHold || returning || invalidRoute) {
+            st.canopyQuaternion = null; st.canopyGoal = null; st.gripFeet = null; st.canopyReverse = false; st.slothBridge = null;
+            st.canopyProgress = null; st.canopyProgressPose = null; st.canopyWait = 0; st.canopyAvoid = null;
+          }
           const motion = canopyStep(st, anchor, def, game, time, returning || invalidRoute, { x: a.x, z: a.y });
+          if (mo.canopyHanging) slothBridge(st, this.flora, mo.len * sc);
           const route = st.branchRoute;
           if (route && this.flora.treeSites.get(route.fromSite.tile) === route.fromSite) canopySites.add(route.fromSite);
           const steering = game.speed > 0 && motion.heading.lengthSq() > 1e-8;
@@ -330,6 +354,13 @@ export class Actors {
             settleCanopyStep(st, motion);
             st.branchRoll = lean.roll; st.branchPitch = lean.pitch; st.branchYaw = lean.yaw; branchPitch = lean.pitch;
           }
+          if (game.speed > 0 && mo.primate === 2) {
+            // A deliberate turn is progress too. Watch the accepted body,
+            // rather than the simulation agent or a repeatedly replanned route.
+            if (!st.branchRoute || !st.canopyProgress || st.branchPoint.distanceTo(st.canopyProgress) > .02 || st.canopyQuaternion.angleTo(st.canopyProgressPose) > .15) {
+              st.canopyProgress = st.branchPoint.clone(); st.canopyProgressPose = st.canopyQuaternion.clone(); st.canopyWait = 0;
+            } else st.canopyWait = (st.canopyWait || 0) + motion.dt;
+          }
           st.gait = game.speed > 0 ? gait0 + (motion.gait - gait0) * Math.min(1, k * (mo.primate === 3 ? .35 : 2)) : gait0;
           branchRoll = st.branchRoll || 0;
           branchYaw = st.branchYaw || 0;
@@ -338,7 +369,7 @@ export class Actors {
             .applyQuaternion(canopyRotation(st.yaw + branchYaw, branchPitch, branchRoll, this.holdRotation));
           ax = st.branchPoint.x - this.holdOffset.x; az = st.branchPoint.z - this.holdOffset.z;
           y = st.branchPoint.y + motion.lift - this.holdOffset.y; st.canopyY = y;
-        } else { st.branchRoute = null; st.branchAt = null; st.branchPoint = null; }
+        } else { st.branchRoute = null; st.branchAt = null; st.branchPoint = null; st.slothBridge = null; }
       } else st.branch = null;
       // Climbing down off the last tree (often to leave the map) or back up into
       // one, ease from the drawn body to the new position rather than jumping.
@@ -382,12 +413,18 @@ export class Actors {
         st.sc = sc;
         this.m.compose(this.holdOffset.set(ax, y, az), canopyRotation(st.yaw + branchYaw, branchPitch, branchRoll, this.holdRotation), this.swingBase.set(sc, sc, sc));
         const route = st.branchRoute, sites = new Set([st.branch.site, st.branchAt?.site, route?.fromSite, route?.target.site]);
+        if (st.slothBridge) sites.add(st.slothBridge);
         for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite])
-          if (site && this.flora.treeSites.get(site.tile) === site) sites.add(site);
+          if (site && (site.transient || this.flora.treeSites.get(site.tile) === site)) sites.add(site);
         grips = canopyGrips(st, mo, sites, this.m, time, game.speed, returning);
         for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite])
           if (site && this.flora.treeSites.get(site.tile) === site) canopySites.add(site);
       } else { st.gripFeet = null; st.gripTime = time; }
+      if (st.slothBridge) {
+        if (st.branchRoute === st.slothBridge.route || st.gripFeet?.some(foot => foot.site === st.slothBridge || foot.to?.canopySite === st.slothBridge)) bridges.add(st.slothBridge);
+        else st.slothBridge = null;
+      }
+      for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite]) if (site?.transient) bridges.add(site);
       F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0)), grips);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
@@ -401,10 +438,14 @@ export class Actors {
         st.center.sub(this.swingGrip.set(...swing.grip).multiplyScalar(mo.len)).applyAxisAngle(this.swingAxis, swing.sway).add(this.swingBase.set(.14, 1.38, .02).multiplyScalar(mo.len));
       }
       st.center.applyMatrix4(F.m); // same heading, pitch, scale and height as the instance
+      st.revealBounds = st.branch ? mo.revealBounds : null;
+      if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
       if (!st.branch && def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
+    for (const bridge of bridges) { canopySites.add(bridge.source); canopySites.add(bridge.target); }
     this.flora?.showCanopySites(canopySites);
+    this.slothBridges?.show(bridges);
 
     // ---- kills: the prey lying on its side where it fell, sinking away as it's eaten
     for (const c of game.wildlife.carcasses || []) {
@@ -559,5 +600,6 @@ export class Actors {
 
   clear() {
     this.pose.clear(); this.people.clear(); this.visibleWildlife.length = 0; this.fauna.clear();
+    this.slothBridges?.clear();
   }
 }

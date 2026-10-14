@@ -72,7 +72,7 @@ check('Monkeys on palms retain a solid leafy crown through tree transparency and
     const shader = { uniforms: {}, vertexShader: '#include <project_vertex>', fragmentShader: '#include <clipping_planes_fragment>\n#include <dithering_fragment>' };
     crown.mat.onBeforeCompile(shader);
     assert.equal(shader.uniforms.uFocusFoot, focus.uFocusFoot);
-    assert.ok(shader.fragmentShader.includes('keep = vFocusW.y <= uFocusFoot + 0.02;'), 'reveal retains leaves below the feet');
+    assert.ok(shader.fragmentShader.includes('keep = vFocusW.y <= uFocusFoot + 0.02 && dot(fd, uCamUp) < uFocusBottom;'), 'reveal retains supporting leaves only below the animal on screen');
     assert.ok(shader.fragmentShader.includes('across < r && !keep) discard'), 'higher leaves still reveal the animal');
     assert.notEqual(crown.mat.customProgramCacheKey(), flora.foliage.customProgramCacheKey(), 'support crown compiles its own reveal shader');
     focus.uFocusAmt.value = 0; dispose(f);

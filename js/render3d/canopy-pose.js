@@ -153,7 +153,7 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   }
   // Hold a safe orangutan pose through small changes in the fork normal.
   // Repeatedly chasing those corrections makes its long torso wobble.
-  if (mo.primate === 2 && goal && st.canopyGoal && goal.angleTo(st.canopyGoal) < .25 &&
+  if (mo.primate === 2 && !motion?.pose && goal && st.canopyGoal && goal.angleTo(st.canopyGoal) < .25 &&
       clear(st.canopyGoal) && clear(st.canopyGoal, ahead)) goal.copy(st.canopyGoal);
   if (goal) { st.canopyGoal ||= new THREE.Quaternion(); st.canopyGoal.copy(goal); }
   next.copy(current || goal || preferred);
@@ -171,9 +171,9 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   // After a brief stall, finish the step through a few millimetres of bark
   // rather than hold the animal frozen at the same spot indefinitely.
   const step = Math.max(0, Math.min(.1, dt));
-  // Other climbers can brush bark while catching up. An orangutan keeps
-  // its deliberate, adjacent-tree route and waits for a clear body pose.
-  const forced = mo.primate !== 2 && (st.canopyForce > 0 || st.canopyLag > 1.8);
+  // Lag alone must not send a monkey through the bark during a turn. Keep
+  // its short stall recovery; orangutans always wait for a clear body pose.
+  const forced = mo.primate !== 2 && (st.canopyForce > 0 || (mo.primate !== 1 && st.canopyLag > 1.8));
   if (forced) st.canopyForce -= step;
   if (current && !forced && !clear(next)) {
     const requested = st.branchPoint.clone(), limit = step * turnRate;
