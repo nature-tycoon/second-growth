@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monkey movement comparison</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{margin:24px;background:#eef0e8;color:#27392d;font:15px system-ui}h1{font-size:24px;margin-bottom:8px}p{max-width:950px;line-height:1.5}label{display:inline-block;margin:8px 18px 8px 0}select,button{font:inherit;padding:7px}main{display:grid;grid-template-columns:1fr 1fr;gap:16px}article{background:#fafbf5;border-radius:10px;padding:12px}h2{font-size:18px}canvas{width:100%;display:block}#status{font-size:13px}small{display:block;min-height:36px;line-height:1.4}@media(max-width:800px){body{margin:12px}main{grid-template-columns:1fr}}
+</style>
+<h1>Monkey movement comparison</h1>
+<p>Compare the previous movement with improved movement that bends its elbows and knees, uses overlapping steps and subtle weight shifts, with a bounded pace at fast game speeds. Both follow the same destination on real tree branches. These examples leave saved farms untouched.</p>
+<label>Animal <select id="animal"><option value="amazon:howler">Amazon howler</option><option value="amazon:spider">Spider monkey</option><option value="sumatra:langur">Thomas’s langur</option><option value="chinandega:congo">Mantled howler</option><option value="chinandega:capuchin">White-faced capuchin</option></select></label>
+<label>Route <select id="route"><option value="branch">Along a branch</option><option value="fork">Around a fork</option><option value="balsa-fork">Young balsa fork</option><option value="mahogany-fork">Mahogany fork</option><option value="fig-fork">Young fig fork</option><option value="trunk">Down a tall trunk</option><option value="jump" selected>Jump between trees</option><option value="drop">Jump to a lower branch</option></select></label>
+<label>Game speed <select id="speed"><option value="1">Normal</option><option value="2">Fast</option><option value="3">Fastest</option></select></label>
+<label>Camera <select id="view"><option value="2.356">Southeast</option><option value=".785">Southwest</option><option value="3.927">Northeast</option></select></label>
+<label>Framing <select id="framing"><option value="close">Close-up</option><option value="route">Whole route</option></select></label>
+<label><input id="loop" type="checkbox" checked> Replay automatically</label>
+<button id="restart">Restart</button><button id="pause">Pause</button><button id="step">Step one frame</button>
+<p id="status">Preparing…</p>
+<main><article><h2>Previous movement</h2><small>Existing limb deformation and game-speed hand placement.</small><canvas id="current" width="720" height="540"></canvas></article><article><h2>Improved movement</h2><small id="placement">Continuous steps with planted grips through turns. Elbows and knees bend around fixed contacts.</small><canvas id="prototype" width="720" height="540"></canvas></article></main>
+<script type="module">
+import * as THREE from 'three';
+import { canopyFixture } from './canopy-support-fixture.mjs';
+import { Flora } from '../js/render3d/flora.js';
+import { Actors } from '../js/render3d/actors.js';
+import { Renderer } from '../js/render3d/scene.js';
+import { PLANT } from '../js/data/plants.js';
+import { howlerJumpFixture } from './howler-jump-fixture.mjs';
+const controls=Object.fromEntries(['animal','route','speed','view','restart','pause','step','status','placement','framing','loop'].map(id=>[id,document.getElementById(id)]));
+const forkTrials={'balsa-fork':{tree:'balsa',growth:.7,from:0,to:5},'mahogany-fork':{tree:'mahogany',growth:1,from:15,to:0},'fig-fork':{tree:'fig',growth:.7,from:5,to:0}};
+const gl=new THREE.WebGLRenderer({antialias:true});gl.setSize(720,540);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;
+const camera=new THREE.OrthographicCamera(-.9,.9,.675,-.675,.01,100),right=new THREE.Vector3(1,0,0);
+let views=[],time=1,last=0,paused=false,framing,restSince=null;
+function dispose(){for(const v of views){v.actors.clear();for(const p of v.actors.fauna.species.values()){p.mesh.dispose();p.geo.dispose();p.mat.dispose();}for(const p of [...v.flora.pools.values(),...v.flora.canopyPools.values()]){if(p.subs)for(const s of p.subs.values())s.dispose();else p.dispose();}if(v.sites)for(const site of v.sites)site.geo.dispose();for(const o of [v.actors.shadows,v.actors.ring]){o.geometry.dispose();o.material.dispose();v.scene.remove(o);}}}
+function setup(){
+ dispose();views=[];restSince=null;time=1;last=0;paused=false;
+ for(const option of controls.route.options)if(forkTrials[option.value])option.disabled=!controls.animal.value.startsWith('amazon:');controls.pause.textContent='Pause';
+ for(const prototype of [false,true]){
+  const [map,animal]=controls.animal.value.split(':');
+  const {game,a}=canopyFixture(map,animal);game.selectedAgent=a;
+  const tree=map==='amazon'?'fig':map==='sumatra'?'meranti':'guanacaste';
+  const trial=map==='amazon'?forkTrials[controls.route.value]:null,fork=controls.route.value==='fork'||controls.route.value.endsWith('-fork');
+  if(trial && PLANT[trial.tree])game.world.setPlant(game.world.idx(40,32),PLANT[trial.tree],trial.growth);
+  else for(const x of [40,41])game.world.setPlant(game.world.idx(x,32),PLANT[tree],1);
+  if(controls.route.value==='trunk'){game.world.setPlant(game.world.idx(40,32),PLANT[map==='amazon'?'kapok':tree],1);game.world.setPlant(game.world.idx(41,32),PLANT[tree],.3);}
+  a.x=40.5;a.y=32.5;a.state='walk';game.speed=0;
+  const scene=new THREE.Scene();scene.background=new THREE.Color('#dfe4cf');scene.add(new THREE.HemisphereLight(0xe9f2ff,0x697149,1.45));const sun=new THREE.DirectionalLight(0xffedcf,2.3);sun.position.set(30,50,35);scene.add(sun);
+  if(['jump','drop'].includes(controls.route.value)){
+    const v=howlerJumpFixture(scene,prototype,controls.route.value==='drop'?.15:0,map,animal);
+    v.game.speed=Number(controls.speed.value);
+    const st=v.actors.pose.get(v.a.id),mo=[...v.actors.fauna.species.values()][0].motion;
+    if(!prototype){const endCenter=mo.center.clone().multiplyScalar(st.sc).add(v.end.point);framing={target:st.center.clone().lerp(endCenter,.5),half:.8};}
+    views.push(v);continue;
+  }
+  const flora=new Flora(scene);flora.rebuild(game,true);flora.setFade(true);
+  const actors=new Actors(scene,flora,{canopyWalkerMotion:prototype});actors.clean=true;
+  const site=flora.treeSites.get(game.world.idx(40,32));site.prepare();
+  let from=0,to=0;
+  if(controls.route.value==='branch'){from=site.branches.map((b,i)=>({b,i})).filter(({b})=>Math.abs(b.dir.y)<.65).sort((a,b)=>b.b.length-a.b.length)[0]?.i||0;to=from;}
+  if(fork&&!trial)to=site.branches.findIndex((b,i)=>i>0&&b.from.distanceTo(site.branches[0].from)<.001);
+  if(trial){from=trial.from;to=trial.to;}
+  // Branch/fork trials share exact endpoints. Trunk trials follow
+  // the real stem, keeping this first study focused on supported climbing.
+  if(controls.route.value==='trunk'){
+    const trunk=site.trunks.reduce((a,b)=>a.length>b.length?a:b);
+    site.anchor=(x,z,previous,reach,hanging,body)=>{const point=trunk.from.clone().lerp(trunk.to,time<1.1?.75:.35);point.x+=Math.max(trunk.r0,trunk.r1)+.05;return site.trunkAnchors(point,{reach,hanging,body}).find(a=>site.trunks[a.trunk]===trunk);};
+  }
+  if(controls.route.value==='branch'||fork)site.anchor=(x,z,previous,reach,hanging,body)=>site.endpoint(time<1.1?from:to,controls.route.value==='branch'&&time<1.1?0:1,{reach,hanging,body});
+  actors.update(game,right,time);game.speed=Number(controls.speed.value);
+  const st=actors.pose.get(a.id),mo=[...actors.fauna.species.values()][0].motion;
+  time=1.11;const end=site.anchor(a.x,a.y,st.branch,mo.len*st.sc*.34,false,{motion:mo,scale:st.sc});time=1;
+  if(!prototype){const endCenter=mo.center.clone().sub(new THREE.Vector3(mo.gripX||0,mo.supportY||0,mo.gripZ||0)).multiplyScalar(st.sc).applyQuaternion(st.canopyQuaternion).add(end.point);framing={target:st.center.clone().lerp(endCenter,.5),half:Math.max(.65,st.center.distanceTo(endCenter)*.55+.38)};}
+  views.push({game,a,scene,flora,actors,site,prototype,end});
+ }
+ draw();
+}
+function draw(){
+ const angle=Number(controls.view.value);
+ for(const v of views){
+  if(v.sites)v.a.x=time>=1.1?41.4:40.5;
+  v.game.speed=paused?0:Number(controls.speed.value);
+  const pose=v.actors.pose.get(v.a.id),close=controls.framing.value==='close';
+  const previous=close?pose.center.clone():framing.target;
+  if(close&&v.prototype)previous.sub(pose.howlerBody.clone().multiplyScalar(pose.sc).applyQuaternion(pose.canopyQuaternion));
+  v.a.state=v.actors.pose.get(v.a.id).branchPoint.distanceTo(v.end.point)>.004?'walk':'idle';
+  const half=close?.38:framing.half;camera.left=-half*4/3;camera.right=half*4/3;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();
+  camera.position.copy(previous).add(new THREE.Vector3(Math.sin(angle)*.83,.56,Math.cos(angle)*.83).multiplyScalar(20));camera.lookAt(previous);camera.updateMatrixWorld();
+  v.actors.update(v.game,right,time,camera,540);
+  const st=v.actors.pose.get(v.a.id),target=close?st.center.clone():framing.target;
+  if(close&&v.prototype)target.sub(st.howlerBody.clone().multiplyScalar(st.sc).applyQuaternion(st.canopyQuaternion));
+  camera.position.copy(target).add(new THREE.Vector3(Math.sin(angle)*.83,.56,Math.cos(angle)*.83).multiplyScalar(20));camera.lookAt(target);camera.updateMatrixWorld();
+  Renderer.prototype.updateFocus.call({actors:v.actors,camera,world:v.game.world},v.game,1);
+  gl.render(v.scene,camera);document.getElementById(v.prototype?'prototype':'current').getContext('2d').drawImage(gl.domElement,0,0);
+ }
+ const st=views[1].actors.pose.get(views[1].a.id),limbs=['left hand','right hand','left foot','right foot'];
+ const reaching=st.gripFeet.map((f,i)=>f.from?limbs[i]:null).filter(Boolean);
+ const jumping=st.howlerJump;
+ controls.placement.textContent=jumping?({prepare:'Crouch onto the back legs',push:'Hands release → back legs push off',flight:'Tuck the legs → reach for the receiving branch',landing:'Hands catch → feet follow → absorb the landing'}[jumping.phase]):reaching.length?`Reaching with ${reaching.join(' and ')} · continuous walking`:'Holding planted contacts';
+ controls.status.textContent=`${paused?'Paused':'Playing'} · ${controls.route.selectedOptions[0].textContent} · improved movement ${st.branchRoute||st.branchPoint.distanceTo(st.branch.point)>.004?'following the branch route':!st.howlerResting?'finishing the turn':'holding its destination'} · ${time.toFixed(1)} s`;
+}
+controls.animal.onchange=()=>{controls.route.value="fork";setup();};controls.restart.onclick=setup;controls.route.onchange=setup;controls.speed.onchange=draw;controls.view.onchange=draw;controls.framing.onchange=draw;
+controls.pause.onclick=()=>{paused=!paused;controls.pause.textContent=paused?'Resume':'Pause';draw();};controls.step.onclick=()=>{paused=false;time+=1/60;draw();paused=true;controls.pause.textContent='Resume';draw();};
+function replay(){
+ time=1;restSince=null;
+ for(const v of views){v.actors.clear();if(v.sites)v.a.x=40.5;v.a.state='walk';v.game.speed=0;v.actors.update(v.game,right,time);}
+}
+setup();function frame(now){const dt=last?Math.min(.05,(now-last)/1000):0;last=now;if(!paused)time+=dt;draw();
+ if(!paused && time>2 && views.every(v=>{const st=v.actors.pose.get(v.a.id);return !st.branchRoute && st.branchPoint.distanceTo(v.end.point)<.004 && (!v.prototype || st.howlerResting && !st.gripFeet.some(f=>f.from));})){
+  restSince??=time;if(controls.loop.checked && time-restSince>1.5)replay();
+ }
+ requestAnimationFrame(frame);}requestAnimationFrame(frame);
+</script></html>

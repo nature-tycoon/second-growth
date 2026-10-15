@@ -3,19 +3,23 @@ import { SPEEDS } from '../config.js';
 import { climbPace } from '../sim/climb-pace.js';
 import { bodyFitsWood, woodDistance } from './wood-clearance.js';
 import { canopyRotation, interpolateCanopyPose } from './canopy-pose.js';
-import { canopyContactCount } from './canopy-grips.js';
+import { canopyContactCount, barkGrip } from './canopy-grips.js';
+import { howlerReachTarget } from './howler-contact.js';
 import { ORANGUTAN_CADENCE, orangutanReverse } from './orangutan-motion.js';
+import { howlerArcHeight, howlerJumpGate, howlerLandingGate, howlerJumpPose, settleHowlerJump } from './howler-jump.js';
 
-const leapers = new Set(['howler', 'congo', 'spider', 'langur']);
+const leapers = new Set(['howler', 'congo', 'spider', 'langur', 'capuchin']);
 const leapSpeed = 2.6;
 
 function canopyLeap(st, def) {
   const route = st.branchRoute;
+  if (def.sprite?.canopyWalkerMotion && ['prepare','push'].includes(st.howlerJump?.phase)) return null;
   if (!leapers.has(def.key?.split(':')[0]) || !route || route.cursor !== route.gap) return null;
   const start = route.points[route.gap - 1], end = route.points[route.gap], gap = start.distanceTo(end);
   if (gap < .025) return null;
   const t = THREE.MathUtils.clamp(1 - st.branchPoint.distanceTo(end) / gap, 0, 1);
-  const height = Math.min(.5, Math.max((def.sprite.len || 14) * st.sc * .65, gap * .35));
+  const size=(def.sprite.len || 14)*st.sc;
+  const height = def.sprite.canopyWalkerMotion && route.walkerJumpClear ? howlerArcHeight(start,end,size) : Math.min(.5, Math.max(size * .65, gap * .35));
   return { t, lift: 4 * t * (1 - t) * height };
 }
 
@@ -124,8 +128,41 @@ function crownRoute(from, to, point, def, scale) {
   if (orangutan && !Number.isFinite(best)) return { points: [copyHold(point)], sites: [a], gap: -1, blocked: true };
   const out = a.route(from, exit, point), into = b.route(entry, to);
   if (!out.length) out.push(copyHold(exit.point));
-  return { points: [...out, copyHold(entry.point), ...into], sites: [...out.map(() => a), b, ...into.map(() => b)], gap: out.length,
+  const route={ points: [...out, copyHold(entry.point), ...into], sites: [...out.map(() => a), b, ...into.map(() => b)], gap: out.length,
     bridgePose, swingable: Number.isFinite(best), landingTrunk: entry.trunk ?? null, trunkTransfer: exit.trunk != null || entry.trunk != null };
+  route.walkerJumpClear=!!def.sprite.canopyWalkerMotion&&!route.trunkTransfer&&clearWalkerJump(route,from.body,[...a.wood,...b.wood],size);
+  return route;
+}
+
+// Bark at the launch and catch is support, rather than an airborne obstacle.
+// Only exempt those limbs while the body is departing or approaching them;
+// the middle of the arc still checks every limb in both crowns.
+function clearWalkerJump(route,profile,wood,size) {
+  if(!profile || route.gap<1)return false;
+  const from=route.points[route.gap-1],to=route.points[route.gap],distance=from.distanceTo(to);
+  if(distance<.025)return false;
+  const jump={route,from,to,phase:'flight',yaw:Math.atan2(-(to.z-from.z),to.x-from.x)};
+  const height=howlerArcHeight(from,to,size),steps=Math.max(2,Math.ceil(distance/.04));
+  const launch=new THREE.Vector3(.16,.055,0).multiplyScalar(size*(profile.motion.canopyReachScale || 1));
+  // Tucked torso rather than the lateral fur envelope. The arms reach
+  // forward in flight and are outside this collision silhouette.
+  const mo=profile.motion,center=mo.canopyBounds.getCenter(new THREE.Vector3());
+  const shrink=new THREE.Vector3(.9,.9,.65);
+  const points=mo.canopyBody.map(p=>p.clone().sub(center).multiply(shrink).add(center));
+  const flightProfile={...profile,motion:{...mo,canopyBody:points,canopyBounds:new THREE.Box3().setFromPoints(points)}};
+  for(let k=0;k<=steps;k++) {
+    const t=k/steps,pose=howlerJumpPose({howlerJump:jump,canopyLeap:{t}});
+    const point=from.clone().lerp(to,t);point.y+=4*t*(1-t)*height;
+    const offset=launch.clone().multiplyScalar(1-THREE.MathUtils.smoothstep(t,0,.25)).applyQuaternion(pose);
+    const obstacles=wood.filter(b=>!(t<.3&&Math.abs(woodDistance(from,b))<size*.25) &&
+      !(t>.7&&Math.abs(woodDistance(to,b))<size*.25));
+    if(!bodyFitsWood(flightProfile,point.add(offset),pose,obstacles))return false;
+  }
+  const pose=howlerJumpPose({howlerJump:{...jump,phase:'landing',elapsed:0}});
+  const origin=new THREE.Vector3(mo.gripX || 0,mo.supportY || 0,mo.gripZ || 0).multiplyScalar(profile.scale).applyQuaternion(pose);
+  const matrix=new THREE.Matrix4().compose(to.clone().sub(origin),pose,new THREE.Vector3(profile.scale,profile.scale,profile.scale));
+  const catches=[0,1,2,3].map(i=>!!howlerReachTarget(mo,matrix,i,p=>barkGrip(p,wood)));
+  return catches.slice(0,2).some(Boolean)&&catches.slice(2).some(Boolean);
 }
 
 // A transfer can have a reachable gap but an unusable final bark hold. Keep
@@ -221,7 +258,7 @@ function slothRoutePose(st, route, point) {
   return pose.clone().slerp(bridge.pose, amount);
 }
 
-function monkeyTrunkPose(route, point, heading) {
+function monkeyTrunkPose(route, point, heading, backing = false) {
   if (!route?.trunkTransfer) return null;
   if (route.cursor === route.gap && route.landingTrunk == null) return null;
   if (route.cursor === route.gap && route.landingTrunk != null) {
@@ -237,7 +274,7 @@ function monkeyTrunkPose(route, point, heading) {
   const pose = routePose(route, point, true);
   if (!pose) return null;
   const angles = new THREE.Euler().setFromQuaternion(pose, 'YZX');
-  if (heading.y < 0 && angles.z > 1.1) return canopyRotation(angles.y + Math.PI, -angles.z, 0, new THREE.Quaternion());
+  if (heading.y < 0 && angles.z > 1.1 && !backing) return canopyRotation(angles.y + Math.PI, -angles.z, 0, new THREE.Quaternion());
   return pose;
 }
 
@@ -296,10 +333,12 @@ export function rebaseCanopy(st, flora) {
 
 // Rendering follows the branch network; simulation positions and tile paths stay authoritative.
 export function canopyStep(st, anchor, def, game, time, reset = false, sim = null) {
+  let walkerMotion=def.sprite.canopyWalkerMotion;
   const dt = Math.max(0, Math.min(.1, time - (st.branchTime ?? time)));
   st.branchTime = time;
   if (reset || !st.branchPoint || !st.branchAt || Math.hypot(st.branchPoint.x - anchor.point.x, st.branchPoint.z - anchor.point.z) > 3) {
-    st.branchPoint = anchor.point.clone(); st.branchAt = anchor; st.branchRoute = null; st.branchPhase ??= 0;
+    st.branchPoint = anchor.point.clone(); st.branchAt = anchor; st.branchRoute = null; st.howlerJump=null; st.branchPhase ??= 0;
+    if(walkerMotion){st.howlerPace=0;st.howlerTurnVelocity=null;}
   }
   const before = st.branchPoint.clone();
   const phase = st.branchPhase, at = st.branchAt;
@@ -315,6 +354,12 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
         startPoint: st.branchPoint.clone(), startPose: st.canopyQuaternion?.clone() };
     }
     const route = st.branchRoute;
+    // (a leap begun on a route since replaced or abandoned would hold its crouch for good)
+    if (st.howlerJump && st.howlerJump.route !== route) st.howlerJump = null;
+    // A gap the leap can't clear is crossed with the classic release and catch, but only the gap:
+    // the walk to it and the climb after it (up or down a caught trunk) keep the walker's own
+    // limbs and gait.
+    walkerMotion &&= !route || route.gap<1 || route.walkerJumpClear || route.cursor!==route.gap;
     journey = route;
     if (def.sprite.kind === 'orangutan' || def.sprite.ape) {
       // Keep intent even when a turn shortens the step, and look only a short
@@ -353,7 +398,7 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
         budget *= THREE.MathUtils.lerp(turnPace, 1, catchUpTurn);
       }
     } else if (st.canopyQuaternion && (intent || (route && def.sprite.kind === 'monkey' && !def.sprite.ape))) {
-      const heading = intent?.clone() || routeHeading(route, st.branchPoint, Math.max(.08, (def.sprite.len || 14) * st.sc * .6), anchor.direction);
+      const heading = intent?.clone() || routeHeading(route, st.branchPoint, Math.max(walkerMotion?.025:.08, (def.sprite.len || 14) * st.sc * (walkerMotion?.15:.6)), anchor.direction);
       const facing = new THREE.Vector3(1, 0, 0).applyQuaternion(st.canopyQuaternion);
       if (intent && st.canopyReverse) heading.negate();
       heading.y = 0; facing.y = 0;
@@ -361,7 +406,7 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
       // Slow down while turning toward the next limb at a fork.
       // Otherwise a short crossing finishes while the torso still faces the
       // old branch, and all four feet have to scramble sideways.
-      const turnPace = .2 + .8 * THREE.MathUtils.clamp((alignment - .5) / .35, 0, 1);
+      const turnPace = walkerMotion ? .45+.55*THREE.MathUtils.clamp((alignment-.5)/.35,0,1) : .2 + .8 * THREE.MathUtils.clamp((alignment - .5) / .35, 0, 1);
       // Retain a tiny grip shuffle to get around crowded wood while turning.
       // Catch-up speed must not restore a full backward stride.
       facingPace = intent && alignment < 0 ? shufflePace : THREE.MathUtils.lerp(turnPace, 1, catchUpTurn);
@@ -375,6 +420,18 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
       budget = Math.min(budget, dt * (def.sprite.ape ? swingPace : (def.sprite.len || 14) * st.sc * 1.5));
 
     }
+    if (walkerMotion) {
+      // Preserve the normal walking pace; only bound accelerated game-clock
+      // travel so a complete stride remains visible between rendered frames.
+      budget = Math.min(budget, dt * def.sprite.len * st.sc * (st.howlerForkTurn || route && route.gap<0 ? 2 : 1.5));
+      if(!st.howlerJump && route && route.cursor!==route.gap) {
+        // Accelerate from the last accepted pace after a constrained handover.
+        const wanted=budget/dt;
+        st.howlerPace=THREE.MathUtils.lerp(st.howlerPace || 0,wanted,1-Math.exp(-20*dt));
+        budget=Math.min(budget,st.howlerPace*dt);
+      }
+    }
+    if (walkerMotion && howlerLandingGate(st,dt))budget=0;
     if (route) {
       while (budget > 0 && route.cursor < route.points.length) {
         const target = route.points[route.cursor], distance = st.branchPoint.distanceTo(target);
@@ -407,10 +464,18 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
           // segment is finished. Only creep until the body faces this step.
           if ((backDown ? -alignment : alignment) < 0) boost *= Math.min(1, shufflePace / facingPace);
         }
-        const step = budget * boost;
+        let step = budget * boost;
+        // (a gap the leap can't clear waits for the classic crossing on the next frame)
+        if(walkerMotion && route.cursor===route.gap && !route.walkerJumpClear) break;
+        if(walkerMotion && route.cursor===route.gap) {
+          const jumpStep=howlerJumpGate(st,route,dt);
+          if(jumpStep!==null){if(!jumpStep)break;step=jumpStep;}
+        }
         if (distance <= step) {
           st.branchPoint.copy(target); route.cursor++;
           budget -= distance / boost; travelled += distance;
+          if(walkerMotion && st.howlerJump?.phase==='flight')budget=0;
+
         }
         else { st.branchPoint.lerp(target, step / distance); travelled += step; budget = 0; }
         trace.push({ point: st.branchPoint.clone(), cursor: route.cursor });
@@ -426,7 +491,23 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
   const route = st.branchRoute, transfer = !!route && route.cursor === route.gap;
   // Look along the next body-length of route, rather than steering toward
   // each centimetre-sized bark correction at a fork.
-  const heading = intent || routeHeading(route, st.branchPoint, Math.max(.08, (def.sprite.len || 14) * st.sc * .6), delta);
+  const heading = intent || routeHeading(route, st.branchPoint, Math.max(walkerMotion?.025:.08, (def.sprite.len || 14) * st.sc * (walkerMotion?.15:.6)), delta);
+  // Walkers back down a steep trunk, head up and tail first, as the orangutans do, rather than
+  // descending it head first. Judged over the next body length and a half, so a short downward
+  // limb at a fork is still walked head first. (Steeper than about 35° down to start, until it
+  // eases off.)
+  if (walkerMotion && route) {
+    const ahead = routeHeading(route, st.branchPoint, (def.sprite.len || 14) * st.sc * 1.5, delta);
+    const slope = ahead.lengthSq() > 1e-10 ? ahead.y / ahead.length() : 0;
+    st.canopyReverse = slope < -.6 || !!st.canopyReverse && slope < -.2;
+  } else if (def.sprite.canopyWalkerMotion && !route) st.canopyReverse = false;
+  // How sharply the route bends over the next body length and a half: a walker turns at a fork
+  // with its limbs in pairs, but climbs a trunk or walks a straight limb with them alternating.
+  let bend = 0;
+  if (walkerMotion && route) {
+    const size = (def.sprite.len || 14) * st.sc, near = routeHeading(route, st.branchPoint, size * .3, delta), far = routeHeading(route, st.branchPoint, size * 1.5, delta);
+    if (near.lengthSq() > 1e-10 && far.lengthSq() > 1e-10) bend = near.angleTo(far);
+  }
   let lift = 0;
   st.canopyLeap = canopyLeap(st, def);
   if (st.canopyLeap) lift = st.canopyLeap.lift;
@@ -438,13 +519,15 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
   // Gait is driven by distance along the wood, so a clamped hold doesn't walk in place.
   const stride = Math.max(.06, (def.sprite.len || 14) * st.sc * (def.sprite.ape ? 1.6 : .65));
   const phaseStep = travelled / stride * Math.PI * 2;
-  const cadence = def.sprite.ape ? 2.8 : def.sprite.kind === 'orangutan' ? ORANGUTAN_CADENCE : 0;
+  const cadence = walkerMotion ? 12 : def.sprite.ape ? 2.8 : def.sprite.kind === 'orangutan' ? ORANGUTAN_CADENCE : 0;
   st.branchPhase += cadence ? Math.min(phaseStep, dt * cadence) : phaseStep;
-  const pose = def.sprite.kind === 'orangutan' && transfer ? route.bridgePose
-    : def.sprite.kind === 'monkey' && !def.sprite.ape ? monkeyTrunkPose(route, st.branchPoint, heading)
+  const pose = walkerMotion && st.howlerJump ? howlerJumpPose(st)
+    : walkerMotion && !transfer && anchor.trunk != null ? anchor.point.canopyPose
+    : def.sprite.kind === 'orangutan' && transfer ? route.bridgePose
+    : def.sprite.kind === 'monkey' && !def.sprite.ape ? monkeyTrunkPose(route, st.branchPoint, heading, walkerMotion && st.canopyReverse)
     : def.sprite.kind === 'sloth' ? slothRoutePose(st, route, st.branchPoint) || journey?.target.point.canopyPose || st.branchAt?.point.canopyPose : null;
   const pace = def.sprite.ape ? Math.min(Math.max(.25, def.speed * (SPEEDS[game.speed] || 1)), swingPace) : Math.max(.25, def.speed * (SPEEDS[game.speed] || 1));
-  return { delta, heading, pose,
+  return { delta, heading, pose, bend,
     before, requested: st.branchPoint.clone(), cursor, dt, phase, at, journey, trace, travelled, stride, ape: def.sprite.ape, cadence, animationSpeed: (st.catchUp || 1) * (SPEEDS[game.speed] || SPEEDS[1]) / SPEEDS[1],
     pace, gait: dt > 0 && game.speed > 0 ? Math.min(1, travelled / dt / pace) : 0,
     transfer, lift, def };
@@ -458,6 +541,7 @@ export function settleCanopyStep(st, motion) {
   const fraction = motion.acceptedDistance !== undefined ? (motion.travelled > 1e-9 ? motion.acceptedDistance / motion.travelled : 1)
     : requested > 1e-9 ? Math.min(1, st.branchPoint.distanceTo(motion.before) / requested) : 1;
   const distance = motion.travelled * fraction;
+  if(motion.def?.sprite?.canopyWalkerMotion && !st.howlerJump && motion.travelled>0 && motion.dt>0)st.howlerPace=distance/motion.dt;
   if (fraction < 1 - 1e-8 && motion.journey) {
     const route = motion.journey;
     st.branchRoute = route; st.branchAt = motion.at;
@@ -475,6 +559,7 @@ export function settleCanopyStep(st, motion) {
   motion.gait = motion.dt > 0 ? Math.min(1, distance / motion.dt / motion.pace) : 0;
   // Clearance can shorten a step. Draw the arc at the accepted position.
   st.canopyLeap = canopyLeap(st, motion.def);
+  if(motion.def?.sprite?.canopyWalkerMotion)settleHowlerJump(st);
   if (leapers.has(motion.def?.key?.split(':')[0])) motion.lift = st.canopyLeap?.lift || 0;
   return distance;
 }

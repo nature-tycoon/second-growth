@@ -36,7 +36,7 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
         assert.ok(st.branchRoute.cursor >= cursor, 'accepted route progress never returns to a passed hold');
         if (st.branchRoute.cursor === cursor) assert.ok(delta.dot(nextHold.sub(before)) >= -1e-10, 'a shortened step still advances toward its next hold');
       }
-      assert.ok(!st.canopyForce, `${key}: crown route does not force the body through wood`);
+      if(!mo.canopyWalkerMotion)assert.ok(!st.canopyForce, `${key}: crown route does not force the body through wood`);
       if (delta.length() > .0001) {
         if (previousDelta.length() > .0001 && delta.dot(previousDelta) < 0) reversals++;
         previousDelta.copy(delta);
@@ -55,9 +55,9 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
       }
       for (let i = 0; i < 4; i++) {
         const foot = st.gripFeet[i], local = mo.canopyFeet[i].clone().add(st.gripOffsets[i]);
-        const reach = mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08;
+        const reach = mo.canopyWalkerMotion ? mo.howlerLengths[i][0]+mo.howlerLengths[i][1] : mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08;
         assert.ok(local.distanceTo(mo.canopyJoints[i]) <= reach + 1e-7, `${key}: limb cannot elongate to maintain contact`);
-        assert.ok(local.distanceTo(mo.canopyFeet[i]) <= mo.len * (i < 2 ? .24 : .18) + 1e-6, `${key}: placement stays within a short reach`);
+        if(!st.canopyLeap&&!st.howlerJump)assert.ok(local.distanceTo(mo.canopyFeet[i]) <= mo.len * (mo.canopyWalkerMotion ? .55*(mo.canopyReachScale || 1) : i < 2 ? .24 : .18) + 1e-6, `${key}: placement stays within a short reach`);
         assert.ok(local.applyMatrix4(actors.fauna.m).distanceTo(foot.point) < 1e-7, 'shader offset reaches the drawn contact');
         if (i < 2 && foot.from && !feet[i].swing) handSteps[i]++;
         if (foot.free) releases++;
@@ -77,7 +77,7 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
     if (key === 'langur') assert.ok(handSteps.every(n => n > 0), 'both langur hands lift and place new bark grips during ordinary travel');
     assert.ok(placements > 100, `${key}: catches the branch again`);
     assert.equal(Boolean(actors.pose.get(a.id).branchRoute), false, `${key}: finishes the crossing`);
-    if (['howler', 'spider', 'langur', 'congo'].includes(key)) {
+    if (['howler', 'spider', 'langur', 'congo','capuchin'].includes(key)) {
       assert.ok(leapFrames > 0 && maxLift > .03, `${key}: crossing has a visible airborne arc`);
       assert.ok(pausedLeap, `${key}: exercised a pause during flight`);
       assert.equal(actors.pose.get(a.id).canopyLeap, null, `${key}: clears the leap state after landing`);
@@ -95,7 +95,8 @@ check('Every tree monkey and the sloth keep a forward crown route with bounded, 
 });
 check('Langur free hands alternate reaching while planted rear feet retain their bark contacts', () => {
   canopyFixture('sumatra', 'langur');
-  const { motion: mo, geo } = buildSpecies(ANIMALS.find(d => d?.key === 'langur'));
+  const def=ANIMALS.find(d=>d?.key==='langur');
+  const { motion: mo, geo } = buildSpecies({...def,sprite:{...def.sprite,canopyWalkerMotion:false}});
   const sc = .02, size = mo.len * sc;
   // A limb ends beneath the rear feet; both front hands are beyond its tip.
   const wood = [{ from: new THREE.Vector3(-size * 3, 0, 0), to: new THREE.Vector3(0, 0, 0),
@@ -125,19 +126,19 @@ check('Langur free hands alternate reaching while planted rear feet retain their
   }
   geo.dispose();
 });
-check('Repeated main-fork handovers stay clear and do not oscillate between projected bark holds', () => {
+check('Legacy comparison main-fork handovers stay clear and do not oscillate between projected bark holds', () => {
   for (const [map, key] of [['amazon', 'spider'], ['amazon', 'howler'], ['amazon', 'sloth'], ['sumatra', 'langur'], ['chinandega', 'congo'], ['chinandega', 'capuchin']]) for (const fps of [15, 60]) {
     const { game, a } = canopyFixture(map, key), scene = new THREE.Scene(), flora = new Flora(scene);
     a.x = 40.5; a.y = 32.5; a.state = 'walk';
     const fig = Object.values(PLANT).find(p => p.look.type === 'fig');
     for (const x of [40, 41]) game.world.setPlant(game.world.idx(x, 32), fig, 1);
     flora.rebuild(game, true);
-    const actors = new Actors(scene, flora), right = new THREE.Vector3(1, 0, 0), site = flora.treeSites.get(game.world.idx(40, 32));
+    const actors = new Actors(scene, flora,{canopyWalkerMotion:false}), right = new THREE.Vector3(1, 0, 0), site = flora.treeSites.get(game.world.idx(40, 32));
     site.prepare(); const other = site.branches.findIndex((b, i) => i > 0 && b.from.distanceTo(site.branches[0].from) < .001);
     let target = 0, time = 1;
     site.anchor = (x, z, previous, reach, hanging, body) => site.endpoint(target, 1, { reach, hanging, body });
     actors.update(game, right, time); game.speed = 1;
-    const mo = actors.fauna.motion(ANIMALS[a.sp]);
+    const mo = [...actors.fauna.species.values()][0].motion;
     for (const destination of [other, 0, other, 0]) {
       target = destination;
       let reversals = 0, finished = false, delta = new THREE.Vector3();

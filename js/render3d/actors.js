@@ -17,6 +17,8 @@ import { canopyTile } from './canopy-support.js';
 import { ORANGUTAN_CADENCE } from './orangutan-motion.js';
 import { canopyGrips } from './canopy-grips.js';
 import { SlothBridges, slothBridge } from './sloth-bridge.js';
+import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
+import { isCanopyWalker } from './canopy-walker-profile.js';
 import { ActorView, animalViewRadius } from './actor-view.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
@@ -35,9 +37,10 @@ export function salmonLeap(a, time) {
 }
 
 export class Actors {
-  constructor(scene, flora = null) {
+  constructor(scene, flora = null, { canopyWalkerMotion = true, howlerPrototype } = {}) {
     this.scene = scene;
     this.flora = flora;
+    this.canopyWalkerMotion = howlerPrototype ?? canopyWalkerMotion; this.walkerModels = new WeakMap();
     this.slothBridges = flora ? new SlothBridges(scene, flora) : null;
     this.textures = new Map();
     this.fauna = new Fauna(scene);
@@ -103,7 +106,15 @@ export class Actors {
     this.lastT = time;
     F.begin();
     for (const a of game.wildlife.viewAgents) {
-      const def = drawDef(animalDef(a, game.catalog), a, game.month); // Adult sex traits and seasonal plumage.
+      let def = drawDef(animalDef(a, game.catalog), a, game.month); // Adult sex traits and seasonal plumage.
+      if (isCanopyWalker(def)) {
+        let walker = this.walkerModels.get(def);
+        if (!walker) {
+          walker = { ...def, key: this.canopyWalkerMotion ? def.key : `${def.key}:legacy-motion`, sprite: { ...def.sprite, canopyWalkerMotion: this.canopyWalkerMotion } };
+          this.walkerModels.set(def, walker);
+        }
+        def = walker;
+      }
       seen.add(a.id);
       let st = this.pose.get(a.id);
       const xi = Math.floor(a.x), yi = Math.floor(a.y);
@@ -324,7 +335,37 @@ export class Actors {
             st.canopyQuaternion = null; st.canopyGoal = null; st.gripFeet = null; st.canopyReverse = false; st.slothBridge = null;
             st.canopyProgress = null; st.canopyProgressPose = null; st.canopyWait = 0; st.canopyAvoid = null;
           }
+          const previousWeight = mo.canopyWalkerMotion ? st.howlerBody?.clone() : null;
           const motion = canopyStep(st, anchor, def, game, time, returning || invalidRoute, { x: a.x, z: a.y });
+          // (only while crossing a gap the leap can't clear: see canopyStep)
+          st.walkerClassicTransfer=!!motion.journey&&motion.journey.gap>=1&&!motion.journey.walkerJumpClear&&motion.journey.cursor===motion.journey.gap;
+          const walkerMotion=mo.canopyWalkerMotion&&!st.walkerClassicTransfer;
+          if(mo.canopyWalkerMotion && st.walkerClassicTransfer) {
+            st.howlerBody?.set(0,0,0);st.howlerFinalPose=null;st.howlerForkTurn=false;
+          }
+          if (walkerMotion) {
+            howlerWeight(st, mo, motion.dt, game.speed, firstHold || returning || invalidRoute);
+            // Walking on after a jump is straight branch travel, not a fork turn:
+            // keep the alternating hand/foot sequence instead of paired swings.
+            const afterJump=motion.journey?.gap>=1 && motion.journey.cursor>motion.journey.gap;
+            // Approaching a crossing keeps the paired fork handling its timing is tuned for. Just
+            // landed with a pair unsupported, it re-plants that pair, once and for at most 0.6 s
+            // (paired steps themselves leave a pair lifted, so waiting for both to be planted kept
+            // whole trunk climbs in paired steps). After that, limbs pair only where the walker
+            // turns: a bend just ahead, or a body facing well away from its way on (backwards counts
+            // as aligned, for backing down a trunk; a climbing body sits about .4 off its line).
+            const facing=st.canopyQuaternion&&new THREE.Vector3(1,0,0).applyQuaternion(st.canopyQuaternion);
+            const away=facing&&motion.heading.lengthSq()>1e-10 ? Math.acos(Math.min(1,Math.abs(facing.dot(motion.heading.clone().normalize())))) : 0;
+            const turning=motion.bend>(st.howlerForkTurn?.35:.5)||away>(st.howlerForkTurn?.7:.9);
+            const journey=motion.journey,pairsHeld=st.gripFeet&&st.gripFeet.slice(0,2).some(f=>!f.free&&!f.from)&&st.gripFeet.slice(2).some(f=>!f.free&&!f.from);
+            if(journey&&!afterJump)st.howlerForkTurn=true;
+            else if(afterJump && !journey.regrouped && !pairsHeld && (journey.regroupTime=(journey.regroupTime||0)+motion.dt)<.6) {
+              st.howlerForkTurn=true;st.howlerRegrouping=true;
+            } else if(afterJump&&st.howlerRegrouping) {st.howlerForkTurn=false;st.howlerRegrouping=false;journey.regrouped=true;}
+            else if(afterJump) {journey.regrouped=true;st.howlerForkTurn=turning;}
+            if (game.speed>0)limitHowlerWeight(st, mo, motion.before, st.canopyLeap?.lift || 0, previousWeight,
+              new Set([site, st.branchAt?.site, st.branchRoute?.fromSite, st.branchRoute?.target.site]));
+          }
           if (mo.canopyHanging) slothBridge(st, this.flora, mo.len * sc);
           const route = st.branchRoute;
           if (route && this.flora.treeSites.get(route.fromSite.tile) === route.fromSite) canopySites.add(route.fromSite);
@@ -334,7 +375,8 @@ export class Actors {
           let yaw = Math.atan2(-dir.z, dir.x), sign = 1;
           // Orangutans back down a steep main limb with the head uphill.
           // Turning headfirst swings their long torso into neighbouring forks.
-          if (mo.primate === 2) {
+          // Walker monkeys back down a steep trunk the same way (see canopyStep).
+          if (mo.primate === 2 || mo.canopyWalkerMotion && !st.walkerClassicTransfer) {
             if (st.canopyReverse) { yaw += Math.PI; sign = -1; }
           }
           if (!steering && Math.cos(yaw - yaw0) < 0) { yaw += Math.PI; sign = -1; }
@@ -349,11 +391,25 @@ export class Actors {
           if (settlePose && (game.speed > 0 || firstHold || returning)) {
             const supportSites = new Set([site, st.branchAt?.site, route?.fromSite, route?.target.site]);
             for (const supportSite of supportSites) if (supportSite) canopySites.add(supportSite);
-            const lean = canopyLean(st, mo, supportSites, st.branchSlope || 0, mo.primate === 3 ? gait0 : st.gait,
+            const profile=st.walkerClassicTransfer&&mo.canopyWalkerMotion ? (mo.trunkClamber ||= {...mo,canopyWalkerMotion:false}) : mo;
+            const lean = canopyLean(st, profile, supportSites, st.branchSlope || 0, mo.primate === 3 ? gait0 : st.gait,
               a.fruitMeal ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0, motion.dt, motion.before, motion);
             settleCanopyStep(st, motion);
+            // A blocked step can be rolled back onto the gap (or off it): the grips and pose
+            // must follow where the body actually is.
+            const settled = st.branchRoute;
+            st.walkerClassicTransfer = !!settled && settled.gap >= 1 && !settled.walkerJumpClear && settled.cursor === settled.gap;
             st.branchRoll = lean.roll; st.branchPitch = lean.pitch; st.branchYaw = lean.yaw; branchPitch = lean.pitch;
           }
+          if (walkerMotion && steering) st.howlerBacking = motion.heading.dot(new THREE.Vector3(1,0,0).applyQuaternion(st.canopyQuaternion)) < 0;
+          if (walkerMotion && game.speed > 0) limitHowlerWeight(st, mo, st.branchPoint, st.canopyLeap?.lift || 0, previousWeight,
+            new Set([site, st.branchAt?.site, st.branchRoute?.fromSite, st.branchRoute?.target.site]));
+          if (mo.canopyWalkerMotion) {
+            const final=st.howlerFinalPose,matching=final&&final.site===anchor.site&&final.index===anchor.index&&final.point.distanceTo(anchor.point)<.004;
+            st.howlerResting = !st.branchRoute && st.branchPoint.distanceTo(anchor.point)<.004 &&
+              (!st.canopyGoal || st.canopyQuaternion.angleTo(st.canopyGoal)<.015) && (!matching || st.canopyQuaternion.angleTo(final.pose)<.015);
+          }
+          if (mo.canopyWalkerMotion && st.howlerResting && st.gripFeet?.slice(0,2).some(f=>!f.free&&!f.from) && st.gripFeet.slice(2).some(f=>!f.free&&!f.from)) st.howlerForkTurn=false;
           if (game.speed > 0 && mo.primate === 2) {
             // A deliberate turn is progress too. Watch the accepted body,
             // rather than the simulation agent or a repeatedly replanned route.
@@ -389,6 +445,10 @@ export class Actors {
           ax += o.x; y += o.y; az += o.z;
           if (Math.hypot(o.x, o.y, o.z) < .002) st.shiftOffset = null;
         }
+      }
+      if (st.branch && mo.canopyWalkerMotion && !st.walkerClassicTransfer) {
+        this.holdOffset.copy(st.howlerBody).multiplyScalar(sc).applyQuaternion(st.canopyQuaternion);
+        ax += this.holdOffset.x; y += this.holdOffset.y; az += this.holdOffset.z;
       }
       const eating = mo.primate && a.state === 'primate' && a.fruitMeal;
       const eatPose = eating ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0;

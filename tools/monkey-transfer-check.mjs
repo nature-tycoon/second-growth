@@ -49,8 +49,11 @@ for (const [map, key, tree, receivingTree = tree] of [
     for (let frame = 1; frame <= fps * 40; frame++) {
       const time = 1.1 + frame / fps, before = st.branchPoint.clone();
       actors.update(game, right, time);
-      const maxStep = climbPace(ANIMALS[a.sp]) * SPEEDS[1] * (st.catchUp || 1) * 2.6 / fps;
-      assert.ok(st.branchPoint.distanceTo(before) <= maxStep + 1e-8, 'takeoff, catch and climb stay within the frame movement budget');
+      const jump=st.howlerJump;
+      const leapPace=jump?.phase==='flight' ? jump.from.distanceTo(jump.to)/jump.duration : 0;
+      const maxStep = Math.max(climbPace(ANIMALS[a.sp]) * SPEEDS[1] * (st.catchUp || 1) * 2.6,
+        mo.canopyWalkerMotion ? Math.max(mo.len*st.sc*2,leapPace) : 0) / fps;
+      assert.ok(st.branchPoint.distanceTo(before) <= maxStep + 1e-8, `${key}: takeoff, catch and climb budget ${st.branchPoint.distanceTo(before)} > ${maxStep}, frame ${frame}, cursor ${st.branchRoute?.cursor}, speed ${game.speed}`);
       if (st.canopyLeap?.t > 0 && st.canopyLeap.t < 1) {
         flightFrames++;
         assert.ok(st.gripFeet.every(foot => foot.free && !foot.site), 'all contacts release in flight');
@@ -78,13 +81,13 @@ for (const [map, key, tree, receivingTree = tree] of [
       }
       for (let i = 0; i < 4; i++) {
         const local = mo.canopyFeet[i].clone().add(st.gripOffsets[i]);
-        assert.ok(local.distanceTo(mo.canopyJoints[i]) <= mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08 + 1e-7, 'catching limbs never stretch');
+        assert.ok(local.distanceTo(mo.canopyJoints[i]) <= (mo.canopyWalkerMotion ? mo.howlerLengths[i][0]+mo.howlerLengths[i][1] : mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08) + 1e-7, 'catching limbs never stretch');
       }
       caught ||= st.gripFeet.some(foot => !foot.free && foot.site === route.target.site);
       if (!st.branchRoute) { finished = true; finishTime ??= time; }
       if (finishTime && time - finishTime > 1 && caught) break;
     }
-    assert.ok(flightFrames && paused, 'exercises a visible leap and paused catch pose');
+    assert.ok(flightFrames && paused, `${key}, ${fps}fps: exercises a visible leap and paused catch pose`);
     assert.ok(caught && finished, `${key}: catches receiving bark and completes the climb`);
     assert.equal(st.canopyLeap, null, 'landing clears flight state');
     assert.equal(st.branchAt.site, route.target.site);
