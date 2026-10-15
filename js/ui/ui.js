@@ -39,8 +39,8 @@ const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: 
 const COMPACT = () => innerHeight <= 520;
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const pct = v => Math.round(v * 100) + '%';
-// Only touch the page when something actually changed: every write is a DOM mutation, and session
-// replays record each one (rewriting the same text four times a second made replays too big to open).
+// Only touch the page when something actually changed: every write is a DOM mutation, and the
+// browser restyles and lays out the panels again for each one.
 const setText = (e, v) => { v = String(v); if (e && e.textContent !== v) e.textContent = v; };
 const setHTML = (e, html) => { if (!e || e._html === html) return false; e._html = html; e.innerHTML = html; return true; };
 const setAttr = (e, k, v) => { v = String(v); if (e && e.getAttribute(k) !== v) e.setAttribute(k, v); };

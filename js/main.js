@@ -3,9 +3,9 @@ import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
 import { createFrameLoop } from './frame-loop.js';
-import { PerformanceOverlay } from './performance.js';
-import { settings } from './settings.js';
-import { initAnalytics, analyticsWillRun, track } from './analytics.js';
+import { PerformanceOverlay, probeGpu, weakGpu } from './performance.js';
+import { settings, saveSettings } from './settings.js';
+import { initAnalytics, track } from './analytics.js';
 import { initLang } from './i18n.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
@@ -42,8 +42,16 @@ async function boot() {
     stage('Growing the landscape', 52);
     await nextPaint();
 
-    // session replays can only see the 3D view if its drawing buffer is kept between frames
-    const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog, preserveDrawingBuffer: analyticsWillRun() });
+    // Built-in graphics that run High at about half the frame rate of Fast start on Fast, unless
+    // the player has chosen a Detail level (the step the game would otherwise take only after a
+    // few slow spells). Fast on a computer keeps the screen's sharpness: see Renderer.applySettings.
+    const chip = probeGpu(), touchScreen = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
+    const weak = !touchScreen && weakGpu(chip);
+    if (weak && !settings.qualityChosen && settings.quality !== 'fast') {
+      track('auto_quality', { from: settings.quality, to: 'fast', reason: 'graphics_chip', gpu: chip });
+      settings.quality = 'fast'; saveSettings();
+    }
+    const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog, weakGpu: weak });
     const ui = new UI(game, renderer);
     const input = new Input(game, renderer, ui);
     renderer.resetView();

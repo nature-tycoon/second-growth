@@ -7,6 +7,7 @@ import { faunaMaterial } from './animals/animal-material.js';
 import * as G from './geometry.js';
 import { leafColor, shrubShape } from './flora.js';
 import { plantPhase } from '../data/plants.js';
+import { CHECK_SHADERS } from '../performance.js';
 
 let R = null, scene, camera;
 const W = 320, H = 240;
@@ -15,6 +16,7 @@ function setup() {
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   R = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  R.debug.checkShaderErrors = CHECK_SHADERS;
   R.setPixelRatio(1);
   R.setSize(W, H, false);
   R.outputColorSpace = THREE.SRGBColorSpace;
