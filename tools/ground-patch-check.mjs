@@ -72,6 +72,37 @@ for (const map of ['pnw', 'sumatra', 'chinandega', 'atlanta']) check(map + ': pa
   assert.ok(painted >= 3, `${map}: at least three strokes changed the ground (${painted})`);
 });
 
+for (const map of ['pnw', 'sumatra', 'reef']) check(map + ': a day repainted band by band matches a whole-map repaint', () => {
+  const { game, terrain } = make(map), whole = terrain.TW * terrain.TH;
+  const month = game.month;
+  for (let k = 0; k < 3; k++) game.dailyTick(); // (a few days' growth, shade and water within the month)
+  assert.equal(game.month, month, 'still the same month');
+  const bands = terrain.dayBands(game);
+  assert.ok(bands && bands.length > 1, 'within a month the day goes in bands');
+  for (const band of bands) { terrain.updateSurface(game, band); assert.ok(terrain.lastPaint < whole, 'each band is a patch'); }
+  const banded = { ...snapshot(terrain), quality: terrain.water?.geometry.attributes.aQual?.array.slice() };
+  terrain.updateSurface(game);
+  const full = { ...snapshot(terrain), quality: terrain.water?.geometry.attributes.aQual?.array.slice() };
+  for (const key of Object.keys(full)) {
+    const a = banded[key], b = full[key]; // (the first difference, not a diff of two large arrays)
+    assert.equal(a?.length, b?.length, `${map}/${key} length`);
+    const at = b ? b.findIndex((v, i) => !Object.is(v, a[i])) : -1;
+    assert.equal(at, -1, `${map}/${key} differs at ${at}`);
+  }
+});
+
+check('A new month and season also go in bands, ending as a whole-map repaint', () => {
+  const { game, terrain } = make('pnw'), whole = terrain.TW * terrain.TH;
+  const season = game.season; while (game.season === season) game.dailyTick();
+  for (const band of terrain.dayBands(game)) { terrain.updateSurface(game, band); assert.ok(terrain.lastPaint < whole, 'each band is a patch'); }
+  const banded = snapshot(terrain);
+  terrain.updateSurface(game);
+  const full = snapshot(terrain);
+  for (const key of Object.keys(full)) assert.equal(full[key].findIndex((v, i) => !Object.is(v, banded[key][i])), -1, key);
+  game.world.carve(30, 30, .3); terrain.updateHeights();
+  assert.equal(terrain.dayBands(game), null, 'reshaped land repaints the whole map at once');
+});
+
 check('Only the rows a patch covers are sent to the graphics chip', () => {
   const { game, terrain } = make('pnw');
   assert.ok(paint(game, terrain, 'log', [[30, 30], [32, 31]]), 'the logs went down');

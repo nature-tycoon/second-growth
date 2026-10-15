@@ -20,6 +20,10 @@ import { WATER_FILL } from '../sim/waterline.js';
 const lin = v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
 const hexRgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
 const mixRgb = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+// A ground tile's two triangles: its corners in drawing order (A C B, A D C), as offsets into
+// the corner cycle A B C D, and scratch space for the corner vertex indices (repainting runs
+// over every tile, so it allocates nothing per tile).
+const TRI_CORNER = [0, 2, 1, 0, 3, 2], TRI_VERTS = new Int32Array(6);
 
 // Tint for groundcover: a meadow's color comes from what's growing in it.
 function turfColor(p, month, season, catalog) {
@@ -281,12 +285,13 @@ export class Terrain {
       const td = this.tileData, crisp = t === T.ROAD || t === T.TRAIL || t === T.FIELD;
       td[k * 4] = at.slot; td[k * 4 + 1] = t === T.FIELD ? 0 : (v & 3) * 64; // plowed furrows all run the same way
       td[k * 4 + 2] = crisp ? 0 : 255; td[k * 4 + 3] = 255;
-      const corners = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]];
-      const rot = v & 3;
-      const cA = corners[rot % 4], cB = corners[(rot + 1) % 4], cC = corners[(rot + 2) % 4], cD = corners[(rot + 3) % 4];
-      const o = k * 12;
-      const put = (j, q) => { uv[o + j * 2] = q[0]; uv[o + j * 2 + 1] = q[1]; };
-      put(0, cA); put(1, cC); put(2, cB); put(3, cA); put(4, cD); put(5, cC);
+      // (corners 0-3 of the atlas cell are (r0,r1) (r2,r1) (r2,r3) (r0,r3); the tile's six vertices
+      // take corners A C B A D C, rotated by the variant)
+      const rot = v & 3, o = k * 12;
+      for (let j = 0; j < 6; j++) {
+        const q = (rot + TRI_CORNER[j]) & 3;
+        uv[o + j * 2] = q === 0 || q === 3 ? r[0] : r[2]; uv[o + j * 2 + 1] = q < 2 ? r[1] : r[3];
+      }
     }
     // blend colors at shared corners so neighbouring tiles fade into each other: each corner
     // averages the (up to four) tiles that meet there, worked out once for the whole map
@@ -314,16 +319,18 @@ export class Terrain {
       // crisp surfaces (a one-tile driveway, a trail) keep their own colour instead of taking on the lawn's
       const crisp = this.tileData[k * 4 + 2] === 0;
       const o = k * 18;
-      const put = (j, v) => {
-        if (crisp) { col[o + j * 3] = r0; col[o + j * 3 + 1] = g0; col[o + j * 3 + 2] = b0; return; }
-        col[o + j * 3] = vc[v * 3] * 0.92 + r0 * 0.08; col[o + j * 3 + 1] = vc[v * 3 + 1] * 0.92 + g0 * 0.08; col[o + j * 3 + 2] = vc[v * 3 + 2] * 0.92 + b0 * 0.08;
-      };
-      put(0, a); put(1, c); put(2, b); put(3, a); put(4, d); put(5, c);
+      const corner = TRI_VERTS; corner[0] = corner[3] = a; corner[1] = corner[5] = c; corner[2] = b; corner[4] = d;
+      for (let j = 0; j < 6; j++) {
+        const v = corner[j] * 3, at = o + j * 3;
+        if (crisp) { col[at] = r0; col[at + 1] = g0; col[at + 2] = b0; continue; }
+        col[at] = vc[v] * 0.92 + r0 * 0.08; col[at + 1] = vc[v + 1] * 0.92 + g0 * 0.08; col[at + 2] = vc[v + 2] * 0.92 + b0 * 0.08;
+      }
       // snow affinity, blended at corners like the colours so its edges fade too
       const so = k * 6;
       sa[so] = vs[a]; sa[so + 1] = vs[c]; sa[so + 2] = vs[b]; sa[so + 3] = vs[a]; sa[so + 4] = vs[d]; sa[so + 5] = vs[c];
       const eligible = !game.catalog.definition.look.underwater && bankAllowed(w, B, this.bankTerrainAt, tx + this.X0, ty + this.Y0);
-      for (const [j, v] of [a, c, b, a, d, c].entries()) {
+      for (let j = 0; j < 6; j++) {
+        const v = corner[j];
         shore[k * 12 + j * 2] = eligible ? this.shoreVertices[v * 2] : 0;
         shore[k * 12 + j * 2 + 1] = eligible ? this.shoreVertices[v * 2 + 1] : 0;
       }
@@ -344,6 +351,23 @@ export class Terrain {
       if (span) attr.addUpdateRange(k0 * per, (k1 - k0) * per);
       attr.needsUpdate = true;
     }
+  }
+
+  // A new day's repaint as bands of rows, for the renderer to paint one a frame: a whole-map
+  // repaint is a noticeable pause on older laptops, and a day's growth barely changes a band
+  // before the next one follows. Each band is a patch repaint working from today's month and
+  // season, so once all are done the ground matches a whole-map repaint exactly; a new month or
+  // season goes in bands too (the change sweeps across the land over a few frames). null when
+  // it must all go at once: reshaped land, or nothing painted yet in this world.
+  dayBands(game, count = 4) {
+    if (this.topHv !== this.hv || !this.top || !this.vCol) return null;
+    this.refreshWaterQuality(); // (otherwise only a whole-map repaint refreshes these)
+    this.paintedSeason = game.season; this.paintedMonth = game.month;
+    const rows = Math.ceil(this.TH / count), bands = [];
+    for (let ty = 0; ty < this.TH; ty += rows) {
+      bands.push({ x0: this.X0, y0: this.Y0 + ty, x1: this.X0 + this.TW - 1, y1: this.Y0 + Math.min(this.TH, ty + rows) - 1 });
+    }
+    return bands;
   }
 
   quadMesh(tiles, lift, material, colorFn, alpha = false) {

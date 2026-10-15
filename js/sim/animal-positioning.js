@@ -19,39 +19,53 @@ export function facePoint(a, x, y) {
   if (Math.abs(x - a.x) > 0.02) a.facing = x > a.x ? 1 : -1;
 }
 
-function layer(w, a) {
-  if (a.flying || a.alt > 0.05 || a.leaving) return null;
-  const x = Math.floor(a.x), y = Math.floor(a.y);
-  if (!w.inb(x, y)) return null;
-  const i = w.idx(x, y), def = w.catalog.animals[a.sp];
+const PERCHED_WADERS = new Set(['duck', 'heron', 'crane']);
+// (x, y and grounded: where it would be standing on the ground, without copying the animal)
+function layer(w, a, x = a.x, y = a.y, grounded = false) {
+  if (!grounded && (a.flying || a.alt > 0.05) || a.leaving) return null;
+  const tx = Math.floor(x), ty = Math.floor(y);
+  if (!w.inb(tx, ty)) return null;
+  const i = w.idx(tx, ty), def = w.catalog.animals[a.sp];
   if (def.reef) return 'reef';
   if (a.move === 'tree' || a.move === 'fly' && w.tree[i] && w.treeG[i] > 0.5 &&
-    !['duck', 'heron', 'crane'].includes(def.sprite.kind)) return 'canopy';
+    !PERCHED_WADERS.has(def.sprite.kind)) return 'canopy';
   return isWater(w.terrain[i]) && w.terrain[i] !== T.MARSH ? 'water' : 'ground';
 }
 
+// Spacing is rebuilt twice per wildlife substep (several substeps a frame at the faster speeds), so
+// buckets are keyed by number and their arrays reused, and the neighbours are walked with plain
+// loops rather than a generator: same buckets, same order.
+const bucketKey = (bx, by) => (bx + 32768) * 65536 + by + 32768;
+
 export class AnimalSpacing {
-  constructor() { this.buckets = new Map(); this.entries = []; }
+  constructor() { this.buckets = new Map(); this.entries = []; this.filled = []; this.around9 = []; }
   rebuild(w, agents) {
-    this.w = w; this.buckets.clear(); this.entries.length = 0;
+    this.w = w; this.entries.length = 0;
+    for (const bucket of this.filled) bucket.length = 0;
+    this.filled.length = 0;
     // Three-tile buckets also accommodate the largest boosted reef models.
     for (const a of agents) {
       const band = layer(w, a);
       if (band == null) continue;
       const e = { a, band, r: animalRadius(a, w.catalog), moved: 0 };
       this.entries.push(e);
-      const key = `${Math.floor(a.x / 3)},${Math.floor(a.y / 3)}`;
+      const key = bucketKey(Math.floor(a.x / 3), Math.floor(a.y / 3));
       let bucket = this.buckets.get(key);
       if (!bucket) this.buckets.set(key, bucket = []);
+      if (!bucket.length) this.filled.push(bucket);
       bucket.push(e);
     }
   }
-  *near(x, y) {
+  // The non-empty buckets round (x, y), row by row. Pass `out` when a loop over one call's buckets
+  // could call this again.
+  around(x, y, out = this.around9) {
+    out.length = 0;
     const bx = Math.floor(x / 3), by = Math.floor(y / 3);
     for (let yy = by - 1; yy <= by + 1; yy++) for (let xx = bx - 1; xx <= bx + 1; xx++) {
-      const bucket = this.buckets.get(`${xx},${yy}`);
-      if (bucket) yield* bucket;
+      const bucket = this.buckets.get(bucketKey(xx, yy));
+      if (bucket?.length) out.push(bucket);
     }
+    return out;
   }
   compatible(a, e, band = layer(this.w, a)) {
     return e.a !== a && band === e.band && (band !== 'reef' ||
@@ -60,8 +74,8 @@ export class AnimalSpacing {
   crowd(a, x, y) {
     let cost = 0;
     const r = animalRadius(a, this.w.catalog);
-    const band = layer(this.w, { ...a, x, y, flying: false, alt: 0 });
-    for (const e of this.near(x, y)) if (this.compatible(a, e, band)) {
+    const band = layer(this.w, a, x, y, true);
+    for (const bucket of this.around(x, y)) for (const e of bucket) if (this.compatible(a, e, band)) {
       cost += Math.max(0, r + e.r + 0.04 - Math.hypot(x - e.a.x, y - e.a.y));
     }
     return cost;
@@ -90,7 +104,7 @@ export class AnimalSpacing {
     dx /= d; dy /= d;
     const r = animalRadius(a, this.w.catalog), look = Math.min(d, r * 2 + 0.6);
     let need = [0, 0], any = false; // clearance angle needed passing on the left [0] or the right [1]
-    for (const e of this.near(a.x, a.y)) {
+    for (const bucket of this.around(a.x, a.y)) for (const e of bucket) {
       if (!this.compatible(a, e, band)) continue;
       const ox = e.a.x - a.x, oy = e.a.y - a.y, reach = r + e.r + 0.04;
       const along = ox * dx + oy * dy, lat = oy * dx - ox * dy; // (lat > 0: it's on the left)
@@ -162,7 +176,8 @@ export class AnimalSpacing {
       }
       return true;
     };
-    for (const e of this.entries) for (const f of this.near(e.a.x, e.a.y)) {
+    const near = [];
+    for (const e of this.entries) for (const bucket of this.around(e.a.x, e.a.y, near)) for (const f of bucket) {
       if (e.a.id >= f.a.id || !this.compatible(e.a, f, e.band)) continue;
       const a = e.a, b = f.a;
       if (a.state === 'hunt' && a.target === b.id || b.state === 'hunt' && b.target === a.id) continue;
@@ -201,7 +216,7 @@ export class AnimalSpacing {
 export function shoreSpot(w, a, j, spacing, canStand) {
   if (!canStand(w, j, a) || w.struct[j] >= 0) return null;
   if (a.move === 'fly' && w.tree[j] && w.treeG[j] > 0.5 &&
-    !['duck', 'heron', 'crane'].includes(w.catalog.animals[a.sp].sprite.kind)) return null;
+    !PERCHED_WADERS.has(w.catalog.animals[a.sp].sprite.kind)) return null;
   const x = j % w.w, y = (j / w.w) | 0;
   let best = null, score = Infinity;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {

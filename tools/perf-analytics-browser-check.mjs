@@ -9,7 +9,6 @@ try {
   await b.send('Page.addScriptToEvaluateOnNewDocument', { source: `
     localStorage.setItem('second-growth-settings',JSON.stringify({analytics:true,autosave:false,music:false,nature:false,quality:'fast',qualityChosen:true,dayCycle:false,v:2}));
     sessionStorage.setItem('second-growth-pending',JSON.stringify({map:'pnw',mode:'free',difficulty:'standard'}));
-    sessionStorage.setItem('sg-rec-canvas','0');
     window.perfEvents=[];window.perfIntervals=[];
     window.posthog={__SV:1,init(){},register(){},capture(event,props){window.perfEvents.push({event,props});}};
     const interval=window.setInterval;

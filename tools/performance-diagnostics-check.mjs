@@ -3,7 +3,7 @@ import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
 const { createFrameLoop } = await import('../js/frame-loop.js');
-const { withoutVegetation, renderObjectCounts, PerformancePhases, FrameCpuStats, CPU_STAGES } = await import('../js/performance.js');
+const { withoutVegetation, renderObjectCounts, PerformancePhases, FrameCpuStats, CPU_STAGES, GpuTimer, weakGpu } = await import('../js/performance.js');
 const { Renderer } = await import('../js/render3d/scene.js');
 const { performanceFixture, ecosystemCounts } = await import('./performance-fixtures.mjs');
 let checks = 0;
@@ -16,6 +16,28 @@ check('Frame probes retain uncapped visible stalls and measure phases without ch
   frame(1500); assert.equal(dt, .1); assert.equal(record.interval, 1500); assert.equal(record.work, 8);
   assert.deepEqual(record.timings, { simulation: 3, render: 5 });
   createFrameLoop({ now: 0, targetFps: () => 60, requestFrame: () => {}, clock: () => { throw new Error('Disabled diagnostics measured time'); }, steps: [] })(20);
+});
+check('Built-in graphics that struggle on High are recognised, and capable chips are not', () => {
+  for (const name of ['ANGLE (Intel, Intel(R) HD Graphics 620 (0x00005916) Direct3D11 vs_5_0 ps_5_0, D3D11)', 'ANGLE (Intel, Intel(R) UHD Graphics (0x000046D0) Direct3D11',
+    'ANGLE (Intel, Mesa Intel(R) UHD Graphics 620 (KBL GT2), OpenGL 4.6)', 'ANGLE (AMD, AMD Radeon(TM) Graphics (0x00001638) Direct3D11', 'AMD Radeon R3 Graphics (stoney LLVM 15.0.7)']) assert.ok(weakGpu(name), name);
+  for (const name of [null, 'Apple GPU', 'ANGLE (Intel, Intel(R) Graphics (0x00007D67) Direct3D11', 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics (0x00009A49) Direct3D11',
+    'ANGLE (AMD, AMD Radeon RX 580 Series Direct3D11', 'ANGLE (NVIDIA, NVIDIA GeForce GTX 1650']) assert.ok(!weakGpu(name), name);
+});
+check('The GPU timer times every Nth frame, never waits on an unfinished result and drops disjoint spells', () => {
+  const ext = { TIME_ELAPSED_EXT: 1, GPU_DISJOINT_EXT: 2 }, queries = new Map(); let id = 0, disjoint = false, began = 0;
+  const gl = { QUERY_RESULT_AVAILABLE: 3, QUERY_RESULT: 4, getExtension: () => ext,
+    createQuery: () => { const q = ++id; queries.set(q, { ready: false, ns: 0 }); return q; }, deleteQuery: q => queries.delete(q),
+    beginQuery: () => { began++; }, endQuery() {}, getParameter: p => p === ext.GPU_DISJOINT_EXT && disjoint,
+    getQueryParameter: (q, p) => p === gl.QUERY_RESULT_AVAILABLE ? queries.get(q).ready : queries.get(q).ns };
+  const t = new GpuTimer(gl, 3), frame = () => { t.poll(); t.begin(); t.end(); };
+  for (let k = 0; k < 9; k++) frame();
+  assert.equal(began, 3, 'one frame in three'); assert.equal(t.sample(false).gpu_frames, 0, 'nothing recorded before the chip finishes');
+  for (const q of queries.values()) { q.ready = true; q.ns = 4e6; }
+  frame(); assert.deepEqual(t.sample(), { gpu_frames: 3, gpu_frame_ms: 4, gpu_frame_p95_ms: 4 });
+  assert.equal(queries.size, 0, 'finished queries are released');
+  for (let k = 0; k < 3; k++) frame();
+  disjoint = true; frame(); assert.equal(t.sample().gpu_frames, 0, 'timings across a disjoint spell are dropped'); assert.equal(queries.size, 0);
+  assert.deepEqual(new GpuTimer({ getExtension: () => null }).sample(), { gpu_frames: 0, gpu_frame_ms: null, gpu_frame_p95_ms: null }, 'no timer extension: reported as unknown');
 });
 check('Analytics CPU summaries include means and p95 for every phase across the whole sample window', () => {
   const stats = new FrameCpuStats();
