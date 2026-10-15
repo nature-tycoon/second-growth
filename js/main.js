@@ -5,7 +5,7 @@ import { Input } from './input.js';
 import { createFrameLoop } from './frame-loop.js';
 import { PerformanceOverlay, probeGpu, weakGpu } from './performance.js';
 import { settings, saveSettings } from './settings.js';
-import { initAnalytics, analyticsWillRun, track } from './analytics.js';
+import { initAnalytics, track } from './analytics.js';
 import { initLang } from './i18n.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
@@ -51,8 +51,7 @@ async function boot() {
       track('auto_quality', { from: settings.quality, to: 'fast', reason: 'graphics_chip', gpu: chip });
       settings.quality = 'fast'; saveSettings();
     }
-    // session replays can only see the 3D view if its drawing buffer is kept between frames
-    const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog, preserveDrawingBuffer: analyticsWillRun(), weakGpu: weak });
+    const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog, weakGpu: weak });
     const ui = new UI(game, renderer);
     const input = new Input(game, renderer, ui);
     renderer.resetView();

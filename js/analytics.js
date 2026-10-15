@@ -16,18 +16,6 @@ export const GAME_VERSION = '0.5';
 let started = false;
 const P = () => (started ? window.posthog : null);
 
-// Replays: the page itself (panels, clicks, tools) is recorded for everyone, which is small. The 3D
-// view is only filmed in about one browser session in five, at one frame a second: filming every
-// canvas twice a second made replays hundreds of megabytes and too big to open. The decision sticks
-// for the tab's session so a reload doesn't flip it.
-function canvasSampled() {
-  try {
-    let v = sessionStorage.getItem('sg-rec-canvas');
-    if (v == null) { v = Math.random() < 0.2 ? '1' : '0'; sessionStorage.setItem('sg-rec-canvas', v); }
-    return v === '1';
-  } catch (e) { return false; }
-}
-
 function loadPostHog() {
   // PostHog's standard loader: queues calls until the library arrives from their CDN.
   /* eslint-disable */
@@ -41,22 +29,12 @@ function loadPostHog() {
     autocapture: false,              // we send named game events instead of every click
     capture_pageview: true,
     capture_pageleave: true,
-    disable_session_recording: false, // replays only run if enabled in the PostHog project
-    session_recording: {
-      maskAllInputs: false, maskTextSelector: '.ph-mask',
-      // effects overlay, minimap and charts carry class ph-no-capture and are never filmed
-      ...(canvasSampled() ? { captureCanvas: { recordCanvas: true, canvasFps: 1, canvasQuality: '0.3' } } : {}),
-    },
+    // No session replays: nobody watched them, and filming the 3D view kept its drawing buffer
+    // and read it back from the graphics chip every second, which cost players frame rate.
+    disable_session_recording: true,
   });
-  window.posthog.register({ game_version: GAME_VERSION, replay_canvas: canvasSampled() });
+  window.posthog.register({ game_version: GAME_VERSION });
   return window.posthog;
-}
-
-// Whether this session's replay will film the 3D view (checked before the view is created,
-// because recording a WebGL canvas needs its drawing buffer kept, which costs a little speed).
-export function analyticsWillRun() {
-  const local = ['localhost', '127.0.0.1', ''].includes(location.hostname) && !new URLSearchParams(location.search).has('ph');
-  return !!POSTHOG_KEY && !local && settings.analytics && navigator.doNotTrack !== '1' && canvasSampled();
 }
 
 export function initAnalytics() {
@@ -98,7 +76,7 @@ export function track(event, props = {}) {
 // Player feedback goes straight to PostHog's capture API instead of through the tracking
 // library: it's something the player chose to send, so Do Not Track or opting out of play data
 // shouldn't swallow it, and a failure (an ad blocker, no network) is reported instead of hidden.
-// When analytics is on, it's tied to the player's session so the replay can be found.
+// When analytics is on, it's tied to the player's session so their play data can be found.
 export const feedbackPossible = () => {
   const local = ['localhost', '127.0.0.1', ''].includes(location.hostname) && !new URLSearchParams(location.search).has('ph');
   return !!POSTHOG_KEY && !local;
