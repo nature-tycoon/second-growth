@@ -354,7 +354,12 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
         startPoint: st.branchPoint.clone(), startPose: st.canopyQuaternion?.clone() };
     }
     const route = st.branchRoute;
-    walkerMotion &&= !route || route.gap<1 || route.walkerJumpClear;
+    // (a leap begun on a route since replaced or abandoned would hold its crouch for good)
+    if (st.howlerJump && st.howlerJump.route !== route) st.howlerJump = null;
+    // A gap the leap can't clear is crossed with the classic release and catch, but only the gap:
+    // the walk to it and the climb after it (up or down a caught trunk) keep the walker's own
+    // limbs and gait.
+    walkerMotion &&= !route || route.gap<1 || route.walkerJumpClear || route.cursor!==route.gap;
     journey = route;
     if (def.sprite.kind === 'orangutan' || def.sprite.ape) {
       // Keep intent even when a turn shortens the step, and look only a short
@@ -460,6 +465,8 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
           if ((backDown ? -alignment : alignment) < 0) boost *= Math.min(1, shufflePace / facingPace);
         }
         let step = budget * boost;
+        // (a gap the leap can't clear waits for the classic crossing on the next frame)
+        if(walkerMotion && route.cursor===route.gap && !route.walkerJumpClear) break;
         if(walkerMotion && route.cursor===route.gap) {
           const jumpStep=howlerJumpGate(st,route,dt);
           if(jumpStep!==null){if(!jumpStep)break;step=jumpStep;}

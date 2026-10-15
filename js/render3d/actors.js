@@ -337,7 +337,8 @@ export class Actors {
           }
           const previousWeight = mo.canopyWalkerMotion ? st.howlerBody?.clone() : null;
           const motion = canopyStep(st, anchor, def, game, time, returning || invalidRoute, { x: a.x, z: a.y });
-          st.walkerClassicTransfer=!!motion.journey&&motion.journey.gap>=1&&!motion.journey.walkerJumpClear;
+          // (only while crossing a gap the leap can't clear: see canopyStep)
+          st.walkerClassicTransfer=!!motion.journey&&motion.journey.gap>=1&&!motion.journey.walkerJumpClear&&motion.journey.cursor===motion.journey.gap;
           const walkerMotion=mo.canopyWalkerMotion&&!st.walkerClassicTransfer;
           if(mo.canopyWalkerMotion && st.walkerClassicTransfer) {
             st.howlerBody?.set(0,0,0);st.howlerFinalPose=null;st.howlerForkTurn=false;
@@ -382,6 +383,10 @@ export class Actors {
             const lean = canopyLean(st, profile, supportSites, st.branchSlope || 0, mo.primate === 3 ? gait0 : st.gait,
               a.fruitMeal ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0, motion.dt, motion.before, motion);
             settleCanopyStep(st, motion);
+            // A blocked step can be rolled back onto the gap (or off it): the grips and pose
+            // must follow where the body actually is.
+            const settled = st.branchRoute;
+            st.walkerClassicTransfer = !!settled && settled.gap >= 1 && !settled.walkerJumpClear && settled.cursor === settled.gap;
             st.branchRoll = lean.roll; st.branchPitch = lean.pitch; st.branchYaw = lean.yaw; branchPitch = lean.pitch;
           }
           if (walkerMotion && steering) st.howlerBacking = motion.heading.dot(new THREE.Vector3(1,0,0).applyQuaternion(st.canopyQuaternion)) < 0;

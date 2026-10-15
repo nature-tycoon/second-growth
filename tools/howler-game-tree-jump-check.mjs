@@ -11,6 +11,9 @@ const fps=30,seconds=180;
 // Crowded or unsupported launches may still use the clamber fallback. Require
 // the leap to be a common real-tree behavior, not a single lucky pole-like gap.
 const minimumShare=.4;
+// Only the moment of crossing a gap the leap can't clear uses the classic release and catch;
+// walking up to it and climbing on afterwards (a caught trunk included) keep the walker rig.
+const maximumClassic=.35;
 try {
  for(const speed of [1,2]) {
   const {game}=performanceFixture('amazon','high');
@@ -19,13 +22,14 @@ try {
   const scene=new THREE.Scene(),flora=new Flora(scene);flora.rebuild(game,true);
   const actors=new Actors(scene,flora),right=new THREE.Vector3(1,0,0);
   let time=1;actors.update(game,right,time);game.speed=speed;
-  const crossings=new Map();
+  const crossings=new Map();let moving=0,classic=0;
   for(let frame=0;frame<seconds*fps;frame++) {
    game.day+=SPEEDS[speed]/fps;game.wildlife.update(SPEEDS[speed]/fps);time+=1/fps;
    actors.update(game,right,time);
    for(const a of game.wildlife.agents) {
     if(game.catalog.animals[a.sp]?.key!=='howler')continue;
     const st=actors.pose.get(a.id),route=st?.branchRoute || st?.howlerJump?.route;
+    if(st?.branchRoute){moving++;if(st.walkerClassicTransfer)classic++;}
     if(!route || route.gap<1)continue;
     let sample=crossings.get(route);
     if(!sample)crossings.set(route,sample={trunk:route.trunkTransfer,flight:false,prepare:false,clear:route.walkerJumpClear,ready:null,reach:false});
@@ -42,10 +46,11 @@ try {
    }
   }
   const branch=[...crossings.values()].filter(s=>!s.trunk),flight=branch.filter(s=>s.flight).length;
-  console.log(JSON.stringify({speed,crossings:crossings.size,branches:branch.length,flight,clear:branch.filter(s=>s.clear).length,prepare:branch.filter(s=>s.prepare).length,trunkReach:[...crossings.values()].filter(s=>s.trunk&&s.reach).length}));
+  console.log(JSON.stringify({speed,crossings:crossings.size,branches:branch.length,flight,clear:branch.filter(s=>s.clear).length,prepare:branch.filter(s=>s.prepare).length,trunkReach:[...crossings.values()].filter(s=>s.trunk&&s.reach).length,classicShare:+(classic/Math.max(1,moving)).toFixed(2)}));
   if(!process.argv.includes('--audit')) {
    assert.ok(branch.length>=20,'grown Amazon exercises multiple non-trunk crossings');
    assert.ok(flight>=10 && flight/branch.length>=minimumShare,'at least 40% of all real non-trunk crossings show arms-out flight');
+   assert.ok(moving>1000 && classic/moving<=maximumClassic,`moving howlers keep the walker rig outside unleapable gaps (classic ${classic} of ${moving} frames)`);
   }
   assert.ok([...crossings.values()].some(s=>s.trunk&&s.reach),'grown forest exercises arms-out trunk catches');
   if(process.argv.includes('--audit'))console.log(JSON.stringify(branch.filter(s=>s.prepare&&!s.flight)));

@@ -21,7 +21,7 @@ export function howlerArcHeight(from, to, size) {
 }
 
 export function howlerJumpGate(st, route, dt) {
-  if(route.trunkTransfer || route.walkerReleaseLaunch)return null;
+  if(route.trunkTransfer || route.walkerReleaseLaunch || !route.walkerJumpClear)return null;
   if (route.gap<1 || route.points[route.gap-1].distanceTo(route.points[route.gap])<.025) return null;
   let jump=st.howlerJump;
   if (!jump || jump.route!==route) {

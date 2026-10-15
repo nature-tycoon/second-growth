@@ -211,9 +211,12 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   // Lag alone must not send a monkey through the bark during a turn. Keep
   // its short stall recovery; orangutans always wait for a clear body pose.
   // The howler study keeps clear of wood unless a fork handover has stalled
-  // outright; then it may pass through a little bark rather than freeze.
-  if (mo.canopyWalkerMotion && st.howlerForkTurn && !jumping && st.howlerGripStall > .4 && !(st.canopyForce > 0)) st.canopyForce = .4;
-  const forced = mo.canopyWalkerMotion ? st.howlerForkTurn && !jumping && st.canopyForce > 0
+  // outright, or any step has been blocked for half a second (walking on after
+  // a leap, say); then it may pass through a little bark rather than freeze.
+  // (Without the second case a walker could hold one rejected step for months.)
+  if (mo.canopyWalkerMotion && !jumping && !(st.canopyForce > 0) &&
+    (st.howlerForkTurn && st.howlerGripStall > .4 || st.canopyStall > .5)) st.canopyForce = .4;
+  const forced = mo.canopyWalkerMotion ? !jumping && st.canopyForce > 0
     : mo.primate !== 2 && (st.canopyForce > 0 || (mo.primate !== 1 && st.canopyLag > 1.8));
   if (forced) st.canopyForce -= step;
   if (mo.canopyWalkerMotion) st.howlerTurnBlocked = current &&
