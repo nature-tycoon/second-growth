@@ -29,7 +29,6 @@ Read the decisions in [docs/decisions/](docs/decisions/) before changing the are
 
 - [0001 Nature-driven wildlife](docs/decisions/0001-nature-driven-wildlife.md): the core design rule
 - [0002 Real animal recordings](docs/decisions/0002-real-animal-recordings.md): how to add animal sounds
-- [0003 Canopy locomotion](docs/decisions/0003-canopy-locomotion.md): don't patch monkey glitches, build toward the plan
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
 
