@@ -49,6 +49,27 @@ const independentAge = def => (WITH_MOM[def.key] ? Math.min(WITH_MOM[def.key], d
 // How far (in tiles) an animal that lives alone keeps from others of its kind; 0 for herds and groups.
 const territory = def => def.herd || def.familyHerd || def.patrol || def.reef ? 0 : clamp(Math.sqrt(def.hr) * 0.6, 1, 3);
 
+// Every animal carries the same fields, declared here in one order (unused ones stay undefined).
+// Behaviours add their own state as they go, and without this nearly every animal ended up with
+// a different object layout, so the JavaScript engine fell back to slow lookups for every field
+// read in the movement loop. A field not listed still works, it is only slower to reach.
+class Animal {
+  id; sp; key; move; x; y; tx; ty; path; state; wait; age; facing; phase; hunger; flying; alt;
+  leaving; spawner; juvenile; orientation; moveProgress; bird; birdGoal; birdGround; fruitGoal;
+  drinkAt; fruitMeal; run; rutActive; haremCenter; haremAngle; satelliteSlot; waterTrip; restSpot;
+  follow; wade; forageGoal; fromFire; avoidSide; drinkT; forage; recent; forageAfter; bankGoal;
+  pushX; pushY; thirst; trip; greet; socialWith; socialUntil; localGoal; greetT; goal;
+  birdAlertCheck; sparPath; sparT; sparLight; sparWith; sparAt; play; target; perchedAt; spd; hd;
+  swimT; threat; fleeOff; fx; fy; fleeT; fleeSpeed; fleeDelay; fleeSide; alertT; assist; hunt;
+  foragedAt; huntTime; playT; playN; nestSite; stoop; slot; disperse; alertUntil; carcass; feedAt;
+  feedT; fruitAfter; socialCooldown; familySettled; familyRetryUntil; bachelorSlot; herdOf; mom;
+  momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
+  leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
+  familyBlockedBy; familyBlockedUntil; soaring;
+}
+// (undefined fields are left out of saves and undo snapshots, as before)
+const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
+
 // Young that stay close beside their mother, and for how many years (never past adulthood):
 // bear cubs for a year and a half, fawns and calves through their first year, elephant calves for years.
 // (Rodents, rabbits and birds raise their young in a nest or burrow instead.)
@@ -212,13 +233,13 @@ export class Wildlife {
   // -------------------------------------------------------------- spawning
   spawn(def, x, y, opts = {}) {
     const id = this.nextId++, [ox, oy] = spotIn({ id }, x * 977 + y, true); // (not all on one point: a litter, a flock released together)
-    const a = {
+    const a = Object.assign(new Animal(), {
       id, sp: def.index, key: def.key, move: def.move,
       x: x + 0.5 + ox, y: y + 0.5 + oy, tx: x + 0.5, ty: y + 0.5, path: null,
       state: 'idle', wait: Math.random() * 2, age: opts.age ?? def.mature * DAYS_PER_YEAR * (1 + Math.random() * 2),
       facing: Math.random() < 0.5 ? -1 : 1, phase: Math.random() * 10, hunger: Math.random() * 3,
       flying: false, alt: 0, leaving: false, spawner: !!opts.spawner, juvenile: !!opts.juvenile,
-    };
+    });
     a.orientation = a.phase * Math.PI / 5; // an initial direction without another random draw
     if (opts.flyIn) { a.flying = true; a.alt = 1; a.state = 'fly'; a.tx = x + 0.5; a.ty = y + 0.5; a.x = opts.fromX; a.y = opts.fromY; }
     this.agents.push(a);
@@ -1761,7 +1782,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, ...a }) => ({ ...a, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, ...a }) => saved({ ...a, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,
@@ -1771,7 +1792,7 @@ export class Wildlife {
     this.spacingDirty = true;
     this.carcasses = [];
     this.flyovers = []; this.passageWait = 8 + Math.random() * 10;
-    this.agents = d.agents.map(a => ({ ...a, moveProgress: null, fruitGoal: null, forageGoal: null, forage: null, state: a.state === 'walk' || a.state === 'forage' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
+    this.agents = d.agents.map(a => Object.assign(new Animal(), a, { moveProgress: null, fruitGoal: null, forageGoal: null, forage: null, state: a.state === 'walk' || a.state === 'forage' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
       wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5 }));
     this.nextId = d.nextId;
     d.state.forEach((s, k) => { if (this.state[k]) Object.assign(this.state[k], s); });

@@ -18,7 +18,7 @@ import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
-import { FrameCpuStats, CPU_STAGES } from '../performance.js';
+import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS } from '../performance.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 
 const EL = THREE.MathUtils.degToRad(34);
@@ -80,6 +80,7 @@ export class Renderer {
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
+    this.gl.debug.checkShaderErrors = CHECK_SHADERS;
     // (submit: the gl.render call alone, part of render. The rest of render is getting the frame
     // ready, plants above all, so a slow laptop shows which side of the hand-off holds it up.)
     this.cpuPerf = new FrameCpuStats([...CPU_STAGES, 'submit']);

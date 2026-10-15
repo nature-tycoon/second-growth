@@ -1,5 +1,10 @@
 // Lightweight frame CPU summaries; deeper diagnostics remain opt-in.
 // No GPU synchronization or method wrapping during normal play.
+// Checking every shader for compile errors makes the browser finish compiling it then and there,
+// a hitch each time a new material first draws. Players can't act on the log, so only local
+// development and the checks keep it.
+export const CHECK_SHADERS = typeof location === 'undefined' || ['localhost', '127.0.0.1', ''].includes(location.hostname);
+
 // Planting now measures the complete production action, including Undo history.
 export const PERFORMANCE_BENCHMARK_REVISION = 'ecosystem-profile-2';
 export const percentile = (values, p) => values.length
