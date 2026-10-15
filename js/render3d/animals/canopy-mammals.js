@@ -1,4 +1,5 @@
 // Primate, sloth and pangolin models.
+import { canopyWalkerBends } from '../canopy-walker-profile.js';
 import { P, SCALE, SPH_HI, col, eyes, grad, hash3, locks, loftBody, place, shade, smooth, tmp, tube } from './model-core.js';
 
 // Sumatran orangutan, clambering over the top of the canopy: no branch of its own (it's drawn on
@@ -239,17 +240,20 @@ function monkey(m, s, onBranches = false) {
     if (!long) m.ell([hp[0] + hr * 0.3, hp[1] - hr * 0.85, 0], [hr * 0.6, hr * 0.6, hr * 0.62], shade(s.color, 0.08), hd); // howler's beard
     eyes(m, hp, hr * 0.78, hr * 0.15, hr * 0.35, hr * 0.12, P.HEAD, neck, '#3a2210');
   }
+  const bends = canopyWalkerBends(L, by / L);
   for (const side of [1, -1]) {
     const sh = [L * 0.22, by + L * 0.06, side * L * 0.1], fl = { part: side > 0 ? P.LEG_FL : P.LEG_FR, pivot: sh };
-    const el = [L * 0.26, by * 0.5, side * L * 0.12];
+    const el = s.canopyWalkerMotion ? bends[side > 0 ? 0 : 1] : [L * 0.26, by * 0.5, side * L * 0.12];
     m.limb(sh, el, L * 0.065, L * 0.05, limbC, fl);
-    m.limb(el, [L * 0.3, L * 0.04, side * L * stance], L * 0.05, L * 0.04, limbC, fl);
-    m.ell([L * 0.32, L * 0.03, side * L * stance], [L * 0.06, L * 0.03, L * 0.045], hands, { ...fl, lo: true });
+    const fore = s.canopyWalkerMotion ? { ...fl, pivot: el } : fl;
+    m.limb(el, [L * 0.3, L * 0.04, side * L * stance], L * 0.05, L * 0.04, limbC, fore);
+    m.ell([L * 0.32, L * 0.03, side * L * stance], [L * 0.06, L * 0.03, L * 0.045], hands, { ...fore, lo: true });
     const hip = [-L * 0.26, by, side * L * 0.1], hl = { part: side > 0 ? P.LEG_BL : P.LEG_BR, pivot: hip };
-    const kn = [-L * 0.16, by * 0.52, side * L * 0.13];
+    const kn = s.canopyWalkerMotion ? bends[side > 0 ? 2 : 3] : [-L * 0.16, by * 0.52, side * L * 0.13];
     m.limb(hip, kn, L * 0.08, L * 0.055, limbC, hl);
-    m.limb(kn, [-L * 0.24, L * 0.04, side * L * stance], L * 0.055, L * 0.04, limbC, hl);
-    m.ell([-L * 0.2, L * 0.03, side * L * stance], [L * 0.07, L * 0.03, L * 0.045], hands, { ...hl, lo: true });
+    const shin = s.canopyWalkerMotion ? { ...hl, pivot: kn } : hl;
+    m.limb(kn, [-L * 0.24, L * 0.04, side * L * stance], L * 0.055, L * 0.04, limbC, shin);
+    m.ell([-L * 0.2, L * 0.03, side * L * stance], [L * 0.07, L * 0.03, L * 0.045], hands, { ...shin, lo: true });
   }
   if (s.shortTail) {
     // a short, thin tail arching up and over like a pig's

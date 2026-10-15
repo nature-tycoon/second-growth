@@ -1,53 +1,34 @@
 import * as THREE from 'three';
 import { SPEEDS } from '../config.js';
-import { woodDistance } from './wood-clearance.js';
+import { barkGrip } from './bark-grip.js';
+export { barkGrip } from './bark-grip.js';
+import { howlerGrips } from './howler-grips.js';
+import { howlerJumpGrips } from './howler-jump.js';
 
-const near = new THREE.Vector3(), radial = new THREE.Vector3(), desired = new THREE.Vector3();
+const desired = new THREE.Vector3();
 const inverse = new THREE.Matrix4(), forward = new THREE.Vector3();
 const local = new THREE.Vector3(), air = new THREE.Vector3();
 const surfaces = new WeakMap();
-
-export function barkGrip(point, wood, triangles = [], owners = null) {
-  let best = Infinity, grip = point.clone();
-  if (!wood.length) for (const triangle of triangles) {
-    triangle.closestPointToPoint(point, near);
-    const distance = near.distanceToSquared(point);
-    if (distance < best) { best = distance; grip.copy(near); grip.canopySite = triangle.canopySite; }
-  }
-  for (const b of wood) {
-    const along = radial.copy(point).sub(b.from).dot(b.dir), t = THREE.MathUtils.clamp(along / b.length, 0, 1);
-    near.copy(b.from).lerp(b.to, t);
-    radial.copy(point).sub(near).addScaledVector(b.dir, -radial.dot(b.dir));
-    const radius = THREE.MathUtils.lerp(b.r0, b.r1, t);
-    if (along < 0 || along > b.length) radial.clampLength(0, radius);
-    else {
-      if (radial.lengthSq() < 1e-10) radial.copy(b.up);
-      radial.normalize().multiplyScalar(radius);
-    }
-    const candidate = near.clone().add(radial);
-    const distance = candidate.distanceToSquared(point);
-    if (distance >= best || wood.some(other => woodDistance(candidate, other) < -.001)) continue;
-    best = distance; grip = candidate; grip.canopySite = owners?.get(b);
-  }
-  return Number.isFinite(best) ? grip : null;
-}
 
 // Count physically reachable contacts for a proposed torso pose. This is
 // separate from planted state: free limbs still need time to reach those holds.
 export function canopyContactCount(profile, point, pose, wood) {
   const { motion: mo, scale } = profile;
   const origin = new THREE.Vector3(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0), inversePose = pose.clone().invert();
-  let contacts = 0;
+  let contacts = 0, front = 0, rear = 0;
   for (let i = 0; i < 4; i++) {
     const rest = mo.canopyFeet[i].clone().sub(origin).multiplyScalar(scale).applyQuaternion(pose).add(point);
     const grip = barkGrip(rest, wood);
     if (!grip) continue;
     grip.sub(point).applyQuaternion(inversePose).divideScalar(scale).add(origin);
-    if (grip.distanceTo(mo.canopyJoints[i]) <= mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08 &&
-        grip.distanceTo(mo.canopyFeet[i]) <= mo.len * (mo.canopyFootReach?.[i] ?? (i < 2 ? .24 : .18)) &&
-        (mo.canopyHanging ? grip.y <= mo.canopyFeet[i].y + mo.len * .04 : grip.y >= -mo.len * .04)) contacts++;
+    const reach = mo.canopyWalkerMotion ? mo.howlerLengths[i][0]+mo.howlerLengths[i][1]-.0001 : mo.canopyFeet[i].distanceTo(mo.canopyJoints[i]) * 1.08;
+    if (grip.distanceTo(mo.canopyJoints[i]) <= reach &&
+        grip.distanceTo(mo.canopyFeet[i]) <= mo.len * (mo.canopyWalkerMotion ? .4*(mo.canopyReachScale || 1) : mo.canopyFootReach?.[i] ?? (i < 2 ? .24 : .18)) &&
+        (mo.canopyHanging ? grip.y <= mo.canopyFeet[i].y + mo.len * .04 : grip.y >= -mo.len * (mo.canopyWalkerMotion ? .14 : .04))) {
+      contacts++; if(i<2)front++;else rear++;
+    }
   }
-  return contacts;
+  return mo.canopyWalkerMotion && (!front || !rear) ? 0 : contacts;
 }
 
 // Keep a bark contact while it is within the limb's reach. Rear feet can
@@ -71,7 +52,7 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
   inverse.copy(matrix).invert(); forward.set(1, 0, 0).transformDirection(matrix);
   const size = mo.len * st.sc;
   const rests = mo.canopyFeet.map(p => p.clone().applyMatrix4(matrix));
-  const reach = mo.canopyFeet.map((p, i) => p.distanceTo(mo.canopyJoints[i]) * 1.08);
+  const reach = mo.canopyFeet.map((p, i) => mo.canopyWalkerMotion ? mo.howlerLengths[i].reduce((a, b) => a + b, 0) - .0001 : p.distanceTo(mo.canopyJoints[i]) * 1.08);
   const hanging = !!mo.canopyHanging;
   const reachable = (point, i) => {
     local.copy(point).applyMatrix4(inverse);
@@ -87,7 +68,15 @@ export function canopyGrips(st, mo, sites, matrix, time, speed, reset = false) {
     });
     st.gripSwing = -1; st.gripNext = 0;
   }
+  if (mo.canopyWalkerMotion && !st.walkerClassicTransfer) return howlerGrips(st, mo, matrix, dt, fresh,
+    point => barkGrip(point, wood, triangles, owners));
   if (st.canopyLeap && st.canopyLeap.t > 0 && st.canopyLeap.t < 1) {
+    if(mo.canopyWalkerMotion && st.branchRoute?.trunkTransfer) {
+      if(!dt&&!fresh)return st.gripOffsets;
+      const route=st.branchRoute;
+      if(st.howlerTrunkReach?.route!==route)st.howlerTrunkReach={route,phase:'flight',elapsed:0};
+      return howlerJumpGrips(st,mo,matrix,point=>barkGrip(point,wood,triangles,owners),dt,st.howlerTrunkReach);
+    }
     // Release all four contacts on takeoff. Tuck the rear feet and reach
     // forward with the hands as the body descends toward the landing branch.
     const t = st.canopyLeap.t, tuck = Math.sin(Math.PI * t);

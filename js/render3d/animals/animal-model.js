@@ -9,10 +9,12 @@ import { MAMMALS, sumatranElephant, sumatranRhino, tiger } from './quadrupeds.js
 import { BIRDS, bird } from './birds.js';
 import { bat, bee, beetle, butterfly } from './winged-animals.js';
 import { person } from './people.js';
+import { howlerRig } from '../howler-motion.js';
+import { canopyWalkerBends, isCanopyWalker } from '../canopy-walker-profile.js';
 
 // Returns static geometry and movement metadata. The caller owns the returned geometry.
 export function buildSpecies(def) {
-  const s = def.sprite, m = new Model();
+  const s = { ...def.sprite, canopyWalkerMotion: isCanopyWalker(def) && def.sprite.canopyWalkerMotion !== false }, m = new Model();
   const mo = { leg: 0.55, bob: 0, tail: 0.25, flap: 1.6, wave: 0, waveK: 0, waveHead: 0, waveLen: 1, sink: 0, len: s.len || s.size };
   switch (s.kind) {
     case 'squirrel': squirrel(m, s); mo.leg = 0.45; mo.bob = 1.1; mo.sink = 3; break;
@@ -99,6 +101,10 @@ export function buildSpecies(def) {
     mo.canopyFeet = [[.32, 0, .04], [.32, 0, -.04], [-.2, 0, .04], [-.2, 0, -.04]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
     const height = s.long ? .62 : .45;
     mo.canopyJoints = [[.22, height + .06, .1], [.22, height + .06, -.1], [-.26, height, .1], [-.26, height, -.1]].map(p => new THREE.Vector3(...p).multiplyScalar(s.len));
+    mo.canopyWalkerMotion = s.canopyWalkerMotion;
+    mo.canopyReachScale = height / .45;
+    mo.canopyTurnLead = s.long ? 1.35 : .85;
+    if (mo.canopyWalkerMotion) howlerRig(mo);
   }
   if (def.move === 'tree' && mo.primate === 2) {
     // Actual curled finger/toe contacts, and the shoulders/hips above them.
@@ -144,10 +150,10 @@ export function buildSpecies(def) {
 function feedingPose(geo, s, onBranches) {
   const L = s.len, ape = !!s.ape, orang = s.kind === 'orangutan', by = s.long ? .62 : .45;
   const shoulder = orang ? [.07, .56, .13 * (s.flanged ? 1.15 : 1)] : ape ? [.04, .84, -.1] : [.22, by + .06, .1];
-  const elbow = orang ? [.19, .31, .15] : ape ? [.32, .8, -.18] : [.26, by * .5, .12];
+  const elbow = orang ? [.19, .31, .15] : ape ? [.32, .8, -.18] : s.canopyWalkerMotion ? canopyWalkerBends(1,by)[0] : [.26, by * .5, .12];
   const hand = orang ? [.3, .06, .14] : ape ? [.6, 1.02, -.1] : [.32, .03, onBranches ? .04 : .12];
   const target = orang ? [.32, .615, .09] : ape ? [.28, .95, -.08] : [s.shortTail ? .59 : .55, by + .19, .08];
-  poseArm(geo, P.LEG_FL, L, shoulder, elbow, hand, target, 'aExt', 'aExtN', ape ? 0 : 1);
+  poseArm(geo, P.LEG_FL, L, shoulder, elbow, hand, target, 'aExt', 'aExtN', ape ? 0 : 1, s.canopyWalkerMotion);
   const pos = geo.attributes.position, ext = geo.attributes.aExt, part = geo.attributes.aPart;
   for (let i = 0; i < pos.count; i++) if (part.getX(i) === P.FRUIT) {
     // Keep the fruit just beyond the fingers instead of rotating it inside the face.
@@ -164,7 +170,7 @@ function swingPoses(geo, L) {
 }
 
 // Two-bone elbow bend baked into an alternate pose, including matching normals.
-function poseArm(geo, id, L, shoulder, elbow, hand, target, positions, normals, axis) {
+function poseArm(geo, id, L, shoulder, elbow, hand, target, positions, normals, axis, rigid = false) {
   const a = Math.hypot(elbow[0] - shoulder[0], elbow[1] - shoulder[1]), b = Math.hypot(hand[0] - elbow[0], hand[1] - elbow[1]);
   const dx = target[0] - shoulder[0], dy = target[1] - shoulder[1], d = Math.min(a + b - .001, Math.max(Math.abs(a - b) + .001, Math.hypot(dx, dy)));
   const angle = Math.atan2(dy, dx) - Math.acos(THREE.MathUtils.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1));
@@ -177,6 +183,10 @@ function poseArm(geo, id, L, shoulder, elbow, hand, target, positions, normals, 
     const x = pos.getX(i) / L, y = pos.getY(i) / L, z = pos.getZ(i) / L;
     let t = smooth(elbow[axis] - .03, elbow[axis] + .03, axis === 0 ? x : y);
     if (hand[axis] < shoulder[axis]) t = 1 - t;
+    if(rigid) {
+      const pivot=geo.attributes.aPivot;
+      t=Math.hypot(pivot.getX(i)/L-elbow[0],pivot.getY(i)/L-elbow[1],pivot.getZ(i)/L-elbow[2])<.001?1:0;
+    }
     const transform = (ox, oy, tx, ty, angle) => [tx + (x - ox) * Math.cos(angle) - (y - oy) * Math.sin(angle), ty + (x - ox) * Math.sin(angle) + (y - oy) * Math.cos(angle)];
     const u = transform(shoulder[0], shoulder[1], shoulder[0], shoulder[1], upper), v = transform(elbow[0], elbow[1], e[0], e[1], lower);
     const reach = Math.min(1, Math.hypot(x - shoulder[0], y - shoulder[1]) / Math.hypot(hand[0] - shoulder[0], hand[1] - shoulder[1]));

@@ -1,6 +1,7 @@
 // GPU animal animation; consumes geometry attributes and movement metadata.
 import * as THREE from 'three';
 import { SIAMANG_SWING_GLSL } from '../siamang-swing.js';
+import { HOWLER_JOINT_GLSL } from '../howler-motion.js';
 
 // ---------------------------------------------------------------- material with the animation shader
 export function faunaMaterial(motion) {
@@ -14,17 +15,22 @@ export function faunaMaterial(motion) {
     uVerticalWave: { value: motion.verticalWave ?? 0 }, uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uWaveRest: { value: motion.waveRest ?? .35 }, uTongue: { value: motion.tongue ?? 0 }, uBend: { value: motion.bend ?? 0 },
     uSlither: { value: motion.slither?.amp ?? 0 }, uSlitherLen: { value: motion.slither?.len ?? 1 }, uSlitherNose: { value: motion.slither?.nose ?? 0 },
   };
+  if (motion.canopyWalkerMotion) Object.assign(u, {
+    uHowlerRoots: { value: motion.howlerRoots }, uHowlerBends: { value: motion.howlerBends }, uHowlerTips: { value: motion.howlerTips },
+  });
   mat.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
       attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim;
       ${motion.primate === 3 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
       ${motion.canopyFeet ? 'attribute vec4 aGripA; attribute vec4 aGripB; attribute vec4 aGripC;' : ''}
+      ${motion.canopyWalkerMotion ? 'uniform vec3 uHowlerRoots[4], uHowlerBends[4], uHowlerTips[4];' : ''}
       uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan, uSlither, uSlitherLen, uSlitherNose;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
       vec3 rotY(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c); }
       vec3 rotZ(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c - q.y * s, q.x * s + q.y * c, q.z); }
       ${SIAMANG_SWING_GLSL}
+      ${motion.canopyWalkerMotion ? HOWLER_JOINT_GLSL : ''}
       // Serpentine crawl: the model's resting S travels tailward as fast as the snake moves forward
       // (the actor advances the phase by distance, in the fly slot), so each bend stays put on the
       // ground while the body flows through it. A stopped snake holds its shape. Each slice of the
@@ -89,11 +95,13 @@ export function faunaMaterial(motion) {
               ${motion.canopyFeet ? `
               vec3 grip = aPart < 1.5 ? aGripA.xyz : aPart < 2.5 ? vec3(aGripA.w, aGripB.xy) : aPart < 3.5 ? vec3(aGripB.zw, aGripC.x) : aGripC.yzw;
               if (aAnim.w < -.5) {
+                ${motion.canopyWalkerMotion ? 'howlerLimb(p,n,grip);' : `
                 p = position + grip * weight;
                 float t = clamp((position.y - .04 * uLength) / (aPivot.y - .04 * uLength), 0.0, 1.0);
                 float derivative = -6.0 * t * (1.0 - t) / (aPivot.y - .04 * uLength);
                 n.y -= derivative * dot(grip, n) / max(.2, 1.0 + grip.y * derivative);
                 n = normalize(n);
+                `}
               }` : ''}
             }
             if (aPart < 1.5) { float bite = smoothstep(0.0, 1.0, fly); p = mix(p, aExt, bite); n = normalize(mix(n, aExtN, bite)); }
@@ -154,6 +162,6 @@ export function faunaMaterial(motion) {
         }
       `);
   };
-  mat.customProgramCacheKey = () => `fauna:${motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'clamber' : 'base'}${motion.billSweep ? ':bill-sweep' : ''}`;
+  mat.customProgramCacheKey = () => `fauna:${motion.canopyWalkerMotion ? 'canopy-walker-joints' : motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'clamber' : 'base'}${motion.billSweep ? ':bill-sweep' : ''}`;
   return mat;
 }

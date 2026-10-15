@@ -39,7 +39,7 @@ check('Thick, opposing main limbs route outside the trunk at the shared fork', (
   }
   geo.dispose();
 });
-check('Rendered primate torsos clear a real main-branch/trunk crossing, including the swinging body', () => {
+check('Legacy comparison and swinging primate torsos clear a real main-branch/trunk crossing, including the swinging body', () => {
   const failures = [];
   for (const key of ['spider', 'orangutan', 'siamang']) for (const growth of [.55, 1]) {
     const { game, a } = canopyFixture(key === 'spider' ? 'amazon' : 'sumatra', key, growth);
@@ -49,7 +49,7 @@ check('Rendered primate torsos clear a real main-branch/trunk crossing, includin
     for (const x of [40, 41]) game.world.setPlant(game.world.idx(x, 32), PLANT.fig, growth);
     a.x = 40.5; a.y = 32.5;
     const scene = new THREE.Scene(), flora = new Flora(scene); flora.rebuild(game, true);
-    const actors = new Actors(scene, flora), site = flora.treeSites.get(game.world.idx(40, 32)); site.prepare();
+    const actors = new Actors(scene, flora,{canopyWalkerMotion:false}), site = flora.treeSites.get(game.world.idx(40, 32)); site.prepare();
     let target = 0;
     site.anchor = (x, z, previous, reach, hanging, body) => site.endpoint(target, 1, { reach, hanging, body });
     const right = new THREE.Vector3(1, 0, 0); actors.update(game, right, 1); game.speed = 1; target = 5;
