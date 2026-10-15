@@ -641,14 +641,25 @@ export class Renderer {
     // (on the Fast setting the ground and plants catch up at a gentler pace, since each rebuild
     // is a noticeable pause on a phone)
     const light = this.light;
-    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (game.speed >= 2 ? 1200 : 600) : game.speed >= 2 ? 250 : 0)))) { surface = true; this.dayDirty = 0; }
-    let patch = null;
+    // Within a month the day's repaint goes a band of rows a frame (Terrain.dayBands), rather than
+    // the whole map in one long frame.
+    let patch = null, band = false, newDay = false;
+    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (game.speed >= 2 ? 1200 : 600) : game.speed >= 2 ? 250 : 0)))) {
+      surface = newDay = true; this.dayDirty = 0;
+      this.groundBands = swapped ? null : this.terrain.dayBands(game);
+    } else if (this.groundBands?.length && !this.editDirty) surface = true;
+    if (surface && this.groundBands?.length) { patch = this.groundBands.shift(); band = true; }
     if (this.editDirty) {
       // (just the edited patch, unless something else this frame needs the whole map)
       if (!surface && this.editArea && this.editArea !== 'all') patch = this.editArea;
+      else if (surface) { patch = null; band = false; this.groundBands = null; }
       surface = flora = true; this.editDirty = false; this.editArea = null; this.terrain.refreshWater();
     }
-    if (surface) { this.terrain.updateSurface(game, patch); this.syncStructures(); this.lastSurface = now; }
+    if (surface) {
+      this.terrain.updateSurface(game, patch);
+      if (!band || newDay) this.syncStructures(); // (buildings once a day, not once a band)
+      this.lastSurface = now;
+    }
     if (flora) this.floraPending = true;
     // Player edits must not wait for the growth cooldown or an idle surface frame: a continuous
     // stroke repaints ground every frame and used to prevent any plants from catching up.

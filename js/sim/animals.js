@@ -183,23 +183,29 @@ export class Wildlife {
   computeSuitability() {
     const w = this.game.world;
     this.updateGlobals();
+    // What every species' loop asks of a tile besides its own suitability, read once rather than
+    // once per species: 1 burning, 2 flooded, 4 river, 8 creek.
+    const n = w.n, tile = this.tileFlags?.length === n ? this.tileFlags : (this.tileFlags = new Uint8Array(n));
+    for (let i = 0; i < n; i++) {
+      const t = w.terrain[i];
+      tile[i] = (w.fire[i] ? 1 : w.flood[i] ? 2 : 0) | (t === T.RIVER ? 4 : t === T.CREEK ? 8 : 0);
+    }
+    const disturb = w.disturb;
     for (const def of this.game.catalog.animals) {
       const map = this.suit[def.index];
       let sum = 0, calmSum = 0, rawSum = 0, salmonHabitat = 0;
       // The river is the neighbours' habitat: animals pass through it, but it counts little toward what lives here.
-      const shy = def.shy, onLand = def.move === 'ground';
-      for (let i = 0; i < w.n; i++) {
-        const raw = def.suit(w, i);
+      const shy = def.shy, onLand = def.move === 'ground', salmon = def.special === 'salmon';
+      for (let i = 0; i < n; i++) {
+        const raw = def.suit(w, i), f = tile[i];
         let calm = raw;
-        let s = raw * (1 - shy * w.disturb[i]);
-        if (w.fire[i]) s = 0;
-        else if (w.flood[i] && onLand) s *= 0.15;
-        if (w.fire[i]) calm = 0;
-        else if (w.flood[i] && onLand) calm *= 0.15;
+        let s = raw * (1 - shy * disturb[i]);
+        if (f & 1) { s = 0; calm = 0; }
+        else if (f & 2 && onLand) { s *= 0.15; calm *= 0.15; }
         map[i] = s;
-        const weight = w.terrain[i] === T.RIVER ? 0.12 : 1;
+        const weight = f & 4 ? 0.12 : 1;
         sum += s * weight; calmSum += calm * weight; rawSum += raw * weight;
-        if (def.special === 'salmon' && s > 0.25 && w.terrain[i] === T.CREEK) salmonHabitat++;
+        if (salmon && s > 0.25 && f & 8) salmonHabitat++;
       }
       const st = this.state[def.index];
       st.suitSum = sum;

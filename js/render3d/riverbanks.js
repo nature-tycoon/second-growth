@@ -114,21 +114,21 @@ export class Riverbanks {
     this.version++;
     this.month = month;
     // Only the bank tiles' planting and feature changes require re-scattering.
+    // (checked on every ground repaint, so it allocates nothing per tile)
     let key = 2166136261 ^ month;
+    const mix = n => { key = Math.imul(key ^ n, 16777619) >>> 0; };
     for (const [x, z] of this.cells || []) {
       const inside = this.world.inb(x, z), i = inside ? this.world.idx(x, z) : this.border.bi(x, z);
       const source = inside ? this.world : this.border;
       if (i < 0) continue;
-      for (const n of [this.terrainAt(x, z), inside ? this.world.feature[i] : 0,
-        inside ? this.world.struct[i] : -1, source.ground[i], inside ? Math.round(this.world.groundG[i] * 16) : 16]) {
-        key = Math.imul(key ^ n, 16777619) >>> 0;
-      }
+      mix(this.terrainAt(x, z)); mix(inside ? this.world.feature[i] : 0); mix(inside ? this.world.struct[i] : -1);
+      mix(source.ground[i]); mix(inside ? Math.round(this.world.groundG[i] * 16) : 16);
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         const xx = x + dx, zz = z + dz, within = this.world.inb(xx, zz);
         const j = within ? this.world.idx(xx, zz) : this.border.bi(xx, zz), s = within ? this.world : this.border;
         if (j >= 0) {
-          for (const n of [s.tree[j], Math.round(s.treeG[j] * 16), this.terrainAt(xx, zz),
-            within ? this.world.feature[j] : 0, within ? this.world.struct[j] : -1]) key = Math.imul(key ^ n, 16777619) >>> 0;
+          mix(s.tree[j]); mix(Math.round(s.treeG[j] * 16)); mix(this.terrainAt(xx, zz));
+          mix(within ? this.world.feature[j] : 0); mix(within ? this.world.struct[j] : -1);
         }
       }
     }

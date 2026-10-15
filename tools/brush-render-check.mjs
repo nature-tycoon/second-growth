@@ -40,6 +40,8 @@ function fixture(light, speed = 0) {
     terrain: { hv: w.hv, refreshWater() {}, refreshFlood() {},
       updateHeights() { this.hv = w.hv; },
       updateSurface(g, patch) { paints.push(patch ? { ...patch } : null); },
+      // (a day's repaint in four bands of rows, as the real terrain does within a world)
+      dayBands() { return [0, 1, 2, 3].map(k => ({ x0: 0, y0: k * w.h / 4, x1: w.w - 1, y1: (k + 1) * w.h / 4 - 1, band: k })); },
     },
   });
   const actions = new ToolActions(game, { refreshEnvironment: false });
@@ -127,8 +129,15 @@ check('Daily growth still waits for its normal cooldown when the player is not e
   assert.equal(flora.lastRebuild, initial, 'growth does not rebuild on every frame');
   r.refreshWorld(game, false, 2201);
   assert.equal(paints.length, 1, 'ground refreshes at its existing growth cadence');
+  assert.equal(paints[0].band, 0, 'a day repaints the ground a band at a time');
   assert.equal(flora.lastRebuild, initial, 'ground and background plants use different frames');
-  r.refreshWorld(game, false, 2234);
+  for (let k = 1; k < 4; k++) {
+    r.refreshWorld(game, false, 2201 + k * 33);
+    assert.equal(paints.at(-1).band, k, 'the next band follows on the next frame, without a cooldown');
+    assert.equal(flora.lastRebuild, initial, 'plants wait for the ground to finish');
+  }
+  r.refreshWorld(game, false, 2366);
+  assert.equal(paints.length, 4, 'the ground is done');
   assert.notEqual(flora.lastRebuild, initial, 'plants then catch up');
 });
 
