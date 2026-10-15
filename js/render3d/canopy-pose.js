@@ -59,6 +59,7 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   if (mo.canopyWalkerMotion && motion?.journey && motion.heading.lengthSq()>1e-8) {
     yaw=Math.atan2(-motion.heading.z,motion.heading.x);
     pitch=THREE.MathUtils.clamp(Math.atan2(motion.heading.y,Math.hypot(motion.heading.x,motion.heading.z)),-1.2,1.2);
+    if(st.canopyReverse){yaw+=Math.PI;pitch=-pitch;} // (backing down a trunk: head up, facing the wood)
   }
   canopyRotation(yaw, pitch, 0, preferred);
   if (!mo.canopyBody?.length) return { roll: 0, pitch, yaw: 0 };

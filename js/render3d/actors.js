@@ -348,10 +348,21 @@ export class Actors {
             // Walking on after a jump is straight branch travel, not a fork turn:
             // keep the alternating hand/foot sequence instead of paired swings.
             const afterJump=motion.journey?.gap>=1 && motion.journey.cursor>motion.journey.gap;
-            if(motion.journey&&!afterJump)st.howlerForkTurn=true;
-            else if(afterJump && st.gripFeet && !(st.gripFeet.slice(0,2).some(f=>!f.free&&!f.from)&&st.gripFeet.slice(2).some(f=>!f.free&&!f.from))) {
+            // Approaching a crossing keeps the paired fork handling its timing is tuned for. Just
+            // landed with a pair unsupported, it re-plants that pair, once and for at most 0.6 s
+            // (paired steps themselves leave a pair lifted, so waiting for both to be planted kept
+            // whole trunk climbs in paired steps). After that, limbs pair only where the walker
+            // turns: a bend just ahead, or a body facing well away from its way on (backwards counts
+            // as aligned, for backing down a trunk; a climbing body sits about .4 off its line).
+            const facing=st.canopyQuaternion&&new THREE.Vector3(1,0,0).applyQuaternion(st.canopyQuaternion);
+            const away=facing&&motion.heading.lengthSq()>1e-10 ? Math.acos(Math.min(1,Math.abs(facing.dot(motion.heading.clone().normalize())))) : 0;
+            const turning=motion.bend>(st.howlerForkTurn?.35:.5)||away>(st.howlerForkTurn?.7:.9);
+            const journey=motion.journey,pairsHeld=st.gripFeet&&st.gripFeet.slice(0,2).some(f=>!f.free&&!f.from)&&st.gripFeet.slice(2).some(f=>!f.free&&!f.from);
+            if(journey&&!afterJump)st.howlerForkTurn=true;
+            else if(afterJump && !journey.regrouped && !pairsHeld && (journey.regroupTime=(journey.regroupTime||0)+motion.dt)<.6) {
               st.howlerForkTurn=true;st.howlerRegrouping=true;
-            } else if(afterJump&&st.howlerRegrouping) {st.howlerForkTurn=false;st.howlerRegrouping=false;}
+            } else if(afterJump&&st.howlerRegrouping) {st.howlerForkTurn=false;st.howlerRegrouping=false;journey.regrouped=true;}
+            else if(afterJump) {journey.regrouped=true;st.howlerForkTurn=turning;}
             if (game.speed>0)limitHowlerWeight(st, mo, motion.before, st.canopyLeap?.lift || 0, previousWeight,
               new Set([site, st.branchAt?.site, st.branchRoute?.fromSite, st.branchRoute?.target.site]));
           }
@@ -364,7 +375,8 @@ export class Actors {
           let yaw = Math.atan2(-dir.z, dir.x), sign = 1;
           // Orangutans back down a steep main limb with the head uphill.
           // Turning headfirst swings their long torso into neighbouring forks.
-          if (mo.primate === 2) {
+          // Walker monkeys back down a steep trunk the same way (see canopyStep).
+          if (mo.primate === 2 || mo.canopyWalkerMotion && !st.walkerClassicTransfer) {
             if (st.canopyReverse) { yaw += Math.PI; sign = -1; }
           }
           if (!steering && Math.cos(yaw - yaw0) < 0) { yaw += Math.PI; sign = -1; }

@@ -258,7 +258,7 @@ function slothRoutePose(st, route, point) {
   return pose.clone().slerp(bridge.pose, amount);
 }
 
-function monkeyTrunkPose(route, point, heading) {
+function monkeyTrunkPose(route, point, heading, backing = false) {
   if (!route?.trunkTransfer) return null;
   if (route.cursor === route.gap && route.landingTrunk == null) return null;
   if (route.cursor === route.gap && route.landingTrunk != null) {
@@ -274,7 +274,7 @@ function monkeyTrunkPose(route, point, heading) {
   const pose = routePose(route, point, true);
   if (!pose) return null;
   const angles = new THREE.Euler().setFromQuaternion(pose, 'YZX');
-  if (heading.y < 0 && angles.z > 1.1) return canopyRotation(angles.y + Math.PI, -angles.z, 0, new THREE.Quaternion());
+  if (heading.y < 0 && angles.z > 1.1 && !backing) return canopyRotation(angles.y + Math.PI, -angles.z, 0, new THREE.Quaternion());
   return pose;
 }
 
@@ -492,6 +492,22 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
   // Look along the next body-length of route, rather than steering toward
   // each centimetre-sized bark correction at a fork.
   const heading = intent || routeHeading(route, st.branchPoint, Math.max(walkerMotion?.025:.08, (def.sprite.len || 14) * st.sc * (walkerMotion?.15:.6)), delta);
+  // Walkers back down a steep trunk, head up and tail first, as the orangutans do, rather than
+  // descending it head first. Judged over the next body length and a half, so a short downward
+  // limb at a fork is still walked head first. (Steeper than about 35° down to start, until it
+  // eases off.)
+  if (walkerMotion && route) {
+    const ahead = routeHeading(route, st.branchPoint, (def.sprite.len || 14) * st.sc * 1.5, delta);
+    const slope = ahead.lengthSq() > 1e-10 ? ahead.y / ahead.length() : 0;
+    st.canopyReverse = slope < -.6 || !!st.canopyReverse && slope < -.2;
+  } else if (def.sprite.canopyWalkerMotion && !route) st.canopyReverse = false;
+  // How sharply the route bends over the next body length and a half: a walker turns at a fork
+  // with its limbs in pairs, but climbs a trunk or walks a straight limb with them alternating.
+  let bend = 0;
+  if (walkerMotion && route) {
+    const size = (def.sprite.len || 14) * st.sc, near = routeHeading(route, st.branchPoint, size * .3, delta), far = routeHeading(route, st.branchPoint, size * 1.5, delta);
+    if (near.lengthSq() > 1e-10 && far.lengthSq() > 1e-10) bend = near.angleTo(far);
+  }
   let lift = 0;
   st.canopyLeap = canopyLeap(st, def);
   if (st.canopyLeap) lift = st.canopyLeap.lift;
@@ -508,10 +524,10 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
   const pose = walkerMotion && st.howlerJump ? howlerJumpPose(st)
     : walkerMotion && !transfer && anchor.trunk != null ? anchor.point.canopyPose
     : def.sprite.kind === 'orangutan' && transfer ? route.bridgePose
-    : def.sprite.kind === 'monkey' && !def.sprite.ape ? monkeyTrunkPose(route, st.branchPoint, heading)
+    : def.sprite.kind === 'monkey' && !def.sprite.ape ? monkeyTrunkPose(route, st.branchPoint, heading, walkerMotion && st.canopyReverse)
     : def.sprite.kind === 'sloth' ? slothRoutePose(st, route, st.branchPoint) || journey?.target.point.canopyPose || st.branchAt?.point.canopyPose : null;
   const pace = def.sprite.ape ? Math.min(Math.max(.25, def.speed * (SPEEDS[game.speed] || 1)), swingPace) : Math.max(.25, def.speed * (SPEEDS[game.speed] || 1));
-  return { delta, heading, pose,
+  return { delta, heading, pose, bend,
     before, requested: st.branchPoint.clone(), cursor, dt, phase, at, journey, trace, travelled, stride, ape: def.sprite.ape, cadence, animationSpeed: (st.catchUp || 1) * (SPEEDS[game.speed] || SPEEDS[1]) / SPEEDS[1],
     pace, gait: dt > 0 && game.speed > 0 ? Math.min(1, travelled / dt / pace) : 0,
     transfer, lift, def };
