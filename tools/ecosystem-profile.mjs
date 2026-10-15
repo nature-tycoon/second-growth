@@ -16,7 +16,7 @@ for (const arg of process.argv.slice(2)) {
 const maps = options.maps.split(','), samples = Number(options.samples), rounds = Number(options.rounds);
 const densities = options.densities.split(','), width = Number(options.width), height = Number(options.height), pixelRatio = Number(options.dpr);
 const speed = Number(options.speed); assert.ok([1, 2, 3].includes(speed));
-const renderPixelRatio = Math.min(pixelRatio, options.quality === 'fast' ? 1 : 2);
+const renderPixelRatio = Math.min(pixelRatio, options.quality === 'fast' ? 1.5 : 2); // (Fast on a computer: at most 1.5)
 assert.ok(maps.length && maps.every(m => ['pnw', 'amazon', 'serengeti', 'atlanta', 'chinandega', 'reef', 'sumatra'].includes(m)));
 assert.ok(['fast', 'high'].includes(options.quality));
 assert.ok(Number.isInteger(samples) && samples >= 30 && samples <= 600);

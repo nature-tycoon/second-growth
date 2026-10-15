@@ -14,7 +14,8 @@ export const percentile = (values, p) => values.length
 // Tenths-of-a-millisecond bins give the same displayed precision as the overlay.
 export const CPU_STAGES = ['simulation', 'render', 'interface'];
 export class FrameCpuStats {
-  constructor(keys = CPU_STAGES) { this.keys = keys; this.reset(); }
+  // (prefix: the analytics field names, cpu_render_ms and so on; the GPU timer uses 'gpu')
+  constructor(keys = CPU_STAGES, prefix = 'cpu') { this.keys = keys; this.prefix = prefix; this.reset(); }
   reset() {
     this.frames = 0;
     this.stages = this.keys.map(() => ({ total: 0, bins: new Map() }));
@@ -28,19 +29,73 @@ export class FrameCpuStats {
     });
   }
   sample(reset = true) {
-    const out = { cpu_frames: this.frames };
+    const P = this.prefix, out = { [`${P}_frames`]: this.frames };
     this.keys.forEach((key, i) => {
       const s = this.stages[i]; let count = 0, p95 = null;
       for (const [bin, n] of [...s.bins].sort((a, b) => a[0] - b[0])) {
         count += n;
         if (count > Math.floor(this.frames * .95)) { p95 = bin / 10; break; }
       }
-      out[`cpu_${key}_ms`] = this.frames ? +(s.total / this.frames).toFixed(1) : null;
-      out[`cpu_${key}_p95_ms`] = p95;
+      out[`${P}_${key}_ms`] = this.frames ? +(s.total / this.frames).toFixed(1) : null;
+      out[`${P}_${key}_p95_ms`] = p95;
     });
     if (reset) this.reset();
     return out;
   }
+}
+
+// Built-in graphics that the analytics show running the game at about half the frame rate on
+// High that they manage on Fast (Intel HD and UHD Graphics; AMD's integrated Radeon, which names
+// no model). Newer Intel chips reporting plain "Intel(R) Graphics", Iris Xe and discrete
+// Radeons aren't matched.
+export const weakGpu = name => !!name &&
+  (/\bIntel\b.*\bU?HD Graphics\b/i.test(name) || /\bRadeon(\(TM\))?\s*(R[2-7]\b|Graphics\b|Vega\b)/i.test(name));
+
+// The graphics chip's name, read from a throwaway context, for choices that must be made before
+// the game's own WebGL context exists (antialiasing can't be changed afterwards).
+export function probeGpu() {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2') || document.createElement('canvas').getContext('webgl');
+    const ext = gl?.getExtension('WEBGL_debug_renderer_info');
+    const name = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)).slice(0, 80) : null;
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    return name;
+  } catch (e) { return null; }
+}
+
+// How long the graphics chip takes to draw a frame (the shadow map and the view), from a timer
+// query on every `every`th frame. The result is read a few frames later, once the chip has
+// finished, so the timing never makes the processor wait. Browsers without the timer extension
+// (Safari, some locked-down ones) report nothing.
+export class GpuTimer {
+  constructor(gl, every = 15) {
+    this.gl = gl; this.every = every; this.n = 0; this.active = null; this.pending = [];
+    try { this.ext = gl.getExtension?.('EXT_disjoint_timer_query_webgl2') || null; } catch (e) { this.ext = null; }
+    this.stats = new FrameCpuStats(['frame'], 'gpu');
+  }
+  begin() {
+    if (!this.ext || this.active || this.pending.length > 4 || ++this.n % this.every) return;
+    this.active = this.gl.createQuery();
+    this.gl.beginQuery(this.ext.TIME_ELAPSED_EXT, this.active);
+  }
+  end() {
+    if (!this.active) return;
+    this.gl.endQuery(this.ext.TIME_ELAPSED_EXT);
+    this.pending.push(this.active); this.active = null;
+  }
+  // (a "disjoint" spell, the chip's clock interrupted, makes the timings in flight meaningless)
+  poll() {
+    if (!this.pending.length) return;
+    const gl = this.gl, disjoint = gl.getParameter(this.ext.GPU_DISJOINT_EXT);
+    while (this.pending.length) {
+      const q = this.pending[0];
+      if (!disjoint && !gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) break;
+      if (!disjoint) this.stats.record({ timings: { frame: gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6 } });
+      gl.deleteQuery(q); this.pending.shift();
+    }
+  }
+  sample(reset = true) { return this.ext ? this.stats.sample(reset) : { gpu_frames: 0, gpu_frame_ms: null, gpu_frame_p95_ms: null }; }
+
 }
 
 export function renderObjectCounts(scene) {

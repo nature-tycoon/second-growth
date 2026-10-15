@@ -18,7 +18,7 @@ import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
-import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS } from '../performance.js';
+import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS, GpuTimer } from '../performance.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 
 const EL = THREE.MathUtils.degToRad(34);
@@ -75,8 +75,9 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 
 
 export class Renderer {
-  constructor(canvas, { preserveDrawingBuffer = false, catalog = activeCatalog } = {}) {
-    this.catalog = catalog;
+  // weakGpu: built-in graphics the analytics show struggling (see weakGpu in performance.js)
+  constructor(canvas, { preserveDrawingBuffer = false, catalog = activeCatalog, weakGpu = false } = {}) {
+    this.catalog = catalog; this.weakGpu = weakGpu;
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
@@ -84,6 +85,7 @@ export class Renderer {
     // (submit: the gl.render call alone, part of render. The rest of render is getting the frame
     // ready, plants above all, so a slow laptop shows which side of the hand-off holds it up.)
     this.cpuPerf = new FrameCpuStats([...CPU_STAGES, 'submit']);
+    this.gpuTimer = new GpuTimer(this.gl.getContext());
     document.addEventListener('visibilitychange', () => { if (this.perf) this.perf.last = performance.now(); this.cpuSkipNext = true; });
     canvas.addEventListener('webglcontextlost', event => {
       event.preventDefault(); // allow the browser and Three.js to restore the context
@@ -94,6 +96,7 @@ export class Renderer {
       this.contextLost = false;
       this.perf = null;
       this.cpuPerf.reset(); this.cpuSkipNext = true;
+      this.gpuTimer = new GpuTimer(this.gl.getContext()); // (the old timer's queries went with the old context)
       this.onContextRestored?.();
     });
     this.gl.setPixelRatio(this.dpr);
@@ -149,15 +152,21 @@ export class Renderer {
     // detail or shadows starts the automatic resolution over)
     const gfx = `${s.quality}|${s.shadows}`, fresh = gfx !== this.gfx;
     this.gfx = gfx;
-    // (and the far tree models, only for a computer the game has already found too slow)
-    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; this.useFar(!!s.slowFps); }
+    // (and the far tree models, only for a computer the game has already found too slow, or
+    // built-in graphics known to struggle zoomed out)
+    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; this.useFar(!!s.slowFps || this.weakGpu); }
     // Fast: a smaller shadow map (it's redrawn every frame)
     const shadowRes = fast ? 1024 : 2048;
     if (this.sun.shadow.mapSize.x !== shadowRes) {
       this.sun.shadow.mapSize.set(shadowRes, shadowRes);
       if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
     }
-    const cap = { high: 2, balanced: 1.5, fast: 1 }[s.quality] ?? 2;
+    // Fast on a computer keeps the screen's own sharpness, up to 1.5 pixels a point: at a fixed one
+    // pixel a point, a laptop scaled to 125 or 150% (or a Mac's 2x screen) was visibly blurry, and the
+    // lighter models and shadows are most of what makes Fast fast. The automatic resolution lowers
+    // it only on a computer that is still too slow (and takes the step back if it didn't help).
+    // Phones keep one pixel a point.
+    const cap = { high: 2, balanced: 1.5, fast: TOUCH ? 1 : 1.5 }[s.quality] ?? 2;
     this.baseDpr = Math.max(1, Math.min(cap, window.devicePixelRatio || 1));
     // the view adjusts its resolution to keep up (see autoResolution); it starts afresh whenever
     // the settings change
@@ -598,6 +607,7 @@ export class Renderer {
     const P = this.perf || { frames: 0, time: 0, slow: 0 }, info = this.gl.info.render;
     const out = {
       ...this.cpuPerf?.sample(reset),
+      ...this.gpuTimer?.sample(reset),
       fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
       slow_frames_pct: P.frames ? Math.round(P.slow / P.frames * 100) : null,
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
@@ -820,7 +830,9 @@ export class Renderer {
     this.gl.shadowMap.needsUpdate = redrawShadows;
     this.lastShadowRedraw = redrawShadows;
     const at = performance.now();
+    this.gpuTimer.poll(); this.gpuTimer.begin();
     this.gl.render(this.scene, this.camera);
+    this.gpuTimer.end();
     this.submitMs = performance.now() - at;
     this.drawFX(game, ui, dt);
   }
