@@ -8,7 +8,7 @@ import { SOUNDSCAPES, PROMINENT_CALLS, natureMix, natureCallRates } from './natu
 import { RUT_SOUNDS, RACK_PITCH, soundFile } from './sounds.js';
 import { FIELD_RECORDINGS, MAP_RECORDINGS, RECORDED_BEDS } from './recordings.js';
 import { seamlessLoop } from './loop.js';
-import { makeRainBuffer, createRainSource } from './rain.js';
+import { makeRainBuffer, prepareRainBuffer, createRainSource } from './rain.js';
 
 const FADE = 4;        // seconds of crossfade between tracks
 const GAP = 1.5;       // quiet seconds after a track fails to load, before the next
@@ -36,51 +36,76 @@ export class Music {
     this.fieldClips = new Map(); this.fieldLoads = new Map(); this.fieldRetry = new Map();
     this.fieldBeds = new Map();
     this.rainClip = null;
+    this.started = false; this.ready = false; this.preparing = null;
   }
 
-  // Browsers only allow audio after the player has clicked or pressed something.
-  start() {
-    // (an iPhone can refuse to start the audio device, say during a call: try again on the next tap)
-    if (this.ctx) { if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume().catch(() => {}); this.syncPlayback(); return; }
+  // Prepare in separate tasks while the welcome screen is open. Nothing plays or
+  // downloads until start(); an early click can unlock the elements before wiring finishes.
+  prepare() {
+    if (this.preparing) return this.preparing;
     const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    const ctx = this.ctx = new AC();
-    this.out = ctx.createDynamicsCompressor();
-    this.out.threshold.value = -18; this.out.ratio.value = 3;
-    this.out.connect(ctx.destination);
-    this.musicGain = ctx.createGain();
-    this.musicGain.connect(this.out);
-    this.natureGain = ctx.createGain();
-    this.natureGain.connect(this.out);
-    // two decks, so one track can fade out while the next fades in
+    if (!AC) return Promise.resolve();
+    let ctx;
+    try { ctx = new AC(); } catch { return Promise.resolve(); }
+    this.ctx = ctx;
     this.decks = [0, 1].map(() => {
       const el = new Audio();
       el.preload = 'none'; el.crossOrigin = 'anonymous';
-      const gain = ctx.createGain(); gain.gain.value = 0;
-      ctx.createMediaElementSource(el).connect(gain).connect(this.musicGain);
-      const deck = { el, gain, track: null };
-      el.addEventListener('ended', () => { if (this.current === deck) this.advance(0); });
-      el.addEventListener('error', () => { if (this.current === deck) this.advance(GAP); });
-      el.addEventListener('timeupdate', () => {
-        // start the next track a little before this one ends
-        if (this.current === deck && el.duration && el.duration - el.currentTime < FADE && !deck.handedOff) { deck.handedOff = true; this.advance(0); }
+      return { el, gain: null, track: null, unlocked: false, unlocking: false };
+    });
+    const nextTask = () => new Promise(resolve => setTimeout(resolve, 0));
+    this.preparing = (async () => {
+      await nextTask();
+      this.out = ctx.createDynamicsCompressor();
+      this.out.threshold.value = -18; this.out.ratio.value = 3;
+      this.out.connect(ctx.destination);
+      this.musicGain = ctx.createGain(); this.musicGain.connect(this.out);
+      this.natureGain = ctx.createGain(); this.natureGain.connect(this.out);
+      for (const deck of this.decks) {
+        await nextTask();
+        const { el } = deck, gain = deck.gain = ctx.createGain();
+        gain.gain.value = 0;
+        ctx.createMediaElementSource(el).connect(gain).connect(this.musicGain);
+        el.addEventListener('ended', () => { if (this.current === deck) this.advance(0); });
+        el.addEventListener('error', () => { if (this.current === deck) this.advance(GAP); });
+        el.addEventListener('timeupdate', () => {
+          if (this.current === deck && el.duration && el.duration - el.currentTime < FADE && !deck.handedOff) { deck.handedOff = true; this.advance(0); }
+        });
+      }
+      await nextTask();
+      this.startNature();
+      this.ready = true;
+      if (document.hidden) ctx.suspend().catch(() => {});
+      this.applyVolumes();
+      this.timer = setInterval(() => { if (this.started && this.natureOn && !this.muted && ctx.state === 'running') this.maybeBird(); }, 250);
+      this.callTimer = setInterval(() => { if (this.started && this.natureOn && !this.muted && ctx.state === 'running') this.calls(0.25); }, 250);
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) { ctx.suspend().catch(() => {}); this.decks.forEach(d => d.el.pause()); }
+        else if (this.started) this.start();
       });
-      return deck;
-    });
-    this.startNature();
-    this.applyVolumes();
-    this.timer = setInterval(() => { if (this.natureOn && !this.muted && this.ctx.state === 'running') this.maybeBird(); }, 250);
-    this.callTimer = setInterval(() => { if (this.natureOn && !this.muted && this.ctx.state === 'running') this.calls(0.25); }, 250);
-    document.addEventListener('visibilitychange', () => {
-      if (!this.ctx) return;
-      if (document.hidden) { this.ctx.suspend(); this.decks.forEach(d => d.el.pause()); }
-      else { this.ctx.resume().catch(() => {}); this.syncPlayback(); }
-    });
-    // iOS only lets a media element start inside a tap: start the first track now (it fades in),
-    // and unlock the second deck with a moment of silence so later crossfades can play too
+      if (this.started) { this.syncPlayback(); this.updateNature(); }
+    })();
+    return this.preparing;
+  }
+
+  // Keep only browser unlocking on the gesture stack. Retry on later taps when a
+  // browser blocks autoplay after navigation, or the audio device was interrupted.
+  start() {
+    const preparing = this.prepare();
+    if (!this.ctx) return preparing;
+    this.started = true;
+    if (!document.hidden && this.ctx.state !== 'running') this.ctx.resume().then(() => this.syncPlayback()).catch(() => {});
+    for (const deck of this.decks) if (!document.hidden && !deck.unlocked && !deck.unlocking && !deck.track) {
+      deck.unlocking = true;
+      deck.el.src = SILENCE;
+      deck.el.play().then(() => {
+        deck.unlocked = true;
+        // Preparation may already have assigned a real track to this element.
+        if (!deck.track) deck.el.pause();
+      }).catch(() => {}).finally(() => { deck.unlocking = false; });
+    }
     this.syncPlayback();
-    const spare = this.decks.find(d => d !== this.current);
-    if (spare) { spare.el.src = SILENCE; spare.el.play().then(() => spare.el.pause()).catch(() => {}); }
+    return preparing;
   }
 
   // ------------------------------------------------------------ the soundtrack
@@ -96,7 +121,7 @@ export class Music {
   }
   // Fade the current track out and the next one in on the other deck.
   advance(delay = 0) {
-    if (!this.ctx || !TRACKS.length) return;
+    if (!this.ready || !TRACKS.length) return;
     const from = this.current, to = this.decks.find(d => d !== from) || this.decks[0];
     const track = this.nextTrack(), t = this.ctx.currentTime + delay;
     to.track = track; to.handedOff = false;
@@ -105,13 +130,14 @@ export class Music {
     if (from) { from.gain.gain.cancelScheduledValues(t); from.gain.gain.setValueAtTime(from.gain.gain.value, t); from.gain.gain.linearRampToValueAtTime(0, t + FADE); setTimeout(() => { if (this.current !== from) from.el.pause(); }, (delay + FADE + 0.5) * 1000); }
     this.current = to;
     this.nowPlaying = track;
-    setTimeout(() => { if (this.current === to && this.wantMusic()) to.el.play().catch(() => {}); }, delay * 1000);
+    const play = () => { if (this.current === to && this.wantMusic()) to.el.play().catch(() => {}); };
+    if (delay) setTimeout(play, delay * 1000); else play();
     for (const fn of this.listeners) fn(track);
   }
   wantMusic() { return this.musicOn && !this.muted && !document.hidden; }
   // Play or pause to match the settings (music off pauses the stream instead of downloading silence).
   syncPlayback() {
-    if (!this.ctx) return;
+    if (!this.ready || !this.started) return;
     if (!this.wantMusic()) { this.decks.forEach(d => d.el.pause()); return; }
     if (!this.current) { this.advance(0); return; }
     if (this.current.el.paused) this.current.el.play().catch(() => {});
@@ -131,7 +157,7 @@ export class Music {
     this.updateNature();
   }
   applyVolumes() {
-    if (!this.ctx) return;
+    if (!this.musicGain || !this.natureGain) return;
     const t = this.ctx.currentTime;
     this.musicGain.gain.setTargetAtTime(this.muted || !this.musicOn ? 0 : this.musicVol * 0.7, t, 0.3);
     this.natureGain.gain.setTargetAtTime(this.muted || !this.natureOn ? 0 : this.natureVol, t, 0.3);
@@ -151,7 +177,6 @@ export class Music {
       const gain = this[name + 'Gain'] = ctx.createGain();
       gain.gain.value = 0; gain.connect(this.natureGain);
     }
-    this.updateNature();
   }
 
   rainBuffer() {
@@ -174,13 +199,17 @@ export class Music {
     this.updateNature();
   }
   updateNature() {
-    if (!this.ctx || !this.rainGain) return;
+    if (!this.ctx || !this.rainGain || !this.started) return;
     const mix = natureMix(this.land, this.weather, this.season), t = this.ctx.currentTime;
     this.rainGain.gain.setTargetAtTime(mix.rain, t, 2.5);
     if (mix.rain > 0 && this.natureOn && !this.muted && !this.fieldBeds.has('rain')) {
-      const source = createRainSource(this.ctx, this.rainBuffer(), this.rainGain);
-      source.start(0, Math.random() * source.buffer.duration);
-      this.fieldBeds.set('rain', source);
+      this.rainLoading ??= (this.rainClip ? Promise.resolve(this.rainClip) : prepareRainBuffer(this.ctx)).then(clip => { this.rainClip = clip; return clip; });
+      this.rainLoading.then(clip => {
+        if (this.fieldBeds.has('rain') || !this.natureOn || this.muted || !natureMix(this.land, this.weather, this.season).rain) return;
+        const source = createRainSource(this.ctx, clip, this.rainGain);
+        source.start(0, Math.random() * clip.duration);
+        this.fieldBeds.set('rain', source);
+      });
     }
     for (const [name, id] of Object.entries(RECORDED_BEDS)) {
       this[name + 'Gain'].gain.setTargetAtTime(mix[name], t, 1.5);
@@ -307,6 +336,8 @@ export class Music {
   groundHornbill() { return this.recordedCall('groundHornbill'); }
   hippo() { return this.recordedCall('hippo'); }
   zebra() { return this.recordedCall('zebra'); }
+  elephant() { return this.recordedCall('elephant'); }
+  tiger() { return this.recordedCall('tiger'); }
   birdPhrase(key) { return this.playField(MAP_RECORDINGS[this.land?.map]?.birds[key], this.land?.callPositions?.[key]); }
   maybeBird() {
     if (!this.ctx || !this.land || this.ctx.currentTime < this.nextBird || this.ctx.currentTime < this.foregroundUntil) return;
@@ -320,7 +351,7 @@ export class Music {
   // Recorded bugles and antler clashes (sounds.js), fetched and decoded once the animals that
   // make them are around, so nothing downloads on maps without them.
   warmRut(racks) {
-    if (!this.ctx) return;
+    if (!this.ctx || !this.started) return;
     const names = new Set(racks.length ? [...RUT_SOUNDS.clash, ...RUT_SOUNDS.rattle] : []);
     if (racks.includes('elk')) RUT_SOUNDS.bugle.forEach(n => names.add(n));
     for (const name of names) if (!this.rutClips.has(name)) {
@@ -331,7 +362,7 @@ export class Music {
     }
   }
   rut(kind, { rack = 'elk', far = 0, pan = 0, id = 0 } = {}) {
-    if (!this.ctx || !this.natureOn || this.muted || this.ctx.state !== 'running') return false;
+    if (!this.ctx || !this.callGain || !this.natureOn || this.muted || this.ctx.state !== 'running') return false;
     const t = this.ctx.currentTime, bugling = kind === 'bugle' || kind === 'answer';
     // One bugle at a time, so a rival can answer but never talks over him, and each bull
     // rests between calls: at fast game speed the herd would otherwise bugle without a break.

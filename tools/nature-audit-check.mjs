@@ -112,7 +112,7 @@ check('Audio unlock preserves the scene provided before startup', () => {
   assert.equal(new Music().birdLife(), 0);
 });
 check('Cattle and predators carry farther without inventing absent animals', () => {
-  for (const [map, key, distance] of [['chinandega', 'cattle', 38], ['serengeti', 'lion', 50], ['serengeti', 'hyena', 50]]) {
+  for (const [map, key, distance] of [['chinandega', 'cattle', 38], ['serengeti', 'lion', 50], ['serengeti', 'hyena', 50], ['serengeti', 'elephant', 50], ['sumatra', 'gajah', 50], ['sumatra', 'tiger', 50]]) {
     g.newGame(1987, 'free', 'standard', map);
     const sp = ANIMALS.find(d => d.key === key).index;
     g.wildlife.agents = [{ sp, x: 20 + distance, y: 20, leaving: false }];
@@ -121,6 +121,46 @@ check('Cattle and predators carry farther without inventing absent animals', () 
     g.wildlife.agents[0].leaving = true; assert(!sample().callPresent.includes(key));
     g.wildlife.agents[0].leaving = false; g.wildlife.agents[0].x = 110; assert(!sample().callPresent.includes(key));
   }
+});
+check('Elephants retain their regional recordings; tigers require a nearby tiger at dusk/night', () => {
+  for (const [map, key, recording] of [['serengeti', 'elephant', 'african-elephant'], ['sumatra', 'gajah', 'asian-elephant']]) {
+    assert(!voices(land(map)).includes('elephant'));
+    assert(voices(land(map, { present: [key] })).includes('elephant'));
+    assert(voices(land(map, { present: [key], night: 1 })).includes('elephant'));
+    const m = new Music(); m.land = land(map, { present: [key], callPositions: { [key]: { far: 0.4, pan: -0.3 } } });
+    m.playField = (id, position) => { assert.equal(id, recording); assert.deepEqual(position, { far: 0.4, pan: -0.3 }); return 2; };
+    assert.equal(m.elephant(), 2);
+  }
+  assert(!voices(land('sumatra', { present: ['elephant'] })).includes('elephant'), 'African species key cannot trigger Asian elephant');
+  assert(!voices(land('serengeti', { present: ['gajah'] })).includes('elephant'));
+  assert(!voices(land('sumatra', { present: ['tiger'] })).includes('tiger'), 'quiet by day');
+  assert(voices(land('sumatra', { present: ['tiger'], night: 1 })).includes('tiger'));
+  assert(voices(land('sumatra', { present: ['tiger'], dusk: 1 })).includes('tiger'));
+  assert(!voices(land('sumatra', { present: [], night: 1 })).includes('tiger'));
+  assert(!voices(land('serengeti', { present: ['tiger'], night: 1 })).includes('tiger'));
+  const m = new Music(); m.land = land('sumatra'); m.playField = id => { assert.equal(id, 'tiger'); return 1.6; };
+  assert.equal(m.tiger(), 1.6);
+});
+check('Elephant and tiger calls start within six seconds, leave quiet gaps and share the foreground', () => {
+  const random = Math.random; Math.random = () => 0.999;
+  try {
+    for (const [map, key, voice] of [['serengeti', 'elephant', 'elephant'], ['sumatra', 'gajah', 'elephant'], ['sumatra', 'tiger', 'tiger']]) {
+      const m = new Music(); m.ctx = { currentTime: 0 }; m.land = land(map, { present: [key], night: 1 });
+      let played = 0; m[voice] = () => { played++; return 5.5; };
+      for (let tick = 0; tick <= 24; tick++) { m.ctx.currentTime = tick / 4; m.calls(0.25); }
+      assert.equal(played, 1, `${map}/${voice}: starts within six seconds`);
+      for (let tick = 25; tick <= 120; tick++) { m.ctx.currentTime = tick / 4; m.calls(0.25); }
+      assert.equal(played, 1, `${map}/${voice}: no rapid repetition`);
+      m.land.present = []; m.calls(0.25); assert(!m.callDue.has(voice));
+    }
+    const m = new Music(); m.ctx = { currentTime: 0 }; m.land = land('sumatra', { present: ['gajah', 'tiger'], night: 1 });
+    const heard = [];
+    m.elephant = () => { heard.push(['elephant', m.ctx.currentTime]); return 5.5; };
+    m.tiger = () => { heard.push(['tiger', m.ctx.currentTime]); return 1.6; };
+    for (let tick = 0; tick <= 60; tick++) { m.ctx.currentTime = tick / 4; m.calls(0.25); }
+    assert.deepEqual(heard.map(c => c[0]), ['elephant', 'tiger']);
+    assert(heard[1][1] - heard[0][1] >= 6, 'Tiger waits until the elephant recording finishes');
+  } finally { Math.random = random; }
 });
 check('Prominent calls happen promptly even when random chance would never fire', () => {
   const random = Math.random; Math.random = () => 0.999;

@@ -212,6 +212,7 @@ addStrings({
   'Lo-fi music': 'Música lo-fi', 'Relaxed lo-fi tracks, shuffled. Streamed one at a time.': 'Canciones lo-fi tranquilas, en desorden. Se cargan de una en una.',
   'Music volume': 'Volumen de la música', 'Now playing': 'Sonando', 'Starts when you begin playing': 'Empieza cuando empezás a jugar', 'Next track': 'Siguiente canción',
   'Music by': 'Música de', ', released into the public domain under CC0 1.0 Universal.': ', de dominio público bajo CC0 1.0 Universal.',
+  'Sound credits and licenses': 'Créditos y licencias de sonido',
   'Nature sounds': 'Sonidos de la naturaleza', 'Local wildlife, water, wind and insects, following each map’s seasons and time of day.': 'Fauna local, agua, viento e insectos, según las estaciones y la hora del día de cada mapa.',
   'Nature volume': 'Volumen de la naturaleza', 'Restore defaults': 'Volver a lo normal',
   'Difficulty on this farm': 'Dificultad en esta finca', Autosave: 'Guardar solo', 'Save the farm at the end of every month.': 'Guardar la finca al final de cada mes.',

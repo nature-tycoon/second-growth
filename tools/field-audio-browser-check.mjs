@@ -1,7 +1,7 @@
 // Decode every shipped clip in Chrome and exercise real playback/map changes.
 // node tools/field-audio-browser-check.mjs
 import assert from 'node:assert/strict';
-import { openBrowser } from './browser-session.mjs';
+import { openBrowser, pause } from './browser-session.mjs';
 const b = await openBrowser({ label: 'field-audio', width: 1280, height: 800 });
 try {
   await b.navigate('/tools/nature-audit.html');
@@ -118,12 +118,36 @@ try {
   })()`, 60000);
   assert.equal(new Set(runtime.map(r => r.map)).size, 7);
   console.log(`${runtime.length} mapped voices rendered through the game's gain/filter path on all seven maps; no clipping, silence or per-call node leaks.`);
+  // Keep this audio check light on the shared Mac; rendering speed is not under test.
+  await b.send('Page.addScriptToEvaluateOnNewDocument', { source: `
+    if(location.pathname==='/') {
+      const raf=window.requestAnimationFrame;
+      window.requestAnimationFrame=fn=>raf(()=>setTimeout(()=>fn(performance.now()),100));
+    }
+  ` });
   await b.evaluate(`localStorage.setItem('second-growth-settings', JSON.stringify({analytics:false,music:false,nature:true,quality:'fast',shadows:false,v:2}))`);
   await b.navigate('/');
   await b.waitFor('!!window.secondGrowth', 'Game boot', 45000);
+  await b.evaluate(`(async()=>{
+    const {music}=await import('/js/audio/music.js');
+    await music.prepare();
+    music.setScene('rain',0);
+    window.audioStarts=[];
+    const start=music.start.bind(music), createBuffer=music.ctx.createBuffer.bind(music.ctx);
+    let buffers=0;
+    music.ctx.createBuffer=(...args)=>{buffers++;return createBuffer(...args);};
+    music.start=()=>{const before=buffers,t=performance.now();const result=start();window.audioStarts.push({ms:performance.now()-t,buffers:buffers-before});return result;};
+  })()`);
+  const startButton = await b.evaluate(`(()=>{const r=document.querySelector('[data-a="start"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+  await b.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+  await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...startButton, button: 'left', clickCount: 1 });
+  await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...startButton, button: 'left', clickCount: 1 });
+  await b.send('Emulation.setCPUThrottlingRate', { rate: 1 });
   await b.evaluate(`window.secondGrowth.ui.closeModal()`);
-  await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: 600, y: 300, button: 'left', clickCount: 1 });
-  await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 600, y: 300, button: 'left', clickCount: 1 });
+  const firstClick = await b.evaluate('window.audioStarts[0]');
+  assert.equal(firstClick.buffers, 0, 'first gesture does not allocate or generate rain');
+  assert.ok(firstClick.ms < 50, `audio start stays below a 50 ms long task at 6x slowdown (${firstClick.ms} ms)`);
+  console.log(`Audio start at 6x CPU slowdown: ${firstClick.ms.toFixed(1)} ms; no rain buffers on the gesture stack.`);
   const transitions = await b.evaluate(`(async () => {
     const { game, ui } = window.secondGrowth;
     const { music } = await import('/js/audio/music.js');
@@ -143,6 +167,7 @@ try {
         if(music.land.map!==map)throw new Error('Stale map soundscape');
       }
       music.setScene('rain',0);
+      await music.rainLoading;
       if(music.fieldBeds.get('rain')?.buffer!==music.rainClip || !music.rainClip)throw new Error('Game rain did not use synthesis');
       for(const source of music.fieldBeds.values())if(!source.loop || (source.buffer!==music.rainClip && ![...music.fieldClips.values()].includes(source.buffer)))throw new Error('Game bed bypassed seamless buffer');
       music.set({muted:true});
@@ -153,5 +178,32 @@ try {
   assert.equal(transitions.length, 7);
   assert.ok(transitions.at(-1).beds >= 3);
   console.log('Real game audio unlock, live audio transitions for seven maps, lazy bed loading and mute passed.');
+  // Exercise the actual UI reload path. Direct setLand transitions alone miss the
+  // missing start() on the new page, which used to require mute/unmute to wake it.
+  await b.evaluate(`(async()=>{
+    const {settings,saveSettings}=await import('/js/settings.js');
+    settings.music=true;saveSettings();window.secondGrowth.ui.applySettings();
+  })()`);
+  for (const map of ['reef', 'pnw']) {
+    await b.evaluate(`void window.secondGrowth.ui.switchMap({map:'${map}',mode:'free',difficulty:'standard'});true`);
+    const deadline = Date.now() + 60000;
+    let restored = false;
+    while (Date.now() < deadline) {
+      try {
+        restored = await b.evaluate(`(async()=>{
+          if(window.secondGrowth?.game.map!=='${map}')return false;
+          const {music}=await import('/js/audio/music.js');
+          return music.ready && music.started && music.ctx.state==='running' && music.fieldBeds.size>0 && !music.muted && music.current?.el.currentTime>0 && !music.current.el.paused;
+        })()`);
+        if (restored) break;
+      } catch (error) {
+        if (!/context|navigat/i.test(error.message)) throw error;
+      }
+      await pause(100);
+    }
+    assert.ok(restored, `${map}: audio plays after the map reload without another click or mute toggle`);
+    b.assertHealthy();
+  }
+  console.log('UI map reloads to reef and Cascade resume music and nature audio without any further gesture or mute toggle.');
   b.assertHealthy();
 } finally { await b.close(); }

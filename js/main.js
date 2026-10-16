@@ -2,6 +2,7 @@ import { Game, PENDING_KEY } from './game.js';
 import { Renderer } from './render3d/scene.js';
 import { UI } from './ui/ui.js';
 import { Input } from './input.js';
+import { music } from './audio/music.js';
 import { createFrameLoop } from './frame-loop.js';
 import { PerformanceOverlay, probeGpu, weakGpu } from './performance.js';
 import { settings, saveSettings } from './settings.js';
@@ -70,6 +71,9 @@ async function boot() {
     }
     ui.afterNewGame();
     ui.refreshTop(true);
+    // A map reload has no welcome click. Reuse browser autoplay permission when
+    // available; the ordinary gesture listeners retry if this browser requires a tap.
+    if (pending) void music.start();
     stage('Welcoming the wild', 82);
     await nextPaint();
 

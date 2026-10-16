@@ -323,3 +323,30 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - Source: https://opengameart.org/content/zebra-whinny
 - License: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
 - Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+
+## asian-elephant
+
+- Files: `field-asian-elephant-1.m4a`
+- Creator: தகவலுழவன்
+- Source: https://commons.wikimedia.org/wiki/File:Elephant_voice_-_trumpeting.ogg
+- License: CC0 — https://creativecommons.org/publicdomain/zero/1.0/
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license.
+- Recording notes: Asian elephant (Elephas maximus) trumpeting; source identified on Wikimedia Commons.
+
+## african-elephant
+
+- Files: `field-african-elephant-1.m4a`, `field-african-elephant-2.m4a`
+- Creator: Anton Baotic and Angela S. Stoeger
+- Source: https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0177411
+- License: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license. High-pass cutoff 20 Hz preserves the source recording's low-frequency rumble harmonics.
+- Recording notes: S1 Sound: low-arousal social rumbles of female Chikwenya followed by male Mike (Loxodonta africana). The authors low-pass filtered the original to 200 Hz. Split into separate calls; retain low rumble harmonics with a 20 Hz high-pass filter.
+
+## tiger
+
+- Files: `field-tiger-1.m4a`
+- Creator: lauramellis
+- Source: https://freesound.org/people/lauramellis/sounds/263115/
+- License: CC0 — https://creativecommons.org/publicdomain/zero/1.0/
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license.
+- Recording notes: Tiger Roar: a single real tiger call recorded at Louisville Zoo, Kentucky. Public high-quality MP3 version of Freesound recording 263115; source does not identify the tiger subspecies. Quiet lead-in and trailing ambience removed.

@@ -466,6 +466,40 @@ export const FIELD_RECORDINGS = {
     "license": "CC BY 4.0",
     "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
     "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "asian-elephant": {
+    "source": "https://commons.wikimedia.org/wiki/File:Elephant_voice_-_trumpeting.ogg",
+    "by": "தகவலுழவன்",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license.",
+    "clips": [
+      "field-asian-elephant-1"
+    ],
+    "gain": 0.5
+  },
+  "african-elephant": {
+    "source": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0177411",
+    "by": "Anton Baotic and Angela S. Stoeger",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license. High-pass cutoff 20 Hz preserves the source recording's low-frequency rumble harmonics.",
+    "clips": [
+      "field-african-elephant-1",
+      "field-african-elephant-2"
+    ],
+    "gain": 0.5
+  },
+  "tiger": {
+    "source": "https://freesound.org/people/lauramellis/sounds/263115/",
+    "by": "lauramellis",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license.",
+    "clips": [
+      "field-tiger-1"
+    ],
+    "gain": 0.5
   }
 };
 
@@ -517,7 +551,8 @@ export const MAP_RECORDINGS = {
       "hyena": "hyena",
       "lion": "lion",
       "hippo": "hippo",
-      "zebra": "zebra"
+      "zebra": "zebra",
+      "elephant": "african-elephant"
     }
   },
   "chinandega": {
@@ -538,7 +573,9 @@ export const MAP_RECORDINGS = {
     },
     "calls": {
       "siamang": "siamang",
-      "barnOwl": "barn-owl"
+      "barnOwl": "barn-owl",
+      "elephant": "asian-elephant",
+      "tiger": "tiger"
     }
   },
   "reef": {

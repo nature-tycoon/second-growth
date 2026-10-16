@@ -148,6 +148,10 @@
       "zebra": {
         "recording": "zebra",
         "decision": "Field recording"
+      },
+      "elephant": {
+        "recording": "african-elephant",
+        "decision": "Real African elephant social rumbles; distinct from Asian elephant trumpet."
       }
     }
   },
@@ -224,6 +228,14 @@
       "treeFrog": {
         "recording": null,
         "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+      },
+      "elephant": {
+        "recording": "asian-elephant",
+        "decision": "Real Asian elephant trumpet; appropriate species for the Sumatran elephant."
+      },
+      "tiger": {
+        "recording": "tiger",
+        "decision": "Real tiger recording from Louisville Zoo; subspecies not documented by recordist."
       }
     }
   },
