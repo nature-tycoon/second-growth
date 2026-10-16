@@ -7,6 +7,7 @@ import { ANIMAL, isMaleVariant, drawDef } from '../js/data/animals.js';
 import { cervidLeader, keepCervidGroup, cervidNeedsRejoin } from '../js/sim/cervid-groups.js';
 import { greet, socialHold, bolt, haremDay, harem } from '../js/sim/animal-life.js';
 import { mulberry32 } from '../js/rng.js';
+import { passable } from '../js/sim/animal-terrain.js';
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
 function setup(seed = 44, map = 'pnw', month = 1) {
@@ -30,6 +31,60 @@ function spawn(g, key, male, x, y) {
 function run(g, days, observe = () => {}) {
   for (let i = 0; i < days * 20; i++) { g.wildlife.update(0.05); observe(i / 20); }
 }
+function separatedElkMeadow(seed = 91) {
+  const g = setup(seed), w = g.world, wl = g.wildlife, def = ANIMAL.elk;
+  w.terrain.fill(T.PASTURE); w.ground.fill(0);
+  const suit = wl.suit[def.index]; suit.fill(0);
+  suit[w.idx(40, 5)] = 1;
+  for (let y = 35; y < 42; y++) for (let x = 38; x < 46; x++) suit[w.idx(x, y)] = 1;
+  return g;
+}
+check('Elk can reach an interior meadow across pasture and take their cow/calf family along', () => {
+  const g = separatedElkMeadow(), wl = g.wildlife, def = ANIMAL.elk;
+  const mother = spawn(g, 'elk', false, 40.5, 5.5), cow = spawn(g, 'elk', false, 41.5, 5.5);
+  const calf = wl.spawn(def, 40, 6, { silent: true, age: 10 }); calf.mom = mother.id; calf.thirst = 0;
+  assert.equal(wl.herdLeader(cow), mother);
+  assert.ok(wl.roam(mother, def), 'a zero-suitability pasture gap is traversable');
+  assert.ok(wl.suit[def.index][mother.trip] > 0.3, 'the destination is suitable habitat');
+  assert.ok(mother.path.some(j => wl.suit[def.index][j] === 0), 'the path crosses farmland');
+  assert.ok(mother.path.every(j => wSafe(g, j)), 'the entire route is physically passable');
+  run(g, 70, () => assert.ok(Math.hypot(calf.x - mother.x, calf.y - mother.y) < 3.5, 'calf keeps up on the overland trip'));
+  assert.ok(mother.y > 30 && cow.y > 30 && calf.y > 30, 'the whole family reaches the interior');
+  assert.equal(wl.agents.length, 3, 'exploration does not create animals');
+});
+function wSafe(g, j) {
+  const w = g.world;
+  return passable(w, j, { key: 'elk', move: 'ground' }) && !w.fire[j];
+}
+check('Elk overland trips still respect fences, buildings, deep water and fire', () => {
+  for (const barrier of ['fence', 'building', 'pond', 'river', 'fire']) {
+    const g = separatedElkMeadow(), w = g.world, wl = g.wildlife, def = ANIMAL.elk;
+    const a = spawn(g, 'elk', false, 40.5, 5.5);
+    for (let x = 0; x < w.w; x++) {
+      const j = w.idx(x, 20);
+      if (barrier === 'fence') w.feature[j] = F.FENCE;
+      if (barrier === 'building') w.struct[j] = 0;
+      if (barrier === 'pond') w.terrain[j] = T.POND;
+      if (barrier === 'river') w.terrain[j] = T.RIVER;
+      if (barrier === 'fire') w.fire[j] = 1;
+    }
+    assert.equal(wl.roam(a, def), false, barrier + ' blocks the trip');
+    const gap = w.idx(40, 20); w.feature[gap] = 0; w.struct[gap] = -1; w.terrain[gap] = T.PASTURE; w.fire[gap] = 0;
+    assert.ok(wl.roam(a, def), barrier + ' can be crossed through a real opening');
+    assert.ok(a.path.includes(gap));
+    assert.ok(a.path.every(j => wSafe(g, j)));
+  }
+});
+check('Pasture is only an elk travel corridor, never a substitute habitat or a shared movement change', () => {
+  const g = separatedElkMeadow(), wl = g.wildlife, def = ANIMAL.elk;
+  const a = spawn(g, 'elk', false, 40.5, 5.5);
+  const meadowSuit = wl.suit[def.index].slice();
+  wl.suit[def.index].fill(0); wl.suit[def.index][g.world.idx(40, 5)] = 1;
+  assert.equal(wl.roam(a, def), false, 'no destination without another suitable patch');
+  const deer = spawn(g, 'deer', false, 40.5, 5.5);
+  wl.suit[ANIMAL.deer.index].set(meadowSuit);
+  assert.equal(wl.roam(deer, ANIMAL.deer), false, 'other species retain their habitat corridor rules');
+});
 check('Deer families and elk cow/calf herds stay together during ordinary simulation', () => {
   for (const key of ['deer', 'elk']) {
     const g = setup(), wl = g.wildlife;

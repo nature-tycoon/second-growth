@@ -2,12 +2,14 @@ import { MAP_RECORDINGS } from './recordings.js';
 // Soundscape rules independent of Web Audio, so every map/season can be audited.
 // Wildlife voices and ambience use verified field recordings (recordings.js).
 // Month numbers follow the game calendar: March = 0, February = 11.
-export const CALL_RANGE = { cattle: 42, lion: 64, hyena: 64 };
+export const CALL_RANGE = { cattle: 42, lion: 64, hyena: 64, elephant: 64, gajah: 64, tiger: 64 };
 // Prominent voices use bounded waits instead of a chance that can miss an entire night.
 export const PROMINENT_CALLS = {
   moo: { first: [1, 3], repeat: [12, 22], duration: 2.5 },
   lion: { first: [2, 4], repeat: [25, 40], duration: 8.5 },
   hyena: { first: [1, 3], repeat: [16, 28], duration: 4.5 },
+  elephant: { first: [2, 5], repeat: [35, 65], duration: 5.5 },
+  tiger: { first: [3, 6], repeat: [40, 75], duration: 1.6 },
 };
 export const SOUNDSCAPES = {
   pnw: { birds: { robin: 'robin', wren: 'wren', thrush: 'thrush', meadowlark: 'meadowlark', jay: 'jay', kingfisher: 'rattle' },
@@ -21,13 +23,13 @@ export const SOUNDSCAPES = {
     calls: [['howler', 'howler', 'dawnDusk', 0.045], ['dartfrog', 'dartfrog', 'dampDay', 0.12]] },
   serengeti: { birds: { weaver: 'weaver', roller: 'rasp' },
     seasons: [1, 0.75, 0.7, 0.9], insects: [0.003, 0.012, 0.009, 0.004],
-    calls: [['hyena', 'hyena', 'night', 0.025], ['lion', 'lion', 'night', 0.012], ['hornbill', 'groundHornbill', 'dawnDusk', 0.06], ['hippo', 'hippo', 'water', 0.025], ['zebra', 'zebra', 'day', 0.018]] },
+    calls: [['hyena', 'hyena', 'night', 0.025], ['lion', 'lion', 'night', 0.012], ['hornbill', 'groundHornbill', 'dawnDusk', 0.06], ['hippo', 'hippo', 'water', 0.025], ['zebra', 'zebra', 'day', 0.018], ['elephant', 'elephant', 'anytime', 0.015]] },
   chinandega: { birds: { motmot: 'motmot', lora: 'parrot', chocoyo: 'parakeet', urraca: 'jay', guaco: 'falcon', hummingbird: 'hummer' },
     seasons: [0.85, 1, 1, 0.85], insects: [0.01, 0.008, 0.01, 0.009],
     calls: [['congo', 'howler', 'dawnDusk', 0.045], ['cattle', 'moo', 'day', 0.025]] },
   sumatra: { birds: { hornbill: 'hornbill', bulbul: 'bulbul', sunbird: 'sunbird', kingfisher: 'rattle', serpenteagle: 'eagle' },
     seasons: [1, 0.9, 1, 1], insects: [0.015, 0.017, 0.014, 0.016],
-    calls: [['siamang', 'siamang', 'morning', 0.045], ['barnowl', 'barnOwl', 'night', 0.025], ['flyingfrog', 'treeFrog', 'wetNight', 0.18, [7, 8, 9, 10]]] },
+    calls: [['siamang', 'siamang', 'morning', 0.045], ['barnowl', 'barnOwl', 'night', 0.025], ['flyingfrog', 'treeFrog', 'wetNight', 0.18, [7, 8, 9, 10]], ['gajah', 'elephant', 'anytime', 0.015], ['tiger', 'tiger', 'night', 0.012]] },
   reef: { birds: { booby: 'booby', noddy: 'noddy' }, seasons: [0.8, 0.7, 1, 1], insects: [0, 0, 0, 0], calls: [] },
 };
 
@@ -57,7 +59,7 @@ export function natureMix(L, weather, season) {
 export function natureCallRates(L, weather, season) {
   if (!L || !SOUNDSCAPES[L.map] || weather === 'snow') return [];
   const day = 1 - L.night, evening = Math.max(L.night, L.dusk), month = L.month ?? season * 3;
-  const activity = { day, night: evening, dawnDusk: L.dawn + L.dusk * 0.35,
+  const activity = { anytime: 1, day, night: evening, dawnDusk: L.dawn + L.dusk * 0.35,
     morning: day * (L.dawn + (L.tod >= 0.07 && L.tod < 0.3 ? 0.7 : 0)),
     wetNight: evening * L.wet, dampDay: day * L.canopy, water: L.water };
   const rates = SOUNDSCAPES[L.map].calls.filter(([key, , , , months]) => (L.callPresent ?? L.present).includes(key) && (!months || months.includes(month)))

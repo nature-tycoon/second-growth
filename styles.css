@@ -382,6 +382,10 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .icon-btn svg { display: block; }
 .settings .section-title { margin-top: 14px; }
 .settings .section-title:first-child { margin-top: 0; }
+.audio-credits { margin-top: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; }
+.audio-credits summary { cursor: pointer; color: var(--ink-2); font-size: 12px; font-weight: 700; }
+.audio-credits summary:focus-visible { outline: 2px solid var(--moss); outline-offset: 3px; border-radius: 3px; }
+.audio-credits[open] summary { margin-bottom: 10px; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
 .set-row > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .set-row small { color: var(--ink-2, #6a6a58); font-size: 12px; }

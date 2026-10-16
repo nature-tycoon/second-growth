@@ -1305,8 +1305,8 @@ export class Wildlife {
   }
 
   // Roaming: set off for another patch of good habitat somewhere else on the map. Walkers, swimmers
-  // and climbers only travel along a corridor, an unbroken run of tiles they can live in (or water,
-  // for animals that swim), so a caiman follows the river to a marsh but won't trek across pasture.
+  // and climbers generally travel along habitat corridors (or water, for swimmers).
+  // Elk can cross open farmland between grazing patches, without treating it as habitat.
   // Flyers just fly there. Returns true if a trip was set up.
   roam(a, def, resume = null) {
     const w = this.game.world, map = this.suit[a.sp], W = w.w, n = w.n;
@@ -1327,7 +1327,9 @@ export class Wildlife {
     if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
     if (!depth || depth.length < n) depth = new Int16Array(n);
     const wet = a.move !== 'ground';
-    const corridor = j => passable(w, j, a) && (map[j] > 0.04 || (wet && isWater(w.terrain[j])));
+    const overland = def.key === 'elk';
+    const corridor = j => passable(w, j, a) && (!overland || !w.fire[j]) &&
+      (map[j] > 0.04 || (wet && isWater(w.terrain[j])) || (overland && !isWater(w.terrain[j])));
     stampN++;
     let head = 0, tail = 0, pick = -1, seen = 0;
     const dest = resume ?? -1;

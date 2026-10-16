@@ -950,5 +950,75 @@
     ],
     "sha256": "bf86ad3b577de097126643af56ac5513dd6cd9d8d56fb71482a1b2f950181712",
     "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "asian-elephant": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/4/40/Elephant_voice_-_trumpeting.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Elephant_voice_-_trumpeting.ogg",
+    "by": "தகவலுழவன்",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "Asian elephant (Elephas maximus) trumpeting; source identified on Wikimedia Commons.",
+    "title": "Elephant voice - trumpeting.ogg",
+    "clips": [
+      {
+        "name": "field-asian-elephant-1",
+        "offset": 0,
+        "duration": 1.35,
+        "bytes": 17501
+      }
+    ],
+    "bitrate": "96k",
+    "size": 18502,
+    "sha256": "e5f3120e5eaca87cc080bbf57bd185c96d52fd0f63cc1dfe33228c8bfa29f3bc",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license."
+  },
+  "african-elephant": {
+    "url": "https://journals.plos.org/plosone/article/file?type=supplementary&id=10.1371/journal.pone.0177411.s010",
+    "source": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0177411",
+    "by": "Anton Baotic and Angela S. Stoeger",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "description": "S1 Sound: low-arousal social rumbles of female Chikwenya followed by male Mike (Loxodonta africana). The authors low-pass filtered the original to 200 Hz. Split into separate calls; retain low rumble harmonics with a 20 Hz high-pass filter.",
+    "title": "pone.0177411.s010.wav",
+    "clips": [
+      {
+        "name": "field-african-elephant-1",
+        "offset": 0,
+        "duration": 5.5,
+        "bytes": 76385
+      },
+      {
+        "name": "field-african-elephant-2",
+        "offset": 5.5,
+        "duration": 5,
+        "bytes": 68380
+      }
+    ],
+    "highpass": 20,
+    "bitrate": "96k",
+    "size": 1142964,
+    "sha256": "55ea9889b86b6e2b13619eeadcbffa2b50e77018a10332b59b7c2cd093a97f50",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license. High-pass cutoff 20 Hz preserves the source recording's low-frequency rumble harmonics."
+  },
+  "tiger": {
+    "url": "https://cdn.freesound.org/previews/263/263115_672090-hq.mp3",
+    "source": "https://freesound.org/people/lauramellis/sounds/263115/",
+    "by": "lauramellis",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "Tiger Roar: a single real tiger call recorded at Louisville Zoo, Kentucky. Public high-quality MP3 version of Freesound recording 263115; source does not identify the tiger subspecies. Quiet lead-in and trailing ambience removed.",
+    "title": "Tiger Roar (Freesound 263115, high-quality MP3)",
+    "clips": [
+      {
+        "name": "field-tiger-1",
+        "offset": 0.85,
+        "duration": 1.6,
+        "bytes": 20441
+      }
+    ],
+    "bitrate": "96k",
+    "size": 199800,
+    "sha256": "38a0c9603e5dd819f8140dd637d0521d52609c2304654a28dedd481fd36f974a",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license."
   }
 }

@@ -126,7 +126,8 @@ export class UI {
     this.applySettings();
     this.saving.bind();
     this.warmPortraits();
-    const wake = () => { music.start(); music.setScene(game.weather, game.season); };
+    void music.prepare();
+    const wake = () => { void music.start(); };
     window.addEventListener('pointerdown', wake, true);
     window.addEventListener('keydown', wake, true);
   }
@@ -1083,11 +1084,14 @@ export class UI {
         ${toggle('music', 'Lo-fi music', 'Relaxed lo-fi tracks, shuffled. Streamed one at a time.')}
         ${slider('musicVolume', 'Music volume', '', 0, 1, pctFmt)}
         <div class="set-row now-playing"><span><b>Now playing</b><small class="np-title">${music.nowPlaying ? `${music.nowPlaying.title} · ${music.nowPlaying.artist}` : 'Starts when you begin playing'}</small></span><button type="button" class="btn secondary np-skip">Next track</button></div>
-        <p class="small" style="margin:4px 2px 10px">Music by <a href="https://freemusicarchive.org/music/holiznacc0/" target="_blank" rel="noopener">HoliznaCC0</a>, released into the public domain under ${MUSIC_LICENSE}.</p>
         ${toggle('nature', 'Nature sounds', 'Local wildlife, water, wind and insects, following each map’s seasons and time of day.')}
         ${slider('natureVolume', 'Nature volume', '', 0, 1, pctFmt)}
+        <details class="audio-credits">
+        <summary>Sound credits and licenses</summary>
+        <p class="small" style="margin:4px 2px 10px">Music by <a href="https://freemusicarchive.org/music/holiznacc0/" target="_blank" rel="noopener">HoliznaCC0</a>, released into the public domain under ${MUSIC_LICENSE}.</p>
         <p class="small" style="margin:4px 2px 0">Wildlife and environment recordings are trimmed and mixed for the game; each clip retains its source license.</p>
-        <p class="small" style="margin:4px 2px 0">${SOUND_CREDITS.map(c => `${c.what}: ${c.by}, <a href="${c.source}" target="_blank" rel="noopener">recording source</a> · ${c.licenseUrl ? `<a href="${c.licenseUrl}" target="_blank" rel="noopener">${c.license}</a>` : c.license}.`).join(' ')}</p>`],
+        <p class="small" style="margin:4px 2px 0">${SOUND_CREDITS.map(c => `${c.what}: ${c.by}, <a href="${c.source}" target="_blank" rel="noopener">recording source</a> · ${c.licenseUrl ? `<a href="${c.licenseUrl}" target="_blank" rel="noopener">${c.license}</a>` : c.license}.`).join(' ')}</p>
+        </details>`],
       game: ['Gameplay', `
         <div class="section-title" style="margin-top:0">Difficulty on this farm</div>
         <div class="seg" data-seg="difficulty">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === (g.difficulty || 'standard') ? 'on' : ''}">${d.name}</button>`).join('')}</div>

@@ -38,11 +38,12 @@ for recording_id, source in sources.items():
         raise SystemExit(f'{recording_id}: source changed; inspect it and its license before rebuilding.')
     for clip in source['clips']:
         output = root / 'assets/sounds' / (clip['name'] + '.m4a')
-        filters = 'highpass=f=50,loudnorm=I=-17:TP=-6:LRA=9' if source.get('loop') else f"highpass=f=60,loudnorm=I=-23:TP=-3:LRA=9,afade=t=in:d=0.04,afade=t=out:st={max(0, clip['duration'] - 0.08)}:d=0.08"
+        highpass = source.get('highpass', 50 if source.get('loop') else 60)
+        filters = f'highpass=f={highpass},loudnorm=I=-17:TP=-6:LRA=9' if source.get('loop') else f"highpass=f={highpass},loudnorm=I=-23:TP=-3:LRA=9,afade=t=in:d=0.04,afade=t=out:st={max(0, clip['duration'] - 0.08)}:d=0.08"
         # Continuous recordings stay unfaded; the decoded playback buffer supplies
         # the equal-power seam so encoding cannot reintroduce padding or a gap.
         command = ['-ss', str(clip['offset']), '-i', str(original), '-t', str(clip['duration'])]
-        encode([*command, '-af', filters, '-vn', '-ac', '1', '-ar', '32000', '-c:a', 'aac', '-b:a', '80k', '-movflags', '+faststart', str(output)])
+        encode([*command, '-af', filters, '-vn', '-ac', '1', '-ar', '32000', '-c:a', 'aac', '-b:a', source.get('bitrate', '80k'), '-movflags', '+faststart', str(output)])
         clip['bytes'] = output.stat().st_size
     print(recording_id)
 manifest_path.write_text(json.dumps(sources, indent=2, ensure_ascii=False) + '\n')

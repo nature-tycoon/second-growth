@@ -103,6 +103,7 @@ check('Off-screen bulls call throughout the rut using audio time, with no overla
   music.ctx = { state: 'running', currentTime: 0, createGain: node, createBufferSource() {
     const src = node(); src.start = () => heard.push({ t: music.ctx.currentTime, duration: src.buffer.duration / src.playbackRate.value }); return src;
   } };
+  music.callGain = node();
   music.warmRut = () => {};
   music.voice = (pan, far) => { assert.ok(far <= 0.65 && far > 0, 'distant bulls remain audible'); assert.ok(Math.abs(pan) <= 0.85); return node(); };
   music.trackSource = () => {};
