@@ -799,6 +799,25 @@ export class Wildlife {
     return !!best;
   }
 
+  // A surface fish (a longtom) runs from a charging hunter: straight away from it along the
+  // surface for a good distance, as fast as it can (the renderer draws the leaps it makes as it goes).
+  fleeAlong(a, predator, { dash, tiles }) {
+    const w = this.game.world, def = this.game.catalog.animals[a.sp];
+    let dx = a.x - predator.x, dy = a.y - predator.y;
+    const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+    const path = [];
+    for (let k = 1; k <= tiles * 2 && path.length < tiles; k++) {
+      const x = Math.floor(a.x + dx * k * 0.5), y = Math.floor(a.y + dy * k * 0.5);
+      if (!w.inb(x, y)) break;
+      const j = w.idx(x, y);
+      if (j === path[path.length - 1]) continue;
+      if (!passable(w, j, def) || !canLand(w, j, def)) break;
+      path.push(j);
+    }
+    if (!path.length) { this.evadeHunt(a, predator); a.run = 1.7; return; }
+    a.follow = false; a.state = 'walk'; a.path = path.reverse(); a.dash = dash; a.swimT = 0; // (walk paths are followed from the end)
+  }
+
   evadeHunt(a, predator) {
     const w = this.game.world, def = this.game.catalog.animals[a.sp], pd = this.game.catalog.animals[predator.sp];
     const x = Math.floor(a.x), y = Math.floor(a.y);
@@ -985,6 +1004,7 @@ export class Wildlife {
       }
       const sp = travelSpeed(def) * dt * (a.follow ? 1.3 : a.wade ? 0.3 : 1); // herd members trot to keep up; waders step slowly
       if (a.state !== 'hunt' && a.state !== 'flee' && a.state !== 'play' && a.state !== 'walk' && a.run) a.run = null;
+      if (a.dash && a.state !== 'walk') a.dash = null; // (a longtom's dash ends with its escape swim)
       switch (a.state) {
         case 'idle':
           a.wait -= dt;
@@ -1003,7 +1023,7 @@ export class Wildlife {
         case 'walk': {
           if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); break; }
           const j = a.path[a.path.length - 1];
-          if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1), dt)) a.path.pop(); break; }
+          if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1) * (a.dash || 1), dt) && (a.path.pop(), !a.path.length)) a.dash = null; break; }
           // each animal keeps to its own line through a tile and stops at its own spot in the last
           // one, so two walking the same way don't trace one track, and a group doesn't pile onto
           // a single point

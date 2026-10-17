@@ -183,6 +183,25 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'urchin', size: 6, color: '#604a70', spine: '#ede1cb', show: 2.2, swim: 0 },
     desc: 'A round, short-spined grazer that carries bits of shell and algae as camouflage. It nibbles turf algae from the reef floor.',
     hint: 'Established reef with patches of turf algae to graze.' });
+  // The lagoon's surface hunters and the shark that hunts them (also kept at the end, for saves).
+  def({ key: 'longtom', reef: true, herd: true, herdR: 1.4, name: 'Crocodile longtom', sci: 'Tylosurus crocodilus', group: 'Fish', move: 'ground',
+    speed: 1.2, hr: 10, max: 18, minK: 3, groupSize: [3, 6], sources: ['N', 'E', 'W'], mig: 0.5, breed: [8, 9], litter: [2, 4], life: 5, mature: 1,
+    suit: (W, i) => meadow[W.habitat[i]],
+    req: g => Math.min(1, Math.max(0, g.meadowTiles - 1200) / 800),
+    // surfaceEscape: chased, it dashes straight away along the surface (sim/animals.js fleeAlong);
+    // escape: 'skip' draws the leaps it makes as it goes (render3d/actors.js)
+    surfaceEscape: { dash: 2.3, tiles: 10 },
+    sprite: { kind: 'fish', size: 13, needle: true, escape: 'skip', back: '#3d6a66', flank: '#b8cbc6', belly: '#eef2ee', finColor: '#4c7672', swim: 0.95, show: 1.55 },
+    desc: 'A long, silver-green needlefish with a beak full of needle teeth. It hunts small fish right at the surface over the seagrass, and when something hunts it, it leaps clear of the water and skips away across the surface on its tail.',
+    hint: 'Seagrass meadows full of small fish.' });
+  def({ key: 'blacktip', reef: true, name: 'Blacktip reef shark', sci: 'Carcharhinus melanopterus', group: 'Turtles, sharks & rays', move: 'ground',
+    speed: 1.2, hr: 30, max: 3, minK: 1, groupSize: [1, 2], sources: ['N', 'E', 'W'], mig: 0.3, breed: [10], litter: [2, 4], life: 15, mature: 4,
+    prey: ['longtom', 'chromis'], preyPer: 8,
+    suit: (W, i) => Math.max(meadow[W.habitat[i]], 0.5 * reef[W.habitat[i]]),
+    req: g => Math.min(1, Math.max(0, g.meadowTiles - 1800) / 1000),
+    sprite: { kind: 'shark', size: 30, back: '#8a867c', flank: '#a29e94', belly: '#eeede8', finTip: '#17191b', flankBand: true, swim: 0.75, show: 2.1, beat: 0.5 },
+    desc: 'Patrols the lagoon\'s shallow sand and seagrass by day, often in water so shallow that its black-tipped fin cuts the surface. It hunts small fish over the flats, and the fish it hunts are a sign the meadow is feeding the lagoon.',
+    hint: 'Shallow seagrass flats with fish to hunt.' });
 
   return {
     groups: ['Fish', 'Turtles, sharks & rays', 'Seabirds', 'Invertebrates'],
@@ -195,9 +214,11 @@ export default function buildReefAnimals(def) {
       booby: ['brown booby', 'brown boobies'], noddy: ['black noddy', 'black noddies'],
       seacucumber: ['sea cucumber', 'sea cucumbers'], urchin: ['sea urchin', 'sea urchins'],
       sweetlips: ['sweetlips', 'sweetlips'], hawkfish: ['hawkfish', 'hawkfish'],
+      longtom: ['longtom', 'longtoms'], blacktip: ['blacktip reef shark', 'blacktip reef sharks'],
     },
     shy: { seacucumber: 0.1, urchin: 0.1, clownfish: 0.1, chromis: 0.1, tang: 0.2, parrotfish: 0.3, butterfly: 0.2, trout: 0.4, greenturtle: 0.4, shark: 0.6, manta: 0.6,
-      cleaner: 0.1, idol: 0.2, humphead: 0.5, trevally: 0.4, hawksbill: 0.4, dugong: 0.8, booby: 0.3, noddy: 0.4, sweetlips: 0.3, hawkfish: 0.1 },
+      cleaner: 0.1, idol: 0.2, humphead: 0.5, trevally: 0.4, hawksbill: 0.4, dugong: 0.8, booby: 0.3, noddy: 0.4, sweetlips: 0.3, hawkfish: 0.1,
+      longtom: 0.3, blacktip: 0.7 },
     frugivores: [],
     fenced: [],
     damBuilders: [],

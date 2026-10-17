@@ -1106,6 +1106,13 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
         for (let d = 0; d < 6; d++) fx.push({ k: 'drop', x: sx, z: sz, y: st.y, vx: (random() - 0.5) * 1.2, vz: (random() - 0.5) * 1.2, vy: 1.2 + random() * 1.2, life: 0.6, max: 0.6 });
       }
     }
+    // a longtom skipping away from a hunter splashes each time it leaves the sea and lands again
+    if (def.sprite.escape === 'skip' && (st.skipP ?? -1) >= 0 !== !!st.skipping) {
+      st.skipping = !st.skipping;
+      const ahead = st.skipping ? 0 : 0.3, sx = a.x + Math.cos(st.yaw) * ahead, sz = a.y - Math.sin(st.yaw) * ahead;
+      fx.push({ k: 'ring', x: sx, z: sz, y: st.y, life: 0.9, max: 0.9, s: 0.55 });
+      for (let d = 0; d < 4; d++) fx.push({ k: 'drop', x: sx, z: sz, y: st.y, vx: (random() - 0.5) * 1, vz: (random() - 0.5) * 1, vy: 1 + random(), life: 0.5, max: 0.5 });
+    }
     if (a.drinkT > 0 && !st.rippled && (wet || w.distWater[i] <= 1)) { st.rippled = true; fx.push({ k: 'ring', x: a.x + Math.cos(st.yaw) * 0.3, z: a.y - Math.sin(st.yaw) * 0.3, y: st.y, life: 1.8, max: 1.8, s: 1 }); }
     if (!(a.drinkT > 0)) st.rippled = false;
     if (a.bird?.kind === 'bathe' && a.bird.water && random() < dt * 2) {

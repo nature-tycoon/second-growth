@@ -24,7 +24,8 @@ for (const [map, keys] of Object.entries(additions)) {
   for (const key of Object.keys(keys)) assert.equal(legacyGame.wildlife.state[ANIMAL[key].index].pop, 0);
   Math.random = mulberry32(8739);
   const defs = Object.keys(keys).map(key => ANIMAL[key]);
-  assert.deepEqual(ANIMALS.slice(originalCount[map]).map(d => d.key), Object.keys(keys), 'Append new species after saved indices');
+  // (later additions, like the reef's longtom and blacktip, append after these in turn)
+  assert.deepEqual(ANIMALS.slice(originalCount[map], originalCount[map] + defs.length).map(d => d.key), Object.keys(keys), 'Append new species after saved indices');
   for (const def of defs) {
     assert.equal(def.max, keys[def.key]); assert.equal(def.fixedMax, true); assert.equal(def.strictMax, true);
     const { geo } = buildSpecies(def);

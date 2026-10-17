@@ -20,12 +20,12 @@ function reset(map='pnw', difficulty='standard') {
 function spawn(key,x=40,y=30) {const a=g.wildlife.spawn(ANIMAL[key],x,y,{silent:true,age:5*DAYS_PER_YEAR});a.x=x+.5;a.y=y+.5;a.hunger=12;a.wait=99;return a;}
 function rig(fn) {const original=Math.random;Math.random=()=>0;try{return fn();}finally{Math.random=original;}}
 function male(key,sex=true) {for(let n=0;n<300;n++){const a=spawn(key);if(isMale(ANIMAL[key],a)===sex)return a;g.wildlife.remove(a);}throw Error('sex');}
-check('All 200 regional species have bounded shared profiles and valid food webs',()=>{
+check('All 202 regional species have bounded shared profiles and valid food webs',()=>{
   let count=0;
   for(const map of ['pnw','amazon','serengeti','atlanta','chinandega','reef','sumatra']) {
     reset(map);for(const d of ANIMALS){assert(Array.isArray(d.behavior.forage));assert(d.behavior.partners<=3);for(const k of d.prey||[])assert(ANIMAL[k]);count++;}
   }
-  assert.equal(count,200);
+  assert.equal(count,202);
 });
 check('Eating differs by habitat across every map and never creates additional animals',()=>{
   for(const [map,key,food] of [['pnw','rabbit','grass'],['atlanta','anole','insects'],['amazon','anteater','insects'],['serengeti','topi','grass'],['chinandega','iguana','browse'],['reef','greenturtle','seagrass'],['sumatra','pangolin','insects']]) {
