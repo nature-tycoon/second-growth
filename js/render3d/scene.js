@@ -422,7 +422,7 @@ export class Renderer {
     this.target.x += before.x - after.x; this.target.z += before.z - after.z;
     this.clampCam(); this.updateCamera();
   }
-  rotate(dir) { this.azTarget += dir * Math.PI / 2; }
+  rotate(dir, degrees = 90) { this.azTarget += dir * degrees * Math.PI / 180; }
   // Glide the camera to a spot and zoom (for keystone moments), easing in and out.
   flyTo(x, y, zoom, dur = 2.2) {
     this.groundCamera();
