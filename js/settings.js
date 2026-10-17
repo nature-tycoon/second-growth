@@ -8,6 +8,8 @@ export const DEFAULTS = {
   fps: 'auto',         // frame rate: auto (30 on phones and on battery, else 60) | 60 | 30
   qualityChosen: false, // the player picked a Detail level themselves (so it's never lowered for them)
   slowFps: null,       // the frame rate when the game last stepped Detail down for this computer
+  autoQualityAt: 0,    // when the game last changed Detail itself (Date.now), down or back up
+  autoUpFailedAt: 0,   // when a step back up proved too much (no more tries for a day)
   wind: true,          // plants sway in the breeze
   weather: true,       // rain and snow drawn over the view
   dayCycle: true,      // the light moves through golden hour, dusk and dawn
