@@ -111,7 +111,7 @@ button, select { font-family: inherit; color: inherit; }
   -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
   border: 1px solid #f5f9e9a6;
   border-radius: 18px;
-  box-shadow: 0 7px 22px #112b1824, inset 0 1px 0 #ffffff73;
+  box-shadow: 0 2px 10px #112b1814, inset 0 1px 0 #ffffff73;
 }
 #toolpanel, #infopanel, #quest, #legend { background: linear-gradient(135deg, #edf4ddd6, #dce8c7d6); }
 .panel .stat, #topbar .brand { background: #f1f7df59; border-radius: 10px; }
@@ -129,7 +129,7 @@ body.menu-effects-off .panel { -webkit-backdrop-filter: none; backdrop-filter: n
   display: flex; align-items: center; gap: 8px; padding: 0 14px;
   z-index: 10;
 }
-.brand { display: flex; align-items: center; gap: 10px; padding-right: 14px; border-right: 1px solid var(--line); margin-right: 4px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 12px 4px 4px; margin-right: 2px; }
 .logo { width: 30px; height: 30px; }
 .title { font-family: var(--display); font-weight: 700; font-size: 20px; line-height: 1; color: var(--moss-2); letter-spacing: 0.2px; }
 .subtitle { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; white-space: nowrap; }
@@ -148,7 +148,7 @@ button.stat:hover { background: var(--paper-2); }
 .weather { width: 28px; height: 28px; display: inline-grid; place-items: center; }
 .weather svg { width: 26px; height: 26px; }
 .speed { display: flex; background: var(--paper-2); border-radius: 10px; padding: 4px; gap: 3px; margin-inline: 6px; }
-#stat-score { border-left: 1px solid var(--line); border-radius: 0 10px 10px 0; padding-left: 16px; }
+#stat-score { border-radius: 10px; }
 .speed button { width: 32px; height: 30px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; display: grid; place-items: center; }
 .speed button svg { width: 15px; height: 15px; fill: var(--ink-2); }
 .speed button:hover { background: var(--paper-3); }
@@ -263,7 +263,15 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .btn.danger { background: var(--bad); color: #fff; border-color: #8a2e22; }
 .btn:hover { filter: brightness(1.06); }
 .animal-hero { display: flex; gap: 10px; align-items: center; }
-.animal-hero img { width: 64px; height: 56px; object-fit: contain; background: var(--paper-2); border-radius: 10px; }
+.animal-hero img { width: 64px; height: 56px; object-fit: contain; background: #f1f6e28c; border-radius: 10px; }
+/* the inspect panel's actions, as small pills right under the name where they're seen */
+.info-actions { display: flex; gap: 5px; flex-wrap: wrap; margin: 10px 0 4px; }
+.info-actions button { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px 0 8px; border-radius: 13px;
+  border: 1px solid #fbfdf4b3; background: #f2f7e48c; color: var(--ink); font: 700 11.5px/1 var(--ui); cursor: pointer; white-space: nowrap; }
+.info-actions button svg { width: 13px; height: 13px; flex: none; }
+.info-actions button:hover { background: #f6faecd9; }
+.info-actions button.primary { background: var(--moss); border-color: var(--moss-2); color: #fff; }
+.info-actions button.primary:hover { filter: brightness(1.08); }
 
 /* ---------------- legend */
 #legend { right: var(--ui-edge); bottom: 202px; padding: 12px 16px; font-size: 12px; z-index: 7; max-width: 300px; }
@@ -330,10 +338,10 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .modal-body { padding: 22px 28px 28px; overflow-y: auto; }
 /* Bright sage glass carries the website's soft shapes into the game. */
 .modal.glass-menu {
-  background: linear-gradient(145deg, #e3edccbf, #cfe0b5c2);
+  background: linear-gradient(145deg, #e3edccf0, #cfe0b5f2);
   border: 1px solid #f7faeca6;
   border-radius: 23px;
-  box-shadow: 0 18px 55px #1735223d, inset 0 1px 0 #ffffff80;
+  box-shadow: 0 12px 34px #17352229, inset 0 1px 0 #ffffff80;
   color: var(--ink);
   color-scheme: light;
 }
@@ -351,20 +359,28 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .glass-menu .wm-land { fill: #a3b391; stroke: #64816d; }
 .glass-menu .wm-sea { fill: #91b1a3; stroke: #64816d; }
 .glass-menu .wm-pin span { background: #eff4dbeb; }
+.glass-menu .btn.secondary { background: #f2f7e48c; border-color: #fbfdf4b3; }
+.glass-menu .btn.secondary:hover { background: #f5f9eac2; filter: none; }
+.glass-menu .gcard { background: #f1f6e26b; border-color: #f8fbef66; }
+.glass-menu .gcard:hover { background: #f4f9e8a6; border-color: #fbfdf4bf; }
+.glass-menu .gcard.on { background: #f4f9e8b8; border-color: var(--moss); }
+.glass-menu .guide-detail { background: #eff5dc73; border: 1px solid #f8fbef80; }
+.glass-menu .guide-detail .hero, .glass-menu .guide-detail .hero-wrap { background: #f7fbeda6; }
+.glass-menu .q-tip, .glass-menu .ch-tool, .glass-menu .intro-map, .glass-menu .intro kbd { background: #f0f6de80; }
 .glass-menu .map-card img { height: auto; aspect-ratio: 3 / 2; object-position: center; border: 1px solid #d4e1c326; }
 /* One blurred surface, only on desktops with detail to spare. No nested blur on
    cards or controls, and no moving/animated glass. */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   @media (pointer: fine) and (min-width: 701px) {
     .modal.glass-menu {
-      background: linear-gradient(145deg, #e3edcca8, #cfe0b5ad);
-      -webkit-backdrop-filter: blur(9px) saturate(.9);
-      backdrop-filter: blur(9px) saturate(.9);
+      background: linear-gradient(145deg, #e3edccdb, #cfe0b5e0); /* (opaque enough that the HUD behind doesn't read through) */
+      -webkit-backdrop-filter: blur(16px) saturate(.9);
+      backdrop-filter: blur(16px) saturate(.9);
     }
   }
 }
-body.menu-effects-off .glass-menu { background: linear-gradient(145deg, #e3edccbf, #cfe0b5c2); -webkit-backdrop-filter: none; backdrop-filter: none; }
-.modal-back:has(.glass-menu) { background: #16332126; }
+body.menu-effects-off .glass-menu { background: linear-gradient(145deg, #e3edccfa, #cfe0b5fa); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.modal-back:has(.glass-menu) { background: #16332140; }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
   .modal.glass-menu, body.menu-effects-off .glass-menu { background: #e5edcf; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: #55724c; }
 }
@@ -436,7 +452,7 @@ body.menu-effects-off .glass-menu { background: linear-gradient(145deg, #e3edccb
   :root { --inspect-width: 240px; }
   .brand > div, #stat-weather { display: none; }
   #stat-date { display: none !important; }
-  .brand { padding-right: 6px; }
+  #topbar .brand { padding: 0; background: transparent; } /* (just the logo: no chip around it) */
   .stat.money { min-width: 0; font-size: 16px; }
   .top-actions select { max-width: 120px; padding: 0 6px; }
   #btn-trees, #btn-journal { display: none; }
@@ -494,7 +510,7 @@ html { -webkit-text-size-adjust: 100%; }
 body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior: none; }
 #view { touch-action: none; } /* the game handles every gesture on the map itself */
 
-/* Rotation stays discoverable beside the map on desktop and touch screens. */
+/* Rotation stays discoverable: under the tool bar on desktop, beside the map on touch screens. */
 #view-ctrls { display: flex; right: var(--ui-edge); bottom: 226px; z-index: 7; padding: 4px; gap: 4px; }
 body.mini-collapsed #view-ctrls { bottom: 52px; }
 #view-ctrls button { width: 44px; height: 52px; padding: 5px; border: 0; border-radius: 10px; background: var(--paper-2); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
@@ -502,7 +518,21 @@ body.mini-collapsed #view-ctrls { bottom: 52px; }
 #view-ctrls button kbd { font: 800 11px/1 var(--ui); }
 #view-ctrls button:hover, #view-ctrls button:focus-visible { outline: 2px solid var(--moss); outline-offset: -2px; }
 #view-ctrls button:active { background: var(--moss); color: #fff; }
-@media (pointer: fine) { #infopanel:not(.hidden):not(.min) ~ #view-ctrls, #legend:not(.hidden) ~ #view-ctrls { right: calc(340px + env(safe-area-inset-right)); } }
+/* (desktop: the rotate buttons stack in a panel of their own under the tool bar, whose bottom edge
+   UI keeps in --toolbar-bottom, so the inspect panel can run down to the map. A short window has
+   no room under the tool bar: there they stay by the map and step aside for the panels.) */
+@media (pointer: fine) and (min-height: 521px) {
+  body:not(.view-ctrls-beside) #toolbar { max-height: calc(100dvh - var(--ui-top) - var(--ui-edge) - 136px); }
+  #view-ctrls, body.mini-collapsed #view-ctrls { left: var(--ui-edge); right: auto; bottom: auto; top: calc(var(--toolbar-bottom, 640px) + 10px);
+    width: 68px; padding: 6px; flex-direction: column; }
+  #view-ctrls button { width: 100%; }
+  /* (too short a window for both: the pair sits side by side at the foot of the tool bar instead) */
+  body.view-ctrls-beside #view-ctrls, body.view-ctrls-beside.mini-collapsed #view-ctrls { top: auto; bottom: var(--ui-edge); left: calc(var(--ui-edge) + 78px); width: auto; flex-direction: row; }
+  body.view-ctrls-beside #view-ctrls button { width: 44px; }
+  #infopanel { max-height: calc(100dvh - var(--ui-top) - 230px); }
+  body.mini-collapsed #infopanel { max-height: calc(100dvh - var(--ui-top) - 64px); }
+}
+@media (pointer: fine) and (max-height: 520px) { #infopanel:not(.hidden):not(.min) ~ #view-ctrls, #legend:not(.hidden) ~ #view-ctrls { right: calc(340px + env(safe-area-inset-right)); } }
 /* touch screens: a thumbstick in the bottom-left corner that moves the map, so one finger on
    the map is always free to paint */
 #joystick { display: none; position: fixed; left: calc(74px + env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 6;
@@ -554,7 +584,7 @@ body.panels-hidden #joystick, body.photo-mode #joystick { display: none !importa
 @media (max-height: 520px) {
   #topbar { top: 6px; height: 46px; left: calc(6px + env(safe-area-inset-left)); right: calc(6px + env(safe-area-inset-right)); padding: 0 6px; gap: 4px; border-radius: 12px; }
   .logo { width: 26px; height: 26px; }
-  .brand { padding-right: 4px; margin-right: 0; }
+  #topbar .brand { padding: 0; margin-right: 0; background: transparent; }
   .brand > div, #stat-weather, #stat-season, #stat-date, #btn-journal, #btn-trees, #btn-feedback { display: none !important; }
   .stat.money { font-size: 15px; }
   .speed button { width: 28px; height: 28px; }
@@ -755,6 +785,7 @@ body.campaign #banner { top: 154px; }
 #stat-money { white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* if it still doesn't fit, fold lower-priority pieces away (set from JS) */
 #topbar.tight-1 .brand > div { display: none; }
+#topbar.tight-1 .brand { padding: 0; background: transparent; }
 #stat-visitors[hidden] { display: none !important; } /* maps without visitors */
 #topbar.tight-2 .stat .small:not(#stat-date), #topbar.tight-2 #stat-score > div:last-child { display: none !important; }
 #topbar.tight-3 #stat-visitors, #topbar.tight-3 #stat-weather, #topbar.tight-3 #stat-season, #topbar.tight-3 #stat-date { display: none !important; }
@@ -884,15 +915,18 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
 #save-status.error { color: #ae443c; }
 @media (max-height: 520px) { #save-status { top: 56px; right: calc(10px + env(safe-area-inset-right)); font-size: 10px; padding: 3px 6px; } }
 
-/* Keep notifications in the open map space, clear of the brush and minimap. */
+/* Notifications sit centred on the window, moved aside only as far as they must be to clear the
+   tool bar, the open brush panel and the minimap. */
 @media (min-width: 800px) and (min-height: 521px) {
   #toasts {
     --toast-left: 100px;
     --toast-right: 244px;
-    left: calc((100vw + var(--toast-left) - var(--toast-right)) / 2);
+    --toast-w: min(360px, calc(100vw - var(--toast-left) - var(--toast-right)));
+    left: clamp(calc(var(--toast-left) + var(--toast-w) / 2), 50vw, calc(100vw - var(--toast-right) - var(--toast-w) / 2));
     bottom: var(--ui-edge);
-    width: min(360px, calc(100vw - var(--toast-left) - var(--toast-right)));
+    width: var(--toast-w);
   }
+  body.view-ctrls-beside #toasts { --toast-left: 214px; }
   body:not(.panels-hidden):has(#toolpanel:not(.hidden):not(.collapsed)) #toasts { --toast-left: 410px; }
 }
 @media (min-width: 800px) and (max-width: 1100px) and (min-height: 521px) {

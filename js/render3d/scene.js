@@ -148,6 +148,7 @@ export class Renderer {
   applySettings(s) {
     const fast = s.quality === 'fast';
     this.quality = s.quality; this.qualityChosen = !!s.qualityChosen;
+    this.qualityAt = s.autoQualityAt || 0; this.upFailedAt = s.autoUpFailedAt || 0; // (see autoQuality)
     // (every setting comes through here, the volume sliders included: only a change to the
     // detail or shadows starts the automatic resolution over)
     const gfx = `${s.quality}|${s.shadows}`, fresh = gfx !== this.gfx;
@@ -246,8 +247,19 @@ export class Renderer {
   // graphics), step the Detail setting down once, to Fast, and say so. Only while the player
   // hasn't chosen a Detail level themselves; it waits out loading, and needs three slow
   // three-second spells in a row, so a busy moment doesn't count.
-  autoQuality() {
-    if (TOUCH || !this.onSlow || this.quality === 'fast' || this.qualityChosen) return;
+  // Once the computer has room again (plugged back in, low power mode off, other apps closed),
+  // it steps back up one level at a time, Fast to Balanced to Sharp, but rarely:
+  // - only after a minute of play in a row near 60 frames a second, at full resolution with
+  //   shadows on (a paused game draws faster than a running one, so paused time doesn't count),
+  // - and at least three minutes after its last change to Detail, this session or an earlier one.
+  //   (The 50-frame bar is what keeps it honest: in PostHog, no computer the game had moved to
+  //   Fast held 50 there, so the waits only decide how soon a computer that recovered gets back.)
+  // - Each step up is on trial for two minutes: slow spells in that time put it straight back,
+  //   and it doesn't try again for a day. (Running slow later in the session, after a step up,
+  //   drops it to Fast as usual and counts as a failed try too.)
+  // A frame rate held to 30 (Auto on battery, or the setting) never shows room, so it stays put.
+  autoQuality(game) {
+    if (TOUCH || !this.onQuality || this.qualityChosen) return;
     const now = performance.now(), A = this.qWin;
     this.qStart ??= now;
     if (!A || now - A.last > 3000) { this.qWin = { t0: now, last: now, gaps: [] }; return; }
@@ -256,8 +268,25 @@ export class Renderer {
     this.qWin = { t0: now, last: now, gaps: [] };
     if (now - this.qStart < 8000) return;
     const g = A.gaps.sort((a, b) => a - b), fps = 1000 / Math.max(1, g[Math.floor(g.length * 0.75)]);
-    this.qSlow = fps < 20 ? (this.qSlow || 0) + 1 : 0;
-    if (this.qSlow >= 3) { this.qSlow = 0; this.qStart = null; this.useFar(true); this.onSlow('fast', Math.round(fps)); }
+    const trial = this.qTrial;
+    if (trial) {
+      this.qBad = fps < 26 ? (this.qBad || 0) + 1 : 0;
+      if (this.qBad >= 3) { this.qTrial = null; this.qBad = 0; this.qStart = null; this.onQuality(trial.from, Math.round(fps), 'undo'); }
+      else if (now - trial.at > 120000) this.qTrial = null;
+      return;
+    }
+    this.qSlow = fps < 20 && this.quality !== 'fast' ? (this.qSlow || 0) + 1 : 0;
+    if (this.qSlow >= 3) { this.qSlow = 0; this.qGood = 0; this.qStart = null; this.useFar(true); this.onQuality('fast', Math.round(fps), this.qRaised ? 'undo' : 'slow'); return; }
+    const up = { fast: 'balanced', balanced: 'high' }[this.quality];
+    const room = up && game?.speed > 0 && fps >= 50 && this.resScale >= 0.999 && !this.shadowsDropped;
+    this.qGood = room ? (this.qGood || 0) + 1 : 0;
+    const wall = Date.now();
+    if (this.qGood >= 20 && wall - (this.qualityAt || 0) >= 180000 && wall - (this.upFailedAt || 0) >= 86400000) {
+      this.qGood = 0; this.qStart = null;
+      this.qTrial = { from: this.quality, at: now };
+      this.qRaised = true;
+      this.onQuality(up, Math.round(fps), 'room');
+    }
   }
   setRes(sc) {
     this.resScale = sc; this.dpr = this.baseDpr * sc;
@@ -364,16 +393,31 @@ export class Renderer {
     this.updateCamera();
   }
   centerOnAnimal(a) {
-    this.fly = null; this.zoomGoal = null;
+    this.fly = null; this.zoomGoal = null; this.followGlide = null;
     this.followAgent = a;
     this.followPoseId = null;
     const pose = this.actors.pose.get(a.id);
     if (pose?.visible) { this.centerOn(pose.center.x, pose.center.z, pose.center.y); this.followPoseId = a.id; }
     else this.centerOn(a.x, a.y); // next draw computes its fresh pose, even if offscreen
   }
+  // Start following a clicked animal: glide over to it rather than jump, keeping the zoom.
+  glideToAnimal(a) {
+    this.fly = null;
+    this.followGlide = { id: a.id, t: 0 };
+  }
   updateAnimalCamera(dt = 1 / 60) {
     const pose = this.followAgent && this.actors.pose.get(this.followAgent.id);
     if (!pose?.visible) return;
+    const glide = this.followGlide;
+    if (glide && glide.id !== this.followAgent.id) this.followGlide = null;
+    else if (glide) {
+      glide.t += dt;
+      this.target.lerp(pose.center, Math.min(1, dt * 7));
+      this.animalCentered = true; this.updateCamera();
+      if (glide.t > 0.8 || this.target.distanceToSquared(pose.center) < 1e-4) this.followGlide = null;
+      this.followPoseId = this.followAgent.id;
+      return;
+    }
     if (pose.branchPoint && this.followPoseId === this.followAgent.id) {
       easeAnimalTarget(this.target, pose.center, dt);
       this.animalCentered = true; this.updateCamera();
@@ -470,15 +514,19 @@ export class Renderer {
     this.v3.set(x, y, z).project(this.camera);
     return { x: (this.v3.x + 1) / 2 * this.vw, y: (1 - this.v3.y) / 2 * this.vh };
   }
-  pickAgent(game, sx, sy, radius = 26) {
-    let best = null, bd = radius * radius;
-    const all = game.wildlife.viewAgents;
+  // The animal under a click. Each one can be clicked anywhere over its body as drawn (a manta's
+  // wingtips, not just its middle), and a small one anywhere within `radius` pixels of its centre;
+  // of several in reach, the one whose centre is nearest the pointer wins.
+  pickAgent(game, sx, sy, radius = 34) {
+    let best = null, bd = Infinity;
+    const all = game.wildlife.viewAgents, ppu = this.ppu || 0;
     for (const a of all) {
       const s = this.actors.pose.get(a.id);
       if (!s?.visible) continue;
       const p = this.project(s.center.x, s.center.y, s.center.z);
       const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
-      if (d < bd) { bd = d; best = a; }
+      const reach = Math.max(radius, 0.55 * Math.max(s.foot || 0, s.h || 0) * ppu);
+      if (d < reach * reach && d < bd) { bd = d; best = a; }
     }
     return best;
   }
@@ -694,7 +742,7 @@ export class Renderer {
       const ms = t - P.last; P.last = t;
       if (!document.hidden && ms > 0) { P.frames++; P.time += ms; if (ms > 34) P.slow++; } // (slower than 30 fps; a hidden tab's gap doesn't count, and a laptop's long stalls do)
     }
-    if (dt > 0) { this.autoResolution(); this.autoQuality(); }
+    if (dt > 0) { this.autoResolution(); this.autoQuality(game); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);
     const now = this.diagnosticTime ?? performance.now();

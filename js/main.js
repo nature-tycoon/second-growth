@@ -48,7 +48,8 @@ async function boot() {
     // few slow spells). Fast on a computer keeps the screen's sharpness: see Renderer.applySettings.
     const chip = probeGpu(), touchScreen = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
     const weak = !touchScreen && weakGpu(chip);
-    if (weak && !settings.qualityChosen && settings.quality !== 'fast') {
+    // (Once the game has measured this computer itself and changed Detail, that wins over the chip.)
+    if (weak && !settings.qualityChosen && !settings.autoQualityAt && settings.quality !== 'fast') {
       track('auto_quality', { from: settings.quality, to: 'fast', reason: 'graphics_chip', gpu: chip });
       settings.quality = 'fast'; saveSettings();
     }
