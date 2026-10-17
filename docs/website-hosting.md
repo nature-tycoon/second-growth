@@ -1,6 +1,8 @@
 # secondgrowth.earth
 
-The public homepage is in `website/`. The playable game stays in the repository root for development, tests and itch.io. `node tools/build-website.mjs` assembles `dist/website/` with the homepage at `/` and an unchanged copy of the game at `/play/`. The homepage reuses actual game map images and the existing logo; it loads no game JavaScript or WebGL canvas.
+The public homepage is in `website/`. The playable game stays in the repository root for development, tests and itch.io. `node tools/build-website.mjs` assembles `dist/website/` with the homepage at `/` and an unchanged copy of the game at `/play/`. The homepage reuses actual game map images and the existing logo. Its small `site.js` landscape picker switches seven previews without loading the simulation or a WebGL canvas. Selected state, image, region and story change together after the requested image decodes; a newer selection cancels older pending results. Keep the visible landscape descriptions useful without launching the game.
+
+`website/art/` holds a river scene and transparent animal/plant portraits exported from the production renderer. Regenerate with `nice -n 15 node tools/capture-website-art.mjs`; the helper uses a seeded restoration fixture and an isolated browser, then closes it and removes the profile. These are game assets, not generated concept art. The homepage uses forest/moss backgrounds, warm peach controls and reduced-motion-safe CSS; it never runs a frame loop.
 
 `node tools/website-check.mjs` builds and checks local asset links, play buttons, app manifest scope, the custom domain and byte-identical game packaging. The headless release runner discovers this check automatically. The website workflow runs it again before publishing. Simulation code and the itch.io packaging paths are unchanged.
 

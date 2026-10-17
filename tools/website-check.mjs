@@ -15,11 +15,11 @@ async function files(directory) {
   }))).flat();
 }
 const homepage = await readFile(join(output, 'index.html'), 'utf8');
-assert.ok(!homepage.includes('<script'), 'Homepage must not load the game engine');
+assert.deepEqual([...homepage.matchAll(/<script[^>]+src="([^"]+)"/g)].map(m => m[1].split('?')[0]), ['site.js'], 'Homepage may load only its landscape picker, never the game engine');
 assert.equal((homepage.match(/href="play\/"/g) || []).length, 3, 'All three play buttons use the hosted game');
 for (const name of ['index.html', 'site.css', 'play/index.html']) {
   const path = join(output, name), source = await readFile(path, 'utf8');
-  const links = [...source.matchAll(/(?:src|href)="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
+  const links = [...source.matchAll(/(?:src|href|data-image)="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
   for (const link of links) {
     if (/^(?:https?:|data:|#)/.test(link)) continue;
     const target = resolve(dirname(path), decodeURIComponent(link.split(/[?#]/)[0]));
