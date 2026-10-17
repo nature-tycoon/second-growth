@@ -138,7 +138,7 @@ try {
     music.ctx.createBuffer=(...args)=>{buffers++;return createBuffer(...args);};
     music.start=()=>{const before=buffers,t=performance.now();const result=start();window.audioStarts.push({ms:performance.now()-t,buffers:buffers-before});return result;};
   })()`);
-  const startButton = await b.evaluate(`(()=>{const r=document.querySelector('[data-a="start"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+  const startButton = await b.evaluate(`(()=>{const r=document.querySelector('[data-m="free"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
   await b.send('Emulation.setCPUThrottlingRate', { rate: 6 });
   await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...startButton, button: 'left', clickCount: 1 });
   await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...startButton, button: 'left', clickCount: 1 });

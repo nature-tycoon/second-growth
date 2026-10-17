@@ -43,7 +43,7 @@ try {
   for(let i=0;i<300;i++) { if(await evaluate('!!window.secondGrowth')) break; await new Promise(resolve=>setTimeout(resolve,100)); }
   if(!await evaluate('!!window.secondGrowth')) throw new Error('Actual game did not boot');
   await evaluate(`(async()=>{
-    const {game,ui,renderer}=window.secondGrowth; ui.closeModal(); game.speed=0;
+    const {game,ui,renderer}=window.secondGrowth; ui.closeModal(true); game.speed=0;
     const {settings}=await import('/js/settings.js'); const {editPlants}=await import('/tools/plant-performance-fixtures.mjs');
     const results=[];
     for(const quality of ['fast','high']) {
