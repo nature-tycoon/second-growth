@@ -244,3 +244,77 @@
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .moment-bubble { background: #173e32f5; } }
 
 .capture-context{display:block;margin-top:10px;color:#c1cfb8;font-size:11px;line-height:1.8}
+
+/* Readability and motion polish: lift the smallest text to a readable floor,
+   keep the long ecology heading in view, and give the hero a slow drift. */
+.eyebrow { font-size: 11px; letter-spacing: 1.6px; }
+.home .hero .eyebrow, .moment-bubble .eyebrow, .map-information .eyebrow { font-size: 10px; }
+.site-nav { font-size: 13px; }
+.button.small { font-size: 13px; }
+.home .play-note { font-size: 12px; }
+.scene-caption>span { font-size: 12px; }
+.scene-caption p { font-size: 11px; }
+.hero-scroll { font-size: 13px; }
+.game-facts dt { font-size: 14px; }
+.game-facts dd { font-size: 13px; }
+.section-head>p { font-size: 15px; }
+.restoration-steps p { font-size: 14px; }
+.image-tag { font-size: 11px; }
+.sequence-choice>span { font-size: 11px; }
+.sequence-description { font-size: 14px; }
+.map-choice small { font-size: 10px; }
+.habitat { font-size: 13px; }
+.species-list dt { font-size: 11px; }
+.species-list dd { font-size: 13px; }
+.moment-bubble > p:last-child { font-size: 13px; }
+.section-note, figcaption { font-size: 12px; }
+.topic-label { font-size: 11px; }
+.ecology-topics summary { font-size: 12px; }
+.ecology-topics details p, .model-note p, .credits p { font-size: 13px; }
+.ecology-gallery figcaption span { font-size: 12px; }
+.project-links a { font-size: 13px; }
+.closing p:last-child { font-size: 14px; }
+.footer nav { font-size: 12px; }
+.footer>span { font-size: 11px; }
+.ecology-heading { position: sticky; top: 40px; }
+.ecology-gallery img { transition: transform .4s ease; }
+.ecology-gallery figure:hover img { transform: translateY(-4px); }
+.hero-backdrop img { animation: sg-drift 40s ease-in-out infinite alternate; transform-origin: 60% 55%; }
+@keyframes sg-drift { from { transform: scale(1); } to { transform: scale(1.06) translate(-1%, -1%); } }
+@media (max-width: 720px) {
+  .eyebrow { font-size: 10px; letter-spacing: 1.3px; }
+  .home .hero .eyebrow, .moment-bubble .eyebrow, .map-information .eyebrow { font-size: 9px; }
+  .home .site-nav { font-size: 12px; }
+  .home .hero .intro { font-size: 15px; }
+  .home .play-note { font-size: 11px; }
+  .hero-scroll { font-size: 11px; }
+  .game-facts dd { font-size: 12px; }
+  .home .map-choice small { font-size: 9px; letter-spacing: .4px; }
+  .image-tag, .sequence-choice>span { font-size: 10px; }
+  .section-note, figcaption { font-size: 11px; }
+  .footer nav { font-size: 11px; }
+  .ecology-heading { position: static; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-backdrop img { animation: none; }
+}
+
+/* Before/after creek slider. --pos is how much of the "before" image shows. */
+.compare { --pos: 50%; position: relative; overflow: hidden; border-radius: 23px; background: #294c3c; touch-action: pan-y; cursor: ew-resize; user-select: none; -webkit-user-select: none; }
+.compare > img { display: block; width: 100%; height: auto; aspect-ratio: 3/2; object-fit: cover; pointer-events: none; -webkit-user-drag: none; }
+.compare > .compare-before { position: absolute; inset: 0; height: 100%; clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
+.compare-handle { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px; background: #fff2d7; box-shadow: 0 0 12px #0a281966; pointer-events: none; }
+.compare-handle > span { position: absolute; top: 50%; left: 50%; display: grid; place-items: center; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: #edb58e; color: #17392b; box-shadow: 0 4px 16px #0a28194d; }
+.compare-tag { bottom: auto; top: 17px; pointer-events: none; transition: opacity .2s; }
+.compare-tag.before { left: 17px; }
+.compare-tag.after { left: auto; right: 17px; }
+.compare-range { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
+.compare:has(.compare-range:focus-visible) .compare-handle > span { outline: 3px solid var(--ochre); outline-offset: 4px; }
+@media (max-width: 720px) {
+  .compare { border-radius: 21px 29px 21px 21px; }
+  .compare-tag { top: 12px; }
+  .compare-tag.before { left: 12px; }
+  .compare-tag.after { right: 12px; }
+  .tag-date { display: none; }
+  .compare-handle > span { width: 40px; height: 40px; margin: -20px 0 0 -20px; }
+}

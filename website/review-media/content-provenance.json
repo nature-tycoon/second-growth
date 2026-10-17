@@ -1,6 +1,6 @@
 {
-  "sourceRevision": "b6207467fc86ed46bb9043fa9cb45531916a4b02",
-  "capturedAt": "2026-10-17T05:31:57.122Z",
+  "sourceRevision": "52d973f94565c62675754de0a04c826d9bbfc33e",
+  "capturedAt": "2026-10-17T16:23:31.578Z",
   "method": "Production renderer and models; captures with moment metadata are staged encounters using production keystone triggers and behavior poses, tightly framed with selected-animal canopy reveal. Regional/detail images are seeded restored fixtures with posed wildlife; PNW foreground bank thinned for visibility. Creek images use one evolving game save and ToolActions, followed by 240 daily ticks with wildlife movement, without editing plant maturity or habitat rules.",
   "sequence": {
     "seed": 1987,
@@ -36,13 +36,13 @@
       },
       {
         "tool": "mix_pioneer",
-        "count": 8,
-        "cost": 144
+        "count": 82,
+        "cost": 1476
       },
       {
         "tool": "mix_meadow",
-        "count": 221,
-        "cost": 663
+        "count": 211,
+        "cost": 633
       }
     ],
     "stages": {
@@ -59,87 +59,24 @@
         "day": 20,
         "date": "May, Year 1",
         "culvert": false,
-        "planted": 292,
-        "trees": 8,
+        "planted": 356,
+        "trees": 82,
         "fishAccess": 1,
-        "saveSha256": "93232721a84e39e34ef2699d304e0841d47deaafed9d35ab637dfecfe70b6834"
+        "saveSha256": "7ebba6e423ce8b062fb1c8e0854a930ac62efc1e002c1186b7dfeccc2524f999"
       },
       "later": {
         "day": 260,
         "date": "May, Year 3",
         "culvert": false,
-        "planted": 292,
-        "trees": 8,
+        "planted": 356,
+        "trees": 82,
         "fishAccess": 1,
-        "saveSha256": "8c7d283202311bbf394d1641fa0b9e64759407557a403475f4a4115606684e02"
+        "saveSha256": "25aab728db4e9ea0232464d464be613210910ee5b66f4a1bebac60bcd7a9c3cc"
       }
     },
     "sourceSaves": "dist/website-capture-source/ (local, excluded from website)"
   },
   "captures": [
-    {
-      "file": "creek-before.jpg",
-      "width": 1800,
-      "height": 1200,
-      "sha256": "f06cf6bd9fe568ec9145111385b992bec08f94d71848f649a774408a08bf2219",
-      "map": "pnw",
-      "kind": "same-save sequence",
-      "stage": "before",
-      "frame": [
-        54,
-        73,
-        2.4
-      ],
-      "day": 20,
-      "date": "May, Year 1",
-      "culvert": true,
-      "planted": 0,
-      "trees": 0,
-      "fishAccess": 0,
-      "saveSha256": "8b5cf09c8a3f2a477136d08f9af652f16f456ee32365a450c6828233e700af8f"
-    },
-    {
-      "file": "creek-planted.jpg",
-      "width": 1800,
-      "height": 1200,
-      "sha256": "9e2e2b24e8d0a10a081ad4308c396167f2b782814e005add7403ba04e6811bc2",
-      "map": "pnw",
-      "kind": "same-save sequence",
-      "stage": "planted",
-      "frame": [
-        54,
-        73,
-        2.4
-      ],
-      "day": 20,
-      "date": "May, Year 1",
-      "culvert": false,
-      "planted": 292,
-      "trees": 8,
-      "fishAccess": 1,
-      "saveSha256": "93232721a84e39e34ef2699d304e0841d47deaafed9d35ab637dfecfe70b6834"
-    },
-    {
-      "file": "creek-later.jpg",
-      "width": 1800,
-      "height": 1200,
-      "sha256": "2664abb473e27597386208cb5c0b96de7b4e14ff6a66f33ef0d15009c574618f",
-      "map": "pnw",
-      "kind": "same-save sequence",
-      "stage": "later",
-      "frame": [
-        54,
-        73,
-        2.4
-      ],
-      "day": 260,
-      "date": "May, Year 3",
-      "culvert": false,
-      "planted": 292,
-      "trees": 8,
-      "fishAccess": 1,
-      "saveSha256": "8c7d283202311bbf394d1641fa0b9e64759407557a403475f4a4115606684e02"
-    },
     {
       "file": "detail-woodland.jpg",
       "width": 1800,
@@ -610,6 +547,69 @@
         "day": 20,
         "date": "May, Year 1"
       }
+    },
+    {
+      "file": "creek-before.jpg",
+      "width": 1800,
+      "height": 1200,
+      "sha256": "f06cf6bd9fe568ec9145111385b992bec08f94d71848f649a774408a08bf2219",
+      "map": "pnw",
+      "kind": "same-save sequence",
+      "stage": "before",
+      "frame": [
+        54,
+        73,
+        2.4
+      ],
+      "day": 20,
+      "date": "May, Year 1",
+      "culvert": true,
+      "planted": 0,
+      "trees": 0,
+      "fishAccess": 0,
+      "saveSha256": "8b5cf09c8a3f2a477136d08f9af652f16f456ee32365a450c6828233e700af8f"
+    },
+    {
+      "file": "creek-planted.jpg",
+      "width": 1800,
+      "height": 1200,
+      "sha256": "6e81831cd479f2ac110f28c0adec27512a273799a19c2f6962c1e68155b96c25",
+      "map": "pnw",
+      "kind": "same-save sequence",
+      "stage": "planted",
+      "frame": [
+        54,
+        73,
+        2.4
+      ],
+      "day": 20,
+      "date": "May, Year 1",
+      "culvert": false,
+      "planted": 356,
+      "trees": 82,
+      "fishAccess": 1,
+      "saveSha256": "7ebba6e423ce8b062fb1c8e0854a930ac62efc1e002c1186b7dfeccc2524f999"
+    },
+    {
+      "file": "creek-later.jpg",
+      "width": 1800,
+      "height": 1200,
+      "sha256": "e1d4a42de37422f708e40c530cf9355fe3e6b91735acfff7dbc9092185bec443",
+      "map": "pnw",
+      "kind": "same-save sequence",
+      "stage": "later",
+      "frame": [
+        54,
+        73,
+        2.4
+      ],
+      "day": 260,
+      "date": "May, Year 3",
+      "culvert": false,
+      "planted": 356,
+      "trees": 82,
+      "fishAccess": 1,
+      "saveSha256": "25aab728db4e9ea0232464d464be613210910ee5b66f4a1bebac60bcd7a9c3cc"
     }
   ]
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
-const { Flora } = await import('../js/render3d/flora.js');
+const { Flora, floraVersion } = await import('../js/render3d/flora.js');
 const { Renderer } = await import('../js/render3d/scene.js');
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log('PASS ' + name); }
@@ -45,8 +45,9 @@ check('Disabling and restoring the optimizations retains full source shadows and
   flora.setOptimizations({ indexedGeometry: true, cullShadows: true }); renderState(); assert.ok(flora.plantShadows.batches.get(pool).mesh.visible); assert.equal(source.viewShadow.visible, false);
 });
 check('Depth materials with alpha or custom behavior retain the original shadow path', () => {
-  material.alphaTest = .5; plants([6]); renderState(); const source = [...pool.subs.values()][0]; assert.equal(source.packedShadows, false); assert.ok(source.viewShadow.visible);
-  material.alphaTest = 0; plants([6]); renderState(); assert.equal(source.packedShadows, true);
+  // (a material change is announced by whoever makes it, as Flora.setFade does: redrawing the same plants no longer bumps the plant version)
+  material.alphaTest = .5; floraVersion.n++; plants([6]); renderState(); const source = [...pool.subs.values()][0]; assert.equal(source.packedShadows, false); assert.ok(source.viewShadow.visible);
+  material.alphaTest = 0; floraVersion.n++; plants([6]); renderState(); assert.equal(source.packedShadows, true);
 });
 check('Shadow refresh still responds to camera motion, edits, sun motion, map loss and shadow settings', () => {
   const stub = { camera, sun: light, flora, terrain: { banks: { version: 0 } }, gl: { shadowMap: {} }, shadowRedraws: 0 };

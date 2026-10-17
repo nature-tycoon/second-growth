@@ -16,8 +16,10 @@ const mapNames=['pnw','amazon','serengeti','atlanta','chinandega','reef','sumatr
 const selected=process.argv.find(a=>a.startsWith('--maps='))?.slice(7).split(',');
 if(selected?.some(map=>!mapNames.includes(map)))throw Error('Unknown map in --maps');
 const moments=process.argv.includes('--moments');
+// --creek redoes only the same-save creek sequence and keeps every other capture.
+const creekOnly=process.argv.includes('--creek');
 if(moments&&!selected)throw Error('Generate the baseline set first, then use --maps=... with --moments.');
-const previous=selected?JSON.parse(await readFile(out+'content-provenance.json','utf8')):null;
+const previous=selected||creekOnly?JSON.parse(await readFile(out+'content-provenance.json','utf8')):null;
 let sequence=previous?.sequence;
 const captures=[],actionsLog=[];
 const hash=b=>createHash('sha256').update(b).digest('hex');
@@ -35,7 +37,9 @@ if(!selected){
   use('demolish',[w.idx(54,75)]);use('pull',bank);use('rip',bank);use('mulch',bank);
   const streamside=bank.filter(i=>Math.abs(i%w.w-54)<=3);
   use('mix_riparian',streamside);
-  use('mix_pioneer',bank.filter(i=>(i%w.w)%3===0&&Math.floor(i/w.w)%3===0));
+  // A wide band of pioneer trees along both banks; the mix picks alder, cottonwood,
+  // maple or ash per tile from moisture and light, as it does for a player.
+  use('mix_pioneer',bank.filter(i=>{const d=Math.abs(i%w.w-54);return d>=1&&d<=6;}));
   use('mix_meadow',bank);g.refreshEnvironment();await saveStage('planted');
   for(let day=0;day<240;day++){
     g.dailyTick();for(let k=0;k<10;k++)g.wildlife.update(.1);
@@ -54,7 +58,7 @@ try{
     await ready('/tools/website-scenes.html?stage='+stage);
     await save('creek-'+stage+'.jpg',await browser.evaluate('websiteScene.capture()'),{map:'pnw',kind:'same-save sequence',stage,frame:await browser.evaluate('websiteScene.frame'),...sequence.stages[stage]});
   }
-  for(const map of selected||mapNames){
+  for(const map of creekOnly?[]:selected||mapNames){
     await ready('/tools/website-scenes.html?map='+map+(moments?'&moments=1':''));
     const meta={map,kind:moments?'staged keystone moment study':'staged restored habitat study',day:await browser.evaluate('websiteScene.game.day'),date:await browser.evaluate('websiteScene.game.dateString()'),seed:1987,frame:await browser.evaluate('websiteScene.frame'),posedSpecies:await browser.evaluate('websiteScene.placed'),moment:await browser.evaluate('websiteScene.moment')};
     await save('landscape-'+map+'.jpg',await browser.evaluate('websiteScene.capture()'),meta);

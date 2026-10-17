@@ -58,7 +58,11 @@ export class PlantPool {
     for (let j = 0; j < 16; j++) m[j] = v[o + j];
     c[0] = v[o + 16]; c[1] = v[o + 17]; c[2] = v[o + 18];
   }
+  // Returns false, touching nothing, when the instances are exactly those already drawn: a
+  // region is rebuilt for a change in one corner, and most of its buffers come out the same.
+  // (An upload would also make the visible and shadow batches and the shadow map redo theirs.)
   end() {
+    if (!this.mesh ? this.n === 0 : this.n === this.mesh.count && this.n <= this.cap && this.unchanged()) return false;
     floraVersion.n++;
     this.onChange?.();
     if (this.n > this.cap) {
@@ -85,6 +89,16 @@ export class PlantPool {
     // lets three.js skip this chunk when it's off screen
     if (this.n) { this.mesh.computeBoundingSphere(); this.mesh.boundingSphere.radius += 3; }
     if (this.proxy) { this.proxy.count = this.n; if (this.n) this.proxy.boundingSphere = this.mesh.boundingSphere.clone(); this.useProxy(); }
+    return true;
+  }
+  unchanged() {
+    const ma = this.mesh.instanceMatrix.array, ca = this.mesh.instanceColor.array, f = Math.fround;
+    for (let k = 0; k < this.n; k++) {
+      const m = this.m[k], c = this.c[k], o = k * 16;
+      for (let j = 0; j < 16; j++) if (ma[o + j] !== m[j]) return false;
+      if (ca[k * 3] !== f(c[0]) || ca[k * 3 + 1] !== f(c[1]) || ca[k * 3 + 2] !== f(c[2])) return false;
+    }
+    return true;
   }
   dispose() {
     floraVersion.n++;
@@ -146,5 +160,5 @@ export class ChunkedPlantPool {
     return p;
   }
   replay(v, o) { this.sub(this.placement.activeChunk).addRaw(v, o); }
-  end(dirty) { for (const [k, p] of this.subs) if (!dirty || dirty.has(k)) { p.end(); p.setView(...this.view); } }
+  end(dirty) { for (const [k, p] of this.subs) if ((!dirty || dirty.has(k)) && p.end()) p.setView(...this.view); }
 }

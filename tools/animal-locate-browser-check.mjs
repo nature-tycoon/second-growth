@@ -25,7 +25,7 @@ try {
     const { ANIMAL } = await import('/js/data/animals.js');
     const { PLANTS } = await import('/js/data/plants.js');
     const { T } = await import('/js/config.js');
-    ui.closeModal(); ui.closeInfo(); game.newGame(1987, 'free', 'standard', map); game.speed = 0;
+    ui.closeModal(true); ui.closeInfo(); game.newGame(1987, 'free', 'standard', map); game.speed = 0;
     game.wildlife.agents = []; game.visitors.agents = []; game.residents = [];
     const a = game.wildlife.spawn(ANIMAL[key], 30, 30, { silent: true, age: 1000 });
     const i = game.world.idx(Math.floor(a.x), Math.floor(a.y));

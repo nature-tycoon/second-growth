@@ -89,7 +89,7 @@ assert.equal(game.featureList.length, 7);
 assert.ok(!graph.some(node => node.aggregateRating || node.review), 'Never invent reviews or ratings for search markup');
 assert.deepEqual(graph.find(node => node['@type'] === 'FAQPage').mainEntity.map(node => ({question: node.name, answer: node.acceptedAnswer.text})), facts.questions, 'Structured answers must match visible answers exactly');
 for (const [attribute, property] of [['property', 'og:image'], ['name', 'twitter:image']]) {
-  assert.ok(publishedHome.includes(`<meta ${attribute}="${property}" content="${websiteOrigin}/review-media/header-desktop.jpg">`), `${property} uses the approved fresh hero`);
+  assert.ok(publishedHome.includes(`<meta ${attribute}="${property}" content="${websiteOrigin}/share.jpg">`), `${property} uses the 1200×630 crop of the approved hero`);
 }
 assert.deepEqual([...homepage.matchAll(/<script[^>]+src="([^"]+)"/g)].map(m => m[1].split('?')[0]), ['site.js'], 'Homepage may load only its static image selectors, never the game engine');
 assert.equal((homepage.match(/href="play\/"/g) || []).length, 3, 'All three play buttons use the hosted game');
@@ -113,5 +113,6 @@ assert.equal(manifest.start_url, './');
 assert.equal(manifest.scope, './');
 assert.equal((await readFile(join(output, 'CNAME'), 'utf8')).trim(), 'secondgrowth.earth');
 assert.ok(!(await readdir(output)).includes('tools'), 'Developer tools must not be published');
+for (const name of ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'share.jpg']) await readFile(join(output, name));
 assert.ok(!(await readdir(output)).includes('art'), 'Legacy homepage artwork must not be published');
 console.log('PASS public indexing, robots, sitemap, llms.txt, Markdown facts, matching structured data, homepage links, fresh imagery, and exact game package');

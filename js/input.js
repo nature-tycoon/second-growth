@@ -100,8 +100,10 @@ export class Input {
     else if (k === '[') this.ui.nudgeBrush(-1);
     else if (k === ']') this.ui.nudgeBrush(1);
     else if (k === 't') this.ui.toggleTrees();
-    else if (k === 'q') this.r.rotate(-1);
-    else if (k === 'e') this.r.rotate(1);
+    else if (k === 'q' || k === 'e') {
+      // Fine nudges can repeat; quarter-turns stay deliberate when Shift is held.
+      if (!e.shiftKey || !e.repeat) this.r.rotate(k === 'q' ? -1 : 1, e.shiftKey ? 90 : 15);
+    }
     else if (k === 'tab') { e.preventDefault(); this.ui.togglePanels(); }
     else if (k === 'h') this.ui.setOverlay(this.ui.state.overlay === 'habitat' ? 'none' : 'habitat');
     else if (k === 'g') this.ui.openGuide();
