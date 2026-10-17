@@ -64,21 +64,29 @@ check('Out of the rut, stags fight far less; does never fight', () => {
   assert.notEqual(does[0].state, 'spar');
 });
 check('In the rut bull elk gather harems, keep their cows close, and a winning rival takes them', () => {
-  reset(); while (g.month !== 7) g.day++;
-  const wl = g.wildlife, [b1, b2] = males('elk', 2), cows = [];
-  for (let k = 0; cows.length < 6 && k < 200; k++) { const c = wl.spawn(ANIMAL.elk, 40, 30, { silent: true }); if (!isMaleVariant(ANIMAL.elk, c)) cows.push(c); else wl.remove(c); }
-  b1.x = 40.5; b1.y = 30.5; b2.x = 52.5; b2.y = 30.5;
-  cows.forEach((c, k) => { c.x = 37.5 + k; c.y = 33.5; });
-  let fights = 0, spread = 0, n = 0;
-  for (let s = 0; s < 1200 && g.month === 7; s++) {
-    wl.update(0.05);
-    if (s % 20 === 0) { const keep = g.day; wl.daily(); g.day = keep; }
-    if (b1.state === 'spar' && b1.sparT > 0.4 && b1.sparT < 0.45) fights++;
-    const owned = cows.filter(c => c.haremOf != null && wl.agents.includes(c));
-    for (const c of owned) { const bull = wl.agents.find(o => o.id === c.haremOf); if (bull) { spread += Math.hypot(c.x - bull.x, c.y - bull.y); n++; } }
-  }
-  assert.ok(cows.some(c => c.haremOf === b1.id || c.haremOf === b2.id), 'cows joined a harem');
-  assert.ok(n && spread / n < 4.5, `cows stay near their bull (${(spread / n).toFixed(2)})`);
+  // One minute of a harem is noisy (2.7-5.3 tiles across seeds), so average a few seeded runs.
+  const harem = seed => {
+    Math.random = mulberry32(seed);
+    reset(); while (g.month !== 7) g.day++;
+    const wl = g.wildlife, [b1, b2] = males('elk', 2), cows = [];
+    for (let k = 0; cows.length < 6 && k < 200; k++) { const c = wl.spawn(ANIMAL.elk, 40, 30, { silent: true }); if (!isMaleVariant(ANIMAL.elk, c)) cows.push(c); else wl.remove(c); }
+    b1.x = 40.5; b1.y = 30.5; b2.x = 52.5; b2.y = 30.5;
+    cows.forEach((c, k) => { c.x = 37.5 + k; c.y = 33.5; });
+    let fights = 0, spread = 0, n = 0;
+    for (let s = 0; s < 1200 && g.month === 7; s++) {
+      wl.update(0.05);
+      if (s % 20 === 0) { const keep = g.day; wl.daily(); g.day = keep; }
+      if (b1.state === 'spar' && b1.sparT > 0.4 && b1.sparT < 0.45) fights++;
+      const owned = cows.filter(c => c.haremOf != null && wl.agents.includes(c));
+      for (const c of owned) { const bull = wl.agents.find(o => o.id === c.haremOf); if (bull) { spread += Math.hypot(c.x - bull.x, c.y - bull.y); n++; } }
+    }
+    assert.ok(cows.some(c => c.haremOf === b1.id || c.haremOf === b2.id), 'cows joined a harem');
+    assert.ok(n, 'cows stayed in a harem');
+    return { wl, b1, b2, cows, spread: spread / n };
+  };
+  const runs = [1987, 1988, 1989, 1990].map(harem), mean = runs.reduce((s, r) => s + r.spread, 0) / runs.length;
+  assert.ok(mean < 4.5, `cows stay near their bull (${mean.toFixed(2)})`);
+  const { wl, b1, b2, cows } = runs.at(-1);
   // a satellite that wins the bout takes the harem
   for (const c of cows) c.haremOf = b1.id;
   b1.x = 40.5; b2.x = 41.8; b1.y = b2.y = 30.5; b1.state = b2.state = 'idle'; b1.rutCooldown = b2.rutCooldown = b1.socialCooldown = b2.socialCooldown = 0; b1.greet = b2.greet = b1.socialWith = b2.socialWith = null; b1.drinkT = b2.drinkT = 0; b2.wait = 99;
@@ -183,6 +191,29 @@ check('Travelling and satisfied visitors do not consume carcass meals; expired k
   a.hunger = 40; a.goal = { carcass: c.id }; c.t = 0;
   arrive(wl, a);
   assert.equal(a.state, 'idle'); assert.equal(a.hunger, 40); assert.equal(c.meals, meals);
+});
+check('Carcasses leave a longer scavenging window, then expire normally and pause with the game', () => {
+  for (const value of [0, 0.5, 0.999]) {
+    reset(); const wl = g.wildlife;
+    const c = rigged(() => kill('cougar', 'deer'), value), hunter = wl.agents[0];
+    assert.ok(c.t - hunter.feedT >= 21 && c.t - hunter.feedT <= 33);
+    assert.equal(c.max, c.t);
+    const before = c.t, meals = c.meals;
+    wl.update(0); assert.equal(c.t, before);
+    // Isolate decay from visitors while keeping the actual wildlife update.
+    wl.agents = []; wl.recount(); wl.flyovers = []; wl.passageWait = 1e6;
+    for (let k = 0; k < 300; k++) wl.update(0.05);
+    assert.ok(wl.carcasses.includes(c), 'still available to late arrivals after 15 days');
+    assert.equal(c.meals, meals, 'waiting does not create or consume food');
+    for (let k = 0; k < 600; k++) wl.update(0.05);
+    assert.ok(!wl.carcasses.includes(c), 'decayed kills are removed');
+  }
+});
+check('Longer-lasting kills retain the existing carcass count limit', () => {
+  reset(); const wl = g.wildlife;
+  for (let k = 0; k < 20; k++) kill('cougar', 'deer');
+  assert.equal(wl.carcasses.length, 16);
+  assert.ok(wl.carcasses.every(c => c.t > 21 && c.meals > 0));
 });
 check('Hungry predators keep escaping fire through daily checks, including birds', () => {
   for (const mode of ['relaxed', 'standard', 'challenging']) for (const key of ['coyote', 'hawk']) {

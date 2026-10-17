@@ -1,8 +1,9 @@
 // Compare the inputs used to draw plants, rather than coupling rendering to every tool and
 // ecological system that can alter them. No hashes or quantization: small growth still shows.
+import { TRAIL_RESOLUTION } from '../data/animal-trails.js';
 import { BORDER } from '../config.js';
 
-const FIELDS = ['ground', 'groundG', 'shrub', 'shrubG', 'tree', 'treeG', 'variant', 'feature', 'featureAge', 'marks', 'terrain', 'bleach', 'canopy'];
+const FIELDS = ['ground', 'groundG', 'shrub', 'shrubG', 'tree', 'treeG', 'variant', 'feature', 'featureAge', 'marks', 'terrain', 'bleach', 'canopy', 'trailDensity'];
 const BORDER_FIELDS = ['tree', 'treeG', 'shrub', 'ground'];
 // Also read for plants under shade and beside water, but set by the simulation: they choose which
 // tiles of a changing region are worked out afresh (see `tiles`), not which regions change.
@@ -45,8 +46,10 @@ export class FloraChanges {
     for (const f of FIELDS) {
       const a = w[f], old = s.inside[f];
       if (!a && !old) continue;
-      if (a && old && a.length === old.length) { for (let i = 0; i < w.n; i++) if (a[i] !== old[i]) mark(i % w.w, Math.floor(i / w.w)); continue; } // (the usual case, without the per-tile checks)
-      for (let i = 0; i < w.n; i++) if ((a?.[i] ?? 0) !== (old?.[i] ?? 0)) mark(i % w.w, Math.floor(i / w.w));
+      const scale = f === 'trailDensity' ? TRAIL_RESOLUTION : 1, width = w.w * scale;
+      const touchValue = i => mark(Math.floor((i % width) / scale), Math.floor(i / width / scale));
+      if (a && old && a.length === old.length) { for (let i = 0; i < a.length; i++) if (a[i] !== old[i]) touchValue(i); continue; }
+      for (let i = 0; i < Math.max(a?.length || 0, old?.length || 0); i++) if ((a?.[i] ?? 0) !== (old?.[i] ?? 0)) touchValue(i);
     }
     for (const f of BORDER_FIELDS) {
       const a = b[f], old = s.outside[f];
