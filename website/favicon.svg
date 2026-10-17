@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Second Growth">
+  <defs>
+    <clipPath id="sg-disc"><circle cx="100" cy="100" r="84"/></clipPath>
+    <linearGradient id="sg-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6d98f"/><stop offset=".55" stop-color="#f1e6c6"/><stop offset="1" stop-color="#e3e3bf"/>
+    </linearGradient>
+    <linearGradient id="sg-creek" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5f9d9a"/><stop offset=".5" stop-color="#8cc2bb"/><stop offset="1" stop-color="#5f9d9a"/>
+    </linearGradient>
+  </defs>
+  <!-- badge rings -->
+  <circle cx="100" cy="100" r="97" fill="#2f5a3c"/>
+  <circle cx="100" cy="100" r="91" fill="none" stroke="#efe6cc" stroke-width="2.5"/>
+  <circle cx="100" cy="100" r="86.5" fill="none" stroke="#efe6cc" stroke-width="1" stroke-dasharray="1.5 4" opacity=".7"/>
+  <g clip-path="url(#sg-disc)">
+    <rect x="0" y="0" width="200" height="200" fill="url(#sg-sky)"/>
+    <!-- low sun and its rays -->
+    <g class="sg-rays" opacity=".5" fill="#f3c65f">
+      <path d="M100 96 L86 16 L94 16Z"/><path d="M100 96 L106 16 L114 16Z"/><path d="M100 96 L60 26 L67 22Z"/><path d="M100 96 L133 22 L140 26Z"/>
+      <path d="M100 96 L38 48 L43 42Z"/><path d="M100 96 L157 42 L162 48Z"/>
+    </g>
+    <circle cx="100" cy="96" r="27" fill="#f2c45a" opacity=".85"/>
+    <!-- far ridge with a line of old-growth firs -->
+    <path d="M10 124 C34 110 52 116 72 108 C92 100 112 111 132 104 C152 97 170 106 192 110 V200 H10Z" fill="#9dbb86"/>
+    <g fill="#6f9a6a">
+      <path d="M30 118 l6 -16 6 16z"/><path d="M40 116 l5 -13 5 13z"/><path d="M146 104 l6 -17 6 17z"/><path d="M157 107 l5 -13 5 13z"/><path d="M167 110 l4 -10 4 10z"/>
+    </g>
+    <!-- meadow -->
+    <path d="M8 138 C40 126 72 134 100 131 C128 128 156 124 194 132 V200 H8Z" fill="#6f9a52"/>
+    <path d="M8 138 C40 126 72 134 100 131 C128 128 156 124 194 132" fill="none" stroke="#86ad63" stroke-width="2"/>
+    <!-- creek winding across the front -->
+    <path d="M6 168 C36 156 66 170 98 163 C130 156 158 148 196 156 V170 C160 162 132 171 102 177 C70 184 40 172 6 181Z" fill="url(#sg-creek)"/>
+    <path d="M22 168 C44 162 64 170 88 167" fill="none" stroke="#d9efe8" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+    <path d="M126 160 C144 155 160 153 178 155" fill="none" stroke="#d9efe8" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+    <!-- near bank -->
+    <path d="M6 181 C40 172 70 184 102 177 C132 171 160 162 196 170 V200 H6Z" fill="#2f5a3c"/>
+  </g>
+  <!-- the old stump, with its growth rings -->
+  <g class="sg-stump">
+    <path d="M73 152 C76 142 77 134 78 126 H122 C123 134 124 142 127 152 C134 155 141 157 147 160 C128 163 72 163 53 160 C59 157 66 155 73 152Z" fill="#8a6a45"/>
+    <path d="M104 126 H122 C123 134 124 142 127 152 C134 155 141 157 147 160 C136 162 122 162.6 110 162.8 C112 150 108 136 104 126Z" fill="#6f5236"/>
+    <path d="M84 132 C84 140 83 148 81 156" stroke="#6f5236" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <path d="M93 131 C93 139 93 148 92 157" stroke="#9c7a52" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    <ellipse cx="100" cy="126" rx="22.5" ry="6.4" fill="#e6cc9a"/>
+    <g class="sg-rings" fill="none" stroke="#b28c5c" stroke-width="1.2">
+      <ellipse cx="100" cy="126.2" rx="17" ry="4.7"/><ellipse cx="100" cy="126.3" rx="11.5" ry="3.1"/><ellipse cx="100" cy="126.4" rx="6" ry="1.6"/>
+    </g>
+    <path d="M77.6 126 C81 130 90 132.4 100 132.4 C110 132.4 119 130 122.4 126" fill="none" stroke="#6f5236" stroke-width="1.4"/>
+  </g>
+  <!-- ferns and a salmonberry sprig at the roots -->
+  <g fill="#4f8a4a">
+    <path d="M64 158 C58 147 50 142 40 141 C49 145 55 150 58 159Z"/><path d="M58 159 C50 152 42 151 34 153 C42 154 48 157 51 161Z"/>
+    <path d="M136 158 C142 147 150 142 160 141 C151 145 145 150 142 159Z"/><path d="M142 159 C150 152 158 151 166 153 C158 154 152 157 149 161Z"/>
+  </g>
+  <g fill="#e98a4a"><circle cx="150" cy="148" r="2.6"/><circle cx="154.5" cy="145" r="2.2"/><circle cx="148" cy="143.5" r="2"/></g>
+  <!-- the second growth: a young Douglas-fir rising from the stump -->
+  <g class="sg-sapling">
+    <rect x="98.4" y="96" width="3.2" height="30" rx="1.2" fill="#6b4f33"/>
+    <path d="M100 30 Q104.5 42 113 55 Q100 51.5 87 55 Q95.5 42 100 30Z" fill="#2f5a3c"/>
+    <path d="M100 30 Q104.5 42 113 55 Q106 53 100 52.6Z" fill="#3f7148"/>
+    <path d="M100 43 Q107 57 119 71 Q100 66.5 81 71 Q93 57 100 43Z" fill="#2f5a3c"/>
+    <path d="M100 43 Q107 57 119 71 Q109 68 100 67.8Z" fill="#3f7148"/>
+    <path d="M100 57 Q109 73 124 89 Q100 83.5 76 89 Q91 73 100 57Z" fill="#2f5a3c"/>
+    <path d="M100 57 Q109 73 124 89 Q111 85.2 100 85Z" fill="#3f7148"/>
+    <path d="M100 72 Q111 90 129 107 Q100 100.5 71 107 Q89 90 100 72Z" fill="#2f5a3c"/>
+    <path d="M100 72 Q111 90 129 107 Q113 102.5 100 102.2Z" fill="#3f7148"/>
+    <path d="M100 30 L100 34" stroke="#8fc07a" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+</svg>
