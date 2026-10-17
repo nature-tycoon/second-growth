@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#233f2e">
+  <meta name="theme-color" content="#152e24">
   <title>Second Growth — Give nature another chance</title>
   <meta name="description" content="Turn an old farm into a living ecosystem. Plant native forests, restore water, and let wildlife find its way home. Play Second Growth in your browser.">
   <link rel="canonical" href="https://secondgrowth.earth/">
@@ -17,66 +17,65 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="preload" href="assets/maps/pnw.jpg" as="image">
-  <link rel="stylesheet" href="site.css">
+  <link rel="preload" href="art/river.jpg" as="image">
+  <link rel="stylesheet" href="site.css?v=forest-2">
+  <script src="site.js?v=forest-2" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="header wrap">
-    <a class="brand" href="./" aria-label="Second Growth home"><img src="assets/logo.svg" alt="" width="44" height="44"><span>Second Growth</span></a>
-    <nav aria-label="Main navigation"><a href="#the-game">The game</a><a href="#places">The places</a><a class="button small" href="play/">Play now <span aria-hidden="true">↗</span></a></nav>
+    <a class="brand" href="./" aria-label="Second Growth home"><img src="assets/logo.svg" alt="" width="48" height="48"><span>Second<br> Growth<span class="brand-dot">.</span></span></a>
+    <nav aria-label="Main navigation"><a href="#the-game">A wilder kind of game</a><a href="#places">Find your patch</a><a class="button small" href="play/">Let’s play <span aria-hidden="true">↗</span></a></nav>
   </header>
   <main id="main">
-    <section class="hero wrap" aria-labelledby="hero-title">
-      <div class="hero-copy">
-        <p class="eyebrow"><span class="seed" aria-hidden="true">✳</span> A game about growing wild</p>
-        <h1 id="hero-title">Give nature<br>another <em>chance.</em></h1>
-        <p class="intro">An old farm. A little possibility.<br>Bring the land back to life, and see who comes home.</p>
-        <a class="button" href="play/">Start rewilding <span aria-hidden="true">↗</span></a>
-        <p class="play-note">Free to play · In your browser · No download</p>
+    <section class="hero" aria-labelledby="hero-title">
+      <img class="hero-landscape" src="art/river.jpg" alt="A river winds through a native meadow and fir forest in Second Growth." width="1600" height="1000" fetchpriority="high">
+      <div class="hero-shade"></div>
+      <div class="hero-copy wrap">
+        <p class="eyebrow"><span class="sun-icon" aria-hidden="true">☼</span> A rewilding game. Come get your hands dirty.</p>
+        <h1 id="hero-title">Let it<br> grow <span>wild.</span></h1>
+        <p class="intro">Turn a tired old farm into a thriving little world.<br> Plant the forest. Bring back the water.<br> See who makes themselves at home.</p>
+        <a class="button" href="play/"><span class="play-icon" aria-hidden="true">▶</span> Play Second Growth <span aria-hidden="true">↗</span></a>
+        <p class="play-note">Free to play. Just you, your browser, and a bit of dirt.</p>
       </div>
-      <figure class="hero-scene">
-        <img src="assets/maps/pnw.jpg" alt="Elk wander through a restored Pacific Northwest meadow beside a river, surrounded by native flowers and fir trees." width="720" height="450" fetchpriority="high">
-        <figcaption><span class="live-dot" aria-hidden="true"></span> A little corner of the Pacific Northwest <span aria-hidden="true">↗</span></figcaption>
-        <span class="field-label" aria-hidden="true">FIELD NOTES — 01<br><strong>Life finds a way back.</strong></span>
-      </figure>
+      <div class="hero-bottom wrap"><span><i class="live-dot" aria-hidden="true"></i> A glimpse of what you can grow.</span><a href="#the-game">Take the scenic route <span aria-hidden="true">↓</span></a></div>
+      <div class="elk-note" aria-hidden="true"><img src="art/elk.png" width="180" height="135" alt=""><span>Your neighbors<br> are moving in.</span><svg viewBox="0 0 60 40"><path d="M3 6q42-5 47 23m-13-7 13 8 4-15"/></svg></div>
     </section>
-    <div class="ribbon"><div class="wrap"><span>Plant something native.</span><span aria-hidden="true">✳</span><span>Make room for the wild.</span><span aria-hidden="true">✳</span><span>Watch what happens.</span></div></div>
-    <section class="about wrap section" id="the-game" aria-labelledby="about-title">
-      <div><p class="eyebrow">Less concrete. More possibility.</p><h2 id="about-title">You make the habitat.<br><em>Nature makes the rest.</em></h2></div>
-      <div class="about-copy"><p>Second Growth is a 3D rewilding simulation about turning worn-out farmland into a living ecosystem.</p><p>Pull out the old farm. Shape the water and soil. Brush in native plants. As food, cover, and connections return, wildlife arrives on its own terms.</p><p class="quiet">A forest isn’t built in a day. That’s the good part.</p></div>
-      <div class="steps">
-        <article><span class="step-number">01 / RESTORE</span><h3>Start with the land.</h3><p>Remove what’s in the way. Bring water back, improve the soil, and give native plants a place to take root.</p></article>
-        <article><span class="step-number">02 / CONNECT</span><h3>Let the wild come in.</h3><p>Grow food and shelter, from meadows to forest canopies. Wildlife wanders in when the habitat is right.</p></article>
-        <article><span class="step-number">03 / DISCOVER</span><h3>Follow a living world.</h3><p>Watch animals forage, raise young, hunt, and move on. Every landscape has its own rhythms to discover.</p></article>
+    <section class="welcome section" id="the-game" aria-labelledby="about-title">
+      <div class="wrap welcome-grid">
+        <div class="welcome-title"><p class="eyebrow">Welcome to your outside.</p><h2 id="about-title">A little dirt under<br> your fingernails.<br> <span>A lot of life ahead.</span></h2><img class="plant-cutout" src="art/native-plants.png" width="320" height="240" alt="Lupine, fireweed and ferns rendered with the game’s plant models." loading="lazy"></div>
+        <div class="welcome-story"><p class="big-copy">You’ve inherited some land.<br> Nature’s got a few ideas for it.</p><p>Second Growth is a 3D rewilding game. Tear out the old farm, dig a wetland, plant something native. Make a place where life can happen again.</p><p>Wildlife finds its own way in. A bird in the new shrubs. A deer at the forest edge. Eventually, a whole ecosystem doing its thing.</p><div class="small-note"><svg aria-hidden="true" viewBox="0 0 48 48"><path d="M24 41V20m0 10C7 30 7 12 7 12s18 0 17 18Zm0-8C24 5 41 6 41 6s2 18-17 16Z"/></svg><span>You don’t collect animals.<br> <strong>You give them a reason to stay.</strong></span></div></div>
       </div>
+      <div class="habitat-strip wrap"><span>Dig a pond <i aria-hidden="true">〰</i></span><span>Plant a forest <i aria-hidden="true">↟</i></span><span>Pull some invasives <i aria-hidden="true">✳</i></span><span>Welcome the wild <i aria-hidden="true">♡</i></span></div>
     </section>
     <section class="places section" id="places" aria-labelledby="places-title">
       <div class="wrap">
-        <div class="section-head"><div><p class="eyebrow">Seven places. Countless beginnings.</p><h2 id="places-title">A world worth <em>bringing back.</em></h2></div><p>From temperate forests to tropical reefs,<br>every place has a different story.</p></div>
-        <div class="map-grid">
-          <figure class="map featured"><img src="assets/maps/pnw.jpg" alt="Elk and native meadow plants along a Pacific Northwest river" width="720" height="450" loading="lazy"><figcaption><span>01 / TEMPERATE FOREST</span><h3>Pacific Northwest</h3><p>Follow the river. Find the forest.</p></figcaption></figure>
-          <figure class="map"><img src="assets/maps/amazon.jpg" alt="Lush forest and a winding river in the Amazon game map" width="720" height="450" loading="lazy"><figcaption><span>02 / RAINFOREST</span><h3>Amazon</h3></figcaption></figure>
-          <figure class="map"><img src="assets/maps/serengeti.jpg" alt="Acacia trees and wildlife in the Serengeti game map" width="720" height="450" loading="lazy"><figcaption><span>03 / SAVANNA</span><h3>Serengeti</h3></figcaption></figure>
-          <figure class="map"><img src="assets/maps/atlanta.jpg" alt="A recovering woodland in the Atlanta game map" width="720" height="450" loading="lazy"><figcaption><span>04 / PIEDMONT</span><h3>Atlanta</h3></figcaption></figure>
-          <figure class="map"><img src="assets/maps/chinandega.jpg" alt="Native trees and wetlands in the Nicaragua game map" width="720" height="450" loading="lazy"><figcaption><span>05 / TROPICAL DRY FOREST</span><h3>Nicaragua</h3></figcaption></figure>
-          <figure class="map"><img src="assets/maps/reef.jpg" alt="Marine life in the tropical reef game map" width="720" height="450" loading="lazy"><figcaption><span>06 / UNDER THE SURFACE</span><h3>Tropical reef</h3></figcaption></figure>
-          <figure class="map"><img src="assets/maps/sumatra.jpg" alt="Dense tropical canopy in the Sumatra game map" width="720" height="450" loading="lazy"><figcaption><span>07 / ISLAND RAINFOREST</span><h3>Sumatra</h3></figcaption></figure>
+        <div class="section-head"><div><p class="eyebrow">Where will you put down roots?</p><h2 id="places-title">Find your <span>patch.</span></h2></div><p>Seven landscapes. Different plants, different neighbors.<br> Same chance to leave it a little wilder.</p></div>
+        <div class="explorer">
+          <div class="map-picker" role="group" aria-label="Preview a landscape">
+            <button class="map-choice" type="button" aria-pressed="true" data-map="pnw" data-image="assets/maps/pnw.jpg" data-name="Pacific Northwest" data-region="Hollis Farm · Washington" data-copy="A salmon creek, a worn-out dairy farm, and a forest waiting at the fence line. Bring the water back and make room for elk, beavers, and birds."><img src="assets/maps/pnw.jpg" width="96" height="64" alt=""><span><small>01 / FOLLOW THE RIVER</small>Pacific Northwest</span><b aria-hidden="true">↗</b></button>
+            <button class="map-choice" type="button" aria-pressed="false" data-map="amazon" data-image="assets/maps/amazon.jpg" data-name="Amazon" data-region="Fazenda Esperança · Brazil" data-copy="Grow the rainforest back into the gaps. Reconnect the canopy for monkeys and birds, with palms, fruit trees, and a river full of life."><img src="assets/maps/amazon.jpg" width="96" height="64" alt="" loading="lazy"><span><small>02 / INTO THE CANOPY</small>Amazon</span><b aria-hidden="true">↗</b></button>
+            <button class="map-choice" type="button" aria-pressed="false" data-map="serengeti" data-image="assets/maps/serengeti.jpg" data-name="Serengeti" data-region="Enkare Conservancy · Tanzania" data-copy="Wide grasslands, scattered acacias, and the rhythm of wet and dry seasons. Restore the savanna and watch the herds find their way through."><img src="assets/maps/serengeti.jpg" width="96" height="64" alt="" loading="lazy"><span><small>03 / ROOM TO ROAM</small>Serengeti</span><b aria-hidden="true">↗</b></button>
+            <button class="map-choice" type="button" aria-pressed="false" data-map="atlanta" data-image="assets/maps/atlanta.jpg" data-name="Atlanta" data-region="Magnolia Ridge · Georgia" data-copy="A neighborhood can be a habitat, too. Turn lawns into native gardens and connect pockets of woodland, one small patch at a time."><img src="assets/maps/atlanta.jpg" width="96" height="64" alt="" loading="lazy"><span><small>04 / WILD NEXT DOOR</small>Atlanta</span><b aria-hidden="true">↗</b></button>
+            <button class="map-choice" type="button" aria-pressed="false" data-map="chinandega" data-image="assets/maps/chinandega.jpg" data-name="Nicaragua" data-region="Finca El Guanacaste · Chinandega" data-copy="Follow the land from dry forest to mangroves and the coast. Living fences and shade trees give wildlife a way through the working landscape."><img src="assets/maps/chinandega.jpg" width="96" height="64" alt="" loading="lazy"><span><small>05 / FOREST MEETS COAST</small>Nicaragua</span><b aria-hidden="true">↗</b></button>
+            <button class="map-choice" type="button" aria-pressed="false" data-map="reef" data-image="assets/maps/reef.jpg" data-name="Tropical reef" data-region="Kalinda Reef · Australia" data-copy="There’s a whole other world beneath the surface. Restore coral, seagrass, and a little island habitat in the Great Barrier Reef."><img src="assets/maps/reef.jpg" width="96" height="64" alt="" loading="lazy"><span><small>06 / A LITTLE DEEPER</small>Tropical reef</span><b aria-hidden="true">↗</b></button>
+            <button class="map-choice" type="button" aria-pressed="false" data-map="sumatra" data-image="assets/maps/sumatra.jpg" data-name="Sumatra" data-region="Kebun Tualang · Indonesia" data-copy="Bring water back to the peatlands and reconnect the rainforest. Grow a canopy with room for orangutans, siamangs, and the next generation of trees."><img src="assets/maps/sumatra.jpg" width="96" height="64" alt="" loading="lazy"><span><small>07 / BACK TO THE TREETOPS</small>Sumatra</span><b aria-hidden="true">↗</b></button>
+          </div>
+          <figure class="map-preview" aria-labelledby="map-name"><img id="map-image" src="assets/maps/pnw.jpg" alt="Pacific Northwest landscape in Second Growth" width="720" height="450" loading="lazy"><figcaption><div class="preview-label"><i class="live-dot" aria-hidden="true"></i> A LOOK INSIDE THE GAME</div><div id="map-details" aria-live="polite" aria-atomic="true"><p id="map-region">Hollis Farm · Washington</p><h3 id="map-name">Pacific Northwest</h3><p id="map-copy">A salmon creek, a worn-out dairy farm, and a forest waiting at the fence line. Bring the water back and make room for elk, beavers, and birds.</p></div><span class="preview-footnote">Pick your map when you start the game.</span></figcaption></figure>
         </div>
-        <p class="caption">Every image is a glimpse inside the game. Choose your landscape when you play.</p>
       </div>
     </section>
-    <section class="faq wrap section" aria-labelledby="faq-title">
-      <div><p class="eyebrow">Before you put down roots</p><h2 id="faq-title">A few field notes.</h2></div>
+    <section class="field-notes section wrap" aria-labelledby="faq-title">
+      <div class="notes-title"><p class="eyebrow">Boots by the door. Questions here.</p><h2 id="faq-title">Before you<br> head <span>out.</span></h2><div class="frog-note"><img src="art/frog.png" width="160" height="120" alt="A Pacific treefrog from the game" loading="lazy"><span>Small frog.<br> Big supporter of wetlands.</span></div></div>
       <div class="questions">
-        <details><summary>How do I play?</summary><p>Open the game in your browser and choose a map. The in-game introduction will help you get started with planting, restoring habitat, and exploring your landscape.</p></details>
-        <details><summary>Do I need to download anything?</summary><p>No. Second Growth runs directly in a modern browser with WebGL support. A larger screen gives you more room to explore; touch controls are available too.</p></details>
-        <details><summary>Will my progress be saved?</summary><p>The game autosaves in your browser on this device. Use the same browser and website to return to your land. Private browsing and clearing site data can remove saves.</p></details>
-        <details><summary>Can I buy animals?</summary><p>Wildlife follows the habitat. Restore food, water, shelter, and connections to the surrounding landscape, and animals will find their way in when conditions suit them.</p></details>
+        <details><summary>What kind of game is this?</summary><p>A 3D ecosystem simulation about restoring habitats. You shape land and water, plant natives, manage your budget, and watch wildlife respond. There’s plenty to tend to, and plenty to just sit and watch.</p></details>
+        <details><summary>Do I need to install anything?</summary><p>Nope. It’s free to play right in a modern browser with WebGL support. A bigger screen gives you more room to explore, and touch controls are available too.</p></details>
+        <details><summary>Can I come back to my land?</summary><p>Yes. The game autosaves in your browser on this device. Return using the same browser and website. Private browsing and clearing site data can remove your saves.</p></details>
+        <details><summary>How do I get wildlife to move in?</summary><p>Start with what they need: food, water, shelter, and a route into the landscape. Wildlife arrives when the habitat suits it, raises young, hunts, and moves on when conditions change.</p></details>
       </div>
     </section>
-    <section class="closing" aria-labelledby="closing-title"><div class="wrap"><img src="assets/logo.svg" width="86" height="86" alt=""><p class="eyebrow">A little land. A second chance.</p><h2 id="closing-title">Good things take <em>root.</em></h2><p>Your first patch of wild is waiting.</p><a class="button light" href="play/">Play Second Growth <span aria-hidden="true">↗</span></a><p class="play-note">Free to play. Room to grow.</p></div></section>
+    <section class="closing" aria-labelledby="closing-title"><div class="wrap"><p class="eyebrow">Your browser. Your patch of wild.</p><h2 id="closing-title">Go on.<br> Get a little <span>muddy.</span></h2><a class="button" href="play/">Let’s grow something <span aria-hidden="true">↗</span></a><p>There’s a whole little world waiting for you.</p></div><div class="closing-trees" aria-hidden="true">↟ ↟ ↟ ↟ ↟ ↟ ↟</div></section>
   </main>
-  <footer class="footer wrap"><a class="brand" href="./"><img src="assets/logo.svg" alt="" width="32" height="32"><span>Second Growth</span></a><p>Leave it a little wilder.</p><a href="https://github.com/nature-tycoon/second-growth" target="_blank" rel="noopener">Follow the project <span aria-hidden="true">↗</span></a></footer>
+  <footer class="footer wrap"><a class="brand" href="./"><img src="assets/logo.svg" alt="" width="38" height="38"><span>Second Growth<span class="brand-dot">.</span></span></a><p>Leave it a little wilder.</p><a href="https://github.com/nature-tycoon/second-growth" target="_blank" rel="noopener">Made with care. Growing in the open. ↗</a></footer>
 </body>
 </html>
