@@ -178,16 +178,69 @@
 @media(max-width:1100px){.ecology-gallery{gap:18px}.ecology-gallery strong{font-size:18px}.capture-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.sequence-view,.map-image-wrap{border-radius:21px 29px 21px 21px}.image-tag{left:12px;bottom:12px;font-size:8px;padding:6px 10px}.sequence-picker{gap:7px;margin-top:12px}.sequence-choice>span{font-size:8px;padding-inline:3px}.sequence-description{min-height:0;font-size:12px}.ecology-gallery{grid-template-columns:1fr;gap:25px;margin-top:0}.ecology-gallery img{aspect-ratio:16/9}.ecology-gallery figcaption{margin-top:12px}.ecology-gallery strong{font-size:23px}.ecology-gallery figcaption span{font-size:11px}.capture-gallery{grid-template-columns:1fr;gap:25px}}
 
-/* Quiet glass story panels leave the centre of each wildlife scene open. */
-.moment-bubble{position:absolute;top:22px;left:22px;width:min(38%,365px);padding:22px 24px 23px;border:1px solid #edf1d73d;border-radius:23px 31px 23px 23px;background:linear-gradient(135deg,#163a30cf,#102f27a3);box-shadow:0 14px 40px #08251c26,inset 0 1px 0 #ffffff0b;-webkit-backdrop-filter:blur(13px);backdrop-filter:blur(13px);color:#f6eed8}
-.moment-bubble .eyebrow{color:#d7dfc0;font-size:8px;letter-spacing:1.3px}
-.moment-bubble h3{font-size:25px;line-height:1.15;margin-top:11px;letter-spacing:-.6px}
-.moment-bubble>p:last-child{font-size:12px;line-height:1.75;color:#edf0dc;margin-top:13px}
-@media(max-width:1100px) and (min-width:721px){.moment-bubble{top:15px;left:15px;width:42%;padding:17px 18px}.moment-bubble h3{font-size:22px}.moment-bubble>p:last-child{font-size:11px;line-height:1.7;margin-top:10px}}
-@media(max-width:980px) and (min-width:721px){.explorer{grid-template-columns:1fr}.map-picker{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.map-choice{padding:14px}.map-choice>b{display:none}.map-choice>span{font-size:18px}.map-choice small{font-size:7px}.moment-bubble{width:38%;max-width:300px}}
-@media(max-width:720px){.map-image-wrap>img{aspect-ratio:4/5;object-position:center}.moment-bubble{top:auto;bottom:12px;left:12px;width:calc(100% - 24px);max-width:none;padding:15px 18px 17px;border-radius:20px 27px 20px 20px;background:linear-gradient(135deg,#173d31d6,#102f27ba)}.moment-bubble .eyebrow{font-size:7px;letter-spacing:1px}.moment-bubble h3{font-size:21px;margin-top:7px}.moment-bubble>p:last-child{font-size:11px;line-height:1.7;margin-top:9px}}
-@media(prefers-reduced-transparency:reduce){.moment-bubble{background:#173e32f5;-webkit-backdrop-filter:none;backdrop-filter:none}}
-@media(max-width:360px){.map-image-wrap>img{aspect-ratio:3/5;object-position:60% center}}
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.moment-bubble{background:#173e32f5}}
+/* Caption placement follows the empty space in each authored wildlife scene. */
+.moment-bubble {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  width: min(38%, 365px);
+  padding: 22px 24px 23px;
+  border: 1px solid #edf1d738;
+  border-radius: 23px 31px 23px 23px;
+  background: linear-gradient(135deg, #163a309e, #102f2770);
+  box-shadow: 0 10px 32px #08251c1c, inset 0 1px 0 #ffffff0b;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #f6eed8;
+  text-shadow: 0 1px 8px #05271b59;
+}
+.moment-bubble .eyebrow { color: #e0e6ce; font-size: 8px; letter-spacing: 1.3px; }
+.moment-bubble h3 { font-size: 25px; line-height: 1.15; margin-top: 11px; letter-spacing: -.6px; }
+.moment-bubble > p:last-child { font-size: 12px; line-height: 1.75; color: #f2f2e1; margin-top: 13px; }
+[data-moment-layout="corner-bottom"] .moment-bubble { top: auto; bottom: 22px; }
+[data-moment-layout^="band-"] .moment-bubble {
+  width: calc(100% - 44px);
+  display: grid;
+  grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr);
+  column-gap: 30px;
+  padding-block: 19px 20px;
+}
+[data-moment-layout^="band-"] .moment-bubble .eyebrow { grid-column: 1; }
+[data-moment-layout^="band-"] .moment-bubble h3 { grid-column: 1; margin-top: 7px; }
+[data-moment-layout^="band-"] .moment-bubble > p:last-child { grid-column: 2; grid-row: 1 / 3; align-self: center; margin-top: 0; }
+[data-moment-layout="band-bottom"] .moment-bubble { top: auto; bottom: 22px; }
+@media (max-width: 1100px) and (min-width: 721px) {
+  .moment-bubble { top: 15px; left: 15px; width: 42%; padding: 17px 18px; }
+  .moment-bubble h3 { font-size: 22px; }
+  .moment-bubble > p:last-child { font-size: 11px; line-height: 1.7; margin-top: 10px; }
+  [data-moment-layout^="band-"] .moment-bubble { width: calc(100% - 30px); column-gap: 20px; padding-block: 15px; }
+  [data-moment-layout="corner-bottom"] .moment-bubble, [data-moment-layout="band-bottom"] .moment-bubble { bottom: 15px; }
+}
+@media (max-width: 980px) and (min-width: 721px) {
+  .explorer { grid-template-columns: 1fr; }
+  .map-picker { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+  .map-choice { padding: 14px; }
+  .map-choice > b { display: none; }
+  .map-choice > span { font-size: 18px; }
+  .map-choice small { font-size: 7px; }
+  .moment-bubble { width: 38%; max-width: 300px; }
+  [data-moment-layout^="band-"] .moment-bubble { max-width: none; }
+}
+@media (max-width: 720px) {
+  .map-image-wrap > img { aspect-ratio: 4/5; object-position: center; }
+  .map-image-wrap .moment-bubble {
+    top: auto; bottom: 12px; left: 12px;
+    width: calc(100% - 24px); max-width: none; display: block;
+    padding: 15px 18px 17px; border-radius: 20px 27px 20px 20px;
+  }
+  .moment-bubble .eyebrow { font-size: 7px; letter-spacing: 1px; }
+  .map-image-wrap .moment-bubble h3 { font-size: 21px; margin-top: 7px; }
+  .map-image-wrap .moment-bubble > p:last-child { font-size: 11px; line-height: 1.7; margin-top: 9px; }
+  [data-moment-layout="band-top"] > img { aspect-ratio: 2/3; }
+  [data-moment-layout="band-top"] .moment-bubble { top: 12px; bottom: auto; }
+}
+@media (max-width: 360px) { .map-image-wrap > img { aspect-ratio: 3/5; object-position: 60% center; } }
+@media (prefers-reduced-transparency: reduce) { .moment-bubble { background: #173e32f5; -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .moment-bubble { background: #173e32f5; } }
 
 .capture-context{display:block;margin-top:10px;color:#c1cfb8;font-size:11px;line-height:1.8}

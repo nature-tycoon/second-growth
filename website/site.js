@@ -15,6 +15,7 @@ for (const choice of choices) {
     for (const [key, element] of Object.entries(fields)) element.textContent = choice.dataset[key];
     mapImage.src = choice.dataset.image;
     mapImage.alt = choice.dataset.alt;
+    mapImage.parentElement.dataset.momentLayout = choice.dataset.momentLayout;
     document.querySelector('#map-image-label').textContent = choice.dataset.name;
     document.querySelector('#moment-title').textContent = choice.dataset.momentTitle;
     document.querySelector('#moment-description').textContent = choice.dataset.momentDescription;
