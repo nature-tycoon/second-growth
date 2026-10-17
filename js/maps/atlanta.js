@@ -396,6 +396,9 @@ export default {
   },
   terrainNames: { PASTURE: 'Lawn', GRAVEL: 'Riprap', MUD: 'Bare clay', FIELD: 'Graded lot', ROAD: 'Street' },
 
+  // No grazing pressure on seedlings (sim/grazing.js): the gardens already hold their own gaps, and
+  // even light deer pressure here held back the creek woods and yards that should fill in.
+  grazing: 0,
   climate: {
     seasons: ['Spring', 'Summer', 'Fall', 'Winter'],
     // Atlanta: rain all year, summer thunderstorms, a dry spell in early fall, mild winters

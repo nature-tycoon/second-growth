@@ -425,6 +425,7 @@ export default {
   funder: 'marine park', // (who pays the grants)
   // dead coral rubble is the reef's "hardpan": nothing settles on it until it's held still
   hardpan: true,
+  grazing: 0, // (sea turtles and dugongs crop seagrass in sim/animal-foraging.js instead)
   sandBed: true,
   // snorkel trails are lines of buoys over the reef, not paths cut through it
   buoyTrails: true,
