@@ -14,6 +14,7 @@ import { siamangSwing } from './siamang-swing.js';
 import { canopyStep, settleCanopyStep, rebaseCanopy, recoverCanopyRoute } from './canopy-motion.js';
 import { canopyLean, canopyRotation } from './canopy-pose.js';
 import { canopyTile } from './canopy-support.js';
+import { perchPoint } from './bird-perch.js';
 import { ORANGUTAN_CADENCE } from './orangutan-motion.js';
 import { canopyGrips } from './canopy-grips.js';
 import { SlothBridges, slothBridge } from './sloth-bridge.js';
@@ -62,7 +63,7 @@ export class Actors {
     this.fauna = new Fauna(scene);
     this.swingGrip = new THREE.Vector3(); this.swingBase = new THREE.Vector3();
     this.swingAxis = new THREE.Vector3(0, 0, 1);
-    this.holdOffset = new THREE.Vector3(); this.holdRotation = new THREE.Quaternion();
+    this.holdOffset = new THREE.Vector3(); this.holdRotation = new THREE.Quaternion(); this.perchGoal = new THREE.Vector3();
     this.pose = new Map();      // agent id -> smoothed heading, gait, wings, and where it was drawn
     this.view = new ActorView();
     this.visibleWildlife = [];
@@ -197,6 +198,7 @@ export class Actors {
       const surf = onWater || def.move === 'swim' || def.move === 'fly' && isWater(t) ? waterSurfaceY(w, a.x, a.y) : null;
       // Flyers descend relative to the visible surface, even above a deeply carved basin.
       let y = def.move === 'fly' ? Math.max(ground, surf ?? ground) : ground;
+      let perchSite = null; // (the tree a perched bird sits in, when its limbs are known)
       // Which crown a climber or percher is in: it keeps the tree it's in until it's clearly into
       // the next one, so an animal nudged back and forth across the line between two trees of
       // different heights doesn't bob up and down between them.
@@ -239,7 +241,7 @@ export class Actors {
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
       else if (surf != null && FLOATERS.has(kind) && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
       else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
-        const c = ci(); y += (TREE_SHAPES[game.catalog.plants[w.tree[c]].look.type]?.height || 2) * (game.catalog.plants[w.tree[c]].look.scale ?? 1) * w.treeG[c] * 0.55;
+        const c = ci(); perchSite = this.flora?.treeSites.get(c); y += (TREE_SHAPES[game.catalog.plants[w.tree[c]].look.type]?.height || 2) * (game.catalog.plants[w.tree[c]].look.scale ?? 1) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
         y += 0.9;
       } else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) {
@@ -305,6 +307,21 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      // The bird being tracked, perched in a tree, sits on one of its real limbs (see bird-perch.js),
+      // gliding there and back as it's selected and let go; the others keep their place in the crown.
+      const tracked = a === this.followAgent || a === game.selectedAgent;
+      let perchGoal = null;
+      if (perchSite && tracked && perchPoint(perchSite, a.x, a.y, this.perchGoal)) perchGoal = this.perchGoal;
+      else if (st.perchOn) perchGoal = this.perchGoal.set(ax, y, az);
+      if (perchGoal) {
+        if (!st.perchOn) (st.perch ||= new THREE.Vector3()).set(st.x, st.y, st.z); // (from where it was last drawn)
+        if (returning || st.sc == null) st.perch.copy(perchGoal);
+        else st.perch.lerp(perchGoal, Math.min(1, k * 2.5));
+        ax = st.perch.x; az = st.perch.z; y = st.canopyY = st.perch.y;
+        st.perchOn = tracked && !!perchSite || st.perch.distanceToSquared(perchGoal) > 1e-4;
+        // (the focus window opens the whole tree in front of it: keep the limb it sits on solid, as for a climber)
+        if (tracked && perchSite && this.flora.treeSites.get(perchSite.tile) === perchSite) canopySites.add(perchSite);
+      }
       let branchPitch = 0, branchRoll = 0, branchYaw = 0;
       if (def.move === 'tree') {
         let site = this.flora?.treeSites.get(ci());
