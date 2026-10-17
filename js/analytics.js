@@ -15,6 +15,10 @@ export const GAME_VERSION = '0.5';
 // kept reference would go on feeding the stand-in's queue, which nothing reads any more.
 let started = false;
 const P = () => (started ? window.posthog : null);
+const localOnly = () => ['localhost', '127.0.0.1', ''].includes(location.hostname) && !new URLSearchParams(location.search).has('ph');
+const browserOptOut = () => navigator.globalPrivacyControl === true ||
+  [navigator.doNotTrack, navigator.msDoNotTrack, window.doNotTrack].some(value => value === '1' || value === 'yes');
+const trackingAllowed = () => settings.analytics && !browserOptOut();
 
 function loadPostHog() {
   // PostHog's standard loader: queues calls until the library arrives from their CDN.
@@ -32,6 +36,8 @@ function loadPostHog() {
     // No session replays: nobody watched them, and filming the 3D view kept its drawing buffer
     // and read it back from the graphics chip every second, which cost players frame rate.
     disable_session_recording: true,
+    // Also gate automatic/queued SDK events if the player opts out while it loads.
+    before_send: event => trackingAllowed() ? event : null,
   });
   window.posthog.register({ game_version: GAME_VERSION });
   return window.posthog;
@@ -39,10 +45,9 @@ function loadPostHog() {
 
 export function initAnalytics() {
   // local copies stay quiet so testing doesn't pollute the numbers (add ?ph to the URL to test tracking)
-  const local = ['localhost', '127.0.0.1', ''].includes(location.hostname) && !new URLSearchParams(location.search).has('ph');
-  if (!POSTHOG_KEY || local) return false;
+  if (!POSTHOG_KEY || localOnly() || !trackingAllowed()) return false;
+  if (started) return true;
   loadPostHog(); started = true;
-  if (!settings.analytics) P().opt_out_capturing();
   return true;
 }
 
@@ -51,7 +56,7 @@ export const analyticsReady = () => !!P();
 // For the moment the player leaves: sent with sendBeacon so it survives the tab closing.
 export function trackExit(event, props = {}) {
   const ph = P();
-  if (!ph || !settings.analytics) return;
+  if (!ph || !trackingAllowed()) return;
   try { ph.capture(event, props, { transport: 'sendBeacon' }); } catch (e) { /* ignore */ }
 }
 
@@ -69,7 +74,7 @@ window.addEventListener('unhandledrejection', e => reportError('promise', e.reas
 
 export function track(event, props = {}) {
   const ph = P();
-  if (!ph || !settings.analytics) return;
+  if (!ph || !trackingAllowed()) return;
   try { ph.capture(event, props); } catch (e) { /* never let analytics break the game */ }
 }
 
@@ -78,12 +83,11 @@ export function track(event, props = {}) {
 // shouldn't swallow it, and a failure (an ad blocker, no network) is reported instead of hidden.
 // When analytics is on, it's tied to the player's session so their play data can be found.
 export const feedbackPossible = () => {
-  const local = ['localhost', '127.0.0.1', ''].includes(location.hostname) && !new URLSearchParams(location.search).has('ph');
-  return !!POSTHOG_KEY && !local;
+  return !!POSTHOG_KEY && !localOnly();
 };
 export async function sendFeedback(props) {
   if (!feedbackPossible()) return false;
-  const ph = P(), linked = ph && settings.analytics;
+  const ph = P(), linked = ph && trackingAllowed();
   let distinct = null, session = null;
   try { if (linked) { distinct = ph.get_distinct_id?.(); session = ph.get_session_id?.(); } } catch (e) { /* ignore */ }
   const body = {
@@ -100,12 +104,17 @@ export async function sendFeedback(props) {
 // Game-wide properties attached to every later event (current year, score and so on).
 export function setContext(props) {
   const ph = P();
-  if (!ph) return;
+  if (!ph || !trackingAllowed()) return;
   try { ph.register(props); } catch (e) { /* ignore */ }
 }
 
 export function setAnalyticsEnabled(on) {
-  const ph = P();
-  if (!ph) return;
-  try { on ? ph.opt_in_capturing() : ph.opt_out_capturing(); } catch (e) { /* ignore */ }
+  settings.analytics = !!on;
+  if (!on) {
+    try { P()?.opt_out_capturing(); } catch (e) { /* ignore */ }
+    return;
+  }
+  if (!initAnalytics()) return;
+  // The SDK may retain an opt-out from an earlier visit or an earlier toggle.
+  try { P()?.opt_in_capturing(); } catch (e) { /* ignore */ }
 }

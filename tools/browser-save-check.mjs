@@ -4,6 +4,11 @@ import { openBrowser } from './browser-session.mjs';
 const browser = await openBrowser({ label: 'save' });
 const { send, evaluate, origin, sessionId } = browser;
 try {
+  await send('Page.enable');
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: `
+    requestAnimationFrame = callback => setTimeout(() => callback(performance.now()), 250);
+    cancelAnimationFrame = clearTimeout;
+  ` });
   await browser.navigate('/tools/browser-save-check.html');
   let result;
   for (let i = 0; i < 300; i++) {
@@ -24,18 +29,22 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   if (!await evaluate('!!window.secondGrowth')) throw new Error('Game boot failed: ' + await evaluate('document.body.innerText.slice(0, 1200)'));
+  if (!await evaluate('!!document.querySelector(".startup-selector") && window.secondGrowth.game.speed === 0 && !window.secondGrowth.game.saveReady')) throw new Error('Startup must show the selector before entering or saving a farm');
+  await evaluate('window.secondGrowth.ui.closeModal(); document.querySelector(".modal-back").dispatchEvent(new MouseEvent("mousedown", {bubbles:true}))');
+  if (!await evaluate('!!document.querySelector(".startup-selector") && window.secondGrowth.game.speed === 0 && !window.secondGrowth.game.saveReady')) throw new Error('Dismissing the selector must not start an unchosen farm');
+  console.log('PASS Startup selector cannot be dismissed into an unchosen farm');
   await evaluate(`(async () => {
     const { game, ui } = window.secondGrowth;
-    ui.closeModal(); await ui.startMode('free', false); game.speed = 0; game.day = 42;
+    ui.closeModal(true); await ui.startMode('free', false); game.speed = 0; game.day = 42;
     if (!await game.save()) throw new Error('UI game save failed');
     if (document.getElementById('save-status').textContent !== 'Saved') throw new Error('Missing saved indicator');
   })()`);
   await send('Page.reload', {}, sessionId);
   for (let i = 0; i < 150; i++) {
-    if (await evaluate('!!window.secondGrowth && !!document.querySelector("[data-a=continue]")')) break;
+    if (await evaluate('!!window.secondGrowth && !!document.querySelector("[data-a=resume]")')) break;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  await evaluate('document.querySelector("[data-a=continue]").click()');
+  await evaluate('document.querySelector("[data-a=resume]").click()');
   for (let i = 0; i < 100; i++) {
     if (await evaluate('window.secondGrowth.game.loaded')) break;
     await new Promise(resolve => setTimeout(resolve, 100));

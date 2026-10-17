@@ -91,6 +91,7 @@ export class UI {
     this.journal = [];
     this.lastTop = 0; this.lastInfo = 0; this.lastMini = 0;
     this.toastCount = 0;
+    this.dismissedBanners = {};
     this.newCats = new Set(); // tool categories a chapter just unlocked (they glow until opened)
     this.undo = new Undo(game);
     this.actions = new ToolActions(game, { undo: this.undo });
@@ -114,13 +115,18 @@ export class UI {
     game.on('notify', n => this.toast(n));
     game.on('moment', m => this.playMoment(m));
     game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
-    game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
+    game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
     game.on('month', () => {
       if (this.state.cat !== 'inspect') this.renderToolPanel();
       this.refreshWildlifeGuide?.();
     });
-    game.on('event', kind => { if ((kind === 'fire' || kind === 'flood') && settings.pauseOnEvents && game.speed) this.setSpeed(0); });
+    game.on('event', kind => {
+      if (kind === 'fire' || kind === 'flood') {
+        delete this.dismissedBanners[kind]; this.bannerKey = null;
+        if (settings.pauseOnEvents && game.speed) this.setSpeed(0);
+      }
+    });
     this.analytics.bind();
     game.on('tool', stroke => this.onToolAction(stroke));
     this.applySettings();
@@ -158,6 +164,9 @@ export class UI {
   get session() { return this.analytics.session; }
 
   applySettings() {
+    if (settings.notifications === 'hidden') $('#toasts').replaceChildren();
+    // Menu blur is decorative; Fast detail keeps transparency without the filter.
+    document.body.classList.toggle('menu-effects-off', settings.quality === 'fast');
     // the renderer asks for a lighter Detail level when this computer can't keep up
     this.renderer.onSlow ??= (quality, fps) => {
       track('auto_quality', { from: settings.quality, to: quality, fps });
@@ -191,8 +200,10 @@ export class UI {
     $('#btn-sound').addEventListener('click', () => this.toggleMute());
     window.addEventListener('resize', () => this.fitTopbar());
     $('#btn-feedback').addEventListener('click', () => this.openFeedback());
-    // phones and tablets: on-screen rotate buttons, full screen where the browser allows it
-    document.querySelectorAll('#view-ctrls [data-v^=rot]').forEach(b => b.addEventListener('click', () => this.renderer.rotate(b.dataset.v === 'rotl' ? -1 : 1)));
+    // Visible on every device; Shift retains a quick quarter-turn on desktop.
+    document.querySelectorAll('#view-ctrls [data-v^=rot]').forEach(b => b.addEventListener('click', e => {
+      if (!this.modalOpen) this.renderer.rotate(b.dataset.v === 'rotl' ? -1 : 1, e.shiftKey ? 90 : 15);
+    }));
     const fs = $('#btn-fullscreen'), root = document.documentElement;
     if (TOUCH && (root.requestFullscreen || root.webkitRequestFullscreen)) {
       fs.classList.remove('hidden');
@@ -212,7 +223,7 @@ export class UI {
     $('#overlay').addEventListener('change', e => { this.setOverlay(e.target.value); e.target.blur(); });
     $('#btn-overlay').addEventListener('click', () => this.openOverlayPicker()); // (phones, and narrow top bars: the menu as a button)
   }
-  setSpeed(s) { this.startPause = false; this.game.speed = s; this.refreshTop(true); }
+  setSpeed(s) { this.startPause = false; document.body.classList.remove('choosing-map'); this.game.speed = s; this.refreshTop(true); }
   // Touch screens: touching the map folds the tool panel down to its title, so the map has room.
   tuckToolPanel() {
     const st = this.state;
@@ -290,7 +301,11 @@ export class UI {
 
   renderBanner() {
     const g = this.game, b = $('#banner');
-    const fire = g.events.fireTiles, flood = g.events.floodTiles;
+    // Dismiss the event, not its current tile count: spreading water/fire must not reopen it.
+    if (!g.events.fireTiles) delete this.dismissedBanners.fire;
+    if (!g.events.floodTiles) delete this.dismissedBanners.flood;
+    const fire = this.dismissedBanners.fire ? 0 : g.events.fireTiles;
+    const flood = this.dismissedBanners.flood ? 0 : g.events.floodTiles;
     const crown = fire && g.events.severe && g.events.heat > 0.3;
     const key = `${fire}|${flood}|${crown}`;
     if (key === this.bannerKey) return;
@@ -301,6 +316,11 @@ export class UI {
     b.innerHTML = fire
       ? `<span class="bi">${ICONS.fire}</span><span><b>${crown ? 'Crown fire' : 'Wildfire'}</b>: ${fire} tiles burning</span><button class="btn secondary" data-b="go">Show me</button><button class="btn" data-b="crew">Fire crew</button>`
       : `<span class="bi">${ICONS.rain}</span><span><b>Flood</b>: ${flood} tiles underwater. Trails through it are closed.</span><button class="btn secondary" data-b="go">Show me</button>`;
+    b.insertAdjacentHTML('beforeend', '<button type="button" class="notice-close" data-b="dismiss" aria-label="Dismiss warning" title="Dismiss warning">×</button>');
+    b.querySelector('[data-b=dismiss]').addEventListener('click', () => {
+      this.dismissedBanners[fire ? 'fire' : 'flood'] = true;
+      this.bannerKey = null; this.renderBanner();
+    });
     b.querySelector('[data-b=go]').addEventListener('click', () => {
       const w = g.world, arr = fire ? w.fire : w.flood;
       let sx = 0, sy = 0, n = 0;
@@ -707,11 +727,13 @@ export class UI {
   toast(n) {
     this.journal.unshift(n);
     if (this.journal.length > 120) this.journal.pop();
+    if (settings.notifications === 'hidden') return;
     // "important only": routine updates skip the pop-up but stay in the journal
     if (settings.notifications === 'important' && (n.kind === 'info' || n.kind === 'season') && !n.loc) return;
     const box = $('#toasts');
     const icon = { good: 'good', warn: 'warn', discover: 'star', goal: 'star', season: 'leaf', info: 'info', fire: 'fire', flood: 'rain' }[n.kind] || 'info';
-    const t = el('div', `toast ${n.kind}` + (n.loc ? ' clickable' : ''), `<span class="ti">${ICONS[icon]}</span><span>${n.text}</span>`);
+    const t = el('div', `toast ${n.kind}` + (n.loc ? ' clickable' : ''), `<span class="ti">${ICONS[icon]}</span><span class="toast-text">${n.text}</span><button type="button" class="notice-close" aria-label="Dismiss notification" title="Dismiss notification">×</button>`);
+    t.querySelector('.notice-close').addEventListener('click', e => { e.stopPropagation(); t.remove(); });
     if (n.loc) t.addEventListener('click', () => {
       this.follow = null;
       const lx = n.loc.x ?? 0, ly = n.loc.y ?? 0;
@@ -720,7 +742,8 @@ export class UI {
     });
     // a plain note: tap to read it all, tap again to put it away
     else t.addEventListener('click', () => {
-      if (!t.classList.contains('open') && t.lastChild.scrollHeight > t.lastChild.clientHeight + 2) { t.classList.add('open'); return; }
+      const text = t.querySelector('.toast-text');
+      if (!t.classList.contains('open') && text.scrollHeight > text.clientHeight + 2) { t.classList.add('open'); return; }
       t.classList.add('fade'); setTimeout(() => t.remove(), 500);
     });
     box.prepend(t);
@@ -805,20 +828,21 @@ export class UI {
   }
 
   // ------------------------------------------------------------ modals
-  modal(title, bodyHTML, { narrow = false, foot = null, onClose = null } = {}) {
+  modal(title, bodyHTML, { narrow = false, foot = null, onClose = null, dismissible = true } = {}) {
     const root = $('#modal-root');
     root.innerHTML = '';
     const back = el('div', 'modal-back');
     const m = el('div', 'modal' + (narrow ? ' narrow' : ''));
-    m.innerHTML = `<div class="modal-head"><h2>${title}</h2><button class="x" title="Close (Esc)">×</button></div><div class="modal-body">${bodyHTML}</div>` + (foot ? `<div class="modal-foot">${foot}</div>` : '');
+    m.innerHTML = `<div class="modal-head"><h2>${title}</h2><button class="x" title="Close (Esc)"${dismissible ? '' : ' hidden'}>×</button></div><div class="modal-body">${bodyHTML}</div>` + (foot ? `<div class="modal-foot">${foot}</div>` : '');
     back.appendChild(m);
     root.appendChild(back);
-    const close = () => {
+    const close = (force = false) => {
+      if (!dismissible && !force) return;
       root.innerHTML = ''; this.modalOpen = false; if (onClose) onClose();
-      // Dismissing the start-up screens (the welcome, the map and mode chooser) starts the clock.
+      // The initial selector requires an explicit Start/Continue action to close.
       if (this.startPause && !this.modalOpen) this.setSpeed(1);
     };
-    m.querySelector('.x').addEventListener('click', close);
+    m.querySelector('.x').addEventListener('click', () => close());
     back.addEventListener('mousedown', e => { if (e.target === back) close(); });
     this.modalOpen = true;
     this.closeModal = close;
@@ -1057,6 +1081,7 @@ export class UI {
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="backups">Restore an earlier save</button>
       <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
+    m.classList.add('glass-menu');
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
     m.querySelector('[data-a=overlay]').addEventListener('click', () => this.openOverlayPicker());
     m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
@@ -1099,7 +1124,7 @@ export class UI {
         ${toggle('autosave', 'Autosave', 'Save every 30 seconds, at the end of each month, and when you leave the tab.')}
         <p class="small">Progress stays in this browser on this device. Clearing site data removes it.</p>
         ${toggle('pauseOnEvents', 'Pause on wildfire or flood', 'Stop the clock so you can respond.')}
-        ${choice('notifications', 'Notifications', 'Routine updates still go in the field journal.', [['all', 'Show everything'], ['important', 'Important only']])}`],
+        ${choice('notifications', 'Notifications', 'All updates stay in the field journal, even when pop-ups are hidden.', [['all', 'Show everything'], ['important', 'Important only'], ['hidden', 'Hide pop-ups']])}`],
       graphics: ['Graphics', `
         ${choice('quality', 'Detail', TOUCH ? 'Fast suits most phones. On a touch screen the resolution also adjusts itself to keep things smooth.' : 'Lower it if the game feels slow. Fast also uses simpler plants until you zoom in.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}
         ${toggle('shadows', 'Shadows', 'Trees and buildings cast soft shadows.')}
@@ -1110,14 +1135,15 @@ export class UI {
       controls: ['Controls', `
         ${slider('panSpeed', 'Camera pan speed', 'WASD and arrow keys.')}
         ${slider('zoomSpeed', 'Zoom speed', 'Mouse wheel and + / − keys.')}
+        <p class="small">The rotation arrows turn the view by 15°. Q / E do the same. Hold Shift for a 90° turn.</p>
         <div class="small" style="margin-top:10px">Brush sizes are remembered for each tool group.</div>`],
       privacy: ['Privacy', `
-        ${toggle('analytics', 'Share anonymous play data', 'Things like which tools get used and how far people get, plus screen recordings of play sessions. No names, no cookies.')}`],
+        ${toggle('analytics', 'Share anonymous play data', 'Which tools get used, progress, and game performance. No session recordings or cookies. Turn off to stop sharing play data.')}`],
     };
     const nav = Object.entries(TABS).map(([k, [name]]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${name}</button>`).join('');
     const m = this.modal('Settings', `<div class="settings-wrap"><nav class="settings-nav">${nav}</nav><div class="settings">${TABS[tab][1]}</div></div>`,
       { foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>' });
-    m.classList.add('settings-modal');
+    m.classList.add('settings-modal', 'glass-menu');
     m.querySelectorAll('.settings-nav [data-tab]').forEach(b => b.addEventListener('click', () => this.openSettings(b.dataset.tab)));
     m.querySelector('.np-skip')?.addEventListener('click', () => { music.start(); if (music.nowPlaying) music.skip(); else music.syncPlayback(); });
     if (!this.npHooked) { this.npHooked = true; music.onTrack(t => document.querySelectorAll('.np-title').forEach(e => { e.textContent = `${t.title} · ${t.artist}`; })); }
@@ -1126,7 +1152,7 @@ export class UI {
       inp.addEventListener(inp.type === 'range' ? 'input' : 'change', () => {
         settings[key] = inp.type === 'checkbox' ? inp.checked : inp.type === 'range' ? +inp.value : inp.value;
         if (inp.type === 'range') inp.nextElementSibling.textContent = inp.dataset.fmt === 'pct' ? pctFmt(settings[key]) : settings[key].toFixed(1) + '×';
-        if (key === 'analytics') { if (!settings.analytics) track('analytics_opt_out'); setAnalyticsEnabled(settings.analytics); }
+        if (key === 'analytics') { setAnalyticsEnabled(settings.analytics); if (settings.analytics) this.analyticsContext(); }
         else if (inp.type !== 'range') track('setting_changed', { setting: key, value: settings[key] });
         if (key === 'quality') settings.qualityChosen = true; // (the player's choice: never lowered for them)
         // back up from Fast on a computer that already struggled: say what to expect
@@ -1145,7 +1171,7 @@ export class UI {
       if (this.state.cat !== 'inspect') this.renderToolPanel();
     }));
     m.querySelector('[data-a=done]').addEventListener('click', () => this.closeModal());
-    m.querySelector('[data-a=reset]').addEventListener('click', () => { resetSettings(); this.applySettings(); this.openSettings(tab); });
+    m.querySelector('[data-a=reset]').addEventListener('click', () => { resetSettings(); setAnalyticsEnabled(settings.analytics); this.analyticsContext(); this.applySettings(); this.openSettings(tab); });
   }
 
   openFeedback() {
@@ -1233,7 +1259,9 @@ export class UI {
       <div class="section-title">Mode</div><div class="modes">
       <button class="mode-card" data-m="campaign"><b>Campaign</b><span></span></button>
       <button class="mode-card" data-m="free"><b>Free play</b><span>Every tool from the start and no chapters, just the land, the grants and the milestone goals.</span></button>
-      </div><p class="small replace-note" style="margin:10px 2px 0" hidden>This replaces your saved farm.</p>`, { narrow: true });
+      </div><p class="small replace-note" style="margin:10px 2px 0" hidden>This replaces your saved farm.</p>`, { narrow: true, dismissible: !this.startPause });
+    m.classList.add('glass-menu');
+    if (this.startPause) m.classList.add('startup-selector');
     const pickerLang = shownLang();
     if (pickerLang !== lang) langWithin(m, pickerLang);
     const FREE_TEXT = m.querySelector('[data-m=free] span').textContent;
@@ -1243,7 +1271,7 @@ export class UI {
     const showMap = () => {
       const b = BIOMES[map], camp = m.querySelector('[data-m=campaign]');
       m.querySelectorAll('[data-map]').forEach(o => o.classList.toggle('on', o.dataset.map === map));
-      m.querySelector('.map-pick').innerHTML = `<div class="map-card on"><img src="${b.image}" alt=""><div><span class="rg">${b.region}</span><b>${b.farm}</b><span class="bl">${b.blurb}</span>${Game.hasSave(b.id) ? `<em>Saved farm, year ${savedYear(b.id)}</em>` : ''}</div></div>`;
+      m.querySelector('.map-pick').innerHTML = `<div class="map-card on"><img src="${b.image}?v=keystone-20261017" alt="${b.region} wildlife scene from Second Growth" width="1800" height="1200" decoding="async"><div><span class="rg">${b.region}</span><b>${b.farm}</b><span class="bl">${b.blurb}</span>${Game.hasSave(b.id) ? `<em>Saved farm, year ${savedYear(b.id)}</em>` : ''}</div></div>`;
       m.querySelectorAll('[data-m]').forEach(o => { delete o.dataset.sure; o.classList.remove('danger'); });
       camp.disabled = !b.campaign;
       camp.querySelector('span').textContent = b.campaign ? `Eight chapters on ${b.farm}. Each one teaches a new part of restoration and unlocks new tools as you go. Best for your first time.` : `No campaign on ${b.farm} yet. Free Play has its own milestone goals for this map.`;
@@ -1272,10 +1300,16 @@ export class UI {
     m.querySelector('[data-a=resume]').addEventListener('click', async event => {
       event.currentTarget.disabled = true;
       if (map !== this.game.map || relang()) return this.switchMap({ map, resume: true });
-      this.closeModal();
+      const wasStarting = !!this.startPause;
+      this.closeModal(true);
       const speed = this.game.speed; this.setSpeed(0);
       if (!await this.game.load(map)) {
-        this.setSpeed(speed);
+        this.setSpeed(wasStarting ? 0 : speed);
+        if (wasStarting) {
+          this.startPause = true;
+          document.body.classList.add('choosing-map');
+          this.openModeChoice(true, map, diff);
+        }
         this.game.notify('That saved farm could not be opened. Your stored saves have been kept.', 'warn');
         return;
       }
@@ -1297,7 +1331,7 @@ export class UI {
         return;
       }
       m.querySelectorAll('[data-m]').forEach(o => { o.disabled = true; });
-      this.closeModal();
+      this.closeModal(true);
       if (relang()) return this.switchMap({ map, mode: b.dataset.m, difficulty: diff });
       await this.startMode(b.dataset.m, replacing, diff, map);
     }));
@@ -1540,7 +1574,7 @@ export class UI {
         <li>Touching the map folds the tool panel away; tap its tool group again to open it. The ☰ menu has the journal and see-through trees.</li>
         <li>For the most room, use full screen (the corner button at the top) or add the game to your home screen.</li>` : ''}
         <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag to brush</b> it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
-        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate the view. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode.</li>
+        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate by 15°. Hold <kbd>Shift</kbd> for a 90° turn. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode.</li>
         <li>Use <b>Inspect</b> to click any tile or animal. The <b>Overlay</b> menu shows moisture, soil, sunlight, fish passage, or where a species could live.</li>
       </ul>
       <h3>A good first year</h3>
