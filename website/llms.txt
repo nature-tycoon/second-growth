@@ -1,0 +1,17 @@
+# Second Growth
+
+> Second Growth is a free browser game about ecological restoration. Restore habitats across seven landscapes by working with water, soil and native plants, then observe how wildlife responds.
+
+The official website is https://secondgrowth.earth/. The game is in active development. Its ecological processes are simplified and time is accelerated; simulation outcomes are not forecasts for real restoration sites.
+
+## Game and player information
+
+- [Game overview, landscapes and player questions](https://secondgrowth.earth/index.md): Plain-text companion generated from the homepage, including browser requirements, local saves, difficulty and all seven landscapes.
+- [Official homepage](https://secondgrowth.earth/): Introduction, restoration example, regional explorer and ecological processes.
+- [Play Second Growth](https://secondgrowth.earth/play/): Launch the game in a browser with WebGL support; no installation or account is required.
+- [Game imagery and capture notes](https://secondgrowth.earth/visuals.html): Current game images, staged keystone scenes and the same-save creek restoration sequence.
+
+## Project and feedback
+
+- [Source repository](https://github.com/nature-tycoon/second-growth): Game source and development history.
+- [Issue tracker](https://github.com/nature-tycoon/second-growth/issues): Report problems or suggest improvements; posting requires a GitHub account.

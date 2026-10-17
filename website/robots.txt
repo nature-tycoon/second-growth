@@ -1,0 +1,6 @@
+# Public pages and assets are available to search and AI crawlers.
+# OAI-SearchBot, Claude-SearchBot and other compliant bots inherit this rule.
+User-agent: *
+Allow: /
+
+Sitemap: https://secondgrowth.earth/sitemap.xml
