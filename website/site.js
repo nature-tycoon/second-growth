@@ -19,10 +19,21 @@ for (const choice of choices) {
     document.querySelector('#map-image-label').textContent = choice.dataset.name;
     document.querySelector('#moment-title').textContent = choice.dataset.momentTitle;
     document.querySelector('#moment-description').textContent = choice.dataset.momentDescription;
-    document.querySelector('#map-image-caption').textContent = choice.dataset.caption;
     document.querySelector('.map-panel').dataset.landscape = choice.dataset.map;
   });
 }
+// Fetch the other landscape and creek images once the explorer nears the
+// viewport (or on hover), so switching never shows an empty panel.
+const preloaded = new Set();
+const preload = src => { if (!preloaded.has(src)) { preloaded.add(src); new Image().src = src; } };
+const preloadAll = () => [...choices, ...document.querySelectorAll('.sequence-choice')].forEach(c => preload(c.dataset.image));
+for (const choice of choices) choice.addEventListener('pointerenter', () => preload(choice.dataset.image));
+if ('IntersectionObserver' in window) {
+  const observer = new IntersectionObserver(entries => {
+    if (entries.some(entry => entry.isIntersecting)) { observer.disconnect(); preloadAll(); }
+  }, { rootMargin: '600px 0px' });
+  for (const section of document.querySelectorAll('.restoration, .explorer')) observer.observe(section);
+} else preloadAll();
 const sequenceChoices = [...document.querySelectorAll('.sequence-choice')];
 const sequenceImage = document.querySelector('#sequence-image');
 for (const choice of sequenceChoices) {
