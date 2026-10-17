@@ -32,8 +32,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="site.css?v=ecology-20261017c">
-  <script src="site.js?v=ecology-20261017c" defer></script>
+  <link rel="stylesheet" href="site.css?v=slider-20261017d">
+  <script src="site.js?v=slider-20261017d" defer></script>
 </head>
 <body class="home">
   <a class="skip" href="#hero-title">Skip to content</a>
@@ -69,13 +69,15 @@
       <div class="section-head"><div><p class="eyebrow">An example from the Pacific Northwest</p><h2 id="restoration-title">Reopening a salmon creek.</h2></div><p>One save, two game years apart. Pull out one<br> culvert and the whole creek changes.</p></div>
       <div class="restoration-layout">
         <figure class="sequence-figure">
-          <div class="sequence-view"><img id="sequence-image" src="review-media/creek-before.jpg" alt="The Pacific Northwest creek before intervention, with a culvert at the road crossing and exposed banks." width="1800" height="1200" loading="lazy" decoding="async"><span class="image-tag" id="sequence-label">Before · May, Year 1</span></div>
-          <div class="sequence-picker" role="group" aria-label="View the creek restoration sequence">
-            <button type="button" class="sequence-choice" aria-pressed="true" data-image="review-media/creek-before.jpg" data-alt="The Pacific Northwest creek before intervention, with a culvert at the road crossing and exposed banks." data-label="Before · May, Year 1" data-caption="The culvert blocks fish passage into the upper creek. The nearby banks have limited native vegetation."><img src="review-media/creek-before.jpg" alt="" width="1800" height="1200" loading="lazy"><span>01 / Before</span></button>
-            <button type="button" class="sequence-choice" aria-pressed="false" data-image="review-media/creek-planted.jpg" data-alt="The same creek after the culvert was removed and native shrubs, pioneer trees and meadow plants were planted along its banks." data-label="Restoration · The same day" data-caption="The culvert is removed. Invasives are pulled, soil is loosened and mulched, and native shrubs, pioneer trees and meadow plants are planted."><img src="review-media/creek-planted.jpg" alt="" width="1800" height="1200" loading="lazy"><span>02 / Restoration</span></button>
-            <button type="button" class="sequence-choice" aria-pressed="false" data-image="review-media/creek-later.jpg" data-alt="The same creek two game years later, with the planted streamside vegetation developing around the open crossing." data-label="Later · May, Year 3" data-caption="Two game years later, the planted vegetation has developed. The creek remains open to fish passage. No extra planting was done between these captures."><img src="review-media/creek-later.jpg" alt="" width="1800" height="1200" loading="lazy"><span>03 / Two years later</span></button>
+          <div class="compare" style="--pos:50%">
+            <img src="review-media/creek-later.jpg" alt="The same creek two game years later, with the planted streamside vegetation grown in around the open crossing." width="1800" height="1200" loading="lazy" decoding="async">
+            <img class="compare-before" src="review-media/creek-before.jpg" alt="The Pacific Northwest creek before restoration, with a culvert at the road crossing and bare banks." width="1800" height="1200" decoding="async">
+            <span class="image-tag compare-tag before">Before<span class="tag-date"> · May, Year 1</span></span>
+            <span class="image-tag compare-tag after">Two years later<span class="tag-date"> · May, Year 3</span></span>
+            <span class="compare-handle" aria-hidden="true"><span><svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 6 3 12l6 6M15 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+            <input class="compare-range" type="range" min="0" max="100" step="1" value="50" aria-label="Compare the creek before restoration and two years later">
           </div>
-          <p class="sequence-description" id="sequence-description" aria-live="polite">The culvert blocks fish passage into the upper creek. The nearby banks have limited native vegetation.</p>
+          <p class="sequence-description">Drag to compare. Same save, same camera: the culvert is out and the shrubs and pioneer trees planted that May have grown in. Nothing else was planted in between.</p>
         </figure>
         <ol class="restoration-steps"><li><span class="step-index">01</span><div><h3>Find what's in the way.</h3><p>A culvert under the farm road stops salmon from reaching the upper creek. With no shade on the banks, the water isn't good enough for them to spawn.</p></div></li><li><span class="step-index">02</span><div><h3>Open it up and plant the banks.</h3><p>Tear out the culvert, clear the Himalayan blackberry, and plant native shrubs and trees along the water. Overlays show you fish passage, moisture and habitat as you work.</p></div></li><li><span class="step-index">03</span><div><h3>Give it time.</h3><p>The plantings grow in and shade the creek. Open passage alone won't bring coho back. They need the clean, shaded water too.</p></div></li></ol>
       </div>
