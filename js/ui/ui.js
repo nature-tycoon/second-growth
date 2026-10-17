@@ -176,11 +176,18 @@ export class UI {
     if (settings.notifications === 'hidden') $('#toasts').replaceChildren();
     // Menu blur is decorative; Fast detail keeps transparency without the filter.
     document.body.classList.toggle('menu-effects-off', settings.quality === 'fast');
-    // the renderer asks for a lighter Detail level when this computer can't keep up
-    this.renderer.onSlow ??= (quality, fps) => {
-      track('auto_quality', { from: settings.quality, to: quality, fps });
-      settings.quality = quality; settings.slowFps = fps; saveSettings(); this.applySettings();
-      this.game.notify('The game was running slowly on this computer, so Detail is now Fast. You can change it back in Settings.', 'info');
+    // the renderer asks for a lighter Detail level when this computer can't keep up, and a
+    // sharper one again once it has had room for a while (see Renderer.autoQuality)
+    this.renderer.onQuality ??= (quality, fps, reason) => {
+      track('auto_quality', { from: settings.quality, to: quality, fps, reason });
+      const name = { high: 'Sharp', balanced: 'Balanced', fast: 'Fast' }[quality];
+      settings.quality = quality; settings.autoQualityAt = Date.now();
+      if (quality === 'fast') settings.slowFps = fps;
+      if (reason === 'undo') settings.autoUpFailedAt = Date.now();
+      saveSettings(); this.applySettings();
+      if (reason === 'slow') this.game.notify('The game was running slowly on this computer, so Detail is now Fast. You can change it back in Settings.', 'info');
+      else if (reason === 'room') this.game.notify(`The game has been running smoothly, so Detail is back up to ${name}.`, 'info');
+      else this.game.notify(`That was too much for this computer, so Detail is back to ${name}.`, 'info');
     };
     this.renderer.applySettings(settings);
     this.game.autosave = settings.autosave;
