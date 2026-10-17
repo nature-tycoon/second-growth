@@ -1,6 +1,6 @@
 # 0004 Ecosystem performance
 
-Target and visual tradeoffs decided 2026-10-15 by Cole. On 2026-10-17 Cole asked for the plan to be carried out. Output-preserving work on loading, P1, P3 and P6 has landed; P2, P4 and P5 have not (see the plan's [Progress](../performance-plan.md#progress)).
+Target and visual tradeoffs decided 2026-10-15 by Cole. On 2026-10-17 Cole asked for the plan to be carried out. Output-preserving work on loading, P1, P3 and P6 has landed, and distant animal models (P4) are live after Cole reviewed them; P2 and P5 have not (see the plan's [Progress](../performance-plan.md#progress)).
 
 ## Context
 
