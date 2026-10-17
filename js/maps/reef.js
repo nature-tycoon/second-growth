@@ -355,7 +355,7 @@ function reefDaily(g) {
 
 // the big arrivals: each a keystone moment the first time
 function reefMoments(g) {
-  for (const [key, sp] of [['dugong', 'dugong'], ['manta', 'manta']]) if (g.catalog.animal[sp] && pop(g, sp) > 0) arrivalMoment(g, key, g.catalog.animal[sp]);
+  for (const [key, sp] of [['manta', 'manta']]) if (g.catalog.animal[sp] && pop(g, sp) > 0) arrivalMoment(g, key, g.catalog.animal[sp]);
 }
 
 // counts for goals and the manta's cleaning stations
@@ -401,9 +401,9 @@ const MOMENTS = {
     title: 'The starfish-eater',
     text: 'A humphead wrasse is feeding on crown-of-thorns starfish among the corals. Those starfish eat living coral; the wrasse is one of the few animals that can eat them, spines and all. A reef with room for this giant has a living defence against the outbreak.',
   },
-  dugong: {
-    title: 'A sea cow in the meadow',
-    text: 'A dugong is grazing the seagrass you grew, pulling up whole plants roots and all and leaving a winding trail of bare sand behind it. Dugongs need big, healthy meadows, and they have been vanishing from much of the coast as the seagrass goes. Where they graze, the meadow grows back thicker.',
+  sharkHunt: {
+    title: 'Hunt in the shallows',
+    text: 'A blacktip reef shark is hunting over the seagrass flats, its black-tipped fin cutting the surface. Its target, a crocodile longtom, does what needlefish do: it leaps clear of the water and skips away across the surface on its tail, again and again. The meadow you grew is a nursery for small fish, the small fish feed the longtoms, and now the lagoon holds enough life for a shark to hunt here.',
   },
   manta: {
     title: 'A manta at the cleaning station',
