@@ -19,7 +19,7 @@ export const DEFAULTS = {
   muted: false,        // quick mute from the top bar (M)
   music: true, musicVolume: 0.45,     // lo-fi background music
   nature: true, natureVolume: 0.6,    // rain, birds and water
-  notifications: 'all', // 'all' or 'important' (skip routine updates; they still go in the journal)
+  notifications: 'all', // 'all', 'important' or 'hidden'; every update stays in the journal
   brushSizes: {},      // last brush radius used with each tool
   v: 2,                // settings version (see load)
 };

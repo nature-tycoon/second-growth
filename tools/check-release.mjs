@@ -16,6 +16,7 @@ if (args.includes('--update-visuals') && (process.env.CI || args.includes('--hea
 await mkdir(out, { recursive: true });
 const browserNames = new Set(['animal-behavior-browser-check.mjs', 'bird-variant-browser-check.mjs', 'browser-save-check.mjs', 'animal-locate-browser-check.mjs', 'canopy-reveal-browser-check.mjs', 'cervid-groups-browser-check.mjs', 'plant-view-browser-check.mjs', 'plant-render-browser-check.mjs', 'field-audio-browser-check.mjs', 'moments-browser-check.mjs', 'perf-analytics-browser-check.mjs', 'tool-actions-browser-check.mjs', 'map-catalog-browser-check.mjs', 'release-browser-check.mjs']);
 browserNames.add('plant-cache-browser-check.mjs');
+browserNames.add('website-security-browser-check.mjs');
 const files = (await readdir(new URL('./', import.meta.url))).filter(file => file.endsWith('-check.mjs')).sort();
 const headless = [...files.filter(file => !browserNames.has(file)), 'animal-size-audit.mjs'];
 const selected = args.includes('--headless') ? headless : args.includes('--browser') ? [...browserNames] : [...headless, ...browserNames];

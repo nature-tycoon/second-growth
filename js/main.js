@@ -39,7 +39,7 @@ async function boot() {
     initAnalytics();
     const game = new Game();
     game.newGame(1987, 'free', 'standard', pending?.map || Game.lastMap());
-    game.speed = 0; // paused until the welcome screen closes
+    game.speed = 0; // paused until the player chooses Start or Continue
     stage('Growing the landscape', 52);
     await nextPaint();
 
@@ -66,8 +66,11 @@ async function boot() {
       }
     } else if (pending) await ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map);
     else {
-      ui.startPause = true; // (see UI.modal: closing the start-up screens, however they're closed, unpauses)
-      ui.openIntro(true, Game.hasSave(), () => { if (game.speed === 0) ui.setSpeed(1); });
+      // Choose a place and mode (or resume) before entering the farm. Escape and
+      // backdrop clicks cannot start an unchosen farm or make it save-ready.
+      ui.startPause = true;
+      document.body.classList.add('choosing-map');
+      ui.openModeChoice(Game.hasSave());
     }
     ui.afterNewGame();
     ui.refreshTop(true);

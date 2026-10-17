@@ -13,7 +13,7 @@ const ready = setInterval(() => {
   const app = view.contentWindow?.secondGrowth;
   if (!app || view.contentDocument.querySelector('#loading-screen')) return;
   clearInterval(ready); ({ game, renderer, ui } = app);
-  game.autosave = false; game.saveReady = false; ui.closeModal(); game.speed = 0;
+  game.autosave = false; game.saveReady = false; ui.closeModal(true); game.speed = 0;
   const draw = renderer.draw, frame = ui.frame;
   renderer.draw = function(...args) { const result = draw.apply(this, args); if (!this.contextLost) frames++; return result; };
   ui.frame = function(...args) { controls++; return frame.apply(this, args); };
