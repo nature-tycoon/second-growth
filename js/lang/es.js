@@ -129,7 +129,7 @@ addStrings({
   Playing: 'Jugando', 'Running from danger': 'Huyendo del peligro', 'Fleeing the fire': 'Huyendo del fuego', Feeding: 'Comiendo', Drinking: 'Bebiendo',
   'Following mother': 'Siguiendo a su madre', 'With a bachelor group': 'En un grupo de machos', 'With a family herd': 'Con su grupo familiar', 'Approaching a rival': 'Acercándose a un rival', 'Watching an approaching neighbour': 'Observando a un vecino que se acerca',
   'Sparring with a rival': 'Midiéndose con un rival', 'Clashing antlers with a rival': 'Chocando cornamentas con un rival', Bugling: 'Bramando', 'In a bull’s harem': 'En el harén de un macho', 'Guarding his harem': 'Cuidando su harén', 'Greeting a neighbour': 'Saludando a un vecino', 'On the alert': 'Alerta',
-  'Show habitat': 'Ver hábitat', 'Field guide': 'Guía de campo', 'Next one': 'El siguiente',
+  'Show habitat': 'Ver hábitat', 'Field guide': 'Guía de campo', 'Next one': 'El siguiente', 'Find next': 'Buscar otro', Habitat: 'Hábitat', Guide: 'Guía', 'Show where its habitat is on the map': 'Mostrar su hábitat en el mapa',
   Age: 'Edad', Needs: 'Necesita', Population: 'Población', Status: 'Estado', Disturbance: 'Molestia',
   'Water quality': 'Calidad del agua', 'Fish access': 'Paso de peces', 'Connected to the river': 'Unido al estero', 'Cut off from the river': 'Aislado del estero',
   'Cool and shaded': 'Fresco y con sombra', 'Too sunny and warm. Plant shrubs and trees along the banks.': 'Mucho sol y calor. Sembrá arbustos y árboles en las orillas.',

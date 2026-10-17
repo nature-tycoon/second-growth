@@ -379,8 +379,8 @@ export class Input {
 
   inspectAt(t) {
     const g = this.game, w = g.world;
-    const best = this.r.pickAgent(g, this.mouse.x, this.mouse.y, this.touching ? 44 : 26); // fingers are less precise
-    if (best) { this.ui.inspectAgent(best); return; }
+    const best = this.r.pickAgent(g, this.mouse.x, this.mouse.y, this.touching ? 48 : 34); // fingers are less precise
+    if (best) { this.ui.inspectAgent(best); this.ui.followAnimal(best); return; }
     if (w.inb(t.x, t.y)) this.ui.inspectTile(w.idx(t.x, t.y));
     else this.ui.closeInfo();
   }

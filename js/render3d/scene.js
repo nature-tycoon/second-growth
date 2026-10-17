@@ -364,16 +364,31 @@ export class Renderer {
     this.updateCamera();
   }
   centerOnAnimal(a) {
-    this.fly = null; this.zoomGoal = null;
+    this.fly = null; this.zoomGoal = null; this.followGlide = null;
     this.followAgent = a;
     this.followPoseId = null;
     const pose = this.actors.pose.get(a.id);
     if (pose?.visible) { this.centerOn(pose.center.x, pose.center.z, pose.center.y); this.followPoseId = a.id; }
     else this.centerOn(a.x, a.y); // next draw computes its fresh pose, even if offscreen
   }
+  // Start following a clicked animal: glide over to it rather than jump, keeping the zoom.
+  glideToAnimal(a) {
+    this.fly = null;
+    this.followGlide = { id: a.id, t: 0 };
+  }
   updateAnimalCamera(dt = 1 / 60) {
     const pose = this.followAgent && this.actors.pose.get(this.followAgent.id);
     if (!pose?.visible) return;
+    const glide = this.followGlide;
+    if (glide && glide.id !== this.followAgent.id) this.followGlide = null;
+    else if (glide) {
+      glide.t += dt;
+      this.target.lerp(pose.center, Math.min(1, dt * 7));
+      this.animalCentered = true; this.updateCamera();
+      if (glide.t > 0.8 || this.target.distanceToSquared(pose.center) < 1e-4) this.followGlide = null;
+      this.followPoseId = this.followAgent.id;
+      return;
+    }
     if (pose.branchPoint && this.followPoseId === this.followAgent.id) {
       easeAnimalTarget(this.target, pose.center, dt);
       this.animalCentered = true; this.updateCamera();
@@ -470,15 +485,19 @@ export class Renderer {
     this.v3.set(x, y, z).project(this.camera);
     return { x: (this.v3.x + 1) / 2 * this.vw, y: (1 - this.v3.y) / 2 * this.vh };
   }
-  pickAgent(game, sx, sy, radius = 26) {
-    let best = null, bd = radius * radius;
-    const all = game.wildlife.viewAgents;
+  // The animal under a click. Each one can be clicked anywhere over its body as drawn (a manta's
+  // wingtips, not just its middle), and a small one anywhere within `radius` pixels of its centre;
+  // of several in reach, the one whose centre is nearest the pointer wins.
+  pickAgent(game, sx, sy, radius = 34) {
+    let best = null, bd = Infinity;
+    const all = game.wildlife.viewAgents, ppu = this.ppu || 0;
     for (const a of all) {
       const s = this.actors.pose.get(a.id);
       if (!s?.visible) continue;
       const p = this.project(s.center.x, s.center.y, s.center.z);
       const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
-      if (d < bd) { bd = d; best = a; }
+      const reach = Math.max(radius, 0.55 * Math.max(s.foot || 0, s.h || 0) * ppu);
+      if (d < reach * reach && d < bd) { bd = d; best = a; }
     }
     return best;
   }

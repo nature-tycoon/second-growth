@@ -79,6 +79,14 @@ const SPENDING = {
   visitors: 'Trails and facilities', upkeep: 'Trail upkeep', work: 'Other work',
 };
 
+// small icons for the inspect panel's action pills
+const PILL = {
+  habitat: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2 14 5.2 8 8.4 2 5.2Z M2 8.4 8 11.6 14 8.4 M2 11.2 8 14.4 14 11.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+  guide: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h7.5a2 2 0 0 1 2 2v9H5a2 2 0 0 1-2-2z M5 11.5h7.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+  next: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h9 M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  follow: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></svg>',
+};
+
 export class UI {
   constructor(game, renderer) {
     this.game = game;
@@ -204,6 +212,16 @@ export class UI {
     document.querySelectorAll('#view-ctrls [data-v^=rot]').forEach(b => b.addEventListener('click', e => {
       if (!this.modalOpen) this.renderer.rotate(b.dataset.v === 'rotl' ? -1 : 1, e.shiftKey ? 90 : 15);
     }));
+    // (on desktop the rotate buttons sit just under the tool bar, which changes height with the
+    // tools unlocked and the window: see #view-ctrls in styles.css)
+    // (a window too short for the whole tool bar and the pair stacked under it puts them beside it)
+    const toolbar = $('#toolbar'), placeViewCtrls = () => {
+      const box = toolbar.getBoundingClientRect();
+      document.body.classList.toggle('view-ctrls-beside', box.top + toolbar.scrollHeight + 150 > innerHeight);
+      document.documentElement.style.setProperty('--toolbar-bottom', `${Math.round(box.bottom)}px`);
+    };
+    new ResizeObserver(placeViewCtrls).observe(toolbar);
+    window.addEventListener('resize', placeViewCtrls);
     const fs = $('#btn-fullscreen'), root = document.documentElement;
     if (TOUCH && (root.requestFullscreen || root.webkitRequestFullscreen)) {
       fs.classList.remove('hidden');
@@ -561,6 +579,14 @@ export class UI {
     return true;
   }
 
+  // Keep a clicked animal in view until the player moves the camera (see Input.update).
+  followAnimal(a) {
+    if (this.follow === a) return;
+    this.renderer.glideToAnimal(a);
+    this.renderer.frameGoal = this.animalFrame(); this.renderer.animalFraming = true;
+    this.follow = a;
+  }
+
   animalFrame() {
     if (!TOUCH) return { x: 0.5, y: 0.5 };
     const panel = $('#infopanel'), box = panel.getBoundingClientRect();
@@ -630,7 +656,8 @@ export class UI {
       <div class="animal-hero"><img src="${animalThumb(def.key, this.game.catalog)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
       <div class="kv"><span class="k">Status</span><span>Flying through</span><span class="k">Flock</span><span>${this.game.wildlife.flyovers.filter(b => b.flock === a.flock).length} birds</span></div>
       <p class="info-desc">This bird is passing over the map. It does not live on the property or count toward its resident population.</p>
-      <p class="info-desc">${def.desc}</p><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-follow>Follow bird</button><button class="btn secondary" data-guide="${def.key}">Field guide</button></div>`;
+      <div class="info-actions"><button type="button" class="primary" data-follow>${PILL.follow}Follow bird</button><button type="button" data-guide="${def.key}">${PILL.guide}Field guide</button></div>
+      <p class="info-desc">${def.desc}</p>`;
     const ageY = a.age / 120;
     const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey' }[a.hunt?.phase] || 'Hunting';
     const birdStatus = { forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting' }[a.bird?.kind];
@@ -643,13 +670,13 @@ export class UI {
     const ageTxt = ageY < 1 ? `${Math.max(1, Math.round(ageY * 12))} months` : `${ageY.toFixed(1)} years`;
     return `<button class="close">×</button>
       <div class="animal-hero"><img src="${animalThumb(def.key, this.game.catalog)}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
+      <div class="info-actions"><button type="button" class="primary" data-overlay="${def.index}" title="Show where its habitat is on the map">${PILL.habitat}Habitat</button>${st.pop > 1 ? `<button type="button" data-next="${def.key}" title="Jump to another ${def.name.toLowerCase()}">${PILL.next}Find next</button>` : ''}<button type="button" data-guide="${def.key}" title="Open the field guide">${PILL.guide}Guide</button></div>
       <div class="kv"><span class="k">Status</span><span>${status}${a.spawner ? ' (spawning run)' : ''}${a.juvenile ? ' (juvenile)' : ''}${isMaleVariant(def, a) ? ` (${def.sprite.maleName || 'adult male'})` : ''}</span>
       <span class="k">Age</span><span>${ageTxt}</span>
       <span class="k">Population</span><span>${st.pop} here · room for ${Math.floor(st.K)}</span></div>
       <p class="info-desc">${def.desc}</p>
       <div class="section-title">Needs</div><p class="info-desc">${def.hint}</p>
-      ${this.wildlifeDiagnosticHTML(def)}
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="btn" data-overlay="${def.index}">Show habitat</button><button class="btn secondary" data-guide="${def.key}">Field guide</button>${st.pop > 1 ? `<button class="btn secondary" data-next="${def.key}" title="Jump to another ${def.name.toLowerCase()}">Next one</button>` : ''}</div>`;
+      ${this.wildlifeDiagnosticHTML(def)}`;
   }
   wildlifeDiagnosticHTML(def) {
     const d = wildlifeDiagnostics(this.game, def);
@@ -832,7 +859,7 @@ export class UI {
     const root = $('#modal-root');
     root.innerHTML = '';
     const back = el('div', 'modal-back');
-    const m = el('div', 'modal' + (narrow ? ' narrow' : ''));
+    const m = el('div', 'modal glass-menu' + (narrow ? ' narrow' : '')); // (every dialog is sage glass)
     m.innerHTML = `<div class="modal-head"><h2>${title}</h2><button class="x" title="Close (Esc)"${dismissible ? '' : ' hidden'}>×</button></div><div class="modal-body">${bodyHTML}</div>` + (foot ? `<div class="modal-foot">${foot}</div>` : '');
     back.appendChild(m);
     root.appendChild(back);
@@ -1081,7 +1108,6 @@ export class UI {
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="backups">Restore an earlier save</button>
       <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
-    m.classList.add('glass-menu');
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
     m.querySelector('[data-a=overlay]').addEventListener('click', () => this.openOverlayPicker());
     m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
@@ -1143,7 +1169,7 @@ export class UI {
     const nav = Object.entries(TABS).map(([k, [name]]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${name}</button>`).join('');
     const m = this.modal('Settings', `<div class="settings-wrap"><nav class="settings-nav">${nav}</nav><div class="settings">${TABS[tab][1]}</div></div>`,
       { foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>' });
-    m.classList.add('settings-modal', 'glass-menu');
+    m.classList.add('settings-modal');
     m.querySelectorAll('.settings-nav [data-tab]').forEach(b => b.addEventListener('click', () => this.openSettings(b.dataset.tab)));
     m.querySelector('.np-skip')?.addEventListener('click', () => { music.start(); if (music.nowPlaying) music.skip(); else music.syncPlayback(); });
     if (!this.npHooked) { this.npHooked = true; music.onTrack(t => document.querySelectorAll('.np-title').forEach(e => { e.textContent = `${t.title} · ${t.artist}`; })); }
@@ -1260,7 +1286,6 @@ export class UI {
       <button class="mode-card" data-m="campaign"><b>Campaign</b><span></span></button>
       <button class="mode-card" data-m="free"><b>Free play</b><span>Every tool from the start and no chapters, just the land, the grants and the milestone goals.</span></button>
       </div><p class="small replace-note" style="margin:10px 2px 0" hidden>This replaces your saved farm.</p>`, { narrow: true, dismissible: !this.startPause });
-    m.classList.add('glass-menu');
     if (this.startPause) m.classList.add('startup-selector');
     const pickerLang = shownLang();
     if (pickerLang !== lang) langWithin(m, pickerLang);
