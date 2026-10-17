@@ -1,6 +1,6 @@
 // Shared geometry preparation, paints, leaves and primitive shapes.
 import * as THREE from 'three';
-import { mergeVertices } from 'three/addons/BufferGeometryUtils.js';
+import { weldVertices } from './weld.js';
 
 // ---------------------------------------------------------------- helpers
 function addColor(g, color) {
@@ -39,7 +39,7 @@ function wobble(g, amt, seed) {
 function soft(geo, { color = 0xffffff, lump = 0, seed = 1, transform = null } = {}) {
   let g = geo;
   for (const k of ['uv', 'normal']) if (g.attributes[k]) g.deleteAttribute(k);
-  g = mergeVertices(g, 1e-4);
+  g = weldVertices(g, 1e-4);
   if (transform) transform(g);
   if (lump) wobble(g, lump, seed);
   g.computeVertexNormals();

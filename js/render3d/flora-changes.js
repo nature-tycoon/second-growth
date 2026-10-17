@@ -45,6 +45,7 @@ export class FloraChanges {
     for (const f of FIELDS) {
       const a = w[f], old = s.inside[f];
       if (!a && !old) continue;
+      if (a && old && a.length === old.length) { for (let i = 0; i < w.n; i++) if (a[i] !== old[i]) mark(i % w.w, Math.floor(i / w.w)); continue; } // (the usual case, without the per-tile checks)
       for (let i = 0; i < w.n; i++) if ((a?.[i] ?? 0) !== (old?.[i] ?? 0)) mark(i % w.w, Math.floor(i / w.w));
     }
     for (const f of BORDER_FIELDS) {

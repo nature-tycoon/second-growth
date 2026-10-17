@@ -1,0 +1,1625 @@
+{
+  "schemaVersion": 1,
+  "auditRevision": "0765363aca9b9495f519f1dd0cb27b5bbaa865cb",
+  "environment": {
+    "hardware": "Apple M5, 10 CPU cores, 10 GPU cores, 32GB",
+    "lowPowerMode": true,
+    "power": "pmset reports AC, battery discharging 30%",
+    "loadAverage": "sandbox denied",
+    "viewport": [
+      960,
+      600
+    ],
+    "dpr": 1,
+    "quality": "fast",
+    "fpsCap": 60,
+    "software": false,
+    "chrome": "Chrome/155.0.8059.84",
+    "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M5, Unspecified Version)"
+  },
+  "measurements": [
+    {
+      "scenario": "empty",
+      "round": 0,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 57.783984211018165,
+      "frameWorkMedianMs": 1.0999999046325684,
+      "frameWorkP95Ms": 9.400000095367432,
+      "frameIntervalP95Ms": 34.200000047683716,
+      "simulationMedianMs": 0,
+      "simulationP95Ms": 0.19999980926513672,
+      "drawCallsMedian": 8,
+      "trianglesMedian": 45122,
+      "attachedMeshes": 230,
+      "enabledMeshes": 10,
+      "initial": {
+        "trees": 0,
+        "shrubs": 0,
+        "groundcover": 0,
+        "borderTrees": 574,
+        "animals": 0,
+        "day": 20
+      },
+      "final": {
+        "trees": 0,
+        "shrubs": 0,
+        "groundcover": 0,
+        "borderTrees": 0,
+        "animals": 0,
+        "day": 23
+      },
+      "heapUsedBytes": 29898784,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "empty",
+      "round": 1,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 59.985003749062734,
+      "frameWorkMedianMs": 0.8000001907348633,
+      "frameWorkP95Ms": 2.8999998569488525,
+      "frameIntervalP95Ms": 17.600000143051147,
+      "simulationMedianMs": 0,
+      "simulationP95Ms": 0.19999980926513672,
+      "drawCallsMedian": 8,
+      "trianglesMedian": 45122,
+      "attachedMeshes": 230,
+      "enabledMeshes": 10,
+      "initial": {
+        "trees": 0,
+        "shrubs": 0,
+        "groundcover": 0,
+        "borderTrees": 574,
+        "animals": 0,
+        "day": 20
+      },
+      "final": {
+        "trees": 0,
+        "shrubs": 0,
+        "groundcover": 0,
+        "borderTrees": 0,
+        "animals": 0,
+        "day": 23
+      },
+      "heapUsedBytes": 30751984,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "young",
+      "round": 0,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 59.9970001457014,
+      "frameWorkMedianMs": 1.6999998092651367,
+      "frameWorkP95Ms": 13.5,
+      "frameIntervalP95Ms": 17.5,
+      "simulationMedianMs": 0.20000004768371582,
+      "simulationP95Ms": 0.40000009536743164,
+      "drawCallsMedian": 52,
+      "trianglesMedian": 92610,
+      "attachedMeshes": 299,
+      "enabledMeshes": 85,
+      "initial": {
+        "trees": 346,
+        "shrubs": 235,
+        "groundcover": 1551,
+        "borderTrees": 574,
+        "animals": 24,
+        "day": 20
+      },
+      "final": {
+        "trees": 346,
+        "shrubs": 235,
+        "groundcover": 1551,
+        "borderTrees": 574,
+        "animals": 24,
+        "day": 23
+      },
+      "heapUsedBytes": 36178020,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "young",
+      "round": 1,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 60.03301816428425,
+      "frameWorkMedianMs": 1.5999999046325684,
+      "frameWorkP95Ms": 6.900000095367432,
+      "frameIntervalP95Ms": 17.5,
+      "simulationMedianMs": 0.20000004768371582,
+      "simulationP95Ms": 0.2999999523162842,
+      "drawCallsMedian": 52,
+      "trianglesMedian": 92610,
+      "attachedMeshes": 299,
+      "enabledMeshes": 85,
+      "initial": {
+        "trees": 346,
+        "shrubs": 235,
+        "groundcover": 1551,
+        "borderTrees": 574,
+        "animals": 24,
+        "day": 20
+      },
+      "final": {
+        "trees": 346,
+        "shrubs": 235,
+        "groundcover": 1551,
+        "borderTrees": 574,
+        "animals": 24,
+        "day": 23
+      },
+      "heapUsedBytes": 63307084,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "mature",
+      "round": 0,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 60.02400960240988,
+      "frameWorkMedianMs": 2.5,
+      "frameWorkP95Ms": 11,
+      "frameIntervalP95Ms": 17.699999809265137,
+      "simulationMedianMs": 0.39999985694885254,
+      "simulationP95Ms": 1.2000000476837158,
+      "drawCallsMedian": 82,
+      "trianglesMedian": 350207,
+      "attachedMeshes": 361,
+      "enabledMeshes": 124,
+      "initial": {
+        "trees": 942,
+        "shrubs": 686,
+        "groundcover": 4226,
+        "borderTrees": 1596,
+        "animals": 96,
+        "day": 20
+      },
+      "final": {
+        "trees": 952,
+        "shrubs": 700,
+        "groundcover": 4271,
+        "borderTrees": 1596,
+        "animals": 96,
+        "day": 23
+      },
+      "heapUsedBytes": 72136504,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "mature",
+      "round": 1,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 57.15374357279987,
+      "frameWorkMedianMs": 4.200000047683716,
+      "frameWorkP95Ms": 22.200000047683716,
+      "frameIntervalP95Ms": 24.700000047683716,
+      "simulationMedianMs": 0.5999999046325684,
+      "simulationP95Ms": 1,
+      "drawCallsMedian": 82,
+      "trianglesMedian": 350207,
+      "attachedMeshes": 361,
+      "enabledMeshes": 124,
+      "initial": {
+        "trees": 942,
+        "shrubs": 686,
+        "groundcover": 4226,
+        "borderTrees": 1596,
+        "animals": 96,
+        "day": 20
+      },
+      "final": {
+        "trees": 952,
+        "shrubs": 700,
+        "groundcover": 4271,
+        "borderTrees": 1596,
+        "animals": 96,
+        "day": 23
+      },
+      "heapUsedBytes": 54403948,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense",
+      "round": 0,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 42.492917847025495,
+      "frameWorkMedianMs": 9.700000047683716,
+      "frameWorkP95Ms": 46.39999985694885,
+      "frameIntervalP95Ms": 74.40000009536743,
+      "simulationMedianMs": 1.3999998569488525,
+      "simulationP95Ms": 2.6999998092651367,
+      "drawCallsMedian": 106,
+      "trianglesMedian": 935278,
+      "attachedMeshes": 599,
+      "enabledMeshes": 166,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3022,
+        "shrubs": 1432,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 23
+      },
+      "heapUsedBytes": 155212724,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense",
+      "round": 1,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 53.72733378106111,
+      "frameWorkMedianMs": 7.700000047683716,
+      "frameWorkP95Ms": 31,
+      "frameIntervalP95Ms": 31.600000143051147,
+      "simulationMedianMs": 1.1000001430511475,
+      "simulationP95Ms": 2.200000047683716,
+      "drawCallsMedian": 106,
+      "trianglesMedian": 935278,
+      "attachedMeshes": 599,
+      "enabledMeshes": 166,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3022,
+        "shrubs": 1432,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 23
+      },
+      "heapUsedBytes": 169859852,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "animals512",
+      "round": 0,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 56.70273590828511,
+      "frameWorkMedianMs": 5.800000190734863,
+      "frameWorkP95Ms": 21.40000009536743,
+      "frameIntervalP95Ms": 35.700000047683716,
+      "simulationMedianMs": 3.200000047683716,
+      "simulationP95Ms": 5.5,
+      "drawCallsMedian": 9,
+      "trianglesMedian": 7547374,
+      "attachedMeshes": 301,
+      "enabledMeshes": 8,
+      "initial": {
+        "trees": 0,
+        "shrubs": 0,
+        "groundcover": 0,
+        "borderTrees": 0,
+        "animals": 512,
+        "day": 20
+      },
+      "final": {
+        "trees": 0,
+        "shrubs": 1,
+        "groundcover": 3,
+        "borderTrees": 0,
+        "animals": 512,
+        "day": 23
+      },
+      "heapUsedBytes": 207879088,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "animals512",
+      "round": 1,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 59.50314871391348,
+      "frameWorkMedianMs": 6.599999904632568,
+      "frameWorkP95Ms": 12.799999952316284,
+      "frameIntervalP95Ms": 20.90000009536743,
+      "simulationMedianMs": 3.5999999046325684,
+      "simulationP95Ms": 9,
+      "drawCallsMedian": 9,
+      "trianglesMedian": 7547374,
+      "attachedMeshes": 301,
+      "enabledMeshes": 8,
+      "initial": {
+        "trees": 0,
+        "shrubs": 0,
+        "groundcover": 0,
+        "borderTrees": 0,
+        "animals": 512,
+        "day": 20
+      },
+      "final": {
+        "trees": 0,
+        "shrubs": 1,
+        "groundcover": 3,
+        "borderTrees": 0,
+        "animals": 512,
+        "day": 23
+      },
+      "heapUsedBytes": 220190948,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense-isolation",
+      "round": null,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": true,
+      "fps": 46.58927670061671,
+      "frameWorkMedianMs": 9.700000047683716,
+      "frameWorkP95Ms": 39.799999952316284,
+      "frameIntervalP95Ms": 42.90000009536743,
+      "simulationMedianMs": 1,
+      "simulationP95Ms": 2.1000001430511475,
+      "drawCallsMedian": 158,
+      "trianglesMedian": 1494330,
+      "attachedMeshes": 605,
+      "enabledMeshes": 162,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3022,
+        "shrubs": 1432,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 23
+      },
+      "heapUsedBytes": null,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense-isolation",
+      "round": null,
+      "cpuThrottle": 1,
+      "isolation": "simulation-off",
+      "cameraMotion": false,
+      "fps": 59.976009590444065,
+      "frameWorkMedianMs": 2.200000047683716,
+      "frameWorkP95Ms": 4.1000001430511475,
+      "frameIntervalP95Ms": 17.5,
+      "simulationMedianMs": 0,
+      "simulationP95Ms": 0,
+      "drawCallsMedian": 98,
+      "trianglesMedian": 910094,
+      "attachedMeshes": 605,
+      "enabledMeshes": 159,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "heapUsedBytes": null,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense-isolation",
+      "round": null,
+      "cpuThrottle": 1,
+      "isolation": "vegetation-hidden",
+      "cameraMotion": false,
+      "fps": 59.988002403809915,
+      "frameWorkMedianMs": 3.9000000953674316,
+      "frameWorkP95Ms": 15.899999856948853,
+      "frameIntervalP95Ms": 17.799999952316284,
+      "simulationMedianMs": 0.7000000476837158,
+      "simulationP95Ms": 1,
+      "drawCallsMedian": 30,
+      "trianglesMedian": 272226,
+      "attachedMeshes": 605,
+      "enabledMeshes": 166,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3022,
+        "shrubs": 1432,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 23
+      },
+      "heapUsedBytes": null,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense-isolation",
+      "round": null,
+      "cpuThrottle": 1,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 59.979007353146436,
+      "frameWorkMedianMs": 3.799999952316284,
+      "frameWorkP95Ms": 16.300000190734863,
+      "frameIntervalP95Ms": 17.59999990463257,
+      "simulationMedianMs": 0.6000001430511475,
+      "simulationP95Ms": 0.9000000953674316,
+      "drawCallsMedian": 106,
+      "trianglesMedian": 935278,
+      "attachedMeshes": 605,
+      "enabledMeshes": 166,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3022,
+        "shrubs": 1432,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 23
+      },
+      "heapUsedBytes": null,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense-isolation",
+      "round": null,
+      "cpuThrottle": 4,
+      "isolation": "normal",
+      "cameraMotion": true,
+      "fps": 27.033724572274032,
+      "frameWorkMedianMs": 25,
+      "frameWorkP95Ms": 77.20000004768372,
+      "frameIntervalP95Ms": 80.19999980926514,
+      "simulationMedianMs": 2.799999952316284,
+      "simulationP95Ms": 3.8999998569488525,
+      "drawCallsMedian": 158,
+      "trianglesMedian": 1494330,
+      "attachedMeshes": 605,
+      "enabledMeshes": 162,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3022,
+        "shrubs": 1432,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 23
+      },
+      "heapUsedBytes": null,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense-isolation",
+      "round": null,
+      "cpuThrottle": 4,
+      "isolation": "simulation-off",
+      "cameraMotion": false,
+      "fps": 59.532668550459526,
+      "frameWorkMedianMs": 8.899999856948853,
+      "frameWorkP95Ms": 17.09999990463257,
+      "frameIntervalP95Ms": 18.700000047683716,
+      "simulationMedianMs": 0,
+      "simulationP95Ms": 0,
+      "drawCallsMedian": 98,
+      "trianglesMedian": 910094,
+      "attachedMeshes": 605,
+      "enabledMeshes": 159,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "heapUsedBytes": null,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense-isolation",
+      "round": null,
+      "cpuThrottle": 4,
+      "isolation": "vegetation-hidden",
+      "cameraMotion": false,
+      "fps": 32.32584451227267,
+      "frameWorkMedianMs": 17.200000047683716,
+      "frameWorkP95Ms": 78.70000004768372,
+      "frameIntervalP95Ms": 81.09999990463257,
+      "simulationMedianMs": 2.700000047683716,
+      "simulationP95Ms": 4.299999952316284,
+      "drawCallsMedian": 30,
+      "trianglesMedian": 272226,
+      "attachedMeshes": 605,
+      "enabledMeshes": 166,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3022,
+        "shrubs": 1432,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 23
+      },
+      "heapUsedBytes": null,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    },
+    {
+      "scenario": "dense-isolation",
+      "round": null,
+      "cpuThrottle": 4,
+      "isolation": "normal",
+      "cameraMotion": false,
+      "fps": 33.00057751053917,
+      "frameWorkMedianMs": 15.700000047683716,
+      "frameWorkP95Ms": 75.39999985694885,
+      "frameIntervalP95Ms": 77.69999980926514,
+      "simulationMedianMs": 2.5999999046325684,
+      "simulationP95Ms": 3.6000001430511475,
+      "drawCallsMedian": 106,
+      "trianglesMedian": 935278,
+      "attachedMeshes": 605,
+      "enabledMeshes": 166,
+      "initial": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "final": {
+        "trees": 3022,
+        "shrubs": 1432,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 23
+      },
+      "heapUsedBytes": null,
+      "gpuPerScenarioMs": null,
+      "gpuUnavailableReason": "original aggregate window spans scenarios; use hardware-supplement if valid",
+      "rawSource": "browser-baseline.json"
+    }
+  ],
+  "cpuMicrobenchmarks": [
+    {
+      "kind": "ecosystem",
+      "map": "pnw",
+      "density": "low",
+      "before": {
+        "trees": 346,
+        "shrubs": 235,
+        "groundcover": 1551,
+        "borderTrees": 574,
+        "animals": 24,
+        "day": 20
+      },
+      "after": {
+        "trees": 366,
+        "shrubs": 255,
+        "groundcover": 1646,
+        "borderTrees": 574,
+        "animals": 24,
+        "day": 28
+      },
+      "update": {
+        "samples": 300,
+        "meanMs": 0.3653392899999983,
+        "medianMs": 0.0582920000000513,
+        "p95Ms": 0.45591699999999946,
+        "p99Ms": 12.090832999999975,
+        "maxMs": 17.88816700000001
+      },
+      "phases": {
+        "spacingBuild": {
+          "samples": 720,
+          "meanMs": 0.008363616666667895,
+          "medianMs": 0.004166000000054737,
+          "p95Ms": 0.015541999999982181,
+          "p99Ms": 0.03174999999998818,
+          "maxMs": 0.5508330000000115
+        },
+        "spacingSeparate": {
+          "samples": 360,
+          "meanMs": 0.008055577777777342,
+          "medianMs": 0.005166999999971722,
+          "p95Ms": 0.019583000000011452,
+          "p99Ms": 0.031208999999989828,
+          "maxMs": 0.415333999999973
+        },
+        "wildlife": {
+          "samples": 360,
+          "meanMs": 0.1431867972222226,
+          "medianMs": 0.06329099999999244,
+          "p95Ms": 0.35187500000006366,
+          "p99Ms": 1.096458000000041,
+          "maxMs": 5.493207999999981
+        },
+        "daily": {
+          "samples": 8,
+          "meanMs": 10.753421875,
+          "medianMs": 10.445334000000003,
+          "p95Ms": 17.724542000000042,
+          "p99Ms": 17.724542000000042,
+          "maxMs": 17.724542000000042
+        }
+      },
+      "coldFloraMs": 476.6322090000001,
+      "noChange": {
+        "samples": 30,
+        "meanMs": 1.4329625000000306,
+        "medianMs": 1.4473749999999654,
+        "p95Ms": 2.550000000000182,
+        "p99Ms": 2.9005829999998696,
+        "maxMs": 2.9005829999998696
+      },
+      "editedFirstRegionMs": 8.374000000000024,
+      "editedFirstRegion": {
+        "full": false,
+        "tiles": 2304,
+        "worked": 10,
+        "regions": 1
+      },
+      "editedQueue": [
+        {
+          "ms": 9.93666600000006,
+          "full": false,
+          "tiles": 2304,
+          "worked": 25,
+          "regions": 1
+        },
+        {
+          "ms": 5.496583999999984,
+          "full": false,
+          "tiles": 2304,
+          "worked": 4,
+          "regions": 1
+        },
+        {
+          "ms": 5.349459000000024,
+          "full": false,
+          "tiles": 2304,
+          "worked": 10,
+          "regions": 1
+        }
+      ],
+      "actorsVisible": {
+        "samples": 180,
+        "meanMs": 0.03599420000000211,
+        "medianMs": 0.03179099999988466,
+        "p95Ms": 0.05079200000000128,
+        "p99Ms": 0.15195799999992232,
+        "maxMs": 0.5746249999999691
+      },
+      "actorsOffscreen": {
+        "samples": 180,
+        "meanMs": 0.01869909444444728,
+        "medianMs": 0.01749999999992724,
+        "p95Ms": 0.023750000000063665,
+        "p99Ms": 0.047416999999995824,
+        "maxMs": 0.06504199999994853
+      },
+      "offscreenVisibleCount": 0,
+      "undoSnapshot": {
+        "samples": 30,
+        "meanMs": 0.0863247999999885,
+        "medianMs": 0.08691599999997379,
+        "p95Ms": 0.11350000000015825,
+        "p99Ms": 0.11716699999988123,
+        "maxMs": 0.11716699999988123
+      },
+      "memoryBefore": {
+        "rss": 120160256,
+        "heapTotal": 34095104,
+        "heapUsed": 20157432,
+        "external": 4815951,
+        "arrayBuffers": 3029227
+      },
+      "memoryAfter": {
+        "rss": 256098304,
+        "heapTotal": 75792384,
+        "heapUsed": 44929784,
+        "external": 41053486,
+        "arrayBuffers": 39228229
+      }
+    },
+    {
+      "kind": "ecosystem",
+      "map": "pnw",
+      "density": "medium",
+      "before": {
+        "trees": 942,
+        "shrubs": 686,
+        "groundcover": 4226,
+        "borderTrees": 1596,
+        "animals": 96,
+        "day": 20
+      },
+      "after": {
+        "trees": 956,
+        "shrubs": 728,
+        "groundcover": 4343,
+        "borderTrees": 1596,
+        "animals": 96,
+        "day": 28
+      },
+      "update": {
+        "samples": 300,
+        "meanMs": 0.3975454066666695,
+        "medianMs": 0.1893329999998059,
+        "p95Ms": 0.6100829999998041,
+        "p99Ms": 6.923957999999857,
+        "maxMs": 12.201250000000073
+      },
+      "phases": {
+        "spacingBuild": {
+          "samples": 720,
+          "meanMs": 0.02213831111110412,
+          "medianMs": 0.016125000000101863,
+          "p95Ms": 0.04729199999997036,
+          "p99Ms": 0.0695419999999558,
+          "maxMs": 0.5401249999999891
+        },
+        "spacingSeparate": {
+          "samples": 360,
+          "meanMs": 0.042858108333330036,
+          "medianMs": 0.034333000000060565,
+          "p95Ms": 0.09295799999995324,
+          "p99Ms": 0.14612499999998363,
+          "maxMs": 0.2572499999998854
+        },
+        "wildlife": {
+          "samples": 360,
+          "meanMs": 0.26188533333334474,
+          "medianMs": 0.20270800000002964,
+          "p95Ms": 0.6069999999999709,
+          "p99Ms": 1.2452080000000478,
+          "maxMs": 1.3809579999999642
+        },
+        "daily": {
+          "samples": 8,
+          "meanMs": 7.177890624999947,
+          "medianMs": 6.693958000000066,
+          "p95Ms": 11.76583299999993,
+          "p99Ms": 11.76583299999993,
+          "maxMs": 11.76583299999993
+        }
+      },
+      "coldFloraMs": 455.4586670000001,
+      "noChange": {
+        "samples": 30,
+        "meanMs": 1.6496889999999818,
+        "medianMs": 1.6331669999999576,
+        "p95Ms": 1.894582999999784,
+        "p99Ms": 1.8949579999998605,
+        "maxMs": 1.8949579999998605
+      },
+      "editedFirstRegionMs": 4.078125,
+      "editedFirstRegion": {
+        "full": false,
+        "tiles": 2304,
+        "worked": 4,
+        "regions": 1
+      },
+      "editedQueue": [
+        {
+          "ms": 4.501375000000053,
+          "full": false,
+          "tiles": 2304,
+          "worked": 10,
+          "regions": 1
+        },
+        {
+          "ms": 3.7039999999997235,
+          "full": false,
+          "tiles": 2304,
+          "worked": 10,
+          "regions": 1
+        },
+        {
+          "ms": 9.534874999999829,
+          "full": false,
+          "tiles": 2304,
+          "worked": 26,
+          "regions": 1
+        }
+      ],
+      "actorsVisible": {
+        "samples": 180,
+        "meanMs": 0.12304381111112737,
+        "medianMs": 0.10287499999958527,
+        "p95Ms": 0.23554199999989578,
+        "p99Ms": 0.4118329999996604,
+        "maxMs": 0.6307500000002619
+      },
+      "actorsOffscreen": {
+        "samples": 180,
+        "meanMs": 0.06970397777780211,
+        "medianMs": 0.063083000000006,
+        "p95Ms": 0.11958400000003166,
+        "p99Ms": 0.18070799999986775,
+        "maxMs": 0.20141599999988102
+      },
+      "offscreenVisibleCount": 0,
+      "undoSnapshot": {
+        "samples": 30,
+        "meanMs": 0.09988890000001144,
+        "medianMs": 0.10320799999999508,
+        "p95Ms": 0.1465000000002874,
+        "p99Ms": 0.1946250000000873,
+        "maxMs": 0.1946250000000873
+      },
+      "memoryBefore": {
+        "rss": 262225920,
+        "heapTotal": 76316672,
+        "heapUsed": 43959128,
+        "external": 21001290,
+        "arrayBuffers": 19176101
+      },
+      "memoryAfter": {
+        "rss": 317685760,
+        "heapTotal": 107036672,
+        "heapUsed": 81982992,
+        "external": 63902920,
+        "arrayBuffers": 62077731
+      }
+    },
+    {
+      "kind": "ecosystem",
+      "map": "sumatra",
+      "density": "high",
+      "before": {
+        "trees": 3004,
+        "shrubs": 1403,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 256,
+        "day": 20
+      },
+      "after": {
+        "trees": 3077,
+        "shrubs": 1470,
+        "groundcover": 9629,
+        "borderTrees": 3823,
+        "animals": 255,
+        "day": 28
+      },
+      "update": {
+        "samples": 300,
+        "meanMs": 0.928567506666656,
+        "medianMs": 0.5925409999999829,
+        "p95Ms": 1.2836670000001504,
+        "p99Ms": 10.780999999999949,
+        "maxMs": 27.03533299999981
+      },
+      "phases": {
+        "spacingBuild": {
+          "samples": 720,
+          "meanMs": 0.052302529166673946,
+          "medianMs": 0.0442920000000413,
+          "p95Ms": 0.10487500000044747,
+          "p99Ms": 0.16149999999970532,
+          "maxMs": 0.3324579999998605
+        },
+        "spacingSeparate": {
+          "samples": 360,
+          "meanMs": 0.11801178611110445,
+          "medianMs": 0.08066699999972116,
+          "p95Ms": 0.23283300000002782,
+          "p99Ms": 0.4800420000001395,
+          "maxMs": 0.6884580000000824
+        },
+        "wildlife": {
+          "samples": 360,
+          "meanMs": 0.6929765000000114,
+          "medianMs": 0.59375,
+          "p95Ms": 1.3022909999999683,
+          "p99Ms": 1.7632920000000922,
+          "maxMs": 2.461207999999715
+        },
+        "daily": {
+          "samples": 8,
+          "meanMs": 13.42462487499995,
+          "medianMs": 9.857083999999759,
+          "p95Ms": 26.166666000000077,
+          "p99Ms": 26.166666000000077,
+          "maxMs": 26.166666000000077
+        }
+      },
+      "coldFloraMs": 594.4272500000002,
+      "noChange": {
+        "samples": 30,
+        "meanMs": 1.6212028666666507,
+        "medianMs": 1.5618329999997513,
+        "p95Ms": 1.842290999999932,
+        "p99Ms": 2.857250000000022,
+        "maxMs": 2.857250000000022
+      },
+      "editedFirstRegionMs": 4.321374999999989,
+      "editedFirstRegion": {
+        "full": false,
+        "tiles": 2304,
+        "worked": 4,
+        "regions": 1
+      },
+      "editedQueue": [
+        {
+          "ms": 4.300291000000016,
+          "full": false,
+          "tiles": 2304,
+          "worked": 10,
+          "regions": 1
+        },
+        {
+          "ms": 4.373375000000124,
+          "full": false,
+          "tiles": 2304,
+          "worked": 10,
+          "regions": 1
+        },
+        {
+          "ms": 8.947000000000116,
+          "full": false,
+          "tiles": 2304,
+          "worked": 25,
+          "regions": 1
+        }
+      ],
+      "actorsVisible": {
+        "samples": 180,
+        "meanMs": 0.3938340444444192,
+        "medianMs": 0.3413330000003043,
+        "p95Ms": 0.7854999999999563,
+        "p99Ms": 1.119416000000001,
+        "maxMs": 1.247834000000239
+      },
+      "actorsOffscreen": {
+        "samples": 180,
+        "meanMs": 0.17378376666666656,
+        "medianMs": 0.1673329999998714,
+        "p95Ms": 0.19012500000008004,
+        "p99Ms": 0.28791599999976825,
+        "maxMs": 0.7002500000003238
+      },
+      "offscreenVisibleCount": 0,
+      "undoSnapshot": {
+        "samples": 30,
+        "meanMs": 0.06076669999994617,
+        "medianMs": 0.05304200000000492,
+        "p95Ms": 0.09445800000003146,
+        "p99Ms": 0.09891699999980119,
+        "maxMs": 0.09891699999980119
+      },
+      "memoryBefore": {
+        "rss": 321568768,
+        "heapTotal": 108085248,
+        "heapUsed": 84290672,
+        "external": 44599616,
+        "arrayBuffers": 42774427
+      },
+      "memoryAfter": {
+        "rss": 430096384,
+        "heapTotal": 181108736,
+        "heapUsed": 144844400,
+        "external": 98691970,
+        "arrayBuffers": 96866781
+      }
+    },
+    {
+      "kind": "animal-scaling",
+      "distribution": "spread",
+      "count": 128,
+      "timing": {
+        "samples": 120,
+        "meanMs": 0.20441664999997328,
+        "medianMs": 0.1591660000003685,
+        "p95Ms": 0.414792000000034,
+        "p99Ms": 0.6295000000000073,
+        "maxMs": 0.8992920000000595
+      },
+      "comparisonsMean": 431,
+      "comparisonsMax": 431
+    },
+    {
+      "kind": "animal-scaling",
+      "distribution": "spread",
+      "count": 256,
+      "timing": {
+        "samples": 120,
+        "meanMs": 0.28718647500001,
+        "medianMs": 0.27304099999992104,
+        "p95Ms": 0.3215410000002521,
+        "p99Ms": 0.668833000000177,
+        "maxMs": 0.7137920000000122
+      },
+      "comparisonsMean": 996,
+      "comparisonsMax": 996
+    },
+    {
+      "kind": "animal-scaling",
+      "distribution": "spread",
+      "count": 512,
+      "timing": {
+        "samples": 120,
+        "meanMs": 0.6021451750000172,
+        "medianMs": 0.5797089999996388,
+        "p95Ms": 0.8838329999998678,
+        "p99Ms": 0.9316250000001673,
+        "maxMs": 1.0635419999998703
+      },
+      "comparisonsMean": 2395,
+      "comparisonsMax": 2395
+    },
+    {
+      "kind": "animal-scaling",
+      "distribution": "spread",
+      "count": 1024,
+      "timing": {
+        "samples": 120,
+        "meanMs": 1.3445743333333289,
+        "medianMs": 1.1940830000003189,
+        "p95Ms": 1.887499999999818,
+        "p99Ms": 2.7724159999997937,
+        "maxMs": 3.03125
+      },
+      "comparisonsMean": 4912,
+      "comparisonsMax": 4912
+    },
+    {
+      "kind": "animal-scaling",
+      "distribution": "cluster",
+      "count": 128,
+      "timing": {
+        "samples": 120,
+        "meanMs": 0.5315155999999661,
+        "medianMs": 0.5195829999993293,
+        "p95Ms": 0.736124999999447,
+        "p99Ms": 0.8676249999998618,
+        "maxMs": 0.8840000000000146
+      },
+      "comparisonsMean": 8079.133333333333,
+      "comparisonsMax": 8128
+    },
+    {
+      "kind": "animal-scaling",
+      "distribution": "cluster",
+      "count": 256,
+      "timing": {
+        "samples": 120,
+        "meanMs": 1.84482185833333,
+        "medianMs": 1.808415999999852,
+        "p95Ms": 2.184707999999773,
+        "p99Ms": 2.2914169999994556,
+        "maxMs": 2.405749999999898
+      },
+      "comparisonsMean": 32414.206666666665,
+      "comparisonsMax": 32640
+    },
+    {
+      "kind": "animal-scaling",
+      "distribution": "cluster",
+      "count": 512,
+      "timing": {
+        "samples": 120,
+        "meanMs": 7.115350341666718,
+        "medianMs": 7.14075000000048,
+        "p95Ms": 7.531292000000576,
+        "p99Ms": 7.686708000000181,
+        "maxMs": 7.809457999999722
+      },
+      "comparisonsMean": 130267.94666666667,
+      "comparisonsMax": 130816
+    },
+    {
+      "kind": "animal-scaling",
+      "distribution": "cluster",
+      "count": 1024,
+      "timing": {
+        "samples": 120,
+        "meanMs": 25.708120908333306,
+        "medianMs": 25.641959000000497,
+        "p95Ms": 26.422708999999486,
+        "p99Ms": 29.823959000000286,
+        "maxMs": 38.47041700000045
+      },
+      "comparisonsMean": 522504.1,
+      "comparisonsMax": 523776
+    }
+  ],
+  "isolationValidation": [
+    {
+      "cpuThrottle": 1,
+      "initialSignaturesEqual": true,
+      "normalHiddenFinalSignaturesEqual": true,
+      "frozenSignatureUnchanged": true
+    },
+    {
+      "cpuThrottle": 4,
+      "initialSignaturesEqual": true,
+      "normalHiddenFinalSignaturesEqual": true,
+      "frozenSignatureUnchanged": true
+    }
+  ],
+  "limitations": [
+    "Low Power Mode enabled; load average unavailable",
+    "Two short repetitions; substantial warmup/order variance",
+    "Default Fast quality/DPR1; short runs do not cross month boundary",
+    "Synthetic structural snapshots, not naturally aged savegames",
+    "Empty initial border signature is captured before clearing; measured state has no vegetation",
+    "Initial allocation profile includes fixture restoration",
+    "Heap snapshots include fixture/caches and uncollected objects; not retained memory or VRAM",
+    "CPU throttling and software rasterization do not represent an older integrated GPU"
+  ],
+  "olderHardwareMetrics": null,
+  "softwareSupplementExcluded": true,
+  "supplementStatus": {
+    "hardwareGpuTiming": "unavailable; follow-up Chrome sessions fell back to SwiftShader",
+    "softwareTimingExcluded": true,
+    "steadyAllocationRate": null,
+    "gcPausePercentiles": null
+  },
+  "denseResourceCensus": {
+    "nodes": 602,
+    "enabledNodes": 171,
+    "materials": 41,
+    "geometries": 148,
+    "attachedGeometryAttributeBytes": 17194746,
+    "sources": 784,
+    "sourceCapacity": 146468,
+    "sourceInstances": 74126,
+    "sourceMatrixColorBytes": 11131568,
+    "replayNumbers": 1599686
+  },
+  "verification": {
+    "performanceDiagnosticsChecks": 13,
+    "frameLoopChecks": 5,
+    "renderBoundaryModules": 23,
+    "dependencyCycles": false,
+    "animalCullingChecks": 17
+  },
+  "longRunBalance": {
+    "seed": 1987,
+    "globalRandomSeed": 20261015,
+    "mode": "restore",
+    "years": 15,
+    "gameDays": 1800,
+    "aggregateMsPerDay": 11.87,
+    "completed": true,
+    "rows": [
+      {
+        "yearLabel": 1,
+        "line": "Y1 March, Year 1 $30000 score=2.2 nat=1% inv=6.0% farm=89% meadow=0 forest=22 mature=7 snags=1 plants=0 visitors=0 rating=0.0 vinc=$0 fires=-999 floods=-999",
+        "stats": {
+          "score": "2.2",
+          "nat": "1%",
+          "inv": "6.0%",
+          "farm": "89%",
+          "meadow": "0",
+          "forest": "22",
+          "mature": "7",
+          "snags": "1",
+          "plants": "0",
+          "visitors": "0",
+          "rating": "0.0",
+          "vinc": "$0",
+          "fires": "-999",
+          "floods": "-999"
+        }
+      },
+      {
+        "yearLabel": 2,
+        "line": "Y2 March, Year 2 $13974 score=27.1 nat=12% inv=5.7% farm=78% meadow=762 forest=20 mature=6 snags=3 plants=16 visitors=0 rating=0.0 vinc=$0 fires=-999 floods=83",
+        "stats": {
+          "score": "27.1",
+          "nat": "12%",
+          "inv": "5.7%",
+          "farm": "78%",
+          "meadow": "762",
+          "forest": "20",
+          "mature": "6",
+          "snags": "3",
+          "plants": "16",
+          "visitors": "0",
+          "rating": "0.0",
+          "vinc": "$0",
+          "fires": "-999",
+          "floods": "83"
+        }
+      },
+      {
+        "yearLabel": 3,
+        "line": "Y3 March, Year 3 $22204 score=44.9 nat=17% inv=1.9% farm=70% meadow=992 forest=22 mature=7 snags=4 plants=17 visitors=80 rating=2.3 vinc=$486 fires=165 floods=220",
+        "stats": {
+          "score": "44.9",
+          "nat": "17%",
+          "inv": "1.9%",
+          "farm": "70%",
+          "meadow": "992",
+          "forest": "22",
+          "mature": "7",
+          "snags": "4",
+          "plants": "17",
+          "visitors": "80",
+          "rating": "2.3",
+          "vinc": "$486",
+          "fires": "165",
+          "floods": "220"
+        }
+      },
+      {
+        "yearLabel": 4,
+        "line": "Y4 March, Year 4 $39608 score=51.1 nat=24% inv=2.5% farm=54% meadow=1622 forest=23 mature=8 snags=4 plants=21 visitors=75 rating=2.4 vinc=$474 fires=165 floods=324",
+        "stats": {
+          "score": "51.1",
+          "nat": "24%",
+          "inv": "2.5%",
+          "farm": "54%",
+          "meadow": "1622",
+          "forest": "23",
+          "mature": "8",
+          "snags": "4",
+          "plants": "21",
+          "visitors": "75",
+          "rating": "2.4",
+          "vinc": "$474",
+          "fires": "165",
+          "floods": "324"
+        }
+      },
+      {
+        "yearLabel": 5,
+        "line": "Y5 March, Year 5 $53616 score=57.4 nat=28% inv=3.4% farm=52% meadow=1813 forest=52 mature=8 snags=4 plants=21 visitors=85 rating=2.7 vinc=$563 fires=409 floods=452",
+        "stats": {
+          "score": "57.4",
+          "nat": "28%",
+          "inv": "3.4%",
+          "farm": "52%",
+          "meadow": "1813",
+          "forest": "52",
+          "mature": "8",
+          "snags": "4",
+          "plants": "21",
+          "visitors": "85",
+          "rating": "2.7",
+          "vinc": "$563",
+          "fires": "409",
+          "floods": "452"
+        }
+      },
+      {
+        "yearLabel": 6,
+        "line": "Y6 March, Year 6 $68024 score=61.3 nat=32% inv=4.7% farm=49% meadow=1969 forest=78 mature=8 snags=4 plants=21 visitors=93 rating=3.3 vinc=$661 fires=545 floods=452",
+        "stats": {
+          "score": "61.3",
+          "nat": "32%",
+          "inv": "4.7%",
+          "farm": "49%",
+          "meadow": "1969",
+          "forest": "78",
+          "mature": "8",
+          "snags": "4",
+          "plants": "21",
+          "visitors": "93",
+          "rating": "3.3",
+          "vinc": "$661",
+          "fires": "545",
+          "floods": "452"
+        }
+      },
+      {
+        "yearLabel": 7,
+        "line": "Y7 March, Year 7 $84259 score=62.6 nat=35% inv=6.1% farm=46% meadow=1995 forest=89 mature=8 snags=5 plants=21 visitors=91 rating=2.6 vinc=$641 fires=640 floods=680",
+        "stats": {
+          "score": "62.6",
+          "nat": "35%",
+          "inv": "6.1%",
+          "farm": "46%",
+          "meadow": "1995",
+          "forest": "89",
+          "mature": "8",
+          "snags": "5",
+          "plants": "21",
+          "visitors": "91",
+          "rating": "2.6",
+          "vinc": "$641",
+          "fires": "640",
+          "floods": "680"
+        }
+      },
+      {
+        "yearLabel": 8,
+        "line": "Y8 March, Year 8 $99906 score=62.9 nat=39% inv=8.5% farm=42% meadow=2053 forest=102 mature=8 snags=8 plants=21 visitors=89 rating=3.0 vinc=$621 fires=640 floods=813",
+        "stats": {
+          "score": "62.9",
+          "nat": "39%",
+          "inv": "8.5%",
+          "farm": "42%",
+          "meadow": "2053",
+          "forest": "102",
+          "mature": "8",
+          "snags": "8",
+          "plants": "21",
+          "visitors": "89",
+          "rating": "3.0",
+          "vinc": "$621",
+          "fires": "640",
+          "floods": "813"
+        }
+      },
+      {
+        "yearLabel": 9,
+        "line": "Y9 March, Year 9 $116823 score=62.4 nat=43% inv=11.0% farm=38% meadow=1997 forest=117 mature=8 snags=8 plants=21 visitors=96 rating=3.0 vinc=$692 fires=640 floods=813",
+        "stats": {
+          "score": "62.4",
+          "nat": "43%",
+          "inv": "11.0%",
+          "farm": "38%",
+          "meadow": "1997",
+          "forest": "117",
+          "mature": "8",
+          "snags": "8",
+          "plants": "21",
+          "visitors": "96",
+          "rating": "3.0",
+          "vinc": "$692",
+          "fires": "640",
+          "floods": "813"
+        }
+      },
+      {
+        "yearLabel": 10,
+        "line": "Y10 March, Year 10 $133328 score=62.3 nat=46% inv=13.5% farm=34% meadow=1893 forest=123 mature=8 snags=10 plants=21 visitors=102 rating=3.6 vinc=$752 fires=640 floods=1061",
+        "stats": {
+          "score": "62.3",
+          "nat": "46%",
+          "inv": "13.5%",
+          "farm": "34%",
+          "meadow": "1893",
+          "forest": "123",
+          "mature": "8",
+          "snags": "10",
+          "plants": "21",
+          "visitors": "102",
+          "rating": "3.6",
+          "vinc": "$752",
+          "fires": "640",
+          "floods": "1061"
+        }
+      },
+      {
+        "yearLabel": 11,
+        "line": "Y11 March, Year 11 $152679 score=62.0 nat=50% inv=15.6% farm=30% meadow=1810 forest=146 mature=8 snags=10 plants=21 visitors=104 rating=2.8 vinc=$775 fires=1131 floods=1179",
+        "stats": {
+          "score": "62.0",
+          "nat": "50%",
+          "inv": "15.6%",
+          "farm": "30%",
+          "meadow": "1810",
+          "forest": "146",
+          "mature": "8",
+          "snags": "10",
+          "plants": "21",
+          "visitors": "104",
+          "rating": "2.8",
+          "vinc": "$775",
+          "fires": "1131",
+          "floods": "1179"
+        }
+      },
+      {
+        "yearLabel": 12,
+        "line": "Y12 March, Year 12 $172055 score=64.1 nat=53% inv=15.0% farm=27% meadow=1728 forest=173 mature=8 snags=12 plants=21 visitors=101 rating=2.6 vinc=$744 fires=1253 floods=1280",
+        "stats": {
+          "score": "64.1",
+          "nat": "53%",
+          "inv": "15.0%",
+          "farm": "27%",
+          "meadow": "1728",
+          "forest": "173",
+          "mature": "8",
+          "snags": "12",
+          "plants": "21",
+          "visitors": "101",
+          "rating": "2.6",
+          "vinc": "$744",
+          "fires": "1253",
+          "floods": "1280"
+        }
+      },
+      {
+        "yearLabel": 13,
+        "line": "Y13 March, Year 13 $195588 score=62.9 nat=56% inv=19.2% farm=23% meadow=1394 forest=193 mature=8 snags=12 plants=22 visitors=125 rating=4.2 vinc=$1008 fires=1253 floods=1437",
+        "stats": {
+          "score": "62.9",
+          "nat": "56%",
+          "inv": "19.2%",
+          "farm": "23%",
+          "meadow": "1394",
+          "forest": "193",
+          "mature": "8",
+          "snags": "12",
+          "plants": "22",
+          "visitors": "125",
+          "rating": "4.2",
+          "vinc": "$1008",
+          "fires": "1253",
+          "floods": "1437"
+        }
+      },
+      {
+        "yearLabel": 14,
+        "line": "Y14 March, Year 14 $218150 score=64.6 nat=57% inv=19.3% farm=21% meadow=1100 forest=228 mature=16 snags=16 plants=23 visitors=144 rating=4.2 vinc=$1241 fires=1494 floods=1437",
+        "stats": {
+          "score": "64.6",
+          "nat": "57%",
+          "inv": "19.3%",
+          "farm": "21%",
+          "meadow": "1100",
+          "forest": "228",
+          "mature": "16",
+          "snags": "16",
+          "plants": "23",
+          "visitors": "144",
+          "rating": "4.2",
+          "vinc": "$1241",
+          "fires": "1494",
+          "floods": "1437"
+        }
+      },
+      {
+        "yearLabel": 15,
+        "line": "Y15 March, Year 15 $241788 score=66.3 nat=60% inv=18.7% farm=21% meadow=1160 forest=258 mature=39 snags=18 plants=22 visitors=131 rating=3.2 vinc=$1079 fires=1609 floods=1660",
+        "stats": {
+          "score": "66.3",
+          "nat": "60%",
+          "inv": "18.7%",
+          "farm": "21%",
+          "meadow": "1160",
+          "forest": "258",
+          "mature": "39",
+          "snags": "18",
+          "plants": "22",
+          "visitors": "131",
+          "rating": "3.2",
+          "vinc": "$1079",
+          "fires": "1609",
+          "floods": "1660"
+        }
+      },
+      {
+        "yearLabel": 16,
+        "line": "Y16 March, Year 16 $262606 score=63.2 nat=62% inv=22.7% farm=15% meadow=772 forest=293 mature=47 snags=23 plants=22 visitors=133 rating=4.0 vinc=$1106 fires=1609 floods=1775",
+        "stats": {
+          "score": "63.2",
+          "nat": "62%",
+          "inv": "22.7%",
+          "farm": "15%",
+          "meadow": "772",
+          "forest": "293",
+          "mature": "47",
+          "snags": "23",
+          "plants": "22",
+          "visitors": "133",
+          "rating": "4.0",
+          "vinc": "$1106",
+          "fires": "1609",
+          "floods": "1775"
+        }
+      }
+    ],
+    "limitations": "Existing balance harness calls dailyTick then ten wildlife.update(.1) steps per day; includes scripted tool actions and excludes rendering. This is a seeded behavioral/long-run reference, not production frame timing or an aged rendered snapshot."
+  },
+  "auditDate": "2026-10-15",
+  "provenance": {
+    "auditedCommit": "0765363aca9b9495f519f1dd0cb27b5bbaa865cb",
+    "sourceArtifact": "summary.json",
+    "rawArtifactsLocalDirectory": "/Users/coleweiler/.codex/visualizations/2026/10/16/01a142d9-e528-7943-8646-7666d8544949/second-growth-audit",
+    "rawArtifactsRequiredForPlan": false,
+    "note": "Normalized measurements copied for repository handoff. RawSource names identify original local artifacts, not files in this directory. Subsequent product constraints are in decision 0004; these measurements used 960x600, not the native-resolution HD 520 target."
+  },
+  "repositoryUnchangedDuringAudit": true
+}

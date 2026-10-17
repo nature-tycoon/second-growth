@@ -324,7 +324,11 @@ export class Flora {
     const hAt = (x, y) => w.heightAt(x, y) * LEVEL;
     const seaY = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : null;
 
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    // (only the changed regions' tiles, in the same order as a pass over the whole map)
+    const size = this.chunkSize, all = [[x0, x1]], rows = dirty ? new Map() : null;
+    if (rows) for (const k of dirty) { const cy = k % 65536, cx = (k - cy) / 65536; (rows.get(cy) || rows.set(cy, []).get(cy)).push(cx); }
+    if (rows) for (const [cy, xs] of rows) rows.set(cy, xs.sort((a, b) => a - b).map(cx => [Math.max(x0, cx * size - BORDER), Math.min(x1, (cx + 1) * size - BORDER)]));
+    for (let y = y0; y < y1; y++) for (const [xa, xb] of rows ? rows.get(Math.floor((y + BORDER) / size)) || [] : all) for (let x = xa; x < xb; x++) {
       this.activeChunk = floraChunkKey(x, y, this.chunkSize);
       if (dirty && !dirty.has(this.activeChunk)) continue;
       this.lastRebuild.tiles++;

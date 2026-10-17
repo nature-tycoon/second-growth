@@ -1,6 +1,7 @@
 // Bats and insect models.
 import * as THREE from 'three';
-import { mergeGeometries, mergeVertices } from 'three/addons/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
+import { weldVertices as mergeVertices } from '../geometry/weld.js';
 import { P, SPH_HI, col, eyes, flat, grad, hash3, place, shade, smooth, tmp } from './model-core.js';
 
 // Bat: a furry body and big ears, with membrane wings stretched over long finger bones

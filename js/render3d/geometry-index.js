@@ -19,16 +19,21 @@ export class GeometryIndex {
     if (old) this.release(old);
 
     const count = source.attributes.position.count, words = attributes.map(([, a]) => new Uint32Array(a.array.buffer, a.array.byteOffset, a.array.length));
-    const ids = new Map(), first = [], indices = new Array(count);
+    // Open-addressed hash over the attribute bits (string keys were most of the start-up cost).
+    // Equal bits always share; ids are still numbered in order of first appearance.
+    const sizes = attributes.map(([, a]) => a.itemSize), first = [], indices = new Array(count);
+    let mask = 1; while (mask < count * 2) mask <<= 1;
+    const table = new Int32Array(mask).fill(-1), ids = new Int32Array(mask); mask--;
+    const same = (i, k) => {
+      for (let a = 0; a < words.length; a++) { const w = words[a], s = sizes[a]; for (let j = 0; j < s; j++) if (w[i * s + j] !== w[k * s + j]) return false; }
+      return true;
+    };
     for (let i = 0; i < count; i++) {
-      let key = '';
-      for (let a = 0; a < attributes.length; a++) {
-        const size = attributes[a][1].itemSize;
-        for (let j = 0; j < size; j++) key += words[a][i * size + j] + ',';
-        key += '|';
-      }
-      let id = ids.get(key);
-      if (id === undefined) { id = first.length; ids.set(key, id); first.push(i); }
+      let h = 0x811c9dc5;
+      for (let a = 0; a < words.length; a++) { const w = words[a], s = sizes[a]; for (let j = 0; j < s; j++) h = Math.imul(h ^ w[i * s + j], 0x01000193); }
+      let slot = (h ^ (h >>> 15)) & mask, id = -1;
+      while (table[slot] !== -1) { if (same(i, table[slot])) { id = ids[slot]; break; } slot = (slot + 1) & mask; }
+      if (id === -1) { id = first.length; table[slot] = i; ids[slot] = id; first.push(i); }
       indices[i] = id;
     }
     const sourceBytes = attributes.reduce((n, [, a]) => n + a.array.byteLength, 0);
