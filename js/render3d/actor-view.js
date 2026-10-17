@@ -17,6 +17,11 @@ export function animalViewRadius(def) {
   return r;
 }
 
+// Screen pixels per scene unit, for choosing distant models; Infinity without a usable camera.
+export function pixelsPerUnit(camera, viewportHeight) {
+  return camera?.isOrthographicCamera && viewportHeight > 0 ? camera.zoom * viewportHeight / (camera.top - camera.bottom) : Infinity;
+}
+
 export class ActorView {
   constructor() {
     this.frustum = new THREE.Frustum(); this.matrix = new THREE.Matrix4(); this.enabled = false;

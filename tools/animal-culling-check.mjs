@@ -23,6 +23,7 @@ function reset(map = 'serengeti') {
   const w = g.world; w.vh.fill(0); w.tree.fill(0); w.ground.fill(0); w.shrub.fill(0);
   w.terrain.fill(T.SOIL); w.feature.fill(0); w.struct.fill(-1);
   actors = new Actors(new THREE.Scene()); camera = new THREE.OrthographicCamera(-5, 5, 3, -3, 0.01, 300);
+  actors.fauna.farModels = false; // (pool internals below are the detailed pools; distant models: animal-lod-check)
   aim(30, 30);
 }
 function aim(x, z, az = Math.PI / 4, height = 0) {

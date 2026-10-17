@@ -3,15 +3,20 @@ import * as THREE from 'three';
 import { withClouds } from '../atmosphere.js';
 import { buildSpecies } from './animal-model.js';
 import { faunaMaterial } from './animal-material.js';
+import { FAR_PIXELS, simplifyAnimal } from './animal-lod.js';
 
 // ---------------------------------------------------------------- instanced pools
 class SpeciesMesh {
-  constructor(scene, def) {
-    const { geo, motion } = buildSpecies(def);
+  constructor(scene, def, { geo, motion } = buildSpecies(def), mat = withClouds(faunaMaterial(motion))) {
     this.geo = geo; this.motion = motion; this.scene = scene;
-    this.mat = withClouds(faunaMaterial(motion)); // the field-guide portraits use it bare
-    this.cap = 0; this.count = 0; this.mesh = null;
+    this.mat = mat; // (the field-guide portraits use faunaMaterial bare)
+    this.cap = 0; this.count = 0; this.mesh = null; this.far = null;
     this.grow(16);
+  }
+  // The distant model, built the first time an animal of this kind is small on screen. It has
+  // its own instance buffers but shares the material, motion and detailed source geometry.
+  distant() {
+    return this.far ||= new SpeciesMesh(this.scene, null, { geo: simplifyAnimal(this.geo, this.motion.len), motion: this.motion }, this.mat);
   }
   grow(cap) {
     if (this.mesh) { this.scene.remove(this.mesh); this.mesh.dispose(); }
@@ -39,6 +44,9 @@ export class Fauna {
   constructor(scene) {
     this.scene = scene;
     this.species = new Map();
+    // Rendering switch: draw simplified models for animals smaller than FAR_PIXELS on screen.
+    // Ecology, poses, contact and picking never read it.
+    this.farModels = true; this.pixelsPerUnit = Infinity;
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.v = new THREE.Vector3(); this.s = new THREE.Vector3();
     this.yAxis = new THREE.Vector3(0, 1, 0); this.zAxis = new THREE.Vector3(0, 0, 1); this.xAxis = new THREE.Vector3(1, 0, 0); this.qp = new THREE.Quaternion();
   }
@@ -67,10 +75,16 @@ export class Fauna {
     }
     return p.reach;
   }
-  begin() { for (const p of this.species.values()) p.count = 0; }
-  // One animal this frame. scale converts model pixels to scene units.
-  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null) {
-    const p = this.pool(def);
+  // pixelsPerUnit: screen pixels per scene unit this frame (Infinity draws every animal in detail).
+  begin(pixelsPerUnit = Infinity) {
+    this.pixelsPerUnit = pixelsPerUnit;
+    for (const p of this.species.values()) { p.count = 0; if (p.far) p.far.count = 0; }
+  }
+  // One animal this frame. scale converts model pixels to scene units. detail keeps the full
+  // model whatever its size (the selected or followed animal).
+  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null, detail = false) {
+    const near = this.pool(def);
+    const p = this.farModels && !detail && near.motion.len * scale * this.pixelsPerUnit < FAR_PIXELS ? near.distant() : near;
     if (p.count >= p.cap) {
       // carry over what this frame has already written, then grow
       const oldM = p.mesh.instanceMatrix.array.slice(0, p.count * 16), oldA = p.anim.array.slice(0, p.count * 4), n = p.count;
@@ -95,7 +109,7 @@ export class Fauna {
     }
   }
   end() {
-    for (const p of this.species.values()) {
+    for (const near of this.species.values()) for (const p of near.far ? [near, near.far] : [near]) {
       p.mesh.count = p.count;
       p.mesh.visible = p.count > 0;
       if (p.count) {
