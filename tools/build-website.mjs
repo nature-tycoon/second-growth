@@ -1,7 +1,8 @@
 // Keep the homepage separate from the game and itch.io's game-only package.
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
+import { websiteDiscovery } from './website-discovery.mjs';
 
 export const websiteOutput = fileURLToPath(new URL('../dist/website/', import.meta.url));
 export async function buildWebsite() {
@@ -9,17 +10,19 @@ export async function buildWebsite() {
   await rm(websiteOutput, { recursive: true, force: true });
   await mkdir(join(websiteOutput, 'play'), { recursive: true });
   await cp(join(root, 'website'), websiteOutput, { recursive: true });
-  await mkdir(join(websiteOutput, 'assets'), { recursive: true });
-  for (const path of ['assets/logo.svg', 'assets/maps']) {
-    await cp(join(root, path), join(websiteOutput, path), { recursive: true });
-  }
+  // Retain legacy source artwork in Git, but do not publish it with the homepage.
+  await rm(join(websiteOutput, 'art'), { recursive: true, force: true });
   for (const path of ['index.html', 'styles.css', 'manifest.json', 'js', 'assets', 'vendor']) {
     await cp(join(root, path), join(websiteOutput, 'play', path), { recursive: true });
   }
   await writeFile(join(websiteOutput, '.nojekyll'), '');
   await writeFile(join(websiteOutput, 'CNAME'), 'secondgrowth.earth\n');
-  await writeFile(join(websiteOutput, 'robots.txt'), 'User-agent: *\nAllow: /\nSitemap: https://secondgrowth.earth/sitemap.xml\n');
-  await writeFile(join(websiteOutput, 'sitemap.xml'), '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://secondgrowth.earth/</loc></url><url><loc>https://secondgrowth.earth/play/</loc></url></urlset>\n');
+  const homepage = await readFile(join(websiteOutput, 'index.html'), 'utf8');
+  const discovery = websiteDiscovery(homepage);
+  const schema = JSON.stringify(discovery.schema, null, 2).replace(/</g, '\\u003c');
+  await writeFile(join(websiteOutput, 'index.html'), homepage.replace('</head>', `  <script type="application/ld+json" id="site-schema">\n${schema}\n  </script>\n</head>`));
+  await writeFile(join(websiteOutput, 'index.md'), discovery.markdown);
+  await writeFile(join(websiteOutput, 'sitemap.xml'), discovery.sitemap);
   console.log('Website and playable game built in dist/website');
   return websiteOutput;
 }
