@@ -22,6 +22,7 @@ export function facePoint(a, x, y) {
 const PERCHED_WADERS = new Set(['duck', 'heron', 'crane']);
 // (x, y and grounded: where it would be standing on the ground, without copying the animal)
 function layer(w, a, x = a.x, y = a.y, grounded = false) {
+  if (a.state === 'dormant') return null;
   if (!grounded && (a.flying || a.alt > 0.05) || a.leaving) return null;
   const tx = Math.floor(x), ty = Math.floor(y);
   if (!w.inb(tx, ty)) return null;

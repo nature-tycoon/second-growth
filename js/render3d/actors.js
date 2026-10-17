@@ -126,6 +126,8 @@ export class Actors {
     const chased = new Set();
     for (const h of game.wildlife.agents) if (h.state === 'hunt' && h.hunt?.phase === 'rush') chased.add(h.target);
     for (const a of game.wildlife.viewAgents) {
+      // Dormant residents are sheltered inside dens/roosts, not walking models.
+      if (a.state === 'dormant') continue;
       let def = drawDef(animalDef(a, game.catalog), a, game.month); // Adult sex traits and seasonal plumage.
       if (isCanopyWalker(def)) {
         let walker = this.walkerModels.get(def);

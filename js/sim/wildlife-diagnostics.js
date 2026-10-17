@@ -5,6 +5,8 @@ import { many, preyFor } from '../data/animals.js';
 import { activeCatalog } from '../data/catalog.js';
 import { passable } from './animal-terrain.js';
 import { arrivalFinding, migrationFenceCount, SALMON_RUN_MONTH, SALMON_MIN_HABITAT } from './animals.js';
+import { dormancySeason } from '../data/animal-dormancy.js';
+import { shelteredDormant } from './animal-dormancy.js';
 import { hungryPredator, HUNGRY_DAYS } from './ecological-pressure.js';
 
 const amount = n => Math.max(0, n).toFixed(1);
@@ -99,6 +101,8 @@ export function wildlifeDiagnostics(game, def) {
   const add = (key, tone, title, text) => rows.push({ key, tone, title, text });
   const access = arrivalAccess(game, def);
   const inSeason = !def.season || def.season.includes(game.month);
+  const winter = dormancySeason(game, def);
+  const resting = winter ? wl.agents.filter(a => a.sp === def.index && !a.leaving && shelteredDormant(wl, a, def)).length : 0;
   const low = st.K < def.minK;
   const needMore = low || st.pop >= st.K;
   if (game.diff.ecology && def.browseRate && !game.catalog.definition.look.underwater) add('browsing', 'info', 'Browses young trees', 'In Challenging, browsing can kill saplings. Brush piles shelter nearby young trees; establish protected patches before opening more wildlife corridors.');
@@ -107,7 +111,7 @@ export function wildlifeDiagnostics(game, def) {
       add('predation', 'info', 'Hunts live prey', game.catalog.definition.look.underwater
         ? 'Every successful hunt removes a prey animal. Coral structure and seagrass give prey cover. Failed hunts do not feed predators; hungry adults breed less and may move on.'
         : 'Every successful hunt removes a prey animal. Shrubs and tall groundcover shelter prey; brush, logs and rock piles help small animals hide. Failed hunts do not feed predators; hungry adults breed less and may move on.');
-      const hungry = wl.agents.filter(a => a.sp === def.index && !a.leaving && hungryPredator(game, a, def)).length;
+      const hungry = wl.agents.filter(a => a.sp === def.index && !a.leaving && !shelteredDormant(wl, a, def) && hungryPredator(game, a, def)).length;
       if (hungry) add('hunger', 'warn', 'Predators are short of food', `${hungry} adults have gone at least ${HUNGRY_DAYS} days without a meal. Restore connected prey habitat; these adults cannot breed until they feed and may move away.`);
     }
     const hunters = game.catalog.animals.filter(d => preyFor(d, game)?.includes(def.key));
@@ -137,6 +141,7 @@ export function wildlifeDiagnostics(game, def) {
     return { status: habitat < SALMON_MIN_HABITAT || !riverEntry ? 'Prepare the salmon run' : st.pop > 0 ? 'Salmon are here' : 'Waiting for the salmon run', tone: habitat < SALMON_MIN_HABITAT || !riverEntry ? 'warn' : 'info', rows };
   }
 
+  if (winter) add('dormancy', 'info', 'Winter dormancy season', 'Residents seek winter shelter and reduce activity. Sheltered animals remain in the population and emerge in spring; new natural arrivals wait until the active season.');
   if (!inSeason) add('season', 'info', 'Outside the visiting season', `The next visiting season starts in ${nextMonth(def.season, game.month)}. An absence this month is expected.`);
   if (def.season && st.lastYear > 0 && st.pop === 0) add('returning', 'info', 'Previous visitors remember this place', 'Returning migrants can attempt to come back at the start of their visiting season, even before new arrivals discover the habitat. Keep their habitat healthy.');
   if (access.blocked || (access.partial && (access.kind === 'fence' || access.kind === 'canopy'))) {
@@ -166,6 +171,7 @@ export function wildlifeDiagnostics(game, def) {
   let status, tone = 'info';
   if (def.domestic) { status = 'Managed herd'; add('managed', 'info', status, 'These are domestic animals. Wild immigration does not replenish the herd.'); }
   else if (!inSeason) status = 'Waiting for the visiting season';
+  else if (winter) status = resting ? 'Winter shelter and reduced activity' : 'Winter dormancy season';
   else if (st.pop > st.K * 1.1) { status = 'Population exceeds current capacity'; tone = 'warn'; add('overcrowded', tone, status, 'Some animals may leave as the population adjusts. Expand habitat or address the limits listed here.'); }
   else if (access.blocked && st.pop === 0) { status = 'Arrival access is blocked'; tone = 'warn'; }
   else if (low) { status = 'More habitat support is needed'; tone = 'warn'; }

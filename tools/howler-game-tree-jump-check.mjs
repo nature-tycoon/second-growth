@@ -10,7 +10,13 @@ const random=Math.random;
 const fps=30,seconds=180;
 // Crowded or unsupported launches may still use the clamber fallback. Require
 // the leap to be a common real-tree behavior, not a single lucky pole-like gap.
-const minimumShare=.4;
+// Judge flight among the gaps the leap can clear, over both speeds. The share of all
+// non-trunk crossings mostly measures which gaps the troop happened to reach: any change
+// to the rest of the ecosystem reshuffles the run, and it ranged 33-55% across fixture
+// seeds on unchanged howler code (main itself 35-52%). Flight among clearable gaps held
+// 56-84% in the same runs. --audit still prints both.
+const minimumShare=.5;
+let allClear=0,allFlight=0;
 // Only the moment of crossing a gap the leap can't clear uses the classic release and catch;
 // walking up to it and climbing on afterwards (a caught trunk included) keep the walker rig.
 const maximumClassic=.35;
@@ -56,7 +62,7 @@ try {
   console.log(JSON.stringify({speed,crossings:crossings.size,branches:branch.length,flight,clear:branch.filter(s=>s.clear).length,prepare:branch.filter(s=>s.prepare).length,trunkReach:[...crossings.values()].filter(s=>s.trunk&&s.reach).length,classicShare:+(classic/Math.max(1,moving)).toFixed(2),pairedClimb:+(rearPaired/Math.max(1,rearSteps)).toFixed(2),headUpDescent:+(headUp/Math.max(1,descent)).toFixed(2)}));
   if(!process.argv.includes('--audit')) {
    assert.ok(branch.length>=20,'grown Amazon exercises multiple non-trunk crossings');
-   assert.ok(flight>=10 && flight/branch.length>=minimumShare,'at least 40% of all real non-trunk crossings show arms-out flight');
+   assert.ok(flight>=10,'non-trunk crossings show arms-out flight');allClear+=branch.filter(s=>s.clear).length;allFlight+=flight;
    assert.ok(rearSteps>200 && rearPaired/rearSteps<=maximumPairedClimb,`steep climbing alternates the feet (${rearPaired} of ${rearSteps} rear steps paired)`);
    assert.ok(descent>200 && headUp/descent>=minimumHeadUpDescent,`steep trunks are backed down head up (${headUp} of ${descent} frames)`);
    assert.ok(moving>1000 && classic/moving<=maximumClassic,`moving howlers keep the walker rig outside unleapable gaps (classic ${classic} of ${moving} frames)`);
@@ -65,4 +71,5 @@ try {
   if(process.argv.includes('--audit'))console.log(JSON.stringify(branch.filter(s=>s.prepare&&!s.flight)));
   actors.clear();
  }
+ if(!process.argv.includes('--audit'))assert.ok(allFlight/allClear>=minimumShare,`at least half of clearable non-trunk gaps are crossed in arms-out flight (${allFlight} of ${allClear})`);
 } finally {Math.random=random;}
