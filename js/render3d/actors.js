@@ -19,7 +19,7 @@ import { canopyGrips } from './canopy-grips.js';
 import { SlothBridges, slothBridge } from './sloth-bridge.js';
 import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
 import { isCanopyWalker } from './canopy-walker-profile.js';
-import { ActorView, animalViewRadius } from './actor-view.js';
+import { ActorView, animalViewRadius, pixelsPerUnit } from './actor-view.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
@@ -104,7 +104,7 @@ export class Actors {
     // ---- wildlife
     const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
     this.lastT = time;
-    F.begin();
+    F.begin(pixelsPerUnit(camera, viewportHeight));
     for (const a of game.wildlife.viewAgents) {
       let def = drawDef(animalDef(a, game.catalog), a, game.month); // Adult sex traits and seasonal plumage.
       if (isCanopyWalker(def)) {
@@ -485,7 +485,7 @@ export class Actors {
         else st.slothBridge = null;
       }
       for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite]) if (site?.transient) bridges.add(site);
-      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0)), grips);
+      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0)), grips, a === this.followAgent || a === game.selectedAgent);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;

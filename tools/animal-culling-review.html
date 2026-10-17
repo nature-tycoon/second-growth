@@ -34,7 +34,7 @@ function setup(map){
  const grid=new THREE.GridHelper(140,35,0xb0b48b,0xb0b48b);grid.position.set(60,-.01,45);scene.add(grid);
  const random=mulberry32(1987);let k=0;
  for(let y=2;y<88;y+=4)for(let x=2;x<118;x+=4){const def=ANIMALS[k++%ANIMALS.length],a=game.wildlife.spawn(def,x,y,{silent:true});a.phase=random()*10;a.orientation=random()*Math.PI*2;a.wait=100;if(a.move==='fly'&&k%3===0){a.flying=true;a.alt=1;}}
- actors=new Actors(scene);actors.cullOffscreen=false;for(let k=0;k<50;k++)actors.update(game,right,k/60);actors.update(game,right,1);
+ actors=new Actors(scene);actors.fauna.farModels=false;actors.cullOffscreen=false;for(let k=0;k<50;k++)actors.update(game,right,k/60);actors.update(game,right,1);
  for(const [key,p]of actors.fauna.species){p.currentGeo=p.geo;const male=key.endsWith(':male'),entry=baseline.find(e=>e.map===map&&e.key===(male?key.slice(0,-5):key)&&e.male===male);p.beforeGeo=entry?new THREE.BufferGeometryLoader().parse(entry.geometry):null;}
  modelVersion(controls.models.value);
 }
