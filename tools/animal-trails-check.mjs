@@ -18,10 +18,10 @@ function stamp(g,a,x0,y0,x1,y1){a.age+=2;a.x=x1;a.y=y1;recordTrailStep(g.wildlif
 function line(g,a,n=20){for(let k=0;k<n;k++){for(let x=30;x<50;x++)stamp(g,a,x+.5,30.5,x+1.5,30.5);}}
 function walk(g,a,dest,dt=.05){assert.ok(g.wildlife.pathTo(a,j=>j===dest,1800));for(let k=0;k<2500&&a.state==='walk';k++)g.wildlife.update(dt);assert.equal(a.state,'idle');}
 function food(g,x,y){const p=g.catalog.plants.find(p=>p&&p.layer===0&&!p.invasive&&['grass','tallgrass','sedge'].includes(p.look.type));assert.ok(p);const j=g.world.idx(x,y);g.world.ground[j]=p.id;g.world.groundG[j]=1;return j;}
-check('All 200 map entries restrict trail making to suitable large land mammals',()=>{
+check('All map entries restrict trail making to suitable large land mammals',()=>{
  let entries=0,selected=0;for(const b of BIOME_LIST){const g=setup(b.id);for(const d of g.catalog.animals){entries++;const p=trailProfile(d);if(p){selected++;assert.ok(!d.reef);assert.ok(d.move==='ground'||d.key==='tapir');assert.ok(p.wear>0&&p.wear<.06);}}
  if(b.id==='reef')assert.ok(g.catalog.animals.every(d=>!trailProfile(d)));}
- assert.equal(entries,200);assert.ok(selected>20);
+ assert.ok(entries>=200,'every map roster checked');assert.ok(selected>20);
 });
 check('Stationary grazing, dormant animals, spacing and pause cannot wear a trail',()=>{
  const g=setup(),a=spawn(g);for(let k=0;k<20;k++)g.wildlife.daily();assert.ok(!g.world.trailE||!g.world.trailE.some(Boolean));

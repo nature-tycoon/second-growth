@@ -109,7 +109,7 @@ reduction of a tile's forage or native-plant capacity.
 
 ## Verification
 
-- `animal-trails-check.mjs`: 11 checks over all 200 roster entries, actual crossings,
+- `animal-trails-check.mjs`: 11 checks over every map roster, actual crossings,
   pause/stationary exclusions, repeated versus single traffic, shape/seam continuity,
   terrain restrictions, fade/removal, bounded route preference, physical winding
   travel, remembered/replaced resource sites, return corridors, family/migration
