@@ -1,6 +1,6 @@
 # Browser protections
 
-Status: implemented for local review; not published. These protections cover the homepage, capture gallery, root game, and the game's copied `/play/` package. The source game remains runnable without a build step.
+Status: approved for publication on October 17, 2026. These protections cover the homepage, capture gallery, root game, and the game's copied `/play/` package. The source game remains runnable without a build step.
 
 ## Current policies
 
@@ -8,7 +8,7 @@ Each HTML document declares Content Security Policy immediately after its charse
 
 All pages deny plugins, outgoing frames, workers, native form submissions, base URL replacement, and inline JavaScript event handlers. Scripts cannot use `unsafe-inline` or `unsafe-eval`. The game's existing import map and loading-tip block have exact SHA-256 permissions; changed inline content must be reviewed and its matching hash updated. These hashes identify the exact allowed inline blocks; they are not nonces or protection against a compromised same-origin source file. The static homepage's generated JSON-LD is a non-executable data block.
 
-The game permits inline **styles** because menus, inspectors, progress bars, canvases, and generated cards use style attributes and programmatic styles throughout the existing UI. This is deliberately narrower than permitting inline JavaScript. Removing that style allowance would require a separate UI refactor. The static website does not need the allowance.
+The game permits inline **styles** because menus, inspectors, progress bars, canvases, and generated cards use style attributes and programmatic styles throughout the existing UI. This is deliberately narrower than permitting inline JavaScript. Removing that style allowance would require a separate UI refactor. The static website does not need the allowance. The creek comparison slider keeps its initial `--pos: 50%` in CSS and updates individual style properties from its trusted script, which works under this policy.
 
 All three pages declare `strict-origin-when-cross-origin` referrer policy: ordinary cross-origin HTTPS requests share the site origin rather than the full page path/query. This makes the policy explicit; many modern browsers already use this default. It does not conceal information that application code deliberately sends, such as player-submitted feedback.
 

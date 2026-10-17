@@ -300,7 +300,7 @@
 }
 
 /* Before/after creek slider. --pos is how much of the "before" image shows. */
-.compare { position: relative; overflow: hidden; border-radius: 23px; background: #294c3c; touch-action: pan-y; cursor: ew-resize; user-select: none; -webkit-user-select: none; }
+.compare { --pos: 50%; position: relative; overflow: hidden; border-radius: 23px; background: #294c3c; touch-action: pan-y; cursor: ew-resize; user-select: none; -webkit-user-select: none; }
 .compare > img { display: block; width: 100%; height: auto; aspect-ratio: 3/2; object-fit: cover; pointer-events: none; -webkit-user-drag: none; }
 .compare > .compare-before { position: absolute; inset: 0; height: 100%; clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
 .compare-handle { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px; background: #fff2d7; box-shadow: 0 0 12px #0a281966; pointer-events: none; }

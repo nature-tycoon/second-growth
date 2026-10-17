@@ -1,6 +1,6 @@
 # Startup selector and bright glass UI
 
-Status: local review only. This game UI pass has not been authorized for publication.
+Status: approved for publication on October 17, 2026.
 
 Cole requested current website keystone images in the game selector, then expanded the glass treatment to the initial selector and gameplay HUD. The accepted direction is brighter sage glass with dark readable labels, rather than dark green panels. Simulation rules and save formats are unchanged.
 

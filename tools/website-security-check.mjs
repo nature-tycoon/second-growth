@@ -17,6 +17,7 @@ for (const path of ['index.html', 'website/index.html', 'website/visuals.html'])
   assert.ok(html.includes('<meta name="referrer" content="strict-origin-when-cross-origin">'));
   assert.ok(!/http-equiv="(?:X-Frame-Options|Permissions-Policy|Strict-Transport-Security|X-Content-Type-Options)"/i.test(html), 'Do not pretend unsupported header meta tags work');
   const scripts = directives.get('script-src');
+  if (path !== 'index.html') assert.ok(!/\sstyle\s*=/i.test(html), `${path}: use stylesheet defaults instead of CSP-blocked inline styles`);
   assert.ok(!scripts.some(value => value.includes('unsafe-') || value === '*' || value === 'https:'), `${path}: no broad executable-code permission`);
   const expectedHashes = [];
   for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {

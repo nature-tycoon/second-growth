@@ -25,6 +25,8 @@ try {
   await ev('document.fonts.ready.then(()=>true)');
   await ev('document.querySelectorAll(".map-choice")[2].click()');
   await ev('document.querySelector("#map-image").loading="eager";document.querySelector("#map-image").scrollIntoView();document.querySelector("#map-image").decode()');
+  await ev('document.querySelector(".compare-range").value=25;document.querySelector(".compare-range").dispatchEvent(new Event("input"))');
+  assert.equal(await ev('document.querySelector(".compare").style.getPropertyValue("--pos")'), '25%', 'Creek comparison slider works under CSP');
   assert.equal(await ev('document.querySelectorAll(".map-choice[aria-pressed=true]").length'), 1);
   assert.equal(await ev('document.querySelector("meta[name=referrer]").content'), 'strict-origin-when-cross-origin');
   assert.deepEqual(await ev('window.policyViolations'), [], 'Homepage content and selectors comply');
