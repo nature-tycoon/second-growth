@@ -40,21 +40,24 @@ const bucketKey = (bx, by) => (bx + 32768) * 65536 + by + 32768;
 export class AnimalSpacing {
   constructor() { this.buckets = new Map(); this.entries = []; this.filled = []; this.around9 = []; }
   rebuild(w, agents) {
-    this.w = w; this.entries.length = 0;
+    this.w = w;
     for (const bucket of this.filled) bucket.length = 0;
     this.filled.length = 0;
+    // (entry records are reused from the last rebuild rather than made afresh each time)
+    const pool = this.entries; let n = 0;
     // Three-tile buckets also accommodate the largest boosted reef models.
     for (const a of agents) {
       const band = layer(w, a);
       if (band == null) continue;
-      const e = { a, band, r: animalRadius(a, w.catalog), moved: 0 };
-      this.entries.push(e);
+      const e = pool[n] ||= { a: null, band: null, r: 0, moved: 0 }; n++;
+      e.a = a; e.band = band; e.r = animalRadius(a, w.catalog); e.moved = 0;
       const key = bucketKey(Math.floor(a.x / 3), Math.floor(a.y / 3));
       let bucket = this.buckets.get(key);
       if (!bucket) this.buckets.set(key, bucket = []);
       if (!bucket.length) this.filled.push(bucket);
       bucket.push(e);
     }
+    pool.length = n;
   }
   // The non-empty buckets round (x, y), row by row. Pass `out` when a loop over one call's buckets
   // could call this again.
@@ -183,7 +186,11 @@ export class AnimalSpacing {
       if (a.state === 'hunt' && a.target === b.id || b.state === 'hunt' && b.target === a.id) continue;
       if (a.state === 'spar' && a.sparWith === b.id) continue; // (rivals locked head to head)
       this.comparisons++;
-      let dx = a.x - b.x, dy = a.y - b.y, d = Math.hypot(dx, dy);
+      let dx = a.x - b.x, dy = a.y - b.y;
+      // (clearly apart: skip the square root, the slow part of a packed herd's thousands of pairs)
+      const reach = e.r + f.r + 0.02 + 1e-6;
+      if (dx * dx + dy * dy > reach * reach) continue;
+      let d = Math.hypot(dx, dy);
       const overlap = e.r + f.r + 0.025 - d;
       if (overlap <= 0.005) continue;
       if (d < 1e-6) { const angle = (a.id + b.id * 7) * 2.39996; dx = Math.cos(angle); dy = Math.sin(angle); d = 1; }

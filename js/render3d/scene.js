@@ -509,7 +509,8 @@ export class Renderer {
     this.world = game.world;
     this.terrain.setWorld(game.world, game.border);
     this.seaSurface.setWorld(game.world);
-    for (const m of this.structs.values()) this.scene.remove(m);
+    // (each building's geometry is its own, as when syncStructures removes one)
+    for (const m of this.structs.values()) { this.scene.remove(m); m.geometry.dispose(); m.userData.boat?.geometry.dispose(); }
     this.structs.clear();
     this.actors.clear();
     this.lastDay = -1;
