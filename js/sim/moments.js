@@ -59,7 +59,7 @@ export const ARRIVAL_MOMENTS = { jaguar: 'jaguar', howler: 'howler', elephant: '
 const BEHAVIOR_MOMENTS = {
   jaguar: ['jaguar', 'hunt'], howler: ['howler', 'canopy'], elephant: ['elephant', 'family'],
   orangutans: ['orangutan', 'canopy'], gajah: ['gajah', 'family'], harimau: ['tiger', 'hunt'],
-  congos: ['congo', 'canopy'], dugong: ['dugong', 'seagrass'], manta: ['manta', 'cleaning'],
+  congos: ['congo', 'canopy'], manta: ['manta', 'cleaning'],
 };
 const living = a => a && !a.leaving && !a.fromFire;
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -73,7 +73,6 @@ function interesting(game, key, a) {
   if (type === 'hunt') return huntInView(game, a);
   if (type === 'canopy') return a.state === 'primate' && !!a.fruitMeal || a.state === 'forage' && ['leaves', 'fruit'].includes(a.forage?.food);
   if (type === 'family') return a.state === 'forage' && a.forage?.food === 'browse' && agents.some(b => b !== a && b.sp === a.sp && living(b) && distance(a, b) < 6);
-  if (type === 'seagrass') return a.state === 'forage' && a.forage?.food === 'seagrass';
   if (type === 'cleaning') {
     const partner = byId(game, a.forage?.partner);
     return a.state === 'forage' && a.forage?.food === 'cleaned' && living(partner) && game.catalog.animals[partner.sp]?.key === 'cleaner' &&
@@ -118,6 +117,12 @@ export function momentsUpdate(game) {
       agents.some(c => living(c) && (c.haremOf === a.id || c.haremOf === a.sparWith) && distance(a, c) < 10));
     if (a) { moment(game, 'elkRut', a, { live: true, rival: a.sparWith, loser: a.sparLoser }); return; }
   }
+  // (a blacktip after a longtom over the lagoon flats: the longtom's escape leaps are drawn by the renderer)
+  if (game.catalog.animal.blacktip && game.flags.moments?.sharkHunt == null) {
+    const a = agents.find(a => living(a) && a.sp === game.catalog.animal.blacktip.index && huntInView(game, a) &&
+      game.catalog.animals[byId(game, a.target).sp]?.key === 'longtom');
+    if (a) { moment(game, 'sharkHunt', a, { live: true, prey: a.target }); return; }
+  }
   if (game.catalog.animal.lion && game.flags.moments?.lionHunt == null) {
     const a = agents.find(a => living(a) && a.sp === game.catalog.animal.lion.index && huntInView(game, a) &&
       game.catalog.animals[byId(game, a.target).sp]?.key === 'wildebeest');
@@ -146,6 +151,7 @@ export function moment(game, key, focus, story = {}) {
 function playMoment(game, ev) {
   game.flags.lastMomentDay = game.day;
   const m = MOMENTS[ev.key] || game.catalog.definition.moments?.[ev.key];
+  if (!m) return; // (a retired moment still waiting in an old save's queue)
   const agent = ev.id != null ? game.wildlife.agents.find(a => a.id === ev.id) || null : null;
   game.emit('moment', { ...m, ...ev, x: agent ? agent.x : ev.x, y: agent ? agent.y : ev.y, agent });
 }
@@ -188,6 +194,16 @@ export function momentScene(game, m) {
     }
     return finish(shot('after', 'The herd carries on', 'The bulls have separated. Autumn contests happen within the wider life of the herd: grazing, drinking and gathering again before winter.', living(a) ? a : null, 2.3));
   }
+  if (m.key === 'sharkHunt') {
+    // small prey is eaten on the spot: a longtom that has gone from the reef was caught
+    if (living(a) && living(prey) && a.state === 'hunt' && a.target === m.prey) {
+      return a.hunt?.phase === 'rush'
+        ? shot('chase', 'The longtom skips for its life', 'The shark charges, and the longtom leaps clear of the water and skips across the surface on its tail, again and again, where the shark can\u2019t follow it.', prey, 2.6)
+        : shot('patrol', 'A blacktip on the flats', 'A blacktip reef shark cruises the shallows over the seagrass and singles out a longtom feeding at the surface.', a, 2.6);
+    }
+    if (!byId(game, m.prey)) return finish(shot('catch', 'The shark makes its catch', 'This time the blacktip caught the longtom. A lagoon that can feed sharks has plenty of fish in it, and that starts with the seagrass.', living(a) ? a : null, 2.5));
+    return finish(shot('escape', 'The longtom gets away', 'The longtom escaped. The shark will hunt again; the longtoms will keep feeding at the surface over the meadow.', living(prey) ? prey : null, 2.5));
+  }
   if (m.key === 'lionHunt' || BEHAVIOR_MOMENTS[m.key]?.[1] === 'hunt') {
     const c = game.wildlife.carcasses.find(c => c.id === m.prey && c.by === m.sp && c.t > 0);
     if (c) {
@@ -228,8 +244,5 @@ export function momentScene(game, m) {
       ? shot('browse', 'A family shapes the woodland', 'The herd feeds together. Browsing opens gaps among the young trees, while connected habitat gives the elephants room to move onward.', a, 2.2)
       : finish(shot('after', 'Room for the herd', 'The browsing pause has ended. The corridor connects feeding places, shelter and water across a landscape large enough for a family to use.', living(a) ? a : null, 2.2));
   }
-  if (type === 'seagrass') return living(a) && interesting(game, m.key, a)
-    ? shot('graze', 'The meadow becomes a meal', 'The dugong lowers its muzzle into living seagrass. A restored underwater meadow now feeds a large grazer as well as sheltering smaller reef life.', a, 3)
-    : finish(shot('after', 'A living meadow', 'The dugong’s feeding pause has ended. Healthy seagrass provides another kind of habitat beside the reef, with its own grazers and sheltered young.', living(a) ? a : null, 2.4));
   return null;
 }

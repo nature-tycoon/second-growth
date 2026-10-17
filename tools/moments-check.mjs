@@ -35,14 +35,13 @@ function male(key) {
 function rig(fn) { const r = Math.random; Math.random = () => 0; try { return fn(); } finally { Math.random = r; } }
 
 check('Animal intros wait for real behavior, even after the old arrival timeout', () => {
-  for (const [map, key, species] of [['amazon', 'jaguar', 'jaguar'], ['amazon', 'howler', 'howler'], ['sumatra', 'orangutans', 'orangutan'], ['sumatra', 'harimau', 'tiger'], ['chinandega', 'congos', 'congo'], ['reef', 'dugong', 'dugong'], ['reef', 'manta', 'manta']]) {
+  for (const [map, key, species] of [['amazon', 'jaguar', 'jaguar'], ['amazon', 'howler', 'howler'], ['sumatra', 'orangutans', 'orangutan'], ['sumatra', 'harimau', 'tiger'], ['chinandega', 'congos', 'congo'], ['reef', 'manta', 'manta']]) {
     reset(map); const a = spawn(species);
     assert.equal(arrivalMoment(g, key, ANIMAL[species]), false);
     g.day += 100; momentsUpdate(g);
     assert.equal(events.length, 0, `${key}: idle arrival must not play`);
     if (['jaguar', 'harimau'].includes(key)) { const p = spawn(map === 'amazon' ? 'capybara' : 'sambar'); a.state = 'hunt'; a.target = p.id; }
     else if (key === 'manta') { const cleaner = spawn('cleaner'); a.state = cleaner.state = 'forage'; a.forage = { food: 'cleaned', partner: cleaner.id }; cleaner.forage = { food: 'cleaning', partner: a.id }; }
-    else if (key === 'dugong') { a.state = 'forage'; a.forage = { food: 'seagrass' }; }
     else { a.state = 'primate'; a.fruitMeal = { i: 0 }; }
     momentsUpdate(g); assert.equal(events.length, 1, `${key}: actual behavior plays`); assert.equal(events[0].key, key);
     momentsUpdate(g); assert.equal(events.length, 1, 'once per farm');
@@ -91,6 +90,37 @@ check('Elk sparring outside autumn and fights without a harem are not rut moment
   while (g.month !== 7) g.day++;
   a.sparLight = true; momentsUpdate(g); assert.equal(events.length, 0);
   a.sparLight = false; cow.haremOf = null; momentsUpdate(g); assert.equal(events.length, 0);
+});
+function sharkHunt() {
+  reset('reef'); const shark = spawn('blacktip'), prey = spawn('longtom', 42.5);
+  shark.state = 'hunt'; shark.target = prey.id; shark.hunt = { phase: 'approach' };
+  momentsUpdate(g); assert.equal(events[0]?.key, 'sharkHunt'); return { shark, prey, m: events[0] };
+}
+check('A shark moment needs a blacktip actually hunting a longtom', () => {
+  reset('reef'); const shark = spawn('blacktip'), chromis = spawn('chromis', 42.5);
+  momentsUpdate(g); assert.equal(events.length, 0, 'a shark on the flats alone is not a moment');
+  shark.state = 'hunt'; shark.target = chromis.id; shark.hunt = { phase: 'rush' };
+  momentsUpdate(g); assert.equal(events.length, 0, 'other prey is not this moment');
+  const longtom = spawn('longtom', 41.5); shark.target = longtom.id;
+  momentsUpdate(g); assert.equal(events[0]?.key, 'sharkHunt'); assert.equal(events[0].prey, longtom.id);
+  momentsUpdate(g); assert.equal(events.length, 1, 'once per farm');
+});
+check('Shark camera follows the patrol, the longtom during the chase, and the real outcome', () => {
+  let { shark, prey, m } = sharkHunt();
+  assert.equal(momentScene(g, m).stage, 'patrol');
+  shark.hunt.phase = 'rush'; const chase = momentScene(g, m);
+  assert.equal(chase.stage, 'chase'); assert.equal(chase.agent, prey, 'the camera watches the skipping longtom');
+  g.wildlife.remove(prey, 'predation'); startFeed(g.wildlife, shark, ANIMAL.blacktip, prey);
+  assert.equal(momentScene(g, m).stage, 'catch'); assert.equal(g.wildlife.carcasses.length, 0, 'a longtom is eaten on the spot');
+  ({ shark, prey, m } = sharkHunt());
+  shark.state = 'idle'; assert.equal(momentScene(g, m).stage, 'escape');
+  shark.state = 'hunt'; shark.target = prey.id; assert.equal(momentScene(g, m).stage, 'escape', 'a later pursuit does not restart this encounter');
+});
+check('The retired dugong moment never plays, even from an old save\u2019s queue', () => {
+  reset('reef'); const a = spawn('dugong'); a.state = 'forage'; a.forage = { food: 'seagrass' };
+  g.day += 100; momentsUpdate(g); assert.equal(events.length, 0);
+  g.flags.momentQueue = [{ key: 'dugong', x: 40, y: 30 }]; g.flags.lastMomentDay = g.day - 30;
+  momentsDaily(g); assert.equal(events.length, 0); assert.equal(g.flags.momentQueue.length, 0);
 });
 function hunt() {
   reset('serengeti'); const lion = spawn('lion'), prey = spawn('wildebeest', 42);

@@ -280,7 +280,7 @@ function snake(m, s) {
 //   catfish: a broad flat head with barbels, long low fins and a rounded tail
 function fish(m, s) {
   const S = s.size, cy = S * 0.2, coho = !!s.head, cat = !!s.catfish, D = (s.deep === 2 ? 2.2 : s.deep ? 1.7 : 1) * (cat ? 0.85 : 1);
-  const X = s.short ? 0.78 : s.long ? 1.18 : 1, bx = S * 0.44 * X;
+  const X = s.needle ? 2 : s.short ? 0.78 : s.long ? 1.18 : 1, bx = S * 0.44 * X;
   const back = s.back || (coho ? '#2f4a38' : '#66784a'), flank = s.flank || (coho ? '#c5403a' : '#c6bd86'), belly = s.belly || (coho ? '#9a6a60' : '#ece6d2');
   const red = col('#b8322a'), dk = col(s.stripeColor || shade(back, -0.45));
   // round spots scattered on a jittered grid over the body; dens (0..1) thins them out
@@ -330,7 +330,7 @@ function fish(m, s) {
   };
   // one smooth body from the tail stock to the snout (no seam where a head would join): a thin
   // stock swelling to the deepest point, then easing down to the nose, blunt on the deep fish
-  const x0 = -bx - S * 0.06, x1 = bx * 1.1, tm = s.deep ? 0.5 : 0.55, ryM = S * 0.15 * D, rzM = S * (cat ? 0.1 : 0.085);
+  const x0 = -bx - S * 0.06, x1 = bx * 1.1, tm = s.deep ? 0.5 : 0.55, ryM = S * 0.15 * D * (s.needle ? 0.55 : 1), rzM = S * (cat ? 0.1 : 0.085) * (s.needle ? 0.75 : 1);
   const nosePow = s.deep || cat ? 0.5 : s.shark ? 0.85 : 0.62;
   const prof = x => {
     const t = Math.min(1, Math.max(0, (x - x0) / (x1 - x0)));
@@ -365,6 +365,10 @@ function fish(m, s) {
   const nose = [x1, prof(x1 - S * 0.01).cy, 0];
   if (s.whiskers) for (const side of [1, -1]) for (const [dy, dz, l] of [[0, 0.05, 1.3], [-0.05, 0.12, 1], [-0.03, 0.08, 0.8]]) // catfish barbels
     m.limb([nose[0] - S * 0.02, nose[1] - S * 0.01, side * S * 0.04], [nose[0] + S * 0.05 * l, nose[1] - S * (0.07 + dy) * l, side * S * dz * 2 * l], S * 0.012, S * 0.004, back, { caps: false });
+  if (s.needle) { // a longtom's beak: two long, thin jaws full of needle teeth, the lower one a little longer
+    m.limb([x1 - S * 0.03, nose[1] + S * 0.006, 0], [x1 + S * 0.42, nose[1] + S * 0.004, 0], S * 0.02, S * 0.006, shade(back, 0.05));
+    m.limb([x1 - S * 0.03, nose[1] - S * 0.01, 0], [x1 + S * 0.47, nose[1] - S * 0.006, 0], S * 0.022, S * 0.006, shade(flank, -0.05));
+  }
   if (s.snout) m.limb([x1 - S * 0.04, nose[1] - S * 0.004, 0], [x1 + S * 0.13, nose[1] - S * 0.012, 0], S * 0.032, S * 0.014, shade(s.flank || '#ffffff', -0.04)); // (the hawkfish's long snout)
   const ex = x1 - S * (s.deep ? 0.11 : 0.1);
   { // the gape across the front of the snout, closing off the two mouth lines
@@ -443,11 +447,12 @@ function fish(m, s) {
       const ribbon = flat(sh => { sh.moveTo(0.5, 0); sh.quadraticCurveTo(0.35, 1, 0.1, 1); sh.lineTo(-0.4, 1); sh.quadraticCurveTo(-0.5, 0.6, -0.5, 0); sh.lineTo(0.5, 0); });
       m.add(ribbon, place([-bx * 0.42, cy - S * 0.12 * D * 0.86, 0], [Math.PI, 0, 0], [bx * 0.85, S * 0.09, S * 0.011]), s.analColor || tailC);
     } else m.add(fin, place([-bx * 0.5, cy - S * 0.11 * D * 0.9, 0], [Math.PI, 0, 0], [S * 0.11, S * 0.08, S * 0.01]), shade(flank, -0.15));
-  } else if (s.rearFins) {
-    // the arapaima's dorsal and anal fins sit far back, just in front of the tail, like a paddle
+  } else if (s.rearFins || s.needle) {
+    // the arapaima's (and a longtom's) dorsal and anal fins sit far back, just in front of the tail, like a paddle
     const ribbon = flat(sh => { sh.moveTo(0.5, 0); sh.quadraticCurveTo(0.3, 0.9, 0.0, 1); sh.quadraticCurveTo(-0.45, 0.9, -0.5, 0); sh.lineTo(0.5, 0); });
-    m.add(ribbon, place([-bx * 0.72, cy + S * 0.08, 0], [0, 0, 0], [bx * 0.5, S * 0.09, S * 0.011]), tailC);
-    m.add(ribbon, place([-bx * 0.72, cy - S * 0.08, 0], [Math.PI, 0, 0], [bx * 0.5, S * 0.08, S * 0.011]), tailC);
+    const at = s.needle ? -bx * 0.84 : -bx * 0.72, len = bx * (s.needle ? 0.2 : 0.5), up = s.needle ? 0.045 : 0.08;
+    m.add(ribbon, place([at, cy + S * up, 0], [0, 0, 0], [len, S * 0.09, S * 0.011]), tailC);
+    m.add(ribbon, place([at, cy - S * up, 0], [Math.PI, 0, 0], [len, S * 0.08, S * 0.011]), tailC);
   } else {
     // dorsal, adipose and anal fins
     m.add(fin, place([S * 0.02, cy + S * 0.12 * D, 0], [0, 0, 0], [S * 0.13, S * 0.1, S * 0.01]), tailC);
@@ -523,8 +528,12 @@ function butterflyfish(m, s) {
 // snout, catlike eyes, five gill slits, a tall swept first dorsal fin and the upper lobe of the
 // tail tipped bright white, broad pectoral fins, and a tail whose upper lobe is much the longer.
 function shark(m, s) {
-  const S = s.size, cy = S * 0.16, top = col(s.back || '#7a8088'), mid = col(s.flank || '#949aa2'), belly = col(s.belly || '#e4e6e8'), tip = col('#f6f6f2');
-  const skin = u => (u.y > 0.15 ? tmp.copy(mid).lerp(top, smooth(0.15, 0.7, u.y)) : tmp.copy(belly).lerp(mid, smooth(-0.55, 0.05, u.y)));
+  const S = s.size, cy = S * 0.16, top = col(s.back || '#7a8088'), mid = col(s.flank || '#949aa2'), belly = col(s.belly || '#e4e6e8'), tip = col(s.finTip || '#f6f6f2');
+  const skin = u => {
+    const c = u.y > 0.15 ? tmp.copy(mid).lerp(top, smooth(0.15, 0.7, u.y)) : tmp.copy(belly).lerp(mid, smooth(-0.55, 0.05, u.y));
+    // (a blacktip's pale band, reaching forward along the flank from the belly)
+    return s.flankBand && u.x > -0.45 && u.x < 0.1 && Math.abs(u.y + 0.02 - u.x * 0.12) < 0.07 ? c.lerp(belly, 0.6) : c;
+  };
   finBody(m, { x0: -S * 0.44, x1: S * 0.5, tm: 0.42, cy, ry: S * 0.1, rz: S * 0.1, ryEnd: 0.18, rzEnd: 0.3, powF: 2.2, powB: 1.6, wide: 1.1 }, skin); // (a broad head and a blunt, rounded snout)
   // eyes, gill slits, and a mouth tucked under the snout
   m.ell([S * 0.38, cy - S * 0.045, 0], [S * 0.035, S * 0.006, S * 0.04], '#8a8e94', { lo: true });
@@ -542,7 +551,8 @@ function shark(m, s) {
   // pectoral fins: broad, swept back and angled down
   for (const side of [1, -1]) {
     const pec = flat(sh => { sh.moveTo(0.3, 0); sh.quadraticCurveTo(0.1, 0.6 * side, -0.45, 1 * side); sh.quadraticCurveTo(-0.15, 0.4 * side, -0.2, 0); sh.lineTo(0.3, 0); }, 'xz', 8);
-    m.add(pec, place([S * 0.2, cy - S * 0.06, side * S * 0.07], [side * 0.35, 0, 0], [S * 0.2, S * 0.012, S * 0.16]), u => (u.y > 0 ? top : belly));
+    // (a blacktip's pectorals are dark at their outer ends: the shape's far edge, |z| near 1)
+    m.add(pec, place([S * 0.2, cy - S * 0.06, side * S * 0.07], [side * 0.35, 0, 0], [S * 0.2, S * 0.012, S * 0.16]), u => (s.finTip && Math.abs(u.z) > 0.74 ? tip : u.y > 0 ? top : belly));
     m.add(pec, place([-S * 0.12, cy - S * 0.06, side * S * 0.04], [side * 0.3, 0, 0], [S * 0.08, S * 0.01, S * 0.06]), mid); // pelvic
   }
   // the tail: the body itself carries on, tapering and bending up into the long upper lobe (white
@@ -557,6 +567,10 @@ function shark(m, s) {
     place([0, cy, 0], [0, 0, 0], [S, S, S * 0.012]), top, tail);
   m.add(flat(sh => { sh.moveTo(-0.43, -0.015); sh.quadraticCurveTo(-0.5, -0.05, -0.57, -0.11); sh.quadraticCurveTo(-0.55, -0.05, -0.53, -0.01); sh.lineTo(-0.43, -0.015); }, 'xy', 6),
     place([0, cy, 0], [0, 0, 0], [S, S, S * 0.012]), top, tail); // the small lower lobe
+  if (s.finTip) { // a blacktip's lower tail lobe is tipped too
+    m.add(flat(sh => { sh.moveTo(-0.535, -0.075); sh.quadraticCurveTo(-0.55, -0.09, -0.57, -0.11); sh.quadraticCurveTo(-0.555, -0.08, -0.548, -0.06); sh.lineTo(-0.535, -0.075); }, 'xy', 4),
+      place([0, cy, S * 0.001], [0, 0, 0], [S, S, S * 0.014]), tip, tail);
+  }
 }
 
 // Moorish idol: a tall, flat disc of a fish, white and yellow with two broad black bands (the

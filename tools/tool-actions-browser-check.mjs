@@ -4,6 +4,8 @@ import { openBrowser } from './browser-session.mjs';
 
 const browser = await openBrowser({ label: 'tool-actions' });
 try {
+  // (without the Page domain the start-up script never runs, and the farm selector stays open)
+  await browser.send('Page.enable');
   await browser.send('Page.addScriptToEvaluateOnNewDocument', { source: `
     localStorage.setItem('second-growth-settings', JSON.stringify({analytics:false,autosave:false,music:false,nature:false,quality:'fast',shadows:false,fps:'30',v:2}));
     sessionStorage.setItem('second-growth-pending', JSON.stringify({map:'pnw',mode:'free',difficulty:'standard'}));

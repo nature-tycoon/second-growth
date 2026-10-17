@@ -36,6 +36,22 @@ export function salmonLeap(a, time) {
   return t < dur ? t / dur : -1;
 }
 
+// A fish that escapes by skipping across the surface (a longtom). While a hunter is rushing it, or
+// it is still darting off after a miss, it makes runs of two or three low leaps clear of the water,
+// swims a moment, and goes again. Drawing only: the hunt and the catch roll are the simulation's.
+// The pose keeps the run's clock. Returns 0..1 through the current leap, or -1 in the water.
+const SKIP = 0.6, SKIP_GAP = 0.05, SKIP_REST = 0.4; // (seconds: a long, low skip, a touch on the water, and a breather)
+export function escapeSkip(st, chased, time) {
+  if (st.skip) {
+    const t = time - st.skip.t0, k = Math.floor(t / (SKIP + SKIP_GAP));
+    if (k < st.skip.n) { const u = (t - k * (SKIP + SKIP_GAP)) / SKIP; return u <= 1 ? u : -1; }
+    if (t < st.skip.n * (SKIP + SKIP_GAP) + SKIP_REST) return -1;
+    st.skip = null;
+  }
+  if (chased) st.skip = { t0: time, n: 2 + ((st.skipRuns = (st.skipRuns || 0) + 1) % 2) };
+  return -1;
+}
+
 export class Actors {
   constructor(scene, flora = null, { canopyWalkerMotion = true, howlerPrototype } = {}) {
     this.scene = scene;
@@ -105,6 +121,9 @@ export class Actors {
     const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
     this.lastT = time;
     F.begin(pixelsPerUnit(camera, viewportHeight));
+    // the prey a hunter is rushing right now (a longtom skips away from it)
+    const chased = new Set();
+    for (const h of game.wildlife.agents) if (h.state === 'hunt' && h.hunt?.phase === 'rush') chased.add(h.target);
     for (const a of game.wildlife.viewAgents) {
       // Dormant residents are sheltered inside dens/roosts, not walking models.
       if (a.state === 'dormant') continue;
@@ -137,7 +156,7 @@ export class Actors {
           const surface = waterSurfaceY(w, a.x, a.y) ?? ground;
           low = Math.min(low, surface); high = Math.max(high, surface + 0.75); // leaping salmon
         }
-        if (seaY != null) { low = Math.min(low, seaY); high = Math.max(high, seaY); }
+        if (seaY != null) { low = Math.min(low, seaY); high = Math.max(high, seaY + (def.sprite.escape === 'skip' ? 0.5 : 0)); }
         if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground, a.flightY ?? -Infinity) + 2;
         else if (inside && (def.move === 'fly' || def.move === 'tree')) {
           if (w.tree[i]) {
@@ -203,6 +222,11 @@ export class Actors {
         const band = clamp(sw + amp * (0.12 * Math.sin(time * 0.11 + a.id * 1.7) + 0.06 * Math.sin(time * 0.29 + a.id * 4.1)), 0.04, 0.9);
         st.depth = st.depth == null ? band : st.depth + (band - st.depth) * k * 0.3;
         y = def.benthic ? ground + 0.008 : Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
+        if (def.sprite.escape === 'skip') {
+          const p = escapeSkip(st, game.speed > 0 && (chased.has(a.id) || a.dash > 1), time);
+          st.skipP = p; // (scene.js splashes where it leaves the water and lands)
+          if (p >= 0) { y = seaY - 0.04 + Math.sin(p * Math.PI) * 0.5; st.pitch = Math.cos(p * Math.PI) * 0.45; } else st.pitch = 0;
+        }
       } else if (flying && seaY != null) y = Math.max(ground, seaY) + 0.7 + a.alt * 1.2; // (seabirds fly over the water, not the seabed)
       else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
       else if (flying) y += (kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey

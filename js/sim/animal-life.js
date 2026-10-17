@@ -28,9 +28,11 @@ const STYLES = {
 };
 const KIND_STYLE = { feline: 'stalk', canine: 'chase', hyena: 'chase', snake: 'ambush', caiman: 'ambush', monitor: 'ambush' };
 const CHEETAH = { ...STYLES.stalk, near: 8, rush: 5.5, sprint: 3.4 }; // a long, flat-out sprint from further away
+const BLACKTIP = { ...STYLES.chase, rush: 6, sprint: 2.6 }; // charges a surface fish from well back, and keeps it up across the flats
 export function huntStyle(def) {
   if (def.behavior?.hunt === 'wade') return STYLES.wade;
   if (def.key === 'cheetah') return CHEETAH;
+  if (def.key === 'blacktip') return BLACKTIP;
   if (def.move === 'fly') return STYLES.stoop;
   return STYLES[KIND_STYLE[def.sprite.kind]] || STYLES.pursue;
 }
@@ -169,7 +171,7 @@ function alarm(wl, pred, pdef, target, time) {
     const odef = wl.game.catalog.animals[o.sp];
     if (odef.reef || odef.move === 'swim') {
       o.forage = null; o.forageGoal = null;
-      wl.evadeHunt(o, pred); o.run = 1.7;
+      if (odef.surfaceEscape) wl.fleeAlong(o, pred, odef.surfaceEscape); else { wl.evadeHunt(o, pred); o.run = 1.7; }
       continue;
     }
     if (o === target) {
@@ -209,7 +211,8 @@ export function missed(wl, prey, pred) {
   const def = wl.game.catalog.animals[prey.sp];
   if (def.reef || def.move === 'swim') {
     prey.forage = null; prey.forageGoal = null;
-    wl.evadeHunt(prey, pred); prey.run = 1.7; return;
+    if (def.surfaceEscape) wl.fleeAlong(prey, pred, def.surfaceEscape); else { wl.evadeHunt(prey, pred); prey.run = 1.7; }
+    return;
   }
   if (prey.state === 'walk') { prey.run = 1.8; prey.alertT = 0; return; }
   if (!prey.leaving && !def.reef && def.move !== 'swim') bolt(wl, prey, pred, def.speed * 1.8, 0.8 + Math.random() * 0.5, 0);

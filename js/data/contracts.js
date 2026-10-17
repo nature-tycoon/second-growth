@@ -166,6 +166,7 @@ import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema
  * @property {number} [herdMax]
  * @property {string} [special]
  * @property {{x?:number}} [crossing]
+ * @property {{dash:number, tiles:number}} [surfaceEscape] a surface fish's straight dash away from a charging hunter
  */
 /** @typedef {AnimalSpec & {index:number, req:function(Object):number, max:number, minK:number, speed:number, life:number, mature:number, preyPer:number, shy:number, nouns?:[string,string], behavior:Object, frugivore:boolean, fenced:boolean, damBuilder:boolean, browseRate:number, challengePrey:string[]|null, challengePreyPer:number}} AnimalDefinition */
 /** @typedef {function(AnimalSpec):AnimalDefinition} DefineAnimal */
@@ -318,7 +319,7 @@ export function assertSeedMix(m, plant, path = 'mix') {
 
 const ANIMAL_BOOLEANS = 'herd familyHerd fixedMax strictMax notPrey patrol ambush noDrink quick domestic reef benthic frugivore fenced damBuilder';
 const ANIMAL_NUMBERS = 'minK mig intro life mature preyPer speed max hr familySize herdR bachelorSize bachelorR bachelorJoin bachelorSoloAge herdMax needsPer shy browseRate challengePreyPer';
-const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey needs special crossing ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
+const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey needs special crossing surfaceEscape ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
 export const ANIMAL_MOVES = Object.freeze(['ground', 'semi', 'tree', 'fly', 'swim']);
 
 /** @param {AnimalSpec} a */
@@ -338,6 +339,7 @@ export function assertAnimalSpec(a, path = 'animal') {
   optional(a.sprite, 'breedingPlumage', `${path}.sprite`, months);
   if (a.sprite.winter && !a.sprite.breedingPlumage?.length) fail(`${path}.sprite.breedingPlumage`, 'months for a winter plumage profile');
   if (a.crossing) { object(a.crossing, `${path}.crossing`); optional(a.crossing, 'x', `${path}.crossing`, (v, q) => number(v, q, 0, 1)); }
+  if (a.surfaceEscape) { object(a.surfaceEscape, `${path}.surfaceEscape`); number(a.surfaceEscape.dash, `${path}.surfaceEscape.dash`, 1, 4); number(a.surfaceEscape.tiles, `${path}.surfaceEscape.tiles`, 1, 30); }
 }
 
 export function assertToolDefinition(t, catalog, path = 'tool') {
