@@ -24,6 +24,8 @@ try {
       }
       if (${JSON.stringify(map)} === 'atlanta') {
         renderer.actors.cullOffscreen = false;
+        // Animals small on screen draw from the pool's distant model, so count both.
+        const drawn = key => { const p = renderer.actors.fauna.species.get(game.map + ':' + key); return (p?.count || 0) + (p?.far?.count || 0); };
         const identities = game.wildlife.agents.map(a => [a.id, a.sp, isMale(ANIMALS[a.sp], a)]);
         const originalDay = game.day;
         for (const month of [0, 6, 11, 6]) {
@@ -31,9 +33,9 @@ try {
           renderer.draw(game, {clean: true, overlay: 'none'}, 0);
           const winter = month === 0 || month === 11;
           const key = 'goldfinch:male' + (winter ? ':winter' : '');
-          if (!(renderer.actors.fauna.species.get(game.map + ':' + key)?.count > 0)) throw Error('Production renderer missed ' + key);
+          if (!(drawn(key) > 0)) throw Error('Production renderer missed ' + key);
           const inactive = 'goldfinch:male' + (winter ? '' : ':winter');
-          if (renderer.actors.fauna.species.get(game.map + ':' + inactive)?.count > 0) throw Error('Old seasonal plumage remains active');
+          if (drawn(inactive) > 0) throw Error('Old seasonal plumage remains active');
         }
         game.day = originalDay;
         const after = game.wildlife.agents.map(a => [a.id, a.sp, isMale(ANIMALS[a.sp], a)]);
