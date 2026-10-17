@@ -36,6 +36,9 @@ export function groundDetail(mat, noise, tiles, layout = ATLAS_LAYOUT) {
   mat.onBeforeCompile = shader => {
     shader.uniforms.uNoise = { value: noise };
     shader.uniforms.uSnow = snow.uSnow;
+    shader.uniforms.uTrailDensity = tiles.density;
+    shader.uniforms.uTrailVisible = tiles.trailVisible;
+    shader.uniforms.uTrailSoil = tiles.soil;
     shader.uniforms.uTiles = tiles.tex;
     shader.uniforms.uTint = tiles.tint;
     shader.uniforms.uTileOrigin = tiles.origin;
@@ -48,6 +51,9 @@ uniform float uSnow;
 uniform float uWet;
 uniform sampler2D uTiles;
 uniform sampler2D uTint;
+uniform sampler2D uTrailDensity;
+uniform float uTrailVisible;
+uniform vec3 uTrailSoil;
 uniform vec2 uTileOrigin;
 uniform vec2 uTileSize;
 varying float vSnowAff;
@@ -59,6 +65,13 @@ varying vec2 vShore;
 vec4 tileAt(vec2 p) {
   ivec2 c = ivec2(clamp(floor(p) - uTileOrigin, vec2(0.0), uTileSize - 1.0));
   return texelFetch(uTiles, c, 0);
+}
+// Actual continuous foot traffic, sampled across tile boundaries. No tile-center
+// arms or reconstructed right-angle junctions are drawn.
+float gameTrail(vec2 p) {
+  float raw = texture2D(uTrailDensity, (p - uTileOrigin) / uTileSize).r;
+  float use = sqrt(clamp((raw - 0.09) / (0.55 - 0.09), 0.0, 1.0));
+  return use * step(0.5, tileAt(p).a) * uTrailVisible;
 }
 // Smoothly blended where neighbouring tiles are alike (no patchwork inside a meadow), but the
 // tile's own colour right where it changes sharply, so colour and texture always agree at an edge.
@@ -107,6 +120,11 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
       float gn1 = texture2D(uNoise, vWorldXZ * 0.035).r;
       float gn2 = texture2D(uNoise, vWorldXZ * 0.16 + 0.37).r;
       diffuseColor.rgb *= 0.84 + 0.24 * gn1 + 0.12 * (gn2 - 0.5);
+      float traffic = gameTrail(gp);
+      if (traffic > 0.0) {
+        float grit = texture2D(uNoise, gp * 7.0).r;
+        diffuseColor.rgb = mix(diffuseColor.rgb, uTrailSoil * (0.88 + grit * 0.24), traffic * 0.92);
+      }
       // A broken waterline fringe: dark damp silt, pale gravel pockets, then grass.
       // Heights interpolate on the same triangles as the water, so the fringe hugs its contours.
       if (vShore.y > 0.01) {
@@ -137,7 +155,7 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
         diffuseColor.rgb = mix(diffuseColor.rgb, ${SNOW_RGB} * (0.92 + 0.1 * gn2), cover * 0.95);
       }`);
   };
-  mat.customProgramCacheKey = () => 'ground-splat-shore';
+  mat.customProgramCacheKey = () => 'ground-splat-continuous-trails';
   return mat;
 }
 

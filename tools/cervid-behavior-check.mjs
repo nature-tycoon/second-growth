@@ -75,7 +75,7 @@ check('Elk overland trips still respect fences, buildings, deep water and fire',
     assert.ok(a.path.every(j => wSafe(g, j)));
   }
 });
-check('Pasture is only an elk travel corridor, never a substitute habitat or a shared movement change', () => {
+check('Pasture is a travel corridor, never a substitute habitat', () => {
   const g = separatedElkMeadow(), wl = g.wildlife, def = ANIMAL.elk;
   const a = spawn(g, 'elk', false, 40.5, 5.5);
   const meadowSuit = wl.suit[def.index].slice();
@@ -83,7 +83,7 @@ check('Pasture is only an elk travel corridor, never a substitute habitat or a s
   assert.equal(wl.roam(a, def), false, 'no destination without another suitable patch');
   const deer = spawn(g, 'deer', false, 40.5, 5.5);
   wl.suit[ANIMAL.deer.index].set(meadowSuit);
-  assert.equal(wl.roam(deer, ANIMAL.deer), false, 'other species retain their habitat corridor rules');
+  assert.ok(wl.roam(deer, ANIMAL.deer), 'deer can also travel to suitable habitat across dry ground');
 });
 check('Deer families and elk cow/calf herds stay together during ordinary simulation', () => {
   for (const key of ['deer', 'elk']) {

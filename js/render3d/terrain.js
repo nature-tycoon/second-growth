@@ -10,6 +10,8 @@ import { withClouds } from './atmosphere.js';
 import { hash2 } from '../rng.js';
 export { buildAtlas } from './terrain-atlas.js';
 import { noiseTexture, groundDetail, waves, waterLook } from './terrain-materials.js';
+import { trailSurface } from '../sim/animal-trails.js';
+import { TRAIL_RESOLUTION } from '../data/animal-trails.js';
 import { meadowPatch, patchColor } from './patches.js';
 import { Riverbanks, bankAllowed, surfaceHeight } from './riverbanks.js';
 import { PALETTES, paletteLeafColor, pastureColor } from './palettes.js';
@@ -71,7 +73,7 @@ export class Terrain {
     this.time = { value: 0 };
     // which texture each tile shows, for the ground shader: slot, rotation, crisp-edged or not
     this.noise = noiseTexture();
-    this.tiles = { tint: { value: null }, tex: { value: null }, origin: { value: new THREE.Vector2() }, size: { value: new THREE.Vector2(1, 1) }, wet: { value: 0 }, hRange: { value: new THREE.Vector2(0, 1) } };
+    this.tiles = { density: { value: null }, trailVisible: { value: 1 }, soil: { value: new THREE.Color() }, tint: { value: null }, tex: { value: null }, origin: { value: new THREE.Vector2() }, size: { value: new THREE.Vector2(1, 1) }, wet: { value: 0 }, hRange: { value: new THREE.Vector2(0, 1) } };
     this.material = withClouds(groundDetail(new THREE.MeshLambertMaterial({ map: atlas.tex, vertexColors: true }), this.noise, this.tiles));
     this.rain = { value: 0 }; this.sky = { value: new THREE.Color(0.8, 0.86, 0.9) };
     this.waterMat = withClouds(waterLook(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1), this.time, this.noise, this.rain, this.sky));
@@ -122,6 +124,13 @@ export class Terrain {
     const tt = new THREE.DataTexture(this.tintData, this.TW, this.TH, THREE.RGBAFormat, THREE.UnsignedByteType);
     tt.magFilter = tt.minFilter = THREE.LinearFilter; tt.generateMipmaps = false; tt.flipY = false; tt.needsUpdate = true;
     this.tiles.tint.value = tt;
+    const R = TRAIL_RESOLUTION;
+    this.trailData = new Uint8Array(n * R * R);
+    this.tiles.density.value?.dispose();
+    const trails = new THREE.DataTexture(this.trailData, this.TW * R, this.TH * R, THREE.RedFormat, THREE.UnsignedByteType);
+    trails.magFilter = trails.minFilter = THREE.LinearFilter; trails.generateMipmaps = false; trails.flipY = false; trails.unpackAlignment = 1; trails.needsUpdate = true;
+    this.tiles.density.value = trails;
+    this.tiles.soil.value.fromArray(world.catalog.definition.look.soil).convertSRGBToLinear().multiplyScalar(0.72);
     this.tiles.origin.value.set(this.X0, this.Y0); this.tiles.size.value.set(this.TW, this.TH);
     this.water = null; this.flood = null; this.overlay = null; this.preview = null;
     this.updateHeights();
@@ -254,8 +263,6 @@ export class Terrain {
         const tg = inside ? w.treeG[i] : 0.9, sg = inside ? w.shrubG[i] : 0.9;
         if (tid2 && tg > 0.25) c = c.map(q => q * (1 - 0.14 * Math.min(1, tg)));
         else if (sid2 && sg > 0.3) c = c.map(q => q * (1 - 0.08 * Math.min(1, sg)));
-        // game trails worn in by the herds
-        if (inside && w.trod && w.trod[i] > 0.12 && t !== T.ROAD) c = mixRgb(c, game.catalog.definition.look.soil, Math.min(0.45, (w.trod[i] - 0.12) * 0.7));
         // ground the player can't work yet (the suburb's other yards) is washed out toward grey
         if (inside && game.catalog.definition.locked?.(game, i)) { const l = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) * 1.08; c = mixRgb(c, [l, l, l * 0.96], 0.55); }
         if (inside && (w.marks[i] & 1)) c = mixRgb(c, [1, 1, 0.96], 0.24); // (a snorkel trail: just a faint line on the seabed under the buoys)
@@ -284,7 +291,7 @@ export class Terrain {
       const r = at.r;
       const td = this.tileData, crisp = t === T.ROAD || t === T.TRAIL || t === T.FIELD;
       td[k * 4] = at.slot; td[k * 4 + 1] = t === T.FIELD ? 0 : (v & 3) * 64; // plowed furrows all run the same way
-      td[k * 4 + 2] = crisp ? 0 : 255; td[k * 4 + 3] = 255;
+      td[k * 4 + 2] = crisp ? 0 : 255; td[k * 4 + 3] = inside && trailSurface(w, i) ? 255 : 0;
       // (corners 0-3 of the atlas cell are (r0,r1) (r2,r1) (r2,r3) (r0,r3); the tile's six vertices
       // take corners A C B A D C, rotated by the variant)
       const rot = v & 3, o = k * 12;
@@ -341,7 +348,17 @@ export class Terrain {
         const k = ty * TW + tx;
         td[k * 4] = enc(tint[k * 3]); td[k * 4 + 1] = enc(tint[k * 3 + 1]); td[k * 4 + 2] = enc(tint[k * 3 + 2]); td[k * 4 + 3] = 255;
       } }
-    // (the two tile textures are small, 70 KB each, so they always go up whole)
+    const R = TRAIL_RESOLUTION, width = TW * R, sourceWidth = w.w * R;
+    for (let ty = T0.ty0; ty <= T0.ty1; ty++) for (let tx = T0.tx0; tx <= T0.tx1; tx++) {
+      const x = tx + this.X0, y = ty + this.Y0, eligible = w.inb(x, y) && trailSurface(w, w.idx(x, y));
+      for (let dy = 0; dy < R; dy++) for (let dx = 0; dx < R; dx++) {
+        const target = (ty * R + dy) * width + tx * R + dx;
+        const source = (y * R + dy) * sourceWidth + x * R + dx;
+        this.trailData[target] = eligible ? Math.round(Math.min(1, w.trailDensity?.[source] || 0) * 255) : 0;
+      }
+    }
+    this.tiles.density.value.needsUpdate = true;
+    // (the tile textures are small, 70 KB each, so they always go up whole)
     this.tiles.tex.value.needsUpdate = true; this.tiles.tint.value.needsUpdate = true;
     // send up only the rows the patch covers (tiles are stored row by row)
     const k0 = R0.ty0 * TW + R0.tx0, k1 = R0.ty1 * TW + R0.tx1 + 1;

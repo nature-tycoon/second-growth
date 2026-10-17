@@ -15,7 +15,9 @@ export class Undo {
 
   begin(tool) {
     const g = this.game, w = g.world, arrays = {};
-    for (const k of [...WORLD_ARRAYS, ...Object.keys(EXTRA_ARRAYS)]) if (w[k]) arrays[k] = w[k].slice();
+    // (not the sub-tile game trails: no tool draws them, and putting the whole field back would
+    // erase a month of wear across the map; built-over trail ground fades on its own)
+    for (const k of [...WORLD_ARRAYS, ...Object.keys(EXTRA_ARRAYS)]) if (w[k] && k !== 'trailDensity') arrays[k] = w[k].slice();
     this.cur = { tool, world: w, arrays, water: g.water?.serialize(), structures: JSON.parse(JSON.stringify(w.structures || [])), day: g.day,
       nextId: g.wildlife.nextId, stats: { planted: g.stats.planted, dug: g.stats.dug, removed: g.stats.removed }, touched: new Set() };
   }

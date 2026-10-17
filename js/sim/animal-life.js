@@ -10,6 +10,11 @@ import { passable, canLand } from './animal-terrain.js';
 import { inRiver } from './animals.js';
 import { followCervid } from './cervid-groups.js';
 import { travelSpeed } from './climb-pace.js';
+import { preyCover } from './ecological-pressure.js';
+import { birdAlarm } from './bird-behavior.js';
+import { territorialRivals } from '../data/animal-territories.js';
+import { territoryArrive } from './animal-territory.js';
+import { wakeDormant } from './animal-dormancy.js';
 
 // How each kind of hunter closes in. approach, creep and sprint are multiples of its usual
 // speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles.
@@ -33,7 +38,7 @@ export function huntStyle(def) {
 }
 
 export function canHuntPrey(wl, a, def, prey) {
-  if (prey.leaving || (def.move !== 'fly' || huntStyle(def).grounded) && (prey.flying || prey.alt > 0.2)) return false;
+  if (a.state === 'dormant' || prey.state === 'dormant' || prey.leaving || (def.move !== 'fly' || huntStyle(def).grounded) && (prey.flying || prey.alt > 0.2)) return false;
   if (!huntStyle(def).grounded) return true;
   const w = wl.game.world, x = Math.floor(prey.x), y = Math.floor(prey.y);
   if (!w.inb(x, y) || a.flying || a.alt > 0.2) return false;
@@ -67,7 +72,7 @@ function predatorsOf(wl, sp) {
 
 // ---------------------------------------------------------------- hunting
 // Immediate danger and an ongoing meal take priority over starting another hunt.
-export const canStartHunt = a => !a.leaving && !a.fromFire && a.state !== 'hunt' &&
+export const canStartHunt = a => a.state !== 'dormant' && !a.leaving && !a.fromFire && a.state !== 'hunt' &&
   a.state !== 'feed' && a.state !== 'forage' && (a.state !== 'flee' || a.play);
 
 export function beginHunt(wl, a, def, b) {
@@ -143,7 +148,7 @@ function startRush(wl, a, def, b, S, d) {
   // long enough to close the gap on prey running at just over half its speed
   H.t = Math.max(1.2, d / (sprint * 0.45) * 1.6);
   a.huntTime = Math.max(a.huntTime, H.t + 0.5);
-  if (!a.assist) alarm(wl, a, def, b, sprint, H.t);
+  if (!a.assist) alarm(wl, a, def, b, H.t);
 }
 
 // Out of breath: the rush failed. Stand and recover; the prey keeps running.
@@ -154,13 +159,13 @@ function giveUp(wl, a) {
   return false;
 }
 
-// The rush is on: the target bolts a beat later (never quite fast enough to simply outrun the
-// hunter, so contact and the catch roll still decide it), and anything nearby the hunter would
+// The rush is on: the target bolts a beat later at its own species' escape pace,
+// and anything nearby the hunter would
 // also take scatters away from it.
-function alarm(wl, pred, pdef, target, sprint, time) {
+function alarm(wl, pred, pdef, target, time) {
   const preySet = new Set((preyFor(pdef, wl.game) || []).map(k => wl.game.catalog.animal[k]?.index));
   for (const o of wl.agents) {
-    if (o === pred || o.leaving || o.state === 'hunt') continue;
+    if (o === pred || o.leaving || o.state === 'hunt' || o.state === 'dormant') continue;
     if (o.sp !== target.sp && !preySet.has(o.sp)) continue;
     if ((o.x - target.x) ** 2 + (o.y - target.y) ** 2 > 25) continue;
     const odef = wl.game.catalog.animals[o.sp];
@@ -170,7 +175,7 @@ function alarm(wl, pred, pdef, target, sprint, time) {
       continue;
     }
     if (o === target) {
-      if (o.move !== 'fly' && !o.flying) bolt(wl, o, pred, Math.min(odef.speed * 1.9, sprint * 0.5), time + 0.6, 0.12 + Math.random() * 0.18);
+      if (o.move !== 'fly' && !o.flying) bolt(wl, o, pred, odef.speed * 1.9, time + 0.6, 0.12 + Math.random() * 0.18);
     } else if (o.state !== 'flee') bolt(wl, o, pred, odef.speed * (1.6 + Math.random() * 0.4), 0.7 + Math.random() * 0.6, 0.05 + Math.random() * 0.25);
   }
 }
@@ -189,7 +194,9 @@ export function startFeed(wl, a, def, b) {
   if (!big) { a.feedT = 0.5 + Math.random() * 0.8; return; }
   a.feedT = 1.5 + (bd.sprite.len || 20) / 30 * (1 + Math.random());
   const c = { id: b.id, sp: b.sp, x: b.x, y: b.y, yaw: b.orientation ?? 0, age: b.age, side: Math.random() < 0.5 ? -1 : 1,
-    by: a.sp, t: a.feedT + 7 + Math.random() * 4 };
+    by: a.sp, t: a.feedT + 21 + Math.random() * 12 };
+  // Leave 21–33 days after the first meal: distant walkers and circling birds
+  // need time to discover and reach a kill. Food still runs out through c.meals.
   c.max = c.t;
   // The successful hunter has already eaten. Larger prey leaves more meals for
   // companions and scavengers, but a single kill cannot feed them indefinitely.
@@ -214,27 +221,42 @@ export function missed(wl, prey, pred) {
 // ---------------------------------------------------------------- fleeing
 export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   const def = wl.game.catalog.animals[a.sp], w = wl.game.world;
-  if (a.leaving || def.reef) return;
+  if (a.leaving) return;
+  if (a.dormancy || a.state === 'dormant') wakeDormant(a, 3);
   // a migrant swimming the crossing can't turn and run: it swims on for the bank, harder
   if (def.crossing && inRiver(wl, a)) { if (a.state === 'walk' && a.path?.length) a.run = Math.max(a.run || 1, speed / Math.max(0.01, def.speed)); return; }
   let fx = a.x - threat.x, fy = a.y - threat.y;
   const l = Math.hypot(fx, fy);
   if (l < 1e-3) { const r = Math.random() * Math.PI * 2; fx = Math.cos(r); fy = Math.sin(r); } else { fx /= l; fy /= l; }
+  a.threat = threat.id; a.trip = null; a.restSpot = null;
+  if (a.territory) { a.territory.goal = null; a.territory.mode = 'away'; }
   a.drinkT = 0; a.drinkAt = null; a.localGoal = null; a.bankGoal = null; a.follow = false;
   a.bird = null; a.birdGoal = null; a.birdGround = false;
   a.fruitMeal = null; a.fruitGoal = null; a.forage = null; a.forageGoal = null;
   a.socialWith = null; a.socialUntil = 0; a.sparPath = null;
   a.greet = null; a.goal = null; a.sparT = 0; a.sparLight = false; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
   if (a.state === 'hunt' || a.state === 'feed') { endHunt(a); a.feedAt = null; a.carcass = null; }
+  if (def.reef || def.move === 'swim') {
+    a.path = null; a.state = 'idle'; a.wait = 0.2;
+    wl.evadeHunt(a, threat); a.run = 1.7; return;
+  }
   if (a.move === 'fly') {
-    // birds just take off and settle again a little way off
-    for (let k = 0; k < 6; k++) {
+    // Take off immediately, then prefer a safe landing farther from the threat.
+    // If enclosed by unsuitable landing terrain, remain airborne and try again later.
+    let best = null, score = -Infinity;
+    for (let k = 0; k < 12; k++) {
       const ang = Math.atan2(fy, fx) + (Math.random() - 0.5) * 1.4, r = range + Math.random() * range;
       const x = clamp(a.x + Math.cos(ang) * r, 0.5, w.w - 0.5), y = clamp(a.y + Math.sin(ang) * r, 0.5, w.h - 0.5);
-      if (k < 5 && !canLand(w, w.idx(Math.floor(x), Math.floor(y)), def)) continue;
-      a.tx = x; a.ty = y; a.state = 'fly'; a.flying = true; a.path = null;
-      return;
+      const j = w.idx(Math.floor(x), Math.floor(y));
+      if (!canLand(w, j, def) || w.fire[j]) continue;
+      const d = Math.hypot(x - threat.x, y - threat.y);
+      if (d <= l) continue;
+      const value = d + preyCover(w, { sp: a.sp, x, y }, wl.game.catalog.animals[threat.sp]) * 2;
+      if (value > score) { best = [x, y]; score = value; }
     }
+    a.threat = threat.id; a.flying = true; a.alt = Math.max(0.3, a.alt || 0); a.path = null;
+    if (best) { [a.tx, a.ty] = best; a.state = 'fly'; }
+    else { a.state = 'idle'; a.wait = 0.2; }
     return;
   }
   if (a.move === 'tree') {
@@ -262,38 +284,65 @@ export function fleeUpdate(wl, a, def, dt) {
     if (th && !a.play) { facePoint(a, th.x, th.y); a.alertT = 0.3; }
     return;
   }
+  const predators = predatorsOf(wl, a.sp);
+  const escaping = th && !a.play && !a.fromFire && predators?.has(th.sp) && !th.leaving;
   a.fleeT -= dt;
+  // A short sprint timer must not make prey stop in front of an ongoing pursuit.
+  if (escaping && (dist(a, th) < 3 || th.state === 'hunt' && th.target === a.id && dist(a, th) < 8)) a.fleeT = Math.max(a.fleeT, 0.35);
   if (th) {
     const dx = a.x - th.x, dy = a.y - th.y, l = Math.hypot(dx, dy);
-    if (l > 1e-3 && l < 8) { a.fx = a.fx * 0.85 + dx / l * 0.15; a.fy = a.fy * 0.85 + dy / l * 0.15; }
+    if (l > 1e-3 && l < 8) { const mix = 1 - Math.exp(-dt * 3); a.fx += (dx / l - a.fx) * mix; a.fy += (dy / l - a.fy) * mix; }
     const n = Math.hypot(a.fx, a.fy) || 1; a.fx /= n; a.fy /= n;
   }
   const step = a.fleeSpeed * dt, base = Math.atan2(a.fy, a.fx);
   const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
-  let moved = false;
-  // (burning ground only as a last resort)
-  // (the turn that worked last time is tried first, so it doesn't zigzag along an edge)
+  let chosen = null;
+  const nearby = escaping ? (wl.predatorAgents || wl.agents).filter(o =>
+    predators.has(o.sp) && !o.leaving && byId(wl, o.id) === o && dist(a, o) < 8 &&
+    o.state !== 'feed' && canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) : [];
+  // Sample the whole swept segment, not only its endpoint: a long update must
+  // not jump over a fence, water tile or a blocked diagonal corner.
+  const here = w.idx(x0, y0);
+  const safe = (nx, ny, burning) => {
+    const n = Math.max(1, Math.ceil(Math.hypot(nx - a.x, ny - a.y) / 0.2));
+    let px = x0, py = y0;
+    for (let k = 1; k <= n; k++) {
+      const x = Math.floor(a.x + (nx - a.x) * k / n), y = Math.floor(a.y + (ny - a.y) * k / n);
+      if (!w.inb(x, y)) return false;
+      const j = w.idx(x, y), can = j => j === here || passable(w, j, a);
+      if (!can(j) || !burning && w.fire[j]) return false;
+      if (x !== px && y !== py && (!can(w.idx(x, py)) || !can(w.idx(px, y)))) return false;
+      px = x; py = y;
+    }
+    return true;
+  };
+  // Keep play, sparring retreats and fire escapes on their existing preferred turn.
+  // Real prey evaluate clearance from all nearby hunters and cover ahead.
   const turns = a.fleeOff ? [a.fleeOff, ...TURNS] : TURNS;
-  if (a.fleeT > 0) for (let pass = 0; pass < 2 && !moved; pass++) for (const off of turns) {
-    const ang = base + off * a.fleeSide, c = Math.cos(ang), s = Math.sin(ang);
-    const nx = a.x + c * step, ny = a.y + s * step, lx = a.x + c * Math.max(step, 0.45), ly = a.y + s * Math.max(step, 0.45);
-    if (!w.inb(Math.floor(lx), Math.floor(ly)) || !w.inb(Math.floor(nx), Math.floor(ny))) continue;
-    const ahead = w.idx(Math.floor(lx), Math.floor(ly));
-    // (stranded where it can't stand, it may still run within its own tile and out of it)
-    const here = w.idx(x0, y0), can = j => passable(w, j, a) || j === here;
-    if (!can(ahead) || !can(w.idx(Math.floor(nx), Math.floor(ny))) || (!pass && w.fire[ahead])) continue;
-    // Like normal paths and spacing, an escape cannot cut diagonally between
-    // blocked tiles. Check the lookahead too, so it turns before entering a jam.
-    const xx = Math.floor(lx), yy = Math.floor(ly);
-    if (xx !== x0 && yy !== y0 &&
-      (!passable(w, w.idx(xx, y0), a) || !passable(w, w.idx(x0, yy), a))) continue;
-    a.x = nx; a.y = ny; facePoint(a, nx + c, ny + s);
-    if (off) { a.fx = a.fx * 0.6 + c * 0.4; a.fy = a.fy * 0.6 + s * 0.4; }
-    a.fleeOff = off;
-    moved = true;
-    break;
+  if (a.fleeT > 0) for (let pass = 0; pass < 2 && !chosen; pass++) {
+    let best = -Infinity;
+    for (const off of turns) {
+      const ang = base + off * a.fleeSide, c = Math.cos(ang), s = Math.sin(ang);
+      const look = Math.max(step, escaping ? 1.2 : 0.45);
+      const nx = a.x + c * step, ny = a.y + s * step, lx = a.x + c * look, ly = a.y + s * look;
+      if (!safe(lx, ly, pass)) continue;
+      let score = 0;
+      if (escaping) {
+        let clearance = Math.hypot(lx - th.x, ly - th.y);
+        for (const o of nearby) clearance = Math.min(clearance, Math.hypot(lx - o.x, ly - o.y));
+        score = clearance + preyCover(w, { sp: a.sp, x: lx, y: ly }, wl.game.catalog.animals[th.sp]) * 0.8 - Math.abs(off) * 0.06;
+      }
+      if (score > best) { best = score; chosen = { nx, ny, c, s, off }; }
+      if (!escaping) break;
+    }
   }
-  if (moved) return;
+  if (chosen) {
+    const { nx, ny, c, s, off } = chosen;
+    a.x = nx; a.y = ny; facePoint(a, nx + c, ny + s);
+    if (off) { const mix = 1 - Math.exp(-dt * 10); a.fx += (c - a.fx) * mix; a.fy += (s - a.fy) * mix; }
+    a.fleeOff = off;
+    return;
+  }
   // safe (or cornered): stop and look back
   a.state = 'idle'; a.run = null; a.fleeT = 0;
   a.wait = a.play ? 0.3 + Math.random() * 0.5 : 0.6 + Math.random();
@@ -302,27 +351,55 @@ export function fleeUpdate(wl, a, def, dt) {
 }
 
 // ---------------------------------------------------------------- daily choices
-// Prey keep an eye out: a predator close by makes them stop and stare, then drift away from it;
-// one that's very close, or hunting, makes them bolt (and their companions go too).
-export function watch(wl, a, def) {
-  if (!ashore(def) || a.juvenile) return false;
+// Check danger while resting, walking and eating too. Build the predator list once
+// per short interval instead of scanning every species for each prey on every frame.
+export function updateVigilance(wl, dt) {
+  wl.vigilanceWait = (wl.vigilanceWait || 0) - dt;
+  if (wl.vigilanceWait > 0) return;
+  wl.vigilanceWait = 0.2;
+  const hunters = wl.predatorAgents = wl.agents.filter(o => !o.leaving && preyFor(wl.game.catalog.animals[o.sp], wl.game));
+  if (!hunters.length) return;
+  for (const a of wl.agents) {
+    if (a.leaving || a.fromFire || a.state === 'dormant' || a.state === 'flee' && !a.play) continue;
+    const def = wl.game.catalog.animals[a.sp];
+    if (a.move === 'fly' && !a.flying && birdAlarm(wl, a, def)) continue;
+    watch(wl, a, def, true, hunters);
+  }
+}
+
+// An active pursuer matters more than a nearer resting hunter. Young, flying and
+// aquatic prey use the same diet rules, then escape with their own movement policy.
+export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
+  if (a.leaving || a.fromFire || a.state === 'dormant' || a.state === 'flee' && !a.play) return false;
   const preds = predatorsOf(wl, a.sp);
   if (!preds) return false;
-  let p = null, bd = 36;
-  for (const o of wl.agents) {
-    if (!preds.has(o.sp) || o.leaving) continue;
+  let p = null, best = Infinity, bd = 0;
+  for (const o of candidates) {
+    if (!preds.has(o.sp) || o.leaving || o.state === 'feed' || byId(wl, o.id) !== o ||
+      !canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
-    if (d2 < bd) { bd = d2; p = o; }
+    if (d2 >= 36) continue;
+    const score = d2 / (o.state === 'hunt' && o.target === a.id ? 4 : 1);
+    if (score < best) { best = score; bd = d2; p = o; }
   }
   if (!p) return false;
-  const d = Math.sqrt(bd), stalked = p.state === 'hunt' && p.target === a.id;
-  // (a hunter's own target freezes: the hunt decides what happens next)
-  if (!stalked && p.state !== 'feed' && (d < 3 || p.state === 'hunt')) {
-    bolt(wl, a, p, def.speed * 1.7, 0.6 + Math.random() * 0.5);
-    for (const o of wl.agents) if (o !== a && o.sp === a.sp && o.state !== 'flee' && !o.leaving && dist(o, a) < 4) bolt(wl, o, p, wl.game.catalog.animals[o.sp].speed * 1.7, 0.5 + Math.random() * 0.5, 0.05 + Math.random() * 0.2);
+  const d = Math.sqrt(bd), urgent = d < 3 || p.state === 'hunt';
+  if (urgent) {
+    // Preserve a useful escape already under way rather than repeatedly replacing
+    // the next waypoint before a swimmer or climber can reach it.
+    const j = a.state === 'walk' ? a.path?.[0] : null;
+    const tx = a.state === 'fly' ? a.tx : j != null ? j % wl.game.world.w + 0.5 : null;
+    const ty = a.state === 'fly' ? a.ty : j != null ? (j / wl.game.world.w | 0) + 0.5 : null;
+    if (a.threat === p.id && !a.play && tx != null && Math.hypot(tx - p.x, ty - p.y) > d + 0.25) return true;
+    bolt(wl, a, p, def.speed * 1.9, 1 + Math.random() * 0.5);
+    for (const o of wl.agents) if (o !== a && o.sp === a.sp && o.state !== 'flee' && !o.leaving && !o.fromFire &&
+      dist(o, a) < 4 && canHuntPrey(wl, p, wl.game.catalog.animals[p.sp], o)) {
+      bolt(wl, o, p, wl.game.catalog.animals[o.sp].speed * 1.8, 0.8 + Math.random() * 0.5, 0.05 + Math.random() * 0.15);
+    }
     return true;
   }
-  if (stalked || !(a.alertUntil > a.age)) {
+  if (urgentOnly) return false;
+  if (!(a.alertUntil > a.age)) {
     a.alertT = 1.2 + Math.random() * 1.5; a.wait = a.alertT; facePoint(a, p.x, p.y);
     a.alertUntil = a.age + 4;
     return true;
@@ -340,7 +417,7 @@ export function prowl(wl, a, def) {
   const preySet = new Set(diet.map(k => wl.game.catalog.animal[k]?.index));
   let b = null, bd = 24 * 24;
   for (const o of wl.agents) {
-    if (!preySet.has(o.sp) || o.leaving) continue;
+    if (!preySet.has(o.sp) || o.leaving || o.state === 'dormant') continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
     if (d2 < bd) { bd = d2; b = o; }
   }
@@ -355,7 +432,7 @@ export function prowl(wl, a, def) {
 
 // Scavengers (and the hunter's pack) come to a carcass and feed.
 export function scavenge(wl, a, def) {
-  if (!wl.carcasses.length || a.juvenile || a.hunger < 3) return false;
+  if (a.state === 'dormant' || !wl.carcasses.length || a.juvenile || a.hunger < 3) return false;
   const scav = SCAVENGERS.has(def.key);
   let c = null, bd = Infinity;
   for (const k of wl.carcasses) {
@@ -486,7 +563,7 @@ export function greet(wl, a, def) {
   // (a rival at the water is still fair game: he lifts his head from drinking to meet the challenge)
   const free = b => available(b) || ((rut || light) && b.drinkT > 0 && b.state === 'idle' && !b.leaving && !b.fromFire && !b.socialWith && b.greet == null);
   for (const b of wl.agents) {
-    if (b === a || b.sp !== a.sp || !free(b) || (!rut && b.state !== 'idle') ||
+    if (b === a || territorialRivals(def, a, b, wl.game.month) || b.sp !== a.sp || !free(b) || (!rut && b.state !== 'idle') ||
       young(b, def) || b.socialCooldown > b.age || (rut && (!antlered(def, b) || b.rutCooldown > b.age)) ||
       (light && !antlered(def, b))) continue;
     const d2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
@@ -506,7 +583,8 @@ function meet(wl, a) {
     (!def.sprite.male || (isMaleVariant(def, a) && isMaleVariant(def, o)));
   const light = !rutting(wl, def, a) && sparring(wl, def, a) && sparring(wl, def, o);
   const odds = def.sprite.male?.antlers ? (rutting(wl, def, a) ? 0.95 : light ? 0.85 : 0.25) : 0.6;
-  if (!(rivals && Math.random() < odds && squareUp(wl, a, o, light))) { a.greetT = o.greetT = t; }
+  const maySpar = !def.sprite.male?.antlers || rutting(wl, def, a) || light;
+  if (!(rivals && maySpar && Math.random() < odds && squareUp(wl, a, o, light))) { a.greetT = o.greetT = t; }
 }
 
 // Two rivals walk into a head-to-head stance (close enough for antlers or horns to meet), then
@@ -721,6 +799,7 @@ function cowDay(wl, a, def) {
 // Arrived at the end of a walk or a flight with something in mind.
 export function arrive(wl, a) {
   a.fromFire = false;
+  territoryArrive(wl, a);
   if (a.greet != null) {
     const o = byId(wl, a.greet);
     if (o && HAREM.has(wl.game.catalog.animals[a.sp].key) && RUT.includes(wl.game.month) && bull(wl.game.catalog.animals[a.sp], a) && bull(wl.game.catalog.animals[a.sp], o)) meetRival(wl, a, o);

@@ -17,7 +17,7 @@ import { Events } from './sim/events.js';
 import { checkCampaign } from './sim/campaign.js';
 import { createFarmState, restoreFarmState } from './farm-state.js';
 import { ContractError, assertSaveEnvelope, assertWorld } from './data/contracts.js';
-import { WORLD_ARRAYS, EXTRA_ARRAYS } from './data/world-schema.js';
+import { WORLD_ARRAYS, EXTRA_ARRAYS, extraArrayLimit } from './data/world-schema.js';
 export { WORLD_ARRAYS, EXTRA_ARRAYS } from './data/world-schema.js';
 
 // a map switch in progress across a page reload (see UI.switchMap)
@@ -384,7 +384,7 @@ export class Game {
     for (const [k, Type] of Object.entries(EXTRA_ARRAYS)) {
       const a = data.world.arrays[k];
       if (a?.b) {
-        if (!Number.isInteger(a.n) || a.n < 0 || a.n > w.n) return false;
+        if (!Number.isInteger(a.n) || a.n < 0 || a.n > extraArrayLimit(k, w.n)) return false;
         w[k] = new Type(a.n); restoreArray(a.b, w[k]);
       }
     }

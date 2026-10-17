@@ -20,6 +20,7 @@ import { PlantView } from './plant-view.js';
 import { GeometryIndex } from './geometry-index.js';
 import { PlantShadows } from './plant-shadows.js';
 import { PlantPool, ChunkedPlantPool, floraVersion } from './plant-pools.js';
+import { trailMask } from '../sim/animal-trails.js';
 import { createPlantMaterials } from './plant-materials.js';
 
 // Preserve public imports used by existing rendering tools.
@@ -418,6 +419,8 @@ export class Flora {
             const c = k % clumps, cxp = x + 0.2 + hash2(x, y, 14 + c) * 0.6, czp = y + 0.2 + hash2(x, y, 15 + c) * 0.6, a = hash2(x, y, 21 + k) * 6.28, r = Math.sqrt(hash2(x, y, 41 + k)) * 0.2;
             px = cxp + Math.cos(a) * r; pz = czp + Math.sin(a) * r;
           }
+          // Keep the plant opening aligned with the actual narrow track, not the whole tile.
+          if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > 0.05) continue;
           const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
           // lily pads float on the water surface instead of sitting on the pond bed
           if (bankTile && !aquaticT && !grassyWet(type) && underWater(w, px, pz)) continue; // (dry-land groundcover doesn't grow in the creek)
