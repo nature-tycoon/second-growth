@@ -59,6 +59,8 @@ Cole works on the same machine while agents test, and the 3D game is heavy.
 - Prefer one or two targeted crash sweeps over all maps unless the change is shared engine code.
 - Cole may be playing in a preview tab. Ask before reloading it.
 - When sending Cole links to `tools/*.html` review pages, use `http://localhost:8347/tools/...` with the server running. File links open the raw file and the ES modules never run.
+- In a `tools/*-browser-check.mjs`, send `Page.enable` before `Page.addScriptToEvaluateOnNewDocument`. Without it the script never runs, so seeded settings and `second-growth-pending` are ignored and the farm selector (which can't be dismissed) stays open.
+- Animals small on screen draw from their species pool's distant model (`fauna.species.get(key).far`). A check that counts drawn animals must add `far.count` to `count`.
 - "does not provide an export named …" means the browser cached an old module. Refetch with `cache: 'reload'` or clear the site's cache.
 
 ## Performance reports
