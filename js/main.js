@@ -148,6 +148,7 @@ async function boot() {
 function showLoadError(error) {
   console.error('Second Growth could not start:', error);
   stage('The game could not load', 100);
+  loading.classList.add('failed');
   document.getElementById('loading-tip').textContent = 'Something went wrong while opening the farm. Reloading usually fixes it.';
   loadingRetry.classList.remove('hidden');
   loadingRetry.addEventListener('click', () => location.reload(), { once: true });
