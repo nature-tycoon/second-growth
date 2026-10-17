@@ -753,7 +753,7 @@ export class Terrain {
   }
 
   buildLine() {
-    if (this.line) { this.scene.remove(this.line); this.line.geometry.dispose(); }
+    if (this.line) { this.scene.remove(this.line); this.line.geometry.dispose(); this.line.material.dispose(); }
     const w = this.world, pts = [];
     const add = (x, y) => pts.push(new THREE.Vector3(x, Math.max(this.h(x, y), -0.2) + 0.05, y));
     for (let x = 0; x <= w.w; x++) add(x, 0);

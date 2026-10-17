@@ -60,6 +60,8 @@ export class PlantShadows {
       // Custom depth/alpha materials keep their original drawing path.
       const proxy = source.standIn();
       const packed = !!(proxy || (!source.mat.map && !source.mat.alphaMap && !source.mat.alphaTest && source.mat.side === THREE.FrontSide && source.mat.shadowSide == null && !mesh.customDepthMaterial));
+      // (the visible batch's shadow mirror depends on which path casts, so it is told directly)
+      if (source.packedShadows !== packed) source.onChange?.();
       source.packedShadows = packed; source.useProxy();
       if (packed && source.viewShadow) source.viewShadow.visible = false;
       if (!source.castsShadow || !mesh.visible || (!proxy && !source.mat.visible) || !source.n || !this.hasFrustum) continue;

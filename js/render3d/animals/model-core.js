@@ -1,6 +1,7 @@
 // Shared animal geometry primitives, paints, body parts and sculpting helpers.
 import * as THREE from 'three';
-import { mergeGeometries, mergeVertices } from 'three/addons/BufferGeometryUtils.js';
+import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
+import { weldVertices as mergeVertices } from '../geometry/weld.js';
 
 // Body parts the shader knows how to move.
 const P = { BODY: 0, LEG_FL: 1, LEG_FR: 2, LEG_BL: 3, LEG_BR: 4, TAIL: 5, WING_L: 6, WING_R: 7, HEAD: 8, TONGUE: 9, FRUIT: 10, SPINE: 11 };
