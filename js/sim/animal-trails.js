@@ -185,36 +185,43 @@ function siteValid(wl,a,def,j,feeding) {
   const w=wl.game.world;
   return Number.isInteger(j)&&trailSurface(w,j)&&!w.fire[j]&&passable(w,j,a)&&wl.suit[a.sp][j]>.15&&(!feeding||foodAt(wl,def,j));
 }
+// A herd moves its feeding ground on once it has grazed it down, and picks fresh grass over
+// grass it has been cropping, so its pressure spreads across the meadows rather than wearing one spot bare.
+const freshGrazing=(w,j)=>1-.8*(w.grazed?.[j]||0);
+const grazedOut=(w,j)=>(w.grazed?.[j]||0)>.6;
 export function rangeChoose(wl,a,def) {
   const p=trailProfile(def),w=wl.game.world;
   if(!p?.range||a.leaving||a.juvenile||a.mom!=null||a.fromFire||a.dormancy||a.drinkT||a.socialWith!=null||a.follow)return false;
   if(def.herd && a.herdOf != null && a.herdOf !== a.id)return false;
   const m=a.range;
-  if(m&&(!siteValid(wl,a,def,m.feed,true)||!siteValid(wl,a,def,m.rest,false)))a.range=null;
+  if(m&&(!siteValid(wl,a,def,m.feed,true)||!siteValid(wl,a,def,m.rest,false)||grazedOut(w,m.feed)))a.range=null;
   if(!a.range) {
     if(a.age<(a.rangeAfter||0))return false;
     a.rangeAfter=a.age+12;
     const x=Math.floor(a.x),y=Math.floor(a.y);if(!w.inb(x,y))return false;
     const start=w.idx(x,y),s=workspace(w),stamp=++s.stamp,queue=[start],use=wl.destinationUse(a.sp,a);
+    // Grazers look further afield for good grass than browsers do for their thickets.
+    const reach=def.behavior.forage[0]==='grass'?28:20,box=reach+2;
     s.seen[start]=stamp;let feed=-1,rest=-1,fs=0,rs=0;
     // A local home range, with real food and usable resting habitat. Different
     // individuals score sites differently and account for neighbours' destinations.
-    for(let n=0;n<queue.length&&n<1600;n++) {
+    for(let n=0;n<queue.length&&n<(reach>20?2400:1600);n++) {
       const j=queue[n],xx=j%w.w,yy=j/w.w|0,d=Math.hypot(xx-x,yy-y);
       if(siteValid(wl,a,def,j,false)) {
         const room=1/(1+(use.get(j)||0)*1.5),hab=wl.suit[a.sp][j];
         const tie=.8+.2*hash2(j,a.id,909);
-        if(d>=7&&d<=20&&foodAt(wl,def,j)) {
-          const sc=hab*room*tie/(1+Math.abs(d-12)*.08);if(sc>fs){fs=sc;feed=j;}
+        if(d>=7&&d<=reach&&foodAt(wl,def,j)) {
+          const sc=hab*room*tie*freshGrazing(w,j)/(1+Math.abs(d-12)*.08);if(sc>fs){fs=sc;feed=j;}
         }
         if(d<=6) {
           const covered=w.tree[j]&&w.treeG[j]>.5||w.shrub[j]&&w.shrubG[j]>.4;
-          const sc=hab*room*tie*(p.cover?(covered?1.4:.65):1)/(1+d*.12);
+          // (they lie up in the woods, not on the creek bank: water is a place to drink and move on)
+          const sc=hab*room*tie*(p.cover?(covered?1.4:.65):1)*(w.distWater[j]<=1?.4:1)/(1+d*.12);
           if(sc>rs){rs=sc;rest=j;}
         }
       }
       for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1]]) {
-        const nx=xx+dx,ny=yy+dy;if(!w.inb(nx,ny)||Math.abs(nx-x)>22||Math.abs(ny-y)>22)continue;
+        const nx=xx+dx,ny=yy+dy;if(!w.inb(nx,ny)||Math.abs(nx-x)>box||Math.abs(ny-y)>box)continue;
         const k=w.idx(nx,ny);if(s.seen[k]===stamp||w.fire[k]||!passable(w,k,a))continue;
         s.seen[k]=stamp;queue.push(k);
       }

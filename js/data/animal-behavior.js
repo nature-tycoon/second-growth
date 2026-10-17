@@ -11,6 +11,7 @@ export function behaviorFor(def) {
   let forage = [];
   if (GRAZE.has(k)) forage = ['grass'];
   if (BROWSE.has(k)) forage = ['browse', 'grass'];
+  if (def.key === 'elk') forage = ['grass', 'browse']; // (a grazer first: elk feed out on the meadows and browse in winter)
   if (INSECTS.has(k)) forage = ['insects'];
   if (['squirrel', 'rodent', 'agouti', 'peccary', 'raccoon'].includes(k)) forage = ['fruit', 'seeds', 'insects'];
   if (k === 'bear') forage = ['fruit', 'insects'];

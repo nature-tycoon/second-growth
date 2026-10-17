@@ -447,6 +447,8 @@ export default {
   },
   terrainNames: { PASTURE: 'Plantation ground', SOIL: 'Bare soil', GRAVEL: 'Gravel', MUD: 'Peat mud', MARSH: 'Peat swamp', POND: 'Pool', CREEK: 'Stream or canal', ROAD: 'Estate road', DUFF: 'Forest floor' },
 
+  // Grazing pressure (sim/grazing.js): elephants, sambar and tapir open small clearings; rainforest still returns.
+  grazing: 0.3,
   climate: {
     // Wet nearly all year. Mar–May the first rains, Jun–Aug the driest months (and the haze),
     // Sep–Nov the big rains and floods, Dec–Feb the fruit season, drying out in February.

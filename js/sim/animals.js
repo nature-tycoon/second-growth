@@ -17,6 +17,7 @@ import { travelSpeed } from './climb-pace.js';
 import { territorialChoose, hasTerritory } from './animal-territory.js';
 import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
+import { grazeDay, decayGrazing } from './grazing.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, trailNode } from './animal-trails.js';
 import { dormancySeason } from '../data/animal-dormancy.js';
 import { updatePassage } from './bird-passage.js';
@@ -772,6 +773,7 @@ export class Wildlife {
     const game = this.game, w = game.world, rng = game.rng, ecology = !!game.diff.ecology;
     // Repeated crossings wear trails during movement; unused routes recover daily.
     decayTrails(w);
+    decayGrazing(w);
     for (let i = 0; i < w.n; i++) {
       if (ecology && w.browseDamage?.[i] > 0) w.browseDamage[i] = w.browseDamage[i] < 0.001 ? 0 : w.browseDamage[i] * 0.94;
     }
@@ -785,6 +787,13 @@ export class Wildlife {
       const i = w.idx(x, y);
       a.hunger += shelteredDormant(this, a, def) ? def.behavior.dormancy.rate : 1;
       if (a.state === 'dormant') continue;
+      grazeDay(game, def, x, y);
+      // A family that has settled into a feed-and-rest range moves on to another patch about once
+      // a year, so elk that came in from the north find the meadows further south (see 0003).
+      if (a.range && def.familyHerd && a.state === 'idle' && !a.juvenile && !(inRut(game) && isMaleVariant(def, a)) && this.herdLeader(a) === a && rng() < 1 / 120) {
+        const range = a.range; a.range = null;
+        if (!this.roam(a, def)) a.range = range;
+      }
 
       const diet = preyFor(def, game);
       if (diet && canStartHunt(a) && a.hunger > 7 && rng() < 0.4) this.startHunt(a, def, diet);
@@ -1390,7 +1399,10 @@ export class Wildlife {
     }
     if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
     if (!depth || depth.length < n) depth = new Int16Array(n);
-    const corridor = j => travelCorridor(w, a, def, map, j);
+    // (overland, a route keeps off the property's outermost ring: otherwise ties in the search
+    // send it along the boundary, its wear makes a trail there, and the herds keep to the edge)
+    const ring = j => { const x = j % W, y = (j / W) | 0; return x === 0 || y === 0 || x === W - 1 || y === w.h - 1; };
+    const corridor = j => travelCorridor(w, a, def, map, j) && (a.leaving || a.move !== 'ground' || !ring(j));
     stampN++;
     let head = 0, tail = 0, pick = -1, seen = 0;
     const dest = resume ?? -1;
@@ -1683,7 +1695,7 @@ export class Wildlife {
       }
       a.bankGoal = null;
       a.drinkAt = bank.water; facePoint(a, ...bank.water);
-      a.waterTrip = false; a.thirst = 0; a.drinkT = restless(this, def, a) ? 0.6 + Math.random() * 0.6 : 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false; a.alt = 0;
+      a.waterTrip = false; a.thirst = 0; a.drinkT = restless(this, def, a) ? 0.6 + Math.random() * 0.6 : def.familyHerd ? 0.8 + Math.random() * 0.8 : 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false; a.alt = 0; // (deer and elk drink and move on)
       return true;
     }
     if (a.thirst < every || a.juvenile && def.herd) return false;

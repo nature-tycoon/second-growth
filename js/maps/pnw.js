@@ -41,6 +41,9 @@ export default {
   ],
 
   // Months run March..February.
+  // How strongly herds of grazers and browsers hold woody seedlings back in the grass they use
+  // (sim/grazing.js): elk and deer keep the valley's meadows open where they feed.
+  grazing: 1,
   climate: {
     seasons: ['Spring', 'Summer', 'Autumn', 'Winter'],
     rain: [0.45, 0.35, 0.3, 0.2, 0.08, 0.08, 0.2, 0.45, 0.6, 0.65, 0.65, 0.55],

@@ -3,6 +3,7 @@
 import { T, F, isWater, clamp } from '../config.js';
 import { layerLight } from './environment.js';
 import { stressYoungPlant } from './ecological-pressure.js';
+import { grazedRecruitOdds, grazedSeedlingLost, grazedGrowth, overgrazedLoss } from './grazing.js';
 
 const rangeFit = (v, lo, hi, soft) => v < lo ? Math.max(0, 1 - (lo - v) / soft) : v > hi ? Math.max(0, 1 - (v - hi) / soft) : 1;
 
@@ -129,6 +130,7 @@ export function trySeed(w, p, i, rng) {
     if (gp.look.type === 'grass' || gp.look.type === 'sedge' || gp.look.type === 'tallgrass') odds *= open ? 0.1 : 0.3;
     else if (gp.smother) odds *= gp.smother; // (a creeper that blankets the ground, like Sumatra's Chinese violet)
   }
+  odds *= grazedRecruitOdds(w, i, p); // and herds crop or tread most of what comes up where they feed
   // On the savanna the roots of a grown tree take all the water around it, so native seedlings
   // only come up in the gaps and the trees stay scattered (invasive mesquite still makes thickets).
   if (open && p.layer === 2 && !p.invasive && crowded(w, i, 1, 'tree', 2)) return false;
@@ -209,6 +211,7 @@ export function updatePlants(game) {
       let g = w.groundG[i];
       if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4;
       else g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
+      if (!p.aquatic && g > 0.15) g = Math.max(0.15, g - overgrazedLoss(w, i)); // a crowded herd crops it short
       if (g <= 0) { w.ground[i] = 0; w.groundG[i] = 0; }
       else {
         g = Math.min(1, g); w.groundG[i] = g; cover += g;
@@ -233,10 +236,10 @@ export function updatePlants(game) {
       const p = game.catalog.plants[id];
       const s = plantSuit(w, i, p);
       let g = w.shrubG[i];
-      if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4;
+      if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4 * grazedGrowth(w, i, p, g);
       else if (g < 0.9) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       else if (rng() < 0.004 * (0.3 - s) / 0.3) g = 0; // shaded out
-      if (droughtKills(w, i, g, gf, rng)) g = 0;
+      if (droughtKills(w, i, g, gf, rng) || grazedSeedlingLost(w, i, p, g, rng)) g = 0;
       // weedy bushes on healthy grassland lose out over the years (a thick native sward, hotter
       // grass fires and browsing all work against them)
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0025 * bankK) g = 0;
@@ -265,7 +268,7 @@ export function updatePlants(game) {
       const ageY = w.treeAge[i] / 120;
       let dies = false;
       if (g < 0.95) {
-        if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4;
+        if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4 * grazedGrowth(w, i, p, g);
         else if (g < 0.5) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
         else if (rng() < 0.002 * (0.3 - s) / 0.3) dies = true;
       } else if (s >= 0.3) g = Math.min(1, g + p.grow * gf * 0.5);
@@ -273,7 +276,7 @@ export function updatePlants(game) {
       // Sustained inundation, rather than the day a dam is built, creates snags.
       if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) dies = true;
       if (ageY > p.life && rng() < 0.004) dies = true;
-      else if (droughtKills(w, i, g, gf, rng)) g = 0;
+      else if (droughtKills(w, i, g, gf, rng) || grazedSeedlingLost(w, i, p, g, rng)) g = 0;
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
       // savanna: in the dry months, trees packed into a thicket run short of water and some die back
       else if (game.catalog.definition.savanna && gf < 0.6 && !p.invasive && w.distWater[i] > 3 && rng() < 0.006 && crowded(w, i, 3)) dies = true;

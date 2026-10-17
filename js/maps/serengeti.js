@@ -85,6 +85,9 @@ export default {
   hardpan: true,
   // open savanna: trees stay scattered (see sim/plants.js), except along the water
   savanna: true,
+  // Grazing pressure (sim/grazing.js) kept light: trampling, fire and dry-season drought already
+  // keep the plains open, and giraffe and elephant need young acacias to browse, so herds add only a little.
+  grazing: 0.25,
   // native seed bank: on healthy land, buried native seed beats weeds into burned and bare ground
   seedbank: true,
   // every animal walks (or flies) to water every few days to drink
