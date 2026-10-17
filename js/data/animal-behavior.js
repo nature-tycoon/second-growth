@@ -1,3 +1,5 @@
+import { dormancyProfileFor } from './animal-dormancy.js';
+import { territoryProfileFor } from './animal-territories.js';
 // Behavioral guilds complement species habitat/diet data; they never change population capacity.
 // Research and per-map audit: tools/animal-behavior-audit.json.
 const GRAZE = new Set(['rabbit', 'capybara', 'zebra', 'wildebeest', 'gazelle', 'antelope', 'buffalo', 'warthog', 'hippo']);
@@ -37,5 +39,5 @@ export function behaviorFor(def) {
   // Coyotes pursuing the small prey represented here hunt alone or with one companion.
   const partners = def.key === 'coyote' ? 1 : ['lion', 'hyena', 'giantotter'].includes(def.key) ? 3 : 0;
   const combat = def.domestic ? null : HORNS.has(k) ? 'horns' : k === 'giraffe' ? 'necking' : null;
-  return { forage, hunt, partners, combat };
+  return { forage, hunt, partners, combat, territory: territoryProfileFor(def), dormancy: dormancyProfileFor(def) };
 }

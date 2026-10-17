@@ -1,7 +1,7 @@
 // Data boundaries shared by builders, restore code and the Node release checks.
 // Keep these independent of Game, map modules and rendering so they create no import cycle.
 import { T, F, BORDER, MONTHS_PER_YEAR } from '../config.js';
-import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS } from './world-schema.js';
+import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema.js';
 
 /** @typedef {0|1|2} PlantLayer Groundcover, shrub, tree; separate from species IDs. */
 /** @typedef {'ground'|'semi'|'tree'|'fly'|'swim'} AnimalMove */
@@ -489,7 +489,7 @@ export function assertWorld(world, catalog, path = 'world') {
     if (values == null && key in EXTRA_ARRAYS) continue;
     if (!(values instanceof Type)) fail(q, Type.name);
     // Older saves may contain partially allocated optional arrays; retain that format.
-    if (key in EXTRA_ARRAYS ? values.length > world.n : values.length !== (key === 'vh' ? vertices : world.n)) fail(q, `the ${key === 'vh' ? 'vertex' : 'tile'} array length`);
+    if (key in EXTRA_ARRAYS ? values.length > extraArrayLimit(key, world.n) : values.length !== (key === 'vh' ? vertices : world.n)) fail(q, `the ${key === 'vh' ? 'vertex' : 'tile'} array length`);
     if (Type === Float32Array && !values.every(Number.isFinite)) fail(q, 'finite values');
   }
   for (const [key, values] of [['terrain', Object.values(T)], ['feature', Object.values(F)]]) {

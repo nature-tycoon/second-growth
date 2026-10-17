@@ -106,6 +106,8 @@ export class Actors {
     this.lastT = time;
     F.begin(pixelsPerUnit(camera, viewportHeight));
     for (const a of game.wildlife.viewAgents) {
+      // Dormant residents are sheltered inside dens/roosts, not walking models.
+      if (a.state === 'dormant') continue;
       let def = drawDef(animalDef(a, game.catalog), a, game.month); // Adult sex traits and seasonal plumage.
       if (isCanopyWalker(def)) {
         let walker = this.walkerModels.get(def);

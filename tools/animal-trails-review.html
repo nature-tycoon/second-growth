@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Game trail review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>body{margin:0;background:#e2e7d9;color:#26392e;font:15px system-ui}canvas{display:block;width:100vw;height:calc(100vh - 76px)}header{padding:12px 20px;height:52px}button{margin-right:12px;padding:5px 10px}p{margin:4px 0}</style>
+<header><button id="play">Play animals</button><button id="toggle">Hide trails</button><button id="quality">Detail: Fast</button><span id="status">Preparing…</span><p>Two game years of elk travel. Press Play to watch them follow curved routes between feeding and resting areas. No player saves are used.</p></header><canvas></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { Game } from '../js/game.js';
+import { Terrain,buildAtlas } from '../js/render3d/terrain.js';
+import { Flora } from '../js/render3d/flora.js';
+import { Actors } from '../js/render3d/actors.js';
+import { createTrailFixture,runTrailDays } from './animal-trails-fixtures.mjs';
+import { snow } from '../js/render3d/snow.js';
+const {g}=createTrailFixture(Game);runTrailDays(g,220);
+g.speed=0;g.weather='clear';g.snow=0;snow.uSnow.value=0;
+const w=g.world,canvas=document.querySelector('canvas'),gl=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
+gl.setSize(innerWidth,innerHeight-76);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;
+const scene=new THREE.Scene();scene.background=new THREE.Color('#e2e7d9');scene.add(new THREE.HemisphereLight(0xe4eeff,0x5f6e3c,1.3));const sun=new THREE.DirectionalLight(0xfff3dc,2.3);sun.position.set(20,45,20);scene.add(sun);
+const camera=new THREE.OrthographicCamera(-14*innerWidth/(innerHeight-76),14*innerWidth/(innerHeight-76),14,-14,.1,300);camera.position.set(70,55,75);camera.lookAt(44,1,39);camera.updateMatrixWorld();
+const terrain=new Terrain(scene,buildAtlas(g.catalog));terrain.setWorld(w,g.border);terrain.updateSurface(g);
+const flora=new Flora(scene),actors=new Actors(scene,flora);flora.setZoom(1.5);actors.setZoom?.(1.5);
+let visible=true,fast=true,playing=false,frame=null,previous=0,dayProgress=0;
+const status=document.getElementById('status'),play=document.getElementById('play');
+function render(){actors.update(g,new THREE.Vector3(1,0,0),1,camera,innerHeight-76);gl.render(scene,camera);status.textContent=(visible?'Trails visible':'Without trails')+' · '+(fast?'Fast':'High')+' · '+(playing?'Playing':'Paused');}
+function draw(){
+ terrain.setFast(fast);terrain.tiles.trailVisible.value=visible?1:0;flora.setLight(fast);
+ const density=w.trailDensity;if(!visible)w.trailDensity=null;
+ try{flora.rebuild(g,true);}finally{w.trailDensity=density;}
+ flora.updateView(camera);render();
+}
+function advance(days){
+ for(let left=days;left>1e-8;){const dt=Math.min(.05,left);g.wildlife.update(dt);left-=dt;dayProgress+=dt;
+  if(dayProgress>=1-1e-8){dayProgress-=1;g.day++;g.wildlife.daily();terrain.updateSurface(g);draw();}
+ }
+ render();
+}
+function animate(now){if(!playing)return;const dt=previous?Math.min(.05,(now-previous)/1000*.8):0;previous=now;if(dt)advance(dt);frame=requestAnimationFrame(animate);}
+function setPlaying(value){playing=!!value&&!document.hidden;play.textContent=playing?'Pause animals':'Play animals';previous=0;if(frame!=null)cancelAnimationFrame(frame);frame=playing?requestAnimationFrame(animate):null;render();}
+function toggle(){visible=!visible;draw();document.getElementById('toggle').textContent=visible?'Hide trails':'Show trails';}
+play.onclick=()=>setPlaying(!playing);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)setPlaying(false);});window.addEventListener('pagehide',()=>setPlaying(false));
+document.getElementById('toggle').onclick=toggle;document.getElementById('quality').onclick=()=>{fast=!fast;draw();document.getElementById('quality').textContent='Detail: '+(fast?'Fast':'High');};
+window.trailReview={g,gl,terrain,flora,actors,draw,toggle,advance,setPlaying,setFast(value){fast=value;draw();},setSnow(value){snow.uSnow.value=value;render();},pixels(){const p=new Uint8Array(gl.domElement.width*gl.domElement.height*4);gl.getContext().readPixels(0,0,gl.domElement.width,gl.domElement.height,gl.getContext().RGBA,gl.getContext().UNSIGNED_BYTE,p);return p;}};
+draw();window.trailReady=true;
+</script></html>
