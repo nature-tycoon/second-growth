@@ -52,11 +52,13 @@ function nearby(wl, a, good, radius = 8, min = 0) {
   }
   return best;
 }
-// Small songbirds, hummingbirds and woodpeckers never keep still for long.
+// Small songbirds, hummingbirds and woodpeckers never keep still for long, though even they
+// settle in a tree for a while rather than flitting from crown to crown.
 const BRISK = new Set(['songbird', 'hummer', 'woodpecker']);
 const tileKey = a => Math.floor(a.y) * 1e4 + Math.floor(a.x);
-function hold(wl, a, kind, t = 1.5 + Math.random() * 2, water = null) {
-  if (BRISK.has(wl.game.catalog.animals[a.sp].sprite.kind) && kind !== 'nest') t *= 0.5;
+const inTree = kind => kind === 'perch' || kind === 'preen';
+function hold(wl, a, kind, t = inTree(kind) ? 5 + Math.random() * 7 : 1.5 + Math.random() * 2, water = null) {
+  if (BRISK.has(wl.game.catalog.animals[a.sp].sprite.kind) && kind !== 'nest') t *= inTree(kind) ? 0.75 : 0.5;
   a.state = 'bird'; a.bird = { kind, t, water }; a.birdGoal = null;
   if (kind === 'perch' || kind === 'preen') a.perchedAt = tileKey(a);
   if (kind === 'forage') a.foragedAt = tileKey(a);
@@ -144,8 +146,8 @@ export function birdChoose(wl, a, def) {
     if (j >= 0) { flyTo(a, w, j, 'forage'); return true; }
   }
   if (profile.perch && roll < 0.9) {
-    // One spell in a tree, then on to another a few trees away, not the next trunk over.
-    if (perchTile(w, i) && a.perchedAt !== tileKey(a)) { hold(wl, a, Math.random() < 0.4 ? 'preen' : 'perch', 2 + Math.random() * 4); return true; }
+    // A spell or two in a tree, then on to another a few trees away, not the next trunk over.
+    if (perchTile(w, i) && (a.perchedAt !== tileKey(a) || Math.random() < 0.5)) { hold(wl, a, Math.random() < 0.4 ? 'preen' : 'perch'); return true; }
     const j = nearby(wl, a, j => j !== i && perchTile(w, j) && suit[j] > 0.03, 8, 3);
     if (j >= 0) { flyTo(a, w, j, 'perch'); return true; }
   }
