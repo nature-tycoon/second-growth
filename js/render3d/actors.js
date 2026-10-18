@@ -261,6 +261,13 @@ export class Actors {
         y = Math.max(y, crown + (a.passing ? 0.8 : 0.2));
       }
       if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
+      // A bird's height eases between flight, the treetops it clears and its perch, rather than
+      // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
+      if (def.move === 'fly' && !def.reef && !a.passing) {
+        if (st.birdY == null || returning || st.sc == null) st.birdY = y;
+        else st.birdY += (y - st.birdY) * Math.min(1, k * 1.4);
+        y = st.birdY;
+      }
       const perched = def.move === 'tree' || (def.move === 'fly' && !a.birdGround && !flying && inside && !!w.tree[i]);
       if (perched && st.canopyY != null && !returning) {
         const gap = y - st.canopyY;
@@ -307,20 +314,26 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
-      // The bird being tracked, perched in a tree, sits on one of its real limbs (see bird-perch.js),
-      // gliding there and back as it's selected and let go; the others keep their place in the crown.
+      // The bird being tracked, perched in a tree, sits on one of its real limbs (see bird-perch.js);
+      // the others keep their place in the crown. Moving onto a limb, off it (selected or let go,
+      // or taking off) or between limbs, the jump fades out over a moment as an offset, so the
+      // drawn bird never trails behind one that's flying away.
       const tracked = a === this.followAgent || a === game.selectedAgent;
-      let perchGoal = null;
-      if (perchSite && tracked && perchPoint(perchSite, a.x, a.y, this.perchGoal)) perchGoal = this.perchGoal;
-      else if (st.perchOn) perchGoal = this.perchGoal.set(ax, y, az);
-      if (perchGoal) {
-        if (!st.perchOn) (st.perch ||= new THREE.Vector3()).set(st.x, st.y, st.z); // (from where it was last drawn)
-        if (returning || st.sc == null) st.perch.copy(perchGoal);
-        else st.perch.lerp(perchGoal, Math.min(1, k * 2.5));
-        ax = st.perch.x; az = st.perch.z; y = st.canopyY = st.perch.y;
-        st.perchOn = tracked && !!perchSite || st.perch.distanceToSquared(perchGoal) > 1e-4;
+      const spot = perchSite && tracked ? perchPoint(perchSite, a.x, a.y, this.perchGoal, st.limbSite === perchSite ? st.limbSpot : -1) : -1;
+      const onLimb = spot >= 0;
+      st.limbSite = onLimb ? perchSite : null; st.limbSpot = spot; // (it keeps its limb until it leaves the tree)
+      if (onLimb) { ax = this.perchGoal.x; az = this.perchGoal.z; y = this.perchGoal.y; }
+      if (st.sc != null && !returning && (onLimb !== !!st.onLimb || onLimb && st.limbAt.distanceToSquared(this.perchGoal) > 1e-4))
+        (st.perchOffset ||= new THREE.Vector3()).set(st.x - ax, st.y - y, st.z - az);
+      else if (returning) st.perchOffset?.set(0, 0, 0);
+      st.onLimb = onLimb;
+      if (onLimb) (st.limbAt ||= new THREE.Vector3()).copy(this.perchGoal);
+      const off = st.perchOffset;
+      if (off && off.lengthSq() > 1e-6) { ax += off.x; y += off.y; az += off.z; off.multiplyScalar(1 - Math.min(1, k * 1.2)); }
+      if (onLimb) {
+        st.canopyY = y;
         // (the focus window opens the whole tree in front of it: keep the limb it sits on solid, as for a climber)
-        if (tracked && perchSite && this.flora.treeSites.get(perchSite.tile) === perchSite) canopySites.add(perchSite);
+        if (this.flora.treeSites.get(perchSite.tile) === perchSite) canopySites.add(perchSite);
       }
       let branchPitch = 0, branchRoll = 0, branchYaw = 0;
       if (def.move === 'tree') {
