@@ -68,18 +68,22 @@ export function perchSpots(site) {
   return spots;
 }
 
-// The perch for a bird at (x, z) in this tree, in world space: the spot nearest to it, written
-// into out. False when the tree has nowhere to sit.
-export function perchPoint(site, x, z, out) {
+// The perch for a bird at (x, z) in this tree, in world space, written into out: the spot nearest
+// to it, or the spot it already took (spot, an index) so it doesn't hop between limbs as the
+// simulation nudges it about. Returns the spot's index, or -1 when the tree has nowhere to sit.
+export function perchPoint(site, x, z, out, spot = -1) {
   const spots = perchSpots(site);
-  if (!spots.length) return false;
+  if (!spots.length) return -1;
   site.prepare();
-  let best = null, bd = Infinity;
-  for (const s of spots) {
-    out.set(s.x, s.y, s.z).applyMatrix4(site.matrix);
-    const d = (out.x - x) ** 2 + (out.z - z) ** 2;
-    if (d < bd) { bd = d; best = s; }
+  if (!spots[spot]) {
+    let bd = Infinity;
+    spots.forEach((s, k) => {
+      out.set(s.x, s.y, s.z).applyMatrix4(site.matrix);
+      const d = (out.x - x) ** 2 + (out.z - z) ** 2;
+      if (d < bd) { bd = d; spot = k; }
+    });
   }
-  out.set(best.x, best.y, best.z).applyMatrix4(site.matrix);
-  return true;
+  const s = spots[spot];
+  out.set(s.x, s.y, s.z).applyMatrix4(site.matrix);
+  return spot;
 }

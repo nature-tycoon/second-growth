@@ -109,4 +109,18 @@ check('Resting reef seabirds keep their bodies above sea level', () => {
     if (key === 'noddy') assert.ok(Math.abs(pose.y - sea) < 0.01);
   }
 });
+check('Birds glide between perch, treetop and flight heights instead of jumping', () => {
+  const g = setup(), w = g.world, maple = g.catalog.plants.find(p => p && p.key === 'maple').id;
+  for (let x = 20; x < 40; x++) { const i = w.idx(x, 30); w.terrain[i] = T.SOIL; w.tree[i] = x % 3 ? maple : 0; w.treeG[i] = 1; }
+  const a = spawn(g, 'robin', 22, 30), actors = new Actors(new THREE.Scene()), right = new THREE.Vector3(1, 0, 0);
+  a.state = 'idle'; a.flying = false; a.alt = 0;
+  let time = 0, last = null, worst = 0;
+  const frame = () => { actors.update(g, right, time += 1 / 60); const y = actors.pose.get(a.id).y; if (last != null) worst = Math.max(worst, Math.abs(y - last)); last = y; };
+  for (let k = 0; k < 30; k++) frame(); // perched in the crown
+  Object.assign(a, { flying: true, state: 'fly', birdGoal: { kind: 'perch' } });
+  for (let k = 0; k < 180; k++) { a.alt = Math.min(1, a.alt + 0.05); a.x += 0.06; frame(); } // over trees and the gaps between
+  Object.assign(a, { flying: false, state: 'idle', alt: 0, birdGoal: null, x: 34.5 }); // lands in a crown
+  for (let k = 0; k < 60; k++) frame();
+  assert.ok(worst < 0.25, `a bird's height jumped ${worst.toFixed(2)} in one frame`);
+});
 console.log(`${checks} bird landing checks passed.`);
