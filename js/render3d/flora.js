@@ -474,13 +474,15 @@ export class Flora {
         const g = fringeS || (inside ? w.shrubG[i] : 1);
         const phase = plantPhase(p, month);
         let sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
-        if (bankTile) [sx, sz] = this.dryPoint(w, x, y, sx, sz);
-        // a blue sea star sharing a tile with a coral lies on the sand beside it, at the far side
-        // of the tile from the coral, rather than in the same spot with its arms poking through
-        if (p.look.type === 'seastar' && tid) {
-          const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5; // (where the coral stands: see trees below)
-          sx = x + 0.5 - Math.sign(ox || 1) * 0.34; sz = y + 0.5 - Math.sign(oz || 1) * 0.34;
+        // a bush sharing a tile with a tree grows at the far side of the tile from the trunk, not
+        // inside it (the tree's offset uses the same hashes: see trees below). A blue sea star lies
+        // on the sand beside its coral the same way, rather than with its arms poking through.
+        if (tid) {
+          const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
+          const d = p.look.type === 'seastar' ? 0.34 : 0.24 + hash2(x, y, 5) * 0.08;
+          sx = x + 0.5 - Math.sign(ox || 1) * d; sz = y + 0.5 - Math.sign(oz || 1) * d;
         }
+        if (bankTile) [sx, sz] = this.dryPoint(w, x, y, sx, sz);
         let sy = hAt(sx, sz);
         if (p.look.climbs && tid) { // (a crown-of-thorns starfish sits up on top of the coral it's eating)
           const tp = game.catalog.plants[tid], tg = inside ? w.treeG[i] : 0.9, tsc = (0.2 + 0.8 * tg) * (0.78 + hash2(x, y, 9) * 0.42) * (tp.look.scale ?? 1);
