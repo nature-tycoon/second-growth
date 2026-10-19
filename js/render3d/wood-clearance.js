@@ -32,7 +32,7 @@ const localWood = { from: localFrom, dir: localDir, length: 0, r0: 0, r1: 0 };
 export function outlineFitsWood(points, bounds, point, quaternion, wood, margin, scale = 1, origin = zero) {
   if (bodyUp.set(0, 1, 0).applyQuaternion(quaternion).y < -.00001) return false;
   inversePose.copy(quaternion).invert();
-  const skin = margin / scale;
+  const skin = margin / scale, clusters = clustersFor(points);
   for (const b of wood) {
     localFrom.copy(b.from).sub(point).applyQuaternion(inversePose).divideScalar(scale).add(origin);
     localDir.copy(b.dir).applyQuaternion(inversePose);
@@ -51,9 +51,56 @@ export function outlineFitsWood(points, bounds, point, quaternion, wood, margin,
       }
     }
     if (low > high) continue;
-    for (const p of points) if (woodDistance(p, localWood) < skin) return false;
+    if (!clusters) { for (const p of points) if (woodDistance(p, localWood) < skin) return false; continue; }
+    // A point closer than `skin` by woodDistance lies within `reach` of the limb's
+    // axis segment, so a cluster whose sphere stays beyond that is clear as a whole.
+    const reach = padding + skin * Math.hypot(1, (localWood.r1 - localWood.r0) / localWood.length) + 1e-9;
+    const { centers, radii, members, starts } = clusters;
+    for (let g = 0; g < centers.length; g++) {
+      const c = points[centers[g]], x = c.x - localFrom.x, y = c.y - localFrom.y, z = c.z - localFrom.z;
+      const t = Math.max(0, Math.min(localWood.length, x * localDir.x + y * localDir.y + z * localDir.z));
+      const dx = x - localDir.x * t, dy = y - localDir.y * t, dz = z - localDir.z * t, far = radii[g] + reach;
+      if (dx * dx + dy * dy + dz * dz >= far * far) continue;
+      for (let i = starts[g]; i < starts[g + 1]; i++) if (woodDistance(points[members[i]], localWood) < skin) return false;
+    }
   }
   return true;
+}
+
+// Body outlines have hundreds of points but only a few touch any one limb.
+// Group them into small spheres once per outline so most can be skipped.
+// Callers may move an outline in place only rigidly (canopyLean turns,
+// shifts and scales a copy the same way every frame): the spheres keep their
+// radii and follow their center points. A changed span rebuilds them.
+const outlineClusters = new WeakMap(), CLUSTER = 16;
+function clustersFor(points) {
+  if (points.length < CLUSTER * 4) return null;
+  let c = outlineClusters.get(points);
+  if (c && c.count === points.length && Math.abs(points[0].distanceTo(points[c.farthest]) - c.span) <= c.span * 1e-6) return c;
+  let farthest = 0;
+  for (let i = 1; i < points.length; i++) if (points[0].distanceToSquared(points[i]) > points[0].distanceToSquared(points[farthest])) farthest = i;
+  const order = points.map((_, i) => i), centers = [], radii = [], starts = [0];
+  const split = (from, to) => {
+    let min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+    for (let i = from; i < to; i++) { const p = points[order[i]]; ['x', 'y', 'z'].forEach((a, k) => { min[k] = Math.min(min[k], p[a]); max[k] = Math.max(max[k], p[a]); }); }
+    if (to - from <= CLUSTER) {
+      const mid = min.map((v, k) => (v + max[k]) / 2);
+      let center = order[from], best = Infinity, radius = 0;
+      for (let i = from; i < to; i++) { const p = points[order[i]], d = (p.x - mid[0]) ** 2 + (p.y - mid[1]) ** 2 + (p.z - mid[2]) ** 2; if (d < best) { best = d; center = order[i]; } }
+      for (let i = from; i < to; i++) radius = Math.max(radius, points[center].distanceTo(points[order[i]]));
+      centers.push(center); radii.push(radius * (1 + 1e-9)); starts.push(to);
+      return;
+    }
+    const axis = ['x', 'y', 'z'][[0, 1, 2].reduce((a, k) => max[k] - min[k] > max[a] - min[a] ? k : a, 0)];
+    const part = order.slice(from, to).sort((a, b) => points[a][axis] - points[b][axis]);
+    for (let i = from; i < to; i++) order[i] = part[i - from];
+    const half = (from + to) >> 1; split(from, half); split(half, to);
+  };
+  split(0, points.length);
+  c = { count: points.length, farthest, span: points[0].distanceTo(points[farthest]), centers: Int32Array.from(centers),
+    radii: Float64Array.from(radii), members: Int32Array.from(order), starts: Int32Array.from(starts) };
+  outlineClusters.set(points, c);
+  return c;
 }
 
 export function bodyFitsWood(profile, point, quaternion, wood) {
