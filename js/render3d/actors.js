@@ -224,6 +224,7 @@ export class Actors {
       // Flyers descend relative to the visible surface, even above a deeply carved basin.
       let y = def.move === 'fly' ? Math.max(ground, surf ?? ground) : ground;
       let perchSite = null; // (the tree a perched bird sits in, when its limbs are known)
+      let swimming = false; // (a land animal out of its depth, paddling with its head out)
       // Which crown a climber or percher is in: it keeps the tree it's in until it's clearly into
       // the next one, so an animal nudged back and forth across the line between two trees of
       // different heights doesn't bob up and down between them.
@@ -265,6 +266,15 @@ export class Actors {
       }
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
       else if (surf != null && FLOATERS.has(kind) && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
+      else if ((def.move === 'ground' || def.move === 'semi') && !def.reef && mo.eye && inside && w.distWater[i] <= 2) {
+        // A land animal wades while its head is clear of the water. Where the water is deeper than
+        // that it swims, body under and head out, instead of walking along the bottom. (The drawn
+        // water also reaches onto the bank, and managed water covers land tiles.)
+        const drawn = this.terrain?.waterAt?.(a.x, a.y);
+        const level = Number.isFinite(drawn) ? drawn : surf ?? waterSurfaceY(w, a.x, a.y) ?? -Infinity;
+        const swimY = level - mo.eye[1] * sc * 0.85;
+        if (swimY > ground) { y = swimY; swimming = true; }
+      }
       else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
         const c = ci(); perchSite = this.flora?.treeSites.get(c); y += (TREE_SHAPES[game.catalog.plants[w.tree[c]].look.type]?.height || 2) * (game.catalog.plants[w.tree[c]].look.scale ?? 1) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
@@ -331,12 +341,12 @@ export class Actors {
       const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
       const birdHead = a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
         : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
-      const head = fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
+      const head = swimming ? 0 : fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
         : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
       st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
       if (fight) st.gait += (fight.gait - st.gait) * k;
       // stalking cats sink low to the ground
-      st.crouch = (st.crouch || 0) + ((stalking ? 1 : 0) - (st.crouch || 0)) * k;
+      st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
       // The bird being tracked, perched in a tree, sits on one of its real limbs (see bird-perch.js);
@@ -583,7 +593,7 @@ export class Actors {
       if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
       // (after the reads of F.m above, which must still hold this animal's own instance)
       if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);
-      if (!st.branch && def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
+      if (!st.branch && def.move !== 'swim' && !swimming && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
     for (const bridge of bridges) { canopySites.add(bridge.source); canopySites.add(bridge.target); }

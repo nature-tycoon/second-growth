@@ -124,6 +124,7 @@ export class Renderer {
     this.flora = new Flora(this.scene, { catalog: this.catalog });
     this.lightingDepth = true;
     this.actors = new Actors(this.scene, this.flora);
+    this.actors.terrain = this.terrain; // (for the drawn water surface)
     this.seaSurface = new SeaSurface(this.scene);
     this.structMat = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), 1.1));
     this.structs = new Map();
