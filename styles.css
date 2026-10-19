@@ -39,9 +39,9 @@
   position: relative; display: grid; justify-items: center; text-align: center;
   grid-template-areas: "logo" "title" "tagline" "progress" "tip" "retry";
   width: min(calc(100vw - 32px), 440px); padding: 26px clamp(20px, 5vw, 34px) 22px; margin-top: -4vh;
-  background: linear-gradient(135deg, #edf4ddeb, #dce8c7e6);
-  border: 1px solid #f5f9e9a6; border-radius: 22px;
-  box-shadow: 0 14px 40px #112b182e, 0 2px 6px #112b181a, inset 0 1px 0 #ffffff80;
+  background: rgba(248, 251, 242, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 26px;
+  box-shadow: 0 2px 4px rgba(17, 43, 24, 0.06), 0 30px 70px -20px rgba(17, 43, 24, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 .ls-logo { grid-area: logo; width: clamp(84px, 13vh, 112px); aspect-ratio: 1; }
 .ls-emblem { width: 100%; height: 100%; filter: drop-shadow(0 6px 10px #1a32222e); }
@@ -96,31 +96,57 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; font-family: var(--ui); color: var(--ink);
-  background: radial-gradient(ellipse at 50% 35%, #56715a 0%, #34493a 55%, #1f2c24 100%); }
-canvas#view { position: fixed; inset: 0; display: block; cursor: crosshair; }
-canvas#fx { position: fixed; inset: 0; pointer-events: none; }
+  background: #1f2c24 radial-gradient(ellipse at 50% 35%, #56715a 0%, #34493a 55%, #1f2c24 100%); }
+/* Pinned so the page can't scroll. On iOS, when the game is opened from the home screen, a turn
+   sideways can leave the page scrolled down by the status bar's height, which slid the game down
+   and showed a light strip below it. The canvases fill the window from CSS, so a size iOS reports
+   late during the turn can't leave a gap either (scene.js only sets their pixel buffers). */
+body { position: fixed; inset: 0; }
+canvas#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+canvas#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 #topbar, #toolbar, #toolpanel, #infopanel, #legend, #minimap-wrap, #banner, #toasts, #cursor-tip { user-select: none; -webkit-user-select: none; }
 body.painting #toolpanel, body.painting #infopanel { opacity: 0.25; pointer-events: none; transition: opacity 0.2s; }
 body.panels-hidden #toolpanel, body.panels-hidden #infopanel, body.panels-hidden #legend, body.panels-hidden #minimap-wrap { display: none !important; }
 button, select { font-family: inherit; color: inherit; }
 .hidden { display: none !important; }
 
+/* Glass: one light material for the HUD panels and every dialog. A near-white surface with a hint
+   of sage, a strong blur that lifts the land's colour (saturate) instead of greying it, a hairline
+   edge with a top highlight, and a soft lifted shadow. Inside it, controls and cards are plain
+   white fills (the --paper tokens are remapped below) rather than tinted boxes.
+   Blur only where it's cheap: off on Fast, and off for the HUD on touch screens, where the panels
+   fall back to the denser --glass-solid. See docs/game-menu-style.md. */
+:root {
+  --glass: rgba(248, 251, 242, 0.44);
+  --glass-dense: rgba(248, 251, 242, 0.62); /* (panels full of text) */
+  --glass-solid: rgba(244, 248, 236, 0.94); /* (nothing blurred behind it) */
+  --glass-blur: blur(14px) saturate(1.4);
+  --glass-edge: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 1px 2px rgba(17, 43, 24, 0.07), 0 12px 32px -10px rgba(17, 43, 24, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  --fill: rgba(255, 255, 255, 0.5);
+  --fill-hover: rgba(255, 255, 255, 0.72);
+  --fill-edge: rgba(255, 255, 255, 0.55);
+  --hairline: rgba(36, 59, 43, 0.11);
+}
+.panel, .glass-menu { --paper: var(--fill-hover); --paper-2: var(--fill); --paper-3: rgba(255, 255, 255, 0.85); --line: var(--hairline); }
+.panel *::-webkit-scrollbar-thumb, .glass-menu *::-webkit-scrollbar-thumb { background: rgba(36, 59, 43, 0.2); }
 .panel {
   position: fixed;
-  background: linear-gradient(135deg, #e6f0cfa8, #cfdfb5a8);
-  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
-  border: 1px solid #f5f9e9a6;
-  border-radius: 18px;
-  box-shadow: 0 2px 10px #112b1814, inset 0 1px 0 #ffffff73;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: 20px;
+  box-shadow: var(--glass-shadow);
+  transition: opacity 0.2s, visibility 0.2s;
 }
-#toolpanel, #infopanel, #quest, #legend { background: linear-gradient(135deg, #edf4ddd6, #dce8c7d6); }
-.panel .stat, #topbar .brand { background: #f1f7df59; border-radius: 10px; }
-#toolbar button:not(.on):not(:hover) { background: #f1f7df59; }
+#toolpanel, #infopanel, #quest, #legend { background: var(--glass-dense); }
 body.choosing-map .panel, body.choosing-map #joystick { visibility: hidden; pointer-events: none; }
-body.menu-effects-off .panel { -webkit-backdrop-filter: none; backdrop-filter: none; }
-@media (pointer: coarse) { .panel { -webkit-backdrop-filter: none; backdrop-filter: none; } }
+/* (a dialog has the screen to itself: the HUD steps away rather than smearing through its glass) */
+body:has(#modal-root .modal-back) .panel { opacity: 0; visibility: hidden; }
+body.menu-effects-off .panel { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
+@media (pointer: coarse) { .panel { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .panel, #toolpanel, #infopanel, #quest, #legend { background: #e5edcf; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: #55724c; }
+  .panel, #toolpanel, #infopanel, #quest, #legend { background: #eef3e3; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: #55724c; }
 }
 
 /* ---------------- top bar */
@@ -137,7 +163,7 @@ body.menu-effects-off .panel { -webkit-backdrop-filter: none; backdrop-filter: n
 #topbar { overflow: hidden; }
 .stat.money, .speed, #stat-score { flex-shrink: 0; }
 .top-actions { flex-shrink: 0; }
-.stat { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: transparent; border: 0; text-align: left; }
+.stat { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 14px; background: transparent; border: 0; text-align: left; }
 button.stat { cursor: pointer; }
 button.stat:hover { background: var(--paper-2); }
 .stat.money { font-weight: 800; font-size: 18px; color: var(--moss-2); min-width: 104px; font-variant-numeric: tabular-nums; }
@@ -147,9 +173,9 @@ button.stat:hover { background: var(--paper-2); }
 #stat-season { font-weight: 800; font-size: 14px; }
 .weather { width: 28px; height: 28px; display: inline-grid; place-items: center; }
 .weather svg { width: 26px; height: 26px; }
-.speed { display: flex; background: var(--paper-2); border-radius: 10px; padding: 4px; gap: 3px; margin-inline: 6px; }
+.speed { display: flex; background: var(--paper-2); border-radius: 999px; padding: 3px; gap: 2px; margin-inline: 6px; }
 #stat-score { border-radius: 10px; }
-.speed button { width: 32px; height: 30px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; display: grid; place-items: center; }
+.speed button { width: 32px; height: 30px; border: 0; background: transparent; border-radius: 999px; cursor: pointer; display: grid; place-items: center; }
 .speed button svg { width: 15px; height: 15px; fill: var(--ink-2); }
 .speed button:hover { background: var(--paper-3); }
 .speed button.on { background: var(--moss); }
@@ -157,7 +183,7 @@ button.stat:hover { background: var(--paper-2); }
 .ring { position: relative; width: 38px; height: 38px; }
 .ring svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); } /* (fills the ring, which is smaller on phones) */
 .ring circle { fill: none; stroke-width: 4; }
-.ring .track { stroke: var(--paper-3); }
+.ring .track { stroke: rgba(36, 59, 43, 0.13); }
 .ring .fill { stroke: var(--moss); stroke-linecap: round; stroke-dasharray: 94.25; stroke-dashoffset: 94.25; transition: stroke-dashoffset 0.6s, stroke 0.6s; }
 .ring span { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; font-size: 12px; }
 .ico { width: 22px; height: 22px; color: var(--ink-2); }
@@ -165,7 +191,7 @@ button.stat:hover { background: var(--paper-2); }
 .top-actions { display: flex; gap: 8px; align-items: center; border-left: 1px solid var(--line); padding-left: 14px; }
 .top-actions select { max-width: 190px; text-overflow: ellipsis; }
 .top-actions select, button.ghost {
-  height: 34px; border-radius: 9px; border: 1px solid var(--line); background: var(--paper-2);
+  height: 34px; border-radius: 17px; border: 1px solid var(--fill-edge); background: var(--paper-2);
   padding: 0 12px; font-weight: 700; font-size: 13px; cursor: pointer;
 }
 button.ghost:hover, .top-actions select:hover { background: var(--paper-3); }
@@ -183,7 +209,7 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 }
 #toolbar::-webkit-scrollbar { width: 0; height: 0; }
 #toolbar button {
-  border: 0; background: transparent; border-radius: 10px; padding: 9px 1px; cursor: pointer; flex-shrink: 0;
+  border: 0; background: transparent; border-radius: 14px; padding: 9px 1px; cursor: pointer; flex-shrink: 0;
   display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; color: var(--ink-2);
 }
 #toolbar button svg { width: 24px; height: 24px; }
@@ -206,19 +232,19 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .tabs { display: flex; gap: 6px; padding: 2px 18px 12px; flex-wrap: wrap; flex: none; }
 .tabs button { border: 1px solid transparent; background: transparent; color: var(--ink-2); border-radius: 20px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
 .tabs button:hover { background: var(--paper-2); }
-.tabs button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 .tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 2px 18px 16px; overflow-y: auto; min-height: 0; }
 .tool-card {
-  border: 1.5px solid transparent; background: rgba(233, 223, 197, .45); border-radius: 10px; padding: 10px 8px;
+  border: 1.5px solid var(--fill-edge); background: var(--fill); border-radius: 14px; padding: 10px 8px;
   display: flex; flex-direction: column; align-items: center; cursor: pointer; text-align: center; min-height: 110px;
 }
-.tool-card:hover { border-color: var(--paper-3); background: #efe5cc; }
-.tool-card.on { border-color: var(--moss); background: #e6ecd2; }
+.tool-card:hover { border-color: #fff; background: var(--fill-hover); }
+.tool-card.on { border-color: var(--moss); background: var(--fill-hover); box-shadow: 0 0 0 1px var(--moss); }
 .tool-card img { width: 52px; height: 52px; object-fit: contain; image-rendering: auto; }
 .tool-card .nm { font-size: 12px; font-weight: 700; line-height: 1.35; margin-top: 6px; }
 .tool-card .cost { font-size: 11px; font-weight: 800; color: var(--moss-2); margin-top: 4px; }
 .tool-card.poor .cost { color: var(--bad); }
-.tool-desc { border-top: 1px solid var(--line); padding: 16px 18px 18px; font-size: 12.5px; line-height: 1.55; background: rgba(233, 223, 197, .35); flex: none; max-height: 45vh; overflow-y: auto; }
+.tool-desc { border-top: 1px solid var(--line); padding: 16px 18px 18px; font-size: 12.5px; line-height: 1.55; background: rgba(255, 255, 255, 0.22); flex: none; max-height: 45vh; overflow-y: auto; }
 .tool-desc b { font-size: 13.5px; display: block; margin-bottom: 6px; }
 .tool-desc .sci { font-style: italic; color: var(--muted); font-size: 12px; }
 .tool-notes summary { cursor: pointer; color: var(--ink-2); font-size: 12px; padding-block: 4px; }
@@ -229,7 +255,7 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .brush { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-weight: 700; font-size: 12px; }
 .bsz { display: flex; gap: 4px; }
 .brush button { width: 32px; height: 30px; border-radius: 7px; border: 1px solid var(--line); background: var(--paper); cursor: pointer; display: grid; place-items: center; }
-.brush button.on { background: var(--ink); color: var(--paper); }
+.brush button.on { background: var(--ink); color: #fff; }
 .brush button span { display: block; background: currentColor; border-radius: 50%; }
 .prefs { display: flex; gap: 6px; margin-top: 10px; font-size: 11.5px; color: var(--ink-2); flex-wrap: wrap; }
 .prefs span { background: var(--paper); border-radius: 6px; padding: 1px 6px; }
@@ -258,18 +284,19 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .plant-row .st { font-size: 11.5px; }
 .st.good { color: var(--good); } .st.warn { color: var(--warn); } .st.bad { color: var(--bad); }
 .info-desc { font-size: 12.5px; line-height: 1.6; color: var(--ink-2); margin: 10px 0; }
-.btn { border: 1px solid var(--moss-2); background: var(--moss); color: #fff; font-weight: 700; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 12.5px; }
-.btn.secondary { background: var(--paper-2); color: var(--ink); border-color: var(--line); }
+.btn { border: 1px solid var(--moss-2); background: var(--moss); color: #fff; font-weight: 700; border-radius: 999px; padding: 6px 14px; cursor: pointer; font-size: 12.5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 2px rgba(17, 43, 24, 0.18); }
+.btn.secondary { background: var(--paper-2); color: var(--ink); border-color: var(--line); box-shadow: none; }
 .btn.danger { background: var(--bad); color: #fff; border-color: #8a2e22; }
 .btn:hover { filter: brightness(1.06); }
 .animal-hero { display: flex; gap: 10px; align-items: center; }
-.animal-hero img { width: 64px; height: 56px; object-fit: contain; background: #f1f6e28c; border-radius: 10px; }
+.animal-hero img { width: 64px; height: 56px; object-fit: contain; background: var(--fill); border-radius: 12px; }
 /* the inspect panel's actions, as small pills right under the name where they're seen */
 .info-actions { display: flex; gap: 5px; flex-wrap: wrap; margin: 10px 0 4px; }
 .info-actions button { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px 0 8px; border-radius: 13px;
-  border: 1px solid #fbfdf4b3; background: #f2f7e48c; color: var(--ink); font: 700 11.5px/1 var(--ui); cursor: pointer; white-space: nowrap; }
+  border: 1px solid var(--fill-edge); background: var(--fill); color: var(--ink); font: 700 11.5px/1 var(--ui); cursor: pointer; white-space: nowrap; }
 .info-actions button svg { width: 13px; height: 13px; flex: none; }
-.info-actions button:hover { background: #f6faecd9; }
+.info-actions button:hover { background: var(--fill-hover); }
 .info-actions button.primary { background: var(--moss); border-color: var(--moss-2); color: #fff; }
 .info-actions button.primary:hover { filter: brightness(1.08); }
 
@@ -281,10 +308,10 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 
 /* ---------------- minimap */
 #minimap-wrap { right: var(--ui-edge); bottom: var(--ui-edge); padding: 8px; z-index: 7; }
-#mini-toggle { position: absolute; top: -26px; right: 4px; height: 22px; padding: 0 10px; border-radius: 8px 8px 0 0; border: 1px solid var(--line); border-bottom: 0; background: var(--paper); font-size: 11px; font-weight: 800; cursor: pointer; color: var(--ink-2); }
-#minimap-wrap.collapsed { padding: 0; border: 0; box-shadow: none; background: transparent; }
+#mini-toggle { position: absolute; top: -28px; right: 6px; height: 22px; padding: 0 11px; border-radius: 11px; border: 1px solid var(--glass-edge); background: var(--glass-solid); font-size: 11px; font-weight: 800; cursor: pointer; color: var(--ink-2); }
+#minimap-wrap.collapsed { padding: 0; border: 0; box-shadow: none; background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
 #minimap-wrap.collapsed canvas { display: none; }
-#minimap-wrap.collapsed #mini-toggle { position: static; border-radius: 8px; border: 1px solid var(--line); box-shadow: var(--shadow); }
+#minimap-wrap.collapsed #mini-toggle { position: static; height: 30px; border-radius: 15px; box-shadow: var(--glass-shadow); }
 #banner { top: var(--ui-top); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 12px 16px; z-index: 11; font-size: 13.5px; max-width: calc(100vw - 40px); }
 #banner.fire { border-color: #d0602a; background: #fbe8d8; }
 #banner.flood { border-color: #4d8fc0; background: #e2eef6; }
@@ -300,24 +327,23 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 }
 .stars { color: #d8a020; letter-spacing: 1px; }
 #visitor-stars { color: #b8901a; letter-spacing: 1px; white-space: nowrap; }
-#minimap { display: block; width: 200px; height: 150px; border-radius: 8px; cursor: pointer; }
+#minimap { display: block; width: 200px; height: 150px; border-radius: 13px; cursor: pointer; }
 
 /* ---------------- toasts */
 #toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: 12px; width: 360px; display: flex; flex-direction: column-reverse; gap: 6px; z-index: 11; pointer-events: none; }
 .toast {
-  pointer-events: auto; background: rgba(36, 46, 34, 0.8); color: #f4eddb; border-radius: 11px; padding: 7px 11px;
-  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-  font-size: 12.5px; line-height: 1.33; box-shadow: 0 4px 14px rgba(15, 25, 10, 0.25); display: flex; gap: 9px; align-items: flex-start;
-  border-left: 4px solid #9ab07a; animation: toastIn 0.3s ease-out; cursor: default;
+  pointer-events: auto; background: rgba(28, 38, 30, 0.62); color: #f6f1e2; border-radius: 16px; padding: 8px 10px 8px 12px;
+  -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
+  font-size: 12.5px; line-height: 1.33; display: flex; gap: 9px; align-items: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.13); box-shadow: 0 12px 30px -8px rgba(10, 20, 10, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: toastIn 0.3s ease-out; cursor: default;
 }
 .toast.clickable { cursor: pointer; }
 .toast .ti { flex: none; width: 20px; height: 20px; margin-top: 1px; }
-.toast.good { border-left-color: #8cc46a; } .toast.warn { border-left-color: #e0a040; }
-.toast.discover { border-left-color: #f2c94c; background: rgba(46, 52, 28, 0.95); }
-.toast.goal { border-left-color: #f2c94c; background: rgba(70, 58, 22, 0.95); }
-.toast.season { border-left-color: #7fb0d0; }
-.toast.fire { border-left-color: #ff7a3a; background: rgba(70, 36, 22, 0.95); }
-.toast.flood { border-left-color: #6aa8d8; background: rgba(26, 44, 60, 0.95); }
+.toast.discover { background: rgba(50, 54, 26, 0.72); }
+.toast.goal { background: rgba(74, 60, 20, 0.74); }
+.toast.fire { background: rgba(78, 36, 20, 0.76); }
+.toast.flood { background: rgba(24, 44, 62, 0.74); }
 .toast.fade { opacity: 0; transform: translateX(-10px); transition: all 0.5s; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
@@ -326,6 +352,8 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
   font-size: 12px; font-weight: 700; padding: 4px 8px; border-radius: 7px; white-space: nowrap;
 }
 #cursor-tip .bad { color: #ff9b8a; }
+
+body.menu-effects-off .toast { background: rgba(28, 38, 30, 0.86); -webkit-backdrop-filter: none; backdrop-filter: none; }
 
 /* ---------------- modals */
 .modal-back { position: fixed; inset: 0; background: rgba(15, 22, 12, 0.5); z-index: 20; display: grid; place-items: center; animation: fadeIn 0.2s; }
@@ -336,53 +364,52 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .modal-head h2 { margin: 0; font-family: var(--display); font-size: 24px; color: var(--moss-2); flex: 1; }
 .modal-head .x { border: 0; background: transparent; font-size: 22px; cursor: pointer; color: var(--muted); }
 .modal-body { padding: 22px 28px 28px; overflow-y: auto; }
-/* Bright sage glass carries the website's soft shapes into the game. */
+/* Every dialog is the same glass as the HUD, a little clearer and more blurred: one surface, cards
+   inside it are white fills with a white hairline, the selected one ringed in moss. */
 .modal.glass-menu {
-  background: linear-gradient(145deg, #e3edccf0, #cfe0b5f2);
-  border: 1px solid #f7faeca6;
-  border-radius: 23px;
-  box-shadow: 0 12px 34px #17352229, inset 0 1px 0 #ffffff80;
+  background: var(--glass-solid);
+  border: 1px solid var(--glass-edge);
+  border-radius: 26px;
+  box-shadow: 0 2px 4px rgba(17, 43, 24, 0.06), 0 30px 70px -20px rgba(17, 43, 24, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   color: var(--ink);
   color-scheme: light;
 }
-.glass-menu .modal-head { background: linear-gradient(100deg, #ffffff33, #ffffff0a); }
-.glass-menu .modal-head .x { color: var(--ink); }
-.glass-menu .modal-foot { background: #e9f1d573; }
-.glass-menu .map-card, .glass-menu .mode-card { background: #eff5dc52; }
-.glass-menu .mode-card:hover { background: #f1f7e299; }
-.glass-menu .diff-desc { background: #f3f8e36b; border-radius: 7px; padding: 7px 9px; }
-.glass-menu .set-row { background: #f0f6de80; border-radius: 8px; padding-inline: 9px; margin-block: 4px; }
-.glass-menu .btn:not(.secondary):not(.danger) { background: #e9b48e; border-color: #e9c6a0; color: #18382b; }
-.glass-menu .settings-nav button.on, .glass-menu .seg button.on { background: #49733a; color: #fff; }
+.glass-menu .modal-head { border-bottom-color: transparent; padding-bottom: 10px; }
+.glass-menu .modal-head .x { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--fill); color: var(--ink); font-size: 20px; line-height: 1; }
+.glass-menu .modal-head .x:hover { background: var(--fill-hover); }
+.glass-menu .modal-head .x[hidden] { display: none; }
+.glass-menu .modal-foot { background: transparent; }
+.glass-menu .map-card, .glass-menu .mode-card, .glass-menu .gcard, .glass-menu .guide-detail { background: var(--fill); border-color: var(--fill-edge); }
+.glass-menu .map-card:hover, .glass-menu .mode-card:hover, .glass-menu .gcard:hover { background: var(--fill-hover); border-color: #fff; }
+.glass-menu .map-card.on, .glass-menu .gcard.on { background: var(--fill-hover); border-color: var(--moss); }
 .glass-menu .mode-card.danger, .glass-menu .mode-card.danger span { border-color: #a43f2d; color: #842e22; }
-.glass-menu .world { background: #91b1a3; }
-.glass-menu .wm-land { fill: #a3b391; stroke: #64816d; }
-.glass-menu .wm-sea { fill: #91b1a3; stroke: #64816d; }
-.glass-menu .wm-pin span { background: #eff4dbeb; }
-.glass-menu .btn.secondary { background: #f2f7e48c; border-color: #fbfdf4b3; }
-.glass-menu .btn.secondary:hover { background: #f5f9eac2; filter: none; }
-.glass-menu .gcard { background: #f1f6e26b; border-color: #f8fbef66; }
-.glass-menu .gcard:hover { background: #f4f9e8a6; border-color: #fbfdf4bf; }
-.glass-menu .gcard.on { background: #f4f9e8b8; border-color: var(--moss); }
-.glass-menu .guide-detail { background: #eff5dc73; border: 1px solid #f8fbef80; }
-.glass-menu .guide-detail .hero, .glass-menu .guide-detail .hero-wrap { background: #f7fbeda6; }
-.glass-menu .q-tip, .glass-menu .ch-tool, .glass-menu .intro-map, .glass-menu .intro kbd { background: #f0f6de80; }
-.glass-menu .map-card img { height: auto; aspect-ratio: 3 / 2; object-position: center; border: 1px solid #d4e1c326; }
-/* One blurred surface, only on desktops with detail to spare. No nested blur on
-   cards or controls, and no moving/animated glass. */
+.glass-menu .diff-desc { background: var(--fill); border-radius: 12px; padding: 8px 11px; }
+.glass-menu .set-row { background: var(--fill); border-bottom: 0; border-radius: 14px; padding: 9px 12px; margin-block: 6px; }
+.glass-menu .set-row select { border-radius: 10px; border-color: var(--fill-edge); background: var(--fill-hover); }
+.glass-menu .seg { border-radius: 999px; border-color: var(--fill-edge); }
+.glass-menu .seg button { border-radius: 999px; }
+.glass-menu .settings-nav button { border-radius: 12px; }
+.glass-menu .world { background: #9cbaae; border-color: var(--fill-edge); }
+.glass-menu .wm-land { fill: #afbf9c; stroke: #6f8b77; }
+.glass-menu .wm-sea { fill: #9cbaae; stroke: #6f8b77; }
+.glass-menu .wm-pin span { background: #f7faefeb; }
+.glass-menu .btn.secondary { background: var(--fill); border-color: var(--fill-edge); }
+.glass-menu .btn.secondary:hover { background: var(--fill-hover); filter: none; }
+.glass-menu .guide-detail .hero, .glass-menu .guide-detail .hero-wrap { background: var(--fill-hover); }
+.glass-menu .q-tip, .glass-menu .ch-tool, .glass-menu .intro-map, .glass-menu .intro kbd { background: var(--fill); }
+.glass-menu .map-card img { height: auto; aspect-ratio: 3 / 2; object-position: center; border: 1px solid var(--fill-edge); border-radius: 12px; }
+/* One blurred surface (the HUD has stepped away), on any screen with Detail above Fast. No nested
+   blur on cards or controls, and no moving/animated glass. */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  @media (pointer: fine) and (min-width: 701px) {
-    .modal.glass-menu {
-      background: linear-gradient(145deg, #e3edccdb, #cfe0b5e0); /* (opaque enough that the HUD behind doesn't read through) */
-      -webkit-backdrop-filter: blur(16px) saturate(.9);
-      backdrop-filter: blur(16px) saturate(.9);
-    }
+  body:not(.menu-effects-off) .modal.glass-menu {
+    background: rgba(248, 251, 242, 0.5); /* (a dialog is big: a touch more frost keeps a barn or a field from tinting it) */
+    -webkit-backdrop-filter: blur(32px) saturate(1.3);
+    backdrop-filter: blur(32px) saturate(1.3);
   }
 }
-body.menu-effects-off .glass-menu { background: linear-gradient(145deg, #e3edccfa, #cfe0b5fa); -webkit-backdrop-filter: none; backdrop-filter: none; }
-.modal-back:has(.glass-menu) { background: #16332140; }
+.modal-back:has(.glass-menu) { background: rgba(18, 38, 24, 0.16); }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .modal.glass-menu, body.menu-effects-off .glass-menu { background: #e5edcf; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: #55724c; }
+  .modal.glass-menu, body:not(.menu-effects-off) .modal.glass-menu { background: #eef3e3; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: #55724c; }
 }
 .guide { display: grid; grid-template-columns: 1fr 320px; gap: 16px; min-height: 0; }
 .guide-list { overflow-y: auto; max-height: calc(100vh - 220px); padding-right: 4px; }
@@ -426,7 +453,7 @@ body.menu-effects-off .glass-menu { background: linear-gradient(145deg, #e3edccf
 .journal-row { font-size: 13px; padding: 7px 2px; border-bottom: 1px dashed var(--line); display: flex; gap: 10px; }
 .journal-row .d { color: var(--muted); font-weight: 700; font-size: 12px; white-space: nowrap; width: 128px; flex: none; }
 .menu-list { display: flex; flex-direction: column; gap: 10px; }
-.menu-list button { text-align: left; padding: 12px 16px; font-size: 14px; }
+.menu-list button { text-align: left; padding: 12px 16px; font-size: 14px; border-radius: 16px; }
 
 ::-webkit-scrollbar { width: 9px; }
 ::-webkit-scrollbar-thumb { background: var(--paper-3); border-radius: 6px; }
@@ -513,7 +540,7 @@ body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; ove
 /* Rotation stays discoverable: under the tool bar on desktop, beside the map on touch screens. */
 #view-ctrls { display: flex; right: var(--ui-edge); bottom: 226px; z-index: 7; padding: 4px; gap: 4px; }
 body.mini-collapsed #view-ctrls { bottom: 52px; }
-#view-ctrls button { width: 44px; height: 52px; padding: 5px; border: 0; border-radius: 10px; background: var(--paper-2); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+#view-ctrls button { width: 44px; height: 52px; padding: 5px; border: 0; border-radius: 14px; background: var(--paper-2); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
 #view-ctrls button svg { width: 22px; height: 22px; }
 #view-ctrls button kbd { font: 800 11px/1 var(--ui); }
 #view-ctrls button:hover, #view-ctrls button:focus-visible { outline: 2px solid var(--moss); outline-offset: -2px; }

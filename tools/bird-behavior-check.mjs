@@ -10,8 +10,8 @@ import { Game } from '../js/game.js';
 import { ANIMALS, ANIMAL, animalDef } from '../js/data/animals.js';
 import { PASSAGE_SPECIES } from '../js/data/bird-passage.js';
 import { passageChoices, spawnPassage, updatePassage } from '../js/sim/bird-passage.js';
-import { birdChoose, birdUpdate, birdAlarm, isBird } from '../js/sim/bird-behavior.js';
-import { T, F } from '../js/config.js';
+import { birdChoose, birdUpdate, birdAlarm, isBird, carryCatch, liftable } from '../js/sim/bird-behavior.js';
+import { T, F, isWater } from '../js/config.js';
 import { mulberry32 } from '../js/rng.js';
 Math.random = mulberry32(20261010);
 let checks = 0;
@@ -181,5 +181,119 @@ check('Vultures glide on spread wings between wingbeats', () => {
   a.passage.phase = 0; a.phase = 0.25;
   for (let k = 0; k < 20; k++) updatePassage(wl, 0.05);
   assert.equal(a.soaring, true); assert.ok(Math.abs(a.phase) < 0.001);
+});
+check('A fed hawk circles over open ground on still wings, then glides down to a perch', () => {
+  for (const map of ['pnw', 'atlanta']) {
+    const g = setup(map), wl = g.wildlife, w = g.world, a = spawn(g, 'hawk');
+    assert.equal(ANIMAL.hawk.soar, true);
+    a.hunger = 0;
+    assert.equal(fixed(0.1, () => birdChoose(wl, a, ANIMAL.hawk)), true);
+    const b = a.bird; assert.equal(b?.kind, 'soar'); assert.equal(a.flying, true);
+    let swept = 0, last = Math.atan2(a.y - b.cy, a.x - b.cx), off = 0, still = 0, n = 0, maxAlt = 0;
+    for (let k = 0; k < 400 && a.bird === b; k++) {
+      a.hunger = 0; wl.update(0.05);
+      if (a.bird !== b) break;
+      const ang = Math.atan2(a.y - b.cy, a.x - b.cx); let d = ang - last; d -= Math.round(d / (2 * Math.PI)) * 2 * Math.PI; swept += d; last = ang;
+      if (k > 80) { off = Math.max(off, Math.abs(Math.hypot(a.x - b.cx, a.y - b.cy) - b.r)); n++; if (Math.abs(Math.sin(a.phase * Math.PI * 1.6)) < 0.05) still++; }
+      maxAlt = Math.max(maxAlt, a.alt);
+    }
+    assert.ok(Math.abs(swept) > 2 * Math.PI, `${map}: circled ${swept.toFixed(2)} rad`);
+    assert.ok(off < 0.6, `${map}: held its circle (off by ${off.toFixed(2)})`);
+    assert.ok(maxAlt > 1.3, `${map}: soars above ordinary flight (${maxAlt.toFixed(2)})`);
+    assert.ok(still / n > 0.6, `${map}: wings mostly held out (${(still / n).toFixed(2)})`);
+    // the soar ends; on its next flight it sinks back to ordinary height without a jump
+    a.bird.t = 0; wl.update(0.05); assert.notEqual(a.bird?.kind, 'soar');
+    w.tree.fill(0); w.tree[w.idx(48, 30)] = 1; w.treeG[w.idx(48, 30)] = 1;
+    let prev = a.alt;
+    for (let k = 0; k < 200 && a.state === 'fly'; k++) { wl.update(0.05); assert.ok(Math.abs(a.alt - prev) < 0.16, `${map}: altitude jumped ${prev} -> ${a.alt}`); prev = a.alt; }
+  }
+});
+check('A hungry soaring hawk breaks off its circle to hunt', () => {
+  const g = setup(), wl = g.wildlife, a = spawn(g, 'hawk');
+  a.hunger = 0; fixed(0.1, () => birdChoose(wl, a, ANIMAL.hawk));
+  assert.equal(a.bird?.kind, 'soar');
+  a.hunger = 5; birdUpdate(wl, a, ANIMAL.hawk, 0.05);
+  assert.equal(a.bird, null); assert.equal(a.state, 'idle'); assert.equal(a.wait, 0);
+});
+// What each raptor and owl can lift as an adult: anything else is eaten where it fell
+// (or, for a fish, dragged to the bank). The young of any prey are always light enough.
+const CARRY = {
+  pnw: { hawk: [['vole', 'gartersnake'], ['rabbit']], owl: [['vole', 'squirrel', 'rabbit'], []], eagle: [['cutthroat'], ['coho']] },
+  atlanta: { owl: [['chipmunk', 'toad', 'peeper'], []], hawk: [['chipmunk', 'toad', 'anole'], ['ratsnake']] },
+  amazon: { harpy: [['sloth', 'howler', 'spider'], []] },
+  chinandega: { guaco: [[], ['boa', 'iguana']] },
+  sumatra: { barnowl: [['woodrat'], []], serpenteagle: [['flyingfrog'], ['python', 'monitor']] },
+};
+function catchPrey(g, hunter, key, x, y, juvenile = false) {
+  const wl = g.wildlife, b = spawn(g, key, x, y); b.juvenile = juvenile;
+  hunter.x = b.x; hunter.y = b.y; hunter.state = 'idle'; hunter.flying = true; hunter.alt = 0.4;
+  wl.remove(b, 'predation');
+  return carryCatch(wl, hunter, g.catalog.animals[hunter.sp], b);
+}
+check('Raptors and owls carry off only what they can lift; the young of any prey they always can', () => {
+  for (const [map, table] of Object.entries(CARRY)) {
+    const g = setup(map);
+    for (const [key, [carried, heavy]] of Object.entries(table)) {
+      const def = g.catalog.animal[key];
+      assert.deepEqual([...def.carries].sort(), [...carried].sort(), `${map} ${key}`);
+      for (const p of carried) assert.equal(liftable(def, g.catalog.animal[p], {}), true, `${map} ${key} lifts ${p}`);
+      for (const p of heavy) {
+        assert.equal(liftable(def, g.catalog.animal[p], {}), false, `${map} ${key} can't lift an adult ${p}`);
+        assert.equal(liftable(def, g.catalog.animal[p], { juvenile: true }), true, `${map} ${key} lifts a young ${p}`);
+      }
+    }
+  }
+});
+check('A hawk mantles over a vole, carries it to a tree, eats it there, and saves mid-flight', () => {
+  const g = setup(), wl = g.wildlife, w = g.world, a = spawn(g, 'hawk');
+  const tree = w.idx(46, 30); w.tree[tree] = 1; w.treeG[tree] = 1;
+  assert.equal(catchPrey(g, a, 'vole', 40.5, 30.5), true);
+  assert.equal(a.state, 'carry'); assert.equal(a.carry.phase, 'mantle'); assert.equal(a.prey.sp, ANIMAL.vole.index);
+  let k = 0, prev = a.alt, saved = false;
+  for (; k < 600 && a.state === 'carry'; k++) {
+    wl.update(0.05);
+    assert.ok(Math.abs(a.alt - prev) < 0.16, `altitude jumped ${prev} -> ${a.alt}`); prev = a.alt;
+    if (!saved && a.carry?.phase === 'lift' && a.x > 42) {
+      saved = true;
+      const g2 = setup(); g2.wildlife.load(JSON.parse(JSON.stringify(wl.serialize())));
+      const b = g2.wildlife.agents.find(o => o.id === a.id);
+      assert.equal(b.state, 'carry'); assert.equal(b.prey.sp, a.prey.sp); assert.deepEqual(b.carry, a.carry);
+    }
+  }
+  assert.ok(saved, 'was carried through the air');
+  assert.equal(a.state, 'feed'); assert.equal(idx(g, a), tree); assert.ok(a.prey); assert.ok(a.feedT > 4);
+  // drawn: the hawk and the vole in its feet
+  const actors = new Actors(new THREE.Scene()); actors.update(g, new THREE.Vector3(1, 0, 0), 1);
+  const vole = actors.fauna.species.get(actors.fauna.modelKey(ANIMAL.vole)), hawk = actors.fauna.species.get(actors.fauna.modelKey(ANIMAL.hawk));
+  assert.ok(hawk && hawk.count + (hawk.far?.count || 0) === 1, 'the hawk is drawn');
+  assert.ok(vole && vole.count + (vole.far?.count || 0) === 1, 'the vole is drawn under the hawk');
+  for (k = 0; k < 400 && a.state === 'feed'; k++) wl.update(0.05);
+  assert.notEqual(a.state, 'feed'); assert.equal(a.prey, null);
+});
+check('A hawk eats a rabbit where it fell; an owl swallows small prey quickly', () => {
+  const g = setup(), a = spawn(g, 'hawk');
+  const tree = g.world.idx(46, 30); g.world.tree[tree] = 1; g.world.treeG[tree] = 1;
+  assert.equal(catchPrey(g, a, 'rabbit', 40.5, 30.5), true);
+  assert.equal(a.state, 'feed'); assert.equal(a.flying, false); assert.equal(a.prey.sp, ANIMAL.rabbit.index);
+  const o = spawn(g, 'owl', 40.5, 34.5);
+  catchPrey(g, o, 'vole', 40.5, 34.5); assert.equal(o.state, 'carry');
+  for (let k = 0; k < 600 && o.state === 'carry'; k++) g.wildlife.update(0.05);
+  assert.equal(o.state, 'feed'); assert.ok(o.feedT <= 3, 'an owl swallows a vole whole');
+});
+check('A bald eagle carries a trout to a tree and drags a heavy coho low to the bank', () => {
+  const g = setup(), wl = g.wildlife, w = g.world;
+  for (let y = 0; y < w.h; y++) for (let x = 36; x < 46; x++) w.terrain[w.idx(x, y)] = T.RIVER;
+  const tree = w.idx(48, 30); w.tree[tree] = 1; w.treeG[tree] = 1;
+  const e = spawn(g, 'eagle', 40.5, 30.5);
+  assert.equal(catchPrey(g, e, 'cutthroat', 40.5, 30.5), true);
+  assert.equal(e.carry.phase, 'lift'); assert.equal(e.carry.low, false);
+  for (let k = 0; k < 600 && e.state === 'carry'; k++) wl.update(0.05);
+  assert.equal(e.state, 'feed'); assert.equal(idx(g, e), tree);
+  const f = spawn(g, 'eagle', 40.5, 20.5);
+  assert.equal(catchPrey(g, f, 'coho', 40.5, 20.5), true);
+  assert.equal(f.carry.low, true);
+  let high = 0;
+  for (let k = 0; k < 600 && f.state === 'carry'; k++) { wl.update(0.05); if (k > 20) high = Math.max(high, f.alt); }
+  assert.equal(f.state, 'feed'); assert.ok(!isWater(w.terrain[idx(g, f)]), 'ate it on the bank'); assert.ok(high <= 0.4, `skimmed low (${high})`);
 });
 console.log(`${checks} bird behavior checks passed.`);

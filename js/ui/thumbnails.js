@@ -3,6 +3,7 @@ import { isWater } from '../config.js';
 
 
 import { PASSAGE_SPECIES } from '../data/bird-passage.js';
+import { maleLook } from '../data/animals.js';
 import { activeCatalog } from '../data/catalog.js';
 import * as S from '../render/sprites.js';
 import { renderPortrait, renderPlants } from '../render3d/portraits.js';
@@ -70,10 +71,11 @@ function mixThumb(keys, catalog = activeCatalog) {
   thumbCache.set(k, url);
   return url;
 }
-export function animalThumb(key, catalog = activeCatalog) {
-  const k = catalog.definition.id + ':a' + key;
+// The species as its adult male where males look different (male = false for the other look).
+export function animalThumb(key, catalog = activeCatalog, male = true) {
+  const k = catalog.definition.id + ':a' + key + (male ? '' : ':f');
   if (thumbCache.has(k)) return thumbCache.get(k);
-  const def = catalog.animal[key] || PASSAGE_SPECIES[key];
+  const base = catalog.animal[key] || PASSAGE_SPECIES[key], def = male ? maleLook(base) : base;
   // the species' 3D model, rendered once; the old 2D art is a fallback if WebGL isn't available
   let url;
   try { url = trim(renderPortrait(def), 6).toDataURL(); } catch (e) { url = trim(S.animalPortrait(def), 6).toDataURL(); }

@@ -522,6 +522,7 @@ export class Terrain {
       const k = (zz - Y0) * TW + xx - X0;
       return managed(k) && Number.isFinite(level[k]) ? level[k] * LEVEL : surfaceHeight(vLevel, x, z) * LEVEL;
     };
+    this.waterAt = waterAt; // (the drawn surface at a point, NaN off the water: animals swim by it)
     this.banks.bind(w, this.border, cells, waterAt, this.bankTerrainAt, !!this.catalog.definition.look.underwater);
     // blend the water's colour across tile corners, so pond, marsh and creek shade into each other
     const vColor = (vx, vy) => {

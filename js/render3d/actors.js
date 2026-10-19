@@ -24,6 +24,7 @@ import { ActorView, animalViewRadius, pixelsPerUnit } from './actor-view.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
+const SOAR_BANK = 0.35; // a circling hawk leans into its turn
 const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
 const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
 const SPAR_FIT = { elk: 0.97, sambar: 0.86 }; // per antler type, as a share of the two heads' full reach
@@ -51,6 +52,30 @@ export function escapeSkip(st, chased, time) {
   }
   if (chased) st.skip = { t0: time, n: 2 + ((st.skipRuns = (st.skipRuns || 0) + 1) % 2) };
   return -1;
+}
+
+// A raptor's or owl's catch (sim/bird-behavior.js carryCatch): hanging limp below its feet in
+// flight (a fish carried level, back up) and lying under its feet while it eats.
+const CARRY_FORWARD = 0.18;
+function drawCatch(F, game, a, def, st, sc) {
+  const pdef0 = game.catalog.animals[a.prey.sp];
+  if (!pdef0) return;
+  const pdef = drawDef(pdef0, a.prey, game.month);
+  const ageF = pdef.mature > 0 ? clamp(0.55 + 0.45 * (a.prey.age || 0) / (pdef.mature * 120), 0.55, 1) : 1;
+  const len = s => s.sprite.len || s.sprite.size || 10;
+  // (never drawn longer than the bird that holds it: the display boost that makes a vole readable
+  // on the ground would otherwise hand a hawk a vole its own size)
+  let psc = adultAnimalScale(pdef.sprite) * (a.prey.juvenile ? pdef.sprite.juv ?? 0.5 : 1) * ageF;
+  psc = Math.min(psc, len(def) * sc * 0.85 / len(pdef));
+  const lie = (pdef.sprite.h || 10) * psc * 0.32, fx = Math.cos(st.yaw), fz = -Math.sin(st.yaw);
+  const aloft = a.state === 'carry' && a.carry?.phase !== 'mantle';
+  if (aloft) {
+    const f = len(def) * sc * CARRY_FORWARD * 0.5, y = st.center.y - st.h * 0.35 - (a.prey.fish ? (pdef.sprite.h || 8) * psc * 0.6 : lie * 1.4); // (in the feet, tucked under the body)
+    F.add(pdef, st.x + fx * f, y, st.z + fz * f, st.yaw, psc, 0, 0, 0, 0.6, 0, a.prey.fish ? 0 : Math.PI / 2);
+  } else {
+    const f = len(def) * sc * CARRY_FORWARD;
+    F.add(pdef, st.x + fx * f, st.y + lie, st.z + fz * f, st.yaw + 0.5, psc, 0, 0, 0, 0.6, 0, Math.PI / 2);
+  }
 }
 
 export class Actors {
@@ -199,6 +224,7 @@ export class Actors {
       // Flyers descend relative to the visible surface, even above a deeply carved basin.
       let y = def.move === 'fly' ? Math.max(ground, surf ?? ground) : ground;
       let perchSite = null; // (the tree a perched bird sits in, when its limbs are known)
+      let swimming = false; // (a land animal out of its depth, paddling with its head out)
       // Which crown a climber or percher is in: it keeps the tree it's in until it's clearly into
       // the next one, so an animal nudged back and forth across the line between two trees of
       // different heights doesn't bob up and down between them.
@@ -240,6 +266,15 @@ export class Actors {
       }
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
       else if (surf != null && FLOATERS.has(kind) && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
+      else if ((def.move === 'ground' || def.move === 'semi') && !def.reef && mo.eye && inside && w.distWater[i] <= 2) {
+        // A land animal wades while its head is clear of the water. Where the water is deeper than
+        // that it swims, body under and head out, instead of walking along the bottom. (The drawn
+        // water also reaches onto the bank, and managed water covers land tiles.)
+        const drawn = this.terrain?.waterAt?.(a.x, a.y);
+        const level = Number.isFinite(drawn) ? drawn : surf ?? waterSurfaceY(w, a.x, a.y) ?? -Infinity;
+        const swimY = level - mo.eye[1] * sc * 0.85;
+        if (swimY > ground) { y = swimY; swimming = true; }
+      }
       else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
         const c = ci(); perchSite = this.flora?.treeSites.get(c); y += (TREE_SHAPES[game.catalog.plants[w.tree[c]].look.type]?.height || 2) * (game.catalog.plants[w.tree[c]].look.scale ?? 1) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
@@ -306,12 +341,12 @@ export class Actors {
       const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
       const birdHead = a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
         : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
-      const head = fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
+      const head = swimming ? 0 : fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
         : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
       st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
       if (fight) st.gait += (fight.gait - st.gait) * k;
       // stalking cats sink low to the ground
-      st.crouch = (st.crouch || 0) + ((stalking ? 1 : 0) - (st.crouch || 0)) * k;
+      st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
       // The bird being tracked, perched in a tree, sits on one of its real limbs (see bird-perch.js);
@@ -541,7 +576,7 @@ export class Actors {
         else st.slothBridge = null;
       }
       for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite]) if (site?.transient) bridges.add(site);
-      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : 0)), grips, a === this.followAgent || a === game.selectedAgent);
+      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : (st.bank = (st.bank || 0) + ((a.bird?.kind === 'soar' ? a.bird.dir * SOAR_BANK : 0) - (st.bank || 0)) * k))), grips, a === this.followAgent || a === game.selectedAgent);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
@@ -556,7 +591,9 @@ export class Actors {
       st.center.applyMatrix4(F.m); // same heading, pitch, scale and height as the instance
       st.revealBounds = st.branch ? mo.revealBounds : null;
       if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
-      if (!st.branch && def.move !== 'swim' && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
+      // (after the reads of F.m above, which must still hold this animal's own instance)
+      if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);
+      if (!st.branch && def.move !== 'swim' && !swimming && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
     for (const bridge of bridges) { canopySites.add(bridge.source); canopySites.add(bridge.target); }

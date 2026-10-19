@@ -9,7 +9,7 @@ import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
 import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
-import { birdChoose, birdArrive, birdUpdate } from './bird-behavior.js';
+import { birdChoose, birdArrive, birdUpdate, carryCatch, carryUpdate } from './bird-behavior.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
 import { forageChoose, forageArrive, forageUpdate } from './animal-foraging.js';
@@ -78,6 +78,7 @@ class Animal {
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
+  carry; prey;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -1113,7 +1114,7 @@ export class Wildlife {
           }
           break;
         case 'fly':
-          a.alt = Math.min(1, a.alt + dt * 3);
+          a.alt = a.alt > 1 ? Math.max(1, a.alt - dt * 0.6) : Math.min(1, a.alt + dt * 3); // (gliding down from a soar)
           if (this.stepToward(a, a.tx, a.ty, sp)) {
             a.state = 'idle'; a.flying = false;
             const i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
@@ -1135,7 +1136,7 @@ export class Wildlife {
             break;
           }
           if (!canHuntPrey(this, a, def, b)) { a.state = 'idle'; a.wait = 1; endHunt(a); break; }
-          if (a.move === 'fly' && !huntStyle(def).grounded) a.alt = Math.min(1, a.alt + dt * 2);
+          if (a.move === 'fly' && !huntStyle(def).grounded && a.alt < 1) a.alt = Math.min(1, a.alt + dt * 2); // (a soaring hawk starts from higher up)
           const nx = a.x + Math.sign(b.x - a.x) * 0.3, ny = a.y + Math.sign(b.y - a.y) * 0.3;
           if (a.move !== 'fly' && w.inb(Math.floor(nx), Math.floor(ny))) {
             const j = w.idx(Math.floor(nx), Math.floor(ny));
@@ -1156,14 +1157,17 @@ export class Wildlife {
             if (swimmer) a.crossRest = this.game.day + 2;
             this.game.onPredation(a, b);
             this.remove(b, 'predation');
-            startFeed(this, a, def, b);
+            if (!carryCatch(this, a, def, b)) startFeed(this, a, def, b);
           } else {
             if (this.game.diff.ecology) this.evadeHunt(b, a);
             missed(this, b, a);
           }
-          if (a.move === 'fly' && a.state !== 'feed') a.flying = false;
+          if (a.move === 'fly' && a.state !== 'feed' && a.state !== 'carry') a.flying = false;
           break;
         }
+        case 'carry':
+          carryUpdate(this, a, def, dt, sp);
+          break;
         case 'forage':
           forageUpdate(this, a, def, dt);
           break;
@@ -1185,7 +1189,7 @@ export class Wildlife {
         case 'feed':
           a.feedT -= dt;
           if (a.move === 'fly') { a.alt = Math.max(0, a.alt - dt * 3); a.flying = false; }
-          if (a.feedT <= 0) { a.state = 'idle'; a.wait = 1 + Math.random() * 2; a.feedAt = null; a.carcass = null; } // then a rest
+          if (a.feedT <= 0) { a.state = 'idle'; a.wait = 1 + Math.random() * 2; a.feedAt = null; a.carcass = null; a.prey = null; } // then a rest
           break;
         case 'leave':
           if (a.leaveWait > 0) { a.leaveWait -= dt; break; }

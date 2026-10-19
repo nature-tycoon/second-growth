@@ -124,6 +124,7 @@ export class Renderer {
     this.flora = new Flora(this.scene, { catalog: this.catalog });
     this.lightingDepth = true;
     this.actors = new Actors(this.scene, this.flora);
+    this.actors.terrain = this.terrain; // (for the drawn water surface)
     this.seaSurface = new SeaSurface(this.scene);
     this.structMat = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), 1.1));
     this.structs = new Map();
@@ -344,10 +345,8 @@ export class Renderer {
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
     this.vw = w; this.vh = h;
-    this.gl.setSize(w, h, false);
-    this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
+    this.gl.setSize(w, h, false); // (the CSS in styles.css stretches both canvases over the window)
     this.ui.width = Math.floor(w * this.dpr); this.ui.height = Math.floor(h * this.dpr);
-    this.ui.style.width = w + 'px'; this.ui.style.height = h + 'px';
     this.ambience?.resize(w, h);
     this.updateCamera();
   }

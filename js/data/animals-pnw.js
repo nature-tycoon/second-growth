@@ -230,7 +230,7 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, FARM: 0.45, SHRUB: 0.45, RIPARIAN: 0.3, INVASIVE: 0.2 });
-    def({ key: 'hawk', name: 'Red-tailed hawk', sci: 'Buteo jamaicensis', group: 'Birds', move: 'fly',
+    def({ key: 'hawk', name: 'Red-tailed hawk', sci: 'Buteo jamaicensis', group: 'Birds', move: 'fly', carries: ['vole', 'gartersnake'], soar: true,
       speed: 3, hr: 250, max: 2, sources: ['N', 'E', 'S', 'W'], mig: 0.35, breed: [1], litter: [1, 2], life: 12,
       prey: ['vole', 'rabbit', 'gartersnake'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]] * near(W.distPerch[i], 6, 0.3),
@@ -240,7 +240,7 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 0.8, MATURE_FOREST: 1, RIPARIAN: 0.7, MEADOW: 0.3 });
-    def({ key: 'owl', name: 'Great horned owl', sci: 'Bubo virginianus', group: 'Birds', move: 'fly',
+    def({ key: 'owl', name: 'Great horned owl', sci: 'Bubo virginianus', group: 'Birds', move: 'fly', carries: ['vole', 'squirrel', 'rabbit'],
       speed: 2.5, hr: 220, max: 2, sources: ['N', 'E'], mig: 0.3, breed: [11, 0], litter: [1, 2], life: 13,
       prey: ['vole', 'rabbit', 'squirrel'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]],
@@ -250,7 +250,7 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ RIVER: 1, POND: 0.8, CREEK: 0.5, MARSH: 0.5 });
-    def({ key: 'eagle', name: 'Bald eagle', sci: 'Haliaeetus leucocephalus', group: 'Birds', move: 'fly',
+    def({ key: 'eagle', name: 'Bald eagle', sci: 'Haliaeetus leucocephalus', group: 'Birds', move: 'fly', carries: ['cutthroat'],
       speed: 3, hr: 350, max: 2, sources: ['S'], mig: 0.3, breed: [0], litter: [1, 2], life: 20, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * near(W.distPerch[i], 3, 0.2),
       req: g => Math.min(1, g.fishIndex / 6 + g.salmonBonus) * (g.bigTrees >= 3 ? 1 : 0.3),
