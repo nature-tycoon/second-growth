@@ -134,6 +134,8 @@ function crownRoute(from, to, point, def, scale) {
   return route;
 }
 
+// (one per body: the same outline object also keeps wood-clearance's grouping of its points)
+const flightOutlines=new WeakMap();
 // Bark at the launch and catch is support, rather than an airborne obstacle.
 // Only exempt those limbs while the body is departing or approaching them;
 // the middle of the arc still checks every limb in both crowns.
@@ -146,10 +148,13 @@ function clearWalkerJump(route,profile,wood,size) {
   const launch=new THREE.Vector3(.16,.055,0).multiplyScalar(size*(profile.motion.canopyReachScale || 1));
   // Tucked torso rather than the lateral fur envelope. The arms reach
   // forward in flight and are outside this collision silhouette.
-  const mo=profile.motion,center=mo.canopyBounds.getCenter(new THREE.Vector3());
-  const shrink=new THREE.Vector3(.9,.9,.65);
-  const points=mo.canopyBody.map(p=>p.clone().sub(center).multiply(shrink).add(center));
-  const flightProfile={...profile,motion:{...mo,canopyBody:points,canopyBounds:new THREE.Box3().setFromPoints(points)}};
+  const mo=profile.motion;
+  if(!flightOutlines.has(mo)) {
+    const center=mo.canopyBounds.getCenter(new THREE.Vector3()),shrink=new THREE.Vector3(.9,.9,.65);
+    const points=mo.canopyBody.map(p=>p.clone().sub(center).multiply(shrink).add(center));
+    flightOutlines.set(mo,{canopyBody:points,canopyBounds:new THREE.Box3().setFromPoints(points)});
+  }
+  const flightProfile={...profile,motion:{...mo,...flightOutlines.get(mo)}};
   for(let k=0;k<=steps;k++) {
     const t=k/steps,pose=howlerJumpPose({howlerJump:jump,canopyLeap:{t}});
     const point=from.clone().lerp(to,t);point.y+=4*t*(1-t)*height;
