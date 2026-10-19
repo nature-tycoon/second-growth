@@ -32,6 +32,7 @@ Read the decisions in [docs/decisions/](docs/decisions/) before changing the are
 - [0004 Ecosystem performance](docs/decisions/0004-ecosystem-performance.md): the low-end target (30 FPS, native resolution, Fast, Intel HD 520), the audit, and the milestone plan with progress
 - [0005 Animal travel and crowding](docs/decisions/0005-animal-clustering.md), [0006 Prey vigilance](docs/decisions/0006-prey-predator-avoidance.md), [0007 Territorial cores](docs/decisions/0007-species-territories.md), [0008 Carcass window](docs/decisions/0008-longer-carcass-window.md), [0009 Seasonal dormancy](docs/decisions/0009-seasonal-dormancy.md), [0010 Game trails](docs/decisions/0010-game-trails.md): wildlife movement and behavior added October 2026
 - [0011 Grazing pressure](docs/decisions/0011-grazing-pressure.md): herds hold woody seedlings back in the grass they use (`sim/grazing.js`, per-map `grazing` strength), and where elk spend their time
+- [0012 Raptors soar and carry](docs/decisions/0012-raptors-soar-and-carry.md): hawks circle (`def.soar`), and raptors and owls carry off what they can lift (`def.carries`, `carryCatch` in `sim/bird-behavior.js`)
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
 

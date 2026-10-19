@@ -235,7 +235,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   a.fruitMeal = null; a.fruitGoal = null; a.forage = null; a.forageGoal = null;
   a.socialWith = null; a.socialUntil = 0; a.sparPath = null;
   a.greet = null; a.goal = null; a.sparT = 0; a.sparLight = false; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
-  if (a.state === 'hunt' || a.state === 'feed') { endHunt(a); a.feedAt = null; a.carcass = null; }
+  if (a.state === 'hunt' || a.state === 'feed' || a.state === 'carry') { endHunt(a); a.feedAt = null; a.carcass = null; a.carry = null; a.prey = null; }
   if (def.reef || def.move === 'swim') {
     a.path = null; a.state = 'idle'; a.wait = 0.2;
     wl.evadeHunt(a, threat); a.run = 1.7; return;

@@ -129,6 +129,7 @@ import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema
  * @property {AnimalSprite} sprite
  * @property {function(Object):number} [req] Global resource multiplier.
  * @property {string[]|null} [prey]
+ * @property {string[]} [carries] prey a raptor or owl can lift as adults and carry to a perch (young of any prey it always can)
  * @property {string[]} [needs]
  * @property {number} [needsPer]
  * @property {number[]|null} [season]
@@ -151,6 +152,7 @@ import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema
  * @property {boolean} [familyHerd]
  * @property {boolean} [notPrey]
  * @property {boolean} [patrol]
+ * @property {boolean} [soar] a raptor that circles high over open ground between perches
  * @property {boolean} [ambush]
  * @property {boolean} [noDrink]
  * @property {boolean} [quick]
@@ -317,9 +319,9 @@ export function assertSeedMix(m, plant, path = 'mix') {
   // Repeated keys are intentional weights (for example, the reef's starter mix).
 }
 
-const ANIMAL_BOOLEANS = 'herd familyHerd fixedMax strictMax notPrey patrol ambush noDrink quick domestic reef benthic frugivore fenced damBuilder';
+const ANIMAL_BOOLEANS = 'herd familyHerd fixedMax strictMax notPrey patrol soar ambush noDrink quick domestic reef benthic frugivore fenced damBuilder';
 const ANIMAL_NUMBERS = 'minK mig intro life mature preyPer speed max hr familySize herdR bachelorSize bachelorR bachelorJoin bachelorSoloAge herdMax needsPer shy browseRate challengePreyPer';
-const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey needs special crossing surfaceEscape ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
+const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey carries needs special crossing surfaceEscape ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
 export const ANIMAL_MOVES = Object.freeze(['ground', 'semi', 'tree', 'fly', 'swim']);
 
 /** @param {AnimalSpec} a */
@@ -424,7 +426,8 @@ export function assertCatalog(catalog) {
     if (a.mapId !== map.id) fail(`${q}.mapId`, 'the owning map ID');
     if (!catalog.animalGroups.includes(a.group)) fail(`${q}.group`, 'a declared animal group');
     seen.add(a.key);
-    for (const key of ['prey', 'challengePrey', 'needs']) if (a[key] != null) references(a[key], catalog.animal, `${q}.${key}`);
+    for (const key of ['prey', 'challengePrey', 'carries', 'needs']) if (a[key] != null) references(a[key], catalog.animal, `${q}.${key}`);
+    for (const k of a.carries || []) if (!a.prey?.includes(k) && !a.challengePrey?.includes(k)) fail(`${q}.carries`, `${k} to be something it hunts`);
   }
   for (const [edge, values] of Object.entries(map.seedRain || {})) { choice(edge, `${path}.seedRain`, ['N', 'E', 'S', 'W']); references(values, catalog.plant, `${path}.seedRain.${edge}`); }
   for (const key of ['windSeeds', 'berrySeeds', 'floodSeeds', 'burnSeeds']) if (map[key]) references(map[key], catalog.plant, `${path}.${key}`);
