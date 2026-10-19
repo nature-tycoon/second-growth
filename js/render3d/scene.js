@@ -345,10 +345,8 @@ export class Renderer {
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
     this.vw = w; this.vh = h;
-    this.gl.setSize(w, h, false);
-    this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
+    this.gl.setSize(w, h, false); // (the CSS in styles.css stretches both canvases over the window)
     this.ui.width = Math.floor(w * this.dpr); this.ui.height = Math.floor(h * this.dpr);
-    this.ui.style.width = w + 'px'; this.ui.style.height = h + 'px';
     this.ambience?.resize(w, h);
     this.updateCamera();
   }

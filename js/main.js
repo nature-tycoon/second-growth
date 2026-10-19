@@ -57,7 +57,16 @@ async function boot() {
     const ui = new UI(game, renderer);
     const input = new Input(game, renderer, ui);
     renderer.resetView();
-    window.addEventListener('resize', () => { renderer.resize(); renderer.clampCam(); });
+    window.addEventListener('resize', () => {
+      scrollTo(0, 0);
+      if (innerWidth === renderer.vw && innerHeight === renderer.vh) return;
+      renderer.resize(); renderer.clampCam();
+    });
+    // iOS reports the window's size late while the phone turns, most of all from the home screen, so
+    // the resize event can carry the old size. Measure everything again once the turn has settled.
+    addEventListener('orientationchange', () => {
+      for (const ms of [100, 400, 1000]) setTimeout(() => dispatchEvent(new Event('resize')), ms);
+    });
 
     if (pending?.resume) {
       if (!await game.load(pending.map)) { game.newGame(1987, 'free', 'standard', pending.map); setTimeout(() => game.notify('That saved farm could not be opened. Your stored saves have been kept. Choose a new game to start over.', 'warn'), 1500); }
