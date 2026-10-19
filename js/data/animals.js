@@ -86,12 +86,16 @@ const variants = new WeakMap();
 // (antlers, manes: see isMaleVariant), otherwise half and half.
 export const isMale = (def, a) => ((a.id * 7919) % 100) / 100 < (def.sprite.male ? def.sprite.maleShare ?? 0.5 : 0.5);
 export const isMaleVariant = (def, a) => !!def.sprite.male && !a.juvenile && (a.age == null || a.age >= def.mature * DAYS_PER_YEAR) && isMale(def, a);
+// The species drawn as its adult male, where males look different (the field guide shows this one:
+// antlers, manes and bright plumage are what people recognise).
+export function maleLook(def) {
+  if (!def.sprite.male) return def;
+  let look = variants.get(def);
+  if (!look) { look = { ...def, key: def.key + ':male', sprite: { ...def.sprite, ...def.sprite.male } }; variants.set(def, look); }
+  return look;
+}
 export function drawDef(def, a, month = null) {
-  let look = def;
-  if (isMaleVariant(def, a)) {
-    look = variants.get(def);
-    if (!look) { look = { ...def, key: def.key + ':male', sprite: { ...def.sprite, ...def.sprite.male } }; variants.set(def, look); }
-  }
+  let look = isMaleVariant(def, a) ? maleLook(def) : def;
   // Without a calendar (field-guide/model previews), show breeding plumage.
   // Winter only changes drawing; the animal's sex, identity and ecology stay fixed.
   if (month != null && def.sprite.winter && !def.sprite.breedingPlumage.includes(month)) {
