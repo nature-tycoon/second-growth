@@ -47,7 +47,8 @@ Several agents (Claude Code, Codex, Cursor) often edit this checkout at the same
 
 ## Shipping
 
-- Don't commit, push or open a PR on your own. Leave changes in the working tree until Cole says to.
+- When you finish a task, commit your changes on the current branch without being asked (if that's `main`, branch first). Commit only your own hunks, as above, and run the relevant checks first.
+- Don't push or open a PR on your own. Wait until Cole says to.
 - When Cole says to push it or make it live, open a PR against main and merge it yourself with a merge commit (`gh pr merge N --merge`). If a tool's permission check blocks the merge, try once, then give Cole the command. Never work around the block.
 - Merging to main deploys GitHub Pages (nature-tycoon.github.io/second-growth) and runs the itch.io workflow.
 - CI: PRs run only the headless suite. The browser suite runs on main before the itch.io upload. Run the relevant `tools/*-check.mjs` locally, and don't wait for or poll CI before merging. `[skip ci]` in the commit message skips the checks and the itch.io upload.
