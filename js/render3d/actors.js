@@ -6,6 +6,7 @@ import { drawDef, animalDef } from '../data/animals.js';
 import * as S from '../render/sprites.js';
 import { TREE_SHAPES } from './geometry/trees.js';
 import { contactShadow } from './geometry/features.js';
+import { AnimalShadows } from './animal-shadows.js';
 import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './animals/animal-pools.js';
 import { adultAnimalScale } from './animal-scale.js';
 import { waterSurfaceY } from './terrain.js';
@@ -103,6 +104,8 @@ export class Actors {
     this.shadows.frustumCulled = false;
     this.shadows.renderOrder = 1;
     scene.add(this.shadows);
+    // reef animals and birds cast shadows shaped like themselves instead
+    this.silhouettes = new AnimalShadows(scene, this.shadowMat);
     // The selected animal's marker: a thin ring with a faint glow lying flat on the ground under
     // it (or on the water, the branch or the seabed it's at), so nothing is drawn over the animal
     // itself. Depth-tested, so legs and bodies pass in front of it.
@@ -147,6 +150,7 @@ export class Actors {
     const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
     this.lastT = time;
     F.begin(pixelsPerUnit(camera, viewportHeight));
+    this.silhouettes.begin();
     // the prey a hunter is rushing right now (a longtom skips away from it)
     const chased = new Set();
     for (const h of game.wildlife.agents) if (h.state === 'hunt' && h.hunt?.phase === 'rush') chased.add(h.target);
@@ -593,7 +597,12 @@ export class Actors {
       if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
       // (after the reads of F.m above, which must still hold this animal's own instance)
       if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);
-      if (!st.branch && def.move !== 'swim' && !swimming && !(surf != null && FLOATERS.has(kind))) shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
+      if (!st.branch && def.move !== 'swim' && !swimming && !(surf != null && FLOATERS.has(kind))) {
+        // (a shaped shadow fades and softens a little the higher the animal is above the ground)
+        const shape = (def.reef || def.move === 'fly') && this.silhouettes.shape(F, def, def.reef ? 0.5 : 0);
+        if (shape) this.silhouettes.add(shape, a.x, ground, a.y, st.yaw, sc * (1 + Math.min(1, Math.max(0, y - ground) * 0.06)), st.fly, Math.sin(phase * (mo.flap || 1)), clamp(1.1 - (y - ground) * 0.22, 0.4, 1));
+        else shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
+      }
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
     for (const bridge of bridges) { canopySites.add(bridge.source); canopySites.add(bridge.target); }
@@ -638,6 +647,7 @@ export class Actors {
       shadow(v.x, gy, v.y, 0.1);
     }
     F.end();
+    this.silhouettes.end();
     for (const id of this.people.keys()) if (!pseen.has(id)) this.people.delete(id);
 
     this.shadows.count = sh;
