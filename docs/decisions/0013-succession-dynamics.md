@@ -295,6 +295,16 @@ Against the targets:
 - **`balance-sim restore 15`**, seeds 1–8 seeded via `--import`, phase 2 → phase 3 means: score 57.8 → 60.3, meadow tiles 764 → 985 (seed 7 at 1,584; phase 2 ranged 570–994), forest 200 → 185, mature 38.4 → 38.1, elk 17.5 → 15.9, invasive 30.0% → 27.7%. All within seed noise; forest is slightly lower, as expected while CNDD thins early same-species clumps.
 - **`dailyTick`**: A/B on PNW restore, `--veg`, 60 years, seed 1, one process at a time in the order old, new, new, old, on a cloud container (about 4× slower than the Mac in absolute terms). Means, ms per `dailyTick`: years 0–20 14.35 → 13.63, 20–40 17.63 → 16.65, 40–60 18.41 → 17.44. Phase 3 has 16% fewer trees at year 60 (3,095 against 3,685), so per tree it costs slightly more, but the total is inside the 5% budget.
 
+**Neem in the understory (Cole, 2026-10-21): allowed, as long as it follows nature.** It does: no invasive-only rule applies in the understory branch. Neem waits only where shrub-layer light is at least its `light[0]` 0.35, a canopy no denser than about 0.76. That means under thin dry-forest canopy, never deep shade, which matches a light-demanding tree whose young take moderate shade.
+
+**Relaxed invasives (Cole, 2026-10-21).** Relaxed's `invasives: 0.6` used to thin only the seed rain from the map edges, while invasives already on the land spread at full strength. `trySeed` now multiplies natural invasive recruitment by `w.invasiveOdds`. `updatePlants` sets it daily to `min(1, diff.invasives)`, so it covers seed rain, spread from plants on the land, and burn and flood seeds. Challenging's extra edge seed rain is unchanged, and Standard is identical: a 25-year PNW restore run gives the same output before and after. `succession-check --difficulty relaxed`, `--veg`, seed 1, before → after, invasive tiles:
+
+| Map | Year 25 | Year 50 | Year 100 | Notes |
+|---|---|---|---|---|
+| PNW restore | 3,820 → 809 | 4,277 → 1,205 | 2,350 → 1,639 | Native shrub and meadow take what blackberry would have (shrub 3,678 → 5,856 at year 25), so trees come a little later: 5,157 → 4,323 at year 100. |
+| Atlanta | 2,102 → 1,537 | 1,506 → 1,139 | 1,258 → 1,043 | Mature forest 1,742 → 1,873. |
+| Chinandega | 7,038 → 6,967 | 7,126 → 6,912 | 6,352 → 6,483 | No real change. Jaragua fills the open pasture within 25 years either way: it's limited by space, not seed. A Relaxed lever there would have to act on established grass (fire resprouting, or the native seed bank), not on seedlings. |
+
 ### How to run
 
 ```
