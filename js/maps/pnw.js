@@ -44,6 +44,7 @@ export default {
   // How strongly herds of grazers and browsers hold woody seedlings back in the grass they use
   // (sim/grazing.js): elk and deer keep the valley's meadows open where they feed.
   grazing: 1,
+  recruitment: { cndd: 0.3 }, // (0013 §3: conspecific negative density dependence; stronger in the tropics)
   climate: {
     seasons: ['Spring', 'Summer', 'Autumn', 'Winter'],
     rain: [0.45, 0.35, 0.3, 0.2, 0.08, 0.08, 0.2, 0.45, 0.6, 0.65, 0.65, 0.55],
@@ -64,7 +65,8 @@ export default {
   // seeds drifting in from each side of the property
   seedRain: {
     N: ['fir', 'hemlock', 'cedar', 'alder', 'swordfern', 'salal', 'vinemaple', 'salmonberry'],
-    E: ['alder', 'maple', 'fir', 'salmonberry', 'snowberry', 'swordfern', 'elderberry'],
+    // (the north edge is dry upland, too dry for hemlock and redcedar to take; the moister woods to the east hold them too)
+    E: ['alder', 'maple', 'fir', 'hemlock', 'cedar', 'salmonberry', 'snowberry', 'swordfern', 'elderberry'],
     W: ['blackberry', 'blackberry', 'broom', 'canarygrass'],
     S: ['willow', 'cottonwood', 'alder', 'canarygrass', 'dogwood', 'sedge'],
   },

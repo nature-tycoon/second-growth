@@ -450,6 +450,7 @@ export default {
 
   // Grazing pressure (sim/grazing.js): elephants, sambar and tapir open small clearings; rainforest still returns.
   grazing: 0.3,
+  recruitment: { cndd: 0.65 },
   climate: {
     // Wet nearly all year. Mar–May the first rains, Jun–Aug the driest months (and the haze),
     // Sep–Nov the big rains and floods, Dec–Feb the fruit season, drying out in February.

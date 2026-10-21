@@ -49,11 +49,12 @@ export function terrainFit(w, i, p) {
   }
 }
 
-export function plantSuit(w, i, p) {
+// light: the light the plant gets, by default its layer's (a sapling waiting under a tree reads the shrub layer's)
+export function plantSuit(w, i, p, light) {
   if (p.dune && w.distWater[i] < 4) return 0; // (dune plants stay back from the waves)
   const tf = terrainFit(w, i, p);
   if (!tf) return 0;
-  const light = layerLight(w, i, p.layer);
+  light ??= layerLight(w, i, p.layer);
   const soil = w.soil[i];
   const soilFit = soil >= p.soil ? 1 : Math.max(0, 1 - (p.soil - soil) * (p.soilK ?? 3.5)); // soilK: how sharply poor soil holds a plant back
   let s = tf * rangeFit(w.moist[i], p.moist[0], p.moist[1], 0.18) * rangeFit(light, p.light[0], p.light[1], 0.25) * soilFit;
@@ -82,14 +83,43 @@ export function plantLimits(w, i, p) {
 const layerArrays = (w, layer) =>
   layer === 0 ? [w.ground, w.groundG] : layer === 1 ? [w.shrub, w.shrubG] : [w.tree, w.treeG];
 
-// A seed lands on tile i. Returns true if it establishes.
+// Recruitment settings (0013 §3), from map data: definition.recruitment: { cndd, understory }.
+const CNDD = 0.3; // default strength of conspecific negative density dependence
+const UNDER_MAX = 0.25, UNDER_GROW = 0.1; // an understory sapling's cap, and its growth against the open
+const UNDER_DEATH = 0.02, UNDER_SHADE_DEATH = 0.25, UNDER_POOR_DEATH = 0.3; // per year
+
+// Janzen–Connell: seed and seedlings die near adults of their own species (pathogens, seed
+// predators and herbivores gather there). Returns the share of adult trees (treeG > 0.5) in the
+// 5×5 around tile i, the tile's own tree included, that are species id.
+function conspecificShare(w, i, id) {
+  const W = w.w, x = i % W, y = (i / W) | 0, ids = w.tree, gs = w.treeG;
+  let n = 0, same = 0;
+  for (let yy = Math.max(0, y - 2); yy <= Math.min(w.h - 1, y + 2); yy++) {
+    for (let xx = Math.max(0, x - 2), j = yy * W + xx, end = yy * W + Math.min(W - 1, x + 2); j <= end; j++) {
+      if (ids[j] && gs[j] > 0.5) { n++; if (ids[j] === id) same++; }
+    }
+  }
+  return n ? same / n : 0;
+}
+
+// A natural seed lands on tile i (player planting doesn't come through here). Returns true if it
+// establishes. A tree seed landing under a living tree can only wait in the understory slot.
 export function trySeed(w, p, i, rng) {
+  const def = w.catalog.definition;
   const [ids, gs] = layerArrays(w, p.layer);
   const cur = ids[i];
   if (cur === p.id) return false;
-  // One canopy tree per tile: a seed cannot remove a living tree, its age or its wood.
-  // Succession recruits beside pioneers and into gaps left by their normal mortality.
-  if (cur && p.layer === 2 && (!w.catalog.definition.look.underwater || p.cay)) return false;
+  // One canopy tree per tile: a seed cannot remove a living tree, its age or its wood. Under an
+  // established tree, a sapling that can take the shade there waits for it to die (advance
+  // regeneration, 0013 §3): the shade-tolerant cedar and hemlock almost anywhere, fir only under
+  // a thin canopy, alder and cottonwood hardly ever. Under a young tree the seed just fails.
+  let under = false;
+  if (cur && p.layer === 2 && (!def.look.underwater || p.cay)) {
+    if (def.recruitment?.understory === false || w.treeG[i] <= ESTABLISHED_TREE || w.understory[i] === p.id) return false;
+    under = true;
+  }
+  const underLight = under ? layerLight(w, i, 1) : 0;
+  if (under && underLight < p.light[0]) return false;
   // Sparse species recruit into gaps, counting juveniles too so a batch of settlers can't
   // fill one patch. This only limits natural recruitment; adults and player planting keep
   // their usual suitability. Wider dispersal lets larvae reach gaps beyond their parent.
@@ -101,7 +131,7 @@ export function trySeed(w, p, i, rng) {
       }
     }
   }
-  const s = plantSuit(w, i, p);
+  const s = under ? plantSuit(w, i, p, underLight) : plantSuit(w, i, p);
   if (s < 0.3) return false;
   // a healthy native seed bank in the soil stands in the way of invasive seedlings
   if (p.invasive && w.seedbank && w.seedbank[i] && w.bankStrength > 0 && rng() < w.bankStrength * 0.85) return false;
@@ -111,7 +141,14 @@ export function trySeed(w, p, i, rng) {
     const est = (id, g) => id && g > 0.45 && !w.catalog.plants[id].invasive && !w.catalog.plants[id].exotic;
     if ((est(w.ground[i], w.groundG[i]) || est(w.shrub[i], w.shrubG[i]) || est(w.tree[i], w.treeG[i])) && rng() > 0.03) return false;
   }
-  if (cur) {
+  if (under) {
+    // it takes the slot from a weaker or less shade-tolerant sapling waiting there
+    const uc = w.understory[i];
+    if (uc) {
+      const up = w.catalog.plants[uc];
+      if (!(p.light[0] < up.light[0] - 0.05 || s > plantSuit(w, i, up, underLight) + 0.15)) return false;
+    }
+  } else if (cur) {
     const cp = w.catalog.plants[cur];
     const cs = plantSuit(w, i, cp);
     // Struggling residents get replaced by better-suited newcomers; invasives push harder.
@@ -133,10 +170,16 @@ export function trySeed(w, p, i, rng) {
   odds *= grazedRecruitOdds(w, i, p); // and herds crop or tread most of what comes up where they feed
   // On the savanna the roots of a grown tree take all the water around it, so native seedlings
   // only come up in the gaps and the trees stay scattered (invasive mesquite still makes thickets).
-  if (open && p.layer === 2 && !p.invasive && crowded(w, i, 1, 'tree', 2)) return false;
+  if (open && p.layer === 2 && !p.invasive && (under || crowded(w, i, 1, 'tree', 2))) return false;
   // and thornbush stays in clumps and patches rather than closing over the grass
   if (open && p.layer === 1 && !p.invasive && crowded(w, i, 1, 'shrub')) return false;
+  // fewer of a tree's seedlings survive among its own kind (checked last: it's the costly part)
+  if (p.layer === 2) {
+    const k = p.cndd ?? def.recruitment?.cndd ?? CNDD;
+    if (k > 0) odds *= 1 - k * conspecificShare(w, i, p.id);
+  }
   if (rng() > odds) return false;
+  if (under) { w.understory[i] = p.id; w.understoryG[i] = 0.04; return true; }
   ids[i] = p.id; gs[i] = 0.04;
   if (p.layer === 2) w.treeAge[i] = 0;
   return true;
@@ -174,6 +217,24 @@ export function treeHazard(w, i, p, s, g, ageY, m) {
   hz.h = hz.age + stress;
   return hz;
 }
+
+// A sapling waiting under the tile's tree: it grows very slowly, held at UNDER_MAX until the tree
+// above it dies (removeTree releases it), and dies now and then, sooner in shade it can't take or on
+// a poor site. Browsers nip it through the same rules as any seedling (0011), which under a canopy
+// are mostly off.
+function understoryDay(w, i, gf, rng) {
+  const p = w.catalog.plants[w.understory[i]], L = layerLight(w, i, 1);
+  const s = plantSuit(w, i, p, L);
+  let g = w.understoryG[i];
+  if (s >= 0.3 && g < UNDER_MAX) g = Math.min(UNDER_MAX, g + p.grow * gf * (s - 0.3) / 0.7 * 1.4 * UNDER_GROW * grazedGrowth(w, i, p, g));
+  const short = p.light[0] - L;
+  const h = UNDER_DEATH + (short > 0 ? UNDER_SHADE_DEATH * Math.min(1, short / p.light[0]) : 0) + (s < 0.3 ? UNDER_POOR_DEATH : 0);
+  if (rng() * 120 < h || grazedSeedlingLost(w, i, p, g, rng)) { w.understory[i] = 0; w.understoryG[i] = 0; }
+  else w.understoryG[i] = g;
+}
+
+// The understory sapling on tile i dies with whatever killed it (fire, a flood, the player clearing the tile).
+export function clearUnderstory(w, i) { w.understory[i] = 0; w.understoryG[i] = 0; }
 
 // Grown plants of a layer on the tiles around (at least `need` of them, within r tiles).
 function crowded(w, i, need, layer = 'tree', r = 1) {
@@ -318,6 +379,7 @@ export function updatePlants(game) {
           if (y < w.h - 1) w.soil[i + W] += 0.0002 * g;
         }
       }
+      if (w.understory[i]) understoryDay(w, i, gf, rng);
     }
 
     // ---- features age and rot
@@ -344,6 +406,9 @@ export function updatePlants(game) {
 // mortality), 'stress' (a poor site, shade or competition), 'fire', 'wind', 'drought', 'pathogen',
 // 'flood', 'browse' (and trampling), 'beaver' or 'player'.
 const SNAG_ODDS = { fire: 0.7, wind: 0.15 }; // a fire kills trees standing; a storm throws them down
+// Deaths that take the understory sapling with the tree: fire burns it (thin bark, low down),
+// standing water drowns it, and the player removing a tree means to clear the tile.
+const KILLS_UNDERSTORY = { fire: 1, flood: 1, player: 1 };
 export const ESTABLISHED_TREE = 0.35; // a tree this grown counts as established (the succession check's "tree")
 
 // The one way a living tree leaves its tile. A big tree leaves a snag (standing) or a log (fallen):
@@ -358,8 +423,16 @@ export function removeTree(w, i, cause, rng, { snagOdds = SNAG_ODDS[cause] ?? 0.
   all[cause] = (all[cause] || 0) + 1;
   if (g > ESTABLISHED_TREE) est[cause] = (est[cause] || 0) + 1;
   w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
-  // Phase 3 (0013 §3) releases advance regeneration here: a sapling waiting in w.understory[i]
-  // takes the tree slot at its current size. Nothing waits there yet.
+  // advance regeneration (0013 §3): a sapling waiting underneath takes the slot at its own size,
+  // a head start no new seed can match
+  const u = w.understory[i];
+  if (u) {
+    if (!KILLS_UNDERSTORY[cause]) {
+      w.tree[i] = u; w.treeG[i] = Math.max(0.04, w.understoryG[i]);
+      const k = w.catalog.plants[u].key; w.understoryReleased[k] = (w.understoryReleased[k] || 0) + 1;
+    }
+    w.understory[i] = 0; w.understoryG[i] = 0;
+  }
   if (!deadwood) return;
   if (w.catalog.definition.savanna) snagOdds *= 0.35; // (on the savanna a dead tree mostly falls: fire, termites and elephants)
   if (w.catalog.definition.deadTree) { w.catalog.definition.deadTree(w, i); return; } // (the reef: dead coral breaks down into rubble, not snags and logs)

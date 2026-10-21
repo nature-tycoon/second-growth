@@ -88,6 +88,7 @@ export default {
   // Grazing pressure (sim/grazing.js) kept light: trampling, fire and dry-season drought already
   // keep the plains open, and giraffe and elephant need young acacias to browse, so herds add only a little.
   grazing: 0.25,
+  recruitment: { cndd: 0 }, // (its trees already keep their distance: the savanna spacing in trySeed)
   // native seed bank: on healthy land, buried native seed beats weeds into burned and bare ground
   seedbank: true,
   // every animal walks (or flies) to water every few days to drink

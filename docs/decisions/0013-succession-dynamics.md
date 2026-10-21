@@ -82,18 +82,35 @@ suppression = 0.03 * min(1, (light[0] − L)/light[0])₊ * min(1, (0.95 − tre
 
 ### 3. Recruitment (`sim/plants.js`, `trySeed`)
 
-**Advance regeneration.** Two new saved arrays, `w.understory` (plant id) and `w.understoryG`, registered in `EXTRA_ARRAYS` in `data/world-schema.js`. Old saves load with empty arrays.
+Built in phase 3. `trySeed` is still the one place natural recruitment happens (seed rain, dispersal, burn and flood seeds). Player planting goes through `setPlant` and the tools, so none of this applies to it.
 
-- A tree seed landing on a tile with a living tree no longer just fails. If the light at the shrub layer (`layerLight(w, i, 1)`) is at least `p.light[0]`, and the site is otherwise suitable, it can take the understory slot. It replaces a weaker or less shade-tolerant occupant.
-- Understory saplings grow very slowly, capped at about 0.25. They die at a low rate, and browsers hit them through the existing `grazedGrowth` / `grazedSeedlingLost` path. Deer browsing on hemlock and cedar is real and limits recruitment.
-- `removeTree` promotes the understory to the tree slot at its current size, so the head start beats a new seed.
-- Shade tolerance comes from `p.light[0]`. Cedar and hemlock (0) qualify under almost any canopy, fir (0.42) only under a thin one, alder and cottonwood (0.5–0.6) almost never. That ordering is the real one, and new species fit in automatically.
+**Advance regeneration.** Two saved arrays, `w.understory` (plant id, `Uint8Array`) and `w.understoryG` (`Float32Array`), declared in the `World` constructor and registered in `EXTRA_ARRAYS` (`data/world-schema.js`). Saves remap understory ids by name like the other plant layers, and the contract checks them as tree-layer ids. Saves from before load with the constructor's empty arrays.
 
-**Conspecific negative density dependence (CNDD).** Natural tree recruitment odds get multiplied by `1 − cndd × f`, where `f` is the share of the 5×5 neighborhood's adult trees that are the same species.
+- **Entry.** A tree seed landing on a tile with a living tree goes for the understory slot instead of failing, when:
+  - the tree above is established (`treeG > ESTABLISHED_TREE`, 0.35). Under a young tree the seed still fails;
+  - the shrub-layer light (`layerLight(w, i, 1)` = `1 − 0.85 × canopy`) is at least `p.light[0]`;
+  - the site suits it, with `plantSuit(w, i, p, light)` reading that understory light instead of the tree layer's. `plantSuit` gained the optional `light` argument for this.
+- **The rest of `trySeed` applies unchanged:** seed spacing, the seed bank, `nativesHold`, `meadowsHold`, the grass sward, grazing (`grazedRecruitOdds`), CNDD and the final roll. The savanna rule that native seedlings don't come up within reach of a grown tree also rules out the tile under one.
+- **Replacing.** A newcomer takes the slot from a sapling already waiting if it's more shade-tolerant (`light[0]` lower by more than 0.05) or better suited (suitability higher by more than 0.15).
+- **Daily step** (`understoryDay`, run in the tree loop right after the tile's tree):
+  - growth is 0.1 of the open-grown rate, times `grazedGrowth`, capped at `UNDER_MAX` = 0.25;
+  - yearly death is 2% background, plus up to 25% as the light falls below `light[0]`, plus 30% on a site under 0.3 suitability. `grazedSeedlingLost` applies too. The 0011 browse pressure fades to 0 under a canopy (`seedlingPressure` × (1 − 2 × nbCanopy)), so browsing hardly reaches understory saplings in closed forest. Modelling deer browse on hemlock and cedar would need that fade changed. That belongs to grazing (0011), not this phase.
+- **Release.** `removeTree` promotes the sapling to the tree slot at its own size (at least 0.04), age 0, and clears the slot. Releases are counted by species in `w.understoryReleased`, which isn't saved, like `treeDeaths`. The age restarts because nothing tracks how long the sapling waited.
+- **What kills the understory with the tree** (`KILLS_UNDERSTORY` in `removeTree`):
+  - `fire`: thin-barked saplings low in the fuel bed burn. Every burned tile loses its understory through `clearUnderstory`, even where the big tree survives. That covers surface fire, crown fire and the player's controlled burn. Realistically most do die; this keeps it simple and makes fire-prone stands stay fir.
+  - `flood`;
+  - `player`, because removing a tree means clearing the tile. `World.clearPlants` clears the understory first too.
+  - Other causes release the sapling: age, stress, drought, browse, beaver, and later wind and pathogen.
+- **Invariant.** No understory without a living tree on the tile: release or clearing empties the slot in the same call that empties the tree slot. `tools/plant-ecology-check.mjs` checks entry, the cap, release, fire, clearing and the save round trip.
+- **Map data.** `recruitment.understory: false` turns it off. The reef sets it, so coral doesn't settle under coral.
 
-- `cndd = p.cndd ?? map.recruitment?.cndd ?? 0.3`. Planned map values: about 0.6–0.7 for Amazon, Sumatra and Chinandega, 0.3 for temperate maps, and 0 for savanna and reef, which have their own spacing rules. This is defensible: CNDD is documented as stronger in the tropics.
-- It applies to understory recruitment too.
-- Player planting is exempt, as with grazing.
+**Conspecific negative density dependence (CNDD).** For tree seeds only (layer 2), into either slot, the odds are multiplied by `1 − cndd × f`. `f` is the share of adult trees (`treeG > 0.5`) in the 5×5 around the tile, the tile's own tree included, that are the seed's species (`conspecificShare`).
+
+- `cndd = p.cndd ?? definition.recruitment?.cndd ?? 0.3`. Values: Amazon 0.7; Sumatra 0.65; Chinandega 0.6; PNW and Atlanta 0.3; Serengeti 0, since its savanna spacing rule already keeps trees apart; reef 0.
+- The 25-tile scan runs last, only for seeds that passed every other check before the final roll.
+- The data contract checks `recruitment: { cndd (0–1), understory (boolean) }` and the plant override `cndd`.
+
+**Seed supply (PNW data).** Hemlock and redcedar came only from the north seed rain, onto the outer eight rows. That edge is dry upland: moisture 0.25, against minimums of 0.4 and 0.5. Neither ever established in the open there, and neither existed anywhere on the map by year 40. The east edge ("the woods to the east", moisture 0.39, like the interior) now carries them too, as real lowland PNW woods would.
 
 ### 4. Disturbance regimes (`sim/disturbance.js`, new)
 

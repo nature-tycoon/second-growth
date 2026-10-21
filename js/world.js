@@ -34,6 +34,9 @@ export class World {
     this.ground = u8(); this.groundG = f32();
     this.shrub = u8(); this.shrubG = f32();
     this.tree = u8(); this.treeG = f32(); this.treeAge = f32();
+    // advance regeneration (0013 §3): a shade-tolerant sapling waiting under the tile's tree, released when it dies
+    this.understory = u8(); this.understoryG = f32();
+    this.understoryReleased = {}; // (by species key, like treeDeaths: diagnostics, not saved)
     // tree deaths by cause, all and established (removeTree). Declared here, not added later: a
     // property added mid-game changes the world's shape and slows every hot loop that reads it.
     this.treeDeaths = {}; this.treeDeathsEst = {};
@@ -118,6 +121,7 @@ export class World {
   clearPlants(i, cause = null) {
     this.ground[i] = 0; this.groundG[i] = 0;
     this.shrub[i] = 0; this.shrubG[i] = 0;
+    this.understory[i] = 0; this.understoryG[i] = 0; // (cleared first: the tile is cleared, nothing is released)
     if (cause && this.tree[i]) removeTree(this, i, cause, null, { deadwood: false });
     this.tree[i] = 0; this.treeG[i] = 0; this.treeAge[i] = 0;
   }

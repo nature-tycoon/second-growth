@@ -1,6 +1,6 @@
 // Long-run vegetation and succession check (docs/decisions/0013-succession-dynamics.md).
 // Seeded, headless. Prints, every N years: habitat mix and turnover, tree deaths by cause (from
-// removeTree's w.treeDeathsEst counter; by diffing tiles on builds without it) and recruits, age structure, species shares and diversity, deadwood, fire, wildlife, and dailyTick cost.
+// removeTree's w.treeDeathsEst counter; by diffing tiles on builds without it) and recruits, age structure, species shares and diversity, saplings waiting in the understory, deadwood, fire, wildlife, and dailyTick cost.
 //   node tools/succession-check.mjs [--map pnw|all|<id>[,<id>]] [--mode idle|restore] [--years 200]
 //        [--seeds 1,2,3] [--every 10] [--veg] [--assert] [--json out.json]
 // --veg steps wildlife once a day at dt 1.0 instead of 10x0.1: about 3x faster, for structure runs.
@@ -111,6 +111,9 @@ function run(map, seed) {
       if (w.habitat[i] === H.MATURE_FOREST) { spMature[p.key] = (spMature[p.key] || 0) + 1; ntm++; if (p.light[0] <= TOLERANT) tol++; }
     }
     ages.sort((x, y) => x - y);
+    // saplings waiting under the canopy (0013 §3; none on builds without the understory)
+    const und = {}; let nu = 0;
+    if (w.understory) for (let i = 0; i < n; i++) if (w.understory[i]) { const k = P[w.understory[i]].key; und[k] = (und[k] || 0) + 1; nu++; }
     const shares = Object.entries(sp).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v / nt]);
     const simpson = 1 - shares.reduce((s, [, f]) => s + f * f, 0);
     let opened = null, openedNoFire = null;
@@ -132,6 +135,8 @@ function run(map, seed) {
       deaths: { ...per.deaths, total: deaths }, recruits: per.recruits,
       shares: shares.slice(0, 5).map(([k, f]) => [k, +f.toFixed(3)]), largest: shares[0]?.[1] ?? 0, simpson: +simpson.toFixed(3),
       tolerant: ntm ? tol / ntm : null, matureShares: Object.fromEntries(Object.entries(spMature).map(([k, v]) => [k, +(v / ntm).toFixed(3)])),
+      understory: nu, understoryShares: Object.entries(und).sort((a, b) => b[1] - a[1]).slice(0, 4),
+      released: { ...(w.understoryReleased || {}) },
       opened, openedNoFire, snags: w.stats.snags, logs: w.stats.logs, fires: per.fires, burned: per.burned,
       species: pops.length, animals: pops.reduce((a, x) => a + x.pop, 0), elk: elkIdx != null ? g.wildlife.state[elkIdx].pop : null,
       grazed: w.grazed ? +(w.grazed.reduce((a, b) => a + b, 0) / land).toFixed(4) : 0,
@@ -143,7 +148,7 @@ function run(map, seed) {
       ` | changed=${pct(r.changed)} mature>*=${r.matureOut} opened50=${pct(opened)} (no fire ${pct(openedNoFire)})` +
       ` | trees=${nt} age q25/50/75/95=${r.ageQ.join('/')} died=${deaths} (${Object.entries(per.deaths).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + v).join(', ')}) recruits=${per.recruits}` +
       ` | snags=${r.snags} logs=${r.logs} fires=${r.fires} burned=${r.burned} | spp=${r.species} animals=${r.animals}${r.elk != null ? ` elk=${r.elk}` : ''}` +
-      ` | ${r.shares.map(([k, f]) => k + Math.round(f * 100)).join(' ')} D=${r.simpson} tol=${pct(r.tolerant)}${r.msTick != null ? ` | ${r.msTick}/${r.msDay} ms` : ''}`);
+      ` | ${r.shares.map(([k, f]) => k + Math.round(f * 100)).join(' ')} D=${r.simpson} tol=${pct(r.tolerant)}${nu ? ` under=${nu} (${r.understoryShares.map(([k, v]) => k + ' ' + v).join(', ')})` : ''}${Object.keys(r.released).length ? ` released=${Object.entries(r.released).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => k + ' ' + v).join(', ')}` : ''}${r.msTick != null ? ` | ${r.msTick}/${r.msDay} ms` : ''}`);
     if (r.trans.length) console.log(`     ${r.trans.map(([k, v]) => `${k} ${v}`).join(', ')}`);
     prevHab = w.habitat.slice(); resetPer(); snapMature(t);
   }
@@ -189,7 +194,7 @@ function run(map, seed) {
     largest: last.largest, largestKey: last.shares[0]?.[0], simpson: last.simpson, tolerant: last.tolerant, matureShares: last.matureShares,
     rd: win.deaths ? win.recruits / win.deaths : null, winDeaths: win.deaths, winRecruits: win.recruits, winByCause: win.byCause,
     opened: last.opened, openedNoFire: last.openedNoFire, changed: last.changed, species: last.species, animals: last.animals, trees: last.trees, ageQ: last.ageQ,
-    meadow: last.hab.meadow, mature: last.hab.mature, elk: last.elk,
+    understory: last.understory, understoryShares: last.understoryShares, meadow: last.hab.meadow, mature: last.hab.mature, elk: last.elk,
     msTick: +(tot.reduce((a, r) => a + r.msTick, 0) / tot.length).toFixed(2), msDay: +(tot.reduce((a, r) => a + r.msDay, 0) / tot.length).toFixed(2),
   };
   console.log(`-- ${tag}: largest ${summary.largestKey} ${pct(summary.largest)}, Simpson ${summary.simpson}, tolerant/mature ${pct(summary.tolerant)},` +

@@ -446,6 +446,7 @@ export default {
   // Coral dies of bleaching, starfish and cyclones (reefDaily), and of old age; the land forests'
   // background, stress and shade mortality (0013) would thin the reef by a third, so it stays off.
   mortality: { background: 0, stress: 0, suppression: 0 },
+  recruitment: { cndd: 0, understory: false }, // (coral settles by its own spacing, and nothing waits under it)
   daily: reefDaily,
   // health score: the reef's own habitats, and living coral in place of a healthy creek
   scoreHabitats: [['MEADOW', 20], ['SHRUB', 15], ['YOUNG_FOREST', 20], ['MATURE_FOREST', 15]],
