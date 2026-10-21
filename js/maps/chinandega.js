@@ -289,6 +289,7 @@ export default {
   // Grazing pressure (sim/grazing.js): the paddocks already hold their grass, and the herd must not
   // stop the dry forest coming back on the slope, so cattle and deer press on seedlings at half strength.
   grazing: 0.5,
+  recruitment: { cndd: 0.6 },
   climate: {
     seasons: ['Late dry season', 'Rainy season', 'Late rains', 'Dry season'],
     // Chinandega: almost no rain November–April; May–October rains, with a short dry spell (the canícula) in July–August

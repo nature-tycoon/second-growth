@@ -395,7 +395,7 @@ export class Game {
     // (a plant that's been replaced says which one it was: duku became banana, say)
     const find = k => { const i = catalog.plants.findIndex(p => p?.key === k); return i >= 0 ? i : catalog.plants.findIndex(p => p?.was === k); };
     const ids = data.plants ? data.plants.map(find) : null;
-    for (const k of ['ground', 'shrub', 'tree']) {
+    for (const k of ['ground', 'shrub', 'tree', 'understory']) {
       const a = w[k];
       for (let i = 0; i < a.length; i++) {
         if (!a[i]) continue;

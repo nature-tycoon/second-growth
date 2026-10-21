@@ -1,7 +1,7 @@
 // Natural disturbance: summer wildfires and winter floods.
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { removeTree, trySeed } from './plants.js';
+import { removeTree, trySeed, clearUnderstory } from './plants.js';
 import { disturbanceOn } from './campaign.js';
 
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
@@ -123,6 +123,7 @@ export class Events {
       if (this.game.catalog.plants[si].resprout && w.shrubG[i] > 0.3) w.shrubG[i] = 0.12;
       else { w.shrub[i] = 0; w.shrubG[i] = 0; }
     }
+    clearUnderstory(w, i); // (saplings waiting under the trees burn, even where the big trees survive)
     const ti = w.tree[i];
     if (ti) {
       const p = this.game.catalog.plants[ti];
@@ -140,6 +141,7 @@ export class Events {
     const si = w.shrub[i];
     if (si && this.game.catalog.plants[si].resprout && w.shrubG[i] > 0.5 && rng() < 0.3) w.shrubG[i] = 0.08;
     else { w.shrub[i] = 0; w.shrubG[i] = 0; }
+    clearUnderstory(w, i);
     const ti = w.tree[i];
     if (ti) {
       const p = this.game.catalog.plants[ti];
@@ -266,6 +268,7 @@ export class Events {
       if (this.game.catalog.plants[si].resprout && !this.game.catalog.plants[si].invasive && w.shrubG[i] > 0.3) w.shrubG[i] = 0.15;
       else { w.shrub[i] = 0; w.shrubG[i] = 0; }
     }
+    clearUnderstory(w, i);
     if (w.tree[i] && w.treeG[i] < 0.45) removeTree(w, i, 'fire', rng, { deadwood: false });
     const f = w.feature[i];
     if (f === F.BRUSH || (f === F.LOG && rng() < 0.25) || (f === F.STUMP && rng() < 0.3)) w.feature[i] = 0;

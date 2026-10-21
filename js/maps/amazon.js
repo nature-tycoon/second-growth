@@ -115,6 +115,7 @@ export default {
 
   // Grazing pressure (sim/grazing.js): capybara lawns along the water; the forest still closes over the pasture.
   grazing: 0.3,
+  recruitment: { cndd: 0.7 },
   climate: {
     // Mar–May high water, Jun–Aug dry, Sep–Nov burning season and first rains, Dec–Feb rainy
     seasons: ['High water', 'Dry season', 'Burning season', 'Rainy season'],
