@@ -9,6 +9,7 @@ import { passable } from './animal-terrain.js';
 import { travelSpeed } from './climb-pace.js';
 import { followRoute, preferTrailPath } from './animal-trails.js';
 import { hasTerritory } from './animal-territory.js';
+import { riskAt, safety } from './predation-risk.js';
 
 // Residents: land mammals that walk to water. Migrants keep migrating; river patrollers keep patrolling.
 export function homeEligible(wl, def) {
@@ -47,6 +48,8 @@ export function ensureHome(wl, a, def) {
     else h.r = radius;
     return h;
   }
+  // A home where its kind keeps being caught is given up (after kills, not a single scare).
+  if (h && ok(h.center) && riskAt(wl, a.sp, h.center) > 1.2 && a.age >= (a.homeAfter || 0)) h = a.home = null;
   if (h && ok(h.center)) return h;
   if (a.age < (a.homeAfter || 0)) return (a.home = null);
   a.homeAfter = a.age + 5;
@@ -57,7 +60,7 @@ export function ensureHome(wl, a, def) {
 
 // Choose a home center within a bounded search: good habitat around it, little overlap with
 // the homes its own kind already hold, and not far from where it is now.
-let seen = null, queue = null, stampN = 0;
+let seen = null, queue = null, steps = null, stampN = 0;
 function settle(wl, a, def, r) {
   const w = wl.game.world, map = wl.suit[a.sp], W = w.w;
   const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
@@ -89,7 +92,7 @@ function settle(wl, a, def, r) {
         if (d < reach) overlap += 1 - d / reach;
       }
       const d = Math.hypot(x - x0, y - y0);
-      const sc = core(x, y) / (1 + 2 * overlap) / (1 + 0.04 * d) * (0.85 + 0.3 * hash2(i, a.id, 1301));
+      const sc = core(x, y) * safety(wl, a.sp, i) / (1 + 2 * overlap) / (1 + 0.04 * d) * (0.85 + 0.3 * hash2(i, a.id, 1301));
       if (sc > bs) { bs = sc; best = i; }
     }
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -111,22 +114,32 @@ export function homeWater(wl, a, def) {
   if (!h) return -1;
   if (h.water != null && h.water >= 0 && !(w.distWater[h.water] <= 1 && passable(w, h.water, a))) h.water = null;
   if (h.water === -1 && a.age >= (h.waterCheck || 0)) h.water = null;
+  // (an ambush at its drinking spot: look again, now and then, while the memory lasts)
+  if (h.water != null && h.water >= 0 && riskAt(wl, a.sp, h.water) > 1 && a.age >= (h.waterCheck || 0)) { h.water = null; h.waterCheck = a.age + 10; }
   if (h.water != null) return h.water;
   h.waterRoute = null;
   const reach = waterReach(def), W = w.w, c = h.center, cx = c % W, cy = (c / W) | 0;
   if (!seen || seen.length < w.n) { seen = new Int32Array(w.n); queue = new Int32Array(w.n); }
+  if (!steps || steps.length < w.n) steps = new Int16Array(w.n);
   stampN++;
-  let head = 0, tail = 0, found = -1;
-  queue[tail++] = c; seen[c] = stampN;
+  // The nearest bank, unless its kind has been ambushed there and a safer one is only a little further.
+  let head = 0, tail = 0, found = -1, best = Infinity, stop = Infinity;
+  queue[tail++] = c; seen[c] = stampN; steps[c] = 0;
   while (head < tail) {
     const i = queue[head++], x = i % W, y = (i / W) | 0;
-    if (bankOk(wl, a, i)) { found = i; break; }
+    if (steps[i] > stop) break;
+    if (bankOk(wl, a, i)) {
+      const sc = steps[i] + 6 * riskAt(wl, a.sp, i);
+      if (sc < best) { best = sc; found = i; }
+      if (stop === Infinity) stop = steps[i] + 4;
+      continue;
+    }
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const xx = x + dx, yy = y + dy;
       if (!w.inb(xx, yy) || Math.hypot(xx - cx, yy - cy) > reach) continue;
       const j = w.idx(xx, yy);
       if (seen[j] === stampN || w.fire[j] || !passable(w, j, a)) continue;
-      seen[j] = stampN; queue[tail++] = j;
+      seen[j] = stampN; steps[j] = steps[i] + 1; queue[tail++] = j;
     }
   }
   h.water = found;

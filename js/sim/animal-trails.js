@@ -5,6 +5,7 @@ import { trailProfile, TRAIL_RESOLUTION } from '../data/animal-trails.js';
 import { passable } from './animal-terrain.js';
 import { foodAt } from './animal-foraging.js';
 import { hash2, valueNoise } from '../rng.js';
+import { riskAt, safety } from './predation-risk.js';
 export const TRAIL_THRESHOLD = 0.09;
 // Unused trails fade 0.5% a day (about half in 140 days): a game trail lasts a season or more
 // after the animals stop using it (decision 0014; it was 1.5%).
@@ -197,7 +198,8 @@ export function rangeChoose(wl,a,def) {
   if(!p?.range||a.leaving||a.juvenile||a.mom!=null||a.fromFire||a.dormancy||a.drinkT||a.socialWith!=null||a.follow)return false;
   if(def.herd && a.herdOf != null && a.herdOf !== a.id)return false;
   const m=a.range;
-  if(m&&(!siteValid(wl,a,def,m.feed,true)||!siteValid(wl,a,def,m.rest,false)||grazedOut(w,m.feed)))a.range=null;
+  // (a site where its kind keeps being caught is given up, like grazed-out grass)
+  if(m&&(!siteValid(wl,a,def,m.feed,true)||!siteValid(wl,a,def,m.rest,false)||grazedOut(w,m.feed)||riskAt(wl,a.sp,m.feed)>1.2||riskAt(wl,a.sp,m.rest)>1.2))a.range=null;
   if(!a.range) {
     if(a.age<(a.rangeAfter||0))return false;
     a.rangeAfter=a.age+12;
@@ -211,7 +213,7 @@ export function rangeChoose(wl,a,def) {
     for(let n=0;n<queue.length&&n<(reach>20?2400:1600);n++) {
       const j=queue[n],xx=j%w.w,yy=j/w.w|0,d=Math.hypot(xx-x,yy-y);
       if(siteValid(wl,a,def,j,false)) {
-        const room=1/(1+(use.get(j)||0)*1.5),hab=wl.suit[a.sp][j];
+        const room=safety(wl,a.sp,j)/(1+(use.get(j)||0)*1.5),hab=wl.suit[a.sp][j];
         const tie=.8+.2*hash2(j,a.id,909);
         if(d>=7&&d<=reach&&foodAt(wl,def,j)) {
           const sc=hab*room*tie*freshGrazing(w,j)/(1+Math.abs(d-12)*.08);if(sc>fs){fs=sc;feed=j;}

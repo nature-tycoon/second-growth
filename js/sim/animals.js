@@ -20,6 +20,7 @@ import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { grazeDay, decayGrazing } from './grazing.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, trailNode } from './animal-trails.js';
 import { ensureHome, homeChoose, homeFalloff, walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
+import { markRisk, safety, decayRisk } from './predation-risk.js';
 import { dormancySeason } from '../data/animal-dormancy.js';
 import { huntHunger } from '../data/animal-activity.js';
 import { updatePassage } from './bird-passage.js';
@@ -773,6 +774,7 @@ export class Wildlife {
 
   // -------------------------------------------------------------- daily behaviour
   daily() {
+    decayRisk(this);
     const game = this.game, w = game.world, rng = game.rng, ecology = !!game.diff.ecology;
     // Repeated crossings wear trails during movement; unused routes recover daily.
     decayTrails(w);
@@ -1158,6 +1160,7 @@ export class Wildlife {
             a.hunger = 0;
             if (swimmer) a.crossRest = this.game.day + 2;
             this.game.onPredation(a, b);
+            markRisk(this, b.sp, b.x, b.y, 1); // its kind will remember this place
             this.remove(b, 'predation');
             if (!carryCatch(this, a, def, b)) startFeed(this, a, def, b);
           } else {
@@ -1623,6 +1626,7 @@ export class Wildlife {
       }
       // Established resource ranges limit aimless drift between purposeful trips.
       if (a.home) s *= homeFalloff(w, a, i);
+      s *= safety(this, a.sp, i);
       if (a.range) { const r = a.range, near = Math.min(Math.hypot(x-r.feed%W,y-(r.feed/W|0)),Math.hypot(x-r.rest%W,y-(r.rest/W|0))); s /= 1 + Math.max(0,near-4)*.7; }
       if (s > bs) { bs = s; best = i; }
       if (i !== start && map[i] > 0.01 && Math.abs(x - x0) + Math.abs(y - y0) <= 4 && !recent.includes(i) && Math.random() * ++pokeN < 1) poke = i;
@@ -1911,6 +1915,7 @@ export class Wildlife {
   }
   load(d) {
     this.spacingDirty = true;
+    this.risk = null; // (a few weeks' memory of danger, not saved)
     this.carcasses = [];
     this.flyovers = []; this.passageWait = 8 + Math.random() * 10;
     this.agents = d.agents.map(a => Object.assign(new Animal(), a, { territory: a.territory ? { ...a.territory } : undefined, dormancy: a.dormancy ? { ...a.dormancy } : undefined, range: a.range ? { ...a.range, route: a.range.route?.slice() } : undefined, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : undefined, moveProgress: null, fruitGoal: null, forageGoal: null, forage: null, state: a.state === 'walk' || a.state === 'forage' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,

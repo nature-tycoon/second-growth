@@ -17,6 +17,7 @@ import { territorialRivals } from '../data/animal-territories.js';
 import { territoryArrive } from './animal-territory.js';
 import { wakeDormant } from './animal-dormancy.js';
 import { drinkEvery } from './home-range.js';
+import { markRisk } from './predation-risk.js';
 
 // How each kind of hunter closes in. approach, creep and sprint are multiples of its usual
 // speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles.
@@ -277,6 +278,9 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
     } else { a.state = 'idle'; a.path = null; a.wait = a.alertT = Math.max(0.8, time); }
     return;
   }
+  // a fresh flight from one of its own hunters is remembered, more faintly than a kill
+  const hunter = wl.game.catalog.animals[threat.sp]; // (a threat can also be a fire or a person)
+  if (a.state !== 'flee' && hunter && preyFor(hunter, wl.game)?.includes(def.key)) markRisk(wl, a.sp, a.x, a.y, 0.25);
   if (a.state !== 'flee') a.fleeAge = 0; // (a flight already under way keeps its speed)
   a.state = 'flee'; a.path = null; a.threat = threat.id; a.fleeOff = 0;
   a.fx = fx; a.fy = fy; a.fleeT = time; a.fleeSpeed = speed; a.fleeDelay = delay;
