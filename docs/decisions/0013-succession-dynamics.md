@@ -279,7 +279,7 @@ Advance regeneration, CNDD and the PNW east seed rain, measured as for phase 2: 
 | pnw idle | 3 | fir 94–98 (94–98) | 0–1 | 1.38–1.69 (1.15–1.31) | 18–25 (10–13) (21–24 (9–11)) | 0.04–0.12 (0.05–0.11) | 29–30 | 7205–7647 (7276–7691) | 62–74 / 148–159 | 135–166, hemlock 108–132 | fir 54–72, hemlock 24–73 |
 | amazon idle | 3 | brazilnut 74–75 (81–83) | 0 | 1.04–1.06 (1.02–1.05) | 20–28 (11–12) (22–27 (10–14)) | 0.42–0.44 (0.30–0.34) | 23–24 | 9153–9371 (9425–9482) | 90–103 / 160–165 | 241–388, açaí 195–283 | açaí 760–852, brazilnut 210–240 |
 | atlanta idle | 3 | redmaple 34–42 (24–34) | 4–15 | 0.52–0.63 (0.72–0.74) | 61–67 (58–67) (48–56) | 0.74–0.80 (0.77–0.84) | 26–28 | 1047–1240 (1256–1404) | 53–63 / 184–186 | 422–539, redmaple, dogwood | redmaple 591–690 |
-| sumatra idle | 1 | pending: the run hit a time limit at year 150 (fig 30%, Simpson 0.84, 33 species, recruits ÷ deaths 1.08); rerunning | | | | | | | | | |
+| sumatra idle | 1 | pending: the run hit a time limit at year 150 (fig 30%, Simpson 0.84, 33 species, recruits ÷ deaths 1.08 at year 150). A 200-year Sumatra run takes more than the 2 hours a cloud background job may run; finish it locally | | | | | | | | | |
 | chinandega idle | 1 | neem 40 (guacimo 23) | 0 | 1.07 (0.96) | 78 (71) (84 (47)) | 0.76 (0.84) | 23 | 3392 (3876) | 30 / 88 | 211, neem 166 | neem 245 |
 | serengeti idle | 1 | mesquite 94 (baseline 86–94) | 0 | 0.97 | 61 (44) | 0.12 | 22 | 4246 | 16 / 57 | 22 | sycamore fig 40 |
 | reef idle | 1 | boulder 49 (baseline 53) | 0 | 1.27 | 38 (38) | 0.54 | 21 | 2288 colonies (baseline 1994) | 64 / 184 | (off) | - |
