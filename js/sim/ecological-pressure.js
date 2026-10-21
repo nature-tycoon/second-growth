@@ -2,6 +2,7 @@
 // Rates represent gameplay time and populations, not real-world measured rates.
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { preyFor } from '../data/animals.js';
+import { removeTree } from './plants.js';
 
 
 export const MULCH_DAYS = 120;
@@ -44,7 +45,7 @@ export function browseSapling(game, a, def) {
   pressure[target] = Math.min(1, pressure[target] + damage);
   game.stats.saplingsBrowsed = (game.stats.saplingsBrowsed || 0) + 1;
   if (w.treeG[target] <= 0) {
-    w.tree[target] = 0; w.treeG[target] = 0; w.treeAge[target] = 0;
+    removeTree(w, target, 'browse', game.rng, { deadwood: false });
     game.stats.saplingsLost = (game.stats.saplingsLost || 0) + 1;
   }
   w.renderDirty = true;

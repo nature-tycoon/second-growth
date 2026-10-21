@@ -4,7 +4,7 @@
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { many, cap, preyFor, preyPer, isMale, isMaleVariant } from '../data/animals.js';
-import { killTree } from './plants.js';
+import { removeTree } from './plants.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
@@ -816,7 +816,7 @@ export class Wildlife {
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       if (!w.inb(x + dx, y + dy) || rng() > 0.3) continue;
       const j = w.idx(x + dx, y + dy);
-      if (w.tree[j] && w.treeG[j] < 0.3 && (w.treeG[j] -= 0.08) <= 0) { w.tree[j] = 0; w.treeG[j] = 0; w.treeAge[j] = 0; }
+      if (w.tree[j] && w.treeG[j] < 0.3 && (w.treeG[j] -= 0.08) <= 0) removeTree(w, j, 'browse', rng, { deadwood: false });
       if (w.shrub[j] && w.shrubG[j] < 0.3 && (w.shrubG[j] -= 0.08) <= 0) { w.shrub[j] = 0; w.shrubG[j] = 0; }
     }
   }
@@ -896,8 +896,8 @@ export class Wildlife {
         const s = w.shrub[j], t = w.tree[j];
         if (s && this.game.catalog.plants[s].beaverFood && w.shrubG[j] > 0.35) { w.shrubG[j] = 0.15; break; } // coppiced, will resprout
         if (t && this.game.catalog.plants[t].beaverFood && w.treeG[j] > 0.25) {
-          if (w.treeG[j] < 0.75) { w.tree[j] = 0; w.treeG[j] = 0; w.treeAge[j] = 0; }
-          else if (rng() < 0.25) killTree(w, j, rng);
+          if (w.treeG[j] < 0.75) removeTree(w, j, 'beaver', rng, { deadwood: false });
+          else if (rng() < 0.25) removeTree(w, j, 'beaver', rng);
           break;
         }
       }
@@ -1924,7 +1924,7 @@ function floodTile(w, j, terrain, rng) {
   if (w.feature[j] === F.FENCE || w.feature[j] === F.ROCKS || w.feature[j] === F.BRUSH) w.feature[j] = 0;
   if (w.tree[j]) {
     const p = w.catalog.plants[w.tree[j]];
-    if (!(p.wetOK && terrain !== T.MARSH)) killTree(w, j, rng);
+    if (!(p.wetOK && terrain !== T.MARSH)) removeTree(w, j, 'flood', rng);
   }
   if (w.shrub[j] && !w.catalog.plants[w.shrub[j]].wetOK) { w.shrub[j] = 0; w.shrubG[j] = 0; }
   if (w.ground[j] && terrain === T.MARSH && !w.catalog.plants[w.ground[j]].wetOK && !w.catalog.plants[w.ground[j]].aquatic) { w.ground[j] = 0; w.groundG[j] = 0; }

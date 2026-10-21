@@ -1,7 +1,7 @@
 // Natural disturbance: summer wildfires and winter floods.
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { killTree, trySeed } from './plants.js';
+import { removeTree, trySeed } from './plants.js';
 import { disturbanceOn } from './campaign.js';
 
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
@@ -126,8 +126,8 @@ export class Events {
     const ti = w.tree[i];
     if (ti) {
       const p = this.game.catalog.plants[ti];
-      if (w.treeG[i] < 0.5) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
-      else if (rng() > (p.fireSurvival ?? 0.4) * w.treeG[i]) killTree(w, i, rng, 0.7, FIRE_SNAG_G); // (only a big tree leaves a snag or log; smaller ones burn up)
+      if (w.treeG[i] < 0.5) removeTree(w, i, 'fire', rng, { deadwood: false });
+      else if (rng() > (p.fireSurvival ?? 0.4) * w.treeG[i]) removeTree(w, i, 'fire', rng, { minG: FIRE_SNAG_G }); // (only a big tree leaves a snag or log; smaller ones burn up)
     }
     this.burnFeaturesAndWildlife(i);
   }
@@ -143,9 +143,9 @@ export class Events {
     const ti = w.tree[i];
     if (ti) {
       const p = this.game.catalog.plants[ti];
-      if (w.treeG[i] < 0.5) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+      if (w.treeG[i] < 0.5) removeTree(w, i, 'fire', rng, { deadwood: false });
       // even thick-barked firs rarely survive a crown fire
-      else if (rng() > (p.fireSurvival ?? 0.4) * 0.2) killTree(w, i, rng, 0.9, FIRE_SNAG_G);
+      else if (rng() > (p.fireSurvival ?? 0.4) * 0.2) removeTree(w, i, 'fire', rng, { snagOdds: 0.9, minG: FIRE_SNAG_G });
     }
     this.severeTiles.push(i);
     this.burnFeaturesAndWildlife(i);
@@ -266,7 +266,7 @@ export class Events {
       if (this.game.catalog.plants[si].resprout && !this.game.catalog.plants[si].invasive && w.shrubG[i] > 0.3) w.shrubG[i] = 0.15;
       else { w.shrub[i] = 0; w.shrubG[i] = 0; }
     }
-    if (w.tree[i] && w.treeG[i] < 0.45) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+    if (w.tree[i] && w.treeG[i] < 0.45) removeTree(w, i, 'fire', rng, { deadwood: false });
     const f = w.feature[i];
     if (f === F.BRUSH || (f === F.LOG && rng() < 0.25) || (f === F.STUMP && rng() < 0.3)) w.feature[i] = 0;
     w.soil[i] = Math.min(1, w.soil[i] + 0.02);
@@ -430,7 +430,7 @@ export class Events {
       const gi = w.ground[i], si = w.shrub[i], ti = w.tree[i];
       if (gi) { const p = this.game.catalog.plants[gi]; if (!p.wetOK && !p.aquatic) { w.groundG[i] -= 0.05; if (w.groundG[i] <= 0) { w.ground[i] = 0; w.groundG[i] = 0; } } }
       if (si && !this.game.catalog.plants[si].wetOK && w.shrubG[i] < 0.35) { w.shrub[i] = 0; w.shrubG[i] = 0; }
-      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3) removeTree(w, i, 'flood', rng, { deadwood: false });
       w.flood[i]--;
       if (!w.flood[i]) {
         // receding water leaves fresh silt and a scatter of floodplain seeds

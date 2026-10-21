@@ -1,6 +1,6 @@
 // Long-run vegetation and succession check (docs/decisions/0013-succession-dynamics.md).
-// Seeded, headless. Prints, every N years: habitat mix and turnover, tree deaths by cause and
-// recruits, age structure, species shares and diversity, deadwood, fire, wildlife, and dailyTick cost.
+// Seeded, headless. Prints, every N years: habitat mix and turnover, tree deaths by cause (from
+// removeTree's w.treeDeathsEst counter; by diffing tiles on builds without it) and recruits, age structure, species shares and diversity, deadwood, fire, wildlife, and dailyTick cost.
 //   node tools/succession-check.mjs [--map pnw|all|<id>[,<id>]] [--mode idle|restore] [--years 200]
 //        [--seeds 1,2,3] [--every 10] [--veg] [--assert] [--json out.json]
 // --veg steps wildlife once a day at dt 1.0 instead of 10x0.1: about 3x faster, for structure runs.
@@ -17,6 +17,7 @@ const { Game } = await import(root + 'game.js');
 const { ToolActions } = await import(root + 'tool-actions.js');
 const { H } = await import(root + 'config.js');
 const { hashStr } = await import(root + 'rng.js');
+const HAS_COUNTER = 'removeTree' in await import(root + 'sim/plants.js');
 const { hollisRestorePlan } = await import('./hollis-restore-plan.mjs');
 
 const ALL_MAPS = ['pnw', 'atlanta', 'amazon', 'serengeti', 'sumatra', 'chinandega', 'reef'];
@@ -82,9 +83,13 @@ function run(map, seed) {
   const matureSnap = new Map(); // elapsed year -> Uint8Array of mature tiles then
   const snapMature = t => { const m = new Uint8Array(n); for (let i = 0; i < n; i++) m[i] = w.habitat[i] === H.MATURE_FOREST; matureSnap.set(t, m); };
   let prevHab = w.habitat.slice();
-  let per = null; const resetPer = () => { per = { deaths: { age: 0, fire: 0, flood: 0, other: 0 }, recruits: 0, fires: 0, burned: 0, tickMs: 0, dayMs: 0, days: 0 }; };
+  // Deaths of established trees by cause. removeTree counts them in w.treeDeathsEst; a build
+  // without it (before 0013 phase 2) falls back to guessing the cause from the tile.
+  const counter = () => HAS_COUNTER ? { ...w.treeDeathsEst } : null;
+  const since = (now, then) => Object.fromEntries(Object.entries(now).map(([k, v]) => [k, v - (then[k] || 0)]).filter(([, v]) => v));
+  let per = null, perFrom = null; const resetPer = () => { per = { deaths: {}, recruits: 0, fires: 0, burned: 0, tickMs: 0, dayMs: 0, days: 0 }; perFrom = counter(); };
   resetPer();
-  const win = { deaths: 0, recruits: 0, byCause: { age: 0, fire: 0, flood: 0, other: 0 } };
+  const win = { deaths: 0, recruits: 0, byCause: {}, from: null };
   let lastFire = g.events.lastFire, prevBurned = g.events.burned;
   const reports = [];
   const elkIdx = g.catalog.animal?.elk?.index;
@@ -116,6 +121,7 @@ function run(map, seed) {
       if (m) { opened = o / m; openedNoFire = onf / m; }
     }
     const pops = g.wildlife.state.filter(x => x.pop > 0);
+    if (perFrom) per.deaths = since(counter(), perFrom);
     const deaths = Object.values(per.deaths).reduce((a, b) => a + b, 0);
     const r = {
       t, hab: Object.fromEntries(HAB.slice(0, 10).map((k, h) => [k, c[h] || 0])), changed: land ? changed / land : 0,
@@ -135,7 +141,7 @@ function run(map, seed) {
     const hb = r.hab;
     console.log(`t${String(t).padStart(3)} meadow=${hb.meadow} shrub=${hb.shrub} young=${hb.young} mature=${hb.mature} rip=${hb.rip} inv=${hb.inv} open=${hb.bare + hb.farm} wet=${hb.marsh + hb.pond}` +
       ` | changed=${pct(r.changed)} mature>*=${r.matureOut} opened50=${pct(opened)} (no fire ${pct(openedNoFire)})` +
-      ` | trees=${nt} age q25/50/75/95=${r.ageQ.join('/')} died(age/fire/flood/other)=${per.deaths.age}/${per.deaths.fire}/${per.deaths.flood}/${per.deaths.other} recruits=${per.recruits}` +
+      ` | trees=${nt} age q25/50/75/95=${r.ageQ.join('/')} died=${deaths} (${Object.entries(per.deaths).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + v).join(', ')}) recruits=${per.recruits}` +
       ` | snags=${r.snags} logs=${r.logs} fires=${r.fires} burned=${r.burned} | spp=${r.species} animals=${r.animals}${r.elk != null ? ` elk=${r.elk}` : ''}` +
       ` | ${r.shares.map(([k, f]) => k + Math.round(f * 100)).join(' ')} D=${r.simpson} tol=${pct(r.tolerant)}${r.msTick != null ? ` | ${r.msTick}/${r.msDay} ms` : ''}`);
     if (r.trans.length) console.log(`     ${r.trans.map(([k, v]) => `${k} ${v}`).join(', ')}`);
@@ -154,13 +160,17 @@ function run(map, seed) {
     if (g.events.lastFire !== lastFire) { per.fires++; lastFire = g.events.lastFire; prevBurned = 0; }
     per.burned += Math.max(0, g.events.burned - prevBurned); prevBurned = g.events.burned;
     const inWin = d >= (years - WINDOW) * D, day = d + 1;
+    if (inWin && !win.from) win.from = counter() || {};
     for (let i = 0; i < n; i++) {
       const a = prevTree[i], b = w.tree[i];
       if (counted[i] && (b !== a || w.treeAge[i] < prevAge[i])) {
-        const p = P[a];
-        const cause = prevAge[i] / D > p.life ? 'age' : w.fire[i] ? 'fire' : w.flood[i] || w.waterWetDays?.[i] >= 30 ? 'flood' : 'other';
-        per.deaths[cause]++; counted[i] = 0;
-        if (inWin) { win.deaths++; win.byCause[cause]++; }
+        counted[i] = 0;
+        if (!HAS_COUNTER) {
+          const p = P[a];
+          const cause = prevAge[i] / D > p.life ? 'age' : w.fire[i] ? 'fire' : w.flood[i] || w.waterWetDays?.[i] >= 30 ? 'flood' : 'other';
+          per.deaths[cause] = (per.deaths[cause] || 0) + 1;
+          if (inWin) { win.deaths++; win.byCause[cause] = (win.byCause[cause] || 0) + 1; }
+        }
       }
       if (!counted[i] && b && w.treeG[i] > EST) { counted[i] = 1; per.recruits++; if (inWin) win.recruits++; }
       if (OPEN.has(w.habitat[i])) lastOpen[i] = day;
@@ -172,6 +182,7 @@ function run(map, seed) {
     else if (t === years - WINDOW && !matureSnap.has(t)) snapMature(t);
   }
   if (reports.at(-1).t !== years) report(years);
+  if (HAS_COUNTER) { win.byCause = since(counter(), win.from || {}); win.deaths = Object.values(win.byCause).reduce((a, b) => a + b, 0); }
   const last = reports.at(-1), tot = reports.slice(1);
   const summary = {
     map, mode, seed, veg, years,
@@ -182,7 +193,7 @@ function run(map, seed) {
     msTick: +(tot.reduce((a, r) => a + r.msTick, 0) / tot.length).toFixed(2), msDay: +(tot.reduce((a, r) => a + r.msDay, 0) / tot.length).toFixed(2),
   };
   console.log(`-- ${tag}: largest ${summary.largestKey} ${pct(summary.largest)}, Simpson ${summary.simpson}, tolerant/mature ${pct(summary.tolerant)},` +
-    ` recruits/deaths t${years - WINDOW}-${years} ${summary.rd?.toFixed(2) ?? '-'} (${win.recruits}/${win.deaths}; age ${win.byCause.age} fire ${win.byCause.fire} flood ${win.byCause.flood} other ${win.byCause.other}),` +
+    ` recruits/deaths t${years - WINDOW}-${years} ${summary.rd?.toFixed(2) ?? '-'} (${win.recruits}/${win.deaths}; ${Object.entries(win.byCause).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + v).join(', ')}),` +
     ` mature opened in ${WINDOW}y ${pct(summary.opened)} (unburned ${pct(summary.openedNoFire)}), changed/decade ${pct(summary.changed)}, species ${summary.species}, ${summary.msTick} ms/dailyTick, ${summary.msDay} ms/day`);
   return { summary, reports };
 }

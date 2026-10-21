@@ -4,6 +4,7 @@
 import { MAP_W, MAP_H, BORDER, T, F, isWater, clamp } from './config.js';
 import { activeCatalog } from './data/catalog.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
+import { removeTree } from './sim/plants.js';
 
 export const STRUCTURES = {
   // old farm buildings are roosts for bats, owls and swallows (roost: true); they can be torn down, and put back up
@@ -33,6 +34,9 @@ export class World {
     this.ground = u8(); this.groundG = f32();
     this.shrub = u8(); this.shrubG = f32();
     this.tree = u8(); this.treeG = f32(); this.treeAge = f32();
+    // tree deaths by cause, all and established (removeTree). Declared here, not added later: a
+    // property added mid-game changes the world's shape and slows every hot loop that reads it.
+    this.treeDeaths = {}; this.treeDeathsEst = {};
     this.feature = u8(); this.featureAge = f32();
     this.struct = new Int16Array(n).fill(-1);
     // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars)
@@ -110,20 +114,22 @@ export class World {
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;
   }
 
-  clearPlants(i) {
+  // cause: why a living tree goes (see removeTree); none while the map is being laid out
+  clearPlants(i, cause = null) {
     this.ground[i] = 0; this.groundG[i] = 0;
     this.shrub[i] = 0; this.shrubG[i] = 0;
+    if (cause && this.tree[i]) removeTree(this, i, cause, null, { deadwood: false });
     this.tree[i] = 0; this.treeG[i] = 0; this.treeAge[i] = 0;
   }
 
-  addStructure(type, x, y) {
+  addStructure(type, x, y, cause = null) {
     const d = this.catalog.structures[type];
     const s = { type, x, y, w: d.w, h: d.h };
     const k = this.structures.length;
     this.structures.push(s);
     for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) {
       const i = this.idx(xx, yy);
-      this.struct[i] = k; this.clearPlants(i); this.feature[i] = 0;
+      this.struct[i] = k; this.clearPlants(i, cause); this.feature[i] = 0;
     }
     this.flattenRect(x, y, d.w, d.h);
     return s;

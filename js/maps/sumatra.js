@@ -10,6 +10,7 @@ import buildSumatraAnimals from '../data/animals-sumatra.js';
 import { generateEstate, sumatraBorderCell, isPeat, streamX } from './sumatra-world.js';
 import { PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 import { isFruiting } from '../data/plants.js';
+import { removeTree } from '../sim/plants.js';
 import { T, F, clamp } from '../config.js';
 import { moment, arrivalMoment } from '../sim/moments.js';
 import { valueNoise } from '../rng.js';
@@ -298,7 +299,7 @@ function fellOrPull(game, i) {
   if (w.shrub[i] && game.catalog.plants[w.shrub[i]].invasive) { w.shrub[i] = 0; w.shrubG[i] = 0; n++; }
   if (w.tree[i] && game.catalog.plants[w.tree[i]].invasive) {
     const big = w.treeG[i] > 0.4, palm = isPalm(w, i);
-    w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; n++;
+    removeTree(w, i, 'player', null, { deadwood: false }); n++;
     if (big) dropPalm(game, i);
     if (big && palm) game.stats.palmsFelled = (game.stats.palmsFelled || 0) + 1;
   }
@@ -427,7 +428,7 @@ export default {
         const w = game.world;
         if (!w.tree[i]) return null;
         const big = w.treeG[i] > 0.4, palm = isPalm(w, i);
-        w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
+        removeTree(w, i, 'player', null, { deadwood: false });
         if (palm && big) { game.stats.palmsFelled = (game.stats.palmsFelled || 0) + 1; dropPalm(game, i); }
         else if (big && !w.feature[i]) { w.feature[i] = F.STUMP; w.featureAge[i] = 0; }
         game.stats.treesCut = (game.stats.treesCut || 0) + 1;

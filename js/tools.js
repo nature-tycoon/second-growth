@@ -4,7 +4,7 @@
 import { T, F, isWater } from './config.js';
 import { MIX, L } from './data/plants.js';
 import { ANIMAL, many } from './data/animals.js';
-import { plantSuit } from './sim/plants.js';
+import { plantSuit, removeTree } from './sim/plants.js';
 import { onBiome, mapCatalog } from './biome.js';
 import { MULCH_DAYS } from './sim/ecological-pressure.js';
 import { plantAffinity } from './plant-patterns.js';
@@ -19,7 +19,7 @@ const DEPTH = { [T.POND]: 0.6, [T.MARSH]: 0.2, [T.CREEK]: 0.4 };
 export function createTools(catalog) {
   const { plants: PLANTS, plant: PLANT, mixes: MIXES, animals: ANIMALS, definition: biome, structures: STRUCTURES } = catalog;
   function clearForWater(w, i) {
-    w.clearPlants(i);
+    w.clearPlants(i, 'player');
     if (w.feature[i] !== F.CULVERT) w.feature[i] = 0;
   }
 
@@ -30,7 +30,7 @@ export function createTools(catalog) {
       const wasLand = land(t);
       if (terrain === T.MARSH) {
         // keep wetland plants that can handle standing water
-        if (w.tree[i] && !PLANTS[w.tree[i]].mangrove && !PLANTS[w.tree[i]].swampTree) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+        if (w.tree[i] && !PLANTS[w.tree[i]].mangrove && !PLANTS[w.tree[i]].swampTree) removeTree(w, i, 'player', null, { deadwood: false });
         if (w.shrub[i] && !PLANTS[w.shrub[i]].wetOK) { w.shrub[i] = 0; w.shrubG[i] = 0; }
         if (w.ground[i] && !PLANTS[w.ground[i]].wetOK && !PLANTS[w.ground[i]].aquatic) { w.ground[i] = 0; w.groundG[i] = 0; }
         if (w.feature[i] !== F.LOG) w.feature[i] = 0;
@@ -64,7 +64,7 @@ export function createTools(catalog) {
       if (!isWater(t) && t !== T.ROAD && t !== T.GRAVEL && t !== T.MUD) return null;
       w.terrain[i] = T.SOIL;
       if (w.feature[i] === F.DAM || w.feature[i] === F.BOARDWALK) w.feature[i] = 0;
-      if (isWater(t)) { w.clearPlants(i); w.hydroDirty = true; w.raiseToSurroundings(i % w.w, (i / w.w) | 0); }
+      if (isWater(t)) { w.clearPlants(i, 'player'); w.hydroDirty = true; w.raiseToSurroundings(i % w.w, (i / w.w) | 0); }
       return true;
     } });
   tool({ key: 'rip', cat: 'land', name: 'Loosen soil', cost: 4, icon: { terrain: T.FIELD },
@@ -211,7 +211,7 @@ export function createTools(catalog) {
         if (Object.keys(pulled).length < 4000) pulled[i] = 1;
       }
       if (w.shrub[i] && PLANTS[w.shrub[i]].invasive) { w.shrub[i] = 0; w.shrubG[i] = 0; n++; }
-      if (w.tree[i] && PLANTS[w.tree[i]].invasive) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; n++; } // mesquite, leucaena
+      if (w.tree[i] && PLANTS[w.tree[i]].invasive) { removeTree(w, i, 'player', null, { deadwood: false }); n++; } // mesquite, leucaena
       if (!n) return null;
       game.stats.removed += n;
       return true;
@@ -234,7 +234,7 @@ export function createTools(catalog) {
     apply: (game, i) => {
       const w = game.world;
       if (!w.ground[i] && !w.shrub[i] && !w.tree[i]) return null;
-      w.clearPlants(i);
+      w.clearPlants(i, 'player');
       // down to bare soil (lifting old pasture sod or lawn with it): a firebreak fire can't cross
       if (w.terrain[i] === T.PASTURE) w.terrain[i] = T.SOIL;
       return true;
@@ -245,7 +245,7 @@ export function createTools(catalog) {
       const w = game.world;
       if (!w.tree[i]) return null;
       const big = w.treeG[i] > 0.25;
-      w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
+      removeTree(w, i, 'player', null, { deadwood: false });
       if (big && !w.feature[i]) { w.feature[i] = F.STUMP; w.featureAge[i] = 0; }
       game.stats.treesCut = (game.stats.treesCut || 0) + 1;
       return true;
@@ -297,7 +297,7 @@ export function createTools(catalog) {
       if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return null; // the street's bridge over the creek stays
       if (f === F.DIKE) {
         // breach it: cut through to tidal marsh, and the pond behind starts to drain (see the map's daily)
-        w.feature[i] = 0; w.terrain[i] = T.MARSH; w.clearPlants(i); w.hydroDirty = true;
+        w.feature[i] = 0; w.terrain[i] = T.MARSH; w.clearPlants(i, 'player'); w.hydroDirty = true;
         if (!game.flags.breachHint) { game.flags.breachHint = true; game.notify('The dike is breached. Over the next few weeks the tide will flood in and out of the old pond, and it will turn to tidal mud and marsh. Mangrove seedlings will drift in on the tide and take root, fastest next to healthy mangroves.', 'good', { x: i % w.w + 0.5, y: ((i / w.w) | 0) + 0.5 }); }
         return true;
       }
@@ -328,7 +328,7 @@ export function createTools(catalog) {
       if (f && f !== F.FENCE && f !== F.BRUSH && f !== F.ROCKS) return null;
       w.terrain[i] = T.TRAIL; w.feature[i] = 0;
       w.ground[i] = 0; w.groundG[i] = 0; w.shrub[i] = 0; w.shrubG[i] = 0;
-      if (w.tree[i] && w.treeG[i] < 0.6) { w.tree[i] = 0; w.treeG[i] = 0; }
+      if (w.tree[i] && w.treeG[i] < 0.6) removeTree(w, i, 'player', null, { deadwood: false });
       return true;
     } });
   tool({ key: 'boardwalk', cat: 'visitors', name: 'Boardwalk', cost: 45, icon: { feature: F.BOARDWALK }, size: 0,
@@ -344,7 +344,7 @@ export function createTools(catalog) {
     apply: (game, i) => {
       const w = game.world;
       if (!openLand(w, i) || w.feature[i] || w.terrain[i] === T.TRAIL) return null;
-      w.feature[i] = F.BLIND; w.shrub[i] = 0; w.tree[i] = 0; w.treeG[i] = 0;
+      w.feature[i] = F.BLIND; w.shrub[i] = 0; if (w.tree[i]) removeTree(w, i, 'player', null, { deadwood: false });
       return true;
     } });
   tool({ key: 'build_road', cat: 'visitors', name: 'Gravel road', cost: 40, icon: { terrain: T.ROAD }, size: 0,
@@ -355,7 +355,7 @@ export function createTools(catalog) {
       const f = w.feature[i];
       if (f && f !== F.FENCE && f !== F.BRUSH && f !== F.ROCKS && f !== F.LOG) return null;
       w.terrain[i] = T.ROAD; w.feature[i] = 0;
-      w.clearPlants(i);
+      w.clearPlants(i, 'player');
       return true;
     } });
   function buildTool(type, desc, { cat = 'visitors', needsRoad = true, done = null } = {}) {
@@ -380,7 +380,7 @@ export function createTools(catalog) {
           const j = w.idx(xx, yy);
           w.terrain[j] = T.GRAVEL;
         }
-        w.addStructure(type, x, y);
+        w.addStructure(type, x, y, 'player');
         const doneText = TOOLS['build_' + type].doneText ?? done; // (the roosts say it in their own map's words)
         if (doneText) { game.notify(doneText, 'good'); return true; }
         game.notify(type === 'parking' ? 'Trailhead parking built. Now lay a trail out from it into the best habitat.' : 'The visitor center is open. Visitors give more, and the gift shop and exhibits raise your rating.', 'good');

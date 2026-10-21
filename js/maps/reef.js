@@ -8,6 +8,7 @@ import buildReefAnimals from '../data/animals-reef.js';
 import { generateReef, reefBorderCell, SEA } from './reef-world.js';
 import { pop, speciesPresent } from '../sim/goals.js';
 import { T, F, clamp } from '../config.js';
+import { removeTree } from '../sim/plants.js';
 import { moment, arrivalMoment, momentFree } from '../sim/moments.js';
 
 const invPct = g => (g.cache.score?.invFrac ?? 1) * 100;
@@ -169,7 +170,7 @@ function reefDaily(g) {
     } else if (B[i] > 0) B[i] = Math.max(0, B[i] - (dirty ? 0.012 : 0.024)); // recovering, slowly, once the water cools (faster in clean water)
     // coral bleached white for too long starves
     if (B[i] > 0.8 && rng() < 0.012 * (B[i] - 0.6) / 0.4 * (tp ? (tp.bleach ?? 1) : 1)) {
-      if (tp) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; } // dead branches collapse into rubble
+      if (tp) removeTree(w, i, 'stress', rng); // dead branches collapse into rubble (the map's deadTree)
       if (sp && sp.bleach) { w.shrub[i] = 0; w.shrubG[i] = 0; }
       if (!w.ground[i] || g.catalog.plants[w.ground[i]].key !== 'cca') { w.ground[i] = turf; w.groundG[i] = 0.2; } // and algae moves in
       B[i] = 0;
@@ -199,7 +200,7 @@ function reefDaily(g) {
       if (rng() < eaten) { w.shrub[i] = 0; w.shrubG[i] = 0; continue; }
       if (w.tree[i]) {
         w.treeG[i] -= 0.006 * w.shrubG[i];
-        if (w.treeG[i] < 0.08) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; if (!w.ground[i]) { w.ground[i] = turf; w.groundG[i] = 0.2; } }
+        if (w.treeG[i] < 0.08) { removeTree(w, i, 'browse', rng, { deadwood: false }); if (!w.ground[i]) { w.ground[i] = turf; w.groundG[i] = 0.2; } }
         continue;
       }
       // its coral is gone: look for more next door
@@ -325,7 +326,7 @@ function reefDaily(g) {
     for (let y = Math.max(0, cy - half); y < Math.min(w.h, cy + half); y++) for (let x = 0; x < w.w; x++) {
       const i = w.idx(x, y), depth = SEA - w.tileH(x, y), hit = clamp(1.5 - depth * 0.22, 0.3, 1) * (1 - Math.abs(y - cy) / half * 0.5);
       const tp = w.tree[i] ? g.catalog.plants[w.tree[i]] : null, sp = w.shrub[i] ? g.catalog.plants[w.shrub[i]] : null;
-      if (tp && rng() < (tp.fragile ? 0.45 : 0.03) * hit) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; broken++; }
+      if (tp && rng() < (tp.fragile ? 0.45 : 0.03) * hit) { removeTree(w, i, 'wind', rng); broken++; } // (rubble: the map's deadTree)
       if (sp && sp.fragile && rng() < 0.3 * hit) { w.shrub[i] = 0; w.shrubG[i] = 0; }
       if (w.ground[i] && (g.catalog.plants[w.ground[i]].key === 'zostera' || g.catalog.plants[w.ground[i]].key === 'halophila')) w.groundG[i] *= 0.7;
     }
@@ -442,6 +443,9 @@ export default {
   terrainFit, groundNote,
   dryLand: (w, i) => shoreMask(w)[i] === 1,
   deadTree: (w, i) => { if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; },
+  // Coral dies of bleaching, starfish and cyclones (reefDaily), and of old age; the land forests'
+  // background, stress and shade mortality (0013) would thin the reef by a third, so it stays off.
+  mortality: { background: 0, stress: 0, suppression: 0 },
   daily: reefDaily,
   // health score: the reef's own habitats, and living coral in place of a healthy creek
   scoreHabitats: [['MEADOW', 20], ['SHRUB', 15], ['YOUNG_FOREST', 20], ['MATURE_FOREST', 15]],

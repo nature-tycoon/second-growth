@@ -1,6 +1,6 @@
 # 0013 Long-term forest dynamics: mortality, regeneration and disturbance
 
-Proposed 2026-10-18. Status: plan. Phase 1 (succession check and baselines) done 2026-10-19. Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12.
+Proposed 2026-10-18. Status: in progress. Phase 1 (succession check and baselines) and phase 2 (tree removal and mortality hazard) done 2026-10-19. Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12.
 
 ## Problem
 
@@ -34,30 +34,51 @@ These are architectural gaps, not bugs:
 
 ## Architecture
 
-### 1. Tree removal (`sim/plants.js`, extends `killTree`)
+### 1. Tree removal (`sim/plants.js`, replaces `killTree`)
 
-`removeTree(w, i, cause, rng)`, where `cause` is one of `'age' | 'stress' | 'fire' | 'wind' | 'drought' | 'pathogen' | 'flood' | 'browse' | 'beaver' | 'player'`. It's the only code that clears a living tree. It:
+Built in phase 2. `removeTree(w, i, cause, rng, { snagOdds, minG, deadwood })` is the only code that clears a living tree. `cause` is one of `'age' | 'stress' | 'fire' | 'wind' | 'drought' | 'pathogen' | 'flood' | 'browse' | 'beaver' | 'player'`. It:
 
-- leaves a snag or log by size and cause (existing `killTree` rules, plus cause-specific odds: wind mostly leaves logs and uprooted mounds, fire mostly snags);
-- **releases advance regeneration** on that tile (see 3);
-- counts the death by cause in `game.stats.treeDeaths` for diagnostics and the Field Journal.
+- clears the tile (`tree`, `treeG`, `treeAge`);
+- counts the death by cause in `w.treeDeaths` (every tree) and `w.treeDeathsEst` (trees above `ESTABLISHED_TREE` = 0.35, the succession check's "tree"). The counters live on the world, because `removeTree` only gets `w`. They aren't saved and restart at load: they're for diagnostics, the succession check and later the Field Journal;
+- marks the phase 3 hook: a comment where the understory sapling will take the slot (see 3). It does nothing yet;
+- leaves deadwood with `killTree`'s old rules: a tree above `minG` (0.6, or `FIRE_SNAG_G` 0.85 for fire) leaves a snag with odds `snagOdds`, else a log. The savanna still scales the odds by 0.35, and the reef's `deadTree` hook still turns dead coral to rubble. The odds default by cause: 0.7, fire 0.7 (crown fire passes 0.9), wind 0.15;
+- `deadwood: false` leaves nothing at all, not even the `deadTree` remains. This is how every site that zeroed a tree before keeps its behavior: saplings burned, trampled, browsed or drowned, and player removal that leaves its own stump or palm trunk.
 
-Every existing site that zeroes `w.tree` moves to it. Small trees (`treeG` below the deadwood threshold) still leave nothing behind, but they still release and still count.
+Sites moved to it, each keeping its behavior apart from the bookkeeping:
 
-### 2. Mortality hazard (`sim/plants.js`, tree loop)
+| Site | Cause | Deadwood |
+|---|---|---|
+| tree loop, `plants.js` | hazard: `age` or `stress`; inundation: `flood`; savanna thicket dieback, `droughtKills`: `drought`; `grazedSeedlingLost`: `browse`; shrinking to 0, seed-bank natives taking an invasive's tile, establishment stress: `stress` | deaths yes; shrinking to 0 no |
+| surface and crown fire, `events.js` | `fire` | big trees only, as before |
+| controlled burn (`burnUnderbrush`) | `fire` | no |
+| flood, `events.js` | `flood` | no (saplings only) |
+| beaver pond flooding (`floodTile`) | `flood` | yes |
+| beaver chewing | `beaver` | trees ≥ 0.75 only, as before |
+| elephant trampling, deer and elk browsing (`ecological-pressure.js`) | `browse` | no |
+| tools: pull, cut, clear, dig, trail, blind, road, dike breach, buildings; Sumatra's fell and cut | `player` | no (cut leaves its own stump) |
+| reef bleaching / cyclone / crown-of-thorns | `stress` / `wind` / `browse` | rubble, as before / rubble / no |
 
-Replace the hard age cutoff with a yearly hazard, applied daily as h/120. One `rng()` call per tree per day, which already exists.
+`World.clearPlants(i, cause)` and `addStructure(…, cause)` take an optional cause. The tools pass `'player'`; map generation passes none, because laying out a new map isn't a death. Planting (`setPlant`) only goes on empty tiles. `tools/tree-mortality-check.mjs` fails if any file other than `removeTree` and `clearPlants` (and the `*-world.js` generators) zeroes `w.tree`.
+
+### 2. Mortality hazard (`sim/plants.js`, `treeHazard`)
+
+Built in phase 2. It replaces the hard age cutoff (`ageY > p.life && rng() < 0.004`) and the two old poor-site death rolls with one yearly hazard, applied daily as h/120. That's one `rng()` per tree per day, as before:
 
 ```
-h = base + senescence + stress
-base       = p.mortality ?? clamp(0.8 / p.life, 0.002, 0.02)        // ~0.2–2%/yr, old-growth range
-senescence = 0.05 * max(0, (age/life − 0.7) / 0.3) ^ 3              // ramps up toward and past `life`
-stress     = 0.03 * (1 − suit/0.6)₊  +  suppression                 // poor site, and shade for intolerant trees
+h = base + senescence + stress + poorSite + suppression          (per year)
+base        = p.mortality ?? clamp(0.4 / p.life, 0.002, 0.02)
+senescence  = 0.05 * max(0, (age/life − 0.7) / 0.3) ^ 3          // 5%/yr at `life`, 40%/yr at 1.3·life
+stress      = 0.03 * (1 − suit/0.6)₊
+poorSite    = 0.2 * (1 − suit/0.3)₊, trees with treeG ≥ 0.5 only  // the old daily 0.002 / 0.0015 rolls, merged
+suppression = 0.03 * min(1, (light[0] − L)/light[0])₊ * min(1, (0.95 − treeG)/0.45)₊,  L = layerLight(w, i, 2)
 ```
 
-- `suppression` applies when the tree's own light is below `p.light[0]`, so shade-intolerant trees under a closing canopy decline.
-- The existing slow decline at low suitability stays. This replaces only the `ageY > p.life` line.
-- Constants are starting points to tune in phase 1. The shape (flat, then a steep rise) is what matters.
+- **Cause.** A hazard death counts as `age` when the roll falls in `base + senescence`, and as `stress` otherwise.
+- **Background is 0.4/life, not 0.8.** At 0.8 a bigleaf maple (life 90) died at 0.9% a year, so over half the first maple cohort was gone by year 100. Fir sits at the 0.2% floor either way, so it took the gaps: fir reached 90% of PNW trees against 78% before (`--veg`, seed 1). At 0.4 it reached 86%. The unburned openings were the same (12% and 13%).
+- **The old poor-site death is merged in**, not stacked. The old code rolled 0.002 a day (g 0.5–0.95) or 0.0015 a day (g ≥ 0.95) when suitability was under 0.3, about 18–24% a year. That is the same thing as the stress term at its bad end, so it became `poorSite`, at 20% a year. The slow shrinking of a tree under 0.5 on a poor site stays in the growth step.
+- **Suppression only applies below the canopy.** `layerLight(w, i, 2)` is `1 − 0.75 × nbCanopy`, so a fir in a closed fir stand reads 0.25, below its `light[0]` of 0.42. Applied to every tree, this would kill canopy trees for having neighbours. The `(0.95 − treeG)/0.45` factor limits it to trees that haven't reached the canopy. Shade-tolerant trees (`light[0]` 0: cedar, hemlock) are never suppressed.
+- **Map data.** `definition.mortality: { background, senescence, stress, suppression }` scales each new term; the default is 1. `poorSite` isn't scaled, because every map had it before. The reef sets `background`, `stress` and `suppression` to 0: with them on, coral fell from 2,182 to 1,447 colonies by year 200 (`--veg`, seed 1). It keeps senescence, which replaces its old cutoff at `life` too. The data contract checks the field.
+- Planted trees get the hazard; nothing tells them apart.
 
 ### 3. Recruitment (`sim/plants.js`, `trySeed`)
 
@@ -193,6 +214,44 @@ Before any phase 2 change: `main` at 9d99a33, 200 years, full wildlife (10 × `u
 
 Grazing outcomes (elk numbers, grazing pressure, meadow and mature area) stay within seed noise: meadow swings between 5 and 380 tiles across seeds in full mode alone. Composition does not: `--veg` leaves fir 10–15 points lower at years 100–200 (76–87% against 92–93%). The likely cause is animal effects that happen once per `update` call rather than per unit of time, but that is unconfirmed. So use `--veg` for structure, turnover and mortality questions and for 300-year runs. Measure species shares and every acceptance number with full wildlife. `--veg` saves about half the wall time (wildlife is about 60% of a full day).
 
+### Phase 2 results (2026-10-20)
+
+`removeTree` and the hazard, measured as for the baselines: full wildlife, 200 years, same seeds, so each row compares exactly with the baseline row above. Deaths by cause now come from `w.treeDeathsEst`.
+
+| Run | Seeds | Largest species, % (before) | Recruits ÷ deaths (before) | Mature opened, % (unburned) (before) | Habitat changed, % | Simpson | Animal species | Trees | Age median / 95th, y (before) | Meadow | Elk |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| pnw restore | 3 | fir 86–92 (92–93) | 0.92–1.04 (1.06–1.16) | 25–34 (12–14) (13–16 (2–3)) | 15–20 | 0.15–0.25 | 30 | 6722–7106 | 78–92 / 170–174 (96–115 / 176–179) | 18–346 | 15–20 |
+| pnw idle | 3 | fir 94–98 (95–97) | 1.15–1.31 (1.34–2.17) | 21–24 (9–11) (3–15) | 14–15 | 0.05–0.11 | 28–31 | 7276–7691 | 71–77 / 155–160 (79–92 / 163–167) | 10–87 | 16–19 |
+| atlanta idle | 3 | redmaple/tulippoplar 24–34 (24–36) | 0.72–0.74 (0.64–0.72) | 48–56 (47–56) (48–51) | 10–11 | 0.77–0.84 | 24–29 | 1256–1404 (1162–1516) | 56–69 / 185–186 (64–72 / 192–195) | 30–35 | - |
+| amazon idle | 3 | brazilnut 81–83 (76–81) | 1.02–1.05 (0.94–1.12) | 22–27 (10–14) (13–28) | 11–14 | 0.30–0.34 | 24 | 9425–9482 | 78–91 / 161–166 (98–108 / 166–173) | 6–10 | - |
+| sumatra idle | 1 | fig 39 (durian 26) | 1.04 (1.02) | 30 (27) (22) | 15 | 0.80 | 32 | 9023 (9023) | 62 / 166 (75 / 176) | 0 | - |
+| chinandega idle | 1 | guacimo 23 (neem 32) | 0.96 (1.28) | 84 (47) (76) | 21 | 0.84 | 23 | 3876 (5379) | 24 / 90 (31 / 95) | 164 | - |
+
+Deaths of established trees in years 150–200, by cause (all seeds):
+
+- PNW restore: age 41%, fire 38%, stress 16%, beaver 4%, flood 1%. Fire's share per seed fell from 60–74% to 31–45%.
+- PNW idle: age 45%, fire 24%, stress 21%, beaver 9%.
+- Atlanta: age 94%, stress 6%. These are mostly short-lived trees (callery pear lives 25 years, crape myrtle 50, river birch 60) dying on schedule, as before.
+- Amazon: age 50%, fire 39%, stress 11%. Fire's share per seed fell from 54–72% to 34–44%. Fire burns no less; there are just more other deaths.
+- Sumatra: age 86%, fire 8%, stress 6%. Chinandega: fire 69%, age 29%, stress 2%.
+
+Against this phase's targets:
+
+- **PNW unburned openings** rose from 2–3% to 12–14%, above the 10% acceptance target. Openings counting fire rose from 13–16% to 25–34%.
+- **Atlanta recruits ÷ deaths** rose from 0.64–0.72 to 0.72–0.74, inside the 0.7–1.5 band on every seed, but only just. Its deaths are almost all short-lived trees reaching old age. Its recruitment is held back by the invasive thicket, which the hazard doesn't touch. That is phase 3's job (recruitment) and phase 6's (map tuning).
+- **Age distribution.** The 95th percentile barely moves, but the median drops by 10–25 years everywhere, and the 25th–75th spread is about 40–130 years on PNW restore. Trees now die across their whole lifespan instead of all at `life`.
+- **balance-sim restore 15** is within seed noise. Over seeds 1–8, seeded via `--import`, before → after means: score 58.3 → 58.0, meadow tiles 720 → 836 (spread across seeds 426–1,242), forest 222 → 215, mature 40.5 → 40.4, elk 15.9 → 17.4, invasive 30.2% → 31.1%.
+- **dailyTick** is within the 5% budget, just. A/B on PNW restore, `--veg`, 60 years, seed 1, one process at a time in the order old, new, new, old, on AC power. Means, ms per `dailyTick`: years 0–20 3.73 → 3.69, years 20–40 4.37 → 4.44 (+2%), years 40–60 4.43 → 4.67 (+5%). The two old-code runs differ by 4% from each other. The new code has 12% fewer trees at year 60 (3,205 against 3,663), so its cost per tree is higher. On one saved year-40 state, `updatePlants` alone costs about 0.15–0.25 ms more. Most of that is the hazard's `rng()`, which now runs for every tree every day, where the old age check rolled only for trees past `life`. Skipping `treeHazard` when the roll is above an upper bound saved nothing measurable, so it isn't in. The 200-year runs' ms figures are meaningless: the Mac was on battery and slept during them.
+- **Gotcha, fixed before measuring:** the first version created `w.treeDeaths` with `||=` at the first death. That changes the World object's shape mid-game, and `updateEnvironment` (canopy, moisture, classify, distances) ran 35–55% slower. The counters are now declared in the `World` constructor. Any new per-world field should be too.
+
+Regression, expected until phase 3:
+
+- **Monodominance is a little worse.** Fir on PNW restore is 86–92% against 92–93% in full mode, a small gain. But under `--veg` on seed 1 it rose from 78% to 86%, and Brazil nut went from 76–81% to 81–83%. Turnover without negative density dependence feeds the lottery that root cause 3 describes: every new gap is filled mostly by the dominant species' seed. More gaps make that lottery run faster. CNDD and advance regeneration in phase 3 are what this needs. Lowering the background coefficient to 0.4 (see §2) halved the effect on PNW.
+- **Shade-tolerant share stays 0%**, as expected: cedar and hemlock still can't wait under a canopy.
+- **Reef** (`--veg`, seeds 1–3), with the opt-out: 1,858–2,123 coral colonies at year 200 against 2,087–2,349 before, a mean 9% lower; the ranges overlap. Animal species 21, 21, 21 against 21, 21, 20. Without the opt-out, seed 1 fell by a third. What's left is senescence starting at 0.7·life instead of a cutoff at `life`.
+- **Chinandega loses trees.** 3,876 trees at year 200 against 5,379 in full mode on seed 1. Under `--veg`, seeds 1–3: 4,064–5,043 against 5,045–6,810 before, a mean 23% fewer, with invasive tiles 5,051–6,008 against 4,238–4,783. Recruits ÷ deaths is 1.01–1.15 against 1.10–1.33, still inside the band. Its trees are short-lived (life 40–100), and the map burns heavily. The extra background deaths open gaps that fire and invasive thicket take before trees can. The hazard terms there are small (about 1% a year). The lever is map data, `mortality: { background }`, which belongs in the phase 6 cross-map tuning.
+- **Animal species below baseline − 1:** Sumatra 32 (baseline 34, one seed), and one Atlanta seed at 24 (the other two 28 and 29; baseline 29). Atlanta seed 1 had 29 at year 150. Both may be single-seed noise, but neither is confirmed.
+
 ### How to run
 
 ```
@@ -206,7 +265,7 @@ nice -n 5 node tools/succession-check.mjs --map pnw --mode restore --years 200 -
 Each phase is one session, run in order, each building on the last:
 
 1. **Succession check and baselines.** (Done: see [Baselines](#baselines-phase-1-2026-10-19).) Add `tools/succession-check.mjs`, built from the scratch probe. It's seeded, all maps, `idle` and `restore` modes, and a `--veg` mode that steps wildlife less often for fast 300-year structure runs. It reports the measures above plus age structure and deaths by cause, and asserts targets once a `--assert` flag is set. Record the baselines in this doc. No game code changes.
-2. **Tree removal and mortality hazard.** Add `removeTree` with causes, move every call site to it, and swap in the hazard model. Tune so that Atlanta's recruits-to-deaths ratio and PNW turnover improve without breaking `balance-sim restore 15`.
+2. **Tree removal and mortality hazard.** (Done: see [Phase 2 results](#phase-2-results-2026-10-20).) Add `removeTree` with causes, move every call site to it, and swap in the hazard model. Tune so that Atlanta's recruits-to-deaths ratio and PNW turnover improve without breaking `balance-sim restore 15`.
 3. **Advance regeneration and CNDD.** Add the understory arrays (with saves), release on removal, CNDD in `trySeed`, and map `recruitment` config. Expected to fix hemlock/cedar and Brazil nut.
 4. **Disturbance regimes.** Add `sim/disturbance.js` with windstorm and drought on every map that fits, an optional PNW root-rot pathogen, notifications, and a Field Journal line.
 5. **Deadwood decay and nurse logs.** Make decay depend on moisture and wood type, and add nurse-log recruitment and snag fall.

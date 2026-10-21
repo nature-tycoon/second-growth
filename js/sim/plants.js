@@ -151,6 +151,30 @@ function droughtKills(w, i, g, gf, rng) {
   return !!gi && w.groundG[i] > 0.6 && GRASS_LOOK[w.catalog.plants[gi].look.type] && rng() < 0.012;
 }
 
+// A tree's yearly death hazard (0013 §2): flat background mortality, a steep rise with old age, and
+// stress on a poor site or in shade it can't take. Returns { h, age }, where age is the part of h
+// counted as death by age (background and senescence); the rest is stress. The day's chance is h/120.
+// Map data can scale the new terms (definition.mortality: { background, senescence, stress, suppression }).
+const MORT = { background: 0.4, senesceFrom: 0.7, senesce: 0.05, stress: 0.03, stressSuit: 0.6, poorSite: 0.2, suppress: 0.03 };
+const hz = { h: 0, age: 0 };
+export function treeHazard(w, i, p, s, g, ageY, m) {
+  const a = (ageY / p.life - MORT.senesceFrom) / (1 - MORT.senesceFrom);
+  hz.age = (p.mortality ?? clamp(MORT.background / p.life, 0.002, 0.02)) * (m.background ?? 1)
+    + (a > 0 ? MORT.senesce * a * a * a * (m.senescence ?? 1) : 0);
+  let stress = 0;
+  if (s < MORT.stressSuit) stress += MORT.stress * (1 - s / MORT.stressSuit) * (m.stress ?? 1);
+  // a grown tree on a site gone bad (too wet, too dry, too shady) dies within a few years; a young
+  // one shrinks away instead (the growth step above). Every map has this, as before the hazard.
+  if (s < 0.3 && g >= 0.5) stress += MORT.poorSite * (0.3 - s) / 0.3;
+  // suppression: a tree still below the canopy, shaded by its neighbours more than it can take
+  if (p.light[0] > 0 && g < 0.95) {
+    const short = p.light[0] - layerLight(w, i, 2);
+    if (short > 0) stress += MORT.suppress * Math.min(1, short / p.light[0]) * Math.min(1, (0.95 - g) / 0.45) * (m.suppression ?? 1);
+  }
+  hz.h = hz.age + stress;
+  return hz;
+}
+
 // Grown plants of a layer on the tiles around (at least `need` of them, within r tiles).
 function crowded(w, i, need, layer = 'tree', r = 1) {
   const W = w.w, x = i % W, y = (i / W) | 0, ids = w[layer], gs = w[layer + 'G'];
@@ -198,6 +222,7 @@ export function updatePlants(game) {
   const nativeFrac = w.stats?.land ? w.stats.native / w.stats.land : 0;
   w.bankStrength = bank ? clamp((nativeFrac - 0.3) / 0.35, 0, 1) : 0;
   const bankK = w.bankStrength;
+  const mort = game.catalog.definition.mortality || {};
 
   for (let i = 0; i < w.n; i++) {
     const x = i % W, y = (i / W) | 0;
@@ -265,24 +290,23 @@ export function updatePlants(game) {
       const s = plantSuit(w, i, p);
       let g = w.treeG[i];
       w.treeAge[i] += 1;
-      const ageY = w.treeAge[i] / 120;
-      let dies = false;
+      let dies = null, lost = 'stress'; // dies: the cause of a death that leaves deadwood; lost: why g fell to 0
       if (g < 0.95) {
         if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4 * grazedGrowth(w, i, p, g);
         else if (g < 0.5) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
-        else if (rng() < 0.002 * (0.3 - s) / 0.3) dies = true;
       } else if (s >= 0.3) g = Math.min(1, g + p.grow * gf * 0.5);
-      else if (rng() < 0.0015 * (0.3 - s) / 0.3) dies = true;
       // Sustained inundation, rather than the day a dam is built, creates snags.
-      if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) dies = true;
-      if (ageY > p.life && rng() < 0.004) dies = true;
-      else if (droughtKills(w, i, g, gf, rng) || grazedSeedlingLost(w, i, p, g, rng)) g = 0;
+      if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) dies = 'flood';
+      const haz = treeHazard(w, i, p, s, g, w.treeAge[i] / 120, mort), r = rng() * 120;
+      if (r < haz.h) dies ||= r < haz.age ? 'age' : 'stress';
+      else if (droughtKills(w, i, g, gf, rng)) { g = 0; lost = 'drought'; }
+      else if (grazedSeedlingLost(w, i, p, g, rng)) { g = 0; lost = 'browse'; }
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
       // savanna: in the dry months, trees packed into a thicket run short of water and some die back
-      else if (game.catalog.definition.savanna && gf < 0.6 && !p.invasive && w.distWater[i] > 3 && rng() < 0.006 && crowded(w, i, 3)) dies = true;
+      else if (game.catalog.definition.savanna && gf < 0.6 && !p.invasive && w.distWater[i] > 3 && rng() < 0.006 && crowded(w, i, 3)) dies = 'drought';
       if (ecology && !dies && g > 0) g = stressYoungPlant(game, i, p, g);
-      if (g <= 0) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
-      else if (dies) killTree(w, i, rng);
+      if (g <= 0) removeTree(w, i, lost, rng, { deadwood: false });
+      else if (dies) removeTree(w, i, dies, rng);
       else {
         g = Math.min(1, g); w.treeG[i] = g; cover += g * 1.5;
         if (g > 0.75 && rng() < p.spread * sf * (disperserMult[p.id] ?? 1)) disperse(w, p, x, y, rng, 0);
@@ -316,14 +340,30 @@ export function updatePlants(game) {
   }
 }
 
-// A big tree that dies leaves a snag (standing) or a log (fallen); snagOdds sets which.
-// (minG: how grown a tree must be to leave a snag or log; a fire burns smaller trees up entirely)
-export function killTree(w, i, rng, snagOdds = 0.7, minG = 0.6) {
-  const big = w.treeG[i] > minG;
-  if (w.catalog.definition.savanna) snagOdds *= 0.35; // (on the savanna a dead tree mostly falls: fire, termites and elephants)
+// Why a tree died (docs/decisions/0013-succession-dynamics.md): 'age' (background and old-age
+// mortality), 'stress' (a poor site, shade or competition), 'fire', 'wind', 'drought', 'pathogen',
+// 'flood', 'browse' (and trampling), 'beaver' or 'player'.
+const SNAG_ODDS = { fire: 0.7, wind: 0.15 }; // a fire kills trees standing; a storm throws them down
+export const ESTABLISHED_TREE = 0.35; // a tree this grown counts as established (the succession check's "tree")
+
+// The one way a living tree leaves its tile. A big tree leaves a snag (standing) or a log (fallen):
+// snagOdds sets which, by cause unless given. minG: how grown it must be to leave either (a fire
+// burns smaller trees up entirely). deadwood: false leaves nothing at all, not even the map's
+// deadTree remains (saplings trampled or burned, player removal that leaves its own stump).
+// Deaths are counted by cause in w.treeDeaths (every tree) and w.treeDeathsEst (established
+// ones); both restart at load, and are for diagnostics and the succession check.
+export function removeTree(w, i, cause, rng, { snagOdds = SNAG_ODDS[cause] ?? 0.7, minG = 0.6, deadwood = true } = {}) {
+  const g = w.treeG[i];
+  const all = w.treeDeaths, est = w.treeDeathsEst;
+  all[cause] = (all[cause] || 0) + 1;
+  if (g > ESTABLISHED_TREE) est[cause] = (est[cause] || 0) + 1;
   w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
+  // Phase 3 (0013 §3) releases advance regeneration here: a sapling waiting in w.understory[i]
+  // takes the tree slot at its current size. Nothing waits there yet.
+  if (!deadwood) return;
+  if (w.catalog.definition.savanna) snagOdds *= 0.35; // (on the savanna a dead tree mostly falls: fire, termites and elephants)
   if (w.catalog.definition.deadTree) { w.catalog.definition.deadTree(w, i); return; } // (the reef: dead coral breaks down into rubble, not snags and logs)
-  if (big && !w.feature[i]) {
+  if (g > minG && !w.feature[i]) {
     w.feature[i] = rng() < snagOdds ? F.SNAG : F.LOG;
     w.featureAge[i] = 0;
   }

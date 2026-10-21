@@ -391,6 +391,7 @@ export function assertMapDefinition(map, path = map?.id || 'map') {
   optional(map.climate, 'fireMonths floodMonths', `${path}.climate`, months);
   if (map.climate.snow) { object(map.climate.snow, `${path}.climate.snow`); months(map.climate.snow.months, `${path}.climate.snow.months`); fn(map.climate.snow.chance, `${path}.climate.snow.chance`); }
   for (const key of ['daily', 'update', 'onStart', 'stats', 'terrainFit', 'deadTree', 'dryLand', 'scoreWater']) optional(map, key, path, fn);
+  if (map.mortality != null) { object(map.mortality, `${path}.mortality`); fields(map.mortality, `${path}.mortality`, keys('background senescence stress suppression')); optional(map.mortality, 'background senescence stress suppression', `${path}.mortality`, (v, q) => number(v, q, 0)); }
   object(map.look, `${path}.look`); list(map.look.light, `${path}.look.light`, (v, q) => object(v, q), 4);
   list(map.goals, `${path}.goals`, (g, q) => {
     object(g, q); for (const key of ['key', 'name', 'desc']) text(g[key], `${q}.${key}`);
