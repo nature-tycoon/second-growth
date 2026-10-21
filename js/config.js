@@ -74,7 +74,7 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 export const DIFFICULTY = {
   // arrivals: how readily new wildlife finds the restored habitat
   relaxed:     { name: 'Relaxed', startMoney: 45000, grants: 1.5, costs: 0.75, disasters: 0.5, invasives: 0.6, arrivals: 0.85,
-                 desc: 'More money, cheaper work, fewer fires and floods. Just enjoy the valley coming back.' },
+                 desc: 'More money, cheaper work, fewer fires and floods, and invasive weeds spread more slowly. Just enjoy the valley coming back.' },
   standard:    { name: 'Standard', startMoney: 30000, grants: 1, costs: 1, disasters: 1, invasives: 1, arrivals: 0.5,
                  desc: 'The intended balance: money is tight, wildlife takes its time to return, and visitors become your main income.' },
   challenging: { name: 'Challenging', startMoney: 22000, grants: 0.75, costs: 1.25, disasters: 1.5, invasives: 1.4, arrivals: 0.35, ecology: true,

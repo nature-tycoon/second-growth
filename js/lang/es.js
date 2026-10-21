@@ -285,7 +285,7 @@ addStrings({
   'For the most room, use full screen (the corner button at the top) or add the game to your home screen.': 'Para tener más espacio, usá pantalla completa (el botón de la esquina de arriba) o agregá el juego a tu pantalla de inicio.',
   'How do you want to play?': '¿Cómo querés jugar?', Difficulty: 'Dificultad', Mode: 'Modo', Campaign: 'Campaña', 'Free play': 'Juego libre',
   Relaxed: 'Tranquilo', Standard: 'Normal', Challenging: 'Difícil',
-  'More money, cheaper work, fewer fires and floods. Just enjoy the valley coming back.': 'Más plata, trabajo más barato, menos incendios y llenas. Solo disfrutá cómo vuelve la finca.',
+  'More money, cheaper work, fewer fires and floods, and invasive weeds spread more slowly. Just enjoy the valley coming back.': 'Más plata, trabajo más barato, menos incendios y llenas, y las plantas invasoras se extienden más despacio. Solo disfrutá cómo vuelve la finca.',
   'The intended balance: money is tight, wildlife takes its time to return, and visitors become your main income.': 'El balance normal: la plata alcanza justo y los animales tardan en volver.',
   'Smaller grants, pricier work, more disasters and pushier invasives. Every dollar counts.': 'Ayudas más chiquitas, trabajo más caro, más desastres e invasoras más bravas. Cada córdoba cuenta.',
   'Every tool from the start and no chapters, just the land, the grants and the milestone goals.': 'Todas las herramientas desde el inicio y sin capítulos: solo la tierra, las ayudas y las metas.',

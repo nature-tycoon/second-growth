@@ -154,6 +154,15 @@ check('Conspecific negative density dependence: fewer seedlings survive among th
   assert.ok(Math.abs(fir / share - 0.7) < 0.02, `fir among firs: ${fir} of ${share}`); // pnw cndd 0.3, all neighbours fir
   assert.ok(Math.abs(hemlock / shareH - 1) < 0.02, `hemlock among firs: ${hemlock} of ${shareH}`);
 });
+check('Relaxed: fewer invasive seedlings take, wherever the seed came from; natives are untouched', () => {
+  const g = fixture('pnw'), w = g.world, i = w.idx(4, 4);
+  const odds = p => { let lo = 0, hi = 1; for (let n = 0; n < 30; n++) { const r = (lo + hi) / 2; w.shrub[i] = 0; if (trySeed(w, p, i, () => r)) lo = r; else hi = r; } w.shrub[i] = 0; return lo; };
+  g.diff = { invasives: 1.4 }; updatePlants(g); assert.equal(w.invasiveOdds, 1, 'Challenging presses harder through seed rain, not here');
+  const bb = odds(PLANT.blackberry), sb = odds(PLANT.salmonberry);
+  g.diff = { invasives: 0.6 }; updatePlants(g); assert.equal(w.invasiveOdds, 0.6);
+  assert.ok(Math.abs(odds(PLANT.blackberry) / bb - 0.6) < 0.02, 'blackberry takes 0.6 as often');
+  assert.ok(Math.abs(odds(PLANT.salmonberry) - sb) < 1e-6, 'native salmonberry unchanged');
+});
 check('Succession recruits beside living trees and after natural death, preserving deadwood', () => {
   const g = fixture('pnw'), w = g.world, i = w.idx(4, 4), j = w.idx(5, 4);
   w.setPlant(i, PLANT.alder, 1, 30 * 120); updateCanopy(w, 4);

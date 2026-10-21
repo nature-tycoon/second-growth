@@ -2,7 +2,7 @@
 // Seeded, headless. Prints, every N years: habitat mix and turnover, tree deaths by cause (from
 // removeTree's w.treeDeathsEst counter; by diffing tiles on builds without it) and recruits, age structure, species shares and diversity, saplings waiting in the understory, deadwood, fire, wildlife, and dailyTick cost.
 //   node tools/succession-check.mjs [--map pnw|all|<id>[,<id>]] [--mode idle|restore] [--years 200]
-//        [--seeds 1,2,3] [--every 10] [--veg] [--assert] [--json out.json]
+//        [--seeds 1,2,3] [--every 10] [--veg] [--difficulty relaxed|standard|challenging] [--assert] [--json out.json]
 // --veg steps wildlife once a day at dt 1.0 instead of 10x0.1: about 3x faster, for structure runs.
 // --assert checks the 0013 acceptance targets and exits 1 on a miss (default: report only).
 // Run long jobs in the background under `nice`: 200 years is 10–40 min per map and seed unloaded.
@@ -57,6 +57,7 @@ if (!['idle', 'restore'].includes(modeArg)) { console.error('--mode is idle or r
 const years = +opt('years', 200), every = +opt('every', 10);
 const seeds = String(opt('seeds', '1')).split(',').map(Number);
 const veg = flag('veg'), doAssert = flag('assert'), jsonOut = opt('json', null);
+const difficulty = opt('difficulty', 'standard');
 const WINDOW = Math.min(50, years); // the turnover and recruits/deaths window: the run's last 50 years
 
 const q = (sorted, f) => sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(f * sorted.length))] : 0;
@@ -66,11 +67,11 @@ function run(map, seed) {
   let mode = modeArg;
   if (mode === 'restore' && map !== 'pnw') { console.log(`(${map}: the restore plan is Hollis-specific; running idle)`); mode = 'idle'; }
   lcg = seed;
-  const g = new Game(); g.newGame(1987, 'free', 'standard', map);
+  const g = new Game(); g.newGame(1987, 'free', difficulty, map);
   g.rng.setState(hashStr(`${map}:${seed}`)); // same world for every seed, different history
   const w = g.world, P = g.catalog.plants, n = w.n, D = 120;
   const plan = mode === 'restore' ? hollisRestorePlan(g, ToolActions) : null;
-  const tag = `${map} ${mode}${veg ? ' veg' : ''} seed ${seed}`;
+  const tag = `${map} ${mode}${veg ? ' veg' : ''}${difficulty !== 'standard' ? ' ' + difficulty : ''} seed ${seed}`;
   console.log(`== ${tag}: ${w.w}x${w.h}, ${years} years`);
 
   const counted = new Uint8Array(n); // the tile's current tree has been counted as a recruit

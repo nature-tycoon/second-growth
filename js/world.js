@@ -40,6 +40,8 @@ export class World {
     // tree deaths by cause, all and established (removeTree). Declared here, not added later: a
     // property added mid-game changes the world's shape and slows every hot loop that reads it.
     this.treeDeaths = {}; this.treeDeathsEst = {};
+    // the share of natural invasive seedlings that take on easier difficulties (updatePlants sets it from game.diff)
+    this.invasiveOdds = 1;
     this.feature = u8(); this.featureAge = f32();
     this.struct = new Int16Array(n).fill(-1);
     // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars)

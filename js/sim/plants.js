@@ -168,6 +168,7 @@ export function trySeed(w, p, i, rng) {
     else if (gp.smother) odds *= gp.smother; // (a creeper that blankets the ground, like Sumatra's Chinese violet)
   }
   odds *= grazedRecruitOdds(w, i, p); // and herds crop or tread most of what comes up where they feed
+  if (p.invasive) odds *= w.invasiveOdds; // (Relaxed: fewer invasive seedlings take, wherever the seed came from)
   // On the savanna the roots of a grown tree take all the water around it, so native seedlings
   // only come up in the gaps and the trees stay scattered (invasive mesquite still makes thickets).
   if (open && p.layer === 2 && !p.invasive && (under || crowded(w, i, 1, 'tree', 2))) return false;
@@ -283,6 +284,7 @@ export function updatePlants(game) {
   const nativeFrac = w.stats?.land ? w.stats.native / w.stats.land : 0;
   w.bankStrength = bank ? clamp((nativeFrac - 0.3) / 0.35, 0, 1) : 0;
   const bankK = w.bankStrength;
+  w.invasiveOdds = Math.min(1, game.diff?.invasives ?? 1);
   const mort = game.catalog.definition.mortality || {};
 
   for (let i = 0; i < w.n; i++) {
@@ -464,9 +466,9 @@ export function seedRain(game) {
     else if (edge === 'W') { x = depth; y = Math.floor(rng() * w.h); }
     else { x = Math.floor(rng() * w.w); y = w.h - 5 - depth - Math.floor(rng() * 3); }
     if (!w.inb(x, y)) continue;
-    // difficulty sets how hard the neighbours' invasive seeds press in
+    // on Challenging the neighbours' invasive seeds press in harder (Relaxed's lighter touch is
+    // w.invasiveOdds in trySeed, which covers seed from plants already on the land too)
     const inv = p.invasive ? (game.diff?.invasives ?? 1) : 1;
-    if (inv < 1 && rng() > inv) continue;
     trySeed(w, p, w.idx(x, y), rng);
     if (inv > 1 && rng() < inv - 1) trySeed(w, p, w.idx(x, y), rng);
   }
