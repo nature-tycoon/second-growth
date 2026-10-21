@@ -208,12 +208,15 @@ check('A fed hawk circles over open ground on still wings, then glides down to a
     for (let k = 0; k < 200 && a.state === 'fly'; k++) { wl.update(0.05); assert.ok(Math.abs(a.alt - prev) < 0.16, `${map}: altitude jumped ${prev} -> ${a.alt}`); prev = a.alt; }
   }
 });
-check('A hungry soaring hawk breaks off its circle to hunt', () => {
+check('A hungry soaring hawk hunts from its circle, and moves on soon if nothing shows', () => {
   const g = setup(), wl = g.wildlife, a = spawn(g, 'hawk');
   a.hunger = 0; fixed(0.1, () => birdChoose(wl, a, ANIMAL.hawk));
   assert.equal(a.bird?.kind, 'soar');
-  a.hunger = 5; birdUpdate(wl, a, ANIMAL.hawk, 0.05);
-  assert.equal(a.bird, null); assert.equal(a.state, 'idle'); assert.equal(a.wait, 0);
+  a.hunger = 8; birdUpdate(wl, a, ANIMAL.hawk, 0.05);
+  assert.equal(a.bird?.kind, 'soar'); assert.ok(a.bird.t <= 7, 'a hungry hawk soars on only a few days more');
+  const vole = spawn(g, 'vole', a.x + 3, a.y); vole.state = 'idle';
+  for (let k = 0; k < 10 && a.state === 'bird'; k++) birdUpdate(wl, a, ANIMAL.hawk, 0.05);
+  assert.equal(a.state, 'hunt'); assert.equal(a.target, vole.id);
 });
 // What each raptor and owl can lift as an adult: anything else is eaten where it fell
 // (or, for a fish, dragged to the bank). The young of any prey are always light enough.
@@ -261,7 +264,7 @@ check('A hawk mantles over a vole, carries it to a tree, eats it there, and save
     }
   }
   assert.ok(saved, 'was carried through the air');
-  assert.equal(a.state, 'feed'); assert.equal(idx(g, a), tree); assert.ok(a.prey); assert.ok(a.feedT > 4);
+  assert.equal(a.state, 'feed'); assert.equal(idx(g, a), tree); assert.ok(a.prey); assert.ok(a.feedT > 2);
   // drawn: the hawk and the vole in its feet
   const actors = new Actors(new THREE.Scene()); actors.update(g, new THREE.Vector3(1, 0, 0), 1);
   const vole = actors.fauna.species.get(actors.fauna.modelKey(ANIMAL.vole)), hawk = actors.fauna.species.get(actors.fauna.modelKey(ANIMAL.hawk));

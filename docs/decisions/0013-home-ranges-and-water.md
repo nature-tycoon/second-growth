@@ -100,7 +100,7 @@ decision; no migration is needed.
   of the wear. Trails now come from purposeful repeated routes, but those trips are too
   infrequent to beat the 1.5%/day fade. Phase 2 (a daily routine with more frequent feed, rest
   and water cycles) or a retune of trail wear and decay is needed to make them obvious.
-- **Phase 2:** needs should compete for time instead of overriding each other, with minimum
+- **Phase 2** (done in [0014](0014-activity-budget.md)): needs should compete for time instead of overriding each other, with minimum
   bout lengths and species activities like soaring and patrolling. This would fix hawks never
   soaring and large predators hunting or eating 50–72% of the time.
 - **Phase 3 (optional):** predator pressure lowers how attractive a site is.

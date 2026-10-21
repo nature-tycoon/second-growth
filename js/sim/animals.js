@@ -21,6 +21,7 @@ import { grazeDay, decayGrazing } from './grazing.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, trailNode } from './animal-trails.js';
 import { ensureHome, homeChoose, homeFalloff, walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
 import { dormancySeason } from '../data/animal-dormancy.js';
+import { huntHunger } from '../data/animal-activity.js';
 import { updatePassage } from './bird-passage.js';
 import { passable, canLand, WADERS, shallows, reefMoveSafe } from './animal-terrain.js';
 // Retain the existing public imports used by tools and older feature modules.
@@ -73,7 +74,7 @@ class Animal {
   follow; wade; forageGoal; fromFire; avoidSide; drinkT; forage; recent; forageAfter; bankGoal;
   pushX; pushY; thirst; trip; greet; socialWith; socialUntil; localGoal; greetT; goal;
   birdAlertCheck; sparPath; sparT; sparLight; sparWith; sparAt; play; target; perchedAt; spd; hd;
-  swimT; threat; fleeOff; fx; fy; fleeT; fleeSpeed; fleeDelay; fleeSide; alertT; assist; hunt;
+  swimT; threat; fleeOff; fx; fy; fleeT; fleeSpeed; fleeDelay; fleeSide; fleeAge; alertT; assist; hunt;
   foragedAt; huntTime; playT; playN; nestSite; stoop; slot; disperse; alertUntil; carcass; feedAt;
   feedT; fruitAfter; socialCooldown; familySettled; familyRetryUntil; bachelorSlot; herdOf; mom;
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
@@ -798,7 +799,7 @@ export class Wildlife {
       }
 
       const diet = preyFor(def, game);
-      if (diet && canStartHunt(a) && a.hunger > 7 && rng() < 0.4) this.startHunt(a, def, diet);
+      if (diet && canStartHunt(a) && a.hunger > huntHunger(def) && rng() < 0.4) this.startHunt(a, def, diet);
 
       if (def.damBuilder) this.beaverDay(a, x, y, i);
       else if (def.browseRate && a.state === 'idle') {
@@ -1190,7 +1191,8 @@ export class Wildlife {
         case 'feed':
           a.feedT -= dt;
           if (a.move === 'fly') { a.alt = Math.max(0, a.alt - dt * 3); a.flying = false; }
-          if (a.feedT <= 0) { a.state = 'idle'; a.wait = 1 + Math.random() * 2; a.feedAt = null; a.carcass = null; a.prey = null; } // then a rest
+          // (hunger counts from the end of the meal: a long meal doesn't use up the time it lasts)
+          if (a.feedT <= 0) { a.state = 'idle'; a.wait = 1 + Math.random() * 2; a.feedAt = null; a.carcass = null; a.prey = null; a.hunger = 0; } // then a rest
           break;
         case 'leave':
           if (a.leaveWait > 0) { a.leaveWait -= dt; break; }

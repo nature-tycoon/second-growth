@@ -6,6 +6,9 @@ import { passable } from './animal-terrain.js';
 import { foodAt } from './animal-foraging.js';
 import { hash2, valueNoise } from '../rng.js';
 export const TRAIL_THRESHOLD = 0.09;
+// Unused trails fade 0.5% a day (about half in 140 days): a game trail lasts a season or more
+// after the animals stop using it (decision 0014; it was 1.5%).
+export const TRAIL_FADE = 0.995;
 export function trailSurface(w, j) {
   return j >= 0 && j < w.n && !w.catalog.definition.look.underwater && !isWater(w.terrain[j]) && !w.flood[j] &&
     w.struct[j] < 0 && ![T.ROAD,T.GRAVEL,T.TRAIL].includes(w.terrain[j]) && w.feature[j] !== F.FENCE;
@@ -84,13 +87,13 @@ export function decayTrails(w) {
   const density=densityState(w);
   if(density){const W=w.w*TRAIL_RESOLUTION;for(const i of density.active){
     const j=((i/W|0)/TRAIL_RESOLUTION|0)*w.w+((i%W)/TRAIL_RESOLUTION|0);
-    if(!trailSurface(w,j)||density.array[i]<.005){density.array[i]=0;density.active.delete(i);}else density.array[i]*=.985;
+    if(!trailSurface(w,j)||density.array[i]<.005){density.array[i]=0;density.active.delete(i);}else density.array[i]*=TRAIL_FADE;
   }}
   w.trailMax=0;
   for(let j=0;j<w.n;j++) {
     w.trod[j]=w.trod[j]<.01?0:w.trod[j]*.985;
-    if(w.trailE[j])w.trailE[j]=j%w.w+1<w.w && trailSurface(w,j) && trailSurface(w,j+1) && w.trailE[j]>.005?w.trailE[j]*.985:0;
-    if(w.trailS[j])w.trailS[j]=j+w.w<w.n && trailSurface(w,j) && trailSurface(w,j+w.w) && w.trailS[j]>.005?w.trailS[j]*.985:0;
+    if(w.trailE[j])w.trailE[j]=j%w.w+1<w.w && trailSurface(w,j) && trailSurface(w,j+1) && w.trailE[j]>.005?w.trailE[j]*TRAIL_FADE:0;
+    if(w.trailS[j])w.trailS[j]=j+w.w<w.n && trailSurface(w,j) && trailSurface(w,j+w.w) && w.trailS[j]>.005?w.trailS[j]*TRAIL_FADE:0;
     w.trailMax=Math.max(w.trailMax,w.trailE[j],w.trailS[j]);
   }
 }
@@ -236,7 +239,7 @@ export function rangeChoose(wl,a,def) {
     return false;
   }
   const target=r[r.next],distance=Math.hypot(a.x-(target%w.w+.5),a.y-((target/w.w|0)+.5));
-  if(distance<2) {r.next=r.next==='feed'?'rest':'feed';r.goal=null;r.after=a.age+5+(a.id%5);return false;}
+  if(distance<2) {r.next=r.next==='feed'?'rest':'feed';r.goal=null;r.after=a.age+3+(a.id%3);return false;}
   // Families retain their own following decisions. A resource trip is still
   // interrupted by danger, thirst, feeding or a changed landscape.
   const visit=j=>!w.fire[j];

@@ -34,6 +34,7 @@ Read the decisions in [docs/decisions/](docs/decisions/) before changing the are
 - [0011 Grazing pressure](docs/decisions/0011-grazing-pressure.md): herds hold woody seedlings back in the grass they use (`sim/grazing.js`, per-map `grazing` strength), and where elk spend their time
 - [0012 Raptors soar and carry](docs/decisions/0012-raptors-soar-and-carry.md): hawks circle (`def.soar`), and raptors and owls carry off what they can lift (`def.carries`, `carryCatch` in `sim/bird-behavior.js`)
 - [0013 Home ranges and water](docs/decisions/0013-home-ranges-and-water.md): resident mammals settle homes apart from their own kind and drink at their home's nearest water within reach (`sim/home-range.js`); `node tools/activity-budget.mjs [map]` shows how each species spends its time
+- [0014 Activity budget](docs/decisions/0014-activity-budget.md): hunters' hunger, rest and soaring compete for time (`behavior.activity`, `prowl()`), prey watch a stalker and flee at a rush, flights speed up then tire, trails fade 0.5%/day; `node tools/activity-check.mjs`
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
 
