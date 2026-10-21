@@ -1,6 +1,6 @@
 # 0013 Long-term forest dynamics: mortality, regeneration and disturbance
 
-Proposed 2026-10-18. Status: in progress. Phase 1 (succession check and baselines) and phase 2 (tree removal and mortality hazard) done 2026-10-19. Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12.
+Proposed 2026-10-18. Status: in progress. Phase 1 (succession check and baselines) and phase 2 (tree removal and mortality hazard) done 2026-10-19. Phase 3 (advance regeneration and CNDD) done 2026-10-21. Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12.
 
 ## Problem
 
@@ -269,6 +269,32 @@ Regression, expected until phase 3:
 - **Chinandega loses trees.** 3,876 trees at year 200 against 5,379 in full mode on seed 1. Under `--veg`, seeds 1–3: 4,064–5,043 against 5,045–6,810 before, a mean 23% fewer, with invasive tiles 5,051–6,008 against 4,238–4,783. Recruits ÷ deaths is 1.01–1.15 against 1.10–1.33, still inside the band. Its trees are short-lived (life 40–100), and the map burns heavily. The extra background deaths open gaps that fire and invasive thicket take before trees can. The hazard terms there are small (about 1% a year). The lever is map data, `mortality: { background }`, which belongs in the phase 6 cross-map tuning.
 - **Animal species below baseline − 1:** Sumatra 32 (baseline 34, one seed), and one Atlanta seed at 24 (the other two 28 and 29; baseline 29). Atlanta seed 1 had 29 at year 150. Both may be single-seed noise, but neither is confirmed.
 
+### Phase 3 results (2026-10-21)
+
+Advance regeneration, CNDD and the PNW east seed rain, measured as for phase 2: full wildlife, 200 years, same seeds. These runs used `--every 50`, so the tool's "changed" figure spans 50 years and isn't comparable with the decade figure above; it's left out. "Waiting" is understory saplings at year 200; "released" is saplings promoted into the tree slot over the whole run.
+
+| Run | Seeds | Largest species, % (phase 2) | Shade-tolerant % of mature | Recruits ÷ deaths (phase 2) | Mature opened, % (unburned) (phase 2) | Simpson (phase 2) | Animal species | Trees (phase 2) | Age median / 95th, y | Waiting, year 200 | Released, 200 y |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| pnw restore | 3 | fir 85–96 (86–92) | 1 | 1.06–1.25 (0.92–1.04) | 24–31 (6–16) (25–34 (12–14)) | 0.09–0.26 (0.15–0.25) | 30–31 | 7192–7404 (6722–7106) | 72–79 / 170–173 | 164–336, hemlock 125–228 | hemlock 102–114, fir 99–119 |
+| pnw idle | 3 | fir 94–98 (94–98) | 0–1 | 1.38–1.69 (1.15–1.31) | 18–25 (10–13) (21–24 (9–11)) | 0.04–0.12 (0.05–0.11) | 29–30 | 7205–7647 (7276–7691) | 62–74 / 148–159 | 135–166, hemlock 108–132 | fir 54–72, hemlock 24–73 |
+| amazon idle | 3 | brazilnut 74–75 (81–83) | 0 | 1.04–1.06 (1.02–1.05) | 20–28 (11–12) (22–27 (10–14)) | 0.42–0.44 (0.30–0.34) | 23–24 | 9153–9371 (9425–9482) | 90–103 / 160–165 | 241–388, açaí 195–283 | açaí 760–852, brazilnut 210–240 |
+| atlanta idle | 3 | redmaple 34–42 (24–34) | 4–15 | 0.52–0.63 (0.72–0.74) | 61–67 (58–67) (48–56) | 0.74–0.80 (0.77–0.84) | 26–28 | 1047–1240 (1256–1404) | 53–63 / 184–186 | 422–539, redmaple, dogwood | redmaple 591–690 |
+| sumatra idle | 1 | pending: the run hit a time limit at year 150 (fig 30%, Simpson 0.84, 33 species, recruits ÷ deaths 1.08); rerunning | | | | | | | | | |
+| chinandega idle | 1 | neem 40 (guacimo 23) | 0 | 1.07 (0.96) | 78 (71) (84 (47)) | 0.76 (0.84) | 23 | 3392 (3876) | 30 / 88 | 211, neem 166 | neem 245 |
+| serengeti idle | 1 | mesquite 94 (baseline 86–94) | 0 | 0.97 | 61 (44) | 0.12 | 22 | 4246 | 16 / 57 | 22 | sycamore fig 40 |
+| reef idle | 1 | boulder 49 (baseline 53) | 0 | 1.27 | 38 (38) | 0.54 | 21 | 2288 colonies (baseline 1994) | 64 / 184 | (off) | - |
+
+Against the targets:
+
+- **Hemlock and redcedar still don't reach the canopy (1%, target ≥ 25%).** The understory works where they arrive: hemlock is most of what waits under PNW fir, and over 200 years it is released into gaps about as often as fir. The bottleneck is seed supply. Edge seed rain brings in about 5 hemlock seeds a year (3 tries a day, a quarter of them per edge, one species in 8–9), all within about 8 tiles of the north and east edges. Beyond that, hemlock spreads only from its own grown trees, radius 4, once per generation, against seed from about 7,000 canopy firs on every tile. A 120 × 90 map can't fill that way in 200 years. Real hemlock and redcedar seed is wind-borne and arrives from the surrounding forest in quantity. The lever is map data (`windSeeds`, more weight in `seedRain`, or a longer `radius`), which belongs to the phase 6 tuning. Fire also takes 30–40% of established-tree deaths on PNW and kills the waiting sapling with the tree; that keeps burned stands fir, as it should.
+- **Brazil nut** fell from 81–83% to 74–75%, against a target of ≤ 40%. Simpson rose from 0.30–0.34 to 0.42–0.44. CNDD at 0.7 slows it but doesn't stop it. Brazil nut is 19% of trees at year 50 and 75% at year 200: it lives 500 years against 60–300 for most competitors, so each gap that goes to it stays taken. The understory is mostly açaí, a 60-year palm, which turns over without holding ground. Next levers: stronger CNDD for Brazil nut alone (`p.cndd`, which the code already reads), or giving long-lived shade-tolerant species (mahogany, ipê) a larger share of seed.
+- **Recruits ÷ deaths** is inside 0.7–1.5 on PNW restore, Amazon, Chinandega and the reef. PNW idle reads 1.38–1.69 because forest is still spreading onto the old fields (see the note under the acceptance criteria). **Atlanta fell below the band, 0.52–0.63 against 0.72–0.74.** Its trees were already declining in phase 2 (about 2,400 at year 50 to 1,050–1,400 at year 200), with invasive thicket taking the gaps. A one-seed `--veg` A/B on Atlanta: phase 2 0.66, phase 3 0.61, CNDD off 0.65, understory off 0.73. So the understory, not CNDD, is most of the drop, but one seed can't confirm it, and why is open. It isn't a counting artifact: the check counts a released sapling as a recruit once it passes 0.35, and the tree count falls by about what recruits minus deaths says.
+- **Chinandega: neem took over.** Invasive neem (`light[0]` 0.35) fills 166 of 211 understory slots, and at year 200 it is the largest species at 40% (phase 2: guacimo 23%, neem below it). Advance regeneration gives an invasive tree the same head start as a native one. Whether invasives may wait in the understory is a design call: real neem does invade forest understory. If not, a `p.invasive` exclusion in `trySeed`'s understory branch is one line.
+- **Unburned openings** on PNW restore: 6–16% (phase 2 12–14%), so one seed now misses the 10% target. Released saplings fill gaps as young forest before they read as openings, which is the intent of advance regeneration.
+- **Animal species** are within baseline − 1 everywhere measured except Atlanta, 26–28 against a baseline of 29 (phase 2 had a seed at 24).
+- **`balance-sim restore 15`**, seeds 1–8 seeded via `--import`, phase 2 → phase 3 means: score 57.8 → 60.3, meadow tiles 764 → 985 (seed 7 at 1,584; phase 2 ranged 570–994), forest 200 → 185, mature 38.4 → 38.1, elk 17.5 → 15.9, invasive 30.0% → 27.7%. All within seed noise; forest is slightly lower, as expected while CNDD thins early same-species clumps.
+- **`dailyTick`**: A/B on PNW restore, `--veg`, 60 years, seed 1, one process at a time in the order old, new, new, old, on a cloud container (about 4× slower than the Mac in absolute terms). Means, ms per `dailyTick`: years 0–20 14.35 → 13.63, 20–40 17.63 → 16.65, 40–60 18.41 → 17.44. Phase 3 has 16% fewer trees at year 60 (3,095 against 3,685), so per tree it costs slightly more, but the total is inside the 5% budget.
+
 ### How to run
 
 ```
@@ -283,7 +309,7 @@ Each phase is one session, run in order, each building on the last:
 
 1. **Succession check and baselines.** (Done: see [Baselines](#baselines-phase-1-2026-10-19).) Add `tools/succession-check.mjs`, built from the scratch probe. It's seeded, all maps, `idle` and `restore` modes, and a `--veg` mode that steps wildlife less often for fast 300-year structure runs. It reports the measures above plus age structure and deaths by cause, and asserts targets once a `--assert` flag is set. Record the baselines in this doc. No game code changes.
 2. **Tree removal and mortality hazard.** (Done: see [Phase 2 results](#phase-2-results-2026-10-20).) Add `removeTree` with causes, move every call site to it, and swap in the hazard model. Tune so that Atlanta's recruits-to-deaths ratio and PNW turnover improve without breaking `balance-sim restore 15`.
-3. **Advance regeneration and CNDD.** Add the understory arrays (with saves), release on removal, CNDD in `trySeed`, and map `recruitment` config. Expected to fix hemlock/cedar and Brazil nut.
+3. **Advance regeneration and CNDD.** (Done: see [Phase 3 results](#phase-3-results-2026-10-21). Hemlock, cedar and Brazil nut are not fixed; the remaining levers are map data for phase 6.) Add the understory arrays (with saves), release on removal, CNDD in `trySeed`, and map `recruitment` config. Expected to fix hemlock/cedar and Brazil nut.
 4. **Disturbance regimes.** Add `sim/disturbance.js` with windstorm and drought on every map that fits, an optional PNW root-rot pathogen, notifications, and a Field Journal line.
 5. **Deadwood decay and nurse logs.** Make decay depend on moisture and wood type, and add nurse-log recruitment and snag fall.
 6. **Cross-map tuning and acceptance.** Sweep all seven maps, tune map data, update this doc's results, and update AGENTS.md's decision list.
