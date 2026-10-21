@@ -19,6 +19,7 @@ import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { grazeDay, decayGrazing } from './grazing.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, trailNode } from './animal-trails.js';
+import { ensureHome, homeChoose, homeFalloff, walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
 import { dormancySeason } from '../data/animal-dormancy.js';
 import { updatePassage } from './bird-passage.js';
 import { passable, canLand, WADERS, shallows, reefMoveSafe } from './animal-terrain.js';
@@ -78,7 +79,7 @@ class Animal {
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
-  carry; prey;
+  carry; prey; home; homeAfter;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -1078,7 +1079,7 @@ export class Wildlife {
           // a single point
           const [ox, oy] = a.range?.goal != null ? trailNode(w, j).map(v => v - 0.5) : smoothWalker(this.game.catalog.animals[a.sp]) ? [0, 0] : spotIn(a, j, a.path.length === 1);
           if (a.path.length === 1 && a.restSpot?.[0] !== j) {
-            const bank = !a.dormancy && this.drinks(def) && a.thirst > (def.drinkEvery ?? 5 + a.id % 5) * 0.5 ? this.bankSpot(a, j) : null;
+            const bank = !a.dormancy && this.drinks(def) && a.thirst > drinkEvery(this, a, def) * 0.5 ? this.bankSpot(a, j) : null;
             const drink = bank && bank.crowd < 0.08;
             a.restSpot = [j, ...(a.dormancy ? [j % w.w + 0.5, (j / w.w | 0) + 0.5] : drink ? [bank.x, bank.y] : this.spacing.restSpot(a, j, ox, oy))];
             // (on a low bank the dry spot can be a tile or two back from the water, off the tile
@@ -1433,6 +1434,7 @@ export class Wildlife {
     for (let i = pick; i !== start && i >= 0; i = parent[i]) path.push(i);
     a.path = preferTrailPath(this, a, def, path, corridor); a.state = 'walk';
     a.trip = pick; // remembered, so a hunt along the way doesn't make it forget where it was going
+    if (resume == null) a.home = null; // moving on: it settles a new home where it arrives
     return true;
   }
 
@@ -1474,7 +1476,7 @@ export class Wildlife {
     if (pick < 0) return false;
     const path = [];
     for (let i = pick; i !== start && i >= 0; i = parent[i]) path.push(i);
-    a.path = path; a.state = 'walk'; a.trip = pick;
+    a.path = path; a.state = 'walk'; a.trip = pick; a.home = null;
     return true;
   }
 
@@ -1505,6 +1507,7 @@ export class Wildlife {
       else if (this.roam(a, def, a.trip)) return;
     }
     a.follow = false; a.wade = false;
+    ensureHome(this, a, def);
     // the young play-chase each other, and otherwise stay close to their mother until they're old
     // enough to go their own way
     if (!a.leaving && play(this, a, def)) return;
@@ -1528,6 +1531,7 @@ export class Wildlife {
     if (!a.leaving && prowl(this, a, def)) return;    // predators: lie up after a meal, go looking when hungry
     if (!a.leaving && harem(this, a, def)) return;    // elk in the rut: bulls gather and guard harems
     if (this.drinks(def) && !a.leaving && this.waterhole(a, def)) return;
+    if (!a.leaving && homeChoose(this, a, def)) return; // back from the water, a hunt or a scare
     if (!a.leaving && forageChoose(this, a, def)) return;
     if (!a.leaving && territorialChoose(this, a, def)) return;
     if (!a.leaving && birdChoose(this, a, def)) return;
@@ -1536,7 +1540,8 @@ export class Wildlife {
     // herd animals stay together: one leads, the rest keep their place around it
     if (def.herd && !a.leaving && this.keepWithHerd(a, def)) return;
     // herd leaders keep their distance from the next herd of their kind, so herds spread out
-    if (def.herdMax && !a.leaving && !a.juvenile && this.herdLeader(a) === a && Math.random() < 0.5) {
+    // (a leader with a home already settled away from the other herds' homes)
+    if (def.herdMax && !a.leaving && !a.juvenile && !a.home && this.herdLeader(a) === a && Math.random() < 0.5) {
       const leaders = this.agents.filter(o => o !== a && o.sp === a.sp && !o.leaving && this.herdLeader(o) === o);
       if (leaders.some(o => (o.x - a.x) ** 2 + (o.y - a.y) ** 2 < 144)) {
         const map = this.suit[a.sp];
@@ -1546,7 +1551,7 @@ export class Wildlife {
     }
     if (!a.leaving && rangeChoose(this, a, def)) return;
     // now and then, head off along a corridor to another patch of habitat
-    if (!a.leaving && !a.juvenile && !a.range && !hasTerritory(this, a, def) && !(def.familyHerd && inRut(this.game) && isMaleVariant(def, a)) && Math.random() < this.roamChance(def, a) && this.roam(a, def)) return;
+    if (!a.leaving && !a.juvenile && !a.range && !hasTerritory(this, a, def) && !(def.familyHerd && inRut(this.game) && isMaleVariant(def, a)) && Math.random() < this.roamChance(def, a) * (a.home ? 0.15 : 1) && this.roam(a, def)) return;
     if (a.move === 'fly') {
       const r = Math.min(14, 4 + Math.sqrt(def.hr) * 0.8);
       let [x, y] = this.bestTileSample(def, a.x, a.y, r, 10, a);
@@ -1615,6 +1620,7 @@ export class Wildlife {
         s *= f > 0 ? 0.3 + f : 0.03;
       }
       // Established resource ranges limit aimless drift between purposeful trips.
+      if (a.home) s *= homeFalloff(w, a, i);
       if (a.range) { const r = a.range, near = Math.min(Math.hypot(x-r.feed%W,y-(r.feed/W|0)),Math.hypot(x-r.rest%W,y-(r.rest/W|0))); s /= 1 + Math.max(0,near-4)*.7; }
       if (s > bs) { bs = s; best = i; }
       if (i !== start && map[i] > 0.01 && Math.abs(x - x0) + Math.abs(y - y0) <= 4 && !recent.includes(i) && Math.random() * ++pokeN < 1) poke = i;
@@ -1687,7 +1693,7 @@ export class Wildlife {
     if (def.move === 'swim' || def.noDrink) return false;
     const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (!w.inb(x0, y0)) return false;
-    const here = w.idx(x0, y0), every = def.drinkEvery ?? 5 + (a.id % 5);
+    const here = w.idx(x0, y0), every = drinkEvery(this, a, def);
     // (a low bank's dry spot can lie a tile back from the water: keep heading for the one chosen)
     const held = this.heldBank(a) && Math.hypot(a.x - a.bankGoal.x, a.y - a.bankGoal.y) < 1.5 ? a.bankGoal : null;
     const bank = held || this.bankSpot(a, here);
@@ -1699,6 +1705,7 @@ export class Wildlife {
       }
       a.bankGoal = null;
       a.drinkAt = bank.water; facePoint(a, ...bank.water);
+      if (a.home) a.home.back = true; // and afterwards back home the way it came
       a.waterTrip = false; a.thirst = 0; a.drinkT = restless(this, def, a) ? 0.6 + Math.random() * 0.6 : def.familyHerd ? 0.8 + Math.random() * 0.8 : 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false; a.alt = 0; // (deer and elk drink and move on)
       return true;
     }
@@ -1719,7 +1726,12 @@ export class Wildlife {
       a.tx = spot.x; a.ty = spot.y; a.state = 'fly'; a.flying = true; a.waterTrip = true;
       return true;
     }
-    const goal = this.pathTo(a, j => w.distWater[j] <= 1 && (this.bankSpot(a, j)?.crowd ?? Infinity) < 0.08, 5000);
+    // A resident drinks at its own home's water, if any is within reach; otherwise it gets by on
+    // food and dew, and sips when its wandering passes water. Others look within the same reach.
+    if (a.home && a.haremOf == null) return walkToWater(this, a, def); // (a cow in a harem drinks where her bull does)
+    if (homeEligible(this, def) && !def.herd && !def.familyHerd && a.mom == null && !a.leaving) return false; // still settling
+    const reach = waterReach(def);
+    const goal = this.pathTo(a, j => w.distWater[j] <= 1 && (this.bankSpot(a, j)?.crowd ?? Infinity) < 0.08, Math.ceil(Math.PI * reach * reach));
     if (!goal) { a.thirst = 0; return false; } // no water it can reach: it gets by on dew and green grass
     a.waterTrip = true;
     return true;
@@ -1889,7 +1901,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,
@@ -1899,7 +1911,7 @@ export class Wildlife {
     this.spacingDirty = true;
     this.carcasses = [];
     this.flyovers = []; this.passageWait = 8 + Math.random() * 10;
-    this.agents = d.agents.map(a => Object.assign(new Animal(), a, { territory: a.territory ? { ...a.territory } : undefined, dormancy: a.dormancy ? { ...a.dormancy } : undefined, range: a.range ? { ...a.range, route: a.range.route?.slice() } : undefined, moveProgress: null, fruitGoal: null, forageGoal: null, forage: null, state: a.state === 'walk' || a.state === 'forage' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
+    this.agents = d.agents.map(a => Object.assign(new Animal(), a, { territory: a.territory ? { ...a.territory } : undefined, dormancy: a.dormancy ? { ...a.dormancy } : undefined, range: a.range ? { ...a.range, route: a.range.route?.slice() } : undefined, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : undefined, moveProgress: null, fruitGoal: null, forageGoal: null, forage: null, state: a.state === 'walk' || a.state === 'forage' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
       wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5 }));
     this.nextId = d.nextId;
     d.state.forEach((s, k) => { if (this.state[k]) Object.assign(this.state[k], s); });
