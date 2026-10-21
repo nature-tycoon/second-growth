@@ -840,9 +840,11 @@ export class Wildlife {
       if (a.territory) { a.territory.goal = null; a.territory.mode = 'away'; }
       a.bird = null; a.birdGoal = null; a.birdGround = false;
       a.state = 'hunt'; a.target = best.id; a.huntTime = 5; a.path = null; a.assist = false; a.drinkT = 0; a.drinkAt = null;
+      const perched = a.move === 'fly' && !a.flying;
       if (a.move === 'fly') { a.flying = !huntStyle(def).grounded; if (!a.flying) a.alt = 0; }
       a.forage = null; a.forageGoal = null;
       beginHunt(this, a, def, best);
+      if (perched) a.hunt.perch = true; // (a raptor watching from a perch drops straight on its prey)
     }
     return !!best;
   }

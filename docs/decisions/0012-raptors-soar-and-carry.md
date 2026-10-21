@@ -35,3 +35,25 @@ Hawks only perched, hopped between trees and wheeled for about a second before a
 - Catch odds, hunger and population ecology are unchanged. On the Hollis restore run over 3 seeds, hawks, owls and their prey stay within seed noise.
 - Herons, kingfishers and otters still eat on the spot. Adding them would be a separate change (in reality they carry fish in the bill).
 - `tools/bird-behavior-check.mjs` covers the carry table, the mantle → carry → perch → eat sequence (including a save made mid-carry), eating on the ground, owls swallowing whole, and the eagle with trout and coho.
+
+## Amendment 2026-10-20: the catch comes at the bottom of the dive
+
+Cole saw hawks "picking a vole out of the top of a tree" and flying to another tree to eat it.
+A flier caught its prey as soon as it was within half a tile horizontally, whatever its height,
+and the drawn drop (`a.stoop`) came from distance alone. A hawk perched beside a vole, or right
+above one, took it at crown height. The mantle check also looked at the hawk's tile (a tree) instead
+of the prey's, so it lifted straight off to another tree. In a PNW community every raptor and owl
+catch (9 of 9 hawk, 12 of 12 owl) happened before the dive was finished.
+
+Now, in `huntStep` (`sim/animal-life.js`):
+
+- A flier catches only once `a.stoop` reaches 1. The dive reaches the ground as the bird comes over
+  its prey and falls at most 8 per sim-day (about a quarter-second on screen).
+- A raptor that starts a hunt from a perch (`hunt.perch`, set in `startHunt`) drops straight on
+  instead of circling first.
+- `carryCatch` mantles by where the prey was: on the ground, not a fish, not a tree animal. The lift
+  starts from low altitude.
+
+Catch counts held (hawk 9 → 9, owl 12 → 14). `bird-behavior-check` covers a hawk and an owl perched
+beside a vole and a hawk directly above one. `challenging-ecology-check` gives fliers up to four
+steps to finish the dive on contact.

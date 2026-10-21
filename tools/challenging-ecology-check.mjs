@@ -194,7 +194,8 @@ check('Every registered predator-prey relationship catches a real animal across 
       const { prey, predator } = huntPair(def.key, key, def.move === 'swim' ? T.POND : T.SOIL);
       g.rng = () => 0; const catches = g.stats.predations || 0;
       assert.equal(predator.state, 'hunt', `${map}/${def.key}/${key}`);
-      g.wildlife.update(0.05);
+      // (a bird has to finish its dive before it can catch: a few steps, under a fifth of a day)
+      for (let k = 0; k < (def.move === 'fly' ? 4 : 1) && g.wildlife.agents.includes(prey); k++) g.wildlife.update(0.05);
       assert.ok(!g.wildlife.agents.includes(prey), `${map}/${def.key}/${key}`);
       assert.equal(g.stats.predations, catches + 1);
       assert.equal(g.wildlife.state[ANIMAL[key].index].pop, 0); assert.equal(predator.hunger, 0);

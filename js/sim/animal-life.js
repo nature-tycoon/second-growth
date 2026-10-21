@@ -101,15 +101,19 @@ export function endHunt(a) {
 export function huntStep(wl, a, def, b, sp) {
   const S = huntStyle(def), H = a.hunt || (a.hunt = { phase: 'approach' });
   const d = dist(a, b);
+  // A raptor or owl catches only once its dive has brought it all the way down, not by passing
+  // over (or perching beside) its prey at treetop height.
+  const aerial = def.move === 'fly' && !S.grounded, down = () => !aerial || a.stoop >= 1;
   if (S.grounded && d < 1.15) { a.run = 0; return true; } // a long bill reaches into the shallows
-  if (d * d < 0.25) return true;
+  if (d * d < 0.25 && down()) return true;
   // a stalk the prey is drawing away from is given up early, not followed for days
   if (H.phase === 'approach') {
     if (H.best == null || d < H.best - 0.3) { H.best = d; H.since = 0; }
     else if ((H.since = (H.since || 0) + dt(sp, def)) > 1.2) return giveUp(wl, a, def);
   }
   if (H.phase === 'approach' || H.phase === 'creep') {
-    if (S.circle && d < S.rush + 1.4) { H.phase = 'circle'; H.t = 0.5 + Math.random() * 0.8; H.ang = Math.atan2(a.y - b.y, a.x - b.x); }
+    if (aerial && H.perch && d < S.rush + 1.4) startRush(wl, a, def, b, S, d); // (from a perch it drops straight on)
+    else if (S.circle && d < S.rush + 1.4) { H.phase = 'circle'; H.t = 0.5 + Math.random() * 0.8; H.ang = Math.atan2(a.y - b.y, a.x - b.x); }
     else if (d < S.rush || (H.phase === 'creep' && a.huntTime < 0.3)) startRush(wl, a, def, b, S, d); // (or a stalk running long: now or never)
     else if (S.near && d < S.near && H.phase !== 'creep') {
       // a stalk takes the time it takes: the hunter doesn't give up halfway through one
@@ -128,7 +132,9 @@ export function huntStep(wl, a, def, b, sp) {
   let mul = H.phase === 'rush' ? S.sprint : H.phase === 'creep' ? S.creep : S.approach;
   if (H.phase === 'rush') {
     H.t -= dt(sp, def);
-    if (S.circle) a.stoop = clamp(1 - d / Math.max(0.5, H.d0 || 2), 0, 1);
+    // the dive reaches the ground as it comes over the prey, and can only fall so fast (about a
+    // quarter of a second on screen): one that starts right above its prey drops, it doesn't snatch
+    if (aerial) a.stoop = Math.min(clamp(1 - (d - 0.5) / Math.max(0.3, (H.d0 || 2) - 0.5), 0, 1), (a.stoop || 0) + dt(sp, def) * 8);
     if (H.t <= 0) return giveUp(wl, a, def);
   }
   a.run = mul;
@@ -144,7 +150,7 @@ export function huntStep(wl, a, def, b, sp) {
     if (!w.inb(Math.floor(nx), Math.floor(ny)) || !canLand(w, w.idx(Math.floor(nx), Math.floor(ny)), def)) return giveUp(wl, a);
     a.flying = false; a.alt = 0;
   }
-  return (wl.stepToward(a, tx, ty, sp * mul) && tx === b.x) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25;
+  return ((wl.stepToward(a, tx, ty, sp * mul) && tx === b.x) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25) && down();
 }
 // (sp is speed × dt, so the elapsed game time is sp / speed)
 const dt = (sp, def) => sp / Math.max(0.01, def.speed);

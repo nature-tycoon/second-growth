@@ -273,6 +273,26 @@ check('A hawk mantles over a vole, carries it to a tree, eats it there, and save
   for (k = 0; k < 400 && a.state === 'feed'; k++) wl.update(0.05);
   assert.notEqual(a.state, 'feed'); assert.equal(a.prey, null);
 });
+check('A hawk perched beside a vole drops onto it and mantles on the ground, never plucking it from treetop height', () => {
+  for (const [key, from] of [['hawk', 'perch'], ['owl', 'perch'], ['hawk', 'air']]) {
+    const g = setup(), wl = g.wildlife, w = g.world, a = spawn(g, key, 40.9, 30.5);
+    const tree = w.idx(40, 30); w.tree[tree] = 1; w.treeG[tree] = 1;
+    if (from === 'air') { a.flying = true; a.alt = 1; }
+    a.hunger = 20; a.huntTime = 0;
+    const vole = spawn(g, 'vole', 40.5, 30.5); vole.wait = 99;
+    // the depth of the dive at the moment the hunt ends (endHunt resets it to 0)
+    let v = 0, atEnd = null;
+    Object.defineProperty(a, 'stoop', { get: () => v, set: x => { if (x === 0 && a.state !== 'hunt') atEnd = v; v = x; }, configurable: true, enumerable: true });
+    assert.equal(wl.startHunt(a, ANIMAL[key], ['vole'], 7), true);
+    let caught = false;
+    g.rng = () => 0; // (the catch roll succeeds; the dive is what is being checked)
+    for (let k = 0; k < 200 && !caught; k++) { wl.update(0.05); caught = !wl.agents.includes(vole); if (!caught && a.state !== 'hunt') break; }
+    assert.ok(caught, `${key} from ${from}: caught the vole`);
+    assert.ok(atEnd >= 1, `${key} from ${from}: dived all the way down first (${atEnd})`);
+    assert.ok(a.state === 'feed' || a.carry?.phase === 'mantle', `${key} from ${from}: mantles or eats on the ground (${a.state} ${a.carry?.phase})`);
+    if (a.state === 'carry') assert.ok(a.alt <= 0.15, 'rises from the ground, not from the crown');
+  }
+});
 check('A hawk eats a rabbit where it fell; an owl swallows small prey quickly', () => {
   const g = setup(), a = spawn(g, 'hawk');
   const tree = g.world.idx(46, 30); g.world.tree[tree] = 1; g.world.treeG[tree] = 1;

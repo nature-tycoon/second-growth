@@ -121,7 +121,8 @@ export function carryCatch(wl, a, def, b) {
   if (!carrier(def)) return false;
   const w = wl.game.world, bd = wl.game.catalog.animals[b.sp];
   if (!w.inb(Math.floor(a.x), Math.floor(a.y))) return false;
-  const i = w.idx(Math.floor(a.x), Math.floor(a.y)), wet = isWater(w.terrain[i]);
+  // (where the prey was, not where the bird is: a vole beside a tree was still on the ground)
+  const i = w.inb(Math.floor(b.x), Math.floor(b.y)) ? w.idx(Math.floor(b.x), Math.floor(b.y)) : w.idx(Math.floor(a.x), Math.floor(a.y)), wet = isWater(w.terrain[i]);
   a.prey = { id: b.id, sp: b.sp, age: b.age, juvenile: !!b.juvenile, fish: bd.move === 'swim' };
   a.carcass = null; a.feedAt = null;
   if (liftable(def, bd, b)) {
@@ -130,7 +131,7 @@ export function carryCatch(wl, a, def, b) {
     const k = j >= 0 ? j : nearby(wl, a, j => !isWater(w.terrain[j]) && canLand(w, j, def) && !w.fire[j], 12);
     if (k < 0) { a.prey = null; return false; }
     // mantle over a catch on open ground; a fish or a monkey in a crown is taken in one movement
-    const mantle = !wet && !w.tree[i] && !a.prey.fish;
+    const mantle = !wet && !a.prey.fish && bd.move !== 'tree' && !(b.alt > 0.2);
     a.carry = { phase: mantle ? 'mantle' : 'lift', t: mantle ? 0.6 + Math.random() * 0.6 : 0, i: k, tx: k % w.w + 0.5, ty: (k / w.w | 0) + 0.5, low: false, left: 20 };
   } else if (wet) {
     const k = nearby(wl, a, j => !isWater(w.terrain[j]) && canLand(w, j, def) && !w.fire[j], 12);
@@ -139,6 +140,7 @@ export function carryCatch(wl, a, def, b) {
   } else { eatHere(a, def, bd); return true; }
   a.state = 'carry'; a.path = null; a.bird = null; a.birdGoal = null;
   a.flying = a.carry.phase === 'lift';
+  a.alt = Math.min(a.alt || 0, 0.15); // (it rises from where it caught the prey, laden)
   return true;
 }
 export function carryUpdate(wl, a, def, dt, sp) {
