@@ -5,7 +5,11 @@ import { trailProfile, TRAIL_RESOLUTION } from '../data/animal-trails.js';
 import { passable } from './animal-terrain.js';
 import { foodAt } from './animal-foraging.js';
 import { hash2, valueNoise } from '../rng.js';
+import { riskAt, safety } from './predation-risk.js';
 export const TRAIL_THRESHOLD = 0.09;
+// Unused trails fade 0.5% a day (about half in 140 days): a game trail lasts a season or more
+// after the animals stop using it (decision 0014; it was 1.5%).
+export const TRAIL_FADE = 0.995;
 export function trailSurface(w, j) {
   return j >= 0 && j < w.n && !w.catalog.definition.look.underwater && !isWater(w.terrain[j]) && !w.flood[j] &&
     w.struct[j] < 0 && ![T.ROAD,T.GRAVEL,T.TRAIL].includes(w.terrain[j]) && w.feature[j] !== F.FENCE;
@@ -84,13 +88,13 @@ export function decayTrails(w) {
   const density=densityState(w);
   if(density){const W=w.w*TRAIL_RESOLUTION;for(const i of density.active){
     const j=((i/W|0)/TRAIL_RESOLUTION|0)*w.w+((i%W)/TRAIL_RESOLUTION|0);
-    if(!trailSurface(w,j)||density.array[i]<.005){density.array[i]=0;density.active.delete(i);}else density.array[i]*=.985;
+    if(!trailSurface(w,j)||density.array[i]<.005){density.array[i]=0;density.active.delete(i);}else density.array[i]*=TRAIL_FADE;
   }}
   w.trailMax=0;
   for(let j=0;j<w.n;j++) {
     w.trod[j]=w.trod[j]<.01?0:w.trod[j]*.985;
-    if(w.trailE[j])w.trailE[j]=j%w.w+1<w.w && trailSurface(w,j) && trailSurface(w,j+1) && w.trailE[j]>.005?w.trailE[j]*.985:0;
-    if(w.trailS[j])w.trailS[j]=j+w.w<w.n && trailSurface(w,j) && trailSurface(w,j+w.w) && w.trailS[j]>.005?w.trailS[j]*.985:0;
+    if(w.trailE[j])w.trailE[j]=j%w.w+1<w.w && trailSurface(w,j) && trailSurface(w,j+1) && w.trailE[j]>.005?w.trailE[j]*TRAIL_FADE:0;
+    if(w.trailS[j])w.trailS[j]=j+w.w<w.n && trailSurface(w,j) && trailSurface(w,j+w.w) && w.trailS[j]>.005?w.trailS[j]*TRAIL_FADE:0;
     w.trailMax=Math.max(w.trailMax,w.trailE[j],w.trailS[j]);
   }
 }
@@ -194,7 +198,8 @@ export function rangeChoose(wl,a,def) {
   if(!p?.range||a.leaving||a.juvenile||a.mom!=null||a.fromFire||a.dormancy||a.drinkT||a.socialWith!=null||a.follow)return false;
   if(def.herd && a.herdOf != null && a.herdOf !== a.id)return false;
   const m=a.range;
-  if(m&&(!siteValid(wl,a,def,m.feed,true)||!siteValid(wl,a,def,m.rest,false)||grazedOut(w,m.feed)))a.range=null;
+  // (a site where its kind keeps being caught is given up, like grazed-out grass)
+  if(m&&(!siteValid(wl,a,def,m.feed,true)||!siteValid(wl,a,def,m.rest,false)||grazedOut(w,m.feed)||riskAt(wl,a.sp,m.feed)>1.2||riskAt(wl,a.sp,m.rest)>1.2))a.range=null;
   if(!a.range) {
     if(a.age<(a.rangeAfter||0))return false;
     a.rangeAfter=a.age+12;
@@ -208,7 +213,7 @@ export function rangeChoose(wl,a,def) {
     for(let n=0;n<queue.length&&n<(reach>20?2400:1600);n++) {
       const j=queue[n],xx=j%w.w,yy=j/w.w|0,d=Math.hypot(xx-x,yy-y);
       if(siteValid(wl,a,def,j,false)) {
-        const room=1/(1+(use.get(j)||0)*1.5),hab=wl.suit[a.sp][j];
+        const room=safety(wl,a.sp,j)/(1+(use.get(j)||0)*1.5),hab=wl.suit[a.sp][j];
         const tie=.8+.2*hash2(j,a.id,909);
         if(d>=7&&d<=reach&&foodAt(wl,def,j)) {
           const sc=hab*room*tie*freshGrazing(w,j)/(1+Math.abs(d-12)*.08);if(sc>fs){fs=sc;feed=j;}
@@ -236,24 +241,13 @@ export function rangeChoose(wl,a,def) {
     return false;
   }
   const target=r[r.next],distance=Math.hypot(a.x-(target%w.w+.5),a.y-((target/w.w|0)+.5));
-  if(distance<2) {r.next=r.next==='feed'?'rest':'feed';r.goal=null;r.after=a.age+5+(a.id%5);return false;}
+  if(distance<2) {r.next=r.next==='feed'?'rest':'feed';r.goal=null;r.after=a.age+3+(a.id%3);return false;}
   // Families retain their own following decisions. A resource trip is still
   // interrupted by danger, thirst, feeding or a changed landscape.
   const visit=j=>!w.fire[j];
   // Reuse this individual's learned corridor in either direction, including a
   // short connector after local feeding. Revalidate every tile after terrain edits.
-  let reused=false;
-  if(Array.isArray(r.route) && r.route.length && r.route.every(j=>Number.isInteger(j)&&j>=0&&j<w.n&&passable(w,j,a)&&!w.fire[j])) {
-    let at=0,nearest=Infinity;
-    for(let k=0;k<r.route.length;k++){const j=r.route[k],d=Math.hypot(a.x-j%w.w-.5,a.y-(j/w.w|0)-.5);if(d<nearest){nearest=d;at=k;}}
-    const via=r.route[at],here=w.idx(Math.floor(a.x),Math.floor(a.y));
-    if(nearest<6 && (here===via||wl.pathTo(a,j=>j===via,700,null,visit))) {
-      const connector=here===via?[]:a.path;
-      const onward=r.next==='feed'?r.route.slice(at+1):r.route.slice(0,at).reverse();
-      a.path=[...onward.reverse(),...connector];a.state='walk';reused=!!a.path.length;
-    }
-  }
-  if(!reused) {
+  if(!followRoute(wl,a,r.route,r.next==='feed')) {
     if(!wl.pathTo(a,j=>j===target,1800,null,visit)) {a.range=null;a.rangeAfter=a.age+8;return false;}
     const budget=a.path.length;
     a.path=preferTrailPath(wl,a,def,a.path,visit,passable,true);
@@ -262,6 +256,22 @@ export function rangeChoose(wl,a,def) {
     r.route=[start,...a.path.slice().reverse()];if(r.next==='rest')r.route.reverse();
   }
   r.goal=target;r.after=a.age+.5;a.trip=null;return true;
+}
+
+// Walk an individual's remembered corridor toward one end (forward: toward its last tile),
+// joining it at the nearest point within `reach`. Revalidates every tile after terrain edits.
+export function followRoute(wl,a,route,forward,reach=6) {
+  const w=wl.game.world,visit=j=>!w.fire[j];
+  if(!Array.isArray(route)||!route.length||!route.every(j=>Number.isInteger(j)&&j>=0&&j<w.n&&passable(w,j,a)&&!w.fire[j]))return false;
+  let at=0,nearest=Infinity;
+  for(let k=0;k<route.length;k++){const j=route[k],d=Math.hypot(a.x-j%w.w-.5,a.y-(j/w.w|0)-.5);if(d<nearest){nearest=d;at=k;}}
+  const via=route[at],here=w.idx(Math.floor(a.x),Math.floor(a.y));
+  if(nearest>=reach||!(here===via||wl.pathTo(a,j=>j===via,Math.max(700,reach*reach*4),null,visit)))return false;
+  const connector=here===via?[]:a.path;
+  const onward=forward?route.slice(at+1):route.slice(0,at).reverse();
+  const path=[...onward.reverse(),...connector];
+  if(!path.length)return false;
+  a.path=path;a.state='walk';return true;
 }
 
 // A resource trip keeps a deer/elk family within following distance. This is

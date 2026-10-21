@@ -1,6 +1,7 @@
 // Short, visible activities for resident birds. Population and breeding still
 // use the existing habitat rules; nest visits do not manufacture extra births.
 import { preyFor } from '../data/animals.js';
+import { huntHunger } from '../data/animal-activity.js';
 import { F, clamp, isWater } from '../config.js';
 import { activeCatalog } from '../data/catalog.js';
 import { canLand } from './animal-terrain.js';
@@ -75,7 +76,7 @@ function flyTo(a, w, i, kind, x = i % w.w + 0.5, y = (i / w.w | 0) + 0.5, water 
 
 // Soaring raptors (def.soar) wheel over open ground on still wings, a few tiles across and high
 // over the trees, with a few wingbeats now and then, before they go to a perch or break off to hunt.
-function soar(wl, a, def) {
+export function soar(wl, a, def) {
   const w = wl.game.world, suit = wl.suit[a.sp], r = 2.5 + Math.random() * 1.5;
   const j = nearby(wl, a, j => groundTile(w, j) && suit[j] > 0.03, 6);
   const cx = clamp(j >= 0 ? j % w.w + 0.5 : a.x, r + 1, w.w - r - 1), cy = clamp(j >= 0 ? (j / w.w | 0) + 0.5 : a.y, r + 1, w.h - r - 1);
@@ -108,7 +109,8 @@ const OWLS = new Set(['owl']);
 function eatTime(def, preyDef) {
   // an owl swallows small prey whole; hawks, eagles and falcons pluck and tear it
   if (OWLS.has(def.sprite.kind) && (preyDef.sprite.len || preyDef.sprite.size || 10) <= 14) return 1.5 + Math.random() * 1.5;
-  return 4 + Math.random() * 4 + (preyDef.sprite.len || preyDef.sprite.size || 10) / 4;
+  // (2–4 sim-days plus a little for bigger prey: a few seconds on screen, short of the time a meal lasts, 0014)
+  return 2 + Math.random() * 2 + (preyDef.sprite.len || preyDef.sprite.size || 10) / 8;
 }
 function eatHere(a, def, preyDef) {
   a.state = 'feed'; a.feedT = eatTime(def, preyDef); a.feedAt = [a.x, a.y]; a.carry = null;
@@ -119,7 +121,8 @@ export function carryCatch(wl, a, def, b) {
   if (!carrier(def)) return false;
   const w = wl.game.world, bd = wl.game.catalog.animals[b.sp];
   if (!w.inb(Math.floor(a.x), Math.floor(a.y))) return false;
-  const i = w.idx(Math.floor(a.x), Math.floor(a.y)), wet = isWater(w.terrain[i]);
+  // (where the prey was, not where the bird is: a vole beside a tree was still on the ground)
+  const i = w.inb(Math.floor(b.x), Math.floor(b.y)) ? w.idx(Math.floor(b.x), Math.floor(b.y)) : w.idx(Math.floor(a.x), Math.floor(a.y)), wet = isWater(w.terrain[i]);
   a.prey = { id: b.id, sp: b.sp, age: b.age, juvenile: !!b.juvenile, fish: bd.move === 'swim' };
   a.carcass = null; a.feedAt = null;
   if (liftable(def, bd, b)) {
@@ -128,7 +131,7 @@ export function carryCatch(wl, a, def, b) {
     const k = j >= 0 ? j : nearby(wl, a, j => !isWater(w.terrain[j]) && canLand(w, j, def) && !w.fire[j], 12);
     if (k < 0) { a.prey = null; return false; }
     // mantle over a catch on open ground; a fish or a monkey in a crown is taken in one movement
-    const mantle = !wet && !w.tree[i] && !a.prey.fish;
+    const mantle = !wet && !a.prey.fish && bd.move !== 'tree' && !(b.alt > 0.2);
     a.carry = { phase: mantle ? 'mantle' : 'lift', t: mantle ? 0.6 + Math.random() * 0.6 : 0, i: k, tx: k % w.w + 0.5, ty: (k / w.w | 0) + 0.5, low: false, left: 20 };
   } else if (wet) {
     const k = nearby(wl, a, j => !isWater(w.terrain[j]) && canLand(w, j, def) && !w.fire[j], 12);
@@ -137,6 +140,7 @@ export function carryCatch(wl, a, def, b) {
   } else { eatHere(a, def, bd); return true; }
   a.state = 'carry'; a.path = null; a.bird = null; a.birdGoal = null;
   a.flying = a.carry.phase === 'lift';
+  a.alt = Math.min(a.alt || 0, 0.15); // (it rises from where it caught the prey, laden)
   return true;
 }
 export function carryUpdate(wl, a, def, dt, sp) {
@@ -196,7 +200,7 @@ export function birdChoose(wl, a, def) {
   if (!isBird(def) || a.leaving || a.fromFire) return false;
   if (birdAlarm(wl, a, def)) return true;
   // Hungry hunters and scavengers keep their existing feeding priorities.
-  if ((preyFor(def, wl.game) || def.key === 'vulture') && a.hunger >= 3) return false;
+  if (preyFor(def, wl.game) ? a.hunger >= huntHunger(def) : def.key === 'vulture' && a.hunger >= 3) return false;
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   if (!w.inb(x, y)) return false;
   const i = w.idx(x, y), profile = birdProfile(def, wl.game.catalog), roll = Math.random();
@@ -276,9 +280,15 @@ export function birdUpdate(wl, a, def, dt) {
   if (a.birdAlertCheck <= 0) { a.birdAlertCheck = 0.3; if (birdAlarm(wl, a, def)) return; }
   b.t -= dt;
   if (b.kind === 'soar') {
-    // (a hungry hawk breaks off to hunt: prowl picks up the search from up here)
-    if (w.fire[i] || b.t <= 0 || a.hunger >= 3 && preyFor(def, wl.game)) { a.bird = null; a.state = 'idle'; a.wait = 0; }
-    else soarStep(wl, a, def, b, dt);
+    const diet = preyFor(def, wl.game);
+    if (w.fire[i] || b.t <= 0) { a.bird = null; a.state = 'idle'; a.wait = 0; return; }
+    // A hungry hawk hunts from up here: it watches the ground below and stoops on what it sees,
+    // and moves on before long if nothing shows.
+    if (diet && a.hunger >= huntHunger(def)) {
+      if (!b.hunting) { b.hunting = true; b.t = Math.min(b.t, 4 + Math.random() * 3); }
+      if ((b.scan = (b.scan || 0) - dt) <= 0) { b.scan = 0.3; if (wl.startHunt(a, def, diet, 7)) return; }
+    }
+    soarStep(wl, a, def, b, dt);
     return;
   }
   const invalid = w.fire[i] || (b.kind === 'perch' || b.kind === 'preen') && !perchTile(w, i) ||

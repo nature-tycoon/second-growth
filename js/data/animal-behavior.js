@@ -1,11 +1,17 @@
 import { dormancyProfileFor } from './animal-dormancy.js';
 import { territoryProfileFor } from './animal-territories.js';
+import { activityProfileFor } from './animal-activity.js';
 // Behavioral guilds complement species habitat/diet data; they never change population capacity.
 // Research and per-map audit: tools/animal-behavior-audit.json.
 const GRAZE = new Set(['rabbit', 'capybara', 'zebra', 'wildebeest', 'gazelle', 'antelope', 'buffalo', 'warthog', 'hippo']);
 const BROWSE = new Set(['deer', 'tapir', 'rhino', 'giraffe', 'elephant', 'impala']);
 const INSECTS = new Set(['armadillo', 'anteater', 'pangolin', 'frog', 'newt']);
 const HORNS = new Set(['deer', 'buffalo', 'impala', 'gazelle', 'antelope', 'wildebeest', 'rhino']);
+// Grazers that must drink most days and walk well beyond their grazing to reach water.
+const WATER_DEPENDENT = new Set(['wildebeest', 'zebra', 'buffalo', 'elephant', 'gajah', 'cattle']);
+// How far an animal walks to drink (a multiple of its species' usual reach), and the
+// share of its time water trips may take. With no water in reach it gets by on food and dew (decision 0013).
+const waterProfileFor = def => WATER_DEPENDENT.has(def.key) ? { reach: 1.5, share: 0.15 } : { reach: 1, share: 0.08 };
 export function behaviorFor(def) {
   const s = def.sprite, k = s.kind;
   let forage = [];
@@ -40,5 +46,5 @@ export function behaviorFor(def) {
   // Coyotes pursuing the small prey represented here hunt alone or with one companion.
   const partners = def.key === 'coyote' ? 1 : ['lion', 'hyena', 'giantotter'].includes(def.key) ? 3 : 0;
   const combat = def.domestic ? null : HORNS.has(k) ? 'horns' : k === 'giraffe' ? 'necking' : null;
-  return { forage, hunt, partners, combat, territory: territoryProfileFor(def), dormancy: dormancyProfileFor(def) };
+  return { forage, hunt, partners, combat, territory: territoryProfileFor(def), dormancy: dormancyProfileFor(def), water: waterProfileFor(def), activity: activityProfileFor(def) };
 }

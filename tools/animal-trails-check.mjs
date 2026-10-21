@@ -56,7 +56,7 @@ check('Legacy stationary wear, water, visitor paths, roads, structures and reef 
 check('Unused trails fade and terrain destruction breaks connections',()=>{
  const g=setup(),a=spawn(g),w=g.world;line(g,a);const j=w.idx(40,30),before=w.trailE[j];
  decayTrails(w);assert.ok(w.trailE[j]<before);w.terrain[j+1]=T.POND;decayTrails(w);assert.equal(w.trailE[j],0);assert.equal(trailPorts(w,j)[0],0);
- for(let k=0;k<300;k++)decayTrails(w);assert.ok(!trailPorts(w,w.idx(35,30)).some(Boolean));
+ for(let k=0;k<1200;k++)decayTrails(w);assert.ok(!trailPorts(w,w.idx(35,30)).some(Boolean)); // (0.5%/day: a season to fade)
 });
 check('Route reuse prefers a useful worn corridor without chasing distant trails or bypassing barriers',()=>{
  const g=setup(),a=spawn(g,'deer',30.5,30.5),w=g.world,wl=g.wildlife,d=g.catalog.animal.deer;

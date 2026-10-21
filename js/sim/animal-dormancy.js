@@ -1,4 +1,5 @@
 // Winter shelter, reduced activity and emergence. Movement stays in the simulation.
+import { huntHunger } from '../data/animal-activity.js';
 import { T, F, isWater } from '../config.js';
 import { preyFor } from '../data/animals.js';
 import { dormancySeason } from '../data/animal-dormancy.js';
@@ -99,7 +100,7 @@ export function updateDormancy(wl, a, def) {
     return false;
   }
   if (a.age < (a.dormancyAfter || 0) || a.state !== 'idle' || a.drinkT > 0 || a.socialWith != null ||
-    a.greet != null || a.alertT > 0 || preyFor(def, wl.game) && a.hunger >= 7) return false;
+    a.greet != null || a.alertT > 0 || preyFor(def, wl.game) && a.hunger >= huntHunger(def)) return false;
   a.dormancyAfter = a.age + 5;
   const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
   if (!w.inb(x0, y0) || danger(wl, a, def)) return false;
