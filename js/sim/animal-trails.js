@@ -242,18 +242,7 @@ export function rangeChoose(wl,a,def) {
   const visit=j=>!w.fire[j];
   // Reuse this individual's learned corridor in either direction, including a
   // short connector after local feeding. Revalidate every tile after terrain edits.
-  let reused=false;
-  if(Array.isArray(r.route) && r.route.length && r.route.every(j=>Number.isInteger(j)&&j>=0&&j<w.n&&passable(w,j,a)&&!w.fire[j])) {
-    let at=0,nearest=Infinity;
-    for(let k=0;k<r.route.length;k++){const j=r.route[k],d=Math.hypot(a.x-j%w.w-.5,a.y-(j/w.w|0)-.5);if(d<nearest){nearest=d;at=k;}}
-    const via=r.route[at],here=w.idx(Math.floor(a.x),Math.floor(a.y));
-    if(nearest<6 && (here===via||wl.pathTo(a,j=>j===via,700,null,visit))) {
-      const connector=here===via?[]:a.path;
-      const onward=r.next==='feed'?r.route.slice(at+1):r.route.slice(0,at).reverse();
-      a.path=[...onward.reverse(),...connector];a.state='walk';reused=!!a.path.length;
-    }
-  }
-  if(!reused) {
+  if(!followRoute(wl,a,r.route,r.next==='feed')) {
     if(!wl.pathTo(a,j=>j===target,1800,null,visit)) {a.range=null;a.rangeAfter=a.age+8;return false;}
     const budget=a.path.length;
     a.path=preferTrailPath(wl,a,def,a.path,visit,passable,true);
@@ -262,6 +251,22 @@ export function rangeChoose(wl,a,def) {
     r.route=[start,...a.path.slice().reverse()];if(r.next==='rest')r.route.reverse();
   }
   r.goal=target;r.after=a.age+.5;a.trip=null;return true;
+}
+
+// Walk an individual's remembered corridor toward one end (forward: toward its last tile),
+// joining it at the nearest point within `reach`. Revalidates every tile after terrain edits.
+export function followRoute(wl,a,route,forward,reach=6) {
+  const w=wl.game.world,visit=j=>!w.fire[j];
+  if(!Array.isArray(route)||!route.length||!route.every(j=>Number.isInteger(j)&&j>=0&&j<w.n&&passable(w,j,a)&&!w.fire[j]))return false;
+  let at=0,nearest=Infinity;
+  for(let k=0;k<route.length;k++){const j=route[k],d=Math.hypot(a.x-j%w.w-.5,a.y-(j/w.w|0)-.5);if(d<nearest){nearest=d;at=k;}}
+  const via=route[at],here=w.idx(Math.floor(a.x),Math.floor(a.y));
+  if(nearest>=reach||!(here===via||wl.pathTo(a,j=>j===via,Math.max(700,reach*reach*4),null,visit)))return false;
+  const connector=here===via?[]:a.path;
+  const onward=forward?route.slice(at+1):route.slice(0,at).reverse();
+  const path=[...onward.reverse(),...connector];
+  if(!path.length)return false;
+  a.path=path;a.state='walk';return true;
 }
 
 // A resource trip keeps a deer/elk family within following distance. This is

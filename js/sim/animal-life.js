@@ -15,6 +15,7 @@ import { birdAlarm } from './bird-behavior.js';
 import { territorialRivals } from '../data/animal-territories.js';
 import { territoryArrive } from './animal-territory.js';
 import { wakeDormant } from './animal-dormancy.js';
+import { drinkEvery } from './home-range.js';
 
 // How each kind of hunter closes in. approach, creep and sprint are multiples of its usual
 // speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles.
@@ -703,7 +704,7 @@ function bugle(a, answer = false) {
 }
 function bullDay(wl, a, def) {
   a.trip = null; // (no wandering off across the map in the rut)
-  if (a.thirst > (def.drinkEvery ?? 5 + a.id % 5) && wl.waterhole(a, def)) return true; // lead the harem down to reachable water
+  if (a.thirst > drinkEvery(wl, a, def) && wl.waterhole(a, def)) return true; // lead the harem down to reachable water
   // gather the unclaimed cows nearby (and win back any whose bull is gone or far away)
   const cows = [];
   for (const c of wl.agents) {
@@ -724,6 +725,9 @@ function bullDay(wl, a, def) {
     if (o === a || o.sp !== a.sp || !bull(def, o) || !available(o) || o.rutCooldown > o.age) continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
     if (d2 >= 144) continue;
+    // (a bull with cows defends them: he takes on a rival that comes near the harem, rather than
+    // leaving his cows to chase one across the meadow)
+    if (cows.length && a.haremCenter && Math.hypot(o.x - a.haremCenter[0], o.y - a.haremCenter[1]) > 7) continue;
     const score = !cows.length && wl.agents.some(c => c.haremOf === o.id) ? d2 * 0.2 : d2;
     if (score < rd) { rd = score; rival = o; }
   }
