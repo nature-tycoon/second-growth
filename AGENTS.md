@@ -36,7 +36,7 @@ Read the decisions in [docs/decisions/](docs/decisions/) before changing the are
 - [0013 Home ranges and water](docs/decisions/0013-home-ranges-and-water.md): resident mammals settle homes apart from their own kind and drink at their home's nearest water within reach (`sim/home-range.js`); `node tools/activity-budget.mjs [map]` shows how each species spends its time
 - [0014 Activity budget](docs/decisions/0014-activity-budget.md): hunters' hunger, rest and soaring compete for time (`behavior.activity`, `prowl()`), prey watch a stalker and flee at a rush, flights speed up then tire, trails fade 0.5%/day; `node tools/activity-check.mjs`
 - [0015 Landscape of fear](docs/decisions/0015-landscape-of-fear.md): each prey species remembers kill and chase sites for a few weeks (`sim/predation-risk.js`, not saved) and weighs them when choosing a home, a site or a drinking spot; `node tools/predation-risk-check.mjs`
-- [0016 Carcass decay](docs/decisions/0016-carcass-decay.md): kills are drawn stripped, rotting, then as a hide with bleached ribs over a stain (`render3d/carcass-decay.js`, drawing only); `node tools/carcass-decay-check.mjs`
+- [0016 Carcass decay](docs/decisions/0016-carcass-decay.md): a kill's flesh is drawn pulling back onto a per-species skeleton, which slumps into a pile of bones that go one by one (`render3d/carcass-decay.js`, `decay()` in the animal shader; drawing only); `node tools/carcass-decay-check.mjs`
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
 

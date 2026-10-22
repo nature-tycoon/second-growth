@@ -22,7 +22,7 @@ import { SlothBridges, slothBridge } from './sloth-bridge.js';
 import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
 import { isCanopyWalker } from './canopy-walker-profile.js';
 import { ActorView, animalViewRadius, pixelsPerUnit } from './actor-view.js';
-import { carcassDecay, Remains } from './carcass-decay.js';
+import { carcassAnatomy, carcassDecay, Remains } from './carcass-decay.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
@@ -107,7 +107,7 @@ export class Actors {
     scene.add(this.shadows);
     // reef animals and birds cast shadows shaped like themselves instead
     this.silhouettes = new AnimalShadows(scene, this.shadowMat);
-    this.remains = new Remains(scene); // a kill's bones, once it's been stripped
+    this.remains = new Remains(scene); // kills' bones, bared as they're eaten and rot
     // The selected animal's marker: a thin ring with a faint glow lying flat on the ground under
     // it (or on the water, the branch or the seabed it's at), so nothing is drawn over the animal
     // itself. Depth-tested, so legs and bodies pass in front of it.
@@ -612,8 +612,8 @@ export class Actors {
     this.slothBridges?.show(bridges);
 
     // ---- kills: the prey lying on its side where it fell, broken down over the weeks as it's eaten
-    // and rots (see carcass-decay.js): darkening and collapsing until a flat hide with the ribs
-    // showing through, the bones bleaching, over a dark stain; at the end it settles into the ground.
+    // and rots (see carcass-decay.js): its flesh drawing back onto the bones until it's a skeleton,
+    // which slumps into a pile of bones that go one by one, over a spreading stain.
     this.remains.begin();
     for (const c of game.wildlife.carcasses || []) {
       const cdef = game.catalog.animals[c.sp];
@@ -621,21 +621,26 @@ export class Actors {
       const def = drawDef(cdef, c, game.month);
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * c.age / (def.mature * 120), 0.55, 1) : 1;
       const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
-      const yaw = -c.yaw;
+      const yaw = -c.yaw, roll = c.side * Math.PI / 2;
       if (this.view.enabled && !this.view.visible(c.x, ground - 0.2, ground + 0.6, c.y, animalViewRadius(def))) continue;
-      const d = carcassDecay(c), h = (def.sprite.h || 10) * sc, len = (def.sprite.len || 10) * sc;
-      const flat = 0.15 + 0.85 * d.flesh, settle = d.sink * h * 0.25;
-      F.add(def, c.x, ground + h * 0.32 * flat - settle, c.y, yaw, sc, 0, 0, 0, 0.6, 0, c.side * Math.PI / 2, null, false, { flat, tint: d.tint });
-      // (the model stands on its origin, so on its side the torso lies off to the back's side of it)
-      const pool = F.pool(def), box = pool.geo.boundingBox || (pool.geo.computeBoundingBox(), pool.geo.boundingBox);
-      const mx = (box.min.x + box.max.x) / 2 * sc, mz = c.side * pool.motion.center.y * sc;
+      const d = carcassDecay(c), h = (def.sprite.h || 10) * sc, len = (def.sprite.len || 10) * sc, lift = h * 0.32;
+      const pool = F.pool(def);
+      if (!pool.anatomy) {
+        // (measured once per species, and handed to its shader for pulling the flesh onto the bones)
+        const a = pool.anatomy = carcassAnatomy(pool.geo), u = pool.mat.userData.carcass;
+        u.uTorso.value.set(a.spineY, a.bellyY); u.uNeck.value.copy(a.neck); u.uSnout.value.copy(a.snout);
+        a.hips.forEach((hip, k) => { u.uHips.value[k].copy(hip || a.neck); u.uFeet.value[k].copy(a.feet[k] || hip || a.neck); });
+      }
+      if (d.body) F.add(def, c.x, ground + lift, c.y, yaw, sc, 0, 0, 0, 0, 0, roll, null, false, d);
+      if (d.bones) this.remains.add(F.modelKey(def), pool.anatomy, c.x, ground + lift, c.y, yaw, roll, sc, lift, d);
+      // (the model stands on its origin, so on its side the torso lies off toward its back)
+      const a = pool.anatomy, mx = (a.x0 + a.x1) / 2 * sc, mz = c.side * (a.spineY + a.bellyY) / 2 * sc;
       const tx = c.x + Math.cos(yaw) * mx + Math.sin(yaw) * mz, tz = c.y - Math.sin(yaw) * mx + Math.cos(yaw) * mz;
-      // (laid along the model's own length, skull to the head end, spine to the back)
-      if (d.bones) this.remains.add(tx, ground - settle * 1.4, tz, yaw, (box.max.x - box.min.x) * sc * 0.8, h * 0.85, -c.side, d.bone);
-      shadow(tx, ground, tz, len * 0.55);
-      // (the stain spreads as fluids seep out and the grass dies back)
-      if (d.rot > 0.05) shadow(tx, ground, tz, len * (0.45 + 0.35 * d.rot));
-      if (d.rot > 0.4) shadow(tx, ground, tz, len * 0.5 * d.rot);
+      if (d.body) shadow(tx, ground, tz, len * 0.55);
+      // (the stain spreads as fluids seep out and the grass dies back, and fades at the end)
+      const stain = d.u > 0.05 && d.u < 0.97;
+      if (stain) shadow(tx, ground, tz, len * (0.45 + 0.3 * d.u));
+      if (stain && d.u > 0.3) shadow(tx, ground, tz, len * 0.5 * d.u);
     }
     this.remains.end();
 
