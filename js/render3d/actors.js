@@ -22,6 +22,7 @@ import { SlothBridges, slothBridge } from './sloth-bridge.js';
 import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
 import { isCanopyWalker } from './canopy-walker-profile.js';
 import { ActorView, animalViewRadius, pixelsPerUnit } from './actor-view.js';
+import { carcassDecay, Remains } from './carcass-decay.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
@@ -106,6 +107,7 @@ export class Actors {
     scene.add(this.shadows);
     // reef animals and birds cast shadows shaped like themselves instead
     this.silhouettes = new AnimalShadows(scene, this.shadowMat);
+    this.remains = new Remains(scene); // a kill's bones, once it's been stripped
     // The selected animal's marker: a thin ring with a faint glow lying flat on the ground under
     // it (or on the water, the branch or the seabed it's at), so nothing is drawn over the animal
     // itself. Depth-tested, so legs and bodies pass in front of it.
@@ -609,20 +611,33 @@ export class Actors {
     this.flora?.showCanopySites(canopySites);
     this.slothBridges?.show(bridges);
 
-    // ---- kills: the prey lying on its side where it fell, sinking away as it's eaten
+    // ---- kills: the prey lying on its side where it fell, broken down over the weeks as it's eaten
+    // and rots (see carcass-decay.js): darkening and collapsing until a flat hide with the ribs
+    // showing through, the bones bleaching, over a dark stain; at the end it settles into the ground.
+    this.remains.begin();
     for (const c of game.wildlife.carcasses || []) {
       const cdef = game.catalog.animals[c.sp];
       if (!cdef) continue;
       const def = drawDef(cdef, c, game.month);
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * c.age / (def.mature * 120), 0.55, 1) : 1;
       const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
-      const left = clamp(c.t / (c.max * 0.3), 0, 1); // (the last stretch: bones and a dark patch)
-      const lift = (def.sprite.h || 10) * sc * 0.32 * left - (1 - left) * (def.sprite.h || 10) * sc * 0.2;
       const yaw = -c.yaw;
       if (this.view.enabled && !this.view.visible(c.x, ground - 0.2, ground + 0.6, c.y, animalViewRadius(def))) continue;
-      F.add(def, c.x, ground + lift, c.y, yaw, sc, 0, 0, 0, 0.6, 0, c.side * Math.PI / 2);
-      shadow(c.x, ground, c.y, (def.sprite.len || 10) * sc * 0.55);
+      const d = carcassDecay(c), h = (def.sprite.h || 10) * sc, len = (def.sprite.len || 10) * sc;
+      const flat = 0.15 + 0.85 * d.flesh, settle = d.sink * h * 0.25;
+      F.add(def, c.x, ground + h * 0.32 * flat - settle, c.y, yaw, sc, 0, 0, 0, 0.6, 0, c.side * Math.PI / 2, null, false, { flat, tint: d.tint });
+      // (the model stands on its origin, so on its side the torso lies off to the back's side of it)
+      const pool = F.pool(def), box = pool.geo.boundingBox || (pool.geo.computeBoundingBox(), pool.geo.boundingBox);
+      const mx = (box.min.x + box.max.x) / 2 * sc, mz = c.side * pool.motion.center.y * sc;
+      const tx = c.x + Math.cos(yaw) * mx + Math.sin(yaw) * mz, tz = c.y - Math.sin(yaw) * mx + Math.cos(yaw) * mz;
+      // (laid along the model's own length, skull to the head end, spine to the back)
+      if (d.bones) this.remains.add(tx, ground - settle * 1.4, tz, yaw, (box.max.x - box.min.x) * sc * 0.8, h * 0.85, -c.side, d.bone);
+      shadow(tx, ground, tz, len * 0.55);
+      // (the stain spreads as fluids seep out and the grass dies back)
+      if (d.rot > 0.05) shadow(tx, ground, tz, len * (0.45 + 0.35 * d.rot));
+      if (d.rot > 0.4) shadow(tx, ground, tz, len * 0.5 * d.rot);
     }
+    this.remains.end();
 
     // ---- visitors: same instanced 3D style as the wildlife
     const pseen = new Set();
@@ -762,7 +777,7 @@ export class Actors {
   }
 
   clear() {
-    this.pose.clear(); this.people.clear(); this.visibleWildlife.length = 0; this.fauna.clear();
+    this.pose.clear(); this.people.clear(); this.visibleWildlife.length = 0; this.fauna.clear(); this.remains.begin(); this.remains.end();
     this.slothBridges?.clear();
   }
 }

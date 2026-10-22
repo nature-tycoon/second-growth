@@ -216,6 +216,8 @@ export function startFeed(wl, a, def, b) {
   // The successful hunter has already eaten. Larger prey leaves more meals for
   // companions and scavengers, but a single kill cannot feed them indefinitely.
   c.meals = Math.max(1, Math.ceil(bd.sprite.len / 20));
+  // (what it started with, for drawing it stripped and rotting: render3d/carcass-decay.js)
+  c.meals0 = c.meals; c.feed = a.feedT;
   wl.carcasses.push(c);
   if (wl.carcasses.length > 16) wl.carcasses.shift();
   a.carcass = c.id;

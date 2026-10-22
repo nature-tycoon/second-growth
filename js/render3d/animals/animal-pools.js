@@ -30,6 +30,11 @@ class SpeciesMesh {
     }) : null;
     this.mesh = new THREE.InstancedMesh(this.geo, this.mat, cap);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    // Colour multipliers, white except for a kill that's being eaten and rotting (see remains in
+    // Fauna.add). Written and uploaded only when a slot changes.
+    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3).fill(1), 3);
+    this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+    this.tinted = new Uint8Array(cap); this.tintDirty = false;
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
     this.scene.add(this.mesh);
@@ -81,24 +86,33 @@ export class Fauna {
     for (const p of this.species.values()) { p.count = 0; if (p.far) p.far.count = 0; }
   }
   // One animal this frame. scale converts model pixels to scene units. detail keeps the full
-  // model whatever its size (the selected or followed animal).
-  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null, detail = false) {
+  // model whatever its size (the selected or followed animal). remains, for a kill: { flat, tint },
+  // its body depth squashed by flat (across the model, so up for one lying on its side) and its
+  // colours multiplied by tint ([r, g, b]).
+  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null, detail = false, remains = null) {
     const near = this.pool(def);
     const p = this.farModels && !detail && near.motion.len * scale * this.pixelsPerUnit < FAR_PIXELS ? near.distant() : near;
     if (p.count >= p.cap) {
       // carry over what this frame has already written, then grow
       const oldM = p.mesh.instanceMatrix.array.slice(0, p.count * 16), oldA = p.anim.array.slice(0, p.count * 4), n = p.count;
       const oldGrips = p.grips?.map(a => a.array.slice(0, n * 4));
+      const oldC = p.mesh.instanceColor.array.slice(0, n * 3), oldT = p.tinted.slice(0, n);
       p.grow(p.cap * 2);
       p.mesh.instanceMatrix.array.set(oldM); p.anim.array.set(oldA); p.count = n;
+      p.mesh.instanceColor.array.set(oldC); p.tinted.set(oldT); p.tintDirty = true;
       oldGrips?.forEach((a, i) => p.grips[i].array.set(a));
     }
     const k = p.count++;
     this.q.setFromAxisAngle(this.yAxis, yaw);
     if (pitch) this.q.multiply(this.qp.setFromAxisAngle(this.zAxis, pitch)); // nose up or down (a leaping fish)
     if (roll) this.q.multiply(this.qp.setFromAxisAngle(this.xAxis, roll)); // over on its side (a kill)
-    this.m.compose(this.v.set(x, y, z), this.q, this.s.set(scale, scale, scale));
+    this.m.compose(this.v.set(x, y, z), this.q, this.s.set(scale, scale, scale * (remains?.flat ?? 1)));
     p.mesh.setMatrixAt(k, this.m);
+    if (remains?.tint || p.tinted[k]) {
+      const c = p.mesh.instanceColor.array, t = remains?.tint;
+      c[k * 3] = t ? t[0] : 1; c[k * 3 + 1] = t ? t[1] : 1; c[k * 3 + 2] = t ? t[2] : 1;
+      p.tinted[k] = t ? 1 : 0; p.tintDirty = true;
+    }
     const a = p.anim.array;
     a[k * 4] = phase; a[k * 4 + 1] = gait; a[k * 4 + 2] = fly; a[k * 4 + 3] = grips ? -1 : graze;
     if (p.grips) {
@@ -117,6 +131,11 @@ export class Fauna {
         p.anim.clearUpdateRanges(); p.anim.addUpdateRange(0, p.count * 4);
         p.mesh.instanceMatrix.needsUpdate = true; p.anim.needsUpdate = true;
         p.grips?.forEach(a => { a.clearUpdateRanges(); a.addUpdateRange(0, p.count * 4); a.needsUpdate = true; });
+      }
+      if (p.tintDirty && p.count) {
+        // (slots past count keep a stale tint until they're next used, when add resets them)
+        const c = p.mesh.instanceColor; c.clearUpdateRanges(); c.addUpdateRange(0, p.count * 3); c.needsUpdate = true;
+        p.tintDirty = false;
       }
     }
   }
