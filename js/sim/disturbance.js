@@ -7,7 +7,7 @@
 // Events.daily after the campaign's disaster gate, scaled by the difficulty's `disasters`.
 
 import { F, DAYS_PER_MONTH, DAYS_PER_YEAR, clamp } from '../config.js';
-import { removeTree, ESTABLISHED_TREE } from './plants.js';
+import { removeTree, fellSnag, ESTABLISHED_TREE } from './plants.js';
 
 const N8 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
 
@@ -88,7 +88,7 @@ export function windstorm(game, storm) {
       out.killed++;
       removeTree(w, i, 'wind', rng);
     }
-    if (w.feature[i] === F.SNAG && rng() < severity) { w.feature[i] = F.LOG; w.featureAge[i] = 0; } // (dead trees come down first)
+    if (w.feature[i] === F.SNAG && rng() < severity) fellSnag(w, i); // (dead trees come down first)
     const x = i % w.w, y = (i / w.w) | 0;
     for (const [dx, dy] of N8) {
       const xx = x + dx, yy = y + dy;

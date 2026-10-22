@@ -154,10 +154,36 @@ disturbance: {
 
 ### 5. Deadwood (`sim/plants.js`, feature aging)
 
-- Decay rate comes from moisture (`w.moist`) and wood type (conifer slower), replacing the fixed timers. The savanna's termites and fire speed-up stays as a map factor.
-- Logs act as nurse sites. `p.nurse` already exists; it gets a recruitment bonus on and next to logs.
-- Wind and fire send snags down as logs.
-- Fungi and decomposers come in later as the thing that sets decay rate. This phase only makes the rate depend on conditions, so fungi can modulate it later.
+Built in phase 5. A dead tree goes snag → sound log → rotten log → gone. These are the existing `F.SNAG` and `F.LOG` features: "rotten" is a log far enough into its rot, not a new feature, so nothing that reads `F.LOG` changes.
+
+- **Rot, not age.** For a snag or log, `featureAge` is how far it has rotted, in days at the reference pace (a hardwood on ground at moisture 0.5). It gains `decayRate(w, i)` a day instead of 1:
+  ```
+  rate      = woodDecay(p) × moistDecay(w, i) × definition.deadwood.decay (default 1)
+  woodDecay = p.decay ?? (p.conifer ? 0.6 : 1)       // 1 for deadwood of unknown species
+  moistDecay = 0.3 + clamp((moist − 0.15)/0.5, 0, 1)  // 0.3 dry … 1 at 0.5 … 1.3 from 0.65 up
+             = 0.35 in standing water, marsh, mud or water deeper than 0.15 (waterlogged: short of air)
+  ```
+  Moisture is read every day, so a dry summer slows the rot and the wet season speeds it up.
+- **Classes**, in reference years (`DECAY`): a snag may fall after 8, then with odds 0.002 × rate a day; a log is rotten from 12; it goes after 25, the same way. On a typical hardwood on damp ground these are the old fixed timers. A Douglas-fir log on PNW ground (moisture about 0.4–0.5) lasts 50–60 years instead of 29; one in a wet hollow about 37; an Amazon log about 14.
+- **Wood.** Conifers rot at 0.6: resin and heartwood extractives hold fungi off. Plant overrides where the evidence says the default is wrong: western redcedar 0.35 (thujaplicins: its logs last centuries) and western hemlock 0.85 (no durable heartwood: its logs rot about twice as fast as Douglas-fir's). Real ratios are larger. A Douglas-fir log lasts several times as long as a maple's, and redcedar longer still. The game keeps every log within decades, so a forest's deadwood turns over within a player's lifetime.
+- **Map factor** (`definition.deadwood: { decay }`, checked by the data contract): warm, humid tropics rot wood faster. Amazon and Sumatra 1.8, Chinandega 1.4 (termites, but dry half the year). No other map sets it.
+- **What it was.** `w.deadwoodId` (`Uint8Array`, in `EXTRA_ARRAYS`, declared in the `World` constructor) is the plant id of the tree that left the snag or log. `removeTree` sets it; the player's snag and log tools, Sumatra's felled palms and map generation leave 0 (unknown wood, rate 1). It's read only while the tile holds a snag or log, saves remap it by name like the other plant layers, and older saves load with none.
+- **Soil.** A log adds 0.0004 × rate to `w.soil` a day, so each log returns the same total whatever its pace.
+- **Savanna and reef unchanged.** The savanna keeps its fixed two- and four-year timers (fire, termites, elephants). The reef's `deadTree` hook leaves rubble and no deadwood.
+- **Snag fall.** `fellSnag(w, i)` is the one way a snag comes down: a sound log (`featureAge` 0) that keeps its species. Callers:
+  - its time, in the aging loop;
+  - a storm patch (`disturbance.js`, odds `severity`);
+  - a wildfire (`burnFeaturesAndWildlife`): on the savanna with odds 0.5, as before; elsewhere only a snag past its standing age (rot over 8 reference years), with odds 0.5, as the fire burns through its rotten base. The trees a fire has just killed stand, so a crown fire still leaves a stand of snags. Controlled burns don't fell snags.
+- **Nurse logs** (`nurseBonus(w, i)`, for plants with `p.nurse`: western hemlock, western redcedar, red huckleberry). It replaces the flat +0.3 on or next to any log:
+  - +0.4 on a rotten log, +0.15 on a sound log, +0.15 beside a log (`distLog` ≤ 1). Seedlings take on a rotten log: raised above the moss and litter, out of reach of the soil fungi that kill seedlings on the ground, on wood that holds water through the summer. A barked, hard log helps little.
+  - The thick-sward penalty in `trySeed` (×0.3 under grass) doesn't apply to a nurse species on a rotten log: it's above the grass.
+  - An understory sapling of a nurse species on a rotten log has half the 2% background death.
+  - `plantSuit` carries the bonus, so it applies to both the tree slot and the understory slot.
+  - Redcedar gained `nurse: true`: it regenerates on logs in wet forests, though less than hemlock.
+- **Habitat hooks.** A rotten log adds 0.3 to `w.insects` against 0.2 for other deadwood: beetle larvae, ants and termites concentrate in decayed wood. Everything else reads `F.SNAG` and `F.LOG` as before: cavity nesters, perches and `distSnag` (snags), `distLog` (wren, pond turtle, Amazon and Atlanta log species), dormancy shelters, refuge cover, fire fuel and moisture. No salamander reads logs today; if one is added it should prefer rotten ones.
+- **Render.** A rotten log is drawn with the same model, slumped (72% height) and tinted moss-green.
+- Fungi and decomposers can later set the rate through `decayRate`: this phase only makes it depend on conditions.
+- `tools/deadwood-check.mjs` checks the wood and moisture factors, the classes and their timing, the savanna and reef, nurse logs (suitability, the sward, the understory), wind and fire felling, insects, the save round trip and the data contract.
 
 ### Interfaces between parts
 

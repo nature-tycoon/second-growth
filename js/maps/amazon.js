@@ -119,6 +119,9 @@ export default {
   // Patch disturbance (0013 §4, sim/disturbance.js). Months run March..February.
   // Squall lines at the start of the rains bring downbursts that flatten patches of forest, mostly
   // a few big trees, once in a while hundreds (the blowdowns seen from space across the Amazon).
+  // dead wood rots fast in the warm, wet forest: termites, beetles and fungi have a fallen trunk
+  // gone in about ten years, where a temperate log lasts decades (0013 §5)
+  deadwood: { decay: 1.8 },
   disturbance: {
     storms: [{ name: 'A squall line', months: [7, 8, 9, 10], perYear: 1, patch: [3, 600], severity: 0.6 }],
   },

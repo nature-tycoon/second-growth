@@ -15,7 +15,7 @@ let lcg = 1;
 Math.random = () => ((lcg = (lcg * 1103515245 + 12345) % 2147483648) / 2147483648);
 const { Game } = await import(root + 'game.js');
 const { ToolActions } = await import(root + 'tool-actions.js');
-const { H } = await import(root + 'config.js');
+const { H, F } = await import(root + 'config.js');
 const { hashStr } = await import(root + 'rng.js');
 const HAS_COUNTER = 'removeTree' in await import(root + 'sim/plants.js');
 const { hollisRestorePlan } = await import('./hollis-restore-plan.mjs');
@@ -44,6 +44,7 @@ const EDGE = 15; // tiles from the north and east edges counted as "near the see
 const LAND = new Set([H.BARE, H.FARM, H.INVASIVE, H.MEADOW, H.SHRUB, H.YOUNG_FOREST, H.MATURE_FOREST, H.RIPARIAN, H.MARSH, H.POND]);
 const OPEN = new Set([H.BARE, H.FARM, H.INVASIVE, H.MEADOW, H.SHRUB, H.MARSH, H.POND]); // "an opening": not forest, not riparian thicket
 const HAB = ['bare', 'farm', 'inv', 'meadow', 'shrub', 'young', 'mature', 'rip', 'marsh', 'pond', 'creek', 'river', 'dev'];
+const ROTTEN = 12; // years of rot that make a log rotten (sim/plants.js DECAY.rotten)
 const EST = 0.35; // a tree counts as established (a "tree" in every share and count) above this size
 
 // ---- CLI
@@ -89,9 +90,10 @@ function run(map, seed) {
   // without it (before 0013 phase 2) falls back to guessing the cause from the tile.
   const counter = () => HAS_COUNTER ? { ...w.treeDeathsEst } : null;
   const since = (now, then) => Object.fromEntries(Object.entries(now).map(([k, v]) => [k, v - (then[k] || 0)]).filter(([, v]) => v));
-  let per = null, perFrom = null; const resetPer = () => { per = { deaths: {}, recruits: 0, fires: 0, burned: 0, tickMs: 0, dayMs: 0, days: 0 }; perFrom = counter(); };
+  let per = null, perFrom = null; const resetPer = () => { per = { deaths: {}, recruits: 0, nurseRec: 0, nurseRecLog: 0, fires: 0, burned: 0, tickMs: 0, dayMs: 0, days: 0 }; perFrom = counter(); };
   resetPer();
   const win = { deaths: 0, recruits: 0, byCause: {}, from: null };
+  const nurseTot = { rec: 0, onLog: 0 }; // nurse-log trees reaching EST over the run, and those on a log
   let lastFire = g.events.lastFire, prevBurned = g.events.burned;
   const reports = [];
   const elkIdx = g.catalog.animal?.elk?.index;
@@ -118,6 +120,16 @@ function run(map, seed) {
     // saplings waiting under the canopy (0013 §3; none on builds without the understory)
     const und = {}; let nu = 0;
     if (w.understory) for (let i = 0; i < n; i++) if (w.understory[i]) { const k = P[w.understory[i]].key; und[k] = (und[k] || 0) + 1; nu++; }
+    // deadwood (0013 §5): logs at least ROTTEN years into their rot (on builds before it, featureAge
+    // is plain days, so this counts logs that old), and nurse-log trees (p.nurse: hemlock, redcedar)
+    // standing or waiting on a log now
+    let rotten = 0, nurseTrees = 0, nurseUnder = 0;
+    for (let i = 0; i < n; i++) {
+      if (w.feature[i] !== F.LOG) continue;
+      if (w.featureAge[i] >= ROTTEN * D) rotten++;
+      if (w.tree[i] && P[w.tree[i]].nurse && w.treeG[i] > EST) nurseTrees++;
+      if (w.understory?.[i] && P[w.understory[i]].nurse) nurseUnder++;
+    }
     const shares = Object.entries(sp).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v / nt]);
     const simpson = 1 - shares.reduce((s, [, f]) => s + f * f, 0);
     let opened = null, openedNoFire = null;
@@ -141,7 +153,8 @@ function run(map, seed) {
       tolerant: ntm ? tol / ntm : null, tolerantTrees: tolAll, tolerantNearEdge: tolEdge, matureShares: Object.fromEntries(Object.entries(spMature).map(([k, v]) => [k, +(v / ntm).toFixed(3)])),
       understory: nu, understoryShares: Object.entries(und).sort((a, b) => b[1] - a[1]).slice(0, 4),
       released: { ...(w.understoryReleased || {}) },
-      opened, openedNoFire, snags: w.stats.snags, logs: w.stats.logs, fires: per.fires, burned: per.burned,
+      opened, openedNoFire, snags: w.stats.snags, logs: w.stats.logs, rotten, fires: per.fires, burned: per.burned,
+      nurse: { onLog: nurseTrees, underOnLog: nurseUnder, recruits: per.nurseRec, recruitsOnLog: per.nurseRecLog },
       // disturbance (0013 §4): storms so far, tiles with root rot in the soil now (none on builds without them)
       storms: g.stats.storms || 0, rot: w.rot ? w.rot.reduce((a, v) => a + (v > 0), 0) : 0,
       species: pops.length, animals: pops.reduce((a, x) => a + x.pop, 0), elk: elkIdx != null ? g.wildlife.state[elkIdx].pop : null,
@@ -153,8 +166,8 @@ function run(map, seed) {
     console.log(`t${String(t).padStart(3)} meadow=${hb.meadow} shrub=${hb.shrub} young=${hb.young} mature=${hb.mature} rip=${hb.rip} inv=${hb.inv} open=${hb.bare + hb.farm} wet=${hb.marsh + hb.pond}` +
       ` | changed=${pct(r.changed)} mature>*=${r.matureOut} opened50=${pct(opened)} (no fire ${pct(openedNoFire)})` +
       ` | trees=${nt} age q25/50/75/95=${r.ageQ.join('/')} died=${deaths} (${Object.entries(per.deaths).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + v).join(', ')}) recruits=${per.recruits}` +
-      ` | snags=${r.snags} logs=${r.logs} fires=${r.fires} burned=${r.burned}${r.storms ? ` storms=${r.storms}` : ''}${r.rot ? ` rot=${r.rot}` : ''} | spp=${r.species} animals=${r.animals}${r.elk != null ? ` elk=${r.elk}` : ''}` +
-      ` | ${r.shares.map(([k, f]) => k + Math.round(f * 100)).join(' ')} D=${r.simpson} tol=${pct(r.tolerant)}${tolAll ? ` tolTrees=${tolAll} (N/E edge ${tolEdge})` : ''}${nu ? ` under=${nu} (${r.understoryShares.map(([k, v]) => k + ' ' + v).join(', ')})` : ''}${Object.keys(r.released).length ? ` released=${Object.entries(r.released).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => k + ' ' + v).join(', ')}` : ''}${r.msTick != null ? ` | ${r.msTick}/${r.msDay} ms` : ''}`);
+      ` | snags=${r.snags} logs=${r.logs} (rotten ${rotten}) fires=${r.fires} burned=${r.burned}${r.storms ? ` storms=${r.storms}` : ''}${r.rot ? ` rot=${r.rot}` : ''} | spp=${r.species} animals=${r.animals}${r.elk != null ? ` elk=${r.elk}` : ''}` +
+      ` | ${r.shares.map(([k, f]) => k + Math.round(f * 100)).join(' ')} D=${r.simpson} tol=${pct(r.tolerant)}${tolAll ? ` tolTrees=${tolAll} (N/E edge ${tolEdge})` : ''}${nu ? ` under=${nu} (${r.understoryShares.map(([k, v]) => k + ' ' + v).join(', ')})` : ''}${Object.keys(r.released).length ? ` released=${Object.entries(r.released).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => k + ' ' + v).join(', ')}` : ''}${per.nurseRec ? ` nurse recruits=${per.nurseRec} (on a log ${per.nurseRecLog}), on logs now ${nurseTrees} + ${nurseUnder} waiting` : ''}${r.msTick != null ? ` | ${r.msTick}/${r.msDay} ms` : ''}`);
     if (r.trans.length) console.log(`     ${r.trans.map(([k, v]) => `${k} ${v}`).join(', ')}`);
     prevHab = w.habitat.slice(); resetPer(); snapMature(t);
   }
@@ -183,7 +196,10 @@ function run(map, seed) {
           if (inWin) { win.deaths++; win.byCause[cause] = (win.byCause[cause] || 0) + 1; }
         }
       }
-      if (!counted[i] && b && w.treeG[i] > EST) { counted[i] = 1; per.recruits++; if (inWin) win.recruits++; }
+      if (!counted[i] && b && w.treeG[i] > EST) {
+        counted[i] = 1; per.recruits++; if (inWin) win.recruits++;
+        if (P[b].nurse) { per.nurseRec++; nurseTot.rec++; if (w.feature[i] === F.LOG) { per.nurseRecLog++; nurseTot.onLog++; } } // (a nurse-log tree that came up on a log)
+      }
       if (OPEN.has(w.habitat[i])) lastOpen[i] = day;
       if (w.fire[i]) lastBurn[i] = day;
     }
@@ -200,7 +216,8 @@ function run(map, seed) {
     largest: last.largest, largestKey: last.shares[0]?.[0], simpson: last.simpson, tolerant: last.tolerant, matureShares: last.matureShares,
     rd: win.deaths ? win.recruits / win.deaths : null, winDeaths: win.deaths, winRecruits: win.recruits, winByCause: win.byCause,
     opened: last.opened, openedNoFire: last.openedNoFire, changed: last.changed, species: last.species, animals: last.animals, trees: last.trees, ageQ: last.ageQ,
-    tolerantTrees: last.tolerantTrees, tolerantNearEdge: last.tolerantNearEdge,
+    tolerantTrees: last.tolerantTrees, tolerantNearEdge: last.tolerantNearEdge, snags: last.snags, logs: last.logs, rotten: last.rotten,
+    nurseRecruits: nurseTot.rec, nurseRecruitsOnLog: nurseTot.onLog,
     understory: last.understory, understoryShares: last.understoryShares, meadow: last.hab.meadow, mature: last.hab.mature, elk: last.elk,
     msTick: +(tot.reduce((a, r) => a + r.msTick, 0) / tot.length).toFixed(2), msDay: +(tot.reduce((a, r) => a + r.msDay, 0) / tot.length).toFixed(2),
   };

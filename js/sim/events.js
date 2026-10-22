@@ -1,7 +1,7 @@
 // Natural disturbance: summer wildfires and winter floods (windstorms, drought and root rot are in disturbance.js).
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { removeTree, trySeed, clearUnderstory } from './plants.js';
+import { removeTree, trySeed, clearUnderstory, fellSnag, DECAY } from './plants.js';
 import { disturbanceOn } from './campaign.js';
 import { disturbanceDaily } from './disturbance.js';
 
@@ -159,7 +159,9 @@ export class Events {
     const g = this.game, w = g.world, rng = g.rng;
     const f = w.feature[i];
     if (f === F.BRUSH || f === F.FENCE || f === F.NESTBOX || f === F.BLIND || (f === F.LOG && rng() < 0.5)) w.feature[i] = 0;
-    else if (f === F.SNAG && this.mapDefinition.savanna && rng() < 0.5) { w.feature[i] = F.LOG; w.featureAge[i] = 0; } // (a grass fire brings dead trees down)
+    // a grass fire brings dead trees down; in a forest it burns through the rotten base of an old
+    // snag (one past its standing age), while those it just killed stand (0013 §5)
+    else if (f === F.SNAG && (this.mapDefinition.savanna || w.featureAge[i] > DECAY.snagFall * 120) && rng() < 0.5) fellSnag(w, i);
     w.soil[i] = Math.min(1, w.soil[i] + 0.03);
     // wildlife caught in the flames
     const wl = g.wildlife;

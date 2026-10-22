@@ -16,6 +16,7 @@ export const EXTRA_ARRAYS = Object.freeze({
   mulchDays: Uint16Array, browseDamage: Float32Array, grazed: Float32Array,
   understory: Uint8Array, understoryG: Float32Array, // (0013 §3; saves from before it load with none waiting)
   rot: Uint8Array, // (0013 §4: root rot in the soil; saves from before it load with none)
+  deadwoodId: Uint8Array, // (0013 §5: what each snag and log was; older saves' deadwood rots as a typical hardwood)
 });
 
 export const extraArrayLimit = (key, tiles) => key === 'trailDensity' ? tiles * TRAIL_RESOLUTION ** 2 : tiles;

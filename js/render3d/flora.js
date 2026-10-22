@@ -2,6 +2,7 @@
 
 import { T, F, LEVEL, BORDER, isWater, clamp } from '../config.js';
 import { plantPhase } from '../data/plants.js';
+import { rottenLog } from '../sim/plants.js';
 import { hash2, valueNoise } from '../rng.js';
 import * as G from './geometry.js';
 import * as Botanical from './botanical.js';
@@ -651,7 +652,12 @@ export class Flora {
       const rot = hash2(x, y, 13) * 6.28;
       switch (f) {
         case F.SNAG: this.pool(`snag:${v}`, () => G.snag(900 + v), this.bark).add(cx, cy - 0.02, cz, 1, 1, 1, rot, [0.62, 0.58, 0.52]); break;
-        case F.LOG: this.pool('log', () => G.log(), this.bark).add(cx, isWater(w.terrain[i]) ? w.tileH(x, y) * LEVEL + 0.02 : cy, cz, 1, 1, 1, rot, [1, 1, 1]); break;
+        case F.LOG: {
+          // a rotten log (0013 §5) has slumped into the ground under a coat of moss
+          const soft = rottenLog(w, i);
+          this.pool('log', () => G.log(), this.bark).add(cx, isWater(w.terrain[i]) ? w.tileH(x, y) * LEVEL + 0.02 : cy, cz, 1, soft ? 0.72 : 1, 1, rot, soft ? [0.74, 0.86, 0.6] : [1, 1, 1]);
+          break;
+        }
         case F.STUMP: {
           const rot2 = Math.min(1, w.featureAge[i] / 360), s = 0.85 + hash2(x, y, 17) * 0.4;
           this.pool(`stump:${v}`, () => G.stump(990 + v), this.bark).add(cx, cy - 0.01, cz, s, s * (1 - 0.45 * rot2), s, rot, [1 - 0.35 * rot2, 1 - 0.38 * rot2, 1 - 0.4 * rot2]);

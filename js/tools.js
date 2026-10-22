@@ -179,7 +179,7 @@ export function createTools(catalog) {
       if (w.struct[i] >= 0 || w.feature[i]) return null;
       if (needsLand && (isWater(t) || t === T.ROAD)) return null;
       if (f === F.LOG && t === T.CREEK) return null;
-      w.feature[i] = f; w.featureAge[i] = 0;
+      w.feature[i] = f; w.featureAge[i] = 0; w.deadwoodId[i] = 0;
       if (f === F.SNAG || f === F.NESTBOX) { /* stands among plants */ }
       else if (w.tree[i] && w.treeG[i] > 0.3) { w.feature[i] = 0; return null; }
       return true;
@@ -189,7 +189,7 @@ export function createTools(catalog) {
     desc: 'A standing dead tree. Woodpeckers carve holes in it, and owls, bats and other hole-nesters move in after them.', apply: featureTool(F.SNAG) });
   tool({ key: 'log', cat: 'features', name: 'Fallen log', cost: 80, brush: false, icon: { feature: F.LOG },
     desc: 'Basking spot for turtles, cover for wrens and newts, and a nursery for hemlock and huckleberry. Can go in ponds.',
-    apply: (game, i) => { const w = game.world; if (w.terrain[i] === T.POND || w.terrain[i] === T.MARSH) { if (w.feature[i]) return null; w.feature[i] = F.LOG; return true; } return featureTool(F.LOG)(game, i); } });
+    apply: (game, i) => { const w = game.world; if (w.terrain[i] === T.POND || w.terrain[i] === T.MARSH) { if (w.feature[i]) return null; w.feature[i] = F.LOG; w.featureAge[i] = 0; w.deadwoodId[i] = 0; return true; } return featureTool(F.LOG)(game, i); } });
   tool({ key: 'rocks', cat: 'features', name: 'Rock pile', cost: 60, brush: false, icon: { feature: F.ROCKS },
     desc: 'Sun-warmed shelter for snakes and lizards.', apply: featureTool(F.ROCKS) });
   tool({ key: 'brush', cat: 'features', name: 'Brush pile', cost: 30, brush: false, icon: { feature: F.BRUSH },

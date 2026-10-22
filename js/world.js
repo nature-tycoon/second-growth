@@ -46,6 +46,8 @@ export class World {
     // today's drought is (0..1, set daily; treeHazard reads it)
     this.rot = u8(); this.drought = 0;
     this.feature = u8(); this.featureAge = f32();
+    // the plant a snag or log was (0013 §5, saved; 0: unknown, put down by the player or the map). Read only while the tile holds one
+    this.deadwoodId = u8();
     this.struct = new Int16Array(n).fill(-1);
     // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars)
     this.marks = u8();

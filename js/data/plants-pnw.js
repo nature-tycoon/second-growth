@@ -140,11 +140,11 @@ export default function buildPnwPlants(def, mix, get) {
     grow: 0.0028, spread: 0.009, radius: 5, life: 400, cost: 25,
     look: { type: 'fir', leaf: '#2d5a38', bark: '#6b4a34' },
     desc: 'The iconic giant of Cascadia. Needs sun to get started, then towers for centuries.' });
-  def({ key: 'cedar', name: 'Western redcedar', sci: 'Thuja plicata', layer: 2, moist: [0.5, 1], light: [0.0, 1], soil: 0.4, conifer: true,
+  def({ key: 'cedar', name: 'Western redcedar', sci: 'Thuja plicata', layer: 2, moist: [0.5, 1], light: [0.0, 1], soil: 0.4, conifer: true, nurse: true, decay: 0.35,
     grow: 0.0024, spread: 0.007, radius: 4, life: 600, cost: 28,
     look: { type: 'cedar', leaf: '#46763b', bark: '#8a4f35' },
     desc: 'The "tree of life" of Northwest Coast cultures. Loves wet feet and grows happily in deep shade.' });
-  def({ key: 'hemlock', name: 'Western hemlock', sci: 'Tsuga heterophylla', layer: 2, moist: [0.4, 0.9], light: [0.0, 0.9], soil: 0.45, conifer: true, nurse: true,
+  def({ key: 'hemlock', name: 'Western hemlock', sci: 'Tsuga heterophylla', layer: 2, moist: [0.4, 0.9], light: [0.0, 0.9], soil: 0.45, conifer: true, nurse: true, decay: 0.85,
     grow: 0.0025, spread: 0.009, radius: 4, life: 400, cost: 26,
     look: { type: 'hemlock', leaf: '#2c5446', bark: '#5d4a3e' },
     desc: 'The most shade-tolerant tree here: it takes over old forests, often starting life on a nurse log.' });

@@ -292,6 +292,8 @@ export default {
   recruitment: { cndd: 0.6 },
   // Patch disturbance (0013 §4, sim/disturbance.js). Months run March..February.
   // A hurricane once in a few decades, in the late rainy season, flattens a wide swath of trees.
+  // termites clear dead wood quickly in the warm dry forest, though it lies dry half the year (0013 §5)
+  deadwood: { decay: 1.4 },
   disturbance: {
     storms: [{ name: 'A hurricane', months: [6, 7, 8], perYear: 0.04, patch: [400, 4000], severity: 0.7, warn: true }],
   },

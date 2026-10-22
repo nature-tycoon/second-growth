@@ -58,7 +58,7 @@ export function plantSuit(w, i, p, light) {
   const soil = w.soil[i];
   const soilFit = soil >= p.soil ? 1 : Math.max(0, 1 - (p.soil - soil) * (p.soilK ?? 3.5)); // soilK: how sharply poor soil holds a plant back
   let s = tf * rangeFit(w.moist[i], p.moist[0], p.moist[1], 0.18) * rangeFit(light, p.light[0], p.light[1], 0.25) * soilFit;
-  if (p.nurse && (w.feature[i] === F.LOG || w.distLog[i] <= 1)) s = Math.min(1, s + 0.3);
+  if (p.nurse) s = Math.min(1, s + nurseBonus(w, i)); // (nurse logs, 0013 §5)
   // pioneers of poor ground (dropseed) lose out to better grasses once the soil has recovered
   if (p.pioneer && soil > p.pioneer) s *= Math.max(0.35, 1 - (soil - p.pioneer) * 2.5);
   return s;
@@ -159,10 +159,11 @@ export function trySeed(w, p, i, rng) {
   // grow where planted, or on bare and neglected ground. A map can limit this to its paddocks.
   const holdsMeadow = typeof w.catalog.definition.meadowsHold === 'function' ? w.catalog.definition.meadowsHold(w, i) : w.catalog.definition.meadowsHold;
   if (holdsMeadow && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && !w.catalog.plants[w.ground[i]].invasive && (!p.invasive || rng() < (w.catalog.definition.nativesHold ? 0.97 : 0.85))) return false;
-  // A thick sward of established groundcover is hard for woody seedlings to break through.
+  // A thick sward of established groundcover is hard for woody seedlings to break through (a
+  // nurse-log seedling up on a rotten log is above it).
   let odds = s;
   const open = w.catalog.definition.savanna && w.distWater[i] > 3; // savanna, away from the riverine strip
-  if (p.layer > 0 && w.ground[i] && w.groundG[i] > 0.6) {
+  if (p.layer > 0 && w.ground[i] && w.groundG[i] > 0.6 && !(p.nurse && rottenLog(w, i))) {
     const gp = w.catalog.plants[w.ground[i]];
     if (gp.look.type === 'grass' || gp.look.type === 'sedge' || gp.look.type === 'tallgrass') odds *= open ? 0.1 : 0.3;
     else if (gp.smother) odds *= gp.smother; // (a creeper that blankets the ground, like Sumatra's Chinese violet)
@@ -235,7 +236,8 @@ function understoryDay(w, i, gf, rng) {
   let g = w.understoryG[i];
   if (s >= 0.3 && g < UNDER_MAX) g = Math.min(UNDER_MAX, g + p.grow * gf * (s - 0.3) / 0.7 * 1.4 * UNDER_GROW * grazedGrowth(w, i, p, g));
   const short = p.light[0] - L;
-  const h = UNDER_DEATH + (short > 0 ? UNDER_SHADE_DEATH * Math.min(1, short / p.light[0]) : 0) + (s < 0.3 ? UNDER_POOR_DEATH : 0);
+  // (up on a rotten log, a nurse-log sapling is out of reach of the soil fungi: half the background death)
+  const h = UNDER_DEATH * (p.nurse && rottenLog(w, i) ? 0.5 : 1) + (short > 0 ? UNDER_SHADE_DEATH * Math.min(1, short / p.light[0]) : 0) + (s < 0.3 ? UNDER_POOR_DEATH : 0);
   if (rng() * 120 < h || grazedSeedlingLost(w, i, p, g, rng)) { w.understory[i] = 0; w.understoryG[i] = 0; }
   else w.understoryG[i] = g;
 }
@@ -292,6 +294,7 @@ export function updatePlants(game) {
   const bankK = w.bankStrength;
   w.invasiveOdds = Math.min(1, game.diff?.invasives ?? 1);
   const mort = game.catalog.definition.mortality || {};
+  const sav = game.catalog.definition.savanna, deadK = game.catalog.definition.deadwood?.decay ?? 1;
 
   for (let i = 0; i < w.n; i++) {
     const x = i % W, y = (i / W) | 0;
@@ -392,15 +395,27 @@ export function updatePlants(game) {
 
     // ---- features age and rot
     const f = w.feature[i];
-    if (f === F.SNAG || f === F.LOG || f === F.BRUSH || f === F.DAM || f === F.STUMP) {
-      w.featureAge[i] += 1;
-      const ay = w.featureAge[i] / 120;
+    if (f === F.SNAG || f === F.LOG) {
       // On the savanna, dead wood doesn't last: the yearly fires, termites and elephants bring a
       // standing dead tree down within a couple of years and clear the log away soon after.
-      const sav = game.catalog.definition.savanna;
-      if (f === F.SNAG && ay > (sav ? 2 : 8) && rng() < (sav ? 0.01 : 0.002)) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
-      else if (f === F.LOG) { w.soil[i] += 0.0004; if (ay > (sav ? 4 : 25) && rng() < (sav ? 0.01 : 0.002)) { w.feature[i] = 0; w.featureAge[i] = 0; } }
-      else if (f === F.BRUSH && ay > 6 && rng() < 0.003) { w.feature[i] = 0; w.soil[i] += 0.05; }
+      if (sav) {
+        const ay = ++w.featureAge[i] / 120;
+        if (f === F.SNAG && ay > 2 && rng() < 0.01) fellSnag(w, i);
+        else if (f === F.LOG) { w.soil[i] += 0.0004; if (ay > 4 && rng() < 0.01) clearDeadwood(w, i); }
+      } else {
+        // elsewhere it rots at the pace its wood and the ground allow (0013 §5)
+        const r = decayRate(w, i, deadK);
+        const ay = (w.featureAge[i] += r) / 120;
+        if (f === F.SNAG) { if (ay > DECAY.snagFall && rng() < DECAY.roll * r) fellSnag(w, i); }
+        else {
+          w.soil[i] += 0.0004 * r; // (what the log was made of goes back into the ground as it rots)
+          if (ay > DECAY.gone && rng() < DECAY.roll * r) clearDeadwood(w, i);
+        }
+      }
+    } else if (f === F.BRUSH || f === F.DAM || f === F.STUMP) {
+      w.featureAge[i] += 1;
+      const ay = w.featureAge[i] / 120;
+      if (f === F.BRUSH && ay > 6 && rng() < 0.003) { w.feature[i] = 0; w.soil[i] += 0.05; }
       else if (f === F.STUMP && ay > 2 && rng() < 0.004) { w.feature[i] = 0; w.featureAge[i] = 0; w.soil[i] += 0.04; }
     }
 
@@ -428,7 +443,7 @@ export const ESTABLISHED_TREE = 0.35; // a tree this grown counts as established
 // Deaths are counted by cause in w.treeDeaths (every tree) and w.treeDeathsEst (established
 // ones); both restart at load, and are for diagnostics and the succession check.
 export function removeTree(w, i, cause, rng, { snagOdds = SNAG_ODDS[cause] ?? 0.7, minG = 0.6, deadwood = true } = {}) {
-  const g = w.treeG[i];
+  const g = w.treeG[i], dead = w.tree[i];
   const all = w.treeDeaths, est = w.treeDeathsEst;
   all[cause] = (all[cause] || 0) + 1;
   if (g > ESTABLISHED_TREE) est[cause] = (est[cause] || 0) + 1;
@@ -448,9 +463,63 @@ export function removeTree(w, i, cause, rng, { snagOdds = SNAG_ODDS[cause] ?? 0.
   if (w.catalog.definition.deadTree) { w.catalog.definition.deadTree(w, i); return; } // (the reef: dead coral breaks down into rubble, not snags and logs)
   if (g > minG && !w.feature[i]) {
     w.feature[i] = rng() < snagOdds ? F.SNAG : F.LOG;
-    w.featureAge[i] = 0;
+    w.featureAge[i] = 0; w.deadwoodId[i] = dead; // (what it was sets how fast it rots, §5)
   }
 }
+
+// ---- Deadwood (0013 §5). A dead tree goes snag → sound log → rotten log → gone. For a snag or log,
+// featureAge is how far it has rotted, in days at the reference pace (a hardwood on damp ground):
+// it gains decayRate a day, not 1. Each class lasts a fixed amount of rot, so a fir log on dry
+// ground stays a sound log for decades and a maple log in a wet hollow is soft within ten years.
+// The savanna keeps its own quick timers (fire, termites, elephants), and the reef its rubble.
+// Reference years: a snag can fall after snagFall, then with odds roll × rate a day; a log is
+// rotten from `rotten`, and goes after `gone` the same way.
+export const DECAY = { snagFall: 8, rotten: 12, gone: 25, roll: 0.002 };
+
+// How fast this species' dead wood rots against a typical hardwood (1). p.decay overrides it.
+// Conifers rot slower: resin and heartwood extractives hold the fungi off. (Real ratios are larger:
+// a Douglas-fir log lasts several times as long as a maple's. The game keeps deadwood within a
+// few decades so a forest's logs turn over in a player's lifetime.)
+export function woodDecay(p) {
+  if (!p) return 1; // (deadwood the player or the map put down: nothing says what it was)
+  return p.decay ?? (p.conifer ? 0.6 : 1);
+}
+
+// How the ground's water sets the pace: fungi need damp wood, so dry ground rots it slowly and
+// moist ground fast, up to a limit; wood lying in standing water, a marsh or mud is short of air
+// and barely rots (waterlogged logs last for centuries). 1 at moisture 0.5, typical forest floor.
+export function moistDecay(w, i) {
+  const t = w.terrain[i];
+  if (isWater(t) || t === T.MUD || w.waterDepth?.[i] > 0.15) return 0.35;
+  return 0.3 + clamp((w.moist[i] - 0.15) / 0.5, 0, 1);
+}
+
+// The day's rot for the snag or log on tile i, in reference days. mapK: the map's deadwood.decay
+// (warm, humid tropics rot wood faster).
+export function decayRate(w, i, mapK = w.catalog.definition.deadwood?.decay ?? 1) {
+  return woodDecay(w.catalog.plants[w.deadwoodId[i]]) * moistDecay(w, i) * mapK;
+}
+
+// A log far enough gone to be soft, crumbling wood: a seedbed for nurse-log trees, and more
+// insects and grubs in it.
+export const rottenLog = (w, i) => w.feature[i] === F.LOG && w.featureAge[i] >= DECAY.rotten * 120;
+
+// A snag comes down (its time, a storm, a fire burning through its base) as a sound log, and keeps
+// what species it was.
+export function fellSnag(w, i) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
+
+// The last of a log rots away (or burns).
+export function clearDeadwood(w, i) { w.feature[i] = 0; w.featureAge[i] = 0; w.deadwoodId[i] = 0; }
+
+// The suitability bonus a nurse-log plant (p.nurse: hemlock, redcedar, huckleberry) gets on tile i.
+// Their seedlings take best on a rotten log: raised above the moss and litter, out of reach of the
+// soil fungi that kill seedlings on the ground, on wood that holds water through the summer. A sound
+// log, still barked and hard, helps less, and so does the damp, sheltered ground beside one.
+export function nurseBonus(w, i) {
+  if (w.feature[i] === F.LOG) return w.featureAge[i] >= DECAY.rotten * 120 ? NURSE.rotten : NURSE.sound;
+  return w.distLog[i] <= 1 ? NURSE.near : 0;
+}
+const NURSE = { rotten: 0.4, sound: 0.15, near: 0.15 };
 
 // Seeds drifting in from outside the property: forest to the north and east,
 // wind-blown cottonwood and fireweed, invasives from neighbouring farms to the west,

@@ -278,7 +278,7 @@ function estateDaily(g) {
 // rot where it fell, with its fronds stacked beside it. Beetles, termites and fungi turn them into soil.
 function dropPalm(game, i) {
   const w = game.world, rng = game.rng, W = w.w;
-  if (!w.feature[i]) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
+  if (!w.feature[i]) { w.feature[i] = F.LOG; w.featureAge[i] = 0; w.deadwoodId[i] = 0; }
   const x = i % W, y = (i / W) | 0;
   for (let k = 0; k < 6; k++) {
     const dx = Math.floor(rng() * 3) - 1, dy = Math.floor(rng() * 3) - 1;
@@ -453,6 +453,8 @@ export default {
   recruitment: { cndd: 0.65 },
   // Patch disturbance (0013 §4, sim/disturbance.js). Months run March..February.
   // "Sumatras", the squall lines of the monsoon changeovers, throw down patches of forest.
+  // dead wood rots fast in the warm, wet lowlands: a fallen palm trunk is soft within a few years (0013 §5)
+  deadwood: { decay: 1.8 },
   disturbance: {
     storms: [{ name: 'A Sumatra squall', months: [1, 2, 7, 8], perYear: 1, patch: [3, 400], severity: 0.6 }],
   },
