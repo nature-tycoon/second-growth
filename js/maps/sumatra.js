@@ -451,6 +451,11 @@ export default {
   // Grazing pressure (sim/grazing.js): elephants, sambar and tapir open small clearings; rainforest still returns.
   grazing: 0.3,
   recruitment: { cndd: 0.65 },
+  // Patch disturbance (0013 §4, sim/disturbance.js). Months run March..February.
+  // "Sumatras", the squall lines of the monsoon changeovers, throw down patches of forest.
+  disturbance: {
+    storms: [{ name: 'A Sumatra squall', months: [1, 2, 7, 8], perYear: 1, patch: [3, 400], severity: 0.6 }],
+  },
   climate: {
     // Wet nearly all year. Mar–May the first rains, Jun–Aug the driest months (and the haze),
     // Sep–Nov the big rains and floods, Dec–Feb the fruit season, drying out in February.

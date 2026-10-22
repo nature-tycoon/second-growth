@@ -116,6 +116,12 @@ export default {
   // Grazing pressure (sim/grazing.js): capybara lawns along the water; the forest still closes over the pasture.
   grazing: 0.3,
   recruitment: { cndd: 0.7 },
+  // Patch disturbance (0013 §4, sim/disturbance.js). Months run March..February.
+  // Squall lines at the start of the rains bring downbursts that flatten patches of forest, mostly
+  // a few big trees, once in a while hundreds (the blowdowns seen from space across the Amazon).
+  disturbance: {
+    storms: [{ name: 'A squall line', months: [7, 8, 9, 10], perYear: 1, patch: [3, 600], severity: 0.6 }],
+  },
   climate: {
     // Mar–May high water, Jun–Aug dry, Sep–Nov burning season and first rains, Dec–Feb rainy
     seasons: ['High water', 'Dry season', 'Burning season', 'Rainy season'],

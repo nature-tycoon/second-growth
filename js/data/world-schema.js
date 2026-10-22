@@ -15,6 +15,7 @@ export const EXTRA_ARRAYS = Object.freeze({
   bleach: Float32Array, seedbank: Uint16Array, trod: Float32Array, trailE: Float32Array, trailS: Float32Array, trailDensity: Float32Array, bloomLast: Int32Array,
   mulchDays: Uint16Array, browseDamage: Float32Array, grazed: Float32Array,
   understory: Uint8Array, understoryG: Float32Array, // (0013 §3; saves from before it load with none waiting)
+  rot: Uint8Array, // (0013 §4: root rot in the soil; saves from before it load with none)
 });
 
 export const extraArrayLimit = (key, tiles) => key === 'trailDensity' ? tiles * TRAIL_RESOLUTION ** 2 : tiles;

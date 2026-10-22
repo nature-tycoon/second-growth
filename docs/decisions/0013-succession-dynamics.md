@@ -1,6 +1,6 @@
 # 0013 Long-term forest dynamics: mortality, regeneration and disturbance
 
-Proposed 2026-10-18. Status: in progress. Phase 1 (succession check and baselines) and phase 2 (tree removal and mortality hazard) done 2026-10-19. Phase 3 (advance regeneration and CNDD) done 2026-10-21. Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12.
+Proposed 2026-10-18. Status: in progress. Phase 1 (succession check and baselines) and phase 2 (tree removal and mortality hazard) done 2026-10-19. Phase 3 (advance regeneration and CNDD) done 2026-10-21. Phase 4 (disturbance regimes) done 2026-10-22. Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12.
 
 ## Problem
 
@@ -112,28 +112,45 @@ Built in phase 3. `trySeed` is still the one place natural recruitment happens (
 
 **Seed supply (PNW data).** Hemlock and redcedar came only from the north seed rain, onto the outer eight rows. That edge is dry upland: moisture 0.25, against minimums of 0.4 and 0.5. Neither ever established in the open there, and neither existed anywhere on the map by year 40. The east edge ("the woods to the east", moisture 0.39, like the interior) now carries them too, as real lowland PNW woods would.
 
-### 4. Disturbance regimes (`sim/disturbance.js`, new)
+### 4. Disturbance regimes (`sim/disturbance.js`)
 
-The module owns patch-scale tree mortality other than fire, which stays in `events.js` but calls `removeTree(…, 'fire')`.
+Built in phase 4. The module owns patch-scale tree mortality other than fire, which stays in `events.js`. Every tree it kills goes through `removeTree` with cause `wind` or `pathogen`; drought deaths come from the hazard with cause `drought`. `Events.daily` calls `disturbanceDaily(game)` right after the campaign's disaster gate (`disturbanceOn`), so in the campaign disturbance starts with the chapter that brings fire and flood, and in free play from the start. Storm and root-rot rates and drought depth scale with the difficulty's `disasters`.
 
-Map data:
+Map data (`definition.disturbance`, checked by the data contract; months run March..February):
 
 ```js
 disturbance: {
-  windstorm: { months: [10, 11, 0, 1], perYear: 0.6, patch: [3, 40], severity: 0.5 },
-  drought:   { trigger: 'dryStreak', threshold: 9, severity: 0.3 },
-  pathogen:  { host: ['fir'], perYear: 0.2, spread: 0.02 },   // e.g. laminated root rot in Douglas fir
+  storms: [{ name: 'A winter windstorm', months: [7, 8, 9, 10, 11], perYear: 1.5, patch: [6, 500], severity: 0.8 }],
+  drought: { threshold: 36, span: 10, severity: 1 },
+  pathogen: { host: ['fir'], perYear: 2, spread: 0.03, kill: 0.1, news: '…', note: '…' },
 }
 ```
 
-- **Windstorm.** Picks an exposed area and a patch size from a heavy-tailed draw: mostly small gaps, sometimes a large blowdown.
-  - Per-tree kill chance is `severity × size(treeG) × exposure × rooting × p.windfirm`.
-  - `exposure` rises with open neighbors (`1 − nbCanopy`), so gaps grow at their edges, as in real forests. `rooting` rises on saturated soil.
-  - `p.windfirm` defaults from traits (conifers on wet ground are less windfirm; data can override), and snags fall to logs.
-- **Drought.** On a long dry streak, raises the stress term for trees near the dry end of their `moist` range. This is the hook the later hydrology work plugs into: wetter or drier ground from water balance changes this, with no new mortality code.
-- **Pathogen.** A slow patch that spreads only through its host species and kills mostly adults. It's density-dependent mortality for adults, and the most specific realistic driver of PNW gaps. Optional, in phase 4.
-- **Each map lists only what fits it.** PNW: winter windstorms and root rot. Atlanta: summer thunderstorms, ice storms, drought. Amazon and Sumatra: convective blowdowns. Chinandega: hurricanes, rare and large. Serengeti: drought (elephants and fire already exist). Reef: none for now.
-- Events notify the player through `events.js`'s existing notify path, and the Field Journal explains gaps ("A windstorm opened this gap. Young hemlock that was waiting under the canopy is taking over.").
+`storms` is a list, so a map can have more than one kind (Atlanta: thunderstorms and ice storms). Optional per storm: `notice` (established trees thrown before the player hears of it, default 10) and `warn` (the notice's tone).
+
+- **Windstorm** (`windstorm`). Each day of a storm month, a storm comes with odds `perYear × disasters / (storm days a year)`.
+  - It comes down on a random grown tree (`treeG > 0.5`; the first of up to 24 random tiles that has one). Where a storm lands is weather, not forest structure. The first version started at the most exposed of the 24, which sent most storms to lone young trees in restored fields; exposure now only decides which trees in the patch fall.
+  - The patch size is a truncated Pareto draw (exponent 1) between `patch[0]` and `patch[1]` tiles: mostly small gaps, sometimes a blowdown of hundreds. The patch grows from a random point on its edge each step, so it comes out irregular.
+  - Per-tree kill chance is `2 × severity × size × exposure × rooting × (1 − windfirm)`, at most 0.95:
+    - `size = ((treeG − 0.3)/0.7)²`, clamped: wind load rises with height, so saplings bend, young stands mostly stand and the old giants go;
+    - `exposure = 0.25 + 0.75 × open`, where `open` is the share of the 8 neighbours without a tree above 0.5. It's read live rather than from `nbCanopy`, so a tree thrown in this storm exposes the next one and gaps grow at their edges;
+    - `rooting = 0.6 + 0.8 × (moist − 0.45)/0.4`, clamped: saturated soil lets the root plate tip.
+  - `windfirm(p)`: `p.windfirm` if set, else 0.5, minus 0.15 for conifers (crowns in leaf through the winter gales, mostly shallow roots), minus 0.1 for trees of wet ground (`moist[0] ≥ 0.5`: a high water table keeps roots shallow), plus 0.1 for long-lived trees (`life ≥ 250`: deep taproots, heavy wood). PNW: maple and alder 0.5, fir and hemlock 0.45, redcedar 0.35, oak 0.6. No map overrides it yet.
+  - Snags in the patch fall to logs with odds `severity`. A thrown tree leaves a log 85% of the time (`removeTree`'s wind snag odds, 0.15). The cause `wind` releases the understory sapling, so advance regeneration takes wind gaps with no extra code.
+  - A storm that throws at least `notice` established trees notifies the player at the gap's centre, naming the species released into it. The notice goes to the Field Journal like every notice. Chinandega's hurricane notice has a Spanish pattern in `lang/es.js`.
+- **Drought** (`droughtLevel`, read by `treeHazard`). `w.drought` (a world scalar declared in the constructor) is set daily to `clamp((dryStreak − threshold)/span, 0, 1) × severity × disasters`. `treeHazard` adds `MORT.drought (1/yr) × w.drought × clamp(1 − (moist − p.moist[0])/0.15, 0, 1)`: only trees within 0.15 of the dry end of their range die of it, and the death counts as `drought`. There's no new kill path, so the later hydrology work changes who dies through `w.moist` alone. Thresholds sit near the 85th percentile of each map's longest yearly dry streak under its `climate.rain` (Atlanta 36 days, Serengeti 56), so a drought comes every several years.
+- **Root rot** (`rotMonth`, `seedRot`). `w.rot` (`Uint8Array`, in `EXTRA_ARRAYS`, so it saves; older saves load with none) holds the infection on each tile, 0..255. Once a month (`day % 10 === 0`, one pass over the tiles):
+  - a host tree on an infected tile dies at `kill` a year once established (`treeG > 0.35`: its roots reach the infected wood, and a pole-sized fir dies as readily as a big one), a seedling at a quarter of that. The death counts as `pathogen` and releases the understory. Snag odds are 0.4, because rot-killed trees mostly tip over green;
+  - for its first ~10 years on a tile (`rot ≥ 128`) it spreads root to root into each 4-neighbour holding an established host tree, `spread` a year per neighbour;
+  - it fades by 1 a month whatever grows there, gone in about 21 years, so a patch holds non-host trees for a generation and then heals;
+  - a new centre starts on a grown host `perYear` times a year.
+  - Each tile's infection has a fixed life, so every patch is finite and the infected area settles near `perYear × mean patch size × 21 years`. `spread × 10 years` has to stay well under 1. PNW uses spread 0.03 (a patch of a few trees on average, now and then dozens), 2 new centres a year and kill 0.1.
+  - Two designs ran away first. In both, fir covers about 85% of the forest, so any spread above critical makes an epidemic that runs until the fir is used up:
+    - spread 0.15 with kill 0.15 put rot on a quarter of PNW by year 200, with 61% of all tree deaths;
+    - with a grown host keeping its tile infected, every centre lived as long as fir kept coming back. At spread 0.015–0.05, 350-year runs had rot on 1,300–2,400 tiles, still growing, and about half of all deaths.
+  - The tile inspector shows the map's `note` on an infected tile, and the first grown tree it kills brings the map's `news` notice (once a game, `flags.rotSeen`).
+- **Each map lists only what fits it.** PNW: winter windstorms (Oct–Feb) and laminated root rot in Douglas-fir. Atlanta: summer thunderstorms (May–Aug), ice storms (Dec–Feb, rarer, wider), drought. Amazon: squall-line blowdowns at the start of the rains (Oct–Jan). Sumatra: "Sumatra" squalls at the monsoon changeovers. Chinandega: a hurricane every ~25 years (Sep–Nov), 400–4,000 tiles. Serengeti: drought only (elephants and fire already open the woodland). Reef: none (its cyclones are its own map code).
+- `tools/disturbance-check.mjs` checks windfirmness, the kill chance, a storm's kills, releases and snags, determinism, the drought term, root rot's spread, kills and fading, the save round trip, the campaign gate and the data contract.
 
 ### 5. Deadwood (`sim/plants.js`, feature aging)
 
@@ -305,6 +322,39 @@ Against the targets:
 | Atlanta | 2,102 → 1,537 | 1,506 → 1,139 | 1,258 → 1,043 | Mature forest 1,742 → 1,873. |
 | Chinandega | 7,038 → 6,967 | 7,126 → 6,912 | 6,352 → 6,483 | No real change. Jaragua fills the open pasture within 25 years either way: it's limited by space, not seed. A Relaxed lever there would have to act on established grass (fire resprouting, or the native seed bank), not on seedlings. |
 
+### Phase 4 results (2026-10-22)
+
+Windstorms, drought and root rot (§4), measured as before: full wildlife, 200 years, `--every 10`, on Cole's Mac at `nice -n 5`. "Before" is a rerun of the phase 3 commit (bb2e3ef) on the same seeds, not the phase 3 table above: that table doesn't reproduce. Rerunning phase 3 Amazon gives Brazil nut 69/75/78%, matching the phase 3 session's own per-seed JSON files but not the table's 74–75%. Shares are of deaths of established trees in years 150–200.
+
+| Run | Seeds | Largest, % (before) | Hemlock+cedar trees in mature forest (before) | Recruits ÷ deaths (before) | Unburned opened, % (before) | Fire share of deaths (before) | Wind / drought / rot share | Animal species (before) | Trees (before) |
+|---|---|---|---|---|---|---|---|---|---|
+| pnw restore | 3 | fir 90–91 (80–96) | 74–269 (47–94) | 0.99–1.05 (1.03–1.28) | 15–24 (8–12) | 22–36 (28–55) | 22–28 / 0 / 7–9 | 30–31 (30–31) | 6148–7056 (7005–7407) |
+| pnw idle | 3 | fir 94–96 (95–96) | 31–111 (20–47) | 1.26–1.43 (1.34–1.43) | 21–33 (7–12) | 11–27 (37–47) | 27–39 / 0 / 6–10 | 28–31 (29–30) | 7301–7370 (7294–7476) |
+| amazon idle | 3 | brazilnut 74–77 (69–78) | - | 0.78–1.11 (1.07–1.20) | 14–17 (11–13) | 34–60 (29–44) | 11–15 / 0 / 0 | 24 (23–24) | 7746–9313 (9115–9311) |
+| atlanta idle | 3 | redmaple 40–48 (32–43) | - | 0.73–0.96 (0.57–0.59) | 59–69 (51–64) | 0–1 (0–14) | 13–25 / 1–9 / 0 | 28–31 (26–30) | 1213–2139 (1045–1129) |
+| chinandega idle | 1 | neem 35 (guacimo 29) | - | 1.18 (1.12) | 68 (60) | 54 (53) | 5 / 0 / 0 | 23 (22) | 3487 (3279) |
+| serengeti idle | 1 | mesquite 88 (86) | - | 1.00 (0.98) | 24 (19) | 87 (87) | 0 / ~0 / 0 | 22 (22) | 3812 (3567) |
+| sumatra idle | 1 | fig 21 (24) | - | 1.03 (1.01) | 27 (24) | 10 (11) | 14 / 0 / 0 | 34 (34) | 8953 (8931) |
+
+Against the targets:
+
+- **Largest species ≤ 60% on PNW restore: missed**, fir 90–91%. Root rot can't fix it without wrecking the forest: rot on 1,674 tiles killing 40% of trees still left fir at 83% (`--veg`, seed 1), and only a runaway rot (61% of all deaths) got fir to 55%. Fir supplies the seed for every gap it opens. This is the phase 6 seed-supply problem.
+- **Hemlock + cedar rising: yes, a little.** Mature-forest hemlock and cedar per seed went from 47–94 to 74–269 on restore and from 20–47 to 31–111 idle, still 1–4% of mature trees. Over 95% of all hemlock and cedar trees are within 15 tiles of the north and east edges (`tolerantNearEdge` in the check). Wind gaps near the edges help, but nothing reaches the interior. The limit is still seed supply.
+- **Brazil nut ≤ 40%: missed**, 74–77%. Blowdowns open gaps that the light-demanding, 500-year Brazil nut wins. Levers for phase 6: `p.cndd` or `p.windfirm` for Brazil nut, and seed share for mahogany and ipê.
+- **Unburned PNW openings ≥ 10% on every seed: met**, 15–24% restore, 21–33% idle.
+- **Fire's share of Amazon deaths falls: missed.** It fell on seeds 1 and 2 (44→34%, 39→34%) and rose on seed 3 (29→60%, a large late fire). The three seeds had 229 fires against 196 and 28% more area burned: blowdown logs count as fuel in `Events.fuel` and gaps open the canopy. Real blowdowns do raise fire risk; the lever is the Amazon's fire settings (phase 6).
+- **Recruits ÷ deaths 0.7–1.5: met on every forested map** except PNW idle (1.26–1.43, inside) and Amazon seed 3 (0.78, inside). **Atlanta is back in the band**, 0.73–0.96 against 0.57–0.59, with 1,213–2,139 trees against 1,045–1,129: wind gaps get recruited into.
+- **Animal species ≥ baseline − 1: met** everywhere.
+- **`balance-sim restore 15`**, 16 seeds seeded via `--import`, phase 3 → phase 4 means ± standard error: score 60.5 ± 1.3 → 61.7 ± 1.9, meadow 958 ± 78 → 941 ± 79, forest 194 ± 5.5 → 182 ± 4.6, mature 38.5 ± 1.3 → 37.8 ± 1.3, invasive 27.7% → 26.1%, elk 16.3 → 16.1. All within noise except forest, which is 6% lower at about 1.6 standard errors. Wind kills only 1–12 established trees per seed in those 15 years, so most of that is the random stream diverging from the first storm.
+- **`dailyTick` ≤ +5%: met.** A whole-run A/B (PNW restore `--veg`, 60 years, old/new/new/old) was unreadable: the two old-code runs differed by up to 31% as the load average moved between 5 and 9, and the new code has 16% fewer trees by year 60. Instead, one PNW world grown to year 121, then 20 alternating 60-day blocks with the map's disturbance on and off: 5.31 against 5.22 ms per `dailyTick`, **+1.7%**.
+- **Root rot is bounded.** A 350-year `--veg` PNW run holds 109–175 infected tiles from year 100 to 350, with rot 6–9% of deaths.
+
+Also:
+
+- **Drought is weak at severity 1**: 1–9% of Atlanta deaths, almost none on the Serengeti. Raising `drought.severity` is a phase 6 tuning call.
+- **Chinandega**: one hurricane-size storm in 200 years on seed 1 (6 storms, the 400–4,000-tile draws mostly on open pasture). Neem became the largest species (35%), as in the phase 3 table; its rise came from phase 3's understory, not from storms.
+- Not checked in a browser: the root-rot inspector line and the storm notice. Port 8347 was serving another checkout. `tools/disturbance-check.mjs` covers their logic and the Spanish pattern was checked in node.
+
 ### How to run
 
 ```
@@ -320,7 +370,7 @@ Each phase is one session, run in order, each building on the last:
 1. **Succession check and baselines.** (Done: see [Baselines](#baselines-phase-1-2026-10-19).) Add `tools/succession-check.mjs`, built from the scratch probe. It's seeded, all maps, `idle` and `restore` modes, and a `--veg` mode that steps wildlife less often for fast 300-year structure runs. It reports the measures above plus age structure and deaths by cause, and asserts targets once a `--assert` flag is set. Record the baselines in this doc. No game code changes.
 2. **Tree removal and mortality hazard.** (Done: see [Phase 2 results](#phase-2-results-2026-10-20).) Add `removeTree` with causes, move every call site to it, and swap in the hazard model. Tune so that Atlanta's recruits-to-deaths ratio and PNW turnover improve without breaking `balance-sim restore 15`.
 3. **Advance regeneration and CNDD.** (Done: see [Phase 3 results](#phase-3-results-2026-10-21). Hemlock, cedar and Brazil nut are not fixed; the remaining levers are map data for phase 6.) Add the understory arrays (with saves), release on removal, CNDD in `trySeed`, and map `recruitment` config. Expected to fix hemlock/cedar and Brazil nut.
-4. **Disturbance regimes.** Add `sim/disturbance.js` with windstorm and drought on every map that fits, an optional PNW root-rot pathogen, notifications, and a Field Journal line.
+4. **Disturbance regimes.** (Done: see [Phase 4 results](#phase-4-results-2026-10-22). Fir, Brazil nut and Amazon fire are not fixed.) Add `sim/disturbance.js` with windstorm and drought on every map that fits, an optional PNW root-rot pathogen, notifications, and a Field Journal line.
 5. **Deadwood decay and nurse logs.** Make decay depend on moisture and wood type, and add nurse-log recruitment and snag fall.
 6. **Cross-map tuning and acceptance.** Sweep all seven maps, tune map data, update this doc's results, and update AGENTS.md's decision list.
 

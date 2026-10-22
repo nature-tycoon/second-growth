@@ -197,10 +197,15 @@ function droughtKills(w, i, g, gf, rng) {
 
 // A tree's yearly death hazard (0013 §2): flat background mortality, a steep rise with old age, and
 // stress on a poor site or in shade it can't take. Returns { h, age }, where age is the part of h
-// counted as death by age (background and senescence); the rest is stress. The day's chance is h/120.
+// counted as death by age (background and senescence) and drought the part counted as drought; the
+// rest is stress. The day's chance is h/120.
 // Map data can scale the new terms (definition.mortality: { background, senescence, stress, suppression }).
-const MORT = { background: 0.4, senesceFrom: 0.7, senesce: 0.05, stress: 0.03, stressSuit: 0.6, poorSite: 0.2, suppress: 0.03 };
-const hz = { h: 0, age: 0 };
+// Drought (0013 §4): in a dry spell (w.drought, set daily by sim/disturbance.js from the map's
+// regime), a tree within DRY_BAND of the dry end of its moisture range dies at up to MORT.drought a
+// year, scaled by how deep the spell is. Wetter or drier ground (w.moist) changes who it reaches.
+const MORT = { background: 0.4, senesceFrom: 0.7, senesce: 0.05, stress: 0.03, stressSuit: 0.6, poorSite: 0.2, suppress: 0.03, drought: 1 };
+const DRY_BAND = 0.15;
+const hz = { h: 0, age: 0, drought: 0 };
 export function treeHazard(w, i, p, s, g, ageY, m) {
   const a = (ageY / p.life - MORT.senesceFrom) / (1 - MORT.senesceFrom);
   hz.age = (p.mortality ?? clamp(MORT.background / p.life, 0.002, 0.02)) * (m.background ?? 1)
@@ -215,7 +220,8 @@ export function treeHazard(w, i, p, s, g, ageY, m) {
     const short = p.light[0] - layerLight(w, i, 2);
     if (short > 0) stress += MORT.suppress * Math.min(1, short / p.light[0]) * Math.min(1, (0.95 - g) / 0.45) * (m.suppression ?? 1);
   }
-  hz.h = hz.age + stress;
+  hz.drought = w.drought ? MORT.drought * w.drought * clamp(1 - (w.moist[i] - p.moist[0]) / DRY_BAND, 0, 1) : 0;
+  hz.h = hz.age + hz.drought + stress;
   return hz;
 }
 
@@ -361,7 +367,7 @@ export function updatePlants(game) {
       // Sustained inundation, rather than the day a dam is built, creates snags.
       if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) dies = 'flood';
       const haz = treeHazard(w, i, p, s, g, w.treeAge[i] / 120, mort), r = rng() * 120;
-      if (r < haz.h) dies ||= r < haz.age ? 'age' : 'stress';
+      if (r < haz.h) dies ||= r < haz.age ? 'age' : r < haz.age + haz.drought ? 'drought' : 'stress';
       else if (droughtKills(w, i, g, gf, rng)) { g = 0; lost = 'drought'; }
       else if (grazedSeedlingLost(w, i, p, g, rng)) { g = 0; lost = 'browse'; }
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
@@ -407,7 +413,9 @@ export function updatePlants(game) {
 // Why a tree died (docs/decisions/0013-succession-dynamics.md): 'age' (background and old-age
 // mortality), 'stress' (a poor site, shade or competition), 'fire', 'wind', 'drought', 'pathogen',
 // 'flood', 'browse' (and trampling), 'beaver' or 'player'.
-const SNAG_ODDS = { fire: 0.7, wind: 0.15 }; // a fire kills trees standing; a storm throws them down
+// a fire kills trees standing; a storm throws them down; root rot leaves some standing, but most
+// tip over green, their rotted roots giving way
+const SNAG_ODDS = { fire: 0.7, wind: 0.15, pathogen: 0.4 };
 // Deaths that take the understory sapling with the tree: fire burns it (thin bark, low down),
 // standing water drowns it, and the player removing a tree means to clear the tile.
 const KILLS_UNDERSTORY = { fire: 1, flood: 1, player: 1 };

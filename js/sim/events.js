@@ -1,8 +1,9 @@
-// Natural disturbance: summer wildfires and winter floods.
+// Natural disturbance: summer wildfires and winter floods (windstorms, drought and root rot are in disturbance.js).
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { removeTree, trySeed, clearUnderstory } from './plants.js';
 import { disturbanceOn } from './campaign.js';
+import { disturbanceDaily } from './disturbance.js';
 
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
@@ -54,6 +55,7 @@ export class Events {
 
     // In the campaign, fires and floods start in the chapter that teaches them.
     if (!disturbanceOn(g)) return;
+    disturbanceDaily(g); // windstorms, drought and root rot (sim/disturbance.js)
     // Late-summer droughts bring fire; visitors add a little risk.
     // (fireRate / fireGap: savannas burn far more often, every dry season, than forests do)
     const cl = this.mapDefinition.climate;

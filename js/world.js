@@ -42,6 +42,9 @@ export class World {
     this.treeDeaths = {}; this.treeDeathsEst = {};
     // the share of natural invasive seedlings that take on easier difficulties (updatePlants sets it from game.diff)
     this.invasiveOdds = 1;
+    // disturbance (0013 §4, sim/disturbance.js): root rot in the soil per tile (saved), and how deep
+    // today's drought is (0..1, set daily; treeHazard reads it)
+    this.rot = u8(); this.drought = 0;
     this.feature = u8(); this.featureAge = f32();
     this.struct = new Int16Array(n).fill(-1);
     // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars)

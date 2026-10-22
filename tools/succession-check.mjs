@@ -40,6 +40,7 @@ const BASELINE_SPECIES = {
   'sumatra:idle': 34, 'chinandega:idle': 23, 'reef:idle': 21,
 };
 const TOLERANT = 0.15;
+const EDGE = 15; // tiles from the north and east edges counted as "near the seed edges"
 const LAND = new Set([H.BARE, H.FARM, H.INVASIVE, H.MEADOW, H.SHRUB, H.YOUNG_FOREST, H.MATURE_FOREST, H.RIPARIAN, H.MARSH, H.POND]);
 const OPEN = new Set([H.BARE, H.FARM, H.INVASIVE, H.MEADOW, H.SHRUB, H.MARSH, H.POND]); // "an opening": not forest, not riparian thicket
 const HAB = ['bare', 'farm', 'inv', 'meadow', 'shrub', 'young', 'mature', 'rip', 'marsh', 'pond', 'creek', 'river', 'dev'];
@@ -103,12 +104,14 @@ function run(map, seed) {
       land++;
       if (h !== prevHab[i]) { changed++; const k = `${HAB[prevHab[i]]}>${HAB[h]}`; trans[k] = (trans[k] || 0) + 1; }
     }
-    const sp = {}, spMature = {}, ages = []; let nt = 0, ntm = 0, tol = 0, near = 0;
+    const sp = {}, spMature = {}, ages = []; let nt = 0, ntm = 0, tol = 0, near = 0, tolAll = 0, tolEdge = 0;
     for (let i = 0; i < n; i++) {
       const id = w.tree[i]; if (!id || w.treeG[i] <= EST) continue;
       const p = P[id], a = w.treeAge[i] / D;
       sp[p.key] = (sp[p.key] || 0) + 1; nt++; ages.push(a);
       if (a > p.life * 0.8) near++;
+      // shade-tolerant trees of any habitat, and those within EDGE tiles of the north or east edge (PNW's hemlock and cedar seed in there)
+      if (p.light[0] <= TOLERANT) { tolAll++; if ((i / w.w | 0) < EDGE || i % w.w >= w.w - EDGE) tolEdge++; }
       if (w.habitat[i] === H.MATURE_FOREST) { spMature[p.key] = (spMature[p.key] || 0) + 1; ntm++; if (p.light[0] <= TOLERANT) tol++; }
     }
     ages.sort((x, y) => x - y);
@@ -135,10 +138,12 @@ function run(map, seed) {
       meanAge: nt ? +(ages.reduce((a, b) => a + b, 0) / nt).toFixed(1) : 0, nearLife: nt ? near / nt : 0,
       deaths: { ...per.deaths, total: deaths }, recruits: per.recruits,
       shares: shares.slice(0, 5).map(([k, f]) => [k, +f.toFixed(3)]), largest: shares[0]?.[1] ?? 0, simpson: +simpson.toFixed(3),
-      tolerant: ntm ? tol / ntm : null, matureShares: Object.fromEntries(Object.entries(spMature).map(([k, v]) => [k, +(v / ntm).toFixed(3)])),
+      tolerant: ntm ? tol / ntm : null, tolerantTrees: tolAll, tolerantNearEdge: tolEdge, matureShares: Object.fromEntries(Object.entries(spMature).map(([k, v]) => [k, +(v / ntm).toFixed(3)])),
       understory: nu, understoryShares: Object.entries(und).sort((a, b) => b[1] - a[1]).slice(0, 4),
       released: { ...(w.understoryReleased || {}) },
       opened, openedNoFire, snags: w.stats.snags, logs: w.stats.logs, fires: per.fires, burned: per.burned,
+      // disturbance (0013 §4): storms so far, tiles with root rot in the soil now (none on builds without them)
+      storms: g.stats.storms || 0, rot: w.rot ? w.rot.reduce((a, v) => a + (v > 0), 0) : 0,
       species: pops.length, animals: pops.reduce((a, x) => a + x.pop, 0), elk: elkIdx != null ? g.wildlife.state[elkIdx].pop : null,
       grazed: w.grazed ? +(w.grazed.reduce((a, b) => a + b, 0) / land).toFixed(4) : 0,
       msTick: per.days ? +(per.tickMs / per.days).toFixed(2) : null, msDay: per.days ? +(per.dayMs / per.days).toFixed(2) : null,
@@ -148,8 +153,8 @@ function run(map, seed) {
     console.log(`t${String(t).padStart(3)} meadow=${hb.meadow} shrub=${hb.shrub} young=${hb.young} mature=${hb.mature} rip=${hb.rip} inv=${hb.inv} open=${hb.bare + hb.farm} wet=${hb.marsh + hb.pond}` +
       ` | changed=${pct(r.changed)} mature>*=${r.matureOut} opened50=${pct(opened)} (no fire ${pct(openedNoFire)})` +
       ` | trees=${nt} age q25/50/75/95=${r.ageQ.join('/')} died=${deaths} (${Object.entries(per.deaths).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + v).join(', ')}) recruits=${per.recruits}` +
-      ` | snags=${r.snags} logs=${r.logs} fires=${r.fires} burned=${r.burned} | spp=${r.species} animals=${r.animals}${r.elk != null ? ` elk=${r.elk}` : ''}` +
-      ` | ${r.shares.map(([k, f]) => k + Math.round(f * 100)).join(' ')} D=${r.simpson} tol=${pct(r.tolerant)}${nu ? ` under=${nu} (${r.understoryShares.map(([k, v]) => k + ' ' + v).join(', ')})` : ''}${Object.keys(r.released).length ? ` released=${Object.entries(r.released).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => k + ' ' + v).join(', ')}` : ''}${r.msTick != null ? ` | ${r.msTick}/${r.msDay} ms` : ''}`);
+      ` | snags=${r.snags} logs=${r.logs} fires=${r.fires} burned=${r.burned}${r.storms ? ` storms=${r.storms}` : ''}${r.rot ? ` rot=${r.rot}` : ''} | spp=${r.species} animals=${r.animals}${r.elk != null ? ` elk=${r.elk}` : ''}` +
+      ` | ${r.shares.map(([k, f]) => k + Math.round(f * 100)).join(' ')} D=${r.simpson} tol=${pct(r.tolerant)}${tolAll ? ` tolTrees=${tolAll} (N/E edge ${tolEdge})` : ''}${nu ? ` under=${nu} (${r.understoryShares.map(([k, v]) => k + ' ' + v).join(', ')})` : ''}${Object.keys(r.released).length ? ` released=${Object.entries(r.released).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => k + ' ' + v).join(', ')}` : ''}${r.msTick != null ? ` | ${r.msTick}/${r.msDay} ms` : ''}`);
     if (r.trans.length) console.log(`     ${r.trans.map(([k, v]) => `${k} ${v}`).join(', ')}`);
     prevHab = w.habitat.slice(); resetPer(); snapMature(t);
   }
@@ -195,6 +200,7 @@ function run(map, seed) {
     largest: last.largest, largestKey: last.shares[0]?.[0], simpson: last.simpson, tolerant: last.tolerant, matureShares: last.matureShares,
     rd: win.deaths ? win.recruits / win.deaths : null, winDeaths: win.deaths, winRecruits: win.recruits, winByCause: win.byCause,
     opened: last.opened, openedNoFire: last.openedNoFire, changed: last.changed, species: last.species, animals: last.animals, trees: last.trees, ageQ: last.ageQ,
+    tolerantTrees: last.tolerantTrees, tolerantNearEdge: last.tolerantNearEdge,
     understory: last.understory, understoryShares: last.understoryShares, meadow: last.hab.meadow, mature: last.hab.mature, elk: last.elk,
     msTick: +(tot.reduce((a, r) => a + r.msTick, 0) / tot.length).toFixed(2), msDay: +(tot.reduce((a, r) => a + r.msDay, 0) / tot.length).toFixed(2),
   };
