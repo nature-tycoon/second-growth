@@ -1165,7 +1165,8 @@ export class UI {
         ${choice('fps', 'Frame rate', 'Auto runs at 30 frames a second on phones and on battery power, which keeps devices cool, and 60 otherwise.', [['auto', 'Auto'], ['60', 'Smooth (60)'], ['30', 'Battery saver (30)']])}
         ${toggle('wind', 'Wind in the plants', 'Grass, shrubs and treetops sway.')}
         ${toggle('weather', 'Rain and snow', 'Falling rain and snow over the view.')}
-        ${toggle('dayCycle', 'Time of day', 'The light drifts from midday through golden hour and dusk to dawn every few minutes.')}`],
+        ${toggle('dayCycle', 'Time of day', 'The light drifts from midday through golden hour and dusk to dawn every few minutes.')}
+        ${toggle('decay', 'Carcass decay', 'A kill is eaten and rots down to bones, which scatter and disappear over a few weeks. Off: it lies whole, then fades away.')}`],
       controls: ['Controls', `
         ${slider('panSpeed', 'Camera pan speed', 'WASD and arrow keys.')}
         ${slider('zoomSpeed', 'Zoom speed', 'Mouse wheel and + / − keys.')}

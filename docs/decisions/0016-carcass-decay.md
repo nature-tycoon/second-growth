@@ -5,6 +5,12 @@ version flattened the whole body into a hide with a ribcage laid on top. Cole wa
 grow from the spine, the torso to look as though it were being pulled away in 3D, and the end to
 be a pile of bones that disappears.
 
+Cole then asked whether the mechanic was too gruesome. The answer was to keep it: it shows the food
+web, and the low-poly style keeps it in field-guide territory. The bright red first week is the part
+that could put players off, so Graphics → Carcass decay (`settings.decay`, on by default) turns it
+off. Off, a kill lies whole and sinks away over its last 30%, as before this decision. Cole also
+asked for a more realistic skull and pelvis, and a page showing every skeleton.
+
 ## Decision
 
 This is drawing only. A carcass's simulation (meals, lifetime, scavenger visits; 0008) is unchanged,
@@ -35,9 +41,17 @@ foot, and the neck pivot and snout tip. The skeleton has:
 
 - a spine;
 - 9 pairs of ribs arching from the spine around the flank;
-- a pelvis;
+- a pelvis: a sacrum on the spine, and on each side an ilium blade flaring forward from the hip
+  socket (a dark cup with a rim), and an ischium and pubis that close a loop around the obturator hole;
 - leg bones;
-- a neck and skull.
+- a neck;
+- a skull, lofted from cross-sections: a cranium narrowing into a muzzle, eye sockets with bony
+  rims, cheekbones, a nasal opening, a lower jaw with cheek teeth, and the condyles it sits on.
+
+The skull lies along the head itself (from the median of the head near the snout to the tip), not
+along the neck, so long necks don't tip it up. It is 55-85% as long as the chest is deep, and as wide
+and deep as most of the head there. The template is a grazer's: carnivores and elephants get the
+same shape, which matters little because only prey leave carcasses.
 
 It is drawn with the carcass's own matrix, so it sits inside the body as the flesh recedes. Each
 piece carries its centre, a scatter direction and the point at which it goes, so `Remains`' shader
@@ -54,6 +68,13 @@ can slump, scatter and shrink pieces individually.
   passes where the ground is along z, `aGround`, so bones settle onto it.
 - A carcass is drawn with graze 0 (head level), the pose the skeleton is fitted to.
 - A skeleton takes 15-30 ms to build, once per species, when its first kill comes on screen.
+
+## Review page
+
+`http://localhost:8347/tools/skeleton-review.html` (with the server running) shows every species
+that leaves a carcass, on any map. It can show the skeleton alone, the skeleton inside a faint
+outline of the body, or a carcass at any age. It can frame the whole skeleton, the skull or the
+pelvis, from four angles.
 
 ## Checks
 

@@ -22,7 +22,7 @@ import { SlothBridges, slothBridge } from './sloth-bridge.js';
 import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
 import { isCanopyWalker } from './canopy-walker-profile.js';
 import { ActorView, animalViewRadius, pixelsPerUnit } from './actor-view.js';
-import { carcassAnatomy, carcassDecay, Remains } from './carcass-decay.js';
+import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
@@ -108,6 +108,7 @@ export class Actors {
     // reef animals and birds cast shadows shaped like themselves instead
     this.silhouettes = new AnimalShadows(scene, this.shadowMat);
     this.remains = new Remains(scene); // kills' bones, bared as they're eaten and rot
+    this.decayOn = true; // (the Carcass decay setting: off, a kill lies whole and sinks away at the end)
     // The selected animal's marker: a thin ring with a faint glow lying flat on the ground under
     // it (or on the water, the branch or the seabed it's at), so nothing is drawn over the animal
     // itself. Depth-tested, so legs and bodies pass in front of it.
@@ -623,14 +624,16 @@ export class Actors {
       const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
       const yaw = -c.yaw, roll = c.side * Math.PI / 2;
       if (this.view.enabled && !this.view.visible(c.x, ground - 0.2, ground + 0.6, c.y, animalViewRadius(def))) continue;
-      const d = carcassDecay(c), h = (def.sprite.h || 10) * sc, len = (def.sprite.len || 10) * sc, lift = h * 0.32;
-      const pool = F.pool(def);
-      if (!pool.anatomy) {
-        // (measured once per species, and handed to its shader for pulling the flesh onto the bones)
-        const a = pool.anatomy = carcassAnatomy(pool.geo), u = pool.mat.userData.carcass;
-        u.uTorso.value.set(a.spineY, a.bellyY); u.uNeck.value.copy(a.neck); u.uSnout.value.copy(a.snout);
-        a.hips.forEach((hip, k) => { u.uHips.value[k].copy(hip || a.neck); u.uFeet.value[k].copy(a.feet[k] || hip || a.neck); });
+      const h = (def.sprite.h || 10) * sc, len = (def.sprite.len || 10) * sc, lift = h * 0.32;
+      if (!this.decayOn) {
+        const left = clamp(c.t / (c.max * 0.3), 0, 1); // (the last stretch: sinking away)
+        F.add(def, c.x, ground + lift * left - (1 - left) * h * 0.2, c.y, yaw, sc, 0, 0, 0, 0.6, 0, roll);
+        shadow(c.x, ground, c.y, len * 0.55);
+        continue;
       }
+      const d = carcassDecay(c);
+      const pool = F.pool(def);
+      fitCarcass(pool);
       if (d.body) F.add(def, c.x, ground + lift, c.y, yaw, sc, 0, 0, 0, 0, 0, roll, null, false, d);
       if (d.bones) this.remains.add(F.modelKey(def), pool.anatomy, c.x, ground + lift, c.y, yaw, roll, sc, lift, d);
       // (the model stands on its origin, so on its side the torso lies off toward its back)

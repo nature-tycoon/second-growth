@@ -78,7 +78,133 @@ export function carcassAnatomy(geo) {
   const H = top - bottom;
   for (const f of feet) if (f) f.y = Math.max(f.y, H * 0.05);
   neck ||= new THREE.Vector3(x1, top - H * 0.1, 0); snout ||= neck.clone().add(new THREE.Vector3(H * 0.6, 0, 0));
-  return { x0, x1, front, back, spineY: top - H * 0.1, bellyY: bottom + H * 0.08, W: wide * 0.86, hips, feet, neck, snout };
+  // the skull: along the head itself (not the neck, which can be long), from the middle of the
+  // head near the snout tip (medians, so ears, horns and antlers don't pull it) to the tip; as
+  // wide and deep as most of the head there
+  const pct = (list, f, fallback) => list.length ? list.sort((a, b) => a - b)[Math.floor(list.length * f)] : fallback;
+  const R = Math.min(snout.distanceTo(neck) * 0.55, H * 0.8), near = [], v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    if (Math.round(part.getX(i)) !== 8) continue;
+    v.set(pos.getX(i), pos.getY(i), pos.getZ(i));
+    if (v.distanceTo(snout) < R) near.push(v.clone());
+  }
+  const mid = near.length ? new THREE.Vector3(pct(near.map(p => p.x), 0.5), pct(near.map(p => p.y), 0.5), 0) : neck.clone().lerp(snout, 0.7);
+  const dir = snout.clone().sub(mid); if (dir.lengthSq() < 1e-6) dir.set(1, 0, 0);
+  const skullLen = clamp(dir.length() * 2, H * 0.55, H * 0.85); dir.normalize(); // (a skull is about as long as the chest is deep)
+  const ws = [], hs = [];
+  for (const p of near) {
+    v.copy(p).sub(snout);
+    const along = -v.dot(dir);
+    if (along < 0 || along > skullLen) continue;
+    ws.push(Math.abs(v.z)); hs.push(Math.abs(v.addScaledVector(dir, along).y));
+  }
+  const skull = { len: skullLen, dir, wide: clamp(pct(ws, 0.7, skullLen * 0.2), skullLen * 0.17, skullLen * 0.3), tall: clamp(pct(hs, 0.7, skullLen * 0.2), skullLen * 0.17, skullLen * 0.3) };
+  return { x0, x1, front, back, spineY: top - H * 0.1, bellyY: bottom + H * 0.08, W: wide * 0.86, hips, feet, neck, snout, skull };
+}
+
+// A species pool's anatomy, measured the first time one of its kind is drawn as a carcass and
+// handed to its shader for pulling the flesh onto the bones.
+export function fitCarcass(pool) {
+  if (pool.anatomy) return pool.anatomy;
+  const a = pool.anatomy = carcassAnatomy(pool.geo), u = pool.mat.userData.carcass;
+  u.uTorso.value.set(a.spineY, a.bellyY); u.uNeck.value.copy(a.neck); u.uSnout.value.copy(a.snout);
+  a.hips.forEach((hip, k) => { u.uHips.value[k].copy(hip || a.neck); u.uFeet.value[k].copy(a.feet[k] || hip || a.neck); });
+  return a;
+}
+
+// A tube through elliptical cross-sections [x, y, ry, rz] along x, closed at both ends.
+function loft(sections, seg = 10) {
+  const pos = [], idx = [];
+  for (const [x, y, ry, rz] of sections) for (let k = 0; k < seg; k++) {
+    const a = k / seg * Math.PI * 2;
+    pos.push(x, y + Math.sin(a) * ry, Math.cos(a) * rz);
+  }
+  for (let j = 0; j + 1 < sections.length; j++) for (let k = 0; k < seg; k++) {
+    const a = j * seg + k, b = j * seg + (k + 1) % seg, c = a + seg, d = b + seg;
+    idx.push(a, c, b, b, c, d);
+  }
+  for (const [j, flip] of [[0, true], [sections.length - 1, false]]) { // (end caps)
+    const centre = pos.length / 3, [x, y] = sections[j];
+    pos.push(x, y, 0);
+    for (let k = 0; k < seg; k++) { const a = j * seg + k, b = j * seg + (k + 1) % seg; idx.push(...(flip ? [centre, b, a] : [centre, a, b])); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  return g;
+}
+const DARK = 0x3a2c22; // (the hollows: eye sockets, nasal opening, hip sockets)
+
+// A realistic skull in its own frame: x from the back of the skull (0) to the snout tip (len), y
+// up, z across; wide and tall are its half-width and half-depth at the cranium.
+function skullParts(len, wide, tall) {
+  const S = len, w = wide / (S * 0.21), h = tall / (S * 0.2), parts = [];
+  const sec = (t, y, ry, rz) => [t * S, y * S * h, ry * S * h, rz * S * w];
+  // cranium behind the eyes, narrowing past them into a long muzzle (upper jaw)
+  parts.push(soft(loft([sec(0, 0.03, 0.08, 0.08), sec(0.05, 0.04, 0.16, 0.16), sec(0.15, 0.04, 0.2, 0.21), sec(0.27, 0.035, 0.19, 0.2),
+    sec(0.38, 0.02, 0.14, 0.14), sec(0.5, 0, 0.115, 0.105), sec(0.7, -0.02, 0.1, 0.09), sec(0.88, -0.03, 0.085, 0.08), sec(0.96, -0.035, 0.075, 0.072), sec(1, -0.035, 0.045, 0.05)], 12)));
+  for (const side of [1, -1]) {
+    // eye socket: a dark hollow ringed by a bony rim, high on the side just in front of the cranium
+    const eye = [0.33 * S, 0.07 * S * h, side * 0.165 * S * w];
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(0.06 * S, 0.055 * S * h, 0.035 * S * w); g.translate(...eye); } }));
+    parts.push(soft(new THREE.TorusGeometry(0.068 * S, 0.016 * S, 5, 12), { transform: g => { g.scale(1, h, 1); g.rotateY(side * 0.35); g.translate(eye[0], eye[1], eye[2] + side * 0.012 * S); } }));
+    // cheekbone (zygomatic arch), bowed out below the eye and back to the ear
+    parts.push(rod([0.36 * S, -0.03 * S * h, side * 0.16 * S * w], [0.24 * S, -0.04 * S * h, side * 0.22 * S * w], 0.02 * S, 0.02 * S, 5));
+    parts.push(rod([0.24 * S, -0.04 * S * h, side * 0.22 * S * w], [0.1 * S, -0.01 * S * h, side * 0.19 * S * w], 0.02 * S, 0.018 * S, 5));
+    // lower jaw: up from its angle to the joint below the ear, and forward to the chin
+    const joint = [0.11 * S, -0.04 * S * h, side * 0.125 * S * w], angle = [0.15 * S, -0.21 * S * h, side * 0.12 * S * w];
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { transform: g => { g.scale(0.065 * S, 0.09 * S * h, 0.014 * S); g.rotateZ(-0.25); g.translate(0.14 * S, -0.13 * S * h, side * 0.122 * S * w); } }));
+    parts.push(rod(joint, angle, 0.022 * S, 0.026 * S, 5));
+    const jaw = [angle, [0.42 * S, -0.16 * S * h, side * 0.085 * S * w], [0.74 * S, -0.12 * S * h, side * 0.05 * S * w], [0.96 * S, -0.09 * S * h, side * 0.018 * S * w]];
+    for (let j = 0; j < 3; j++) parts.push(rod(jaw[j], jaw[j + 1], 0.028 * S * (1 - j * 0.15), 0.024 * S * (1 - j * 0.15), 5));
+    // cheek teeth along the upper jaw
+    for (let k = 0; k < 5; k++) parts.push(soft(new THREE.IcosahedronGeometry(0.018 * S, 0), { transform: g => g.translate((0.46 + k * 0.055) * S, (-0.105 + k * 0.006) * S * h, side * (0.075 - k * 0.004) * S * w) }));
+    // the knuckles the skull sits on the spine by
+    parts.push(soft(new THREE.IcosahedronGeometry(0.03 * S, 0), { transform: g => g.translate(0.005 * S, -0.03 * S * h, side * 0.04 * S * w) }));
+  }
+  parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(0.02 * S, 0.032 * S * h, 0.035 * S * w); g.translate(0.99 * S, -0.03 * S * h, 0); } })); // (nasal opening)
+  return parts;
+}
+
+// Each hip bone either side of the sacrum: the ilium a flat blade flaring forward and up toward
+// the spine, the hip socket where the leg meets it, and the ischium and pubis behind and below
+// it closing a loop around the obturator hole. a: anatomy, socket: where the leg's hip is.
+function pelvisParts(a, H, L) {
+  const parts = [], basis = new THREE.Matrix4();
+  // a lofted blade from p to q: thin across one way (y), wide the other (z), turned so its flat
+  // faces out and up
+  const blade = (p, q, sections, up) => {
+    const d = q.clone().sub(p), len = d.length(); d.normalize();
+    const wideAxis = up.clone().addScaledVector(d, -up.dot(d)).normalize(), thin = new THREE.Vector3().crossVectors(wideAxis, d);
+    basis.makeBasis(d, thin, wideAxis).setPosition(p);
+    const g = loft(sections.map(([t, ry, rz]) => [t * len, 0, ry * H, rz * H]), 12);
+    g.applyMatrix4(basis);
+    return soft(g);
+  };
+  const tail = a.back - L * 0.1, sacrumY = a.spineY - H * 0.02;
+  // sacrum: the fused vertebrae between the hip bones, a broad wedge on the spine
+  parts.push(blade(new THREE.Vector3(a.back + L * 0.14, sacrumY, 0), new THREE.Vector3(tail, sacrumY, 0),
+    [[0, 0.04, 0.05], [0.15, 0.06, 0.14], [0.45, 0.055, 0.11], [0.8, 0.04, 0.06], [1, 0.03, 0.03]], new THREE.Vector3(0, 0, 1)));
+  for (let k = 0; k < 4; k++) parts.push(soft(new THREE.IcosahedronGeometry(H * 0.035, 0), { transform: g => { g.scale(1, 1.6, 0.6); g.translate(mix(a.back + L * 0.1, tail + L * 0.03, k / 3), sacrumY + H * 0.08, 0); } }));
+  const legs = [a.hips[2], a.hips[3]].filter(Boolean);
+  for (const side of [1, -1]) {
+    const hip = legs.find(v => Math.sign(v.z || side) === side);
+    const socket = new THREE.Vector3(hip ? hip.x : a.back, (hip ? hip.y : a.bellyY) + H * 0.12, side * Math.min(Math.abs(hip?.z ?? a.W * 0.5), a.W * 0.62));
+    // ilium: from the socket forward and up to its broad wing beside the sacrum
+    const wing = new THREE.Vector3(a.back + L * 0.22, a.spineY - H * 0.12, side * a.W * 0.62);
+    parts.push(blade(socket, wing, [[0, 0.05, 0.05], [0.25, 0.035, 0.06], [0.55, 0.028, 0.12], [0.85, 0.028, 0.19], [0.97, 0.025, 0.14], [1, 0.02, 0.05]], new THREE.Vector3(0, 0.6, side)));
+    // hip socket: a dark cup with a raised rim, facing out
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(H * 0.06, H * 0.06, H * 0.03); g.translate(socket.x, socket.y, socket.z + side * H * 0.03); } }));
+    parts.push(soft(new THREE.TorusGeometry(H * 0.07, H * 0.025, 5, 12), { transform: g => g.translate(socket.x, socket.y, socket.z + side * H * 0.035) }));
+    // ischium back to its knobbed tuberosity, and the pubis down to the midline; joined below,
+    // they frame the obturator hole
+    const tuber = new THREE.Vector3(a.back - L * 0.12, socket.y - H * 0.04, side * a.W * 0.42);
+    const pubis = new THREE.Vector3(a.back - L * 0.02, socket.y - H * 0.2, side * a.W * 0.06);
+    const floor = new THREE.Vector3(a.back - L * 0.09, socket.y - H * 0.2, side * a.W * 0.06);
+    parts.push(blade(socket, tuber, [[0, 0.045, 0.05], [0.5, 0.03, 0.05], [1, 0.045, 0.06]], new THREE.Vector3(0, 1, 0)));
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { transform: g => { g.scale(H * 0.07, H * 0.06, H * 0.045); g.translate(tuber.x, tuber.y, tuber.z); } }));
+    parts.push(rod(socket.toArray(), pubis.toArray(), H * 0.035, H * 0.03, 5), rod(pubis.toArray(), floor.toArray(), H * 0.04, H * 0.04, 5), rod(floor.toArray(), tuber.toArray(), H * 0.035, H * 0.04, 5));
+  }
+  return parts;
 }
 
 // The skeleton, in the same model space as the body, as pieces that each carry their centre,
@@ -120,8 +246,7 @@ export function remainsGeometry(a, seed = 1) {
     piece(parts, 0.08 + r() * 0.62, 0, 1);
   }
   // pelvis
-  piece([-1, 1].map(side => soft(new THREE.IcosahedronGeometry(H * 0.15, 1), { transform: g => { g.scale(1.7, 1, 0.45); g.translate(a.back - L * 0.02, a.spineY - H * 0.22, side * a.W * 0.4); } }))
-    .concat([rod([a.back - L * 0.1, a.spineY - H * 0.15, 0], [a.back + L * 0.05, a.spineY - H * 0.15, 0], rs * 1.2, rs * 1.2, 5)]), 0.9 + r() * 0.06, 0, 2);
+  piece(pelvisParts(a, H, L), 0.9 + r() * 0.06, 0, 2);
   // legs: shoulder or hip to foot, with a joint halfway
   a.hips.forEach((h, k) => {
     const f = a.feet[k];
@@ -131,19 +256,14 @@ export function remainsGeometry(a, seed = 1) {
     piece([rod(m.toArray(), f.toArray(), lr * 0.8, lr * 0.7, 5), knob(f.toArray(), lr * 1.2)], 0.15 + r() * 0.6, 1, 3);
   });
   // neck, from the shoulders to the back of the skull
-  const dir = a.snout.clone().sub(a.neck), reach = dir.length(); dir.normalize();
-  const skullLen = Math.min(reach * 0.6, H * 1.1), back = a.snout.clone().addScaledVector(dir, -skullLen);
+  const dir = a.skull.dir, S = a.skull.len, back = a.snout.clone().addScaledVector(dir, -S);
   piece([rod([a.front + L * 0.06, a.spineY, 0], a.neck.toArray(), rs, rs, 5), rod(a.neck.toArray(), back.toArray(), rs * 0.9, rs * 0.8, 5)], 0.3 + r() * 0.5, 1, 4);
-  // skull: a cranium and a narrower muzzle along the head
-  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir);
-  const at = t => back.clone().addScaledVector(dir, skullLen * t);
-  piece([
-    soft(new THREE.IcosahedronGeometry(1, 1), { transform: g => { g.scale(skullLen * 0.3, skullLen * 0.22, skullLen * 0.2); g.applyQuaternion(q); g.translate(...at(0.28).toArray()); } }),
-    soft(new THREE.IcosahedronGeometry(1, 1), { transform: g => { g.scale(skullLen * 0.38, skullLen * 0.12, skullLen * 0.12); g.applyQuaternion(q); g.translate(...at(0.66).toArray()); } }),
-  ], 0.97, 1, 5);
+  // skull, laid along the head from the back of the skull to the snout tip
+  const frame = new THREE.Matrix4().compose(back, new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir), new THREE.Vector3(1, 1, 1));
+  piece(skullParts(S, a.skull.wide, a.skull.tall).map(g => g.applyMatrix4(frame)), 0.97, 1, 5);
   const g = mergeGeometries(pieces);
   const col = g.attributes.color;
-  for (let i = 0; i < col.count; i++) col.setXYZ(i, 0.91, 0.88, 0.8); // (bone)
+  for (let i = 0; i < col.count; i++) col.setXYZ(i, col.getX(i) * 0.91, col.getY(i) * 0.88, col.getZ(i) * 0.8); // (bone, and its dark hollows)
   g.userData.ao = true;
   return g;
 }
@@ -161,7 +281,7 @@ function remainsMaterial() {
         vec3 centre = aCenter + aScatter * aState.y;
         centre.z = mix(centre.z, aGround - sign(aGround) * aBone.y, aState.z); // (slumped onto the ground)
         vec3 off = position - aCenter;
-        off.z *= mix(1.0, 0.35, aState.z); // (ribs fall flat)
+        if (aBone.w > 0.5 && aBone.w < 1.5) off.z *= mix(1.0, 0.35, aState.z); // (ribs fall flat)
         vec3 transformed = centre + off * show;
       `);
   };

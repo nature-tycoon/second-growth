@@ -178,6 +178,7 @@ export class Renderer {
     this.gl.setPixelRatio(this.dpr);
     this.windOn = !!s.wind;
     this.dayCycleOn = s.dayCycle !== false;
+    this.actors.decayOn = s.decay !== false;
     this.weatherOn = !!s.weather;
     this.cloudsOn = !!s.weather && !fast; // cloud shadows cost a little on every pixel
     this.light = fast;
