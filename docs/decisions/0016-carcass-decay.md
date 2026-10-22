@@ -25,8 +25,7 @@ that move on instead (`leave`) leave nothing.
   a flyer or swimmer.
 - **The body:** a carcass with no hunter (`by: null`, `feed: 0`). It has the same meals by size and
   the same 21-33 day life as a kill, so `carcassDecay` starts it whole.
-- **Food:** scavengers find and eat it like a kill. This is carrion, as in nature (0001), and it is
-  a change to the food web.
+- **Food:** scavengers find and eat it like a kill. This is carrion, as in nature (0001).
 - **Random numbers:** it draws from `Math.random`, not the monthly `game.rng`.
 - **The 16-carcass limit:** when it's full, the oldest natural body goes first, so a die-off never
   crowds out kills that hunters and their packs are feeding at.
@@ -43,13 +42,19 @@ before (`c66d4df`) and after, on the PNW map:
 | Red-legged frogs established | 6 of 6 | 3 of 6 (stuck at a single frog) |
 
 The runs diverge early, because the bodies and the extra scavenging draw on the seeded random
-numbers. So these are trajectories, not paired comparisons.
+numbers. So these are separate trajectories, not paired comparisons.
 
-- **Prey:** the dip fits carrion keeping scavenging predators fed, so fewer leave hungry.
-- **Frogs:** nothing that feeds at carcasses eats frogs. The failures share an existing trap: one
-  early frog that can't breed alone, and makes newcomers less likely. Six seeds can't tell that
-  apart from an effect of this change.
-- **Open:** whether natural bodies should feed scavengers or be scenery only.
+- **No mechanism links carcasses to deer, elk or frogs.** The PNW scavengers (coyote, raccoon)
+  don't hunt them. The cougar never visits a body it didn't kill. Natural mortality is unchanged.
+  Prey ignore carcasses, and the landscape of fear records hunts, not bodies.
+- **Hungry predators don't leave on the difficulty this runs at:** they only leave on Challenging.
+- **The differences are noise:** deer t = 0.8 and elk t = 1.3, not significant. The one elk run
+  that fell to 2 had its herd arrive a year later, 3 animals instead of 5. The frog failures are the
+  existing trap of a lone early frog that can't breed.
+
+Cole confirmed that every carcass, a kill's or a natural death's, belongs to the food web. A body's
+meals are finite (one per 20 units of length), and whatever the scavengers don't eat goes when its
+timer ends: the decomposers' share. So carrion can't feed scavengers without limit.
 
 ## Decision
 
