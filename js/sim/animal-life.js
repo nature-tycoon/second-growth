@@ -222,8 +222,10 @@ export function startFeed(wl, a, def, b) {
   a.carcass = c.id;
 }
 
-// Large land animals leave a body when they die; small, flying and swimming ones don't.
-export const leavesCarcass = def => (def.sprite.len || 0) >= 20 && def.move !== 'swim' && def.move !== 'fly';
+// Large land animals leave a body when they die; small, flying and swimming ones don't. Nor do
+// tree-dwellers yet: their models are posed for climbing (an orangutan upright), which the
+// skeletons in render3d/carcass-decay.js, fitted to a level body on four legs, can't follow.
+export const leavesCarcass = def => (def.sprite.len || 0) >= 20 && def.move !== 'swim' && def.move !== 'fly' && def.move !== 'tree';
 
 // At most 16 carcasses at once. The oldest body of an animal that died naturally goes first, so a
 // winter's die-off can't crowd out the kills hunters and their packs are still feeding at.

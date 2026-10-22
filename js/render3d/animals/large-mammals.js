@@ -16,6 +16,7 @@ function capybara(m, s) {
   for (const side of [1, -1]) {
     m.ell([L * 0.57, by - H * 0.04, side * H * 0.08], [H * 0.035, H * 0.03, H * 0.035], '#1a120c', { ...hd, lo: true });  // nostrils on top
     m.ell([L * 0.4, by + H * 0.26, side * H * 0.22], [H * 0.07, H * 0.07, H * 0.05], '#140e0a', { ...hd, lo: true });   // eyes high up
+    m.eyeSpot = [L * 0.4, by + H * 0.26, H * 0.22];
     m.ell([L * 0.28, by + H * 0.44, side * H * 0.16], [H * 0.08, H * 0.1, H * 0.05], shade(s.color, -0.3), hd);         // little round ears
   }
   const lc = shade(s.color, -0.22), r0 = H * 0.17, r1 = H * 0.12;
@@ -46,6 +47,7 @@ function tapir(m, s) {
   if (!s.saddle) m.limb([hp[0] - H * 0.05, hp[1] + H * 0.2, 0], [neck[0] - H * 0.15, neck[1] + H * 0.34, 0], H * 0.07, H * 0.05, shade(s.color, -0.3), hd); // mane
   for (const side of [1, -1]) {
     m.ell([hp[0] + H * 0.08, hp[1] + H * 0.06, side * H * 0.17], [H * 0.04, H * 0.04, H * 0.03], '#0e0c0a', { ...hd, lo: true });
+    m.eyeSpot = [hp[0] + H * 0.08, hp[1] + H * 0.06, H * 0.17]; // (eyes)
     const ear = u => u.y > 0.5 || Math.abs(u.x) > 0.75 ? col(s.rim) : col(shade(s.color, -0.1));
     m.ell([hp[0] - H * 0.14, hp[1] + H * 0.3, side * H * 0.14], [H * 0.09, H * 0.13, H * 0.04], ear, { ...hd, rot: [side * -0.35, 0, 0.3] });
   }

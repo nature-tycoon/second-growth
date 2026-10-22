@@ -78,6 +78,7 @@ export function buildSpecies(def) {
     default: m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
   }
   mo.eye = m.eyeAt || null; mo.eyePivot = m.eyePivot || [0, 0, 0]; // where the eyes are, in model units (for eye-shine)
+  mo.eyeSpot = m.eyeAt || m.eyeSpot || null; // (and for fitting a kill's skull: every model with eyes)
   if (['monkey', 'orangutan'].includes(s.kind)) {
     mo.primate = s.kind === 'orangutan' ? 2 : s.ape ? 3 : 1;
     mo.bob = 0; mo.len = s.len;

@@ -668,6 +668,7 @@ function caiman(m, s) {
     m.ell([L * 0.32, cy + L * 0.035, side * L * 0.035], [L * 0.022, L * 0.018, L * 0.02], shade(s.color, 0.1), { ...hd, lo: true });
     m.ell([L * 0.335, cy + L * 0.04, side * L * 0.04], [L * 0.01, L * 0.012, L * 0.01], '#c8a030', { ...hd, lo: true });
   }
+  m.eyeSpot = [L * 0.335, cy + L * 0.04, L * 0.04]; // (eyes)
   // the tail starts well inside the haunches (where the body is still thick) so there's no pinch
   const base = [-L * 0.17, cy, 0], to = { part: P.TAIL, pivot: [-L * 0.24, cy, 0] };
   for (let k = 0; k < 7; k++) {

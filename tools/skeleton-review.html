@@ -21,6 +21,7 @@ const revision=Date.now();
 const {createAnimals}=await import('../js/data/animals.js?skeletons='+revision);
 const {Fauna,buildSpecies}=await import('../js/render3d/fauna.js?skeletons='+revision);
 const {carcassDecay,fitCarcass,remainsGeometry,Remains}=await import('../js/render3d/carcass-decay.js?skeletons='+revision);
+const {leavesCarcass}=await import('../js/sim/animal-life.js?skeletons='+revision);
 const maps=['pnw','atlanta','amazon','sumatra','chinandega','serengeti'];
 const controls=Object.fromEntries(['map','show','age','eaten','framing','view'].map(id=>[id,document.getElementById(id)]));
 for(const map of ['all',...maps])controls.map.add(new Option(map,map));
@@ -35,7 +36,7 @@ const entries=[];
 for(const map of maps){
  const list=createAnimals((await import(`../js/data/animals-${map}.js?skeletons=${revision}`)).default,map),defs=list.animals||list;
  for(const base of defs){
-  if(!((base.sprite?.len||0)>=20&&base.move!=='swim'&&base.move!=='fly'))continue;
+  if(!leavesCarcass(base))continue;
   // (and the adult male look where there is one: antlers, horns and tusks often come with it)
   for(const def of [base,...(base.sprite.male?[{...base,key:base.key+'-male',sprite:{...base.sprite,...base.sprite.male}}]:[])]){
   const pool=F.pool(def),anatomy=fitCarcass(pool),bones=remainsGeometry(anatomy,1);bones.computeBoundingBox();
@@ -63,7 +64,7 @@ function draw(){
   e.article.hidden=controls.map.value!=='all'&&e.map!==controls.map.value;if(e.article.hidden)continue;count++;
   const show=controls.show.value,lying=show==='carcass',a=e.anatomy;
   F.begin();R.begin();
-  if(e.ghostMesh)e.ghostMesh.visible=false;
+  for(const o of entries)if(o.ghostMesh)o.ghostMesh.visible=false; // (the scene is shared: only this card's outline)
   let d;
   if(lying){
    const max=27,meals0=Math.max(1,Math.ceil(e.def.sprite.len/20));

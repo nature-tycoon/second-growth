@@ -226,6 +226,7 @@ class Model {
 
 // ---------------------------------------------------------------- mammals
 function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
+  m.eyeSpot ||= [at[0] + rx, at[1] + ry, rz]; // (where the eyes are, for fitting a kill's skull; eyeAt is for eye-shine)
   for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: true, part, pivot });
 }
 

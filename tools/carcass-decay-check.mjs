@@ -12,7 +12,7 @@ const { carcassDecay, carcassAnatomy, remainsGeometry, Remains } = await import(
 const { Fauna, carcassPhase } = await import('../js/render3d/animals/animal-pools.js');
 const { buildSpecies } = await import('../js/render3d/animals/animal-model.js');
 const { createAnimals, drawDef } = await import('../js/data/animals.js');
-const { leaveBody, startFeed } = await import('../js/sim/animal-life.js');
+const { leaveBody, startFeed, leavesCarcass } = await import('../js/sim/animal-life.js');
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { fails++; console.log('FAIL', msg); } };
@@ -65,12 +65,12 @@ for (const map of maps) {
   const build = (await import(`../js/data/animals-${map}.js`)).default;
   const list = createAnimals(build, map), defs = list.animals || list;
   for (const def of defs) {
-    if (!((def.sprite?.len || 0) >= 20 && def.move !== 'swim' && def.move !== 'fly')) continue;
+    if (!leavesCarcass(def)) continue;
     species++;
     const name = `${map} ${def.key}`;
     const { geo, motion } = buildSpecies(def), a = carcassAnatomy(geo, motion), H = a.spineY - a.bellyY;
     geo.computeBoundingBox();
-    const body = geo.boundingBox.clone().expandByScalar(H * 0.15);
+    const body = geo.boundingBox.clone().expandByScalar(Math.max(H * 0.15, a.skull.tall * 0.5)); // (eye-socket rims stand a little proud of a flat head)
     ok(H > 0 && a.W > 0 && a.front > a.back && a.x1 > a.x0, `${name}: torso measured (${a.spineY.toFixed(1)} over ${a.bellyY.toFixed(1)}, ${a.back.toFixed(1)}..${a.front.toFixed(1)})`);
     ok(a.hips.filter(Boolean).length === 4 && a.hips.every((h, k) => !h || h.y > a.feet[k].y), `${name}: four legs, hips above feet`);
     ok(a.snout.x > a.neck.x, `${name}: snout ahead of the neck`);
@@ -125,7 +125,7 @@ for (const [map, keys] of Object.entries(HORNED)) {
   ok(leaveBody(wl, an('wildebeest', 1)) && wl.carcasses.length === 1, 'a wildebeest that dies naturally leaves a body');
   const c = wl.carcasses[0];
   ok(c.by == null && c.meals === c.meals0 && c.meals > 0 && c.t >= 21 && c.t <= 33 && c.max === c.t, 'the body has meals for scavengers and lasts 21-33 days');
-  const small = defs.find(d => !((d.sprite.len || 0) >= 20 && d.move !== 'swim' && d.move !== 'fly') && d.move === 'ground'), bird = defs.find(d => d.move === 'fly');
+  const small = defs.find(d => !leavesCarcass(d) && d.move === 'ground'), bird = defs.find(d => d.move === 'fly');
   ok(!leaveBody(wl, { ...an('zebra', 2), sp: defs.indexOf(small) }) && !leaveBody(wl, { ...an('zebra', 3), sp: defs.indexOf(bird) }), `no body for small animals (${small.key}) or birds (${bird.key})`);
   ok(!leaveBody(wl, { ...an('zebra', 4), leaving: true }), 'no body for an animal walking off the map');
   wl.carcasses = [];

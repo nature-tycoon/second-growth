@@ -45,22 +45,20 @@ export function carcassDecay(c) {
 }
 
 // The body plan a skeleton is fitted to, measured from a species' model (model units, x forward,
-// y up): the torso's spine and belly heights and half-width between the shoulders and hips, each
-// leg's hip and foot, and the neck pivot to the snout tip. Legs a model doesn't have are null.
+// y up): the torso's spine and belly heights and half-width between the shoulders and hips; each
+// leg traced from its hip through its knee and hock to its foot; the tail traced from its root to
+// its tip; and the skull (see skullFit). Legs or a tail a model doesn't have are null.
 export function carcassAnatomy(geo, motion = null) {
   const pos = geo.attributes.position, part = geo.attributes.aPart, piv = geo.attributes.aPivot;
-  const hips = [null, null, null, null], feet = [null, null, null, null], body = [];
-  let neck = null, snout = null;
+  const ranges = geo.userData.hard || [], isHard = i => ranges.some(([a, b]) => i >= a && i < b);
+  const hips = [null, null, null, null], legPts = [[], [], [], []], body = [], head = [], tailPts = [];
+  let neck = null, tailRoot = null;
   for (let i = 0; i < pos.count; i++) {
-    const k = Math.round(part.getX(i)), x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-    if (k === 0) body.push(x, y, z);
-    else if (k >= 1 && k <= 4) {
-      hips[k - 1] ||= new THREE.Vector3(piv.getX(i), piv.getY(i), piv.getZ(i));
-      if (!feet[k - 1] || y < feet[k - 1].y) feet[k - 1] = new THREE.Vector3(x, y, z);
-    } else if (k === 8) {
-      neck ||= new THREE.Vector3(piv.getX(i), piv.getY(i), piv.getZ(i));
-      if (!snout || x > snout.x) snout = new THREE.Vector3(x, y, 0);
-    }
+    const k = Math.round(part.getX(i)), v = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
+    if (k === 0) body.push(v.x, v.y, v.z);
+    else if (k >= 1 && k <= 4) { hips[k - 1] ||= new THREE.Vector3(piv.getX(i), piv.getY(i), piv.getZ(i)); legPts[k - 1].push(v); }
+    else if (k === 5) { tailRoot ||= new THREE.Vector3(piv.getX(i), piv.getY(i), piv.getZ(i)); tailPts.push(v); }
+    else if (k === 8 && !isHard(i)) { neck ||= new THREE.Vector3(piv.getX(i), piv.getY(i), piv.getZ(i)); head.push(v); }
   }
   const xs = [];
   for (let i = 0; i < body.length; i += 3) xs.push(body[i]);
@@ -75,46 +73,81 @@ export function carcassAnatomy(geo, motion = null) {
   }
   if (!Number.isFinite(top)) { top = 1; bottom = 0; wide = 0.5; }
   const H = top - bottom;
-  for (const f of feet) if (f) f.y = Math.max(f.y, H * 0.05);
-  neck ||= new THREE.Vector3(x1, top - H * 0.1, 0); snout ||= neck.clone().add(new THREE.Vector3(H * 0.6, 0, 0));
-  // the skull: along the head itself (not the neck, which can be long), from the middle of the
-  // head near the snout tip (medians, so ears, horns and antlers don't pull it) to the tip; as
-  // wide and deep as most of the head there
-  const pct = (list, f, fallback) => list.length ? list.sort((a, b) => a - b)[Math.floor(list.length * f)] : fallback;
-  const R = Math.min(snout.distanceTo(neck) * 0.55, H * 0.8), near = [], v = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i++) {
-    if (Math.round(part.getX(i)) !== 8) continue;
-    v.set(pos.getX(i), pos.getY(i), pos.getZ(i));
-    if (v.distanceTo(snout) < R) near.push(v.clone());
-  }
-  const mid = near.length ? new THREE.Vector3(pct(near.map(p => p.x), 0.5), pct(near.map(p => p.y), 0.5), 0) : neck.clone().lerp(snout, 0.7);
-  const dir = snout.clone().sub(mid); if (dir.lengthSq() < 1e-6) dir.set(1, 0, 0);
-  const skullLen = clamp(dir.length() * 2, H * 0.55, H * 0.85); dir.normalize(); // (a skull is about as long as the chest is deep)
-  const ws = [], hs = [];
-  for (const p of near) {
-    v.copy(p).sub(snout);
-    const along = -v.dot(dir);
-    if (along < 0 || along > skullLen) continue;
-    ws.push(Math.abs(v.z)); hs.push(Math.abs(v.addScaledVector(dir, along).y));
-  }
-  const skull = { len: skullLen, dir, back: snout.clone().addScaledVector(dir, -skullLen), wide: clamp(pct(ws, 0.7, skullLen * 0.2), skullLen * 0.17, skullLen * 0.3), tall: clamp(pct(hs, 0.7, skullLen * 0.2), skullLen * 0.17, skullLen * 0.3) };
-  // Where the model has eyes (motion.eye, for eye-shine), the skull is anchored to them and the
-  // snout tip instead, so its sockets sit where the eyes were and the horns, antlers and tusks
-  // (copied from the model's own head) grow from it. In skullParts' frame the eye is at
-  // (0.33, 0.07 h) and the tip at (1, -0.035 h), in skull lengths.
-  if (motion?.eye) {
-    const eye = new THREE.Vector3(motion.eye[0], motion.eye[1], 0), v = snout.clone().sub(eye);
-    if (v.x > 0) {
-      let S = skull.len, h = 1;
-      for (let k = 0; k < 3; k++) { S = v.length() / Math.hypot(0.67, 0.105 * h); h = clamp(skull.tall / (0.2 * S), 0.85, 1.5); }
-      S = clamp(S, H * 0.3, H * 1.2);
-      const th = Math.atan2(v.y, v.x) - Math.atan2(-0.105 * h, 0.67), d = new THREE.Vector3(Math.cos(th), Math.sin(th), 0), up = new THREE.Vector3(-d.y, d.x, 0);
-      skull.len = S; skull.dir = d; skull.tall = 0.2 * S * h;
-      skull.back = eye.clone().addScaledVector(d, -0.33 * S).addScaledVector(up, -0.07 * S * h);
-      skull.wide = clamp(Math.abs(motion.eye[2]) * 0.21 / 0.165, S * 0.12, S * 0.32);
+  // each leg: the middle of the leg at two thirds and a third of the way down (the knee or elbow,
+  // and the hock or wrist), so the bones follow its bends
+  const legs = hips.map((h, k) => {
+    const pts = legPts[k];
+    if (!h || !pts.length) return null;
+    const foot = pts.reduce((a, b) => b.y < a.y ? b : a).clone(); foot.y = Math.max(foot.y, H * 0.05);
+    const band = y => { const near = pts.filter(p => Math.abs(p.y - y) < (h.y - foot.y) * 0.07); if (!near.length) return null; const c = new THREE.Vector3(); for (const p of near) c.add(p); return c.divideScalar(near.length); };
+    const knee = band(mix(foot.y, h.y, 0.66)) || h.clone().lerp(foot, 0.34), hock = band(mix(foot.y, h.y, 0.3)) || h.clone().lerp(foot, 0.7);
+    return [h.clone(), knee, hock, foot];
+  });
+  // the tail: the middle of the tail in six steps out from its root
+  let tail = null;
+  if (tailRoot && tailPts.length > 8) {
+    const far = Math.max(...tailPts.map(p => p.distanceTo(tailRoot)));
+    tail = [tailRoot.clone()];
+    for (let k = 1; k <= 6; k++) {
+      const near = tailPts.filter(p => Math.abs(p.distanceTo(tailRoot) - far * k / 6.5) < far / 13);
+      if (!near.length) continue;
+      const c = new THREE.Vector3(); for (const p of near) c.add(p); c.divideScalar(near.length);
+      tail.push(c);
     }
+    if (tail.length < 3) tail = null;
   }
-  return { x0, x1, front, back, spineY: top - H * 0.1, bellyY: bottom + H * 0.08, W: wide * 0.86, hips, feet, neck, snout, skull, hard: hardParts(geo) };
+  neck ||= new THREE.Vector3(x1, top - H * 0.1, 0);
+  return { x0, x1, front, back, spineY: top - H * 0.1, bellyY: bottom + H * 0.08, W: wide * 0.86, hips, legs, feet: legs.map(l => l?.[3] || null), tail, neck,
+    ...skullFit(head, neck, motion, H, x1 - x0), hard: hardParts(geo) };
+}
+
+// The skull, in two measured parts so each species keeps its own face: the cranium behind the
+// eyes, as wide as the eyes are apart, and the muzzle from the eyes to the snout tip (a cat's is
+// short, a crocodile's long). The snout tip is the head's foremost point near eye level, so an
+// elephant's or a tapir's trunk and a rhino's horn don't count. Models with no eye position
+// (motion.eyeSpot) fall back to the head's own proportions.
+//   base: on the skull's axis below the eyes; dir: along the muzzle; up: across it, upward
+//   muzzle, cranium: lengths in front of and behind base; wide, tall: the cranium's half-sizes
+function skullFit(head, neck, motion, H, L) {
+  const pct = (list, f, fallback) => list.length ? [...list].sort((a, b) => a - b)[Math.floor(list.length * f)] : fallback;
+  const spot = motion?.eyeSpot || motion?.eye, eye = spot ? new THREE.Vector3(spot[0], spot[1], 0) : null;
+  const pool = eye ? head.filter(p => p.y > eye.y - H * 0.45 && p.y < eye.y + H * 0.3 && p.x > eye.x) : head;
+  let snout = pool.length ? pool.reduce((a, b) => b.x > a.x ? b : a).clone() : neck.clone().add(new THREE.Vector3(H * 0.6, 0, 0));
+  snout.z = 0;
+  let wide, tall, base, dir, up = new THREE.Vector3();
+  const place = () => { base = eye.clone().addScaledVector(up.set(0, 1, 0), -0.35 * tall); dir = snout.clone().sub(base).normalize(); up.set(-dir.y, dir.x, 0); base = eye.clone().addScaledVector(up, -0.35 * tall); };
+  if (eye && snout.x > eye.x) {
+    // as wide as the eyes are apart, or as most of the head beside them where that's wider (a
+    // crocodile's eyes sit close together on a broad, flat head; a cat's face forward)
+    const eyeWide = Math.abs(spot[2]) / 0.8, beside = head.filter(p => Math.abs(p.x - eye.x) < eyeWide * 0.6).map(p => Math.abs(p.z));
+    wide = clamp(Math.max(eyeWide, pct(beside, 0.7, 0) * 0.9), H * 0.08, H * 0.7); tall = wide;
+    place();
+    // as deep as most of the head around the eyes, from the axis
+    const hs = head.filter(p => { const d = p.clone().sub(base).dot(dir); return d > -1.3 * wide && d < 0.3 * wide; }).map(p => Math.abs(p.clone().sub(base).dot(up)));
+    tall = clamp(pct(hs, 0.7, wide), wide * 0.5, wide * 1.25);
+    place();
+  } else {
+    const mid = head.length ? new THREE.Vector3(pct(head.map(p => p.x), 0.5), pct(head.map(p => p.y), 0.5), 0) : neck.clone().lerp(snout, 0.7);
+    dir = snout.clone().sub(mid); if (dir.lengthSq() < 1e-6) dir.set(1, 0, 0);
+    const len = clamp(dir.length() * 2, H * 0.55, H * 0.85); dir.normalize(); up.set(-dir.y, dir.x, 0);
+    wide = len * 0.21; tall = len * 0.2;
+    base = snout.clone().addScaledVector(dir, -len * 0.67);
+  }
+  const muzzle = clamp(snout.clone().sub(base).dot(dir), wide * 0.4, L * 0.9), cranium = 1.15 * wide; // (a gharial's snout is longer than its chest)
+  // the muzzle's own width and depth at stations along it (most of the head there), so a
+  // gharial's snout stays thin and a hippo's broad
+  const profile = MUZZLE.map(([u]) => {
+    const near = head.map(p => p.clone().sub(base)).filter(q => Math.abs(q.dot(dir) - u * muzzle) < muzzle * 0.08 + wide * 0.05);
+    return near.length ? { w: pct(near.map(q => Math.abs(q.z)), 0.7), t: pct(near.map(q => Math.abs(q.dot(up))), 0.7) } : null;
+  });
+  // (a station with no vertices, along a plain tube, takes after the stations either side of it)
+  profile.forEach((p, k) => {
+    if (p) return;
+    const prev = profile.slice(0, k).reverse().find(Boolean), next = profile.slice(k + 1).find(Boolean);
+    profile[k] = prev && next ? { w: Math.min(prev.w, next.w), t: Math.min(prev.t, next.t) } : prev || next || { w: wide, t: tall };
+  });
+  const skull = { base, dir, up, muzzle, cranium, wide, tall, profile, len: muzzle + cranium, back: base.clone().addScaledVector(dir, -cranium) };
+  return { snout, skull };
 }
 
 // The model's horns, antlers and tusks (the vertex ranges animals/model-core.js tags as hard), as
@@ -170,52 +203,70 @@ function loft(sections, seg = 10) {
 }
 const DARK = 0x3a2c22; // (the hollows: eye sockets, nasal opening, hip sockets)
 
-// A realistic skull in its own frame: x from the back of the skull (0) to the snout tip (len), y
-// up, z across; wide and tall are its half-width and half-depth at the cranium.
-function skullParts(len, wide, tall) {
-  const S = len, w = wide / (S * 0.21), h = tall / (S * 0.2), parts = [];
-  const sec = (t, y, ry, rz) => [t * S, y * S * h, ry * S * h, rz * S * w];
-  // cranium behind the eyes, narrowing past them into a long muzzle (upper jaw)
-  parts.push(soft(loft([sec(0, 0.03, 0.08, 0.08), sec(0.05, 0.04, 0.16, 0.16), sec(0.15, 0.04, 0.2, 0.21), sec(0.27, 0.035, 0.19, 0.2),
-    sec(0.38, 0.02, 0.14, 0.14), sec(0.5, 0, 0.115, 0.105), sec(0.7, -0.02, 0.1, 0.09), sec(0.88, -0.03, 0.085, 0.08), sec(0.96, -0.035, 0.075, 0.072), sec(1, -0.035, 0.045, 0.05)], 12)));
+// The muzzle's stations: [along it, centre height, depth, width], the last three as shares of the
+// cranium's half-sizes, before narrowing to the head's measured muzzle.
+const MUZZLE = [[0.12, 0, 0.7, 0.68], [0.35, -0.08, 0.55, 0.5], [0.65, -0.15, 0.45, 0.4], [0.9, -0.2, 0.38, 0.34], [1, -0.22, 0.2, 0.22]];
+
+// A skull in its own frame: x along the muzzle with the eyes at 0, the cranium behind (to
+// -cranium) and the muzzle in front (to muzzle), y up, z across. wide and tall are the cranium's
+// half-sizes; the muzzle tapers from about two thirds of them to a blunt tip, never wider or
+// deeper than the head's own muzzle (profile).
+function skullParts({ muzzle: M, cranium: C, wide: w, tall: t, profile }) {
+  const parts = [], m = Math.min(w, t);
+  const mz = MUZZLE.map(([u, y, ry, rz], k) => [u * M, y * t, Math.min(ry * t, (profile?.[k]?.t ?? t) * 0.85), Math.min(rz * w, (profile?.[k]?.w ?? w) * 0.85)]);
+  const at = u => { // (the muzzle's section at a share of its length)
+    let k = 0; while (k < mz.length - 2 && u * M > mz[k + 1][0]) k++;
+    const [a, b] = [mz[k], mz[k + 1]], f = clamp((u * M - a[0]) / (b[0] - a[0] || 1), 0, 1);
+    return { y: mix(a[1], b[1], f), ry: mix(a[2], b[2], f), rz: mix(a[3], b[3], f) };
+  };
+  // cranium, then the muzzle (the upper jaw)
+  parts.push(soft(loft([[-C, 0.1 * t, 0.32 * t, 0.32 * w], [-0.9 * C, 0.12 * t, 0.72 * t, 0.72 * w], [-0.6 * C, 0.12 * t, t, w], [-0.25 * C, 0.1 * t, 0.95 * t, 0.95 * w], ...mz], 12)));
+  const R = Math.min(w * (M < 1.3 * C ? 0.36 : 0.3), 0.5 * t); // (eye sockets: bigger in a short face, as a cat's)
   for (const side of [1, -1]) {
-    // eye socket: a dark hollow ringed by a bony rim, high on the side just in front of the cranium
-    const eye = [0.33 * S, 0.07 * S * h, side * 0.165 * S * w];
-    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(0.06 * S, 0.055 * S * h, 0.035 * S * w); g.translate(...eye); } }));
-    parts.push(soft(new THREE.TorusGeometry(0.068 * S, 0.016 * S, 5, 12), { transform: g => { g.scale(1, h, 1); g.rotateY(side * 0.35); g.translate(eye[0], eye[1], eye[2] + side * 0.012 * S); } }));
-    // cheekbone (zygomatic arch), bowed out below the eye and back to the ear
-    parts.push(rod([0.36 * S, -0.03 * S * h, side * 0.16 * S * w], [0.24 * S, -0.04 * S * h, side * 0.22 * S * w], 0.02 * S, 0.02 * S, 5));
-    parts.push(rod([0.24 * S, -0.04 * S * h, side * 0.22 * S * w], [0.1 * S, -0.01 * S * h, side * 0.19 * S * w], 0.02 * S, 0.018 * S, 5));
+    // eye socket: a dark hollow ringed by a bony rim
+    const eye = [0, 0.35 * t, side * 0.74 * w];
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(R, R * 0.9, R * 0.5); g.translate(...eye); } }));
+    parts.push(soft(new THREE.TorusGeometry(R * 1.1, R * 0.25, 5, 12), { transform: g => { g.rotateY(side * 0.3); g.translate(eye[0], eye[1], eye[2] + side * R * 0.15); } }));
+    // cheekbone (zygomatic arch), bowed out below the eye and back toward the ear
+    const arch = [[0.12 * M, -0.25 * t, side * 0.66 * w], [-0.3 * C, -0.3 * t, side * 1.02 * w], [-0.75 * C, -0.15 * t, side * 0.85 * w]];
+    parts.push(rod(arch[0], arch[1], 0.1 * m, 0.1 * m, 5), rod(arch[1], arch[2], 0.1 * m, 0.09 * m, 5));
     // lower jaw: up from its angle to the joint below the ear, and forward to the chin
-    const joint = [0.11 * S, -0.04 * S * h, side * 0.125 * S * w], angle = [0.15 * S, -0.21 * S * h, side * 0.12 * S * w];
-    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { transform: g => { g.scale(0.065 * S, 0.09 * S * h, 0.014 * S); g.rotateZ(-0.25); g.translate(0.14 * S, -0.13 * S * h, side * 0.122 * S * w); } }));
-    parts.push(rod(joint, angle, 0.022 * S, 0.026 * S, 5));
-    const jaw = [angle, [0.42 * S, -0.16 * S * h, side * 0.085 * S * w], [0.74 * S, -0.12 * S * h, side * 0.05 * S * w], [0.96 * S, -0.09 * S * h, side * 0.018 * S * w]];
-    for (let j = 0; j < 3; j++) parts.push(rod(jaw[j], jaw[j + 1], 0.028 * S * (1 - j * 0.15), 0.024 * S * (1 - j * 0.15), 5));
-    // cheek teeth along the upper jaw
-    for (let k = 0; k < 5; k++) parts.push(soft(new THREE.IcosahedronGeometry(0.018 * S, 0), { transform: g => g.translate((0.46 + k * 0.055) * S, (-0.105 + k * 0.006) * S * h, side * (0.075 - k * 0.004) * S * w) }));
+    const joint = [-0.7 * C, -0.3 * t, side * 0.62 * w], angle = [-0.6 * C, -1.05 * t, side * 0.58 * w];
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { transform: g => { g.scale(0.28 * C, 0.4 * t, 0.06 * w); g.translate(-0.62 * C, -0.65 * t, side * 0.6 * w); } }));
+    parts.push(rod(joint, angle, 0.1 * m, 0.12 * m, 5));
+    // (the jaw runs just under the muzzle, as wide and as thick as it allows)
+    const jawAt = u => { const q = at(u); return [u * M, q.y - q.ry * 1.25, side * q.rz * 0.75]; }, jr = u => Math.min(0.13 * m, at(u).ry * 0.35);
+    const jaw = [angle, jawAt(0.3), jawAt(0.7), jawAt(0.97)];
+    for (let j = 0; j < 3; j++) parts.push(rod(jaw[j], jaw[j + 1], jr([0.15, 0.3, 0.7][j]), jr([0.3, 0.7, 0.97][j]), 5));
+    // teeth along the upper jaw (a long jaw has more)
+    const n = clamp(Math.round(M / (0.3 * w)), 4, 14);
+    for (let k = 0; k < n; k++) {
+      const u = mix(0.15, 0.85, k / (n - 1)), q = at(u);
+      parts.push(soft(new THREE.IcosahedronGeometry(Math.min(0.07 * m, q.rz * 0.25), 0), { transform: g => g.translate(u * M, q.y - q.ry * 0.95, side * q.rz * 0.7) }));
+    }
     // the knuckles the skull sits on the spine by
-    parts.push(soft(new THREE.IcosahedronGeometry(0.03 * S, 0), { transform: g => g.translate(0.005 * S, -0.03 * S * h, side * 0.04 * S * w) }));
+    parts.push(soft(new THREE.IcosahedronGeometry(0.14 * m, 0), { transform: g => g.translate(-C, -0.15 * t, side * 0.2 * w) }));
   }
-  parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(0.02 * S, 0.032 * S * h, 0.035 * S * w); g.translate(0.99 * S, -0.03 * S * h, 0); } })); // (nasal opening)
+  const tip = mz[mz.length - 1];
+  parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(0.03 * M + 0.02 * w, tip[2] * 0.6, tip[3] * 0.65); g.translate(0.99 * M, tip[1], 0); } })); // (nasal opening)
   return parts;
+}
+
+// A lofted blade from p to q: thin across one way (y), wide the other (z), its wide side turned
+// toward up. sections: [t along it, thin half-size, wide half-size], in torso depths H.
+function bladeH(p, q, sections, up, H) {
+  const d = q.clone().sub(p), len = d.length(); d.normalize();
+  const wideAxis = up.clone().addScaledVector(d, -up.dot(d)).normalize(), thin = new THREE.Vector3().crossVectors(wideAxis, d);
+  const g = loft(sections.map(([t, ry, rz]) => [t * len, 0, ry * H, rz * H]), 12);
+  g.applyMatrix4(new THREE.Matrix4().makeBasis(d, thin, wideAxis).setPosition(p));
+  return soft(g);
 }
 
 // Each hip bone either side of the sacrum: the ilium a flat blade flaring forward and up toward
 // the spine, the hip socket where the leg meets it, and the ischium and pubis behind and below
 // it closing a loop around the obturator hole. a: anatomy, socket: where the leg's hip is.
 function pelvisParts(a, H, L) {
-  const parts = [], basis = new THREE.Matrix4();
-  // a lofted blade from p to q: thin across one way (y), wide the other (z), turned so its flat
-  // faces out and up
-  const blade = (p, q, sections, up) => {
-    const d = q.clone().sub(p), len = d.length(); d.normalize();
-    const wideAxis = up.clone().addScaledVector(d, -up.dot(d)).normalize(), thin = new THREE.Vector3().crossVectors(wideAxis, d);
-    basis.makeBasis(d, thin, wideAxis).setPosition(p);
-    const g = loft(sections.map(([t, ry, rz]) => [t * len, 0, ry * H, rz * H]), 12);
-    g.applyMatrix4(basis);
-    return soft(g);
-  };
+  const parts = [], blade = (p, q, sections, up) => bladeH(p, q, sections, up, H);
   const tail = a.back - L * 0.1, sacrumY = a.spineY - H * 0.02;
   // sacrum: the fused vertebrae between the hip bones, a broad wedge on the spine
   parts.push(blade(new THREE.Vector3(a.back + L * 0.14, sacrumY, 0), new THREE.Vector3(tail, sacrumY, 0),
@@ -246,8 +297,8 @@ function pelvisParts(a, H, L) {
 // The skeleton, in the same model space as the body, as pieces that each carry their centre,
 // a scatter direction (along the ground once it's on its side) and a point in [0, 1] at which
 // they disappear. aBone: (disappear at, radius, whether it shows only once its limb withers,
-// kind: 0 spine, 1 rib, 2 pelvis, 3 leg, 4 neck, 5 skull, 6 horns, antlers and tusks, which keep
-// their own colour and go with the skull).
+// kind: 0 spine, 1 rib, 2 pelvis, 3 leg or shoulder blade, 4 neck, 5 skull, 6 horns, antlers and
+// tusks, which keep their own colour and go with the skull, 7 tail).
 export function remainsGeometry(a, seed = 1) {
   const r = mulberry32(seed), H = a.spineY - a.bellyY, L = a.x1 - a.x0, pieces = [];
   // (like: another piece this one is attached to, sharing its centre, scatter and radius)
@@ -287,20 +338,37 @@ export function remainsGeometry(a, seed = 1) {
   }
   // pelvis
   piece(pelvisParts(a, H, L), 0.9 + r() * 0.06, 0, 2);
-  // legs: shoulder or hip to foot, with a joint halfway
-  a.hips.forEach((h, k) => {
-    const f = a.feet[k];
-    if (!h || !f) return;
-    const m = h.clone().lerp(f, 0.5), lr = H * 0.045;
-    piece([rod(h.toArray(), m.toArray(), lr, lr * 0.8, 5), knob(m.toArray(), lr * 1.4)], 0.2 + r() * 0.6, 1, 3);
-    piece([rod(m.toArray(), f.toArray(), lr * 0.8, lr * 0.7, 5), knob(f.toArray(), lr * 1.2)], 0.15 + r() * 0.6, 1, 3);
+  // legs: hip or shoulder through the knee and hock (or elbow and wrist) to the foot, as the
+  // model's own leg bends, in two pieces
+  a.legs.forEach((leg, k) => {
+    if (!leg) return;
+    const [h, knee, hock, foot] = leg, lr = H * 0.045;
+    piece([rod(h.toArray(), knee.toArray(), lr, lr * 0.85, 5), knob(knee.toArray(), lr * 1.3)], 0.2 + r() * 0.6, 1, 3);
+    piece([rod(knee.toArray(), hock.toArray(), lr * 0.8, lr * 0.7, 5), knob(hock.toArray(), lr * 1.1), rod(hock.toArray(), foot.toArray(), lr * 0.65, lr * 0.6, 5),
+      soft(new THREE.SphereGeometry(1, 8, 6), { transform: g => { g.scale(lr * 1.6, lr * 0.9, lr * 1.2); g.translate(foot.x + lr * 0.4, foot.y, foot.z); } })], 0.15 + r() * 0.6, 1, 3);
+    // the shoulder blade: a flat blade against the ribs, from the shoulder joint up and back
+    // toward the spine
+    if (k < 2) {
+      const side = Math.sign(h.z) || (k === 0 ? 1 : -1), top = new THREE.Vector3(h.x - (a.front - a.back) * 0.16, a.spineY - H * 0.14, side * a.W * 0.72);
+      piece([bladeH(new THREE.Vector3(h.x, h.y, side * Math.min(Math.abs(h.z), a.W * 0.75)), top, [[0, 0.05, 0.07], [0.3, 0.03, 0.09], [0.7, 0.025, 0.17], [0.95, 0.025, 0.16], [1, 0.02, 0.06]], new THREE.Vector3(1, 0, 0), H)],
+        0.25 + r() * 0.55, 1, 3);
+    }
   });
+  // tail: tapering vertebrae along the model's tail
+  if (a.tail) {
+    const pts = [new THREE.Vector3(a.x0 + L * 0.04, a.spineY, 0), ...a.tail], parts = [];
+    for (let j = 0; j + 1 < pts.length; j++) {
+      const r0 = rs * mix(0.9, 0.3, j / (pts.length - 1)), r1 = rs * mix(0.9, 0.3, (j + 1) / (pts.length - 1));
+      parts.push(rod(pts[j].toArray(), pts[j + 1].toArray(), r0, r1, 5), knob(pts[j + 1].toArray(), r1 * 1.3));
+    }
+    piece(parts, 0.2 + r() * 0.5, 0, 7);
+  }
   // neck, from the shoulders to the back of the skull
-  const dir = a.skull.dir, S = a.skull.len, back = a.skull.back;
-  piece([rod([a.front + L * 0.06, a.spineY, 0], a.neck.toArray(), rs, rs, 5), rod(a.neck.toArray(), back.toArray(), rs * 0.9, rs * 0.8, 5)], 0.3 + r() * 0.5, 1, 4);
-  // skull, laid along the head from the back of the skull to the snout tip
-  const frame = new THREE.Matrix4().compose(back, new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir), new THREE.Vector3(1, 1, 1));
-  const skull = piece(skullParts(S, a.skull.wide, a.skull.tall).map(g => g.applyMatrix4(frame)), 0.97, 1, 5);
+  const sk = a.skull;
+  piece([rod([a.front + L * 0.06, a.spineY, 0], a.neck.toArray(), rs, rs, 5), rod(a.neck.toArray(), sk.back.toArray(), rs * 0.9, rs * 0.8, 5)], 0.3 + r() * 0.5, 1, 4);
+  // skull, along the muzzle with the eyes at its frame's origin
+  const frame = new THREE.Matrix4().makeBasis(sk.dir, sk.up, new THREE.Vector3(0, 0, 1)).setPosition(sk.base);
+  const skull = piece(skullParts(sk).map(g => g.applyMatrix4(frame)), 0.97, 1, 5);
   // the horns, antlers and tusks just as the model wears them, so the remains stay recognisable
   if (a.hard) piece([a.hard.clone()], 0.97, 1, 6, skull);
   const g = mergeGeometries(pieces);

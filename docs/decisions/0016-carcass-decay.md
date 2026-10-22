@@ -84,19 +84,32 @@ The bones are one skeleton per species (`remainsGeometry`), fitted to its model 
 `carcassAnatomy`. That measures the torso's spine and belly between the leg hips, each leg's hip and
 foot, and the neck pivot and snout tip. The skeleton has:
 
-- a spine;
+- a spine, continuing into tail vertebrae traced along the model's own tail;
 - 9 pairs of ribs arching from the spine around the flank;
+- shoulder blades against the ribs;
 - a pelvis: a sacrum on the spine, and on each side an ilium blade flaring forward from the hip
   socket (a dark cup with a rim), and an ischium and pubis that close a loop around the obturator hole;
-- leg bones;
+- leg bones traced through each model leg's own knee and hock (or elbow and wrist), at two thirds
+  and one third of its height, with a foot;
 - a neck;
-- a skull, lofted from cross-sections: a cranium narrowing into a muzzle, eye sockets with bony
-  rims, cheekbones, a nasal opening, a lower jaw with cheek teeth, and the condyles it sits on.
+- a skull, lofted from cross-sections: a cranium and a muzzle, eye sockets with bony rims,
+  cheekbones, a nasal opening, a lower jaw with teeth, and the condyles it sits on.
 
-The skull is anchored to the model's own eye (`motion.eye`) and snout tip. Its sockets sit where the
-eyes were, it lies along the head rather than the neck, and its width comes from how far apart the
-eyes are. A model with no eye position falls back to the head's measured length, 55-85% as deep as
-the chest.
+The skull is measured in two parts, so each species keeps its own face (`skullFit`):
+
+- **The eyes:** they anchor it, from `motion.eyeSpot`. That is `eyeAt` where the model has eye-shine,
+  otherwise the spot the `eyes()` helper or the builder records.
+- **The cranium:** behind the eyes, as wide as the eyes are apart, or as most of the head beside
+  them where that is wider (a crocodile's eyes sit close together on a broad head).
+- **The muzzle:** from the eyes to the snout tip. The snout tip is the head's foremost point near eye
+  level, ignoring horns and tusks, so an elephant's or tapir's trunk doesn't stretch the skull.
+- **Width and depth:** at five stations along the muzzle, never more than the head's own muzzle
+  there. A gharial's snout stays thin and a hippo's broad. The jaw and teeth follow it, with more
+  teeth in a long jaw.
+- **Eye sockets:** bigger in a short face.
+
+So cats get a short face and big sockets, grazers a long muzzle, crocodilians a long flat snout and
+elephants a dome. A model with no eye position falls back to the head's own proportions.
 
 The horns, antlers, ossicones and tusks are the model's own geometry. Model builders tag them
 `hard`, as a part option or for everything added inside an `antlers` callback, and
@@ -135,6 +148,10 @@ can slump, scatter and shrink pieces individually.
   `carcass-decay-check` keeps every species at 15 or fewer.
 - A skeleton takes 15-30 ms to build, once per species, when its first kill comes on screen.
 
+Tree-dwellers (`move: 'tree'`, the orangutans) leave no body yet, and are eaten where they're
+caught. Their models are posed for climbing (an orangutan stands upright), and this skeleton is
+fitted to a level body on four legs.
+
 ## Review page
 
 `http://localhost:8347/tools/skeleton-review.html` (with the server running) shows every species
@@ -148,7 +165,7 @@ pelvis, from four angles.
 
 - the stages only advance, eating strips the body, and every bone has gone by the end;
 - old carcasses without the new fields still draw;
-- for all 59 species that leave a carcass across the maps, the skeleton fits inside the body and has
+- for all 58 species that leave a carcass across the maps, the skeleton fits inside the body and has
   18 ribs, each rising to the spine;
 - 15 antlered, horned or tusked species keep them on the skeleton, touching the skull, and the zebra
   has none;
