@@ -304,7 +304,9 @@ function locks(m, a, b, count, len, r, paint, o = {}, seed = 1, down = [0, -1, 0
     m.limb(p0, p1, rr, rr * 0.62, paint, { ...o, caps: false, seg: 5 });
     m.limb(p1, p2, rr * 0.62, rr * 0.1, paint, { ...o, caps: false, seg: 5 });
   }
-  for (let i = first; i < m.parts.length; i++) m.parts[i].userData.canopyFur = true;
+  // a new object per part: a clone shares its cached source's userData, so tagging it in place
+  // would tag that source too, and every later part built from it
+  for (let i = first; i < m.parts.length; i++) m.parts[i].userData = { ...m.parts[i].userData, canopyFur: true };
 }
 
 // Jaguar and ocelot rosettes: broken dark rings with a warmer centre, laid on a jittered grid
