@@ -146,7 +146,19 @@ can slump, scatter and shrink pieces individually.
   rides in its animation phase: `carcassPhase()` in `animal-pools.js` packs strip, wither and dry
   below -100000, and the shader reads the phase as 0. The horn tag lives only in JavaScript.
   `carcass-decay-check` keeps every species at 15 or fewer.
-- A skeleton takes 15-30 ms to build, once per species, when its first kill comes on screen.
+- Skeletons are built from light, indexed primitives (`tube`, `ball`, lofts) with no welding. Ribs,
+  legs and tails are continuous tubes, and the horns are copied with their shared vertices. A
+  skeleton averages about 4,350 vertices and about 2.4 ms to build on an M-series Mac. The first
+  version, made of capped cylinders welded and then split into loose triangles, averaged 18,700
+  vertices and 6.5 ms.
+- Nothing is built while loading. `Actors.warmRemains` runs 2.5 s after the game starts and builds
+  skeletons in idle callbacks, one or two at a time. It only builds species already drawn alive (a
+  carcass always comes from one) and picks up new arrivals every few seconds.
+- The bone shader is compiled in the background with `compileAsync`, against the game's own scene.
+  Its program depends on whether the sun casts shadows, which automatic quality can switch off just
+  after loading, so it is compiled again whenever that changes. Without that, the first carcass
+  compiled a second program.
+- Anything not ready when it's needed is built on the spot, as before.
 
 Tree-dwellers (`move: 'tree'`, the orangutans) leave no body yet, and are eaten where they're
 caught. Their models are posed for climbing (an orangutan stands upright), and this skeleton is

@@ -9,7 +9,52 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
 import { clamp } from '../config.js';
 import { mulberry32 } from '../rng.js';
-import { prep, rod, soft } from './geometry/primitives.js';
+
+// ---------------------------------------------------------------- light bone primitives
+// Every part is indexed and coloured, with no welding: a skeleton is a few thousand shared
+// vertices, built in a millisecond or two, rather than tens of thousands of loose triangles.
+function paint(g, color = 0xffffff) {
+  const c = new THREE.Color(color), n = g.attributes.position.count, a = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(a, 3));
+  return g;
+}
+const indexed = g => { if (!g.index) g.setIndex([...Array(g.attributes.position.count).keys()]); return g; };
+// A primitive placed by transform (which may scale it unevenly, so its normals are remade).
+function soft(geo, { color = 0xffffff, transform = null } = {}) {
+  const g = indexed(geo);
+  for (const k of ['uv']) if (g.attributes[k]) g.deleteAttribute(k);
+  if (transform) { transform(g); g.computeVertexNormals(); } else if (!g.attributes.normal) g.computeVertexNormals();
+  return paint(g, color);
+}
+// A tube through points, a radius at each, closed with fans at both ends; rings carried along
+// the path so they don't twist.
+function tube(points, radii, sides = 5) {
+  const P = points.map(p => p.isVector3 ? p : new THREE.Vector3(...p)), n = P.length, pos = [], nor = [], idx = [];
+  const t = P.map((p, k) => P[Math.min(n - 1, k + 1)].clone().sub(P[Math.max(0, k - 1)]).normalize());
+  let nv = Math.abs(t[0].y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  for (let k = 0; k < n; k++) {
+    nv = nv.clone().addScaledVector(t[k], -nv.dot(t[k])).normalize();
+    const b = new THREE.Vector3().crossVectors(t[k], nv);
+    for (let j = 0; j < sides; j++) {
+      const a = j / sides * Math.PI * 2, d = nv.clone().multiplyScalar(Math.cos(a)).addScaledVector(b, Math.sin(a));
+      pos.push(...P[k].clone().addScaledVector(d, radii[k]).toArray()); nor.push(...d.toArray());
+    }
+  }
+  for (let k = 0; k + 1 < n; k++) for (let j = 0; j < sides; j++) {
+    const a = k * sides + j, b = k * sides + (j + 1) % sides;
+    idx.push(a, b, a + sides, b, b + sides, a + sides);
+  }
+  for (const [k, sign] of [[0, -1], [n - 1, 1]]) { // (end caps)
+    const c = pos.length / 3; pos.push(...P[k].toArray()); nor.push(...t[k].clone().multiplyScalar(sign).toArray());
+    for (let j = 0; j < sides; j++) { const a = k * sides + j, b = k * sides + (j + 1) % sides; idx.push(...(sign < 0 ? [c, b, a] : [c, a, b])); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setIndex(idx);
+  return paint(g);
+}
+const rod = (p0, p1, r0, r1, sides = 5) => tube([p0, p1], [r0, r1], sides);
+const ball = (r = 1) => new THREE.SphereGeometry(r, 6, 4);
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const mix = (a, b, t) => a + (b - a) * t;
@@ -155,19 +200,20 @@ function skullFit(head, neck, motion, H, L) {
 function hardParts(geo) {
   const ranges = geo.userData.hard;
   if (!ranges?.length) return null;
+  // (copied with their shared vertices, and the triangles among them renumbered)
   const pos = geo.attributes.position, nor = geo.attributes.normal, col = geo.attributes.color, idx = geo.index;
-  const P = [], N = [], C = [], hard = i => ranges.some(([a, b]) => i >= a && i < b);
-  const tris = idx ? idx.count : pos.count, at = k => idx ? idx.getX(k) : k;
-  for (let k = 0; k + 2 < tris; k += 3) {
-    if (!hard(at(k))) continue;
-    for (let j = 0; j < 3; j++) {
-      const i = at(k + j);
-      P.push(pos.getX(i), pos.getY(i), pos.getZ(i)); N.push(nor.getX(i), nor.getY(i), nor.getZ(i)); C.push(col.getX(i), col.getY(i), col.getZ(i));
-    }
-  }
-  if (!P.length) return null;
+  const map = new Map(), P = [], N = [], C = [], I = [];
+  const take = i => {
+    let k = map.get(i);
+    if (k === undefined) { k = map.size; map.set(i, k); P.push(pos.getX(i), pos.getY(i), pos.getZ(i)); N.push(nor.getX(i), nor.getY(i), nor.getZ(i)); C.push(col.getX(i), col.getY(i), col.getZ(i)); }
+    return k;
+  };
+  const hard = i => ranges.some(([a, b]) => i >= a && i < b), tris = idx ? idx.count : pos.count, at = k => idx ? idx.getX(k) : k;
+  for (let k = 0; k + 2 < tris; k += 3) if (hard(at(k))) I.push(take(at(k)), take(at(k + 1)), take(at(k + 2)));
+  if (!I.length) return null;
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  g.setIndex(I);
   return g;
 }
 
@@ -225,14 +271,14 @@ function skullParts({ muzzle: M, cranium: C, wide: w, tall: t, profile }) {
   for (const side of [1, -1]) {
     // eye socket: a dark hollow ringed by a bony rim
     const eye = [0, 0.35 * t, side * 0.74 * w];
-    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(R, R * 0.9, R * 0.5); g.translate(...eye); } }));
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 5), { color: DARK, transform: g => { g.scale(R, R * 0.9, R * 0.5); g.translate(...eye); } }));
     parts.push(soft(new THREE.TorusGeometry(R * 1.1, R * 0.25, 5, 12), { transform: g => { g.rotateY(side * 0.3); g.translate(eye[0], eye[1], eye[2] + side * R * 0.15); } }));
     // cheekbone (zygomatic arch), bowed out below the eye and back toward the ear
     const arch = [[0.12 * M, -0.25 * t, side * 0.66 * w], [-0.3 * C, -0.3 * t, side * 1.02 * w], [-0.75 * C, -0.15 * t, side * 0.85 * w]];
     parts.push(rod(arch[0], arch[1], 0.1 * m, 0.1 * m, 5), rod(arch[1], arch[2], 0.1 * m, 0.09 * m, 5));
     // lower jaw: up from its angle to the joint below the ear, and forward to the chin
     const joint = [-0.7 * C, -0.3 * t, side * 0.62 * w], angle = [-0.6 * C, -1.05 * t, side * 0.58 * w];
-    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { transform: g => { g.scale(0.28 * C, 0.4 * t, 0.06 * w); g.translate(-0.62 * C, -0.65 * t, side * 0.6 * w); } }));
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 5), { transform: g => { g.scale(0.28 * C, 0.4 * t, 0.06 * w); g.translate(-0.62 * C, -0.65 * t, side * 0.6 * w); } }));
     parts.push(rod(joint, angle, 0.1 * m, 0.12 * m, 5));
     // (the jaw runs just under the muzzle, as wide and as thick as it allows)
     const jawAt = u => { const q = at(u); return [u * M, q.y - q.ry * 1.25, side * q.rz * 0.75]; }, jr = u => Math.min(0.13 * m, at(u).ry * 0.35);
@@ -242,13 +288,13 @@ function skullParts({ muzzle: M, cranium: C, wide: w, tall: t, profile }) {
     const n = clamp(Math.round(M / (0.3 * w)), 4, 14);
     for (let k = 0; k < n; k++) {
       const u = mix(0.15, 0.85, k / (n - 1)), q = at(u);
-      parts.push(soft(new THREE.IcosahedronGeometry(Math.min(0.07 * m, q.rz * 0.25), 0), { transform: g => g.translate(u * M, q.y - q.ry * 0.95, side * q.rz * 0.7) }));
+      parts.push(soft(ball(Math.min(0.07 * m, q.rz * 0.25)), { transform: g => g.translate(u * M, q.y - q.ry * 0.95, side * q.rz * 0.7) }));
     }
     // the knuckles the skull sits on the spine by
-    parts.push(soft(new THREE.IcosahedronGeometry(0.14 * m, 0), { transform: g => g.translate(-C, -0.15 * t, side * 0.2 * w) }));
+    parts.push(soft(ball(0.14 * m), { transform: g => g.translate(-C, -0.15 * t, side * 0.2 * w) }));
   }
   const tip = mz[mz.length - 1];
-  parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(0.03 * M + 0.02 * w, tip[2] * 0.6, tip[3] * 0.65); g.translate(0.99 * M, tip[1], 0); } })); // (nasal opening)
+  parts.push(soft(new THREE.SphereGeometry(1, 8, 5), { color: DARK, transform: g => { g.scale(0.03 * M + 0.02 * w, tip[2] * 0.6, tip[3] * 0.65); g.translate(0.99 * M, tip[1], 0); } })); // (nasal opening)
   return parts;
 }
 
@@ -271,7 +317,7 @@ function pelvisParts(a, H, L) {
   // sacrum: the fused vertebrae between the hip bones, a broad wedge on the spine
   parts.push(blade(new THREE.Vector3(a.back + L * 0.14, sacrumY, 0), new THREE.Vector3(tail, sacrumY, 0),
     [[0, 0.04, 0.05], [0.15, 0.06, 0.14], [0.45, 0.055, 0.11], [0.8, 0.04, 0.06], [1, 0.03, 0.03]], new THREE.Vector3(0, 0, 1)));
-  for (let k = 0; k < 4; k++) parts.push(soft(new THREE.IcosahedronGeometry(H * 0.035, 0), { transform: g => { g.scale(1, 1.6, 0.6); g.translate(mix(a.back + L * 0.1, tail + L * 0.03, k / 3), sacrumY + H * 0.08, 0); } }));
+  for (let k = 0; k < 4; k++) parts.push(soft(ball(H * 0.035), { transform: g => { g.scale(1, 1.6, 0.6); g.translate(mix(a.back + L * 0.1, tail + L * 0.03, k / 3), sacrumY + H * 0.08, 0); } }));
   const legs = [a.hips[2], a.hips[3]].filter(Boolean);
   for (const side of [1, -1]) {
     const hip = legs.find(v => Math.sign(v.z || side) === side);
@@ -280,7 +326,7 @@ function pelvisParts(a, H, L) {
     const wing = new THREE.Vector3(a.back + L * 0.22, a.spineY - H * 0.12, side * a.W * 0.62);
     parts.push(blade(socket, wing, [[0, 0.05, 0.05], [0.25, 0.035, 0.06], [0.55, 0.028, 0.12], [0.85, 0.028, 0.19], [0.97, 0.025, 0.14], [1, 0.02, 0.05]], new THREE.Vector3(0, 0.6, side)));
     // hip socket: a dark cup with a raised rim, facing out
-    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { color: DARK, transform: g => { g.scale(H * 0.06, H * 0.06, H * 0.03); g.translate(socket.x, socket.y, socket.z + side * H * 0.03); } }));
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 5), { color: DARK, transform: g => { g.scale(H * 0.06, H * 0.06, H * 0.03); g.translate(socket.x, socket.y, socket.z + side * H * 0.03); } }));
     parts.push(soft(new THREE.TorusGeometry(H * 0.07, H * 0.025, 5, 12), { transform: g => g.translate(socket.x, socket.y, socket.z + side * H * 0.035) }));
     // ischium back to its knobbed tuberosity, and the pubis down to the midline; joined below,
     // they frame the obturator hole
@@ -288,7 +334,7 @@ function pelvisParts(a, H, L) {
     const pubis = new THREE.Vector3(a.back - L * 0.02, socket.y - H * 0.2, side * a.W * 0.06);
     const floor = new THREE.Vector3(a.back - L * 0.09, socket.y - H * 0.2, side * a.W * 0.06);
     parts.push(blade(socket, tuber, [[0, 0.045, 0.05], [0.5, 0.03, 0.05], [1, 0.045, 0.06]], new THREE.Vector3(0, 1, 0)));
-    parts.push(soft(new THREE.SphereGeometry(1, 8, 6), { transform: g => { g.scale(H * 0.07, H * 0.06, H * 0.045); g.translate(tuber.x, tuber.y, tuber.z); } }));
+    parts.push(soft(new THREE.SphereGeometry(1, 8, 5), { transform: g => { g.scale(H * 0.07, H * 0.06, H * 0.045); g.translate(tuber.x, tuber.y, tuber.z); } }));
     parts.push(rod(socket.toArray(), pubis.toArray(), H * 0.035, H * 0.03, 5), rod(pubis.toArray(), floor.toArray(), H * 0.04, H * 0.04, 5), rod(floor.toArray(), tuber.toArray(), H * 0.035, H * 0.04, 5));
   }
   return parts;
@@ -303,7 +349,7 @@ export function remainsGeometry(a, seed = 1) {
   const r = mulberry32(seed), H = a.spineY - a.bellyY, L = a.x1 - a.x0, pieces = [];
   // (like: another piece this one is attached to, sharing its centre, scatter and radius)
   const piece = (parts, gone, late, kind, like = null) => {
-    const g = mergeGeometries(parts.map(p => { const q = prep(p); q.userData = {}; return q; }));
+    const g = mergeGeometries(parts.map(p => { const q = indexed(p); q.userData = {}; return q; }));
     g.computeBoundingBox();
     const ang = r() * Math.PI * 2, far = (0.08 + r() * 0.25) * L, n = g.attributes.position.count;
     const c = like?.c || g.boundingBox.getCenter(new THREE.Vector3()), rad = like?.rad ?? g.boundingBox.getSize(new THREE.Vector3()).length() * 0.18;
@@ -315,11 +361,11 @@ export function remainsGeometry(a, seed = 1) {
     pieces.push(g);
     return { c, rad, scatter };
   };
-  const knob = (p, s) => soft(new THREE.IcosahedronGeometry(s, 0), { transform: g => g.translate(...p) });
+  const knob = (p, s) => soft(ball(s), { transform: g => g.translate(...p) });
   // spine: tail base to the shoulders, in segments with a knob for each vertebra
   const rs = H * 0.055, segs = 5;
   for (let k = 0; k < segs; k++) {
-    const xa = mix(a.x0 + L * 0.04, a.front + L * 0.06, k / segs), xb = mix(a.x0 + L * 0.04, a.front + L * 0.06, (k + 1) / segs), parts = [rod([xa, a.spineY, 0], [xb, a.spineY, 0], rs, rs, 5)];
+    const xa = mix(a.x0 + L * 0.04, a.front + L * 0.06, k / segs), xb = mix(a.x0 + L * 0.04, a.front + L * 0.06, (k + 1) / segs), parts = [rod([xa, a.spineY, 0], [xb, a.spineY, 0], rs, rs)];
     for (let j = 0; j < 3; j++) parts.push(knob([mix(xa, xb, (j + 0.5) / 3), a.spineY + rs * 0.6, 0], rs * 1.25));
     piece(parts, 0.35 + r() * 0.5, 0, 0);
   }
@@ -332,9 +378,7 @@ export function remainsGeometry(a, seed = 1) {
       const s = j / 6 * reach, down = (1 - Math.cos(s)) / 2;
       pts.push([x - down * span * 0.12, a.spineY - down * H * 0.9, side * Math.sin(s) * a.W * 0.92]);
     }
-    const parts = [];
-    for (let j = 0; j < 6; j++) parts.push(rod(pts[j], pts[j + 1], rr, rr * 0.9, 4));
-    piece(parts, 0.08 + r() * 0.62, 0, 1);
+    piece([tube(pts, pts.map((_, j) => rr * (1 - j * 0.017)), 4)], 0.08 + r() * 0.62, 0, 1);
   }
   // pelvis
   piece(pelvisParts(a, H, L), 0.9 + r() * 0.06, 0, 2);
@@ -343,9 +387,9 @@ export function remainsGeometry(a, seed = 1) {
   a.legs.forEach((leg, k) => {
     if (!leg) return;
     const [h, knee, hock, foot] = leg, lr = H * 0.045;
-    piece([rod(h.toArray(), knee.toArray(), lr, lr * 0.85, 5), knob(knee.toArray(), lr * 1.3)], 0.2 + r() * 0.6, 1, 3);
-    piece([rod(knee.toArray(), hock.toArray(), lr * 0.8, lr * 0.7, 5), knob(hock.toArray(), lr * 1.1), rod(hock.toArray(), foot.toArray(), lr * 0.65, lr * 0.6, 5),
-      soft(new THREE.SphereGeometry(1, 8, 6), { transform: g => { g.scale(lr * 1.6, lr * 0.9, lr * 1.2); g.translate(foot.x + lr * 0.4, foot.y, foot.z); } })], 0.15 + r() * 0.6, 1, 3);
+    piece([rod(h, knee, lr, lr * 0.85), knob(knee.toArray(), lr * 1.3)], 0.2 + r() * 0.6, 1, 3);
+    piece([tube([knee, hock, foot], [lr * 0.8, lr * 0.7, lr * 0.6]), knob(hock.toArray(), lr * 1.1),
+      soft(new THREE.SphereGeometry(1, 8, 5), { transform: g => { g.scale(lr * 1.6, lr * 0.9, lr * 1.2); g.translate(foot.x + lr * 0.4, foot.y, foot.z); } })], 0.15 + r() * 0.6, 1, 3);
     // the shoulder blade: a flat blade against the ribs, from the shoulder joint up and back
     // toward the spine
     if (k < 2) {
@@ -356,12 +400,8 @@ export function remainsGeometry(a, seed = 1) {
   });
   // tail: tapering vertebrae along the model's tail
   if (a.tail) {
-    const pts = [new THREE.Vector3(a.x0 + L * 0.04, a.spineY, 0), ...a.tail], parts = [];
-    for (let j = 0; j + 1 < pts.length; j++) {
-      const r0 = rs * mix(0.9, 0.3, j / (pts.length - 1)), r1 = rs * mix(0.9, 0.3, (j + 1) / (pts.length - 1));
-      parts.push(rod(pts[j].toArray(), pts[j + 1].toArray(), r0, r1, 5), knob(pts[j + 1].toArray(), r1 * 1.3));
-    }
-    piece(parts, 0.2 + r() * 0.5, 0, 7);
+    const pts = [new THREE.Vector3(a.x0 + L * 0.04, a.spineY, 0), ...a.tail], rad = pts.map((_, j) => rs * mix(0.9, 0.3, j / (pts.length - 1)));
+    piece([tube(pts, rad), ...pts.slice(1).map((p, j) => knob(p.toArray(), rad[j + 1] * 1.3))], 0.2 + r() * 0.5, 0, 7);
   }
   // neck, from the shoulders to the back of the skull
   const sk = a.skull;
@@ -370,7 +410,7 @@ export function remainsGeometry(a, seed = 1) {
   const frame = new THREE.Matrix4().makeBasis(sk.dir, sk.up, new THREE.Vector3(0, 0, 1)).setPosition(sk.base);
   const skull = piece(skullParts(sk).map(g => g.applyMatrix4(frame)), 0.97, 1, 5);
   // the horns, antlers and tusks just as the model wears them, so the remains stay recognisable
-  if (a.hard) piece([a.hard.clone()], 0.97, 1, 6, skull);
+  if (a.hard) piece([indexed(a.hard.clone())], 0.97, 1, 6, skull);
   const g = mergeGeometries(pieces);
   const col = g.attributes.color;
   const kind = g.attributes.aBone;

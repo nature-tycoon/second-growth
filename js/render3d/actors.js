@@ -2,7 +2,8 @@
 
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp } from '../config.js';
-import { drawDef, animalDef } from '../data/animals.js';
+import { drawDef, animalDef, maleLook } from '../data/animals.js';
+import { leavesCarcass } from '../sim/animal-life.js';
 import * as S from '../render/sprites.js';
 import { TREE_SHAPES } from './geometry/trees.js';
 import { contactShadow } from './geometry/features.js';
@@ -691,6 +692,37 @@ export class Actors {
       const s = (1 + Math.sin(time * 2.5) * 0.05) * clamp(selectedPose.foot * 0.62, 0.16, 1.4);
       this.ring.scale.set(s, 1, s);
     } else this.ring.visible = false;
+  }
+
+  // The skeleton of every kind on this map that can leave a body (and its male look, which can
+  // carry antlers, horns or tusks), built one or two at a time in idle moments after loading,
+  // with the bone shader compiled in the background once the first exists, so a kind's first
+  // carcass doesn't stall a frame. Only kinds already drawn alive: a carcass always comes from an
+  // animal that was, and building a model nobody has seen would cost more than the skeleton.
+  // Kinds that arrive later are picked up every few seconds; anything not ready when it's needed
+  // is still built on the spot. The shader depends on whether the sun casts shadows (which the
+  // game can switch off to keep up), so it's compiled again whenever that changes (lit()).
+  warmRemains(game, gl = null, camera = null, scene = null, lit = () => '') {
+    const waiting = [];
+    for (const def of game.catalog.animals) if (def && leavesCarcass(def)) waiting.push(def, ...(def.sprite.male ? [maleLook(def)] : []));
+    const idle = window.requestIdleCallback ? (f => window.requestIdleCallback(f, { timeout: 2000 })) : (f => setTimeout(() => f({ timeRemaining: () => 6 }), 80));
+    let compiled = gl?.compileAsync ? null : 'never';
+    const step = deadline => {
+      while (deadline.timeRemaining() > 5) {
+        const k = waiting.findIndex(def => this.fauna.species.has(this.fauna.modelKey(def)));
+        if (k < 0) break;
+        const def = waiting.splice(k, 1)[0];
+        this.remains.pool(this.fauna.modelKey(def), fitCarcass(this.fauna.pool(def)));
+      }
+      const p = this.remains.pools.values().next().value;
+      if (p && compiled !== 'never' && compiled !== lit()) {
+        // (against the game's own scene, so its lights pick the same program the bones will use)
+        compiled = lit(); const shown = p.mesh.visible; p.mesh.visible = true;
+        gl.compileAsync(p.mesh, camera, scene).catch(() => {}).finally(() => { p.mesh.visible = shown; });
+      }
+      setTimeout(() => idle(step), waiting.some(def => this.fauna.species.has(this.fauna.modelKey(def))) ? 0 : 4000);
+    };
+    idle(step);
   }
 
   // Two rivals in a bout, once both stand in their head-to-head stance: heads down with antlers

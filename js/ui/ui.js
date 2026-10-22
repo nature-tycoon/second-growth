@@ -141,6 +141,7 @@ export class UI {
     this.applySettings();
     this.saving.bind();
     this.warmPortraits();
+    setTimeout(() => this.renderer.warmRemains?.(game), 2500); // (once the first frames have settled)
     void music.prepare();
     const wake = () => { void music.start(); };
     window.addEventListener('pointerdown', wake, true);

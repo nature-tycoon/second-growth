@@ -187,6 +187,9 @@ export class Renderer {
     this.resize();
   }
 
+  // Kills' skeletons and their shader, prepared in idle moments (see Actors.warmRemains).
+  warmRemains(game) { this.actors.warmRemains(game, this.gl, this.camera, this.scene, () => `${this.gl.shadowMap.enabled}:${this.sun.castShadow}`); }
+
   // Simpler far-away trees (see far-models.js), for a computer that can't keep up.
   useFar(on) { this.farOn = !!on; this.flora.setFar(this.farOn); }
 
