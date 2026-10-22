@@ -114,12 +114,14 @@ function wingShape(kind, side) {
 }
 
 class Model {
-  constructor() { this.parts = []; }
+  constructor() { this.parts = []; this.hard = false; }
   // geo: a unit primitive; m: where it goes; paint(unitPos, worldPos) -> colour.
   // ext: a second placement (wings spread out), blended in by the shader when flying.
   // paintGeo: optional geometry whose positions are handed to paint() instead of geo's own
   // extSrc: optional geometry the ext placement is applied to, when geo itself was pre-shaped
-  add(geo, m, paint, { part = P.BODY, pivot = null, ext = null, paintGeo = null, extSrc = null } = {}) {
+  // hard: horn, antler or tusk, which a kill's skeleton keeps (also everything added while
+  // this.hard is set; see build)
+  add(geo, m, paint, { part = P.BODY, pivot = null, ext = null, paintGeo = null, extSrc = null, hard = false } = {}) {
     const unit = geo.clone();
     const paintPos = (paintGeo || unit).attributes.position;
     if (unit.attributes.uv) unit.deleteAttribute('uv');
@@ -141,6 +143,7 @@ class Model {
     const e = ext ? (extSrc || unit).clone().applyMatrix4(ext) : g;
     g.setAttribute('aExt', e.attributes.position.clone());
     g.setAttribute('aExtN', e.attributes.normal.clone());
+    if (hard || this.hard) g.userData = { ...g.userData, hard: true }; // (a clone shares its source's userData)
     this.parts.push(g);
   }
   ell(pos, r, paint, o = {}) { this.add(o.fine ? SPH_HI : o.lo ? SPH_LO : SPH, place(pos, o.rot || [0, 0, 0], r), paint, o); }
@@ -209,6 +212,14 @@ class Model {
   build() {
     const g = mergeGeometries(this.parts);
     g.computeBoundingSphere();
+    // the vertex ranges of the horns, antlers and tusks (render3d/carcass-decay.js keeps them on
+    // the skeleton, so a kill stays recognisable)
+    let offset = 0; g.userData.hard = [];
+    for (const p of this.parts) {
+      const n = p.attributes.position.count;
+      if (p.userData.hard) g.userData.hard.push([offset, offset + n]);
+      offset += n;
+    }
     return g;
   }
 }
@@ -454,7 +465,7 @@ function quadruped(m, s, o) {
       if (o.tufts) m.limb(tip, [tip[0], tip[1] + o.ear * 0.35, tip[2]], o.ear * 0.08, o.ear * 0.02, s.dark, { ...hd, caps: false });
     }
   }
-  if (o.antlers) o.antlers(m, hp, hr, hd);
+  if (o.antlers) { m.hard = true; o.antlers(m, hp, hr, hd); m.hard = false; } // (antlers, horns, ossicones)
   if (o.face) o.face(m, hp, hr, hd, sn);
   if (o.tail) o.tail(m, { L, H, leg, by, W, coat, part: P.TAIL });
 }

@@ -29,7 +29,7 @@ export function faunaMaterial(motion) {
   mat.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
-      attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim; attribute vec3 aDecay; varying float vMeat; varying float vDry;
+      attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim; varying float vMeat; varying float vDry;
       uniform vec2 uTorso; uniform vec3 uNeck, uSnout, uHips[4], uFeet[4];
       ${motion.primate === 3 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
       ${motion.canopyFeet ? 'attribute vec4 aGripA; attribute vec4 aGripB; attribute vec4 aGripC;' : ''}
@@ -55,13 +55,16 @@ export function faunaMaterial(motion) {
         p = vec3(q.x, q.y, q.z - aPivot.z + slitherCrawl(x, ph));
         n = rotY(n, vec3(0.0), -turn);
       }
-      // A kill being eaten and rotting (aDecay: strip, wither, dry). The torso's flesh draws back onto
-      // the spine, from the belly up, baring the ribs (drawn separately, see carcass-decay.js), and
-      // shows as meat (vMeat) where it has; then the legs, head and neck and tail wither down onto
-      // their bones until nothing is left.
+      // A kill being eaten and rotting. It never moves, so its animation phase carries its decay
+      // instead (see carcassPhase in animal-pools.js): below -100000, strip, wither and dry in
+      // 64 steps each, and its phase reads as 0. (No attribute of its own: canopy climbers already
+      // use every vertex attribute some GPUs allow.) The torso's flesh draws back onto the spine,
+      // from the belly up, baring the ribs (drawn separately, see carcass-decay.js), and shows as
+      // meat (vMeat) where it has; then the legs, head and neck and tail wither onto their bones.
+      float animPhase() { return aAnim.x < -99999.0 ? 0.0 : aAnim.x; }
+      vec3 carcassDecay() { float c = -aAnim.x - 100000.0; return vec3(mod(c, 64.0), mod(floor(c / 64.0), 64.0), floor(c / 4096.0)) / 63.0; }
       vec3 toSegment(vec3 p, vec3 a, vec3 b) { vec3 d = b - a; return a + d * clamp(dot(p - a, d) / max(1e-4, dot(d, d)), 0.0, 1.0); }
-      void decay(inout vec3 p) {
-        float strip = aDecay.x, wither = aDecay.y;
+      void decay(inout vec3 p, float strip, float wither) {
         if (aPart < 0.5) {
           float below = clamp((uTorso.x - p.y) / max(1e-3, uTorso.x - uTorso.y), 0.0, 1.0);
           float f = max(clamp(strip * 1.6 - (1.0 - below) * 0.6, 0.0, 1.0) * 0.9, wither);
@@ -79,7 +82,7 @@ export function faunaMaterial(motion) {
       // interpolate a compact resting tail into a modest flight fan; other fauna keep their poses.
       void animatePart(inout vec3 p, inout vec3 n) {
         if (aPart > 10.5) return; // (a snake's spine: see slither)
-        float ph = aAnim.x, gait = aAnim.y, fly = aAnim.z;
+        float ph = animPhase(), gait = aAnim.y, fly = aAnim.z;
         vec3 zero = vec3(0.0);
         bool wing = aPart > 5.5 && aPart < 7.5;
         bool tail = aPart > 4.5 && aPart < 5.5;
@@ -169,14 +172,14 @@ export function faunaMaterial(motion) {
       .replace('#include <beginnormal_vertex>', `
         vec3 objectNormal = normal;
         vec3 faunaPosition = position;
-        vMeat = 0.0; vDry = aDecay.z;
-        if (aDecay.x + aDecay.y > 0.0) decay(faunaPosition);
+        vMeat = 0.0; vDry = 0.0;
+        if (aAnim.x < -99999.0) { vec3 d = carcassDecay(); vDry = d.z; decay(faunaPosition, d.x, d.y); }
         animatePart(faunaPosition, objectNormal);
         if (uSlither > 0.0) slither(faunaPosition, objectNormal, aAnim.z);
-        if (uPrimate > 2.5) objectNormal = rotZ(objectNormal, vec3(0.0), sin(aAnim.x) * .12 * aAnim.y * (1.0 - aAnim.z));
+        if (uPrimate > 2.5) objectNormal = rotZ(objectNormal, vec3(0.0), sin(animPhase()) * .12 * aAnim.y * (1.0 - aAnim.z));
       `)
       .replace('#include <begin_vertex>', `
-        float ph = aAnim.x, gait = aAnim.y, fly = aAnim.z, graze = aAnim.w;
+        float ph = animPhase(), gait = aAnim.y, fly = aAnim.z, graze = aAnim.w;
         vec3 transformed = faunaPosition;
         if (uPrimate > 2.5) {
           transformed -= (siamangHold(siamangWeights(ph, gait, fly)) - vec3(.14, 1.38, .02)) * uLength;
@@ -194,6 +197,7 @@ export function faunaMaterial(motion) {
       `);
     // (red meat where a kill has been opened, drying to dark brown)
     shader.fragmentShader = 'varying float vMeat; varying float vDry;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      diffuseColor.rgb *= mix(vec3(1.0), vec3(0.268, 0.218, 0.164), vDry); // (the coat dulls as it dries: 0.55, 0.5, 0.44 on screen)
       diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.3, 0.035, 0.03), vec3(0.07, 0.04, 0.025), vDry), vMeat);`);
   };
   mat.customProgramCacheKey = () => `fauna:${motion.canopyWalkerMotion ? 'canopy-walker-joints' : motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'clamber' : 'base'}${motion.billSweep ? ':bill-sweep' : ''}`;

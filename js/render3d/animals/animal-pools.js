@@ -24,24 +24,24 @@ class SpeciesMesh {
     this.anim = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4);
     this.anim.setUsage(THREE.DynamicDrawUsage);
     this.geo.setAttribute('aAnim', this.anim);
-    this.decay = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
-    this.decay.setUsage(THREE.DynamicDrawUsage);
-    this.geo.setAttribute('aDecay', this.decay);
     this.grips = this.motion.canopyFeet ? ['aGripA', 'aGripB', 'aGripC'].map(name => {
       const attribute = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4);
       attribute.setUsage(THREE.DynamicDrawUsage); this.geo.setAttribute(name, attribute); return attribute;
     }) : null;
     this.mesh = new THREE.InstancedMesh(this.geo, this.mat, cap);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    // Colour multipliers (white) and decay (0), except for a kill that's being eaten and rotting
-    // (see remains in Fauna.add). Written and uploaded only when a slot changes.
-    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3).fill(1), 3);
-    this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
-    this.tinted = new Uint8Array(cap); this.tintDirty = false;
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
     this.scene.add(this.mesh);
   }
+}
+
+// A kill's decay, carried in its animation phase (it never moves): below -100000, strip, wither and
+// dry (0-1) in 64 steps each. The shader (animal-material.js) decodes it and reads the phase as 0.
+// Live phases only grow from 0.
+export function carcassPhase({ strip = 0, wither = 0, dry = 0 }) {
+  const q = v => Math.round(Math.min(1, Math.max(0, v)) * 63);
+  return -(100000 + q(strip) + q(wither) * 64 + q(dry) * 4096);
 }
 
 // Visitors use the same instanced models, one pool per look.
@@ -90,8 +90,8 @@ export class Fauna {
   }
   // One animal this frame. scale converts model pixels to scene units. detail keeps the full
   // model whatever its size (the selected or followed animal). remains, for a kill:
-  // { tint, strip, wither, dry } (see carcassDecay in render3d/carcass-decay.js), its colours multiplied
-  // by tint ([r, g, b]) and its flesh drawn back onto its bones.
+  // { strip, wither, dry } (see carcassDecay in render3d/carcass-decay.js): its flesh drawn back onto
+  // its bones, and its coat dulled as it dries.
   add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null, detail = false, remains = null) {
     const near = this.pool(def);
     const p = this.farModels && !detail && near.motion.len * scale * this.pixelsPerUnit < FAR_PIXELS ? near.distant() : near;
@@ -99,10 +99,8 @@ export class Fauna {
       // carry over what this frame has already written, then grow
       const oldM = p.mesh.instanceMatrix.array.slice(0, p.count * 16), oldA = p.anim.array.slice(0, p.count * 4), n = p.count;
       const oldGrips = p.grips?.map(a => a.array.slice(0, n * 4));
-      const oldC = p.mesh.instanceColor.array.slice(0, n * 3), oldD = p.decay.array.slice(0, n * 3), oldT = p.tinted.slice(0, n);
       p.grow(p.cap * 2);
       p.mesh.instanceMatrix.array.set(oldM); p.anim.array.set(oldA); p.count = n;
-      p.mesh.instanceColor.array.set(oldC); p.decay.array.set(oldD); p.tinted.set(oldT); p.tintDirty = true;
       oldGrips?.forEach((a, i) => p.grips[i].array.set(a));
     }
     const k = p.count++;
@@ -111,14 +109,8 @@ export class Fauna {
     if (roll) this.q.multiply(this.qp.setFromAxisAngle(this.xAxis, roll)); // over on its side (a kill)
     this.m.compose(this.v.set(x, y, z), this.q, this.s.set(scale, scale, scale));
     p.mesh.setMatrixAt(k, this.m);
-    if (remains || p.tinted[k]) {
-      const c = p.mesh.instanceColor.array, t = remains?.tint, d = p.decay.array;
-      c[k * 3] = t ? t[0] : 1; c[k * 3 + 1] = t ? t[1] : 1; c[k * 3 + 2] = t ? t[2] : 1;
-      d[k * 3] = remains?.strip ?? 0; d[k * 3 + 1] = remains?.wither ?? 0; d[k * 3 + 2] = remains?.dry ?? 0;
-      p.tinted[k] = remains ? 1 : 0; p.tintDirty = true;
-    }
     const a = p.anim.array;
-    a[k * 4] = phase; a[k * 4 + 1] = gait; a[k * 4 + 2] = fly; a[k * 4 + 3] = grips ? -1 : graze;
+    a[k * 4] = remains ? carcassPhase(remains) : phase; a[k * 4 + 1] = gait; a[k * 4 + 2] = fly; a[k * 4 + 3] = grips ? -1 : graze;
     if (p.grips) {
       // Four xyz offsets occupy three attributes, staying within WebGL's
       // minimum attribute budget. Primates do not use the grazing slot.
@@ -135,11 +127,6 @@ export class Fauna {
         p.anim.clearUpdateRanges(); p.anim.addUpdateRange(0, p.count * 4);
         p.mesh.instanceMatrix.needsUpdate = true; p.anim.needsUpdate = true;
         p.grips?.forEach(a => { a.clearUpdateRanges(); a.addUpdateRange(0, p.count * 4); a.needsUpdate = true; });
-      }
-      if (p.tintDirty && p.count) {
-        // (slots past count keep a stale tint until they're next used, when add resets them)
-        for (const a of [p.mesh.instanceColor, p.decay]) { a.clearUpdateRanges(); a.addUpdateRange(0, p.count * a.itemSize); a.needsUpdate = true; }
-        p.tintDirty = false;
       }
     }
   }

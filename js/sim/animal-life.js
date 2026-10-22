@@ -199,7 +199,7 @@ function alarm(wl, pred, pdef, target, time) {
 // A catch: big prey leaves a carcass the hunter feeds at (and its pack and the scavengers come to);
 // small prey is eaten on the spot.
 export function startFeed(wl, a, def, b) {
-  const bd = wl.game.catalog.animals[b.sp], big = (bd.sprite.len || 0) >= 20 && bd.move !== 'swim' && bd.move !== 'fly';
+  const bd = wl.game.catalog.animals[b.sp], big = leavesCarcass(bd);
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   a.carcass = null;
   // (a bird that snatched a fish from open water eats it on the wing)
@@ -218,9 +218,33 @@ export function startFeed(wl, a, def, b) {
   c.meals = Math.max(1, Math.ceil(bd.sprite.len / 20));
   // (what it started with, for drawing it stripped and rotting: render3d/carcass-decay.js)
   c.meals0 = c.meals; c.feed = a.feedT;
-  wl.carcasses.push(c);
-  if (wl.carcasses.length > 16) wl.carcasses.shift();
+  addCarcass(wl, c);
   a.carcass = c.id;
+}
+
+// Large land animals leave a body when they die; small, flying and swimming ones don't.
+export const leavesCarcass = def => (def.sprite.len || 0) >= 20 && def.move !== 'swim' && def.move !== 'fly';
+
+// At most 16 carcasses at once. The oldest body of an animal that died naturally goes first, so a
+// winter's die-off can't crowd out the kills hunters and their packs are still feeding at.
+function addCarcass(wl, c) {
+  wl.carcasses.push(c);
+  if (wl.carcasses.length <= 16) return;
+  const k = wl.carcasses.findIndex(o => o.by == null);
+  wl.carcasses.splice(k >= 0 ? k : 0, 1);
+}
+
+// An animal that died of old age, hunger or sickness lies where it fell, as a carcass with no
+// hunter: scavengers find it and share its meals like a kill's, and it breaks down over the same
+// 21-33 days (drawn by render3d/carcass-decay.js). Math.random, so the monthly rng is untouched.
+export function leaveBody(wl, a) {
+  const def = wl.game.catalog.animals[a.sp];
+  if (!def || !leavesCarcass(def) || a.leaving) return null;
+  const t = 21 + Math.random() * 12, meals = Math.max(1, Math.ceil(def.sprite.len / 20));
+  const c = { id: a.id, sp: a.sp, x: a.x, y: a.y, yaw: a.orientation ?? 0, age: a.age, side: Math.random() < 0.5 ? -1 : 1,
+    by: null, t, max: t, meals, meals0: meals, feed: 0 };
+  addCarcass(wl, c);
+  return c;
 }
 
 // Missed: the prey keeps running (Challenging already sent it toward cover).

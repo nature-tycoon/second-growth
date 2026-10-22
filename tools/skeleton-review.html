@@ -34,18 +34,21 @@ const F=new Fauna(scene),R=new Remains(scene),ghostMat=new THREE.MeshLambertMate
 const entries=[];
 for(const map of maps){
  const list=createAnimals((await import(`../js/data/animals-${map}.js?skeletons=${revision}`)).default,map),defs=list.animals||list;
- for(const def of defs){
-  if(!((def.sprite?.len||0)>=20&&def.move!=='swim'&&def.move!=='fly'))continue;
+ for(const base of defs){
+  if(!((base.sprite?.len||0)>=20&&base.move!=='swim'&&base.move!=='fly'))continue;
+  // (and the adult male look where there is one: antlers, horns and tusks often come with it)
+  for(const def of [base,...(base.sprite.male?[{...base,key:base.key+'-male',sprite:{...base.sprite,...base.sprite.male}}]:[])]){
   const pool=F.pool(def),anatomy=fitCarcass(pool),bones=remainsGeometry(anatomy,1);bones.computeBoundingBox();
   const article=document.createElement('article'),h=document.createElement('h2'),canvas=document.createElement('canvas'),details=document.createElement('small');canvas.width=W;canvas.height=Hc;
-  h.textContent=`${def.name} · ${map}`;article.append(h,canvas,details);document.querySelector('main').append(article);
+  h.textContent=`${def.name}${def.key.endsWith('-male')?' · '+(base.sprite.maleName||'male'):''} · ${map}`;article.append(h,canvas,details);document.querySelector('main').append(article);
   entries.push({map,def,pool,anatomy,box:bones.boundingBox,article,canvas,details,key:F.modelKey(def),ghost:null});
+  }
  }
 }
 const roll=Math.PI/2,lieMatrix=new THREE.Matrix4().makeRotationX(roll);
 function frame(e,lying){
  const a=e.anatomy,H=a.spineY-a.bellyY,L=a.x1-a.x0,box=new THREE.Box3();
- if(controls.framing.value==='skull'){const d=a.snout.clone().sub(a.neck).normalize(),c=a.snout.clone().addScaledVector(d,-a.skull.len*.5);box.setFromCenterAndSize(c,new THREE.Vector3(1,.9,.9).multiplyScalar(a.skull.len*1.15));}
+ if(controls.framing.value==='skull'){const c=a.skull.back.clone().addScaledVector(a.skull.dir,a.skull.len*.5);box.setFromCenterAndSize(c,new THREE.Vector3(1,1,1).multiplyScalar(a.skull.len*1.3));if(a.hard){a.hard.computeBoundingBox();box.union(a.hard.boundingBox);}}
  else if(controls.framing.value==='pelvis')box.setFromCenterAndSize(new THREE.Vector3(a.back-L*.01,a.spineY-H*.25,0),new THREE.Vector3(L*.42,H*.75,a.W*1.6));
  else box.copy(e.box);
  if(lying)box.applyMatrix4(lieMatrix);

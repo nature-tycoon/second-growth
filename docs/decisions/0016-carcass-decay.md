@@ -11,6 +11,46 @@ that could put players off, so Graphics → Carcass decay (`settings.decay`, on 
 off. Off, a kill lies whole and sinks away over its last 30%, as before this decision. Cole also
 asked for a more realistic skull and pelvis, and a page showing every skeleton.
 
+Next, Cole asked for two more things. Animals that die of old age, hunger or sickness should leave
+a body too; until then they just vanished. And skeletons should keep their antlers, horns and tusks,
+so the remains stay recognisable.
+
+## Natural deaths
+
+`leaveBody(wl, a)` in `sim/animal-life.js` runs when the monthly update removes an animal as
+`'natural'`. That is the one cause behind old age, starvation, overcrowding and poor habitat. Animals
+that move on instead (`leave`) leave nothing.
+
+- **Who leaves a body:** `leavesCarcass(def)`, the same test a kill uses: length 20 or more and not
+  a flyer or swimmer.
+- **The body:** a carcass with no hunter (`by: null`, `feed: 0`). It has the same meals by size and
+  the same 21-33 day life as a kill, so `carcassDecay` starts it whole.
+- **Food:** scavengers find and eat it like a kill. This is carrion, as in nature (0001), and it is
+  a change to the food web.
+- **Random numbers:** it draws from `Math.random`, not the monthly `game.rng`.
+- **The 16-carcass limit:** when it's full, the oldest natural body goes first, so a die-off never
+  crowds out kills that hunters and their packs are feeding at.
+
+`balance-sim restore 15` was run with six `Math.random` seeds (73621, 1101, 2202, 3303, 4404, 5505)
+before (`c66d4df`) and after, on the PNW map:
+
+| | Before | After |
+|---|---|---|
+| Goals completed | 15 in all 6 | 15-16 in all 6 |
+| Cougar and bear | present in 5 of 6 | present in all 6 |
+| Deer at Year 16 (mean) | 14 | 12 |
+| Elk at Year 16 (mean) | 17.3 | 13.7 (one run fell to 2) |
+| Red-legged frogs established | 6 of 6 | 3 of 6 (stuck at a single frog) |
+
+The runs diverge early, because the bodies and the extra scavenging draw on the seeded random
+numbers. So these are trajectories, not paired comparisons.
+
+- **Prey:** the dip fits carrion keeping scavenging predators fed, so fewer leave hungry.
+- **Frogs:** nothing that feeds at carcasses eats frogs. The failures share an existing trap: one
+  early frog that can't breed alone, and makes newcomers less likely. Six seeds can't tell that
+  apart from an effect of this change.
+- **Open:** whether natural bodies should feed scavengers or be scenery only.
+
 ## Decision
 
 This is drawing only. A carcass's simulation (meals, lifetime, scavenger visits; 0008) is unchanged,
@@ -27,8 +67,8 @@ age `u` (0 at the kill, 1 when it's removed) and only advances:
 - `gone`: the bones disappearing one by one (u 0.68-1), the skull and pelvis last.
 - `dry`: the coat dulling and the meat going from red to dark brown.
 
-The flesh is pulled in the animal shader (`decay()` in `animals/animal-material.js`), driven by a
-per-instance `aDecay` (strip, wither, dry):
+The flesh is pulled in the animal shader (`decay()` in `animals/animal-material.js`), driven by
+strip, wither and dry packed into the carcass's animation phase (see Gotchas):
 
 - Torso vertices move toward the spine line, the belly first.
 - Leg vertices move onto their hip-to-foot line, the tail onto its pivot, and the head and neck onto
@@ -48,9 +88,21 @@ foot, and the neck pivot and snout tip. The skeleton has:
 - a skull, lofted from cross-sections: a cranium narrowing into a muzzle, eye sockets with bony
   rims, cheekbones, a nasal opening, a lower jaw with cheek teeth, and the condyles it sits on.
 
-The skull lies along the head itself (from the median of the head near the snout to the tip), not
-along the neck, so long necks don't tip it up. It is 55-85% as long as the chest is deep, and as wide
-and deep as most of the head there. The template is a grazer's: carnivores and elephants get the
+The skull is anchored to the model's own eye (`motion.eye`) and snout tip. Its sockets sit where the
+eyes were, it lies along the head rather than the neck, and its width comes from how far apart the
+eyes are. A model with no eye position falls back to the head's measured length, 55-85% as deep as
+the chest.
+
+The horns, antlers, ossicones and tusks are the model's own geometry. Model builders tag them
+`hard`, as a part option or for everything added inside an `antlers` callback, and
+`geo.userData.hard` lists their vertex ranges. `carcassAnatomy` copies those triangles. The skeleton
+carries them as a piece (kind 6) that shares the skull's centre, scatter and disappearance point, and
+keeps its own colours rather than the bone tint. Because the skull is anchored to the eyes, they grow
+from it.
+
+Cole suggested using the head mesh itself, whitened with hollow sockets and a jaw. That would carry
+the neck tube (part of the head part), ears, manes and eyeballs, so the fitted skull stays. Taking it
+from the eyes gets the same alignment. The template is a grazer's: carnivores and elephants get the
 same shape, which matters little because only prey leave carcasses.
 
 It is drawn with the carcass's own matrix, so it sits inside the body as the flesh recedes. Each
@@ -59,14 +111,23 @@ can slump, scatter and shrink pieces individually.
 
 ## Gotchas
 
-- Fauna pools always carry `instanceColor` (white) and `aDecay` (0). `Fauna.add(..., remains)`
-  writes a slot only when it is, or was, a carcass, and uploads only then.
 - Tints multiply in linear light: a multiplier of 0.4 reads as ~66% on screen. Pick colours as they
   should look and raise them to the power 2.2.
 - Animal models stand on their origin (feet). A carcass rolled onto its side has its torso about
   `spineY * scale` off toward its back, and the model's z points down (side 1) or up. `Remains`
   passes where the ground is along z, `aGround`, so bones settle onto it.
 - A carcass is drawn with graze 0 (head level), the pose the skeleton is fitted to.
+- `BufferGeometry.clone()` shares `userData` by reference. Setting a flag on a cloned part's
+  `userData` sets it on the cached source geometry too, and so on every later part built from it.
+  Give the part a new object: `g.userData = { ...g.userData, hard: true }`. The older `canopyFur` tag
+  in `animals/model-core.js` mutates in place and may leak this way.
+- Fauna shaders have no attribute to spare. WebGL guarantees 16, but ANGLE (Chrome on Windows, and
+  headless Chrome) can keep one for itself, and canopy climbers already used 15. The first version of
+  this feature added `aDecay` and `instanceColor`, and the langur's shader failed to link ("Too many
+  attributes"; `canopy-reveal-browser-check` caught it). A carcass never moves, so its decay now
+  rides in its animation phase: `carcassPhase()` in `animal-pools.js` packs strip, wither and dry
+  below -100000, and the shader reads the phase as 0. The horn tag lives only in JavaScript.
+  `carcass-decay-check` keeps every species at 15 or fewer.
 - A skeleton takes 15-30 ms to build, once per species, when its first kill comes on screen.
 
 ## Review page
@@ -84,6 +145,9 @@ pelvis, from four angles.
 - old carcasses without the new fields still draw;
 - for all 59 species that leave a carcass across the maps, the skeleton fits inside the body and has
   18 ribs, each rising to the spine;
+- 15 antlered, horned or tusked species keep them on the skeleton, touching the skull, and the zebra
+  has none;
+- natural deaths leave a body only for big land animals, start whole, and never displace a kill;
 - pool slots reset when a live animal reuses them.
 
 Kills were also rendered in headless Chrome: Serengeti zebra at seven stages, and a buffalo bone pile.

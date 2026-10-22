@@ -23,23 +23,22 @@ const linear = c => c.map(v => v ** 2.2);
 //   wither: legs, head and tail shrinking onto their bones (u 0.35-0.65)
 //   settle, scatter: the skeleton slumping flat and spreading into a pile (u 0.55-0.95)
 //   gone: the bones disappearing, each at its own point (u 0.68-1)
-// dry: the meat and coat drying out (u 0.15-0.55). tint and bone: vertex-colour multipliers for the
-// coat and the bones (linear).
+// dry: the meat and coat drying out (u 0.15-0.55). bone: the bones' colour multiplier (linear).
 export function carcassDecay(c) {
   const max = c.max > 0 ? c.max : 1, u = clamp((max - c.t) / max, 0, 1);
-  const hunter = c.feed > 0 ? clamp((max - c.t) / c.feed, 0, 1) : 1;
+  // (nothing hunted an animal that died of age, hunger or sickness: its body starts whole)
+  const hunter = c.feed > 0 ? clamp((max - c.t) / c.feed, 0, 1) : c.by == null ? 0 : 1;
   const shared = c.meals0 > 0 ? 1 - clamp(c.meals, 0, c.meals0) / c.meals0 : 0;
   const eaten = 0.3 * hunter + 0.5 * shared;
   const strip = 1 - (1 - eaten) * (1 - smooth(0.04, 0.5, u));
   const wither = smooth(0.35, 0.65, u);
-  // (the coat dulls and darkens as it dries; the meat's colour, red to dark brown, is the shader's)
+  // (the coat dulling and the meat going from red to dark brown are the shader's, from dry)
   const dry = smooth(0.15, 0.55, u);
-  const tint = linear([mix(1, 0.55, dry), mix(1, 0.5, dry), mix(1, 0.44, dry)]);
   // (bones show bloody when first bared, and bleach pale as the weeks pass)
   const bleach = smooth(0.3, 0.8, u);
   const bone = linear([mix(0.92, 0.97, bleach), mix(0.74, 0.94, bleach), mix(0.68, 0.86, bleach)]);
   return {
-    u, eaten, strip, wither, dry, tint, bone,
+    u, eaten, strip, wither, dry, bone,
     settle: smooth(0.55, 0.75, u), scatter: smooth(0.55, 0.95, u), gone: smooth(0.68, 1, u),
     body: wither < 1, bones: strip > 0.25,
   };
@@ -48,7 +47,7 @@ export function carcassDecay(c) {
 // The body plan a skeleton is fitted to, measured from a species' model (model units, x forward,
 // y up): the torso's spine and belly heights and half-width between the shoulders and hips, each
 // leg's hip and foot, and the neck pivot to the snout tip. Legs a model doesn't have are null.
-export function carcassAnatomy(geo) {
+export function carcassAnatomy(geo, motion = null) {
   const pos = geo.attributes.position, part = geo.attributes.aPart, piv = geo.attributes.aPivot;
   const hips = [null, null, null, null], feet = [null, null, null, null], body = [];
   let neck = null, snout = null;
@@ -98,15 +97,52 @@ export function carcassAnatomy(geo) {
     if (along < 0 || along > skullLen) continue;
     ws.push(Math.abs(v.z)); hs.push(Math.abs(v.addScaledVector(dir, along).y));
   }
-  const skull = { len: skullLen, dir, wide: clamp(pct(ws, 0.7, skullLen * 0.2), skullLen * 0.17, skullLen * 0.3), tall: clamp(pct(hs, 0.7, skullLen * 0.2), skullLen * 0.17, skullLen * 0.3) };
-  return { x0, x1, front, back, spineY: top - H * 0.1, bellyY: bottom + H * 0.08, W: wide * 0.86, hips, feet, neck, snout, skull };
+  const skull = { len: skullLen, dir, back: snout.clone().addScaledVector(dir, -skullLen), wide: clamp(pct(ws, 0.7, skullLen * 0.2), skullLen * 0.17, skullLen * 0.3), tall: clamp(pct(hs, 0.7, skullLen * 0.2), skullLen * 0.17, skullLen * 0.3) };
+  // Where the model has eyes (motion.eye, for eye-shine), the skull is anchored to them and the
+  // snout tip instead, so its sockets sit where the eyes were and the horns, antlers and tusks
+  // (copied from the model's own head) grow from it. In skullParts' frame the eye is at
+  // (0.33, 0.07 h) and the tip at (1, -0.035 h), in skull lengths.
+  if (motion?.eye) {
+    const eye = new THREE.Vector3(motion.eye[0], motion.eye[1], 0), v = snout.clone().sub(eye);
+    if (v.x > 0) {
+      let S = skull.len, h = 1;
+      for (let k = 0; k < 3; k++) { S = v.length() / Math.hypot(0.67, 0.105 * h); h = clamp(skull.tall / (0.2 * S), 0.85, 1.5); }
+      S = clamp(S, H * 0.3, H * 1.2);
+      const th = Math.atan2(v.y, v.x) - Math.atan2(-0.105 * h, 0.67), d = new THREE.Vector3(Math.cos(th), Math.sin(th), 0), up = new THREE.Vector3(-d.y, d.x, 0);
+      skull.len = S; skull.dir = d; skull.tall = 0.2 * S * h;
+      skull.back = eye.clone().addScaledVector(d, -0.33 * S).addScaledVector(up, -0.07 * S * h);
+      skull.wide = clamp(Math.abs(motion.eye[2]) * 0.21 / 0.165, S * 0.12, S * 0.32);
+    }
+  }
+  return { x0, x1, front, back, spineY: top - H * 0.1, bellyY: bottom + H * 0.08, W: wide * 0.86, hips, feet, neck, snout, skull, hard: hardParts(geo) };
+}
+
+// The model's horns, antlers and tusks (the vertex ranges animals/model-core.js tags as hard), as
+// their own triangles with their own colours, or null if it has none.
+function hardParts(geo) {
+  const ranges = geo.userData.hard;
+  if (!ranges?.length) return null;
+  const pos = geo.attributes.position, nor = geo.attributes.normal, col = geo.attributes.color, idx = geo.index;
+  const P = [], N = [], C = [], hard = i => ranges.some(([a, b]) => i >= a && i < b);
+  const tris = idx ? idx.count : pos.count, at = k => idx ? idx.getX(k) : k;
+  for (let k = 0; k + 2 < tris; k += 3) {
+    if (!hard(at(k))) continue;
+    for (let j = 0; j < 3; j++) {
+      const i = at(k + j);
+      P.push(pos.getX(i), pos.getY(i), pos.getZ(i)); N.push(nor.getX(i), nor.getY(i), nor.getZ(i)); C.push(col.getX(i), col.getY(i), col.getZ(i));
+    }
+  }
+  if (!P.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  return g;
 }
 
 // A species pool's anatomy, measured the first time one of its kind is drawn as a carcass and
 // handed to its shader for pulling the flesh onto the bones.
 export function fitCarcass(pool) {
   if (pool.anatomy) return pool.anatomy;
-  const a = pool.anatomy = carcassAnatomy(pool.geo), u = pool.mat.userData.carcass;
+  const a = pool.anatomy = carcassAnatomy(pool.geo, pool.motion), u = pool.mat.userData.carcass;
   u.uTorso.value.set(a.spineY, a.bellyY); u.uNeck.value.copy(a.neck); u.uSnout.value.copy(a.snout);
   a.hips.forEach((hip, k) => { u.uHips.value[k].copy(hip || a.neck); u.uFeet.value[k].copy(a.feet[k] || hip || a.neck); });
   return a;
@@ -210,19 +246,23 @@ function pelvisParts(a, H, L) {
 // The skeleton, in the same model space as the body, as pieces that each carry their centre,
 // a scatter direction (along the ground once it's on its side) and a point in [0, 1] at which
 // they disappear. aBone: (disappear at, radius, whether it shows only once its limb withers,
-// kind: 0 spine, 1 rib, 2 pelvis, 3 leg, 4 neck, 5 skull).
+// kind: 0 spine, 1 rib, 2 pelvis, 3 leg, 4 neck, 5 skull, 6 horns, antlers and tusks, which keep
+// their own colour and go with the skull).
 export function remainsGeometry(a, seed = 1) {
   const r = mulberry32(seed), H = a.spineY - a.bellyY, L = a.x1 - a.x0, pieces = [];
-  const piece = (parts, gone, late, kind) => {
+  // (like: another piece this one is attached to, sharing its centre, scatter and radius)
+  const piece = (parts, gone, late, kind, like = null) => {
     const g = mergeGeometries(parts.map(p => { const q = prep(p); q.userData = {}; return q; }));
     g.computeBoundingBox();
-    const c = g.boundingBox.getCenter(new THREE.Vector3()), rad = g.boundingBox.getSize(new THREE.Vector3()).length() * 0.18;
     const ang = r() * Math.PI * 2, far = (0.08 + r() * 0.25) * L, n = g.attributes.position.count;
+    const c = like?.c || g.boundingBox.getCenter(new THREE.Vector3()), rad = like?.rad ?? g.boundingBox.getSize(new THREE.Vector3()).length() * 0.18;
+    const scatter = like?.scatter || [Math.cos(ang) * far, Math.sin(ang) * far, 0];
     const fill = (size, v) => { const arr = new Float32Array(n * size); for (let i = 0; i < n; i++) arr.set(v, i * size); return new THREE.BufferAttribute(arr, size); };
     g.setAttribute('aCenter', fill(3, [c.x, c.y, c.z]));
-    g.setAttribute('aScatter', fill(3, [Math.cos(ang) * far, Math.sin(ang) * far, 0]));
+    g.setAttribute('aScatter', fill(3, scatter));
     g.setAttribute('aBone', fill(4, [gone, rad, late, kind]));
     pieces.push(g);
+    return { c, rad, scatter };
   };
   const knob = (p, s) => soft(new THREE.IcosahedronGeometry(s, 0), { transform: g => g.translate(...p) });
   // spine: tail base to the shoulders, in segments with a knob for each vertebra
@@ -256,14 +296,17 @@ export function remainsGeometry(a, seed = 1) {
     piece([rod(m.toArray(), f.toArray(), lr * 0.8, lr * 0.7, 5), knob(f.toArray(), lr * 1.2)], 0.15 + r() * 0.6, 1, 3);
   });
   // neck, from the shoulders to the back of the skull
-  const dir = a.skull.dir, S = a.skull.len, back = a.snout.clone().addScaledVector(dir, -S);
+  const dir = a.skull.dir, S = a.skull.len, back = a.skull.back;
   piece([rod([a.front + L * 0.06, a.spineY, 0], a.neck.toArray(), rs, rs, 5), rod(a.neck.toArray(), back.toArray(), rs * 0.9, rs * 0.8, 5)], 0.3 + r() * 0.5, 1, 4);
   // skull, laid along the head from the back of the skull to the snout tip
   const frame = new THREE.Matrix4().compose(back, new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir), new THREE.Vector3(1, 1, 1));
-  piece(skullParts(S, a.skull.wide, a.skull.tall).map(g => g.applyMatrix4(frame)), 0.97, 1, 5);
+  const skull = piece(skullParts(S, a.skull.wide, a.skull.tall).map(g => g.applyMatrix4(frame)), 0.97, 1, 5);
+  // the horns, antlers and tusks just as the model wears them, so the remains stay recognisable
+  if (a.hard) piece([a.hard.clone()], 0.97, 1, 6, skull);
   const g = mergeGeometries(pieces);
   const col = g.attributes.color;
-  for (let i = 0; i < col.count; i++) col.setXYZ(i, col.getX(i) * 0.91, col.getY(i) * 0.88, col.getZ(i) * 0.8); // (bone, and its dark hollows)
+  const kind = g.attributes.aBone;
+  for (let i = 0; i < col.count; i++) if (kind.getW(i) < 5.5) col.setXYZ(i, col.getX(i) * 0.91, col.getY(i) * 0.88, col.getZ(i) * 0.8); // (bone, and its dark hollows)
   g.userData.ao = true;
   return g;
 }
@@ -283,7 +326,9 @@ function remainsMaterial() {
         vec3 off = position - aCenter;
         if (aBone.w > 0.5 && aBone.w < 1.5) off.z *= mix(1.0, 0.35, aState.z); // (ribs fall flat)
         vec3 transformed = centre + off * show;
-      `);
+      `)
+      // (horn, antler and tusk keep their own colours rather than the bones' bloody-to-bleached tint)
+      .replace('#include <color_vertex>', '#include <color_vertex>\n        if (aBone.w > 5.5) vColor.rgb = color.rgb;');
   };
   mat.customProgramCacheKey = () => 'carcass-remains';
   return mat;
