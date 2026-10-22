@@ -1,6 +1,6 @@
 # 0013 Long-term forest dynamics: mortality, regeneration and disturbance
 
-Proposed 2026-10-18. Status: in progress. Phase 1 (succession check and baselines) and phase 2 (tree removal and mortality hazard) done 2026-10-19. Phase 3 (advance regeneration and CNDD) done 2026-10-21. Phase 4 (disturbance regimes) done 2026-10-22. Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12.
+Proposed 2026-10-18. Status: in progress. Phase 1 (succession check and baselines) and phase 2 (tree removal and mortality hazard) done 2026-10-19. Phase 3 (advance regeneration and CNDD) done 2026-10-21. Phase 4 (disturbance regimes) and phase 5 (deadwood decay and nurse logs) done 2026-10-22. Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12.
 
 ## Problem
 
@@ -381,6 +381,76 @@ Also:
 - **Chinandega**: one hurricane-size storm in 200 years on seed 1 (6 storms, the 400–4,000-tile draws mostly on open pasture). Neem became the largest species (35%), as in the phase 3 table; its rise came from phase 3's understory, not from storms.
 - Not checked in a browser: the root-rot inspector line and the storm notice. Port 8347 was serving another checkout. `tools/disturbance-check.mjs` covers their logic and the Spanish pattern was checked in node.
 
+### Phase 5 results (2026-10-22)
+
+Deadwood decay, decay classes, nurse logs and snag fall (§5), measured as before: full wildlife, 200 years, `--every 10`, on Cole's Mac at `nice -n 5`, four runs at a time. "Before" is the phase 4 commit (b70c5c5). The phase 4 session's per-seed JSONs reproduce exactly (checked at year 20, and in full for the six PNW runs), so they serve as the before for the other maps. PNW was rerun with the new `succession-check` to get nurse-log numbers for the before. Before phase 5, a log's `featureAge` is plain days, so the before's "rotten" column counts logs at least 12 years old.
+
+Deadwood over time, snags / logs (rotten), range across seeds:
+
+| Run | Seeds | Year 50 | Year 100 | Year 150 | Year 200 (before) |
+|---|---|---|---|---|---|
+| pnw restore | 3 | 128–164 / 403–636 (91–119) | 400–573 / 1489–1751 (591–885) | 534–756 / 2214–2545 (1193–1439) | 543–754 / 2615–2660 (1211–1454) (295–821 / 1627–1857 (796–958)) |
+| pnw idle | 3 | 79–143 / 261–339 | 265–479 / 921–1321 | 538–735 / 2023–2186 | 512–601 / 2812–3020 (1392–1510) (269–598 / 1938–2105 (1063–1270)) |
+| amazon idle | 1 | 844 / 1138 | 594 / 1832 | 587 / 1494 | 261 / 707 (439) (474 / 1757) |
+| atlanta idle | 1 | 334 / 620 | 148 / 701 | 191 / 595 | 155 / 490 (296) (99 / 427) |
+| chinandega idle | 1 | 117 / 518 | 363 / 870 | 403 / 811 | 502 / 1167 (705) (681 / 1305) |
+| serengeti idle | 1 | identical to before: the savanna keeps its timers | | | 63 / 503 |
+
+| Run | Seeds | Largest, % (before) | Hemlock + cedar trees in mature forest (before) | Recruits ÷ deaths (before) | Unburned opened, % (before) | Fire share of deaths, % (before) | Area burned, tiles over 200 y (before) | Animal species (before) | Trees (before) |
+|---|---|---|---|---|---|---|---|---|---|
+| pnw restore | 3 | fir 85–90 (90–91) | 192–209 (74–269) | 1.14–1.16 (0.99–1.05) | 17–28 (15–24) | 22–39 (22–36) | 29,900–33,700 (18,900–27,800) | 30–31 (30–31) | 7113–7392 (6148–7056) |
+| pnw idle | 3 | fir 91–96 (94–96) | 50–135 (31–111) | 1.32–1.40 (1.26–1.43) | 23–32 (21–33) | 13–22 (11–27) | 28,600–32,600 (25,500–36,600) | 28–30 (28–31) | 7048–7610 (7301–7370) |
+| amazon idle | 1 | brazilnut 78 (77) | - | 1.13 (1.11) | 15 (15) | 26 (34) | 17,400 (30,300) | 24 (24) | 9374 (9190) |
+| atlanta idle | 1 | redmaple 42 (40) | - | 0.78 (0.77) | 67 (59) | 2 (0) | 455 (580) | 29 (28) | 1100 (1213) |
+| chinandega idle | 1 | neem 32 (35) | - | 1.21 (1.18) | 70 (68) | 41 (54) | 252,700 (238,100) | 23 (23) | 2879 (3487) |
+| serengeti idle | 1 | mesquite 88 (88) | - | 1.00 (1.00) | 24 (24) | 87 (87) | identical | 22 (22) | 3812 (3812) |
+
+Nurse logs, PNW, per seed (before → after):
+
+| Run, seed | Hemlock / cedar in mature forest | Nurse-log recruits over 200 y, share on a log | Cedar released from the understory | Hemlock + cedar on a log at year 200, grown + waiting |
+|---|---|---|---|---|
+| restore 1 | 134 / 6 → 167 / 26 | 337, 64% → 545, 72% | 7 → 43 | 62 + 52 → 101 + 117 |
+| restore 2 | 53 / 21 → 191 / 18 | 443, 60% → 436, 70% | 18 → 34 | 21 + 5 → 86 + 98 |
+| restore 3 | 263 / 6 → 180 / 12 | 672, 68% → 433, 63% | 18 → 31 | 104 + 37 → 127 + 135 |
+| idle 1 | 35 / 6 → 39 / 19 | 191, 66% → 116, 66% | 11 → 14 | 15 + 23 → 24 + 53 |
+| idle 2 | 111 / 0 → 117 / 18 | 216, 63% → 234, 70% | 5 → 30 | 66 + 26 → 70 + 80 |
+| idle 3 | 31 / 0 → 44 / 6 | 158, 69% → 151, 56% | 3 → 14 | 32 + 21 → 28 + 48 |
+
+"On a log" means the tile held a log when the tree passed 0.35; by then many logs have gone, so it undercounts.
+
+What changed:
+
+- **Deadwood follows conditions.** PNW, where 90% of the trees are fir (wood 0.6) on ground at moisture 0.4–0.5, now holds about 50% more logs at year 200 (2,600–3,000 against 1,600–2,100) and up to twice the snags in years 100–150. The Amazon (map factor 1.8) holds 17–60% fewer logs from year 100 on. Atlanta, mostly hardwood on damp ground at the reference pace, is about where it was. Chinandega's logs rot faster, but this run's storms differed: hurricanes threw 470–810 trees in each of three decades, and wind was 29% of deaths in years 150–200 against 5% before. It ends with 17% fewer trees, so its deadwood counts aren't comparable. The Serengeti is identical, tile for tile.
+- **Redcedar is the clearest nurse-log gain.** It gained `nurse` and now waits on rotting logs: released from the understory 14–43 times per run against 3–18, waiting 25–40 against 7–24, and in mature forest on every seed (6–26 against 0–21).
+- **Hemlock and cedar are still edge-limited, as expected.** Mature-forest hemlock + cedar is 192–209 against 74–269 on restore (a narrower range, mean 198 against 161) and 50–135 against 31–111 idle. That is still 2–4% of mature trees. 92–100% of all hemlock and cedar trees are within 15 tiles of the north and east edges, the same as phase 4. Nurse logs help where their seed lands; they can't bring seed to the interior.
+- **More nurse-log trees sit on logs** at year 200: 2–4 times as many saplings waiting on a log, and more grown ones on restore. The share of nurse-log recruits that came up on a log moved little (56–72% against 60–69%): most hemlock establishes near the edges, where logs are, either way.
+- **Fir** fell to 85–90% on restore (90–91%) and 91–96% idle (94–96%), within seed noise of before. The target is ≤ 60%.
+- **Recruits ÷ deaths** stays inside 0.7–1.5 on every forested map. PNW restore rose to 1.14–1.16, with 7,100–7,400 trees against 6,100–7,100.
+- **Animal species ≥ baseline − 1: met** on every map.
+
+Fire:
+
+- **Amazon fire fell** on its one seed: 17,400 tiles burned against 30,300, and fire 26% of established-tree deaths against 34%. Fewer, faster-rotting blowdown logs is the expected direction, but it's one seed; phase 4 saw 29–60% across seeds.
+- **PNW restore burned more on all three seeds**: 29,900–33,700 tiles over 200 years against 18,900–27,800, with about the same number of fires (82–92 against 83–86) and the same fire share of deaths. PNW idle didn't (28,600–32,600 against 25,500–36,600). Snags and logs each add 0.4 to `Events.fuel`, and PNW has about 50% more of them, so some of this may be real. But the area burned per 50 years swings between 3,300 and 11,700 tiles within one build, and one restore seed already burned 60% more in years 0–50, before the deadwood differed. Three seeds can't separate the two. If it's real, the natural lever is that a rotten log, soaked through, adds less fuel than a sound one: that's a phase 6 call with the other fire settings.
+
+Checks:
+
+- **`balance-sim restore 15`**, 16 seeds seeded via `--import`, phase 4 → phase 5 means ± standard error: score 61.7 ± 1.9 → 61.8 ± 1.8, meadow 941 ± 79 → 960 ± 91, forest 182 ± 4.6 → 178 ± 5.4, mature 37.8 ± 1.3 → 35.7 ± 1.9, invasive 26.1% → 26.2%, elk 16.1 → 17.0, snags at year 15 23 → 26. All within noise. A rerun of the phase 4 commit reproduces the phase 4 session's seed 1 exactly.
+- **`dailyTick` ≤ +5%: met.** One PNW restore world grown to year 120 with the new code (7,200 trees, about 500 snags and 2,500 logs), loaded into both builds, 12 alternating 60-day blocks in one process: +2.4% ± 1.0% with the new code loaded first, −0.1% ± 1.3% with the old code loaded first. A/A runs read +0.4% and +1.4%. Separate processes, 360 days each: 9.78 and 9.71 ms new, 10.23 and 9.67 ms old.
+  - A first attempt read +46%. That harness grew the world in the same process with the new code, then ran the new code on a second, restored world. The A/A and swapped runs on a stored world don't show it. The likely cause is that world objects of different shapes go through the same hot functions: `seedbank`, `bankStrength`, `browseDamage` and `grazed` are added to the world mid-game with `||=`, the pattern AGENTS.md warns about. Whether a player hits it (loading a save in a session that already ran a farm) is unconfirmed.
+- `deadwood-check` (11 checks), `data-contracts-check`, `consistency-check`, `tree-mortality-check`, `plant-ecology-check`, `disturbance-check`, `vegetation-check`, `plant-replay-check`, `farm-state-check`, `challenging-ecology-check`, `beaver-dam-check`, `animal-dormancy-check` and `browser-save-check` pass.
+- **Browser.** Phase 4's storm notice, root-rot first-kill notice and root-rot inspector line show and read well (PNW, forced through the console). A rotten log draws slumped and moss-green beside sound brown ones.
+
+### Open for phase 6
+
+- **Seed supply and long-distance dispersal.** Hemlock and redcedar: 92–100% within 15 tiles of the seed edges after 200 years. Amazon's long-lived competitors (mahogany, ipê) need a larger share of seed.
+- **Fir and Brazil nut dominance**: fir 85–96%, Brazil nut 78%.
+- **Fire after blowdowns and deadwood fuel.** Amazon fire may be eased by faster decay (one seed). PNW restore burned more with more deadwood (unconfirmed). A lower fuel value for rotten logs is the candidate lever.
+- **Weak drought**: 1–9% of Atlanta deaths, almost none on the Serengeti.
+- **Chinandega neem**: 32–35%, from the understory head start (phase 3).
+- **Wood overrides** worth considering with the tuning: ipê and mahogany (very durable), balsa and cecropia (rot fast). Only redcedar and hemlock have them now.
+- **World shape.** Declare the lazily added world fields (`seedbank`, `bankStrength`, `browseDamage`, `grazed`) in the `World` constructor, and check whether a session that loads a second farm slows down.
+
 ### How to run
 
 ```
@@ -397,7 +467,7 @@ Each phase is one session, run in order, each building on the last:
 2. **Tree removal and mortality hazard.** (Done: see [Phase 2 results](#phase-2-results-2026-10-20).) Add `removeTree` with causes, move every call site to it, and swap in the hazard model. Tune so that Atlanta's recruits-to-deaths ratio and PNW turnover improve without breaking `balance-sim restore 15`.
 3. **Advance regeneration and CNDD.** (Done: see [Phase 3 results](#phase-3-results-2026-10-21). Hemlock, cedar and Brazil nut are not fixed; the remaining levers are map data for phase 6.) Add the understory arrays (with saves), release on removal, CNDD in `trySeed`, and map `recruitment` config. Expected to fix hemlock/cedar and Brazil nut.
 4. **Disturbance regimes.** (Done: see [Phase 4 results](#phase-4-results-2026-10-22). Fir, Brazil nut and Amazon fire are not fixed.) Add `sim/disturbance.js` with windstorm and drought on every map that fits, an optional PNW root-rot pathogen, notifications, and a Field Journal line.
-5. **Deadwood decay and nurse logs.** Make decay depend on moisture and wood type, and add nurse-log recruitment and snag fall.
+5. **Deadwood decay and nurse logs.** (Done: see [Phase 5 results](#phase-5-results-2026-10-22). Hemlock and cedar are still limited by seed supply.) Make decay depend on moisture and wood type, and add nurse-log recruitment and snag fall.
 6. **Cross-map tuning and acceptance.** Sweep all seven maps, tune map data, update this doc's results, and update AGENTS.md's decision list.
 
 Hydrology (finishing `sim/hollis-water.js`) is a separate track. It plugs in through the drought and stress term and `w.moist`, with no new mortality code.
