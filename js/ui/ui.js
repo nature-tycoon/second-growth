@@ -14,7 +14,7 @@ import { passageGuide } from '../sim/bird-passage.js';
 import { CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
 import { speciesPresent } from '../sim/goals.js';
-import { speciesCounts, speciesColor } from '../sim/animal-density.js';
+import { speciesCounts, speciesColor, densestSpot } from '../sim/animal-density.js';
 import { campaignOn, currentChapter, unlockedTools, chapterOfTool, goalMet, campaignVisitorHint } from '../sim/campaign.js';
 import { Game, PENDING_KEY } from '../game.js';
 import { BIOMES, BIOME_LIST } from '../biome.js';
@@ -257,6 +257,9 @@ export class UI {
       if (!row) return;
       const sp = row.dataset.density === '' ? null : +row.dataset.density;
       this.state.densitySpecies = sp === this.state.densitySpecies ? null : sp;
+      // and the camera glides to where most of the chosen species are
+      const spot = this.state.densitySpecies != null && densestSpot(this.game.world, this.game.wildlife.agents, this.state.densitySpecies);
+      if (spot) { this.follow = null; this.renderer.flyTo(spot.x, spot.y, this.renderer.zoom, 1.2); }
       this.renderLegend();
       this.drawMinimap(false);
     });

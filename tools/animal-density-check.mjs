@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { restoredGame } from './map-audit-fixtures.mjs';
 import { mulberry32 } from '../js/rng.js';
-import { animalDensity, speciesCounts, speciesColor } from '../js/sim/animal-density.js';
+import { animalDensity, densestSpot, speciesCounts, speciesColor } from '../js/sim/animal-density.js';
 
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
@@ -36,6 +36,16 @@ check('A lone animal still shows beside a big herd, and one species can be picke
   const only = animalDensity(w, wl.agents, rabbit.index);
   assert.equal(only[w.idx(60, 40)], 1, 'rabbit-only map peaks at the rabbit');
   assert.equal(only[w.idx(20, 30)], 0, 'deer left out');
+});
+
+check('The densest spot is the biggest group of the chosen species, not a straggler', () => {
+  const { g, wl, w } = scene(), deer = g.catalog.animal.deer, rabbit = g.catalog.animal.rabbit;
+  wl.spawn(deer, 10.5, 10.5, { silent: true });
+  for (let k = 0; k < 6; k++) wl.spawn(deer, 50.5 + (k % 3), 40.5 + (k / 3 | 0), { silent: true });
+  for (let k = 0; k < 20; k++) wl.spawn(rabbit, 30.5, 20.5, { silent: true });
+  const s = densestSpot(w, wl.agents, deer.index);
+  assert.ok(Math.hypot(s.x - 51.5, s.y - 41) < 2, `at the deer herd (${s.x},${s.y})`);
+  assert.equal(densestSpot(w, wl.agents, g.catalog.animal.elk?.index ?? -1), null, 'null when none live here');
 });
 
 check('Animals walking off the map are not counted', () => {

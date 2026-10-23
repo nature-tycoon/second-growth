@@ -34,6 +34,15 @@ export function animalDensity(world, agents, sp = null, radius = 2) {
   return d;
 }
 
+// The middle of the biggest group of one species (or of all animals): the tile where the smoothed
+// head count peaks, as tile-centre coordinates. null when there are none.
+export function densestSpot(world, agents, sp = null) {
+  const d = animalDensity(world, agents, sp);
+  let best = -1;
+  for (let i = 0; i < d.length; i++) if (d[i] > 0 && (best < 0 || d[i] > d[best])) best = i;
+  return best < 0 ? null : { x: best % world.w + 0.5, y: Math.floor(best / world.w) + 0.5 };
+}
+
 // Head count per species (index → count) of the animals on the map.
 export function speciesCounts(agents, nSpecies) {
   const c = new Array(nSpecies).fill(0);
