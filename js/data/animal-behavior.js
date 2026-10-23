@@ -36,7 +36,7 @@ export function behaviorFor(def) {
     const reefFood = { greenturtle: ['seagrass'], dugong: ['seagrass'], hawksbill: ['sponge'],
       idol: ['sponge'], butterfly: ['coral'], cleaner: ['cleaning'], manta: ['plankton'],
       chromis: ['plankton'], clownfish: ['plankton'], tang: ['algae'], parrotfish: ['algae'],
-      urchin: ['algae'], seacucumber: ['sediment'] };
+      urchin: ['algae'], seacucumber: ['sediment'], humphead: ['starfish'] };
     forage = reefFood[def.key] || [];
   }
   let hunt = k === 'feline' ? (def.key === 'cheetah' ? 'sprint' : 'stalk')

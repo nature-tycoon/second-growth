@@ -262,22 +262,19 @@ function reefDaily(g) {
   reefMoments(g);
 
   // Herbivores at work: parrotfish and surgeonfish graze algae down around wherever they are.
-  // ...and the humphead wrasse eats crown-of-thorns starfish, one of the very few things that will.
+  // (The humphead wrasse, one of the very few things that eats crown-of-thorns starfish, goes
+  // looking for them and eats them one at a time: the 'starfish' meal in sim/animal-foraging.js.)
   const grazers = { parrotfish: 0.14, tang: 0.08, urchin: 0.025 };
   if (turf) for (const a of g.wildlife.agents) {
     if (a.leaving) continue;
     const key = g.catalog.animals[a.sp]?.key, bite = grazers[key];
-    if (!bite && key !== 'humphead') continue;
+    if (!bite) continue;
     const ax = Math.floor(a.x), ay = Math.floor(a.y);
     const radius = key === 'urchin' ? 0 : 2; // slow benthic grazers only nibble their own tile
     for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
       if (!w.inb(ax + dx, ay + dy)) continue;
       const i = w.idx(ax + dx, ay + dy);
-      if (bite && w.ground[i] === turf && (w.groundG[i] -= bite) < 0.06) { w.ground[i] = 0; w.groundG[i] = 0; }
-      if (key === 'humphead' && w.shrub[i] === cots) {
-        if (momentFree(g)) moment(g, 'humphead', a, { live: true });
-        if ((w.shrubG[i] -= 0.12) < 0.05) { w.shrub[i] = 0; w.shrubG[i] = 0; }
-      }
+      if (w.ground[i] === turf && (w.groundG[i] -= bite) < 0.06) { w.ground[i] = 0; w.groundG[i] = 0; }
     }
   }
 

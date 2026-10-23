@@ -59,13 +59,20 @@ check('An elephant moment needs browsing and a nearby family member', () => {
 check('A humphead moment waits for an actual crown-of-thorns feeding event', () => {
   reset('reef'); const a = spawn('humphead'), w = g.world;
   momentsUpdate(g); assert.equal(events.length, 0, 'arrival alone is not a moment');
-  const i = w.idx(40, 30);
+  // a starfish a few tiles off: the wrasse swims over to it and eats it
+  const i = w.idx(45, 32);
   w.tree[i] = PLANT.boulder.id; w.treeG[i] = 1;
   w.shrub[i] = PLANT.cots.id; w.shrubG[i] = 1;
-  const rng = g.rng; g.rng = () => 0.99;
-  try { biome.daily(g); } finally { g.rng = rng; }
-  assert.equal(events[0]?.key, 'humphead'); assert.equal(events[0].id, a.id);
-  assert.ok(w.shrubG[i] < 1, 'the existing ecological bite still occurs');
+  a.forageAfter = 0; a.wait = 0;
+  let fed = false;
+  for (let t = 0; t < 4000 && w.shrub[i]; t++) {
+    g.wildlife.update(0.05); momentsUpdate(g);
+    fed ||= a.state === 'forage' && a.forage?.food === 'starfish' && a.forage.i === i;
+  }
+  assert.ok(fed, 'the wrasse seeks the starfish out and feeds on it');
+  assert.equal(events[0]?.key, 'humphead'); assert.equal(events[0].id, a.id); assert.equal(events[0].tile, i);
+  assert.equal(w.shrub[i], 0, 'the starfish is eaten');
+  assert.equal(momentScene(g, events[0]).caption, 'One fewer starfish');
 });
 check('Elk rut follows a real bout, antler contact and the losing bull’s retreat', () => {
   reset(); while (g.month !== 7) g.day++;

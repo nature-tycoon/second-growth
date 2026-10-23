@@ -24,6 +24,7 @@ import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
 import { isCanopyWalker } from './canopy-walker-profile.js';
 import { ActorView, animalViewRadius, pixelsPerUnit } from './actor-view.js';
 import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
+import { climberSpot } from './flora.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
@@ -357,6 +358,19 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
+      // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).
+      const munch = def.reef && a.state === 'forage' && a.forage?.food === 'starfish' && w.shrub[a.forage.i] ? a.forage.i : -1;
+      st.munch = (st.munch || 0) + ((munch >= 0 ? 1 : 0) - (st.munch || 0)) * Math.min(1, k * 0.8);
+      if (munch >= 0) st.munchAt = climberSpot(w, game.catalog, munch, (x, z) => w.heightAt(x, z) * LEVEL);
+      if (st.munchAt && st.munch > 0.01 && !returning) {
+        const [mx, my, mz] = st.munchAt, m = st.munch;
+        if (munch >= 0) st.yaw = lerpAngle(st.yaw, Math.atan2(-(mz - a.y), mx - a.x), Math.min(1, k * 1.6));
+        const tilt = 0.55 + Math.sin(time * 2.6 + a.id) * 0.12, nose = F.noseReach(def) * sc;
+        const reach = nose * Math.cos(tilt), cx = mx - Math.cos(st.yaw) * reach, cz = mz + Math.sin(st.yaw) * reach;
+        ax += (cx - ax) * m; az += (cz - az) * m; y += (my + nose * Math.sin(tilt) + 0.01 - y) * m;
+        st.pitch = -tilt * m;
+      } else if (st.munchAt) { st.munchAt = null; st.munch = 0; st.pitch = 0; }
       // The bird being tracked, perched in a tree, sits on one of its real limbs (see bird-perch.js);
       // the others keep their place in the crown. Moving onto a limb, off it (selected or let go,
       // or taking off) or between limbs, the jump fades out over a moment as an offset, so the

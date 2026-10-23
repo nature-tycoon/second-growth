@@ -83,6 +83,18 @@ export class Fauna {
     }
     return p.reach;
   }
+  // How far forward of its origin the model's nose reaches, in model units (a wrasse feeding on
+  // a starfish puts its mouth on it). Measured once per model.
+  noseReach(def) {
+    const p = this.pool(def);
+    if (p.nose == null) {
+      const pos = p.geo.attributes.position;
+      let nose = 0;
+      for (let k = 0; k < pos.count; k++) nose = Math.max(nose, pos.getX(k));
+      p.nose = nose;
+    }
+    return p.nose;
+  }
   // pixelsPerUnit: screen pixels per scene unit this frame (Infinity draws every animal in detail).
   begin(pixelsPerUnit = Infinity) {
     this.pixelsPerUnit = pixelsPerUnit;
