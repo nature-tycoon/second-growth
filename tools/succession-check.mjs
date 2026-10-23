@@ -48,7 +48,9 @@ const ROTTEN = 12; // years of rot that make a log rotten (sim/plants.js DECAY.r
 const EST = 0.35; // a tree counts as established (a "tree" in every share and count) above this size
 
 // ---- CLI
-const args = process.argv.slice(2);
+// With no arguments (as `check-release` runs every *-check.mjs) it's a quick smoke run, 15 years of
+// PNW restore with --veg, well inside the release suite's 5-minute limit. Long runs always pass args.
+const args = process.argv.length > 2 ? process.argv.slice(2) : ['--mode', 'restore', '--years', '15', '--every', '5', '--veg'];
 const opt = (name, def) => { const k = args.indexOf('--' + name); return k < 0 ? def : args[k + 1]; };
 const flag = name => args.includes('--' + name);
 const mapArg = opt('map', 'pnw');

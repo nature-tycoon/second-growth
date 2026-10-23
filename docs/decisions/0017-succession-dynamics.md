@@ -534,7 +534,7 @@ Also:
 nice -n 5 node tools/succession-check.mjs --map pnw --mode restore --years 200 --seeds 1,2,3 --assert --json out.json
 ```
 
-`--map` takes `pnw`, `all`, or a comma list of map ids. `--mode restore` runs the Hollis plan from `tools/hollis-restore-plan.mjs` (shared with `balance-sim`). Other maps fall back to `idle` with a note. `--every` sets the report interval in years. `--veg` is the fast structure mode. `--assert` checks the targets above and exits 1 on a miss; today it fails, as expected. `--json` writes every report and the per-run summary. A seed sets both `Math.random` and `game.rng`, on the same world. A 200-year full run takes 10–40 minutes depending on the map and machine load, so run several seeds as separate background processes. The per-map targets live in `TARGETS` and `BASELINE_SPECIES` at the top of the tool.
+With no arguments it runs a 15-year PNW restore `--veg` smoke run (about 25 s), because `check-release` runs every `*-check.mjs` without arguments under a 5-minute limit. `--map` takes `pnw`, `all`, or a comma list of map ids. `--mode restore` runs the Hollis plan from `tools/hollis-restore-plan.mjs` (shared with `balance-sim`). Other maps fall back to `idle` with a note. `--every` sets the report interval in years. `--veg` is the fast structure mode. `--assert` checks the targets above and exits 1 on a miss; today it fails, as expected. `--json` writes every report and the per-run summary. A seed sets both `Math.random` and `game.rng`, on the same world. A 200-year full run takes 10–40 minutes depending on the map and machine load, so run several seeds as separate background processes. The per-map targets live in `TARGETS` and `BASELINE_SPECIES` at the top of the tool.
 
 ## Phases
 
