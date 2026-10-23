@@ -130,7 +130,7 @@ for (const variant of variants) for (const fps of [15, 60]) for (const mode of [
   const right = new THREE.Vector3(1, 0, 0); actors.update(game, right, 1); game.speed = 1;
   const st = actors.pose.get(a.id), pool = actors.fauna.pool(drawDef(ANIMALS[a.sp], a)), mo = pool.motion;
   assert.equal(pool.geo.attributes.aSwing, undefined, 'orangutan uses the original clamber model without overhead swing poses');
-  const material = faunaMaterial(mo), shader = { uniforms: {}, vertexShader: '' }; material.onBeforeCompile(shader);
+  const material = faunaMaterial(mo), shader = { uniforms: {}, vertexShader: '', fragmentShader: '' }; material.onBeforeCompile(shader);
   assert.ok(!shader.vertexShader.includes('float crossing') && !shader.vertexShader.includes('attribute vec3 aSwing'), 'shader cannot blend the orangutan into a hanging pose');
   material.dispose();
   let point = st.branchPoint.clone(), rotation = st.canopyQuaternion.clone(), lastDelta = new THREE.Vector3();

@@ -55,7 +55,7 @@ check('Both articulated arms have climbing poses; feeding has its own pose and o
   assert.ok(moved[1]>100&&moved[2]>100);
   assert.ok(s.array.some((v,i)=>Math.abs(v-e.array[i])>.1),'swing and eating poses differ');
   const other=buildSpecies(ANIMAL.orangutan);assert.equal(other.geo.attributes.aSwing, undefined, 'orangutans retain their normal clambering pose');
-  const shader={uniforms:{},vertexShader:'#include <beginnormal_vertex>\n#include <begin_vertex>'},mat=faunaMaterial(motion);mat.onBeforeCompile(shader);
+  const shader={uniforms:{},vertexShader:'#include <beginnormal_vertex>\n#include <begin_vertex>',fragmentShader:''},mat=faunaMaterial(motion);mat.onBeforeCompile(shader);
   assert.ok(shader.vertexShader.includes('siamangHold'));assert.ok(shader.vertexShader.includes('aSwingN'));
   other.geo.dispose();geo.dispose();mat.dispose();
 });
