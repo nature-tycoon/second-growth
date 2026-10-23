@@ -207,10 +207,15 @@ function droughtKills(w, i, g, gf, rng) {
 const MORT = { background: 0.4, senesceFrom: 0.7, senesce: 0.05, stress: 0.03, stressSuit: 0.6, poorSite: 0.2, suppress: 0.03, drought: 1 };
 const DRY_BAND = 0.15;
 const hz = { h: 0, age: 0, drought: 0 };
-export function treeHazard(w, i, p, s, g, ageY, m) {
+// Background plus senescence, a year. updatePlants also uses it for the ceiling it rolls against first.
+function ageHazard(p, ageY, m) {
   const a = (ageY / p.life - MORT.senesceFrom) / (1 - MORT.senesceFrom);
-  hz.age = (p.mortality ?? clamp(MORT.background / p.life, 0.002, 0.02)) * (m.background ?? 1)
+  return (p.mortality ?? clamp(MORT.background / p.life, 0.002, 0.02)) * (m.background ?? 1)
     + (a > 0 ? MORT.senesce * a * a * a * (m.senescence ?? 1) : 0);
+}
+const woodK = []; // woodDecay by plant id (0: deadwood with no species), filled each day by updatePlants
+export function treeHazard(w, i, p, s, g, ageY, m) {
+  hz.age = ageHazard(p, ageY, m);
   let stress = 0;
   if (s < MORT.stressSuit) stress += MORT.stress * (1 - s / MORT.stressSuit) * (m.stress ?? 1);
   // a grown tree on a site gone bad (too wet, too dry, too shady) dies within a few years; a young
@@ -329,6 +334,14 @@ export function updatePlants(game) {
   w.invasiveOdds = Math.min(1, game.diff?.invasives ?? 1);
   const mort = game.catalog.definition.mortality || {};
   const sav = game.catalog.definition.savanna, deadK = game.catalog.definition.deadwood?.decay ?? 1;
+  // A tree dies on well under 1% of days, so the full hazard is only worked out when the day's
+  // roll falls under a ceiling that can't be lower than it: the exact age term plus the most the
+  // stress and drought terms can add (treeHazard). Same deaths, same rolls, a fraction of the work.
+  // (+1e-9: the terms' own rounding, e.g. poorSite·(0.3 − s)/0.3, can land a hair above poorSite)
+  const hazCap = MORT.stress * (mort.stress ?? 1) + MORT.poorSite + MORT.suppress * (mort.suppression ?? 1) + 1e-9;
+  const droughtCap = w.drought ? MORT.drought * w.drought : 0;
+  const plants = game.catalog.plants;
+  for (let k = 0; k < plants.length; k++) woodK[k] = woodDecay(plants[k]);
 
   for (let i = 0; i < w.n; i++) {
     const x = i % W, y = (i / W) | 0;
@@ -403,8 +416,9 @@ export function updatePlants(game) {
       } else if (s >= 0.3) g = Math.min(1, g + p.grow * gf * 0.5);
       // Sustained inundation, rather than the day a dam is built, creates snags.
       if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) dies = 'flood';
-      const haz = treeHazard(w, i, p, s, g, w.treeAge[i] / 120, mort), r = rng() * 120;
-      if (r < haz.h) dies ||= r < haz.age ? 'age' : r < haz.age + haz.drought ? 'drought' : 'stress';
+      const ageY = w.treeAge[i] / 120, r = rng() * 120;
+      const haz = r < ageHazard(p, ageY, mort) + droughtCap + hazCap ? treeHazard(w, i, p, s, g, ageY, mort) : null;
+      if (haz && r < haz.h) dies ||= r < haz.age ? 'age' : r < haz.age + haz.drought ? 'drought' : 'stress';
       else if (droughtKills(w, i, g, gf, rng)) { g = 0; lost = 'drought'; }
       else if (grazedSeedlingLost(w, i, p, g, rng)) { g = 0; lost = 'browse'; }
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
@@ -438,7 +452,7 @@ export function updatePlants(game) {
         else if (f === F.LOG) { w.soil[i] += 0.0004; if (ay > 4 && rng() < 0.01) clearDeadwood(w, i); }
       } else {
         // elsewhere it rots at the pace its wood and the ground allow (0017 §5)
-        const r = decayRate(w, i, deadK);
+        const r = woodK[w.deadwoodId[i]] * moistDecay(w, i) * deadK; // (decayRate, with the wood looked up once a day)
         const ay = (w.featureAge[i] += r) / 120;
         if (f === F.SNAG) { if (ay > DECAY.snagFall && rng() < DECAY.roll * r) fellSnag(w, i); }
         else {
