@@ -43,12 +43,12 @@ check('Repeated tracks follow the rounded motion and do not draw an unused grid 
 });
 check('Legacy edge fields cannot invent a visible track; pause and standing leave no raster wear',()=>{
  const s=setup();s.w.trailE=new Float32Array(s.w.n).fill(1);assert.equal(trailMask(s.w,s.w.idx(30,30),.5,.5),0);
- s.wl.update(0);assert.equal(s.w.trailDensity,undefined);s.a.x=30.5;s.a.y=30.5;recordTrailStep(s.wl,s.a,s.d,30.5,30.5);assert.equal(s.w.trailDensity,undefined);
+ s.wl.update(0);assert.equal(s.w.trailDensity,null);s.a.x=30.5;s.a.y=30.5;recordTrailStep(s.wl,s.a,s.d,30.5,30.5);assert.equal(s.w.trailDensity,null);
 });
 check('Continuous tracks save independently, restore at their higher resolution and support legacy saves',()=>{
  const s=setup();route(s);run(s);const save=s.g.saveData();assert.equal(save.world.arrays.trailDensity.n,s.w.n*TRAIL_RESOLUTION**2);
  assert.ok(s.g.restoreSave(save));assert.equal(s.g.world.trailDensity.length,s.w.n*TRAIL_RESOLUTION**2);
  const first=s.g.world.trailDensity.findIndex(v=>v>0),value=s.g.world.trailDensity[first];s.g.world.trailDensity[first]=0;assert.ok(s.g.restoreSave(save));assert.equal(s.g.world.trailDensity[first],value);
- const old=s.g.saveData();delete old.world.arrays.trailDensity;assert.ok(s.g.restoreSave(old));assert.equal(s.g.world.trailDensity,undefined);
+ const old=s.g.saveData();delete old.world.arrays.trailDensity;assert.ok(s.g.restoreSave(old));assert.equal(s.g.world.trailDensity,null);
 });
 console.log(`${checks} continuous ground movement checks passed.`);

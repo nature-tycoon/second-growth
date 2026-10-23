@@ -77,8 +77,8 @@ check('Relaxed and Standard skip new pressures without consuming randomness', ()
     assert.equal(preyFor(ANIMAL.otter, g), null);
     assert.equal(predationCatchChance(g, { sp: ANIMAL.cutthroat.index, x: 30, y: 30 }), 0.45);
     assert.deepEqual(pressureTileNotes(g, i), []);
-    assert.equal(g.world.browseDamage, undefined);
-    assert.equal(g.world.mulchDays, undefined);
+    assert.equal(g.world.browseDamage, null);
+    assert.equal(g.world.mulchDays, null);
   }
 });
 check('Repeated browsing kills a young tree and records the loss', () => {
@@ -291,7 +291,7 @@ await check('New pressure state survives save/load and older saves still load', 
   assert.equal(g.stats.saplingsBrowsed, 1); assert.ok(g.flags.ecologyNotices.browse != null);
   const key = Game.saveKey('pnw'), old = JSON.parse(memory.get(key));
   delete old.world.arrays.mulchDays; delete old.world.arrays.browseDamage; memory.set(key, JSON.stringify(old));
-  assert.equal(await g.load('pnw'), true); assert.equal(g.world.mulchDays, undefined); assert.equal(g.world.browseDamage, undefined);
+  assert.equal(await g.load('pnw'), true); assert.equal(g.world.mulchDays, null); assert.equal(g.world.browseDamage, null);
 });
 check('Undo refunds mulch and restores both initial and renewed protection', () => {
   reset(); const i = tile(), undo = new Undo(g), tool = TOOLS.mulch, money = g.money;

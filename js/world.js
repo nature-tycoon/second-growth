@@ -68,6 +68,16 @@ export class World {
     this.flood = u8(); this.fire = u8(); this.scorch = f32();
     this.rx = u8(); // controlled burn: 1 = in the burn unit, waiting for the fire; 2 = burning
     this.distTrail = u8(); this.disturb = f32();
+    // Fields the sim fills in later, declared here so every world has one shape: a world that
+    // grew them in a different order (a fresh farm, then a loaded save) made the hot loops
+    // polymorphic and cost a later world's dailyTick about 40%. null = not made yet.
+    this.canopyMonth = 0; // (updateCanopy)
+    this.seedbank = null; this.bankStrength = 0; // invasive seed bank (maps with definition.seedbank)
+    this.grazed = null; this.browseDamage = null; this.mulchDays = null; // herbivory and mulch
+    this.trod = null; this.trailE = null; this.trailS = null; this.trailDensity = null; this.trailMax = null; // game trails
+    this.waterLevel = null; this.waterDepth = null; this.waterManaged = null; this.waterOwner = null; this.waterWetDays = null; // HollisWater
+    this.bleach = null; this._shore = null; // the reef
+    this.bloomTick = 0; this.bloomLast = null; this.bloomSeen = null; this.canopyNet = null; this._canopyPar = null; // Atlanta
     this.hydroDirty = true;
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;
     this.renderDirty = true;

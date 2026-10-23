@@ -106,7 +106,7 @@ check('Binary and legacy saves preserve water, wet days, and future evolution', 
 });
 check('Reservoirs are exclusive to Hollis; all other maps keep their terrain and save schema', () => {
   for(const map of ['amazon','serengeti','atlanta','chinandega','sumatra','reef']){
-    const g=new Game();g.newGame(1987,'free','standard',map);assert.equal(g.water,null);assert.equal(g.world.waterLevel,undefined);assert.equal(g.saveData().world.water,undefined);
+    const g=new Game();g.newGame(1987,'free','standard',map);assert.equal(g.water,null);assert.equal(g.world.waterLevel,null);assert.equal(g.saveData().world.water,undefined);
   }
 });
 check('Switched off, Hollis plays as before and saves made under the model load back to their ground', () => {
@@ -115,7 +115,7 @@ check('Switched off, Hollis plays as before and saves made under the model load 
   assert.ok(base.some((t,i)=>t!==w.terrain[i]),'the summer drawdown changed the published terrain');
   waterModel.enabled=false;
   try{
-    const off=new Game();off.newGame(1987,'free','standard','pnw');assert.equal(off.water,null);assert.equal(off.world.waterLevel,undefined);assert.equal(off.saveData().world.water,undefined);
+    const off=new Game();off.newGame(1987,'free','standard','pnw');assert.equal(off.water,null);assert.equal(off.world.waterLevel,null);assert.equal(off.saveData().world.water,undefined);
     const back=new Game();assert.ok(back.restoreSave(structuredClone(data)));assert.equal(back.water,null);
     assert.ok(Array.from(back.world.terrain).every((t,i)=>t===base[i]),'ponds and wetlands return to their underlying ground');
   }finally{waterModel.enabled=true;}
