@@ -15,6 +15,7 @@ Act as a senior software architect and simulation engineer working on Second Gro
 
 ## Principles
 
+- Cole is not an engineer. When he asks for something a specific way and there's a simpler, more robust or more realistic way to get what he's after, propose it (briefly, with the tradeoff) and go with the better option rather than following the wording literally. Say what you changed from his request and why.
 - Prefer simple, modular solutions over elaborate frameworks.
 - Do not introduce new abstractions unless they solve a demonstrated problem.
 - Distinguish architectural problems from implementation bugs.
@@ -32,7 +33,7 @@ Read the decisions in [docs/decisions/](docs/decisions/) before changing the are
 - [0004 Ecosystem performance](docs/decisions/0004-ecosystem-performance.md): the low-end target (30 FPS, native resolution, Fast, Intel HD 520), the audit, and the milestone plan with progress
 - [0005 Animal travel and crowding](docs/decisions/0005-animal-clustering.md), [0006 Prey vigilance](docs/decisions/0006-prey-predator-avoidance.md), [0007 Territorial cores](docs/decisions/0007-species-territories.md), [0008 Carcass window](docs/decisions/0008-longer-carcass-window.md), [0009 Seasonal dormancy](docs/decisions/0009-seasonal-dormancy.md), [0010 Game trails](docs/decisions/0010-game-trails.md): wildlife movement and behavior added October 2026
 - [0011 Grazing pressure](docs/decisions/0011-grazing-pressure.md): herds hold woody seedlings back in the grass they use (`sim/grazing.js`, per-map `grazing` strength), and where elk spend their time
-- [0012 Raptors soar and carry](docs/decisions/0012-raptors-soar-and-carry.md): hawks circle (`def.soar`), and raptors and owls carry off what they can lift (`def.carries`, `carryCatch` in `sim/bird-behavior.js`)
+- [0012 Raptors soar and carry](docs/decisions/0012-raptors-soar-and-carry.md): hawks and vultures circle (`def.soar`; a vulture spirals down over a carcass, `circleDown`), and raptors and owls carry off what they can lift (`def.carries`, `carryCatch` in `sim/bird-behavior.js`)
 - [0013 Home ranges and water](docs/decisions/0013-home-ranges-and-water.md): resident mammals settle homes apart from their own kind and drink at their home's nearest water within reach (`sim/home-range.js`); `node tools/activity-budget.mjs [map]` shows how each species spends its time
 - [0014 Activity budget](docs/decisions/0014-activity-budget.md): hunters' hunger, rest and soaring compete for time (`behavior.activity`, `prowl()`), prey watch a stalker and flee at a rush, flights speed up then tire, trails fade 0.5%/day; `node tools/activity-check.mjs`
 - [0015 Landscape of fear](docs/decisions/0015-landscape-of-fear.md): each prey species remembers kill and chase sites for a few weeks (`sim/predation-risk.js`, not saved) and weighs them when choosing a home, a site or a drinking spot; `node tools/predation-risk-check.mjs`

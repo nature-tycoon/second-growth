@@ -57,3 +57,24 @@ Now, in `huntStep` (`sim/animal-life.js`):
 Catch counts held (hawk 9 → 9, owl 12 → 14). `bird-behavior-check` covers a hawk and an owl perched
 beside a vole and a hawk directly above one. `challenging-ecology-check` gives fliers up to four
 steps to finish the dive on contact.
+
+## Amendment 2026-10-22: vultures soar, and circle down to carrion
+
+Cole asked for vultures to circle carrion using the soar. The white-backed vulture (Serengeti) now
+has `soar: true`, and the soar gained one variant for scavengers rather than a separate system:
+
+- A fed vulture soars at the same 35% as the hawks in `birdChoose`. A hungry one with no carcass in
+  reach goes up and searches from the soar, checking for a carcass every half sim-day
+  (`scavenge`, unchanged: fliers find carcasses within 40 tiles).
+- It flies straight to the carcass as before, then `circleDown` (`sim/bird-behavior.js`) spirals
+  it down over it: radius 1.4–1.8 tightening to 0.8, altitude from flight height to near the
+  ground, at 2.5× the soaring pace so it makes about a turn and a half in 3–4 sim-days (about
+  5 s on screen). It then lands and takes a meal through `feedAt`, as any scavenger does on arrival.
+- It breaks off if the carcass is eaten out or decays while it circles, and circling claims no
+  meal. The info panel says "Circling down to a carcass".
+- Hawks and eagles (which hunt) never circle down; `circleDown` is for soaring birds with no prey.
+
+The descent costs a few sim-days: in `scavenger-arrival-check` the vulture 38 tiles out now feeds
+on day 30.65 of a 33.49-day carcass (26.80 before). The passing black-vulture flocks (Chinandega)
+already glide in `bird-passage.js` and are unchanged. `bird-behavior-check` covers the search
+soar, at least a full turn over the carcass, the descent, and the single meal on landing.

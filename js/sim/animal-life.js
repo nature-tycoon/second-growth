@@ -11,7 +11,7 @@ import { inRiver } from './animals.js';
 import { followCervid } from './cervid-groups.js';
 import { travelSpeed } from './climb-pace.js';
 import { preyCover } from './ecological-pressure.js';
-import { birdAlarm, soar } from './bird-behavior.js';
+import { birdAlarm, soar, circleDown } from './bird-behavior.js';
 import { activityProfileFor } from '../data/animal-activity.js';
 import { territorialRivals } from '../data/animal-territories.js';
 import { territoryArrive } from './animal-territory.js';
@@ -521,7 +521,7 @@ export function scavenge(wl, a, def) {
   a.goal = null;
   return false;
 }
-function feedAt(a, c) {
+export function feedAt(a, c) {
   // Claim the meal only on arrival, so distant visitors cannot reserve food.
   // As with a successful catch, the first bite satisfies hunger immediately.
   if (c.t <= 0 || !(c.meals > 0)) return false;
@@ -879,7 +879,8 @@ export function arrive(wl, a) {
   if (a.goal?.carcass != null) {
     const c = wl.carcasses.find(k => k.id === a.goal.carcass);
     a.goal = null;
-    if (c && Math.hypot(c.x - a.x, c.y - a.y) < 1.6) feedAt(a, c);
+    // (a vulture spirals down over it first: bird-behavior.js)
+    if (c && Math.hypot(c.x - a.x, c.y - a.y) < 1.6 && !circleDown(wl, a, wl.game.catalog.animals[a.sp], c)) feedAt(a, c);
   }
 }
 

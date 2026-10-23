@@ -177,7 +177,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, SHRUB: 0.7, YOUNG_FOREST: 0.6, MATURE_FOREST: 0.6, FARM: 0.4 });
-    def({ key: 'vulture', name: 'White-backed vulture', sci: 'Gyps africanus', group: 'Birds', move: 'fly',
+    def({ key: 'vulture', name: 'White-backed vulture', sci: 'Gyps africanus', group: 'Birds', move: 'fly', soar: true,
       speed: 1.4, hr: 60, max: 12, minK: 2, groupSize: [2, 4], sources: ['N'], mig: 0.3, breed: [5], litter: [1, 1], life: 25, mature: 5,
       needs: ['topi', 'hartebeest', 'wildebeest', 'zebra', 'buffalo', 'gazelle'], needsPer: 8,
       suit: (W, i) => w[W.habitat[i]],

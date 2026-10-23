@@ -5,7 +5,7 @@ import { huntHunger } from '../data/animal-activity.js';
 import { F, clamp, isWater } from '../config.js';
 import { activeCatalog } from '../data/catalog.js';
 import { canLand } from './animal-terrain.js';
-import { bolt } from './animal-life.js';
+import { bolt, scavenge, feedAt } from './animal-life.js';
 import { facePoint } from './animal-positioning.js';
 import { travelSpeed } from './climb-pace.js';
 
@@ -86,8 +86,8 @@ export function soar(wl, a, def) {
     ang: Math.atan2(a.y - cy, a.x - cx), ph: a.phase, beat: Math.random() * 6.3 };
   return true;
 }
-function soarStep(wl, a, def, b, dt) {
-  const sp = travelSpeed(def) * dt * 0.8;
+function soarStep(wl, a, def, b, dt, pace = 0.8) {
+  const sp = travelSpeed(def) * dt * pace;
   b.ang += b.dir * sp / b.r;
   wl.stepToward(a, b.cx + Math.cos(b.ang) * b.r, b.cy + Math.sin(b.ang) * b.r, sp * 1.2);
   a.alt = Math.min(1.6, a.alt + dt * 0.6);
@@ -96,6 +96,30 @@ function soarStep(wl, a, def, b, dt) {
   if (Math.sin(b.t * 0.5 + b.beat) > 0.85) b.ph += dt * 6 * (def.sprite.beat ?? 1);
   else b.ph += (neutral - b.ph) * Math.min(1, dt * 5);
   a.phase = b.ph;
+}
+// A soaring scavenger (the vultures) that finds a carcass doesn't drop straight onto it: it flies
+// over, then spirals down above it on a tightening circle and lands beside it. This is what other
+// vultures watch for, and what draws a crowd from far off. Called on arriving over the carcass.
+export function circleDown(wl, a, def, c) {
+  if (!def.soar || !isBird(def) || preyFor(def, wl.game)) return false;
+  const r = 1.4 + Math.random() * 0.4;
+  a.state = 'bird'; a.birdGround = false; a.flying = true; a.path = null; a.alt = Math.max(a.alt, 1);
+  a.bird = { kind: 'soar', carcass: c.id, t: 3 + Math.random(), cx: c.x, cy: c.y, r, r0: r, alt0: a.alt,
+    dir: Math.random() < 0.5 ? -1 : 1, ang: Math.atan2(a.y - c.y, a.x - c.x), ph: a.phase, beat: Math.random() * 6.3 };
+  a.bird.t0 = a.bird.t;
+  return true;
+}
+function circleDownStep(wl, a, def, b, dt) {
+  const c = wl.carcasses.find(k => k.id === b.carcass);
+  if (!c || c.t <= 1 || !(c.meals > 0)) { a.bird = null; a.state = 'idle'; a.wait = 0; a.goal = null; return; }
+  const f = Math.max(0, b.t / b.t0); // (1 at the top of the spiral, 0 on landing)
+  b.r = 0.8 + (b.r0 - 0.8) * f;
+  soarStep(wl, a, def, b, dt, 2.5); // (a turn or two on the way down)
+  a.alt = 0.1 + (b.alt0 - 0.1) * f;
+  if (b.t > 0) return;
+  // down beside it: land and take a meal as any scavenger does on arrival
+  a.bird = null; a.state = 'idle'; a.flying = false; a.alt = 0; a.wait = 0.5; a.goal = null;
+  feedAt(a, c);
 }
 
 // ---------------------------------------------------------------- carrying a catch
@@ -200,7 +224,10 @@ export function birdChoose(wl, a, def) {
   if (!isBird(def) || a.leaving || a.fromFire) return false;
   if (birdAlarm(wl, a, def)) return true;
   // Hungry hunters and scavengers keep their existing feeding priorities.
-  if (preyFor(def, wl.game) ? a.hunger >= huntHunger(def) : def.key === 'vulture' && a.hunger >= 3) return false;
+  if (preyFor(def, wl.game) ? a.hunger >= huntHunger(def) : def.key === 'vulture' && a.hunger >= 3) {
+    // (a hungry vulture with no carcass in sight goes up and searches from the soar)
+    return !preyFor(def, wl.game) && !!def.soar && soar(wl, a, def);
+  }
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   if (!w.inb(x, y)) return false;
   const i = w.idx(x, y), profile = birdProfile(def, wl.game.catalog), roll = Math.random();
@@ -281,7 +308,14 @@ export function birdUpdate(wl, a, def, dt) {
   b.t -= dt;
   if (b.kind === 'soar') {
     const diet = preyFor(def, wl.game);
+    if (b.carcass != null && !w.fire[i]) { circleDownStep(wl, a, def, b, dt); return; }
     if (w.fire[i] || b.t <= 0) { a.bird = null; a.state = 'idle'; a.wait = 0; return; }
+    // A hungry vulture watches the ground (and the other vultures) from up here for a carcass.
+    if (!diet && def.soar && a.hunger >= 3 && (b.scan = (b.scan || 0) - dt) <= 0) {
+      b.scan = 0.5;
+      const was = a.bird;
+      if (scavenge(wl, a, def)) { if (a.bird === was) a.bird = null; return; }
+    }
     // A hungry hawk hunts from up here: it watches the ground below and stoops on what it sees,
     // and moves on before long if nothing shows.
     if (diet && a.hunger >= huntHunger(def)) {
