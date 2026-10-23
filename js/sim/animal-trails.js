@@ -7,6 +7,7 @@ import { foodAt } from './animal-foraging.js';
 import { hash2, valueNoise } from '../rng.js';
 import { riskAt, safety } from './predation-risk.js';
 export const TRAIL_THRESHOLD = 0.09;
+export const TRAIL_FOOTPRINT = 0.17; // tiles
 // Unused trails fade 0.5% a day (about half in 140 days): a game trail lasts a season or more
 // after the animals stop using it (decision 0014; it was 1.5%).
 export const TRAIL_FADE = 0.995;
@@ -26,11 +27,19 @@ export function trailPorts(w, j, out = [0,0,0,0]) {
   if(y>0 && trailSurface(w,j-w.w)) out[3]=strength(w.trailS?.[j-w.w]);
   return out;
 }
-// Stable sub-tile centers give learned routes and their worn tracks the same
-// gentle lateral variation. Shared edge crossings remain continuous at tile seams.
-export function trailNode(w,j) {
+// Each tile's stable waypoint for ground walkers, up to a third of a tile off center. Neighboring
+// tiles differ, so a straight grid route walks as a wandering line, and parallel routes one tile
+// apart drift together and apart instead of ruling a grid (it was ±0.12 at a 2.8-tile scale).
+const nodeOffset=v=>clamp((v-.5)*1.1,-.34,.34);
+export function trailNode(w,j,salt=0) {
   const x=j%w.w,y=j/w.w|0;
-  return [.5+(valueNoise(x,y,2.8,731)-.5)*.48,.5+(valueNoise(x,y,2.8,947)-.5)*.48];
+  return [.5+nodeOffset(valueNoise(x,y,1.5,731+salt)),.5+nodeOffset(valueNoise(x,y,1.5,947+salt))];
+}
+// A learned resource route shares the tile's waypoint with every other animal, so repeated trips
+// wear one trail. Other walking (grazing about, drinking, migrating) keeps the animal's own line:
+// shared points would join a milling herd's every step into a lattice of worn lines.
+export function walkNode(w,a,j) {
+  return trailNode(w,j,a.range?.goal!=null?0:(a.id||0)*7919%100003+1);
 }
 export function trailShape(w,j,out=[0,0,0,0]) {
   const c=trailNode(w,j),east=trailNode(w,j%w.w+1<w.w?j+1:j),south=trailNode(w,j+w.w<w.n?j+w.w:j);
@@ -61,8 +70,10 @@ function densityState(w,create=false) {
 }
 function traceTraffic(w,a,profile,x0,y0) {
   const s=densityState(w,true),R=TRAIL_RESOLUTION,W=w.w*R,H=w.h*R;
-  const d=Math.hypot(a.x-x0,a.y-y0),samples=Math.max(1,Math.ceil(d*R*2)),radius=.28;
-  const amount=profile.wear*(a.juvenile?.5:1)*d/samples*5;
+  // A narrow footprint (a game trail is a hoof's width, not a body's): the same peak wear as
+  // the old 0.28-tile footprint, spread over less ground.
+  const d=Math.hypot(a.x-x0,a.y-y0),samples=Math.max(1,Math.ceil(d*R*3)),radius=TRAIL_FOOTPRINT;
+  const amount=profile.wear*(a.juvenile?.5:1)*d/samples*5*.28/radius;
   for(let k=0;k<samples;k++){
     const t=(k+.5)/samples,x=x0+(a.x-x0)*t,y=y0+(a.y-y0)*t;
     const minX=Math.max(0,Math.floor((x-radius)*R)),maxX=Math.min(W-1,Math.floor((x+radius)*R));

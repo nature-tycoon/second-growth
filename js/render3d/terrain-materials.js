@@ -69,7 +69,8 @@ vec4 tileAt(vec2 p) {
 // Actual continuous foot traffic, sampled across tile boundaries. No tile-center
 // arms or reconstructed right-angle junctions are drawn.
 float gameTrail(vec2 p) {
-  float raw = texture2D(uTrailDensity, (p - uTileOrigin) / uTileSize).r;
+  // fine noise nibbles at the edges, so a worn track frays into the grass instead of having a smooth rim
+  float raw = texture2D(uTrailDensity, (p - uTileOrigin) / uTileSize).r - (texture2D(uNoise, p * 2.3 + 0.61).r - 0.5) * 0.12;
   float use = sqrt(clamp((raw - 0.09) / (0.55 - 0.09), 0.0, 1.0));
   return use * step(0.5, tileAt(p).a) * uTrailVisible;
 }

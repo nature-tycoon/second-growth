@@ -18,7 +18,7 @@ import { territorialChoose, hasTerritory } from './animal-territory.js';
 import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { grazeDay, decayGrazing } from './grazing.js';
-import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, trailNode } from './animal-trails.js';
+import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, walkNode } from './animal-trails.js';
 import { ensureHome, homeChoose, homeFalloff, walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
 import { markRisk, safety, decayRisk } from './predation-risk.js';
 import { dormancySeason } from '../data/animal-dormancy.js';
@@ -1084,7 +1084,7 @@ export class Wildlife {
           // each animal keeps to its own line through a tile and stops at its own spot in the last
           // one, so two walking the same way don't trace one track, and a group doesn't pile onto
           // a single point
-          const [ox, oy] = a.range?.goal != null ? trailNode(w, j).map(v => v - 0.5) : smoothWalker(this.game.catalog.animals[a.sp]) ? [0, 0] : spotIn(a, j, a.path.length === 1);
+          const [ox, oy] = smoothWalker(this.game.catalog.animals[a.sp]) ? walkNode(w, a, j).map(v => v - 0.5) : spotIn(a, j, a.path.length === 1);
           if (a.path.length === 1 && a.restSpot?.[0] !== j) {
             const bank = !a.dormancy && this.drinks(def) && a.thirst > drinkEvery(this, a, def) * 0.5 ? this.bankSpot(a, j) : null;
             const drink = bank && bank.crowd < 0.08;
@@ -1232,7 +1232,7 @@ export class Wildlife {
     const w = this.game.world, j = a.state === 'walk' ? a.path[a.path.length - 1] : -1;
     let tx = a.localGoal?.[0], ty = a.localGoal?.[1];
     if (j >= 0) {
-      const [ox, oy] = a.range?.goal != null ? trailNode(w, j).map(v => v - 0.5) : smoothWalker(this.game.catalog.animals[a.sp]) ? [0, 0] : spotIn(a, j, a.path.length === 1);
+      const [ox, oy] = smoothWalker(this.game.catalog.animals[a.sp]) ? walkNode(w, a, j).map(v => v - 0.5) : spotIn(a, j, a.path.length === 1);
       const rest = a.path.length === 1 && a.restSpot?.[0] === j;
       tx = rest ? a.restSpot[1] : j % w.w + 0.5 + ox;
       ty = rest ? a.restSpot[2] : (j / w.w | 0) + 0.5 + oy;

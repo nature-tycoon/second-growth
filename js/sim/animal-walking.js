@@ -1,7 +1,7 @@
 // Ground route following is continuous; grid routes supply a safe corridor and destination.
 import { T, clamp } from '../config.js';
 import { passable } from './animal-terrain.js';
-import { trailNode } from './animal-trails.js';
+import { walkNode } from './animal-trails.js';
 const angleDelta=(a,b)=>{let d=a-b;return d-Math.round(d/(Math.PI*2))*Math.PI*2;};
 export const smoothWalker=def=>!def.reef&&(def.move==='ground'||def.move==='semi'&&!def.patrol);
 // Check the swept segment and both sides of each diagonal boundary. Short look-ahead
@@ -20,8 +20,10 @@ export function walkSegmentSafe(w,a,x,y) {
   }
   return true;
 }
+// Ground walkers steer through an off-center point in each tile (walkNode), so a route walks as
+// a wandering line instead of ruling a straight one through every tile center.
 function node(w,a,j) {
-  const p=a.range?.goal!=null?trailNode(w,j):[.5,.5];
+  const p=walkNode(w,a,j);
   return [j%w.w+p[0],(j/w.w|0)+p[1]];
 }
 // Returns true only at the current waypoint, or after crossing its outgoing plane.
