@@ -104,7 +104,7 @@ export function circleDown(wl, a, def, c) {
   if (!def.soar || !isBird(def) || preyFor(def, wl.game)) return false;
   const r = 1.4 + Math.random() * 0.4;
   a.state = 'bird'; a.birdGround = false; a.flying = true; a.path = null; a.alt = Math.max(a.alt, 1);
-  a.bird = { kind: 'soar', carcass: c.id, t: 3 + Math.random(), cx: c.x, cy: c.y, r, r0: r, alt0: a.alt,
+  a.bird = { kind: 'soar', carcass: c.id, t: 1.8 + Math.random() * 0.4, cx: c.x, cy: c.y, r, r0: r, alt0: a.alt,
     dir: Math.random() < 0.5 ? -1 : 1, ang: Math.atan2(a.y - c.y, a.x - c.x), ph: a.phase, beat: Math.random() * 6.3 };
   a.bird.t0 = a.bird.t;
   return true;
@@ -114,7 +114,7 @@ function circleDownStep(wl, a, def, b, dt) {
   if (!c || c.t <= 1 || !(c.meals > 0)) { a.bird = null; a.state = 'idle'; a.wait = 0; a.goal = null; return; }
   const f = Math.max(0, b.t / b.t0); // (1 at the top of the spiral, 0 on landing)
   b.r = 0.8 + (b.r0 - 0.8) * f;
-  soarStep(wl, a, def, b, dt, 2.5); // (a turn or two on the way down)
+  soarStep(wl, a, def, b, dt, 1.5); // (about a turn on the way down)
   a.alt = 0.1 + (b.alt0 - 0.1) * f;
   if (b.t > 0) return;
   // down beside it: land and take a meal as any scavenger does on arrival
@@ -306,16 +306,17 @@ export function birdUpdate(wl, a, def, dt) {
   a.birdAlertCheck = (a.birdAlertCheck || 0) - dt;
   if (a.birdAlertCheck <= 0) { a.birdAlertCheck = 0.3; if (birdAlarm(wl, a, def)) return; }
   b.t -= dt;
+  const diet = preyFor(def, wl.game);
+  // A hungry vulture keeps watch for a carcass (and for other vultures going down to one), from
+  // the soar or a perch alike, and sets off as soon as it sees one.
+  if (!diet && def.soar && b.carcass == null && a.hunger >= 3 && (b.scan = (b.scan || 0) - dt) <= 0) {
+    b.scan = 0.5;
+    const was = a.bird;
+    if (scavenge(wl, a, def)) { if (a.bird === was) a.bird = null; return; }
+  }
   if (b.kind === 'soar') {
-    const diet = preyFor(def, wl.game);
     if (b.carcass != null && !w.fire[i]) { circleDownStep(wl, a, def, b, dt); return; }
     if (w.fire[i] || b.t <= 0) { a.bird = null; a.state = 'idle'; a.wait = 0; return; }
-    // A hungry vulture watches the ground (and the other vultures) from up here for a carcass.
-    if (!diet && def.soar && a.hunger >= 3 && (b.scan = (b.scan || 0) - dt) <= 0) {
-      b.scan = 0.5;
-      const was = a.bird;
-      if (scavenge(wl, a, def)) { if (a.bird === was) a.bird = null; return; }
-    }
     // A hungry hawk hunts from up here: it watches the ground below and stoops on what it sees,
     // and moves on before long if nothing shows.
     if (diet && a.hunger >= huntHunger(def)) {

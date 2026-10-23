@@ -64,17 +64,24 @@ Cole asked for vultures to circle carrion using the soar. The white-backed vultu
 has `soar: true`, and the soar gained one variant for scavengers rather than a separate system:
 
 - A fed vulture soars at the same 35% as the hawks in `birdChoose`. A hungry one with no carcass in
-  reach goes up and searches from the soar, checking for a carcass every half sim-day
-  (`scavenge`, unchanged: fliers find carcasses within 40 tiles).
+  reach goes up and searches from the soar. A hungry vulture checks for a carcass every half
+  sim-day whether it is soaring or perched (`scavenge`, unchanged: fliers find carcasses within
+  40 tiles), so a rest in a tree no longer holds it back for 5–12 days.
+- Its speed went from 1.4 (slower than a walking wildebeest) to 3, the same as the hawks and
+  eagles: a Gyps glides at 50–60 km/h.
 - It flies straight to the carcass as before, then `circleDown` (`sim/bird-behavior.js`) spirals
   it down over it: radius 1.4–1.8 tightening to 0.8, altitude from flight height to near the
-  ground, at 2.5× the soaring pace so it makes about a turn and a half in 3–4 sim-days (about
-  5 s on screen). It then lands and takes a meal through `feedAt`, as any scavenger does on arrival.
+  ground, at 1.5× the soaring pace: about one turn in 1.8–2.2 sim-days (about 3 s on screen). It then lands and takes a meal through `feedAt`, as any scavenger does on arrival.
 - It breaks off if the carcass is eaten out or decays while it circles, and circling claims no
   meal. The info panel says "Circling down to a carcass".
 - Hawks and eagles (which hunt) never circle down; `circleDown` is for soaring birds with no prey.
 
-The descent costs a few sim-days: in `scavenger-arrival-check` the vulture 38 tiles out now feeds
-on day 30.65 of a 33.49-day carcass (26.80 before). The passing black-vulture flocks (Chinandega)
+In `scavenger-arrival-check` the vulture 38 tiles out now feeds on day 14.65 of a 33.49-day
+carcass (26.80 before any of this). Cole asked for arrival as soon as possible, or more vultures
+if that's realistic. Density was left alone: the game already allows one vulture per 8 grazers
+(`needsPer`), far denser than the real Serengeti, and the slow arrivals came from flight speed
+and perching. In two-year Serengeti runs with herds, lions and hyenas placed by hand, vultures
+held at 2–4 and spent about 2–3% of their time feeding (0–0.2% before). The passing black-vulture flocks (Chinandega)
 already glide in `bird-passage.js` and are unchanged. `bird-behavior-check` covers the search
-soar, at least a full turn over the carcass, the descent, and the single meal on landing.
+soar, at least a full turn over the carcass, the descent, the single meal on landing, and a
+perched vulture leaving at once for a carcass.
