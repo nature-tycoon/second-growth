@@ -528,6 +528,19 @@ Also:
 - Checks: `data-contracts`, `consistency`, `tree-mortality`, `plant-ecology`, `disturbance`, `deadwood`, the new `dispersal` (5 checks), `vegetation`, `plant-replay`, `farm-state`, `challenging-ecology`, `beaver-dam` and `animal-dormancy` pass. `browser-save-check` passes (rerun 2026-10-23: 19 save checks and the in-game save, reload, backup and map-switch checks).
 - No new world fields.
 
+### Merge with main (2026-10-23)
+
+`origin/main` (37f8ba1: home ranges, activity budget, landscape of fear, carcass decay, spaced tree planting) merged into the stack. The only text conflict was AGENTS.md. No site in main's changes clears a tree outside `removeTree`. The world-fields work from its side session is folded in: every lazily added `World` field is declared in the constructor (null until made), so a farm loaded after playing another keeps one object shape.
+
+Checked after the merge:
+
+- **Headless release suite:** 88 of 90 pass. `succession-check` timed out because the suite runs it without arguments; with no arguments it now does a 25-second smoke run. `primate-stall-check` (an orangutan stuck at a failed hold for 53.9 days) fails identically on `main` itself, so it's a `main` issue, not this stack's, but it will show on this branch's PR checks.
+- **Browser release suite:** 17 of 17 pass. The renderer check reports "changed appearance" for the forest scenes on PNW, Amazon, Atlanta and Sumatra; the PNW scene differs by a few logs and saplings where the forest grew differently (review at `tools/release-output/review.html`).
+- **Playtest** (Hollis, free play, 31 years advanced from the console): the windstorm notice fires and names only species actually released, the inspector shows a waiting hemlock and the root-rot note, a save round-trips exactly with the same world shape, and the console shows no errors. Two text nits: the storm notice lowercases tree names (so an Amazon blowdown would read "brazil nut (castanheira)"), and the root-rot note reads oddly on a tile with no trees.
+- **`balance-sim restore 15`**, 16 seeds seeded via `--import`, current `main` → merged, means ± standard error: score 62.4 ± 1.5 → 65.0 ± 1.9, meadow 1,159 ± 105 → 1,171 ± 106, invasive 27.1% → 25.0%, elk 15.0 → 17.1, all within noise. **Forest tiles 220 → 385 and mature 40 → 85**: the forest rain, as in phase 6.
+- **Succession sweep**, full wildlife, 200 years: PNW restore (3 seeds) fir 82–89%, hemlock + cedar 7–11% of mature trees, recruits ÷ deaths 0.96–1.05, unburned openings 23–33%, species 30–31. PNW idle (1) fir 83%, tolerant 11%. Amazon (3) largest 30–38% (Brazil nut, or fig on seed 1), species 24, fire 5–20% of deaths. Atlanta (3) recruits ÷ deaths 0.69–0.74, species 27–29, the same Atlanta shortfall as before. Chinandega (1) neem 37%, recruits ÷ deaths 1.54 and species 21, both just outside their targets on this one seed (phase 6: 1.08–1.13 and 22–23). Serengeti (1) mesquite 89%. Reef (1) boulder 54%, species 21.
+- **`dailyTick` against current `main`** (`tools/daily-tick-ab.mjs`, same land each block, 30 blocks, both orders, on battery): +2.8% ± 0.7% and +4.7% ± 0.4%, about **+3.7%**, inside the 5% budget.
+
 ### How to run
 
 ```
