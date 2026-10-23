@@ -402,7 +402,9 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
         const turnPace = .2 + .8 * THREE.MathUtils.clamp((.5 - angle) / .35, 0, 1);
         budget *= THREE.MathUtils.lerp(turnPace, 1, catchUpTurn);
       }
-    } else if (st.canopyQuaternion && (intent || (route && def.sprite.kind === 'monkey' && !def.sprite.ape))) {
+    } else if (st.canopyQuaternion && (intent || (route && def.sprite.kind === 'monkey' && !def.sprite.ape)) &&
+        // (an orangutan has already turned into its crossing's validated pose: see below)
+        !(def.sprite.kind === 'orangutan' && route?.bridgePose && route.cursor === route.gap)) {
       const heading = intent?.clone() || routeHeading(route, st.branchPoint, Math.max(walkerMotion?.025:.08, (def.sprite.len || 14) * st.sc * (walkerMotion?.15:.6)), anchor.direction);
       const facing = new THREE.Vector3(1, 0, 0).applyQuaternion(st.canopyQuaternion);
       if (intent && st.canopyReverse) heading.negate();
@@ -461,13 +463,19 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
             }
           }
         }
-        if (orangutanFacing) {
+        // (a crossing goes in its validated bridge pose, turned into just above,
+        // even where that faces forward down a limb it would otherwise back down)
+        if (orangutanFacing && !(route.cursor === route.gap && route.bridgePose)) {
           const direction = target.clone().sub(st.branchPoint);
           const backDown = st.canopyReverse && direction.y < -.1 * distance;
           const alignment = orangutanFacing.x * direction.x + orangutanFacing.z * direction.z;
           // A lookahead can face the following bend before this short bark
           // segment is finished. Only creep until the body faces this step.
-          if ((backDown ? -alignment : alignment) < 0) boost *= Math.min(1, shufflePace / facingPace);
+          // A grip correction of a few millimetres is not a stride, though: the
+          // pose follows the lookahead and may never face it, so creeping
+          // there held the body at one hold for months.
+          if ((backDown ? -alignment : alignment) < 0 && distance > (def.sprite.len || 14) * st.sc * .05)
+            boost *= Math.min(1, shufflePace / facingPace);
         }
         let step = budget * boost;
         // (a gap the leap can't clear waits for the classic crossing on the next frame)
