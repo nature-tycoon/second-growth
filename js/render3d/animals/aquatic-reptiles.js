@@ -10,12 +10,14 @@ function frog(m, s) {
   const leg = s.dark && s.dark !== '#2a4a1e' ? s.dark : shade(s.color, -0.1);
   m.ell([-S * 0.02, S * 0.3, 0], [S * 0.38, S * 0.24, S * 0.3], skin, { rot: [0, 0, 0.35] });
   m.ell([S * 0.28, S * 0.4, 0], [S * 0.22, S * 0.16, S * 0.26], skin, { rot: [0, 0, 0.15] });
+  // tree frog's dark mask through the eye: a thin band just wider than the head, so it only
+  // shows along the head's sides (a separate bar stood out from the cheeks like a mustache)
+  if (s.dark === '#2a4a1e') m.ell([S * 0.268, S * 0.479, 0], [S * 0.17, S * 0.032, S * 0.242], s.dark, { rot: [0, 0, 0.15] });
   for (const side of [1, -1]) {
     // eyes on top, gold with a dark pupil
     m.ell([S * 0.33, S * 0.53, side * S * 0.14], [S * 0.075, S * 0.075, S * 0.075], skin, { lo: true });
     m.ell([S * 0.38, S * 0.55, side * S * 0.16], [S * 0.045, S * 0.05, S * 0.045], '#c8a040', { lo: true });
     m.ell([S * 0.405, S * 0.555, side * S * 0.165], [S * 0.022, S * 0.035, S * 0.022], '#141210', { lo: true });
-    if (s.dark === '#2a4a1e') m.ell([S * 0.3, S * 0.45, side * S * 0.2], [S * 0.2, S * 0.03, S * 0.05], s.dark, { lo: true, rot: [0, 0, -0.15] }); // tree frog's eye stripe
     const hip = [-S * 0.15, S * 0.24, side * S * 0.2], hl = { part: side > 0 ? P.LEG_BL : P.LEG_BR, pivot: hip };
     m.ell([-S * 0.16, S * 0.2, side * S * 0.3], [S * 0.22, S * 0.1, S * 0.09], leg, { ...hl, rot: [0, side * 0.3, 0.45] });
     m.ell([-S * 0.02, S * 0.1, side * S * 0.36], [S * 0.18, S * 0.06, S * 0.07], leg, { ...hl, rot: [0, side * -0.25, -0.35] });
