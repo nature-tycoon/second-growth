@@ -736,7 +736,10 @@ export class Wildlife {
     else { a.tx = -3; a.ty = a.y; }
     a.state = 'leave'; a.path = null;
     for (const o of this.agents) if (o.mom === a.id && !o.leaving) { this.leave(o); o.tx = a.tx + (Math.random() - 0.5); o.ty = a.ty + (Math.random() - 0.5); }
-    if (def.herd) { a.leaveWait = inRiver(this, a) ? 0 : Math.random() * 6; a.pace = 0.75 + Math.random() * 0.5; } // a herd moves off in dribs and drabs (not one in the water, though)
+    if (def.herd) { // a herd moves off in dribs and drabs (not one in the water, though), the young and the old dropping back
+      const years = a.age / DAYS_PER_YEAR, prime = years >= (def.mature || 0) && !(def.life && years > def.life * 0.7);
+      a.leaveWait = inRiver(this, a) ? 0 : Math.random() * 6; a.pace = (prime ? 0.9 : 0.65) + Math.random() * 0.4;
+    }
     if (a.move === 'fly') { a.flying = true; }
     this.leaveRoute(a);
   }
@@ -746,11 +749,21 @@ export class Wildlife {
   // still cross on the way out, as before.
   leaveRoute(a) {
     const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
-    const reef = !!this.game.catalog.animals[a.sp].reef;
+    const def = this.game.catalog.animals[a.sp], reef = !!def.reef;
     if ((a.move !== 'ground' && !reef) || !w.inb(x0, y0)) return;
     const out = a.ty < 0 ? (x, y) => y === 0 : a.ty > w.h ? (x, y) => y === w.h - 1 : a.tx > w.w ? (x) => x === w.w - 1 : (x) => x === 0;
     if (out(x0, y0)) return;
-    const pass = reef ? (w, j) => passable(w, j, a) : (w, j) => w.struct[j] < 0 && w.terrain[j] !== T.POND;
+    // The migration wades straight through a pond, as it swims the river, and takes a path only
+    // round a building in its way: routing a herd round a pond sent it up the two columns beside
+    // the pond in two straight files.
+    const wades = !!def.crossing;
+    const pass = reef ? (w, j) => passable(w, j, a) : (w, j) => w.struct[j] < 0 && (wades || w.terrain[j] !== T.POND);
+    if (wades) {
+      const ex = clamp(a.tx, 0, w.w - 0.01), ey = clamp(a.ty, 0, w.h - 0.01), n = Math.ceil(Math.hypot(ex - a.x, ey - a.y) / 0.4);
+      let clear = true;
+      for (let k = 1; k <= n && clear; k++) clear = pass(w, w.idx(Math.floor(a.x + (ex - a.x) * k / n), Math.floor(a.y + (ey - a.y) * k / n)), a);
+      if (clear) { a.path = null; a.state = 'leave'; return; }
+    }
     const ok = this.pathTo(a, (j, x, y) => out(x, y), w.n, (x, y) => Math.hypot(x + 0.5 - a.tx, y + 0.5 - a.ty), null, pass);
     a.state = 'leave';
     if (!ok) a.path = null;
