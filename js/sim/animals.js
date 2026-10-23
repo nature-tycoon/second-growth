@@ -386,7 +386,9 @@ export class Wildlife {
       const spread = (rng() + rng() + rng() - 1.5) * 5.5;
       const x = clamp(cx + Math.round(spread), 0, w.w - 1);
       const a = this.spawn(def, x, w.h - 1);
-      a.x = x + 0.1 + rng() * 0.8; a.y = w.h + 1 + lag + rng() * 7 + k * 0.18;
+      // (start on the grass past the far bank, which the surroundings draw from w.h + 3, so the
+      // whole column wades in: starting closer put the front of it mid-river from the start)
+      a.x = x + 0.1 + rng() * 0.8; a.y = w.h + 4 + lag + rng() * 4 + k * 0.12;
       a.pace = 0.8 + rng() * 0.45;
       const path = [];
       for (let y = Math.max(0, bank - 3 - Math.floor(rng() * 3)); y <= w.h - 1; y++) path.push(w.idx(x, y));

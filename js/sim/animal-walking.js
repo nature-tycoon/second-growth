@@ -10,7 +10,9 @@ export function walkSegmentSafe(w,a,x,y) {
   const count=Math.max(1,Math.ceil(Math.hypot(x-a.x,y-a.y)/.1));
   const startX=Math.floor(a.x),startY=Math.floor(a.y),crossing=w.catalog.animal[a.key]?.crossing;
   let px=startX,py=startY;
-  const clear=(xx,yy)=>w.inb(xx,yy)&&!w.fire[w.idx(xx,yy)]&&(passable(w,w.idx(xx,yy),a)||crossing&&w.terrain[w.idx(xx,yy)]===T.RIVER||xx===startX&&yy===startY);
+  // (the migration walks in from the far bank beyond the map's edge, as in stepToward)
+  const outside=crossing&&!w.inb(startX,startY);
+  const clear=(xx,yy)=>!w.inb(xx,yy)?outside:!w.fire[w.idx(xx,yy)]&&(passable(w,w.idx(xx,yy),a)||crossing&&w.terrain[w.idx(xx,yy)]===T.RIVER||xx===startX&&yy===startY);
   for(let k=1;k<=count;k++){
     const xx=Math.floor(a.x+(x-a.x)*k/count),yy=Math.floor(a.y+(y-a.y)*k/count);
     if(!clear(xx,yy)||xx!==px&&yy!==py&&(!clear(xx,py)||!clear(px,yy)))return false;
