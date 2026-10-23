@@ -174,6 +174,42 @@ resident deer and elk make only about four feed-to-rest trips in two game years 
 about three times, so no route reaches 20 passes, and at about 12 passes the Serengeti already
 draws 4% while PNW still draws almost nothing. Steadier daily routes for residents is the open fix.
 
+## Steadier routes, longer memory, thinner and longer trails (2026-10-23)
+
+Cole asked for steadier routes for residents without the clumping of 0005/0013. Read with 0014: a
+deer walks about a tile a sim-day, so a leg takes a week or more and a literal daily routine is not
+possible; passes have to come from routes kept longer and from more of a family walking them.
+Measured on PNW (stocked, three game years): 64 of 87 range changes were a grazed-out feeding
+ground relearning the whole range, bed included; an animal at its feeding ground grazed it out
+before its arrival was counted, so it went on to the next feeding ground and never back to cover
+(about four legs a game year); family members walked as much as their leader but in short hops
+that wore nothing.
+
+- **Arrival first** (`rangeChoose`): reaching the target flips the leg before the sites are judged,
+  and the feeding ground is judged only when it is time to go back to it.
+- **Keep the bed** when only the feeding ground has gone, unless another family of its kind is
+  at or heading for ground within three tiles of it (`sharedSite`); the new feeding ground is
+  searched from the bed and favours ground near the old one (`along`).
+- **Single file** (`followLeaderTrip`, from `keepCervidGroup` and `keepWithHerd`): a member more
+  than 2.5 tiles behind a leader on a range trip walks the leader's route, stopping two tiles short.
+- **No per-animal bow** (`resourceBend` removed): it gave every animal its own line; the land's
+  meander in `animal-course.js` does the winding now and is shared.
+- **Fade** 0.17% a day (`TRAIL_FADE` 0.99827, half in about 400 days), so routes used now and then
+  build up and join.
+- **Thinner, longer**: the drawn trail darkens in proportion to wear above the threshold (it was
+  the square root), so only the beaten middle draws; feeding grounds are again about 12 tiles from
+  cover (7 at least). The footprint stays 0.17 tile: wear is kept four samples to a tile, and at
+  0.12 a line between sample rows wore nothing.
+
+Stocked maps after five to eight game years: Sumatra 1.6% drawn as a connected network through the
+forest, Serengeti 4.1% (longer branching trails, the pond's trampled rim, a trampled stretch where
+herds come down to the river), Amazon about 0.5%, PNW 0.2% (20 deer and 20 elk on the whole farm,
+and families still move to a new area about once a game year, 0003). Clumping, as the share of
+samples within three tiles of another family of the same kind, over seeds 5/11/23/37, before →
+after: buffalo 11% → 4%, deer 18.5% → 20%, elk 18% → 15%, boar 7.75% → 7.25%, sambar 10.75% → 10%.
+`animal-clustering-soak` and `home-range-check` pass. `animal-territory-soak` fails on the
+Serengeti leopard; it already did before this trail work (7e7a610).
+
 ## Verification
 
 - `animal-trails-check.mjs`: 11 checks over every map roster, actual crossings,

@@ -81,8 +81,8 @@ check('a fleeing animal speeds up over half a day, then tires on a long run', ()
   assert.ok(late < gnu.speed * 1.4, `tired after a long run (${late.toFixed(2)})`);
 });
 
-check('unused game trails fade by about half in 200 days', () => {
-  assert.ok(Math.abs(TRAIL_FADE ** 200 - 0.5) < 0.05);
+check('unused game trails fade by about half in 400 days', () => {
+  assert.ok(Math.abs(TRAIL_FADE ** 400 - 0.5) < 0.05);
 });
 
 console.log(`activity-check: ${checks} checks passed`);

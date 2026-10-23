@@ -72,7 +72,7 @@ vec4 tileAt(vec2 p) {
 float gameTrail(vec2 p) {
   // fine noise nibbles at the edges, so a worn track frays into the grass instead of having a smooth rim
   float raw = texture2D(uTrailDensity, (p - uTileOrigin) / uTileSize).r - (texture2D(uNoise, p * 2.3 + 0.61).r - 0.5) * 0.05;
-  float use = sqrt(clamp((raw - ${TRAIL_THRESHOLD}) / (${TRAIL_FULL - TRAIL_THRESHOLD}), 0.0, 1.0));
+  float use = clamp((raw - ${TRAIL_THRESHOLD}) / (${TRAIL_FULL - TRAIL_THRESHOLD}), 0.0, 1.0); // (in proportion: only the beaten middle draws)
   return use * step(0.5, tileAt(p).a) * uTrailVisible;
 }
 // Smoothly blended where neighbouring tiles are alike (no patchwork inside a meadow), but the
