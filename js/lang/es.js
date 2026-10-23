@@ -46,7 +46,7 @@ addStrings({
   'Eating fruit': 'Comiendo fruta', 'Looking for fruit': 'Buscando fruta', 'Climbing through the canopy': 'Trepando entre las copas',
   'Pecking for food': 'Picoteando para buscar comida', 'Resting on a perch': 'Descansando en una rama',
   'Preening feathers': 'Arreglándose las plumas', 'Bathing at the water’s edge': 'Bañándose a la orilla del agua',
-  'Visiting a nest site': 'Visitando un sitio de anidación', 'Hopping between feeding spots': 'Saltando entre sitios de alimentación',
+  'Visiting a nest site': 'Visitando un sitio de anidación', 'Soaring over open ground': 'Planeando sobre terreno abierto', 'Circling down to a carcass': 'Bajando en círculos hacia un cadáver', 'Hopping between feeding spots': 'Saltando entre sitios de alimentación',
   'This bird is passing over the map. It does not live on the property or count toward its resident population.': 'Esta ave está pasando sobre el mapa. No vive en la finca ni cuenta en su población residente.',
   // ---------------------------------------------------------------- loading screen
   'Loading Second Growth': 'Cargando Second Growth', 'From salmon creeks to the Serengeti': 'De las quebradas de salmones al Serengueti',

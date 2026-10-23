@@ -123,7 +123,7 @@ export default function buildAtlantaAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.7, RIPARIAN: 1, MARSH: 0.4 });
-    def({ key: 'owl', name: 'Barred owl', sci: 'Strix varia', group: 'Birds', move: 'fly',
+    def({ key: 'owl', name: 'Barred owl', sci: 'Strix varia', group: 'Birds', move: 'fly', carries: ['chipmunk', 'toad', 'peeper'],
       speed: 2.4, hr: 90, max: 2, sources: ['S', 'N'], mig: 0.25, breed: [0], litter: [1, 3], life: 12,
       prey: ['chipmunk', 'toad', 'peeper'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * net(W, i, 60),
@@ -134,7 +134,7 @@ export default function buildAtlantaAnimals(def) {
   }
   {
     const w = habW({ RIPARIAN: 1, MATURE_FOREST: 0.9, YOUNG_FOREST: 0.7, MARSH: 0.6, MEADOW: 0.3 });
-    def({ key: 'hawk', name: 'Red-shouldered hawk', sci: 'Buteo lineatus', group: 'Birds', move: 'fly',
+    def({ key: 'hawk', name: 'Red-shouldered hawk', sci: 'Buteo lineatus', group: 'Birds', move: 'fly', carries: ['chipmunk', 'toad', 'anole'], soar: true,
       speed: 3, hr: 120, max: 2, sources: ['S', 'N'], mig: 0.3, breed: [1], litter: [1, 3], life: 10,
       prey: ['chipmunk', 'toad', 'ratsnake', 'anole'], preyPer: 7,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.4),

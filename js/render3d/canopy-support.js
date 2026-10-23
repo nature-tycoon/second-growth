@@ -32,6 +32,32 @@ export function canopyTile(world, border, x, z) {
   return i < 0 ? null : -i - 1;
 }
 
+// A min-heap of contact options, nearest first and then in their original order.
+const nearer = (a, b) => a.near < b.near || a.near === b.near && a.order < b.order;
+function siftDown(heap, i) {
+  for (;;) {
+    const l = 2 * i + 1, r = l + 1;
+    let m = i;
+    if (l < heap.length && nearer(heap[l], heap[m])) m = l;
+    if (r < heap.length && nearer(heap[r], heap[m])) m = r;
+    if (m === i) return;
+    [heap[i], heap[m]] = [heap[m], heap[i]]; i = m;
+  }
+}
+function popNearest(heap) {
+  const top = heap[0], last = heap.pop();
+  if (heap.length) { heap[0] = last; siftDown(heap, 0); }
+  return top;
+}
+function pushNearest(heap, item) {
+  let i = heap.push(item) - 1;
+  while (i > 0) {
+    const up = (i - 1) >> 1;
+    if (!nearer(heap[i], heap[up])) return;
+    [heap[i], heap[up]] = [heap[up], heap[i]]; i = up;
+  }
+}
+
 export class CanopySite {
   constructor(geo, transform, color, tile = -1, plant = null, cell = null, crown = null) {
     this.geo = geo; this.transform = transform; this.color = color; this.tile = tile; this.plant = plant;
@@ -99,19 +125,35 @@ export class CanopySite {
     }
     const p = point.clone(), near = new THREE.Vector3(), radial = new THREE.Vector3();
     let hold = p.clone(), bestPose = null;
-    const candidates = this.wood.map(b => {
+    const limb = (b, contact) => {
       const along = near.copy(p).sub(b.from).dot(b.dir), t = THREE.MathUtils.clamp(along / b.length, 0, 1);
       near.copy(b.from).lerp(b.to, t); radial.copy(p).sub(near);
       radial.addScaledVector(b.dir, -radial.dot(b.dir));
       const radius = THREE.MathUtils.lerp(b.r0, b.r1, t) + .002;
       const distance = Math.hypot(Math.max(0, -along, along - b.length), radial.length() - radius);
+      if (!contact) return distance;
       if (radial.lengthSq() < 1e-10) {
         radial.copy(b.up.lengthSq() ? b.up : new THREE.Vector3(1, 0, 0));
         radial.addScaledVector(b.dir, -radial.dot(b.dir));
         if (radial.lengthSq() < 1e-10) radial.set(0, 0, 1);
       }
       return { b, near: near.clone(), normal: radial.normalize().clone(), radius, distance };
-    }).sort((a, b) => a.distance - b.distance).slice(0, profile ? 8 : 3);
+    };
+    // The nearest few limbs, in the order a stable sort by distance gives (nearer first, then
+    // in limb order), building contacts only for those kept.
+    const distances = this.wood.map(b => limb(b, false)), keep = profile ? 8 : 3;
+    let nearest;
+    if (distances.some(Number.isNaN)) nearest = [...distances.keys()].sort((i, j) => distances[i] - distances[j]).slice(0, keep);
+    else {
+      nearest = [];
+      for (let i = 0; i < distances.length; i++) {
+        if (nearest.length === keep && distances[i] >= distances[nearest[keep - 1]]) continue;
+        let k = nearest.length < keep ? nearest.length : keep - 1;
+        while (k > 0 && distances[nearest[k - 1]] > distances[i]) { nearest[k] = nearest[k - 1]; k--; }
+        nearest[k] = i;
+      }
+    }
+    const candidates = nearest.map(i => limb(this.wood[i], true));
     if (profile && reach) for (const c of [...candidates]) for (const shift of [-reach * .5, reach * .5]) {
       const along = THREE.MathUtils.clamp(c.near.clone().sub(c.b.from).dot(c.b.dir) + shift, 0, c.b.length);
       const centre = c.b.from.clone().addScaledVector(c.b.dir, along);
@@ -121,31 +163,62 @@ export class CanopySite {
     // standing primate to hang sideways underneath the surrounding branches.
     for (const b of this.wood) for (const end of [0, 1]) {
       const centre = end ? b.to : b.from, radius = end ? b.r1 : b.r0;
+      // (the cap point is within the cap's radius, and .002 off it, of the cap centre)
+      if (centre.distanceTo(p) - Math.max(0, radius - .003) - .002 - 1e-6 >= reach * 2 + .05) continue;
       radial.copy(p).sub(centre); radial.addScaledVector(b.dir, -radial.dot(b.dir));
       radial.clampLength(0, Math.max(0, radius - .003));
       near.copy(centre).add(radial).addScaledVector(b.dir, end ? .002 : -.002);
       if (near.distanceTo(p) < reach * 2 + .05) candidates.push({ b, near: near.clone(), normal: b.dir.clone().multiplyScalar(end ? 1 : -1), radius: 0, distance: near.distanceTo(p) });
     }
-    const body = new THREE.Vector3(), pose = new THREE.Quaternion(), options = [];
-    for (const c of candidates) for (const angle of reach ? contactAngles : [0]) {
-      if (!c.radius && angle) continue;
-      const normal = c.normal.clone().applyAxisAngle(c.b.dir, angle), candidate = c.near.clone().addScaledVector(normal, c.radius);
-      options.push({ c, normal, candidate, order: options.length, near: candidate.distanceToSquared(point) });
+    const body = new THREE.Vector3(), pose = new THREE.Quaternion(), options = [], angles = reach ? contactAngles : [0];
+    // Each limb's contacts ring its axis at its radius, so none is nearer than the ring's
+    // nearest possible point (less a margin for rounding). The ring goes into the heap as one
+    // entry under that bound, and its contacts are made only if the search reaches it. A ring
+    // sorts ahead of its own contacts (order - .5), and each contact keeps the order it had
+    // when every contact was made up front.
+    let order = 0;
+    for (const c of candidates) {
+      const gap = Math.max(0, c.near.distanceTo(point) - c.radius - 1e-6);
+      options.push({ c, ring: true, order: order - .5, near: gap * gap });
+      order += c.radius ? angles.length : 1;
     }
+    // Only limbs that could bury a contact or crowd the body above it can change its score.
+    // A limb's woodDistance is at least (distance to its axis - its thicker radius) / its taper
+    // factor, and a contact and its body lie within (contact distance + lift) of the point, so
+    // each limb gets the reach beyond which it clears both tests (less a margin for rounding),
+    // and a contact tests only the limbs within that reach, nearest reach first.
+    const lift = reach * (hanging ? 2 : 1.4), clearance = Math.max(0, reach * .65);
+    const nearWood = this.wood.map(b => {
+      const along = THREE.MathUtils.clamp(near.copy(p).sub(b.from).dot(b.dir), 0, b.length);
+      const axis = near.copy(b.from).addScaledVector(b.dir, along).distanceTo(p);
+      return { b, beyond: axis - Math.max(b.r0, b.r1) - Math.hypot(1, (b.r1 - b.r0) / b.length) * clearance - lift - 1e-5 };
+    }).sort((a, b) => a.beyond - b.beyond);
     // The best-scoring contact the body fits wins. Scoring a contact and testing the body there are
     // the dear steps (a new branch route used to make tens of thousands of body tests in one frame,
     // a visible stall), so contacts are taken nearest first: a contact's score is never less than
     // its distance, so once the best scored one beats every remaining distance, the rest can't win.
     // Ties keep their original order, so the same contact wins as when every one was scored.
-    options.sort((a, b) => a.near - b.near || a.order - b.order);
+    // (A heap: usually only the nearest few of several hundred contacts are ever taken.)
+    for (let i = (options.length >> 1) - 1; i >= 0; i--) siftDown(options, i);
     const scored = [], before = (a, b) => a.score - b.score || a.order - b.order;
-    let next = 0;
     for (;;) {
-      while (next < options.length && (!scored.length || options[next].near <= scored[0].score)) {
-        const o = options[next++], { normal, candidate } = o;
-        body.copy(candidate).addScaledVector(normal, reach * (hanging ? 2 : 1.4));
+      while (options.length && (!scored.length || options[0].near <= scored[0].score)) {
+        const o = popNearest(options);
+        if (o.ring) {
+          let k = o.order + .5;
+          for (const angle of angles) {
+            if (!o.c.radius && angle) continue;
+            const normal = o.c.normal.clone().applyAxisAngle(o.c.b.dir, angle), candidate = o.c.near.clone().addScaledVector(normal, o.c.radius);
+            pushNearest(options, { c: o.c, normal, candidate, order: k++, near: candidate.distanceToSquared(point) });
+          }
+          continue;
+        }
+        const { normal, candidate } = o;
+        body.copy(candidate).addScaledVector(normal, lift);
         let blocked = 0, buried = false;
-        for (const b of this.wood) {
+        const within = Math.sqrt(o.near);
+        for (const { b, beyond } of nearWood) {
+          if (beyond > within) break;
           if (woodDistance(candidate, b) < -.0005) { buried = true; break; }
           blocked = Math.max(blocked, reach * .65 - woodDistance(body, b));
         }
@@ -178,14 +251,18 @@ export class CanopySite {
     }
     // At overlapping forks, the contact belongs to the outside of the whole
     // scaffold, rather than the buried surface of one cylinder.
-    for (let pass = 0; pass < 4; pass++) for (const b of this.wood) {
-      const t = THREE.MathUtils.clamp(near.copy(hold).sub(b.from).dot(b.dir) / b.length, 0, 1);
-      near.copy(b.from).lerp(b.to, t); radial.copy(hold).sub(near);
-      const radius = THREE.MathUtils.lerp(b.r0, b.r1, t) + .002;
-      if (woodDistance(hold, b) >= .002 - 1e-9) continue;
-      radial.addScaledVector(b.dir, -radial.dot(b.dir));
-      if (radial.lengthSq() < 1e-10) radial.set(0, 1, 0);
-      hold.copy(near).addScaledVector(radial.normalize(), radius);
+    // (a pass that moves nothing would repeat itself exactly, so stop there)
+    for (let pass = 0, moved = true; pass < 4 && moved; pass++) {
+      moved = false;
+      for (const b of this.wood) {
+        const t = THREE.MathUtils.clamp(near.copy(hold).sub(b.from).dot(b.dir) / b.length, 0, 1);
+        near.copy(b.from).lerp(b.to, t); radial.copy(hold).sub(near);
+        const radius = THREE.MathUtils.lerp(b.r0, b.r1, t) + .002;
+        if (woodDistance(hold, b) >= .002 - 1e-9) continue;
+        radial.addScaledVector(b.dir, -radial.dot(b.dir));
+        if (radial.lengthSq() < 1e-10) radial.set(0, 1, 0);
+        hold.copy(near).addScaledVector(radial.normalize(), radius); moved = true;
+      }
     }
     if (bestPose) hold.canopyPose = bestPose;
     if (cache) {
@@ -361,12 +438,25 @@ export class CanopySite {
   }
   endpoint(index, end, profile = {}) {
     this.prepare(); const b = this.branches[index];
-    // Route holds need the same hand/foot span as ordinary anchors. Placing a
-    // torso at a bare tip puts its forward limbs past the branch into a fork.
-    const margin = Math.min(.45, (profile.reach || 0) / b.length), t = end ? 1 - margin : margin;
-    const point = b.from.clone().lerp(b.to, t).addScaledVector(b.up, (profile.body?.motion.canopyHanging || profile.body?.motion.primate === 3 ? -1 : 1) * THREE.MathUtils.lerp(b.r0, b.r1, t));
-    return { site: this, index, direction: b.dir, reach: profile.reach, hanging: profile.hanging, body: profile.body,
-      point: this.clearPoint(point, profile.reach, profile.hanging, profile.body) };
+    // A crossing plans from every limb end of both crowns, and the wood never moves, so each
+    // end hold is found once per body (finding one is dear: a crossing used to stall a frame).
+    const body = profile.body, motion = body?.motion ?? null;
+    this.endpointCache ||= new Map();
+    let holds = this.endpointCache.get(motion);
+    if (!holds) this.endpointCache.set(motion, holds = new Map());
+    const key = `${index}:${end}:${profile.reach}:${profile.hanging}:${body?.scale}:${!!body?.trunkClimbing}`;
+    let hold = holds.get(key);
+    if (!hold) {
+      // Route holds need the same hand/foot span as ordinary anchors. Placing a
+      // torso at a bare tip puts its forward limbs past the branch into a fork.
+      const margin = Math.min(.45, (profile.reach || 0) / b.length), t = end ? 1 - margin : margin;
+      const point = b.from.clone().lerp(b.to, t).addScaledVector(b.up, (motion?.canopyHanging || motion?.primate === 3 ? -1 : 1) * THREE.MathUtils.lerp(b.r0, b.r1, t));
+      if (holds.size >= 1024) holds.clear();
+      holds.set(key, hold = this.clearPoint(point, profile.reach, profile.hanging, body));
+    }
+    const point = hold.clone();
+    if ('canopyPose' in hold) point.canopyPose = hold.canopyPose;
+    return { site: this, index, direction: b.dir, reach: profile.reach, hanging: profile.hanging, body, point };
   }
 
   trunkNodes(index) {

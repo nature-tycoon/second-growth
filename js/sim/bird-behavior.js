@@ -1,11 +1,13 @@
 // Short, visible activities for resident birds. Population and breeding still
 // use the existing habitat rules; nest visits do not manufacture extra births.
 import { preyFor } from '../data/animals.js';
-import { F, isWater } from '../config.js';
+import { huntHunger } from '../data/animal-activity.js';
+import { F, clamp, isWater } from '../config.js';
 import { activeCatalog } from '../data/catalog.js';
 import { canLand } from './animal-terrain.js';
-import { bolt } from './animal-life.js';
+import { bolt, scavenge, feedAt } from './animal-life.js';
 import { facePoint } from './animal-positioning.js';
+import { travelSpeed } from './climb-pace.js';
 
 export const isBird = def => def?.move === 'fly' && (def.group === 'Birds' || def.group === 'Seabirds');
 const groundFeeders = new Set(['robin', 'thrush', 'cardinal', 'goldfinch', 'bluebird', 'wren', 'weaver', 'roller', 'jay', 'urraca']);
@@ -72,6 +74,124 @@ function flyTo(a, w, i, kind, x = i % w.w + 0.5, y = (i / w.w | 0) + 0.5, water 
   a.state = 'fly'; a.flying = true; a.path = null;
 }
 
+// Soaring raptors (def.soar) wheel over open ground on still wings, a few tiles across and high
+// over the trees, with a few wingbeats now and then, before they go to a perch or break off to hunt.
+export function soar(wl, a, def) {
+  const w = wl.game.world, suit = wl.suit[a.sp], r = 2.5 + Math.random() * 1.5;
+  const j = nearby(wl, a, j => groundTile(w, j) && suit[j] > 0.03, 6);
+  const cx = clamp(j >= 0 ? j % w.w + 0.5 : a.x, r + 1, w.w - r - 1), cy = clamp(j >= 0 ? (j / w.w | 0) + 0.5 : a.y, r + 1, w.h - r - 1);
+  if (cx > w.w - r - 1 || cy > w.h - r - 1) return false; // (a map too small to circle in)
+  a.state = 'bird'; a.birdGoal = null; a.birdGround = false; a.flying = true; a.path = null;
+  a.bird = { kind: 'soar', t: 20 + Math.random() * 20, cx, cy, r, dir: Math.random() < 0.5 ? -1 : 1,
+    ang: Math.atan2(a.y - cy, a.x - cx), ph: a.phase, beat: Math.random() * 6.3 };
+  return true;
+}
+function soarStep(wl, a, def, b, dt, pace = 0.8) {
+  const sp = travelSpeed(def) * dt * pace;
+  b.ang += b.dir * sp / b.r;
+  wl.stepToward(a, b.cx + Math.cos(b.ang) * b.r, b.cy + Math.sin(b.ang) * b.r, sp * 1.2);
+  a.alt = Math.min(1.6, a.alt + dt * 0.6);
+  // wings held out, with a short bout of flapping every so often (a.phase drives the wingbeat)
+  const neutral = Math.round(b.ph * 1.6) / 1.6;
+  if (Math.sin(b.t * 0.5 + b.beat) > 0.85) b.ph += dt * 6 * (def.sprite.beat ?? 1);
+  else b.ph += (neutral - b.ph) * Math.min(1, dt * 5);
+  a.phase = b.ph;
+}
+// A soaring scavenger (the vultures) that finds a carcass doesn't drop straight onto it: it flies
+// over, then spirals down above it on a tightening circle and lands beside it. This is what other
+// vultures watch for, and what draws a crowd from far off. Called on arriving over the carcass.
+export function circleDown(wl, a, def, c) {
+  if (!def.soar || !isBird(def) || preyFor(def, wl.game)) return false;
+  const r = 1.4 + Math.random() * 0.4;
+  a.state = 'bird'; a.birdGround = false; a.flying = true; a.path = null; a.alt = Math.max(a.alt, 1);
+  a.bird = { kind: 'soar', carcass: c.id, t: 1.8 + Math.random() * 0.4, cx: c.x, cy: c.y, r, r0: r, alt0: a.alt,
+    dir: Math.random() < 0.5 ? -1 : 1, ang: Math.atan2(a.y - c.y, a.x - c.x), ph: a.phase, beat: Math.random() * 6.3 };
+  a.bird.t0 = a.bird.t;
+  return true;
+}
+function circleDownStep(wl, a, def, b, dt) {
+  const c = wl.carcasses.find(k => k.id === b.carcass);
+  if (!c || c.t <= 1 || !(c.meals > 0)) { a.bird = null; a.state = 'idle'; a.wait = 0; a.goal = null; return; }
+  const f = Math.max(0, b.t / b.t0); // (1 at the top of the spiral, 0 on landing)
+  b.r = 0.8 + (b.r0 - 0.8) * f;
+  soarStep(wl, a, def, b, dt, 1.5); // (about a turn on the way down)
+  a.alt = 0.1 + (b.alt0 - 0.1) * f;
+  if (b.t > 0) return;
+  // down beside it: land and take a meal as any scavenger does on arrival
+  a.bird = null; a.state = 'idle'; a.flying = false; a.alt = 0; a.wait = 0.5; a.goal = null;
+  feedAt(a, c);
+}
+
+// ---------------------------------------------------------------- carrying a catch
+// Raptors and owls (def.carries) take what they can lift to a perch: a moment mantled over it on
+// the ground, then off in their talons. Prey too heavy to lift is eaten where it fell, and a fish
+// too heavy to lift is dragged low across the water to the bank. The young of any prey are light
+// enough to carry. a.prey is what is drawn in the talons (render3d/actors.js).
+export const carrier = def => def.move === 'fly' && Array.isArray(def.carries);
+export const liftable = (def, preyDef, prey) => !!prey.juvenile || def.carries.includes(preyDef.key);
+const OWLS = new Set(['owl']);
+function eatTime(def, preyDef) {
+  // an owl swallows small prey whole; hawks, eagles and falcons pluck and tear it
+  if (OWLS.has(def.sprite.kind) && (preyDef.sprite.len || preyDef.sprite.size || 10) <= 14) return 1.5 + Math.random() * 1.5;
+  // (2–4 sim-days plus a little for bigger prey: a few seconds on screen, short of the time a meal lasts, 0014)
+  return 2 + Math.random() * 2 + (preyDef.sprite.len || preyDef.sprite.size || 10) / 8;
+}
+function eatHere(a, def, preyDef) {
+  a.state = 'feed'; a.feedT = eatTime(def, preyDef); a.feedAt = [a.x, a.y]; a.carry = null;
+  a.flying = false; a.path = null;
+}
+// Returns false when this catch is not one to carry (startFeed handles it as before).
+export function carryCatch(wl, a, def, b) {
+  if (!carrier(def)) return false;
+  const w = wl.game.world, bd = wl.game.catalog.animals[b.sp];
+  if (!w.inb(Math.floor(a.x), Math.floor(a.y))) return false;
+  // (where the prey was, not where the bird is: a vole beside a tree was still on the ground)
+  const i = w.inb(Math.floor(b.x), Math.floor(b.y)) ? w.idx(Math.floor(b.x), Math.floor(b.y)) : w.idx(Math.floor(a.x), Math.floor(a.y)), wet = isWater(w.terrain[i]);
+  a.prey = { id: b.id, sp: b.sp, age: b.age, juvenile: !!b.juvenile, fish: bd.move === 'swim' };
+  a.carcass = null; a.feedAt = null;
+  if (liftable(def, bd, b)) {
+    const j = nearby(wl, a, j => perchTile(w, j), 10);
+    if (j < 0 && !wet) { eatHere(a, def, bd); return true; }
+    const k = j >= 0 ? j : nearby(wl, a, j => !isWater(w.terrain[j]) && canLand(w, j, def) && !w.fire[j], 12);
+    if (k < 0) { a.prey = null; return false; }
+    // mantle over a catch on open ground; a fish or a monkey in a crown is taken in one movement
+    const mantle = !wet && !a.prey.fish && bd.move !== 'tree' && !(b.alt > 0.2);
+    a.carry = { phase: mantle ? 'mantle' : 'lift', t: mantle ? 0.6 + Math.random() * 0.6 : 0, i: k, tx: k % w.w + 0.5, ty: (k / w.w | 0) + 0.5, low: false, left: 20 };
+  } else if (wet) {
+    const k = nearby(wl, a, j => !isWater(w.terrain[j]) && canLand(w, j, def) && !w.fire[j], 12);
+    if (k < 0) { a.prey = null; return false; }
+    a.carry = { phase: 'lift', t: 0, i: k, tx: k % w.w + 0.5, ty: (k / w.w | 0) + 0.5, low: true, left: 20 };
+  } else { eatHere(a, def, bd); return true; }
+  a.state = 'carry'; a.path = null; a.bird = null; a.birdGoal = null;
+  a.flying = a.carry.phase === 'lift';
+  a.alt = Math.min(a.alt || 0, 0.15); // (it rises from where it caught the prey, laden)
+  return true;
+}
+export function carryUpdate(wl, a, def, dt, sp) {
+  const c = a.carry, w = wl.game.world, preyDef = a.prey && wl.game.catalog.animals[a.prey.sp];
+  if (!c || !preyDef) { a.carry = null; a.prey = null; a.state = 'idle'; a.wait = 0.5; a.flying = false; return; }
+  if (c.phase === 'mantle') {
+    a.alt = Math.max(0, a.alt - dt * 3); a.flying = false;
+    if ((c.t -= dt) <= 0) { c.phase = 'lift'; a.flying = true; }
+    return;
+  }
+  // laden: lower and slower than usual; a fish too heavy to lift skims the water
+  const top = c.low ? 0.08 : 0.6;
+  a.alt = a.alt > top ? Math.max(top, a.alt - dt * 0.8) : Math.min(top, a.alt + dt * (c.low ? 1 : 1.5));
+  c.left -= dt;
+  if (wl.stepToward(a, c.tx, c.ty, sp * (c.low ? 0.4 : 0.75)) || c.left <= 0) {
+    const i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
+    if (i < 0 || !canLand(w, i, def) || w.fire[i]) {
+      // the perch is gone (or it can't land here): make for the nearest other one, or let go
+      const k = c.left > 0 ? nearby(wl, a, j => j !== c.i && (c.low ? !isWater(w.terrain[j]) : perchTile(w, j)) && canLand(w, j, def) && !w.fire[j], 10) : -1;
+      if (k >= 0) { c.i = k; c.tx = k % w.w + 0.5; c.ty = (k / w.w | 0) + 0.5; return; }
+      a.carry = null; a.prey = null; a.state = 'idle'; a.wait = 0; return;
+    }
+    if (perchTile(w, i)) a.perchedAt = tileKey(a);
+    eatHere(a, def, preyDef);
+  }
+}
+
 // Small birds also recognize nearby raptors, cats and snakes as threats, even
 // where that interaction is not part of the map's modeled population food web.
 function birdThreat(pred, def, game) {
@@ -104,11 +224,15 @@ export function birdChoose(wl, a, def) {
   if (!isBird(def) || a.leaving || a.fromFire) return false;
   if (birdAlarm(wl, a, def)) return true;
   // Hungry hunters and scavengers keep their existing feeding priorities.
-  if ((preyFor(def, wl.game) || def.key === 'vulture') && a.hunger >= 3) return false;
+  if (preyFor(def, wl.game) ? a.hunger >= huntHunger(def) : def.key === 'vulture' && a.hunger >= 3) {
+    // (a hungry vulture with no carcass in sight goes up and searches from the soar)
+    return !preyFor(def, wl.game) && !!def.soar && soar(wl, a, def);
+  }
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   if (!w.inb(x, y)) return false;
   const i = w.idx(x, y), profile = birdProfile(def, wl.game.catalog), roll = Math.random();
   const suit = wl.suit[a.sp];
+  if (def.soar && Math.random() < 0.35 && soar(wl, a, def)) return true;
   // A breeding bird returns to a remembered suitable site. Removing the tree,
   // snag or nest box makes it choose another; the visit is a visible routine.
   if (def.breed?.includes(wl.game.month) && roll < 0.16) {
@@ -182,6 +306,26 @@ export function birdUpdate(wl, a, def, dt) {
   a.birdAlertCheck = (a.birdAlertCheck || 0) - dt;
   if (a.birdAlertCheck <= 0) { a.birdAlertCheck = 0.3; if (birdAlarm(wl, a, def)) return; }
   b.t -= dt;
+  const diet = preyFor(def, wl.game);
+  // A hungry vulture keeps watch for a carcass (and for other vultures going down to one), from
+  // the soar or a perch alike, and sets off as soon as it sees one.
+  if (!diet && def.soar && b.carcass == null && a.hunger >= 3 && (b.scan = (b.scan || 0) - dt) <= 0) {
+    b.scan = 0.5;
+    const was = a.bird;
+    if (scavenge(wl, a, def)) { if (a.bird === was) a.bird = null; return; }
+  }
+  if (b.kind === 'soar') {
+    if (b.carcass != null && !w.fire[i]) { circleDownStep(wl, a, def, b, dt); return; }
+    if (w.fire[i] || b.t <= 0) { a.bird = null; a.state = 'idle'; a.wait = 0; return; }
+    // A hungry hawk hunts from up here: it watches the ground below and stoops on what it sees,
+    // and moves on before long if nothing shows.
+    if (diet && a.hunger >= huntHunger(def)) {
+      if (!b.hunting) { b.hunting = true; b.t = Math.min(b.t, 4 + Math.random() * 3); }
+      if ((b.scan = (b.scan || 0) - dt) <= 0) { b.scan = 0.3; if (wl.startHunt(a, def, diet, 7)) return; }
+    }
+    soarStep(wl, a, def, b, dt);
+    return;
+  }
   const invalid = w.fire[i] || (b.kind === 'perch' || b.kind === 'preen') && !perchTile(w, i) ||
     b.kind === 'forage' && !forageTile(w, i) || b.kind === 'nest' && !nestTile(w, i, birdProfile(def, wl.game.catalog)) ||
     b.kind === 'bathe' && !bathValid(w, a, b.water);

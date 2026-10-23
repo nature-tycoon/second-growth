@@ -43,7 +43,7 @@ try {
     }
     game.newGame(1987,'free','standard','chinandega');game.speed=0;
     const spoon=buildSpecies(ANIMAL.spoonbill),egret=buildSpecies(ANIMAL.egret);
-    const sm=faunaMaterial(spoon.motion),em=faunaMaterial(egret.motion),shader={uniforms:{},vertexShader:''};
+    const sm=faunaMaterial(spoon.motion),em=faunaMaterial(egret.motion),shader={uniforms:{},vertexShader:'',fragmentShader:''};
     sm.onBeforeCompile(shader);
     if(!shader.vertexShader.includes('float sweep')||sm.customProgramCacheKey()===em.customProgramCacheKey())throw Error('Spoonbill sweep/cache missing');
     spoon.geo.dispose();egret.geo.dispose();sm.dispose();em.dispose();

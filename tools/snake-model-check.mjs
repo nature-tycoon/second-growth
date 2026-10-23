@@ -139,12 +139,12 @@ check('Crawling bends stay put on the ground, keep the body\'s girth, and tongue
     // the head barely swings
     assert.ok(Math.abs(crawl(nose, 1.5)) < amp * .02, `${key}: the head leads steadily`);
     assert.equal(motion.bob, 0); assert.equal(motion.tongue, 1); assert.equal(motion.wave, 0);
-    const material = faunaMaterial(motion), shader = { uniforms: {}, vertexShader: '' }; material.onBeforeCompile(shader);
+    const material = faunaMaterial(motion), shader = { uniforms: {}, vertexShader: '', fragmentShader: '' }; material.onBeforeCompile(shader);
     assert.equal(shader.uniforms.uSlither.value, amp); assert.equal(shader.uniforms.uSlitherLen.value, len);
     assert.equal(shader.uniforms.uTongue.value, 1); assert.ok(shader.vertexShader.includes('void slither('));
     material.dispose();
   }
-  const material = faunaMaterial({ wave: 0 }), shader = { uniforms: {}, vertexShader: '' }; material.onBeforeCompile(shader);
+  const material = faunaMaterial({ wave: 0 }), shader = { uniforms: {}, vertexShader: '', fragmentShader: '' }; material.onBeforeCompile(shader);
   assert.equal(shader.uniforms.uSlither.value, 0); assert.equal(shader.uniforms.uTongue.value, 0); material.dispose();
 });
 for (const { geo } of models.values()) geo.dispose();

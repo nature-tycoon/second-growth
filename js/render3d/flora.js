@@ -48,6 +48,15 @@ const SHRUB_HABIT = {
   huckleberry: 'airy', snowberry: 'airy', grewia: 'airy', cornizuelo: 'airy',
   hydrangea: 'bigleaf', castor: 'bigleaf', seagrape: 'bigleaf', cacao: 'bigleaf',
 };
+// Where a crown-of-thorns starfish sits up on top of the coral it's eating (or, with no coral
+// under it, on the seabed): [x, y, z] in scene units. A humphead wrasse eating it puts its mouth here.
+export function climberSpot(w, catalog, i, hAt, tg = w.treeG[i]) {
+  const x = i % w.w, y = (i / w.w) | 0, tp = catalog.plants[w.tree[i]];
+  if (!tp) { const sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4; return [sx, hAt(sx, sz), sz]; }
+  const tsc = (0.2 + 0.8 * tg) * (0.78 + hash2(x, y, 9) * 0.42) * (tp.look.scale ?? 1);
+  const sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
+  return [sx, hAt(sx, sz) + (G.TREE_SHAPES[tp.look.type]?.height || 0.4) * tsc * 0.85, sz];
+}
 export const shrubShape = p => SHRUB_HABIT[p.key] || (SHRUB_SHAPES.includes(p.look.type) ? p.look.type : 'shrub');
 const grassyWet = type => type === 'sedge' || type === 'cattail' || type === 'tule' || type === 'lily' || type === 'papyrus';
 const SEA_SHAPES = new Set(['softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']);
@@ -475,19 +484,17 @@ export class Flora {
         const g = fringeS || (inside ? w.shrubG[i] : 1);
         const phase = plantPhase(p, month);
         let sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
+        // a bush sharing a tile with a tree grows at the far side of the tile from the trunk, not
+        // inside it (the tree's offset uses the same hashes: see trees below). A blue sea star lies
+        // on the sand beside its coral the same way, rather than with its arms poking through.
+        if (tid) {
+          const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
+          const d = p.look.type === 'seastar' ? 0.34 : 0.24 + hash2(x, y, 5) * 0.08;
+          sx = x + 0.5 - Math.sign(ox || 1) * d; sz = y + 0.5 - Math.sign(oz || 1) * d;
+        }
         if (bankTile) [sx, sz] = this.dryPoint(w, x, y, sx, sz);
-        // a blue sea star sharing a tile with a coral lies on the sand beside it, at the far side
-        // of the tile from the coral, rather than in the same spot with its arms poking through
-        if (p.look.type === 'seastar' && tid) {
-          const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5; // (where the coral stands: see trees below)
-          sx = x + 0.5 - Math.sign(ox || 1) * 0.34; sz = y + 0.5 - Math.sign(oz || 1) * 0.34;
-        }
         let sy = hAt(sx, sz);
-        if (p.look.climbs && tid) { // (a crown-of-thorns starfish sits up on top of the coral it's eating)
-          const tp = game.catalog.plants[tid], tg = inside ? w.treeG[i] : 0.9, tsc = (0.2 + 0.8 * tg) * (0.78 + hash2(x, y, 9) * 0.42) * (tp.look.scale ?? 1);
-          sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45; sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
-          sy = hAt(sx, sz) + (G.TREE_SHAPES[tp.look.type]?.height || 0.4) * tsc * 0.85;
-        }
+        if (p.look.climbs && tid) [sx, sy, sz] = climberSpot(w, game.catalog, i, hAt, inside ? w.treeG[i] : 0.9);
         const sc = (0.32 + 0.6 * g) * (p.look.small ? 0.8 : 1) * (p.look.scale ?? 1) * (0.8 + hash2(x, y, 6) * 0.35); // (look.scale: a plant drawn bigger or smaller than its shape's usual size)
         const rot = hash2(x, y, 7) * 6.28;
         if (p.look.deciduous && phase === 'winter') {

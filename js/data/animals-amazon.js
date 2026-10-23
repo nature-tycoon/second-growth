@@ -154,7 +154,7 @@ export default function buildAmazonAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.4 });
-    def({ key: 'harpy', name: 'Harpy eagle', sci: 'Harpia harpyja', group: 'Birds', move: 'fly', fixedMax: true,
+    def({ key: 'harpy', name: 'Harpy eagle', sci: 'Harpia harpyja', group: 'Birds', move: 'fly', carries: ['sloth', 'howler', 'spider'], fixedMax: true,
       speed: 1.3, hr: 300, max: 2, sources: ['N'], mig: 0.1, intro: 20000, breed: [3], litter: [1, 1], life: 30, mature: 5,
       prey: ['sloth', 'howler', 'spider'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]],

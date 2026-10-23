@@ -26,7 +26,7 @@ for recording_id, source in sources.items():
     if args.id and recording_id not in args.id:
         continue
     xc = re.search(r'XC(\d+)', source['title'])
-    download = 'https://xeno-canto.org/' + xc[1] + '/download' if xc else source['url']
+    download = source.get('download') or ('https://xeno-canto.org/' + xc[1] + '/download' if xc else source['url'])
     original = args.cache / (recording_id + Path(source['url']).suffix)
     if not original.exists():
         if not args.download:

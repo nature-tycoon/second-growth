@@ -11,10 +11,13 @@ import { inRiver } from './animals.js';
 import { followCervid } from './cervid-groups.js';
 import { travelSpeed } from './climb-pace.js';
 import { preyCover } from './ecological-pressure.js';
-import { birdAlarm } from './bird-behavior.js';
+import { birdAlarm, soar, circleDown } from './bird-behavior.js';
+import { activityProfileFor } from '../data/animal-activity.js';
 import { territorialRivals } from '../data/animal-territories.js';
 import { territoryArrive } from './animal-territory.js';
 import { wakeDormant } from './animal-dormancy.js';
+import { drinkEvery } from './home-range.js';
+import { markRisk } from './predation-risk.js';
 
 // How each kind of hunter closes in. approach, creep and sprint are multiples of its usual
 // speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles.
@@ -98,10 +101,19 @@ export function endHunt(a) {
 export function huntStep(wl, a, def, b, sp) {
   const S = huntStyle(def), H = a.hunt || (a.hunt = { phase: 'approach' });
   const d = dist(a, b);
+  // A raptor or owl catches only once its dive has brought it all the way down, not by passing
+  // over (or perching beside) its prey at treetop height.
+  const aerial = def.move === 'fly' && !S.grounded, down = () => !aerial || a.stoop >= 1;
   if (S.grounded && d < 1.15) { a.run = 0; return true; } // a long bill reaches into the shallows
-  if (d * d < 0.25) return true;
+  if (d * d < 0.25 && down()) return true;
+  // a stalk the prey is drawing away from is given up early, not followed for days
+  if (H.phase === 'approach') {
+    if (H.best == null || d < H.best - 0.3) { H.best = d; H.since = 0; }
+    else if ((H.since = (H.since || 0) + dt(sp, def)) > 1.2) return giveUp(wl, a, def);
+  }
   if (H.phase === 'approach' || H.phase === 'creep') {
-    if (S.circle && d < S.rush + 1.4) { H.phase = 'circle'; H.t = 0.5 + Math.random() * 0.8; H.ang = Math.atan2(a.y - b.y, a.x - b.x); }
+    if (aerial && H.perch && d < S.rush + 1.4) startRush(wl, a, def, b, S, d); // (from a perch it drops straight on)
+    else if (S.circle && d < S.rush + 1.4) { H.phase = 'circle'; H.t = 0.5 + Math.random() * 0.8; H.ang = Math.atan2(a.y - b.y, a.x - b.x); }
     else if (d < S.rush || (H.phase === 'creep' && a.huntTime < 0.3)) startRush(wl, a, def, b, S, d); // (or a stalk running long: now or never)
     else if (S.near && d < S.near && H.phase !== 'creep') {
       // a stalk takes the time it takes: the hunter doesn't give up halfway through one
@@ -120,7 +132,9 @@ export function huntStep(wl, a, def, b, sp) {
   let mul = H.phase === 'rush' ? S.sprint : H.phase === 'creep' ? S.creep : S.approach;
   if (H.phase === 'rush') {
     H.t -= dt(sp, def);
-    if (S.circle) a.stoop = clamp(1 - d / Math.max(0.5, H.d0 || 2), 0, 1);
+    // the dive reaches the ground as it comes over the prey, and can only fall so fast (about a
+    // quarter of a second on screen): one that starts right above its prey drops, it doesn't snatch
+    if (aerial) a.stoop = Math.min(clamp(1 - (d - 0.5) / Math.max(0.3, (H.d0 || 2) - 0.5), 0, 1), (a.stoop || 0) + dt(sp, def) * 8);
     if (H.t <= 0) return giveUp(wl, a, def);
   }
   a.run = mul;
@@ -136,13 +150,14 @@ export function huntStep(wl, a, def, b, sp) {
     if (!w.inb(Math.floor(nx), Math.floor(ny)) || !canLand(w, w.idx(Math.floor(nx), Math.floor(ny)), def)) return giveUp(wl, a);
     a.flying = false; a.alt = 0;
   }
-  return (wl.stepToward(a, tx, ty, sp * mul) && tx === b.x) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25;
+  return ((wl.stepToward(a, tx, ty, sp * mul) && tx === b.x) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25) && down();
 }
 // (sp is speed × dt, so the elapsed game time is sp / speed)
 const dt = (sp, def) => sp / Math.max(0.01, def.speed);
 
 function startRush(wl, a, def, b, S, d) {
   const H = a.hunt;
+  H.surprise = H.phase === 'creep'; // (a stalker that crept in unseen: the prey is slower to react)
   H.phase = 'rush'; H.d0 = d;
   const sprint = def.speed * S.sprint;
   // long enough to close the gap on prey running at just over half its speed
@@ -175,7 +190,7 @@ function alarm(wl, pred, pdef, target, time) {
       continue;
     }
     if (o === target) {
-      if (o.move !== 'fly' && !o.flying) bolt(wl, o, pred, odef.speed * 1.9, time + 0.6, 0.12 + Math.random() * 0.18);
+      if (o.move !== 'fly' && !o.flying) bolt(wl, o, pred, odef.speed * 1.9, time + 0.6, (pred.hunt?.surprise ? 0.2 : 0.12) + Math.random() * (pred.hunt?.surprise ? 0.25 : 0.18));
     } else if (o.state !== 'flee') bolt(wl, o, pred, odef.speed * (1.6 + Math.random() * 0.4), 0.7 + Math.random() * 0.6, 0.05 + Math.random() * 0.25);
   }
 }
@@ -184,7 +199,7 @@ function alarm(wl, pred, pdef, target, time) {
 // A catch: big prey leaves a carcass the hunter feeds at (and its pack and the scavengers come to);
 // small prey is eaten on the spot.
 export function startFeed(wl, a, def, b) {
-  const bd = wl.game.catalog.animals[b.sp], big = (bd.sprite.len || 0) >= 20 && bd.move !== 'swim' && bd.move !== 'fly';
+  const bd = wl.game.catalog.animals[b.sp], big = leavesCarcass(bd);
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   a.carcass = null;
   // (a bird that snatched a fish from open water eats it on the wing)
@@ -201,9 +216,37 @@ export function startFeed(wl, a, def, b) {
   // The successful hunter has already eaten. Larger prey leaves more meals for
   // companions and scavengers, but a single kill cannot feed them indefinitely.
   c.meals = Math.max(1, Math.ceil(bd.sprite.len / 20));
-  wl.carcasses.push(c);
-  if (wl.carcasses.length > 16) wl.carcasses.shift();
+  // (what it started with, for drawing it stripped and rotting: render3d/carcass-decay.js)
+  c.meals0 = c.meals; c.feed = a.feedT;
+  addCarcass(wl, c);
   a.carcass = c.id;
+}
+
+// Large land animals leave a body when they die; small, flying and swimming ones don't. Nor do
+// tree-dwellers yet: their models are posed for climbing (an orangutan upright), which the
+// skeletons in render3d/carcass-decay.js, fitted to a level body on four legs, can't follow.
+export const leavesCarcass = def => (def.sprite.len || 0) >= 20 && def.move !== 'swim' && def.move !== 'fly' && def.move !== 'tree';
+
+// At most 16 carcasses at once. The oldest body of an animal that died naturally goes first, so a
+// winter's die-off can't crowd out the kills hunters and their packs are still feeding at.
+function addCarcass(wl, c) {
+  wl.carcasses.push(c);
+  if (wl.carcasses.length <= 16) return;
+  const k = wl.carcasses.findIndex(o => o.by == null);
+  wl.carcasses.splice(k >= 0 ? k : 0, 1);
+}
+
+// An animal that died of old age, hunger or sickness lies where it fell, as a carcass with no
+// hunter: scavengers find it and share its meals like a kill's, and it breaks down over the same
+// 21-33 days (drawn by render3d/carcass-decay.js). Math.random, so the monthly rng is untouched.
+export function leaveBody(wl, a) {
+  const def = wl.game.catalog.animals[a.sp];
+  if (!def || !leavesCarcass(def) || a.leaving) return null;
+  const t = 21 + Math.random() * 12, meals = Math.max(1, Math.ceil(def.sprite.len / 20));
+  const c = { id: a.id, sp: a.sp, x: a.x, y: a.y, yaw: a.orientation ?? 0, age: a.age, side: Math.random() < 0.5 ? -1 : 1,
+    by: null, t, max: t, meals, meals0: meals, feed: 0 };
+  addCarcass(wl, c);
+  return c;
 }
 
 // Missed: the prey keeps running (Challenging already sent it toward cover).
@@ -235,7 +278,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   a.fruitMeal = null; a.fruitGoal = null; a.forage = null; a.forageGoal = null;
   a.socialWith = null; a.socialUntil = 0; a.sparPath = null;
   a.greet = null; a.goal = null; a.sparT = 0; a.sparLight = false; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
-  if (a.state === 'hunt' || a.state === 'feed') { endHunt(a); a.feedAt = null; a.carcass = null; }
+  if (a.state === 'hunt' || a.state === 'feed' || a.state === 'carry') { endHunt(a); a.feedAt = null; a.carcass = null; a.carry = null; a.prey = null; }
   if (def.reef || def.move === 'swim') {
     a.path = null; a.state = 'idle'; a.wait = 0.2;
     wl.evadeHunt(a, threat); a.run = 1.7; return;
@@ -269,6 +312,10 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
     } else { a.state = 'idle'; a.path = null; a.wait = a.alertT = Math.max(0.8, time); }
     return;
   }
+  // a fresh flight from one of its own hunters is remembered, more faintly than a kill
+  const hunter = wl.game.catalog.animals[threat.sp]; // (a threat can also be a fire or a person)
+  if (a.state !== 'flee' && hunter && preyFor(hunter, wl.game)?.includes(def.key)) markRisk(wl, a.sp, a.x, a.y, 0.25);
+  if (a.state !== 'flee') a.fleeAge = 0; // (a flight already under way keeps its speed)
   a.state = 'flee'; a.path = null; a.threat = threat.id; a.fleeOff = 0;
   a.fx = fx; a.fy = fy; a.fleeT = time; a.fleeSpeed = speed; a.fleeDelay = delay;
   a.fleeSide = Math.random() < 0.5 ? -1 : 1;
@@ -294,7 +341,13 @@ export function fleeUpdate(wl, a, def, dt) {
     if (l > 1e-3 && l < 8) { const mix = 1 - Math.exp(-dt * 3); a.fx += (dx / l - a.fx) * mix; a.fy += (dy / l - a.fy) * mix; }
     const n = Math.hypot(a.fx, a.fy) || 1; a.fx /= n; a.fy /= n;
   }
-  const step = a.fleeSpeed * dt, base = Math.atan2(a.fy, a.fx);
+  // Running from a hunter it gets up to its escape pace over half a day, from a walk, and after
+  // a day and a half it tires toward a trot: an ambush rush closes on it at the start, and dogs
+  // and hyenas run it down at the end of a long chase.
+  a.fleeAge = (a.fleeAge || 0) + dt;
+  const tired = def.speed * 1.3, top = a.fleeSpeed - Math.max(0, a.fleeSpeed - tired) * clamp((a.fleeAge - 1.5) / 1.5, 0, 1);
+  const pace = escaping ? Math.min(1, (def.speed + (a.fleeSpeed - def.speed) * a.fleeAge / 0.5) / Math.max(0.01, a.fleeSpeed), top / Math.max(0.01, a.fleeSpeed)) : 1;
+  const step = a.fleeSpeed * pace * dt, base = Math.atan2(a.fy, a.fx);
   const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
   let chosen = null;
   const nearby = escaping ? (wl.predatorAgents || wl.agents).filter(o =>
@@ -383,7 +436,9 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
     if (score < best) { best = score; bd = d2; p = o; }
   }
   if (!p) return false;
-  const d = Math.sqrt(bd), urgent = d < 3 || p.state === 'hunt';
+  // A stalk or an approach is a hunter in view, not yet an attack: prey bolts once it is close
+  // or the rush (or a raptor's circling) begins, and before that watches it and moves off.
+  const d = Math.sqrt(bd), urgent = d < 3 || p.state === 'hunt' && (p.hunt?.phase === 'rush' || p.hunt?.phase === 'circle');
   if (urgent) {
     // Preserve a useful escape already under way rather than repeatedly replacing
     // the next waypoint before a swimmer or climber can reach it.
@@ -408,12 +463,25 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
   return wl.pathTo(a, (j, x, y) => (x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2 > far, 500);
 }
 
-// Predators that have just eaten lie up for a while; hungry ones go looking for prey.
+// A hunter's needs compete for its time (decision 0014). Just after a meal it lies up; while fed
+// it mostly rests (big cats), soars (red-tails) or leaves the choice to its other activities;
+// once hungry it hunts prey it can see, or goes looking. Thirst that has built up further than
+// hunger goes first.
 export function prowl(wl, a, def) {
   const diet = preyFor(def, wl.game);
   if (!diet || def.reef || a.juvenile) return false;
-  if (a.hunger < 3 && Math.random() < 0.45) { a.wait = 2 + Math.random() * 3; return true; }
-  if (a.hunger < 5 || Math.random() < 0.5) return false;
+  const p = def.behavior.activity || activityProfileFor(def), h = a.hunger;
+  if (wl.drinks(def) && a.thirst / drinkEvery(wl, a, def) > Math.max(1, h / p.hungry)) return false; // (off to drink)
+  if (h < p.fed) {
+    const lie = () => { a.wait = p.bout[0] + Math.random() * (p.bout[1] - p.bout[0]); return true; };
+    if (h < p.digest) return lie();
+    if (p.soar && Math.random() < p.soar && soar(wl, a, def)) return true;
+    if (Math.random() < p.rest) return lie();
+  }
+  if (p.seek && h >= p.hungry && wl.startHunt(a, def, diet, 8)) return true;
+  if (h < p.search || Math.random() < 0.5) return false;
+  // (a hungry red-tail searches from the soar, and stoops from up there)
+  if (p.soar && soar(wl, a, def)) return true;
   const preySet = new Set(diet.map(k => wl.game.catalog.animal[k]?.index));
   let b = null, bd = 24 * 24;
   for (const o of wl.agents) {
@@ -453,7 +521,7 @@ export function scavenge(wl, a, def) {
   a.goal = null;
   return false;
 }
-function feedAt(a, c) {
+export function feedAt(a, c) {
   // Claim the meal only on arrival, so distant visitors cannot reserve food.
   // As with a successful catch, the first bite satisfies hunger immediately.
   if (c.t <= 0 || !(c.meals > 0)) return false;
@@ -703,7 +771,7 @@ function bugle(a, answer = false) {
 }
 function bullDay(wl, a, def) {
   a.trip = null; // (no wandering off across the map in the rut)
-  if (a.thirst > (def.drinkEvery ?? 5 + a.id % 5) && wl.waterhole(a, def)) return true; // lead the harem down to reachable water
+  if (a.thirst > drinkEvery(wl, a, def) && wl.waterhole(a, def)) return true; // lead the harem down to reachable water
   // gather the unclaimed cows nearby (and win back any whose bull is gone or far away)
   const cows = [];
   for (const c of wl.agents) {
@@ -724,6 +792,9 @@ function bullDay(wl, a, def) {
     if (o === a || o.sp !== a.sp || !bull(def, o) || !available(o) || o.rutCooldown > o.age) continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
     if (d2 >= 144) continue;
+    // (a bull with cows defends them: he takes on a rival that comes near the harem, rather than
+    // leaving his cows to chase one across the meadow)
+    if (cows.length && a.haremCenter && Math.hypot(o.x - a.haremCenter[0], o.y - a.haremCenter[1]) > 7) continue;
     const score = !cows.length && wl.agents.some(c => c.haremOf === o.id) ? d2 * 0.2 : d2;
     if (score < rd) { rd = score; rival = o; }
   }
@@ -808,7 +879,8 @@ export function arrive(wl, a) {
   if (a.goal?.carcass != null) {
     const c = wl.carcasses.find(k => k.id === a.goal.carcass);
     a.goal = null;
-    if (c && Math.hypot(c.x - a.x, c.y - a.y) < 1.6) feedAt(a, c);
+    // (a vulture spirals down over it first: bird-behavior.js)
+    if (c && Math.hypot(c.x - a.x, c.y - a.y) < 1.6 && !circleDown(wl, a, wl.game.catalog.animals[a.sp], c)) feedAt(a, c);
   }
 }
 

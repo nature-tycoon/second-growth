@@ -61,7 +61,7 @@ const outline=[...jaw].sort((a,b)=>a[0]-b[0]);assert(outline.length>20,'Jaw outl
 for(let i=1;i<outline.length;i++)assert(outline[i][1]>=outline[i-1][1]-.001&&outline[i][1]-outline[i-1][1]<.015,'Dolphin throat blends smoothly into its lower jaw');
 assert(dolphin.motion.verticalWave===1,'Dolphin swims vertically');
 const flukes=size(bounds(dolphin,5));assert(flukes.z>flukes.y*5,'Dolphin has horizontal flukes');
-const mat=faunaMaterial(dolphin.motion), shader={uniforms:{},vertexShader:''};
+const mat=faunaMaterial(dolphin.motion), shader={uniforms:{},vertexShader:'',fragmentShader:''};
 mat.onBeforeCompile(shader);assert(shader.uniforms.uVerticalWave.value===1,'Vertical motion reaches the shader');mat.dispose();
 for(const m of models.values())m.geo.dispose();
 console.log('Species anatomy and folded-wing/swimming regressions passed.');

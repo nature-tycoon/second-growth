@@ -1,7 +1,7 @@
 // Ground route following is continuous; grid routes supply a safe corridor and destination.
 import { T, clamp } from '../config.js';
 import { passable } from './animal-terrain.js';
-import { trailNode } from './animal-trails.js';
+import { walkNode } from './animal-trails.js';
 const angleDelta=(a,b)=>{let d=a-b;return d-Math.round(d/(Math.PI*2))*Math.PI*2;};
 export const smoothWalker=def=>!def.reef&&(def.move==='ground'||def.move==='semi'&&!def.patrol);
 // Check the swept segment and both sides of each diagonal boundary. Short look-ahead
@@ -10,7 +10,9 @@ export function walkSegmentSafe(w,a,x,y) {
   const count=Math.max(1,Math.ceil(Math.hypot(x-a.x,y-a.y)/.1));
   const startX=Math.floor(a.x),startY=Math.floor(a.y),crossing=w.catalog.animal[a.key]?.crossing;
   let px=startX,py=startY;
-  const clear=(xx,yy)=>w.inb(xx,yy)&&!w.fire[w.idx(xx,yy)]&&(passable(w,w.idx(xx,yy),a)||crossing&&w.terrain[w.idx(xx,yy)]===T.RIVER||xx===startX&&yy===startY);
+  // (the migration walks in from the far bank beyond the map's edge, as in stepToward)
+  const outside=crossing&&!w.inb(startX,startY);
+  const clear=(xx,yy)=>!w.inb(xx,yy)?outside:!w.fire[w.idx(xx,yy)]&&(passable(w,w.idx(xx,yy),a)||crossing&&w.terrain[w.idx(xx,yy)]===T.RIVER||xx===startX&&yy===startY);
   for(let k=1;k<=count;k++){
     const xx=Math.floor(a.x+(x-a.x)*k/count),yy=Math.floor(a.y+(y-a.y)*k/count);
     if(!clear(xx,yy)||xx!==px&&yy!==py&&(!clear(xx,py)||!clear(px,yy)))return false;
@@ -18,8 +20,10 @@ export function walkSegmentSafe(w,a,x,y) {
   }
   return true;
 }
+// Ground walkers steer through an off-center point in each tile (walkNode), so a route walks as
+// a wandering line instead of ruling a straight one through every tile center.
 function node(w,a,j) {
-  const p=a.range?.goal!=null?trailNode(w,j):[.5,.5];
+  const p=walkNode(w,a,j);
   return [j%w.w+p[0],(j/w.w|0)+p[1]];
 }
 // Returns true only at the current waypoint, or after crossing its outgoing plane.

@@ -24,12 +24,18 @@ function spawn(g, key, x = 40.5, y = 30.5, opts = {}) {
   const a = g.wildlife.spawn(g.catalog.animal[key], Math.floor(x), Math.floor(y), { silent: true, ...opts });
   Object.assign(a, { x, y, wait: 100, thirst: 0, hunger: 0 }); return a;
 }
-function pursue(p, a) { p.state = 'hunt'; p.target = a.id; p.huntTime = 10; p.hunt = { phase: 'creep' }; }
-check('A stalked target escapes instead of freezing until the rush', () => {
+// (in its rush: a hunter still creeping in is watched, not fled from, decision 0014)
+function pursue(p, a, phase = 'rush') { p.state = 'hunt'; p.target = a.id; p.huntTime = 10; p.hunt = { phase }; }
+check('A stalked target watches the hunter, and escapes once it rushes or comes close (0014)', () => {
   const g = setup(), a = spawn(g, 'rabbit'), p = spawn(g, 'coyote', 36, 30.5);
-  pursue(p, a);
+  pursue(p, a, 'creep');
+  assert.ok(watch(g.wildlife, a, g.catalog.animal.rabbit));
+  assert.notEqual(a.state, 'flee'); assert.ok(a.alertT > 0, 'it stops and stares');
+  p.hunt.phase = 'rush'; a.state = 'idle';
   assert.ok(watch(g.wildlife, a, g.catalog.animal.rabbit));
   assert.equal(a.state, 'flee'); assert.equal(a.threat, p.id);
+  const b = spawn(g, 'rabbit', 50.5, 30.5), q = spawn(g, 'coyote', 48, 30.5); pursue(q, b, 'creep');
+  assert.ok(watch(g.wildlife, b, g.catalog.animal.rabbit, true)); assert.equal(b.state, 'flee');
 });
 check('Waiting, walking, feeding and juvenile prey notice danger without a new target decision', () => {
   for (const state of ['idle', 'walk', 'feed', 'forage', 'spar']) for (const juvenile of [false, true]) {

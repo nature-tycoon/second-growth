@@ -1,5 +1,6 @@
 // Home cores and brief boundary encounters, using ordinary movement intents.
 // No damage, population cap, new movement state, or renderer position writes.
+import { huntHunger } from '../data/animal-activity.js';
 import { clamp } from '../config.js';
 import { isMale, preyFor } from '../data/animals.js';
 import { activeTerritory, territorialRivals } from '../data/animal-territories.js';
@@ -113,7 +114,7 @@ export function territorialChoose(wl, a, def) {
   if (!profile) { if (a.territory) a.territory = null; return false; }
   // Survival, feeding, dependent young and an ongoing social interaction win.
   if (a.fromFire || a.mom != null || a.drinkT || a.socialWith != null || a.run ||
-    a.state !== 'idle' || preyFor(def, wl.game) && a.hunger >= 7) return false;
+    a.state !== 'idle' || preyFor(def, wl.game) && a.hunger >= huntHunger(def)) return false;
   if (!hasTerritory(wl, a, def)) {
     a.territory = null;
     if (a.age < (a.territoryAfter || 0)) return false;

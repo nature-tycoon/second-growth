@@ -21,6 +21,7 @@ export function foodAt(wl, def, i) {
     if (food === 'seagrass' && ['seagrass', 'spoongrass'].includes(ground?.look.type) && w.groundG[i] > 0.3) return food;
     if (food === 'sponge' && shrub?.key === 'sponge' && w.shrubG[i] > 0.35) return food;
     if (food === 'coral' && tree && !tree.cay && w.treeG[i] > 0.3) return food;
+    if (food === 'starfish' && shrub?.key === 'cots' && w.shrubG[i] > 0.05) return food;
     if (food === 'algae' && ['turf', 'halimeda'].includes(ground?.key) && w.groundG[i] > 0.15) return food;
     if (food === 'sediment' && !tree && !shrub && wl.suit[def.index][i] > 0.1) return food;
     if (food === 'plankton' && wl.suit[def.index][i] > 0.15) return food;
@@ -67,6 +68,8 @@ export function forageChoose(wl, a, def) {
   const i = w.idx(x, y);
   if (beginMeal(wl, a, def, i)) return true;
   // Stay close to the herd/canopy patch. Never search the whole property for a bite.
+  // (A humphead wrasse cruises its stretch of reef looking for starfish, so it looks further.)
+  const reach = def.behavior.forage.includes('starfish') ? 8 : 3;
   const good = j => !!foodAt(wl, def, j) && (def.move !== 'fly' || canLand(w, j, def));
   if (def.move === 'fly') {
     let target = -1, distance = Infinity;
@@ -79,7 +82,7 @@ export function forageChoose(wl, a, def) {
     a.forageGoal = target; a.tx = target % w.w + 0.5; a.ty = (target / w.w | 0) + 0.5;
     a.state = 'fly'; a.flying = true; a.trip = null; return true;
   }
-  if (!wl.pathTo(a, good, 48, null, j => Math.abs(j % w.w - x) <= 3 && Math.abs((j / w.w | 0) - y) <= 3 && !w.fire[j])) return false;
+  if (!wl.pathTo(a, good, reach > 3 ? 300 : 48, null, j => Math.abs(j % w.w - x) <= reach && Math.abs((j / w.w | 0) - y) <= reach && !w.fire[j])) return false;
   a.forageGoal = a.path[0]; a.trip = null; return true;
 }
 export function forageArrive(wl, a) {
@@ -106,11 +109,14 @@ export function forageUpdate(wl, a, def, dt) {
   const w = wl.game.world;
   if (meal.food === 'seagrass') w.groundG[meal.i] = Math.max(0.25, w.groundG[meal.i] - (def.key === 'dugong' ? 0.018 : 0.01));
   if (meal.food === 'sponge') w.shrubG[meal.i] = Math.max(0.3, w.shrubG[meal.i] - 0.004);
+  // A crown-of-thorns starfish is eaten outright: a small one in one meal, a big one in two.
+  if (meal.food === 'starfish' && (w.shrubG[meal.i] -= 0.5) < 0.05) { w.shrub[meal.i] = 0; w.shrubG[meal.i] = 0; }
   // Insect/nectar stocks are derived habitat indices, not consumable population agents.
   // Cleaning is food for the wrasse, but it cannot satisfy a predator client's hunger.
   if (meal.food !== 'cleaned') a.hunger = 0;
   a.forage = null; a.state = 'idle'; a.wait = 1 + Math.random();
-  a.forageAfter = a.age + 6 + Math.random() * 6;
+  // (while there are starfish about, the wrasse finishes one and goes on to the next)
+  a.forageAfter = a.age + (meal.food === 'starfish' ? 0.5 + Math.random() : 6 + Math.random() * 6);
 }
 function foodAtStation(wl, a, partner, i) {
   const cleaner = wl.game.catalog.animals[a.sp].key === 'cleaner' ? a : partner;

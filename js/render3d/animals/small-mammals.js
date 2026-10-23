@@ -148,6 +148,7 @@ function bear(m, s) {
     for (const side of [1, -1]) {
       m.ell([hp[0] - H * 0.04, hp[1] + H * 0.27 * hs, side * H * 0.22 * hs], [H * 0.075, H * 0.075, H * 0.04], coat, hd);
       m.ell([hp[0] + H * 0.14 * hs, hp[1] + H * 0.07 * hs, side * H * 0.23 * hs], [H * 0.035, H * 0.035, H * 0.02], '#3a2a1e', { ...hd, lo: true });
+      m.eyeSpot = [hp[0] + H * 0.14 * hs, hp[1] + H * 0.07 * hs, H * 0.23 * hs]; // (eyes)
     }
   } else {
     m.ell([hp[0] + H * 0.26, hp[1] - H * 0.08, 0], [H * 0.2, H * 0.13, H * 0.13], s.muzzle, hd);
@@ -155,6 +156,7 @@ function bear(m, s) {
     for (const side of [1, -1]) {
       m.ell([hp[0] - H * 0.06, hp[1] + H * 0.24, side * H * 0.17], [H * 0.09, H * 0.1, H * 0.05], '#2e2520', hd);
       m.ell([hp[0] + H * 0.1, hp[1] + H * 0.07, side * H * 0.19], [H * 0.035, H * 0.035, H * 0.02], '#d8c8a8', { ...hd, lo: true });
+      m.eyeSpot = [hp[0] + H * 0.1, hp[1] + H * 0.07, H * 0.19]; // (eyes)
     }
   }
   for (const [x, side, part, top] of [[L * 0.24, 1, P.LEG_FL, by - 2 * k], [L * 0.24, -1, P.LEG_FR, by - 2 * k], [-L * 0.24, 1, P.LEG_BL, by], [-L * 0.24, -1, P.LEG_BR, by]]) {

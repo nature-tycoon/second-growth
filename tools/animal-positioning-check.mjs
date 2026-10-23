@@ -126,7 +126,7 @@ check('Calves on dry ground do not copy their mother’s drinking pose', () => {
   g.wildlife.keepWithMom(calf, ANIMAL.zebra); assert.ok(!(calf.drinkT > 0));
 });
 check('A perched bird lands to drink; it does not drink from a tree crown', () => {
-  reset(); pond(); const a = spawn('secretary', 27, 30); a.thirst = 20; a.alt = 1;
+  reset(); pond(); const a = spawn('secretary', 27, 30); a.thirst = 1e3; a.alt = 1; // (well past its interval between drinks)
   g.wildlife.waterhole(a, ANIMAL.secretary);
   for (let k = 0; k < 40 && !(a.drinkT > 0); k++) g.wildlife.update(0.05);
   assert.ok(a.drinkT > 0); assert.equal(a.alt, 0); assert.equal(a.flying, false);

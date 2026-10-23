@@ -500,6 +500,53 @@ export const FIELD_RECORDINGS = {
       "field-tiger-1"
     ],
     "gain": 0.5
+  },
+  "canada-goose": {
+    "clips": [
+      "field-canada-goose-1"
+    ],
+    "gain": 0.4,
+    "source": "https://commons.wikimedia.org/wiki/File:Low_flyover_by_five_Canadian_Geese.flac",
+    "by": "Extemporalist",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "canada-goose-yellowstone": {
+    "clips": [
+      "field-canada-goose-2",
+      "field-canada-goose-3"
+    ],
+    "gain": 0.4,
+    "source": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Canada_Geese_-_001.mp3",
+    "by": "NPS & MSU Acoustic Atlas / Jennifer Jerrett, Yellowstone sound library",
+    "license": "Public domain",
+    "licenseUrl": "",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "mallard": {
+    "clips": [
+      "field-mallard-1",
+      "field-mallard-2"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:Anas_platyrhynchos_-_Mallard_XC112828.mp3",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "wood-duck": {
+    "clips": [
+      "field-wood-duck-1",
+      "field-wood-duck-2"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:Aix_sponsa_-_Wood_Duck_XC177728.mp3",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
   }
 };
 

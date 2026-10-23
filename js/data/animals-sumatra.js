@@ -222,7 +222,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ INVASIVE: 0.9, FARM: 0.9, MEADOW: 1, SHRUB: 0.8, YOUNG_FOREST: 0.4, RIPARIAN: 0.4 });
-    def({ key: 'barnowl', name: 'Barn owl', sci: 'Tyto alba javanica', group: 'Birds', move: 'fly',
+    def({ key: 'barnowl', name: 'Barn owl', sci: 'Tyto alba javanica', group: 'Birds', move: 'fly', carries: ['woodrat'],
       speed: 1.2, hr: 18, max: 8, sources: ['W'], mig: 0.3, breed: [2, 3], litter: [3, 5], life: 6, mature: 1,
       prey: ['woodrat'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distNest[i], 10, 0.3),
@@ -233,7 +233,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 1, RIPARIAN: 1, SHRUB: 0.5, MARSH: 0.5 });
-    def({ key: 'serpenteagle', name: 'Crested serpent eagle', sci: 'Spilornis cheela', group: 'Birds', move: 'fly',
+    def({ key: 'serpenteagle', name: 'Crested serpent eagle', sci: 'Spilornis cheela', group: 'Birds', move: 'fly', carries: ['flyingfrog'],
       speed: 1.2, hr: 90, max: 3, sources: ['N', 'E'], mig: 0.2, breed: [1, 2], litter: [1, 1], life: 20, mature: 3,
       prey: ['python', 'monitor', 'flyingfrog'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distPerch[i], 3, 0.4),

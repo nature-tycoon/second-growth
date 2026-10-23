@@ -89,7 +89,7 @@ function beardedPig(s, L, H, leg, by) {
         // the pale band from the corner of the mouth back along the cheek
         const band = tmp.copy(col(s.color)).lerp(col(s.beard), 0.75).clone();
         m.ell([hp[0] + H * 0.18, hp[1] - H * 0.2, side * H * 0.19], [H * 0.3, H * 0.045, H * 0.03], band, { ...hd, rot: [0, side * 0.35, a * 0.4] });
-        m.limb([hp[0] + H * 0.46, hp[1] - H * 0.3, side * H * 0.11], [hp[0] + H * 0.5, hp[1] - H * 0.18, side * H * 0.16], H * 0.026, H * 0.007, '#ece4d0', { ...hd, caps: false }); // tusks
+        m.limb([hp[0] + H * 0.46, hp[1] - H * 0.3, side * H * 0.11], [hp[0] + H * 0.5, hp[1] - H * 0.18, side * H * 0.16], H * 0.026, H * 0.007, '#ece4d0', { ...hd, caps: false, hard: true }); // tusks
       }
       // bristles carry on over the crown and nape
       for (let k = 0; k < 4; k++) m.limb([hp[0] - hr[0] * (0.2 + k * 0.35), hp[1] + hr[1] * 0.7, 0], [hp[0] - hr[0] * (0.45 + k * 0.35), hp[1] + hr[1] * 0.7 + H * 0.16, 0], H * 0.06, H * 0.012, dk, { ...hd, caps: false, seg: 5 });
@@ -306,8 +306,8 @@ function sumatranElephant(m, s) {
   const ivory = u => tmp.copy(col('#e8dcc0')).lerp(col('#f6f0e2'), smooth(-0.5, 0.9, u.x));
   for (const side of [1, -1]) {
     if (tk) {
-      tube(m, [HX(23.4, 31.6, side * 2.7), X(28.0 + dx, 25.0, side * 3.9), X(31.6 + dx, 22.0, side * 4.4), X(36.0 + dx, 22.6, side * 4.0)], [1.15, 1.05, 0.8, 0.36].map(r => r * k), ivory, { ...hd, seg: 10, sub: 5, capRings: 2 });
-    } else m.ell(HX(26.7, 27.6, side * 2.6), R(0.6, 0.42, 0.42), ivory, { ...hd, lo: true });
+      tube(m, [HX(23.4, 31.6, side * 2.7), X(28.0 + dx, 25.0, side * 3.9), X(31.6 + dx, 22.0, side * 4.4), X(36.0 + dx, 22.6, side * 4.0)], [1.15, 1.05, 0.8, 0.36].map(r => r * k), ivory, { ...hd, seg: 10, sub: 5, capRings: 2, hard: true });
+    } else m.ell(HX(26.7, 27.6, side * 2.6), R(0.6, 0.42, 0.42), ivory, { ...hd, lo: true, hard: true });
   }
   // a few bristles on the crown
   for (let j = 0; j < 6; j++) { const z = (j - 2.5) * 1.3, x = 20.6 - (j % 3) * 1.4; m.limb(HX(x, 44.9 - Math.abs(z) * 0.3, z), HX(x - 0.3, 45.6 - Math.abs(z) * 0.3, z * 1.1), 0.1 * k, 0.04 * k, dk, { ...hd, caps: false, seg: 3 }); }
@@ -391,8 +391,8 @@ function sumatranRhino(m, s) {
   m.limb(X(25.0, 10.1), X(25.9, 9.0), 0.75 * k, 0.25 * k, shade(s.color, -0.3), { ...hd, seg: 6 });
   for (const side of [1, -1]) m.ell(X(24.35, 11.7, side * 0.85), [0.35 * k, 0.42 * k, 0.28 * k], '#140e0a', { ...hd, lo: true }); // nostrils
   // horns: a short front horn on the nose, a stub behind it
-  tube(m, [X(23.0, 14.0), X(23.7, 16.4), X(23.5, 18.3), X(22.7, 19.7)], [1.9, 1.25, 0.65, 0.18].map(r => r * k), u => tmp.copy(horn).lerp(col('#4a3e34'), smooth(0.4, -0.8, u.x) * 0.6), { ...hd, seg: 10, sub: 4, capRings: 2 });
-  m.ell(X(20.0, 16.9), [1.4 * k, 0.95 * k, 1.1 * k], horn, { ...hd, rot: [0, 0, -0.3] });
+  tube(m, [X(23.0, 14.0), X(23.7, 16.4), X(23.5, 18.3), X(22.7, 19.7)], [1.9, 1.25, 0.65, 0.18].map(r => r * k), u => tmp.copy(horn).lerp(col('#4a3e34'), smooth(0.4, -0.8, u.x) * 0.6), { ...hd, seg: 10, sub: 4, capRings: 2, hard: true });
+  m.ell(X(20.0, 16.9), [1.4 * k, 0.95 * k, 1.1 * k], horn, { ...hd, rot: [0, 0, -0.3], hard: true });
   // small eyes in wrinkles
   for (const side of [1, -1]) {
     m.ell(X(19.8, 14.3, side * 2.75), [0.8 * k, 0.6 * k, 0.4 * k], shade(s.color, -0.4), { ...hd, lo: true });
@@ -1000,7 +1000,7 @@ const MAMMALS = {
       face: (m, hp, hr, hd, sn) => {
         m.ell([sn[0] + H * 0.38, sn[1], 0], [H * 0.04, H * 0.12, H * 0.14], '#4a3a36', hd); // disc of a nose
         for (const side of [1, -1]) {
-          m.limb([sn[0] + H * 0.2, sn[1] - H * 0.04, side * H * 0.12], [sn[0] + H * 0.24, sn[1] + H * 0.26, side * H * 0.3], H * 0.04, H * 0.012, '#ece4d0', { ...hd, caps: false }); // tusks
+          m.limb([sn[0] + H * 0.2, sn[1] - H * 0.04, side * H * 0.12], [sn[0] + H * 0.24, sn[1] + H * 0.26, side * H * 0.3], H * 0.04, H * 0.012, '#ece4d0', { ...hd, caps: false, hard: true }); // tusks
           m.ell([hp[0] + hr[0] * 0.45, hp[1] - hr[1] * 0.2, side * hr[2] * 0.95], [H * 0.07, H * 0.06, H * 0.05], shade(s.color, -0.15), { ...hd, lo: true }); // warts
         }
         m.limb([hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.8, 0], [-L * 0.25, by + H * 0.5, 0], H * 0.07, H * 0.04, s.dark, hd); // mane
@@ -1033,8 +1033,8 @@ const MAMMALS = {
         for (const toe of [-1, 0, 1]) m.ell([foot[0] + r * (toe === 0 ? 1 : 0.68), r * 0.32, foot[2] + toe * r * 0.68], [r * 0.45, r * 0.32, r * 0.4], '#3d3933', o);
       },
       face: (m, hp, hr, hd, sn) => {
-        tube(m, [[sn[0] + H * 0.18, sn[1] + H * 0.13, 0], [sn[0] + H * 0.22, sn[1] + H * 0.33, 0], [sn[0] + H * 0.31, sn[1] + H * 0.61, 0]], [H * 0.11, H * 0.071, H * 0.003], '#8a8478', { ...hd, sub: 8, seg: 14 });
-        tube(m, [[sn[0] - H * 0.1, sn[1] + H * 0.21, 0], [sn[0] - H * 0.08, sn[1] + H * 0.34, 0], [sn[0] - H * 0.04, sn[1] + H * 0.46, 0]], [H * 0.08, H * 0.048, H * 0.002], '#8a8478', { ...hd, sub: 6, seg: 12 });
+        tube(m, [[sn[0] + H * 0.18, sn[1] + H * 0.13, 0], [sn[0] + H * 0.22, sn[1] + H * 0.33, 0], [sn[0] + H * 0.31, sn[1] + H * 0.61, 0]], [H * 0.11, H * 0.071, H * 0.003], '#8a8478', { ...hd, sub: 8, seg: 14, hard: true });
+        tube(m, [[sn[0] - H * 0.1, sn[1] + H * 0.21, 0], [sn[0] - H * 0.08, sn[1] + H * 0.34, 0], [sn[0] - H * 0.04, sn[1] + H * 0.46, 0]], [H * 0.08, H * 0.048, H * 0.002], '#8a8478', { ...hd, sub: 6, seg: 12, hard: true });
         m.ell([sn[0] + H * 0.3, sn[1] - H * 0.01, 0], [H * 0.105, H * 0.065, H * 0.09], s.color, { ...hd, rot: [0, 0, 0.3] });
         for (const side of [-1, 1]) {
           const ear = [hp[0] - hr[0] * 0.55, hp[1] + hr[1] * 0.88, side * hr[2] * 0.7];
@@ -1113,7 +1113,7 @@ const MAMMALS = {
         tube(m, [t0, t1, t2, t3, tip], [H * 0.19, H * 0.13, H * 0.085, H * 0.048, H * 0.035], hide(solid(s.color)), { ...hd, sub: 9, seg: 20 });
         for (const dy of [-1, 1]) m.ell([tip[0] + H * 0.025, tip[1] + dy * H * 0.026, 0], [H * 0.035, H * 0.015, H * 0.025], s.color, { ...hd, fine: false });
         for (const side of [-1, 1]) {
-          tube(m, [[hp[0] + hr[0] * 0.48, hp[1] - hr[1] * 0.43, side * hr[2] * 0.48], [hp[0] + hr[0] * 0.99, hp[1] - hr[1] * 0.78, side * hr[2] * 0.65], [hp[0] + hr[0] * 1.4, hp[1] - hr[1] * 0.67, side * hr[2] * 0.73]], [H * 0.055, H * 0.036, H * 0.003], '#ece4d0', { ...hd, sub: 9, seg: 12 });
+          tube(m, [[hp[0] + hr[0] * 0.48, hp[1] - hr[1] * 0.43, side * hr[2] * 0.48], [hp[0] + hr[0] * 0.99, hp[1] - hr[1] * 0.78, side * hr[2] * 0.65], [hp[0] + hr[0] * 1.4, hp[1] - hr[1] * 0.67, side * hr[2] * 0.73]], [H * 0.055, H * 0.036, H * 0.003], '#ece4d0', { ...hd, sub: 9, seg: 12, hard: true });
           // A cupped fan with a thin rim, rather than a perfectly flat plate.
           const ear = flat(sh => {
             sh.moveTo(0.4, 0.75); sh.quadraticCurveTo(-0.15, 1.15, -0.68, 0.85);

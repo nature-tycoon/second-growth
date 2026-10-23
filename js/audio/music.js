@@ -295,13 +295,16 @@ export class Music {
     for (const [key, id] of Object.entries(map?.birds || {})) if (this.land.present.includes(key)) this.loadField(id);
     for (const { voice } of natureCallRates(this.land, this.weather, this.season)) this.loadField(map?.calls[voice]);
   }
-  playField(id, { far = 0.2, pan, offset = 0, length } = {}) {
+  // (`anywhere` starts at a random point, for an excerpt of a long recording)
+  playField(id, { far = 0.2, pan, offset = 0, length, anywhere = false } = {}) {
     if (!this.ctx || !this.natureOn || this.muted || this.ctx.state !== 'running' || !this.callGain) return 0;
     const def = FIELD_RECORDINGS[id];
     if (!def) return 0;
     const ready = def.clips.map(n => this.fieldClips.get(n)).filter(Boolean);
     if (!ready.length) { this.loadField(id); return 0; }
-    const clip = ready[Math.floor(Math.random() * ready.length)], duration = Math.min(length ?? clip.duration, clip.duration - offset);
+    const clip = ready[Math.floor(Math.random() * ready.length)];
+    if (anywhere) offset = Math.random() * Math.max(0, clip.duration - (length ?? clip.duration));
+    const duration = Math.min(length ?? clip.duration, clip.duration - offset);
     if (duration <= 0) return 0;
     const t = this.ctx.currentTime, source = this.ctx.createBufferSource(), gain = this.ctx.createGain();
     source.buffer = clip; // Preserve the animal's real pitch and pace.

@@ -13,6 +13,7 @@ export const DEFAULTS = {
   wind: true,          // plants sway in the breeze
   weather: true,       // rain and snow drawn over the view
   dayCycle: true,      // the light moves through golden hour, dusk and dawn
+  decay: true,         // kills are drawn eaten down to bones that scatter and go (off: they lie whole and fade)
   panSpeed: 1,
   zoomSpeed: 1,
   autosave: true,

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Second Growth — flood review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{margin:24px;background:#eef0e8;color:#27392d;font:15px system-ui}
+h1{font-size:24px;margin:0 0 10px}p{line-height:1.5;max-width:1080px}
+label{display:inline-block;margin:0 16px 12px 0}select,button{font:inherit;padding:6px}
+main{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+article{background:#fafbf5;border:1px solid #d3dccd;border-radius:12px;padding:12px}
+h2{font-size:17px;margin:0 0 10px}canvas{width:100%;display:block;aspect-ratio:8/5}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+</style>
+<h1>Flood review</h1>
+<p>A big winter flood on each farm, seen where the floodwater meets the river or creek it rose from. The waterline should follow the land, not tile squares.</p>
+<label>Map <select id="map"><option>pnw</option><option>atlanta</option><option>amazon</option><option>serengeti</option><option>chinandega</option><option>sumatra</option></select></label>
+<label>Graphics <select id="detail"><option value="full">Full</option><option value="fast">Fast</option></select></label>
+<button id="rotate">Rotate view</button><button id="zoom">Zoom</button><p id="status">Preparing flood…</p>
+<main><article><h2 id="h0"></h2><canvas id="c0" width="800" height="500"></canvas></article>
+<article><h2 id="h1"></h2><canvas id="c1" width="800" height="500"></canvas></article>
+<article><h2 id="h2"></h2><canvas id="c2" width="800" height="500"></canvas></article>
+<article><h2 id="h3"></h2><canvas id="c3" width="800" height="500"></canvas></article></main>
+<script type="module">
+import * as THREE from 'three';
+import { Terrain, buildAtlas } from '../js/render3d/terrain.js';
+import { Flora } from '../js/render3d/flora.js';
+import { Game } from '../js/game.js';
+import { isWater } from '../js/config.js';
+const W=800,H=500, gl=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+gl.setSize(W,H);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;
+const camera=new THREE.OrthographicCamera(-1,1,1,-1,.1,200);
+const $=id=>document.getElementById(id);
+const atlas=buildAtlas();let view=null,angle=Math.PI/4,extent=10,spots=[];
+function setup(){
+  let s=1;Math.random=()=>((s=Math.imul(s^(s>>>15),2246822507)+0x6d2b79f5|0)>>>0)/4294967296; // (same flood every time)
+  const game=new Game();game.newGame(1987,'free','standard',$('map').value);game.day=10*10;
+  game.events.startFlood(1.8);
+  const w=game.world;
+  // spots: flooded tiles beside river or creek, spread apart
+  const edge=[];
+  for(let i=0;i<w.n;i++){if(!w.flood[i])continue;const x=i%w.w,y=(i/w.w)|0;
+    if([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>w.inb(x+dx,y+dy)&&isWater(w.terrain[w.idx(x+dx,y+dy)])))edge.push([x,y]);}
+  spots=[];for(const p of edge){if(spots.every(q=>Math.hypot(p[0]-q[0],p[1]-q[1])>18))spots.push(p);if(spots.length>=4)break;}
+  const scene=new THREE.Scene();scene.background=new THREE.Color('#d7decf');
+  scene.add(new THREE.HemisphereLight(0xe4eeff,0x5f6e3c,1.25));
+  const sun=new THREE.DirectionalLight(0xfff3dc,2.5);scene.add(sun,sun.target);
+  const terrain=new Terrain(scene,atlas);
+  terrain.setWorld(w,game.border);terrain.setFast($('detail').value==='fast');terrain.updateSurface(game);terrain.time.value=8;terrain.sky.value.set(0xd1dfec);
+  terrain.buildFlood();
+  const flora=new Flora(scene);flora.setLight($('detail').value==='fast');flora.setZoom(1.2);flora.rebuild(game);
+  view={scene,sun,terrain,game};
+  $('status').textContent=`Ready · ${game.events.floodTiles} tiles flooded · ${edge.length} along the water`;
+  refresh();
+}
+function refresh(){
+  for(let k=0;k<4;k++){
+    const p=spots[k];$('h'+k).textContent=p?`Tile ${p[0]}, ${p[1]}`:'—';if(!p)continue;
+    const target=new THREE.Vector3(p[0],view.game.world.heightAt(...p)*.3,p[1]);
+    camera.left=-extent;camera.right=extent;camera.top=extent*H/W;camera.bottom=-extent*H/W;
+    const el=38*Math.PI/180;
+    camera.position.copy(target).addScaledVector(new THREE.Vector3(Math.sin(angle)*Math.cos(el),Math.sin(el),Math.cos(angle)*Math.cos(el)),80);
+    camera.lookAt(target);camera.updateProjectionMatrix();camera.updateMatrixWorld();
+    view.sun.position.copy(target).add(new THREE.Vector3(-20,35,12));view.sun.target.position.copy(target);view.sun.target.updateMatrixWorld();
+    gl.render(view.scene,camera);$('c'+k).getContext('2d').drawImage(gl.domElement,0,0);
+  }
+}
+$('rotate').onclick=()=>{angle+=Math.PI/2;refresh();};$('zoom').onclick=()=>{extent=extent===10?5:extent===5?20:10;refresh();};
+for(const id of ['map','detail'])$(id).onchange=setup;
+setup();
+</script>
+</html>

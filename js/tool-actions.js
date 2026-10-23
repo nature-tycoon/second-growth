@@ -71,7 +71,7 @@ export class ToolActions {
       const cost = toolCost(g, tool, i);
       assertToolCost(cost, `${g.map}.tools.${tool.key}.costFor`);
       if (cost > 0 && !g.canAfford(cost)) { stroke.broke = true; continue; }
-      const result = tool.apply(g, i, stroke.random);
+      const result = tool.apply(g, i, stroke.random, stroke);
       assertToolResult(result, `${g.map}.tools.${tool.key}.apply`);
       if (result === true) {
         g.stats.used ||= {};

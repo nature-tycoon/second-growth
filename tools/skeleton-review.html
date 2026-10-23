@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Second Growth — skeleton review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{margin:0;padding:24px;background:#edf0e8;color:#26392e;font:15px system-ui}h1{font-size:24px;margin:0 0 8px}p{margin:8px 0 16px}label{margin-right:16px;white-space:nowrap}select{font:inherit;padding:6px}input[type=range]{vertical-align:middle;width:160px}main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px}article{background:#fafbf7;border:1px solid #d1d9cd;border-radius:10px;padding:12px}article[hidden]{display:none}h2{font-size:15px;margin:0}canvas{display:block;width:100%;aspect-ratio:4/3}small{display:block;color:#536553;font-variant-numeric:tabular-nums}#status{font-size:13px}@media(max-width:850px){main{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:550px){main{grid-template-columns:1fr}}
+</style>
+<h1>Skeleton review</h1>
+<p>The bones each species leaves when a kill is eaten and rots (js/render3d/carcass-decay.js), fitted to its own model. "Inside the body" shows the skeleton through a faint outline of the animal. "Carcass at age" draws a kill as the game does, lying on its side, at a point in its life from fresh (0%) to gone (100%).</p>
+<label>Map <select id="map"></select></label>
+<label>Show <select id="show"><option value="bones">Skeleton</option><option value="ghost">Skeleton inside the body</option><option value="carcass">Carcass at age</option></select></label>
+<label>Age <input id="age" type="range" min="0" max="100" value="55"> <span id="ageOut"></span></label>
+<label><input id="eaten" type="checkbox" checked> Scavenged</label>
+<label>Framing <select id="framing"><option value="whole">Whole</option><option value="skull">Skull</option><option value="pelvis">Pelvis</option></select></label>
+<label>View <select id="view"><option value="quarter">Three-quarter</option><option value="side">Side</option><option value="above">Above</option><option value="front">Front</option></select></label>
+<p id="status">Building skeletons…</p><main></main>
+<script type="module">
+import * as THREE from 'three';
+const revision=Date.now();
+const {createAnimals}=await import('../js/data/animals.js?skeletons='+revision);
+const {Fauna,buildSpecies}=await import('../js/render3d/fauna.js?skeletons='+revision);
+const {carcassDecay,fitCarcass,remainsGeometry,Remains}=await import('../js/render3d/carcass-decay.js?skeletons='+revision);
+const {leavesCarcass}=await import('../js/sim/animal-life.js?skeletons='+revision);
+const maps=['pnw','atlanta','amazon','sumatra','chinandega','serengeti'];
+const controls=Object.fromEntries(['map','show','age','eaten','framing','view'].map(id=>[id,document.getElementById(id)]));
+for(const map of ['all',...maps])controls.map.add(new Option(map,map));
+const query=new URLSearchParams(location.search);
+for(const [k,c]of Object.entries(controls))if(query.has(k))c.type==='checkbox'?c.checked=query.get(k)!=='0':c.value=query.get(k);
+if(!query.has('map'))controls.map.value='serengeti';
+const W=360,Hc=270,renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setSize(W,Hc);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;
+const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-1,1,1,-1,.01,4000);
+scene.add(new THREE.HemisphereLight(0xe4eeff,0x6f7a4c,1.35));const sun=new THREE.DirectionalLight(0xfff3dc,2.3);sun.position.set(2,4,3);scene.add(sun);
+const F=new Fauna(scene),R=new Remains(scene),ghostMat=new THREE.MeshLambertMaterial({vertexColors:true,transparent:true,opacity:.18,depthWrite:false});
+const entries=[];
+for(const map of maps){
+ const list=createAnimals((await import(`../js/data/animals-${map}.js?skeletons=${revision}`)).default,map),defs=list.animals||list;
+ for(const base of defs){
+  if(!leavesCarcass(base))continue;
+  // (and the adult male look where there is one: antlers, horns and tusks often come with it)
+  for(const def of [base,...(base.sprite.male?[{...base,key:base.key+'-male',sprite:{...base.sprite,...base.sprite.male}}]:[])]){
+  const pool=F.pool(def),anatomy=fitCarcass(pool),bones=remainsGeometry(anatomy,1);bones.computeBoundingBox();
+  const article=document.createElement('article'),h=document.createElement('h2'),canvas=document.createElement('canvas'),details=document.createElement('small');canvas.width=W;canvas.height=Hc;
+  h.textContent=`${def.name}${def.key.endsWith('-male')?' · '+(base.sprite.maleName||'male'):''} · ${map}`;article.append(h,canvas,details);document.querySelector('main').append(article);
+  entries.push({map,def,pool,anatomy,box:bones.boundingBox,article,canvas,details,key:F.modelKey(def),ghost:null});
+  }
+ }
+}
+const roll=Math.PI/2,lieMatrix=new THREE.Matrix4().makeRotationX(roll);
+function frame(e,lying){
+ const a=e.anatomy,H=a.spineY-a.bellyY,L=a.x1-a.x0,box=new THREE.Box3();
+ if(controls.framing.value==='skull'){const c=a.skull.back.clone().addScaledVector(a.skull.dir,a.skull.len*.5);box.setFromCenterAndSize(c,new THREE.Vector3(1,1,1).multiplyScalar(a.skull.len*1.3));if(a.hard){a.hard.computeBoundingBox();box.union(a.hard.boundingBox);}}
+ else if(controls.framing.value==='pelvis')box.setFromCenterAndSize(new THREE.Vector3(a.back-L*.01,a.spineY-H*.25,0),new THREE.Vector3(L*.42,H*.75,a.W*1.6));
+ else box.copy(e.box);
+ if(lying)box.applyMatrix4(lieMatrix);
+ return box;
+}
+function draw(){
+ controls.age.disabled=controls.eaten.disabled=controls.show.value!=='carcass';
+ const age=Number(controls.age.value)/100;document.getElementById('ageOut').textContent=`${Math.round(age*100)}%`;
+ const dir=new THREE.Vector3(...({side:[0,0,1],quarter:[.75,.55,1],above:[.05,1,.12],front:[1,.15,.02]}[controls.view.value])).normalize();
+ let count=0;
+ for(const e of entries){
+  e.article.hidden=controls.map.value!=='all'&&e.map!==controls.map.value;if(e.article.hidden)continue;count++;
+  const show=controls.show.value,lying=show==='carcass',a=e.anatomy;
+  F.begin();R.begin();
+  for(const o of entries)if(o.ghostMesh)o.ghostMesh.visible=false; // (the scene is shared: only this card's outline)
+  let d;
+  if(lying){
+   const max=27,meals0=Math.max(1,Math.ceil(e.def.sprite.len/20));
+   d=carcassDecay({t:max*(1-age),max,feed:2,meals:controls.eaten.checked?0:meals0,meals0});
+   // (as the game draws it: lying on its side, raised so the down flank meets the ground at y 0)
+   const ground=(e.def.sprite.h||10)*.32;
+   if(d.body)F.add(e.def,0,ground,0,0,1,0,0,0,0,0,roll,null,true,d);
+   if(d.bones)R.add(e.key,a,0,ground,0,0,roll,1,ground,d);
+   e.details.textContent=`strip ${d.strip.toFixed(2)} · wither ${d.wither.toFixed(2)} · settle ${d.settle.toFixed(2)} · bones gone ${d.gone.toFixed(2)}`;
+  }else{
+   d={gone:0,scatter:0,settle:0,wither:1,bone:[.86,.82,.74]};
+   R.add(e.key,a,0,0,0,0,0,1,0,d);
+   if(show==='ghost'){e.ghostMesh||=scene.add(new THREE.Mesh(buildSpecies(e.def).geo,ghostMat)).children.at(-1);e.ghostMesh.visible=true;}
+   const sk=a.skull;e.details.textContent=`skull ${sk.len.toFixed(1)} long, ${(sk.wide*2).toFixed(1)} wide · torso ${(a.spineY-a.bellyY).toFixed(1)} deep, ${(a.W*2).toFixed(1)} wide (model units)`;
+  }
+  F.end();R.end();
+  const box=frame(e,lying);
+  if(lying)box.translate(new THREE.Vector3(0,(e.def.sprite.h||10)*.32,0));
+  const c=box.getCenter(new THREE.Vector3()),s=box.getSize(new THREE.Vector3()),r=Math.max(s.x,s.y,s.z)*.62;
+  camera.left=-r*W/Hc;camera.right=r*W/Hc;camera.top=r;camera.bottom=-r;camera.position.copy(c).addScaledVector(dir,r*20);camera.lookAt(c);camera.near=.01;camera.far=r*60;camera.updateProjectionMatrix();
+  renderer.render(scene,camera);
+  const ctx=e.canvas.getContext('2d');ctx.clearRect(0,0,W,Hc);ctx.drawImage(renderer.domElement,0,0);
+ }
+ document.getElementById('status').textContent=`${count} species shown · ${entries.length} species leave a carcass across ${maps.length} maps`;
+}
+for(const c of Object.values(controls))c.addEventListener(c.type==='range'?'input':'change',draw);
+draw();window.skeletonsReady=true;
+</script>
+</html>

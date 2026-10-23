@@ -183,7 +183,7 @@ export default function buildChinandegaAnimals(def) {
   }
   {
     const w = habW({ RIPARIAN: 1, MATURE_FOREST: 1, YOUNG_FOREST: 0.7, MEADOW: 0.5 });
-    def({ key: 'guaco', name: 'Laughing falcon', sci: 'Herpetotheres cachinnans', group: 'Birds', move: 'fly',
+    def({ key: 'guaco', name: 'Laughing falcon', sci: 'Herpetotheres cachinnans', group: 'Birds', move: 'fly', carries: [],
       speed: 2.8, hr: 120, max: 2, sources: ['N', 'E'], mig: 0.25, breed: [0, 1], litter: [1, 1], life: 12,
       prey: ['boa', 'iguana'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]],
