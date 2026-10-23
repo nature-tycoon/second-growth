@@ -13,6 +13,7 @@ import { passageChoices, spawnPassage, updatePassage } from '../js/sim/bird-pass
 import { birdChoose, birdUpdate, birdAlarm, isBird, carryCatch, liftable } from '../js/sim/bird-behavior.js';
 import { T, F, isWater } from '../js/config.js';
 import { mulberry32 } from '../js/rng.js';
+import { startFeed } from '../js/sim/animal-life.js';
 Math.random = mulberry32(20261010);
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log('PASS ' + name); };
@@ -318,5 +319,38 @@ check('A bald eagle carries a trout to a tree and drags a heavy coho low to the 
   let high = 0;
   for (let k = 0; k < 600 && f.state === 'carry'; k++) { wl.update(0.05); if (k > 20) high = Math.max(high, f.alt); }
   assert.equal(f.state, 'feed'); assert.ok(!isWater(w.terrain[idx(g, f)]), 'ate it on the bank'); assert.ok(high <= 0.4, `skimmed low (${high})`);
+});
+check('A hungry vulture soars, then spirals down over a carcass and lands to feed', () => {
+  const g = setup('serengeti'), wl = g.wildlife, V = g.catalog.animal.vulture;
+  const v = wl.spawn(V, 30, 30, { silent: true }); Object.assign(v, { x: 30.5, y: 30.5, hunger: 10, wait: 0 });
+  assert.equal(birdChoose(wl, v, V), true); assert.equal(v.bird.kind, 'soar', 'a hungry vulture with nothing to eat searches from the soar');
+  const lion = wl.spawn(g.catalog.animal.lion, 45, 30, { silent: true }), prey = wl.spawn(g.catalog.animal.zebra, 45, 30, { silent: true });
+  Object.assign(lion, { x: 45.5, y: 30.5, hunger: 0 }); Object.assign(prey, { x: 45.5, y: 30.5 });
+  wl.remove(prey, 'predation'); startFeed(wl, lion, g.catalog.animal.lion, prey); lion.wait = 100;
+  const c = wl.carcasses[0], meals = c.meals;
+  let turned = 0, ang = null, top = 0, low = 9;
+  for (let k = 0; k < 900 && v.state !== 'feed'; k++) {
+    wl.update(0.05);
+    if (v.bird?.carcass === c.id) {
+      if (ang != null) turned += Math.abs(v.bird.ang - ang); ang = v.bird.ang;
+      top = Math.max(top, v.alt); low = Math.min(low, v.alt);
+      assert.ok(Math.hypot(v.x - c.x, v.y - c.y) < 3, 'circles over the carcass');
+      assert.equal(c.meals, meals, 'circling claims no meal');
+    }
+  }
+  assert.ok(turned > Math.PI * 2, `at least a full turn on the way down (${(turned / 6.28).toFixed(2)})`);
+  assert.ok(top >= 1 && low <= 0.3, `comes down from flight height (${top.toFixed(2)} to ${low.toFixed(2)})`);
+  assert.equal(v.state, 'feed'); assert.equal(v.carcass, c.id); assert.equal(c.meals, meals - 1);
+});
+check('A hungry vulture on a perch sets off for a carcass at once, not at the end of its rest', () => {
+  const g = setup('serengeti'), wl = g.wildlife, w = g.world, V = g.catalog.animal.vulture;
+  const tree = w.idx(30, 30); w.tree[tree] = 1; w.treeG[tree] = 1;
+  const v = wl.spawn(V, 30, 30, { silent: true }); Object.assign(v, { x: 30.5, y: 30.5, hunger: 10, wait: 0 });
+  v.state = 'bird'; v.bird = { kind: 'perch', t: 12 };
+  const lion = wl.spawn(g.catalog.animal.lion, 55, 30, { silent: true }), prey = wl.spawn(g.catalog.animal.zebra, 55, 30, { silent: true });
+  Object.assign(lion, { x: 55.5, y: 30.5, hunger: 0 }); Object.assign(prey, { x: 55.5, y: 30.5 });
+  wl.remove(prey, 'predation'); startFeed(wl, lion, g.catalog.animal.lion, prey); lion.wait = 100;
+  for (let k = 0; k < 40 && v.state === 'bird'; k++) wl.update(0.05);
+  assert.equal(v.state, 'fly', 'off within two sim-days'); assert.equal(v.goal?.carcass, wl.carcasses[0].id);
 });
 console.log(`${checks} bird behavior checks passed.`);

@@ -107,6 +107,25 @@ turn habitat into visitor paths. Movement can change later ecological outcomes.
 Groundcover openings are a local rendering response to compaction, not a blanket
 reduction of a tile's forage or native-plant capacity.
 
+## Narrow, wandering tracks (2026-10-22)
+
+Cole reported trails as too straight and too wide, worst on the Serengeti, where wildebeest
+moving along the river bank laid a grid. Cause: outside learned resource trips, ground walkers
+steered through tile centers, so a herd traced one straight line per tile row, and cross traffic
+to the water traced the other direction. The 0.28-tile footprint drew each about half a tile wide.
+
+- Every ground walker steers through an off-center waypoint in each tile (`walkNode`), up to
+  0.34 tile off center from noise at a 1.5-tile scale, so a straight grid route walks as a
+  wandering line. A learned resource route shares the tile's waypoint (`trailNode`), so repeated
+  trips still wear one trail. Other walking uses the animal's own noise field: shared points made
+  a milling herd's traffic into a warped lattice, while separate ones trample unevenly.
+- The footprint is 0.17 tile (`TRAIL_FOOTPRINT`), with the same peak wear per pass, so trails
+  appear after the same traffic but cover less ground.
+- The ground shader frays the edge with fine noise. Plant openings don't follow the fraying;
+  it shifts the edge by well under the openings' margin.
+
+Existing saves keep their old wide, straight wear until it fades; new traffic wears the new shape.
+
 ## Verification
 
 - `animal-trails-check.mjs`: 11 checks over every map roster, actual crossings,

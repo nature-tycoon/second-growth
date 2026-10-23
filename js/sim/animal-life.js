@@ -11,7 +11,7 @@ import { inRiver } from './animals.js';
 import { followCervid } from './cervid-groups.js';
 import { travelSpeed } from './climb-pace.js';
 import { preyCover } from './ecological-pressure.js';
-import { birdAlarm, soar } from './bird-behavior.js';
+import { birdAlarm, soar, circleDown } from './bird-behavior.js';
 import { activityProfileFor } from '../data/animal-activity.js';
 import { territorialRivals } from '../data/animal-territories.js';
 import { territoryArrive } from './animal-territory.js';
@@ -199,7 +199,7 @@ function alarm(wl, pred, pdef, target, time) {
 // A catch: big prey leaves a carcass the hunter feeds at (and its pack and the scavengers come to);
 // small prey is eaten on the spot.
 export function startFeed(wl, a, def, b) {
-  const bd = wl.game.catalog.animals[b.sp], big = (bd.sprite.len || 0) >= 20 && bd.move !== 'swim' && bd.move !== 'fly';
+  const bd = wl.game.catalog.animals[b.sp], big = leavesCarcass(bd);
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   a.carcass = null;
   // (a bird that snatched a fish from open water eats it on the wing)
@@ -216,9 +216,37 @@ export function startFeed(wl, a, def, b) {
   // The successful hunter has already eaten. Larger prey leaves more meals for
   // companions and scavengers, but a single kill cannot feed them indefinitely.
   c.meals = Math.max(1, Math.ceil(bd.sprite.len / 20));
-  wl.carcasses.push(c);
-  if (wl.carcasses.length > 16) wl.carcasses.shift();
+  // (what it started with, for drawing it stripped and rotting: render3d/carcass-decay.js)
+  c.meals0 = c.meals; c.feed = a.feedT;
+  addCarcass(wl, c);
   a.carcass = c.id;
+}
+
+// Large land animals leave a body when they die; small, flying and swimming ones don't. Nor do
+// tree-dwellers yet: their models are posed for climbing (an orangutan upright), which the
+// skeletons in render3d/carcass-decay.js, fitted to a level body on four legs, can't follow.
+export const leavesCarcass = def => (def.sprite.len || 0) >= 20 && def.move !== 'swim' && def.move !== 'fly' && def.move !== 'tree';
+
+// At most 16 carcasses at once. The oldest body of an animal that died naturally goes first, so a
+// winter's die-off can't crowd out the kills hunters and their packs are still feeding at.
+function addCarcass(wl, c) {
+  wl.carcasses.push(c);
+  if (wl.carcasses.length <= 16) return;
+  const k = wl.carcasses.findIndex(o => o.by == null);
+  wl.carcasses.splice(k >= 0 ? k : 0, 1);
+}
+
+// An animal that died of old age, hunger or sickness lies where it fell, as a carcass with no
+// hunter: scavengers find it and share its meals like a kill's, and it breaks down over the same
+// 21-33 days (drawn by render3d/carcass-decay.js). Math.random, so the monthly rng is untouched.
+export function leaveBody(wl, a) {
+  const def = wl.game.catalog.animals[a.sp];
+  if (!def || !leavesCarcass(def) || a.leaving) return null;
+  const t = 21 + Math.random() * 12, meals = Math.max(1, Math.ceil(def.sprite.len / 20));
+  const c = { id: a.id, sp: a.sp, x: a.x, y: a.y, yaw: a.orientation ?? 0, age: a.age, side: Math.random() < 0.5 ? -1 : 1,
+    by: null, t, max: t, meals, meals0: meals, feed: 0 };
+  addCarcass(wl, c);
+  return c;
 }
 
 // Missed: the prey keeps running (Challenging already sent it toward cover).
@@ -493,7 +521,7 @@ export function scavenge(wl, a, def) {
   a.goal = null;
   return false;
 }
-function feedAt(a, c) {
+export function feedAt(a, c) {
   // Claim the meal only on arrival, so distant visitors cannot reserve food.
   // As with a successful catch, the first bite satisfies hunger immediately.
   if (c.t <= 0 || !(c.meals > 0)) return false;
@@ -851,7 +879,8 @@ export function arrive(wl, a) {
   if (a.goal?.carcass != null) {
     const c = wl.carcasses.find(k => k.id === a.goal.carcass);
     a.goal = null;
-    if (c && Math.hypot(c.x - a.x, c.y - a.y) < 1.6) feedAt(a, c);
+    // (a vulture spirals down over it first: bird-behavior.js)
+    if (c && Math.hypot(c.x - a.x, c.y - a.y) < 1.6 && !circleDown(wl, a, wl.game.catalog.animals[a.sp], c)) feedAt(a, c);
   }
 }
 

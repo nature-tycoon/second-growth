@@ -2,7 +2,8 @@
 
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp } from '../config.js';
-import { drawDef, animalDef } from '../data/animals.js';
+import { drawDef, animalDef, maleLook } from '../data/animals.js';
+import { leavesCarcass } from '../sim/animal-life.js';
 import * as S from '../render/sprites.js';
 import { TREE_SHAPES } from './geometry/trees.js';
 import { contactShadow } from './geometry/features.js';
@@ -22,6 +23,8 @@ import { SlothBridges, slothBridge } from './sloth-bridge.js';
 import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
 import { isCanopyWalker } from './canopy-walker-profile.js';
 import { ActorView, animalViewRadius, pixelsPerUnit } from './actor-view.js';
+import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
+import { climberSpot } from './flora.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
@@ -106,6 +109,8 @@ export class Actors {
     scene.add(this.shadows);
     // reef animals and birds cast shadows shaped like themselves instead
     this.silhouettes = new AnimalShadows(scene, this.shadowMat);
+    this.remains = new Remains(scene); // kills' bones, bared as they're eaten and rot
+    this.decayOn = true; // (the Carcass decay setting: off, a kill lies whole and sinks away at the end)
     // The selected animal's marker: a thin ring with a faint glow lying flat on the ground under
     // it (or on the water, the branch or the seabed it's at), so nothing is drawn over the animal
     // itself. Depth-tested, so legs and bodies pass in front of it.
@@ -353,6 +358,19 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
+      // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).
+      const munch = def.reef && a.state === 'forage' && a.forage?.food === 'starfish' && w.shrub[a.forage.i] ? a.forage.i : -1;
+      st.munch = (st.munch || 0) + ((munch >= 0 ? 1 : 0) - (st.munch || 0)) * Math.min(1, k * 0.8);
+      if (munch >= 0) st.munchAt = climberSpot(w, game.catalog, munch, (x, z) => w.heightAt(x, z) * LEVEL);
+      if (st.munchAt && st.munch > 0.01 && !returning) {
+        const [mx, my, mz] = st.munchAt, m = st.munch;
+        if (munch >= 0) st.yaw = lerpAngle(st.yaw, Math.atan2(-(mz - a.y), mx - a.x), Math.min(1, k * 1.6));
+        const tilt = 0.55 + Math.sin(time * 2.6 + a.id) * 0.12, nose = F.noseReach(def) * sc;
+        const reach = nose * Math.cos(tilt), cx = mx - Math.cos(st.yaw) * reach, cz = mz + Math.sin(st.yaw) * reach;
+        ax += (cx - ax) * m; az += (cz - az) * m; y += (my + nose * Math.sin(tilt) + 0.01 - y) * m;
+        st.pitch = -tilt * m;
+      } else if (st.munchAt) { st.munchAt = null; st.munch = 0; st.pitch = 0; }
       // The bird being tracked, perched in a tree, sits on one of its real limbs (see bird-perch.js);
       // the others keep their place in the crown. Moving onto a limb, off it (selected or let go,
       // or taking off) or between limbs, the jump fades out over a moment as an offset, so the
@@ -609,20 +627,40 @@ export class Actors {
     this.flora?.showCanopySites(canopySites);
     this.slothBridges?.show(bridges);
 
-    // ---- kills: the prey lying on its side where it fell, sinking away as it's eaten
+    // ---- kills: the prey lying on its side where it fell, broken down over the weeks as it's eaten
+    // and rots (see carcass-decay.js): its flesh drawing back onto the bones until it's a skeleton,
+    // which slumps into a pile of bones that go one by one, over a spreading stain.
+    this.remains.begin();
     for (const c of game.wildlife.carcasses || []) {
       const cdef = game.catalog.animals[c.sp];
       if (!cdef) continue;
       const def = drawDef(cdef, c, game.month);
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * c.age / (def.mature * 120), 0.55, 1) : 1;
       const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
-      const left = clamp(c.t / (c.max * 0.3), 0, 1); // (the last stretch: bones and a dark patch)
-      const lift = (def.sprite.h || 10) * sc * 0.32 * left - (1 - left) * (def.sprite.h || 10) * sc * 0.2;
-      const yaw = -c.yaw;
+      const yaw = -c.yaw, roll = c.side * Math.PI / 2;
       if (this.view.enabled && !this.view.visible(c.x, ground - 0.2, ground + 0.6, c.y, animalViewRadius(def))) continue;
-      F.add(def, c.x, ground + lift, c.y, yaw, sc, 0, 0, 0, 0.6, 0, c.side * Math.PI / 2);
-      shadow(c.x, ground, c.y, (def.sprite.len || 10) * sc * 0.55);
+      const h = (def.sprite.h || 10) * sc, len = (def.sprite.len || 10) * sc, lift = h * 0.32;
+      if (!this.decayOn) {
+        const left = clamp(c.t / (c.max * 0.3), 0, 1); // (the last stretch: sinking away)
+        F.add(def, c.x, ground + lift * left - (1 - left) * h * 0.2, c.y, yaw, sc, 0, 0, 0, 0.6, 0, roll);
+        shadow(c.x, ground, c.y, len * 0.55);
+        continue;
+      }
+      const d = carcassDecay(c);
+      const pool = F.pool(def);
+      fitCarcass(pool);
+      if (d.body) F.add(def, c.x, ground + lift, c.y, yaw, sc, 0, 0, 0, 0, 0, roll, null, false, d);
+      if (d.bones) this.remains.add(F.modelKey(def), pool.anatomy, c.x, ground + lift, c.y, yaw, roll, sc, lift, d);
+      // (the model stands on its origin, so on its side the torso lies off toward its back)
+      const a = pool.anatomy, mx = (a.x0 + a.x1) / 2 * sc, mz = c.side * (a.spineY + a.bellyY) / 2 * sc;
+      const tx = c.x + Math.cos(yaw) * mx + Math.sin(yaw) * mz, tz = c.y - Math.sin(yaw) * mx + Math.cos(yaw) * mz;
+      if (d.body) shadow(tx, ground, tz, len * 0.55);
+      // (the stain spreads as fluids seep out and the grass dies back, and fades at the end)
+      const stain = d.u > 0.05 && d.u < 0.97;
+      if (stain) shadow(tx, ground, tz, len * (0.45 + 0.3 * d.u));
+      if (stain && d.u > 0.3) shadow(tx, ground, tz, len * 0.5 * d.u);
     }
+    this.remains.end();
 
     // ---- visitors: same instanced 3D style as the wildlife
     const pseen = new Set();
@@ -668,6 +706,37 @@ export class Actors {
       const s = (1 + Math.sin(time * 2.5) * 0.05) * clamp(selectedPose.foot * 0.62, 0.16, 1.4);
       this.ring.scale.set(s, 1, s);
     } else this.ring.visible = false;
+  }
+
+  // The skeleton of every kind on this map that can leave a body (and its male look, which can
+  // carry antlers, horns or tusks), built one or two at a time in idle moments after loading,
+  // with the bone shader compiled in the background once the first exists, so a kind's first
+  // carcass doesn't stall a frame. Only kinds already drawn alive: a carcass always comes from an
+  // animal that was, and building a model nobody has seen would cost more than the skeleton.
+  // Kinds that arrive later are picked up every few seconds; anything not ready when it's needed
+  // is still built on the spot. The shader depends on whether the sun casts shadows (which the
+  // game can switch off to keep up), so it's compiled again whenever that changes (lit()).
+  warmRemains(game, gl = null, camera = null, scene = null, lit = () => '') {
+    const waiting = [];
+    for (const def of game.catalog.animals) if (def && leavesCarcass(def)) waiting.push(def, ...(def.sprite.male ? [maleLook(def)] : []));
+    const idle = window.requestIdleCallback ? (f => window.requestIdleCallback(f, { timeout: 2000 })) : (f => setTimeout(() => f({ timeRemaining: () => 6 }), 80));
+    let compiled = gl?.compileAsync ? null : 'never';
+    const step = deadline => {
+      while (deadline.timeRemaining() > 5) {
+        const k = waiting.findIndex(def => this.fauna.species.has(this.fauna.modelKey(def)));
+        if (k < 0) break;
+        const def = waiting.splice(k, 1)[0];
+        this.remains.pool(this.fauna.modelKey(def), fitCarcass(this.fauna.pool(def)));
+      }
+      const p = this.remains.pools.values().next().value;
+      if (p && compiled !== 'never' && compiled !== lit()) {
+        // (against the game's own scene, so its lights pick the same program the bones will use)
+        compiled = lit(); const shown = p.mesh.visible; p.mesh.visible = true;
+        gl.compileAsync(p.mesh, camera, scene).catch(() => {}).finally(() => { p.mesh.visible = shown; });
+      }
+      setTimeout(() => idle(step), waiting.some(def => this.fauna.species.has(this.fauna.modelKey(def))) ? 0 : 4000);
+    };
+    idle(step);
   }
 
   // Two rivals in a bout, once both stand in their head-to-head stance: heads down with antlers
@@ -762,7 +831,7 @@ export class Actors {
   }
 
   clear() {
-    this.pose.clear(); this.people.clear(); this.visibleWildlife.length = 0; this.fauna.clear();
+    this.pose.clear(); this.people.clear(); this.visibleWildlife.length = 0; this.fauna.clear(); this.remains.begin(); this.remains.end();
     this.slothBridges?.clear();
   }
 }

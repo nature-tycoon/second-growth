@@ -8,7 +8,7 @@ import { killTree } from './plants.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
-import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, startFeed, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
+import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate, carryCatch, carryUpdate } from './bird-behavior.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
@@ -18,7 +18,7 @@ import { territorialChoose, hasTerritory } from './animal-territory.js';
 import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { grazeDay, decayGrazing } from './grazing.js';
-import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, trailNode } from './animal-trails.js';
+import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, walkNode } from './animal-trails.js';
 import { ensureHome, homeChoose, homeFalloff, walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
 import { markRisk, safety, decayRisk } from './predation-risk.js';
 import { dormancySeason } from '../data/animal-dormancy.js';
@@ -386,7 +386,9 @@ export class Wildlife {
       const spread = (rng() + rng() + rng() - 1.5) * 5.5;
       const x = clamp(cx + Math.round(spread), 0, w.w - 1);
       const a = this.spawn(def, x, w.h - 1);
-      a.x = x + 0.1 + rng() * 0.8; a.y = w.h + 1 + lag + rng() * 7 + k * 0.18;
+      // (start on the grass past the far bank, which the surroundings draw from w.h + 3, so the
+      // whole column wades in: starting closer put the front of it mid-river from the start)
+      a.x = x + 0.1 + rng() * 0.8; a.y = w.h + 4 + lag + rng() * 4 + k * 0.12;
       a.pace = 0.8 + rng() * 0.45;
       const path = [];
       for (let y = Math.max(0, bank - 3 - Math.floor(rng() * 3)); y <= w.h - 1; y++) path.push(w.idx(x, y));
@@ -517,7 +519,7 @@ export class Wildlife {
         if (rng() < p) {
           // most "deaths" when habitat is poor are really animals moving on
           if (!dormant && (K < def.minK || rng() < 0.4)) this.leave(a);
-          else this.remove(a, 'natural');
+          else { leaveBody(this, a); this.remove(a, 'natural'); } // (old age, hunger, sickness: the body stays)
           pop--;
         }
       }
@@ -734,7 +736,10 @@ export class Wildlife {
     else { a.tx = -3; a.ty = a.y; }
     a.state = 'leave'; a.path = null;
     for (const o of this.agents) if (o.mom === a.id && !o.leaving) { this.leave(o); o.tx = a.tx + (Math.random() - 0.5); o.ty = a.ty + (Math.random() - 0.5); }
-    if (def.herd) { a.leaveWait = inRiver(this, a) ? 0 : Math.random() * 6; a.pace = 0.75 + Math.random() * 0.5; } // a herd moves off in dribs and drabs (not one in the water, though)
+    if (def.herd) { // a herd moves off in dribs and drabs (not one in the water, though), the young and the old dropping back
+      const years = a.age / DAYS_PER_YEAR, prime = years >= (def.mature || 0) && !(def.life && years > def.life * 0.7);
+      a.leaveWait = inRiver(this, a) ? 0 : Math.random() * 6; a.pace = (prime ? 0.9 : 0.65) + Math.random() * 0.4;
+    }
     if (a.move === 'fly') { a.flying = true; }
     this.leaveRoute(a);
   }
@@ -744,11 +749,21 @@ export class Wildlife {
   // still cross on the way out, as before.
   leaveRoute(a) {
     const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
-    const reef = !!this.game.catalog.animals[a.sp].reef;
+    const def = this.game.catalog.animals[a.sp], reef = !!def.reef;
     if ((a.move !== 'ground' && !reef) || !w.inb(x0, y0)) return;
     const out = a.ty < 0 ? (x, y) => y === 0 : a.ty > w.h ? (x, y) => y === w.h - 1 : a.tx > w.w ? (x) => x === w.w - 1 : (x) => x === 0;
     if (out(x0, y0)) return;
-    const pass = reef ? (w, j) => passable(w, j, a) : (w, j) => w.struct[j] < 0 && w.terrain[j] !== T.POND;
+    // The migration wades straight through a pond, as it swims the river, and takes a path only
+    // round a building in its way: routing a herd round a pond sent it up the two columns beside
+    // the pond in two straight files.
+    const wades = !!def.crossing;
+    const pass = reef ? (w, j) => passable(w, j, a) : (w, j) => w.struct[j] < 0 && (wades || w.terrain[j] !== T.POND);
+    if (wades) {
+      const ex = clamp(a.tx, 0, w.w - 0.01), ey = clamp(a.ty, 0, w.h - 0.01), n = Math.ceil(Math.hypot(ex - a.x, ey - a.y) / 0.4);
+      let clear = true;
+      for (let k = 1; k <= n && clear; k++) clear = pass(w, w.idx(Math.floor(a.x + (ex - a.x) * k / n), Math.floor(a.y + (ey - a.y) * k / n)), a);
+      if (clear) { a.path = null; a.state = 'leave'; return; }
+    }
     const ok = this.pathTo(a, (j, x, y) => out(x, y), w.n, (x, y) => Math.hypot(x + 0.5 - a.tx, y + 0.5 - a.ty), null, pass);
     a.state = 'leave';
     if (!ok) a.path = null;
@@ -1082,7 +1097,7 @@ export class Wildlife {
           // each animal keeps to its own line through a tile and stops at its own spot in the last
           // one, so two walking the same way don't trace one track, and a group doesn't pile onto
           // a single point
-          const [ox, oy] = a.range?.goal != null ? trailNode(w, j).map(v => v - 0.5) : smoothWalker(this.game.catalog.animals[a.sp]) ? [0, 0] : spotIn(a, j, a.path.length === 1);
+          const [ox, oy] = smoothWalker(this.game.catalog.animals[a.sp]) ? walkNode(w, a, j).map(v => v - 0.5) : spotIn(a, j, a.path.length === 1);
           if (a.path.length === 1 && a.restSpot?.[0] !== j) {
             const bank = !a.dormancy && this.drinks(def) && a.thirst > drinkEvery(this, a, def) * 0.5 ? this.bankSpot(a, j) : null;
             const drink = bank && bank.crowd < 0.08;
@@ -1230,7 +1245,7 @@ export class Wildlife {
     const w = this.game.world, j = a.state === 'walk' ? a.path[a.path.length - 1] : -1;
     let tx = a.localGoal?.[0], ty = a.localGoal?.[1];
     if (j >= 0) {
-      const [ox, oy] = a.range?.goal != null ? trailNode(w, j).map(v => v - 0.5) : smoothWalker(this.game.catalog.animals[a.sp]) ? [0, 0] : spotIn(a, j, a.path.length === 1);
+      const [ox, oy] = smoothWalker(this.game.catalog.animals[a.sp]) ? walkNode(w, a, j).map(v => v - 0.5) : spotIn(a, j, a.path.length === 1);
       const rest = a.path.length === 1 && a.restSpot?.[0] === j;
       tx = rest ? a.restSpot[1] : j % w.w + 0.5 + ox;
       ty = rest ? a.restSpot[2] : (j / w.w | 0) + 0.5 + oy;

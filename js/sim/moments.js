@@ -59,7 +59,7 @@ export const ARRIVAL_MOMENTS = { jaguar: 'jaguar', howler: 'howler', elephant: '
 const BEHAVIOR_MOMENTS = {
   jaguar: ['jaguar', 'hunt'], howler: ['howler', 'canopy'], elephant: ['elephant', 'family'],
   orangutans: ['orangutan', 'canopy'], gajah: ['gajah', 'family'], harimau: ['tiger', 'hunt'],
-  congos: ['congo', 'canopy'], manta: ['manta', 'cleaning'],
+  congos: ['congo', 'canopy'], manta: ['manta', 'cleaning'], humphead: ['humphead', 'starfish'],
 };
 const living = a => a && !a.leaving && !a.fromFire;
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -73,6 +73,7 @@ function interesting(game, key, a) {
   if (type === 'hunt') return huntInView(game, a);
   if (type === 'canopy') return a.state === 'primate' && !!a.fruitMeal || a.state === 'forage' && ['leaves', 'fruit'].includes(a.forage?.food);
   if (type === 'family') return a.state === 'forage' && a.forage?.food === 'browse' && agents.some(b => b !== a && b.sp === a.sp && living(b) && distance(a, b) < 6);
+  if (type === 'starfish') return a.state === 'forage' && a.forage?.food === 'starfish';
   if (type === 'cleaning') {
     const partner = byId(game, a.forage?.partner);
     return a.state === 'forage' && a.forage?.food === 'cleaned' && living(partner) && game.catalog.animals[partner.sp]?.key === 'cleaner' &&
@@ -99,7 +100,7 @@ export function arrivalMoment(game, key, def) {
   const best = candidates.reduce((a, b) => (room(b) > room(a) ? b : a));
   if (room(best) < inset && game.day - seen[key] < 60) return false;
   if (!momentFree(game)) return false; // (and never on top of another moment)
-  return moment(game, key, best, BEHAVIOR_MOMENTS[key] ? { live: true, prey: best.target, partner: best.forage?.partner } : {});
+  return moment(game, key, best, BEHAVIOR_MOMENTS[key] ? { live: true, prey: best.target, partner: best.forage?.partner, tile: best.forage?.i } : {});
 }
 
 export function momentsUpdate(game) {
@@ -234,6 +235,15 @@ export function momentScene(game, m) {
       return shot('cleaning', 'A giant and its cleaner', 'The manta pauses while a tiny cleaner wrasse works over it. The old coral head supports a meeting between animals of very different sizes.', a, 2.6);
     }
     return finish(shot('after', 'A place to return to', 'The cleaning visit has ended. Old coral heads and their cleaner fish make the reef a useful stop for animals travelling through open water.', living(a) ? a : null, 2.3));
+  }
+  if (type === 'starfish') {
+    if (living(a) && a.state === 'forage' && a.forage?.food === 'starfish') {
+      return shot('meal', 'Spines and all', 'The wrasse noses down onto a crown-of-thorns starfish and eats it, venomous spines and all. Every starfish it eats is one fewer eating the coral.', a, 3);
+    }
+    const w = game.world, gone = m.tile != null && w.shrub[m.tile] !== game.catalog.plant.cots?.id;
+    return finish(gone
+      ? shot('after', 'One fewer starfish', 'That starfish is gone, and the coral it was eating can grow back. The wrasse cruises on, looking for the next one.', living(a) ? a : null, 2.5)
+      : shot('after', 'Back for more', 'The wrasse has swum off for now, but it will be back: it keeps returning to this stretch of reef while there are starfish to eat.', living(a) ? a : null, 2.5));
   }
   if (type === 'canopy') {
     if (living(a) && interesting(game, m.key, a)) return shot('meal', 'A meal in the treetops', 'Watch the hands and mouth as the animal feeds. A connected canopy now offers both food and a route through the restored forest.', a, 3.1);

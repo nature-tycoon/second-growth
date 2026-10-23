@@ -20,6 +20,7 @@ import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
 import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS, GpuTimer } from '../performance.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
+import { animalDensity } from '../sim/animal-density.js';
 
 const EL = THREE.MathUtils.degToRad(34);
 
@@ -178,6 +179,7 @@ export class Renderer {
     this.gl.setPixelRatio(this.dpr);
     this.windOn = !!s.wind;
     this.dayCycleOn = s.dayCycle !== false;
+    this.actors.decayOn = s.decay !== false;
     this.weatherOn = !!s.weather;
     this.cloudsOn = !!s.weather && !fast; // cloud shadows cost a little on every pixel
     this.light = fast;
@@ -185,6 +187,9 @@ export class Renderer {
     if (this.flora.setLight(fast)) this.floraPending = true;
     this.resize();
   }
+
+  // Kills' skeletons and their shader, prepared in idle moments (see Actors.warmRemains).
+  warmRemains(game) { this.actors.warmRemains(game, this.gl, this.camera, this.scene, () => `${this.gl.shadowMap.enabled}:${this.sun.castShadow}`); }
 
   // Simpler far-away trees (see far-models.js), for a computer that can't keep up.
   useFar(on) { this.farOn = !!on; this.flora.setFar(this.farOn); }
@@ -930,13 +935,14 @@ export class Renderer {
   updateOverlay(game, ui, now) {
     const mode = ui.clean ? 'none' : ui.overlay || 'none';
     if (mode === 'none') { if (this.overlayMode !== 'none') this.terrain.setOverlay(null); this.overlayMode = 'none'; return; }
-    if (mode === this.overlayMode && ui.overlaySpecies === this.overlaySpecies && now - this.overlayAt < 800) return;
-    this.overlayMode = mode; this.overlaySpecies = ui.overlaySpecies; this.overlayAt = now;
+    if (mode === this.overlayMode && ui.overlaySpecies === this.overlaySpecies && ui.densitySpecies === this.densitySpecies && now - this.overlayAt < 800) return;
+    this.overlayMode = mode; this.overlaySpecies = ui.overlaySpecies; this.densitySpecies = ui.densitySpecies; this.overlayAt = now;
     const w = game.world, out = new Float32Array(w.n * 4);
     const suit = mode === 'species' && ui.overlaySpecies != null ? game.wildlife.suit[ui.overlaySpecies] : null;
     let hmin = Infinity, hmax = -Infinity;
     if (mode === 'elevation') for (let i = 0; i < w.n; i++) { const h = w.tileH(i % w.w, (i / w.w) | 0); hmin = Math.min(hmin, h); hmax = Math.max(hmax, h); }
     const risk = mode === 'flood' ? game.events.floodRisk() : null;
+    const dens = mode === 'animals' ? animalDensity(w, game.wildlife.agents, ui.densitySpecies) : null;
     for (let i = 0; i < w.n; i++) {
       let c = null;
       if (mode === 'habitat') c = [...hexRgb(game.catalog.habitatInfo[w.habitat[i]].color), 0.72];
@@ -947,6 +953,7 @@ export class Renderer {
       else if (risk) c = w.flood[i] ? [0.12, 0.42, 0.95, 0.85] : risk[i] === 2 ? [0.2, 0.5, 0.85, 0.62] : risk[i] === 1 ? [0.55, 0.78, 0.95, 0.5] : [0, 0, 0, 0];
       else if (mode === 'disturb') c = w.disturb[i] < 0.02 ? [0, 0, 0, 0] : ramp(w.disturb[i], [[0, '#f2e08a'], [0.5, '#e0843a'], [1, '#b8302a']], 0.7);
       else if (mode === 'fish') c = isWater(w.terrain[i]) ? (w.connected[i] ? ramp(w.waterQ[i], [[0, '#d88a4a'], [0.5, '#e8d86a'], [1, '#5ad0a0']], 0.85) : [0.78, 0.24, 0.2, 0.8]) : [0, 0, 0, 0];
+      else if (dens) c = dens[i] < 0.1 ? [0, 0, 0, 0] : ramp(dens[i], [[0, '#f2e08a'], [0.5, '#e0843a'], [1, '#b8302a']], 0.72);
       else if (suit) c = suit[i] < 0.02 ? [0.16, 0.12, 0.12, 0.4] : ramp(suit[i], [[0, '#c8584a'], [0.4, '#e8c85a'], [1, '#4ac86a']], 0.65);
       if (c) out.set(c, i * 4);
     }

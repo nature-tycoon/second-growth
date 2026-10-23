@@ -36,6 +36,14 @@ class SpeciesMesh {
   }
 }
 
+// A kill's decay, carried in its animation phase (it never moves): below -100000, strip, wither and
+// dry (0-1) in 64 steps each. The shader (animal-material.js) decodes it and reads the phase as 0.
+// Live phases only grow from 0.
+export function carcassPhase({ strip = 0, wither = 0, dry = 0 }) {
+  const q = v => Math.round(Math.min(1, Math.max(0, v)) * 63);
+  return -(100000 + q(strip) + q(wither) * 64 + q(dry) * 4096);
+}
+
 // Visitors use the same instanced models, one pool per look.
 export const PERSON_LOOKS = Array.from({ length: 8 }, (_, look) => ({ key: 'person' + look, sprite: { kind: 'person', look } }));
 export const SNORKEL_LOOKS = Array.from({ length: 8 }, (_, look) => ({ key: 'snorkel' + look, sprite: { kind: 'person', look, snorkel: true } }));
@@ -75,14 +83,28 @@ export class Fauna {
     }
     return p.reach;
   }
+  // How far forward of its origin the model's nose reaches, in model units (a wrasse feeding on
+  // a starfish puts its mouth on it). Measured once per model.
+  noseReach(def) {
+    const p = this.pool(def);
+    if (p.nose == null) {
+      const pos = p.geo.attributes.position;
+      let nose = 0;
+      for (let k = 0; k < pos.count; k++) nose = Math.max(nose, pos.getX(k));
+      p.nose = nose;
+    }
+    return p.nose;
+  }
   // pixelsPerUnit: screen pixels per scene unit this frame (Infinity draws every animal in detail).
   begin(pixelsPerUnit = Infinity) {
     this.pixelsPerUnit = pixelsPerUnit;
     for (const p of this.species.values()) { p.count = 0; if (p.far) p.far.count = 0; }
   }
   // One animal this frame. scale converts model pixels to scene units. detail keeps the full
-  // model whatever its size (the selected or followed animal).
-  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null, detail = false) {
+  // model whatever its size (the selected or followed animal). remains, for a kill:
+  // { strip, wither, dry } (see carcassDecay in render3d/carcass-decay.js): its flesh drawn back onto
+  // its bones, and its coat dulled as it dries.
+  add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null, detail = false, remains = null) {
     const near = this.pool(def);
     const p = this.farModels && !detail && near.motion.len * scale * this.pixelsPerUnit < FAR_PIXELS ? near.distant() : near;
     if (p.count >= p.cap) {
@@ -100,7 +122,7 @@ export class Fauna {
     this.m.compose(this.v.set(x, y, z), this.q, this.s.set(scale, scale, scale));
     p.mesh.setMatrixAt(k, this.m);
     const a = p.anim.array;
-    a[k * 4] = phase; a[k * 4 + 1] = gait; a[k * 4 + 2] = fly; a[k * 4 + 3] = grips ? -1 : graze;
+    a[k * 4] = remains ? carcassPhase(remains) : phase; a[k * 4 + 1] = gait; a[k * 4 + 2] = fly; a[k * 4 + 3] = grips ? -1 : graze;
     if (p.grips) {
       // Four xyz offsets occupy three attributes, staying within WebGL's
       // minimum attribute budget. Primates do not use the grazing slot.

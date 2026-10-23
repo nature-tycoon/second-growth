@@ -350,3 +350,39 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - License: CC0 — https://creativecommons.org/publicdomain/zero/1.0/
 - Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license.
 - Recording notes: Tiger Roar: a single real tiger call recorded at Louisville Zoo, Kentucky. Public high-quality MP3 version of Freesound recording 263115; source does not identify the tiger subspecies. Quiet lead-in and trailing ambience removed.
+
+## canada-goose
+
+- Files: `field-canada-goose-1.m4a`
+- Creator: Extemporalist
+- Source: https://commons.wikimedia.org/wiki/File:Low_flyover_by_five_Canadian_Geese.flac
+- License: CC0 — https://creativecommons.org/publicdomain/zero/1.0/
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+- Recording notes: A low flyover by five Canada geese in the Okanagan: flight calls and wingbeats. Played in short excerpts over passing goose flocks.
+
+## canada-goose-yellowstone
+
+- Files: `field-canada-goose-2.m4a`, `field-canada-goose-3.m4a`
+- Creator: NPS & MSU Acoustic Atlas / Jennifer Jerrett, Yellowstone sound library
+- Source: https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Canada_Geese_-_001.mp3
+- License: Public domain
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+- Recording notes: Canada geese flying over Yellowstone Lake. Played in short excerpts over passing goose flocks.
+
+## mallard
+
+- Files: `field-mallard-1.m4a`, `field-mallard-2.m4a`
+- Creator: Jonathon Jongsma
+- Source: https://commons.wikimedia.org/wiki/File:Anas_platyrhynchos_-_Mallard_XC112828.mp3
+- License: CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+- Recording notes: A hen mallard's quacking. Played when a mallard flies near the camera.
+
+## wood-duck
+
+- Files: `field-wood-duck-1.m4a`, `field-wood-duck-2.m4a`
+- Creator: Jonathon Jongsma
+- Source: https://commons.wikimedia.org/wiki/File:Aix_sponsa_-_Wood_Duck_XC177728.mp3
+- License: CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+- Recording notes: A drake wood duck calling from a cottonwood beside a lake. Played when a wood duck flies near the camera.
