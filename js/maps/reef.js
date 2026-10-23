@@ -474,7 +474,7 @@ export default {
   hideTools: ['pond', 'marsh', 'creek', 'fill', 'mulch', 'raise', 'lower', 'snag', 'log', 'brush', 'nestbox', 'burn', 'clear', 'clearcut', 'firecrew',
     'build_barn', 'build_shed', 'build_house', 'build_silo', 'build_road', 'build_parking', 'boardwalk', 'blind'],
   toolText: {
-    rip: { name: 'Reef stars', icon: { terrain: T.SOIL }, desc: 'Lay reef stars: small steel frames, coated in sand, pegged down in a web over loose rubble so it stops rolling. Plant coral fragments on them; in a few years the coral grows over them and you can\'t see them.' },
+    rip: { name: 'Reef stars', icon: { svg: 'reefstar' }, desc: 'Lay reef stars: small steel frames, coated in sand, pegged down in a web over loose rubble so it stops rolling. Plant coral fragments on them; in a few years the coral grows over them and you can\'t see them.' },
     pull: { name: 'Cull starfish & algae', icon: { plant: 'cots' }, desc: 'Divers cull crown-of-thorns starfish one by one, and scrape back turf algae. Native corals and seagrass are left alone.' },
     rocks: { name: 'Reef boulders', brush: true, size: 1, cost: 25, desc: 'Drop limestone boulders on the seabed: instant shelter for fish, and something hard for corals to grow on, even out on the sand where nothing else can hold them. Plant nursery fragments on them.' },
     trail: { name: 'Snorkel trail', desc: 'Mark out a snorkel trail with a line of buoys, starting from the boat landing on the cay. Snorkelers swim it face-down at the surface and look down at the reef; the coral and fish under it are left alone. Run it past the best coral.' },
