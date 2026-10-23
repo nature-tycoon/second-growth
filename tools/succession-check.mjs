@@ -1,10 +1,10 @@
-// Long-run vegetation and succession check (docs/decisions/0013-succession-dynamics.md).
+// Long-run vegetation and succession check (docs/decisions/0017-succession-dynamics.md).
 // Seeded, headless. Prints, every N years: habitat mix and turnover, tree deaths by cause (from
 // removeTree's w.treeDeathsEst counter; by diffing tiles on builds without it) and recruits, age structure, species shares and diversity, saplings waiting in the understory, deadwood, fire, wildlife, and dailyTick cost.
 //   node tools/succession-check.mjs [--map pnw|all|<id>[,<id>]] [--mode idle|restore] [--years 200]
 //        [--seeds 1,2,3] [--every 10] [--veg] [--difficulty relaxed|standard|challenging] [--assert] [--json out.json]
 // --veg steps wildlife once a day at dt 1.0 instead of 10x0.1: about 3x faster, for structure runs.
-// --assert checks the 0013 acceptance targets and exits 1 on a miss (default: report only).
+// --assert checks the 0017 acceptance targets and exits 1 on a miss (default: report only).
 // Run long jobs in the background under `nice`: 200 years is 10–40 min per map and seed unloaded.
 // ms figures are only comparable between runs made back to back at the same priority (AGENTS.md).
 import { writeFileSync } from 'node:fs';
@@ -22,7 +22,7 @@ const { hollisRestorePlan } = await import('./hollis-restore-plan.mjs');
 
 const ALL_MAPS = ['pnw', 'atlanta', 'amazon', 'serengeti', 'sumatra', 'chinandega', 'reef'];
 const FORESTED = new Set(['pnw', 'atlanta', 'amazon', 'sumatra', 'chinandega']);
-// Acceptance targets from 0013, per map. Shares are of established trees (treeG > 0.35).
+// Acceptance targets from 0017, per map. Shares are of established trees (treeG > 0.35).
 //   largest: largest species share, final year · tolerant: share of mature-forest trees with
 //   light[0] <= TOLERANT (PNW: hemlock + cedar) · keep: named species still >= this share of
 //   mature-forest trees · opened: mature tiles that pass through an opening (meadow, shrub, invasive,
@@ -33,7 +33,7 @@ const TARGETS = {
   amazon: { largest: 0.40 },
 };
 const RD = [0.7, 1.5];
-// Animal species alive at year 200 in the 0013 baseline runs (the lowest seed; full wildlife).
+// Animal species alive at year 200 in the 0017 baseline runs (the lowest seed; full wildlife).
 // Target: >= baseline - 1. Keyed map:mode.
 const BASELINE_SPECIES = {
   'pnw:restore': 29, 'pnw:idle': 29, 'atlanta:idle': 29, 'amazon:idle': 24, 'serengeti:idle': 20,
@@ -87,7 +87,7 @@ function run(map, seed) {
   const snapMature = t => { const m = new Uint8Array(n); for (let i = 0; i < n; i++) m[i] = w.habitat[i] === H.MATURE_FOREST; matureSnap.set(t, m); };
   let prevHab = w.habitat.slice();
   // Deaths of established trees by cause. removeTree counts them in w.treeDeathsEst; a build
-  // without it (before 0013 phase 2) falls back to guessing the cause from the tile.
+  // without it (before 0017 phase 2) falls back to guessing the cause from the tile.
   const counter = () => HAS_COUNTER ? { ...w.treeDeathsEst } : null;
   const since = (now, then) => Object.fromEntries(Object.entries(now).map(([k, v]) => [k, v - (then[k] || 0)]).filter(([, v]) => v));
   let per = null, perFrom = null; const resetPer = () => { per = { deaths: {}, recruits: 0, nurseRec: 0, nurseRecLog: 0, fires: 0, burned: 0, tickMs: 0, dayMs: 0, days: 0 }; perFrom = counter(); };
@@ -117,10 +117,14 @@ function run(map, seed) {
       if (w.habitat[i] === H.MATURE_FOREST) { spMature[p.key] = (spMature[p.key] || 0) + 1; ntm++; if (p.light[0] <= TOLERANT) tol++; }
     }
     ages.sort((x, y) => x - y);
-    // saplings waiting under the canopy (0013 §3; none on builds without the understory)
-    const und = {}; let nu = 0;
-    if (w.understory) for (let i = 0; i < n; i++) if (w.understory[i]) { const k = P[w.understory[i]].key; und[k] = (und[k] || 0) + 1; nu++; }
-    // deadwood (0013 §5): logs at least ROTTEN years into their rot (on builds before it, featureAge
+    // saplings waiting under the canopy (0017 §3; none on builds without the understory)
+    // and shade-tolerant ones waiting, all and near the seed edges (0017 §6: long-distance seed brings them inland)
+    const und = {}; let nu = 0, tolUnder = 0, tolUnderEdge = 0;
+    if (w.understory) for (let i = 0; i < n; i++) if (w.understory[i]) {
+      const p = P[w.understory[i]]; und[p.key] = (und[p.key] || 0) + 1; nu++;
+      if (p.light[0] <= TOLERANT) { tolUnder++; if ((i / w.w | 0) < EDGE || i % w.w >= w.w - EDGE) tolUnderEdge++; }
+    }
+    // deadwood (0017 §5): logs at least ROTTEN years into their rot (on builds before it, featureAge
     // is plain days, so this counts logs that old), and nurse-log trees (p.nurse: hemlock, redcedar)
     // standing or waiting on a log now
     let rotten = 0, nurseTrees = 0, nurseUnder = 0;
@@ -150,12 +154,12 @@ function run(map, seed) {
       meanAge: nt ? +(ages.reduce((a, b) => a + b, 0) / nt).toFixed(1) : 0, nearLife: nt ? near / nt : 0,
       deaths: { ...per.deaths, total: deaths }, recruits: per.recruits,
       shares: shares.slice(0, 5).map(([k, f]) => [k, +f.toFixed(3)]), largest: shares[0]?.[1] ?? 0, simpson: +simpson.toFixed(3),
-      tolerant: ntm ? tol / ntm : null, tolerantTrees: tolAll, tolerantNearEdge: tolEdge, matureShares: Object.fromEntries(Object.entries(spMature).map(([k, v]) => [k, +(v / ntm).toFixed(3)])),
+      tolerant: ntm ? tol / ntm : null, tolerantTrees: tolAll, tolerantNearEdge: tolEdge, tolerantWaiting: tolUnder, tolerantWaitingNearEdge: tolUnderEdge, matureShares: Object.fromEntries(Object.entries(spMature).map(([k, v]) => [k, +(v / ntm).toFixed(3)])),
       understory: nu, understoryShares: Object.entries(und).sort((a, b) => b[1] - a[1]).slice(0, 4),
       released: { ...(w.understoryReleased || {}) },
       opened, openedNoFire, snags: w.stats.snags, logs: w.stats.logs, rotten, fires: per.fires, burned: per.burned,
       nurse: { onLog: nurseTrees, underOnLog: nurseUnder, recruits: per.nurseRec, recruitsOnLog: per.nurseRecLog },
-      // disturbance (0013 §4): storms so far, tiles with root rot in the soil now (none on builds without them)
+      // disturbance (0017 §4): storms so far, tiles with root rot in the soil now (none on builds without them)
       storms: g.stats.storms || 0, rot: w.rot ? w.rot.reduce((a, v) => a + (v > 0), 0) : 0,
       species: pops.length, animals: pops.reduce((a, x) => a + x.pop, 0), elk: elkIdx != null ? g.wildlife.state[elkIdx].pop : null,
       grazed: w.grazed ? +(w.grazed.reduce((a, b) => a + b, 0) / land).toFixed(4) : 0,
@@ -167,7 +171,7 @@ function run(map, seed) {
       ` | changed=${pct(r.changed)} mature>*=${r.matureOut} opened50=${pct(opened)} (no fire ${pct(openedNoFire)})` +
       ` | trees=${nt} age q25/50/75/95=${r.ageQ.join('/')} died=${deaths} (${Object.entries(per.deaths).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + v).join(', ')}) recruits=${per.recruits}` +
       ` | snags=${r.snags} logs=${r.logs} (rotten ${rotten}) fires=${r.fires} burned=${r.burned}${r.storms ? ` storms=${r.storms}` : ''}${r.rot ? ` rot=${r.rot}` : ''} | spp=${r.species} animals=${r.animals}${r.elk != null ? ` elk=${r.elk}` : ''}` +
-      ` | ${r.shares.map(([k, f]) => k + Math.round(f * 100)).join(' ')} D=${r.simpson} tol=${pct(r.tolerant)}${tolAll ? ` tolTrees=${tolAll} (N/E edge ${tolEdge})` : ''}${nu ? ` under=${nu} (${r.understoryShares.map(([k, v]) => k + ' ' + v).join(', ')})` : ''}${Object.keys(r.released).length ? ` released=${Object.entries(r.released).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => k + ' ' + v).join(', ')}` : ''}${per.nurseRec ? ` nurse recruits=${per.nurseRec} (on a log ${per.nurseRecLog}), on logs now ${nurseTrees} + ${nurseUnder} waiting` : ''}${r.msTick != null ? ` | ${r.msTick}/${r.msDay} ms` : ''}`);
+      ` | ${r.shares.map(([k, f]) => k + Math.round(f * 100)).join(' ')} D=${r.simpson} tol=${pct(r.tolerant)}${tolAll ? ` tolTrees=${tolAll} (N/E edge ${tolEdge})` : ''}${tolUnder ? ` tolWaiting=${tolUnder} (N/E edge ${tolUnderEdge})` : ''}${nu ? ` under=${nu} (${r.understoryShares.map(([k, v]) => k + ' ' + v).join(', ')})` : ''}${Object.keys(r.released).length ? ` released=${Object.entries(r.released).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => k + ' ' + v).join(', ')}` : ''}${per.nurseRec ? ` nurse recruits=${per.nurseRec} (on a log ${per.nurseRecLog}), on logs now ${nurseTrees} + ${nurseUnder} waiting` : ''}${r.msTick != null ? ` | ${r.msTick}/${r.msDay} ms` : ''}`);
     if (r.trans.length) console.log(`     ${r.trans.map(([k, v]) => `${k} ${v}`).join(', ')}`);
     prevHab = w.habitat.slice(); resetPer(); snapMature(t);
   }
@@ -216,7 +220,7 @@ function run(map, seed) {
     largest: last.largest, largestKey: last.shares[0]?.[0], simpson: last.simpson, tolerant: last.tolerant, matureShares: last.matureShares,
     rd: win.deaths ? win.recruits / win.deaths : null, winDeaths: win.deaths, winRecruits: win.recruits, winByCause: win.byCause,
     opened: last.opened, openedNoFire: last.openedNoFire, changed: last.changed, species: last.species, animals: last.animals, trees: last.trees, ageQ: last.ageQ,
-    tolerantTrees: last.tolerantTrees, tolerantNearEdge: last.tolerantNearEdge, snags: last.snags, logs: last.logs, rotten: last.rotten,
+    tolerantTrees: last.tolerantTrees, tolerantNearEdge: last.tolerantNearEdge, tolerantWaiting: last.tolerantWaiting, tolerantWaitingNearEdge: last.tolerantWaitingNearEdge, snags: last.snags, logs: last.logs, rotten: last.rotten,
     nurseRecruits: nurseTot.rec, nurseRecruitsOnLog: nurseTot.onLog,
     understory: last.understory, understoryShares: last.understoryShares, meadow: last.hab.meadow, mature: last.hab.mature, elk: last.elk,
     msTick: +(tot.reduce((a, r) => a + r.msTick, 0) / tot.length).toFixed(2), msDay: +(tot.reduce((a, r) => a + r.msDay, 0) / tot.length).toFixed(2),

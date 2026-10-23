@@ -58,7 +58,7 @@ export function plantSuit(w, i, p, light) {
   const soil = w.soil[i];
   const soilFit = soil >= p.soil ? 1 : Math.max(0, 1 - (p.soil - soil) * (p.soilK ?? 3.5)); // soilK: how sharply poor soil holds a plant back
   let s = tf * rangeFit(w.moist[i], p.moist[0], p.moist[1], 0.18) * rangeFit(light, p.light[0], p.light[1], 0.25) * soilFit;
-  if (p.nurse) s = Math.min(1, s + nurseBonus(w, i)); // (nurse logs, 0013 §5)
+  if (p.nurse) s = Math.min(1, s + nurseBonus(w, i)); // (nurse logs, 0017 §5)
   // pioneers of poor ground (dropseed) lose out to better grasses once the soil has recovered
   if (p.pioneer && soil > p.pioneer) s *= Math.max(0.35, 1 - (soil - p.pioneer) * 2.5);
   return s;
@@ -83,7 +83,7 @@ export function plantLimits(w, i, p) {
 const layerArrays = (w, layer) =>
   layer === 0 ? [w.ground, w.groundG] : layer === 1 ? [w.shrub, w.shrubG] : [w.tree, w.treeG];
 
-// Recruitment settings (0013 §3), from map data: definition.recruitment: { cndd, understory }.
+// Recruitment settings (0017 §3), from map data: definition.recruitment: { cndd, understory }.
 const CNDD = 0.3; // default strength of conspecific negative density dependence
 const UNDER_MAX = 0.25, UNDER_GROW = 0.1; // an understory sapling's cap, and its growth against the open
 const UNDER_DEATH = 0.02, UNDER_SHADE_DEATH = 0.25, UNDER_POOR_DEATH = 0.3; // per year
@@ -111,7 +111,7 @@ export function trySeed(w, p, i, rng) {
   if (cur === p.id) return false;
   // One canopy tree per tile: a seed cannot remove a living tree, its age or its wood. Under an
   // established tree, a sapling that can take the shade there waits for it to die (advance
-  // regeneration, 0013 §3): the shade-tolerant cedar and hemlock almost anywhere, fir only under
+  // regeneration, 0017 §3): the shade-tolerant cedar and hemlock almost anywhere, fir only under
   // a thin canopy, alder and cottonwood hardly ever. Under a young tree the seed just fails.
   let under = false;
   if (cur && p.layer === 2 && (!def.look.underwater || p.cay)) {
@@ -196,12 +196,12 @@ function droughtKills(w, i, g, gf, rng) {
   return !!gi && w.groundG[i] > 0.6 && GRASS_LOOK[w.catalog.plants[gi].look.type] && rng() < 0.012;
 }
 
-// A tree's yearly death hazard (0013 §2): flat background mortality, a steep rise with old age, and
+// A tree's yearly death hazard (0017 §2): flat background mortality, a steep rise with old age, and
 // stress on a poor site or in shade it can't take. Returns { h, age }, where age is the part of h
 // counted as death by age (background and senescence) and drought the part counted as drought; the
 // rest is stress. The day's chance is h/120.
 // Map data can scale the new terms (definition.mortality: { background, senescence, stress, suppression }).
-// Drought (0013 §4): in a dry spell (w.drought, set daily by sim/disturbance.js from the map's
+// Drought (0017 §4): in a dry spell (w.drought, set daily by sim/disturbance.js from the map's
 // regime), a tree within DRY_BAND of the dry end of its moisture range dies at up to MORT.drought a
 // year, scaled by how deep the spell is. Wetter or drier ground (w.moist) changes who it reaches.
 const MORT = { background: 0.4, senesceFrom: 0.7, senesce: 0.05, stress: 0.03, stressSuit: 0.6, poorSite: 0.2, suppress: 0.03, drought: 1 };
@@ -259,12 +259,39 @@ function crowded(w, i, need, layer = 'tree', r = 1) {
   return false;
 }
 
-function disperse(w, p, x, y, rng, radiusBoost) {
+// ---- Long-distance dispersal (0017 §6). Most of a tree's seed lands within p.radius of it, but a
+// small share is carried far: wind lifts a winged seed over the canopy, a bird or bat flies off with
+// a fruit and drops the seed where it next perches, an agouti buries a nut across the clearing. Real
+// seed shadows look like this, a peak under the parent and a long thin tail, and the tail is how a
+// species reaches a gap that none of its own trees stand beside. farSeed(p) is the share that goes
+// far: p.farSeed if set, else from how the seed travels:
+//   fruit (p.look.fruit), carried by birds and bats: FAR.fruit while frugivores visit, FAR.dropped if none
+//   one animal (p.disperser): FAR.cached while it lives here, none without it
+//   anything else is wind-borne: FAR.wind × radius/4 (a long radius stands for a light, winged seed)
+// A far seed lands r/u away (u uniform in (0,1], a Pareto tail of exponent 1): half of them within
+// 2r, one in ten beyond 10r, in any direction; off the map is lost. Shrubs and groundcover keep their
+// near spread: their long-distance seed already comes in as the map's berrySeeds and windSeeds.
+const FAR = { wind: 0.02, fruit: 0.05, dropped: 0.005, cached: 0.01 };
+export function farSeed(p, frugivores, disperserHere) {
+  if (p.layer !== 2) return 0;
+  if (p.farSeed != null) return p.farSeed;
+  if (p.look?.fruit) return frugivores > 0 ? FAR.fruit : FAR.dropped;
+  if (p.disperser) return disperserHere ? FAR.cached : 0;
+  return FAR.wind * p.radius / 4;
+}
+
+function disperse(w, p, x, y, rng, radiusBoost, far = 0) {
   const r = p.radius + radiusBoost;
-  // Most groundcover seed lands near its parent, growing a drift outwards. A few seeds
-  // still reach the full dispersal radius; animal-carried and woody seed keep their range.
-  const offset = () => { const u = rng() * 2 - 1; return Math.round(r * (p.layer === 0 && !p.aquatic ? Math.sign(u) * Math.pow(Math.abs(u), 1.6) : u)); };
-  const dx = offset(), dy = offset();
+  let dx, dy;
+  if (far > 0 && rng() < far) {
+    const d = r / (1 - rng()), a = rng() * 2 * Math.PI;
+    dx = Math.round(d * Math.cos(a)); dy = Math.round(d * Math.sin(a));
+  } else {
+    // Most groundcover seed lands near its parent, growing a drift outwards. A few seeds
+    // still reach the full dispersal radius; animal-carried and woody seed keep their range.
+    const offset = () => { const u = rng() * 2 - 1; return Math.round(r * (p.layer === 0 && !p.aquatic ? Math.sign(u) * Math.pow(Math.abs(u), 1.6) : u)); };
+    dx = offset(); dy = offset();
+  }
   if (!dx && !dy) return;
   const xx = x + dx, yy = y + dy;
   if (!w.inb(xx, yy)) return;
@@ -277,11 +304,18 @@ export function updatePlants(game) {
   const gf = game.catalog.definition.climate.growth[m], sf = game.catalog.definition.climate.spread[m];
   const W = w.w;
   const frugivores = game.frugivoreCount || 0;
-  // trees that depend on one animal to carry their seed (a Brazil nut needs agoutis to bury its nuts)
-  const disperserMult = [];
-  for (const p of game.catalog.plants) if (p && p.disperser) {
-    const a = game.wildlife?.state && game.catalog.animal[p.disperser];
-    disperserMult[p.id] = a && game.wildlife.state[a.index].pop > 0 ? 1.6 : 0.12;
+  // trees that depend on one animal to carry their seed (a Brazil nut needs agoutis to bury its nuts):
+  // with it they spread like any tree, without it hardly at all. (It was 1.6 with the animal, which
+  // made the Brazil nut, durian and balanites out-seed every other long-lived tree; 0017 phase 6.)
+  const disperserMult = [], far = [];
+  for (const p of game.catalog.plants) if (p && p.layer === 2) {
+    let here = false;
+    if (p.disperser) {
+      const a = game.wildlife?.state && game.catalog.animal[p.disperser];
+      here = !!a && game.wildlife.state[a.index].pop > 0;
+      disperserMult[p.id] = here ? 1 : 0.12;
+    }
+    far[p.id] = farSeed(p, frugivores, here); // (the share of its seed carried far, §6)
   }
   const birdBoost = frugivores > 0 ? 1 : 0;
   const soilRate = 0.00012;
@@ -381,7 +415,7 @@ export function updatePlants(game) {
       else if (dies) removeTree(w, i, dies, rng);
       else {
         g = Math.min(1, g); w.treeG[i] = g; cover += g * 1.5;
-        if (g > 0.75 && rng() < p.spread * sf * (disperserMult[p.id] ?? 1)) disperse(w, p, x, y, rng, 0);
+        if (g > 0.75 && rng() < p.spread * sf * (disperserMult[p.id] ?? 1)) disperse(w, p, x, y, rng, 0, far[p.id]);
         if (p.nfix) {
           w.soil[i] += 0.0007 * g;
           if (x > 0) w.soil[i - 1] += 0.0002 * g;
@@ -403,7 +437,7 @@ export function updatePlants(game) {
         if (f === F.SNAG && ay > 2 && rng() < 0.01) fellSnag(w, i);
         else if (f === F.LOG) { w.soil[i] += 0.0004; if (ay > 4 && rng() < 0.01) clearDeadwood(w, i); }
       } else {
-        // elsewhere it rots at the pace its wood and the ground allow (0013 §5)
+        // elsewhere it rots at the pace its wood and the ground allow (0017 §5)
         const r = decayRate(w, i, deadK);
         const ay = (w.featureAge[i] += r) / 120;
         if (f === F.SNAG) { if (ay > DECAY.snagFall && rng() < DECAY.roll * r) fellSnag(w, i); }
@@ -425,7 +459,7 @@ export function updatePlants(game) {
   }
 }
 
-// Why a tree died (docs/decisions/0013-succession-dynamics.md): 'age' (background and old-age
+// Why a tree died (docs/decisions/0017-succession-dynamics.md): 'age' (background and old-age
 // mortality), 'stress' (a poor site, shade or competition), 'fire', 'wind', 'drought', 'pathogen',
 // 'flood', 'browse' (and trampling), 'beaver' or 'player'.
 // a fire kills trees standing; a storm throws them down; root rot leaves some standing, but most
@@ -448,7 +482,7 @@ export function removeTree(w, i, cause, rng, { snagOdds = SNAG_ODDS[cause] ?? 0.
   all[cause] = (all[cause] || 0) + 1;
   if (g > ESTABLISHED_TREE) est[cause] = (est[cause] || 0) + 1;
   w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
-  // advance regeneration (0013 §3): a sapling waiting underneath takes the slot at its own size,
+  // advance regeneration (0017 §3): a sapling waiting underneath takes the slot at its own size,
   // a head start no new seed can match
   const u = w.understory[i];
   if (u) {
@@ -467,7 +501,7 @@ export function removeTree(w, i, cause, rng, { snagOdds = SNAG_ODDS[cause] ?? 0.
   }
 }
 
-// ---- Deadwood (0013 §5). A dead tree goes snag → sound log → rotten log → gone. For a snag or log,
+// ---- Deadwood (0017 §5). A dead tree goes snag → sound log → rotten log → gone. For a snag or log,
 // featureAge is how far it has rotted, in days at the reference pace (a hardwood on damp ground):
 // it gains decayRate a day, not 1. Each class lasts a fixed amount of rot, so a fir log on dry
 // ground stays a sound log for decades and a maple log in a wet hollow is soft within ten years.
@@ -521,33 +555,68 @@ export function nurseBonus(w, i) {
 }
 const NURSE = { rotten: 0.4, sound: 0.15, near: 0.15 };
 
+// Where a seed from beyond an edge lands, or -1 off the map. How far in: tree seed falls off with
+// distance from the edge but has no hard limit (0017 §6), s·(1/u − 1), a decaying tail with the same
+// median depth s as the old near band, so one seed in five gets past 4s and one in sixteen past
+// 15s. Seed from a whole stand along the edge has a fatter tail than a single tree's. Shrub and
+// groundcover seed stays in the near band.
+function edgeTile(w, p, edge, rng) {
+  const s = (p.radius + 4) / 4;
+  const depth = Math.floor(p.layer === 2 ? Math.min(w.w + w.h, s * (1 / (1 - rng()) - 1)) : rng() * rng() * (p.radius + 4));
+  let x, y;
+  if (edge === 'N') { x = Math.floor(rng() * w.w); y = depth; }
+  else if (edge === 'E') { x = w.w - 1 - depth; y = Math.floor(rng() * w.h); }
+  else if (edge === 'W') { x = depth; y = Math.floor(rng() * w.h); }
+  else { x = Math.floor(rng() * w.w); y = w.h - 5 - depth - Math.floor(rng() * 3); }
+  return w.inb(x, y) ? w.idx(x, y) : -1;
+}
+// The native trees listed for an edge, as plants (repeats kept, as weights); built once per catalog.
+const FOREST = new WeakMap();
+export function forestTrees(catalog, edge) {
+  let t = FOREST.get(catalog);
+  if (!t) { t = {}; FOREST.set(catalog, t); }
+  return t[edge] ||= (catalog.definition.seedRain[edge] || []).map(k => catalog.plant[k]).filter(p => p.layer === 2 && p.native && !p.invasive);
+}
+
 // Seeds drifting in from outside the property: forest to the north and east,
 // wind-blown cottonwood and fireweed, invasives from neighbouring farms to the west,
 // and whatever the winter floods leave along the river.
 
 export function seedRain(game) {
-  const w = game.world, rng = game.rng, m = game.month;
-  const sf = game.catalog.definition.climate.spread[m];
+  const w = game.world, rng = game.rng, m = game.month, def = game.catalog.definition;
+  const sf = def.climate.spread[m];
   const tries = 3;
   for (let k = 0; k < tries; k++) {
     if (rng() > 0.5 * sf) continue;
     const edge = ['N', 'E', 'W', 'S'][Math.floor(rng() * 4)];
-    const src = game.catalog.definition.seedRain[edge];
+    const src = def.seedRain[edge];
     if (!src || !src.length) continue;
     const key = src[Math.floor(rng() * src.length)];
     const p = game.catalog.plant[key];
-    const depth = Math.floor(rng() * rng() * (p.radius + 4)) ;
-    let x, y;
-    if (edge === 'N') { x = Math.floor(rng() * w.w); y = depth; }
-    else if (edge === 'E') { x = w.w - 1 - depth; y = Math.floor(rng() * w.h); }
-    else if (edge === 'W') { x = depth; y = Math.floor(rng() * w.h); }
-    else { x = Math.floor(rng() * w.w); y = w.h - 5 - depth - Math.floor(rng() * 3); }
-    if (!w.inb(x, y)) continue;
+    const i = edgeTile(w, p, edge, rng);
+    if (i < 0) continue;
     // on Challenging the neighbours' invasive seeds press in harder (Relaxed's lighter touch is
     // w.invasiveOdds in trySeed, which covers seed from plants already on the land too)
     const inv = p.invasive ? (game.diff?.invasives ?? 1) : 1;
-    trySeed(w, p, w.idx(x, y), rng);
-    if (inv > 1 && rng() < inv - 1) trySeed(w, p, w.idx(x, y), rng);
+    trySeed(w, p, i, rng);
+    if (inv > 1 && rng() < inv - 1) trySeed(w, p, i, rng);
+  }
+  // A forest beyond an edge (map data forestRain: { edge: seeds per edge tile a day }) rains the
+  // seed of its native trees in along the whole edge, far more than the few tries above: a stand
+  // of grown trees drops seed by the million, and the wind and birds carry some of it well inside
+  // (0017 §6). The trees are the edge's native ones in seedRain; the neighbours' invasive trees are
+  // garden and hedgerow trees, not a stand, and keep to the tries above.
+  const forest = def.forestRain;
+  if (forest) for (const edge in forest) {
+    const trees = forestTrees(game.catalog, edge);
+    if (!trees.length) continue;
+    const len = edge === 'N' || edge === 'S' ? w.w : w.h;
+    for (let n = len * forest[edge] * sf; n > 0; n--) {
+      if (n < 1 && rng() >= n) break;
+      const p = trees[Math.floor(rng() * trees.length)];
+      const i = edgeTile(w, p, edge, rng);
+      if (i >= 0) trySeed(w, p, i, rng);
+    }
   }
   // Birds carry berry seeds from far away once they are visiting.
   if (game.frugivoreCount > 0 && rng() < 0.08 * sf) {

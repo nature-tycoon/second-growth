@@ -444,7 +444,7 @@ export default {
   dryLand: (w, i) => shoreMask(w)[i] === 1,
   deadTree: (w, i) => { if (w.terrain[i] !== T.SOIL) w.terrain[i] = T.GRAVEL; },
   // Coral dies of bleaching, starfish and cyclones (reefDaily), and of old age; the land forests'
-  // background, stress and shade mortality (0013) would thin the reef by a third, so it stays off.
+  // background, stress and shade mortality (0017) would thin the reef by a third, so it stays off.
   mortality: { background: 0, stress: 0, suppression: 0 },
   recruitment: { cndd: 0, understory: false }, // (coral settles by its own spacing, and nothing waits under it)
   daily: reefDaily,

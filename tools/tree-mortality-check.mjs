@@ -1,4 +1,4 @@
-// Tree removal and the mortality hazard (docs/decisions/0013-succession-dynamics.md, phase 2).
+// Tree removal and the mortality hazard (docs/decisions/0017-succession-dynamics.md, phase 2).
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';

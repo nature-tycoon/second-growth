@@ -34,7 +34,7 @@ export class World {
     this.ground = u8(); this.groundG = f32();
     this.shrub = u8(); this.shrubG = f32();
     this.tree = u8(); this.treeG = f32(); this.treeAge = f32();
-    // advance regeneration (0013 §3): a shade-tolerant sapling waiting under the tile's tree, released when it dies
+    // advance regeneration (0017 §3): a shade-tolerant sapling waiting under the tile's tree, released when it dies
     this.understory = u8(); this.understoryG = f32();
     this.understoryReleased = {}; // (by species key, like treeDeaths: diagnostics, not saved)
     // tree deaths by cause, all and established (removeTree). Declared here, not added later: a
@@ -42,11 +42,11 @@ export class World {
     this.treeDeaths = {}; this.treeDeathsEst = {};
     // the share of natural invasive seedlings that take on easier difficulties (updatePlants sets it from game.diff)
     this.invasiveOdds = 1;
-    // disturbance (0013 §4, sim/disturbance.js): root rot in the soil per tile (saved), and how deep
+    // disturbance (0017 §4, sim/disturbance.js): root rot in the soil per tile (saved), and how deep
     // today's drought is (0..1, set daily; treeHazard reads it)
     this.rot = u8(); this.drought = 0;
     this.feature = u8(); this.featureAge = f32();
-    // the plant a snag or log was (0013 §5, saved; 0: unknown, put down by the player or the map). Read only while the tile holds one
+    // the plant a snag or log was (0017 §5, saved; 0: unknown, put down by the player or the map). Read only while the tile holds one
     this.deadwoodId = u8();
     this.struct = new Int16Array(n).fill(-1);
     // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars)

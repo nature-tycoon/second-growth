@@ -44,8 +44,8 @@ export default {
   // How strongly herds of grazers and browsers hold woody seedlings back in the grass they use
   // (sim/grazing.js): elk and deer keep the valley's meadows open where they feed.
   grazing: 1,
-  recruitment: { cndd: 0.3 }, // (0013 §3: conspecific negative density dependence; stronger in the tropics)
-  // Patch disturbance (0013 §4, sim/disturbance.js). Months run March..February.
+  recruitment: { cndd: 0.3 }, // (0017 §3: conspecific negative density dependence; stronger in the tropics)
+  // Patch disturbance (0017 §4, sim/disturbance.js). Months run March..February.
   // Winter gales off the Pacific throw trees on soaked ground, and laminated root rot, a native
   // fungus, kills Douglas-firs in slowly spreading patches that other trees then hold for decades.
   disturbance: {
@@ -79,6 +79,8 @@ export default {
     W: ['blackberry', 'blackberry', 'broom', 'canarygrass'],
     S: ['willow', 'cottonwood', 'alder', 'canarygrass', 'dogwood', 'sedge'],
   },
+  // and the woods to the north and east rain their trees' seed in all along those edges (0017 §6)
+  forestRain: { N: 0.01, E: 0.01 },
   windSeeds: ['fireweed', 'cottonwood'],
   berrySeeds: ['salmonberry', 'elderberry', 'snowberry', 'rose', 'salal', 'oregongrape', 'blackberry'],
   floodSeeds: ['willow', 'cottonwood', 'sedge', 'canarygrass', 'alder'],

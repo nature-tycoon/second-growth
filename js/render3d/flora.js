@@ -653,7 +653,7 @@ export class Flora {
       switch (f) {
         case F.SNAG: this.pool(`snag:${v}`, () => G.snag(900 + v), this.bark).add(cx, cy - 0.02, cz, 1, 1, 1, rot, [0.62, 0.58, 0.52]); break;
         case F.LOG: {
-          // a rotten log (0013 §5) has slumped into the ground under a coat of moss
+          // a rotten log (0017 §5) has slumped into the ground under a coat of moss
           const soft = rottenLog(w, i);
           this.pool('log', () => G.log(), this.bark).add(cx, isWater(w.terrain[i]) ? w.tileH(x, y) * LEVEL + 0.02 : cy, cz, 1, soft ? 0.72 : 1, 1, rot, soft ? [0.74, 0.86, 0.6] : [1, 1, 1]);
           break;

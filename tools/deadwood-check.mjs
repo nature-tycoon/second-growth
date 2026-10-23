@@ -1,4 +1,4 @@
-// Deadwood (docs/decisions/0013-succession-dynamics.md §5, sim/plants.js): snags and logs rot at a
+// Deadwood (docs/decisions/0017-succession-dynamics.md §5, sim/plants.js): snags and logs rot at a
 // pace set by their wood and the ground, pass through decay classes, act as nurse logs, come down in
 // storms and fires, feed insects, and save what they were.
 //   node tools/deadwood-check.mjs

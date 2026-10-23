@@ -1,6 +1,19 @@
-# 0013 Long-term forest dynamics: mortality, regeneration and disturbance
+# 0017 Long-term forest dynamics: mortality, regeneration and disturbance
 
-Proposed 2026-10-18. Status: in progress. Phase 1 (succession check and baselines) and phase 2 (tree removal and mortality hazard) done 2026-10-19. Phase 3 (advance regeneration and CNDD) done 2026-10-21. Phase 4 (disturbance regimes) and phase 5 (deadwood decay and nurse logs) done 2026-10-22. Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12.
+Proposed 2026-10-18. Status: done 2026-10-22 (phases 1–6). Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12. Renumbered from 0013 in phase 6: `main` has its own 0013–0016.
+
+## Outcome
+
+What changed for a player, over the six phases: trees now die across their whole lives (old age, stress, shade, windstorms, drought, root rot), not only at a fixed age or in fire. Shade-tolerant saplings wait under the canopy and take the gap when the tree above dies. Seedlings do worse among their own kind. Dead trees stand, fall and rot at a pace set by their wood and the ground, and hemlock and redcedar come up on rotten logs. Seed now travels as real seed does: mostly near the parent, a little far, and a forest beyond the map edge rains its trees in. An intact rainforest or wet conifer forest rarely burns while the pasture beside it does.
+
+Where it stands (phase 6, full wildlife, 200 years):
+
+- **PNW:** hemlock and redcedar now spread through the whole forest instead of hugging the north and east edges, and about 1,000 wait in the understory at year 200. They're 7–8% of mature trees at year 200 and 25% at year 400 (fir 74%); before phase 6 they stayed at 2–4% for 400 years. Fir is still 86–89% at year 200. That matches real westside Douglas-fir stands, which stay fir-dominated for 250–500 years while hemlock builds underneath, so the year-200 targets (fir ≤ 60%, hemlock + cedar ≥ 25%) are the wrong horizon; they're met around year 400.
+- **Amazon:** Brazil nut 35–37% (was 78–80%), with fig, mahogany and ipê up. Fire is 8–14% of tree deaths (was 26–47%).
+- **Every forested map** keeps recruits ÷ deaths in band and its animal species, except Atlanta, which misses both on 2 of 6 seeds before and after phase 6 alike.
+- **Hollis in its first 15 years** grows twice the forest tiles along the north and east edges (forest rain). Meadow and elk are unchanged.
+
+Still open: Chinandega's neem (29–48%, unchanged within noise), Serengeti mesquite (92–93%) and its weak drought, Atlanta's slow loss of trees to invasive thicket, and the canopy's effect on moisture itself (only on fire fuel so far). The stack (phases 2–6) is cut from an older `main` (9d99a33). Merging it needs a conflict pass in `sim/animals.js`, `events.js`, `plants.js`, `tools.js` and `world.js`, which `main` has since changed (home ranges, landscape of fear, carcass decay).
 
 ## Problem
 
@@ -184,6 +197,23 @@ Built in phase 5. A dead tree goes snag → sound log → rotten log → gone. T
 - **Render.** A rotten log is drawn with the same model, slumped (72% height) and tinted moss-green.
 - Fungi and decomposers can later set the rate through `decayRate`: this phase only makes it depend on conditions.
 - `tools/deadwood-check.mjs` checks the wood and moisture factors, the classes and their timing, the savanna and reef, nurse logs (suitability, the sward, the understory), wind and fire felling, insects, the save round trip and the data contract.
+
+### 6. Seed dispersal (`sim/plants.js`, `disperse`, `seedRain`)
+
+Built in phase 6. Phases 3–5 left every forested map seed-limited: a tree's seed landed uniformly within `p.radius` of it, and seed from beyond the map reached at most `radius + 4` tiles in. So the commonest tree supplied nearly all the seed for every gap, and a species that arrived only from an edge (PNW hemlock and redcedar) stayed within 15 tiles of it for 200 years. Real seed shadows have a peak under the parent and a long, thin tail, and seed rain from a neighbouring forest falls off with distance rather than stopping. Three changes, all from existing traits:
+
+- **Long-distance dispersal** (`farSeed(p, frugivores, disperserHere)`, trees only). With odds `farSeed`, a tree's seed goes far instead of near: distance `r/u` (`u` uniform in (0,1], a Pareto tail of exponent 1, so half of these land within 2r and one in ten beyond 10r), in any direction; off the map it's lost. One extra `rng()` per seeding, two more when it goes far.
+  - `p.farSeed` if set, else from how the seed travels:
+    - fruit (`p.look.fruit`): carried by birds and bats, 0.05 while frugivores visit, 0.005 without;
+    - one animal (`p.disperser`, the Brazil nut's agouti): 0.01 while it lives on the map, none without;
+    - anything else is wind-borne: 0.02 × `radius`/4 (a long radius stands for a light, winged seed). PNW: fir 0.025, hemlock, redcedar and maple 0.02, cottonwood 0.035.
+  - Shrubs and groundcover keep their near spread: their long-distance seed already comes in as the map's `berrySeeds` and `windSeeds`.
+- **Edge seed rain falls off with depth** (`edgeTile`). Tree seed from beyond an edge lands `s·(1/u − 1)` tiles in, `s = (radius + 4)/4`: the same median depth as the old band (`rng()·rng()·(radius+4)`), but one seed in five gets past 4s and one in sixteen past 15s. Shrub and groundcover seed keeps the old near band, so the neighbours' blackberry, broom and pasture grass press in as before.
+- **Forest beyond an edge** (map data `forestRain: { N: 0.01, E: 0.01 }`, seeds per edge tile a day, × the month's `spread`). The old edge rain is three tries a day for the whole map, shared between four edges and every species listed for them, about five hemlock seeds a year. A grown forest along a 120-tile edge drops far more. Each day, `forestRain[edge] × edge length` seeds of that edge's native trees (`forestTrees`: the edge's `seedRain` entries that are trees, native and not invasive, repeats as weights) land through `edgeTile`. The neighbours' invasive trees (Atlanta's callery pear, Chinandega's neem, the Serengeti's mesquite) are garden and hedgerow trees, not a stand, and keep to the old tries. Only PNW (north and east) and the Amazon (north and east) set it: the maps whose text puts a forest there and whose succession depends on it. The data contract checks it.
+
+Phase 6 also lowers the fire fuel of a rotten log (decay class, §5) from 0.4 to 0.15: soaked through, it smoulders rather than carrying flame. Sound logs and snags stay at 0.4. See [Phase 6 results](#phase-6-results-2026-10-22) for the drought and Amazon fire settings.
+
+`tools/dispersal-check.mjs` checks the trait defaults and override, the kernel's far share and tail, the edge kernel for trees and shrubs, the forest rain (native trees only) and its contract, and the fuel of rotten logs.
 
 ### Interfaces between parts
 
@@ -451,6 +481,50 @@ Checks:
 - **Wood overrides** worth considering with the tuning: ipê and mahogany (very durable), balsa and cecropia (rot fast). Only redcedar and hemlock have them now.
 - **World shape.** Declare the lazily added world fields (`seedbank`, `bankStrength`, `browseDamage`, `grazed`) in the `World` constructor, and check whether a session that loads a second farm slows down.
 
+### Phase 6 results (2026-10-22)
+
+Seed dispersal (§6), rotten-log fuel, canopy fire damping, drought and the disperser bonus, measured as before: full wildlife, 200 years, `--every 10`, on Cole's Mac at `nice -n 5`, several runs at a time under a high load average (so the runs' ms figures mean nothing). "Before" is phase 5 (27de3ff): the phase 5 session's per-seed JSONs, plus reruns of Amazon and Atlanta seeds 2–6 and Chinandega seeds 2–3.
+
+Changes beyond §6:
+
+- **Fire under a closed canopy** (`Events.fuel`). A surface fire's dryness falls by up to half (`SHADE_DAMP` 0.5) as `w.canopy` goes from 0.5 to 1. The canopy follows the leaves, so a dry forest that drops them in the dry season (Chinandega) and open savanna get none of it, and a crown fire's heat ignores it. The cause: a probe of Amazon fires in years 110–160 found 2,680 of 7,503 burned tiles in mature forest, at a floor moisture of 0.29 (median). The canopy adds only 0.06 to moisture, so closed rainforest burned like pasture. Turning off crown fires alone changed nothing (fire 34–45% of deaths against 36–50%).
+- **Amazon `crownFires: false`**: a rainforest fire is a surface fire under the canopy.
+- **Rotten logs** add 0.15 fuel instead of 0.4.
+- **The disperser bonus** (`disperserMult`): a tree whose one disperser lives on the map seeded at 1.6× the normal rate. That made the Brazil nut, durian and balanites out-seed every other long-lived tree. It's now 1 with the animal and 0.12 without, so agoutis still make an 8× difference. On its own it took Brazil nut from 57–64% to 35–37% (3 seeds each). It was the deciding lever for the Amazon target, and it's a shared rule, not a species override. No species overrides were added: Brazil nut `p.cndd` 0.9 gave 55–61%, and Brazil nut naturally grows in groves, so the case for strong CNDD is mixed.
+- **Drought**: Atlanta severity 1 → 3, Serengeti 1 → 3, and the Amazon gains drought (threshold 45, the 85th percentile of its yearly longest dry streak; severity 1.5). Atlanta drought deaths, years 20–200: 5–11% of deaths (before 2–5%). The Serengeti stays at 1–2%: there, who dies of drought is set by how close trees grow to the dry end of their range, which the hydrology track changes, not severity.
+
+| Run | Seeds | Largest, % (before) | Hemlock + cedar % of mature (before) | Tolerant trees, inland of 15 tiles | Recruits ÷ deaths (before) | Unburned opened, % | Fire share of deaths, % (before) | Burned tiles, 200 y (before) | Animal species | Simpson (before) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| pnw restore | 3 | fir 86 (85–90) | 8 (3) | 209–344 of 605–703 (2–19 of 229–239) | 0.99–1.10 (1.14–1.16) | 24–29 | 9–22 (22–39) | 12,100–18,600 (29,900–33,700) | 30–31 | 0.25 (0.20–0.28) |
+| pnw idle | 3 | fir 88–89 (91–96) | 7–8 (1–2) | 307–578 of 559–724 (0–1) | 0.99–1.18 (1.32–1.40) | 26–31 | 10–22 (13–22) | 12,700–24,400 (28,600–32,600) | 29–30 | 0.21–0.22 (0.08–0.16) |
+| amazon idle | 3 | brazilnut 35–37 (78–80) | - | - | 1.00–1.04 (0.90–1.13) | 20 | 8–14 (26–47) | 7,000–14,700 (17,400–27,500) | 23–24 | 0.73–0.75 (0.35–0.39) |
+| atlanta idle | 6 | redmaple 41–52 (39–53) | - | - | 0.65–0.78 (0.67–0.79) | 64–73 | 0–4 | | 26–30 (25–29) | 0.69–0.77 |
+| chinandega idle | 3 | neem 29–48 (32–42) | - | - | 1.08–1.13 (1.15–1.21) | 33–69 | 42–55 (40–41) | 238,000–245,000 | 22–23 | 0.71–0.80 |
+| serengeti idle | 3 | mesquite 92–93 (88) | - | - | 0.95–1.00 | 34–48 | 70–76 (87) | 105,000–117,000 (121,000) | 20–22 (22) | 0.13–0.16 (0.23) |
+| sumatra idle `--veg` | 1 | fig 34 (durian 6) | - | - | 1.02 | 24 | 6 | 1,700 | (33) | 0.80 |
+| reef idle | 1 | boulder 51 | - | - | 1.20 | 37 | 0 | 0 | 21 | 0.53 |
+
+400 years, PNW restore `--veg`, seed 1, hemlock + cedar share of mature trees (fir):
+
+| Year | 100 | 200 | 300 | 400 |
+|---|---|---|---|---|
+| Phase 5 | 1% (84%) | 2% (88%) | 4% (91%) | 4% (92%) |
+| Phase 6 | 2% (88%) | 10% (87%) | 17% (81%) | 25% (74%) |
+
+`--assert` on the final runs (`succession-check`'s targets applied to the saved JSONs): 50 pass, 18 fail. The failures:
+
+- PNW restore and idle, all six seeds: largest ≤ 60% (fir 86–89%) and hemlock + cedar ≥ 25% (7–8%). **The target is wrong for year 200, not unreachable.** Hemlock is suitable under 95% of the fir canopy (a probe of a year-120 world: suitability > 0.6 on 92% of tree tiles), and about 80% of hemlock seed landing there takes. So it's limited only by the time a waiting sapling needs to get a gap, which is set by the tree mortality of phases 2–4. Real westside Douglas-fir stands stay fir-dominated for 250–500 years. The criterion is met at year 400 on the one seed run that long. Redcedar stays minor (1–2%) because 89% of the forest floor is drier than its moisture minimum of 0.5: it belongs to wet ground.
+- Atlanta seeds 1, 2, 5 recruits ÷ deaths 0.65–0.70, and seeds 1, 5, 6 species 26–27. Phase 5 on the same six seeds misses on 2 recruits ÷ deaths and 2 species, so this is a pre-existing Atlanta issue (invasive thicket takes the gaps), not a phase 6 effect.
+
+Also:
+
+- **Chinandega neem** isn't settled: 29–48% against 32–42% before (3 seeds each), 42% with the canopy damping off. Per Cole's decision it may wait in the understory; nothing here exempts invasives.
+- **Serengeti mesquite** rose from 88% to 92–93% (one before seed). The likely cause is that evergreen mesquite thickets now damp fire a little and the edge kernel sends its seed further in. Real mesquite thickets do suppress grass fires.
+- **`balance-sim restore 15`**, 16 seeds seeded via `--import`, phase 5 → phase 6 means ± standard error: score 61.8 ± 1.8 → 60.8 ± 1.0, meadow 960 ± 91 → 822 ± 54, elk 17.0 → 16.1, invasive 26.2% → 28.0%: within noise. But **forest tiles 178 ± 5 → 396 ± 6 and mature 36 → 81**. That's a real change: the forest rain colonizes Hollis's north and east edges within the first 15 years, as conifers do on abandoned fields beside a forest. If it's too fast for the game, `forestRain` in `maps/pnw.js` is the knob.
+- **`dailyTick`**: the stored PNW year-120 world from phase 5, loaded into both builds, 12 alternating 60-day blocks per process, both load orders. The Mac was on battery in Low Power Mode with another agent using two cores, so the absolute ms are high and noisy. Against phase 5: −5.2% ± 5.1% and +3.6% ± 4.0% (swapped order, sign as new-vs-old): within noise. Against the phase 1 baseline (9d99a33) for the whole stack: +6.7% ± 11.3%, and +3.8% ± 1.7% in the swapped order. Phase 4 and 5 measured +1.7% and +0–2.4% for their steps, so the stack is about +4–7%, at or slightly over the 5% budget, and this run can't pin it closer. Repeat it on AC power with a quiet machine before relying on it.
+- Checks: `data-contracts`, `consistency`, `tree-mortality`, `plant-ecology`, `disturbance`, `deadwood`, the new `dispersal` (5 checks), `vegetation`, `plant-replay`, `farm-state`, `challenging-ecology`, `beaver-dam` and `animal-dormancy` pass. **`browser-save-check` was not run** in phase 6 (out of time); the save format didn't change (no new arrays), but run it before merging.
+- No new world fields.
+
 ### How to run
 
 ```
@@ -468,7 +542,7 @@ Each phase is one session, run in order, each building on the last:
 3. **Advance regeneration and CNDD.** (Done: see [Phase 3 results](#phase-3-results-2026-10-21). Hemlock, cedar and Brazil nut are not fixed; the remaining levers are map data for phase 6.) Add the understory arrays (with saves), release on removal, CNDD in `trySeed`, and map `recruitment` config. Expected to fix hemlock/cedar and Brazil nut.
 4. **Disturbance regimes.** (Done: see [Phase 4 results](#phase-4-results-2026-10-22). Fir, Brazil nut and Amazon fire are not fixed.) Add `sim/disturbance.js` with windstorm and drought on every map that fits, an optional PNW root-rot pathogen, notifications, and a Field Journal line.
 5. **Deadwood decay and nurse logs.** (Done: see [Phase 5 results](#phase-5-results-2026-10-22). Hemlock and cedar are still limited by seed supply.) Make decay depend on moisture and wood type, and add nurse-log recruitment and snag fall.
-6. **Cross-map tuning and acceptance.** Sweep all seven maps, tune map data, update this doc's results, and update AGENTS.md's decision list.
+6. **Cross-map tuning and acceptance.** (Done: see [Phase 6 results](#phase-6-results-2026-10-22) and the Outcome.) Sweep all seven maps, tune map data, update this doc's results, and update AGENTS.md's decision list.
 
 Hydrology (finishing `sim/hollis-water.js`) is a separate track. It plugs in through the drought and stress term and `w.moist`, with no new mortality code.
 

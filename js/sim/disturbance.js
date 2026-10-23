@@ -1,4 +1,4 @@
-// Patch disturbance other than fire (docs/decisions/0013-succession-dynamics.md §4): windstorms
+// Patch disturbance other than fire (docs/decisions/0017-succession-dynamics.md §4): windstorms
 // that throw down patches of trees, drought that kills trees at the dry end of their range, and a
 // root-rot fungus that spreads tree to tree through its host. Fire stays in events.js. Every tree
 // killed here goes through removeTree, so a sapling waiting underneath takes the gap.
@@ -103,7 +103,7 @@ export function windstorm(game, storm) {
   return out;
 }
 
-// Drought (0013 §4): how deep the current dry spell is, 0..1, which treeHazard (plants.js) turns
+// Drought (0017 §4): how deep the current dry spell is, 0..1, which treeHazard (plants.js) turns
 // into extra deaths for trees near the dry end of their moisture range. A spell counts once the
 // days without rain pass the map's `threshold` (set near the longest dry streak of an ordinary
 // year, so it comes every several years) and is at full strength `span` days later. Later

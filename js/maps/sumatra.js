@@ -451,9 +451,9 @@ export default {
   // Grazing pressure (sim/grazing.js): elephants, sambar and tapir open small clearings; rainforest still returns.
   grazing: 0.3,
   recruitment: { cndd: 0.65 },
-  // Patch disturbance (0013 §4, sim/disturbance.js). Months run March..February.
+  // Patch disturbance (0017 §4, sim/disturbance.js). Months run March..February.
   // "Sumatras", the squall lines of the monsoon changeovers, throw down patches of forest.
-  // dead wood rots fast in the warm, wet lowlands: a fallen palm trunk is soft within a few years (0013 §5)
+  // dead wood rots fast in the warm, wet lowlands: a fallen palm trunk is soft within a few years (0017 §5)
   deadwood: { decay: 1.8 },
   disturbance: {
     storms: [{ name: 'A Sumatra squall', months: [1, 2, 7, 8], perYear: 1, patch: [3, 400], severity: 0.6 }],

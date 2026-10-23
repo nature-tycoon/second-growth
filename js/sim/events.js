@@ -1,13 +1,14 @@
 // Natural disturbance: summer wildfires and winter floods (windstorms, drought and root rot are in disturbance.js).
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { removeTree, trySeed, clearUnderstory, fellSnag, DECAY } from './plants.js';
+import { removeTree, trySeed, clearUnderstory, fellSnag, DECAY, rottenLog } from './plants.js';
 import { disturbanceOn } from './campaign.js';
 import { disturbanceDaily } from './disturbance.js';
 
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
 const FIRE_SNAG_G = 0.85; // a tree burned in a fire leaves a snag or log only if it was nearly full grown
+const SHADE_DAMP = 0.5; // how much of a surface fire's dryness a full canopy in leaf takes away
 
 export class Events {
   constructor(game) {
@@ -33,9 +34,17 @@ export class Events {
     // in a crown fire the canopy itself burns, not just what's under it
     if (tr) f += w.treeG[i] < 0.6 ? 0.5 * w.treeG[i] : hot ? 0.9 * this.heat : 0.2;
     const ft = w.feature[i];
-    if (ft === F.SNAG || ft === F.LOG || ft === F.BRUSH) f += 0.4;
+    // dead wood feeds a fire, but a rotten log is soaked through and only smoulders: it carries
+    // flame hardly better than the litter around it (0017 §6)
+    if (ft === F.SNAG || ft === F.LOG || ft === F.BRUSH) f += ft === F.LOG && rottenLog(w, i) ? 0.15 : 0.4;
     if (this.mapDefinition.fuelBonus) f += this.mapDefinition.fuelBonus(w, i); // (Sumatra: drained peat smoulders under the weeds)
-    const dryness = hot ? clamp((0.85 - w.moist[i]) / 0.45, 0, 1) : clamp((0.62 - w.moist[i]) / 0.4, 0, 1);
+    // Under a closed canopy in leaf the litter stays shaded and damp, so a surface fire creeps
+    // rather than runs: up to half the dryness at full cover (0017 §6). It's why an intact
+    // rainforest or a wet conifer forest rarely burns while the pasture beside it does. w.canopy
+    // follows the leaves, so a dry forest that drops them in the dry season gets none of this, and
+    // in a crown fire's heat the canopy itself burns.
+    const dryness = hot ? clamp((0.85 - w.moist[i]) / 0.45, 0, 1)
+      : clamp((0.62 - w.moist[i]) / 0.4, 0, 1) * (1 - SHADE_DAMP * clamp((w.canopy[i] - 0.5) / 0.5, 0, 1));
     return f * dryness;
   }
 
@@ -160,7 +169,7 @@ export class Events {
     const f = w.feature[i];
     if (f === F.BRUSH || f === F.FENCE || f === F.NESTBOX || f === F.BLIND || (f === F.LOG && rng() < 0.5)) w.feature[i] = 0;
     // a grass fire brings dead trees down; in a forest it burns through the rotten base of an old
-    // snag (one past its standing age), while those it just killed stand (0013 §5)
+    // snag (one past its standing age), while those it just killed stand (0017 §5)
     else if (f === F.SNAG && (this.mapDefinition.savanna || w.featureAge[i] > DECAY.snagFall * 120) && rng() < 0.5) fellSnag(w, i);
     w.soil[i] = Math.min(1, w.soil[i] + 0.03);
     // wildlife caught in the flames

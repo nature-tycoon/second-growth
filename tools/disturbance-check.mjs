@@ -1,4 +1,4 @@
-// Patch disturbance (docs/decisions/0013-succession-dynamics.md §4, sim/disturbance.js): windstorms,
+// Patch disturbance (docs/decisions/0017-succession-dynamics.md §4, sim/disturbance.js): windstorms,
 // drought and root rot kill through removeTree, follow the map's data and the campaign's gate, and save.
 //   node tools/disturbance-check.mjs
 import assert from 'node:assert/strict';

@@ -741,8 +741,8 @@ export class UI {
         <div class="st ${cls}">${word}${lim.length && s < 0.55 ? ': ' + lim.join(', ') : ''} · ${pct(gg)} grown${extra}</div></div></div>`;
     });
     html += `<div class="section-title">Plants</div>` + (rows.length ? rows.join('') : `<div class="info-desc">Nothing growing here${t === T.PASTURE && !this.game.catalog.definition.sandBed ? ' but tired pasture grass' : ''}.</div>`);
-    if (w.understory[i]) html += `<div class="info-desc">Waiting under the canopy for a gap: a young ${this.game.catalog.plants[w.understory[i]].name} (${pct(w.understoryG[i])} grown).</div>`; // (0013 §3)
-    const rot = disturbanceTileNote(g, i); // (0013 §4: root rot in the soil)
+    if (w.understory[i]) html += `<div class="info-desc">Waiting under the canopy for a gap: a young ${this.game.catalog.plants[w.understory[i]].name} (${pct(w.understoryG[i])} grown).</div>`; // (0017 §3)
+    const rot = disturbanceTileNote(g, i); // (0017 §4: root rot in the soil)
     if (rot) html += `<div class="info-desc">${rot}</div>`;
     // animals nearby
     const near = g.wildlife.agents.filter(a => Math.abs(a.x - x - 0.5) < 2 && Math.abs(a.y - y - 0.5) < 2);
