@@ -6,7 +6,7 @@ const THREE = await import('three');
 const { Terrain, waterSurfaceY } = await import('../js/render3d/terrain.js');
 import { Game } from '../js/game.js';
 import { waterModel } from '../js/sim/hollis-water.js';
-import { T, F, LEVEL } from '../js/config.js';
+import { T, F, LEVEL, isWater } from '../js/config.js';
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log('PASS ' + name); };
 // Terrain's only DOM dependency here creates a noise texture; no rendering or canvas art.
@@ -99,5 +99,35 @@ check('Gameplay water planes match actor samples and disappear from a dried pond
   const dry=t.water.geometry.attributes.position;
   for(let k=0;k<dry.count;k+=6)assert.ok(dry.getX(k)!==ex||dry.getZ(k)!==ez,'no phantom water on a dried basin');
   dispose(t);
+});
+check('Floodwater clouds out over the river it rose from instead of stopping at its tile edges', () => {
+  for (const map of ['pnw', 'amazon', 'serengeti', 'atlanta', 'chinandega', 'sumatra']) {
+    const { game, terrain: t } = make(map), w = game.world;
+    game.events.startFlood(1.8);
+    if (!game.events.floodTiles) { dispose(t); continue; }
+    const t0 = performance.now(); t.refreshFlood(); const ms = performance.now() - t0;
+    assert.ok(ms < 250, `${map}: flood mesh built in ${ms.toFixed(0)} ms`);
+    const a = t.flood.geometry.attributes, s = t.shoreVertices;
+    for (const key of ['position', 'color', 'aDepth', 'aFlow', 'aQual']) assert.ok(a[key].array.every(Number.isFinite), map + ' ' + key);
+    const at = new Map(); let overWater = 0;
+    for (let v = 0; v < a.position.count; v++) {
+      const x = a.position.getX(v), z = a.position.getZ(v), y = a.position.getY(v), al = a.color.getW(v), key = x + ',' + z;
+      // one value per corner, so neighbouring tiles share an edge with no step in height or opacity
+      if (at.has(key)) assert.deepEqual(at.get(key), [y, al], `${map} corner ${key}`); else at.set(key, [y, al]);
+      const k = ((z - t.Y0) * (t.TW + 1) + x - t.X0) * 2;
+      if (s[k + 1]) assert.ok(y >= s[k] - 1e-6, `${map}: floodwater at ${key} sits on, not under, the river`);
+      const water = [[-1, -1], [0, -1], [-1, 0], [0, 0]].every(([dx, dy]) => isWater(t.terrainAt(x + dx, z + dy)));
+      if (water && al > 0) overWater++;
+    }
+    assert.ok(overWater > 0, `${map}: some silt reaches out over the river`);
+    // at the far edge of its reach it has thinned to nothing
+    for (const [key, [, al]] of at) {
+      const [x, z] = key.split(',').map(Number);
+      let near = Infinity;
+      for (let y = z - 5; y <= z + 5; y++) for (let xx = x - 5; xx <= x + 5; xx++) if (w.inb(xx, y) && w.flood[w.idx(xx, y)]) near = Math.min(near, Math.hypot(xx + .5 - x, y + .5 - z));
+      if (near >= 3.5) assert.equal(al, 0, `${map}: floodwater at ${key} fades out`);
+    }
+    dispose(t);
+  }
 });
 console.log(checks + ' water checks passed.');
