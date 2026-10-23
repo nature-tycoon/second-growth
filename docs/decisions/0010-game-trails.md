@@ -126,6 +126,35 @@ to the water traced the other direction. The 0.28-tile footprint drew each about
 
 Existing saves keep their old wide, straight wear until it fades; new traffic wears the new shape.
 
+## Curved journeys and beaten paths (2026-10-23)
+
+The 2026-10-22 waypoints still left a checkerboard wherever traffic crossed: routes are searched
+north/south/east/west, so every walk ran along a tile row or column, only wobbling inside each tile.
+A review on a Serengeti stocked to carrying capacity found trails on 9% of the map after a game year,
+visible from about 9 passes, with 64% of wear from herd members keeping up with their leader, 8%
+from fleeing, and 16% from resource trips. Cole chose to fix the shape and trail attraction first;
+the rest of that plan (only journeys wear trails, about 150 passes to show one, a two-year fade,
+single file, routes that weigh slope) is still open.
+
+- `animal-course.js` redraws any ground walker's path of six tiles or more as a curve, the first time
+  it walks it: pulled straight across open ground, bent by a meander field anchored to the land (up to
+  a tile each side, bends every six tiles or so, read across the direction of travel so a return trip
+  retraces it), and drawn into a worn track up to 1.5 tiles to the side (`trailSample` above 0.05).
+  The curve is checked step by step against standable ground (pulled back toward the line where it
+  isn't), turned back into a four-connected chain of tiles with the point the curve crosses each one
+  (`a.course`, not saved), and refused if it can't be walked or is more than 35% plus two tiles longer.
+  `pathPoint` gives the walker that point, or the tile's usual waypoint without a course.
+  Fleeing (`a.run`), fire escapes and off-map starts keep the route search's path.
+- `preferTrailPath` gives a well-worn step 40% of an open step's cost (was 65%), still within a 25%
+  plus two steps detour.
+- Result on the stocked Serengeti: no grid; trails curve at every angle and braid along the river.
+  There are still too many faint strands, which is the "more traffic" step.
+
+`node tools/animal-course-check.mjs`: a long walk isn't axis-aligned and bends off the straight
+line, two animals get the same course on the same corridor, an animal a tile to the side steps into
+a worn track, and shaping costs about 0.4 ms a 40-tile journey including the route search.
+`wildlife.update` on the stocked Serengeti timed the same before and after.
+
 ## Verification
 
 - `animal-trails-check.mjs`: 11 checks over every map roster, actual crossings,

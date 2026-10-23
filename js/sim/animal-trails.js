@@ -164,9 +164,11 @@ export function preferTrailPath(wl,a,def,original,canVisit=null,canPass=passable
     for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1]]) {
       const xx=x+dx,yy=y+dy;if(!w.inb(xx,yy))continue;const j=w.idx(xx,yy),steps=s.steps[i]+1;
       if(steps+distance(j)>maxSteps||!canPass(w,j,a)||w.fire[j]||canVisit&&!canVisit(j))continue;
-      // Prefer established lanes mildly; dense brush and steep climbs cost more.
+      // Prefer established trails (the going is easier where the ground is beaten: a well-worn
+      // step costs 40% of open ground; it was 65%), within the detour limit above; dense brush and
+      // steep climbs cost more.
       const rise=Math.abs(w.tileH(xx,yy)-w.tileH(x,y));
-      const next=cost+1-.35*strength(edgeWear(w,i,j))+.18*(w.shrub[j]?w.shrubG[j]:0)+Math.min(.6,rise*.3)+(learn?.8*valueNoise(xx,yy,3.5,450):0);
+      const next=cost+1-.6*strength(edgeWear(w,i,j))+.18*(w.shrub[j]?w.shrubG[j]:0)+Math.min(.6,rise*.3)+(learn?.8*valueNoise(xx,yy,3.5,450):0);
       if(s.seen[j]===stamp&&next>=s.g[j])continue;
       s.seen[j]=stamp;s.g[j]=next;s.steps[j]=steps;s.parent[j]=i;push(j,next);
     }

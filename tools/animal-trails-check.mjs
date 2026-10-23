@@ -30,7 +30,7 @@ check('Stationary grazing, dormant animals, spacing and pause cannot wear a trai
 });
 check('Actual walking paints connected edges, independent of simulation step size',()=>{
  const totals=[];for(const dt of [.02,.05]){const g=setup(),a=spawn(g,'deer',30.5,30.5),w=g.world;walk(g,a,w.idx(45,30),dt);
- const worn=[...w.trailE].filter(Boolean);assert.ok(worn.length>=14);assert.ok(worn.every(v=>v<.16),'one pass stays invisible');assert.ok(!w.trailS.some(Boolean));totals.push(worn.reduce((a,b)=>a+b,0));}
+ const worn=[...w.trailE,...w.trailS].filter(Boolean);assert.ok(worn.length>=14);assert.ok(worn.every(v=>v<.16),'one pass stays invisible');totals.push(worn.reduce((a,b)=>a+b,0)); /* (a journey meanders, so it crosses some north-south edges too) */}
  assert.ok(Math.abs(totals[0]-totals[1])<.04);
 });
 check('Repeated traffic becomes a narrow continuous track while a one-off crossing stays invisible',()=>{
