@@ -7,15 +7,23 @@ import { foodAt } from './animal-foraging.js';
 import { hash2, valueNoise } from '../rng.js';
 import { riskAt, safety } from './predation-risk.js';
 export const TRAIL_THRESHOLD = 0.09;
+// The drawn trail: it starts to show at TRAIL_THRESHOLD and is fully worn at TRAIL_FULL. A journey
+// wears about a 20th of the threshold into the ground (bigger animals a little more), so a trail
+// shows after about 20 passes and is plain to see after about 45 (it showed after about 9, from any
+// walking, and wore to full only at 0.55).
+export const TRAIL_FULL = 0.2;
+const PASS_WEAR = 0.45;
 export const TRAIL_FOOTPRINT = 0.17; // tiles
-// Unused trails fade 0.5% a day (about half in 140 days): a game trail lasts a season or more
-// after the animals stop using it (decision 0014; it was 1.5%).
-export const TRAIL_FADE = 0.995;
+// Unused trails fade 0.35% a day (about half in 200 days): a game trail lasts well over a year
+// after the animals stop using it (decisions 0014 and 0010; it was 0.5%, and before that 1.5%).
+export const TRAIL_FADE = 0.9965;
 export function trailSurface(w, j) {
   return j >= 0 && j < w.n && !w.catalog.definition.look.underwater && !isWater(w.terrain[j]) && !w.flood[j] &&
     w.struct[j] < 0 && ![T.ROAD,T.GRAVEL,T.TRAIL].includes(w.terrain[j]) && w.feature[j] !== F.FENCE;
 }
+// (tile-edge crossings, which steer route choice, keep their own scale: a few crossings count)
 const strength = v => Math.sqrt(clamp(((v || 0) - TRAIL_THRESHOLD) / (0.55 - TRAIL_THRESHOLD), 0, 1));
+const drawn = v => Math.sqrt(clamp(((v || 0) - TRAIL_THRESHOLD) / (TRAIL_FULL - TRAIL_THRESHOLD), 0, 1));
 // E, S, W, N, shared across boundaries. Roads/water/edits never retain a visual connection.
 export function trailPorts(w, j, out = [0,0,0,0]) {
   out.fill(0);
@@ -57,7 +65,7 @@ export function trailMask(w,j,u,v,margin=0) {
   const x=j%w.w+u,y=(j/w.w|0)+v;
   let raw=trailSample(w,x,y);
   if(margin)for(const [dx,dy] of [[margin,0],[-margin,0],[0,margin],[0,-margin]])raw=Math.max(raw,trailSample(w,x+dx,y+dy));
-  return strength(raw);
+  return drawn(raw);
 }
 const densityStates=new WeakMap();
 function densityState(w,create=false) {
@@ -73,7 +81,7 @@ function traceTraffic(w,a,profile,x0,y0) {
   // A narrow footprint (a game trail is a hoof's width, not a body's): the same peak wear as
   // the old 0.28-tile footprint, spread over less ground.
   const d=Math.hypot(a.x-x0,a.y-y0),samples=Math.max(1,Math.ceil(d*R*3)),radius=TRAIL_FOOTPRINT;
-  const amount=profile.wear*(a.juvenile?.5:1)*d/samples*5*.28/radius;
+  const amount=profile.wear*(a.juvenile?.5:1)*d/samples*5*.28/radius*PASS_WEAR;
   for(let k=0;k<samples;k++){
     const t=(k+.5)/samples,x=x0+(a.x-x0)*t,y=y0+(a.y-y0)*t;
     const minX=Math.max(0,Math.floor((x-radius)*R)),maxX=Math.min(W-1,Math.floor((x+radius)*R));
@@ -99,7 +107,7 @@ export function decayTrails(w) {
   const density=densityState(w);
   if(density){const W=w.w*TRAIL_RESOLUTION;for(const i of density.active){
     const j=((i/W|0)/TRAIL_RESOLUTION|0)*w.w+((i%W)/TRAIL_RESOLUTION|0);
-    if(!trailSurface(w,j)||density.array[i]<.005){density.array[i]=0;density.active.delete(i);}else density.array[i]*=TRAIL_FADE;
+    if(!trailSurface(w,j)||density.array[i]<.0006){density.array[i]=0;density.active.delete(i);}else density.array[i]*=TRAIL_FADE;
   }}
   w.trailMax=0;
   for(let j=0;j<w.n;j++) {
@@ -124,7 +132,12 @@ export function recordTrailStep(wl,a,def,x0,y0) {
   if(!profile||a.state==='dormant'||a.flying||a.alt>.1)return;
   const d=Math.hypot(a.x-x0,a.y-y0);
   if(d<1e-5||d>2)return; // terrain recovery/teleports are not traffic
-  ensure(w);traceTraffic(w,a,profile,x0,y0);
+  // Only journeys wear a drawn trail: a curved walk of six tiles or more (animal-course.js), or a
+  // herd heading off the map. Shuffling to keep up with the herd, foraging steps, chases and
+  // flight wear the ground evenly everywhere and only drew stray strands. (Edge crossings below,
+  // for route choice and soil compaction, still count every step.)
+  ensure(w);
+  if(a.state==='leave'||a.state==='walk'&&a.course?.pts&&a.course.path===a.path)traceTraffic(w,a,profile,x0,y0);
   let x=Math.floor(x0),y=Math.floor(y0);const ex=Math.floor(a.x),ey=Math.floor(a.y);
   if(!w.inb(x,y)||!w.inb(ex,ey)||x===ex&&y===ey)return;
   ensure(w);

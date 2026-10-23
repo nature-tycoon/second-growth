@@ -15,7 +15,8 @@ function setup(map='pnw') {
 }
 function spawn(g,key='deer',x=40.5,y=30.5){const d=g.catalog.animal[key];const a=g.wildlife.spawn(d,x|0,y|0,{silent:true,age:d.mature*DAYS_PER_YEAR+10});Object.assign(a,{x,y,state:'idle',wait:99,hunger:0,thirst:0});return a;}
 function stamp(g,a,x0,y0,x1,y1){a.age+=2;a.x=x1;a.y=y1;recordTrailStep(g.wildlife,a,g.catalog.animals[a.sp],x0,y0);}
-function line(g,a,n=20){for(let k=0;k<n;k++){for(let x=30;x<50;x++)stamp(g,a,x+.5,30.5,x+1.5,30.5);}}
+// (wear like a journey: only journeys draw a trail, and it takes about 20 of them to show)
+function line(g,a,n=60){const state=a.state;a.state='leave';for(let k=0;k<n;k++){for(let x=30;x<50;x++)stamp(g,a,x+.5,30.5,x+1.5,30.5);}a.state=state;}
 function walk(g,a,dest,dt=.05){assert.ok(g.wildlife.pathTo(a,j=>j===dest,1800));for(let k=0;k<2500&&a.state==='walk';k++)g.wildlife.update(dt);assert.equal(a.state,'idle');}
 function food(g,x,y){const p=g.catalog.plants.find(p=>p&&p.layer===0&&!p.invasive&&['grass','tallgrass','sedge'].includes(p.look.type));assert.ok(p);const j=g.world.idx(x,y);g.world.ground[j]=p.id;g.world.groundG[j]=1;return j;}
 check('All map entries restrict trail making to suitable large land mammals',()=>{
@@ -39,6 +40,14 @@ check('Repeated traffic becomes a narrow continuous track while a one-off crossi
  const j=w.idx(40,30),ports=trailPorts(w,j);assert.ok(ports[0]>.5&&ports[2]>.5);
  assert.equal(ports[1],0);assert.equal(ports[3],0);assert.ok(trailMask(w,j,.5,.5)>.5);assert.equal(trailMask(w,j,.5,.9),0);
  assert.equal(trailPorts(w,j)[0],trailPorts(w,j+1)[2]);
+});
+check('Only journeys draw a trail; shuffling about wears no visible track however often it is repeated',()=>{
+ const g=setup(),a=spawn(g),w=g.world;
+ for(let k=0;k<200;k++)for(let x=30;x<50;x++)stamp(g,a,x+.5,30.5,x+1.5,30.5);
+ assert.ok(!w.trailDensity||w.trailDensity.every(v=>v===0),'no drawn wear from steps that are not a journey');
+ assert.ok(w.trailE.some(Boolean),'they still count as crossings for route choice and compaction');
+ line(g,a,8);assert.equal(trailMask(w,w.idx(40,30),.5,.5),0,'a few journeys stay invisible');
+ line(g,a,40);assert.ok(trailMask(w,w.idx(40,30),.5,.5)>0,'a few dozen show');
 });
 check('Continuous density shares exact tile seams and remains stable while paused',()=>{
  const g=setup(),a=spawn(g),w=g.world;line(g,a);const j=w.idx(40,30),node=trailNode(w,j);

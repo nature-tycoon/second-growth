@@ -14,7 +14,7 @@ export const COURSE_MIN = 6;      // tiles: shorter walks keep their tile-by-til
 const MEANDER = 1.0;              // tiles each side at most
 const MEANDER_SCALE = 6;          // tiles between bends, roughly
 const TRACK_REACH = 1.5;          // tiles: how far to the side an animal steps into a worn track (about a body length)
-const TRACK_SEEN = 0.05;          // worn enough to be drawn to (the drawn trail starts at 0.09)
+const TRACK_SEEN = 0.02;          // worn enough to be drawn to: about a dozen passes (a trail shows at about 50)
 const STEP = 0.25;                // sampling along the curve, tiles
 
 // The point an animal steers for in path tile k: where its course crosses that tile, or the tile's

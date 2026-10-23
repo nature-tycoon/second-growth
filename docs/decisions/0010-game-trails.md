@@ -155,6 +155,25 @@ line, two animals get the same course on the same corridor, an animal a tile to 
 a worn track, and shaping costs about 0.4 ms a 40-tile journey including the route search.
 `wildlife.update` on the stocked Serengeti timed the same before and after.
 
+## Only journeys, more traffic, longer memory (2026-10-23)
+
+- Only a journey draws a trail: a curved walk (`a.course`) or a herd leaving the map. Keeping up
+  with the herd, foraging steps, chases and flight no longer draw (they were most of the wear and
+  drew the stray strands); every step still counts as an edge crossing for route choice and `trod`.
+- A pass wears 0.45 of what it did, so a trail shows after about 20 passes (was about 9) and is
+  fully dark at 0.2 (`TRAIL_FULL`, was 0.55), about 45 passes. The shader reads the same constants.
+  Faint wear is kept down to 0.0006 so single passes can add up.
+- Unused trails fade 0.35% a day (`TRAIL_FADE` 0.9965, half in about 200 days, was 140). A fully
+  worn trail stays visible about 230 days after its last use, a heavily worn one up to about 690.
+- A worn track draws a journey in from 0.02 (about four passes), so routes merge before they show.
+
+Stocked Serengeti after five game years: 1.6% of the map drawn (was 8–9% after one), a few winding
+trails to water and a trampled rim round the pond, which is realistic at a watering hole. Forest maps
+now get few or no trails (PNW none in five years, Sumatra 0.4%, Amazon 0.3%, Chinandega 0.02%):
+resident deer and elk make only about four feed-to-rest trips in two game years and move their sites
+about three times, so no route reaches 20 passes, and at about 12 passes the Serengeti already
+draws 4% while PNW still draws almost nothing. Steadier daily routes for residents is the open fix.
+
 ## Verification
 
 - `animal-trails-check.mjs`: 11 checks over every map roster, actual crossings,

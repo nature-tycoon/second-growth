@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { snow, SNOW_RGB } from './snow.js';
 import { hash2 } from '../rng.js';
 import { ATLAS_LAYOUT } from './terrain-atlas.js';
+import { TRAIL_THRESHOLD, TRAIL_FULL } from '../sim/animal-trails.js';
 
 // Soft, tileable noise used to vary the ground's color across the valley.
 export function noiseTexture() {
@@ -70,8 +71,8 @@ vec4 tileAt(vec2 p) {
 // arms or reconstructed right-angle junctions are drawn.
 float gameTrail(vec2 p) {
   // fine noise nibbles at the edges, so a worn track frays into the grass instead of having a smooth rim
-  float raw = texture2D(uTrailDensity, (p - uTileOrigin) / uTileSize).r - (texture2D(uNoise, p * 2.3 + 0.61).r - 0.5) * 0.12;
-  float use = sqrt(clamp((raw - 0.09) / (0.55 - 0.09), 0.0, 1.0));
+  float raw = texture2D(uTrailDensity, (p - uTileOrigin) / uTileSize).r - (texture2D(uNoise, p * 2.3 + 0.61).r - 0.5) * 0.05;
+  float use = sqrt(clamp((raw - ${TRAIL_THRESHOLD}) / (${TRAIL_FULL - TRAIL_THRESHOLD}), 0.0, 1.0));
   return use * step(0.5, tileAt(p).a) * uTrailVisible;
 }
 // Smoothly blended where neighbouring tiles are alike (no patchwork inside a meadow), but the
