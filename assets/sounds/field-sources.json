@@ -1020,5 +1020,111 @@
     "size": 199800,
     "sha256": "38a0c9603e5dd819f8140dd637d0521d52609c2304654a28dedd481fd36f974a",
     "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as 96 kbps mono AAC. Derived clips retain the source license."
+  },
+  "canada-goose": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/a/ad/Low_flyover_by_five_Canadian_Geese.flac",
+    "source": "https://commons.wikimedia.org/wiki/File:Low_flyover_by_five_Canadian_Geese.flac",
+    "by": "Extemporalist",
+    "license": "CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "Low flyover by five Canada Geese in the Okanagan, flight calls and wing sounds",
+    "title": "Low flyover by five Canadian Geese.flac",
+    "size": 1180230,
+    "clips": [
+      {
+        "name": "field-canada-goose-1",
+        "offset": 14.5,
+        "duration": 9,
+        "bytes": 93270
+      }
+    ],
+    "sha256": "64a5fcc347fe81a679a25e01f1d889548e1334656b7823fb1cc6aadcf6ad76f9",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "highpass": 120,
+    "download": "https://upload.wikimedia.org/wikipedia/commons/a/ad/Low_flyover_by_five_Canadian_Geese.flac"
+  },
+  "canada-goose-yellowstone": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/1/15/Yellowstone_sound_library_-_Canada_Geese_-_001.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Canada_Geese_-_001.mp3",
+    "by": "NPS & MSU Acoustic Atlas / Jennifer Jerrett, Yellowstone sound library",
+    "license": "Public domain",
+    "licenseUrl": "",
+    "description": "Canada geese fly overhead on Yellowstone Lake",
+    "title": "Yellowstone sound library - Canada Geese - 001.mp3",
+    "size": 1546384,
+    "clips": [
+      {
+        "name": "field-canada-goose-2",
+        "offset": 5,
+        "duration": 8,
+        "bytes": 82082
+      },
+      {
+        "name": "field-canada-goose-3",
+        "offset": 15,
+        "duration": 8,
+        "bytes": 81780
+      }
+    ],
+    "sha256": "bf5411f912aca8096341112c3f5f1ecd35c7d9b51e3dc9eab5433b490fd41a09",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "highpass": 120,
+    "download": "https://upload.wikimedia.org/wikipedia/commons/1/15/Yellowstone_sound_library_-_Canada_Geese_-_001.mp3"
+  },
+  "mallard": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/2/28/Anas_platyrhynchos_-_Mallard_XC112828.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Anas_platyrhynchos_-_Mallard_XC112828.mp3",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": "bird-seen:yes playback-used:no Common name: Mallard Type: call, female Location: Powderhorn Park, Minneapolis, Hennepin, Minnesota Country: United States",
+    "title": "Anas platyrhynchos - Mallard XC112828.mp3",
+    "size": 273886,
+    "clips": [
+      {
+        "name": "field-mallard-1",
+        "offset": 6.6,
+        "duration": 2.6,
+        "bytes": 31110
+      },
+      {
+        "name": "field-mallard-2",
+        "offset": 10.8,
+        "duration": 3.4,
+        "bytes": 37484
+      }
+    ],
+    "sha256": "6083e9372ab1e802c129ffb4039015112d4e9fc5dd7738e101b2d50681b36686",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "highpass": 100,
+    "download": "https://upload.wikimedia.org/wikipedia/commons/2/28/Anas_platyrhynchos_-_Mallard_XC112828.mp3"
+  },
+  "wood-duck": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Aix_sponsa_-_Wood_Duck_XC177728.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Aix_sponsa_-_Wood_Duck_XC177728.mp3",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": "A male calling while perched on a branch about 15m above my head in a Cottonwood tree along a lake. At the end, the bird flies off to a higher perch farther away.",
+    "title": "Aix sponsa - Wood Duck XC177728.mp3",
+    "size": 1235697,
+    "clips": [
+      {
+        "name": "field-wood-duck-1",
+        "offset": 30,
+        "duration": 6,
+        "bytes": 63011
+      },
+      {
+        "name": "field-wood-duck-2",
+        "offset": 15.9,
+        "duration": 4,
+        "bytes": 43880
+      }
+    ],
+    "sha256": "7b545a45664a25d00cfcbed75c6a757c3bc708efa47faddfdae8a52a1338ff5a",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "highpass": 300,
+    "download": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Aix_sponsa_-_Wood_Duck_XC177728.mp3"
   }
 }
