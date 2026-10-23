@@ -114,9 +114,13 @@ export function createTools(catalog) {
   // fenceLine: a hedge or living-fence mix, planted right in a fence line (see strokeTiles). On a
   // fence tile every stake or shrub is set (no gaps), starts as a well-rooted cutting, and any lawn
   // under the fence is dug out as a planting strip first.
-  function plantTool(source, cost, density, fenceLine = false) {
+  // spaced: a single kind of tree. The first tile of a stroke always gets its tree, so a click
+  // plants one; after that a tree never touches another planted in the same stroke, and about
+  // two tiles in five are left open, so a dragged or wide brush sets out an uneven stand of trees
+  // rather than a solid block of them, one to every tile.
+  function plantTool(source, cost, density, fenceLine = false, spaced = false) {
     const species = Array.isArray(source) ? source.map(k => PLANT[k]) : [PLANT[source]];
-    return (game, i, rng) => {
+    return (game, i, rng, stroke) => {
       const w = game.world;
       const layer = species[0].layer;
       const ids = layer === 0 ? w.ground : layer === 1 ? w.shrub : w.tree;
@@ -128,6 +132,7 @@ export function createTools(catalog) {
       }
       if (ids[i]) return null;
       if (!inFence && rng() > density) return null;
+      if (spaced && stroke?.count && (rng() > 0.6 || besidePlanted(w, i, stroke))) return null;
       // each seed ends up where it suits best: weight by suitability
       let total = 0;
       const s = species.map(p => {
@@ -168,8 +173,16 @@ export function createTools(catalog) {
     tool({ key: 'plant_' + p.key, cat: 'plants', sub: p.tab || ['ground', 'shrub', 'tree'][p.layer], // (tab: a tab of its own, like the reef's island plants)
       name: p.name, cost: p.cost,
       icon: { plant: p.key }, desc: p.desc, species: [p.key], layer: p.layer, size: p.layer === 2 ? 0 : 1,
-      apply: plantTool(p.key, p.cost, p.layer === 2 ? 1 : density) });
+      apply: plantTool(p.key, p.cost, p.layer === 2 ? 1 : density, false, p.layer === 2) });
   }
+  }
+  // whether a tile next to i already got a plant from this stroke
+  function besidePlanted(w, i, stroke) {
+    const x = i % w.w, y = (i / w.w) | 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if ((dx || dy) && w.inb(x + dx, y + dy) && stroke.changed.includes(w.idx(x + dx, y + dy))) return true;
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------- habitat features
