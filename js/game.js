@@ -18,6 +18,7 @@ import { checkCampaign } from './sim/campaign.js';
 import { createFarmState, restoreFarmState } from './farm-state.js';
 import { ContractError, assertSaveEnvelope, assertWorld } from './data/contracts.js';
 import { WORLD_ARRAYS, EXTRA_ARRAYS, extraArrayLimit } from './data/world-schema.js';
+import { speciesCounts } from './sim/animal-density.js';
 export { WORLD_ARRAYS, EXTRA_ARRAYS } from './data/world-schema.js';
 
 // a map switch in progress across a page reload (see UI.switchMap)
@@ -200,7 +201,7 @@ export class Game {
       const tips = this.mapDefinition.climate.tips;
       this.notify(`${this.seasonName()} has arrived. ${tips[this.season]}`, 'season');
     }
-    this.history.push({ day: this.day, score: score.total, species: speciesPresent(this), money: this.money, visitors: this.visitors.monthly, inv: score.invFrac || 0 });
+    this.history.push({ day: this.day, score: score.total, species: speciesPresent(this), money: this.money, visitors: this.visitors.monthly, inv: score.invFrac || 0, pops: speciesCounts(this.wildlife.agents, this.catalog.animals.length) });
     this.checkInvasives(score.invFrac || 0);
     if (this.history.length > 400) this.history.shift();
     this.checkGoals();

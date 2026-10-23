@@ -960,3 +960,14 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
   #toasts .toast:nth-child(n+2) { display: none; }
   .toast:not(.open) > .toast-text { -webkit-line-clamp: 3; }
 }
+
+/* "Where animals are" legend: tappable species rows with counts and yearly change */
+#legend .density-list { max-height: 240px; overflow-y: auto; margin-right: -8px; padding-right: 8px; }
+#legend .row.pick { cursor: pointer; border-radius: 6px; padding: 1px 4px; margin: 1px -4px; }
+#legend .row.pick:hover { background: rgba(255, 255, 255, 0.5); }
+#legend .row.pick.on { background: rgba(255, 255, 255, 0.85); font-weight: 700; }
+#legend .row .count { margin-left: auto; min-width: 22px; text-align: right; }
+#legend .row .trend { min-width: 30px; text-align: right; font-size: 11px; color: var(--muted); }
+#legend .row .trend.up { color: #3f8a4e; }
+#legend .row .trend.down { color: #b8302a; }
+#legend .chip.all { background: linear-gradient(90deg, #f2e08a, #e0843a, #b8302a); }

@@ -14,6 +14,7 @@ import { passageGuide } from '../sim/bird-passage.js';
 import { CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
 import { speciesPresent } from '../sim/goals.js';
+import { speciesCounts, speciesColor } from '../sim/animal-density.js';
 import { campaignOn, currentChapter, unlockedTools, chapterOfTool, goalMet, campaignVisitorHint } from '../sim/campaign.js';
 import { Game, PENDING_KEY } from '../game.js';
 import { BIOMES, BIOME_LIST } from '../biome.js';
@@ -94,7 +95,7 @@ export class UI {
     this.game = game;
     this.renderer = renderer;
     this.state = {
-      cat: 'inspect', tool: null, plantTab: 'mixes', brushR: 1, overlay: 'none', overlaySpecies: null,
+      cat: 'inspect', tool: null, plantTab: 'mixes', brushR: 1, overlay: 'none', overlaySpecies: null, densitySpecies: null,
       hover: null, previewTiles: null, inspect: null,
       clean: false, // a keystone moment or photo mode: no brush, previews, overlays or selection markers
     };
@@ -250,6 +251,15 @@ export class UI {
     // blur after picking so WASD goes back to moving the camera instead of scrolling the list
     $('#overlay').addEventListener('change', e => { this.setOverlay(e.target.value); e.target.blur(); });
     $('#btn-overlay').addEventListener('click', () => this.openOverlayPicker()); // (phones, and narrow top bars: the menu as a button)
+    // "Where animals are": a legend row shows just that species (tap it again for every animal)
+    $('#legend').addEventListener('click', e => {
+      const row = e.target.closest('[data-density]');
+      if (!row) return;
+      const sp = row.dataset.density === '' ? null : +row.dataset.density;
+      this.state.densitySpecies = sp === this.state.densitySpecies ? null : sp;
+      this.renderLegend();
+      this.drawMinimap(false);
+    });
   }
   setSpeed(s) { this.startPause = false; document.body.classList.remove('choosing-map'); this.game.speed = s; this.refreshTop(true); }
   // Touch screens: touching the map folds the tool panel down to its title, so the map has room.
@@ -759,6 +769,7 @@ export class UI {
     const now = performance.now();
     if (this.state.inspect && now - this.lastInfo > 600) { this.lastInfo = now; this.renderInfo(); }
     if (now - this.lastMini > 120) { this.lastMini = now; this.drawMinimap(now - this.lastMiniFull > 1500); }
+    if (this.state.overlay === 'animals' && now - (this.lastLegend || 0) > 1000) { this.lastLegend = now; this.renderLegend(); }
   }
 
   // ------------------------------------------------------------ toasts & journal
@@ -822,10 +833,19 @@ export class UI {
       }
     }
     ctx.drawImage(this.miniImg, 0, 0);
+    // (with "Where animals are" on, each species gets its own colour, and a chosen one stands out)
+    const byKind = this.state.overlay === 'animals' && !this.state.clean, pick = byKind ? this.state.densitySpecies : null;
+    if (byKind) { ctx.fillStyle = 'rgba(18,26,18,0.62)'; ctx.fillRect(0, 0, c.width, c.height); } // (darken the land so the dots read)
     ctx.fillStyle = 'rgba(255,250,230,0.9)';
     for (const a of g.wildlife.agents) {
       if (a.x < 0 || a.y < 0 || a.x > w.w || a.y > w.h) continue;
-      ctx.fillRect(a.x * sx - 1.5, a.y * sy - 1.5, 3, 3);
+      if (!byKind) { ctx.fillRect(a.x * sx - 1.5, a.y * sy - 1.5, 3, 3); continue; }
+      if (a.leaving || (pick != null && a.sp !== pick)) {
+        if (pick == null) continue;
+        ctx.fillStyle = 'rgba(255,250,230,0.35)'; ctx.fillRect(a.x * sx - 1, a.y * sy - 1, 2, 2); continue;
+      }
+      const r = pick != null ? 2.5 : 1.75;
+      ctx.fillStyle = speciesColor(a.sp); ctx.fillRect(a.x * sx - r, a.y * sy - r, 2 * r, 2 * r);
     }
     if (g.events.fireTiles || g.events.floodTiles) {
       for (let i = 0; i < w.n; i++) {
@@ -858,11 +878,33 @@ export class UI {
     else if (mode === 'disturb') html = '<b>Visitor disturbance</b>' + grad(['#f2e08a', '#e0843a', '#b8302a'], 'a little', 'a lot') + '<div class="small" style="margin-top:4px">Shy species avoid busy trails. Screening shrubs and viewing blinds help.</div>';
     else if (mode === 'flood') html = '<b>Flood risk</b><div class="row"><span class="chip" style="background:#1f6bf2"></span>Underwater right now</div><div class="row"><span class="chip" style="background:#3380d9"></span>Floods most winters</div><div class="row"><span class="chip" style="background:#8cc7f2"></span>Only in a big flood</div><div class="small" style="margin-top:4px">Marshes, ponds and beaver dams soak up floodwater and shrink these zones.</div>';
     else if (mode === 'fish') html = '<b>Fish passage</b><div class="row"><span class="chip" style="background:#c83c32"></span>Cut off from the river</div>' + grad(['#d88a4a', '#e8d86a', '#5ad0a0'], 'connected, poor', 'connected, clean & shaded');
+    else if (mode === 'animals') html = this.animalsLegendHTML();
     else if (mode === 'species') {
       const def = this.game.catalog.animals[this.state.overlaySpecies];
       html = `<b>Where ${many(def)} could live</b>` + grad(['#c8584a', '#e8c85a', '#4ac86a'], 'poor', 'ideal') + `<div class="small" style="margin-top:4px">${def.hint}</div>`;
     }
+    const list = lg.querySelector('.density-list'), top = list ? list.scrollTop : 0;
     lg.innerHTML = html;
+    if (list) { const l2 = lg.querySelector('.density-list'); if (l2) l2.scrollTop = top; }
+  }
+  // Each species on the map: its minimap colour, how many there are, and the change over the past year
+  // (from the monthly census in game.history).
+  animalsLegendHTML() {
+    const g = this.game, animals = g.catalog.animals, pick = this.state.densitySpecies;
+    const now = speciesCounts(g.wildlife.agents, animals.length);
+    const past = g.history.find(h => h.pops && h.day >= g.day - DAYS_PER_YEAR - 1);
+    const total = now.reduce((s, c) => s + c, 0);
+    const rows = animals.filter(d => now[d.index] || d.index === pick).sort((a, b) => now[b.index] - now[a.index]).map(d => {
+      const k = d.index, was = past?.pops?.[k];
+      const ch = was == null ? '' : now[k] - was;
+      const trend = ch === '' ? '' : `<span class="trend ${ch > 0 ? 'up' : ch < 0 ? 'down' : ''}" title="${tr('Change since a year ago (or since counts began)')}">${ch > 0 ? '+' : ch < 0 ? '−' : '±'}${Math.abs(ch)}</span>`;
+      return `<div class="row pick${k === pick ? ' on' : ''}" data-density="${k}"><span class="chip" style="background:${speciesColor(k)}"></span>${d.name}<span class="small count">${now[k]}</span>${trend}</div>`;
+    }).join('');
+    const sub = pick == null ? tr('Darker means more animals. Tap a species to show only it.') : `${tr('Showing only')} ${many(animals[pick])}. ${tr('Tap it again to show all.')}`;
+    return `<b>${tr('Where animals are')}</b><div class="small" style="margin:2px 0 4px">${sub}</div>`
+      + `<div class="row pick${pick == null ? ' on' : ''}" data-density=""><span class="chip all"></span>${tr('All animals')}<span class="small count">${total}</span></div>`
+      + `<div class="density-list">${rows || `<div class="small">${tr('No animals live here yet.')}</div>`}</div>`
+      + (past ? '' : `<div class="small" style="margin-top:4px">${tr('Yearly changes show once a month of records builds up.')}</div>`);
   }
 
   // ------------------------------------------------------------ modals
