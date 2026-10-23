@@ -41,6 +41,8 @@ Read the decisions in [docs/decisions/](docs/decisions/) before changing the are
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
 
+Performance budget: [2026-10-23 review](docs/performance-review-2026-10-23.md) has where a frame goes, the per-part ceilings for new graphics and simulation, and the open fixes (young climbing primates, daily plant redraw, daily environment update). Measure a new feature with `node tools/play-profile.mjs [maps] [quality] [years]` before and after: an organically grown game through the real frame loop, simulation vs drawing vs GPU.
+
 ## Working alongside other agents
 
 Several agents (Claude Code, Codex, Cursor) often edit this checkout at the same time, so uncommitted changes may belong to someone else.
