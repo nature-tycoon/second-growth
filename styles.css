@@ -189,12 +189,19 @@ button.stat:hover { background: var(--paper-2); }
 .ico { width: 22px; height: 22px; color: var(--ink-2); }
 .spacer { flex: 1; }
 .top-actions { display: flex; gap: 8px; align-items: center; border-left: 1px solid var(--line); padding-left: 14px; }
-.top-actions select { max-width: 190px; text-overflow: ellipsis; }
 .top-actions select, button.ghost {
   height: 34px; border-radius: 17px; border: 1px solid var(--fill-edge); background: var(--paper-2);
   padding: 0 12px; font-weight: 700; font-size: 13px; cursor: pointer;
 }
-button.ghost:hover, .top-actions select:hover { background: var(--paper-3); }
+button.ghost:hover { background: var(--paper-3); }
+.top-actions select {
+  max-width: 190px; text-overflow: ellipsis;
+  /* our own chevron: the native arrow ignores padding and hugs the pill's rounded edge */
+  appearance: none; -webkit-appearance: none; padding-right: 30px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23243b2b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 13px center;
+}
+.top-actions select:hover { background-color: var(--paper-3); }
 button.ghost.on { background: var(--moss); color: #fff; border-color: var(--moss-2); }
 .top-actions .icon-btn, #btn-menu { background: transparent; border-color: transparent; }
 button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 2px solid var(--moss); outline-offset: 3px; }
@@ -481,7 +488,7 @@ body.menu-effects-off .toast { background: rgba(28, 38, 30, 0.86); -webkit-backd
   #stat-date { display: none !important; }
   #topbar .brand { padding: 0; background: transparent; } /* (just the logo: no chip around it) */
   .stat.money { min-width: 0; font-size: 16px; }
-  .top-actions select { max-width: 120px; padding: 0 6px; }
+  .top-actions select { max-width: 120px; padding: 0 6px 0 10px; }
   #btn-trees, #btn-journal { display: none; }
   #toolpanel { width: 280px; }
   #infopanel { width: 240px; }
