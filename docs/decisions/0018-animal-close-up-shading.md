@@ -120,6 +120,28 @@ Bending knees and a fine fur texture would come after that, as their own decisio
   species. Added details could come later, per species, on top of this.
 - A check that counts drawn animals must add `close.count`, as well as `far.count`.
 
+## Body shape (after step 4)
+
+Cole said some animals looked fake or blobby. The 51 mammals built by `quadruped()` (deer, dogs,
+cats, antelope, pigs, raccoons and the rest) shared three faults: a sausage body, legs hanging under
+it like posts, and heads on thin pipe necks. All three are fixed in `quadruped()`, so they carry
+to every one of them:
+
+- **Waist and chest:** `loftBody` takes `tuck` (the belly rises toward the hind legs) and `keel`
+  (the chest drops between the forelegs), shaping only the underside. Default 0.4 and 0.1 in
+  `quadruped()`. Heavy animals set a small `tuck` (buffalo, warthog, peccary, beaver, rhino,
+  elephant). Other `loftBody` callers default to 0, so they are unchanged.
+- **Thighs and shoulders:** each leg is one smooth tube (`smoothLegs` is now the default). It
+  starts wide and oval from front to back inside the body and narrows to the knee. Its top wears
+  the flank's coat, never the belly's, shading into the leg colour toward the knee (`legPaint`).
+  Felines keep their own haunches (`muscles: false`), and pillar legs are unchanged.
+- **Neck:** a tube rooted low in the chest, deep and flattened side to side where it leaves the
+  shoulders, narrowing to the head. Before, it was one straight limb.
+
+Cost: the usual models have 3% more triangles over those 51 species (520k to 537k, at most +25%
+on the small coyote), the close-up models 1% more. Building them got slightly faster (1.37 to
+1.18 s for all of them, usual and close), since a tube costs less than limbs with ball joints.
+
 ## Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the

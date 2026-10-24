@@ -262,7 +262,10 @@ function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
 // One smooth body: a tube along x whose oval cross-section swells from haunch to chest and
 // rounds off at both ends (no seams between separate blobs). Paint gets (ny, x, side) in
 // unit-like coordinates, so countershading and spots work as they do on a sphere.
-function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false }, paint, o = {}) {
+// tuck: how far the belly line rises toward the hind legs (a waist, as on a deer or a dog, rather
+// than a sausage); keel: how far the chest drops between the forelegs. Both shape only the
+// underside, so the back keeps its line.
+function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false, tuck = 0, keel = 0 }, paint, o = {}) {
   const R = m.seg(fine === 3 ? 128 : fine === 2 ? 84 : fine ? 56 : 22), A = m.seg(fine === 3 ? 88 : fine === 2 ? 60 : fine ? 36 : 14), pos = [], idx = [], u = [];
   for (let i = 0; i <= R; i++) {
     const t = i / R, x = x0 + (x1 - x0) * t;
@@ -270,9 +273,10 @@ function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBu
     const e = t * t * (3 - 2 * t);
     const bulk = shoulderBulk * Math.exp(-(((t - 0.73) / 0.18) ** 2));
     const ry = (ry0 + (ry1 - ry0) * e) * w * (1 + bulk), rz = (rz0 + (rz1 - rz0) * e) * w * (1 + bulk * 0.5), cy = cy0 + (cy1 - cy0) * e - sag * Math.sin(t * Math.PI);
+    const waist = tuck * Math.exp(-(((t - 0.36) / 0.17) ** 2)), under = 1 - waist + keel * Math.exp(-(((t - 0.7) / 0.14) ** 2));
     for (let j = 0; j <= A; j++) {
-      const a = j / A * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
-      pos.push(x, cy + c * ry, sn * rz);
+      const a = j / A * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a), k = smooth(0.15, -0.55, c); // (0 on the back, 1 under the belly)
+      pos.push(x, cy + c * ry * (1 + (under - 1) * k), sn * rz * (1 - waist * 0.3 * k));
       u.push(2 * t - 1, c, sn);
     }
   }
@@ -405,11 +409,24 @@ function quadruped(m, s, o) {
     cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
     ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
     rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: coat.coat ? 1 : o.fine && !o.detail ? 2 : o.fine || false, // (a per-pixel coat needs only a smooth outline)
+    tuck: o.tuck ?? 0.4, keel: o.keel ?? 0.1,
   }, coat);
   if (o.extra) o.extra(m, { L, H, leg, by, W, coat });
-
   // legs: upper and lower segment, swinging from the hip
   const lc = o.legColor || shade(s.color, -0.2);
+  // The upper leg wears the coat of the flank it leaves (never the pale belly below it), shading
+  // into the leg's own colour toward the knee. (A per-pixel coat can't be blended here, so those
+  // legs keep their own colour.)
+  const flank = V(0, 0, 0), upper = new THREE.Color(), lower = new THREE.Color(), knee = Math.min(leg * 0.72, by - H * 0.3);
+  const legPaint = c => coat.coat ? c : (u, p) => {
+    const k = smooth(by - H * 0.4, knee, p.y);
+    if (k >= 1) return typeof c === 'function' ? c(u, p) : col(c);
+    flank.set(Math.max(-1, Math.min(1, p.x / (L * 0.46))), Math.max(-0.2, Math.min(1, (p.y - by) / (H * 0.53))), Math.max(-1, Math.min(1, p.z / (H * 0.42 * W))));
+    upper.copy(coat(flank, p)); lower.copy(typeof c === 'function' ? c(u, p) : col(c));
+    return upper.lerp(lower, k);
+  };
+  // (one smooth tube per leg, bending at the joints, rather than straight pieces with a ball at each)
+  const smoothLegs = o.smoothLegs ?? true;
   const spots = [[L * 0.26, 1, P.LEG_FL], [L * 0.26, -1, P.LEG_FR], [-L * 0.25, 1, P.LEG_BL], [-L * 0.25, -1, P.LEG_BR]];
   for (const [x, side, part] of spots) {
     // set in far enough that even thick upper legs stay inside the body's outline
@@ -417,28 +434,35 @@ function quadruped(m, s, o) {
     const r0 = o.legR0, r1 = o.legR1, rm = (r0 + r1) * 0.55, hind = part >= P.LEG_BL;
     const c = part < P.LEG_BL && o.frontLeg ? o.frontLeg : lc, lo = { part, pivot: hip, rings: o.legRings, seg: o.legSeg };
     let foot = [x, r1, z];
+    // The leg starts as the thigh (or shoulder): wide from front to back where it leaves the body,
+    // narrowing to the knee, so it grows out of the body instead of hanging under it like a post.
+    // (Felines shape their own scapulae and haunches; pillar legs are thick enough.)
+    const thigh = o.muscles !== false && !o.straight;
+    const rx = Math.max(r0 * (hind ? 1.6 : 1.3), H * (hind ? 0.2 : 0.16)), rz = Math.max(r0, Math.min(r0 * 1.1, H * 0.42 * W - Math.abs(z) * 0.8));
     if (o.straight) { // pillar legs (elephant, rhino)
       const knee = [x + (hind ? -r0 * 0.5 : r0 * 0.2), leg * 0.5, z];
-      if (o.smoothLegs) tube(m, [hip, knee, foot], [r0, rm, r1], c, lo);
+      if (smoothLegs) tube(m, [hip, knee, foot], [r0, rm, r1], c, lo);
       else { m.limb(hip, knee, r0, rm, c, lo); m.limb(knee, foot, rm, r1, c, lo); }
     } else if (hind) {
       // thigh forward to the stifle, shin back to the hock, then a straight cannon to the foot
       const b = Math.min(r0 * 0.9, leg * 0.14), stifle = [x + b * 0.55, leg * 0.66, z], hock = [x - b, leg * 0.3, z];
       foot = [x - b * 0.55, r1, z];
-      if (o.smoothLegs) tube(m, [hip, stifle, hock, foot], [r0, r0 * 0.72, r1 * 1.05, r1], c, lo);
+      if (thigh) tube(m, [hip, [x - b * 0.25, hip[1] * 0.4 + stifle[1] * 0.6, z], stifle, hock, foot], [[rx, rz], [rx * 0.86, rz * 0.9], [r0 * 0.9, r0 * 0.78], r1 * 1.05, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+      else if (smoothLegs) tube(m, [hip, stifle, hock, foot], [r0, r0 * 0.72, r1 * 1.05, r1], c, lo);
       else { m.limb(hip, stifle, r0, r0 * 0.75, c, lo); m.limb(stifle, hock, r0 * 0.7, r1 * 1.05, c, lo); m.limb(hock, foot, r1 * 1.05, r1, c, lo); }
     } else {
       // upper arm back to the elbow, forearm down to a slightly forward wrist
       const b = Math.min(r0 * 0.9, leg * 0.14), elbow = [x - b * 0.35, leg * 0.62, z], wrist = [x + b * 0.15, leg * 0.26, z];
       foot = [x + b * 0.1, r1, z];
-      if (o.smoothLegs) tube(m, [hip, elbow, wrist, foot], [r0, rm, r1 * 1.08, r1], c, lo);
+      if (thigh) tube(m, [hip, [x - b * 0.35, hip[1] * 0.4 + elbow[1] * 0.6, z], elbow, wrist, foot], [[rx, rz], [rx * 0.8, rz * 0.9], [rm * 1.1, rm], r1 * 1.08, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+      else if (smoothLegs) tube(m, [hip, elbow, wrist, foot], [r0, rm, r1 * 1.08, r1], c, lo);
       else { m.limb(hip, elbow, r0, rm, c, lo); m.limb(elbow, wrist, rm, r1 * 1.08, c, lo); m.limb(wrist, foot, r1 * 1.08, r1, c, lo); }
     }
     if (o.nails) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 0.91, r1 * 0.5, z + t * r1 * 0.57], [r1 * 0.22, r1 * 0.26, r1 * 0.23], '#a89e8d', lo);
     if (o.foot) o.foot(m, foot, r1, lo, hind);
     else if (o.hoof && o.splitHoof) for (const toe of [-1, 1]) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z + toe * r1 * 0.52], [r1 * 1.25, r1 * 0.85, r1 * 0.48], o.hoof, { part, pivot: hip, gloss: 1 });
     else if (o.hoof) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z], [r1 * 1.3, r1 * 0.85, r1 * 1.15], o.hoof, { part, pivot: hip, lo: true, gloss: 1 });
-    else if (o.paws && (o.toes || o.smoothLegs)) {
+    else if (o.paws && (o.toes || smoothLegs)) {
       m.ell([foot[0] + r1 * 0.45, r1 * 0.63, z], [r1 * 1.35, r1 * 0.62, r1 * 1.1], c, { part, pivot: hip, fine: o.detail });
       if (o.toes) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 1.15, r1 * 0.48, z + t * r1 * 0.52], [r1 * 0.42, r1 * 0.38, r1 * 0.32], c, { part, pivot: hip });
     }
@@ -452,7 +476,13 @@ function quadruped(m, s, o) {
   const hd = { part: P.HEAD, pivot: neck, fine: o.detail };
   const nc = o.neckColor ? solid(o.neckColor) : hc;
   if (o.neckPath) tube(m, o.neckPath, o.neckRadii, nc, { ...hd, seg: o.neckSeg ?? 16, sub: o.neckSub ?? 6 });
-  else if (o.neckR) m.limb(neck, [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], o.neckR, o.neckR * 0.8, nc, { ...hd, seg: o.neckSeg ?? (o.detail ? 14 : undefined), rings: o.neckRings });
+  else if (o.neckR) {
+    // rooted low and back in the chest, deep and flattened from side to side where it leaves the
+    // shoulders, narrowing up to the head (a straight pipe of one width read as a head on a stick)
+    const end = [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], r = o.neckR, root = [neck[0] - r * 0.5, Math.min(neck[1], end[1]) - r * 0.35, 0];
+    const mid = [(root[0] + end[0]) / 2 + r * 0.1, (root[1] + end[1]) / 2 + r * 0.12, 0];
+    tube(m, [root, mid, end], [[r * 1.45, r * 1.12], [r * 1.05, r * 0.9], [r * 0.85, r * 0.78]], nc, { ...hd, seg: o.neckSeg ?? (o.detail ? 14 : 10), sub: 3, capRings: 2 });
+  }
   m.ell(hp, hr, hc, hd);
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28, 0];
   if (!o.noMuzzle) m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);

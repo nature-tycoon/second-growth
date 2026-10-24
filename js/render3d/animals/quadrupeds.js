@@ -577,7 +577,7 @@ const MAMMALS = {
       legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : 0.14),
       neckR: H * (lion ? 0.25 : 0.3 - k * 0.02), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
       coat, legColor, fine: s.clouds ? 2 : lion, detail: !!(lion || k), legRings: legColor ? 8 : undefined,
-      paws: true, toes: true, smoothLegs: true, // soft, articulated paws
+      paws: true, toes: true, smoothLegs: true, muscles: false, // soft, articulated paws (and their own scapulae and haunches: extra)
       head: [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.34 : 0.36) * hs, H * (lion ? 0.31 : 0.33) * hs, H * (lion ? 0.32 : 0.34) * hs], snout: H * 0.15 * hs,
       nose: lion || k ? false : undefined, eyeR: lion ? H * 0.038 : undefined,
       ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : 0.24), earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
@@ -713,6 +713,7 @@ const MAMMALS = {
   beaver: s => {
     const L = s.len, H = L * 0.46, leg = L * 0.12, by = leg + H * 0.5;
     return {
+      tuck: 0.08, // (a heavy body: little waist)
       H, leg, wide: 1.15, hip: 0.08, haunch: 1.1, legR0: H * 0.16, legR1: H * 0.12, legColor: shade(s.color, -0.35), neckR: H * 0.34,
       head: [L * 0.43, by + H * 0.05], headR: [H * 0.34, H * 0.32, H * 0.33], snout: H * 0.2, muzzle: shade(s.belly, 0.1),
       ears: 'round', ear: H * 0.1,
@@ -762,6 +763,7 @@ const MAMMALS = {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     if (s.beard) return beardedPig(s, L, H, leg, by);
     return {
+      tuck: 0.12, // (a heavy body: little waist)
       H, leg, hip: -0.02, shoulder: 0.12, chest: 1.08, haunch: 0.92, legR0: H * 0.14, legR1: H * 0.07, legColor: shade(s.color, -0.3), hoof: '#1a1614', neckR: H * 0.36,
       coat: base => u => {
         const cx = u.x - 0.46 - u.y * 0.12; // a thin band slanting back from the throat over the shoulders
@@ -974,6 +976,7 @@ const MAMMALS = {
   buffalo: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
+      tuck: 0.15, // (a heavy body: little waist)
       H, leg, wide: 1.18, shoulder: 0.12, chest: 1.1, legR0: H * 0.2, legR1: H * 0.12, hoof: '#0e0c0a', neckR: H * 0.34,
       head: [L * 0.53, by - H * 0.0], headR: [H * 0.33, H * 0.28, H * 0.26], snout: H * 0.28, muzzle: '#1a1614',
       ears: 'point', ear: H * 0.2, earOut: 1.2, earBack: 0.1, earW: 0.45, earColor: s.color,
@@ -991,6 +994,7 @@ const MAMMALS = {
   warthog: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
+      tuck: 0.15, // (a heavy body: little waist)
       H, leg, shoulder: 0.1, chest: 1.05, haunch: 0.9, legR0: H * 0.13, legR1: H * 0.08, legColor: shade(s.color, -0.2), hoof: '#1a1614', neckR: H * 0.34,
       head: [L * 0.5, by - H * 0.08], headR: [H * 0.4, H * 0.28, H * 0.32], snout: H * 0.3, muzzle: shade(s.color, -0.1), nose: false,
       ears: 'point', ear: H * 0.2, earOut: 0.6, earW: 0.4,
@@ -1021,6 +1025,7 @@ const MAMMALS = {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     const hide = base => (u, p) => tmp.copy(base(u)).multiplyScalar(0.97 + Math.sin(p.x / H * 34 + Math.sin(p.y / H * 12)) * 0.025);
     return {
+      tuck: 0.1, // (a heavy body: little waist)
       H, leg, detail: true, fine: true, wide: 1.2, hip: 0.03, shoulder: 0.11, chest: 1.07, shoulderBulk: 0.13, haunch: 0.96,
       legR0: H * 0.22, legR1: H * 0.13, straight: true, smoothLegs: true, legSeg: 14, coat: hide, legMotion: 0.23, bobMotion: 0.018,
       neckPath: [[L * 0.25, by + H * 0.07, 0], [L * 0.39, by + H * 0.06, 0], [L * 0.5, by - H * 0.08, 0]], neckRadii: [H * 0.38, H * 0.32, H * 0.22],
@@ -1089,6 +1094,7 @@ const MAMMALS = {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     const hide = base => (u, p) => tmp.copy(base(u)).multiplyScalar(0.96 + 0.035 * Math.sin(p.x / H * 35 + Math.sin(p.y / H * 18)));
     return {
+      tuck: 0.1, // (a heavy body: little waist)
       H, leg, detail: true, fine: true, wide: 1.16, hip: 0.06, shoulder: 0.14, chest: 1.07, sag: 0.095,
       legR0: H * 0.22, legR1: H * 0.16, straight: true, smoothLegs: true, legSeg: 16, coat: hide, legMotion: 0.22, bobMotion: 0.015,
       neckPath: [[L * 0.29, by + H * 0.16, 0], [L * 0.4, by + H * 0.24, 0], [L * 0.5, by + H * 0.26, 0]], neckRadii: [H * 0.36, H * 0.33, H * 0.3],

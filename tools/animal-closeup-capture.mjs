@@ -23,7 +23,7 @@ try {
   browser.assertHealthy();
   await mkdir(out, { recursive: true });
   for (const [title, url] of frames) {
-    const name = title.split(' · ')[0].toLowerCase().replace(/[^a-z0-9]+/g, '-') + (query ? '-' + query.replace(/[^a-z0-9]+/gi, '-') : '') + '.png';
+    const name = title.split(' · ')[0].toLowerCase().replace(/[^a-z0-9]+/g, '-') + (query ? '-' + query.replace(/[^a-z0-9]+/gi, '-').slice(0, 60) : '') + '.png';
     await writeFile(join(out, name), Buffer.from(url.split(',')[1], 'base64'));
     console.log(title, '→', join(out, name));
   }
