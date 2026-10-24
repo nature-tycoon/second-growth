@@ -745,7 +745,7 @@ function monitor(m, s) {
   tube(m, [neck, [S * 0.33, cy + S * 0.025, 0], [S * 0.42, cy + S * 0.04, 0]], [S * 0.065, S * 0.058, S * 0.045], skin, hd);                  // long neck
   m.ell([S * 0.46, cy + S * 0.045, 0], [S * (iguana ? 0.09 : 0.08), S * (iguana ? 0.062 : 0.04), S * (iguana ? 0.062 : 0.045)], skin, hd);           // head
   m.ell([S * 0.54, cy + S * 0.035, 0], [S * 0.045, S * 0.025, S * 0.028], s.color, hd);      // pointed snout
-  eyes(m, [S * 0.46, cy + S * 0.045, 0], S * 0.03, S * 0.02, S * 0.037, S * 0.011, P.HEAD, neck, '#c8a030');
+  eyes(m, [S * 0.46, cy + S * 0.045, 0], S * 0.03, S * 0.02, S * (iguana ? 0.052 : 0.037), S * 0.011, P.HEAD, neck, '#c8a030'); // (on the head's surface: the iguana's is wider)
   if (!s.lizard) for (const side of [1, -1]) m.limb([S * 0.585, cy + S * 0.03, 0], [S * 0.64, cy + S * 0.03, side * S * 0.012], S * 0.005, S * 0.003, '#8a3a4a', { ...hd, caps: false }); // forked tongue
   // tail: thick at the base, tapering, as long again as the body
   const tb = [-S * 0.28, cy, 0];

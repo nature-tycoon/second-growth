@@ -19,8 +19,8 @@ function vole(m, s) {
   m.ell(sn, [0.9, 0.85, 0.95], shade(s.belly, 0.1), hd);
   m.ell([sn[0] + 0.8, sn[1] + 0.15, 0], [0.3, 0.26, 0.3], '#3a2420', { ...hd, lo: true });
   for (const side of [1, -1]) {
-    m.ell([hp[0] + 0.75, hp[1] + 0.6, side * 1.38], [0.4, 0.4, 0.22], '#120e0c', { ...hd, lo: true, gloss: 2 });
-    m.ell([hp[0] + 0.85, hp[1] + 0.72, side * 1.5], [0.12, 0.12, 0.08], '#f4f0ea', { ...hd, lo: true }); // a catchlight
+    m.ell([hp[0] + 0.75, hp[1] + 0.6, side * 1.78], [0.42, 0.42, 0.24], '#120e0c', { ...hd, lo: true, gloss: 2 }); // (on the head's surface, half out)
+    m.ell([hp[0] + 0.88, hp[1] + 0.74, side * 1.98], [0.12, 0.12, 0.08], '#f4f0ea', { ...hd, lo: true }); // a catchlight
     m.ell([hp[0] - 0.5, hp[1] + 1.6, side * 1.15], [0.6, 0.66, 0.3], shade(s.color, 0.12), { ...hd, rot: [side * -0.35, 0, 0] });
     m.ell([hp[0] - 0.42, hp[1] + 1.6, side * 1.22], [0.4, 0.46, 0.2], '#c8a090', { ...hd, lo: true, rot: [side * -0.35, 0, 0] });
     for (const [x, part] of [[2.3, side > 0 ? P.LEG_FL : P.LEG_FR], [-2.5, side > 0 ? P.LEG_BL : P.LEG_BR]]) {
@@ -148,8 +148,8 @@ function bear(m, s) {
     m.ell([hp[0] + H * 0.44, hp[1] - H * 0.05, 0], [H * 0.055, H * 0.05, H * 0.07], '#0c0a09', { ...hd, lo: true });
     for (const side of [1, -1]) {
       m.ell([hp[0] - H * 0.06, hp[1] + H * 0.24, side * H * 0.17], [H * 0.09, H * 0.1, H * 0.05], '#2e2520', hd);
-      m.ell([hp[0] + H * 0.1, hp[1] + H * 0.07, side * H * 0.19], [H * 0.035, H * 0.035, H * 0.02], '#d8c8a8', { ...hd, lo: true, gloss: 2 });
-      m.eyeSpot = [hp[0] + H * 0.1, hp[1] + H * 0.07, H * 0.19]; // (eyes)
+      m.ell([hp[0] + H * 0.1, hp[1] + H * 0.07, side * H * 0.226], [H * 0.04, H * 0.04, H * 0.024], '#2a1c12', { ...hd, lo: true, gloss: 2 }); // (on the head's surface)
+      m.eyeSpot = [hp[0] + H * 0.1, hp[1] + H * 0.07, H * 0.226]; // (eyes)
     }
   }
   for (const [x, side, part, top] of [[L * 0.24, 1, P.LEG_FL, by - 2 * k], [L * 0.24, -1, P.LEG_FR, by - 2 * k], [-L * 0.24, 1, P.LEG_BL, by], [-L * 0.24, -1, P.LEG_BR, by]]) {

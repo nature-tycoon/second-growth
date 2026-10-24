@@ -254,8 +254,8 @@ function sumatranElephant(m, s) {
   m.ell(HX(25.8, 26.6), R(1.9, 1.5, 1.7), u => tmp.copy(col('#8a7874')).multiplyScalar(0.9 + u.y * 0.1), hd); // the pointed lower lip
   // small eyes in wrinkled lids
   for (const side of [1, -1]) {
-    m.ell(HX(24.2, 34.5, side * 4.95), R(1.05, 0.85, 0.5), shade(s.color, -0.3), { ...hd, lo: true });
-    m.ell(HX(24.4, 34.5, side * 5.15), R(0.5, 0.42, 0.32), '#1a120c', { ...hd, lo: true, gloss: 2 });
+    m.ell(HX(24.2, 34.5, side * 4.95), R(1.3, 1.05, 0.55), shade(s.color, -0.3), { ...hd, lo: true });
+    m.ell(HX(24.45, 34.5, side * 5.2), R(0.7, 0.58, 0.4), '#1a120c', { ...hd, lo: true, gloss: 2 });
   }
   m.eyeAt = HX(24.4, 34.5, 5.2); m.eyePivot = neck;
   // ears: rounded, smaller than an African's, laid flat back against the side of the head and neck,
@@ -1006,7 +1006,7 @@ const MAMMALS = {
       H, leg, detail: true, fine: true, wide: 1.2, hip: 0.03, shoulder: 0.11, chest: 1.07, shoulderBulk: 0.13, haunch: 0.96,
       legR0: H * 0.22, legR1: H * 0.13, straight: true, smoothLegs: true, legSeg: 14, coat: hide, legMotion: 0.23, bobMotion: 0.018,
       neckPath: [[L * 0.25, by + H * 0.07, 0], [L * 0.39, by + H * 0.06, 0], [L * 0.5, by - H * 0.08, 0]], neckRadii: [H * 0.38, H * 0.32, H * 0.22],
-      head: [L * 0.53, by - H * 0.12], headR: [H * 0.39, H * 0.26, H * 0.24], snout: H * 0.3, muzzle: shade(s.color, -0.04), nose: false, eyeR: H * 0.03, ears: 'none',
+      head: [L * 0.53, by - H * 0.12], headR: [H * 0.39, H * 0.26, H * 0.24], snout: H * 0.3, muzzle: shade(s.color, -0.04), nose: false, eyeR: H * 0.042, eyeOut: 0.86, ears: 'none',
       foot: (m, foot, r, o) => {
         m.ell([foot[0] + r * 0.12, r * 0.73, foot[2]], [r * 1.18, r * 0.73, r * 1.12], s.color, o);
         for (const toe of [-1, 0, 1]) m.ell([foot[0] + r * (toe === 0 ? 1 : 0.68), r * 0.32, foot[2] + toe * r * 0.68], [r * 0.45, r * 0.32, r * 0.4], '#3d3933', o);
@@ -1075,7 +1075,7 @@ const MAMMALS = {
       H, leg, detail: true, fine: true, wide: 1.16, hip: 0.06, shoulder: 0.14, chest: 1.07, sag: 0.095,
       legR0: H * 0.22, legR1: H * 0.16, straight: true, smoothLegs: true, legSeg: 16, coat: hide, legMotion: 0.22, bobMotion: 0.015,
       neckPath: [[L * 0.29, by + H * 0.16, 0], [L * 0.4, by + H * 0.24, 0], [L * 0.5, by + H * 0.26, 0]], neckRadii: [H * 0.36, H * 0.33, H * 0.3],
-      head: [L * 0.51, by + H * 0.25], headR: [H * 0.36, H * 0.4, H * 0.32], snout: H * 0.1, noMuzzle: true, nose: false, eyeR: H * 0.025, ears: 'none',
+      head: [L * 0.51, by + H * 0.25], headR: [H * 0.36, H * 0.4, H * 0.32], snout: H * 0.1, noMuzzle: true, nose: false, eyeR: H * 0.04, eyeOut: 0.86, ears: 'none',
       foot: (m, foot, r, o) => {
         m.ell([foot[0] + r * 0.08, r * 0.85, foot[2]], [r * 1.08, r * 0.85, r * 1.08], s.color, o);
         for (const toe of [-1, 0, 1]) m.ell([foot[0] + r * (toe === 0 ? 1.0 : 0.8), r * 0.34, foot[2] + toe * r * 0.58], [r * 0.16, r * 0.19, r * 0.2], '#8b857b', o);

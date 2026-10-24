@@ -67,11 +67,11 @@ function orangutan(m, s) {
   m.ell(F(0.135, -0.068), R(0.012, 0.006, 0.035), shade(s.face, 0.1), { ...hd, lo: true }); // mouth line
   m.ell(F(0.1, 0.022), R(0.03, 0.016, 0.06), shade(s.face, 0.06), { ...hd, lo: true });     // brow
   for (const side of [1, -1]) {
-    m.ell(F(0.108, 0.003, side * 0.026), R(0.011, 0.011, 0.011), '#140a06', { ...hd, lo: true, gloss: 2 }); // close-set eyes
+    m.ell(F(0.115, 0.002, side * 0.027), R(0.012, 0.012, 0.012), '#140a06', { ...hd, lo: true, gloss: 2 }); // close-set eyes, just out of the bare face
     m.ell(F(0.135, -0.035, side * 0.011), R(0.006, 0.005, 0.006), '#1a120e', { ...hd, lo: true }); // nostrils
     if (!fl) m.ell(F(-0.005, 0, side * 0.09), R(0.016, 0.022, 0.01), skin, { ...hd, lo: true });  // small ears
   }
-  m.eyeAt = F(0.11, 0.003, 0.026); m.eyePivot = neck;
+  m.eyeAt = F(0.115, 0.002, 0.027); m.eyePivot = neck;
   if (!fl) { locks(m, F(0.08, -0.08, -0.04), F(0.08, -0.08, 0.04), 3, L * 0.06, L * 0.025, lock, hd, 9); return; } // a ginger beard
   // the flanged male: fleshy cheek pads curving forward round the face like a shallow dish, dark
   // skin fringed with fine pale ginger hair at the rim; a big throat sac hanging onto the chest; a
@@ -238,7 +238,7 @@ function monkey(m, s, onBranches = false) {
     if (s.face) m.ell([hp[0] + hr * 0.55, hp[1], 0], [hr * 0.55, hr * 0.75, hr * 0.7], s.face, hd);
     m.ell([hp[0] + hr * 0.85, hp[1] - hr * 0.2, 0], [hr * 0.35, hr * 0.4, hr * 0.5], shade(s.face || s.color, -0.35), hd); // muzzle
     if (!long) m.ell([hp[0] + hr * 0.3, hp[1] - hr * 0.85, 0], [hr * 0.6, hr * 0.6, hr * 0.62], shade(s.color, 0.08), hd); // howler's beard
-    eyes(m, hp, hr * 0.78, hr * 0.15, hr * 0.35, hr * 0.12, P.HEAD, neck, '#3a2210');
+    eyes(m, hp, hr * (s.face ? 0.95 : 0.86), hr * 0.15, hr * 0.35, hr * 0.12, P.HEAD, neck, '#3a2210'); // (half out of the face, or the head without one)
   }
   const bends = canopyWalkerBends(L, by / L);
   for (const side of [1, -1]) {
