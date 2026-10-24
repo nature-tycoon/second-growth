@@ -291,3 +291,7 @@ game's lights, camera angle and tone mapping. Framing can also show the game's o
 and zoomed-out scales, and Model switches to the close-up model (`?model=close`). `?bench=1` times each animal filling a Retina-size frame. `node tools/animal-closeup-capture.mjs [out] [query]`
 saves its frames and a contact sheet. `CLOSEUP_ROOT=<checkout>` renders another checkout (copy the
 page into it first).
+
+Eyes must sit on the head's outer surface: an eye placed for an older, smaller head is buried
+when the head or a face piece grows around it. `node tools/animal-eyes-check.mjs [--print]` builds
+every species (usual and close-up models) and fails when an eye is buried or tiny for its head.
