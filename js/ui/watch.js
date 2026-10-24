@@ -8,7 +8,8 @@
 //
 // The game carries on underneath at whatever speed it was, and the bar has the same speed buttons
 // as the top bar (Space and 1–3 work too). The map can't be painted or panned while watching: a
-// click or a moved mouse only brings up the controls.
+// click or a moved mouse only brings up the controls. The bar can be tucked away into one small
+// button (the − on its end), and then it stays away until that button is pressed.
 
 import { animalDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
@@ -33,7 +34,7 @@ const busy = a => a.state === 'hunt' || a.state === 'flee' || a.state === 'carry
 export class Watch {
   constructor(game, renderer, ui) {
     this.game = game; this.renderer = renderer; this.ui = ui;
-    this.on = false; this.eyeLevel = false;
+    this.on = false; this.eyeLevel = false; this.min = false;
     this.shot = null; this.recent = []; this.n = 0;
   }
 
@@ -82,14 +83,18 @@ export class Watch {
     const o = document.createElement('div'); o.id = 'watch';
     o.innerHTML = `<div class="lb lb-top"></div><div class="lb lb-bot"></div>
       <div class="w-cap"><b></b><span></span></div>
-      <div class="w-bar"><span class="w-hint">Esc to stop · N next · F eye level</span>
+      <div class="w-bar"><span class="w-hint">Esc to stop · N next · F eye level · H hide</span>
         <div class="speed w-speed">${document.getElementById('speed').innerHTML}</div>
-        <button class="btn secondary" data-a="next">Next</button><button class="btn secondary" data-a="eye">Eye level</button><button class="btn" data-a="done">Done</button></div>`;
+        <button class="btn secondary" data-a="next">Next</button><button class="btn secondary" data-a="eye">Eye level</button><button class="btn" data-a="done">Done</button>
+        <button class="w-min" data-a="min" title="Hide the controls"><svg viewBox="0 0 16 16"><path d="M4 8h8"/></svg></button></div>
+      <button class="w-expand" title="Show the controls"><svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4"/></svg></button>`;
     document.body.appendChild(o);
     this.el = o; this.cap = o.querySelector('.w-cap');
     o.querySelector('[data-a=done]').addEventListener('click', () => this.stop());
     o.querySelector('[data-a=next]').addEventListener('click', () => this.next());
     o.querySelector('[data-a=eye]').addEventListener('click', () => this.setEyeLevel(!this.eyeLevel));
+    o.querySelector('[data-a=min]').addEventListener('click', () => this.setMinimized(true));
+    o.querySelector('.w-expand').addEventListener('click', () => this.setMinimized(false));
     o.querySelectorAll('.w-speed button').forEach(b => b.addEventListener('click', () => this.ui.setSpeed(+b.dataset.speed)));
     // the whole screen catches the pointer, so watching never paints or pans the map by accident
     const show = () => this.showControls();
@@ -97,7 +102,15 @@ export class Watch {
     o.addEventListener('wheel', e => { e.preventDefault(); show(); }, { passive: false });
   }
 
+  setMinimized(on) {
+    this.min = on;
+    this.el.classList.toggle('min', on);
+    if (on) { clearTimeout(this.hideT); this.el.classList.remove('show'); } else this.showControls();
+  }
+
   showControls() {
+    this.el.classList.toggle('min', this.min);
+    if (this.min) return;
     this.el.classList.add('show');
     clearTimeout(this.hideT);
     this.hideT = setTimeout(() => { if (this.el.querySelector('.w-bar').matches(':hover')) this.showControls(); else this.el.classList.remove('show'); }, 2600);
@@ -108,6 +121,7 @@ export class Watch {
     if (k === 'escape' || k === 'c') { this.stop(); return true; }
     if (k === 'n' || k === 'arrowright') { this.next(); return true; }
     if (k === 'f') { this.setEyeLevel(!this.eyeLevel); return true; }
+    if (k === 'h') { this.setMinimized(!this.min); return true; }
     this.showControls();
     return false;
   }

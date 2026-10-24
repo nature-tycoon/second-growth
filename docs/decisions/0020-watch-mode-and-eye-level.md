@@ -17,7 +17,9 @@ Watch). The panels go, thin letterbox bars come in, and the camera directs itsel
 - Keystone moments still play, and the director starts a new shot once one ends.
 - The game runs at whatever speed it was. The bar has the top bar's speed buttons (pause, 1–3;
   added 2026-10-24 at Cole's request), and Space and 1–3 work too. Clicks, drags and the scroll
-  wheel never reach the map; they only bring up the bar (speed, Next, Eye level, Done). Esc or C leaves and flies back to where the
+  wheel never reach the map; they only bring up the bar (speed, Next, Eye level, Done). The − on the
+  bar's end (or `H`) tucks it into one small, faint button, and then moving the mouse leaves it
+  away until that button is pressed. Esc or C leaves and flies back to where the
   view was.
 
 **Eye level** (`F` in watch mode; `js/render3d/eye-camera.js`). This is a ride-along view rather than
