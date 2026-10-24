@@ -6,9 +6,8 @@ draw. The plan has four steps, cheapest first:
 1. **Lighting and eyes** (done): fur and feathers soften the light, creases are shaded, eyes catch
    the light.
 2. **Shading baked into the models** (done, with step 1): creases measured once per model.
-3. **Markings drawn per pixel** (open): spots, stripes and patches worked out in the shader from
-   the model's own coordinates, so they stay sharp. Then the extra-dense bodies that only exist to
-   carry markings can go (jaguar 41k triangles, lion 26k, zebra 23k, against a 7k average).
+3. **Markings drawn per pixel** (done): spots, stripes and patches worked out in the shader, so
+   they stay sharp, and the extra-dense bodies that only existed to carry them are gone.
 4. **A close-up model** (open): smoother legs and heads, plus nostrils, lids, hooves and claws, only
    for animals more than about 300 pixels long on screen, built the first time it is needed.
 
@@ -54,9 +53,53 @@ Bending knees and a fine fur texture would come after that, as their own decisio
   species is drawn, so that is a one-time hitch when a new kind first appears. Step 3 should cut it
   back, since the bake scales with vertex count.
 
+## How step 3 works
+
+- `pixelCoat(kind, base, params, dark, mid)` (`model-core.js`) is a painter the shader finishes.
+  Its vertices take `base` (the unmarked coat with its countershading), plus an `aCoat` attribute:
+  the paint coordinate and which of the model's coats (`Model.coatSlot`, numbered from 1). Only
+  marked models carry `aCoat`, so canopy climbers keep their attribute budget. The richest marked
+  model uses 13 of 16.
+- `COAT_GLSL` in `animal-material.js` holds one function per kind, each a GPU copy of the old JS
+  painter:
+  - `rosettes`: leopard and ocelot
+  - `jaguar`
+  - `dots`: cheetah, leopard cat, hyena
+  - `spots`: heads and a jaguar's legs
+  - `clouds`: clouded leopard
+  - `zebra`
+  - `giraffe`
+
+  Edges are smoothed over about a pixel (`fwidth`). When a pattern's cells shrink below a couple
+  of pixels, the marks fade to the coat's average tone instead of shimmering.
+- Rosettes and dots are laid out round the body's axis in model space, like the jaguar's, so they
+  run on over the shoulders, neck and haunches. Before, each sphere and tube got its own unrelated
+  grid, and that showed as hatching on the neck. Cat heads get small solid spots.
+- A body with a per-pixel coat uses the plain fine loft (56 × 36) instead of 84 × 60 or 128 × 88.
+- Triangles:
+
+  | Model | Before | After |
+  | --- | ---: | ---: |
+  | Jaguar | 41.1k | 22.6k |
+  | Leopard, ocelot, cheetah, clouded leopard, leopard cat | about 17.6k | about 11.6k |
+  | Zebra | 23.3k | 17.3k |
+  | Giraffe | 20.9k | 14.9k |
+
+  The distant models shrank too (jaguar 10.7k to 7.8k).
+- **Cost:** `?bench=1` on the review page times one animal filling a 1440 × 900 frame at 2×. Every
+  species matches step 1 within noise, except the clouded leopard at +0.6 ms: its blotches check
+  27 neighbouring cells per pixel. Building models got cheaper too, since the crease bake has fewer
+  vertices: Amazon 204 to 118 ms, and the jaguar 40 to 13 ms.
+- **Adding a pattern:** write the painter as `pixelCoat(...)`, add a GLSL function with the same
+  signature to `COAT_GLSL` and name it in `COAT_FN`. Avoid GLSL reserved words such as `patch`. A
+  painter that wraps a `pixelCoat` in another function loses the tag and draws unmarked.
+- Still painted per vertex: the tiger (its own builder and a plain-density body), the zebra's face
+  and legs, the clouded leopard's legs and head, and bird plumage.
+
 ## Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the
-game's lights, camera angle and tone mapping. `node tools/animal-closeup-capture.mjs [out] [query]`
+game's lights, camera angle and tone mapping. Framing can also show the game's own closest, usual
+and zoomed-out scales. `?bench=1` times each animal filling a Retina-size frame. `node tools/animal-closeup-capture.mjs [out] [query]`
 saves its frames and a contact sheet. `CLOSEUP_ROOT=<checkout>` renders another checkout (copy the
 page into it first).

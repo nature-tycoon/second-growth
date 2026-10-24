@@ -114,7 +114,7 @@ function wingShape(kind, side) {
 }
 
 class Model {
-  constructor() { this.parts = []; this.hard = false; }
+  constructor() { this.parts = []; this.hard = false; this.coats = []; }
   // geo: a unit primitive; m: where it goes; paint(unitPos, worldPos) -> colour.
   // ext: a second placement (wings spread out), blended in by the shader when flying.
   // paintGeo: optional geometry whose positions are handed to paint() instead of geo's own
@@ -137,6 +137,12 @@ class Model {
       color[i * 3] = c.r; color[i * 3 + 1] = c.g; color[i * 3 + 2] = c.b;
     }
     g.setAttribute('color', new THREE.BufferAttribute(color, 3));
+    // (a coat the shader marks per pixel: the paint coordinate, and which of the model's coats)
+    if (fn.coat) {
+      const slot = this.coatSlot(fn.coat), coat = new Float32Array(n * 4);
+      for (let i = 0; i < n; i++) { coat[i * 4] = paintPos.getX(i); coat[i * 4 + 1] = paintPos.getY(i); coat[i * 4 + 2] = paintPos.getZ(i); coat[i * 4 + 3] = slot; }
+      g.setAttribute('aCoat', new THREE.BufferAttribute(coat, 4));
+    }
     g.setAttribute('aPart', new THREE.BufferAttribute(new Float32Array(n).fill(part), 1));
     const pv = pivot || [0, 0, 0], piv = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { piv[i * 3] = pv[0]; piv[i * 3 + 1] = pv[1]; piv[i * 3 + 2] = pv[2]; }
@@ -211,8 +217,18 @@ class Model {
       g.dispose(); unit.dispose(); paintGeo.dispose();
     }
   }
+  // One of the model's per-pixel coats (see pixelCoat), numbered from 1; the same markings share one.
+  coatSlot(coat) {
+    const key = JSON.stringify([coat.kind, coat.params, coat.dark.getHex(), coat.mid.getHex()]);
+    let k = this.coats.findIndex(c => c.key === key);
+    if (k < 0) { k = this.coats.length; this.coats.push({ ...coat, key }); }
+    return k + 1;
+  }
   build() {
+    // (unmarked parts of a marked model carry slot 0, so every part has the same attributes)
+    if (this.coats.length) for (const p of this.parts) if (!p.attributes.aCoat) p.setAttribute('aCoat', new THREE.BufferAttribute(new Float32Array(p.attributes.position.count * 4), 4));
     const g = mergeGeometries(this.parts);
+    g.userData.coats = this.coats;
     g.computeBoundingSphere();
     // the vertex ranges of the horns, antlers and tusks (render3d/carcass-decay.js keeps them on
     // the skeleton, so a kill stays recognisable)
@@ -326,70 +342,46 @@ function locks(m, a, b, count, len, r, paint, o = {}, seed = 1, down = [0, -1, 0
 // Jaguar and ocelot rosettes: broken dark rings with a warmer centre, laid on a jittered grid
 // over the coat (u is the unit-sphere-like coordinate every body part is painted with).
 // chains: the ocelot's markings stretch into long open blotches running along the body
-function rosettes(base, dark, belly, chains = false) {
-  const d = col(dark), mid = col(shade(base, -0.18)), b = grad(base, belly, -0.3, 0.5);
-  return u => {
-    if (u.y < -0.5) return b(u);
-    const gx = u.x * (chains ? 3.6 : 5.5), ga = Math.atan2(u.z, u.y) * (chains ? 2.6 : 1.9); // roughly square cells over the body
-    const ix = Math.floor(gx), ia = Math.floor(ga);
-    const cx = ix + 0.5 + (hash3(ix, ia, 1) - 0.5) * 0.35, ca = ia + 0.5 + (hash3(ix, ia, 2) - 0.5) * 0.35;
-    const dist = Math.hypot(gx - cx, ga - ca);
-    if (dist > 0.19 && dist < 0.4) return d;
-    if (dist <= 0.19) return mid;
-    return b(u);
-  };
+// (roughly square cells round the body's axis at height by, body length L and depth H; chains:
+// longer cells, so the rings stretch into open blotches along the body; drawn per pixel: coatRosettes)
+function rosettes(base, dark, belly, chains, { L, H, by }) {
+  return pixelCoat('rosettes', grad(base, belly, -0.3, 0.5), [by, H * 0.53, L * (chains ? 0.15 : 0.1), chains ? 2.2 : 1.6, 0.15], dark, shade(base, -0.18));
 }
 
 // Jaguar rosettes use one coat coordinate system across the torso and shoulder muscles.
 // Jittered, wavy rings and occasional central dots avoid a repeated checkerboard pattern.
+// (laid out in model space round the body's axis at height by; drawn per pixel: coatJaguar)
 function jaguarCoat(s, H, by) {
-  const base = grad(s.color, s.belly, -0.3, 0.5), dark = col(s.dark), mid = shade(s.color, -0.12);
-  return (u, p) => {
-    const height = (p.y - by) / (H * 0.55);
-    if (height < -0.5) return base({ y: height });
-    const gx = p.x / (H * 0.34), ga = Math.atan2(p.z, p.y - by) * 1.55;
-    const ix = Math.floor(gx), ia = Math.floor(ga), id = hash3(ix, ia, 3);
-    const dx = gx - ix - 0.5 - (hash3(ix, ia, 1) - 0.5) * 0.35;
-    const da = ga - ia - 0.5 - (hash3(ix, ia, 2) - 0.5) * 0.35, angle = Math.atan2(da, dx);
-    const d = Math.hypot(dx, da) / (1 + Math.sin(angle * 5 + id * 8) * 0.14);
-    if (d > 0.2 && d < 0.39 && Math.sin(angle * 3 + id * 8) > -0.85 || d < 0.075 && id > 0.25) return dark;
-    return d < 0.2 ? mid : base({ y: height });
-  };
+  const base = grad(s.color, s.belly, -0.3, 0.5);
+  return pixelCoat('jaguar', (u, p) => base({ y: (p.y - by) / (H * 0.55) }), [by, H * 0.55, H * 0.34, 1.55], s.dark, shade(s.color, -0.12));
 }
 
-function felineSpots(s, H) {
-  const base = col(s.color), dark = col(s.dark);
-  return (u, p) => {
-    const x = p.x / (H * 0.15), y = p.y / (H * 0.15), ix = Math.floor(x), iy = Math.floor(y);
-    const dx = x - ix - 0.5 - (hash3(ix, iy, 1) - 0.5) * 0.3;
-    const dy = y - iy - 0.5 - (hash3(ix, iy, 2) - 0.5) * 0.3;
-    return Math.hypot(dx, dy) < 0.23 + hash3(ix, iy, 3) * 0.07 ? dark : base;
-  };
+// Small solid spots scattered over a part (a jaguar's legs and head): coatSpots. size: the cell.
+function felineSpots(s, H, base = solid(s.color), size = H * 0.15) {
+  return pixelCoat('spots', base, [size], s.dark);
 }
 
-// Solid round spots on a jittered grid (cheetah, hyena); size is the spot radius in cell units.
-function dots(base, dark, cells, size) {
-  const d = col(dark);
-  return u => {
-    if (u.y < -0.55) return base(u);
-    const gx = u.x * cells, ga = Math.atan2(u.z, u.y) * cells * 0.32;
-    const ix = Math.floor(gx), ia = Math.floor(ga);
-    const cx = ix + 0.5 + (hash3(ix, ia, 1) - 0.5) * 0.4, ca = ia + 0.5 + (hash3(ix, ia, 2) - 0.5) * 0.4;
-    return Math.hypot(gx - cx, ga - ca) < size ? d : base(u);
-  };
+// Solid round spots on a jittered grid round the body's axis (cheetah, hyena); cells along half
+// the body, size the spot radius in cell units: coatDots
+function dots(base, dark, cells, size, { L, H, by }) {
+  return pixelCoat('dots', base, [by, H * 0.53, L * 0.46 / cells, cells * 0.32, size], dark);
 }
 
 // Clouded leopard: big irregular "cloud" blotches in world space, each with a black rim and a
-// fill a little darker than the coat, separated by lanes of the paler ground colour.
+// fill a little darker than the coat, separated by lanes of the paler ground colour: coatClouds
 function cloudCoat(base, dark, size) {
-  const d = col(dark);
-  return (u, p) => {
-    const [gap, id] = cells(p, size);
-    if (u.y < -0.6) return gap > 0.42 && id > 0.4 ? d : base(u); // a few spots on the pale belly
-    if (id < 0.12 || gap < 0.08) return base(u);
-    if (gap < 0.2 + id * 0.08) return d;
-    return tmp.copy(base(u)).multiplyScalar(0.6 + id * 0.15);
-  };
+  return pixelCoat('clouds', base, [size], dark);
+}
+
+// A coat whose markings the shader draws per pixel (COAT_GLSL in animal-material.js), so their
+// edges stay sharp however close the camera is and the mesh needn't be fine enough to carry them.
+// The vertices take base's colour (the unmarked coat, with its countershading) and carry the
+// paint coordinate; kind names the shader's pattern, params its numbers (up to four), dark and
+// mid the marks' colours.
+function pixelCoat(kind, base, params, dark, mid = dark) {
+  const paint = (u, p) => base(u, p);
+  paint.coat = { kind, params, dark: col(dark).clone(), mid: col(mid).clone() };
+  return paint;
 }
 
 function quadruped(m, s, o) {
@@ -397,13 +389,13 @@ function quadruped(m, s, o) {
   const by = leg + H * 0.5;
   const base = grad(s.color, s.belly || s.color, -0.3, 0.5);
   // spotted coats (bobcat): small dark rosettes on the back and flanks
-  const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2]) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains)
+  const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2], { L, H, by }) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains, { L, H, by })
     : o.spots ? (u => (u.y > -0.35 && hash3(Math.round(u.x * 16), Math.round(u.y * 8), Math.round(u.z * 8)) > 0.7 ? col(o.spots) : base(u))) : base;
   loftBody(m, {
     x0: -L * 0.47, x1: L * 0.45,
     cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
     ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
-    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: o.rosettes && o.detail ? 3 : o.rosettes || o.dots || o.fine && !o.detail ? 2 : o.fine || false,
+    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: coat.coat ? 1 : o.fine && !o.detail ? 2 : o.fine || false, // (a per-pixel coat needs only a smooth outline)
   }, coat);
   if (o.extra) o.extra(m, { L, H, leg, by, W, coat });
 
@@ -510,4 +502,4 @@ function stumpLegs(m, legs, hoof) {
   });
 }
 
-export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, cloudCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube };
+export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, cloudCoat, pixelCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube };

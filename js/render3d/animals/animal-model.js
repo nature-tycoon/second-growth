@@ -96,6 +96,7 @@ export function buildSpecies(def) {
   bakeSurface(geo, { gloss: geo.userData.gloss });
   // fur and feathers soften the light; scales, shells, skin and fins keep a firmer edge
   mo.fur = SCALY.has(s.kind) ? 0.3 : 1;
+  mo.coats = geo.userData.coats?.length ? geo.userData.coats : null; // (markings the shader draws per pixel)
   if (def.move === 'tree') {
     // Tails and orangutan hair can hang below the grips. Use actual toes for
     // orangutans, the high hand for a gibbon, and limb bounds for other climbers.

@@ -9,10 +9,10 @@ main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}article
 @media(max-width:850px){main{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:550px){main{grid-template-columns:1fr}}
 </style>
 <h1>Animal close-ups</h1>
-<p>Each animal at the game's closest zoom, under the game's midday lights and shadows (sky and ground fill, the sun from the game's default direction, the same tone mapping) and seen from the game's camera angle. For before and after comparisons: the frames are fixed. <code>?species=map:key,…</code> picks the animals.</p>
+<p>Each animal at the game's closest zoom, under the game's midday lights and shadows (sky and ground fill, the sun from the game's default direction, the same tone mapping) and seen from the game's camera angle. For before and after comparisons: the frames are fixed. <code>?species=map:key,…</code> picks the animals; the zoom framings show them at the game's own scale.</p>
 <label>View <select id="view"><option value="game">Game camera</option><option value="side">Side</option><option value="front">Head on</option></select></label>
 <label>Pose <select id="pose"><option value="rest">Standing</option><option value="walk">Walking</option><option value="graze">Head down</option></select></label>
-<label>Framing <select id="framing"><option value="fit">Fill the frame</option><option value="game">Game's closest zoom</option></select></label>
+<label>Framing <select id="framing"><option value="fit">Fill the frame</option><option value="game">Game's closest zoom</option><option value="normal">Game's usual zoom</option><option value="wide">Zoomed out</option></select></label>
 <label>Light <select id="light"><option value="day">Midday</option><option value="golden">Golden hour</option></select></label>
 <p id="status">Loading…</p><main></main>
 <script type="module">
@@ -60,7 +60,7 @@ function draw(){
   camera.position.copy(center).addScaledVector(dir,120);camera.lookAt(center);camera.updateMatrixWorld();
   // (fill: the animal's box as seen from the camera, with a margin; game: 46 * 4.5 screen pixels per tile)
   let rx=0,ry=0;for(let i=0;i<8;i++){const c=new THREE.Vector3(i&1?box.max.x:box.min.x,i&2?box.max.y:box.min.y,i&4?box.max.z:box.min.z).applyMatrix4(camera.matrixWorldInverse);rx=Math.max(rx,Math.abs(c.x));ry=Math.max(ry,Math.abs(c.y));}
-  const half=controls.framing.value==='game'?H/2/(46*4.5):Math.max(ry,rx*H/W)*1.12;
+  const zoom={game:4.5,normal:.62,wide:.25}[controls.framing.value],half=zoom?H/2/(46*zoom):Math.max(ry,rx*H/W)*1.12;
   camera.left=-half*W/H;camera.right=half*W/H;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();
   const s=half*5;sun.shadow.camera.left=-s;sun.shadow.camera.right=s;sun.shadow.camera.top=s;sun.shadow.camera.bottom=-s;sun.shadow.camera.near=1;sun.shadow.camera.far=160;sun.shadow.camera.updateProjectionMatrix();
   const el2=golden?22:52;sun.position.copy(center).add(new THREE.Vector3(-30,55*Math.tan(THREE.MathUtils.degToRad(el2))/Math.tan(THREE.MathUtils.degToRad(52)),20));sun.target.position.copy(center);
@@ -71,5 +71,19 @@ function draw(){
  document.body.dataset.ready='1';
 }
 for(const c of Object.values(controls))c.addEventListener('change',draw);draw();
+// ?bench=1: draw each animal filling a 1440x900 frame at 2x (a Retina laptop) and time it, for the cost of its shading
+if(query.get('bench')){
+ renderer.setPixelRatio(2);renderer.setSize(1440,900);const gl=renderer.getContext(),out={},px=new Uint8Array(4),sync=()=>gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px); // (a read waits for the GPU; finish() may not)
+ for(const e of entries){
+  scene.add(e.mesh);e.mesh.setMatrixAt(0,new THREE.Matrix4().makeScale(e.scale,e.scale,e.scale));e.mesh.instanceMatrix.needsUpdate=true;
+  const box=e.geo.boundingBox.clone();box.min.multiplyScalar(e.scale);box.max.multiplyScalar(e.scale);const c=box.getCenter(new THREE.Vector3()),sz=box.getSize(new THREE.Vector3());
+  const half=Math.max(sz.y,sz.x*900/1440)*.5;camera.left=-half*1.6;camera.right=half*1.6;camera.top=half;camera.bottom=-half;
+  camera.position.copy(c).add(new THREE.Vector3(0,0,120));camera.lookAt(c);camera.updateProjectionMatrix();
+  for(let i=0;i<5;i++)renderer.render(scene,camera);sync();
+  const t=performance.now();for(let i=0;i<40;i++){renderer.render(scene,camera);sync();}
+  out[e.def.key]=+((performance.now()-t)/40).toFixed(2);scene.remove(e.mesh);
+ }
+ document.body.dataset.bench=JSON.stringify(out);
+}
 </script>
 </html>

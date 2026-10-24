@@ -1,5 +1,5 @@
 // Quadruped proportions and specialist big-mammal model builders.
-import { P, SPH, SPH_XL, cells, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
+import { P, SPH, SPH_XL, cells, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pixelCoat, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
 
 // Common palm civet: long, low and slim on short dark legs, grizzled grey-brown with faint rows of
 // dark spots and stripes down the back and flanks, a dark mask with white patches above and below
@@ -582,7 +582,8 @@ const MAMMALS = {
       nose: lion || k ? false : undefined, eyeR: lion ? H * 0.038 : undefined,
       ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : 0.24), earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
       earColor: null,
-      headPaint: s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.1); return gap > 0.4 && id > 0.3 && u.y > -0.3 ? dk : base(u); } : k ? felineSpots(s, H) : null,
+      headPaint: s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.1); return gap > 0.4 && id > 0.3 && u.y > -0.3 ? dk : base(u); } : k ? felineSpots(s, H, undefined, H * 0.09)
+        : s.rosettes || s.cheetah || s.spotted ? felineSpots(s, H, base, H * 0.07) : null, // (small solid spots on the head)
       extra: (m, b) => {
         // Rounded scapulae and haunches meet the upper limbs inside the coat.
         for (const side of [-1, 1]) {
@@ -816,12 +817,8 @@ const MAMMALS = {
   zebra: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     const dark = col(s.dark), light = col(s.color), belly = col(s.belly);
-    const stripes = () => u => {
-      if (u.y < -0.7) return belly;
-      const a = Math.abs(Math.atan2(u.z, u.y));
-      const rump = u.x < -0.35 ? (u.x + 0.35) * a * 6 : 0;
-      return Math.sin(u.x * 24 + rump + a * 1.2 + Math.sin(a * 4 + u.x * 7) * 0.35) > 0.15 ? dark : light;
-    };
+    // (bands round the body, bending into chevrons over the rump; pale belly below: coatZebra)
+    const stripes = () => pixelCoat('zebra', () => light, [-0.7], dark, belly);
     const legC = u => (Math.sin(u.y * 9) > 0.2 ? dark : light);
     return {
       H, leg, detail: true, fine: 2, smoothLegs: true, legSeg: 14, legR0: H * 0.14, legR1: H * 0.065, shoulder: 0.08, chest: 0.97,
@@ -1053,20 +1050,13 @@ const MAMMALS = {
   },
   giraffe: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
-    const patch = () => {
-      const light = col(s.belly), dark = col(s.dark), warm = col(s.color);
-      return (u, p) => {
-        if (p.y < leg * 0.7) return light;
-        const [gap, id] = cells(p, H * 0.3);
-        if (gap < 0.12 + Math.sin(p.y / H * 8) * 0.025) return light;
-        return tmp.copy(warm).lerp(dark, id * 0.7);
-      };
-    };
+    // (patches warm to dark, between pale lanes, above the lower legs: coatGiraffe)
+    const patch = () => pixelCoat('giraffe', () => col(s.belly), [leg, H], s.dark, s.color);
     const neck = [[L * 0.27, by + H * 0.17, 0], [L * 0.46, by + H * 0.88, 0], [L * 0.64, by + H * 1.9, 0], [L * 0.76, by + H * 2.66, 0]];
     return {
       H, leg, detail: true, fine: 2, smoothLegs: true, legSeg: 14, splitHoof: true, hip: -0.14, shoulder: 0.2, chest: 1.1, haunch: 0.88, legR0: H * 0.15, legR1: H * 0.066, hoof: '#2a211a',
       legMotion: 0.28, bobMotion: 0.018,
-      legColor: (u, p) => p.y < leg * 0.62 ? col(s.belly) : patch()(u, p), coat: patch,
+      legColor: patch(), coat: patch, // (the lower legs are pale)
       neckPath: neck, neckRadii: [[H * 0.35, H * 0.29], [H * 0.28, H * 0.22], [H * 0.205, H * 0.16], [H * 0.16, H * 0.13]], neckSeg: 20, neckSub: 9,
       head: [L * 0.8, by + H * 2.7], headR: [H * 0.29, H * 0.18, H * 0.17], snout: H * 0.24, muzzle: shade(s.belly, -0.08), nose: false, eyeR: H * 0.031, ears: 'none',
       antlers: (m, hp, hr, hd) => {

@@ -35,6 +35,88 @@ const FAUNA_LIGHT = `
   #define RE_IndirectDiffuse RE_IndirectDiffuse_Lambert
 `;
 
+// Coat markings drawn per pixel (pixelCoat in model-core.js): each takes the paint coordinate u
+// (along and round the body part), the model-space point p, the unmarked coat, and its coat's
+// numbers (A, B) and colours. Edges are smoothed over about a pixel, and markings too fine for the
+// screen fade to the coat's average tone rather than shimmer.
+const COAT_GLSL = `
+  float coatHash(vec3 v) { return fract(sin(dot(v, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+  // 1 inside (d below r), 0 outside, over about a pixel
+  float coatIn(float d, float r) { float w = fwidth(d) * 0.7 + 1e-5; return 1.0 - smoothstep(r - w, r + w, d); }
+  // 1 while a cell of the grid g spans a few pixels, 0 once it shrinks below one
+  float coatDetail(float g) { return 1.0 - smoothstep(0.25, 0.6, fwidth(g)); }
+  // a jittered grid's nearest point in the cell grid: its offset, and the cell
+  vec2 coatJitter(vec2 g, float jitter, out vec2 cell) { cell = floor(g); return g - cell - 0.5 - (vec2(coatHash(vec3(cell, 1.0)), coatHash(vec3(cell, 2.0))) - 0.5) * jitter; }
+  // cellular pattern in 3D (cells in model-core.js): the gap between the two nearest cell points, and the nearest's hash
+  vec2 coatCells(vec3 p, float size) {
+    vec3 q = p / size, i = floor(q);
+    float d1 = 9.0, d2 = 9.0, id = 0.0;
+    for (int a = -1; a <= 1; a++) for (int b = -1; b <= 1; b++) for (int c = -1; c <= 1; c++) {
+      vec3 k = i + vec3(float(a), float(b), float(c));
+      float d = length(k + vec3(coatHash(k), coatHash(k.yzx), coatHash(k.zxy)) - q);
+      if (d < d1) { d2 = d1; d1 = d; id = coatHash(k * vec3(1.3, 1.7, 2.1)); } else if (d < d2) d2 = d;
+    }
+    return vec2(d2 - d1, id);
+  }
+  // the cell grid round a body's axis: along it (cells of A.z) and round it (A.w per radian)
+  vec2 coatAround(vec3 p, vec4 A) { return vec2(p.x / A.z, atan(p.z, p.y - A.x) * A.w); }
+  // leopard and ocelot: rings broken into a few blotches round a warmer centre, under the belly line
+  // (A: axis height, body depth, cell, cells per radian; B.x: ring width)
+  vec3 coatRosettes(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    vec2 g = coatAround(p, A), cell, dv = coatJitter(g, 0.3, cell);
+    float id = coatHash(vec3(cell, 3.0)), angle = atan(dv.y, dv.x), d = length(dv) / (1.0 + sin(angle * 5.0 + id * 8.0) * 0.16);
+    float outer = 0.3 + id * 0.06, inner = outer - B.x, broken = smoothstep(-0.35, -0.15, sin(angle * 4.0 + id * 11.0));
+    float detail = coatDetail(g.x), body = smoothstep(-0.6, -0.5, (p.y - A.x) / A.y);
+    float ring = mix(0.25, (coatIn(d, outer) - coatIn(d, inner)) * broken, detail) * body, core = mix(0.1, coatIn(d, inner), detail) * body;
+    return mix(mix(base, mid, core), dark, ring);
+  }
+  // jaguar: bigger, wavier rosettes, many with a central dot (A: axis height, body depth, cell, cells per radian)
+  vec3 coatJaguar(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    vec2 g = coatAround(p, A), cell, dv = coatJitter(g, 0.35, cell);
+    float id = coatHash(vec3(cell, 3.0)), angle = atan(dv.y, dv.x), d = length(dv) / (1.0 + sin(angle * 5.0 + id * 8.0) * 0.14);
+    float broken = smoothstep(-0.9, -0.8, sin(angle * 3.0 + id * 8.0)), spot = coatIn(d, 0.075) * step(0.25, id);
+    float detail = coatDetail(g.x), body = smoothstep(-0.53, -0.47, (p.y - A.x) / A.y);
+    float ring = mix(0.33, max((coatIn(d, 0.39) - coatIn(d, 0.2)) * broken, spot), detail) * body;
+    float core = mix(0.1, coatIn(d, 0.2) * (1.0 - spot), detail) * body;
+    return mix(mix(base, mid, core), dark, ring);
+  }
+  // cheetah and leopard cat: solid round spots under the belly line (A as for rosettes; B.x: spot radius)
+  vec3 coatDots(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    vec2 g = coatAround(p, A), cell;
+    float d = length(coatJitter(g, 0.55, cell)), body = smoothstep(-0.6, -0.5, (p.y - A.x) / A.y);
+    return mix(base, dark, mix(3.14 * B.x * B.x, coatIn(d, B.x * (0.85 + coatHash(vec3(cell, 3.0)) * 0.3)), coatDetail(g.x)) * body);
+  }
+  // small solid spots scattered in 3D (heads and legs): the surface cuts spheres of varied depth (A: cell size)
+  vec3 coatSpots(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    vec3 g = p / A.x, cell = floor(g);
+    float d = length(g - cell - 0.5 - (vec3(coatHash(cell), coatHash(cell.yzx + 4.0), coatHash(cell.zxy + 9.0)) - 0.5) * 0.3);
+    return mix(base, dark, mix(0.12, coatIn(d, 0.36), coatDetail(g.x)));
+  }
+  // clouded leopard: black-rimmed blotches with darker fills between pale lanes, a few spots on the belly (A: cell size)
+  vec3 coatClouds(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    vec2 c = coatCells(p, A.x);
+    float gap = c.x, id = c.y, detail = coatDetail(p.x / A.x * 4.0);
+    float on = step(0.12, id) * (1.0 - coatIn(gap, 0.08)), rim = on * coatIn(gap, 0.2 + id * 0.08), fill = on - rim;
+    vec3 flank = mix(mix(base, base * (0.6 + id * 0.15), fill), dark, rim);
+    vec3 under = mix(base, dark, (1.0 - coatIn(gap, 0.42)) * step(0.4, id));
+    return mix(mix(base, dark * 0.5 + base * 0.4, 0.5), mix(under, flank, smoothstep(-0.63, -0.57, u.y)), detail);
+  }
+  // zebra: bands round the body, bending into chevrons over the rump; mid is the belly (A: belly line)
+  vec3 coatZebra(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float a = abs(atan(u.z, u.y)), rump = min(u.x + 0.35, 0.0) * a * 6.0;
+    float band = sin(u.x * 24.0 + rump + a * 1.2 + sin(a * 4.0 + u.x * 7.0) * 0.35);
+    float stripe = mix(0.45, 1.0 - coatIn(band, 0.15), coatDetail(u.x * 24.0 / 6.283));
+    return mix(mid, mix(base, dark, stripe), smoothstep(A.x - 0.02, A.x + 0.02, u.y));
+  }
+  // giraffe: patches warm to dark between pale lanes, above pale lower legs; mid is the warm patch (A: leg length, body depth)
+  vec3 coatGiraffe(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    vec2 c = coatCells(p, A.y * 0.3);
+    float marked = mix(0.75, 1.0 - coatIn(c.x, 0.12 + sin(p.y / A.y * 8.0) * 0.025), coatDetail(p.y / (A.y * 0.3) * 3.0));
+    return mix(base, mix(mid, dark, c.y * 0.7), marked * smoothstep(A.x * 0.69, A.x * 0.71, p.y));
+  }
+`;
+const COAT_FN = { rosettes: 'coatRosettes', jaguar: 'coatJaguar', spots: 'coatSpots', dots: 'coatDots', clouds: 'coatClouds', zebra: 'coatZebra', giraffe: 'coatGiraffe' };
+
 // ---------------------------------------------------------------- material with the animation shader
 export function faunaMaterial(motion) {
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -48,6 +130,13 @@ export function faunaMaterial(motion) {
     uSlither: { value: motion.slither?.amp ?? 0 }, uSlitherLen: { value: motion.slither?.len ?? 1 }, uSlitherNose: { value: motion.slither?.nose ?? 0 },
     uFur: { value: motion.fur ?? 1 },
   };
+  const coats = motion.coats?.length ? motion.coats : null;
+  if (coats) Object.assign(u, {
+    uCoatA: { value: coats.map(c => new THREE.Vector4(...[0, 1, 2, 3].map(i => c.params[i] ?? 0))) },
+    uCoatB: { value: coats.map(c => new THREE.Vector4(...[4, 5, 6, 7].map(i => c.params[i] ?? 0))) },
+    uCoatDark: { value: coats.map(c => new THREE.Vector3(c.dark.r, c.dark.g, c.dark.b)) },
+    uCoatMid: { value: coats.map(c => new THREE.Vector3(c.mid.r, c.mid.g, c.mid.b)) },
+  });
   // A kill's anatomy (render3d/carcass-decay.js carcassAnatomy), filled in the first time one of
   // this kind is drawn as a carcass: torso (spine height, belly height), each leg's hip and foot,
   // and the neck to the snout tip, so the flesh can be drawn pulling back onto the bones.
@@ -63,6 +152,7 @@ export function faunaMaterial(motion) {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
       attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim; varying float vMeat; varying float vDry; varying float vLight; varying float vShine;
+      ${coats ? 'attribute vec4 aCoat; varying vec4 vCoat; varying vec3 vCoatP;' : ''}
       vec3 faunaNormal; // (the unit normal: the attribute's length carries crease shading and shine, see animal-surface.js)
       uniform vec2 uTorso; uniform vec3 uNeck, uSnout, uHips[4], uFeet[4];
       ${motion.primate === 3 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
@@ -210,6 +300,7 @@ export function faunaMaterial(motion) {
         vec3 objectNormal = faunaNormal;
         vec3 faunaPosition = position;
         vMeat = 0.0; vDry = 0.0;
+        ${coats ? 'vCoat = aCoat; vCoatP = position; // (the resting pose, so the markings move with the skin)' : ''}
         if (aAnim.x < -99999.0) { vec3 d = carcassDecay(); vDry = d.z; decay(faunaPosition, d.x, d.y); }
         animatePart(faunaPosition, objectNormal);
         if (uSlither > 0.0) slither(faunaPosition, objectNormal, aAnim.z);
@@ -233,12 +324,21 @@ export function faunaMaterial(motion) {
         }
       `);
     // (red meat where a kill has been opened, drying to dark brown)
-    shader.fragmentShader = 'varying float vMeat; varying float vDry; varying float vLight; varying float vShine; uniform float uFur;\n' + shader.fragmentShader
+    const coatHead = coats ? `varying vec4 vCoat; varying vec3 vCoatP;
+      uniform vec4 uCoatA[${coats.length}], uCoatB[${coats.length}]; uniform vec3 uCoatDark[${coats.length}], uCoatMid[${coats.length}];
+      ${COAT_GLSL}
+      vec3 faunaCoat(vec3 base) {
+        int k = int(vCoat.w + 0.5) - 1;
+        ${coats.map((c, k) => `if (k == ${k}) return ${COAT_FN[c.kind]}(vCoat.xyz, vCoatP, base, uCoatA[${k}], uCoatB[${k}], uCoatDark[${k}], uCoatMid[${k}]);`).join('\n        ')}
+        return base;
+      }\n` : '';
+    shader.fragmentShader = 'varying float vMeat; varying float vDry; varying float vLight; varying float vShine; uniform float uFur;\n' + coatHead + shader.fragmentShader
       .replace('#include <lights_lambert_pars_fragment>', FAUNA_LIGHT)
       .replace('#include <color_fragment>', `#include <color_fragment>
+      ${coats ? 'if (vCoat.w > 0.5) diffuseColor.rgb = faunaCoat(diffuseColor.rgb);' : ''}
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.268, 0.218, 0.164), vDry); // (the coat dulls as it dries: 0.55, 0.5, 0.44 on screen)
       diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.3, 0.035, 0.03), vec3(0.07, 0.04, 0.025), vDry), vMeat);`);
   };
-  mat.customProgramCacheKey = () => `fauna:${motion.canopyWalkerMotion ? 'canopy-walker-joints' : motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'clamber' : 'base'}${motion.billSweep ? ':bill-sweep' : ''}`;
+  mat.customProgramCacheKey = () => `fauna:${motion.canopyWalkerMotion ? 'canopy-walker-joints' : motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'clamber' : 'base'}${motion.billSweep ? ':bill-sweep' : ''}${coats ? ':coat=' + coats.map(c => c.kind).join(',') : ''}`;
   return mat;
 }
