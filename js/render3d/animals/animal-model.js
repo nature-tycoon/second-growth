@@ -9,12 +9,17 @@ import { MAMMALS, sumatranElephant, sumatranRhino, tiger } from './quadrupeds.js
 import { BIRDS, bird } from './birds.js';
 import { bat, bee, beetle, butterfly } from './winged-animals.js';
 import { person } from './people.js';
+import { bakeSurface } from './animal-surface.js';
 import { howlerRig } from '../howler-motion.js';
 import { canopyWalkerBends, isCanopyWalker } from '../canopy-walker-profile.js';
 
+const SCALY = new Set(['caiman', 'monitor', 'snake', 'turtle', 'frog', 'newt', 'fish', 'butterflyfish', 'idol', 'shark', 'ray', 'dolphin', 'dugong', 'seacucumber', 'urchin', 'beetle', 'bee', 'pangolin', 'armadillo', 'person', 'elephant', 'rhino', 'hippo']);
+
 // Returns static geometry and movement metadata. The caller owns the returned geometry.
-export function buildSpecies(def) {
-  const s = { ...def.sprite, canopyWalkerMotion: isCanopyWalker(def) && def.sprite.canopyWalkerMotion !== false }, m = new Model();
+// close: the close-up model, the same shapes in finer segments (drawn for animals large on screen;
+// its motion is not used, the detailed model's is).
+export function buildSpecies(def, { close = false } = {}) {
+  const s = { ...def.sprite, canopyWalkerMotion: isCanopyWalker(def) && def.sprite.canopyWalkerMotion !== false }, m = new Model(close);
   const mo = { leg: 0.55, bob: 0, tail: 0.25, flap: 1.6, wave: 0, waveK: 0, waveHead: 0, waveLen: 1, sink: 0, len: s.len || s.size };
   switch (s.kind) {
     case 'squirrel': squirrel(m, s); mo.leg = 0.45; mo.bob = 1.1; mo.sink = 3; break;
@@ -89,6 +94,11 @@ export function buildSpecies(def) {
   if (mo.primate) feedingPose(geo, s, def.move === 'tree');
   if (s.ape) swingPoses(geo, s.len);
   geo.computeBoundingBox();
+  // crease shading and shine, last, so the poses above keep plain normals
+  bakeSurface(geo, { gloss: geo.userData.gloss });
+  // fur and feathers soften the light; scales, shells, skin and fins keep a firmer edge
+  mo.fur = SCALY.has(s.kind) ? 0.3 : 1;
+  mo.coats = geo.userData.coats?.length ? geo.userData.coats : null; // (markings the shader draws per pixel)
   if (def.move === 'tree') {
     // Tails and orangutan hair can hang below the grips. Use actual toes for
     // orangutans, the high hand for a gibbon, and limb bounds for other climbers.

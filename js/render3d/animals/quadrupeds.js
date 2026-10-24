@@ -1,5 +1,5 @@
 // Quadruped proportions and specialist big-mammal model builders.
-import { P, SPH, SPH_XL, cells, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
+import { P, SPH, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pixelCoat, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
 
 // Common palm civet: long, low and slim on short dark legs, grizzled grey-brown with faint rows of
 // dark spots and stripes down the back and flanks, a dark mask with white patches above and below
@@ -23,7 +23,7 @@ function longSnoutedMammal(s) {
     tail: (m, b) => {
       const base = [-L * 0.42, b.by + H * 0.1, 0], o = { part: P.TAIL, pivot: base, sub: 6, seg: 12 };
       if (coati) tube(m, [base, [-L * 0.59, b.by + H * 0.42, 0], [-L * 0.68, b.by + H * 1.02, 0], [-L * 0.83, b.by + H * 1.26, 0]],
-        [H * 0.12, H * 0.11, H * 0.085, H * 0.05], (u, p) => Math.sin(p.y / H * 20) > 0.35 ? col(s.dark) : col(s.color), o);
+        [H * 0.12, H * 0.11, H * 0.085, H * 0.05], pixelCoat('rings', solid(s.color), [4.5, 0.19, 0, 0.08, 2, 2, -2, 0], s.dark), o); // (coatRings)
       else tube(m, [base, [-L * 0.59, b.by - H * 0.28, 0], [-L * 0.78, b.by - H * 0.42, 0], [-L * 0.98, b.by - H * 0.18, 0]],
         [H * 0.065, H * 0.05, H * 0.032, H * 0.012], '#bd9a90', o);
     },
@@ -107,38 +107,23 @@ function tiger(m, s) {
   const k = s.len / 46, X = (x, y, z = 0) => [x * k, y * k, z * k];
   const orange = col(s.color), rust = col(shade(s.color, -0.22)), white = col(s.belly), black = col(s.dark);
   const pale = tmp.copy(orange).lerp(white, 0.42).clone(), cream = tmp.copy(orange).lerp(white, 0.7).clone();
-  // body, neck, shoulder blades and thighs share one stripe field laid out in model space
-  const sp = 2.1;
-  const coat = (u, p) => {
-    const x = p.x / k, a = Math.atan2(Math.abs(p.z / k) * 1.12, p.y / k - 20); // 0 along the spine, pi under the belly
-    const c = tmp.copy(rust).lerp(orange, smooth(0.05, 0.85, a)).lerp(pale, smooth(1.5, 1.95, a)).lerp(white, smooth(1.95, 2.3, a));
-    if (a < 0.14) c.lerp(black, 0.35); // the stripes run together along the spine
-    const ph = x / sp + 0.45 * Math.sin(a * 1.7 + x * 0.19) + 0.1 * Math.sin(a * 5.1 + x * 0.7);
-    const i = Math.floor(ph), f = ph - i - 0.5, g = hash3(i, 7, 1);
-    const taper = 1 - smooth(1.2 + g * 0.6, 2.45 + g * 0.3, a);
-    if (taper <= 0 || (a > 0.7 && hash3(i, Math.floor(a * 1.3 + g * 5), 4) < 0.1)) return c; // (a few broken off)
-    const w = 0.19 * (0.75 + g * 0.5) * (0.4 + 0.6 * taper);
-    if (g > 0.58) { // doubled: splitting below the spine into a pair that closes again in a loop
-      const gap = 0.15 * smooth(0.45, 0.9, a) * (1 - smooth(1.5, 2.1, a));
-      return Math.abs(Math.abs(f) - gap) < w * (gap > 0.05 ? 0.55 : 1) ? black : c;
-    }
-    return Math.abs(f) < w ? black : c;
+  // body, neck, shoulder blades and thighs share one stripe field laid out in model space, drawn
+  // per pixel (coatTiger) over the countershading: rust along the back to white under the belly
+  const ground = (u, p) => {
+    const a = Math.atan2(Math.abs(p.z / k) * 1.12, p.y / k - 20); // 0 along the spine, pi under the belly
+    return tmp.copy(rust).lerp(orange, smooth(0.05, 0.85, a)).lerp(pale, smooth(1.5, 1.95, a)).lerp(white, smooth(1.95, 2.3, a));
   };
-  // legs: orange outside with dark bars, white on the inside, paler toward the paws
-  const legC = zl => (u, p) => {
+  const coat = pixelCoat('tiger', ground, [k, 20, 2.1], black);
+  // legs: orange outside with dark bars (coatTigerLegs), white on the inside, paler toward the paws
+  const legC = zl => pixelCoat('tigerLegs', (u, p) => {
     const y = p.y / k, inner = smooth(-0.6, -1.8, Math.abs(p.z / k) - zl) * smooth(3, 9, y);
-    const c = tmp.copy(orange).lerp(pale, smooth(7, 2, y) * 0.6).lerp(white, inner * 0.85);
-    if (y > 4.5 && inner < 0.45) {
-      const ph = y / 2.1 + Math.sin(p.x / k * 0.9) * 0.3 + p.x / k * 0.12, i = Math.floor(ph), f = ph - i - 0.5;
-      if (Math.abs(f) < 0.14 * (0.7 + hash3(i, zl, 3) * 0.6) * smooth(4.5, 8, y) && hash3(i, Math.floor(p.x / k * 0.5), 5) > 0.2) return black;
-    }
-    return c;
-  };
+    return tmp.copy(orange).lerp(pale, smooth(7, 2, y) * 0.6).lerp(white, inner * 0.85);
+  }, [k, zl], black);
   const pawC = cream;
 
   // the body: haunch, a tucked-up loin, the deep chest, the shoulders
   const B = [[-20.5, 21.6, 4.7, 4.3], [-16, 21.3, 6.7, 5.5], [-8, 21.3, 5.8, 5.0], [2, 20.4, 7.4, 5.8], [10.5, 19.9, 8.0, 5.9], [16, 19.9, 6.8, 5.2], [19.5, 20.3, 4.8, 4.2]];
-  tube(m, B.map(b => X(b[0], b[1])), B.map(b => [b[2] * k, b[3] * k]), coat, { seg: 28, sub: 12, capRings: 4 });
+  tube(m, B.map(b => X(b[0], b[1])), B.map(b => [b[2] * k, b[3] * k]), coat, { seg: 24, sub: 8, capRings: 4 }); // (the stripes are drawn per pixel, so the body needs only a smooth outline)
 
   for (const side of [1, -1]) {
     // forelegs: the shoulder blade (it rolls with the stride), a thick upper arm back to the elbow,
@@ -164,17 +149,17 @@ function tiger(m, s) {
   const HX = (x, y, z = 0) => X(22 + (x - 22) * G, 21.4 + (y - 21.4) * G, z * G), R = (a, b, c) => [a * k * G, b * k * G, c * k * G];
   tube(m, [X(14, 21.6), X(19, 21.7), X(23, 21.3)], [[6.3 * k, 5.0 * k], [5.7 * k, 4.9 * k], [4.9 * k, 4.7 * k]], coat, { ...hd, seg: 24, sub: 6, capRings: 2 });
   const hx = 25.2, hy = 21.4;
-  const headC = (u, p) => {
+  // the face's ground colours; its stripes are drawn per pixel (coatTigerHead)
+  const face = (u, p) => {
     const qx = (p.x / k - 22) / G + 22 - hx, qy = (p.y / k - 21.4) / G, az = Math.abs(p.z / k) / G;
     if (qy < -2.3 && qx > -2.2) return white;                                         // chin and throat
-    if (az > 2.4 && qy < 0.3 && qx > -2.6) return Math.sin((qx * 0.75 - qy * 1.1) * 1.9 + 0.6) > 0.42 && qx < 2.6 && qy > -2.2 ? black : qy > -0.2 && qx > 1 ? orange : white; // cheeks, boldly striped
-    if (qy > 1.0 && qx > -1.6 && qy < 4.4 && az > 0.3 && Math.sin(qy * 3.4 + az * 1.3 - qx * 0.45) > 0.72) return black; // forehead marks
-    if (qx < -1.2 && Math.sin(qx * 2.9 + az * 0.9 + Math.sin(qy) * 0.6) > 0.78) return black;   // stripes down the nape
+    if (az > 2.4 && qy < 0.3 && qx > -2.6) return qy > -0.2 && qx > 1 ? orange : white; // cheeks, boldly striped
     return tmp.copy(orange).lerp(rust, smooth(1, 4, qy) * 0.4);
   };
+  const stripedFace = paint => pixelCoat('tigerHead', paint, [k, G, hx], black), headC = stripedFace(face);
   ellHi(m, HX(hx, hy + 0.2), R(4.6, 3.9, 4.3), headC, { ...hd, rot: [Math.PI / 2, 0, 0] });        // the broad skull
   // the muzzle: broad and deep, orange over the bridge and white below and in front
-  const muz = (u, p) => { const qy = (p.y / k - 21.4) / G, qx = (p.x / k - 22) / G + 22; return (qy < -1.0 && qx > 28.4) || (qy < -0.5 && qx > 30.2) ? white : headC(u, p); };
+  const muz = stripedFace((u, p) => { const qy = (p.y / k - 21.4) / G, qx = (p.x / k - 22) / G + 22; return (qy < -1.0 && qx > 28.4) || (qy < -0.5 && qx > 30.2) ? white : face(u, p); });
   ellHi(m, HX(29.0, 19.9), R(2.8, 2.1, 2.3), muz, { ...hd, rot: [0, 0, -0.1] });
   m.ell(HX(28.6, 21.0), R(2.9, 1.45, 2.0), headC, { ...hd, rot: [0, 0, -0.22] });       // bridge of the nose
   const ruff = (u, p) => (hash3(Math.round(p.x / k * 1.6), Math.round(p.y / k * 1.6), 3) > 0.72 ? black : white);
@@ -189,8 +174,8 @@ function tiger(m, s) {
     m.ell(HX(30.55, 19.0, side * 1.15), R(1.25, 1.1, 1.3), (u, p) => (u.z * side > 0.25 && u.y > -0.3 && hash3(Math.round(p.x / k * 3), Math.round(p.y / k * 3), 1) > 0.7 ? black : white), hd); // whisker pads
     m.ell(HX(27.9, 22.85, side * 2.15), R(0.95, 0.42, 0.8), white, { ...hd, lo: true });     // white spot over the eye
     m.ell(HX(28.35, 21.95, side * 2.25), R(0.72, 0.46, 0.42), black, { ...hd, lo: true, rot: [0, side * -0.5, 0.15] }); // dark rim of the eye
-    m.ell(HX(28.55, 21.95, side * 2.35), R(0.5, 0.33, 0.3), '#e0a632', { ...hd, lo: true, rot: [0, side * -0.5, 0.15] }); // amber eye
-    m.ell(HX(28.8, 21.95, side * 2.36), R(0.18, 0.22, 0.16), '#120c08', { ...hd, lo: true });   // pupil
+    m.ell(HX(28.55, 21.95, side * 2.35), R(0.5, 0.33, 0.3), '#e0a632', { ...hd, lo: true, gloss: 2, rot: [0, side * -0.5, 0.15] }); // amber eye
+    m.ell(HX(28.8, 21.95, side * 2.36), R(0.18, 0.22, 0.16), '#120c08', { ...hd, lo: true, gloss: 2 });   // pupil
     // small round ears set wide: black behind with a white spot, pale fur inside
     m.add(SPH, place(HX(23.2, 24.5, side * 3.4), [side * -0.25, side * 0.25, 0], R(0.45, 1.2, 1.2)), u => (u.x < -0.1 ? ((u.y - 0.05) ** 2 + u.z * u.z < 0.2 ? white : black) : (u.y * u.y + u.z * u.z > 0.72 ? black : cream)), hd);
   }
@@ -202,13 +187,7 @@ function tiger(m, s) {
 
   // the long, thick tail: down from the rump in a low curve, the end lifting; ringed, black-tipped
   const T = [[-20.5, 24.4], [-25, 19.6], [-28.2, 13.4], [-31.2, 8.4], [-35.2, 5.8], [-39.4, 6.6], [-42.2, 9.4]];
-  const tailC = u => {
-    const t = (u.x + 1) / 2;
-    if (t > 0.9) return black;
-    const f = t * 10.5 - Math.floor(t * 10.5);
-    if (t > 0.18 && Math.abs(f - 0.5) < 0.15 + t * 0.1 && (t > 0.48 || u.y > -0.35)) return black;
-    return tmp.copy(orange).lerp(white, smooth(-0.3, -0.8, u.y) * 0.6);
-  };
+  const tailC = pixelCoat('rings', u => tmp.copy(orange).lerp(white, smooth(-0.3, -0.8, u.y) * 0.6), [10.5, 0.15, 0.1, 0.18, 2, 0.9, -0.35, 0.48], black); // (coatRings)
   tube(m, T.map(q => X(q[0], q[1])), [1.85, 1.7, 1.6, 1.5, 1.45, 1.4, 1.3].map(r => r * k), tailC, { part: P.TAIL, pivot: X(-20.5, 23.5), seg: 10, sub: 6, capRings: 3 });
   return { leg: 0.42, bob: 0.35 * k, tail: 0.16, head: 0.5, sink: 24 * k };
 }
@@ -276,7 +255,7 @@ function sumatranElephant(m, s) {
   // small eyes in wrinkled lids
   for (const side of [1, -1]) {
     m.ell(HX(24.2, 34.5, side * 4.95), R(1.05, 0.85, 0.5), shade(s.color, -0.3), { ...hd, lo: true });
-    m.ell(HX(24.4, 34.5, side * 5.15), R(0.5, 0.42, 0.32), '#1a120c', { ...hd, lo: true });
+    m.ell(HX(24.4, 34.5, side * 5.15), R(0.5, 0.42, 0.32), '#1a120c', { ...hd, lo: true, gloss: 2 });
   }
   m.eyeAt = HX(24.4, 34.5, 5.2); m.eyePivot = neck;
   // ears: rounded, smaller than an African's, laid flat back against the side of the head and neck,
@@ -396,7 +375,7 @@ function sumatranRhino(m, s) {
   // small eyes in wrinkles
   for (const side of [1, -1]) {
     m.ell(X(19.8, 14.3, side * 2.75), [0.8 * k, 0.6 * k, 0.4 * k], shade(s.color, -0.4), { ...hd, lo: true });
-    m.ell(X(19.95, 14.3, side * 2.92), [0.4 * k, 0.36 * k, 0.3 * k], '#120c08', { ...hd, lo: true });
+    m.ell(X(19.95, 14.3, side * 2.92), [0.4 * k, 0.36 * k, 0.3 * k], '#120c08', { ...hd, lo: true, gloss: 2 });
   }
   m.eyeAt = X(20, 14.3, 3.0); m.eyePivot = neck;
   // ears: upright and rounded, fringed with long dark hair
@@ -566,30 +545,26 @@ const MAMMALS = {
     // Leopard cat (spotted): small, tawny with solid black spots and dark lines over the head.
     const dk = col(s.dark), base = grad(s.color, s.belly || s.color, -0.3, 0.5);
     const coat = s.clouds ? b => cloudCoat(b, s.dark, H * 0.42) : k ? () => jaguarCoat(s, H, by) : null;
-    const legColor = s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.16); return gap > 0.36 && id > 0.25 ? dk : col(shade(s.color, -0.05)); }
-      : s.spotted ? (u, p) => (hash3(Math.round(p.x * 1.4), Math.round(p.y * 1.4), Math.round(p.z * 1.4)) > 0.78 ? dk : col(shade(s.color, 0.05)))
+    // (markings drawn per pixel: coatSpots, coatRings)
+    const legColor = s.clouds ? felineSpots(s, H, solid(shade(s.color, -0.05)), H * 0.16)
+      : s.spotted ? felineSpots(s, H, solid(shade(s.color, 0.05)), H * 0.1)
       : k ? felineSpots(s, H) : null;
-    const ring = (w, f) => (u, p) => (Math.sin(p.x * 2 * Math.PI / (H * w)) > 0.35 ? tmp.copy(col(s.color)).lerp(dk, f) : col(s.color));
+    // rings round the tail, n of them, a fraction f of the way to the dark colour
+    const ring = (n, f) => pixelCoat('rings', solid(s.color), [n, 0.19, 0, 0, 2, 2, -2, 0], tmp.copy(col(s.color)).lerp(dk, f));
     return {
       H, leg, wide: lion && !s.mane ? 0.94 : k ? 0.9 : 1, chest: 1 - k * 0.03,
       shoulder: lion ? 0.09 : k ? 0.07 : 0.04, haunch: lion ? 0.94 : k ? 0.9 : 1, sag: lion ? 0.01 : k ? -0.02 : 0.04,
       legR0: H * (lion ? (s.mane ? 0.19 : 0.18) : k ? 0.205 : s.cheetah ? 0.16 : 0.22),
       legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : 0.14),
-      neckR: H * (lion ? 0.25 : 0.3 - k * 0.02), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
+      neckR: H * (lion ? 0.25 : 0.3 - k * 0.02), dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : s.bobtail ? [shade(s.color, -0.4), 13, 0.16] : null, coatFine: s.bobtail ? false : undefined, rosettes: s.rosettes,
       coat, legColor, fine: s.clouds ? 2 : lion, detail: !!(lion || k), legRings: legColor ? 8 : undefined,
-      paws: true, toes: true, smoothLegs: true, // soft, articulated paws
+      paws: true, toes: true, // soft, articulated paws
       head: [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.34 : 0.36) * hs, H * (lion ? 0.31 : 0.33) * hs, H * (lion ? 0.32 : 0.34) * hs], snout: H * 0.15 * hs,
       nose: lion || k ? false : undefined, eyeR: lion ? H * 0.038 : undefined,
       ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : 0.24), earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
       earColor: null,
-      headPaint: s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.1); return gap > 0.4 && id > 0.3 && u.y > -0.3 ? dk : base(u); } : k ? felineSpots(s, H) : null,
-      extra: (m, b) => {
-        // Rounded scapulae and haunches meet the upper limbs inside the coat.
-        for (const side of [-1, 1]) {
-          m.ell([L * 0.24, b.by - H * 0.1, side * H * (lion || k ? 0.18 : 0.23)], [H * 0.25, H * 0.36, H * 0.19], b.coat, { fine: !!(lion || k) });
-          m.ell([-L * 0.25, b.by - H * 0.13, side * H * (lion || k ? 0.19 : 0.23)], [H * 0.31, H * 0.35, H * 0.2], b.coat, { fine: !!(lion || k) });
-        }
-      },
+      headPaint: s.clouds ? felineSpots(s, H, base, H * 0.1) : k ? felineSpots(s, H, undefined, H * 0.09)
+        : s.rosettes || s.cheetah || s.spotted || s.bobtail ? felineSpots(s, H, base, H * 0.07) : null, // (small solid spots on the head)
       face: (m, hp, hr, hd) => {
         if (k) m.ell([hp[0] + hr[0] * 0.78 + H * 0.15 * hs * 1.18, hp[1] - hr[1] * 0.17, 0], [H * 0.045, H * 0.035, H * 0.075], '#34251d', hd);
         if (lion || k) for (const side of [-1, 1]) {
@@ -652,7 +627,7 @@ const MAMMALS = {
         const tl = s.clouds ? 1.45 : s.spotted ? 0.85 : s.stocky ? 0.72 : 1;
         const r = H * (s.clouds ? 0.18 : lion ? 0.065 : 0.105);
         const end = [-L * (0.42 + 0.53 * tl), b.by - H * (s.clouds ? 0.32 : 0.2), 0];
-        const paint = s.clouds ? ring(0.55, 0.85) : s.spotted || s.cheetah ? ring(0.4, 0.65) : s.color;
+        const paint = s.clouds ? ring(4.5, 0.85) : s.spotted ? ring(3, 0.65) : s.cheetah ? ring(4, 0.65) : s.color;
         tube(m, [base, [-L * (0.42 + 0.15 * tl), b.by - H * 0.08, 0],
           [-L * (0.42 + 0.32 * tl), b.by - H * 0.35, 0],
           [-L * (0.42 + 0.45 * tl), b.by - H * 0.36, 0], end],
@@ -681,12 +656,13 @@ const MAMMALS = {
       legMotion: 0.42, bobMotion: 0.025,
       foot: (m, foot, r, o) => riverMammalFoot(m, foot, r, o, s.dark),
       head: [L * 0.49, by + H * 0.23], headR: [H * 0.32, H * 0.27, H * 0.29], snout: H * 0.23, noMuzzle: true, nose: false,
-      headPaint: u => Math.abs(u.z) > 0.45 && ((u.x - 0.38) / 0.65) ** 2 + ((u.y - 0.23) / 0.37) ** 2 < 1 ? col(s.dark) : col(u.y > 0.48 ? s.color : s.belly),
+      // (the mask's edge soft over a vertex or so, so it doesn't stair-step across the head's rings)
+      headPaint: u => tmp.copy(col(s.belly)).lerp(col(s.color), smooth(0.4, 0.56, u.y)).lerp(col(s.dark), smooth(0.38, 0.5, Math.abs(u.z)) * smooth(1.15, 0.85, ((u.x - 0.38) / 0.65) ** 2 + ((u.y - 0.23) / 0.37) ** 2)),
       ears: 'none', eyeR: H * 0.037, eyeOut: 0.89,
       face: (m, hp, hr, hd) => riverMammalFace(m, s, hp, hr, H, hd, true),
       tail: (m, b) => {
         const base = [-L * 0.4, b.by + H * 0.05, 0];
-        tube(m, [base, [-L * 0.57, b.by - H * 0.12, 0], [-L * 0.76, b.by - H * 0.37, 0], [-L * 0.9, b.by - H * 0.4, 0]], [H * 0.17, H * 0.19, H * 0.14, H * 0.045], u => Math.sin((u.x + 1) * Math.PI * 2.5) > 0 ? col(s.dark) : col(s.belly), { part: P.TAIL, pivot: base, sub: 8, seg: 14 });
+        tube(m, [base, [-L * 0.57, b.by - H * 0.12, 0], [-L * 0.76, b.by - H * 0.37, 0], [-L * 0.9, b.by - H * 0.4, 0]], [H * 0.17, H * 0.19, H * 0.14, H * 0.045], pixelCoat('rings', solid(s.belly), [2.5, 0.25, 0, 0, 2, 2, -2, 0], s.dark), { part: P.TAIL, pivot: base, sub: 8, seg: 14 }); // (coatRings)
       },
     };
   },
@@ -712,6 +688,7 @@ const MAMMALS = {
   beaver: s => {
     const L = s.len, H = L * 0.46, leg = L * 0.12, by = leg + H * 0.5;
     return {
+      tuck: 0.08, // (a heavy body: little waist)
       H, leg, wide: 1.15, hip: 0.08, haunch: 1.1, legR0: H * 0.16, legR1: H * 0.12, legColor: shade(s.color, -0.35), neckR: H * 0.34,
       head: [L * 0.43, by + H * 0.05], headR: [H * 0.34, H * 0.32, H * 0.33], snout: H * 0.2, muzzle: shade(s.belly, 0.1),
       ears: 'round', ear: H * 0.1,
@@ -761,6 +738,7 @@ const MAMMALS = {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     if (s.beard) return beardedPig(s, L, H, leg, by);
     return {
+      tuck: 0.12, // (a heavy body: little waist)
       H, leg, hip: -0.02, shoulder: 0.12, chest: 1.08, haunch: 0.92, legR0: H * 0.14, legR1: H * 0.07, legColor: shade(s.color, -0.3), hoof: '#1a1614', neckR: H * 0.36,
       coat: base => u => {
         const cx = u.x - 0.46 - u.y * 0.12; // a thin band slanting back from the throat over the shoulders
@@ -816,13 +794,10 @@ const MAMMALS = {
   zebra: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     const dark = col(s.dark), light = col(s.color), belly = col(s.belly);
-    const stripes = () => u => {
-      if (u.y < -0.7) return belly;
-      const a = Math.abs(Math.atan2(u.z, u.y));
-      const rump = u.x < -0.35 ? (u.x + 0.35) * a * 6 : 0;
-      return Math.sin(u.x * 24 + rump + a * 1.2 + Math.sin(a * 4 + u.x * 7) * 0.35) > 0.15 ? dark : light;
-    };
-    const legC = u => (Math.sin(u.y * 9) > 0.2 ? dark : light);
+    // (bands round the body, bending into chevrons over the rump; pale belly below: coatZebra)
+    const stripes = () => pixelCoat('zebra', () => light, [-0.7], dark, belly);
+    const legC = light; // (the body's stripes carry on down the legs, round each one)
+    const bands = (n, w, end = 2) => pixelCoat('rings', () => light, [n, w, 0, 0, end, 2, -2, 0], dark); // (coatRings)
     return {
       H, leg, detail: true, fine: 2, smoothLegs: true, legSeg: 14, legR0: H * 0.14, legR1: H * 0.065, shoulder: 0.08, chest: 0.97,
       legMotion: 0.36, bobMotion: 0.022,
@@ -832,7 +807,7 @@ const MAMMALS = {
       head: [L * 0.55, by + H * 0.72], headR: [H * 0.24, H * 0.2, H * 0.17], snout: H * 0.04, muzzle: light, nose: false,
       ears: 'none', eyeR: H * 0.035,
       face: (m, hp, hr, hd) => {
-        tube(m, [[L * 0.25, by + H * 0.52, 0], [L * 0.34, by + H * 0.7, 0], [hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.86, 0]], [[H * 0.06, H * 0.023], [H * 0.09, H * 0.03], [H * 0.04, H * 0.023]], u => Math.sin(u.x * 22) > 0 ? dark : light, { ...hd, sub: 10, seg: 8 });
+        tube(m, [[L * 0.25, by + H * 0.52, 0], [L * 0.34, by + H * 0.7, 0], [hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.86, 0]], [[H * 0.06, H * 0.023], [H * 0.09, H * 0.03], [H * 0.04, H * 0.023]], bands(7, 0.25), { ...hd, sub: 10, seg: 8 });
         for (const side of [-1, 1]) {
           const ear = [hp[0] - H * 0.08, hp[1] + H * 0.26, side * H * 0.14];
           m.ell(ear, [H * 0.065, H * 0.17, H * 0.05], s.color, { ...hd, rot: [side * 0.28, 0, -0.1] });
@@ -840,12 +815,12 @@ const MAMMALS = {
         }
         // a long horse face angled down, thin stripes across the bridge, ending in a soft dark muzzle
         const a = -0.62, c = Math.cos(a), sn = Math.sin(a), at = d => [hp[0] + c * d, hp[1] + sn * d, 0];
-        m.ell(at(H * 0.24), [H * 0.3, H * 0.15, H * 0.13], u => (u.x < 0.55 && Math.sin(u.x * 13) > 0.35 ? dark : light), { ...hd, rot: [0, 0, a] });
+        m.ell(at(H * 0.24), [H * 0.3, H * 0.15, H * 0.13], bands(4.1, 0.19, 0.775), { ...hd, rot: [0, 0, a] });
         const nose = col('#3a2e2a'), soft = u => tmp.copy(light).lerp(nose, smooth(-0.6, 0.3, u.x)); // fading from white into the dark nose
         m.ell(at(H * 0.45), [H * 0.13, H * 0.125, H * 0.115], soft, { ...hd, rot: [0, 0, a] });
         const tip = at(H * 0.55);
         for (const side of [1, -1]) { // dark eyes set into the side of the head
-          m.ell([hp[0] + hr[0] * 0.35, hp[1] + hr[1] * 0.15, side * hr[2] * 0.92], [H * 0.04, H * 0.04, H * 0.025], '#15110e', { ...hd, lo: true });
+          m.ell([hp[0] + hr[0] * 0.35, hp[1] + hr[1] * 0.15, side * hr[2] * 0.92], [H * 0.04, H * 0.04, H * 0.025], '#15110e', { ...hd, lo: true, gloss: 2 });
           m.ell([hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.25, side * hr[2] * 1.02], [H * 0.012, H * 0.012, H * 0.008], '#f4f2ea', { ...hd, lo: true });
         }
         for (const side of [1, -1]) m.ell([tip[0], tip[1] + H * 0.01, side * H * 0.045], [H * 0.015, H * 0.022, H * 0.02], '#141010', { ...hd, lo: true });
@@ -935,7 +910,8 @@ const MAMMALS = {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
       H, leg, legR0: H * 0.12, legR1: H * 0.05, legColor: shade(s.color, 0.1), hoof: '#1a1612', neckR: H * 0.19, chest: 0.95,
-      coat: base => u => (u.y < -0.45 ? col(s.belly) : u.y < -0.2 && u.x > -0.6 && u.x < 0.55 ? col(s.dark) : base(u)),
+      coat: base => pixelCoat('flank', base, [by, H * 0.53, L * 0.46, -0.8, -0.45, -0.2, -0.6, 0.55], s.dark, s.belly, { legs: false }), // (the black flank band, coatFlank)
+      coatFine: false,
       head: [L * 0.53, by + H * 0.85], headR: [H * 0.27, H * 0.2, H * 0.17], snout: H * 0.24,
       ears: 'point', ear: H * 0.3, earOut: 0.45, earBack: 0.1, earW: 0.3,
       antlers: (m, hp, hr, hd) => {
@@ -950,7 +926,7 @@ const MAMMALS = {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
       H, leg, detail: true, fine: true, splitHoof: true, legR0: H * 0.12, legR1: H * 0.055, legColor: shade(s.color, -0.05), hoof: '#1a1612', neckR: H * (s.neckWidth ?? 0.19),
-      coat: base => u => (u.y < -0.55 ? col(s.belly) : u.y < -0.2 ? col(shade(s.color, 0.2)) : base(u)),
+      coat: base => pixelCoat('flank', base, [by, H * 0.53, L * 0.46, -0.8, -0.55, -0.2, -9, 9], shade(s.color, 0.2), s.belly, { legs: false }), // (the paler flanks, coatFlank)
       head: [L * 0.53, by + H * 0.85], headR: [H * 0.27, H * 0.2, H * 0.17], snout: H * 0.26,
       ears: 'none', nose: false, eyeR: H * 0.037,
       face: (m, hp, hr, hd) => {
@@ -977,6 +953,7 @@ const MAMMALS = {
   buffalo: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
+      tuck: 0.15, // (a heavy body: little waist)
       H, leg, wide: 1.18, shoulder: 0.12, chest: 1.1, legR0: H * 0.2, legR1: H * 0.12, hoof: '#0e0c0a', neckR: H * 0.34,
       head: [L * 0.53, by - H * 0.0], headR: [H * 0.33, H * 0.28, H * 0.26], snout: H * 0.28, muzzle: '#1a1614',
       ears: 'point', ear: H * 0.2, earOut: 1.2, earBack: 0.1, earW: 0.45, earColor: s.color,
@@ -994,6 +971,7 @@ const MAMMALS = {
   warthog: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
+      tuck: 0.15, // (a heavy body: little waist)
       H, leg, shoulder: 0.1, chest: 1.05, haunch: 0.9, legR0: H * 0.13, legR1: H * 0.08, legColor: shade(s.color, -0.2), hoof: '#1a1614', neckR: H * 0.34,
       head: [L * 0.5, by - H * 0.08], headR: [H * 0.4, H * 0.28, H * 0.32], snout: H * 0.3, muzzle: shade(s.color, -0.1), nose: false,
       ears: 'point', ear: H * 0.2, earOut: 0.6, earW: 0.4,
@@ -1012,7 +990,7 @@ const MAMMALS = {
   hyena: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
-      H, leg, hip: -0.16, shoulder: 0.16, chest: 1.1, haunch: 0.8, legR0: H * 0.16, legR1: H * 0.09, legColor: shade(s.color, -0.1), neckR: H * 0.32, dots: [s.dark, 6, 0.26],
+      H, leg, hip: -0.16, shoulder: 0.16, chest: 1.1, haunch: 0.8, legR0: H * 0.13, legR1: H * 0.065, legColor: shade(s.color, -0.1), neckR: H * 0.32, dots: [s.dark, 6, 0.26], // (heavy shoulders, but slender legs)
       head: [L * 0.54, by + H * 0.35], headR: [H * 0.36, H * 0.3, H * 0.28], snout: H * 0.28, muzzle: '#2a2420',
       ears: 'round', ear: H * 0.26, earColor: shade(s.color, -0.1),
       tail: (m, b) => { const base = [-L * 0.44, b.by, 0]; m.limb(base, [-L * 0.55, b.by - H * 0.4, 0], H * 0.07, H * 0.09, s.dark, { part: P.TAIL, pivot: base }); },
@@ -1024,6 +1002,7 @@ const MAMMALS = {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     const hide = base => (u, p) => tmp.copy(base(u)).multiplyScalar(0.97 + Math.sin(p.x / H * 34 + Math.sin(p.y / H * 12)) * 0.025);
     return {
+      tuck: 0.1, // (a heavy body: little waist)
       H, leg, detail: true, fine: true, wide: 1.2, hip: 0.03, shoulder: 0.11, chest: 1.07, shoulderBulk: 0.13, haunch: 0.96,
       legR0: H * 0.22, legR1: H * 0.13, straight: true, smoothLegs: true, legSeg: 14, coat: hide, legMotion: 0.23, bobMotion: 0.018,
       neckPath: [[L * 0.25, by + H * 0.07, 0], [L * 0.39, by + H * 0.06, 0], [L * 0.5, by - H * 0.08, 0]], neckRadii: [H * 0.38, H * 0.32, H * 0.22],
@@ -1053,20 +1032,13 @@ const MAMMALS = {
   },
   giraffe: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
-    const patch = () => {
-      const light = col(s.belly), dark = col(s.dark), warm = col(s.color);
-      return (u, p) => {
-        if (p.y < leg * 0.7) return light;
-        const [gap, id] = cells(p, H * 0.3);
-        if (gap < 0.12 + Math.sin(p.y / H * 8) * 0.025) return light;
-        return tmp.copy(warm).lerp(dark, id * 0.7);
-      };
-    };
+    // (patches warm to dark, between pale lanes, above the lower legs: coatGiraffe)
+    const patch = () => pixelCoat('giraffe', () => col(s.belly), [leg, H], s.dark, s.color);
     const neck = [[L * 0.27, by + H * 0.17, 0], [L * 0.46, by + H * 0.88, 0], [L * 0.64, by + H * 1.9, 0], [L * 0.76, by + H * 2.66, 0]];
     return {
       H, leg, detail: true, fine: 2, smoothLegs: true, legSeg: 14, splitHoof: true, hip: -0.14, shoulder: 0.2, chest: 1.1, haunch: 0.88, legR0: H * 0.15, legR1: H * 0.066, hoof: '#2a211a',
       legMotion: 0.28, bobMotion: 0.018,
-      legColor: (u, p) => p.y < leg * 0.62 ? col(s.belly) : patch()(u, p), coat: patch,
+      legColor: patch(), coat: patch, // (the lower legs are pale)
       neckPath: neck, neckRadii: [[H * 0.35, H * 0.29], [H * 0.28, H * 0.22], [H * 0.205, H * 0.16], [H * 0.16, H * 0.13]], neckSeg: 20, neckSub: 9,
       head: [L * 0.8, by + H * 2.7], headR: [H * 0.29, H * 0.18, H * 0.17], snout: H * 0.24, muzzle: shade(s.belly, -0.08), nose: false, eyeR: H * 0.031, ears: 'none',
       antlers: (m, hp, hr, hd) => {
@@ -1099,6 +1071,7 @@ const MAMMALS = {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     const hide = base => (u, p) => tmp.copy(base(u)).multiplyScalar(0.96 + 0.035 * Math.sin(p.x / H * 35 + Math.sin(p.y / H * 18)));
     return {
+      tuck: 0.1, // (a heavy body: little waist)
       H, leg, detail: true, fine: true, wide: 1.16, hip: 0.06, shoulder: 0.14, chest: 1.07, sag: 0.095,
       legR0: H * 0.22, legR1: H * 0.16, straight: true, smoothLegs: true, legSeg: 16, coat: hide, legMotion: 0.22, bobMotion: 0.015,
       neckPath: [[L * 0.29, by + H * 0.16, 0], [L * 0.4, by + H * 0.24, 0], [L * 0.5, by + H * 0.26, 0]], neckRadii: [H * 0.36, H * 0.33, H * 0.3],

@@ -1,5 +1,5 @@
 // Capybaras, tapirs, armadillos and hippos.
-import { P, SPH_HI, col, eyes, grad, hash3, loftBody, place, shade, smooth, stumpLegs, tmp } from './model-core.js';
+import { P, SPH_HI, col, eyes, grad, hash3, loftBody, pixelCoat, place, shade, smooth, stumpLegs, tmp } from './model-core.js';
 
 // Capybara: a barrel with its rump higher than its shoulders, no neck to speak of, and a huge
 // blunt, boxy head with the eyes, ears and nostrils all set high (so it can swim almost hidden).
@@ -15,7 +15,7 @@ function capybara(m, s) {
   m.ell([L * 0.56, by - H * 0.16, 0], [H * 0.12, H * 0.14, H * 0.2], shade(s.color, -0.3), hd);            // dark blunt nose
   for (const side of [1, -1]) {
     m.ell([L * 0.57, by - H * 0.04, side * H * 0.08], [H * 0.035, H * 0.03, H * 0.035], '#1a120c', { ...hd, lo: true });  // nostrils on top
-    m.ell([L * 0.4, by + H * 0.26, side * H * 0.22], [H * 0.07, H * 0.07, H * 0.05], '#140e0a', { ...hd, lo: true });   // eyes high up
+    m.ell([L * 0.4, by + H * 0.26, side * H * 0.22], [H * 0.07, H * 0.07, H * 0.05], '#140e0a', { ...hd, lo: true, gloss: 2 });   // eyes high up
     m.eyeSpot = [L * 0.4, by + H * 0.26, H * 0.22];
     m.ell([L * 0.28, by + H * 0.44, side * H * 0.16], [H * 0.08, H * 0.1, H * 0.05], shade(s.color, -0.3), hd);         // little round ears
   }
@@ -46,7 +46,7 @@ function tapir(m, s) {
   m.ell([hp[0] + H * 0.18, hp[1] - H * 0.2, 0], [H * 0.16, H * 0.07, H * 0.13], shade(s.belly, 0.25), hd); // pale lips and chin
   if (!s.saddle) m.limb([hp[0] - H * 0.05, hp[1] + H * 0.2, 0], [neck[0] - H * 0.15, neck[1] + H * 0.34, 0], H * 0.07, H * 0.05, shade(s.color, -0.3), hd); // mane
   for (const side of [1, -1]) {
-    m.ell([hp[0] + H * 0.08, hp[1] + H * 0.06, side * H * 0.17], [H * 0.04, H * 0.04, H * 0.03], '#0e0c0a', { ...hd, lo: true });
+    m.ell([hp[0] + H * 0.08, hp[1] + H * 0.06, side * H * 0.17], [H * 0.04, H * 0.04, H * 0.03], '#0e0c0a', { ...hd, lo: true, gloss: 2 });
     m.eyeSpot = [hp[0] + H * 0.08, hp[1] + H * 0.06, H * 0.17]; // (eyes)
     const ear = u => u.y > 0.5 || Math.abs(u.x) > 0.75 ? col(s.rim) : col(shade(s.color, -0.1));
     m.ell([hp[0] - H * 0.14, hp[1] + H * 0.3, side * H * 0.14], [H * 0.09, H * 0.13, H * 0.04], ear, { ...hd, rot: [side * -0.35, 0, 0.3] });
@@ -61,11 +61,9 @@ function tapir(m, s) {
 // head with upright ears, and a long ringed tail.
 function armadillo(m, s) {
   const L = s.len, cy = L * 0.22;
-  const shell = u => {
-    const band = u.x > -0.35 && u.x < 0.3;
-    if (band) return Math.abs(Math.sin(u.x * 26)) < 0.28 ? col(shade(s.color, -0.35)) : col(s.color);
-    return tmp.copy(col(s.color)).multiplyScalar(0.85 + hash3(Math.round(u.x * 12), Math.round(u.y * 8), Math.round(u.z * 8)) * 0.25);
-  };
+  // mottled plates fore and aft, with the flexible bands across the middle drawn per pixel (coatRings)
+  const shell = pixelCoat('rings', u => u.x > -0.35 && u.x < 0.3 ? col(s.color) : tmp.copy(col(s.color)).multiplyScalar(0.85 + hash3(Math.round(u.x * 12), Math.round(u.y * 8), Math.round(u.z * 8)) * 0.25),
+    [16.55, 0.09, 0, 0.325, 0.65, 2, -2, 0], shade(s.color, -0.35));
   m.add(SPH_HI, place([0, cy, 0], [0, 0, 0], [L * 0.38, L * 0.21, L * 0.23]), shell);
   m.ell([0, cy - L * 0.12, 0], [L * 0.36, L * 0.07, L * 0.2], s.belly); // pale skirt
   const neck = [L * 0.3, cy, 0], hd = { part: P.HEAD, pivot: neck };
@@ -106,7 +104,7 @@ function hippo(m, s) {
     m.ell([L * 0.74, by + H * 0.27, z], [H * 0.035, H * 0.025, H * 0.045], '#2a1c1c', { ...hd, lo: true });
     m.ell([L * 0.47, by + H * 0.4, side * H * 0.22], [H * 0.1, H * 0.09, H * 0.09], face, hd);                // eye turrets
     m.ell([L * 0.5, by + H * 0.42, side * H * 0.27], [H * 0.055, H * 0.05, H * 0.035], pink, { ...hd, lo: true });
-    m.ell([L * 0.51, by + H * 0.43, side * H * 0.29], [H * 0.03, H * 0.03, H * 0.02], '#140c0a', { ...hd, lo: true });
+    m.ell([L * 0.51, by + H * 0.43, side * H * 0.29], [H * 0.03, H * 0.03, H * 0.02], '#140c0a', { ...hd, lo: true, gloss: 2 });
     m.eyeAt = [L * 0.51, by + H * 0.43, H * 0.29]; m.eyePivot = neck;
     m.ell([L * 0.39, by + H * 0.48, side * H * 0.2], [H * 0.05, H * 0.08, H * 0.04], shade(s.color, -0.2), { ...hd, rot: [side * -0.4, 0, 0.3] }); // little ears
     m.ell([L * 0.72, by - H * 0.12, side * H * 0.34], [H * 0.035, H * 0.08, H * 0.03], '#f0e8d8', { ...hd, lo: true }); // a hint of tusk at the lip

@@ -65,20 +65,20 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   if (!mo.canopyBody?.length) return { roll: 0, pitch, yaw: 0 };
   support.set(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0);
   const swing = mo.primate === 3 ? siamangSwing(st.branchPhase, gait, eating) : null;
-  let outline = st.canopyOutline?.model === mo && st.canopyOutline.scale === st.sc ? st.canopyOutline.points : null;
-  const fresh = !outline;
-  if (fresh) {
-    outline = mo.canopyBody.map(v => v.clone());
-    st.canopyOutline = { model: mo, scale: st.sc, points: outline, bounds: new THREE.Box3() };
-  }
-  if (fresh || swing || mo.canopyWalkerMotion) for (let i = 0; i < outline.length; i++) {
+  // (a juvenile's scale grows a little every frame: rescale the same points in place, so the
+  // clearance clusters cached for them only scale too, instead of being regrouped every frame)
+  const fresh = st.canopyOutline?.model !== mo, rescale = !fresh && st.canopyOutline.scale !== st.sc;
+  if (fresh) st.canopyOutline = { model: mo, scale: st.sc, points: mo.canopyBody.map(v => v.clone()), bounds: new THREE.Box3() };
+  else if (rescale) st.canopyOutline.scale = st.sc;
+  const outline = st.canopyOutline.points;
+  if (fresh || rescale || swing || mo.canopyWalkerMotion) for (let i = 0; i < outline.length; i++) {
     const q = outline[i].copy(mo.canopyBody[i]);
     if (swing) q.sub(p.set(...swing.grip).multiplyScalar(mo.len)).applyAxisAngle(side, swing.sway)
       .add(p.set(.14, 1.38, .02).multiplyScalar(mo.len));
     if(mo.canopyWalkerMotion && st.howlerBody)q.add(st.howlerBody);
     q.sub(support).multiplyScalar(st.sc);
   }
-  if (fresh || swing || mo.canopyWalkerMotion) {
+  if (fresh || rescale || swing || mo.canopyWalkerMotion) {
     st.canopyOutline.bounds.setFromPoints(outline);
   }
   const margin = mo.len * st.sc * .008;

@@ -7,6 +7,9 @@ import { disturbanceOn } from './campaign.js';
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
 const FIRE_SNAG_G = 0.85; // a tree burned in a fire leaves a snag or log only if it was nearly full grown
+const CROWN_BARE = 0.3; // how well a crown fire carries through big trees with nothing under them, against a full shrub layer (1)
+const LADDER_FULL = 0.4; // ladder fuel that carries a crown fire fully
+const RX_TORCH = 0.08; // a controlled burn's chance, per tile, of climbing a shrub layer into a dry canopy (see rxTorch)
 
 export class Events {
   constructor(game) {
@@ -29,13 +32,20 @@ export class Events {
     if (g) { const p = w.catalog.plants[g]; f += w.groundG[i] * (GRASSY[p.look.type] ?? 0.2) * (p.invasive ? 1.1 : 0.7); }
     if (s) { const p = w.catalog.plants[s]; f += w.shrubG[i] * (p.fuel ?? 0.6); }
     const hot = this.severe && this.heat > 0.3;
-    // in a crown fire the canopy itself burns, not just what's under it
-    if (tr) f += w.treeG[i] < 0.6 ? 0.5 * w.treeG[i] : hot ? 0.9 * this.heat : 0.2;
+    // in a crown fire the canopy itself burns, not just what's under it, and burns best where shrubs
+    // carry the flames up into it (so a stand whose understory was burned off slows a crown fire)
+    if (tr) f += w.treeG[i] < 0.6 ? 0.5 * w.treeG[i] : hot ? 0.9 * this.heat * (CROWN_BARE + (1 - CROWN_BARE) * Math.min(1, this.ladder(w, i) / LADDER_FULL)) : 0.2;
     const ft = w.feature[i];
     if (ft === F.SNAG || ft === F.LOG || ft === F.BRUSH) f += 0.4;
     if (this.mapDefinition.fuelBonus) f += this.mapDefinition.fuelBonus(w, i); // (Sumatra: drained peat smoulders under the weeds)
     const dryness = hot ? clamp((0.85 - w.moist[i]) / 0.45, 0, 1) : clamp((0.62 - w.moist[i]) / 0.4, 0, 1);
     return f * dryness;
+  }
+
+  // Ladder fuel: a shrub layer, brush pile or log under a tree, which carries fire up into its crown.
+  ladder(w, i) {
+    const s = w.shrub[i], ft = w.feature[i];
+    return (s ? w.shrubG[i] * (w.catalog.plants[s].fuel ?? 0.6) : 0) + (ft === F.BRUSH || ft === F.LOG ? 0.3 : 0);
   }
 
   fuelLoad() {
@@ -73,7 +83,7 @@ export class Events {
   }
 
   // ------------------------------------------------------------ fire
-  ignite(at = null, severe = false, note = null) {
+  ignite(at = null, severe = false, note = null, heat = 1) {
     const g = this.game, w = g.world, rng = g.rng;
     let best = at, bf = 0.25;
     if (best == null) {
@@ -87,7 +97,7 @@ export class Events {
     if (best == null) return false;
     this.burned = 0;
     this.lastFire = g.day;
-    this.severe = severe; this.heat = severe ? 1 : 0; this.severeTiles = [];
+    this.severe = severe; this.heat = severe ? heat : 0; this.severeTiles = [];
     if (severe) this.lastSevere = g.day;
     this.burnTile(best);
     this.fireStart = best;
@@ -240,6 +250,21 @@ export class Events {
   // into dry fuel outside, and then it's a wildfire (see rxEscape).
   igniteRx(i) {
     const w = this.game.world, rng = this.game.rng;
+    const torch = this.rxTorch(i);
+    if (torch && rng() < torch) {
+      // the flames climbed the shrubs into the canopy: the crew can't hold a crown fire
+      const g = this.game, heat = clamp(0.5 + 0.4 * this.rxDrought(), 0.5, 1);
+      const note = 'Your controlled burn has gone into the treetops! The flames climbed the dry shrubs under the trees into the canopy, and now it\'s a crown fire that can burn through forest. Send a fire crew (Remove tab). Under trees, burn only after rain, and clear the shrubs and saplings beneath them first (Clear vegetation).';
+      w.rx[i] = 0;
+      g.stats.rxCrownFires = (g.stats.rxCrownFires || 0) + 1;
+      if (!this.fireTiles && this.lastFire !== g.day) return void this.ignite(i, true, note, heat);
+      // a wildfire that already got away from the burn goes up into the crowns with it
+      this.severe = true; this.heat = heat; this.lastSevere = g.day; this.severeTiles = [];
+      this.burnTile(i);
+      g.notify(note, 'fire', { x: i % w.w + 0.5, y: ((i / w.w) | 0) + 0.5 });
+      g.emit('event', 'fire');
+      return;
+    }
     w.rx[i] = 2;
     w.fire[i] = 1 + (rng() < 0.6 ? 1 : 0);
     w.scorch[i] = 130;
@@ -274,6 +299,21 @@ export class Events {
     // animals get out of the way of a slow, low fire
     const x = i % w.w, y = (i / w.w) | 0;
     for (const a of g.wildlife.agents) if (Math.floor(a.x) === x && Math.floor(a.y) === y && a.move !== 'fly' && a.move !== 'swim') { a.state = 'idle'; a.wait = 0; }
+  }
+
+  // How dry the weather has been, for a controlled burn: 0 just after rain, 1 after a dry week and a half.
+  rxDrought() { return clamp(this.game.dryStreak / 8 - 0.25, 0, 1.25); }
+
+  // The chance a burning tile torches. It takes ladder fuel: a shrub layer (or a brush pile or log)
+  // under a big tree carries the flames up into its crown. Then it's how dry the tile is, how long
+  // since rain, and the fire season. Open meadow can't torch; a burn after rain won't.
+  rxTorch(i) {
+    const g = this.game, w = g.world, cl = this.mapDefinition.climate;
+    if (cl.crownFires === false || this.severe || !w.tree[i] || w.treeG[i] < 0.6) return 0;
+    const ladder = this.ladder(w, i);
+    if (!ladder) return 0;
+    const dry = clamp((0.75 - w.moist[i]) / 0.4, 0, 1), season = cl.fireMonths.includes(g.month) ? 1 : 0.3;
+    return RX_TORCH * Math.min(ladder, 1.5) * dry * this.rxDrought() * season * g.diff.disasters;
   }
 
   // The chance, each day, that the burn escapes into a tile next to it. It takes fuel (cleared

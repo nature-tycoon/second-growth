@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Second Growth — animal close-up review</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+body{margin:0;padding:16px;background:#edf0e8;color:#26392e;font:14px system-ui}h1{font-size:20px;margin:0 0 6px}p{margin:6px 0 12px}label{margin-right:14px}select{font:inherit;padding:4px}
+main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}article{background:#fafbf7;border:1px solid #d1d9cd;border-radius:8px;padding:8px}h2{font-size:14px;margin:0 0 4px}canvas{display:block;width:100%;aspect-ratio:4/3;border-radius:4px}
+@media(max-width:850px){main{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:550px){main{grid-template-columns:1fr}}
+</style>
+<h1>Animal close-ups</h1>
+<p>Each animal at the game's closest zoom, under the game's midday lights and shadows (sky and ground fill, the sun from the game's default direction, the same tone mapping) and seen from the game's camera angle. For before and after comparisons: the frames are fixed. <code>?species=map:key,…</code> picks the animals; the zoom framings show them at the game's own scale.</p>
+<label>View <select id="view"><option value="game">Game camera</option><option value="side">Side</option><option value="front">Head on</option></select></label>
+<label>Pose <select id="pose"><option value="rest">Standing</option><option value="walk">Walking</option><option value="graze">Head down</option><option value="fly">Flying</option></select></label>
+<label>Model <select id="model"><option value="detail">Detailed</option><option value="close">Close-up</option></select></label>
+<label>Framing <select id="framing"><option value="fit">Fill the frame</option><option value="game">Game's closest zoom</option><option value="normal">Game's usual zoom</option><option value="wide">Zoomed out</option><option value="head">The head</option></select></label>
+<label>Light <select id="light"><option value="day">Midday</option><option value="golden">Golden hour</option></select></label>
+<p id="status">Loading…</p><main></main>
+<script type="module">
+import * as THREE from 'three';
+import {adultAnimalScale} from '../js/render3d/animal-scale.js';
+import {loadAnimals,ANIMALS,maleLook} from '../js/data/animals.js';
+const revision=Date.now(),{buildSpecies,faunaMaterial}=await import('../js/render3d/fauna.js?closeup='+revision);
+const query=new URLSearchParams(location.search);
+const wanted=(query.get('species')||'serengeti:lion,serengeti:zebra,amazon:jaguar,pnw:elk,pnw:bear,sumatra:gajah,amazon:macaw,amazon:howler,pnw:deer').split(',').map(s=>s.split(':'));
+const controls=Object.fromEntries(['view','pose','light','framing'].map(id=>[id,document.getElementById(id)]));
+// (the close-up model is what the game draws for an animal more than CLOSE_PIXELS long on screen)
+const model=document.getElementById('model'),close=query.get('model')==='close';model.value=close?'close':'detail';
+model.addEventListener('change',()=>{query.set('model',model.value);location.search=query.toString();});
+for(const id in controls)if(query.get(id))controls[id].value=query.get(id);
+const W=480,H=360,DPR=Math.min(2,devicePixelRatio||1);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(DPR);renderer.setSize(W,H);
+renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9fb27a);
+// (the game's lights: render3d/scene.js)
+const hemi=new THREE.HemisphereLight(0xe4eeff,0x5f6e3c,1.25),sun=new THREE.DirectionalLight(0xfff3dc,2.5);
+sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.bias=-0.0006;sun.shadow.normalBias=0.03;scene.add(hemi,sun,sun.target);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(40,40).rotateX(-Math.PI/2),new THREE.MeshLambertMaterial({color:0x8a9a5a}));ground.receiveShadow=true;scene.add(ground);
+const camera=new THREE.OrthographicCamera(-1,1,1,-1,-300,300),EL=THREE.MathUtils.degToRad(34),AZ=Math.PI/4;
+const entries=[];
+const byMap=new Map();for(const [map,key,sex]of wanted){if(!byMap.has(map))byMap.set(map,[]);byMap.get(map).push(sex?key+':'+sex:key);} // (map:key:male draws a species' male look)
+for(const [map,keys]of byMap){
+ loadAnimals((await import(`../js/data/animals-${map}.js?closeup=${revision}`)).default);
+ for(const want of keys){
+  const [key,sex]=want.split(':'),found=ANIMALS.find(d=>d.key===key),def=found&&sex==='male'?maleLook(found):found;if(!def)continue;
+  const {geo,motion}=buildSpecies(def,{close}),anim=new THREE.InstancedBufferAttribute(new Float32Array(4),4);geo.setAttribute('aAnim',anim);geo.computeBoundingBox();
+  const mesh=new THREE.InstancedMesh(geo,faunaMaterial(motion),1);mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=false;
+  const article=document.createElement('article'),h=document.createElement('h2'),canvas=document.createElement('canvas');canvas.width=W*DPR;canvas.height=H*DPR;
+  h.textContent=`${def.name}${sex?` (${sex})`:''} · ${(geo.index.count/3/1000).toFixed(1)}k triangles`;article.append(h,canvas);document.querySelector('main').append(article);
+  // (head framing: the head's own vertices, the part round the eyes out to the nose's reach)
+  let headBox=null;const eye=motion.eyeSpot;if(eye){const pos=geo.attributes.position,part=geo.attributes.aPart;let reach=0;for(let i=0;i<pos.count;i++)if(part.getX(i)===8)reach=Math.max(reach,pos.getX(i)-eye[0]);
+   const r=Math.max(reach,1e-3)*1.6;headBox=new THREE.Box3();const v=new THREE.Vector3();for(let i=0;i<pos.count;i++)if(part.getX(i)===8){v.fromBufferAttribute(pos,i);if(Math.hypot(v.x-eye[0],v.y-eye[1])<r)headBox.expandByPoint(v);}}
+  const flyBox=new THREE.Box3().setFromBufferAttribute(geo.attributes.aExt); // (wings spread)
+  entries.push({def,geo,mesh,anim,canvas,headBox,flyBox,scale:adultAnimalScale(def.sprite)});
+ }
+}
+function draw(){
+ const golden=controls.light.value==='golden';
+ sun.color.set(golden?0xffb46a:0xfff3dc);sun.intensity=golden?2.5*1.55:2.5;
+ hemi.color.set(golden?0xffe8cc:0xe4eeff);
+ for(const e of entries){
+  const pose=controls.pose.value;e.anim.setXYZW(0,1.1,pose==='walk'?1:0,pose==='fly'?1:0,pose==='graze'?.65:0);e.anim.needsUpdate=true;
+  e.mesh.setMatrixAt(0,new THREE.Matrix4().makeScale(e.scale,e.scale,e.scale));e.mesh.instanceMatrix.needsUpdate=true;
+  const box=(controls.framing.value==='head'&&e.headBox||pose==='fly'&&e.flyBox||e.geo.boundingBox).clone();box.min.multiplyScalar(e.scale);box.max.multiplyScalar(e.scale);
+  const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
+  const az=controls.view.value==='side'?0:controls.view.value==='front'?Math.PI/2:AZ,el=controls.view.value==='game'?EL:THREE.MathUtils.degToRad(8);
+  const dir=new THREE.Vector3(Math.sin(az)*Math.cos(el),Math.sin(el),Math.cos(az)*Math.cos(el));
+  camera.position.copy(center).addScaledVector(dir,120);camera.lookAt(center);camera.updateMatrixWorld();
+  // (fill: the animal's box as seen from the camera, with a margin; game: 46 * 4.5 screen pixels per tile)
+  let rx=0,ry=0;for(let i=0;i<8;i++){const c=new THREE.Vector3(i&1?box.max.x:box.min.x,i&2?box.max.y:box.min.y,i&4?box.max.z:box.min.z).applyMatrix4(camera.matrixWorldInverse);rx=Math.max(rx,Math.abs(c.x));ry=Math.max(ry,Math.abs(c.y));}
+  const zoom={game:4.5,normal:.62,wide:.25}[controls.framing.value],half=zoom?H/2/(46*zoom):Math.max(ry,rx*H/W)*1.12;
+  camera.left=-half*W/H;camera.right=half*W/H;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();
+  const s=half*5;sun.shadow.camera.left=-s;sun.shadow.camera.right=s;sun.shadow.camera.top=s;sun.shadow.camera.bottom=-s;sun.shadow.camera.near=1;sun.shadow.camera.far=160;sun.shadow.camera.updateProjectionMatrix();
+  const el2=golden?22:52;sun.position.copy(center).add(new THREE.Vector3(-30,55*Math.tan(THREE.MathUtils.degToRad(el2))/Math.tan(THREE.MathUtils.degToRad(52)),20));sun.target.position.copy(center);
+  scene.add(e.mesh);renderer.render(scene,camera);scene.remove(e.mesh);
+  e.canvas.getContext('2d').drawImage(renderer.domElement,0,0);
+ }
+ document.getElementById('status').textContent=`${entries.length} animals`;
+ document.body.dataset.ready='1';
+}
+for(const c of Object.values(controls))c.addEventListener('change',draw);draw();
+// ?bench=1: draw each animal filling a 1440x900 frame at 2x (a Retina laptop) and time it, for the cost of its shading
+if(query.get('bench')){
+ renderer.setPixelRatio(2);renderer.setSize(1440,900);const gl=renderer.getContext(),out={},px=new Uint8Array(4),sync=()=>gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px); // (a read waits for the GPU; finish() may not)
+ for(const e of entries){
+  scene.add(e.mesh);e.mesh.setMatrixAt(0,new THREE.Matrix4().makeScale(e.scale,e.scale,e.scale));e.mesh.instanceMatrix.needsUpdate=true;
+  const box=e.geo.boundingBox.clone();box.min.multiplyScalar(e.scale);box.max.multiplyScalar(e.scale);const c=box.getCenter(new THREE.Vector3()),sz=box.getSize(new THREE.Vector3());
+  const half=Math.max(sz.y,sz.x*900/1440)*.5;camera.left=-half*1.6;camera.right=half*1.6;camera.top=half;camera.bottom=-half;
+  camera.position.copy(c).add(new THREE.Vector3(0,0,120));camera.lookAt(c);camera.updateProjectionMatrix();
+  for(let i=0;i<5;i++)renderer.render(scene,camera);sync();
+  const t=performance.now();for(let i=0;i<40;i++){renderer.render(scene,camera);sync();}
+  out[e.def.key]=+((performance.now()-t)/40).toFixed(2);scene.remove(e.mesh);
+ }
+ document.body.dataset.bench=JSON.stringify(out);
+}
+</script>
+</html>

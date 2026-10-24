@@ -21,18 +21,24 @@ export function animalViewRadius(def) {
 export function pixelsPerUnit(camera, viewportHeight) {
   return camera?.isOrthographicCamera && viewportHeight > 0 ? camera.zoom * viewportHeight / (camera.top - camera.bottom) : Infinity;
 }
+// For a perspective camera (watch mode's eye level), the same at one scene unit away: divide by
+// an animal's distance for its own size on screen. Null for the usual orthographic view.
+export function perspectiveScale(camera, viewportHeight) {
+  return camera?.isPerspectiveCamera && viewportHeight > 0 ? viewportHeight / (2 * Math.tan(camera.fov * Math.PI / 360)) : null;
+}
 
 export class ActorView {
   constructor() {
     this.frustum = new THREE.Frustum(); this.matrix = new THREE.Matrix4(); this.enabled = false;
   }
   update(camera, viewportHeight, enabled = true) {
-    // Review tools can omit the camera; the game uses an orthographic camera throughout.
-    this.enabled = !!(enabled && camera?.isOrthographicCamera && viewportHeight > 0);
+    // Review tools can omit the camera. The game's view is orthographic; watch mode's eye level is
+    // a perspective camera, culled with a fixed margin (its far plane ends the view in the haze).
+    this.enabled = !!(enabled && (camera?.isOrthographicCamera || camera?.isPerspectiveCamera) && viewportHeight > 0);
     if (!this.enabled) return;
     this.matrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.matrix);
-    const margin = 96 * (camera.top - camera.bottom) / (camera.zoom * viewportHeight);
+    const margin = camera.isPerspectiveCamera ? 1.5 : 96 * (camera.top - camera.bottom) / (camera.zoom * viewportHeight);
     for (const p of this.frustum.planes) p.constant += margin;
   }
   visible(x, low, high, z, radius) {

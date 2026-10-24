@@ -1,6 +1,6 @@
 // Rodents, squirrels, rabbits and bears.
 import * as THREE from 'three';
-import { P, SPH_HI, col, grad, hash3, place, shade, tmp } from './model-core.js';
+import { P, SPH_HI, col, grad, hash3, pixelCoat, place, shade, tmp } from './model-core.js';
 
 // A vole is a furry egg with a blunt nose: tiny feet, ears tucked in the fur, a short tail.
 // A chipmunk (stripes) is the same egg, perkier: head up, bold back stripes, a striped face
@@ -9,15 +9,8 @@ function vole(m, s) {
   const chip = !!s.stripes, dark = col(shade(s.color, -0.55)), pale = col(shade(s.belly, 0.35));
   const base = grad(s.color, s.belly, -0.35, 0.5);
   // stripes run nose to tail along the back: dark, pale, dark either side of a dark centre line
-  const fur = chip ? u => {
-    if (u.y < -0.1) return base(u);
-    const a = Math.abs(Math.atan2(u.z, u.y)), back = u.x > -0.85 && u.x < 0.7;
-    if (back && a < 0.12) return dark;
-    if (back && a > 0.42 && a < 0.56) return dark;
-    if (back && a > 0.56 && a < 0.74) return pale;
-    if (back && a > 0.74 && a < 0.86) return dark;
-    return base(u);
-  } : base;
+  // (drawn per pixel, coatLines: angles round from the spine, and half widths)
+  const fur = chip ? pixelCoat('lines', base, [0, 0.12, 0.49, 0.07, 0.8, 0.06, 0.65, 0.09], dark, pale) : base;
   m.ell([-0.4, 2.9, 0], [4.4, 2.8, 2.7], fur, chip ? { rot: [0, 0, 0.12] } : {});
   const hd = { part: P.HEAD, pivot: [2.2, 3, 0] }, hp = chip ? [3.7, 3.9, 0] : [3.6, 3.1, 0];
   const face = chip ? u => (Math.abs(u.z) > 0.55 && Math.abs(u.y - 0.12) < 0.1 ? dark : Math.abs(u.z) > 0.5 && Math.abs(u.y + 0.12) < 0.1 ? pale : base(u)) : base;
@@ -26,7 +19,7 @@ function vole(m, s) {
   m.ell(sn, [0.9, 0.85, 0.95], shade(s.belly, 0.1), hd);
   m.ell([sn[0] + 0.8, sn[1] + 0.15, 0], [0.3, 0.26, 0.3], '#3a2420', { ...hd, lo: true });
   for (const side of [1, -1]) {
-    m.ell([hp[0] + 0.75, hp[1] + 0.6, side * 1.38], [0.4, 0.4, 0.22], '#120e0c', { ...hd, lo: true });
+    m.ell([hp[0] + 0.75, hp[1] + 0.6, side * 1.38], [0.4, 0.4, 0.22], '#120e0c', { ...hd, lo: true, gloss: 2 });
     m.ell([hp[0] + 0.85, hp[1] + 0.72, side * 1.5], [0.12, 0.12, 0.08], '#f4f0ea', { ...hd, lo: true }); // a catchlight
     m.ell([hp[0] - 0.5, hp[1] + 1.6, side * 1.15], [0.6, 0.66, 0.3], shade(s.color, 0.12), { ...hd, rot: [side * -0.35, 0, 0] });
     m.ell([hp[0] - 0.42, hp[1] + 1.6, side * 1.22], [0.4, 0.46, 0.2], '#c8a090', { ...hd, lo: true, rot: [side * -0.35, 0, 0] });
@@ -60,7 +53,7 @@ function squirrel(m, s) {
   m.ell([6.0, 5.5, 0], [0.26, 0.22, 0.26], '#1c1714', { ...hd, lo: true });
   for (const side of [1, -1]) {
     m.ell([4.45, 6.25, side * 1.18], [0.55, 0.5, 0.2], shade(s.belly, 0.25), { ...hd, lo: true });
-    m.ell([4.55, 6.25, side * 1.26], [0.36, 0.36, 0.14], '#15110e', { ...hd, lo: true });
+    m.ell([4.55, 6.25, side * 1.26], [0.36, 0.36, 0.14], '#15110e', { ...hd, lo: true, gloss: 2 });
     m.ell([3.4, 7.3, side * 0.85], [0.45, 0.85, 0.28], s.color, { ...hd, rot: [side * -0.25, 0, 0.1] });
     m.limb([3.35, 7.9, side * 0.95], [3.2, 8.6, side * 1.0], 0.22, 0.05, '#2a1f18', { ...hd, caps: false });
   }
@@ -95,7 +88,7 @@ function rabbit(m, s) {
   m.ell([5.9, 6.8, 0], [1.2, 1.0, 1.15], grad(s.belly, shade(s.belly, 0.25), 0, 0.5), hd);
   m.ell([6.95, 7.05, 0], [0.3, 0.25, 0.32], '#b98378', { ...hd, lo: true });
   for (const side of [1, -1]) {
-    m.ell([5.05, 7.75, side * 1.5], [0.55, 0.58, 0.3], '#15110e', { ...hd, lo: true });
+    m.ell([5.05, 7.75, side * 1.5], [0.55, 0.58, 0.3], '#15110e', { ...hd, lo: true, gloss: 2 });
     m.ell([5.25, 7.95, side * 1.68], [0.14, 0.14, 0.08], '#ffffff', { ...hd, lo: true });
     // leaf-shaped ears laid back, darker at the tips
     const ear = u => u.y > 0.72 ? col(shade(s.color, -0.3)) : col(shade(s.color, 0.05));
@@ -147,7 +140,7 @@ function bear(m, s) {
     m.ell([hp[0] + H * 0.42 * hs, hp[1] - H * 0.05 * hs, 0], [H * 0.06, H * 0.055, H * 0.075], '#0c0a09', { ...hd, lo: true });
     for (const side of [1, -1]) {
       m.ell([hp[0] - H * 0.04, hp[1] + H * 0.27 * hs, side * H * 0.22 * hs], [H * 0.075, H * 0.075, H * 0.04], coat, hd);
-      m.ell([hp[0] + H * 0.14 * hs, hp[1] + H * 0.07 * hs, side * H * 0.23 * hs], [H * 0.035, H * 0.035, H * 0.02], '#3a2a1e', { ...hd, lo: true });
+      m.ell([hp[0] + H * 0.14 * hs, hp[1] + H * 0.07 * hs, side * H * 0.23 * hs], [H * 0.035, H * 0.035, H * 0.02], '#3a2a1e', { ...hd, lo: true, gloss: 2 });
       m.eyeSpot = [hp[0] + H * 0.14 * hs, hp[1] + H * 0.07 * hs, H * 0.23 * hs]; // (eyes)
     }
   } else {
@@ -155,7 +148,7 @@ function bear(m, s) {
     m.ell([hp[0] + H * 0.44, hp[1] - H * 0.05, 0], [H * 0.055, H * 0.05, H * 0.07], '#0c0a09', { ...hd, lo: true });
     for (const side of [1, -1]) {
       m.ell([hp[0] - H * 0.06, hp[1] + H * 0.24, side * H * 0.17], [H * 0.09, H * 0.1, H * 0.05], '#2e2520', hd);
-      m.ell([hp[0] + H * 0.1, hp[1] + H * 0.07, side * H * 0.19], [H * 0.035, H * 0.035, H * 0.02], '#d8c8a8', { ...hd, lo: true });
+      m.ell([hp[0] + H * 0.1, hp[1] + H * 0.07, side * H * 0.19], [H * 0.035, H * 0.035, H * 0.02], '#d8c8a8', { ...hd, lo: true, gloss: 2 });
       m.eyeSpot = [hp[0] + H * 0.1, hp[1] + H * 0.07, H * 0.19]; // (eyes)
     }
   }

@@ -547,6 +547,40 @@ export const FIELD_RECORDINGS = {
     "license": "CC BY-SA 3.0",
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
     "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "thunder-crack": {
+    "clips": [
+      "field-thunder-crack-1"
+    ],
+    "gain": 0.5,
+    "source": "https://commons.wikimedia.org/wiki/File:Thunder_crack_2B.ogg",
+    "by": "Jud McCranie",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "modified": "Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license."
+  },
+  "thunder-claps": {
+    "clips": [
+      "field-thunder-claps-1",
+      "field-thunder-claps-2"
+    ],
+    "gain": 0.5,
+    "source": "https://commons.wikimedia.org/wiki/File:Thunder_Claps.ogg",
+    "by": "Jonathan Hunt",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "modified": "Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license."
+  },
+  "thunder-distant": {
+    "clips": [
+      "field-thunder-distant-1"
+    ],
+    "gain": 0.5,
+    "source": "https://commons.wikimedia.org/wiki/File:Thunder.ogg",
+    "by": "Bidgee",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "modified": "Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license."
   }
 };
 

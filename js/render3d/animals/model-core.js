@@ -42,8 +42,13 @@ const hash3 = (x, y, z) => { const h = Math.sin(x * 12.9898 + y * 78.233 + z * 3
 const SPH = new THREE.SphereGeometry(1, 12, 9);
 const SPH_LO = new THREE.SphereGeometry(1, 7, 5);
 const SPH_HI = new THREE.SphereGeometry(1, 24, 16); // for bodies that carry fine markings
-const SPH_XL = new THREE.SphereGeometry(1, 56, 36); // a tortoise's plated shell
+const SPH_XL = new THREE.SphereGeometry(1, 56, 36); // (a tiger's ruff)
 const SCALE = new THREE.SphereGeometry(1, 6, 3); // one of a pangolin's hundreds of plates (kept light)
+// The close-up model (see Model.close) swaps these spheres for finer ones and gives limbs, tubes
+// and lofts CLOSE times the segments, so outlines stay round when an animal fills the screen. (The
+// pangolin's plates are fine enough already.)
+const FINER = new Map([[SPH, new THREE.SphereGeometry(1, 20, 14)], [SPH_LO, new THREE.SphereGeometry(1, 12, 8)], [SPH_HI, new THREE.SphereGeometry(1, 36, 24)]]);
+const CLOSE = 1.6;
 
 // A thin flat shape (fins, wing membranes): drawn in 2D, given a hair of thickness, indexed so it
 // merges with the rest of the model. plane 'xz' lays it flat (span along z), 'xy' stands it up.
@@ -114,14 +119,19 @@ function wingShape(kind, side) {
 }
 
 class Model {
-  constructor() { this.parts = []; this.hard = false; }
+  // close: build the close-up model, same shapes in finer segments (see FINER)
+  constructor(close = false) { this.parts = []; this.hard = false; this.coats = []; this.close = close; }
+  seg(n) { return this.close ? Math.round(n * CLOSE) : n; }
+  finer(geo) { return this.close ? FINER.get(geo) ?? geo : geo; }
   // geo: a unit primitive; m: where it goes; paint(unitPos, worldPos) -> colour.
   // ext: a second placement (wings spread out), blended in by the shader when flying.
   // paintGeo: optional geometry whose positions are handed to paint() instead of geo's own
   // extSrc: optional geometry the ext placement is applied to, when geo itself was pre-shaped
   // hard: horn, antler or tusk, which a kill's skeleton keeps (also everything added while
   // this.hard is set; see build)
-  add(geo, m, paint, { part = P.BODY, pivot = null, ext = null, paintGeo = null, extSrc = null, hard = false } = {}) {
+  // gloss: 1 a slight shine (a wet nose, hooves; horns, antlers and tusks have it anyway), 2 an eye
+  add(geo, m, paint, { part = P.BODY, pivot = null, ext = null, paintGeo = null, extSrc = null, hard = false, gloss = 0 } = {}) {
+    if (!paintGeo && !extSrc) geo = this.finer(geo); // (a paint or pose geometry must keep its vertices)
     const unit = geo.clone();
     const paintPos = (paintGeo || unit).attributes.position;
     if (unit.attributes.uv) unit.deleteAttribute('uv');
@@ -136,6 +146,13 @@ class Model {
       color[i * 3] = c.r; color[i * 3 + 1] = c.g; color[i * 3 + 2] = c.b;
     }
     g.setAttribute('color', new THREE.BufferAttribute(color, 3));
+    // (a coat the shader marks per pixel: the paint coordinate, and which of the model's coats)
+    if (fn.coat) {
+      // (fn.coatFade(u, p): 1 where the markings show, 0 where the vertex colour shows alone)
+      const slot = this.coatSlot(fn.coat), coat = new Float32Array(n * 4), fade = fn.coatFade;
+      for (let i = 0; i < n; i++) { coat[i * 4] = paintPos.getX(i); coat[i * 4 + 1] = paintPos.getY(i); coat[i * 4 + 2] = paintPos.getZ(i); coat[i * 4 + 3] = fade ? slot - 0.45 * (1 - fade(u.fromBufferAttribute(paintPos, i), p.fromBufferAttribute(g.attributes.position, i))) : slot; }
+      g.setAttribute('aCoat', new THREE.BufferAttribute(coat, 4));
+    }
     g.setAttribute('aPart', new THREE.BufferAttribute(new Float32Array(n).fill(part), 1));
     const pv = pivot || [0, 0, 0], piv = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) { piv[i * 3] = pv[0]; piv[i * 3 + 1] = pv[1]; piv[i * 3 + 2] = pv[2]; }
@@ -144,6 +161,7 @@ class Model {
     g.setAttribute('aExt', e.attributes.position.clone());
     g.setAttribute('aExtN', e.attributes.normal.clone());
     if (hard || this.hard) g.userData = { ...g.userData, hard: true }; // (a clone shares its source's userData)
+    if (gloss) g.userData = { ...g.userData, gloss };
     this.parts.push(g);
   }
   ell(pos, r, paint, o = {}) { this.add(o.fine ? SPH_HI : o.lo ? SPH_LO : SPH, place(pos, o.rot || [0, 0, 0], r), paint, o); }
@@ -151,7 +169,7 @@ class Model {
   limb(p0, p1, r0, r1, paint, o = {}) {
     const a = V(...p0), d = V(...p1).sub(a), len = d.length() || 1e-3;
     const q = new THREE.Quaternion().setFromUnitVectors(UP, d.clone().normalize());
-    this.add(cyl(r0, r1, o.seg, o.rings), new THREE.Matrix4().compose(a, q, V(1, len, 1)), paint, o);
+    this.add(cyl(r0, r1, this.seg(o.seg ?? 7), o.rings), new THREE.Matrix4().compose(a, q, V(1, len, 1)), paint, o);
     if (o.caps !== false) {
       this.add(SPH_LO, place(p0, [0, 0, 0], [r0, r0, r0]), paint, o);
       this.add(SPH_LO, place(p1, [0, 0, 0], [r1, r1, r1]), paint, o);
@@ -162,6 +180,8 @@ class Model {
   // leading edge along the top, primaries reaching back toward the tail.
   // front: how far forward of the fold point the folded wing begins (the shoulder)
   // up: how high round the body the folded wing sits (radians up from the flank's midline)
+  // R may be a function of the distance forward of the fold point, giving the body's radius there,
+  // so a folded wing hugs a body that narrows toward the tail instead of standing off it.
   wing(side, pivot, span, chord, thick, paint, fold, kind = 'round', R = chord, tilt = 0, foldLen = 1, front = span * 0.5 * foldLen, up = 0.3) {
     // A thin flight-feather layer, with a shorter, softly raised covert layer over its shoulder.
     // Both stay in the same animated part, preserving the species' spread-wing silhouette.
@@ -198,10 +218,10 @@ class Model {
         const edge = coverts ? 1 - smooth(0.65, 1, t0) : 1;
         const wrap = width * (coverts ? 0.2 + across * 0.72 * edge : across);
         const lift = coverts ? thick * (0.9 + Math.sin(Math.PI * t0) * (1 - 4 * across * across) * 0.6) : 0;
-        const along = span * 1.2 * foldLen * t, th = up + wrap / R;
-        const r = R * (1 - 0.3 * t * t) + y * thick * (coverts ? 0.8 : 1.2) + chord * 0.01 + lift;
+        const along = span * 1.2 * foldLen * t, lx = front - along, Rx = typeof R === 'function' ? R(lx) : R * (1 - 0.3 * t * t), th = up + wrap / Rx;
+        const r = Rx + y * thick * (coverts ? 0.8 : 1.2) + chord * 0.01 + lift;
         // Retain the body wrap and upright-body tilt, so the new layers don't stand off the flank.
-        const lx = front - along, ly = r * Math.sin(th) - along * 0.06, c = Math.cos(tilt), sn = Math.sin(tilt);
+        const ly = r * Math.sin(th) - along * 0.06, c = Math.cos(tilt), sn = Math.sin(tilt);
         p.setXYZ(i, fold[0] + lx * c - ly * sn, fold[1] + lx * sn + ly * c, side * r * Math.cos(th));
       }
       g.computeVertexNormals();
@@ -209,15 +229,27 @@ class Model {
       g.dispose(); unit.dispose(); paintGeo.dispose();
     }
   }
+  // One of the model's per-pixel coats (see pixelCoat), numbered from 1; the same markings share one.
+  coatSlot(coat) {
+    const key = JSON.stringify([coat.kind, coat.params, coat.dark.getHex(), coat.mid.getHex()]);
+    let k = this.coats.findIndex(c => c.key === key);
+    if (k < 0) { k = this.coats.length; this.coats.push({ ...coat, key }); }
+    return k + 1;
+  }
   build() {
+    // (unmarked parts of a marked model carry slot 0, so every part has the same attributes)
+    if (this.coats.length) for (const p of this.parts) if (!p.attributes.aCoat) p.setAttribute('aCoat', new THREE.BufferAttribute(new Float32Array(p.attributes.position.count * 4), 4));
     const g = mergeGeometries(this.parts);
+    g.userData.coats = this.coats;
     g.computeBoundingSphere();
     // the vertex ranges of the horns, antlers and tusks (render3d/carcass-decay.js keeps them on
     // the skeleton, so a kill stays recognisable)
-    let offset = 0; g.userData.hard = [];
+    // and of everything with a shine (animals/animal-surface.js)
+    let offset = 0; g.userData.hard = []; g.userData.gloss = [];
     for (const p of this.parts) {
       const n = p.attributes.position.count;
       if (p.userData.hard) g.userData.hard.push([offset, offset + n]);
+      if (p.userData.hard || p.userData.gloss) g.userData.gloss.push([offset, offset + n, p.userData.gloss || 1]);
       offset += n;
     }
     return g;
@@ -227,23 +259,27 @@ class Model {
 // ---------------------------------------------------------------- mammals
 function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
   m.eyeSpot ||= [at[0] + rx, at[1] + ry, rz]; // (where the eyes are, for fitting a kill's skull; eyeAt is for eye-shine)
-  for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: true, part, pivot });
+  for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: true, part, pivot, gloss: 2 });
 }
 
 // One smooth body: a tube along x whose oval cross-section swells from haunch to chest and
 // rounds off at both ends (no seams between separate blobs). Paint gets (ny, x, side) in
 // unit-like coordinates, so countershading and spots work as they do on a sphere.
-function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false }, paint, o = {}) {
-  const R = fine === 3 ? 128 : fine === 2 ? 84 : fine ? 56 : 22, A = fine === 3 ? 88 : fine === 2 ? 60 : fine ? 36 : 14, pos = [], idx = [], u = [];
+// tuck: how far the belly line rises toward the hind legs (a waist, as on a deer or a dog, rather
+// than a sausage); keel: how far the chest drops between the forelegs. Both shape only the
+// underside, so the back keeps its line.
+function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false, tuck = 0, keel = 0 }, paint, o = {}) {
+  const R = m.seg(fine === 3 ? 128 : fine === 2 ? 84 : fine ? 56 : 22), A = m.seg(fine === 3 ? 88 : fine === 2 ? 60 : fine ? 36 : 14), pos = [], idx = [], u = [];
   for (let i = 0; i <= R; i++) {
     const t = i / R, x = x0 + (x1 - x0) * t;
     const w = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(2 * t - 1), 2.6))); // rounded, blunt ends
     const e = t * t * (3 - 2 * t);
     const bulk = shoulderBulk * Math.exp(-(((t - 0.73) / 0.18) ** 2));
     const ry = (ry0 + (ry1 - ry0) * e) * w * (1 + bulk), rz = (rz0 + (rz1 - rz0) * e) * w * (1 + bulk * 0.5), cy = cy0 + (cy1 - cy0) * e - sag * Math.sin(t * Math.PI);
+    const waist = tuck * Math.exp(-(((t - 0.36) / 0.17) ** 2)), under = 1 - waist + keel * Math.exp(-(((t - 0.7) / 0.14) ** 2));
     for (let j = 0; j <= A; j++) {
-      const a = j / A * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
-      pos.push(x, cy + c * ry, sn * rz);
+      const a = j / A * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a), k = smooth(0.15, -0.55, c); // (0 on the back, 1 under the belly)
+      pos.push(x, cy + c * ry * (1 + (under - 1) * k), sn * rz * (1 - waist * 0.3 * k));
       u.push(2 * t - 1, c, sn);
     }
   }
@@ -265,7 +301,7 @@ function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBu
 // closed off with rounded ends. up: the direction the oval's first radius (and paint's u.y) faces
 // at the start. Paint gets (u, p): u.x runs -1..1 along the tube, u.y/u.z round it.
 function tube(m, pts, rad, paint, o = {}) {
-  const sub = o.sub ?? 4, A = o.seg ?? 10, n = pts.length;
+  const sub = m.seg(o.sub ?? 4), A = m.seg(o.seg ?? 10), n = pts.length;
   const R = rad.map(r => (Array.isArray(r) ? r : [r, r]));
   const at = (i, k) => pts[Math.max(0, Math.min(n - 1, i))][k];
   const S = [], SR = [];
@@ -322,70 +358,110 @@ function locks(m, a, b, count, len, r, paint, o = {}, seed = 1, down = [0, -1, 0
 // Jaguar and ocelot rosettes: broken dark rings with a warmer centre, laid on a jittered grid
 // over the coat (u is the unit-sphere-like coordinate every body part is painted with).
 // chains: the ocelot's markings stretch into long open blotches running along the body
-function rosettes(base, dark, belly, chains = false) {
-  const d = col(dark), mid = col(shade(base, -0.18)), b = grad(base, belly, -0.3, 0.5);
-  return u => {
-    if (u.y < -0.5) return b(u);
-    const gx = u.x * (chains ? 3.6 : 5.5), ga = Math.atan2(u.z, u.y) * (chains ? 2.6 : 1.9); // roughly square cells over the body
-    const ix = Math.floor(gx), ia = Math.floor(ga);
-    const cx = ix + 0.5 + (hash3(ix, ia, 1) - 0.5) * 0.35, ca = ia + 0.5 + (hash3(ix, ia, 2) - 0.5) * 0.35;
-    const dist = Math.hypot(gx - cx, ga - ca);
-    if (dist > 0.19 && dist < 0.4) return d;
-    if (dist <= 0.19) return mid;
-    return b(u);
-  };
+// (roughly square cells round the body's axis at height by, body length L and depth H; chains:
+// longer cells, so the rings stretch into open blotches along the body; drawn per pixel: coatRosettes)
+function rosettes(base, dark, belly, chains, { L, H, by }) {
+  return pixelCoat('rosettes', grad(base, belly, -0.3, 0.5), [by, H * 0.53, L * (chains ? 0.15 : 0.1), chains ? 2.2 : 1.6, 0.15], dark, shade(base, -0.18));
 }
 
 // Jaguar rosettes use one coat coordinate system across the torso and shoulder muscles.
 // Jittered, wavy rings and occasional central dots avoid a repeated checkerboard pattern.
+// (laid out in model space round the body's axis at height by; drawn per pixel: coatJaguar)
 function jaguarCoat(s, H, by) {
-  const base = grad(s.color, s.belly, -0.3, 0.5), dark = col(s.dark), mid = shade(s.color, -0.12);
-  return (u, p) => {
-    const height = (p.y - by) / (H * 0.55);
-    if (height < -0.5) return base({ y: height });
-    const gx = p.x / (H * 0.34), ga = Math.atan2(p.z, p.y - by) * 1.55;
-    const ix = Math.floor(gx), ia = Math.floor(ga), id = hash3(ix, ia, 3);
-    const dx = gx - ix - 0.5 - (hash3(ix, ia, 1) - 0.5) * 0.35;
-    const da = ga - ia - 0.5 - (hash3(ix, ia, 2) - 0.5) * 0.35, angle = Math.atan2(da, dx);
-    const d = Math.hypot(dx, da) / (1 + Math.sin(angle * 5 + id * 8) * 0.14);
-    if (d > 0.2 && d < 0.39 && Math.sin(angle * 3 + id * 8) > -0.85 || d < 0.075 && id > 0.25) return dark;
-    return d < 0.2 ? mid : base({ y: height });
-  };
+  const base = grad(s.color, s.belly, -0.3, 0.5);
+  return pixelCoat('jaguar', (u, p) => base({ y: (p.y - by) / (H * 0.55) }), [by, H * 0.55, H * 0.34, 1.55], s.dark, shade(s.color, -0.12));
 }
 
-function felineSpots(s, H) {
-  const base = col(s.color), dark = col(s.dark);
-  return (u, p) => {
-    const x = p.x / (H * 0.15), y = p.y / (H * 0.15), ix = Math.floor(x), iy = Math.floor(y);
-    const dx = x - ix - 0.5 - (hash3(ix, iy, 1) - 0.5) * 0.3;
-    const dy = y - iy - 0.5 - (hash3(ix, iy, 2) - 0.5) * 0.3;
-    return Math.hypot(dx, dy) < 0.23 + hash3(ix, iy, 3) * 0.07 ? dark : base;
-  };
+// Small solid spots scattered over a part (a jaguar's legs and head): coatSpots. size: the cell.
+function felineSpots(s, H, base = solid(s.color), size = H * 0.15) {
+  return pixelCoat('spots', base, [size], s.dark);
 }
 
-// Solid round spots on a jittered grid (cheetah, hyena); size is the spot radius in cell units.
-function dots(base, dark, cells, size) {
-  const d = col(dark);
-  return u => {
-    if (u.y < -0.55) return base(u);
-    const gx = u.x * cells, ga = Math.atan2(u.z, u.y) * cells * 0.32;
-    const ix = Math.floor(gx), ia = Math.floor(ga);
-    const cx = ix + 0.5 + (hash3(ix, ia, 1) - 0.5) * 0.4, ca = ia + 0.5 + (hash3(ix, ia, 2) - 0.5) * 0.4;
-    return Math.hypot(gx - cx, ga - ca) < size ? d : base(u);
-  };
+// Solid round spots on a jittered grid round the body's axis (cheetah, hyena); cells along half
+// the body, size the spot radius in cell units: coatDots
+function dots(base, dark, cells, size, { L, H, by }) {
+  return pixelCoat('dots', base, [by, H * 0.53, L * 0.46 / cells, cells * 0.32, size], dark);
 }
 
 // Clouded leopard: big irregular "cloud" blotches in world space, each with a black rim and a
-// fill a little darker than the coat, separated by lanes of the paler ground colour.
+// fill a little darker than the coat, separated by lanes of the paler ground colour: coatClouds
 function cloudCoat(base, dark, size) {
-  const d = col(dark);
-  return (u, p) => {
-    const [gap, id] = cells(p, size);
-    if (u.y < -0.6) return gap > 0.42 && id > 0.4 ? d : base(u); // a few spots on the pale belly
-    if (id < 0.12 || gap < 0.08) return base(u);
-    if (gap < 0.2 + id * 0.08) return d;
-    return tmp.copy(base(u)).multiplyScalar(0.6 + id * 0.15);
-  };
+  return pixelCoat('clouds', base, [size], dark);
+}
+
+// A coat whose markings the shader draws per pixel (COAT_GLSL in animal-material.js), so their
+// edges stay sharp however close the camera is and the mesh needn't be fine enough to carry them.
+// The vertices take base's colour (the unmarked coat, with its countershading) and carry the
+// paint coordinate; kind names the shader's pattern, params its numbers (up to four), dark and
+// mid the marks' colours.
+// legs: false leaves the markings off a quadruped's legs (a band along the flank, not round each leg).
+function pixelCoat(kind, base, params, dark, mid = dark, { legs = true } = {}) {
+  const paint = (u, p) => base(u, p);
+  paint.coat = { kind, params, dark: col(dark).clone(), mid: col(mid).clone(), legs };
+  return paint;
+}
+
+// A mammal's head in one smooth piece: the skull (an oval of radii hr about hp) flowing into a
+// tapered muzzle (snout long, from sn; 0 for none), with the bridge of the nose running down from the
+// forehead, a brow over the eyes, cheeks below them and a jaw line running back from the chin. The
+// skull keeps the old oval's surface round the eyes and between the ears, so eyes, ears, antlers and
+// a species' own face pieces sit where they did. Paint gets u as on a sphere (u.x from the back of
+// the skull to the nose, u.y up); the muzzle takes the muzzle paint, blended in from the skull's.
+const smax = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.max(a, b) + h * h * k / 4; };
+function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
+  const [hx, hy] = hp, [rx, ry, rz] = hr;
+  // the muzzle: an oval a little narrower toward the nose; the jaw line runs from under the ear to the chin
+  // (a long muzzle narrows to the nose; a cat's short one stays blunt)
+  const mx = sn[0] + snout * 0.3, my = sn[1], mry = ry * 0.55, mrz = rz * 0.58, taper = smooth(0.55, 1.1, snout / ry);
+  const x0 = hx - rx, x1 = snout ? Math.max(hx + rx, mx + snout) : hx + rx;
+  const oval = (cx, cy, a, b, c, x) => { const q = 1 - ((x - cx) / a) ** 2, s = Math.sign(q) * Math.sqrt(Math.abs(q)); return [cy + b * s, cy - b * s, c * s]; };
+  const jaw = [hx - rx * 0.35, hy - ry * 0.9], chin = [mx + snout * 0.25, my - mry * 0.93];
+  const brow = o.brow ?? 0.08, cheek = o.cheeks ?? 0.08, ex = hx + rx * 0.42;
+  const R = m.seg(o.detail ? 30 : 18), A = m.seg(o.detail ? 24 : 14), pos = [], idx = [], u = [];
+  for (let i = 0; i <= R; i++) {
+    const s = i / R, x = x0 + (x1 - x0) * (1 - Math.cos(Math.PI * s)) / 2; // (rings closer together at the ends, where it rounds off)
+    const sk = oval(hx, hy, rx, ry, rz, x);
+    let [top, bot, w] = sk;
+    if (snout) {
+      const t = Math.min(1, Math.max(0, (x - mx) / snout)), mz = oval(mx, my, snout, mry * (1 - 0.12 * t * taper), mrz * (1 - 0.25 * t * taper), x);
+      top = smax(top, mz[0], ry * 0.55); // (the forehead runs down into the bridge of the nose)
+      bot = -smax(-bot, -mz[1], ry * 0.3);
+      w = smax(w, mz[2], rz * 0.35);
+      if (x > jaw[0] && x < chin[0]) bot = Math.min(bot, jaw[1] + (chin[1] - jaw[1]) * (x - jaw[0]) / (chin[0] - jaw[0]));
+    }
+    if (i === 0 || i === R) { top = bot = (top + bot) / 2; w = 0; }
+    const cy = (top + bot) / 2, h = Math.max(0, (top - bot) / 2); w = Math.max(0, w);
+    // a little squarer than an oval in the muzzle (its sides and the line of the lips)
+    const n = 2 + 0.6 * smooth(hx + rx * 0.4, hx + rx * 0.9, x);
+    const fb = brow * Math.exp(-(((x - ex) / (rx * 0.28)) ** 2)), fc = cheek * Math.exp(-(((x - hx - rx * 0.15) / (rx * 0.42)) ** 2));
+    const ux = 2 * (x - x0) / (x1 - x0) - 1, ur = Math.sqrt(Math.max(0, 1 - ux * ux));
+    for (let j = 0; j <= A; j++) {
+      const a = j / A * Math.PI * 2, c = Math.cos(a), sn2 = Math.sin(a);
+      const e = (v) => Math.sign(v) * Math.abs(v) ** (2 / n);
+      // the brow stands out over the eyes (up and out, on the upper side), the cheeks below and behind them
+      const ang = Math.abs(Math.atan2(sn2, c)); // 0 on top, pi underneath
+      const out = fb * Math.exp(-(((ang - 0.8) / 0.38) ** 2)) * ry + fc * Math.exp(-(((ang - 1.95) / 0.45) ** 2)) * rz;
+      pos.push(x, cy + e(c) * h + c * out, e(sn2) * w + sn2 * out);
+      u.push(ux, c * ur, sn2 * ur);
+    }
+  }
+  for (let i = 0; i < R; i++) for (let j = 0; j < A; j++) { const a = i * (A + 1) + j, b = a + A + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  // (each ring's first and last points are one point down the middle of the face: share their normal, or the seam shows)
+  const nm = g.attributes.normal, v = V(0, 0, 0);
+  for (let i = 0; i <= R; i++) { const a = i * (A + 1), b = a + A; v.set(nm.getX(a) + nm.getX(b), nm.getY(a) + nm.getY(b), nm.getZ(a) + nm.getZ(b)).normalize(); nm.setXYZ(a, v.x, v.y, v.z); nm.setXYZ(b, v.x, v.y, v.z); }
+  const unitG = new THREE.BufferGeometry(); unitG.setAttribute('position', new THREE.Float32BufferAttribute(u, 3));
+  // the muzzle's colour comes in where the muzzle leaves the skull (a per-pixel coat keeps its markings over both)
+  let fn = typeof paint === 'function' ? paint : solid(paint);
+  if (snout && muzzlePaint) {
+    const head = fn, mz = typeof muzzlePaint === 'function' ? muzzlePaint : solid(muzzlePaint), a = new THREE.Color(), x0m = hx + rx * 0.55, x1m = hx + rx * 0.9;
+    const blend = (uu, p) => { const k = smooth(x0m, x1m, p.x); if (k <= 0) return head(uu, p); a.copy(head(uu, p)); return k >= 1 ? mz(uu, p) : a.lerp(mz(uu, p), k); };
+    const pc = head.coat;
+    if (pc) { fn = pixelCoat(pc.kind, blend, pc.params, pc.dark, pc.mid); fn.coatFade = (uu, p) => 1 - smooth(x0m, x1m, p.x); } // (no spots on the muzzle)
+    else fn = blend;
+  }
+  m.add(g, new THREE.Matrix4(), fn, { ...hd, paintGeo: unitG });
 }
 
 function quadruped(m, s, o) {
@@ -393,18 +469,37 @@ function quadruped(m, s, o) {
   const by = leg + H * 0.5;
   const base = grad(s.color, s.belly || s.color, -0.3, 0.5);
   // spotted coats (bobcat): small dark rosettes on the back and flanks
-  const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2]) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains)
+  const coat = o.coat ? o.coat(base) : o.dots ? dots(base, o.dots[0], o.dots[1], o.dots[2], { L, H, by }) : o.rosettes ? rosettes(s.color, s.dark, s.belly, s.chains, { L, H, by })
     : o.spots ? (u => (u.y > -0.35 && hash3(Math.round(u.x * 16), Math.round(u.y * 8), Math.round(u.z * 8)) > 0.7 ? col(o.spots) : base(u))) : base;
   loftBody(m, {
     x0: -L * 0.47, x1: L * 0.45,
     cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
     ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
-    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: o.rosettes && o.detail ? 3 : o.rosettes || o.dots || o.fine && !o.detail ? 2 : o.fine || false,
+    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: coat.coat ? o.coatFine ?? 1 : o.fine && !o.detail ? 2 : o.fine || false, // (a per-pixel coat needs only a smooth outline; coatFine: false keeps a small animal's plain one)
+    tuck: o.tuck ?? 0.4, keel: o.keel ?? 0.1,
   }, coat);
   if (o.extra) o.extra(m, { L, H, leg, by, W, coat });
-
   // legs: upper and lower segment, swinging from the hip
   const lc = o.legColor || shade(s.color, -0.2);
+  // The upper leg wears the coat of the flank it leaves (never the pale belly below it), shading
+  // into the leg's own colour toward the knee. A per-pixel coat (spots, rosettes) is drawn from
+  // the model's position, so its markings run on down the leg over the blended colour; a leg with
+  // markings of its own keeps them.
+  const flank = V(0, 0, 0), upper = new THREE.Color(), lower = new THREE.Color(), knee = Math.min(leg * 0.72, by - H * 0.3);
+  const legPaint = c => {
+    if (c && c.coat) return c;
+    const blend = (u, p) => {
+      const k = smooth(by - H * 0.4, knee, p.y);
+      if (k >= 1) return typeof c === 'function' ? c(u, p) : col(c);
+      flank.set(Math.max(-1, Math.min(1, p.x / (L * 0.46))), Math.max(-0.05, Math.min(1, (p.y - by) / (H * 0.53))), Math.max(-1, Math.min(1, p.z / (H * 0.42 * W))));
+      upper.copy(coat(flank, p)); lower.copy(typeof c === 'function' ? c(u, p) : col(c));
+      return upper.lerp(lower, k);
+    };
+    const pc = coat.coat;
+    return pc && pc.legs ? pixelCoat(pc.kind, blend, pc.params, pc.dark, pc.mid) : blend;
+  };
+  // (one smooth tube per leg, bending at the joints, rather than straight pieces with a ball at each)
+  const smoothLegs = o.smoothLegs ?? true;
   const spots = [[L * 0.26, 1, P.LEG_FL], [L * 0.26, -1, P.LEG_FR], [-L * 0.25, 1, P.LEG_BL], [-L * 0.25, -1, P.LEG_BR]];
   for (const [x, side, part] of spots) {
     // set in far enough that even thick upper legs stay inside the body's outline
@@ -412,28 +507,53 @@ function quadruped(m, s, o) {
     const r0 = o.legR0, r1 = o.legR1, rm = (r0 + r1) * 0.55, hind = part >= P.LEG_BL;
     const c = part < P.LEG_BL && o.frontLeg ? o.frontLeg : lc, lo = { part, pivot: hip, rings: o.legRings, seg: o.legSeg };
     let foot = [x, r1, z];
+    // The leg starts as the thigh (or shoulder): wide from front to back where it leaves the body,
+    // narrowing to the knee, so it grows out of the body instead of hanging under it like a post.
+    // (Felines shape their own scapulae and haunches; pillar legs are thick enough.)
+    // Only long legs show a thigh: on a short-legged animal (raccoon, otter, beaver) the thigh is
+    // inside the body, and widening the leg just makes it fat. lk: 0 for legs half the body's
+    // depth or shorter, 1 for legs as long as it is deep (deer, antelope, coyote).
+    const thigh = o.muscles !== false && !o.straight, lk = smooth(0.5, 0.95, leg / H);
+    const rx = r0 + (Math.max(r0 * (hind ? 1.3 : 1.1), H * (hind ? 0.22 : 0.17)) - r0) * lk, rz = Math.max(r0, Math.min(r0 * (1 + 0.1 * lk), H * 0.42 * W - Math.abs(z) * 0.8));
     if (o.straight) { // pillar legs (elephant, rhino)
       const knee = [x + (hind ? -r0 * 0.5 : r0 * 0.2), leg * 0.5, z];
-      if (o.smoothLegs) tube(m, [hip, knee, foot], [r0, rm, r1], c, lo);
+      if (smoothLegs) tube(m, [hip, knee, foot], [r0, rm, r1], c, lo);
       else { m.limb(hip, knee, r0, rm, c, lo); m.limb(knee, foot, rm, r1, c, lo); }
     } else if (hind) {
       // thigh forward to the stifle, shin back to the hock, then a straight cannon to the foot
       const b = Math.min(r0 * 0.9, leg * 0.14), stifle = [x + b * 0.55, leg * 0.66, z], hock = [x - b, leg * 0.3, z];
       foot = [x - b * 0.55, r1, z];
-      if (o.smoothLegs) tube(m, [hip, stifle, hock, foot], [r0, r0 * 0.72, r1 * 1.05, r1], c, lo);
+      if (thigh) {
+        // The back of the thigh (the hamstring) runs from the point of the buttock down to the hock,
+        // so the rump slopes into the leg: the thigh's top reaches back to the rump, its front
+        // edge staying where it was.
+        // On a long leg the stifle (the true knee) sits up at the belly line, as on a deer, so what
+        // shows below the body is the shin sloping back to the hock, not a knee jutting forward.
+        // (The middle point lies on the line to the stifle, so the curve can't overshoot.)
+        const front = x + rx, back = Math.max(-L * 0.41, front - H * 0.9), tr = rx + ((front - back) / 2 - rx) * lk;
+        const knee = [x + b * (0.55 - 0.25 * lk), leg * (0.66 + 0.24 * lk), z];
+        const top = [front - tr, by - H * 0.02 * lk + (hip[1] - by) * (1 - lk), z], mid = [(top[0] + knee[0]) / 2, (top[1] + knee[1]) / 2, z], mr = (tr + r0) / 2;
+        tube(m, [top, mid, knee, hock, foot], [[tr, rz], [mr, rz * 0.92], [r0 * 0.85, r0 * 0.75], r1 * 1.05, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+      }
+      else if (smoothLegs) tube(m, [hip, stifle, hock, foot], [r0, r0 * 0.72, r1 * 1.05, r1], c, lo);
       else { m.limb(hip, stifle, r0, r0 * 0.75, c, lo); m.limb(stifle, hock, r0 * 0.7, r1 * 1.05, c, lo); m.limb(hock, foot, r1 * 1.05, r1, c, lo); }
     } else {
       // upper arm back to the elbow, forearm down to a slightly forward wrist
       const b = Math.min(r0 * 0.9, leg * 0.14), elbow = [x - b * 0.35, leg * 0.62, z], wrist = [x + b * 0.15, leg * 0.26, z];
       foot = [x + b * 0.1, r1, z];
-      if (o.smoothLegs) tube(m, [hip, elbow, wrist, foot], [r0, rm, r1 * 1.08, r1], c, lo);
+      if (thigh) {
+        // (the elbow, too, sits up against the chest on a long leg, the forearm running straight down)
+        const el = [elbow[0], leg * (0.62 + 0.2 * lk), z], mid = [(hip[0] + el[0]) / 2, (hip[1] + el[1]) / 2, z];
+        tube(m, [hip, mid, el, wrist, foot], [[rx, rz], [(rx + rm) / 2, rz * 0.92], [rm * 1.05, rm], r1 * 1.08, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+      }
+      else if (smoothLegs) tube(m, [hip, elbow, wrist, foot], [r0, rm, r1 * 1.08, r1], c, lo);
       else { m.limb(hip, elbow, r0, rm, c, lo); m.limb(elbow, wrist, rm, r1 * 1.08, c, lo); m.limb(wrist, foot, r1 * 1.08, r1, c, lo); }
     }
     if (o.nails) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 0.91, r1 * 0.5, z + t * r1 * 0.57], [r1 * 0.22, r1 * 0.26, r1 * 0.23], '#a89e8d', lo);
     if (o.foot) o.foot(m, foot, r1, lo, hind);
-    else if (o.hoof && o.splitHoof) for (const toe of [-1, 1]) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z + toe * r1 * 0.52], [r1 * 1.25, r1 * 0.85, r1 * 0.48], o.hoof, { part, pivot: hip });
-    else if (o.hoof) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z], [r1 * 1.3, r1 * 0.85, r1 * 1.15], o.hoof, { part, pivot: hip, lo: true });
-    else if (o.paws && (o.toes || o.smoothLegs)) {
+    else if (o.hoof && o.splitHoof) for (const toe of [-1, 1]) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z + toe * r1 * 0.52], [r1 * 1.25, r1 * 0.85, r1 * 0.48], o.hoof, { part, pivot: hip, gloss: 1 });
+    else if (o.hoof) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z], [r1 * 1.3, r1 * 0.85, r1 * 1.15], o.hoof, { part, pivot: hip, lo: true, gloss: 1 });
+    else if (o.paws && (o.toes || smoothLegs)) {
       m.ell([foot[0] + r1 * 0.45, r1 * 0.63, z], [r1 * 1.35, r1 * 0.62, r1 * 1.1], c, { part, pivot: hip, fine: o.detail });
       if (o.toes) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 1.15, r1 * 0.48, z + t * r1 * 0.52], [r1 * 0.42, r1 * 0.38, r1 * 0.32], c, { part, pivot: hip });
     }
@@ -447,11 +567,19 @@ function quadruped(m, s, o) {
   const hd = { part: P.HEAD, pivot: neck, fine: o.detail };
   const nc = o.neckColor ? solid(o.neckColor) : hc;
   if (o.neckPath) tube(m, o.neckPath, o.neckRadii, nc, { ...hd, seg: o.neckSeg ?? 16, sub: o.neckSub ?? 6 });
-  else if (o.neckR) m.limb(neck, [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], o.neckR, o.neckR * 0.8, nc, { ...hd, seg: o.neckSeg ?? (o.detail ? 14 : undefined), rings: o.neckRings });
-  m.ell(hp, hr, hc, hd);
+  else if (o.neckR) {
+    // rooted low and back in the chest, deep and flattened from side to side where it leaves the
+    // shoulders, narrowing up to the head (a straight pipe of one width read as a head on a stick)
+    const end = [hp[0] - hr[0] * 0.3, hp[1] - hr[1] * 0.2, 0], r = o.neckR, root = [neck[0] - r * 0.5, Math.min(neck[1], end[1]) - r * 0.35, 0];
+    const mid = [(root[0] + end[0]) / 2 + r * 0.1, (root[1] + end[1]) / 2 + r * 0.12, 0];
+    tube(m, [root, mid, end], [[r * 1.45, r * 1.12], [r * 1.05, r * 0.9], [r * 0.85, r * 0.78]], nc, { ...hd, seg: o.neckSeg ?? (o.detail ? 14 : 10), sub: 3, capRings: 2 });
+  }
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28, 0];
-  if (!o.noMuzzle) m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
-  if (o.nose !== false) m.ell([sn[0] + o.snout * 1.22, sn[1] + hr[1] * 0.1, 0], [hr[1] * 0.2, hr[1] * 0.17, hr[1] * 0.22], '#1c1714', { ...hd, lo: true });
+  if (o.roundHead) { // (a ball for the skull and another for the muzzle, for a species the shaped head doesn't suit)
+    m.ell(hp, hr, hc, hd);
+    if (!o.noMuzzle) m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
+  } else headLoft(m, hp, hr, o.noMuzzle ? 0 : o.snout, sn, hc, o.muzzle, o, hd);
+  if (o.nose !== false) m.ell([sn[0] + o.snout * 1.22, sn[1] + hr[1] * 0.1, 0], [hr[1] * 0.2, hr[1] * 0.17, hr[1] * 0.22], '#1c1714', { ...hd, lo: true, gloss: 1 });
   eyes(m, hp, hr[0] * 0.42, hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78), o.eyeR ?? Math.max(0.55, H * 0.045), P.HEAD, neck);
   m.eyeAt = [hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78)]; m.eyePivot = neck; // for eye-shine at night: forward, up, apart
   if (o.mask) m.ell([hp[0] + hr[0] * 0.4, hp[1] + hr[1] * 0.2, 0], [hr[0] * 0.35, hr[1] * 0.3, hr[2] * 1.02], s.dark, hd);
@@ -487,6 +615,7 @@ function onProfile(B, x, th, lift = 1) { const [cy, ry, rz] = profileAt(B, x); r
 // point for unit direction d. Paint gets (d, p). The sphere's seam is welded so it shades smoothly.
 const sculptBase = new Map();
 function sculpt(m, fn, paint, o = {}, geo = SPH_HI) {
+  geo = m.finer(geo);
   let unit = sculptBase.get(geo);
   if (!unit) { unit = geo.clone(); unit.deleteAttribute('uv'); unit.deleteAttribute('normal'); unit = mergeVertices(unit); sculptBase.set(geo, unit); }
   const g = unit.clone(), p = g.attributes.position, d = new THREE.Vector3();
@@ -506,4 +635,4 @@ function stumpLegs(m, legs, hoof) {
   });
 }
 
-export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, cloudCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube };
+export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, cloudCoat, pixelCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube };

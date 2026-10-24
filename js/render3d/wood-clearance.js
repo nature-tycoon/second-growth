@@ -55,11 +55,11 @@ export function outlineFitsWood(points, bounds, point, quaternion, wood, margin,
     // A point closer than `skin` by woodDistance lies within `reach` of the limb's
     // axis segment, so a cluster whose sphere stays beyond that is clear as a whole.
     const reach = padding + skin * Math.hypot(1, (localWood.r1 - localWood.r0) / localWood.length) + 1e-9;
-    const { centers, radii, members, starts } = clusters;
+    const { centers, radii, members, starts, k } = clusters;
     for (let g = 0; g < centers.length; g++) {
       const c = points[centers[g]], x = c.x - localFrom.x, y = c.y - localFrom.y, z = c.z - localFrom.z;
       const t = Math.max(0, Math.min(localWood.length, x * localDir.x + y * localDir.y + z * localDir.z));
-      const dx = x - localDir.x * t, dy = y - localDir.y * t, dz = z - localDir.z * t, far = radii[g] + reach;
+      const dx = x - localDir.x * t, dy = y - localDir.y * t, dz = z - localDir.z * t, far = radii[g] * k + reach;
       if (dx * dx + dy * dy + dz * dz >= far * far) continue;
       for (let i = starts[g]; i < starts[g + 1]; i++) if (woodDistance(points[members[i]], localWood) < skin) return false;
     }
@@ -69,16 +69,23 @@ export function outlineFitsWood(points, bounds, point, quaternion, wood, margin,
 
 // Body outlines have hundreds of points but only a few touch any one limb.
 // Group them into small spheres once per outline so most can be skipped.
-// Callers may move an outline in place only rigidly (canopyLean turns,
-// shifts and scales a copy the same way every frame): the spheres keep their
-// radii and follow their center points. A changed span rebuilds them.
+// Callers may move an outline in place only rigidly or by one uniform scale
+// (canopyLean turns and shifts a copy the same way every frame, and scales it
+// as a juvenile grows): the spheres follow their center points and their radii
+// scale by k, the ratio of two spans to their lengths when grouped. Spans that
+// disagree rebuild them. (Any grouping whose spheres hold their members gives
+// the same answers: every member of a sphere in reach is still tested.)
 const outlineClusters = new WeakMap(), CLUSTER = 16;
 function clustersFor(points) {
   if (points.length < CLUSTER * 4) return null;
   let c = outlineClusters.get(points);
-  if (c && c.count === points.length && Math.abs(points[0].distanceTo(points[c.farthest]) - c.span) <= c.span * 1e-6) return c;
-  let farthest = 0;
+  if (c && c.count === points.length) {
+    const k = points[0].distanceTo(points[c.farthest]) / c.span, k2 = points[c.farthest].distanceTo(points[c.across]) / c.span2;
+    if (Math.abs(k - k2) <= 1e-6 * k && k > 0) { c.k = Math.abs(k - 1) <= 1e-6 ? 1 : k * (1 + 1e-6); return c; }
+  }
+  let farthest = 0, across = 0;
   for (let i = 1; i < points.length; i++) if (points[0].distanceToSquared(points[i]) > points[0].distanceToSquared(points[farthest])) farthest = i;
+  for (let i = 1; i < points.length; i++) if (points[farthest].distanceToSquared(points[i]) > points[farthest].distanceToSquared(points[across])) across = i;
   const order = points.map((_, i) => i), centers = [], radii = [], starts = [0];
   const split = (from, to) => {
     let min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
@@ -97,7 +104,7 @@ function clustersFor(points) {
     const half = (from + to) >> 1; split(from, half); split(half, to);
   };
   split(0, points.length);
-  c = { count: points.length, farthest, span: points[0].distanceTo(points[farthest]), centers: Int32Array.from(centers),
+  c = { count: points.length, farthest, across, k: 1, span: points[0].distanceTo(points[farthest]), span2: points[farthest].distanceTo(points[across]), centers: Int32Array.from(centers),
     radii: Float64Array.from(radii), members: Int32Array.from(order), starts: Int32Array.from(starts) };
   outlineClusters.set(points, c);
   return c;

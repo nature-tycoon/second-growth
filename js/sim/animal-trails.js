@@ -7,15 +7,26 @@ import { foodAt } from './animal-foraging.js';
 import { hash2, valueNoise } from '../rng.js';
 import { riskAt, safety } from './predation-risk.js';
 export const TRAIL_THRESHOLD = 0.09;
-export const TRAIL_FOOTPRINT = 0.17; // tiles
-// Unused trails fade 0.5% a day (about half in 140 days): a game trail lasts a season or more
-// after the animals stop using it (decision 0014; it was 1.5%).
-export const TRAIL_FADE = 0.995;
+// The drawn trail: it starts to show at TRAIL_THRESHOLD and is fully worn at TRAIL_FULL. A journey
+// wears about a 20th of the threshold into the ground (bigger animals a little more), so a trail
+// shows after about 20 passes and is plain to see after about 45 (it showed after about 9, from any
+// walking, and wore to full only at 0.55).
+export const TRAIL_FULL = 0.2;
+const PASS_WEAR = 0.45;
+export const TRAIL_FOOTPRINT = 0.17; // tiles (no narrower: wear is kept four samples to a tile, and a narrower footprint can fall between them; the drawn core is narrower)
+// Unused trails fade 0.17% a day (about half in 400 days, over three game years), so routes used
+// now and then build up over the years and join into a network (decisions 0014 and 0010; it was
+// 0.35%, 0.5% and before that 1.5%).
+export const TRAIL_FADE = 0.99827;
 export function trailSurface(w, j) {
   return j >= 0 && j < w.n && !w.catalog.definition.look.underwater && !isWater(w.terrain[j]) && !w.flood[j] &&
     w.struct[j] < 0 && ![T.ROAD,T.GRAVEL,T.TRAIL].includes(w.terrain[j]) && w.feature[j] !== F.FENCE;
 }
+// (tile-edge crossings, which steer route choice, keep their own scale: a few crossings count)
 const strength = v => Math.sqrt(clamp(((v || 0) - TRAIL_THRESHOLD) / (0.55 - TRAIL_THRESHOLD), 0, 1));
+// (darkening in proportion, not by its square root, so the soft edge of the wear stays grass and only
+// the beaten middle draws: a narrow path rather than a broad band)
+const drawn = v => clamp(((v || 0) - TRAIL_THRESHOLD) / (TRAIL_FULL - TRAIL_THRESHOLD), 0, 1);
 // E, S, W, N, shared across boundaries. Roads/water/edits never retain a visual connection.
 export function trailPorts(w, j, out = [0,0,0,0]) {
   out.fill(0);
@@ -57,7 +68,7 @@ export function trailMask(w,j,u,v,margin=0) {
   const x=j%w.w+u,y=(j/w.w|0)+v;
   let raw=trailSample(w,x,y);
   if(margin)for(const [dx,dy] of [[margin,0],[-margin,0],[0,margin],[0,-margin]])raw=Math.max(raw,trailSample(w,x+dx,y+dy));
-  return strength(raw);
+  return drawn(raw);
 }
 const densityStates=new WeakMap();
 function densityState(w,create=false) {
@@ -73,7 +84,7 @@ function traceTraffic(w,a,profile,x0,y0) {
   // A narrow footprint (a game trail is a hoof's width, not a body's): the same peak wear as
   // the old 0.28-tile footprint, spread over less ground.
   const d=Math.hypot(a.x-x0,a.y-y0),samples=Math.max(1,Math.ceil(d*R*3)),radius=TRAIL_FOOTPRINT;
-  const amount=profile.wear*(a.juvenile?.5:1)*d/samples*5*.28/radius;
+  const amount=profile.wear*(a.juvenile?.5:1)*d/samples*5*.28/radius*PASS_WEAR;
   for(let k=0;k<samples;k++){
     const t=(k+.5)/samples,x=x0+(a.x-x0)*t,y=y0+(a.y-y0)*t;
     const minX=Math.max(0,Math.floor((x-radius)*R)),maxX=Math.min(W-1,Math.floor((x+radius)*R));
@@ -99,7 +110,7 @@ export function decayTrails(w) {
   const density=densityState(w);
   if(density){const W=w.w*TRAIL_RESOLUTION;for(const i of density.active){
     const j=((i/W|0)/TRAIL_RESOLUTION|0)*w.w+((i%W)/TRAIL_RESOLUTION|0);
-    if(!trailSurface(w,j)||density.array[i]<.005){density.array[i]=0;density.active.delete(i);}else density.array[i]*=TRAIL_FADE;
+    if(!trailSurface(w,j)||density.array[i]<.0006){density.array[i]=0;density.active.delete(i);}else density.array[i]*=TRAIL_FADE;
   }}
   w.trailMax=0;
   for(let j=0;j<w.n;j++) {
@@ -124,7 +135,12 @@ export function recordTrailStep(wl,a,def,x0,y0) {
   if(!profile||a.state==='dormant'||a.flying||a.alt>.1)return;
   const d=Math.hypot(a.x-x0,a.y-y0);
   if(d<1e-5||d>2)return; // terrain recovery/teleports are not traffic
-  ensure(w);traceTraffic(w,a,profile,x0,y0);
+  // Only journeys wear a drawn trail: a curved walk of six tiles or more (animal-course.js), or a
+  // herd heading off the map. Shuffling to keep up with the herd, foraging steps, chases and
+  // flight wear the ground evenly everywhere and only drew stray strands. (Edge crossings below,
+  // for route choice and soil compaction, still count every step.)
+  ensure(w);
+  if(a.state==='leave'||a.state==='walk'&&a.course?.pts&&a.course.path===a.path)traceTraffic(w,a,profile,x0,y0);
   let x=Math.floor(x0),y=Math.floor(y0);const ex=Math.floor(a.x),ey=Math.floor(a.y);
   if(!w.inb(x,y)||!w.inb(ex,ey)||x===ex&&y===ey)return;
   ensure(w);
@@ -164,38 +180,27 @@ export function preferTrailPath(wl,a,def,original,canVisit=null,canPass=passable
     for(const [dx,dy] of [[1,0],[0,1],[-1,0],[0,-1]]) {
       const xx=x+dx,yy=y+dy;if(!w.inb(xx,yy))continue;const j=w.idx(xx,yy),steps=s.steps[i]+1;
       if(steps+distance(j)>maxSteps||!canPass(w,j,a)||w.fire[j]||canVisit&&!canVisit(j))continue;
-      // Prefer established lanes mildly; dense brush and steep climbs cost more.
+      // Prefer established trails (the going is easier where the ground is beaten: a well-worn
+      // step costs 40% of open ground; it was 65%), within the detour limit above; dense brush and
+      // steep climbs cost more.
       const rise=Math.abs(w.tileH(xx,yy)-w.tileH(x,y));
-      const next=cost+1-.35*strength(edgeWear(w,i,j))+.18*(w.shrub[j]?w.shrubG[j]:0)+Math.min(.6,rise*.3)+(learn?.8*valueNoise(xx,yy,3.5,450):0);
+      const next=cost+1-.6*strength(edgeWear(w,i,j))+.18*(w.shrub[j]?w.shrubG[j]:0)+Math.min(.6,rise*.3)+(learn?.8*valueNoise(xx,yy,3.5,450):0);
       if(s.seen[j]===stamp&&next>=s.g[j])continue;
       s.seen[j]=stamp;s.g[j]=next;s.steps[j]=steps;s.parent[j]=i;push(j,next);
     }
   }
   return original;
 }
-function resourceBend(wl,a,def,original,target,budget=original.length) {
-  const w=wl.game.world,sx=Math.floor(a.x),sy=Math.floor(a.y),tx=target%w.w,ty=target/w.w|0;
-  const dx=tx-sx,dy=ty-sy,length=Math.hypot(dx,dy);
-  if(length<7)return original;
-  const side=hash2(a.id,target,601)<.5?-1:1,bow=Math.min(3.4,Math.max(1.6,length*.18));
-  const visit=j=>!w.fire[j];
-  // A modest, stable sweep through the range, reusing this same course on return.
-  // Try either side when terrain blocks the first; retain the safe original if
-  // the detour would be excessive. Every waypoint is still reached by walking.
-  for(const sign of [side,-side]) {
-    const x=Math.round(sx+dx*.5-dy/length*bow*sign),y=Math.round(sy+dy*.5+dx/length*bow*sign);
-    if(!w.inb(x,y))continue;const via=w.idx(x,y);
-    if(!passable(w,via,a)||w.fire[via]||isWater(w.terrain[via]))continue;
-    const probe={...a,path:null};
-    if(!wl.pathTo(probe,j=>j===via,1800,null,visit))continue;
-    const first=probe.path.slice();probe.x=x+.5;probe.y=y+.5;
-    if(!wl.pathTo(probe,j=>j===target,1800,null,visit))continue;
-    const joined=[...probe.path,...first];
-    if(joined.length<=budget*1.35+2)return joined;
+// Another family of its kind is at, or heading for, ground within three tiles of j.
+function sharedSite(wl,a,j) {
+  const w=wl.game.world,x=j%w.w+.5,y=(j/w.w|0)+.5,fam=b=>b.herdOf??b.mom??b.id,mine=fam(a);
+  for(const b of wl.agents){
+    if(b===a||b.sp!==a.sp||b.leaving||fam(b)===mine)continue;
+    const dest=b.state==='walk'&&b.path?.length?b.path[0]:-1,bx=dest>=0?dest%w.w+.5:b.x,by=dest>=0?(dest/w.w|0)+.5:b.y;
+    if(Math.abs(bx-x)<3&&Math.abs(by-y)<3)return true;
   }
-  return original;
+  return false;
 }
-
 function siteValid(wl,a,def,j,feeding) {
   const w=wl.game.world;
   return Number.isInteger(j)&&trailSurface(w,j)&&!w.fire[j]&&passable(w,j,a)&&wl.suit[a.sp][j]>.15&&(!feeding||foodAt(wl,def,j));
@@ -209,12 +214,25 @@ export function rangeChoose(wl,a,def) {
   if(!p?.range||a.leaving||a.juvenile||a.mom!=null||a.fromFire||a.dormancy||a.drinkT||a.socialWith!=null||a.follow)return false;
   if(def.herd && a.herdOf != null && a.herdOf !== a.id)return false;
   const m=a.range;
-  // (a site where its kind keeps being caught is given up, like grazed-out grass)
-  if(m&&(!siteValid(wl,a,def,m.feed,true)||!siteValid(wl,a,def,m.rest,false)||grazedOut(w,m.feed)||riskAt(wl,a.sp,m.feed)>1.2||riskAt(wl,a.sp,m.rest)>1.2))a.range=null;
+  // Arriving counts first: an animal that has fed at its feeding ground (and grazed it down) heads
+  // back to its cover next. Judging the ground before noticing it had arrived sent it on from one
+  // grazed-out feeding ground to the next, never back to cover, so no route was walked twice.
+  if(m){const t=m[m.next];if(Math.hypot(a.x-(t%w.w+.5),a.y-((t/w.w|0)+.5))<2){m.next=m.next==='feed'?'rest':'feed';m.goal=null;m.after=a.age+3+(a.id%3);}}
+  // (a site where its kind keeps being caught is given up, like grazed-out grass; a feeding ground
+  // is judged when it is time to go back to it)
+  const restOk=m&&siteValid(wl,a,def,m.rest,false)&&riskAt(wl,a.sp,m.rest)<=1.2;
+  if(m&&(!restOk||riskAt(wl,a.sp,m.feed)>1.2||m.next==='feed'&&(!siteValid(wl,a,def,m.feed,true)||grazedOut(w,m.feed))))a.range=null;
+  // When only the feeding ground has gone (grazed down, eaten out, too dangerous), it keeps its
+  // bedding site and looks for new grass from there: deer and elk shift where they feed but keep
+  // their cover, so the trail out of it goes on being used (relearning the whole range moved
+  // the bedding site too, and wore a new trail every time).
+  // (unless another family of its kind has come to use that ground since: then it chooses afresh,
+  // away from them, as a new range does, rather than holding a shared bed)
+  const keep=!a.range&&restOk&&!sharedSite(wl,a,m.rest)?m.rest:-1;
   if(!a.range) {
     if(a.age<(a.rangeAfter||0))return false;
     a.rangeAfter=a.age+12;
-    const x=Math.floor(a.x),y=Math.floor(a.y);if(!w.inb(x,y))return false;
+    const x=keep>=0?keep%w.w:Math.floor(a.x),y=keep>=0?keep/w.w|0:Math.floor(a.y);if(!w.inb(x,y))return false;
     const start=w.idx(x,y),s=workspace(w),stamp=++s.stamp,queue=[start],use=wl.destinationUse(a.sp,a);
     // Grazers look further afield for good grass than browsers do for their thickets.
     const reach=def.behavior.forage[0]==='grass'?28:20,box=reach+2;
@@ -226,10 +244,15 @@ export function rangeChoose(wl,a,def) {
       if(siteValid(wl,a,def,j,false)) {
         const room=safety(wl,a.sp,j)/(1+(use.get(j)||0)*1.5),hab=wl.suit[a.sp][j];
         const tie=.8+.2*hash2(j,a.id,909);
+        // (good grass about 12 tiles from its cover, a hundred metres or so: a trail is as long as the
+        // trips that wear it, and with trails lasting years a longer, less frequent trip still shows)
         if(d>=7&&d<=reach&&foodAt(wl,def,j)) {
-          const sc=hab*room*tie*freshGrazing(w,j)/(1+Math.abs(d-12)*.08);if(sc>fs){fs=sc;feed=j;}
+          // (moving on from grazed-down ground, it favours fresh grass further along the same meadow,
+          // so the trail out of its cover keeps most of its line)
+          const along=keep>=0?1/(1+Math.hypot(xx-m.feed%w.w,yy-(m.feed/w.w|0))*.15):1;
+          const sc=hab*room*tie*along*freshGrazing(w,j)/(1+Math.abs(d-12)*.08);if(sc>fs){fs=sc;feed=j;}
         }
-        if(d<=6) {
+        if(d<=6&&keep<0) {
           const covered=w.tree[j]&&w.treeG[j]>.5||w.shrub[j]&&w.shrubG[j]>.4;
           // (they lie up in the woods, not on the creek bank: water is a place to drink and move on)
           const sc=hab*room*tie*(p.cover?(covered?1.4:.65):1)*(w.distWater[j]<=1?.4:1)/(1+d*.12);
@@ -242,6 +265,7 @@ export function rangeChoose(wl,a,def) {
         s.seen[k]=stamp;queue.push(k);
       }
     }
+    if(keep>=0)rest=keep;
     if(feed<0||rest<0||Math.hypot(feed%w.w-rest%w.w,(feed/w.w|0)-(rest/w.w|0))<6)return false;
     a.range={feed,rest,next:'feed',after:a.age+1+(a.id%4),goal:null};
   }
@@ -260,9 +284,9 @@ export function rangeChoose(wl,a,def) {
   // short connector after local feeding. Revalidate every tile after terrain edits.
   if(!followRoute(wl,a,r.route,r.next==='feed')) {
     if(!wl.pathTo(a,j=>j===target,1800,null,visit)) {a.range=null;a.rangeAfter=a.age+8;return false;}
-    const budget=a.path.length;
+    // (the course it walks bends with the land: see animal-course.js. A per-animal sideways bow
+    // used to be added here, which gave every animal its own route and none a shared trail.)
     a.path=preferTrailPath(wl,a,def,a.path,visit,passable,true);
-    a.path=resourceBend(wl,a,def,a.path,target,budget);
     const start=w.idx(Math.floor(a.x),Math.floor(a.y));
     r.route=[start,...a.path.slice().reverse()];if(r.next==='rest')r.route.reverse();
   }
@@ -283,6 +307,18 @@ export function followRoute(wl,a,route,forward,reach=6) {
   const path=[...onward.reverse(),...connector];
   if(!path.length)return false;
   a.path=path;a.state='walk';return true;
+}
+
+// A family or herd member that has fallen behind its leader on a feeding or resting trip walks the
+// leader's own route, single file, instead of cutting across to its place beside the leader (which
+// spread a family's steps over a broad band and wore no trail). It stops a couple of tiles short of
+// the leader's site and takes its place in the group again from there.
+export function followLeaderTrip(wl,a,lead) {
+  const r=lead.range;
+  if(r?.goal==null||lead.state!=='walk'||!Array.isArray(r.route)||Math.hypot(a.x-lead.x,a.y-lead.y)<2.5)return false;
+  if(!followRoute(wl,a,r.route,r.next==='feed'))return false;
+  if(a.path.length>4)a.path=a.path.slice(2);
+  a.follow=true;a.trip=null;return true;
 }
 
 // A resource trip keeps a deer/elk family within following distance. This is

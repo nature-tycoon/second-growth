@@ -82,8 +82,12 @@ export class Input {
       e.preventDefault();
       e.target.blur();
     }
-    if (down) this.keys.add(k);
     if (!down) return;
+    // watching: only the watch keys, Space and the speeds (nothing moves the camera or paints)
+    if (this.ui.watch.on && !this.ui.modalOpen && !this.ui.moment) {
+      if (this.ui.watch.key(k)) { e.preventDefault(); return; }
+      if (k === ' ' || k === '1' || k === '2' || k === '3' || k === 'm') this.keys.add(k); else return;
+    } else this.keys.add(k);
     if (k === 'escape') {
       if (this.ui.modalOpen) this.ui.closeModal();
       else if (this.ui.state.cat !== 'inspect') this.ui.openCategory('inspect');
@@ -109,10 +113,13 @@ export class Input {
     else if (k === 'g') this.ui.openGuide();
     else if (k === 'm') this.ui.toggleMute();
     else if (k === 'p') this.ui.togglePhoto();
+    else if (k === 'c') this.ui.watch.toggle();
   }
 
   update(dt) {
     this.r.followAgent = null;
+    // watch mode directs the camera itself (ui/watch.js), and a keystone moment within it too
+    if (this.ui.watch.on) { if (this.ui.follow && this.game.wildlife.hasAgent(this.ui.follow)) this.r.followAgent = this.ui.follow; return; }
     if (!this.ui.follow && this.r.animalFraming) {
       if (!this.ui.moment) this.r.frameGoal = { x: 0.5, y: 0.5 };
       this.r.animalFraming = false;

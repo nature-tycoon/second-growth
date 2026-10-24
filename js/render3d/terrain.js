@@ -228,6 +228,12 @@ export class Terrain {
       const t = inside ? w.terrain[i] : (bi >= 0 ? B.terrain[bi] : extTerrain(w, x, y));
       const v = inside ? w.variant[i] : ((x * 7 + y * 13) & 3);
       let tex = t, c = [1, 1, 1];
+      // how much bare earth shows, for the close-up soil the shader paints, whether it's mud, and what
+      // kind of ground: gravel is crusted hardpan on Serengeti, sand where the map says so, and stones
+      // elsewhere (the reef's rubble too)
+      let bare = t === T.SOIL || t === T.MUD || t === T.FIELD || t === T.GRAVEL ? 1 : 0;
+      const mud = t === T.MUD, def = game.catalog.definition;
+      const kind = t !== T.GRAVEL || (def.hardpan && !def.sandBed) ? 255 : def.look.sand ? 150 : 200; // (earth, sand, stones)
       if (t === T.MARSH) { tex = S.TURF; c = [0.52, 0.58, 0.42]; }
       else if (t === T.TRAIL && game.catalog.definition.sandBed) { tex = S.TURF; c = pastureColor(game.catalog.definition.id, season, game.catalog.definition.look.pasture[season]).map(v => v * 1.04); } // (a snorkel trail is just marked with buoys over the sand)
       // pond beds share the marsh's soft texture (just darker), so the two blend at their edges
@@ -247,6 +253,7 @@ export class Terrain {
             let tc = turfCache.get(gid);
             if (!tc) { tc = turfColor(p, month, season, game.catalog); turfCache.set(gid, tc); }
             const f = clamp((gg - 0.12) * 2, 0, 1);
+            bare *= 1 - f;
             if (p.layer === 0 && !p.aquatic) tc = patchColor(tc, meadowPatch(x + 0.5, y + 0.5), 1); // (the same patches as the tufts on it)
             if (tex === S.TURF) c = mixRgb(pasture, tc, f);
             else if (gg > 0.35) { tex = S.TURF; c = mixRgb(pasture, tc, f); }
@@ -257,6 +264,7 @@ export class Terrain {
         if (canopy > 0.3 && t !== T.ROAD && t !== T.GRAVEL && t !== T.TRAIL) {
           if (canopy > 0.6 && (tex === T.FIELD || tex === T.SOIL)) tex = S.TURF;
           c = mixRgb(c, [0.5, 0.45, 0.33], clamp((canopy - 0.3) * 1.2, 0, 0.7));
+          bare *= 1 - clamp((canopy - 0.3) * 1.2, 0, 0.7);
         }
         // a little soft shade where trunks and shrubs meet the ground, so they sit in the land
         const tid2 = inside ? w.tree[i] : (bi >= 0 ? B.tree[bi] : 0), sid2 = inside ? w.shrub[i] : (bi >= 0 ? B.shrub[bi] : 0);
@@ -267,7 +275,7 @@ export class Terrain {
         if (inside && game.catalog.definition.locked?.(game, i)) { const l = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) * 1.08; c = mixRgb(c, [l, l, l * 0.96], 0.55); }
         if (inside && (w.marks[i] & 1)) c = mixRgb(c, [1, 1, 0.96], 0.24); // (a snorkel trail: just a faint line on the seabed under the buoys)
         if (inside && game.catalog.definition.look.groundTint) c = game.catalog.definition.look.groundTint(w, i, c) || c; // (Sumatra: dark peat showing through)
-        if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); }
+        if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); bare = Math.max(bare, f); }
       }
       {
         const canopyS = inside ? w.canopy[i] : (bi >= 0 && B.tree?.[bi] ? 0.7 : 0.2);
@@ -290,8 +298,8 @@ export class Terrain {
       }
       const r = at.r;
       const td = this.tileData, crisp = t === T.ROAD || t === T.TRAIL || t === T.FIELD;
-      td[k * 4] = at.slot; td[k * 4 + 1] = t === T.FIELD ? 0 : (v & 3) * 64; // plowed furrows all run the same way
-      td[k * 4 + 2] = crisp ? 0 : 255; td[k * 4 + 3] = inside && trailSurface(w, i) ? 255 : 0;
+      td[k * 4] = at.slot; td[k * 4 + 1] = (t === T.FIELD ? 0 : (v & 3) * 64) + Math.round(bare * 31) + (mud ? 32 : 0); // plowed furrows all run the same way; low bits: bare earth, mud
+      td[k * 4 + 2] = crisp ? 0 : kind; td[k * 4 + 3] = inside && trailSurface(w, i) ? 255 : 0;
       // (corners 0-3 of the atlas cell are (r0,r1) (r2,r1) (r2,r3) (r0,r3); the tile's six vertices
       // take corners A C B A D C, rotated by the variant)
       const rot = v & 3, o = k * 12;

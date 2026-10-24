@@ -5,7 +5,7 @@
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { many, cap, preyFor, preyPer, isMale, isMaleVariant } from '../data/animals.js';
 import { killTree } from './plants.js';
-import { moment, momentFree } from './moments.js';
+import { moment } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
 import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
@@ -18,7 +18,8 @@ import { territorialChoose, hasTerritory } from './animal-territory.js';
 import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { grazeDay, decayGrazing } from './grazing.js';
-import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, walkNode } from './animal-trails.js';
+import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, followLeaderTrip } from './animal-trails.js';
+import { shapeCourse, pathPoint } from './animal-course.js';
 import { ensureHome, homeChoose, homeFalloff, walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
 import { markRisk, safety, decayRisk } from './predation-risk.js';
 import { dormancySeason } from '../data/animal-dormancy.js';
@@ -73,7 +74,7 @@ class Animal {
   leaving; spawner; juvenile; orientation; moveProgress; bird; birdGoal; birdGround; fruitGoal;
   drinkAt; fruitMeal; run; rutActive; haremCenter; haremAngle; satelliteSlot; waterTrip; restSpot;
   follow; wade; forageGoal; fromFire; avoidSide; drinkT; forage; recent; forageAfter; bankGoal;
-  pushX; pushY; thirst; trip; greet; socialWith; socialUntil; localGoal; greetT; goal;
+  pushX; pushY; course; thirst; trip; greet; socialWith; socialUntil; localGoal; greetT; goal;
   birdAlertCheck; sparPath; sparT; sparLight; sparWith; sparAt; play; target; perchedAt; spd; hd;
   swimT; threat; fleeOff; fx; fy; fleeT; fleeSpeed; fleeDelay; fleeSide; fleeAge; alertT; assist; hunt;
   foragedAt; huntTime; playT; playN; nestSite; stoop; slot; disperse; alertUntil; carcass; feedAt;
@@ -379,7 +380,8 @@ export class Wildlife {
     const cx = Math.round(w.w * (def.crossing.x ?? 0.5));
     let bank = w.h - 1;
     while (bank > 0 && isWater(w.terrain[w.idx(cx, bank)])) bank--;
-    this.crossingAt = { x: cx, until: this.game.day + 12 }; // the crocodiles know
+    // (the crocodiles know; a big enough herd is the keystone moment once it's swimming, see momentsUpdate)
+    this.crossingAt = { x: cx, bank, until: this.game.day + 12, moment: n >= 6 || !!this.crossingAt?.moment && this.game.day < this.crossingAt.until };
     const lag = rng() * 4; // groups that arrive the same month string out along the crossing
     for (let k = 0; k < n; k++) {
       // a loose crowd: bunched in the middle, stragglers out to the sides and well behind
@@ -394,7 +396,6 @@ export class Wildlife {
       for (let y = Math.max(0, bank - 3 - Math.floor(rng() * 3)); y <= w.h - 1; y++) path.push(w.idx(x, y));
       a.path = path; a.state = 'walk'; a.wait = 0; a.landed = true;
     }
-    if (n >= 6 && momentFree(this.game)) moment(this.game, 'crossing', { x: cx + 0.5, y: bank + 2.5 });
     return n;
   }
 
@@ -653,7 +654,6 @@ export class Wildlife {
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (w.inb(x0, y0) && w.distWater[w.idx(x0, y0)] <= 1 && bd < 16) {
       facePoint(a, f.x, f.y);
-      if (this.salmonRun && !this.salmonRun.shown && this.game.day - this.salmonRun.from >= 1 && momentFree(this.game)) { this.salmonRun.shown = moment(this.game, 'salmon', a) || true; }
       if (bd < SALMON_REACH * SALMON_REACH) {
         // the swipe
         if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, f, def, 0.22)) {
@@ -1092,12 +1092,13 @@ export class Wildlife {
           break;
         case 'walk': {
           if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); break; }
+          if (smoothWalker(def) && a.course?.path !== a.path) shapeCourse(this, a, def); // (a journey walks a curve: see animal-course.js)
           const j = a.path[a.path.length - 1];
           if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1) * (a.dash || a.run || 1), dt) && (a.path.pop(), !a.path.length)) a.dash = null; break; }
           // each animal keeps to its own line through a tile and stops at its own spot in the last
           // one, so two walking the same way don't trace one track, and a group doesn't pile onto
-          // a single point
-          const [ox, oy] = smoothWalker(this.game.catalog.animals[a.sp]) ? walkNode(w, a, j).map(v => v - 0.5) : spotIn(a, j, a.path.length === 1);
+          // a single point (a journey steers for where its course crosses the tile)
+          const [ox, oy] = smoothWalker(def) ? pathPoint(w, a, a.path.length - 1).map((v, n) => v - (n ? (j / w.w | 0) : j % w.w) - 0.5) : spotIn(a, j, a.path.length === 1);
           if (a.path.length === 1 && a.restSpot?.[0] !== j) {
             const bank = !a.dormancy && this.drinks(def) && a.thirst > drinkEvery(this, a, def) * 0.5 ? this.bankSpot(a, j) : null;
             const drink = bank && bank.crowd < 0.08;
@@ -1245,7 +1246,7 @@ export class Wildlife {
     const w = this.game.world, j = a.state === 'walk' ? a.path[a.path.length - 1] : -1;
     let tx = a.localGoal?.[0], ty = a.localGoal?.[1];
     if (j >= 0) {
-      const [ox, oy] = smoothWalker(this.game.catalog.animals[a.sp]) ? walkNode(w, a, j).map(v => v - 0.5) : spotIn(a, j, a.path.length === 1);
+      const [ox, oy] = smoothWalker(this.game.catalog.animals[a.sp]) ? pathPoint(w, a, a.path.length - 1).map((v, n) => v - (n ? (j / w.w | 0) : j % w.w) - 0.5) : spotIn(a, j, a.path.length === 1);
       const rest = a.path.length === 1 && a.restSpot?.[0] === j;
       tx = rest ? a.restSpot[1] : j % w.w + 0.5 + ox;
       ty = rest ? a.restSpot[2] : (j / w.w | 0) + 0.5 + oy;
@@ -1849,6 +1850,7 @@ export class Wildlife {
       if (this.pathTo(a, (j, x, y) => w.distWater[j] <= 1 && Math.abs(x - lead.x) + Math.abs(y - lead.y) < 7 &&
         (this.bankSpot(a, j)?.crowd ?? Infinity) < 0.08, 900)) { a.follow = true; a.trip = null; return true; }
     }
+    if (followLeaderTrip(this, a, lead)) return true; // (single file behind the leader on its trip)
     // Large herds need more area than a small family. Retain each slot as the herd grows,
     // but let old saves expand slots that are now inside an overcrowded formation.
     let members = 1;
@@ -1924,7 +1926,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,

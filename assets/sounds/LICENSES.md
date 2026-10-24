@@ -386,3 +386,30 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - License: CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0
 - Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
 - Recording notes: A drake wood duck calling from a cottonwood beside a lake. Played when a wood duck flies near the camera.
+
+## thunder-crack
+
+- Files: `field-thunder-crack-1.m4a`
+- Creator: Jud McCranie
+- Source: https://commons.wikimedia.org/wiki/File:Thunder_crack_2B.ogg
+- License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+- Changes: Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license.
+- Recording notes: A close crack and its roll. Played after a lightning bolt lands near the view.
+
+## thunder-claps
+
+- Files: `field-thunder-claps-1.m4a`, `field-thunder-claps-2.m4a`
+- Creator: Jonathan Hunt
+- Source: https://commons.wikimedia.org/wiki/File:Thunder_Claps.ogg
+- License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+- Changes: Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license.
+- Recording notes: The first clap is played for near bolts, the later roll for farther ones.
+
+## thunder-distant
+
+- Files: `field-thunder-distant-1.m4a`
+- Creator: Bidgee
+- Source: https://commons.wikimedia.org/wiki/File:Thunder.ogg
+- License: CC BY 3.0 — https://creativecommons.org/licenses/by/3.0
+- Changes: Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license.
+- Recording notes: A distant rumble. Played for far bolts and for flashes inside the clouds.

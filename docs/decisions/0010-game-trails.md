@@ -126,6 +126,90 @@ to the water traced the other direction. The 0.28-tile footprint drew each about
 
 Existing saves keep their old wide, straight wear until it fades; new traffic wears the new shape.
 
+## Curved journeys and beaten paths (2026-10-23)
+
+The 2026-10-22 waypoints still left a checkerboard wherever traffic crossed: routes are searched
+north/south/east/west, so every walk ran along a tile row or column, only wobbling inside each tile.
+A review on a Serengeti stocked to carrying capacity found trails on 9% of the map after a game year,
+visible from about 9 passes, with 64% of wear from herd members keeping up with their leader, 8%
+from fleeing, and 16% from resource trips. Cole chose to fix the shape and trail attraction first;
+the rest of that plan (only journeys wear trails, about 150 passes to show one, a two-year fade,
+single file, routes that weigh slope) is still open.
+
+- `animal-course.js` redraws any ground walker's path of six tiles or more as a curve, the first time
+  it walks it: pulled straight across open ground, bent by a meander field anchored to the land (up to
+  a tile each side, bends every six tiles or so, read across the direction of travel so a return trip
+  retraces it), and drawn into a worn track up to 1.5 tiles to the side (`trailSample` above 0.05).
+  The curve is checked step by step against standable ground (pulled back toward the line where it
+  isn't), turned back into a four-connected chain of tiles with the point the curve crosses each one
+  (`a.course`, not saved), and refused if it can't be walked or is more than 35% plus two tiles longer.
+  `pathPoint` gives the walker that point, or the tile's usual waypoint without a course.
+  Fleeing (`a.run`), fire escapes and off-map starts keep the route search's path.
+- `preferTrailPath` gives a well-worn step 40% of an open step's cost (was 65%), still within a 25%
+  plus two steps detour.
+- Result on the stocked Serengeti: no grid; trails curve at every angle and braid along the river.
+  There are still too many faint strands, which is the "more traffic" step.
+
+`node tools/animal-course-check.mjs`: a long walk isn't axis-aligned and bends off the straight
+line, two animals get the same course on the same corridor, an animal a tile to the side steps into
+a worn track, and shaping costs about 0.4 ms a 40-tile journey including the route search.
+`wildlife.update` on the stocked Serengeti timed the same before and after.
+
+## Only journeys, more traffic, longer memory (2026-10-23)
+
+- Only a journey draws a trail: a curved walk (`a.course`) or a herd leaving the map. Keeping up
+  with the herd, foraging steps, chases and flight no longer draw (they were most of the wear and
+  drew the stray strands); every step still counts as an edge crossing for route choice and `trod`.
+- A pass wears 0.45 of what it did, so a trail shows after about 20 passes (was about 9) and is
+  fully dark at 0.2 (`TRAIL_FULL`, was 0.55), about 45 passes. The shader reads the same constants.
+  Faint wear is kept down to 0.0006 so single passes can add up.
+- Unused trails fade 0.35% a day (`TRAIL_FADE` 0.9965, half in about 200 days, was 140). A fully
+  worn trail stays visible about 230 days after its last use, a heavily worn one up to about 690.
+- A worn track draws a journey in from 0.02 (about four passes), so routes merge before they show.
+
+Stocked Serengeti after five game years: 1.6% of the map drawn (was 8–9% after one), a few winding
+trails to water and a trampled rim round the pond, which is realistic at a watering hole. Forest maps
+now get few or no trails (PNW none in five years, Sumatra 0.4%, Amazon 0.3%, Chinandega 0.02%):
+resident deer and elk make only about four feed-to-rest trips in two game years and move their sites
+about three times, so no route reaches 20 passes, and at about 12 passes the Serengeti already
+draws 4% while PNW still draws almost nothing. Steadier daily routes for residents is the open fix.
+
+## Steadier routes, longer memory, thinner and longer trails (2026-10-23)
+
+Cole asked for steadier routes for residents without the clumping of 0005/0013. Read with 0014: a
+deer walks about a tile a sim-day, so a leg takes a week or more and a literal daily routine is not
+possible; passes have to come from routes kept longer and from more of a family walking them.
+Measured on PNW (stocked, three game years): 64 of 87 range changes were a grazed-out feeding
+ground relearning the whole range, bed included; an animal at its feeding ground grazed it out
+before its arrival was counted, so it went on to the next feeding ground and never back to cover
+(about four legs a game year); family members walked as much as their leader but in short hops
+that wore nothing.
+
+- **Arrival first** (`rangeChoose`): reaching the target flips the leg before the sites are judged,
+  and the feeding ground is judged only when it is time to go back to it.
+- **Keep the bed** when only the feeding ground has gone, unless another family of its kind is
+  at or heading for ground within three tiles of it (`sharedSite`); the new feeding ground is
+  searched from the bed and favours ground near the old one (`along`).
+- **Single file** (`followLeaderTrip`, from `keepCervidGroup` and `keepWithHerd`): a member more
+  than 2.5 tiles behind a leader on a range trip walks the leader's route, stopping two tiles short.
+- **No per-animal bow** (`resourceBend` removed): it gave every animal its own line; the land's
+  meander in `animal-course.js` does the winding now and is shared.
+- **Fade** 0.17% a day (`TRAIL_FADE` 0.99827, half in about 400 days), so routes used now and then
+  build up and join.
+- **Thinner, longer**: the drawn trail darkens in proportion to wear above the threshold (it was
+  the square root), so only the beaten middle draws; feeding grounds are again about 12 tiles from
+  cover (7 at least). The footprint stays 0.17 tile: wear is kept four samples to a tile, and at
+  0.12 a line between sample rows wore nothing.
+
+Stocked maps after five to eight game years: Sumatra 1.6% drawn as a connected network through the
+forest, Serengeti 4.1% (longer branching trails, the pond's trampled rim, a trampled stretch where
+herds come down to the river), Amazon about 0.5%, PNW 0.2% (20 deer and 20 elk on the whole farm,
+and families still move to a new area about once a game year, 0003). Clumping, as the share of
+samples within three tiles of another family of the same kind, over seeds 5/11/23/37, before →
+after: buffalo 11% → 4%, deer 18.5% → 20%, elk 18% → 15%, boar 7.75% → 7.25%, sambar 10.75% → 10%.
+`animal-clustering-soak` and `home-range-check` pass. `animal-territory-soak` fails on the
+Serengeti leopard; it already did before this trail work (7e7a610).
+
 ## Verification
 
 - `animal-trails-check.mjs`: 11 checks over every map roster, actual crossings,
