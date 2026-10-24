@@ -447,7 +447,14 @@ function quadruped(m, s, o) {
       // thigh forward to the stifle, shin back to the hock, then a straight cannon to the foot
       const b = Math.min(r0 * 0.9, leg * 0.14), stifle = [x + b * 0.55, leg * 0.66, z], hock = [x - b, leg * 0.3, z];
       foot = [x - b * 0.55, r1, z];
-      if (thigh) tube(m, [hip, [x - b * 0.25, hip[1] * 0.4 + stifle[1] * 0.6, z], stifle, hock, foot], [[rx, rz], [rx * 0.86, rz * 0.9], [r0 * 0.9, r0 * 0.78], r1 * 1.05, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+      if (thigh) {
+        // The back of the thigh (the hamstring) runs from the point of the buttock down to the hock,
+        // so the rump slopes into the leg: the thigh's top reaches back to the rump, its front
+        // edge staying where it was.
+        const front = x + rx, back = Math.max(-L * 0.41, front - H * 0.9), tr = (front - back) / 2;
+        const top = [front - tr, by - H * 0.02, z], mid = [x - b * 0.25 - tr * 0.3, hip[1] * 0.45 + stifle[1] * 0.55, z], mr = rx * 0.86 + (tr - rx) * 0.45;
+        tube(m, [top, mid, stifle, hock, foot], [[tr, rz], [mr, rz * 0.9], [r0 * 0.9, r0 * 0.78], r1 * 1.05, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+      }
       else if (smoothLegs) tube(m, [hip, stifle, hock, foot], [r0, r0 * 0.72, r1 * 1.05, r1], c, lo);
       else { m.limb(hip, stifle, r0, r0 * 0.75, c, lo); m.limb(stifle, hock, r0 * 0.7, r1 * 1.05, c, lo); m.limb(hock, foot, r1 * 1.05, r1, c, lo); }
     } else {

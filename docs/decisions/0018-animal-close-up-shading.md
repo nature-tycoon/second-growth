@@ -134,6 +134,8 @@ to every one of them:
 - **Thighs and shoulders:** each leg is one smooth tube (`smoothLegs` is now the default). It
   starts wide and oval from front to back inside the body and narrows to the knee. Its top wears
   the flank's coat, never the belly's, shading into the leg colour toward the knee (`legPaint`).
+  The hind thigh's top reaches back toward the rump (to 41% of the body length behind its middle),
+  so the back of the thigh runs down from the buttock to the hock without a notch under the rump.
   Felines keep their own haunches (`muscles: false`), and pillar legs are unchanged.
 - **Neck:** a tube rooted low in the chest, deep and flattened side to side where it leaves the
   shoulders, narrowing to the head. Before, it was one straight limb.
