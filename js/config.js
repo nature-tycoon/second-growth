@@ -29,8 +29,10 @@ export const MOIST_BY_MONTH = [0.07, 0.05, 0.0, -0.05, -0.12, -0.15, -0.08, 0.02
 export const SPEEDS = [0, 0.72, 3, 8, 0.13];
 export const WATCH_PACE = 4;
 // How fast animals (and visitors) live at each speed, in game days per real second. It matches the
-// calendar except at watch pace, where they keep the normal pace while the days crawl (see 0021).
-export const ANIMAL_SPEEDS = [0, 0.72, 3, 8, 0.72];
+// calendar except at watch pace, where the days crawl and the animals move at about 60% of the
+// normal pace: calmer than normal, which reads a little hurried, but not the slow motion of moving
+// at the calendar's pace (see 0021).
+export const ANIMAL_SPEEDS = [0, 0.72, 3, 8, 0.45];
 // An animal's age in calendar days, for its stage of life (grown, old, independent). a.age runs on
 // the animals' own clock, the base for their behaviour timers; a.lag is how far that clock has run
 // ahead of the calendar at watch pace, so animals don't grow old faster while you watch.
