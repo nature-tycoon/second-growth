@@ -895,9 +895,17 @@ body.photo-mode #photo-bar .btn { padding: 7px 14px; }
 @media (max-height: 520px) { #thennow { gap: 8px; padding: 8px; } #thennow .tn-stage { width: min(100%, calc((100vh - 70px) * 1.6)); } }
 /* watch mode (ui/watch.js): only the land, thin letterbox bars, a caption naming the animal, and
    controls that come up when the mouse moves */
-body.watch-mode > *:not(#view):not(#fx):not(#watch):not(#moment):not(#modal-root) { visibility: hidden !important; }
+body.watch-mode > *:not(#view):not(#fx):not(#watch):not(#moment):not(#modal-root):not(#joystick) { visibility: hidden !important; }
+body.watch-mode:not(.watch-eye) #joystick { visibility: hidden !important; } /* (at eye level it walks: below) */
 #watch { display: none; }
 body.watch-mode #watch { display: block; position: fixed; inset: 0; z-index: 29; cursor: default; user-select: none; -webkit-user-select: none; }
+@media (pointer: coarse) {
+  /* at eye level the thumbstick walks (Watch.walk); the caption moves up out of its way */
+  body.watch-mode.watch-eye #joystick { display: block !important; visibility: visible !important; z-index: 31;
+    left: calc(max(16px, 3vw) + env(safe-area-inset-left)); bottom: calc(6vh + 12px + env(safe-area-inset-bottom)); }
+  body.watch-mode.watch-eye #watch .w-cap { bottom: calc(6vh + 128px); }
+}
+body.watch-mode #watch { touch-action: none; } /* (so a drag to look round reaches it on a touch screen) */
 body.watch-mode.moment-on #watch { pointer-events: none; } /* (a keystone moment's own card takes over) */
 body.watch-mode.moment-on #watch .w-bar, body.watch-mode.moment-on #watch .w-cap, body.watch-mode.moment-on #watch .w-expand { opacity: 0 !important; }
 #watch .lb { position: absolute; left: 0; right: 0; height: 0; background: #0e120c; transition: height 1.1s cubic-bezier(.4,0,.2,1); }

@@ -16,7 +16,8 @@
 //
 // At eye level, WASD (or the arrows) lets go of the animal and walks about on foot: W / S forward
 // and back, A / D step sideways, Q / E turn (as they rotate the usual view), Shift runs, and a
-// drag looks round. Next (N) goes back to the animals.
+// drag looks round. Next (N) goes back to the animals. On a touch screen the thumbstick shows at eye
+// level and walks the same way (up forward, sideways turns).
 
 import { animalDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
@@ -26,6 +27,7 @@ import { track } from '../analytics.js';
 import { animalThumb } from './thumbnails.js';
 
 const SHOT = { follow: 16, eye: 18, wide: 11 }; // seconds a shot lasts
+const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches; // (as the thumbstick shows)
 const LONGEST = 40;                              // a hunt or a chase keeps the camera, up to this long
 
 // How worth watching an animal is right now: what it's doing, weighted.
@@ -59,6 +61,7 @@ export class Watch {
     this.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, az: r.azTarget };
     ui.state.clean = true;
     document.body.classList.add('watch-mode');
+    document.body.classList.toggle('watch-eye', this.eyeLevel);
     this.build();
     this.showSpecies();
     requestAnimationFrame(() => this.el.classList.add('bars'));
@@ -78,12 +81,13 @@ export class Watch {
     ui.follow = null; this.game.selectedAgent = null;
     r.flyTo(this.prev.x, this.prev.z, this.prev.zoom, 1.4); r.azTarget = this.prev.az;
     ui.state.clean = !!ui.photo || !!ui.moment;
-    document.body.classList.remove('watch-mode');
+    document.body.classList.remove('watch-mode', 'watch-eye');
     this.el.classList.remove('bars', 'show');
   }
 
   setEyeLevel(on) {
     this.eyeLevel = on;
+    document.body.classList.toggle('watch-eye', on);
     if (this.walking) { this.walking = false; this.shot = null; }
     this.el?.querySelector('[data-a=eye]').classList.toggle('on', on);
     if (on) track('watch_eye_level', { map: this.game.map });
@@ -363,7 +367,7 @@ export class Watch {
     const g = this.game, b = this.cap.querySelector('b'), sp = this.cap.querySelector('span');
     if (s.walk) {
       b.textContent = 'On foot';
-      sp.textContent = 'W S walk · A D step · Q E turn · Shift run · drag to look · N back to the animals';
+      sp.textContent = TOUCH ? 'Stick to walk · drag to look · Next for the animals' : 'W S walk · A D step · Q E turn · Shift run · drag to look · N back to the animals';
     } else if (s.agent) {
       const a = s.agent, def = animalDef(a, g.catalog);
       b.textContent = def.name;

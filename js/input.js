@@ -1,7 +1,7 @@
 // Mouse and keyboard: camera control, brushing tools across the map, inspecting.
 
 import { tr } from './i18n.js';
-import { T, money } from './config.js';
+import { T, money, clamp } from './config.js';
 import { strokeTiles, toolCost, bestSuit } from './tools.js';
 import { settings } from './settings.js';
 
@@ -126,8 +126,12 @@ export class Input {
     if (this.ui.watch.on) {
       if (this.ui.follow) this.trackFollow(this.ui.follow, dt);
       if (this.ui.watch.walking) {
-        const K = this.keys, on = (...ks) => ks.some(x => K.has(x)) ? 1 : 0;
-        this.r.eyeMove = { fwd: on('w', 'arrowup') - on('s', 'arrowdown'), turn: on('e', 'arrowright') - on('q', 'arrowleft'), side: on('d') - on('a'), run: K.has('shift') };
+        // (on a touch screen the thumbstick walks: up goes forward, sideways turns)
+        const K = this.keys, on = (...ks) => ks.some(x => K.has(x)) ? 1 : 0, sv = this.stickV, one = v => clamp(v, -1, 1);
+        this.r.eyeMove = {
+          fwd: one(on('w', 'arrowup') - on('s', 'arrowdown') - (sv ? sv.y : 0)), turn: one(on('e', 'arrowright') - on('q', 'arrowleft') + (sv ? sv.x : 0)),
+          side: on('d') - on('a'), run: K.has('shift'),
+        };
       }
       return;
     }
@@ -320,6 +324,7 @@ export class Input {
       cx = r.left + r.width / 2; cy = r.top + r.height / 2; R = r.width * 0.36;
       el.classList.add('on');
       this.fling = null; this.ui.follow = null;
+      if (this.ui.watch.on) this.ui.watch.walk(); // (shown in watch mode only at eye level: it walks)
       set(e.clientX, e.clientY);
     });
     el.addEventListener('pointermove', e => { if (e.pointerId === id) set(e.clientX, e.clientY); });

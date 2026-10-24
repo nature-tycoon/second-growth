@@ -49,7 +49,9 @@ ground, eased over bumps, inside the map; on the reef it stays on the side of th
 and swims above the seabed. There's no collision with trees or rocks. The director stops while
 walking; Next (N), the species chip or Eye level off go back to the animals, and a keystone moment
 ends the walk. At eye level, S walks back instead of opening the species list (the chip still
-does). Walking needs a keyboard: there are no touch controls for it yet.
+does). On a touch screen the map's thumbstick shows at eye level (bottom left, the caption moved
+up above it) and walks: up goes forward, sideways turns, so one thumb steers; a drag over the view
+looks round. Checked at 740×375 with touch emulation.
 
 What eye level changes in the renderer (only while it's on):
 
