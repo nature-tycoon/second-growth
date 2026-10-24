@@ -180,6 +180,8 @@ class Model {
   // leading edge along the top, primaries reaching back toward the tail.
   // front: how far forward of the fold point the folded wing begins (the shoulder)
   // up: how high round the body the folded wing sits (radians up from the flank's midline)
+  // R may be a function of the distance forward of the fold point, giving the body's radius there,
+  // so a folded wing hugs a body that narrows toward the tail instead of standing off it.
   wing(side, pivot, span, chord, thick, paint, fold, kind = 'round', R = chord, tilt = 0, foldLen = 1, front = span * 0.5 * foldLen, up = 0.3) {
     // A thin flight-feather layer, with a shorter, softly raised covert layer over its shoulder.
     // Both stay in the same animated part, preserving the species' spread-wing silhouette.
@@ -216,10 +218,10 @@ class Model {
         const edge = coverts ? 1 - smooth(0.65, 1, t0) : 1;
         const wrap = width * (coverts ? 0.2 + across * 0.72 * edge : across);
         const lift = coverts ? thick * (0.9 + Math.sin(Math.PI * t0) * (1 - 4 * across * across) * 0.6) : 0;
-        const along = span * 1.2 * foldLen * t, th = up + wrap / R;
-        const r = R * (1 - 0.3 * t * t) + y * thick * (coverts ? 0.8 : 1.2) + chord * 0.01 + lift;
+        const along = span * 1.2 * foldLen * t, lx = front - along, Rx = typeof R === 'function' ? R(lx) : R * (1 - 0.3 * t * t), th = up + wrap / Rx;
+        const r = Rx + y * thick * (coverts ? 0.8 : 1.2) + chord * 0.01 + lift;
         // Retain the body wrap and upright-body tilt, so the new layers don't stand off the flank.
-        const lx = front - along, ly = r * Math.sin(th) - along * 0.06, c = Math.cos(tilt), sn = Math.sin(tilt);
+        const ly = r * Math.sin(th) - along * 0.06, c = Math.cos(tilt), sn = Math.sin(tilt);
         p.setXYZ(i, fold[0] + lx * c - ly * sn, fold[1] + lx * sn + ly * c, side * r * Math.cos(th));
       }
       g.computeVertexNormals();

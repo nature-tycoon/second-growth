@@ -7,9 +7,10 @@ const { loadAnimals, ANIMAL, drawDef, isMaleVariant } = await import('../js/data
 const { buildSpecies } = await import('../js/render3d/fauna.js');
 const { Box3, Vector3, Color } = await import('three');
 const targets = { serengeti: ['lion', 'impala', 'ostrich'], pnw: ['deer', 'elk', 'woodduck', 'mallard', 'hummingbird'], atlanta: ['deer', 'woodduck', 'hummingbird', 'cardinal', 'goldfinch'], chinandega: ['deer'], sumatra: ['sambar', 'sunbird'] };
-function bounds(model, part) {
+// (above: only vertices higher than this, e.g. a crest rather than the neck under it)
+function bounds(model, part, above = -Infinity) {
   const box = new Box3(), p = model.geo.attributes.position, parts = model.geo.attributes.aPart;
-  for (let i = 0; i < p.count; i++) if (parts.getX(i) === part) box.expandByPoint(new Vector3().fromBufferAttribute(p, i));
+  for (let i = 0; i < p.count; i++) if (parts.getX(i) === part && p.getY(i) > above) box.expandByPoint(new Vector3().fromBufferAttribute(p, i));
   assert(!box.isEmpty());
   return box;
 }
@@ -53,7 +54,9 @@ for (const [map, keys] of Object.entries(targets)) {
       if (key === 'woodduck') {
         assert(colorCount(baseModel, 8, '#f0ece3') > 20, 'Wood duck hen has a white eye patch');
         assert.equal(colorCount(maleModel, 8, '#f0ece3'), 0, 'Wood duck drake uses stripes instead of the hen eye patch');
-        assert(maleHead.min.x < baseHead.min.x - def.sprite.size * 0.02, 'Wood duck drake has a longer swept crest');
+        // (the crest: the head part above the eyes, as the neck below reaches back into the breast)
+        const eyeY = maleModel.motion.eyeSpot[1], crest = m => bounds(m, 8, eyeY).min.x;
+        assert(crest(maleModel) < crest(baseModel) - def.sprite.size * 0.02, 'Wood duck drake has a longer swept crest');
         assert(colorCount(maleModel, 8, male.sprite.eye) > 0, 'Wood duck drake has red eyes');
       } else {
         assert(colorCount(maleModel, 8, '#f4efde') > 20, 'Mallard drake has a white neck collar');

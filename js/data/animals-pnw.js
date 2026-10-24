@@ -234,7 +234,7 @@ export default function buildPnwAnimals(def) {
       speed: 3, hr: 250, max: 2, sources: ['N', 'E', 'S', 'W'], mig: 0.35, breed: [1], litter: [1, 2], life: 12,
       prey: ['vole', 'rabbit', 'gartersnake'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]] * near(W.distPerch[i], 6, 0.3),
-      sprite: { kind: 'raptor', size: 22, color: '#6a4a30', breast: '#e8dcc6', head: '#5a3c26', tail: '#b0502a' },
+      sprite: { kind: 'raptor', size: 22, color: '#6a4a30', breast: '#e8dcc6', head: '#5a3c26', tail: '#b0502a', bill: '#3a3632' },
       desc: 'Circles over open country, then drops onto voles. Perches on tall snags and trees.',
       hint: 'Open meadows full of voles, with tall perches.' });
   }

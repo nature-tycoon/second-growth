@@ -1,6 +1,6 @@
 // Bird body plans, feathers, wings and species markings.
 import * as THREE from 'three';
-import { P, SPH, SPH_HI, SPH_XL, col, eyes, flat, grad, hash3, place, shade, smooth, solid, tmp, tube } from './model-core.js';
+import { P, SPH_HI, SPH_XL, col, eyes, flat, grad, hash3, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
 
 // ---------------------------------------------------------------- birds
 const BIRDS = {
@@ -9,7 +9,7 @@ const BIRDS = {
   woodpecker: s => ({ legH: 0.14, tilt: 0.75, span: 0.62, chord: 0.26, beak: 0.26, beakColor: '#2a2622', legColor: '#4a4440', tail: 0.5 }),
   heron: s => ({ legH: 1.05, tilt: 0.3, span: 0.9, chord: 0.3, beak: s.stork ? 0.38 : 0.42, beakR: s.stork ? 0.05 : null, beakColor: s.bill || '#e0b030', legColor: s.stork ? '#c0543e' : '#b8a060', tail: 0.2, neck: true, head: 0.13 }), // (stork: a stouter, straight bill)
   duck: s => ({ legH: 0.08, tilt: 0.05, span: s.goose ? 0.95 : 0.6, chord: 0.24, head: s.goose ? 0.14 : s.woodduck || s.mallard ? 0.17 : 0.19, headLong: s.woodduck || s.mallard ? 1.18 : 1.05, beak: s.goose ? 0.14 : 0.2, beakColor: s.bill || '#d8a030', legColor: s.goose ? '#33322c' : '#e08a30', tail: -0.4, duck: true }),
-  raptor: s => ({ legH: 0.16, tilt: 0.45, span: 0.95, chord: 0.3, beak: 0.14, beakColor: s.bill || '#e0b030', legColor: '#e0b030', tail: 0.35, hook: true }),
+  raptor: s => ({ legH: 0.16, tilt: 0.52, span: 0.95, chord: 0.3, beak: 0.14, beakColor: s.bill || '#e0b030', legColor: '#e0b030', tail: 0.35, hook: true, head: 0.155, brow: true, cere: '#e8c040' }), // (brow: the bony ridge over a hawk's eye that gives it its glare)
   vulture: s => ({ legH: 0.2, tilt: 0.3, span: 0.95, chord: 0.34, beak: 0.13, beakColor: s.bill || '#2a2a2a', legColor: '#5a5650', tail: 0.2, hook: true, head: 0.12, vulture: true }),
   secretary: s => ({ legH: 1.05, tilt: 0.18, span: 1.0, chord: 0.3, beak: 0.09, beakColor: '#8a8a88', legColor: '#e2c49a', tail: 0.1, hook: true, neck: true, head: 0.13, secretary: true }),
   crane: s => ({ legH: 0.95, tilt: 0.22, span: 1.0, chord: 0.32, beak: 0.15, beakColor: '#2a2a2a', legColor: '#3a3a3a', tail: 0.2, neck: true, head: 0.13 }),
@@ -28,10 +28,13 @@ const WING_KIND = { vulture: 'fingered', secretary: 'fingered', crane: 'fingered
 const BIRD_BODY = {
   songbird: [0.38, 0.25, 0.23], hummer: [0.34, 0.2, 0.18], woodpecker: [0.43, 0.23, 0.21],
   heron: [0.44, 0.22, 0.22], duck: [0.46, 0.24, 0.28], booby: [0.5, 0.22, 0.22],
-  raptor: [0.41, 0.29, 0.26], vulture: [0.46, 0.27, 0.26], owl: [0.37, 0.3, 0.28],
+  raptor: [0.49, 0.26, 0.23], vulture: [0.46, 0.27, 0.26], owl: [0.37, 0.3, 0.28],
   macaw: [0.41, 0.26, 0.23], toucan: [0.4, 0.27, 0.24], hornbill: [0.46, 0.26, 0.25],
   secretary: [0.44, 0.25, 0.23], crane: [0.46, 0.24, 0.24], ostrich: [0.5, 0.32, 0.3],
 };
+// A bird's body (see bird()): rounder than SPH, as its outline is the whole bird. Its own finer
+// sphere for the close-up model, as Model.finer only knows the shared ones.
+const BODY = new THREE.SphereGeometry(1, 16, 11), BODY_CLOSE = new THREE.SphereGeometry(1, 26, 17);
 // A closed, slightly arched feather with a broad shaft and softly rounded end. Shared by tails;
 // unlike an ellipsoid it stays broad along its length instead of swelling into a leaf at the middle.
 function tailFeather() {
@@ -83,10 +86,9 @@ const TAIL_PROFILE = {
   secretary: [0.35, 0.15, 0.23, 0.05], crane: [0.25, 0.16, 0.24, 0.06],
   ostrich: [0.28, 0.24, 0.3, 0.12],
 };
-function birdTail(m, s, o, by, bodyR) {
+// base: the rump, where the feather roots are buried beneath the rump coverts
+function birdTail(m, s, o, base) {
   const S = s.size, c = Math.cos(o.tilt), sn = Math.sin(o.tilt);
-  // The base follows the tilted rump, with the feather roots buried beneath rump coverts.
-  const base = [-bodyR[0] * 0.76 * c - S * 0.025 * sn, by - bodyR[0] * 0.76 * sn + S * 0.025 * c, 0];
   let [length, width, flightWidth, graduation] = TAIL_PROFILE[s.kind];
   if (s.shortTail) { length = 0.36; width = 0.15; flightWidth = 0.24; graduation = 0; }
   if (s.tailTip) length = 0.66;
@@ -125,7 +127,7 @@ function birdTail(m, s, o, by, bodyR) {
     m.add(TAIL_FEATHER, place(root, [0, side * 0.045, 0.22], [S * 0.95, S * 0.012, S * 0.05]),
       u => -u.x > 0.72 ? col('#1a1a1a') : col(s.color), { part: P.TAIL, pivot: base });
   }
-  m.ell([base[0] + S * 0.035 * c, base[1] + S * 0.035 * sn, 0], [S * 0.13, S * 0.065, S * width * 0.65],
+  m.ell([base[0] + S * 0.035 * c, base[1] + S * 0.035 * sn, 0], [S * 0.13, S * 0.06, S * Math.min(width * 0.65, 0.1)],
     s.tail || s.color, { rot: [0, 0, o.tilt] });
 }
 
@@ -148,7 +150,16 @@ function bird(m, s) {
     : s.mallard ? u => u.x > 0.5 ? col(s.breast) : u.x < -0.68 ? col('#282b24') : col(s.color)
     : s.bib ? u => (u.y > -0.1 || u.x > 0.62 ? col(s.color) : col(s.breast)) : grad(s.color, s.breast || s.color, -0.15, 0.4);
   const bodyR = BIRD_BODY[s.kind].map(r => r * S);
-  m.add(s.barred || s.fancy || s.mottled ? SPH_XL : s.mallard ? SPH_HI : SPH, place([0, by, 0], [0, 0, o.tilt], bodyR), body);
+  // One streamlined body rather than a ball: a full, deep breast, a straight back, and a belly that
+  // sweeps up to the vent so the rear narrows into the tail. The front half keeps the old ellipsoid,
+  // so chest bands, bibs and flank patches still sit on it.
+  const ct = Math.cos(o.tilt), st = Math.sin(o.tilt), stretch = o.owl ? 0.04 : 0.14;
+  const bodyAt = (x, y, z) => [x * ct - y * st, by + x * st + y * ct, z];
+  sculpt(m, d => {
+    const back = Math.max(0, -d.x), slim = 1 - 0.3 * back * back;
+    const y = d.y * bodyR[1] * slim * (d.y < 0 ? 1 - 0.25 * back : 0.94) + bodyR[1] * 0.1 * back * back;
+    return bodyAt(d.x * bodyR[0] * (1 + stretch * back), y, d.z * bodyR[2] * slim);
+  }, body, {}, s.barred || s.fancy || s.mottled ? SPH_XL : s.mallard ? SPH_HI : m.close ? BODY_CLOSE : BODY);
   // Rufous hummingbird hens have cinnamon flanks beneath a green back.
   if (s.flanks) for (const side of [-1, 1]) m.ell([-S * 0.04, by - S * 0.07, side * bodyR[2] * 0.82], [S * 0.2, S * 0.11, S * 0.06], s.flanks, { rot: [0, 0, o.tilt] });
   if (s.band) m.ell([S * 0.12, by - S * 0.02, 0], [S * 0.12, S * 0.22, S * 0.235], s.band, { rot: [0, 0, o.tilt] });
@@ -160,23 +171,29 @@ function bird(m, s) {
   let hp;
   if (o.owl) hp = [S * 0.1, by + S * 0.33, 0];
   else if (o.tall) hp = [S * 0.45, by + S * 1.0, 0];
-  else if (o.vulture) hp = [S * 0.5, by + S * 0.1, 0];
+  else if (o.vulture) hp = [S * 0.62, by + S * 0.13, 0];
   else if (o.neck) hp = [S * 0.5, by + S * 0.6, 0];
   else if (s.kind === 'booby') hp = [S * 0.48, by + S * 0.2, 0];
   else if (o.duck) hp = [S * (s.goose ? 0.66 : 0.38), by + S * (s.goose ? 0.48 : s.woodduck || s.mallard ? 0.4 : 0.28), 0];
   else hp = [S * 0.34 + Math.sin(o.tilt) * S * 0.02, by + S * 0.2 + Math.sin(o.tilt) * S * 0.12, 0];
-  const neckBase = [S * 0.25, by + S * 0.1, 0], hd = { part: P.HEAD, pivot: neckBase, fine: detailedDuck };
-  // a short, thick neck, so the head grows smoothly out of the body instead of sitting on it like a ball
-  if (!o.owl && !o.tall && !o.neck && !o.vulture && !o.duck) {
-    const n0 = [S * (s.kind === 'booby' ? 0.3 : 0.2), by + S * 0.05, 0], n1 = [hp[0] - hr * 0.35, hp[1] - hr * 0.25, 0];
-    const nc = s.kind === 'woodpecker' ? s.color : s.head; // (a woodpecker's "head" colour is its crest)
-    m.limb(n0, n1, S * 0.17, hr * 0.84, grad(nc, s.breast || s.color, 0.1, 0.5), { ...hd, caps: false });
+  // (a short-necked bird's head bends from the root of its neck, deep in the chest, so the neck
+  // stays inside the back when it pecks)
+  const shortNeck = !o.owl && !o.tall && !o.neck && !o.vulture && !o.duck, neckRoot = bodyAt(bodyR[0] * 0.3, bodyR[1] * 0.12, 0);
+  const neckBase = shortNeck ? neckRoot : [S * 0.25, by + S * 0.1, 0], hd = { part: P.HEAD, pivot: neckBase, fine: detailedDuck };
+  // a short, thick neck rooted broad in the chest and narrowing to the head's own width, so the
+  // breast, nape and head make one outline instead of a ball sitting on a ball
+  if (shortNeck) {
+    const n0 = neckRoot, n2 = [hp[0] - hr * 0.3, hp[1] - hr * 0.15, 0];
+    const n1 = [n0[0] * 0.45 + n2[0] * 0.55, n0[1] * 0.4 + n2[1] * 0.6, 0];
+    const nc = col(s.kind === 'woodpecker' ? s.color : s.head), top = col(s.color), under = col(s.breast || s.color); // (a woodpecker's "head" colour is its crest)
+    const paint = u => tmp.copy(under).lerp(top, smooth(-0.4, 0.4, u.y)).lerp(nc, smooth(-0.3, 0.6, u.x));
+    const w = Math.min(bodyR[1] * 0.7, hr * 1.25), z = Math.min(bodyR[2] * 0.75, hr * 1.2);
+    tube(m, [n0, n1, n2], [[w, z], [w * 0.55 + hr * 0.4, z * 0.55 + hr * 0.38], [hr * 0.86, hr * 0.84]], paint, { ...hd, seg: 9, sub: 2, capRings: 1 });
   }
   if (o.vulture) {
     // white-backed vulture: a long, bare grey neck hanging forward out of a thick white ruff
-    m.limb([S * 0.26, by + S * 0.12, 0], [S * 0.4, by + S * 0.18, 0], S * 0.05, S * 0.04, s.head, hd);
-    m.limb([S * 0.4, by + S * 0.18, 0], [hp[0] - hr * 0.5, hp[1], 0], S * 0.04, S * 0.035, s.head, hd);
-    m.ell([S * 0.24, by + S * 0.1, 0], [S * 0.13, S * 0.12, S * 0.17], s.darkRuff ? s.color : '#f2eee6', hd);
+    tube(m, [[S * 0.3, by + S * 0.12, 0], [S * 0.47, by + S * 0.19, 0], [hp[0] - hr * 0.5, hp[1], 0]], [S * 0.07, S * 0.05, S * 0.042], s.head, { ...hd, seg: 8, sub: 3, capRings: 1 });
+    m.ell([S * 0.4, by + S * 0.15, 0], [S * 0.085, S * 0.11, S * 0.14], s.darkRuff ? s.color : '#f2eee6', { ...hd, rot: [0, 0, -0.6] });
   }
   if (o.tall) {
     // ostrich: a bare pinkish neck rising straight up out of the black plumes
@@ -185,10 +202,17 @@ function bird(m, s) {
   } else if (o.neck) {
     tube(m, [[S * 0.3, by + S * 0.08, 0], [S * 0.39, by + S * 0.28, 0], [S * 0.41, by + S * 0.46, 0], [hp[0] - hr * 0.4, hp[1] - hr * 0.2, 0]], [S * 0.09, S * 0.075, S * 0.061, S * 0.06], s.breast, hd);
   }
-  if (o.duck) m.limb([S * 0.3, by + S * 0.08, 0], hp, S * (detailedDuck ? 0.095 : 0.12), S * (detailedDuck ? 0.085 : 0.11), s.head, { ...hd, seg: detailedDuck ? 16 : undefined });
-  if (s.collar) m.limb([S * 0.326, by + S * 0.185, 0], [S * 0.332, by + S * 0.21, 0], S * 0.096, S * 0.095, '#f4efde', { ...hd, caps: false, seg: 16 });
+  // a duck's neck swells into its breast rather than rising like a stalk
+  const duckNeck = [S * 0.36, by + S * 0.24, 0], neckR = S * (detailedDuck ? 0.1 : 0.12);
+  if (o.duck) tube(m, [bodyAt(bodyR[0] * 0.45, bodyR[1] * 0.25, 0), duckNeck, hp], [[S * 0.17, S * 0.17], [neckR, neckR * 0.95], [hr * 0.7, hr * 0.7]],
+    u => tmp.copy(col(s.breast || s.color)).lerp(col(s.head), smooth(-0.6, 0.1, u.x)), { ...hd, seg: detailedDuck ? 16 : 10, sub: 3, capRings: 1 });
+  if (s.collar) { // (the mallard drake's white ring, a band round the neck where it leaves the breast)
+    const d = [hp[0] - duckNeck[0], hp[1] - duckNeck[1]], k = S * 0.012 / Math.hypot(d[0], d[1]);
+    m.limb([duckNeck[0] - d[0] * k, duckNeck[1] - d[1] * k, 0], [duckNeck[0] + d[0] * k, duckNeck[1] + d[1] * k, 0], neckR * 1.08, neckR * 1.06, '#f4efde', { ...hd, caps: false, seg: 16 });
+  }
   const pecker = s.kind === 'woodpecker';
-  m.ell(hp, [hr * (o.headLong || 1.05), hr, hr * (o.owl ? 1.1 : 0.95)], pecker ? s.color : s.head, hd);
+  m.ell(hp, [hr * (o.headLong || 1.05), hr * (o.brow ? 0.9 : 1), hr * (o.owl ? 1.1 : 0.95)], pecker ? s.color : s.head, hd);
+  if (o.brow) for (const side of [1, -1]) m.ell([hp[0] + hr * 0.5, hp[1] + hr * 0.42, side * hr * 0.6], [hr * 0.48, hr * 0.17, hr * 0.26], shade(s.head, -0.12), { ...hd, rot: [side * 0.25, 0, -0.12], lo: true });
   if (s.goose) for (const side of [-1, 1]) m.ell([hp[0] + hr * 0.12, hp[1] - hr * 0.25, side * hr * 0.9], [hr * 0.72, hr * 0.4, hr * 0.12], '#eeeade', hd);
   if (o.taper) m.ell([hp[0] + hr * 0.75, hp[1] - hr * 0.12, 0], [hr * 0.7, hr * 0.62, hr * 0.62], s.head, hd); // (a streamlined face sloping into the bill, as on a booby)
   if (pecker) {
@@ -314,13 +338,21 @@ function bird(m, s) {
     }
     const b0 = [bb[0] - hr * 0.12, bb[1], 0], r0 = o.beakR != null ? S * o.beakR : Math.max(S * 0.04, hr * 0.32);
     const bm = [bb[0] + bl * 0.55, bb[1] - (o.hook ? bl * 0.08 : bl * 0.03), 0], b1 = [bb[0] + bl, bb[1] - (o.hook ? bl * 0.35 : bl * 0.1), 0];
-    m.limb(b0, bm, r0, r0 * 0.55, o.beakColor, { ...hd, caps: false });
-    m.limb(bm, b1, r0 * 0.55, S * 0.006, o.beakColor, { ...hd, caps: false });
+    if (o.hook) {
+      // a deep bill whose upper half arches over and drops into a sharp downward hook, with a bare
+      // waxy cere at its base on a hawk or an eagle
+      const bill = o.cere ? u => u.x < -0.45 ? col(o.cere) : col(o.beakColor) : o.beakColor;
+      tube(m, [b0, [bb[0] + bl * 0.45, bb[1] + r0 * 0.05, 0], [bb[0] + bl * 0.88, bb[1] - bl * 0.16, 0], [bb[0] + bl * 0.94, bb[1] - bl * 0.42, 0]],
+        [[r0, r0 * 0.78], [r0 * 0.78, r0 * 0.52], [r0 * 0.42, r0 * 0.3], [S * 0.006, S * 0.006]], bill, { ...hd, seg: 8, sub: 3, capRings: 1 });
+      m.limb([b0[0], b0[1] - r0 * 0.45, 0], [bb[0] + bl * 0.55, bb[1] - r0 * 0.75, 0], r0 * 0.6, S * 0.008, o.beakColor, { ...hd, caps: false }); // lower mandible
+    } else {
+      m.limb(b0, bm, r0, r0 * 0.55, o.beakColor, { ...hd, caps: false });
+      m.limb(bm, b1, r0 * 0.55, S * 0.006, o.beakColor, { ...hd, caps: false });
+    }
     if (o.gape) m.limb([b0[0] + hr * 0.05, b0[1] - r0 * 0.15, 0], [bm[0] + bl * 0.2, bm[1] - r0 * 0.12, 0], r0 * 1.02, r0 * 0.5, shade(o.beakColor, -0.35), { ...hd, caps: false }); // the line of the gape
-    if (o.hook) m.ell(bb, [S * 0.06, S * 0.06, S * 0.06], o.beakColor, { ...hd, lo: true });
   }
 
-  birdTail(m, s, o, by, bodyR);
+  birdTail(m, s, o, bodyAt(-bodyR[0] * 0.8 * (1 + stretch * 0.8), S * 0.02 + bodyR[1] * 0.064, 0));
   if (s.curlTail) for (const side of [-1, 1]) {
     const base = [-S * 0.48, by + S * 0.06, side * S * 0.025];
     tube(m, [base, [-S * 0.59, by + S * 0.09, base[2]], [-S * 0.6, by + S * 0.16, base[2]], [-S * 0.54, by + S * 0.17, base[2]]], [S * 0.012, S * 0.011, S * 0.009, S * 0.004], '#252a24', { part: P.TAIL, pivot: base });
@@ -360,7 +392,7 @@ function bird(m, s) {
 
   // wings
   // coverts in the body colour, darker flight feathers along the trailing edge and out to the tip
-  const covert = col(o.owl ? s.color : shade(s.color, 0.1)), flight = col(s.flight || shade(s.color, o.owl ? -0.15 : -0.4));
+  const covert = col(o.owl ? s.color : shade(s.color, 0.04)), flight = col(s.flight || shade(s.color, o.owl ? -0.15 : -0.4));
   const covertBase = solid(covert);
   const spec = s.speculum ? col(s.speculum) : null;
   const wc = u => {
@@ -370,14 +402,20 @@ function bird(m, s) {
     if (spec && back && a > 0.18 && a < 0.5) return (s.woodduck || s.mallard) && (x < -0.35 || x > -0.14 + a * 0.12) ? col('#eae5d8') : spec; // white-edged speculum on both sexes
     if (back || a > 0.72) return flight;
     if (s.mottled) return mottling(u, covertBase);
-    return x > 0.36 && a < 0.5 ? col(shade(s.color, 0.2)) : covert;                                // pale leading edge
+    return x > 0.36 && a < 0.5 ? col(shade(s.color, 0.1)) : covert;                                // pale leading edge
   };
   const shape = s.wingShape || WING_KIND[s.kind] || 'round';
+  // the body's half-width a given distance forward of the wing's fold point (see the body above),
+  // so the folded wing lies on the shoulder and tapers in over the rump, the tips crossing above the tail
+  const wrapR = lx => {
+    const x = lx - S * 0.02, a0 = x / bodyR[0], a = a0 < 0 ? x / (bodyR[0] * (1 + stretch * Math.min(1, -a0))) : a0, back = Math.max(0, -a);
+    return bodyR[2] * 1.04 * Math.max(o.owl ? 0.7 : 0.5, (1 - 0.3 * back * back) * Math.sqrt(Math.max(0, 1 - Math.min(1, a * a))));
+  };
   for (const side of [1, -1]) {
     // folded, a wing starts at the shoulder and reaches about to the tail tip, however long it is spread
     // (an owl's end at its tail, not below it)
     const L = Math.min(1.2 * o.span, o.owl ? 0.75 : s.kind === 'booby' ? 0.92 : o.long || 1.0), foldLen = L / (1.2 * o.span);
-    m.wing(side, [S * 0.1, by + S * 0.1, side * S * 0.14], S * o.span, S * o.chord * (shape === 'fingered' ? 1.15 : 1), S * 0.02, wc, [-S * 0.02, by, 0], shape, bodyR[2] * 1.04, o.tilt * 0.8, foldLen, S * Math.min(o.span * 0.5 * foldLen, 0.3), o.up ?? 0.55); // (resting, folded wings ride up over the back)
+    m.wing(side, [S * 0.1, by + S * 0.1, side * S * 0.14], S * o.span, S * o.chord * (shape === 'fingered' ? 1.15 : 1), S * 0.02, wc, [-S * 0.02, by, 0], shape, wrapR, o.tilt * 0.8, foldLen, S * Math.min(o.span * 0.5 * foldLen, 0.3), o.up ?? 0.55); // (resting, folded wings ride up over the back)
     if (detailedDuck) {
       // Shingled scapular feathers follow the folded flank and spread with the wing.
       const pivot = [S * 0.1, by + S * 0.1, side * S * 0.14], part = side > 0 ? P.WING_L : P.WING_R;

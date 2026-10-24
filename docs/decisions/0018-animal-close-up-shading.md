@@ -165,6 +165,30 @@ two balls for a species the shape doesn't suit. Cost: 1.4% more triangles over t
 (the usual models, 481k to 487k, at most +4.8% on the raccoon), 1.6% on the close-up models.
 Review: Framing → The head (`framing=head`) on the review page.
 
+**Birds.** The 56 birds share `bird()` in `birds.js`, and read as a ball for a body with a second
+ball for a head. Now:
+
+- **Body:** a sculpted sphere (`sculpt`, its own 16×11 sphere, 26×17 close up) whose front half
+  is the old ellipsoid (so chest bands, bibs and flank patches still sit on it) and whose back
+  half narrows and lengthens into the tail, with the belly sweeping up to the vent and the back
+  kept straight. Paint still gets the unit sphere's `u`, so every plumage paints as before. The
+  tail roots at the new rump (`bodyAt`).
+- **Neck:** short-necked birds get a tube rooted broad in the chest, narrowing to the head's own
+  width, coloured from back and breast into the head, so breast, nape and head make one outline.
+  Their head now bends from that root (the neck's pivot), so the neck stays inside the back when
+  the bird pecks. Ducks' necks swell into the breast the same way (the mallard drake's collar
+  rides on it), and a vulture's bare neck reaches forward out of a ruff at the front of the body.
+- **Folded wings** take the body's radius at each point along them (`Model.wing`'s `R` may be a
+  function), so they lie on the shoulder and taper in over the rump instead of standing off it as
+  a fin over the back. Coverts are nearer the body colour (4% lighter, not 10%).
+- **Hawks and eagles** (`raptor`): a longer, narrower body, a smaller head with a flat crown and
+  a bony brow over each eye (`brow`), and a deep bill that arches into a downward hook with a
+  waxy cere at its base (`cere`). Every hooked bill (vultures, macaws, the secretarybird) uses the
+  hook tube. The red-tailed hawk's bill is dark now, as it is in life.
+
+Cost: 3.7% more triangles over the 56 birds (337k to 350k; at most +9% on the hawks and eagles),
+6% on the close-up models. Review: Pose → Flying (`pose=fly`, framed on the spread wings).
+
 ## Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the

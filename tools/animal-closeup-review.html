@@ -11,7 +11,7 @@ main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}article
 <h1>Animal close-ups</h1>
 <p>Each animal at the game's closest zoom, under the game's midday lights and shadows (sky and ground fill, the sun from the game's default direction, the same tone mapping) and seen from the game's camera angle. For before and after comparisons: the frames are fixed. <code>?species=map:key,…</code> picks the animals; the zoom framings show them at the game's own scale.</p>
 <label>View <select id="view"><option value="game">Game camera</option><option value="side">Side</option><option value="front">Head on</option></select></label>
-<label>Pose <select id="pose"><option value="rest">Standing</option><option value="walk">Walking</option><option value="graze">Head down</option></select></label>
+<label>Pose <select id="pose"><option value="rest">Standing</option><option value="walk">Walking</option><option value="graze">Head down</option><option value="fly">Flying</option></select></label>
 <label>Model <select id="model"><option value="detail">Detailed</option><option value="close">Close-up</option></select></label>
 <label>Framing <select id="framing"><option value="fit">Fill the frame</option><option value="game">Game's closest zoom</option><option value="normal">Game's usual zoom</option><option value="wide">Zoomed out</option><option value="head">The head</option></select></label>
 <label>Light <select id="light"><option value="day">Midday</option><option value="golden">Golden hour</option></select></label>
@@ -50,7 +50,8 @@ for(const [map,keys]of byMap){
   // (head framing: the head's own vertices, the part round the eyes out to the nose's reach)
   let headBox=null;const eye=motion.eyeSpot;if(eye){const pos=geo.attributes.position,part=geo.attributes.aPart;let reach=0;for(let i=0;i<pos.count;i++)if(part.getX(i)===8)reach=Math.max(reach,pos.getX(i)-eye[0]);
    const r=Math.max(reach,1e-3)*1.6;headBox=new THREE.Box3();const v=new THREE.Vector3();for(let i=0;i<pos.count;i++)if(part.getX(i)===8){v.fromBufferAttribute(pos,i);if(Math.hypot(v.x-eye[0],v.y-eye[1])<r)headBox.expandByPoint(v);}}
-  entries.push({def,geo,mesh,anim,canvas,headBox,scale:adultAnimalScale(def.sprite)});
+  const flyBox=new THREE.Box3().setFromBufferAttribute(geo.attributes.aExt); // (wings spread)
+  entries.push({def,geo,mesh,anim,canvas,headBox,flyBox,scale:adultAnimalScale(def.sprite)});
  }
 }
 function draw(){
@@ -58,9 +59,9 @@ function draw(){
  sun.color.set(golden?0xffb46a:0xfff3dc);sun.intensity=golden?2.5*1.55:2.5;
  hemi.color.set(golden?0xffe8cc:0xe4eeff);
  for(const e of entries){
-  const pose=controls.pose.value;e.anim.setXYZW(0,1.1,pose==='walk'?1:0,0,pose==='graze'?.65:0);e.anim.needsUpdate=true;
+  const pose=controls.pose.value;e.anim.setXYZW(0,1.1,pose==='walk'?1:0,pose==='fly'?1:0,pose==='graze'?.65:0);e.anim.needsUpdate=true;
   e.mesh.setMatrixAt(0,new THREE.Matrix4().makeScale(e.scale,e.scale,e.scale));e.mesh.instanceMatrix.needsUpdate=true;
-  const box=(controls.framing.value==='head'&&e.headBox||e.geo.boundingBox).clone();box.min.multiplyScalar(e.scale);box.max.multiplyScalar(e.scale);
+  const box=(controls.framing.value==='head'&&e.headBox||pose==='fly'&&e.flyBox||e.geo.boundingBox).clone();box.min.multiplyScalar(e.scale);box.max.multiplyScalar(e.scale);
   const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
   const az=controls.view.value==='side'?0:controls.view.value==='front'?Math.PI/2:AZ,el=controls.view.value==='game'?EL:THREE.MathUtils.degToRad(8);
   const dir=new THREE.Vector3(Math.sin(az)*Math.cos(el),Math.sin(el),Math.cos(az)*Math.cos(el));
