@@ -148,8 +148,9 @@ class Model {
     g.setAttribute('color', new THREE.BufferAttribute(color, 3));
     // (a coat the shader marks per pixel: the paint coordinate, and which of the model's coats)
     if (fn.coat) {
-      const slot = this.coatSlot(fn.coat), coat = new Float32Array(n * 4);
-      for (let i = 0; i < n; i++) { coat[i * 4] = paintPos.getX(i); coat[i * 4 + 1] = paintPos.getY(i); coat[i * 4 + 2] = paintPos.getZ(i); coat[i * 4 + 3] = slot; }
+      // (fn.coatFade(u, p): 1 where the markings show, 0 where the vertex colour shows alone)
+      const slot = this.coatSlot(fn.coat), coat = new Float32Array(n * 4), fade = fn.coatFade;
+      for (let i = 0; i < n; i++) { coat[i * 4] = paintPos.getX(i); coat[i * 4 + 1] = paintPos.getY(i); coat[i * 4 + 2] = paintPos.getZ(i); coat[i * 4 + 3] = fade ? slot - 0.45 * (1 - fade(u.fromBufferAttribute(paintPos, i), p.fromBufferAttribute(g.attributes.position, i))) : slot; }
       g.setAttribute('aCoat', new THREE.BufferAttribute(coat, 4));
     }
     g.setAttribute('aPart', new THREE.BufferAttribute(new Float32Array(n).fill(part), 1));
@@ -397,6 +398,69 @@ function pixelCoat(kind, base, params, dark, mid = dark) {
   return paint;
 }
 
+// A mammal's head in one smooth piece: the skull (an oval of radii hr about hp) flowing into a
+// tapered muzzle (snout long, from sn; 0 for none), with the bridge of the nose running down from the
+// forehead, a brow over the eyes, cheeks below them and a jaw line running back from the chin. The
+// skull keeps the old oval's surface round the eyes and between the ears, so eyes, ears, antlers and
+// a species' own face pieces sit where they did. Paint gets u as on a sphere (u.x from the back of
+// the skull to the nose, u.y up); the muzzle takes the muzzle paint, blended in from the skull's.
+const smax = (a, b, k) => { const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.max(a, b) + h * h * k / 4; };
+function headLoft(m, hp, hr, snout, sn, paint, muzzlePaint, o, hd) {
+  const [hx, hy] = hp, [rx, ry, rz] = hr;
+  // the muzzle: an oval a little narrower toward the nose; the jaw line runs from under the ear to the chin
+  // (a long muzzle narrows to the nose; a cat's short one stays blunt)
+  const mx = sn[0] + snout * 0.3, my = sn[1], mry = ry * 0.55, mrz = rz * 0.58, taper = smooth(0.55, 1.1, snout / ry);
+  const x0 = hx - rx, x1 = snout ? Math.max(hx + rx, mx + snout) : hx + rx;
+  const oval = (cx, cy, a, b, c, x) => { const q = 1 - ((x - cx) / a) ** 2, s = Math.sign(q) * Math.sqrt(Math.abs(q)); return [cy + b * s, cy - b * s, c * s]; };
+  const jaw = [hx - rx * 0.35, hy - ry * 0.9], chin = [mx + snout * 0.25, my - mry * 0.93];
+  const brow = o.brow ?? 0.08, cheek = o.cheeks ?? 0.08, ex = hx + rx * 0.42;
+  const R = m.seg(o.detail ? 30 : 18), A = m.seg(o.detail ? 24 : 14), pos = [], idx = [], u = [];
+  for (let i = 0; i <= R; i++) {
+    const s = i / R, x = x0 + (x1 - x0) * (1 - Math.cos(Math.PI * s)) / 2; // (rings closer together at the ends, where it rounds off)
+    const sk = oval(hx, hy, rx, ry, rz, x);
+    let [top, bot, w] = sk;
+    if (snout) {
+      const t = Math.min(1, Math.max(0, (x - mx) / snout)), mz = oval(mx, my, snout, mry * (1 - 0.12 * t * taper), mrz * (1 - 0.25 * t * taper), x);
+      top = smax(top, mz[0], ry * 0.55); // (the forehead runs down into the bridge of the nose)
+      bot = -smax(-bot, -mz[1], ry * 0.3);
+      w = smax(w, mz[2], rz * 0.35);
+      if (x > jaw[0] && x < chin[0]) bot = Math.min(bot, jaw[1] + (chin[1] - jaw[1]) * (x - jaw[0]) / (chin[0] - jaw[0]));
+    }
+    if (i === 0 || i === R) { top = bot = (top + bot) / 2; w = 0; }
+    const cy = (top + bot) / 2, h = Math.max(0, (top - bot) / 2); w = Math.max(0, w);
+    // a little squarer than an oval in the muzzle (its sides and the line of the lips)
+    const n = 2 + 0.6 * smooth(hx + rx * 0.4, hx + rx * 0.9, x);
+    const fb = brow * Math.exp(-(((x - ex) / (rx * 0.28)) ** 2)), fc = cheek * Math.exp(-(((x - hx - rx * 0.15) / (rx * 0.42)) ** 2));
+    const ux = 2 * (x - x0) / (x1 - x0) - 1, ur = Math.sqrt(Math.max(0, 1 - ux * ux));
+    for (let j = 0; j <= A; j++) {
+      const a = j / A * Math.PI * 2, c = Math.cos(a), sn2 = Math.sin(a);
+      const e = (v) => Math.sign(v) * Math.abs(v) ** (2 / n);
+      // the brow stands out over the eyes (up and out, on the upper side), the cheeks below and behind them
+      const ang = Math.abs(Math.atan2(sn2, c)); // 0 on top, pi underneath
+      const out = fb * Math.exp(-(((ang - 0.8) / 0.38) ** 2)) * ry + fc * Math.exp(-(((ang - 1.95) / 0.45) ** 2)) * rz;
+      pos.push(x, cy + e(c) * h + c * out, e(sn2) * w + sn2 * out);
+      u.push(ux, c * ur, sn2 * ur);
+    }
+  }
+  for (let i = 0; i < R; i++) for (let j = 0; j < A; j++) { const a = i * (A + 1) + j, b = a + A + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  // (each ring's first and last points are one point down the middle of the face: share their normal, or the seam shows)
+  const nm = g.attributes.normal, v = V(0, 0, 0);
+  for (let i = 0; i <= R; i++) { const a = i * (A + 1), b = a + A; v.set(nm.getX(a) + nm.getX(b), nm.getY(a) + nm.getY(b), nm.getZ(a) + nm.getZ(b)).normalize(); nm.setXYZ(a, v.x, v.y, v.z); nm.setXYZ(b, v.x, v.y, v.z); }
+  const unitG = new THREE.BufferGeometry(); unitG.setAttribute('position', new THREE.Float32BufferAttribute(u, 3));
+  // the muzzle's colour comes in where the muzzle leaves the skull (a per-pixel coat keeps its markings over both)
+  let fn = typeof paint === 'function' ? paint : solid(paint);
+  if (snout && muzzlePaint) {
+    const head = fn, mz = typeof muzzlePaint === 'function' ? muzzlePaint : solid(muzzlePaint), a = new THREE.Color(), x0m = hx + rx * 0.55, x1m = hx + rx * 0.9;
+    const blend = (uu, p) => { const k = smooth(x0m, x1m, p.x); if (k <= 0) return head(uu, p); a.copy(head(uu, p)); return k >= 1 ? mz(uu, p) : a.lerp(mz(uu, p), k); };
+    const pc = head.coat;
+    if (pc) { fn = pixelCoat(pc.kind, blend, pc.params, pc.dark, pc.mid); fn.coatFade = (uu, p) => 1 - smooth(x0m, x1m, p.x); } // (no spots on the muzzle)
+    else fn = blend;
+  }
+  m.add(g, new THREE.Matrix4(), fn, { ...hd, paintGeo: unitG });
+}
+
 function quadruped(m, s, o) {
   const L = s.len, H = o.H, leg = o.leg, W = o.wide ?? 1;
   const by = leg + H * 0.5;
@@ -507,9 +571,11 @@ function quadruped(m, s, o) {
     const mid = [(root[0] + end[0]) / 2 + r * 0.1, (root[1] + end[1]) / 2 + r * 0.12, 0];
     tube(m, [root, mid, end], [[r * 1.45, r * 1.12], [r * 1.05, r * 0.9], [r * 0.85, r * 0.78]], nc, { ...hd, seg: o.neckSeg ?? (o.detail ? 14 : 10), sub: 3, capRings: 2 });
   }
-  m.ell(hp, hr, hc, hd);
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28, 0];
-  if (!o.noMuzzle) m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
+  if (o.roundHead) { // (a ball for the skull and another for the muzzle, for a species the shaped head doesn't suit)
+    m.ell(hp, hr, hc, hd);
+    if (!o.noMuzzle) m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
+  } else headLoft(m, hp, hr, o.noMuzzle ? 0 : o.snout, sn, hc, o.muzzle, o, hd);
   if (o.nose !== false) m.ell([sn[0] + o.snout * 1.22, sn[1] + hr[1] * 0.1, 0], [hr[1] * 0.2, hr[1] * 0.17, hr[1] * 0.22], '#1c1714', { ...hd, lo: true, gloss: 1 });
   eyes(m, hp, hr[0] * 0.42, hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78), o.eyeR ?? Math.max(0.55, H * 0.045), P.HEAD, neck);
   m.eyeAt = [hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78)]; m.eyePivot = neck; // for eye-shine at night: forward, up, apart

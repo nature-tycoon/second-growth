@@ -150,6 +150,21 @@ Cost: the usual models have 3% more triangles over those 51 species (520k to 537
 on the small coyote), the close-up models 1% more. Building them got slightly faster (1.37 to
 1.18 s for all of them, usual and close), since a tube costs less than limbs with ball joints.
 
+**Heads.** The head was a ball with a smaller ball stuck on for the muzzle, and up close read as
+exactly that. `headLoft` in `quadruped()` makes it one smooth surface instead: the skull's oval
+flows into a muzzle that narrows toward the nose (long muzzles only; a cat's stays blunt), the
+forehead runs down into the bridge of the nose, the jaw line runs straight from under the ear to
+the chin, and a brow over the eyes and cheeks below them stand out a little (`brow`, `cheeks`,
+default 0.08). Round the eyes and between the ears the surface is the old oval, so eyes, ears,
+antlers, horns and each species' own face pieces sit where they did. Paint still gets `u` as on a
+sphere (`u.x` from the back of the skull to the nose). The muzzle's own colour (`muzzle`) blends
+in where it leaves the skull; on a per-pixel coat the markings fade out over the muzzle instead
+(`coatFade`: the vertex's coat slot set up to 0.45 under its number, which the shader reads as
+how far to show them), so spotted cats keep a plain muzzle. `roundHead: true` brings back the
+two balls for a species the shape doesn't suit. Cost: 1.4% more triangles over the 48 species
+(the usual models, 481k to 487k, at most +4.8% on the raccoon), 1.6% on the close-up models.
+Review: Framing → The head (`framing=head`) on the review page.
+
 ## Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the

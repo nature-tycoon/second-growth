@@ -335,7 +335,7 @@ export function faunaMaterial(motion) {
     shader.fragmentShader = 'varying float vMeat; varying float vDry; varying float vLight; varying float vShine; uniform float uFur;\n' + coatHead + shader.fragmentShader
       .replace('#include <lights_lambert_pars_fragment>', FAUNA_LIGHT)
       .replace('#include <color_fragment>', `#include <color_fragment>
-      ${coats ? 'if (vCoat.w > 0.5) diffuseColor.rgb = faunaCoat(diffuseColor.rgb);' : ''}
+      ${coats ? 'if (vCoat.w > 0.5) diffuseColor.rgb = mix(diffuseColor.rgb, faunaCoat(diffuseColor.rgb), clamp((vCoat.w - floor(vCoat.w + 0.5)) * 2.2 + 1.0, 0.0, 1.0)); // (a slot a little under its number fades the markings out: Model.add, coatFade)' : ''}
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.268, 0.218, 0.164), vDry); // (the coat dulls as it dries: 0.55, 0.5, 0.44 on screen)
       diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.3, 0.035, 0.03), vec3(0.07, 0.04, 0.025), vDry), vMeat);`);
   };

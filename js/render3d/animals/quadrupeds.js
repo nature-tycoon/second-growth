@@ -675,7 +675,8 @@ const MAMMALS = {
       legMotion: 0.42, bobMotion: 0.025,
       foot: (m, foot, r, o) => riverMammalFoot(m, foot, r, o, s.dark),
       head: [L * 0.49, by + H * 0.23], headR: [H * 0.32, H * 0.27, H * 0.29], snout: H * 0.23, noMuzzle: true, nose: false,
-      headPaint: u => Math.abs(u.z) > 0.45 && ((u.x - 0.38) / 0.65) ** 2 + ((u.y - 0.23) / 0.37) ** 2 < 1 ? col(s.dark) : col(u.y > 0.48 ? s.color : s.belly),
+      // (the mask's edge soft over a vertex or so, so it doesn't stair-step across the head's rings)
+      headPaint: u => tmp.copy(col(s.belly)).lerp(col(s.color), smooth(0.4, 0.56, u.y)).lerp(col(s.dark), smooth(0.38, 0.5, Math.abs(u.z)) * smooth(1.15, 0.85, ((u.x - 0.38) / 0.65) ** 2 + ((u.y - 0.23) / 0.37) ** 2)),
       ears: 'none', eyeR: H * 0.037, eyeOut: 0.89,
       face: (m, hp, hr, hd) => riverMammalFace(m, s, hp, hr, H, hd, true),
       tail: (m, b) => {
