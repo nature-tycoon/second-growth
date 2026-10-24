@@ -227,12 +227,28 @@ export class UI {
       if (!this.modalOpen) this.renderer.rotate(b.dataset.v === 'rotl' ? -1 : 1, e.shiftKey ? 90 : 15);
     }));
     $('#view-ctrls [data-v=watch]').addEventListener('click', () => { if (!this.modalOpen) this.watch.start(); });
+    const viewCtrls = $('#view-ctrls'), fold = $('#view-ctrls [data-v=fold]'), setFolded = on => {
+      viewCtrls.classList.toggle('collapsed', on);
+      fold.setAttribute('aria-expanded', String(!on));
+      fold.title = on ? 'Show the camera buttons: rotate and Watch' : 'Hide the camera buttons';
+      fold.setAttribute('aria-label', fold.title);
+    };
+    setFolded(settings.viewCtrlsFolded);
+    fold.addEventListener('click', () => {
+      settings.viewCtrlsFolded = !settings.viewCtrlsFolded;
+      saveSettings();
+      setFolded(settings.viewCtrlsFolded);
+      placeViewCtrls();
+    });
     // (on desktop the rotate buttons sit just under the tool bar, which changes height with the
     // tools unlocked and the window: see #view-ctrls in styles.css)
     // (a window too short for the whole tool bar and the pair stacked under it puts them beside it)
     const toolbar = $('#toolbar'), placeViewCtrls = () => {
       const box = toolbar.getBoundingClientRect();
-      document.body.classList.toggle('view-ctrls-beside', box.top + toolbar.scrollHeight + 150 > innerHeight);
+      // (room for the buttons stacked: four of them, or just View when folded)
+      const room = settings.viewCtrlsFolded ? 96 : 300;
+      document.documentElement.style.setProperty('--view-ctrls-room', `${room - 14}px`);
+      document.body.classList.toggle('view-ctrls-beside', box.top + toolbar.scrollHeight + room > innerHeight);
       document.documentElement.style.setProperty('--toolbar-bottom', `${Math.round(box.bottom)}px`);
     };
     new ResizeObserver(placeViewCtrls).observe(toolbar);

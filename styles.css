@@ -545,24 +545,33 @@ body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; ove
 #view { touch-action: none; } /* the game handles every gesture on the map itself */
 
 /* Rotation stays discoverable: under the tool bar on desktop, beside the map on touch screens. */
-#view-ctrls { display: flex; right: var(--ui-edge); bottom: 226px; z-index: 7; padding: 4px; gap: 4px; }
+#view-ctrls { display: flex; right: var(--ui-edge); bottom: 226px; z-index: 7; padding: 6px; gap: 5px; }
 body.mini-collapsed #view-ctrls { bottom: 52px; }
-#view-ctrls button { width: 44px; height: 52px; padding: 5px; border: 0; border-radius: 14px; background: var(--paper-2); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
-#view-ctrls button svg { width: 22px; height: 22px; }
-#view-ctrls button kbd { font: 800 11px/1 var(--ui); }
-#view-ctrls button:hover, #view-ctrls button:focus-visible { outline: 2px solid var(--moss); outline-offset: -2px; }
+/* (the buttons look like the tool bar's: an icon over a word; the keys are in their tooltips) */
+#view-ctrls button { width: 56px; padding: 9px 1px; border: 0; border-radius: 14px; background: transparent; color: var(--ink-2); cursor: pointer; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; }
+#view-ctrls button svg { width: 24px; height: 24px; }
+#view-ctrls button:hover { background: var(--paper-2); }
 #view-ctrls button:active { background: var(--moss); color: #fff; }
+#view-ctrls .sep { flex-shrink: 0; background: var(--line); width: 1px; margin: 8px 2px; }
+#view-ctrls .vc-show { display: none; }
+/* (folded: just one View button, which unfolds them) */
+#view-ctrls.collapsed > :not([data-v=fold]) { display: none; }
+#view-ctrls.collapsed .vc-hide { display: none; }
+#view-ctrls.collapsed .vc-show { display: block; }
 /* (desktop: the rotate buttons stack in a panel of their own under the tool bar, whose bottom edge
    UI keeps in --toolbar-bottom, so the inspect panel can run down to the map. A short window has
    no room under the tool bar: there they stay by the map and step aside for the panels.) */
 @media (pointer: fine) and (min-height: 521px) {
-  body:not(.view-ctrls-beside) #toolbar { max-height: calc(100dvh - var(--ui-top) - var(--ui-edge) - 136px); }
+  body:not(.view-ctrls-beside) #toolbar { max-height: calc(100dvh - var(--ui-top) - var(--ui-edge) - var(--view-ctrls-room, 136px)); }
   #view-ctrls, body.mini-collapsed #view-ctrls { left: var(--ui-edge); right: auto; bottom: auto; top: calc(var(--toolbar-bottom, 640px) + 10px);
-    width: 68px; padding: 6px; flex-direction: column; }
+    width: 68px; padding: 6px; gap: 5px; flex-direction: column; }
   #view-ctrls button { width: 100%; }
+  #view-ctrls .sep { width: auto; height: 1px; margin: 4px 8px; }
   /* (too short a window for both: the pair sits side by side at the foot of the tool bar instead) */
   body.view-ctrls-beside #view-ctrls, body.view-ctrls-beside.mini-collapsed #view-ctrls { top: auto; bottom: var(--ui-edge); left: calc(var(--ui-edge) + 78px); width: auto; flex-direction: row; }
-  body.view-ctrls-beside #view-ctrls button { width: 44px; }
+  body.view-ctrls-beside #view-ctrls button { width: 56px; }
+  body.view-ctrls-beside #view-ctrls .sep { width: 1px; height: auto; margin: 8px 2px; }
   #infopanel { max-height: calc(100dvh - var(--ui-top) - 230px); }
   body.mini-collapsed #infopanel { max-height: calc(100dvh - var(--ui-top) - 64px); }
 }
@@ -583,8 +592,8 @@ body.panels-hidden #joystick, body.photo-mode #joystick { display: none !importa
 @media (pointer: coarse) and (max-height: 520px) { #infopanel:not(.hidden):not(.min) ~ #view-ctrls { right: calc(264px + env(safe-area-inset-right)); } }
 @media (pointer: coarse) {
   #view-ctrls { display: flex; }
-  #view-ctrls button { width: 44px; height: 44px; }
-  #view-ctrls button kbd { display: none; }
+  #view-ctrls button { width: 50px; padding: 5px 1px 4px; gap: 2px; font-size: 9px; }
+  #view-ctrls button svg { width: 22px; height: 22px; }
   body.mini-collapsed #view-ctrls { bottom: 52px; }
   .tool-card, #toolbar button, .tabs button, .btn, button.ghost { touch-action: manipulation; }
 }
@@ -663,10 +672,12 @@ body.panels-hidden #joystick, body.photo-mode #joystick { display: none !importa
   #legend { bottom: 52px; right: calc(60px + env(safe-area-inset-right)); max-width: 220px; }
   #minimap-wrap { right: calc(6px + env(safe-area-inset-right)); bottom: 6px; }
   #minimap-wrap:not(.collapsed) canvas { width: 180px; height: 135px; }
-  #view-ctrls { right: calc(6px + env(safe-area-inset-right)); bottom: 190px; flex-direction: column; }
+  #view-ctrls { right: calc(6px + env(safe-area-inset-right)); bottom: 190px; padding: 4px; gap: 2px; } /* (a row: a column would run up under the top bar) */
   body.mini-collapsed #view-ctrls { bottom: 44px; }
   body.mini-collapsed #legend:not(.hidden) ~ #view-ctrls { bottom: 190px; }
-  #view-ctrls button { width: 44px; height: 52px; }
+  #view-ctrls button { width: 50px; padding: 4px 1px 3px; gap: 1px; }
+  #view-ctrls button svg { width: 21px; height: 21px; }
+  #view-ctrls .sep { margin: 6px 1px; }
   #joystick { left: calc(68px + env(safe-area-inset-left)); bottom: calc(10px + env(safe-area-inset-bottom)); width: 96px; height: 96px; }
   #joystick .js-knob { width: 40px; height: 40px; margin: -20px 0 0 -20px; }
 
@@ -682,7 +693,6 @@ body.panels-hidden #joystick, body.photo-mode #joystick { display: none !importa
   .guide-detail .hero { max-height: 90px; }
   .gcard img { width: 60px; height: 46px; }
 }
-@media (pointer: coarse) and (max-height: 520px) { #view-ctrls button { height: 44px; } }
 @media (pointer: fine) and (max-height: 520px) { #infopanel:not(.hidden):not(.min) ~ #view-ctrls, #legend:not(.hidden) ~ #view-ctrls { right: calc(264px + env(safe-area-inset-right)); } }
 
 /* ---------------------------------------------------------------- campaign */
