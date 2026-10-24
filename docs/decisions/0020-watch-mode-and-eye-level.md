@@ -92,6 +92,28 @@ the first storm day. They were cut in Chrome and encoded with macOS `afconvert`,
 ffmpeg; `tools/prepare-field-audio.py` would re-encode them with its own filters.
 `node tools/thunder-check.mjs`.
 
+**The reef at eye level** (2026-10-24, Cole: the water looked too clear, so far fish read as near
+ones; a clipped line where water meets air; a grey sky; too shallow). Under the sea is its own case
+in `updateEye`:
+
+- The water closes in from 0.5 to 13 tiles (air: 9 to 34), and the eye's far plane drops to 14
+  (`WATER_FAR`), which also culls more. Its colour is what the seabed's own veil scatters
+  (atmosphere.js's `sea` uniforms at the eye's depth, dimmed with the daylight, browner in a flood
+  plume) instead of the old grey-green haze.
+- The surface is drawn from below (sea.js, double-sided): the sky through Snell's window overhead
+  with the sun in it, and a silvery mirror of the water past it. The surface goes on past the map's
+  edge at eye level, and it fogs like the land.
+- Gotcha: three's fog goes on *after* tone mapping, in screen colours (`fogColor` is the fog colour
+  converted to sRGB). A ShaderMaterial that fogs to the linear colour before tone mapping ends
+  slightly off the background and leaves a visible band at the horizon. sea.js mixes in
+  `uFogOut` after `colorspace_fragment` for that reason.
+- The eye stays on the animal's side of the surface (`EyeCamera.update(…, seaY)`): under it for a
+  manta near the top, above it for a booby on the water. It used to straddle it, half air, half water.
+  Above the water the usual sky and haze apply.
+- Depth was left alone. The lagoon is 1 to 3 tiles deep (median 1.25), a few metres at the reef
+  animals' drawn scale, which is right for a lagoon and reef flat. It read as shallower because the
+  34-tile view made the water a thin, wide sheet and the eye sat just under the surface.
+
 ## Evidence
 
 Measured on Enkare Conservancy (year 9, 402 animals, Fast). Triangles are a fair comparison here;
@@ -115,4 +137,5 @@ perspective culling, and distant models by distance.
 - Lightning never starts a fire. It's drawing only; PNW's "dry lightning strike" fires are still
   the fire events' own.
 - The sky's cost on the low-end GPU is unmeasured, like the rest of eye level.
-- Canopy climbers (monkeys, orangutans) and the reef at eye level are untested by eye.
+- Canopy climbers (monkeys, orangutans) at eye level are untested by eye. On the reef, a seabird
+  followed above the water is checked only in `watch-check.mjs`, not by eye.

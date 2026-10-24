@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
-const { EyeCamera, EYE_FAR } = await import('../js/render3d/eye-camera.js');
+const { EyeCamera, EYE_FAR, WATER_FAR } = await import('../js/render3d/eye-camera.js');
 const { ActorView, perspectiveScale, pixelsPerUnit } = await import('../js/render3d/actor-view.js');
 const { Fauna } = await import('../js/render3d/fauna.js');
 const { ANIMALS, loadAnimals } = await import('../js/data/animals.js');
@@ -48,6 +48,21 @@ check('The eye never goes below the ground or down among the grass', () => {
   t.update(pose(5, 0, 5, 1, 0.06), 1, 1.5, 1 / 60, flat);
   assert.ok(t.camera.position.y >= 0.3, 'a tortoise-sized animal still has the eye above the grass');
   for (const v of [...p.toArray(), ...e.camera.quaternion.toArray()]) assert.ok(Number.isFinite(v));
+});
+
+check('Under the sea the eye stays on the animal\'s side of the surface, and sees less far', () => {
+  const sea = 1.8, bed = () => 0.6;
+  const manta = new EyeCamera(); // (big, and swimming just under the surface)
+  for (let k = 0; k < 60; k++) manta.update(pose(10, 1.45, 10, 0, 0.3), 1, 1.5, 1 / 30, bed, sea);
+  assert.ok(manta.under && manta.camera.position.y < sea, `eye under water: y ${manta.camera.position.y.toFixed(2)}`);
+  assert.equal(manta.camera.far, WATER_FAR);
+  const booby = new EyeCamera(); // (resting on the water, its body mostly above it)
+  for (let k = 0; k < 60; k++) booby.update(pose(10, sea - 0.02, 10, 0, 0.12), 2, 1.5, 1 / 30, bed, sea);
+  assert.ok(!booby.under && booby.camera.position.y > sea, `eye above water: y ${booby.camera.position.y.toFixed(2)}`);
+  assert.equal(booby.camera.far, EYE_FAR);
+  const shallow = new EyeCamera(); // (water barely deeper than the clamp: the eye stays off the sand)
+  shallow.update(pose(10, 1.62, 10, 0, 0.05), 3, 1.5, 1 / 30, () => 1.6, sea);
+  assert.ok(shallow.camera.position.y > 1.6, 'above the seabed');
 });
 
 check('Upright on a phone, the view widens rather than cropping the animal', () => {

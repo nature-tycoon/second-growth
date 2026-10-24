@@ -2,14 +2,14 @@
 // A transparent 2D canvas on top carries weather, pollinators, sparkles and labels.
 
 import { easeAnimalTarget } from './animal-camera.js';
-import { EyeCamera, EYE_FAR, EYE_FOG_NEAR } from './eye-camera.js';
+import { EyeCamera, EYE_FAR, EYE_FOG_NEAR, WATER_FAR } from './eye-camera.js';
 import { EyeSky } from './eye-sky.js';
 import { Lightning } from './lightning.js';
 import { perspectiveScale } from './actor-view.js';
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { snow, withSnowTops } from './snow.js';
-import { sky, haze, withClouds } from './atmosphere.js';
+import { sky, haze, sea, withClouds } from './atmosphere.js';
 import { lightingBalance } from './lighting.js';
 import { Ambience } from './ambience.js';
 import { activeCatalog } from '../data/catalog.js';
@@ -74,7 +74,6 @@ function timeOfDay(u) {
   return { sun: L(1), sunCol: todCol[0], sunAmt: L(3), skyCol: todCol[2], skyAmt: L(5), el: L(6), sweep: L(7) };
 }
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
-const HAZE = new THREE.Color(0.55, 0.62, 0.58); // the eye-level haze's own tint under water (see updateEye)
 // The eye-level sky's colours (linear), before the time of day and the weather tint and dim them:
 // overhead and at the horizon on a clear day, and the grey of an overcast and a stormy sky.
 const SKY_TOP = new THREE.Color(0.15, 0.34, 0.76), SKY_LOW = new THREE.Color(0.6, 0.71, 0.84);
@@ -512,13 +511,19 @@ export class Renderer {
   }
   updateEye(dt, game) {
     const a = this.eyeAgent;
-    this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, this.vw / Math.max(1, this.vh), dt, (x, z) => this.heightAtScene(x, z));
+    const seaY = this.seaY;
+    this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, this.vw / Math.max(1, this.vh), dt, (x, z) => this.heightAtScene(x, z), seaY);
     const fog = this.scene.fog;
     if (!this.eyeOn) { fog.near = 1e5; fog.far = 2e5; this.scene.background = null; this.eyeSky.hide(); return; }
-    if (this.seaY != null) {
-      // under the sea: no sky, only the water's own haze
-      fog.near = EYE_FOG_NEAR; fog.far = EYE_FAR;
-      fog.color.copy(this.hemi.color).multiplyScalar(0.62).lerp(HAZE, 0.25);
+    if (seaY != null && this.eye.under) {
+      // Under the sea: no sky, only the water. It closes in far sooner than air (a clear reef
+      // shows a few dozen metres), so near fish stand out and far ones fade into the blue-green.
+      // Its colour is what the water scatters back at the eye's depth (the seabed's own veil in
+      // atmosphere.js), so the land, the surface overhead and the background all meet in it.
+      const d = seaY - this.eye.pos.y, sh = sea.uSeaShallow.value, dp = sea.uSeaDeep.value, L = sea.uSeaLight.value, m = sea.uSeaMurk.value * 0.7;
+      const t = clamp(d * 0.3, 0, 1), mix = (i, murk) => ((sh[i] + (dp[i] - sh[i]) * t) * (1 - m) + murk * m) * L[i];
+      fog.color.setRGB(mix(0, 0.26), mix(1, 0.36), mix(2, 0.26));
+      fog.near = 0.5 * (1 - m); fog.far = (WATER_FAR - 1) * (1 - 0.55 * m); // (a flood plume clouds it right in)
       this.scene.background = fog.color;
       this.eyeSky.hide();
     } else this.updateSky(dt, game);
@@ -983,7 +988,7 @@ export class Renderer {
     const su = snow.uSnow;
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, dt);
-    this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game);
+    this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game, this.scene.fog, this.eyeOn);
     this.flora.syncShadows();
     this.flora.updateView(cam);
     const redrawShadows = this.shadowsStale();
