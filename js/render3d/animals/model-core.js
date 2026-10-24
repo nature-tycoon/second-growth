@@ -394,9 +394,10 @@ function cloudCoat(base, dark, size) {
 // The vertices take base's colour (the unmarked coat, with its countershading) and carry the
 // paint coordinate; kind names the shader's pattern, params its numbers (up to four), dark and
 // mid the marks' colours.
-function pixelCoat(kind, base, params, dark, mid = dark) {
+// legs: false leaves the markings off a quadruped's legs (a band along the flank, not round each leg).
+function pixelCoat(kind, base, params, dark, mid = dark, { legs = true } = {}) {
   const paint = (u, p) => base(u, p);
-  paint.coat = { kind, params, dark: col(dark).clone(), mid: col(mid).clone() };
+  paint.coat = { kind, params, dark: col(dark).clone(), mid: col(mid).clone(), legs };
   return paint;
 }
 
@@ -474,7 +475,7 @@ function quadruped(m, s, o) {
     x0: -L * 0.47, x1: L * 0.45,
     cy0: by + H * (o.hip ?? 0.02), cy1: by + H * (o.shoulder ?? 0.04),
     ry0: H * 0.52 * (o.haunch ?? 1), ry1: H * 0.54 * (o.chest ?? 1),
-    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: coat.coat ? 1 : o.fine && !o.detail ? 2 : o.fine || false, // (a per-pixel coat needs only a smooth outline)
+    rz0: H * 0.42 * W, rz1: H * 0.41 * W, sag: H * (o.sag ?? 0.04), shoulderBulk: o.shoulderBulk ?? 0, fine: coat.coat ? o.coatFine ?? 1 : o.fine && !o.detail ? 2 : o.fine || false, // (a per-pixel coat needs only a smooth outline; coatFine: false keeps a small animal's plain one)
     tuck: o.tuck ?? 0.4, keel: o.keel ?? 0.1,
   }, coat);
   if (o.extra) o.extra(m, { L, H, leg, by, W, coat });
@@ -495,7 +496,7 @@ function quadruped(m, s, o) {
       return upper.lerp(lower, k);
     };
     const pc = coat.coat;
-    return pc ? pixelCoat(pc.kind, blend, pc.params, pc.dark, pc.mid) : blend;
+    return pc && pc.legs ? pixelCoat(pc.kind, blend, pc.params, pc.dark, pc.mid) : blend;
   };
   // (one smooth tube per leg, bending at the joints, rather than straight pieces with a ball at each)
   const smoothLegs = o.smoothLegs ?? true;

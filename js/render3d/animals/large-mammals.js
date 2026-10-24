@@ -1,5 +1,5 @@
 // Capybaras, tapirs, armadillos and hippos.
-import { P, SPH_HI, col, eyes, grad, hash3, loftBody, place, shade, smooth, stumpLegs, tmp } from './model-core.js';
+import { P, SPH_HI, col, eyes, grad, hash3, loftBody, pixelCoat, place, shade, smooth, stumpLegs, tmp } from './model-core.js';
 
 // Capybara: a barrel with its rump higher than its shoulders, no neck to speak of, and a huge
 // blunt, boxy head with the eyes, ears and nostrils all set high (so it can swim almost hidden).
@@ -61,11 +61,9 @@ function tapir(m, s) {
 // head with upright ears, and a long ringed tail.
 function armadillo(m, s) {
   const L = s.len, cy = L * 0.22;
-  const shell = u => {
-    const band = u.x > -0.35 && u.x < 0.3;
-    if (band) return Math.abs(Math.sin(u.x * 26)) < 0.28 ? col(shade(s.color, -0.35)) : col(s.color);
-    return tmp.copy(col(s.color)).multiplyScalar(0.85 + hash3(Math.round(u.x * 12), Math.round(u.y * 8), Math.round(u.z * 8)) * 0.25);
-  };
+  // mottled plates fore and aft, with the flexible bands across the middle drawn per pixel (coatRings)
+  const shell = pixelCoat('rings', u => u.x > -0.35 && u.x < 0.3 ? col(s.color) : tmp.copy(col(s.color)).multiplyScalar(0.85 + hash3(Math.round(u.x * 12), Math.round(u.y * 8), Math.round(u.z * 8)) * 0.25),
+    [16.55, 0.09, 0, 0.325, 0.65, 2, -2, 0], shade(s.color, -0.35));
   m.add(SPH_HI, place([0, cy, 0], [0, 0, 0], [L * 0.38, L * 0.21, L * 0.23]), shell);
   m.ell([0, cy - L * 0.12, 0], [L * 0.36, L * 0.07, L * 0.2], s.belly); // pale skirt
   const neck = [L * 0.3, cy, 0], hd = { part: P.HEAD, pivot: neck };

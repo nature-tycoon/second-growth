@@ -93,8 +93,49 @@ Bending knees and a fine fur texture would come after that, as their own decisio
 - **Adding a pattern:** write the painter as `pixelCoat(...)`, add a GLSL function with the same
   signature to `COAT_GLSL` and name it in `COAT_FN`. Avoid GLSL reserved words such as `patch`. A
   painter that wraps a `pixelCoat` in another function loses the tag and draws unmarked.
-- Still painted per vertex: the tiger (its own builder and a plain-density body), the zebra's face
-  and legs, the clouded leopard's legs and head, and bird plumage.
+- **More species (2026-10-24).** Every marking that was blurred, aliased or lost on a coarse mesh
+  moved to the shader too. New patterns in `COAT_GLSL`:
+  - `tiger`, `tigerLegs`, `tigerHead`: the tiger's stripes, leg bars and face, laid out in model
+    space as its JS painters were, so they run on across body, shoulders, thighs and neck. The
+    countershading stays in the vertex colours.
+  - `rings`: rings along a tail or tube (`u.x` along it): tiger, clouded leopard, leopard cat,
+    cheetah, raccoon and coati tails, the zebra's mane and face, the armadillo's bands.
+  - `lines`: stripes along the back by angle round the spine (chipmunk).
+  - `flank`: a band along the flank over a pale belly, in model space (gazelle, impala).
+    `pixelCoat(..., { legs: false })` keeps it off the legs, where it would ring each one.
+  - `monitor`: bands and spots over monitor lizards, iguanas and anoles, in model space so body,
+    neck and tail line up; the legs get the spots only.
+  - `snake`: all five snakes, ported from their painter. The vertex colours keep the old painted
+    markings, which the shader fades to when the scales get too small to draw.
+  - Existing patterns took on more: `spots` on the clouded leopard's and leopard cat's legs and
+    heads, the bobcat's head and the poison frog; `dots` on the bobcat's body.
+- Triangles:
+
+  | Model | Before | After |
+  | --- | ---: | ---: |
+  | Tiger (usual / close-up) | 16.9k / 41.8k | 15.1k / 37.4k |
+  | Snakes, all five | 9.9k / 11.0k | 6.8k / 11.5k |
+  | Monitor, iguana, ctenosaur, anole | 7.0k / 16.9k | 3.5k / 8.0k |
+
+  The snake body was 144 × 32 only to carry its markings; 128 × 24 keeps the garter's stripes on
+  vertices (`snake-model-check` reads them) and the skin over 90% of the model. Lizards drop to
+  the plain loft. Gazelle and bobcat keep their small plain body (`coatFine: false`), since a
+  per-pixel coat otherwise raises a quadruped's body to the fine loft.
+- **Cost:** `?bench=1`, on battery, noisy (±1 ms between runs): no species slower beyond the noise.
+  Blotches drawn from cells (`clouds`) cost about 0.5 ms more on the clouded leopard's legs and
+  head, so those use `spots` instead. `play-profile serengeti high 2` (on battery, capped at
+  30 fps): GPU 16.7 / 14.1 / 12.4 / 13.7 ms before, 15.1 / 12.8 / 13.1 / 14.4 ms after (play,
+  wide, top speed, close), within noise. The Amazon run timed out on both checkouts that day
+  (12% battery, Low Power Mode), so it still wants measuring on mains power.
+- Still painted per vertex, and why:
+  - Bird plumage: another agent was reshaping `birds.js` at the time.
+  - Fish and reef patterns: small and seen through water, and their bands already read cleanly.
+  - Butterflies, beetles and bees: never large on screen.
+  - The palm civet's faint spot rows and the wildebeest's brindle bands: soft marks that already
+    read on their fine bodies.
+  - The topi's patches, the tiger's whisker pads and ruff: large or tiny blocks that per-pixel
+    drawing would not change.
+  - Crease shading on the elephants' and rhinos' hides: texture, not markings.
 
 ## How step 4 works
 

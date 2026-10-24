@@ -1,6 +1,6 @@
 // Rodents, squirrels, rabbits and bears.
 import * as THREE from 'three';
-import { P, SPH_HI, col, grad, hash3, place, shade, tmp } from './model-core.js';
+import { P, SPH_HI, col, grad, hash3, pixelCoat, place, shade, tmp } from './model-core.js';
 
 // A vole is a furry egg with a blunt nose: tiny feet, ears tucked in the fur, a short tail.
 // A chipmunk (stripes) is the same egg, perkier: head up, bold back stripes, a striped face
@@ -9,15 +9,8 @@ function vole(m, s) {
   const chip = !!s.stripes, dark = col(shade(s.color, -0.55)), pale = col(shade(s.belly, 0.35));
   const base = grad(s.color, s.belly, -0.35, 0.5);
   // stripes run nose to tail along the back: dark, pale, dark either side of a dark centre line
-  const fur = chip ? u => {
-    if (u.y < -0.1) return base(u);
-    const a = Math.abs(Math.atan2(u.z, u.y)), back = u.x > -0.85 && u.x < 0.7;
-    if (back && a < 0.12) return dark;
-    if (back && a > 0.42 && a < 0.56) return dark;
-    if (back && a > 0.56 && a < 0.74) return pale;
-    if (back && a > 0.74 && a < 0.86) return dark;
-    return base(u);
-  } : base;
+  // (drawn per pixel, coatLines: angles round from the spine, and half widths)
+  const fur = chip ? pixelCoat('lines', base, [0, 0.12, 0.49, 0.07, 0.8, 0.06, 0.65, 0.09], dark, pale) : base;
   m.ell([-0.4, 2.9, 0], [4.4, 2.8, 2.7], fur, chip ? { rot: [0, 0, 0.12] } : {});
   const hd = { part: P.HEAD, pivot: [2.2, 3, 0] }, hp = chip ? [3.7, 3.9, 0] : [3.6, 3.1, 0];
   const face = chip ? u => (Math.abs(u.z) > 0.55 && Math.abs(u.y - 0.12) < 0.1 ? dark : Math.abs(u.z) > 0.5 && Math.abs(u.y + 0.12) < 0.1 ? pale : base(u)) : base;

@@ -114,8 +114,123 @@ const COAT_GLSL = `
     float marked = mix(0.75, 1.0 - coatIn(c.x, 0.12 + sin(p.y / A.y * 8.0) * 0.025), coatDetail(p.y / (A.y * 0.3) * 3.0));
     return mix(base, mix(mid, dark, c.y * 0.7), marked * smoothstep(A.x * 0.69, A.x * 0.71, p.y));
   }
+  // 1 where v is above t, over about a pixel
+  float coatOver(float v, float t) { return 1.0 - coatIn(v, t); }
+  // tiger: narrow wavy stripes running down from the spine, many doubled into loops, tapering out
+  // toward the belly, and a dark line along the spine (A: scale, axis height, stripe spacing, in the
+  // builder's units)
+  vec3 coatTiger(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float x = p.x / A.x, a = atan(abs(p.z / A.x) * 1.12, p.y / A.x - A.y); // (0 along the spine, pi under the belly)
+    float ph = x / A.z + 0.45 * sin(a * 1.7 + x * 0.19) + 0.1 * sin(a * 5.1 + x * 0.7);
+    float i = floor(ph), f = ph - i - 0.5, g = coatHash(vec3(i, 7.0, 1.0));
+    float taper = 1.0 - smoothstep(1.2 + g * 0.6, 2.45 + g * 0.3, a), w = 0.19 * (0.75 + g * 0.5) * (0.4 + 0.6 * taper);
+    float run = a * 1.3 + g * 5.0, cut = fract(run); // (a few broken off, tapering to the break)
+    float whole = 1.0 - step(0.7, a) * step(coatHash(vec3(i, floor(run), 4.0)), 0.1) * smoothstep(0.0, 0.2, cut) * (1.0 - smoothstep(0.8, 1.0, cut));
+    float gap = step(0.58, g) * 0.15 * smoothstep(0.45, 0.9, a) * (1.0 - smoothstep(1.5, 2.1, a)); // doubled: splitting into a loop below the spine
+    float stripe = coatIn(abs(abs(f) - gap), w * mix(1.0, 0.55, smoothstep(0.03, 0.07, gap))) * smoothstep(0.0, 0.12, taper) * whole;
+    stripe = mix(0.4 * w * taper, stripe, coatDetail(ph));
+    return mix(mix(base, dark, coatIn(a, 0.14) * 0.35), dark, stripe);
+  }
+  // a tiger's legs: bars across the outside, none on the pale inside (A: scale, the leg's distance from the midline)
+  vec3 coatTigerLegs(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float y = p.y / A.x, x = p.x / A.x, inner = (1.0 - smoothstep(-1.8, -0.6, abs(p.z / A.x) - A.y)) * smoothstep(3.0, 9.0, y);
+    float ph = y / 2.1 + sin(x * 0.9) * 0.3 + x * 0.12, i = floor(ph);
+    float bar = coatIn(abs(ph - i - 0.5), 0.14 * (0.7 + coatHash(vec3(i, A.y, 3.0)) * 0.6) * smoothstep(4.5, 8.0, y)) * step(0.2, coatHash(vec3(i, floor(x * 0.5), 5.0)));
+    return mix(base, dark, mix(0.1, bar, coatDetail(ph)) * (1.0 - smoothstep(0.35, 0.55, inner)) * step(4.5, y));
+  }
+  // a tiger's face: bold stripes on the cheeks, marks on the forehead and down the nape (A: scale,
+  // the head's enlargement, the skull's centre)
+  vec3 coatTigerHead(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float qx = (p.x / A.x - 22.0) / A.y + 22.0 - A.z, qy = (p.y / A.x - 21.4) / A.y, az = abs(p.z / A.x) / A.y;
+    if (qy < -2.3 && qx > -2.2) return base; // (the white chin and throat)
+    float on = az > 2.4 && qy < 0.3 && qx > -2.6 ? coatOver(sin((qx * 0.75 - qy * 1.1) * 1.9 + 0.6), 0.42) * step(qx, 2.6) * step(-2.2, qy)
+      : qy > 1.0 && qx > -1.6 && qy < 4.4 && az > 0.3 ? coatOver(sin(qy * 3.4 + az * 1.3 - qx * 0.45), 0.72)
+      : qx < -1.2 ? coatOver(sin(qx * 2.9 + az * 0.9 + sin(qy) * 0.6), 0.78) : 0.0;
+    return mix(base, dark, on);
+  }
+  // rings along a tail (or a tube, or across a sphere: u.x runs -1..1 along it) (A: rings along it,
+  // their half width, its growth along it, where they start; B: where they end, where a solid
+  // tip starts, and up to where along it they skip the underside below u.y = B.z)
+  vec3 coatRings(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float t = u.x * 0.5 + 0.5, q = t * A.x, w = A.y + t * A.z;
+    float ring = mix(2.0 * w, coatIn(abs(fract(q) - 0.5), w), coatDetail(q)) * coatOver(t, A.w) * coatIn(t, B.x);
+    ring *= max(coatOver(u.y, B.z), step(B.w, t));
+    return mix(base, dark, max(ring, coatOver(t, B.y)));
+  }
+  // dark stripes along the back, at angles round the body from the spine (u from a body ellipsoid or
+  // loft): a chipmunk (A, B.xy: three dark stripes, centre and half width; B.zw: one pale one, in mid)
+  vec3 coatLines(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float a = abs(atan(u.z, u.y)), back = coatOver(u.x, -0.85) * coatIn(u.x, 0.7) * coatOver(u.y, -0.1);
+    float d = max(max(coatIn(abs(a - A.x), A.y), coatIn(abs(a - A.z), A.w)), coatIn(abs(a - B.x), B.y));
+    return mix(mix(base, mid, coatIn(abs(a - B.z), B.w) * back), dark, d * back);
+  }
+  // a band along the flank, with the pale belly below it, laid out in model space round the body
+  // (gazelle, impala) (A: axis height, body depth, half the body's length, how far below the belly
+  // line the legs start; B: the band's lower and upper edge, as a fraction of the depth, and its
+  // ends along the body)
+  vec3 coatFlank(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float y = (p.y - A.x) / A.y, x = p.x / A.z, body = coatOver(y, A.w);
+    float band = coatOver(y, B.x) * coatIn(y, B.y) * coatOver(x, B.z) * coatIn(x, B.w);
+    return mix(mix(base, mid, coatIn(y, B.x) * body), dark, band);
+  }
+  // a monitor lizard: pale bands across the back and pale spots over the top, in model space so they
+  // run on from body to neck, tail and legs, over a pale belly (u.y, each part's own up) (A: band
+  // spacing, spot cell, 1 for no bands (the legs); dark: the pale marks, mid: the belly)
+  vec3 coatMonitor(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float q = p.x / A.x + sin(p.z / A.x * 2.0) * 0.12, band = mix(0.2, coatIn(abs(fract(q) - 0.5), 0.1), coatDetail(q)) * coatOver(u.y, -0.3) * (1.0 - A.z);
+    vec3 g = p / A.y, cell = floor(g);
+    float d = length(g - cell - 0.5 - (vec3(coatHash(cell), coatHash(cell.yzx + 4.0), coatHash(cell.zxy + 9.0)) - 0.5) * 0.4);
+    float spot = mix(0.08, coatIn(d, 0.3) * step(0.45, coatHash(cell * 1.7)), coatDetail(g.x)) * coatOver(u.y, 0.1);
+    return mix(mix(base, dark, max(band, spot)), mid, coatIn(u.y, -0.5));
+  }
+  // snakes (A.x: which; A.yzw: the belly; B.xyz: the back; mid: the light markings): the garter
+  // snake's stripes and red checks (0), the python's net (1), the boa's saddles (2), the rat snake's
+  // blotches (3), the anaconda's spots and eyespots (4). Drawn from u (along the body, round it), so
+  // the markings follow the curve; they fade to the vertex colours (the same markings, coarser) when
+  // too small to see.
+  float snakeBlotch(float t, float angle, float count, float center, float spread, float offset) {
+    float q = t * count + offset, cell = floor(q), jitter = (coatHash(vec3(cell, count, 3.0)) - 0.5) * 0.14;
+    float dx = (q - cell - 0.5 - jitter) / (0.32 + coatHash(vec3(cell, 5.0, count)) * 0.08);
+    return dx * dx + pow((angle - center) / spread, 2.0);
+  }
+  vec3 coatSnake(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float t = u.x * 0.5 + 0.5, angle = atan(u.z, u.y), a = abs(angle), kind = A.x;
+    vec3 belly = A.yzw, back = B.xyz, c = back;
+    if (t < 0.092) { // the head: a stripe down the middle, a dark line back from the eye
+      if (kind < 0.5) c = mix(c, mid, coatIn(a, 0.18));
+      else if (kind < 2.5) c = mix(c, dark, coatIn(a, 0.13) * step(0.018, t));
+      c = mix(c, dark, coatOver(a, 0.95) * coatIn(a, 1.5) * step(0.034, t));
+      c = mix(c, belly, (1.0 - smoothstep(-0.58, -0.15, u.y)) * 0.45);
+    } else {
+      if (kind < 0.5) { // three unbroken yellow stripes over red flank checks
+        float q = floor(t * 40.0 + floor(a * 4.0) * 0.5);
+        c = mix(c, dark, step(0.55, a) * step(a, 1.65) * step(mod(q, 2.0), 0.5));
+        c = mix(c, mid, max(coatIn(a, 0.17), coatIn(abs(a - 1.82), 0.13)));
+      } else if (kind < 1.5) {
+        float q = t * 15.0 + sin(t * 31.0) * 0.13;
+        float net = min(abs(sin(3.14159 * (q + angle * 1.65))), abs(sin(3.14159 * (q - angle * 1.65))));
+        c = mix(mix(mix(back, belly, step(1.1, a) * coatOver(net, 0.67)), mid, coatIn(net, 0.39)), dark, coatIn(net, 0.19));
+      } else if (kind < 2.5) { // (the saddles turn rust toward the tail)
+        float dx = abs(fract(t * 12.0) - 0.5), saddle = dx / (0.20 + 0.17 * smoothstep(0.15, 1.2, a)) + pow(a / 1.65, 4.0), side = snakeBlotch(t, a, 12.0, 1.78, 0.34, 0.5);
+        c = mix(mix(back, dark, max(coatIn(saddle, 1.22), coatIn(side, 1.0))), t > 0.77 ? vec3(0.191, 0.07, 0.036) : mid, coatIn(saddle, 1.0));
+      } else if (kind < 3.5) { // (dark is also the ground colour)
+        float saddle = snakeBlotch(t, angle, 14.0, 0.0, 1.05, 0.0), side = snakeBlotch(t, a, 14.0, 1.55, 0.35, 0.5);
+        c = mix(dark, mid, max(coatIn(saddle, 1.0), coatIn(side, 1.0)));
+      } else {
+        float spot = min(snakeBlotch(t, angle, 13.0, 0.72, 0.48, 0.0), snakeBlotch(t, angle, 13.0, -0.72, 0.48, 0.42));
+        float eye = snakeBlotch(t, a, 13.0, 1.75, 0.27, 0.35);
+        c = mix(mix(mix(back, mid, coatIn(eye, 1.3)), belly, coatIn(eye, 0.48)), mid, coatIn(spot, 1.0));
+      }
+      c = mix(c, belly, (1.0 - smoothstep(-0.58, -0.2, u.y)) * 0.45) * (0.97 + 0.03 * cos(t * 260.0 + floor(angle * 9.0) * 3.14159));
+    }
+    c = mix(c, belly * (0.95 + 0.05 * abs(sin(t * 220.0))), coatIn(u.y, -0.58)); // (pale belly scutes)
+    return mix(base, c, coatDetail(t * 13.0));
+  }
 `;
-const COAT_FN = { rosettes: 'coatRosettes', jaguar: 'coatJaguar', spots: 'coatSpots', dots: 'coatDots', clouds: 'coatClouds', zebra: 'coatZebra', giraffe: 'coatGiraffe' };
+const COAT_FN = {
+  rosettes: 'coatRosettes', jaguar: 'coatJaguar', spots: 'coatSpots', dots: 'coatDots', clouds: 'coatClouds', zebra: 'coatZebra', giraffe: 'coatGiraffe',
+  tiger: 'coatTiger', tigerLegs: 'coatTigerLegs', tigerHead: 'coatTigerHead', rings: 'coatRings', lines: 'coatLines', flank: 'coatFlank', snake: 'coatSnake', monitor: 'coatMonitor',
+};
 
 // ---------------------------------------------------------------- material with the animation shader
 export function faunaMaterial(motion) {

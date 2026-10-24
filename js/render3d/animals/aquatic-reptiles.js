@@ -1,12 +1,12 @@
 // Aquatic wildlife, reptiles and amphibians.
 import * as THREE from 'three';
-import { P, SPH_XL, cells, col, cyl, eyes, flat, grad, hash3, loftBody, place, shade, smooth, tmp, tube } from './model-core.js';
+import { P, SPH_XL, cells, col, cyl, eyes, flat, grad, hash3, loftBody, pixelCoat, place, shade, smooth, solid, tmp, tube } from './model-core.js';
 
 // ---------------------------------------------------------------- herps and fish
 // Frogs sit up on folded hind legs: thigh back, shin forward, long foot flat on the ground.
 function frog(m, s) {
   const S = s.size, plain = grad(s.color, shade(s.color, 0.4), -0.15, 0.35);
-  const skin = s.spotted ? (u => hash3(Math.round(u.x * 5), Math.round(u.y * 5), Math.round(u.z * 5)) > 0.7 ? col(s.spotted) : plain(u)) : plain;
+  const skin = s.spotted ? pixelCoat('spots', plain, [S * 0.1], s.spotted) : plain; // (coatSpots)
   const leg = s.dark && s.dark !== '#2a4a1e' ? s.dark : shade(s.color, -0.1);
   m.ell([-S * 0.02, S * 0.3, 0], [S * 0.38, S * 0.24, S * 0.3], skin, { rot: [0, 0, 0.35] });
   m.ell([S * 0.28, S * 0.4, 0], [S * 0.22, S * 0.16, S * 0.26], skin, { rot: [0, 0, 0.15] });
@@ -235,7 +235,11 @@ function snake(m, s) {
     return tmp.copy(color).lerp(belly, smooth(-.20, -.58, u.y) * .45)
       .multiplyScalar(.97 + .03 * Math.cos(t * 260 + Math.floor(angle * 9) * Math.PI));
   };
-  const R = 144, A = 32, pos = [], unit = [], idx = [];
+  // (the shader draws the markings per pixel, coatSnake; the vertex colours are the same markings,
+  // for when they are too small to draw)
+  const skin = pixelCoat('snake', paint, [heavy ? 4 : rat ? 3 : boa ? 2 : python ? 1 : 0, belly.r, belly.g, belly.b, back.r, back.g, back.b],
+    heavy ? '#b8954c' : dark, light);
+  const R = 128, A = m.seg(24), pos = [], unit = [], idx = [];
   for (let i = 0; i <= R; i++) {
     const t = i / R, p = profile(t);
     // Align oval cross sections to the horizontal tangent; keep the belly flat.
@@ -251,7 +255,7 @@ function snake(m, s) {
   const g = new THREE.BufferGeometry(), paintGeo = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   paintGeo.setAttribute('position', new THREE.Float32BufferAttribute(unit, 3));
-  m.add(g, new THREE.Matrix4(), paint, { paintGeo, part: P.SPINE }); g.dispose(); paintGeo.dispose();
+  m.add(g, new THREE.Matrix4(), skin, { paintGeo, part: P.SPINE }); g.dispose(); paintGeo.dispose();
   const spine = m.parts[m.parts.length - 1].attributes.aPivot;
   for (let i = 0; i <= R; i++) { const c = profile(i / R); for (let j = 0; j <= A; j++) spine.setXYZ(i * (A + 1) + j, c.x, c.y, c.z); }
   // Lateral eyes for the land snakes; the anaconda's eyes sit higher on its head.
@@ -772,12 +776,9 @@ function ray(m, s) {
 // yellow bands and spots.
 function monitor(m, s) {
   const S = s.size, cy = S * 0.13, iguana = s.lizard === 'iguana', anole = s.lizard === 'anole', spiny = iguana || s.lizard === 'ctenosaur';
-  const skin = u => {
-    const band = Math.sin(u.x * 13) > 0.82 && u.y > -0.3;
-    const spot = u.y > 0.1 && hash3(Math.round(u.x * 34), Math.round(u.y * 9), Math.round(u.z * 9)) > 0.86;
-    return u.y < -0.5 ? col(s.belly) : band || spot ? col(shade(s.belly, -0.1)) : col(s.color);
-  };
-  loftBody(m, { x0: -S * 0.3, x1: S * 0.28, cy0: cy, cy1: cy + S * 0.005, ry0: S * 0.075, ry1: S * 0.08, rz0: S * 0.1, rz1: S * 0.1, fine: true }, skin);
+  // (bands, spots and belly drawn per pixel, coatMonitor)
+  const marks = bands => pixelCoat('monitor', solid(s.color), [S * 0.14, S * 0.03, bands ? 0 : 1], shade(s.belly, -0.1), s.belly), skin = marks(true);
+  loftBody(m, { x0: -S * 0.3, x1: S * 0.28, cy0: cy, cy1: cy + S * 0.005, ry0: S * 0.075, ry1: S * 0.08, rz0: S * 0.1, rz1: S * 0.1 }, skin);
   const neck = [S * 0.24, cy + S * 0.01, 0], hd = { part: P.HEAD, pivot: neck };
   tube(m, [neck, [S * 0.33, cy + S * 0.025, 0], [S * 0.42, cy + S * 0.04, 0]], [S * 0.065, S * 0.058, S * 0.045], skin, hd);                  // long neck
   m.ell([S * 0.46, cy + S * 0.045, 0], [S * (iguana ? 0.09 : 0.08), S * (iguana ? 0.062 : 0.04), S * (iguana ? 0.062 : 0.045)], skin, hd);           // head
@@ -801,7 +802,7 @@ function monitor(m, s) {
   const legs = [[S * 0.17, 1, P.LEG_FL], [S * 0.17, -1, P.LEG_FR], [-S * 0.2, 1, P.LEG_BL], [-S * 0.2, -1, P.LEG_BR]];
   for (const [x, side, part] of legs) {
     const hip = [x, cy, side * S * 0.07], knee = [x + S * 0.02, cy + S * 0.02, side * S * 0.17], foot = [x + S * 0.04, S * 0.01, side * S * 0.2], o = { part, pivot: hip };
-    tube(m, [hip, knee, foot], [S * 0.035, S * 0.028, S * 0.018], skin, o);
+    tube(m, [hip, knee, foot], [S * 0.035, S * 0.028, S * 0.018], marks(false), o); // (spotted, but a band across a leg would ring it)
     for (const t of [-2, -1, 0, 1, 2]) m.limb(foot, [foot[0] + S * (0.045 - Math.abs(t) * 0.006), S * 0.004, foot[2] + t * S * 0.014], S * 0.006, S * 0.002, '#2a2418', { ...o, caps: false });
   }
 }
