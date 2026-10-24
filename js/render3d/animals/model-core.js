@@ -437,8 +437,11 @@ function quadruped(m, s, o) {
     // The leg starts as the thigh (or shoulder): wide from front to back where it leaves the body,
     // narrowing to the knee, so it grows out of the body instead of hanging under it like a post.
     // (Felines shape their own scapulae and haunches; pillar legs are thick enough.)
-    const thigh = o.muscles !== false && !o.straight;
-    const rx = Math.max(r0 * (hind ? 1.6 : 1.3), H * (hind ? 0.2 : 0.16)), rz = Math.max(r0, Math.min(r0 * 1.1, H * 0.42 * W - Math.abs(z) * 0.8));
+    // Only long legs show a thigh: on a short-legged animal (raccoon, otter, beaver) the thigh is
+    // inside the body, and widening the leg just makes it fat. lk: 0 for legs half the body's
+    // depth or shorter, 1 for legs as long as it is deep (deer, antelope, coyote).
+    const thigh = o.muscles !== false && !o.straight, lk = smooth(0.5, 0.95, leg / H);
+    const rx = r0 + (Math.max(r0 * (hind ? 1.6 : 1.3), H * (hind ? 0.2 : 0.16)) - r0) * lk, rz = Math.max(r0, Math.min(r0 * (1 + 0.1 * lk), H * 0.42 * W - Math.abs(z) * 0.8));
     if (o.straight) { // pillar legs (elephant, rhino)
       const knee = [x + (hind ? -r0 * 0.5 : r0 * 0.2), leg * 0.5, z];
       if (smoothLegs) tube(m, [hip, knee, foot], [r0, rm, r1], c, lo);
@@ -451,9 +454,13 @@ function quadruped(m, s, o) {
         // The back of the thigh (the hamstring) runs from the point of the buttock down to the hock,
         // so the rump slopes into the leg: the thigh's top reaches back to the rump, its front
         // edge staying where it was.
-        const front = x + rx, back = Math.max(-L * 0.41, front - H * 0.9), tr = (front - back) / 2;
-        const top = [front - tr, by - H * 0.02, z], mid = [x - b * 0.25 - tr * 0.3, hip[1] * 0.45 + stifle[1] * 0.55, z], mr = rx * 0.86 + (tr - rx) * 0.45;
-        tube(m, [top, mid, stifle, hock, foot], [[tr, rz], [mr, rz * 0.9], [r0 * 0.9, r0 * 0.78], r1 * 1.05, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+        // On a long leg the stifle (the true knee) sits up at the belly line, as on a deer, so what
+        // shows below the body is the shin sloping back to the hock, not a knee jutting forward.
+        // (The middle point lies on the line to the stifle, so the curve can't overshoot.)
+        const front = x + rx, back = Math.max(-L * 0.41, front - H * 0.9), tr = rx + ((front - back) / 2 - rx) * lk;
+        const knee = [x + b * (0.55 - 0.25 * lk), leg * (0.66 + 0.24 * lk), z];
+        const top = [front - tr, by - H * 0.02 * lk + (hip[1] - by) * (1 - lk), z], mid = [(top[0] + knee[0]) / 2, (top[1] + knee[1]) / 2, z], mr = (tr + r0) / 2;
+        tube(m, [top, mid, knee, hock, foot], [[tr, rz], [mr, rz * 0.92], [r0 * 0.85, r0 * 0.75], r1 * 1.05, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
       }
       else if (smoothLegs) tube(m, [hip, stifle, hock, foot], [r0, r0 * 0.72, r1 * 1.05, r1], c, lo);
       else { m.limb(hip, stifle, r0, r0 * 0.75, c, lo); m.limb(stifle, hock, r0 * 0.7, r1 * 1.05, c, lo); m.limb(hock, foot, r1 * 1.05, r1, c, lo); }
@@ -461,7 +468,11 @@ function quadruped(m, s, o) {
       // upper arm back to the elbow, forearm down to a slightly forward wrist
       const b = Math.min(r0 * 0.9, leg * 0.14), elbow = [x - b * 0.35, leg * 0.62, z], wrist = [x + b * 0.15, leg * 0.26, z];
       foot = [x + b * 0.1, r1, z];
-      if (thigh) tube(m, [hip, [x - b * 0.35, hip[1] * 0.4 + elbow[1] * 0.6, z], elbow, wrist, foot], [[rx, rz], [rx * 0.8, rz * 0.9], [rm * 1.1, rm], r1 * 1.08, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+      if (thigh) {
+        // (the elbow, too, sits up against the chest on a long leg, the forearm running straight down)
+        const el = [elbow[0], leg * (0.62 + 0.2 * lk), z], mid = [(hip[0] + el[0]) / 2, (hip[1] + el[1]) / 2, z];
+        tube(m, [hip, mid, el, wrist, foot], [[rx, rz], [(rx + rm) / 2, rz * 0.92], [rm * 1.05, rm], r1 * 1.08, r1], legPaint(c), { ...lo, up: [1, 0, 0] });
+      }
       else if (smoothLegs) tube(m, [hip, elbow, wrist, foot], [r0, rm, r1 * 1.08, r1], c, lo);
       else { m.limb(hip, elbow, r0, rm, c, lo); m.limb(elbow, wrist, rm, r1 * 1.08, c, lo); m.limb(wrist, foot, r1 * 1.08, r1, c, lo); }
     }

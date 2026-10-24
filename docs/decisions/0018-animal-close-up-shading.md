@@ -136,6 +136,10 @@ to every one of them:
   the flank's coat, never the belly's, shading into the leg colour toward the knee (`legPaint`).
   The hind thigh's top reaches back toward the rump (to 41% of the body length behind its middle),
   so the back of the thigh runs down from the buttock to the hock without a notch under the rump.
+  Only long legs get the thigh: its width scales with leg length over body depth (`lk`, 0 at
+  half the depth or less, so raccoons, otters and beavers keep slim legs). On long legs the knee
+  (stifle) and the elbow sit up at the belly line, as on a deer; lower, the knee jutted forward
+  and the leg looked bent backwards.
   Felines keep their own haunches (`muscles: false`), and pillar legs are unchanged.
 - **Neck:** a tube rooted low in the chest, deep and flattened side to side where it leaves the
   shoulders, narrowing to the head. Before, it was one straight limb.
