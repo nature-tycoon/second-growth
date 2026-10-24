@@ -127,7 +127,7 @@ export class Input {
       if (this.ui.follow) this.trackFollow(this.ui.follow, dt);
       if (this.ui.watch.walking) {
         const K = this.keys, on = (...ks) => ks.some(x => K.has(x)) ? 1 : 0;
-        this.r.eyeMove = { fwd: on('w', 'arrowup') - on('s', 'arrowdown'), turn: on('d', 'arrowright') - on('a', 'arrowleft'), side: on('e') - on('q'), run: K.has('shift') };
+        this.r.eyeMove = { fwd: on('w', 'arrowup') - on('s', 'arrowdown'), turn: on('e', 'arrowright') - on('q', 'arrowleft'), side: on('d') - on('a'), run: K.has('shift') };
       }
       return;
     }

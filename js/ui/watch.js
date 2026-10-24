@@ -15,8 +15,8 @@
 // species' animals (stays on the one there is, if there's only one) and skips the wide shots.
 //
 // At eye level, WASD (or the arrows) lets go of the animal and walks about on foot: W / S forward
-// and back, A / D turn, Q / E step sideways, Shift runs, and a drag looks round. Next (N) goes back
-// to the animals.
+// and back, A / D step sideways, Q / E turn (as they rotate the usual view), Shift runs, and a
+// drag looks round. Next (N) goes back to the animals.
 
 import { animalDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
@@ -363,7 +363,7 @@ export class Watch {
     const g = this.game, b = this.cap.querySelector('b'), sp = this.cap.querySelector('span');
     if (s.walk) {
       b.textContent = 'On foot';
-      sp.textContent = 'W S walk · A D turn · Q E step · Shift run · drag to look · N back to the animals';
+      sp.textContent = 'W S walk · A D step · Q E turn · Shift run · drag to look · N back to the animals';
     } else if (s.agent) {
       const a = s.agent, def = animalDef(a, g.catalog);
       b.textContent = def.name;

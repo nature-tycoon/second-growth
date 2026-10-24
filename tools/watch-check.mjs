@@ -74,7 +74,7 @@ check('Walking on foot sets off the way the view looked, turns, follows the grou
   assert.ok(p.x > x0 + 2.5 && Math.abs(p.z - 10) < 1e-6, `a second's walk along +x: ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
   assert.ok(p.y > hill(p.x) + 0.3, `above the ground: y ${p.y.toFixed(2)}`);
   for (let k = 0; k < 60; k++) e.walk({ fwd: 0, side: 0, turn: 1, run: false }, still, 1.5, 1 / 60, hill, null, inside);
-  assert.ok(e.forward.z > 0.9, `D turns right (from +x toward +z): ${e.forward.toArray().map(v => v.toFixed(2))}`);
+  assert.ok(e.forward.z > 0.9, `E turns right (from +x toward +z): ${e.forward.toArray().map(v => v.toFixed(2))}`);
   for (let k = 0; k < 600; k++) e.walk({ fwd: 1, side: 0, turn: 0, run: true }, still, 1.5, 1 / 60, hill, null, inside);
   assert.ok(e.camera.position.z <= 30, 'kept on the map');
   const s = new EyeCamera(), sea = 1.8, bed = () => 0.6;

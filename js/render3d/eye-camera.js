@@ -17,7 +17,7 @@ export const WATER_FAR = 14;    // under the sea the water closes in much sooner
 const LOWEST = 0.3; // the eye stays this far above the ground: a tortoise's own eye height is down among the grass blades
 const WALK_UP = 0.6;    // walking: the eye's height above the ground
 const WALK = 3, RUN = 9; // walking and running (Shift) speeds, tiles a second
-const TURN = 1.7;        // radians a second with A / D
+const TURN = 1.7;        // radians a second with Q / E
 
 export class EyeCamera {
   constructor() {

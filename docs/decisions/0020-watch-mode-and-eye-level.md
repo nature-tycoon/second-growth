@@ -42,8 +42,9 @@ of grass blades. On upright phones the view widens so the animal isn't cropped.
 **On foot** (2026-10-24, Cole: "disengage animal follow mode and move around the map in eye level
 mode when you press wasd"). At eye level, WASD or the arrows let go of the animal and walk from
 where the eye is (`Watch.walk`, `Renderer.walkEye`, `EyeCamera.walk`): W / S forward and back, A / D
-turn, Q / E step sideways, Shift runs (3 and 9 tiles a second), and a drag over the view looks
-round. A / D turn rather than strafe, so it works without a mouse. The eye rides 0.6 tiles over the
+step sideways, Q / E turn, Shift runs (3 and 9 tiles a second), and a drag over the view looks
+round. Q / E turn, as they rotate the usual view (Cole's call: an earlier
+try had A / D turn), so it works without a mouse too. The eye rides 0.6 tiles over the
 ground, eased over bumps, inside the map; on the reef it stays on the side of the surface it was on
 and swims above the seabed. There's no collision with trees or rocks. The director stops while
 walking; Next (N), the species chip or Eye level off go back to the animals, and a keystone moment
