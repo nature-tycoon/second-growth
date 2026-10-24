@@ -28,6 +28,7 @@ import { ToolActions } from '../tool-actions.js';
 import { SaveControls } from './save-controls.js';
 import { SessionAnalytics } from './session-analytics.js';
 import { Cinematics } from './cinematics.js';
+import { Watch } from './watch.js';
 import { animalThumb, plantThumb, iconThumb } from './thumbnails.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
 import { saves } from '../saves.js';
@@ -114,10 +115,11 @@ export class UI {
       open_panel: this.modalOpen ? this.lastModal : null, tool: this.state.tool || null, category: this.state.cat || null,
     }));
     this.cinematics = new Cinematics(game, renderer, this.state, {
-      isBusy: () => this.modalOpen || this.photo, isPhoto: () => !!this.photo,
+      isBusy: () => this.modalOpen || this.photo, isPhoto: () => !!this.photo || !!this.watch?.on, // (after a moment, the view stays clean in either)
       setSpeed: speed => this.setSpeed(speed), setFollow: agent => { this.follow = agent; },
       postcardText: title => this.postcardText(title),
     });
+    this.watch = new Watch(game, renderer, this);
     this.buildToolbar();
     this.bindTopbar();
     this.minimap = $('#minimap');
@@ -223,6 +225,7 @@ export class UI {
     document.querySelectorAll('#view-ctrls [data-v^=rot]').forEach(b => b.addEventListener('click', e => {
       if (!this.modalOpen) this.renderer.rotate(b.dataset.v === 'rotl' ? -1 : 1, e.shiftKey ? 90 : 15);
     }));
+    $('#view-ctrls [data-v=watch]').addEventListener('click', () => { if (!this.modalOpen) this.watch.start(); });
     // (on desktop the rotate buttons sit just under the tool bar, which changes height with the
     // tools unlocked and the window: see #view-ctrls in styles.css)
     // (a window too short for the whole tool bar and the pair stacked under it puts them beside it)
@@ -673,6 +676,17 @@ export class UI {
       this.follow = a;
     });
   }
+  // What an animal is doing, in a few words (the inspector's Status line, and watch mode's caption).
+  agentStatus(a, def = animalDef(a, this.game.catalog)) {
+    const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey' }[a.hunt?.phase] || 'Hunting';
+    const birdStatus = { forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting', soar: a.bird?.carcass != null ? 'Circling down to a carcass' : 'Soaring over open ground' }[a.bird?.kind];
+    const grouped = def.familyHerd && (a.herdOf != null && a.herdOf !== a.id || this.game.wildlife.agents.some(c => c !== a && (c.herdOf === a.id || c.mom === a.id)));
+    const familyStatus = a.mom != null ? (a.follow ? 'Following mother' : 'With a family herd') : grouped ? (isMaleVariant(def, a) ? 'With a bachelor group' : 'With a family herd') : null;
+    return a.leaving ? 'Leaving the property' : dormancyStatus(a) || (a.fromFire && a.state === 'fly' ? 'Fleeing the fire' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : a.fromFire ? 'Fleeing the fire' : 'Running from danger')
+      : a.state === 'forage' ? ({ grass: 'Grazing', browse: 'Browsing leaves', leaves: 'Eating canopy leaves', fruit: 'Eating fruit', seeds: 'Foraging for seeds', insects: 'Catching insects', nectar: 'Feeding on nectar', seagrass: 'Grazing seagrass', sponge: 'Feeding on sponges', coral: 'Picking at coral', algae: 'Grazing algae', sediment: 'Deposit feeding', plankton: 'Feeding on plankton', dung: 'Feeding on dung', cleaning: 'Cleaning a reef fish', cleaned: 'Visiting a cleaning station' }[a.forage?.food] || 'Foraging') : a.forageGoal != null ? 'Moving to a feeding spot'
+      : a.state === 'primate' ? 'Eating fruit' : a.fruitGoal ? 'Looking for fruit' : a.state === 'play' ? 'Playing' : a.state === 'carry' ? (a.carry?.low ? 'Dragging a fish to the bank' : a.carry?.phase === 'mantle' ? 'Mantling over its catch' : 'Carrying its catch to a perch') : a.state === 'feed' ? (a.prey ? 'Eating its catch' : 'Feeding') : a.drinkT > 0 ? 'Drinking' : a.state === 'spar' ? (a.sparStyle === 'necking' ? 'Necking with a rival male' : def.sprite.male?.antlers ? 'Clashing antlers with a rival' : 'Sparring with a rival')
+      : a.greet != null && def.sprite.male?.antlers && isMaleVariant(def, a) ? 'Approaching a rival' : a.socialWith != null ? 'Watching an approaching neighbour' : a.bugleT > 0 ? 'Bugling' : a.haremOf != null ? 'In a bull’s harem' : this.game.wildlife.agents.some(c => c.haremOf === a.id) ? 'Guarding his harem' : a.greetT > 0 ? 'Greeting a neighbour' : a.alertT > 0 ? 'On the alert' : familyStatus || birdStatus || (a.state === 'walk' || a.state === 'fly' ? (a.birdGround ? 'Hopping between feeding spots' : a.move === 'fly' ? 'Flying' : a.move === 'tree' && ['monkey', 'orangutan'].includes(def.sprite.kind) ? 'Climbing through the canopy' : 'Wandering') : 'Resting / foraging'));
+  }
   agentHTML(a) {
     const def = animalDef(a, this.game.catalog), st = this.game.wildlife.state[a.sp];
     if (a.passing) return `<button class="close">×</button>
@@ -682,14 +696,7 @@ export class UI {
       <div class="info-actions"><button type="button" class="primary" data-follow>${PILL.follow}Follow bird</button><button type="button" data-guide="${def.key}">${PILL.guide}Field guide</button></div>
       <p class="info-desc">${def.desc}</p>`;
     const ageY = a.age / 120;
-    const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey' }[a.hunt?.phase] || 'Hunting';
-    const birdStatus = { forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting', soar: a.bird?.carcass != null ? 'Circling down to a carcass' : 'Soaring over open ground' }[a.bird?.kind];
-    const grouped = def.familyHerd && (a.herdOf != null && a.herdOf !== a.id || this.game.wildlife.agents.some(c => c !== a && (c.herdOf === a.id || c.mom === a.id)));
-    const familyStatus = a.mom != null ? (a.follow ? 'Following mother' : 'With a family herd') : grouped ? (isMaleVariant(def, a) ? 'With a bachelor group' : 'With a family herd') : null;
-    const status = a.leaving ? 'Leaving the property' : dormancyStatus(a) || (a.fromFire && a.state === 'fly' ? 'Fleeing the fire' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : a.fromFire ? 'Fleeing the fire' : 'Running from danger')
-      : a.state === 'forage' ? ({ grass: 'Grazing', browse: 'Browsing leaves', leaves: 'Eating canopy leaves', fruit: 'Eating fruit', seeds: 'Foraging for seeds', insects: 'Catching insects', nectar: 'Feeding on nectar', seagrass: 'Grazing seagrass', sponge: 'Feeding on sponges', coral: 'Picking at coral', algae: 'Grazing algae', sediment: 'Deposit feeding', plankton: 'Feeding on plankton', dung: 'Feeding on dung', cleaning: 'Cleaning a reef fish', cleaned: 'Visiting a cleaning station' }[a.forage?.food] || 'Foraging') : a.forageGoal != null ? 'Moving to a feeding spot'
-      : a.state === 'primate' ? 'Eating fruit' : a.fruitGoal ? 'Looking for fruit' : a.state === 'play' ? 'Playing' : a.state === 'carry' ? (a.carry?.low ? 'Dragging a fish to the bank' : a.carry?.phase === 'mantle' ? 'Mantling over its catch' : 'Carrying its catch to a perch') : a.state === 'feed' ? (a.prey ? 'Eating its catch' : 'Feeding') : a.drinkT > 0 ? 'Drinking' : a.state === 'spar' ? (a.sparStyle === 'necking' ? 'Necking with a rival male' : def.sprite.male?.antlers ? 'Clashing antlers with a rival' : 'Sparring with a rival')
-      : a.greet != null && def.sprite.male?.antlers && isMaleVariant(def, a) ? 'Approaching a rival' : a.socialWith != null ? 'Watching an approaching neighbour' : a.bugleT > 0 ? 'Bugling' : a.haremOf != null ? 'In a bull’s harem' : this.game.wildlife.agents.some(c => c.haremOf === a.id) ? 'Guarding his harem' : a.greetT > 0 ? 'Greeting a neighbour' : a.alertT > 0 ? 'On the alert' : familyStatus || birdStatus || (a.state === 'walk' || a.state === 'fly' ? (a.birdGround ? 'Hopping between feeding spots' : a.move === 'fly' ? 'Flying' : a.move === 'tree' && ['monkey', 'orangutan'].includes(def.sprite.kind) ? 'Climbing through the canopy' : 'Wandering') : 'Resting / foraging'));
+    const status = this.agentStatus(a, def);
     const ageTxt = ageY < 1 ? `${Math.max(1, Math.round(ageY * 12))} months` : `${ageY.toFixed(1)} years`;
     return `<button class="close">×</button>
       <div class="animal-hero"><img src="${animalThumb(def.key, this.game.catalog, isMaleVariant(def, a))}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
@@ -765,7 +772,8 @@ export class UI {
   }
 
   // ------------------------------------------------------------ per-frame
-  frame() {
+  frame(dt = 0) {
+    this.watch.frame(dt);
     this.refreshTop();
     rutSounds(this.game, this.renderer, music, this.renderer.time);
     flightCalls(this.game, this.renderer, music);
@@ -1159,6 +1167,7 @@ export class UI {
       <button class="btn secondary" data-a="journal">Field journal</button>
       <button class="btn secondary" data-a="trees">${this.renderer.fadeTrees ? 'Show trees normally' : 'See through trees'}</button>
       <button class="btn secondary" data-a="photo">Photo mode</button>
+      <button class="btn secondary" data-a="watch">Watch (the camera finds the wildlife)</button>
       <button class="btn secondary" data-a="feedback">Send feedback</button>
       <button class="btn secondary" data-a="help">How to play</button>
       <button class="btn secondary" data-a="save">Save game</button>
@@ -1171,6 +1180,7 @@ export class UI {
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
     m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
+    m.querySelector('[data-a=watch]').addEventListener('click', () => { this.closeModal(); this.watch.start(); });
     m.querySelector('[data-a=save]').addEventListener('click', event => this.saving.manualSave(event.currentTarget));
     m.querySelector('[data-a=backups]').addEventListener('click', () => this.openSaveRecovery());
     m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true));
@@ -1524,6 +1534,7 @@ export class UI {
   // Photo mode: everything but the land goes away, the edges of the view soften into a vignette,
   // and a small bar offers to save the picture (with the vignette) to the device.
   togglePhoto() {
+    if (this.watch.on) this.watch.stop();
     this.photo = !this.photo;
     this.state.clean = this.photo || !!this.moment;
     document.body.classList.toggle('photo-mode', this.photo);
@@ -1656,7 +1667,7 @@ export class UI {
         <li>Touching the map folds the tool panel away; tap its tool group again to open it. The ☰ menu has the journal and see-through trees.</li>
         <li>For the most room, use full screen (the corner button at the top) or add the game to your home screen.</li>` : ''}
         <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag to brush</b> it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
-        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate by 15°. Hold <kbd>Shift</kbd> for a 90° turn. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode.</li>
+        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate by 15°. Hold <kbd>Shift</kbd> for a 90° turn. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode, <kbd>C</kbd> sits back and watches (<kbd>F</kbd> there for eye level).</li>
         <li>Use <b>Inspect</b> to click any tile or animal. The <b>Overlay</b> menu shows moisture, soil, sunlight, fish passage, or where a species could live.</li>
       </ul>
       <h3>A good first year</h3>

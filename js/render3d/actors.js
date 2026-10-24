@@ -22,7 +22,7 @@ import { canopyGrips } from './canopy-grips.js';
 import { SlothBridges, slothBridge } from './sloth-bridge.js';
 import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
 import { isCanopyWalker } from './canopy-walker-profile.js';
-import { ActorView, animalViewRadius, pixelsPerUnit } from './actor-view.js';
+import { ActorView, animalViewRadius, pixelsPerUnit, perspectiveScale } from './actor-view.js';
 import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
 import { climberSpot } from './flora.js';
 
@@ -154,7 +154,8 @@ export class Actors {
     // ---- wildlife
     const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
     this.lastT = time;
-    F.begin(pixelsPerUnit(camera, viewportHeight));
+    const persp = perspectiveScale(camera, viewportHeight);
+    F.begin(pixelsPerUnit(camera, viewportHeight), persp && { x: camera.position.x, y: camera.position.y, z: camera.position.z, scale: persp });
     this.silhouettes.begin();
     // the prey a hunter is rushing right now (a longtom skips away from it)
     const chased = new Set();

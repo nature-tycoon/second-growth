@@ -1,0 +1,68 @@
+# 0018 Watch mode and eye level
+
+2026-10-23. Cole asked for a cinematic mode just for watching, and to explore watching in first person.
+
+## Decision
+
+**Watch mode** (`js/ui/watch.js`, key `C`, the camera button beside the rotate buttons, or Menu →
+Watch). The panels go, thin letterbox bars come in, and the camera directs itself:
+
+- It picks an animal by what it's doing (`interest()`: a rush or hunt counts most, then carrying or
+  eating a catch, sparring, fleeing, play, drinking, bugling, feeding; a young one at its mother's
+  side counts extra). Recently shown species are less likely, so shots vary.
+- It glides over (closer for small animals), follows for about 16 s with a slow drift round, and stays
+  through a hunt or chase for up to 40 s. Every fourth shot is a wide view of the land.
+- A caption names the animal and gives the inspector's status line (`UI.agentStatus`, taken out of
+  `agentHTML` so both share it).
+- Keystone moments still play, and the director starts a new shot once one ends.
+- The game runs at whatever speed it was. Clicks, drags and the scroll wheel never reach the map;
+  they only bring up the bar (Next, Eye level, Done). Esc or C leaves and flies back to where the
+  view was.
+
+**Eye level** (`F` in watch mode; `js/render3d/eye-camera.js`). This is a ride-along view rather than
+literal first person: a perspective camera low behind the animal, a little above its head, looking
+the way it faces. I chose that over a head camera because a head camera dips into the grass
+whenever the animal grazes, swings with every glance, and never shows the animal you're watching.
+The eye is never closer than 0.3 tiles to the ground, since a tortoise's real eye height is a wall
+of grass blades. On upright phones the view widens so the animal isn't cropped.
+
+What eye level changes in the renderer (only while it's on):
+
+- The haze. `scene.fog` is always present but pushed out of reach (near 1e5) in the usual view. At
+  eye level it closes in from 9 to 34 tiles and takes the sky light's colour, and the background is
+  the same colour, so the map's edge melts into it. Keeping fog in the shaders permanently means
+  switching to eye level doesn't recompile every material (a multi-second stall on weak GPUs).
+- The far plane stops at 34 tiles, so the plant view (already frustum-generic) culls everything past
+  the haze. `ActorView` now culls for a perspective camera too (a fixed 1.5-tile margin), and the
+  animal pools choose distant models by each animal's distance (`begin(ppu, eye)`).
+- Plants draw at the detail for zoom 1.6 (`Renderer.eyeDetail`): the finest models on Balanced and
+  High, the in-between ones on Fast.
+- The "look through" focus (focus.js) works along the line from the animal back to the eye, with a
+  narrower gap, so grass and leaves right in front of the lens part.
+- The shadow box covers 13 tiles around a point 7 tiles ahead of the eye.
+- The 2D effects layer (water sparkles, rain streaks, particles) is skipped, because it's placed
+  for the orthographic view. Only the light wash over everything stays.
+
+## Evidence
+
+Measured on Enkare Conservancy (year 9, 402 animals, Fast). Triangles are a fair comparison here;
+the preview tab's frame rate wasn't, since it read 1–2 fps in both views.
+
+| view | triangles |
+|---|---|
+| usual view, zoom 0.62 | 1.44M |
+| eye level, first try (nothing culled, every animal in detail, finest plants) | 5.5M |
+| eye level, animals culled and distant models, finest plants | 1.29M |
+| eye level, as shipped (plant detail 1.6) | 0.38–1.17M across five animals |
+
+`node tools/watch-check.mjs` checks where the eye sits (behind, above, never under the ground or
+in the grass), that it snaps to a new animal and eases after the same one, the wider phone view,
+perspective culling, and distant models by distance.
+
+## Open
+
+- Eye level hasn't been measured on the low-end target (Intel HD 520). Run `tools/play-profile.mjs`
+  with watch mode on before promoting it beyond the watch bar.
+- The sky at eye level is flat haze. A gradient, or the day's clouds, would help at dawn and dusk.
+- Rain and snow don't fall at eye level (the effects layer is skipped).
+- Canopy climbers (monkeys, orangutans) and the reef at eye level are untested by eye.

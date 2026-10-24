@@ -2,6 +2,7 @@
 // A transparent 2D canvas on top carries weather, pollinators, sparkles and labels.
 
 import { easeAnimalTarget } from './animal-camera.js';
+import { EyeCamera, EYE_FAR, EYE_FOG_NEAR } from './eye-camera.js';
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { snow, withSnowTops } from './snow.js';
@@ -70,6 +71,7 @@ function timeOfDay(u) {
   return { sun: L(1), sunCol: todCol[0], sunAmt: L(3), skyCol: todCol[2], skyAmt: L(5), el: L(6), sweep: L(7) };
 }
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
+const HAZE = new THREE.Color(0.55, 0.62, 0.58); // the eye-level haze's own tint (see updateEye)
 const FLORA_REGIONS_PER_FRAME = 1; // plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild)
 // a phone or tablet (no mouse)
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
@@ -108,6 +110,13 @@ export class Renderer {
     this.gl.toneMapping = THREE.CustomToneMapping;
     this.gl.toneMappingExposure = 1.0;
     this.scene = new THREE.Scene();
+    // Haze, for watch mode's eye-level view only (see setEyeLevel). It is always there but pushed out
+    // of reach in the usual view, so switching to eye level doesn't recompile every material.
+    this.scene.fog = new THREE.Fog(0x9fb2a4, 1e5, 2e5);
+    this.eye = new EyeCamera(); this.eyeAgent = null; this.eyeOn = false;
+    // the zoom whose plant models eye level draws: the finest on Balanced and High, the in-between ones
+    // on Fast (the finest doubled the triangles there)
+    this.eyeDetail = 1.6;
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -300, 300);
     this.target = new THREE.Vector3(40, 1, 32);
     this.frame = { x: 0.5, y: 0.5 }; this.frameGoal = { x: 0.5, y: 0.5 }; // (see updateCamera)
@@ -301,10 +310,13 @@ export class Renderer {
 
   // Dissolve cover between the camera and the selected animal, easing in and out.
   updateFocus(game, dt) {
-    this.camera.getWorldDirection(focus.uViewDir.value).negate();
-    focus.uCamUp.value.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
-    const sel = game.selectedAgent, st = sel && this.actors.pose.get(sel.id);
+    const sel = this.eyeOn ? this.eyeAgent : game.selectedAgent, st = sel && this.actors.pose.get(sel.id);
     const pose = st?.visible ? st : null, ft = !pose && this.focusTile;
+    // at eye level the line of sight runs from the animal back to the eye: the grass and leaves along
+    // it, close in front of the lens, part the same way
+    if (this.eyeOn && pose) focus.uViewDir.value.copy(this.eye.pos).sub(pose.center).normalize();
+    else this.camera.getWorldDirection(focus.uViewDir.value).negate();
+    focus.uCamUp.value.setFromMatrixColumn((this.eyeOn ? this.eye.camera : this.camera).matrixWorld, 1).normalize();
     const amt = focus.uFocusAmt;
     amt.value += ((pose || ft ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
     if (pose) {
@@ -331,6 +343,7 @@ export class Renderer {
         bodyRadius = (span + .04) / .8;
         radius = Math.max(radius, bodyRadius);
       }
+      if (this.eyeOn) radius = clamp(this.eye.size * 1.4, 0.22, 0.55); // (close to the lens, a narrower gap does)
       focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
       focus.uFocusR.value = Math.max(focus.uFocusR.value, bodyRadius);
       focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
@@ -374,7 +387,10 @@ export class Renderer {
     c.updateProjectionMatrix();
     c.updateMatrixWorld();
     // keep the shadow map fitted to what's on screen
-    const s = Math.max(hw, hh) * (1.35 + 2 * Math.max(Math.abs(fr.x - 0.5), Math.abs(fr.y - 0.5))) + 3;
+    this.fitShadow(Math.max(hw, hh) * (1.35 + 2 * Math.max(Math.abs(fr.x - 0.5), Math.abs(fr.y - 0.5))) + 3);
+  }
+  // The sun's shadow box: s scene units either side of the camera's target.
+  fitShadow(s) {
     const sc = this.sun.shadow.camera;
     sc.left = -s; sc.right = s; sc.top = s; sc.bottom = -s; sc.near = 1; sc.far = 160;
     sc.updateProjectionMatrix();
@@ -476,6 +492,28 @@ export class Renderer {
     this.groundCamera();
     this.zoomGoal = null;
     this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, 4.5), t: 0, dur };
+  }
+
+  // Watch mode's eye-level view (eye-camera.js): ride along low behind an animal, or null to go
+  // back to the usual view. The usual camera is left where it was, so leaving puts the view back.
+  setEyeLevel(agent) {
+    this.eyeAgent = agent || null;
+    if (!agent) { this.eyeOn = false; this.eye.reset(); this.updateCamera(); }
+  }
+  updateEye(dt) {
+    const a = this.eyeAgent;
+    this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, this.vw / Math.max(1, this.vh), dt, (x, z) => this.heightAtScene(x, z));
+    const fog = this.scene.fog;
+    if (!this.eyeOn) { fog.near = 1e5; fog.far = 2e5; this.scene.background = null; return; }
+    // the haze takes the sky's light (dim at night, warm at dusk), and the sky behind is the same haze
+    fog.near = EYE_FOG_NEAR; fog.far = EYE_FAR;
+    fog.color.copy(this.hemi.color).multiplyScalar(0.62).lerp(HAZE, 0.25);
+    this.scene.background = fog.color;
+    // the shadow map covers the near ground ahead, out to where the haze thickens
+    const e = this.eye;
+    this.target.set(e.pos.x + e.forward.x * 7, 0, e.pos.z + e.forward.z * 7);
+    this.target.y = this.heightAtScene(this.target.x, this.target.z);
+    this.fitShadow(13);
   }
 
   // Ray from a screen point into the scene.
@@ -627,7 +665,8 @@ export class Renderer {
     const c = this.camera, sun = this.sun, now = this.diagnosticTime ?? performance.now(), S = this.shadowState ||= { key: '', dir: new THREE.Vector3(), at: 0, plants: -1 };
     if (!sun.castShadow) { S.key = ''; return false; }
     const plants = this.flora.plantShadows.enabled ? this.flora.plantShadows.version : floraVersion.n;
-    const key = [c.left, c.right, c.top, c.bottom, c.position.x, c.position.y, c.position.z, this.terrain.banks?.version ?? 0,
+    const st = sun.target.position;
+    const key = [c.left, c.right, c.top, c.bottom, c.position.x, c.position.y, c.position.z, st.x, st.z, this.terrain.banks?.version ?? 0,
       this.structVersion || 0, sun.castShadow, sun.shadow.mapSize.x].join('|');
     const dir = sun.position.clone().sub(sun.target.position).normalize();
     if (!sun.shadow.map || key !== S.key || plants !== S.plants || dir.angleTo(S.dir) > 0.003 || now - S.at > 500) {
@@ -848,7 +887,7 @@ export class Renderer {
     if (this.windOn !== false) this.flora.wind.value = this.time; // otherwise plants hold still
     const gustTo = wx === 'rain' ? 1.5 : wx === 'snow' ? 1.2 : wx === 'cloud' ? 1.0 : 0.65;
     windGust.value += (gustTo - windGust.value) * Math.min(1, dt * 0.4);
-    this.flora.setZoom(this.zoom);
+    this.flora.setZoom(this.eyeOn ? this.eyeDetail : this.zoom);
     // plant contact shadows only stand in for the sun's when those are off (by choice, or dropped to
     // keep up): alongside real shadows they'd only smudge the ground around each trunk
     this.flora.contact.visible = !this.sun.castShadow;
@@ -861,9 +900,11 @@ export class Renderer {
     this.terrain.sky.value.copy(this.hemi.color);
     const r = this.right();
     this.actors.clean = !!ui.clean;
-    this.actors.followAgent = this.followAgent;
-    this.actors.update(game, r, this.time, this.camera, this.vh);
-    this.updateAnimalCamera(dt);
+    this.actors.followAgent = this.followAgent || this.eyeAgent;
+    this.actors.update(game, this.eyeOn ? this.eye.right : r, this.time, this.eyeOn ? this.eye.camera : this.camera, this.vh);
+    this.updateEye(dt);
+    const cam = this.eyeOn ? this.eye.camera : this.camera;
+    if (!this.eyeOn) this.updateAnimalCamera(dt);
     this.rockBoats();
     this.updateFocus(game, dt);
     // snow settles and melts gradually on screen rather than popping in with the daily tick
@@ -872,7 +913,7 @@ export class Renderer {
     this.actors.updateFire(game, this.time, dt);
     this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game);
     this.flora.syncShadows();
-    this.flora.updateView(this.camera);
+    this.flora.updateView(cam);
     const redrawShadows = this.shadowsStale();
     if (redrawShadows) {
       this.flora.updateShadows(this.sun, this.camera);
@@ -884,7 +925,7 @@ export class Renderer {
     this.lastShadowRedraw = redrawShadows;
     const at = performance.now();
     this.gpuTimer.poll(); this.gpuTimer.begin();
-    this.gl.render(this.scene, this.camera);
+    this.gl.render(this.scene, cam);
     this.gpuTimer.end();
     this.submitMs = performance.now() - at;
     this.drawFX(game, ui, dt);
@@ -975,7 +1016,8 @@ export class Renderer {
     ctx.clearRect(0, 0, this.vw, this.vh);
     // The light over everything (sun wash and vignette) goes on last even if an effect fails:
     // the frame loop carries on past the error, and a frame without it flashes bright at the edges.
-    try { this.drawEffects(game, ui, dt); }
+    // (the effects are placed for the usual view: at eye level only the light over everything stays)
+    try { if (!this.eyeOn) this.drawEffects(game, ui, dt); }
     finally {
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';

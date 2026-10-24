@@ -96,8 +96,10 @@ export class Fauna {
     return p.nose;
   }
   // pixelsPerUnit: screen pixels per scene unit this frame (Infinity draws every animal in detail).
-  begin(pixelsPerUnit = Infinity) {
-    this.pixelsPerUnit = pixelsPerUnit;
+  // eye: { x, y, z, scale } for a perspective camera (see perspectiveScale), whose pixels per unit
+  // fall off with each animal's distance.
+  begin(pixelsPerUnit = Infinity, eye = null) {
+    this.pixelsPerUnit = pixelsPerUnit; this.eye = eye;
     for (const p of this.species.values()) { p.count = 0; if (p.far) p.far.count = 0; }
   }
   // One animal this frame. scale converts model pixels to scene units. detail keeps the full
@@ -106,7 +108,8 @@ export class Fauna {
   // its bones, and its coat dulled as it dries.
   add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null, detail = false, remains = null) {
     const near = this.pool(def);
-    const p = this.farModels && !detail && near.motion.len * scale * this.pixelsPerUnit < FAR_PIXELS ? near.distant() : near;
+    const e = this.eye, ppu = e ? e.scale / Math.max(0.05, Math.hypot(x - e.x, y - e.y, z - e.z)) : this.pixelsPerUnit;
+    const p = this.farModels && !detail && near.motion.len * scale * ppu < FAR_PIXELS ? near.distant() : near;
     if (p.count >= p.cap) {
       // carry over what this frame has already written, then grow
       const oldM = p.mesh.instanceMatrix.array.slice(0, p.count * 16), oldA = p.anim.array.slice(0, p.count * 4), n = p.count;
