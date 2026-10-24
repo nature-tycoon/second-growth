@@ -54,12 +54,13 @@ for(const [map,keys]of byMap){
   entries.push({def,geo,mesh,anim,canvas,headBox,flyBox,scale:adultAnimalScale(def.sprite)});
  }
 }
+const phase=+(query.get('phase')??1.1); // (?phase=: the animation phase, e.g. a wingbeat's top or bottom)
 function draw(){
  const golden=controls.light.value==='golden';
  sun.color.set(golden?0xffb46a:0xfff3dc);sun.intensity=golden?2.5*1.55:2.5;
  hemi.color.set(golden?0xffe8cc:0xe4eeff);
  for(const e of entries){
-  const pose=controls.pose.value;e.anim.setXYZW(0,1.1,pose==='walk'?1:0,pose==='fly'?1:0,pose==='graze'?.65:0);e.anim.needsUpdate=true;
+  const pose=controls.pose.value;e.anim.setXYZW(0,phase,pose==='walk'?1:0,pose==='fly'?1:0,pose==='graze'?.65:0);e.anim.needsUpdate=true;
   e.mesh.setMatrixAt(0,new THREE.Matrix4().makeScale(e.scale,e.scale,e.scale));e.mesh.instanceMatrix.needsUpdate=true;
   const box=(controls.framing.value==='head'&&e.headBox||pose==='fly'&&e.flyBox||e.geo.boundingBox).clone();box.min.multiplyScalar(e.scale);box.max.multiplyScalar(e.scale);
   const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());

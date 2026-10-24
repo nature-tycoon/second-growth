@@ -1,6 +1,6 @@
 // Aquatic wildlife, reptiles and amphibians.
 import * as THREE from 'three';
-import { P, col, cyl, eyes, flat, grad, hash3, loftBody, pixelCoat, place, shade, smooth, solid, tmp, tube } from './model-core.js';
+import { P, col, cyl, eyes, flat, grad, hash3, loftBody, pixelCoat, place, shade, smooth, solid, tmp, tube, wingShape } from './model-core.js';
 
 // ---------------------------------------------------------------- herps and fish
 // Frogs sit up on folded hind legs: thigh back, shin forward, long foot flat on the ground.
@@ -778,11 +778,13 @@ function ray(m, s) {
     // cephalic lobes, curled down beside the mouth
     m.limb([S * 0.26, cy, side * S * 0.08], [S * 0.36, cy - S * 0.02, side * S * 0.09], S * 0.025, S * 0.015, back, { part: P.HEAD, pivot: [S * 0.2, cy, 0] });
     m.ell([S * 0.27, cy + S * 0.02, side * S * 0.115], [S * 0.016, S * 0.016, S * 0.01], '#141210', { lo: true, gloss: 2 }); // eyes
-    // a wing: swept back from the body to a pointed tip; it beats up and down in "flight"
-    const pivot = [0, cy, side * S * 0.16], part = side > 0 ? P.WING_L : P.WING_R;
-    const wing = flat(sh => { sh.moveTo(0.3, 0); sh.quadraticCurveTo(0.05, 0.5 * side, -0.25, 1 * side); sh.quadraticCurveTo(-0.2, 0.45 * side, -0.32, 0); sh.lineTo(0.3, 0); }, 'xz');
-    const at = place(pivot, [0, 0, 0], [S * 0.62, S * 0.03, S * 0.5]);
-    m.add(wing, at, u => (u.y < 0 ? belly : back), { part, pivot, ext: at });
+    // a wing: one fin from the midline, swept back to a pointed tip and thinning as it goes; its root
+    // lies inside the body, and it beats up and down in "flight" bending out from the body's edge
+    // (motion.wingRoot), so no hinge or gap ever opens where it leaves the body
+    const pivot = [0, cy, 0], part = side > 0 ? P.WING_L : P.WING_R;
+    const at = place(pivot, [0, 0, 0], [S, S * 0.02, S * 0.66]);
+    // (the grid's two layers face inward: the lower one is the surface seen from above)
+    m.add(wingShape('manta', side), at, u => (u.y > 0 ? belly : back), { part, pivot, ext: at });
   }
   m.limb([-S * 0.24, cy, 0], [-S * 0.62, cy + S * 0.01, 0], S * 0.02, S * 0.006, back, { part: P.TAIL, pivot: [-S * 0.24, cy, 0] });
 }

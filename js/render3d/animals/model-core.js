@@ -78,11 +78,14 @@ const place = (pos, rot, scl) => new THREE.Matrix4().compose(V(...pos), Q.setFro
 //   round: songbirds, woodpeckers, owls: bowed leading edge, rounded tip, scalloped feather tips
 //   pointed: hummingbirds, ducks, kingfishers, parrots: swept back to a sharp tip
 //   fingered: eagles, hawks, herons: broad, with the outer primaries spread like fingers
+//   manta: a ray's pectoral fin, in body lengths, from the midline (root deep inside the body) to the tip;
+//     an edge function's third value thins the fin toward its tip
 const WING_CACHE = new Map();
 const PLANFORM = {
   round: t => [0.5 + 0.1 * Math.sin(Math.PI * t) - 0.55 * t ** 4, -0.5 + 0.34 * t * t - 0.05 * Math.abs(Math.sin(Math.PI * t * 7))],
   pointed: t => [0.5 - 0.1 * t - 0.55 * t * t + 0.035 * t ** 8, -0.5 + 0.1 * t + 0.25 * t * t - 0.035 * t ** 8 - 0.03 * Math.abs(Math.sin(Math.PI * t * 5)) * (1 - t)],
   fingered: t => [0.5 + 0.05 * Math.sin(Math.PI * t), -0.5 + 0.22 * t * t - 0.04 * Math.abs(Math.sin(Math.PI * t * 6))],
+  manta: t => [0.22 - 0.375 * t ** 1.6, -0.22 + 0.06 * t + 0.04 * Math.sin(Math.PI * t), 1 - 0.75 * t],
 };
 function wingShape(kind, side) {
   const key = kind + side;
@@ -93,8 +96,8 @@ function wingShape(kind, side) {
     for (const face of [0.5, -0.5]) {
       const base = pos.length / 3;
       for (let i = 0; i <= N; i++) {
-        const t = t0 + (t1 - t0) * i / N, [le, te] = edge(t);
-        for (let j = 0; j <= M; j++) pos.push(te + (le - te) * j / M, face, side * t);
+        const t = t0 + (t1 - t0) * i / N, [le, te, thick = 1] = edge(t);
+        for (let j = 0; j <= M; j++) pos.push(te + (le - te) * j / M, face * thick, side * t);
       }
       for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) {
         const a = base + i * (M + 1) + j, b = a + M + 1;
@@ -701,4 +704,4 @@ function stumpLegs(m, legs, hoof) {
   });
 }
 
-export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, cloudCoat, pixelCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, pinna, pinnaAt, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube };
+export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, cloudCoat, pixelCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, pinna, pinnaAt, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube, wingShape };

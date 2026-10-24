@@ -34,7 +34,7 @@ export function buildSpecies(def, { close = false } = {}) {
     case 'pangolin': pangolin(m, s); mo.leg = 0.5; mo.bob = 0.25; mo.tail = 0.12; mo.sink = s.len * 0.22; break;
     case 'sloth': sloth(m, s); mo.leg = 0.12; mo.tail = 0; mo.canopyHanging = true; break;
     case 'caiman': caiman(m, s); mo.leg = 0.4; mo.tail = 0.35; mo.wave = s.len * 0.025; mo.waveK = 6 / s.len; mo.waveHead = s.len * 0.1; mo.waveLen = s.len * 0.7; mo.sink = s.len * 0.09; break;
-    case 'ray': ray(m, s); mo.flap = 0.9; mo.tail = 0.3; mo.leg = 0; break;
+    case 'ray': ray(m, s); mo.flap = 0.9; mo.wingSpan = s.size * 0.66; mo.wingRoot = s.size * 0.14; mo.tail = 0.3; mo.leg = 0; break;
     case 'dolphin': dolphin(m, s); mo.verticalWave = 1; mo.tail = 0.12; mo.wave = s.size * 0.03; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.2; mo.waveLen = s.size * 0.8; mo.sink = s.size * 0.1; break;
     case 'deer': case 'canine': case 'feline': case 'raccoon': case 'otter': case 'beaver':
     case 'peccary': case 'agouti': case 'anteater':
