@@ -3,14 +3,15 @@
 // close-up. Prints simulation vs drawing (processor) vs GPU time and where the drawing time goes.
 //   node tools/play-profile.mjs [maps=serengeti,sumatra,amazon,pnw] [quality=high] [years=3]
 // PLAY_ROOT=<checkout> measures another checkout (an A/B; its ecology diverges, so compare
-// phases rather than single numbers). Uses the hardware GPU at 1440x900, DPR 2 (a Retina laptop);
+// phases rather than single numbers). PLAY_VIEWS="top speed" (comma-separated) runs only those views. Uses the hardware GPU at 1440x900, DPR 2 (a Retina laptop);
 // GPU time comes from the game's own timer queries. Writes tools/release-output/play-profile.json.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { openBrowser, projectRoot } from './browser-session.mjs';
 
 const [maps = 'serengeti,sumatra,amazon,pnw', quality = 'high', years = '3'] = process.argv.slice(2);
-const VIEWS = [['play', 1, .7], ['wide', 1, .25], ['top speed', 3, .7], ['close', 1, 2]];
+const VIEWS = [['play', 1, .7], ['wide', 1, .25], ['top speed', 3, .7], ['close', 1, 2]]
+  .filter(([view]) => !process.env.PLAY_VIEWS || process.env.PLAY_VIEWS.split(',').includes(view));
 const browser = await openBrowser({ label: 'play-profile', ...(process.env.PLAY_ROOT ? { root: process.env.PLAY_ROOT } : {}), software: false, width: 1440, height: 900, pixelRatio: 2 });
 const rows = [];
 try {
