@@ -3,6 +3,8 @@
 
 import { easeAnimalTarget } from './animal-camera.js';
 import { EyeCamera, EYE_FAR, EYE_FOG_NEAR } from './eye-camera.js';
+import { EyeSky } from './eye-sky.js';
+import { perspectiveScale } from './actor-view.js';
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { snow, withSnowTops } from './snow.js';
@@ -71,7 +73,12 @@ function timeOfDay(u) {
   return { sun: L(1), sunCol: todCol[0], sunAmt: L(3), skyCol: todCol[2], skyAmt: L(5), el: L(6), sweep: L(7) };
 }
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
-const HAZE = new THREE.Color(0.55, 0.62, 0.58); // the eye-level haze's own tint (see updateEye)
+const HAZE = new THREE.Color(0.55, 0.62, 0.58); // the eye-level haze's own tint under water (see updateEye)
+// The eye-level sky's colours (linear), before the time of day and the weather tint and dim them:
+// overhead and at the horizon on a clear day, and the grey of an overcast and a stormy sky.
+const SKY_TOP = new THREE.Color(0.15, 0.34, 0.76), SKY_LOW = new THREE.Color(0.6, 0.71, 0.84);
+const GREY = new THREE.Color(0.5, 0.53, 0.56), STORM = new THREE.Color(0.25, 0.27, 0.3);
+const skyTint = new THREE.Color(), skyGrey = new THREE.Color();
 const FLORA_REGIONS_PER_FRAME = 1; // plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild)
 // a phone or tablet (no mouse)
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
@@ -114,6 +121,7 @@ export class Renderer {
     // of reach in the usual view, so switching to eye level doesn't recompile every material.
     this.scene.fog = new THREE.Fog(0x9fb2a4, 1e5, 2e5);
     this.eye = new EyeCamera(); this.eyeAgent = null; this.eyeOn = false;
+    this.eyeSky = new EyeSky(this.scene); this.eyeWx = { storm: 0, snow: 0, near: EYE_FOG_NEAR, far: EYE_FAR };
     // the zoom whose plant models eye level draws: the finest on Balanced and High, the in-between ones
     // on Fast (the finest doubled the triangles there)
     this.eyeDetail = 1.6;
@@ -500,20 +508,61 @@ export class Renderer {
     this.eyeAgent = agent || null;
     if (!agent) { this.eyeOn = false; this.eye.reset(); this.updateCamera(); }
   }
-  updateEye(dt) {
+  updateEye(dt, game) {
     const a = this.eyeAgent;
     this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, this.vw / Math.max(1, this.vh), dt, (x, z) => this.heightAtScene(x, z));
     const fog = this.scene.fog;
-    if (!this.eyeOn) { fog.near = 1e5; fog.far = 2e5; this.scene.background = null; return; }
-    // the haze takes the sky's light (dim at night, warm at dusk), and the sky behind is the same haze
-    fog.near = EYE_FOG_NEAR; fog.far = EYE_FAR;
-    fog.color.copy(this.hemi.color).multiplyScalar(0.62).lerp(HAZE, 0.25);
-    this.scene.background = fog.color;
+    if (!this.eyeOn) { fog.near = 1e5; fog.far = 2e5; this.scene.background = null; this.eyeSky.hide(); this.gl.toneMappingExposure = 1; return; }
+    if (this.seaY != null) {
+      // under the sea: no sky, only the water's own haze
+      fog.near = EYE_FOG_NEAR; fog.far = EYE_FAR;
+      fog.color.copy(this.hemi.color).multiplyScalar(0.62).lerp(HAZE, 0.25);
+      this.scene.background = fog.color;
+      this.eyeSky.hide();
+    } else this.updateSky(dt, game);
     // the shadow map covers the near ground ahead, out to where the haze thickens
     const e = this.eye;
     this.target.set(e.pos.x + e.forward.x * 7, 0, e.pos.z + e.forward.z * 7);
     this.target.y = this.heightAtScene(this.target.x, this.target.z);
     this.fitShadow(13);
+  }
+
+  // The eye-level sky (eye-sky.js), and the haze that melts the land into it: blue on a clear day,
+  // grey and closer in when it's overcast, closer still and darker in rain and snow, misty at dawn.
+  updateSky(dt, game) {
+    const wx = game.weather, W = this.eyeWx, k = Math.min(1, dt * 0.5), tod = this.tod, night = this.night;
+    const weatherOn = this.weatherOn !== false;
+    W.storm += ((wx === 'rain' ? 1 : wx === 'snow' ? 0.55 : 0) - W.storm) * k;
+    W.snow += ((wx === 'snow' && weatherOn ? 1 : 0) - W.snow) * Math.min(1, dt * 1.5);
+    const near = (wx === 'rain' ? 3 : wx === 'snow' ? 2 : wx === 'cloud' ? 7 : EYE_FOG_NEAR) * (1 - 0.5 * this.dawn);
+    const far = Math.min(wx === 'rain' ? 22 : wx === 'snow' ? 18 : wx === 'cloud' ? 31 : EYE_FAR, EYE_FAR - 8 * this.dawn);
+    W.near += (near - W.near) * k; W.far += (far - W.far) * k;
+    const fog = this.scene.fog;
+    fog.near = W.near; fog.far = W.far;
+    // the colours: the clear sky tinted by the light's colour (warm at dusk, blue by moonlight) and
+    // dimmed toward night, then greyed by cloud
+    const cover = sky.uCloudCover.value, grey = clamp((cover - 0.3) / 0.38, 0, 1);
+    const light = (0.3 + 0.7 * Math.min(1, tod.sun)) * (1 - 0.82 * night) * (1 - 0.35 * W.storm);
+    skyTint.copy(this.hemi.color).lerp(tod.skyCol, 0.5);
+    skyGrey.copy(GREY).lerp(STORM, W.storm);
+    const horizon = fog.color.copy(SKY_LOW).multiply(skyTint).lerp(skyGrey, grey).multiplyScalar(light);
+    // (a low sun warms the haze a little all round, as the sky's glow by the sun does)
+    horizon.lerp(this.sun.color, 0.18 * clamp((30 - tod.el) / 20, 0, 1) * (1 - grey));
+    const zenith = this.skyTop || (this.skyTop = new THREE.Color());
+    zenith.copy(SKY_TOP).multiply(skyTint).lerp(skyGrey, grey * 0.9).multiplyScalar(light * (1 - 0.5 * night));
+    this.scene.background = horizon;
+    const sunDir = this.skySun || (this.skySun = new THREE.Vector3());
+    sunDir.copy(this.sunOffset).normalize();
+    const cam = this.eye.camera;
+    const flash = this.eyeSky.update({
+      cam, forward: this.eye.forward, t: this.time, dt, horizon, zenith, sunDir, sunCol: this.sun.color,
+      sunLight: clamp(this.sun.intensity / 2.6, 0, 1.4), sunUp: clamp(tod.el / 54, 0, 1), night, cover, storm: W.storm,
+      rain: this.terrain.rain.value, snow: W.snow,
+      // some rain days are thunderstorms (the same ones all day)
+      bolts: wx === 'rain' && weatherOn && hash2(game.day, 7, 3) < 0.45,
+      px: perspectiveScale(cam, this.vh) * this.dpr,
+    });
+    this.gl.toneMappingExposure = 1 + flash * 0.7;
   }
 
   // Ray from a screen point into the scene.
@@ -880,7 +929,7 @@ export class Renderer {
     sky.uCloudT.value = this.time;
     sky.uCloudCover.value += (cover - sky.uCloudCover.value) * (first ? 1 : Math.min(1, dt * 0.25));
     // no shadows on a cloudless day, and they melt away as you zoom in close
-    const closeUp = clamp((2.1 - this.zoom) / 0.8, 0, 1);
+    const closeUp = this.eyeAgent ? 1 : clamp((2.1 - this.zoom) / 0.8, 0, 1); // (at eye level they're the shadows of the clouds overhead)
     const amt = this.cloudsOn === false || (cover === 0 && sky.uCloudCover.value < 0.08) ? 0 : 0.44 * closeUp;
     sky.uCloudAmt.value += (amt - sky.uCloudAmt.value) * Math.min(1, dt * 1.5);
 
@@ -902,7 +951,7 @@ export class Renderer {
     this.actors.clean = !!ui.clean;
     this.actors.followAgent = this.followAgent || this.eyeAgent;
     this.actors.update(game, this.eyeOn ? this.eye.right : r, this.time, this.eyeOn ? this.eye.camera : this.camera, this.vh);
-    this.updateEye(dt);
+    this.updateEye(dt, game);
     const cam = this.eyeOn ? this.eye.camera : this.camera;
     if (!this.eyeOn) this.updateAnimalCamera(dt);
     this.rockBoats();

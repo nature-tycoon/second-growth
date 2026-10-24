@@ -43,6 +43,29 @@ What eye level changes in the renderer (only while it's on):
 - The 2D effects layer (water sparkles, rain streaks, particles) is skipped, because it's placed
   for the orthographic view. Only the light wash over everything stays.
 
+**The sky at eye level** (`js/render3d/eye-sky.js`, added the same day at Cole's request: "make the
+sky visible with clouds, fog, blue sky, storm, etc from the ground"). A dome round the eye shades
+from the haze at the horizon to blue overhead, tinted by the time of day (gold round a low sun,
+deep blue with stars and the moon at night) and greyed by cloud.
+
+- The clouds are the same noise field whose shadows drift over the ground (`CLOUD_NOISE` in
+  `atmosphere.js`), seen from below on a layer 10 tiles up, so a cloud overhead is the one shading
+  the grass. At eye level those ground shadows are always on (they fade out close up in the usual
+  view). Coverage follows the weather as before: mostly clear, now and then fair-weather clouds,
+  broken cloud on cloudy days, and a grey veil with heavier, darker cloud in rain and snow.
+- Fog follows the weather: 9–34 tiles when clear, closer when cloudy, 3–22 in rain, 2–18 in snow,
+  and a dawn mist. Its colour is the dome's horizon, so the land melts into the sky.
+- Some rain days (the same ones all day, `hash2(day, 7, 3) < 0.45`) are thunderstorms: every 3–16
+  s the clouds light up from inside and the whole view flashes (`toneMappingExposure`, so nothing
+  recompiles), sometimes flickering twice. There's no thunder sound yet: 0002 asks for real
+  recordings, and none is in the game.
+- Rain and snow fall round the eye: a fixed set of streaks and flakes wrapping round a box that
+  travels with it, moved entirely in the vertex shader (2,400 streaks, 2,000 flakes, one draw each).
+- Not under the sea (the reef keeps its water haze), and Graphics → Weather off turns the rain,
+  snow and lightning off.
+- Cost: the dome is drawn after the land with the depth test on, so only the visible sky's pixels
+  run its shader (four noise octaves plus a lighter second sample for the sunlit side).
+
 ## Evidence
 
 Measured on Enkare Conservancy (year 9, 402 animals, Fast). Triangles are a fair comparison here;
@@ -63,6 +86,6 @@ perspective culling, and distant models by distance.
 
 - Eye level hasn't been measured on the low-end target (Intel HD 520). Run `tools/play-profile.mjs`
   with watch mode on before promoting it beyond the watch bar.
-- The sky at eye level is flat haze. A gradient, or the day's clouds, would help at dawn and dusk.
-- Rain and snow don't fall at eye level (the effects layer is skipped).
+- Lightning has no thunder (no recording yet).
+- The sky's cost on the low-end GPU is unmeasured, like the rest of eye level.
 - Canopy climbers (monkeys, orangutans) and the reef at eye level are untested by eye.
