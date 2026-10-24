@@ -8,7 +8,7 @@ What changed for a player, over the six phases: trees now die across their whole
 
 Where it stands (phase 6, full wildlife, 200 years):
 
-- **PNW:** hemlock and redcedar now spread through the whole forest instead of hugging the north and east edges, and about 1,000 wait in the understory at year 200. They're 7–8% of mature trees at year 200 and 25% at year 400 (fir 74%); before phase 6 they stayed at 2–4% for 400 years. Fir is still 86–89% at year 200. That matches real westside Douglas-fir stands, which stay fir-dominated for 250–500 years while hemlock builds underneath, so the year-200 targets (fir ≤ 60%, hemlock + cedar ≥ 25%) are the wrong horizon; they're met around year 400.
+- **PNW:** hemlock and redcedar now spread through the whole forest instead of hugging the north and east edges, and seed a waiting understory under the fir. They're 15–16% of mature trees at year 200 (after the 2026-10-23 seeding change; 7–8% before it) and about 20% at year 250; before phase 6 they stayed at 2–4% for 400 years. Fir is 78–81% at year 200. That matches real westside Douglas-fir stands, which stay fir-dominated for 250–500 years while hemlock builds underneath, so the year-200 targets (fir ≤ 60%, hemlock + cedar ≥ 25%) are the wrong horizon; they're met around year 400.
 - **Amazon:** Brazil nut 35–37% (was 78–80%), with fig, mahogany and ipê up. Fire is 8–14% of tree deaths (was 26–47%).
 - **Every forested map** keeps recruits ÷ deaths in band and its animal species, except Atlanta, which misses both on 2 of 6 seeds before and after phase 6 alike.
 - **Hollis in its first 15 years** grows twice the forest tiles along the north and east edges (forest rain). Meadow and elk are unchanged.
@@ -540,6 +540,19 @@ Checked after the merge:
 - **`balance-sim restore 15`**, 16 seeds seeded via `--import`, current `main` → merged, means ± standard error: score 62.4 ± 1.5 → 65.0 ± 1.9, meadow 1,159 ± 105 → 1,171 ± 106, invasive 27.1% → 25.0%, elk 15.0 → 17.1, all within noise. **Forest tiles 220 → 385 and mature 40 → 85**: the forest rain, as in phase 6.
 - **Succession sweep**, full wildlife, 200 years: PNW restore (3 seeds) fir 82–89%, hemlock + cedar 7–11% of mature trees, recruits ÷ deaths 0.96–1.05, unburned openings 23–33%, species 30–31. PNW idle (1) fir 83%, tolerant 11%. Amazon (3) largest 30–38% (Brazil nut, or fig on seed 1), species 24, fire 5–20% of deaths. Atlanta (3) recruits ÷ deaths 0.69–0.74, species 27–29, the same Atlanta shortfall as before. Chinandega (1) neem 37%, recruits ÷ deaths 1.54 and species 21, both just outside their targets on this one seed (phase 6: 1.08–1.13 and 22–23). Serengeti (1) mesquite 89%. Reef (1) boulder 54%, species 21.
 - **`dailyTick` against current `main`** (`tools/daily-tick-ab.mjs`, same land each block, 30 blocks, both orders, on battery): +2.8% ± 0.7% and +4.7% ± 0.4%, about **+3.7%**, inside the 5% budget.
+
+### Forest rain and succession pace (Cole, 2026-10-23)
+
+Two design calls after the merge.
+
+**Forest rain on Hollis halved** (`forestRain` 0.01 → 0.005 per edge tile a day). At 0.01 the "Second growth" milestone (400 forest, 60 mature, $6,000) completed within 15 years on 6 of 16 `balance-sim` seeds, against none on `main`, mostly from trees the player hadn't planted, which loosens the tight early game 0001 asks for. At 0.005 (16 seeds, 15 years, against current `main`): forest 277 tiles (main 220, full rain 385), mature 57 (40, 85), the milestone on 0 of 16 seeds, elk 15.5 (15.0), meadow 1,043 ± 52 (1,159 ± 105). Score 59.9 ± 0.6 against 62.4 ± 1.5 and invasive 30.4% against 27.1% are both about two standard errors worse: with less forest coming in, more of the old fields go to blackberry first.
+
+**Succession pace.** Cole asked for hemlock and redcedar to reach about 25% of mature trees by year 150–200 instead of 400. Two levers were tested on PNW restore, `--veg`, 250 years, 2 seeds each:
+
+- **A mortality clock** (trees age toward death 1.5–2.5× faster than they grow, a map field): hemlock and cedar 11–19% of mature trees at year 250, no better than without it (about 13%). Most PNW deaths are wind, fire and stress, not age: at year 200 the median tree is about 65 years old, and a fir's background rate sits at its 0.2%-a-year floor, so aging faster barely opens more gaps. Not kept.
+- **Seed supply.** Releases fill under 5% of gaps: at year 150 only 629 saplings wait under about 7,000 trees, because hemlock seed comes only from the few hemlock adults. Western hemlock seed is about six times lighter than Douglas-fir's and crops heavily; redcedar likewise. Hemlock `spread` ×2 (0.009 → 0.018) and redcedar ×1.5 (0.007 → 0.0105): 20–21% at year 250 (fir 72–76%). ×3 and ×2 gave 16–22%, no better. Kept at ×2 and ×1.5.
+
+Confirmed with full wildlife, 200 years, PNW restore, 3 seeds: hemlock + cedar **15–16% of mature trees** (after the merge 7–11%), fir 78–81% (82–89%), Simpson 0.32–0.36 (0.21–0.32), recruits ÷ deaths 0.94–1.11, unburned openings 28–30%, species 30–32. PNW idle seed 1: 14%, fir 81%. **25% by year 150–200 isn't reached.** Seed is no longer the limit at ×2; fir now holds its share by regenerating in large openings (burns, blowdown patches, root-rot patches, mature forest turning to shrub), so the next lever would be how fir regenerates by opening size, a separate change.
 
 ### How to run
 
