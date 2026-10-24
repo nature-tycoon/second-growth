@@ -783,11 +783,20 @@ const MAMMALS = {
         m.ell(tip, [hr[1] * 0.22, hr[1] * 0.2, hr[1] * 0.2], '#1a1410', { ...hd, lo: true });
       },
       ears: 'round', ear: H * 0.1,
+      // The tail is a flag as long as the body, carried low and straight back: a thin core along its
+      // top edge with long coarse hair hanging below, so it is deep from the side but thin from above.
       tail: (m, b) => {
-        const base = [-L * 0.44, b.by + H * 0.05, 0], o = { part: P.TAIL, pivot: base };
-        const fur = u => tmp.copy(col(s.color)).lerp(col(shade(s.color, -0.35)), smooth(0.2, -0.8, u.y));
-        m.ell([-L * 0.68, b.by + H * 0.08, 0], [L * 0.3, H * 0.24, H * 0.13], fur, { ...o, rot: [0, 0, 0.08] });  // the tail itself
-        m.ell([-L * 0.72, b.by - H * 0.2, 0], [L * 0.33, H * 0.42, H * 0.07], shade(s.color, -0.25), { ...o, rot: [0, 0, 0.06] }); // long hair hanging below
+        const base = [-L * 0.44, b.by + H * 0.08, 0], o = { part: P.TAIL, pivot: base };
+        const fur = u => tmp.copy(col(s.color)).lerp(col(shade(s.color, -0.4)), smooth(0.3, -0.9, u.y));
+        // [x, top edge (the core), depth of hair below it, half thickness]
+        const st = [[-0.44, 0.08, 0.36, 0.16], [-0.6, 0.02, 0.62, 0.1], [-0.8, -0.06, 0.72, 0.075], [-1.0, -0.14, 0.7, 0.06], [-1.17, -0.22, 0.56, 0.045], [-1.26, -0.27, 0.28, 0.03]];
+        const edge = st.map(([x, y, d]) => [L * x, b.by + H * (y - d), 0]);
+        tube(m, st.map(([x, y, d]) => [L * x, b.by + H * (y - d / 2), 0]), st.map(([, , d, w]) => [H * d / 2, H * w]), fur, { ...o, sub: 5, seg: 12, capRings: 2 });
+        // a ragged fringe of coarse hair along the lower edge, sweeping back
+        for (let i = 1; i < edge.length - 1; i++) {
+          const a = [edge[i][0], edge[i][1] + H * 0.12, 0], z = [edge[i + 1][0], edge[i + 1][1] + H * 0.12, 0];
+          locks(m, a, z, 7, H * 0.2, H * 0.05, shade(s.color, -0.38), o, 21 + i, [-0.8, -1, 0]);
+        }
       },
     };
   },
