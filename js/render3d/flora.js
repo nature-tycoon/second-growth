@@ -11,7 +11,7 @@ import { farHull, farTrunk } from './far-models.js';
 import { waterSurfaceY } from './terrain.js';
 import { activeCatalog } from '../data/catalog.js';
 import { meadowPatch, patchColor } from './patches.js';
-import { FloraChanges, floraChunkKey } from './flora-changes.js';
+import { FloraChanges, floraChunkKey, TRAIL_OPENING } from './flora-changes.js';
 import { groveForm } from './groves.js';
 import { underWater, groundAt, visibleLevel } from '../sim/waterline.js';
 import { paletteLeafColor } from './palettes.js';
@@ -429,7 +429,7 @@ export class Flora {
             px = cxp + Math.cos(a) * r; pz = czp + Math.sin(a) * r;
           }
           // Keep the plant opening aligned with the actual narrow track, not the whole tile.
-          if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > 0.05) continue;
+          if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > TRAIL_OPENING) continue;
           const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
           // lily pads float on the water surface instead of sitting on the pond bed
           if (bankTile && !aquaticT && !grassyWet(type) && underWater(w, px, pz)) continue; // (dry-land groundcover doesn't grow in the creek)

@@ -1,7 +1,14 @@
 // Compare the inputs used to draw plants, rather than coupling rendering to every tool and
 // ecological system that can alter them. No hashes or quantization: small growth still shows.
 import { TRAIL_RESOLUTION } from '../data/animal-trails.js';
+import { TRAIL_THRESHOLD, TRAIL_FULL } from '../sim/animal-trails.js';
 import { BORDER } from '../config.js';
+
+// A plant is left out of a trail where trailMask passes TRAIL_OPENING (Flora.rebuild). trailMask
+// is a blend of wear samples, so wear that stays at or below TRAIL_CLEAR never opens a gap, and
+// changes there are not changes to the plants. (a hair lower, against rounding at the line)
+export const TRAIL_OPENING = 0.05;
+const TRAIL_CLEAR = TRAIL_THRESHOLD + TRAIL_OPENING * (TRAIL_FULL - TRAIL_THRESHOLD) - 1e-6;
 
 const FIELDS = ['ground', 'groundG', 'shrub', 'shrubG', 'tree', 'treeG', 'variant', 'feature', 'featureAge', 'marks', 'terrain', 'bleach', 'canopy', 'trailDensity'];
 const BORDER_FIELDS = ['tree', 'treeG', 'shrub', 'ground'];
@@ -17,6 +24,7 @@ export class FloraChanges {
   constructor(size) { this.size = size; this.saved = null; }
   find(game, light) {
     const s = this.saved, w = game.world, b = game.border;
+    this.trailsWaiting = false;
     if (!s || s.world !== w || s.border !== b || s.light !== !!light) return null;
     // Heights affect interpolated plant positions, water levels and connecting rails. Keep
     // this uncommon operation conservative; graphics changes also rebuild fully.
@@ -46,8 +54,14 @@ export class FloraChanges {
     for (const f of FIELDS) {
       const a = w[f], old = s.inside[f];
       if (!a && !old) continue;
-      const scale = f === 'trailDensity' ? TRAIL_RESOLUTION : 1, width = w.w * scale;
+      const trail = f === 'trailDensity', scale = trail ? TRAIL_RESOLUTION : 1, width = w.w * scale;
+      // Animals wear trails with nearly every step. The plants take up the wear once a game day,
+      // as the ground's trail does (Terrain.updateSurface), rather than redrawing a region every
+      // frame; until then the saved wear stays as last compared (see remember).
+      if (trail && a && old && a.length === old.length && s.trailDay === game.day) { this.trailsWaiting = true; continue; }
+      if (trail) s.trailDay = game.day;
       const touchValue = i => mark(Math.floor((i % width) / scale), Math.floor(i / width / scale));
+      if (trail && a && old && a.length === old.length) { for (let i = 0; i < a.length; i++) if (a[i] !== old[i] && (a[i] > TRAIL_CLEAR || old[i] > TRAIL_CLEAR)) touchValue(i); continue; }
       if (a && old && a.length === old.length) { for (let i = 0; i < a.length; i++) if (a[i] !== old[i]) touchValue(i); continue; }
       for (let i = 0; i < Math.max(a?.length || 0, old?.length || 0); i++) if ((a?.[i] ?? 0) !== (old?.[i] ?? 0)) touchValue(i);
     }
@@ -69,7 +83,9 @@ export class FloraChanges {
       world: w, border: b, height: w.vh.slice(), inside: {}, outside: {}
     };
     s.month = game.month; s.light = !!light; s.height.set(w.vh);
+    const trailsWaiting = this.trailsWaiting && s === this.saved; this.trailsWaiting = false;
     for (const [fields, source, target] of [[[...FIELDS, ...TILE_FIELDS], w, s.inside], [BORDER_FIELDS, b, s.outside]]) for (const f of fields) {
+      if (trailsWaiting && f === 'trailDensity') continue; // (the wear these plants were drawn with)
       const a = source[f];
       if (!a) { delete target[f]; continue; }
       if (!target[f] || target[f].length !== a.length) target[f] = a.slice();
