@@ -621,7 +621,9 @@ function caiman(m, s) {
   const hide = (tail, base) => pixelCoat('caiman', base, [L, cy, gh ? 1 : 0, tail ? 1 : 0, belly.r, belly.g, belly.b], shade(s.color, -0.3), shade(s.color, -0.5));
   loftBody(m, { x0: -L * 0.3, x1: L * 0.24, cy0: cy, cy1: cy, ry0: L * 0.075, ry1: L * 0.08, rz0: L * 0.11, rz1: L * 0.13, fine: true }, hide(false, plain));
   const neck = [L * 0.22, cy, 0], hd = { part: P.HEAD, pivot: neck };
-  const head = u => tmp.copy(col(s.color)).lerp(belly, smooth(-0.12, -0.3, u.y) * 0.8); // (pale below the jaw line)
+  // (pale below the jaw line; on the false gharial's thin snout only right underneath, since its
+  // distant model squeezes the snout's top and underside to about the same size: animal-lod-check)
+  const head = u => tmp.copy(col(s.color)).lerp(belly, (gh ? smooth(-0.3, -0.5, u.y) : smooth(-0.12, -0.3, u.y)) * 0.8);
   // The head is one surface from the neck to the tip of the snout: deep at the jaw muscles, then
   // tapering forward, flat on top and below but never a paddle. A caiman's snout is a broad U, a
   // crocodile's (croc) a narrower V with a little swelling near the tip, the false gharial's a long
