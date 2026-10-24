@@ -2,7 +2,7 @@
 // Watch mode's eye level (render3d/eye-camera.js): the camera rides behind and above the animal,
 // never under the ground, and what it can't see costs nothing: animals past the haze or behind it
 // are culled, and distant ones draw their simple models. The sky at eye level (render3d/eye-sky.js)
-// goes with the eye and carries the weather.
+// goes with the eye and carries the weather, and lightning (render3d/lightning.js) strikes in storms.
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -13,6 +13,7 @@ const { Fauna } = await import('../js/render3d/fauna.js');
 const { ANIMALS, loadAnimals } = await import('../js/data/animals.js');
 const { adultAnimalScale } = await import('../js/render3d/animal-scale.js');
 const { EyeSky, SKY_RADIUS } = await import('../js/render3d/eye-sky.js');
+const { Lightning, boltPath, BOLT_TOP } = await import('../js/render3d/lightning.js');
 
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
@@ -90,17 +91,48 @@ check('The eye-level sky rides with the eye, inside its far plane, with the weat
   assert.ok(SKY_RADIUS < EYE_FAR, 'the dome is never clipped by the far plane');
   const c = new THREE.Color(0.5, 0.6, 0.7);
   const v = { cam: e.camera, forward: e.forward, t: 1, dt: 1 / 60, horizon: c, zenith: c, sunDir: new THREE.Vector3(0, 1, 0), sunCol: c,
-    sunLight: 1, sunUp: 1, night: 0, cover: 0, storm: 0, rain: 0, snow: 0, bolts: false, px: 800 };
-  assert.equal(sky.update(v), 0, 'no lightning on a clear day');
+    sunLight: 1, sunUp: 1, night: 0, cover: 0, storm: 0, rain: 0, snow: 0, flash: 0, px: 800 };
+  sky.update(v);
   assert.ok(sky.dome.visible && sky.dome.position.equals(e.camera.position), 'the dome is centred on the eye');
   assert.ok(!sky.rain.visible && !sky.snow.visible, 'nothing falls on a dry day');
-  let flashed = 0;
-  for (let k = 0; k < 60 * 20; k++) flashed = Math.max(flashed, sky.update({ ...v, rain: 1, storm: 1, bolts: true }));
-  assert.ok(sky.rain.visible && flashed > 0.9, 'a thunderstorm rains, and lightning flashes within 20 s');
+  sky.update({ ...v, rain: 1, storm: 1, flash: 1 });
+  assert.ok(sky.rain.visible && sky.u.uFlash.value === 1, 'a thunderstorm rains, and the clouds light up with a flash');
   sky.update({ ...v, snow: 1 });
   assert.ok(sky.snow.visible && !sky.rain.visible, 'snow falls');
   sky.hide();
   assert.ok(!sky.dome.visible && !sky.rain.visible && !sky.snow.visible && sky.flash === 0, 'all of it goes with the usual view');
+});
+
+check('A lightning bolt runs from the cloud to the ground where it strikes, with forks', () => {
+  for (let k = 0; k < 50; k++) {
+    const segs = boltPath(3, 5 + BOLT_TOP, 4, 5, 5, 6);
+    const last = segs.filter(s => s[6] === 9).at(-1), first = segs[0];
+    assert.ok(Math.abs(first[1] - (5 + BOLT_TOP)) < 1e-9 && first[7] === 0, 'starts at the cloud');
+    assert.deepEqual(last.slice(3, 6), [5, 5, 6], 'ends on the strike point');
+    assert.ok(segs.some(s => s[6] < 9), 'has forks');
+    for (const s of segs) for (const x of s) assert.ok(Number.isFinite(x));
+  }
+});
+
+check('Lightning strikes only in a thunderstorm, every few seconds, in both views', () => {
+  const L = new Lightning(new THREE.Scene()), at = () => ({ x: 4, y: 0, z: 4 });
+  let seen = 0;
+  for (let k = 0; k < 60 * 30; k++) seen = Math.max(seen, L.update(1 / 60, false, at, 800, 600));
+  assert.equal(seen, 0, 'no lightning without a storm');
+  assert.ok(!L.mesh.visible);
+  let strikes = 0, bolts = 0, prev = 0;
+  for (let k = 0; k < 60 * 120; k++) {
+    const f = L.update(1 / 60, true, at, 800, 600);
+    if (f === 1 && prev < 1) { strikes++; if (L.count) bolts++; }
+    prev = f;
+  }
+  assert.ok(strikes >= 6 && strikes <= 45, `${strikes} flashes in two minutes`);
+  assert.ok(bolts >= 3 && bolts < strikes + 1, `${bolts} of them with a bolt`);
+  // (a bolt shows for a moment after its strike, then goes)
+  L.strike(at()); L.update(0.01, false, at, 800, 600);
+  assert.ok(L.mesh.visible && L.mesh.geometry.drawRange.count === L.count * 6);
+  for (let k = 0; k < 60; k++) L.update(1 / 60, false, at, 800, 600);
+  assert.ok(!L.mesh.visible);
 });
 
 console.log(`${checks} watch checks passed`);

@@ -55,16 +55,29 @@ deep blue with stars and the moon at night) and greyed by cloud.
   broken cloud on cloudy days, and a grey veil with heavier, darker cloud in rain and snow.
 - Fog follows the weather: 9–34 tiles when clear, closer when cloudy, 3–22 in rain, 2–18 in snow,
   and a dawn mist. Its colour is the dome's horizon, so the land melts into the sky.
-- Some rain days (the same ones all day, `hash2(day, 7, 3) < 0.45`) are thunderstorms: every 3–16
-  s the clouds light up from inside and the whole view flashes (`toneMappingExposure`, so nothing
-  recompiles), sometimes flickering twice. There's no thunder sound yet: 0002 asks for real
-  recordings, and none is in the game.
+- The clouds light up from inside with each lightning flash (below).
 - Rain and snow fall round the eye: a fixed set of streaks and flakes wrapping round a box that
   travels with it, moved entirely in the vertex shader (2,400 streaks, 2,000 flakes, one draw each).
 - Not under the sea (the reef keeps its water haze), and Graphics → Weather off turns the rain,
   snow and lightning off.
 - Cost: the dome is drawn after the land with the depth test on, so only the visible sky's pixels
   run its shader (four noise octaves plus a lighter second sample for the sunlit side).
+
+**Lightning strikes** (`js/render3d/lightning.js`, `Renderer.updateLightning`; Cole asked for
+strikes visible from the ground and in the usual view). Some rain days, the same ones all day
+(`hash2(day, 7, 3) < 0.45`), are thunderstorms. Every 3–16 s there's a flash, and 70% of flashes
+have a bolt: a jagged channel (midpoint displacement) with a few forks, flickering on, dim and on
+again over 0.4 s. In the usual view it lands at a random spot on screen and starts above the top of
+the screen. At eye level it lands 7–26 tiles out ahead, from the cloud layer 11 tiles up, and
+shows through the rain haze. The flash is the renderer's exposure (×1.45 in the usual view, ×1.7 at
+eye level), so nothing recompiles and no light is added.
+
+The bolt is one mesh of segments widened to a few pixels in the vertex shader, so it reads the
+same in both cameras. Two things to know about it: each segment's far end looks on past itself
+(`aOther` = 2B − A) so both ends widen the same way, and the material is double-sided, since a
+strip's winding on screen depends on which way the segment runs (single-sided, every strip that
+ran the "wrong" way was culled and nothing showed). Not under the sea, and Graphics → Weather off
+turns it off.
 
 ## Evidence
 
@@ -86,6 +99,8 @@ perspective culling, and distant models by distance.
 
 - Eye level hasn't been measured on the low-end target (Intel HD 520). Run `tools/play-profile.mjs`
   with watch mode on before promoting it beyond the watch bar.
-- Lightning has no thunder (no recording yet).
+- Lightning has no thunder: 0002 asks for real recordings, and the game has none of thunder yet.
+- Lightning never starts a fire. It's drawing only; PNW's "dry lightning strike" fires are still
+  the fire events' own.
 - The sky's cost on the low-end GPU is unmeasured, like the rest of eye level.
 - Canopy climbers (monkeys, orangutans) and the reef at eye level are untested by eye.

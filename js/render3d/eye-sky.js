@@ -2,8 +2,8 @@
 // shades blue overhead down to the haze at the horizon, with the sun (or the moon, and stars) and
 // the day's clouds. The clouds are the same field whose shadows drift over the ground
 // (atmosphere.js), laid out on a layer a few tiles up, so a cloud overhead is the one shading the
-// grass. Overcast days draw a grey veil, rain days a darker one with heavier cloud, and some rain
-// days are thunderstorms with lightning. Rain and snow fall round the eye too, since the 2D
+// grass. Overcast days draw a grey veil, rain days a darker one with heavier cloud, and the clouds
+// light up with a lightning flash (lightning.js). Rain and snow fall round the eye too, since the 2D
 // effects layer (placed for the usual view) is off at eye level.
 //
 // Drawing only, and only at eye level. The dome is drawn after the land with the depth test on,
@@ -45,7 +45,7 @@ const DOME_FRAG = `
     if (uNight > 0.01) {
       vec3 q = d * 170.0, c = floor(q);
       float h = fract(sin(dot(c, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-      float star = step(0.991, h) * smoothstep(0.42, 0.08, length(fract(q) - 0.5));
+      float star = step(0.991, h) * (1.0 - smoothstep(0.08, 0.42, length(fract(q) - 0.5)));
       col += vec3(0.7, 0.76, 1.0) * star * uNight * smoothstep(0.04, 0.25, d.y) * (0.65 + 0.35 * sin(uT * 2.3 + h * 90.0));
     }
     // the sun's disc, or the moon's at night
@@ -102,7 +102,7 @@ const FALL_FRAG = (points) => `
   varying float vFade;
   void main() {
     float a = uOpacity * vFade;
-    ${points ? 'a *= smoothstep(0.5, 0.2, length(gl_PointCoord - 0.5));' : ''}
+    ${points ? 'a *= 1.0 - smoothstep(0.2, 0.5, length(gl_PointCoord - 0.5));' : ''}
     if (a < 0.01) discard;
     gl_FragColor = vec4(uColor, a);
   }`;
@@ -143,12 +143,11 @@ export class EyeSky {
     this.dome.renderOrder = 1e6; this.dome.frustumCulled = false; this.dome.visible = false;
     this.rain = fall(RAIN, true); this.snow = fall(SNOW, false);
     scene.add(this.dome, this.rain, this.snow);
-    this.flash = 0; this.boltIn = 2; this.reflash = 0;
+    this.flash = 0;
   }
 
   // v: { cam, forward, t, dt, horizon, zenith, sunDir, sunCol, sunLight, sunUp, night, cover, storm,
-  //      rain, snow (0..1), bolts (a thunderstorm), px (drawing-buffer pixels a tile-wide thing covers 1 tile away, for snowflakes) }
-  // Returns how bright a lightning flash is right now (0 most of the time).
+  //      rain, snow (0..1), flash (lightning, 0..1), px (drawing-buffer pixels a tile-wide thing covers 1 tile away, for snowflakes) }
   update(v) {
     const u = this.u, cam = v.cam.position;
     this.dome.visible = true;
@@ -157,12 +156,7 @@ export class EyeSky {
     u.uSunDir.value.copy(v.sunDir); u.uSunCol.value.copy(v.sunCol); u.uCam.value.copy(cam);
     u.uSunLight.value = v.sunLight; u.uSunUp.value = v.sunUp; u.uNight.value = v.night;
     u.uCover.value = v.cover; u.uStorm.value = v.storm; u.uT.value = v.t;
-    // lightning: a flash every few seconds to a quarter-minute, sometimes flickering twice
-    this.flash *= Math.exp(-v.dt * 7);
-    if (v.bolts) {
-      if ((this.boltIn -= v.dt) <= 0) { this.flash = 1; this.reflash = Math.random() < 0.6 ? 0.1 + Math.random() * 0.1 : 0; this.boltIn = 3 + Math.random() * 13; }
-      if (this.reflash > 0 && (this.reflash -= v.dt) <= 0) this.flash = Math.max(this.flash, 0.8);
-    }
+    this.flash = v.flash || 0;
     u.uFlash.value = this.flash;
     this.lum = Math.min(1, 0.25 + 1.6 * (v.horizon.r * 0.3 + v.horizon.g * 0.6 + v.horizon.b * 0.1)); // (snowflakes go grey as the light fades)
     // rain and snow round the eye, a little ahead of it so more of it is in view
@@ -170,7 +164,6 @@ export class EyeSky {
     o.y += BOX.y * 0.3; // (mostly above the eye: below it, the ground hides them)
     this.place(this.rain, o, v.t, v.rain, 0.5, v.horizon, 1.35, 0, 0.3, RAIN_VEL, v.px);
     this.place(this.snow, o, v.t, v.snow, 0.95, WHITE, 0.92, 0.25, 0, SNOW_VEL, v.px * 0.05);
-    return this.flash;
   }
 
   place(obj, origin, t, amount, opacity, tint, bright, sway, len, vel, px) {

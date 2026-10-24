@@ -4,6 +4,7 @@
 import { easeAnimalTarget } from './animal-camera.js';
 import { EyeCamera, EYE_FAR, EYE_FOG_NEAR } from './eye-camera.js';
 import { EyeSky } from './eye-sky.js';
+import { Lightning } from './lightning.js';
 import { perspectiveScale } from './actor-view.js';
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
@@ -121,7 +122,8 @@ export class Renderer {
     // of reach in the usual view, so switching to eye level doesn't recompile every material.
     this.scene.fog = new THREE.Fog(0x9fb2a4, 1e5, 2e5);
     this.eye = new EyeCamera(); this.eyeAgent = null; this.eyeOn = false;
-    this.eyeSky = new EyeSky(this.scene); this.eyeWx = { storm: 0, snow: 0, near: EYE_FOG_NEAR, far: EYE_FAR };
+    this.eyeSky = new EyeSky(this.scene); this.lightning = new Lightning(this.scene); this.bufSize = new THREE.Vector2();
+    this.eyeWx = { storm: 0, snow: 0, near: EYE_FOG_NEAR, far: EYE_FAR };
     // the zoom whose plant models eye level draws: the finest on Balanced and High, the in-between ones
     // on Fast (the finest doubled the triangles there)
     this.eyeDetail = 1.6;
@@ -512,7 +514,7 @@ export class Renderer {
     const a = this.eyeAgent;
     this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, this.vw / Math.max(1, this.vh), dt, (x, z) => this.heightAtScene(x, z));
     const fog = this.scene.fog;
-    if (!this.eyeOn) { fog.near = 1e5; fog.far = 2e5; this.scene.background = null; this.eyeSky.hide(); this.gl.toneMappingExposure = 1; return; }
+    if (!this.eyeOn) { fog.near = 1e5; fog.far = 2e5; this.scene.background = null; this.eyeSky.hide(); return; }
     if (this.seaY != null) {
       // under the sea: no sky, only the water's own haze
       fog.near = EYE_FOG_NEAR; fog.far = EYE_FAR;
@@ -554,15 +556,34 @@ export class Renderer {
     const sunDir = this.skySun || (this.skySun = new THREE.Vector3());
     sunDir.copy(this.sunOffset).normalize();
     const cam = this.eye.camera;
-    const flash = this.eyeSky.update({
+    this.eyeSky.update({
       cam, forward: this.eye.forward, t: this.time, dt, horizon, zenith, sunDir, sunCol: this.sun.color,
       sunLight: clamp(this.sun.intensity / 2.6, 0, 1.4), sunUp: clamp(tod.el / 54, 0, 1), night, cover, storm: W.storm,
-      rain: this.terrain.rain.value, snow: W.snow,
-      // some rain days are thunderstorms (the same ones all day)
-      bolts: wx === 'rain' && weatherOn && hash2(game.day, 7, 3) < 0.45,
+      rain: this.terrain.rain.value, snow: W.snow, flash: this.lightning.flash,
       px: perspectiveScale(cam, this.vh) * this.dpr,
     });
-    this.gl.toneMappingExposure = 1 + flash * 0.7;
+  }
+
+  // Lightning (lightning.js): some rain days are thunderstorms (the same ones all day). A bolt lands
+  // somewhere on screen in the usual view, or out ahead at eye level, and the view flashes.
+  updateLightning(dt, game) {
+    const storm = game.weather === 'rain' && this.weatherOn !== false && this.seaY == null && hash2(game.day, 7, 3) < 0.45;
+    const place = () => {
+      if (this.eyeOn) {
+        const e = this.eye, ang = Math.atan2(e.forward.z, e.forward.x) + (Math.random() - 0.5) * THREE.MathUtils.degToRad(e.camera.fov * e.camera.aspect * 0.8);
+        const d = 7 + Math.random() * 19, x = e.pos.x + Math.cos(ang) * d, z = e.pos.z + Math.sin(ang) * d;
+        return { x, y: this.heightAtScene(x, z), z };
+      }
+      // (from above the top of the screen: a tile of height is ppu·cos(EL) pixels up the screen)
+      const sy = this.vh * (0.35 + Math.random() * 0.55), p = this.screenToTile(this.vw * (0.15 + Math.random() * 0.7), sy);
+      return { x: p.fx, y: this.heightAtScene(p.fx, p.fy), z: p.fy, top: clamp(sy / (this.ppu * Math.cos(EL)) * 1.15 + 1, 6, 80) };
+    };
+    const L = this.lightning;
+    if (!storm && L.age > 1) { L.mesh.visible = false; L.flash = 0; this.gl.toneMappingExposure = 1; return; }
+    L.pxScale = this.dpr;
+    this.gl.getDrawingBufferSize(this.bufSize);
+    const flash = L.update(dt, storm, place, this.bufSize.x, this.bufSize.y);
+    this.gl.toneMappingExposure = 1 + flash * (this.eyeOn ? 0.7 : 0.45);
   }
 
   // Ray from a screen point into the scene.
@@ -951,6 +972,7 @@ export class Renderer {
     this.actors.clean = !!ui.clean;
     this.actors.followAgent = this.followAgent || this.eyeAgent;
     this.actors.update(game, this.eyeOn ? this.eye.right : r, this.time, this.eyeOn ? this.eye.camera : this.camera, this.vh);
+    this.updateLightning(dt, game);
     this.updateEye(dt, game);
     const cam = this.eyeOn ? this.eye.camera : this.camera;
     if (!this.eyeOn) this.updateAnimalCamera(dt);
