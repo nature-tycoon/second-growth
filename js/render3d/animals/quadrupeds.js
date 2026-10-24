@@ -1013,7 +1013,7 @@ const MAMMALS = {
   hyena: s => {
     const L = s.len, H = s.h, leg = s.leg, by = leg + H * 0.5;
     return {
-      H, leg, hip: -0.16, shoulder: 0.16, chest: 1.1, haunch: 0.8, legR0: H * 0.16, legR1: H * 0.09, legColor: shade(s.color, -0.1), neckR: H * 0.32, dots: [s.dark, 6, 0.26],
+      H, leg, hip: -0.16, shoulder: 0.16, chest: 1.1, haunch: 0.8, legR0: H * 0.13, legR1: H * 0.065, legColor: shade(s.color, -0.1), neckR: H * 0.32, dots: [s.dark, 6, 0.26], // (heavy shoulders, but slender legs)
       head: [L * 0.54, by + H * 0.35], headR: [H * 0.36, H * 0.3, H * 0.28], snout: H * 0.28, muzzle: '#2a2420',
       ears: 'round', ear: H * 0.26, earColor: shade(s.color, -0.1),
       tail: (m, b) => { const base = [-L * 0.44, b.by, 0]; m.limb(base, [-L * 0.55, b.by - H * 0.4, 0], H * 0.07, H * 0.09, s.dark, { part: P.TAIL, pivot: base }); },
