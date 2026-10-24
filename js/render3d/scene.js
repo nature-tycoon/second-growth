@@ -579,6 +579,7 @@ export class Renderer {
       return { x: p.fx, y: this.heightAtScene(p.fx, p.fy), z: p.fy, top: clamp(sy / (this.ppu * Math.cos(EL)) * 1.15 + 1, 6, 80) };
     };
     const L = this.lightning;
+    L.storm = storm;
     if (!storm && L.age > 1) { L.mesh.visible = false; L.flash = 0; this.gl.toneMappingExposure = 1; return; }
     L.pxScale = this.dpr;
     this.gl.getDrawingBufferSize(this.bufSize);

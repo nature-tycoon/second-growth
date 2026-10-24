@@ -1126,5 +1126,77 @@
     "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
     "highpass": 300,
     "download": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Aix_sponsa_-_Wood_Duck_XC177728.mp3"
+  },
+  "thunder-crack": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/7/75/Thunder_crack_2B.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Thunder_crack_2B.ogg",
+    "by": "Jud McCranie",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": "A crack of thunder recorded April 17, 2022, with a pair of Audio Technica AT3035 microphones on a TASCAM DR-100 Mk III.",
+    "size": 724247,
+    "title": "Thunder crack 2B.ogg",
+    "clips": [
+      {
+        "name": "field-thunder-crack-1",
+        "offset": 3.0,
+        "duration": 10,
+        "bytes": 101598
+      }
+    ],
+    "sha256": "7fe08acfc149980cbdd09cd53e90b60c71707eff9e3312bb192740ae86a5456e",
+    "modified": "Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license.",
+    "highpass": 25,
+    "bitrate": "80k"
+  },
+  "thunder-claps": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/5/54/Thunder_Claps.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Thunder_Claps.ogg",
+    "by": "Jonathan Hunt",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": "Thunder recorded about 2500 ft from the strike, with two audible thunderclaps.",
+    "size": 2781953,
+    "title": "Thunder Claps.ogg",
+    "clips": [
+      {
+        "name": "field-thunder-claps-1",
+        "offset": 3.3,
+        "duration": 9.5,
+        "bytes": 96164
+      },
+      {
+        "name": "field-thunder-claps-2",
+        "offset": 14.7,
+        "duration": 7.5,
+        "bytes": 76581
+      }
+    ],
+    "sha256": "0d84dee91d1ff4ce33d792866bdca8831f3ba6664bd1a8991731278450b53a79",
+    "modified": "Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license.",
+    "highpass": 25,
+    "bitrate": "80k"
+  },
+  "thunder-distant": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/9/93/Thunder.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Thunder.ogg",
+    "by": "Bidgee",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "description": "Thunder recorded in Darwin, Northern Territory, Australia.",
+    "size": 143493,
+    "title": "Thunder.ogg",
+    "clips": [
+      {
+        "name": "field-thunder-distant-1",
+        "offset": 0.9,
+        "duration": 11,
+        "bytes": 110748
+      }
+    ],
+    "sha256": "c66da284f376957f337230533671c004e08364b87b73959f067986cbfa8504dd",
+    "modified": "Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license.",
+    "highpass": 25,
+    "bitrate": "80k"
   }
 }

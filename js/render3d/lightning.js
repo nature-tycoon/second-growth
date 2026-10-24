@@ -88,6 +88,8 @@ export class Lightning {
     scene.add(this.mesh);
     this.flash = 0; this.next = 2; this.age = LIFE; this.reflash = 0; this.count = 0;
     this.pxScale = 1; // drawing-buffer pixels per CSS pixel
+    this.strikes = []; // for the thunder (audio/thunder.js, which drains it): {x, z} where a bolt landed, {} for a flash in the clouds
+    this.storm = false; // (set by the renderer)
   }
 
   // storm: a thunderstorm now. place(): where the next bolt lands, {x, y, z} on the ground and how
@@ -111,6 +113,8 @@ export class Lightning {
     this.reflash = Math.random() < 0.6 ? 0.1 + Math.random() * 0.1 : 0;
     this.next = 3 + Math.random() * 13;
     this.count = 0;
+    this.strikes.push(at ? { x: at.x, z: at.z } : {});
+    if (this.strikes.length > 4) this.strikes.shift();
     if (!at) return;
     const top = at.top || BOLT_TOP, lean = () => (Math.random() - 0.5) * top * 0.4;
     const segs = boltPath(at.x + lean(), at.y + top, at.z + lean(), at.x, at.y, at.z);

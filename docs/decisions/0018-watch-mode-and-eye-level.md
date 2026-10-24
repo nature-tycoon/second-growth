@@ -79,6 +79,19 @@ strip's winding on screen depends on which way the segment runs (single-sided, e
 ran the "wrong" way was culled and nothing showed). Not under the sea, and Graphics → Weather off
 turns it off.
 
+**Thunder** (`js/audio/thunder.js`, `Music.thunder`; added 2026-10-23). Each strike pushes where it
+landed onto `lightning.strikes` (`{}` for a flash in the clouds), and the UI's per-frame audio pass
+drains it. The listener is the middle of the view, or the eye at eye level. Thunder comes
+`0.25 + d / 16` s after the flash (d in tiles: a stylized speed of sound, so it rolls in a second or
+two later, not ten), softer and through a lower low-pass the farther it is, panned to its side.
+Bolts nearer than about 32 tiles crack or clap; farther ones and cloud flashes (2.5–6.5 s later)
+rumble. At most two rolls play at once, each at a slightly different speed. They're real recordings
+per 0002: Jud McCranie's "Thunder crack 2B", Jonathan Hunt's "Thunder Claps" (both CC BY-SA 4.0) and
+Bidgee's Darwin "Thunder" (CC BY 3.0), all Wikimedia Commons, four clips (385 KB) that download on
+the first storm day. They were cut in Chrome and encoded with macOS `afconvert`, as this Mac had no
+ffmpeg; `tools/prepare-field-audio.py` would re-encode them with its own filters.
+`node tools/thunder-check.mjs`.
+
 ## Evidence
 
 Measured on Enkare Conservancy (year 9, 402 animals, Fast). Triangles are a fair comparison here;
@@ -99,7 +112,6 @@ perspective culling, and distant models by distance.
 
 - Eye level hasn't been measured on the low-end target (Intel HD 520). Run `tools/play-profile.mjs`
   with watch mode on before promoting it beyond the watch bar.
-- Lightning has no thunder: 0002 asks for real recordings, and the game has none of thunder yet.
 - Lightning never starts a fire. It's drawing only; PNW's "dry lightning strike" fires are still
   the fire events' own.
 - The sky's cost on the low-end GPU is unmeasured, like the rest of eye level.

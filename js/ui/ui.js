@@ -5,6 +5,7 @@ import { T, F, FEATURE_NAMES, MONTH_NAMES, DIFFICULTY, DAYS_PER_YEAR, isWater, m
 import { music } from '../audio/music.js';
 import { sampleSoundLand } from '../audio/land.js';
 import { rutSounds } from '../audio/rut-events.js';
+import { thunderSounds } from '../audio/thunder.js';
 import { flightCalls } from '../audio/flight-calls.js';
 import { MUSIC_LICENSE } from '../audio/tracks.js';
 import { SOUND_CREDITS } from '../audio/sounds.js';
@@ -777,6 +778,7 @@ export class UI {
     this.refreshTop();
     rutSounds(this.game, this.renderer, music, this.renderer.time);
     flightCalls(this.game, this.renderer, music);
+    thunderSounds(this.renderer, music);
     const now = performance.now();
     if (this.state.inspect && now - this.lastInfo > 600) { this.lastInfo = now; this.renderInfo(); }
     if (now - this.lastMini > 120) { this.lastMini = now; this.drawMinimap(now - this.lastMiniFull > 1500); }
