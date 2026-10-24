@@ -295,6 +295,12 @@ and a spot behind (a tiger's) are options. The quadruped's `ears: 'point' | 'rou
 tapered limbs (they read as cones) or solid ovals. Exceptions: elephants' sculpted flaps and the
 primates' small flat ears.
 
+Gotcha: `pinna` starts only 12% of its length inside its base, and a wide round ear's root is as
+wide as the ear, so a base set on (or above) a curved skull leaves the root's outer edge, or the
+whole ear, floating. Put the base well inside the head, measured from the head's own radii (the
+bears' `ear()` in `small-mammals.js` sinks it 10–16% in from the surface), and lean the ear out
+with the skull, not in toward the midline.
+
 ## Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the

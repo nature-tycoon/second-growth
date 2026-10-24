@@ -1,6 +1,6 @@
 // Rodents, squirrels, rabbits and bears.
 import * as THREE from 'three';
-import { P, SPH_HI, col, grad, hash3, pinnaAt, pixelCoat, place, sculpt, shade, smooth, tmp } from './model-core.js';
+import { P, SPH_HI, col, grad, hash3, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, tmp } from './model-core.js';
 
 // A vole is a furry egg with a blunt nose: tiny feet, ears tucked in the fur, a short tail.
 // A chipmunk (stripes) is the same egg, perkier: head up, bold back stripes, a striped face
@@ -138,13 +138,21 @@ function bear(m, s) {
   const hs = sun ? 1.18 : 1; // a sun bear's head is big for its body
   const neck = [L * 0.3, by + 1.5 * k, 0], hd = { part: P.HEAD, pivot: neck }, hp = [L * 0.51 + (sun ? H * 0.04 : 0), by - 0.4 * k + (sun ? H * 0.12 : 0), 0];
   m.limb(neck, [hp[0] - 3 * k, hp[1], 0], H * 0.33, H * 0.28, coat, hd);
-  m.ell(hp, [H * 0.29 * hs, H * 0.26 * hs, H * 0.26 * hs * (sun ? 1.08 : 1)], coat, hd);
+  const hr = [H * 0.29 * hs, H * 0.26 * hs, H * 0.26 * hs * (sun ? 1.08 : 1)];
+  m.ell(hp, hr, coat, hd);
+  // an ear rooted in the skull: its root starts a share (sink) of the way in from the head's surface,
+  // phi up from the side of the head, so the whole mouth of the funnel stays under the fur, and it
+  // leans out from upright by lean (len and width in shares of the height)
+  const ear = (side, phi, sink, lean, len, width, color, o) => {
+    const d = 1 - sink, base = [hp[0] - H * 0.05, hp[1] + hr[1] * Math.sin(phi) * d, side * hr[2] * Math.cos(phi) * d];
+    pinna(m, base, [base[0] - H * 0.02, base[1] + H * len * Math.cos(lean), base[2] + side * H * len * Math.sin(lean)], H * width, color, { ...hd, shape: 'round', cup: 0.35, ...o });
+  };
   if (sun) {
     // short, broad pale muzzle with a dark nose, and pale-rimmed small round ears
     m.ell([hp[0] + H * 0.27 * hs, hp[1] - H * 0.09 * hs, 0], [H * 0.17, H * 0.13, H * 0.15], s.muzzle, hd);
     m.ell([hp[0] + H * 0.42 * hs, hp[1] - H * 0.05 * hs, 0], [H * 0.06, H * 0.055, H * 0.075], '#0c0a09', { ...hd, lo: true });
     for (const side of [1, -1]) {
-      pinnaAt(m, [hp[0] - H * 0.04, hp[1] + H * 0.27 * hs, side * H * 0.22 * hs], [H * 0.04, H * 0.075, H * 0.075], [side * -0.3, 0, 0], s.color, { ...hd, shape: 'round', cup: 0.35, rim: s.muzzle });
+      ear(side, 0.8, 0.1, 0.45, 0.13, 0.14, s.color, { rim: s.muzzle }); // (small, set low and wide on the broad skull)
       m.ell([hp[0] + H * 0.14 * hs, hp[1] + H * 0.07 * hs, side * H * 0.23 * hs], [H * 0.035, H * 0.035, H * 0.02], '#3a2a1e', { ...hd, lo: true, gloss: 2 });
       m.eyeSpot = [hp[0] + H * 0.14 * hs, hp[1] + H * 0.07 * hs, H * 0.23 * hs]; // (eyes)
     }
@@ -152,7 +160,7 @@ function bear(m, s) {
     m.ell([hp[0] + H * 0.26, hp[1] - H * 0.08, 0], [H * 0.2, H * 0.13, H * 0.13], s.muzzle, hd);
     m.ell([hp[0] + H * 0.44, hp[1] - H * 0.05, 0], [H * 0.055, H * 0.05, H * 0.07], '#0c0a09', { ...hd, lo: true });
     for (const side of [1, -1]) {
-      pinnaAt(m, [hp[0] - H * 0.06, hp[1] + H * 0.24, side * H * 0.17], [H * 0.05, H * 0.1, H * 0.09], [side * -0.3, 0, 0], '#2e2520', { ...hd, shape: 'round', cup: 0.35 });
+      ear(side, 0.9, 0.16, 0.15, 0.22, 0.18, '#2e2520');
       m.ell([hp[0] + H * 0.1, hp[1] + H * 0.07, side * H * 0.226], [H * 0.04, H * 0.04, H * 0.024], '#2a1c12', { ...hd, lo: true, gloss: 2 }); // (on the head's surface)
       m.eyeSpot = [hp[0] + H * 0.1, hp[1] + H * 0.07, H * 0.226]; // (eyes)
     }
