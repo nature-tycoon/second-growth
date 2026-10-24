@@ -44,6 +44,11 @@ const SPH_LO = new THREE.SphereGeometry(1, 7, 5);
 const SPH_HI = new THREE.SphereGeometry(1, 24, 16); // for bodies that carry fine markings
 const SPH_XL = new THREE.SphereGeometry(1, 56, 36); // a tortoise's plated shell
 const SCALE = new THREE.SphereGeometry(1, 6, 3); // one of a pangolin's hundreds of plates (kept light)
+// The close-up model (see Model.close) swaps these spheres for finer ones and gives limbs, tubes
+// and lofts CLOSE times the segments, so outlines stay round when an animal fills the screen. (The
+// pangolin's plates and the tortoise's shell are fine enough already.)
+const FINER = new Map([[SPH, new THREE.SphereGeometry(1, 20, 14)], [SPH_LO, new THREE.SphereGeometry(1, 12, 8)], [SPH_HI, new THREE.SphereGeometry(1, 36, 24)]]);
+const CLOSE = 1.6;
 
 // A thin flat shape (fins, wing membranes): drawn in 2D, given a hair of thickness, indexed so it
 // merges with the rest of the model. plane 'xz' lays it flat (span along z), 'xy' stands it up.
@@ -114,7 +119,10 @@ function wingShape(kind, side) {
 }
 
 class Model {
-  constructor() { this.parts = []; this.hard = false; this.coats = []; }
+  // close: build the close-up model, same shapes in finer segments (see FINER)
+  constructor(close = false) { this.parts = []; this.hard = false; this.coats = []; this.close = close; }
+  seg(n) { return this.close ? Math.round(n * CLOSE) : n; }
+  finer(geo) { return this.close ? FINER.get(geo) ?? geo : geo; }
   // geo: a unit primitive; m: where it goes; paint(unitPos, worldPos) -> colour.
   // ext: a second placement (wings spread out), blended in by the shader when flying.
   // paintGeo: optional geometry whose positions are handed to paint() instead of geo's own
@@ -123,6 +131,7 @@ class Model {
   // this.hard is set; see build)
   // gloss: 1 a slight shine (a wet nose, hooves; horns, antlers and tusks have it anyway), 2 an eye
   add(geo, m, paint, { part = P.BODY, pivot = null, ext = null, paintGeo = null, extSrc = null, hard = false, gloss = 0 } = {}) {
+    if (!paintGeo && !extSrc) geo = this.finer(geo); // (a paint or pose geometry must keep its vertices)
     const unit = geo.clone();
     const paintPos = (paintGeo || unit).attributes.position;
     if (unit.attributes.uv) unit.deleteAttribute('uv');
@@ -159,7 +168,7 @@ class Model {
   limb(p0, p1, r0, r1, paint, o = {}) {
     const a = V(...p0), d = V(...p1).sub(a), len = d.length() || 1e-3;
     const q = new THREE.Quaternion().setFromUnitVectors(UP, d.clone().normalize());
-    this.add(cyl(r0, r1, o.seg, o.rings), new THREE.Matrix4().compose(a, q, V(1, len, 1)), paint, o);
+    this.add(cyl(r0, r1, this.seg(o.seg ?? 7), o.rings), new THREE.Matrix4().compose(a, q, V(1, len, 1)), paint, o);
     if (o.caps !== false) {
       this.add(SPH_LO, place(p0, [0, 0, 0], [r0, r0, r0]), paint, o);
       this.add(SPH_LO, place(p1, [0, 0, 0], [r1, r1, r1]), paint, o);
@@ -254,7 +263,7 @@ function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
 // rounds off at both ends (no seams between separate blobs). Paint gets (ny, x, side) in
 // unit-like coordinates, so countershading and spots work as they do on a sphere.
 function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBulk = 0, fine = false }, paint, o = {}) {
-  const R = fine === 3 ? 128 : fine === 2 ? 84 : fine ? 56 : 22, A = fine === 3 ? 88 : fine === 2 ? 60 : fine ? 36 : 14, pos = [], idx = [], u = [];
+  const R = m.seg(fine === 3 ? 128 : fine === 2 ? 84 : fine ? 56 : 22), A = m.seg(fine === 3 ? 88 : fine === 2 ? 60 : fine ? 36 : 14), pos = [], idx = [], u = [];
   for (let i = 0; i <= R; i++) {
     const t = i / R, x = x0 + (x1 - x0) * t;
     const w = Math.sqrt(Math.max(0, 1 - Math.pow(Math.abs(2 * t - 1), 2.6))); // rounded, blunt ends
@@ -285,7 +294,7 @@ function loftBody(m, { x0, x1, cy0, cy1, ry0, ry1, rz0, rz1, sag = 0, shoulderBu
 // closed off with rounded ends. up: the direction the oval's first radius (and paint's u.y) faces
 // at the start. Paint gets (u, p): u.x runs -1..1 along the tube, u.y/u.z round it.
 function tube(m, pts, rad, paint, o = {}) {
-  const sub = o.sub ?? 4, A = o.seg ?? 10, n = pts.length;
+  const sub = m.seg(o.sub ?? 4), A = m.seg(o.seg ?? 10), n = pts.length;
   const R = rad.map(r => (Array.isArray(r) ? r : [r, r]));
   const at = (i, k) => pts[Math.max(0, Math.min(n - 1, i))][k];
   const S = [], SR = [];
@@ -483,6 +492,7 @@ function onProfile(B, x, th, lift = 1) { const [cy, ry, rz] = profileAt(B, x); r
 // point for unit direction d. Paint gets (d, p). The sphere's seam is welded so it shades smoothly.
 const sculptBase = new Map();
 function sculpt(m, fn, paint, o = {}, geo = SPH_HI) {
+  geo = m.finer(geo);
   let unit = sculptBase.get(geo);
   if (!unit) { unit = geo.clone(); unit.deleteAttribute('uv'); unit.deleteAttribute('normal'); unit = mergeVertices(unit); sculptBase.set(geo, unit); }
   const g = unit.clone(), p = g.attributes.position, d = new THREE.Vector3();

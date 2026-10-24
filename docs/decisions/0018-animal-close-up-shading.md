@@ -8,8 +8,8 @@ draw. The plan has four steps, cheapest first:
 2. **Shading baked into the models** (done, with step 1): creases measured once per model.
 3. **Markings drawn per pixel** (done): spots, stripes and patches worked out in the shader, so
    they stay sharp, and the extra-dense bodies that only existed to carry them are gone.
-4. **A close-up model** (open): smoother legs and heads, plus nostrils, lids, hooves and claws, only
-   for animals more than about 300 pixels long on screen, built the first time it is needed.
+4. **A close-up model** (done): the same animal in finer segments, so outlines stop showing
+   facets, drawn only for animals large on screen and built the first time it is needed.
 
 Bending knees and a fine fur texture would come after that, as their own decision.
 
@@ -96,10 +96,34 @@ Bending knees and a fine fur texture would come after that, as their own decisio
 - Still painted per vertex: the tiger (its own builder and a plain-density body), the zebra's face
   and legs, the clouded leopard's legs and head, and bird plumage.
 
+## How step 4 works
+
+- `buildSpecies(def, { close: true })` builds the same model with every segment count 1.6 times
+  finer (`Model.seg`, `CLOSE` in `model-core.js`): legs, tubes, the body loft, and spheres swapped
+  for finer ones (`FINER`). Pieces painted from their own shape keep theirs. Only the geometry is
+  used: poses, contact, head reach and picking still come from the usual model, so the close model
+  has the same attributes and parts and stays within 1.4% of its size.
+- `Fauna.add` draws it when the body covers more than `CLOSE_PIXELS` (64 CSS pixels, in
+  `animal-lod.js`). At the game's closest zoom a zebra is about 96, a fox about 60, so it starts
+  from about three times zoomed in, and in watch mode for the animals nearby. The selected animal
+  gets it too.
+- The close models are built in idle time, one per idle moment (`Fauna.closeUp`), so a herd
+  coming into view draws the usual model for a frame or two instead of hitching. The slowest takes
+  20–60 ms.
+- Triangles: about twice the usual model on average, at most 2.6 times (topi, hartebeest: 14.8k
+  to 38.6k).
+- **Cost:** with seven zebras drawn close up at the closest zoom, 0.17M more triangles and no
+  measurable GPU time (9.4 against 9.2 ms, M5). `PLAY_VIEWS=closest node tools/play-profile.mjs`
+  measures the closest zoom, and says how many animals it drew close up.
+- **What changed from the plan:** nostrils, eyelids, hooves and claws are not modelled. Finer
+  segments everywhere were simpler, fix the faceting that showed most, and need nothing per
+  species. Added details could come later, per species, on top of this.
+- A check that counts drawn animals must add `close.count`, as well as `far.count`.
+
 ## Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the
 game's lights, camera angle and tone mapping. Framing can also show the game's own closest, usual
-and zoomed-out scales. `?bench=1` times each animal filling a Retina-size frame. `node tools/animal-closeup-capture.mjs [out] [query]`
+and zoomed-out scales, and Model switches to the close-up model (`?model=close`). `?bench=1` times each animal filling a Retina-size frame. `node tools/animal-closeup-capture.mjs [out] [query]`
 saves its frames and a contact sheet. `CLOSEUP_ROOT=<checkout>` renders another checkout (copy the
 page into it first).

@@ -8,6 +8,11 @@ import * as THREE from 'three';
 // stripes visibly lost contrast.
 export const FAR_PIXELS = 32;
 export const FAR_CELLS = 32;
+// Draw the close-up model (buildSpecies close: the same shapes in finer segments) when the body
+// length covers more screen pixels than this (CSS pixels, so twice as many on a Retina screen).
+// At the game's closest zoom, 207 a tile, a zebra is about 96 and its outline already shows its
+// facets: from about 3x zoom in, everything from a fox up; in watch mode, the animals nearby.
+export const CLOSE_PIXELS = 64;
 const NORMALS = new Set(['normal', 'aExtN', 'aSwingN']), TONES = 4;
 
 // Each connected piece (a leg, a horn, an eye, the body's loft) clusters on its own grid,

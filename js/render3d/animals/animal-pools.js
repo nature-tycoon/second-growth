@@ -3,20 +3,25 @@ import * as THREE from 'three';
 import { withClouds } from '../atmosphere.js';
 import { buildSpecies } from './animal-model.js';
 import { faunaMaterial } from './animal-material.js';
-import { FAR_PIXELS, simplifyAnimal } from './animal-lod.js';
+import { CLOSE_PIXELS, FAR_PIXELS, simplifyAnimal } from './animal-lod.js';
 
 // ---------------------------------------------------------------- instanced pools
 class SpeciesMesh {
   constructor(scene, def, { geo, motion } = buildSpecies(def), mat = withClouds(faunaMaterial(motion))) {
-    this.geo = geo; this.motion = motion; this.scene = scene;
+    this.geo = geo; this.motion = motion; this.scene = scene; this.def = def;
     this.mat = mat; // (the field-guide portraits use faunaMaterial bare)
-    this.cap = 0; this.count = 0; this.mesh = null; this.far = null;
+    this.cap = 0; this.count = 0; this.mesh = null; this.far = null; this.close = null;
     this.grow(16);
   }
   // The distant model, built the first time an animal of this kind is small on screen. It has
   // its own instance buffers but shares the material, motion and detailed source geometry.
   distant() {
     return this.far ||= new SpeciesMesh(this.scene, null, { geo: simplifyAnimal(this.geo, this.motion.len), motion: this.motion }, this.mat);
+  }
+  // The close-up model, built in idle time once an animal of this kind is large on screen (see
+  // Fauna.closeUp); like the distant model, it shares the material and motion.
+  closeUp() {
+    return this.close ||= new SpeciesMesh(this.scene, null, { geo: buildSpecies(this.def, { close: true }).geo, motion: this.motion }, this.mat);
   }
   grow(cap) {
     if (this.mesh) { this.scene.remove(this.mesh); this.mesh.dispose(); }
@@ -55,6 +60,8 @@ export class Fauna {
     // Rendering switch: draw simplified models for animals smaller than FAR_PIXELS on screen.
     // Ecology, poses, contact and picking never read it.
     this.farModels = true; this.pixelsPerUnit = Infinity;
+    // and close-up models for animals larger than CLOSE_PIXELS, built one at a time when the page is idle
+    this.closeModels = true; this.closeWanted = new Set(); this.closeBuilding = false;
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.v = new THREE.Vector3(); this.s = new THREE.Vector3();
     this.yAxis = new THREE.Vector3(0, 1, 0); this.zAxis = new THREE.Vector3(0, 0, 1); this.xAxis = new THREE.Vector3(1, 0, 0); this.qp = new THREE.Quaternion();
   }
@@ -100,7 +107,24 @@ export class Fauna {
   // fall off with each animal's distance.
   begin(pixelsPerUnit = Infinity, eye = null) {
     this.pixelsPerUnit = pixelsPerUnit; this.eye = eye;
-    for (const p of this.species.values()) { p.count = 0; if (p.far) p.far.count = 0; }
+    for (const p of this.species.values()) { p.count = 0; if (p.far) p.far.count = 0; if (p.close) p.close.count = 0; }
+  }
+  // The close-up model if it's ready; otherwise null, and it's built when the page is next idle
+  // (one per idle moment: the finest take a few tens of milliseconds).
+  closeUp(near) {
+    if (near.close || !near.def) return near.close;
+    this.closeWanted.add(near);
+    if (!this.closeBuilding && typeof window !== 'undefined') {
+      this.closeBuilding = true;
+      const idle = window.requestIdleCallback ? f => window.requestIdleCallback(f, { timeout: 1000 }) : f => setTimeout(f, 50);
+      const step = () => {
+        const next = this.closeWanted.values().next().value;
+        if (next) { this.closeWanted.delete(next); next.closeUp(); }
+        if (this.closeWanted.size) idle(step); else this.closeBuilding = false;
+      };
+      idle(step);
+    }
+    return null;
   }
   // One animal this frame. scale converts model pixels to scene units. detail keeps the full
   // model whatever its size (the selected or followed animal). remains, for a kill:
@@ -109,7 +133,9 @@ export class Fauna {
   add(def, x, y, z, yaw, scale, phase, gait, fly, graze, pitch = 0, roll = 0, grips = null, detail = false, remains = null) {
     const near = this.pool(def);
     const e = this.eye, ppu = e ? e.scale / Math.max(0.05, Math.hypot(x - e.x, y - e.y, z - e.z)) : this.pixelsPerUnit;
-    const p = this.farModels && !detail && near.motion.len * scale * ppu < FAR_PIXELS ? near.distant() : near;
+    const pixels = near.motion.len * scale * ppu;
+    const p = this.farModels && !detail && pixels < FAR_PIXELS ? near.distant()
+      : this.closeModels && Number.isFinite(pixels) && pixels > CLOSE_PIXELS && this.closeUp(near) || near;
     if (p.count >= p.cap) {
       // carry over what this frame has already written, then grow
       const oldM = p.mesh.instanceMatrix.array.slice(0, p.count * 16), oldA = p.anim.array.slice(0, p.count * 4), n = p.count;
@@ -134,7 +160,8 @@ export class Fauna {
     }
   }
   end() {
-    for (const near of this.species.values()) for (const p of near.far ? [near, near.far] : [near]) {
+    for (const near of this.species.values()) for (const p of [near, near.far, near.close]) {
+      if (!p) continue;
       p.mesh.count = p.count;
       p.mesh.visible = p.count > 0;
       if (p.count) {

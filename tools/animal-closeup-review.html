@@ -12,6 +12,7 @@ main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}article
 <p>Each animal at the game's closest zoom, under the game's midday lights and shadows (sky and ground fill, the sun from the game's default direction, the same tone mapping) and seen from the game's camera angle. For before and after comparisons: the frames are fixed. <code>?species=map:key,…</code> picks the animals; the zoom framings show them at the game's own scale.</p>
 <label>View <select id="view"><option value="game">Game camera</option><option value="side">Side</option><option value="front">Head on</option></select></label>
 <label>Pose <select id="pose"><option value="rest">Standing</option><option value="walk">Walking</option><option value="graze">Head down</option></select></label>
+<label>Model <select id="model"><option value="detail">Detailed</option><option value="close">Close-up</option></select></label>
 <label>Framing <select id="framing"><option value="fit">Fill the frame</option><option value="game">Game's closest zoom</option><option value="normal">Game's usual zoom</option><option value="wide">Zoomed out</option></select></label>
 <label>Light <select id="light"><option value="day">Midday</option><option value="golden">Golden hour</option></select></label>
 <p id="status">Loading…</p><main></main>
@@ -23,6 +24,9 @@ const revision=Date.now(),{buildSpecies,faunaMaterial}=await import('../js/rende
 const query=new URLSearchParams(location.search);
 const wanted=(query.get('species')||'serengeti:lion,serengeti:zebra,amazon:jaguar,pnw:elk,pnw:bear,sumatra:gajah,amazon:macaw,amazon:howler,pnw:deer').split(',').map(s=>s.split(':'));
 const controls=Object.fromEntries(['view','pose','light','framing'].map(id=>[id,document.getElementById(id)]));
+// (the close-up model is what the game draws for an animal more than CLOSE_PIXELS long on screen)
+const model=document.getElementById('model'),close=query.get('model')==='close';model.value=close?'close':'detail';
+model.addEventListener('change',()=>{query.set('model',model.value);location.search=query.toString();});
 for(const id in controls)if(query.get(id))controls[id].value=query.get(id);
 const W=480,H=360,DPR=Math.min(2,devicePixelRatio||1);
 const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(DPR);renderer.setSize(W,H);
@@ -39,7 +43,7 @@ for(const [map,keys]of byMap){
  loadAnimals((await import(`../js/data/animals-${map}.js?closeup=${revision}`)).default);
  for(const key of keys){
   const def=ANIMALS.find(d=>d.key===key);if(!def)continue;
-  const {geo,motion}=buildSpecies(def),anim=new THREE.InstancedBufferAttribute(new Float32Array(4),4);geo.setAttribute('aAnim',anim);geo.computeBoundingBox();
+  const {geo,motion}=buildSpecies(def,{close}),anim=new THREE.InstancedBufferAttribute(new Float32Array(4),4);geo.setAttribute('aAnim',anim);geo.computeBoundingBox();
   const mesh=new THREE.InstancedMesh(geo,faunaMaterial(motion),1);mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=false;
   const article=document.createElement('article'),h=document.createElement('h2'),canvas=document.createElement('canvas');canvas.width=W*DPR;canvas.height=H*DPR;
   h.textContent=`${def.name} · ${(geo.index.count/3/1000).toFixed(1)}k triangles`;article.append(h,canvas);document.querySelector('main').append(article);

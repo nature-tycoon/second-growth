@@ -1,6 +1,7 @@
 // Frame cost in an organically grown game, through the real frame loop: a restored farm whose
 // wildlife arrives and breeds for a few years, then a normal view, a wide view, top speed and a
-// close-up. Prints simulation vs drawing (processor) vs GPU time and where the drawing time goes.
+// close-up (and, named in PLAY_VIEWS, the game's closest zoom). Prints simulation vs drawing
+// (processor) vs GPU time and where the drawing time goes.
 //   node tools/play-profile.mjs [maps=serengeti,sumatra,amazon,pnw] [quality=high] [years=3]
 // PLAY_ROOT=<checkout> measures another checkout (an A/B; its ecology diverges, so compare
 // phases rather than single numbers). PLAY_VIEWS="top speed" (comma-separated) runs only those views. Uses the hardware GPU at 1440x900, DPR 2 (a Retina laptop);
@@ -10,8 +11,8 @@ import { join } from 'node:path';
 import { openBrowser, projectRoot } from './browser-session.mjs';
 
 const [maps = 'serengeti,sumatra,amazon,pnw', quality = 'high', years = '3'] = process.argv.slice(2);
-const VIEWS = [['play', 1, .7], ['wide', 1, .25], ['top speed', 3, .7], ['close', 1, 2]]
-  .filter(([view]) => !process.env.PLAY_VIEWS || process.env.PLAY_VIEWS.split(',').includes(view));
+const VIEWS = [['play', 1, .7], ['wide', 1, .25], ['top speed', 3, .7], ['close', 1, 2], ['closest', 1, 4.5]]
+  .filter(([view]) => process.env.PLAY_VIEWS ? process.env.PLAY_VIEWS.split(',').includes(view) : view !== 'closest');
 const browser = await openBrowser({ label: 'play-profile', ...(process.env.PLAY_ROOT ? { root: process.env.PLAY_ROOT } : {}), software: false, width: 1440, height: 900, pixelRatio: 2 });
 const rows = [];
 try {
@@ -48,11 +49,11 @@ try {
           gpuMs:s.gpu_frame_ms, gpuP95Ms:s.gpu_frame_p95_ms, slowestFrameMs:+frames[n-1].toFixed(1),
           phasesPerFrameMs:Object.fromEntries(Object.entries(total).map(([k,v])=>[k,+(v/n).toFixed(2)])),
           triangles:s.triangles, drawCalls:s.draw_calls, pixelRatio:s.pixel_ratio, quality:s.quality, farModels:s.far_models,
-          animals:game.wildlife.agents.length, carcasses:(game.wildlife.carcasses||[]).length, day:game.day};})()`, 120000);
+          animals:game.wildlife.agents.length, closeUp:[...R.actors.fauna.species.values()].reduce((n,p)=>n+(p.close?.count||0),0), carcasses:(game.wildlife.carcasses||[]).length, day:game.day};})()`, 120000);
       browser.assertHealthy();
       rows.push({ map, view, speed, zoom, ...row });
       const p = row.phasesPerFrameMs;
-      console.log(`${map} ${view}: ${row.fps} fps | sim ${row.simulationMs} ms, drawing ${row.drawingCpuMs} ms (plants ${p.plants ?? 0}, animals ${p.actors ?? 0}), GPU ${row.gpuMs} ms | slowest ${row.slowestFrameMs} ms | ${(row.triangles / 1e6).toFixed(1)}M triangles, ${row.animals} animals`);
+      console.log(`${map} ${view}: ${row.fps} fps | sim ${row.simulationMs} ms, drawing ${row.drawingCpuMs} ms (plants ${p.plants ?? 0}, animals ${p.actors ?? 0}), GPU ${row.gpuMs} ms | slowest ${row.slowestFrameMs} ms | ${(row.triangles / 1e6).toFixed(1)}M triangles, ${row.animals} animals${row.closeUp ? ` (${row.closeUp} drawn close up)` : ''}`);
     }
   }
 } finally {
