@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
 const { Game } = await import('../js/game.js');
-const { DAYS_PER_MONTH } = await import('../js/config.js');
+const { DAYS_PER_MONTH, T, isWater } = await import('../js/config.js');
 
 let checks = 0;
 function check(name, run) { run(); checks++; console.log('PASS ' + name); }
@@ -17,7 +17,8 @@ function farm(map = 'pnw', { dry = 10, month } = {}) {
   g.day = (month ?? cl.fireMonths[0] ?? 5) * DAYS_PER_MONTH; g.dryStreak = dry; g.weather = 'clear';
   const tree = g.catalog.plants.findIndex((p, k) => k && p.layer === 2 && !p.invasive);
   const shrub = g.catalog.plants.findIndex((p, k) => k && p.layer === 1 && !p.invasive);
-  const i = w.idx(w.w >> 1, w.h >> 1);
+  let i = w.idx(w.w >> 1, w.h >> 1); // the nearest open land to the middle of the map
+  while (isWater(w.terrain[i]) || w.struct[i] >= 0 || w.flood[i] || [T.ROAD, T.TRAIL, T.GRAVEL, T.MUD].includes(w.terrain[i])) i++;
   w.fire.fill(0); w.rx.fill(0); w.scorch.fill(0);
   w.tree[i] = tree; w.treeG[i] = 0.9; w.shrub[i] = shrub; w.shrubG[i] = 0.9; w.moist[i] = 0.35;
   return { g, w, i };
@@ -75,6 +76,19 @@ check('a meadow burn stays a controlled burn', () => {
   w.tree[i] = 0; w.treeG[i] = 0; w.rx[i] = 1; g.rng = () => 0;
   g.events.igniteRx(i);
   assert.equal(g.events.severe, false); assert.equal(w.rx[i], 2);
+});
+
+check('a crown fire carries less through big trees whose understory was burned off', () => {
+  const { g, w, i } = farm();
+  g.events.severe = true; g.events.heat = 1;
+  w.ground[i] = 0; w.groundG[i] = 0; w.feature[i] = 0; // just the trees and the shrubs under them
+  const shrub = w.shrub[i], full = g.events.fuel(w, i);
+  g.events.burnUnderbrush(i);
+  const bare = g.events.fuel(w, i);
+  assert.ok(bare < full * 0.6, `fuel ${full.toFixed(2)} -> ${bare.toFixed(2)}`);
+  assert.ok(bare > 0, 'the crowns still burn');
+  w.shrub[i] = shrub; w.shrubG[i] = 0.9;
+  assert.ok(Math.abs(g.events.fuel(w, i) - full) < 1e-9, 'the protection fades as the shrubs grow back');
 });
 
 console.log(`${checks} checks passed`);

@@ -42,8 +42,38 @@ In that patchy forest a crown fire killed only 1–3 big trees: it spreads by th
 natural crown fire, so it does real damage only where forest is continuous. `balance-sim restore 15`
 (seeded) is identical before and after, since its plan never burns, and `campaign-sim` passes.
 
-## Open
+## Burning the understory slows later crown fires
 
-A burn that cleared the understory doesn't yet make a later natural crown fire stall there, beyond
-the lower fuel the burn already leaves. Making crown-fire spread depend on ladder fuel would give
-burning a lasting payoff, but it would shrink natural crown fires in any forest without shrubs.
+2026-10-23, the same day. A burn has a lasting payoff as well as a risk: in a crown fire, a big tree's
+canopy carries the fire in proportion to the ladder fuel under it (`Events.ladder`, shared with
+`rxTorch`). With a full shrub layer (`LADDER_FULL` = 0.4) it burns as before; with nothing under it,
+the canopy term drops to `CROWN_BARE` (0.3) of that. The shrubs grow back, so the protection fades
+over about three to five years with no new state to save: burning every few years keeps a stand safe.
+
+A 36×24 planted stand of big conifers (two thirds with shrubs) on a grown PNW farm, with the east
+half's understory burned (`burnUnderbrush`), and a crown fire lit 4 tiles west of it in a 10-day
+dry spell (20–40 runs per row):
+
+| Lit after the burn | Big trees lost, unburned east half | Burned east half, old code | Burned east half, new |
+| --- | ---: | ---: | ---: |
+| right away | 61–67% | 51% | 27% |
+| 1 year | 51–61% | 43% | 22% |
+| 3 years | 55–60% | 52% | 43% |
+| 5 years | 61–62% | 60% | 58% |
+
+The old code already gave a little protection, from the grass and shrubs the burn removes. A crown
+fire lit 18 tiles away has cooled to a ground fire by the time it arrives (heat falls 7% a day), so the
+crown rule only matters near where a crown fire starts or while it's hot.
+
+Natural crown fires barely change. Three 20-year restored PNW farms (298–392 big trees), the same
+farm in both versions, 60 crown fires each lit at a random big tree in a 10-day dry spell:
+
+| Farm | Tiles burned, old → new | Big trees killed, old → new |
+| --- | ---: | ---: |
+| 1 | 2266 → 2376 | 34.5 → 35.8 |
+| 2 | 2262 → 2335 | 49.9 → 51.6 |
+| 3 | 2382 → 2333 | 46.7 → 42.5 |
+
+These fires run mostly through grass, and two thirds of big trees on a grown farm have shrubs under
+them, so they carry as before. An old forest with no understory at all would slow a crown fire more.
+Seeded `balance-sim restore 15` is identical before and after (no crown fire in that run).

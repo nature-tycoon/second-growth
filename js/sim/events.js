@@ -7,6 +7,8 @@ import { disturbanceOn } from './campaign.js';
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
 const FIRE_SNAG_G = 0.85; // a tree burned in a fire leaves a snag or log only if it was nearly full grown
+const CROWN_BARE = 0.3; // how well a crown fire carries through big trees with nothing under them, against a full shrub layer (1)
+const LADDER_FULL = 0.4; // ladder fuel that carries a crown fire fully
 const RX_TORCH = 0.08; // a controlled burn's chance, per tile, of climbing a shrub layer into a dry canopy (see rxTorch)
 
 export class Events {
@@ -30,13 +32,20 @@ export class Events {
     if (g) { const p = w.catalog.plants[g]; f += w.groundG[i] * (GRASSY[p.look.type] ?? 0.2) * (p.invasive ? 1.1 : 0.7); }
     if (s) { const p = w.catalog.plants[s]; f += w.shrubG[i] * (p.fuel ?? 0.6); }
     const hot = this.severe && this.heat > 0.3;
-    // in a crown fire the canopy itself burns, not just what's under it
-    if (tr) f += w.treeG[i] < 0.6 ? 0.5 * w.treeG[i] : hot ? 0.9 * this.heat : 0.2;
+    // in a crown fire the canopy itself burns, not just what's under it, and burns best where shrubs
+    // carry the flames up into it (so a stand whose understory was burned off slows a crown fire)
+    if (tr) f += w.treeG[i] < 0.6 ? 0.5 * w.treeG[i] : hot ? 0.9 * this.heat * (CROWN_BARE + (1 - CROWN_BARE) * Math.min(1, this.ladder(w, i) / LADDER_FULL)) : 0.2;
     const ft = w.feature[i];
     if (ft === F.SNAG || ft === F.LOG || ft === F.BRUSH) f += 0.4;
     if (this.mapDefinition.fuelBonus) f += this.mapDefinition.fuelBonus(w, i); // (Sumatra: drained peat smoulders under the weeds)
     const dryness = hot ? clamp((0.85 - w.moist[i]) / 0.45, 0, 1) : clamp((0.62 - w.moist[i]) / 0.4, 0, 1);
     return f * dryness;
+  }
+
+  // Ladder fuel: a shrub layer, brush pile or log under a tree, which carries fire up into its crown.
+  ladder(w, i) {
+    const s = w.shrub[i], ft = w.feature[i];
+    return (s ? w.shrubG[i] * (w.catalog.plants[s].fuel ?? 0.6) : 0) + (ft === F.BRUSH || ft === F.LOG ? 0.3 : 0);
   }
 
   fuelLoad() {
@@ -301,8 +310,7 @@ export class Events {
   rxTorch(i) {
     const g = this.game, w = g.world, cl = this.mapDefinition.climate;
     if (cl.crownFires === false || this.severe || !w.tree[i] || w.treeG[i] < 0.6) return 0;
-    const s = w.shrub[i], ft = w.feature[i];
-    const ladder = (s ? w.shrubG[i] * (g.catalog.plants[s].fuel ?? 0.6) : 0) + (ft === F.BRUSH || ft === F.LOG ? 0.3 : 0);
+    const ladder = this.ladder(w, i);
     if (!ladder) return 0;
     const dry = clamp((0.75 - w.moist[i]) / 0.4, 0, 1), season = cl.fireMonths.includes(g.month) ? 1 : 0.3;
     return RX_TORCH * Math.min(ladder, 1.5) * dry * this.rxDrought() * season * g.diff.disasters;
