@@ -415,15 +415,21 @@ function quadruped(m, s, o) {
   // legs: upper and lower segment, swinging from the hip
   const lc = o.legColor || shade(s.color, -0.2);
   // The upper leg wears the coat of the flank it leaves (never the pale belly below it), shading
-  // into the leg's own colour toward the knee. (A per-pixel coat can't be blended here, so those
-  // legs keep their own colour.)
+  // into the leg's own colour toward the knee. A per-pixel coat (spots, rosettes) is drawn from
+  // the model's position, so its markings run on down the leg over the blended colour; a leg with
+  // markings of its own keeps them.
   const flank = V(0, 0, 0), upper = new THREE.Color(), lower = new THREE.Color(), knee = Math.min(leg * 0.72, by - H * 0.3);
-  const legPaint = c => coat.coat ? c : (u, p) => {
-    const k = smooth(by - H * 0.4, knee, p.y);
-    if (k >= 1) return typeof c === 'function' ? c(u, p) : col(c);
-    flank.set(Math.max(-1, Math.min(1, p.x / (L * 0.46))), Math.max(-0.2, Math.min(1, (p.y - by) / (H * 0.53))), Math.max(-1, Math.min(1, p.z / (H * 0.42 * W))));
-    upper.copy(coat(flank, p)); lower.copy(typeof c === 'function' ? c(u, p) : col(c));
-    return upper.lerp(lower, k);
+  const legPaint = c => {
+    if (c && c.coat) return c;
+    const blend = (u, p) => {
+      const k = smooth(by - H * 0.4, knee, p.y);
+      if (k >= 1) return typeof c === 'function' ? c(u, p) : col(c);
+      flank.set(Math.max(-1, Math.min(1, p.x / (L * 0.46))), Math.max(-0.05, Math.min(1, (p.y - by) / (H * 0.53))), Math.max(-1, Math.min(1, p.z / (H * 0.42 * W))));
+      upper.copy(coat(flank, p)); lower.copy(typeof c === 'function' ? c(u, p) : col(c));
+      return upper.lerp(lower, k);
+    };
+    const pc = coat.coat;
+    return pc ? pixelCoat(pc.kind, blend, pc.params, pc.dark, pc.mid) : blend;
   };
   // (one smooth tube per leg, bending at the joints, rather than straight pieces with a ball at each)
   const smoothLegs = o.smoothLegs ?? true;
@@ -441,7 +447,7 @@ function quadruped(m, s, o) {
     // inside the body, and widening the leg just makes it fat. lk: 0 for legs half the body's
     // depth or shorter, 1 for legs as long as it is deep (deer, antelope, coyote).
     const thigh = o.muscles !== false && !o.straight, lk = smooth(0.5, 0.95, leg / H);
-    const rx = r0 + (Math.max(r0 * (hind ? 1.6 : 1.3), H * (hind ? 0.2 : 0.16)) - r0) * lk, rz = Math.max(r0, Math.min(r0 * (1 + 0.1 * lk), H * 0.42 * W - Math.abs(z) * 0.8));
+    const rx = r0 + (Math.max(r0 * (hind ? 1.3 : 1.1), H * (hind ? 0.22 : 0.17)) - r0) * lk, rz = Math.max(r0, Math.min(r0 * (1 + 0.1 * lk), H * 0.42 * W - Math.abs(z) * 0.8));
     if (o.straight) { // pillar legs (elephant, rhino)
       const knee = [x + (hind ? -r0 * 0.5 : r0 * 0.2), leg * 0.5, z];
       if (smoothLegs) tube(m, [hip, knee, foot], [r0, rm, r1], c, lo);

@@ -577,20 +577,13 @@ const MAMMALS = {
       legR1: H * (lion ? 0.085 : k ? 0.09 : s.cheetah ? 0.09 : 0.14),
       neckR: H * (lion ? 0.25 : 0.3 - k * 0.02), spots: s.bobtail ? shade(s.color, -0.45) : null, dots: s.cheetah ? [s.dark, 9, 0.2] : s.spotted ? [s.dark, 11, 0.21] : null, rosettes: s.rosettes,
       coat, legColor, fine: s.clouds ? 2 : lion, detail: !!(lion || k), legRings: legColor ? 8 : undefined,
-      paws: true, toes: true, smoothLegs: true, muscles: false, // soft, articulated paws (and their own scapulae and haunches: extra)
+      paws: true, toes: true, // soft, articulated paws
       head: [L * 0.5, by + H * (lion ? 0.3 : 0.38 - k * 0.1)], headR: [H * (lion ? 0.34 : 0.36) * hs, H * (lion ? 0.31 : 0.33) * hs, H * (lion ? 0.32 : 0.34) * hs], snout: H * 0.15 * hs,
       nose: lion || k ? false : undefined, eyeR: lion ? H * 0.038 : undefined,
       ears: lion ? 'none' : s.bobtail ? 'point' : 'round', ear: H * (s.bobtail ? 0.2 : k ? 0.18 : s.rosettes || s.cheetah ? 0.27 : s.clouds ? 0.22 : 0.24), earOut: 0.2, earBack: 0.1, earW: s.bobtail ? 0.55 : 0.45, tufts: s.bobtail, muzzle: grad(s.color, s.belly, 0.1, 0.4),
       earColor: null,
       headPaint: s.clouds ? (u, p) => { const [gap, id] = cells(p, H * 0.1); return gap > 0.4 && id > 0.3 && u.y > -0.3 ? dk : base(u); } : k ? felineSpots(s, H, undefined, H * 0.09)
         : s.rosettes || s.cheetah || s.spotted ? felineSpots(s, H, base, H * 0.07) : null, // (small solid spots on the head)
-      extra: (m, b) => {
-        // Rounded scapulae and haunches meet the upper limbs inside the coat.
-        for (const side of [-1, 1]) {
-          m.ell([L * 0.24, b.by - H * 0.1, side * H * (lion || k ? 0.18 : 0.23)], [H * 0.25, H * 0.36, H * 0.19], b.coat, { fine: !!(lion || k) });
-          m.ell([-L * 0.25, b.by - H * 0.13, side * H * (lion || k ? 0.19 : 0.23)], [H * 0.31, H * 0.35, H * 0.2], b.coat, { fine: !!(lion || k) });
-        }
-      },
       face: (m, hp, hr, hd) => {
         if (k) m.ell([hp[0] + hr[0] * 0.78 + H * 0.15 * hs * 1.18, hp[1] - hr[1] * 0.17, 0], [H * 0.045, H * 0.035, H * 0.075], '#34251d', hd);
         if (lion || k) for (const side of [-1, 1]) {

@@ -140,7 +140,9 @@ to every one of them:
   half the depth or less, so raccoons, otters and beavers keep slim legs). On long legs the knee
   (stifle) and the elbow sit up at the belly line, as on a deer; lower, the knee jutted forward
   and the leg looked bent backwards.
-  Felines keep their own haunches (`muscles: false`), and pillar legs are unchanged.
+  Felines use these legs too (their fixed haunch and shoulder balls are gone, since the legs swung
+  out from under them); a per-pixel coat is re-made over the blended colour (`legPaint`), so
+  markings carry on down the leg. `muscles: false` still opts a species out. Pillar legs are unchanged.
 - **Neck:** a tube rooted low in the chest, deep and flattened side to side where it leaves the
   shoulders, narrowing to the head. Before, it was one straight limb.
 
