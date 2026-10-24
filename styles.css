@@ -914,7 +914,12 @@ body.watch-mode.moment-on #watch .w-bar, body.watch-mode.moment-on #watch .w-cap
 #watch.show .w-bar { opacity: 1; pointer-events: auto; }
 #watch .w-bar .btn { padding: 6px 12px; }
 #watch .w-bar .btn.on { background: #e7d9a6; color: #24311f; }
-@media (max-width: 620px) { #watch .w-hint { display: none; } #watch .w-cap { bottom: calc(6vh + 70px); } #watch .w-cap b { font-size: 20px; } }
+#watch .w-speed { background: rgba(255,255,255,0.12); margin-inline: 0; }
+#watch .w-speed button { width: 28px; height: 28px; }
+#watch .w-speed button svg { fill: #f3ecd6; }
+#watch .w-speed button:hover { background: rgba(255,255,255,0.16); }
+#watch .w-speed button.on { background: #e7d9a6; } #watch .w-speed button.on svg { fill: #24311f; }
+@media (max-width: 620px) { #watch .w-hint { display: none; } #watch .w-speed button { width: 24px; } #watch .w-bar { gap: 6px; padding-left: 8px; } #watch .w-cap { bottom: calc(6vh + 70px); } #watch .w-cap b { font-size: 20px; } }
 /* keystone moments: letterbox bars, the panels step aside, a title card tells the story */
 body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel, body.moment-on #infopanel, body.moment-on #legend, body.moment-on #minimap-wrap, body.moment-on #toolbar, body.moment-on #quest, body.moment-on #toasts, body.moment-on #cursor-tip, body.moment-on #topbar, body.moment-on #banner { opacity: 0; pointer-events: none; transition: opacity 0.6s; }
 #moment { position: fixed; inset: 0; z-index: 30; pointer-events: none; }

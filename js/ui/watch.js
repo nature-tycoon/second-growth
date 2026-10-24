@@ -6,8 +6,9 @@
 // again when one ends. Eye level (render3d/eye-camera.js) rides along low behind each animal
 // instead of looking down on it.
 //
-// The game carries on underneath at whatever speed it was. The map can't be painted or panned
-// while watching: a click or a moved mouse only brings up the controls.
+// The game carries on underneath at whatever speed it was, and the bar has the same speed buttons
+// as the top bar (Space and 1–3 work too). The map can't be painted or panned while watching: a
+// click or a moved mouse only brings up the controls.
 
 import { animalDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
@@ -82,12 +83,14 @@ export class Watch {
     o.innerHTML = `<div class="lb lb-top"></div><div class="lb lb-bot"></div>
       <div class="w-cap"><b></b><span></span></div>
       <div class="w-bar"><span class="w-hint">Esc to stop · N next · F eye level</span>
+        <div class="speed w-speed">${document.getElementById('speed').innerHTML}</div>
         <button class="btn secondary" data-a="next">Next</button><button class="btn secondary" data-a="eye">Eye level</button><button class="btn" data-a="done">Done</button></div>`;
     document.body.appendChild(o);
     this.el = o; this.cap = o.querySelector('.w-cap');
     o.querySelector('[data-a=done]').addEventListener('click', () => this.stop());
     o.querySelector('[data-a=next]').addEventListener('click', () => this.next());
     o.querySelector('[data-a=eye]').addEventListener('click', () => this.setEyeLevel(!this.eyeLevel));
+    o.querySelectorAll('.w-speed button').forEach(b => b.addEventListener('click', () => this.ui.setSpeed(+b.dataset.speed)));
     // the whole screen catches the pointer, so watching never paints or pans the map by accident
     const show = () => this.showControls();
     o.addEventListener('pointermove', show); o.addEventListener('pointerdown', show);

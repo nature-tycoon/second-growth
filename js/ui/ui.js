@@ -341,7 +341,7 @@ export class UI {
     const wIcon = g.weather === 'clear' && (this.renderer.night || 0) > 0.4 ? 'moon' : { clear: 'sun', cloud: 'cloud', rain: 'rain', snow: 'snow' }[g.weather] || 'sun';
     const we = $('#stat-weather');
     if (we.dataset.w !== wIcon) { we.innerHTML = ICONS[wIcon]; we.dataset.w = wIcon; }
-    document.querySelectorAll('#speed button').forEach(b => b.classList.toggle('on', +b.dataset.speed === g.speed));
+    document.querySelectorAll('#speed button, #watch .w-speed button').forEach(b => b.classList.toggle('on', +b.dataset.speed === g.speed));
     const sc = Math.round(g.cache.score?.total ?? 0);
     setText($('#score-num'), sc);
     const ring = $('#score-ring');

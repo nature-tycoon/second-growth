@@ -15,8 +15,9 @@ Watch). The panels go, thin letterbox bars come in, and the camera directs itsel
 - A caption names the animal and gives the inspector's status line (`UI.agentStatus`, taken out of
   `agentHTML` so both share it).
 - Keystone moments still play, and the director starts a new shot once one ends.
-- The game runs at whatever speed it was. Clicks, drags and the scroll wheel never reach the map;
-  they only bring up the bar (Next, Eye level, Done). Esc or C leaves and flies back to where the
+- The game runs at whatever speed it was. The bar has the top bar's speed buttons (pause, 1–3;
+  added 2026-10-24 at Cole's request), and Space and 1–3 work too. Clicks, drags and the scroll
+  wheel never reach the map; they only bring up the bar (speed, Next, Eye level, Done). Esc or C leaves and flies back to where the
   view was.
 
 **Eye level** (`F` in watch mode; `js/render3d/eye-camera.js`). This is a ride-along view rather than
