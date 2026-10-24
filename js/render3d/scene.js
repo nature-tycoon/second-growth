@@ -523,7 +523,8 @@ export class Renderer {
     if (!agent) { this.eyeOn = false; this.eye.reset(); this.updateCamera(); }
   }
   // Leave the animal and walk about at eye level from where the eye is (WASD in watch mode).
-  // eyeMove ({ fwd, side, turn, run }) is set by Input each frame; eyeLook gathers drags to look round.
+  // eyeMove ({ fwd, side, turn, run }) is set by Input each frame; eyeLook gathers drags to look round
+  // (and, while following, to swing round the animal, with eyeOrbit for Q / E).
   walkEye() {
     if (!this.eyeOn) return false;
     this.eyeAgent = null; this.eyeWalk = true;
@@ -537,7 +538,13 @@ export class Renderer {
       this.eye.walk(this.eyeMove || NO_MOVE, L, aspect, dt, ground, seaY, (x, z) => ({ x: clamp(x, 0.5, w.w - 0.5), z: clamp(z, 0.5, w.h - 0.5) }));
       L.yaw = 0; L.pitch = 0;
       this.eyeOn = true;
-    } else this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, aspect, dt, ground, seaY);
+    } else {
+      // following: a drag or Q / E (eyeOrbit, -1..1 from Input) swings the eye round the animal
+      const L = this.eyeLook, turn = (this.eyeOrbit || 0) * 1.7 * dt;
+      if (L.yaw || L.pitch || turn) this.eyeOrbitAt = this.time;
+      this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, aspect, dt, ground, seaY, { yaw: L.yaw + turn, pitch: L.pitch });
+      L.yaw = 0; L.pitch = 0;
+    }
     const fog = this.scene.fog;
     if (!this.eyeOn) { fog.near = 1e5; fog.far = 2e5; this.scene.background = null; this.eyeSky.hide(); return; }
     if (seaY != null && this.eye.under) {

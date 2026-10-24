@@ -14,7 +14,8 @@
 // The species chip at the bar's start narrows the director to one species: it moves between that
 // species' animals (stays on the one there is, if there's only one) and skips the wide shots.
 //
-// At eye level, WASD (or the arrows) lets go of the animal and walks about on foot: W / S forward
+// At eye level, a drag or Q / E swings the view round the animal it's following (it keeps following).
+// WASD (or the arrows) lets go of the animal and walks about on foot: W / S forward
 // and back, A / D step sideways, Q / E turn (as they rotate the usual view), Shift runs, and a
 // drag looks round. Next (N) goes back to the animals. On a touch screen the thumbstick shows at eye
 // level and walks the same way (up forward, sideways turns).
@@ -123,15 +124,15 @@ export class Watch {
     // the whole screen catches the pointer, so watching never paints or pans the map by accident
     const show = () => this.showControls();
     o.addEventListener('pointermove', show); o.addEventListener('pointerdown', show);
-    // walking: a drag over the view looks round
+    // at eye level a drag over the view swings round the animal, or looks round when walking
     o.addEventListener('pointerdown', e => {
-      if (!this.walking || e.target.closest('.w-bar, .w-menu, .w-expand')) return;
+      if (!(this.walking || this.orbiting()) || e.target.closest('.w-bar, .w-menu, .w-expand')) return;
       this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
       o.setPointerCapture?.(e.pointerId);
     });
     o.addEventListener('pointermove', e => {
       const d = this.drag;
-      if (!d || d.id !== e.pointerId || !this.walking) return;
+      if (!d || d.id !== e.pointerId || !(this.walking || this.orbiting())) return;
       const L = this.renderer.eyeLook, k = 2.4 / Math.max(300, innerHeight);
       L.yaw += (e.clientX - d.x) * k; L.pitch -= (e.clientY - d.y) * k;
       d.x = e.clientX; d.y = e.clientY;
@@ -222,6 +223,9 @@ export class Watch {
     return false;
   }
 
+  // At eye level behind an animal: a drag or Q / E swings round it (EyeCamera.update).
+  orbiting() { return this.on && this.eyeLevel && !this.walking && !!this.renderer.eyeAgent; }
+
   // ------------------------------------------------------------ on foot
   // Let go of the animal and walk from where the eye is (Input, on WASD at eye level). True when walking.
   walk() {
@@ -267,7 +271,8 @@ export class Watch {
     }
     // an animal that never came into view (in a burrow, under the canopy) isn't worth the wait
     if (a && s.t > 3.5 && !r.actors.pose.get(a.id)?.visible) { this.next(); return; }
-    const long = a && busy(a) && s.t < LONGEST;
+    // (nor while it's being swung round: the shot waits till that's a few seconds over)
+    const long = a && (busy(a) && s.t < LONGEST || s.eye && r.time - (r.eyeOrbitAt ?? -1e9) < 4);
     if (s.t > s.len && !long) {
       // watching one species and this is the only one of it out: carry on with it
       if (this.species && a && this.pick() === a) { s.t = 0; s.len = SHOT.follow; }

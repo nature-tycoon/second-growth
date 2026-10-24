@@ -50,6 +50,30 @@ check('The eye never goes below the ground or down among the grass', () => {
   for (const v of [...p.toArray(), ...e.camera.quaternion.toArray()]) assert.ok(Number.isFinite(v));
 });
 
+check('A drag or Q / E swings the eye round the animal, which it keeps following side-on as it turns', () => {
+  const e = new EyeCamera(), quarter = { yaw: Math.PI / 2 / 30, pitch: 0 };
+  e.update(pose(10, 0, 10, 0), 1, 1.5, 1 / 60, flat);
+  for (let k = 0; k < 30; k++) e.update(pose(10, 0, 10, 0), 1, 1.5, 1 / 60, flat, null, quarter);
+  for (let k = 0; k < 240; k++) e.update(pose(10, 0, 10, 0), 1, 1.5, 1 / 60, flat);
+  let p = e.camera.position, d = e.camera.getWorldDirection(new THREE.Vector3());
+  assert.ok(p.z < 10 - 0.5 && Math.abs(p.x - 10) < 0.05, `a quarter round, to its side: ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
+  assert.ok(d.z > 0.9 && e.forward.z > 0.99, 'looking across at it');
+  // the animal turns a quarter (to face -z): the eye goes round with it
+  for (let k = 0; k < 600; k++) e.update(pose(10, 0, 10, Math.PI / 2), 1, 1.5, 1 / 60, flat);
+  p = e.camera.position;
+  assert.ok(p.x < 10 - 0.5 && Math.abs(p.z - 10) < 0.05, `still side-on: ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
+  // dragging down lifts it to look down on the animal, but never under its level
+  const y0 = p.y;
+  for (let k = 0; k < 30; k++) e.update(pose(10, 0, 10, Math.PI / 2), 1, 1.5, 1 / 60, flat, null, { yaw: 0, pitch: -0.05 });
+  for (let k = 0; k < 240; k++) e.update(pose(10, 0, 10, Math.PI / 2), 1, 1.5, 1 / 60, flat);
+  assert.ok(e.camera.position.y > y0 + 0.3, `higher: ${y0.toFixed(2)} -> ${e.camera.position.y.toFixed(2)}`);
+  for (let k = 0; k < 120; k++) e.update(pose(10, 0, 10, Math.PI / 2), 1, 1.5, 1 / 60, flat, null, { yaw: 0, pitch: 0.1 });
+  assert.ok(e.rise >= -0.15);
+  // a new animal starts behind again
+  e.update(pose(20, 0, 20, 0), 2, 1.5, 1 / 60, flat);
+  assert.ok(e.camera.position.x < 20 - 0.5 && Math.abs(e.camera.position.z - 20) < 1e-6, 'behind the new one');
+});
+
 check('Under the sea the eye stays on the animal\'s side of the surface, and sees less far', () => {
   const sea = 1.8, bed = () => 0.6;
   const manta = new EyeCamera(); // (big, and swimming just under the surface)

@@ -6,6 +6,10 @@
 // Fog (see Renderer) hides the edge of the map a few dozen tiles out, and the far plane stops
 // there too, so plants and the ground past it are culled rather than drawn into the haze.
 //
+// While it follows, a drag or Q / E swings it round the animal (orbit): the angle is kept relative
+// to the way the animal faces, so a side-on view stays side-on as it turns. A new animal starts
+// behind again.
+//
 // It can also walk about on its own (WASD at eye level, see walk()): from wherever it was, at about
 // a person's eye height, with no animal to follow.
 
@@ -25,26 +29,37 @@ export class EyeCamera {
     this.pos = new THREE.Vector3(); this.look = new THREE.Vector3();
     this.goal = new THREE.Vector3(); this.aim = new THREE.Vector3();
     this.right = new THREE.Vector3(1, 0, 0);
-    this.forward = new THREE.Vector3(1, 0, 0);
+    this.forward = new THREE.Vector3(1, 0, 0); // the way the eye looks, level (the sky and the shadow box use it)
+    this.heading = new THREE.Vector3(1, 0, 0); // the followed animal's heading, smoothed
     this.agentId = null;
   }
 
   // pose: the animal's drawn pose (Actors.pose). groundAt(x, z): the terrain's height there.
   // seaY: the sea surface on an underwater map. The eye stays on the animal's side of it, so a
   // manta near the top or a booby on the water isn't seen half through air, half through water.
+  // orbit: { yaw, pitch } radians to swing round the animal since last frame (a drag, or Q / E).
   // Returns false when there's nothing to look at (the animal is gone or not drawn).
-  update(pose, id, aspect, dt, groundAt, seaY = null) {
+  update(pose, id, aspect, dt, groundAt, seaY = null, orbit = null) {
     if (!pose?.visible) return false;
     const fresh = this.agentId !== id;
     this.agentId = id;
+    if (fresh) { this.orbit = 0; this.rise = 0; }
+    if (orbit) {
+      this.orbit = (this.orbit + orbit.yaw) % (Math.PI * 2);
+      // (dragging down lifts the eye to look down on it; up, down to its level and no lower)
+      this.rise = Math.max(-0.15, Math.min(1.1, this.rise - orbit.pitch));
+    }
     const c = pose.center, size = this.size = Math.max(pose.h || 0, pose.foot || 0, 0.12);
     // heading: smoothed separately, so a sudden turn swings the view round rather than snapping it
     const fx = Math.cos(pose.yaw), fz = -Math.sin(pose.yaw);
-    if (fresh) this.forward.set(fx, 0, fz);
-    else this.forward.lerp(this.aim.set(fx, 0, fz), 1 - Math.exp(-dt * 1.6)).normalize();
-    const f = this.forward;
+    if (fresh) this.heading.set(fx, 0, fz);
+    else this.heading.lerp(this.aim.set(fx, 0, fz), 1 - Math.exp(-dt * 1.6)).normalize();
+    // swung round by the orbit: the direction the eye looks along, through the animal
+    const h = Math.atan2(this.heading.z, this.heading.x) + this.orbit;
+    const f = this.forward.set(Math.cos(h), 0, Math.sin(h));
     const flying = (pose.fly || 0) > 0.5;
-    const back = 0.55 + size * (flying ? 3.2 : 2.4), up = size * (flying ? 1.4 : 0.9) + 0.06;
+    const reach = 0.55 + size * (flying ? 3.2 : 2.4), back = reach * Math.cos(this.rise);
+    const up = size * (flying ? 1.4 : 0.9) + 0.06 + reach * Math.sin(this.rise);
     this.goal.set(c.x - f.x * back, c.y + up, c.z - f.z * back);
     // never under the ground (behind an animal on a slope, or a fish's tail-end over a reef), and
     // never right down in the grass

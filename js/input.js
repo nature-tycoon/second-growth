@@ -85,8 +85,9 @@ export class Input {
     }
     if (!down) return;
     // watching: only the watch keys, Space and the speeds (nothing moves the camera or paints)
-    // (at eye level, WASD lets go of the animal and walks: see Watch.walk)
+    // (at eye level, WASD lets go of the animal and walks: see Watch.walk; Q / E swing round it until then)
     if (this.ui.watch.on && !this.ui.modalOpen && !this.ui.moment) {
+      if ((k === 'q' || k === 'e') && this.ui.watch.orbiting()) { e.preventDefault(); this.keys.add(k); return; }
       if (WALK_KEYS.has(k) && this.ui.watch.walk()) { e.preventDefault(); this.keys.add(k); return; }
       if (k === 'shift') { this.keys.add(k); return; }
       if (this.ui.watch.key(k)) { e.preventDefault(); return; }
@@ -133,7 +134,7 @@ export class Input {
           fwd: one(on('w', 'arrowup') - on('s', 'arrowdown') - (sv ? sv.y : 0)), turn: one(on('e', 'arrowright') - on('q', 'arrowleft') + (sv ? sv.x : 0)),
           side: on('d') - on('a'), run: K.has('shift'),
         };
-      }
+      } else this.r.eyeOrbit = (this.keys.has('e') ? 1 : 0) - (this.keys.has('q') ? 1 : 0);
       return;
     }
     if (!this.ui.follow && this.r.animalFraming) {

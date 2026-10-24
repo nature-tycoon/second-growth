@@ -39,6 +39,17 @@ whenever the animal grazes, swings with every glance, and never shows the animal
 The eye is never closer than 0.3 tiles to the ground, since a tortoise's real eye height is a wall
 of grass blades. On upright phones the view widens so the animal isn't cropped.
 
+**Swinging round** (2026-10-24, Cole: "if you haven't hit wasd in eye-level mode you can rotate
+around the animal while still following it by dragging or using q/e"). While the eye follows an
+animal, a drag over the view or Q / E swing it round the animal (`EyeCamera.update`'s `orbit`),
+and dragging down lifts it to look down on it (up to about 60°, and no lower than its usual height).
+The angle is kept relative to the animal's heading, so a side-on view stays side-on as it turns; a
+new animal starts behind again. The eye looks along the line through the animal, so from in front
+it looks back past it. `EyeCamera.forward` is now the way the eye looks (the sky and the shadow box
+use it, and walking sets off along it); the animal's smoothed heading is `heading`. The director
+holds the shot until 4 s after the last swing, so it doesn't cut away mid-drag. WASD still lets go
+and walks, after which a drag and Q / E look and turn as before.
+
 **On foot** (2026-10-24, Cole: "disengage animal follow mode and move around the map in eye level
 mode when you press wasd"). At eye level, WASD or the arrows let go of the animal and walk from
 where the eye is (`Watch.walk`, `Renderer.walkEye`, `EyeCamera.walk`): W / S forward and back, A / D
@@ -154,7 +165,7 @@ the preview tab's frame rate wasn't, since it read 1–2 fps in both views.
 | eye level, as shipped (plant detail 1.6) | 0.38–1.17M across five animals |
 
 `node tools/watch-check.mjs` checks where the eye sits (behind, above, never under the ground or
-in the grass), that it snaps to a new animal and eases after the same one, the wider phone view,
+in the grass), swinging round the animal, that it snaps to a new animal and eases after the same one, the wider phone view,
 perspective culling, and distant models by distance.
 
 ## Open
