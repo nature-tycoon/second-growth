@@ -906,6 +906,7 @@ body.watch-mode #watch { display: block; position: fixed; inset: 0; z-index: 29;
   body.watch-mode.watch-eye #watch .w-cap { left: calc(max(16px, 3vw) + 124px + env(safe-area-inset-left)); bottom: calc(6vh + 36px + env(safe-area-inset-bottom)); }
 }
 body.watch-mode #watch { touch-action: none; } /* (so a drag to look round reaches it on a touch screen) */
+body.watch-mode #watch .w-menu { touch-action: pan-y; overscroll-behavior: contain; } /* (but a finger still scrolls the species list) */
 body.watch-mode.moment-on #watch { pointer-events: none; } /* (a keystone moment's own card takes over) */
 body.watch-mode.moment-on #watch .w-bar, body.watch-mode.moment-on #watch .w-cap, body.watch-mode.moment-on #watch .w-expand { opacity: 0 !important; }
 #watch .lb { position: absolute; left: 0; right: 0; height: 0; background: #0e120c; transition: height 1.1s cubic-bezier(.4,0,.2,1); }

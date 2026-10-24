@@ -139,7 +139,8 @@ export class Watch {
     });
     const drop = e => { if (this.drag?.id === e.pointerId) this.drag = null; };
     o.addEventListener('pointerup', drop); o.addEventListener('pointercancel', drop);
-    o.addEventListener('wheel', e => { e.preventDefault(); show(); }, { passive: false });
+    // the wheel never zooms the map underneath, but it still scrolls the species list
+    o.addEventListener('wheel', e => { if (!e.target.closest('.w-menu')) e.preventDefault(); show(); }, { passive: false });
   }
 
   setMinimized(on) {
