@@ -462,7 +462,12 @@ const MAMMALS = {
       head: [L * 0.5, by + H * 0.95], headR: [H * 0.3, H * 0.24, H * 0.21], snout: H * 0.28,
       ears: 'point', ear: H * 0.34, earOut: 0.8, earBack: 0.1, earW: 0.3, headColor: s.neck ? s.neck : null,
       extra: s.rump ? (m, b) => m.ell([-L * 0.33, b.by + H * 0.08, 0], [L * 0.12, H * 0.34, H * 0.36], s.rump) : null,
-      tail: (m, b) => m.ell([-L * 0.45, b.by + H * 0.28, 0], [H * 0.12, H * 0.2, H * 0.1], s.rump || shade(s.belly, 0.4), { part: P.TAIL, pivot: [-L * 0.42, b.by + H * 0.35, 0], rot: [0, 0, -0.5] }),
+      // (tailTop: a black-tailed deer's tail is dark on the outer side, pale only underneath)
+      tail: (m, b) => {
+        const pale = col(s.rump || shade(s.belly, 0.4)), dark = s.tailTop && col(s.tailTop);
+        const top = dark ? u => tmp.copy(dark).lerp(pale, smooth(0, 0.3, u.x)) : pale;
+        m.ell([-L * 0.45, b.by + H * 0.28, 0], [H * 0.12, H * 0.2, H * 0.1], top, { part: P.TAIL, pivot: [-L * 0.42, b.by + H * 0.35, 0], rot: [0, 0, -0.5] });
+      },
       antlers: s.antlers ? (m, hp, hr, hd) => {
         for (const side of [1, -1]) {
           const z = side * hr[2] * 0.5, base = [hp[0] - hr[0] * 0.3, hp[1] + hr[1] * 0.7, z];
