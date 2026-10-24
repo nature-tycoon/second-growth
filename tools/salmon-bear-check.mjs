@@ -5,6 +5,7 @@ import { Game } from '../js/game.js';
 import { F, T } from '../js/config.js';
 import { ANIMAL, ANIMALS } from '../js/data/animals.js';
 import { mulberry32 } from '../js/rng.js';
+import { momentsUpdate } from '../js/sim/moments.js';
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
 const SALMON = ANIMALS.find(d => d.special === 'salmon');
@@ -24,8 +25,9 @@ function run(seed) {
   const bears = wl.agents.filter(a => a.sp === ANIMAL.bear.index), catches = new Map();
   const onPredation = g.onPredation.bind(g);
   g.onPredation = (a, f) => { catches.set(a.id, (catches.get(a.id) || 0) + 1); return onPredation(a, f); };
-  for (let i = 0; i < 22 * 20; i++) wl.update(0.05);
-  return { fish: fish.length, atMouth, bears: bears.length, catches };
+  const moments = []; g.on('moment', m => moments.push(m));
+  for (let i = 0; i < 22 * 20; i++) { wl.update(0.05); if (i % 20 === 19) g.day++; momentsUpdate(g); }
+  return { fish: fish.length, atMouth, bears: bears.length, catches, moment: moments.find(m => m.key === 'salmon') };
 }
 check('Bears catch salmon at the run, but leave most of it to spawn', () => {
   let total = 0, runs = 0, fish = 0;
@@ -38,5 +40,12 @@ check('Bears catch salmon at the run, but leave most of it to spawn', () => {
     total += caught;
   }
   assert.ok(total / fish < 0.6, `bears took ${total} of ${fish}`);
+});
+check('The keystone moment watches a salmon up the creek, not a bear', () => {
+  for (const seed of [1, 2, 3]) {
+    const m = run(seed).moment;
+    assert.ok(m, `seed ${seed}: the salmon moment played`);
+    assert.equal(m.agent?.sp, SALMON.index, `seed ${seed}: the camera follows a salmon`);
+  }
 });
 console.log(`${checks} salmon bear checks passed.`);

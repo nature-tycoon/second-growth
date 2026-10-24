@@ -5,7 +5,7 @@
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { many, cap, preyFor, preyPer, isMale, isMaleVariant } from '../data/animals.js';
 import { killTree } from './plants.js';
-import { moment, momentFree } from './moments.js';
+import { moment } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
 import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
@@ -654,7 +654,6 @@ export class Wildlife {
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     if (w.inb(x0, y0) && w.distWater[w.idx(x0, y0)] <= 1 && bd < 16) {
       facePoint(a, f.x, f.y);
-      if (this.salmonRun && !this.salmonRun.shown && this.game.day - this.salmonRun.from >= 1 && momentFree(this.game)) { this.salmonRun.shown = moment(this.game, 'salmon', a) || true; }
       if (bd < SALMON_REACH * SALMON_REACH) {
         // the swipe
         if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, f, def, 0.22)) {

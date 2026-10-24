@@ -10,7 +10,7 @@ import { T, DAYS_PER_YEAR } from '../config.js';
 export const MOMENTS = {
   salmon: {
     title: 'The salmon are home',
-    text: 'Coho salmon are leaping up the creek you opened, back from years at sea to spawn in the gravel where they hatched. The bears have come down from the hills to meet them, and what the bears leave on the banks will feed the forest for a year.',
+    text: 'A coho salmon is leaping up the creek you opened, back from years at sea to spawn in the gravel where it hatched. It will lay its eggs and die here, and its body will feed the creek and the streamside forest for a year.',
   },
   dam: {
     title: "The beavers' first dam",
@@ -130,6 +130,22 @@ export function momentsUpdate(game) {
       if (w.inb(x, y) && w.terrain[w.idx(x, y)] === T.RIVER && ++swimming >= 3) break;
     }
     if (swimming >= 3) { moment(game, 'crossing', { x: c.x + 0.5, y: c.bank + 2.5 }); return; }
+  }
+  // The salmon run: once the fish are up the creek, watch one of them (the one furthest from a
+  // fishing bear, so the shot is the salmon's and not cut short by a catch).
+  const run = game.wildlife.salmonRun;
+  if (run && !run.shown && game.day - run.from >= 1 && game.day < run.until) {
+    const w = game.world, bear = game.catalog.animal.bear;
+    const bears = bear ? agents.filter(b => living(b) && b.sp === bear.index) : [];
+    let best = null, bd = -1;
+    for (const a of agents) {
+      if (!living(a) || !a.spawner || game.catalog.animals[a.sp]?.special !== 'salmon') continue;
+      const x = Math.floor(a.x), y = Math.floor(a.y);
+      if (!w.inb(x, y) || w.terrain[w.idx(x, y)] !== T.CREEK) continue;
+      const d = bears.reduce((m, b) => Math.min(m, distance(a, b)), 1e9);
+      if (d > bd) { bd = d; best = a; }
+    }
+    if (best) { run.shown = moment(game, 'salmon', best) || true; return; }
   }
   // (a blacktip after a longtom over the lagoon flats: the longtom's escape leaps are drawn by the renderer)
   if (game.catalog.animal.blacktip && game.flags.moments?.sharkHunt == null) {
