@@ -11,7 +11,7 @@ import { farHull, farTrunk } from './far-models.js';
 import { waterSurfaceY } from './terrain.js';
 import { activeCatalog } from '../data/catalog.js';
 import { meadowPatch, patchColor } from './patches.js';
-import { FloraChanges, floraChunkKey, TRAIL_OPENING } from './flora-changes.js';
+import { FloraChanges, floraChunkKey, TRAIL_OPENING, CLOSED_CANOPY } from './flora-changes.js';
 import { groveForm } from './groves.js';
 import { underWater, groundAt, visibleLevel } from '../sim/waterline.js';
 import { paletteLeafColor } from './palettes.js';
@@ -462,7 +462,7 @@ export class Flora {
       // ---- the forest floor: under a closed canopy, a drift of leaves, a dead branch, mushrooms
       // and moss, and ferns where nothing else grows (drawn only). Keeps a young or old forest's
       // floor from reading as bare dirt, close up and through the see-through window.
-      if (inside && tid && !aquaticTile && !bankTile && w.treeG[i] > 0.45 && w.canopy[i] > 0.5 && !game.catalog.definition.look.underwater && (!this.light || hash2(x, y, 701) < 0.5)) {
+      if (inside && tid && !aquaticTile && !bankTile && w.treeG[i] > 0.45 && w.canopy[i] > CLOSED_CANOPY && !game.catalog.definition.look.underwater && (!this.light || hash2(x, y, 701) < 0.5)) {
         const lv = (x * 3 + y * 5) & 3, ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
         // (on the far side of the tile from the trunk: see trees below)
         const lx = x + 0.5 - Math.sign(ox || 1) * (0.22 + hash2(x, y, 702) * 0.1), lz = y + 0.5 - Math.sign(oz || 1) * (0.22 + hash2(x, y, 703) * 0.1);

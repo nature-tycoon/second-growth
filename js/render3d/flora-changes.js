@@ -10,6 +10,11 @@ import { BORDER } from '../config.js';
 export const TRAIL_OPENING = 0.05;
 const TRAIL_CLEAR = TRAIL_THRESHOLD + TRAIL_OPENING * (TRAIL_FULL - TRAIL_THRESHOLD) - 1e-6;
 
+// A plant's growth draws only its own tile, except that a wood's edge fringe (Flora.forestEdge)
+// echoes trees past this growth and shrubs past this one up to two tiles away.
+const NEIGHBOUR_GROWTH = { groundG: Infinity, shrubG: 0.3, treeG: 0.45 };
+export const CLOSED_CANOPY = 0.5;
+
 const FIELDS = ['ground', 'groundG', 'shrub', 'shrubG', 'tree', 'treeG', 'variant', 'feature', 'featureAge', 'marks', 'terrain', 'bleach', 'canopy', 'trailDensity'];
 const BORDER_FIELDS = ['tree', 'treeG', 'shrub', 'ground'];
 // Also read for plants under shade and beside water, but set by the simulation: they choose which
@@ -62,6 +67,25 @@ export class FloraChanges {
       if (trail) s.trailDay = game.day;
       const touchValue = i => mark(Math.floor((i % width) / scale), Math.floor(i / width / scale));
       if (trail && a && old && a.length === old.length) { for (let i = 0; i < a.length; i++) if (a[i] !== old[i] && (a[i] > TRAIL_CLEAR || old[i] > TRAIL_CLEAR)) touchValue(i); continue; }
+      // Shade changes a little every day as trees grow, but plants read it only as whether their
+      // own tile is under a closed canopy (Flora.rebuild's forest floor).
+      if (f === 'canopy' && a && old && a.length === old.length) {
+        for (let i = 0; i < a.length; i++) if (a[i] !== old[i] && (a[i] > CLOSED_CANOPY) !== (old[i] > CLOSED_CANOPY)) {
+          const x = i % w.w, y = (i / w.w) | 0;
+          dirty.add(floraChunkKey(x, y, this.size)); tiles[(y + BORDER) * GW + x + BORDER] = 1;
+        }
+        continue;
+      }
+      const edge = NEIGHBOUR_GROWTH[f];
+      if (edge !== undefined && a && old && a.length === old.length) {
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] === old[i]) continue;
+          const now = a[i], was = old[i], x = i % w.w, y = (i / w.w) | 0;
+          if ((now > edge) !== (was > edge)) { mark(x, y); continue; }
+          dirty.add(floraChunkKey(x, y, this.size)); tiles[(y + BORDER) * GW + x + BORDER] = 1;
+        }
+        continue;
+      }
       if (a && old && a.length === old.length) { for (let i = 0; i < a.length; i++) if (a[i] !== old[i]) touchValue(i); continue; }
       for (let i = 0; i < Math.max(a?.length || 0, old?.length || 0); i++) if ((a?.[i] ?? 0) !== (old?.[i] ?? 0)) touchValue(i);
     }
