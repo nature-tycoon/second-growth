@@ -1,6 +1,6 @@
 
 import { isMaleVariant } from '../data/animals.js';
-import { DAYS_PER_YEAR } from '../config.js';
+import { T, DAYS_PER_YEAR } from '../config.js';
 
 // Keystone moments: the handful of big natural events each map builds toward. They aren't
 // scripted: each one fires the first time the simulation gets there on its own (the salmon find
@@ -117,6 +117,19 @@ export function momentsUpdate(game) {
     const a = agents.find(a => adultBull(a) && a.state === 'spar' && !a.sparLight && adultBull(byId(game, a.sparWith)) &&
       agents.some(c => living(c) && (c.haremOf === a.id || c.haremOf === a.sparWith) && distance(a, c) < 10));
     if (a) { moment(game, 'elkRut', a, { live: true, rival: a.sparWith, loser: a.sparLoser }); return; }
+  }
+  // The migration starts out beyond the far bank and takes a while to walk up: wait until the
+  // column is actually in the water before the cinematic, not when the herd sets out.
+  const c = game.wildlife.crossingAt;
+  if (c?.moment && game.day < c.until && game.flags.moments?.crossing == null) {
+    const w = game.world;
+    let swimming = 0;
+    for (const a of agents) {
+      if (!living(a) || !game.catalog.animals[a.sp]?.crossing || Math.abs(a.x - c.x) > 8) continue;
+      const x = Math.floor(a.x), y = Math.floor(a.y);
+      if (w.inb(x, y) && w.terrain[w.idx(x, y)] === T.RIVER && ++swimming >= 3) break;
+    }
+    if (swimming >= 3) { moment(game, 'crossing', { x: c.x + 0.5, y: c.bank + 2.5 }); return; }
   }
   // (a blacktip after a longtom over the lagoon flats: the longtom's escape leaps are drawn by the renderer)
   if (game.catalog.animal.blacktip && game.flags.moments?.sharkHunt == null) {

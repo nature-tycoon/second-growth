@@ -380,7 +380,8 @@ export class Wildlife {
     const cx = Math.round(w.w * (def.crossing.x ?? 0.5));
     let bank = w.h - 1;
     while (bank > 0 && isWater(w.terrain[w.idx(cx, bank)])) bank--;
-    this.crossingAt = { x: cx, until: this.game.day + 12 }; // the crocodiles know
+    // (the crocodiles know; a big enough herd is the keystone moment once it's swimming, see momentsUpdate)
+    this.crossingAt = { x: cx, bank, until: this.game.day + 12, moment: n >= 6 || !!this.crossingAt?.moment && this.game.day < this.crossingAt.until };
     const lag = rng() * 4; // groups that arrive the same month string out along the crossing
     for (let k = 0; k < n; k++) {
       // a loose crowd: bunched in the middle, stragglers out to the sides and well behind
@@ -395,7 +396,6 @@ export class Wildlife {
       for (let y = Math.max(0, bank - 3 - Math.floor(rng() * 3)); y <= w.h - 1; y++) path.push(w.idx(x, y));
       a.path = path; a.state = 'walk'; a.wait = 0; a.landed = true;
     }
-    if (n >= 6 && momentFree(this.game)) moment(this.game, 'crossing', { x: cx + 0.5, y: bank + 2.5 });
     return n;
   }
 
