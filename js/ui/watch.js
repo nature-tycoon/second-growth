@@ -140,7 +140,16 @@ export class Watch {
     if (!s) { this.next(); return; }
     s.t += dt;
     const a = s.agent;
-    if (a && !g.wildlife.hasAgent(a)) { this.next(); return; }
+    // killed (or died where it stood): stay on its carcass while it's eaten, until it's gone
+    if (a && !g.wildlife.hasAgent(a)) {
+      const body = !s.eye && g.wildlife.carcasses.find(c => c.id === a.id);
+      if (!body) { this.next(); return; }
+      if (!s.body) { s.body = true; this.caption(s, true); }
+      ui.follow = a; g.selectedAgent = null;
+      if (s.t > 1.2) r.azTarget += s.drift * dt;
+      if ((s.capAt = (s.capAt || 0) - dt) <= 0) { s.capAt = 0.5; this.caption(s); }
+      return;
+    }
     // an animal that never came into view (in a burrow, under the canopy) isn't worth the wait
     if (a && s.t > 3.5 && !r.actors.pose.get(a.id)?.visible) { this.next(); return; }
     const long = a && busy(a) && s.t < LONGEST;
@@ -221,12 +230,21 @@ export class Watch {
     clearTimeout(s.followAt);
   }
 
+  // What's happening at a watched animal's carcass.
+  bodyStatus(a) {
+    const g = this.game, c = g.wildlife.carcasses.find(k => k.id === a.id);
+    if (!c) return '';
+    const feeders = g.wildlife.agents.filter(o => o.state === 'feed' && o.carcass === c.id);
+    if (feeders.length) return `Carcass · being eaten by ${[...new Set(feeders.map(o => animalDef(o, g.catalog).name))].join(', ')}`;
+    return c.by != null && g.catalog.animals[c.by] ? `Carcass · killed by ${g.catalog.animals[c.by].name}` : 'Carcass';
+  }
+
   caption(s, fresh = false) {
     const g = this.game, b = this.cap.querySelector('b'), sp = this.cap.querySelector('span');
     if (s.agent) {
       const a = s.agent, def = animalDef(a, g.catalog);
       b.textContent = def.name;
-      sp.textContent = a.passing ? 'Flying through' : this.ui.agentStatus(a, def);
+      sp.textContent = s.body ? this.bodyStatus(a) : a.passing ? 'Flying through' : this.ui.agentStatus(a, def);
     } else {
       b.textContent = g.catalog.definition.farm;
       sp.textContent = `${SEASONS[g.season]}, year ${g.year}`;

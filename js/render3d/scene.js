@@ -434,6 +434,15 @@ export class Renderer {
     this.fly = null;
     this.followGlide = { id: a.id, t: 0 };
   }
+  // Keep a carcass in view: a followed animal that was killed (Input.trackFollow), eased over from
+  // where its body was standing.
+  followCarcass(c, dt) {
+    if (this.eyeOn) return;
+    this.fly = null; this.followGlide = null;
+    const w = this.world, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
+    easeAnimalTarget(this.target, (this.carcassAt ||= new THREE.Vector3()).set(c.x, ground, c.y), dt);
+    this.animalCentered = true; this.updateCamera();
+  }
   updateAnimalCamera(dt = 1 / 60) {
     const pose = this.followAgent && this.actors.pose.get(this.followAgent.id);
     if (!pose?.visible) return;

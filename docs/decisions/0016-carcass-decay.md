@@ -164,6 +164,15 @@ Tree-dwellers (`move: 'tree'`, the orangutans) leave no body yet, and are eaten 
 caught. Their models are posed for climbing (an orangutan stands upright), and this skeleton is
 fitted to a level body on four legs.
 
+## Following onto the carcass
+
+A carcass has its animal's id. When a followed animal is killed, or dies where it stands, the
+camera stays on its carcass until the carcass is gone (`Input.trackFollow`,
+`Renderer.followCarcass`), and the inspector says Killed or Died rather than Gone. Watch mode keeps
+the shot on the carcass too, captioned with who's eating it. Panning still lets go. Small prey
+eaten on the spot and fish carried off leave no carcass, so following ends there as before.
+`animal-locate-check` covers it.
+
 ## Review page
 
 `http://localhost:8347/tools/skeleton-review.html` (with the server running) shows every species

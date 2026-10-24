@@ -672,7 +672,12 @@ export class UI {
     if (existingMini) { setText(existingMini, this.infoMin ? '+' : '−'); setAttr(existingMini, 'title', tr(this.infoMin ? 'Expand' : 'Collapse')); }
     if (ins.agent) {
       const a = this.game.wildlife.findAgent(ins.agent);
-      if (!a) { if (!setHTML(panel, `<button class="close">×</button><h3>Gone</h3><p class="info-desc">This animal has moved on, or didn't make it.</p>`)) return; }
+      // (a kill, or a death where it stood, leaves a carcass with its id: see Input.trackFollow)
+      const body = !a && this.game.wildlife.carcasses.find(c => c.id === ins.agent);
+      const gone = !body ? ['Gone', "This animal has moved on, or didn't make it."]
+        : body.by != null ? ['Killed', 'A hunter caught this animal. Its carcass lies here while it\'s eaten, then breaks down.']
+        : ['Died', 'This animal died here. Its carcass lies here while scavengers eat it, then breaks down.'];
+      if (!a) { if (!setHTML(panel, `<button class="close">×</button><h3>${gone[0]}</h3><p class="info-desc">${gone[1]}</p>`)) return; }
       else if (!setHTML(panel, this.agentHTML(a))) return;
     } else if (!setHTML(panel, this.tileHTML(ins.i))) return;
     panel.querySelector('.close')?.addEventListener('click', () => this.closeInfo());

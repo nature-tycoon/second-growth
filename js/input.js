@@ -119,7 +119,7 @@ export class Input {
   update(dt) {
     this.r.followAgent = null;
     // watch mode directs the camera itself (ui/watch.js), and a keystone moment within it too
-    if (this.ui.watch.on) { if (this.ui.follow && this.game.wildlife.hasAgent(this.ui.follow)) this.r.followAgent = this.ui.follow; return; }
+    if (this.ui.watch.on) { if (this.ui.follow) this.trackFollow(this.ui.follow, dt); return; }
     if (!this.ui.follow && this.r.animalFraming) {
       if (!this.ui.moment) this.r.frameGoal = { x: 0.5, y: 0.5 };
       this.r.animalFraming = false;
@@ -152,13 +152,22 @@ export class Input {
     // keep a located animal in view until the player moves the camera
     const f = this.ui.follow;
     if (f) {
-      if (dx || dy || sv || this.pan || this.fling || !this.game.wildlife.hasAgent(f)) this.ui.follow = null;
+      if (dx || dy || sv || this.pan || this.fling || !this.trackFollow(f, dt)) this.ui.follow = null;
       else {
-        this.r.followAgent = f; // renderer follows this frame's visible body, including height
         if (!this.ui.moment) { this.r.frameGoal = this.ui.animalFrame(); this.r.animalFraming = true; }
       }
     }
     if (this.mouse.in && !this.pan) this.updateHover();
+  }
+
+  // Keep the camera on a followed animal (the renderer follows this frame's visible body, including
+  // height). One that's killed, or dies where it stands, leaves a carcass with its id: the camera
+  // stays on that while it's eaten, until it's gone. False when there's neither.
+  trackFollow(f, dt) {
+    if (this.game.wildlife.hasAgent(f)) { this.r.followAgent = f; return true; }
+    const body = this.game.wildlife.carcasses.find(c => c.id === f.id);
+    if (body) this.r.followCarcass(body, dt);
+    return !!body;
   }
 
   tool() { return this.ui.state.tool && !this.ui.state.clean ? this.game.catalog.tools[this.ui.state.tool] : null; } // (no painting through a keystone moment)

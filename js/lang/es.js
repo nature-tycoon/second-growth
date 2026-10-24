@@ -130,6 +130,8 @@ addStrings({
 
   // ---------------------------------------------------------------- inspector
   Gone: 'Se fue', "This animal has moved on, or didn't make it.": 'Este animal se fue, o no sobrevivió.',
+  Killed: 'Cazado', "A hunter caught this animal. Its carcass lies here while it's eaten, then breaks down.": 'Un depredador cazó a este animal. Su cadáver queda aquí mientras se lo comen, y luego se descompone.',
+  Died: 'Murió', 'This animal died here. Its carcass lies here while scavengers eat it, then breaks down.': 'Este animal murió aquí. Su cadáver queda aquí mientras los carroñeros se lo comen, y luego se descompone.',
   'Leaving the property': 'Saliendo de la finca', Hunting: 'Cazando', Flying: 'Volando', Wandering: 'Caminando', 'Resting / foraging': 'Descansando / comiendo',
   'Stalking prey': 'Acechando a su presa', 'Chasing prey': 'Persiguiendo a su presa', 'Circling over prey': 'Volando en círculos sobre su presa',
   Playing: 'Jugando', 'Running from danger': 'Huyendo del peligro', 'Fleeing the fire': 'Huyendo del fuego', Feeding: 'Comiendo', Drinking: 'Bebiendo',
