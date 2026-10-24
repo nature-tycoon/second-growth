@@ -1,6 +1,6 @@
 // Rodents, squirrels, rabbits and bears.
 import * as THREE from 'three';
-import { P, SPH_HI, col, grad, hash3, pinnaAt, pixelCoat, place, shade, tmp } from './model-core.js';
+import { P, SPH_HI, col, grad, hash3, pinnaAt, pixelCoat, place, sculpt, shade, smooth, tmp } from './model-core.js';
 
 // A vole is a furry egg with a blunt nose: tiny feet, ears tucked in the fur, a short tail.
 // A chipmunk (stripes) is the same egg, perkier: head up, bold back stripes, a striped face
@@ -124,11 +124,17 @@ function bear(m, s) {
       return u.x > 0.5 && d > 0.7 && d < 1.0 && p.y < yc + H * 0.1 ? tmp.copy(col(s.chest)).multiplyScalar(0.9 + hash3(Math.round(p.y * 2), Math.round(p.z * 2), 3) * 0.15) : fur(u);
     };
     m.add(SPH_HI, place([L * 0.2, by + 1.2 * k, 0], [0, 0, 0], [L * 0.24, H * 0.52, H * 0.47]), blaze);
+    m.ell([-L * 0.22, by + 1.2 * k, 0], [L * 0.25, H * 0.52, H * 0.48], coat);
   } else {
-    m.ell([0, by + 1 * k, 0], [L * 0.4, H * 0.5, H * 0.45], coat);
-    m.ell([L * 0.2, by + 1.2 * k, 0], [L * 0.24, H * 0.52, H * 0.47], coat);
+    // one smooth bulk from rump to chest (overlapping blobs read as humps): the back runs gently
+    // down from a high rump to the withers, with no shoulder hump (that is a grizzly's), and both
+    // ends round off blunt. (d.x runs tail to chest; pushed outward, so the barrel stays full)
+    sculpt(m, d => {
+      const t = Math.sign(d.x) * Math.abs(d.x) ** 0.55, f = smooth(-0.7, 0.8, t);
+      const ry = H * (0.55 - 0.05 * f), cy = by + (2.2 - 1.2 * f) * k, rz = H * (0.47 + 0.02 * Math.exp(-t * t * 4));
+      return [-L * 0.02 + t * L * 0.47, cy + d.y * ry, d.z * rz];
+    }, coat);
   }
-  m.ell([-L * 0.22, by + (sun ? 1.2 : 2.4) * k, 0], [L * 0.25, H * 0.52, H * 0.48], coat); // black bears stand rump-high
   const hs = sun ? 1.18 : 1; // a sun bear's head is big for its body
   const neck = [L * 0.3, by + 1.5 * k, 0], hd = { part: P.HEAD, pivot: neck }, hp = [L * 0.51 + (sun ? H * 0.04 : 0), by - 0.4 * k + (sun ? H * 0.12 : 0), 0];
   m.limb(neck, [hp[0] - 3 * k, hp[1], 0], H * 0.33, H * 0.28, coat, hd);
@@ -152,8 +158,9 @@ function bear(m, s) {
     }
   }
   for (const [x, side, part, top] of [[L * 0.24, 1, P.LEG_FL, by - 2 * k], [L * 0.24, -1, P.LEG_FR, by - 2 * k], [-L * 0.24, 1, P.LEG_BL, by], [-L * 0.24, -1, P.LEG_BR, by]]) {
-    const z = side * H * 0.25, hip = [x, top, z], o = { part, pivot: hip };
-    if (part >= P.LEG_BL) m.ell([x - 1 * k, by - 2 * k, z * 1.05], [H * 0.3, H * 0.4, H * 0.2], coat, o); // heavy thigh
+    const z = side * H * (sun ? 0.25 : 0.23), hip = [x, top, z], o = { part, pivot: hip };
+    // heavy thigh (the black bear's kept inside the rump's curve, so it fills out the haunch rather than bulging off it)
+    if (part >= P.LEG_BL) m.ell(sun ? [x - 1 * k, by - 2 * k, z * 1.05] : [x, by - 1.5 * k, z * 1.05], sun ? [H * 0.3, H * 0.4, H * 0.2] : [H * 0.27, H * 0.38, H * 0.2], coat, o);
     m.limb(hip, [x + 0.6 * k, 3 * k, z], H * 0.25, H * 0.17, coat, o);
     paw(m, [x + 1.6 * k, 1.6 * k, z], [H * 0.21, H * 0.09, H * 0.17], '#0e0b09', o);
     // long, curved pale claws, longest on the front feet
