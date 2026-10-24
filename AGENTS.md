@@ -38,6 +38,7 @@ Read the decisions in [docs/decisions/](docs/decisions/) before changing the are
 - [0014 Activity budget](docs/decisions/0014-activity-budget.md): hunters' hunger, rest and soaring compete for time (`behavior.activity`, `prowl()`), prey watch a stalker and flee at a rush, flights speed up then tire, trails fade 0.5%/day; `node tools/activity-check.mjs`
 - [0015 Landscape of fear](docs/decisions/0015-landscape-of-fear.md): each prey species remembers kill and chase sites for a few weeks (`sim/predation-risk.js`, not saved) and weighs them when choosing a home, a site or a drinking spot; `node tools/predation-risk-check.mjs`
 - [0016 Carcass decay](docs/decisions/0016-carcass-decay.md): a kill's flesh is drawn pulling back onto a per-species skeleton, which slumps into a pile of bones that go one by one (`render3d/carcass-decay.js`, `decay()` in the animal shader; drawing only, plus `leaveBody` for animals that die naturally; skeletons keep their antlers, horns and tusks; Graphics → Carcass decay turns it off); `node tools/carcass-decay-check.mjs`, review at `tools/skeleton-review.html`
+- [0017 Controlled burns can torch](docs/decisions/0017-controlled-burn-crown-fires.md): a burn under big trees with shrubs beneath them can climb into a dry canopy as a crown fire (`Events.rxTorch`, `RX_TORCH`; never on `crownFires: false` maps); `node tools/rx-crown-fire-check.mjs`
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
 
