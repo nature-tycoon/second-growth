@@ -7,7 +7,7 @@
 // instead of looking down on it.
 //
 // The game carries on underneath at whatever speed it was, and the bar has the same speed buttons
-// as the top bar (Space and 1–3 work too). The map can't be painted or panned while watching: a
+// as the top bar (Space, 0 and 1–3 work too). The map can't be painted or panned while watching: a
 // click or a moved mouse only brings up the controls. The bar can be tucked away into one small
 // button (the − on its end), and then it stays away until that button is pressed.
 //

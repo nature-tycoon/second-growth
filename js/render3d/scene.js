@@ -13,7 +13,7 @@ import { sky, haze, sea, withClouds } from './atmosphere.js';
 import { lightingBalance } from './lighting.js';
 import { Ambience } from './ambience.js';
 import { activeCatalog } from '../data/catalog.js';
-import { BORDER, LEVEL, T, H, isWater, clamp } from '../config.js';
+import { BORDER, LEVEL, T, H, isWater, clamp, SPEEDS } from '../config.js';
 import { animalDef, isMale } from '../data/animals.js';
 import { Terrain, buildAtlas, waterSurfaceY } from './terrain.js';
 import { Flora, windGust, floraVersion } from './flora.js';
@@ -49,7 +49,10 @@ function installGrade(grade = {}) {
 // properly dark, so the land stays readable. Each key: [position in the cycle, sun strength,
 // sun colour, how much of it, sky colour, how much of it, sun elevation in degrees, sweep].
 const DAY_CYCLE = 360;
-const NIGHT_PACE = [1.5, 1.5, 2.6, 4]; // how much faster the dark hours pass, at each game speed (paused, normal, fast, fastest)
+const NIGHT_PACE = [1.5, 1.5, 2.6, 4, 1]; // how much faster the dark hours pass, at each game speed (paused, normal, fast, fastest, watch)
+// how fast the whole cycle runs at each game speed: at watch pace a day takes about 18 minutes,
+// night as unhurried as the day, so a sunset, dusk and dawn play out while the animals live them
+const DAY_PACE = [1, 1, 1, 1, 1 / 3];
 const TOD = [
   [0.0, 0.66, 0xffb89a, 0.5, 0xf0c8c0, 0.16, 12, -0.9],    // dawn
   [0.05, 0.9, 0xffe0b8, 0.25, 0xf4e4d4, 0.08, 30, -0.6],
@@ -840,11 +843,11 @@ export class Renderer {
     // speeds the ground repaints at most four times a second.
     // (on the Fast setting the ground and plants catch up at a gentler pace, since each rebuild
     // is a noticeable pause on a phone)
-    const light = this.light;
+    const light = this.light, pace = SPEEDS[game.speed] || 0;
     // Within a month the day's repaint goes a band of rows a frame (Terrain.dayBands), rather than
     // the whole map in one long frame.
     let patch = null, band = false, newDay = false;
-    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (game.speed >= 2 ? 1200 : 600) : game.speed >= 2 ? 250 : 0)))) {
+    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (pace >= SPEEDS[2] ? 1200 : 600) : pace >= SPEEDS[2] ? 250 : 0)))) {
       surface = newDay = true; this.dayDirty = 0;
       this.groundBands = swapped ? null : this.terrain.dayBands(game);
     } else if (this.groundBands?.length && !this.editDirty) surface = true;
@@ -865,7 +868,7 @@ export class Renderer {
     // stroke repaints ground every frame and used to prevent any plants from catching up.
     // Once a budgeted rebuild starts, finish its remaining regions on consecutive frames.
     const continuing = this.flora.waitingRegions?.size > 0;
-    const growthReady = !surface && this.frameN > (this.dayDirty || 0) && now - this.lastFlora > (light ? (game.speed >= 2 ? 1200 : 400) : game.speed >= 3 ? 400 : 150);
+    const growthReady = !surface && this.frameN > (this.dayDirty || 0) && now - this.lastFlora > (light ? (pace >= SPEEDS[2] ? 1200 : 400) : pace >= SPEEDS[3] ? 400 : 150);
     if (this.floraPending && (swapped || this.floraEditPending || continuing || growthReady)) {
       if (!this.flora.rebuild(game, false, swapped ? Infinity : FLORA_REGIONS_PER_FRAME)) {
         this.lastFlora = now; this.floraPending = false; this.floraEditPending = false;
@@ -943,7 +946,7 @@ export class Renderer {
       const u = (this.todClock / DAY_CYCLE) % 1, sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
       const dark = u > 0.5 ? sm(0.8, 0.87, u) : 1 - sm(0, 0.05, u);
       const fast = NIGHT_PACE[game.speed] ?? NIGHT_PACE[1];
-      this.todClock = (this.todClock + dt * (1 + (fast - 1) * dark)) % DAY_CYCLE;
+      this.todClock = (this.todClock + dt * (DAY_PACE[game.speed] ?? 1) * (1 + (fast - 1) * dark)) % DAY_CYCLE;
     }
     const todU = this.dayCycleOn === false ? 0.35 : this.todClock / DAY_CYCLE;
     const tod = timeOfDay(todU);

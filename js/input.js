@@ -1,7 +1,7 @@
 // Mouse and keyboard: camera control, brushing tools across the map, inspecting.
 
 import { tr } from './i18n.js';
-import { T, money, clamp } from './config.js';
+import { T, money, clamp, WATCH_PACE } from './config.js';
 import { strokeTiles, toolCost, bestSuit } from './tools.js';
 import { settings } from './settings.js';
 
@@ -90,7 +90,7 @@ export class Input {
       if (WALK_KEYS.has(k) && this.ui.watch.walk()) { e.preventDefault(); this.keys.add(k); return; }
       if (k === 'shift') { this.keys.add(k); return; }
       if (this.ui.watch.key(k)) { e.preventDefault(); return; }
-      if (k === ' ' || k === '1' || k === '2' || k === '3' || k === 'm') this.keys.add(k); else return;
+      if (k === ' ' || k === '0' || k === '1' || k === '2' || k === '3' || k === 'm') this.keys.add(k); else return;
     } else this.keys.add(k);
     if (k === 'escape') {
       if (this.ui.modalOpen) this.ui.closeModal();
@@ -105,6 +105,7 @@ export class Input {
       else this.ui.setSpeed(this.lastSpeed || 1);
     }
     else if (k === '1' || k === '2' || k === '3') this.ui.setSpeed(+k);
+    else if (k === '0') this.ui.setSpeed(WATCH_PACE);
     else if (k === '[') this.ui.nudgeBrush(-1);
     else if (k === ']') this.ui.nudgeBrush(1);
     else if (k === 't') this.ui.toggleTrees();

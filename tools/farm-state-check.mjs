@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { BIOME_LIST, setBiome } from '../js/biome.js';
-import { DIFFICULTY, DAYS_PER_MONTH } from '../js/config.js';
+import { DIFFICULTY, DAYS_PER_MONTH, SPEEDS, WATCH_PACE } from '../js/config.js';
 import { createFarmState } from '../js/farm-state.js';
 
 let checks = 0;
@@ -44,6 +44,16 @@ for (const map of BIOME_LIST) check(`${map.id}: restore binds the owning map and
   assert.equal(g.mode, 'free'); assert.equal(g.difficulty, 'standard');
   assert.equal(g.weather, 'clear'); assert.equal(g.weatherDays, 0);
   assert.deepEqual(g.stats.used, {}); assert.deepEqual(g.ledger, { in: {}, out: {} });
+});
+
+check('Watch pace survives a save and runs the clock at its slow pace', () => {
+  g.newGame(1987, 'free', 'standard', 'pnw');
+  const data = g.saveData(); data.speed = WATCH_PACE;
+  g.newGame(2, 'free', 'standard', 'reef');
+  assert.equal(g.restoreSave(data), true); assert.equal(g.speed, WATCH_PACE);
+  const day = g.day, acc = g.acc;
+  for (let k = 0; k < 10; k++) g.update(0.1);
+  assert.ok(Math.abs(g.day + g.acc - day - acc - SPEEDS[WATCH_PACE]) < 1e-6, 'one second at watch pace moves the clock by its pace');
 });
 
 check('Season names and fire scheduling use the owning farm configuration', () => {

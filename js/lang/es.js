@@ -80,7 +80,7 @@ addStrings({
   'Open Second Growth from its new Home Screen icon.': 'Abrí Second Growth desde su nuevo ícono en la pantalla de inicio.',
   'Open this page in Chrome and tap the three-dot menu beside the address bar.': 'Abrí esta página en Chrome y tocá el menú de tres puntos junto a la barra de direcciones.',
   'Choose Add to Home screen or Install app. Some versions put Install inside Install and create shortcut. Follow the prompts.': 'Elegí Agregar a la pantalla principal o Instalar app. En algunas versiones, Instalar está dentro de Instalar y crear acceso directo. Seguí los pasos que aparecen.',
-  'Pause (Space)': 'Pausa (Espacio)', Normal: 'Normal', Fast: 'Rápido', Fastest: 'Muy rápido',
+  'Pause (Space)': 'Pausa (Espacio)', Normal: 'Normal', Fast: 'Rápido', Fastest: 'Muy rápido', 'Watch pace: animals at their real pace (0)': 'Ritmo de observación: los animales a su ritmo real (0)',
   'Visitors (open details)': 'Visitantes (ver detalles)', 'no trailhead': 'sin parqueo',
   'Ecosystem health (open report)': 'Salud del ecosistema (abrir informe)', Ecosystem: 'Ecosistema', Health: 'Salud',
   'Open the field guide': 'Abrir la guía de campo', species: 'especies',
@@ -272,7 +272,7 @@ addStrings({
   // controls (the list is split by keys and bold words, so each piece is translated on its own)
   'Pick a tool on the left, then': 'Elegí una herramienta a la izquierda, y después', 'click and drag to brush': 'hacé clic y arrastrá para pintarla', 'it across the land.': 'sobre el terreno.',
   'change brush size.': 'cambian el tamaño del pincel.', 'Right-drag or': 'Arrastrá con el botón derecho o con', 'to pan, scroll to zoom,': 'para moverte, la rueda para acercar,',
-  'to rotate the view.': 'para girar la vista.', Space: 'Espacio', 'pauses,': 'pausa,', 'set speed,': 'cambian la velocidad,', 'sees through trees,': 'deja ver a través de los árboles,',
+  'to rotate the view.': 'para girar la vista.', Space: 'Espacio', 'pauses,': 'pausa,', 'set speed,': 'cambian la velocidad,', 'slows to watch pace,': 'pasa al ritmo de observación,', 'sees through trees,': 'deja ver a través de los árboles,',
   'to rotate by 15°. Hold': 'para girar 15°. Mantené presionada',
   'for a 90° turn.': 'para girar 90°.',
   'The rotation arrows turn the view by 15°. Q / E do the same. Hold Shift for a 90° turn.': 'Las flechas giran la vista 15°. Q / E hacen lo mismo. Mantené presionada Mayús para girar 90°.',

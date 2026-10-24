@@ -22,8 +22,13 @@ export const SPREAD_BY_MONTH = [0.3, 0.5, 0.8, 1.0, 1.2, 1.3, 1.3, 1.0, 0.4, 0.0
 // Seasonal wetness offset: soggy winters, dry summers.
 export const MOIST_BY_MONTH = [0.07, 0.05, 0.0, -0.05, -0.12, -0.15, -0.08, 0.02, 0.09, 0.12, 0.12, 0.1];
 
-// Game days per real second at each speed setting.
-export const SPEEDS = [0, 0.72, 3, 8]; // game days per real second (normal speed: a year takes about 2¾ minutes)
+// Game days per real second at each speed setting: pause, normal, fast, fastest, then watch.
+// (normal speed: a year takes about 2¾ minutes.) Animals are timed for this clock, so at normal
+// speed an elk walks about 8 m a second; watch pace (index 4, last so older saves keep their
+// numbers) slows everything together until they walk, graze and rest at about their real pace
+// (a year in about 15 minutes). Compare speeds by their values here, not by index.
+export const SPEEDS = [0, 0.72, 3, 8, 0.13];
+export const WATCH_PACE = 4;
 
 // Terrain
 export const T = {
