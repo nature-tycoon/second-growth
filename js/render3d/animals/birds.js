@@ -213,7 +213,12 @@ function bird(m, s) {
     m.limb([duckNeck[0] - d[0] * k, duckNeck[1] - d[1] * k, 0], [duckNeck[0] + d[0] * k, duckNeck[1] + d[1] * k, 0], neckR * 1.08, neckR * 1.06, '#f4efde', { ...hd, caps: false, seg: 16 });
   }
   const pecker = s.kind === 'woodpecker';
-  m.ell(hp, [hr * (o.headLong || 1.05), hr * (o.brow ? 0.9 : 1), hr * (o.owl ? 1.1 : 0.95)], pecker ? s.color : s.head, hd);
+  // (a cardinal's mask is painted on the head itself: dark round the bill, back through the lores to
+  // the eye and down over the chin, so the eye sits in it instead of a dark disc reading as the eye)
+  const headC = pecker ? s.color : s.head;
+  const mask = u => Math.max(smooth(0.1, 0.24, u.x) * (1 - smooth(0.4, 0.52, u.y)), smooth(-0.35, -0.55, u.y) * smooth(-0.05, 0.2, u.x));
+  m.ell(hp, [hr * (o.headLong || 1.05), hr * (o.brow ? 0.9 : 1), hr * (o.owl ? 1.1 : 0.95)],
+    s.mask ? u => tmp.copy(col(headC)).lerp(col(s.face), mask(u)) : headC, s.mask ? { ...hd, fine: true } : hd);
   if (o.brow) for (const side of [1, -1]) m.ell([hp[0] + hr * 0.5, hp[1] + hr * 0.42, side * hr * 0.6], [hr * 0.48, hr * 0.17, hr * 0.26], shade(s.head, -0.12), { ...hd, rot: [side * 0.25, 0, -0.12], lo: true });
   if (s.goose) for (const side of [-1, 1]) m.ell([hp[0] + hr * 0.12, hp[1] - hr * 0.25, side * hr * 0.9], [hr * 0.72, hr * 0.4, hr * 0.12], '#eeeade', hd);
   if (o.taper) m.ell([hp[0] + hr * 0.75, hp[1] - hr * 0.12, 0], [hr * 0.7, hr * 0.62, hr * 0.62], s.head, hd); // (a streamlined face sloping into the bill, as on a booby)
@@ -272,9 +277,9 @@ function bird(m, s) {
     eyes(m, hp, hr * 0.52, hr * 0.24, hr * 0.9, Math.max(0.3, hr * 0.09), P.HEAD, neckBase);
   } else {
     // bare facial skin (secretarybird's orange, crowned crane's white cheek)
-    if (s.face) for (const side of [1, -1]) m.ell([hp[0] + hr * 0.35, hp[1] + hr * 0.05, side * hr * 0.7], [hr * 0.5, hr * 0.4, hr * 0.3], s.face, hd);
+    if (s.face && !s.mask) for (const side of [1, -1]) m.ell([hp[0] + hr * 0.35, hp[1] + hr * 0.05, side * hr * 0.7], [hr * 0.5, hr * 0.4, hr * 0.3], s.face, hd);
     if (s.ring) eyes(m, hp, hr * 0.42, hr * 0.25, hr * 0.72, Math.max(0.52, hr * 0.2), P.HEAD, neckBase, s.ring); // a thin pale eye-ring
-    eyes(m, hp, hr * 0.45, hr * 0.25, s.ring ? hr * 0.8 : hr * 0.78, Math.max(0.45, hr * 0.17), P.HEAD, neckBase);
+    eyes(m, hp, hr * 0.45, hr * 0.25, s.ring ? hr * 0.8 : hr * 0.78, s.mask ? hr * 0.14 : Math.max(0.45, hr * 0.17), P.HEAD, neckBase); // (a cardinal's eye is small for its big head)
   }
   if (s.quills) for (let k = 0; k < 6; k++) { // secretarybird: long black quills hanging off the back of the head
     const z = (k % 2 ? 1 : -1) * hr * 0.15 * (1 + (k >> 1));
