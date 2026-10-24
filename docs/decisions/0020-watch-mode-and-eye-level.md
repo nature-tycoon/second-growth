@@ -21,6 +21,16 @@ Watch). The panels go, thin letterbox bars come in, and the camera directs itsel
   bar's end (or `H`) tucks it into one small, faint button, and then moving the mouse leaves it
   away until that button is pressed. Esc or C leaves and flies back to where the
   view was.
+- **One species** (2026-10-24, Cole: "track a specific animal species"). The chip at the start of
+  the bar (or `S`) lists the species out right now (awake, not leaving), most numerous first, with
+  their portraits and counts. Choosing one narrows `pick()` to it: Next and each new shot move
+  between its animals, wide land shots are skipped, and when it's the only one out the shot just
+  carries on with it. If none are left (all gone, or asleep for winter) the director goes back to
+  all animals and the chip says so. Works the same at eye level. To keep the bar tidy, the line of
+  key hints it used to carry went into the buttons' tooltips. Phones are played in landscape, where
+  the bar fits on one row (checked at 812×375); below 960 px wide the caption hides while the bar is
+  up, since a long name would run under it. Narrower than 620 px (an upright phone, not the target)
+  the chip takes its own row above the other controls.
 
 **Eye level** (`F` in watch mode; `js/render3d/eye-camera.js`). This is a ride-along view rather than
 literal first person: a perspective camera low behind the animal, a little above its head, looking

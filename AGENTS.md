@@ -67,6 +67,10 @@ Several agents (Claude Code, Codex, Cursor) often edit this checkout at the same
 - Merging to main deploys GitHub Pages (nature-tycoon.github.io/second-growth) and runs the itch.io workflow.
 - CI: PRs run only the headless suite. The browser suite runs on main before the itch.io upload. Run the relevant `tools/*-check.mjs` locally, and don't wait for or poll CI before merging. `[skip ci]` in the commit message skips the checks and the itch.io upload.
 
+## Phones
+
+The game is played on phones in **landscape**. Design and check phone layouts at a landscape size (for example 812×375 or 844×390), where the height is the tight side. Upright (portrait) phone layouts are a fallback, not the target.
+
 ## Testing on Cole's Mac
 
 Cole works on the same machine while agents test, and the 3D game is heavy.

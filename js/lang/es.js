@@ -33,6 +33,10 @@ addStrings({
   'Flying through': 'Pasando en vuelo', Flock: 'Bandada', 'Follow bird': 'Seguir al ave',
   'Passing birds': 'Aves de paso', 'Passes over': 'Pasa en', 'Overhead now': 'Volando encima ahora', None: 'Ninguna',
   'overhead now': 'volando encima', 'passing through': 'de paso', 'Follow a bird': 'Seguir a un ave',
+  // watch mode's bar (ui/watch.js)
+  'All animals': 'Todos los animales', 'No animals out right now': 'No hay animales afuera ahora', 'Watch one species (S)': 'Ver una sola especie (S)',
+  'Next animal (N)': 'Siguiente animal (N)', 'Eye level (F)': 'A ras del suelo (F)', 'Stop watching (Esc)': 'Dejar de mirar (Esc)', 'Hide the controls (H)': 'Esconder los controles (H)',
+  'Eye level': 'A ras del suelo', 'Show the controls': 'Mostrar los controles',
   "Flocks cross the property on their way somewhere else. They don't live here, so they don't count toward your species.": 'Las bandadas cruzan la finca de camino a otro lugar. No viven aquí, así que no cuentan entre tus especies.',
   'Canada goose': 'Ganso canadiense', 'Barn swallow': 'Golondrina común', 'Great egret': 'Garza blanca',
   'White stork': 'Cigüeña blanca', 'Black vulture': 'Zopilote negro', 'Blue-crowned hanging parrot': 'Lorículo de corona azul',

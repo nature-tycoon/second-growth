@@ -10,12 +10,16 @@
 // as the top bar (Space and 1–3 work too). The map can't be painted or panned while watching: a
 // click or a moved mouse only brings up the controls. The bar can be tucked away into one small
 // button (the − on its end), and then it stays away until that button is pressed.
+//
+// The species chip at the bar's start narrows the director to one species: it moves between that
+// species' animals (stays on the one there is, if there's only one) and skips the wide shots.
 
 import { animalDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
 import { SEASONS, clamp } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
 import { track } from '../analytics.js';
+import { animalThumb } from './thumbnails.js';
 
 const SHOT = { follow: 16, eye: 18, wide: 11 }; // seconds a shot lasts
 const LONGEST = 40;                              // a hunt or a chase keeps the camera, up to this long
@@ -34,7 +38,7 @@ const busy = a => a.state === 'hunt' || a.state === 'flee' || a.state === 'carry
 export class Watch {
   constructor(game, renderer, ui) {
     this.game = game; this.renderer = renderer; this.ui = ui;
-    this.on = false; this.eyeLevel = false; this.min = false;
+    this.on = false; this.eyeLevel = false; this.min = false; this.species = null;
     this.shot = null; this.recent = []; this.n = 0;
   }
 
@@ -43,6 +47,7 @@ export class Watch {
   start() {
     if (this.on) return;
     const ui = this.ui, r = this.renderer;
+    this.species = null;
     if (ui.photo) ui.togglePhoto();
     ui.closeInfo();
     this.on = true;
@@ -50,6 +55,7 @@ export class Watch {
     ui.state.clean = true;
     document.body.classList.add('watch-mode');
     this.build();
+    this.showSpecies();
     requestAnimationFrame(() => this.el.classList.add('bars'));
     this.shot = null; this.n = 0;
     this.showControls();
@@ -61,6 +67,7 @@ export class Watch {
     const ui = this.ui, r = this.renderer;
     this.on = false;
     this.endShot();
+    this.closeMenu();
     r.setEyeLevel(null);
     ui.follow = null; this.game.selectedAgent = null;
     r.flyTo(this.prev.x, this.prev.z, this.prev.zoom, 1.4); r.azTarget = this.prev.az;
@@ -83,10 +90,11 @@ export class Watch {
     const o = document.createElement('div'); o.id = 'watch';
     o.innerHTML = `<div class="lb lb-top"></div><div class="lb lb-bot"></div>
       <div class="w-cap"><b></b><span></span></div>
-      <div class="w-bar"><span class="w-hint">Esc to stop · N next · F eye level · H hide</span>
+      <div class="w-menu" role="listbox"></div>
+      <div class="w-bar"><button class="w-sp" data-a="species" title="Watch one species (S)" aria-haspopup="listbox"><span></span><svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4"/></svg></button>
         <div class="speed w-speed">${document.getElementById('speed').innerHTML}</div>
-        <button class="btn secondary" data-a="next">Next</button><button class="btn secondary" data-a="eye">Eye level</button><button class="btn" data-a="done">Done</button>
-        <button class="w-min" data-a="min" title="Hide the controls"><svg viewBox="0 0 16 16"><path d="M4 8h8"/></svg></button></div>
+        <button class="btn secondary" data-a="next" title="Next animal (N)">Next</button><button class="btn secondary" data-a="eye" title="Eye level (F)">Eye level</button><button class="btn" data-a="done" title="Stop watching (Esc)">Done</button>
+        <button class="w-min" data-a="min" title="Hide the controls (H)"><svg viewBox="0 0 16 16"><path d="M4 8h8"/></svg></button></div>
       <button class="w-expand" title="Show the controls"><svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4"/></svg></button>`;
     document.body.appendChild(o);
     this.el = o; this.cap = o.querySelector('.w-cap');
@@ -95,6 +103,11 @@ export class Watch {
     o.querySelector('[data-a=eye]').addEventListener('click', () => this.setEyeLevel(!this.eyeLevel));
     o.querySelector('[data-a=min]').addEventListener('click', () => this.setMinimized(true));
     o.querySelector('.w-expand').addEventListener('click', () => this.setMinimized(false));
+    o.querySelector('[data-a=species]').addEventListener('click', () => this.toggleMenu());
+    this.menu = o.querySelector('.w-menu');
+    this.menu.addEventListener('click', e => { const b = e.target.closest('button'); if (b) this.setSpecies(b.dataset.key || null); });
+    // a click anywhere else puts the list away
+    o.addEventListener('pointerdown', e => { if (this.menuOpen && !e.target.closest('.w-menu, [data-a=species]')) this.closeMenu(); });
     o.querySelectorAll('.w-speed button').forEach(b => b.addEventListener('click', () => this.ui.setSpeed(+b.dataset.speed)));
     // the whole screen catches the pointer, so watching never paints or pans the map by accident
     const show = () => this.showControls();
@@ -104,6 +117,7 @@ export class Watch {
 
   setMinimized(on) {
     this.min = on;
+    if (on) this.closeMenu();
     this.el.classList.toggle('min', on);
     if (on) { clearTimeout(this.hideT); this.el.classList.remove('show'); } else this.showControls();
   }
@@ -113,11 +127,67 @@ export class Watch {
     if (this.min) return;
     this.el.classList.add('show');
     clearTimeout(this.hideT);
-    this.hideT = setTimeout(() => { if (this.el.querySelector('.w-bar').matches(':hover')) this.showControls(); else this.el.classList.remove('show'); }, 2600);
+    this.hideT = setTimeout(() => {
+      if (this.menuOpen || this.el.querySelector('.w-bar').matches(':hover')) this.showControls(); else this.el.classList.remove('show');
+    }, 2600);
+  }
+
+  // ------------------------------------------------------------ one species
+  // The species there are to watch right now (awake, not leaving), most numerous first.
+  watchable() {
+    const g = this.game, by = new Map();
+    for (const a of g.wildlife.agents.concat(g.wildlife.flyovers)) {
+      if (!interest(a)) continue;
+      const def = animalDef(a, g.catalog), e = by.get(def.key);
+      if (e) e.n++; else by.set(def.key, { key: def.key, name: def.name, n: 1 });
+    }
+    return [...by.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  }
+
+  toggleMenu() { if (this.menuOpen) this.closeMenu(); else this.openMenu(); }
+
+  openMenu() {
+    if (this.min) this.setMinimized(false);
+    const cat = this.game.catalog, list = this.watchable();
+    const row = (key, name, n, img) => `<button role="option" aria-selected="${this.species === key}" class="${this.species === key ? 'on' : ''}"${key ? ` data-key="${key}"` : ''}>
+      ${img ? `<img src="${img}" alt="">` : '<i></i>'}<span>${name}</span>${n ? `<em>${n}</em>` : ''}</button>`;
+    this.menu.innerHTML = row(null, 'All animals', 0, null)
+      + (list.length ? list.map(s => row(s.key, s.name, s.n, animalThumb(s.key, cat))).join('') : '<p>No animals out right now</p>');
+    this.menuOpen = true;
+    this.el.classList.add('menu');
+    this.showControls();
+    this.menu.querySelector('.on')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  closeMenu() {
+    if (!this.menuOpen) return;
+    this.menuOpen = false;
+    this.el.classList.remove('menu');
+  }
+
+  setSpecies(key) {
+    const changed = key !== this.species;
+    this.species = key;
+    this.speciesName = key && this.menu.querySelector(`[data-key="${key}"] span`)?.textContent;
+    this.closeMenu();
+    this.showSpecies();
+    if (!changed) return;
+    if (key) track('watch_species', { map: this.game.map, species: key });
+    // straight to it, unless the camera is already on one
+    const a = this.shot?.agent;
+    if (key && (!a || !this.game.wildlife.hasAgent(a) || animalDef(a, this.game.catalog).key !== key)) this.next();
+  }
+
+  showSpecies() {
+    const b = this.el.querySelector('[data-a=species]');
+    b.querySelector('span').textContent = this.species ? this.speciesName : 'All animals';
+    b.classList.toggle('on', !!this.species);
   }
 
   // Keys while watching (see Input.key). True when the key was used.
   key(k) {
+    if (k === 'escape' && this.menuOpen) { this.closeMenu(); return true; }
+    if (k === 's') { this.toggleMenu(); return true; }
     if (k === 'escape' || k === 'c') { this.stop(); return true; }
     if (k === 'n' || k === 'arrowright') { this.next(); return true; }
     if (k === 'f') { this.setEyeLevel(!this.eyeLevel); return true; }
@@ -153,7 +223,11 @@ export class Watch {
     // an animal that never came into view (in a burrow, under the canopy) isn't worth the wait
     if (a && s.t > 3.5 && !r.actors.pose.get(a.id)?.visible) { this.next(); return; }
     const long = a && busy(a) && s.t < LONGEST;
-    if (s.t > s.len && !long) { this.next(); return; }
+    if (s.t > s.len && !long) {
+      // watching one species and this is the only one of it out: carry on with it
+      if (this.species && a && this.pick() === a) { s.t = 0; s.len = SHOT.follow; }
+      else { this.next(); return; }
+    }
     if (a && !s.eye) { ui.follow = a; g.selectedAgent = a; }
     // the slow drift round the subject (the usual view only)
     if (!s.eye && s.t > 1.2) r.azTarget += s.drift * dt;
@@ -162,9 +236,11 @@ export class Watch {
 
   next() {
     this.endShot();
-    const g = this.game, wide = !this.eyeLevel && this.n % 4 === 3;
+    const g = this.game, wide = !this.eyeLevel && !this.species && this.n % 4 === 3;
     this.n++;
-    const a = wide ? null : this.pick();
+    let a = wide ? null : this.pick();
+    // the species being watched has none left out (all gone, or asleep for the winter): back to everything
+    if (!a && this.species) { this.species = null; this.showSpecies(); a = this.pick(); }
     if (a) this.frameAnimal(a);
     else this.wideShot();
     this.recent.unshift(a ? animalDef(a, g.catalog).key : null);
@@ -177,8 +253,10 @@ export class Watch {
     const w = all.map(a => {
       let s = interest(a);
       if (!s) return 0;
+      const key = animalDef(a, g.catalog).key;
+      if (this.species && key !== this.species) return 0;
       if (a === last) s *= 0.05;
-      else if (this.recent.includes(animalDef(a, g.catalog).key)) s *= 0.3;
+      else if (this.recent.includes(key)) s *= 0.3;
       total += s; return s;
     });
     if (!total) return null;
