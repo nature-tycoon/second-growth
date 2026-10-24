@@ -582,7 +582,14 @@ function quadruped(m, s, o) {
     const rx = r0 + (Math.max(r0 * (hind ? 1.3 : 1.1), H * (hind ? 0.22 : 0.17)) - r0) * lk, rz = Math.max(r0, Math.min(r0 * (1 + 0.1 * lk), H * 0.42 * W - Math.abs(z) * 0.8));
     if (o.straight) { // pillar legs (elephant, rhino)
       const knee = [x + (hind ? -r0 * 0.5 : r0 * 0.2), leg * 0.5, z];
-      if (smoothLegs) tube(m, [hip, knee, foot], [r0, rm, r1], c, lo);
+      if (o.legFlare) {
+        // (one column flaring a little into a broad round foot, flat underneath on the ground,
+        // with no ankle and no separate foot: an elephant's)
+        // The knee sits straight over the foot and the leg never narrows below it, so there's no
+        // waist or overhang (a bend there folds the thick tube into a crease).
+        foot = [x, r1 * 0.4, z];
+        tube(m, [hip, [x, leg * 0.5, z], [x, r1 * 1.3, z], foot], [r0, r1 * 1.08, r1 * 1.08, r1 * o.legFlare], c, { ...lo, sub: 6, capLen: 0.36 });
+      } else if (smoothLegs) tube(m, [hip, knee, foot], [r0, rm, r1], c, lo);
       else { m.limb(hip, knee, r0, rm, c, lo); m.limb(knee, foot, rm, r1, c, lo); }
     } else if (hind) {
       // thigh forward to the stifle, shin back to the hock, then a straight cannon to the foot

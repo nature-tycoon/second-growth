@@ -1080,12 +1080,12 @@ const MAMMALS = {
     return {
       tuck: 0.1, // (a heavy body: little waist)
       H, leg, detail: true, fine: true, wide: 1.16, hip: 0.06, shoulder: 0.14, chest: 1.07, sag: 0.095,
-      legR0: H * 0.22, legR1: H * 0.16, straight: true, smoothLegs: true, legSeg: 16, coat: hide, legMotion: 0.22, bobMotion: 0.015,
+      legR0: H * 0.22, legR1: H * 0.16, legFlare: 1.2, straight: true, smoothLegs: true, legSeg: 16, coat: hide, legMotion: 0.22, bobMotion: 0.015,
       neckPath: [[L * 0.29, by + H * 0.16, 0], [L * 0.4, by + H * 0.24, 0], [L * 0.5, by + H * 0.26, 0]], neckRadii: [H * 0.36, H * 0.33, H * 0.3],
       head: [L * 0.51, by + H * 0.25], headR: [H * 0.36, H * 0.4, H * 0.32], snout: H * 0.1, noMuzzle: true, nose: false, eyeR: H * 0.04, eyeOut: 0.86, ears: 'none',
-      foot: (m, foot, r, o) => {
-        m.ell([foot[0] + r * 0.08, r * 0.85, foot[2]], [r * 1.08, r * 0.85, r * 1.08], s.color, o);
-        for (const toe of [-1, 0, 1]) m.ell([foot[0] + r * (toe === 0 ? 1.0 : 0.8), r * 0.34, foot[2] + toe * r * 0.58], [r * 0.16, r * 0.19, r * 0.2], '#8b857b', o);
+      // pale rounded toenails set into the front rim of the flared foot: four in front, three behind
+      foot: (m, foot, r, o, hind) => {
+        for (const t of hind ? [-0.5, 0, 0.5] : [-0.75, -0.25, 0.25, 0.75]) m.ell([foot[0] + Math.cos(t) * r * 1.02, r * 0.3, foot[2] + Math.sin(t) * r * 1.02], [r * 0.15, r * 0.2, r * 0.19], '#cfc6b4', { ...o, rot: [0, -t, 0] });
       },
       face: (m, hp, hr, hd) => {
         // The broad trunk root grows out of the forehead; the tip has two fingers.
