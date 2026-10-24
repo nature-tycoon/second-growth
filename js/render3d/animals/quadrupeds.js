@@ -189,8 +189,8 @@ function tiger(m, s) {
     m.ell(HX(30.55, 19.0, side * 1.15), R(1.25, 1.1, 1.3), (u, p) => (u.z * side > 0.25 && u.y > -0.3 && hash3(Math.round(p.x / k * 3), Math.round(p.y / k * 3), 1) > 0.7 ? black : white), hd); // whisker pads
     m.ell(HX(27.9, 22.85, side * 2.15), R(0.95, 0.42, 0.8), white, { ...hd, lo: true });     // white spot over the eye
     m.ell(HX(28.35, 21.95, side * 2.25), R(0.72, 0.46, 0.42), black, { ...hd, lo: true, rot: [0, side * -0.5, 0.15] }); // dark rim of the eye
-    m.ell(HX(28.55, 21.95, side * 2.35), R(0.5, 0.33, 0.3), '#e0a632', { ...hd, lo: true, rot: [0, side * -0.5, 0.15] }); // amber eye
-    m.ell(HX(28.8, 21.95, side * 2.36), R(0.18, 0.22, 0.16), '#120c08', { ...hd, lo: true });   // pupil
+    m.ell(HX(28.55, 21.95, side * 2.35), R(0.5, 0.33, 0.3), '#e0a632', { ...hd, lo: true, gloss: 2, rot: [0, side * -0.5, 0.15] }); // amber eye
+    m.ell(HX(28.8, 21.95, side * 2.36), R(0.18, 0.22, 0.16), '#120c08', { ...hd, lo: true, gloss: 2 });   // pupil
     // small round ears set wide: black behind with a white spot, pale fur inside
     m.add(SPH, place(HX(23.2, 24.5, side * 3.4), [side * -0.25, side * 0.25, 0], R(0.45, 1.2, 1.2)), u => (u.x < -0.1 ? ((u.y - 0.05) ** 2 + u.z * u.z < 0.2 ? white : black) : (u.y * u.y + u.z * u.z > 0.72 ? black : cream)), hd);
   }
@@ -276,7 +276,7 @@ function sumatranElephant(m, s) {
   // small eyes in wrinkled lids
   for (const side of [1, -1]) {
     m.ell(HX(24.2, 34.5, side * 4.95), R(1.05, 0.85, 0.5), shade(s.color, -0.3), { ...hd, lo: true });
-    m.ell(HX(24.4, 34.5, side * 5.15), R(0.5, 0.42, 0.32), '#1a120c', { ...hd, lo: true });
+    m.ell(HX(24.4, 34.5, side * 5.15), R(0.5, 0.42, 0.32), '#1a120c', { ...hd, lo: true, gloss: 2 });
   }
   m.eyeAt = HX(24.4, 34.5, 5.2); m.eyePivot = neck;
   // ears: rounded, smaller than an African's, laid flat back against the side of the head and neck,
@@ -396,7 +396,7 @@ function sumatranRhino(m, s) {
   // small eyes in wrinkles
   for (const side of [1, -1]) {
     m.ell(X(19.8, 14.3, side * 2.75), [0.8 * k, 0.6 * k, 0.4 * k], shade(s.color, -0.4), { ...hd, lo: true });
-    m.ell(X(19.95, 14.3, side * 2.92), [0.4 * k, 0.36 * k, 0.3 * k], '#120c08', { ...hd, lo: true });
+    m.ell(X(19.95, 14.3, side * 2.92), [0.4 * k, 0.36 * k, 0.3 * k], '#120c08', { ...hd, lo: true, gloss: 2 });
   }
   m.eyeAt = X(20, 14.3, 3.0); m.eyePivot = neck;
   // ears: upright and rounded, fringed with long dark hair
@@ -845,7 +845,7 @@ const MAMMALS = {
         m.ell(at(H * 0.45), [H * 0.13, H * 0.125, H * 0.115], soft, { ...hd, rot: [0, 0, a] });
         const tip = at(H * 0.55);
         for (const side of [1, -1]) { // dark eyes set into the side of the head
-          m.ell([hp[0] + hr[0] * 0.35, hp[1] + hr[1] * 0.15, side * hr[2] * 0.92], [H * 0.04, H * 0.04, H * 0.025], '#15110e', { ...hd, lo: true });
+          m.ell([hp[0] + hr[0] * 0.35, hp[1] + hr[1] * 0.15, side * hr[2] * 0.92], [H * 0.04, H * 0.04, H * 0.025], '#15110e', { ...hd, lo: true, gloss: 2 });
           m.ell([hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.25, side * hr[2] * 1.02], [H * 0.012, H * 0.012, H * 0.008], '#f4f2ea', { ...hd, lo: true });
         }
         for (const side of [1, -1]) m.ell([tip[0], tip[1] + H * 0.01, side * H * 0.045], [H * 0.015, H * 0.022, H * 0.02], '#141010', { ...hd, lo: true });

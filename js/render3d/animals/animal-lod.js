@@ -52,10 +52,13 @@ export function simplifyAnimal(source, length, cells = FAR_CELLS) {
   for (const [name, attribute] of Object.entries(source.attributes)) {
     const size = attribute.itemSize, data = new Float32Array(n * size), src = attribute.array;
     for (let i = 0; i < count; i++) for (let j = 0; j < size; j++) data[cluster[i] * size + j] += src[i * size + j];
+    // (a normal's length carries crease shading and shine, see animal-surface.js: keep its average)
+    const lengths = name === 'normal' ? new Float32Array(n) : null;
+    if (lengths) for (let i = 0; i < count; i++) lengths[cluster[i]] += Math.hypot(src[i * 3], src[i * 3 + 1], src[i * 3 + 2]);
     for (let k = 0; k < n; k++) {
       for (let j = 0; j < size; j++) data[k * size + j] /= sizes[k];
       if (NORMALS.has(name) && size === 3) {
-        const l = Math.hypot(data[k * 3], data[k * 3 + 1], data[k * 3 + 2]) || 1;
+        const l = (Math.hypot(data[k * 3], data[k * 3 + 1], data[k * 3 + 2]) || 1) / (lengths ? lengths[k] / sizes[k] : 1);
         for (let j = 0; j < 3; j++) data[k * 3 + j] /= l;
       }
     }

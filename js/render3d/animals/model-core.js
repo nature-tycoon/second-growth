@@ -121,7 +121,8 @@ class Model {
   // extSrc: optional geometry the ext placement is applied to, when geo itself was pre-shaped
   // hard: horn, antler or tusk, which a kill's skeleton keeps (also everything added while
   // this.hard is set; see build)
-  add(geo, m, paint, { part = P.BODY, pivot = null, ext = null, paintGeo = null, extSrc = null, hard = false } = {}) {
+  // gloss: 1 a slight shine (a wet nose, hooves; horns, antlers and tusks have it anyway), 2 an eye
+  add(geo, m, paint, { part = P.BODY, pivot = null, ext = null, paintGeo = null, extSrc = null, hard = false, gloss = 0 } = {}) {
     const unit = geo.clone();
     const paintPos = (paintGeo || unit).attributes.position;
     if (unit.attributes.uv) unit.deleteAttribute('uv');
@@ -144,6 +145,7 @@ class Model {
     g.setAttribute('aExt', e.attributes.position.clone());
     g.setAttribute('aExtN', e.attributes.normal.clone());
     if (hard || this.hard) g.userData = { ...g.userData, hard: true }; // (a clone shares its source's userData)
+    if (gloss) g.userData = { ...g.userData, gloss };
     this.parts.push(g);
   }
   ell(pos, r, paint, o = {}) { this.add(o.fine ? SPH_HI : o.lo ? SPH_LO : SPH, place(pos, o.rot || [0, 0, 0], r), paint, o); }
@@ -214,10 +216,12 @@ class Model {
     g.computeBoundingSphere();
     // the vertex ranges of the horns, antlers and tusks (render3d/carcass-decay.js keeps them on
     // the skeleton, so a kill stays recognisable)
-    let offset = 0; g.userData.hard = [];
+    // and of everything with a shine (animals/animal-surface.js)
+    let offset = 0; g.userData.hard = []; g.userData.gloss = [];
     for (const p of this.parts) {
       const n = p.attributes.position.count;
       if (p.userData.hard) g.userData.hard.push([offset, offset + n]);
+      if (p.userData.hard || p.userData.gloss) g.userData.gloss.push([offset, offset + n, p.userData.gloss || 1]);
       offset += n;
     }
     return g;
@@ -227,7 +231,7 @@ class Model {
 // ---------------------------------------------------------------- mammals
 function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
   m.eyeSpot ||= [at[0] + rx, at[1] + ry, rz]; // (where the eyes are, for fitting a kill's skull; eyeAt is for eye-shine)
-  for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: true, part, pivot });
+  for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: true, part, pivot, gloss: 2 });
 }
 
 // One smooth body: a tube along x whose oval cross-section swells from haunch to chest and
@@ -431,8 +435,8 @@ function quadruped(m, s, o) {
     }
     if (o.nails) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 0.91, r1 * 0.5, z + t * r1 * 0.57], [r1 * 0.22, r1 * 0.26, r1 * 0.23], '#a89e8d', lo);
     if (o.foot) o.foot(m, foot, r1, lo, hind);
-    else if (o.hoof && o.splitHoof) for (const toe of [-1, 1]) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z + toe * r1 * 0.52], [r1 * 1.25, r1 * 0.85, r1 * 0.48], o.hoof, { part, pivot: hip });
-    else if (o.hoof) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z], [r1 * 1.3, r1 * 0.85, r1 * 1.15], o.hoof, { part, pivot: hip, lo: true });
+    else if (o.hoof && o.splitHoof) for (const toe of [-1, 1]) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z + toe * r1 * 0.52], [r1 * 1.25, r1 * 0.85, r1 * 0.48], o.hoof, { part, pivot: hip, gloss: 1 });
+    else if (o.hoof) m.ell([foot[0] + r1 * 0.2, r1 * 0.75, z], [r1 * 1.3, r1 * 0.85, r1 * 1.15], o.hoof, { part, pivot: hip, lo: true, gloss: 1 });
     else if (o.paws && (o.toes || o.smoothLegs)) {
       m.ell([foot[0] + r1 * 0.45, r1 * 0.63, z], [r1 * 1.35, r1 * 0.62, r1 * 1.1], c, { part, pivot: hip, fine: o.detail });
       if (o.toes) for (const t of [-1, 0, 1]) m.ell([foot[0] + r1 * 1.15, r1 * 0.48, z + t * r1 * 0.52], [r1 * 0.42, r1 * 0.38, r1 * 0.32], c, { part, pivot: hip });
@@ -451,7 +455,7 @@ function quadruped(m, s, o) {
   m.ell(hp, hr, hc, hd);
   const sn = [hp[0] + hr[0] * 0.78, hp[1] - hr[1] * 0.28, 0];
   if (!o.noMuzzle) m.ell([sn[0] + o.snout * 0.3, sn[1], 0], [o.snout, hr[1] * 0.55, hr[2] * 0.58], o.muzzle || hc, hd);
-  if (o.nose !== false) m.ell([sn[0] + o.snout * 1.22, sn[1] + hr[1] * 0.1, 0], [hr[1] * 0.2, hr[1] * 0.17, hr[1] * 0.22], '#1c1714', { ...hd, lo: true });
+  if (o.nose !== false) m.ell([sn[0] + o.snout * 1.22, sn[1] + hr[1] * 0.1, 0], [hr[1] * 0.2, hr[1] * 0.17, hr[1] * 0.22], '#1c1714', { ...hd, lo: true, gloss: 1 });
   eyes(m, hp, hr[0] * 0.42, hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78), o.eyeR ?? Math.max(0.55, H * 0.045), P.HEAD, neck);
   m.eyeAt = [hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.28, hr[2] * (o.eyeOut ?? 0.78)]; m.eyePivot = neck; // for eye-shine at night: forward, up, apart
   if (o.mask) m.ell([hp[0] + hr[0] * 0.4, hp[1] + hr[1] * 0.2, 0], [hr[0] * 0.35, hr[1] * 0.3, hr[2] * 1.02], s.dark, hd);

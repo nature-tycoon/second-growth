@@ -67,7 +67,7 @@ function orangutan(m, s) {
   m.ell(F(0.135, -0.068), R(0.012, 0.006, 0.035), shade(s.face, 0.1), { ...hd, lo: true }); // mouth line
   m.ell(F(0.1, 0.022), R(0.03, 0.016, 0.06), shade(s.face, 0.06), { ...hd, lo: true });     // brow
   for (const side of [1, -1]) {
-    m.ell(F(0.108, 0.003, side * 0.026), R(0.011, 0.011, 0.011), '#140a06', { ...hd, lo: true }); // close-set eyes
+    m.ell(F(0.108, 0.003, side * 0.026), R(0.011, 0.011, 0.011), '#140a06', { ...hd, lo: true, gloss: 2 }); // close-set eyes
     m.ell(F(0.135, -0.035, side * 0.011), R(0.006, 0.005, 0.006), '#1a120e', { ...hd, lo: true }); // nostrils
     if (!fl) m.ell(F(-0.005, 0, side * 0.09), R(0.016, 0.022, 0.01), skin, { ...hd, lo: true });  // small ears
   }
@@ -217,7 +217,7 @@ function monkey(m, s, onBranches = false) {
     m.ell([hp[0] + hr * 0.82, hp[1] + hr * 0.24, 0], [hr * 0.26, hr * 0.13, hr * 0.62], shade(s.face, -0.22), hd);         // brow ridge
     for (const side of [1, -1]) {
       m.ell([hp[0] + hr * 0.95, hp[1] + hr * 0.05, side * hr * 0.25], [hr * 0.1, hr * 0.1, hr * 0.08], '#6a4418', { ...hd, lo: true });
-      m.ell([hp[0] + hr * 1.02, hp[1] + hr * 0.05, side * hr * 0.25], [hr * 0.05, hr * 0.06, hr * 0.05], '#140c08', { ...hd, lo: true });
+      m.ell([hp[0] + hr * 1.02, hp[1] + hr * 0.05, side * hr * 0.25], [hr * 0.05, hr * 0.06, hr * 0.05], '#140c08', { ...hd, lo: true, gloss: 2 });
       m.ell([hp[0] - hr * 0.05, hp[1] + hr * 0.08, side * hr * 0.86], [hr * 0.16, hr * 0.22, hr * 0.08], shade(s.face, -0.12), { ...hd, lo: true }); // ears
       m.ell([hp[0] + hr * 0.2, hp[1] - hr * 0.35, side * hr * 0.58], [hr * 0.4, hr * 0.32, hr * 0.3], s.belly, hd);        // pale cheek fur
     }

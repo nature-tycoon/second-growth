@@ -17,7 +17,7 @@ function frog(m, s) {
     // eyes on top, gold with a dark pupil
     m.ell([S * 0.33, S * 0.53, side * S * 0.14], [S * 0.075, S * 0.075, S * 0.075], skin, { lo: true });
     m.ell([S * 0.38, S * 0.55, side * S * 0.16], [S * 0.045, S * 0.05, S * 0.045], '#c8a040', { lo: true });
-    m.ell([S * 0.405, S * 0.555, side * S * 0.165], [S * 0.022, S * 0.035, S * 0.022], '#141210', { lo: true });
+    m.ell([S * 0.405, S * 0.555, side * S * 0.165], [S * 0.022, S * 0.035, S * 0.022], '#141210', { lo: true, gloss: 2 });
     const hip = [-S * 0.15, S * 0.24, side * S * 0.2], hl = { part: side > 0 ? P.LEG_BL : P.LEG_BR, pivot: hip };
     m.ell([-S * 0.16, S * 0.2, side * S * 0.3], [S * 0.22, S * 0.1, S * 0.09], leg, { ...hl, rot: [0, side * 0.3, 0.45] });
     m.ell([-S * 0.02, S * 0.1, side * S * 0.36], [S * 0.18, S * 0.06, S * 0.07], leg, { ...hl, rot: [0, side * -0.25, -0.35] });
@@ -258,9 +258,9 @@ function snake(m, s) {
   const eyeT = .043, e = profile(eyeT), ey = heavy ? .70 : .35, er = S * (heavy ? .014 : .012);
   for (const side of [-1, 1]) {
     const eye = [e.x, e.y + e.height * ey, e.z + side * e.width * Math.sqrt(1 - ey * ey)];
-    m.ell(eye, [er * 1.2, er, er * .72], heavy || python || boa ? '#b5a054' : '#94885e', { lo: true });
+    m.ell(eye, [er * 1.2, er, er * .72], heavy || python || boa ? '#b5a054' : '#94885e', { lo: true, gloss: 2 });
     m.ell([eye[0] + er * .12, eye[1] + er * .10, eye[2] + side * er * .50],
-      [er * (boa || python ? .24 : .55), er * .66, er * .28], '#131410', { lo: true });
+      [er * (boa || python ? .24 : .55), er * .66, er * .28], '#131410', { lo: true, gloss: 2 });
     m.ell([eye[0] + er * .27, eye[1] + er * .45, eye[2] + side * er * .63], [er * .20, er * .20, er * .16], '#e5dfc8', { lo: true });
     const n = profile(.017);
     m.ell([n.x, n.y + n.height * (heavy ? .85 : .5), side * n.width * (heavy ? .45 : .82)], [S * .006, S * .003, S * .004], '#24261b', { lo: true });
@@ -380,8 +380,8 @@ function fish(m, s) {
   for (const side of [1, -1]) {
     // a big round eye with a gold rim and a catchlight, set into the side of the head
     const e = surf(ex, cat ? 0.45 : 0.3, side, 0.92);
-    m.ell(e, [S * 0.036, S * 0.036, S * 0.016], s.eye || '#e8d890', { lo: true });
-    m.ell([e[0] + S * 0.003, e[1], e[2] + side * S * 0.01], [S * 0.022, S * 0.022, S * 0.009], '#111010', { lo: true });
+    m.ell(e, [S * 0.036, S * 0.036, S * 0.016], s.eye || '#e8d890', { lo: true, gloss: 2 });
+    m.ell([e[0] + S * 0.003, e[1], e[2] + side * S * 0.01], [S * 0.022, S * 0.022, S * 0.009], '#111010', { lo: true, gloss: 2 });
     m.ell([e[0] + S * 0.01, e[1] + S * 0.01, e[2] + side * S * 0.016], [S * 0.007, S * 0.007, S * 0.004], '#f4f2ea', { lo: true });
     if (s.ear) m.ell(surf(ex - S * 0.1, 0.12, side, 0.97), [S * 0.04, S * 0.035, S * 0.012], s.ear, { lo: true }); // the bluegill's dark "ear"
     // the mouth: a line curving back from the tip of the snout (a long one on bass and snook),
@@ -506,7 +506,7 @@ function butterflyfish(m, s) {
   m.ell([S * 0.36, cy - S * 0.04, 0], [S * 0.01, S * 0.012, S * 0.012], '#3a2e2a', { lo: true }); // a tiny mouth
   for (const side of [1, -1]) {
     m.ell([S * 0.22, cy + S * 0.05, side * S * 0.042], [S * 0.03, S * 0.03, S * 0.01], '#c8b880', { lo: true });
-    m.ell([S * 0.222, cy + S * 0.05, side * S * 0.048], [S * 0.019, S * 0.019, S * 0.007], '#101010', { lo: true });
+    m.ell([S * 0.222, cy + S * 0.05, side * S * 0.048], [S * 0.019, S * 0.019, S * 0.007], '#101010', { lo: true, gloss: 2 });
     m.ell([S * 0.228, cy + S * 0.058, side * S * 0.052], [S * 0.006, S * 0.006, S * 0.003], '#f4f2ea', { lo: true });
     m.ell([S * 0.08, cy - S * 0.04, side * S * 0.046], [S * 0.05, S * 0.02, S * 0.008], '#f4e4a0', { rot: [0, 0, -0.3] }); // pectoral fin
   }
@@ -540,7 +540,7 @@ function shark(m, s) {
   // eyes, gill slits, and a mouth tucked under the snout
   m.ell([S * 0.38, cy - S * 0.045, 0], [S * 0.035, S * 0.006, S * 0.04], '#8a8e94', { lo: true });
   for (const side of [1, -1]) {
-    m.ell([S * 0.37, cy + S * 0.02, side * S * 0.055], [S * 0.016, S * 0.011, S * 0.007], '#1a1c20', { lo: true });
+    m.ell([S * 0.37, cy + S * 0.02, side * S * 0.055], [S * 0.016, S * 0.011, S * 0.007], '#1a1c20', { lo: true, gloss: 2 });
     m.ell([S * 0.375, cy + S * 0.024, side * S * 0.058], [S * 0.005, S * 0.004, S * 0.002], '#d8dad8', { lo: true });
     for (let k = 0; k < 5; k++) { const x = S * (0.25 - k * 0.022), z = side * S * 0.088; m.limb([x, cy + S * 0.035, z], [x - S * 0.008, cy - S * 0.035, z], S * 0.004, S * 0.004, '#4a5058', { caps: false }); }
   }
@@ -611,7 +611,7 @@ function idol(m, s) {
   // eyes in the black band, with a pale ring so they still show
   for (const side of [1, -1]) {
     m.ell([S * 0.17, cy + S * 0.06, side * S * 0.05], [S * 0.035, S * 0.035, S * 0.012], '#c8b880', { lo: true });
-    m.ell([S * 0.172, cy + S * 0.06, side * S * 0.058], [S * 0.022, S * 0.022, S * 0.008], '#101010', { lo: true });
+    m.ell([S * 0.172, cy + S * 0.06, side * S * 0.058], [S * 0.022, S * 0.022, S * 0.008], '#101010', { lo: true, gloss: 2 });
     m.ell([S * 0.18, cy + S * 0.07, side * S * 0.063], [S * 0.007, S * 0.007, S * 0.004], '#f4f2ea', { lo: true });
     m.ell([S * 0.06, cy - S * 0.03, side * S * 0.056], [S * 0.06, S * 0.025, S * 0.01], '#f4dc80', { rot: [0, 0, -0.3] }); // pectoral fin
   }
@@ -668,7 +668,7 @@ function caiman(m, s) {
   }
   for (const side of [1, -1]) {
     m.ell([L * 0.32, cy + L * 0.035, side * L * 0.035], [L * 0.022, L * 0.018, L * 0.02], shade(s.color, 0.1), { ...hd, lo: true });
-    m.ell([L * 0.335, cy + L * 0.04, side * L * 0.04], [L * 0.01, L * 0.012, L * 0.01], '#c8a030', { ...hd, lo: true });
+    m.ell([L * 0.335, cy + L * 0.04, side * L * 0.04], [L * 0.01, L * 0.012, L * 0.01], '#c8a030', { ...hd, lo: true, gloss: 2 });
   }
   m.eyeSpot = [L * 0.335, cy + L * 0.04, L * 0.04]; // (eyes)
   // the tail starts well inside the haunches (where the body is still thick) so there's no pinch
@@ -757,7 +757,7 @@ function ray(m, s) {
   for (const side of [1, -1]) {
     // cephalic lobes, curled down beside the mouth
     m.limb([S * 0.26, cy, side * S * 0.08], [S * 0.36, cy - S * 0.02, side * S * 0.09], S * 0.025, S * 0.015, back, { part: P.HEAD, pivot: [S * 0.2, cy, 0] });
-    m.ell([S * 0.27, cy + S * 0.02, side * S * 0.115], [S * 0.016, S * 0.016, S * 0.01], '#141210', { lo: true }); // eyes
+    m.ell([S * 0.27, cy + S * 0.02, side * S * 0.115], [S * 0.016, S * 0.016, S * 0.01], '#141210', { lo: true, gloss: 2 }); // eyes
     // a wing: swept back from the body to a pointed tip; it beats up and down in "flight"
     const pivot = [0, cy, side * S * 0.16], part = side > 0 ? P.WING_L : P.WING_R;
     const wing = flat(sh => { sh.moveTo(0.3, 0); sh.quadraticCurveTo(0.05, 0.5 * side, -0.25, 1 * side); sh.quadraticCurveTo(-0.2, 0.45 * side, -0.32, 0); sh.lineTo(0.3, 0); }, 'xz');

@@ -219,7 +219,7 @@ function bird(m, s) {
     // Wood duck hen: the white ring trails into a teardrop behind the dark eye.
     for (const side of [-1, 1]) {
       m.ell([hp[0] + hr * 0.32, hp[1] + hr * 0.23, side * hr * 0.83], [hr * 0.34, hr * 0.23, hr * 0.16], '#f0ece3', hd);
-      m.ell([hp[0] + hr * 0.44, hp[1] + hr * 0.25, side * hr * 0.93], [hr * 0.13, hr * 0.13, hr * 0.08], '#262420', hd);
+      m.ell([hp[0] + hr * 0.44, hp[1] + hr * 0.25, side * hr * 0.93], [hr * 0.13, hr * 0.13, hr * 0.08], '#262420', { ...hd, gloss: 2 });
     }
   } else if (s.eye) {
     // coloured eyes (the hoatzin's red eye in a patch of bare blue skin)

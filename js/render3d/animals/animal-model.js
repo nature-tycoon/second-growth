@@ -9,8 +9,11 @@ import { MAMMALS, sumatranElephant, sumatranRhino, tiger } from './quadrupeds.js
 import { BIRDS, bird } from './birds.js';
 import { bat, bee, beetle, butterfly } from './winged-animals.js';
 import { person } from './people.js';
+import { bakeSurface } from './animal-surface.js';
 import { howlerRig } from '../howler-motion.js';
 import { canopyWalkerBends, isCanopyWalker } from '../canopy-walker-profile.js';
+
+const SCALY = new Set(['caiman', 'monitor', 'snake', 'turtle', 'frog', 'newt', 'fish', 'butterflyfish', 'idol', 'shark', 'ray', 'dolphin', 'dugong', 'seacucumber', 'urchin', 'beetle', 'bee', 'pangolin', 'armadillo', 'person', 'elephant', 'rhino', 'hippo']);
 
 // Returns static geometry and movement metadata. The caller owns the returned geometry.
 export function buildSpecies(def) {
@@ -89,6 +92,10 @@ export function buildSpecies(def) {
   if (mo.primate) feedingPose(geo, s, def.move === 'tree');
   if (s.ape) swingPoses(geo, s.len);
   geo.computeBoundingBox();
+  // crease shading and shine, last, so the poses above keep plain normals
+  bakeSurface(geo, { gloss: geo.userData.gloss });
+  // fur and feathers soften the light; scales, shells, skin and fins keep a firmer edge
+  mo.fur = SCALY.has(s.kind) ? 0.3 : 1;
   if (def.move === 'tree') {
     // Tails and orangutan hair can hang below the grips. Use actual toes for
     // orangutans, the high hand for a gibbon, and limb bounds for other climbers.

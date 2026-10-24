@@ -3,6 +3,38 @@ import * as THREE from 'three';
 import { SIAMANG_SWING_GLSL } from '../siamang-swing.js';
 import { HOWLER_JOINT_GLSL } from '../howler-motion.js';
 
+// How the sun and sky light an animal (in place of three's plain Lambert): fur and feathers let
+// the light wrap a little past the edge of the lit side and catch it as a soft rim where they turn
+// away from the eye (uFur: 1 for fur and feathers, less for scales and skin); creases see less
+// of the sky and a little less of the sun (vLight); eyes, and more faintly horns, hooves and noses,
+// catch a highlight of the sun and a glint of the sky above (vShine 2 and 1).
+const FAUNA_LIGHT = `
+  varying vec3 vViewPosition;
+  struct LambertMaterial { vec3 diffuseColor; float specularStrength; };
+  void RE_Direct_Lambert( const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in LambertMaterial material, inout ReflectedLight reflectedLight ) {
+    float dotNL = dot( geometryNormal, directLight.direction ), wrap = 0.3 * uFur;
+    vec3 light = directLight.color * mix( 1.0, vLight, 0.6 );
+    // (the rim is partly the hairs' own sheen, so even a black coat shows its outline against the light)
+    float rim = pow( 1.0 - saturate( dot( geometryNormal, geometryViewDir ) ), 2.5 ) * saturate( dotNL + 0.5 ) * 0.55 * uFur;
+    reflectedLight.directDiffuse += saturate( ( dotNL + wrap ) / ( 1.0 + wrap ) ) * light * BRDF_Lambert( material.diffuseColor );
+    reflectedLight.directDiffuse += rim * light * BRDF_Lambert( mix( material.diffuseColor, vec3( 0.4 ), 0.3 ) );
+    if ( vShine > 0.5 ) {
+      float eye = step( 1.5, vShine );
+      vec3 halfway = normalize( directLight.direction + geometryViewDir );
+      reflectedLight.directDiffuse += light * mix( 0.12, 0.7, eye ) * pow( saturate( dot( geometryNormal, halfway ) ), mix( 18.0, 70.0, eye ) ) * saturate( dotNL * 4.0 );
+    }
+  }
+  void RE_IndirectDiffuse_Lambert( const in vec3 irradiance, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in LambertMaterial material, inout ReflectedLight reflectedLight ) {
+    reflectedLight.indirectDiffuse += irradiance * BRDF_Lambert( material.diffuseColor ) * vLight;
+    if ( vShine > 1.5 ) {
+      vec3 up = normalize( ( viewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz );
+      reflectedLight.indirectDiffuse += irradiance * 0.12 * smoothstep( 0.55, 0.9, dot( reflect( -geometryViewDir, geometryNormal ), up ) );
+    }
+  }
+  #define RE_Direct RE_Direct_Lambert
+  #define RE_IndirectDiffuse RE_IndirectDiffuse_Lambert
+`;
+
 // ---------------------------------------------------------------- material with the animation shader
 export function faunaMaterial(motion) {
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -14,6 +46,7 @@ export function faunaMaterial(motion) {
     uHead: { value: motion.head ?? 0.9 }, uWave: { value: motion.wave }, uWaveK: { value: motion.waveK }, uWaveHead: { value: motion.waveHead }, uWaveLen: { value: motion.waveLen },
     uVerticalWave: { value: motion.verticalWave ?? 0 }, uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uWaveRest: { value: motion.waveRest ?? .35 }, uTongue: { value: motion.tongue ?? 0 }, uBend: { value: motion.bend ?? 0 },
     uSlither: { value: motion.slither?.amp ?? 0 }, uSlitherLen: { value: motion.slither?.len ?? 1 }, uSlitherNose: { value: motion.slither?.nose ?? 0 },
+    uFur: { value: motion.fur ?? 1 },
   };
   // A kill's anatomy (render3d/carcass-decay.js carcassAnatomy), filled in the first time one of
   // this kind is drawn as a carcass: torso (spine height, belly height), each leg's hip and foot,
@@ -29,7 +62,8 @@ export function faunaMaterial(motion) {
   mat.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
-      attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim; varying float vMeat; varying float vDry;
+      attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim; varying float vMeat; varying float vDry; varying float vLight; varying float vShine;
+      vec3 faunaNormal; // (the unit normal: the attribute's length carries crease shading and shine, see animal-surface.js)
       uniform vec2 uTorso; uniform vec3 uNeck, uSnout, uHips[4], uFeet[4];
       ${motion.primate === 3 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
       ${motion.canopyFeet ? 'attribute vec4 aGripA; attribute vec4 aGripB; attribute vec4 aGripC;' : ''}
@@ -88,13 +122,13 @@ export function faunaMaterial(motion) {
         bool tail = aPart > 4.5 && aPart < 5.5;
         if (uPrimate > 0.5 && aPart > 9.5) {
           float bite = smoothstep(0.0, 1.0, fly);
-          p = mix(position, aExt, bite); n = normalize(mix(normal, aExtN, bite));
+          p = mix(position, aExt, bite); n = normalize(mix(faunaNormal, aExtN, bite));
           p = mix(mix(aPivot, aExt, bite), p, step(0.01, fly));
           return;
         }
         if (wing || (tail && uBird > 0.5)) {
           p = mix(position, aExt, fly);
-          n = normalize(mix(normal, aExtN, fly));
+          n = normalize(mix(faunaNormal, aExtN, fly));
         }
         if (wing) {
           float side = aPart < 6.5 ? 1.0 : -1.0;
@@ -110,7 +144,7 @@ export function faunaMaterial(motion) {
               if (aPart < 2.5) {
                 vec3 catches = siamangWeights(ph, gait, fly);
                 float catchPose = aPart < 1.5 ? catches.x : catches.y;
-                p = mix(position, aSwing, catchPose); n = normalize(mix(normal, aSwingN, catchPose));
+                p = mix(position, aSwing, catchPose); n = normalize(mix(faunaNormal, aSwingN, catchPose));
               } else {
                 float swing = sin(ph + aPart) * .12 * gait;
                 p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
@@ -170,7 +204,10 @@ export function faunaMaterial(motion) {
       }
     ` + shader.vertexShader
       .replace('#include <beginnormal_vertex>', `
-        vec3 objectNormal = normal;
+        float faunaTag = length(normal);
+        vShine = floor(faunaTag * 0.5); vLight = faunaTag - 2.0 * vShine;
+        faunaNormal = normal / faunaTag;
+        vec3 objectNormal = faunaNormal;
         vec3 faunaPosition = position;
         vMeat = 0.0; vDry = 0.0;
         if (aAnim.x < -99999.0) { vec3 d = carcassDecay(); vDry = d.z; decay(faunaPosition, d.x, d.y); }
@@ -196,7 +233,9 @@ export function faunaMaterial(motion) {
         }
       `);
     // (red meat where a kill has been opened, drying to dark brown)
-    shader.fragmentShader = 'varying float vMeat; varying float vDry;\n' + shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    shader.fragmentShader = 'varying float vMeat; varying float vDry; varying float vLight; varying float vShine; uniform float uFur;\n' + shader.fragmentShader
+      .replace('#include <lights_lambert_pars_fragment>', FAUNA_LIGHT)
+      .replace('#include <color_fragment>', `#include <color_fragment>
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.268, 0.218, 0.164), vDry); // (the coat dulls as it dries: 0.55, 0.5, 0.44 on screen)
       diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.3, 0.035, 0.03), vec3(0.07, 0.04, 0.025), vDry), vMeat);`);
   };
