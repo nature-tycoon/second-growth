@@ -5,6 +5,9 @@
 //
 // Fog (see Renderer) hides the edge of the map a few dozen tiles out, and the far plane stops
 // there too, so plants and the ground past it are culled rather than drawn into the haze.
+//
+// It can also walk about on its own (WASD at eye level, see walk()): from wherever it was, at about
+// a person's eye height, with no animal to follow.
 
 import * as THREE from 'three';
 
@@ -12,6 +15,9 @@ export const EYE_FAR = 34;      // scene units (tiles) the eye sees before the h
 export const EYE_FOG_NEAR = 9;
 export const WATER_FAR = 14;    // under the sea the water closes in much sooner (see Renderer.updateEye)
 const LOWEST = 0.3; // the eye stays this far above the ground: a tortoise's own eye height is down among the grass blades
+const WALK_UP = 0.6;    // walking: the eye's height above the ground
+const WALK = 3, RUN = 9; // walking and running (Shift) speeds, tiles a second
+const TURN = 1.7;        // radians a second with A / D
 
 export class EyeCamera {
   constructor() {
@@ -55,7 +61,43 @@ export class EyeCamera {
       const g = groundAt(this.pos.x, this.pos.z);
       this.pos.y = side(Math.max(this.pos.y, g + LOWEST * 0.6), g);
     }
-    const cam = this.camera, far = under ? WATER_FAR : EYE_FAR;
+    this.apply(aspect);
+    return true;
+  }
+
+  // Walking about on foot, from wherever the eye is now. move: { fwd, side, turn } each -1..1 and
+  // run, from the keys; look: { yaw, pitch } radians dragged since last frame. bounds(x, z) keeps
+  // it on the map.
+  walk(move, look, aspect, dt, groundAt, seaY, bounds) {
+    if (this.agentId !== 'walk') {
+      // set off the way the view was already looking, so nothing jumps
+      this.agentId = 'walk';
+      this.yaw = Math.atan2(this.forward.z, this.forward.x);
+      const dx = this.look.x - this.pos.x, dz = this.look.z - this.pos.z;
+      this.pitch = Math.max(-0.5, Math.min(0.3, Math.atan2(this.look.y - this.pos.y, Math.hypot(dx, dz))));
+      this.size = 0.3;
+    }
+    this.yaw += (move.turn * TURN * dt) + look.yaw;
+    this.pitch = Math.max(-1.1, Math.min(1.1, this.pitch + look.pitch));
+    const f = this.forward.set(Math.cos(this.yaw), 0, Math.sin(this.yaw));
+    const sp = (move.run ? RUN : WALK) * dt;
+    // (right of the way it faces is (-f.z, f.x))
+    const p = bounds(this.pos.x + (f.x * move.fwd - f.z * move.side) * sp, this.pos.z + (f.z * move.fwd + f.x * move.side) * sp);
+    this.pos.x = p.x; this.pos.z = p.z;
+    // the eye rides over the ground's bumps rather than jolting with every one; on the reef it stays
+    // on the side of the surface it was on, swimming just above the seabed
+    const g = groundAt(this.pos.x, this.pos.z);
+    const under = this.under = seaY != null && this.pos.y < seaY;
+    const y = under ? Math.max(g + 0.15, Math.min(g + WALK_UP, seaY - 0.1)) : Math.max(g + WALK_UP, seaY != null ? seaY + WALK_UP : -Infinity);
+    this.pos.y += (y - this.pos.y) * (1 - Math.exp(-dt * 6));
+    this.pos.y = Math.max(this.pos.y, g + LOWEST * 0.6);
+    const cp = Math.cos(this.pitch);
+    this.look.set(this.pos.x + f.x * cp, this.pos.y + Math.sin(this.pitch), this.pos.z + f.z * cp);
+    this.apply(aspect);
+  }
+
+  apply(aspect) {
+    const cam = this.camera, far = this.under ? WATER_FAR : EYE_FAR;
     if (cam.far !== far) { cam.far = far; cam.updateProjectionMatrix(); } // (and what's past the murk is culled)
     // (a phone held upright keeps about the landscape view's width: a taller, wider-angle view)
     if (cam.aspect !== aspect) { cam.aspect = aspect; cam.fov = aspect < 1 ? 50 + 25 * Math.min(1, (1 - aspect) / 0.5) : 50; cam.updateProjectionMatrix(); }
@@ -64,7 +106,6 @@ export class EyeCamera {
     cam.lookAt(this.look);
     cam.updateMatrixWorld();
     this.right.setFromMatrixColumn(cam.matrixWorld, 0).setY(0).normalize();
-    return true;
   }
 
   reset() { this.agentId = null; }

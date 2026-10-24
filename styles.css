@@ -897,7 +897,7 @@ body.photo-mode #photo-bar .btn { padding: 7px 14px; }
    controls that come up when the mouse moves */
 body.watch-mode > *:not(#view):not(#fx):not(#watch):not(#moment):not(#modal-root) { visibility: hidden !important; }
 #watch { display: none; }
-body.watch-mode #watch { display: block; position: fixed; inset: 0; z-index: 29; cursor: default; }
+body.watch-mode #watch { display: block; position: fixed; inset: 0; z-index: 29; cursor: default; user-select: none; -webkit-user-select: none; }
 body.watch-mode.moment-on #watch { pointer-events: none; } /* (a keystone moment's own card takes over) */
 body.watch-mode.moment-on #watch .w-bar, body.watch-mode.moment-on #watch .w-cap, body.watch-mode.moment-on #watch .w-expand { opacity: 0 !important; }
 #watch .lb { position: absolute; left: 0; right: 0; height: 0; background: #0e120c; transition: height 1.1s cubic-bezier(.4,0,.2,1); }

@@ -65,6 +65,24 @@ check('Under the sea the eye stays on the animal\'s side of the surface, and see
   assert.ok(shallow.camera.position.y > 1.6, 'above the seabed');
 });
 
+check('Walking on foot sets off the way the view looked, turns, follows the ground and stays on the map', () => {
+  const e = new EyeCamera(), hill = (x, z) => x * 0.1, still = { yaw: 0, pitch: 0 }, inside = (x, z) => ({ x: Math.min(Math.max(x, 0.5), 30), z: Math.min(Math.max(z, 0.5), 30) });
+  e.update(pose(10, 1, 10, 0), 1, 1.5, 1 / 60, hill);
+  const x0 = e.camera.position.x;
+  for (let k = 0; k < 60; k++) e.walk({ fwd: 1, side: 0, turn: 0, run: false }, still, 1.5, 1 / 60, hill, null, inside);
+  let p = e.camera.position;
+  assert.ok(p.x > x0 + 2.5 && Math.abs(p.z - 10) < 1e-6, `a second's walk along +x: ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
+  assert.ok(p.y > hill(p.x) + 0.3, `above the ground: y ${p.y.toFixed(2)}`);
+  for (let k = 0; k < 60; k++) e.walk({ fwd: 0, side: 0, turn: 1, run: false }, still, 1.5, 1 / 60, hill, null, inside);
+  assert.ok(e.forward.z > 0.9, `D turns right (from +x toward +z): ${e.forward.toArray().map(v => v.toFixed(2))}`);
+  for (let k = 0; k < 600; k++) e.walk({ fwd: 1, side: 0, turn: 0, run: true }, still, 1.5, 1 / 60, hill, null, inside);
+  assert.ok(e.camera.position.z <= 30, 'kept on the map');
+  const s = new EyeCamera(), sea = 1.8, bed = () => 0.6;
+  s.update(pose(10, 1.45, 10, 0, 0.3), 1, 1.5, 1 / 60, bed, sea);
+  for (let k = 0; k < 120; k++) s.walk({ fwd: 1, side: 0, turn: 0, run: false }, still, 1.5, 1 / 60, bed, sea, inside);
+  assert.ok(s.under && s.camera.position.y < sea && s.camera.position.y > 0.6, `swims under the reef's surface: y ${s.camera.position.y.toFixed(2)}`);
+});
+
 check('Upright on a phone, the view widens rather than cropping the animal', () => {
   const e = new EyeCamera();
   e.update(pose(5, 0, 5, 0), 1, 16 / 9, 1 / 60, flat); const wide = e.camera.fov;

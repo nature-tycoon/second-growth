@@ -8,6 +8,7 @@ import { settings } from './settings.js';
 
 const SHIFTED = { '-': '_', '_': '-', '=': '+', '+': '=' };
 const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
+const WALK_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 
 export class Input {
   constructor(game, renderer, ui) {
@@ -84,7 +85,10 @@ export class Input {
     }
     if (!down) return;
     // watching: only the watch keys, Space and the speeds (nothing moves the camera or paints)
+    // (at eye level, WASD lets go of the animal and walks: see Watch.walk)
     if (this.ui.watch.on && !this.ui.modalOpen && !this.ui.moment) {
+      if (WALK_KEYS.has(k) && this.ui.watch.walk()) { e.preventDefault(); this.keys.add(k); return; }
+      if (k === 'shift') { this.keys.add(k); return; }
       if (this.ui.watch.key(k)) { e.preventDefault(); return; }
       if (k === ' ' || k === '1' || k === '2' || k === '3' || k === 'm') this.keys.add(k); else return;
     } else this.keys.add(k);
@@ -119,7 +123,14 @@ export class Input {
   update(dt) {
     this.r.followAgent = null;
     // watch mode directs the camera itself (ui/watch.js), and a keystone moment within it too
-    if (this.ui.watch.on) { if (this.ui.follow) this.trackFollow(this.ui.follow, dt); return; }
+    if (this.ui.watch.on) {
+      if (this.ui.follow) this.trackFollow(this.ui.follow, dt);
+      if (this.ui.watch.walking) {
+        const K = this.keys, on = (...ks) => ks.some(x => K.has(x)) ? 1 : 0;
+        this.r.eyeMove = { fwd: on('w', 'arrowup') - on('s', 'arrowdown'), turn: on('d', 'arrowright') - on('a', 'arrowleft'), side: on('e') - on('q'), run: K.has('shift') };
+      }
+      return;
+    }
     if (!this.ui.follow && this.r.animalFraming) {
       if (!this.ui.moment) this.r.frameGoal = { x: 0.5, y: 0.5 };
       this.r.animalFraming = false;

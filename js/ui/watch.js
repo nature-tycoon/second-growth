@@ -13,6 +13,10 @@
 //
 // The species chip at the bar's start narrows the director to one species: it moves between that
 // species' animals (stays on the one there is, if there's only one) and skips the wide shots.
+//
+// At eye level, WASD (or the arrows) lets go of the animal and walks about on foot: W / S forward
+// and back, A / D turn, Q / E step sideways, Shift runs, and a drag looks round. Next (N) goes back
+// to the animals.
 
 import { animalDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
@@ -40,6 +44,7 @@ export class Watch {
     this.game = game; this.renderer = renderer; this.ui = ui;
     this.on = false; this.eyeLevel = false; this.min = false; this.species = null;
     this.shot = null; this.recent = []; this.n = 0;
+    this.walking = false;
   }
 
   toggle() { if (this.on) this.stop(); else this.start(); }
@@ -66,6 +71,7 @@ export class Watch {
     if (!this.on) return;
     const ui = this.ui, r = this.renderer;
     this.on = false;
+    this.walking = false;
     this.endShot();
     this.closeMenu();
     r.setEyeLevel(null);
@@ -78,6 +84,7 @@ export class Watch {
 
   setEyeLevel(on) {
     this.eyeLevel = on;
+    if (this.walking) { this.walking = false; this.shot = null; }
     this.el?.querySelector('[data-a=eye]').classList.toggle('on', on);
     if (on) track('watch_eye_level', { map: this.game.map });
     // carry on with the same animal, just from the new place
@@ -112,6 +119,21 @@ export class Watch {
     // the whole screen catches the pointer, so watching never paints or pans the map by accident
     const show = () => this.showControls();
     o.addEventListener('pointermove', show); o.addEventListener('pointerdown', show);
+    // walking: a drag over the view looks round
+    o.addEventListener('pointerdown', e => {
+      if (!this.walking || e.target.closest('.w-bar, .w-menu, .w-expand')) return;
+      this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      o.setPointerCapture?.(e.pointerId);
+    });
+    o.addEventListener('pointermove', e => {
+      const d = this.drag;
+      if (!d || d.id !== e.pointerId || !this.walking) return;
+      const L = this.renderer.eyeLook, k = 2.4 / Math.max(300, innerHeight);
+      L.yaw += (e.clientX - d.x) * k; L.pitch -= (e.clientY - d.y) * k;
+      d.x = e.clientX; d.y = e.clientY;
+    });
+    const drop = e => { if (this.drag?.id === e.pointerId) this.drag = null; };
+    o.addEventListener('pointerup', drop); o.addEventListener('pointercancel', drop);
     o.addEventListener('wheel', e => { e.preventDefault(); show(); }, { passive: false });
   }
 
@@ -196,10 +218,29 @@ export class Watch {
     return false;
   }
 
+  // ------------------------------------------------------------ on foot
+  // Let go of the animal and walk from where the eye is (Input, on WASD at eye level). True when walking.
+  walk() {
+    if (this.walking) return true;
+    if (!this.eyeLevel || this.ui.moment || !this.renderer.walkEye()) return false;
+    this.endShot();
+    this.walking = true;
+    this.ui.follow = null; this.game.selectedAgent = null;
+    this.shot = { agent: null, t: 0, len: Infinity, eye: true, walk: true };
+    this.caption(this.shot, true);
+    track('watch_walk', { map: this.game.map });
+    return true;
+  }
+
   // ------------------------------------------------------------ directing
   frame(dt) {
     if (!this.on) return;
     const g = this.game, r = this.renderer, ui = this.ui;
+    // walking about: nothing to direct (a keystone moment takes over as usual, and the animals come back after)
+    if (this.walking) {
+      if (!ui.moment) return;
+      this.walking = false; r.setEyeLevel(null);
+    }
     // a keystone moment has the camera: wait it out, and start afresh after
     if (ui.moment) {
       if (this.shot) { this.endShot(); this.shot = null; }
@@ -235,6 +276,7 @@ export class Watch {
   }
 
   next() {
+    this.walking = false;
     this.endShot();
     const g = this.game, wide = !this.eyeLevel && !this.species && this.n % 4 === 3;
     this.n++;
@@ -319,7 +361,10 @@ export class Watch {
 
   caption(s, fresh = false) {
     const g = this.game, b = this.cap.querySelector('b'), sp = this.cap.querySelector('span');
-    if (s.agent) {
+    if (s.walk) {
+      b.textContent = 'On foot';
+      sp.textContent = 'W S walk · A D turn · Q E step · Shift run · drag to look · N back to the animals';
+    } else if (s.agent) {
       const a = s.agent, def = animalDef(a, g.catalog);
       b.textContent = def.name;
       sp.textContent = s.body ? this.bodyStatus(a) : a.passing ? 'Flying through' : this.ui.agentStatus(a, def);

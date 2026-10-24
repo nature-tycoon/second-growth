@@ -79,6 +79,7 @@ const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
 const SKY_TOP = new THREE.Color(0.15, 0.34, 0.76), SKY_LOW = new THREE.Color(0.6, 0.71, 0.84);
 const GREY = new THREE.Color(0.5, 0.53, 0.56), STORM = new THREE.Color(0.25, 0.27, 0.3);
 const skyTint = new THREE.Color(), skyGrey = new THREE.Color();
+const NO_MOVE = { fwd: 0, side: 0, turn: 0, run: false };
 const FLORA_REGIONS_PER_FRAME = 1; // plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild)
 // a phone or tablet (no mouse)
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
@@ -120,7 +121,7 @@ export class Renderer {
     // Haze, for watch mode's eye-level view only (see setEyeLevel). It is always there but pushed out
     // of reach in the usual view, so switching to eye level doesn't recompile every material.
     this.scene.fog = new THREE.Fog(0x9fb2a4, 1e5, 2e5);
-    this.eye = new EyeCamera(); this.eyeAgent = null; this.eyeOn = false;
+    this.eye = new EyeCamera(); this.eyeAgent = null; this.eyeOn = false; this.eyeWalk = false; this.eyeLook = { yaw: 0, pitch: 0 };
     this.eyeSky = new EyeSky(this.scene); this.lightning = new Lightning(this.scene); this.bufSize = new THREE.Vector2();
     this.eyeWx = { storm: 0, snow: 0, near: EYE_FOG_NEAR, far: EYE_FAR };
     // the zoom whose plant models eye level draws: the finest on Balanced and High, the in-between ones
@@ -515,13 +516,25 @@ export class Renderer {
   // Watch mode's eye-level view (eye-camera.js): ride along low behind an animal, or null to go
   // back to the usual view. The usual camera is left where it was, so leaving puts the view back.
   setEyeLevel(agent) {
-    this.eyeAgent = agent || null;
+    this.eyeAgent = agent || null; this.eyeWalk = false;
     if (!agent) { this.eyeOn = false; this.eye.reset(); this.updateCamera(); }
+  }
+  // Leave the animal and walk about at eye level from where the eye is (WASD in watch mode).
+  // eyeMove ({ fwd, side, turn, run }) is set by Input each frame; eyeLook gathers drags to look round.
+  walkEye() {
+    if (!this.eyeOn) return false;
+    this.eyeAgent = null; this.eyeWalk = true;
+    return true;
   }
   updateEye(dt, game) {
     const a = this.eyeAgent;
-    const seaY = this.seaY;
-    this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, this.vw / Math.max(1, this.vh), dt, (x, z) => this.heightAtScene(x, z), seaY);
+    const seaY = this.seaY, aspect = this.vw / Math.max(1, this.vh), ground = (x, z) => this.heightAtScene(x, z);
+    if (this.eyeWalk) {
+      const w = this.world, L = this.eyeLook;
+      this.eye.walk(this.eyeMove || NO_MOVE, L, aspect, dt, ground, seaY, (x, z) => ({ x: clamp(x, 0.5, w.w - 0.5), z: clamp(z, 0.5, w.h - 0.5) }));
+      L.yaw = 0; L.pitch = 0;
+      this.eyeOn = true;
+    } else this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, aspect, dt, ground, seaY);
     const fog = this.scene.fog;
     if (!this.eyeOn) { fog.near = 1e5; fog.far = 2e5; this.scene.background = null; this.eyeSky.hide(); return; }
     if (seaY != null && this.eye.under) {
@@ -965,7 +978,7 @@ export class Renderer {
     sky.uCloudT.value = this.time;
     sky.uCloudCover.value += (cover - sky.uCloudCover.value) * (first ? 1 : Math.min(1, dt * 0.25));
     // no shadows on a cloudless day, and they melt away as you zoom in close
-    const closeUp = this.eyeAgent ? 1 : clamp((2.1 - this.zoom) / 0.8, 0, 1); // (at eye level they're the shadows of the clouds overhead)
+    const closeUp = this.eyeAgent || this.eyeWalk ? 1 : clamp((2.1 - this.zoom) / 0.8, 0, 1); // (at eye level they're the shadows of the clouds overhead)
     const amt = this.cloudsOn === false || (cover === 0 && sky.uCloudCover.value < 0.08) ? 0 : 0.44 * closeUp;
     sky.uCloudAmt.value += (amt - sky.uCloudAmt.value) * Math.min(1, dt * 1.5);
 
