@@ -296,11 +296,19 @@ function bird(m, s) {
   }
   const bb = [hp[0] + hr * 0.85, hp[1] - hr * (o.duck ? 0.25 : 0.1), 0], bl = S * o.beak;
   if (o.toucan) {
-    // the toco's huge orange bill, with a black tip and a white throat bib beneath
-    const bill = u => u.x > 0.72 ? col('#141210') : u.x > 0.2 && u.y > 0.55 ? col(shade(s.bill, 0.2)) : col(s.bill);
-    m.ell([bb[0] + S * 0.25, bb[1] - S * 0.02, 0], [S * 0.3, hr * 0.6, hr * 0.42], bill, { ...hd, rot: [0, 0, -0.12] });
+    // the toco's huge bill: two flat-sided mandibles, deepest where they leave the face, tapering
+    // to a down-curved tip; orange with a deeper ridge, a thin black ring at the base and a big
+    // black spot at the tip. A white throat bib beneath, bare orange skin round a blue eye-ring.
+    const L = S * 0.62, at = (x, y) => [bb[0] + L * x, bb[1] + hr * y, 0], base = bb[0] + hr * 0.1;
+    const upper = (u, p) => p.x < base ? col('#141210') : u.x > 0.44 + 0.08 * u.y * u.y ? col('#141210') : u.y > 0.72 ? col(shade(s.bill, -0.12)) : u.y < -0.4 ? col(shade(s.bill, 0.12)) : col(s.bill);
+    const lower = (u, p) => p.x < base ? col('#141210') : u.x > 0.7 ? col('#141210') : col(s.bill);
+    tube(m, [at(-0.22, 0.12), at(0.3, 0.02), at(0.66, -0.2), at(1, -0.62)], [[hr * 0.5, hr * 0.34], [hr * 0.4, hr * 0.25], [hr * 0.25, hr * 0.16], [hr * 0.04, hr * 0.03]], upper, { ...hd, sub: 6, seg: 12, capRings: 2 });
+    tube(m, [at(-0.2, -0.32), at(0.35, -0.36), at(0.82, -0.56)], [[hr * 0.24, hr * 0.3], [hr * 0.16, hr * 0.2], [hr * 0.04, hr * 0.04]], lower, { ...hd, sub: 6, seg: 12, capRings: 2 });
     m.ell([hp[0] + hr * 0.3, hp[1] - hr * 0.8, 0], [hr * 0.7, hr * 0.7, hr * 0.8], s.breast, hd);
-    for (const side of [1, -1]) m.ell([hp[0] + hr * 0.45, hp[1] + hr * 0.25, side * hr * 0.72], [hr * 0.3, hr * 0.3, hr * 0.12], s.wattle || '#3a8ae0', { ...hd, lo: true });
+    for (const side of [1, -1]) {
+      m.ell([hp[0] + hr * 0.45, hp[1] + hr * 0.22, side * hr * 0.68], [hr * 0.42, hr * 0.34, hr * 0.12], s.wattle || '#f0a030', { ...hd, lo: true });
+      if (!s.wattle) m.ell([hp[0] + hr * 0.45, hp[1] + hr * 0.25, side * hr * 0.72], [hr * 0.29, hr * 0.29, hr * 0.12], '#3a8ae0', { ...hd, lo: true });
+    }
     if (s.wattle) m.ell([hp[0] + hr * 0.4, hp[1] - hr * 0.95, 0], [hr * 0.55, hr * 0.5, hr * 0.5], s.wattle, hd); // ground hornbill's red throat
   } else if (o.hornbill && s.casque) {
     // rhinoceros hornbill: a long, down-curved ivory bill, yellower at the base, topped by a great
