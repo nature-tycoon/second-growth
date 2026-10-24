@@ -900,10 +900,10 @@ body.watch-mode:not(.watch-eye) #joystick { visibility: hidden !important; } /* 
 #watch { display: none; }
 body.watch-mode #watch { display: block; position: fixed; inset: 0; z-index: 29; cursor: default; user-select: none; -webkit-user-select: none; }
 @media (pointer: coarse) {
-  /* at eye level the thumbstick walks (Watch.walk); the caption moves up out of its way */
+  /* at eye level the thumbstick walks (Watch.walk); the caption sits beside it, to its right */
   body.watch-mode.watch-eye #joystick { display: block !important; visibility: visible !important; z-index: 31;
     left: calc(max(16px, 3vw) + env(safe-area-inset-left)); bottom: calc(6vh + 12px + env(safe-area-inset-bottom)); }
-  body.watch-mode.watch-eye #watch .w-cap { bottom: calc(6vh + 128px); }
+  body.watch-mode.watch-eye #watch .w-cap { left: calc(max(16px, 3vw) + 124px + env(safe-area-inset-left)); bottom: calc(6vh + 36px + env(safe-area-inset-bottom)); }
 }
 body.watch-mode #watch { touch-action: none; } /* (so a drag to look round reaches it on a touch screen) */
 body.watch-mode.moment-on #watch { pointer-events: none; } /* (a keystone moment's own card takes over) */
