@@ -48,9 +48,11 @@ for (const [map, keys] of Object.entries(targets)) {
       assert(colorCount(maleModel, 8, male.sprite.head) > 20, `${map}/${key}: drake has its green head`);
       assert.equal(colorCount(baseModel, 8, male.sprite.head), 0, `${map}/${key}: hen lacks drake plumage`);
       for (const model of [baseModel, maleModel]) for (const part of [6,7]) assert(colorCount(model, part, def.sprite.speculum) > 0, `${map}/${key}: both wings retain their coloured speculum`);
-      const colors = baseModel.geo.attributes.color, parts = baseModel.geo.attributes.aPart, mottled = new Set();
-      for (let i = 0; i < colors.count; i++) if (parts.getX(i) === 0) mottled.add([colors.getX(i), colors.getY(i), colors.getZ(i)].map(c => c.toFixed(3)).join(','));
-      assert(mottled.size > 50, `${map}/${key}: hen has mottled feather colours`);
+      // (the hen's mottling is drawn per pixel: her body carries the mottled coat, the drake's doesn't)
+      const mottledBody = model => { const k = (model.motion.coats || []).findIndex(c => c.kind === 'mottled') + 1, coat = model.geo.attributes.aCoat, parts = model.geo.attributes.aPart;
+        let n = 0; if (k) for (let i = 0; i < parts.count; i++) if (parts.getX(i) === 0 && Math.round(coat.getW(i)) === k) n++; return n; };
+      assert(mottledBody(baseModel) > 100, `${map}/${key}: hen has mottled feathers`);
+      assert.equal(mottledBody(maleModel), 0, `${map}/${key}: drake is not mottled`);
       if (key === 'woodduck') {
         assert(colorCount(baseModel, 8, '#f0ece3') > 20, 'Wood duck hen has a white eye patch');
         assert.equal(colorCount(maleModel, 8, '#f0ece3'), 0, 'Wood duck drake uses stripes instead of the hen eye patch');

@@ -127,14 +127,68 @@ Bending knees and a fine fur texture would come after that, as their own decisio
   30 fps): GPU 16.7 / 14.1 / 12.4 / 13.7 ms before, 15.1 / 12.8 / 13.1 / 14.4 ms after (play,
   wide, top speed, close), within noise. The Amazon run timed out on both checkouts that day
   (12% battery, Low Power Mode), so it still wants measuring on mains power.
+- **Birds, turtles, fish and crocodilians (2026-10-24, second round).** New patterns in `COAT_GLSL`:
+  - `bars`: stripes where a sine of one coordinate rises over a threshold. The barred owl's wings,
+    the tail bars of the barred owl and the three hawks with `tailBars` (one coat for all seven
+    feathers, so the bars skip the outer feathers' 5% shading), the bluegill's flank bars.
+  - `barred`: the barred owl's breast bars and belly streaks.
+  - `mottled`: a hen's plumage (wood duck and mallard hens), on the body and the wing coverts
+    (`[1]`: only where the old painter mottled the wing). It was a regular grid of dark dots,
+    which per pixel read as knitting, so it is now offset rows of feathers, each with a dark centre,
+    a pale tip toward the tail and its own tone, fading out at the breast's and tail's points where
+    the rows meet.
+  - `duck`: a drake's body in blocks with sharp edges: the wood duck's chestnut breast freckled in
+    cream, the mallard's brown breast and black stern. The vertex colours keep each block 0.2 inside
+    its edge, so the coarse body's interpolated colours don't bleed over the line the shader draws.
+  - `scutes`: plates with dark seams. Shells (the leopard tortoise, the three sea turtles, the
+    box, pond and yellow-spotted river turtles) lay them out flat over the dome with a
+    stereographic projection of the shell's `u` and 9 neighbouring cells (`coatCells2`, one sine per
+    cell). The 27-cell 3D version (`coatCells`) cost a tortoise filling a Retina screen 2 ms. The
+    sea turtles' streaks radiating across the scutes and the tortoise's dark flecks near the seams
+    ride on it. The sea turtles' cream-edged scaly skin uses the 3D cells (head and flippers,
+    small on screen). The plain turtles had a random blotch per vertex; they now have plates.
+  - `fish`: by `u` round the body. Spots (cutthroat, coho, coral trout, sweetlips, arapaima,
+    piranha and the rest), the clownfish's bands, the humphead's face squiggles, the blue tang's
+    palette, the bass's ragged band, the snook's line, the cleaner wrasse's stripe, the hawkfish's
+    checks, the parrotfish's scales, the blacktip's pale flank band. Spots that were smeared into
+    streaks are round now, and the bass's band, which barely showed, reads.
+  - `butterfly`, `idol`: the threadfin butterflyfish's and the Moorish idol's colour regions in
+    model space, so their edges are sharp. The butterflyfish's chevron lines are thinner, as its
+    "fine dark lines" were meant to be.
+  - `caiman`: crocodilian scutes over a pale belly, and the false gharial's crossbands, which now
+    carry on down the tail (the tail is ringed by model x and the angle round it).
+- Triangles:
+
+  | Model | Before | After |
+  | --- | ---: | ---: |
+  | Barred owl (usual / close-up) | 9.1k / 11.6k | 5.5k / 8.5k |
+  | Wood duck hen, drake | 19.9k, 18.4k | 16.3k, 14.8k |
+  | Mallard | 17.4k | 13.8k |
+  | Leopard tortoise | 5.2k / 7.6k | 2.0k / 5.3k |
+  | Sea turtles | 5.4k / 7.6k | 2.2k / 5.4k |
+  | Fish built by `fish()` | about 4.6k / 6.6k | about 3.2k / 7.9k |
+
+  The birds' bodies and the shells were on the 56 × 36 sphere only to carry their markings; they
+  are now on the bird body (16 × 11) and `SPH_HI`. The fish body was 56 × 28 at both sizes; it is
+  40 × 22, finer close up like everything else.
+- **Cost:** `?bench=1`, on mains power, two alternating runs each (±0.3 ms noise): birds and fish
+  within the noise; the leopard tortoise about +0.2 ms, the green sea turtle about +0.35 ms, the
+  box turtle +0.1 ms when one fills a Retina screen. `play-profile reef,pnw high 2`: GPU 9.2 /
+  10.5 / 9.9 / 9.4 ms before, 8.9 / 10.2 / 10.0 / 9.3 after on the reef, 8.5 / 9.7 / 9.0 / 8.6 and
+  8.4 / 9.9 / 9.0 / 8.8 in the PNW (play, wide, top speed, close), 60 fps throughout.
+- `tools/animal-variant-check.mjs` used to count a hen's distinct vertex colours to prove she was
+  mottled. It now checks that her body carries the `mottled` coat and the drake's doesn't.
+- The review page takes `map:key:male` for a species' male look (`?species=pnw:mallard:male`).
 - Still painted per vertex, and why:
-  - Bird plumage: another agent was reshaping `birds.js` at the time.
-  - Fish and reef patterns: small and seen through water, and their bands already read cleanly.
   - Butterflies, beetles and bees: never large on screen.
   - The palm civet's faint spot rows and the wildebeest's brindle bands: soft marks that already
     read on their fine bodies.
   - The topi's patches, the tiger's whisker pads and ruff: large or tiny blocks that per-pixel
     drawing would not change.
+  - Bird colour blocks (a booby's bib, a toucan's bill, the woodpecker's stripes, songbirds'
+    caps and bands): solid pieces or large blocks, sharp already. Frogs other than the poison
+    frog: plain.
+  - The cutthroat's throat slash, the coho's kype, the arapaima's red rear: soft gradients.
   - Crease shading on the elephants' and rhinos' hides: texture, not markings.
 
 ## How step 4 works

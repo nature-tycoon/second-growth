@@ -226,10 +226,147 @@ const COAT_GLSL = `
     c = mix(c, belly * (0.95 + 0.05 * abs(sin(t * 220.0))), coatIn(u.y, -0.58)); // (pale belly scutes)
     return mix(base, c, coatDetail(t * 13.0));
   }
+  // stripes across one coordinate, where a sine of it rises over a threshold: a barred owl's wings, a
+  // hawk's tail bars, a bluegill's flank bars (A.x: which, 0 u.x, 1 u.y, 2 |u.z|; A.y: times 2 pi per
+  // unit; A.z: phase; A.w: the threshold; B.x: how strongly they mark; B.y: none below this u.y)
+  vec3 coatBars(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float q = (A.x < 0.5 ? u.x : A.x < 1.5 ? u.y : abs(u.z)) * A.y + A.z;
+    float bar = mix(acos(A.w) / 3.14159, coatOver(sin(q), A.w), coatDetail(q / 6.283));
+    return mix(base, dark, bar * B.x * coatOver(u.y, B.y));
+  }
+  // a barred owl's front: bars across the upper breast, streaks down the belly
+  vec3 coatBarred(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float q = u.y > -0.12 ? u.y * 24.0 : u.z * 25.0;
+    float bar = mix(0.39, coatOver(sin(q), 0.35), coatDetail(q / 6.283));
+    return mix(base, dark, bar * coatOver(u.x, 0.05) * coatIn(u.y, 0.35));
+  }
+  // a hen's plumage: offset rows of feathers, each a little lighter or darker than the next, with a
+  // dark centre and a pale tip toward the tail (A.x: 1 on a wing, where only the coverts are
+  // mottled, not the flight feathers)
+  vec3 coatMottled(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    vec2 g = vec2(u.x * 12.0, atan(u.z, u.y) * 4.5);
+    g.x += floor(g.y) * 0.5;
+    vec2 cell = floor(g), f = g - cell - 0.5 - (vec2(coatHash(vec3(cell, 3.0)), coatHash(vec3(cell, 5.0))) - 0.5) * 0.2;
+    float centre = coatIn(length(vec2(f.x * 0.8 - 0.06, f.y * 1.5)), 0.24), tip = coatOver(length(vec2(f.x - 0.1, f.y * 0.9)), 0.48) * coatIn(f.x, -0.1);
+    float tone = mix(0.92, (0.93 + coatHash(vec3(cell, 4.0)) * 0.1) * mix(1.0, 0.62, centre) + 0.16 * tip, coatDetail(g.x) * coatDetail(g.y));
+    // (on a body, fading out toward the breast's and the tail's points, where the rows all meet)
+    float zone = A.x > 0.5 ? coatOver(u.x, -0.08 + abs(u.z) * 0.12) * coatIn(abs(u.z), 0.72) : 1.0 - smoothstep(0.82, 0.97, abs(u.x));
+    return base * mix(1.0, tone, zone);
+  }
+  // a drake's body in blocks: the breast ahead of u.x = A.x in mid, freckled in dark unless A.z is 1
+  // (cells of 1 / A.y, a fraction A.z of them plain), and the stern behind u.x = A.w in B.rgb
+  vec3 coatDuck(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    vec3 g = u * A.y, cell = floor(g);
+    float d = length(g - cell - 0.5 - (vec3(coatHash(cell), coatHash(cell.yzx + 4.0), coatHash(cell.zxy + 9.0)) - 0.5) * 0.4);
+    float fleck = mix(0.12 * (1.0 - A.z), coatIn(d, 0.33) * step(A.z, coatHash(cell * 1.7)), coatDetail(g.x));
+    return mix(mix(base, mix(mid, dark, fleck), coatOver(u.x, A.x)), B.rgb, coatIn(u.x, A.w));
+  }
+  // a cellular pattern in 2D (cells of 1): the gap between the two nearest cell points, and the
+  // nearest's hash; a third the work of coatCells
+  vec2 coatCells2(vec2 q) {
+    vec2 i = floor(q), nearest = i;
+    float d1 = 9.0, d2 = 9.0;
+    for (int a = -1; a <= 1; a++) for (int b = -1; b <= 1; b++) {
+      vec2 k = i + vec2(float(a), float(b)), h = fract(sin(dot(k, vec2(127.1, 311.7))) * vec2(43758.5453, 22578.1459)); // (one sine for both)
+      float d = length(k + h - q);
+      if (d < d1) { d2 = d1; d1 = d; nearest = k; } else if (d < d2) d2 = d;
+    }
+    return vec2(d2 - d1, coatHash(vec3(nearest, 5.0)));
+  }
+  // plates: a tortoise's or turtle's shell, a sea turtle's scaly skin, cells A.x across in model
+  // space with seams A.w wide in dark. A shell (A.y: its radius) lays them out flat over the dome, seen
+  // from above (a stereographic projection of u, which keeps their shapes; as big as the 3D cells look
+  // cut by a surface), skin in 3D (A.y 0). Each
+  // plate's tone runs B.z + B.x * (its hash) toward mid; B.y: 1 streaks radiating from the shell's
+  // middle (a sea turtle), 2 dark flecks near the seams (a leopard tortoise)
+  vec3 coatScutes(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    vec2 c = A.y > 0.0 ? coatCells2(normalize(u).xz / (1.0 + normalize(u).y) * 1.2 * A.y / A.x) : coatCells(p, A.x);
+    float detail = coatDetail(p.x / A.x * 3.0);
+    vec3 plate = mix(base, mid, B.z + c.y * B.x);
+    if (B.y > 1.5) {
+      vec3 g = p / (A.x * 0.1), cell = floor(g);
+      float d = length(g - cell - 0.5 - (vec3(coatHash(cell), coatHash(cell.yzx + 4.0), coatHash(cell.zxy + 9.0)) - 0.5) * 0.3);
+      plate = mix(plate, mix(dark, base, 0.35), mix(0.1, coatIn(d, 0.35) * step(0.45, coatHash(cell * 1.3)), coatDetail(g.x)) * coatIn(c.x, 0.3));
+    } else if (B.y > 0.5) {
+      float r = atan(p.z, p.x) * 18.0, ray = step(0.62, coatHash(vec3(floor(r + 0.5), c.y * 7.0, 2.0)));
+      plate = mix(plate, mix(base, mid, 0.5), mix(0.38, ray, coatDetail(r)));
+    }
+    return mix(mix(mix(base, mid, B.z + 0.5 * B.x), dark, A.w * 1.5), mix(plate, dark, coatIn(c.x, A.w)), detail); // (too small to draw: the plates' average tone)
+  }
+  // fish, by u (u.x -1 tail .. 1 nose, u.yz round the body; A.x: which): 0 spots in dark (A.y: 1 for a
+  // coho's, evenly spread), 2 a clownfish's bands (mid, edged in dark), 3 the humphead's squiggles on
+  // its face (mid), 4 the blue tang's palette (dark), 5 a stripe along the flank (dark; A.y: 0 a bass's
+  // ragged band, 1 a thin line, 2 widening toward the tail), 6 the hawkfish's checks (mid), 7 the
+  // parrotfish's scales edged in mid, 8 a blacktip's pale flank band (mid). (Flank bars: coatBars.)
+  vec3 coatFish(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float t = (1.0 - u.x) * 0.5, ang = atan(u.z, u.y), a = abs(ang), kind = A.x;
+    if (kind < 0.5) {
+      vec2 g = vec2(u.x * 13.0, ang * 3.2), cell = floor(g);
+      float dens = A.y > 0.5 ? 0.95 : 0.96 - t * 0.1, on = step((dens - 0.86) * 7.0, coatHash(vec3(cell, 7.0)));
+      vec2 d = g - cell - 0.5 - (vec2(coatHash(vec3(cell, 1.0)), coatHash(vec3(cell, 2.0))) - 0.5) * 0.5;
+      return mix(base, dark, mix(0.08, coatIn(length(vec2(d.x, d.y * 0.8)), 0.2) * on, coatDetail(g.x)) * coatOver(u.y, -0.35));
+    }
+    if (kind < 2.5) {
+      float e = min(min(abs(t - 0.2), abs(t - 0.5)) - 0.055, abs(t - 0.86) - 0.035);
+      return mix(mix(base, dark, coatIn(e, 0.02)), mid, coatIn(e, 0.0));
+    }
+    if (kind < 3.5) {
+      float q = u.x * 30.0 + ang * 2.0;
+      return mix(base, mid, mix(0.26, coatOver(abs(sin(q)), 0.92), coatDetail(q / 3.1416)) * coatOver(u.y, -0.3) * coatIn(t, 0.35));
+    }
+    if (kind < 4.5) {
+      float band = coatOver(t, 0.16) * coatIn(t, 0.92) * coatOver(a, 0.55) * coatIn(a, 1.6 - (t - 0.16) * 0.7);
+      return mix(base, dark, band * (1.0 - coatOver(t, 0.38) * coatIn(t, 0.7) * coatIn(a, 1.05)));
+    }
+    if (kind < 5.5) {
+      float w = A.y < 0.5 ? 0.12 + 0.06 * sin(u.x * 19.0) * sin(u.x * 7.0 + 1.0) : A.y < 1.5 ? 0.045 : 0.04 + t * 0.17;
+      return mix(base, dark, coatIn(abs(u.y - 0.04), w) * coatOver(t, 0.12));
+    }
+    if (kind < 6.5) {
+      vec2 g = vec2(u.x * 9.0, ang * 2.6), d = abs(fract(g + 0.4) - 0.5); // (distance from each line's middle)
+      return mix(base, mid, mix(0.36, max(coatIn(d.x, 0.1), coatIn(d.y, 0.1)), coatDetail(g.x)) * coatOver(u.y, -0.75));
+    }
+    if (kind < 7.5) {
+      float sx = u.x * 16.0, sa = ang * 7.0 + floor(sx) * 0.5; // (offset rows, like real scales)
+      float d = length(vec2(fract(sx) - 0.5, (fract(sa) - 0.5) * 0.9));
+      return mix(base, mid, 0.55 * mix(0.45, coatOver(d, 0.42), coatDetail(sx)) * coatOver(u.y, -0.6));
+    }
+    return mix(base, mid, 0.6 * coatIn(abs(u.y + 0.02 - u.x * 0.12), 0.07) * coatOver(u.x, -0.45) * coatIn(u.x, 0.1));
+  }
+  // the threadfin butterflyfish, in model space (A: size, body axis height, white.rg; B: white.b,
+  // yellow): a black bar through the eye, chevrons of fine lines (mid) over the white flank, a yellow rear
+  vec3 coatButterfly(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float bx = p.x / A.x, by = (p.y - A.y) / A.x;
+    float q = (by > 0.02 - bx * 0.3 ? bx + by * 1.1 : bx - by * 1.1) * 32.0;
+    vec3 c = mix(vec3(A.zw, B.x), mid, mix(0.29, coatOver(abs(sin(q)), 0.9), coatDetail(q / 3.1416)) * coatIn(bx, 0.19));
+    c = mix(c, B.yzw, coatIn(bx - by * 0.25, -0.19));
+    return mix(c, dark, coatOver(bx, 0.19) * coatIn(bx, 0.255) * coatOver(by, -0.2));
+  }
+  // the Moorish idol, in model space (A: size, body axis height, white.rg; B: white.b, orange): two
+  // broad black bands (dark), yellow (mid) on the tail stock and low behind the first band, an orange
+  // saddle over the snout
+  vec3 coatIdol(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float bx = p.x / A.x, by = (p.y - A.y) / A.x;
+    vec3 c = mix(vec3(A.zw, B.x), mid, max(coatIn(bx, -0.27), coatIn(by, -0.06 - (bx + 0.12) * 0.5) * coatIn(bx, 0.07)));
+    c = mix(c, dark, max(coatOver(bx, 0.07) * coatIn(bx, 0.21), coatOver(bx, -0.27) * coatIn(bx, -0.12)));
+    return mix(c, B.yzw, coatOver(bx, 0.25) * coatIn(bx, 0.32) * coatOver(by, -0.01 + (bx - 0.25) * 0.6));
+  }
+  // a crocodilian's armour: rows of scutes (dark) across and along the back, over a pale belly (B.rgb)
+  // (A: length, body axis height, 1 for a gharial's dark crossbands (mid), 1 on the tail, ringed by
+  // the model's x and its angle round the tail, where the body uses u)
+  vec3 coatCaiman(vec3 u, vec3 p, vec3 base, vec4 A, vec4 B, vec3 dark, vec3 mid) {
+    float along = p.x / (A.x * 0.27) * 30.0, ring = (A.w > 0.5 ? atan(p.z, p.y - A.y) : atan(u.z, u.y)) * 6.0;
+    float belly = A.w > 0.5 ? 0.0 : coatIn(u.y, -0.35);
+    float scute = mix(0.32, max(coatIn(abs(sin(along)), 0.3), coatIn(abs(sin(ring)), 0.25)), coatDetail(along / 3.1416)) * (1.0 - belly);
+    float q = p.x * 6.2832 / (A.x * 0.075), band = mix(0.35, coatOver(sin(q), 0.45), coatDetail(q / 6.2832));
+    vec3 c = mix(mix(base, dark, scute), B.rgb, belly);
+    return mix(c, mid, 0.75 * A.z * band * coatIn(p.x, A.x * 0.2) * coatOver(p.y, A.y - A.x * 0.02));
+  }
 `;
 const COAT_FN = {
   rosettes: 'coatRosettes', jaguar: 'coatJaguar', spots: 'coatSpots', dots: 'coatDots', clouds: 'coatClouds', zebra: 'coatZebra', giraffe: 'coatGiraffe',
   tiger: 'coatTiger', tigerLegs: 'coatTigerLegs', tigerHead: 'coatTigerHead', rings: 'coatRings', lines: 'coatLines', flank: 'coatFlank', snake: 'coatSnake', monitor: 'coatMonitor',
+  bars: 'coatBars', barred: 'coatBarred', mottled: 'coatMottled', duck: 'coatDuck', scutes: 'coatScutes', fish: 'coatFish', butterfly: 'coatButterfly', idol: 'coatIdol', caiman: 'coatCaiman',
 };
 
 // ---------------------------------------------------------------- material with the animation shader

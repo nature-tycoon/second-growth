@@ -42,11 +42,11 @@ const hash3 = (x, y, z) => { const h = Math.sin(x * 12.9898 + y * 78.233 + z * 3
 const SPH = new THREE.SphereGeometry(1, 12, 9);
 const SPH_LO = new THREE.SphereGeometry(1, 7, 5);
 const SPH_HI = new THREE.SphereGeometry(1, 24, 16); // for bodies that carry fine markings
-const SPH_XL = new THREE.SphereGeometry(1, 56, 36); // a tortoise's plated shell
+const SPH_XL = new THREE.SphereGeometry(1, 56, 36); // (a tiger's ruff)
 const SCALE = new THREE.SphereGeometry(1, 6, 3); // one of a pangolin's hundreds of plates (kept light)
 // The close-up model (see Model.close) swaps these spheres for finer ones and gives limbs, tubes
 // and lofts CLOSE times the segments, so outlines stay round when an animal fills the screen. (The
-// pangolin's plates and the tortoise's shell are fine enough already.)
+// pangolin's plates are fine enough already.)
 const FINER = new Map([[SPH, new THREE.SphereGeometry(1, 20, 14)], [SPH_LO, new THREE.SphereGeometry(1, 12, 8)], [SPH_HI, new THREE.SphereGeometry(1, 36, 24)]]);
 const CLOSE = 1.6;
 

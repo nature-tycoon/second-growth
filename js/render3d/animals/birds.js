@@ -1,6 +1,6 @@
 // Bird body plans, feathers, wings and species markings.
 import * as THREE from 'three';
-import { P, SPH_HI, SPH_XL, col, eyes, flat, grad, hash3, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
+import { P, col, eyes, flat, grad, pixelCoat, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
 
 // ---------------------------------------------------------------- birds
 const BIRDS = {
@@ -107,11 +107,15 @@ function birdTail(m, s, o, base) {
     if (s.tailBars && Math.sin(t * 26) > 0.45) return col(s.tailBars);
     return col(s.tail || s.color);
   };
+  // (plain bars across the tail, a barred owl's or a hawk's, drawn per pixel: coatBars)
+  const barColor = s.barred ? s.breast : s.tailBars, bars = barColor && !s.tailTip && !s.tailBand && !s.centralTailTip && !o.macaw;
   for (let f = -3; f <= 3; f++) {
     const edge = Math.abs(f) / 3, L = S * length * (s.forkTail ? 0.42 + 0.58 * edge : 1 - graduation * edge);
     const root = [base[0], base[1] + S * (0.008 - edge * 0.004), f * S * 0.013];
     const fan = (w, pitch) => place(root, [0, Math.atan2(f / 3 * S * w, L), pitch], [L, S * 0.013, S * (width * 0.78)]);
-    m.add(TAIL_FEATHER, fan(width * 0.65, angle), u => shade(s.centralTailTip && Math.abs(f) <= 1 && -u.x > 0.82 ? s.centralTailTip : paint(u), edge * -0.055), {
+    const feather = bars ? pixelCoat('bars', solid(shade(s.tail || s.color, edge * -0.055)), [0, -26, 0, 0.45, 1, -9], barColor)
+      : u => shade(s.centralTailTip && Math.abs(f) <= 1 && -u.x > 0.82 ? s.centralTailTip : paint(u), edge * -0.055);
+    m.add(TAIL_FEATHER, fan(width * 0.65, angle), feather, {
       part: P.TAIL, pivot: base, ext: fan(flightWidth, angle * 0.45),
     });
   }
@@ -134,20 +138,18 @@ function birdTail(m, s, o, base) {
 function bird(m, s) {
   const S = s.size, o = BIRDS[s.kind](s), bodyBase = grad(s.color, s.breast || s.color, -0.15, 0.4);
   const detailedDuck = !!(s.woodduck || s.mallard);
-  // Hens have small dark feather centres rather than a drake's solid colour blocks.
-  const mottling = (u, base) => {
-    const angle = Math.atan2(u.z, u.y), row = Math.floor(angle * 10), x = u.x * 22 + row * 0.47;
-    const feather = Math.sin(x * Math.PI) * Math.sin(angle * 31);
-    return tmp.copy(base(u)).multiplyScalar(feather > 0.3 ? 0.58 : 0.9 + hash3(Math.floor(x), row, 4) * 0.2);
-  };
   const by = o.legH * S + S * 0.26;
+  // Plumage drawn per pixel (barred, mottled, a drake's blocks): a barred owl's bars and streaks
+  // (coatBarred); a hen's small dark feather centres (coatMottled); a wood duck drake's chestnut
+  // breast freckled in cream and a mallard drake's brown breast and black stern (coatDuck: the vertex
+  // colours keep the blocks well inside their edges, which the shader draws)
   // (bib: a sharp line between a dark back and chest and a white belly, as on a booby)
-  const body = s.barred ? u => {
-    const bars = u.y > -0.12 ? Math.sin(u.y * 24) : Math.sin(u.z * 25);
-    return u.x > 0.05 && u.y < 0.35 && bars > 0.35 ? col(s.color) : bodyBase(u);
-  } : s.mottled ? u => mottling(u, bodyBase)
-    : s.fancy ? u => u.x > 0.25 ? (hash3(Math.round(u.x * 24), Math.round(u.y * 24), Math.round(u.z * 24)) > 0.77 ? col('#efddbd') : col('#794c3b')) : bodyBase(u)
-    : s.mallard ? u => u.x > 0.5 ? col(s.breast) : u.x < -0.68 ? col('#282b24') : col(s.color)
+  const blocks = (front, back, frontColor, backColor) => u => u.x > front + 0.2 ? col(frontColor) : u.x < back - 0.2 ? col(backColor) : bodyBase(u);
+  const black = col('#282b24');
+  const body = s.barred ? pixelCoat('barred', bodyBase, [], s.color)
+    : s.mottled ? pixelCoat('mottled', bodyBase, [0], s.color)
+    : s.fancy ? pixelCoat('duck', blocks(0.25, -9, '#794c3b'), [0.25, 24, 0.77, -9], '#efddbd', '#794c3b')
+    : s.mallard ? pixelCoat('duck', blocks(0.5, -0.68, s.breast, black), [0.5, 1, 1, -0.68, black.r, black.g, black.b], s.breast, s.breast)
     : s.bib ? u => (u.y > -0.1 || u.x > 0.62 ? col(s.color) : col(s.breast)) : grad(s.color, s.breast || s.color, -0.15, 0.4);
   const bodyR = BIRD_BODY[s.kind].map(r => r * S);
   // One streamlined body rather than a ball: a full, deep breast, a straight back, and a belly that
@@ -159,7 +161,7 @@ function bird(m, s) {
     const back = Math.max(0, -d.x), slim = 1 - 0.3 * back * back;
     const y = d.y * bodyR[1] * slim * (d.y < 0 ? 1 - 0.25 * back : 0.94) + bodyR[1] * 0.1 * back * back;
     return bodyAt(d.x * bodyR[0] * (1 + stretch * back), y, d.z * bodyR[2] * slim);
-  }, body, {}, s.barred || s.fancy || s.mottled ? SPH_XL : s.mallard ? SPH_HI : m.close ? BODY_CLOSE : BODY);
+  }, body, {}, m.close ? BODY_CLOSE : BODY);
   // Rufous hummingbird hens have cinnamon flanks beneath a green back.
   if (s.flanks) for (const side of [-1, 1]) m.ell([-S * 0.04, by - S * 0.07, side * bodyR[2] * 0.82], [S * 0.2, S * 0.11, S * 0.06], s.flanks, { rot: [0, 0, o.tilt] });
   if (s.band) m.ell([S * 0.12, by - S * 0.02, 0], [S * 0.12, S * 0.22, S * 0.235], s.band, { rot: [0, 0, o.tilt] });
@@ -393,17 +395,17 @@ function bird(m, s) {
   // wings
   // coverts in the body colour, darker flight feathers along the trailing edge and out to the tip
   const covert = col(o.owl ? s.color : shade(s.color, 0.04)), flight = col(s.flight || shade(s.color, o.owl ? -0.15 : -0.4));
-  const covertBase = solid(covert);
   const spec = s.speculum ? col(s.speculum) : null;
-  const wc = u => {
+  const plain = u => {
     const a = Math.abs(u.z), x = u.x, back = x < -0.08 + a * 0.12; // the flight-feather zone
-    if (s.barred) return Math.sin(a * 25) > 0.3 ? col(shade(s.breast, -0.12)) : covert;
     if (s.wing) return a > 0.62 || x < -0.12 ? col(s.wingtip) : x < 0.14 ? col(s.wing) : col(s.color); // scarlet macaw: red, yellow band, blue
     if (spec && back && a > 0.18 && a < 0.5) return (s.woodduck || s.mallard) && (x < -0.35 || x > -0.14 + a * 0.12) ? col('#eae5d8') : spec; // white-edged speculum on both sexes
     if (back || a > 0.72) return flight;
-    if (s.mottled) return mottling(u, covertBase);
+    if (s.mottled) return covert;
     return x > 0.36 && a < 0.5 ? col(shade(s.color, 0.1)) : covert;                                // pale leading edge
   };
+  // (a barred owl's bars across the whole wing, a hen's mottled coverts: per pixel, coatBars and coatMottled)
+  const wc = s.barred ? pixelCoat('bars', solid(covert), [2, 25, 0, 0.3, 1, -9], shade(s.breast, -0.12)) : s.mottled ? pixelCoat('mottled', plain, [1], s.color) : plain;
   const shape = s.wingShape || WING_KIND[s.kind] || 'round';
   // the body's half-width a given distance forward of the wing's fold point (see the body above),
   // so the folded wing lies on the shoulder and tapers in over the rump, the tips crossing above the tail
