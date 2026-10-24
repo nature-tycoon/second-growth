@@ -228,7 +228,7 @@ export default function buildChinandegaAnimals(def) {
       prey: ['snook', 'raccoon'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]] * (W.connected[i] ? 1 : 0.4),
       req: g => Math.min(1, stat(g, 'mangrove') / 80),
-      sprite: { kind: 'caiman', len: 48, color: '#6a6a4a', belly: '#c8c090' },
+      sprite: { kind: 'caiman', len: 48, color: '#6a6a4a', belly: '#c8c090', croc: true },
       desc: 'Cocodrilo. It basks on the mudbanks of the estuary. Shy, and hunted out of most of the coast.',
       hint: 'A wide, quiet estuary with mangroves.' });
   }

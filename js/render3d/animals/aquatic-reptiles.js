@@ -612,6 +612,7 @@ function idol(m, s) {
 // Spectacled caiman: long and low, with an armoured back, a bony ridge between the eyes,
 // splayed legs and a heavy tail that sweeps as it swims.
 // False gharial (gharial): a very long, slender, even snout, and dark crossbands over the back and tail.
+// Crocodiles (croc): a narrower, V-shaped snout than the caiman's, with the teeth showing.
 function caiman(m, s) {
   const L = s.len, cy = L * 0.07, gh = !!s.gharial;
   // rows of scutes over a pale belly, and the gharial's dark crossbands (in model space, so they run
@@ -620,23 +621,76 @@ function caiman(m, s) {
   const hide = (tail, base) => pixelCoat('caiman', base, [L, cy, gh ? 1 : 0, tail ? 1 : 0, belly.r, belly.g, belly.b], shade(s.color, -0.3), shade(s.color, -0.5));
   loftBody(m, { x0: -L * 0.3, x1: L * 0.24, cy0: cy, cy1: cy, ry0: L * 0.075, ry1: L * 0.08, rz0: L * 0.11, rz1: L * 0.13, fine: true }, hide(false, plain));
   const neck = [L * 0.22, cy, 0], hd = { part: P.HEAD, pivot: neck };
-  const head = u => u.y < -0.3 ? col(s.belly) : col(shade(s.color, 0.05));
-  m.ell([L * 0.3, cy + L * 0.005, 0], [L * 0.1, L * 0.05, L * 0.085], head, hd);
-  if (gh) {
-    // a long, slim, flattened snout of even width, a little spatulate at the tip
-    m.ell([L * 0.37, cy, 0], [L * 0.06, L * 0.028, L * 0.045], head, hd);
-    m.add(cyl(1, 1, 10), place([L * 0.38, cy - L * 0.004, 0], [0, 0, -Math.PI / 2], [L * 0.016, L * 0.4, L * 0.024]), head, hd);
-    m.ell([L * 0.78, cy - L * 0.004, 0], [L * 0.03, L * 0.017, L * 0.03], head, hd);
-    m.ell([L * 0.8, cy + L * 0.01, 0], [L * 0.012, L * 0.006, L * 0.014], shade(s.color, -0.3), { ...hd, lo: true }); // nostrils
-  } else {
-    m.ell([L * 0.44, cy - L * 0.005, 0], [L * 0.11, L * 0.03, L * 0.055], head, hd);
-    m.ell([L * 0.38, cy + L * 0.03, 0], [L * 0.03, L * 0.008, L * 0.045], shade(s.color, -0.25), hd); // the "spectacles" ridge
+  const head = u => tmp.copy(col(s.color)).lerp(belly, smooth(-0.12, -0.3, u.y) * 0.8); // (pale below the jaw line)
+  // The head is one surface from the neck to the tip of the snout: deep at the jaw muscles, then
+  // tapering forward, flat on top and below but never a paddle. A caiman's snout is a broad U, a
+  // crocodile's (croc) a narrower V with a little swelling near the tip, the false gharial's a long
+  // slender rod off a broad skull, spatulate at the end.
+  // [x, half-width, top above the axis, depth below it], in body lengths
+  const croc = !!s.croc, K = gh
+    ? [[0.19, 0.06, 0.035, 0.04], [0.25, 0.078, 0.05, 0.045], [0.31, 0.07, 0.045, 0.036], [0.36, 0.04, 0.029, 0.024], [0.42, 0.022, 0.019, 0.016],
+      [0.6, 0.019, 0.016, 0.014], [0.76, 0.02, 0.016, 0.014], [0.8, 0.028, 0.02, 0.015], [0.82, 0.028, 0.021, 0.015]]
+    : croc
+      ? [[0.19, 0.06, 0.035, 0.04], [0.25, 0.082, 0.052, 0.046], [0.31, 0.072, 0.046, 0.038], [0.37, 0.054, 0.034, 0.03], [0.44, 0.037, 0.026, 0.024],
+        [0.5, 0.029, 0.022, 0.02], [0.535, 0.031, 0.025, 0.019], [0.56, 0.029, 0.025, 0.018]]
+      : [[0.19, 0.06, 0.035, 0.04], [0.25, 0.086, 0.052, 0.046], [0.31, 0.082, 0.048, 0.039], [0.38, 0.07, 0.034, 0.031], [0.45, 0.062, 0.027, 0.025],
+        [0.51, 0.055, 0.025, 0.022], [0.55, 0.05, 0.026, 0.02]];
+  const x0 = K[0][0], x1 = K[K.length - 1][0], tipR = croc || gh ? 0.03 : 0.05, mouth = -0.15; // (the jaw line, a little below the side)
+  const prof = x => { // half-width, top, depth at x (a smooth curve through the keys, rounded off at both ends)
+    let k = 0; while (k < K.length - 2 && K[k + 1][0] < x) k++;
+    const a = K[k], b = K[k + 1], h = b[0] - a[0], t = Math.min(1, Math.max(0, (x - a[0]) / h));
+    const slope = (i, c) => { const p = K[Math.max(0, i - 1)], q = K[Math.min(K.length - 1, i + 1)]; return (q[c] - p[c]) / (q[0] - p[0]) * h; };
+    const v = [1, 2, 3].map(c => (2 * t ** 3 - 3 * t * t + 1) * a[c] + (t ** 3 - 2 * t * t + t) * slope(k, c) + (3 * t * t - 2 * t ** 3) * b[c] + (t ** 3 - t * t) * slope(k + 1, c));
+    const q = Math.max((x - (x1 - tipR)) / tipR, ((x0 + 0.03) - x) / 0.03, 0), f = Math.sqrt(Math.max(0, 1 - q * q));
+    return [v[0] * f, v[1] * Math.sqrt(f), v[2] * Math.sqrt(f)];
+  };
+  // a point on the head at x, round from the top (c = cos, sn = sin of the angle): squared-off,
+  // flatter on top than below, pinched a little along the jaw line
+  const at = (x, c, sn) => {
+    const [w, top, low] = prof(x), sq = (v, p) => Math.sign(v) * Math.abs(v) ** p;
+    const pinch = 1 - 0.07 * Math.exp(-(((c - mouth) / 0.1) ** 2));
+    return [x * L, cy + (c > 0 ? top * sq(c, 0.6) : low * sq(c, 0.8)) * L, sq(sn, c > 0 ? 0.6 : 0.8) * w * pinch * L];
+  };
+  {
+    const R = m.seg(gh ? 72 : 40), A = m.seg(22), pos = [], unit = [], idx = [];
+    for (let i = 0; i <= R; i++) for (let j = 0; j <= A; j++) {
+      const x = x0 + (x1 - x0) * i / R, a = j / A * Math.PI * 2;
+      pos.push(...at(x, Math.cos(a), Math.sin(a))); unit.push(2 * i / R - 1, Math.cos(a), Math.sin(a));
+    }
+    for (let i = 0; i < R; i++) for (let j = 0; j < A; j++) { const a = i * (A + 1) + j, b = a + A + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
+    const g = new THREE.BufferGeometry(), paintGeo = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    paintGeo.setAttribute('position', new THREE.Float32BufferAttribute(unit, 3));
+    m.add(g, new THREE.Matrix4(), head, { ...hd, paintGeo }); g.dispose(); paintGeo.dispose();
   }
+  const dark = shade(s.color, -0.3), ms = Math.sin(Math.acos(mouth)), eyeX = 0.3, eyeZ = gh ? 0.03 : 0.033;
+  // the nostrils, raised on a knob at the tip of the snout
+  const nx = x1 - (gh ? 0.022 : 0.02), nTop = prof(nx)[1];
+  m.ell([nx * L, cy + nTop * L, 0], [L * 0.016, L * 0.008, L * 0.017], head, hd);
+  for (const side of [1, -1]) m.ell([(nx + 0.003) * L, cy + (nTop + 0.007) * L, side * L * 0.006], [L * 0.004, L * 0.0015, L * 0.0025], dark, { ...hd, lo: true });
+  if (!gh && !croc) m.ell([L * 0.335, cy + L * 0.043, 0], [L * 0.01, L * 0.005, L * 0.034], shade(s.color, -0.1), hd); // the "spectacles" ridge between the eyes
   for (const side of [1, -1]) {
-    m.ell([L * 0.32, cy + L * 0.035, side * L * 0.035], [L * 0.022, L * 0.018, L * 0.02], shade(s.color, 0.1), { ...hd, lo: true });
-    m.ell([L * 0.335, cy + L * 0.04, side * L * 0.04], [L * 0.01, L * 0.012, L * 0.01], '#c8a030', { ...hd, lo: true, gloss: 2 });
+    // the eyes, raised in bony turrets on top of the skull, looking out and up, with slit pupils
+    m.ell([eyeX * L, cy + L * 0.042, side * eyeZ * L], [L * 0.026, L * 0.013, L * 0.017], head, hd);
+    const eye = [(eyeX + 0.004) * L, cy + L * 0.053, side * (eyeZ + 0.004) * L];
+    m.ell(eye, [L * 0.011, L * 0.009, L * 0.01], '#c8a030', { ...hd, lo: true, gloss: 2 });
+    m.ell([eye[0] + L * 0.003, eye[1] + L * 0.003, eye[2] + side * L * 0.008], [L * 0.0016, L * 0.006, L * 0.002], '#15130c', { ...hd, lo: true, gloss: 2 });
+    // the jaw line from the tip back under the eye, rising a little at the gape
+    const jaw = [x1 - 0.012, x1 - 0.06, 0.42, 0.34, 0.28, 0.25].filter(x => x < x1 - 0.005).map((x, i, all) => {
+      const p = at(x, mouth, side * ms); return [p[0], p[1] + (i === all.length - 1 ? L * 0.008 : 0), p[2] * 1.01];
+    });
+    jaw.sort((a, b) => b[0] - a[0]);
+    tube(m, jaw, jaw.map(() => L * 0.0022), dark, { ...hd, seg: 5, sub: 3, capRings: 1 });
+    // teeth along the upper jaw (more, and more of them showing, on the crocodiles and the gharial),
+    // and a crocodile's big fourth lower tooth, standing up outside the upper jaw near the front
+    const n = gh ? 12 : croc ? 8 : 5, from = x1 - 0.015, to = gh ? 0.36 : 0.36;
+    for (let k = 0; k < n; k++) {
+      const x = from - (from - to) * (k + 0.5) / n, p = at(x, mouth, side * ms), r = L * (gh ? 0.002 : 0.0028);
+      m.limb([p[0], p[1] + r, p[2] * 1.02], [p[0], p[1] - L * (gh ? 0.008 : 0.009), p[2] * 1.04], r, r * 0.2, '#e4dcc0', { ...hd, seg: 4, caps: false });
+    }
+    if (croc) { const p = at(x1 - 0.05, mouth, side * ms); m.limb([p[0], p[1] - L * 0.004, p[2] * 1.03], [p[0], p[1] + L * 0.012, p[2] * 1.06], L * 0.0035, L * 0.0007, '#e4dcc0', { ...hd, seg: 4, caps: false }); }
   }
-  m.eyeSpot = [L * 0.335, cy + L * 0.04, L * 0.04]; // (eyes)
+  m.eyeSpot = [(eyeX + 0.004) * L, cy + L * 0.053, (eyeZ + 0.004) * L]; // (eyes)
   // the tail starts well inside the haunches (where the body is still thick) so there's no pinch
   const base = [-L * 0.17, cy, 0], to = { part: P.TAIL, pivot: [-L * 0.24, cy, 0] };
   for (let k = 0; k < 7; k++) {
