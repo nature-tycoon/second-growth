@@ -341,6 +341,7 @@ check('A hungry vulture soars, then spirals down over a carcass and lands to fee
   assert.ok(turned > Math.PI * 2, `at least a full turn on the way down (${(turned / 6.28).toFixed(2)})`);
   assert.ok(top >= 1 && low <= 0.3, `comes down from flight height (${top.toFixed(2)} to ${low.toFixed(2)})`);
   assert.equal(v.state, 'feed'); assert.equal(v.carcass, c.id); assert.equal(c.meals, meals - 1);
+  { const d = Math.hypot(v.x - c.x, v.y - c.y); assert.ok(d > 0.25 && d < 0.6, `landed beside the carcass, not off from it (${d.toFixed(2)})`); }
 });
 check('A hungry vulture on a perch sets off for a carcass at once, not at the end of its rest', () => {
   const g = setup('serengeti'), wl = g.wildlife, w = g.world, V = g.catalog.animal.vulture;
