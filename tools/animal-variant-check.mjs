@@ -54,8 +54,8 @@ for (const [map, keys] of Object.entries(targets)) {
       assert(mottledBody(baseModel) > 100, `${map}/${key}: hen has mottled feathers`);
       assert.equal(mottledBody(maleModel), 0, `${map}/${key}: drake is not mottled`);
       if (key === 'woodduck') {
-        assert(colorCount(baseModel, 8, '#f0ece3') > 20, 'Wood duck hen has a white eye patch');
-        assert.equal(colorCount(maleModel, 8, '#f0ece3'), 0, 'Wood duck drake uses stripes instead of the hen eye patch');
+        assert(colorCount(baseModel, 8, '#e4dfd3') > 20, 'Wood duck hen has a white eye patch');
+        assert.equal(colorCount(maleModel, 8, '#e4dfd3'), 0, 'Wood duck drake uses stripes instead of the hen eye patch');
         // (the crest: the head part above the eyes, as the neck below reaches back into the breast)
         const eyeY = maleModel.motion.eyeSpot[1], crest = m => bounds(m, 8, eyeY).min.x;
         assert(crest(maleModel) < crest(baseModel) - def.sprite.size * 0.02, 'Wood duck drake has a longer swept crest');

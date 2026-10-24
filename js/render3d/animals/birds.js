@@ -241,11 +241,29 @@ function bird(m, s) {
       eyes(m, hp, hr * 0.85, hr * 0.08, hr * 0.4, hr * 0.17, P.HEAD, neckBase, '#e8c030');
       eyes(m, hp, hr * 0.97, hr * 0.08, hr * 0.4, hr * 0.09, P.HEAD, neckBase);
     }
-  } else if (s.eyePatch) {
-    // Wood duck hen: the white ring trails into a teardrop behind the dark eye.
+  } else if (s.woodduck) {
+    // Wood duck: eyes set flush in the face, not bulging. Each piece is a flat disc laid along the
+    // head's surface (x, y: where on the face, in head radii; out: how far it sits above the skin).
+    // The hen's dark eye has a thin white ring that trails back into a teardrop; the drake's red
+    // eye has a black pupil, his white lines are the crest's.
+    const ax = hr * o.headLong, az = hr * 0.95;
+    const onFace = (x, y, side, out, r, color, o2 = {}) => {
+      const z = az * Math.sqrt(Math.max(0, 1 - (x * hr / ax) ** 2 - y * y));
+      const n = [x * hr / (ax * ax), y / hr, z / (az * az)], k = Math.hypot(...n);
+      if (o2.gloss) m.eyeSpot ||= [hp[0] + x * hr, hp[1] + y * hr, z]; // (as eyes() marks it)
+      m.ell([hp[0] + x * hr + n[0] / k * out, hp[1] + y * hr + n[1] / k * out, side * (z + n[2] / k * out)], r, color,
+        { ...hd, ...o2, rot: [-side * Math.atan2(n[1], n[2]), side * Math.asin(n[0] / k), 0] });
+    };
     for (const side of [-1, 1]) {
-      m.ell([hp[0] + hr * 0.32, hp[1] + hr * 0.23, side * hr * 0.83], [hr * 0.34, hr * 0.23, hr * 0.16], '#f0ece3', hd);
-      m.ell([hp[0] + hr * 0.44, hp[1] + hr * 0.25, side * hr * 0.93], [hr * 0.13, hr * 0.13, hr * 0.08], '#262420', { ...hd, gloss: 2 });
+      if (s.eyePatch) {
+        onFace(0.41, 0.25, side, -hr * 0.03, [hr * 0.19, hr * 0.18, hr * 0.07], '#e4dfd3');
+        onFace(0.22, 0.25, side, -hr * 0.03, [hr * 0.26, hr * 0.13, hr * 0.07], '#e4dfd3');
+        onFace(0.02, 0.27, side, -hr * 0.03, [hr * 0.2, hr * 0.065, hr * 0.07], '#e4dfd3');
+        onFace(0.44, 0.25, side, hr * 0.01, [hr * 0.125, hr * 0.125, hr * 0.06], '#1e1c19', { gloss: 2 });
+      } else {
+        onFace(0.47, 0.24, side, 0, [hr * 0.17, hr * 0.17, hr * 0.07], s.eye, { gloss: 2 });
+        onFace(0.47, 0.24, side, hr * 0.035, [hr * 0.085, hr * 0.085, hr * 0.06], '#120d0b', { gloss: 2 });
+      }
     }
   } else if (s.eye) {
     // coloured eyes (the hoatzin's red eye in a patch of bare blue skin)
