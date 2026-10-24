@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { BIOME_LIST, setBiome } from '../js/biome.js';
-import { DIFFICULTY, DAYS_PER_MONTH, SPEEDS, WATCH_PACE } from '../js/config.js';
+import { DIFFICULTY, DAYS_PER_MONTH, SPEEDS, ANIMAL_SPEEDS, WATCH_PACE, lifeAge } from '../js/config.js';
 import { createFarmState } from '../js/farm-state.js';
 
 let checks = 0;
@@ -54,6 +54,16 @@ check('Watch pace survives a save and runs the clock at its slow pace', () => {
   const day = g.day, acc = g.acc;
   for (let k = 0; k < 10; k++) g.update(0.1);
   assert.ok(Math.abs(g.day + g.acc - day - acc - SPEEDS[WATCH_PACE]) < 1e-6, 'one second at watch pace moves the clock by its pace');
+  // the animals keep the normal pace, but grow old by the calendar
+  const a = g.wildlife.agents.find(Boolean);
+  assert.ok(a, 'the farm has an animal to follow');
+  const age = a.age, life = lifeAge(a);
+  for (let k = 0; k < 10; k++) g.update(0.1);
+  assert.ok(Math.abs(a.age - age - ANIMAL_SPEEDS[WATCH_PACE]) < 1e-6, 'animals live a second at the normal pace');
+  assert.ok(Math.abs(lifeAge(a) - life - SPEEDS[WATCH_PACE]) < 1e-6, 'but age by the calendar');
+  assert.ok(Math.abs(g.wildlife.lifePace - SPEEDS[WATCH_PACE] / ANIMAL_SPEEDS[WATCH_PACE]) < 1e-9);
+  g.speed = 1; g.update(0.1);
+  assert.equal(g.wildlife.lifePace, 1, 'at the other speeds the two clocks agree');
 });
 
 check('Season names and fire scheduling use the owning farm configuration', () => {

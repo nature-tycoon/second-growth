@@ -43,7 +43,7 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 - [0018](docs/decisions/0018-animal-close-up-shading.md) Animal close-up shading, per-pixel coats, close-up models and eyes (`render3d/animals/`). Gotcha: a model's normal **lengths** carry shading, so normalize before using them
 - [0019](docs/decisions/0019-bare-soil-close-up.md) Bare soil painted per pixel at eye level (`render3d/terrain-materials.js`)
 - [0020](docs/decisions/0020-watch-mode-and-eye-level.md) Watch mode (`C`), eye level (`F`), eye-level sky, weather, lightning and thunder
-- [0021](docs/decisions/0021-watch-pace.md) Watch pace (`0`): the slow speed for sitting and watching; compare speeds by `SPEEDS` value, not index
+- [0021](docs/decisions/0021-watch-pace.md) Watch pace (`0`): the calendar slows, animals keep the normal pace (`ANIMAL_SPEEDS`); life stages read `lifeAge(a)`, not `a.age`; compare speeds by value, not index
 
 New decisions take the next unused number and one line here.
 

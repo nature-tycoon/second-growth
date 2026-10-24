@@ -1,7 +1,7 @@
 // Animals (instanced 3D models, see animals/animal-model.js), plus visitors and flames drawn as camera-facing sprites.
 
 import * as THREE from 'three';
-import { LEVEL, isWater, T, F as FEAT, clamp } from '../config.js';
+import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, animalDef, maleLook } from '../data/animals.js';
 import { leavesCarcass } from '../sim/animal-life.js';
 import * as S from '../render/sprites.js';
@@ -227,7 +227,7 @@ export class Actors {
         st.rippled = a.drinkT > 0; st.leaping = salmonLeap(a, time) >= 0;
       }
       st.visible = true;
-      const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
+      const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * lifeAge(a) / (def.mature * 120), 0.55, 1) : 1;
       const sc = adultAnimalScale(def.sprite) * (a.juvenile ? def.sprite.juv ?? 0.5 : 1) * ageF; // (scale: relative proportions; show: display boost; juv: how small the young are)
       const mo = F.motion(def);
       const surf = onWater || def.move === 'swim' || def.move === 'fly' && isWater(t) ? waterSurfaceY(w, a.x, a.y) : null;

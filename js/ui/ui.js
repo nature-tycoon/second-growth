@@ -1,7 +1,7 @@
 import { dormancyStatus } from '../data/animal-dormancy.js';
 // DOM interface: top bar, tool palette, inspector, notifications, minimap and modal screens.
 
-import { T, F, FEATURE_NAMES, MONTH_NAMES, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp } from '../config.js';
+import { T, F, FEATURE_NAMES, MONTH_NAMES, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp, lifeAge } from '../config.js';
 import { music } from '../audio/music.js';
 import { sampleSoundLand } from '../audio/land.js';
 import { rutSounds } from '../audio/rut-events.js';
@@ -717,7 +717,7 @@ export class UI {
       <p class="info-desc">This bird is passing over the map. It does not live on the property or count toward its resident population.</p>
       <div class="info-actions"><button type="button" class="primary" data-follow>${PILL.follow}Follow bird</button><button type="button" data-guide="${def.key}">${PILL.guide}Field guide</button></div>
       <p class="info-desc">${def.desc}</p>`;
-    const ageY = a.age / 120;
+    const ageY = lifeAge(a) / 120;
     const status = this.agentStatus(a, def);
     const ageTxt = ageY < 1 ? `${Math.max(1, Math.round(ageY * 12))} months` : `${ageY.toFixed(1)} years`;
     return `<button class="close">×</button>

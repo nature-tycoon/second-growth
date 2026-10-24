@@ -1,15 +1,15 @@
 // Small, stable deer families and elk cow/calf herds; adult males form bachelor
 // groups outside the rut. Group membership never changes population or RNG state.
-import { DAYS_PER_YEAR } from '../config.js';
+import { DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { isMaleVariant } from '../data/animals.js';
 import { passable } from './animal-terrain.js';
 import { followLeaderTrip } from './animal-trails.js';
 export const inRut = game => [6, 7, 8].includes(game.month);
-const adult = (a, d) => !a.juvenile && a.age >= d.mature * DAYS_PER_YEAR;
+const adult = (a, d) => !a.juvenile && lifeAge(a) >= d.mature * DAYS_PER_YEAR;
 const male = (a, d) => adult(a, d) && isMaleVariant(d, a);
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const bachelor = (a, d) => !!d.bachelorSize && male(a, d);
-const solitary = (wl, a, d) => bachelor(a, d) && a.age >= d.bachelorSoloAge * DAYS_PER_YEAR && wl.game.month >= 1 && wl.game.month <= 5;
+const solitary = (wl, a, d) => bachelor(a, d) && lifeAge(a) >= d.bachelorSoloAge * DAYS_PER_YEAR && wl.game.month >= 1 && wl.game.month <= 5;
 function membership(a, id) {
   if (a.herdOf !== id) { a.slot = null; a.bachelorSlot = null; a.familySettled = null; a.familyRetryUntil = null; }
   a.herdOf = id;
