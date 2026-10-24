@@ -1,5 +1,5 @@
 // Capybaras, tapirs, armadillos and hippos.
-import { P, SPH_HI, col, eyes, grad, hash3, loftBody, pixelCoat, place, shade, smooth, stumpLegs, tmp } from './model-core.js';
+import { P, SPH_HI, col, eyes, grad, hash3, loftBody, pinnaAt, pixelCoat, place, shade, smooth, stumpLegs, tmp } from './model-core.js';
 
 // Capybara: a barrel with its rump higher than its shoulders, no neck to speak of, and a huge
 // blunt, boxy head with the eyes, ears and nostrils all set high (so it can swim almost hidden).
@@ -17,7 +17,7 @@ function capybara(m, s) {
     m.ell([L * 0.57, by - H * 0.04, side * H * 0.08], [H * 0.035, H * 0.03, H * 0.035], '#1a120c', { ...hd, lo: true });  // nostrils on top
     m.ell([L * 0.4, by + H * 0.26, side * H * 0.22], [H * 0.07, H * 0.07, H * 0.05], '#140e0a', { ...hd, lo: true, gloss: 2 });   // eyes high up
     m.eyeSpot = [L * 0.4, by + H * 0.26, H * 0.22];
-    m.ell([L * 0.28, by + H * 0.44, side * H * 0.16], [H * 0.08, H * 0.1, H * 0.05], shade(s.color, -0.3), hd);         // little round ears
+    pinnaAt(m, [L * 0.28, by + H * 0.44, side * H * 0.16], [H * 0.05, H * 0.1, H * 0.08], [side * -0.3, 0, 0.2], shade(s.color, -0.3), { ...hd, shape: 'round', cup: 0.35, inner: '#9a6a62' }); // little round ears
   }
   const lc = shade(s.color, -0.22), r0 = H * 0.17, r1 = H * 0.12;
   stumpLegs(m, [[L * 0.2, H * 0.24, by - H * 0.1, r0, r1, lc], [L * 0.2, -H * 0.24, by - H * 0.1, r0, r1, lc],
@@ -48,8 +48,7 @@ function tapir(m, s) {
   for (const side of [1, -1]) {
     m.ell([hp[0] + H * 0.08, hp[1] + H * 0.06, side * H * 0.17], [H * 0.04, H * 0.04, H * 0.03], '#0e0c0a', { ...hd, lo: true, gloss: 2 });
     m.eyeSpot = [hp[0] + H * 0.08, hp[1] + H * 0.06, H * 0.17]; // (eyes)
-    const ear = u => u.y > 0.5 || Math.abs(u.x) > 0.75 ? col(s.rim) : col(shade(s.color, -0.1));
-    m.ell([hp[0] - H * 0.14, hp[1] + H * 0.3, side * H * 0.14], [H * 0.09, H * 0.13, H * 0.04], ear, { ...hd, rot: [side * -0.35, 0, 0.3] });
+    pinnaAt(m, [hp[0] - H * 0.14, hp[1] + H * 0.3, side * H * 0.14], [H * 0.04, H * 0.13, H * 0.09], [side * -0.35, 0, 0.3], shade(s.color, -0.1), { ...hd, shape: 'round', rim: s.rim, tip: s.rim, tipAt: 0.9 });
   }
   const lc = shade(s.color, -0.1), r0 = H * 0.19, r1 = H * 0.13;
   stumpLegs(m, [[L * 0.22, H * 0.2, by - H * 0.05, r0, r1, lc], [L * 0.22, -H * 0.2, by - H * 0.05, r0, r1, lc],
@@ -106,7 +105,7 @@ function hippo(m, s) {
     m.ell([L * 0.5, by + H * 0.42, side * H * 0.27], [H * 0.055, H * 0.05, H * 0.035], pink, { ...hd, lo: true });
     m.ell([L * 0.51, by + H * 0.43, side * H * 0.29], [H * 0.03, H * 0.03, H * 0.02], '#140c0a', { ...hd, lo: true, gloss: 2 });
     m.eyeAt = [L * 0.51, by + H * 0.43, H * 0.29]; m.eyePivot = neck;
-    m.ell([L * 0.39, by + H * 0.48, side * H * 0.2], [H * 0.05, H * 0.08, H * 0.04], shade(s.color, -0.2), { ...hd, rot: [side * -0.4, 0, 0.3] }); // little ears
+    pinnaAt(m, [L * 0.39, by + H * 0.48, side * H * 0.2], [H * 0.04, H * 0.08, H * 0.05], [side * -0.4, 0, 0.3], shade(s.color, -0.2), { ...hd, shape: 'round', cup: 0.35 }); // little ears
     m.ell([L * 0.72, by - H * 0.12, side * H * 0.34], [H * 0.035, H * 0.08, H * 0.03], '#f0e8d8', { ...hd, lo: true }); // a hint of tusk at the lip
   }
   const lc = u => tmp.copy(grey).lerp(pink, 0.25), r0 = H * 0.28, r1 = H * 0.24;

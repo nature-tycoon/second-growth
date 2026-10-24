@@ -262,6 +262,68 @@ function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
   for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: true, part, pivot, gloss: 2 });
 }
 
+// A mammal's ear (pinna), shared by every species that has one: a thin leaf of skin rolled into a
+// funnel at its root and opening out toward the tip, its hollow facing forward and a little out,
+// furred on the back and paler inside, with a rounded rim (no cones or blobs).
+//   base: the root (sunk a little into the head), tip: where the ear ends; width: across at its
+//   widest. o.shape: 'point' (deer, dogs, cats with tall ears), 'round' (bears, rodents, cats),
+//   'leaf' (long and broad: zebras, wildebeest, rabbits). o.face: the way the hollow opens before
+//   it's squared to the ear's length (default forward, turned out by o.out, 0..1). o.cup: how deep
+//   the hollow is. o.inner: the inside's colour; o.tip and o.tipAt: a darker tip from that share of
+//   the length up; o.rim: the edge's colour; o.spot: a spot behind. o.part and o.pivot: the head's (pass the head's options).
+const EAR_SHAPE = {
+  point: v => Math.pow(1 - v, 0.75) * (0.7 + 1.3 * Math.sqrt(v)) / 1.08,
+  round: v => Math.sqrt(Math.max(0, 1 - ((v - 0.4) / 0.6) ** 2)) * (0.85 + 0.15 * v) / 0.95,
+  leaf: v => Math.pow(1 - v, 0.55) * (0.65 + 1.1 * Math.sqrt(v)) / 1.12,
+};
+function pinna(m, base, tip, width, color, o = {}) {
+  const Y = V(...tip).sub(V(...base)), len = Y.length();
+  Y.normalize();
+  const out = o.out ?? 0.3, side = Math.sign(base[2]) || 1;
+  const Z = o.face ? V(...o.face) : V(1 - out, 0, side * out);
+  Z.addScaledVector(Y, -Z.dot(Y)).normalize();
+  const X = Y.clone().cross(Z), shape = EAR_SHAPE[o.shape] || EAR_SHAPE.point;
+  const W = width / 2, cup = o.cup ?? 0.55, thick = o.thick ?? 0.07, bend = o.bend ?? 0.08;
+  const N = m.seg(8), A = m.seg(12), pos = [], u = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const v = i / N, w = W * Math.max(0.03, shape(v)), at = -0.12 + 1.12 * v; // (from a little inside the head)
+    const deep = cup * (1 - 0.55 * v), t = len * thick * (1 - 0.6 * v);
+    for (let j = 0; j <= A; j++) {
+      const a = j / A * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+      // across: the leaf's width; forward: the hollow (edges curl forward round a recessed middle),
+      // with the skin's thickness either side of it, and the whole ear bowing back a little
+      const x = w * c, z = deep * w * (c * c - 1) + t * sn - bend * len * v * v, y = len * at;
+      pos.push(base[0] + X.x * x + Y.x * y + Z.x * z, base[1] + X.y * x + Y.y * y + Z.y * z, base[2] + X.z * x + Y.z * y + Z.z * z);
+      u.push(c, v, sn);
+    }
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < A; j++) { const a = i * (A + 1) + j, b = a + A + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  g.computeVertexNormals();
+  const unitG = new THREE.BufferGeometry(); unitG.setAttribute('position', new THREE.Float32BufferAttribute(u, 3));
+  const outer = col(color), inner = o.inner ? col(o.inner) : outer.clone().lerp(col('#ecdccd'), 0.6), tipC = o.tip ? col(o.tip) : null, rim = o.rim ? col(o.rim) : null, spot = o.spot ? col(o.spot) : null;
+  const k = new THREE.Color();
+  const paint = uu => {
+    // inside: the front face, fading to the outer colour toward the rim
+    k.copy(outer).lerp(inner, smooth(0.15, 0.6, uu.z) * smooth(0.95, 0.6, Math.abs(uu.x)) * smooth(1, 0.75, uu.y));
+    if (rim) k.lerp(rim, smooth(0.8, 0.97, Math.abs(uu.x)));
+    if (spot && uu.z < -0.2 && uu.x * uu.x + ((uu.y - 0.5) / 0.6) ** 2 < 0.2) k.copy(spot); // (a tiger's white spot behind)
+    if (tipC) k.lerp(tipC, smooth((o.tipAt ?? 0.75) - 0.05, (o.tipAt ?? 0.75) + 0.05, uu.y));
+    return k;
+  };
+  m.add(g, new THREE.Matrix4(), paint, { part: o.part, pivot: o.pivot, paintGeo: unitG });
+}
+
+// The same ear placed like an upright oval of radii r turned by rot (how the older hand-placed ears
+// were laid out): r[1] is half its length, and its thinner other radius the way the hollow opens.
+function pinnaAt(m, at, r, rot, color, o = {}) {
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(...rot)), Y = V(0, 1, 0).applyQuaternion(q);
+  const face = (r[0] <= r[2] ? V(1, 0, 0) : V(0, 0, Math.sign(at[2]) || 1)).applyQuaternion(q);
+  const base = [at[0] - Y.x * r[1] * 0.85, at[1] - Y.y * r[1] * 0.85, at[2] - Y.z * r[1] * 0.85];
+  pinna(m, base, [at[0] + Y.x * r[1], at[1] + Y.y * r[1], at[2] + Y.z * r[1]], 2.1 * Math.max(r[0], r[2]), color, { face: face.toArray(), ...o });
+}
+
 // One smooth body: a tube along x whose oval cross-section swells from haunch to chest and
 // rounds off at both ends (no seams between separate blobs). Paint gets (ny, x, side) in
 // unit-like coordinates, so countershading and spots work as they do on a sphere.
@@ -587,11 +649,15 @@ function quadruped(m, s, o) {
   for (const side of [1, -1]) {
     const base = [hp[0] - hr[0] * 0.2, hp[1] + hr[1] * 0.75, side * hr[2] * 0.55];
     if (o.ears === 'none') continue;
-    if (o.ears === 'round') m.ell([base[0], base[1] + o.ear * 0.3, base[2]], [o.ear * 0.45, o.ear * 0.55, o.ear * 0.25], ec, hd);
-    else {
+    // (earShape, earInner, earTip, earTipAt, earRim and earCup fine-tune the shared pinna)
+    const look = { ...hd, inner: o.earInner, tip: o.earTip, tipAt: o.earTipAt, rim: o.earRim, cup: o.earCup };
+    if (o.ears === 'round') {
+      const tip = [base[0] - o.ear * 0.12, base[1] + o.ear * 0.85, base[2] + side * o.ear * 0.3];
+      pinna(m, base, tip, o.ear * 0.95, ec, { ...look, shape: o.earShape ?? 'round', cup: o.earCup ?? 0.4, out: 0.35 });
+    } else {
       const tip = [base[0] - o.ear * (o.earBack ?? 0.25), base[1] + o.ear, base[2] + side * o.ear * (o.earOut ?? 0.35)];
-      m.limb(base, tip, o.ear * (o.earW ?? 0.32), o.ear * 0.06, ec, hd);
-      if (o.tufts) m.limb(tip, [tip[0], tip[1] + o.ear * 0.35, tip[2]], o.ear * 0.08, o.ear * 0.02, s.dark, { ...hd, caps: false });
+      pinna(m, base, tip, o.ear * (o.earW ?? 0.32) * 2.2, ec, { ...look, shape: o.earShape ?? 'point' });
+      if (o.tufts) m.limb(tip, [tip[0], tip[1] + o.ear * 0.35, tip[2]], o.ear * 0.05, o.ear * 0.01, s.dark, { ...hd, caps: false }); // (a lynx's tuft of hair)
     }
   }
   if (o.antlers) { m.hard = true; o.antlers(m, hp, hr, hd); m.hard = false; } // (antlers, horns, ossicones)
@@ -635,4 +701,4 @@ function stumpLegs(m, legs, hoof) {
   });
 }
 
-export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, cloudCoat, pixelCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube };
+export { Model, P, SCALE, SPH, SPH_HI, SPH_XL, cells, cloudCoat, pixelCoat, col, cyl, ellHi, eyes, felineSpots, flat, grad, hash3, jaguarCoat, locks, loftBody, onProfile, pinna, pinnaAt, place, quadruped, sculpt, shade, smooth, solid, stumpLegs, tmp, tube };

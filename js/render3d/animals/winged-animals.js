@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
 import { weldVertices as mergeVertices } from '../geometry/weld.js';
-import { P, SPH_HI, col, eyes, flat, grad, hash3, place, shade, smooth, tmp } from './model-core.js';
+import { P, SPH_HI, col, eyes, flat, grad, hash3, pinna, place, shade, smooth, tmp } from './model-core.js';
 
 // Bat: a furry body and big ears, with membrane wings stretched over long finger bones
 // and a scalloped trailing edge between the fingertips.
@@ -33,8 +33,7 @@ function bat(m, s) {
   for (const side of [1, -1]) {
     // big rounded ears, pinker inside
     const e0 = [hp[0] - S * 0.01, hp[1] + S * 0.08, side * S * 0.06], e1 = [hp[0] - S * 0.04, hp[1] + S * (fox ? 0.17 : fruit ? 0.19 : 0.24), side * S * 0.12];
-    m.limb(e0, e1, S * 0.06, S * 0.02, dark, hd);
-    m.ell([e0[0] + S * 0.02, e0[1] + S * 0.07, e0[2] + side * S * 0.025], [S * 0.025, S * 0.06, S * 0.02], '#b88878', { ...hd, lo: true });
+    pinna(m, e0, e1, S * (fox ? 0.1 : 0.13), dark, { ...hd, shape: fox ? 'point' : 'leaf', cup: 0.6, inner: '#b88878', out: 0.45 });
   }
   eyes(m, hp, S * 0.085, S * 0.035, S * 0.075, S * 0.026, P.HEAD, neck);
   // tail membrane between the legs

@@ -1,5 +1,5 @@
 // Quadruped proportions and specialist big-mammal model builders.
-import { P, SPH, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pixelCoat, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
+import { P, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
 
 // Common palm civet: long, low and slim on short dark legs, grizzled grey-brown with faint rows of
 // dark spots and stripes down the back and flanks, a dark mask with white patches above and below
@@ -177,7 +177,7 @@ function tiger(m, s) {
     m.ell(HX(28.55, 21.95, side * 2.35), R(0.5, 0.33, 0.3), '#e0a632', { ...hd, lo: true, gloss: 2, rot: [0, side * -0.5, 0.15] }); // amber eye
     m.ell(HX(28.8, 21.95, side * 2.36), R(0.18, 0.22, 0.16), '#120c08', { ...hd, lo: true, gloss: 2 });   // pupil
     // small round ears set wide: black behind with a white spot, pale fur inside
-    m.add(SPH, place(HX(23.2, 24.5, side * 3.4), [side * -0.25, side * 0.25, 0], R(0.45, 1.2, 1.2)), u => (u.x < -0.1 ? ((u.y - 0.05) ** 2 + u.z * u.z < 0.2 ? white : black) : (u.y * u.y + u.z * u.z > 0.72 ? black : cream)), hd);
+    pinnaAt(m, HX(23.2, 24.5, side * 3.4), R(0.45, 1.2, 1.2), [side * -0.25, side * 0.25, 0], black, { ...hd, shape: 'round', cup: 0.4, inner: cream, spot: white });
   }
   m.ell(HX(31.6, 20.0), R(0.6, 0.65, 0.98), '#c27a6a', { ...hd, lo: true });              // pink nose
   for (const side of [1, -1]) m.ell(HX(31.95, 19.8, side * 0.45), R(0.22, 0.2, 0.28), '#2a1612', { ...hd, lo: true });
@@ -381,8 +381,7 @@ function sumatranRhino(m, s) {
   // ears: upright and rounded, fringed with long dark hair
   for (const side of [1, -1]) {
     const b0 = [15.4, 17.6, side * 2.3], tip = [14.7, 21.5, side * 3.4];
-    m.limb(X(...b0), X(...tip), 1.3 * k, 0.6 * k, head, hd);
-    m.ell(X(15.25, 19.8, side * 2.95), [0.35 * k, 1.4 * k, 0.7 * k], shade(s.color, -0.45), { ...hd, lo: true, rot: [side * -0.25, 0, 0.18] }); // the dark inside
+    pinna(m, X(...b0), X(...tip), 2.6 * k, head, { ...hd, shape: 'round', inner: shade(s.color, -0.45) }); // (dark inside)
     for (let j = 0; j < 5; j++) { // the fringe: long hair off the rim and the tip, falling outward
       const t = 0.55 + j / 4 * 0.45, f = j % 2 ? 1 : -1, p0 = [b0[0] + (tip[0] - b0[0]) * t + f * 0.5 * (1 - t), b0[1] + (tip[1] - b0[1]) * t, b0[2] + (tip[2] - b0[2]) * t];
       m.limb(X(...p0), X(p0[0] + f * 0.4 - 0.5, p0[1] + 0.2 + (t - 0.6) * 1.2, p0[2] + side * 1.3), 0.3 * k, 0.06 * k, hairC, { ...hd, caps: false, seg: 4 });
@@ -442,8 +441,7 @@ function riverMammalFace(m, s, hp, hr, H, hd, raccoon = false) {
       tube(m, [root, [root[0] - H * 0.06, root[1] + H * (0.025 - i * 0.02), side * H * 0.23], [root[0] - H * 0.15, root[1] + H * (0.05 - i * 0.045), side * H * 0.36]], [H * 0.0035, H * 0.0025, H * 0.0008], '#c7bca7', { ...hd, sub: 2, seg: 4 });
     }
     const ear = [hp[0] - hr[0] * 0.38, hp[1] + hr[1] * 0.88, side * hr[2] * 0.7];
-    m.ell(ear, [H * 0.07, H * (raccoon ? 0.115 : 0.065), H * 0.045], s.color, hd);
-    m.ell([ear[0] + H * 0.045, ear[1], ear[2]], [H * 0.026, H * (raccoon ? 0.075 : 0.04), H * 0.029], raccoon ? s.belly : shade(s.color, -0.22), { ...hd, fine: false });
+    pinnaAt(m, ear, [H * 0.045, H * (raccoon ? 0.115 : 0.065), H * 0.07], [0, 0, 0.15], s.color, { ...hd, shape: 'round', cup: 0.4, inner: raccoon ? s.belly : shade(s.color, -0.22), rim: raccoon ? s.belly : null });
   }
 }
 
@@ -810,8 +808,7 @@ const MAMMALS = {
         tube(m, [[L * 0.25, by + H * 0.52, 0], [L * 0.34, by + H * 0.7, 0], [hp[0] - hr[0] * 0.6, hp[1] + hr[1] * 0.86, 0]], [[H * 0.06, H * 0.023], [H * 0.09, H * 0.03], [H * 0.04, H * 0.023]], bands(7, 0.25), { ...hd, sub: 10, seg: 8 });
         for (const side of [-1, 1]) {
           const ear = [hp[0] - H * 0.08, hp[1] + H * 0.26, side * H * 0.14];
-          m.ell(ear, [H * 0.065, H * 0.17, H * 0.05], s.color, { ...hd, rot: [side * 0.28, 0, -0.1] });
-          m.ell([ear[0] + H * 0.04, ear[1], ear[2]], [H * 0.02, H * 0.115, H * 0.035], s.dark, { ...hd, fine: false, rot: [side * 0.28, 0, -0.1] });
+          pinnaAt(m, ear, [H * 0.065, H * 0.17, H * 0.05], [side * 0.28, 0, -0.1], s.color, { ...hd, shape: 'leaf', inner: shade(s.color, -0.15), tip: s.dark, tipAt: 0.85 });
         }
         // a long horse face angled down, thin stripes across the bridge, ending in a soft dark muzzle
         const a = -0.62, c = Math.cos(a), sn = Math.sin(a), at = d => [hp[0] + c * d, hp[1] + sn * d, 0];
@@ -851,8 +848,7 @@ const MAMMALS = {
       face: (m, hp, hr, hd) => {
         for (const side of [-1, 1]) {
           const ear = [hp[0] - H * 0.05, hp[1] + H * 0.1, side * H * 0.25];
-          m.ell(ear, [H * 0.065, H * 0.145, H * 0.055], s.color, { ...hd, rot: [side * 1.05, 0, -0.12] });
-          m.ell([ear[0] + H * 0.042, ear[1], ear[2]], [H * 0.022, H * 0.09, H * 0.04], s.dark, { ...hd, fine: false, rot: [side * 1.05, 0, -0.12] });
+          pinnaAt(m, ear, [H * 0.065, H * 0.145, H * 0.055], [side * 1.05, 0, -0.12], s.color, { ...hd, shape: 'leaf', inner: s.dark });
         }
         // the long, blunt face, angled down to a broad black nose
         const f0 = [hp[0] + hr[0] * 0.3, hp[1] - hr[1] * 0.1, 0], f1 = [hp[0] + H * 0.46, hp[1] - H * 0.42, 0];
@@ -932,8 +928,7 @@ const MAMMALS = {
       face: (m, hp, hr, hd) => {
         for (const side of [-1, 1]) {
           const ear = [hp[0] - H * 0.08, hp[1] + H * 0.27, side * H * 0.21], rot = [side * 0.64, 0, 0.12];
-          m.ell(ear, [H * 0.075, H * 0.23, H * 0.065], u => u.y > 0.7 ? col(s.dark) : col(s.color), { ...hd, rot });
-          m.ell([ear[0] + H * 0.055, ear[1], ear[2]], [H * 0.028, H * 0.17, H * 0.048], s.belly, { ...hd, rot });
+          pinnaAt(m, ear, [H * 0.075, H * 0.23, H * 0.065], rot, s.color, { ...hd, shape: 'leaf', inner: s.belly, tip: s.dark, tipAt: 0.86 });
           m.ell([hp[0] + hr[0] * 0.42, hp[1] + hr[1] * 0.19, side * hr[2] * 0.73], [H * 0.064, H * 0.042, H * 0.025], shade(s.color, 0.3), hd);
           tube(m, [[hp[0] + H * 0.16, hp[1] - H * 0.08, side * H * 0.115], [hp[0] + H * 0.35, hp[1] - H * 0.13, side * H * 0.08], [hp[0] + H * 0.49, hp[1] - H * 0.12, side * H * 0.065]], [H * 0.008, H * 0.009, H * 0.004], s.dark, { ...hd, sub: 3, seg: 5 });
         }
@@ -1017,8 +1012,7 @@ const MAMMALS = {
         m.ell([sn[0] + H * 0.3, sn[1] - H * 0.01, 0], [H * 0.105, H * 0.065, H * 0.09], s.color, { ...hd, rot: [0, 0, 0.3] });
         for (const side of [-1, 1]) {
           const ear = [hp[0] - hr[0] * 0.55, hp[1] + hr[1] * 0.88, side * hr[2] * 0.7];
-          m.ell(ear, [H * 0.085, H * 0.16, H * 0.065], s.color, { ...hd, rot: [side * 0.4, 0, -0.18] });
-          m.ell([ear[0] + H * 0.053, ear[1], ear[2]], [H * 0.028, H * 0.11, H * 0.046], shade(s.color, -0.24), { ...hd, fine: false, rot: [side * 0.4, 0, -0.18] });
+          pinnaAt(m, ear, [H * 0.085, H * 0.16, H * 0.065], [side * 0.4, 0, -0.18], s.color, { ...hd, inner: shade(s.color, -0.24) });
           m.ell([sn[0] + H * 0.24, sn[1] + H * 0.07, side * H * 0.12], [H * 0.042, H * 0.019, H * 0.025], '#302d28', { ...hd, fine: false });
           tube(m, [[sn[0] + H * 0.03, sn[1] - H * 0.07, side * H * 0.13], [sn[0] + H * 0.24, sn[1] - H * 0.065, side * H * 0.09]], [H * 0.009, H * 0.004], shade(s.color, -0.3), { ...hd, sub: 3, seg: 5 });
         }
@@ -1053,8 +1047,7 @@ const MAMMALS = {
         tube(m, neck.map((p, i) => [p[0] - H * [0.26, 0.23, 0.18, 0.14][i], p[1] + H * 0.06, 0]), [[H * 0.06, H * 0.024], [H * 0.07, H * 0.025], [H * 0.055, H * 0.023], [H * 0.025, H * 0.018]], s.dark, { ...hd, sub: 9, seg: 8 });
         for (const side of [-1, 1]) {
           const ear = [hp[0] - H * 0.12, hp[1] + H * 0.15, side * H * 0.27];
-          m.ell(ear, [H * 0.1, H * 0.19, H * 0.07], s.belly, { ...hd, rot: [side * 0.95, 0, -0.28] });
-          m.ell([ear[0] + H * 0.062, ear[1], ear[2]], [H * 0.025, H * 0.13, H * 0.045], shade(s.color, -0.1), { ...hd, fine: false, rot: [side * 0.95, 0, -0.28] });
+          pinnaAt(m, ear, [H * 0.1, H * 0.19, H * 0.07], [side * 0.95, 0, -0.28], s.belly, { ...hd, shape: 'leaf', inner: shade(s.color, -0.1) });
           m.ell([sn[0] + H * 0.235, sn[1] + H * 0.027, side * H * 0.07], [H * 0.034, H * 0.013, H * 0.021], '#443428', { ...hd, fine: false });
           tube(m, [[sn[0] + H * 0.04, sn[1] - H * 0.06, side * H * 0.09], [sn[0] + H * 0.25, sn[1] - H * 0.035, side * H * 0.055]], [H * 0.008, H * 0.004], '#443428', { ...hd, sub: 3, seg: 5 });
         }

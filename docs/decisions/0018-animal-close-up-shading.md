@@ -284,6 +284,17 @@ ball for a head. Now:
 Cost: 3.7% more triangles over the 56 birds (337k to 350k; at most +9% on the hawks and eagles),
 6% on the close-up models. Review: Pose → Flying (`pose=fly`, framed on the spread wings).
 
+## Ears
+
+Every mammal's ear is one shared model, `pinna` in `animals/model-core.js` (`pinnaAt` places it
+like an upright oval, the way older hand-placed ears were laid out): a thin leaf of skin rolled
+into a funnel at the root and opening toward the tip, its hollow facing forward and a little out,
+paler inside, with a rounded rim. Outlines: `point`, `round`, `leaf`; a darker tip, a rim colour
+and a spot behind (a tiger's) are options. The quadruped's `ears: 'point' | 'round'` both draw it
+(`earShape`, `earInner`, `earTip`, `earTipAt`, `earRim`, `earCup` tune it). Don't build ears from
+tapered limbs (they read as cones) or solid ovals. Exceptions: elephants' sculpted flaps and the
+primates' small flat ears.
+
 ## Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the
