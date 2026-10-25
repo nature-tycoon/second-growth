@@ -58,8 +58,13 @@ export class EyeCamera {
     const h = Math.atan2(this.heading.z, this.heading.x) + this.orbit;
     const f = this.forward.set(Math.cos(h), 0, Math.sin(h));
     const flying = (pose.fly || 0) > 0.5;
-    const reach = 0.55 + size * (flying ? 3.2 : 2.4), back = reach * Math.cos(this.rise);
-    const up = size * (flying ? 1.4 : 0.9) + 0.06 + reach * Math.sin(this.rise);
+    // big animals get more room: past a deer's height (0.6 tiles) the eye steps back three times as
+    // far again as the animal is taller, so an elephant or a giraffe is seen whole, in its
+    // surroundings, rather than filling the view; and never nearer than 2.6 times the animal's
+    // height, so an ostrich's head and neck stay in the frame
+    const tall = pose.tall || size;
+    const reach = Math.max(0.55 + size * (flying ? 3.2 : 2.4) + 3 * Math.max(0, tall - 0.6), tall * 2.6), back = reach * Math.cos(this.rise);
+    const up = Math.max(size * (flying ? 1.4 : 0.9), tall * 0.6) + 0.06 + reach * Math.sin(this.rise);
     this.goal.set(c.x - f.x * back, c.y + up, c.z - f.z * back);
     // never under the ground (behind an animal on a slope, or a fish's tail-end over a reef), and
     // never right down in the grass

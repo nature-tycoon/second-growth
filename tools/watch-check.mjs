@@ -107,6 +107,15 @@ check('Walking on foot sets off the way the view looked, turns, follows the grou
   assert.ok(s.under && s.camera.position.y < sea && s.camera.position.y > 0.6, `swims under the reef's surface: y ${s.camera.position.y.toFixed(2)}`);
 });
 
+check('Big animals are framed from further off: a giraffe and an elephant whole, not filling the view', () => {
+  // (sizes as drawn: the sprite's own height leaves out a giraffe's neck, so pose.tall carries the model's)
+  const away = (h, tall) => { const e = new EyeCamera(); e.update({ ...pose(10, 0, 10, 0, h), tall }, 1, 1.5, 1 / 60, flat); const p = e.camera.position; return Math.hypot(p.x - 10, p.z - 10); };
+  const deer = away(0.42, 0.59), elephant = away(0.83, 0.92), giraffe = away(0.73, 1.42), ostrich = away(0.3, 0.76);
+  assert.ok(Math.abs(deer - (0.55 + 0.42 * 2.4)) < 1e-6, `a deer as before: ${deer.toFixed(2)}`);
+  assert.ok(elephant / 0.92 > deer / 0.59 * 1.2, `an elephant has more room than a deer: ${elephant.toFixed(2)}`);
+  assert.ok(giraffe / 1.42 > 3 && ostrich / 0.76 >= 2.6 - 1e-6, `a giraffe ${giraffe.toFixed(2)}, an ostrich ${ostrich.toFixed(2)}`);
+});
+
 check('Upright on a phone, the view widens rather than cropping the animal', () => {
   const e = new EyeCamera();
   e.update(pose(5, 0, 5, 0), 1, 16 / 9, 1 / 60, flat); const wide = e.camera.fov;

@@ -39,6 +39,14 @@ whenever the animal grazes, swings with every glance, and never shows the animal
 The eye is never closer than 0.3 tiles to the ground, since a tortoise's real eye height is a wall
 of grass blades. On upright phones the view widens so the animal isn't cropped.
 
+**Big animals** (2026-10-24, Cole: "too zoomed in on large animals like elephants and giraffes").
+The eye's distance came from the sprite's numbers, which leave out a giraffe's neck (0.73 tiles
+against 1.42 drawn) and an ostrich's (0.30 against 0.76). The pose now carries the model's real
+height (`st.tall`, from `Fauna.height`, measured once per model), and past 0.6 tiles (a deer) the
+eye steps back three times the extra height, never nearer than 2.6 heights; the eye also rises to
+at least 0.6 of it. A deer and anything smaller frame as before. An elephant now sits about 3.6
+tiles off (was 2.5), a giraffe about 5 (was 2.3). `watch-check.mjs` holds those proportions.
+
 **Swinging round** (2026-10-24, Cole: "if you haven't hit wasd in eye-level mode you can rotate
 around the animal while still following it by dragging or using q/e"). While the eye follows an
 animal, a drag over the view or Q / E swing it round the animal (`EyeCamera.update`'s `orbit`),

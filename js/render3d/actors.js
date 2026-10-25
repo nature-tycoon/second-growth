@@ -605,6 +605,7 @@ export class Actors {
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
       st.foot = (def.sprite.len || def.sprite.size || 10) * sc;
       st.x = ax; st.y = y; st.z = az; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
+      st.tall = F.height(def) * sc; // (the model's real height, for eye level)
       st.center ||= new THREE.Vector3();
       st.center.copy(mo.center); st.center.y += st.bob;
       if (mo.primate === 3) {
