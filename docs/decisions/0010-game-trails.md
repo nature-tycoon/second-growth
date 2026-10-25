@@ -210,9 +210,37 @@ after: buffalo 11% → 4%, deer 18.5% → 20%, elk 18% → 15%, boar 7.75% → 7
 `animal-clustering-soak` and `home-range-check` pass. `animal-territory-soak` fails on the
 Serengeti leopard; it already did before this trail work (7e7a610).
 
+## Busy trails stay narrow (2026-10-24)
+
+Cole saw some Serengeti trails grow wide, and put it down to elephants walking between water and the
+map edge and giraffes between a stand of trees and a lone tree, back and forth for years. The cause
+was volume, not those routes as such: walkers on one corridor never walk exactly the same line
+(where they joined it, how sharply their size lets them turn, the course's smoothing), and with
+hundreds of passes a year even the rare outer lines wore past the threshold, so the trail braided
+into a band a tile or more across. Wear was also allowed to reach 1, five times fully drawn, which
+took over a decade to fade.
+
+- **Hooves land in the rut** (`rut` in `animal-trails.js`): a journey's step within 0.4 tile of a
+  drawn trail wears the trail's middle (the strongest wear across its line, slightly favouring the
+  nearer). Real trails get deeper and barer with use, not wider. The animal still walks its own
+  line; 0.4 tile is narrower than an elephant or a giraffe. Herds leaving the map don't: they walk
+  straight lines, and joining those made ruler-straight trails.
+- **Wear is capped at 0.4** (`TRAIL_CAP`, twice fully drawn), so an abandoned trail fades within
+  about six game years.
+
+`node tools/trail-width-report.mjs serengeti 5 <seed>` (stocked, five game years) measures drawn trail
+with drawn trail half a tile away on both sides as "wide". Away from the migration, seeds 7/23/11:
+1.6% / 5.3% / 18% wide → 0.1% / 0% / 0.4%. `SPECIES=elephant,giraffe` stocks only those; over ten
+years the giraffe corridor that braided is one line. `wildlife.update` on the stocked Serengeti costs
+the same per animal (about 4.4 µs).
+
+Still open: the migration. Herds leaving the map walk straight lines toward the edge, about ten
+tiles apart, so the Serengeti's northward migration wears a broad band of parallel straight lines
+(most of the remaining wide trail, and it varies a lot from run to run).
+
 ## Verification
 
-- `animal-trails-check.mjs`: 11 checks over every map roster, actual crossings,
+- `animal-trails-check.mjs`: 15 checks (including years of offset journeys staying one narrow trail) over every map roster, actual crossings,
   pause/stationary exclusions, repeated versus single traffic, shape/seam continuity,
   terrain restrictions, fade/removal, bounded route preference, physical winding
   travel, remembered/replaced resource sites, return corridors, family/migration

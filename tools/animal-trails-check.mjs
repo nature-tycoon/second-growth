@@ -50,6 +50,14 @@ check('Only journeys draw a trail; shuffling about wears no visible track howeve
  line(g,a,8);assert.equal(trailMask(w,w.idx(40,30),.5,.5),0,'a few journeys stay invisible');
  line(g,a,40);assert.ok(trailMask(w,w.idx(40,30),.5,.5)>0,'a few dozen show');
 });
+check('Years of journeys along one corridor wear one narrow trail, not a band as wide as the lines they walk',()=>{
+ // (walkers never retrace exactly the same line: each of these passes is up to 0.3 tile to the side)
+ const g=setup(),a=spawn(g),w=g.world;a.state='walk';a.path=[w.idx(50,30)];a.course={path:a.path,pts:new Float32Array(2)};
+ for(let k=0;k<600;k++){const y=30.5+((k*0.618)%1-.5)*.6;for(let x=30;x<50;x++)stamp(g,a,x+.5,y,x+1.5,y);}
+ let width=0;for(let y=29;y<32;y+=1/32)if(trailMask(w,w.idx(40,y|0),.5,y-(y|0))>0)width+=1/32;
+ assert.ok(width>.1&&width<=.5,`drawn ${width.toFixed(2)} tile wide`);
+ assert.ok(w.trailDensity.reduce((m,v)=>Math.max(m,v),0)<=.4+1e-6,'heavy use is capped, so an abandoned trail fades within a few years');
+});
 check('Continuous density shares exact tile seams and remains stable while paused',()=>{
  const g=setup(),a=spawn(g),w=g.world;line(g,a);const j=w.idx(40,30),node=trailNode(w,j);
  assert.ok(node.every(v=>v>.25&&v<.75));
