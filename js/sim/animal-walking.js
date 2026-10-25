@@ -44,8 +44,11 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
   if(distance<.025)return last||Math.hypot(tx-a.x,ty-a.y)<.15;
   let desired=Math.atan2(gy-a.y,gx-a.x);
   if(avoid){const bearing=Math.atan2(avoid[1]-a.y,avoid[0]-a.x);desired+=clamp(angleDelta(bearing,desired),-.75,.75);pace*=Math.max(.65,avoid[2]);}
-  desired=steerAround(w,a,def,desired,Math.min(look,distance+.3)); // (round a trunk or log ahead: ground-obstacles.js)
-  const heading=a.walkHeading??desired;
+  // (round a trunk or log ahead, seen from 1.6 tiles off so the turn is early and slight; on the
+  // last leg no further than its spot, which may stand beside a trunk: ground-obstacles.js)
+  desired=steerAround(w,a,def,desired,last?Math.min(look,distance+.3):Math.max(look,1.6));
+  // (setting off, it turns from the way it faces rather than snapping round; a startled dash spins at once)
+  const heading=a.walkHeading??(a.run?desired:a.orientation??desired);
   const turn=angleDelta(desired,heading),rate=clamp(5-size*.045,2.4,4.5);
   let next=heading+clamp(turn,-rate*dt,rate*dt);
   // A tight turn trades speed for rotation, instead of skating sideways or orbiting a point.
