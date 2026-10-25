@@ -65,7 +65,7 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'cardinal', name: 'Northern cardinal', sci: 'Cardinalis cardinalis', group: 'Birds', move: 'fly',
       speed: 2.5, hr: 10, max: 18, sources: ['N', 'E', 'S', 'W'], mig: 0.5, breed: [1, 2, 3, 4], litter: [2, 3], life: 3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.4),
-      sprite: { kind: 'songbird', size: 12, color: '#a88b6a', breast: '#c8ac88', head: '#b89a78', crest: true, flight: '#a64a42', tail: '#b45648', bill: '#e87832', face: '#5a4438',
+      sprite: { kind: 'songbird', size: 12, color: '#a88b6a', breast: '#c8ac88', head: '#b89a78', crest: true, flight: '#a64a42', tail: '#b45648', bill: '#e87832', face: '#5a4438', mask: true,
         male: { color: '#c8202a', breast: '#d83a30', head: '#c8202a', flight: '#a82028', tail: '#b82028', face: '#24201c' }, maleName: 'adult male' },
       desc: 'Males are bright red; females are warm brown with red wings and tails. Both have crests and orange bills, and nest low in dense shrubs.',
       hint: 'Thick shrubs next to open ground.' });

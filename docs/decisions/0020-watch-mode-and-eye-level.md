@@ -1,4 +1,4 @@
-# 0018 Watch mode and eye level
+# 0020 Watch mode and eye level
 
 2026-10-23. Cole asked for a cinematic mode just for watching, and to explore watching in first person.
 
@@ -15,9 +15,22 @@ Watch). The panels go, thin letterbox bars come in, and the camera directs itsel
 - A caption names the animal and gives the inspector's status line (`UI.agentStatus`, taken out of
   `agentHTML` so both share it).
 - Keystone moments still play, and the director starts a new shot once one ends.
-- The game runs at whatever speed it was. Clicks, drags and the scroll wheel never reach the map;
-  they only bring up the bar (Next, Eye level, Done). Esc or C leaves and flies back to where the
+- The game runs at whatever speed it was. The bar has the top bar's speed buttons (pause, watch pace, 1–3;
+  added 2026-10-24 at Cole's request), and Space, 0 and 1–3 work too. Clicks, drags and the scroll
+  wheel never reach the map; they only bring up the bar (speed, Next, Eye level, Done). The − on the
+  bar's end (or `H`) tucks it into one small, faint button, and then moving the mouse leaves it
+  away until that button is pressed. Esc or C leaves and flies back to where the
   view was.
+- **One species** (2026-10-24, Cole: "track a specific animal species"). The chip at the start of
+  the bar (or `S`) lists the species out right now (awake, not leaving), most numerous first, with
+  their portraits and counts. Choosing one narrows `pick()` to it: Next and each new shot move
+  between its animals, wide land shots are skipped, and when it's the only one out the shot just
+  carries on with it. If none are left (all gone, or asleep for winter) the director goes back to
+  all animals and the chip says so. Works the same at eye level. To keep the bar tidy, the line of
+  key hints it used to carry went into the buttons' tooltips. Phones are played in landscape, where
+  the bar fits on one row (checked at 812×375); below 960 px wide the caption hides while the bar is
+  up, since a long name would run under it. Narrower than 620 px (an upright phone, not the target)
+  the chip takes its own row above the other controls.
 
 **Eye level** (`F` in watch mode; `js/render3d/eye-camera.js`). This is a ride-along view rather than
 literal first person: a perspective camera low behind the animal, a little above its head, looking
@@ -25,6 +38,39 @@ the way it faces. I chose that over a head camera because a head camera dips int
 whenever the animal grazes, swings with every glance, and never shows the animal you're watching.
 The eye is never closer than 0.3 tiles to the ground, since a tortoise's real eye height is a wall
 of grass blades. On upright phones the view widens so the animal isn't cropped.
+
+**Big animals** (2026-10-24, Cole: "too zoomed in on large animals like elephants and giraffes").
+The eye's distance came from the sprite's numbers, which leave out a giraffe's neck (0.73 tiles
+against 1.42 drawn) and an ostrich's (0.30 against 0.76). The pose now carries the model's real
+height (`st.tall`, from `Fauna.height`, measured once per model), and past 0.6 tiles (a deer) the
+eye steps back three times the extra height, never nearer than 2.6 heights; the eye also rises to
+at least 0.6 of it. A deer and anything smaller frame as before. An elephant now sits about 3.6
+tiles off (was 2.5), a giraffe about 5 (was 2.3). `watch-check.mjs` holds those proportions.
+
+**Swinging round** (2026-10-24, Cole: "if you haven't hit wasd in eye-level mode you can rotate
+around the animal while still following it by dragging or using q/e"). While the eye follows an
+animal, a drag over the view or Q / E swing it round the animal (`EyeCamera.update`'s `orbit`),
+and dragging down lifts it to look down on it (up to about 60°, and no lower than its usual height).
+The angle is kept relative to the animal's heading, so a side-on view stays side-on as it turns; a
+new animal starts behind again. The eye looks along the line through the animal, so from in front
+it looks back past it. `EyeCamera.forward` is now the way the eye looks (the sky and the shadow box
+use it, and walking sets off along it); the animal's smoothed heading is `heading`. The director
+holds the shot until 4 s after the last swing, so it doesn't cut away mid-drag. WASD still lets go
+and walks, after which a drag and Q / E look and turn as before.
+
+**On foot** (2026-10-24, Cole: "disengage animal follow mode and move around the map in eye level
+mode when you press wasd"). At eye level, WASD or the arrows let go of the animal and walk from
+where the eye is (`Watch.walk`, `Renderer.walkEye`, `EyeCamera.walk`): W / S forward and back, A / D
+step sideways, Q / E turn, Shift runs (3 and 9 tiles a second), and a drag over the view looks
+round. Q / E turn, as they rotate the usual view (Cole's call: an earlier
+try had A / D turn), so it works without a mouse too. The eye rides 0.6 tiles over the
+ground, eased over bumps, inside the map; on the reef it stays on the side of the surface it was on
+and swims above the seabed. There's no collision with trees or rocks. The director stops while
+walking; Next (N), the species chip or Eye level off go back to the animals, and a keystone moment
+ends the walk. At eye level, S walks back instead of opening the species list (the chip still
+does). On a touch screen the map's thumbstick shows at eye level (bottom left, with the caption
+beside it on its right: above it, it sat mid-screen) and walks: up goes forward, sideways turns, so one thumb steers; a drag over the view
+looks round. Checked at 740×375 with touch emulation.
 
 What eye level changes in the renderer (only while it's on):
 
@@ -92,6 +138,28 @@ the first storm day. They were cut in Chrome and encoded with macOS `afconvert`,
 ffmpeg; `tools/prepare-field-audio.py` would re-encode them with its own filters.
 `node tools/thunder-check.mjs`.
 
+**The reef at eye level** (2026-10-24, Cole: the water looked too clear, so far fish read as near
+ones; a clipped line where water meets air; a grey sky; too shallow). Under the sea is its own case
+in `updateEye`:
+
+- The water closes in from 0.5 to 13 tiles (air: 9 to 34), and the eye's far plane drops to 14
+  (`WATER_FAR`), which also culls more. Its colour is what the seabed's own veil scatters
+  (atmosphere.js's `sea` uniforms at the eye's depth, dimmed with the daylight, browner in a flood
+  plume) instead of the old grey-green haze.
+- The surface is drawn from below (sea.js, double-sided): the sky through Snell's window overhead
+  with the sun in it, and a silvery mirror of the water past it. The surface goes on past the map's
+  edge at eye level, and it fogs like the land.
+- Gotcha: three's fog goes on *after* tone mapping, in screen colours (`fogColor` is the fog colour
+  converted to sRGB). A ShaderMaterial that fogs to the linear colour before tone mapping ends
+  slightly off the background and leaves a visible band at the horizon. sea.js mixes in
+  `uFogOut` after `colorspace_fragment` for that reason.
+- The eye stays on the animal's side of the surface (`EyeCamera.update(…, seaY)`): under it for a
+  manta near the top, above it for a booby on the water. It used to straddle it, half air, half water.
+  Above the water the usual sky and haze apply.
+- Depth was left alone. The lagoon is 1 to 3 tiles deep (median 1.25), a few metres at the reef
+  animals' drawn scale, which is right for a lagoon and reef flat. It read as shallower because the
+  34-tile view made the water a thin, wide sheet and the eye sat just under the surface.
+
 ## Evidence
 
 Measured on Enkare Conservancy (year 9, 402 animals, Fast). Triangles are a fair comparison here;
@@ -105,7 +173,7 @@ the preview tab's frame rate wasn't, since it read 1–2 fps in both views.
 | eye level, as shipped (plant detail 1.6) | 0.38–1.17M across five animals |
 
 `node tools/watch-check.mjs` checks where the eye sits (behind, above, never under the ground or
-in the grass), that it snaps to a new animal and eases after the same one, the wider phone view,
+in the grass), swinging round the animal, that it snaps to a new animal and eases after the same one, the wider phone view,
 perspective culling, and distant models by distance.
 
 ## Open
@@ -115,4 +183,16 @@ perspective culling, and distant models by distance.
 - Lightning never starts a fire. It's drawing only; PNW's "dry lightning strike" fires are still
   the fire events' own.
 - The sky's cost on the low-end GPU is unmeasured, like the rest of eye level.
-- Canopy climbers (monkeys, orangutans) and the reef at eye level are untested by eye.
+- Canopy climbers (monkeys, orangutans) at eye level are untested by eye. On the reef, a seabird
+  followed above the water is checked only in `watch-check.mjs`, not by eye.
+
+**Shuffle** (2026-10-24, Cole: "don't switch between individual animals when in eye-level mode
+because if you're trying to watch it, you miss things. It seems to jump to another lion when a lion
+makes a kill"). The cut away came from the shot clock: a shot lasts 16–18 s, and a hunt holds it only
+up to 40 s, so a long stalk ran out of time around the kill and the director moved on (to another
+lion when watching lions, since `pick()` passes over the animal just shown). A shuffle button
+(crossed arrows, between the speed buttons and Next) now says whether the director moves on by
+itself. Off, a shot with an animal never times out: it ends only on Next, or when the animal is gone
+(killed at eye level, left the map) or out of sight for good; wide land shots are skipped too. Each
+view keeps its own setting for the session (`Watch.shuffle`): **off at eye level, on for the usual
+view**, as Cole's complaint was about eye level. The button shows the setting of the view you're in.

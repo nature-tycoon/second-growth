@@ -40,7 +40,7 @@ export default function buildPnwAnimals(def) {
     def({ key: 'deer', herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'Black-tailed deer', sci: 'Odocoileus hemionus columbianus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 45, max: 14, minK: 1.5, groupSize: [1, 2], sources: ['N', 'E'], mig: 0.35, breed: [2, 3], litter: [1, 2], life: 10,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 4, 0.3) * (0.6 + 0.4 * Math.min(1, W.browse[i])),
-      sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#8a6a48', belly: '#c9b595', dark: '#3a2c20',
+      sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#8a6a48', belly: '#c9b595', dark: '#3a2c20', tailTop: '#1f1914',
         male: { len: 37, h: 18, leg: 17, antlers: 'mule', neckWidth: 0.23 }, maleName: 'adult buck' },
       desc: 'Coastal mule deer. Browses shrubs along forest edges and hides fawns in tall grass.',
       hint: 'A patchwork of shrubs, young forest and meadow. Fences stop deer from wandering in.' });

@@ -1,7 +1,7 @@
 // Game state and the simulation clock.
 
 import { arrivalMoment, momentsDaily, momentsUpdate, ARRIVAL_MOMENTS } from './sim/moments.js';
-import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, DIFFICULTY, seasonOfMonth, money, T } from './config.js';
+import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, ANIMAL_SPEEDS, DIFFICULTY, seasonOfMonth, money, T } from './config.js';
 import { biome, BIOME_LIST, setBiome, mapCatalog } from './biome.js';
 import { saves, legacySaveKey, bytesFromBase64, intact } from './saves.js';
 import { World, Border } from './world.js';
@@ -124,8 +124,11 @@ export class Game {
   update(dtSec) {
     const sp = SPEEDS[this.speed];
     if (!sp) return;
-    let days = Math.min(dtSec, 0.1) * sp;
-    this.acc += days;
+    // (the calendar and the animals keep separate paces only at watch pace: see ANIMAL_SPEEDS)
+    const step = Math.min(dtSec, 0.1);
+    let days = step * (ANIMAL_SPEEDS[this.speed] ?? sp);
+    this.wildlife.lifePace = step * sp / days;
+    this.acc += step * sp;
     let ticks = 0;
     while (this.acc >= 1 && ticks < 3) { this.acc -= 1; this.dailyTick(); ticks++; }
     if (this.acc > 3) this.acc = 1;

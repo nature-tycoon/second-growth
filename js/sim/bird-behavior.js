@@ -2,7 +2,7 @@
 // use the existing habitat rules; nest visits do not manufacture extra births.
 import { preyFor } from '../data/animals.js';
 import { huntHunger } from '../data/animal-activity.js';
-import { F, clamp, isWater } from '../config.js';
+import { F, clamp, isWater, lifeAge } from '../config.js';
 import { activeCatalog } from '../data/catalog.js';
 import { canLand } from './animal-terrain.js';
 import { bolt, scavenge, feedAt } from './animal-life.js';
@@ -150,7 +150,7 @@ export function carryCatch(wl, a, def, b) {
   if (!w.inb(Math.floor(a.x), Math.floor(a.y))) return false;
   // (where the prey was, not where the bird is: a vole beside a tree was still on the ground)
   const i = w.inb(Math.floor(b.x), Math.floor(b.y)) ? w.idx(Math.floor(b.x), Math.floor(b.y)) : w.idx(Math.floor(a.x), Math.floor(a.y)), wet = isWater(w.terrain[i]);
-  a.prey = { id: b.id, sp: b.sp, age: b.age, juvenile: !!b.juvenile, fish: bd.move === 'swim' };
+  a.prey = { id: b.id, sp: b.sp, age: lifeAge(b), juvenile: !!b.juvenile, fish: bd.move === 'swim' };
   a.carcass = null; a.feedAt = null;
   if (liftable(def, bd, b)) {
     const j = nearby(wl, a, j => perchTile(w, j), 10);
@@ -324,7 +324,7 @@ export function birdUpdate(wl, a, def, dt) {
     // and moves on before long if nothing shows.
     if (diet && a.hunger >= huntHunger(def)) {
       if (!b.hunting) { b.hunting = true; b.t = Math.min(b.t, 4 + Math.random() * 3); }
-      if ((b.scan = (b.scan || 0) - dt) <= 0) { b.scan = 0.3; if (wl.startHunt(a, def, diet, 7)) return; }
+      if ((b.scan = (b.scan || 0) - dt) <= 0) { b.scan = 0.3; if (wl.paced() && wl.startHunt(a, def, diet, 7)) return; }
     }
     soarStep(wl, a, def, b, dt);
     return;

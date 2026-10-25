@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
-const { EyeCamera, EYE_FAR } = await import('../js/render3d/eye-camera.js');
+const { EyeCamera, EYE_FAR, WATER_FAR } = await import('../js/render3d/eye-camera.js');
 const { ActorView, perspectiveScale, pixelsPerUnit } = await import('../js/render3d/actor-view.js');
 const { Fauna } = await import('../js/render3d/fauna.js');
 const { ANIMALS, loadAnimals } = await import('../js/data/animals.js');
@@ -48,6 +48,72 @@ check('The eye never goes below the ground or down among the grass', () => {
   t.update(pose(5, 0, 5, 1, 0.06), 1, 1.5, 1 / 60, flat);
   assert.ok(t.camera.position.y >= 0.3, 'a tortoise-sized animal still has the eye above the grass');
   for (const v of [...p.toArray(), ...e.camera.quaternion.toArray()]) assert.ok(Number.isFinite(v));
+});
+
+check('A drag or Q / E swings the eye round the animal, which it keeps following side-on as it turns', () => {
+  const e = new EyeCamera(), quarter = { yaw: Math.PI / 2 / 30, pitch: 0 };
+  e.update(pose(10, 0, 10, 0), 1, 1.5, 1 / 60, flat);
+  for (let k = 0; k < 30; k++) e.update(pose(10, 0, 10, 0), 1, 1.5, 1 / 60, flat, null, quarter);
+  for (let k = 0; k < 240; k++) e.update(pose(10, 0, 10, 0), 1, 1.5, 1 / 60, flat);
+  let p = e.camera.position, d = e.camera.getWorldDirection(new THREE.Vector3());
+  assert.ok(p.z < 10 - 0.5 && Math.abs(p.x - 10) < 0.05, `a quarter round, to its side: ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
+  assert.ok(d.z > 0.9 && e.forward.z > 0.99, 'looking across at it');
+  // the animal turns a quarter (to face -z): the eye goes round with it
+  for (let k = 0; k < 600; k++) e.update(pose(10, 0, 10, Math.PI / 2), 1, 1.5, 1 / 60, flat);
+  p = e.camera.position;
+  assert.ok(p.x < 10 - 0.5 && Math.abs(p.z - 10) < 0.05, `still side-on: ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
+  // dragging down lifts it to look down on the animal, but never under its level
+  const y0 = p.y;
+  for (let k = 0; k < 30; k++) e.update(pose(10, 0, 10, Math.PI / 2), 1, 1.5, 1 / 60, flat, null, { yaw: 0, pitch: -0.05 });
+  for (let k = 0; k < 240; k++) e.update(pose(10, 0, 10, Math.PI / 2), 1, 1.5, 1 / 60, flat);
+  assert.ok(e.camera.position.y > y0 + 0.3, `higher: ${y0.toFixed(2)} -> ${e.camera.position.y.toFixed(2)}`);
+  for (let k = 0; k < 120; k++) e.update(pose(10, 0, 10, Math.PI / 2), 1, 1.5, 1 / 60, flat, null, { yaw: 0, pitch: 0.1 });
+  assert.ok(e.rise >= -0.15);
+  // a new animal starts behind again
+  e.update(pose(20, 0, 20, 0), 2, 1.5, 1 / 60, flat);
+  assert.ok(e.camera.position.x < 20 - 0.5 && Math.abs(e.camera.position.z - 20) < 1e-6, 'behind the new one');
+});
+
+check('Under the sea the eye stays on the animal\'s side of the surface, and sees less far', () => {
+  const sea = 1.8, bed = () => 0.6;
+  const manta = new EyeCamera(); // (big, and swimming just under the surface)
+  for (let k = 0; k < 60; k++) manta.update(pose(10, 1.45, 10, 0, 0.3), 1, 1.5, 1 / 30, bed, sea);
+  assert.ok(manta.under && manta.camera.position.y < sea, `eye under water: y ${manta.camera.position.y.toFixed(2)}`);
+  assert.equal(manta.camera.far, WATER_FAR);
+  const booby = new EyeCamera(); // (resting on the water, its body mostly above it)
+  for (let k = 0; k < 60; k++) booby.update(pose(10, sea - 0.02, 10, 0, 0.12), 2, 1.5, 1 / 30, bed, sea);
+  assert.ok(!booby.under && booby.camera.position.y > sea, `eye above water: y ${booby.camera.position.y.toFixed(2)}`);
+  assert.equal(booby.camera.far, EYE_FAR);
+  const shallow = new EyeCamera(); // (water barely deeper than the clamp: the eye stays off the sand)
+  shallow.update(pose(10, 1.62, 10, 0, 0.05), 3, 1.5, 1 / 30, () => 1.6, sea);
+  assert.ok(shallow.camera.position.y > 1.6, 'above the seabed');
+});
+
+check('Walking on foot sets off the way the view looked, turns, follows the ground and stays on the map', () => {
+  const e = new EyeCamera(), hill = (x, z) => x * 0.1, still = { yaw: 0, pitch: 0 }, inside = (x, z) => ({ x: Math.min(Math.max(x, 0.5), 30), z: Math.min(Math.max(z, 0.5), 30) });
+  e.update(pose(10, 1, 10, 0), 1, 1.5, 1 / 60, hill);
+  const x0 = e.camera.position.x;
+  for (let k = 0; k < 60; k++) e.walk({ fwd: 1, side: 0, turn: 0, run: false }, still, 1.5, 1 / 60, hill, null, inside);
+  let p = e.camera.position;
+  assert.ok(p.x > x0 + 2.5 && Math.abs(p.z - 10) < 1e-6, `a second's walk along +x: ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
+  assert.ok(p.y > hill(p.x) + 0.3, `above the ground: y ${p.y.toFixed(2)}`);
+  for (let k = 0; k < 60; k++) e.walk({ fwd: 0, side: 0, turn: 1, run: false }, still, 1.5, 1 / 60, hill, null, inside);
+  assert.ok(e.forward.z > 0.9, `E turns right (from +x toward +z): ${e.forward.toArray().map(v => v.toFixed(2))}`);
+  for (let k = 0; k < 600; k++) e.walk({ fwd: 1, side: 0, turn: 0, run: true }, still, 1.5, 1 / 60, hill, null, inside);
+  assert.ok(e.camera.position.z <= 30, 'kept on the map');
+  const s = new EyeCamera(), sea = 1.8, bed = () => 0.6;
+  s.update(pose(10, 1.45, 10, 0, 0.3), 1, 1.5, 1 / 60, bed, sea);
+  for (let k = 0; k < 120; k++) s.walk({ fwd: 1, side: 0, turn: 0, run: false }, still, 1.5, 1 / 60, bed, sea, inside);
+  assert.ok(s.under && s.camera.position.y < sea && s.camera.position.y > 0.6, `swims under the reef's surface: y ${s.camera.position.y.toFixed(2)}`);
+});
+
+check('Big animals are framed from further off: a giraffe and an elephant whole, not filling the view', () => {
+  // (sizes as drawn: the sprite's own height leaves out a giraffe's neck, so pose.tall carries the model's)
+  const away = (h, tall) => { const e = new EyeCamera(); e.update({ ...pose(10, 0, 10, 0, h), tall }, 1, 1.5, 1 / 60, flat); const p = e.camera.position; return Math.hypot(p.x - 10, p.z - 10); };
+  const deer = away(0.42, 0.59), elephant = away(0.83, 0.92), giraffe = away(0.73, 1.42), ostrich = away(0.3, 0.76);
+  assert.ok(Math.abs(deer - (0.55 + 0.42 * 2.4)) < 1e-6, `a deer as before: ${deer.toFixed(2)}`);
+  assert.ok(elephant / 0.92 > deer / 0.59 * 1.2, `an elephant has more room than a deer: ${elephant.toFixed(2)}`);
+  assert.ok(giraffe / 1.42 > 3 && ostrich / 0.76 >= 2.6 - 1e-6, `a giraffe ${giraffe.toFixed(2)}, an ostrich ${ostrich.toFixed(2)}`);
 });
 
 check('Upright on a phone, the view widens rather than cropping the animal', () => {

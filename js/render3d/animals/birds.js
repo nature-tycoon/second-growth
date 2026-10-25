@@ -15,7 +15,8 @@ const BIRDS = {
   crane: s => ({ legH: 0.95, tilt: 0.22, span: 1.0, chord: 0.32, beak: 0.15, beakColor: '#2a2a2a', legColor: '#3a3a3a', tail: 0.2, neck: true, head: 0.13 }),
   hornbill: s => ({ legH: s.perch ? 0.13 : 0.44, tilt: s.casque ? 0.3 : 0.22, span: 0.8, chord: 0.3, beak: 0, beakColor: '#1c1a18', legColor: '#2a2624', tail: s.casque ? 0.75 : 0.3, head: 0.16, hornbill: true }),
   toucan: s => ({ legH: 0.18, tilt: 0.45, span: 0.55, chord: 0.26, beak: 0, beakColor: s.bill, legColor: '#4a6aa0', tail: 0.4, head: 0.2, toucan: true }),
-  macaw: s => ({ legH: 0.14, tilt: 0.55, span: 0.95, chord: 0.28, beak: 0.13, beakColor: '#e8e2d4', legColor: '#5a5048', tail: 0.45, hook: true, head: 0.21, macaw: true }),
+  macaw: s => ({ legH: 0.14, tilt: 0.55, span: 0.95, chord: 0.28, beak: 0.13, beakColor: '#e8e2d4', legColor: '#5a5048', tail: 0.45, hook: true, head: 0.21, macaw: true,
+    ...(s.ara && { legH: 0.07, head: 0.165, headLong: 1.12, body: [0.44, 0.2, 0.19], tailPitch: 0.08 }) }), // (ara: a true macaw, slim, with a smaller head than a parrot's, its long tail held clear of the ground)
   ostrich: s => ({ legH: 1.15, tilt: 0.05, span: 0.45, chord: 0.3, beak: 0.1, beakColor: '#c8a088', legColor: '#d0a898', tail: -0.6, neck: true, tall: true, head: 0.09, fluffy: true }),
   // brown booby: a sleek seabird with a long, pointed dagger of a bill, resting on the water between dives
   booby: s => ({ legH: 0.06, tilt: 0.12, span: 1.05, chord: 0.22, beak: 0.3, beakR: 0.065, beakColor: s.bill || '#e0c860', legColor: '#e0c860', tail: 0.35, swimmer: true, head: 0.145, headLong: 1.2, taper: true, long: 1.05, gape: true, up: 0.48 }),
@@ -97,7 +98,7 @@ function birdTail(m, s, o, base) {
   width = s.tailWidth ?? width;
   flightWidth = s.tailFan ?? flightWidth;
   graduation = s.tailGraduation ?? graduation;
-  const angle = s.cocked ? -1.05 : o.owl ? 1.15 : o.duck ? -0.08 : o.tall ? -0.35 : 0.12 + o.tilt * 0.45;
+  const angle = s.cocked ? -1.05 : o.owl ? 1.15 : o.duck ? -0.08 : o.tall ? -0.35 : o.tailPitch ?? 0.12 + o.tilt * 0.45;
   const paint = u => {
     const t = -u.x;
     if (s.tailTip && t > 0.78) return col(s.tailTip);
@@ -132,7 +133,7 @@ function birdTail(m, s, o, base) {
       u => -u.x > 0.72 ? col('#1a1a1a') : col(s.color), { part: P.TAIL, pivot: base });
   }
   m.ell([base[0] + S * 0.035 * c, base[1] + S * 0.035 * sn, 0], [S * 0.13, S * 0.06, S * Math.min(width * 0.65, 0.1)],
-    s.tail || s.color, { rot: [0, 0, o.tilt] });
+    s.rump || s.tail || s.color, { rot: [0, 0, o.tilt] }); // (the rump coverts: a scarlet macaw's are pale blue)
 }
 
 function bird(m, s) {
@@ -151,7 +152,7 @@ function bird(m, s) {
     : s.fancy ? pixelCoat('duck', blocks(0.25, -9, '#794c3b'), [0.25, 24, 0.77, -9], '#efddbd', '#794c3b')
     : s.mallard ? pixelCoat('duck', blocks(0.5, -0.68, s.breast, black), [0.5, 1, 1, -0.68, black.r, black.g, black.b], s.breast, s.breast)
     : s.bib ? u => (u.y > -0.1 || u.x > 0.62 ? col(s.color) : col(s.breast)) : grad(s.color, s.breast || s.color, -0.15, 0.4);
-  const bodyR = BIRD_BODY[s.kind].map(r => r * S);
+  const bodyR = (o.body || BIRD_BODY[s.kind]).map(r => r * S);
   // One streamlined body rather than a ball: a full, deep breast, a straight back, and a belly that
   // sweeps up to the vent so the rear narrows into the tail. The front half keeps the old ellipsoid,
   // so chest bands, bibs and flank patches still sit on it.
@@ -213,7 +214,26 @@ function bird(m, s) {
     m.limb([duckNeck[0] - d[0] * k, duckNeck[1] - d[1] * k, 0], [duckNeck[0] + d[0] * k, duckNeck[1] + d[1] * k, 0], neckR * 1.08, neckR * 1.06, '#f4efde', { ...hd, caps: false, seg: 16 });
   }
   const pecker = s.kind === 'woodpecker';
-  m.ell(hp, [hr * (o.headLong || 1.05), hr * (o.brow ? 0.9 : 1), hr * (o.owl ? 1.1 : 0.95)], pecker ? s.color : s.head, hd);
+  // (a cardinal's mask is painted on the head itself: dark round the bill, back through the lores to
+  // the eye and down over the chin, so the eye sits in it instead of a dark disc reading as the eye)
+  const headC = pecker ? s.color : s.head;
+  // (a scarlet macaw's bare white skin is painted on too: from the bill back past the eye, the
+  // crown and chin feathered red)
+  const mask = s.ara ? u => 1 - smooth(0.74, 1.04, Math.hypot((u.x - 0.62) / 0.56, (u.y + 0.06) / 0.5))
+    : u => Math.max(smooth(0.1, 0.24, u.x) * (1 - smooth(0.4, 0.52, u.y)), smooth(-0.35, -0.55, u.y) * smooth(-0.05, 0.2, u.x));
+  const faceC = s.ara ? s.faceSkin || '#f2eee6' : s.face;
+  m.ell(hp, [hr * (o.headLong || 1.05), hr * (o.brow ? 0.9 : 1), hr * (o.owl ? 1.1 : 0.95)],
+    s.mask || s.ara ? u => tmp.copy(col(headC)).lerp(col(faceC), mask(u)) : headC, s.mask || s.ara ? { ...hd, fine: true } : hd);
+  // A disc laid flush along the head's surface (x, y: where on the face, in head radii; out: how
+  // far it sits above the skin), for eyes set in the face rather than bulging from it.
+  const onFace = (x, y, side, out, r, color, o2 = {}) => {
+    const ax = hr * (o.headLong || 1.05), az = hr * (o.owl ? 1.1 : 0.95);
+    const z = az * Math.sqrt(Math.max(0, 1 - (x * hr / ax) ** 2 - y * y));
+    const n = [x * hr / (ax * ax), y / hr, z / (az * az)], k = Math.hypot(...n);
+    if (o2.gloss) m.eyeSpot ||= [hp[0] + x * hr, hp[1] + y * hr, z]; // (as eyes() marks it)
+    m.ell([hp[0] + x * hr + n[0] / k * out, hp[1] + y * hr + n[1] / k * out, side * (z + n[2] / k * out)], r, color,
+      { ...hd, ...o2, rot: [-side * Math.atan2(n[1], n[2]), side * Math.asin(n[0] / k), 0] });
+  };
   if (o.brow) for (const side of [1, -1]) m.ell([hp[0] + hr * 0.5, hp[1] + hr * 0.42, side * hr * 0.6], [hr * 0.48, hr * 0.17, hr * 0.26], shade(s.head, -0.12), { ...hd, rot: [side * 0.25, 0, -0.12], lo: true });
   if (s.goose) for (const side of [-1, 1]) m.ell([hp[0] + hr * 0.12, hp[1] - hr * 0.25, side * hr * 0.9], [hr * 0.72, hr * 0.4, hr * 0.12], '#eeeade', hd);
   if (o.taper) m.ell([hp[0] + hr * 0.75, hp[1] - hr * 0.12, 0], [hr * 0.7, hr * 0.62, hr * 0.62], s.head, hd); // (a streamlined face sloping into the bill, as on a booby)
@@ -241,11 +261,27 @@ function bird(m, s) {
       eyes(m, hp, hr * 0.85, hr * 0.08, hr * 0.4, hr * 0.17, P.HEAD, neckBase, '#e8c030');
       eyes(m, hp, hr * 0.97, hr * 0.08, hr * 0.4, hr * 0.09, P.HEAD, neckBase);
     }
-  } else if (s.eyePatch) {
-    // Wood duck hen: the white ring trails into a teardrop behind the dark eye.
+  } else if (s.woodduck) {
+    // Wood duck: eyes set flush in the face, not bulging. The hen's dark eye has a thin white ring
+    // that trails back into a teardrop; the drake's red eye has a black pupil, his white lines are
+    // the crest's.
     for (const side of [-1, 1]) {
-      m.ell([hp[0] + hr * 0.32, hp[1] + hr * 0.23, side * hr * 0.83], [hr * 0.34, hr * 0.23, hr * 0.16], '#f0ece3', hd);
-      m.ell([hp[0] + hr * 0.44, hp[1] + hr * 0.25, side * hr * 0.93], [hr * 0.13, hr * 0.13, hr * 0.08], '#262420', { ...hd, gloss: 2 });
+      if (s.eyePatch) {
+        onFace(0.41, 0.25, side, -hr * 0.03, [hr * 0.19, hr * 0.18, hr * 0.07], '#e4dfd3');
+        onFace(0.22, 0.25, side, -hr * 0.03, [hr * 0.26, hr * 0.13, hr * 0.07], '#e4dfd3');
+        onFace(0.02, 0.27, side, -hr * 0.03, [hr * 0.2, hr * 0.065, hr * 0.07], '#e4dfd3');
+        onFace(0.44, 0.25, side, hr * 0.01, [hr * 0.125, hr * 0.125, hr * 0.06], '#1e1c19', { gloss: 2 });
+      } else {
+        onFace(0.47, 0.24, side, 0, [hr * 0.17, hr * 0.17, hr * 0.07], s.eye, { gloss: 2 });
+        onFace(0.47, 0.24, side, hr * 0.035, [hr * 0.085, hr * 0.085, hr * 0.06], '#120d0b', { gloss: 2 });
+      }
+    }
+  } else if (s.ara) {
+    // a scarlet macaw's small pale yellow eye, ringed in wrinkled grey skin, flush in the white face
+    for (const side of [-1, 1]) {
+      onFace(0.42, 0.24, side, -hr * 0.02, [hr * 0.17, hr * 0.16, hr * 0.06], '#cbc4b8');
+      onFace(0.42, 0.24, side, 0, [hr * 0.12, hr * 0.12, hr * 0.05], s.eye || '#e6d88c', { gloss: 2 });
+      onFace(0.42, 0.24, side, hr * 0.02, [hr * 0.055, hr * 0.055, hr * 0.04], '#141010', { gloss: 2 });
     }
   } else if (s.eye) {
     // coloured eyes (the hoatzin's red eye in a patch of bare blue skin)
@@ -254,9 +290,9 @@ function bird(m, s) {
     eyes(m, hp, hr * 0.52, hr * 0.24, hr * 0.9, Math.max(0.3, hr * 0.09), P.HEAD, neckBase);
   } else {
     // bare facial skin (secretarybird's orange, crowned crane's white cheek)
-    if (s.face) for (const side of [1, -1]) m.ell([hp[0] + hr * 0.35, hp[1] + hr * 0.05, side * hr * 0.7], [hr * 0.5, hr * 0.4, hr * 0.3], s.face, hd);
+    if (s.face && !s.mask) for (const side of [1, -1]) m.ell([hp[0] + hr * 0.35, hp[1] + hr * 0.05, side * hr * 0.7], [hr * 0.5, hr * 0.4, hr * 0.3], s.face, hd);
     if (s.ring) eyes(m, hp, hr * 0.42, hr * 0.25, hr * 0.72, Math.max(0.52, hr * 0.2), P.HEAD, neckBase, s.ring); // a thin pale eye-ring
-    eyes(m, hp, hr * 0.45, hr * 0.25, s.ring ? hr * 0.8 : hr * 0.78, Math.max(0.45, hr * 0.17), P.HEAD, neckBase);
+    eyes(m, hp, hr * 0.45, hr * 0.25, s.ring ? hr * 0.8 : hr * 0.78, s.mask ? hr * 0.14 : Math.max(0.45, hr * 0.17), P.HEAD, neckBase); // (a cardinal's eye is small for its big head)
   }
   if (s.quills) for (let k = 0; k < 6; k++) { // secretarybird: long black quills hanging off the back of the head
     const z = (k % 2 ? 1 : -1) * hr * 0.15 * (1 + (k >> 1));
@@ -296,11 +332,19 @@ function bird(m, s) {
   }
   const bb = [hp[0] + hr * 0.85, hp[1] - hr * (o.duck ? 0.25 : 0.1), 0], bl = S * o.beak;
   if (o.toucan) {
-    // the toco's huge orange bill, with a black tip and a white throat bib beneath
-    const bill = u => u.x > 0.72 ? col('#141210') : u.x > 0.2 && u.y > 0.55 ? col(shade(s.bill, 0.2)) : col(s.bill);
-    m.ell([bb[0] + S * 0.25, bb[1] - S * 0.02, 0], [S * 0.3, hr * 0.6, hr * 0.42], bill, { ...hd, rot: [0, 0, -0.12] });
+    // the toco's huge bill: two flat-sided mandibles, deepest where they leave the face, tapering
+    // to a down-curved tip; orange with a deeper ridge, a thin black ring at the base and a big
+    // black spot at the tip. A white throat bib beneath, bare orange skin round a blue eye-ring.
+    const L = S * 0.62, at = (x, y) => [bb[0] + L * x, bb[1] + hr * y, 0], base = bb[0] + hr * 0.1;
+    const upper = (u, p) => p.x < base ? col('#141210') : u.x > 0.44 + 0.08 * u.y * u.y ? col('#141210') : u.y > 0.72 ? col(shade(s.bill, -0.12)) : u.y < -0.4 ? col(shade(s.bill, 0.12)) : col(s.bill);
+    const lower = (u, p) => p.x < base ? col('#141210') : u.x > 0.7 ? col('#141210') : col(s.bill);
+    tube(m, [at(-0.22, 0.12), at(0.3, 0.02), at(0.66, -0.2), at(1, -0.62)], [[hr * 0.5, hr * 0.34], [hr * 0.4, hr * 0.25], [hr * 0.25, hr * 0.16], [hr * 0.04, hr * 0.03]], upper, { ...hd, sub: 6, seg: 12, capRings: 2 });
+    tube(m, [at(-0.2, -0.32), at(0.35, -0.36), at(0.82, -0.56)], [[hr * 0.24, hr * 0.3], [hr * 0.16, hr * 0.2], [hr * 0.04, hr * 0.04]], lower, { ...hd, sub: 6, seg: 12, capRings: 2 });
     m.ell([hp[0] + hr * 0.3, hp[1] - hr * 0.8, 0], [hr * 0.7, hr * 0.7, hr * 0.8], s.breast, hd);
-    for (const side of [1, -1]) m.ell([hp[0] + hr * 0.45, hp[1] + hr * 0.25, side * hr * 0.72], [hr * 0.3, hr * 0.3, hr * 0.12], s.wattle || '#3a8ae0', { ...hd, lo: true });
+    for (const side of [1, -1]) {
+      m.ell([hp[0] + hr * 0.45, hp[1] + hr * 0.22, side * hr * 0.68], [hr * 0.42, hr * 0.34, hr * 0.12], s.wattle || '#f0a030', { ...hd, lo: true });
+      if (!s.wattle) m.ell([hp[0] + hr * 0.45, hp[1] + hr * 0.25, side * hr * 0.72], [hr * 0.29, hr * 0.29, hr * 0.12], '#3a8ae0', { ...hd, lo: true });
+    }
     if (s.wattle) m.ell([hp[0] + hr * 0.4, hp[1] - hr * 0.95, 0], [hr * 0.55, hr * 0.5, hr * 0.5], s.wattle, hd); // ground hornbill's red throat
   } else if (o.hornbill && s.casque) {
     // rhinoceros hornbill: a long, down-curved ivory bill, yellower at the base, topped by a great
@@ -331,6 +375,16 @@ function bird(m, s) {
       m.ell([bb[0] + bl * 0.38, bb[1] + hr * 0.14, side * hr * 0.19], [S * 0.026, S * 0.008, S * 0.012], '#332d24', hd);
       tube(m, [[bb[0], bb[1] - hr * 0.025, side * hr * 0.3], [bb[0] + bl * 0.48, bb[1] - hr * 0.04, side * hr * 0.39], [bb[0] + bl * 0.93, bb[1] - hr * 0.015, side * hr * 0.2]], [S * 0.004, S * 0.005, S * 0.002], '#44362a', { ...hd, sub: 2, seg: 4 });
     }
+  } else if (s.ara) {
+    // scarlet macaw: a massive upper bill, deep at the base, arching over and dropping into a long
+    // hook that reaches below the chin; pale horn with a black patch at the gape. The short black
+    // lower bill is a deep scoop tucked up inside the hook.
+    const at = (x, y) => [bb[0] + hr * x, bb[1] + hr * y, 0];
+    const upper = u => u.x < -0.25 && u.y < 0.1 ? col('#2a2420') : u.x > 0.7 ? col(shade(o.beakColor, -0.18)) : col(o.beakColor);
+    tube(m, [at(-0.22, 0.06), at(0.3, 0.14), at(0.72, -0.1), at(0.9, -0.55), at(0.76, -0.92)],
+      [[hr * 0.56, hr * 0.44], [hr * 0.52, hr * 0.38], [hr * 0.36, hr * 0.26], [hr * 0.16, hr * 0.12], [hr * 0.025, hr * 0.025]], upper, { ...hd, sub: 5, seg: 12, capRings: 2 });
+    tube(m, [at(-0.12, -0.42), at(0.3, -0.56), at(0.62, -0.46)], [[hr * 0.36, hr * 0.36], [hr * 0.28, hr * 0.26], [hr * 0.08, hr * 0.08]],
+      '#1e1a18', { ...hd, sub: 5, seg: 12, capRings: 2 });
   }
   else {
     if (o.macaw) {
@@ -398,7 +452,8 @@ function bird(m, s) {
   const spec = s.speculum ? col(s.speculum) : null;
   const plain = u => {
     const a = Math.abs(u.z), x = u.x, back = x < -0.08 + a * 0.12; // the flight-feather zone
-    if (s.wing) return a > 0.62 || x < -0.12 ? col(s.wingtip) : x < 0.14 ? col(s.wing) : col(s.color); // scarlet macaw: red, yellow band, blue
+    if (s.underwing && u.y < 0) return a > 0.62 || x < -0.12 ? col(s.underwing) : col(s.color); // (a scarlet macaw's red underwing, its flight feathers dull gold)
+    if (s.wing) return a > 0.62 || x < -0.12 ? col(s.wingtip) : s.covertTip && x < -0.07 ? col(s.covertTip) : x < 0.14 ? col(s.wing) : col(s.color); // scarlet macaw: red, yellow band tipped green, blue
     if (spec && back && a > 0.18 && a < 0.5) return (s.woodduck || s.mallard) && (x < -0.35 || x > -0.14 + a * 0.12) ? col('#eae5d8') : spec; // white-edged speculum on both sexes
     if (back || a > 0.72) return flight;
     if (s.mottled) return covert;

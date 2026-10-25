@@ -1,5 +1,5 @@
 // Capybaras, tapirs, armadillos and hippos.
-import { P, SPH_HI, col, eyes, grad, hash3, loftBody, pixelCoat, place, shade, smooth, stumpLegs, tmp } from './model-core.js';
+import { P, SPH_HI, col, eyes, grad, hash3, loftBody, pinnaAt, pixelCoat, place, sculpt, shade, smooth, stumpLegs, tmp } from './model-core.js';
 
 // Capybara: a barrel with its rump higher than its shoulders, no neck to speak of, and a huge
 // blunt, boxy head with the eyes, ears and nostrils all set high (so it can swim almost hidden).
@@ -10,14 +10,27 @@ function capybara(m, s) {
   loftBody(m, { x0: -L * 0.46, x1: L * 0.3, cy0: by + H * 0.1, cy1: by, ry0: H * 0.56, ry1: H * 0.48, rz0: H * 0.46, rz1: H * 0.42, sag: H * 0.03 }, fur);
   const neck = [L * 0.24, by + H * 0.05, 0], hd = { part: P.HEAD, pivot: neck };
   const face = grad(shade(s.color, -0.05), s.belly, -0.2, 0.5);
-  m.ell([L * 0.33, by + H * 0.12, 0], [H * 0.36, H * 0.36, H * 0.31], face, hd);                           // crown of the head
-  m.ell([L * 0.47, by - H * 0.02, 0], [H * 0.34, H * 0.35, H * 0.26], face, { ...hd, rot: [0, 0, -0.35] }); // deep, square muzzle
-  m.ell([L * 0.56, by - H * 0.16, 0], [H * 0.12, H * 0.14, H * 0.2], shade(s.color, -0.3), hd);            // dark blunt nose
+  // the head: one long, deep box with rounded edges, carried nose down. Square in profile, with a
+  // flat, broad front (the upper lip overhangs the chin a little) and the cheeks deepest at the back.
+  // (local x runs from the back of the skull, -a, to the nose, +a; y up; z to the side)
+  const a = H * 0.5, b = H * 0.3, tilt = -0.28, hc = [L * 0.4, by + H * 0.06], cs = Math.cos(tilt), sn = Math.sin(tilt);
+  const box = d => {
+    const x = a * Math.sign(d.x) * Math.abs(d.x) ** 0.4, t = (x / a + 1) / 2;
+    let y = b * Math.sign(d.y) * Math.abs(d.y) ** 0.6 * (d.y < 0 ? 1.15 - 0.3 * t : 1 - 0.08 * t);
+    const z = H * (0.28 - 0.04 * t) * Math.sign(d.z) * Math.abs(d.z) ** 0.6;
+    return [x + (y < 0 ? y * 0.15 * t : 0), y, z];
+  };
+  const at = ([x, y, z]) => [hc[0] + x * cs - y * sn, hc[1] + x * sn + y * cs, z];
+  const dir = (x, y, z) => { const l = Math.hypot(x, y, z); return { x: x / l, y: y / l, z: z / l }; };
+  const nose = col(shade(s.color, -0.3)).clone(); // (the dark, broad nose pad is painted on the flat front, flush)
+  sculpt(m, d => at(box(d)), (d, p) => face(d).lerp(nose, smooth(0.72, 0.9, d.x) * smooth(-0.35, 0.05, d.y)), hd);
   for (const side of [1, -1]) {
-    m.ell([L * 0.57, by - H * 0.04, side * H * 0.08], [H * 0.035, H * 0.03, H * 0.035], '#1a120c', { ...hd, lo: true });  // nostrils on top
-    m.ell([L * 0.4, by + H * 0.26, side * H * 0.22], [H * 0.07, H * 0.07, H * 0.05], '#140e0a', { ...hd, lo: true, gloss: 2 });   // eyes high up
-    m.eyeSpot = [L * 0.4, by + H * 0.26, H * 0.22];
-    m.ell([L * 0.28, by + H * 0.44, side * H * 0.16], [H * 0.08, H * 0.1, H * 0.05], shade(s.color, -0.3), hd);         // little round ears
+    m.ell(at([a * 0.93, b * 0.5, side * H * 0.09]), [H * 0.03, H * 0.028, H * 0.045], '#1a120c', { ...hd, lo: true, rot: [0, 0, tilt] }); // nostrils high on the front
+    const eye = at(box(dir(-0.22, 0.6, side * 0.78)).map(v => v * 0.97));
+    m.ell(eye, [H * 0.042, H * 0.04, H * 0.03], '#140e0a', { ...hd, lo: true, gloss: 2 }); // small eyes, high and back
+    m.eyeSpot = [eye[0], eye[1], Math.abs(eye[2])];
+    const ear = at([-a * 0.82, b * 0.92, side * H * 0.15]);
+    pinnaAt(m, ear, [H * 0.045, H * 0.075, H * 0.07], [side * -0.3, 0, 0.2], shade(s.color, -0.3), { ...hd, shape: 'round', cup: 0.35, inner: '#9a6a62' }); // little round ears, high and far back
   }
   const lc = shade(s.color, -0.22), r0 = H * 0.17, r1 = H * 0.12;
   stumpLegs(m, [[L * 0.2, H * 0.24, by - H * 0.1, r0, r1, lc], [L * 0.2, -H * 0.24, by - H * 0.1, r0, r1, lc],
@@ -48,8 +61,7 @@ function tapir(m, s) {
   for (const side of [1, -1]) {
     m.ell([hp[0] + H * 0.08, hp[1] + H * 0.06, side * H * 0.17], [H * 0.04, H * 0.04, H * 0.03], '#0e0c0a', { ...hd, lo: true, gloss: 2 });
     m.eyeSpot = [hp[0] + H * 0.08, hp[1] + H * 0.06, H * 0.17]; // (eyes)
-    const ear = u => u.y > 0.5 || Math.abs(u.x) > 0.75 ? col(s.rim) : col(shade(s.color, -0.1));
-    m.ell([hp[0] - H * 0.14, hp[1] + H * 0.3, side * H * 0.14], [H * 0.09, H * 0.13, H * 0.04], ear, { ...hd, rot: [side * -0.35, 0, 0.3] });
+    pinnaAt(m, [hp[0] - H * 0.14, hp[1] + H * 0.3, side * H * 0.14], [H * 0.04, H * 0.13, H * 0.09], [side * -0.35, 0, 0.3], shade(s.color, -0.1), { ...hd, shape: 'round', rim: s.rim, tip: s.rim, tipAt: 0.9 });
   }
   const lc = shade(s.color, -0.1), r0 = H * 0.19, r1 = H * 0.13;
   stumpLegs(m, [[L * 0.22, H * 0.2, by - H * 0.05, r0, r1, lc], [L * 0.22, -H * 0.2, by - H * 0.05, r0, r1, lc],
@@ -106,7 +118,7 @@ function hippo(m, s) {
     m.ell([L * 0.5, by + H * 0.42, side * H * 0.27], [H * 0.055, H * 0.05, H * 0.035], pink, { ...hd, lo: true });
     m.ell([L * 0.51, by + H * 0.43, side * H * 0.29], [H * 0.03, H * 0.03, H * 0.02], '#140c0a', { ...hd, lo: true, gloss: 2 });
     m.eyeAt = [L * 0.51, by + H * 0.43, H * 0.29]; m.eyePivot = neck;
-    m.ell([L * 0.39, by + H * 0.48, side * H * 0.2], [H * 0.05, H * 0.08, H * 0.04], shade(s.color, -0.2), { ...hd, rot: [side * -0.4, 0, 0.3] }); // little ears
+    pinnaAt(m, [L * 0.39, by + H * 0.48, side * H * 0.2], [H * 0.04, H * 0.08, H * 0.05], [side * -0.4, 0, 0.3], shade(s.color, -0.2), { ...hd, shape: 'round', cup: 0.35 }); // little ears
     m.ell([L * 0.72, by - H * 0.12, side * H * 0.34], [H * 0.035, H * 0.08, H * 0.03], '#f0e8d8', { ...hd, lo: true }); // a hint of tusk at the lip
   }
   const lc = u => tmp.copy(grey).lerp(pink, 0.25), r0 = H * 0.28, r1 = H * 0.24;

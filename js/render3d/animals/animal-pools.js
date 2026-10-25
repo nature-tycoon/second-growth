@@ -102,6 +102,13 @@ export class Fauna {
     }
     return p.nose;
   }
+  // How tall the model stands, in model units (eye level steps back from a giraffe or an
+  // elephant by it: the sprite's own numbers leave out a giraffe's neck). Measured once per model.
+  height(def) {
+    const p = this.pool(def);
+    if (p.height == null) { p.geo.computeBoundingBox(); p.height = p.geo.boundingBox.max.y - p.geo.boundingBox.min.y; }
+    return p.height;
+  }
   // pixelsPerUnit: screen pixels per scene unit this frame (Infinity draws every animal in detail).
   // eye: { x, y, z, scale } for a perspective camera (see perspectiveScale), whose pixels per unit
   // fall off with each animal's distance.

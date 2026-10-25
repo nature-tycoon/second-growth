@@ -1,13 +1,14 @@
 // Mouse and keyboard: camera control, brushing tools across the map, inspecting.
 
 import { tr } from './i18n.js';
-import { T, money } from './config.js';
+import { T, money, clamp, WATCH_PACE } from './config.js';
 import { strokeTiles, toolCost, bestSuit } from './tools.js';
 import { settings } from './settings.js';
 
 
 const SHIFTED = { '-': '_', '_': '-', '=': '+', '+': '=' };
 const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
+const WALK_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 
 export class Input {
   constructor(game, renderer, ui) {
@@ -84,9 +85,13 @@ export class Input {
     }
     if (!down) return;
     // watching: only the watch keys, Space and the speeds (nothing moves the camera or paints)
+    // (at eye level, WASD lets go of the animal and walks: see Watch.walk; Q / E swing round it until then)
     if (this.ui.watch.on && !this.ui.modalOpen && !this.ui.moment) {
+      if ((k === 'q' || k === 'e') && this.ui.watch.orbiting()) { e.preventDefault(); this.keys.add(k); return; }
+      if (WALK_KEYS.has(k) && this.ui.watch.walk()) { e.preventDefault(); this.keys.add(k); return; }
+      if (k === 'shift') { this.keys.add(k); return; }
       if (this.ui.watch.key(k)) { e.preventDefault(); return; }
-      if (k === ' ' || k === '1' || k === '2' || k === '3' || k === 'm') this.keys.add(k); else return;
+      if (k === ' ' || k === '0' || k === '1' || k === '2' || k === '3' || k === 'm') this.keys.add(k); else return;
     } else this.keys.add(k);
     if (k === 'escape') {
       if (this.ui.modalOpen) this.ui.closeModal();
@@ -101,6 +106,7 @@ export class Input {
       else this.ui.setSpeed(this.lastSpeed || 1);
     }
     else if (k === '1' || k === '2' || k === '3') this.ui.setSpeed(+k);
+    else if (k === '0') this.ui.setSpeed(WATCH_PACE);
     else if (k === '[') this.ui.nudgeBrush(-1);
     else if (k === ']') this.ui.nudgeBrush(1);
     else if (k === 't') this.ui.toggleTrees();
@@ -119,7 +125,18 @@ export class Input {
   update(dt) {
     this.r.followAgent = null;
     // watch mode directs the camera itself (ui/watch.js), and a keystone moment within it too
-    if (this.ui.watch.on) { if (this.ui.follow && this.game.wildlife.hasAgent(this.ui.follow)) this.r.followAgent = this.ui.follow; return; }
+    if (this.ui.watch.on) {
+      if (this.ui.follow) this.trackFollow(this.ui.follow, dt);
+      if (this.ui.watch.walking) {
+        // (on a touch screen the thumbstick walks: up goes forward, sideways turns)
+        const K = this.keys, on = (...ks) => ks.some(x => K.has(x)) ? 1 : 0, sv = this.stickV, one = v => clamp(v, -1, 1);
+        this.r.eyeMove = {
+          fwd: one(on('w', 'arrowup') - on('s', 'arrowdown') - (sv ? sv.y : 0)), turn: one(on('e', 'arrowright') - on('q', 'arrowleft') + (sv ? sv.x : 0)),
+          side: on('d') - on('a'), run: K.has('shift'),
+        };
+      } else this.r.eyeOrbit = (this.keys.has('e') ? 1 : 0) - (this.keys.has('q') ? 1 : 0);
+      return;
+    }
     if (!this.ui.follow && this.r.animalFraming) {
       if (!this.ui.moment) this.r.frameGoal = { x: 0.5, y: 0.5 };
       this.r.animalFraming = false;
@@ -152,13 +169,22 @@ export class Input {
     // keep a located animal in view until the player moves the camera
     const f = this.ui.follow;
     if (f) {
-      if (dx || dy || sv || this.pan || this.fling || !this.game.wildlife.hasAgent(f)) this.ui.follow = null;
+      if (dx || dy || sv || this.pan || this.fling || !this.trackFollow(f, dt)) this.ui.follow = null;
       else {
-        this.r.followAgent = f; // renderer follows this frame's visible body, including height
         if (!this.ui.moment) { this.r.frameGoal = this.ui.animalFrame(); this.r.animalFraming = true; }
       }
     }
     if (this.mouse.in && !this.pan) this.updateHover();
+  }
+
+  // Keep the camera on a followed animal (the renderer follows this frame's visible body, including
+  // height). One that's killed, or dies where it stands, leaves a carcass with its id: the camera
+  // stays on that while it's eaten, until it's gone. False when there's neither.
+  trackFollow(f, dt) {
+    if (this.game.wildlife.hasAgent(f)) { this.r.followAgent = f; return true; }
+    const body = this.game.wildlife.carcasses.find(c => c.id === f.id);
+    if (body) this.r.followCarcass(body, dt);
+    return !!body;
   }
 
   tool() { return this.ui.state.tool && !this.ui.state.clean ? this.game.catalog.tools[this.ui.state.tool] : null; } // (no painting through a keystone moment)
@@ -300,6 +326,7 @@ export class Input {
       cx = r.left + r.width / 2; cy = r.top + r.height / 2; R = r.width * 0.36;
       el.classList.add('on');
       this.fling = null; this.ui.follow = null;
+      if (this.ui.watch.on) this.ui.watch.walk(); // (shown in watch mode only at eye level: it walks)
       set(e.clientX, e.clientY);
     });
     el.addEventListener('pointermove', e => { if (e.pointerId === id) set(e.clientX, e.clientY); });

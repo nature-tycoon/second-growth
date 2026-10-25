@@ -375,7 +375,7 @@ export function faunaMaterial(motion) {
   mat.defaultAttributeValues = { aSwing: [0, 0, 0], aSwingN: [0, 1, 0] };
   const u = {
     uPrimate: { value: motion.primate ?? 0 }, uLength: { value: motion.len || 1 },
-    uBird: { value: motion.bird ?? 0 }, uWingSpan: { value: motion.wingSpan ?? 1 },
+    uBird: { value: motion.bird ?? 0 }, uWingSpan: { value: motion.wingSpan ?? 1 }, uWingRoot: { value: motion.wingRoot ?? 0 },
     uLeg: { value: motion.leg }, uBob: { value: motion.bob }, uTail: { value: motion.tail }, uFlap: { value: motion.flap },
     uHead: { value: motion.head ?? 0.9 }, uWave: { value: motion.wave }, uWaveK: { value: motion.waveK }, uWaveHead: { value: motion.waveHead }, uWaveLen: { value: motion.waveLen },
     uVerticalWave: { value: motion.verticalWave ?? 0 }, uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uWaveRest: { value: motion.waveRest ?? .35 }, uTongue: { value: motion.tongue ?? 0 }, uBend: { value: motion.bend ?? 0 },
@@ -410,7 +410,7 @@ export function faunaMaterial(motion) {
       ${motion.primate === 3 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
       ${motion.canopyFeet ? 'attribute vec4 aGripA; attribute vec4 aGripB; attribute vec4 aGripC;' : ''}
       ${motion.canopyWalkerMotion ? 'uniform vec3 uHowlerRoots[4], uHowlerBends[4], uHowlerTips[4];' : ''}
-      uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan, uSlither, uSlitherLen, uSlitherNose;
+      uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan, uWingRoot, uSlither, uSlitherLen, uSlitherNose;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
       vec3 rotY(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c); }
       vec3 rotZ(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c - q.y * s, q.x * s + q.y * c, q.z); }
@@ -479,7 +479,12 @@ export function faunaMaterial(motion) {
           vec3 wrist = aPivot + vec3(0.0, 0.0, side * uWingSpan * 0.58);
           p = rotX(p, wrist, flex); n = rotX(n, zero, flex);
           float beat = -side * fly * sin(ph * uFlap) * 0.75;
-          p = rotX(p, aPivot, beat); n = rotX(n, zero, beat);
+          if (uWingRoot > 0.0) {
+            // (a ray: the fin bends progressively from where it leaves the body, the angle growing
+            // with distance; a point r out turns by a, the surface there by a + atan(a))
+            float a = beat * max(0.0, side * (p.z - aPivot.z) - uWingRoot) / (uWingSpan - uWingRoot);
+            p = rotX(p, aPivot + vec3(0.0, 0.0, side * uWingRoot), a); n = rotX(n, zero, a + atan(a));
+          } else { p = rotX(p, aPivot, beat); n = rotX(n, zero, beat); }
         } else if (aPart > 0.5 && aPart < 4.5) {
           if (uPrimate > 0.5) {
             ${motion.primate === 3 ? `if (uPrimate > 2.5) {

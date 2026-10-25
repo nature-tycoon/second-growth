@@ -33,6 +33,10 @@ addStrings({
   'Flying through': 'Pasando en vuelo', Flock: 'Bandada', 'Follow bird': 'Seguir al ave',
   'Passing birds': 'Aves de paso', 'Passes over': 'Pasa en', 'Overhead now': 'Volando encima ahora', None: 'Ninguna',
   'overhead now': 'volando encima', 'passing through': 'de paso', 'Follow a bird': 'Seguir a un ave',
+  // watch mode's bar (ui/watch.js)
+  'All animals': 'Todos los animales', 'No animals out right now': 'No hay animales afuera ahora', 'Watch one species (S)': 'Ver una sola especie (S)',
+  'Next animal (N)': 'Siguiente animal (N)', 'Eye level (F)': 'A ras del suelo (F)', 'Stop watching (Esc)': 'Dejar de mirar (Esc)', 'Hide the controls (H)': 'Esconder los controles (H)',
+  'Eye level': 'A ras del suelo', 'Show the controls': 'Mostrar los controles',
   "Flocks cross the property on their way somewhere else. They don't live here, so they don't count toward your species.": 'Las bandadas cruzan la finca de camino a otro lugar. No viven aquí, así que no cuentan entre tus especies.',
   'Canada goose': 'Ganso canadiense', 'Barn swallow': 'Golondrina común', 'Great egret': 'Garza blanca',
   'White stork': 'Cigüeña blanca', 'Black vulture': 'Zopilote negro', 'Blue-crowned hanging parrot': 'Lorículo de corona azul',
@@ -76,7 +80,7 @@ addStrings({
   'Open Second Growth from its new Home Screen icon.': 'Abrí Second Growth desde su nuevo ícono en la pantalla de inicio.',
   'Open this page in Chrome and tap the three-dot menu beside the address bar.': 'Abrí esta página en Chrome y tocá el menú de tres puntos junto a la barra de direcciones.',
   'Choose Add to Home screen or Install app. Some versions put Install inside Install and create shortcut. Follow the prompts.': 'Elegí Agregar a la pantalla principal o Instalar app. En algunas versiones, Instalar está dentro de Instalar y crear acceso directo. Seguí los pasos que aparecen.',
-  'Pause (Space)': 'Pausa (Espacio)', Normal: 'Normal', Fast: 'Rápido', Fastest: 'Muy rápido',
+  'Pause (Space)': 'Pausa (Espacio)', Normal: 'Normal', Fast: 'Rápido', Fastest: 'Muy rápido', 'Watch pace: animals at their real pace (0)': 'Ritmo de observación: los animales a su ritmo real (0)',
   'Visitors (open details)': 'Visitantes (ver detalles)', 'no trailhead': 'sin parqueo',
   'Ecosystem health (open report)': 'Salud del ecosistema (abrir informe)', Ecosystem: 'Ecosistema', Health: 'Salud',
   'Open the field guide': 'Abrir la guía de campo', species: 'especies',
@@ -130,6 +134,8 @@ addStrings({
 
   // ---------------------------------------------------------------- inspector
   Gone: 'Se fue', "This animal has moved on, or didn't make it.": 'Este animal se fue, o no sobrevivió.',
+  Killed: 'Cazado', "A hunter caught this animal. Its carcass lies here while it's eaten, then breaks down.": 'Un depredador cazó a este animal. Su cadáver queda aquí mientras se lo comen, y luego se descompone.',
+  Died: 'Murió', 'This animal died here. Its carcass lies here while scavengers eat it, then breaks down.': 'Este animal murió aquí. Su cadáver queda aquí mientras los carroñeros se lo comen, y luego se descompone.',
   'Leaving the property': 'Saliendo de la finca', Hunting: 'Cazando', Flying: 'Volando', Wandering: 'Caminando', 'Resting / foraging': 'Descansando / comiendo',
   'Stalking prey': 'Acechando a su presa', 'Chasing prey': 'Persiguiendo a su presa', 'Circling over prey': 'Volando en círculos sobre su presa',
   Playing: 'Jugando', 'Running from danger': 'Huyendo del peligro', 'Fleeing the fire': 'Huyendo del fuego', Feeding: 'Comiendo', Drinking: 'Bebiendo',
@@ -266,7 +272,7 @@ addStrings({
   // controls (the list is split by keys and bold words, so each piece is translated on its own)
   'Pick a tool on the left, then': 'Elegí una herramienta a la izquierda, y después', 'click and drag to brush': 'hacé clic y arrastrá para pintarla', 'it across the land.': 'sobre el terreno.',
   'change brush size.': 'cambian el tamaño del pincel.', 'Right-drag or': 'Arrastrá con el botón derecho o con', 'to pan, scroll to zoom,': 'para moverte, la rueda para acercar,',
-  'to rotate the view.': 'para girar la vista.', Space: 'Espacio', 'pauses,': 'pausa,', 'set speed,': 'cambian la velocidad,', 'sees through trees,': 'deja ver a través de los árboles,',
+  'to rotate the view.': 'para girar la vista.', Space: 'Espacio', 'pauses,': 'pausa,', 'set speed,': 'cambian la velocidad,', 'slows to watch pace,': 'pasa al ritmo de observación,', 'sees through trees,': 'deja ver a través de los árboles,',
   'to rotate by 15°. Hold': 'para girar 15°. Mantené presionada',
   'for a 90° turn.': 'para girar 90°.',
   'The rotation arrows turn the view by 15°. Q / E do the same. Hold Shift for a 90° turn.': 'Las flechas giran la vista 15°. Q / E hacen lo mismo. Mantené presionada Mayús para girar 90°.',

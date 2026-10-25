@@ -2,18 +2,18 @@
 // A transparent 2D canvas on top carries weather, pollinators, sparkles and labels.
 
 import { easeAnimalTarget } from './animal-camera.js';
-import { EyeCamera, EYE_FAR, EYE_FOG_NEAR } from './eye-camera.js';
+import { EyeCamera, EYE_FAR, EYE_FOG_NEAR, WATER_FAR } from './eye-camera.js';
 import { EyeSky } from './eye-sky.js';
 import { Lightning } from './lightning.js';
 import { perspectiveScale } from './actor-view.js';
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { snow, withSnowTops } from './snow.js';
-import { sky, haze, withClouds } from './atmosphere.js';
+import { sky, haze, sea, withClouds } from './atmosphere.js';
 import { lightingBalance } from './lighting.js';
 import { Ambience } from './ambience.js';
 import { activeCatalog } from '../data/catalog.js';
-import { BORDER, LEVEL, T, H, isWater, clamp } from '../config.js';
+import { BORDER, LEVEL, T, H, isWater, clamp, SPEEDS } from '../config.js';
 import { animalDef, isMale } from '../data/animals.js';
 import { Terrain, buildAtlas, waterSurfaceY } from './terrain.js';
 import { Flora, windGust, floraVersion } from './flora.js';
@@ -49,7 +49,10 @@ function installGrade(grade = {}) {
 // properly dark, so the land stays readable. Each key: [position in the cycle, sun strength,
 // sun colour, how much of it, sky colour, how much of it, sun elevation in degrees, sweep].
 const DAY_CYCLE = 360;
-const NIGHT_PACE = [1.5, 1.5, 2.6, 4]; // how much faster the dark hours pass, at each game speed (paused, normal, fast, fastest)
+const NIGHT_PACE = [1.5, 1.5, 2.6, 4, 1]; // how much faster the dark hours pass, at each game speed (paused, normal, fast, fastest, watch)
+// how fast the whole cycle runs at each game speed: at watch pace a day takes about 18 minutes,
+// night as unhurried as the day, so a sunset, dusk and dawn play out while the animals live them
+const DAY_PACE = [1, 1, 1, 1, 1 / 3];
 const TOD = [
   [0.0, 0.66, 0xffb89a, 0.5, 0xf0c8c0, 0.16, 12, -0.9],    // dawn
   [0.05, 0.9, 0xffe0b8, 0.25, 0xf4e4d4, 0.08, 30, -0.6],
@@ -74,12 +77,12 @@ function timeOfDay(u) {
   return { sun: L(1), sunCol: todCol[0], sunAmt: L(3), skyCol: todCol[2], skyAmt: L(5), el: L(6), sweep: L(7) };
 }
 const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
-const HAZE = new THREE.Color(0.55, 0.62, 0.58); // the eye-level haze's own tint under water (see updateEye)
 // The eye-level sky's colours (linear), before the time of day and the weather tint and dim them:
 // overhead and at the horizon on a clear day, and the grey of an overcast and a stormy sky.
 const SKY_TOP = new THREE.Color(0.15, 0.34, 0.76), SKY_LOW = new THREE.Color(0.6, 0.71, 0.84);
 const GREY = new THREE.Color(0.5, 0.53, 0.56), STORM = new THREE.Color(0.25, 0.27, 0.3);
 const skyTint = new THREE.Color(), skyGrey = new THREE.Color();
+const NO_MOVE = { fwd: 0, side: 0, turn: 0, run: false };
 const FLORA_REGIONS_PER_FRAME = 1; // plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild)
 // a phone or tablet (no mouse)
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
@@ -121,7 +124,7 @@ export class Renderer {
     // Haze, for watch mode's eye-level view only (see setEyeLevel). It is always there but pushed out
     // of reach in the usual view, so switching to eye level doesn't recompile every material.
     this.scene.fog = new THREE.Fog(0x9fb2a4, 1e5, 2e5);
-    this.eye = new EyeCamera(); this.eyeAgent = null; this.eyeOn = false;
+    this.eye = new EyeCamera(); this.eyeAgent = null; this.eyeOn = false; this.eyeWalk = false; this.eyeLook = { yaw: 0, pitch: 0 };
     this.eyeSky = new EyeSky(this.scene); this.lightning = new Lightning(this.scene); this.bufSize = new THREE.Vector2();
     this.eyeWx = { storm: 0, snow: 0, near: EYE_FOG_NEAR, far: EYE_FAR };
     // the zoom whose plant models eye level draws: the finest on Balanced and High, the in-between ones
@@ -336,14 +339,13 @@ export class Renderer {
       this.focusFor = sel.id;
       focus.uFocus.value.lerp(pose.center, e);
       let radius = pose.branch ? clamp(.4 + pose.h * 1.2, .55, .95) : clamp(.75 + pose.h * 1.7, .85, 1.45);
-      let bodyRadius = 0;
+      let bodyRadius = 0, span = 0;
       let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius;
       if (pose.branch && pose.revealBounds && pose.revealMatrix) {
         // A downhill body can sit below its foot plane. Protect only leaves
         // below its projected silhouette, and clear cover through its full
         // depth rather than stopping at the centre of the animal.
         const point = this.focusCorner ||= new THREE.Vector3(), bounds = pose.revealBounds;
-        let span = 0;
         for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
           point.set(x, y, z).applyMatrix4(pose.revealMatrix).sub(focus.uFocus.value);
           const along = point.dot(focus.uViewDir.value), height = point.dot(focus.uCamUp.value);
@@ -358,12 +360,14 @@ export class Renderer {
       focus.uFocusR.value = Math.max(focus.uFocusR.value, bodyRadius);
       focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
       focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
-      focus.uFocusHalfW.value = Math.max(pose.h, pose.foot || 0) * 0.55;
+      focus.uFocusHalfW.value = Math.max(pose.h * 0.55, (pose.foot || 0) * 0.55, span);
+      focus.uFocusInvD.value = this.eyeOn ? 1 / Math.max(0.05, this.eye.pos.distanceTo(pose.center)) : 0;
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
       focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
       focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value;
+      focus.uFocusInvD.value = 0;
     }
   }
 
@@ -434,6 +438,15 @@ export class Renderer {
   glideToAnimal(a) {
     this.fly = null;
     this.followGlide = { id: a.id, t: 0 };
+  }
+  // Keep a carcass in view: a followed animal that was killed (Input.trackFollow), eased over from
+  // where its body was standing.
+  followCarcass(c, dt) {
+    if (this.eyeOn) return;
+    this.fly = null; this.followGlide = null;
+    const w = this.world, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
+    easeAnimalTarget(this.target, (this.carcassAt ||= new THREE.Vector3()).set(c.x, ground, c.y), dt);
+    this.animalCentered = true; this.updateCamera();
   }
   updateAnimalCamera(dt = 1 / 60) {
     const pose = this.followAgent && this.actors.pose.get(this.followAgent.id);
@@ -507,18 +520,43 @@ export class Renderer {
   // Watch mode's eye-level view (eye-camera.js): ride along low behind an animal, or null to go
   // back to the usual view. The usual camera is left where it was, so leaving puts the view back.
   setEyeLevel(agent) {
-    this.eyeAgent = agent || null;
+    this.eyeAgent = agent || null; this.eyeWalk = false;
     if (!agent) { this.eyeOn = false; this.eye.reset(); this.updateCamera(); }
+  }
+  // Leave the animal and walk about at eye level from where the eye is (WASD in watch mode).
+  // eyeMove ({ fwd, side, turn, run }) is set by Input each frame; eyeLook gathers drags to look round
+  // (and, while following, to swing round the animal, with eyeOrbit for Q / E).
+  walkEye() {
+    if (!this.eyeOn) return false;
+    this.eyeAgent = null; this.eyeWalk = true;
+    return true;
   }
   updateEye(dt, game) {
     const a = this.eyeAgent;
-    this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, this.vw / Math.max(1, this.vh), dt, (x, z) => this.heightAtScene(x, z));
+    const seaY = this.seaY, aspect = this.vw / Math.max(1, this.vh), ground = (x, z) => this.heightAtScene(x, z);
+    if (this.eyeWalk) {
+      const w = this.world, L = this.eyeLook;
+      this.eye.walk(this.eyeMove || NO_MOVE, L, aspect, dt, ground, seaY, (x, z) => ({ x: clamp(x, 0.5, w.w - 0.5), z: clamp(z, 0.5, w.h - 0.5) }));
+      L.yaw = 0; L.pitch = 0;
+      this.eyeOn = true;
+    } else {
+      // following: a drag or Q / E (eyeOrbit, -1..1 from Input) swings the eye round the animal
+      const L = this.eyeLook, turn = (this.eyeOrbit || 0) * 1.7 * dt;
+      if (L.yaw || L.pitch || turn) this.eyeOrbitAt = this.time;
+      this.eyeOn = !!a && this.eye.update(this.actors.pose.get(a.id), a.id, aspect, dt, ground, seaY, { yaw: L.yaw + turn, pitch: L.pitch });
+      L.yaw = 0; L.pitch = 0;
+    }
     const fog = this.scene.fog;
     if (!this.eyeOn) { fog.near = 1e5; fog.far = 2e5; this.scene.background = null; this.eyeSky.hide(); return; }
-    if (this.seaY != null) {
-      // under the sea: no sky, only the water's own haze
-      fog.near = EYE_FOG_NEAR; fog.far = EYE_FAR;
-      fog.color.copy(this.hemi.color).multiplyScalar(0.62).lerp(HAZE, 0.25);
+    if (seaY != null && this.eye.under) {
+      // Under the sea: no sky, only the water. It closes in far sooner than air (a clear reef
+      // shows a few dozen metres), so near fish stand out and far ones fade into the blue-green.
+      // Its colour is what the water scatters back at the eye's depth (the seabed's own veil in
+      // atmosphere.js), so the land, the surface overhead and the background all meet in it.
+      const d = seaY - this.eye.pos.y, sh = sea.uSeaShallow.value, dp = sea.uSeaDeep.value, L = sea.uSeaLight.value, m = sea.uSeaMurk.value * 0.7;
+      const t = clamp(d * 0.3, 0, 1), mix = (i, murk) => ((sh[i] + (dp[i] - sh[i]) * t) * (1 - m) + murk * m) * L[i];
+      fog.color.setRGB(mix(0, 0.26), mix(1, 0.36), mix(2, 0.26));
+      fog.near = 0.5 * (1 - m); fog.far = (WATER_FAR - 1) * (1 - 0.55 * m); // (a flood plume clouds it right in)
       this.scene.background = fog.color;
       this.eyeSky.hide();
     } else this.updateSky(dt, game);
@@ -813,11 +851,11 @@ export class Renderer {
     // speeds the ground repaints at most four times a second.
     // (on the Fast setting the ground and plants catch up at a gentler pace, since each rebuild
     // is a noticeable pause on a phone)
-    const light = this.light;
+    const light = this.light, pace = SPEEDS[game.speed] || 0;
     // Within a month the day's repaint goes a band of rows a frame (Terrain.dayBands), rather than
     // the whole map in one long frame.
     let patch = null, band = false, newDay = false;
-    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (game.speed >= 2 ? 1200 : 600) : game.speed >= 2 ? 250 : 0)))) {
+    if (this.dayDirty && (swapped || (this.frameN > this.dayDirty && now - (this.lastSurface || 0) > (light ? (pace >= SPEEDS[2] ? 1200 : 600) : pace >= SPEEDS[2] ? 250 : 0)))) {
       surface = newDay = true; this.dayDirty = 0;
       this.groundBands = swapped ? null : this.terrain.dayBands(game);
     } else if (this.groundBands?.length && !this.editDirty) surface = true;
@@ -838,7 +876,7 @@ export class Renderer {
     // stroke repaints ground every frame and used to prevent any plants from catching up.
     // Once a budgeted rebuild starts, finish its remaining regions on consecutive frames.
     const continuing = this.flora.waitingRegions?.size > 0;
-    const growthReady = !surface && this.frameN > (this.dayDirty || 0) && now - this.lastFlora > (light ? (game.speed >= 2 ? 1200 : 400) : game.speed >= 3 ? 400 : 150);
+    const growthReady = !surface && this.frameN > (this.dayDirty || 0) && now - this.lastFlora > (light ? (pace >= SPEEDS[2] ? 1200 : 400) : pace >= SPEEDS[3] ? 400 : 150);
     if (this.floraPending && (swapped || this.floraEditPending || continuing || growthReady)) {
       if (!this.flora.rebuild(game, false, swapped ? Infinity : FLORA_REGIONS_PER_FRAME)) {
         this.lastFlora = now; this.floraPending = false; this.floraEditPending = false;
@@ -916,7 +954,7 @@ export class Renderer {
       const u = (this.todClock / DAY_CYCLE) % 1, sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
       const dark = u > 0.5 ? sm(0.8, 0.87, u) : 1 - sm(0, 0.05, u);
       const fast = NIGHT_PACE[game.speed] ?? NIGHT_PACE[1];
-      this.todClock = (this.todClock + dt * (1 + (fast - 1) * dark)) % DAY_CYCLE;
+      this.todClock = (this.todClock + dt * (DAY_PACE[game.speed] ?? 1) * (1 + (fast - 1) * dark)) % DAY_CYCLE;
     }
     const todU = this.dayCycleOn === false ? 0.35 : this.todClock / DAY_CYCLE;
     const tod = timeOfDay(todU);
@@ -951,7 +989,7 @@ export class Renderer {
     sky.uCloudT.value = this.time;
     sky.uCloudCover.value += (cover - sky.uCloudCover.value) * (first ? 1 : Math.min(1, dt * 0.25));
     // no shadows on a cloudless day, and they melt away as you zoom in close
-    const closeUp = this.eyeAgent ? 1 : clamp((2.1 - this.zoom) / 0.8, 0, 1); // (at eye level they're the shadows of the clouds overhead)
+    const closeUp = this.eyeAgent || this.eyeWalk ? 1 : clamp((2.1 - this.zoom) / 0.8, 0, 1); // (at eye level they're the shadows of the clouds overhead)
     const amt = this.cloudsOn === false || (cover === 0 && sky.uCloudCover.value < 0.08) ? 0 : 0.44 * closeUp;
     sky.uCloudAmt.value += (amt - sky.uCloudAmt.value) * Math.min(1, dt * 1.5);
 
@@ -983,7 +1021,7 @@ export class Renderer {
     const su = snow.uSnow;
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
     this.actors.updateFire(game, this.time, dt);
-    this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game);
+    this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game, this.scene.fog, this.eyeOn);
     this.flora.syncShadows();
     this.flora.updateView(cam);
     const redrawShadows = this.shadowsStale();

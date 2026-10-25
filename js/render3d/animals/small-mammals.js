@@ -1,6 +1,6 @@
 // Rodents, squirrels, rabbits and bears.
 import * as THREE from 'three';
-import { P, SPH_HI, col, grad, hash3, pixelCoat, place, shade, tmp } from './model-core.js';
+import { P, SPH_HI, col, grad, hash3, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, tmp } from './model-core.js';
 
 // A vole is a furry egg with a blunt nose: tiny feet, ears tucked in the fur, a short tail.
 // A chipmunk (stripes) is the same egg, perkier: head up, bold back stripes, a striped face
@@ -19,8 +19,8 @@ function vole(m, s) {
   m.ell(sn, [0.9, 0.85, 0.95], shade(s.belly, 0.1), hd);
   m.ell([sn[0] + 0.8, sn[1] + 0.15, 0], [0.3, 0.26, 0.3], '#3a2420', { ...hd, lo: true });
   for (const side of [1, -1]) {
-    m.ell([hp[0] + 0.75, hp[1] + 0.6, side * 1.38], [0.4, 0.4, 0.22], '#120e0c', { ...hd, lo: true, gloss: 2 });
-    m.ell([hp[0] + 0.85, hp[1] + 0.72, side * 1.5], [0.12, 0.12, 0.08], '#f4f0ea', { ...hd, lo: true }); // a catchlight
+    m.ell([hp[0] + 0.75, hp[1] + 0.6, side * 1.78], [0.42, 0.42, 0.24], '#120e0c', { ...hd, lo: true, gloss: 2 }); // (on the head's surface, half out)
+    m.ell([hp[0] + 0.88, hp[1] + 0.74, side * 1.98], [0.12, 0.12, 0.08], '#f4f0ea', { ...hd, lo: true }); // a catchlight
     m.ell([hp[0] - 0.5, hp[1] + 1.6, side * 1.15], [0.6, 0.66, 0.3], shade(s.color, 0.12), { ...hd, rot: [side * -0.35, 0, 0] });
     m.ell([hp[0] - 0.42, hp[1] + 1.6, side * 1.22], [0.4, 0.46, 0.2], '#c8a090', { ...hd, lo: true, rot: [side * -0.35, 0, 0] });
     for (const [x, part] of [[2.3, side > 0 ? P.LEG_FL : P.LEG_FR], [-2.5, side > 0 ? P.LEG_BL : P.LEG_BR]]) {
@@ -54,7 +54,7 @@ function squirrel(m, s) {
   for (const side of [1, -1]) {
     m.ell([4.45, 6.25, side * 1.18], [0.55, 0.5, 0.2], shade(s.belly, 0.25), { ...hd, lo: true });
     m.ell([4.55, 6.25, side * 1.26], [0.36, 0.36, 0.14], '#15110e', { ...hd, lo: true, gloss: 2 });
-    m.ell([3.4, 7.3, side * 0.85], [0.45, 0.85, 0.28], s.color, { ...hd, rot: [side * -0.25, 0, 0.1] });
+    pinnaAt(m, [3.4, 7.3, side * 0.85], [0.28, 0.85, 0.45], [side * -0.25, 0, 0.1], s.color, hd);
     m.limb([3.35, 7.9, side * 0.95], [3.2, 8.6, side * 1.0], 0.22, 0.05, '#2a1f18', { ...hd, caps: false });
   }
   // short front legs, big folded hind legs with long feet
@@ -91,8 +91,7 @@ function rabbit(m, s) {
     m.ell([5.05, 7.75, side * 1.5], [0.55, 0.58, 0.3], '#15110e', { ...hd, lo: true, gloss: 2 });
     m.ell([5.25, 7.95, side * 1.68], [0.14, 0.14, 0.08], '#ffffff', { ...hd, lo: true });
     // leaf-shaped ears laid back, darker at the tips
-    const ear = u => u.y > 0.72 ? col(shade(s.color, -0.3)) : col(shade(s.color, 0.05));
-    m.ell([3.4, 10.0, side * 0.95], [0.85, 2.45, 0.36], ear, { ...hd, rot: [side * -0.18, 0, 0.55] });
+    pinnaAt(m, [3.4, 10.0, side * 0.95], [0.36, 2.45, 0.85], [side * -0.18, 0, 0.55], shade(s.color, 0.05), { ...hd, shape: 'leaf', cup: 0.45, tip: shade(s.color, -0.3), tipAt: 0.85 });
   }
   for (const side of [1, -1]) {
     const sh = [2.8, 3.8, side * 1.25], fl = { part: side > 0 ? P.LEG_FL : P.LEG_FR, pivot: sh };
@@ -125,21 +124,35 @@ function bear(m, s) {
       return u.x > 0.5 && d > 0.7 && d < 1.0 && p.y < yc + H * 0.1 ? tmp.copy(col(s.chest)).multiplyScalar(0.9 + hash3(Math.round(p.y * 2), Math.round(p.z * 2), 3) * 0.15) : fur(u);
     };
     m.add(SPH_HI, place([L * 0.2, by + 1.2 * k, 0], [0, 0, 0], [L * 0.24, H * 0.52, H * 0.47]), blaze);
+    m.ell([-L * 0.22, by + 1.2 * k, 0], [L * 0.25, H * 0.52, H * 0.48], coat);
   } else {
-    m.ell([0, by + 1 * k, 0], [L * 0.4, H * 0.5, H * 0.45], coat);
-    m.ell([L * 0.2, by + 1.2 * k, 0], [L * 0.24, H * 0.52, H * 0.47], coat);
+    // one smooth bulk from rump to chest (overlapping blobs read as humps): the back runs gently
+    // down from a high rump to the withers, with no shoulder hump (that is a grizzly's), and both
+    // ends round off blunt. (d.x runs tail to chest; pushed outward, so the barrel stays full)
+    sculpt(m, d => {
+      const t = Math.sign(d.x) * Math.abs(d.x) ** 0.55, f = smooth(-0.7, 0.8, t);
+      const ry = H * (0.55 - 0.05 * f), cy = by + (2.2 - 1.2 * f) * k, rz = H * (0.47 + 0.02 * Math.exp(-t * t * 4));
+      return [-L * 0.02 + t * L * 0.47, cy + d.y * ry, d.z * rz];
+    }, coat);
   }
-  m.ell([-L * 0.22, by + (sun ? 1.2 : 2.4) * k, 0], [L * 0.25, H * 0.52, H * 0.48], coat); // black bears stand rump-high
   const hs = sun ? 1.18 : 1; // a sun bear's head is big for its body
   const neck = [L * 0.3, by + 1.5 * k, 0], hd = { part: P.HEAD, pivot: neck }, hp = [L * 0.51 + (sun ? H * 0.04 : 0), by - 0.4 * k + (sun ? H * 0.12 : 0), 0];
   m.limb(neck, [hp[0] - 3 * k, hp[1], 0], H * 0.33, H * 0.28, coat, hd);
-  m.ell(hp, [H * 0.29 * hs, H * 0.26 * hs, H * 0.26 * hs * (sun ? 1.08 : 1)], coat, hd);
+  const hr = [H * 0.29 * hs, H * 0.26 * hs, H * 0.26 * hs * (sun ? 1.08 : 1)];
+  m.ell(hp, hr, coat, hd);
+  // an ear rooted in the skull: its root starts a share (sink) of the way in from the head's surface,
+  // phi up from the side of the head, so the whole mouth of the funnel stays under the fur, and it
+  // leans out from upright by lean (len and width in shares of the height)
+  const ear = (side, phi, sink, lean, len, width, color, o) => {
+    const d = 1 - sink, base = [hp[0] - H * 0.05, hp[1] + hr[1] * Math.sin(phi) * d, side * hr[2] * Math.cos(phi) * d];
+    pinna(m, base, [base[0] - H * 0.02, base[1] + H * len * Math.cos(lean), base[2] + side * H * len * Math.sin(lean)], H * width, color, { ...hd, shape: 'round', cup: 0.35, ...o });
+  };
   if (sun) {
     // short, broad pale muzzle with a dark nose, and pale-rimmed small round ears
     m.ell([hp[0] + H * 0.27 * hs, hp[1] - H * 0.09 * hs, 0], [H * 0.17, H * 0.13, H * 0.15], s.muzzle, hd);
     m.ell([hp[0] + H * 0.42 * hs, hp[1] - H * 0.05 * hs, 0], [H * 0.06, H * 0.055, H * 0.075], '#0c0a09', { ...hd, lo: true });
     for (const side of [1, -1]) {
-      m.ell([hp[0] - H * 0.04, hp[1] + H * 0.27 * hs, side * H * 0.22 * hs], [H * 0.075, H * 0.075, H * 0.04], coat, hd);
+      ear(side, 0.8, 0.1, 0.45, 0.13, 0.14, s.color, { rim: s.muzzle }); // (small, set low and wide on the broad skull)
       m.ell([hp[0] + H * 0.14 * hs, hp[1] + H * 0.07 * hs, side * H * 0.23 * hs], [H * 0.035, H * 0.035, H * 0.02], '#3a2a1e', { ...hd, lo: true, gloss: 2 });
       m.eyeSpot = [hp[0] + H * 0.14 * hs, hp[1] + H * 0.07 * hs, H * 0.23 * hs]; // (eyes)
     }
@@ -147,14 +160,15 @@ function bear(m, s) {
     m.ell([hp[0] + H * 0.26, hp[1] - H * 0.08, 0], [H * 0.2, H * 0.13, H * 0.13], s.muzzle, hd);
     m.ell([hp[0] + H * 0.44, hp[1] - H * 0.05, 0], [H * 0.055, H * 0.05, H * 0.07], '#0c0a09', { ...hd, lo: true });
     for (const side of [1, -1]) {
-      m.ell([hp[0] - H * 0.06, hp[1] + H * 0.24, side * H * 0.17], [H * 0.09, H * 0.1, H * 0.05], '#2e2520', hd);
-      m.ell([hp[0] + H * 0.1, hp[1] + H * 0.07, side * H * 0.19], [H * 0.035, H * 0.035, H * 0.02], '#d8c8a8', { ...hd, lo: true, gloss: 2 });
-      m.eyeSpot = [hp[0] + H * 0.1, hp[1] + H * 0.07, H * 0.19]; // (eyes)
+      ear(side, 0.9, 0.16, 0.15, 0.22, 0.18, '#2e2520');
+      m.ell([hp[0] + H * 0.1, hp[1] + H * 0.07, side * H * 0.226], [H * 0.04, H * 0.04, H * 0.024], '#2a1c12', { ...hd, lo: true, gloss: 2 }); // (on the head's surface)
+      m.eyeSpot = [hp[0] + H * 0.1, hp[1] + H * 0.07, H * 0.226]; // (eyes)
     }
   }
   for (const [x, side, part, top] of [[L * 0.24, 1, P.LEG_FL, by - 2 * k], [L * 0.24, -1, P.LEG_FR, by - 2 * k], [-L * 0.24, 1, P.LEG_BL, by], [-L * 0.24, -1, P.LEG_BR, by]]) {
-    const z = side * H * 0.25, hip = [x, top, z], o = { part, pivot: hip };
-    if (part >= P.LEG_BL) m.ell([x - 1 * k, by - 2 * k, z * 1.05], [H * 0.3, H * 0.4, H * 0.2], coat, o); // heavy thigh
+    const z = side * H * (sun ? 0.25 : 0.23), hip = [x, top, z], o = { part, pivot: hip };
+    // heavy thigh (the black bear's kept inside the rump's curve, so it fills out the haunch rather than bulging off it)
+    if (part >= P.LEG_BL) m.ell(sun ? [x - 1 * k, by - 2 * k, z * 1.05] : [x, by - 1.5 * k, z * 1.05], sun ? [H * 0.3, H * 0.4, H * 0.2] : [H * 0.27, H * 0.38, H * 0.2], coat, o);
     m.limb(hip, [x + 0.6 * k, 3 * k, z], H * 0.25, H * 0.17, coat, o);
     paw(m, [x + 1.6 * k, 1.6 * k, z], [H * 0.21, H * 0.09, H * 0.17], '#0e0b09', o);
     // long, curved pale claws, longest on the front feet

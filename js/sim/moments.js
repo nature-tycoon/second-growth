@@ -1,6 +1,6 @@
 
 import { isMaleVariant } from '../data/animals.js';
-import { T, DAYS_PER_YEAR } from '../config.js';
+import { T, DAYS_PER_YEAR, lifeAge } from '../config.js';
 
 // Keystone moments: the handful of big natural events each map builds toward. They aren't
 // scripted: each one fires the first time the simulation gets there on its own (the salmon find
@@ -113,7 +113,7 @@ export function momentsUpdate(game) {
   }
   const agents = game.wildlife.agents;
   if (game.catalog.animal.elk && game.flags.moments?.elkRut == null && [6, 7, 8].includes(game.month)) {
-    const adultBull = a => living(a) && a.sp === game.catalog.animal.elk.index && !a.juvenile && a.age >= game.catalog.animal.elk.mature * DAYS_PER_YEAR && isMaleVariant(game.catalog.animal.elk, a);
+    const adultBull = a => living(a) && a.sp === game.catalog.animal.elk.index && !a.juvenile && lifeAge(a) >= game.catalog.animal.elk.mature * DAYS_PER_YEAR && isMaleVariant(game.catalog.animal.elk, a);
     const a = agents.find(a => adultBull(a) && a.state === 'spar' && !a.sparLight && adultBull(byId(game, a.sparWith)) &&
       agents.some(c => living(c) && (c.haremOf === a.id || c.haremOf === a.sparWith) && distance(a, c) < 10));
     if (a) { moment(game, 'elkRut', a, { live: true, rival: a.sparWith, loser: a.sparLoser }); return; }

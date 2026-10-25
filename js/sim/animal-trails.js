@@ -1,17 +1,12 @@
 // Persistent edge traffic, resource-site fidelity and bounded route reuse.
 // The same simulation field drives the ground shader and plant openings.
 import { T, F, isWater, clamp } from '../config.js';
-import { trailProfile, TRAIL_RESOLUTION } from '../data/animal-trails.js';
+import { trailProfile, TRAIL_RESOLUTION, TRAIL_THRESHOLD, TRAIL_FULL } from '../data/animal-trails.js';
+export { TRAIL_THRESHOLD, TRAIL_FULL };
 import { passable } from './animal-terrain.js';
 import { foodAt } from './animal-foraging.js';
 import { hash2, valueNoise } from '../rng.js';
 import { riskAt, safety } from './predation-risk.js';
-export const TRAIL_THRESHOLD = 0.09;
-// The drawn trail: it starts to show at TRAIL_THRESHOLD and is fully worn at TRAIL_FULL. A journey
-// wears about a 20th of the threshold into the ground (bigger animals a little more), so a trail
-// shows after about 20 passes and is plain to see after about 45 (it showed after about 9, from any
-// walking, and wore to full only at 0.55).
-export const TRAIL_FULL = 0.2;
 const PASS_WEAR = 0.45;
 export const TRAIL_FOOTPRINT = 0.17; // tiles (no narrower: wear is kept four samples to a tile, and a narrower footprint can fall between them; the drawn core is narrower)
 // Unused trails fade 0.17% a day (about half in 400 days, over three game years), so routes used
@@ -79,20 +74,41 @@ function densityState(w,create=false) {
   if(!s||s.array!==w.trailDensity){const active=new Set();for(let k=0;k<n;k++)if(w.trailDensity[k]>0)active.add(k);s={array:w.trailDensity,active};densityStates.set(w,s);}
   return s;
 }
+// Hooves land in the beaten path: a step within RUT_REACH of a drawn trail wears the trail's middle,
+// not the ground beside it. Walkers on one corridor never retrace exactly the same line (where they
+// joined it, how sharply their size lets them turn), and with years of traffic even the rare outer
+// lines wore past the threshold, so a busy trail spread into a braided band a tile or more wide.
+// Real trails get deeper and barer with use, not wider.
+const RUT_REACH=0.4; // tiles to either side (an elephant or giraffe is wider than that)
+function rut(w,x,y,nx,ny) {
+  // (most ground has no trail near it: five samples a fifth of a tile apart, closer than the field's
+  // own spacing, rule that out before the fine search)
+  let near=0;for(let o=-RUT_REACH;o<=RUT_REACH+1e-6;o+=.2)near=Math.max(near,trailSample(w,x+nx*o,y+ny*o));
+  if(near<TRAIL_THRESHOLD*.7)return 0;
+  let best=0,score=Math.max(TRAIL_THRESHOLD,trailSample(w,x,y));
+  for(let o=-RUT_REACH;o<=RUT_REACH+1e-6;o+=.05){
+    const v=trailSample(w,x+nx*o,y+ny*o)*(1-.25*Math.abs(o)/RUT_REACH);
+    if(v>score){score=v;best=o;}
+  }
+  return best;
+}
+// (a cap well past fully drawn: years of heavy use made wear that took over a decade to fade)
+const TRAIL_CAP=0.4;
 function traceTraffic(w,a,profile,x0,y0) {
   const s=densityState(w,true),R=TRAIL_RESOLUTION,W=w.w*R,H=w.h*R;
   // A narrow footprint (a game trail is a hoof's width, not a body's): the same peak wear as
   // the old 0.28-tile footprint, spread over less ground.
   const d=Math.hypot(a.x-x0,a.y-y0),samples=Math.max(1,Math.ceil(d*R*3)),radius=TRAIL_FOOTPRINT;
   const amount=profile.wear*(a.juvenile?.5:1)*d/samples*5*.28/radius*PASS_WEAR;
+  const nx=-(a.y-y0)/d,ny=(a.x-x0)/d;
   for(let k=0;k<samples;k++){
-    const t=(k+.5)/samples,x=x0+(a.x-x0)*t,y=y0+(a.y-y0)*t;
+    const t=(k+.5)/samples,o=a.state==='leave'?0:rut(w,x0+(a.x-x0)*t,y0+(a.y-y0)*t,nx,ny),x=x0+(a.x-x0)*t+nx*o,y=y0+(a.y-y0)*t+ny*o;
     const minX=Math.max(0,Math.floor((x-radius)*R)),maxX=Math.min(W-1,Math.floor((x+radius)*R));
     const minY=Math.max(0,Math.floor((y-radius)*R)),maxY=Math.min(H-1,Math.floor((y+radius)*R));
     for(let py=minY;py<=maxY;py++)for(let px=minX;px<=maxX;px++){
       const distance=Math.hypot((px+.5)/R-x,(py+.5)/R-y);if(distance>=radius)continue;
       const j=(py/R|0)*w.w+(px/R|0);if(!trailSurface(w,j))continue;
-      const i=py*W+px;s.array[i]=Math.min(1,s.array[i]+amount*(1-distance/radius));s.active.add(i);
+      const i=py*W+px;s.array[i]=Math.min(TRAIL_CAP,s.array[i]+amount*(1-distance/radius));s.active.add(i);
       w.trod[j]=Math.max(w.trod[j],s.array[i]);
     }
   }

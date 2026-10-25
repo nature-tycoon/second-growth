@@ -1,7 +1,7 @@
 import { dormancyStatus } from '../data/animal-dormancy.js';
 // DOM interface: top bar, tool palette, inspector, notifications, minimap and modal screens.
 
-import { T, F, FEATURE_NAMES, MONTH_NAMES, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp } from '../config.js';
+import { T, F, FEATURE_NAMES, MONTH_NAMES, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp, lifeAge } from '../config.js';
 import { music } from '../audio/music.js';
 import { sampleSoundLand } from '../audio/land.js';
 import { rutSounds } from '../audio/rut-events.js';
@@ -341,7 +341,7 @@ export class UI {
     const wIcon = g.weather === 'clear' && (this.renderer.night || 0) > 0.4 ? 'moon' : { clear: 'sun', cloud: 'cloud', rain: 'rain', snow: 'snow' }[g.weather] || 'sun';
     const we = $('#stat-weather');
     if (we.dataset.w !== wIcon) { we.innerHTML = ICONS[wIcon]; we.dataset.w = wIcon; }
-    document.querySelectorAll('#speed button').forEach(b => b.classList.toggle('on', +b.dataset.speed === g.speed));
+    document.querySelectorAll('#speed button, #watch .w-speed button').forEach(b => b.classList.toggle('on', +b.dataset.speed === g.speed));
     const sc = Math.round(g.cache.score?.total ?? 0);
     setText($('#score-num'), sc);
     const ring = $('#score-ring');
@@ -672,7 +672,12 @@ export class UI {
     if (existingMini) { setText(existingMini, this.infoMin ? '+' : '−'); setAttr(existingMini, 'title', tr(this.infoMin ? 'Expand' : 'Collapse')); }
     if (ins.agent) {
       const a = this.game.wildlife.findAgent(ins.agent);
-      if (!a) { if (!setHTML(panel, `<button class="close">×</button><h3>Gone</h3><p class="info-desc">This animal has moved on, or didn't make it.</p>`)) return; }
+      // (a kill, or a death where it stood, leaves a carcass with its id: see Input.trackFollow)
+      const body = !a && this.game.wildlife.carcasses.find(c => c.id === ins.agent);
+      const gone = !body ? ['Gone', "This animal has moved on, or didn't make it."]
+        : body.by != null ? ['Killed', 'A hunter caught this animal. Its carcass lies here while it\'s eaten, then breaks down.']
+        : ['Died', 'This animal died here. Its carcass lies here while scavengers eat it, then breaks down.'];
+      if (!a) { if (!setHTML(panel, `<button class="close">×</button><h3>${gone[0]}</h3><p class="info-desc">${gone[1]}</p>`)) return; }
       else if (!setHTML(panel, this.agentHTML(a))) return;
     } else if (!setHTML(panel, this.tileHTML(ins.i))) return;
     panel.querySelector('.close')?.addEventListener('click', () => this.closeInfo());
@@ -712,7 +717,7 @@ export class UI {
       <p class="info-desc">This bird is passing over the map. It does not live on the property or count toward its resident population.</p>
       <div class="info-actions"><button type="button" class="primary" data-follow>${PILL.follow}Follow bird</button><button type="button" data-guide="${def.key}">${PILL.guide}Field guide</button></div>
       <p class="info-desc">${def.desc}</p>`;
-    const ageY = a.age / 120;
+    const ageY = lifeAge(a) / 120;
     const status = this.agentStatus(a, def);
     const ageTxt = ageY < 1 ? `${Math.max(1, Math.round(ageY * 12))} months` : `${ageY.toFixed(1)} years`;
     return `<button class="close">×</button>
@@ -1685,7 +1690,7 @@ export class UI {
         <li>Touching the map folds the tool panel away; tap its tool group again to open it. The ☰ menu has the journal and see-through trees.</li>
         <li>For the most room, use full screen (the corner button at the top) or add the game to your home screen.</li>` : ''}
         <li${TOUCH ? ' hidden' : ''}>Pick a tool on the left, then <b>click and drag to brush</b> it across the land. <kbd>[</kbd> <kbd>]</kbd> change brush size.</li>
-        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate by 15°. Hold <kbd>Shift</kbd> for a 90° turn. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode, <kbd>C</kbd> sits back and watches (<kbd>F</kbd> there for eye level).</li>
+        <li${TOUCH ? ' hidden' : ''}>Right-drag or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to pan, scroll to zoom, <kbd>Q</kbd> <kbd>E</kbd> to rotate by 15°. Hold <kbd>Shift</kbd> for a 90° turn. <kbd>Space</kbd> pauses, <kbd>1</kbd>–<kbd>3</kbd> set speed, <kbd>0</kbd> slows to watch pace, <kbd>T</kbd> sees through trees, <kbd>Tab</kbd> hides the panels, <kbd>P</kbd> is photo mode, <kbd>C</kbd> sits back and watches (<kbd>F</kbd> there for eye level).</li>
         <li>Use <b>Inspect</b> to click any tile or animal. The <b>Overlay</b> menu shows moisture, soil, sunlight, fish passage, or where a species could live.</li>
       </ul>
       <h3>A good first year</h3>

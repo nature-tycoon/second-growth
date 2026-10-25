@@ -2,7 +2,7 @@
 // die when there isn't, hunt, migrate in from the surroundings, and (beavers) re-engineer the land.
 
 
-import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
+import { T, F, isWater, clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { many, cap, preyFor, preyPer, isMale, isMaleVariant } from '../data/animals.js';
 import { killTree } from './plants.js';
 import { moment } from './moments.js';
@@ -483,7 +483,7 @@ export class Wildlife {
 
       // births
       if (def.breed.includes(m) && pop >= 2 && pop < K) {
-        const adults = mine.filter(a => a.state !== 'dormant' && a.age >= def.mature * DAYS_PER_YEAR && !hungryPredator(game, a, def));
+        const adults = mine.filter(a => a.state !== 'dormant' && lifeAge(a) >= def.mature * DAYS_PER_YEAR && !hungryPredator(game, a, def));
         // (the young follow a female: in family herds the adults without the male look, otherwise any
         // female adult, or any adult at all if there are no females)
         const females = def.familyHerd ? null : adults.filter(a => !isMale(def, a));
@@ -516,7 +516,7 @@ export class Wildlife {
         // out by seasonal food scarcity. Natural/age mortality still applies.
         if (!dormant && over) p += 0.3 * over;
         if (!dormant && K < 0.5) p += 0.12;
-        if (a.age > def.life * DAYS_PER_YEAR * 1.3) p += 0.35;
+        if (lifeAge(a) > def.life * DAYS_PER_YEAR * 1.3) p += 0.35;
         if (rng() < p) {
           // most "deaths" when habitat is poor are really animals moving on
           if (!dormant && (K < def.minK || rng() < 0.4)) this.leave(a);
@@ -737,7 +737,7 @@ export class Wildlife {
     a.state = 'leave'; a.path = null;
     for (const o of this.agents) if (o.mom === a.id && !o.leaving) { this.leave(o); o.tx = a.tx + (Math.random() - 0.5); o.ty = a.ty + (Math.random() - 0.5); }
     if (def.herd) { // a herd moves off in dribs and drabs (not one in the water, though), the young and the old dropping back
-      const years = a.age / DAYS_PER_YEAR, prime = years >= (def.mature || 0) && !(def.life && years > def.life * 0.7);
+      const years = lifeAge(a) / DAYS_PER_YEAR, prime = years >= (def.mature || 0) && !(def.life && years > def.life * 0.7);
       a.leaveWait = inRiver(this, a) ? 0 : Math.random() * 6; a.pace = (prime ? 0.9 : 0.65) + Math.random() * 0.4;
     }
     if (a.move === 'fly') { a.flying = true; }
@@ -840,6 +840,11 @@ export class Wildlife {
       if (w.shrub[j] && w.shrubG[j] < 0.3 && (w.shrubG[j] -= 0.08) <= 0) { w.shrub[j] = 0; w.shrubG[j] = 0; }
     }
   }
+
+  // At watch pace the animals' clock runs ahead of the calendar (lifePace: calendar days per animal
+  // day). A hunt tried at any moment, rather than once a day, passes only that share of the time,
+  // so a hungry hunter that misses doesn't get several more tries a day and eat its prey out.
+  paced() { return !(this.lifePace < 1) || Math.random() < this.lifePace; }
 
   startHunt(a, def, diet = preyFor(def, this.game), reach = 12, only = null) {
     if (!canStartHunt(a) || !diet) return false;
@@ -1052,6 +1057,7 @@ export class Wildlife {
       const trailX = a.x, trailY = a.y;
       if (a.state !== 'walk') a.walkHeading = undefined;
       a.age += dt;
+      if (this.lifePace < 1) a.lag = (a.lag || 0) + dt * (1 - this.lifePace); // (see lifeAge)
       if (updateDormancy(this, a, def)) continue;
       // (a fish beats its tail faster the faster it swims, and only sculls gently while it hovers)
       a.phase += dt * (def.reef ? 2.5 + 5 * Math.min(1.6, (a.spd || 0) / def.speed) : 6 * clamp(a.run || 1, 0.45, 2.6)) * (def.sprite.beat ?? 1); // (beat: a big, slow swimmer's tail; a.run: legs going faster at a sprint, slower at a creep)
@@ -1535,7 +1541,7 @@ export class Wildlife {
     // enough to go their own way
     if (!a.leaving && play(this, a, def)) return;
     if (a.mom != null && !a.leaving && this.keepWithMom(a, def)) return;
-    if (a.disperse && !a.leaving && a.mom == null && a.age >= independentAge(def)) { a.disperse = false; if (this.disperse(a, def)) return; }
+    if (a.disperse && !a.leaving && a.mom == null && lifeAge(a) >= independentAge(def)) { a.disperse = false; if (this.disperse(a, def)) return; }
     // just climbed out of the river: the herd heads inland to find grass
     if (a.landed) {
       a.landed = false;
@@ -1789,7 +1795,7 @@ export class Wildlife {
     const at = (x, y) => Math.abs(x - cx) <= 5 && w.inb(x, y) && w.terrain[w.idx(x, y)] === T.RIVER && y < w.h - 1;
     if (at(Math.floor(a.x), Math.floor(a.y))) {
       const diet = preyFor(def, this.game);
-      if (diet && !(this.game.day < (a.crossRest ?? -1)) && this.startHunt(a, def, diet, 4, b => inCrossing(this, b))) return true;
+      if (diet && !(this.game.day < (a.crossRest ?? -1)) && this.paced() && this.startHunt(a, def, diet, 4, b => inCrossing(this, b))) return true;
       a.wait = 1 + Math.random() * 3; a.trip = null; return true;
     }
     a.trip = null;
@@ -1823,7 +1829,7 @@ export class Wildlife {
   // Tag along a step behind mum, trotting to catch up when she moves off.
   keepWithMom(a, def) {
     const years = WITH_MOM[def.key];
-    if (!years || a.age > Math.min(years, def.mature || years) * DAYS_PER_YEAR) { a.mom = null; return false; }
+    if (!years || lifeAge(a) > Math.min(years, def.mature || years) * DAYS_PER_YEAR) { a.mom = null; return false; }
     const mom = this.agents.find(o => o.id === a.mom);
     if (!mom || def.familyHerd && isMaleVariant(def, mom)) { a.mom = null; return false; } // on its own now
     if (this.drinks(def) && mom.drinkT > 0 && this.waterhole(a, def)) return true;

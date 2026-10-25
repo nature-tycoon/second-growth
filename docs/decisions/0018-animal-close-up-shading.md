@@ -284,6 +284,23 @@ ball for a head. Now:
 Cost: 3.7% more triangles over the 56 birds (337k to 350k; at most +9% on the hawks and eagles),
 6% on the close-up models. Review: Pose → Flying (`pose=fly`, framed on the spread wings).
 
+## Ears
+
+Every mammal's ear is one shared model, `pinna` in `animals/model-core.js` (`pinnaAt` places it
+like an upright oval, the way older hand-placed ears were laid out): a thin leaf of skin rolled
+into a funnel at the root and opening toward the tip, its hollow facing forward and a little out,
+paler inside, with a rounded rim. Outlines: `point`, `round`, `leaf`; a darker tip, a rim colour
+and a spot behind (a tiger's) are options. The quadruped's `ears: 'point' | 'round'` both draw it
+(`earShape`, `earInner`, `earTip`, `earTipAt`, `earRim`, `earCup` tune it). Don't build ears from
+tapered limbs (they read as cones) or solid ovals. Exceptions: elephants' sculpted flaps and the
+primates' small flat ears.
+
+Gotcha: `pinna` starts only 12% of its length inside its base, and a wide round ear's root is as
+wide as the ear, so a base set on (or above) a curved skull leaves the root's outer edge, or the
+whole ear, floating. Put the base well inside the head, measured from the head's own radii (the
+bears' `ear()` in `small-mammals.js` sinks it 10–16% in from the surface), and lean the ear out
+with the skull, not in toward the midline.
+
 ## Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the
@@ -291,3 +308,7 @@ game's lights, camera angle and tone mapping. Framing can also show the game's o
 and zoomed-out scales, and Model switches to the close-up model (`?model=close`). `?bench=1` times each animal filling a Retina-size frame. `node tools/animal-closeup-capture.mjs [out] [query]`
 saves its frames and a contact sheet. `CLOSEUP_ROOT=<checkout>` renders another checkout (copy the
 page into it first).
+
+Eyes must sit on the head's outer surface: an eye placed for an older, smaller head is buried
+when the head or a face piece grows around it. `node tools/animal-eyes-check.mjs [--print]` builds
+every species (usual and close-up models) and fails when an eye is buried or tiny for its head.
