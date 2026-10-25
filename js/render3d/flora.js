@@ -13,7 +13,7 @@ import { activeCatalog } from '../data/catalog.js';
 import { meadowPatch, patchColor } from './patches.js';
 import { FloraChanges, floraChunkKey, TRAIL_OPENING, CLOSED_CANOPY } from './flora-changes.js';
 import { groveForm } from './groves.js';
-import { underWater, groundAt, visibleLevel } from '../sim/waterline.js';
+import { underWater, visibleLevel } from '../sim/waterline.js';
 import { paletteLeafColor } from './palettes.js';
 import { CanopySite, canopyTile } from './canopy-support.js';
 import { PlantView } from './plant-view.js';
@@ -21,6 +21,7 @@ import { GeometryIndex } from './geometry-index.js';
 import { PlantShadows } from './plant-shadows.js';
 import { PlantPool, ChunkedPlantPool, floraVersion } from './plant-pools.js';
 import { trailMask } from '../sim/animal-trails.js';
+import { dryPoint, trunkSpot } from '../sim/ground-obstacles.js';
 import { createPlantMaterials } from './plant-materials.js';
 
 // Preserve public imports used by existing rendering tools.
@@ -116,19 +117,7 @@ export class Flora {
   // A spot on tile (x, y) clear of the drawn water: the given one if it stands well above the
   // waterline, otherwise the nearest point of a small grid that does, or failing that the
   // tile's highest point. (Well above: a trunk right at the water's edge still reads as wading.)
-  dryPoint(w, x, y, px, pz) {
-    const L = visibleLevel(w, x, y), margin = 0.12;
-    if (L == null || groundAt(w, px, pz) > L + margin) return [px, pz];
-    let best = null, bd = Infinity, high = [px, pz], hh = groundAt(w, px, pz);
-    for (let v = 0; v < 5; v++) for (let u = 0; u < 5; u++) {
-      const qx = x + 0.12 + u * 0.19, qz = y + 0.12 + v * 0.19, h = groundAt(w, qx, qz);
-      if (h > hh) { hh = h; high = [qx, qz]; }
-      if (h <= L + margin) continue;
-      const d = (qx - px) ** 2 + (qz - pz) ** 2;
-      if (d < bd) { bd = d; best = [qx, qz]; }
-    }
-    return best || high;
-  }
+  dryPoint(w, x, y, px, pz) { return dryPoint(w, x, y, px, pz); }
 
   // A soft shadow disc of radius r at (x, z), tilted to lie on the slope.
   contactShadow(hAt, x, z, r) {
@@ -550,8 +539,7 @@ export class Flora {
           : ['redbud', 'riverbirch', 'vinemaple'].includes(p.key) ? 'vase' : baseShape.habit;
         const shapeDef = habit === baseShape.habit ? baseShape : { ...baseShape, habit };
         const phase = p.conifer ? 'green' : plantPhase(p, month);
-        let tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
-        if (bankTile && !p.aquatic) [tx, tz] = this.dryPoint(w, x, y, tx, tz);
+        const [tx, tz] = trunkSpot(w, x, y, p, bankTile); // (animals walk round it there: sim/ground-obstacles.js)
         const ty = hAt(tx, tz) - 0.02;
         const sc = (0.2 + 0.8 * g) * (0.78 + hash2(x, y, 9) * 0.42) * (p.look.scale ?? 1);
         const grove = groveForm(x, y, g, shapeDef);

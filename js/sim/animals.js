@@ -17,6 +17,7 @@ import { travelSpeed } from './climb-pace.js';
 import { territorialChoose, hasTerritory } from './animal-territory.js';
 import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
+import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
 import { grazeDay, decayGrazing } from './grazing.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, followLeaderTrip } from './animal-trails.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
@@ -77,6 +78,7 @@ class Animal {
   pushX; pushY; course; thirst; trip; greet; socialWith; socialUntil; localGoal; greetT; goal;
   birdAlertCheck; sparPath; sparT; sparLight; sparWith; sparAt; play; target; perchedAt; spd; hd;
   swimT; threat; fleeOff; fx; fy; fleeT; fleeSpeed; fleeDelay; fleeSide; fleeAge; alertT; assist; hunt;
+  woodLost; squeeze; trampled;
   foragedAt; huntTime; playT; playN; nestSite; stoop; slot; disperse; alertUntil; carcass; feedAt;
   feedT; fruitAfter; socialCooldown; familySettled; familyRetryUntil; bachelorSlot; herdOf; mom;
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
@@ -1114,8 +1116,9 @@ export class Wildlife {
             // off for the bank again, pacing back and forth without ever drinking)
             if (drink) a.bankGoal = bank;
           }
-          const tx = a.path.length === 1 ? a.restSpot[1] : (j % w.w) + 0.5 + ox;
-          const ty = a.path.length === 1 ? a.restSpot[2] : ((j / w.w) | 0) + 0.5 + oy;
+          // (a spot picked by tile can fall on a trunk: aim beside it, see ground-obstacles.js)
+          const [tx, ty] = clearSpot(w, a, def, a.path.length === 1 ? a.restSpot[1] : (j % w.w) + 0.5 + ox,
+            a.path.length === 1 ? a.restSpot[2] : ((j / w.w) | 0) + 0.5 + oy);
           const wading = def.crossing && w.terrain[j] === T.RIVER; // swimming the river is slow going
           // A waypoint isn't a pin that every animal must stand on. Step past occupied
           // transit points, or finish beside an occupied destination when already clear.
@@ -1258,6 +1261,7 @@ export class Wildlife {
       ty = rest ? a.restSpot[2] : (j / w.w | 0) + 0.5 + oy;
     }
     if (tx == null || ty == null) { a.moveProgress = null; return; }
+    [tx, ty] = clearSpot(w, a, this.game.catalog.animals[a.sp], tx, ty); // (where the walk aims: beside a trunk, not on it)
     const distance = Math.hypot(a.x - tx, a.y - ty), p = a.moveProgress;
     if (!p || p.j !== j || p.tx !== tx || p.ty !== ty) {
       a.moveProgress = { j, tx, ty, best: distance, stalled: 0 };
@@ -1358,7 +1362,9 @@ export class Wildlife {
   }
 
   stepToward(a, tx, ty, sp) {
-    const dx = tx - a.x, dy = ty - a.y;
+    const def = this.game.catalog.animals[a.sp];
+    [tx, ty] = clearSpot(this.game.world, a, def, tx, ty);
+    let dx = tx - a.x, dy = ty - a.y;
     const d = Math.hypot(dx, dy);
     // A reef fish never slides sideways at a target (hunting, leaving): it turns its nose toward
     // it, no faster than a fish can, and swims along its heading, easing off in a tight turn.
@@ -1374,7 +1380,9 @@ export class Wildlife {
       if (Math.abs(Math.cos(a.hd)) > 0.1) a.facing = Math.cos(a.hd) > 0 ? 1 : -1;
       return Math.hypot(tx - a.x, ty - a.y) <= sp;
     }
-    if (d > 0.02 && sp > 0) facePoint(a, tx, ty);
+    // (curve round a trunk or log ahead rather than walking into it)
+    if (d > 0.02 && sp > 0) { const h = steerAround(this.game.world, a, def, Math.atan2(dy, dx), Math.min(d, 1.2)); dx = Math.cos(h) * d; dy = Math.sin(h) * d; }
+    if (d > 0.02 && sp > 0) facePoint(a, a.x + dx, a.y + dy);
     if (Math.abs(dx) > 0.02) a.facing = dx > 0 ? 1 : -1;
     const step = Math.min(d, sp), nx = d ? a.x + dx / d * step : a.x, ny = d ? a.y + dy / d * step : a.y;
     if (this.game.catalog.animals[a.sp].reef && !reefMoveSafe(this.game.world, a, nx, ny)) return false;
@@ -1397,7 +1405,9 @@ export class Wildlife {
         return false;
       }
     }
+    const fromX = a.x, fromY = a.y;
     a.x = nx; a.y = ny;
+    resolveStep(this, a, def, fromX, fromY);
     return d <= sp;
   }
 
@@ -1932,7 +1942,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, course, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,

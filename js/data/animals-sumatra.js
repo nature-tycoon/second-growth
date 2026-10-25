@@ -101,7 +101,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, SHRUB: 1, RIPARIAN: 1, MATURE_FOREST: 0.7, MEADOW: 0.7, MARSH: 0.5 });
-    def({ key: 'gajah', herd: true, herdR: 2.5, herdMax: 6, name: 'Sumatran elephant', sci: 'Elephas maximus sumatranus', group: 'Mammals', move: 'ground',
+    def({ key: 'gajah', herd: true, tramples: true, herdR: 2.5, herdMax: 6, name: 'Sumatran elephant', sci: 'Elephas maximus sumatranus', group: 'Mammals', move: 'ground',
       speed: 1, hr: 220, max: 7, minK: 3, groupSize: [3, 6], sources: ['N'], mig: 0.12,
       breed: [7], litter: [1, 1], life: 60, mature: 12,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.3),
