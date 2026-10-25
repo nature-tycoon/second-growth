@@ -27,6 +27,7 @@ jobs:
           node-version: '22'
           package-manager-cache: false
       - uses: actions/configure-pages@v5
+      - run: sh tools/stamp-release.sh
       - run: node tools/website-security-check.mjs
       - run: node tools/website-check.mjs
       - uses: actions/upload-pages-artifact@v4

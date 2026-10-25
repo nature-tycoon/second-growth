@@ -47,6 +47,15 @@ eye steps back three times the extra height, never nearer than 2.6 heights; the 
 at least 0.6 of it. A deer and anything smaller frame as before. An elephant now sits about 3.6
 tiles off (was 2.5), a giraffe about 5 (was 2.3). `watch-check.mjs` holds those proportions.
 
+**Small animals** (2026-10-24, Cole: "too far zoomed out on some animals especially small ones and
+capybaras"). The usual view's zoom came from the sprite's height, and species without one (capybara,
+squirrels, otters, most birds and fish) counted as 40, as tall as a bear, so they got the widest
+shot (2.3). It now comes from the model as drawn (`Fauna.extent`: its longer side, length or
+height, times the animal's scale): the zoom makes that about 150 pixels (`FILL`), between 2.3 and 8
+(`CLOSEST`). Watch mode may go past the wheel's 4.5 (`flyTo`'s `maxZoom`); the ground and grass
+still hold up at 8. A capybara is now at about 7.9 (was 2.3), a deer 5.6 (4.2), a cougar 3.8 (4.2),
+a giraffe 2.3 (3.5). The smallest (frogs, songbirds, butterflies) stop at 8, under 150 pixels.
+
 **Swinging round** (2026-10-24, Cole: "if you haven't hit wasd in eye-level mode you can rotate
 around the animal while still following it by dragging or using q/e"). While the eye follows an
 animal, a drag over the view or Q / E swing it round the animal (`EyeCamera.update`'s `orbit`),

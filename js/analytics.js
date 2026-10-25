@@ -3,6 +3,7 @@
 // on localhost, or when the browser asks sites not to track.
 
 import { settings } from './settings.js';
+import { RELEASE } from './release.js';
 
 // Project API key from PostHog (Project settings → Project API key). It is meant to be public.
 const POSTHOG_KEY = 'phc_wWDczF7Egr2VV5Nj6JN2duzKW4ND298DaKjgaQ3B78sf';
@@ -39,7 +40,7 @@ function loadPostHog() {
     // Also gate automatic/queued SDK events if the player opts out while it loads.
     before_send: event => trackingAllowed() ? event : null,
   });
-  window.posthog.register({ game_version: GAME_VERSION });
+  window.posthog.register({ game_version: GAME_VERSION, release: RELEASE });
   return window.posthog;
 }
 
@@ -93,7 +94,7 @@ export async function sendFeedback(props) {
   const body = {
     api_key: POSTHOG_KEY, event: 'feedback',
     distinct_id: distinct || 'feedback-' + Math.random().toString(36).slice(2, 12),
-    properties: { ...props, game_version: GAME_VERSION, $current_url: location.href, ...(session ? { $session_id: session } : {}), ...(linked ? {} : { $process_person_profile: false }) },
+    properties: { ...props, game_version: GAME_VERSION, release: RELEASE, $current_url: location.href, ...(session ? { $session_id: session } : {}), ...(linked ? {} : { $process_person_profile: false }) },
   };
   try {
     const r = await fetch(POSTHOG_HOST + '/i/v0/e/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true });

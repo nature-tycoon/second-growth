@@ -492,25 +492,29 @@ export function emergent(opts, seed, lod = 0) {
   const r = mulberry32(seed);
   const { height: H, rx, ry, trunkR } = opts;
   const cy = H - ry * 0.9, parts = [];
-  const nB = lod ? 9 : 16;
+  // Great limbs fan out from the top of the trunk, and every leaf clump grows on one of them:
+  // one over each limb's end (hiding it) and the rest along it, so no clump hangs in the air.
+  // (the clumps' random numbers are drawn first, as they always were, so the limbs that monkeys
+  // climb keep their places)
+  const nB = lod ? 9 : 16, rolls = Array.from({ length: nB }, () => [r(), r(), r(), r()]);
+  const limbs = [trunk(cy, trunkR, trunkR * 0.72)], base = [0, cy - ry * .4, 0], tips = [];
+  for (let k = 0; k < 5; k++) {
+    const a = k / 5 * 6.28 + r() * 0.5, len = rx * 0.75;
+    const tip = [Math.cos(a) * Math.sin(1.05) * len, base[1] + Math.cos(1.05) * len, Math.sin(a) * Math.sin(1.05) * len];
+    tips.push(tip);
+    limbs.push(rod(base, tip, trunkR * .5, trunkR * .28));
+  }
   for (let b = 0; b < nB; b++) {
-    const a = r() * 6.28, d = Math.sqrt(r());
-    const x = Math.cos(a) * rx * d, z = Math.sin(a) * rx * d * 0.9, y = cy + (r() - 0.35) * ry * (1.2 - d * 0.6);
-    const s = rx * (lod ? 0.36 : 0.3) * (0.7 + r() * 0.5);
+    const [r0, r1, r2, r3] = rolls[b], tip = tips[b % tips.length], d = Math.hypot(tip[0], tip[2]);
+    const t = b < tips.length ? 1 : 0.45 + r0 * 0.5, side = (r1 - 0.5) * rx * 0.3;
+    const x = tip[0] * t - tip[2] / d * side, z = tip[2] * t + tip[0] / d * side, y = base[1] + (tip[1] - base[1]) * t + (r2 - 0.5) * ry * 0.3;
+    const s = rx * (lod ? 0.36 : 0.3) * (0.7 + r3 * 0.5);
     const blob = soft(new THREE.IcosahedronGeometry(s, lod ? 0 : 1), { seed: seed + b * 5, lump: s * 0.25, transform: g => { g.scale(1, 0.62, 1); g.translate(x, y, z); } });
     shadeVerts(blob, (xx, yy) => 0.82 + Math.min(0.24, Math.max(0, (yy - y) / s * 0.5 + 0.5) * 0.24));
     parts.push(blob);
   }
   const crown = merge(parts);
   volumeNormals(crown, 0, cy, 0, 0.5);
-  const limbs = [trunk(cy, trunkR, trunkR * 0.72)];
-  for (let k = 0; k < 5; k++) {
-    const a = k / 5 * 6.28 + r() * 0.5, len = rx * 0.75;
-    const base = [0, cy - ry * .4, 0];
-    const tip = [Math.cos(a) * Math.sin(1.05) * len, base[1] + Math.cos(1.05) * len, Math.sin(a) * Math.sin(1.05) * len];
-    const l = rod(base, tip, trunkR * .5, trunkR * .28);
-    limbs.push(l);
-  }
   if (opts.buttress) for (let k = 0; k < 5; k++) {
     const a = k / 5 * 6.28 + r() * 0.4;
     const fin = soft(new THREE.BoxGeometry(0.34, 0.5, 0.025), { transform: g => {

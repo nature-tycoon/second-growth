@@ -39,7 +39,9 @@ export function noiseTexture() {
 // odd pebble and fine grit, raised a little in the light. Each layer fades to its average tone once
 // it's finer than a pixel, so the usual view (where a tile's texture already shows every pixel)
 // never pays for it and nothing shimmers. p: world position; fp: the pixel's width in world units;
-// mud: bigger, flatter clods and fewer stones; stony: mostly stones (gravel); sand: grit only.
+// mud: bigger, flatter clods and fewer stones; wet: rain softening it (flatter clods, no pale specks,
+// but the same size: resizing them as the rain comes and goes slid the whole pattern across the
+// ground); stony: mostly stones (gravel); sand: grit only.
 // h is the height of the surface there, for the bump in the lighting.
 const SOIL_GLSL = `
 // three hashes of a cell at once (no sine: cheap on any graphics chip)
@@ -50,7 +52,8 @@ vec3 soilHash(vec2 p) {
 }
 // 1 while features of this size span a few pixels, 0 once they shrink below one
 float soilDetail(float fp, float size) { return 1.0 - smoothstep(0.2, 0.5, fp / size); }
-vec3 bareEarth(vec3 col, vec2 p, float fp, float mud, float stony, float sand, out float h) {
+vec3 bareEarth(vec3 col, vec2 p, float fp, float mud, float wet, float stony, float sand, out float h) {
+  float soft = max(mud, wet);
   // crumbs: small rounded clods, each its own shade, darker down between them
   float size = mix(0.04, 0.065, mud), detail = soilDetail(fp, size);
   vec3 c = col;
@@ -72,7 +75,7 @@ vec3 bareEarth(vec3 col, vec2 p, float fp, float mud, float stony, float sand, o
     float aa = fp / size * 0.7 + 1e-4;
     float lump = smoothstep(0.0, 0.7, d2 - d1) * (1.0 - sand);
     c *= (1.0 + (fract(id * 3.1) - 0.5) * 0.18 * (1.0 - sand)) * (0.93 + 0.11 * lump + 0.07 * sand);
-    h = lump * size * (0.04 + 0.05 * fract(id * 5.3)) * (1.0 - 0.6 * mud);
+    h = lump * size * (0.04 + 0.05 * fract(id * 5.3)) * (1.0 - 0.6 * soft);
     // one clod in many is a pebble (most of them, on gravel; none in sand): a rounded stone, greyer
     // and paler than the soil, darker round its rim
     float pebOn = step(mix(0.95 + mud * 0.03, 0.3, stony) + sand, id), r = 0.2 + 0.12 * fract(id * 13.7) + 0.12 * stony;
@@ -90,7 +93,7 @@ vec3 bareEarth(vec3 col, vec2 p, float fp, float mud, float stony, float sand, o
   vec3 grit = texture2D(uNoise, p * 7.5 + 0.31).rgb;
   float g1 = grit.r, g2 = grit.b;
   c *= 1.0 + (g1 - 0.5) * 0.22 * soilDetail(fp, 0.014);
-  c = mix(c, col * 1.4, smoothstep(0.72 - sand * 0.12, 0.8, g2) * 0.45 * soilDetail(fp, 0.006) * (1.0 - mud));
+  c = mix(c, col * 1.4, smoothstep(0.72 - sand * 0.12, 0.8, g2) * 0.45 * soilDetail(fp, 0.006) * (1.0 - soft));
   h += (g1 - 0.5) * 0.0012 * soilDetail(fp, 0.014);
   return c;
 }
@@ -228,7 +231,7 @@ vec4 tileTex(sampler2D atlas, vec4 t, vec2 p, vec2 gx, vec2 gy) {
       // bare earth (and worn trails) up close; after rain it softens toward mud
       float soilK = max(soilBare, traffic * 0.8) * soilNear;
       if (soilK > 0.004) {
-        diffuseColor.rgb = mix(diffuseColor.rgb, bareEarth(diffuseColor.rgb, gp, soilFp, max(soilMud, uWet * 0.4), soilStony, soilSand, soilH), soilK);
+        diffuseColor.rgb = mix(diffuseColor.rgb, bareEarth(diffuseColor.rgb, gp, soilFp, soilMud, uWet * 0.4, soilStony, soilSand, soilH), soilK);
         soilH *= soilK;
       }
       // A broken waterline fringe: dark damp silt, pale gravel pockets, then grass.
