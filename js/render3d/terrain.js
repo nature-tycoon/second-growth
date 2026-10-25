@@ -618,13 +618,7 @@ export class Terrain {
     for (let k = 0; k < TW * TH; k++) if (level[k] === level[k]) tiles.push(k);
     const pos = new Float32Array(tiles.length * 18), col = new Float32Array(tiles.length * 24), nor = new Float32Array(tiles.length * 18);
     const dep = new Float32Array(tiles.length * 6), flow = new Float32Array(tiles.length * 12), bend = new Float32Array(tiles.length * 6);
-    const slope = new Float32Array(tiles.length * 6), round = new Float32Array(tiles.length * 6);
-    // how steeply the ground rises at a corner, per tile (its steeper side along each axis)
-    const steep = (vx, vy) => {
-      const v = w.vert(vx, vy);
-      return Math.hypot(Math.max(Math.abs(w.vert(vx + 1, vy) - v), Math.abs(v - w.vert(vx - 1, vy))),
-        Math.max(Math.abs(w.vert(vx, vy + 1) - v), Math.abs(v - w.vert(vx, vy - 1))));
-    };
+    const round = new Float32Array(tiles.length * 6)
     // the ground at a corner smoothed over its neighbours (1-2-1 each way): the water shader
     // rounds the waterline's tile-sized steps against it
     const smooth = (vx, vy) => {
@@ -729,7 +723,7 @@ export class Terrain {
       for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
         const c = vColor(vx, vy), lv = managed(k) ? level[k] : vLevel(vx, vy);
         pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
-        dep[od] = lv - w.vert(vx, vy); slope[od] = steep(vx, vy); round[od] = managed(k) ? dep[od] : lv - smooth(vx, vy);
+        dep[od] = lv - w.vert(vx, vy); round[od] = managed(k) ? dep[od] : lv - smooth(vx, vy);
         const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
         flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
@@ -744,7 +738,6 @@ export class Terrain {
     g.setAttribute('aCurrent', new THREE.BufferAttribute(flowCoords(pos, flow, od), 2));
     g.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
     g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(od), 1));
-    g.setAttribute('aSlope', new THREE.BufferAttribute(slope, 1));
     g.setAttribute('aRound', new THREE.BufferAttribute(round, 1));
     this.water = new THREE.Mesh(g, this.waterMat);
     this.water.renderOrder = 2;
@@ -867,7 +860,6 @@ export class Terrain {
     geo.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
     geo.setAttribute('aQual', new THREE.BufferAttribute(qual, 1));
     // (floodwater keeps its own edge)
-    geo.setAttribute('aSlope', new THREE.BufferAttribute(new Float32Array(qual.length), 1));
     geo.setAttribute('aRound', new THREE.BufferAttribute(new Float32Array(qual.length).fill(99), 1));
     this.flood = new THREE.Mesh(geo, this.floodMat);
     this.flood.renderOrder = 3;

@@ -312,11 +312,11 @@ export function waterLook(mat, time, noise, rain, sky) {
   mat.onBeforeCompile = shader => {
     prev(shader);
     Object.assign(shader.uniforms, { uNoiseW: { value: noise }, uRain: rain, uSky: sky });
-    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute vec2 aCurrent;\nvarying vec2 vCurrent;\nattribute float aBend;\nattribute float aQual;\nattribute float aSlope;\nattribute float aRound;\nvarying float vSlope;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
+    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute vec2 aCurrent;\nvarying vec2 vCurrent;\nattribute float aBend;\nattribute float aQual;\nattribute float aRound;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
       // Fade wave displacement at the bank, while retaining signed bed depth for shading.
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vSlope = aSlope; vRound = aRound; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
-    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vSlope;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vCurrent;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
+      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vRound = aRound; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
+    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vCurrent;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       {
         // drifting ripples: two layers of noise sliding past each other tilt the normal
@@ -374,16 +374,13 @@ export function waterLook(mat, time, noise, rain, sky) {
           diffuseColor.rgb += vec3(0.085, 0.11, 0.115) * ripple * broken
             * (0.15 + vBend * 0.85) * fl * smoothstep(0.008, 0.09, vDepth);
         }
-        // A rounded, wavering waterline. The ground is a grid of tiles, so on its own the water
-        // meets a dug bank in straight lines and steps round a pond in tile-sized stairs. vRound
-        // is the depth over the ground smoothed a little, which is shallower at the outer corner
-        // of each step, so the water draws back there and the stairs round off (it can only draw
-        // back: the ground hides anything beyond the real waterline). Then small uneven bays,
-        // up to about a third of a tile, show the damp mud the ground paints at the bank.
-        // (vSlope: how steeply the bank rises per tile, so the bays are about as wide on any bank
-        // and none open on the flat; capped so they only eat into the shallows, never mid-pond.)
-        float bay = smoothstep(0.3, 0.75, texture2D(uNoiseW, vWXZ * 0.37 + 0.37).r);
-        float pull = min(bay * 0.32 * vSlope, 0.1), shoreD = min(vDepth, vRound) - pull;
+        // A rounded waterline. The ground is a grid of tiles, so on its own the water steps round
+        // a pond in tile-sized stairs. vRound is the depth over the ground smoothed a little, which
+        // is shallower at the outer corner of each step, so the water draws back there and the
+        // stairs round off (it can only draw back: the ground hides anything beyond the real
+        // waterline). It draws back at most 0.05 of depth, so only the shallows round off: past a
+        // steep dug bank the smoothed ground would otherwise hide deep water and leave dry bites.
+        float shoreD = max(min(vDepth, vRound), vDepth - 0.05);
         if (shoreD < vDepth - 0.001) diffuseColor.a *= smoothstep(0.0, 0.02, shoreD);
         // foam where the water laps the bank
         // Signed depth crosses zero at the actual ground/water intersection.
