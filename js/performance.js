@@ -188,7 +188,7 @@ Last frame: ${info.calls} draws · ${info.triangles.toLocaleString()} triangles
 Scene: ${counts.meshes} meshes (${counts.visibleMeshes} enabled) · ${counts.instances.toLocaleString()} instances
 CPU p95: plants ${phase('plants')} · terrain ${phase('terrain')} · actors ${phase('actors')} ms
 Shadows: ${samples.filter(v => v.shadow).length}/${samples.length} refresh frames
-${r.quality} · scale ${(r.resScale ?? 1).toFixed(2)} · DPR ${r.dpr} · shadows ${r.sun.castShadow ? 'on' : 'off'} · far trees ${r.farOn ? 'on' : 'off'}
+${r.quality} · scale ${(r.resScale ?? 1).toFixed(2)} · DPR ${r.dpr} · shadows ${r.sun.castShadow ? 'on' : 'off'} · far trees ${r.flora.view[0] === 3 ? 'on' : 'off'}
 Render CPU excludes GPU completion. Meshes include shadow proxies.`;
   }
 }

@@ -26,7 +26,7 @@ Introduce no general event framework, ECS, worker or spatial streaming layer as 
 
 Use the same revision/seed/save, camera path, speed, viewport, DPR, render dimensions, quality, shadows and LOD settings before/after. Record CPU model, GPU string, RAM, OS, browser, power state, Low Power Mode and background load. Reject software rendering when claiming hardware performance.
 
-Separate fixed-setting diagnostic comparisons from production adaptive settings. The current benchmark explicitly disables adaptation and far models; it must expose and report the intended settings before it can validate the agreed low-end Fast experience. Do not claim native resolution if the backing render dimensions are reduced.
+Separate fixed-setting diagnostic comparisons from production adaptive settings. The current benchmark explicitly disables adaptation (far vegetation is no longer adaptive, see [0022](decisions/0022-far-vegetation-by-screen-size.md)); it must expose and report the intended settings before it can validate the agreed low-end Fast experience. Do not claim native resolution if the backing render dimensions are reduced.
 
 Use five representative scenes: empty, young, mature, dense forest and large animal population. Include naturally aged saves, stationary/pan/rotation/wide/close/follow paths, speeds 0/1/3, day/month/season boundaries, tool strokes with real Undo, and world resets. Keep geometry/population fixed when isolating a renderer change.
 
@@ -88,7 +88,7 @@ Proposed acceptance: spread 128→1,024 scaling remains near linear; at least 25
 
 ### P4 Establish geometry budgets and distant LOD
 
-Status: distant animal models live (see Progress); hardware GPU gate, triangle/shadow budgets and far vegetation comparison outstanding. Priority: part of the agreed native-resolution target, alongside CPU work. Complexity medium/high; distant visual risk medium; ecological change none. Schedule a bounded prototype once P0 provides a reference save; tester availability need not delay all local investigation.
+Status: distant animal models live (see Progress); far vegetation on for every computer when zoomed out ([0022](decisions/0022-far-vegetation-by-screen-size.md)); hardware GPU gate and triangle/shadow budgets outstanding. Priority: part of the agreed native-resolution target, alongside CPU work. Complexity medium/high; distant visual risk medium; ecological change none. Schedule a bounded prototype once P0 provides a reference save; tester availability need not delay all local investigation.
 
 Compare existing far vegetation/shadow settings before building new models. Prototype screen-size animal LOD in existing Fauna/model pools, preserving near detail, identity, picking, animation/contact and independent detailed support. Use target-hardware samples to set triangle/instance/shadow budgets; no universal budget is established by the M5 measurements.
 
