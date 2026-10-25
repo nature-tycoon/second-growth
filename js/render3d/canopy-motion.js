@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SPEEDS } from '../config.js';
+import { ANIMAL_SPEEDS as SPEEDS } from '../config.js'; // (how fast the animals live, not the calendar)
 import { climbPace } from '../sim/climb-pace.js';
 import { bodyFitsWood, woodDistance } from './wood-clearance.js';
 import { canopyRotation, interpolateCanopyPose } from './canopy-pose.js';

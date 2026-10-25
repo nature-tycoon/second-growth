@@ -53,7 +53,7 @@ async function boot() {
       track('auto_quality', { from: settings.quality, to: 'fast', reason: 'graphics_chip', gpu: chip });
       settings.quality = 'fast'; saveSettings();
     }
-    const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog, weakGpu: weak });
+    const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog });
     const ui = new UI(game, renderer);
     const input = new Input(game, renderer, ui);
     renderer.resetView();
@@ -94,9 +94,10 @@ async function boot() {
     // drawing keeps phones cool and laptop batteries going. Auto means 30 on touch screens and
     // while a laptop runs on battery (where the browser says so), 60 otherwise.
     const touch = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
-    let onBattery = false;
+    let onBattery = null; // (unknown: Safari and Firefox don't say)
     navigator.getBattery?.().then(b => { const upd = () => { onBattery = !b.charging; }; upd(); b.addEventListener('chargingchange', upd); }).catch(() => {});
     const targetFps = () => settings.fps === '60' ? 60 : settings.fps === '30' ? 30 : touch || onBattery ? 30 : 60;
+    renderer.frameCap = () => ({ target_fps: targetFps(), on_battery: onBattery });
     const frameErrors = new Set();
     const diagnostics = new URLSearchParams(location.search).get('perf') === '1'
       ? new PerformanceOverlay(game, renderer) : null;

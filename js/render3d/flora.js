@@ -11,7 +11,7 @@ import { farHull, farTrunk } from './far-models.js';
 import { waterSurfaceY } from './terrain.js';
 import { activeCatalog } from '../data/catalog.js';
 import { meadowPatch, patchColor } from './patches.js';
-import { FloraChanges, floraChunkKey } from './flora-changes.js';
+import { FloraChanges, floraChunkKey, TRAIL_OPENING, CLOSED_CANOPY } from './flora-changes.js';
 import { groveForm } from './groves.js';
 import { underWater, groundAt, visibleLevel } from '../sim/waterline.js';
 import { paletteLeafColor } from './palettes.js';
@@ -78,7 +78,7 @@ export class Flora {
     this.pools = new Map();
     this.geos = new Map();
     this.view = [0, true, true, 0];
-    this.far = false; // (far models allowed: only once the game has found this computer slow, see setFar)
+    this.far = true; // (far models with the valley in view, see setZoom; false reverts to the distant ones, for comparing)
   }
 
   geo(key, build) {
@@ -192,8 +192,10 @@ export class Flora {
   // zoomed right in, hides grass blades sooner, drops shrub shadows, and draws half the tufts.
   setZoom(zoom, force = false) {
     this.zoom = zoom;
-    // (trees: the close model only once zoomed right in, the in-between one at play zoom)
-    // (when allowed, the far models once a tile is about 16 pixels across, or 23 on Fast)
+    // (trees: the close model only once zoomed right in, the in-between one at play zoom, and the
+    // far models once a tile is under about 16 pixels across, or 23 on Fast. The camera has no
+    // perspective, so every plant on screen is drawn at the same scale and the zoom alone says
+    // how small they are. Eye level passes its own fixed zoom: always the close models.)
     const far = this.far;
     const v = this.light
       ? [far && zoom < 0.5 ? 3 : zoom < 1.4 ? 1 : zoom < 2.2 ? 2 : 0, zoom > 0.5, false, zoom < 1.8 ? 1 : 0]
@@ -203,8 +205,8 @@ export class Flora {
     for (const p of this.pools.values()) p.setView(...v);
   }
 
-  // Far models (see far-models.js) for a computer that can't keep up; a computer that can keeps
-  // the distant models at every zoom.
+  // Far models (see far-models.js) on or off; off keeps the distant models at every zoom, for
+  // comparing the two.
   setFar(on) {
     on = !!on;
     if (on === this.far) return;
@@ -429,7 +431,7 @@ export class Flora {
             px = cxp + Math.cos(a) * r; pz = czp + Math.sin(a) * r;
           }
           // Keep the plant opening aligned with the actual narrow track, not the whole tile.
-          if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > 0.05) continue;
+          if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > TRAIL_OPENING) continue;
           const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
           // lily pads float on the water surface instead of sitting on the pond bed
           if (bankTile && !aquaticT && !grassyWet(type) && underWater(w, px, pz)) continue; // (dry-land groundcover doesn't grow in the creek)
@@ -462,7 +464,7 @@ export class Flora {
       // ---- the forest floor: under a closed canopy, a drift of leaves, a dead branch, mushrooms
       // and moss, and ferns where nothing else grows (drawn only). Keeps a young or old forest's
       // floor from reading as bare dirt, close up and through the see-through window.
-      if (inside && tid && !aquaticTile && !bankTile && w.treeG[i] > 0.45 && w.canopy[i] > 0.5 && !game.catalog.definition.look.underwater && (!this.light || hash2(x, y, 701) < 0.5)) {
+      if (inside && tid && !aquaticTile && !bankTile && w.treeG[i] > 0.45 && w.canopy[i] > CLOSED_CANOPY && !game.catalog.definition.look.underwater && (!this.light || hash2(x, y, 701) < 0.5)) {
         const lv = (x * 3 + y * 5) & 3, ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
         // (on the far side of the tile from the trunk: see trees below)
         const lx = x + 0.5 - Math.sign(ox || 1) * (0.22 + hash2(x, y, 702) * 0.1), lz = y + 0.5 - Math.sign(oz || 1) * (0.22 + hash2(x, y, 703) * 0.1);

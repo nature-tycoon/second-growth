@@ -8,6 +8,11 @@ import * as THREE from 'three';
 // stripes visibly lost contrast.
 export const FAR_PIXELS = 32;
 export const FAR_CELLS = 32;
+// Draw the close-up model (buildSpecies close: the same shapes in finer segments) when the body
+// length covers more screen pixels than this (CSS pixels, so twice as many on a Retina screen).
+// At the game's closest zoom, 207 a tile, a zebra is about 96 and its outline already shows its
+// facets: from about 3x zoom in, everything from a fox up; in watch mode, the animals nearby.
+export const CLOSE_PIXELS = 64;
 const NORMALS = new Set(['normal', 'aExtN', 'aSwingN']), TONES = 4;
 
 // Each connected piece (a leg, a horn, an eye, the body's loft) clusters on its own grid,
@@ -52,10 +57,13 @@ export function simplifyAnimal(source, length, cells = FAR_CELLS) {
   for (const [name, attribute] of Object.entries(source.attributes)) {
     const size = attribute.itemSize, data = new Float32Array(n * size), src = attribute.array;
     for (let i = 0; i < count; i++) for (let j = 0; j < size; j++) data[cluster[i] * size + j] += src[i * size + j];
+    // (a normal's length carries crease shading and shine, see animal-surface.js: keep its average)
+    const lengths = name === 'normal' ? new Float32Array(n) : null;
+    if (lengths) for (let i = 0; i < count; i++) lengths[cluster[i]] += Math.hypot(src[i * 3], src[i * 3 + 1], src[i * 3 + 2]);
     for (let k = 0; k < n; k++) {
       for (let j = 0; j < size; j++) data[k * size + j] /= sizes[k];
       if (NORMALS.has(name) && size === 3) {
-        const l = Math.hypot(data[k * 3], data[k * 3 + 1], data[k * 3 + 2]) || 1;
+        const l = (Math.hypot(data[k * 3], data[k * 3 + 1], data[k * 3 + 2]) || 1) / (lengths ? lengths[k] / sizes[k] : 1);
         for (let j = 0; j < 3; j++) data[k * 3 + j] /= l;
       }
     }

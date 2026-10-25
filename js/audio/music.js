@@ -5,7 +5,7 @@
 
 import { TRACKS } from './tracks.js';
 import { SOUNDSCAPES, PROMINENT_CALLS, natureMix, natureCallRates } from './nature.js';
-import { RUT_SOUNDS, RACK_PITCH, soundFile } from './sounds.js';
+import { RUT_SOUNDS, RACK_PITCH, THUNDER, THUNDER_RECORDINGS, soundFile } from './sounds.js';
 import { FIELD_RECORDINGS, MAP_RECORDINGS, RECORDED_BEDS } from './recordings.js';
 import { seamlessLoop } from './loop.js';
 import { makeRainBuffer, prepareRainBuffer, createRainSource } from './rain.js';
@@ -35,7 +35,7 @@ export class Music {
     this.rutClips = new Map(); this.rutLast = 0; this.rutBulls = new Map();
     this.fieldClips = new Map(); this.fieldLoads = new Map(); this.fieldRetry = new Map();
     this.fieldBeds = new Map();
-    this.rainClip = null;
+    this.rainClip = null; this.thundering = 0;
     this.started = false; this.ready = false; this.preparing = null;
   }
 
@@ -385,6 +385,32 @@ export class Music {
       this.rutLast = ends + 0.6 + Math.random() * 1.5; this.rutBulls.set(id, ends + 6 + Math.random() * 6);
       this.foregroundUntil = Math.max(this.foregroundUntil, ends);
     }
+    return true;
+  }
+
+  // ------------------------------------------------------------ thunder
+  // A lightning strike's thunder (thunder.js), `delay` seconds after the flash. Near bolts crack;
+  // far ones and flashes in the clouds rumble, and the farther off, the more of the highs the air
+  // takes. The clips download on the first storm day, not before.
+  warmThunder() { if (this.natureOn && !this.muted) THUNDER_RECORDINGS.forEach(id => this.loadField(id)); }
+  thunder({ far = 0.5, pan = 0, delay = 0 } = {}) {
+    if (!this.ctx || !this.callGain || !this.natureOn || this.muted || this.ctx.state !== 'running') return false;
+    if (this.thundering >= 2) return false; // (two rolls at once already fill the sky)
+    const ready = THUNDER[far < 0.4 ? 'near' : 'far'].map(n => this.fieldClips.get(n)).filter(Boolean);
+    if (!ready.length) return false; // (still loading)
+    const ctx = this.ctx, src = ctx.createBufferSource(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+    const p = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    src.buffer = ready[Math.floor(Math.random() * ready.length)];
+    src.playbackRate.value = (0.9 + Math.random() * 0.15) * (1 - far * 0.1); // (each one a little different)
+    g.gain.value = 0.5 * (1 - far * 0.7);
+    lp.type = 'lowpass'; lp.frequency.value = 9000 * (1 - far) ** 2 + 350;
+    const dest = p || lp;
+    if (p) { p.pan.value = pan; src.connect(g).connect(lp).connect(p).connect(this.callGain); } else src.connect(g).connect(lp).connect(this.callGain);
+    this.trackSource(src, p ? [g, lp] : [g], dest);
+    const ended = src.onended;
+    src.onended = () => { this.thundering--; ended(); dest.disconnect(); };
+    this.thundering++;
+    src.start(ctx.currentTime + delay);
     return true;
   }
 

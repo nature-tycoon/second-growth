@@ -1,6 +1,6 @@
 // Data boundaries shared by builders, restore code and the Node release checks.
 // Keep these independent of Game, map modules and rendering so they create no import cycle.
-import { T, F, BORDER, MONTHS_PER_YEAR } from '../config.js';
+import { T, F, BORDER, MONTHS_PER_YEAR, SPEEDS } from '../config.js';
 import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema.js';
 
 /** @typedef {0|1|2} PlantLayer Groundcover, shrub, tree; separate from species IDs. */
@@ -515,7 +515,7 @@ export function assertWorld(world, catalog, path = 'world') {
 export function assertFarmState(state, path = 'farm') {
   object(state, path); text(state.map, `${path}.map`); number(state.seed, `${path}.seed`);
   choice(state.mode, `${path}.mode`, ['free', 'campaign']); choice(state.difficulty, `${path}.difficulty`, ['relaxed', 'standard', 'challenging']);
-  integer(state.day, `${path}.day`); number(state.money, `${path}.money`); integer(state.speed, `${path}.speed`, 0, 3);
+  integer(state.day, `${path}.day`); number(state.money, `${path}.money`); integer(state.speed, `${path}.speed`, 0, SPEEDS.length - 1);
   choice(state.weather, `${path}.weather`, ['clear', 'cloud', 'rain', 'snow']);
   for (const key of ['acc', 'weatherDays', 'rainStreak', 'dryStreak', 'snow', 'lastGrant', 'frugivoreCount']) number(state[key], `${path}.${key}`, 0);
   object(state.flags, `${path}.flags`); object(state.goalsDone, `${path}.goalsDone`); object(state.stats, `${path}.stats`); object(state.campaign, `${path}.campaign`);

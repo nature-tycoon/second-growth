@@ -40,7 +40,7 @@ export default function buildPnwAnimals(def) {
     def({ key: 'deer', herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'Black-tailed deer', sci: 'Odocoileus hemionus columbianus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 45, max: 14, minK: 1.5, groupSize: [1, 2], sources: ['N', 'E'], mig: 0.35, breed: [2, 3], litter: [1, 2], life: 10,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 4, 0.3) * (0.6 + 0.4 * Math.min(1, W.browse[i])),
-      sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#8a6a48', belly: '#c9b595', dark: '#3a2c20',
+      sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#8a6a48', belly: '#c9b595', dark: '#3a2c20', tailTop: '#1f1914',
         male: { len: 37, h: 18, leg: 17, antlers: 'mule', neckWidth: 0.23 }, maleName: 'adult buck' },
       desc: 'Coastal mule deer. Browses shrubs along forest edges and hides fawns in tall grass.',
       hint: 'A patchwork of shrubs, young forest and meadow. Fences stop deer from wandering in.' });
@@ -234,7 +234,7 @@ export default function buildPnwAnimals(def) {
       speed: 3, hr: 250, max: 2, sources: ['N', 'E', 'S', 'W'], mig: 0.35, breed: [1], litter: [1, 2], life: 12,
       prey: ['vole', 'rabbit', 'gartersnake'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]] * near(W.distPerch[i], 6, 0.3),
-      sprite: { kind: 'raptor', size: 22, color: '#6a4a30', breast: '#e8dcc6', head: '#5a3c26', tail: '#b0502a' },
+      sprite: { kind: 'raptor', size: 22, color: '#6a4a30', breast: '#e8dcc6', head: '#5a3c26', tail: '#b0502a', bill: '#3a3632' },
       desc: 'Circles over open country, then drops onto voles. Perches on tall snags and trees.',
       hint: 'Open meadows full of voles, with tall perches.' });
   }

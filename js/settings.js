@@ -24,6 +24,7 @@ export const DEFAULTS = {
   nature: true, natureVolume: 0.6,    // rain, birds and water
   notifications: 'all', // 'all', 'important' or 'hidden'; every update stays in the journal
   brushSizes: {},      // last brush radius used with each tool
+  viewCtrlsFolded: false, // the camera buttons (rotate, Watch) folded into one View button
   v: 2,                // settings version (see load)
 };
 

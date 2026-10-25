@@ -1,8 +1,7 @@
 // node tools/far-model-check.mjs
-// On a computer the game has found too slow, trees and shrubs switch to far models with the whole
-// valley in view (see far-models.js): a fraction of the triangles, much the same look. Older
-// built-in graphics drew a grown forest at a few frames a second before this. A computer that
-// keeps up never sees them.
+// With the whole valley in view, trees and shrubs switch to far models (see far-models.js): a
+// fraction of the triangles, much the same look. Every computer draws them, at every Detail level
+// (decision 0022); play zoom, close-ups and eye level keep the detailed models.
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -20,7 +19,7 @@ function grown(map) {
   if (!floras.has(map)) {
     Math.random = mulberry32(1987);
     const game = restoredGame(map, 1987), flora = new Flora(new THREE.Scene());
-    flora.setFar(true); flora.setZoom(0.25); flora.rebuild(game, true);
+    flora.setZoom(0.25); flora.rebuild(game, true);
     floras.set(map, flora);
   }
   return floras.get(map);
@@ -90,12 +89,13 @@ check('A conifer stays a spire, and palms keep their distant fronds', () => {
   for (const [key, pool] of palms) for (const p of pool.subs.values()) assert.equal(p.geoFar, p.geoLo, key);
 });
 
-check('Far models only once allowed, then only with the valley in view (sooner on Fast)', () => {
+check('Far models with the valley in view on any computer (sooner on Fast), close models at play zoom and eye level', () => {
   const flora = grown('pnw'), crown = () => sources(flora).find(([k]) => k.startsWith('crown:'))[1];
+  assert.equal(new Flora(new THREE.Scene()).far, true, 'on from the start');
   flora.setFar(false);
-  for (const [light, zoom] of [[false, 0.2], [true, 0.3]]) { flora.setLight(light); flora.setZoom(zoom); assert.equal(crown().lod, 1, 'not allowed: the distant model'); }
+  for (const [light, zoom] of [[false, 0.2], [true, 0.3]]) { flora.setLight(light); flora.setZoom(zoom); assert.equal(crown().lod, 1, 'switched off: the distant model'); }
   flora.setFar(true);
-  for (const [light, zoom, lod] of [[false, 0.3, 3], [false, 0.4, 1], [false, 0.8, 2], [true, 0.45, 3], [true, 0.6, 1]]) {
+  for (const [light, zoom, lod] of [[false, 0.3, 3], [false, 0.4, 1], [false, 0.62, 2], [false, 1.6, 0], [true, 0.45, 3], [true, 0.6, 1], [true, 1.6, 2], [true, 2.4, 0]]) {
     flora.setLight(light); flora.setZoom(zoom);
     assert.equal(crown().lod, lod, `${light ? 'fast' : 'high'} at ${zoom}`);
     if (lod === 3) assert.equal(crown().shadowGeometry(), crown().geoFar, 'far trees cast the far model\'s shadow');

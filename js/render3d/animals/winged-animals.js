@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/BufferGeometryUtils.js';
 import { weldVertices as mergeVertices } from '../geometry/weld.js';
-import { P, SPH_HI, col, eyes, flat, grad, hash3, place, shade, smooth, tmp } from './model-core.js';
+import { P, SPH_HI, col, eyes, flat, grad, hash3, pinna, place, shade, smooth, tmp } from './model-core.js';
 
 // Bat: a furry body and big ears, with membrane wings stretched over long finger bones
 // and a scalloped trailing edge between the fingertips.
@@ -33,8 +33,7 @@ function bat(m, s) {
   for (const side of [1, -1]) {
     // big rounded ears, pinker inside
     const e0 = [hp[0] - S * 0.01, hp[1] + S * 0.08, side * S * 0.06], e1 = [hp[0] - S * 0.04, hp[1] + S * (fox ? 0.17 : fruit ? 0.19 : 0.24), side * S * 0.12];
-    m.limb(e0, e1, S * 0.06, S * 0.02, dark, hd);
-    m.ell([e0[0] + S * 0.02, e0[1] + S * 0.07, e0[2] + side * S * 0.025], [S * 0.025, S * 0.06, S * 0.02], '#b88878', { ...hd, lo: true });
+    pinna(m, e0, e1, S * (fox ? 0.1 : 0.13), dark, { ...hd, shape: fox ? 'point' : 'leaf', cup: 0.6, inner: '#b88878', out: 0.45 });
   }
   eyes(m, hp, S * 0.085, S * 0.035, S * 0.075, S * 0.026, P.HEAD, neck);
   // tail membrane between the legs
@@ -237,7 +236,7 @@ function beetle(m, s) {
   const hd = { part: P.HEAD, pivot: at(S * 0.38, S * 0.05, 0) };
   m.ell(at(S * 0.48, -S * 0.02, 0), [S * 0.15, S * 0.06, S * 0.27], shade(s.color, 0.1), { ...hd, rot });  // the flat, shovel-like head
   for (const z of [-0.18, -0.07, 0.07, 0.18]) m.ell(at(S * 0.62, -S * 0.04, S * z), [S * 0.045, S * 0.025, S * 0.04], s.color, { ...hd, lo: true }); // toothed front edge
-  for (const side of [1, -1]) m.ell(at(S * 0.5, S * 0.02, side * S * 0.24), [S * 0.03, S * 0.03, S * 0.02], '#3a2e20', { ...hd, lo: true }); // eyes
+  for (const side of [1, -1]) m.ell(at(S * 0.5, S * 0.02, side * S * 0.24), [S * 0.03, S * 0.03, S * 0.02], '#3a2e20', { ...hd, lo: true, gloss: 2 }); // eyes
   // six legs in two tripods, so they alternate the way a beetle walks
   const legs = [
     [S * 0.3, 1, P.LEG_FL, [S * 0.62, -S * 0.2, S * 0.42], [S * 0.72, -S * 0.34, S * 0.36]],   // front: short, flattened, digging

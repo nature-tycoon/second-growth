@@ -148,7 +148,7 @@ export default function buildAmazonAnimals(def) {
       speed: 1.4, hr: 60, max: 12, minK: 2, groupSize: [2, 2], sources: ['N', 'E', 'S'], mig: 0.3, breed: [10, 11], litter: [2, 2], life: 40, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i),
       req: g => Math.min(1, (g.snagCount + g.bigTrees / 8) / 6) * Math.min(1, g.forestTiles / 700),
-      sprite: { kind: 'macaw', size: 22, color: '#d8201a', breast: '#d8201a', head: '#d8201a', wing: '#f0c020', wingtip: '#2a5ac8' },
+      sprite: { kind: 'macaw', ara: true, size: 22, color: '#cc1f19', breast: '#d6241b', head: '#de2c1d', wing: '#f0c020', covertTip: '#5a9a3c', wingtip: '#2a5ac8', underwing: '#a8643a', rump: '#5a94d8', vent: '#4a84cc', tailLength: 1.3, tailWidth: 0.15, tailGraduation: 0.6 },
       desc: 'Pairs mate for life and nest in hollow dead trunks, especially old buriti palms.',
       hint: 'Big trees and dead trunks (snags or old buriti palms) for nesting, and fruit.' });
   }

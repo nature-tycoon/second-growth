@@ -228,6 +228,12 @@ export class Terrain {
       const t = inside ? w.terrain[i] : (bi >= 0 ? B.terrain[bi] : extTerrain(w, x, y));
       const v = inside ? w.variant[i] : ((x * 7 + y * 13) & 3);
       let tex = t, c = [1, 1, 1];
+      // how much bare earth shows, for the close-up soil the shader paints, whether it's mud, and what
+      // kind of ground: gravel is crusted hardpan on Serengeti, sand where the map says so, and stones
+      // elsewhere (the reef's rubble too)
+      let bare = t === T.SOIL || t === T.MUD || t === T.FIELD || t === T.GRAVEL ? 1 : 0;
+      const mud = t === T.MUD, def = game.catalog.definition;
+      const kind = t !== T.GRAVEL || (def.hardpan && !def.sandBed) ? 255 : def.look.sand ? 150 : 200; // (earth, sand, stones)
       if (t === T.MARSH) { tex = S.TURF; c = [0.52, 0.58, 0.42]; }
       else if (t === T.TRAIL && game.catalog.definition.sandBed) { tex = S.TURF; c = pastureColor(game.catalog.definition.id, season, game.catalog.definition.look.pasture[season]).map(v => v * 1.04); } // (a snorkel trail is just marked with buoys over the sand)
       // pond beds share the marsh's soft texture (just darker), so the two blend at their edges
@@ -247,6 +253,7 @@ export class Terrain {
             let tc = turfCache.get(gid);
             if (!tc) { tc = turfColor(p, month, season, game.catalog); turfCache.set(gid, tc); }
             const f = clamp((gg - 0.12) * 2, 0, 1);
+            bare *= 1 - f;
             if (p.layer === 0 && !p.aquatic) tc = patchColor(tc, meadowPatch(x + 0.5, y + 0.5), 1); // (the same patches as the tufts on it)
             if (tex === S.TURF) c = mixRgb(pasture, tc, f);
             else if (gg > 0.35) { tex = S.TURF; c = mixRgb(pasture, tc, f); }
@@ -257,6 +264,7 @@ export class Terrain {
         if (canopy > 0.3 && t !== T.ROAD && t !== T.GRAVEL && t !== T.TRAIL) {
           if (canopy > 0.6 && (tex === T.FIELD || tex === T.SOIL)) tex = S.TURF;
           c = mixRgb(c, [0.5, 0.45, 0.33], clamp((canopy - 0.3) * 1.2, 0, 0.7));
+          bare *= 1 - clamp((canopy - 0.3) * 1.2, 0, 0.7);
         }
         // a little soft shade where trunks and shrubs meet the ground, so they sit in the land
         const tid2 = inside ? w.tree[i] : (bi >= 0 ? B.tree[bi] : 0), sid2 = inside ? w.shrub[i] : (bi >= 0 ? B.shrub[bi] : 0);
@@ -267,7 +275,7 @@ export class Terrain {
         if (inside && game.catalog.definition.locked?.(game, i)) { const l = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) * 1.08; c = mixRgb(c, [l, l, l * 0.96], 0.55); }
         if (inside && (w.marks[i] & 1)) c = mixRgb(c, [1, 1, 0.96], 0.24); // (a snorkel trail: just a faint line on the seabed under the buoys)
         if (inside && game.catalog.definition.look.groundTint) c = game.catalog.definition.look.groundTint(w, i, c) || c; // (Sumatra: dark peat showing through)
-        if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); }
+        if (inside && w.scorch[i] > 0) { const f = clamp(w.scorch[i] / 160, 0, 1) * 0.7; c = mixRgb(c, [0.22, 0.2, 0.18], f); bare = Math.max(bare, f); }
       }
       {
         const canopyS = inside ? w.canopy[i] : (bi >= 0 && B.tree?.[bi] ? 0.7 : 0.2);
@@ -290,8 +298,8 @@ export class Terrain {
       }
       const r = at.r;
       const td = this.tileData, crisp = t === T.ROAD || t === T.TRAIL || t === T.FIELD;
-      td[k * 4] = at.slot; td[k * 4 + 1] = t === T.FIELD ? 0 : (v & 3) * 64; // plowed furrows all run the same way
-      td[k * 4 + 2] = crisp ? 0 : 255; td[k * 4 + 3] = inside && trailSurface(w, i) ? 255 : 0;
+      td[k * 4] = at.slot; td[k * 4 + 1] = (t === T.FIELD ? 0 : (v & 3) * 64) + Math.round(bare * 31) + (mud ? 32 : 0); // plowed furrows all run the same way; low bits: bare earth, mud
+      td[k * 4 + 2] = crisp ? 0 : kind; td[k * 4 + 3] = inside && trailSurface(w, i) ? 255 : 0;
       // (corners 0-3 of the atlas cell are (r0,r1) (r2,r1) (r2,r3) (r0,r3); the tile's six vertices
       // take corners A C B A D C, rotated by the variant)
       const rot = v & 3, o = k * 12;
@@ -469,8 +477,28 @@ export class Terrain {
           if (!managed(j) && wet[j] && body[j] < 0 && (kind[j] === T.POND || kind[j] === T.MARSH)) { body[j] = k0; q.push(j); }
         }
       }
-      const L = Math.min(hi, lo + 0.3);
-      for (const k of q) level[k] = Math.max(level[k], L);
+      // Nor does it stand above its lowest rim: on a slope the land past the downhill bank can
+      // drop below the basin's fill line, and the sheet would run out over it and stop in mid-air
+      // along a tile edge. So the surface sits just under that spill point (the ground the bank
+      // ring reaches out to, away from other water), but keeps most of its depth: drained lower,
+      // a dug pond shows its dark pit walls. (Where the land falls away faster still, the bank
+      // ring's outer edge comes down to meet the ground instead: see vLevel.)
+      const wetV = (vx, vy) => [[-1, -1], [0, -1], [-1, 0], [0, 0]].some(([dx, dy]) => {
+        const xx = vx + dx, yy = vy + dy;
+        return xx >= 0 && yy >= 0 && xx < TW && yy < TH && wet[yy * TW + xx];
+      });
+      let spill = Infinity;
+      for (const k of q) {
+        const tx = k % TW, ty = (k / TW) | 0;
+        for (let vy = ty - 1; vy <= ty + 2; vy++) for (let vx = tx - 1; vx <= tx + 2; vx++) {
+          if (!wetV(vx, vy)) spill = Math.min(spill, w.vert(vx + X0, vy + Y0));
+        }
+      }
+      const rim = spill - 0.02, L = Math.max(Math.min(hi, lo + 0.3, rim), lo - 0.1);
+      for (const k of q) {
+        const own = Math.min(...w.corners(k % TW + X0, Math.floor(k / TW) + Y0)) + 0.3;
+        level[k] = Math.max(L, Math.min(level[k], Math.max(rim, own)));
+      }
     }
     // one ring of bank tiles carries the neighbouring water level
     const ring = [];
@@ -495,7 +523,9 @@ export class Terrain {
         const l = level[ty * TW + tx];
         if (l === l && l > L) L = l;
       }
-      return L;
+      // (at the bank ring's outer edge the sheet comes down to meet the ground, never ending in
+      // mid-air along the tile line where the land falls away faster than the water can follow)
+      return L > -Infinity && !vWet(vx, vy) ? Math.min(L, w.vert(vx, vy)) : L;
     };
     // fully clear at the outer edge of the bank ring, so shallows fade out instead of ending in a line
     const vWet = (vx, vy) => {
@@ -542,6 +572,20 @@ export class Terrain {
     for (let k = 0; k < TW * TH; k++) if (level[k] === level[k]) tiles.push(k);
     const pos = new Float32Array(tiles.length * 18), col = new Float32Array(tiles.length * 24), nor = new Float32Array(tiles.length * 18);
     const dep = new Float32Array(tiles.length * 6), flow = new Float32Array(tiles.length * 12), bend = new Float32Array(tiles.length * 6);
+    const slope = new Float32Array(tiles.length * 6), round = new Float32Array(tiles.length * 6);
+    // how steeply the ground rises at a corner, per tile (its steeper side along each axis)
+    const steep = (vx, vy) => {
+      const v = w.vert(vx, vy);
+      return Math.hypot(Math.max(Math.abs(w.vert(vx + 1, vy) - v), Math.abs(v - w.vert(vx - 1, vy))),
+        Math.max(Math.abs(w.vert(vx, vy + 1) - v), Math.abs(v - w.vert(vx, vy - 1))));
+    };
+    // the ground at a corner smoothed over its neighbours (1-2-1 each way): the water shader
+    // rounds the waterline's tile-sized steps against it
+    const smooth = (vx, vy) => {
+      let s = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += w.vert(vx + dx, vy + dy) * (2 - Math.abs(dx)) * (2 - Math.abs(dy));
+      return s / 16;
+    };
     const moving = k => kind[k] === T.CREEK || kind[k] === T.RIVER;
     const wetAt = (tx, ty) => tx >= 0 && ty >= 0 && tx < TW && ty < TH && wet[ty * TW + tx] && moving(ty * TW + tx);
     const tileFlow = new Float32Array(TW * TH * 2), tileBend = new Float32Array(TW * TH);
@@ -639,7 +683,7 @@ export class Terrain {
       for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
         const c = vColor(vx, vy), lv = managed(k) ? level[k] : vLevel(vx, vy);
         pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
-        dep[od] = lv - w.vert(vx, vy);
+        dep[od] = lv - w.vert(vx, vy); slope[od] = steep(vx, vy); round[od] = managed(k) ? dep[od] : lv - smooth(vx, vy);
         const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
         flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
@@ -653,6 +697,8 @@ export class Terrain {
     g.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
     g.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
     g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(od), 1));
+    g.setAttribute('aSlope', new THREE.BufferAttribute(slope, 1));
+    g.setAttribute('aRound', new THREE.BufferAttribute(round, 1));
     this.water = new THREE.Mesh(g, this.waterMat);
     this.water.renderOrder = 2;
     this.scene.add(this.water);
@@ -772,6 +818,9 @@ export class Terrain {
     geo.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
     geo.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
     geo.setAttribute('aQual', new THREE.BufferAttribute(qual, 1));
+    // (floodwater keeps its own edge)
+    geo.setAttribute('aSlope', new THREE.BufferAttribute(new Float32Array(qual.length), 1));
+    geo.setAttribute('aRound', new THREE.BufferAttribute(new Float32Array(qual.length).fill(99), 1));
     this.flood = new THREE.Mesh(geo, this.floodMat);
     this.flood.renderOrder = 3;
     this.scene.add(this.flood);

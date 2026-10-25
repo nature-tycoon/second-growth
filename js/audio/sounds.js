@@ -15,6 +15,9 @@ export const RUT_SOUNDS = {
   clash: ['antler-clash-1', 'antler-clash-2', 'antler-clash-3', 'antler-clash-4'],
   rattle: ['antler-rattle-1', 'antler-clash-3', 'antler-clash-4'],
 };
+// Thunder (audio/thunder.js): a crack or a clap for a bolt nearby, a rumble or a roll for one far off.
+export const THUNDER = { near: ['field-thunder-crack-1', 'field-thunder-claps-1'], far: ['field-thunder-distant-1', 'field-thunder-claps-2'] };
+export const THUNDER_RECORDINGS = ['thunder-crack', 'thunder-claps', 'thunder-distant'];
 // (resolved from this module, so tools pages under tools/ find them too)
 export const soundFile = name => new URL(`../../assets/sounds/${name}.m4a`, import.meta.url).href;
 // The recordings are red deer; heavier racks play a little lower, lighter ones a little higher.

@@ -3,7 +3,7 @@
 // neighbours greet or spar. All of it uses Math.random, never game.rng, and the catch roll still
 // happens once, on contact. Shared carcass meals also satisfy hunger, using the same food-stress rules.
 
-import { clamp, DAYS_PER_YEAR } from '../config.js';
+import { clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { preyFor, isMale, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { passable, canLand } from './animal-terrain.js';
@@ -59,7 +59,7 @@ const SCAVENGERS = new Set(['vulture', 'hyena', 'coyote', 'monitor', 'eagle', 'r
 
 const byId = (wl, id) => id == null ? null : (wl.ids ? wl.ids.get(id) : wl.agents.find(o => o.id === id)) || null;
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-const young = (a, def) => !!a.juvenile || def.mature > 0 && a.age < def.mature * DAYS_PER_YEAR;
+const young = (a, def) => !!a.juvenile || def.mature > 0 && lifeAge(a) < def.mature * DAYS_PER_YEAR;
 const ashore = def => !def.reef && (def.move === 'ground' || def.move === 'semi' || def.move === 'tree');
 
 // Which species hunt each species on this map (Challenging adds a few, so it's rebuilt on a change).
@@ -208,7 +208,7 @@ export function startFeed(wl, a, def, b) {
   a.flying = false;
   if (!big) { a.feedT = 0.5 + Math.random() * 0.8; return; }
   a.feedT = 1.5 + (bd.sprite.len || 20) / 30 * (1 + Math.random());
-  const c = { id: b.id, sp: b.sp, x: b.x, y: b.y, yaw: b.orientation ?? 0, age: b.age, side: Math.random() < 0.5 ? -1 : 1,
+  const c = { id: b.id, sp: b.sp, x: b.x, y: b.y, yaw: b.orientation ?? 0, age: lifeAge(b), side: Math.random() < 0.5 ? -1 : 1,
     by: a.sp, t: a.feedT + 21 + Math.random() * 12 };
   // Leave 21–33 days after the first meal: distant walkers and circling birds
   // need time to discover and reach a kill. Food still runs out through c.meals.
@@ -243,7 +243,7 @@ export function leaveBody(wl, a) {
   const def = wl.game.catalog.animals[a.sp];
   if (!def || !leavesCarcass(def) || a.leaving) return null;
   const t = 21 + Math.random() * 12, meals = Math.max(1, Math.ceil(def.sprite.len / 20));
-  const c = { id: a.id, sp: a.sp, x: a.x, y: a.y, yaw: a.orientation ?? 0, age: a.age, side: Math.random() < 0.5 ? -1 : 1,
+  const c = { id: a.id, sp: a.sp, x: a.x, y: a.y, yaw: a.orientation ?? 0, age: lifeAge(a), side: Math.random() < 0.5 ? -1 : 1,
     by: null, t, max: t, meals, meals0: meals, feed: 0 };
   addCarcass(wl, c);
   return c;
@@ -478,7 +478,7 @@ export function prowl(wl, a, def) {
     if (p.soar && Math.random() < p.soar && soar(wl, a, def)) return true;
     if (Math.random() < p.rest) return lie();
   }
-  if (p.seek && h >= p.hungry && wl.startHunt(a, def, diet, 8)) return true;
+  if (p.seek && h >= p.hungry && wl.paced() && wl.startHunt(a, def, diet, 8)) return true;
   if (h < p.search || Math.random() < 0.5) return false;
   // (a hungry red-tail searches from the soar, and stoops from up there)
   if (p.soar && soar(wl, a, def)) return true;

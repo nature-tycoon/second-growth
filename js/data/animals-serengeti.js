@@ -245,7 +245,7 @@ export default function buildSerengetiAnimals(def) {
       speed: 0.9, hr: 30, max: 8, minK: 1, sources: ['S'], mig: 0.25, breed: [8, 9], litter: [3, 6], life: 50, mature: 8,
       prey: ['wildebeest', 'zebra', 'catfish', 'gazelle'], preyPer: 8,
       suit: (W, i) => w[W.habitat[i]],
-      sprite: { kind: 'caiman', len: 50, color: '#5a5a3a', belly: '#c8c090' },
+      sprite: { kind: 'caiman', len: 50, color: '#5a5a3a', belly: '#c8c090', croc: true },
       desc: 'Waits at the river crossings for the migrating herds, then goes months without eating.',
       hint: 'The river and deep waterholes.' });
   }

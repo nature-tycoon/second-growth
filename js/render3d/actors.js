@@ -1,7 +1,7 @@
 // Animals (instanced 3D models, see animals/animal-model.js), plus visitors and flames drawn as camera-facing sprites.
 
 import * as THREE from 'three';
-import { LEVEL, isWater, T, F as FEAT, clamp } from '../config.js';
+import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, animalDef, maleLook } from '../data/animals.js';
 import { leavesCarcass } from '../sim/animal-life.js';
 import * as S from '../render/sprites.js';
@@ -22,7 +22,7 @@ import { canopyGrips } from './canopy-grips.js';
 import { SlothBridges, slothBridge } from './sloth-bridge.js';
 import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
 import { isCanopyWalker } from './canopy-walker-profile.js';
-import { ActorView, animalViewRadius, pixelsPerUnit } from './actor-view.js';
+import { ActorView, animalViewRadius, pixelsPerUnit, perspectiveScale } from './actor-view.js';
 import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
 import { climberSpot } from './flora.js';
 
@@ -154,7 +154,8 @@ export class Actors {
     // ---- wildlife
     const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
     this.lastT = time;
-    F.begin(pixelsPerUnit(camera, viewportHeight));
+    const persp = perspectiveScale(camera, viewportHeight);
+    F.begin(pixelsPerUnit(camera, viewportHeight), persp && { x: camera.position.x, y: camera.position.y, z: camera.position.z, scale: persp });
     this.silhouettes.begin();
     // the prey a hunter is rushing right now (a longtom skips away from it)
     const chased = new Set();
@@ -226,7 +227,7 @@ export class Actors {
         st.rippled = a.drinkT > 0; st.leaping = salmonLeap(a, time) >= 0;
       }
       st.visible = true;
-      const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * a.age / (def.mature * 120), 0.55, 1) : 1;
+      const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * lifeAge(a) / (def.mature * 120), 0.55, 1) : 1;
       const sc = adultAnimalScale(def.sprite) * (a.juvenile ? def.sprite.juv ?? 0.5 : 1) * ageF; // (scale: relative proportions; show: display boost; juv: how small the young are)
       const mo = F.motion(def);
       const surf = onWater || def.move === 'swim' || def.move === 'fly' && isWater(t) ? waterSurfaceY(w, a.x, a.y) : null;
@@ -609,6 +610,7 @@ export class Actors {
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
       st.foot = (def.sprite.len || def.sprite.size || 10) * sc;
       st.x = ax; st.y = y; st.z = az; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
+      st.tall = F.height(def) * sc; // (the model's real height, for eye level)
       st.center ||= new THREE.Vector3();
       st.center.copy(mo.center); st.center.y += st.bob;
       if (mo.primate === 3) {

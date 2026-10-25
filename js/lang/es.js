@@ -33,6 +33,10 @@ addStrings({
   'Flying through': 'Pasando en vuelo', Flock: 'Bandada', 'Follow bird': 'Seguir al ave',
   'Passing birds': 'Aves de paso', 'Passes over': 'Pasa en', 'Overhead now': 'Volando encima ahora', None: 'Ninguna',
   'overhead now': 'volando encima', 'passing through': 'de paso', 'Follow a bird': 'Seguir a un ave',
+  // watch mode's bar (ui/watch.js)
+  'All animals': 'Todos los animales', 'No animals out right now': 'No hay animales afuera ahora', 'Watch one species (S)': 'Ver una sola especie (S)',
+  'Next animal (N)': 'Siguiente animal (N)', 'Eye level (F)': 'A ras del suelo (F)', 'Stop watching (Esc)': 'Dejar de mirar (Esc)', 'Hide the controls (H)': 'Esconder los controles (H)',
+  'Eye level': 'A ras del suelo', 'Show the controls': 'Mostrar los controles',
   "Flocks cross the property on their way somewhere else. They don't live here, so they don't count toward your species.": 'Las bandadas cruzan la finca de camino a otro lugar. No viven aquí, así que no cuentan entre tus especies.',
   'Canada goose': 'Ganso canadiense', 'Barn swallow': 'Golondrina común', 'Great egret': 'Garza blanca',
   'White stork': 'Cigüeña blanca', 'Black vulture': 'Zopilote negro', 'Blue-crowned hanging parrot': 'Lorículo de corona azul',
@@ -76,7 +80,7 @@ addStrings({
   'Open Second Growth from its new Home Screen icon.': 'Abrí Second Growth desde su nuevo ícono en la pantalla de inicio.',
   'Open this page in Chrome and tap the three-dot menu beside the address bar.': 'Abrí esta página en Chrome y tocá el menú de tres puntos junto a la barra de direcciones.',
   'Choose Add to Home screen or Install app. Some versions put Install inside Install and create shortcut. Follow the prompts.': 'Elegí Agregar a la pantalla principal o Instalar app. En algunas versiones, Instalar está dentro de Instalar y crear acceso directo. Seguí los pasos que aparecen.',
-  'Pause (Space)': 'Pausa (Espacio)', Normal: 'Normal', Fast: 'Rápido', Fastest: 'Muy rápido',
+  'Pause (Space)': 'Pausa (Espacio)', Normal: 'Normal', Fast: 'Rápido', Fastest: 'Muy rápido', 'Watch pace: animals at their real pace (0)': 'Ritmo de observación: los animales a su ritmo real (0)',
   'Visitors (open details)': 'Visitantes (ver detalles)', 'no trailhead': 'sin parqueo',
   'Ecosystem health (open report)': 'Salud del ecosistema (abrir informe)', Ecosystem: 'Ecosistema', Health: 'Salud',
   'Open the field guide': 'Abrir la guía de campo', species: 'especies',
@@ -113,7 +117,7 @@ addStrings({
   'Brush pile': 'Montón de ramas', 'Instant cover for rabbits and wrens while shrubs grow in. Rots into soil over a few years.': 'Refugio inmediato para conejos y pajaritos mientras crecen los arbustos. Se vuelve tierra en unos años.',
   'Nest box': 'Caja nido', 'Stand-in tree cavity for wood ducks and roosting bats until the forest grows old.': 'Un hueco de árbol de mientras, para loras, chocoyos y murciélagos, hasta que el bosque se haga viejo.',
   'Pull invasives': 'Arrancar invasoras', 'Controlled burn': 'Quema controlada', 'Clear vegetation': 'Limpiar vegetación',
-  'A cool, careful fire keeps meadows open, the way Coast Salish peoples tended camas prairies. Paint the area to burn and the crew lights it: the fire creeps across it over a few days, burning off underbrush, saplings, invasive grass and brush piles. Native meadow plants resprout and big trees come through. Cheap, but it can get away from you in dry weather: burn after rain, and cut a firebreak around the area first. Rain puts it out.': 'Un fuego suave y cuidadoso mantiene abierto el zacate. Pintá el área a quemar y la cuadrilla la prende: el fuego avanza poco a poco durante unos días y quema el monte, los arbolitos, el zacate invasor y los montones de ramas. Las plantas nativas retoñan y los árboles grandes aguantan. Es barata, pero con tiempo seco se te puede escapar: quemá después de una lluvia, y hacé una ronda alrededor primero. La lluvia la apaga.',
+  'A cool, careful fire keeps meadows open, the way Coast Salish peoples tended camas prairies. Paint the area to burn and the crew lights it: the fire creeps across it over a few days, burning off underbrush, saplings, invasive grass and brush piles. Native meadow plants resprout and big trees come through. Cheap, but it can get away from you in dry weather, and under trees with a thick shrub layer it can climb into the canopy as a crown fire: burn after rain, and cut a firebreak around the area first. Rain puts it out.': 'Un fuego suave y cuidadoso mantiene abierto el zacate. Pintá el área a quemar y la cuadrilla la prende: el fuego avanza poco a poco durante unos días y quema el monte, los arbolitos, el zacate invasor y los montones de ramas. Las plantas nativas retoñan y los árboles grandes aguantan. Es barata, pero con tiempo seco se te puede escapar, y bajo árboles con mucho monte debajo puede subir a las copas: quemá después de una lluvia, y hacé una ronda alrededor primero. La lluvia la apaga.',
   'Cut trees': 'Cortar árboles', 'Fell the trees and leave everything else: grass, shrubs and wildflowers stay. Bigger trees leave a stump that rots away over a few years.': 'Botá los árboles y dejá todo lo demás: el zacate, los arbustos y las flores se quedan. Los árboles grandes dejan un tocón que se pudre en unos años.',
   Demolish: 'Demoler', 'Fire crew': 'Bomberos', 'Call in a crew to put out a wildfire. Only works on tiles that are burning.': 'Llamá a una cuadrilla para apagar un incendio. Solo sirve en cuadros que se están quemando.',
   'Nature trail': 'Sendero', Boardwalk: 'Pasarela', 'Viewing blind': 'Escondite para ver animales', 'Gravel road': 'Camino', 'Trailhead parking': 'Parqueo', 'Visitor center': 'Centro de visitantes',
@@ -130,6 +134,8 @@ addStrings({
 
   // ---------------------------------------------------------------- inspector
   Gone: 'Se fue', "This animal has moved on, or didn't make it.": 'Este animal se fue, o no sobrevivió.',
+  Killed: 'Cazado', "A hunter caught this animal. Its carcass lies here while it's eaten, then breaks down.": 'Un depredador cazó a este animal. Su cadáver queda aquí mientras se lo comen, y luego se descompone.',
+  Died: 'Murió', 'This animal died here. Its carcass lies here while scavengers eat it, then breaks down.': 'Este animal murió aquí. Su cadáver queda aquí mientras los carroñeros se lo comen, y luego se descompone.',
   'Leaving the property': 'Saliendo de la finca', Hunting: 'Cazando', Flying: 'Volando', Wandering: 'Caminando', 'Resting / foraging': 'Descansando / comiendo',
   'Stalking prey': 'Acechando a su presa', 'Chasing prey': 'Persiguiendo a su presa', 'Circling over prey': 'Volando en círculos sobre su presa',
   Playing: 'Jugando', 'Running from danger': 'Huyendo del peligro', 'Fleeing the fire': 'Huyendo del fuego', Feeding: 'Comiendo', Drinking: 'Bebiendo',
@@ -266,7 +272,7 @@ addStrings({
   // controls (the list is split by keys and bold words, so each piece is translated on its own)
   'Pick a tool on the left, then': 'Elegí una herramienta a la izquierda, y después', 'click and drag to brush': 'hacé clic y arrastrá para pintarla', 'it across the land.': 'sobre el terreno.',
   'change brush size.': 'cambian el tamaño del pincel.', 'Right-drag or': 'Arrastrá con el botón derecho o con', 'to pan, scroll to zoom,': 'para moverte, la rueda para acercar,',
-  'to rotate the view.': 'para girar la vista.', Space: 'Espacio', 'pauses,': 'pausa,', 'set speed,': 'cambian la velocidad,', 'sees through trees,': 'deja ver a través de los árboles,',
+  'to rotate the view.': 'para girar la vista.', Space: 'Espacio', 'pauses,': 'pausa,', 'set speed,': 'cambian la velocidad,', 'slows to watch pace,': 'pasa al ritmo de observación,', 'sees through trees,': 'deja ver a través de los árboles,',
   'to rotate by 15°. Hold': 'para girar 15°. Mantené presionada',
   'for a 90° turn.': 'para girar 90°.',
   'The rotation arrows turn the view by 15°. Q / E do the same. Hold Shift for a 90° turn.': 'Las flechas giran la vista 15°. Q / E hacen lo mismo. Mantené presionada Mayús para girar 90°.',
@@ -508,6 +514,8 @@ addPatterns([
   [/^The fire burned itself out after (\d+) tiles\. (.+)$/, 'El fuego se apagó solo después de $1 cuadros. $2'],
   ["Your controlled burn has jumped the line! An ember carried into dry fuel outside the burn area, and now it's a wildfire that will spread until rain comes. Send a fire crew (Remove tab). Burning after rain, outside the fire season, and cutting a firebreak around the area first (Clear vegetation) all make this far less likely.",
     '¡Tu quema controlada se escapó! Una brasa cayó en lo seco fuera del área de la quema, y ahora es un incendio que se va a regar hasta que llueva. Mandá a los bomberos (pestaña Quitar). Quemar después de una lluvia, fuera del verano, y hacer una ronda alrededor primero (Limpiar vegetación) lo hace mucho menos probable.'],
+  ["Your controlled burn has gone into the treetops! The flames climbed the dry shrubs under the trees into the canopy, and now it's a crown fire that can burn through forest. Send a fire crew (Remove tab). Under trees, burn only after rain, and clear the shrubs and saplings beneath them first (Clear vegetation).",
+    '¡Tu quema controlada subió a las copas! Las llamas treparon por el monte seco debajo de los árboles hasta las copas, y ahora es un incendio de copas que puede quemar el bosque. Mandá a los bomberos (pestaña Quitar). Bajo los árboles, quemá solo después de una lluvia, y limpiá primero el monte y los arbolitos de abajo (Limpiar vegetación).'],
   [/^Rain put out your controlled burn after (\d+) tiles\. Paint the rest again on a dry day\.$/, 'La lluvia apagó tu quema controlada después de $1 cuadros. Pintá lo que falta otro día seco.'],
   [/^The controlled burn is out: (\d+) tiles of underbrush burned\. The native plants will push up through the ash in a few weeks\.$/, 'Terminó la quema controlada: se quemaron $1 cuadros de monte. Las plantas nativas saldrán entre la ceniza en unas semanas.'],
   [/^(.+?) After days of rain the river spilled over (\d+) tiles of low ground\.(.*)$/, (_, head, n, rest) => {

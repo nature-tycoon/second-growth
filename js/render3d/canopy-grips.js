@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SPEEDS } from '../config.js';
+import { ANIMAL_SPEEDS as SPEEDS } from '../config.js'; // (how fast the animals live, not the calendar)
 import { barkGrip } from './bark-grip.js';
 export { barkGrip } from './bark-grip.js';
 import { howlerGrips } from './howler-grips.js';

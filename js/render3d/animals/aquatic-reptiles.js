@@ -1,12 +1,12 @@
 // Aquatic wildlife, reptiles and amphibians.
 import * as THREE from 'three';
-import { P, SPH_XL, cells, col, cyl, eyes, flat, grad, hash3, loftBody, place, shade, smooth, tmp, tube } from './model-core.js';
+import { P, col, cyl, eyes, flat, grad, hash3, loftBody, pixelCoat, place, shade, smooth, solid, tmp, tube, wingShape } from './model-core.js';
 
 // ---------------------------------------------------------------- herps and fish
 // Frogs sit up on folded hind legs: thigh back, shin forward, long foot flat on the ground.
 function frog(m, s) {
   const S = s.size, plain = grad(s.color, shade(s.color, 0.4), -0.15, 0.35);
-  const skin = s.spotted ? (u => hash3(Math.round(u.x * 5), Math.round(u.y * 5), Math.round(u.z * 5)) > 0.7 ? col(s.spotted) : plain(u)) : plain;
+  const skin = s.spotted ? pixelCoat('spots', plain, [S * 0.1], s.spotted) : plain; // (coatSpots)
   const leg = s.dark && s.dark !== '#2a4a1e' ? s.dark : shade(s.color, -0.1);
   m.ell([-S * 0.02, S * 0.3, 0], [S * 0.38, S * 0.24, S * 0.3], skin, { rot: [0, 0, 0.35] });
   m.ell([S * 0.28, S * 0.4, 0], [S * 0.22, S * 0.16, S * 0.26], skin, { rot: [0, 0, 0.15] });
@@ -17,7 +17,7 @@ function frog(m, s) {
     // eyes on top, gold with a dark pupil
     m.ell([S * 0.33, S * 0.53, side * S * 0.14], [S * 0.075, S * 0.075, S * 0.075], skin, { lo: true });
     m.ell([S * 0.38, S * 0.55, side * S * 0.16], [S * 0.045, S * 0.05, S * 0.045], '#c8a040', { lo: true });
-    m.ell([S * 0.405, S * 0.555, side * S * 0.165], [S * 0.022, S * 0.035, S * 0.022], '#141210', { lo: true });
+    m.ell([S * 0.405, S * 0.555, side * S * 0.165], [S * 0.022, S * 0.035, S * 0.022], '#141210', { lo: true, gloss: 2 });
     const hip = [-S * 0.15, S * 0.24, side * S * 0.2], hl = { part: side > 0 ? P.LEG_BL : P.LEG_BR, pivot: hip };
     m.ell([-S * 0.16, S * 0.2, side * S * 0.3], [S * 0.22, S * 0.1, S * 0.09], leg, { ...hl, rot: [0, side * 0.3, 0.45] });
     m.ell([-S * 0.02, S * 0.1, side * S * 0.36], [S * 0.18, S * 0.06, S * 0.07], leg, { ...hl, rot: [0, side * -0.25, -0.35] });
@@ -43,20 +43,15 @@ function newt(m, s) {
 // small paddle-shaped ones behind. Skin in a mosaic of dark scales edged in cream. (hawk: the
 // hawksbill's narrow, hooked beak and its amber tortoiseshell.)
 function seaTurtle(m, s) {
-  const S = s.size, top = col(s.color), seam = col(shade(s.color, -0.45)), streak = col(s.streak || shade(s.color, 0.32));
-  const shell = (u, p) => {
-    const [gap, id] = cells({ x: p.x * 0.9, y: p.y * 3, z: p.z }, S * 0.2);
-    if (gap < 0.1) return seam;
-    // fine streaks radiating across each scute, warmer and lighter toward its back edge
-    const ray = hash3(Math.round(Math.atan2(p.z, p.x) * 18), id * 7, 2);
-    return tmp.copy(top).lerp(streak, ray > 0.62 ? 0.5 : 0.12 + id * 0.18);
-  };
-  m.add(SPH_XL, place([-S * 0.02, S * 0.2, 0], [0, 0, 0], [S * (s.ridley ? 0.44 : 0.47), S * (s.ridley ? 0.11 : 0.13), S * (s.ridley ? 0.39 : 0.37)]), shell);
+  const S = s.size, seam = shade(s.color, -0.45), streak = s.streak || shade(s.color, 0.32);
+  // big scutes with dark seams, fine streaks radiating across them (coatScutes, per pixel)
+  const shell = pixelCoat('scutes', solid(s.color), [S * 0.2, S * 0.45, 0, 0.1, 0.18, 1, 0.12], seam, streak);
+  m.ell([-S * 0.02, S * 0.2, 0], [S * (s.ridley ? 0.44 : 0.47), S * (s.ridley ? 0.11 : 0.13), S * (s.ridley ? 0.39 : 0.37)], shell, { fine: true });
   m.ell([S * 0.0, S * 0.15, 0], [S * 0.49, S * 0.035, S * 0.385], shade(s.color, -0.2)); // the marginal scutes along the rim
   m.ell([S * 0.02, S * 0.12, 0], [S * 0.42, S * 0.05, S * 0.31], s.plastron || '#e8d49a');  // pale belly plates
   // skin: dark scales, each edged in cream
   const edge = col(s.skinEdge || (s.ridley ? shade(s.dark, 0.12) : '#c8b88a')), dk = col(s.dark);
-  const scales = (u, p) => { const [gap] = cells(p, S * 0.05); return gap < 0.07 ? edge : dk; };
+  const scales = pixelCoat('scutes', solid(dk), [S * 0.05, 0, 0, 0.07], edge); // (coatScutes)
   const hp = [S * 0.56, S * 0.18, 0], neck = [S * 0.4, S * 0.17, 0], hd = { part: P.HEAD, pivot: neck };
   m.limb(neck, [hp[0] - S * 0.06, hp[1], 0], S * 0.085, S * 0.09, scales, hd);
   m.ell(hp, [S * 0.13, S * 0.1, S * 0.1], scales, hd);
@@ -69,7 +64,7 @@ function seaTurtle(m, s) {
     const fp = side > 0 ? P.LEG_FL : P.LEG_FR, hip = [S * 0.26, S * 0.15, side * S * 0.28];
     // a broad, flat paddle, swept back to a pointed tip like a wing
     const front = flat(sh => { sh.moveTo(0.18, 0); sh.quadraticCurveTo(0.3, 0.55 * side, -0.4, 1.0 * side); sh.quadraticCurveTo(-0.12, 0.45 * side, -0.2, 0); sh.lineTo(0.18, 0); }, 'xz');
-    m.add(front, place(hip, [0, 0, 0], [S * 0.42, S * 0.035, S * 0.5]), u => (Math.abs(u.z) > 0.82 ? edge : dk), { part: fp, pivot: hip });
+    m.add(front, place(hip, [0, 0, 0], [S * 0.42, S * 0.035, S * 0.5]), pixelCoat('scutes', u => (Math.abs(u.z) > 0.82 ? edge : dk), [S * 0.05, 0, 0, 0.07], edge), { part: fp, pivot: hip });
     const bp = side > 0 ? P.LEG_BL : P.LEG_BR, rh = [-S * 0.32, S * 0.15, side * S * 0.22];
     const rear = flat(sh => { sh.moveTo(0.1, 0); sh.quadraticCurveTo(0.05, 0.6 * side, -0.3, 0.75 * side); sh.quadraticCurveTo(-0.25, 0.3 * side, -0.2, 0); sh.lineTo(0.1, 0); }, 'xz');
     m.add(rear, place(rh, [0, 0, 0], [S * 0.3, S * 0.03, S * 0.26]), dk, { part: bp, pivot: rh });
@@ -133,19 +128,15 @@ function dugong(m, s) {
 
 function turtle(m, s) {
   const S = s.size;
-  const shell = (u, p) => tmp.copy(col(s.color)).lerp(col(s.dark), hash3(Math.round(p.x / (S * 0.22)), Math.round(p.z / (S * 0.22)), 1) * 0.7);
+  // plates in shades between the shell's two colours, with darker seams (coatScutes, per pixel)
+  const shell = pixelCoat('scutes', solid(s.color), [S * 0.22, S * 0.46, 0, 0.06, 0.7, 0, 0], shade(s.color, -0.45), s.dark);
   if (s.dome) {
-    // leopard tortoise: a tall dome of pale scutes with dark flecks
     // leopard tortoise: a high dome of plates, each pale gold with a dark rim and dark flecks
-    // radiating from its middle
+    // radiating from its middle (coatScutes: each plate 85% to all of the vertex colour's tone)
     const gold = col(s.color), dk = col(s.dark);
-    const plates = (u, p) => {
-      const [gap, id] = cells(p, S * 0.26);
-      if (gap < 0.12) return tmp.copy(dk).lerp(gold, 0.2);                                     // seams between plates
-      if (gap < 0.3 && hash3(Math.round(p.x * 3), Math.round(p.y * 3), Math.round(p.z * 3)) > 0.55) return tmp.copy(dk).lerp(gold, 0.4); // flecks near the edges
-      return tmp.copy(gold).multiplyScalar(0.85 + 0.15 * id + 0.15 * smooth(-0.2, 1, u.y));
-    };
-    m.add(SPH_XL, place([0, S * 0.3, 0], [0, 0, 0], [S * 0.46, S * 0.36, S * 0.38]), plates); // fine mesh, so the plates show
+    const plates = pixelCoat('scutes', u => tmp.copy(gold).multiplyScalar(1 + 0.15 * smooth(-0.2, 1, u.y)), [S * 0.26, S * 0.46, 0, 0.12, -0.15, 2, 0.15],
+      tmp.copy(dk).lerp(gold, 0.2), shade(s.color, -1));
+    m.ell([0, S * 0.3, 0], [S * 0.46, S * 0.36, S * 0.38], plates, { fine: true });
     m.ell([0, S * 0.14, 0], [S * 0.47, S * 0.05, S * 0.39], shade(s.color, -0.3)); // the rim of the shell
   } else if (s.sea) m.ell([0, S * 0.22, 0], [S * 0.48, S * 0.15, S * 0.4], shell); // a sea turtle's low, streamlined shell
   else m.ell([0, S * 0.24, 0], [S * 0.46, S * 0.24, S * 0.38], shell);
@@ -235,7 +226,11 @@ function snake(m, s) {
     return tmp.copy(color).lerp(belly, smooth(-.20, -.58, u.y) * .45)
       .multiplyScalar(.97 + .03 * Math.cos(t * 260 + Math.floor(angle * 9) * Math.PI));
   };
-  const R = 144, A = 32, pos = [], unit = [], idx = [];
+  // (the shader draws the markings per pixel, coatSnake; the vertex colours are the same markings,
+  // for when they are too small to draw)
+  const skin = pixelCoat('snake', paint, [heavy ? 4 : rat ? 3 : boa ? 2 : python ? 1 : 0, belly.r, belly.g, belly.b, back.r, back.g, back.b],
+    heavy ? '#b8954c' : dark, light);
+  const R = 128, A = m.seg(24), pos = [], unit = [], idx = [];
   for (let i = 0; i <= R; i++) {
     const t = i / R, p = profile(t);
     // Align oval cross sections to the horizontal tangent; keep the belly flat.
@@ -251,16 +246,16 @@ function snake(m, s) {
   const g = new THREE.BufferGeometry(), paintGeo = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   paintGeo.setAttribute('position', new THREE.Float32BufferAttribute(unit, 3));
-  m.add(g, new THREE.Matrix4(), paint, { paintGeo, part: P.SPINE }); g.dispose(); paintGeo.dispose();
+  m.add(g, new THREE.Matrix4(), skin, { paintGeo, part: P.SPINE }); g.dispose(); paintGeo.dispose();
   const spine = m.parts[m.parts.length - 1].attributes.aPivot;
   for (let i = 0; i <= R; i++) { const c = profile(i / R); for (let j = 0; j <= A; j++) spine.setXYZ(i * (A + 1) + j, c.x, c.y, c.z); }
   // Lateral eyes for the land snakes; the anaconda's eyes sit higher on its head.
   const eyeT = .043, e = profile(eyeT), ey = heavy ? .70 : .35, er = S * (heavy ? .014 : .012);
   for (const side of [-1, 1]) {
     const eye = [e.x, e.y + e.height * ey, e.z + side * e.width * Math.sqrt(1 - ey * ey)];
-    m.ell(eye, [er * 1.2, er, er * .72], heavy || python || boa ? '#b5a054' : '#94885e', { lo: true });
+    m.ell(eye, [er * 1.2, er, er * .72], heavy || python || boa ? '#b5a054' : '#94885e', { lo: true, gloss: 2 });
     m.ell([eye[0] + er * .12, eye[1] + er * .10, eye[2] + side * er * .50],
-      [er * (boa || python ? .24 : .55), er * .66, er * .28], '#131410', { lo: true });
+      [er * (boa || python ? .24 : .55), er * .66, er * .28], '#131410', { lo: true, gloss: 2 });
     m.ell([eye[0] + er * .27, eye[1] + er * .45, eye[2] + side * er * .63], [er * .20, er * .20, er * .16], '#e5dfc8', { lo: true });
     const n = profile(.017);
     m.ell([n.x, n.y + n.height * (heavy ? .85 : .5), side * n.width * (heavy ? .45 : .82)], [S * .006, S * .003, S * .004], '#24261b', { lo: true });
@@ -285,51 +280,26 @@ function fish(m, s) {
   const X = s.needle ? 2 : s.short ? 0.78 : s.long ? 1.18 : 1, bx = S * 0.44 * X;
   const back = s.back || (coho ? '#2f4a38' : '#66784a'), flank = s.flank || (coho ? '#c5403a' : '#c6bd86'), belly = s.belly || (coho ? '#9a6a60' : '#ece6d2');
   const red = col('#b8322a'), dk = col(s.stripeColor || shade(back, -0.45));
-  // round spots scattered on a jittered grid over the body; dens (0..1) thins them out
-  const spotAt = (u, dens) => {
-    const gx = u.x * 13, ga = Math.atan2(u.z, u.y) * 3.2, ix = Math.floor(gx), ia = Math.floor(ga);
-    if (hash3(ix, ia, 7) < (dens - 0.86) * 7) return false;
-    const cx = ix + 0.5 + (hash3(ix, ia, 1) - 0.5) * 0.5, ca = ia + 0.5 + (hash3(ix, ia, 2) - 0.5) * 0.5;
-    return Math.hypot(gx - cx, (ga - ca) * 0.8) < 0.2;
-  };
+  // the body's colours; its markings are drawn per pixel (coatFish, coatBars: see marks below)
   const body = u => {
     const t = (1 - u.x) / 2; // 0 at the nose, 1 at the tail
     let c = u.y > 0.25 ? tmp.copy(col(back)).lerp(col(flank), smooth(0.55, 0.25, u.y)) : tmp.copy(col(flank)).lerp(col(belly), smooth(-0.25, -0.6, u.y));
     if (coho && t < 0.3) c = tmp.copy(col(back)).lerp(col(belly), smooth(0.1, -0.5, u.y));
     if (s.rear) c = tmp.copy(c).lerp(col(s.rear), smooth(0.3, 0.95, t)); // (the cleaner wrasse: pale in front, blue behind)
-    if (s.scales && u.y > -0.6) { // big scales edged in a second colour (the parrotfish's pink-rimmed mosaic)
-      const sx = u.x * 16, sa = Math.atan2(u.z, u.y) * 7 + Math.floor(sx) * 0.5; // (offset rows, like real scales)
-      const fx = sx - Math.floor(sx), fa = sa - Math.floor(sa), d = Math.hypot(fx - 0.5, (fa - 0.5) * 0.9);
-      if (d > 0.42) c = tmp.copy(c).lerp(col(s.scales), 0.55);
-    }
     if (s.tailRed && u.y < 0.35) c = tmp.copy(c).lerp(red, smooth(0.45, 0.9, t) * 0.85); // arapaima's red-edged rear scales
-    if (s.bars && u.y > -0.35 && Math.sin(u.x * 15) > 0.45) c = tmp.copy(c).lerp(dk, 0.32);
-    if (s.bands) for (const b of [0.2, 0.5, 0.86]) { // a clownfish's three white bands, edged in black
-      const d = Math.abs(t - b), w = b > 0.8 ? 0.035 : 0.055;
-      if (d < w) return col(s.bands);
-      if (d < w + 0.02) return col('#141210');
-    }
     if (s.eyeBar && Math.abs(t - 0.13) < 0.035 && u.y > -0.5) return col(s.eyeBar);
     if (s.blackBands) for (const [a, b] of s.blackBands) if (t > a && t < b) return col(s.bandColor || '#141210'); // (the Moorish idol's two broad black bands)
-    if (s.lines && u.y > -0.3 && Math.abs(Math.sin(u.x * 30 + Math.atan2(u.z, u.y) * 2)) > 0.92 && t < 0.35) return col(s.lines); // (the humphead's squiggly face markings)
-    if (s.palette) { // the blue tang's dark "palette": a band from the eye to the tail along the upper flank, with a blue window in it
-      const ang = Math.abs(Math.atan2(u.z, u.y));
-      if (t > 0.16 && t < 0.92 && ang > 0.55 && ang < 1.6 - (t - 0.16) * 0.7 && !(t > 0.38 && t < 0.7 && ang < 1.05)) return col(s.palette);
-    }
     if (s.shark && u.y < -0.2) c = tmp.copy(c).lerp(col(belly), smooth(-0.2, -0.5, u.y)); // pale underneath
-    if (s.stripe && t > 0.12) {
-      const w = s.stripe === 'band' ? 0.12 + 0.06 * Math.sin(u.x * 19) * Math.sin(u.x * 7 + 1) // bass: a ragged band of blotches
-        : s.stripe === 'cleaner' ? 0.04 + t * 0.17 : 0.045; // (the cleaner wrasse's stripe widens toward the tail)
-      if (Math.abs(u.y - 0.04) < w) return dk;
-    }
-    if (s.grid && u.y > -0.75) { // the hawkfish's red checks: lines along the body crossed by lines around it
-      const gx = u.x * 9, ga = Math.atan2(u.z, u.y) * 2.6;
-      if (gx - Math.floor(gx) < 0.2 || ga - Math.floor(ga) < 0.2) return col(s.grid);
-    }
-    const dens = coho ? 0.95 : 0.96 - t * 0.1; // cutthroat spots gather toward the tail
-    if (s.spots && u.y > -0.35 && spotAt(u, dens)) return col(s.spots);
     return c;
   };
+  // markings, per pixel: cutthroat spots gathering toward the tail (a coho's spread evenly), a
+  // bluegill's flank bars, a clownfish's three white bands edged in black, the humphead's squiggly face
+  // markings, the blue tang's dark "palette" (a band from the eye to the tail along the upper flank,
+  // with a blue window in it), a bass's ragged band of blotches, a snook's line, the cleaner wrasse's
+  // stripe widening toward the tail, the hawkfish's red checks, the parrotfish's pink-rimmed scales
+  const marks = s.spots ? ['fish', [0, coho ? 1 : 0], s.spots] : s.bars ? ['bars', [0, 15, 0, 0.45, 0.32, -0.35], dk] : s.bands ? ['fish', [2], '#141210', s.bands]
+    : s.lines ? ['fish', [3], s.lines] : s.palette ? ['fish', [4], s.palette] : s.stripe ? ['fish', [5, { band: 0, line: 1, cleaner: 2 }[s.stripe] ?? 1], dk]
+    : s.grid ? ['fish', [6], s.grid] : s.scales ? ['fish', [7], s.scales] : null;
   // one smooth body from the tail stock to the snout (no seam where a head would join): a thin
   // stock swelling to the deepest point, then easing down to the nose, blunt on the deep fish
   const x0 = -bx - S * 0.06, x1 = bx * 1.1, tm = s.deep ? 0.5 : 0.55, ryM = S * 0.15 * D * (s.needle ? 0.55 : 1), rzM = S * (cat ? 0.1 : 0.085) * (s.needle ? 0.75 : 1);
@@ -341,8 +311,8 @@ function fish(m, s) {
     const end = Math.sqrt(Math.min(1, t / 0.03)); // closed off just inside the tail fin
     return { t, ry: ryM * k * end, rz: rzM * kz * end, cy: cy - S * 0.03 * smooth(0.7, 1, t) };
   };
-  {
-    const R = 56, A = 28, pos = [], idx = [], uv = [];
+  { // (40 x 22 since the markings moved to the shader, which needs only a smooth outline; finer close up)
+    const R = m.seg(40), A = m.seg(22), pos = [], idx = [], uv = [];
     for (let i = 0; i <= R; i++) {
       const x = x0 + (x1 - x0) * i / R, { t, ry, rz, cy: c } = prof(x);
       for (let j = 0; j <= A; j++) {
@@ -355,12 +325,12 @@ function fish(m, s) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
     const unitG = new THREE.BufferGeometry(); unitG.setAttribute('position', new THREE.Float32BufferAttribute(uv, 3));
-    const paint = u => {
+    const plain = u => {
       if (s.throat && u.y < -0.35 && u.x > 0.55 && u.x < 0.9) return col(s.throat); // the cutthroat's red slash under the jaw
       if (coho && u.x > 0.82) return tmp.copy(col('#3a3a30')).lerp(col(belly), smooth(0.2, -0.6, u.y)); // dark kype
       return body(u);
     };
-    m.add(g, new THREE.Matrix4(), paint, { paintGeo: unitG });
+    m.add(g, new THREE.Matrix4(), marks ? pixelCoat(marks[0], plain, marks[1], marks[2], marks[3]) : plain, { paintGeo: unitG });
   }
   // a point on the body's surface at x, a fraction dy of the half-height above the midline
   const surf = (x, dy, side, out = 1) => { const p = prof(x); return [x, p.cy + p.ry * dy, side * p.rz * Math.sqrt(Math.max(0, 1 - dy * dy)) * out]; };
@@ -380,8 +350,8 @@ function fish(m, s) {
   for (const side of [1, -1]) {
     // a big round eye with a gold rim and a catchlight, set into the side of the head
     const e = surf(ex, cat ? 0.45 : 0.3, side, 0.92);
-    m.ell(e, [S * 0.036, S * 0.036, S * 0.016], s.eye || '#e8d890', { lo: true });
-    m.ell([e[0] + S * 0.003, e[1], e[2] + side * S * 0.01], [S * 0.022, S * 0.022, S * 0.009], '#111010', { lo: true });
+    m.ell(e, [S * 0.036, S * 0.036, S * 0.016], s.eye || '#e8d890', { lo: true, gloss: 2 });
+    m.ell([e[0] + S * 0.003, e[1], e[2] + side * S * 0.01], [S * 0.022, S * 0.022, S * 0.009], '#111010', { lo: true, gloss: 2 });
     m.ell([e[0] + S * 0.01, e[1] + S * 0.01, e[2] + side * S * 0.016], [S * 0.007, S * 0.007, S * 0.004], '#f4f2ea', { lo: true });
     if (s.ear) m.ell(surf(ex - S * 0.1, 0.12, side, 0.97), [S * 0.04, S * 0.035, S * 0.012], s.ear, { lo: true }); // the bluegill's dark "ear"
     // the mouth: a line curving back from the tip of the snout (a long one on bass and snook),
@@ -502,11 +472,13 @@ function butterflyfish(m, s) {
     }
     return white;
   };
-  finBody(m, { x0: -S * 0.36, x1: S * 0.36, tm: 0.47, cy, ry: S * 0.28, rz: S * 0.05, ryEnd: 0.12, powF: 1.05, drop: S * 0.04 }, coat);
+  // (the same, drawn per pixel: coatButterfly)
+  finBody(m, { x0: -S * 0.36, x1: S * 0.36, tm: 0.47, cy, ry: S * 0.28, rz: S * 0.05, ryEnd: 0.12, powF: 1.05, drop: S * 0.04 },
+    pixelCoat('butterfly', coat, [S, cy, white.r, white.g, white.b, yellow.r, yellow.g, yellow.b], black, line));
   m.ell([S * 0.36, cy - S * 0.04, 0], [S * 0.01, S * 0.012, S * 0.012], '#3a2e2a', { lo: true }); // a tiny mouth
   for (const side of [1, -1]) {
     m.ell([S * 0.22, cy + S * 0.05, side * S * 0.042], [S * 0.03, S * 0.03, S * 0.01], '#c8b880', { lo: true });
-    m.ell([S * 0.222, cy + S * 0.05, side * S * 0.048], [S * 0.019, S * 0.019, S * 0.007], '#101010', { lo: true });
+    m.ell([S * 0.222, cy + S * 0.05, side * S * 0.048], [S * 0.019, S * 0.019, S * 0.007], '#101010', { lo: true, gloss: 2 });
     m.ell([S * 0.228, cy + S * 0.058, side * S * 0.052], [S * 0.006, S * 0.006, S * 0.003], '#f4f2ea', { lo: true });
     m.ell([S * 0.08, cy - S * 0.04, side * S * 0.046], [S * 0.05, S * 0.02, S * 0.008], '#f4e4a0', { rot: [0, 0, -0.3] }); // pectoral fin
   }
@@ -531,16 +503,14 @@ function butterflyfish(m, s) {
 // tail tipped bright white, broad pectoral fins, and a tail whose upper lobe is much the longer.
 function shark(m, s) {
   const S = s.size, cy = S * 0.16, top = col(s.back || '#7a8088'), mid = col(s.flank || '#949aa2'), belly = col(s.belly || '#e4e6e8'), tip = col(s.finTip || '#f6f6f2');
-  const skin = u => {
-    const c = u.y > 0.15 ? tmp.copy(mid).lerp(top, smooth(0.15, 0.7, u.y)) : tmp.copy(belly).lerp(mid, smooth(-0.55, 0.05, u.y));
-    // (a blacktip's pale band, reaching forward along the flank from the belly)
-    return s.flankBand && u.x > -0.45 && u.x < 0.1 && Math.abs(u.y + 0.02 - u.x * 0.12) < 0.07 ? c.lerp(belly, 0.6) : c;
-  };
+  const plain = u => u.y > 0.15 ? tmp.copy(mid).lerp(top, smooth(0.15, 0.7, u.y)) : tmp.copy(belly).lerp(mid, smooth(-0.55, 0.05, u.y));
+  // (a blacktip's pale band, reaching forward along the flank from the belly: coatFish, per pixel)
+  const skin = s.flankBand ? pixelCoat('fish', plain, [8], belly) : plain;
   finBody(m, { x0: -S * 0.44, x1: S * 0.5, tm: 0.42, cy, ry: S * 0.1, rz: S * 0.1, ryEnd: 0.18, rzEnd: 0.3, powF: 2.2, powB: 1.6, wide: 1.1 }, skin); // (a broad head and a blunt, rounded snout)
   // eyes, gill slits, and a mouth tucked under the snout
   m.ell([S * 0.38, cy - S * 0.045, 0], [S * 0.035, S * 0.006, S * 0.04], '#8a8e94', { lo: true });
   for (const side of [1, -1]) {
-    m.ell([S * 0.37, cy + S * 0.02, side * S * 0.055], [S * 0.016, S * 0.011, S * 0.007], '#1a1c20', { lo: true });
+    m.ell([S * 0.37, cy + S * 0.02, side * S * 0.055], [S * 0.016, S * 0.011, S * 0.007], '#1a1c20', { lo: true, gloss: 2 });
     m.ell([S * 0.375, cy + S * 0.024, side * S * 0.058], [S * 0.005, S * 0.004, S * 0.002], '#d8dad8', { lo: true });
     for (let k = 0; k < 5; k++) { const x = S * (0.25 - k * 0.022), z = side * S * 0.088; m.limb([x, cy + S * 0.035, z], [x - S * 0.008, cy - S * 0.035, z], S * 0.004, S * 0.004, '#4a5058', { caps: false }); }
   }
@@ -605,13 +575,13 @@ function idol(m, s) {
     for (let i = 0; i < R; i++) for (let j = 0; j < A; j++) { const a = i * (A + 1) + j, b = a + A + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-    m.add(g, new THREE.Matrix4(), coat);
+    m.add(g, new THREE.Matrix4(), pixelCoat('idol', coat, [S, cy, white.r, white.g, white.b, orange.r, orange.g, orange.b], black, yellow)); // (the same, per pixel: coatIdol)
   }
   m.ell([S * 0.38, cy - S * 0.07, 0], [S * 0.012, S * 0.016, S * 0.018], '#3a2e2a', { lo: true }); // a tiny mouth
   // eyes in the black band, with a pale ring so they still show
   for (const side of [1, -1]) {
     m.ell([S * 0.17, cy + S * 0.06, side * S * 0.05], [S * 0.035, S * 0.035, S * 0.012], '#c8b880', { lo: true });
-    m.ell([S * 0.172, cy + S * 0.06, side * S * 0.058], [S * 0.022, S * 0.022, S * 0.008], '#101010', { lo: true });
+    m.ell([S * 0.172, cy + S * 0.06, side * S * 0.058], [S * 0.022, S * 0.022, S * 0.008], '#101010', { lo: true, gloss: 2 });
     m.ell([S * 0.18, cy + S * 0.07, side * S * 0.063], [S * 0.007, S * 0.007, S * 0.004], '#f4f2ea', { lo: true });
     m.ell([S * 0.06, cy - S * 0.03, side * S * 0.056], [S * 0.06, S * 0.025, S * 0.01], '#f4dc80', { rot: [0, 0, -0.3] }); // pectoral fin
   }
@@ -642,41 +612,93 @@ function idol(m, s) {
 // Spectacled caiman: long and low, with an armoured back, a bony ridge between the eyes,
 // splayed legs and a heavy tail that sweeps as it swims.
 // False gharial (gharial): a very long, slender, even snout, and dark crossbands over the back and tail.
+// Crocodiles (croc): a narrower, V-shaped snout than the caiman's, with the teeth showing.
 function caiman(m, s) {
   const L = s.len, cy = L * 0.07, gh = !!s.gharial;
-  const hide0 = u => {
-    if (u.y < -0.35) return col(s.belly);
-    const scute = Math.abs(Math.sin(u.x * 30)) < 0.3 || Math.abs(Math.sin(Math.atan2(u.z, u.y) * 6)) < 0.25;
-    return scute ? col(shade(s.color, -0.3)) : tmp.copy(col(s.color)).lerp(col(s.belly), smooth(0.1, -0.35, u.y) * 0.6);
-  };
-  // (crossbands in world space, so they run on across the body and tail; only on the upper side)
-  const band = col(shade(s.color, -0.5));
-  const hide = gh ? (u, p) => (p.x < L * 0.2 && p.y > cy - L * 0.02 && Math.sin(p.x * 2 * Math.PI / (L * 0.075)) > 0.45 ? tmp.copy(hide0(u)).lerp(band, 0.75) : hide0(u)) : hide0;
-  loftBody(m, { x0: -L * 0.3, x1: L * 0.24, cy0: cy, cy1: cy, ry0: L * 0.075, ry1: L * 0.08, rz0: L * 0.11, rz1: L * 0.13, fine: true }, hide);
+  // rows of scutes over a pale belly, and the gharial's dark crossbands (in model space, so they run
+  // on across the body and tail; only on the upper side), drawn per pixel: coatCaiman
+  const belly = col(s.belly), plain = u => u.y < -0.35 ? belly : tmp.copy(col(s.color)).lerp(belly, smooth(0.1, -0.35, u.y) * 0.6);
+  const hide = (tail, base) => pixelCoat('caiman', base, [L, cy, gh ? 1 : 0, tail ? 1 : 0, belly.r, belly.g, belly.b], shade(s.color, -0.3), shade(s.color, -0.5));
+  loftBody(m, { x0: -L * 0.3, x1: L * 0.24, cy0: cy, cy1: cy, ry0: L * 0.075, ry1: L * 0.08, rz0: L * 0.11, rz1: L * 0.13, fine: true }, hide(false, plain));
   const neck = [L * 0.22, cy, 0], hd = { part: P.HEAD, pivot: neck };
-  const head = u => u.y < -0.3 ? col(s.belly) : col(shade(s.color, 0.05));
-  m.ell([L * 0.3, cy + L * 0.005, 0], [L * 0.1, L * 0.05, L * 0.085], head, hd);
-  if (gh) {
-    // a long, slim, flattened snout of even width, a little spatulate at the tip
-    m.ell([L * 0.37, cy, 0], [L * 0.06, L * 0.028, L * 0.045], head, hd);
-    m.add(cyl(1, 1, 10), place([L * 0.38, cy - L * 0.004, 0], [0, 0, -Math.PI / 2], [L * 0.016, L * 0.4, L * 0.024]), head, hd);
-    m.ell([L * 0.78, cy - L * 0.004, 0], [L * 0.03, L * 0.017, L * 0.03], head, hd);
-    m.ell([L * 0.8, cy + L * 0.01, 0], [L * 0.012, L * 0.006, L * 0.014], shade(s.color, -0.3), { ...hd, lo: true }); // nostrils
-  } else {
-    m.ell([L * 0.44, cy - L * 0.005, 0], [L * 0.11, L * 0.03, L * 0.055], head, hd);
-    m.ell([L * 0.38, cy + L * 0.03, 0], [L * 0.03, L * 0.008, L * 0.045], shade(s.color, -0.25), hd); // the "spectacles" ridge
+  // (pale below the jaw line; on the false gharial's thin snout only right underneath, since its
+  // distant model squeezes the snout's top and underside to about the same size: animal-lod-check)
+  const head = u => tmp.copy(col(s.color)).lerp(belly, (gh ? smooth(-0.3, -0.5, u.y) : smooth(-0.12, -0.3, u.y)) * 0.8);
+  // The head is one surface from the neck to the tip of the snout: deep at the jaw muscles, then
+  // tapering forward, flat on top and below but never a paddle. A caiman's snout is a broad U, a
+  // crocodile's (croc) a narrower V with a little swelling near the tip, the false gharial's a long
+  // slender rod off a broad skull, spatulate at the end.
+  // [x, half-width, top above the axis, depth below it], in body lengths
+  const croc = !!s.croc, K = gh
+    ? [[0.19, 0.06, 0.035, 0.04], [0.25, 0.078, 0.05, 0.045], [0.31, 0.07, 0.045, 0.036], [0.36, 0.04, 0.029, 0.024], [0.42, 0.022, 0.019, 0.016],
+      [0.6, 0.019, 0.016, 0.014], [0.76, 0.02, 0.016, 0.014], [0.8, 0.028, 0.02, 0.015], [0.82, 0.028, 0.021, 0.015]]
+    : croc
+      ? [[0.19, 0.06, 0.035, 0.04], [0.25, 0.082, 0.052, 0.046], [0.31, 0.072, 0.046, 0.038], [0.37, 0.054, 0.034, 0.03], [0.44, 0.037, 0.026, 0.024],
+        [0.5, 0.029, 0.022, 0.02], [0.535, 0.031, 0.025, 0.019], [0.56, 0.029, 0.025, 0.018]]
+      : [[0.19, 0.06, 0.035, 0.04], [0.25, 0.086, 0.052, 0.046], [0.31, 0.082, 0.048, 0.039], [0.38, 0.07, 0.034, 0.031], [0.45, 0.062, 0.027, 0.025],
+        [0.51, 0.055, 0.025, 0.022], [0.55, 0.05, 0.026, 0.02]];
+  const x0 = K[0][0], x1 = K[K.length - 1][0], tipR = croc || gh ? 0.03 : 0.05, mouth = -0.15; // (the jaw line, a little below the side)
+  const prof = x => { // half-width, top, depth at x (a smooth curve through the keys, rounded off at both ends)
+    let k = 0; while (k < K.length - 2 && K[k + 1][0] < x) k++;
+    const a = K[k], b = K[k + 1], h = b[0] - a[0], t = Math.min(1, Math.max(0, (x - a[0]) / h));
+    const slope = (i, c) => { const p = K[Math.max(0, i - 1)], q = K[Math.min(K.length - 1, i + 1)]; return (q[c] - p[c]) / (q[0] - p[0]) * h; };
+    const v = [1, 2, 3].map(c => (2 * t ** 3 - 3 * t * t + 1) * a[c] + (t ** 3 - 2 * t * t + t) * slope(k, c) + (3 * t * t - 2 * t ** 3) * b[c] + (t ** 3 - t * t) * slope(k + 1, c));
+    const q = Math.max((x - (x1 - tipR)) / tipR, ((x0 + 0.03) - x) / 0.03, 0), f = Math.sqrt(Math.max(0, 1 - q * q));
+    return [v[0] * f, v[1] * Math.sqrt(f), v[2] * Math.sqrt(f)];
+  };
+  // a point on the head at x, round from the top (c = cos, sn = sin of the angle): squared-off,
+  // flatter on top than below, pinched a little along the jaw line
+  const at = (x, c, sn) => {
+    const [w, top, low] = prof(x), sq = (v, p) => Math.sign(v) * Math.abs(v) ** p;
+    const pinch = 1 - 0.07 * Math.exp(-(((c - mouth) / 0.1) ** 2));
+    return [x * L, cy + (c > 0 ? top * sq(c, 0.6) : low * sq(c, 0.8)) * L, sq(sn, c > 0 ? 0.6 : 0.8) * w * pinch * L];
+  };
+  {
+    const R = m.seg(gh ? 72 : 40), A = m.seg(22), pos = [], unit = [], idx = [];
+    for (let i = 0; i <= R; i++) for (let j = 0; j <= A; j++) {
+      const x = x0 + (x1 - x0) * i / R, a = j / A * Math.PI * 2;
+      pos.push(...at(x, Math.cos(a), Math.sin(a))); unit.push(2 * i / R - 1, Math.cos(a), Math.sin(a));
+    }
+    for (let i = 0; i < R; i++) for (let j = 0; j < A; j++) { const a = i * (A + 1) + j, b = a + A + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
+    const g = new THREE.BufferGeometry(), paintGeo = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    paintGeo.setAttribute('position', new THREE.Float32BufferAttribute(unit, 3));
+    m.add(g, new THREE.Matrix4(), head, { ...hd, paintGeo }); g.dispose(); paintGeo.dispose();
   }
+  const dark = shade(s.color, -0.3), ms = Math.sin(Math.acos(mouth)), eyeX = 0.3, eyeZ = gh ? 0.03 : 0.033;
+  // the nostrils, raised on a knob at the tip of the snout
+  const nx = x1 - (gh ? 0.022 : 0.02), nTop = prof(nx)[1];
+  m.ell([nx * L, cy + nTop * L, 0], [L * 0.016, L * 0.008, L * 0.017], head, hd);
+  for (const side of [1, -1]) m.ell([(nx + 0.003) * L, cy + (nTop + 0.007) * L, side * L * 0.006], [L * 0.004, L * 0.0015, L * 0.0025], dark, { ...hd, lo: true });
+  if (!gh && !croc) m.ell([L * 0.335, cy + L * 0.043, 0], [L * 0.01, L * 0.005, L * 0.034], shade(s.color, -0.1), hd); // the "spectacles" ridge between the eyes
   for (const side of [1, -1]) {
-    m.ell([L * 0.32, cy + L * 0.035, side * L * 0.035], [L * 0.022, L * 0.018, L * 0.02], shade(s.color, 0.1), { ...hd, lo: true });
-    m.ell([L * 0.335, cy + L * 0.04, side * L * 0.04], [L * 0.01, L * 0.012, L * 0.01], '#c8a030', { ...hd, lo: true });
+    // the eyes, raised in bony turrets on top of the skull, looking out and up, with slit pupils
+    m.ell([eyeX * L, cy + L * 0.042, side * eyeZ * L], [L * 0.026, L * 0.013, L * 0.017], head, hd);
+    const eye = [(eyeX + 0.004) * L, cy + L * 0.053, side * (eyeZ + 0.004) * L];
+    m.ell(eye, [L * 0.011, L * 0.009, L * 0.01], '#c8a030', { ...hd, lo: true, gloss: 2 });
+    m.ell([eye[0] + L * 0.003, eye[1] + L * 0.003, eye[2] + side * L * 0.008], [L * 0.0016, L * 0.006, L * 0.002], '#15130c', { ...hd, lo: true, gloss: 2 });
+    // the jaw line from the tip back under the eye, rising a little at the gape
+    const jaw = [x1 - 0.012, x1 - 0.06, 0.42, 0.34, 0.28, 0.25].filter(x => x < x1 - 0.005).map((x, i, all) => {
+      const p = at(x, mouth, side * ms); return [p[0], p[1] + (i === all.length - 1 ? L * 0.008 : 0), p[2] * 1.01];
+    });
+    jaw.sort((a, b) => b[0] - a[0]);
+    tube(m, jaw, jaw.map(() => L * 0.0022), dark, { ...hd, seg: 5, sub: 3, capRings: 1 });
+    // teeth along the upper jaw (more, and more of them showing, on the crocodiles and the gharial),
+    // and a crocodile's big fourth lower tooth, standing up outside the upper jaw near the front
+    const n = gh ? 12 : croc ? 8 : 5, from = x1 - 0.015, to = gh ? 0.36 : 0.36;
+    for (let k = 0; k < n; k++) {
+      const x = from - (from - to) * (k + 0.5) / n, p = at(x, mouth, side * ms), r = L * (gh ? 0.002 : 0.0028);
+      m.limb([p[0], p[1] + r, p[2] * 1.02], [p[0], p[1] - L * (gh ? 0.008 : 0.009), p[2] * 1.04], r, r * 0.2, '#e4dcc0', { ...hd, seg: 4, caps: false });
+    }
+    if (croc) { const p = at(x1 - 0.05, mouth, side * ms); m.limb([p[0], p[1] - L * 0.004, p[2] * 1.03], [p[0], p[1] + L * 0.012, p[2] * 1.06], L * 0.0035, L * 0.0007, '#e4dcc0', { ...hd, seg: 4, caps: false }); }
   }
-  m.eyeSpot = [L * 0.335, cy + L * 0.04, L * 0.04]; // (eyes)
+  m.eyeSpot = [(eyeX + 0.004) * L, cy + L * 0.053, (eyeZ + 0.004) * L]; // (eyes)
   // the tail starts well inside the haunches (where the body is still thick) so there's no pinch
   const base = [-L * 0.17, cy, 0], to = { part: P.TAIL, pivot: [-L * 0.24, cy, 0] };
   for (let k = 0; k < 7; k++) {
     const t0 = k / 7, t1 = (k + 1) / 7, p = t => [base[0] - L * 0.6 * t, cy - L * 0.012 * t, 0];
     const r = t => L * (0.074 - t * 0.064);
-    m.limb(p(t0), p(t1), r(t0), r(t1), hide, { ...to, caps: k === 0 || k === 6 });
+    m.limb(p(t0), p(t1), r(t0), r(t1), hide(true, solid(s.color)), { ...to, caps: k === 0 || k === 6 });
     if (t0 > 0.1) for (const side of [1, -1]) m.ell([p(t0 + 0.07)[0], cy + r(t0) * 0.92, side * L * 0.02 * (1 - t0 * 0.9)], [L * 0.016, L * 0.006, L * 0.007], shade(s.color, -0.25), { ...to, lo: true });
   }
   for (const [x, side, part] of [[L * 0.16, 1, P.LEG_FL], [L * 0.16, -1, P.LEG_FR], [-L * 0.2, 1, P.LEG_BL], [-L * 0.2, -1, P.LEG_BR]]) {
@@ -757,12 +779,14 @@ function ray(m, s) {
   for (const side of [1, -1]) {
     // cephalic lobes, curled down beside the mouth
     m.limb([S * 0.26, cy, side * S * 0.08], [S * 0.36, cy - S * 0.02, side * S * 0.09], S * 0.025, S * 0.015, back, { part: P.HEAD, pivot: [S * 0.2, cy, 0] });
-    m.ell([S * 0.27, cy + S * 0.02, side * S * 0.115], [S * 0.016, S * 0.016, S * 0.01], '#141210', { lo: true }); // eyes
-    // a wing: swept back from the body to a pointed tip; it beats up and down in "flight"
-    const pivot = [0, cy, side * S * 0.16], part = side > 0 ? P.WING_L : P.WING_R;
-    const wing = flat(sh => { sh.moveTo(0.3, 0); sh.quadraticCurveTo(0.05, 0.5 * side, -0.25, 1 * side); sh.quadraticCurveTo(-0.2, 0.45 * side, -0.32, 0); sh.lineTo(0.3, 0); }, 'xz');
-    const at = place(pivot, [0, 0, 0], [S * 0.62, S * 0.03, S * 0.5]);
-    m.add(wing, at, u => (u.y < 0 ? belly : back), { part, pivot, ext: at });
+    m.ell([S * 0.27, cy + S * 0.02, side * S * 0.115], [S * 0.016, S * 0.016, S * 0.01], '#141210', { lo: true, gloss: 2 }); // eyes
+    // a wing: one fin from the midline, swept back to a pointed tip and thinning as it goes; its root
+    // lies inside the body, and it beats up and down in "flight" bending out from the body's edge
+    // (motion.wingRoot), so no hinge or gap ever opens where it leaves the body
+    const pivot = [0, cy, 0], part = side > 0 ? P.WING_L : P.WING_R;
+    const at = place(pivot, [0, 0, 0], [S, S * 0.02, S * 0.66]);
+    // (the grid's two layers face inward: the lower one is the surface seen from above)
+    m.add(wingShape('manta', side), at, u => (u.y > 0 ? belly : back), { part, pivot, ext: at });
   }
   m.limb([-S * 0.24, cy, 0], [-S * 0.62, cy + S * 0.01, 0], S * 0.02, S * 0.006, back, { part: P.TAIL, pivot: [-S * 0.24, cy, 0] });
 }
@@ -772,17 +796,14 @@ function ray(m, s) {
 // yellow bands and spots.
 function monitor(m, s) {
   const S = s.size, cy = S * 0.13, iguana = s.lizard === 'iguana', anole = s.lizard === 'anole', spiny = iguana || s.lizard === 'ctenosaur';
-  const skin = u => {
-    const band = Math.sin(u.x * 13) > 0.82 && u.y > -0.3;
-    const spot = u.y > 0.1 && hash3(Math.round(u.x * 34), Math.round(u.y * 9), Math.round(u.z * 9)) > 0.86;
-    return u.y < -0.5 ? col(s.belly) : band || spot ? col(shade(s.belly, -0.1)) : col(s.color);
-  };
-  loftBody(m, { x0: -S * 0.3, x1: S * 0.28, cy0: cy, cy1: cy + S * 0.005, ry0: S * 0.075, ry1: S * 0.08, rz0: S * 0.1, rz1: S * 0.1, fine: true }, skin);
+  // (bands, spots and belly drawn per pixel, coatMonitor)
+  const marks = bands => pixelCoat('monitor', solid(s.color), [S * 0.14, S * 0.03, bands ? 0 : 1], shade(s.belly, -0.1), s.belly), skin = marks(true);
+  loftBody(m, { x0: -S * 0.3, x1: S * 0.28, cy0: cy, cy1: cy + S * 0.005, ry0: S * 0.075, ry1: S * 0.08, rz0: S * 0.1, rz1: S * 0.1 }, skin);
   const neck = [S * 0.24, cy + S * 0.01, 0], hd = { part: P.HEAD, pivot: neck };
   tube(m, [neck, [S * 0.33, cy + S * 0.025, 0], [S * 0.42, cy + S * 0.04, 0]], [S * 0.065, S * 0.058, S * 0.045], skin, hd);                  // long neck
   m.ell([S * 0.46, cy + S * 0.045, 0], [S * (iguana ? 0.09 : 0.08), S * (iguana ? 0.062 : 0.04), S * (iguana ? 0.062 : 0.045)], skin, hd);           // head
   m.ell([S * 0.54, cy + S * 0.035, 0], [S * 0.045, S * 0.025, S * 0.028], s.color, hd);      // pointed snout
-  eyes(m, [S * 0.46, cy + S * 0.045, 0], S * 0.03, S * 0.02, S * 0.037, S * 0.011, P.HEAD, neck, '#c8a030');
+  eyes(m, [S * 0.46, cy + S * 0.045, 0], S * 0.03, S * 0.02, S * (iguana ? 0.052 : 0.037), S * 0.011, P.HEAD, neck, '#c8a030'); // (on the head's surface: the iguana's is wider)
   if (!s.lizard) for (const side of [1, -1]) m.limb([S * 0.585, cy + S * 0.03, 0], [S * 0.64, cy + S * 0.03, side * S * 0.012], S * 0.005, S * 0.003, '#8a3a4a', { ...hd, caps: false }); // forked tongue
   // tail: thick at the base, tapering, as long again as the body
   const tb = [-S * 0.28, cy, 0];
@@ -801,7 +822,7 @@ function monitor(m, s) {
   const legs = [[S * 0.17, 1, P.LEG_FL], [S * 0.17, -1, P.LEG_FR], [-S * 0.2, 1, P.LEG_BL], [-S * 0.2, -1, P.LEG_BR]];
   for (const [x, side, part] of legs) {
     const hip = [x, cy, side * S * 0.07], knee = [x + S * 0.02, cy + S * 0.02, side * S * 0.17], foot = [x + S * 0.04, S * 0.01, side * S * 0.2], o = { part, pivot: hip };
-    tube(m, [hip, knee, foot], [S * 0.035, S * 0.028, S * 0.018], skin, o);
+    tube(m, [hip, knee, foot], [S * 0.035, S * 0.028, S * 0.018], marks(false), o); // (spotted, but a band across a leg would ring it)
     for (const t of [-2, -1, 0, 1, 2]) m.limb(foot, [foot[0] + S * (0.045 - Math.abs(t) * 0.006), S * 0.004, foot[2] + t * S * 0.014], S * 0.006, S * 0.002, '#2a2418', { ...o, caps: false });
   }
 }

@@ -230,7 +230,7 @@ export function createTools(catalog) {
       return true;
     } });
   tool({ key: 'burn', cat: 'remove', name: 'Controlled burn', cost: 3, icon: { svg: 'fire' }, size: 2,
-    desc: 'A cool, careful fire keeps meadows open, the way Coast Salish peoples tended camas prairies. Paint the area to burn and the crew lights it: the fire creeps across it over a few days, burning off underbrush, saplings, invasive grass and brush piles. Native meadow plants resprout and big trees come through. Cheap, but it can get away from you in dry weather: burn after rain, and cut a firebreak around the area first. Rain puts it out.',
+    desc: 'A cool, careful fire keeps meadows open, the way Coast Salish peoples tended camas prairies. Paint the area to burn and the crew lights it: the fire creeps across it over a few days, burning off underbrush, saplings, invasive grass and brush piles. Native meadow plants resprout and big trees come through. Cheap, but it can get away from you in dry weather, and under trees with a thick shrub layer it can climb into the canopy as a crown fire: burn after rain, and cut a firebreak around the area first. Rain puts it out.',
     apply: (game, i) => {
       const w = game.world;
       if (isWater(w.terrain[i]) || w.struct[i] >= 0 || w.terrain[i] === T.ROAD || w.terrain[i] === T.TRAIL) return null;

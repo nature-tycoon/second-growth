@@ -2,7 +2,7 @@
 // use the existing habitat rules; nest visits do not manufacture extra births.
 import { preyFor } from '../data/animals.js';
 import { huntHunger } from '../data/animal-activity.js';
-import { F, clamp, isWater } from '../config.js';
+import { F, clamp, isWater, lifeAge } from '../config.js';
 import { activeCatalog } from '../data/catalog.js';
 import { canLand } from './animal-terrain.js';
 import { bolt, scavenge, feedAt } from './animal-life.js';
@@ -104,7 +104,8 @@ export function circleDown(wl, a, def, c) {
   if (!def.soar || !isBird(def) || preyFor(def, wl.game)) return false;
   const r = 1.4 + Math.random() * 0.4;
   a.state = 'bird'; a.birdGround = false; a.flying = true; a.path = null; a.alt = Math.max(a.alt, 1);
-  a.bird = { kind: 'soar', carcass: c.id, t: 1.8 + Math.random() * 0.4, cx: c.x, cy: c.y, r, r0: r, alt0: a.alt,
+  // (it lands just off the body, about half a tile from its middle: a carcass is about half a tile long)
+  a.bird = { kind: 'soar', carcass: c.id, t: 1.8 + Math.random() * 0.4, cx: c.x, cy: c.y, r, r0: r, land: 0.38 + Math.random() * 0.12, alt0: a.alt,
     dir: Math.random() < 0.5 ? -1 : 1, ang: Math.atan2(a.y - c.y, a.x - c.x), ph: a.phase, beat: Math.random() * 6.3 };
   a.bird.t0 = a.bird.t;
   return true;
@@ -113,8 +114,10 @@ function circleDownStep(wl, a, def, b, dt) {
   const c = wl.carcasses.find(k => k.id === b.carcass);
   if (!c || c.t <= 1 || !(c.meals > 0)) { a.bird = null; a.state = 'idle'; a.wait = 0; a.goal = null; return; }
   const f = Math.max(0, b.t / b.t0); // (1 at the top of the spiral, 0 on landing)
-  b.r = 0.8 + (b.r0 - 0.8) * f;
-  soarStep(wl, a, def, b, dt, 1.5); // (about a turn on the way down)
+  const land = b.land ?? 0.8; // (a spiral begun before landings came closer)
+  b.r = land + (b.r0 - land) * f;
+  // (about a turn on the way down; it slows as the circle tightens, so it turns no faster near the ground)
+  soarStep(wl, a, def, b, dt, 1.5 * Math.min(1, b.r / 0.8));
   a.alt = 0.1 + (b.alt0 - 0.1) * f;
   if (b.t > 0) return;
   // down beside it: land and take a meal as any scavenger does on arrival
@@ -147,7 +150,7 @@ export function carryCatch(wl, a, def, b) {
   if (!w.inb(Math.floor(a.x), Math.floor(a.y))) return false;
   // (where the prey was, not where the bird is: a vole beside a tree was still on the ground)
   const i = w.inb(Math.floor(b.x), Math.floor(b.y)) ? w.idx(Math.floor(b.x), Math.floor(b.y)) : w.idx(Math.floor(a.x), Math.floor(a.y)), wet = isWater(w.terrain[i]);
-  a.prey = { id: b.id, sp: b.sp, age: b.age, juvenile: !!b.juvenile, fish: bd.move === 'swim' };
+  a.prey = { id: b.id, sp: b.sp, age: lifeAge(b), juvenile: !!b.juvenile, fish: bd.move === 'swim' };
   a.carcass = null; a.feedAt = null;
   if (liftable(def, bd, b)) {
     const j = nearby(wl, a, j => perchTile(w, j), 10);
@@ -321,7 +324,7 @@ export function birdUpdate(wl, a, def, dt) {
     // and moves on before long if nothing shows.
     if (diet && a.hunger >= huntHunger(def)) {
       if (!b.hunting) { b.hunting = true; b.t = Math.min(b.t, 4 + Math.random() * 3); }
-      if ((b.scan = (b.scan || 0) - dt) <= 0) { b.scan = 0.3; if (wl.startHunt(a, def, diet, 7)) return; }
+      if ((b.scan = (b.scan || 0) - dt) <= 0) { b.scan = 0.3; if (wl.paced() && wl.startHunt(a, def, diet, 7)) return; }
     }
     soarStep(wl, a, def, b, dt);
     return;

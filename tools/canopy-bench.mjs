@@ -2,6 +2,7 @@
 // positions, poses and grips so a faster canopy pass can be shown to move every animal exactly as before.
 //   node tools/canopy-bench.mjs [species,...] [count] [frames]   (CANOPY_ROOT=<checkout> for an A/B comparison)
 //   e.g. node tools/canopy-bench.mjs capuchin 12 450
+//   CANOPY_AGE=200 spawns them young (days; default 1200, adult): a juvenile's drawn size grows every frame
 import { register } from 'node:module';
 import { createHash } from 'node:crypto';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -23,7 +24,7 @@ const { game } = canopyFixture(map, species[0]), w = game.world;
 game.wildlife.agents = [];
 const trees = { amazon: ['fig', 'kapok'], sumatra: ['meranti', 'meranti'], chinandega: ['guanacaste', 'guanacaste'] }[map];
 for (let x = 30; x < 52; x++) for (let z = 22; z < 44; z++) w.setPlant(w.idx(x, z), PLANT[(x + z) % 3 ? trees[0] : trees[1]], (x * 7 + z * 3) % 7 ? 1 : .35);
-for (let n = 0; n < count; n++) game.wildlife.spawn(ANIMAL[species[n % species.length]], 33 + (n * 5) % 16, 25 + (n * 3) % 16, { silent: true, age: 1200 });
+for (let n = 0; n < count; n++) game.wildlife.spawn(ANIMAL[species[n % species.length]], 33 + (n * 5) % 16, 25 + (n * 3) % 16, { silent: true, age: +(process.env.CANOPY_AGE || 1200) });
 const scene = new THREE.Scene(), flora = new Flora(scene); flora.rebuild(game, true);
 const camera = new THREE.PerspectiveCamera(45, 1.6, .1, 500); camera.position.set(41, 25, 50); camera.lookAt(41, 3, 33); camera.updateMatrixWorld();
 const right = new THREE.Vector3(1, 0, 0), actors = new Actors(scene, flora);

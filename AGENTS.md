@@ -26,20 +26,31 @@ Act as a senior software architect and simulation engineer working on Second Gro
 
 Vanilla JS, no build step, three.js vendored in `vendor/three`. Serve with `python3 tools/serve.py` (port 8347). Tune balance in `js/data/*.js` and `js/sim/`, and check it headless with `node tools/balance-sim.mjs restore 15` before and after.
 
-Read the decisions in [docs/decisions/](docs/decisions/) before changing the area they cover:
+Read the decision for an area before changing it. Each record in [docs/decisions/](docs/decisions/) has the design, the gotchas and its check script; this list is only an index.
 
-- [0001 Nature-driven wildlife](docs/decisions/0001-nature-driven-wildlife.md): the core design rule
-- [0002 Real animal recordings](docs/decisions/0002-real-animal-recordings.md): how to add animal sounds
-- [0004 Ecosystem performance](docs/decisions/0004-ecosystem-performance.md): the low-end target (30 FPS, native resolution, Fast, Intel HD 520), the audit, and the milestone plan with progress
-- [0005 Animal travel and crowding](docs/decisions/0005-animal-clustering.md), [0006 Prey vigilance](docs/decisions/0006-prey-predator-avoidance.md), [0007 Territorial cores](docs/decisions/0007-species-territories.md), [0008 Carcass window](docs/decisions/0008-longer-carcass-window.md), [0009 Seasonal dormancy](docs/decisions/0009-seasonal-dormancy.md), [0010 Game trails](docs/decisions/0010-game-trails.md): wildlife movement and behavior added October 2026
-- [0011 Grazing pressure](docs/decisions/0011-grazing-pressure.md): herds hold woody seedlings back in the grass they use (`sim/grazing.js`, per-map `grazing` strength), and where elk spend their time
-- [0012 Raptors soar and carry](docs/decisions/0012-raptors-soar-and-carry.md): hawks and vultures circle (`def.soar`; a vulture spirals down over a carcass, `circleDown`), and raptors and owls carry off what they can lift (`def.carries`, `carryCatch` in `sim/bird-behavior.js`)
-- [0013 Home ranges and water](docs/decisions/0013-home-ranges-and-water.md): resident mammals settle homes apart from their own kind and drink at their home's nearest water within reach (`sim/home-range.js`); `node tools/activity-budget.mjs [map]` shows how each species spends its time
-- [0014 Activity budget](docs/decisions/0014-activity-budget.md): hunters' hunger, rest and soaring compete for time (`behavior.activity`, `prowl()`), prey watch a stalker and flee at a rush, flights speed up then tire, trails fade 0.5%/day; `node tools/activity-check.mjs`
-- [0015 Landscape of fear](docs/decisions/0015-landscape-of-fear.md): each prey species remembers kill and chase sites for a few weeks (`sim/predation-risk.js`, not saved) and weighs them when choosing a home, a site or a drinking spot; `node tools/predation-risk-check.mjs`
-- [0016 Carcass decay](docs/decisions/0016-carcass-decay.md): a kill's flesh is drawn pulling back onto a per-species skeleton, which slumps into a pile of bones that go one by one (`render3d/carcass-decay.js`, `decay()` in the animal shader; drawing only, plus `leaveBody` for animals that die naturally; skeletons keep their antlers, horns and tusks; Graphics → Carcass decay turns it off); `node tools/carcass-decay-check.mjs`, review at `tools/skeleton-review.html`
+- [0001](docs/decisions/0001-nature-driven-wildlife.md) Nature-driven wildlife: the core design rule
+- [0002](docs/decisions/0002-real-animal-recordings.md) Real animal recordings: how to add animal sounds
+- [0003](docs/decisions/0003-elk-overland-travel.md) Elk travel between habitat patches
+- [0004](docs/decisions/0004-ecosystem-performance.md) Ecosystem performance: the low-end target (30 FPS, Fast, Intel HD 520) and milestones
+- Wildlife movement and behavior: [0005](docs/decisions/0005-animal-clustering.md) travel and crowding, [0006](docs/decisions/0006-prey-predator-avoidance.md) prey vigilance, [0007](docs/decisions/0007-species-territories.md) territorial cores, [0008](docs/decisions/0008-longer-carcass-window.md) carcass window, [0009](docs/decisions/0009-seasonal-dormancy.md) seasonal dormancy, [0010](docs/decisions/0010-game-trails.md) game trails (`sim/animal-course.js`)
+- [0011](docs/decisions/0011-grazing-pressure.md) Grazing pressure: herds hold back woody seedlings (`sim/grazing.js`)
+- [0012](docs/decisions/0012-raptors-soar-and-carry.md) Raptors soar and carry (`sim/bird-behavior.js`)
+- [0013](docs/decisions/0013-home-ranges-and-water.md) Home ranges and water (`sim/home-range.js`); `tools/activity-budget.mjs` shows how each species spends its time
+- [0014](docs/decisions/0014-activity-budget.md) Activity budget: hunger, rest and soaring compete for a hunter's time
+- [0015](docs/decisions/0015-landscape-of-fear.md) Landscape of fear: prey remember kill sites (`sim/predation-risk.js`)
+- [0016](docs/decisions/0016-carcass-decay.md) Carcass decay: flesh to skeleton to bones, drawing only (`render3d/carcass-decay.js`)
+- [0017](docs/decisions/0017-controlled-burn-crown-fires.md) Controlled burns can torch into crown fires
+- [0018](docs/decisions/0018-animal-close-up-shading.md) Animal close-up shading, per-pixel coats, close-up models and eyes (`render3d/animals/`). Gotcha: a model's normal **lengths** carry shading, so normalize before using them
+- [0019](docs/decisions/0019-bare-soil-close-up.md) Bare soil painted per pixel at eye level (`render3d/terrain-materials.js`)
+- [0020](docs/decisions/0020-watch-mode-and-eye-level.md) Watch mode (`C`), eye level (`F`), eye-level sky, weather, lightning and thunder
+- [0021](docs/decisions/0021-watch-pace.md) Watch pace (`0`): the calendar slows, animals keep the normal pace (`ANIMAL_SPEEDS`); life stages read `lifeAge(a)`, not `a.age`; compare speeds by value, not index
+- [0022](docs/decisions/0022-far-vegetation-by-screen-size.md) Far vegetation by screen size: far tree and shrub models whenever the view is zoomed out (tile under 16 px on High, 23 on Fast), on every computer; `flora.setFar(false)` to compare
+
+New decisions take the next unused number and one line here.
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
+
+Performance budget: [2026-10-23 review](docs/performance-review-2026-10-23.md) has where a frame goes, the per-part ceilings for new graphics and simulation, and the open fixes (young climbing primates, daily plant redraw, daily environment update). Measure a new feature with `node tools/play-profile.mjs [maps] [quality] [years]` before and after: an organically grown game through the real frame loop, simulation vs drawing vs GPU.
 
 ## Working alongside other agents
 
@@ -58,6 +69,10 @@ Several agents (Claude Code, Codex, Cursor) often edit this checkout at the same
 - Merging to main deploys GitHub Pages (nature-tycoon.github.io/second-growth) and runs the itch.io workflow.
 - CI: PRs run only the headless suite. The browser suite runs on main before the itch.io upload. Run the relevant `tools/*-check.mjs` locally, and don't wait for or poll CI before merging. `[skip ci]` in the commit message skips the checks and the itch.io upload.
 
+## Phones
+
+The game is played on phones in **landscape**. Design and check phone layouts at a landscape size (for example 812×375 or 844×390), where the height is the tight side. Upright (portrait) phone layouts are a fallback, not the target.
+
 ## Testing on Cole's Mac
 
 Cole works on the same machine while agents test, and the 3D game is heavy.
@@ -70,9 +85,13 @@ Cole works on the same machine while agents test, and the 3D game is heavy.
 - Cole may be playing in a preview tab. Ask before reloading it.
 - When sending Cole links to `tools/*.html` review pages, use `http://localhost:8347/tools/...` with the server running. File links open the raw file and the ES modules never run.
 - In a `tools/*-browser-check.mjs`, send `Page.enable` before `Page.addScriptToEvaluateOnNewDocument`. Without it the script never runs, so seeded settings and `second-growth-pending` are ignored and the farm selector (which can't be dismissed) stays open.
-- Animals small on screen draw from their species pool's distant model (`fauna.species.get(key).far`). A check that counts drawn animals must add `far.count` to `count`.
+- Animals small on screen draw from their species pool's distant model (`fauna.species.get(key).far`). Animals large on screen draw from its close-up model (`.close`, see 0018). A check that counts drawn animals must add `far.count` and `close.count` to `count`.
 - "does not provide an export named …" means the browser cached an old module. Refetch with `cache: 'reload'` or clear the site's cache.
 
-## Performance reports
+## Checklists
 
-Check the machine before profiling code: `pmset -g custom | grep lowpowermode`, `pmset -g batt` and `sysctl -n vm.loadavg`. Low Power Mode and a high load average have caused "the game got slower" before. The game's Auto frame rate also caps at 30 fps on battery (`js/main.js`). Then time `wildlife.update` headless. For loading, `node tools/boot-profile.mjs 4 1` times each loading-screen stage (a fresh profile each run, so shaders compile cold). `tools/flora-rebuild-bench.mjs`, `tools/spacing-bench.mjs` and `tools/canopy-bench.mjs` (climbing monkeys) print output signatures as well as timings, and take `FLORA_ROOT`/`SPACING_ROOT`/`CANOPY_ROOT` for an A/B against another checkout. `balance-sim` is unseeded: to compare two checkouts, seed `Math.random` through `node --import`.
+Step-by-step checklists live in `.claude/skills/` (Claude Code runs them as `/balance`, `/perf` and `/ship`; other agents can read them as plain files):
+
+- [balance](.claude/skills/balance/SKILL.md): seeded before/after `balance-sim` for ecology changes. `balance-sim` is unseeded, so seed `Math.random` through `node --import` to compare.
+- [perf](.claude/skills/perf/SKILL.md): check the machine first (Low Power Mode, battery, load average), which profiler answers which question, and the per-part budget.
+- [ship](.claude/skills/ship/SKILL.md): checks, committing only your own hunks, the preview for Cole, and the push/merge steps.

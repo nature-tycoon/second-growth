@@ -25,7 +25,7 @@ try {
       if (${JSON.stringify(map)} === 'atlanta') {
         renderer.actors.cullOffscreen = false;
         // Animals small on screen draw from the pool's distant model, so count both.
-        const drawn = key => { const p = renderer.actors.fauna.species.get(game.map + ':' + key); return (p?.count || 0) + (p?.far?.count || 0); };
+        const drawn = key => { const p = renderer.actors.fauna.species.get(game.map + ':' + key); return (p?.count || 0) + (p?.far?.count || 0) + (p?.close?.count || 0); };
         const identities = game.wildlife.agents.map(a => [a.id, a.sp, isMale(ANIMALS[a.sp], a)]);
         const originalDay = game.day;
         for (const month of [0, 6, 11, 6]) {

@@ -1,6 +1,6 @@
 // Challenging-only pressures, using local habitat and the existing daily loop.
 // Rates represent gameplay time and populations, not real-world measured rates.
-import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
+import { T, F, isWater, clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { preyFor } from '../data/animals.js';
 
 
@@ -99,7 +99,7 @@ export function predationCatchChance(game, prey, predator, base = 0.45) {
 }
 
 export function hungryPredator(game, a, def = game.catalog.animals[a.sp]) {
-  return !!(game.diff.ecology && preyFor(def, game) && a.age >= def.mature * DAYS_PER_YEAR && a.hunger >= HUNGRY_DAYS);
+  return !!(game.diff.ecology && preyFor(def, game) && lifeAge(a) >= def.mature * DAYS_PER_YEAR && a.hunger >= HUNGRY_DAYS);
 }
 
 export function foodDeparture(game, a) {

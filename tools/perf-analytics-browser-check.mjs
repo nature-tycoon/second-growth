@@ -38,6 +38,10 @@ try {
       }
     }
     for (const field of ['fps', 'slow_frames_pct', 'draw_calls', 'triangles']) assert.ok(field in result.event.props, `${field} remains in the event`);
+    // the frame cap and battery state, so a capped 29 fps doesn't read as slow; the release stays 'dev' locally
+    assert.ok([30, 60].includes(result.event.props.target_fps), 'target_fps is the frame cap');
+    assert.ok([true, false, null].includes(result.event.props.on_battery), 'on_battery is known or null');
+    assert.equal(result.event.props.renderer_revision, 'dev', 'renderer_revision is the release, stamped only at deploy');
     assert.equal(result.overlay, diagnostic); assert.equal(result.probes, diagnostic, 'deeper probes stay opt-in');
     b.assertHealthy();
     console.log(`PASS perf_sample CPU means/p95, count, reset and unchanged cadence ${diagnostic ? 'with' : 'without'} ?perf=1`);

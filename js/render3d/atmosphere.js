@@ -31,6 +31,22 @@ export const sea = {
   uSeaMurk: { value: 0 },                   // a flood plume clouding the water (0 clear .. 1 murky green-brown)
 };
 
+// The cloud field itself, shared with the eye-level sky (eye-sky.js), so the clouds overhead are
+// the ones whose shadows drift over the ground below them.
+export const CLOUD_NOISE = `
+  float clH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float clN(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(clH(i), clH(i + vec2(1.0, 0.0)), f.x), mix(clH(i + vec2(0.0, 1.0)), clH(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
+  float cloudNoise(vec2 xz, float t) {
+    vec2 p = xz / 9.0 + t * vec2(0.04, 0.016); // clouds a few tiles to a dozen across, drifting ~0.4 tiles/s
+    return clN(p) * 0.58 + clN(p * 2.07 + 3.7) * 0.28 + clN(p * 4.3 + 9.1) * 0.14;
+  }
+  float cloudEdge(float cover) { return 0.76 - cover * 0.42; }
+`;
+
 const CLOUD_GLSL = `
   uniform float uCloudT, uCloudCover, uCloudAmt;
   uniform float uSeaOn, uSeaY, uSeaMurk;
@@ -49,16 +65,9 @@ const CLOUD_GLSL = `
     float b = abs(sin((q.x + q.y) * 1.7 - t * 0.9) + sin((q.x - q.y) * 1.9 + t * 0.6));
     return pow(1.0 - min(a, b) * 0.5, 7.0);
   }
-  float clH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float clN(vec2 p) {
-    vec2 i = floor(p), f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(clH(i), clH(i + vec2(1.0, 0.0)), f.x), mix(clH(i + vec2(0.0, 1.0)), clH(i + vec2(1.0, 1.0)), f.x), f.y);
-  }
+  ${CLOUD_NOISE}
   float cloudShade(vec2 xz) {
-    vec2 p = xz / 9.0 + uCloudT * vec2(0.04, 0.016); // clouds a few tiles to a dozen across, drifting ~0.4 tiles/s
-    float n = clN(p) * 0.58 + clN(p * 2.07 + 3.7) * 0.28 + clN(p * 4.3 + 9.1) * 0.14;
-    float edge = 0.76 - uCloudCover * 0.42;
+    float n = cloudNoise(xz, uCloudT), edge = cloudEdge(uCloudCover);
     return smoothstep(edge - 0.05, edge + 0.05, n);
   }
 `;

@@ -54,7 +54,7 @@ export function createPlantMaterials(wind) {
   materials.shrubs = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.12, wind, false, 0.38, 0.6), 0.75), 0.85));
   materials.grass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 1.4, wind, true, 0.5, 0.7), 0.4), 1.3));
   materials.tallGrass = withClouds(withSnowTops(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }), 0.4, wind, true, 0.5, 0.7), 0.9), 1.3));
-  materials.bark = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true })), 1));
+  materials.bark = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true }), 0, { side: 0.15 }), 1));
   materials.small = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.35), 1));
   // Occupied branches stay solid when foliage is revealed. They use the real
   // tree scaffold, with no focus cutout, wind deformation or global tree fade.

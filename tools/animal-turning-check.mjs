@@ -36,8 +36,9 @@ check('Swept look-ahead rejects diagonal corner cuts, even when the endpoint is 
  assert.equal(walkSegmentSafe(s.w,s.a,38.2,31.2),false);s.w.feature[s.w.idx(37,31)]=0;assert.equal(walkSegmentSafe(s.w,s.a,38.2,31.2),true);
 });
 check('Repeated tracks follow the rounded motion and do not draw an unused grid corner',()=>{
+ // (an open L-shaped route is walked as a curve across the corner: sample where the animal actually went)
  const s=setup();let sample=null;
- for(let pass=0;pass<14;pass++){route(s);run(s,.05,()=>{if(s.a.x>37&&s.a.x<38.5&&s.a.y>30.7&&s.a.y<31.5)sample=[s.a.x,s.a.y];});}
+ for(let pass=0;pass<14;pass++){route(s);run(s,.05,()=>{if(s.a.x>35&&s.a.x<36)sample=[s.a.x,s.a.y];});}
  assert.ok(sample);const mask=(x,y)=>trailMask(s.w,s.w.idx(Math.floor(x),Math.floor(y)),x%1,y%1);
  const used=mask(...sample),unused=mask(38.5,30.5);assert.ok(used>.2,`used ${used}`);assert.ok(unused<used*.3,`unused corner ${unused} versus used ${used}`);
 });

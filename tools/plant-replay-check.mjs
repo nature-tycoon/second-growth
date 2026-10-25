@@ -7,9 +7,10 @@ import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
 const { Flora } = await import('../js/render3d/flora.js');
-import { plantFixture, editPlants } from './plant-performance-fixtures.mjs';
+import { plantFixture, editPlants, growPlants } from './plant-performance-fixtures.mjs';
 import { mulberry32 } from '../js/rng.js';
 import { F } from '../js/config.js';
+import { TRAIL_RESOLUTION } from '../js/data/animal-trails.js';
 
 Math.random = mulberry32(1987);
 let checks = 0;
@@ -86,4 +87,40 @@ check('Climbers get a fresh tree site each rebuild, as from a complete rebuild',
   assert.ok(replaced > 0);
 });
 
+check('Trail wear opens the grass at the next day, not every step; faint wear never redraws', () => {
+  const g = plantFixture('pnw'), w = g.world, a = make(), b = make(), R = TRAIL_RESOLUTION;
+  w.trailDensity ||= new Float32Array(w.n * R * R);
+  a.rebuild(g, true); a.rebuild(g);
+  const drawn = f => { let n = 0; for (const p of f.pools.values()) for (const s of p.subs.values()) n += s.n || 0; return n; }, before = drawn(a);
+  const wear = (x, y, v) => { for (let dy = 0; dy < R; dy++) for (let dx = 0; dx < R; dx++) w.trailDensity[(y * R + dy) * w.w * R + x * R + dx] = v; };
+  for (let x = 20; x < 60; x++) wear(x, 30, 0.08); // (below where any plant gives way)
+  g.day++;
+  a.rebuild(g, false, 1);
+  assert.equal(a.lastRebuild.regions, 0, 'faint wear redraws no region');
+  for (let x = 20; x < 60; x++) wear(x, 30, 0.6);
+  assert.equal(a.rebuild(g, false, 1), false); assert.equal(a.lastRebuild.regions, 0, 'same day: worn trail waits');
+  g.day++;
+  while (a.rebuild(g, false, 1));
+  b.rebuild(g, true);
+  same(a, b, 'next day');
+  assert.ok(drawn(a) < before, 'the worn trail opened the grass');
+});
+check('Growth and shade redraw just their own tiles, except across the wood-edge and closed-canopy lines', () => {
+  for (const map of ['pnw', 'sumatra']) {
+    const g = plantFixture(map), w = g.world, a = make(), b = make();
+    a.rebuild(g, true); a.rebuild(g);
+    for (let n = 0; n < 3; n++) growPlants(g);
+    // (trees across the 0.45 a wood's edge echoes, shrubs across 0.3, shade across 0.5, both ways)
+    let crossed = 0;
+    for (let i = 0; i < w.n && crossed < 40; i += 37) {
+      if (w.tree[i]) { w.treeG[i] = w.treeG[i] > 0.45 ? 0.44 : 0.46; crossed++; }
+      if (w.shrub[i]) w.shrubG[i] = w.shrubG[i] > 0.3 ? 0.29 : 0.31;
+      w.canopy[i] = w.canopy[i] > 0.5 ? 0.49 : 0.51;
+    }
+    assert.ok(crossed > 10);
+    while (a.rebuild(g, false, 1));
+    b.rebuild(g, true);
+    same(a, b, map + ' growth');
+  }
+});
 console.log(`${checks} plant replay checks passed`);

@@ -1,7 +1,7 @@
 // Ground route following is continuous; grid routes supply a safe corridor and destination.
 import { T, clamp } from '../config.js';
 import { passable } from './animal-terrain.js';
-import { walkNode } from './animal-trails.js';
+import { pathPoint } from './animal-course.js';
 const angleDelta=(a,b)=>{let d=a-b;return d-Math.round(d/(Math.PI*2))*Math.PI*2;};
 export const smoothWalker=def=>!def.reef&&(def.move==='ground'||def.move==='semi'&&!def.patrol);
 // Check the swept segment and both sides of each diagonal boundary. Short look-ahead
@@ -20,12 +20,9 @@ export function walkSegmentSafe(w,a,x,y) {
   }
   return true;
 }
-// Ground walkers steer through an off-center point in each tile (walkNode), so a route walks as
-// a wandering line instead of ruling a straight one through every tile center.
-function node(w,a,j) {
-  const p=walkNode(w,a,j);
-  return [j%w.w+p[0],(j/w.w|0)+p[1]];
-}
+// Ground walkers steer through each path tile's point: where a journey's curved course crosses it
+// (animal-course.js), or an off-center point in the tile, so no route rules a line through tile centers.
+const node=(w,a,k)=>pathPoint(w,a,k);
 // Returns true only at the current waypoint, or after crossing its outgoing plane.
 // Position and orientation change together; sharp turns slow or pivot when space is tight.
 export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
@@ -36,7 +33,7 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
   if(!last) {
     let previous=[tx,ty],left=Math.max(0,look-Math.hypot(tx-a.x,ty-a.y));
     for(let k=path.length-2;k>=0&&k>=path.length-5&&left>0;k--){
-      const next=node(w,a,path[k]),d=Math.hypot(next[0]-previous[0],next[1]-previous[1]);
+      const next=node(w,a,k),d=Math.hypot(next[0]-previous[0],next[1]-previous[1]);
       const f=Math.min(1,left/(d||1)),x=previous[0]+(next[0]-previous[0])*f,y=previous[1]+(next[1]-previous[1])*f;
       if(!walkSegmentSafe(w,a,x,y))break;
       gx=x;gy=y;left-=d;previous=next;
@@ -65,6 +62,6 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
   if(Math.abs(Math.cos(next))>.05)a.facing=Math.cos(next)>0?1:-1;
   if(step>1e-7){a.x=nx;a.y=ny;}
   if(last)return Math.hypot(a.x-tx,a.y-ty)<Math.max(.045,pace*.6);
-  const following=node(w,a,path[path.length-2]),dx=following[0]-tx,dy=following[1]-ty;
+  const following=node(w,a,path.length-2),dx=following[0]-tx,dy=following[1]-ty;
   return near<.12 || (a.x-tx)*dx+(a.y-ty)*dy>=0 && near<look*1.8 && walkSegmentSafe(w,a,...following);
 }
