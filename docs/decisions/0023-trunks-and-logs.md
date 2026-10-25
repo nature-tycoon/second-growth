@@ -45,6 +45,35 @@ ground and are still left alone).
   animals with `animalRadius` under 0.2: voles, rabbits, squirrels, chipmunks, frogs, snakes,
   tortoises. Deer-sized and up step over them. Floating logs don't count.
 
+## Steering round trunks smoothly (2026-10-25)
+
+Cole saw animals sidestep oddly round trees and the follow camera shake. Measured headless on
+Sumatra as it starts (walkers within 0.5 tiles of a trunk), facings that jumped more than 20° in one
+step were 41 per 100 tiles walked; in the open, about 20. Three causes:
+
+- **Setting off snapped.** `smoothWalk` started each walk from its first heading, not from the
+  way the animal faced. Animals rest and feed beside trunks, so that first heading was often swung
+  round a trunk, and the body (eased round by the renderer) slid sideways. Now a walk starts from
+  `a.orientation` and turns at the usual rate, slowing while it turns. A startled dash (`a.run`)
+  still spins at once.
+- **Side flips.** With a trunk nearly dead ahead, the nearer cone edge swapped sides step by step,
+  and dodging one trunk could point into a second, which swung it back. `steerAround` now sweeps
+  both ways round every trunk in the way, takes the smaller turn, and keeps the side it chose
+  (`a.dodge`) unless the other side saves 0.35 rad. Leaving a dodge eases back 0.1 rad a step
+  (`a.dodgeOff`) while that heading is clear. This matters most for `stepToward` (hunts, flight),
+  which faces each step's heading at once.
+- **Seen late.** Mid-route walkers look 1.6 tiles ahead (more for big animals), and `stepToward`
+  too, so the turn starts early and stays slight. On the last leg the reach still stops just past
+  the spot, which may stand beside a trunk, or the walker would be steered off its own spot.
+
+After: 0.1 snaps and about 6 short wobbles per 100 tiles near trunks (before: about 10; with no
+trunk avoidance at all: 1.5). Hunters in a 45% cedar wood: 0.6 snaps per 100 tiles (before: 7.1).
+`wildlife.update` time on Sumatra is within run-to-run noise.
+
+A fan of candidate headings scored by clearance was tried first and turned walkers 2–3× more per
+tile in every wood, because in a stand the straight lane is almost never clear. Planning round the
+cones is better.
+
 ## Gotchas
 
 - Tree positions are now shared code: change the trunk jitter in `trunkSpot` only, never in `flora.js`.
@@ -53,7 +82,7 @@ ground and are still left alone).
 - `clearSpot` only moves targets within 1.5 tiles (it only matters on arrival), and
   `checkMovementProgress` measures progress to the cleared target, or a rest spot on a trunk would
   read as stalled and be re-routed.
-- The new per-animal fields (`woodLost`, `squeeze`, `trampled`) are declared on `Animal` and not saved.
+- The new per-animal fields (`woodLost`, `squeeze`, `trampled`, `dodge`, `dodgeOff`) are declared on `Animal` and not saved.
 - Idle animals standing in a trunk (from an old save) aren't moved until they next walk.
 
 ## Consequences
@@ -81,4 +110,5 @@ ground and are still left alone).
 trunk; the detour costs a deer less than 60% extra time; 24 random trips through a mixed wood all arrive;
 a hunter's `stepToward` path stays out of trunks; elephants push through a sapling thicket,
 knocking at least 10 back, and stay out of mature trunks; a vole goes round a field of logs while a
-deer steps over; fliers, orangutans and macaques are exempt.
+deer steps over; fliers, orangutans and macaques are exempt; a hunter heading at trunks doesn't
+flick from side to side, and Sumatra's walkers near trunks neither snap round nor wobble much.

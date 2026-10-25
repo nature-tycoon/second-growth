@@ -86,6 +86,67 @@ check('Hunters and fleeing prey (stepToward) also keep out of trunks', () => {
   assert.equal(inside, 0);
 });
 
+// Turning measures for the two checks below: a facing that jumps over 20 degrees in one step, and a
+// turn one way undone the other way within three steps (a wobble).
+const angle = (a, b) => { let d = a - b; return d - Math.round(d / (Math.PI * 2)) * Math.PI * 2; };
+function turning() {
+  let tiles = 0, snaps = 0, wobbles = 0;
+  const last = new Map();
+  return {
+    step(a, k) {
+      const p = last.get(a.id), h = a.orientation;
+      if (p && h != null && p.h != null) {
+        const m = Math.hypot(a.x - p.x, a.y - p.y), t = angle(h, p.h);
+        if (m > 1e-4 && m < 0.5) {
+          tiles += m;
+          if (Math.abs(t) > 0.35) snaps++;
+          if (Math.abs(t) > 0.1 && Math.abs(p.t) > 0.1 && Math.sign(t) !== Math.sign(p.t) && k - p.k <= 3) wobbles++;
+        }
+        const turned = Math.abs(t) > 0.02;
+        last.set(a.id, { x: a.x, y: a.y, h, t: turned ? t : p.t, k: turned ? k : p.k });
+      } else last.set(a.id, { x: a.x, y: a.y, h, t: 0, k: -9 });
+    },
+    forget(a) { last.delete(a.id); },
+    per100: () => ({ tiles, snaps: snaps / tiles * 100, wobbles: wobbles / tiles * 100 }),
+  };
+}
+
+check('A hunter heading at a trunk keeps to one side of it, not flicking from side to side', () => {
+  // (stepToward faces each step's heading at once, so a dodge that changes sides shows as a jerk)
+  const T0 = turning(), rng = mulberry32(5);
+  for (const key of ['cougar', 'deer', 'bear', 'elk', 'rabbit']) for (let trip = 0; trip < 6; trip++) {
+    const s = setup(), id = plantId(s, 'cedar');
+    for (let y = 10; y <= 60; y++) for (let x = 10; x <= 70; x++) if (hash2(x, y, 21 + trip) < 0.45) { const i = s.w.idx(x, y); s.w.tree[i] = id; s.w.treeG[i] = 0.6 + 0.4 * hash2(x, y, 22); }
+    const a = animal(s, key, 15.3 + rng() * 10, 15.3 + rng() * 10), tx = 50 + rng() * 15, ty = 40 + rng() * 15;
+    a.state = 'hunt';
+    for (let k = 0; k < 3000 && Math.hypot(a.x - tx, a.y - ty) > 0.3; k++) { s.wl.stepToward(a, tx, ty, 0.06); T0.step(a, k); }
+    assert.ok(Math.hypot(a.x - tx, a.y - ty) <= 0.3, `${key} arrives`);
+  }
+  const r = T0.per100(); // (2026-10-25: 7.1 facing snaps per 100 tiles before, 0.6 after)
+  assert.ok(r.snaps < 2.5, `${r.snaps.toFixed(1)} facing snaps per 100 tiles`);
+  assert.ok(r.wobbles < 5, `${r.wobbles.toFixed(1)} wobbles per 100 tiles`);
+});
+
+check('In a real forest, walkers near trunks turn smoothly: no snapping round, little wobble', () => {
+  // Sumatra as it starts, with its own animals going about their day. Animals rest and feed beside
+  // trunks, and each walk used to start by snapping to its first heading, often swung round a trunk.
+  Math.random = mulberry32(7); const g = new Game(); g.newGame(7, 'free', 'standard', 'sumatra');
+  const w = g.world, wl = g.wildlife, T0 = turning();
+  for (let k = 0; k < 600; k++) wl.update(0.05);
+  const byTrunk = a => { for (let yy = Math.floor(a.y) - 1; yy <= Math.floor(a.y) + 1; yy++) for (let xx = Math.floor(a.x) - 1; xx <= Math.floor(a.x) + 1; xx++) { const t = w.inb(xx, yy) && treeTrunk(w, xx, yy); if (t && Math.hypot(a.x - t[0], a.y - t[1]) - t[2] < 0.5) return true; } return false; };
+  for (let k = 0; k < 4000; k++) {
+    wl.update(0.05);
+    for (const a of wl.agents) {
+      if (!groundWalker(g.catalog.animals[a.sp], a) || a.state === 'idle' || !byTrunk(a)) T0.forget(a);
+      else T0.step(a, k);
+    }
+  }
+  const r = T0.per100(); // (2026-10-25: 41 snaps and about 10 wobbles per 100 tiles before, 0.1 and 6 after)
+  assert.ok(r.tiles > 300, `walked ${r.tiles.toFixed(0)} tiles near trunks`);
+  assert.ok(r.snaps < 4, `${r.snaps.toFixed(1)} facing snaps per 100 tiles`);
+  assert.ok(r.wobbles < 8, `${r.wobbles.toFixed(1)} wobbles per 100 tiles`);
+});
+
 check('Elephants push through saplings, knocking them back, but go round mature trunks', () => {
   const s = setup('serengeti'); forest(s, 'umbrella', 0.25);
   const before = s.w.treeG.slice();

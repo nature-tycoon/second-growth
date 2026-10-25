@@ -141,19 +141,49 @@ export function clearSpot(w, a, def, x, y) {
 }
 
 // Turn a heading aside of any wood ahead within reach: if it points into the cone a trunk (with
-// the walker's half-width) fills, swing it to that cone's nearer edge. Wood behind is ignored.
+// the walker's half-width) fills, swing it to that cone's edge, and on round the next one if that
+// edge points into it. It plans both ways round and takes the smaller turn, but keeps to the side
+// it's already passing on (a.dodge) unless the other way is clearly shorter, so a trunk straight
+// ahead doesn't have it flip from one side to the other step by step. Past the trunk, or changing
+// sides, it eases back a little each step (a.dodgeOff) rather than snapping round, while that way is
+// clear. Wood behind is ignored.
+const SWITCH = 0.35; // (radians the other way round must save before a walker changes sides)
+const EASE = 0.1; // (radians a step a dodge eases off by)
 export function steerAround(w, a, def, heading, reach) {
-  if (!active(a, def)) return heading;
-  const n = gather(w, a, def, a.x, a.y, bodyOf(a));
-  for (let k = 0; k < n; k++) {
-    const o = near[k], [px, py] = closest(o, a.x + Math.cos(heading) * reach * 0.5, a.y + Math.sin(heading) * reach * 0.5);
-    const dx = px - a.x, dy = py - a.y, d = Math.hypot(dx, dy);
-    if (d <= o.keep || d > reach + o.keep) continue; // (already touching: the step's resolve slides it round)
-    const toward = Math.atan2(dy, dx), half = Math.asin(Math.min(1, (o.keep + 0.02) / d));
-    let off = heading - toward;
-    off -= Math.round(off / (Math.PI * 2)) * Math.PI * 2;
-    if (Math.abs(off) >= half || Math.abs(off) > Math.PI / 2) continue;
-    heading = toward + (off !== 0 ? Math.sign(off) : (a.id & 1 ? 1 : -1)) * half;
+  if (!active(a, def)) { a.dodge = 0; a.dodgeOff = 0; return heading; }
+  const n = gather(w, a, def, a.x + Math.cos(heading) * reach * 0.5, a.y + Math.sin(heading) * reach * 0.5, bodyOf(a));
+  let side = 0, out = heading;
+  const left = n ? sweep(a, heading, reach, n, 1) : heading;
+  if (left !== heading) {
+    const right = sweep(a, heading, reach, n, -1), turn = h => Math.abs(h - heading);
+    side = turn(left) <= turn(right) ? 1 : -1;
+    if (a.dodge && a.dodge !== side && turn(a.dodge > 0 ? left : right) < turn(side > 0 ? left : right) + SWITCH) side = a.dodge;
+    out = side > 0 ? left : right;
+  }
+  a.dodge = side;
+  const off = out - heading, was = a.dodgeOff || 0;
+  if (was && !(off * was > 0 && Math.abs(off) >= Math.abs(was))) {
+    const eased = heading + clamp(off, was - EASE, was + EASE);
+    if (!n || sweep(a, eased, reach, n, 1) === eased) { a.dodgeOff = eased - heading; return eased; }
+  }
+  a.dodgeOff = off;
+  return out;
+}
+// Swing heading one way (side +1: anticlockwise) past each trunk it points into, until it's clear.
+function sweep(a, heading, reach, n, side) {
+  for (let pass = 0; pass < 4; pass++) {
+    let moved = false;
+    for (let k = 0; k < n; k++) {
+      const o = near[k], [px, py] = closest(o, a.x + Math.cos(heading) * reach * 0.5, a.y + Math.sin(heading) * reach * 0.5);
+      const dx = px - a.x, dy = py - a.y, d = Math.hypot(dx, dy);
+      if (d <= o.keep || d > reach + o.keep) continue; // (already touching: the step's resolve slides it round)
+      const toward = Math.atan2(dy, dx), half = Math.asin(Math.min(1, (o.keep + 0.02) / d));
+      let off = heading - toward;
+      off -= Math.round(off / (Math.PI * 2)) * Math.PI * 2;
+      if (Math.abs(off) >= half - 1e-9 || Math.abs(off) > Math.PI / 2) continue;
+      heading += side * half - off; moved = true; // (to toward + side × half, without wrapping)
+    }
+    if (!moved) break;
   }
   return heading;
 }
