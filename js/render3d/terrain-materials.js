@@ -378,10 +378,11 @@ export function waterLook(mat, time, noise, rain, sky) {
         // a pond in tile-sized stairs. vRound is the depth over the ground smoothed a little, which
         // is shallower at the outer corner of each step, so the water draws back there and the
         // stairs round off (it can only draw back: the ground hides anything beyond the real
-        // waterline). It draws back at most 0.05 of depth, so only the shallows round off: past a
+        // waterline). It draws back at most 0.07 of depth, so only the shallows round off: past a
         // steep dug bank the smoothed ground would otherwise hide deep water and leave dry bites.
-        float shoreD = max(min(vDepth, vRound), vDepth - 0.05);
-        if (shoreD < vDepth - 0.001) diffuseColor.a *= smoothstep(0.0, 0.02, shoreD);
+        // (a soft fade, so the rounded corners don't read as sharp straight cuts)
+        float shoreD = max(min(vDepth, vRound), vDepth - 0.07);
+        if (shoreD < vDepth - 0.001) diffuseColor.a *= smoothstep(-0.005, 0.035, shoreD);
         // foam where the water laps the bank
         // Signed depth crosses zero at the actual ground/water intersection.
         float edge = (1.0 - smoothstep(0.0, 0.075, abs(shoreD)));

@@ -175,8 +175,8 @@ check('Ponds dug on slopes never end in mid-air along a tile edge', () => {
   }
 });
 check('Rounding the waterline never hides deep water at a dug bank', () => {
-  // (mirrors the water shader: shoreD = max(min(depth, rounded depth), depth - 0.05) fades the
-  // water out below 0.02. Irregular, painted ponds; water deeper than 0.08 must always show)
+  // (mirrors the water shader: shoreD = max(min(depth, rounded depth), depth - 0.07) fades the
+  // water out below 0.035. Irregular, painted ponds; water deeper than 0.11 must always show)
   const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   for (const map of ['pnw', 'serengeti', 'chinandega']) {
     const { game, terrain: t } = make(map), w = game.world, dig = createTools(game.catalog).pond.apply;
@@ -190,8 +190,8 @@ check('Rounding the waterline never hides deep water at a dug bank', () => {
     const a = t.water.geometry.attributes, D = a.aDepth, R = a.aRound;
     for (let f = 0; f < a.position.count; f += 3) for (let u = 0; u <= 6; u++) for (let v = 0; u + v <= 6; v++) {
       const b = [u / 6, v / 6, 1 - (u + v) / 6], m = A => b[0] * A.getX(f) + b[1] * A.getX(f + 1) + b[2] * A.getX(f + 2);
-      const d = m(D), sd = Math.max(Math.min(d, m(R)), d - 0.05);
-      if (d > 0.08) assert.ok(sd >= d - 0.001 || ss(0, 0.02, sd) > 0.5, `${map}: water ${d.toFixed(2)} deep hidden near ${a.position.getX(f)},${a.position.getZ(f)}`);
+      const d = m(D), sd = Math.max(Math.min(d, m(R)), d - 0.07);
+      if (d > 0.11) assert.ok(sd >= d - 0.001 || ss(-0.005, 0.035, sd) > 0.5, `${map}: water ${d.toFixed(2)} deep hidden near ${a.position.getX(f)},${a.position.getZ(f)}`);
     }
     dispose(t);
   }
