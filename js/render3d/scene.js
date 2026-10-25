@@ -339,14 +339,13 @@ export class Renderer {
       this.focusFor = sel.id;
       focus.uFocus.value.lerp(pose.center, e);
       let radius = pose.branch ? clamp(.4 + pose.h * 1.2, .55, .95) : clamp(.75 + pose.h * 1.7, .85, 1.45);
-      let bodyRadius = 0;
+      let bodyRadius = 0, span = 0;
       let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius;
       if (pose.branch && pose.revealBounds && pose.revealMatrix) {
         // A downhill body can sit below its foot plane. Protect only leaves
         // below its projected silhouette, and clear cover through its full
         // depth rather than stopping at the centre of the animal.
         const point = this.focusCorner ||= new THREE.Vector3(), bounds = pose.revealBounds;
-        let span = 0;
         for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
           point.set(x, y, z).applyMatrix4(pose.revealMatrix).sub(focus.uFocus.value);
           const along = point.dot(focus.uViewDir.value), height = point.dot(focus.uCamUp.value);
@@ -361,12 +360,14 @@ export class Renderer {
       focus.uFocusR.value = Math.max(focus.uFocusR.value, bodyRadius);
       focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
       focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
-      focus.uFocusHalfW.value = Math.max(pose.h, pose.foot || 0) * 0.55;
+      focus.uFocusHalfW.value = Math.max(pose.h * 0.55, (pose.foot || 0) * 0.55, span);
+      focus.uFocusInvD.value = this.eyeOn ? 1 / Math.max(0.05, this.eye.pos.distanceTo(pose.center)) : 0;
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
       focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
       focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value;
+      focus.uFocusInvD.value = 0;
     }
   }
 
