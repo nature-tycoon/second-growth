@@ -6,7 +6,11 @@ Player ids that Cole pastes from feedback are **distinct_id** values, not person
 
 ## Lag reports
 
-Query that distinct_id's `perf_sample` events over its play window. Each one carries `fps`, `slow_frames_pct`, `quality`, `res_scale`, `pixel_ratio`, `shadows`, `triangles`, `draw_calls`, `zoom`, `gpu` (for example "Intel HD Graphics 620"), `batched_plant_instances` and `renderer_revision`.
+Query that distinct_id's `perf_sample` events over its play window. Each one carries `fps`, `slow_frames_pct`, `quality`, `res_scale`, `pixel_ratio`, `shadows`, `triangles`, `draw_calls`, `zoom`, `gpu` (for example "Intel HD Graphics 620"), `batched_plant_instances`, `renderer_revision`, `target_fps` and `on_battery`.
+
+Read `fps` against `target_fps`, the frame cap the game allowed itself (30 on touch screens, on battery, or by setting; 60 otherwise): 29 fps under a 30 cap is keeping up. `on_battery` is null where the browser won't say (Safari, Firefox). Both arrived with the first stamped release after 2026-10-24.
+
+From then on `renderer_revision`, and the `release` property on every event, is the release: the commit date and short hash (`2026-10-25-abc1234`), written into `js/release.js` by `tools/stamp-release.sh` in the deploy workflows. Local copies read `dev`. Earlier samples carry hand-set labels (`low-end-1`, then `plant-view-cache-1` from 2026-10-14 until this change).
 
 Also look at `auto_quality` (its `reason`: `graphics_chip` or `slow` for a step down to Fast, `room` for a step back up, `undo` when a step up proved too much), `setting_changed` and `tool_used` (tool, tiles). Device details come from `$os`, `$browser` and `$screen_width`.
 

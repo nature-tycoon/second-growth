@@ -23,6 +23,7 @@ import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
 import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS, GpuTimer } from '../performance.js';
+import { RELEASE } from '../release.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 import { animalDensity } from '../sim/animal-density.js';
 
@@ -814,7 +815,10 @@ export class Renderer {
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
       shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped, far_models: !!this.farOn,
       triangles: info.triangles, draw_calls: info.calls, zoom: +(this.zoom ?? 1).toFixed(2), gpu: this.gpuName(),
-      renderer_revision: 'plant-view-cache-1',
+      renderer_revision: RELEASE,
+      // the frame rate the game allows itself (30 on touch screens and on battery, see main.js), so a
+      // sample at 29 fps reads as keeping up rather than slow; on_battery is null where the browser won't say
+      ...this.frameCap?.(),
       batched_plant_candidates: this.flora.plantView.stats.candidates,
       batched_plant_instances: this.flora.plantView.stats.visible,
       plant_view_batches: this.flora.plantView.stats.batches,
