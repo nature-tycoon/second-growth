@@ -36,7 +36,7 @@ check('Signed depth follows the rendered bed, and shared vertices have seamless 
     const { game, terrain: t } = make(map), w = game.world;
     const a = t.water.geometry.attributes, seen = new Map();
     let positive = 0, negative = 0;
-    for (const key of ['position', 'color', 'aDepth', 'aFlow', 'aBend']) assert.ok(a[key].array.every(Number.isFinite), map + ' ' + key);
+    for (const key of ['position', 'color', 'aDepth', 'aFlow', 'aCurrent', 'aBend']) assert.ok(a[key].array.every(Number.isFinite), map + ' ' + key);
     for (let i = 0; i < a.position.count; i++) {
       const x = a.position.getX(i), y = a.position.getY(i), z = a.position.getZ(i), depth = a.aDepth.getX(i);
       assert.ok(Math.abs(depth - (y / LEVEL - w.vert(x, z))) < 0.00001, map + ' signed depth');
@@ -49,6 +49,22 @@ check('Signed depth follows the rendered bed, and shared vertices have seamless 
     if (map !== 'reef') assert.ok(positive > 0 && negative > 0, map + ' water and bank depths');
     const mesh = t.water; t.refreshWater(); assert.equal(t.water, mesh, 'no per-frame rebuild');
     t.setFast(true); assert.equal(t.water, mesh, 'Fast keeps water details');
+    dispose(t);
+  }
+});
+check('River wavelets keep their spacing where the current turns round a headland', () => {
+  // Across any tile the downstream and across coordinates change by about the tile's width.
+  // Projecting the position onto the turning current instead changed them up to 15x as fast on
+  // these maps, squeezing the wavelets into swirls beside jutting land.
+  for (const map of ['serengeti', 'pnw', 'amazon']) {
+    const { game, terrain: t } = make(map), a = t.water.geometry.attributes, worst = [0, 0];
+    for (let i = 0; i < a.position.count; i += 3) {
+      const v = [i, i + 1, i + 2];
+      if (a.aDepth.getX(i) < 0.05 || v.some(j => Math.hypot(a.aFlow.getX(j), a.aFlow.getY(j)) < 0.01)) continue;
+      for (const [c, get] of [[0, j => a.aCurrent.getX(j)], [1, j => a.aCurrent.getY(j)]])
+        for (const [p, q] of [[0, 1], [1, 2], [0, 2]]) worst[c] = Math.max(worst[c], Math.abs(get(v[p]) - get(v[q])) / Math.SQRT2);
+    }
+    assert.ok(worst[0] < 1.5 && worst[1] < 1.5, map + ' coordinate change per tile ' + worst.map(x => x.toFixed(2)));
     dispose(t);
   }
 });
