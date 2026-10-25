@@ -65,10 +65,13 @@ ground and are still left alone).
 - In the real frame loop, a deer and an elk crossed a 16-tile mature fir grove with no step inside a
   trunk and no squeeze (1,616 samples).
 - Balance, Hollis `restore 15`, 8 seeds: year-16 score, meadow, forest and mature trees are within
-  seed noise (5-seed means: meadow 1051 → 1060, forest 204 → 210, score 58.7 → 61.8). **Elk read
-  lower**: year-11 mean 15 → 11.5 (lower in 7 of 8 seeds), year-16 mean 16.1 → 13.9. Over 4 seeds
-  the gap is fewer arrivals (47 → 40) and births (56 → 50), not more predation (19 → 16). Both are
-  within noise one by one. The cause isn't known yet; watch it if elk numbers come up.
+  seed noise (5-seed means: meadow 1051 → 1060, forest 204 → 210, score 58.7 → 61.8).
+- Elk looked lower in the first 8 seeds (year 11: 15 → 11.5), but that was noise. Elk births,
+  arrivals and natural deaths depend only on headcount and K (`Wildlife.monthly`), not on where elk
+  walk. K was identical, and predation was unchanged (25 → 23 adults over 8 seeds × 9 years).
+  Movement only reshuffles the random sequence. On 16 fresh seeds (101–116) elk means were
+  6.1/9.9/13.4 before and 6.1/10.8/14.8 after at years 6/8/10. Lesson: 8 seeds of `restore` can't
+  tell a 3-elk difference from noise (seed-to-seed spread is ±4). Use 16+ before calling a shift real.
 - Serengeti campaign completes on the same day (522). No elephants arrived in 10-year idle Serengeti
   or Sumatra runs, so the sapling trampling didn't show up in those numbers.
 
