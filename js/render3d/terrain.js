@@ -66,6 +66,52 @@ export function waterSurfaceY(w, x, y) {
   return (Math.min(...w.corners(xi, yi)) + FILL[t]) * LEVEL;
 }
 
+// How far downstream and how far across the current each corner of a water mesh lies, in tiles,
+// for the water shader's streaks and wavelets. The shader used to project the position onto the
+// local current, which squeezed the bands into swirls wherever the current turns round a
+// headland (a few degrees of turn, a hundred tiles from the origin, shifts them by whole tiles).
+// Here the coordinates are walked out corner by corner along the current from one corner of each
+// stretch, then relaxed so the small mismatches round a headland spread out instead of leaving a
+// seam. Corners are integers; pos has three numbers per vertex, flow two; still water gets 0.
+export function flowCoords(pos, flow, count) {
+  const out = new Float32Array(count * 2), key = (x, z) => (z + 4096) * 8192 + x + 4096;
+  const index = new Map(), dx = [], dz = [], cx = [], cz = [];
+  for (let v = 0; v < count; v++) {
+    const fx = flow[v * 2], fz = flow[v * 2 + 1], l = Math.hypot(fx, fz);
+    if (l < 0.01) continue;
+    const k = key(pos[v * 3], pos[v * 3 + 2]);
+    if (!index.has(k)) { index.set(k, dx.length); dx.push(fx / l); dz.push(fz / l); cx.push(pos[v * 3]); cz.push(pos[v * 3 + 2]); }
+  }
+  const n = dx.length, nb = new Int32Array(n * 4).fill(-1);
+  for (let i = 0; i < n; i++) [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([ox, oz], s) => { nb[i * 4 + s] = index.get(key(cx[i] + ox, cz[i] + oz)) ?? -1; });
+  // the step from corner j to its neighbour i, along the current between them and across it
+  const step = (i, j, s) => {
+    const ox = cx[i] - cx[j], oz = cz[i] - cz[j], ax = dx[i] + dx[j], az = dz[i] + dz[j], l = Math.hypot(ax, az);
+    if (s) return l < 1e-6 ? 0 : (ox * -az + oz * ax) / l;
+    return l < 1e-6 ? 0 : (ox * ax + oz * az) / l;
+  };
+  const along = new Float32Array(n), across = new Float32Array(n), seen = new Uint8Array(n);
+  for (let s0 = 0; s0 < n; s0++) {
+    if (seen[s0]) continue;
+    const q = [s0]; seen[s0] = 1;
+    for (let h = 0; h < q.length; h++) for (let e = 0; e < 4; e++) {
+      const j = q[h], i = nb[j * 4 + e];
+      if (i < 0 || seen[i]) continue;
+      seen[i] = 1; along[i] = along[j] + step(i, j, 0); across[i] = across[j] + step(i, j, 1); q.push(i);
+    }
+  }
+  for (let pass = 0; pass < 60; pass++) for (let i = 0; i < n; i++) {
+    let a = 0, c = 0, m = 0;
+    for (let e = 0; e < 4; e++) { const j = nb[i * 4 + e]; if (j >= 0) { a += along[j] + step(i, j, 0); c += across[j] + step(i, j, 1); m++; } }
+    if (m) { along[i] = a / m; across[i] = c / m; }
+  }
+  for (let v = 0; v < count; v++) {
+    const i = index.get(key(pos[v * 3], pos[v * 3 + 2]));
+    if (i !== undefined && Math.hypot(flow[v * 2], flow[v * 2 + 1]) >= 0.01) { out[v * 2] = along[i]; out[v * 2 + 1] = across[i]; }
+  }
+  return out;
+}
+
 export class Terrain {
   constructor(scene, atlas) {
     this.scene = scene;
@@ -695,6 +741,7 @@ export class Terrain {
     g.setAttribute('color', new THREE.BufferAttribute(col, 4));
     g.setAttribute('aDepth', new THREE.BufferAttribute(dep, 1));
     g.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
+    g.setAttribute('aCurrent', new THREE.BufferAttribute(flowCoords(pos, flow, od), 2));
     g.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
     g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(od), 1));
     g.setAttribute('aSlope', new THREE.BufferAttribute(slope, 1));
@@ -816,6 +863,7 @@ export class Terrain {
     geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
     geo.setAttribute('aDepth', new THREE.BufferAttribute(dep, 1));
     geo.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
+    geo.setAttribute('aCurrent', new THREE.BufferAttribute(flowCoords(pos, flow, n), 2));
     geo.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
     geo.setAttribute('aQual', new THREE.BufferAttribute(qual, 1));
     // (floodwater keeps its own edge)
