@@ -925,6 +925,10 @@ body.watch-mode.moment-on #watch .w-bar, body.watch-mode.moment-on #watch .w-cap
 #watch .w-bar .btn.on { background: #e7d9a6; color: #24311f; }
 #watch .w-min { width: 28px; height: 28px; margin-left: -2px; border: 0; border-radius: 999px; background: transparent; cursor: pointer; display: grid; place-items: center; }
 #watch .w-min:hover { background: rgba(255,255,255,0.16); }
+#watch .w-shuf { width: 30px; height: 30px; flex: none; border: 0; border-radius: 999px; background: rgba(255,255,255,0.12); cursor: pointer; display: grid; place-items: center; }
+#watch .w-shuf:hover { background: rgba(255,255,255,0.2); }
+#watch .w-shuf svg { width: 16px; height: 16px; fill: none; stroke: #f3ecd6; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: 0.75; }
+#watch .w-shuf.on { background: #e7d9a6; } #watch .w-shuf.on svg { stroke: #24311f; opacity: 1; }
 #watch .w-min svg, #watch .w-expand svg { width: 15px; height: 15px; fill: none; stroke: #f3ecd6; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #watch .w-expand { position: absolute; right: max(16px, 3vw); bottom: calc(6vh + 16px); width: 34px; height: 34px; border: 0; border-radius: 999px;
   background: rgba(28,38,26,0.55); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); cursor: pointer; display: none; place-items: center;

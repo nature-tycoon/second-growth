@@ -185,3 +185,14 @@ perspective culling, and distant models by distance.
 - The sky's cost on the low-end GPU is unmeasured, like the rest of eye level.
 - Canopy climbers (monkeys, orangutans) at eye level are untested by eye. On the reef, a seabird
   followed above the water is checked only in `watch-check.mjs`, not by eye.
+
+**Shuffle** (2026-10-24, Cole: "don't switch between individual animals when in eye-level mode
+because if you're trying to watch it, you miss things. It seems to jump to another lion when a lion
+makes a kill"). The cut away came from the shot clock: a shot lasts 16–18 s, and a hunt holds it only
+up to 40 s, so a long stalk ran out of time around the kill and the director moved on (to another
+lion when watching lions, since `pick()` passes over the animal just shown). A shuffle button
+(crossed arrows, between the speed buttons and Next) now says whether the director moves on by
+itself. Off, a shot with an animal never times out: it ends only on Next, or when the animal is gone
+(killed at eye level, left the map) or out of sight for good; wide land shots are skipped too. Each
+view keeps its own setting for the session (`Watch.shuffle`): **off at eye level, on for the usual
+view**, as Cole's complaint was about eye level. The button shows the setting of the view you're in.

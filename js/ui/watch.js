@@ -19,6 +19,10 @@
 // and back, A / D step sideways, Q / E turn (as they rotate the usual view), Shift runs, and a
 // drag looks round. Next (N) goes back to the animals. On a touch screen the thumbstick shows at eye
 // level and walks the same way (up forward, sideways turns).
+//
+// Shuffle (the crossed arrows on the bar) is whether the director moves on by itself. Off, it stays
+// on the animal it has until Next is pressed (or the animal is gone). Each view keeps its own: on
+// for the usual view, off at eye level, where a cut away loses the animal you were watching.
 
 import { animalDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
@@ -48,6 +52,21 @@ export class Watch {
     this.on = false; this.eyeLevel = false; this.min = false; this.species = null;
     this.shot = null; this.recent = []; this.n = 0;
     this.walking = false;
+    this.shuffle = { follow: true, eye: false };
+  }
+
+  shuffling() { return this.shuffle[this.eyeLevel ? 'eye' : 'follow']; }
+  setShuffle(on) {
+    this.shuffle[this.eyeLevel ? 'eye' : 'follow'] = on;
+    this.showShuffle();
+    track('watch_shuffle', { map: this.game.map, on, eye: this.eyeLevel });
+  }
+  showShuffle() {
+    const b = this.el?.querySelector('[data-a=shuffle]');
+    if (!b) return;
+    const on = this.shuffling();
+    b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    b.title = on ? 'Shuffle is on: moves on to other animals by itself' : 'Shuffle is off: stays with this animal until Next';
   }
 
   toggle() { if (this.on) this.stop(); else this.start(); }
@@ -65,6 +84,7 @@ export class Watch {
     document.body.classList.toggle('watch-eye', this.eyeLevel);
     this.build();
     this.showSpecies();
+    this.showShuffle();
     requestAnimationFrame(() => this.el.classList.add('bars'));
     this.shot = null; this.n = 0;
     this.showControls();
@@ -91,6 +111,7 @@ export class Watch {
     document.body.classList.toggle('watch-eye', on);
     if (this.walking) { this.walking = false; this.shot = null; }
     this.el?.querySelector('[data-a=eye]').classList.toggle('on', on);
+    this.showShuffle();
     if (on) track('watch_eye_level', { map: this.game.map });
     // carry on with the same animal, just from the new place
     const s = this.shot;
@@ -105,6 +126,7 @@ export class Watch {
       <div class="w-menu" role="listbox"></div>
       <div class="w-bar"><button class="w-sp" data-a="species" title="Watch one species (S)" aria-haspopup="listbox"><span></span><svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4"/></svg></button>
         <div class="speed w-speed">${document.getElementById('speed').innerHTML}</div>
+        <button class="w-shuf" data-a="shuffle" aria-pressed="false" aria-label="Shuffle"><svg viewBox="0 0 16 16"><path d="M2 4.5h2.5c2.5 0 3.5 7 6 7H13M2 11.5h2.5c1 0 1.7-1 2.3-2.2M9.2 6.7c.6-1.2 1.3-2.2 2.3-2.2H13M11 2.5l2 2-2 2M11 9.5l2 2-2 2"/></svg></button>
         <button class="btn secondary" data-a="next" title="Next animal (N)">Next</button><button class="btn secondary" data-a="eye" title="Eye level (F)">Eye level</button><button class="btn" data-a="done" title="Stop watching (Esc)">Done</button>
         <button class="w-min" data-a="min" title="Hide the controls (H)"><svg viewBox="0 0 16 16"><path d="M4 8h8"/></svg></button></div>
       <button class="w-expand" title="Show the controls"><svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4"/></svg></button>`;
@@ -112,6 +134,7 @@ export class Watch {
     this.el = o; this.cap = o.querySelector('.w-cap');
     o.querySelector('[data-a=done]').addEventListener('click', () => this.stop());
     o.querySelector('[data-a=next]').addEventListener('click', () => this.next());
+    o.querySelector('[data-a=shuffle]').addEventListener('click', () => this.setShuffle(!this.shuffling()));
     o.querySelector('[data-a=eye]').addEventListener('click', () => this.setEyeLevel(!this.eyeLevel));
     o.querySelector('[data-a=min]').addEventListener('click', () => this.setMinimized(true));
     o.querySelector('.w-expand').addEventListener('click', () => this.setMinimized(false));
@@ -274,7 +297,8 @@ export class Watch {
     if (a && s.t > 3.5 && !r.actors.pose.get(a.id)?.visible) { this.next(); return; }
     // (nor while it's being swung round: the shot waits till that's a few seconds over)
     const long = a && (busy(a) && s.t < LONGEST || s.eye && r.time - (r.eyeOrbitAt ?? -1e9) < 4);
-    if (s.t > s.len && !long) {
+    // (with shuffle off it stays on the animal: only Next, or the animal going, moves on)
+    if (s.t > s.len && !long && (!a || this.shuffling())) {
       // watching one species and this is the only one of it out: carry on with it
       if (this.species && a && this.pick() === a) { s.t = 0; s.len = SHOT.follow; }
       else { this.next(); return; }
@@ -288,7 +312,7 @@ export class Watch {
   next() {
     this.walking = false;
     this.endShot();
-    const g = this.game, wide = !this.eyeLevel && !this.species && this.n % 4 === 3;
+    const g = this.game, wide = !this.eyeLevel && !this.species && this.shuffling() && this.n % 4 === 3;
     this.n++;
     let a = wide ? null : this.pick();
     // the species being watched has none left out (all gone, or asleep for the winter): back to everything
