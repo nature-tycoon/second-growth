@@ -4,7 +4,9 @@
 // (processor) vs GPU time and where the drawing time goes.
 //   node tools/play-profile.mjs [maps=serengeti,sumatra,amazon,pnw] [quality=high] [years=3]
 // PLAY_ROOT=<checkout> measures another checkout (an A/B; its ecology diverges, so compare
-// phases rather than single numbers). PLAY_VIEWS="top speed" (comma-separated) runs only those views. Uses the hardware GPU at 1440x900, DPR 2 (a Retina laptop);
+// phases rather than single numbers). PLAY_VIEWS="top speed" (comma-separated) runs only those views.
+// PLAY_SETUP=<js> runs in the page before the views, with the renderer as R (e.g. "R.autoRes=false;R.setRes(1)"
+// to hold the resolution, so the automatic resolution can't change what an A/B draws). Uses the hardware GPU at 1440x900, DPR 2 (a Retina laptop);
 // GPU time comes from the game's own timer queries. Writes tools/release-output/play-profile.json.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -37,6 +39,7 @@ try {
       const row = await browser.evaluate(`(async()=>{
         const {game,renderer:R,ui}=window.secondGrowth;
         const {PerformancePhases}=await import('/js/performance.js');
+        ${process.env.PLAY_SETUP || ''};
         game.speed=${speed}; R.zoom=${zoom}; R.zoomGoal=null; R.centerOn(${center.join(',')}); R.updateCamera();
         await new Promise(r=>setTimeout(r,3000));
         const probes=new PerformancePhases(game,R), total={}, frames=[], frame=ui.frame;

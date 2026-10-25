@@ -23,10 +23,10 @@ export async function measureGameplay({ map, scene = 'ecosystem', density, optim
   ui.afterNewGame(); ui.refreshTop(true);
   renderer.applySettings({ ...settings, quality, qualityChosen: true, shadows: true, wind: true, weather: true, dayCycle: false });
   if (optimizations) renderer.flora.setOptimizations(optimizations);
-  // (fixed work to measure: full resolution, shadows and the usual trees, whatever the automatic
-  // resolution did while loading)
+  // (fixed work to measure: full resolution and shadows, whatever the automatic resolution did
+  // while loading)
   renderer.autoRes = false; renderer.zoom = zoom ?? (scene === 'herd' ? .65 : .7);
-  renderer.setRes(1); renderer.sun.castShadow = true; renderer.shadowsDropped = false; renderer.useFar(false);
+  renderer.setRes(1); renderer.sun.castShadow = true; renderer.shadowsDropped = false;
   renderer.zoomGoal = null; renderer.fly = null;
   renderer.centerOn(...fixture.center); renderer.updateCamera(); renderer.shadowState = null;
   const initial = ecosystemCounts(game);
