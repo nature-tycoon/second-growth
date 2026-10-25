@@ -17,7 +17,7 @@ The ground shader paints bare earth per pixel, the way animal coats are painted 
 
 Each layer fades to its average once it's finer than a pixel, so nothing shimmers and the usual top-down view never pays for it.
 
-Each tile says how bare it is (`Terrain.updateSurface`): soil, mud, plowed fields and gravel are bare; groundcover growing on them, a closing canopy and burning change that. The amount and a mud bit sit in the low 6 bits of the tile texture's green channel (the rotation keeps the top 2). Blue still marks crisp-edged tiles with 0, and for soft tiles says the kind of bare ground: 255 earth, 200 stones, 150 sand. Gravel is crusted earth on `hardpan` maps (Serengeti), sand on `look.sand` maps and stones elsewhere, including the reef's rubble. Worn game trails get the same soil. After rain, soil softens toward mud.
+Each tile says how bare it is (`Terrain.updateSurface`): soil, mud, plowed fields and gravel are bare; groundcover growing on them, a closing canopy and burning change that. The amount and a mud bit sit in the low 6 bits of the tile texture's green channel (the rotation keeps the top 2). Blue still marks crisp-edged tiles with 0, and for soft tiles says the kind of bare ground: 255 earth, 200 stones, 150 sand. Gravel is crusted earth on `hardpan` maps (Serengeti), sand on `look.sand` maps and stones elsewhere, including the reef's rubble. Worn game trails get the same soil. After rain, soil softens toward mud: flatter clods and no pale specks, but never bigger ones. The clod pattern is scaled from the map's corner, so any clod size that changes over time (it once followed the wetness) slides the whole pattern across the ground while rain starts and dries.
 
 ## Cost
 
