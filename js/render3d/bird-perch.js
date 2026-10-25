@@ -9,6 +9,7 @@
 //  - a bare winter tree is all limbs, so any of them will do.
 // Spots are worked out once per tree shape, shared by every tree drawn with it.
 import * as THREE from 'three';
+import { treeLevel } from './tree-stature.js';
 
 const spotsByShape = new WeakMap();
 const leafMat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
@@ -37,7 +38,7 @@ export function perchSpots(site) {
   const leaves = site.crown?.geo ? new THREE.Mesh(site.crown.geo, leafMat) : null;
   leaves?.updateMatrixWorld();
   site.geo.computeBoundingBox();
-  const box = site.geo.boundingBox, low = box.min.y + (box.max.y - box.min.y) * .3;
+  const box = site.geo.boundingBox, low = treeLevel(site.geo, .3, box.min.y);
   let spots = [];
   for (const b of site.geo.userData.canopyBranches || []) {
     seg.set(b.to[0] - b.from[0], b.to[1] - b.from[1], b.to[2] - b.from[2]);

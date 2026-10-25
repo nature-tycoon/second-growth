@@ -81,39 +81,39 @@ export default function buildSerengetiPlants(def, mix, get) {
     desc: 'INVASIVE. A cactus from the Americas planted as a hedge. Baboons and elephants spread its fruit, and its spines injure the animals that eat it.' });
 
   // ---------- Trees ----------
-  def({ key: 'umbrella', name: 'Umbrella thorn', sci: 'Vachellia tortilis', layer: 2, nfix: true,
+  def({ key: 'umbrella', name: 'Umbrella thorn', sci: 'Vachellia tortilis', layer: 2, heightM: 8, nfix: true,
     moist: [0.03, 0.75], light: [0.45, 1], grow: 0.006, spread: 0.009, radius: 5, life: 150, matureAge: 16, cost: 18,
     look: { type: 'umbrella', leaf: '#6a8a42', bark: '#4a3a2e', flower: '#f4f0d8', bloom: [8, 9], bloomTint: 0.45, scale: 0.94 },
     desc: 'The flat-topped acacia of every Serengeti sunset. Giraffe browse it, weavers nest in it, and its nitrogen-rich shade grows the best grass.' });
-  def({ key: 'fevertree', name: 'Fever tree', sci: 'Vachellia xanthophloea', layer: 2, nfix: true, wetOK: false,
+  def({ key: 'fevertree', name: 'Fever tree', sci: 'Vachellia xanthophloea', layer: 2, heightM: 15, nfix: true, wetOK: false,
     moist: [0.45, 1], light: [0.45, 1], grow: 0.008, spread: 0.009, radius: 4, life: 80, matureAge: 14, cost: 20,
     look: { type: 'fevertree', leaf: '#8aa850', bark: '#d8c860', flower: '#f0e890', bloom: [8, 9], bloomTint: 0.35 },
     desc: 'An acacia with glowing lime-yellow bark, growing where the water table is high. Early travellers blamed it for malaria (it was the mosquitoes).' });
-  def({ key: 'balanites', name: 'Desert date', sci: 'Balanites aegyptiaca', layer: 2,
+  def({ key: 'balanites', name: 'Desert date', sci: 'Balanites aegyptiaca', layer: 2, heightM: 8,
     moist: [0.03, 0.7], light: [0.4, 1], grow: 0.0055, spread: 0.008, radius: 5, life: 120, matureAge: 14, cost: 16,
     look: { type: 'balanites', leaf: '#5f7a44', bark: '#6a5a48', berry: '#d8a040', fruit: [4, 5, 6] },
     desc: 'A spiny, drought-proof tree whose sticky dates feed elephants, baboons and people. Elephants spread its seeds in their dung.' });
-  def({ key: 'commiphora', name: 'Corkwood', sci: 'Commiphora africana', layer: 2,
+  def({ key: 'commiphora', name: 'Corkwood', sci: 'Commiphora africana', layer: 2, heightM: 6,
     moist: [0.02, 0.6], light: [0.5, 1], grow: 0.006, spread: 0.008, radius: 4, life: 80, matureAge: 12, cost: 14,
     look: { type: 'commiphora', leaf: '#7a8a48', bark: '#8a8a70' },
     desc: 'A small, peeling-barked myrrh tree of the driest ground. Cuttings root easily, so it\'s used for living fences.' });
-  def({ key: 'baobab', name: 'Baobab', sci: 'Adansonia digitata', layer: 2,
+  def({ key: 'baobab', name: 'Baobab', sci: 'Adansonia digitata', layer: 2, heightM: 20,
     moist: [0.05, 0.7], light: [0.45, 1], soil: 0.1, grow: 0.0025, spread: 0.005, radius: 6, life: 1500, matureAge: 25, mast: 0.8, cost: 32,
     look: { type: 'baobab', leaf: '#6a8a4a', bark: '#a89080', flower: '#f4f0e0', bloom: [9, 10], bloomTint: 0.3 },
     desc: 'A swollen giant that can live over a thousand years and store tonnes of water in its trunk. Bats pollinate its night flowers.' });
-  def({ key: 'sausage', name: 'Sausage tree', sci: 'Kigelia africana', layer: 2,
+  def({ key: 'sausage', name: 'Sausage tree', sci: 'Kigelia africana', layer: 2, heightM: 12,
     moist: [0.35, 0.95], light: [0.35, 1], soil: 0.15, grow: 0.0045, spread: 0.007, radius: 5, life: 200, matureAge: 14, cost: 26,
     look: { type: 'sausage', leaf: '#4a7a3a', bark: '#7a6a58', flower: '#8a2a3a', bloom: [5, 6], bloomTint: 0.35, berry: '#8a7a50', fruit: [8, 9, 10] },
     desc: 'Hangs enormous sausage-shaped fruit on long ropes. Hippos, giraffe and elephants eat the fallen fruit.' });
-  def({ key: 'sycamorefig', name: 'Sycamore fig', sci: 'Ficus sycomorus', layer: 2,
+  def({ key: 'sycamorefig', name: 'Sycamore fig', sci: 'Ficus sycomorus', layer: 2, heightM: 20,
     moist: [0.4, 0.95], light: [0.3, 1], soil: 0.15, grow: 0.005, spread: 0.008, radius: 5, life: 300, matureAge: 12, mast: 0.6, cost: 24,
     look: { type: 'fig', leaf: '#3f7a44', bark: '#b8a888', berry: '#c8604a', fruit: [1, 2, 7, 8] },
     desc: 'A spreading riverbank giant that fruits several times a year, feeding hornbills, monkeys and fruit bats.' });
-  def({ key: 'euphorbia', name: 'Candelabra tree', sci: 'Euphorbia candelabrum', layer: 2,
+  def({ key: 'euphorbia', name: 'Candelabra tree', sci: 'Euphorbia candelabrum', layer: 2, heightM: 10,
     moist: [0.0, 0.55], light: [0.5, 1], grow: 0.004, spread: 0.005, radius: 4, life: 200, matureAge: 16, cost: 22,
     look: { type: 'euphorbia', leaf: '#5a8a4a', bark: '#6a7a50' },
     desc: 'A giant succulent shaped like a candelabra, growing out of the granite kopjes. Its milky sap is poisonous.' });
-  def({ key: 'mesquite', name: 'Mesquite', sci: 'Prosopis juliflora', layer: 2, native: false, invasive: true, nfix: true,
+  def({ key: 'mesquite', name: 'Mesquite', sci: 'Prosopis juliflora', layer: 2, heightM: 8, native: false, invasive: true, nfix: true,
     moist: [0.0, 0.8], light: [0.45, 1], grow: 0.011, spread: 0.007, radius: 4, life: 60, matureAge: 99, compete: 0.6, cost: 0,
     look: { type: 'mesquite', leaf: '#7a9a4a', bark: '#5a4a3a', scale: 1.24 },
     desc: 'INVASIVE. Planted to stop the desert spreading, it spread instead: impenetrable thorn thickets that drink the groundwater and crowd out grass.' });

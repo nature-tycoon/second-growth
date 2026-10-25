@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { woodDistance, woodFrame, bodyFitsWood } from './wood-clearance.js';
 import { canopyRotation, readableCanopyPose } from './canopy-pose.js';
 import { canopyContactCount } from './canopy-grips.js';
+import { treeLevel } from './tree-stature.js';
 
 const surfaces = new WeakMap();
 const contactAngles = [0];
@@ -14,7 +15,7 @@ function upperSurfaces(geo) {
   if (surfaces.has(geo)) return surfaces.get(geo);
   geo.computeBoundingBox();
   const p = geo.attributes.position, idx = geo.index, triangles = [], normal = new THREE.Vector3();
-  const low = geo.boundingBox.min.y + (geo.boundingBox.max.y - geo.boundingBox.min.y) * .45;
+  const low = treeLevel(geo, .45, geo.boundingBox.min.y);
   for (let k = 0; k < (idx?.count ?? p.count); k += 3) {
     const triangle = new THREE.Triangle(...[0, 1, 2].map(j => new THREE.Vector3().fromBufferAttribute(p, idx ? idx.getX(k + j) : k + j)));
     triangle.getNormal(normal);
@@ -496,13 +497,13 @@ export class CanopySite {
       let score = Infinity, index = -1, point = null, direction = null;
       const oldBranch = previous?.site === this && !previous.surface ? this.branches[previous.index] : null;
       const committed = oldBranch?.length >= reach * 2 && (body?.motion.canopyFeet || body?.motion.primate === 2 || body?.motion.primate === 3) ? previous.index : -1;
-      const height = this.transform[1] + this.geo.boundingBox.max.y * this.transform[4] * .8;
+      const height = this.transform[1] + treeLevel(this.geo, .8) * this.transform[4];
       const order = [...this.branches.keys()];
       if (committed >= 0) { order.splice(order.indexOf(committed), 1); order.unshift(committed); }
       for (const k of order) {
         if (committed >= 0 && k !== committed && (!body?.motion.canopyHanging || index === committed)) continue;
         const b = this.branches[k];
-        if (b.length < reach * 2 || Math.max(b.from.y, b.to.y) < this.transform[1] + this.geo.boundingBox.max.y * this.transform[4] * .45) continue;
+        if (b.length < reach * 2 || Math.max(b.from.y, b.to.y) < this.transform[1] + treeLevel(this.geo, .45) * this.transform[4]) continue;
         if (hanging && Math.abs(b.dir.y) > .7) continue;
         // Leave enough branch on either side for the animal's hands and feet.
         const t = THREE.MathUtils.clamp(((x - b.from.x) * b.dir.x + (height - b.from.y) * b.dir.y + (z - b.from.z) * b.dir.z) / b.length,
@@ -528,8 +529,7 @@ export class CanopySite {
     if (!this.triangles.length) return null;
     // Search the upper scaffold near the animal's simulation position. Staying on
     // the previous limb when nearly tied avoids jumping between neighbouring forks.
-    const top = this.geo.boundingBox.max.y;
-    this.target.set(x, this.transform[1] + top * this.transform[4] * .83, z).applyMatrix4(this.inverse);
+    this.target.set(x, this.transform[1] + treeLevel(this.geo, .83) * this.transform[4], z).applyMatrix4(this.inverse);
     let score = Infinity, index = -1;
     for (let k = 0; k < this.triangles.length; k++) {
       this.triangles[k].closestPointToPoint(this.target, this.point);

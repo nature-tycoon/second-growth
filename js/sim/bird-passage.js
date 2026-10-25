@@ -2,6 +2,7 @@
 import { PASSAGE_SPECIES, PASSAGE_ROUTES } from '../data/bird-passage.js';
 import { LEVEL, clamp } from '../config.js';
 import { facePoint } from './animal-positioning.js';
+import { treeStature } from '../render3d/tree-stature.js';
 
 const rand = (lo, hi) => lo + Math.random() * (hi - lo);
 export function passageChoices(game) {
@@ -40,7 +41,7 @@ export function spawnPassage(wl, def, opts = {}) {
   for (let t = 0; t <= distance; t += 1) {
     const xx = clamp(x + ux * t, 0, w.w - 0.01), yy = clamp(y + uy * t, 0, w.h - 0.01), i = w.idx(Math.floor(xx), Math.floor(yy));
     const tree = w.tree[i] && wl.game.catalog.plants[w.tree[i]];
-    flightY = Math.max(flightY, w.heightAt(xx, yy) * LEVEL + (tree ? 5 * (tree.look.scale ?? 1) * w.treeG[i] : 0) + 2.2);
+    flightY = Math.max(flightY, w.heightAt(xx, yy) * LEVEL + (tree ? 5 * (tree.look.scale ?? 1) * treeStature(tree) * w.treeG[i] : 0) + 2.2);
   }
   // (tiles a second: unhurried enough to watch a flock cross the view)
   const flock = wl.nextId, speed = opts.speed ?? (goose ? 3.2 : swoop ? 4.8 : def.sprite.kind === 'vulture' ? 2.4 : 3.6);

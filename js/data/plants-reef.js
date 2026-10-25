@@ -104,7 +104,7 @@ export default function buildReefPlants(def, mix, get) {
     moist: dryLand, light: [0.4, 1], grow: 0.02, spread: 0.015, radius: 2, life: 30, cost: 7,
     look: { type: 'shrub', leaf: '#a8b8a0', evergreen: true },
     desc: 'A silvery-leaved shrub of the cay\'s edge, salt-proof and wind-proof. Seabirds shelter under it.' });
-  def({ key: 'pisonia', name: 'Pisonia', sci: 'Pisonia grandis', layer: 2, cay: true, tab: 'cay', kindName: 'Island tree',
+  def({ key: 'pisonia', name: 'Pisonia', sci: 'Pisonia grandis', layer: 2, heightM: 12, cay: true, tab: 'cay', kindName: 'Island tree',
     moist: dryLand, light: [0.3, 1], grow: 0.006, spread: 0.01, radius: 3, life: 80, matureAge: 12, cost: 14,
     look: { type: 'pisonia', leaf: '#7ab05a', bark: '#a89a80', evergreen: true },
     desc: 'The soft-wooded tree of the coral cays. Black noddies nest in its branches by the thousand, and their droppings feed the cay, the reef and the fish around it.' });

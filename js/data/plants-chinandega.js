@@ -75,47 +75,47 @@ export default function buildChinandegaPlants(def, mix, get) {
     desc: 'INVASIVE. Higuerilla takes over disturbed ground along roads, corrals and overgrazed pasture. Its seeds are poisonous.' });
 
   // ---------- Trees ----------
-  def({ key: 'guanacaste', name: 'Guanacaste', sci: 'Enterolobium cyclocarpum', layer: 2, moist: [0.1, 0.85], light: [0.5, 1], nfix: true,
+  def({ key: 'guanacaste', name: 'Guanacaste', sci: 'Enterolobium cyclocarpum', layer: 2, heightM: 30, moist: [0.1, 0.85], light: [0.5, 1], nfix: true,
     grow: 0.0045, spread: 0.007, radius: 5, life: 250, mast: 1, cost: 22,
     look: { type: 'guanacaste', leaf: '#5a8a40', ...dry, deciduous: true, bark: '#6a5a4a' },
     desc: 'Guanacaste or "ear tree", for its ear-shaped seed pods. The biggest shade tree of the Pacific lowlands; its pods feed deer, peccaries and cattle.' });
-  def({ key: 'genizaro', name: 'Rain tree', sci: 'Samanea saman', layer: 2, moist: [0.15, 0.85], light: [0.5, 1], nfix: true,
+  def({ key: 'genizaro', name: 'Rain tree', sci: 'Samanea saman', layer: 2, heightM: 25, moist: [0.15, 0.85], light: [0.5, 1], nfix: true,
     grow: 0.004, spread: 0.007, radius: 5, life: 200, mast: 0.8, cost: 20,
     look: { type: 'raintree', leaf: '#4f8a3a', flower: '#e880a8', bloom: [0, 1], bloomTint: 0.25, bark: '#5a4a3a' },
     desc: 'Genízaro. A huge umbrella of a tree whose leaves fold up at night and before rain. Its pink puffball flowers feed bats and moths.' });
-  def({ key: 'ceiba', name: 'Ceiba', sci: 'Ceiba pentandra', layer: 2, moist: [0.2, 0.9], light: [0.5, 1],
+  def({ key: 'ceiba', name: 'Ceiba', sci: 'Ceiba pentandra', layer: 2, heightM: 50, moist: [0.2, 0.9], light: [0.5, 1],
     grow: 0.0048, spread: 0.006, radius: 6, life: 300, cost: 24,
     look: { type: 'kapok', leaf: '#5f9048', ...dry, deciduous: true, bark: '#9a9a8a', scale: 0.85 },
     desc: 'The giant of the forest, with its buttress roots. Its flowers open at night for bats, and its seeds float away on silky kapok fluff.' });
-  def({ key: 'madrono', name: 'Madroño', sci: 'Calycophyllum candidissimum', layer: 2, moist: [0.05, 0.75], light: [0.4, 1],
+  def({ key: 'madrono', name: 'Madroño', sci: 'Calycophyllum candidissimum', layer: 2, heightM: 20, moist: [0.05, 0.75], light: [0.4, 1],
     grow: 0.0035, spread: 0.007, radius: 4, life: 150, cost: 20,
     look: { type: 'ash', leaf: '#5a8a44', flower: '#f6f4ea', bloom: [9, 10], bloomTint: 0.6, ...dry, deciduous: true, bark: '#c07a4a' },
     desc: 'The national tree of Nicaragua. It covers itself in white flowers around Christmas, and its orange bark peels away smooth.' });
-  def({ key: 'cortes', name: 'Cortez', sci: 'Handroanthus ochraceus', layer: 2, moist: [0.0, 0.7], light: [0.5, 1],
+  def({ key: 'cortes', name: 'Cortez', sci: 'Handroanthus ochraceus', layer: 2, heightM: 15, moist: [0.0, 0.7], light: [0.5, 1],
     grow: 0.003, spread: 0.007, radius: 4, life: 150, cost: 20,
     look: { type: 'ipe', leaf: '#5a8a40', flower: '#f4c820', bloom: [11, 0], crownBloom: true, ...dry, deciduous: true, bark: '#6a5a4a', scale: 0.73 },
     desc: 'Cortés. In the driest weeks of the year, with no leaves at all, it bursts into solid golden yellow flowers for a few days.' });
-  def({ key: 'macuelizo', name: 'Pink trumpet tree', sci: 'Tabebuia rosea', layer: 2, moist: [0.1, 0.85], light: [0.45, 1],
+  def({ key: 'macuelizo', name: 'Pink trumpet tree', sci: 'Tabebuia rosea', layer: 2, heightM: 25, moist: [0.1, 0.85], light: [0.45, 1],
     grow: 0.0038, spread: 0.008, radius: 4, life: 100, cost: 18,
     look: { type: 'ipe', leaf: '#5a8a44', flower: '#e88ac8', bloom: [0, 1], crownBloom: true, ...dry, deciduous: true, bark: '#7a6a5a' },
     desc: 'Roble macuelizo. Leafless and covered in pink trumpet flowers in March and April, full of bees and hummingbirds.' });
-  def({ key: 'madero', name: 'Quickstick', sci: 'Gliricidia sepium', layer: 2, moist: [0.0, 0.8], light: [0.5, 1], nfix: true,
+  def({ key: 'madero', name: 'Quickstick', sci: 'Gliricidia sepium', layer: 2, heightM: 10, moist: [0.0, 0.8], light: [0.5, 1], nfix: true,
     grow: 0.007, spread: 0.01, radius: 3, life: 40, cost: 10,
     look: { type: 'leucaena', leaf: '#5f9048', flower: '#f0a0c8', bloom: [10, 11, 0], crownBloom: true, ...dry, deciduous: true, bark: '#8a7a6a' },
     desc: 'Madero negro. Farmers stick cut branches in the ground and they take root as a "living fence". It fixes nitrogen, and its pink flowers bloom in the dry season.' });
-  def({ key: 'guacimo', name: 'Guácimo', sci: 'Guazuma ulmifolia', layer: 2, moist: [0.1, 0.85], light: [0.45, 1],
+  def({ key: 'guacimo', name: 'Guácimo', sci: 'Guazuma ulmifolia', layer: 2, heightM: 15, moist: [0.1, 0.85], light: [0.45, 1],
     grow: 0.006, spread: 0.012, radius: 4, life: 60, mast: 0.6, cost: 12,
     look: { type: 'oak', leaf: '#4f8a3a', berry: '#2a1a14', fruit: [9, 10, 11], ...dry, deciduous: true, bark: '#6a5a4a' },
     desc: 'A fast, tough pioneer tree of old pastures. Its hard black fruits feed deer, iguanas and parrots through the dry season.' });
-  def({ key: 'jinocuabo', name: 'Gumbo-limbo', sci: 'Bursera simaruba', layer: 2, moist: [0.0, 0.75], light: [0.45, 1],
+  def({ key: 'jinocuabo', name: 'Gumbo-limbo', sci: 'Bursera simaruba', layer: 2, heightM: 20, moist: [0.0, 0.75], light: [0.45, 1],
     grow: 0.005, spread: 0.009, radius: 4, life: 80, cost: 12,
     look: { type: 'balanites', leaf: '#6a9a4a', ...dry, deciduous: true, bark: '#b0603a', scale: 1.19 },
     desc: 'Jiñocuabo, the "tourist tree", for its red, peeling bark. Its small red fruits feed dozens of kinds of birds.' });
-  def({ key: 'jicaro', name: 'Calabash tree', sci: 'Crescentia alata', layer: 2, moist: [0.1, 0.8], light: [0.5, 1],
+  def({ key: 'jicaro', name: 'Calabash tree', sci: 'Crescentia alata', layer: 2, heightM: 7, moist: [0.1, 0.8], light: [0.5, 1],
     grow: 0.004, spread: 0.007, radius: 3, life: 60, cost: 12,
     look: { type: 'commiphora', leaf: '#4f8a3a', berry: '#8aa050', fruit: [9, 10, 11, 0], bark: '#6a6050' },
     desc: 'Jícaro. Its round, hard fruits grow straight out of the trunk; the seeds make the drink semilla de jícaro, and horses crack the fruits open.' });
-  def({ key: 'chilamate', name: 'Wild fig', sci: 'Ficus insipida', layer: 2, moist: [0.45, 1], light: [0.3, 1], soil: 0.1,
+  def({ key: 'chilamate', name: 'Wild fig', sci: 'Ficus insipida', layer: 2, heightM: 30, moist: [0.45, 1], light: [0.3, 1], soil: 0.1,
     grow: 0.005, spread: 0.008, radius: 5, life: 200, cost: 20,
     look: { type: 'fig', leaf: '#3f7a36', berry: '#c8a040', fruit: [2, 6, 10], bark: '#9a9a8a' },
     desc: 'Chilamate. A great fig along the quebrada that stays green all year. Something is always fruiting, and monkeys, bats and parrots come from far away to eat.' });
@@ -131,7 +131,7 @@ export default function buildChinandegaPlants(def, mix, get) {
     grow: 0.005, spread: 0.01, radius: 3, life: 60, cost: 14,
     look: { type: 'mangrovebush', leaf: '#5a8a4a', bark: '#7a6a5a' },
     desc: 'Mangle blanco, the fastest mangrove to grow back on the edge of cleared ponds and mudflats.' });
-  def({ key: 'neem', name: 'Neem', sci: 'Azadirachta indica', layer: 2, native: false, invasive: true,
+  def({ key: 'neem', name: 'Neem', sci: 'Azadirachta indica', layer: 2, heightM: 15, native: false, invasive: true,
     moist: [0.0, 0.75], light: [0.35, 1], grow: 0.007, spread: 0.012, radius: 4, life: 60, compete: 0.6, cost: 0,
     look: { type: 'mahogany', leaf: '#4f8a3a', bark: '#5a4a3e', scale: 0.68 },
     desc: 'INVASIVE. Nim, planted from India for shade and medicine, now seeds itself everywhere and shades out the native dry forest.' });

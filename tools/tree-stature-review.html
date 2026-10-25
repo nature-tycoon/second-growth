@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tree height review</title>
+<style>
+  :root { color-scheme: light dark; --bg: #f4f2ec; --fg: #222; --muted: #666; --card: #fff; --line: #ddd; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1b1c1a; --fg: #eee; --muted: #aaa; --card: #262725; --line: #3a3b38; } }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, sans-serif; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.lead { color: var(--muted); max-width: 70em; margin: 0 0 16px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 0 0 16px; }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+  figure { margin: 0; }
+  figure img { width: 100%; display: block; border-radius: 4px; cursor: zoom-in; }
+  figcaption { color: var(--muted); font-size: 13px; padding: 4px 0 0; }
+  .flip img { cursor: pointer; }
+  nav { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  nav button { font: inherit; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; }
+  nav button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+</style>
+</head>
+<body>
+<h1>Tree heights</h1>
+<p class="lead">Before: every tree at its shape's own height. After: each species as tall as it really grows, on one shared curve (decision 0024, <code>js/render3d/tree-stature.js</code>), with the extra height in the trunk under the same crown. Same frozen forest in each pair, with the map's biggest ground animals at its edge. Click a picture to flip it between before and after in place; open it in a new tab to see it full size. Made by <code>node tools/tree-stature-review.mjs</code>.</p>
+<nav id="filters"></nav>
+<div id="shots">Loading…</div>
+<script type="module">
+const shots = await fetch('release-output/tree-stature/index.json', { cache: 'reload' }).then(r => r.ok ? r.json() : []).catch(() => []);
+const root = document.getElementById('shots'), nav = document.getElementById('filters');
+if (!shots.length) root.textContent = 'No screenshots yet: run node tools/tree-stature-review.mjs first.';
+const groups = new Map();
+for (const s of shots) { const k = `${s.map}|${s.view}`; if (!groups.has(k)) groups.set(k, { ...s, pair: {} }); groups.get(k).pair[s.when] = s; }
+const src = f => `release-output/tree-stature/${f}`;
+const tri = s => `${(s.triangles / 1e6).toFixed(2)}M triangles`;
+let filter = 'all';
+const maps = ['all', ...new Set(shots.map(s => s.map))];
+for (const m of maps) { const b = document.createElement('button'); b.textContent = m; b.onclick = () => { filter = m; draw(); }; nav.append(b); }
+function draw() {
+  for (const b of nav.children) b.setAttribute('aria-pressed', String(b.textContent === filter));
+  root.replaceChildren();
+  for (const g of groups.values()) {
+    if (filter !== 'all' && g.map !== filter) continue;
+    const { before, after } = g.pair, sec = document.createElement('section');
+    sec.innerHTML = `<h2>${g.map}, ${g.view}</h2><div class="pair"></div>`;
+    for (const [label, s, other] of [['Before', before, after], ['After', after, before]]) {
+      if (!s) continue;
+      const fig = document.createElement('figure'); fig.className = 'flip';
+      fig.innerHTML = `<a href="${src(s.file)}" target="_blank"><img loading="lazy" alt="${label}" src="${src(s.file)}"></a><figcaption>${label}: ${tri(s)}</figcaption>`;
+      const img = fig.querySelector('img'), cap = fig.querySelector('figcaption');
+      img.onclick = e => { if (!other) return; e.preventDefault(); const showing = img.dataset.flip === '1'; img.dataset.flip = showing ? '' : '1'; img.src = src((showing ? s : other).file); cap.textContent = `${showing ? label : (label === 'Before' ? 'After' : 'Before')} (flipped): ${tri(showing ? s : other)}`; };
+      sec.querySelector('.pair').append(fig);
+    }
+    root.append(sec);
+  }
+}
+if (shots.length) draw();
+</script>
+</body>
+</html>

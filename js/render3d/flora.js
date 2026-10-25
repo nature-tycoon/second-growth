@@ -13,6 +13,7 @@ import { activeCatalog } from '../data/catalog.js';
 import { meadowPatch, patchColor } from './patches.js';
 import { FloraChanges, floraChunkKey, TRAIL_OPENING, CLOSED_CANOPY } from './flora-changes.js';
 import { groveForm } from './groves.js';
+import { statureShape, treeHeight } from './tree-stature.js';
 import { underWater, visibleLevel } from '../sim/waterline.js';
 import { paletteLeafColor } from './palettes.js';
 import { CanopySite, canopyTile } from './canopy-support.js';
@@ -55,7 +56,7 @@ export function climberSpot(w, catalog, i, hAt, tg = w.treeG[i]) {
   if (!tp) { const sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4; return [sx, hAt(sx, sz), sz]; }
   const tsc = (0.2 + 0.8 * tg) * (0.78 + hash2(x, y, 9) * 0.42) * (tp.look.scale ?? 1);
   const sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
-  return [sx, hAt(sx, sz) + (G.TREE_SHAPES[tp.look.type]?.height || 0.4) * tsc * 0.85, sz];
+  return [sx, hAt(sx, sz) + treeHeight(tp, 0.4) * tsc * 0.85, sz];
 }
 export const shrubShape = p => SHRUB_HABIT[p.key] || (SHRUB_SHAPES.includes(p.look.type) ? p.look.type : 'shrub');
 const grassyWet = type => type === 'sedge' || type === 'cattail' || type === 'tule' || type === 'lily' || type === 'papyrus';
@@ -537,7 +538,7 @@ export class Flora {
           : ['cottonwood', 'tulippoplar', 'sweetgum', 'blackcherry', 'magnolia'].includes(p.key) ? 'spire'
           : p.key === 'dogwood' && p.layer === 2 ? 'layered'
           : ['redbud', 'riverbirch', 'vinemaple'].includes(p.key) ? 'vase' : baseShape.habit;
-        const shapeDef = habit === baseShape.habit ? baseShape : { ...baseShape, habit };
+        const shapeDef = statureShape(p, habit === baseShape.habit ? baseShape : { ...baseShape, habit }); // (as tall as the species grows: tree-stature.js)
         const phase = p.conifer ? 'green' : plantPhase(p, month);
         const [tx, tz] = trunkSpot(w, x, y, p, bankTile); // (animals walk round it there: sim/ground-obstacles.js)
         const ty = hAt(tx, tz) - 0.02;
@@ -549,7 +550,7 @@ export class Flora {
         const onTree = (lx, ly, lz) => [tx + Math.cos(rot) * lx * sx + Math.sin(rot) * lz * sz,
           ty + ly * sy, tz - Math.sin(rot) * lx * sx + Math.cos(rot) * lz * sz];
         const bark = rgb(p.look.bark).map(c => c * dim);
-        const key = `${p.look.type}:${p.key}:${v}`;
+        const key = `${p.look.type}:${p.key}:${v}:${shapeDef.lift ?? 0}`;
         const build = (lod = 0) => G.treeParts(shapeDef, 500 + v * 13 + p.id, lod);
         if (!p.conifer && phase === 'winter') {
           const bare = this.pool(`bare:${key}`, () => G.bareTree(shapeDef, 700 + v), this.bark, { far: () => G.bareTree(shapeDef, 700 + v, 3) }, () => G.bareTree(shapeDef, 700 + v, 1));
@@ -584,7 +585,7 @@ export class Flora {
               { shadow: false }, () => Botanical.blossomHead(form, p.look.flower, true));
             for (let k = 0; k < 12; k++) {
               const a = k * 2.4, d = shapeDef.rx * (0.5 + hash2(x, y, k + 121) * 0.36);
-              const fy = shapeDef.height - shapeDef.ry * (0.6 + hash2(x, y, k + 133) * 0.65);
+              const fy = shapeDef.height + (shapeDef.lift ?? 0) - shapeDef.ry * (0.6 + hash2(x, y, k + 133) * 0.65);
               const size = sc * (p.key === 'magnolia' ? 1.3 : 0.85);
               flowers.add(...onTree(Math.cos(a) * d, fy, Math.sin(a) * d), size, size, size, rot + a, [dim, dim, dim]);
             }
@@ -601,7 +602,7 @@ export class Flora {
           if (p.look.hangFruit && phase === 'fruit' && p.look.berry && g > 0.6 && shapeDef.rx) {
             // (on the surface of the crown, around its middle, where the camera can see them)
             const fc = rgb(p.look.berry).map(c => c * dim), fs = (p.look.fruitSize || 1.3) * 1.3, ry = shapeDef.ry ?? 0.4;
-            const fy = shapeDef.height - ry * 1.1, rr = shapeDef.rx * 0.78 + Math.min(shapeDef.rx, ry) * 0.5;
+            const fy = shapeDef.height + (shapeDef.lift ?? 0) - ry * 1.1, rr = shapeDef.rx * 0.78 + Math.min(shapeDef.rx, ry) * 0.5;
             for (let k = 0; k < 9; k++) {
               const a = k * 2.4 + hash2(x + k, y, 15), d = rr * (0.92 + hash2(x, y + k, 16) * 0.12);
               dots.add(...onTree(Math.cos(a) * d, fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, Math.sin(a) * d), fs, fs * 1.15, fs, rot + a, fc);
