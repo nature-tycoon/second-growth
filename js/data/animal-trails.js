@@ -1,4 +1,10 @@
 export const TRAIL_RESOLUTION = 4;
+export const TRAIL_THRESHOLD = 0.09;
+// The drawn trail: it starts to show at TRAIL_THRESHOLD and is fully worn at TRAIL_FULL. A journey
+// wears about a 20th of the threshold into the ground (bigger animals a little more), so a trail
+// shows after about 20 passes and is plain to see after about 45 (it showed after about 9, from any
+// walking, and wore to full only at 0.55).
+export const TRAIL_FULL = 0.2;
 // Large terrestrial mammals form visible trails; smaller wildlife keeps its own
 // movement without painting every place it visits. Numerical wear is game-scale.
 const UNGULATES = new Set(['deer', 'elk', 'wildebeest', 'zebra', 'gazelle', 'impala', 'topi', 'hartebeest',

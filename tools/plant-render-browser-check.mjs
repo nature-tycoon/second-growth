@@ -32,6 +32,9 @@ try {
     if (report.benchmark.error) throw new Error(report.benchmark.error);
     console.log(JSON.stringify(report.benchmark)); browser.assertHealthy();
   }
+  // A fresh browser sits on about:blank, where storage is denied: open the game's origin first.
+  await browser.navigate('/');
+  await browser.waitFor('location.protocol.startsWith("http")', 'Game origin did not open');
   await evaluate(`localStorage.setItem('second-growth-settings', JSON.stringify({analytics:false,autosave:false,music:false,nature:false,quality:'fast',qualityChosen:true,fps:'60',shadows:true,dayCycle:false,v:2})); sessionStorage.setItem('second-growth-pending', JSON.stringify({map:'pnw',mode:'free',difficulty:'standard'}));`);
   await browser.navigate('/');
   await browser.waitFor('!!window.secondGrowth && (!document.getElementById("loading-screen") || document.getElementById("loading-screen").classList.contains("done"))', 'Actual game did not boot');

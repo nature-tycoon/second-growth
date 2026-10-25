@@ -1,17 +1,12 @@
 // Persistent edge traffic, resource-site fidelity and bounded route reuse.
 // The same simulation field drives the ground shader and plant openings.
 import { T, F, isWater, clamp } from '../config.js';
-import { trailProfile, TRAIL_RESOLUTION } from '../data/animal-trails.js';
+import { trailProfile, TRAIL_RESOLUTION, TRAIL_THRESHOLD, TRAIL_FULL } from '../data/animal-trails.js';
+export { TRAIL_THRESHOLD, TRAIL_FULL };
 import { passable } from './animal-terrain.js';
 import { foodAt } from './animal-foraging.js';
 import { hash2, valueNoise } from '../rng.js';
 import { riskAt, safety } from './predation-risk.js';
-export const TRAIL_THRESHOLD = 0.09;
-// The drawn trail: it starts to show at TRAIL_THRESHOLD and is fully worn at TRAIL_FULL. A journey
-// wears about a 20th of the threshold into the ground (bigger animals a little more), so a trail
-// shows after about 20 passes and is plain to see after about 45 (it showed after about 9, from any
-// walking, and wore to full only at 0.55).
-export const TRAIL_FULL = 0.2;
 const PASS_WEAR = 0.45;
 export const TRAIL_FOOTPRINT = 0.17; // tiles (no narrower: wear is kept four samples to a tile, and a narrower footprint can fall between them; the drawn core is narrower)
 // Unused trails fade 0.17% a day (about half in 400 days, over three game years), so routes used

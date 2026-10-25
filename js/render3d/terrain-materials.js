@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { snow, SNOW_RGB } from './snow.js';
 import { hash2 } from '../rng.js';
 import { ATLAS_LAYOUT } from './terrain-atlas.js';
-import { TRAIL_THRESHOLD, TRAIL_FULL } from '../sim/animal-trails.js';
+import { TRAIL_THRESHOLD, TRAIL_FULL } from '../data/animal-trails.js';
 
 // Soft, tileable noise used to vary the ground's color across the valley. Red is what everything
 // reads; green is a second, unrelated field of the same size and blue a field four times finer, so

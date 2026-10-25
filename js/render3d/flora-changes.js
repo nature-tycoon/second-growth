@@ -1,7 +1,7 @@
 // Compare the inputs used to draw plants, rather than coupling rendering to every tool and
 // ecological system that can alter them. No hashes or quantization: small growth still shows.
 import { TRAIL_RESOLUTION } from '../data/animal-trails.js';
-import { TRAIL_THRESHOLD, TRAIL_FULL } from '../sim/animal-trails.js';
+import { TRAIL_THRESHOLD, TRAIL_FULL } from '../data/animal-trails.js';
 import { BORDER } from '../config.js';
 
 // A plant is left out of a trail where trailMask passes TRAIL_OPENING (Flora.rebuild). trailMask
