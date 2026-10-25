@@ -5,7 +5,7 @@ import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, animalDef, maleLook } from '../data/animals.js';
 import { leavesCarcass } from '../sim/animal-life.js';
 import * as S from '../render/sprites.js';
-import { TREE_SHAPES } from './geometry/trees.js';
+import { treeHeight } from './tree-stature.js';
 import { contactShadow } from './geometry/features.js';
 import { AnimalShadows } from './animal-shadows.js';
 import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './animals/animal-pools.js';
@@ -197,7 +197,7 @@ export class Actors {
         else if (inside && (def.move === 'fly' || def.move === 'tree')) {
           if (w.tree[i]) {
             const p = game.catalog.plants[w.tree[i]];
-            high += (TREE_SHAPES[p.look.type]?.height || 2) * (p.look.scale ?? 1) * w.treeG[i];
+            high += treeHeight(p) * w.treeG[i];
           } else if (w.feature[i] === FEAT.SNAG) high += 0.9;
         }
         if (!inside && def.move === 'tree') {
@@ -286,7 +286,7 @@ export class Actors {
         if (swimY > ground) { y = swimY; swimming = true; }
       }
       else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
-        const c = ci(); perchSite = this.flora?.treeSites.get(c); y += (TREE_SHAPES[game.catalog.plants[w.tree[c]].look.type]?.height || 2) * (game.catalog.plants[w.tree[c]].look.scale ?? 1) * w.treeG[c] * 0.55;
+        const c = ci(); perchSite = this.flora?.treeSites.get(c); y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
         y += 0.9;
       } else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) {
@@ -295,14 +295,14 @@ export class Actors {
         // monkeys and sloths live up in the crowns (or on a snag's bare top)
         // (monkeys up in the sunlit top of the canopy, sloths hanging lower down)
         const c = ci();
-        if (w.tree[c]) y += (TREE_SHAPES[game.catalog.plants[w.tree[c]].look.type]?.height || 2) * (game.catalog.plants[w.tree[c]].look.scale ?? 1) * w.treeG[c] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
+        if (w.tree[c]) y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
         else if (w.feature[c] === FEAT.SNAG) y += 0.9;
       }
       // Moving between crowns of different heights, a climber (or a perched bird hopping along a
       // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
       if (a.passing) y = a.flightY + (a.passage.swoop ? Math.sin(a.passage.t * 1.8 + a.passage.phase) * 0.12 : 0);
       if (flying && inside && !def.reef && w.tree[i] && (a.passing || a.birdGoal)) {
-        const p = game.catalog.plants[w.tree[i]], crown = ground + (TREE_SHAPES[p.look.type]?.height || 2) * (p.look.scale ?? 1) * w.treeG[i];
+        const p = game.catalog.plants[w.tree[i]], crown = ground + treeHeight(p) * w.treeG[i];
         y = Math.max(y, crown + (a.passing ? 0.8 : 0.2));
       }
       if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;

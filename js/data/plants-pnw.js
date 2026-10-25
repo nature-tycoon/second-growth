@@ -116,35 +116,35 @@ export default function buildPnwPlants(def, mix, get) {
     desc: 'INVASIVE. Takes over dry meadows and prairies. Seeds stay viable in soil for decades.' });
 
   // ---------- Trees ----------
-  def({ key: 'alder', name: 'Red alder', sci: 'Alnus rubra', layer: 2, moist: [0.4, 1], light: [0.5, 1], nfix: true,
+  def({ key: 'alder', name: 'Red alder', sci: 'Alnus rubra', layer: 2, heightM: 25, moist: [0.4, 1], light: [0.5, 1], nfix: true,
     grow: 0.0055, spread: 0.012, radius: 5, life: 22, browse: 0.3, beaverFood: true, cost: 18,
     look: { type: 'alder', leaf: '#6f9d4f', fall: '#a09a58', deciduous: true, bark: '#c9c7bd' },
     desc: 'The great healer of disturbed ground. Grows fast, fixes nitrogen, and dies young, making way for conifers.' });
-  def({ key: 'cottonwood', name: 'Black cottonwood', sci: 'Populus trichocarpa', layer: 2, moist: [0.6, 1], light: [0.6, 1],
+  def({ key: 'cottonwood', name: 'Black cottonwood', sci: 'Populus trichocarpa', layer: 2, heightM: 40, moist: [0.6, 1], light: [0.6, 1],
     grow: 0.006, spread: 0.01, radius: 7, life: 40, browse: 0.3, beaverFood: true, cost: 18,
     look: { type: 'cottonwood', leaf: '#5f8d4a', fall: '#e4c64a', deciduous: true, bark: '#9a968a' },
     desc: 'The tallest broadleaf tree in the PNW. Fluffy seeds drift along rivers each June. Bald eagles nest in it.' });
-  def({ key: 'maple', name: 'Bigleaf maple', sci: 'Acer macrophyllum', layer: 2, moist: [0.3, 0.85], light: [0.3, 1], soil: 0.2,
+  def({ key: 'maple', name: 'Bigleaf maple', sci: 'Acer macrophyllum', layer: 2, heightM: 30, moist: [0.3, 0.85], light: [0.3, 1], soil: 0.2,
     grow: 0.0038, spread: 0.008, radius: 4, life: 90, mast: 0.3, cost: 22,
     look: { type: 'maple', leaf: '#5d9444', fall: '#e8b331', deciduous: true, bark: '#7b6a55' },
     desc: 'Giant leaves, mossy limbs draped in licorice fern. Its fallen leaves enrich the soil.' });
-  def({ key: 'ash', name: 'Oregon ash', sci: 'Fraxinus latifolia', layer: 2, moist: [0.65, 1], light: [0.3, 1], soil: 0.15, wetOK: true,
+  def({ key: 'ash', name: 'Oregon ash', sci: 'Fraxinus latifolia', layer: 2, heightM: 20, moist: [0.65, 1], light: [0.3, 1], soil: 0.15, wetOK: true,
     grow: 0.0032, spread: 0.008, radius: 4, life: 90, cost: 22,
     look: { type: 'ash', leaf: '#6c9a4c', fall: '#d9c55a', deciduous: true, bark: '#8a8174' },
     desc: 'One of the few trees that can stand in seasonally flooded bottomlands.' });
-  def({ key: 'oak', name: 'Oregon white oak', sci: 'Quercus garryana', layer: 2, moist: [0.0, 0.5], light: [0.6, 1],
+  def({ key: 'oak', name: 'Oregon white oak', sci: 'Quercus garryana', layer: 2, heightM: 20, moist: [0.0, 0.5], light: [0.6, 1],
     grow: 0.0022, spread: 0.006, radius: 4, life: 250, mast: 1, cost: 26,
     look: { type: 'oak', leaf: '#5b7f3f', fall: '#a8783a', deciduous: true, bark: '#6d6457' },
     desc: 'Slow, gnarled, and long-lived. Its acorns and open savannas support hundreds of species.' });
-  def({ key: 'fir', name: 'Douglas-fir', sci: 'Pseudotsuga menziesii', layer: 2, moist: [0.1, 0.75], light: [0.42, 1], soil: 0.25, conifer: true,
+  def({ key: 'fir', name: 'Douglas-fir', sci: 'Pseudotsuga menziesii', layer: 2, heightM: 60, moist: [0.1, 0.75], light: [0.42, 1], soil: 0.25, conifer: true,
     grow: 0.0028, spread: 0.009, radius: 5, life: 400, cost: 25,
     look: { type: 'fir', leaf: '#2d5a38', bark: '#6b4a34' },
     desc: 'The iconic giant of Cascadia. Needs sun to get started, then towers for centuries.' });
-  def({ key: 'cedar', name: 'Western redcedar', sci: 'Thuja plicata', layer: 2, moist: [0.5, 1], light: [0.0, 1], soil: 0.4, conifer: true,
+  def({ key: 'cedar', name: 'Western redcedar', sci: 'Thuja plicata', layer: 2, heightM: 50, moist: [0.5, 1], light: [0.0, 1], soil: 0.4, conifer: true,
     grow: 0.0024, spread: 0.007, radius: 4, life: 600, cost: 28,
     look: { type: 'cedar', leaf: '#46763b', bark: '#8a4f35' },
     desc: 'The "tree of life" of Northwest Coast cultures. Loves wet feet and grows happily in deep shade.' });
-  def({ key: 'hemlock', name: 'Western hemlock', sci: 'Tsuga heterophylla', layer: 2, moist: [0.4, 0.9], light: [0.0, 0.9], soil: 0.45, conifer: true, nurse: true,
+  def({ key: 'hemlock', name: 'Western hemlock', sci: 'Tsuga heterophylla', layer: 2, heightM: 50, moist: [0.4, 0.9], light: [0.0, 0.9], soil: 0.45, conifer: true, nurse: true,
     grow: 0.0025, spread: 0.009, radius: 4, life: 400, cost: 26,
     look: { type: 'hemlock', leaf: '#2c5446', bark: '#5d4a3e' },
     desc: 'The most shade-tolerant tree here: it takes over old forests, often starting life on a nurse log.' });

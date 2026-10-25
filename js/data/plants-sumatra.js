@@ -81,71 +81,71 @@ export default function buildSumatraPlants(def, mix, get) {
     desc: 'Stands on stilt roots in black peat-swamp water, with spirals of long, saw-edged leaves. False gharials nest among them.' });
 
   // ---------- Trees ----------
-  def({ key: 'oilpalm', name: 'Oil palm', sci: 'Elaeis guineensis', layer: 2, native: false, invasive: true,
+  def({ key: 'oilpalm', name: 'Oil palm', sci: 'Elaeis guineensis', layer: 2, heightM: 12, native: false, invasive: true,
     moist: [0.2, 0.78], light: [0.68, 1], grow: 0.0045, spread: 0.001, radius: 5, life: 80, matureAge: 99, compete: 0.5, cost: 0,
     look: { type: 'oilpalm', scale: 0.65, leaf: '#4e7430', bark: '#6a5a40', berry: '#b03c18', fruit: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
     desc: 'INVASIVE here: the West African palm this estate was planted with. Its fruit bunches give palm oil; under them, little else lives. Civets, rats and wild pigs carry its seeds into the forest, so stray seedlings keep coming up. On peat that is wet again, it slowly drowns.' });
-  def({ key: 'acacia', name: 'Brown salwood', sci: 'Acacia mangium', layer: 2, native: false, invasive: true, nfix: true,
+  def({ key: 'acacia', name: 'Brown salwood', sci: 'Acacia mangium', layer: 2, heightM: 25, native: false, invasive: true, nfix: true,
     moist: [0.1, 0.85], light: [0.55, 1], grow: 0.011, spread: 0.016, radius: 4, life: 30, matureAge: 99, compete: 0.6, cost: 0,
     look: { type: 'leucaena', leaf: '#5e7e3a', bark: '#8a7a64', scale: 1.53 },
     desc: 'INVASIVE. An Australian pulpwood tree that seeds into burned ground and old clearings. Fire makes its seeds sprout by the thousand.' });
-  def({ key: 'macaranga', name: 'Mahang', sci: 'Macaranga gigantea', layer: 2,
+  def({ key: 'macaranga', name: 'Mahang', sci: 'Macaranga gigantea', layer: 2, heightM: 20,
     moist: [0.2, 0.95], light: [0.6, 1], grow: 0.011, spread: 0.014, radius: 6, life: 25, matureAge: 99, cost: 12,
     look: { type: 'cecropia', leaf: '#7aa45a', bark: '#cfc8b4', berry: '#6a8a3a', fruit: [7, 8], scale: 0.81 },
     desc: 'The first tree up in any gap, with leaves as big as umbrellas. Ants live in its hollow twigs and guard it; birds and squirrels eat its seeds.' });
-  def({ key: 'terap', name: 'Terap', sci: 'Artocarpus elasticus', layer: 2,
+  def({ key: 'terap', name: 'Terap', sci: 'Artocarpus elasticus', layer: 2, heightM: 30,
     moist: [0.25, 0.9], light: [0.45, 1], grow: 0.008, spread: 0.01, radius: 5, life: 60, matureAge: 25, mast: 0.6, cost: 15,
     look: { type: 'inga', leaf: '#3e7a3a', bark: '#a89a84', berry: '#c8a040', fruit: [5, 6, 7], hangFruit: true, fruitSize: 1.6, scale: 1.35 },
     desc: 'A fast-growing wild breadfruit with huge lobed leaves. Its big spiky fruit feed orangutans, hornbills and bears.' });
-  def({ key: 'petai', name: 'Petai', sci: 'Parkia speciosa', layer: 2, nfix: true,
+  def({ key: 'petai', name: 'Petai', sci: 'Parkia speciosa', layer: 2, heightM: 30, nfix: true,
     moist: [0.2, 0.85], light: [0.4, 1], grow: 0.007, spread: 0.008, radius: 4, life: 80, matureAge: 15, cost: 16,
     look: { type: 'raintree', leaf: '#4e8a3a', bark: '#8a7a64', berry: '#7a9a3a', fruit: [3, 4], hangFruit: true, fruitSize: 1.1, scale: 1.25 },
     desc: 'A spreading legume that fixes nitrogen, with "stink bean" pods that sell well in every market. Bats pollinate its hanging flower balls at night.' });
-  def({ key: 'durian', name: 'Durian', sci: 'Durio zibethinus', layer: 2,
+  def({ key: 'durian', name: 'Durian', sci: 'Durio zibethinus', layer: 2, heightM: 35,
     moist: [0.3, 0.85], light: [0.3, 1], soil: 0.25, grow: 0.0045, spread: 0.007, radius: 5, life: 150, matureAge: 15, mast: 1, cost: 22,
     look: { type: 'mahogany', leaf: '#3f6a38', bark: '#8a6a54', berry: '#a8a838', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.9 },
     desc: 'The king of fruits. Bats pollinate its flowers, and when the spiky fruit fall, orangutans, sun bears, tigers and elephants all come for them, and plant the seeds as they go.' });
-  def({ key: 'rambutan', name: 'Rambutan', sci: 'Nephelium lappaceum', layer: 2,
+  def({ key: 'rambutan', name: 'Rambutan', sci: 'Nephelium lappaceum', layer: 2, heightM: 12,
     moist: [0.3, 0.85], light: [0.35, 1], soil: 0.2, grow: 0.006, spread: 0.007, radius: 4, life: 80, matureAge: 10, cost: 18,
     look: { type: 'balanites', leaf: '#3e6e36', bark: '#7a6650', berry: '#d8242a', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.1 },
     desc: 'Clusters of hairy red fruit with sweet white flesh. The village sells them by the bunch, and macaques, hornbills and civets raid the trees.' });
-  def({ key: 'mangosteen', name: 'Mangosteen', sci: 'Garcinia mangostana', layer: 2,
+  def({ key: 'mangosteen', name: 'Mangosteen', sci: 'Garcinia mangostana', layer: 2, heightM: 12,
     moist: [0.35, 0.9], light: [0.15, 1], soil: 0.25, grow: 0.004, spread: 0.005, radius: 3, life: 100, matureAge: 12, cost: 20,
     look: { type: 'magnolia', leaf: '#2e5e34', bark: '#5a4a3a', berry: '#4a1a3a', fruit: [9, 10, 11], hangFruit: true, fruitSize: 1.2, scale: 0.86 },
     desc: 'The "queen of fruits": a dense, dark evergreen that grows happily in the shade of bigger trees, with purple fruit around snow-white segments. Slow to start bearing, but it pays for decades.' });
-  def({ key: 'cempedak', name: 'Cempedak', sci: 'Artocarpus integer', layer: 2,
+  def({ key: 'cempedak', name: 'Cempedak', sci: 'Artocarpus integer', layer: 2, heightM: 15,
     moist: [0.3, 0.9], light: [0.3, 1], soil: 0.2, grow: 0.006, spread: 0.007, radius: 4, life: 80, matureAge: 10, cost: 16,
     look: { type: 'ash', leaf: '#3e7038', bark: '#8a7a64', berry: '#c8b040', fruit: [10, 11, 0], hangFruit: true, fruitSize: 1.9 },
     desc: 'A wild jackfruit whose big fruits grow straight off the trunk and branches. Orangutans, sun bears and people all love it.' });
-  def({ key: 'banana', was: 'duku', name: 'Banana', sci: 'Musa acuminata', layer: 2,
+  def({ key: 'banana', was: 'duku', name: 'Banana', sci: 'Musa acuminata', layer: 2, heightM: 5,
     moist: [0.35, 0.9], light: [0.35, 1], soil: 0.2, grow: 0.03, spread: 0.006, radius: 2, life: 40, matureAge: 2, cost: 8,
     look: { type: 'banana', leaf: '#5a9a40', bark: '#6e7a44', berry: '#9cba48', fruit: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
     desc: 'Not a tree at all but a giant herb: its "trunk" is rolled leaf sheaths. Wild bananas are native to Sumatra, and every village garden has a clump. Each stem fruits once and dies, and a sucker comes up to take its place, so a clump bears all year round. Quick to plant and quick to pay, while the slow fruit trees grow up around it.' });
-  def({ key: 'jengkol', name: 'Jengkol', sci: 'Archidendron pauciflorum', layer: 2, nfix: true,
+  def({ key: 'jengkol', name: 'Jengkol', sci: 'Archidendron pauciflorum', layer: 2, heightM: 20, nfix: true,
     moist: [0.3, 0.9], light: [0.35, 1], grow: 0.006, spread: 0.007, radius: 4, life: 60, matureAge: 8, cost: 12,
     look: { type: 'raintree', leaf: '#4a8040', bark: '#8a7a6a', berry: '#5a3a5a', fruit: [2, 3], hangFruit: true, fruitSize: 1.1 },
     desc: 'A nitrogen-fixing legume with twisted dark pods of pungent beans, a favourite in Sumatran cooking. It enriches worn soil while it earns.' });
-  def({ key: 'fig', name: 'Strangler fig', sci: 'Ficus stupenda', layer: 2,
+  def({ key: 'fig', name: 'Strangler fig', sci: 'Ficus stupenda', layer: 2, heightM: 30,
     moist: [0.3, 0.95], light: [0.3, 1], soil: 0.15, grow: 0.005, spread: 0.008, radius: 5, life: 300, matureAge: 12, mast: 0.7, cost: 22,
     look: { type: 'fig', leaf: '#3f7a44', bark: '#9a9080', berry: '#c84a2a', fruit: [0, 1, 4, 5, 8, 9], hangFruit: true, fruitSize: 0.9 },
     desc: 'Fruits several times a year, so it feeds hornbills, gibbons and orangutans when nothing else is ripe. The single most important tree for rainforest wildlife.' });
-  def({ key: 'meranti', name: 'Light red meranti', sci: 'Shorea leprosula', layer: 2,
+  def({ key: 'meranti', name: 'Light red meranti', sci: 'Shorea leprosula', layer: 2, heightM: 55,
     moist: [0.25, 0.85], light: [0.3, 1], soil: 0.25, grow: 0.0036, spread: 0.007, radius: 4, life: 300, matureAge: 16, mast: 0.8, cost: 28,
     look: { type: 'emergent', leaf: '#4a7a3a', bark: '#8a7262' },
     desc: 'A dipterocarp, the giant timber trees of Southeast Asia. Every few years all of them fruit at once, and their two-winged seeds spin down by the million.' });
-  def({ key: 'keruing', name: 'Keruing', sci: 'Dipterocarpus grandiflorus', layer: 2,
+  def({ key: 'keruing', name: 'Keruing', sci: 'Dipterocarpus grandiflorus', layer: 2, heightM: 50,
     moist: [0.25, 0.85], light: [0.3, 1], soil: 0.25, grow: 0.0034, spread: 0.006, radius: 4, life: 300, matureAge: 16, mast: 0.6, cost: 28,
     look: { type: 'kapok', leaf: '#3e6a36', bark: '#9a8a7a', scale: 0.78 },
     desc: 'A towering dipterocarp with a straight grey trunk, resin that was once used to caulk boats, and big winged fruit that whirl down like shuttlecocks.' });
-  def({ key: 'tualang', name: 'Tualang', sci: 'Koompassia excelsa', layer: 2,
+  def({ key: 'tualang', name: 'Tualang', sci: 'Koompassia excelsa', layer: 2, heightM: 80,
     moist: [0.2, 0.85], light: [0.35, 1], soil: 0.2, grow: 0.0032, spread: 0.005, radius: 5, life: 400, matureAge: 18, cost: 30,
     look: { type: 'kapok', leaf: '#557e3e', bark: '#d8d2c2' },
     desc: 'The tallest tree in the Asian tropics, with a smooth silver trunk. Giant honey bees hang dozens of combs from its branches, so honey hunters never let it be felled.' });
-  def({ key: 'jelutong', name: 'Jelutong', sci: 'Dyera polyphylla', layer: 2, wetOK: true, swampTree: true,
+  def({ key: 'jelutong', name: 'Jelutong', sci: 'Dyera polyphylla', layer: 2, heightM: 50, wetOK: true, swampTree: true,
     moist: [0.55, 1], light: [0.3, 1], soil: 0.15, grow: 0.0045, spread: 0.007, radius: 4, life: 200, matureAge: 15, cost: 22,
     look: { type: 'ipe', leaf: '#4a7a3e', bark: '#b0a690', scale: 1.31 },
     desc: 'A tall peat-swamp tree, tapped for its latex once used in chewing gum. One of the few big trees that grows well when drained peat is wet again.' });
-  def({ key: 'nibung', name: 'Nibung palm', sci: 'Oncosperma tigillarium', layer: 2, wetOK: true, swampTree: true,
+  def({ key: 'nibung', name: 'Nibung palm', sci: 'Oncosperma tigillarium', layer: 2, heightM: 20, wetOK: true, swampTree: true,
     moist: [0.6, 1], light: [0.3, 1], grow: 0.006, spread: 0.01, radius: 4, life: 80, matureAge: 10, cost: 16,
     look: { type: 'palm', leaf: '#4a7438', bark: '#6a6050', berry: '#2a2030', fruit: [6, 7, 8] },
     desc: 'A clumping, spiny-trunked native palm of swamps and riverbanks, with drooping feathery fronds. Hornbills and pigeons eat its fruit.' });

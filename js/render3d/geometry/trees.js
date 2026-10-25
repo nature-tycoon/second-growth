@@ -197,7 +197,8 @@ export function bareTree(opts, seed, lod = 0) {
     const a = k / 6 * Math.PI * 2 + r();
     branch(0, trunkH * 0.9, 0, (H - trunkH) * 0.45, trunkR * 0.55, Math.sin(a) * 0.6, Math.cos(a) * 0.6, 2);
   }
-  return merge(parts);
+  const out = merge(parts);
+  return opts.lift ? liftTree({ trunk: out }, opts.lift).trunk : out;
 }
 
 // Sizes in tiles. Kept a little under one tile across so forests have depth, not a solid carpet.
@@ -205,8 +206,32 @@ export function bareTree(opts, seed, lod = 0) {
 // Crown and trunk for any tree shape.
 export function treeParts(shape, seed, lod = 0) {
   const t = treePartsRaw(shape, seed, lod);
+  if (shape.lift) liftTree(t, shape.lift);
   bakeAO(t.crown, 'crown'); bakeAO(t.trunk, 'base');
   return t;
+}
+// A taller tree of the same shape (shape.lift, from render3d/tree-stature.js): everything from
+// the lowest limb or leaf up rises straight up by lift, and the trunk under it stretches to meet
+// it. Crowns keep their shape, and the limbs climbers use (userData.canopyBranches) their angles.
+// A tree with limbs or leaves near the ground (stilt roots) stretches evenly instead.
+function liftTree(parts, lift) {
+  const geos = Object.values(parts).filter(g => g?.isBufferGeometry);
+  let f = Infinity, top = 0;
+  for (const g of geos) {
+    for (const b of g.userData.canopyBranches || []) f = Math.min(f, b.from[1], b.to[1]);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { if (g === parts.crown) f = Math.min(f, p.getY(i)); top = Math.max(top, p.getY(i)); }
+  }
+  if (!(f > 0.15)) f = top; // (nothing sits clear of the ground: stretch it all)
+  const y = v => v <= f ? v * (f + lift) / f : v + lift, at = q => [q[0], y(q[1]), q[2]];
+  for (const g of geos) {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setY(i, y(p.getY(i)));
+    p.needsUpdate = true; g.computeBoundingSphere(); g.computeBoundingBox();
+    for (const key of ['canopyBranches', 'canopyTrunks']) if (g.userData[key]) g.userData[key] = g.userData[key].map(b => ({ ...b, from: at(b.from), to: at(b.to) }));
+    g.userData.lift = { at: f, by: lift }; // (read through treeLevel: render3d/tree-stature.js)
+  }
+  return parts;
 }
 function treePartsRaw(shape, seed, lod) {
   // (only the conifers and broadleaf crowns have an in-between model; the rest use their close one)

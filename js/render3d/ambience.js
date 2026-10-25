@@ -8,7 +8,7 @@
 
 
 import { BORDER, LEVEL, T, isWater, clamp } from '../config.js';
-import { TREE_SHAPES } from './geometry/trees.js';
+import { treeHeight } from './tree-stature.js';
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -53,7 +53,7 @@ export class Ambience {
       for (let k = 0; k < 16; k++) { // (flowering trees are few and far between, so look harder)
         const [x, z] = tile(), t = treeAt(x, z);
         if (!t || t[1] < 0.5 || !t[0].look.flower || !t[0].look.bloom?.includes(m) || Math.random() > petalRate) continue;
-        const p = t[0], h = (TREE_SHAPES[p.look.type]?.height || 1.6) * t[1] * rand(0.5, 0.8);
+        const p = t[0], h = treeHeight(p, 1.6) * t[1] * rand(0.5, 0.8);
         const px = x + rand(0.2, 0.8), pz = z + rand(0.2, 0.8);
         this.leaves.push({ x: px, z: pz, y: ground(px, pz) + h, ph: rand(0, 6.3), spin: rand(5, 9), life: 1.2, col: p.look.flower, petal: true });
       }
@@ -64,7 +64,7 @@ export class Ambience {
       for (let k = 0; k < 3; k++) {
         const [x, z] = tile(), t = treeAt(x, z);
         if (!t || t[0].conifer || t[1] < 0.5 || Math.random() > leafRate) continue;
-        const p = t[0], h = (TREE_SHAPES[p.look.type]?.height || 1.6) * t[1] * rand(0.45, 0.75);
+        const p = t[0], h = treeHeight(p, 1.6) * t[1] * rand(0.45, 0.75);
         const px = x + rand(0.2, 0.8), pz = z + rand(0.2, 0.8);
         this.leaves.push({ x: px, z: pz, y: ground(px, pz) + h, ph: rand(0, 6.3), spin: rand(4, 8), life: 1.6,
           col: p.look.fall && season === 2 && Math.random() < 0.6 ? p.look.fall : pick(A.leafColors) });

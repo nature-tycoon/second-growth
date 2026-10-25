@@ -76,47 +76,47 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'The classic pioneer of abandoned Amazon pastures, with rusty leaves and orange sap. It shades out grass.' });
 
   // ---------- Trees ----------
-  def({ key: 'cecropia', name: 'Embaúba (cecropia)', sci: 'Cecropia pachystachya', layer: 2,
+  def({ key: 'cecropia', name: 'Embaúba (cecropia)', sci: 'Cecropia pachystachya', layer: 2, heightM: 15,
     moist: [0.25, 0.95], light: [0.6, 1], grow: 0.01, spread: 0.014, radius: 6, life: 25, matureAge: 99, cost: 14,
     look: { type: 'cecropia', leaf: '#8ab06a', bark: '#d8d4c4', scale: 0.73 },
     desc: 'The first tree up in any clearing: pale trunk and giant umbrella leaves. Sloths love it, and ants guard it.' });
-  def({ key: 'inga', name: 'Ice-cream bean (ingá)', sci: 'Inga edulis', layer: 2, nfix: true,
+  def({ key: 'inga', name: 'Ice-cream bean (ingá)', sci: 'Inga edulis', layer: 2, heightM: 12, nfix: true,
     moist: [0.3, 0.95], light: [0.45, 1], grow: 0.008, spread: 0.01, radius: 4, life: 40, matureAge: 30, mast: 0.5, cost: 16,
     look: { type: 'inga', leaf: '#4f8a3e', bark: '#8a7a64', berry: '#e8e4c8', fruit: [8, 9] },
     desc: 'Fixes nitrogen, shades out grass fast, and its sweet pods feed monkeys and people. A restoration workhorse.' });
-  def({ key: 'balsa', name: 'Balsa', sci: 'Ochroma pyramidale', layer: 2,
+  def({ key: 'balsa', name: 'Balsa', sci: 'Ochroma pyramidale', layer: 2, heightM: 25,
     moist: [0.25, 0.9], light: [0.65, 1], grow: 0.011, spread: 0.012, radius: 6, life: 30, matureAge: 99, cost: 14,
     look: { type: 'balsa', leaf: '#7aa05a', bark: '#c8c0b0' },
     desc: 'Among the fastest-growing trees on Earth, with wood lighter than cork. Its night flowers feed bats.' });
-  def({ key: 'acai', name: 'Açaí palm', sci: 'Euterpe oleracea', layer: 2, wetOK: true, swampTree: true,
+  def({ key: 'acai', name: 'Açaí palm', sci: 'Euterpe oleracea', layer: 2, heightM: 20, wetOK: true, swampTree: true,
     moist: [0.55, 1], light: [0.2, 1], grow: 0.006, spread: 0.01, radius: 4, life: 60, matureAge: 10, cost: 18,
     look: { type: 'palm', leaf: '#4f7a3a', bark: '#8a8070', berry: '#3a1a3a', fruit: [4, 5, 6, 7] },
     desc: 'Clumps of slender palms on flooded ground. Toucans, macaws and people all come for the purple fruit.' });
-  def({ key: 'buriti', name: 'Buriti palm', sci: 'Mauritia flexuosa', layer: 2, wetOK: true, swampTree: true,
+  def({ key: 'buriti', name: 'Buriti palm', sci: 'Mauritia flexuosa', layer: 2, heightM: 30, wetOK: true, swampTree: true,
     moist: [0.65, 1], light: [0.5, 1], grow: 0.004, spread: 0.006, radius: 4, life: 100, matureAge: 14, mast: 0.4, cost: 22,
     look: { type: 'fanpalm', leaf: '#6a8a3a', bark: '#7a6a50' },
     desc: 'The "tree of life" of Amazon swamps. Dead buriti trunks are where scarlet macaws nest.' });
-  def({ key: 'brazilnut', name: 'Brazil nut (castanheira)', sci: 'Bertholletia excelsa', layer: 2,
+  def({ key: 'brazilnut', name: 'Brazil nut (castanheira)', sci: 'Bertholletia excelsa', layer: 2, heightM: 50,
     moist: [0.2, 0.8], light: [0.35, 1], soil: 0.25, grow: 0.0032, spread: 0.008, radius: 5, life: 500, matureAge: 16, mast: 1, cost: 30,
     look: { type: 'emergent', leaf: '#3f6a38', bark: '#8a7a6a' },
     desc: 'A 50 m giant, protected by law, so ranchers left some standing in pasture. Only agoutis can open its pods and plant the seeds.' });
-  def({ key: 'kapok', name: 'Kapok (samaúma)', sci: 'Ceiba pentandra', layer: 2,
+  def({ key: 'kapok', name: 'Kapok (samaúma)', sci: 'Ceiba pentandra', layer: 2, heightM: 60,
     moist: [0.35, 0.95], light: [0.5, 1], soil: 0.2, grow: 0.0042, spread: 0.007, radius: 8, life: 300, matureAge: 14, cost: 28,
     look: { type: 'kapok', leaf: '#5a8a44', bark: '#b8b0a0' },
     desc: 'The queen of the forest, with a buttressed trunk and a crown above the canopy. Its seeds float away on cotton.' });
-  def({ key: 'mahogany', name: 'Big-leaf mahogany', sci: 'Swietenia macrophylla', layer: 2,
+  def({ key: 'mahogany', name: 'Big-leaf mahogany', sci: 'Swietenia macrophylla', layer: 2, heightM: 40,
     moist: [0.25, 0.85], light: [0.25, 1], soil: 0.25, grow: 0.0034, spread: 0.006, radius: 4, life: 250, matureAge: 14, cost: 30,
     look: { type: 'mahogany', leaf: '#3f6a3a', bark: '#7a5a44', scale: 1.18 },
     desc: 'Logged almost to extinction for its red timber. Replanting it rebuilds the canopy for the long run.' });
-  def({ key: 'ipe', name: 'Pink ipê', sci: 'Handroanthus impetiginosus', layer: 2,
+  def({ key: 'ipe', name: 'Pink ipê', sci: 'Handroanthus impetiginosus', layer: 2, heightM: 30,
     moist: [0.1, 0.75], light: [0.4, 1], soil: 0.15, grow: 0.0036, spread: 0.008, radius: 5, life: 200, matureAge: 14, cost: 26,
     look: { type: 'ipe', leaf: '#4a7a3a', flower: '#e87ab8', bloom: [4, 5], crownBloom: true, bark: '#6a5a48' },
     desc: 'Bursts into solid pink in the dry season, when its leaves are gone. Bees and hummingbirds swarm it.' });
-  def({ key: 'fig', name: 'Strangler fig', sci: 'Ficus insipida', layer: 2,
+  def({ key: 'fig', name: 'Strangler fig', sci: 'Ficus insipida', layer: 2, heightM: 30,
     moist: [0.3, 0.95], light: [0.3, 1], soil: 0.15, grow: 0.005, spread: 0.008, radius: 5, life: 300, matureAge: 12, mast: 0.6, cost: 24,
     look: { type: 'fig', leaf: '#3f7a44', bark: '#9a9080', berry: '#8a3a3a', fruit: [0, 1, 6, 7] },
     desc: 'Fruits several times a year, so it feeds monkeys, toucans, bats and fish when nothing else does.' });
-  def({ key: 'leucaena', name: 'Leucaena', sci: 'Leucaena leucocephala', layer: 2, native: false, invasive: true, nfix: true,
+  def({ key: 'leucaena', name: 'Leucaena', sci: 'Leucaena leucocephala', layer: 2, heightM: 8, native: false, invasive: true, nfix: true,
     moist: [0.05, 0.75], light: [0.55, 1], grow: 0.01, spread: 0.02, radius: 3, life: 30, matureAge: 99, compete: 0.6, cost: 0,
     look: { type: 'leucaena', leaf: '#7a9a4a', bark: '#9a8a70' },
     desc: 'INVASIVE. A cattle-fodder tree from Central America that forms dense thickets and keeps native trees out.' });

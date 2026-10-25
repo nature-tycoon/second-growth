@@ -4,6 +4,7 @@ import { climbPace } from '../sim/climb-pace.js';
 import { bodyFitsWood, woodDistance } from './wood-clearance.js';
 import { canopyRotation, interpolateCanopyPose } from './canopy-pose.js';
 import { canopyContactCount, barkGrip } from './canopy-grips.js';
+import { treeLevel } from './tree-stature.js';
 import { howlerReachTarget } from './howler-contact.js';
 import { ORANGUTAN_CADENCE, orangutanReverse } from './orangutan-motion.js';
 import { howlerArcHeight, howlerJumpGate, howlerLandingGate, howlerJumpPose, settleHowlerJump } from './howler-jump.js';
@@ -52,8 +53,8 @@ function crownRoute(from, to, point, def, scale) {
   for (let i = 0; i < a.branches.length; i++) for (let j = 0; j < b.branches.length; j++) {
     const aa = exits[i], bb = entries[j];
     if (!aa || !bb || !reachable(aa, bb)) continue;
-    if (aa.point.y < a.transform[1] + a.geo.boundingBox.max.y * a.transform[4] * .45 ||
-      bb.point.y < b.transform[1] + b.geo.boundingBox.max.y * b.transform[4] * .45) continue;
+    if (aa.point.y < a.transform[1] + treeLevel(a.geo, .45) * a.transform[4] ||
+      bb.point.y < b.transform[1] + treeLevel(b.geo, .45) * b.transform[4]) continue;
     // Nearby tips can be on the far side of two trunks. Include the distance
     // along the connected wood, so a short crown transfer does not first send
     // the monkey down and back up several unrelated limbs.
