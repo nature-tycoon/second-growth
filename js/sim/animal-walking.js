@@ -2,6 +2,7 @@
 import { T, clamp } from '../config.js';
 import { passable } from './animal-terrain.js';
 import { pathPoint } from './animal-course.js';
+import { resolveStep, steerAround } from './ground-obstacles.js';
 const angleDelta=(a,b)=>{let d=a-b;return d-Math.round(d/(Math.PI*2))*Math.PI*2;};
 export const smoothWalker=def=>!def.reef&&(def.move==='ground'||def.move==='semi'&&!def.patrol);
 // Check the swept segment and both sides of each diagonal boundary. Short look-ahead
@@ -43,6 +44,7 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
   if(distance<.025)return last||Math.hypot(tx-a.x,ty-a.y)<.15;
   let desired=Math.atan2(gy-a.y,gx-a.x);
   if(avoid){const bearing=Math.atan2(avoid[1]-a.y,avoid[0]-a.x);desired+=clamp(angleDelta(bearing,desired),-.75,.75);pace*=Math.max(.65,avoid[2]);}
+  desired=steerAround(w,a,def,desired,Math.min(look,distance+.3)); // (round a trunk or log ahead: ground-obstacles.js)
   const heading=a.walkHeading??desired;
   const turn=angleDelta(desired,heading),rate=clamp(5-size*.045,2.4,4.5);
   let next=heading+clamp(turn,-rate*dt,rate*dt);
@@ -60,7 +62,7 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
   }
   a.walkHeading=next;a.orientation=next;
   if(Math.abs(Math.cos(next))>.05)a.facing=Math.cos(next)>0?1:-1;
-  if(step>1e-7){a.x=nx;a.y=ny;}
+  if(step>1e-7){const fx=a.x,fy=a.y;a.x=nx;a.y=ny;resolveStep(wl,a,def,fx,fy);}
   if(last)return Math.hypot(a.x-tx,a.y-ty)<Math.max(.045,pace*.6);
   const following=node(w,a,path.length-2),dx=following[0]-tx,dy=following[1]-ty;
   return near<.12 || (a.x-tx)*dx+(a.y-ty)*dy>=0 && near<look*1.8 && walkSegmentSafe(w,a,...following);

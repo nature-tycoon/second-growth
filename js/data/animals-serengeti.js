@@ -68,7 +68,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 1, RIPARIAN: 1, SHRUB: 0.8, MEADOW: 0.6, MARSH: 0.6 });
-    def({ key: 'elephant', herd: true, herdR: 2.5, herdMax: 5, name: 'African elephant', sci: 'Loxodonta africana', group: 'Mammals', move: 'ground',
+    def({ key: 'elephant', herd: true, tramples: true, herdR: 2.5, herdMax: 5, name: 'African elephant', sci: 'Loxodonta africana', group: 'Mammals', move: 'ground',
       speed: 1.1, hr: 160, max: 8, minK: 2, groupSize: [3, 6], sources: ['N'], mig: 0.2, intro: 16000,
       breed: [1], litter: [1, 1], life: 60, mature: 12,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.3),

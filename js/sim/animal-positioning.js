@@ -5,6 +5,7 @@ import { activeCatalog } from '../data/catalog.js';
 import { T, F, isWater, clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
 import { lastDry } from './waterline.js';
+import { inWood } from './ground-obstacles.js';
 
 export function animalRadius(a, catalog = activeCatalog) {
   const def = drawDef(animalDef(a, catalog), a), s = def.sprite;
@@ -170,6 +171,9 @@ export class AnimalSpacing {
       // Never slip diagonally through a blocked corner.
       if (x !== Math.floor(a.x) && y !== Math.floor(a.y) &&
         (!canStand(w, w.idx(x, Math.floor(a.y)), a) || !canStand(w, w.idx(Math.floor(a.x), y), a))) return false;
+      // (nor shoved into a trunk or log it keeps clear of: ground-obstacles.js)
+      const def = this.w.catalog.animals[a.sp];
+      if (e.band === 'ground' && inWood(w, a, def, nx, ny) && !inWood(w, a, def, a.x, a.y)) return false;
       a.x = nx; a.y = ny; e.moved += d;
       a.pushX = dx; a.pushY = dy;
       // a reef fish nudged aside veers that way, rather than drifting sideways

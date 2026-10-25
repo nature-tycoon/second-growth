@@ -150,6 +150,7 @@ import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema
  * @property {string} [mapId]
  * @property {boolean} [herd]
  * @property {boolean} [familyHerd]
+ * @property {boolean} [tramples] walks through saplings and knocks them back (sim/ground-obstacles.js)
  * @property {boolean} [notPrey]
  * @property {boolean} [patrol]
  * @property {boolean} [soar] a raptor that circles high over open ground between perches
@@ -319,7 +320,7 @@ export function assertSeedMix(m, plant, path = 'mix') {
   // Repeated keys are intentional weights (for example, the reef's starter mix).
 }
 
-const ANIMAL_BOOLEANS = 'herd familyHerd fixedMax strictMax notPrey patrol soar ambush noDrink quick domestic reef benthic frugivore fenced damBuilder';
+const ANIMAL_BOOLEANS = 'herd familyHerd fixedMax strictMax notPrey patrol soar ambush noDrink quick domestic reef benthic frugivore fenced damBuilder tramples';
 const ANIMAL_NUMBERS = 'minK mig intro life mature preyPer speed max hr familySize herdR bachelorSize bachelorR bachelorJoin bachelorSoloAge herdMax needsPer shy browseRate challengePreyPer';
 const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey carries needs special crossing surfaceEscape ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
 export const ANIMAL_MOVES = Object.freeze(['ground', 'semi', 'tree', 'fly', 'swim']);
