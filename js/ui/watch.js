@@ -24,7 +24,7 @@
 // on the animal it has until Next is pressed (or the animal is gone). Each view keeps its own: on
 // for the usual view, off at eye level, where a cut away loses the animal you were watching.
 
-import { animalDef } from '../data/animals.js';
+import { animalDef, drawDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
 import { SEASONS, clamp } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
@@ -33,6 +33,7 @@ import { animalThumb } from './thumbnails.js';
 
 const SHOT = { follow: 16, eye: 18, wide: 11 }; // seconds a shot lasts
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches; // (as the thumbstick shows)
+const FILL = 3.3, CLOSEST = 8;                   // a followed animal's longest side × zoom (about 150 pixels), and the nearest zoom
 const LONGEST = 40;                              // a hunt or a chase keeps the camera, up to this long
 
 // How worth watching an animal is right now: what it's doing, weighted.
@@ -352,9 +353,12 @@ export class Watch {
       r.setEyeLevel(a);
     } else {
       r.setEyeLevel(null);
-      // close, but not so close a big animal or a herd overflows the frame; a small bird closer still
-      const def = animalDef(a, g.catalog), tall = (def.sprite.h || 40) * adultAnimalScale(def.sprite);
-      r.flyTo(a.x, a.y, clamp(0.9 / tall, 2.3, 4.2) * (0.9 + Math.random() * 0.25), keep ? 0.6 : 2.2);
+      // close enough that its longest side as drawn fills about the same part of the screen, whatever
+      // its size (the sprite's numbers made a capybara or a squirrel look as big as a deer), but not so
+      // close a big animal or a herd overflows the frame, nor so close the ground goes soft
+      const def = animalDef(a, g.catalog), sc = adultAnimalScale(def.sprite) * (a.juvenile ? def.sprite.juv ?? 0.5 : 1);
+      const size = r.actors.fauna.extent(drawDef(def, a, g.month)) * sc;
+      r.flyTo(a.x, a.y, clamp(FILL / size, 2.3, CLOSEST) * (0.9 + Math.random() * 0.25), keep ? 0.6 : 2.2, CLOSEST);
       ui.follow = null; g.selectedAgent = a;
       // join the animal once the glide is over (following straight away would cut the glide short)
       this.shot.followAt = setTimeout(() => { if (this.shot?.agent === a && !this.shot.eye) { r.glideToAnimal(a); ui.follow = a; } }, keep ? 600 : 2200);

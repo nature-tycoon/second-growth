@@ -511,11 +511,12 @@ export class Renderer {
     this.clampCam(); this.updateCamera();
   }
   rotate(dir, degrees = 90) { this.azTarget += dir * degrees * Math.PI / 180; }
-  // Glide the camera to a spot and zoom (for keystone moments), easing in and out.
-  flyTo(x, y, zoom, dur = 2.2) {
+  // Glide the camera to a spot and zoom (for keystone moments), easing in and out. Watch mode may
+  // come in closer than the wheel goes (maxZoom), so a squirrel isn't a speck.
+  flyTo(x, y, zoom, dur = 2.2, maxZoom = 4.5) {
     this.groundCamera();
     this.zoomGoal = null;
-    this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, 4.5), t: 0, dur };
+    this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, maxZoom), t: 0, dur };
   }
 
   // Watch mode's eye-level view (eye-camera.js): ride along low behind an animal, or null to go
