@@ -136,12 +136,12 @@ export function buildSpecies(def, { close = false } = {}) {
   mo.revealBounds = geo.boundingBox.clone();
   if (mo.primate || mo.canopyHanging) {
     // Deduplicate the actual body surface for clearance at crowded woody forks.
-    // Hands, feet, fruit and the tail are allowed to touch their support.
+    // Hands, feet, fruit, the tail, fur fringes and eyes are allowed to touch their support.
     const cells = new Map(), cell = s.len * .001; let offset = 0;
     geo.userData.canopyCore = [];
     for (const part of m.parts) {
       const p = part.attributes.position, id = part.attributes.aPart.getX(0);
-      if (!part.userData.canopyFur && (id === P.BODY || id === P.HEAD)) {
+      if (!part.userData.canopyFur && !part.userData.eye && (id === P.BODY || id === P.HEAD)) {
         geo.userData.canopyCore.push([offset, offset + p.count]);
         for (let i = 0; i < p.count; i++) {
           const v = new THREE.Vector3().fromBufferAttribute(p, i), key = [v.x, v.y, v.z].map(n => Math.round(n / cell)).join(':');

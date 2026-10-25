@@ -262,7 +262,9 @@ class Model {
 // ---------------------------------------------------------------- mammals
 function eyes(m, at, rx, ry, rz, r, part, pivot, color = '#15110e') {
   m.eyeSpot ||= [at[0] + rx, at[1] + ry, rz]; // (where the eyes are, for fitting a kill's skull; eyeAt is for eye-shine)
+  const first = m.parts.length;
   for (const side of [1, -1]) m.ell([at[0] + rx, at[1] + ry, side * rz], [r, r, r], color, { lo: true, part, pivot, gloss: 2 });
+  for (let i = first; i < m.parts.length; i++) m.parts[i].userData.eye = true; // (not solid body for branch clearance)
 }
 
 // A mammal's ear (pinna), shared by every species that has one: a thin leaf of skin rolled into a
