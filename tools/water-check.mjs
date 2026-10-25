@@ -5,6 +5,7 @@ register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
 const { Terrain, waterSurfaceY } = await import('../js/render3d/terrain.js');
 import { Game } from '../js/game.js';
+import { createTools } from '../js/tools.js';
 import { waterModel } from '../js/sim/hollis-water.js';
 import { T, F, LEVEL, isWater } from '../js/config.js';
 let checks = 0;
@@ -127,6 +128,33 @@ check('Floodwater clouds out over the river it rose from instead of stopping at 
       for (let y = z - 5; y <= z + 5; y++) for (let xx = x - 5; xx <= x + 5; xx++) if (w.inb(xx, y) && w.flood[w.idx(xx, y)]) near = Math.min(near, Math.hypot(xx + .5 - x, y + .5 - z));
       if (near >= 3.5) assert.equal(al, 0, `${map}: floodwater at ${key} fades out`);
     }
+    dispose(t);
+  }
+});
+check('Ponds dug on slopes never end in mid-air along a tile edge', () => {
+  // (the water mesh's outer edges, where it stops, must sit on the ground, not above it)
+  for (const map of ['pnw', 'serengeti', 'amazon', 'chinandega', 'sumatra']) {
+    const { game, terrain: t } = make(map), w = game.world, dig = createTools(game.catalog).pond.apply;
+    let seed = 7, dug = 0; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const sites = [];
+    for (let s = 0; s < 40; s++) {
+      const x = 5 + Math.floor(rnd() * (w.w - 12)), y = 5 + Math.floor(rnd() * (w.h - 12)), sz = 1 + (s % 4);
+      let ok = true; for (let dy = -2; dy < sz + 2; dy++) for (let dx = -2; dx < sz + 2; dx++) { const i = w.idx(x + dx, y + dy); if (isWater(w.terrain[i]) || w.struct[i] >= 0) ok = false; }
+      if (!ok) continue;
+      for (let dy = 0; dy < sz; dy++) for (let dx = 0; dx < sz; dx++) dig(game, w.idx(x + dx, y + dy));
+      sites.push([x - 3, y - 3, x + sz + 3, y + sz + 3]); dug++;
+    }
+    w.hv++; t.updateHeights();
+    const a = t.water.geometry.attributes, edges = new Map(), key = i => a.position.getX(i) + ',' + a.position.getZ(i);
+    for (let f = 0; f < a.position.count; f += 3) for (const [p, q] of [[f, f + 1], [f + 1, f + 2], [f + 2, f]]) {
+      const k = [key(p), key(q)].sort().join('|'), e = edges.get(k); if (e) e.c++; else edges.set(k, { c: 1, p, q });
+    }
+    for (const e of edges.values()) {
+      const x = a.position.getX(e.p), z = a.position.getZ(e.p);
+      if (e.c > 1 || !sites.some(([x0, z0, x1, z1]) => x >= x0 && x <= x1 && z >= z0 && z <= z1)) continue;
+      assert.ok(Math.min(a.aDepth.getX(e.p), a.aDepth.getX(e.q)) <= 0.03, `${map}: pond water stops above the ground at ${x},${z}`);
+    }
+    assert.ok(dug > 10, map + ' dug enough ponds');
     dispose(t);
   }
 });

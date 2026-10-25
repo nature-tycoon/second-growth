@@ -1,5 +1,5 @@
 // node tools/ground-obstacles-check.mjs
-// Trunks and logs on the ground (js/sim/ground-obstacles.js, decision 0022): walkers go round trunks
+// Trunks and logs on the ground (js/sim/ground-obstacles.js, decision 0023): walkers go round trunks
 // even in a dense stand and never get stuck, elephants push through saplings and knock them back,
 // small animals go round fallen logs while big ones step over, and fliers and monkeys are untouched.
 import assert from 'node:assert/strict';

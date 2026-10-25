@@ -90,9 +90,8 @@ const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)'
 
 
 export class Renderer {
-  // weakGpu: built-in graphics the analytics show struggling (see weakGpu in performance.js)
-  constructor(canvas, { preserveDrawingBuffer = false, catalog = activeCatalog, weakGpu = false } = {}) {
-    this.catalog = catalog; this.weakGpu = weakGpu;
+  constructor(canvas, { preserveDrawingBuffer = false, catalog = activeCatalog } = {}) {
+    this.catalog = catalog;
     this.canvas = canvas;
     this.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer });
@@ -178,9 +177,7 @@ export class Renderer {
     // detail or shadows starts the automatic resolution over)
     const gfx = `${s.quality}|${s.shadows}`, fresh = gfx !== this.gfx;
     this.gfx = gfx;
-    // (and the far tree models, only for a computer the game has already found too slow, or
-    // built-in graphics known to struggle zoomed out)
-    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; this.useFar(!!s.slowFps || this.weakGpu); }
+    if (fresh) { this.sun.castShadow = !!s.shadows; this.shadowsDropped = false; }
     // Fast: a smaller shadow map (it's redrawn every frame)
     const shadowRes = fast ? 1024 : 2048;
     if (this.sun.shadow.mapSize.x !== shadowRes) {
@@ -214,13 +211,9 @@ export class Renderer {
   // Kills' skeletons and their shader, prepared in idle moments (see Actors.warmRemains).
   warmRemains(game) { this.actors.warmRemains(game, this.gl, this.camera, this.scene, () => `${this.gl.shadowMap.enabled}:${this.sun.castShadow}`); }
 
-  // Simpler far-away trees (see far-models.js), for a computer that can't keep up.
-  useFar(on) { this.farOn = !!on; this.flora.setFar(this.farOn); }
-
   // Phones and older laptops vary enormously, so the view sets its own resolution: it steps down
   // while the frame rate is low and creeps back up once there's room again, never above the
-  // setting. Before the first step it switches the far tree models on; as a last resort it turns
-  // shadows off for the rest of the session.
+  // setting. As a last resort it turns shadows off for the rest of the session.
   // - It waits out the first seconds (loading, the first plant builds) before judging anything.
   // - It reads the slower frames (the 75th-percentile gap over two seconds): a new day's repaint
   //   is one hitch and doesn't count, but a view where most frames drag does, even when the
@@ -254,11 +247,6 @@ export class Renderer {
     // (a screen that tops out near 30 is held there: only a real stumble below that counts)
     const slow = fps < (peak > 27 && peak < 35 ? 24 : 26);
     this.slowN = slow ? (this.slowN || 0) + 1 : 0;
-    if (slow && this.slowN >= 2 && !this.farOn) {
-      this.useFar(true);
-      // (zoomed out, that alone may be enough: see whether it is before touching the resolution)
-      if (this.flora.view[0] === 3) { this.slowN = 0; return; }
-    }
     if (slow && this.slowN >= 2 && !this.resNoGain && sc > min + 0.005) {
       this.resTried = { fps, sc }; this.slowN = 0;
       // too slow right after a step up: that step was one too far, so don't climb that high again
@@ -305,7 +293,7 @@ export class Renderer {
       return;
     }
     this.qSlow = fps < 20 && this.quality !== 'fast' ? (this.qSlow || 0) + 1 : 0;
-    if (this.qSlow >= 3) { this.qSlow = 0; this.qGood = 0; this.qStart = null; this.useFar(true); this.onQuality('fast', Math.round(fps), this.qRaised ? 'undo' : 'slow'); return; }
+    if (this.qSlow >= 3) { this.qSlow = 0; this.qGood = 0; this.qStart = null; this.onQuality('fast', Math.round(fps), this.qRaised ? 'undo' : 'slow'); return; }
     const up = { fast: 'balanced', balanced: 'high' }[this.quality];
     const room = up && game?.speed > 0 && fps >= 50 && this.resScale >= 0.999 && !this.shadowsDropped;
     this.qGood = room ? (this.qGood || 0) + 1 : 0;
@@ -814,7 +802,7 @@ export class Renderer {
       fps: P.time ? +(P.frames * 1000 / P.time).toFixed(1) : null,
       slow_frames_pct: P.frames ? Math.round(P.slow / P.frames * 100) : null,
       quality: this.quality ?? null, res_scale: +(this.resScale ?? 1).toFixed(2), pixel_ratio: +(this.dpr ?? 1).toFixed(2),
-      shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped, far_models: !!this.farOn,
+      shadows: !!this.sun.castShadow, shadows_dropped: !!this.shadowsDropped, far_models: this.flora?.view?.[0] === 3,
       triangles: info.triangles, draw_calls: info.calls, zoom: +(this.zoom ?? 1).toFixed(2), gpu: this.gpuName(),
       renderer_revision: RELEASE,
       // the frame rate the game allows itself (30 on touch screens and on battery, see main.js), so a

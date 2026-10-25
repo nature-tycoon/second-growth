@@ -44,7 +44,8 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 - [0019](docs/decisions/0019-bare-soil-close-up.md) Bare soil painted per pixel at eye level (`render3d/terrain-materials.js`)
 - [0020](docs/decisions/0020-watch-mode-and-eye-level.md) Watch mode (`C`), eye level (`F`), eye-level sky, weather, lightning and thunder
 - [0021](docs/decisions/0021-watch-pace.md) Watch pace (`0`): the calendar slows, animals keep the normal pace (`ANIMAL_SPEEDS`); life stages read `lifeAge(a)`, not `a.age`; compare speeds by value, not index
-- [0022](docs/decisions/0022-trunks-and-logs.md) Trunks and logs: walkers go round trunks, small animals round logs, elephants trample saplings (`sim/ground-obstacles.js`). Trunk spots are shared with `flora.js`
+- [0022](docs/decisions/0022-far-vegetation-by-screen-size.md) Far vegetation by screen size: far tree and shrub models whenever the view is zoomed out (tile under 16 px on High, 23 on Fast), on every computer; `flora.setFar(false)` to compare
+- [0023](docs/decisions/0023-trunks-and-logs.md) Trunks and logs: walkers go round trunks, small animals round logs, elephants trample saplings (`sim/ground-obstacles.js`). Trunk spots are shared with `flora.js`
 
 New decisions take the next unused number and one line here.
 

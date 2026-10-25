@@ -312,11 +312,11 @@ export function waterLook(mat, time, noise, rain, sky) {
   mat.onBeforeCompile = shader => {
     prev(shader);
     Object.assign(shader.uniforms, { uNoiseW: { value: noise }, uRain: rain, uSky: sky });
-    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute float aBend;\nattribute float aQual;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
+    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute float aBend;\nattribute float aQual;\nattribute float aSlope;\nattribute float aRound;\nvarying float vSlope;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
       // Fade wave displacement at the bank, while retaining signed bed depth for shading.
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-      vDepth = aDepth; vFlow = aFlow; vBend = aBend; vQual = aQual; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
-    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
+      vDepth = aDepth; vFlow = aFlow; vBend = aBend; vQual = aQual; vSlope = aSlope; vRound = aRound; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
+    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vSlope;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       {
         // drifting ripples: two layers of noise sliding past each other tilt the normal
@@ -374,13 +374,24 @@ export function waterLook(mat, time, noise, rain, sky) {
           diffuseColor.rgb += vec3(0.085, 0.11, 0.115) * ripple * broken
             * (0.15 + vBend * 0.85) * fl * smoothstep(0.008, 0.09, vDepth);
         }
+        // A rounded, wavering waterline. The ground is a grid of tiles, so on its own the water
+        // meets a dug bank in straight lines and steps round a pond in tile-sized stairs. vRound
+        // is the depth over the ground smoothed a little, which is shallower at the outer corner
+        // of each step, so the water draws back there and the stairs round off (it can only draw
+        // back: the ground hides anything beyond the real waterline). Then small uneven bays,
+        // up to about a third of a tile, show the damp mud the ground paints at the bank.
+        // (vSlope: how steeply the bank rises per tile, so the bays are about as wide on any bank
+        // and none open on the flat; capped so they only eat into the shallows, never mid-pond.)
+        float bay = smoothstep(0.3, 0.75, texture2D(uNoiseW, vWXZ * 0.37 + 0.37).r);
+        float pull = min(bay * 0.32 * vSlope, 0.1), shoreD = min(vDepth, vRound) - pull;
+        if (shoreD < vDepth - 0.001) diffuseColor.a *= smoothstep(0.0, 0.02, shoreD);
         // foam where the water laps the bank
         // Signed depth crosses zero at the actual ground/water intersection.
-        float edge = (1.0 - smoothstep(0.0, 0.075, abs(vDepth)));
+        float edge = (1.0 - smoothstep(0.0, 0.075, abs(shoreD)));
         float fn = texture2D(uNoiseW, vWXZ * 1.4 + vec2(uTime * 0.012, -uTime * 0.008)).r;
         float foam = edge * (0.35 + 0.65 * smoothstep(0.32, 0.7, fn + 0.08 * sin(uTime * 0.5 + vWXZ.x * 3.0 + vWXZ.y * 2.0)));
         // ...and soft lines of it lapping in toward the bank
-        float lap = smoothstep(0.0, 0.025, vDepth) * (1.0 - smoothstep(0.04, 0.16, vDepth)) * smoothstep(0.62, 0.9, fract(vDepth * 9.0 - uTime * 0.22 + fn * 0.6)) * smoothstep(0.3, 0.6, fn);
+        float lap = smoothstep(0.0, 0.025, shoreD) * (1.0 - smoothstep(0.04, 0.16, shoreD)) * smoothstep(0.62, 0.9, fract(shoreD * 9.0 - uTime * 0.22 + fn * 0.6)) * smoothstep(0.3, 0.6, fn);
         foam = max(foam, lap * 0.8);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.65, 0.79, 0.76), foam * 0.5);
         diffuseColor.a = max(diffuseColor.a, foam * 0.45 * step(0.001, diffuseColor.a));

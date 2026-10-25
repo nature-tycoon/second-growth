@@ -1,4 +1,4 @@
-// Trunks and fallen logs on the ground (0022). Route finding works in whole tiles, where a tree's
+// Trunks and fallen logs on the ground (0023). Route finding works in whole tiles, where a tree's
 // tile is open ground; this keeps walkers off the trunk itself, using the spot and size the trunk
 // is drawn at. Only ground: crowns and branches never block, so birds fly and perch through the
 // leaves, and climbers (monkeys, apes, sloths, squirrels in the canopy) are left alone.

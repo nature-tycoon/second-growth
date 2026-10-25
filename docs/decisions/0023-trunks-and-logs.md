@@ -1,4 +1,4 @@
-# 0022 Trunks and logs: walkers go round wood on the ground
+# 0023 Trunks and logs: walkers go round wood on the ground
 
 2026-10-24. Cole asked: "Make it so that animals walk around trees instead of through. For large
 animals they can't get stuck. Maybe for animals like African elephants they trample small trees in

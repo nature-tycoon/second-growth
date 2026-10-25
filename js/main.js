@@ -53,7 +53,7 @@ async function boot() {
       track('auto_quality', { from: settings.quality, to: 'fast', reason: 'graphics_chip', gpu: chip });
       settings.quality = 'fast'; saveSettings();
     }
-    const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog, weakGpu: weak });
+    const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog });
     const ui = new UI(game, renderer);
     const input = new Input(game, renderer, ui);
     renderer.resetView();

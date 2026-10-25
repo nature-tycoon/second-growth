@@ -79,7 +79,7 @@ export class Flora {
     this.pools = new Map();
     this.geos = new Map();
     this.view = [0, true, true, 0];
-    this.far = false; // (far models allowed: only once the game has found this computer slow, see setFar)
+    this.far = true; // (far models with the valley in view, see setZoom; false reverts to the distant ones, for comparing)
   }
 
   geo(key, build) {
@@ -181,8 +181,10 @@ export class Flora {
   // zoomed right in, hides grass blades sooner, drops shrub shadows, and draws half the tufts.
   setZoom(zoom, force = false) {
     this.zoom = zoom;
-    // (trees: the close model only once zoomed right in, the in-between one at play zoom)
-    // (when allowed, the far models once a tile is about 16 pixels across, or 23 on Fast)
+    // (trees: the close model only once zoomed right in, the in-between one at play zoom, and the
+    // far models once a tile is under about 16 pixels across, or 23 on Fast. The camera has no
+    // perspective, so every plant on screen is drawn at the same scale and the zoom alone says
+    // how small they are. Eye level passes its own fixed zoom: always the close models.)
     const far = this.far;
     const v = this.light
       ? [far && zoom < 0.5 ? 3 : zoom < 1.4 ? 1 : zoom < 2.2 ? 2 : 0, zoom > 0.5, false, zoom < 1.8 ? 1 : 0]
@@ -192,8 +194,8 @@ export class Flora {
     for (const p of this.pools.values()) p.setView(...v);
   }
 
-  // Far models (see far-models.js) for a computer that can't keep up; a computer that can keeps
-  // the distant models at every zoom.
+  // Far models (see far-models.js) on or off; off keeps the distant models at every zoom, for
+  // comparing the two.
   setFar(on) {
     on = !!on;
     if (on === this.far) return;
