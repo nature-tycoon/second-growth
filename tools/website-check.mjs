@@ -91,7 +91,8 @@ assert.deepEqual(graph.find(node => node['@type'] === 'FAQPage').mainEntity.map(
 for (const [attribute, property] of [['property', 'og:image'], ['name', 'twitter:image']]) {
   assert.ok(publishedHome.includes(`<meta ${attribute}="${property}" content="${websiteOrigin}/share.jpg">`), `${property} uses the 1200×630 crop of the approved hero`);
 }
-assert.deepEqual([...homepage.matchAll(/<script[^>]+src="([^"]+)"/g)].map(m => m[1].split('?')[0]), ['site.js'], 'Homepage may load only its static image selectors, never the game engine');
+assert.deepEqual([...homepage.matchAll(/<script[^>]+src="([^"]+)"/g)].map(m => m[1].split('?')[0]), ['gtm.js', 'site.js'], 'Homepage may load only Tag Manager and its static image selectors, never the game engine');
+assert.ok(!(await readFile(join(output, 'play/index.html'), 'utf8')).includes('googletagmanager'), 'Tag Manager stays off the game');
 assert.equal((homepage.match(/href="play\/"/g) || []).length, 3, 'All three play buttons use the hosted game');
 for (const name of ['index.html', 'visuals.html', 'site.css', 'play/index.html']) {
   const path = join(output, name), source = await readFile(path, 'utf8');

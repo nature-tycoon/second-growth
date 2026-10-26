@@ -320,3 +320,6 @@
   .compare-handle > span { width: 40px; height: 40px; margin: -20px 0 0 -20px; }
 }
 .footer .copyright { display: inline-block; flex-shrink: 0; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 11px; line-height: 1.4; letter-spacing: .3px; color: #becbb1; white-space: nowrap; }
+
+/* Google Tag Manager's no-JavaScript frame stays invisible. */
+.gtm-frame { display: none; visibility: hidden; }
