@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; img-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; script-src 'self' https://www.googletagmanager.com; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; img-src 'self' https://*.google-analytics.com https://*.googletagmanager.com; font-src 'self' https://fonts.gstatic.com; connect-src https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; form-action 'none'; frame-src https://www.googletagmanager.com; worker-src 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="index, follow, max-image-preview:large">
@@ -31,6 +31,7 @@
   <meta name="twitter:description" content="Plant natives, reopen creeks and migration routes, and see which animals come back. Free to play in your browser.">
   <meta name="twitter:image" content="https://secondgrowth.earth/share.jpg">
   <meta name="twitter:image:alt" content="Native wildlife beside a restored Pacific Northwest creek in Second Growth.">
+  <script src="gtm.js" async></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -38,6 +39,9 @@
   <script src="site.js?v=fixes-20261017" defer></script>
 </head>
 <body class="home">
+  <!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PF75LGQ5" height="0" width="0" class="gtm-frame"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->
   <a class="skip" href="#hero-title">Skip to content</a>
   <main id="main">
     <section class="hero" aria-labelledby="hero-title">
