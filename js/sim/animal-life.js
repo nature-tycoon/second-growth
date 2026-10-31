@@ -32,7 +32,7 @@ const STYLES = {
   // dogs and hyenas trot in, then run it down: slower off the mark, but they keep going
   chase: { approach: 1.15, near: 0, creep: 1.15, rush: 4.5, sprint: 2.1, accel: 6, turn: 9, stamina: 4.5, patience: 2.5 },
   // snakes, crocodiles and monitors inch closer, then lunge
-  ambush: { approach: 0.8, near: 4, creep: 0.5, rush: 1.5, sprint: 3.2, accel: 24, turn: 8, stamina: 0.5, patience: 0.25 },
+  ambush: { approach: 0.8, near: 4, creep: 0.5, rush: 1.5, sprint: 3.2, accel: 24, turn: 8, stamina: 1.2, patience: 0.5 },
   // raptors and fishing birds circle, then dive (a missed dive climbs and circles again)
   stoop: { approach: 1.2, near: 0, creep: 1, rush: 2.2, sprint: 2.8, circle: true, stamina: 2 },
   // stalk on foot, then strike
