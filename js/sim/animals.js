@@ -8,7 +8,7 @@ import { killTree } from './plants.js';
 import { moment } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
-import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, huntCooldown, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
+import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate, carryCatch, carryUpdate } from './bird-behavior.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
@@ -1204,9 +1204,9 @@ export class Wildlife {
           } else {
             if (this.game.diff.ecology) this.evadeHunt(b, a);
             missed(this, b, a);
-            // the prey jinks free, and the hunter runs on after it while it has the wind (decision 0026)
-            if (pressOn(this, a, def)) break;
-            huntCooldown(a, b); a.state = 'idle'; a.wait = 1.5; endHunt(a);
+            // the prey jinks free, and the hunter runs on after it while it has the wind, or lets it
+            // go, easing off (decision 0026)
+            if (pressOn(this, a, def) || (letGo(this, a, def, b, sp), a.state === 'hunt')) break;
           }
           if (a.move === 'fly' && a.state !== 'feed' && a.state !== 'carry') a.flying = false;
           break;
