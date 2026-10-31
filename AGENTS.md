@@ -49,6 +49,7 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 - [0024](docs/decisions/0024-tree-heights.md) Tree heights from each species' real height (`heightM`, `render3d/tree-stature.js`): taller trunks under the same crowns. Read a tree's height through `treeHeight`, and fractions of it through `treeLevel`, never `TREE_SHAPES[...].height` or `boundingBox.max.y`
 
 - [0025](docs/decisions/0025-shared-steering.md) Shared steering: one order for every ground animal (intent, steer, move, spacing, then `sim/steering.js` settles facing, wood and water); bodies are capsules with antler racks; small animals keep out of water, land walkers never stop in it; `tools/animal-steering-check.mjs`. Hunting moves only through `stepToward`
+- [0026](docs/decisions/0026-continuous-hunts.md) Continuous hunts: momentum, leading, freeze-and-cover stalks, stamina, press on after a miss, ease to a stop (`huntStep`); `tools/hunt-check.mjs`, `tools/predation-soak.mjs`. End a hunt through `letGo`
 
 New decisions take the next unused number and one line here.
 
