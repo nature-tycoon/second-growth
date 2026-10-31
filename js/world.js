@@ -35,7 +35,8 @@ export class World {
     this.tree = u8(); this.treeG = f32(); this.treeAge = f32();
     this.feature = u8(); this.featureAge = f32();
     this.struct = new Int16Array(n).fill(-1);
-    // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars)
+    // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars;
+    // 4 = a canal block, 8 = shade cloth, 16 = a snag, log, rock pile or brush pile the player placed)
     this.marks = u8();
     this.structures = [];
     this.variant = u8();

@@ -325,7 +325,7 @@ export function killTree(w, i, rng, snagOdds = 0.7, minG = 0.6) {
   if (w.catalog.definition.deadTree) { w.catalog.definition.deadTree(w, i); return; } // (the reef: dead coral breaks down into rubble, not snags and logs)
   if (big && !w.feature[i]) {
     w.feature[i] = rng() < snagOdds ? F.SNAG : F.LOG;
-    w.featureAge[i] = 0;
+    w.featureAge[i] = 0; w.marks[i] &= ~16; // (nature's deadwood: Demolish leaves it)
   }
 }
 

@@ -441,6 +441,7 @@ addPatterns([
   [/^Remove it with the Demolish tool for (\$[\d,]+)(?: \(after (\$[\d,]+) salvage\))?\.$/, (_, c, v) => `Quitalo con Demoler por ${c}${v ? ` (después de ${v} por los materiales)` : ''}.`],
   [/^Bats and owls roost in it\. You can demolish it for (\$[\d,]+)(?: \(after (\$[\d,]+) salvage\))?, but it takes their roost away\.$/, (_, c, v) => `Aquí duermen murciélagos y lechuzas. Lo podés demoler por ${c}${v ? ` (después de ${v} por los materiales)` : ''}, pero les quitás el refugio.`],
   ['bat roost', 'refugio de murciélagos'],
+  ['natural, it stays', 'natural, se queda'],
   [/^: blocks (.+)\. Demolish it to reopen the creek\.$/, ': no deja pasar $1. Demolela para abrir la quebrada.'],
   [/^: blocks (.+)\.$/, ': no deja pasar $1.'],
   [/^For (\S+)$/, 'Para $1'],

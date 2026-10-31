@@ -277,14 +277,14 @@ function estateDaily(g) {
 // rot where it fell, with its fronds stacked beside it. Beetles, termites and fungi turn them into soil.
 function dropPalm(game, i) {
   const w = game.world, rng = game.rng, W = w.w;
-  if (!w.feature[i]) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
+  if (!w.feature[i]) { w.feature[i] = F.LOG; w.featureAge[i] = 0; w.marks[i] &= ~16; }
   const x = i % W, y = (i / W) | 0;
   for (let k = 0; k < 6; k++) {
     const dx = Math.floor(rng() * 3) - 1, dy = Math.floor(rng() * 3) - 1;
     if (!w.inb(x + dx, y + dy)) continue;
     const j = w.idx(x + dx, y + dy), t = w.terrain[j];
     if (j === i || w.feature[j] || w.tree[j] || w.struct[j] >= 0 || t === T.ROAD || t === T.TRAIL || t === T.CREEK || t === T.RIVER || t === T.POND || t === T.MARSH) continue;
-    w.feature[j] = F.BRUSH; w.featureAge[j] = 0; break;
+    w.feature[j] = F.BRUSH; w.featureAge[j] = 0; w.marks[j] &= ~16; break;
   }
 }
 function fellOrPull(game, i) {
@@ -437,7 +437,7 @@ export default {
     pond: { desc: 'Deep, open water for snakeheads, arowanas, otters and monitor lizards.' },
     creek: { desc: 'Carve a channel. On the peat, any channel that runs to the river drains the peat around it, like the old canals.' },
     fill: { desc: 'Fill in water, including the old drainage canals, or rip up roads and gravel, leaving loose bare soil.' },
-    demolish: { desc: 'Tear out the elephant fence, old buildings, roads or the road culvert. Buildings and machinery sell for salvage.' },
+    demolish: { desc: 'Tear out the elephant fence, old buildings, roads, the road culvert, or habitat features you placed. Natural snags, logs, stumps and rocks stay. Buildings and machinery sell for salvage.' },
     lower: { desc: 'Scoop out a hollow. Hollows stay moist, which suits ferns, gingers and pitcher plants.' },
   },
   structureNames: { house: 'Estate office', barn: 'Fertiliser store', silo: 'Water tower', shed: 'Fruit loading ramp', tractor: 'Old fruit truck', parking: 'Trailhead', center: 'Visitor centre' },

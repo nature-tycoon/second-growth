@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { Game, WORLD_ARRAYS } from '../js/game.js';
 import { BIOME_LIST } from '../js/biome.js';
 import { ToolActions } from '../js/tool-actions.js';
-import { TOOLS, toolCost } from '../js/tools.js';
+import { TOOLS, toolCost, naturalFeature } from '../js/tools.js';
 import { Undo } from '../js/undo.js';
-import { T } from '../js/config.js';
+import { killTree } from '../js/sim/plants.js';
+import { T, F } from '../js/config.js';
 
 let checks = 0;
 const g = new Game();
@@ -36,6 +37,43 @@ for (const map of BIOME_LIST.map(b => b.id)) for (const difficulty of ['relaxed'
     assert.equal(g.stats.used.raise, 0);
   });
 }
+
+// Demolish takes out what people built or placed, never deadwood or rock nature left behind
+for (const map of BIOME_LIST.map(b => b.id)) check(`${map}: Demolish leaves natural deadwood and rock, and takes out placed features`, () => {
+  g.newGame(1987, 'free', 'standard', map);
+  const w = g.world, tools = g.catalog.tools, canEdit = i => !g.mapDefinition.canEdit || g.mapDefinition.canEdit(g, i);
+  const open = i => canEdit(i) && w.struct[i] < 0 && !w.feature[i] && !w.tree[i] && w.terrain[i] !== T.ROAD && w.terrain[i] !== T.RIVER && w.terrain[i] !== T.POND && w.terrain[i] !== T.CREEK && w.terrain[i] !== T.MARSH;
+  // add natural deadwood (as fire, windthrow and dying trees leave it) to whatever the map started with
+  let k = 0;
+  for (let i = 0; i < w.n && k < 5; i++) if (open(i)) w.feature[i] = [F.SNAG, F.LOG, F.STUMP, F.ROCKS, F.BRUSH][k++];
+  const natural = [];
+  for (let i = 0; i < w.n; i++) if (naturalFeature(w, i) && canEdit(i)) natural.push(i);
+  assert.ok(natural.length >= 5);
+  for (const i of natural) assert.equal(toolCost(g, tools.demolish, i), 0);
+  const features = w.feature.slice(), balance = g.money, actions = new ToolActions(g, { undo: new Undo(g) });
+  const stroke = actions.apply('demolish', natural);
+  assert.equal(stroke.count, 0);
+  assert.deepEqual(w.feature, features);
+  assert.equal(g.money, balance);
+  // a feature the player placed can come out again, and Undo puts it back as theirs
+  for (const key of ['snag', 'log', 'rocks', 'brush', 'nestbox'].filter(key => tools[key])) {
+    const i = w.feature.findIndex((f, j) => open(j) && !(w.marks[j] & 16) && !w.shrub[j]);
+    const undo = new Undo(g), act = new ToolActions(g, { undo });
+    assert.equal(act.apply(key, [i]).count, 1, `${key} placed`);
+    assert.ok(!naturalFeature(w, i));
+    assert.ok(toolCost(g, tools.demolish, i) > 0);
+    assert.equal(act.apply('demolish', [i]).count, 1, `${key} demolished`);
+    assert.equal(w.feature[i], 0);
+    assert.equal(w.marks[i] & 16, 0);
+    assert.ok(undo.undo());
+    assert.ok(w.feature[i] && (w.marks[i] & 16));
+  }
+  // a tree that dies on a tile where a placed log once rotted away leaves natural deadwood
+  const j = w.feature.findIndex((f, i) => open(i));
+  w.marks[j] |= 16; w.tree[j] = 1; w.treeG[j] = 1;
+  killTree(w, j, () => 0);
+  if (w.feature[j]) assert.ok(naturalFeature(w, j));
+});
 
 check('Unaffordable and invalid edits leave the landscape and money untouched', () => {
   reset();
