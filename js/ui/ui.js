@@ -700,7 +700,7 @@ export class UI {
   }
   // What an animal is doing, in a few words (the inspector's Status line, and watch mode's caption).
   agentStatus(a, def = animalDef(a, this.game.catalog)) {
-    const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey' }[a.hunt?.phase] || 'Hunting';
+    const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey', ease: 'Giving up the chase' }[a.hunt?.phase] || 'Hunting';
     const birdStatus = { forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting', soar: a.bird?.carcass != null ? 'Circling down to a carcass' : 'Soaring over open ground' }[a.bird?.kind];
     const grouped = def.familyHerd && (a.herdOf != null && a.herdOf !== a.id || this.game.wildlife.agents.some(c => c !== a && (c.herdOf === a.id || c.mom === a.id)));
     const familyStatus = a.mom != null ? (a.follow ? 'Following mother' : 'With a family herd') : grouped ? (isMaleVariant(def, a) ? 'With a bachelor group' : 'With a family herd') : null;

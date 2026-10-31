@@ -137,7 +137,7 @@ addStrings({
   Killed: 'Cazado', "A hunter caught this animal. Its carcass lies here while it's eaten, then breaks down.": 'Un depredador cazó a este animal. Su cadáver queda aquí mientras se lo comen, y luego se descompone.',
   Died: 'Murió', 'This animal died here. Its carcass lies here while scavengers eat it, then breaks down.': 'Este animal murió aquí. Su cadáver queda aquí mientras los carroñeros se lo comen, y luego se descompone.',
   'Leaving the property': 'Saliendo de la finca', Hunting: 'Cazando', Flying: 'Volando', Wandering: 'Caminando', 'Resting / foraging': 'Descansando / comiendo',
-  'Stalking prey': 'Acechando a su presa', 'Chasing prey': 'Persiguiendo a su presa', 'Circling over prey': 'Volando en círculos sobre su presa',
+  'Stalking prey': 'Acechando a su presa', 'Chasing prey': 'Persiguiendo a su presa', 'Circling over prey': 'Volando en círculos sobre su presa', 'Giving up the chase': 'Abandonando la persecución',
   Playing: 'Jugando', 'Running from danger': 'Huyendo del peligro', 'Fleeing the fire': 'Huyendo del fuego', Feeding: 'Comiendo', Drinking: 'Bebiendo',
   'Following mother': 'Siguiendo a su madre', 'With a bachelor group': 'En un grupo de machos', 'With a family herd': 'Con su grupo familiar', 'Approaching a rival': 'Acercándose a un rival', 'Watching an approaching neighbour': 'Observando a un vecino que se acerca',
   'Sparring with a rival': 'Midiéndose con un rival', 'Clashing antlers with a rival': 'Chocando cornamentas con un rival', Bugling: 'Bramando', 'In a bull’s harem': 'En el harén de un macho', 'Guarding his harem': 'Cuidando su harén', 'Greeting a neighbour': 'Saludando a un vecino', 'On the alert': 'Alerta',

@@ -20,18 +20,29 @@ import { drinkEvery } from './home-range.js';
 import { markRisk } from './predation-risk.js';
 import { inWood } from './ground-obstacles.js';
 
-// How each kind of hunter closes in. approach, creep and sprint are multiples of its usual
-// speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles.
+// How each kind of hunter closes in (decision 0026). approach, creep and sprint are multiples of its
+// usual speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles. The rest is
+// the run itself: `accel` how many of those multiples it gains in a day, `turn` how many radians a
+// day it can swing its line, `stamina` days of flat-out running in it (a miss costs a share),
+// `patience` days it keeps on without gaining before it lets the prey go. `closeIn`: how much
+// nearer than `rush` a stalker still unseen creeps in full cover before it charges.
 const STYLES = {
-  stalk: { approach: 1, near: 5, creep: 0.6, rush: 3, sprint: 2.4 },      // cats slink in low, then pounce
-  chase: { approach: 1.15, near: 0, creep: 1.15, rush: 4.5, sprint: 2.1 }, // dogs and hyenas trot in, then run it down
-  ambush: { approach: 0.8, near: 3, creep: 0.5, rush: 1.5, sprint: 3.2 },  // snakes, crocodiles and monitors inch closer, then strike
-  stoop: { approach: 1.2, near: 0, creep: 1, rush: 2.2, sprint: 2.8, circle: true }, // raptors and fishing birds circle, then dive
-  wade: { approach: 0.65, near: 3, creep: 0.35, rush: 1.15, sprint: 1.8, grounded: true }, // stalk on foot, then strike
-  pursue: { approach: 1, near: 0, creep: 1, rush: 2.5, sprint: 1.9 },      // otters, bears and the rest
+  // cats slink in low, freeze when the prey looks up, then charge a short way
+  stalk: { approach: 1, near: 5, creep: 0.6, rush: 3, sprint: 2.4, accel: 10, turn: 12, stamina: 2.8, patience: 1, closeIn: 0.5 },
+  // dogs and hyenas trot in, then run it down: slower off the mark, but they keep going
+  chase: { approach: 1.15, near: 0, creep: 1.15, rush: 4.5, sprint: 2.1, accel: 6, turn: 9, stamina: 4.5, patience: 2.5 },
+  // snakes, crocodiles and monitors inch closer, then lunge
+  ambush: { approach: 0.8, near: 4, creep: 0.5, rush: 1.5, sprint: 3.2, accel: 24, turn: 8, stamina: 0.5, patience: 0.25 },
+  // raptors and fishing birds circle, then dive (a missed dive climbs and circles again)
+  stoop: { approach: 1.2, near: 0, creep: 1, rush: 2.2, sprint: 2.8, circle: true, stamina: 2 },
+  // stalk on foot, then strike
+  wade: { approach: 0.65, near: 4, creep: 0.35, rush: 1.15, sprint: 1.8, grounded: true, accel: 10, turn: 10, stamina: 0.8, patience: 0.4, closeIn: 0.3 },
+  // otters, bears and the rest
+  pursue: { approach: 1, near: 0, creep: 1, rush: 2.5, sprint: 1.9, accel: 8, turn: 10, stamina: 2, patience: 0.8 },
 };
 const KIND_STYLE = { feline: 'stalk', canine: 'chase', hyena: 'chase', snake: 'ambush', caiman: 'ambush', monitor: 'ambush' };
-const CHEETAH = { ...STYLES.stalk, near: 8, rush: 5.5, sprint: 3.4 }; // a long, flat-out sprint from further away
+// a long stalk, then a short, flat-out sprint from further away: the fastest start, and the shortest wind
+const CHEETAH = { ...STYLES.stalk, near: 8, rush: 5.5, sprint: 3.4, accel: 16, turn: 14, stamina: 2, patience: 0.5, closeIn: 0 };
 const BLACKTIP = { ...STYLES.chase, rush: 6, sprint: 2.6 }; // charges a surface fish from well back, and keeps it up across the flats
 export function huntStyle(def) {
   if (def.behavior?.hunt === 'wade') return STYLES.wade;
@@ -98,33 +109,63 @@ export function endHunt(a) {
   a.hunt = null; a.assist = false; a.run = null; a.stoop = 0;
 }
 
-// One step of a hunt. Returns true when the hunter reaches its prey (the caller rolls the catch).
+// One step of a hunt (decision 0026): one continuous run from the approach to a catch, or to the
+// hunter letting the prey go. On the ground it keeps a speed and a heading of its own, gaining or
+// losing pace no faster than `accel` and swinging its line no faster than `turn`, so it never jumps
+// from a stalk to a sprint or stops dead. Returns true when it reaches its prey (the caller rolls
+// the catch).
 export function huntStep(wl, a, def, b, sp) {
   const S = huntStyle(def), H = a.hunt || (a.hunt = { phase: 'approach' });
-  const d = dist(a, b);
+  const d = dist(a, b), t = dt(sp, def);
   // A raptor or owl catches only once its dive has brought it all the way down, not by passing
   // over (or perching beside) its prey at treetop height.
   const aerial = def.move === 'fly' && !S.grounded, down = () => !aerial || a.stoop >= 1;
-  if (S.grounded && d < 1.15) { a.run = 0; return true; } // a long bill reaches into the shallows
-  if (d * d < 0.25 && down()) return true;
+  H.stamina ??= S.stamina;
+  // which way the prey is going and how fast (smoothed), so a chase can aim ahead of it
+  if (H.bx != null && t > 0) { const k = 1 - Math.exp(-t * 6); H.vx += ((b.x - H.bx) / t - H.vx) * k; H.vy += ((b.y - H.by) / t - H.vy) * k; }
+  else { H.vx = 0; H.vy = 0; }
+  H.bx = b.x; H.by = b.y;
+  if (H.phase === 'ease') return ease(wl, a, def, S, t, sp);
+  if (H.miss > 0) H.miss -= t; // (just after a miss the prey has jinked free: no second grab at once)
+  const touch = !(H.miss > 0);
+  if (S.grounded && d < 1.15 && touch) { a.run = 0; H.v = 0; return true; } // a long bill reaches into the shallows
+  if (d * d < 0.25 && down() && touch) return true;
+  // the prey has seen it and is running (from it or its pack)
+  const fled = b.state === 'flee' && !(b.fleeDelay > 0) && (b.threat === a.id || byId(wl, b.threat)?.sp === a.sp);
   // a stalk the prey is drawing away from is given up early, not followed for days
   if (H.phase === 'approach') {
     if (H.best == null || d < H.best - 0.3) { H.best = d; H.since = 0; }
-    else if ((H.since = (H.since || 0) + dt(sp, def)) > 1.2) return giveUp(wl, a, def);
+    else if ((H.since = (H.since || 0) + t) > 1.2) return letGo(wl, a, def, b, sp);
   }
+  if (H.again > 0) H.again -= t; // (a second try gathers itself, and creeps or walks in, before it runs)
   if (H.phase === 'approach' || H.phase === 'creep') {
-    if (aerial && H.perch && d < S.rush + 1.4) startRush(wl, a, def, b, S, d); // (from a perch it drops straight on)
+    if (H.again > 0) { if (S.near && H.phase !== 'creep') { H.phase = 'creep'; H.stalk = 0; } }
+    else if (aerial && H.perch && d < S.rush + 1.4) startRush(wl, a, def, b, S, d); // (from a perch it drops straight on)
     else if (S.circle && d < S.rush + 1.4) { H.phase = 'circle'; H.t = 0.5 + Math.random() * 0.8; H.ang = Math.atan2(a.y - b.y, a.x - b.x); }
-    else if (d < S.rush || (H.phase === 'creep' && a.huntTime < 0.3)) startRush(wl, a, def, b, S, d); // (or a stalk running long: now or never)
+    // close enough to charge (a stalker still unseen in cover creeps closer first), or seen and
+    // still near enough to run it down, or a stalk running long: now or never
+    else if (d < S.rush * (H.phase === 'creep' && !(b.alertT > 0) ? 1 - (H.cover || 0) * (S.closeIn || 0) : 1) || fled && d < S.rush * 1.8 ||
+      (H.phase === 'creep' && a.huntTime < 0.3)) startRush(wl, a, def, b, S, d);
+    else if (fled && !aerial) return letGo(wl, a, def, b, sp); // (the stalk is blown, too far off to catch)
     else if (S.near && d < S.near && H.phase !== 'creep') {
       // a stalk takes the time it takes: the hunter doesn't give up halfway through one
-      H.phase = 'creep';
+      H.phase = 'creep'; H.stalk = 0;
       a.huntTime = Math.max(a.huntTime, (d - S.rush) / (def.speed * S.creep) + 2);
     }
   }
+  // Stalking: it freezes whenever the prey looks up (an alert stare, decision 0006), and slips
+  // from cover to cover (grass, brush) where there is any, which hides it from the prey (watch).
+  let frozen = false;
+  if (H.phase === 'creep') {
+    H.stalk = (H.stalk || 0) + t;
+    frozen = b.alertT > 0 && b.state !== 'flee';
+    if (frozen && H.stalk < 8) a.huntTime += t; // (the freeze doesn't count against the stalk)
+    if ((H.coverT = (H.coverT || 0) - t) <= 0) stalkCover(wl, a, b, d, H);
+    H.hide = Math.min(0.7, (H.cover || 0) + (frozen ? 0.3 : 0));
+  } else H.hide = 0;
   if (H.phase === 'circle') {
     // wheel over the prey a couple of times, then fold and drop
-    H.t -= dt(sp, def);
+    H.t -= t;
     H.ang += sp / 1.5;
     a.run = 1.1;
     if (H.t <= 0) startRush(wl, a, def, b, S, d);
@@ -132,42 +173,128 @@ export function huntStep(wl, a, def, b, sp) {
   }
   let mul = H.phase === 'rush' ? S.sprint : H.phase === 'creep' ? S.creep : S.approach;
   if (H.phase === 'rush') {
-    H.t -= dt(sp, def);
-    // the dive reaches the ground as it comes over the prey, and can only fall so fast (about a
-    // quarter of a second on screen): one that starts right above its prey drops, it doesn't snatch
-    if (aerial) a.stoop = Math.min(clamp(1 - (d - 0.5) / Math.max(0.3, (H.d0 || 2) - 0.5), 0, 1), (a.stoop || 0) + dt(sp, def) * 8);
-    if (H.t <= 0) return giveUp(wl, a, def);
+    if (aerial) {
+      H.t -= t;
+      // the dive reaches the ground as it comes over the prey, and can only fall so fast (about a
+      // quarter of a second on screen): one that starts right above its prey drops, it doesn't snatch
+      a.stoop = Math.min(clamp(1 - (d - 0.5) / Math.max(0.3, (H.d0 || 2) - 0.5), 0, 1), (a.stoop || 0) + t * 8);
+      if (H.t <= 0) return letGo(wl, a, def, b, sp);
+    } else {
+      // The chase lasts as long as its wind (running flat out uses it up, easing off saves it) and
+      // while it gains, or at least holds its ground: falling well behind, or a while with no gain, ends it.
+      H.stamina -= t * (H.v || 0) / S.sprint;
+      if (H.best == null || d < H.best - 0.05) { H.best = d; H.since = 0; } else H.since = (H.since || 0) + t;
+      if (H.stamina <= 0 || H.since > S.patience || d > H.best + 2) return letGo(wl, a, def, b, sp);
+      if (d < 1.2) mul *= 1.3; // (the last bound or lunge onto it)
+    }
+  } else if (H.phase === 'creep' && !aerial) {
+    // it keeps pace with prey wandering off, rather than creeping on as it draws away
+    const away = (H.vx * (b.x - a.x) + H.vy * (b.y - a.y)) / Math.max(d, 0.01) / Math.max(0.01, def.speed);
+    mul = frozen ? 0 : clamp(away + 0.15, S.creep, Math.max(S.creep, S.approach));
   }
-  a.run = mul;
   // pack members come in from the sides, then close
   let tx = b.x, ty = b.y;
   if (H.flank && H.phase !== 'rush' && d > 1.5) {
     const ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
     tx += -uy * H.flank; ty += ux * H.flank;
   }
+  if (aerial) {
+    a.run = mul;
+    return ((wl.stepToward(a, tx, ty, sp * mul) && tx === b.x) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25) && down();
+  }
+  // a chase aims where the prey will be by the time it gets there, not where it is
+  if (H.phase === 'rush' || fled) { const lead = Math.min(0.5, d / Math.max(0.5, (H.v || 0) * def.speed)); tx += H.vx * lead; ty += H.vy * lead; }
+  // its pace eases toward what it wants, no faster than it can speed up (and slows twice as fast)
+  H.v ??= Math.min(mul, 1);
+  const rate = (mul < H.v ? 2 : 1) * S.accel * t;
+  H.v += clamp(mul - H.v, -rate, rate);
+  // and its line swings toward the prey (or the cover beside the way to it) at its turning rate,
+  // easing off while it swings round
+  const aim = Math.atan2(ty - a.y, tx - a.x) + (H.phase === 'creep' ? H.coverOff || 0 : 0);
+  H.hd ??= a.hd ?? a.orientation ?? aim;
+  const turn = S.turn * t * (d < 1.2 ? 3 : 1);
+  H.hd = wrap(H.hd + clamp(wrap(aim - H.hd), -turn, turn));
+  const step = sp * H.v * Math.max(0.3, Math.cos(wrap(aim - H.hd)));
+  a.run = H.v;
+  // at arm's length it closes on the prey itself
+  const close = touch && d < step + 0.5;
+  const gx = close ? b.x : a.x + Math.cos(H.hd) * Math.max(step, 0.6), gy = close ? b.y : a.y + Math.sin(H.hd) * Math.max(step, 0.6);
   if (S.grounded) {
-    const w = wl.game.world, step = Math.min(d, sp * mul);
-    const nx = a.x + (tx - a.x) / Math.max(d, 0.01) * step, ny = a.y + (ty - a.y) / Math.max(d, 0.01) * step;
-    if (!w.inb(Math.floor(nx), Math.floor(ny)) || !canLand(w, w.idx(Math.floor(nx), Math.floor(ny)), def)) return giveUp(wl, a);
+    const w = wl.game.world, l = Math.hypot(gx - a.x, gy - a.y) || 1, s = Math.min(step, l);
+    const nx = a.x + (gx - a.x) / l * s, ny = a.y + (gy - a.y) / l * s;
+    if (!w.inb(Math.floor(nx), Math.floor(ny)) || !canLand(w, w.idx(Math.floor(nx), Math.floor(ny)), def)) return letGo(wl, a, def, b, sp);
     a.flying = false; a.alt = 0;
   }
-  return ((wl.stepToward(a, tx, ty, sp * mul) && tx === b.x) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25) && down();
+  if (step > 1e-4) wl.stepToward(a, gx, gy, step); // (frozen, it holds still as it was: turning on the spot can swing its body into a trunk)
+  return touch && (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25;
 }
 // (sp is speed × dt, so the elapsed game time is sp / speed)
 const dt = (sp, def) => sp / Math.max(0.01, def.speed);
 
+// Which way to creep: straight at the prey, or a little to one side where the grass or brush is
+// thicker, so long as that still closes on it. Checked every quarter day, three spots ahead.
+function stalkCover(wl, a, b, d, H) {
+  const w = wl.game.world, base = Math.atan2(b.y - a.y, b.x - a.x), pdef = wl.game.catalog.animals[b.sp];
+  const cover = (x, y) => w.inb(Math.floor(x), Math.floor(y)) ? Math.min(1, preyCover(w, { sp: a.sp, x, y }, pdef) * 2) : 0;
+  H.coverT = 0.25;
+  H.cover = cover(a.x, a.y);
+  let best = -1;
+  for (const off of [0, 0.45, -0.45]) {
+    const c = cover(a.x + Math.cos(base + off) * 1.2, a.y + Math.sin(base + off) * 1.2) - Math.abs(off) * 0.15 - (off === (H.coverOff || 0) ? 0 : 0.05);
+    if (c > best) { best = c; H.coverOff = d > 2 ? off : 0; }
+  }
+}
+
 function startRush(wl, a, def, b, S, d) {
   const H = a.hunt;
   H.surprise = H.phase === 'creep'; // (a stalker that crept in unseen: the prey is slower to react)
-  H.phase = 'rush'; H.d0 = d;
-  const sprint = def.speed * S.sprint;
-  // long enough to close the gap on prey running at just over half its speed
-  H.t = Math.max(1.2, d / (sprint * 0.45) * 1.6);
-  a.huntTime = Math.max(a.huntTime, H.t + 0.5);
+  H.phase = 'rush'; H.d0 = d; H.best = d; H.since = 0; H.hide = 0;
+  if (def.move === 'fly' && !S.grounded) {
+    const sprint = def.speed * S.sprint;
+    // long enough to close the gap on prey running at just over half its speed
+    H.t = Math.max(1.2, d / (sprint * 0.45) * 1.6);
+  } else H.t = H.stamina + 0.5;
+  a.huntTime = Math.max(a.huntTime, H.t + 1);
   if (!a.assist) alarm(wl, a, def, b, H.t);
 }
 
-// Out of breath: the rush failed. Stand and recover; the prey keeps running.
+// A missed grab doesn't end the hunt: the prey jinks free, and the hunter, thrown off its stride,
+// runs on after it while it has the wind (a raptor climbs and circles for another dive). Returns
+// false when it has none left.
+export function pressOn(wl, a, def) {
+  const S = huntStyle(def), H = a.hunt;
+  if (!H || !(S.stamina > 0)) return false;
+  H.stamina = (H.stamina ?? S.stamina) - S.stamina * 0.35;
+  if (H.stamina <= S.stamina * 0.1) return false;
+  H.miss = 0.3; H.best = null; H.since = 0;
+  const b = byId(wl, a.target);
+  if (def.move === 'fly' && !S.grounded) {
+    H.phase = 'circle'; H.t = 0.6 + Math.random() * 0.6; a.stoop = 0;
+    H.ang = b ? Math.atan2(a.y - b.y, a.x - b.x) : 0;
+  } else { H.phase = 'rush'; H.v = (H.v || 0) * 0.4; }
+  a.huntTime = Math.max(a.huntTime, H.stamina + 1.5);
+  return true;
+}
+
+// The hunter lets this prey go, and for a few days would rather pick another (startHunt counts it as
+// twice as far off). A running hunter slows to a stop rather than halting in one step.
+export function huntCooldown(a, b) { a.huntCool = b.id; a.huntCoolUntil = a.age + 3 + Math.random() * 3; }
+export function letGo(wl, a, def, b, sp) {
+  huntCooldown(a, b);
+  if (def.move === 'fly' && !huntStyle(def).grounded || !(a.hunt?.v > 0.3)) return giveUp(wl, a);
+  a.hunt.phase = 'ease';
+  return ease(wl, a, def, huntStyle(def), dt(sp, def), sp);
+}
+function ease(wl, a, def, S, t, sp) {
+  const H = a.hunt;
+  H.v = Math.max(0, (H.v || 0) - S.accel * t);
+  a.run = H.v;
+  if (H.v < 0.25) return giveUp(wl, a);
+  wl.stepToward(a, a.x + Math.cos(H.hd) * 0.6, a.y + Math.sin(H.hd) * 0.6, sp * H.v);
+  return false;
+}
+
+// Out of breath: the hunt failed. Stand and recover; the prey keeps running.
 function giveUp(wl, a) {
   a.state = 'idle'; a.wait = 1.5 + Math.random() * 1.5;
   if (a.move === 'fly') a.flying = false;
@@ -458,14 +585,15 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
     if (!preds.has(o.sp) || o.leaving || o.state === 'feed' || byId(wl, o.id) !== o ||
       !canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
-    if (d2 >= 36) continue;
+    // (a stalker in cover, or frozen, is only seen closer: decision 0026)
+    if (d2 >= 36 * (1 - (o.hunt?.hide || 0)) ** 2) continue;
     const score = d2 / (o.state === 'hunt' && o.target === a.id ? 4 : 1);
     if (score < best) { best = score; bd = d2; p = o; }
   }
   if (!p) return false;
   // A stalk or an approach is a hunter in view, not yet an attack: prey bolts once it is close
   // or the rush (or a raptor's circling) begins, and before that watches it and moves off.
-  const d = Math.sqrt(bd), urgent = d < 3 || p.state === 'hunt' && (p.hunt?.phase === 'rush' || p.hunt?.phase === 'circle');
+  const d = Math.sqrt(bd), urgent = d < 3 * (1 - (p.hunt?.hide || 0)) || p.state === 'hunt' && (p.hunt?.phase === 'rush' || p.hunt?.phase === 'circle');
   if (urgent) {
     // Preserve a useful escape already under way rather than repeatedly replacing
     // the next waypoint before a swimmer or climber can reach it.

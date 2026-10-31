@@ -8,7 +8,7 @@ import { killTree } from './plants.js';
 import { moment } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
-import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
+import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, huntCooldown, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate, carryCatch, carryUpdate } from './bird-behavior.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
@@ -85,7 +85,7 @@ class Animal {
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
-  carry; prey; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey;
+  carry; prey; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -855,8 +855,9 @@ export class Wildlife {
     const preySet = new Set(diet.map(k => this.game.catalog.animal[k].index));
     for (const b of this.agents) {
       if (!preySet.has(b.sp) || b.leaving || (only && !only(b))) continue;
-      if (!canHuntPrey(this, a, def, b)) continue;
-      const d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+      if (!canHuntPrey(this, a, def, b) || this.huntBlocked(a, def, b)) continue;
+      // (one it just let go counts as twice as far for a few days: it goes after another if there is one, decision 0026)
+      const d = ((b.x - a.x) ** 2 + (b.y - a.y) ** 2) * (b.id === a.huntCool && a.age < a.huntCoolUntil ? 4 : 1);
       if (d < bd) { bd = d; best = b; }
     }
     if (best) {
@@ -868,8 +869,20 @@ export class Wildlife {
       a.forage = null; a.forageGoal = null;
       beginHunt(this, a, def, best);
       if (perched) a.hunt.perch = true; // (a raptor watching from a perch drops straight on its prey)
+      // (a second try at prey it just let go starts with a stalk or an approach, not a sprint from standing: decision 0026)
+      if (best.id === a.huntCool && a.age < a.huntCoolUntil && a.move !== 'fly') a.hunt.again = 0.6;
     }
     return !!best;
+  }
+
+  // The way to this prey is shut: the next step toward it is ground the hunter can't cross, or (for
+  // water hunters: caiman, anaconda, giant otter, which strike from the water's edge) too far from water.
+  huntBlocked(a, def, b) {
+    if (a.move === 'fly') return false;
+    const w = this.game.world, x = Math.floor(a.x + Math.sign(b.x - a.x) * 0.3), y = Math.floor(a.y + Math.sign(b.y - a.y) * 0.3);
+    if (!w.inb(x, y)) return false;
+    const j = w.idx(x, y);
+    return !passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2);
   }
 
   // A surface fish (a longtom) runs from a charging hunter: straight away from it along the
@@ -1171,22 +1184,17 @@ export class Wildlife {
           }
           if (!canHuntPrey(this, a, def, b)) { a.state = 'idle'; a.wait = 1; endHunt(a); break; }
           if (a.move === 'fly' && !huntStyle(def).grounded && a.alt < 1) a.alt = Math.min(1, a.alt + dt * 2); // (a soaring hawk starts from higher up)
-          const nx = a.x + Math.sign(b.x - a.x) * 0.3, ny = a.y + Math.sign(b.y - a.y) * 0.3;
-          if (a.move !== 'fly' && w.inb(Math.floor(nx), Math.floor(ny))) {
-            const j = w.idx(Math.floor(nx), Math.floor(ny));
-            // water hunters (caiman, anaconda, giant otter) strike from the water's edge, not across the fields
-            if (!passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2)) { a.state = 'idle'; a.wait = 1; endHunt(a); break; }
-          }
+          // (the way is shut, say the prey has taken to the water: it lets it go, easing off if running)
+          if (a.hunt?.phase !== 'ease' && this.huntBlocked(a, def, b)) { letGo(this, a, def, b, sp); break; }
           // approach, stalk or circle, then rush (animal-life.js); the catch is decided on contact
           const reached = huntStep(this, a, def, b, sp);
           if (a.state !== 'hunt' || !reached) break;
-          a.state = 'idle'; a.wait = 1.5;
-          if (a.assist) { endHunt(a); if (a.move === 'fly') a.flying = false; break; } // (the pack's flankers leave the kill to the one in front)
-          endHunt(a);
+          if (a.assist) { a.state = 'idle'; a.wait = 1.5; endHunt(a); if (a.move === 'fly') a.flying = false; break; } // (the pack's flankers leave the kill to the one in front)
           // Only an actual catch or carcass meal satisfies hunger.
           // (a swimmer in the crossing can't run or turn: the crocodiles' best chance all year)
           const swimmer = def.ambush && inCrossing(this, b);
           if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def, swimmer ? 0.7 : 0.45)) {
+            a.state = 'idle'; a.wait = 1.5; endHunt(a);
             a.hunger = 0;
             if (swimmer) a.crossRest = this.game.day + 2;
             this.game.onPredation(a, b);
@@ -1196,6 +1204,9 @@ export class Wildlife {
           } else {
             if (this.game.diff.ecology) this.evadeHunt(b, a);
             missed(this, b, a);
+            // the prey jinks free, and the hunter runs on after it while it has the wind (decision 0026)
+            if (pressOn(this, a, def)) break;
+            huntCooldown(a, b); a.state = 'idle'; a.wait = 1.5; endHunt(a);
           }
           if (a.move === 'fly' && a.state !== 'feed' && a.state !== 'carry') a.flying = false;
           break;
