@@ -14,6 +14,9 @@
 //              `sparStuck` rivals both there but still not in their stance half a day on
 //   drink      a drinker with no water ahead of it (within 30° of its heading, about as near as the nearest)
 //   fleeTurn   a fleeing animal's heading jumping more than 35° in one step
+//   backGraze  an idle grazer (not drinking) drawn head down with drawn water behind it, within its
+//              body length: from a distance it looks like drinking backwards (`backWater`: idle
+//              grazers with water behind them, whichever way their head is)
 // It fails on the acceptance limits in decision 0025; --report only prints the numbers. SEED=91 another seed, HERD=60 migration-sized
 // herds, DETAIL=1 what each count is made of (species and state).
 import assert from 'node:assert/strict';
@@ -26,6 +29,7 @@ import { passable, canLand } from '../js/sim/animal-terrain.js';
 import { underWater } from '../js/sim/waterline.js';
 import { animalRadius } from '../js/sim/animal-positioning.js';
 import { treeTrunk, groundWalker } from '../js/sim/ground-obstacles.js';
+import { GRAZERS } from '../js/sim/steering.js';
 import { isMaleVariant } from '../js/data/animals.js';
 
 globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeItem() {} };
@@ -88,7 +92,8 @@ export function measure(map, { seed = 1987, rut = true } = {}) {
   if (rut) g.day = 70; // (October: the rut. The wildlife update alone never moves the calendar on)
   populate(g, rng);
   const cat = g.catalog, c = { steps: 0, ground: 0, overlap: 0, flee: 0, fleeOverlap: 0, walkers: 0, trunk: 0, trunkCentre: 0, squeeze: 0,
-    antlered: 0, antler: 0, wade: 0, stand: 0, dryFooted: 0, sparSteps: 0, spar: 0, sparStuck: 0, drinkSteps: 0, drink: 0, fleeSteps: 0, fleeTurn: 0 };
+    antlered: 0, antler: 0, wade: 0, stand: 0, dryFooted: 0, sparSteps: 0, spar: 0, sparStuck: 0, drinkSteps: 0, drink: 0, fleeSteps: 0, fleeTurn: 0,
+    grazeSteps: 0, backWater: 0, backGraze: 0 };
   const gaps = [], waterBy = {}, why = {}, note = (k, n = 1) => { why[k] = (why[k] || 0) + n; }, last = new Map(), sparSince = new Map();
   const trunks = new Map(); // (tile -> drawn trunk, per step: trees don't move)
   const trunkAt = (xx, yy) => { const i = w.idx(xx, yy); if (!trunks.has(i)) trunks.set(i, w.tree[i] && !isWater(w.terrain[i]) ? treeTrunk(w, xx, yy) : null); return trunks.get(i); };
@@ -169,6 +174,20 @@ export function measure(map, { seed = 1987, rut = true } = {}) {
           if ((step - since) * DT > 0.5) { c.sparStuck++; note(`sparStuck ${a.key} ${a.sparPath?.length ?? '-'} ${a.sparAt ? Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]).toFixed(2) : '-'}`); }
         }
       } else sparSince.delete(a.id);
+      if (a.state === 'idle' && !(a.drinkT > 0) && def.move === 'ground' && GRAZERS.has(def.sprite.kind)) {
+        c.grazeSteps++;
+        // (water behind: within 25° of straight back, nearer than its body length)
+        const L = animalRadius(a, cat) / 0.65;
+        let behind = false;
+        for (let k = -2; k <= 2 && !behind; k++) {
+          const ang = h + Math.PI + k * 0.22, cx = Math.cos(ang), cy = Math.sin(ang);
+          for (let d = 0.05; d <= L; d += 0.05) if (underWater(w, a.x + cx * d, a.y + cy * d)) { behind = true; break; }
+        }
+        if (behind) {
+          c.backWater++;
+          if (!a.headUp) { c.backGraze++; note(`backGraze ${a.key}`); }
+        }
+      }
       if (a.drinkT > 0 && a.drinkAt && !a.flying && wl.drinks(def)) {
         c.drinkSteps++;
         // (it faces water when, within 30° of its heading, there's water about as near as the nearest)
@@ -191,6 +210,7 @@ export function measure(map, { seed = 1987, rut = true } = {}) {
     wade: per(c.wade, c.ground), stand: per(c.stand, c.ground), dryFooted: per(c.dryFooted, c.ground), waterBy,
     spar: per(c.spar, c.sparSteps), sparSteps: c.sparSteps, sparStuck: c.sparStuck,
     ...(process.env.DETAIL ? { why: Object.fromEntries(Object.entries(why).sort((p, q) => q[1] - p[1]).slice(0, 40)) } : {}),
+    backWater: per(c.backWater, c.grazeSteps), backGraze: per(c.backGraze, c.grazeSteps),
     drink: per(c.drink, c.drinkSteps), drinkSteps: c.drinkSteps, fleeTurn: per(c.fleeTurn, c.fleeSteps), fleeSteps: c.fleeSteps,
   };
 }
@@ -213,6 +233,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     assert.ok(r.spar < 5, `${r.map}: ${r.spar} per 1000 settled rival-steps not facing`);
     assert.ok(r.sparStuck === 0, `${r.map}: ${r.sparStuck} rival-steps stuck short of their stance`);
     assert.ok(r.drink < 5, `${r.map}: ${r.drink} per 1000 drinking steps with no water ahead`);
+    assert.ok(r.backGraze < 2, `${r.map}: ${r.backGraze} per 1000 idle grazer-steps grazing with their back to the water`);
     assert.ok(r.fleeTurn < 15, `${r.map}: ${r.fleeTurn} per 1000 flee steps jerking round`);
     console.log('PASS ' + r.map);
   }
