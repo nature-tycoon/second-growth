@@ -84,3 +84,15 @@ stuck recovery route (limit 18). The stuck hold is mid-crown, where the geometry
 taller trunks change the run's course of events. HEAD shows the same fault on other seeds (18.6 days
 in case 0), so it is an existing rare stall in the canopy recovery (`canopy-motion.js`, recovery
 routes that never leave cursor 0), not this change. The check was left as it is.
+
+Fixed 2026-10-31. The orangutan was wedged at a fork: its pose was clear of wood where it stood,
+but every step on and every small turn it may try when blocked (`canopyLean` in `canopy-pose.js`)
+was not. It stood at the very edge of the upright limit (roll 0.299 of 0.3, `readableCanopyPose`),
+and the only clear turn leaned past it. Orangutans never push through bark, so it held still for
+100 days. Allowing a little more lean only moved the wall (it leaned to the new limit and stuck
+again). Now, stuck for a second, an orangutan retraces its last 45 accepted holds (`canopyTrail`;
+each was clear when it took it) at the pace it came, then plans afresh: the longest hold in the check is now 7.9 days (limit 18).
+Over a longer 150-day run of the same case there is still one ~20-day wait of a different kind:
+the body sits on a crossing `crownRoute` reports blocked, while the simulation animal drifts, and
+the recovery in `actors.js` doesn't fire because `canopyWait` restarts each time the blocked route
+is dropped. Not fixed.

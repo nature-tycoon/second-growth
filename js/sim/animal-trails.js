@@ -337,13 +337,14 @@ export function followLeaderTrip(wl,a,lead) {
   a.follow=true;a.trip=null;return true;
 }
 
-// A resource trip keeps a deer/elk family within following distance. This is
-// one linear pass over members, rather than scanning the herd for every leader.
+// A resource trip or an overland journey (a.trip) keeps a deer/elk family within following
+// distance: a calf napping when its mother sets off wakes a few tiles behind, and she slows until
+// it catches up. One linear pass over members, rather than scanning the herd for every leader.
 export function rangePaces(wl) {
   const paces=new Map();
   for(const b of wl.agents) {
     const id=b.mom ?? b.herdOf;if(id==null||id===b.id||b.leaving)continue;
-    const lead=wl.ids.get(id);if(lead?.range?.goal==null||lead.state!=='walk'||lead.fromFire)continue;
+    const lead=wl.ids.get(id);if(lead?.range?.goal==null&&lead?.trip==null||lead.state!=='walk'||lead.fromFire)continue;
     if(!wl.game.catalog.animals[lead.sp].familyHerd)continue;
     const d=Math.hypot(lead.x-b.x,lead.y-b.y);
     if(d>3.2)paces.set(id,Math.min(paces.get(id)||1,d>6?.5:.7));
