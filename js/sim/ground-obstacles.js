@@ -11,6 +11,7 @@ import { groundAt, visibleLevel } from './waterline.js';
 import { animalRadius } from './animal-positioning.js';
 import { passable } from './animal-terrain.js';
 import { isPrimate } from './primate-behavior.js';
+import { isMaleVariant } from '../data/animals.js';
 
 // Mature trunk radius at the base for the kinds whose shape gives none (see geometry/trees.js).
 const KIND_TRUNK = { palm: 0.06, oilpalm: 0.09, banana: 0.05, fanpalm: 0.06, cecropia: 0.045, baobab: 0.31, euphorbia: 0.085, mangrove: 0.05 };
@@ -60,7 +61,9 @@ function trunkScale(w, x, y, i, p) {
 export function treeTrunk(w, x, y, bankless = false) {
   const i = w.idx(x, y), tid = w.tree[i];
   if (!tid) return null;
-  const p = w.catalog.plants[tid], r = trunkRadius(p) * trunkScale(w, x, y, i, p);
+  const p = w.catalog.plants[tid], base = trunkRadius(p);
+  if (!(base > 0)) return null; // (a kind with no drawn trunk has no grove shape to scale either)
+  const r = base * trunkScale(w, x, y, i, p);
   if (!(r > 0)) return null;
   const bank = !bankless && w.distWater[i] <= 2 && visibleLevel(w, x, y) != null;
   return [...trunkSpot(w, x, y, p, bank), r];
@@ -122,19 +125,58 @@ function closest(o, x, y) {
   const L2 = o.hx * o.hx + o.hy * o.hy, t = clamp(((x - o.cx) * o.hx + (y - o.cy) * o.hy) / L2, -1, 1);
   return [o.cx + o.hx * t, o.cy + o.hy * t];
 }
-const bodyOf = a => animalRadius(a) * 0.38; // (half the body's width: animalRadius runs along its length)
+const bodyOf = (w, a) => animalRadius(a, w.catalog) * 0.38; // (half the body's width: animalRadius runs along its length; this world's catalog, not whichever map is active)
 const active = (a, def) => groundWalker(def, a) && !(a.squeeze > 0);
+// The body seen from above (0025): a capsule along the way it faces, from rump to chest, half its
+// width round that line, and an antlered male's rack a disc at the head. A walker is long, so a
+// round keep-out the width of its body let it turn its head or rump into a trunk (an elk's
+// antlers into a fir, a deer standing half inside one). Reused record, fixed shape.
+const body = { half: 0, reach: 0, rack: 0, ux: 1, uy: 0 };
+function shape(w, a, def, heading = a.hd ?? a.orientation ?? 0) {
+  const r = animalRadius(a, w.catalog);
+  body.half = r * 0.38; body.reach = Math.max(0, r / 0.65 / 2 - body.half); // (animalRadius is 0.65 of the drawn length)
+  body.rack = def.sprite.male?.antlers && isMaleVariant(def, a) ? r * 0.3 : 0;
+  body.ux = Math.cos(heading); body.uy = Math.sin(heading);
+  return body;
+}
+// How far the body standing at (x, y) is inside obstacle o, and which way to move it out: a
+// trunk is tested against the body's line and its rack, a log (small animals) against its centre.
+const out = { depth: 0, nx: 0, ny: 0 };
+function intrusion(o, x, y, b) {
+  out.depth = 0;
+  if (o.hx || o.hy) { // (a log)
+    const [px, py] = closest(o, x, y), d = Math.hypot(x - px, y - py);
+    if (d < o.keep) set(o.keep - d, x - px, y - py, d);
+    return out;
+  }
+  const t = clamp((o.cx - x) * b.ux + (o.cy - y) * b.uy, -b.reach, b.reach);
+  const bx = x + b.ux * t, by = y + b.uy * t, d = Math.hypot(bx - o.cx, by - o.cy);
+  if (d < o.keep) set(o.keep - d, bx - o.cx, by - o.cy, d);
+  if (b.rack) {
+    const hx = x + b.ux * (b.reach + b.half), hy = y + b.uy * (b.reach + b.half), dh = Math.hypot(hx - o.cx, hy - o.cy);
+    const keep = Math.min(o.r + b.rack, Math.max(KEEP_MAX, o.r + 0.02));
+    if (dh < keep && keep - dh > out.depth) set(keep - dh, hx - o.cx, hy - o.cy, dh);
+  }
+  return out;
+}
+function set(depth, dx, dy, d) {
+  out.depth = depth;
+  if (d > 1e-4) { out.nx = dx / d; out.ny = dy / d; } else { out.nx = 0; out.ny = 0; }
+}
 
 // A point to walk to that isn't inside a trunk: a rest spot or waypoint chosen by tile is moved
 // out to the trunk's edge, so the walker can arrive instead of pressing on it.
 export function clearSpot(w, a, def, x, y) {
   if ((x - a.x) ** 2 + (y - a.y) ** 2 > 2.25 || !active(a, def)) return [x, y]; // (only matters on arrival)
-  const n = gather(w, a, def, x, y, bodyOf(a));
+  const reach = shape(w, a, def).reach, n = gather(w, a, def, x, y, body.half);
   for (let pass = 0; pass < 2; pass++) for (let k = 0; k < n; k++) {
+    // (it will stand there facing who knows which way: room for its length too, short of the
+    // gap between two trunks, so a spot in a dense stand still exists)
     const o = near[k], [px, py] = closest(o, x, y), d = Math.hypot(x - px, y - py);
-    if (d >= o.keep) continue;
+    const keep = o.hx || o.hy ? o.keep : Math.max(o.keep, Math.min(o.keep + reach, 0.27));
+    if (d >= keep) continue;
     const [ux, uy] = d > 1e-4 ? [(x - px) / d, (y - py) / d] : [Math.cos(a.id || 0), Math.sin(a.id || 0)];
-    const nx = px + ux * (o.keep + 0.01), ny = py + uy * (o.keep + 0.01);
+    const nx = px + ux * (keep + 0.01), ny = py + uy * (keep + 0.01);
     if (standable(w, a, nx, ny, x, y)) { x = nx; y = ny; }
   }
   return [x, y];
@@ -151,7 +193,7 @@ const SWITCH = 0.35; // (radians the other way round must save before a walker c
 const EASE = 0.1; // (radians a step a dodge eases off by)
 export function steerAround(w, a, def, heading, reach) {
   if (!active(a, def)) { a.dodge = 0; a.dodgeOff = 0; return heading; }
-  const n = gather(w, a, def, a.x + Math.cos(heading) * reach * 0.5, a.y + Math.sin(heading) * reach * 0.5, bodyOf(a));
+  const n = gather(w, a, def, a.x + Math.cos(heading) * reach * 0.5, a.y + Math.sin(heading) * reach * 0.5, bodyOf(w, a));
   let side = 0, out = heading;
   const left = n ? sweep(a, heading, reach, n, 1) : heading;
   if (left !== heading) {
@@ -198,17 +240,16 @@ export function resolveStep(wl, a, def, fromX, fromY) {
   if (a.squeeze > 0) { a.squeeze -= moved; if (def.tramples) trample(w, a, def); return; }
   if (!groundWalker(def, a)) return;
   if (def.tramples) trample(w, a, def);
-  const n = gather(w, a, def, a.x, a.y, bodyOf(a));
+  const b = shape(w, a, def), n = gather(w, a, def, a.x, a.y, b.half);
   if (!n) { a.woodLost = 0; return; }
   let x = a.x, y = a.y, hit = false;
   for (let pass = 0; pass < 3; pass++) for (let k = 0; k < n; k++) {
-    const o = near[k], [px, py] = closest(o, x, y), d = Math.hypot(x - px, y - py);
-    if (d >= o.keep) continue;
+    const o = intrusion(near[k], x, y, b);
+    if (!(o.depth > 0)) continue;
     hit = true;
-    let ux, uy;
-    if (d > 1e-4) { ux = (x - px) / d; uy = (y - py) / d; }
-    else { const s = a.id & 1 ? 1 : -1, mx = a.x - fromX, my = a.y - fromY, m = Math.hypot(mx, my) || 1; ux = -my / m * s; uy = mx / m * s; }
-    x = px + ux * o.keep; y = py + uy * o.keep;
+    let ux = o.nx, uy = o.ny;
+    if (!ux && !uy) { const s = a.id & 1 ? 1 : -1, mx = a.x - fromX, my = a.y - fromY, m = Math.hypot(mx, my) || 1; ux = -my / m * s; uy = mx / m * s; }
+    x += ux * o.depth; y += uy * o.depth;
   }
   if (!hit) { a.woodLost = Math.max(0, (a.woodLost || 0) - moved); return; }
   if (!standable(w, a, x, y, a.x, a.y)) return;
@@ -230,7 +271,7 @@ function standable(w, a, x, y, fx, fy) {
 // An elephant pushing through a sapling bends or breaks it: once per tree it walks into, the
 // same knock a savanna herd's trampling gives (animals.js trample), and a seedling is flattened.
 function trample(w, a, def) {
-  const x0 = Math.floor(a.x), y0 = Math.floor(a.y), body = bodyOf(a);
+  const x0 = Math.floor(a.x), y0 = Math.floor(a.y), body = bodyOf(w, a);
   for (let yy = y0 - 1; yy <= y0 + 1; yy++) for (let xx = x0 - 1; xx <= x0 + 1; xx++) {
     if (!w.inb(xx, yy)) continue;
     const i = w.idx(xx, yy), tid = w.tree[i];
@@ -243,12 +284,28 @@ function trample(w, a, def) {
 }
 
 // Is (x, y) inside wood this animal keeps clear of? (for spacing's shoves)
-export function inWood(w, a, def, x, y) {
+export function inWood(w, a, def, x, y, heading) {
   if (!active(a, def)) return false;
-  const n = gather(w, a, def, x, y, bodyOf(a));
-  for (let k = 0; k < n; k++) {
-    const o = near[k], [px, py] = closest(o, x, y);
-    if (Math.hypot(x - px, y - py) < o.keep) return true;
-  }
+  const b = shape(w, a, def, heading), n = gather(w, a, def, x, y, b.half);
+  for (let k = 0; k < n; k++) if (intrusion(near[k], x, y, b).depth > 0.002) return true;
   return false;
+}
+
+// Standing still, turning on the spot (to drink, to face a rival or a neighbour) can swing a long
+// body into a trunk: slide it back out, as a step would (0025). Not counted as ground lost.
+export function settleBody(wl, a, def) {
+  if (!active(a, def)) return;
+  // (nothing has moved or turned it since it was last settled: nothing to do)
+  const key = a.x * 7919 + a.y * 104729 + (a.orientation || 0);
+  if (a.settleKey === key) return;
+  const w = wl.game.world, b = shape(w, a, def), n = gather(w, a, def, a.x, a.y, b.half);
+  if (!n) { a.settleKey = key; return; }
+  let x = a.x, y = a.y, hit = false;
+  for (let pass = 0; pass < 3; pass++) for (let k = 0; k < n; k++) {
+    const o = intrusion(near[k], x, y, b);
+    if (!(o.depth > 0.002) || !o.nx && !o.ny) continue;
+    hit = true; x += o.nx * o.depth; y += o.ny * o.depth;
+  }
+  if (hit && standable(w, a, x, y, a.x, a.y)) { a.x = x; a.y = y; }
+  else a.settleKey = key;
 }

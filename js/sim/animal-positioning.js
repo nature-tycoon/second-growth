@@ -38,6 +38,7 @@ function layer(w, a, x = a.x, y = a.y, grounded = false) {
 // buckets are keyed by number and their arrays reused, and the neighbours are walked with plain
 // loops rather than a generator: same buckets, same order.
 const bucketKey = (bx, by) => (bx + 32768) * 65536 + by + 32768;
+const HERD_ROOM = 0.85; // (of the two bodies' lengths, centre to centre: about a body length of ground between)
 
 export class AnimalSpacing {
   constructor() { this.buckets = new Map(); this.entries = []; this.filled = []; this.around9 = []; }
@@ -85,13 +86,28 @@ export class AnimalSpacing {
     }
     return cost;
   }
+  // Grazing herd mates leave about a body length of clear ground between them (0025): bodies
+  // centre to centre about 1.7 lengths apart. How far short of that (x, y) is, summed over them.
+  // (Not for a calf at its mother's side, nor along the bank, where a herd drinks shoulder to shoulder.)
+  herdRoom(a, x, y) {
+    const def = this.w.catalog.animals[a.sp];
+    if (!def.herd || a.mom != null) return 0;
+    let short = 0;
+    const r = animalRadius(a, this.w.catalog);
+    for (const bucket of this.around(x, y)) for (const e of bucket) {
+      if (e.a === a || e.a.sp !== a.sp || e.band !== 'ground' || e.a.mom === a.id) continue;
+      short += Math.max(0, (r + e.r) / 0.65 * HERD_ROOM - Math.hypot(x - e.a.x, y - e.a.y));
+    }
+    return short;
+  }
   restSpot(a, j, ox, oy) {
     const x = j % this.w.w, y = (j / this.w.w) | 0;
-    let best = [x + 0.5 + ox, y + 0.5 + oy], score = this.crowd(a, ...best);
+    const cost = (px, py) => this.crowd(a, px, py) + this.herdRoom(a, px, py) * 0.2;
+    let best = [x + 0.5 + ox, y + 0.5 + oy], score = cost(...best);
     for (let k = 0; k < 8; k++) {
       const angle = (a.id * 2.39996) + k * Math.PI / 4;
       const p = [x + 0.5 + Math.cos(angle) * 0.34, y + 0.5 + Math.sin(angle) * 0.34];
-      const s = this.crowd(a, ...p) + 0.015;
+      const s = cost(...p) + 0.015;
       if (s < score) { best = p; score = s; }
     }
     return best;
@@ -109,6 +125,7 @@ export class AnimalSpacing {
     dx /= d; dy /= d;
     const r = animalRadius(a, this.w.catalog), look = Math.min(d, r * 2 + 0.6);
     let need = [0, 0], any = false; // clearance angle needed passing on the left [0] or the right [1]
+    let ahead = Infinity; // (room left before it touches the nearest one straight ahead)
     for (const bucket of this.around(a.x, a.y)) for (const e of bucket) {
       if (!this.compatible(a, e, band)) continue;
       const ox = e.a.x - a.x, oy = e.a.y - a.y, reach = r + e.r + 0.04;
@@ -119,6 +136,7 @@ export class AnimalSpacing {
       const at = Math.max(0.15, along);
       need[0] = Math.max(need[0], Math.atan2(reach + lat, at) + (toward ? 0.6 : 0));
       need[1] = Math.max(need[1], Math.atan2(reach - lat, at));
+      if (Math.abs(lat) < reach * 0.7) ahead = Math.min(ahead, along - reach);
       any = true;
     }
     if (!any) { a.avoidSide = 0; return null; }
@@ -134,7 +152,10 @@ export class AnimalSpacing {
     if (!p) { side = 1 - side; p = open(Math.min(need[side], 1.3) * (side === 0 ? 1 : -1)); }
     if (!p) return null;
     a.avoidSide = side === 0 ? 1 : -1;
-    return [p[0], p[1], need[side] > 1.3 ? 0.35 : 1 - 0.3 * Math.min(1, need[side] / 1.3)];
+    // (and nearly touching the one in front, it waits a moment rather than walking into it: one
+    // following along behind another, or edging through a resting herd: 0025)
+    const brake = ahead < 0.08 ? clamp(0.15 + ahead * 5, 0.15, 1) : 1;
+    return [p[0], p[1], Math.min(brake, need[side] > 1.3 ? 0.35 : 1 - 0.3 * Math.min(1, need[side] / 1.3))];
   }
 
   separate(dt, canStand) {
@@ -144,6 +165,8 @@ export class AnimalSpacing {
     // give way round it, rather than shoving it aside. Between two standing on top of each other,
     // the one only standing about shuffles over (one drinking or eating stays put).
     const settled = a => a.state === 'idle' || a.state === 'feed' || a.state === 'forage' || a.drinkT > 0;
+    const grazing = a => (a.state === 'idle' || a.state === 'forage') && !(a.drinkT > 0) && !a.juvenile;
+    const herd = a => !!w.catalog.animals[a.sp].herd;
     const yields = a => a.state === 'idle' && !(a.drinkT > 0);
     const shift = (e, dx, dy, amount) => {
       const a = e.a;
@@ -194,7 +217,16 @@ export class AnimalSpacing {
       let dx = a.x - b.x, dy = a.y - b.y;
       // (clearly apart: skip the square root, the slow part of a packed herd's thousands of pairs)
       const reach = e.r + f.r + 0.02 + 1e-6;
-      if (dx * dx + dy * dy > reach * reach) continue;
+      if (dx * dx + dy * dy > reach * reach) {
+        // Grazing herd mates standing closer than a body length's clear ground drift apart, a
+        // little at a time, as a grazing herd spreads out (0025). Not drinking, nor a calf by its mother.
+        if (a.sp !== b.sp || !herd(a) || !grazing(a) || !grazing(b) || a.mom === b.id || b.mom === a.id) continue;
+        const room = (e.r + f.r) / 0.65 * HERD_ROOM, d2 = dx * dx + dy * dy;
+        if (d2 >= room * room || e.band !== 'ground') continue;
+        const d = Math.sqrt(d2), gap = (room - d) * 0.04;
+        shift(e, dx / d, dy / d, gap); shift(f, -dx / d, -dy / d, gap);
+        continue;
+      }
       let d = Math.hypot(dx, dy);
       const overlap = e.r + f.r + 0.025 - d;
       if (overlap <= 0.005) continue;
@@ -219,7 +251,6 @@ export class AnimalSpacing {
       if (!fb && ea) shift(e, dx, dy, overlap * 0.5);
     }
     for (const e of this.entries) if (!e.moved && e.a.pushX) { e.a.pushX = 0; e.a.pushY = 0; }
-    for (const { a } of this.entries) if (a.drinkT > 0 && a.drinkAt) facePoint(a, ...a.drinkAt);
   }
 }
 
@@ -227,6 +258,8 @@ export class AnimalSpacing {
 // describe a dry diagonal corner; the animal needs an actual water tile to face.
 export function shoreSpot(w, a, j, spacing, canStand) {
   if (!canStand(w, j, a) || w.struct[j] >= 0) return null;
+  const dry = a.move === 'ground' && !w.catalog.animals[a.sp]?.reef; // (a land walker drinks from the bank, never standing in the water: 0025)
+  if (dry && isWater(w.terrain[j])) return null;
   if (a.move === 'fly' && w.tree[j] && w.treeG[j] > 0.5 &&
     !PERCHED_WADERS.has(w.catalog.animals[a.sp].sprite.kind)) return null;
   const x = j % w.w, y = (j / w.w) | 0;
@@ -250,7 +283,7 @@ export function shoreSpot(w, a, j, spacing, canStand) {
       const px = dry[0] - dx * back, py = dry[1] - dy * back;
       if (!w.inb(Math.floor(px), Math.floor(py))) continue;
       const pj = w.idx(Math.floor(px), Math.floor(py));
-      if (pj !== j && (!canStand(w, pj, a) || w.struct[pj] >= 0)) continue;
+      if (pj !== j && (!canStand(w, pj, a) || w.struct[pj] >= 0 || dry && isWater(w.terrain[pj]))) continue;
       const wx = ex, wy = ey; // (faces the water tile itself, straight ahead)
       const crowd = spacing.crowd(a, px, py);
       const s = crowd * 8 + Math.hypot(a.x - px, a.y - py);

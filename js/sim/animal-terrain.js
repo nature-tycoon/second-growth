@@ -4,6 +4,11 @@ import { T, F, isWater } from '../config.js';
 
 
 export const WADERS = new Set(['heron', 'crane']);
+// Small land animals that keep out of the water altogether (0025): a vole or a rabbit doesn't wade
+// a marsh or a creek. Bigger ones may wade across, but don't stop in it (steering.js). The kinds
+// are drawn kinds, not species: raccoons, coatis and civets forage in the shallows and are left out.
+const DRY_FOOTED = new Set(['rodent', 'rabbit', 'squirrel', 'agouti', 'armadillo', 'turtle', 'beetle', 'pangolin', 'monitor']);
+const dryFooted = d => !!d && !d.reef && DRY_FOOTED.has(d.sprite.kind); // (a sea turtle is drawn as a turtle too)
 export const shallows = (w, i) => { const t = w.terrain[i]; return t === T.MARSH || t === T.CREEK || t === T.MUD || (w.distWater[i] === 1 && !isWater(t)); };
 
 // Flight can cross any terrain; landing needs land, a perch, or suitable water.
@@ -26,6 +31,7 @@ export function passable(w, i, a) {
   if (move === 'swim') return isWater(t) && w.feature[i] !== F.CULVERT;
   if (move === 'semi') return true;
   if (t === T.POND || t === T.RIVER) return false;
+  if ((t === T.MARSH || t === T.CREEK) && dryFooted(w.catalog.animal[a.key])) return false;
   if (w.feature[i] === F.FENCE && w.catalog.animal[a.key]?.fenced) return false; // big grazers can't cross fences
   return true;
 }

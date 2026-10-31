@@ -72,11 +72,19 @@ function settle(wl, a, def, r) {
     const [cx, cy] = at(w, o.home.center);
     if (Math.abs(cx - x0) < box + 2 * r && Math.abs(cy - y0) < box + 2 * r) homes.push(cx, cy, o.home.r);
   }
+  // (an amphibious animal's home follows its water, and a creek is a line, not a patch: each arm
+  // counts the best water along it, not only at its end, so a channel can hold a crocodile: 0025)
+  const along = a.move === 'semi', reach = Math.max(1, Math.round(r * 0.5));
   const core = (x, y) => { // habitat across the core of a home, not just its central tile
-    let s = 0;
-    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const xx = Math.round(x + dx * r * 0.5), yy = Math.round(y + dy * r * 0.5);
-      if (w.inb(xx, yy)) s += map[w.idx(xx, yy)];
+    let s = w.inb(x, y) ? map[w.idx(x, y)] : 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      let best = 0;
+      if (!along) { const xx = Math.round(x + dx * r * 0.5), yy = Math.round(y + dy * r * 0.5); if (w.inb(xx, yy)) best = map[w.idx(xx, yy)]; }
+      else for (let k = 1; k <= reach; k++) {
+        const xx = x + dx * k, yy = y + dy * k;
+        if (w.inb(xx, yy)) best = Math.max(best, map[w.idx(xx, yy)]);
+      }
+      s += best;
     }
     return s / 5;
   };

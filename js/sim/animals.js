@@ -18,6 +18,7 @@ import { territorialChoose, hasTerritory } from './animal-territory.js';
 import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
+import { settle, aimDrink, landWalker } from './steering.js';
 import { grazeDay, decayGrazing } from './grazing.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, followLeaderTrip } from './animal-trails.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
@@ -84,7 +85,7 @@ class Animal {
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
-  carry; prey; home; homeAfter;
+  carry; prey; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -1076,7 +1077,7 @@ export class Wildlife {
           // Older saves can contain a head-down pose with no direction (even a calf on dry
           // ground). Repair it on the next simulation step rather than waiting for another trip.
           const bank = this.bankSpot(a);
-          if (bank) { a.drinkAt = bank.water; facePoint(a, ...bank.water); }
+          if (bank) aimDrink(w, a, bank.water);
           else a.drinkT = 0;
         }
       }
@@ -1124,6 +1125,8 @@ export class Wildlife {
           // transit points, or finish beside an occupied destination when already clear.
           const remaining = Math.hypot(a.x - tx, a.y - ty);
           if ((!smoothWalker(def) && a.path.length > 1 && remaining < 0.35 && w.idx(Math.floor(a.x), Math.floor(a.y)) === j) ||
+            // (someone stands on this waypoint: on to the next, rather than braking behind them: 0025)
+            (a.path.length > 1 && remaining < 0.6 && this.spacing.crowd(a, tx, ty) > 0.08) ||
             (a.path.length === 1 && remaining < 0.9 && this.spacing.crowd(a, tx, ty) > 0.08 &&
             this.spacing.crowd(a, a.x, a.y) < 0.04) ||
             // (its spot's been taken and it's getting no closer edging round the others: stop short)
@@ -1242,6 +1245,7 @@ export class Wildlife {
     updateVigilance(this, dt);
     this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
     this.spacing.separate(dt, standable);
+    settle(this); // (what it acts on, it faces; out of the wood; off the water: steering.js)
     // Measure progress after spacing: movement can appear successful and then be
     // completely undone by a neighbour pushing the animal back in the same frame.
     for (const a of this.agents) this.checkMovementProgress(a, dt);
@@ -1457,7 +1461,7 @@ export class Wildlife {
       else
       // a far, good tile: keep one at random, weighted toward the best habitat (reservoir sampling)
       // (the river is mostly a corridor: a place to pass through rather than settle)
-      if (depth[i] >= 12 && map[i] > 0.3) { const wgt = map[i] * map[i] * room(i) * (w.terrain[i] === T.RIVER && !def.patrol ? 0.25 : 1); seen += wgt; if (Math.random() * seen < wgt) pick = i; }
+      if (depth[i] >= 12 && map[i] > 0.3 && !(landWalker(def, a) && isWater(w.terrain[i]))) { const wgt = map[i] * map[i] * room(i) * (w.terrain[i] === T.RIVER && !def.patrol ? 0.25 : 1); seen += wgt; if (Math.random() * seen < wgt) pick = i; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         if (!swimmer(a, this.game.catalog) && dx && dy) continue;
@@ -1652,6 +1656,7 @@ export class Wildlife {
       const x = i % W, y = (i / W) | 0;
       if (Math.abs(x - x0) > R || Math.abs(y - y0) > R) continue;
       let s = map[i] * (0.45 + 0.55 * Math.random()) * (patrol || i === start ? 1 : worth(i));
+      if (landWalker(def, a) && isWater(w.terrain[i])) s = 0; // (a land walker doesn't stop in the water)
       if (patrol) {
         const d2 = (x - x0) ** 2 + (y - y0) ** 2;
         if (map[i] > 0.15 && d2 > farD) { farD = d2; far = i; }
@@ -1744,7 +1749,7 @@ export class Wildlife {
         return true;
       }
       a.bankGoal = null;
-      a.drinkAt = bank.water; facePoint(a, ...bank.water);
+      aimDrink(w, a, bank.water); // (its head to the nearest water from where it stands: steering.js)
       if (a.home) a.home.back = true; // and afterwards back home the way it came
       a.waterTrip = false; a.thirst = 0; a.drinkT = restless(this, def, a) ? 0.6 + Math.random() * 0.6 : def.familyHerd ? 0.8 + Math.random() * 0.8 : 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false; a.alt = 0; // (deer and elk drink and move on)
       return true;
@@ -1895,10 +1900,12 @@ export class Wildlife {
     let head = 0, tail = 0, found = -1, near = -1, nd = dist ? dist(x0, y0) : 1e9;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
     const diag = swimmer(a, this.game.catalog);
+    // (a land walker may wade across a creek or a marsh on the way, but no walk of its ends in one: 0025)
+    const dry = landWalker(this.game.catalog.animals[a.sp], a), wet = i => dry && isWater(w.terrain[i]);
     while (head < tail && tail < cap) {
       const i = bfsQ[head++], x = i % W, y = (i / W) | 0;
-      if (i !== start && goal(i, x, y)) { found = i; break; }
-      if (dist) { const d = dist(x, y); if (d < nd) { nd = d; near = i; } }
+      if (i !== start && !wet(i) && goal(i, x, y)) { found = i; break; }
+      if (dist && !wet(i)) { const d = dist(x, y); if (d < nd) { nd = d; near = i; } }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         if (!diag && dx && dy) continue;
@@ -1942,7 +1949,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, settleKey, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,

@@ -222,7 +222,7 @@ export default function buildChinandegaAnimals(def) {
       hint: 'Forest and shrubs with small animals to eat.' });
   }
   {
-    const w = habW({ RIVER: 1, MARSH: 0.9, POND: 0.7, CREEK: 0.6 });
+    const w = habW({ RIVER: 1, MARSH: 0.9, POND: 0.7, CREEK: 0.9 });
     def({ key: 'crocodile', name: 'American crocodile', sci: 'Crocodylus acutus', group: 'Reptiles', move: 'semi',
       speed: 0.8, hr: 40, max: 4, sources: ['S'], mig: 0.2, breed: [0], litter: [3, 5], life: 50, mature: 8,
       prey: ['snook', 'raccoon'], preyPer: 8,

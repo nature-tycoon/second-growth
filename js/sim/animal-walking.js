@@ -43,7 +43,7 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
   const distance=Math.hypot(gx-a.x,gy-a.y);
   if(distance<.025)return last||Math.hypot(tx-a.x,ty-a.y)<.15;
   let desired=Math.atan2(gy-a.y,gx-a.x);
-  if(avoid){const bearing=Math.atan2(avoid[1]-a.y,avoid[0]-a.x);desired+=clamp(angleDelta(bearing,desired),-.75,.75);pace*=Math.max(.65,avoid[2]);}
+  if(avoid){const bearing=Math.atan2(avoid[1]-a.y,avoid[0]-a.x);desired+=clamp(angleDelta(bearing,desired),-.75,.75);pace*=avoid[2]<.3?avoid[2]:Math.max(.65,avoid[2]);} // (below .3: braking behind the one in front)
   // (round a trunk or log ahead, seen from 1.6 tiles off so the turn is early and slight; on the
   // last leg no further than its spot, which may stand beside a trunk: ground-obstacles.js)
   desired=steerAround(w,a,def,desired,last?Math.min(look,distance+.3):Math.max(look,1.6));
