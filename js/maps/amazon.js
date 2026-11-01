@@ -115,6 +115,20 @@ export default {
 
   // Grazing pressure (sim/grazing.js): capybara lawns along the water; the forest still closes over the pasture.
   grazing: 0.3,
+  recruitment: { cndd: 0.7 },
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // Squall lines at the start of the rains bring downbursts that flatten patches of forest, mostly
+  // a few big trees, once in a while hundreds (the blowdowns seen from space across the Amazon).
+  // dead wood rots fast in the warm, wet forest: termites, beetles and fungi have a fallen trunk
+  // gone in about ten years, where a temperate log lasts decades (0028 §5)
+  deadwood: { decay: 1.8 },
+  disturbance: {
+    storms: [{ name: 'A squall line', months: [7, 8, 9, 10], perYear: 1, patch: [3, 600], severity: 0.6 }],
+    // and once or twice a decade the dry season runs long (as in 2005, 2010 and 2015), and trees on
+    // the driest ground die of thirst (0028 phase 6). Threshold: the 85th percentile of the longest
+    // yearly dry streak, as for Atlanta and the Serengeti
+    drought: { threshold: 45, span: 10, severity: 1.5 },
+  },
   climate: {
     // Mar–May high water, Jun–Aug dry, Sep–Nov burning season and first rains, Dec–Feb rainy
     seasons: ['High water', 'Dry season', 'Burning season', 'Rainy season'],
@@ -124,6 +138,7 @@ export default {
     moist: [0.14, 0.1, 0.04, -0.05, -0.14, -0.18, -0.12, -0.02, 0.06, 0.12, 0.15, 0.16],
     snow: null,
     fireMonths: [4, 5, 6, 7],
+    crownFires: false, // (a rainforest fire is a slow surface fire under the canopy, not a crown fire, 0028 phase 6)
     floodMonths: [10, 11, 0, 1],
     tips: [
       'High water: the river swells into the flooded forest. Fish and dolphins swim among the trunks.',
@@ -139,6 +154,8 @@ export default {
     W: ['brachiaria', 'brachiaria', 'guinea', 'leucaena'],
     S: ['acai', 'cecropia', 'cyperus', 'hyacinth', 'waterlily', 'buriti'],
   },
+  // the rainforest to the north and east rains its trees' seed in all along those edges (0028 §6)
+  forestRain: { N: 0.01, E: 0.01 },
   windSeeds: ['cecropia', 'balsa', 'kapok'],
   berrySeeds: ['inga', 'fig', 'acai', 'cecropia', 'piper', 'cacao', 'heliconia'],
   floodSeeds: ['acai', 'cyperus', 'hyacinth', 'cecropia', 'buriti'],

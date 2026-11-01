@@ -399,6 +399,19 @@ export default {
   // No grazing pressure on seedlings (sim/grazing.js): the gardens already hold their own gaps, and
   // even light deer pressure here held back the creek woods and yards that should fill in.
   grazing: 0,
+  recruitment: { cndd: 0.3 },
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // Summer thunderstorms snap trees in small patches; now and then an ice storm loads the crowns
+  // over a wider area; and a long late-summer dry spell kills trees on ground too dry for them.
+  disturbance: {
+    storms: [
+      { name: 'A summer thunderstorm', months: [2, 3, 4, 5], perYear: 1, patch: [2, 60], severity: 0.5 },
+      { name: 'An ice storm', months: [9, 10, 11], perYear: 0.15, patch: [20, 400], severity: 0.4 },
+    ],
+    // (severity 3: a deep summer drought kills a good share of the trees on the driest ground it
+    // reaches, as the 2007 drought did across the Southeast, 0028 phase 6)
+    drought: { threshold: 36, span: 10, severity: 3 },
+  },
   climate: {
     seasons: ['Spring', 'Summer', 'Fall', 'Winter'],
     // Atlanta: rain all year, summer thunderstorms, a dry spell in early fall, mild winters

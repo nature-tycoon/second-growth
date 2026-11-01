@@ -44,6 +44,16 @@ export default {
   // How strongly herds of grazers and browsers hold woody seedlings back in the grass they use
   // (sim/grazing.js): elk and deer keep the valley's meadows open where they feed.
   grazing: 1,
+  recruitment: { cndd: 0.3 }, // (0028 §3: conspecific negative density dependence; stronger in the tropics)
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // Winter gales off the Pacific throw trees on soaked ground, and laminated root rot, a native
+  // fungus, kills Douglas-firs in slowly spreading patches that other trees then hold for decades.
+  disturbance: {
+    storms: [{ name: 'A winter windstorm', months: [7, 8, 9, 10, 11], perYear: 1.5, patch: [6, 500], severity: 0.8 }],
+    pathogen: { host: ['fir'], perYear: 2, spread: 0.03, kill: 0.1,
+      news: 'Root rot. Laminated root rot, a native fungus in the soil, is killing Douglas-firs here. It spreads slowly from root to root through the firs, leaving a growing patch of dead and fallen trees. Hemlock, redcedar, alder and maple resist it, so they take the patch over, and fir comes back decades later once the fungus dies out in the old roots.',
+      note: 'Laminated root rot is in the roots here. It kills Douglas-firs and spreads to the firs beside them. Other trees resist it, so this patch will grow up in hemlock, redcedar and hardwoods for a generation.' },
+  },
   climate: {
     seasons: ['Spring', 'Summer', 'Autumn', 'Winter'],
     rain: [0.45, 0.35, 0.3, 0.2, 0.08, 0.08, 0.2, 0.45, 0.6, 0.65, 0.65, 0.55],
@@ -64,11 +74,14 @@ export default {
   // seeds drifting in from each side of the property
   seedRain: {
     N: ['fir', 'hemlock', 'cedar', 'alder', 'swordfern', 'salal', 'vinemaple', 'salmonberry'],
-    E: ['alder', 'maple', 'fir', 'salmonberry', 'snowberry', 'swordfern', 'elderberry'],
+    // (the north edge is dry upland, too dry for hemlock and redcedar to take; the moister woods to the east hold them too)
+    E: ['alder', 'maple', 'fir', 'hemlock', 'cedar', 'salmonberry', 'snowberry', 'swordfern', 'elderberry'],
     W: ['blackberry', 'blackberry', 'broom', 'canarygrass'],
     S: ['willow', 'cottonwood', 'alder', 'canarygrass', 'dogwood', 'sedge'],
   },
-  windSeeds: ['fireweed', 'cottonwood'],
+  // and the woods to the north and east rain their trees' seed in all along those edges (0028 §6)
+  forestRain: { N: 0.005, E: 0.005 }, // (Cole, 2026-10-23: halved, so the edges fill over 25-30 years and Second growth stays earned)
+  windSeeds: ['fireweed', 'cottonwood', 'birch'],
   berrySeeds: ['salmonberry', 'elderberry', 'snowberry', 'rose', 'salal', 'oregongrape', 'blackberry'],
   floodSeeds: ['willow', 'cottonwood', 'sedge', 'canarygrass', 'alder'],
   burnSeeds: ['fireweed', 'fireweed', 'wildrye', 'fescue', 'lupine', 'yarrow'],

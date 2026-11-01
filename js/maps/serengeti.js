@@ -88,6 +88,12 @@ export default {
   // Grazing pressure (sim/grazing.js) kept light: trampling, fire and dry-season drought already
   // keep the plains open, and giraffe and elephant need young acacias to browse, so herds add only a little.
   grazing: 0.25,
+  recruitment: { cndd: 0 }, // (its trees already keep their distance: the savanna spacing in trySeed)
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // Drought only: elephants and fire already open the woodland. A dry season that runs weeks long
+  // kills trees on ground at the dry edge of what they can take.
+  // (severity 3: a failed rainy season kills acacias on the dry ridges, 0028 phase 6)
+  disturbance: { drought: { threshold: 56, span: 10, severity: 3 } },
   // native seed bank: on healthy land, buried native seed beats weeds into burned and bare ground
   seedbank: true,
   // every animal walks (or flies) to water every few days to drink

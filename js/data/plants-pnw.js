@@ -78,7 +78,7 @@ export default function buildPnwPlants(def, mix, get) {
     grow: 0.008, spread: 0.014, radius: 3, life: 25, browse: 0.4, cost: 8,
     look: { type: 'shrub', leaf: '#628f4c', flower: '#f07aa8', bloom: [2, 3], berry: '#d23a2a', fruit: [6, 7, 8, 9], fall: '#b7663a', deciduous: true, small: true },
     desc: 'Wild rose whose hips hang on into winter, feeding birds when little else is left.' });
-  def({ key: 'snowberry', name: 'Common snowberry', sci: 'Symphoricarpos albus', layer: 1, moist: [0.1, 0.75], light: [0.1, 1],
+  def({ key: 'snowberry', name: 'Common snowberry', sci: 'Symphoricarpos albus', layer: 1, moist: [0.1, 0.75], light: [0.35, 1],
     grow: 0.009, spread: 0.014, radius: 3, life: 30, browse: 0.5, cost: 8,
     look: { type: 'shrub', leaf: '#7b9c67', flower: '#f2c6d2', bloom: [3], berry: '#f4f6f4', fruit: [6, 7, 8, 9, 10], fall: '#a39a5a', deciduous: true, small: true },
     desc: 'Tough, thicket-forming shrub with white berries that persist through winter.' });
@@ -120,11 +120,15 @@ export default function buildPnwPlants(def, mix, get) {
     grow: 0.0055, spread: 0.012, radius: 5, life: 22, browse: 0.3, beaverFood: true, cost: 18,
     look: { type: 'alder', leaf: '#6f9d4f', fall: '#a09a58', deciduous: true, bark: '#c9c7bd' },
     desc: 'The great healer of disturbed ground. Grows fast, fixes nitrogen, and dies young, making way for conifers.' });
+  def({ key: 'birch', name: 'Paper birch', sci: 'Betula papyrifera', layer: 2, heightM: 20, moist: [0.4, 1], light: [0.55, 1], wetOK: true,
+    grow: 0.0055, spread: 0.012, radius: 6, life: 70, browse: 0.4, beaverFood: true, cost: 16,
+    look: { type: 'alder', leaf: '#7aa452', fall: '#e8c83c', deciduous: true, bark: '#ebe8df' },
+    desc: 'Chalk-white bark that peels in papery curls. A pioneer of wet bottomlands and burns, and a beaver favourite.' });
   def({ key: 'cottonwood', name: 'Black cottonwood', sci: 'Populus trichocarpa', layer: 2, heightM: 40, moist: [0.6, 1], light: [0.6, 1],
     grow: 0.006, spread: 0.01, radius: 7, life: 40, browse: 0.3, beaverFood: true, cost: 18,
     look: { type: 'cottonwood', leaf: '#5f8d4a', fall: '#e4c64a', deciduous: true, bark: '#9a968a' },
     desc: 'The tallest broadleaf tree in the PNW. Fluffy seeds drift along rivers each June. Bald eagles nest in it.' });
-  def({ key: 'maple', name: 'Bigleaf maple', sci: 'Acer macrophyllum', layer: 2, heightM: 30, moist: [0.3, 0.85], light: [0.3, 1], soil: 0.2,
+  def({ key: 'maple', name: 'Bigleaf maple', sci: 'Acer macrophyllum', layer: 2, heightM: 30, moist: [0.3, 0.85], light: [0.42, 1], soil: 0.2,
     grow: 0.0038, spread: 0.008, radius: 4, life: 90, mast: 0.3, cost: 22,
     look: { type: 'maple', leaf: '#5d9444', fall: '#e8b331', deciduous: true, bark: '#7b6a55' },
     desc: 'Giant leaves, mossy limbs draped in licorice fern. Its fallen leaves enrich the soil.' });
@@ -136,16 +140,16 @@ export default function buildPnwPlants(def, mix, get) {
     grow: 0.0022, spread: 0.006, radius: 4, life: 250, mast: 1, cost: 26,
     look: { type: 'oak', leaf: '#5b7f3f', fall: '#a8783a', deciduous: true, bark: '#6d6457' },
     desc: 'Slow, gnarled, and long-lived. Its acorns and open savannas support hundreds of species.' });
-  def({ key: 'fir', name: 'Douglas-fir', sci: 'Pseudotsuga menziesii', layer: 2, heightM: 60, moist: [0.1, 0.75], light: [0.42, 1], soil: 0.25, conifer: true,
-    grow: 0.0028, spread: 0.009, radius: 5, life: 400, cost: 25,
+  def({ key: 'fir', name: 'Douglas-fir', sci: 'Pseudotsuga menziesii', layer: 2, heightM: 60, moist: [0.1, 0.85], light: [0.42, 1], soil: 0.25, conifer: true, windfirm: 0.6,
+    grow: 0.0028, spread: 0.009, radius: 5, life: 750, cost: 25,
     look: { type: 'fir', leaf: '#2d5a38', bark: '#6b4a34' },
-    desc: 'The iconic giant of Cascadia. Needs sun to get started, then towers for centuries.' });
-  def({ key: 'cedar', name: 'Western redcedar', sci: 'Thuja plicata', layer: 2, heightM: 50, moist: [0.5, 1], light: [0.0, 1], soil: 0.4, conifer: true,
-    grow: 0.0024, spread: 0.007, radius: 4, life: 600, cost: 28,
+    desc: 'The iconic giant of Cascadia. Needs sun to get started (an open field or a burn), then towers for centuries while hemlock and redcedar grow up in its shade.' });
+  def({ key: 'cedar', name: 'Western redcedar', sci: 'Thuja plicata', layer: 2, heightM: 50, moist: [0.42, 1], light: [0.0, 0.85], soil: 0.3, conifer: true, nurse: true, decay: 0.35, windfirm: 0.35,
+    grow: 0.0024, spread: 0.007, radius: 4, life: 1000, cost: 28, // (0028 raised redcedar and hemlock seeding 1.5–2× to beat dry ground; 0027's damp forest floor does that, so back to their own)
     look: { type: 'cedar', leaf: '#46763b', bark: '#8a4f35' },
     desc: 'The "tree of life" of Northwest Coast cultures. Loves wet feet and grows happily in deep shade.' });
-  def({ key: 'hemlock', name: 'Western hemlock', sci: 'Tsuga heterophylla', layer: 2, heightM: 50, moist: [0.4, 0.9], light: [0.0, 0.9], soil: 0.45, conifer: true, nurse: true,
-    grow: 0.0025, spread: 0.009, radius: 4, life: 400, cost: 26,
+  def({ key: 'hemlock', name: 'Western hemlock', sci: 'Tsuga heterophylla', layer: 2, heightM: 50, moist: [0.35, 0.9], light: [0.0, 0.7], soil: 0.35, conifer: true, nurse: true, decay: 0.85, windfirm: 0.3,
+    grow: 0.0025, spread: 0.009, radius: 4, life: 500, cost: 26,
     look: { type: 'hemlock', leaf: '#2c5446', bark: '#5d4a3e' },
     desc: 'The most shade-tolerant tree here: it takes over old forests, often starting life on a nurse log.' });
 
@@ -170,7 +174,7 @@ export default function buildPnwPlants(def, mix, get) {
       species: ['salal', 'huckleberry', 'vinemaple', 'oregongrape', 'salmonberry'],
       desc: 'Shade-loving shrubs for a young forest.' },
     { key: 'mix_pioneer', name: 'Pioneer trees', layer: 2, cost: 18, density: 0.28,
-      species: ['alder', 'cottonwood', 'maple', 'ash'],
+      species: ['alder', 'cottonwood', 'birch', 'maple', 'ash'],
       desc: 'Fast broadleaf trees that heal soil and make shade for the conifers to come.' },
     { key: 'mix_conifer', name: 'Conifer forest', layer: 2, cost: 26, density: 0.25,
       species: ['fir', 'cedar', 'hemlock'],
@@ -178,11 +182,11 @@ export default function buildPnwPlants(def, mix, get) {
   ]) mix(m);
 
   // behaviour flags the simulation reads (fire, floods, seed dispersal, nectar)
-  for (const k of ['willow', 'cottonwood', 'alder']) get(k).gravelOK = true;         // colonize bare gravel bars
+  for (const k of ['willow', 'cottonwood', 'alder', 'birch']) get(k).gravelOK = true;         // colonize bare gravel bars
   get('blackberry').birdSpread = true;                                                // birds carry the seeds far
   for (const k of ['salmonberry', 'snowberry', 'rose', 'oceanspray', 'willow', 'dogwood',
     'oregongrape', 'salal', 'vinemaple', 'elderberry', 'blackberry']) get(k).resprout = true; // regrow from roots after fire
-  Object.entries({ fir: 0.9, oak: 0.85, maple: 0.5, cottonwood: 0.5, ash: 0.5, alder: 0.4, cedar: 0.4, hemlock: 0.3 })
+  Object.entries({ fir: 0.9, oak: 0.85, maple: 0.5, cottonwood: 0.5, ash: 0.5, alder: 0.4, birch: 0.3, cedar: 0.4, hemlock: 0.3 })
     .forEach(([k, v]) => { get(k).fireSurvival = v; });                              // thick bark shrugs off ground fire
   get('broom').fuel = 1.6; get('blackberry').fuel = 1.2;                              // burns hot
   get('maple').nectar = { months: [1], amount: 0.3 };                                 // spring flowers feed pollinators

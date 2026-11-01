@@ -22,6 +22,8 @@ Low Power Mode, battery (the game's Auto frame rate caps at 30 fps on battery, `
 | Loading | `node tools/boot-profile.mjs 4 1` |
 | Plants / spacing / climbing monkeys | `tools/flora-rebuild-bench.mjs`, `spacing-bench.mjs`, `canopy-bench.mjs` (they print output signatures, so check those match too) |
 
+For a simulation-cost A/B on the same grown world, `node tools/daily-tick-ab.mjs <new> <old> <world.bin>` times `dailyTick` in alternating blocks; run both orders, since differences under about 3 points are noise. A ms figure from a niced or parallel run measures the queue, not the code (under load `nice -n 15` once starved a run about 40×): time an A/B back to back, one process at a time.
+
 Run headless Chrome under `nice -n 15` and delete `$TMPDIR/sg-chrome-*` profiles afterwards. Don't read frame rates from a hidden preview tab.
 
 ## 3. Before and after

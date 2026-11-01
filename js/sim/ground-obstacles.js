@@ -11,6 +11,7 @@ import { groundAt, visibleLevel } from './waterline.js';
 import { animalRadius } from './animal-positioning.js';
 import { passable } from './animal-terrain.js';
 import { isPrimate } from './primate-behavior.js';
+import { removeTree } from './plants.js';
 
 // Mature trunk radius at the base for the kinds whose shape gives none (see geometry/trees.js).
 const KIND_TRUNK = { palm: 0.06, oilpalm: 0.09, banana: 0.05, fanpalm: 0.06, cecropia: 0.045, baobab: 0.31, euphorbia: 0.085, mangrove: 0.05 };
@@ -238,7 +239,7 @@ function trample(w, a, def) {
     const t = treeTrunk(w, xx, yy, true);
     if (!t || Math.hypot(a.x - t[0], a.y - t[1]) > body + t[2]) continue;
     a.trampled = i;
-    if ((w.treeG[i] -= 0.08) <= 0) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+    if ((w.treeG[i] -= 0.08) <= 0) { w.treeG[i] = 0; removeTree(w, i, 'browse', null, { deadwood: false }); } // (trampled flat)
   }
 }
 
