@@ -480,7 +480,7 @@ export class Actors {
           const firstHold = !st.branchPoint;
           if (firstHold || returning || invalidRoute) {
             st.canopyQuaternion = null; st.canopyGoal = null; st.gripFeet = null; st.canopyReverse = false; st.slothBridge = null;
-            st.canopyProgress = null; st.canopyProgressPose = null; st.canopyWait = 0; st.canopyAvoid = null;
+            st.canopyProgress = null; st.canopyProgressPose = null; st.canopyWait = 0; st.canopyAvoid = null; st.canopyTrail = null; st.canopyBack = 0;
           }
           const previousWeight = mo.canopyWalkerMotion ? st.howlerBody?.clone() : null;
           const motion = canopyStep(st, anchor, def, game, time, returning || invalidRoute, { x: a.x, z: a.y });
@@ -517,7 +517,7 @@ export class Actors {
           const route = st.branchRoute;
           if (route && this.flora.treeSites.get(route.fromSite.tile) === route.fromSite) canopySites.add(route.fromSite);
           const steering = game.speed > 0 && motion.heading.lengthSq() > 1e-8;
-          const settlePose = (mo.primate !== 2 && mo.primate !== 3) || steering || (mo.primate === 3 && gait0 > .01) || firstHold || returning || invalidRoute;
+          const settlePose = (mo.primate !== 2 && mo.primate !== 3) || steering || st.canopyBack > 0 || (mo.primate === 3 && gait0 > .01) || firstHold || returning || invalidRoute;
           const dir = steering ? motion.heading : (st.branchAt || anchor).direction;
           let yaw = Math.atan2(-dir.z, dir.x), sign = 1;
           // Orangutans back down a steep main limb with the head uphill.

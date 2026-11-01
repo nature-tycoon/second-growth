@@ -303,6 +303,7 @@ export function rebaseCanopy(st, flora) {
     changes.set(old, live);
   }
   if (!changes.size) return true;
+  st.canopyTrail = null; // (holds retraced by a wedged orangutan: canopy-pose.js)
   const remap = (point, old) => {
     const live = changes.get(old);
     if (live) {
