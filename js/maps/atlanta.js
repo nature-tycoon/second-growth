@@ -44,8 +44,10 @@ function momentsDaily(g) {
         for (let k = 0; k < 14; k++) {
           const x = Math.round(best.x + (g.rng() - 0.5) * 8), y = Math.round(best.y + (g.rng() - 0.5) * 6);
           if (!w.inb(x, y)) continue;
+          // (they move on south within a few weeks: old enough that their short lives end soon. Not
+          // `passing`, which marks the birds flying over in bird-passage.js and has no wings of its own here)
           const a = W.spawn(g.catalog.animal.monarch, x, y, { silent: true, age: 0.2 * 120 });
-          a.passing = true; a.age = 0.3 * 120; // (they move on south within a few weeks)
+          a.age = 0.3 * 120;
         }
       }
     }

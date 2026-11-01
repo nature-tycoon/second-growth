@@ -23,6 +23,8 @@ export function sampleSoundLand(game, renderer, biome, animals) {
     const key = animals[a.sp].key, distance = Math.hypot(a.x - x0, a.y - y0);
     if (distance <= 28) local.add(key);
     const range = CALL_RANGE[key] ?? 28;
+    // (a woodpecker's drum comes from one that is on a trunk, working it: decision 0030)
+    if (animals[a.sp].sprite.kind === 'woodpecker' && a.bird?.kind !== 'trunk') continue;
     if (distance <= range) {
       audible.add(key);
       if (!callPositions[key] || distance < callPositions[key].distance) callPositions[key] = {

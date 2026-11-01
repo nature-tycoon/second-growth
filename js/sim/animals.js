@@ -8,8 +8,10 @@ import { removeTree } from './plants.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
-import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
+import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate, carryCatch, carryUpdate } from './bird-behavior.js';
+import { climberChoose, climberArrive, fullTrees } from './climbers.js';
+import { fishChoose, fishArrive, fishUpdate, fishStrike, fishing, fishFed, isFish } from './fishing.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
 import { forageChoose, forageArrive, forageUpdate } from './animal-foraging.js';
@@ -18,6 +20,7 @@ import { territorialChoose, hasTerritory } from './animal-territory.js';
 import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
+import { settle, aimDrink, landWalker } from './steering.js';
 import { grazeDay, decayGrazing } from './grazing.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, followLeaderTrip } from './animal-trails.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
@@ -84,7 +87,7 @@ class Animal {
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
-  carry; prey; home; homeAfter;
+  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -643,9 +646,12 @@ export class Wildlife {
   // A bear at the salmon run: go to the bank nearest a running fish, stand and watch the water,
   // and swipe at any salmon that comes within reach. A caught fish is eaten there on the bank,
   // and a fed bear rests a while before fishing again, so the bears take some of the run, not all.
-  fishSalmon(a) {
-    const w = this.game.world, def = this.game.catalog.animals[a.sp];
-    const fish = this.agents.filter(o => this.game.catalog.animals[o.sp].special === 'salmon' && !o.leaving);
+  // Outside a run (run false) a bear now and then does the same for a trout in a creek close by
+  // (its fishing profile, fishing.js: only fish it can see, and less often).
+  fishSalmon(a, run = true) {
+    const w = this.game.world, def = this.game.catalog.animals[a.sp], p = fishing(def, this.game);
+    const fish = this.agents.filter(o => !o.leaving && (run ? this.game.catalog.animals[o.sp].special === 'salmon'
+      : isFish(this.game.catalog.animals[o.sp]) && p && Math.hypot(o.x - a.x, o.y - a.y) < p.reach && this.inCreek(o)));
     if (!fish.length) return false;
     // (a fish in the creek, or near a river bank, is within reach; one out in the deep river isn't)
     const reachable = o => { const i = w.inb(Math.floor(o.x), Math.floor(o.y)) ? w.idx(Math.floor(o.x), Math.floor(o.y)) : -1;
@@ -662,14 +668,18 @@ export class Wildlife {
           if (this.game.diff.ecology) a.hunger = 0;
           this.game.onPredation(a, f);
           const fx = f.x, fy = f.y;
+          a.prey = { id: f.id, sp: f.sp, age: f.age, juvenile: !!f.juvenile, fish: true }; // (drawn in front of it on the bank)
           this.remove(f, 'predation');
           a.state = 'feed'; a.feedAt = [fx, fy]; a.feedT = 1.5 + Math.random(); a.drinkT = 0; a.drinkAt = null;
-          a.wait = 0; a.fishFed = a.age + 6 + Math.random() * 3; // (full for a few days)
+          a.wait = 0; a.fishFed = a.age + (run || !p ? 6 + Math.random() * 3 : p.every[0] + Math.random() * (p.every[1] - p.every[0])); // (full for a few days)
           return true;
         }
         a.wait = 0.6 + Math.random() * 0.6; a.drinkT = 0.5; a.drinkAt = [f.x, f.y]; // missed: head down, eyes on the water
         return true;
       }
+      // a few steps along the bank to get within reach of it
+      const near = (x, y) => Math.hypot(x + 0.5 - f.x, y + 0.5 - f.y);
+      if (this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && near(x, y) < SALMON_REACH, 300, near)) return true;
       // watching: short waits, so a fish swimming past doesn't go unnoticed
       a.wait = 0.8 + Math.random() * 0.8; a.drinkT = 0.6 + Math.random() * 0.4; a.drinkAt = [f.x, f.y];
       return true;
@@ -678,10 +688,14 @@ export class Wildlife {
     // creek meets the river, which every salmon has to swim past
     const near = (x, y) => Math.hypot(x + 0.5 - f.x, y + 0.5 - f.y);
     let ok = this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && near(x, y) < SALMON_REACH, 4000, near);
-    const mouth = !ok && this.creekMouth(f);
+    const mouth = run && !ok && this.creekMouth(f);
     if (mouth) { const m = (x, y) => Math.hypot(x + 0.5 - mouth[0], y + 0.5 - mouth[1]); ok = this.pathTo(a, (j, x, y) => w.distWater[j] === 1 && m(x, y) < 2.5, 4000, m); }
     if (ok) a.run = 1.4;
     return ok;
+  }
+  inCreek(o) {
+    const w = this.game.world, x = Math.floor(o.x), y = Math.floor(o.y);
+    return w.inb(x, y) && (w.terrain[w.idx(x, y)] === T.CREEK || this.nearBank(o.x, o.y));
   }
   nearBank(x, y) {
     const w = this.game.world;
@@ -854,8 +868,9 @@ export class Wildlife {
     const preySet = new Set(diet.map(k => this.game.catalog.animal[k].index));
     for (const b of this.agents) {
       if (!preySet.has(b.sp) || b.leaving || (only && !only(b))) continue;
-      if (!canHuntPrey(this, a, def, b)) continue;
-      const d = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+      if (!canHuntPrey(this, a, def, b) || this.huntBlocked(a, def, b)) continue;
+      // (one it just let go counts as twice as far for a few days: it goes after another if there is one, decision 0026)
+      const d = ((b.x - a.x) ** 2 + (b.y - a.y) ** 2) * (b.id === a.huntCool && a.age < a.huntCoolUntil ? 4 : 1);
       if (d < bd) { bd = d; best = b; }
     }
     if (best) {
@@ -867,8 +882,20 @@ export class Wildlife {
       a.forage = null; a.forageGoal = null;
       beginHunt(this, a, def, best);
       if (perched) a.hunt.perch = true; // (a raptor watching from a perch drops straight on its prey)
+      // (a second try at prey it just let go starts with a stalk or an approach, not a sprint from standing: decision 0026)
+      if (best.id === a.huntCool && a.age < a.huntCoolUntil && a.move !== 'fly') a.hunt.again = 0.6;
     }
     return !!best;
+  }
+
+  // The way to this prey is shut: the next step toward it is ground the hunter can't cross, or (for
+  // water hunters: caiman, anaconda, giant otter, which strike from the water's edge) too far from water.
+  huntBlocked(a, def, b) {
+    if (a.move === 'fly') return false;
+    const w = this.game.world, x = Math.floor(a.x + Math.sign(b.x - a.x) * 0.3), y = Math.floor(a.y + Math.sign(b.y - a.y) * 0.3);
+    if (!w.inb(x, y)) return false;
+    const j = w.idx(x, y);
+    return !passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2);
   }
 
   // A surface fish (a longtom) runs from a charging hunter: straight away from it along the
@@ -1076,7 +1103,7 @@ export class Wildlife {
           // Older saves can contain a head-down pose with no direction (even a calf on dry
           // ground). Repair it on the next simulation step rather than waiting for another trip.
           const bank = this.bankSpot(a);
-          if (bank) { a.drinkAt = bank.water; facePoint(a, ...bank.water); }
+          if (bank) aimDrink(w, a, bank.water);
           else a.drinkT = 0;
         }
       }
@@ -1099,7 +1126,7 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
-          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); break; }
+          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); fishArrive(this, a); climberArrive(this, a); break; }
           if (smoothWalker(def) && a.course?.path !== a.path) shapeCourse(this, a, def); // (a journey walks a curve: see animal-course.js)
           const j = a.path[a.path.length - 1];
           if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1) * (a.dash || a.run || 1), dt) && (a.path.pop(), !a.path.length)) a.dash = null; break; }
@@ -1124,6 +1151,8 @@ export class Wildlife {
           // transit points, or finish beside an occupied destination when already clear.
           const remaining = Math.hypot(a.x - tx, a.y - ty);
           if ((!smoothWalker(def) && a.path.length > 1 && remaining < 0.35 && w.idx(Math.floor(a.x), Math.floor(a.y)) === j) ||
+            // (someone stands on this waypoint: on to the next, rather than braking behind them: 0025)
+            (a.path.length > 1 && remaining < 0.6 && this.spacing.crowd(a, tx, ty) > 0.08) ||
             (a.path.length === 1 && remaining < 0.9 && this.spacing.crowd(a, tx, ty) > 0.08 &&
             this.spacing.crowd(a, a.x, a.y) < 0.04) ||
             // (its spot's been taken and it's getting no closer edging round the others: stop short)
@@ -1150,7 +1179,8 @@ export class Wildlife {
             a.state = 'idle'; a.flying = false;
             const i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
             if (i >= 0 && !canLand(w, i, def)) { a.flying = true; a.wait = 0; break; }
-            a.wait = WADERS.has(def.sprite.kind) && i >= 0 && shallows(w, i) ? 4 + Math.random() * 6 : 0.5 + Math.random() * 3; // a wader settles in
+            // a wader settles in (one come to fish starts soon: fishing.js)
+            a.wait = WADERS.has(def.sprite.kind) && i >= 0 && shallows(w, i) ? (fishing(def, this.game) && !fishFed(a) ? 0.5 + Math.random() : 4 + Math.random() * 6) : 0.5 + Math.random() * 3;
             arrive(this, a);
             birdArrive(this, a);
             forageArrive(this, a);
@@ -1168,22 +1198,17 @@ export class Wildlife {
           }
           if (!canHuntPrey(this, a, def, b)) { a.state = 'idle'; a.wait = 1; endHunt(a); break; }
           if (a.move === 'fly' && !huntStyle(def).grounded && a.alt < 1) a.alt = Math.min(1, a.alt + dt * 2); // (a soaring hawk starts from higher up)
-          const nx = a.x + Math.sign(b.x - a.x) * 0.3, ny = a.y + Math.sign(b.y - a.y) * 0.3;
-          if (a.move !== 'fly' && w.inb(Math.floor(nx), Math.floor(ny))) {
-            const j = w.idx(Math.floor(nx), Math.floor(ny));
-            // water hunters (caiman, anaconda, giant otter) strike from the water's edge, not across the fields
-            if (!passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2)) { a.state = 'idle'; a.wait = 1; endHunt(a); break; }
-          }
+          // (the way is shut, say the prey has taken to the water: it lets it go, easing off if running)
+          if (a.hunt?.phase !== 'ease' && this.huntBlocked(a, def, b)) { letGo(this, a, def, b, sp); break; }
           // approach, stalk or circle, then rush (animal-life.js); the catch is decided on contact
           const reached = huntStep(this, a, def, b, sp);
           if (a.state !== 'hunt' || !reached) break;
-          a.state = 'idle'; a.wait = 1.5;
-          if (a.assist) { endHunt(a); if (a.move === 'fly') a.flying = false; break; } // (the pack's flankers leave the kill to the one in front)
-          endHunt(a);
+          if (a.assist) { a.state = 'idle'; a.wait = 1.5; endHunt(a); if (a.move === 'fly') a.flying = false; break; } // (the pack's flankers leave the kill to the one in front)
           // Only an actual catch or carcass meal satisfies hunger.
           // (a swimmer in the crossing can't run or turn: the crocodiles' best chance all year)
           const swimmer = def.ambush && inCrossing(this, b);
           if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def, swimmer ? 0.7 : 0.45)) {
+            a.state = 'idle'; a.wait = 1.5; endHunt(a);
             a.hunger = 0;
             if (swimmer) a.crossRest = this.game.day + 2;
             this.game.onPredation(a, b);
@@ -1193,12 +1218,18 @@ export class Wildlife {
           } else {
             if (this.game.diff.ecology) this.evadeHunt(b, a);
             missed(this, b, a);
+            // the prey jinks free, and the hunter runs on after it while it has the wind, or lets it
+            // go, easing off (decision 0026)
+            if (pressOn(this, a, def) || (letGo(this, a, def, b, sp), a.state === 'hunt')) break;
           }
           if (a.move === 'fly' && a.state !== 'feed' && a.state !== 'carry') a.flying = false;
           break;
         }
         case 'carry':
           carryUpdate(this, a, def, dt, sp);
+          break;
+        case 'fish':
+          fishUpdate(this, a, def, dt, sp);
           break;
         case 'forage':
           forageUpdate(this, a, def, dt);
@@ -1222,7 +1253,10 @@ export class Wildlife {
           a.feedT -= dt;
           if (a.move === 'fly') { a.alt = Math.max(0, a.alt - dt * 3); a.flying = false; }
           // (hunger counts from the end of the meal: a long meal doesn't use up the time it lasts)
-          if (a.feedT <= 0) { a.state = 'idle'; a.wait = 1 + Math.random() * 2; a.feedAt = null; a.carcass = null; a.prey = null; a.hunger = 0; } // then a rest
+          if (a.feedT <= 0) { // then a rest
+            if (a.carcass != null && a.move === 'fly') a.birdGround = false; // (up off the ground where it ate: feedAt)
+            a.state = 'idle'; a.wait = 1 + Math.random() * 2; a.feedAt = null; a.carcass = null; a.prey = null; a.hunger = 0;
+          }
           break;
         case 'leave':
           if (a.leaveWait > 0) { a.leaveWait -= dt; break; }
@@ -1242,6 +1276,7 @@ export class Wildlife {
     updateVigilance(this, dt);
     this.spacing.rebuild(w, this.agents); this.spacingDirty = false;
     this.spacing.separate(dt, standable);
+    settle(this); // (what it acts on, it faces; out of the wood; off the water: steering.js)
     // Measure progress after spacing: movement can appear successful and then be
     // completely undone by a neighbour pushing the animal back in the same frame.
     for (const a of this.agents) this.checkMovementProgress(a, dt);
@@ -1457,7 +1492,7 @@ export class Wildlife {
       else
       // a far, good tile: keep one at random, weighted toward the best habitat (reservoir sampling)
       // (the river is mostly a corridor: a place to pass through rather than settle)
-      if (depth[i] >= 12 && map[i] > 0.3) { const wgt = map[i] * map[i] * room(i) * (w.terrain[i] === T.RIVER && !def.patrol ? 0.25 : 1); seen += wgt; if (Math.random() * seen < wgt) pick = i; }
+      if (depth[i] >= 12 && map[i] > 0.3 && !(landWalker(def, a) && isWater(w.terrain[i]))) { const wgt = map[i] * map[i] * room(i) * (w.terrain[i] === T.RIVER && !def.patrol ? 0.25 : 1); seen += wgt; if (Math.random() * seen < wgt) pick = i; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         if (!swimmer(a, this.game.catalog) && dx && dy) continue;
@@ -1536,6 +1571,7 @@ export class Wildlife {
     // a predator close by comes before anything else (on land)
     if (!a.leaving && watch(this, a, def)) return;
     if (!a.leaving && socialHold(this, a, def)) return;
+    if (climberChoose(this, a, def)) return; // climbers: room in the tree, and squirrels down to the ground (climbers.js)
     // A newly formed family supersedes an old independent roaming trip.
     if (def.herd && a.trip != null && (this.herdLeader(a) !== a || def.familyHerd && inRut(this.game) && isMaleVariant(def, a))) a.trip = null;
     // on a trip: carry on to the destination (a hunt or a rest may have interrupted it)
@@ -1560,14 +1596,25 @@ export class Wildlife {
         if (this.pathTo(a, (j, x, y) => y < y0 - 14 - (a.id % 9) && map[j] > 0.2, 12000)) { a.trip = null; return; }
       }
     }
-    if (a.move === 'fly' && WADERS.has(def.sprite.kind) && !a.flying && !a.leaving && Math.random() < 0.65 && this.wade(a)) return;
+    if (a.move === 'fly' && WADERS.has(def.sprite.kind) && !a.leaving) {
+      // (a hungry heron that fishes goes fishing at most decisions: fishing.js)
+      const hungry = !!fishing(def, this.game) && !fishFed(a);
+      if ((!a.flying || hungry) && Math.random() < (hungry ? 0.9 : 0.65) && this.wade(a)) return;
+    }
     if (this.salmonRun && def === this.game.catalog.animal.bear && !a.leaving) {
       if (this.game.day < this.salmonRun.until) { if (!(a.fishFed > a.age) && this.fishSalmon(a)) return; }
       else if (a.visit) { this.leave(a); return; }
     }
+    { // (a bear between runs: a trout in a creek close by, now and then)
+      const fp = !a.leaving && fishing(def, this.game);
+      // (once on the bank watching a fish, it keeps at it)
+      const atBank = w.inb(Math.floor(a.x), Math.floor(a.y)) && w.distWater[w.idx(Math.floor(a.x), Math.floor(a.y))] <= 1;
+      if (fp?.style === 'swipe' && !fishFed(a) && !(this.salmonRun && this.game.day < this.salmonRun.until) && (atBank || Math.random() < fp.chance) && this.fishSalmon(a, false)) return;
+    }
     if (def.ambush && this.crossingAt && this.game.day < this.crossingAt.until && this.lurk(a)) return;
     if (!a.leaving && scavenge(this, a, def)) return; // a fresh kill nearby
     if (!a.leaving && prowl(this, a, def)) return;    // predators: lie up after a meal, go looking when hungry
+    if (!a.leaving && fishChoose(this, a, def)) return; // kingfishers, eagles and otters go fishing (fishing.js)
     if (!a.leaving && harem(this, a, def)) return;    // elk in the rut: bulls gather and guard harems
     if (this.drinks(def) && !a.leaving && this.waterhole(a, def)) return;
     if (!a.leaving && homeChoose(this, a, def)) return; // back from the water, a hunt or a scare
@@ -1652,6 +1699,7 @@ export class Wildlife {
       const x = i % W, y = (i / W) | 0;
       if (Math.abs(x - x0) > R || Math.abs(y - y0) > R) continue;
       let s = map[i] * (0.45 + 0.55 * Math.random()) * (patrol || i === start ? 1 : worth(i));
+      if (landWalker(def, a) && isWater(w.terrain[i])) s = 0; // (a land walker doesn't stop in the water)
       if (patrol) {
         const d2 = (x - x0) ** 2 + (y - y0) ** 2;
         if (map[i] > 0.15 && d2 > farD) { farD = d2; far = i; }
@@ -1744,7 +1792,7 @@ export class Wildlife {
         return true;
       }
       a.bankGoal = null;
-      a.drinkAt = bank.water; facePoint(a, ...bank.water);
+      aimDrink(w, a, bank.water); // (its head to the nearest water from where it stands: steering.js)
       if (a.home) a.home.back = true; // and afterwards back home the way it came
       a.waterTrip = false; a.thirst = 0; a.drinkT = restless(this, def, a) ? 0.6 + Math.random() * 0.6 : def.familyHerd ? 0.8 + Math.random() * 0.8 : 2 + Math.random() * 3; a.wait = a.drinkT; a.flying = false; a.alt = 0; // (deer and elk drink and move on)
       return true;
@@ -1781,19 +1829,45 @@ export class Wildlife {
   // or it wades a few steps to another spot. Only once in a while does it take off.
   wade(a) {
     const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
-    if (!w.inb(x0, y0) || !shallows(w, w.idx(x0, y0))) return false;
-    if (Math.random() < 0.55) {
-      a.wait = 3 + Math.random() * 6;
-      if (Math.random() < 0.45) {
+    const def = this.game.catalog.animals[a.sp], fisher = fishing(def, this.game);
+    if (!w.inb(x0, y0)) return false;
+    // a hungry heron that fishes flies down to the shallows to fish (fishing.js)
+    if (a.flying || !shallows(w, w.idx(x0, y0))) return !!fisher && !fishFed(a) && this.toShallows(a, def);
+    const hungry = !!fisher && !fishFed(a);
+    if (Math.random() < (hungry ? 0.8 : 0.55)) {
+      // (a hungry heron stands and strikes every day or so; a fed one stands longer, and strikes
+      // only when it is hungry again: fishing.js)
+      a.wait = hungry ? 0.8 + Math.random() * 1.2 : 3 + Math.random() * 6;
+      if (Math.random() < (fisher ? 0.7 : 0.45) && (hungry || !fisher)) {
         a.drinkT = 1 + Math.random(); // head down: a strike at a fish or frog
         const bank = this.bankSpot(a);
         if (bank) { a.drinkAt = bank.water; facePoint(a, ...bank.water); }
+        // (at the water beside it, or at its feet where it stands in the marsh or the creek)
+        const at = bank ? bank.water : isWater(w.terrain[w.idx(x0, y0)]) ? [a.x + Math.cos(a.hd ?? 0) * 0.35, a.y + Math.sin(a.hd ?? 0) * 0.35] : null;
+        if (fisher && at && fishStrike(this, a, def, at[0], at[1], fisher)) { a.drinkT = 0; a.drinkAt = null; a.wait = 0; }
       }
       return true;
     }
     const ok = this.pathTo(a, (j, x, y) => shallows(w, j) && Math.hypot(x - x0, y - y0) >= 1.5 && Math.random() < 0.35, 90);
     if (ok) { a.wade = true; a.alt = 0; }
     return ok;
+  }
+
+  // Shallows beside water that holds fish, within a short flight.
+  toShallows(a, def) {
+    const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+    let best = -1, bd = Infinity;
+    for (let k = 0; k < 50; k++) {
+      const x = x0 + Math.round((Math.random() * 2 - 1) * 10), y = y0 + Math.round((Math.random() * 2 - 1) * 10);
+      if (!w.inb(x, y)) continue;
+      const j = w.idx(x, y);
+      if (!shallows(w, j) || !canLand(w, j, def) || w.fire[j] || !(w.waterQ[j] > 0.3 || w.distWater[j] <= 1)) continue;
+      const d = Math.hypot(x - x0, y - y0);
+      if (d < bd) { bd = d; best = j; }
+    }
+    if (best < 0) return false;
+    a.tx = best % w.w + 0.5; a.ty = (best / w.w | 0) + 0.5; a.state = 'fly'; a.flying = true; a.path = null; a.bird = null; a.birdGoal = null;
+    return true;
   }
 
   // Crocodiles gather in the river at the crossing while the migration is swimming over: head
@@ -1895,10 +1969,14 @@ export class Wildlife {
     let head = 0, tail = 0, found = -1, near = -1, nd = dist ? dist(x0, y0) : 1e9;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
     const diag = swimmer(a, this.game.catalog);
+    // (a land walker may wade across a creek or a marsh on the way, but no walk of its ends in one: 0025)
+    const dry = landWalker(this.game.catalog.animals[a.sp], a), wet = i => dry && isWater(w.terrain[i]);
+    // (nor does a climber's end in a tree that already holds as many of its kind as it takes: climbers.js)
+    const full = fullTrees(this, a), ends = i => !wet(i) && !full?.has(i);
     while (head < tail && tail < cap) {
       const i = bfsQ[head++], x = i % W, y = (i / W) | 0;
-      if (i !== start && goal(i, x, y)) { found = i; break; }
-      if (dist) { const d = dist(x, y); if (d < nd) { nd = d; near = i; } }
+      if (i !== start && ends(i) && goal(i, x, y)) { found = i; break; }
+      if (dist && ends(i)) { const d = dist(x, y); if (d < nd) { nd = d; near = i; } }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         if (!diag && dx && dy) continue;
@@ -1942,7 +2020,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, settleKey, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,
@@ -1954,7 +2032,8 @@ export class Wildlife {
     this.carcasses = [];
     this.flyovers = []; this.passageWait = 8 + Math.random() * 10;
     this.agents = d.agents.map(a => Object.assign(new Animal(), a, { territory: a.territory ? { ...a.territory } : undefined, dormancy: a.dormancy ? { ...a.dormancy } : undefined, range: a.range ? { ...a.range, route: a.range.route?.slice() } : undefined, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : undefined, moveProgress: null, fruitGoal: null, forageGoal: null, forage: null, state: a.state === 'walk' || a.state === 'forage' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
-      wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5 }));
+      wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5,
+      passing: undefined })); // (only flyovers pass over; older saves have monarchs marked so by mistake, which broke drawing)
     this.nextId = d.nextId;
     d.state.forEach((s, k) => { if (this.state[k]) Object.assign(this.state[k], s); });
     this.salmon = d.salmon; this.dams = d.dams;

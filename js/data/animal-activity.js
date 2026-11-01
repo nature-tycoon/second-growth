@@ -21,5 +21,11 @@ export function activityProfileFor(def) {
     return { ...DEFAULT, hungry: 7, search: 5, rest: 0.4, fed: 7, bout: [1, 2], digest: 1, soar: def.soar ? 0.7 : 0, seek: true };
   return DEFAULT;
 }
+// Night animals (behavior.nocturnal) are out from sunset until just before dawn, as drawn, and by
+// day are tucked into their roosts (a snag, a box, a barn) and not drawn. The simulation has no
+// clock of its own (a drawn day lasts months of game time), so this is the drawing's day: `out` is
+// the renderer's nightOut, 0 by day to 1 at night, and each animal comes out at its own point in
+// the dusk, so they stream out one by one rather than all at once.
+export const roostingNow = (a, def, out) => !!def?.behavior?.nocturnal && out != null && out < 0.15 + ((a.id * 0.618) % 1) * 0.7;
 // Hunger at which a hunter stops resting and hunts (and leaves off patrols, soaring and the like).
 export const huntHunger = def => def.behavior?.activity?.hungry ?? DEFAULT.hungry;

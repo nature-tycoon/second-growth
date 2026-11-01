@@ -67,11 +67,13 @@ export default function buildSerengetiAnimals(def) {
       hint: 'Acacia woodland and thornbush.' });
   }
   {
-    const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 1, RIPARIAN: 1, SHRUB: 0.8, MEADOW: 0.6, MARSH: 0.6 });
+    // (they browse the bush and graze the open grassland as much as the riverine woods, and range
+    // far from water between drinks: a herd isn't tied to the riverbank)
+    const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 1, RIPARIAN: 1, SHRUB: 1, MEADOW: 0.9, MARSH: 0.6 });
     def({ key: 'elephant', herd: true, tramples: true, herdR: 2.5, herdMax: 5, name: 'African elephant', sci: 'Loxodonta africana', group: 'Mammals', move: 'ground',
       speed: 1.1, hr: 160, max: 8, minK: 2, groupSize: [3, 6], sources: ['N'], mig: 0.2, intro: 16000,
       breed: [1], litter: [1, 1], life: 60, mature: 12,
-      suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.3),
+      suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 11, 0.3),
       req: g => Math.min(1, g.forestTiles / 400) * Math.min(1, (g.cleanWater + 10) / 30),
       sprite: { kind: 'elephant', len: 46, h: 26, leg: 20, color: '#8a8480', belly: '#7a7470', dark: '#4a4440', show: 1.45 },
       desc: 'Walks tens of kilometres a day, opening up thick bush and planting desert dates in its dung. A family herd needs a lot of room and water.',
@@ -240,7 +242,8 @@ export default function buildSerengetiAnimals(def) {
 
   // ------------------------------------------------------------------ Reptiles
   {
-    const w = habW({ RIVER: 1, POND: 1, MARSH: 0.7, CREEK: 0.5 });
+    // (a creek joined to the river is crocodile water too: they hunt up smaller rivers and channels)
+    const w = habW({ RIVER: 1, POND: 1, MARSH: 0.7, CREEK: 0.9 });
     def({ key: 'crocodile', ambush: true, name: 'Nile crocodile', sci: 'Crocodylus niloticus', group: 'Reptiles & more', move: 'semi',
       speed: 0.9, hr: 30, max: 8, minK: 1, sources: ['S'], mig: 0.25, breed: [8, 9], litter: [3, 6], life: 50, mature: 8,
       prey: ['wildebeest', 'zebra', 'catfish', 'gazelle'], preyPer: 8,

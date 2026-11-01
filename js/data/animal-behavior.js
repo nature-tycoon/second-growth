@@ -1,6 +1,7 @@
 import { dormancyProfileFor } from './animal-dormancy.js';
 import { territoryProfileFor } from './animal-territories.js';
 import { activityProfileFor } from './animal-activity.js';
+import { fishingProfileFor } from './animal-fishing.js';
 // Behavioral guilds complement species habitat/diet data; they never change population capacity.
 // Research and per-map audit: tools/animal-behavior-audit.json.
 const GRAZE = new Set(['rabbit', 'capybara', 'zebra', 'wildebeest', 'gazelle', 'antelope', 'buffalo', 'warthog', 'hippo']);
@@ -11,6 +12,16 @@ const HORNS = new Set(['deer', 'buffalo', 'impala', 'gazelle', 'antelope', 'wild
 const WATER_DEPENDENT = new Set(['wildebeest', 'zebra', 'buffalo', 'elephant', 'gajah', 'cattle']);
 // How far an animal walks to drink (a multiple of its species' usual reach), and the
 // share of its time water trips may take. With no water in reach it gets by on food and dew (decision 0013).
+// Which young play-chase each other: mammals do (and many birds, though not on foot here). Frogs,
+// reptiles, fish and insects don't, nor do the slow, solitary mammals whose young ride on the mother.
+const NO_PLAY = new Set(['sloth', 'armadillo', 'anteater', 'pangolin', 'bat']);
+// Out only after dark, in a roost by day (roostingNow in animal-activity.js): bats, flying squirrels.
+const nocturnalFor = def => def.sprite.kind === 'bat' || def.key === 'flyingsquirrel';
+// Climbers share out the trees, two of a kind to a tree at most, and gray squirrels come down to
+// forage and bury nuts on the ground (sim/climbers.js): ground is the chance at a decision.
+const GROUND_CLIMBERS = { graysquirrel: 0.2 };
+const climbFor = def => def.move === 'tree' ? { cap: 2, ground: GROUND_CLIMBERS[def.key] ?? 0 } : null;
+const playsFor = def => def.group === 'Mammals' && !NO_PLAY.has(def.sprite.kind);
 const waterProfileFor = def => WATER_DEPENDENT.has(def.key) ? { reach: 1.5, share: 0.15 } : { reach: 1, share: 0.08 };
 export function behaviorFor(def) {
   const s = def.sprite, k = s.kind;
@@ -46,5 +57,5 @@ export function behaviorFor(def) {
   // Coyotes pursuing the small prey represented here hunt alone or with one companion.
   const partners = def.key === 'coyote' ? 1 : ['lion', 'hyena', 'giantotter'].includes(def.key) ? 3 : 0;
   const combat = def.domestic ? null : HORNS.has(k) ? 'horns' : k === 'giraffe' ? 'necking' : null;
-  return { forage, hunt, partners, combat, territory: territoryProfileFor(def), dormancy: dormancyProfileFor(def), water: waterProfileFor(def), activity: activityProfileFor(def) };
+  return { forage, hunt, partners, combat, plays: playsFor(def), nocturnal: nocturnalFor(def), fishing: fishingProfileFor(def), climb: climbFor(def), territory: territoryProfileFor(def), dormancy: dormancyProfileFor(def), water: waterProfileFor(def), activity: activityProfileFor(def) };
 }

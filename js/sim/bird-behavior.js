@@ -8,16 +8,21 @@ import { canLand } from './animal-terrain.js';
 import { bolt, scavenge, feedAt } from './animal-life.js';
 import { facePoint } from './animal-positioning.js';
 import { travelSpeed } from './climb-pace.js';
+import { treeTrunk } from './ground-obstacles.js';
 
 export const isBird = def => def?.move === 'fly' && (def.group === 'Birds' || def.group === 'Seabirds');
 const groundFeeders = new Set(['robin', 'thrush', 'cardinal', 'goldfinch', 'bluebird', 'wren', 'weaver', 'roller', 'jay', 'urraca']);
 const cavityKeys = new Set(['bluebird', 'chickadee', 'woodduck', 'barnowl', 'owl', 'woodpecker', 'macaw', 'lora', 'chocoyo', 'hornbill', 'toucan']);
+// Birds that forage on tree trunks, clinging upright and pecking and drumming (decision 0030):
+// every woodpecker, and any other species listed here (nuthatches, creepers).
+const trunkKeys = new Set([]);
 export function birdProfile(def, catalog = activeCatalog) {
   const kind = def.sprite.kind;
   return { ground: groundFeeders.has(def.key) || ['secretary', 'crane'].includes(kind) || kind === 'songbird' && !['sunbird', 'kingfisher', 'motmot', 'noddy'].includes(def.key),
     perch: !['heron', 'crane', 'duck', 'booby'].includes(kind),
     cavity: cavityKeys.has(def.key) || ['woodpecker', 'owl', 'macaw', 'hornbill', 'toucan'].includes(kind),
-    social: ['songbird', 'macaw', 'duck', 'booby'].includes(kind), bath: kind !== 'hummer' && !catalog.definition.look.underwater };
+    social: ['songbird', 'macaw', 'duck', 'booby'].includes(kind), bath: kind !== 'hummer' && !catalog.definition.look.underwater,
+    trunk: kind === 'woodpecker' || trunkKeys.has(def.key) };
 }
 
 function groundTile(w, i) {
@@ -29,6 +34,15 @@ function forageTile(w, i) {
 }
 function perchTile(w, i) {
   return !w.fire[i] && (w.tree[i] && w.treeG[i] > 0.55 || w.feature[i] === F.SNAG);
+}
+// A tree big enough to work over, with a trunk drawn (trees without one, like palms, have none).
+function trunkTile(w, i) {
+  return !w.fire[i] && w.tree[i] && w.treeG[i] > 0.6 && !!treeTrunk(w, i % w.w, i / w.w | 0);
+}
+// The spot on the ground under where it clings: just off the trunk on its side `side` (radians).
+export function trunkSide(w, i, side) {
+  const t = treeTrunk(w, i % w.w, i / w.w | 0);
+  return t && [t[0] + Math.cos(side) * (t[2] + 0.05), t[1] + Math.sin(side) * (t[2] + 0.05)];
 }
 function nestTile(w, i, profile) {
   if (w.fire[i]) return false;
@@ -59,9 +73,15 @@ function nearby(wl, a, good, radius = 8, min = 0) {
 const BRISK = new Set(['songbird', 'hummer', 'woodpecker']);
 const tileKey = a => Math.floor(a.y) * 1e4 + Math.floor(a.x);
 const inTree = kind => kind === 'perch' || kind === 'preen';
-function hold(wl, a, kind, t = inTree(kind) ? 5 + Math.random() * 7 : 1.5 + Math.random() * 2, water = null) {
-  if (BRISK.has(wl.game.catalog.animals[a.sp].sprite.kind) && kind !== 'nest') t *= inTree(kind) ? 0.75 : 0.5;
+function hold(wl, a, kind, t = inTree(kind) ? 5 + Math.random() * 7 : kind === 'trunk' ? 4 + Math.random() * 5 : 1.5 + Math.random() * 2, water = null, side = null) {
+  if (BRISK.has(wl.game.catalog.animals[a.sp].sprite.kind) && kind !== 'nest' && kind !== 'trunk') t *= inTree(kind) ? 0.75 : 0.5;
   a.state = 'bird'; a.bird = { kind, t, water }; a.birdGoal = null;
+  // on a trunk: low on it, a tenth to a third of the way up the tree as built before 0024 made
+  // trunks longer (render3d treeLevel), on the side it came in from; it hitches up as it works
+  if (kind === 'trunk') {
+    a.bird.h = 0.1 + Math.random() * 0.2; a.bird.side = side ?? Math.random() * Math.PI * 2;
+    a.hd = a.orientation = Math.atan2(-Math.sin(a.bird.side), -Math.cos(a.bird.side)); // (facing the trunk)
+  }
   if (kind === 'perch' || kind === 'preen') a.perchedAt = tileKey(a);
   if (kind === 'forage') a.foragedAt = tileKey(a);
   a.flying = false; a.alt = 0; a.path = null; a.wait = t;
@@ -272,6 +292,15 @@ export function birdChoose(wl, a, def) {
     const j = nearby(wl, a, j => j !== i && forageTile(w, j) && suit[j] > 0.05, 5, 2);
     if (j >= 0) { flyTo(a, w, j, 'forage'); return true; }
   }
+  if (profile.trunk && roll < 0.72) {
+    // Woodpeckers work over the trunks of big trees, a few trees apart (pileateds dig for ants)
+    if (trunkTile(w, i) && a.foragedAt !== tileKey(a)) { hold(wl, a, 'trunk', undefined, null, a.clingSide); a.foragedAt = tileKey(a); return true; }
+    const j = nearby(wl, a, j => j !== i && trunkTile(w, j) && suit[j] > 0.03, 8, 2);
+    if (j >= 0) {
+      const side = Math.random() * Math.PI * 2, at = trunkSide(w, j, side);
+      if (at) { a.clingSide = side; flyTo(a, w, j, 'trunk', at[0], at[1]); return true; }
+    }
+  }
   if (profile.perch && roll < 0.9) {
     // A spell or two in a tree, then on to another a few trees away, not the next trunk over.
     if (perchTile(w, i) && (a.perchedAt !== tileKey(a) || Math.random() < 0.5)) { hold(wl, a, Math.random() < 0.4 ? 'preen' : 'perch'); return true; }
@@ -301,7 +330,8 @@ export function birdArrive(wl, a) {
   if (goal.kind === 'forage' && !forageTile(w, i) || goal.kind === 'perch' && !perchTile(w, i) ||
     goal.kind === 'nest' && !nestTile(w, i, birdProfile(def, wl.game.catalog))) return;
   if (goal.kind === 'bathe' && !bathValid(w, a, goal.water)) return;
-  hold(wl, a, goal.kind, undefined, goal.water);
+  if (goal.kind === 'trunk' && !trunkTile(w, i)) return;
+  hold(wl, a, goal.kind, undefined, goal.water, a.clingSide);
 }
 export function birdUpdate(wl, a, def, dt) {
   const w = wl.game.world, i = w.idx(Math.floor(a.x), Math.floor(a.y)), b = a.bird;
@@ -331,6 +361,8 @@ export function birdUpdate(wl, a, def, dt) {
   }
   const invalid = w.fire[i] || (b.kind === 'perch' || b.kind === 'preen') && !perchTile(w, i) ||
     b.kind === 'forage' && !forageTile(w, i) || b.kind === 'nest' && !nestTile(w, i, birdProfile(def, wl.game.catalog)) ||
-    b.kind === 'bathe' && !bathValid(w, a, b.water);
+    b.kind === 'bathe' && !bathValid(w, a, b.water) || b.kind === 'trunk' && !trunkTile(w, i);
+  // (hitching up the trunk as it works, a little at a time)
+  if (b.kind === 'trunk' && Math.random() < dt * 0.8) b.h = Math.min(0.42, b.h + 0.02 + Math.random() * 0.03);
   if (invalid || b.t <= 0) { a.bird = null; a.state = 'idle'; a.wait = invalid ? 0 : 0.3 + Math.random() * 0.5; }
 }
