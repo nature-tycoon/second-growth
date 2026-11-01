@@ -299,7 +299,7 @@ export default function buildSumatraAnimals(def) {
       speed: 0.5, hr: 30, max: 4, sources: ['S', 'W'], mig: 0.2, breed: [6], litter: [4, 6], life: 20, mature: 3,
       prey: ['woodrat', 'boar', 'macaque'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 4, 0.4),
-      sprite: { kind: 'snake', reticulated: true, size: 30, color: '#8a7a4a', stripe: '#8a7a4a', side: '#2a2016', blotches: '#e0c870', belly: '#e8dcb8' },
+      sprite: { kind: 'snake', reticulated: true, size: 30, length: 3.6, color: '#8a7a4a', stripe: '#8a7a4a', side: '#2a2016', blotches: '#e0c870', belly: '#e8dcb8' },
       desc: 'The longest snake in the world, patterned like a net. It waits near water and in the palms, where it eats a great many rats.',
       hint: 'Swamp, streamside forest and palms with rats.' });
   }
