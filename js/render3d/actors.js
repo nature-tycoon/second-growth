@@ -8,7 +8,8 @@ import { clearCanopy } from './flight-clearance.js';
 const CLEAR = { floor: -Infinity }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
 import * as S from '../render/sprites.js';
-import { treeHeight } from './tree-stature.js';
+import { treeHeight, treeLevel } from './tree-stature.js';
+import { treeTrunk } from '../sim/ground-obstacles.js';
 import { contactShadow } from './geometry/features.js';
 import { AnimalShadows } from './animal-shadows.js';
 import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './animals/animal-pools.js';
@@ -85,7 +86,24 @@ function drawCatch(F, game, a, def, st, sc) {
   }
 }
 
+// Where a bird working a trunk clings (sim/bird-behavior.js 'trunk'): the trunk as drawn
+// (treeTrunk, shared with flora.js), on the side it came in from, at a height read on the tree as
+// built (treeLevel, decision 0024) so it stays on the bark below the crown however tall the trunk.
+function trunkCling(flora, game, w, i, a, def, sc) {
+  const t = treeTrunk(w, i % w.w, i / w.w | 0);
+  if (!t) return null;
+  const site = flora?.treeSites.get(i), b = a.bird, p = game.catalog.plants[w.tree[i]];
+  let y;
+  if (site?.geo) {
+    if (!site.geo.boundingBox) site.geo.computeBoundingBox();
+    y = site.transform[1] + treeLevel(site.geo, b.h) * site.transform[4];
+  } else y = w.heightAt(t[0], t[1]) * LEVEL + treeHeight(p) * w.treeG[i] * b.h * 0.8;
+  const off = t[2] * 0.8 + (def.sprite.size || 10) * sc * 0.012, side = b.side ?? 0;
+  return { x: t[0] + Math.cos(side) * off, z: t[1] + Math.sin(side) * off, y, yaw: Math.atan2(Math.sin(side), -Math.cos(side)) };
+}
+
 export class Actors {
+  trunkCling(game, w, i, a, def, sc) { return trunkCling(this.flora, game, w, i, a, def, sc); }
   constructor(scene, flora = null, { canopyWalkerMotion = true, howlerPrototype } = {}) {
     this.scene = scene;
     this.flora = flora;
@@ -238,6 +256,7 @@ export class Actors {
       // Flyers descend relative to the visible surface, even above a deeply carved basin.
       let y = def.move === 'fly' ? Math.max(ground, surf ?? ground) : ground;
       let perchSite = null; // (the tree a perched bird sits in, when its limbs are known)
+      let cling = null; // (a woodpecker on a trunk: where on it, and facing it: trunkCling)
       let swimming = false; // (a land animal out of its depth, paddling with its head out)
       // Which crown a climber or percher is in: it keeps the tree it's in until it's clearly into
       // the next one, so an animal nudged back and forth across the line between two trees of
@@ -289,6 +308,7 @@ export class Actors {
         const swimY = level - mo.eye[1] * sc * 0.85;
         if (swimY > ground) { y = swimY; swimming = true; }
       }
+      else if (def.move === 'fly' && a.bird?.kind === 'trunk' && inside && (cling = this.trunkCling(game, w, i, a, def, sc))) y = cling.y;
       else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
         const c = ci(); perchSite = this.flora?.treeSites.get(c); y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
@@ -365,6 +385,13 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      if (cling) {
+        // upright against the bark, facing it, the head hammering in bursts
+        ax = cling.x; az = cling.z;
+        st.yaw = lerpAngle(st.yaw, cling.yaw, Math.min(1, k * 3));
+        st.pitch = (st.pitch || 0) + (1.2 - (st.pitch || 0)) * Math.min(1, k * 2);
+        st.graze = Math.sin(time * 0.9 + a.id * 2.1) > 0.1 ? (Math.sin(time * 26 + a.id) > 0 ? 0.9 : 0.15) : 0.3;
+      } else if (def.move === 'fly' && st.pitch) st.pitch += (0 - st.pitch) * Math.min(1, k * 2);
       // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
       // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).
       const munch = def.reef && a.state === 'forage' && a.forage?.food === 'starfish' && w.shrub[a.forage.i] ? a.forage.i : -1;

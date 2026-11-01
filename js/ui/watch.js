@@ -43,7 +43,7 @@ function interest(a, def, out) {
   if (a.leaving || dormancyStatus(a) || roostingNow(a, def, out)) return 0;
   let s = a.state === 'hunt' ? (a.hunt?.phase === 'rush' ? 9 : 6) : a.state === 'carry' ? 6 : a.state === 'fish' ? (a.fishing?.phase === 'dive' ? 7 : 4.5) : a.state === 'feed' ? (a.prey ? 6 : 2.5)
     : a.state === 'spar' ? 6 : a.state === 'flee' ? 4 : a.state === 'play' ? 4 : a.drinkT > 0 ? 3.5 : a.bugleT > 0 ? 4
-    : a.state === 'forage' ? 2 : a.bird?.kind === 'soar' ? 2.5 : a.state === 'walk' || a.state === 'fly' ? 1.5 : 1;
+    : a.state === 'forage' ? 2 : a.bird?.kind === 'trunk' ? 3 : a.bird?.kind === 'soar' ? 2.5 : a.state === 'walk' || a.state === 'fly' ? 1.5 : 1;
   if (a.mom != null && a.follow) s += 1.5; // a young one at its mother's side
   return s;
 }
