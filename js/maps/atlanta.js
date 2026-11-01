@@ -454,6 +454,7 @@ export default {
     crownOut: 'Standing dead trees will host woodpeckers and owls.',
   },
   look: {
+    skyHaze: 0.45, // the clear-day sky at eye level: Southern summer humidity (0..1, see SKY_DEEP in scene.js)
     // humid Southern light: soft, green, a little hazy in summer
     grade: { gain: [1.0, 1.01, 0.98], lift: [0.004, 0.004, 0.002], sat: 1.04, contrast: 1.06 },
     pasture: ['#7cae4c', '#86b452', '#98a45a', '#b2a878'], // sod: green in spring and summer, dormant tan by winter

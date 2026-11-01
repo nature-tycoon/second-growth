@@ -337,6 +337,7 @@ export default {
     crownOut: 'Standing dead trees will host woodpeckers and parrots while the forest grows back.',
   },
   look: {
+    skyHaze: 0.35, // the clear-day sky at eye level: humid lowland, with the volcano gas (0..1, see SKY_DEEP in scene.js)
     grade: { gain: [1.01, 1.0, 0.98], lift: [0.004, 0.002, 0.0], sat: 1.06, contrast: 1.07 },
     pasture: ['#a8a468', '#8aa452', '#8aa452', '#b0a46a'],
     soil: [0.2, 0.17, 0.15], mud: [0.25, 0.22, 0.2],      // young volcanic ash soil: near-black

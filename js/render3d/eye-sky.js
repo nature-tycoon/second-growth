@@ -11,12 +11,14 @@
 
 import * as THREE from 'three';
 import { CLOUD_NOISE } from './atmosphere.js';
+import { moonTexture, moonAxes } from './moon.js';
 
 export const SKY_RADIUS = 33; // just inside the eye's far plane (EYE_FAR)
 const CLOUD_H = 10;           // how high the cloud layer is, in tiles
 const RAIN = 2400, SNOW = 2000;
 const BOX = new THREE.Vector3(14, 8, 14); // the space round the eye that rain and snow fill
 const WHITE = new THREE.Color(1, 1, 1);
+const MOON_R = 0.0257; // the discs' radius across the sky (the sine of about 1.5 degrees: bigger than the real half degree, to read on a small screen)
 const RAIN_VEL = new THREE.Vector3(1.4, -11, 0.5), SNOW_VEL = new THREE.Vector3(0.35, -0.9, 0.15); // tiles a second, with the wind
 
 const DOME_VERT = `
@@ -27,15 +29,17 @@ const DOME_VERT = `
   }`;
 const DOME_FRAG = `
   #include <common>
-  uniform vec3 uHorizon, uZenith, uSunDir, uSunCol, uCam;
-  uniform float uSunLight, uSunUp, uNight, uCover, uStorm, uFlash, uT;
+  uniform vec3 uHorizon, uZenith, uSunDir, uSunCol, uCam, uMoonUp, uMoonRight;
+  uniform sampler2D uMoon;
+  uniform float uSunLight, uSunUp, uNight, uCover, uStorm, uFlash, uT, uClear;
   varying vec3 vDir;
   ${CLOUD_NOISE}
   void main() {
     vec3 d = normalize(vDir);
     float up = max(d.y, 0.0), s = dot(d, uSunDir), sp = max(s, 0.0);
     float above = smoothstep(0.0, 0.12, d.y); // (at the horizon itself the sky is the haze, as the land's fog is)
-    vec3 col = mix(uHorizon, uZenith, pow(up, 0.55));
+    // a clear day's sky (uClear) is the deep blue a little way up, the pale band hugging the horizon
+    vec3 col = mix(uHorizon, uZenith, mix(pow(up, 0.55), 1.0 - pow(1.0 - up, 3.0), uClear));
     // the glow round the sun: a low sun colours a wide stretch of sky its own gold, a high one only
     // brightens a little round itself
     float low = (1.0 - uSunUp) * (1.0 - uSunUp), clear = above * (1.0 - uStorm) * (1.0 - uNight);
@@ -48,9 +52,14 @@ const DOME_FRAG = `
       float star = step(0.991, h) * (1.0 - smoothstep(0.08, 0.42, length(fract(q) - 0.5)));
       col += vec3(0.7, 0.76, 1.0) * star * uNight * smoothstep(0.04, 0.25, d.y) * (0.65 + 0.35 * sin(uT * 2.3 + h * 90.0));
     }
-    // the sun's disc, or the moon's at night
-    float disc = smoothstep(0.99955, 0.9998, s);
-    vec3 discCol = mix(uSunCol * 5.0, vec3(0.8, 0.84, 0.95) * 1.2, uNight);
+    // the sun's disc, or the moon's at night: its real face (moon.js), turned for the map's latitude
+    vec3 disc = uSunCol * 5.0 * smoothstep(0.99955, 0.9998, s) * (1.0 - uNight);
+    if (uNight > 0.01 && s > 0.999) {
+      vec2 p = vec2(dot(d, uMoonRight), dot(d, uMoonUp)) / ${MOON_R.toFixed(4)}; // (across the disc, -1..1)
+      vec4 face = texture2D(uMoon, p * 0.5 + 0.5);
+      float r = length(p), limb = 1.0 - 0.2 * pow(min(r, 1.0), 6.0); // (a full moon darkens only a little toward its edge)
+      disc += vec3(0.86, 0.85, 0.82) * face.r * limb * uNight * (1.0 - smoothstep(0.9, 1.0, r));
+    }
     // clouds: the ground's cloud field, seen from below on a layer CLOUD_H tiles up
     float cl = 0.0, lit = 0.6;
     if (d.y > 0.0) {
@@ -64,7 +73,7 @@ const DOME_FRAG = `
     vec3 dark = uHorizon * mix(0.8, 0.42, uStorm);
     vec3 bright = uHorizon * 0.92 + uSunCol * uSunLight * 0.5 * (1.0 - 0.75 * uNight); // (moonlit clouds stay dim)
     vec3 cloud = mix(dark, bright, lit * (1.0 - uStorm * 0.75));
-    col += discCol * disc * (1.0 - cl);
+    col += disc * (1.0 - cl);
     col = mix(col, cloud, cl);
     col += uSunCol * uSunLight * pow(sp, 10.0) * cl * (1.0 - cl) * 1.4 * (1.0 - uStorm); // a bright rim on clouds by the sun
     // overcast: a grey veil over the gaps, darker in a storm
@@ -134,8 +143,9 @@ export class EyeSky {
     this.u = {
       uHorizon: { value: new THREE.Color() }, uZenith: { value: new THREE.Color() },
       uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Color() }, uCam: { value: new THREE.Vector3() },
-      uSunLight: { value: 1 }, uSunUp: { value: 1 }, uNight: { value: 0 }, uCover: { value: 0 }, uStorm: { value: 0 },
+      uSunLight: { value: 1 }, uSunUp: { value: 1 }, uNight: { value: 0 }, uClear: { value: 0 }, uCover: { value: 0 }, uStorm: { value: 0 },
       uFlash: { value: 0 }, uT: { value: 0 },
+      uMoon: { value: moonTexture() }, uMoonUp: { value: new THREE.Vector3(0, 1, 0) }, uMoonRight: { value: new THREE.Vector3(1, 0, 0) },
     };
     this.dome = new THREE.Mesh(new THREE.SphereGeometry(SKY_RADIUS, 32, 16),
       new THREE.ShaderMaterial({ uniforms: this.u, vertexShader: DOME_VERT, fragmentShader: DOME_FRAG, side: THREE.BackSide, depthWrite: false }));
@@ -146,8 +156,8 @@ export class EyeSky {
     this.flash = 0;
   }
 
-  // v: { cam, forward, t, dt, horizon, zenith, sunDir, sunCol, sunLight, sunUp, night, cover, storm,
-  //      rain, snow (0..1), flash (lightning, 0..1), px (drawing-buffer pixels a tile-wide thing covers 1 tile away, for snowflakes) }
+  // v: { cam, forward, t, dt, horizon, zenith, clear (how clear a day, 0..1, for the sky's gradient), sunDir, sunCol, sunLight, sunUp, night, cover, storm,
+  //      rain, snow (0..1), flash (lightning, 0..1), lat (the map's latitude, to turn the moon), px (drawing-buffer pixels a tile-wide thing covers 1 tile away, for snowflakes) }
   update(v) {
     const u = this.u, cam = v.cam.position;
     this.dome.visible = true;
@@ -155,7 +165,8 @@ export class EyeSky {
     u.uHorizon.value.copy(v.horizon); u.uZenith.value.copy(v.zenith);
     u.uSunDir.value.copy(v.sunDir); u.uSunCol.value.copy(v.sunCol); u.uCam.value.copy(cam);
     u.uSunLight.value = v.sunLight; u.uSunUp.value = v.sunUp; u.uNight.value = v.night;
-    u.uCover.value = v.cover; u.uStorm.value = v.storm; u.uT.value = v.t;
+    u.uCover.value = v.cover; u.uStorm.value = v.storm; u.uT.value = v.t; u.uClear.value = v.clear || 0;
+    if (v.night > 0.01) moonAxes(v.sunDir, v.lat || 0, u.uMoonUp.value, u.uMoonRight.value);
     this.flash = v.flash || 0;
     u.uFlash.value = this.flash;
     this.lum = Math.min(1, 0.25 + 1.6 * (v.horizon.r * 0.3 + v.horizon.g * 0.6 + v.horizon.b * 0.1)); // (snowflakes go grey as the light fades)

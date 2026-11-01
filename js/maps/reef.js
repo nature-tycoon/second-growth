@@ -532,6 +532,7 @@ export default {
     hardpanLimit: 'loose rubble: lay reef stars, or let coralline algae cement it, first',
   },
   look: {
+    skyHaze: 0.2, // the clear-day sky at eye level: sea air, a little salt haze (0..1, see SKY_DEEP in scene.js)
     grade: { gain: [0.99, 1.01, 1.02], lift: [0, 0.004, 0.008], sat: 1.08, contrast: 1.06 },
     pasture: ['#e6dcc0', '#e2dac2', '#e8dec2', '#eae0c2'], // pale coral sand
     soil: [0.74, 0.7, 0.62], mud: [0.6, 0.56, 0.48],
