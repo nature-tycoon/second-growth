@@ -194,8 +194,10 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'fish', size: 13, needle: true, escape: 'skip', back: '#3d6a66', flank: '#b8cbc6', belly: '#eef2ee', finColor: '#4c7672', swim: 0.95, show: 1.55 },
     desc: 'A long, silver-green needlefish with a beak full of needle teeth. It hunts small fish right at the surface over the seagrass, and when something hunts it, it leaps clear of the water and skips away across the surface on its tail.',
     hint: 'Seagrass meadows full of small fish.' });
+  // (speed: a blacktip cruises the flats at roughly 1 m/s, two or three times a coral trout's pace, so it
+  // covers more of its own body lengths a day than the reef fish do)
   def({ key: 'blacktip', reef: true, name: 'Blacktip reef shark', sci: 'Carcharhinus melanopterus', group: 'Turtles, sharks & rays', move: 'ground',
-    speed: 1.2, hr: 30, max: 3, minK: 1, groupSize: [1, 2], sources: ['N', 'E', 'W'], mig: 0.3, breed: [10], litter: [2, 4], life: 15, mature: 4,
+    speed: 1.9, hr: 30, max: 3, minK: 1, groupSize: [1, 2], sources: ['N', 'E', 'W'], mig: 0.3, breed: [10], litter: [2, 4], life: 15, mature: 4,
     prey: ['longtom', 'chromis'], preyPer: 8,
     suit: (W, i) => Math.max(meadow[W.habitat[i]], 0.5 * reef[W.habitat[i]]),
     req: g => Math.min(1, Math.max(0, g.meadowTiles - 1800) / 1000),
