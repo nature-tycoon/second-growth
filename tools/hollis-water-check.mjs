@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { World } from '../js/world.js';
 import { HollisWater, tileWaterVolume, waterModel } from '../js/sim/hollis-water.js';
-waterModel.enabled = true; // (the model is off in play until it's ready)
+waterModel.enabled = true; // (on by default; a test may switch it off)
 import { T, F } from '../js/config.js';
 import { PLANT } from '../js/data/plants.js';
 import { updatePlants, plantLimits } from '../js/sim/plants.js';
@@ -109,7 +109,7 @@ check('Reservoirs are exclusive to Hollis; all other maps keep their terrain and
     const g=new Game();g.newGame(1987,'free','standard',map);assert.equal(g.water,null);assert.equal(g.world.waterLevel,null);assert.equal(g.saveData().world.water,undefined);
   }
 });
-check('Switched off, Hollis plays as before and saves made under the model load back to their ground', () => {
+check('Switched off (?water=0), Hollis plays as before and saves made under the model load back to their ground', () => {
   const g=farm(),w=g.world;g.weather='clear';g.day=50;for(let k=0;k<60;k++)g.water.step(g);
   const base=g.water.base.slice(),data=g.saveData();assert.ok(data.world.water);
   assert.ok(base.some((t,i)=>t!==w.terrain[i]),'the summer drawdown changed the published terrain');
@@ -119,6 +119,14 @@ check('Switched off, Hollis plays as before and saves made under the model load 
     const back=new Game();assert.ok(back.restoreSave(structuredClone(data)));assert.equal(back.water,null);
     assert.ok(Array.from(back.world.terrain).every((t,i)=>t===base[i]),'ponds and wetlands return to their underlying ground');
   }finally{waterModel.enabled=true;}
+});
+check('A pond keeps its open water through a dry summer, and a year of weather changes few tiles (0034)', () => {
+  // (it used to turn every pond tile to marsh each September and back each autumn: ~1,000 tile changes a month)
+  const g=farm(),w=g.world,b=g.water.basins[0],pond=b.cells.filter(v=>w.terrain[v.i]===T.POND).map(v=>v.i);
+  let prev=w.terrain.slice(),flips=0;
+  for(let d=0;d<120;d++){g.day=d;g.weather=d%120<45&&d%4===0?'rain':'clear';g.water.step(g);for(let i=0;i<w.n;i++)if(w.terrain[i]!==prev[i])flips++;prev.set(w.terrain);
+    if(d===80)assert.ok(pond.filter(i=>w.terrain[i]===T.POND).length>=pond.length*.6,'late summer: most of the pond is still pond');}
+  assert.ok(flips<pond.length*2,`${flips} tile changes in a year`);
 });
 const g=farm();g.wildlife.buildDam(g.world.idx(54,58));const start=performance.now();for(let k=0;k<120;k++)g.water.step(g);
 console.log(`${checks} Hollis water checks passed. Water-only 120-day benchmark: ${(performance.now()-start).toFixed(1)} ms.`);

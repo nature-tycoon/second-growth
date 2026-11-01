@@ -1,3 +1,5 @@
+import { meadowNote } from '../sim/beaver-ponds.js';
+import { wallowNote } from '../sim/wallows.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
 import { roostingNow } from '../data/animal-activity.js';
 // DOM interface: top bar, tool palette, inspector, notifications, minimap and modal screens.
@@ -769,6 +771,7 @@ export class UI {
     html += `</div>`;
     const waterNote = g.water?.note(i);
     if (waterNote) html += `<div class="info-desc">${waterNote}</div>`;
+    for (const n of [meadowNote(g, i), wallowNote(g, i)]) if (n) html += `<div class="info-desc">${n}</div>`; // (0034)
     const note = this.game.catalog.definition.tileNote?.(this.game, i);
     if (note) html += `<div class="info-desc">${note}</div>`;
     for (const pressure of pressureTileNotes(g, i)) html += `<div class="info-desc">${pressure}</div>`;

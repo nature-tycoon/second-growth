@@ -56,6 +56,7 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 - [0031](docs/decisions/0031-ecosystem-report.md) Ecosystem Report: six vital signs against each map's reference ecosystem, a cited carbon estimate, stages and badges (`sim/eco-metrics.js`, `data/eco-reference.js`, `ui/eco-report.js`); badges pay nothing
 - [0032](docs/decisions/0032-real-moon-and-clear-sky.md) The real moon (`render3d/moon.js`, turned for the map's `lat`) and a deeper clear-day sky (`SKY_BLUE`, each map's `look.skyHaze`); eye level only
 - [0033](docs/decisions/0033-herbivore-pressure.md) Herbivore pressure: a coarse kg/ha field by guild (`sim/herbivory.js`) from each species' `kg`; browsers pick young trees by `browse` (palatability), thorns and thickets shelter them, trampling and elephants are general rules (the savanna-only trample is gone). A new large herbivore needs `kg`, a new map `REFERENCE[map].herbivores`; `tools/herbivore-pressure.mjs` (with `--exclosure`) and `tools/herbivore-pressure-check.mjs`
+- [0034](docs/decisions/0034-water-and-wetlands.md) Water and wetlands: the Hollis water model is on (`?water=0` to compare); beaver ponds from dam to meadow (`sim/beaver-ponds.js`: site, spacing, food, `w.meadow`); river fish keep to `swimDepth`, the depth the drawing uses; wallows by species (`sim/wallows.js`, `WALLOWERS`: new big herbivores add a line there). Checks: `hollis-water-check`, `beaver-pond-check`, `fish-water-check`; `tools/pond-edge-measure.mjs`, `tools/wallow-count.mjs`
 
 New decisions take the next unused number and one line here.
 

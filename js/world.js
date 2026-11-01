@@ -54,6 +54,9 @@ export class World {
     // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars;
     // 4 = a canal block, 8 = shade cloth, 16 and 32 = what a beaver pool drowned, 64 = a snag, log, rock pile or brush pile the player placed: PLACED)
     this.marks = u8();
+    // a drained beaver pond's age as meadow (years, or pending while it drains: sim/beaver-ponds.js),
+    // and wallows (sim/wallows.js): how deep a dug wallow is and how much water stands in it (0-255)
+    this.meadow = u8(); this.wallow = u8(); this.wallowWet = u8();
     this.structures = [];
     this.variant = u8();
     // derived

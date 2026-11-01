@@ -1,5 +1,7 @@
 // Derived environment fields: water, moisture, canopy, distances, habitat classes, food.
 
+import { meadowMoist } from './beaver-ponds.js';
+import { WALLOW_POOL } from './wallows.js';
 import { T, F, H, isWater, clamp } from '../config.js';
 import { isBlooming, isFruiting, plantLeafCover } from '../data/plants.js';
 import { rottenLog } from './plants.js';
@@ -30,7 +32,8 @@ function distanceField(w, out, isSource, cap = 20) {
 export function updateHydrology(w) {
   const t = w.terrain;
   distanceField(w, w.distWater, i => isWater(t[i]));
-  distanceField(w, w.distPond, i => t[i] === T.POND || t[i] === T.MARSH);
+  // (a wallow holding water is a pool too, small as it is: frogs breed in it, 0034)
+  distanceField(w, w.distPond, i => t[i] === T.POND || t[i] === T.MARSH || w.wallowWet[i] >= WALLOW_POOL);
   // Fish passage: 8-connected water reachable from the river, culverts block.
   const W = w.w, Hh = w.h, c = w.connected;
   c.fill(0);
@@ -94,6 +97,7 @@ export function updateMoisture(w, month) {
     if (t === T.MUD) m += 0.22;
     if (w.flood[i]) m += 0.4;
     if (w.feature[i] === F.LOG) m += 0.05;
+    if (w.meadow[i]) m += meadowMoist(w.meadow[i]); // (a drained beaver pond stays soggy for decades)
     if (w.waterManaged?.[i] && w.waterDepth[i] > .01) m = Math.max(m, .86 + Math.min(.13, w.waterDepth[i]));
     w.moist[i] = clamp(m, 0, 0.99);
   }

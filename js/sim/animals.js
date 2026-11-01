@@ -25,6 +25,9 @@ import { grazeDay, decayGrazing } from './grazing.js';
 import { herbivoryDay, rubSapling } from './herbivory.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, followLeaderTrip } from './animal-trails.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
+import { swimDepth, deepWaterNear, FISH_DEPTH } from './waterline.js';
+import { wallowVisit } from './wallows.js';
+import { damSiteOK, beaverFood, FOOD_MIN, drainToMeadow, meadowTile } from './beaver-ponds.js';
 import { ensureHome, homeChoose, homeFalloff, walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
 import { markRisk, safety, decayRisk } from './predation-risk.js';
 import { dormancySeason } from '../data/animal-dormancy.js';
@@ -136,6 +139,7 @@ export class Wildlife {
     this.suit = game.catalog.animals.map(() => new Float32Array(game.world.n));
     this.salmon = { fry: {}, spawners: 0, juveniles: 0, everSpawned: false };
     this.dams = 0;
+    this.damFood = new Map(); // (beaver food round each dam, by tile: looked at monthly)
     this.g = { fishIndex: 0, frogIndex: 0, snagCount: 0, nestboxCount: 0, structureCount: 0, berryTiles: 0,
       forestTiles: 0, matureTiles: 0, meadowTiles: 0, bigTrees: 0, cleanWater: 0, salmonBonus: 0 };
   }
@@ -837,6 +841,7 @@ export class Wildlife {
       const diet = preyFor(def, game);
       if (diet && canStartHunt(a) && a.hunger > huntHunger(def) && rng() < 0.4) this.startHunt(a, def, diet);
 
+      wallowVisit(this.game, a, def, i); // (the heavy herbivores' wallows: wallows.js)
       if (def.damBuilder) this.beaverDay(a, x, y, i);
       else if (def.browseRate && a.state === 'idle') {
         const s = w.shrub[i];
@@ -949,15 +954,16 @@ export class Wildlife {
         }
       }
     }
-    // build a dam
+    // build a dam: where the creek will back up into a pond worth having, with room from the
+    // other ponds and food to keep a colony (beaver-ponds.js)
     const pop = this.state[a.sp].pop;
     if (pop >= 2 && rng() < 0.06 && this.dams < Math.floor(pop / 2) + 1 && w.distWoody[i] <= 4) {
       let site = -1;
       for (let dy = -1; dy <= 1 && site < 0; dy++) for (let dx = -1; dx <= 1; dx++) {
         const xx = x + dx, yy = y + dy;
-        if (w.inb(xx, yy) && w.terrain[w.idx(xx, yy)] === T.CREEK && w.feature[w.idx(xx, yy)] === 0) { site = w.idx(xx, yy); break; }
+        if (w.inb(xx, yy) && damSiteOK(this.game, w.idx(xx, yy))) { site = w.idx(xx, yy); break; }
       }
-      if (site >= 0 && !this.damNear(site, 7)) this.buildDam(site);
+      if (site >= 0) this.buildDam(site);
     }
   }
 
@@ -994,7 +1000,7 @@ export class Wildlife {
     w.hydroDirty = true; w.renderDirty = true;
     this.game.flags.beaverDam = true;
     moment(this.game, 'dam', { x: x + 0.5, y: y + 0.5 });
-    this.game.notify(this.game.water ? 'Beavers built a dam! Creek water will gather behind it, filling the low ground uphill. Watch its banks become wetland.' : 'Beavers built a dam! The creek is backing up into a brand-new wetland, and the drowned trees will become snags.', 'good', { x: x + 0.5, y: y + 0.5 });
+    this.game.notify(this.game.water ? 'Beavers built a dam! A pond is filling behind it, with marsh round its edges. The trees it drowns will stand as snags for herons and woodpeckers.' : 'Beavers built a dam! The creek is backing up into a brand-new wetland, and the drowned trees will become snags.', 'good', { x: x + 0.5, y: y + 0.5 });
   }
 
   // Daily: a dam is only as good as the beavers keeping it up. One no beaver has tended for
@@ -1005,8 +1011,11 @@ export class Wildlife {
     for (let i = 0; i < w.n; i++) {
       if (w.feature[i] !== F.DAM || (w.marks[i] & 4)) continue; // (canal blocks are people's work)
       const x = i % w.w + 0.5, y = (i / w.w | 0) + 0.5;
-      if (keepers.some(a => Math.abs(a.x - x) < 8 && Math.abs(a.y - y) < 8)) w.featureAge[i] = 0; // (featureAge: days since tended)
-      else if (w.featureAge[i] > 60 && rng() < 1 / 120) { this.breakDam(i); this.game.notify('An abandoned beaver dam has washed out. The pond behind it is draining and the creek runs through again.', 'info', { x, y }); continue; }
+      // (featureAge: days since tended. A colony keeps its dam up while there is food round it;
+      // once the willow and alder are eaten out it moves on, and the dam is left to go)
+      if (this.game.day % 30 === 0 || !this.damFood.has(i)) this.damFood.set(i, beaverFood(w, i));
+      if (this.damFood.get(i) >= FOOD_MIN && keepers.some(a => Math.abs(a.x - x) < 8 && Math.abs(a.y - y) < 8)) w.featureAge[i] = 0;
+      else if (w.featureAge[i] > 60 && rng() < 1 / 120) { this.breakDam(i); this.game.notify('An abandoned beaver dam has washed out. The pond is draining, and its bed will grow into a wet beaver meadow of sedge, willow and standing dead trees.', 'info', { x, y }); continue; }
       dams++;
     }
     if (!this.game.water) this.dams = dams; // (also puts the count right after an undo)
@@ -1016,7 +1025,8 @@ export class Wildlife {
   // the ground it flooded is left as damp, rich soil or marsh (a beaver meadow).
   breakDam(site) {
     const w = this.game.world, x0 = site % w.w, y0 = (site / w.w) | 0;
-    w.feature[site] = 0; w.featureAge[site] = 0;
+    drainToMeadow(this.game, site); // (before the dam goes: what its pond covered becomes beaver meadow)
+    w.feature[site] = 0; w.featureAge[site] = 0; this.damFood.delete(site);
     this.dams = Math.max(0, this.dams - 1);
     if (!this.game.water) {
       let marked = false;
@@ -1025,7 +1035,8 @@ export class Wildlife {
         if (!w.inb(x, y)) continue;
         const j = w.idx(x, y);
         if (w.marks[j] & POOL_CREEK) { if (w.terrain[j] === T.POND) w.terrain[j] = T.CREEK; marked = true; }
-        if ((w.marks[j] & POOL_LAND) && w.terrain[j] === T.MUD) { w.terrain[j] = T.SOIL; w.soil[j] = Math.max(w.soil[j], 0.5); }
+        // (the flooded ground is left as beaver meadow, which dries back over the years)
+        if ((w.marks[j] & POOL_LAND) && (w.terrain[j] === T.MUD || w.terrain[j] === T.MARSH)) meadowTile(w, j, w.terrain[j] === T.MARSH);
         w.marks[j] &= ~(POOL_CREEK | POOL_LAND);
       }
       if (!marked) this.reopenCreek(site); // (a dam from an older save: no record of the old channel)
@@ -1125,7 +1136,12 @@ export class Wildlife {
           // each animal keeps to its own line through a tile and stops at its own spot in the last
           // one, so two walking the same way don't trace one track, and a group doesn't pile onto
           // a single point (a journey steers for where its course crosses the tile)
-          const [ox, oy] = smoothWalker(def) ? pathPoint(w, a, a.path.length - 1).map((v, n) => v - (n ? (j / w.w | 0) : j % w.w) - 0.5) : spotIn(a, j, a.path.length === 1);
+          let [ox, oy] = smoothWalker(def) ? pathPoint(w, a, a.path.length - 1).map((v, n) => v - (n ? (j / w.w | 0) : j % w.w) - 0.5) : spotIn(a, j, a.path.length === 1);
+          // (a river fish's waypoint is in water deep enough to swim in, not up the bank's shallows)
+          if (a.move === 'swim' && !def.reef && swimDepth(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy) < FISH_DEPTH) {
+            const p = deepWaterNear(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy, 0.9);
+            if (p) { ox = p[0] - (j % w.w) - 0.5; oy = p[1] - (j / w.w | 0) - 0.5; }
+          }
           if (a.path.length === 1 && a.restSpot?.[0] !== j) {
             const bank = !a.dormancy && this.drinks(def) && a.thirst > drinkEvery(this, a, def) * 0.5 ? this.bankSpot(a, j) : null;
             const drink = bank && bank.crowd < 0.08;
@@ -1413,6 +1429,11 @@ export class Wildlife {
     if (Math.abs(dx) > 0.02) a.facing = dx > 0 ? 1 : -1;
     const step = Math.min(d, sp), nx = d ? a.x + dx / d * step : a.x, ny = d ? a.y + dy / d * step : a.y;
     if (this.game.catalog.animals[a.sp].reef && !reefMoveSafe(this.game.world, a, nx, ny)) return false;
+    // (a river fish keeps to water it can swim in: it may only move into the shallows to get out of them)
+    if (a.move === 'swim' && !def.reef) {
+      const w = this.game.world, here = swimDepth(w, a.x, a.y), there = swimDepth(w, nx, ny);
+      if (there < FISH_DEPTH && there <= here) return false;
+    }
     if (a.move !== 'fly' && !swimmer(a, this.game.catalog) && !a.leaving) {
       const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
       // (an animal stranded where it can't stand, say in a pond, may still move about its own tile

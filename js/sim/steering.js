@@ -12,7 +12,7 @@
 import { isWater } from '../config.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { settleBody, groundWalker } from './ground-obstacles.js';
-import { underWater } from './waterline.js';
+import { underWater, swimDepth, deepWaterNear, FISH_DEPTH } from './waterline.js';
 
 // The drawn kinds that lower their heads to graze now and then while they stand idle (actors.js).
 export const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
@@ -84,6 +84,13 @@ export function settle(wl) {
     }
     if (a.state === 'idle' && !(a.drinkT > 0) && def.move === 'ground' && GRAZERS.has(def.sprite.kind)) backToWater(w, wl, a);
     else if (a.headUpKey != null) { a.headUp = false; a.headUpKey = null; } // (looked at afresh next time it stands idle)
+    // (a river fish nudged into the shallows, by its neighbours or the water drawing down: back to
+    // where it can swim, the same depth its drawing uses)
+    if (a.move === 'swim' && !def.reef && !a.leaving && swimDepth(w, a.x, a.y) < FISH_DEPTH) {
+      const p = deepWaterNear(w, a.x, a.y);
+      if (p) { a.x = p[0]; a.y = p[1]; }
+      continue;
+    }
     if (!groundWalker(def, a)) continue;
     const still = a.state === 'idle' || a.state === 'feed' || a.state === 'forage';
     // (a squeeze through a cramped stand lasts while it walks: stopped half inside a trunk, it was

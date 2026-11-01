@@ -414,6 +414,8 @@ export function updatePlants(game) {
       else if (g < 0.9) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       else if (rng() < 0.004 * (0.3 - s) / 0.3) g = 0; // shaded out
       if (droughtKills(w, i, g, gf, rng) || grazedSeedlingLost(w, i, p, g, rng) || trampledSeedling(w, i, p, g, rng)) g = 0;
+      // (drowned: a month and more under a beaver pond, a dry-ground bush dies, as the trees do: 0034)
+      else if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) g = 0;
       // weedy bushes on healthy grassland lose out over the years (a thick native sward, hotter
       // grass fires and browsing all work against them)
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0025 * bankK) g = 0;

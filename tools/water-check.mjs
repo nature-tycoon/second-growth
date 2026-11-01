@@ -6,7 +6,6 @@ const THREE = await import('three');
 const { Terrain, waterSurfaceY } = await import('../js/render3d/terrain.js');
 import { Game } from '../js/game.js';
 import { createTools } from '../js/tools.js';
-import { waterModel } from '../js/sim/hollis-water.js';
 import { T, F, LEVEL, isWater } from '../js/config.js';
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log('PASS ' + name); };
@@ -96,7 +95,6 @@ check('Digging and filling water refresh the depth/flow buffers without changing
   dispose(t);
 });
 check('Gameplay water planes match actor samples and disappear from a dried pond bed', () => {
-  waterModel.enabled = true; // (off in play until it's ready)
   const {game,terrain:t}=make(),w=game.world;
   game.wildlife.buildDam(w.idx(54,58));game.weather='rain';for(let k=0;k<10;k++)game.water.step(game);
   t.refreshWater();const b=game.water.basins.find(b=>b.kind==='dam');
@@ -114,7 +112,10 @@ check('Gameplay water planes match actor samples and disappear from a dried pond
   const ex=edge%w.w,ez=Math.floor(edge/w.w);
   assert.equal(waterSurfaceY(w,ex+.5,ez+.5),null);
   const dry=t.water.geometry.attributes.position;
-  for(let k=0;k<dry.count;k+=6)assert.ok(dry.getX(k)!==ex||dry.getZ(k)!==ez,'no phantom water on a dried basin');
+  // (the dried tile is bank now: the water beside it may reach onto it, as at any pond, but never
+  // above that water's level, and with no water beside it none is drawn there at all)
+  let beside=-Infinity;for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){const L=w.waterLevel[w.idx(ex+dx,ez+dz)];if(Number.isFinite(L))beside=Math.max(beside,L);}
+  for(let k=0;k<dry.count;k+=6)if(dry.getX(k)===ex&&dry.getZ(k)===ez)for(let v=k;v<k+6;v++)assert.ok(dry.getY(v)<=beside*LEVEL+1e-6,'no phantom water on a dried basin');
   dispose(t);
 });
 check('Floodwater clouds out over the river it rose from instead of stopping at its tile edges', () => {

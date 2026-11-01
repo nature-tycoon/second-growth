@@ -1,5 +1,7 @@
 // Instanced plants and small features, rebuilt from the world arrays as things grow.
 
+import { isMeadow } from '../sim/beaver-ponds.js';
+import { WALLOW_POOL } from '../sim/wallows.js';
 import { T, F, LEVEL, BORDER, isWater, clamp } from '../config.js';
 import { plantPhase } from '../data/plants.js';
 import { rottenLog } from '../sim/plants.js';
@@ -61,6 +63,8 @@ export function climberSpot(w, catalog, i, hAt, tg = w.treeG[i]) {
   return [sx, hAt(sx, sz) + treeHeight(tp, 0.4) * tsc * 0.85, sz];
 }
 export const shrubShape = p => SHRUB_HABIT[p.key] || (SHRUB_SHAPES.includes(p.look.type) ? p.look.type : 'shrub');
+// Where a wallow's dish lies in its tile, and how big it is (sim/wallows.js): [x, z, scale].
+const wallowSpot = (w, x, y, i) => [x + 0.3 + hash2(x, y, 211) * 0.4, y + 0.3 + hash2(x, y, 212) * 0.4, 0.7 + Math.min(1, w.wallow[i] / 140) * 0.6];
 const grassyWet = type => type === 'sedge' || type === 'cattail' || type === 'tule' || type === 'lily' || type === 'papyrus';
 const SEA_SHAPES = new Set(['softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']);
 export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo', 'aloe', 'cactus',
@@ -389,7 +393,13 @@ export class Flora {
         const phase = plantPhase(p, month);
         const col = aquaticT ? leafColor(p, phase) : patchColor(leafColor(p, phase), pt);
         // grasses grow in clumps: one or two centres per tile that the tufts gather round
-        const clumps = grassy || form && !p.aquatic ? 1 + (hash2(x, y, 17) < 0.5 ? 1 : 0) : 0;
+        // (a beaver meadow's sedge stands on tussocks: hummocks of root and old leaf, one under each clump: 0034)
+        const tussock = inside && type === 'sedge' && isMeadow(w, i);
+        const clumps = tussock ? 2 : grassy || form && !p.aquatic ? 1 + (hash2(x, y, 17) < 0.5 ? 1 : 0) : 0;
+        if (tussock) for (let c = 0; c < clumps; c++) {
+          const hx = x + 0.2 + hash2(x, y, 14 + c) * 0.6, hz = y + 0.2 + hash2(x, y, 15 + c) * 0.6, hs = 0.8 + hash2(x, y, 16 + c) * 0.5;
+          this.pool(`hummock:${v}`, () => G.hummock(1200 + v), this.grass, { shadow: false, kind: 'grass' }).add(hx, hAt(hx, hz) - 0.005, hz, hs, hs * (0.6 + 0.4 * g), hs, hash2(x, y, 18 + c) * 6.28, vary([dim, dim, dim], x, y, c));
+        }
         const tseed = 100 + v * 17 + (form || drawType).length;
         const bloomT = titan && phase === 'bloom' ? 'titanbloom' : type; // (in its rare flowering, the corpse flower is a spathe instead of a leaf)
         let botanical;
@@ -424,10 +434,11 @@ export class Flora {
           }
           // Keep the plant opening aligned with the actual narrow track, not the whole tile.
           if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > TRAIL_OPENING) continue;
+          if (inside && w.wallow[i]) { const [wx, wz, ws] = wallowSpot(w, x, y, i); if (Math.hypot(px - wx, pz - wz) < 0.32 * ws) continue; } // (nothing grows in a wallow's trodden mud)
           const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
           // lily pads float on the water surface instead of sitting on the pond bed
           if (bankTile && !aquaticT && !grassyWet(type) && underWater(w, px, pz)) continue; // (dry-land groundcover doesn't grow in the creek)
-          const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz);
+          const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz) + (tussock && k % 3 !== 2 ? 0.035 * (0.6 + 0.4 * g) : 0);
           const turn = hash2(x, y, 80 + k) * 6.28;
           pool.add(px, py, pz, sc, sc, sc, turn, bloomT === 'titanbloom' ? rgb(p.look.flower || '#6a1a2a').map(c => c * dim) : vary(col.map(c => c * dim), x, y, k));
           if (blossoms) blossoms.add(px, py, pz, sc, sc, sc, turn, vary([dim, dim, dim], x, y, k, 0.035));
@@ -638,6 +649,13 @@ export class Flora {
           mixc([0.84, 0.78, 0.64], [0.6, 0.47, 0.5], Math.min(1, crust * 1.4)).map(c => c * dim));
       }
 
+      // ---- a wallow (sim/wallows.js): a dish of mud, with water standing in it after rain
+      if (inside && w.wallow[i]) {
+        const [wx, wz, ws] = wallowSpot(w, x, y, i);
+        const wy = Math.max(hAt(wx - 0.2, wz), hAt(wx + 0.2, wz), hAt(wx, wz - 0.2), hAt(wx, wz + 0.2)) + 0.004; // (over the ground all round it)
+        this.pool('wallow', () => G.wallowDish(1300), this.small).add(wx, wy, wz, ws, 1, ws, hash2(x, y, 213) * 6.28, [dim, dim, dim]);
+        if (w.wallowWet[i] >= WALLOW_POOL) { const f = Math.min(1, w.wallowWet[i] / Math.max(1, w.wallow[i])); this.pool('wallowwater', () => G.wallowWater(), this.small).add(wx, wy + 0.003, wz, ws * (0.55 + 0.45 * f), 1, ws * (0.55 + 0.45 * f), 0, [dim, dim, dim]); }
+      }
       // ---- features
       const f = w.feature[i];
       if (!f) continue;

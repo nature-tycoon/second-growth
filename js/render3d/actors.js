@@ -1,5 +1,6 @@
 // Animals (instanced 3D models, see animals/animal-model.js), plus visitors and flames drawn as camera-facing sprites.
 
+import { groundAt } from '../sim/waterline.js';
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, animalDef, maleLook } from '../data/animals.js';
@@ -307,7 +308,10 @@ export class Actors {
       else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
       else if (flying) y += (kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
       else if (def.move === 'swim') {
-        y = (surf ?? ground) - 0.05 - mo.sink * sc;
+        // (in its tile's water, the same depth the simulation keeps it in (swimDepth): down to
+        // half way in the shallows, so it never sinks into the bank where the water thins out)
+        const room = surf != null ? surf - groundAt(w, a.x, a.y) * LEVEL : 0; // (the ground on the drawn triangles)
+        y = surf != null ? surf - Math.max(0, Math.min(0.05 + mo.sink * sc, room * 0.5)) : ground;
         // running salmon leap: every few seconds one arcs clear of the water, nose up then down
         const jp = def.special === 'salmon' && surf != null ? salmonLeap(a, time) : -1;
         if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.75 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;

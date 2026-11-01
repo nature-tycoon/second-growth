@@ -8,6 +8,8 @@ import { World, Border } from './world.js';
 import { mulberry32 } from './rng.js';
 import { updateEnvironment, updateHydrology } from './sim/environment.js';
 import { HollisWater, waterModelOn } from './sim/hollis-water.js';
+import { meadowDay, migrateMarkedPools } from './sim/beaver-ponds.js';
+import { wallowDay } from './sim/wallows.js';
 import { updatePlants, seedRain, rootsLoosen } from './sim/plants.js';
 import { Wildlife } from './sim/animals.js';
 import { aOne } from './data/animals.js';
@@ -150,6 +152,8 @@ export class Game {
     this.day++;
     const w = this.world;
     this.water?.step(this);
+    meadowDay(this); // (a drained beaver pond turning to meadow, and meadows ageing: 0034)
+    wallowDay(this); // (wallows filling with rain and drying out: 0034)
     const st = updateEnvironment(w, this.month, this.visitors.traffic);
     updatePlants(this);
     seedRain(this);
@@ -440,6 +444,9 @@ export class Game {
     catch (error) { if (error instanceof ContractError) return false; throw error; }
     this.mapDefinition = setBiome(definition.id);
     this.catalog = catalog;
+    // (a farm saved before the model ran its beaver ponds by marks: the model rebuilds the pond
+    // behind each standing dam, and the old flooded ground becomes beaver meadow)
+    if (waterModelOn(definition.id) && !savedWater) migrateMarkedPools(w);
     this.water = waterModelOn(definition.id) ? new HollisWater(w, savedWater) : null;
     Object.assign(this, farmState);
     this.world = w;
