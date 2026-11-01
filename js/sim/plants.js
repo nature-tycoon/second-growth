@@ -4,6 +4,7 @@ import { T, F, isWater, clamp } from '../config.js';
 import { layerLight } from './environment.js';
 import { stressYoungPlant } from './ecological-pressure.js';
 import { grazedRecruitOdds, grazedSeedlingLost, grazedGrowth, overgrazedLoss } from './grazing.js';
+import { plantAffinity } from '../plant-patterns.js';
 
 const rangeFit = (v, lo, hi, soft) => v < lo ? Math.max(0, 1 - (lo - v) / soft) : v > hi ? Math.max(0, 1 - (v - hi) / soft) : 1;
 
@@ -102,24 +103,27 @@ function conspecificShare(w, i, id) {
   return n ? same / n : 0;
 }
 
+// (w.seedLog, when a diagnostic sets it, hears why each seed failed: tools/plant-establishment.mjs)
+const no = (w, p, i, why) => { w.seedLog?.(p, i, why); return false; };
+
 // A natural seed lands on tile i (player planting doesn't come through here). Returns true if it
 // establishes. A tree seed landing under a living tree can only wait in the understory slot.
 export function trySeed(w, p, i, rng) {
   const def = w.catalog.definition;
   const [ids, gs] = layerArrays(w, p.layer);
   const cur = ids[i];
-  if (cur === p.id) return false;
+  if (cur === p.id) return no(w, p, i, 'same');
   // One canopy tree per tile: a seed cannot remove a living tree, its age or its wood. Under an
   // established tree, a sapling that can take the shade there waits for it to die (advance
   // regeneration, 0028 §3): the shade-tolerant cedar and hemlock almost anywhere, fir only under
   // a thin canopy, alder and cottonwood hardly ever. Under a young tree the seed just fails.
   let under = false;
   if (cur && p.layer === 2 && (!def.look.underwater || p.cay)) {
-    if (def.recruitment?.understory === false || w.treeG[i] <= ESTABLISHED_TREE || w.understory[i] === p.id) return false;
+    if (def.recruitment?.understory === false || w.treeG[i] <= ESTABLISHED_TREE || w.understory[i] === p.id) return no(w, p, i, 'occupied');
     under = true;
   }
   const underLight = under ? layerLight(w, i, 1) : 0;
-  if (under && underLight < p.light[0]) return false;
+  if (under && underLight < p.light[0]) return no(w, p, i, 'unsuited');
   // Sparse species recruit into gaps, counting juveniles too so a batch of settlers can't
   // fill one patch. This only limits natural recruitment; adults and player planting keep
   // their usual suitability. Wider dispersal lets larvae reach gaps beyond their parent.
@@ -127,38 +131,42 @@ export function trySeed(w, p, i, rng) {
     const r = p.seedSpacing, x = i % w.w, y = (i / w.w) | 0;
     for (let yy = Math.max(0, y - r); yy <= Math.min(w.h - 1, y + r); yy++) {
       for (let xx = Math.max(0, x - r); xx <= Math.min(w.w - 1, x + r); xx++) {
-        if (ids[yy * w.w + xx] === p.id) return false;
+        if (ids[yy * w.w + xx] === p.id) return no(w, p, i, 'spacing');
       }
     }
   }
   const s = under ? plantSuit(w, i, p, underLight) : plantSuit(w, i, p);
-  if (s < 0.3) return false;
+  if (s < 0.3) return no(w, p, i, 'unsuited');
   // a healthy native seed bank in the soil stands in the way of invasive seedlings
-  if (p.invasive && w.seedbank && w.seedbank[i] && w.bankStrength > 0 && rng() < w.bankStrength * 0.85) return false;
+  if (p.invasive && w.seedbank && w.seedbank[i] && w.bankStrength > 0 && rng() < w.bankStrength * 0.85) return no(w, p, i, 'seedbank');
   // On maps where natives hold their ground (the suburb), an established native garden is a closed
   // community: invasive seed rarely finds a gap in it.
   if (w.catalog.definition.nativesHold && p.invasive) {
     const est = (id, g) => id && g > 0.45 && !w.catalog.plants[id].invasive && !w.catalog.plants[id].exotic;
-    if ((est(w.ground[i], w.groundG[i]) || est(w.shrub[i], w.shrubG[i]) || est(w.tree[i], w.treeG[i])) && rng() > 0.03) return false;
+    if ((est(w.ground[i], w.groundG[i]) || est(w.shrub[i], w.shrubG[i]) || est(w.tree[i], w.treeG[i])) && rng() > 0.03) return no(w, p, i, 'natives');
   }
   if (under) {
     // it takes the slot from a weaker or less shade-tolerant sapling waiting there
     const uc = w.understory[i];
     if (uc) {
       const up = w.catalog.plants[uc];
-      if (!(p.light[0] < up.light[0] - 0.05 || s > plantSuit(w, i, up, underLight) + 0.15)) return false;
+      if (!(p.light[0] < up.light[0] - 0.05 || s > plantSuit(w, i, up, underLight) + 0.15)) return no(w, p, i, 'occupied');
     }
   } else if (cur) {
     const cp = w.catalog.plants[cur];
     const cs = plantSuit(w, i, cp);
     // Struggling residents get replaced by better-suited newcomers; invasives push harder.
     const push = p.compete * (p.invasive && !cp.invasive ? 1 : 0.4);
-    if (!((cs < 0.3 && s > cs + 0.2) || (s > cs + 0.1 && rng() < push * (cp.invasive ? 0.2 : 1) * 0.5))) return false;
+    // On equally good ground a long-lived native slowly takes over from a short-lived one (annual
+    // weeds and pioneer legumes give way to bunchgrasses and perennials): succession in the sward.
+    const outlives = !p.invasive && !cp.invasive && !cp.exotic && s >= cs && p.life >= cp.life * 2;
+    if (!((cs < 0.3 && s > cs + 0.2) || ((s > cs + 0.1 || outlives) && rng() < push * (cp.invasive ? 0.2 : 1) * (s > cs + 0.1 ? 0.5 : OUTLIVE)))) return no(w, p, i, 'resident');
   }
   // Managed gardens and grazing paddocks keep their native meadow gaps: trees and shrubs
   // grow where planted, or on bare and neglected ground. A map can limit this to its paddocks.
+  // (Only a sunny meadow is held open: ferns and woodland flowers under a fallen tree are forest floor.)
   const holdsMeadow = typeof w.catalog.definition.meadowsHold === 'function' ? w.catalog.definition.meadowsHold(w, i) : w.catalog.definition.meadowsHold;
-  if (holdsMeadow && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && !w.catalog.plants[w.ground[i]].invasive && (!p.invasive || rng() < (w.catalog.definition.nativesHold ? 0.97 : 0.85))) return false;
+  if (holdsMeadow && p.layer > 0 && w.ground[i] && w.groundG[i] > 0.35 && w.catalog.plants[w.ground[i]].light[0] >= MEADOW_LIGHT && !w.catalog.plants[w.ground[i]].invasive && (!p.invasive || rng() < (w.catalog.definition.nativesHold ? 0.97 : 0.85))) return no(w, p, i, 'meadow');
   // A thick sward of established groundcover is hard for woody seedlings to break through (a
   // nurse-log seedling up on a rotten log is above it).
   let odds = s;
@@ -172,20 +180,33 @@ export function trySeed(w, p, i, rng) {
   if (p.invasive) odds *= w.invasiveOdds; // (Relaxed: fewer invasive seedlings take, wherever the seed came from)
   // On the savanna the roots of a grown tree take all the water around it, so native seedlings
   // only come up in the gaps and the trees stay scattered (invasive mesquite still makes thickets).
-  if (open && p.layer === 2 && !p.invasive && (under || crowded(w, i, 1, 'tree', 2))) return false;
+  if (open && p.layer === 2 && !p.invasive && (under || crowded(w, i, 1, 'tree', 2))) return no(w, p, i, 'crowded');
   // and thornbush stays in clumps and patches rather than closing over the grass
-  if (open && p.layer === 1 && !p.invasive && crowded(w, i, 1, 'shrub')) return false;
+  if (open && p.layer === 1 && !p.invasive && crowded(w, i, 1, 'shrub')) return no(w, p, i, 'crowded');
   // fewer of a tree's seedlings survive among its own kind (checked last: it's the costly part)
   if (p.layer === 2) {
     const k = p.cndd ?? def.recruitment?.cndd ?? CNDD;
     if (k > 0) odds *= 1 - k * conspecificShare(w, i, p.id);
   }
-  if (rng() > odds) return false;
+  // Each species keeps to its own patches and drifts (the same noise seed mixes use), so wild
+  // plants grow as a mosaic of clumps rather than an even carpet of whatever arrived first.
+  // (Invasives keep their even, smothering spread, which the difficulty setting tunes.)
+  if (!p.invasive) odds *= patchOdds(p, i % w.w, (i / w.w) | 0);
+  if (rng() > odds) return no(w, p, i, 'odds');
+  w.seedLog?.(p, i, under ? 'waits' : null);
   if (under) { w.understory[i] = p.id; w.understoryG[i] = 0.04; return true; }
   ids[i] = p.id; gs[i] = 0.04;
   if (p.layer === 2) w.treeAge[i] = 0;
   return true;
 }
+
+// How much of a natural recruit's chance survives on tile (x, y) for its species' patches (0027).
+export const patchOdds = (p, x, y) => Math.min(1, Math.max(0.08, Math.sqrt(plantAffinity(p, x, y))));
+const MEADOW_LIGHT = 0.3; // a groundcover needing at least this much sun is a meadow plant
+const OUTLIVE = 0.25; // how hard a long-lived native presses on a short-lived one (vs 0.5 for a better-suited one)
+const CANOPY_G = 0.6; // a tree this grown has its crown up in the canopy, in the sun
+const TUSSOCK_LIFE = 10; // groundcovers living this long or longer age and break up, opening a gap
+const SCORCH = 0.012; // daily die-back of a shade plant stranded in full sun
 
 // On the savanna a young shrub or tree in thick grass loses the dry-season fight for water:
 // grass roots get to it first. Most seedlings die unless fire, grazing or a gap opens the sward.
@@ -305,6 +326,8 @@ function disperse(w, p, x, y, rng, radiusBoost, far = 0) {
 
 export function updatePlants(game) {
   const w = game.world, rng = game.rng, m = game.month;
+  w.seedFrom = 'parent';
+  const tussocks = !game.catalog.definition.look.underwater; // (the reef's seagrass comes and goes its own way)
   const ecology = !!game.diff?.ecology;
   const gf = game.catalog.definition.climate.growth[m], sf = game.catalog.definition.climate.spread[m];
   const W = w.w;
@@ -354,8 +377,14 @@ export function updatePlants(game) {
       const s = plantSuit(w, i, p);
       let g = w.groundG[i];
       if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4;
-      else g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
+      // (a shade plant left in full sun, like sword fern after a clearcut, scorches within a summer
+      // however slowly it grows)
+      else g -= (layerLight(w, i, 0) > p.light[1] + 0.15 ? Math.max(p.grow, SCORCH) : p.grow) * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       if (!p.aquatic && g > 0.15) g = Math.max(0.15, g - overgrazedLoss(w, i)); // a crowded herd crops it short
+      // Old bunchgrass tussocks and clumps die back and leave a gap, where the quick-seeding
+      // wildflowers get back in until the grasses outlive them again (see trySeed), so a meadow
+      // stays a shifting mix instead of ending as one grass. Lawn and ornamentals are kept up.
+      if (tussocks && p.life >= TUSSOCK_LIFE && g > 0.6 && !p.sod && !p.exotic && rng() < 1 / (p.life * 120)) g = 0;
       if (g <= 0) { w.ground[i] = 0; w.groundG[i] = 0; }
       else {
         g = Math.min(1, g); w.groundG[i] = g; cover += g;
@@ -406,8 +435,12 @@ export function updatePlants(game) {
     id = w.tree[i];
     if (id) {
       const p = game.catalog.plants[id];
-      const s = plantSuit(w, i, p);
       let g = w.treeG[i];
+      // Light only matters to a young tree. A grown one has its crown up in the canopy, so neither
+      // its neighbours' shade nor full sun holds it back: a shade-intolerant Douglas-fir can't start
+      // under a closed forest, and a hemlock seldom in an open field, but grown ones are fine
+      // (treeHazard's suppression still weighs the saplings below the canopy).
+      const s = plantSuit(w, i, p, g >= CANOPY_G ? p.light[1] : undefined);
       w.treeAge[i] += 1;
       let dies = null, lost = 'stress'; // dies: the cause of a death that leaves deadwood; lost: why g fell to 0
       if (g < 0.95) {
@@ -612,6 +645,7 @@ export function seedRain(game) {
     // on Challenging the neighbours' invasive seeds press in harder (Relaxed's lighter touch is
     // w.invasiveOdds in trySeed, which covers seed from plants already on the land too)
     const inv = p.invasive ? (game.diff?.invasives ?? 1) : 1;
+    w.seedFrom = 'edge';
     trySeed(w, p, i, rng);
     if (inv > 1 && rng() < inv - 1) trySeed(w, p, i, rng);
   }
@@ -629,6 +663,7 @@ export function seedRain(game) {
       if (n < 1 && rng() >= n) break;
       const p = trees[Math.floor(rng() * trees.length)];
       const i = edgeTile(w, p, edge, rng);
+      w.seedFrom = 'forest';
       if (i >= 0) trySeed(w, p, i, rng);
     }
   }
@@ -637,12 +672,49 @@ export function seedRain(game) {
     const opts = game.catalog.definition.berrySeeds;
     const p = game.catalog.plant[opts[Math.floor(rng() * opts.length)]];
     const i = Math.floor(rng() * w.n);
+    w.seedFrom = 'bird';
     trySeed(w, p, i, rng);
   }
   // Wind-carried seeds can land anywhere.
   if (rng() < 0.05 * sf) {
     const p = game.catalog.plant[game.catalog.definition.windSeeds[Math.floor(rng() * game.catalog.definition.windSeeds.length)]];
+    w.seedFrom = 'wind';
     trySeed(w, p, Math.floor(rng() * w.n), rng);
+  }
+  regionalRain(game, sf);
+}
+
+// How a species' seed travels from the wild land around the farm (p.seedTravel overrides it):
+// fluff and winged seed ride the wind, fruit rides birds and monkeys, wetland seed floats along
+// the water, and heavy nuts and bulbs only move when an animal carries them.
+export function seedTravel(p) {
+  return p.seedTravel || (p.aquatic || p.mangrove || (p.wetOK && p.moist[0] >= 0.6) ? 'water'
+    : p.look.fruit || p.look.berry || p.fruitFood ? 'bird' : p.mast || p.disperser ? 'animal' : 'wind');
+}
+const TRAVEL = { wind: 1, bird: 0.8, water: 1, animal: 0.25, none: 0 };
+const REGIONAL_TRIES = 4; // seeds a day at the height of the seeding season, before travel odds
+const POOLS = new WeakMap();
+
+// Regional seed rain (0027): every native of the surrounding country reaches the farm now and then,
+// the way an abandoned field fills with species from the woods, wetlands and prairie remnants
+// around it. A seed lands on a random tile (water-carried seed on a bank or in the shallows) and
+// only takes where the ground suits it, so what comes up follows the habitat. The edge lists and
+// forest rain above are the bulk; this is the trickle that lets the rarer natives turn up at all,
+// shrubs, wildflowers and wetland plants as well as trees. A map sets `regionalRain` to scale it.
+function regionalRain(game, sf) {
+  const w = game.world, rng = game.rng, cat = game.catalog, rate = cat.definition.regionalRain ?? 1;
+  if (!rate) return;
+  let pool = POOLS.get(cat);
+  if (!pool) POOLS.set(cat, pool = cat.plants.filter(p => p && p.native !== false && !p.invasive && !p.exotic));
+  for (let k = 0; k < REGIONAL_TRIES; k++) {
+    if (rng() > 0.5 * sf * rate) continue;
+    const p = pool[Math.floor(rng() * pool.length)];
+    const travel = seedTravel(p);
+    if (rng() > TRAVEL[travel]) continue;
+    let i = Math.floor(rng() * w.n);
+    if (travel === 'water') for (let t = 0; t < 16 && w.distWater[i] > 1; t++) i = Math.floor(rng() * w.n);
+    w.seedFrom = 'region';
+    trySeed(w, p, i, rng);
   }
 }
 

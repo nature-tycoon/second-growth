@@ -4,6 +4,7 @@ import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
 import { removeTree, trySeed, clearUnderstory, fellSnag, DECAY, rottenLog } from './plants.js';
 import { disturbanceOn } from './campaign.js';
 import { disturbanceDaily } from './disturbance.js';
+import { forestDamp } from './environment.js';
 
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
@@ -47,8 +48,9 @@ export class Events {
     // rainforest or a wet conifer forest rarely burns while the pasture beside it does. w.canopy
     // follows the leaves, so a dry forest that drops them in the dry season gets none of this, and
     // in a crown fire's heat the canopy itself burns.
-    const dryness = hot ? clamp((0.85 - w.moist[i]) / 0.45, 0, 1)
-      : clamp((0.62 - w.moist[i]) / 0.4, 0, 1) * (1 - SHADE_DAMP * clamp((w.canopy[i] - 0.5) / 0.5, 0, 1));
+    const m = w.moist[i] - forestDamp(w, i); // (the canopy's damping is SHADE_DAMP here, not counted twice)
+    const dryness = hot ? clamp((0.85 - m) / 0.45, 0, 1)
+      : clamp((0.62 - m) / 0.4, 0, 1) * (1 - SHADE_DAMP * clamp((w.canopy[i] - 0.5) / 0.5, 0, 1));
     return f * dryness;
   }
 
@@ -245,6 +247,7 @@ export class Events {
     for (const i of this.severeTiles) {
       if (w.feature[i] === F.SNAG) snags++;
       if (w.ground[i] || w.tree[i] || isWater(w.terrain[i])) continue;
+      w.seedFrom = 'burn';
       if (rng() < 0.65) trySeed(w, this.game.catalog.plant[this.mapDefinition.burnSeeds[Math.floor(rng() * this.mapDefinition.burnSeeds.length)]], i, rng);
     }
     this.severeTiles = [];
@@ -328,7 +331,7 @@ export class Events {
     if (cl.crownFires === false || this.severe || !w.tree[i] || w.treeG[i] < 0.6) return 0;
     const ladder = this.ladder(w, i);
     if (!ladder) return 0;
-    const dry = clamp((0.75 - w.moist[i]) / 0.4, 0, 1), season = cl.fireMonths.includes(g.month) ? 1 : 0.3;
+    const dry = clamp((0.75 - w.moist[i] + forestDamp(w, i)) / 0.4, 0, 1), season = cl.fireMonths.includes(g.month) ? 1 : 0.3;
     return RX_TORCH * Math.min(ladder, 1.5) * dry * this.rxDrought() * season * g.diff.disasters;
   }
 
@@ -491,6 +494,7 @@ export class Events {
       if (!w.flood[i]) {
         // receding water leaves fresh silt and a scatter of floodplain seeds
         w.soil[i] = Math.min(1, w.soil[i] + 0.04);
+        w.seedFrom = 'flood';
         if (rng() < 0.12) trySeed(w, this.game.catalog.plant[this.mapDefinition.floodSeeds[Math.floor(rng() * this.mapDefinition.floodSeeds.length)]], i, rng);
       }
     }

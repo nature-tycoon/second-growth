@@ -64,10 +64,10 @@ check('Most seed lands near the tree, a few go far, on a fat tail', () => {
 
 check('Seed from beyond an edge falls off with depth, with no hard band, for trees only', () => {
   const g = plot('pnw', 80), w = g.world, def = g.catalog.definition;
-  const saved = { seedRain: def.seedRain, forestRain: def.forestRain };
+  const saved = { seedRain: def.seedRain, forestRain: def.forestRain, regionalRain: def.regionalRain };
   const rows = { tree: [], shrub: [] };
   try {
-    def.seedRain = { N: ['maple', 'salal'] }; def.forestRain = undefined;
+    def.seedRain = { N: ['maple', 'salal'] }; def.forestRain = undefined; def.regionalRain = 0; // (edge seed only: regional rain lands anywhere, 0027)
     for (let day = 0; day < 20000; day++) {
       seedRain(g);
       for (let i = 0; i < w.n; i++) {
@@ -91,9 +91,9 @@ check('A forest beyond an edge rains its native trees in along the edge; invasiv
   assert.ok(!n.includes('dogwood') || PLANT.dogwood.layer === 2, 'only trees');
   assert.ok(!forestTrees(atl, 'E').some(p => p.invasive), 'no callery pear: the neighbours\' yards are not a stand');
   const g = plot('pnw', 60), w = g.world, def = g.catalog.definition;
-  const saved = { seedRain: def.seedRain, forestRain: def.forestRain };
+  const saved = { seedRain: def.seedRain, forestRain: def.forestRain, regionalRain: def.regionalRain };
   const count = rain => {
-    def.seedRain = { N: ['hemlock', 'salal'] }; def.forestRain = rain;
+    def.seedRain = { N: ['fir', 'salal'] }; def.forestRain = rain; def.regionalRain = 0; // (edge and forest seed only, 0027)
     g.rng = mulberry32(3); let k = 0;
     for (let day = 0; day < 2000; day++) {
       seedRain(g);

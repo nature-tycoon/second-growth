@@ -4,7 +4,7 @@ import { Game } from '../js/game.js';
 import { World } from '../js/world.js';
 import { setBiome } from '../js/biome.js';
 import { PLANT, plantLeafCover, plantPhase } from '../js/data/plants.js';
-import { terrainFit, plantSuit, trySeed, updatePlants, removeTree } from '../js/sim/plants.js';
+import { terrainFit, plantSuit, trySeed, updatePlants, removeTree, patchOdds } from '../js/sim/plants.js';
 import { updateCanopy, layerLight, updateEnvironment, classifyAndResources } from '../js/sim/environment.js';
 import { TOOLS } from '../js/tools.js';
 import { T, F, H } from '../js/config.js';
@@ -149,10 +149,10 @@ check('Conspecific negative density dependence: fewer seedlings survive among th
   for (let y = 2; y <= 6; y++) for (let x = 2; x <= 6; x++) if (x !== 4 || y !== 4) w.setPlant(w.idx(x, y), PLANT.fir, 1, 30 * 120);
   updateCanopy(w, 4); w.nbCanopy[i] = 0; w.canopy[i] = 0; // (the gap itself is open)
   const odds = p => { let lo = 0, hi = 1; for (let n = 0; n < 30; n++) { const r = (lo + hi) / 2; w.tree[i] = 0; if (trySeed(w, p, i, () => r)) lo = r; else hi = r; } w.tree[i] = 0; return lo; };
-  const fir = odds(PLANT.fir), hemlock = odds(PLANT.hemlock);
-  const share = plantSuit(w, i, PLANT.fir), shareH = plantSuit(w, i, PLANT.hemlock);
-  assert.ok(Math.abs(fir / share - 0.7) < 0.02, `fir among firs: ${fir} of ${share}`); // pnw cndd 0.3, all neighbours fir
-  assert.ok(Math.abs(hemlock / shareH - 1) < 0.02, `hemlock among firs: ${hemlock} of ${shareH}`);
+  const fir = odds(PLANT.fir), cedar = odds(PLANT.cedar);
+  const share = plantSuit(w, i, PLANT.fir), shareH = plantSuit(w, i, PLANT.cedar);
+  assert.ok(Math.abs(fir / (share * patchOdds(PLANT.fir, 4, 4)) - 0.7) < 0.02, `fir among firs: ${fir} of ${share}`); // pnw cndd 0.3, all neighbours fir
+  assert.ok(Math.abs(cedar / (shareH * patchOdds(PLANT.cedar, 4, 4)) - 1) < 0.02, `cedar among firs: ${cedar} of ${shareH}`);
 });
 check('Relaxed: fewer invasive seedlings take, wherever the seed came from; natives are untouched', () => {
   const g = fixture('pnw'), w = g.world, i = w.idx(4, 4);

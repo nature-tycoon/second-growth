@@ -81,7 +81,7 @@ export default {
   },
   // and the woods to the north and east rain their trees' seed in all along those edges (0028 §6)
   forestRain: { N: 0.005, E: 0.005 }, // (Cole, 2026-10-23: halved, so the edges fill over 25-30 years and Second growth stays earned)
-  windSeeds: ['fireweed', 'cottonwood'],
+  windSeeds: ['fireweed', 'cottonwood', 'birch'],
   berrySeeds: ['salmonberry', 'elderberry', 'snowberry', 'rose', 'salal', 'oregongrape', 'blackberry'],
   floodSeeds: ['willow', 'cottonwood', 'sedge', 'canarygrass', 'alder'],
   burnSeeds: ['fireweed', 'fireweed', 'wildrye', 'fescue', 'lupine', 'yarrow'],

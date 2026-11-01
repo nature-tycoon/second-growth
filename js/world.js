@@ -42,6 +42,8 @@ export class World {
     this.treeDeaths = {}; this.treeDeathsEst = {};
     // the share of natural invasive seedlings that take on easier difficulties (updatePlants sets it from game.diff)
     this.invasiveOdds = 1;
+    // diagnostics (tools/plant-establishment.mjs): where the seed being tried came from, and a hook that hears why it failed
+    this.seedFrom = null; this.seedLog = null;
     // disturbance (0028 §4, sim/disturbance.js): root rot in the soil per tile (saved), and how deep
     // today's drought is (0..1, set daily; treeHazard reads it)
     this.rot = u8(); this.drought = 0;

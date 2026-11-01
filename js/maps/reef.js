@@ -424,6 +424,7 @@ export default {
   // dead coral rubble is the reef's "hardpan": nothing settles on it until it's held still
   hardpan: true,
   grazing: 0, // (sea turtles and dugongs crop seagrass in sim/animal-foraging.js instead)
+  regionalRain: 0, // (coral larvae already drift in on the current: windSeeds)
   sandBed: true,
   // snorkel trails are lines of buoys over the reef, not paths cut through it
   buoyTrails: true,

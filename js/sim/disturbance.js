@@ -8,6 +8,7 @@
 
 import { F, DAYS_PER_MONTH, DAYS_PER_YEAR, clamp } from '../config.js';
 import { removeTree, fellSnag, ESTABLISHED_TREE } from './plants.js';
+import { forestDamp } from './environment.js';
 
 const N8 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
 
@@ -49,7 +50,7 @@ export function windKillChance(w, i, p, severity) {
   const g = clamp((w.treeG[i] - 0.3) / 0.7, 0, 1), size = g * g;
   if (!size) return 0;
   const exposure = 0.25 + 0.75 * openAround(w, i);
-  const rooting = 0.6 + 0.8 * clamp((w.moist[i] - 0.45) / 0.4, 0, 1);
+  const rooting = 0.6 + 0.8 * clamp((w.moist[i] - forestDamp(w, i) - 0.45) / 0.4, 0, 1); // (wet ground, not a shady humus floor)
   return Math.min(0.95, 2 * severity * size * exposure * rooting * (1 - windfirm(p)));
 }
 

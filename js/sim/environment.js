@@ -78,13 +78,19 @@ export function updateCanopy(w, month = 0) {
   }
 }
 
+// A closed canopy keeps the sun and wind off the ground, and a deep humus soil holds the rain, so
+// old forest makes its own damp floor, where redcedar, hemlock and the ferns come in (0027). It is
+// shade and humus, not waterlogged ground: windthrow and fire read moisture without it (they have
+// their own canopy terms, 0028), so subtract it there.
+export const forestDamp = (w, i) => 0.14 * w.canopy[i] * w.canopy[i] + Math.max(0, w.soil[i] - 0.4) * 0.15;
+
 export function updateMoisture(w, month) {
   const off = w.catalog.definition.climate.moist[month];
   for (let i = 0; i < w.n; i++) {
     const t = w.terrain[i];
     if (isWater(t)) { w.moist[i] = t === T.MARSH ? 0.97 : 1; continue; }
     const d = w.distWater[i];
-    let m = w.baseMoist[i] + 0.55 * Math.exp(-d / 2.1) + off + w.canopy[i] * 0.06 + w.elevMoist[i];
+    let m = w.baseMoist[i] + 0.55 * Math.exp(-d / 2.1) + off + w.canopy[i] * 0.06 + forestDamp(w, i) + w.elevMoist[i];
     if (t === T.MUD) m += 0.22;
     if (w.flood[i]) m += 0.4;
     if (w.feature[i] === F.LOG) m += 0.05;

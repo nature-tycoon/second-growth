@@ -29,8 +29,9 @@ function forest(key = 'fir', size = 15, moist = 0.6) {
 check('Windfirmness comes from traits unless a plant overrides it', () => {
   setBiome('pnw');
   assert.equal(windfirm(PLANT.maple), 0.5, 'a broadleaf of ordinary ground');
-  assert.ok(Math.abs(windfirm(PLANT.fir) - 0.45) < 1e-9, 'a conifer catches more wind; a long-lived one roots deeper');
-  assert.ok(Math.abs(windfirm(PLANT.cedar) - 0.35) < 1e-9, 'a conifer of wet ground less still');
+  assert.ok(Math.abs(windfirm({ ...PLANT.fir, windfirm: undefined }) - 0.45) < 1e-9, 'a conifer catches more wind; a long-lived one roots deeper');
+  assert.equal(windfirm(PLANT.fir), 0.6, 'unless its data says otherwise (Douglas-fir, deep-rooted, 0027)');
+  assert.ok(Math.abs(windfirm(PLANT.cedar) - 0.35) < 1e-9, 'a conifer of wet ground less still (redcedar, set in its data since 0027 widened its moisture range)');
   assert.ok(Math.abs(windfirm(PLANT.alder) - 0.5) < 1e-9);
   assert.ok(Math.abs(windfirm(PLANT.oak) - 0.6) < 1e-9, 'long-lived, deep-rooted oak more');
   assert.equal(windfirm({ ...PLANT.fir, windfirm: 0.9 }), 0.9, 'override');

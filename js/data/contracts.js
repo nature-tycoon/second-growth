@@ -295,7 +295,7 @@ const layer = (v, path) => choice(v, path, [0, 1, 2]);
 
 const PLANT_BOOLEANS = 'native invasive nfix aquatic wetOK nurse conifer beaverFood resprout gravelOK birdSpread floating swampTree weedy crustOK sod exotic caterpillars dune fencePost mangrove fragile cay';
 const PLANT_NUMBERS = 'compete soil spread radius life cost graze browse mast fuel fireSurvival matureAge soilK pioneer bleach seedSpacing smother fruitFood harvest heightM cndd windfirm decay farSeed';
-const PLANT_FIELDS = keys(`key name sci desc layer moist light grow look mapId id host disperser kindName tab was nectar ${PLANT_BOOLEANS} ${PLANT_NUMBERS}`);
+const PLANT_FIELDS = keys(`key name sci desc layer moist light grow look mapId id host disperser seedTravel kindName tab was nectar ${PLANT_BOOLEANS} ${PLANT_NUMBERS}`);
 const LOOK_FIELDS = keys('type leaf bloom fruit deciduous evergreen tropical savanna dryForest scale flower berry fall dry bark head stem seed plume bloomTint fruitSize airy small crownBloom hangFruit climbs');
 
 /** @param {PlantSpec} p */
@@ -306,6 +306,7 @@ export function assertPlantSpec(p, path = 'plant') {
   number(p.grow, `${path}.grow`, Number.MIN_VALUE);
   optional(p, PLANT_BOOLEANS, path, boolean); optional(p, PLANT_NUMBERS, path, (v, q) => number(v, q, 0));
   optional(p, 'host disperser kindName tab was mapId', path, text);
+  if (p.seedTravel != null) choice(p.seedTravel, `${path}.seedTravel`, ['wind', 'bird', 'water', 'animal', 'none']);
   object(p.look, `${path}.look`); fields(p.look, `${path}.look`, LOOK_FIELDS);
   text(p.look.type, `${path}.look.type`); text(p.look.leaf, `${path}.look.leaf`);
   optional(p.look, 'bloom fruit', `${path}.look`, months);

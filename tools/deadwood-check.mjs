@@ -8,7 +8,7 @@ const { Game } = await import('../js/game.js');
 const { World } = await import('../js/world.js');
 const { setBiome } = await import('../js/biome.js');
 const { PLANT } = await import('../js/data/plants.js');
-const { updatePlants, removeTree, trySeed, plantSuit, woodDecay, moistDecay, decayRate, rottenLog, nurseBonus, DECAY } = await import('../js/sim/plants.js');
+const { updatePlants, removeTree, trySeed, plantSuit, woodDecay, moistDecay, decayRate, rottenLog, nurseBonus, DECAY, patchOdds } = await import('../js/sim/plants.js');
 const { classifyAndResources, updateCanopy } = await import('../js/sim/environment.js');
 const { windstorm } = await import('../js/sim/disturbance.js');
 const { assertMapDefinition } = await import('../js/data/contracts.js');
@@ -112,8 +112,8 @@ check('A nurse-log seedling up on a rotten log clears a thick sward, and waits i
   const p = PLANT.hemlock;
   deadTree(w, i, 'fir'); w.distLog[i] = 0;
   // odds at the final roll: a draw just under the suitability passes on bare ground; the sward cuts it to 0.3 of that
-  const s = plantSuit(w, i, p);
-  w.featureAge[i] = 0; assert.equal(trySeed(w, p, i, () => plantSuit(w, i, p) * 0.5), false, 'a sound log: the sward holds it back');
+  const s = plantSuit(w, i, p) * patchOdds(p, 4, 4); // (and the species' patches, 0027)
+  w.featureAge[i] = 0; assert.equal(trySeed(w, p, i, () => s * 0.5), false, 'a sound log: the sward holds it back');
   w.featureAge[i] = DECAY.rotten * 120; assert.equal(trySeed(w, p, i, () => s * 0.5), true, 'a rotten log: above the grass');
   // under a tree growing out of the rotten log
   w.tree[i] = 0; for (let y = 3; y <= 5; y++) for (let x = 3; x <= 5; x++) w.setPlant(w.idx(x, y), PLANT.maple, 1, 30 * 120);
