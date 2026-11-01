@@ -347,7 +347,8 @@ export function rangePaces(wl) {
     const lead=wl.ids.get(id);if(lead?.range?.goal==null&&lead?.trip==null||lead.state!=='walk'||lead.fromFire)continue;
     if(!wl.game.catalog.animals[lead.sp].familyHerd)continue;
     const d=Math.hypot(lead.x-b.x,lead.y-b.y);
-    if(d>3.2)paces.set(id,Math.min(paces.get(id)||1,d>6?.5:.7));
+    // (a calf still standing can't close any gap: she all but waits until it walks)
+    if(d>3.2)paces.set(id,Math.min(paces.get(id)||1,b.state!=='walk'?.25:d>6?.5:.7));
   }
   return paces;
 }

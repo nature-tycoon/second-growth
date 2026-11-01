@@ -39,3 +39,7 @@ so a mother that left on a journey while her calf was resting outran it: the cal
 once she is a couple of tiles off (`cervidNeedsRejoin`), and since walkers turn from the way they
 face before moving off (0023), it fell 3.7 tiles behind on the return trip in
 `cervid-behavior-check` (limit 3.5). Now 3.3.
+
+With shared steering (0025) a walker also eases up to speed, so the calf still fell 3.65 tiles
+behind (4.07 on the steering branch alone). While a lagging member is still standing she now
+slows to a quarter pace, not 0.7, since a calf that hasn't set off can't close any gap: 3.42.
