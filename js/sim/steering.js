@@ -6,11 +6,16 @@
 // them and settles what must hold whatever they did:
 //   - what it acts on, it faces: a drinker the water it is drinking, rivals in a bout each other;
 //   - its body (rump to chest, and a rack of antlers) is out of any trunk, even after turning on the spot;
-//   - a land walker doesn't stop on water: it may wade across a creek or a marsh, not stand in one.
+//   - a land walker doesn't stop on water: it may wade across a creek or a marsh, not stand in one;
+//   - an idle grazer with its back to the water keeps its head up (`a.headUp`), since head down
+//     there it looks as if it is drinking backwards.
 import { isWater } from '../config.js';
-import { facePoint } from './animal-positioning.js';
+import { facePoint, animalRadius } from './animal-positioning.js';
 import { settleBody, groundWalker } from './ground-obstacles.js';
 import { underWater } from './waterline.js';
+
+// The drawn kinds that lower their heads to graze now and then while they stand idle (actors.js).
+export const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
 
 // Walks on land, wades at most: the animals that must not stop on a water tile (not swimmers,
 // semi-aquatic animals, fliers, the reef, nor a migrant swimming the river at the crossing).
@@ -43,6 +48,19 @@ export function nearestWater(w, x, y, reach = 2, prefer = null) {
   }
   return [px, py];
 }
+// Is there drawn water behind it (within about 30° of straight back), nearer than its body length?
+// Only looked at again once it has moved or turned noticeably: a neighbour's nudges don't count.
+function backToWater(w, wl, a) {
+  const h = a.hd ?? a.orientation ?? 0; // (the heading it is drawn with)
+  const key = Math.round(a.x * 20) * 7919 + Math.round(a.y * 20) * 104729 + Math.round(h * 10);
+  if (a.headUpKey === key) return;
+  a.headUpKey = key; a.headUp = false;
+  const L = animalRadius(a, wl.game.catalog) / 0.65 + 0.1, step = Math.min(0.1, L / 6); // (finer for a small body)
+  for (let k = -2; k <= 2; k++) {
+    const ang = h + Math.PI + k * 0.26, c = Math.cos(ang), s = Math.sin(ang);
+    for (let d = step; d <= L; d += step) if (underWater(w, a.x + c * d, a.y + s * d)) { a.headUp = true; return; }
+  }
+}
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
 
 // A drinker's head goes to the water nearest where it actually stands, square on to the bank it
@@ -64,6 +82,8 @@ export function settle(wl) {
       if (a.drinkFrom && Math.hypot(a.x - a.drinkFrom[0], a.y - a.drinkFrom[1]) > 0.1 && !a.flying) aimDrink(w, a, a.drinkAt);
       else facePoint(a, ...a.drinkAt);
     }
+    if (a.state === 'idle' && !(a.drinkT > 0) && def.move === 'ground' && GRAZERS.has(def.sprite.kind)) backToWater(w, wl, a);
+    else if (a.headUpKey != null) { a.headUp = false; a.headUpKey = null; } // (looked at afresh next time it stands idle)
     if (!groundWalker(def, a)) continue;
     const still = a.state === 'idle' || a.state === 'feed' || a.state === 'forage';
     // (a squeeze through a cramped stand lasts while it walks: stopped half inside a trunk, it was

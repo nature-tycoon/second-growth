@@ -7,6 +7,7 @@ import { roostingNow } from '../data/animal-activity.js';
 import { clearCanopy } from './flight-clearance.js';
 const CLEAR = { floor: -Infinity }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
+import { GRAZERS } from '../sim/steering.js';
 import * as S from '../render/sprites.js';
 import { treeHeight, treeLevel } from './tree-stature.js';
 import { treeTrunk } from '../sim/ground-obstacles.js';
@@ -34,7 +35,6 @@ const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
 const SOAR_BANK = 0.35; // a circling hawk leans into its turn
 const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
-const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
 const SPAR_FIT = { elk: 0.97, sambar: 0.86 }; // per antler type, as a share of the two heads' full reach
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 
@@ -378,7 +378,7 @@ export class Actors {
       const birdHead = a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
         : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
       const head = swimming ? 0 : a.cache && a.move === 'ground' && !moving ? (Math.sin(time * 7 + a.id) > -0.3 ? 1 : 0.5) : fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
-        : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
+        : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && !a.headUp && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
       st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
       if (fight) st.gait += (fight.gait - st.gait) * k;
       // stalking cats sink low to the ground

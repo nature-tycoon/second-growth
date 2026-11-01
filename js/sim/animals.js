@@ -87,7 +87,7 @@ class Animal {
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
-  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil;
+  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil; headUp; headUpKey;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -2020,7 +2020,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, settleKey, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, settleKey, headUp, headUpKey, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,

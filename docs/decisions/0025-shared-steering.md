@@ -77,6 +77,14 @@ In detail:
   stands (`nearestWater`, using `underWater`), square on to the bank unless water to one side is
   clearly nearer. It is re-aimed if neighbours shove it more than 0.1 along the bank (before, it
   kept facing the old point).
+- **Idle grazers at the bank** (Cole: "elephants often get water with their back turned to the
+  creek"). `actors.js` lowers every idle grazer's head now and then (`GRAZERS`, now in
+  `steering.js`). With drawn water behind it, within its body length and about 30° of straight
+  back, that reads as drinking backwards. `settle` sets `a.headUp` for such an animal and the
+  drawing skips the head-down pose; it is looked at again only when the animal moves 0.05 or turns
+  0.1 rad (`headUpKey`). Keeping the head up was chosen over turning it to face the water or moving
+  it inland: it changes nothing in the simulation (where animals stand and face is the same, so
+  every other count is unchanged), and a grazer standing head up near a creek looks natural.
 - **Water** (Cole: wade across only). Small land animals (drawn kinds `DRY_FOOTED` in
   `animal-terrain.js`: rodents, rabbits, squirrels, agoutis and mouse-deer, armadillos, land
   turtles, beetles, pangolins, lizards) never enter marsh or creek tiles. Raccoons, coatis and civets
@@ -130,6 +138,7 @@ seeds 1987 and 91 (range over maps):
 | rival-steps stuck short of the stance (both there, half a day on) | 0–1,148 | 0 |
 | settled rivals not facing within 30° (per 1000 bout-steps) | 0–3.6 | 0–0.8 |
 | drinkers with no water within 30° of their heading | 0 | 0 |
+| idle grazers head down with water behind them (per 1000 idle grazer-steps) | 0–137 | 0 |
 | settled herd mates within a body length, herd of 60 (per 1000) | 11.9 | 4.4 |
 | median gap to the nearest settled herd mate (body lengths) | 1.5–3.5 | 2.1–4.2 |
 
@@ -139,7 +148,9 @@ Land walkers wading across creeks and marshes on the way somewhere (allowed) sta
 
 Elephants (Serengeti, 120 days, 4 seeds): within two tiles of water 63–81% of the time before,
 5–43% after, and they still come back to drink. Idle at the water's edge with their backs to it:
-50–63% of idle time before, 1–51% after. Crocodiles (dug creek joined to the river, six crocodiles at its
+50–63% of idle time before, 1–51% after. Idle grazers drawn head down with water behind them (`backGraze`, per 1000 idle grazer-steps): Serengeti 57 (seed 1987) and 52 (seed 91) before, 0 after, and 0 on every map for both seeds.
+The probe costs about 0.01 ms a step on Serengeti (684 re-probes in 22,203 idle-grazer steps), within noise of `wildlife.update`.
+Crocodiles (dug creek joined to the river, six crocodiles at its
 mouth, 120 days): 0 steps in it before, 793 after, one settling its home there.
 
 Balance, Hollis `restore 15`, 8 seeds (7, 11, 23, 5, 31, 41, 53, 67), means:
@@ -186,4 +197,6 @@ on the overland trip") and `primate-stall-check` (orangutan hold) fail before an
 - New per-animal fields `drinkFrom`, `fleeHd`, `sparSince` and `settleKey` are declared on `Animal`.
   `drinkFrom` and `sparSince` are saved with the drink and the bout. `fleeHd` and `settleKey` are not.
   `settleKey` (position and heading when last settled) lets `settleBody` skip animals that haven't
-  moved or turned.
+  moved or turned. `headUp` and `headUpKey` (back to the water, idle grazers) are not saved either;
+  `headUpKey` is cleared whenever the animal isn't an idle non-drinking grazer, or one that stops
+  drinking where it stood would keep its old answer.
