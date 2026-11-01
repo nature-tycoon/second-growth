@@ -54,7 +54,7 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 - [0029](docs/decisions/0029-pollinators-in-3d.md) Bees and butterflies at the flowers are 3D insects drawn with the wildlife's models (`render3d/pollinators.js`), each map's own species in `look.ambience.pollinators`
 - [0030](docs/decisions/0030-everyday-animal-behaviours.md) Everyday behaviours as species traits in `behaviorFor`: fishing (`sim/fishing.js`), woodpeckers on trunks, climbers two to a tree and squirrels on the ground (`sim/climbers.js`), `plays`, `nocturnal` (drawn day only), fliers clear the canopy (`render3d/flight-clearance.js`), carcass meals on the ground. `a.passing` is for flyovers only; a climber on the ground has `a.move` 'ground'. Keystone sweep: `tools/moments-sweep-browser-check.mjs`
 - [0031](docs/decisions/0031-ecosystem-report.md) Ecosystem Report: six vital signs against each map's reference ecosystem, a cited carbon estimate, stages and badges (`sim/eco-metrics.js`, `data/eco-reference.js`, `ui/eco-report.js`); badges pay nothing
-- [0028](docs/decisions/0028-real-moon-and-clear-sky.md) The real moon (`render3d/moon.js`, turned for the map's `lat`) and a deeper clear-day sky (`SKY_BLUE`, each map's `look.skyHaze`); eye level only
+- [0032](docs/decisions/0032-real-moon-and-clear-sky.md) The real moon (`render3d/moon.js`, turned for the map's `lat`) and a deeper clear-day sky (`SKY_BLUE`, each map's `look.skyHaze`); eye level only
 
 New decisions take the next unused number and one line here.
 

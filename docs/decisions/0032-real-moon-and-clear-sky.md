@@ -1,4 +1,4 @@
-# 0028 The real moon and a deeper clear-day sky
+# 0032 The real moon and a deeper clear-day sky
 
 2026-10-31. Cole asked to "make the moon look more like the real moon with texture" and to "make the
 sky bluer on clear days".
