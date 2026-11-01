@@ -301,6 +301,25 @@ whole ear, floating. Put the base well inside the head, measured from the head's
 bears' `ear()` in `small-mammals.js` sinks it 10–16% in from the surface), and lean the ear out
 with the skull, not in toward the midline.
 
+## Swimming (2026-10-31)
+
+Cole saw coral trout wiggle out of phase. Every swimmer's tail fin swayed on a clock of its own
+(`sin(ph * 0.5)`) while the body wave ran at `1.4 * ph`, so the two drifted in and out of step. Now:
+
+- The tail fin of a wave swimmer turns with the body wave's slope at its root, `uTail` times as much
+  again (`animatePart` in `animal-material.js`). Fish, sharks, butterflyfish, the idol, dolphins,
+  and the caiman, monitor and newt tails, which share the wave.
+- A swimmer's phase (`mo.swims`) runs by distance swum, not the simulation clock: one tail beat per
+  `SWIM_STRIDE` (0.7) body lengths, as real fish (`actors.js`), so the wave travels back about 1.5
+  times as fast as the fish moves, at any size or speed. Hovering, it sculls on `a.phase`.
+- `fish()` waves like the shark with a stiffer front: a bit over a body length per wave
+  (`waveK = 5.5 / size`), the head nearly still (`waveMin` 0.08, `wavePow` 1.5).
+- Check: `node tools/fish-swim-check.mjs`.
+
+Snakes: `sprite.length` sets a snake's body length in sizes (the anaconda 4.4, the reticulated
+python 3.6, others 2.4/2.6). The head, the markings and the crawl's bends keep their size, so a
+longer snake has more body, more spots and more bends (`snake()` in `aquatic-reptiles.js`).
+
 ## Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the

@@ -23,7 +23,7 @@ import { GeometryIndex } from './geometry-index.js';
 import { PlantShadows } from './plant-shadows.js';
 import { PlantPool, ChunkedPlantPool, floraVersion } from './plant-pools.js';
 import { trailMask } from '../sim/animal-trails.js';
-import { dryPoint, trunkSpot } from '../sim/ground-obstacles.js';
+import { dryPoint, shrubSpot, trunkSpot } from '../sim/ground-obstacles.js';
 import { createPlantMaterials } from './plant-materials.js';
 
 // Preserve public imports used by existing rendering tools.
@@ -48,6 +48,7 @@ const SHRUB_HABIT = {
   salmonberry: 'arching', rose: 'arching', oceanspray: 'arching', beautyberry: 'arching', sweetspire: 'arching',
   elderberry: 'vase', dogwood: 'vase', spicebush: 'vase', azalea: 'vase', hamelia: 'vase', piper: 'vase', vismia: 'vase', croton: 'vase',
   huckleberry: 'airy', snowberry: 'airy', grewia: 'airy', cornizuelo: 'airy',
+  lantana: 'sprawl',
   hydrangea: 'bigleaf', castor: 'bigleaf', seagrape: 'bigleaf', cacao: 'bigleaf',
 };
 // Where a crown-of-thorns starfish sits up on top of the coral it's eating (or, with no coral
@@ -475,15 +476,9 @@ export class Flora {
         const p = game.catalog.plants[sid];
         const g = fringeS || (inside ? w.shrubG[i] : 1);
         const phase = plantPhase(p, month);
-        let sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
-        // a bush sharing a tile with a tree grows at the far side of the tile from the trunk, not
-        // inside it (the tree's offset uses the same hashes: see trees below). A blue sea star lies
-        // on the sand beside its coral the same way, rather than with its arms poking through.
-        if (tid) {
-          const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
-          const d = p.look.type === 'seastar' ? 0.34 : 0.24 + hash2(x, y, 5) * 0.08;
-          sx = x + 0.5 - Math.sign(ox || 1) * d; sz = y + 0.5 - Math.sign(oz || 1) * d;
-        }
+        // (a bush sharing a tile with a tree grows at the far side of the tile from the trunk, not
+        // inside it; a blue sea star lies on the sand beside its coral: shrubSpot)
+        let [sx, sz] = shrubSpot(x, y, p, !!tid);
         if (bankTile) [sx, sz] = this.dryPoint(w, x, y, sx, sz);
         let sy = hAt(sx, sz);
         if (p.look.climbs && tid) [sx, sy, sz] = climberSpot(w, game.catalog, i, hAt, inside ? w.treeG[i] : 0.9);

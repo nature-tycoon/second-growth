@@ -35,7 +35,7 @@ export function buildSpecies(def, { close = false } = {}) {
     case 'sloth': sloth(m, s); mo.leg = 0.12; mo.tail = 0; mo.canopyHanging = true; break;
     case 'caiman': caiman(m, s); mo.leg = 0.4; mo.tail = 0.35; mo.wave = s.len * 0.025; mo.waveK = 6 / s.len; mo.waveHead = s.len * 0.1; mo.waveLen = s.len * 0.7; mo.sink = s.len * 0.09; break;
     case 'ray': ray(m, s); mo.flap = 0.9; mo.wingSpan = s.size * 0.66; mo.wingRoot = s.size * 0.14; mo.tail = 0.3; mo.leg = 0; break;
-    case 'dolphin': dolphin(m, s); mo.verticalWave = 1; mo.tail = 0.12; mo.wave = s.size * 0.03; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.2; mo.waveLen = s.size * 0.8; mo.sink = s.size * 0.1; break;
+    case 'dolphin': dolphin(m, s); mo.swims = 1; mo.verticalWave = 1; mo.tail = 0.12; mo.wave = s.size * 0.03; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.2; mo.waveLen = s.size * 0.8; mo.sink = s.size * 0.1; break;
     case 'deer': case 'canine': case 'feline': case 'raccoon': case 'otter': case 'beaver':
     case 'peccary': case 'agouti': case 'anteater':
     case 'antelope': case 'zebra': case 'wildebeest': case 'gazelle': case 'impala': case 'buffalo': case 'warthog': case 'hyena': case 'rhino': case 'giraffe': case 'elephant': {
@@ -73,13 +73,15 @@ export function buildSpecies(def, { close = false } = {}) {
     // (a snake's S-curve rides back along its body as it crawls; see uSlither in the shader)
     case 'snake': mo.slither = snake(m, s); mo.tongue = 1; mo.sink = s.size * (s.heavy ? .095 : .045); break;
     case 'person': person(m, s.look, !!s.snorkel); mo.leg = 0.5; mo.bob = 0.5; mo.len = 8; break;
-    case 'butterflyfish': butterflyfish(m, s); mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.1; mo.waveLen = s.size * 0.6; mo.sink = s.size * 0.32; mo.tail = 0.5; break;
+    case 'butterflyfish': butterflyfish(m, s); mo.swims = 1; mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.1; mo.waveLen = s.size * 0.6; mo.sink = s.size * 0.32; mo.tail = 0.5; break;
     // (a shark swims with its whole back half: about one wave along the body, the head almost
     // still and the sweep growing toward the tail, which rides the same wave rather than flicking
     // on its own; and it curves into a C as it turns: see bend in actors.js)
-    case 'shark': shark(m, s); mo.wave = s.size * 0.085; mo.waveK = 6.28 / (s.size * 1.05); mo.waveHead = s.size * 0.42; mo.waveLen = s.size * 1.1; mo.waveMin = 0.04; mo.wavePow = 1.8; mo.bend = s.size * 0.22; mo.sink = s.size * 0.16; mo.tail = 0; break;
-    case 'idol': idol(m, s); mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.1; mo.waveLen = s.size * 0.6; mo.sink = s.size * 0.32; mo.tail = 0.5; break;
-    case 'fish': fish(m, s); mo.wave = s.size * 0.07; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.25; mo.waveLen = s.size * 0.9; mo.sink = s.size * 0.2; mo.tail = 0.5; break;
+    case 'shark': shark(m, s); mo.swims = 1; mo.wave = s.size * 0.085; mo.waveK = 6.28 / (s.size * 1.05); mo.waveHead = s.size * 0.42; mo.waveLen = s.size * 1.1; mo.waveMin = 0.04; mo.wavePow = 1.8; mo.bend = s.size * 0.22; mo.sink = s.size * 0.16; mo.tail = 0; break;
+    case 'idol': idol(m, s); mo.swims = 1; mo.wave = s.size * 0.04; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.1; mo.waveLen = s.size * 0.6; mo.sink = s.size * 0.32; mo.tail = 0.5; break;
+    // (a fish swims like the shark, with a stiffer front: a bit over a body length per wave, the head
+    // nearly still and the sweep growing toward the tail, whose fin turns in step with it: animatePart)
+    case 'fish': fish(m, s); mo.swims = 1; mo.wave = s.size * 0.07; mo.waveK = 5.5 / s.size; mo.waveHead = s.size * 0.25; mo.waveLen = s.size * 0.9; mo.waveMin = 0.08; mo.wavePow = 1.5; mo.sink = s.size * 0.2; mo.tail = 0.5; break;
     default: m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
   }
   mo.eye = m.eyeAt || null; mo.eyePivot = m.eyePivot || [0, 0, 0]; // where the eyes are, in model units (for eye-shine)

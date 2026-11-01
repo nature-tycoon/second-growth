@@ -313,6 +313,23 @@ export function shrub(type, seed, lod = 0) {
       }
       break;
     }
+    case 'sprawl': {
+      // a low, wide scrambler: many stems leaning out from the base and arching back down, leafy in
+      // small sprays along their outer two thirds with gaps between, so it reads open, not as a mound
+      // (lantana). Its flower clusters sit on the outer sprays (shrubSpots in flora.js).
+      cy = 0.16;
+      blob(0, 0.1, 0, 0.085, 0.7, 0.72);
+      for (let k = 0, n = lod ? 6 : 9; k < n; k++) { // (from afar, fewer stems, two sprays each)
+        const a = k / n * 6.28 + r() * 0.5, h = 0.2 + r() * 0.14, reach = 0.36 + r() * 0.12;
+        const at = t => [Math.cos(a) * reach * t, 0.03 + h * (2.2 * t - 1.3 * t * t), Math.sin(a) * reach * t];
+        if (!lod) for (let j = 0; j < 3; j++) stem(at(j / 3), at((j + 1) / 3), 0.01 - j * 0.002, 0.008 - j * 0.002);
+        for (let j = lod ? 1 : 0; j < 3; j++) {
+          const t = 0.36 + j * 0.28 + r() * 0.06, [x, y, z] = at(t), side = (r() - 0.5) * 0.1;
+          blob(x - Math.sin(a) * side, y + 0.02, z + Math.cos(a) * side, 0.05 + r() * 0.018 - j * 0.006, 0.85, 0.78 + j * 0.09 + r() * 0.12);
+        }
+      }
+      break;
+    }
     case 'vase': {
       // several upright stems from a spreading base, bare low down, opening into a leafy top (elderberry, red-osier dogwood)
       cy = 0.34;

@@ -5,6 +5,7 @@ import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const { loadAnimals, ANIMALS } = await import('../js/data/animals.js');
 const { buildSpecies, faunaMaterial } = await import('../js/render3d/fauna.js');
+const { adultAnimalScale } = await import('../js/render3d/animal-scale.js');
 const { Box3, Color, Vector3 } = await import('three');
 let checks = 0;
 const models = new Map();
@@ -29,8 +30,8 @@ check('All five regional snakes have finite geometry within the mesh budget', ()
   for (const [key, { geo, def }] of models) {
     for (const attr of Object.values(geo.attributes)) assert.ok([...attr.array].every(Number.isFinite), `${key}: finite attributes`);
     assert.ok(geo.index.count / 3 < 12000 && geo.attributes.position.count < 7000, `${key}: mesh budget`);
-    const size = geo.boundingBox.getSize(new Vector3()), S = def.sprite.size;
-    assert.ok(size.x > S * 2.3 && size.x < S * 2.9, `${key}: long body and tapered tail`);
+    const size = geo.boundingBox.getSize(new Vector3()), S = def.sprite.size, L = def.sprite.length ?? (def.sprite.reticulated ? 2.6 : 2.4);
+    assert.ok(size.x > S * (L - .1) && size.x < S * (L + .5), `${key}: long body and tapered tail`);
     assert.ok(geo.boundingBox.min.y >= 0 && geo.boundingBox.min.y < S * .015, `${key}: rests on the ground`);
     assert.ok(size.y < S * .25, `${key}: low profile`);
   }
@@ -72,6 +73,24 @@ check('Anacondas are stockier than land snakes and pythons have a longer silhoue
   const py = models.get('python'), boa = models.get('boa');
   assert.ok(py.geo.boundingBox.getSize(new Vector3()).x > boa.geo.boundingBox.getSize(new Vector3()).x * 1.06);
 });
+check('The giant snakes are long for their girth, with heads the same size as before', () => {
+  // A green anaconda is commonly 4-6 m and about 30 cm thick, a reticulated python 4-6 m and slimmer:
+  // drawn about 2.5 times life size (decision 0024), 1.3-1.9 tiles from nose to tail.
+  for (const key of ['anaconda', 'python']) {
+    const { geo, body, def } = models.get(key), p = geo.attributes.position, S = def.sprite.size;
+    const piv = geo.attributes.aPivot, rings = new Map(); // (thickness: the widest ring of the skin, across the spine)
+    for (const i of body) { const k = piv.getX(i).toFixed(3); if (!rings.has(k)) rings.set(k, []); rings.get(k).push(i); }
+    const thick = Math.max(...[...rings.values()].map(r => Math.max(...r.flatMap(a => r.map(b => Math.hypot(p.getX(a) - p.getX(b), p.getZ(a) - p.getZ(b)))))));
+    const tiles = geo.boundingBox.getSize(new Vector3()).x * adultAnimalScale(def.sprite);
+    assert.ok(def.sprite.length * S / thick > 14, `${key}: ${(def.sprite.length * S / thick).toFixed(1)} times as long as thick`);
+    assert.ok(tiles > 1.3 && tiles < 1.9, `${key}: ${tiles.toFixed(2)} tiles long`);
+  }
+  // the head keeps its length: eye to nose is the same in sizes on a long snake as on a short one
+  const eyeToNose = key => { const { geo, def, motion } = models.get(key), p = geo.attributes.position, c = geo.attributes.color, iris = new Color('#b5a054');
+    let x = -Infinity; for (let i = 0; i < p.count; i++) if (Math.abs(c.getX(i) - iris.r) + Math.abs(c.getY(i) - iris.g) + Math.abs(c.getZ(i) - iris.b) < 1e-5) x = Math.max(x, p.getX(i));
+    return (motion.slither.nose - x) / def.sprite.size; };
+  assert.ok(Math.abs(eyeToNose('anaconda') - eyeToNose('boa')) < .03, `anaconda head ${eyeToNose('anaconda').toFixed(3)} vs boa ${eyeToNose('boa').toFixed(3)}`);
+});
 check('Garter snakes retain three continuous yellow stripes through the curved body', () => {
   const { geo, body, def } = models.get('gartersnake'), p = geo.attributes.position, c = geo.attributes.color, S = def.sprite.size;
   const yellow = i => c.getX(i) > .35 && c.getY(i) > .25 && c.getZ(i) < .15;
@@ -85,14 +104,14 @@ check('Garter snakes retain three continuous yellow stripes through the curved b
 check('Every snake has distinct high-contrast markings, attached eyes and a forked tongue', () => {
   const signatures = new Set();
   for (const [key, { geo, body, def }] of models) {
-    const p = geo.attributes.position, c = geo.attributes.color, parts = geo.attributes.aPart, S = def.sprite.size;
+    const p = geo.attributes.position, c = geo.attributes.color, parts = geo.attributes.aPart, S = def.sprite.size, motion = models.get(key).motion;
     const colors = new Set(body.map(i => [c.getX(i), c.getY(i), c.getZ(i)].map(v => v.toFixed(2)).join(',')));
     assert.ok(colors.size > 12, `${key}: readable patterned skin`);
     signatures.add([...colors].sort().join('|'));
     const tongue = new Box3();
     for (let i = 0; i < p.count; i++) if (parts.getX(i) === 9) tongue.expandByPoint(new Vector3().fromBufferAttribute(p, i));
     assert.ok(!tongue.isEmpty() && tongue.min.z < -S * .01 && tongue.max.z > S * .01, `${key}: both tongue tips`);
-    const face = body.filter(i => p.getX(i) > S * .98 && p.getX(i) < S * 1.14);
+    const nose = motion.slither.nose, face = body.filter(i => p.getX(i) > nose - S * .2 && p.getX(i) < nose - S * .04);
     assert.ok(face.length > 30, `${key}: skull is part of the skin`);
     const iris = new Color(def.sprite.heavy || def.sprite.saddles || def.sprite.reticulated ? '#b5a054' : '#94885e');
     const skin = new Set(body);

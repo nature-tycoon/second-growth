@@ -168,6 +168,15 @@ in `updateEye`:
 - Depth was left alone. The lagoon is 1 to 3 tiles deep (median 1.25), a few metres at the reef
   animals' drawn scale, which is right for a lagoon and reef flat. It read as shallower because the
   34-tile view made the water a thin, wide sheet and the eye sat just under the surface.
+- **What a perched bird stands on (2026-10-31).** Cole saw a bird floating at eye level. A tracked
+  bird in a broadleaf tree already sits on a real limb (`bird-perch.js`), but a conifer has no
+  separate limbs: the bird stood on top of a bough of foliage, which the focus window then opened in
+  front of it, leaving it on nothing. A spot like that (`bough: true`) now gets the wood drawn under
+  it: one tapering bough from the trunk out past its feet (`PerchBough`, one mesh, shown only while
+  a tracked bird needs it). A bird on a snag was drawn 0.9 up wherever it stood in the tile, beside
+  the trunk in the middle; any bird on a snag now sits on its broken top, and for the tracked one
+  the snag is kept solid against the focus window like a tree's wood (`Actors.snagSite`).
+  Not covered: palms and other trees without limbs keep their foliage spots, without a bough.
 
 ## Evidence
 

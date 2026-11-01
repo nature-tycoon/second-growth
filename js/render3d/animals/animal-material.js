@@ -537,6 +537,14 @@ export function faunaMaterial(motion) {
           }
         } else if (tail) {
           float sway = sin(ph * 0.5 + 1.3) * uTail * (0.35 + gait);
+          if (uWave > 0.0) {
+            // A swimmer's tail rides the body's wave (begin_vertex): it turns with the body's slope at
+            // its root, uTail times as much again, so every beat of the fin is in step with the body.
+            // (It swayed on a clock of its own, at a third of the wave's rate, drifting in and out of step.)
+            float t = clamp((uWaveHead - aPivot.x) / uWaveLen, 0.0, 1.0);
+            float slope = cos(aPivot.x * uWaveK - ph * 1.4) * uWaveK * uWave * mix(uWaveMin, 1.0, pow(t, uWavePow)) * (uWaveRest + gait);
+            sway = atan(slope) * uTail * 2.0 * (uVerticalWave > 0.5 ? 1.0 : -1.0);
+          }
           if (uVerticalWave > 0.5) { p = rotZ(p, aPivot, sway); n = rotZ(n, zero, sway); }
           else { p = rotY(p, aPivot, sway); n = rotY(n, zero, sway); }
           float pitch = uBird * fly * sin(ph * uFlap - 0.4) * 0.045;

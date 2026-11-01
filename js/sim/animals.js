@@ -16,7 +16,7 @@ import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin }
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
 import { forageChoose, forageArrive, forageUpdate } from './animal-foraging.js';
 import { travelSpeed } from './climb-pace.js';
-import { territorialChoose, hasTerritory } from './animal-territory.js';
+import { territorialChoose, hasTerritory, hoverStep } from './animal-territory.js';
 import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
@@ -1114,7 +1114,8 @@ export class Wildlife {
         case 'idle':
           a.wait -= dt;
           if (def.familyHerd && !a.drinkT && a.socialWith == null && !(a.greetT > 0) && cervidNeedsRejoin(this, a, def)) a.wait = 0;
-          if (def.reef && a.spd > 0.001) this.glide(a, dt); // (a fish coasts to a stop, it doesn't brake)
+          if (a.hover) hoverStep(this, a, def, dt); // (a clownfish about its anemone: animal-territory.js)
+          else if (def.reef && a.spd > 0.001) this.glide(a, dt); // (a fish coasts to a stop, it doesn't brake)
           // Repair saved landings and terrain edits without settling into open water.
           if (a.move === 'fly' && w.inb(Math.floor(a.x), Math.floor(a.y)) &&
             !canLand(w, w.idx(Math.floor(a.x), Math.floor(a.y)), def)) {

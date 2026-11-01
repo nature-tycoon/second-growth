@@ -20,8 +20,9 @@ import { boutCycle, CRASH } from './bout-clock.js';
 import { siamangSwing } from './siamang-swing.js';
 import { canopyStep, settleCanopyStep, rebaseCanopy, recoverCanopyRoute } from './canopy-motion.js';
 import { canopyLean, canopyRotation } from './canopy-pose.js';
-import { canopyTile } from './canopy-support.js';
-import { perchPoint } from './bird-perch.js';
+import { CanopySite, canopyTile } from './canopy-support.js';
+import { hash2 } from '../rng.js';
+import { PerchBough, perchPoint } from './bird-perch.js';
 import { ORANGUTAN_CADENCE } from './orangutan-motion.js';
 import { canopyGrips } from './canopy-grips.js';
 import { SlothBridges, slothBridge } from './sloth-bridge.js';
@@ -34,6 +35,7 @@ import { climberSpot } from './flora.js';
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
 const SOAR_BANK = 0.35; // a circling hawk leans into its turn
+const SWIM_STRIDE = 0.7; // (body lengths a fish moves per beat of its tail at a cruise: about 0.6-0.8 in real fish)
 const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
 const SPAR_FIT = { elk: 0.97, sambar: 0.86 }; // per antler type, as a share of the two heads' full reach
 const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
@@ -114,6 +116,7 @@ export class Actors {
     this.swingGrip = new THREE.Vector3(); this.swingBase = new THREE.Vector3();
     this.swingAxis = new THREE.Vector3(0, 0, 1);
     this.holdOffset = new THREE.Vector3(); this.holdRotation = new THREE.Quaternion(); this.perchGoal = new THREE.Vector3();
+    this.perchBough = new PerchBough(scene);
     this.pose = new Map();      // agent id -> smoothed heading, gait, wings, and where it was drawn
     this.view = new ActorView();
     this.visibleWildlife = [];
@@ -149,6 +152,17 @@ export class Actors {
     return t;
   }
 
+  // A snag as a solid site (Flora.showCanopySites), for a tracked bird perched on it: the snag flora.js
+  // draws on that tile, kept per tile so the set of solid sites stays the same from frame to frame.
+  snagSite(w, x, y) {
+    const geo = this.flora?.geos.get(`snag:${w.variant[w.idx(x, y)] & 1}`);
+    if (!geo) return null;
+    const key = w.idx(x, y), old = (this.snagSites ||= new Map()).get(key);
+    if (old?.geo === geo) return old;
+    const cx = x + 0.5, cz = y + 0.5, site = new CanopySite(geo, [cx, w.heightAt(cx, cz) * LEVEL - 0.02, cz, 1, 1, 1, hash2(x, y, 13) * 6.28], [0.62, 0.58, 0.52], key);
+    this.snagSites.set(key, site);
+    return site;
+  }
   update(game, camRight, time, camera = null, viewportHeight = 0) {
     this.catalog = game.catalog;
     const w = game.world;
@@ -257,6 +271,7 @@ export class Actors {
       let y = def.move === 'fly' ? Math.max(ground, surf ?? ground) : ground;
       let perchSite = null; // (the tree a perched bird sits in, when its limbs are known)
       let cling = null; // (a woodpecker on a trunk: where on it, and facing it: trunkCling)
+      let snagTop = null; // (the snag a perched bird sits on top of: its middle)
       let swimming = false; // (a land animal out of its depth, paddling with its head out)
       // Which crown a climber or percher is in: it keeps the tree it's in until it's clearly into
       // the next one, so an animal nudged back and forth across the line between two trees of
@@ -312,7 +327,10 @@ export class Actors {
       else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
         const c = ci(); perchSite = this.flora?.treeSites.get(c); y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
-        y += 0.9;
+        // on the snag's broken top (flora.js draws it in the middle of its tile, 1.68 tall): at its
+        // own place in the tile 0.9 up, it hung in the air beside the trunk
+        const c = ci(); snagTop = [c % w.w + 0.5, (c / w.w | 0) + 0.5];
+        y = w.heightAt(snagTop[0], snagTop[1]) * LEVEL - 0.02 + 1.64;
       } else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) {
         y += 0.65;
       } else if (def.move === 'tree' && inside && a.move !== 'ground') { // (a squirrel down foraging is on the ground: sim/climbers.js)
@@ -391,7 +409,10 @@ export class Actors {
         st.yaw = lerpAngle(st.yaw, cling.yaw, Math.min(1, k * 3));
         st.pitch = (st.pitch || 0) + (1.2 - (st.pitch || 0)) * Math.min(1, k * 2);
         st.graze = Math.sin(time * 0.9 + a.id * 2.1) > 0.1 ? (Math.sin(time * 26 + a.id) > 0 ? 0.9 : 0.15) : 0.3;
-      } else if (def.move === 'fly' && st.pitch) st.pitch += (0 - st.pitch) * Math.min(1, k * 2);
+      } else {
+        if (snagTop) [ax, az] = snagTop;
+        if (def.move === 'fly' && st.pitch) st.pitch += (0 - st.pitch) * Math.min(1, k * 2);
+      }
       // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
       // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).
       const munch = def.reef && a.state === 'forage' && a.forage?.food === 'starfish' && w.shrub[a.forage.i] ? a.forage.i : -1;
@@ -421,6 +442,9 @@ export class Actors {
       if (onLimb) (st.limbAt ||= new THREE.Vector3()).copy(this.perchGoal);
       const off = st.perchOffset;
       if (off && off.lengthSq() > 1e-6) { ax += off.x; y += off.y; az += off.z; off.multiplyScalar(1 - Math.min(1, k * 1.2)); }
+      if (onLimb && tracked) this.perchBough.show(perchSite, spot, this.perchGoal); // (a conifer's bough under it: bird-perch.js)
+      // (the focus window opens everything in front of the bird being tracked: keep the snag it's on solid, as a tree's wood is)
+      if (snagTop && tracked) { const site = this.snagSite(w, Math.floor(snagTop[0]), Math.floor(snagTop[1])); if (site) canopySites.add(site); }
       if (onLimb) {
         st.canopyY = y;
         // (the focus window opens the whole tree in front of it: keep the limb it sits on solid, as for a climber)
@@ -610,7 +634,16 @@ export class Actors {
         }
       }
       st.groundTime = time;
-      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : a.phase * Math.PI;
+      // A swimmer's tail beats once for every SWIM_STRIDE body lengths it covers, as a real fish's
+      // does, so its body wave travels back a little faster than it swims, whatever its size or speed.
+      // Hovering, it sculls slowly on the simulation's clock (a.phase). (Its wave runs at 1.4 times
+      // the phase: uWave in animals/animal-material.js.)
+      if (mo.swims) {
+        const beat = Math.min(0.5, Math.hypot(dx, dz)) / (SWIM_STRIDE * mo.len * sc) * Math.PI * 2 / 1.4;
+        const scull = Math.max(0, a.phase - (st.simPhase ?? a.phase)) * Math.PI * 0.4;
+        st.swimPhase = ((st.swimPhase ?? a.id * 2.3) + Math.max(beat, scull)) % (Math.PI * 200); st.simPhase = a.phase;
+      }
+      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : mo.swims ? st.swimPhase : a.phase * Math.PI;
       if (eating) st.graze = 0;
       // A crawling snake's bends advance by the distance it covers, so they stay put on the ground
       // (one full bend per body length; see uSlither in animals/animal-material.js, which reads it from the fly slot).
@@ -660,6 +693,7 @@ export class Actors {
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
     for (const bridge of bridges) { canopySites.add(bridge.source); canopySites.add(bridge.target); }
     this.flora?.showCanopySites(canopySites);
+    this.perchBough.end();
     this.slothBridges?.show(bridges);
 
     // ---- kills: the prey lying on its side where it fell, broken down over the weeks as it's eaten
@@ -719,6 +753,7 @@ export class Actors {
       F.add(PERSON_LOOKS[v.look % PERSON_LOOKS.length], v.x, gy, v.y, st.yaw, PX * 0.6, v.phase * Math.PI, st.gait, 0, 0);
       shadow(v.x, gy, v.y, 0.1);
     }
+    if (!this.clean) this.pollinators?.draw(F); // (bees and butterflies at the flowers: pollinators.js)
     F.end();
     this.silhouettes.end();
     for (const id of this.people.keys()) if (!pseen.has(id)) this.people.delete(id);
