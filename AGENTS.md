@@ -50,6 +50,7 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 
 - [0025](docs/decisions/0025-shared-steering.md) Shared steering: one order for every ground animal (intent, steer, move, spacing, then `sim/steering.js` settles facing, wood and water); bodies are capsules with antler racks; small animals keep out of water, land walkers never stop in it; `tools/animal-steering-check.mjs`. Hunting moves only through `stepToward`
 - [0026](docs/decisions/0026-continuous-hunts.md) Continuous hunts: momentum, leading, freeze-and-cover stalks, stamina, press on after a miss, ease to a stop (`huntStep`); `tools/hunt-check.mjs`, `tools/predation-soak.mjs`. End a hunt through `letGo`
+- [0030](docs/decisions/0030-everyday-animal-behaviours.md) Everyday behaviours as species traits in `behaviorFor`: fishing (`sim/fishing.js`), woodpeckers on trunks, climbers two to a tree and squirrels on the ground (`sim/climbers.js`), `plays`, `nocturnal` (drawn day only), fliers clear the canopy (`render3d/flight-clearance.js`), carcass meals on the ground. `a.passing` is for flyovers only; a climber on the ground has `a.move` 'ground'. Keystone sweep: `tools/moments-sweep-browser-check.mjs`
 
 New decisions take the next unused number and one line here.
 
