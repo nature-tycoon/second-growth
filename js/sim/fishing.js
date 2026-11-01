@@ -63,7 +63,11 @@ function unseenFish(wl, def, i) {
 export function fishStrike(wl, a, def, x, y, p = fishing(def, wl.game)) {
   if (!p) return false;
   const g = wl.game, w = g.world;
-  const fish = fishNear(wl, x, y, STRIKE, p);
+  // (a drawn fish in reach is the one taken in proportion to how full its kind is in the water:
+  // few drawn fish stand for a scarce stock, which the fishers then mostly miss, so a small
+  // population isn't held down; balance check in decision 0030)
+  let fish = fishNear(wl, x, y, STRIKE, p);
+  if (fish && p.unseen) { const st = wl.state[fish.sp]; if (Math.random() >= Math.min(1, (st?.pop || 0) / Math.max(1, st?.K || 0))) fish = null; }
   if (fish) {
     if (Math.random() >= predationCatchChance(g, fish, def, p.strike)) return false;
     const b = { id: fish.id, sp: fish.sp, x: fish.x, y: fish.y, age: fish.age, juvenile: !!fish.juvenile, alt: 0 };
