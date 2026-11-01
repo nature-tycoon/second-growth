@@ -48,6 +48,8 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 - [0023](docs/decisions/0023-trunks-and-logs.md) Trunks and logs: walkers go round trunks, small animals round logs, elephants trample saplings (`sim/ground-obstacles.js`). Trunk spots are shared with `flora.js`
 - [0024](docs/decisions/0024-tree-heights.md) Tree heights from each species' real height (`heightM`, `render3d/tree-stature.js`): taller trunks under the same crowns. Read a tree's height through `treeHeight`, and fractions of it through `treeLevel`, never `TREE_SHAPES[...].height` or `boundingBox.max.y`
 
+- [0028](docs/decisions/0028-real-moon-and-clear-sky.md) The real moon (`render3d/moon.js`, turned for the map's `lat`) and a deeper clear-day sky (`SKY_BLUE`, each map's `look.skyHaze`); eye level only
+
 New decisions take the next unused number and one line here.
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).

@@ -491,6 +491,7 @@ export default {
     crownOut: '',
   },
   look: {
+    skyHaze: 0.65, // the clear-day sky at eye level: humid rainforest air, a milkier, paler blue (0..1, see SKY_DEEP in scene.js)
     // colour grade: humid and deep green, a little hazy
     grade: { gain: [0.99, 1.0, 0.97], lift: [0.004, 0.005, 0.004], sat: 1.03, contrast: 1.05 },
     pasture: ['#8ea456', '#a0a660', '#8aa456', '#92a65a'],

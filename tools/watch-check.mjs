@@ -14,6 +14,10 @@ const { ANIMALS, loadAnimals } = await import('../js/data/animals.js');
 const { adultAnimalScale } = await import('../js/render3d/animal-scale.js');
 const { EyeSky, SKY_RADIUS } = await import('../js/render3d/eye-sky.js');
 const { Lightning, boltPath, BOLT_TOP } = await import('../js/render3d/lightning.js');
+const { moonTexture, moonAxes, MOON_SIZE } = await import('../js/render3d/moon.js');
+const { Renderer } = await import('../js/render3d/scene.js');
+const { sky } = await import('../js/render3d/atmosphere.js');
+const MAPS = Object.fromEntries(await Promise.all(['serengeti', 'sumatra'].map(async (id) => [id, (await import(`../js/maps/${id}.js`)).default])));
 
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
@@ -167,6 +171,52 @@ check('The eye-level sky rides with the eye, inside its far plane, with the weat
   assert.ok(sky.snow.visible && !sky.rain.visible, 'snow falls');
   sky.hide();
   assert.ok(!sky.dome.visible && !sky.rain.visible && !sky.snow.visible && sky.flash === 0, 'all of it goes with the usual view');
+});
+
+check('The moon shows its real near side: dark seas, pale highlands, bright Tycho', () => {
+  const { image: { data } } = moonTexture(), N = MOON_SIZE;
+  // (a point on the face by latitude and longitude, east toward Crisium on the right)
+  const at = (lat, lon) => {
+    const r = Math.PI / 180, x = Math.cos(lat * r) * Math.sin(lon * r), y = Math.sin(lat * r);
+    return data[(Math.floor((y + 1) / 2 * N) * N + Math.floor((x + 1) / 2 * N)) * 4];
+  };
+  const seas = [[33, -16], [28, 18], [17, 59], [8, 30]].map(([a, b]) => at(a, b)); // Imbrium, Serenitatis, Crisium, Tranquillitatis
+  const land = [[-30, 20], [-55, -30], [10, 75], [-15, 5]].map(([a, b]) => at(a, b));
+  assert.ok(Math.max(...seas) < 0.7 * Math.min(...land), `seas ${seas} darker than the highlands ${land}`);
+  assert.ok(at(-43.3, -11.2) >= Math.max(...land), 'Tycho is the brightest');
+  assert.equal(data[3], 0, 'outside the disc is clear');
+});
+
+check('The moon turns with the latitude: north up from the north, upside down from the south', () => {
+  const up = new THREE.Vector3(), right = new THREE.Vector3(), south = new THREE.Vector3(0, 0.3, 1).normalize();
+  moonAxes(south, 46.6, up, right); // the Cascades, the moon low in the south
+  assert.ok(up.y > 0.9 && right.x < -0.9, 'from the north its north is up, its east (Crisium) toward the west');
+  moonAxes(new THREE.Vector3(0, 0.3, -1).normalize(), -23.4, up, right); // the reef, the moon low in the north
+  assert.ok(up.y < -0.9, 'from the south its north is down');
+  moonAxes(new THREE.Vector3(1, 0.1, 0).normalize(), -2.3, up, right); // the Serengeti, the moon rising in the east
+  assert.ok(Math.abs(up.y) < 0.2, 'near the equator a rising moon lies on its side');
+  assert.ok(Math.abs(up.dot(south)) < 1 && Math.abs(up.length() - 1) < 1e-9 && Math.abs(right.length() - 1) < 1e-9);
+});
+
+check('A clear sky is deeper blue overhead than a cloudy one; humid maps hazier than dry ones', () => {
+  // (the colours updateSky hands the dome: run it on a stub renderer)
+  const zenith = (weather, mapId, u = 0.35) => {
+    const r = Object.create(Renderer.prototype);
+    Object.assign(r, { eyeWx: { storm: 0, snow: 0, near: 9, far: 34 }, tod: { sun: 1, el: 53, skyCol: new THREE.Color(1, 1, 1) }, night: 0, dawn: 0,
+      scene: { fog: { color: new THREE.Color() }, background: null }, hemi: { color: new THREE.Color(0.8, 0.86, 0.95) }, sun: { color: new THREE.Color(1, 1, 1), intensity: 2.6 },
+      sunOffset: new THREE.Vector3(0, 1, 0), eye: { camera: new THREE.PerspectiveCamera(), forward: new THREE.Vector3(1, 0, 0) },
+      terrain: { rain: { value: 0 } }, lightning: { flash: 0 }, time: 0, vh: 600, dpr: 1, eyeSky: { update(v) { r.got = v; } } });
+    sky.uCloudCover.value = weather === 'cloud' ? 0.55 : 0;
+    r.updateSky(1 / 60, { weather, catalog: { definition: { ...MAPS[mapId], id: mapId } } });
+    return r.got;
+  };
+  const clear = zenith('clear', 'serengeti'), cloudy = zenith('cloud', 'serengeti'), humid = zenith('clear', 'sumatra');
+  const blue = (c) => c.b / (c.r + c.g + c.b);
+  assert.ok(blue(clear.zenith) > blue(cloudy.zenith) + 0.15, 'clear overhead is a deep blue');
+  assert.equal(cloudy.clear, 0, 'a cloudy day keeps the colours it had');
+  assert.ok(blue(humid.zenith) < blue(clear.zenith), 'the humid tropics are milkier than the dry savanna');
+  assert.ok(clear.zenith.b > clear.horizon.b * 0.6 && clear.horizon.r > clear.zenith.r * 2, 'paler at the horizon');
+  sky.uCloudCover.value = 0.25;
 });
 
 check('A lightning bolt runs from the cloud to the ground where it strikes, with forks', () => {

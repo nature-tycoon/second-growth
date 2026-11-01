@@ -175,6 +175,7 @@ export default {
     crownOut: 'Even the acacias burned. Standing dead trunks will host vultures and hornbills while grass takes the ground.',
   },
   look: {
+    skyHaze: 0.1, // the clear-day sky at eye level: dry savanna air, the clearest and deepest blue (0..1, see SKY_DEEP in scene.js)
     // colour grade: sunlit and clear, only a touch warm
     grade: { gain: [1.015, 1.0, 0.975], lift: [0.004, 0.002, 0.0], sat: 1.05, contrast: 1.08 },
     pasture: ['#a2a862', '#b6aa7c', '#baa47c', '#a8aa6a'], // muted straw, not mustard

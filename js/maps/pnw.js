@@ -83,6 +83,7 @@ export default {
     crownOut: 'Fireweed, lupine and grasses will turn the burn into meadow for years before trees return, and woodpeckers love the snags.',
   },
   look: {
+    skyHaze: 0.15, // the clear-day sky at eye level: clean, cool air (0..1, see SKY_DEEP in scene.js)
     // colour grade: fresh and a touch cool, crisp rather than misty
     grade: { gain: [0.985, 1.0, 1.02], lift: [0.003, 0.005, 0.008], sat: 1.03, contrast: 1.05 },
     pasture: ['#a2b56a', '#abb26c', '#a9a46c', '#8c976a'],

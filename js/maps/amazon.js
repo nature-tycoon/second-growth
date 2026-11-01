@@ -154,6 +154,7 @@ export default {
     crownOut: 'Rainforest trees have thin bark and few survive. Cecropia and grass will race into the gap, so plant it fast; macaws and toucans will nest in the dead trunks.',
   },
   look: {
+    skyHaze: 0.6, // the clear-day sky at eye level: humid rainforest air, a milkier, paler blue (0..1, see SKY_DEEP in scene.js)
     // colour grade: humid, deep and green
     grade: { gain: [0.98, 1.0, 0.97], lift: [0.002, 0.005, 0.004], sat: 1.02, contrast: 1.06 },
     pasture: ['#98b062', '#a8b066', '#b2ac6c', '#96b062'], // lush, not lime; dry, not orange

@@ -81,8 +81,13 @@ const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
 // The eye-level sky's colours (linear), before the time of day and the weather tint and dim them:
 // overhead and at the horizon on a clear day, and the grey of an overcast and a stormy sky.
 const SKY_TOP = new THREE.Color(0.15, 0.34, 0.76), SKY_LOW = new THREE.Color(0.6, 0.71, 0.84);
+// A clear day under a high sun: the deep blue overhead that air scatters (Rayleigh) and the paler,
+// milkier band at the horizon. SKY_BLUE is how far toward them (0..1); a map's look.skyHaze
+// (0 dry and clear .. 1 humid) holds the blue back and whitens the horizon.
+const SKY_DEEP = new THREE.Color(0.025, 0.12, 0.56), SKY_PALE = new THREE.Color(0.66, 0.75, 0.86), SKY_MILK = new THREE.Color(0.74, 0.78, 0.82);
+const SKY_BLUE = 0.7;
 const GREY = new THREE.Color(0.5, 0.53, 0.56), STORM = new THREE.Color(0.25, 0.27, 0.3);
-const skyTint = new THREE.Color(), skyGrey = new THREE.Color();
+const skyTint = new THREE.Color(), skyGrey = new THREE.Color(), skyTop = new THREE.Color(), skyLow = new THREE.Color();
 const NO_MOVE = { fwd: 0, side: 0, turn: 0, run: false };
 const FLORA_REGIONS_PER_FRAME = 1; // plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild)
 // a phone or tablet (no mouse)
@@ -575,19 +580,25 @@ export class Renderer {
     const light = (0.3 + 0.7 * Math.min(1, tod.sun)) * (1 - 0.82 * night) * (1 - 0.35 * W.storm);
     skyTint.copy(this.hemi.color).lerp(tod.skyCol, 0.5);
     skyGrey.copy(GREY).lerp(STORM, W.storm);
-    const horizon = fog.color.copy(SKY_LOW).multiply(skyTint).lerp(skyGrey, grey).multiplyScalar(light);
+    // (only a clear day with the sun well up: dawn, dusk, night, cloudy days and storms get exactly
+    // the colours they had, since clear is 0 for them)
+    const haze = game.catalog.definition.look.skyHaze ?? 0.3, blue = this.skyBlue ?? SKY_BLUE;
+    const clear = clamp(1 - 1.7 * grey, 0, 1) * (1 - W.storm) * (1 - night) * clamp((tod.el - 24) / 20, 0, 1), clearDay = clear * blue;
+    skyLow.copy(SKY_LOW).lerp(SKY_PALE, clearDay).lerp(SKY_MILK, clearDay * haze * 0.6);
+    skyTop.copy(SKY_TOP).lerp(SKY_DEEP, clearDay * (1 - 0.55 * haze));
+    const horizon = fog.color.copy(skyLow).multiply(skyTint).lerp(skyGrey, grey).multiplyScalar(light);
     // (a low sun warms the haze a little all round, as the sky's glow by the sun does)
     horizon.lerp(this.sun.color, 0.18 * clamp((30 - tod.el) / 20, 0, 1) * (1 - grey));
     const zenith = this.skyTop || (this.skyTop = new THREE.Color());
-    zenith.copy(SKY_TOP).multiply(skyTint).lerp(skyGrey, grey * 0.9).multiplyScalar(light * (1 - 0.5 * night));
+    zenith.copy(skyTop).multiply(skyTint).lerp(skyGrey, grey * 0.9).multiplyScalar(light * (1 - 0.5 * night));
     this.scene.background = horizon;
     const sunDir = this.skySun || (this.skySun = new THREE.Vector3());
     sunDir.copy(this.sunOffset).normalize();
     const cam = this.eye.camera;
     this.eyeSky.update({
-      cam, forward: this.eye.forward, t: this.time, dt, horizon, zenith, sunDir, sunCol: this.sun.color,
+      cam, forward: this.eye.forward, t: this.time, dt, horizon, zenith, clear, sunDir, sunCol: this.sun.color,
       sunLight: clamp(this.sun.intensity / 2.6, 0, 1.4), sunUp: clamp(tod.el / 54, 0, 1), night, cover, storm: W.storm,
-      rain: this.terrain.rain.value, snow: W.snow, flash: this.lightning.flash,
+      rain: this.terrain.rain.value, snow: W.snow, flash: this.lightning.flash, lat: game.catalog.definition.lat,
       px: perspectiveScale(cam, this.vh) * this.dpr,
     });
   }
