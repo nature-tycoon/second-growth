@@ -67,6 +67,7 @@ export function forageChoose(wl, a, def) {
   if (!w.inb(x, y)) return false;
   const i = w.idx(x, y);
   if (beginMeal(wl, a, def, i)) return true;
+  if (def.behavior.territory?.tether && a.territory) return false; // (a clownfish feeds about its own anemone)
   // Stay close to the herd/canopy patch. Never search the whole property for a bite.
   // (A humphead wrasse cruises its stretch of reef looking for starfish, so it looks further.)
   const reach = def.behavior.forage.includes('starfish') ? 8 : 3;

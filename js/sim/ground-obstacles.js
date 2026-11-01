@@ -45,6 +45,16 @@ export function dryPoint(w, x, y, px, pz) {
   return best || high;
 }
 
+// Where a shrub stands in its tile, as flora.js draws it (before a bank tile moves it to the dry
+// side): toward the far side of the tile from a tree sharing it, or a blue sea star beside its coral.
+// Animals that live at one plant (a clownfish's anemone: sim/animal-territory.js) read it here.
+export function shrubSpot(x, y, p, withTree) {
+  if (!withTree) return [x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4];
+  const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
+  const d = p.look.type === 'seastar' ? 0.34 : 0.24 + hash2(x, y, 5) * 0.08;
+  return [x + 0.5 - Math.sign(ox || 1) * d, y + 0.5 - Math.sign(oz || 1) * d];
+}
+
 // Where a tree's trunk stands in its tile, as flora.js draws it.
 export function trunkSpot(w, x, y, p, bankTile) {
   const tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;

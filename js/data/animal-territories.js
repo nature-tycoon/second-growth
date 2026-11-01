@@ -9,12 +9,15 @@ const PROFILES = {
   tiger: { ...CAT, rivals: 'same-sex' },
   robin: { kind: 'nest', rivals: 'same-sex', seasonal: true, radius: 4 },
   cardinal: { kind: 'nest', rivals: 'same-sex', seasonal: true, radius: 4 },
-  clownfish: { kind: 'host', radius: 1.6 },
+  // tether: how far (tiles) a host fish strays from its anemone as it's drawn. A clownfish keeps
+  // within about a metre of its host, which is 0.3 tiles at the game's 2.5x animal scale.
+  clownfish: { kind: 'host', radius: 1.6, tether: 0.3 },
 };
 export const territoryProfileFor = def => PROFILES[def.key] || null;
 export function activeTerritory(def, a, month) {
   const p = def.behavior?.territory;
-  return p && !a.leaving && !a.juvenile && a.age >= def.mature * DAYS_PER_YEAR &&
+  // (a host fish settles in its anemone young: only the larger territories wait for adulthood)
+  return p && !a.leaving && (p.kind === 'host' || !a.juvenile && a.age >= def.mature * DAYS_PER_YEAR) &&
     (!p.seasonal || def.breed.includes(month)) ? p : null;
 }
 export function territorialRivals(def, a, b, month) {

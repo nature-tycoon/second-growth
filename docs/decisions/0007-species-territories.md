@@ -46,6 +46,15 @@ existing host-group members are tolerated, including young.
 - Clownfish claim actual living anemones, share host-group membership, select less
   occupied hosts when settling and search for another host after its loss. Routes
   still need reachable sea. There is no individual exclusion radius inside a group.
+- **Tether (2026-10-31).** Cole saw clownfish wandering the reef. A host profile can carry
+  `tether` (tiles): the fish hangs about its plant where it is drawn (`hostSpot`, from
+  `shrubSpot` in `sim/ground-obstacles.js`, which `flora.js` also uses), picking a point within
+  the tether every second or two and finning to it (`hoverStep`), instead of patrolling the
+  1.2-tile circle the larger territories use. It feeds there rather than swimming off to another
+  anemone, and young fish settle in a host too (they are tolerated group members). Clownfish:
+  0.3 tiles, about a metre at the 2.5x animal scale. Any species that lives at one plant can
+  reuse it by adding `tether` to a `host` profile. In a seeded reef run they kept a median 0.21
+  tiles from their anemone, 90% within 0.45 (`animal-territory-check`).
 - Owners near an intruder pause, face it and display; a rival walks/flies toward its
   own home or a reachable position outside the core. No damage or territorial kills.
   Residence and distance-to-home resolve overlapping claims; cooldowns and movement
