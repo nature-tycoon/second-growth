@@ -15,8 +15,9 @@ import { boutCycle, CRASH } from './bout-clock.js';
 import { siamangSwing } from './siamang-swing.js';
 import { canopyStep, settleCanopyStep, rebaseCanopy, recoverCanopyRoute } from './canopy-motion.js';
 import { canopyLean, canopyRotation } from './canopy-pose.js';
-import { canopyTile } from './canopy-support.js';
-import { perchPoint } from './bird-perch.js';
+import { CanopySite, canopyTile } from './canopy-support.js';
+import { hash2 } from '../rng.js';
+import { PerchBough, perchPoint } from './bird-perch.js';
 import { ORANGUTAN_CADENCE } from './orangutan-motion.js';
 import { canopyGrips } from './canopy-grips.js';
 import { SlothBridges, slothBridge } from './sloth-bridge.js';
@@ -94,6 +95,7 @@ export class Actors {
     this.swingGrip = new THREE.Vector3(); this.swingBase = new THREE.Vector3();
     this.swingAxis = new THREE.Vector3(0, 0, 1);
     this.holdOffset = new THREE.Vector3(); this.holdRotation = new THREE.Quaternion(); this.perchGoal = new THREE.Vector3();
+    this.perchBough = new PerchBough(scene);
     this.pose = new Map();      // agent id -> smoothed heading, gait, wings, and where it was drawn
     this.view = new ActorView();
     this.visibleWildlife = [];
@@ -129,6 +131,17 @@ export class Actors {
     return t;
   }
 
+  // A snag as a solid site (Flora.showCanopySites), for a tracked bird perched on it: the snag flora.js
+  // draws on that tile, kept per tile so the set of solid sites stays the same from frame to frame.
+  snagSite(w, x, y) {
+    const geo = this.flora?.geos.get(`snag:${w.variant[w.idx(x, y)] & 1}`);
+    if (!geo) return null;
+    const key = w.idx(x, y), old = (this.snagSites ||= new Map()).get(key);
+    if (old?.geo === geo) return old;
+    const cx = x + 0.5, cz = y + 0.5, site = new CanopySite(geo, [cx, w.heightAt(cx, cz) * LEVEL - 0.02, cz, 1, 1, 1, hash2(x, y, 13) * 6.28], [0.62, 0.58, 0.52], key);
+    this.snagSites.set(key, site);
+    return site;
+  }
   update(game, camRight, time, camera = null, viewportHeight = 0) {
     this.catalog = game.catalog;
     const w = game.world;
@@ -235,6 +248,7 @@ export class Actors {
       // Flyers descend relative to the visible surface, even above a deeply carved basin.
       let y = def.move === 'fly' ? Math.max(ground, surf ?? ground) : ground;
       let perchSite = null; // (the tree a perched bird sits in, when its limbs are known)
+      let snagTop = null; // (the snag a perched bird sits on top of: its middle)
       let swimming = false; // (a land animal out of its depth, paddling with its head out)
       // Which crown a climber or percher is in: it keeps the tree it's in until it's clearly into
       // the next one, so an animal nudged back and forth across the line between two trees of
@@ -289,7 +303,10 @@ export class Actors {
       else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
         const c = ci(); perchSite = this.flora?.treeSites.get(c); y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
-        y += 0.9;
+        // on the snag's broken top (flora.js draws it in the middle of its tile, 1.68 tall): at its
+        // own place in the tile 0.9 up, it hung in the air beside the trunk
+        const c = ci(); snagTop = [c % w.w + 0.5, (c / w.w | 0) + 0.5];
+        y = w.heightAt(snagTop[0], snagTop[1]) * LEVEL - 0.02 + 1.64;
       } else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) {
         y += 0.65;
       } else if (def.move === 'tree' && inside) {
@@ -360,6 +377,7 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      if (snagTop) [ax, az] = snagTop;
       // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
       // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).
       const munch = def.reef && a.state === 'forage' && a.forage?.food === 'starfish' && w.shrub[a.forage.i] ? a.forage.i : -1;
@@ -389,6 +407,9 @@ export class Actors {
       if (onLimb) (st.limbAt ||= new THREE.Vector3()).copy(this.perchGoal);
       const off = st.perchOffset;
       if (off && off.lengthSq() > 1e-6) { ax += off.x; y += off.y; az += off.z; off.multiplyScalar(1 - Math.min(1, k * 1.2)); }
+      if (onLimb && tracked) this.perchBough.show(perchSite, spot, this.perchGoal); // (a conifer's bough under it: bird-perch.js)
+      // (the focus window opens everything in front of the bird being tracked: keep the snag it's on solid, as a tree's wood is)
+      if (snagTop && tracked) { const site = this.snagSite(w, Math.floor(snagTop[0]), Math.floor(snagTop[1])); if (site) canopySites.add(site); }
       if (onLimb) {
         st.canopyY = y;
         // (the focus window opens the whole tree in front of it: keep the limb it sits on solid, as for a climber)
@@ -637,6 +658,7 @@ export class Actors {
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
     for (const bridge of bridges) { canopySites.add(bridge.source); canopySites.add(bridge.target); }
     this.flora?.showCanopySites(canopySites);
+    this.perchBough.end();
     this.slothBridges?.show(bridges);
 
     // ---- kills: the prey lying on its side where it fell, broken down over the weeks as it's eaten
