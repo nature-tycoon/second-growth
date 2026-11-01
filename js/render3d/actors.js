@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, animalDef, maleLook } from '../data/animals.js';
 import { roostingNow } from '../data/animal-activity.js';
+import { clearCanopy } from './flight-clearance.js';
+const CLEAR = { floor: -Infinity }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
 import * as S from '../render/sprites.js';
 import { treeHeight } from './tree-stature.js';
@@ -195,7 +197,7 @@ export class Actors {
           low = Math.min(low, surface); high = Math.max(high, surface + 0.75); // leaping salmon
         }
         if (seaY != null) { low = Math.min(low, seaY); high = Math.max(high, seaY + (def.sprite.escape === 'skip' ? 0.5 : 0)); }
-        if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground, a.flightY ?? -Infinity) + 2;
+        if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground, a.flightY ?? -Infinity) + 4.2; // (over the tallest crowns too: flight-clearance.js)
         else if (inside && (def.move === 'fly' || def.move === 'tree')) {
           if (w.tree[i]) {
             const p = game.catalog.plants[w.tree[i]];
@@ -303,16 +305,18 @@ export class Actors {
       // Moving between crowns of different heights, a climber (or a perched bird hopping along a
       // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
       if (a.passing) y = a.flightY + (a.passage.swoop ? Math.sin(a.passage.t * 1.8 + a.passage.phase) * 0.12 : 0);
-      if (flying && inside && !def.reef && w.tree[i] && (a.passing || a.birdGoal)) {
-        const p = game.catalog.plants[w.tree[i]], crown = ground + treeHeight(p) * w.treeG[i];
-        y = Math.max(y, crown + (a.passing ? 0.8 : 0.2));
-      }
+      // over the treetops: the crowns under it and just ahead, unless it's on its way down (flight-clearance.js)
+      if (flying && def.move === 'fly') y = clearCanopy(w, game.catalog.plants, a, def, y, CLEAR, a.x - st.px, a.y - st.py);
+      else CLEAR.floor = -Infinity;
       if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
       // A bird's height eases between flight, the treetops it clears and its perch, rather than
       // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
       if (def.move === 'fly' && !def.reef && !a.passing) {
         if (st.birdY == null || returning || st.sc == null) st.birdY = y;
         else st.birdY += (y - st.birdY) * Math.min(1, k * 1.4);
+        // (a bird in full flight climbs out of a crown it finds itself in fast, about 12 tiles a
+        // second, but doesn't jump; taking off, it climbs out of its own tree at the usual ease)
+        if (st.fly > 0.9 && st.birdY < CLEAR.floor) st.birdY = Math.min(CLEAR.floor, st.birdY + 2 * k);
         y = st.birdY;
       }
       const perched = def.move === 'tree' || (def.move === 'fly' && !a.birdGround && !flying && inside && !!w.tree[i]);
