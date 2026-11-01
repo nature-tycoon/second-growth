@@ -168,6 +168,10 @@ export default {
     ],
     // falling leaves, kapok floss and mist (0..1 per season), and the flocks that pass over
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): blue morpho, a sulphur, stingless bees
+      pollinators: [{ sprite: { kind: 'butterfly', size: 11, show: 1.6, plain: true, color: '#2a78e8', vein: '#141a28', edge: 0.11 }, w: 1 },
+        { sprite: { kind: 'butterfly', size: 7, show: 1.6, plain: true, color: '#f0d840', vein: '#a8841c', edge: 0.03 }, w: 2 },
+        { sprite: { kind: 'bee', size: 3.5, color: '#5a4426', dark: '#1a1410', show: 1.32 }, w: 4 }],
       leaves: [0, 0.55, 0.8, 0], fluff: [0.15, 0.9, 0.6, 0.15], mist: [1, 0.3, 0.05, 0.8],
       leafColors: ['#c8a040', '#a8783a', '#8a9a3a', '#d0b060'],
       flocks: [['egrets', 'parrots', 'macaws'], ['parrots', 'macaws'], ['macaws', 'parrots'], ['parrots', 'egrets', 'macaws']],

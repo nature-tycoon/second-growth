@@ -511,6 +511,10 @@ export default {
       { sun: 0xfff4e0, sunI: 2.7, sky: 0xe8eeee, ground: 0x5a6a3a, hemiI: 1.3 },
     ],
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): the map's own birdwing, a grass yellow, Asian honeybees
+      pollinators: [{ animal: 'birdwing', w: 1 },
+        { sprite: { kind: 'butterfly', size: 6, show: 1.6, plain: true, color: '#f2dc3a', vein: '#2a2216', edge: 0.04 }, w: 2 },
+        { sprite: { kind: 'bee', size: 4, color: '#c8902a', dark: '#2a1e12', show: 1.32 }, w: 4 }],
       leaves: [0.1, 0.4, 0.1, 0.2], fluff: [0.2, 0.5, 0.1, 0.3], mist: [0.7, 0.2, 1, 0.6],
       leafColors: ['#b8a040', '#a87a3a', '#8a9a3a', '#c8a450'],
       flocks: [['hornbills', 'parrots', 'egrets'], ['hornbills', 'swallows'], ['egrets', 'parrots', 'hornbills'], ['hornbills', 'parrots']],

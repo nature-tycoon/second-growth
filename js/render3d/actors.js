@@ -696,6 +696,7 @@ export class Actors {
       F.add(PERSON_LOOKS[v.look % PERSON_LOOKS.length], v.x, gy, v.y, st.yaw, PX * 0.6, v.phase * Math.PI, st.gait, 0, 0);
       shadow(v.x, gy, v.y, 0.1);
     }
+    if (!this.clean) this.pollinators?.draw(F); // (bees and butterflies at the flowers: pollinators.js)
     F.end();
     this.silhouettes.end();
     for (const id of this.people.keys()) if (!pseen.has(id)) this.people.delete(id);

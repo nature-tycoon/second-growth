@@ -188,6 +188,10 @@ export default {
     ],
     // falling leaves, seed and dust motes, and mist (0..1 per season), and the flocks that pass over
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): African monarch, brown-veined white, African honeybees
+      pollinators: [{ sprite: { kind: 'butterfly', size: 8, show: 1.6, plain: true, color: '#e8862a', vein: '#1a1410', tip: '#1a1410', edge: 0.05 }, w: 2 },
+        { sprite: { kind: 'butterfly', size: 7, show: 1.6, plain: true, color: '#f4f0e2', vein: '#6a5236', edge: 0.035 }, w: 2 },
+        { sprite: { kind: 'bee', size: 4, color: '#c8902a', dark: '#2a1e12', show: 1.32 }, w: 4 }],
       leaves: [0, 0.2, 0.4, 0], fluff: [0.25, 0.6, 0.9, 0.25], mist: [0.4, 0, 0, 0.35],
       leafColors: ['#c8a848', '#b8883a', '#9a9a4a', '#d8b860'],
       flocks: [['storks', 'weavers', 'vultures'], ['vultures', 'weavers'], ['vultures', 'storks', 'weavers'], ['storks', 'weavers', 'egrets']],

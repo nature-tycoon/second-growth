@@ -454,6 +454,8 @@ export default {
       { sun: 0xfff4ea, sunI: 2.3, sky: 0xe0e6ec, ground: 0x5e604a, hemiI: 1.18 },
     ],
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): the map's own monarch, swallowtail and bumblebee
+      pollinators: [{ animal: 'monarch', w: 2 }, { animal: 'swallowtail', w: 1 }, { animal: 'bumblebee', w: 4 }],
       leaves: [0, 0, 0.9, 0.2], fluff: [0.4, 0.5, 0.6, 0], mist: [0.25, 0.15, 0.2, 0.3],
       leafColors: ['#d0402a', '#e8b030', '#b8603a', '#8a2a4a'],
       petals: [0.8, 0, 0, 0.15],                            // blossom falling from redbud, dogwood and cherry

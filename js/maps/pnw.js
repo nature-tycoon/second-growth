@@ -96,6 +96,10 @@ export default {
     ],
     // falling leaves, seed fluff and mist (0..1 per season), and the flocks that pass over
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): western tiger swallowtail, mourning cloak, yellow-faced bumblebee
+      pollinators: [{ sprite: { kind: 'butterfly', size: 10, color: '#f0cc2a', vein: '#1a1612', spots: '#3a6ad0', tails: true, show: 1.48 }, w: 2 },
+        { sprite: { kind: 'butterfly', size: 9, show: 1.6, plain: true, color: '#4a2626', vein: '#e8d890', edge: 0.08 }, w: 1 },
+        { sprite: { kind: 'bee', size: 5, color: '#e8c02a', dark: '#1a1612', show: 1.32 }, w: 4 }],
       leaves: [0, 0.05, 1, 0.08], fluff: [0.55, 1, 0.3, 0], mist: [0.3, 0, 0.45, 0.55],
       leafColors: ['#d89a2a', '#c8602a', '#e0b83a', '#a8482a', '#b8903a'],
       flocks: [['geese', 'geese', 'songbirds', 'swallows'], ['swallows', 'songbirds'], ['geese', 'geese', 'songbirds'], ['geese', 'songbirds']],
