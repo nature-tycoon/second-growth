@@ -19,6 +19,7 @@ import { createFarmState, restoreFarmState } from './farm-state.js';
 import { ContractError, assertSaveEnvelope, assertWorld } from './data/contracts.js';
 import { WORLD_ARRAYS, EXTRA_ARRAYS, extraArrayLimit } from './data/world-schema.js';
 import { speciesCounts } from './sim/animal-density.js';
+import { ecoMetrics, ensureBaseline, buryBlueCarbon, checkBadges, yearEnd, historyEntry, VITAL_NAMES, TIER_NAMES } from './sim/eco-metrics.js';
 export { WORLD_ARRAYS, EXTRA_ARRAYS } from './data/world-schema.js';
 
 // a map switch in progress across a page reload (see UI.switchMap)
@@ -56,6 +57,7 @@ export class Game {
     this.seedStartingWildlife();
     this.mapDefinition.onStart?.(this); // anything a map wants to note about its starting state
     this.updateScore();
+    this.updateEco();
     this.emit('reset');
   }
 
@@ -196,6 +198,16 @@ export class Game {
     const score = this.updateScore();
     const grant = this.grant(monthlyGrant(this, score.total) * (this.mapDefinition.grantScale ?? 1), 'monthly');
     this.lastGrant = grant;
+    const eco = this.updateEco();
+    buryBlueCarbon(this, eco.carbon);
+    if (m === 0 && this.day > 0) {
+      const lastYear = this.history.find(h => h.day >= this.day - DAYS_PER_YEAR - 1) || this.history[0];
+      yearEnd(this, score.total, lastYear?.score ?? score.total);
+    }
+    for (const b of checkBadges(this, eco)) {
+      this.notify(`Badge earned: ${VITAL_NAMES[b.vital]}, ${TIER_NAMES[b.tier].toLowerCase()}. See your collection in the Ecosystem Report.`, 'goal');
+      this.emit('badge', b);
+    }
     this.visitors.monthEnd();
     // close the month's books (the map's own sales on the 1st, the grant and the visitors are all in)
     this.lastLedger = this.ledger || { in: {}, out: {} }; this.ledger = { in: {}, out: {} };
@@ -204,7 +216,7 @@ export class Game {
       const tips = this.mapDefinition.climate.tips;
       this.notify(`${this.seasonName()} has arrived. ${tips[this.season]}`, 'season');
     }
-    this.history.push({ day: this.day, score: score.total, species: speciesPresent(this), money: this.money, visitors: this.visitors.monthly, inv: score.invFrac || 0, pops: speciesCounts(this.wildlife.agents, this.catalog.animals.length) });
+    this.history.push({ day: this.day, score: score.total, species: speciesPresent(this), money: this.money, visitors: this.visitors.monthly, inv: score.invFrac || 0, pops: speciesCounts(this.wildlife.agents, this.catalog.animals.length), ...historyEntry(eco) });
     this.checkInvasives(score.invFrac || 0);
     if (this.history.length > 400) this.history.shift();
     this.checkGoals();
@@ -250,6 +262,14 @@ export class Game {
     const s = ecoScore(this);
     this.cache.score = s;
     return s;
+  }
+
+  // The Ecosystem Report's numbers (sim/eco-metrics.js): monthly, and when the report opens.
+  updateEco() {
+    const m = ecoMetrics(this);
+    ensureBaseline(this, m);
+    this.cache.eco = m;
+    return m;
   }
 
   checkGoals() {
@@ -434,6 +454,7 @@ export class Game {
     this.wildlife.computeSuitability();
     this.cache.nativePlants = nativePlantSpecies(w);
     this.updateScore();
+    this.updateEco(); // (an older save gets its "since you arrived" baseline today)
     return true;
   }
 }

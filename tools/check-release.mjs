@@ -14,7 +14,7 @@ if (args.includes('--help')) {
 }
 if (args.includes('--update-visuals') && (process.env.CI || args.includes('--headless'))) throw new Error('Visual references can only be updated explicitly in a local browser run.');
 await mkdir(out, { recursive: true });
-const browserNames = new Set(['animal-behavior-browser-check.mjs', 'bird-variant-browser-check.mjs', 'browser-save-check.mjs', 'animal-locate-browser-check.mjs', 'canopy-reveal-browser-check.mjs', 'cervid-groups-browser-check.mjs', 'plant-view-browser-check.mjs', 'plant-render-browser-check.mjs', 'field-audio-browser-check.mjs', 'moments-browser-check.mjs', 'perf-analytics-browser-check.mjs', 'tool-actions-browser-check.mjs', 'map-catalog-browser-check.mjs', 'release-browser-check.mjs']);
+const browserNames = new Set(['animal-behavior-browser-check.mjs', 'bird-variant-browser-check.mjs', 'browser-save-check.mjs', 'animal-locate-browser-check.mjs', 'canopy-reveal-browser-check.mjs', 'cervid-groups-browser-check.mjs', 'plant-view-browser-check.mjs', 'plant-render-browser-check.mjs', 'field-audio-browser-check.mjs', 'moments-browser-check.mjs', 'perf-analytics-browser-check.mjs', 'tool-actions-browser-check.mjs', 'map-catalog-browser-check.mjs', 'eco-report-browser-check.mjs', 'release-browser-check.mjs']);
 browserNames.add('plant-cache-browser-check.mjs');
 browserNames.add('website-security-browser-check.mjs');
 browserNames.add('animal-trails-browser-check.mjs');
