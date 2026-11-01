@@ -289,6 +289,14 @@ export default {
   // Grazing pressure (sim/grazing.js): the paddocks already hold their grass, and the herd must not
   // stop the dry forest coming back on the slope, so cattle and deer press on seedlings at half strength.
   grazing: 0.5,
+  recruitment: { cndd: 0.6 },
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // A hurricane once in a few decades, in the late rainy season, flattens a wide swath of trees.
+  // termites clear dead wood quickly in the warm dry forest, though it lies dry half the year (0028 §5)
+  deadwood: { decay: 1.4 },
+  disturbance: {
+    storms: [{ name: 'A hurricane', months: [6, 7, 8], perYear: 0.04, patch: [400, 4000], severity: 0.7, warn: true }],
+  },
   climate: {
     seasons: ['Late dry season', 'Rainy season', 'Late rains', 'Dry season'],
     // Chinandega: almost no rain November–April; May–October rains, with a short dry spell (the canícula) in July–August

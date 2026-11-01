@@ -1,8 +1,9 @@
-// Natural disturbance: summer wildfires and winter floods.
+// Natural disturbance: summer wildfires and winter floods (windstorms, drought and root rot are in disturbance.js).
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { killTree, trySeed } from './plants.js';
+import { removeTree, trySeed, clearUnderstory, fellSnag, DECAY, rottenLog } from './plants.js';
 import { disturbanceOn } from './campaign.js';
+import { disturbanceDaily } from './disturbance.js';
 
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
@@ -10,6 +11,7 @@ const FIRE_SNAG_G = 0.85; // a tree burned in a fire leaves a snag or log only i
 const CROWN_BARE = 0.3; // how well a crown fire carries through big trees with nothing under them, against a full shrub layer (1)
 const LADDER_FULL = 0.4; // ladder fuel that carries a crown fire fully
 const RX_TORCH = 0.08; // a controlled burn's chance, per tile, of climbing a shrub layer into a dry canopy (see rxTorch)
+const SHADE_DAMP = 0.5; // how much of a surface fire's dryness a full canopy in leaf takes away
 
 export class Events {
   constructor(game) {
@@ -36,9 +38,17 @@ export class Events {
     // carry the flames up into it (so a stand whose understory was burned off slows a crown fire)
     if (tr) f += w.treeG[i] < 0.6 ? 0.5 * w.treeG[i] : hot ? 0.9 * this.heat * (CROWN_BARE + (1 - CROWN_BARE) * Math.min(1, this.ladder(w, i) / LADDER_FULL)) : 0.2;
     const ft = w.feature[i];
-    if (ft === F.SNAG || ft === F.LOG || ft === F.BRUSH) f += 0.4;
+    // dead wood feeds a fire, but a rotten log is soaked through and only smoulders: it carries
+    // flame hardly better than the litter around it (0028 §6)
+    if (ft === F.SNAG || ft === F.LOG || ft === F.BRUSH) f += ft === F.LOG && rottenLog(w, i) ? 0.15 : 0.4;
     if (this.mapDefinition.fuelBonus) f += this.mapDefinition.fuelBonus(w, i); // (Sumatra: drained peat smoulders under the weeds)
-    const dryness = hot ? clamp((0.85 - w.moist[i]) / 0.45, 0, 1) : clamp((0.62 - w.moist[i]) / 0.4, 0, 1);
+    // Under a closed canopy in leaf the litter stays shaded and damp, so a surface fire creeps
+    // rather than runs: up to half the dryness at full cover (0028 §6). It's why an intact
+    // rainforest or a wet conifer forest rarely burns while the pasture beside it does. w.canopy
+    // follows the leaves, so a dry forest that drops them in the dry season gets none of this, and
+    // in a crown fire's heat the canopy itself burns.
+    const dryness = hot ? clamp((0.85 - w.moist[i]) / 0.45, 0, 1)
+      : clamp((0.62 - w.moist[i]) / 0.4, 0, 1) * (1 - SHADE_DAMP * clamp((w.canopy[i] - 0.5) / 0.5, 0, 1));
     return f * dryness;
   }
 
@@ -64,6 +74,7 @@ export class Events {
 
     // In the campaign, fires and floods start in the chapter that teaches them.
     if (!disturbanceOn(g)) return;
+    disturbanceDaily(g); // windstorms, drought and root rot (sim/disturbance.js)
     // Late-summer droughts bring fire; visitors add a little risk.
     // (fireRate / fireGap: savannas burn far more often, every dry season, than forests do)
     const cl = this.mapDefinition.climate;
@@ -133,11 +144,12 @@ export class Events {
       if (this.game.catalog.plants[si].resprout && w.shrubG[i] > 0.3) w.shrubG[i] = 0.12;
       else { w.shrub[i] = 0; w.shrubG[i] = 0; }
     }
+    clearUnderstory(w, i); // (saplings waiting under the trees burn, even where the big trees survive)
     const ti = w.tree[i];
     if (ti) {
       const p = this.game.catalog.plants[ti];
-      if (w.treeG[i] < 0.5) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
-      else if (rng() > (p.fireSurvival ?? 0.4) * w.treeG[i]) killTree(w, i, rng, 0.7, FIRE_SNAG_G); // (only a big tree leaves a snag or log; smaller ones burn up)
+      if (w.treeG[i] < 0.5) removeTree(w, i, 'fire', rng, { deadwood: false });
+      else if (rng() > (p.fireSurvival ?? 0.4) * w.treeG[i]) removeTree(w, i, 'fire', rng, { minG: FIRE_SNAG_G }); // (only a big tree leaves a snag or log; smaller ones burn up)
     }
     this.burnFeaturesAndWildlife(i);
   }
@@ -150,12 +162,13 @@ export class Events {
     const si = w.shrub[i];
     if (si && this.game.catalog.plants[si].resprout && w.shrubG[i] > 0.5 && rng() < 0.3) w.shrubG[i] = 0.08;
     else { w.shrub[i] = 0; w.shrubG[i] = 0; }
+    clearUnderstory(w, i);
     const ti = w.tree[i];
     if (ti) {
       const p = this.game.catalog.plants[ti];
-      if (w.treeG[i] < 0.5) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+      if (w.treeG[i] < 0.5) removeTree(w, i, 'fire', rng, { deadwood: false });
       // even thick-barked firs rarely survive a crown fire
-      else if (rng() > (p.fireSurvival ?? 0.4) * 0.2) killTree(w, i, rng, 0.9, FIRE_SNAG_G);
+      else if (rng() > (p.fireSurvival ?? 0.4) * 0.2) removeTree(w, i, 'fire', rng, { snagOdds: 0.9, minG: FIRE_SNAG_G });
     }
     this.severeTiles.push(i);
     this.burnFeaturesAndWildlife(i);
@@ -165,7 +178,9 @@ export class Events {
     const g = this.game, w = g.world, rng = g.rng;
     const f = w.feature[i];
     if (f === F.BRUSH || f === F.FENCE || f === F.NESTBOX || f === F.BLIND || (f === F.LOG && rng() < 0.5)) w.feature[i] = 0;
-    else if (f === F.SNAG && this.mapDefinition.savanna && rng() < 0.5) { w.feature[i] = F.LOG; w.featureAge[i] = 0; } // (a grass fire brings dead trees down)
+    // a grass fire brings dead trees down; in a forest it burns through the rotten base of an old
+    // snag (one past its standing age), while those it just killed stand (0028 §5)
+    else if (f === F.SNAG && (this.mapDefinition.savanna || w.featureAge[i] > DECAY.snagFall * 120) && rng() < 0.5) fellSnag(w, i);
     w.soil[i] = Math.min(1, w.soil[i] + 0.03);
     // wildlife caught in the flames
     const wl = g.wildlife;
@@ -291,7 +306,8 @@ export class Events {
       if (this.game.catalog.plants[si].resprout && !this.game.catalog.plants[si].invasive && w.shrubG[i] > 0.3) w.shrubG[i] = 0.15;
       else { w.shrub[i] = 0; w.shrubG[i] = 0; }
     }
-    if (w.tree[i] && w.treeG[i] < 0.45) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+    clearUnderstory(w, i);
+    if (w.tree[i] && w.treeG[i] < 0.45) removeTree(w, i, 'fire', rng, { deadwood: false });
     const f = w.feature[i];
     if (f === F.BRUSH || (f === F.LOG && rng() < 0.25) || (f === F.STUMP && rng() < 0.3)) w.feature[i] = 0;
     w.soil[i] = Math.min(1, w.soil[i] + 0.02);
@@ -470,7 +486,7 @@ export class Events {
       const gi = w.ground[i], si = w.shrub[i], ti = w.tree[i];
       if (gi) { const p = this.game.catalog.plants[gi]; if (!p.wetOK && !p.aquatic) { w.groundG[i] -= 0.05; if (w.groundG[i] <= 0) { w.ground[i] = 0; w.groundG[i] = 0; } } }
       if (si && !this.game.catalog.plants[si].wetOK && w.shrubG[i] < 0.35) { w.shrub[i] = 0; w.shrubG[i] = 0; }
-      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3) removeTree(w, i, 'flood', rng, { deadwood: false });
       w.flood[i]--;
       if (!w.flood[i]) {
         // receding water leaves fresh silt and a scatter of floodplain seeds
