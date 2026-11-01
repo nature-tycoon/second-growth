@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, animalDef, maleLook } from '../data/animals.js';
+import { roostingNow } from '../data/animal-activity.js';
 import { leavesCarcass } from '../sim/animal-life.js';
 import * as S from '../render/sprites.js';
 import { treeHeight } from './tree-stature.js';
@@ -164,6 +165,7 @@ export class Actors {
       // Dormant residents are sheltered inside dens/roosts, not walking models.
       if (a.state === 'dormant') continue;
       let def = drawDef(animalDef(a, game.catalog), a, game.month); // Adult sex traits and seasonal plumage.
+      if (roostingNow(a, def, this.nightOut)) continue; // (a bat by day: in its roost until dusk)
       if (isCanopyWalker(def)) {
         let walker = this.walkerModels.get(def);
         if (!walker) {

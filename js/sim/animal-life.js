@@ -698,9 +698,9 @@ export function feedAt(a, c) {
   return true;
 }
 
-// Young of the same kind chase each other about, taking turns.
+// Young of the same kind chase each other about, taking turns (only species that play: behavior.plays).
 export function play(wl, a, def) {
-  if (!ashore(def) || !young(a, def) || Math.random() > 0.3) return false;
+  if (!def.behavior?.plays || !ashore(def) || !young(a, def) || Math.random() > 0.3) return false;
   let o = null, bd = 25;
   for (const b of wl.agents) {
     if (b === a || b.sp !== a.sp || b.leaving || !young(b, def) || (b.state !== 'idle' && b.state !== 'walk')) continue;

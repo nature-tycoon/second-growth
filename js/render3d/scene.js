@@ -955,6 +955,8 @@ export class Renderer {
     // how "night" it is: the blue dusk through to just before dawn (for fireflies, eye-shine, owls)
     const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
     this.night = ss(0.872, 0.893, todU) * (1 - ss(0.93, 0.95, todU)); // full night (see NIGHT_PACE for how long it lasts)
+    // night animals (bats) are out from sunset to just before dawn; with the day cycle off, always
+    this.nightOut = this.dayCycleOn === false ? 1 : ss(0.845, 0.875, todU) * (1 - ss(0.955, 0.975, todU));
     this.dawn = todU > 0.97 || todU < 0.1 ? 1 - Math.min(1, Math.abs(((todU + 0.03) % 1) - 0.03) / 0.07) : 0;
     T.sun.lerp(tod.sunCol, tod.sunAmt); T.sky.lerp(tod.skyCol, tod.skyAmt);
     // (how high the sun stands, not how strong it shines: the golden-hour sun is strong but low)
@@ -1002,6 +1004,7 @@ export class Renderer {
     this.terrain.sky.value.copy(this.hemi.color);
     const r = this.right();
     this.actors.clean = !!ui.clean;
+    this.actors.nightOut = this.nightOut;
     this.actors.followAgent = this.followAgent || this.eyeAgent;
     this.actors.update(game, this.eyeOn ? this.eye.right : r, this.time, this.eyeOn ? this.eye.camera : this.camera, this.vh);
     this.updateLightning(dt, game);

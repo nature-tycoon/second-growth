@@ -26,6 +26,7 @@
 
 import { animalDef, drawDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
+import { roostingNow } from '../data/animal-activity.js';
 import { SEASONS, clamp } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
 import { track } from '../analytics.js';
@@ -37,8 +38,9 @@ const FILL = 3.3, CLOSEST = 8;                   // a followed animal's longest 
 const LONGEST = 40;                              // a hunt or a chase keeps the camera, up to this long
 
 // How worth watching an animal is right now: what it's doing, weighted.
-function interest(a) {
-  if (a.leaving || dormancyStatus(a)) return 0;
+// (a night animal in its roost by day isn't drawn: roostingNow)
+function interest(a, def, out) {
+  if (a.leaving || dormancyStatus(a) || roostingNow(a, def, out)) return 0;
   let s = a.state === 'hunt' ? (a.hunt?.phase === 'rush' ? 9 : 6) : a.state === 'carry' ? 6 : a.state === 'feed' ? (a.prey ? 6 : 2.5)
     : a.state === 'spar' ? 6 : a.state === 'flee' ? 4 : a.state === 'play' ? 4 : a.drinkT > 0 ? 3.5 : a.bugleT > 0 ? 4
     : a.state === 'forage' ? 2 : a.bird?.kind === 'soar' ? 2.5 : a.state === 'walk' || a.state === 'fly' ? 1.5 : 1;
@@ -189,8 +191,9 @@ export class Watch {
   watchable() {
     const g = this.game, by = new Map();
     for (const a of g.wildlife.agents.concat(g.wildlife.flyovers)) {
-      if (!interest(a)) continue;
-      const def = animalDef(a, g.catalog), e = by.get(def.key);
+      const def = animalDef(a, g.catalog);
+      if (!interest(a, def, this.renderer.nightOut)) continue;
+      const e = by.get(def.key);
       if (e) e.n++; else by.set(def.key, { key: def.key, name: def.name, n: 1 });
     }
     return [...by.values()].sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
@@ -328,9 +331,10 @@ export class Watch {
     const g = this.game, last = this.shot?.agent, all = g.wildlife.agents.concat(g.wildlife.flyovers);
     let total = 0;
     const w = all.map(a => {
-      let s = interest(a);
+      const def = animalDef(a, g.catalog);
+      let s = interest(a, def, this.renderer.nightOut);
       if (!s) return 0;
-      const key = animalDef(a, g.catalog).key;
+      const key = def.key;
       if (this.species && key !== this.species) return 0;
       if (a === last) s *= 0.05;
       else if (this.recent.includes(key)) s *= 0.3;
