@@ -1236,7 +1236,10 @@ export class Wildlife {
           a.feedT -= dt;
           if (a.move === 'fly') { a.alt = Math.max(0, a.alt - dt * 3); a.flying = false; }
           // (hunger counts from the end of the meal: a long meal doesn't use up the time it lasts)
-          if (a.feedT <= 0) { a.state = 'idle'; a.wait = 1 + Math.random() * 2; a.feedAt = null; a.carcass = null; a.prey = null; a.hunger = 0; } // then a rest
+          if (a.feedT <= 0) { // then a rest
+            if (a.carcass != null && a.move === 'fly') a.birdGround = false; // (up off the ground where it ate: feedAt)
+            a.state = 'idle'; a.wait = 1 + Math.random() * 2; a.feedAt = null; a.carcass = null; a.prey = null; a.hunger = 0;
+          }
           break;
         case 'leave':
           if (a.leaveWait > 0) { a.leaveWait -= dt; break; }

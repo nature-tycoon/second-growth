@@ -3,7 +3,7 @@
 // neighbours greet or spar. All of it uses Math.random, never game.rng, and the catch roll still
 // happens once, on contact. Shared carcass meals also satisfy hunger, using the same food-stress rules.
 
-import { clamp, isWater, DAYS_PER_YEAR, lifeAge } from '../config.js';
+import { clamp, isWater, DAYS_PER_YEAR, lifeAge, F } from '../config.js';
 import { preyFor, isMale, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { passable, canLand } from './animal-terrain.js';
@@ -665,7 +665,8 @@ export function scavenge(wl, a, def) {
   }
   if (!c || Math.random() > 0.75) return false;
   if (wl.agents.filter(o => o.state === 'feed' && o.carcass === c.id).length >= 5) return false;
-  if (bd < 1.4) return feedAt(a, c);
+  // (a bird feeds only once it is down on the ground beside the body, never from a perch over it)
+  if (bd < 1.4 && (a.move !== 'fly' || !a.flying && !perchedUp(wl.game.world, a) && bd < 0.9)) return feedAt(a, c);
   a.goal = { carcass: c.id };
   if (a.move === 'fly') {
     const ang = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 0.5;
@@ -676,6 +677,13 @@ export function scavenge(wl, a, def) {
   a.goal = null;
   return false;
 }
+// A bird up in a tree or on a snag (as drawn: a bird on such a tile is in it unless birdGround).
+function perchedUp(w, a) {
+  const x = Math.floor(a.x), y = Math.floor(a.y);
+  if (a.birdGround || !w.inb(x, y)) return false;
+  const i = w.idx(x, y);
+  return !!w.tree[i] && w.treeG[i] > 0.5 || w.feature[i] === F.SNAG;
+}
 export function feedAt(a, c) {
   // Claim the meal only on arrival, so distant visitors cannot reserve food.
   // As with a successful catch, the first bite satisfies hunger immediately.
@@ -683,6 +691,9 @@ export function feedAt(a, c) {
   c.meals--; a.hunger = 0;
   a.state = 'feed'; a.feedT = 1 + Math.random() * 1.5; a.feedAt = [c.x, c.y]; a.carcass = c.id;
   a.flying = false; a.path = null;
+  // A carcass lies on the ground, so a bird eats down there with it, even on a tile with a tree
+  // (drawn on the ground, not in the crown overhead; the flag clears when the meal ends).
+  if (a.move === 'fly') { a.birdGround = true; a.bird = null; a.alt = 0; }
   facePoint(a, c.x, c.y);
   return true;
 }
