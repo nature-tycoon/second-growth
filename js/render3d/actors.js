@@ -29,6 +29,7 @@ import { climberSpot } from './flora.js';
 const PX = 1 / 50; // sprite pixels to scene units
 // Animals that float or paddle when they're on open water.
 const SOAR_BANK = 0.35; // a circling hawk leans into its turn
+const SWIM_STRIDE = 0.7; // (body lengths a fish moves per beat of its tail at a cruise: about 0.6-0.8 in real fish)
 const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
 const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
 const SPAR_FIT = { elk: 0.97, sambar: 0.86 }; // per antler type, as a share of the two heads' full reach
@@ -577,7 +578,16 @@ export class Actors {
         }
       }
       st.groundTime = time;
-      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : a.phase * Math.PI;
+      // A swimmer's tail beats once for every SWIM_STRIDE body lengths it covers, as a real fish's
+      // does, so its body wave travels back a little faster than it swims, whatever its size or speed.
+      // Hovering, it sculls slowly on the simulation's clock (a.phase). (Its wave runs at 1.4 times
+      // the phase: uWave in animals/animal-material.js.)
+      if (mo.swims) {
+        const beat = Math.min(0.5, Math.hypot(dx, dz)) / (SWIM_STRIDE * mo.len * sc) * Math.PI * 2 / 1.4;
+        const scull = Math.max(0, a.phase - (st.simPhase ?? a.phase)) * Math.PI * 0.4;
+        st.swimPhase = ((st.swimPhase ?? a.id * 2.3) + Math.max(beat, scull)) % (Math.PI * 200); st.simPhase = a.phase;
+      }
+      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : mo.swims ? st.swimPhase : a.phase * Math.PI;
       if (eating) st.graze = 0;
       // A crawling snake's bends advance by the distance it covers, so they stay put on the ground
       // (one full bend per body length; see uSlither in animals/animal-material.js, which reads it from the fly slot).
