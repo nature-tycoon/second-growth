@@ -189,9 +189,13 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   if (goal) { st.canopyGoal ||= new THREE.Quaternion(); st.canopyGoal.copy(goal); }
   next.copy(current || goal || preferred);
   const transferPace = !mo.canopyWalkerMotion && mo.primate === 1 && motion?.journey?.trunkTransfer ? Math.max(1, motion.animationSpeed || 1) : 1;
-  const turnRate = mo.canopyWalkerMotion && st.howlerForkTurn && !jumping ? finishingTurn ? 8 : 2.6 : mo.primate === 2 ? 1 : (st.canopyLeap && trunkCatch ? 2.4 : 1.5) * transferPace;
+  // An orangutan far behind its animal (st.catchUp, see canopyStep) turns faster too, up to 3×.
+  // Its climbing catches up but a real-time turn doesn't: at a fast game speed two turns of
+  // half a circle in place, one into a crossing and one back when the destination changed,
+  // held the body at one hold for weeks of game time.
+  const turnRate = mo.canopyWalkerMotion && st.howlerForkTurn && !jumping ? finishingTurn ? 8 : 2.6 : mo.primate === 2 ? Math.min(3, st.catchUp || 1) : (st.canopyLeap && trunkCatch ? 2.4 : 1.5) * transferPace;
   if (current && goal) {
-    const limit = Math.max(0, Math.min(.1, dt)) * (mo.primate === 2 ? Math.min(turnRate, current.angleTo(goal) * 4) : turnRate);
+    const limit = Math.max(0, Math.min(.1, dt)) * (mo.primate === 2 ? turnRate * Math.min(1, current.angleTo(goal) * 4) : turnRate);
     if (mo.canopyWalkerMotion && st.howlerForkTurn && !jumping)next.copy(howlerTurnVelocity(st,current,goal,Math.max(0,Math.min(.1,dt)),turnRate));
     else if (mo.primate === 3 || mo.canopyHanging) next.rotateTowards(goal, limit);
     else uprightTurn(current, goal, limit, next);
