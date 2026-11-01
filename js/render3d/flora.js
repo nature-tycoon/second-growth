@@ -47,6 +47,7 @@ const SHRUB_HABIT = {
   salmonberry: 'arching', rose: 'arching', oceanspray: 'arching', beautyberry: 'arching', sweetspire: 'arching',
   elderberry: 'vase', dogwood: 'vase', spicebush: 'vase', azalea: 'vase', hamelia: 'vase', piper: 'vase', vismia: 'vase', croton: 'vase',
   huckleberry: 'airy', snowberry: 'airy', grewia: 'airy', cornizuelo: 'airy',
+  lantana: 'sprawl',
   hydrangea: 'bigleaf', castor: 'bigleaf', seagrape: 'bigleaf', cacao: 'bigleaf',
 };
 // Where a crown-of-thorns starfish sits up on top of the coral it's eating (or, with no coral
