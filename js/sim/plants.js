@@ -1,6 +1,6 @@
 // Daily plant life: growth, decline, natural seeding, competition, succession, soil building.
 
-import { T, F, isWater, clamp } from '../config.js';
+import { T, F, PLACED, isWater, clamp } from '../config.js';
 import { layerLight } from './environment.js';
 import { stressYoungPlant } from './ecological-pressure.js';
 import { grazedRecruitOdds, grazedSeedlingLost, grazedGrowth, overgrazedLoss } from './grazing.js';
@@ -545,6 +545,7 @@ export function removeTree(w, i, cause, rng, { snagOdds = SNAG_ODDS[cause] ?? 0.
   if (g > minG && !w.feature[i]) {
     w.feature[i] = rng() < snagOdds ? F.SNAG : F.LOG;
     w.featureAge[i] = 0; w.deadwoodId[i] = dead; // (what it was sets how fast it rots, §5)
+    w.marks[i] &= ~PLACED; // (nature's deadwood: Demolish leaves it)
   }
 }
 

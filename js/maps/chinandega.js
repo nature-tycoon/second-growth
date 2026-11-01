@@ -275,7 +275,7 @@ export default {
   toolText: {
     pull: { icon: { plant: 'jaragua' }, desc: 'Pull out jaragua, guinea grass, castor bean and neem seedlings. Native plants are left alone.' },
     marsh: { desc: 'Dig tidal marsh on low, wet ground. Mangroves can grow in it.' },
-    demolish: { desc: 'Tear out fences, old buildings, roads, the culvert, or a shrimp pond dike (breaching a dike lets the tide back into the pond).' },
+    demolish: { desc: 'Tear out fences, old buildings, roads, the culvert, habitat features you placed, or a shrimp pond dike (breaching a dike lets the tide back into the pond). Natural snags, logs, stumps and rocks stay.' },
     clear: { desc: 'Strip a tile back to bare soil: jaragua, whatever is on it. Then plant natives.' },
     burn: { desc: 'A careful early burn clears jaragua before it builds up. Keep it well away from young trees. In dry weather it can escape: cut a firebreak around it first.' },
   },

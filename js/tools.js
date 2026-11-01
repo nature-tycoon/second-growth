@@ -1,7 +1,7 @@
 // Tool definitions and tile mutations. Player controls and scripted plans apply
 // these through ToolActions, which handles eligibility, money and stroke completion.
 
-import { T, F, isWater } from './config.js';
+import { T, F, PLACED, isWater } from './config.js';
 import { MIX, L } from './data/plants.js';
 import { ANIMAL, many } from './data/animals.js';
 import { plantSuit, removeTree } from './sim/plants.js';
@@ -192,7 +192,7 @@ export function createTools(catalog) {
       if (w.struct[i] >= 0 || w.feature[i]) return null;
       if (needsLand && (isWater(t) || t === T.ROAD)) return null;
       if (f === F.LOG && t === T.CREEK) return null;
-      w.feature[i] = f; w.featureAge[i] = 0; w.deadwoodId[i] = 0;
+      w.feature[i] = f; w.featureAge[i] = 0; w.deadwoodId[i] = 0; w.marks[i] |= PLACED; // (placed by the player: Demolish can take it out again)
       if (f === F.SNAG || f === F.NESTBOX) { /* stands among plants */ }
       else if (w.tree[i] && w.treeG[i] > 0.3) { w.feature[i] = 0; return null; }
       return true;
@@ -202,7 +202,7 @@ export function createTools(catalog) {
     desc: 'A standing dead tree. Woodpeckers carve holes in it, and owls, bats and other hole-nesters move in after them.', apply: featureTool(F.SNAG) });
   tool({ key: 'log', cat: 'features', name: 'Fallen log', cost: 80, brush: false, icon: { feature: F.LOG },
     desc: 'Basking spot for turtles, cover for wrens and newts, and a nursery for hemlock and huckleberry. Can go in ponds.',
-    apply: (game, i) => { const w = game.world; if (w.terrain[i] === T.POND || w.terrain[i] === T.MARSH) { if (w.feature[i]) return null; w.feature[i] = F.LOG; w.featureAge[i] = 0; w.deadwoodId[i] = 0; return true; } return featureTool(F.LOG)(game, i); } });
+    apply: (game, i) => { const w = game.world; if (w.terrain[i] === T.POND || w.terrain[i] === T.MARSH) { if (w.feature[i]) return null; w.feature[i] = F.LOG; w.featureAge[i] = 0; w.deadwoodId[i] = 0; w.marks[i] |= PLACED; return true; } return featureTool(F.LOG)(game, i); } });
   tool({ key: 'rocks', cat: 'features', name: 'Rock pile', cost: 60, brush: false, icon: { feature: F.ROCKS },
     desc: 'Sun-warmed shelter for snakes and lizards.', apply: featureTool(F.ROCKS) });
   tool({ key: 'brush', cat: 'features', name: 'Brush pile', cost: 30, brush: false, icon: { feature: F.BRUSH },
@@ -264,8 +264,9 @@ export function createTools(catalog) {
       return true;
     } });
   tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: 'demolish' }, size: 0,
-    desc: 'Tear out fences, old buildings, roads, the road culvert, or habitat features. Buildings and machinery sell for salvage.',
+    desc: 'Tear out fences, old buildings, roads, the road culvert, or habitat features you placed. Natural snags, logs, stumps and rocks stay. Buildings and machinery sell for salvage.',
     costFor: (game, i) => {
+      if (naturalFeature(game.world, i)) return 0;
       const w = game.world;
       if (w.struct[i] >= 0) { const s = w.structures[w.struct[i]]; const d = STRUCTURES[s.type]; return d.permanent ? 0 : d.removeCost - d.salvage; }
       const f = w.feature[i];
@@ -307,6 +308,10 @@ export function createTools(catalog) {
         return true;
       }
       if (!f) return null;
+      if (naturalFeature(w, i)) {
+        if (!game.flags.deadwoodHint) { game.flags.deadwoodHint = true; game.notify('Natural snags, logs, stumps and rocks stay: they are habitat, and they rot back into the soil on their own. Demolish only takes out what people built or placed.', 'info'); }
+        return null;
+      }
       if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return null; // the street's bridge over the creek stays
       if (f === F.DIKE) {
         // breach it: cut through to tidal marsh, and the pond behind starts to drain (see the map's daily)
@@ -317,7 +322,7 @@ export function createTools(catalog) {
       if (f === F.CULVERT) {
         w.feature[i] = 0; w.hydroDirty = true;
         game.notify('The culvert is out! The creek now flows freely into the river, and fish can reach the upper creek.', 'good');
-      } else w.feature[i] = 0;
+      } else { w.feature[i] = 0; w.marks[i] &= ~PLACED; }
       return true;
     } });
 
@@ -495,6 +500,13 @@ export function brushTiles(w, x, y, r) {
 export function toolCost(game, tool, i) {
   const c = tool.costFor ? tool.costFor(game, i) : tool.cost;
   return c > 0 ? Math.round(c * (game.diff?.costs ?? 1)) : c;
+}
+// Deadwood and rock that nature put here (fire, windthrow, a tree dying, the map's own boulders):
+// Demolish leaves it. Snags, logs, rock piles and brush piles the player placed carry marks bit PLACED,
+// so code that leaves new natural deadwood on a tile clears that bit (see removeTree).
+export function naturalFeature(w, i) {
+  const f = w.feature[i];
+  return f === F.STUMP || ((f === F.SNAG || f === F.LOG || f === F.ROCKS || f === F.BRUSH) && !(w.marks[i] & PLACED));
 }
 export function listPrice(game, tool) { return Math.round(tool.cost * (game.diff?.costs ?? 1)); }
 

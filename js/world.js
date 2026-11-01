@@ -51,7 +51,8 @@ export class World {
     // the plant a snag or log was (0028 §5, saved; 0: unknown, put down by the player or the map). Read only while the tile holds one
     this.deadwoodId = u8();
     this.struct = new Int16Array(n).fill(-1);
-    // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars)
+    // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars;
+    // 4 = a canal block, 8 = shade cloth, 16 and 32 = what a beaver pool drowned, 64 = a snag, log, rock pile or brush pile the player placed: PLACED)
     this.marks = u8();
     this.structures = [];
     this.variant = u8();

@@ -2050,7 +2050,7 @@ function spotIn(a, j, last) {
   return [hashJitter(j + a.id * 13, a.id) * 0.9, hashJitter(a.id * 7, j - a.id) * 0.9];
 }
 
-// world.marks bits under a beaver pool (1, 2, 4 and 8 are taken by trails, reef stars, canal blocks and shade cloth)
+// world.marks bits under a beaver pool (1, 2, 4 and 8 are taken by trails, reef stars, canal blocks and shade cloth; 64 is PLACED)
 const POOL_CREEK = 16, POOL_LAND = 32;
 function hashJitter(x, y) {
   const h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
