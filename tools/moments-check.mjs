@@ -177,4 +177,16 @@ check('Durable landscape moments still queue, and wait for the UI before playing
   g.canPlayMoment = () => true; momentsDaily(g); assert.equal(events[1].key, 'dam');
   assert.equal(g.flags.momentQueue.length, 0);
 });
+check('The monarch stopover adds butterflies that live here, not flyovers (marking them `passing` broke every frame)', () => {
+  reset('atlanta'); const w = g.world;
+  while (g.month !== 6) g.day++;
+  for (let y = 28; y < 34; y++) for (let x = 38; x < 46; x++) w.habitat[w.idx(x, y)] = 3;
+  for (let k = 0; k < 10; k++) spawn('monarch', 40.5 + k % 4, 30.5 + (k >> 2));
+  g.mapDefinition.daily(g);
+  assert.equal(events.at(-1)?.key, 'monarchs');
+  assert.ok(g.wildlife.agents.filter(a => a.key === 'monarch').length > 10, 'the wave came down into the gardens');
+  assert.equal(g.wildlife.agents.filter(a => a.passing).length, 0);
+  const saved = g.saveData(); saved.wildlife.agents[0].passing = true; // (a save made after the old stopover)
+  g.restoreSave(saved); assert.equal(g.wildlife.agents.filter(a => a.passing).length, 0, 'loading clears it');
+});
 console.log(`${checks} keystone checks passed.`);

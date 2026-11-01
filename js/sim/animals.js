@@ -1972,7 +1972,8 @@ export class Wildlife {
     this.carcasses = [];
     this.flyovers = []; this.passageWait = 8 + Math.random() * 10;
     this.agents = d.agents.map(a => Object.assign(new Animal(), a, { territory: a.territory ? { ...a.territory } : undefined, dormancy: a.dormancy ? { ...a.dormancy } : undefined, range: a.range ? { ...a.range, route: a.range.route?.slice() } : undefined, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : undefined, moveProgress: null, fruitGoal: null, forageGoal: null, forage: null, state: a.state === 'walk' || a.state === 'forage' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
-      wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5 }));
+      wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5,
+      passing: undefined })); // (only flyovers pass over; older saves have monarchs marked so by mistake, which broke drawing)
     this.nextId = d.nextId;
     d.state.forEach((s, k) => { if (this.state[k]) Object.assign(this.state[k], s); });
     this.salmon = d.salmon; this.dams = d.dams;
