@@ -34,8 +34,8 @@ steepens, so the deep colour is reached about 30 degrees up and the pale band hu
 (the real Rayleigh look). Before, the blend was so gradual that the sky halfway up was still part
 horizon colour, which greyed any deeper blue.
 
-- `SKY_BLUE` (0..1) is the strength. Cole was shown three (0.4, 0.7, 1.0) and 0.7 is the default
-  until he picks.
+- `SKY_BLUE` (0..1) is the strength. Cole was shown three (0.4, 0.7, 1.0) side by side on the
+  Serengeti and the Amazon and picked 0.7, the medium one.
 - Each map's `look.skyHaze` (0 dry and clear .. 1 humid) holds the blue back and whitens the horizon:
   Serengeti 0.1, PNW 0.15, reef 0.2, Chinandega 0.35, Atlanta 0.45, Amazon 0.6, Sumatra 0.65. The
   map's sky light colour still tints it as before (Amazon's burning season stays smoky).
