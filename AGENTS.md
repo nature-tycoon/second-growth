@@ -47,6 +47,7 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 - [0022](docs/decisions/0022-far-vegetation-by-screen-size.md) Far vegetation by screen size: far tree and shrub models whenever the view is zoomed out (tile under 16 px on High, 23 on Fast), on every computer; `flora.setFar(false)` to compare
 - [0023](docs/decisions/0023-trunks-and-logs.md) Trunks and logs: walkers go round trunks, small animals round logs, elephants trample saplings (`sim/ground-obstacles.js`). Trunk spots are shared with `flora.js`
 - [0024](docs/decisions/0024-tree-heights.md) Tree heights from each species' real height (`heightM`, `render3d/tree-stature.js`): taller trunks under the same crowns. Read a tree's height through `treeHeight`, and fractions of it through `treeLevel`, never `TREE_SHAPES[...].height` or `boundingBox.max.y`
+- [0031](docs/decisions/0031-ecosystem-report.md) Ecosystem Report: six vital signs against each map's reference ecosystem, a cited carbon estimate, stages and badges (`sim/eco-metrics.js`, `data/eco-reference.js`, `ui/eco-report.js`); badges pay nothing
 
 New decisions take the next unused number and one line here.
 

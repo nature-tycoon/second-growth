@@ -22,6 +22,7 @@ import { BIOMES, BIOME_LIST } from '../biome.js';
 import { worldMap } from './worldmap.js';
 import { LANG_MAPS, lang, langFor, storedLang, saveLang, langWithin, tr } from '../i18n.js';
 import { makePostcard, download } from './postcard.js';
+import { openEcoReport } from './eco-report.js';
 import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
 import { Undo } from '../undo.js';
@@ -1136,40 +1137,8 @@ export class UI {
     track('panel_opened', { panel: 'money', map: g.map });
   }
 
-  openReport() {
-    const g = this.game, s = g.updateScore(), w = g.world, st = w.stats;
-    const rows = s.parts.map(p => {
-      const neg = p.pts < 0;
-      const width = neg ? Math.abs(p.pts) / 15 : p.pts / (p.max || 1);
-      return `<div class="srow"><span>${p.name}</span><div class="bar"><i class="${neg ? 'neg' : ''}" style="width:${pct(clamp(width, 0, 1))}"></i></div><span class="v">${neg ? '' : '+'}${p.pts.toFixed(1)}</span></div>`;
-    }).join('');
-    const land = st.land || 1;
-    const habRows = this.game.catalog.habitatInfo.map((h, k) => [h, st.counts[k] || 0]).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1])
-      .map(([h, c]) => `<div class="srow"><span><span class="chip" style="background:${h.color}"></span> ${h.name}</span><div class="bar"><i style="width:${pct(c / w.n * 2.5)};background:${h.color}"></i></div><span class="v">${c}</span></div>`).join('');
-    const body = `<div class="report">
-      <div><h4>Ecosystem health: ${Math.round(s.total)} / 100</h4>${rows}
-        <h4 style="margin-top:18px">Score over time</h4><canvas id="spark" class="ph-no-capture" width="420" height="110" style="width:100%;height:110px;background:var(--paper-2);border-radius:10px"></canvas>
-        <h4 style="margin-top:18px">Budget</h4>${this.budgetHTML()}
-      </div>
-      <div><h4>Land cover</h4>${habRows}
-        <div class="kv" style="grid-template-columns:150px 1fr;margin-top:12px"><span class="k">Native cover</span><span>${pct(s.nativeFrac || 0)} of land</span><span class="k">Invasive cover</span><span>${pct(s.invFrac || 0)}</span><span class="k">Native plant species</span><span>${s.nativePlants}</span><span class="k">Animal species</span><span>${s.animals} of ${this.game.catalog.animals.length}</span></div>
-      </div></div>`;
-    const m = this.modal('Ecosystem Report', body);
-    const c = m.querySelector('#spark'), ctx = c.getContext('2d');
-    const hist = g.history;
-    if (hist.length > 1) {
-      ctx.strokeStyle = '#4f7d3b'; ctx.lineWidth = 2.5; ctx.beginPath();
-      hist.forEach((h, k) => { const x = 8 + k / (hist.length - 1) * (c.width - 16), y = c.height - 8 - h.score / 100 * (c.height - 16); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-      ctx.stroke();
-      // invasive cover on the same 0-100 scale, so a rising pink line is an early warning
-      if (hist.some(h => h.inv != null)) {
-        ctx.strokeStyle = '#c0467a'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.beginPath();
-        hist.forEach((h, k) => { const x = 8 + k / (hist.length - 1) * (c.width - 16), y = c.height - 8 - (h.inv || 0) * 100 / 100 * (c.height - 16); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-        ctx.stroke(); ctx.setLineDash([]);
-        ctx.font = '700 11px Nunito'; ctx.fillStyle = '#4f7d3b'; ctx.fillText(tr('Health'), 12, 16); ctx.fillStyle = '#c0467a'; ctx.fillText(tr('Invasive cover %'), 62, 16);
-      }
-    } else { ctx.fillStyle = '#7a7a62'; ctx.font = '600 13px Nunito'; ctx.fillText(tr('History builds up month by month.'), 12, 58); }
-  }
+  // The Ecosystem Report: overview, deep dives and badges (ui/eco-report.js, decision 0031)
+  openReport(view) { return openEcoReport(this, view); }
 
   openJournal() {
     const rows = this.journal.map(n => `<div class="journal-row"><span class="d">${n.date}</span><span>${n.text}</span></div>`).join('') || '<p class="info-desc">Nothing yet.</p>';
