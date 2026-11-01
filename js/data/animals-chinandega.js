@@ -31,7 +31,7 @@ export default function buildChinandegaAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 0.9, SHRUB: 1, RIPARIAN: 0.9, MEADOW: 0.6, FARM: 0.1, INVASIVE: 0.2 });
-    def({ key: 'deer', herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'White-tailed deer', sci: 'Odocoileus virginianus', group: 'Mammals', move: 'ground',
+    def({ key: 'deer', kg: 35, herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'White-tailed deer', sci: 'Odocoileus virginianus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 50, max: 12, minK: 1.5, groupSize: [1, 3], sources: ['N', 'E'], mig: 0.35, breed: [3, 4], litter: [1, 2], life: 10,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 4, 0.3),
       sprite: { kind: 'deer', len: 32, h: 15, leg: 15, color: '#a07850', belly: '#e8dcc4', dark: '#3a2c20',
@@ -102,7 +102,7 @@ export default function buildChinandegaAnimals(def) {
   // season they lose weight. They nibble young trees that aren't protected.
   {
     const w = habW({ FARM: 1, MEADOW: 0.9, INVASIVE: 0.7, SHRUB: 0.3, YOUNG_FOREST: 0.35, BARE: 0.1 });
-    def({ key: 'cattle', domestic: true, fixedMax: true, name: 'Brahman cattle', sci: 'Bos indicus', group: 'The herd', move: 'ground',
+    def({ key: 'cattle', kg: 400, domestic: true, fixedMax: true, name: 'Brahman cattle', sci: 'Bos indicus', group: 'The herd', move: 'ground',
       herd: true, herdR: 3, herdMax: 12, speed: 0.9, hr: 14, max: 48, sources: [], mig: 0, breed: [2, 3, 4], litter: [1, 1], life: 14, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * (0.5 + 0.5 * Math.min(1, W.graze[i] * 1.5)) * (W.canopy[i] > 0.2 || W.distForest[i] <= 2 ? 1.2 : 1),
       req: g => Math.min(1.3, 0.6 + stat(g, 'silvo') / 400),
@@ -204,7 +204,7 @@ export default function buildChinandegaAnimals(def) {
   }
   {
     const w = habW({ SHRUB: 1, YOUNG_FOREST: 1, MEADOW: 0.6, RIPARIAN: 0.6, DEVELOPED: 0.3, FARM: 0.1 });
-    def({ key: 'ctenosaur', name: 'Black spiny-tailed iguana', sci: 'Ctenosaura similis', group: 'Reptiles', move: 'ground',
+    def({ key: 'ctenosaur', kg: 1, name: 'Black spiny-tailed iguana', sci: 'Ctenosaura similis', group: 'Reptiles', move: 'ground',
       speed: 1.2, hr: 6, max: 20, sources: ['N', 'E', 'W'], mig: 0.4, breed: [0], litter: [4, 8], life: 12, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * (W.distRocks[i] <= 4 || W.distLog[i] <= 4 ? 1 : 0.6),
       sprite: { kind: 'monitor', lizard: 'ctenosaur', size: 22, color: '#4a4a3a', belly: '#9a9a70' },

@@ -76,7 +76,7 @@ export class World {
     // polymorphic and cost a later world's dailyTick about 40%. null = not made yet.
     this.canopyMonth = 0; // (updateCanopy)
     this.seedbank = null; this.bankStrength = 0; // invasive seed bank (maps with definition.seedbank)
-    this.grazed = null; this.browseDamage = null; this.mulchDays = null; // herbivory and mulch
+    this.grazed = null; this.herbivory = null; this.browseDamage = null; this.mulchDays = null; // herbivory and mulch
     this.trod = null; this.trailE = null; this.trailS = null; this.trailDensity = null; this.trailMax = null; // game trails
     this.waterLevel = null; this.waterDepth = null; this.waterManaged = null; this.waterOwner = null; this.waterWetDays = null; // HollisWater
     this.bleach = null; this._shore = null; // the reef

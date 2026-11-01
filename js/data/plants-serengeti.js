@@ -157,6 +157,13 @@ export default function buildSerengetiPlants(def, mix, get) {
   get('umbrella').nectar = { months: [8, 9], amount: 0.4 };
   get('indigofera').nectar = { months: [1, 2, 9], amount: 0.4 };
   get('balanites').disperser = 'elephant';                                               // mostly spread in elephant dung
+  // Browse value of young trees to giraffe, impala, rhino and elephants (decision 0033), and which are
+  // armed with thorns: acacias are the main browse but their spines slow every bite (Cooper & Owen-Smith 1986;
+  // Milewski et al. 1991). Candelabra latex is toxic. Mesquite leaves are poor browse (Mwangi & Swallow 2008).
+  Object.entries({ umbrella: 0.7, fevertree: 0.6, baobab: 0.6, balanites: 0.5, commiphora: 0.5, sausage: 0.5, sycamorefig: 0.5, mesquite: 0.35, euphorbia: 0.05 })
+    .forEach(([k, v]) => { get(k).browse = v; });
+  for (const k of ['umbrella', 'fevertree', 'balanites', 'mesquite', 'whistling', 'pricklypear']) get(k).thorny = true;
+  for (const k of ['umbrella', 'balanites', 'commiphora', 'sausage', 'mesquite']) get(k).resprout = true;
   // savanna plants: grasses and herbs cure gold through the long dry season; trees keep their leaves
   for (const k of ['parthenium', 'sodomapple', 'sporobolus', 'stargrass', 'finger', 'redoat', 'indigofera', 'crotalaria', 'fireball', 'papyrus', 'bluelily',
     'whistling', 'croton', 'grewia', 'aloe', 'lantana', 'pricklypear', 'umbrella', 'fevertree', 'balanites', 'commiphora', 'baobab', 'sausage', 'sycamorefig',

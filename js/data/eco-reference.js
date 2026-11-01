@@ -14,6 +14,8 @@
 // wet:     share of the land in marsh and pond
 // big:     share of the land under big old native trees; dead: share with a log or snag
 // apex:    the map's top predators (the food web's top level)
+// herbivores: live large-herbivore biomass of the intact ecosystem, kg per hectare [low, high];
+//          its middle is where herbivore pressure on plants reaches 63% of full (decision 0033)
 // stages:  the five stages on the road from where the farm starts to the reference
 
 export const REFERENCE = {
@@ -22,6 +24,7 @@ export const REFERENCE = {
     agb: 354.1, href: 50, soc: 64, socWet: 135, fLU: 0.69, grass: 2.7,
     cover: { meadow: 0.1, shrub: 0.1, forest: 0.7, old: 0.35 }, wet: 0.06, big: 0.2, dead: 0.06,
     apex: ['cougar', 'bear'],
+    herbivores: [20, 50], // Roosevelt elk 10.8–16/km² in Olympic old growth (Houston et al. 1987), plus black-tailed deer
     stages: ['Worn-out farm', 'Recovering', 'Young woodland', 'Maturing forest', 'Old-growth-like'],
   },
   atlanta: {
@@ -29,6 +32,7 @@ export const REFERENCE = {
     agb: 84.5, href: 30, soc: 55, socWet: 135, fLU: 0.69, grass: 2.7,
     cover: { meadow: 0.15, shrub: 0.15, forest: 0.55, old: 0.2 }, wet: 0.03, big: 0.12, dead: 0.04,
     apex: ['coyote', 'hawk', 'owl'],
+    herbivores: [5, 15], // white-tailed deer, 8–25/km² (McCabe & McCabe 1997; Côté et al. 2004)
     stages: ['Lawns and sod', 'Recovering', 'Young woods', 'Maturing woods', 'Piedmont-woods-like'],
   },
   serengeti: {
@@ -36,6 +40,7 @@ export const REFERENCE = {
     agb: 69.6, href: 12, soc: 21, socWet: 22, fLU: 0.58, grass: 2.3,
     cover: { meadow: 0.6, shrub: 0.1, forest: 0.15, old: 0.04 }, wet: 0.02, big: 0.03, dead: 0.01,
     apex: ['lion', 'leopard', 'hyena', 'cheetah'],
+    herbivores: [100, 200], // East African savanna on over 500 mm of rain, 10,000–20,000 kg/km² (Coe et al. 1976)
     stages: ['Bare, overgrazed range', 'Recovering', 'Grassland returning', 'Maturing savanna', 'Intact-savanna-like'],
   },
   amazon: {
@@ -43,6 +48,7 @@ export const REFERENCE = {
     agb: 307.1, href: 35, soc: 38, socWet: 68, fLU: 0.48, grass: 6.2,
     cover: { meadow: 0.02, shrub: 0.05, forest: 0.8, old: 0.45 }, wet: 0.03, big: 0.25, dead: 0.06,
     apex: ['jaguar', 'harpy', 'anaconda'],
+    herbivores: [3, 10], // Neotropical forest ungulates and capybara (Robinson & Redford 1986)
     stages: ['Burned cattle pasture', 'Recovering', 'Young secondary forest', 'Maturing forest', 'Rainforest-like'],
   },
   sumatra: {
@@ -50,6 +56,7 @@ export const REFERENCE = {
     agb: 413.1, href: 45, soc: 52, socWet: 49, fLU: 0.48, grass: 6.2,
     cover: { meadow: 0.02, shrub: 0.05, forest: 0.85, old: 0.5 }, wet: 0.03, big: 0.3, dead: 0.06,
     apex: ['tiger', 'clouded', 'serpenteagle'],
+    herbivores: [5, 20], // Southeast Asian rainforest elephants, tapir, deer and rhino
     stages: ['Oil palm estate', 'Recovering', 'Young secondary forest', 'Maturing forest', 'Rainforest-like'],
   },
   chinandega: {
@@ -57,6 +64,7 @@ export const REFERENCE = {
     agb: 127.5, href: 25, soc: 50, socWet: 22, fLU: 0.58, grass: 2.3,
     cover: { meadow: 0.15, shrub: 0.15, forest: 0.5, old: 0.2 }, wet: 0.05, big: 0.12, dead: 0.03,
     apex: ['ocelot', 'crocodile', 'guaco'],
+    herbivores: [10, 40], // Pacific dry forest deer, peccary and tapir
     stages: ['Worn-out pasture', 'Recovering', 'Young dry forest', 'Maturing forest', 'Dry-forest-like'],
   },
   // An underwater map: its "trees" are corals, which aren't counted as carbon (a growing reef

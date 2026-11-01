@@ -3,7 +3,7 @@
 import { T, F, PLACED, isWater, clamp } from '../config.js';
 import { layerLight } from './environment.js';
 import { stressYoungPlant } from './ecological-pressure.js';
-import { grazedRecruitOdds, grazedSeedlingLost, grazedGrowth, overgrazedLoss } from './grazing.js';
+import { grazedRecruitOdds, grazedSeedlingLost, grazedGrowth, overgrazedLoss, grazedForbEdge, elephantFelled, trampledSeedling } from './grazing.js';
 import { plantAffinity } from '../plant-patterns.js';
 
 const rangeFit = (v, lo, hi, soft) => v < lo ? Math.max(0, 1 - (lo - v) / soft) : v > hi ? Math.max(0, 1 - (v - hi) / soft) : 1;
@@ -160,7 +160,8 @@ export function trySeed(w, p, i, rng) {
     // On equally good ground a long-lived native slowly takes over from a short-lived one (annual
     // weeds and pioneer legumes give way to bunchgrasses and perennials): succession in the sward.
     const outlives = !p.invasive && !cp.invasive && !cp.exotic && s >= cs && p.life >= cp.life * 2;
-    if (!((cs < 0.3 && s > cs + 0.2) || ((s > cs + 0.1 || outlives) && rng() < push * (cp.invasive ? 0.2 : 1) * (s > cs + 0.1 ? 0.5 : OUTLIVE)))) return no(w, p, i, 'resident');
+    // (and where grazers keep the grass short, a wildflower gets in as if it were better suited: 0033)
+    if (!((cs < 0.3 && s > cs + 0.2) || ((s > cs + 0.1 || outlives || grazedForbEdge(w, i, p, cp)) && rng() < push * (cp.invasive ? 0.2 : 1) * (s > cs + 0.1 || !outlives ? 0.5 : OUTLIVE)))) return no(w, p, i, 'resident');
   }
   // Managed gardens and grazing paddocks keep their native meadow gaps: trees and shrubs
   // grow where planted, or on bare and neglected ground. A map can limit this to its paddocks.
@@ -412,7 +413,7 @@ export function updatePlants(game) {
       if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4 * grazedGrowth(w, i, p, g);
       else if (g < 0.9) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       else if (rng() < 0.004 * (0.3 - s) / 0.3) g = 0; // shaded out
-      if (droughtKills(w, i, g, gf, rng) || grazedSeedlingLost(w, i, p, g, rng)) g = 0;
+      if (droughtKills(w, i, g, gf, rng) || grazedSeedlingLost(w, i, p, g, rng) || trampledSeedling(w, i, p, g, rng)) g = 0;
       // weedy bushes on healthy grassland lose out over the years (a thick native sward, hotter
       // grass fires and browsing all work against them)
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0025 * bankK) g = 0;
@@ -453,7 +454,8 @@ export function updatePlants(game) {
       const haz = r < ageHazard(p, ageY, mort) + droughtCap + hazCap ? treeHazard(w, i, p, s, g, ageY, mort) : null;
       if (haz && r < haz.h) dies ||= r < haz.age ? 'age' : r < haz.age + haz.drought ? 'drought' : 'stress';
       else if (droughtKills(w, i, g, gf, rng)) { g = 0; lost = 'drought'; }
-      else if (grazedSeedlingLost(w, i, p, g, rng)) { g = 0; lost = 'browse'; }
+      else if (grazedSeedlingLost(w, i, p, g, rng) || trampledSeedling(w, i, p, g, rng)) { g = 0; lost = 'browse'; }
+      else if (elephantFelled(w, i, p, g, rng)) { if (g < 0.7) { g = 0; lost = 'browse'; } else dies = 'browse'; } // (pushed over or ring-barked: 0033)
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0012 * bankK) g = 0;
       // savanna: in the dry months, trees packed into a thicket run short of water and some die back
       else if (game.catalog.definition.savanna && gf < 0.6 && !p.invasive && w.distWater[i] > 3 && rng() < 0.006 && crowded(w, i, 3)) dies = 'drought';

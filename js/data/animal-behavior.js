@@ -22,6 +22,16 @@ const nocturnalFor = def => def.sprite.kind === 'bat' || def.key === 'flyingsqui
 const GROUND_CLIMBERS = { graysquirrel: 0.2 };
 const climbFor = def => def.move === 'tree' ? { cap: 2, ground: GROUND_CLIMBERS[def.key] ?? 0 } : null;
 const playsFor = def => def.group === 'Mammals' && !NO_PLAY.has(def.sprite.kind);
+// Large herbivores (decision 0033): adult mass (def.kg) and the share of feeding that is browse rather than
+// grass. By default a browser-first diet is 80% browse and a grazer that also browses 30%; these are the
+// species that differ (giraffe and black rhino never graze, impala and elephants switch with the season).
+const BROWSE_SHARE = { giraffe: 1, rhino: 1, sumrhino: 1, tapir: 0.9, impala: 0.45, elephant: 0.5, gajah: 0.5, sambar: 0.6, elk: 0.35 };
+function herbivoreFor(def, forage) {
+  if (!def.kg || def.reef || def.move === 'fly' || !forage.some(f => f === 'grass' || f === 'browse')) return null;
+  const browse = BROWSE_SHARE[def.key] ?? (forage[0] === 'browse' ? 0.8 : forage.includes('browse') ? 0.3 : 0);
+  // breaks: elephants push over and strip young trees; rubs: antlered males fray saplings
+  return { kg: def.kg, browse, breaks: !!def.tramples, rubs: !!def.sprite.male?.antlers };
+}
 const waterProfileFor = def => WATER_DEPENDENT.has(def.key) ? { reach: 1.5, share: 0.15 } : { reach: 1, share: 0.08 };
 export function behaviorFor(def) {
   const s = def.sprite, k = s.kind;
@@ -57,5 +67,5 @@ export function behaviorFor(def) {
   // Coyotes pursuing the small prey represented here hunt alone or with one companion.
   const partners = def.key === 'coyote' ? 1 : ['lion', 'hyena', 'giantotter'].includes(def.key) ? 3 : 0;
   const combat = def.domestic ? null : HORNS.has(k) ? 'horns' : k === 'giraffe' ? 'necking' : null;
-  return { forage, hunt, partners, combat, plays: playsFor(def), nocturnal: nocturnalFor(def), fishing: fishingProfileFor(def), climb: climbFor(def), territory: territoryProfileFor(def), dormancy: dormancyProfileFor(def), water: waterProfileFor(def), activity: activityProfileFor(def) };
+  return { forage, herbivore: herbivoreFor(def, forage), hunt, partners, combat, plays: playsFor(def), nocturnal: nocturnalFor(def), fishing: fishingProfileFor(def), climb: climbFor(def), territory: territoryProfileFor(def), dormancy: dormancyProfileFor(def), water: waterProfileFor(def), activity: activityProfileFor(def) };
 }

@@ -22,6 +22,7 @@ import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
 import { settle, aimDrink, landWalker } from './steering.js';
 import { grazeDay, decayGrazing } from './grazing.js';
+import { herbivoryDay, rubSapling } from './herbivory.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, followLeaderTrip } from './animal-trails.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
 import { ensureHome, homeChoose, homeFalloff, walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
@@ -810,6 +811,7 @@ export class Wildlife {
     // Repeated crossings wear trails during movement; unused routes recover daily.
     decayTrails(w);
     decayGrazing(w);
+    herbivoryDay(game); // (where the big herbivores spent the day, in kg/ha: 0033)
     for (let i = 0; i < w.n; i++) {
       if (ecology && w.browseDamage?.[i] > 0) w.browseDamage[i] = w.browseDamage[i] < 0.001 ? 0 : w.browseDamage[i] * 0.94;
     }
@@ -824,6 +826,7 @@ export class Wildlife {
       a.hunger += shelteredDormant(this, a, def) ? def.behavior.dormancy.rate : 1;
       if (a.state === 'dormant') continue;
       grazeDay(game, def, x, y);
+      rubSapling(game, a, def, x, y);
       // A family that has settled into a feed-and-rest range moves on to another patch about once
       // a year, so elk that came in from the north find the meadows further south (see 0003).
       if (a.range && def.familyHerd && a.state === 'idle' && !a.juvenile && !(inRut(game) && isMaleVariant(def, a)) && this.herdLeader(a) === a && rng() < 1 / 120) {
@@ -842,18 +845,6 @@ export class Wildlife {
         if (ecology) browseSapling(game, a, def);
         else if (w.tree[i] && w.treeG[i] < 0.4 && w.feature[i] !== F.FENCE) w.treeG[i] = Math.max(0.05, w.treeG[i] - 0.01);
       }
-      // On the savanna the herds nibble and trample woody seedlings wherever they feed, which
-      // (with fire) is what keeps the plains open grassland instead of thornbush.
-      if (this.game.catalog.definition.savanna && def.move === 'ground' && !def.prey && (def.sprite.len || 0) >= 20) this.trample(w, x, y, rng);
-    }
-  }
-
-  trample(w, x, y, rng) {
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      if (!w.inb(x + dx, y + dy) || rng() > 0.3) continue;
-      const j = w.idx(x + dx, y + dy);
-      if (w.tree[j] && w.treeG[j] < 0.3 && (w.treeG[j] -= 0.08) <= 0) removeTree(w, j, 'browse', rng, { deadwood: false });
-      if (w.shrub[j] && w.shrubG[j] < 0.3 && (w.shrubG[j] -= 0.08) <= 0) { w.shrub[j] = 0; w.shrubG[j] = 0; }
     }
   }
 

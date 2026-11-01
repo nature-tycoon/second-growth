@@ -171,7 +171,10 @@ export function openEcoReport(ui, view = ui.reportView || 'overview') {
       return `<div class="er-fw"><div class="er-ct"><b>${tr(GROUP_NAMES[key])}</b><span>${x.present.length} ${tr('of')} ${n}</span></div>${bar(x.present.length / Math.max(1, 0.7 * n))}
         <div class="er-chips">${x.present.map(s => `<span class="er-chip">${tr(s)}</span>`).join('')}${x.missing.length ? `<span class="er-chip off">${x.missing.length} ${tr('more could live here')}</span>` : ''}</div></div>`;
     }).join('');
-    return `${head(v)}<div class="er-cols"><div>${rows}</div><div>${trend(k)}${hintBox('foodweb')}</div></div>`;
+    // the big plant-eaters, in kg of animal a hectare against the wild range for this land (decision 0033)
+    const hb = m.herbivores, guild = hb && (hb.browse > hb.graze ? 'mostly browsers' : 'mostly grazers');
+    const herbivores = hb ? `<p class="er-cs">${tr('Large herbivores')}: ${num(hb.total)} ${tr('kg a hectare')}${hb.total >= 0.5 ? `, ${tr(guild)}` : ''}. ${tr('In the wild here')}: ${hb.range[0]}–${hb.range[1]}. ${tr(hb.total > hb.range[1] ? 'More than wild land carries: young trees and grass get little rest.' : hb.total >= hb.range[0] ? 'Their grazing and browsing keep the land a mix of woods, glades and meadow.' : 'Fewer than in the wild: young trees close over the open ground sooner.')}</p>` : '';
+    return `${head(v)}<div class="er-cols"><div>${rows}${herbivores}</div><div>${trend(k)}${hintBox('foodweb')}</div></div>`;
   }
 
   function carbon() {

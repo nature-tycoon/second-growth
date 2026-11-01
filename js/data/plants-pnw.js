@@ -190,4 +190,12 @@ export default function buildPnwPlants(def, mix, get) {
     .forEach(([k, v]) => { get(k).fireSurvival = v; });                              // thick bark shrugs off ground fire
   get('broom').fuel = 1.6; get('blackberry').fuel = 1.2;                              // burns hot
   get('maple').nectar = { months: [1], amount: 0.3 };                                 // spring flowers feed pollinators
+  // How much deer and elk seek out each young tree (browse, 0..1), which ones grow back after it,
+  // and which shrubs are armed (decision 0033). Redcedar is the favourite, hemlock and alder much less
+  // (Vourc'h et al. 2002; Stroh et al. 2008; Crouch 1966 for Douglas-fir; Woodward et al. 1994 Olympic exclosures).
+  // Where deer wiped out redcedar regeneration on Haida Gwaii, hemlock and spruce kept coming up (Stroh et al. 2008).
+  Object.entries({ cedar: 0.9, cottonwood: 0.8, maple: 0.7, oak: 0.6, fir: 0.6, birch: 0.5, ash: 0.4, alder: 0.3, hemlock: 0.25 })
+    .forEach(([k, v]) => { get(k).browse = v; });
+  for (const k of ['alder', 'birch', 'cottonwood', 'maple', 'ash', 'oak']) get(k).resprout = true; // broadleaves coppice back from a browsed stem
+  for (const k of ['rose', 'blackberry']) get(k).thorny = true; // brambles and roses shelter the saplings in them
 }

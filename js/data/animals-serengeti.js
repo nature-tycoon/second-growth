@@ -16,7 +16,7 @@ export default function buildSerengetiAnimals(def) {
   // ------------------------------------------------------------------ Grazers and browsers
   {
     const w = habW({ MEADOW: 1, SHRUB: 0.35, FARM: 0.25, RIPARIAN: 0.3 });
-    def({ key: 'wildebeest', herd: true, herdR: 3, crossing: { x: 0.5 }, name: 'Wildebeest', sci: 'Connochaetes taurinus', group: 'Mammals', move: 'ground',
+    def({ key: 'wildebeest', kg: 200, herd: true, herdR: 3, crossing: { x: 0.5 }, name: 'Wildebeest', sci: 'Connochaetes taurinus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 14, max: 60, minK: 6, groupSize: [10, 20], sources: ['N'], mig: 0.6, season: [3, 4, 5, 6, 7],
       breed: [11], litter: [1, 1], life: 18, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * grazing(W, i) * near(W.distWater[i], 10, 0.3),
@@ -27,7 +27,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, SHRUB: 0.5, FARM: 0.3, RIPARIAN: 0.4 });
-    def({ key: 'zebra', herd: true, herdR: 2.5, crossing: { x: 0.5 }, name: 'Plains zebra', sci: 'Equus quagga', group: 'Mammals', move: 'ground',
+    def({ key: 'zebra', kg: 250, herd: true, herdR: 2.5, crossing: { x: 0.5 }, name: 'Plains zebra', sci: 'Equus quagga', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 14, max: 36, minK: 3, groupSize: [4, 9], sources: ['N'], mig: 0.5, season: [2, 3, 4, 5, 6, 7],
       breed: [10, 11], litter: [1, 1], life: 20, mature: 2.5,
       suit: (W, i) => w[W.habitat[i]] * grazing(W, i) * near(W.distWater[i], 10, 0.3),
@@ -38,7 +38,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, FARM: 0.35, SHRUB: 0.35, BARE: 0.1 });
-    def({ key: 'gazelle', herd: true, herdR: 3, herdMax: 10, name: "Thomson's gazelle", sci: 'Eudorcas thomsonii', group: 'Mammals', move: 'ground',
+    def({ key: 'gazelle', kg: 22, herd: true, herdR: 3, herdMax: 10, name: "Thomson's gazelle", sci: 'Eudorcas thomsonii', group: 'Mammals', move: 'ground',
       speed: 1.9, hr: 8, max: 30, minK: 2, groupSize: [4, 10], sources: ['N', 'E'], mig: 0.45, breed: [9, 10, 11], litter: [1, 1], life: 10, mature: 1,
       suit: (W, i) => w[W.habitat[i]] * grazing(W, i),
       sprite: { kind: 'gazelle', len: 22, h: 11, leg: 12, color: '#c8904a', belly: '#f4ece0', dark: '#2a1e18' },
@@ -47,7 +47,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ SHRUB: 1, YOUNG_FOREST: 0.9, RIPARIAN: 0.9, MEADOW: 0.55, MATURE_FOREST: 0.6 });
-    def({ key: 'impala', herd: true, herdR: 2.5, herdMax: 8, name: 'Impala', sci: 'Aepyceros melampus', group: 'Mammals', move: 'ground',
+    def({ key: 'impala', kg: 50, herd: true, herdR: 2.5, herdMax: 8, name: 'Impala', sci: 'Aepyceros melampus', group: 'Mammals', move: 'ground',
       speed: 1.7, hr: 8, max: 26, minK: 3, groupSize: [5, 10], sources: ['N', 'S'], mig: 0.4, breed: [9, 10], litter: [1, 1], life: 12, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 6, 0.4),
       req: g => Math.min(1, g.forestTiles / 300),
@@ -58,7 +58,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 0.9, SHRUB: 0.8, RIPARIAN: 0.7, MEADOW: 0.25 });
-    def({ key: 'giraffe', herd: true, herdR: 4, herdMax: 4, name: 'Maasai giraffe', sci: 'Giraffa tippelskirchi', group: 'Mammals', move: 'ground',
+    def({ key: 'giraffe', kg: 1000, herd: true, herdR: 4, herdMax: 4, name: 'Maasai giraffe', sci: 'Giraffa tippelskirchi', group: 'Mammals', move: 'ground',
       speed: 1.2, hr: 40, max: 10, minK: 2, groupSize: [2, 5], sources: ['N'], mig: 0.3, breed: [4, 5], litter: [1, 1], life: 25, mature: 4,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.forestTiles / 250),
@@ -70,7 +70,7 @@ export default function buildSerengetiAnimals(def) {
     // (they browse the bush and graze the open grassland as much as the riverine woods, and range
     // far from water between drinks: a herd isn't tied to the riverbank)
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 1, RIPARIAN: 1, SHRUB: 1, MEADOW: 0.9, MARSH: 0.6 });
-    def({ key: 'elephant', herd: true, tramples: true, herdR: 2.5, herdMax: 5, name: 'African elephant', sci: 'Loxodonta africana', group: 'Mammals', move: 'ground',
+    def({ key: 'elephant', kg: 3500, herd: true, tramples: true, herdR: 2.5, herdMax: 5, name: 'African elephant', sci: 'Loxodonta africana', group: 'Mammals', move: 'ground',
       speed: 1.1, hr: 160, max: 8, minK: 2, groupSize: [3, 6], sources: ['N'], mig: 0.2, intro: 16000,
       breed: [1], litter: [1, 1], life: 60, mature: 12,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 11, 0.3),
@@ -81,7 +81,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ RIPARIAN: 1, MARSH: 0.8, MEADOW: 0.8, SHRUB: 0.5, YOUNG_FOREST: 0.5 });
-    def({ key: 'buffalo', herd: true, herdR: 2.2, herdMax: 10, name: 'Cape buffalo', sci: 'Syncerus caffer', group: 'Mammals', move: 'ground',
+    def({ key: 'buffalo', kg: 550, herd: true, herdR: 2.2, herdMax: 10, name: 'Cape buffalo', sci: 'Syncerus caffer', group: 'Mammals', move: 'ground',
       speed: 1.1, hr: 30, max: 30, minK: 4, groupSize: [6, 12], sources: ['N', 'S'], mig: 0.3, breed: [1, 2], litter: [1, 1], life: 20, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * grazing(W, i) * near(W.distWater[i], 3, 0.15),
       req: g => Math.min(1, g.meadowTiles / 1200),
@@ -91,7 +91,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, SHRUB: 0.8, FARM: 0.4, BARE: 0.3, RIPARIAN: 0.5 });
-    def({ key: 'warthog', name: 'Warthog', sci: 'Phacochoerus africanus', group: 'Mammals', move: 'ground',
+    def({ key: 'warthog', kg: 70, name: 'Warthog', sci: 'Phacochoerus africanus', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 6, max: 18, minK: 2, groupSize: [2, 5], sources: ['N', 'E', 'W'], mig: 0.4, breed: [9, 10], litter: [2, 4], life: 12, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.4),
       sprite: { kind: 'warthog', len: 24, h: 13, leg: 9, color: '#6a5a50', belly: '#7a6a5e', dark: '#2a2420' },
@@ -100,7 +100,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ POND: 1, RIVER: 1, MARSH: 0.8 });
-    def({ key: 'hippo', herd: true, herdR: 2, herdMax: 5, name: 'Hippopotamus', sci: 'Hippopotamus amphibius', group: 'Mammals', move: 'semi',
+    def({ key: 'hippo', kg: 1500, herd: true, herdR: 2, herdMax: 5, name: 'Hippopotamus', sci: 'Hippopotamus amphibius', group: 'Mammals', move: 'semi',
       speed: 0.8, hr: 20, max: 12, minK: 2, groupSize: [3, 6], sources: ['S'], mig: 0.3, breed: [5, 6], litter: [1, 1], life: 40, mature: 5,
       suit: (W, i) => w[W.habitat[i]],
       req: g => Math.min(1, g.meadowTiles / 100) * Math.min(1, (g.cleanWater + 5) / 25),
@@ -110,7 +110,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ SHRUB: 1, YOUNG_FOREST: 0.8, RIPARIAN: 0.6, MEADOW: 0.3 });
-    def({ key: 'rhino', name: 'Black rhino', sci: 'Diceros bicornis', group: 'Mammals', move: 'ground', fixedMax: true,
+    def({ key: 'rhino', kg: 1000, name: 'Black rhino', sci: 'Diceros bicornis', group: 'Mammals', move: 'ground', fixedMax: true,
       speed: 1, hr: 60, max: 4, minK: 1, groupSize: [1, 2], sources: ['N'], mig: 0, intro: 22000, breed: [2], litter: [1, 1], life: 40, mature: 7,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.4),
       req: g => Math.min(1, g.forestTiles / 250),
@@ -263,7 +263,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, SHRUB: 0.9, YOUNG_FOREST: 0.4 });
-    def({ key: 'tortoise', name: 'Leopard tortoise', sci: 'Stigmochelys pardalis', group: 'Reptiles & more', move: 'ground',
+    def({ key: 'tortoise', kg: 13, name: 'Leopard tortoise', sci: 'Stigmochelys pardalis', group: 'Reptiles & more', move: 'ground',
       speed: 0.25, hr: 6, max: 12, sources: ['N', 'E'], mig: 0.25, breed: [8, 9], litter: [2, 4], life: 60, mature: 10,
       suit: (W, i) => w[W.habitat[i]],
       sprite: { kind: 'turtle', size: 16, color: '#d8b870', dark: '#3a2e1e', dome: true },
@@ -294,7 +294,7 @@ export default function buildSerengetiAnimals(def) {
   // Small resident herds; appended to preserve saved species indices.
   {
     const w = habW({ MEADOW: 1, RIPARIAN: 0.5, SHRUB: 0.2, FARM: 0.04 });
-    def({ key: 'topi', name: 'Topi', sci: 'Damaliscus lunatus jimela', group: 'Mammals', move: 'ground',
+    def({ key: 'topi', kg: 120, name: 'Topi', sci: 'Damaliscus lunatus jimela', group: 'Mammals', move: 'ground',
       fixedMax: true, strictMax: true, herd: true, herdR: 2, herdMax: 5,
       speed: 1.7, hr: 180, max: 8, minK: 2, groupSize: [2, 3], sources: ['N', 'E'], mig: 0.2,
       breed: [9, 10], litter: [1, 1], life: 15, mature: 2,
@@ -306,7 +306,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, SHRUB: 0.3, RIPARIAN: 0.2, FARM: 0.04 });
-    def({ key: 'hartebeest', name: "Coke's hartebeest", sci: 'Alcelaphus buselaphus cokii', group: 'Mammals', move: 'ground',
+    def({ key: 'hartebeest', kg: 140, name: "Coke's hartebeest", sci: 'Alcelaphus buselaphus cokii', group: 'Mammals', move: 'ground',
       fixedMax: true, strictMax: true, herd: true, herdR: 2, herdMax: 4,
       speed: 1.6, hr: 220, max: 6, minK: 2, groupSize: [2, 3], sources: ['N', 'E'], mig: 0.18,
       breed: [9, 10], litter: [1, 1], life: 18, mature: 2,

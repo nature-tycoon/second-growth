@@ -4,6 +4,7 @@
 // and analytics can all read it. It runs once a month (monthlyTick) and when the report opens,
 // never per frame: one pass over the tiles.
 
+import { herbivoreTotals } from './herbivory.js';
 import { H, T, F, DAYS_PER_YEAR, clamp } from '../config.js';
 import { REFERENCE, referenceFor, CARBON_FRACTION, TILE_HA, BURIAL, SEAGRASS_LIVING, SEAGRASS, CO2_PER_C, CAR_CO2_YEAR } from '../data/eco-reference.js';
 import { speciesPresent, nativePlantSpecies } from './goals.js';
@@ -162,6 +163,7 @@ export function ecoMetrics(game) {
   const weakest = vitals.reduce((a, b) => (b.score < a.score ? b : a));
   const weakPart = weakest.parts.reduce((a, b) => (!a || b.score < a.score ? b : a), null);
   return { reference: ref, carbon, foodWeb: fw, vitals, overall, stage: stageOf(overall), weakest: weakest.key, weakPart: weakPart?.key || null,
+    herbivores: ref.herbivores ? { ...herbivoreTotals(game.world), range: ref.herbivores } : null, // (0033)
     species: speciesPresent(game), speciesMax: game.catalog.animals.filter(a => !a.domestic).length };
 }
 
