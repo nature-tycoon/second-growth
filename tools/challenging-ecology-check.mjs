@@ -233,13 +233,15 @@ check('A missed land hunt leaves predators hungry in every difficulty and gives 
     assert.ok(g.wildlife.agents.includes(prey));
     if (mode === 'challenging') {
       assert.equal(predator.hunger, 12); assert.equal(prey.state, 'walk');
-      const initial = Math.hypot(prey.x - predator.x, prey.y - predator.y);
-      g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - predator.x, prey.y - predator.y) > initial);
+      // (away from where the miss happened: since 0026 the hunter presses on, so the gap can close)
+      const mx = predator.x, my = predator.y, initial = Math.hypot(prey.x - mx, prey.y - my);
+      g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - mx, prey.y - my) > initial);
     } else {
       // A miss never counts as a meal; the surviving prey still bolts away.
       assert.equal(predator.hunger, 12); assert.equal(prey.state, 'flee');
-      const initial = Math.hypot(prey.x - predator.x, prey.y - predator.y);
-      g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - predator.x, prey.y - predator.y) > initial);
+      // (away from where the miss happened: since 0026 the hunter presses on, so the gap can close)
+      const mx = predator.x, my = predator.y, initial = Math.hypot(prey.x - mx, prey.y - my);
+      g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - mx, prey.y - my) > initial);
     }
   }
 });
