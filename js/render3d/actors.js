@@ -315,7 +315,7 @@ export class Actors {
         y += 0.9;
       } else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) {
         y += 0.65;
-      } else if (def.move === 'tree' && inside) {
+      } else if (def.move === 'tree' && inside && a.move !== 'ground') { // (a squirrel down foraging is on the ground: sim/climbers.js)
         // monkeys and sloths live up in the crowns (or on a snag's bare top)
         // (monkeys up in the sunlit top of the canopy, sloths hanging lower down)
         const c = ci();
@@ -377,7 +377,7 @@ export class Actors {
       const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
       const birdHead = a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
         : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
-      const head = swimming ? 0 : fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
+      const head = swimming ? 0 : a.cache && a.move === 'ground' && !moving ? (Math.sin(time * 7 + a.id) > -0.3 ? 1 : 0.5) : fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
         : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
       st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
       if (fight) st.gait += (fight.gait - st.gait) * k;

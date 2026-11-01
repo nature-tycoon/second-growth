@@ -17,6 +17,10 @@ const WATER_DEPENDENT = new Set(['wildebeest', 'zebra', 'buffalo', 'elephant', '
 const NO_PLAY = new Set(['sloth', 'armadillo', 'anteater', 'pangolin', 'bat']);
 // Out only after dark, in a roost by day (roostingNow in animal-activity.js): bats, flying squirrels.
 const nocturnalFor = def => def.sprite.kind === 'bat' || def.key === 'flyingsquirrel';
+// Climbers share out the trees, two of a kind to a tree at most, and gray squirrels come down to
+// forage and bury nuts on the ground (sim/climbers.js): ground is the chance at a decision.
+const GROUND_CLIMBERS = { graysquirrel: 0.2 };
+const climbFor = def => def.move === 'tree' ? { cap: 2, ground: GROUND_CLIMBERS[def.key] ?? 0 } : null;
 const playsFor = def => def.group === 'Mammals' && !NO_PLAY.has(def.sprite.kind);
 const waterProfileFor = def => WATER_DEPENDENT.has(def.key) ? { reach: 1.5, share: 0.15 } : { reach: 1, share: 0.08 };
 export function behaviorFor(def) {
@@ -53,5 +57,5 @@ export function behaviorFor(def) {
   // Coyotes pursuing the small prey represented here hunt alone or with one companion.
   const partners = def.key === 'coyote' ? 1 : ['lion', 'hyena', 'giantotter'].includes(def.key) ? 3 : 0;
   const combat = def.domestic ? null : HORNS.has(k) ? 'horns' : k === 'giraffe' ? 'necking' : null;
-  return { forage, hunt, partners, combat, plays: playsFor(def), nocturnal: nocturnalFor(def), fishing: fishingProfileFor(def), territory: territoryProfileFor(def), dormancy: dormancyProfileFor(def), water: waterProfileFor(def), activity: activityProfileFor(def) };
+  return { forage, hunt, partners, combat, plays: playsFor(def), nocturnal: nocturnalFor(def), fishing: fishingProfileFor(def), climb: climbFor(def), territory: territoryProfileFor(def), dormancy: dormancyProfileFor(def), water: waterProfileFor(def), activity: activityProfileFor(def) };
 }

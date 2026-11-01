@@ -10,6 +10,7 @@ import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDep
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
 import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate, carryCatch, carryUpdate } from './bird-behavior.js';
+import { climberChoose, climberArrive, fullTrees } from './climbers.js';
 import { fishChoose, fishArrive, fishUpdate, fishStrike, fishing, fishFed, isFish } from './fishing.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
@@ -86,7 +87,7 @@ class Animal {
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
-  carry; prey; fishing; clingSide; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil;
+  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -1125,7 +1126,7 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
-          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); fishArrive(this, a); break; }
+          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); fishArrive(this, a); climberArrive(this, a); break; }
           if (smoothWalker(def) && a.course?.path !== a.path) shapeCourse(this, a, def); // (a journey walks a curve: see animal-course.js)
           const j = a.path[a.path.length - 1];
           if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1) * (a.dash || a.run || 1), dt) && (a.path.pop(), !a.path.length)) a.dash = null; break; }
@@ -1570,6 +1571,7 @@ export class Wildlife {
     // a predator close by comes before anything else (on land)
     if (!a.leaving && watch(this, a, def)) return;
     if (!a.leaving && socialHold(this, a, def)) return;
+    if (climberChoose(this, a, def)) return; // climbers: room in the tree, and squirrels down to the ground (climbers.js)
     // A newly formed family supersedes an old independent roaming trip.
     if (def.herd && a.trip != null && (this.herdLeader(a) !== a || def.familyHerd && inRut(this.game) && isMaleVariant(def, a))) a.trip = null;
     // on a trip: carry on to the destination (a hunt or a rest may have interrupted it)
@@ -1969,10 +1971,12 @@ export class Wildlife {
     const diag = swimmer(a, this.game.catalog);
     // (a land walker may wade across a creek or a marsh on the way, but no walk of its ends in one: 0025)
     const dry = landWalker(this.game.catalog.animals[a.sp], a), wet = i => dry && isWater(w.terrain[i]);
+    // (nor does a climber's end in a tree that already holds as many of its kind as it takes: climbers.js)
+    const full = fullTrees(this, a), ends = i => !wet(i) && !full?.has(i);
     while (head < tail && tail < cap) {
       const i = bfsQ[head++], x = i % W, y = (i / W) | 0;
-      if (i !== start && !wet(i) && goal(i, x, y)) { found = i; break; }
-      if (dist && !wet(i)) { const d = dist(x, y); if (d < nd) { nd = d; near = i; } }
+      if (i !== start && ends(i) && goal(i, x, y)) { found = i; break; }
+      if (dist && ends(i)) { const d = dist(x, y); if (d < nd) { nd = d; near = i; } }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         if (!diag && dx && dy) continue;
