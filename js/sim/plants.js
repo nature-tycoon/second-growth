@@ -61,8 +61,10 @@ export function plantSuit(w, i, p, light) {
   const soilFit = soil >= p.soil ? 1 : Math.max(0, 1 - (p.soil - soil) * (p.soilK ?? 3.5)); // soilK: how sharply poor soil holds a plant back
   let s = tf * rangeFit(w.moist[i], p.moist[0], p.moist[1], 0.18) * rangeFit(light, p.light[0], p.light[1], 0.25) * soilFit;
   if (p.nurse) s = Math.min(1, s + nurseBonus(w, i)); // (nurse logs, 0028 §5)
-  // pioneers of poor ground (dropseed) lose out to better grasses once the soil has recovered
-  if (p.pioneer && soil > p.pioneer) s *= Math.max(0.35, 1 - (soil - p.pioneer) * 2.5);
+  // pioneers of poor ground (dropseed, the wild legumes) lose out to better grasses once the soil
+  // has recovered, but not on crusted hardpan, where nothing else can root to take their place
+  // until their roots break the crust (rootsLoosen: decision 0036)
+  if (p.pioneer && soil > p.pioneer && !(p.crustOK && w.terrain[i] === T.GRAVEL && w.catalog.definition.hardpan)) s *= Math.max(0.35, 1 - (soil - p.pioneer) * 2.5);
   return s;
 }
 

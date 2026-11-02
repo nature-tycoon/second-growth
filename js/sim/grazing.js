@@ -6,7 +6,7 @@
 import { T, F, isWater } from '../config.js';
 import { brushProtection } from './ecological-pressure.js';
 import { herbivoreIndex, herbivoreKg } from './herbivory.js';
-import { rottenLog } from './plants.js';
+import { rottenLog, trySeed } from './plants.js';
 
 const DECAY = 0.985; // per day: ground a herd stops using recovers within a year or two
 const INTAKE = 0.8; // a deer-sized animal's day of feeding, spread over its feeding range
@@ -24,6 +24,7 @@ export function grazerWeight(def) {
 // to how much it likes being there and how much grass or browse there is to eat. More animals
 // means more pressure on the same ground; animals pushed off by predators feed somewhere else.
 let kernel = new Float32Array(0);
+const seedsInDung = (w, j) => w.groundG[j] > 0.6 && w.catalog.plants[w.ground[j]].graze > 0; // (grown, grazed grass)
 export function grazeDay(game, def, x, y) {
   const strength = game.catalog.definition.grazing ?? 1, weight = grazerWeight(def);
   const suit = game.wildlife.suit?.[def.index];
@@ -32,7 +33,8 @@ export function grazeDay(game, def, x, y) {
   const grass = def.behavior.forage.includes('grass'), browse = def.behavior.forage.includes('browse');
   const R = Math.round(Math.min(8, Math.max(2, Math.sqrt(def.hr || 4)))), side = 2 * R + 1;
   if (kernel.length < side * side) kernel = new Float32Array(side * side);
-  let total = 0;
+  let total = 0, seedTotal = 0;
+  const dung = game.catalog.definition.dungSeed ?? 0; // (grass seeds a grazer's dung plants a day, at the height of the seeding season)
   for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
     const k = (dy + R) * side + dx + R, xx = x + dx, yy = y + dy;
     kernel[k] = 0;
@@ -41,8 +43,28 @@ export function grazeDay(game, def, x, y) {
     const food = Math.max(grass ? w.graze[j] : 0, browse ? w.browse[j] : 0);
     if (food <= 0 || suit[j] <= 0) continue;
     total += kernel[k] = suit[j] * food * (1 - grazed[j]) * (1 - Math.hypot(dx, dy) / (R + 1.5)); // (fresh grass first)
+    if (dung && grass && seedsInDung(w, j)) seedTotal += kernel[k];
   }
   if (total <= 0) return;
+  // Grazers spread grass seed in their dung (endozoochory): wildebeest, zebra and gazelles pass the
+  // small seed of the grasses they eat, still viable, across their range (Janzen 1984, "foliage is
+  // the fruit"; Bodmer & Ward 2006). It's how grass gets back onto bare ground far from any tussock.
+  // The seed is from a grown grass it ate, picked in proportion to how much it ate there, and lands
+  // somewhere in the day's range; it takes only where trySeed lets it. Only maps crossed by big
+  // grazing herds set map.dungSeed (the Serengeti); on a farm with a few deer it's a trickle beside
+  // the grasses' own spread, and leaving it out keeps those maps as they were (decision 0036).
+  const rng = game.rng;
+  if (seedTotal > 0 && rng() < dung * Math.min(1, weight) * game.catalog.definition.climate.spread[game.month]) {
+    let r = rng() * seedTotal, from = 0;
+    for (let dy = -R; dy <= R && !from; dy++) for (let dx = -R; dx <= R; dx++) {
+      const k = kernel[(dy + R) * side + dx + R];
+      if (k <= 0) continue;
+      const j = w.idx(x + dx, y + dy);
+      if (seedsInDung(w, j) && (r -= k) <= 0) { from = w.ground[j]; break; }
+    }
+    const tx = x + Math.round((rng() * 2 - 1) * R), ty = y + Math.round((rng() * 2 - 1) * R);
+    if (from && w.inb(tx, ty)) { w.seedFrom = 'dung'; trySeed(w, game.catalog.plants[from], w.idx(tx, ty), rng); }
+  }
   const share = INTAKE * weight * strength / total;
   for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
     const k = kernel[(dy + R) * side + dx + R];
