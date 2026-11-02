@@ -11,7 +11,7 @@ const { Game } = await import('../js/game.js');
 const { setBiome } = await import('../js/biome.js');
 const { TOOLS, naturalFeature } = await import('../js/tools.js');
 const { snagSpot, logSpot, trunkSpot, snagTop } = await import('../js/sim/ground-obstacles.js');
-const { snagLife, DECAY } = await import('../js/sim/plants.js');
+const { snagLife, DECAY, swardGrowth } = await import('../js/sim/plants.js');
 const { T, F, PLACED, STONES } = await import('../js/config.js');
 
 let checks = 0;
@@ -162,6 +162,15 @@ check('Savanna grass fires are routine: one calm note a season, no alarm; the fr
   for (let d = 0; d < 5; d++) { g.weather = 'clear'; ev.updateFire(); }
   let far = 0; for (let i = 0; i < w.n; i++) if (w.scorch[i]) far = Math.max(far, Math.abs(i % w.w - 50), Math.abs(((i / w.w) | 0) - 40));
   assert.ok(far >= 7 && far <= 10, `the front ran ${far} tiles in 5 days`);
+});
+
+check('A sapling in a thick grass sward grows at half pace; above the grass, or among forbs, at full', () => {
+  const g = game('serengeti'), w = g.world, P = g.catalog.plant, i = w.idx(30, 30);
+  w.ground[i] = P.redoat.id; w.groundG[i] = 0.9;
+  assert.ok(Math.abs(swardGrowth(w, i, P.umbrella, 0.1) - 0.5) < 1e-6, 'a full sward halves it (Riginos 2009)');
+  w.groundG[i] = 0.25; assert.equal(swardGrowth(w, i, P.umbrella, 0.1), 1, 'a thin sward: no drag');
+  w.groundG[i] = 0.9; assert.equal(swardGrowth(w, i, P.umbrella, 0.4), 1, 'above the grass');
+  w.ground[i] = P.crotalaria.id; assert.equal(swardGrowth(w, i, P.umbrella, 0.1), 1, 'forbs don\'t compete like grass');
 });
 
 console.log(`fire-deadwood-check: ${checks} checks passed`);

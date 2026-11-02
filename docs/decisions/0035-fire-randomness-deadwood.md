@@ -176,27 +176,30 @@ commit, 699c712) and after, run side by side at `nice -n 12`:
   PNW), and `flora-rebuild-bench pnw` is within noise. A burning Serengeti runs its fire step twice
   a day.
 
-**Open (asked of Cole):** whether to add the savanna's grass competition, which slows saplings and
-sprouts in a thick sward, so the fire trap holds resprouters down as it does in the field
-(Riginos 2009, *Ecology* 90). That would act on mesquite and the acacias alike.
+### Grass competition (Cole, the same day)
 
-## Checks
+Cole asked for grass to slow young trees, so the fire trap holds. `swardGrowth` (`plants.js`): a
+tree under 0.35 growth in a grass or sedge sward grows at down to half pace (full sward: groundG
+0.8 and up; nothing under 0.3), as removing grass doubled young acacias' growth in Kenya (Riginos
+2009, *Ecology* 90). It applies on every map, after `grazedGrowth`; a nurse-log seedling on a
+rotten log is above the grass.
 
-- `node tools/run-seed-check.mjs`: two run seeds differ in weather and fire on the same land; a
-  run seed replays exactly; no run seed gives the old sequence; a save keeps the run seed and its
-  next draw; an old save without one still loads.
-- `node tools/fire-deadwood-check.mjs`: snags on the trunk spot and spread through the tile (not
-  centred); logs lie every way; the snag's top moves with its lean; snags thin out (10% / half /
-  90% down); ground cover under deadwood 3 years after a crown fire; stones at each map's rate,
-  natural, once per tile; resprouting trees burned back, seedlings and conifers killed; hardpan
-  grass burns; routine grass fires (one note, no alarm, a front of two tiles a day).
-- `deadwood-check` and `ground-obstacles-check` read `snagLife` and `logSpot` now.
+Rerun, the same 200-year runs:
 
-## Gotchas
+| Run | Mesquite, year 200 (no fire change → fire → + grass) | Simpson diversity of trees |
+| --- | --- | --- |
+| Serengeti 1 | 83% → 94% → 93% | 0.31 → 0.12 → 0.14 |
+| Serengeti 2 | 85% → 94% → 90% | 0.27 → 0.11 → 0.19 |
+| PNW 1 | fir 67% → 66% → 64% | 0.51 → 0.53 → 0.55 |
 
-- Deadwood spots are shared code: change them in `ground-obstacles.js` only.
-- `snagLife` and `snagPose` are hashes of the tile: nothing new is saved, and a snag that falls and
-  is replaced later on the same tile keeps the same life and lean.
-- `STONES` is a `featureAge` value on natural `F.ROCKS`. Map-made boulders (Serengeti kopjes) keep
-  age 0 and the full-size model.
-- Tools that want a random run seed must pass one; leaving it out is deliberately deterministic.
+Seeded `balance-sim restore 15` (Hollis), year 16: score 64.2 and 60.2 (seeds 7, 11), mature trees
+55 and 51 (43 and 35 without the grass rule), within seed noise.
+
+It helps a little, not much, because **mesquite on an untended Serengeti doesn't come up through
+grass**. A probe (seed 5) of where young mesquite stands: at years 30, 60 and 90, nearly all of it is
+under invasive lantana thicket with bare ground (43 of 50 at year 90). And the grass itself goes:
+the meadow turns from dropseed (1,697 tiles at year 30) to the legume pioneers crotalaria and
+indigofera (dropseed 52 tiles at year 90; red oat grass never above about 80). With little grass,
+there's little to compete with seedlings or to carry fire into the lantana. That is an older problem
+in the Serengeti's grassland succession (pioneer legumes should give way to perennial grasses on a
+recovering range, not hold it) and in lantana's spread, and it's left as its own task.
