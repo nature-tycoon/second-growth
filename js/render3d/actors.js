@@ -1,6 +1,6 @@
 // Animals (instanced 3D models, see animals/animal-model.js), plus visitors and flames drawn as camera-facing sprites.
 
-import { groundAt } from '../sim/waterline.js';
+import { groundAt, visibleLevel } from '../sim/waterline.js';
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, animalDef, maleLook } from '../data/animals.js';
@@ -11,7 +11,9 @@ import { leavesCarcass } from '../sim/animal-life.js';
 import { GRAZERS } from '../sim/steering.js';
 import * as S from '../render/sprites.js';
 import { treeHeight, treeLevel } from './tree-stature.js';
-import { treeTrunk } from '../sim/ground-obstacles.js';
+import { treeTrunk, snagSpot, snagPose, snagTop as snagTopAt } from '../sim/ground-obstacles.js';
+// a snag on a bank tile stands on the dry side, as flora.js draws it
+const snagBank = (w, x, y, i) => !isWater(w.terrain[i]) && w.distWater[i] <= 2 && visibleLevel(w, x, y) != null;
 import { contactShadow } from './geometry/features.js';
 import { AnimalShadows } from './animal-shadows.js';
 import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './animals/animal-pools.js';
@@ -159,8 +161,10 @@ export class Actors {
     const geo = this.flora?.geos.get(`snag:${w.variant[w.idx(x, y)] & 1}`);
     if (!geo) return null;
     const key = w.idx(x, y), old = (this.snagSites ||= new Map()).get(key);
-    if (old?.geo === geo) return old;
-    const cx = x + 0.5, cz = y + 0.5, site = new CanopySite(geo, [cx, w.heightAt(cx, cz) * LEVEL - 0.02, cz, 1, 1, 1, hash2(x, y, 13) * 6.28], [0.62, 0.58, 0.52], key);
+    if (old?.geo === geo && old.age === w.featureAge[key]) return old;
+    const [cx, cz] = snagSpot(w, x, y, snagBank(w, x, y, key)), [rx, rz, sh] = snagPose(w, x, y, key);
+    const site = new CanopySite(geo, [cx, w.heightAt(cx, cz) * LEVEL - 0.02, cz, 1, sh, 1, hash2(x, y, 13) * 6.28, rx, rz], [0.62, 0.58, 0.52], key);
+    site.age = w.featureAge[key]; // (it shortens as it rots)
     this.snagSites.set(key, site);
     return site;
   }
@@ -331,10 +335,12 @@ export class Actors {
       else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
         const c = ci(); perchSite = this.flora?.treeSites.get(c); y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
-        // on the snag's broken top (flora.js draws it in the middle of its tile, 1.68 tall): at its
-        // own place in the tile 0.9 up, it hung in the air beside the trunk
-        const c = ci(); snagTop = [c % w.w + 0.5, (c / w.w | 0) + 0.5];
-        y = w.heightAt(snagTop[0], snagTop[1]) * LEVEL - 0.02 + 1.64;
+        // on the snag's broken top (flora.js draws it where its tree stood, 1.68 tall at full height,
+        // leaning a little: ground-obstacles.js): at its own place in the tile 0.9 up, it hung in the air beside the trunk
+        const c = ci(), sx = c % w.w, sy = (c / w.w) | 0, bank = snagBank(w, sx, sy, c);
+        const [bx, bz] = snagSpot(w, sx, sy, bank), [tx, tz, th] = snagTopAt(w, sx, sy, c, bank);
+        snagTop = [tx, tz];
+        y = w.heightAt(bx, bz) * LEVEL - 0.02 + th;
       } else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) {
         y += 0.65;
       } else if (def.move === 'tree' && inside && a.move !== 'ground') { // (a squirrel down foraging is on the ground: sim/climbers.js)

@@ -37,11 +37,17 @@ export class Game {
   on(ev, fn) { (this.listeners[ev] ||= []).push(fn); }
   emit(ev, ...args) { for (const fn of this.listeners[ev] || []) fn(...args); }
 
+  // A new playthrough's own weather, fires and events (the map's layout keeps its fixed seed).
+  static randomRunSeed() { return Math.floor(Math.random() * 4294967296) >>> 0; }
+
   // mode: 'free' (everything unlocked) or 'campaign' (chapters unlock tools as you learn)
-  newGame(seed = 1987, mode = 'free', difficulty = 'standard', map = biome.id) {
+  // seed lays out the map (the same land every game); runSeed drives the game's random numbers:
+  // weather, fires, floods and events. The game passes randomRunSeed() so each playthrough differs;
+  // tools leave it out and get the old fixed sequence (seed * 31 + 7), so their runs reproduce.
+  newGame(seed = 1987, mode = 'free', difficulty = 'standard', map = biome.id, runSeed = (seed * 31 + 7) >>> 0) {
     this.mapDefinition = setBiome(map);
     this.catalog = mapCatalog(this.mapDefinition.id);
-    Object.assign(this, createFarmState({ seed, mode, difficulty, map: this.mapDefinition.id }));
+    Object.assign(this, createFarmState({ seed, runSeed, mode, difficulty, map: this.mapDefinition.id }));
     this.loaded = false;
     this.saveReady = false; // the welcome screen must never overwrite a saved farm
     this.saveEpoch = (this.saveEpoch || 0) + 1;
@@ -50,7 +56,7 @@ export class Game {
     assertWorld(this.world, this.catalog, `${this.map}.world`);
     this.water = waterModelOn(this.map) ? new HollisWater(this.world) : null;
     this.border = new Border(this.world, this.mapDefinition.borderCell);
-    this.rng = mulberry32(seed * 31 + 7);
+    this.rng = mulberry32(runSeed);
     this.wildlife = new Wildlife(this);
     this.visitors = new Visitors(this);
     this.events = new Events(this);
@@ -315,7 +321,7 @@ export class Game {
     for (const k of WORLD_ARRAYS) arrays[k] = bytes(w[k]);
     for (const k of Object.keys(EXTRA_ARRAYS)) if (w[k]) arrays[k] = { n: w[k].length, b: bytes(w[k]) };
     return structuredClone({
-      v: 2, seed: this.seed, day: this.day, money: this.money, speed: this.speed, flags: this.flags,
+      v: 2, seed: this.seed, runSeed: this.runSeed, day: this.day, money: this.money, speed: this.speed, flags: this.flags,
       stats: this.stats, goalsDone: this.goalsDone, history: this.history,
       world: { arrays, structures: w.structures, w: w.w, h: w.h, bloomTick: w.bloomTick, water: this.water?.serialize() },
       wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },

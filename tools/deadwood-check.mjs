@@ -8,7 +8,7 @@ const { Game } = await import('../js/game.js');
 const { World } = await import('../js/world.js');
 const { setBiome } = await import('../js/biome.js');
 const { PLANT } = await import('../js/data/plants.js');
-const { updatePlants, removeTree, trySeed, plantSuit, woodDecay, moistDecay, decayRate, rottenLog, nurseBonus, DECAY, patchOdds } = await import('../js/sim/plants.js');
+const { updatePlants, removeTree, trySeed, plantSuit, woodDecay, moistDecay, decayRate, rottenLog, nurseBonus, DECAY, patchOdds, snagLife } = await import('../js/sim/plants.js');
 const { classifyAndResources, updateCanopy } = await import('../js/sim/environment.js');
 const { windstorm } = await import('../js/sim/disturbance.js');
 const { assertMapDefinition } = await import('../js/data/contracts.js');
@@ -77,7 +77,7 @@ check('A snag stands its time, then falls as a sound log that keeps its species'
   const g = plot(), w = g.world, i = w.idx(4, 4);
   deadTree(w, i, 'fir', true); g.rng = () => 0;
   const d = daysTo(g, i, () => w.feature[i] === F.LOG);
-  assert.ok(Math.abs(d - DECAY.snagFall * 120 / 0.6) <= 2, `a fir snag on damp ground stands ${(d / 120).toFixed(1)} years`);
+  assert.ok(Math.abs(d - snagLife(w, i) * 120 / 0.6) <= 2, `a fir snag on damp ground stands ${(d / 120).toFixed(1)} years, its own standing life (0035)`);
   assert.equal(w.featureAge[i], 0, 'a sound log'); assert.equal(w.deadwoodId[i], PLANT.fir.id);
 });
 
@@ -133,7 +133,7 @@ check('Wind and fire bring snags down as sound logs; a fire leaves the trees it 
   for (const j of idx) { fw.feature[j] = F.SNAG; fw.deadwoodId[j] = PLANT.fir.id; fw.featureAge[j] = 0; }
   game.rng = () => 0; for (const j of idx.slice(0, 200)) ev.burnFeaturesAndWildlife(j);
   assert.ok(idx.slice(0, 200).every(j => fw.feature[j] === F.SNAG), 'fresh snags stand');
-  for (const j of idx.slice(200)) fw.featureAge[j] = DECAY.snagFall * 120 + 1;
+  for (const j of idx.slice(200)) fw.featureAge[j] = snagLife(fw, j) * 120 + 1;
   for (const j of idx.slice(200)) ev.burnFeaturesAndWildlife(j);
   assert.ok(idx.slice(200).every(j => fw.feature[j] === F.LOG && fw.featureAge[j] === 0 && fw.deadwoodId[j] === PLANT.fir.id), 'old snags burn through and fall');
 });

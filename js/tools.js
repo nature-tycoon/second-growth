@@ -1,13 +1,14 @@
 // Tool definitions and tile mutations. Player controls and scripted plans apply
 // these through ToolActions, which handles eligibility, money and stroke completion.
 
-import { T, F, PLACED, isWater } from './config.js';
+import { T, F, PLACED, STONES, isWater } from './config.js';
 import { MIX, L } from './data/plants.js';
 import { ANIMAL, many } from './data/animals.js';
 import { plantSuit, removeTree } from './sim/plants.js';
 import { onBiome, mapCatalog } from './biome.js';
 import { MULCH_DAYS } from './sim/ecological-pressure.js';
 import { plantAffinity } from './plant-patterns.js';
+import { hash2 } from './rng.js';
 import { assertCatalogTools } from './data/contracts.js';
 
 const land = t => !isWater(t);
@@ -78,6 +79,7 @@ export function createTools(catalog) {
       w.soil[i] = Math.min(1, w.soil[i] + 0.04);
       if (w.ground[i] && PLANTS[w.ground[i]].invasive) { w.ground[i] = 0; w.groundG[i] = 0; }
       if (biome.buoyTrails) w.marks[i] |= 2; // (the reef: steel reef stars, pegged over the rubble)
+      else turnUpStones(game, i);
       return true;
     } });
   tool({ key: 'mulch', cat: 'land', name: 'Compost & mulch', cost: 10, icon: { terrain: T.DUFF },
@@ -494,6 +496,21 @@ export function brushTiles(w, x, y, r) {
     if (w.inb(xx, yy)) out.push(w.idx(xx, yy));
   }
   return out;
+}
+
+// Loosening the soil turns up the odd stone (0035). Whether a tile hides any is fixed (a hash), so
+// working it again finds nothing new. The map's `stones` sets how stony its ground is: glacial till
+// is full of cobbles, deep tropical soils and river silt have hardly any. Riverside ground is
+// alluvium (a quarter as stony). They're nature's: Demolish leaves them (no PLACED mark), and
+// featureAge STONES (config.js) draws them as a small heap rather than a rock pile.
+function turnUpStones(game, i) {
+  const w = game.world, odds = (game.catalog.definition.stones ?? 0) * (w.distWater[i] <= 3 ? 0.25 : 1);
+  if (!odds || w.feature[i] || w.tree[i] || hash2(i % w.w, (i / w.w) | 0, 71) >= odds) return;
+  w.feature[i] = F.ROCKS; w.featureAge[i] = STONES; w.marks[i] &= ~PLACED;
+  if (!game.flags.stonesTurned) {
+    game.flags.stonesTurned = true;
+    game.notify('Loosening the soil turned up some stones. Snakes, lizards and beetles shelter under them, so they can stay where they lie.', 'info', { x: i % w.w + 0.5, y: ((i / w.w) | 0) + 0.5 });
+  }
 }
 
 // What a tool costs on this tile at the current difficulty (salvage earnings aren't scaled).

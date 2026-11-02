@@ -362,6 +362,7 @@ export default {
   goals: GOALS,
   moments: MOMENTS,
   generate: generateEstate,
+  stones: 0.01, // the odds loosening the soil turns up stones on a tile (0035): deep weathered and peaty soils, a few stones on the slopes
   borderCell: sumatraBorderCell,
   stats: estateStats,
   daily: estateDaily,

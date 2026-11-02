@@ -47,7 +47,7 @@ export class SessionAnalytics {
     g.on('discover', def => track('species_discovered', { species: def.key, ...snapshot() }));
     g.on('goal', goal => track('goal_completed', { goal: goal.key, ...snapshot() }));
     g.on('event', kind => {
-      if (kind === 'fire') track('wildfire', { crown: !!g.events.severe, ...snapshot() });
+      if (kind === 'fire' || kind === 'grassfire') track('wildfire', { crown: !!g.events.severe, routine: kind === 'grassfire', ...snapshot() });
       else if (kind === 'flood') track('flood', { tiles: g.events.floodTiles, ...snapshot() });
     });
     g.on('month', () => {

@@ -370,7 +370,7 @@ export class UI {
     // Dismiss the event, not its current tile count: spreading water/fire must not reopen it.
     if (!g.events.fireTiles) delete this.dismissedBanners.fire;
     if (!g.events.floodTiles) delete this.dismissedBanners.flood;
-    const fire = this.dismissedBanners.fire ? 0 : g.events.fireTiles;
+    const fire = this.dismissedBanners.fire || g.events.routine ? 0 : g.events.fireTiles; // (a routine savanna grass fire has no banner: 0035)
     const flood = this.dismissedBanners.flood ? 0 : g.events.floodTiles;
     const crown = fire && g.events.severe && g.events.heat > 0.3;
     const key = `${fire}|${flood}|${crown}`;
@@ -1445,7 +1445,7 @@ export class UI {
     track('map_switch', { from: this.game.map, to: pending.map, resume: !!pending.resume });
     location.reload();
   }
-  async startMode(mode, fresh, difficulty = 'standard', map = this.game.map) {
+  async startMode(mode, fresh, difficulty = 'standard', map = this.game.map, runSeed = Game.randomRunSeed()) {
     const g = this.game;
     if (map !== g.map) return this.switchMap({ map, mode, difficulty });
     if (fresh) {
@@ -1453,7 +1453,7 @@ export class UI {
       try { await Game.clearSave(map); } catch {
         this.setSpeed(speed); g.notify('The saved farm could not be replaced. Your current farm is still open.', 'warn'); return;
       }
-      track('game_restart', this.snapshot()); g.newGame(Math.floor(Math.random() * 100000), mode, difficulty, map);
+      track('game_restart', this.snapshot()); g.newGame(1987, mode, difficulty, map, runSeed); // (the same land, a new run of weather and fire)
     }
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
     track('game_start', { mode, fresh, difficulty, map });

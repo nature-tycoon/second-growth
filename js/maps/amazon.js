@@ -80,6 +80,7 @@ export default {
   animals: buildAmazonAnimals,
   goals: GOALS,
   generate: generateRanch,
+  stones: 0.004, // the odds loosening the soil turns up stones on a tile (0035): deep, old weathered soils: hardly a stone in them
   borderCell: amazonBorderCell,
   startWildlife: [['capybara', 4, 54, 41, 3], ['armadillo', 2, 22, 50, 6], ['caiman', 1, 54, 40, 2], ['piranha', 6, 60, 86, 6],
     ['anteater', 1, 76, 30, 4]], // the forest birds and agoutis come back from the rainforest once there's forest for them

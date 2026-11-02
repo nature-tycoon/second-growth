@@ -20,6 +20,7 @@ export default {
   animals: buildPnwAnimals,
   goals: PNW_GOALS,
   generate: generateFarm,
+  stones: 0.05, // the odds loosening the soil turns up stones on a tile (0035): glacial outwash and till: the valley floor is full of cobbles
   borderCell: pnwBorderCell,
   startWildlife: [['vole', 6, 90, 14, 8], ['robin', 3, 25, 24, 6], ['raccoon', 1, 33, 22, 4], ['mallard', 2, 93, 37, 2], ['treefrog', 5, 93, 37, 4]],
   startText: 'Spring, Year 1. The farm is quiet: a few voles, robins and a pair of mallards on the stock pond. Let\'s change that.',

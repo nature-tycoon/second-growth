@@ -210,7 +210,8 @@ import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema
 /** @typedef {{planted:number, dug:number, removed:number, spent:number, earned:number, used:Object<string,number>, ledger?:Ledger, grants?:Object<string,number>}} FarmStats */
 /**
  * @typedef {Object} FarmState
- * @property {number} seed
+ * @property {number} seed the map layout's seed
+ * @property {number|null} runSeed the playthrough's random-number seed (weather, fires, events); null in saves from before it was stored
  * @property {string} map
  * @property {GameMode} mode
  * @property {Difficulty} difficulty
@@ -424,6 +425,7 @@ export function assertMapDefinition(map, path = map?.id || 'map') {
   if (map.mortality != null) { object(map.mortality, `${path}.mortality`); fields(map.mortality, `${path}.mortality`, keys('background senescence stress suppression')); optional(map.mortality, 'background senescence stress suppression', `${path}.mortality`, (v, q) => number(v, q, 0)); }
   if (map.disturbance != null) assertDisturbance(map.disturbance, `${path}.disturbance`);
   if (map.forestRain != null) { object(map.forestRain, `${path}.forestRain`); for (const [edge, v] of Object.entries(map.forestRain)) { choice(edge, `${path}.forestRain`, ['N', 'E', 'S', 'W']); number(v, `${path}.forestRain.${edge}`, 0, 1); } }
+  if (map.stones != null) number(map.stones, `${path}.stones`, 0, 1); // (stones loosening the soil turns up, 0035)
   if (map.deadwood != null) { object(map.deadwood, `${path}.deadwood`); fields(map.deadwood, `${path}.deadwood`, keys('decay')); optional(map.deadwood, 'decay', `${path}.deadwood`, (v, q) => number(v, q, Number.MIN_VALUE)); }
   object(map.look, `${path}.look`); list(map.look.light, `${path}.look.light`, (v, q) => object(v, q), 4);
   list(map.goals, `${path}.goals`, (g, q) => {
@@ -505,6 +507,7 @@ export function assertSaveEnvelope(data, path = 'save') {
   object(data, path); choice(data.v, `${path}.v`, [1, 2]);
   number(data.seed, `${path}.seed`); integer(data.day, `${path}.day`); number(data.money, `${path}.money`); number(data.rng, `${path}.rng`);
   optional(data, 'map', path, text);
+  if (data.runSeed != null) number(data.runSeed, `${path}.runSeed`); // (older saves have none: their rng state is all they need)
   for (const key of ['flags', 'stats', 'goalsDone', 'world', 'wildlife']) object(data[key], `${path}.${key}`);
   integer(data.world.w, `${path}.world.w`, 1); integer(data.world.h, `${path}.world.h`, 1);
   object(data.world.arrays, `${path}.world.arrays`); list(data.world.structures, `${path}.world.structures`, (s, q) => { if (s != null) object(s, q); });

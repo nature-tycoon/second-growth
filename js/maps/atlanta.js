@@ -353,6 +353,7 @@ export default {
   animals: buildAtlantaAnimals,
   goals: GOALS,
   generate: generateSubdivision,
+  stones: 0.03, // the odds loosening the soil turns up stones on a tile (0035): Piedmont clay with quartz and granite rubble
   borderCell: atlantaBorderCell,
   stats: suburbStats,
   // trees and shrubs don't seed themselves into established meadows and gardens here

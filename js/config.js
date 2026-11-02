@@ -56,6 +56,8 @@ export const F = {
 // world.marks bit for a snag, log, rock pile or brush pile the player placed: Demolish takes only those
 // out (tools.js naturalFeature). 16 and 32 are the beaver pool's (sim/animals.js).
 export const PLACED = 64;
+// featureAge of natural F.ROCKS that loosening the soil turned up (tools.js): drawn as a small heap of stones
+export const STONES = 1;
 export const FEATURE_NAMES = ['', 'Snag (standing dead tree)', 'Fallen log', 'Rock pile', 'Brush pile',
   'Nest box', 'Old fence', 'Road culvert', 'Beaver dam', 'Boardwalk', 'Wildlife viewing blind', 'Tree stump (rots away over a few years)', 'Shrimp pond dike (Demolish it to let the tide back in)'];
 

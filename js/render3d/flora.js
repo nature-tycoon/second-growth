@@ -2,9 +2,9 @@
 
 import { isMeadow } from '../sim/beaver-ponds.js';
 import { WALLOW_POOL } from '../sim/wallows.js';
-import { T, F, LEVEL, BORDER, isWater, clamp } from '../config.js';
+import { T, F, LEVEL, BORDER, PLACED, STONES, isWater, clamp } from '../config.js';
 import { plantPhase } from '../data/plants.js';
-import { rottenLog } from '../sim/plants.js';
+import { rottenLog, DECAY } from '../sim/plants.js';
 import { hash2, valueNoise } from '../rng.js';
 import * as G from './geometry.js';
 import * as Botanical from './botanical.js';
@@ -25,7 +25,7 @@ import { GeometryIndex } from './geometry-index.js';
 import { PlantShadows } from './plant-shadows.js';
 import { PlantPool, ChunkedPlantPool, floraVersion } from './plant-pools.js';
 import { trailMask } from '../sim/animal-trails.js';
-import { dryPoint, shrubSpot, trunkSpot } from '../sim/ground-obstacles.js';
+import { dryPoint, shrubSpot, trunkSpot, snagSpot, snagPose, logSpot } from '../sim/ground-obstacles.js';
 import { createPlantMaterials } from './plant-materials.js';
 
 // Preserve public imports used by existing rendering tools.
@@ -662,11 +662,24 @@ export class Flora {
       const cx = x + 0.5, cz = y + 0.5, cy = hAt(cx, cz);
       const rot = hash2(x, y, 13) * 6.28;
       switch (f) {
-        case F.SNAG: this.pool(`snag:${v}`, () => G.snag(900 + v), this.bark).add(cx, cy - 0.02, cz, 1, 1, 1, rot, [0.62, 0.58, 0.52]); break;
+        // deadwood stands and lies where the tree did, not in the tile's middle (0035: sim/ground-obstacles.js)
+        case F.SNAG: {
+          const [sx, sz] = snagSpot(w, x, y, bankTile), [lx, lz, sh] = snagPose(w, x, y, i);
+          this.pool(`snag:${v}`, () => G.snag(900 + v), this.bark).add(sx, hAt(sx, sz) - 0.02, sz, 1, sh, 1, rot, [0.62, 0.58, 0.52], lx, lz);
+          break;
+        }
         case F.LOG: {
-          // a rotten log (0028 §5) has slumped into the ground under a coat of moss
-          const soft = rottenLog(w, i);
-          this.pool('log', () => G.log(), this.bark).add(cx, isWater(w.terrain[i]) ? w.tileH(x, y) * LEVEL + 0.02 : cy, cz, 1, soft ? 0.72 : 1, 1, rot, soft ? [0.74, 0.86, 0.6] : [1, 1, 1]);
+          // a rotten log (0028 §5) has slumped into the ground under a coat of moss, and sinks into the grass
+          const soft = rottenLog(w, i), wet = isWater(w.terrain[i]);
+          const [lx, lz, yaw] = logSpot(w, x, y, bankTile);
+          const ly = wet ? w.tileH(x, y) * LEVEL + 0.02 : Math.min(hAt(lx + Math.cos(yaw) * 0.4, lz - Math.sin(yaw) * 0.4), hAt(lx - Math.cos(yaw) * 0.4, lz + Math.sin(yaw) * 0.4), hAt(lx, lz));
+          // a sound log weathers silver-grey and beds into the ground as it heads for rotten, so a
+          // burn's fallen trees settle into the meadow rather than standing out as fresh timber
+          // (its bark sloughs off within a few years, so the grey comes first: the tint pulls the warm
+          // brown toward grey, less red and more blue)
+          const age = clamp(w.featureAge[i] / (DECAY.rotten * 120), 0, 1), bare = Math.min(1, age * 3);
+          this.pool('log', () => G.log(), this.bark).add(lx, ly - (soft ? 0.03 : 0.035 * age), lz, 1, soft ? 0.62 : 1 - 0.15 * age, 1, yaw,
+            soft ? [0.74, 0.86, 0.6] : [1 - 0.24 * bare, 1 - 0.02 * bare, 1 + 0.3 * bare]);
           break;
         }
         case F.STUMP: {
@@ -674,7 +687,14 @@ export class Flora {
           this.pool(`stump:${v}`, () => G.stump(990 + v), this.bark).add(cx, cy - 0.01, cz, s, s * (1 - 0.45 * rot2), s, rot, [1 - 0.35 * rot2, 1 - 0.38 * rot2, 1 - 0.4 * rot2]);
           break;
         }
-        case F.ROCKS: this.pool(`rocks:${v}`, () => G.rocks(950 + v), this.small).add(cx, cy, cz, 1, 1, 1, rot, [1, 1, 1]); break;
+        case F.ROCKS: {
+          // stones turned up by loosening the soil (tools.js STONES): a small, low heap off the tile's middle
+          if (w.featureAge[i] === STONES && !(w.marks[i] & PLACED)) {
+            const s = 0.45 + hash2(x, y, 72) * 0.25, sx = x + 0.3 + hash2(x, y, 73) * 0.4, sz = y + 0.3 + hash2(x, y, 74) * 0.4;
+            this.pool(`rocks:${v}`, () => G.rocks(950 + v), this.small).add(sx, hAt(sx, sz) - 0.01, sz, s, s * 0.8, s, rot, [0.92, 0.9, 0.86]);
+          } else this.pool(`rocks:${v}`, () => G.rocks(950 + v), this.small).add(cx, cy, cz, 1, 1, 1, rot, [1, 1, 1]);
+          break;
+        }
         case F.BRUSH: this.pool('brush', () => G.brushPile(970), this.bark).add(cx, cy, cz, 1, 1, 1, rot, [1, 1, 1]); break;
         case F.NESTBOX: this.pool('nestbox', () => G.nestbox(), this.bark).add(cx, cy, cz, 1, 1, 1, rot, [1, 1, 1]); break;
         case F.BLIND: this.pool('blind', () => G.blind(), this.bark).add(cx, cy, cz, 1, 1, 1, Math.round(rot / 1.57) * 1.57, [1, 1, 1]); break;

@@ -241,6 +241,7 @@ export default {
   goals: GOALS,
   moments: MOMENTS,
   generate: generateFinca,
+  stones: 0.035, // the odds loosening the soil turns up stones on a tile (0035): volcanic: scoria and lava stones from San Cristóbal
   borderCell: chinandegaBorderCell,
   stats: fincaStats,
   daily: fincaDaily,

@@ -4,12 +4,12 @@
 import { DIFFICULTY, SPEEDS } from './config.js';
 import { assertFarmState } from './data/contracts.js';
 
-/** @param {{seed?:number, mode?:import('./data/contracts.js').GameMode, difficulty?:import('./data/contracts.js').Difficulty, map?:string}} [options]
+/** @param {{seed?:number, runSeed?:number|null, mode?:import('./data/contracts.js').GameMode, difficulty?:import('./data/contracts.js').Difficulty, map?:string}} [options]
  * @returns {import('./data/contracts.js').FarmState} */
-export function createFarmState({ seed = 1987, mode = 'free', difficulty = 'standard', map = 'pnw' } = {}) {
+export function createFarmState({ seed = 1987, runSeed = null, mode = 'free', difficulty = 'standard', map = 'pnw' } = {}) {
   const level = DIFFICULTY[difficulty] ? difficulty : 'standard';
   const state = {
-    seed, map, mode, difficulty: level, campaign: { chapter: 0 },
+    seed, runSeed, map, mode, difficulty: level, campaign: { chapter: 0 },
     day: 0, acc: 0, money: DIFFICULTY[level].startMoney, speed: 1,
     flags: {}, stats: { planted: 0, dug: 0, removed: 0, spent: 0, earned: 0, used: {} },
     ledger: { in: {}, out: {} }, lastLedger: null, lastGrant: 0,
@@ -21,7 +21,7 @@ export function createFarmState({ seed = 1987, mode = 'free', difficulty = 'stan
   return state;
 }
 
-const SAVED_FIELDS = ['seed', 'day', 'money', 'flags', 'stats', 'goalsDone', 'history',
+const SAVED_FIELDS = ['seed', 'runSeed', 'day', 'money', 'flags', 'stats', 'goalsDone', 'history',
   'mode', 'campaign', 'snow', 'weather', 'weatherDays', 'rainStreak', 'dryStreak',
   'lastGrant', 'ledger', 'lastLedger'];
 

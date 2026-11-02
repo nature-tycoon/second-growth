@@ -3,15 +3,15 @@
 // is drawn at. Only ground: crowns and branches never block, so birds fly and perch through the
 // leaves, and climbers (monkeys, apes, sloths, squirrels in the canopy) are left alone.
 // Elephants walk through saplings and knock them back; only small animals go round logs.
-import { T, F, isWater, clamp } from '../config.js';
-import { hash2 } from '../rng.js';
+import { T, F, LEVEL, isWater, clamp } from '../config.js';
+import { hash2, valueNoise } from '../rng.js';
 import { groveForm } from '../render3d/groves.js';
 import { CONIFER_HABITS, TREE_SHAPES } from '../render3d/geometry/tree-shapes.js';
 import { groundAt, visibleLevel } from './waterline.js';
 import { animalRadius } from './animal-positioning.js';
 import { passable } from './animal-terrain.js';
 import { isPrimate } from './primate-behavior.js';
-import { removeTree } from './plants.js';
+import { removeTree, snagLife } from './plants.js';
 import { isMaleVariant } from '../data/animals.js';
 
 // Mature trunk radius at the base for the kinds whose shape gives none (see geometry/trees.js).
@@ -63,6 +63,45 @@ export function trunkSpot(w, x, y, p, bankTile) {
   return bankTile && !p.aquatic ? dryPoint(w, x, y, tx, tz) : [tx, tz];
 }
 
+// ---- Where deadwood lies (0035), as flora.js draws it and walkers go round it. A snag stands where
+// its tree's trunk stood (the plant doesn't move a dry-land trunk), so a burned stand keeps the
+// living stand's scatter rather than a grid. A log lies out from that spot: downhill on a slope (trees
+// fall downhill), elsewhere along a direction that turns slowly across the map, so neighbouring logs
+// lie roughly parallel as after a storm, each with its own scatter of up to ±50°.
+const NOT_AQUATIC = { aquatic: false };
+export function snagSpot(w, x, y, bankTile) { return trunkSpot(w, x, y, NOT_AQUATIC, bankTile); }
+// A snag's lean (radians about x and z) and its drawn height: 0.8–1.15 of the model, shortening by
+// up to 40% as it rots toward its fall (tops break off first).
+export function snagPose(w, x, y, i) {
+  const lean = (hash2(x, y, 43) - 0.5) * 0.22, dir = hash2(x, y, 44) * 6.28;
+  const rot = clamp(w.featureAge[i] / (snagLife(w, i) * 120 || 1), 0, 1);
+  return [Math.cos(dir) * lean, Math.sin(dir) * lean, (0.8 + hash2(x, y, 45) * 0.35) * (1 - 0.4 * rot)];
+}
+// The broken top of the snag on tile i (the model is 1.68 tall, its top 1.64 up), turned as flora.js
+// turns it (Euler XYZ: lean about x, its yaw, lean about z): [x, z, height above its foot].
+export const SNAG_TOP = 1.64;
+export function snagTop(w, x, y, i, bankTile) {
+  const [bx, bz] = snagSpot(w, x, y, bankTile), [rx, rz, sh] = snagPose(w, x, y, i), ry = hash2(x, y, 13) * 6.28, h = SNAG_TOP * sh;
+  const x1 = -h * Math.sin(rz) * Math.cos(ry), z1 = h * Math.sin(rz) * Math.sin(ry), y1 = h * Math.cos(rz);
+  return [bx + x1, bz + y1 * Math.sin(rx) + z1 * Math.cos(rx), y1 * Math.cos(rx) - z1 * Math.sin(rx)];
+}
+// The log on tile (x, y): its centre [x, z] and yaw (its axis runs (cos yaw, -sin yaw) in x, y).
+export function logSpot(w, x, y, bankTile) {
+  const [bx, bz] = trunkSpot(w, x, y, NOT_AQUATIC, false);
+  const hx = (w.tileH(Math.min(w.w - 1, x + 1), y) - w.tileH(Math.max(0, x - 1), y)) * LEVEL / 2;
+  const hz = (w.tileH(x, Math.min(w.h - 1, y + 1)) - w.tileH(x, Math.max(0, y - 1))) * LEVEL / 2;
+  const slope = clamp(Math.hypot(hx, hz) / 0.15, 0, 1) * 0.85;
+  const field = valueNoise(x, y, 7, 47) * 12.57; // (two turns over the noise's range, so every heading occurs)
+  let ax = Math.cos(field) * (1 - slope) - (slope ? hx / Math.hypot(hx, hz) * slope : 0);
+  let az = Math.sin(field) * (1 - slope) - (slope ? hz / Math.hypot(hx, hz) * slope : 0);
+  const yaw = Math.atan2(-az, ax) + (hash2(x, y, 48) - 0.5) * 1.75;
+  const dx = Math.cos(yaw), dz = -Math.sin(yaw), out = 0.18 + hash2(x, y, 49) * 0.12; // (the root end at the stump)
+  let cx = bx + dx * out, cz = bz + dz * out;
+  cx = clamp(cx, x + 0.1, x + 0.9); cz = clamp(cz, y + 0.1, y + 0.9);
+  if (bankTile) [cx, cz] = dryPoint(w, x, y, cx, cz);
+  return [cx, cz, yaw];
+}
+
 // Drawn scale of a tree (flora.js): growth, a per-tile variation, the species' look and the grove's width.
 function trunkScale(w, x, y, i, p) {
   const g = w.treeG[i];
@@ -94,6 +133,21 @@ function cachedTrunk(w, x, y, i) {
   return c;
 }
 
+// The snag or log on tile i, as drawn ([x, y, yaw]; yaw 0 for a snag), kept until the feature or
+// the distance to water changes.
+const woodCaches = new WeakMap();
+function cachedDeadwood(w, x, y, i) {
+  let c = woodCaches.get(w);
+  if (!c || c.f.length !== w.n) woodCaches.set(w, c = { f: new Uint8Array(w.n), dw: new Int16Array(w.n), xyr: new Float32Array(w.n * 3) });
+  const f = w.feature[i], dw = Math.min(w.distWater[i], 3);
+  if (c.f[i] !== f || c.dw[i] !== dw) {
+    const bank = !isWater(w.terrain[i]) && w.distWater[i] <= 2 && visibleLevel(w, x, y) != null;
+    const s = f === F.LOG ? logSpot(w, x, y, bank) : [...snagSpot(w, x, y, bank), 0];
+    c.f[i] = f; c.dw[i] = dw; c.xyr[i * 3] = s[0]; c.xyr[i * 3 + 1] = s[1]; c.xyr[i * 3 + 2] = s[2];
+  }
+  return c.xyr;
+}
+
 // Whose way wood is in: walkers on the ground. Not fliers, swimmers, climbers or any primate.
 export function groundWalker(def, a) {
   return !def.reef && (a.move === 'ground' || a.move === 'semi') && !isPrimate(def) && !a.leaving && !a.flying && !(a.alt > 0.05);
@@ -118,10 +172,10 @@ function gather(w, a, def, x, y, body) {
       if (r > 0) push(c[i * 3], c[i * 3 + 1], 0, 0, r, Math.min(r + body, Math.max(KEEP_MAX, r + 0.02)), i);
     }
     const f = w.feature[i];
-    if (f === F.SNAG && !tid) push(xx + 0.5, yy + 0.5, 0, 0, SNAG_R, Math.min(SNAG_R + body, KEEP_MAX), i);
+    if (f === F.SNAG && !tid) { const c = cachedDeadwood(w, xx, yy, i); push(c[i * 3], c[i * 3 + 1], 0, 0, SNAG_R, Math.min(SNAG_R + body, KEEP_MAX), i); }
     else if (f === F.LOG && small) {
-      const rot = hash2(xx, yy, 13) * 6.28; // (along the log as drawn: its local x turned by rot about the vertical)
-      push(xx + 0.5, yy + 0.5, Math.cos(rot) * LOG_HALF, -Math.sin(rot) * LOG_HALF, LOG_R, LOG_R + body, i);
+      const c = cachedDeadwood(w, xx, yy, i), rot = c[i * 3 + 2]; // (along the log as drawn: its local x turned by rot about the vertical)
+      push(c[i * 3], c[i * 3 + 1], Math.cos(rot) * LOG_HALF, -Math.sin(rot) * LOG_HALF, LOG_R, LOG_R + body, i);
     }
   }
   return count;

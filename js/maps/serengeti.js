@@ -104,6 +104,7 @@ export default {
   animals: buildSerengetiAnimals,
   goals: GOALS,
   generate: generateRange,
+  stones: 0.03, // the odds loosening the soil turns up stones on a tile (0035): granite grit and kopje boulders under the crust
   borderCell: serengetiBorderCell,
   startWildlife: [['warthog', 3, 50, 44, 4], ['gazelle', 5, 56, 20, 5], ['tortoise', 2, 40, 58, 4], ['monitor', 1, 56, 52, 2],
     ['catfish', 5, 58, 52, 2], ['weaver', 4, 50, 40, 3], ['dungbeetle', 3, 52, 46, 3]],
@@ -147,10 +148,14 @@ export default {
     spread: [1.0, 1.0, 0.9, 0.6, 0.5, 0.5, 0.6, 0.8, 1.0, 1.0, 0.8, 0.8],
     moist: [0.1, 0.12, 0.06, -0.08, -0.15, -0.2, -0.2, -0.12, 0.03, 0.06, -0.02, -0.02],
     snow: null,
-    fireMonths: [4, 5, 6, 7],
-    // grass fires sweep the plains most dry seasons; they kill saplings but not grown, thick-barked
-    // acacias, and never carry into the crowns. With the browsers, that's what keeps it savanna.
-    fireRate: 5, fireGap: 18, fireSpread: 1.6, crownFires: false,
+    // grass fires sweep the plains most dry seasons, May to September; they burn saplings back but not
+    // grown, thick-barked acacias, and never carry into the crowns. With the browsers, that's what keeps
+    // it savanna. Much of the Serengeti's grassland burns every one to three years (Holdo et al. 2009,
+    // PNAS 106; Probert et al. 2019, Glob. Change Biol. 25). Here, once the grass is back, a grassland
+    // tile burns about every 4–5 years (0035): fires run two tiles a day through the cured grass
+    // (fireSpeed) and are routine, so they come with a calm note and no alarm (routineFires).
+    fireMonths: [4, 5, 6, 7, 8],
+    fireRate: 8, fireGap: 8, fireSpread: 1.6, fireSpeed: 2, routineFires: true, crownFires: false,
     floodMonths: [1, 2],
     tips: [
       'Long rains: the best time to sow. Get seed into the half-moon pits while the ground is soft.',

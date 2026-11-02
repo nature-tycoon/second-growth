@@ -5,6 +5,7 @@ import { layerLight } from './environment.js';
 import { stressYoungPlant } from './ecological-pressure.js';
 import { grazedRecruitOdds, grazedSeedlingLost, grazedGrowth, overgrazedLoss, grazedForbEdge, elephantFelled, trampledSeedling } from './grazing.js';
 import { plantAffinity } from '../plant-patterns.js';
+import { hash2 } from '../rng.js';
 
 const rangeFit = (v, lo, hi, soft) => v < lo ? Math.max(0, 1 - (lo - v) / soft) : v > hi ? Math.max(0, 1 - (v - hi) / soft) : 1;
 
@@ -491,7 +492,7 @@ export function updatePlants(game) {
         // elsewhere it rots at the pace its wood and the ground allow (0028 §5)
         const r = woodK[w.deadwoodId[i]] * moistDecay(w, i) * deadK; // (decayRate, with the wood looked up once a day)
         const ay = (w.featureAge[i] += r) / 120;
-        if (f === F.SNAG) { if (ay > DECAY.snagFall && rng() < DECAY.roll * r) fellSnag(w, i); }
+        if (f === F.SNAG) { if (ay > snagLife(w, i) && rng() < DECAY.snagRoll * r) fellSnag(w, i); }
         else {
           w.soil[i] += 0.0004 * r; // (what the log was made of goes back into the ground as it rots)
           if (ay > DECAY.gone && rng() < DECAY.roll * r) clearDeadwood(w, i);
@@ -558,9 +559,17 @@ export function removeTree(w, i, cause, rng, { snagOdds = SNAG_ODDS[cause] ?? 0.
 // it gains decayRate a day, not 1. Each class lasts a fixed amount of rot, so a fir log on dry
 // ground stays a sound log for decades and a maple log in a wet hollow is soft within ten years.
 // The savanna keeps its own quick timers (fire, termites, elephants), and the reef its rubble.
-// Reference years: a snag can fall after snagFall, then with odds roll × rate a day; a log is
-// rotten from `rotten`, and goes after `gone` the same way.
-export const DECAY = { snagFall: 8, rotten: 12, gone: 25, roll: 0.002 };
+// Reference years: a snag stands for its own snagLife (0.85 snagFall on average), then falls with odds
+// snagRoll × rate a day; a log is rotten from `rotten`, and goes after `gone` with odds roll × rate.
+export const DECAY = { snagFall: 8, rotten: 12, gone: 25, roll: 0.002, snagRoll: 0.004 };
+
+// How long the snag on tile i stands, in reference years of rot: each its own, from a tenth of
+// snagFall to 1.6 times it (0035). Snags don't all come down together. Small ones and those with heart
+// rot fall within a few years, and big sound ones stand for decades. Fire-killed Douglas-fir has a
+// half-life of 12–16 years, and big firs lose under half their snags in 30 (Russell et al. 2006,
+// For. Ecol. Manage. 232). Here a PNW fir snag (rate about 0.5) is half down in about 15 years,
+// and the last fall at about 35. Fixed per tile (a hash), so nothing new is saved.
+export const snagLife = (w, i) => DECAY.snagFall * (0.1 + 1.5 * hash2(i % w.w, (i / w.w) | 0, 41));
 
 // How fast this species' dead wood rots against a typical hardwood (1). p.decay overrides it.
 // Conifers rot slower: resin and heartwood extractives hold the fungi off. (Real ratios are larger:

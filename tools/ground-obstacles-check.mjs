@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { mulberry32, hash2 } from '../js/rng.js';
 import { T, F, DAYS_PER_YEAR } from '../js/config.js';
-import { treeTrunk, groundWalker, LOG_R, LOG_HALF } from '../js/sim/ground-obstacles.js';
+import { treeTrunk, groundWalker, logSpot, LOG_R, LOG_HALF } from '../js/sim/ground-obstacles.js';
 
 globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeItem() {} };
 let passed = 0;
@@ -169,7 +169,7 @@ check('Small animals go round fallen logs; deer step over them', () => {
   const into = (w, x, y) => {
     for (let yy = Math.floor(y) - 1; yy <= Math.floor(y) + 1; yy++) for (let xx = Math.floor(x) - 1; xx <= Math.floor(x) + 1; xx++) {
       if (!w.inb(xx, yy) || w.feature[w.idx(xx, yy)] !== F.LOG) continue;
-      const rot = hash2(xx, yy, 13) * 6.28, hx = Math.cos(rot) * LOG_HALF, hy = -Math.sin(rot) * LOG_HALF, cx = xx + 0.5, cy = yy + 0.5;
+      const [cx, cy, rot] = logSpot(w, xx, yy, false), hx = Math.cos(rot) * LOG_HALF, hy = -Math.sin(rot) * LOG_HALF; // (where it's drawn: 0035)
       const t = Math.max(-1, Math.min(1, ((x - cx) * hx + (y - cy) * hy) / (hx * hx + hy * hy)));
       if (Math.hypot(x - cx - hx * t, y - cy - hy * t) < LOG_R) return true;
     }
