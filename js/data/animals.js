@@ -98,14 +98,21 @@ export function drawDef(def, a, month = null) {
   let look = isMaleVariant(def, a) ? maleLook(def) : def;
   // Without a calendar (field-guide/model previews), show breeding plumage.
   // Winter only changes drawing; the animal's sex, identity and ecology stay fixed.
-  if (month != null && def.sprite.winter && !def.sprite.breedingPlumage.includes(month)) {
-    let winter = winterVariants.get(look);
-    if (!winter) { winter = { ...look, key: look.key + ':winter', sprite: { ...look.sprite, ...def.sprite.winter } }; winterVariants.set(look, winter); }
-    return winter;
-  }
+  if (month != null && def.sprite.winter && !def.sprite.breedingPlumage.includes(month)) return winterLook(def, look);
   return look;
 }
 const winterVariants = new WeakMap();
+function winterLook(def, look) {
+  let winter = winterVariants.get(look);
+  if (!winter) { winter = { ...look, key: look.key + ':winter', sprite: { ...look.sprite, ...def.sprite.winter } }; winterVariants.set(look, winter); }
+  return winter;
+}
+// Every look drawDef can give this species (adult male, winter plumage), so the drawing can
+// prepare their models before the first one is needed.
+export function drawLooks(def) {
+  const looks = def.sprite.male ? [def, maleLook(def)] : [def];
+  return def.sprite.winter ? [...looks, ...looks.map(look => winterLook(def, look))] : looks;
+}
 
 export const one = def => def.nouns?.[0] ?? def.name;
 export const many = def => def.nouns?.[1] ?? def.name + 's';

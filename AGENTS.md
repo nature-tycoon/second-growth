@@ -61,6 +61,8 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 - [0035](docs/decisions/0035-fire-randomness-deadwood.md) Fire, randomness and deadwood: each new game has a random run seed (`newGame(..., runSeed)`; tools leave it out and keep the fixed sequence), snags and logs where the tree stood (`snagSpot`, `logSpot` in `sim/ground-obstacles.js`) and snags fall one by one (`snagLife`), loosening soil turns up natural stones (map `stones`), savanna grass fires every few years (`fireSpeed`, quiet `routineFires`), resprouting trees burned back not killed (`topKill`). Checks: `run-seed-check`, `fire-deadwood-check`
 - [0037](docs/decisions/0037-shared-prey-and-recolonisation.md) Shared prey and recolonisation: hunting species split each prey animal between them (`sharePrey`), cats that stalk pick prey near cover (`stalkCoverAt`), a hunter in the open is seen from further, hunters keep a search image of their last catch (`a.searchImage`), so rare prey like hartebeest persist; arrivals from off-map are the existing `mig`/`sources` rule (rhino now `mig: 0.01`)
 
+- [0038](docs/decisions/0038-smooth-first-minutes.md) Smooth first minutes: animal models warmed in idle time (`Actors.warmAnimals`), 24-tile plant regions under a 4 ms frame budget, and the live day in parts (`Game.dayWork`; `dailyTick` still does it all at once, so headless results are unchanged). Tests that stub habitat replace `Wildlife.suitabilityWork`, not `computeSuitability`. Measure with `tools/new-game-profile.mjs`
+
 New decisions take the next unused number and one line here.
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).

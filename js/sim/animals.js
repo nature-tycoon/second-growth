@@ -208,7 +208,10 @@ export class Wildlife {
     g.salmonBonus = (m >= 7 && m <= 9) ? Math.min(0.6, this.salmon.spawners / 10) : this.salmon.everSpawned ? 0.1 : 0;
   }
 
-  computeSuitability() {
+  computeSuitability() { for (const _ of this.suitabilityWork()); }
+
+  // computeSuitability in parts, a few species at a time (see Game.dayWork).
+  *suitabilityWork() {
     const w = this.game.world;
     this.updateGlobals();
     // What every species' loop asks of a tile besides its own suitability, read once rather than
@@ -254,6 +257,7 @@ export class Wildlife {
       // The spawning run uses qualifying creek tiles, rather than the ordinary capacity rule.
       if (def.special === 'salmon') { st.salmonHabitat = salmonHabitat; K = salmonHabitat / def.hr; }
       st.K = Math.min(def.max, K);
+      if (def.index % 6 === 5) yield;
     }
     this.sharePrey();
   }
@@ -474,10 +478,12 @@ export class Wildlife {
   }
 
   // -------------------------------------------------------------- monthly population dynamics
-  monthly() {
+  monthly() { for (const _ of this.monthlyWork()); }
+
+  *monthlyWork() {
     const game = this.game, rng = game.rng, m = game.month;
     this.recount();
-    this.computeSuitability();
+    yield* this.suitabilityWork();
 
     // migrants coming and going this month, announced together below
     const left = [], back = [];

@@ -90,7 +90,10 @@ const SKY_BLUE = 0.7;
 const GREY = new THREE.Color(0.5, 0.53, 0.56), STORM = new THREE.Color(0.25, 0.27, 0.3);
 const skyTint = new THREE.Color(), skyGrey = new THREE.Color(), skyTop = new THREE.Color(), skyLow = new THREE.Color();
 const NO_MOVE = { fwd: 0, side: 0, turn: 0, run: false };
-const FLORA_REGIONS_PER_FRAME = 1; // plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild)
+// Plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild): at least
+// one, and more while the frame's plant work stays under FLORA_FRAME_MS. Regions are 24 tiles across
+// (Flora's chunkSize), so a slow computer's one region a frame stays a short pause (decision 0038).
+const FLORA_REGIONS_PER_FRAME = 1, FLORA_FRAME_MS = 4;
 // a phone or tablet (no mouse)
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
@@ -216,6 +219,8 @@ export class Renderer {
 
   // Kills' skeletons and their shader, prepared in idle moments (see Actors.warmRemains).
   warmRemains(game) { this.actors.warmRemains(game, this.gl, this.camera, this.scene, () => `${this.gl.shadowMap.enabled}:${this.sun.castShadow}`); }
+  // Every animal kind's models and shader, prepared in idle moments (see Actors.warmAnimals).
+  warmAnimals(game) { this.actors.warmAnimals(game, this.gl, this.camera, this.scene); }
 
   // Phones and older laptops vary enormously, so the view sets its own resolution: it steps down
   // while the frame rate is low and creeps back up once there's room again, never above the
@@ -851,6 +856,7 @@ export class Renderer {
     if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; }
     this.frameN = (this.frameN || 0) + 1;
     if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; this.terrain.refreshWater(); this.terrain.refreshFlood(); }
+    else if (game.dayRun && this.dayDirty) this.dayDirty = this.frameN; // (and wait while the day is still being worked through: Game.update)
     // A new day repaints the ground and rebuilds the plants. They wait a frame or two so they don't
     // land in the same frame as the day's simulation and each other (a visible hitch), and at fast
     // speeds the ground repaints at most four times a second.
@@ -883,9 +889,10 @@ export class Renderer {
     const continuing = this.flora.waitingRegions?.size > 0;
     const growthReady = !surface && this.frameN > (this.dayDirty || 0) && now - this.lastFlora > (light ? (pace >= SPEEDS[2] ? 1200 : 400) : pace >= SPEEDS[3] ? 400 : 150);
     if (this.floraPending && (swapped || this.floraEditPending || continuing || growthReady)) {
-      if (!this.flora.rebuild(game, false, swapped ? Infinity : FLORA_REGIONS_PER_FRAME)) {
-        this.lastFlora = now; this.floraPending = false; this.floraEditPending = false;
-      }
+      const at = performance.now();
+      let more = this.flora.rebuild(game, false, swapped ? Infinity : FLORA_REGIONS_PER_FRAME);
+      while (more && !swapped && this.flora.waitingRegions?.size && performance.now() - at < FLORA_FRAME_MS) more = this.flora.rebuild(game, false, FLORA_REGIONS_PER_FRAME);
+      if (!more) { this.lastFlora = now; this.floraPending = false; this.floraEditPending = false; }
     }
   }
 

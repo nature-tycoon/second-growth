@@ -257,7 +257,7 @@ check('Hungry adult predators skip breeding and can leave despite otherwise abun
     const lions = [0, 1].map(() => g.wildlife.spawn(ANIMAL.lion, 30, 30, { silent: true, age }));
     lions.forEach(a => { a.hunger = hunger; });
     // Isolate food stress from habitat, prey capacity, and new arrivals.
-    g.wildlife.computeSuitability = () => { for (const d of ANIMALS) g.wildlife.state[d.index].K = d.key === 'lion' ? 8 : 0; };
+    g.wildlife.suitabilityWork = function* () { for (const d of ANIMALS) g.wildlife.state[d.index].K = d.key === 'lion' ? 8 : 0; };
     g.wildlife.immigrate = () => 0; g.rng = () => 0.01; g.wildlife.monthly();
     return { births: g.wildlife.state[ANIMAL.lion.index].births, departing: lions.filter(a => a.leaving).length, foodDepartures: g.stats.foodDepartures || 0 };
   }

@@ -151,6 +151,7 @@ export class UI {
     this.applySettings();
     this.saving.bind();
     this.warmPortraits();
+    this.renderer.warmAnimals?.(game);
     setTimeout(() => this.renderer.warmRemains?.(game), 2500); // (once the first frames have settled)
     void music.prepare();
     const wake = () => { void music.start(); };

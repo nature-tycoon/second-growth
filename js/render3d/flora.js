@@ -72,7 +72,7 @@ export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vi
   'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
 
 export class Flora {
-  constructor(scene, { chunkSize = 48, incremental = true, cullInstances = true, indexedGeometry = true, cullShadows = true, catalog = activeCatalog } = {}) {
+  constructor(scene, { chunkSize = 24, incremental = true, cullInstances = true, indexedGeometry = true, cullShadows = true, catalog = activeCatalog } = {}) {
     this.catalog = catalog;
     this.scene = scene;
     this.cullInstances = cullInstances; this.plantView = new PlantView(scene);
@@ -287,14 +287,20 @@ export class Flora {
   // call (a day's growth or a new season changes nearly every region, and doing them all in one
   // frame is a visible hitch). Returns true while regions are still waiting.
   // A changed region is drawn again, but only its tiles near a change are worked out afresh (a
-  // brush stroke touches a few tiles of a 48-tile region): every other tile repeats the plants
+  // brush stroke touches a few tiles of a 24-tile region): every other tile repeats the plants
   // it drew last time, exactly, from this.tileCache. A tile stays marked stale (this.stale) from
   // the change until it is worked out again, even if its region waits for a later call.
   rebuild(game, force = false, maxRegions = Infinity) {
     this.catalog = game.catalog;
     const w = game.world, B = game.border, month = game.month;
-    let dirty = this.incremental && !force ? this.changes.find(game, this.light) : null;
-    const saved = this.changes.saved;
+    const saved = this.changes.saved, GW = w.w + BORDER * 2, N = GW * (w.h + BORDER * 2);
+    // While a day's regions are still waiting, work through them without comparing the whole map
+    // again: the snapshot isn't refreshed either (see remember below), so the next comparison
+    // still sees every change since. A brush edit always compares at once.
+    const queued = this.incremental && !force && maxRegions < Infinity && this.waitingRegions?.size > 0 && !this.editRegions.size
+      && saved?.world === w && saved.border === B && saved.light === !!this.light && saved.month === month;
+    let dirty = queued ? Object.assign(new Set(this.waitingRegions), { tiles: this.noTiles?.length === N ? this.noTiles : (this.noTiles = new Uint8Array(N)) })
+      : this.incremental && !force ? this.changes.find(game, this.light) : null;
     if (!dirty && this.incremental && !force && maxRegions < Infinity && saved?.world === w && saved.border === B && saved.light === !!this.light) {
       // A height edit on the same farm: keep the conservative invalidation, without turning
       // every sample of a digging/reshaping stroke into one complete forest rebuild.
@@ -305,7 +311,6 @@ export class Flora {
     }
     if (dirty) for (const k of this.waitingRegions || []) dirty.add(k);
     this.waitingRegions = null;
-    const GW = w.w + BORDER * 2, N = GW * (w.h + BORDER * 2);
     if (this.tileCache?.length !== N) { this.tileCache = new Array(N); this.stale = new Uint8Array(N); }
     const cache = this.tileCache, stale = this.stale;
     // (without the changed tiles, a new season or a different world: every tile afresh)
@@ -740,7 +745,8 @@ export class Flora {
     }
     this.rec = null;
     for (const p of this.pools.values()) p.end(dirty);
-    if (this.incremental) this.changes.remember(game, this.light);
-    return !!this.waitingRegions;
+    if (this.incremental && !queued) this.changes.remember(game, this.light);
+    // (after the last queued region, one more call compares the map for what changed meanwhile)
+    return !!this.waitingRegions || queued;
   }
 }

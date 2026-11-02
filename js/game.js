@@ -32,6 +32,8 @@ export class Game {
     this.listeners = {};
     this.selectedAgent = null;
     this.cache = {};
+    this.dayRun = null; // a day being worked through a part a frame (see update)
+    this.saveDue = false; // the month's autosave, made once the day's work is done
   }
 
   on(ev, fn) { (this.listeners[ev] ||= []).push(fn); }
@@ -48,6 +50,7 @@ export class Game {
     this.mapDefinition = setBiome(map);
     this.catalog = mapCatalog(this.mapDefinition.id);
     Object.assign(this, createFarmState({ seed, runSeed, mode, difficulty, map: this.mapDefinition.id }));
+    this.dayRun = null; this.saveDue = false;
     this.loaded = false;
     this.saveReady = false; // the welcome screen must never overwrite a saved farm
     this.saveEpoch = (this.saveEpoch || 0) + 1;
@@ -139,8 +142,19 @@ export class Game {
     let days = step * (ANIMAL_SPEEDS[this.speed] ?? sp);
     this.wildlife.lifePace = step * sp / days;
     this.acc += step * sp;
+    // A day's work goes a part a frame (see dayWork), so one frame doesn't carry it all: on a slow
+    // laptop the whole day stalled the view every game day, and a new month for longer. Headless
+    // runs call dailyTick, which does the same work in the same order at once.
+    // (the run is set aside while it steps, so a save it sets off can't re-enter it)
+    if (this.dayRun) { const run = this.dayRun; this.dayRun = null; if (!run.next().done) this.dayRun = run; }
     let ticks = 0;
-    while (this.acc >= 1 && ticks < 3) { this.acc -= 1; this.dailyTick(); ticks++; }
+    while (this.acc >= 1 && ticks < 3) {
+      this.acc -= 1; this.finishDay();
+      const run = this.dayWork();
+      if (!run.next().done) this.dayRun = run;
+      ticks++;
+    }
+    if (!this.dayRun && this.saveDue) { this.saveDue = false; void this.save(); }
     if (this.acc > 3) this.acc = 1;
     // move wildlife in small steps
     while (days > 0) {
@@ -154,6 +168,20 @@ export class Game {
   }
 
   dailyTick() {
+    this.finishDay();
+    for (const _ of this.dayWork());
+    if (this.saveDue) { this.saveDue = false; void this.save(); }
+  }
+
+  // Finish a day still being worked through (before the next day, a save or a load).
+  finishDay() {
+    const run = this.dayRun;
+    this.dayRun = null;
+    if (run) for (const _ of run);
+  }
+
+  // One game day, in parts: each yield is where the live game moves on to the next frame.
+  *dayWork() {
     const prevMonth = this.month;
     this.day++;
     const w = this.world;
@@ -161,11 +189,13 @@ export class Game {
     meadowDay(this); // (a drained beaver pond turning to meadow, and meadows ageing: 0034)
     wallowDay(this); // (wallows filling with rain and drying out: 0034)
     const st = updateEnvironment(w, this.month, this.visitors.traffic);
+    yield;
     updatePlants(this);
     seedRain(this);
     if (this.day % 5 === 0) rootsLoosen(this);
     for (const [key, sp] of Object.entries(this.flags.arrivals || {})) if (arrivalMoment(this, key, this.catalog.animal[sp])) delete this.flags.arrivals[key];
     momentsDaily(this);
+    yield;
     this.wildlife.daily();
     this.visitors.daily();
     this.events.daily();
@@ -197,13 +227,19 @@ export class Game {
     this.rainStreak = wet ? this.rainStreak + 1 : 0;
     this.dryStreak = wet ? 0 : this.dryStreak + 1;
     w.renderDirty = true;
-    if (this.month !== prevMonth) this.monthlyTick(prevMonth);
+    if (this.month !== prevMonth) { yield; yield* this.monthWork(prevMonth); }
     this.emit('day', st);
   }
 
   monthlyTick(prevMonth) {
+    for (const _ of this.monthWork(prevMonth));
+    if (this.saveDue) { this.saveDue = false; void this.save(); }
+  }
+
+  *monthWork(prevMonth) {
     const m = this.month;
-    this.wildlife.monthly();
+    yield* this.wildlife.monthlyWork();
+    yield;
     this.cache.nativePlants = nativePlantSpecies(this.world);
     const score = this.updateScore();
     const grant = this.grant(monthlyGrant(this, score.total) * (this.mapDefinition.grantScale ?? 1), 'monthly');
@@ -238,7 +274,7 @@ export class Game {
       const sign = v => (v > 0 ? '+' : '') + v;
       this.notify(`Year ${this.year} begins. Over the past year health went ${sign(ds)} to ${Math.round(score.total)}, and ${speciesPresent(this)} species live here (${sign(dn)}).`, 'season');
     }
-    if (this.saveReady && this.autosave !== false) void this.save();
+    if (this.saveReady && this.autosave !== false) this.saveDue = true; // (in a frame of its own: see update)
   }
 
   // Warn as invasive cover crosses 10%, 20% and 30%, pointing at the worst patch. The warning
@@ -333,6 +369,7 @@ export class Game {
   }
 
   async save({ speed = this.speed } = {}) {
+    this.finishDay(); // (never half a day)
     const map = this.map, epoch = this.saveEpoch, request = this.saveRequest = (this.saveRequest || 0) + 1;
     this.saveStatus = { state: 'saving' }; this.emit('save', this.saveStatus);
     try {
@@ -455,6 +492,7 @@ export class Game {
     if (waterModelOn(definition.id) && !savedWater) migrateMarkedPools(w);
     this.water = waterModelOn(definition.id) ? new HollisWater(w, savedWater) : null;
     Object.assign(this, farmState);
+    this.dayRun = null; this.saveDue = false;
     this.world = w;
     this.border = new Border(w, this.mapDefinition.borderCell);
     this.rng = mulberry32(1); this.rng.setState(data.rng);

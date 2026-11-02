@@ -49,12 +49,12 @@ for (const [map, keys] of Object.entries(additions)) {
     for (let n = 0; n < 2; n++) wl.spawn(def, tile % w.w, Math.floor(tile / w.w), { age: 3 * DAYS_PER_YEAR, silent: true });
     const previous = { max: def.max, breed: def.breed, litter: def.litter, life: def.life, mig: def.mig };
     def.max = 3; def.breed = [g.month]; def.litter = [8, 8]; def.life = 1e9; def.mig = 0;
-    const compute = wl.computeSuitability.bind(wl), rng = g.rng;
-    wl.computeSuitability = () => { for (const s of wl.state) s.K = 0; st.K = 3; };
+    const compute = wl.suitabilityWork, rng = g.rng;
+    wl.suitabilityWork = function* () { for (const s of wl.state) s.K = 0; st.K = 3; };
     g.rng = () => 0;
     wl.monthly();
     assert.equal(present(wl, def), 3, `${map}/${def.key}: litter respects remaining room`);
-    wl.computeSuitability = compute; g.rng = rng; Object.assign(def, previous);
+    wl.suitabilityWork = compute; g.rng = rng; Object.assign(def, previous);
   }
   // Real habitat/prey capacity, all difficulties, ten years of monthly population dynamics.
   for (const difficulty of ['relaxed', 'standard', 'challenging']) {

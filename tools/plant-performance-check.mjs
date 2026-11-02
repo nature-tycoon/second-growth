@@ -31,9 +31,9 @@ function dispose(f) {
   for(const geo of geos)geo.dispose();
   for(const m of [f.foliage,f.shrubs,f.grass,f.tallGrass,f.bark,f.small,f.contact])m.dispose();
 }
-check('The default game renderer uses 48-tile groups and updates only changed regions',()=>{
-  const g=plantFixture('pnw'),f=new Flora(new THREE.Scene()),reference=make(48,true);
-  assert.equal(f.chunkSize,48);assert.equal(f.incremental,true);f.setZoom(.8);
+check('The default game renderer uses 24-tile groups and updates only changed regions',()=>{
+  const g=plantFixture('pnw'),f=new Flora(new THREE.Scene()),reference=make(24,true);
+  assert.equal(f.chunkSize,24);assert.equal(f.incremental,true);f.setZoom(.8);
   f.rebuild(g);reference.rebuild(g,true);same(f,reference,'default initial');
   editPlants(g,35,35);f.rebuild(g);reference.rebuild(g,true);same(f,reference,'default edit');
   assert.equal(f.lastRebuild.full,false);assert.ok(f.lastRebuild.tiles<g.world.n);
@@ -51,7 +51,7 @@ check('Shade-only updates refresh forest-floor geometry across region boundaries
   dispose(f);dispose(reference);
 });
 check('World swaps and restored worlds rebuild fully instead of reusing stale plant graphics',()=>{
-  const g=plantFixture('pnw'),other=plantFixture('pnw'),f=new Flora(new THREE.Scene()),reference=make(48,true);
+  const g=plantFixture('pnw'),other=plantFixture('pnw'),f=new Flora(new THREE.Scene()),reference=make(24,true);
   f.setZoom(.8);f.rebuild(g);
   editPlants(other,61,61);f.rebuild(other);reference.rebuild(other,true);
   assert.equal(f.lastRebuild.full,true);same(f,reference,'swapped world');

@@ -24,22 +24,33 @@ function signature(flora) {
   }
   return h.digest('hex').slice(0, 12);
 }
+// The same, whatever regions the plants are split into: each pool's instances as a sorted set.
+function plantSet(flora) {
+  const h = createHash('sha1');
+  for (const [key, pool] of [...flora.pools].sort((a, b) => a[0] < b[0] ? -1 : 1)) {
+    const rows = [];
+    for (const p of pool.subs.values()) if (p.mesh?.count) for (let k = 0; k < p.mesh.count; k++)
+      rows.push(Buffer.concat([Buffer.from(p.mesh.instanceMatrix.array.buffer, k * 64, 64), Buffer.from(p.mesh.instanceColor.array.buffer, k * 12, 12), Buffer.from([p.lod])]).toString('hex'));
+    h.update(key + ':' + rows.sort().join());
+  }
+  return h.digest('hex').slice(0, 12);
+}
 function drain(flora, game, out) {
   const before = floraVersion.n; let calls = 0;
   for (;;) { const t = performance.now(); const more = flora.rebuild(game, false, 1); out.push(performance.now() - t); calls++; if (!more) break; }
   return { calls, bumps: floraVersion.n - before };
 }
 for (const map of maps) {
-  const edit = [], grow = [], info = {}; let sig;
+  const edit = [], grow = [], info = {}; let sig, set;
   for (let r = 0; r < rounds; r++) {
     Math.random = mulberry32(1987);
-    const game = plantFixture(map), flora = new Flora(new THREE.Scene()); flora.setZoom(1);
+    const game = plantFixture(map), flora = new Flora(new THREE.Scene(), process.env.FLORA_CHUNK ? { chunkSize: +process.env.FLORA_CHUNK } : {}); flora.setZoom(1);
     const t0 = performance.now(); flora.rebuild(game, true); info.full = performance.now() - t0;
     flora.rebuild(game); // (settle)
     editPlants(game); info.edit = drain(flora, game, edit);
     growPlants(game); info.grow = drain(flora, game, grow);
-    sig = signature(flora);
+    sig = signature(flora); set = plantSet(flora);
   }
   const e = stats(edit), g = stats(grow);
-  console.log(`${map}: full ${info.full.toFixed(0)}ms | edit ${info.edit.calls} calls mean ${e.mean.toFixed(2)} p95 ${e.p95.toFixed(2)} max ${e.max.toFixed(2)}ms, ${info.edit.bumps} plant-version bumps | growth ${info.grow.calls} calls mean ${g.mean.toFixed(2)} p95 ${g.p95.toFixed(2)} max ${g.max.toFixed(2)}ms, ${info.grow.bumps} bumps | sig ${sig}`);
+  console.log(`${map}: full ${info.full.toFixed(0)}ms | edit ${info.edit.calls} calls mean ${e.mean.toFixed(2)} p95 ${e.p95.toFixed(2)} max ${e.max.toFixed(2)}ms, ${info.edit.bumps} plant-version bumps | growth ${info.grow.calls} calls mean ${g.mean.toFixed(2)} p95 ${g.p95.toFixed(2)} max ${g.max.toFixed(2)}ms, ${info.grow.bumps} bumps | sig ${sig}, plant set ${set}`);
 }

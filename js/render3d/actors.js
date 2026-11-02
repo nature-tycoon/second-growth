@@ -3,7 +3,7 @@
 import { groundAt, visibleLevel } from '../sim/waterline.js';
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
-import { drawDef, animalDef, maleLook } from '../data/animals.js';
+import { drawDef, drawLooks, animalDef, maleLook } from '../data/animals.js';
 import { roostingNow } from '../data/animal-activity.js';
 import { clearCanopy } from './flight-clearance.js';
 const CLEAR = { floor: -Infinity }; // (clearCanopy's crown under a flier, reused each frame)
@@ -815,6 +815,32 @@ export class Actors {
         gl.compileAsync(p.mesh, camera, scene).catch(() => {}).finally(() => { p.mesh.visible = shown; });
       }
       setTimeout(() => idle(step), waiting.some(def => this.fauna.species.has(this.fauna.modelKey(def))) ? 0 : 4000);
+    };
+    idle(step);
+  }
+
+  // Every look of every kind on this map, built one per idle moment from the start of a game
+  // (resident kinds first), with its shader compiled in the background. Built on the spot, a
+  // kind's first appearance stalled a frame for 10-100 ms on a fast laptop (its model, its distant
+  // model and a shader compiled while drawing), and a new game has 20-30 kinds arriving in its
+  // first minutes. Anything not ready when it's needed is still built on the spot.
+  warmAnimals(game, gl = null, camera = null, scene = null) {
+    const F = this.fauna, state = game.wildlife.state, kinds = game.catalog.animals.map((def, k) => [def, k]).filter(([def]) => def);
+    kinds.sort((a, b) => (state[b[1]]?.pop > 0) - (state[a[1]]?.pop > 0));
+    const waiting = kinds.flatMap(([def]) => drawLooks(def)), catalog = game.catalog;
+    const idle = window.requestIdleCallback ? (f => window.requestIdleCallback(f, { timeout: 1000 })) : (f => setTimeout(() => f({ timeRemaining: () => 6 }), 50));
+    // (one model per idle moment: the finest take tens of milliseconds)
+    const step = () => {
+      if (game.catalog !== catalog) return; // (another map was loaded)
+      while (waiting.length && F.species.get(F.modelKey(waiting[0]))?.far) waiting.shift();
+      const def = waiting[0];
+      if (!def) return;
+      if (F.species.has(F.modelKey(def))) F.pool(def).distant();
+      else {
+        const p = F.pool(def);
+        if (gl?.compileAsync) gl.compileAsync(p.mesh, camera, scene).catch(() => {});
+      }
+      idle(step);
     };
     idle(step);
   }
