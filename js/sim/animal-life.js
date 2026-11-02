@@ -231,6 +231,17 @@ export function huntStep(wl, a, def, b, sp) {
 // (sp is speed × dt, so the elapsed game time is sp / speed)
 const dt = (sp, def) => sp / Math.max(0.01, def.speed);
 
+// The cover a hunter stands in, as the prey sees it (0 out in the open).
+const openCover = (w, o, a) => w.inb(Math.floor(o.x), Math.floor(o.y)) ? Math.min(1, preyCover(w, { sp: o.sp, x: o.x, y: o.y }, w.catalog.animals[a.sp]) * 2) : 0;
+
+// How well a stalker can hide on its way in to prey, 0 (open short grass, bare ground) to 1 (tall
+// grass, brush): the cover where the prey stands and one step back toward the hunter.
+export function stalkCoverAt(w, a, b) {
+  const pdef = w.catalog.animals[b.sp], d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+  const at = (x, y) => w.inb(Math.floor(x), Math.floor(y)) ? Math.min(1, preyCover(w, { sp: a.sp, x, y }, pdef) * 2) : 0;
+  return Math.max(at(b.x, b.y), at(b.x + (a.x - b.x) / d, b.y + (a.y - b.y) / d));
+}
+
 // Which way to creep: straight at the prey, or a little to one side where the grass or brush is
 // thicker, so long as that still closes on it. Checked every quarter day, three spots ahead.
 function stalkCover(wl, a, b, d, H) {
@@ -330,6 +341,7 @@ export function startFeed(wl, a, def, b) {
   const bd = wl.game.catalog.animals[b.sp], big = leavesCarcass(bd);
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   a.carcass = null;
+  a.searchImage = b.sp; // (it looks out for this kind of prey next: decision 0037)
   // (a bird that snatched a fish from open water eats it on the wing)
   if (a.move === 'fly' && w.inb(x, y) && !canLand(w, w.idx(x, y), def)) { a.state = 'idle'; a.wait = 0; a.flying = true; return; }
   a.state = 'feed'; a.feedAt = [b.x, b.y]; facePoint(a, b.x, b.y);
@@ -588,8 +600,10 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
     if (!preds.has(o.sp) || o.leaving || o.state === 'feed' || byId(wl, o.id) !== o ||
       !canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
-    // (a stalker in cover, or frozen, is only seen closer: decision 0026)
-    if (d2 >= 36 * (1 - (o.hunt?.hide || 0)) ** 2) continue;
+    // (a stalker in cover, or frozen, is only seen closer: decision 0026; a hunter out in the open
+    // is seen from further, up to 8.4 tiles rather than 6: decision 0037)
+    if (d2 >= 70.6 * (1 - (o.hunt?.hide || 0)) ** 2) continue;
+    if (d2 >= 36 * (1 - (o.hunt?.hide || 0)) ** 2 && d2 >= (6 * (1.4 - 0.4 * openCover(wl.game.world, o, a)) * (1 - (o.hunt?.hide || 0))) ** 2) continue;
     const score = d2 / (o.state === 'hunt' && o.target === a.id ? 4 : 1);
     if (score < best) { best = score; bd = d2; p = o; }
   }

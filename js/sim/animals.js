@@ -8,7 +8,7 @@ import { removeTree } from './plants.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
-import { huntStyle, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
+import { huntStyle, stalkCoverAt, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate, carryCatch, carryUpdate } from './bird-behavior.js';
 import { climberChoose, climberArrive, fullTrees } from './climbers.js';
 import { fishChoose, fishArrive, fishUpdate, fishStrike, fishing, fishFed, isFish } from './fishing.js';
@@ -91,7 +91,7 @@ class Animal {
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
-  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil; headUp; headUpKey;
+  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -244,13 +244,6 @@ export class Wildlife {
       let K = st.baseK * st.resourceFactor;
       st.habitatK = K;
       st.preyK = null; st.hostK = null;
-      const diet = preyFor(def, this.game);
-      if (diet) {
-        let prey = 0;
-        for (const pk of diet) if (this.game.catalog.animal[pk]) prey += this.state[this.game.catalog.animal[pk].index].pop;
-        st.preyK = prey / preyPer(def, this.game);
-        K = Math.min(K, st.preyK);
-      }
       // species it lives off without hunting (vultures follow the herds, dung beetles their dung)
       if (def.needs) {
         let host = 0;
@@ -261,6 +254,32 @@ export class Wildlife {
       // The spawning run uses qualifying creek tiles, rather than the ordinary capacity rule.
       if (def.special === 'salmon') { st.salmonHabitat = salmonHabitat; K = salmonHabitat / def.hr; }
       st.K = Math.min(def.max, K);
+    }
+    this.sharePrey();
+  }
+
+  // Hunters share their prey (decision 0037). Each prey animal is split between the hunting species
+  // that eat it, in proportion to how many prey each would need to fill the room its habitat
+  // gives it, rather than counted whole by every one of them: lions, hyenas, cheetahs and
+  // leopards had each counted the same gazelle, so there was one hunter for every six prey.
+  sharePrey() {
+    const game = this.game, cat = game.catalog, hunters = [], claim = new Float64Array(cat.animals.length);
+    for (const def of cat.animals) {
+      const diet = preyFor(def, game);
+      if (!diet) continue;
+      const st = this.state[def.index], per = preyPer(def, game);
+      const want = Math.min(def.max, st.K) * per; // (st.K is still its habitat and hosts here)
+      hunters.push({ def, st, diet, per, want });
+      for (const pk of diet) if (cat.animal[pk]) claim[cat.animal[pk].index] += want;
+    }
+    for (const h of hunters) {
+      let prey = 0;
+      for (const pk of h.diet) {
+        const p = cat.animal[pk];
+        if (p && claim[p.index] > 0) prey += this.state[p.index].pop * h.want / claim[p.index];
+      }
+      h.st.preyK = prey / h.per;
+      h.st.K = Math.min(h.st.K, h.st.preyK);
     }
   }
 
@@ -862,11 +881,18 @@ export class Wildlife {
     if (!canStartHunt(a) || !diet) return false;
     let best = null, bd = reach * reach;
     const preySet = new Set(diet.map(k => this.game.catalog.animal[k].index));
+    const stalker = a.move !== 'fly' && huntStyle(def).closeIn > 0;
     for (const b of this.agents) {
       if (!preySet.has(b.sp) || b.leaving || (only && !only(b))) continue;
       if (!canHuntPrey(this, a, def, b) || this.huntBlocked(a, def, b)) continue;
       // (one it just let go counts as twice as far for a few days: it goes after another if there is one, decision 0026)
-      const d = ((b.x - a.x) ** 2 + (b.y - a.y) ** 2) * (b.id === a.huntCool && a.age < a.huntCoolUntil ? 4 : 1);
+      let d = ((b.x - a.x) ** 2 + (b.y - a.y) ** 2) * (b.id === a.huntCool && a.age < a.huntCoolUntil ? 4 : 1);
+      // A cat that stalks needs cover to get close: prey out on open short grass counts as up to
+      // twice as far, so it hunts where the grass, brush or trees let it creep in (decision 0037).
+      if (stalker && d < bd) d *= (2 - stalkCoverAt(this.game.world, a, b)) ** 2;
+      // A hunter keeps an eye out for the kind of prey it last caught (a search image), so prey that
+      // has become rare here is passed over for the common kind: other kinds count as 1.5× as far.
+      if (a.searchImage != null && b.sp !== a.searchImage && diet.length > 1) d *= 2.25;
       if (d < bd) { bd = d; best = b; }
     }
     if (best) {

@@ -111,7 +111,7 @@ export default function buildSerengetiAnimals(def) {
   {
     const w = habW({ SHRUB: 1, YOUNG_FOREST: 0.8, RIPARIAN: 0.6, MEADOW: 0.3 });
     def({ key: 'rhino', kg: 1000, name: 'Black rhino', sci: 'Diceros bicornis', group: 'Mammals', move: 'ground', fixedMax: true,
-      speed: 1, hr: 60, max: 4, minK: 1, groupSize: [1, 2], sources: ['N'], mig: 0, intro: 22000, breed: [2], litter: [1, 1], life: 40, mature: 7,
+      speed: 1, hr: 60, max: 4, minK: 1, groupSize: [1, 1], sources: ['N'], mig: 0.01, intro: 22000, breed: [2], litter: [1, 1], life: 40, mature: 7,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.4),
       req: g => Math.min(1, g.forestTiles / 250),
       sprite: { kind: 'rhino', len: 38, h: 20, leg: 12, color: '#6a6660', belly: '#5a5650', dark: '#3a3834', show: 1.25 },
