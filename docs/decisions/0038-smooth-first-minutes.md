@@ -50,29 +50,40 @@ slowest went to.
 
 ## Results
 
-New games, M5, High, 2880x1800, 20 s at each speed, `new-game-profile`, HEAD and parts 1-2
-back to back (each new game has its own run seed, so compare rows, not single frames). "Long
-frames" are frames whose processor work alone took over 16 ms.
+New games, M5 on mains power with the Mac otherwise quiet, High, 2880x1800, 20 s at each speed,
+`new-game-profile`, the code before this change (821628a) and all three parts back to back,
+2026-11-02. Each new game rolls its own run seed, so single frames vary by game; Sumatra was
+run three times on each side. "Long frames" are frames whose processor work alone took over
+16 ms (a dropped frame at 60 fps on the M5, and several on a laptop 5-10x slower).
 
-| Map | Speed | FPS | Work per frame (ms) | Plants (ms) | Slowest frame (ms) | Long frames |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Serengeti | normal | 60 → 60 | 2.5 → 1.5 | 0.4 → 0.2 | 31 → 24 | 2 → 2 |
-| Serengeti | fast | 60 → 60 | 4.1 → 3.0 | 1.3 → 0.7 | 27 → 18 | 4 → 1 |
-| Sumatra | normal | 35 → 54 | 7.7 → 5.9 | 2.4 → 1.4 | 150 → 39 | 95 → 27 |
-| Sumatra | fast | 20 → 39 | 44.6 → 21.7 | 18.7 → 5.9 | 1629 → 123 | 341 → 591* |
-| Amazon | normal | 59 → 60 | 3.7 → 3.1 | 1.0 → 0.7 | 65 → 34 | 52 → 3 |
-| PNW | normal | 60 → 60 | 2.5 → 1.7 | 0.2 → 0.2 | 54 → 45 | 6 → 5 |
-| PNW | fast | 60 → 60 | 3.1 → 3.2 | 0.8 → 0.7 | 40 → 24 | 13 → 9 |
-| Atlanta, Chinandega, Reef | both | 60 → 60 | within 1 ms | | 17-29 → 12-26 | 0-5 → 0-5 |
+| Map | Speed | FPS | Long frames in 20 s | Slowest frame (ms) |
+| --- | --- | ---: | ---: | ---: |
+| Serengeti | normal | 60 → 60 | 3 → 1 | 20 → 21 |
+| Serengeti | fast | 60 → 60 | 1 → 0 | 17 → 15 |
+| Sumatra (3 runs) | normal | 56 → 55-56 | 8-14 → 2-14 | 21-57 → 24-31 |
+| Sumatra (3 runs) | fast | 54-57 → 48-57 | 26-94 → 23-401* | 69-84 → 70-125 |
+| Amazon | normal | 60 → 60 | 4 → 1 | 25 → 21 |
+| Amazon | fast | 60 → 60 | 1 → 0 | 168 → 16 |
+| PNW | normal | 60 → 60 | 6 → 2 | 40 → 51 |
+| PNW | fast | 60 → 60 | 14 → 6 | 31 → 28 |
+| Atlanta | normal / fast | 60 → 60 | 4 → 0 / 3 → 0 | 20 → 14 / 18 → 15 |
+| Chinandega | normal / fast | 60 → 60 | 1 → 2 / 5 → 0 | 23 → 25 / 23 → 13 |
+| Reef | normal / fast | 60 → 60 | 0 → 0 / 1 → 0 | 13 → 8 / 20 → 11 |
 
-\* Sumatra at fast ran twice as many frames (816 vs 424), so more of them land just over 16 ms
-while far fewer go over 33 ms (249 → 51).
+\* One of the three Sumatra games after the change grew a much denser view (5.7M triangles
+against 3.5M), and its slow frames went to the graphics submit, not to the simulation or the
+plants; the other two matched the before games (23 and 26 long frames against 26 and 27).
+Average frame rates and work per frame are unchanged within noise on every map: on this Mac the
+gain is in the long frames, which are what a slow laptop feels as stutter. The worst single
+frames left are mostly graphics, not these causes.
 
-The day in parts (part 3), simulation alone in node (`game.update` at 60 frames a second for
-60 s), frames over 16 ms before → after: PNW normal 2 → 1, PNW fast 7 → 0, Sumatra normal 5 → 0,
-Serengeti normal 2 → 0, Sumatra fast 0 → 1. A browser run with all three parts could not be
-made: the Mac went to sleep on battery partway through and headless Chrome stalled on HEAD as
-well. Rerun `new-game-profile` with the Mac awake to confirm.
+The simulation alone in node (`game.update` at 60 frames a second for 60 s), frames over 16 ms
+before → after: PNW normal 2 → 1, PNW fast 7 → 0, Sumatra normal 5 → 0, Serengeti normal 2 → 0,
+Sumatra fast 0 → 1.
+
+An earlier run (2026-11-01, another agent's simulations loading the Mac) showed bigger gains
+from parts 1 and 2 alone, for example Sumatra at fast 20 → 39 fps; under load the stalls cost
+more, as on a slower computer.
 
 ## Not done
 
@@ -81,7 +92,7 @@ well. Rerun `new-game-profile` with the Mac awake to confirm.
   PNW, 60 in Sumatra (`tools/plant-churn-probe.mjs`). The parts above spread it out; they don't
   shrink it. The review's finding 2(b), redrawing a plant only when its drawn size changes
   visibly or growing it in the shader, is the next step, and needs Cole's review of the look.
-- **Sumatra's opening view** draws 4-6M triangles, and the GPU takes 17-24 ms on the M5 (31-39 fps).
+- **Sumatra's opening view** draws 3.5-6M triangles, and the GPU takes 14-19 ms on the M5 (48-57 fps).
 - The 1.6 s frame seen once in Sumatra at fast speed was not reproduced.
 - `perf_sample` has no count of single long frames; `slow_frames_pct` mixes stutter with a low
   steady rate. A `long_frames` count (over 100 ms) would show in PostHog whether this helped.
