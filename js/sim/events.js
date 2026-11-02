@@ -6,6 +6,7 @@ import { disturbanceOn } from './campaign.js';
 import { disturbanceDaily } from './disturbance.js';
 import { forestDamp } from './environment.js';
 
+const GRAZED_FUEL = 0.8, GRAZED_LAWN = 0.5; // a grazing lawn has 80% less grass fuel
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
 const FIRE_SNAG_G = 0.85; // a tree burned in a fire leaves a snag or log only if it was nearly full grown
@@ -67,7 +68,11 @@ export class Events {
     if (isWater(t) || t === T.ROAD || t === T.TRAIL || (t === T.GRAVEL && !(this.mapDefinition.hardpan && w.ground[i])) || t === T.MUD || w.struct[i] >= 0 || w.flood[i]) return 0;
     let f = t === T.PASTURE ? 0.35 : 0;
     const g = w.ground[i], s = w.shrub[i], tr = w.tree[i];
-    if (g) { const p = w.catalog.plants[g]; f += w.groundG[i] * (p.fuel ?? (GRASSY[p.look.type] ?? 0.2) * (p.invasive ? 1.1 : 0.7)); } // (p.fuel: a grass that burns hotter, like red oat grass: 0036)
+    // (p.fuel: a grass that burns hotter, like red oat grass. Ground the herds keep cropped short,
+    // a grazing lawn, has little left to burn: in the Serengeti, more wildebeest meant less grass,
+    // smaller fires and more trees growing up (Holdo et al. 2009, PLoS Biol. 7). Full at
+    // grazing pressure GRAZED_LAWN: 0036)
+    if (g) { const p = w.catalog.plants[g]; f += w.groundG[i] * (p.fuel ?? (GRASSY[p.look.type] ?? 0.2) * (p.invasive ? 1.1 : 0.7)) * (1 - GRAZED_FUEL * Math.min(1, (w.grazed?.[i] || 0) / GRAZED_LAWN)); }
     if (s) { const p = w.catalog.plants[s]; f += w.shrubG[i] * (p.fuel ?? 0.6); }
     const hot = this.severe && this.heat > 0.3;
     // in a crown fire the canopy itself burns, not just what's under it, and burns best where shrubs

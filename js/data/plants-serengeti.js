@@ -164,6 +164,7 @@ export default function buildSerengetiPlants(def, mix, get) {
   Object.entries({ umbrella: 0.7, fevertree: 0.6, baobab: 0.6, balanites: 0.5, commiphora: 0.5, sausage: 0.5, sycamorefig: 0.5, mesquite: 0.35, euphorbia: 0.05 })
     .forEach(([k, v]) => { get(k).browse = v; });
   for (const k of ['umbrella', 'fevertree', 'balanites', 'mesquite', 'whistling', 'pricklypear']) get(k).thorny = true;
+  for (const k of ['umbrella', 'fevertree', 'balanites', 'mesquite']) get(k).pods = true; // herds eat the fallen pods and dates and pass the seed (0036)
   for (const k of ['umbrella', 'balanites', 'commiphora', 'sausage', 'mesquite']) get(k).resprout = true;
   // savanna plants: grasses and herbs cure gold through the long dry season; trees keep their leaves
   for (const k of ['parthenium', 'sodomapple', 'sporobolus', 'stargrass', 'finger', 'redoat', 'indigofera', 'crotalaria', 'fireball', 'papyrus', 'bluelily',

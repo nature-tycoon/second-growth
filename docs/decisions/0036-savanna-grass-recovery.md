@@ -121,12 +121,74 @@ both seeded (`succession-check --map serengeti --mode idle --years 200 --veg`, a
   `herbivore-pressure-check`, `plant-ecology-check`, `rx-crown-fire-check`, `challenging-ecology-check`,
   `vegetation-check`, `consistency-check`, `data-contracts-check` pass.
 
+## Native trees (Cole, the next day)
+
+With the grass back, native trees fell by about 60% (290 → 116 and 312 → 129 at year 200). A
+diagnosis (`savanna-sward-probe --trees`, and a cohort of 600 umbrella thorn seedlings in thick red
+oat grass burned every 4 years):
+
+- Grown trees died at the same rate as before; **recruitment fell**. Before, most native seedlings
+  came up on bare or lantana ground, which skips both grass rules (the tenth odds in `trySeed` and the
+  dry-season `droughtKills`). The degraded ground was the trees' nursery.
+- In thick grass 18% of the cohort grew out of the flames in 4 years and 25% were alive at year 16;
+  with `droughtKills` off, 81% lived. Fire every 4 years is not the limit; getting seedlings started
+  is.
+- Tried and dropped: native thornbush sheltering seedlings (no better) and easing the tenth odds to
+  0.3 (barely better, and lantana came back with it).
+
+Cole chose two rules, both from how the real Serengeti keeps its trees:
+
+- **Herds carry pods** (`grazeDay`; plant flag `pods`: umbrella thorn, fever tree, desert date,
+  mesquite). On a `dungSeed` map, a grazer's day of dung carries either grass seed or, where a grown
+  pod tree (growth over 0.75) is in its range, pods, half and half where both are on offer
+  (`POD_SHARE`). Impala, giraffe, elephants and cattle eat fallen acacia pods and the seeds pass and
+  germinate better (Miller 1994); it's how acacias reach open grassland, and also how mesquite
+  spreads through East African rangeland, so mesquite carries pods too.
+- **Grazed ground carries less fuel** (`Events.fuel`, every map): groundcover fuel × (1 − 0.8 ×
+  min(1, grazed / 0.5)), so a grazing lawn (pressure 0.5) has a fifth of the fuel. More wildebeest
+  meant less grass, smaller fires and more trees in the Serengeti (Holdo et al. 2009, *PLoS Biol.*
+  7). Saplings in the herds' lawns get the fire-free years they need.
+
+Results, the same 200-year runs (seeds 1 / 2; "0036" is before this section):
+
+| Year 200 | Before 0036 | 0036 | + pods, grazed fuel |
+| --- | ---: | ---: | ---: |
+| Native trees | 290 / 312 | 116 / 129 | 371 / 342 |
+| Mesquite trees | 3,629 / 2,811 | 1,130 / 752 | 1,315 / 1,076 |
+| Mesquite share of trees | 93% / 90% | 91% / 85% | 78% / 76% |
+| Wooded land (young + mature forest + riparian) | 3.3% / 3.6% | 2.0% / 1.8% | 4.2% / 3.8% |
+| Lantana | 6,920 / 5,911 | 1,713 / 1,181 | 2,022 / 1,731 |
+| Invasive habitat | 6,864 / 5,830 | 1,803 / 1,287 | 2,156 / 1,792 |
+| Land burned a year, years 120–200 | 23% / 24% | 25% / 25% | 25% / 24% |
+| Tree diversity (Simpson) | 0.14 / 0.19 | 0.18 / 0.27 | 0.37 / 0.40 |
+
+- Native trees are back above where they were before 0036, mostly fever tree, umbrella thorn and
+  desert date; the fire regime is unchanged.
+- **Still far under the reference**: `eco-reference.js` gives the Serengeti 15% wooded land; the
+  untended map reaches about 4%. Native trees peak around year 140–160 (about 480–510) and drift down
+  after. Most seedlings still die in their first dry seasons in grass (`droughtKills`), which is
+  realistic for a single seedling but leaves the wooded share low. Getting nearer 15% untended would
+  need recruitment pulses (wet years, elephants opening the sward) and is left for Cole to decide:
+  in the campaign the player plants the acacias.
+- Mesquite gained a little (+16% / +43% trees) from pods in dung, as it does in the field; lantana
+  and invasive habitat rose a little where grazed lawns burn less.
+- Hollis (`balance-sim restore 15`, seeds 7 and 11, year 16): the fuel rule is the first change here
+  that reaches Hollis. Score 64.2 → 61.9 and 60.2 → 58.8, forest 181 → 193 and 178 → 186, mature
+  trees 55 → 57 and 51 → 50, invasives 25.4 → 27.7% and 28.4 → 28.6%: fewer meadow fires where
+  the elk and deer feed, a little more woody growth.
+- Serengeti campaign (seeds 7, 11, 13, 17, 23, unseeded): every chapter completes; "The herds
+  return" at a mean day 646 (552–761), against 720.
+- Performance: dung seed with pods costs 0.05–0.07 ms a day (334 animals). `succession-check` ms per
+  dailyTick rose 9.7 → 11.7, from more trees and animals, measured under shared load.
+- `savanna-grass-check` adds both rules (5 checks); `herbivore-pressure`, `plant-ecology`,
+  `fire-deadwood`, `rx-crown-fire`, `challenging-ecology` and `data-contracts` checks pass.
+
 ## Gotchas
 
 - A `pioneer` plant fades on any tile whose `w.soil` is past its level, including ground where it's
   the only thing that can grow. Give a fading pioneer somewhere to hand over to (`crustOK` on crust is
   exempt), or the land goes bare.
-- `dungSeed` draws random numbers only when a map sets it. Turning it on for another map changes that
+- `dungSeed` draws random numbers only when a map sets it (grass seed and pods alike). Turning it on for another map changes that
   map's whole random sequence, so compare seeded runs over several seeds.
 - `tools/savanna-sward-probe.mjs [--years] [--every] [--seed] [--why] [--map]` prints groundcover and
   shrub species, soil under each groundcover, bare ground by terrain, fire per year, the ground and

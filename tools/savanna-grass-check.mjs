@@ -1,7 +1,8 @@
 // Savanna grass recovery (docs/decisions/0036-savanna-grass-recovery.md): the pioneer legumes fade
 // on recovered soil but the pioneers hold crusted hardpan; grazers spread grass seed in their dung on
 // the Serengeti and draw no random numbers on maps without it; a grass fire root-kills lantana
-// standing in grass but not inside a bare thicket; groundcover burns by its own fuel.
+// standing in grass but not inside a bare thicket; groundcover burns by its own fuel, less where grazed;
+// herds carry acacia pods out from the trees.
 //   node tools/savanna-grass-check.mjs
 // The 200-year picture: node tools/succession-check.mjs --map serengeti --mode idle --years 200 --veg --seeds 1,2
 // and tools/savanna-sward-probe.mjs for the meadow's species.
@@ -59,6 +60,21 @@ check('Grazers drop grass seed on bare ground on the Serengeti; on other maps no
   assert.equal(draws, 0, 'no dung seed without map.dungSeed');
 });
 
+check('Herds carry acacia pods from a grown tree out across their range', () => {
+  const g = game('serengeti'), w = g.world, P = g.catalog.plant, def = g.catalog.animal.wildebeest;
+  const x0 = 60, y0 = 40, R = 8; // (a wildebeest's day reaches 4 tiles)
+  for (let y = y0 - R; y <= y0 + R; y++) for (let x = x0 - R; x <= x0 + R; x++) { const i = w.idx(x, y); clear(w, i); w.soil[i] = 0.6; g.wildlife.suit[def.index][i] = 1; }
+  const t = w.idx(x0 + 3, y0); w.setPlant(t, P.umbrella, 0.9, 120 * 30);
+  g.day = 0;
+  const far = [];
+  w.seedLog = (p, i) => { if (w.seedFrom === 'dung' && p.key === 'umbrella') far.push(Math.hypot(i % w.w - (x0 + 3), ((i / w.w) | 0) - y0)); };
+  for (let d = 0; d < 400; d++) grazeDay(g, def, x0, y0);
+  w.seedLog = null;
+  assert.ok(far.length >= 50, `${far.length} umbrella thorn seeds in dung`);
+  const out = far.filter(d => d > 4).length;
+  assert.ok(out >= far.length / 4, `${out} of ${far.length} land over 4 tiles from the tree`);
+});
+
 check('A grass fire root-kills lantana standing in grass, not inside a bare thicket', () => {
   const g = game('serengeti'), w = g.world, P = g.catalog.plant, ev = g.events;
   let inGrass = 0, inThicket = 0;
@@ -76,12 +92,16 @@ check('A grass fire root-kills lantana standing in grass, not inside a bare thic
   assert.equal(inThicket, 0, 'none root-killed inside a thicket with no grass');
 });
 
-check('Red oat grass burns by its own fuel, hotter than other native grass', () => {
+check('Red oat grass burns by its own fuel, hotter than other native grass; a grazing lawn hardly burns', () => {
   const g = game('serengeti'), w = g.world, P = g.catalog.plant, ev = g.events, i = w.idx(30, 30);
   clear(w, i); w.moist[i] = 0.1;
   w.ground[i] = P.redoat.id; w.groundG[i] = 0.9; const red = ev.fuel(w, i);
   w.ground[i] = P.finger.id; const finger = ev.fuel(w, i);
   assert.ok(red > finger * 1.5, `red oat ${red.toFixed(2)} against finger grass ${finger.toFixed(2)}`);
+  // a grazing lawn has little left to burn
+  w.ground[i] = P.redoat.id; (w.grazed ||= new Float32Array(w.n))[i] = 0.5;
+  assert.ok(ev.fuel(w, i) <= red * 0.25, `grazed red oat ${ev.fuel(w, i).toFixed(2)} against ${red.toFixed(2)}`);
+  w.grazed[i] = 0.1; assert.ok(ev.fuel(w, i) > red * 0.75, 'light grazing takes a little');
 });
 
 console.log(`savanna-grass-check: ${checks} checks passed`);
