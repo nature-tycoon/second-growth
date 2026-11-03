@@ -61,8 +61,10 @@ export function plantSuit(w, i, p, light) {
   const soilFit = soil >= p.soil ? 1 : Math.max(0, 1 - (p.soil - soil) * (p.soilK ?? 3.5)); // soilK: how sharply poor soil holds a plant back
   let s = tf * rangeFit(w.moist[i], p.moist[0], p.moist[1], 0.18) * rangeFit(light, p.light[0], p.light[1], 0.25) * soilFit;
   if (p.nurse) s = Math.min(1, s + nurseBonus(w, i)); // (nurse logs, 0028 §5)
-  // pioneers of poor ground (dropseed) lose out to better grasses once the soil has recovered
-  if (p.pioneer && soil > p.pioneer) s *= Math.max(0.35, 1 - (soil - p.pioneer) * 2.5);
+  // pioneers of poor ground (dropseed, the wild legumes) lose out to better grasses once the soil
+  // has recovered, but not on crusted hardpan, where nothing else can root to take their place
+  // until their roots break the crust (rootsLoosen: decision 0036)
+  if (p.pioneer && soil > p.pioneer && !(p.crustOK && w.terrain[i] === T.GRAVEL && w.catalog.definition.hardpan)) s *= Math.max(0.35, 1 - (soil - p.pioneer) * 2.5);
   return s;
 }
 
@@ -207,6 +209,21 @@ export const patchOdds = (p, x, y) => Math.min(1, Math.max(0.08, Math.sqrt(plant
 const MEADOW_LIGHT = 0.3; // a groundcover needing at least this much sun is a meadow plant
 const OUTLIVE = 0.25; // how hard a long-lived native presses on a short-lived one (vs 0.5 for a better-suited one)
 const CANOPY_G = 0.6; // a tree this grown has its crown up in the canopy, in the sun
+
+// Grass competition (0035): a sapling or a fire sprout down in a thick grass sward grows slower, its
+// roots competing with the grass's for water and nitrogen. In a Kenyan savanna, taking the grass
+// away doubled young acacias' growth (Riginos 2009, Ecology 90). With a grass fire every few years
+// it's what keeps the savanna's fire trap shut: a sprout burned back to the root takes longer to
+// grow out of the flames' reach (Bond & Midgley 2001). Only below SWARD_REACH (above the grass), only
+// grasses and sedges, full in a full sward; a nurse-log seedling up on a rotten log is above it.
+const SWARD_REACH = 0.35, SWARD_K = 0.5, SWARD_GRASS = { grass: 1, tallgrass: 1, sedge: 0.6 };
+export function swardGrowth(w, i, p, g) {
+  const gid = w.ground[i];
+  if (g >= SWARD_REACH || !gid || p.aquatic || p.mangrove || (p.nurse && rottenLog(w, i))) return 1;
+  const grass = SWARD_GRASS[w.catalog.plants[gid].look.type];
+  if (!grass) return 1;
+  return 1 - SWARD_K * grass * clamp((w.groundG[i] - 0.3) / 0.5, 0, 1);
+}
 const TUSSOCK_LIFE = 10; // groundcovers living this long or longer age and break up, opening a gap
 const SCORCH = 0.012; // daily die-back of a shade plant stranded in full sun
 
@@ -448,7 +465,7 @@ export function updatePlants(game) {
       w.treeAge[i] += 1;
       let dies = null, lost = 'stress'; // dies: the cause of a death that leaves deadwood; lost: why g fell to 0
       if (g < 0.95) {
-        if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4 * grazedGrowth(w, i, p, g);
+        if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4 * grazedGrowth(w, i, p, g) * swardGrowth(w, i, p, g);
         else if (g < 0.5) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       } else if (s >= 0.3) g = Math.min(1, g + p.grow * gf * 0.5);
       // Sustained inundation, rather than the day a dam is built, creates snags.

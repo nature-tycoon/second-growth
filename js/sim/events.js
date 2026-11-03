@@ -6,6 +6,7 @@ import { disturbanceOn } from './campaign.js';
 import { disturbanceDaily } from './disturbance.js';
 import { forestDamp } from './environment.js';
 
+const GRAZED_FUEL = 0.8, GRAZED_LAWN = 0.5; // a grazing lawn has 80% less grass fuel
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
 const FIRE_SNAG_G = 0.85; // a tree burned in a fire leaves a snag or log only if it was nearly full grown
@@ -29,6 +30,24 @@ function topKill(w, i, p, rng) {
   return true;
 }
 
+// A grass fire burns hottest and longest at the base of a bush standing in tall grass. Lantana
+// resprouts after a light fire, but hot fires carried by a heavy grass fuel load kill its seedlings
+// and many grown plants (Day et al. 2003, Lantana: current management status, ACIAR), so grassland
+// that burns every few years holds it to thicket edges and gullies. A closed thicket shades the
+// grass out and the fire in it stays weak, so it survives and resprouts. p.grassFireKill is the
+// root-kill chance with full grass on the tile and its four neighbours; less grass, less chance.
+function grassAround(w, i) {
+  const x = i % w.w, y = (i / w.w) | 0, P = w.catalog.plants;
+  let s = 0, n = 0;
+  for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    if (!w.inb(x + dx, y + dy)) continue;
+    const j = w.idx(x + dx, y + dy), g = w.ground[j];
+    n++; if (g) s += w.groundG[j] * (GRASS_FUEL[P[g].look.type] ?? 0);
+  }
+  return n ? s / n : 0;
+}
+const GRASS_FUEL = { grass: 1, tallgrass: 1 };
+
 export class Events {
   constructor(game) {
     this.game = game;
@@ -49,7 +68,11 @@ export class Events {
     if (isWater(t) || t === T.ROAD || t === T.TRAIL || (t === T.GRAVEL && !(this.mapDefinition.hardpan && w.ground[i])) || t === T.MUD || w.struct[i] >= 0 || w.flood[i]) return 0;
     let f = t === T.PASTURE ? 0.35 : 0;
     const g = w.ground[i], s = w.shrub[i], tr = w.tree[i];
-    if (g) { const p = w.catalog.plants[g]; f += w.groundG[i] * (GRASSY[p.look.type] ?? 0.2) * (p.invasive ? 1.1 : 0.7); }
+    // (p.fuel: a grass that burns hotter, like red oat grass. Ground the herds keep cropped short,
+    // a grazing lawn, has little left to burn: in the Serengeti, more wildebeest meant less grass,
+    // smaller fires and more trees growing up (Holdo et al. 2009, PLoS Biol. 7). Full at
+    // grazing pressure GRAZED_LAWN: 0036)
+    if (g) { const p = w.catalog.plants[g]; f += w.groundG[i] * (p.fuel ?? (GRASSY[p.look.type] ?? 0.2) * (p.invasive ? 1.1 : 0.7)) * (1 - GRAZED_FUEL * Math.min(1, (w.grazed?.[i] || 0) / GRAZED_LAWN)); }
     if (s) { const p = w.catalog.plants[s]; f += w.shrubG[i] * (p.fuel ?? 0.6); }
     const hot = this.severe && this.heat > 0.3;
     // in a crown fire the canopy itself burns, not just what's under it, and burns best where shrubs
@@ -161,7 +184,9 @@ export class Events {
     w.scorch[i] = 160;
     this.burned++;
     if (this.severe && this.heat > 0.3 && (w.tree[i] || w.shrub[i])) return this.crownBurn(i);
-    const gi = w.ground[i];
+    const gi = w.ground[i], si = w.shrub[i];
+    const kill = si ? this.game.catalog.plants[si].grassFireKill : 0;
+    const grassKill = kill && rng() < kill * grassAround(w, i); // (read before this fire burns the grass back)
     if (gi) {
       const bank = w.seedbank?.[i];
       // fire clears the weeds and the native seed bank germinates in the ash (on healthy land)
@@ -170,9 +195,8 @@ export class Events {
       else if (this.game.catalog.plants[gi].invasive) w.groundG[i] *= 0.4;
       else w.groundG[i] = Math.min(w.groundG[i], 0.25);
     }
-    const si = w.shrub[i];
     if (si) {
-      if (this.game.catalog.plants[si].resprout && w.shrubG[i] > 0.3) w.shrubG[i] = 0.12;
+      if (this.game.catalog.plants[si].resprout && w.shrubG[i] > 0.3 && !grassKill) w.shrubG[i] = 0.12;
       else { w.shrub[i] = 0; w.shrubG[i] = 0; }
     }
     clearUnderstory(w, i); // (saplings waiting under the trees burn, even where the big trees survive)

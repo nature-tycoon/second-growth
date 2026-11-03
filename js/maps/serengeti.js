@@ -88,6 +88,8 @@ export default {
   // Grazing pressure (sim/grazing.js) kept light: trampling, fire and dry-season drought already
   // keep the plains open, and giraffe and elephant need young acacias to browse, so herds add only a little.
   grazing: 0.25,
+  // the herds carry grass seed in their dung onto bare ground (sim/grazing.js, decision 0036)
+  dungSeed: 1,
   recruitment: { cndd: 0 }, // (its trees already keep their distance: the savanna spacing in trySeed)
   // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
   // Drought only: elephants and fire already open the woodland. A dry season that runs weeks long

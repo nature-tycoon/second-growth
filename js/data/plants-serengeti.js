@@ -34,11 +34,11 @@ export default function buildSerengetiPlants(def, mix, get) {
     look: { type: 'tallgrass', leaf: '#8a9a4a', dry: '#b8703a' },
     desc: 'The tall grass of a healthy Serengeti, turning rust-red in the dry season. It only comes back once the soil has recovered.' });
   def({ key: 'indigofera', name: 'Wild indigo', sci: 'Indigofera arrecta', layer: 0, nfix: true,
-    moist: [0.08, 0.75], light: [0.45, 1], grow: 0.022, spread: 0.02, radius: 2, life: 5, cost: 3,
+    moist: [0.08, 0.75], light: [0.45, 1], pioneer: 0.4, grow: 0.022, spread: 0.02, radius: 2, life: 5, cost: 3,
     look: { type: 'forb', leaf: '#6f9048', flower: '#d8508a', bloom: [1, 2, 9] },
     desc: 'A native legume that fixes nitrogen and puts life back into worn-out soil. Its pink flowers feed bees.' });
   def({ key: 'crotalaria', name: 'Rattlepod', sci: 'Crotalaria laburnifolia', layer: 0, nfix: true,
-    moist: [0.05, 0.7], light: [0.5, 1], grow: 0.024, spread: 0.022, radius: 2, life: 4, cost: 3,
+    moist: [0.05, 0.7], light: [0.5, 1], pioneer: 0.35, grow: 0.024, spread: 0.022, radius: 2, life: 4, cost: 3,
     look: { type: 'tallforb', leaf: '#7a9a50', flower: '#f0c828', bloom: [1, 2, 8, 9] },
     desc: 'Tall yellow pea-flowers after the rains. Another soil-builder: grasses grow back faster wherever it has been.' });
   def({ key: 'fireball', name: 'Fireball lily', sci: 'Scadoxus multiflorus', layer: 0,
@@ -153,6 +153,7 @@ export default function buildSerengetiPlants(def, mix, get) {
   Object.entries({ baobab: 0.9, umbrella: 0.7, balanites: 0.7, euphorbia: 0.6, fevertree: 0.5, commiphora: 0.5, sycamorefig: 0.4, sausage: 0.5, mesquite: 0.6 })
     .forEach(([k, v]) => { get(k).fireSurvival = v; });
   get('redoat').fuel = 1.2; get('lantana').fuel = 1.1;
+  get('lantana').grassFireKill = 0.6; // a hot grass fire root-kills lantana standing in the grass (0036)
   get('aloe').nectar = { months: [4, 5, 6], amount: 0.6 };
   get('umbrella').nectar = { months: [8, 9], amount: 0.4 };
   get('indigofera').nectar = { months: [1, 2, 9], amount: 0.4 };
@@ -163,6 +164,7 @@ export default function buildSerengetiPlants(def, mix, get) {
   Object.entries({ umbrella: 0.7, fevertree: 0.6, baobab: 0.6, balanites: 0.5, commiphora: 0.5, sausage: 0.5, sycamorefig: 0.5, mesquite: 0.35, euphorbia: 0.05 })
     .forEach(([k, v]) => { get(k).browse = v; });
   for (const k of ['umbrella', 'fevertree', 'balanites', 'mesquite', 'whistling', 'pricklypear']) get(k).thorny = true;
+  for (const k of ['umbrella', 'fevertree', 'balanites', 'mesquite']) get(k).pods = true; // herds eat the fallen pods and dates and pass the seed (0036)
   for (const k of ['umbrella', 'balanites', 'commiphora', 'sausage', 'mesquite']) get(k).resprout = true;
   // savanna plants: grasses and herbs cure gold through the long dry season; trees keep their leaves
   for (const k of ['parthenium', 'sodomapple', 'sporobolus', 'stargrass', 'finger', 'redoat', 'indigofera', 'crotalaria', 'fireball', 'papyrus', 'bluelily',

@@ -6,7 +6,7 @@
 import { T, F, isWater } from '../config.js';
 import { brushProtection } from './ecological-pressure.js';
 import { herbivoreIndex, herbivoreKg } from './herbivory.js';
-import { rottenLog } from './plants.js';
+import { rottenLog, trySeed } from './plants.js';
 
 const DECAY = 0.985; // per day: ground a herd stops using recovers within a year or two
 const INTAKE = 0.8; // a deer-sized animal's day of feeding, spread over its feeding range
@@ -23,7 +23,10 @@ export function grazerWeight(def) {
 // One animal's day of feeding, shared out over the ground within its daily range, in proportion
 // to how much it likes being there and how much grass or browse there is to eat. More animals
 // means more pressure on the same ground; animals pushed off by predators feed somewhere else.
-let kernel = new Float32Array(0);
+let kernel = new Float32Array(0), pods = new Float32Array(0);
+const seedsInDung = (w, j) => w.groundG[j] > 0.6 && w.catalog.plants[w.ground[j]].graze > 0; // (grown, grazed grass)
+const podsUnder = (w, j) => w.tree[j] && w.treeG[j] > 0.75 && w.catalog.plants[w.tree[j]].pods; // (a grown tree dropping pods)
+const POD_SHARE = 0.5; // how often the day's dung carries pods against grass seed, where both are on offer
 export function grazeDay(game, def, x, y) {
   const strength = game.catalog.definition.grazing ?? 1, weight = grazerWeight(def);
   const suit = game.wildlife.suit?.[def.index];
@@ -31,16 +34,44 @@ export function grazeDay(game, def, x, y) {
   const w = game.world, grazed = w.grazed ||= new Float32Array(w.n);
   const grass = def.behavior.forage.includes('grass'), browse = def.behavior.forage.includes('browse');
   const R = Math.round(Math.min(8, Math.max(2, Math.sqrt(def.hr || 4)))), side = 2 * R + 1;
-  if (kernel.length < side * side) kernel = new Float32Array(side * side);
-  let total = 0;
+  if (kernel.length < side * side) { kernel = new Float32Array(side * side); pods = new Float32Array(side * side); }
+  let total = 0, seedTotal = 0, podTotal = 0;
+  const dung = game.catalog.definition.dungSeed ?? 0; // (seeds a grazer's dung plants a day, at the height of the seeding season)
   for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
     const k = (dy + R) * side + dx + R, xx = x + dx, yy = y + dy;
-    kernel[k] = 0;
+    kernel[k] = 0; pods[k] = 0;
     if (!w.inb(xx, yy)) continue;
     const j = w.idx(xx, yy);
+    const near = 1 - Math.hypot(dx, dy) / (R + 1.5);
+    if (dung && podsUnder(w, j) && suit[j] > 0) podTotal += pods[k] = suit[j] * near; // (fallen pods under the tree)
     const food = Math.max(grass ? w.graze[j] : 0, browse ? w.browse[j] : 0);
     if (food <= 0 || suit[j] <= 0) continue;
-    total += kernel[k] = suit[j] * food * (1 - grazed[j]) * (1 - Math.hypot(dx, dy) / (R + 1.5)); // (fresh grass first)
+    total += kernel[k] = suit[j] * food * (1 - grazed[j]) * near; // (fresh grass first)
+    if (dung && grass && seedsInDung(w, j)) seedTotal += kernel[k];
+  }
+  // Herds spread seed in their dung (endozoochory). Wildebeest, zebra and gazelles pass the small
+  // seed of the grasses they eat, still viable, across their range (Janzen 1984, "foliage is the
+  // fruit"; Bodmer & Ward 2006): it's how grass gets back onto bare ground far from any tussock.
+  // Impala, giraffe, elephants and cattle eat the fallen pods of acacias, desert date and mesquite,
+  // and the hard seeds pass through and germinate better for it (Miller 1994, J. Arid Environ.;
+  // Shiferaw et al. 2004 for mesquite): the main way acacias reach open grassland away from their
+  // parents. A seed is from a plant it ate, picked in proportion to how much it ate where, and lands
+  // somewhere in the day's range; it takes only where trySeed lets it. Only maps crossed by big
+  // herds set map.dungSeed (the Serengeti); on a farm with a few deer it's a trickle beside the
+  // plants' own spread, and leaving it out keeps those maps as they were (decision 0036).
+  const rng = game.rng;
+  if ((seedTotal > 0 || podTotal > 0) && rng() < dung * Math.min(1, weight) * game.catalog.definition.climate.spread[game.month]) {
+    const usePods = podTotal > 0 && (seedTotal <= 0 || rng() < POD_SHARE);
+    const field = usePods ? pods : kernel;
+    let r = rng() * (usePods ? podTotal : seedTotal), from = 0;
+    for (let dy = -R; dy <= R && !from; dy++) for (let dx = -R; dx <= R; dx++) {
+      const k = field[(dy + R) * side + dx + R];
+      if (k <= 0) continue;
+      const j = w.idx(x + dx, y + dy);
+      if (usePods ? podsUnder(w, j) && (r -= k) <= 0 : seedsInDung(w, j) && (r -= k) <= 0) { from = usePods ? w.tree[j] : w.ground[j]; break; }
+    }
+    const tx = x + Math.round((rng() * 2 - 1) * R), ty = y + Math.round((rng() * 2 - 1) * R);
+    if (from && w.inb(tx, ty)) { w.seedFrom = 'dung'; trySeed(w, game.catalog.plants[from], w.idx(tx, ty), rng); }
   }
   if (total <= 0) return;
   const share = INTAKE * weight * strength / total;
