@@ -91,12 +91,21 @@ goal is still met. ms/day is unchanged: 8.0 against 9.0–9.5 for base, timed ba
   the old formula.
 - `animal-life`, `prey-avoidance`, `challenging-ecology`, `hunt-check` (within the 0026 limits),
   `animal-behavior` and `scavenger-arrival` checks pass. In `check-release --headless`, everything
-  passes except `animal-steering-check` on the Serengeti, which also fails on base (seed 1987: 10
-  sparring steps stuck). With this change it trips on a different number instead: bodies inside a
-  trunk, 0.62 → 2.12 per 1000 (limit 2; seeds 7 and 11: 1.04 → 3.39 and 0.43 → 0.16). Nearly all of
-  them are hartebeest standing or foraging against a trunk. Base had almost no hartebeest alive, so it
-  never showed. That gap in where a grazer stands when it starts a meal belongs to 0025 and is left
-  as a follow-up.
+  passes except `animal-steering-check`. Base also failed it on the Serengeti (seed 1987: 10 sparring
+  steps stuck). With the hunting rules, it tripped on bodies inside a trunk instead: 0.62 → 2.12 per
+  1000 (limit 2). These were hartebeest feeding beside a baobab, and an elephant beside one. Base had
+  almost no hartebeest alive, so it never showed.
+- **The trunk gap, fixed** (`ground-obstacles.js`). A walker's keep-out round a trunk was capped at
+  `max(KEEP_MAX, r + 0.02)`, so there is always a way between thin trunks in a dense stand. Beside a
+  thick trunk (a baobab, r 0.3) the cap left 0.02 to spare, and half the body stood inside it. The cap
+  now keeps at least 0.55 of the body's half-width clear (`r + half × 0.55`), and the same for an
+  antler rack. Thin trunks are unchanged (KEEP_MAX still decides there). Serengeti bodies in trunks,
+  seeds 1987 / 7 / 11: 2.12 / 3.39 / 0.16 → 0.03 / 0.53 / 0.40, with no more squeezing.
+  `animal-steering-check` passes on every map except Atlanta. There, at seed 1987 only, 6.67 racks per
+  1000 sit in a trunk (limit 5; base 1.67). They are bucks sparring among thin trunks, where the cap is
+  meant to leave room. Seeds 7 / 11 / 23 read 0 / 0.12 / 0 (base: 0 / 0 / 1.9), so it's the few
+  antlered bucks in this short check, not a trend. `ground-obstacles`, `cervid-behavior` and
+  `animal-positioning` checks pass.
 
 ## Known limits
 

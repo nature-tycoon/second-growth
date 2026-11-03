@@ -169,7 +169,9 @@ function gather(w, a, def, x, y, body) {
     const tid = w.tree[i];
     if (tid && !(big && w.treeG[i] < SAPLING)) {
       const c = cachedTrunk(w, xx, yy, i).xyr, r = c[i * 3 + 2];
-      if (r > 0) push(c[i * 3], c[i * 3 + 1], 0, 0, r, Math.min(r + body, Math.max(KEEP_MAX, r + 0.02)), i);
+      // (the cap keeps a way between thin trunks in a dense stand; beside a thick one, a baobab, it
+      // still keeps half the body clear, or a grazer feeding there stood half inside it: decision 0037)
+      if (r > 0) push(c[i * 3], c[i * 3 + 1], 0, 0, r, Math.min(r + body, Math.max(KEEP_MAX, r + body * 0.55)), i);
     }
     const f = w.feature[i];
     if (f === F.SNAG && !tid) { const c = cachedDeadwood(w, xx, yy, i); push(c[i * 3], c[i * 3 + 1], 0, 0, SNAG_R, Math.min(SNAG_R + body, KEEP_MAX), i); }
@@ -219,7 +221,7 @@ function intrusion(o, x, y, b) {
   if (d < o.keep) set(o.keep - d, bx - o.cx, by - o.cy, d);
   if (b.rack) {
     const hx = x + b.ux * (b.reach + b.half), hy = y + b.uy * (b.reach + b.half), dh = Math.hypot(hx - o.cx, hy - o.cy);
-    const keep = Math.min(o.r + b.rack, Math.max(KEEP_MAX, o.r + 0.02));
+    const keep = Math.min(o.r + b.rack, Math.max(KEEP_MAX, o.r + b.rack * 0.55)); // (as for the body, in gather)
     if (dh < keep && keep - dh > out.depth) set(keep - dh, hx - o.cx, hy - o.cy, dh);
   }
   return out;
