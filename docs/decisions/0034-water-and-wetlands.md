@@ -190,3 +190,13 @@ top-speed drawing is the water rebuilds and the regions round the water's changi
 - The water model is Hollis only (beavers live only there). A beaver on another map would use the
   older flooding, which now also leaves meadow.
 - The rabbits' rise in both balance seeds isn't explained yet.
+
+### River fish keep moving (2026-11-02)
+
+A river fish (move 'swim', not reef) used to hang in one spot for days: like every animal it
+waited 0.5 to 3.5 days after arriving, and when its own tile scored best in the wander search
+(`best === start`) another 1 to 4, so in play trout and salmon looked stuck in one stretch. Now it
+holds 0.1 to 0.4 days after arriving, always noses on to a nearby spot it could live on when its
+own tile is best, and otherwise holds 0.15 to 0.5 days (`riverFish` in `chooseTarget`). Pond
+fish in a small pond still keep to it. `node tools/river-fish-roam-probe.mjs [maps]`: stuck
+2-day windows (all positions within 1.5 tiles) on pnw, cutthroat 57% to 27%, coho 60% to 17%.

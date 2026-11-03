@@ -1161,7 +1161,7 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
-          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); fishArrive(this, a); climberArrive(this, a); break; }
+          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = a.move === 'swim' && !def.reef ? 0.1 + Math.random() * 0.3 : def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); fishArrive(this, a); climberArrive(this, a); break; }
           if (smoothWalker(def) && a.course?.path !== a.path) shapeCourse(this, a, def); // (a journey walks a curve: see animal-course.js)
           const j = a.path[a.path.length - 1];
           if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1) * (a.dash || a.run || 1), dt) && (a.path.pop(), !a.path.length)) a.dash = null; break; }
@@ -1772,7 +1772,10 @@ export class Wildlife {
     }
     // nothing better around: now and then it potters off a few steps anyway (foraging, sniffing
     // about), rather than standing on one tile or shuttling between the same two
-    if (!patrol && best === start && poke >= 0 && Math.random() < 0.5) best = poke;
+    // (a river fish always does: it holds in the current a while, then noses on, rather than
+    // hanging in one spot for days)
+    const riverFish = a.move === 'swim' && !def.reef;
+    if (!patrol && best === start && poke >= 0 && (riverFish || Math.random() < 0.5)) best = poke;
     if (patrol) {
       // blocked (a bank or the end of the channel): turn toward the farthest open water instead
       if (best === start || ahead(best) < 0.35) {
@@ -1784,7 +1787,7 @@ export class Wildlife {
         a.heading = [a.heading[0] * c - a.heading[1] * sn, a.heading[0] * sn + a.heading[1] * c];
       }
     }
-    if (best === start) { a.wait = 1 + Math.random() * 3; return; }
+    if (best === start) { a.wait = riverFish ? 0.15 + Math.random() * 0.35 : 1 + Math.random() * 3; return; }
     const path = [];
     for (let i = best; i !== start && i >= 0; i = parent[i]) path.push(i);
     a.path = path; a.state = 'walk';
