@@ -186,6 +186,7 @@ export class UI {
   get session() { return this.analytics.session; }
 
   applySettings() {
+    this.game.invasives = settings.invasives; // (read by the plants: see updatePlants)
     if (settings.notifications === 'hidden') $('#toasts').replaceChildren();
     // Menu blur is decorative; Fast detail keeps transparency without the filter.
     document.body.classList.toggle('menu-effects-off', settings.quality === 'fast');
@@ -1220,6 +1221,8 @@ export class UI {
         ${toggle('autosave', 'Autosave', 'Save every 30 seconds, at the end of each month, and when you leave the tab.')}
         <p class="small">Progress stays in this browser on this device. Clearing site data removes it.</p>
         ${toggle('pauseOnEvents', 'Pause on wildfire or flood', 'Stop the clock so you can respond.')}
+        ${toggle('invasives', 'Invasive species', 'Invasive plants seed in from the neighbours and spread. Off: no new ones take root; any already on the land stay until you clear them.')}
+        ${toggle('moments', 'Keystone moments', 'The camera flies to big natural events with a title card. Off: you get a notification instead, and can click it to look.')}
         ${choice('notifications', 'Notifications', 'All updates stay in the field journal, even when pop-ups are hidden.', [['all', 'Show everything'], ['important', 'Important only'], ['hidden', 'Hide pop-ups']])}`],
       graphics: ['Graphics', `
         ${choice('quality', 'Detail', TOUCH ? 'Fast suits most phones. On a touch screen the resolution also adjusts itself to keep things smooth.' : 'Lower it if the game feels slow. Fast also uses simpler plants until you zoom in.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}

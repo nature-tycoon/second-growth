@@ -5,8 +5,9 @@ import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, drawLooks, animalDef, maleLook } from '../data/animals.js';
 import { roostingNow } from '../data/animal-activity.js';
-import { clearCanopy } from './flight-clearance.js';
-const CLEAR = { floor: -Infinity }; // (clearCanopy's crown under a flier, reused each frame)
+import { clearCanopy, coralFloor, easeBirdHeight } from './flight-clearance.js';
+import { strideFollowsGround } from './stride.js';
+const CLEAR = { floor: -Infinity, clearing: false }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
 import { GRAZERS } from '../sim/steering.js';
 import * as S from '../render/sprites.js';
@@ -104,7 +105,7 @@ function trunkCling(flora, game, w, i, a, def, sc) {
     y = site.transform[1] + treeLevel(site.geo, b.h) * site.transform[4];
   } else y = w.heightAt(t[0], t[1]) * LEVEL + treeHeight(p) * w.treeG[i] * b.h * 0.8;
   const off = t[2] * 0.8 + (def.sprite.size || 10) * sc * 0.012, side = b.side ?? 0;
-  return { x: t[0] + Math.cos(side) * off, z: t[1] + Math.sin(side) * off, y, yaw: Math.atan2(Math.sin(side), -Math.cos(side)) };
+  return { x: t[0] + Math.cos(side) * off, z: t[1] + Math.sin(side) * off, y, yaw: Math.atan2(Math.sin(side), -Math.cos(side)), trunk: t };
 }
 
 export class Actors {
@@ -127,6 +128,7 @@ export class Actors {
     this.people = new Map();    // visitor id -> smoothed heading and gait
     this.flames = [];
     this.smoke = [];
+    this.frameNo = 0; // (frames drawn: spreads per-animal lookups over frames)
     // a soft-edged shadow under each animal (the same fading disc as under plants)
     this.shadowGeo = contactShadow(14).scale(0.5, 1, 0.5);
     this.shadowMat = new THREE.MeshBasicMaterial({ color: 0x0a1206, vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
@@ -192,8 +194,9 @@ export class Actors {
     };
 
     // ---- wildlife
-    const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
-    this.lastT = time;
+    const frameDt = Math.min(0.1, Math.max(0, this.lastT != null ? time - this.lastT : 0.016));
+    const F = this.fauna, k = Math.min(1, frameDt * 6);
+    this.lastT = time; this.frameNo++;
     const persp = perspectiveScale(camera, viewportHeight);
     F.begin(pixelsPerUnit(camera, viewportHeight), persp && { x: camera.position.x, y: camera.position.y, z: camera.position.z, scale: persp });
     this.silhouettes.begin();
@@ -231,7 +234,7 @@ export class Actors {
         let low = ground, high = ground;
         if (onWater || def.move === 'swim' || def.move === 'fly' && isWater(t)) {
           const surface = waterSurfaceY(w, a.x, a.y) ?? ground;
-          low = Math.min(low, surface); high = Math.max(high, surface + 0.75); // leaping salmon
+          low = Math.min(low, surface); high = Math.max(high, surface + 0.3); // leaping salmon
         }
         if (seaY != null) { low = Math.min(low, seaY); high = Math.max(high, seaY + (def.sprite.escape === 'skip' ? 0.5 : 0)); }
         if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground, a.flightY ?? -Infinity) + 4.2; // (over the tallest crowns too: flight-clearance.js)
@@ -303,6 +306,12 @@ export class Actors {
         const band = clamp(sw + amp * (0.12 * Math.sin(time * 0.11 + a.id * 1.7) + 0.06 * Math.sin(time * 0.29 + a.id * 4.1)), 0.04, 0.9);
         st.depth = st.depth == null ? band : st.depth + (band - st.depth) * k * 0.3;
         y = def.benthic ? ground + 0.008 : Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
+        // (and over the coral heads, by body size: flight-clearance.js)
+        // (looked up every fourth frame, each fish on its own frame; the lift eases between)
+        if (!def.benthic && (st.coralFloor == null || (this.frameNo + a.id & 3) === 0)) st.coralFloor = coralFloor(w, game.catalog.plants, a, def);
+        const lift = def.benthic ? 0 : Math.max(0, st.coralFloor - y);
+        st.coralLift = st.coralLift == null ? lift : st.coralLift + (lift - st.coralLift) * Math.min(1, k * 1.5);
+        if (st.coralLift > 0.001) y = Math.min(seaY - 0.08, y + st.coralLift);
         if (def.sprite.escape === 'skip') {
           const p = escapeSkip(st, game.speed > 0 && (chased.has(a.id) || a.dash > 1), time);
           st.skipP = p; // (scene.js splashes where it leaves the water and lands)
@@ -316,9 +325,17 @@ export class Actors {
         // half way in the shallows, so it never sinks into the bank where the water thins out)
         const room = surf != null ? surf - groundAt(w, a.x, a.y) * LEVEL : 0; // (the ground on the drawn triangles)
         y = surf != null ? surf - Math.max(0, Math.min(0.05 + mo.sink * sc, room * 0.5)) : ground;
-        // running salmon leap: every few seconds one arcs clear of the water, nose up then down
-        const jp = def.special === 'salmon' && surf != null ? salmonLeap(a, time) : -1;
-        if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.75 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
+        // running salmon leap: every few seconds one arcs clear of the water, nose up then down,
+        // only while it's making its way along the river: one holding in a pool or in the current
+        // stays under (it decides between leaps, so a leap under way always finishes)
+        let jp = def.special === 'salmon' && surf != null ? salmonLeap(a, time) : -1;
+        if (def.special === 'salmon') {
+          st.swimPace = (st.swimPace || 0) + (Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, frameDt) - (st.swimPace || 0)) * Math.min(1, k);
+          if (jp < 0) st.leapOk = a.state !== 'idle' && st.swimPace > 0.15;
+          if (!st.leapOk) jp = -1;
+        }
+        st.jp = jp;
+        if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.3 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
       }
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
       else if (surf != null && FLOATERS.has(kind) && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
@@ -354,17 +371,23 @@ export class Actors {
       // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
       if (a.passing) y = a.flightY + (a.passage.swoop ? Math.sin(a.passage.t * 1.8 + a.passage.phase) * 0.12 : 0);
       // over the treetops: the crowns under it and just ahead, unless it's on its way down (flight-clearance.js)
-      if (flying && def.move === 'fly') y = clearCanopy(w, game.catalog.plants, a, def, y, CLEAR, a.x - st.px, a.y - st.py);
-      else CLEAR.floor = -Infinity;
+      // (looking about a second of its flight ahead, 1.4 to 4 tiles)
+      if (flying && def.move === 'fly') y = clearCanopy(w, game.catalog.plants, a, def, y, CLEAR, a.x - st.px, a.y - st.py,
+        clamp(Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, time - (st.t ?? time - 0.016)), 1.4, 4));
+      else { CLEAR.floor = -Infinity; CLEAR.clearing = false; }
       if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
       // A bird's height eases between flight, the treetops it clears and its perch, rather than
       // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
       if (def.move === 'fly' && !def.reef && !a.passing) {
-        if (st.birdY == null || returning || st.sc == null) st.birdY = y;
-        else st.birdY += (y - st.birdY) * Math.min(1, k * 1.4);
-        // (a bird in full flight climbs out of a crown it finds itself in fast, about 12 tiles a
+        if (st.birdY == null || returning || st.sc == null) { st.birdY = y; st.birdVy = 0; }
+        // (in full flight it rises over the crowns ahead at an easy climb and sinks back slower
+        // still, so a run of trees of different heights is one smooth swell, not a bob per crown;
+        // every change of height is a slant capped by its speed: easeBirdHeight)
+        else st.birdY = easeBirdHeight(st, y, 6 * (CLEAR.clearing && st.fly > 0.9 ? (y > st.birdY ? 1 : 0.3) : 1.2),
+          Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, frameDt), frameDt);
+        // (a bird in full flight climbs out of a crown it finds itself in quickly, about 8 tiles a
         // second, but doesn't jump; taking off, it climbs out of its own tree at the usual ease)
-        if (st.fly > 0.9 && st.birdY < CLEAR.floor) st.birdY = Math.min(CLEAR.floor, st.birdY + 2 * k);
+        if (st.fly > 0.9 && st.birdY < CLEAR.floor) { st.birdY = Math.min(CLEAR.floor, st.birdY + 8 * frameDt); st.birdVy = Math.max(st.birdVy, 0); }
         y = st.birdY;
       }
       const perched = def.move === 'tree' || (def.move === 'fly' && !a.birdGround && !flying && inside && !!w.tree[i]);
@@ -393,7 +416,14 @@ export class Actors {
       // a longer stride at a sprint, a shorter one at a creep
       // (standing but nudged over by a neighbour: a little shuffle of the feet, not a glide)
       const shuffle = !moving && !flying && a.state === 'idle' && dx * dx + dz * dz > 1e-8;
-      st.gait += ((moving ? Math.min(1.35, 0.55 + 0.45 * (a.run || 1)) : shuffle ? 0.35 : 0) - st.gait) * k;
+      // (and the legs keep pace with the ground it covers: held up by a trunk or the one in front,
+      // it shortens its step and slows its legs instead of striding on the spot: stride.js)
+      const walker = !flying && !mo.primate && !mo.swims && !swimming && !def.reef && (def.move === 'ground' || def.move === 'semi');
+      const clock = returning ? 0 : a.phase - (st.legClock ?? a.phase);
+      st.legClock = a.phase;
+      const stride = walker && game.speed > 0 ? strideFollowsGround(st, def, Math.sqrt(dx * dx + dz * dz), clock, k) : null;
+      if (walker) st.legPhase = (st.legPhase ?? a.phase * Math.PI) + Math.max(0, Math.min(3, clock)) * Math.PI * (moving && stride ? stride.rate : 1);
+      st.gait += ((moving ? Math.min(1.35, 0.55 + 0.45 * (a.run || 1)) * (stride ? Math.max(0.3, stride.width) : 1) : shuffle ? 0.35 : 0) - st.gait) * k;
       const bathing = a.bird?.kind === 'bathe', preening = a.bird?.kind === 'preen';
       const birdWings = bathing ? 0.16 + Math.abs(Math.sin(a.phase * 1.7)) * 0.2 : preening ? 0.08 : 0;
       st.fly += ((flying ? 1 : birdWings) - st.fly) * k * 1.5;
@@ -413,6 +443,7 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      st.trunk = cling?.trunk ?? null; // (the trunk it clings to, which the tracking lens keeps: focus.js)
       if (cling) {
         // upright against the bark, facing it, the head hammering in bursts
         ax = cling.x; az = cling.z;
@@ -422,6 +453,20 @@ export class Actors {
       } else {
         if (snagTop) [ax, az] = snagTop;
         if (def.move === 'fly' && st.pitch) st.pitch += (0 - st.pitch) * Math.min(1, k * 2);
+      }
+      // (a bird letting go of a trunk or a snag's top, or landing on one, swoops between the bark
+      // and where it flies rather than jumping there: the gap fades over about half a second)
+      if (def.move === 'fly' && !def.reef) {
+        const anchor = cling ? 1 : snagTop ? 2 : 0;
+        if (!returning && st.anchor != null && anchor !== st.anchor && st.drawnX != null) { st.offX = (st.offX || 0) + st.drawnX - ax; st.offZ = (st.offZ || 0) + st.drawnZ - az; }
+        if (returning) st.offX = st.offZ = 0;
+        st.anchor = anchor;
+        if (st.offX || st.offZ) {
+          const fade = Math.exp(-frameDt * 6); st.offX *= fade; st.offZ *= fade;
+          if (Math.abs(st.offX) + Math.abs(st.offZ) < 1e-3) st.offX = st.offZ = 0;
+          ax += st.offX; az += st.offZ;
+        }
+        st.drawnX = ax; st.drawnZ = az;
       }
       // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
       // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).
@@ -658,7 +703,7 @@ export class Actors {
         const scull = Math.max(0, a.phase - (st.simPhase ?? a.phase)) * Math.PI * 0.4;
         st.swimPhase = ((st.swimPhase ?? a.id * 2.3) + Math.max(beat, scull)) % (Math.PI * 200); st.simPhase = a.phase;
       }
-      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : mo.swims ? st.swimPhase : a.phase * Math.PI;
+      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : mo.swims ? st.swimPhase : walker && st.legPhase != null ? st.legPhase : a.phase * Math.PI;
       if (eating) st.graze = 0;
       // A crawling snake's bends advance by the distance it covers, so they stay put on the ground
       // (one full bend per body length; see uSlither in animals/animal-material.js, which reads it from the fly slot).
@@ -694,7 +739,7 @@ export class Actors {
         st.center.sub(this.swingGrip.set(...swing.grip).multiplyScalar(mo.len)).applyAxisAngle(this.swingAxis, swing.sway).add(this.swingBase.set(.14, 1.38, .02).multiplyScalar(mo.len));
       }
       st.center.applyMatrix4(F.m); // same heading, pitch, scale and height as the instance
-      st.revealBounds = st.branch ? mo.revealBounds : null;
+      st.revealBounds = mo.revealBounds; // (the body's box, for the tracking lens: see focus.js)
       if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
       // (after the reads of F.m above, which must still hold this animal's own instance)
       if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);

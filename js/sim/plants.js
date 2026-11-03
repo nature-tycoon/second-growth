@@ -373,7 +373,8 @@ export function updatePlants(game) {
   const nativeFrac = w.stats?.land ? w.stats.native / w.stats.land : 0;
   w.bankStrength = bank ? clamp((nativeFrac - 0.3) / 0.35, 0, 1) : 0;
   const bankK = w.bankStrength;
-  w.invasiveOdds = Math.min(1, game.diff?.invasives ?? 1);
+  // (the Invasive species setting off: no invasive seedling takes, from the edges or from plants already here)
+  w.invasiveOdds = game.invasives === false ? 0 : Math.min(1, game.diff?.invasives ?? 1);
   const mort = game.catalog.definition.mortality || {};
   const sav = game.catalog.definition.savanna, deadK = game.catalog.definition.deadwood?.decay ?? 1;
   // A tree dies on well under 1% of days, so the full hazard is only worked out when the day's

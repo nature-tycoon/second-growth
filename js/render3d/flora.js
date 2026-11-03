@@ -33,6 +33,15 @@ export { floraVersion } from './plant-pools.js';
 export { windGust } from './plant-materials.js';
 
 const rgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
+// A colony's colour morph (look.morphs, the reef's corals and sponges), the same colony keeping
+// its colour from one redraw to the next; any other plant keeps its own leaf colour.
+const MORPHS = new Map();
+const morph = (p, x, y, col) => {
+  const m = p.look.morphs; if (!m) return col;
+  let c = MORPHS.get(m); if (!c) MORPHS.set(m, c = m.map(rgb));
+  const k = c[(hash2(x, y, 23) * m.length) | 0], b = c[0]; // (morphs[0] is the species' own leaf colour)
+  return [k[0] * col[0] / (b[0] || 1), k[1] * col[1] / (b[1] || 1), k[2] * col[2] / (b[2] || 1)];
+};
 const mixc = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const FLOOR_FERN = [0.32, 0.46, 0.22]; // (forest-floor ferns: see the floor in rebuild)
 const vary = (c, x, y, salt, amt = 0.08) => { const f = 1 + (hash2(x, y, salt) - 0.5) * amt * 2; return [c[0] * f, c[1] * f, c[2] * f]; };
@@ -506,7 +515,7 @@ export class Flora {
         } else {
           const type = p.look.type;
           const shape = shrubShape(p);
-          let col = vary(leafColor(p, phase).map(c => c * dim), x, y, 8, 0.045);
+          let col = vary(morph(p, x, y, leafColor(p, phase)).map(c => c * dim), x, y, 8, 0.045);
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
           this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub', far: true }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
@@ -583,7 +592,7 @@ export class Flora {
             crown.setView(...this.view); trunkP.setView(...this.view);
             this.pools.set(`crown:${key}`, crown); this.pools.set(`trunk:${key}`, trunkP);
           }
-          let leaf = leafColor(p, phase);
+          let leaf = morph(p, x, y, leafColor(p, phase));
           if (phase === 'fall') leaf = mixc(leaf, rgb(p.look.leaf), hash2(x, y, 11) * 0.35);
           if (inside && w.bleach && w.bleach[i] > 0) leaf = mixc(leaf, BLEACHED, w.bleach[i]); // (a coral bleaching in a marine heatwave)
           const crownColor = vary(leaf.map(c => c * dim * grove.tint), x, y, 12, 0.045);

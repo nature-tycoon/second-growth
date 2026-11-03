@@ -69,6 +69,11 @@ Measured headless (`hollis-soak`, below) before changing anything.
   mostly under 1.5 m), lowered until the pond covers no more than `DAM_CELLS` 60 tiles (0.4 ha at
   8 m tiles). The channel behind it, drowned 0.12 levels or more over its usual flow, is pond (its
   base stays creek); land deeper than `DAM_POND_DEPTH` 0.15 (36 cm) is open water, shallower is marsh.
+  Where even a 0.15 dam would spread past `DAM_CELLS` (flat ground level with the bed: Hollis's
+  55,45 once flooded 1,300 tiles) `damCrest` is null and beavers don't build there. A standing
+  dam's crest is rechecked on every rebuild and lowered if the ground round it has changed so the
+  pond would spread past `DAM_CELLS` (one grew 95 to 131 tiles in 15 years before this); a dam
+  from an old save on such flat ground holds a low pool cut off at `DAM_CELLS` tiles.
 - **Where beavers build** (`damSiteOK`): a slow stretch where the pond would cover at least
   `SITE_WET` 15 tiles with `SITE_OPEN` 5 of open water (steep riffles are passed over), no other dam
   within `DAM_GAP` 9 tiles and not inside another dam's pond (so a creek with several colonies is a
@@ -118,6 +123,15 @@ holds water (`WALLOW_POOL`) it counts as a pool in `distPond`, which is where fr
 note tells of fairy shrimp and tadpole shrimp. Drawn as a small mud dish with muddy water in it
 when wet (flora.js). Bison wallows are a few metres across and tens of centimetres deep, worn over
 years, and hold water in spring (Gerlanc & Kaufman 2003, Konza Prairie).
+
+### Reef fish over coral (2026-11-02)
+
+Reef fish are drawn over the hard corals by body size (`coralFloor` in
+`render3d/flight-clearance.js`): a fish of sprite size 6 or less (clownfish, chromis, cleaner
+wrasse) rises only over coral on its own tile, so it can sit in an anemone beside a thicket; a
+bigger one looks a crown's width round it and ahead and keeps its body depth over the top. Drawing
+only; the simulation still lets fish cross any sea tile. Check: `tools/reef-coral-clearance-check.mjs`.
+A fish eaten by a fish leaves a faint puff (`game.fishCatches`, drawn in `scene.js drawCatchPuffs`).
 
 ## Verification
 
@@ -181,3 +195,23 @@ top-speed drawing is the water rebuilds and the regions round the water's changi
 - The water model is Hollis only (beavers live only there). A beaver on another map would use the
   older flooding, which now also leaves meadow.
 - The rabbits' rise in both balance seeds isn't explained yet.
+
+### River fish keep moving (2026-11-02)
+
+A river fish (move 'swim', not reef) used to hang in one spot for days: like every animal it
+waited 0.5 to 3.5 days after arriving, and when its own tile scored best in the wander search
+(`best === start`) another 1 to 4, so in play trout and salmon looked stuck in one stretch. Now it
+holds 0.1 to 0.4 days after arriving, always noses on to a nearby spot it could live on when its
+own tile is best, and otherwise holds 0.15 to 0.5 days (`riverFish` in `chooseTarget`). Pond
+fish in a small pond still keep to it. `node tools/river-fish-roam-probe.mjs [maps]`: stuck
+2-day windows (all positions within 1.5 tiles) on pnw, cutthroat 57% to 27%, coho 60% to 17%.
+
+A creek running downhill is a staircase of pools: within each tile `swimDepth` deepens downstream
+and drops to a few centimetres at the next tile's lip. `stepToward` refused any step into water
+under `FISH_DEPTH`, and `steering.js` snaps a fish in the shallows back to deep water, so fish
+pressed against one lip for years and the ones behind piled up (pnw: all 10 coho on 3 tiles after
+2 years). Now a river fish blocked by shallows first tries headings either side that keep to
+swimmable water. Held up half a day, it hops the lip to the first swimmable water within 0.35
+tiles ahead, so it never rests in the shallows (`fish-water-check`: 0 too-shallow samples on every
+map). `node tools/river-fish-spread-probe.mjs [map] [years]`: coho after 2 years on 10 tiles,
+spread about 20 tiles, through 4 years.

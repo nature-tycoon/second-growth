@@ -32,6 +32,7 @@ export class Game {
     this.listeners = {};
     this.selectedAgent = null;
     this.cache = {};
+    this.invasives = true; // the Invasive species setting (off: none take root, see updatePlants)
     this.dayRun = null; // a day being worked through a part a frame (see update)
     this.saveDue = false; // the month's autosave, made once the day's work is done
   }
@@ -341,6 +342,12 @@ export class Game {
   onPredation(pred, prey) {
     const pd = this.catalog.animals[pred.sp], py = this.catalog.animals[prey.sp];
     this.stats.predations = (this.stats.predations || 0) + 1;
+    // a fish eaten by a fish leaves a faint puff in the water where it was taken (drawn in
+    // scene.js drawTrails): a fixed ring of the last few catches, nothing allocated per catch
+    if ((py.reef || py.move === 'swim') && (pd.reef || pd.move === 'swim') && !py.benthic) {
+      const r = this.fishCatches ||= { n: 0, id: new Float64Array(8), x: new Float32Array(8), y: new Float32Array(8) };
+      const k = r.n++ % 8; r.id[k] = prey.id; r.x[k] = prey.x; r.y[k] = prey.y;
+    }
     const key = `${pd.key}>${py.key}`;
     this.cache.hunts ||= {};
     if (!this.cache.hunts[key] || ['deer', 'elk'].includes(py.key)) {

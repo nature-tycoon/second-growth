@@ -201,6 +201,21 @@ on the overland trip") and `primate-stall-check` (orangutan hold) fail before an
   `headUpKey` is cleared whenever the animal isn't an idle non-drinking grazer, or one that stops
   drinking where it stood would keep its old answer.
 
+## Stride follows the ground (2026-11-02)
+
+The leg clock `a.phase` ticks at the walking rate whether the animal gets anywhere or not, so a
+walker braking behind a herd mate or edging round a trunk strode on the spot. The drawing now
+measures the ground each walker (`move` ground or semi, not swimming or climbing) actually covers
+per tick of its clock against its unhindered pace (`render3d/stride.js`, `groundPace`), eases it,
+and slows the leg cycle and shortens the stride with it; under about a third of its pace it
+stands with a slight shuffle. The simulation is unchanged, so headless results are too. Walkers
+drawn striding at under a fifth of their pace: 11% of walking frames before, about 1% after (pnw,
+serengeti). `node tools/gait-pace-probe.mjs [maps]` (`STATE=1` by state) shows how often each
+species is held up. Elk were held up most: half their walking steps are braking behind a herd
+mate in `spacing.steer`, which is real single-file following. A herd follower that stalls near the
+end of its walk now stops there instead of pressing on for up to 3 s (`a.follow` rule in the
+waypoint skip, `animals.js`).
+
 ## Racks, pivots and cornered flights (2026-11-02, itch.io release blockers)
 
 `animal-steering-check` failed CI on Atlanta seed 1987 (6.67 racks in a trunk per 1000, limit 5),

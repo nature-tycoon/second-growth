@@ -69,9 +69,22 @@ Species traits live in `behaviorFor` (`js/data/animal-behavior.js`), one place f
   out at its own point in the dusk; by day the panel says "Roosting until dusk". With the day
   cycle off they fly as before. Owls still hunt by day: the sim can't keep them to the drawn night.
 - **Flight clearance** (`render3d/flight-clearance.js`): every flier keeps over the crowns under
-  it and up to 1.4 tiles ahead along the way it's moving, plus 0.2 (0.8 for flyovers), and climbs
-  out of a crown fast (12 tiles/s) if its eased height finds it there. Exempt: a stoop, the last
-  tile before landing, the end of a vulture's spiral, pollinators.
+  it and ahead along the way it's moving, plus 0.2 (0.8 for flyovers), and climbs out of a crown
+  fast (12 tiles/s) if its eased height finds it there. Exempt: a stoop, the last tile before
+  landing, the end of a vulture's spiral, pollinators. It looks about a second of its own flight
+  ahead (1.4 to 4 tiles, sampled every 0.7), and while clearing crowns its height eases up at
+  `k * 1` and down at `k * 0.3`, so a run of trees is one swell, not a pop and a drop per crown
+  (2026-11-02; a followed bird looked glitchy). `flight-canopy-check` measures the `jolt` (change
+  of climb rate per frame, limit 0.4 at the 99th percentile; it was 0.37 to 0.82 before).
+  The drawn height of every bird then moves like a body (`easeBirdHeight`): a climb rate that
+  builds and fades (acceleration 9 tiles/s²) and is capped at 1.4 + 1.1 × its ground speed tiles/s,
+  so take-off, the climb over the crowns and the drop to a perch are slants, not pops (a followed
+  robin rose and fell up to 1.6 tiles in one frame). A bird taking off flies out through its own
+  crown for about half a second; `flight-canopy-check` allows 0.6 s (`TAKEOFF`). A bird leaving or
+  reaching a trunk or snag top glides between the bark and its flight position over about half a
+  second (`st.offX`/`offZ`). `node tools/follow-height-probe.mjs [map] [species]` measures height
+  change and jolt per frame for followed animals. Salmon leap only while running (`st.leapOk`, by
+  their drawn swimming pace); one holding still stays under, and the splash reads `st.jp`.
 
 ## Gotchas
 
@@ -114,3 +127,7 @@ Cost: new code is 1.3% of a PNW community run's CPU in node (`--cpu-prof`), almo
 - `tools/flight-canopy-check.mjs`: fliers inside a crown, four forested maps (limit 1%).
 - `tools/bird-behavior-check.mjs` (vulture on the ground), `tools/moments-check.mjs` (stopover).
 - `tools/moments-sweep-browser-check.mjs`: all 21 keystone moments on 7 maps in a browser.
+
+## The tracking lens keeps the support (2026-11-02)
+
+The tracking lens (`render3d/focus.js`) used to open a window about 0.85 tiles wide, starting at the back of the animal. That cut the woodpecker's trunk, the coral under reef fish and palm fronds under monkeys. One rule now covers every species: near the animal, only what lies between the camera and the animal's model box (`revealBounds`, now set for every pose) opens. The trunk an animal clings to (`st.trunk`, from `trunkCling`) stays unless it is wholly in front of the animal. Whatever lies below its feet near it, and shows below it on screen, stays. The wider gap opens gradually, over two window radii toward the camera. A new kind of support (a climber on a trunk or a rock face) sets `st.trunk` or a similar uniform; it needs no per-species shader patch. Check: `tools/follow-support-browser-check.mjs` (pictures in `tools/release-output/follow-support-*.png`), and `tools/canopy-reveal-browser-check.mjs` for covering leaves.

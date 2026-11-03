@@ -37,27 +37,29 @@ export default function buildReefPlants(def, mix, get) {
     look: { type: 'halimeda', leaf: '#6aa84a', evergreen: true },
     desc: 'A green seaweed built of little chalky discs. When it dies they crumble, and much of the white sand on the reef was once Halimeda. Blue tangs graze it.' });
 
+  // (look.morphs: a healthy reef is colourful because one species grows in several colour morphs,
+  // brown, purple, blue-green or yellow-green staghorn side by side; flora.js picks one per colony)
   // ---------- Shrubs: soft corals, sea fans, sponges, anemones, giant clams ----------
   def({ key: 'softcoral', name: 'Leather coral', sci: 'Sarcophyton', layer: 1,
     moist: sea, light: [0.3, 1], soil: 0.06, grow: 0.018, spread: 0.012, radius: 2, life: 30, cost: 6,
-    look: { type: 'softcoral', leaf: '#c8b48a', evergreen: true },
+    look: { type: 'softcoral', leaf: '#c8b48a', morphs: ['#c8b48a', '#b6be86', '#dccaa0', '#a88e6a', '#c89a9a'], evergreen: true },
     desc: 'A soft coral with a thick stalk and a wide, folded cap that sways in the current. It bends instead of breaking in storms.' });
   def({ key: 'seafan', name: 'Sea fan', sci: 'Annella mollis', layer: 1,
     moist: sea, light: [0.15, 0.9], soil: 0.1, grow: 0.012, spread: 0.01, radius: 2, life: 40, cost: 8,
-    look: { type: 'seafan', leaf: '#d8603a', evergreen: true },
+    look: { type: 'seafan', leaf: '#d8603a', morphs: ['#d8603a', '#c4483c', '#e08a3e', '#d8b46a'], evergreen: true },
     desc: 'A gorgonian: a flat, lacy fan held up across the current to sieve plankton from the water. It grows where the current runs, and longnose hawkfish perch in its branches. Most sea fans have no algae in them, so they hardly bleach.' });
   def({ key: 'sponge', name: 'Barrel sponge', sci: 'Xestospongia testudinaria', layer: 1, kindName: 'Sponge',
     moist: sea, light: [0, 0.9], soil: 0.08, grow: 0.01, spread: 0.008, radius: 2, life: 80, cost: 8,
-    look: { type: 'sponge', leaf: '#c87a4a', evergreen: true },
+    look: { type: 'sponge', leaf: '#c87a4a', morphs: ['#c87a4a', '#8c5c8c', '#a8584a', '#b88c5c'], evergreen: true },
     desc: 'A huge vase of a sponge that pumps its own volume of seawater through its walls every few seconds, filtering it clean.' });
   def({ key: 'anemone', name: 'Magnificent sea anemone', sci: 'Heteractis magnifica', layer: 1, kindName: 'Sea anemone',
     moist: sea, light: [0.5, 1], soil: 0.06, grow: 0.016, spread: 0.008, radius: 2, life: 60, cost: 10,
-    look: { type: 'anemone', leaf: '#e0c8b8', evergreen: true },
+    look: { type: 'anemone', leaf: '#e0c8b8', morphs: ['#e0c8b8', '#d8a8b2', '#c8b48e'], evergreen: true },
     desc: 'A mop of stinging tentacles that clownfish live in, safe from everything else. In return they chase off the fish that would eat it.' });
   def({ key: 'clam', name: 'Giant clam', sci: 'Tridacna gigas', layer: 1, kindName: 'Giant clam',
     // Occasional settlers drift into separated gaps; clams should never carpet the lagoon sand.
     moist: sea, light: [0.6, 1], soil: 0.05, grow: 0.008, spread: 0.0008, radius: 6, seedSpacing: 3, life: 100, cost: 18,
-    look: { type: 'clam', leaf: '#4a72c8', evergreen: true },
+    look: { type: 'clam', leaf: '#4a72c8', morphs: ['#4a72c8', '#3a8a8c', '#6a5cb0', '#8a9a52'], evergreen: true },
     desc: 'The largest shellfish in the world, farmed back onto reefs where it was taken. Its blue mantle is full of the same algae corals carry, and it filters the water as it feeds, so turf algae has a harder time around it. It sits happily on sand or rubble.' });
   def({ key: 'fungia', name: 'Mushroom coral', sci: 'Fungia fungites', layer: 1, kindName: 'Hard coral (free-living)',
     moist: sea, light: [0.4, 1], soil: 0.02, grow: 0.012, spread: 0.004, radius: 2, life: 40, cost: 7,
@@ -75,23 +77,23 @@ export default function buildReefPlants(def, mix, get) {
   // ---------- Hard corals (the reef's "trees") ----------
   def({ key: 'staghorn', name: 'Staghorn coral', sci: 'Acropora muricata', layer: 2,
     moist: sea, light: [0.5, 1], soil: 0.12, soilK: 6, grow: 0.022, spread: 0.008, radius: 3, life: 25, matureAge: 4, cost: 6,
-    look: { type: 'staghorn', leaf: '#c8a27a', bark: '#a29a8a', evergreen: true },
+    look: { type: 'staghorn', leaf: '#c8a27a', morphs: ['#c8a27a', '#a4825e', '#9a7ea6', '#7c9c90', '#aab072'], bark: '#a29a8a', evergreen: true },
     desc: 'The fastest-growing coral on the reef, branching into thickets that shelter clouds of little fish. Also the first to bleach, and easily broken.' });
   def({ key: 'tablecoral', name: 'Table coral', sci: 'Acropora hyacinthus', layer: 2,
     moist: sea, light: [0.55, 1], soil: 0.12, soilK: 6, grow: 0.016, spread: 0.007, radius: 3, life: 30, matureAge: 5, cost: 8,
-    look: { type: 'tablecoral', leaf: '#a8946a', bark: '#a29a8a', evergreen: true },
+    look: { type: 'tablecoral', leaf: '#a8946a', morphs: ['#a8946a', '#7e9a7c', '#9a88a2', '#b4a272'], bark: '#a29a8a', evergreen: true },
     desc: 'Grows a wide, flat plate on a short stalk, shading the reef below. Coral trout lurk underneath it, sweetlips hang in its shade, and reef sharks rest there by day.' });
   def({ key: 'montipora', name: 'Plate coral', sci: 'Montipora capricornis', layer: 2,
     moist: sea, light: [0.4, 1], soil: 0.1, soilK: 6, grow: 0.017, spread: 0.007, radius: 3, life: 35, matureAge: 5, cost: 8,
-    look: { type: 'plating', leaf: '#9a6c88', bark: '#a29a8a', evergreen: true },
+    look: { type: 'plating', leaf: '#9a6c88', morphs: ['#9a6c88', '#a8805e', '#7c8a9e'], bark: '#a29a8a', evergreen: true },
     desc: 'Grows in whorls of thin, overlapping plates like an open cabbage, in purples and browns. Little fish hide between the layers, and sweetlips rest in its shade by day.' });
   def({ key: 'brain', name: 'Brain coral', sci: 'Platygyra daedalea', layer: 2,
     moist: sea, light: [0.45, 1], soil: 0.1, soilK: 6, grow: 0.008, spread: 0.005, radius: 2, life: 120, matureAge: 15, cost: 10,
-    look: { type: 'brain', leaf: '#a8a058', bark: '#a29a8a', evergreen: true },
+    look: { type: 'brain', leaf: '#a8a058', morphs: ['#a8a058', '#7c9a5c', '#b08a5c', '#a0a888'], bark: '#a29a8a', evergreen: true },
     desc: 'A slow, rounded dome covered in winding ridges. Tougher in a heatwave than the branching corals.' });
   def({ key: 'boulder', name: 'Boulder coral', sci: 'Porites lobata', layer: 2,
     moist: sea, light: [0.4, 1], soil: 0.1, soilK: 6, grow: 0.005, spread: 0.004, radius: 2, life: 400, matureAge: 30, cost: 14,
-    look: { type: 'boulder', leaf: '#c8a878', bark: '#a29a8a', evergreen: true },
+    look: { type: 'boulder', leaf: '#c8a878', morphs: ['#c8a878', '#ac8ca2', '#b49a68', '#9ea47c'], bark: '#a29a8a', evergreen: true },
     desc: 'Grows a centimetre a year into lumpy mounds the size of a car, some of them older than the cities on the coast. The toughest coral on the reef.' });
 
   // ---------- The cay: the dry sand island in the middle of the lagoon ----------

@@ -18,6 +18,8 @@ export const DEFAULTS = {
   zoomSpeed: 1,
   autosave: true,
   pauseOnEvents: false, // pause the clock when a wildfire or flood starts
+  invasives: true,     // invasive plants arrive from the neighbours and spread (off: none take; those already here stay)
+  moments: true,       // keystone moments take the camera with a title card (off: just a notification)
   analytics: true,     // share anonymous play data to help improve the game
   muted: false,        // quick mute from the top bar (M)
   music: true, musicVolume: 0.45,     // lo-fi background music

@@ -362,7 +362,7 @@ export default function buildSumatraAnimals(def) {
       speed: 1.3, hr: 3, max: 24, groupSize: [1, 3], sources: ['N', 'E'], mig: 0.6, breed: [1, 5, 9], litter: [1, 3], life: 0.6, mature: 0.1,
       suit: (W, i) => w[W.habitat[i]] * (0.2 + 0.8 * Math.min(1, W.nectar[i] * 1.4)) * near(W.distWater[i], 4, 0.4),
       req: g => Math.min(1, g.forestTiles / 250),
-      sprite: { kind: 'butterfly', size: 11, color: '#141614', vein: '#0a0a0a', spots: '#2ad070', show: 1.9, birdwing: true },
+      sprite: { kind: 'butterfly', size: 11, color: '#141614', vein: '#0a0a0a', spots: '#2ad070', show: 1.2, birdwing: true },
       desc: 'A big, swallow-winged butterfly, velvet black with bands of emerald green. Males gather in groups to sip minerals from wet sand along forest streams.',
       hint: 'Forest streams with flowers nearby.' });
   }

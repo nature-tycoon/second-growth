@@ -117,15 +117,18 @@ export class HollisWater {
     }
     return { cells: [...reach].map(([i, threshold]) => ({ i, threshold, c: this.corners(i) })), spill };
   }
+  // Tiles a dam's water at `level` actually stands on (shallower than WET_DEPTH doesn't count).
+  damWet(cells, level) { return cells.filter(v => tileWaterVolume(v.c, level) > .002 && level - groundCentre(v.c) > WET_DEPTH).length; }
   // The crest a new dam holds its water at: DAM_HEAD over the bed, or less if the pond would spread
-  // over more than DAM_CELLS tiles.
+  // over more than DAM_CELLS tiles. Null where even a low dam would spread wider than that: a
+  // stretch of creek with flat ground level with its bed, which beavers don't dam (it once flooded
+  // 1,300 tiles, an eighth of Hollis Farm).
   damCrest(site, axis, occupied) {
     const bed = Math.min(...this.corners(site));
-    for (let head = DAM_HEAD; head > .15; head -= .05) {
-      const fp = this.footprint([site], bed + head, 'dam', site, axis, occupied);
-      if (fp.cells.filter(v => tileWaterVolume(v.c, bed + head) > .002 && bed + head - groundCentre(v.c) > WET_DEPTH).length <= DAM_CELLS) return bed + head;
+    for (let head = DAM_HEAD; head > .15 - 1e-9; head -= .05) {
+      if (this.damWet(this.footprint([site], bed + head, 'dam', site, axis, occupied).cells, bed + head) <= DAM_CELLS) return bed + head;
     }
-    return bed + .15;
+    return null;
   }
   // How big a pond a dam at `site` would hold back: { wet, open } tiles at its full level.
   damPotential(site) {
@@ -134,6 +137,7 @@ export class HollisWater {
     occupied[site] = 0;
     const axis = this.downstream(site), crest = this.damCrest(site, axis, occupied);
     let wet = 0, open = 0;
+    if (crest == null) return { wet, open };
     for (const v of this.footprint([site], crest, 'dam', site, axis, occupied).cells) {
       const depth = crest - groundCentre(v.c);
       if (this.base[v.i] === T.CREEK) { if (crest - this.nominal(v.i) > .12) { wet++; open++; } continue; }
@@ -146,7 +150,22 @@ export class HollisWater {
     const axis = previous?.axis || this.downstream(site);
     const initial = kind === 'pond' ? Math.min(...core.map(i => this.nominal(i))) : this.nominal(site);
     let crest = kind === 'pond' ? initial + .18 : previous?.crest ?? this.damCrest(site, axis, occupied);
-    let footprint = this.footprint(core, crest, kind, site, axis, occupied);
+    let footprint = crest == null ? null : this.footprint(core, crest, kind, site, axis, occupied);
+    if (kind !== 'pond' && (!footprint || this.damWet(footprint.cells, crest) > DAM_CELLS)) {
+      // (a dam's crest is set when it is built, but the ground round it changes: a marsh dries, a
+      // road or another pond goes. Lower it again rather than let the pond spread over the farm.
+      // A dam on flat ground, from an old save, holds a low pool cut off at DAM_CELLS tiles)
+      crest = this.damCrest(site, axis, occupied);
+      const low = crest ?? Math.min(...this.corners(site)) + .15;
+      footprint = this.footprint(core, low, kind, site, axis, occupied);
+      if (crest == null) {
+        footprint.cells.sort((a, b) => a.threshold - b.threshold);
+        let wet = 0, keep = 0;
+        for (const v of footprint.cells) { if (tileWaterVolume(v.c, low) > .002 && low - groundCentre(v.c) > WET_DEPTH && ++wet > DAM_CELLS) break; keep++; }
+        footprint.cells.length = keep;
+      }
+      crest = low;
+    }
     if (kind === 'pond' && footprint.spill < crest) {
       // (never below its own dug water level: a freshly dug pond or marsh on a slope still holds
       // the water it was dug for, rather than spilling away to mud the moment it's made)

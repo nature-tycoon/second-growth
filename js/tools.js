@@ -117,8 +117,8 @@ export function createTools(catalog) {
   // fence tile every stake or shrub is set (no gaps), starts as a well-rooted cutting, and any lawn
   // under the fence is dug out as a planting strip first.
   // spaced: a single kind of tree. The first tile of a stroke always gets its tree, so a click
-  // plants one; after that a tree never touches another planted in the same stroke, and about
-  // two tiles in five are left open, so a dragged or wide brush sets out an uneven stand of trees
+  // plants one; after that a tree never sits directly beside another planted in the same stroke, and about
+  // one tile in four is left open, so a dragged or wide brush sets out an uneven stand of trees
   // rather than a solid block of them, one to every tile.
   function plantTool(source, cost, density, fenceLine = false, spaced = false) {
     const species = Array.isArray(source) ? source.map(k => PLANT[k]) : [PLANT[source]];
@@ -134,7 +134,7 @@ export function createTools(catalog) {
       }
       if (ids[i]) return null;
       if (!inFence && rng() > density) return null;
-      if (spaced && stroke?.count && (rng() > 0.6 || besidePlanted(w, i, stroke))) return null;
+      if (spaced && stroke?.count && (rng() > 0.78 || besidePlanted(w, i, stroke))) return null;
       // each seed ends up where it suits best: weight by suitability
       let total = 0;
       const s = species.map(p => {
@@ -181,8 +181,8 @@ export function createTools(catalog) {
   // whether a tile next to i already got a plant from this stroke
   function besidePlanted(w, i, stroke) {
     const x = i % w.w, y = (i / w.w) | 0;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      if ((dx || dy) && w.inb(x + dx, y + dy) && stroke.changed.includes(w.idx(x + dx, y + dy))) return true;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { // (side by side only: diagonal neighbours are a natural spacing)
+      if (w.inb(x + dx, y + dy) && stroke.changed.includes(w.idx(x + dx, y + dy))) return true;
     }
     return false;
   }

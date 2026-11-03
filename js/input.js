@@ -412,6 +412,9 @@ export class Input {
   }
 
   inspectAt(t) {
+    // a keystone moment has the camera: a click on the map would follow an animal and stop the
+    // glide in (it did on the autumn rut). Continue or Esc ends the moment.
+    if (this.ui.moment) return;
     const g = this.game, w = g.world;
     const best = this.r.pickAgent(g, this.mouse.x, this.mouse.y, this.touching ? 48 : 34); // fingers are less precise
     if (best) { this.ui.inspectAgent(best); this.ui.followAnimal(best); return; }

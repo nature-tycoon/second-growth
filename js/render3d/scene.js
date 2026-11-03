@@ -18,7 +18,7 @@ import { animalDef, isMale } from '../data/animals.js';
 import { Terrain, buildAtlas, waterSurfaceY } from './terrain.js';
 import { Flora, windGust, floraVersion } from './flora.js';
 import { Pollinators } from './pollinators.js';
-import { Actors, salmonLeap } from './actors.js';
+import { Actors } from './actors.js';
 import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
@@ -339,9 +339,9 @@ export class Renderer {
       this.focusFor = sel.id;
       focus.uFocus.value.lerp(pose.center, e);
       let radius = pose.branch ? clamp(.4 + pose.h * 1.2, .55, .95) : clamp(.75 + pose.h * 1.7, .85, 1.45);
-      let bodyRadius = 0, span = 0;
-      let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius;
-      if (pose.branch && pose.revealBounds && pose.revealMatrix) {
+      let span = 0;
+      let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius, front = .08 * radius;
+      if (pose.revealBounds && pose.revealMatrix) {
         // A downhill body can sit below its foot plane. Protect only leaves
         // below its projected silhouette, and clear cover through its full
         // depth rather than stopping at the centre of the animal.
@@ -349,24 +349,28 @@ export class Renderer {
         for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
           point.set(x, y, z).applyMatrix4(pose.revealMatrix).sub(focus.uFocus.value);
           const along = point.dot(focus.uViewDir.value), height = point.dot(focus.uCamUp.value);
-          bottom = Math.min(bottom, height - .025); back = Math.min(back, along - .025);
-          span = Math.max(span, Math.sqrt(Math.max(0, point.lengthSq() - along * along)));
+          bottom = Math.min(bottom, height - .025); back = Math.min(back, along - .025); front = Math.max(front, along + .025);
+          if (pose.branch) span = Math.max(span, Math.sqrt(Math.max(0, point.lengthSq() - along * along)));
         }
-        bodyRadius = (span + .04) / .8;
-        radius = Math.max(radius, bodyRadius);
+        // the body's own box, a couple of centimetres larger, for what covers it (see focus.js)
+        const m = pose.revealMatrix, pad = .02 / Math.max(1e-4, Math.hypot(m.elements[0], m.elements[1], m.elements[2]));
+        focus.uFocusBoxM.value.copy(m).invert();
+        focus.uFocusBoxMin.value.copy(bounds.min).subScalar(pad); focus.uFocusBoxMax.value.copy(bounds.max).addScalar(pad);
       }
       if (this.eyeOn) radius = clamp(this.eye.size * 1.4, 0.22, 0.55); // (close to the lens, a narrower gap does)
       focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
-      focus.uFocusR.value = Math.max(focus.uFocusR.value, bodyRadius);
       focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
       focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
       focus.uFocusHalfW.value = Math.max(pose.h * 0.55, (pose.foot || 0) * 0.55, span);
+      focus.uFocusFront.value = Math.max(front, focus.uFocusHalfW.value); // (its depth, or half its size across if more)
       focus.uFocusInvD.value = this.eyeOn ? 1 / Math.max(0.05, this.eye.pos.distanceTo(pose.center)) : 0;
+      if (pose.trunk) focus.uFocusTrunk.value.set(pose.trunk[0], pose.trunk[1], pose.trunk[2]); else focus.uFocusTrunk.value.z = -1;
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
       focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
-      focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value;
+      focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value; focus.uFocusFront.value = .3;
+      focus.uFocusBoxM.value.makeTranslation(-ft.x, -focus.uFocus.value.y, -ft.y); focus.uFocusBoxMin.value.setScalar(-.3); focus.uFocusBoxMax.value.setScalar(.3); focus.uFocusTrunk.value.z = -1;
       focus.uFocusInvD.value = 0;
     }
   }
@@ -1288,7 +1292,7 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
       && random() < dt * 1.4 * st.gait) fx.push({ k: 'dust', x: a.x - Math.cos(st.yaw) * 0.25, z: a.y + Math.sin(st.yaw) * 0.25, y: st.y, life: 1.6, max: 1.6, s: (def.sprite.len || 20) / 36 });
     // a leaping salmon throws up a splash where it leaves the water and where it lands
     if (def.special === 'salmon' && wet) {
-      const jp = salmonLeap(a, this.time);
+      const jp = st.jp ?? -1; // (the leap actors.js drew: none while it holds still)
       if ((jp >= 0) !== !!st.leaping) {
         st.leaping = jp >= 0;
         const ahead = st.leaping ? 0 : 0.45, sx = a.x + Math.cos(st.yaw) * ahead, sz = a.y - Math.sin(st.yaw) * ahead;
@@ -1312,6 +1316,7 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
   }
   if (fx.length > 400) fx.splice(0, fx.length - 400);
   const z = this.zoom;
+  drawCatchPuffs(this, ctx, game, dt, random);
   for (let k = fx.length - 1; k >= 0; k--) {
     const p = fx[k];
     p.life -= dt;
@@ -1335,6 +1340,35 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     }
   }
 };
+
+// A fish eaten by another fish: a faint, dark red-brown cloud of a few soft blobs where it was
+// taken, drifting apart and fading in about a second and a half. The game keeps the last few
+// catches in a ring (game.js onPredation); the blobs live in a fixed pool, nothing is allocated.
+const PUFF = Array.from({ length: 30 }, () => ({ life: 0, max: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, r: 1 }));
+function drawCatchPuffs(r, ctx, game, dt, random) {
+  const c = game.fishCatches;
+  if (c && r.puffSeen !== c.n) {
+    for (let n = Math.max(r.puffSeen ?? c.n, c.n - 8); n < c.n; n++) {
+      const k = n % 8, st = r.actors.pose.get(c.id[k]), x = c.x[k], z = c.y[k];
+      const y = st?.y ?? (r.heightAtScene(x, z) + 0.3);
+      for (let b = 0, used = 0; b < PUFF.length && used < 6; b++) {
+        const p = PUFF[b]; if (p.life > 0) continue;
+        used++; p.max = p.life = 1.2 + random() * 0.8; p.x = x; p.y = y; p.z = z; p.r = 0.6 + random() * 0.6;
+        p.vx = (random() - 0.5) * 0.35; p.vz = (random() - 0.5) * 0.35; p.vy = 0.02 + random() * 0.06;
+      }
+    }
+    r.puffSeen = c.n;
+  }
+  for (const p of PUFF) {
+    if (p.life <= 0) continue;
+    p.life -= dt; if (p.life <= 0) continue;
+    p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt; p.vx *= 1 - dt * 1.5; p.vz *= 1 - dt * 1.5;
+    if (!r.actors.view.visible(p.x, p.y, p.y, p.z, 1)) continue;
+    const f = 1 - p.life / p.max, d = r.project(p.x, p.y, p.z), s = (3 + f * 9) * p.r * Math.max(0.6, r.zoom);
+    ctx.fillStyle = `rgba(92,38,30,${(0.32 * Math.min(1, f * 6) * (1 - f)).toFixed(3)})`;
+    ctx.beginPath(); ctx.ellipse(d.x, d.y, s, s * 0.8, 0, 0, 7); ctx.fill();
+  }
+}
 
 // Night-time glimpses, in the blue dusk and before dawn: fireflies drifting and blinking over
 // meadows and marshes (Hollis in summer, the Amazon all year), and eye-shine from the animals
