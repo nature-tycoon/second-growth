@@ -69,6 +69,11 @@ Measured headless (`hollis-soak`, below) before changing anything.
   mostly under 1.5 m), lowered until the pond covers no more than `DAM_CELLS` 60 tiles (0.4 ha at
   8 m tiles). The channel behind it, drowned 0.12 levels or more over its usual flow, is pond (its
   base stays creek); land deeper than `DAM_POND_DEPTH` 0.15 (36 cm) is open water, shallower is marsh.
+  Where even a 0.15 dam would spread past `DAM_CELLS` (flat ground level with the bed: Hollis's
+  55,45 once flooded 1,300 tiles) `damCrest` is null and beavers don't build there. A standing
+  dam's crest is rechecked on every rebuild and lowered if the ground round it has changed so the
+  pond would spread past `DAM_CELLS` (one grew 95 to 131 tiles in 15 years before this); a dam
+  from an old save on such flat ground holds a low pool cut off at `DAM_CELLS` tiles.
 - **Where beavers build** (`damSiteOK`): a slow stretch where the pond would cover at least
   `SITE_WET` 15 tiles with `SITE_OPEN` 5 of open water (steep riffles are passed over), no other dam
   within `DAM_GAP` 9 tiles and not inside another dam's pond (so a creek with several colonies is a
