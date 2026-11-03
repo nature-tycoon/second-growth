@@ -1462,12 +1462,30 @@ export class Wildlife {
     if (d > 0.02 && sp > 0) { const h = steerAround(this.game.world, a, def, Math.atan2(dy, dx), Math.min(d, 1.6)); dx = Math.cos(h) * d; dy = Math.sin(h) * d; }
     if (d > 0.02 && sp > 0) facePoint(a, a.x + dx, a.y + dy);
     if (Math.abs(dx) > 0.02) a.facing = dx > 0 ? 1 : -1;
-    const step = Math.min(d, sp), nx = d ? a.x + dx / d * step : a.x, ny = d ? a.y + dy / d * step : a.y;
+    const step = Math.min(d, sp);
+    let nx = d ? a.x + dx / d * step : a.x, ny = d ? a.y + dy / d * step : a.y;
     if (this.game.catalog.animals[a.sp].reef && !reefMoveSafe(this.game.world, a, nx, ny)) return false;
     // (a river fish keeps to water it can swim in: it may only move into the shallows to get out of them)
-    if (a.move === 'swim' && !def.reef) {
-      const w = this.game.world, here = swimDepth(w, a.x, a.y), there = swimDepth(w, nx, ny);
-      if (there < FISH_DEPTH && there <= here) return false;
+    if (a.move === 'swim' && !def.reef && d > 0) {
+      const w = this.game.world, here = swimDepth(w, a.x, a.y), swims = (x, y) => { const t = swimDepth(w, x, y); return t >= FISH_DEPTH || t > here; };
+      if (!swims(nx, ny)) {
+        // it follows the channel round a shallow bar: the nearest heading either side that keeps to
+        // swimmable water. Held up half a day all the same (a creek running downhill is a staircase
+        // of pools, shallow at each lip: swimDepth), it hops the lip to the first swimmable water
+        // within a third of a tile ahead, as trout and salmon leap a riffle; it never rests in the
+        // shallows, where steering.js would put it back in the pool behind. Without this, fish
+        // pressed against one lip for years and the ones behind piled up at it.
+        const h0 = Math.atan2(dy, dx), ux = Math.cos(h0), uy = Math.sin(h0);
+        let found = false;
+        if (a.moveProgress?.stalled > 0.5) for (let t = step; !found && t <= Math.max(step, 0.35); t += 0.05) {
+          if (swimDepth(w, a.x + ux * t, a.y + uy * t) >= FISH_DEPTH) { nx = a.x + ux * t; ny = a.y + uy * t; found = true; }
+        }
+        for (let k = 0; !found && k < 6; k++) {
+          const turn = (k >> 1) * 0.5 + 0.5, x = a.x + Math.cos(h0 + (k & 1 ? -turn : turn)) * step, y = a.y + Math.sin(h0 + (k & 1 ? -turn : turn)) * step;
+          if (swims(x, y)) { nx = x; ny = y; found = true; }
+        }
+        if (!found) return false;
+      }
     }
     if (a.move !== 'fly' && !swimmer(a, this.game.catalog) && !a.leaving) {
       const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);

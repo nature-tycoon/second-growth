@@ -205,3 +205,13 @@ holds 0.1 to 0.4 days after arriving, always noses on to a nearby spot it could 
 own tile is best, and otherwise holds 0.15 to 0.5 days (`riverFish` in `chooseTarget`). Pond
 fish in a small pond still keep to it. `node tools/river-fish-roam-probe.mjs [maps]`: stuck
 2-day windows (all positions within 1.5 tiles) on pnw, cutthroat 57% to 27%, coho 60% to 17%.
+
+A creek running downhill is a staircase of pools: within each tile `swimDepth` deepens downstream
+and drops to a few centimetres at the next tile's lip. `stepToward` refused any step into water
+under `FISH_DEPTH`, and `steering.js` snaps a fish in the shallows back to deep water, so fish
+pressed against one lip for years and the ones behind piled up (pnw: all 10 coho on 3 tiles after
+2 years). Now a river fish blocked by shallows first tries headings either side that keep to
+swimmable water. Held up half a day, it hops the lip to the first swimmable water within 0.35
+tiles ahead, so it never rests in the shallows (`fish-water-check`: 0 too-shallow samples on every
+map). `node tools/river-fish-spread-probe.mjs [map] [years]`: coho after 2 years on 10 tiles,
+spread about 20 tiles, through 4 years.
