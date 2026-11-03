@@ -76,6 +76,15 @@ Species traits live in `behaviorFor` (`js/data/animal-behavior.js`), one place f
   `k * 1` and down at `k * 0.3`, so a run of trees is one swell, not a pop and a drop per crown
   (2026-11-02; a followed bird looked glitchy). `flight-canopy-check` measures the `jolt` (change
   of climb rate per frame, limit 0.4 at the 99th percentile; it was 0.37 to 0.82 before).
+  The drawn height of every bird then moves like a body (`easeBirdHeight`): a climb rate that
+  builds and fades (acceleration 9 tiles/s²) and is capped at 1.4 + 1.1 × its ground speed tiles/s,
+  so take-off, the climb over the crowns and the drop to a perch are slants, not pops (a followed
+  robin rose and fell up to 1.6 tiles in one frame). A bird taking off flies out through its own
+  crown for about half a second; `flight-canopy-check` allows 0.6 s (`TAKEOFF`). A bird leaving or
+  reaching a trunk or snag top glides between the bark and its flight position over about half a
+  second (`st.offX`/`offZ`). `node tools/follow-height-probe.mjs [map] [species]` measures height
+  change and jolt per frame for followed animals. Salmon leap only while running (`st.leapOk`, by
+  their drawn swimming pace); one holding still stays under, and the splash reads `st.jp`.
 
 ## Gotchas
 

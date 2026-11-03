@@ -90,3 +90,21 @@ export function coralFloor(w, plants, a, def) {
   }
   return top + 0.02 + size * 0.006;
 }
+
+// The drawn height of a bird moves like a body, not a number easing to its target: a vertical
+// speed that builds and fades (no step in its climb rate) and is capped at a slant to how fast it's
+// travelling, so taking off from a perch, rising over the crowns or dropping in to land is a
+// sloping swoop, not a pop. Every bird (and bat) shares it. `rate` (per second) is how hard it
+// heads for the target, `speed` its travel over the ground (tiles a second), dt the frame's seconds.
+// Returns the new height; keeps its climb rate in st.birdVy.
+export const CLIMB_BASE = 1.4, CLIMB_SLOPE = 1.1, CLIMB_ACCEL = 9;
+export function easeBirdHeight(st, y, rate, speed, dt) {
+  if (!(dt > 0)) return st.birdY;
+  const cap = CLIMB_BASE + CLIMB_SLOPE * Math.min(4, speed);
+  const want = Math.max(-cap, Math.min(cap, (y - st.birdY) * rate));
+  const vy = st.birdVy || 0, dv = CLIMB_ACCEL * dt;
+  st.birdVy = vy + Math.max(-dv, Math.min(dv, want - vy));
+  let next = st.birdY + st.birdVy * dt;
+  if ((y - st.birdY) * (y - next) < 0) { next = y; st.birdVy = 0; } // (arrived: no overshoot)
+  return next;
+}

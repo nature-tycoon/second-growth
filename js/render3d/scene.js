@@ -18,7 +18,7 @@ import { animalDef, isMale } from '../data/animals.js';
 import { Terrain, buildAtlas, waterSurfaceY } from './terrain.js';
 import { Flora, windGust, floraVersion } from './flora.js';
 import { Pollinators } from './pollinators.js';
-import { Actors, salmonLeap } from './actors.js';
+import { Actors } from './actors.js';
 import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
@@ -1292,7 +1292,7 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
       && random() < dt * 1.4 * st.gait) fx.push({ k: 'dust', x: a.x - Math.cos(st.yaw) * 0.25, z: a.y + Math.sin(st.yaw) * 0.25, y: st.y, life: 1.6, max: 1.6, s: (def.sprite.len || 20) / 36 });
     // a leaping salmon throws up a splash where it leaves the water and where it lands
     if (def.special === 'salmon' && wet) {
-      const jp = salmonLeap(a, this.time);
+      const jp = st.jp ?? -1; // (the leap actors.js drew: none while it holds still)
       if ((jp >= 0) !== !!st.leaping) {
         st.leaping = jp >= 0;
         const ahead = st.leaping ? 0 : 0.45, sx = a.x + Math.cos(st.yaw) * ahead, sz = a.y - Math.sin(st.yaw) * ahead;

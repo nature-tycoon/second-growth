@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, drawLooks, animalDef, maleLook } from '../data/animals.js';
 import { roostingNow } from '../data/animal-activity.js';
-import { clearCanopy, coralFloor } from './flight-clearance.js';
+import { clearCanopy, coralFloor, easeBirdHeight } from './flight-clearance.js';
 import { strideFollowsGround } from './stride.js';
 const CLEAR = { floor: -Infinity, clearing: false }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
@@ -194,7 +194,8 @@ export class Actors {
     };
 
     // ---- wildlife
-    const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
+    const frameDt = Math.min(0.1, Math.max(0, this.lastT != null ? time - this.lastT : 0.016));
+    const F = this.fauna, k = Math.min(1, frameDt * 6);
     this.lastT = time; this.frameNo++;
     const persp = perspectiveScale(camera, viewportHeight);
     F.begin(pixelsPerUnit(camera, viewportHeight), persp && { x: camera.position.x, y: camera.position.y, z: camera.position.z, scale: persp });
@@ -324,8 +325,16 @@ export class Actors {
         // half way in the shallows, so it never sinks into the bank where the water thins out)
         const room = surf != null ? surf - groundAt(w, a.x, a.y) * LEVEL : 0; // (the ground on the drawn triangles)
         y = surf != null ? surf - Math.max(0, Math.min(0.05 + mo.sink * sc, room * 0.5)) : ground;
-        // running salmon leap: every few seconds one arcs clear of the water, nose up then down
-        const jp = def.special === 'salmon' && surf != null ? salmonLeap(a, time) : -1;
+        // running salmon leap: every few seconds one arcs clear of the water, nose up then down,
+        // only while it's making its way along the river: one holding in a pool or in the current
+        // stays under (it decides between leaps, so a leap under way always finishes)
+        let jp = def.special === 'salmon' && surf != null ? salmonLeap(a, time) : -1;
+        if (def.special === 'salmon') {
+          st.swimPace = (st.swimPace || 0) + (Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, frameDt) - (st.swimPace || 0)) * Math.min(1, k);
+          if (jp < 0) st.leapOk = a.state !== 'idle' && st.swimPace > 0.15;
+          if (!st.leapOk) jp = -1;
+        }
+        st.jp = jp;
         if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.3 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
       }
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
@@ -370,13 +379,15 @@ export class Actors {
       // A bird's height eases between flight, the treetops it clears and its perch, rather than
       // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
       if (def.move === 'fly' && !def.reef && !a.passing) {
-        if (st.birdY == null || returning || st.sc == null) st.birdY = y;
+        if (st.birdY == null || returning || st.sc == null) { st.birdY = y; st.birdVy = 0; }
         // (in full flight it rises over the crowns ahead at an easy climb and sinks back slower
-        // still, so a run of trees of different heights is one smooth swell, not a bob per crown)
-        else st.birdY += (y - st.birdY) * Math.min(1, k * (CLEAR.clearing && st.fly > 0.9 ? (y > st.birdY ? 1 : 0.3) : 1.4));
-        // (a bird in full flight climbs out of a crown it finds itself in fast, about 12 tiles a
+        // still, so a run of trees of different heights is one smooth swell, not a bob per crown;
+        // every change of height is a slant capped by its speed: easeBirdHeight)
+        else st.birdY = easeBirdHeight(st, y, 6 * (CLEAR.clearing && st.fly > 0.9 ? (y > st.birdY ? 1 : 0.3) : 1.2),
+          Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, frameDt), frameDt);
+        // (a bird in full flight climbs out of a crown it finds itself in quickly, about 8 tiles a
         // second, but doesn't jump; taking off, it climbs out of its own tree at the usual ease)
-        if (st.fly > 0.9 && st.birdY < CLEAR.floor) st.birdY = Math.min(CLEAR.floor, st.birdY + 2 * k);
+        if (st.fly > 0.9 && st.birdY < CLEAR.floor) { st.birdY = Math.min(CLEAR.floor, st.birdY + 8 * frameDt); st.birdVy = Math.max(st.birdVy, 0); }
         y = st.birdY;
       }
       const perched = def.move === 'tree' || (def.move === 'fly' && !a.birdGround && !flying && inside && !!w.tree[i]);
@@ -442,6 +453,20 @@ export class Actors {
       } else {
         if (snagTop) [ax, az] = snagTop;
         if (def.move === 'fly' && st.pitch) st.pitch += (0 - st.pitch) * Math.min(1, k * 2);
+      }
+      // (a bird letting go of a trunk or a snag's top, or landing on one, swoops between the bark
+      // and where it flies rather than jumping there: the gap fades over about half a second)
+      if (def.move === 'fly' && !def.reef) {
+        const anchor = cling ? 1 : snagTop ? 2 : 0;
+        if (!returning && st.anchor != null && anchor !== st.anchor && st.drawnX != null) { st.offX = (st.offX || 0) + st.drawnX - ax; st.offZ = (st.offZ || 0) + st.drawnZ - az; }
+        if (returning) st.offX = st.offZ = 0;
+        st.anchor = anchor;
+        if (st.offX || st.offZ) {
+          const fade = Math.exp(-frameDt * 6); st.offX *= fade; st.offZ *= fade;
+          if (Math.abs(st.offX) + Math.abs(st.offZ) < 1e-3) st.offX = st.offZ = 0;
+          ax += st.offX; az += st.offZ;
+        }
+        st.drawnX = ax; st.drawnZ = az;
       }
       // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
       // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).

@@ -103,11 +103,16 @@ check('Offscreen orangutans follow fresh canopy heights and moving positions, in
 });
 check('Swimming and leaping fish follow current rendered depths rather than the riverbed', () => {
   const { game, r } = setup('pnw'), a = game.wildlife.spawn(ANIMAL.coho, 30, 30, { silent: true });
-  game.world.terrain[game.world.idx(30, 30)] = T.CREEK; game.selectedAgent = a; r.followAgent = a;
+  for (let x = 28; x <= 34; x++) game.world.terrain[game.world.idx(x, 30)] = T.CREEK;
+  game.selectedAgent = a; r.followAgent = a;
+  // (holding still in the water it stays under: salmon leap only while running, actors.js)
+  const still = [];
+  for (let k = 0; k < 40; k++) { a.state = 'idle'; frame(game, r, k * 0.1); verify(game, r, a, `salmon still/${k}`); still.push(r.target.y); }
+  assert.ok(Math.max(...still) - Math.min(...still) < 0.05, 'a salmon holding still does not leap');
+  // (swimming up the creek, a leap clears the water by up to 0.3 tile-heights: the camera rises with it)
   const heights = [];
-  for (let k = 0; k < 40; k++) { frame(game, r, k * 0.1); verify(game, r, a, `salmon/${k}`); heights.push(r.target.y); }
-  // (a leap clears the water by up to 0.3 tile-heights, actors.js: the camera rises with it)
-  assert.ok(Math.max(...heights) - Math.min(...heights) > 0.2);
+  for (let k = 0; k < 40; k++) { a.state = 'walk'; a.x = 28.5 + k * 0.1; frame(game, r, 4 + k * 0.1); verify(game, r, a, `salmon/${k}`); heights.push(r.target.y); }
+  assert.ok(Math.max(...heights) - Math.min(...heights) > 0.2, 'a running salmon leaps');
   dispose(r);
 });
 check('Panning and zooming away from a canopy animal do not jump down to its ground tile', () => {
