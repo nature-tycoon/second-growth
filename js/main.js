@@ -38,7 +38,7 @@ async function boot() {
     // analytics first, so events from a game started on load (after a map switch) aren't lost
     initAnalytics();
     const game = new Game();
-    game.newGame(1987, 'free', 'standard', pending?.map || Game.lastMap());
+    game.newGame(1987, 'free', 'standard', pending?.map || Game.lastMap(), pending?.runSeed ?? Game.randomRunSeed());
     game.speed = 0; // paused until the player chooses Start or Continue
     stage('Growing the landscape', 52);
     await nextPaint();
@@ -69,12 +69,12 @@ async function boot() {
     });
 
     if (pending?.resume) {
-      if (!await game.load(pending.map)) { game.newGame(1987, 'free', 'standard', pending.map); setTimeout(() => game.notify('That saved farm could not be opened. Your stored saves have been kept. Choose a new game to start over.', 'warn'), 1500); }
+      if (!await game.load(pending.map)) { game.newGame(1987, 'free', 'standard', pending.map, Game.randomRunSeed()); setTimeout(() => game.notify('That saved farm could not be opened. Your stored saves have been kept. Choose a new game to start over.', 'warn'), 1500); }
       else {
         track('game_start', { mode: 'continue', saved_mode: game.mode, map: game.map, difficulty: game.difficulty, game_year: game.year });
         game.notify(`Welcome back. It's ${game.dateString()}.`, 'season');
       }
-    } else if (pending) await ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map);
+    } else if (pending) await ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map, pending.runSeed);
     else {
       // Choose a place and mode (or resume) before entering the farm. Escape and
       // backdrop clicks cannot start an unchosen farm or make it save-ready.

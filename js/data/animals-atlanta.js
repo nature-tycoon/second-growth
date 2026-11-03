@@ -194,7 +194,7 @@ export default function buildAtlantaAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, SHRUB: 1, YOUNG_FOREST: 0.5, RIPARIAN: 0.5, FARM: 0.25, INVASIVE: 0.5, DEVELOPED: 0.02 });
-    def({ key: 'cottontail', name: 'Eastern cottontail', sci: 'Sylvilagus floridanus', group: 'Mammals', move: 'ground',
+    def({ key: 'cottontail', kg: 1.2, name: 'Eastern cottontail', sci: 'Sylvilagus floridanus', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 14, max: 22, sources: ['W', 'E', 'N'], mig: 0.4, breed: [0, 1, 2, 3, 4, 5], litter: [2, 4], life: 3, mature: 0.3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.3),
       sprite: { kind: 'rabbit', len: 18, color: '#8a7050', belly: '#d8ccb4', show: 1.4 },
@@ -231,7 +231,7 @@ export default function buildAtlantaAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 0.8, SHRUB: 1, RIPARIAN: 0.9, MEADOW: 0.7, FARM: 0.1, INVASIVE: 0.3 });
-    def({ key: 'deer', herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'White-tailed deer', sci: 'Odocoileus virginianus', group: 'Mammals', move: 'ground',
+    def({ key: 'deer', kg: 60, herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'White-tailed deer', sci: 'Odocoileus virginianus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 50, max: 10, minK: 1.5, groupSize: [1, 3], sources: ['N', 'S'], mig: 0.35, breed: [2, 3], litter: [1, 2], life: 10,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 4, 0.3) * (0.6 + 0.4 * Math.min(1, W.browse[i])),
       sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#9a7250', belly: '#e8dcc4', dark: '#3a2c20',

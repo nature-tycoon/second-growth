@@ -58,7 +58,7 @@ for (const biome of BIOME_LIST) {
       let emptyTrips = 0;
       for (let k = 0; k < 24; k++) {
         a.x = a.y = 30.5;
-        assert.ok(wl.roam(a, def));
+        assert.ok(wl.roam(a, def), `${biome.id}/${def.key}: roams`);
         if (a.trip === empty) emptyTrips++;
       }
       if (emptyTrips < 20) crowded++;

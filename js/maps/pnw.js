@@ -20,6 +20,7 @@ export default {
   animals: buildPnwAnimals,
   goals: PNW_GOALS,
   generate: generateFarm,
+  stones: 0.05, // the odds loosening the soil turns up stones on a tile (0035): glacial outwash and till: the valley floor is full of cobbles
   borderCell: pnwBorderCell,
   startWildlife: [['vole', 6, 90, 14, 8], ['robin', 3, 25, 24, 6], ['raccoon', 1, 33, 22, 4], ['mallard', 2, 93, 37, 2], ['treefrog', 5, 93, 37, 4]],
   startText: 'Spring, Year 1. The farm is quiet: a few voles, robins and a pair of mallards on the stock pond. Let\'s change that.',
@@ -44,6 +45,16 @@ export default {
   // How strongly herds of grazers and browsers hold woody seedlings back in the grass they use
   // (sim/grazing.js): elk and deer keep the valley's meadows open where they feed.
   grazing: 1,
+  recruitment: { cndd: 0.3 }, // (0028 §3: conspecific negative density dependence; stronger in the tropics)
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // Winter gales off the Pacific throw trees on soaked ground, and laminated root rot, a native
+  // fungus, kills Douglas-firs in slowly spreading patches that other trees then hold for decades.
+  disturbance: {
+    storms: [{ name: 'A winter windstorm', months: [7, 8, 9, 10, 11], perYear: 1.5, patch: [6, 500], severity: 0.8 }],
+    pathogen: { host: ['fir'], perYear: 2, spread: 0.03, kill: 0.1,
+      news: 'Root rot. Laminated root rot, a native fungus in the soil, is killing Douglas-firs here. It spreads slowly from root to root through the firs, leaving a growing patch of dead and fallen trees. Hemlock, redcedar, alder and maple resist it, so they take the patch over, and fir comes back decades later once the fungus dies out in the old roots.',
+      note: 'Laminated root rot is in the roots here. It kills Douglas-firs and spreads to the firs beside them. Other trees resist it, so this patch will grow up in hemlock, redcedar and hardwoods for a generation.' },
+  },
   climate: {
     seasons: ['Spring', 'Summer', 'Autumn', 'Winter'],
     rain: [0.45, 0.35, 0.3, 0.2, 0.08, 0.08, 0.2, 0.45, 0.6, 0.65, 0.65, 0.55],
@@ -64,11 +75,14 @@ export default {
   // seeds drifting in from each side of the property
   seedRain: {
     N: ['fir', 'hemlock', 'cedar', 'alder', 'swordfern', 'salal', 'vinemaple', 'salmonberry'],
-    E: ['alder', 'maple', 'fir', 'salmonberry', 'snowberry', 'swordfern', 'elderberry'],
+    // (the north edge is dry upland, too dry for hemlock and redcedar to take; the moister woods to the east hold them too)
+    E: ['alder', 'maple', 'fir', 'hemlock', 'cedar', 'salmonberry', 'snowberry', 'swordfern', 'elderberry'],
     W: ['blackberry', 'blackberry', 'broom', 'canarygrass'],
     S: ['willow', 'cottonwood', 'alder', 'canarygrass', 'dogwood', 'sedge'],
   },
-  windSeeds: ['fireweed', 'cottonwood'],
+  // and the woods to the north and east rain their trees' seed in all along those edges (0028 §6)
+  forestRain: { N: 0.005, E: 0.005 }, // (Cole, 2026-10-23: halved, so the edges fill over 25-30 years and Second growth stays earned)
+  windSeeds: ['fireweed', 'cottonwood', 'birch'],
   berrySeeds: ['salmonberry', 'elderberry', 'snowberry', 'rose', 'salal', 'oregongrape', 'blackberry'],
   floodSeeds: ['willow', 'cottonwood', 'sedge', 'canarygrass', 'alder'],
   burnSeeds: ['fireweed', 'fireweed', 'wildrye', 'fescue', 'lupine', 'yarrow'],
@@ -83,6 +97,7 @@ export default {
     crownOut: 'Fireweed, lupine and grasses will turn the burn into meadow for years before trees return, and woodpeckers love the snags.',
   },
   look: {
+    skyHaze: 0.15, // the clear-day sky at eye level: clean, cool air (0..1, see SKY_DEEP in scene.js)
     // colour grade: fresh and a touch cool, crisp rather than misty
     grade: { gain: [0.985, 1.0, 1.02], lift: [0.003, 0.005, 0.008], sat: 1.03, contrast: 1.05 },
     pasture: ['#a2b56a', '#abb26c', '#a9a46c', '#8c976a'],
@@ -96,6 +111,10 @@ export default {
     ],
     // falling leaves, seed fluff and mist (0..1 per season), and the flocks that pass over
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): western tiger swallowtail, mourning cloak, yellow-faced bumblebee
+      pollinators: [{ sprite: { kind: 'butterfly', size: 10, color: '#f0cc2a', vein: '#1a1612', spots: '#3a6ad0', tails: true, show: 1.48 }, w: 2 },
+        { sprite: { kind: 'butterfly', size: 9, show: 1.6, plain: true, color: '#4a2626', vein: '#e8d890', edge: 0.08 }, w: 1 },
+        { sprite: { kind: 'bee', size: 5, color: '#e8c02a', dark: '#1a1612', show: 1.32 }, w: 4 }],
       leaves: [0, 0.05, 1, 0.08], fluff: [0.55, 1, 0.3, 0], mist: [0.3, 0, 0.45, 0.55],
       leafColors: ['#d89a2a', '#c8602a', '#e0b83a', '#a8482a', '#b8903a'],
       flocks: [['geese', 'geese', 'songbirds', 'swallows'], ['swallows', 'songbirds'], ['geese', 'geese', 'songbirds'], ['geese', 'songbirds']],

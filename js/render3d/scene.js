@@ -1,5 +1,5 @@
 // The isometric 3D view: an orthographic camera over a lit, shadowed heightmap diorama.
-// A transparent 2D canvas on top carries weather, pollinators, sparkles and labels.
+// A transparent 2D canvas on top carries weather, sparkles and labels.
 
 import { easeAnimalTarget } from './animal-camera.js';
 import { EyeCamera, EYE_FAR, EYE_FOG_NEAR, WATER_FAR } from './eye-camera.js';
@@ -17,6 +17,7 @@ import { BORDER, LEVEL, T, H, isWater, clamp, SPEEDS } from '../config.js';
 import { animalDef, isMale } from '../data/animals.js';
 import { Terrain, buildAtlas, waterSurfaceY } from './terrain.js';
 import { Flora, windGust, floraVersion } from './flora.js';
+import { Pollinators } from './pollinators.js';
 import { Actors, salmonLeap } from './actors.js';
 import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
@@ -81,10 +82,18 @@ const BASE_PPU = 46; // screen pixels per scene unit at zoom 1
 // The eye-level sky's colours (linear), before the time of day and the weather tint and dim them:
 // overhead and at the horizon on a clear day, and the grey of an overcast and a stormy sky.
 const SKY_TOP = new THREE.Color(0.15, 0.34, 0.76), SKY_LOW = new THREE.Color(0.6, 0.71, 0.84);
+// A clear day under a high sun: the deep blue overhead that air scatters (Rayleigh) and the paler,
+// milkier band at the horizon. SKY_BLUE is how far toward them (0..1); a map's look.skyHaze
+// (0 dry and clear .. 1 humid) holds the blue back and whitens the horizon.
+const SKY_DEEP = new THREE.Color(0.025, 0.12, 0.56), SKY_PALE = new THREE.Color(0.66, 0.75, 0.86), SKY_MILK = new THREE.Color(0.74, 0.78, 0.82);
+const SKY_BLUE = 0.7;
 const GREY = new THREE.Color(0.5, 0.53, 0.56), STORM = new THREE.Color(0.25, 0.27, 0.3);
-const skyTint = new THREE.Color(), skyGrey = new THREE.Color();
+const skyTint = new THREE.Color(), skyGrey = new THREE.Color(), skyTop = new THREE.Color(), skyLow = new THREE.Color();
 const NO_MOVE = { fwd: 0, side: 0, turn: 0, run: false };
-const FLORA_REGIONS_PER_FRAME = 1; // plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild)
+// Plant regions rebuilt per frame after a day's growth or a new season (see Flora.rebuild): at least
+// one, and more while the frame's plant work stays under FLORA_FRAME_MS. Regions are 24 tiles across
+// (Flora's chunkSize), so a slow computer's one region a frame stays a short pause (decision 0038).
+const FLORA_REGIONS_PER_FRAME = 1, FLORA_FRAME_MS = 4;
 // a phone or tablet (no mouse)
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
@@ -160,7 +169,7 @@ export class Renderer {
     this.ui.className = 'ph-no-capture'; // never filmed by session replays (it redraws every frame)
     document.body.insertBefore(this.ui, canvas.nextSibling);
     this.ux = this.ui.getContext('2d');
-    this.particles = []; this.weatherParticles = [];
+    this.pollinators = new Pollinators(); this.weatherParticles = [];
     this.ambience = new Ambience();
     this.lightTarget = { sun: new THREE.Color(), sky: new THREE.Color(), ground: new THREE.Color() };
     this.todClock = DAY_CYCLE * 0.45; // start in the afternoon, so the first evening comes after a couple of minutes
@@ -210,6 +219,8 @@ export class Renderer {
 
   // Kills' skeletons and their shader, prepared in idle moments (see Actors.warmRemains).
   warmRemains(game) { this.actors.warmRemains(game, this.gl, this.camera, this.scene, () => `${this.gl.shadowMap.enabled}:${this.sun.castShadow}`); }
+  // Every animal kind's models and shader, prepared in idle moments (see Actors.warmAnimals).
+  warmAnimals(game) { this.actors.warmAnimals(game, this.gl, this.camera, this.scene); }
 
   // Phones and older laptops vary enormously, so the view sets its own resolution: it steps down
   // while the frame rate is low and creeps back up once there's room again, never above the
@@ -575,19 +586,25 @@ export class Renderer {
     const light = (0.3 + 0.7 * Math.min(1, tod.sun)) * (1 - 0.82 * night) * (1 - 0.35 * W.storm);
     skyTint.copy(this.hemi.color).lerp(tod.skyCol, 0.5);
     skyGrey.copy(GREY).lerp(STORM, W.storm);
-    const horizon = fog.color.copy(SKY_LOW).multiply(skyTint).lerp(skyGrey, grey).multiplyScalar(light);
+    // (only a clear day with the sun well up: dawn, dusk, night, cloudy days and storms get exactly
+    // the colours they had, since clear is 0 for them)
+    const haze = game.catalog.definition.look.skyHaze ?? 0.3, blue = this.skyBlue ?? SKY_BLUE;
+    const clear = clamp(1 - 1.7 * grey, 0, 1) * (1 - W.storm) * (1 - night) * clamp((tod.el - 24) / 20, 0, 1), clearDay = clear * blue;
+    skyLow.copy(SKY_LOW).lerp(SKY_PALE, clearDay).lerp(SKY_MILK, clearDay * haze * 0.6);
+    skyTop.copy(SKY_TOP).lerp(SKY_DEEP, clearDay * (1 - 0.55 * haze));
+    const horizon = fog.color.copy(skyLow).multiply(skyTint).lerp(skyGrey, grey).multiplyScalar(light);
     // (a low sun warms the haze a little all round, as the sky's glow by the sun does)
     horizon.lerp(this.sun.color, 0.18 * clamp((30 - tod.el) / 20, 0, 1) * (1 - grey));
     const zenith = this.skyTop || (this.skyTop = new THREE.Color());
-    zenith.copy(SKY_TOP).multiply(skyTint).lerp(skyGrey, grey * 0.9).multiplyScalar(light * (1 - 0.5 * night));
+    zenith.copy(skyTop).multiply(skyTint).lerp(skyGrey, grey * 0.9).multiplyScalar(light * (1 - 0.5 * night));
     this.scene.background = horizon;
     const sunDir = this.skySun || (this.skySun = new THREE.Vector3());
     sunDir.copy(this.sunOffset).normalize();
     const cam = this.eye.camera;
     this.eyeSky.update({
-      cam, forward: this.eye.forward, t: this.time, dt, horizon, zenith, sunDir, sunCol: this.sun.color,
+      cam, forward: this.eye.forward, t: this.time, dt, horizon, zenith, clear, sunDir, sunCol: this.sun.color,
       sunLight: clamp(this.sun.intensity / 2.6, 0, 1.4), sunUp: clamp(tod.el / 54, 0, 1), night, cover, storm: W.storm,
-      rain: this.terrain.rain.value, snow: W.snow, flash: this.lightning.flash,
+      rain: this.terrain.rain.value, snow: W.snow, flash: this.lightning.flash, lat: game.catalog.definition.lat,
       px: perspectiveScale(cam, this.vh) * this.dpr,
     });
   }
@@ -839,6 +856,7 @@ export class Renderer {
     if (w.hv !== this.terrain.hv) { this.terrain.updateHeights(); surface = flora = true; }
     this.frameN = (this.frameN || 0) + 1;
     if (game.day !== this.lastDay) { this.lastDay = game.day; this.dayDirty = this.frameN; flora = true; this.terrain.refreshWater(); this.terrain.refreshFlood(); }
+    else if (game.dayRun && this.dayDirty) this.dayDirty = this.frameN; // (and wait while the day is still being worked through: Game.update)
     // A new day repaints the ground and rebuilds the plants. They wait a frame or two so they don't
     // land in the same frame as the day's simulation and each other (a visible hitch), and at fast
     // speeds the ground repaints at most four times a second.
@@ -871,9 +889,10 @@ export class Renderer {
     const continuing = this.flora.waitingRegions?.size > 0;
     const growthReady = !surface && this.frameN > (this.dayDirty || 0) && now - this.lastFlora > (light ? (pace >= SPEEDS[2] ? 1200 : 400) : pace >= SPEEDS[3] ? 400 : 150);
     if (this.floraPending && (swapped || this.floraEditPending || continuing || growthReady)) {
-      if (!this.flora.rebuild(game, false, swapped ? Infinity : FLORA_REGIONS_PER_FRAME)) {
-        this.lastFlora = now; this.floraPending = false; this.floraEditPending = false;
-      }
+      const at = performance.now();
+      let more = this.flora.rebuild(game, false, swapped ? Infinity : FLORA_REGIONS_PER_FRAME);
+      while (more && !swapped && this.flora.waitingRegions?.size && performance.now() - at < FLORA_FRAME_MS) more = this.flora.rebuild(game, false, FLORA_REGIONS_PER_FRAME);
+      if (!more) { this.lastFlora = now; this.floraPending = false; this.floraEditPending = false; }
     }
   }
 
@@ -955,6 +974,8 @@ export class Renderer {
     // how "night" it is: the blue dusk through to just before dawn (for fireflies, eye-shine, owls)
     const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
     this.night = ss(0.872, 0.893, todU) * (1 - ss(0.93, 0.95, todU)); // full night (see NIGHT_PACE for how long it lasts)
+    // night animals (bats) are out from sunset to just before dawn; with the day cycle off, always
+    this.nightOut = this.dayCycleOn === false ? 1 : ss(0.845, 0.875, todU) * (1 - ss(0.955, 0.975, todU));
     this.dawn = todU > 0.97 || todU < 0.1 ? 1 - Math.min(1, Math.abs(((todU + 0.03) % 1) - 0.03) / 0.07) : 0;
     T.sun.lerp(tod.sunCol, tod.sunAmt); T.sky.lerp(tod.skyCol, tod.skyAmt);
     // (how high the sun stands, not how strong it shines: the golden-hour sun is strong but low)
@@ -1002,7 +1023,12 @@ export class Renderer {
     this.terrain.sky.value.copy(this.hemi.color);
     const r = this.right();
     this.actors.clean = !!ui.clean;
+    this.actors.nightOut = this.nightOut;
     this.actors.followAgent = this.followAgent || this.eyeAgent;
+    // bees and butterflies over the flowers in view (pollinators.js), drawn with the animals
+    this.pollinators.update(game, dt, this.eyeOn ? [this.eye.pos.x - 8, this.eye.pos.x + 8, this.eye.pos.z - 8, this.eye.pos.z + 8] : this.viewTiles(),
+      this.weatherOn !== false && (this.eyeOn || this.zoom > 0.5));
+    this.actors.pollinators = this.pollinators;
     this.actors.update(game, this.eyeOn ? this.eye.right : r, this.time, this.eyeOn ? this.eye.camera : this.camera, this.vh);
     this.updateLightning(dt, game);
     this.updateEye(dt, game);
@@ -1127,12 +1153,15 @@ export class Renderer {
       this.ambience.drawSky(ctx, this, game, dt);
     }
   }
+  // The tiles in the usual view, with a margin: [x0, x1, z0, z1].
+  viewTiles() {
+    const w = this.world, vp = this.viewportPolygon(), xs = vp.map(p => p[0]), zs = vp.map(p => p[1]);
+    return [Math.max(-BORDER, Math.floor(Math.min(...xs)) - 2), Math.min(w.w + BORDER - 1, Math.ceil(Math.max(...xs)) + 2),
+      Math.max(-BORDER, Math.floor(Math.min(...zs)) - 2), Math.min(w.h + BORDER - 1, Math.ceil(Math.max(...zs)) + 2)];
+  }
   drawEffects(game, ui, dt) {
     const ctx = this.ux, w = this.world;
-    const vp = this.viewportPolygon();
-    const xs = vp.map(p => p[0]), zs = vp.map(p => p[1]);
-    const bx0 = Math.max(-BORDER, Math.floor(Math.min(...xs)) - 2), bx1 = Math.min(w.w + BORDER - 1, Math.ceil(Math.max(...xs)) + 2);
-    const bz0 = Math.max(-BORDER, Math.floor(Math.min(...zs)) - 2), bz1 = Math.min(w.h + BORDER - 1, Math.ceil(Math.max(...zs)) + 2);
+    const [bx0, bx1, bz0, bz1] = this.viewTiles();
 
     // sparkles on open water
     if (this.zoom > 0.55) {
@@ -1153,44 +1182,6 @@ export class Renderer {
     this.ambience.drawWorld(ctx, this, game, dt, bx0, bx1, bz0, bz1);
     this.drawTrails(ctx, game, dt);
     this.drawNight(ctx, game, dt, bx0, bx1, bz0, bz1);
-
-    // bees and butterflies over flowers
-    const ps = this.particles;
-    if (this.zoom > 0.5 && ps.length < 60) {
-      for (let k = 0; k < 4; k++) {
-        const x = bx0 + Math.floor(Math.random() * (bx1 - bx0 + 1)), z = bz0 + Math.floor(Math.random() * (bz1 - bz0 + 1));
-        if (!w.inb(x, z)) continue;
-        const n = w.nectar[w.idx(x, z)];
-        if (n > 0.25 && Math.random() < n * 0.5) {
-          const kind = Math.random() < 0.35 ? 'butterfly' : 'bee';
-          ps.push({ kind, x: x + Math.random(), z: z + Math.random(), hx: x + 0.5, hz: z + 0.5, vx: 0, vz: 0, life: 6 + Math.random() * 8, t: Math.random() * 10,
-            col: kind === 'butterfly' ? ['#f2c230', '#f4f0e0', '#e8883a', '#8ab0e8'][Math.floor(Math.random() * 4)] : '#e0b02a' });
-        }
-      }
-    }
-    for (let k = ps.length - 1; k >= 0; k--) {
-      const p = ps[k];
-      p.life -= dt; p.t += dt;
-      if (p.life <= 0 || this.zoom <= 0.5) { ps.splice(k, 1); continue; }
-      const sp = p.kind === 'bee' ? 1.2 : 0.55;
-      p.vx += ((p.hx - p.x) * 0.6 + (Math.random() - 0.5) * 7) * dt;
-      p.vz += ((p.hz - p.z) * 0.6 + (Math.random() - 0.5) * 7) * dt;
-      const v = Math.hypot(p.vx, p.vz); if (v > sp) { p.vx *= sp / v; p.vz *= sp / v; }
-      p.x += p.vx * dt; p.z += p.vz * dt;
-      const s = this.project(p.x, w.heightAt(clamp(p.x, 0, w.w - 0.01), clamp(p.z, 0, w.h - 0.01)) * LEVEL + 0.3, p.z);
-      const z = this.zoom;
-      ctx.globalAlpha = Math.min(1, p.life);
-      if (p.kind === 'bee') {
-        ctx.fillStyle = '#2a2014'; ctx.beginPath(); ctx.ellipse(s.x, s.y, 1.8 * z, 1.2 * z, 0, 0, 7); ctx.fill();
-        ctx.fillStyle = p.col; ctx.beginPath(); ctx.ellipse(s.x + 0.4, s.y, 1 * z, 1.1 * z, 0, 0, 7); ctx.fill();
-      } else {
-        const f = Math.abs(Math.sin(p.t * 14));
-        ctx.fillStyle = p.col;
-        ctx.beginPath(); ctx.ellipse(s.x - 1.6 * f * z, s.y, (1.9 * f + 0.3) * z, 1.6 * z, 0, 0, 7); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(s.x + 1.6 * f * z, s.y, (1.9 * f + 0.3) * z, 1.6 * z, 0, 0, 7); ctx.fill();
-      }
-    }
-    ctx.globalAlpha = 1;
 
     // brush ring
     if (ui.hover && ui.previewTiles && !ui.clean) {

@@ -77,8 +77,8 @@ check('Relaxed and Standard skip new pressures without consuming randomness', ()
     assert.equal(preyFor(ANIMAL.otter, g), null);
     assert.equal(predationCatchChance(g, { sp: ANIMAL.cutthroat.index, x: 30, y: 30 }), 0.45);
     assert.deepEqual(pressureTileNotes(g, i), []);
-    assert.equal(g.world.browseDamage, undefined);
-    assert.equal(g.world.mulchDays, undefined);
+    assert.equal(g.world.browseDamage, null);
+    assert.equal(g.world.mulchDays, null);
   }
 });
 check('Repeated browsing kills a young tree and records the loss', () => {
@@ -233,13 +233,15 @@ check('A missed land hunt leaves predators hungry in every difficulty and gives 
     assert.ok(g.wildlife.agents.includes(prey));
     if (mode === 'challenging') {
       assert.equal(predator.hunger, 12); assert.equal(prey.state, 'walk');
-      const initial = Math.hypot(prey.x - predator.x, prey.y - predator.y);
-      g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - predator.x, prey.y - predator.y) > initial);
+      // (away from where the miss happened: since 0026 the hunter presses on, so the gap can close)
+      const mx = predator.x, my = predator.y, initial = Math.hypot(prey.x - mx, prey.y - my);
+      g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - mx, prey.y - my) > initial);
     } else {
       // A miss never counts as a meal; the surviving prey still bolts away.
       assert.equal(predator.hunger, 12); assert.equal(prey.state, 'flee');
-      const initial = Math.hypot(prey.x - predator.x, prey.y - predator.y);
-      g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - predator.x, prey.y - predator.y) > initial);
+      // (away from where the miss happened: since 0026 the hunter presses on, so the gap can close)
+      const mx = predator.x, my = predator.y, initial = Math.hypot(prey.x - mx, prey.y - my);
+      g.wildlife.update(0.1); assert.ok(Math.hypot(prey.x - mx, prey.y - my) > initial);
     }
   }
 });
@@ -255,7 +257,7 @@ check('Hungry adult predators skip breeding and can leave despite otherwise abun
     const lions = [0, 1].map(() => g.wildlife.spawn(ANIMAL.lion, 30, 30, { silent: true, age }));
     lions.forEach(a => { a.hunger = hunger; });
     // Isolate food stress from habitat, prey capacity, and new arrivals.
-    g.wildlife.computeSuitability = () => { for (const d of ANIMALS) g.wildlife.state[d.index].K = d.key === 'lion' ? 8 : 0; };
+    g.wildlife.suitabilityWork = function* () { for (const d of ANIMALS) g.wildlife.state[d.index].K = d.key === 'lion' ? 8 : 0; };
     g.wildlife.immigrate = () => 0; g.rng = () => 0.01; g.wildlife.monthly();
     return { births: g.wildlife.state[ANIMAL.lion.index].births, departing: lions.filter(a => a.leaving).length, foodDepartures: g.stats.foodDepartures || 0 };
   }
@@ -291,7 +293,7 @@ await check('New pressure state survives save/load and older saves still load', 
   assert.equal(g.stats.saplingsBrowsed, 1); assert.ok(g.flags.ecologyNotices.browse != null);
   const key = Game.saveKey('pnw'), old = JSON.parse(memory.get(key));
   delete old.world.arrays.mulchDays; delete old.world.arrays.browseDamage; memory.set(key, JSON.stringify(old));
-  assert.equal(await g.load('pnw'), true); assert.equal(g.world.mulchDays, undefined); assert.equal(g.world.browseDamage, undefined);
+  assert.equal(await g.load('pnw'), true); assert.equal(g.world.mulchDays, null); assert.equal(g.world.browseDamage, null);
 });
 check('Undo refunds mulch and restores both initial and renewed protection', () => {
   reset(); const i = tile(), undo = new Undo(g), tool = TOOLS.mulch, money = g.money;

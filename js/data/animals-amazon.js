@@ -14,7 +14,7 @@ export default function buildAmazonAnimals(def) {
   // ------------------------------------------------------------------ Mammals
   {
     const w = habW({ MARSH: 1, RIPARIAN: 1, POND: 0.8, CREEK: 0.6, MEADOW: 0.6, FARM: 0.5, INVASIVE: 0.45, SHRUB: 0.3 });
-    def({ key: 'capybara', name: 'Capybara', sci: 'Hydrochoerus hydrochaeris', group: 'Mammals', move: 'semi',
+    def({ key: 'capybara', kg: 50, name: 'Capybara', sci: 'Hydrochoerus hydrochaeris', group: 'Mammals', move: 'semi',
       speed: 1, hr: 12, max: 24, minK: 2, groupSize: [3, 6], sources: ['S', 'W'], mig: 0.4, breed: [8, 9, 10], litter: [2, 4], life: 8, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 3, 0.2),
       sprite: { kind: 'capybara', len: 30, color: '#8a6a48', belly: '#a08060' },
@@ -23,7 +23,7 @@ export default function buildAmazonAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.7, RIPARIAN: 1, MARSH: 0.6, SHRUB: 0.4 });
-    def({ key: 'tapir', name: 'Lowland tapir', sci: 'Tapirus terrestris', group: 'Mammals', move: 'semi',
+    def({ key: 'tapir', kg: 250, name: 'Lowland tapir', sci: 'Tapirus terrestris', group: 'Mammals', move: 'semi',
       speed: 1.1, hr: 100, max: 8, minK: 2, groupSize: [1, 2], sources: ['N', 'E'], mig: 0.25, intro: 12000,
       breed: [10, 11], litter: [1, 1], life: 25, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 6, 0.4),
@@ -219,7 +219,7 @@ export default function buildAmazonAnimals(def) {
       speed: 0.5, hr: 25, max: 4, sources: ['S'], mig: 0.2, breed: [2], litter: [4, 6], life: 20, mature: 3,
       prey: ['capybara'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]],
-      sprite: { kind: 'snake', heavy: true, size: 30, color: '#5a6a2a', stripe: '#5a6a2a', side: '#141410', blotches: '#16160f', belly: '#c8b860' },
+      sprite: { kind: 'snake', heavy: true, size: 30, length: 4.4, color: '#5a6a2a', stripe: '#5a6a2a', side: '#141410', blotches: '#16160f', belly: '#c8b860' },
       desc: 'The heaviest snake on Earth. Lies in swampy shallows with only its eyes above the surface.',
       hint: 'Swamps and marshes with capybara nearby.' });
   }

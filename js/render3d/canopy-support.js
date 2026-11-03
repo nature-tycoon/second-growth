@@ -70,10 +70,10 @@ export class CanopySite {
     if (this.matrix) return;
     // Most trees are unoccupied. Defer branch transforms and surface work until
     // a visible climber actually needs this tree, rather than on every daily rebuild.
-    const [x, y, z, sx, sy, sz, turn] = this.transform;
+    const [x, y, z, sx, sy, sz, turn, leanX = 0, leanZ = 0] = this.transform; // (a leaning snag: Euler XYZ, as plant-pools draws it)
     const geo = this.geo;
     this.matrix = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z),
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), turn), new THREE.Vector3(sx, sy, sz));
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(leanX, turn, leanZ)), new THREE.Vector3(sx, sy, sz));
     this.inverse = this.matrix.clone().invert();
     this.triangles = upperSurfaces(geo);
     const transformWood = b => {

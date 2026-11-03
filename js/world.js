@@ -4,6 +4,7 @@
 import { MAP_W, MAP_H, BORDER, T, F, isWater, clamp } from './config.js';
 import { activeCatalog } from './data/catalog.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
+import { removeTree } from './sim/plants.js';
 
 export const STRUCTURES = {
   // old farm buildings are roosts for bats, owls and swallows (roost: true); they can be torn down, and put back up
@@ -33,10 +34,29 @@ export class World {
     this.ground = u8(); this.groundG = f32();
     this.shrub = u8(); this.shrubG = f32();
     this.tree = u8(); this.treeG = f32(); this.treeAge = f32();
+    // advance regeneration (0028 §3): a shade-tolerant sapling waiting under the tile's tree, released when it dies
+    this.understory = u8(); this.understoryG = f32();
+    this.understoryReleased = {}; // (by species key, like treeDeaths: diagnostics, not saved)
+    // tree deaths by cause, all and established (removeTree). Declared here, not added later: a
+    // property added mid-game changes the world's shape and slows every hot loop that reads it.
+    this.treeDeaths = {}; this.treeDeathsEst = {};
+    // the share of natural invasive seedlings that take on easier difficulties (updatePlants sets it from game.diff)
+    this.invasiveOdds = 1;
+    // diagnostics (tools/plant-establishment.mjs): where the seed being tried came from, and a hook that hears why it failed
+    this.seedFrom = null; this.seedLog = null;
+    // disturbance (0028 §4, sim/disturbance.js): root rot in the soil per tile (saved), and how deep
+    // today's drought is (0..1, set daily; treeHazard reads it)
+    this.rot = u8(); this.drought = 0;
     this.feature = u8(); this.featureAge = f32();
+    // the plant a snag or log was (0028 §5, saved; 0: unknown, put down by the player or the map). Read only while the tile holds one
+    this.deadwoodId = u8();
     this.struct = new Int16Array(n).fill(-1);
-    // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars)
+    // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars;
+    // 4 = a canal block, 8 = shade cloth, 16 and 32 = what a beaver pool drowned, 64 = a snag, log, rock pile or brush pile the player placed: PLACED)
     this.marks = u8();
+    // a drained beaver pond's age as meadow (years, or pending while it drains: sim/beaver-ponds.js),
+    // and wallows (sim/wallows.js): how deep a dug wallow is and how much water stands in it (0-255)
+    this.meadow = u8(); this.wallow = u8(); this.wallowWet = u8();
     this.structures = [];
     this.variant = u8();
     // derived
@@ -54,6 +74,16 @@ export class World {
     this.flood = u8(); this.fire = u8(); this.scorch = f32();
     this.rx = u8(); // controlled burn: 1 = in the burn unit, waiting for the fire; 2 = burning
     this.distTrail = u8(); this.disturb = f32();
+    // Fields the sim fills in later, declared here so every world has one shape: a world that
+    // grew them in a different order (a fresh farm, then a loaded save) made the hot loops
+    // polymorphic and cost a later world's dailyTick about 40%. null = not made yet.
+    this.canopyMonth = 0; // (updateCanopy)
+    this.seedbank = null; this.bankStrength = 0; // invasive seed bank (maps with definition.seedbank)
+    this.grazed = null; this.herbivory = null; this.browseDamage = null; this.mulchDays = null; // herbivory and mulch
+    this.trod = null; this.trailE = null; this.trailS = null; this.trailDensity = null; this.trailMax = null; // game trails
+    this.waterLevel = null; this.waterDepth = null; this.waterManaged = null; this.waterOwner = null; this.waterWetDays = null; // HollisWater
+    this.bleach = null; this._shore = null; // the reef
+    this.bloomTick = 0; this.bloomLast = null; this.bloomSeen = null; this.canopyNet = null; this._canopyPar = null; // Atlanta
     this.hydroDirty = true;
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;
     this.renderDirty = true;
@@ -110,20 +140,23 @@ export class World {
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;
   }
 
-  clearPlants(i) {
+  // cause: why a living tree goes (see removeTree); none while the map is being laid out
+  clearPlants(i, cause = null) {
     this.ground[i] = 0; this.groundG[i] = 0;
     this.shrub[i] = 0; this.shrubG[i] = 0;
+    this.understory[i] = 0; this.understoryG[i] = 0; // (cleared first: the tile is cleared, nothing is released)
+    if (cause && this.tree[i]) removeTree(this, i, cause, null, { deadwood: false });
     this.tree[i] = 0; this.treeG[i] = 0; this.treeAge[i] = 0;
   }
 
-  addStructure(type, x, y) {
+  addStructure(type, x, y, cause = null) {
     const d = this.catalog.structures[type];
     const s = { type, x, y, w: d.w, h: d.h };
     const k = this.structures.length;
     this.structures.push(s);
     for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) {
       const i = this.idx(xx, yy);
-      this.struct[i] = k; this.clearPlants(i); this.feature[i] = 0;
+      this.struct[i] = k; this.clearPlants(i, cause); this.feature[i] = 0;
     }
     this.flattenRect(x, y, d.w, d.h);
     return s;

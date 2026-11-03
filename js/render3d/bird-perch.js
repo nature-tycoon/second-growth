@@ -61,7 +61,7 @@ export function perchSpots(site) {
       const a = (k + f) * Math.PI / 4;
       caster.set(from.set(cx + Math.cos(a) * rx * f, lb.max.y + .1, cz + Math.sin(a) * rz * f), down); caster.far = lb.max.y - lb.min.y + .2;
       const hit = caster.intersectObject(leaves, false)[0];
-      if (hit && hit.point.y > lb.min.y + (lb.max.y - lb.min.y) * .3) spots.push({ x: hit.point.x, y: hit.point.y, z: hit.point.z, score: f });
+      if (hit && hit.point.y > lb.min.y + (lb.max.y - lb.min.y) * .3) spots.push({ x: hit.point.x, y: hit.point.y, z: hit.point.z, score: f, bough: true });
     }
   }
   spots = spots.sort((p, q) => q.score - p.score).slice(0, KEEP);
@@ -87,4 +87,38 @@ export function perchPoint(site, x, z, out, spot = -1) {
   const s = spots[spot];
   out.set(s.x, s.y, s.z).applyMatrix4(site.matrix);
   return spot;
+}
+
+// A bird standing on a conifer's bough (a spot with no limb under it, only foliage) stands on wood
+// that is drawn for it here: one tapering bough from the trunk out past its feet. Close up, and at
+// eye level, the focus window opens the foliage in front of the bird, and without this it stood
+// on nothing. One mesh, shown only while a tracked bird is on such a spot.
+export class PerchBough {
+  constructor(scene) {
+    const geo = new THREE.CylinderGeometry(.45, 1, 1, 7, 1);
+    geo.translate(0, .5, 0); // (from its base at the trunk, up its axis to the tip)
+    this.mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x5a4634 }));
+    this.mesh.visible = false; this.mesh.castShadow = true; this.mesh.receiveShadow = true;
+    scene?.add(this.mesh);
+    this.used = false;
+    this.base = new THREE.Vector3(); this.dir = new THREE.Vector3(); this.up = new THREE.Vector3(0, 1, 0);
+  }
+  // site: the tree; spot: the index perchPoint gave; at: where the bird stands, in world space.
+  // Returns whether a bough is needed there (and draws it).
+  show(site, spot, at) {
+    if (!perchSpots(site)[spot]?.bough) return false;
+    const t = site.transform, sc = Math.max(t[3], t[5]), r = .018 * sc;
+    // the bough runs from the trunk, drooping a little, out under the bird's feet (its top surface,
+    // tapered to about 0.6 of the base, just under them there) and a fifth again past
+    this.base.set(t[0], at.y - r * .3, t[2]);
+    this.dir.set(at.x - this.base.x, at.y - r * .62 - this.base.y, at.z - this.base.z);
+    const len = this.dir.length() * 1.2;
+    if (len < 1e-4) return false;
+    this.mesh.position.copy(this.base);
+    this.mesh.quaternion.setFromUnitVectors(this.up, this.dir.normalize());
+    this.mesh.scale.set(r, len, r);
+    this.used = true;
+    return true;
+  }
+  end() { this.mesh.visible = this.used; this.used = false; }
 }

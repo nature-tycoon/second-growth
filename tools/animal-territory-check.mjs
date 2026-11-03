@@ -4,7 +4,7 @@ import { BIOME_LIST } from '../js/biome.js';
 import { DAYS_PER_YEAR, T, F } from '../js/config.js';
 import { isMale } from '../js/data/animals.js';
 import { activeTerritory, territorialRivals } from '../js/data/animal-territories.js';
-import { territorialChoose, territoryRadius, hasTerritory, territoryArrive } from '../js/sim/animal-territory.js';
+import { territorialChoose, territoryRadius, hasTerritory, territoryArrive, hostSpot } from '../js/sim/animal-territory.js';
 import { bolt, greet } from '../js/sim/animal-life.js';
 import { passable } from '../js/sim/animal-terrain.js';
 import { mulberry32 } from '../js/rng.js';
@@ -118,6 +118,21 @@ check('Clownfish share a stable anemone home and distribute new arrivals across 
   const home = a.territory.home; w.shrub[home] = 0; a.state = 'idle';
   territorialChoose(wl, a, d); assert.equal(a.territory.home, home === h1 ? h2 : h1);
   assert.ok(a.path.every(j => passable(w, j, a)), 'new host reached through sea');
+});
+check('Clownfish, young ones too, keep within about a metre of their anemone as it is drawn', () => {
+  const g = setup('reef'), w = g.world, wl = g.wildlife;
+  const h = w.idx(40, 30); w.shrub[h] = g.catalog.plant.anemone.id; w.shrubG[h] = 1;
+  const adult = spawn(g, 'clownfish', 41.5, 31.5), young = spawn(g, 'clownfish', 39.2, 29.4);
+  young.age = 20; young.juvenile = true;
+  const [hx, hy] = hostSpot(w, h), far = [];
+  for (let k = 0; k < 400; k++) {
+    for (const a of [adult, young]) if (a.state === 'idle' && a.wait <= 0) territorialChoose(wl, a, g.catalog.animals[a.sp]);
+    wl.update(0.05);
+    if (k > 120) for (const a of [adult, young]) far.push(Math.hypot(a.x - hx, a.y - hy));
+  }
+  far.sort((a, b) => a - b);
+  assert.equal(young.territory?.home, h, 'a young clownfish settles in the anemone');
+  assert.ok(far[Math.floor(far.length * 0.9)] < 0.45, `90% within 0.45 tiles (${far[Math.floor(far.length * 0.9)].toFixed(2)})`);
 });
 check('Territorial goals yield to hunger, hunts, predator avoidance and fire', () => {
   const g = setup(), wl = g.wildlife, a = spawn(g, 'bobcat'), d = g.catalog.animal.bobcat; const home = claim(g, a);

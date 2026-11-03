@@ -1,15 +1,52 @@
-// Natural disturbance: summer wildfires and winter floods.
+// Natural disturbance: summer wildfires and winter floods (windstorms, drought and root rot are in disturbance.js).
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR } from '../config.js';
-import { killTree, trySeed } from './plants.js';
+import { removeTree, trySeed, clearUnderstory, fellSnag, snagLife, rottenLog } from './plants.js';
 import { disturbanceOn } from './campaign.js';
+import { disturbanceDaily } from './disturbance.js';
+import { forestDamp } from './environment.js';
 
+const GRAZED_FUEL = 0.8, GRAZED_LAWN = 0.5; // a grazing lawn has 80% less grass fuel
 const GRASSY = { grass: 1, tallgrass: 1, sedge: 0.5, forb: 0.6, tallforb: 0.7 };
 const SEVERE_GAP = 4 * DAYS_PER_YEAR; // at most one crown fire every few years
 const FIRE_SNAG_G = 0.85; // a tree burned in a fire leaves a snag or log only if it was nearly full grown
 const CROWN_BARE = 0.3; // how well a crown fire carries through big trees with nothing under them, against a full shrub layer (1)
 const LADDER_FULL = 0.4; // ladder fuel that carries a crown fire fully
 const RX_TORCH = 0.08; // a controlled burn's chance, per tile, of climbing a shrub layer into a dry canopy (see rxTorch)
+const SHADE_DAMP = 0.5; // how much of a surface fire's dryness a full canopy in leaf takes away
+
+// A tree that sprouts back from the root (p.resprout: savanna trees, mesquite, broadleaves; not
+// conifers) is burned to the ground but not killed, once it's past seedling age (0035): it comes
+// back as a sprout on its old roots, keeping its age. Seedlings die. That's the savanna's fire trap:
+// with a grass fire every few years, saplings are burned back again and again, and only those that
+// grow out of the flames' reach between fires become trees (Bond & Midgley 2001; Higgins et al.
+// 2000). Mesquite: grown plants resprout after top-kill and few are root-killed; seedlings are
+// vulnerable for their first year or two (Wright et al. 1976; Ansley & Jacoby 1998). A burned
+// sprout leaves no snag. ROOT_KILL of the top-killed die anyway.
+const SEEDLING_DAYS = 1.5 * DAYS_PER_YEAR, SPROUT = 0.1, ROOT_KILL = 0.1;
+function topKill(w, i, p, rng) {
+  if (!p.resprout || w.treeAge[i] < SEEDLING_DAYS || rng() < ROOT_KILL) return false;
+  w.treeG[i] = Math.min(w.treeG[i], SPROUT);
+  return true;
+}
+
+// A grass fire burns hottest and longest at the base of a bush standing in tall grass. Lantana
+// resprouts after a light fire, but hot fires carried by a heavy grass fuel load kill its seedlings
+// and many grown plants (Day et al. 2003, Lantana: current management status, ACIAR), so grassland
+// that burns every few years holds it to thicket edges and gullies. A closed thicket shades the
+// grass out and the fire in it stays weak, so it survives and resprouts. p.grassFireKill is the
+// root-kill chance with full grass on the tile and its four neighbours; less grass, less chance.
+function grassAround(w, i) {
+  const x = i % w.w, y = (i / w.w) | 0, P = w.catalog.plants;
+  let s = 0, n = 0;
+  for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    if (!w.inb(x + dx, y + dy)) continue;
+    const j = w.idx(x + dx, y + dy), g = w.ground[j];
+    n++; if (g) s += w.groundG[j] * (GRASS_FUEL[P[g].look.type] ?? 0);
+  }
+  return n ? s / n : 0;
+}
+const GRASS_FUEL = { grass: 1, tallgrass: 1 };
 
 export class Events {
   constructor(game) {
@@ -19,6 +56,7 @@ export class Events {
     this.fireStart = null; this.floodStart = null;
     // A rare crown fire: hot enough to carry through the canopy. Heat fades over a couple of weeks.
     this.severe = false; this.heat = 0; this.lastSevere = -999; this.severeTiles = [];
+    this.routine = false; this.routineSeason = -1; // (a routine grass fire burning now, and the year of the last one's note: 0035)
   }
 
   get mapDefinition() { return this.game.mapDefinition; }
@@ -26,19 +64,33 @@ export class Events {
   // How readily a tile burns right now (0..~1.5).
   fuel(w, i) {
     const t = w.terrain[i];
-    if (isWater(t) || t === T.ROAD || t === T.TRAIL || t === T.GRAVEL || t === T.MUD || w.struct[i] >= 0 || w.flood[i]) return 0;
+    // (crusted hardpan is gravel too, but grass rooted in it burns like any other: 0035)
+    if (isWater(t) || t === T.ROAD || t === T.TRAIL || (t === T.GRAVEL && !(this.mapDefinition.hardpan && w.ground[i])) || t === T.MUD || w.struct[i] >= 0 || w.flood[i]) return 0;
     let f = t === T.PASTURE ? 0.35 : 0;
     const g = w.ground[i], s = w.shrub[i], tr = w.tree[i];
-    if (g) { const p = w.catalog.plants[g]; f += w.groundG[i] * (GRASSY[p.look.type] ?? 0.2) * (p.invasive ? 1.1 : 0.7); }
+    // (p.fuel: a grass that burns hotter, like red oat grass. Ground the herds keep cropped short,
+    // a grazing lawn, has little left to burn: in the Serengeti, more wildebeest meant less grass,
+    // smaller fires and more trees growing up (Holdo et al. 2009, PLoS Biol. 7). Full at
+    // grazing pressure GRAZED_LAWN: 0036)
+    if (g) { const p = w.catalog.plants[g]; f += w.groundG[i] * (p.fuel ?? (GRASSY[p.look.type] ?? 0.2) * (p.invasive ? 1.1 : 0.7)) * (1 - GRAZED_FUEL * Math.min(1, (w.grazed?.[i] || 0) / GRAZED_LAWN)); }
     if (s) { const p = w.catalog.plants[s]; f += w.shrubG[i] * (p.fuel ?? 0.6); }
     const hot = this.severe && this.heat > 0.3;
     // in a crown fire the canopy itself burns, not just what's under it, and burns best where shrubs
     // carry the flames up into it (so a stand whose understory was burned off slows a crown fire)
     if (tr) f += w.treeG[i] < 0.6 ? 0.5 * w.treeG[i] : hot ? 0.9 * this.heat * (CROWN_BARE + (1 - CROWN_BARE) * Math.min(1, this.ladder(w, i) / LADDER_FULL)) : 0.2;
     const ft = w.feature[i];
-    if (ft === F.SNAG || ft === F.LOG || ft === F.BRUSH) f += 0.4;
+    // dead wood feeds a fire, but a rotten log is soaked through and only smoulders: it carries
+    // flame hardly better than the litter around it (0028 §6)
+    if (ft === F.SNAG || ft === F.LOG || ft === F.BRUSH) f += ft === F.LOG && rottenLog(w, i) ? 0.15 : 0.4;
     if (this.mapDefinition.fuelBonus) f += this.mapDefinition.fuelBonus(w, i); // (Sumatra: drained peat smoulders under the weeds)
-    const dryness = hot ? clamp((0.85 - w.moist[i]) / 0.45, 0, 1) : clamp((0.62 - w.moist[i]) / 0.4, 0, 1);
+    // Under a closed canopy in leaf the litter stays shaded and damp, so a surface fire creeps
+    // rather than runs: up to half the dryness at full cover (0028 §6). It's why an intact
+    // rainforest or a wet conifer forest rarely burns while the pasture beside it does. w.canopy
+    // follows the leaves, so a dry forest that drops them in the dry season gets none of this, and
+    // in a crown fire's heat the canopy itself burns.
+    const m = w.moist[i] - forestDamp(w, i); // (the canopy's damping is SHADE_DAMP here, not counted twice)
+    const dryness = hot ? clamp((0.85 - m) / 0.45, 0, 1)
+      : clamp((0.62 - m) / 0.4, 0, 1) * (1 - SHADE_DAMP * clamp((w.canopy[i] - 0.5) / 0.5, 0, 1));
     return f * dryness;
   }
 
@@ -64,6 +116,7 @@ export class Events {
 
     // In the campaign, fires and floods start in the chapter that teaches them.
     if (!disturbanceOn(g)) return;
+    disturbanceDaily(g); // windstorms, drought and root rot (sim/disturbance.js)
     // Late-summer droughts bring fire; visitors add a little risk.
     // (fireRate / fireGap: savannas burn far more often, every dry season, than forests do)
     const cl = this.mapDefinition.climate;
@@ -105,6 +158,18 @@ export class Events {
     // each map names its own causes: [natural, visitors] and optionally a neighbour's burn
     const causes = this.mapDefinition.climate.fireCause;
     const cause = g.visitors.traffic > 0.2 && w.distTrail[best] <= 2 ? causes[1] : (causes[2] && g.rng() < 0.6 ? causes[2] : causes[0]);
+    // On a map where grass fires come most dry seasons (climate.routineFires), a natural grass fire is
+    // routine (0035): one calm note for the season's first, no alarm, no pause, no banner.
+    this.routine = !note && !severe && !!this.mapDefinition.climate.routineFires;
+    if (this.routine) {
+      const season = Math.floor(g.day / DAYS_PER_YEAR);
+      if (this.routineSeason !== season) {
+        this.routineSeason = season;
+        g.notify(`${cause} has started a grass fire, as it does most dry seasons here. It renews the grass and burns back thorn seedlings; the grown trees mostly survive. Send a fire crew only to protect young trees or buildings.`, 'info', { x: x + 0.5, y: y + 0.5 });
+      }
+      g.emit('event', 'grassfire');
+      return true;
+    }
     if (note) g.notify(note, 'fire', { x: x + 0.5, y: y + 0.5 });
     else g.notify(severe
       ? `Crown fire! ${cause} in a heat wave has started a fire hot enough to climb into the treetops. It can burn through forest, leaving standing snags, and meadows will take over the burn. Fire crews can hold the edges.`
@@ -119,25 +184,27 @@ export class Events {
     w.scorch[i] = 160;
     this.burned++;
     if (this.severe && this.heat > 0.3 && (w.tree[i] || w.shrub[i])) return this.crownBurn(i);
-    const gi = w.ground[i];
+    const gi = w.ground[i], si = w.shrub[i];
+    const kill = si ? this.game.catalog.plants[si].grassFireKill : 0;
+    const grassKill = kill && rng() < kill * grassAround(w, i); // (read before this fire burns the grass back)
     if (gi) {
       const bank = w.seedbank?.[i];
       // fire clears the weeds and the native seed bank germinates in the ash (on healthy land)
       if (this.game.catalog.plants[gi].sod) w.groundG[i] = Math.min(w.groundG[i], 0.4);
-      else if (this.game.catalog.plants[gi].invasive && bank && Math.random() < (w.bankStrength || 0)) { w.ground[i] = bank; w.groundG[i] = 0.12; }
+      else if (this.game.catalog.plants[gi].invasive && bank && rng() < (w.bankStrength || 0)) { w.ground[i] = bank; w.groundG[i] = 0.12; }
       else if (this.game.catalog.plants[gi].invasive) w.groundG[i] *= 0.4;
       else w.groundG[i] = Math.min(w.groundG[i], 0.25);
     }
-    const si = w.shrub[i];
     if (si) {
-      if (this.game.catalog.plants[si].resprout && w.shrubG[i] > 0.3) w.shrubG[i] = 0.12;
+      if (this.game.catalog.plants[si].resprout && w.shrubG[i] > 0.3 && !grassKill) w.shrubG[i] = 0.12;
       else { w.shrub[i] = 0; w.shrubG[i] = 0; }
     }
+    clearUnderstory(w, i); // (saplings waiting under the trees burn, even where the big trees survive)
     const ti = w.tree[i];
     if (ti) {
       const p = this.game.catalog.plants[ti];
-      if (w.treeG[i] < 0.5) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
-      else if (rng() > (p.fireSurvival ?? 0.4) * w.treeG[i]) killTree(w, i, rng, 0.7, FIRE_SNAG_G); // (only a big tree leaves a snag or log; smaller ones burn up)
+      if (w.treeG[i] < 0.5) { if (!topKill(w, i, p, rng)) removeTree(w, i, 'fire', rng, { deadwood: false }); }
+      else if (rng() > (p.fireSurvival ?? 0.4) * w.treeG[i] && !topKill(w, i, p, rng)) removeTree(w, i, 'fire', rng, { minG: FIRE_SNAG_G }); // (only a big tree leaves a snag or log; smaller ones burn up)
     }
     this.burnFeaturesAndWildlife(i);
   }
@@ -150,12 +217,13 @@ export class Events {
     const si = w.shrub[i];
     if (si && this.game.catalog.plants[si].resprout && w.shrubG[i] > 0.5 && rng() < 0.3) w.shrubG[i] = 0.08;
     else { w.shrub[i] = 0; w.shrubG[i] = 0; }
+    clearUnderstory(w, i);
     const ti = w.tree[i];
     if (ti) {
       const p = this.game.catalog.plants[ti];
-      if (w.treeG[i] < 0.5) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
-      // even thick-barked firs rarely survive a crown fire
-      else if (rng() > (p.fireSurvival ?? 0.4) * 0.2) killTree(w, i, rng, 0.9, FIRE_SNAG_G);
+      if (w.treeG[i] < 0.5) { if (!topKill(w, i, p, rng)) removeTree(w, i, 'fire', rng, { deadwood: false }); }
+      // even thick-barked firs rarely survive a crown fire (broadleaves and savanna trees sprout back from the root)
+      else if (rng() > (p.fireSurvival ?? 0.4) * 0.2 && !topKill(w, i, p, rng)) removeTree(w, i, 'fire', rng, { snagOdds: 0.9, minG: FIRE_SNAG_G });
     }
     this.severeTiles.push(i);
     this.burnFeaturesAndWildlife(i);
@@ -165,7 +233,9 @@ export class Events {
     const g = this.game, w = g.world, rng = g.rng;
     const f = w.feature[i];
     if (f === F.BRUSH || f === F.FENCE || f === F.NESTBOX || f === F.BLIND || (f === F.LOG && rng() < 0.5)) w.feature[i] = 0;
-    else if (f === F.SNAG && this.mapDefinition.savanna && rng() < 0.5) { w.feature[i] = F.LOG; w.featureAge[i] = 0; } // (a grass fire brings dead trees down)
+    // a grass fire brings dead trees down; in a forest it burns through the rotten base of an old
+    // snag (one past its standing age), while those it just killed stand (0028 §5)
+    else if (f === F.SNAG && (this.mapDefinition.savanna || w.featureAge[i] > snagLife(w, i) * 120) && rng() < 0.5) fellSnag(w, i);
     w.soil[i] = Math.min(1, w.soil[i] + 0.03);
     // wildlife caught in the flames
     const wl = g.wildlife;
@@ -182,35 +252,44 @@ export class Events {
 
   updateFire() {
     const g = this.game, w = g.world, rng = g.rng;
-    let count = 0;
-    const next = [];
+    let count = 0, lit = 0;
     const raining = g.weather === 'rain' || g.weather === 'snow';
     this.updateRx(raining);
-    for (let i = 0; i < w.n; i++) {
-      if (!w.fire[i] || w.rx[i] === 2) continue;
-      if (raining) { w.fire[i] = 0; continue; }
-      count++;
-      w.fire[i]--;
-      const x = i % w.w, y = (i / w.w) | 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        if (!dx && !dy) continue;
-        const xx = x + dx, yy = y + dy;
-        if (!w.inb(xx, yy)) continue;
-        const j = w.idx(xx, yy);
-        if (w.fire[j] || w.scorch[j] > 60) continue;
-        // fire runs uphill faster
-        const up = clamp(1 + (w.tileH(xx, yy) - w.tileH(x, y)) * 0.6, 0.6, 1.8);
-        if (rng() < (this.severe ? 0.42 + 0.12 * this.heat : 0.42) * (this.mapDefinition.climate.fireSpread ?? 1) * this.fuel(w, j) * up * (dx && dy ? 0.7 : 1)) next.push(j);
+    // a fire front moves a tile a day; through cured savanna grass it runs further (climate.fireSpeed
+    // steps a day, 0035), so a dry-season grass fire can cross the plains before the next shower
+    const steps = this.severe ? 1 : this.mapDefinition.climate.fireSpeed ?? 1;
+    for (let step = 0; step < steps; step++) {
+      const next = [];
+      for (let i = 0; i < w.n; i++) {
+        if (!w.fire[i] || w.rx[i] === 2) continue;
+        if (raining) { w.fire[i] = 0; continue; }
+        if (!step) { count++; w.fire[i]--; } // (a tile burns for its days, however far the front runs)
+        const x = i % w.w, y = (i / w.w) | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const xx = x + dx, yy = y + dy;
+          if (!w.inb(xx, yy)) continue;
+          const j = w.idx(xx, yy);
+          if (w.fire[j] || w.scorch[j] > 60) continue;
+          // fire runs uphill faster
+          const up = clamp(1 + (w.tileH(xx, yy) - w.tileH(x, y)) * 0.6, 0.6, 1.8);
+          if (rng() < (this.severe ? 0.42 + 0.12 * this.heat : 0.42) * (this.mapDefinition.climate.fireSpread ?? 1) * this.fuel(w, j) * up * (dx && dy ? 0.7 : 1)) next.push(j);
+        }
       }
+      for (const j of next) if (!w.fire[j]) { this.burnTile(j); lit++; }
+      if (raining || !next.length) break;
     }
-    for (const j of next) if (!w.fire[j]) this.burnTile(j);
     const was = this.fireTiles;
-    this.fireTiles = count + next.length;
+    this.fireTiles = count + lit;
     if (was && !this.fireTiles && this.severe) {
       const n = this.reseedBurn();
       g.notify(`The crown fire is out after ${this.burned} tiles burned. ${n.snags} standing snags are left where the forest was. ` +
         this.mapDefinition.text.crownOut, 'info');
       this.severe = false; this.heat = 0;
+      w.hydroDirty = true;
+      g.emit('event', 'fire-out');
+    } else if (was && !this.fireTiles && this.routine) {
+      this.routine = false; // (a routine grass fire goes out quietly: the journal has it, no toast)
       w.hydroDirty = true;
       g.emit('event', 'fire-out');
     } else if (was && !this.fireTiles) {
@@ -230,6 +309,7 @@ export class Events {
     for (const i of this.severeTiles) {
       if (w.feature[i] === F.SNAG) snags++;
       if (w.ground[i] || w.tree[i] || isWater(w.terrain[i])) continue;
+      w.seedFrom = 'burn';
       if (rng() < 0.65) trySeed(w, this.game.catalog.plant[this.mapDefinition.burnSeeds[Math.floor(rng() * this.mapDefinition.burnSeeds.length)]], i, rng);
     }
     this.severeTiles = [];
@@ -291,7 +371,8 @@ export class Events {
       if (this.game.catalog.plants[si].resprout && !this.game.catalog.plants[si].invasive && w.shrubG[i] > 0.3) w.shrubG[i] = 0.15;
       else { w.shrub[i] = 0; w.shrubG[i] = 0; }
     }
-    if (w.tree[i] && w.treeG[i] < 0.45) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+    clearUnderstory(w, i);
+    if (w.tree[i] && w.treeG[i] < 0.45) removeTree(w, i, 'fire', rng, { deadwood: false });
     const f = w.feature[i];
     if (f === F.BRUSH || (f === F.LOG && rng() < 0.25) || (f === F.STUMP && rng() < 0.3)) w.feature[i] = 0;
     w.soil[i] = Math.min(1, w.soil[i] + 0.02);
@@ -312,7 +393,7 @@ export class Events {
     if (cl.crownFires === false || this.severe || !w.tree[i] || w.treeG[i] < 0.6) return 0;
     const ladder = this.ladder(w, i);
     if (!ladder) return 0;
-    const dry = clamp((0.75 - w.moist[i]) / 0.4, 0, 1), season = cl.fireMonths.includes(g.month) ? 1 : 0.3;
+    const dry = clamp((0.75 - w.moist[i] + forestDamp(w, i)) / 0.4, 0, 1), season = cl.fireMonths.includes(g.month) ? 1 : 0.3;
     return RX_TORCH * Math.min(ladder, 1.5) * dry * this.rxDrought() * season * g.diff.disasters;
   }
 
@@ -470,11 +551,12 @@ export class Events {
       const gi = w.ground[i], si = w.shrub[i], ti = w.tree[i];
       if (gi) { const p = this.game.catalog.plants[gi]; if (!p.wetOK && !p.aquatic) { w.groundG[i] -= 0.05; if (w.groundG[i] <= 0) { w.ground[i] = 0; w.groundG[i] = 0; } } }
       if (si && !this.game.catalog.plants[si].wetOK && w.shrubG[i] < 0.35) { w.shrub[i] = 0; w.shrubG[i] = 0; }
-      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+      if (ti && !this.game.catalog.plants[ti].wetOK && this.game.catalog.plants[ti].moist[1] < 0.95 && w.treeG[i] < 0.3) removeTree(w, i, 'flood', rng, { deadwood: false });
       w.flood[i]--;
       if (!w.flood[i]) {
         // receding water leaves fresh silt and a scatter of floodplain seeds
         w.soil[i] = Math.min(1, w.soil[i] + 0.04);
+        w.seedFrom = 'flood';
         if (rng() < 0.12) trySeed(w, this.game.catalog.plant[this.mapDefinition.floodSeeds[Math.floor(rng() * this.mapDefinition.floodSeeds.length)]], i, rng);
       }
     }
@@ -489,7 +571,7 @@ export class Events {
 
   serialize() {
     return { lastFire: this.lastFire, lastFlood: this.lastFlood, fireTiles: this.fireTiles, floodTiles: this.floodTiles, burned: this.burned,
-      severe: this.severe, heat: this.heat, lastSevere: this.lastSevere, severeTiles: this.severeTiles };
+      severe: this.severe, heat: this.heat, lastSevere: this.lastSevere, severeTiles: this.severeTiles, routine: this.routine, routineSeason: this.routineSeason };
   }
   load(d) { if (d) Object.assign(this, d); }
 }

@@ -1,7 +1,10 @@
 // Instanced plants and small features, rebuilt from the world arrays as things grow.
 
-import { T, F, LEVEL, BORDER, isWater, clamp } from '../config.js';
+import { isMeadow } from '../sim/beaver-ponds.js';
+import { WALLOW_POOL } from '../sim/wallows.js';
+import { T, F, LEVEL, BORDER, PLACED, STONES, isWater, clamp } from '../config.js';
 import { plantPhase } from '../data/plants.js';
+import { rottenLog, DECAY } from '../sim/plants.js';
 import { hash2, valueNoise } from '../rng.js';
 import * as G from './geometry.js';
 import * as Botanical from './botanical.js';
@@ -22,7 +25,7 @@ import { GeometryIndex } from './geometry-index.js';
 import { PlantShadows } from './plant-shadows.js';
 import { PlantPool, ChunkedPlantPool, floraVersion } from './plant-pools.js';
 import { trailMask } from '../sim/animal-trails.js';
-import { dryPoint, trunkSpot } from '../sim/ground-obstacles.js';
+import { dryPoint, shrubSpot, trunkSpot, snagSpot, snagPose, logSpot } from '../sim/ground-obstacles.js';
 import { createPlantMaterials } from './plant-materials.js';
 
 // Preserve public imports used by existing rendering tools.
@@ -47,6 +50,7 @@ const SHRUB_HABIT = {
   salmonberry: 'arching', rose: 'arching', oceanspray: 'arching', beautyberry: 'arching', sweetspire: 'arching',
   elderberry: 'vase', dogwood: 'vase', spicebush: 'vase', azalea: 'vase', hamelia: 'vase', piper: 'vase', vismia: 'vase', croton: 'vase',
   huckleberry: 'airy', snowberry: 'airy', grewia: 'airy', cornizuelo: 'airy',
+  lantana: 'sprawl',
   hydrangea: 'bigleaf', castor: 'bigleaf', seagrape: 'bigleaf', cacao: 'bigleaf',
 };
 // Where a crown-of-thorns starfish sits up on top of the coral it's eating (or, with no coral
@@ -59,6 +63,8 @@ export function climberSpot(w, catalog, i, hAt, tg = w.treeG[i]) {
   return [sx, hAt(sx, sz) + treeHeight(tp, 0.4) * tsc * 0.85, sz];
 }
 export const shrubShape = p => SHRUB_HABIT[p.key] || (SHRUB_SHAPES.includes(p.look.type) ? p.look.type : 'shrub');
+// Where a wallow's dish lies in its tile, and how big it is (sim/wallows.js): [x, z, scale].
+const wallowSpot = (w, x, y, i) => [x + 0.3 + hash2(x, y, 211) * 0.4, y + 0.3 + hash2(x, y, 212) * 0.4, 0.7 + Math.min(1, w.wallow[i] / 140) * 0.6];
 const grassyWet = type => type === 'sedge' || type === 'cattail' || type === 'tule' || type === 'lily' || type === 'papyrus';
 const SEA_SHAPES = new Set(['softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']);
 export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo', 'aloe', 'cactus',
@@ -66,7 +72,7 @@ export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vi
   'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
 
 export class Flora {
-  constructor(scene, { chunkSize = 48, incremental = true, cullInstances = true, indexedGeometry = true, cullShadows = true, catalog = activeCatalog } = {}) {
+  constructor(scene, { chunkSize = 24, incremental = true, cullInstances = true, indexedGeometry = true, cullShadows = true, catalog = activeCatalog } = {}) {
     this.catalog = catalog;
     this.scene = scene;
     this.cullInstances = cullInstances; this.plantView = new PlantView(scene);
@@ -281,14 +287,20 @@ export class Flora {
   // call (a day's growth or a new season changes nearly every region, and doing them all in one
   // frame is a visible hitch). Returns true while regions are still waiting.
   // A changed region is drawn again, but only its tiles near a change are worked out afresh (a
-  // brush stroke touches a few tiles of a 48-tile region): every other tile repeats the plants
+  // brush stroke touches a few tiles of a 24-tile region): every other tile repeats the plants
   // it drew last time, exactly, from this.tileCache. A tile stays marked stale (this.stale) from
   // the change until it is worked out again, even if its region waits for a later call.
   rebuild(game, force = false, maxRegions = Infinity) {
     this.catalog = game.catalog;
     const w = game.world, B = game.border, month = game.month;
-    let dirty = this.incremental && !force ? this.changes.find(game, this.light) : null;
-    const saved = this.changes.saved;
+    const saved = this.changes.saved, GW = w.w + BORDER * 2, N = GW * (w.h + BORDER * 2);
+    // While a day's regions are still waiting, work through them without comparing the whole map
+    // again: the snapshot isn't refreshed either (see remember below), so the next comparison
+    // still sees every change since. A brush edit always compares at once.
+    const queued = this.incremental && !force && maxRegions < Infinity && this.waitingRegions?.size > 0 && !this.editRegions.size
+      && saved?.world === w && saved.border === B && saved.light === !!this.light && saved.month === month;
+    let dirty = queued ? Object.assign(new Set(this.waitingRegions), { tiles: this.noTiles?.length === N ? this.noTiles : (this.noTiles = new Uint8Array(N)) })
+      : this.incremental && !force ? this.changes.find(game, this.light) : null;
     if (!dirty && this.incremental && !force && maxRegions < Infinity && saved?.world === w && saved.border === B && saved.light === !!this.light) {
       // A height edit on the same farm: keep the conservative invalidation, without turning
       // every sample of a digging/reshaping stroke into one complete forest rebuild.
@@ -299,7 +311,6 @@ export class Flora {
     }
     if (dirty) for (const k of this.waitingRegions || []) dirty.add(k);
     this.waitingRegions = null;
-    const GW = w.w + BORDER * 2, N = GW * (w.h + BORDER * 2);
     if (this.tileCache?.length !== N) { this.tileCache = new Array(N); this.stale = new Uint8Array(N); }
     const cache = this.tileCache, stale = this.stale;
     // (without the changed tiles, a new season or a different world: every tile afresh)
@@ -387,7 +398,13 @@ export class Flora {
         const phase = plantPhase(p, month);
         const col = aquaticT ? leafColor(p, phase) : patchColor(leafColor(p, phase), pt);
         // grasses grow in clumps: one or two centres per tile that the tufts gather round
-        const clumps = grassy || form && !p.aquatic ? 1 + (hash2(x, y, 17) < 0.5 ? 1 : 0) : 0;
+        // (a beaver meadow's sedge stands on tussocks: hummocks of root and old leaf, one under each clump: 0034)
+        const tussock = inside && type === 'sedge' && isMeadow(w, i);
+        const clumps = tussock ? 2 : grassy || form && !p.aquatic ? 1 + (hash2(x, y, 17) < 0.5 ? 1 : 0) : 0;
+        if (tussock) for (let c = 0; c < clumps; c++) {
+          const hx = x + 0.2 + hash2(x, y, 14 + c) * 0.6, hz = y + 0.2 + hash2(x, y, 15 + c) * 0.6, hs = 0.8 + hash2(x, y, 16 + c) * 0.5;
+          this.pool(`hummock:${v}`, () => G.hummock(1200 + v), this.grass, { shadow: false, kind: 'grass' }).add(hx, hAt(hx, hz) - 0.005, hz, hs, hs * (0.6 + 0.4 * g), hs, hash2(x, y, 18 + c) * 6.28, vary([dim, dim, dim], x, y, c));
+        }
         const tseed = 100 + v * 17 + (form || drawType).length;
         const bloomT = titan && phase === 'bloom' ? 'titanbloom' : type; // (in its rare flowering, the corpse flower is a spathe instead of a leaf)
         let botanical;
@@ -422,10 +439,11 @@ export class Flora {
           }
           // Keep the plant opening aligned with the actual narrow track, not the whole tile.
           if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > TRAIL_OPENING) continue;
+          if (inside && w.wallow[i]) { const [wx, wz, ws] = wallowSpot(w, x, y, i); if (Math.hypot(px - wx, pz - wz) < 0.32 * ws) continue; } // (nothing grows in a wallow's trodden mud)
           const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
           // lily pads float on the water surface instead of sitting on the pond bed
           if (bankTile && !aquaticT && !grassyWet(type) && underWater(w, px, pz)) continue; // (dry-land groundcover doesn't grow in the creek)
-          const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz);
+          const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz) + (tussock && k % 3 !== 2 ? 0.035 * (0.6 + 0.4 * g) : 0);
           const turn = hash2(x, y, 80 + k) * 6.28;
           pool.add(px, py, pz, sc, sc, sc, turn, bloomT === 'titanbloom' ? rgb(p.look.flower || '#6a1a2a').map(c => c * dim) : vary(col.map(c => c * dim), x, y, k));
           if (blossoms) blossoms.add(px, py, pz, sc, sc, sc, turn, vary([dim, dim, dim], x, y, k, 0.035));
@@ -474,15 +492,9 @@ export class Flora {
         const p = game.catalog.plants[sid];
         const g = fringeS || (inside ? w.shrubG[i] : 1);
         const phase = plantPhase(p, month);
-        let sx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, sz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4;
-        // a bush sharing a tile with a tree grows at the far side of the tile from the trunk, not
-        // inside it (the tree's offset uses the same hashes: see trees below). A blue sea star lies
-        // on the sand beside its coral the same way, rather than with its arms poking through.
-        if (tid) {
-          const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
-          const d = p.look.type === 'seastar' ? 0.34 : 0.24 + hash2(x, y, 5) * 0.08;
-          sx = x + 0.5 - Math.sign(ox || 1) * d; sz = y + 0.5 - Math.sign(oz || 1) * d;
-        }
+        // (a bush sharing a tile with a tree grows at the far side of the tile from the trunk, not
+        // inside it; a blue sea star lies on the sand beside its coral: shrubSpot)
+        let [sx, sz] = shrubSpot(x, y, p, !!tid);
         if (bankTile) [sx, sz] = this.dryPoint(w, x, y, sx, sz);
         let sy = hAt(sx, sz);
         if (p.look.climbs && tid) [sx, sy, sz] = climberSpot(w, game.catalog, i, hAt, inside ? w.treeG[i] : 0.9);
@@ -642,20 +654,52 @@ export class Flora {
           mixc([0.84, 0.78, 0.64], [0.6, 0.47, 0.5], Math.min(1, crust * 1.4)).map(c => c * dim));
       }
 
+      // ---- a wallow (sim/wallows.js): a dish of mud, with water standing in it after rain
+      if (inside && w.wallow[i]) {
+        const [wx, wz, ws] = wallowSpot(w, x, y, i);
+        const wy = Math.max(hAt(wx - 0.2, wz), hAt(wx + 0.2, wz), hAt(wx, wz - 0.2), hAt(wx, wz + 0.2)) + 0.004; // (over the ground all round it)
+        this.pool('wallow', () => G.wallowDish(1300), this.small).add(wx, wy, wz, ws, 1, ws, hash2(x, y, 213) * 6.28, [dim, dim, dim]);
+        if (w.wallowWet[i] >= WALLOW_POOL) { const f = Math.min(1, w.wallowWet[i] / Math.max(1, w.wallow[i])); this.pool('wallowwater', () => G.wallowWater(), this.small).add(wx, wy + 0.003, wz, ws * (0.55 + 0.45 * f), 1, ws * (0.55 + 0.45 * f), 0, [dim, dim, dim]); }
+      }
       // ---- features
       const f = w.feature[i];
       if (!f) continue;
       const cx = x + 0.5, cz = y + 0.5, cy = hAt(cx, cz);
       const rot = hash2(x, y, 13) * 6.28;
       switch (f) {
-        case F.SNAG: this.pool(`snag:${v}`, () => G.snag(900 + v), this.bark).add(cx, cy - 0.02, cz, 1, 1, 1, rot, [0.62, 0.58, 0.52]); break;
-        case F.LOG: this.pool('log', () => G.log(), this.bark).add(cx, isWater(w.terrain[i]) ? w.tileH(x, y) * LEVEL + 0.02 : cy, cz, 1, 1, 1, rot, [1, 1, 1]); break;
+        // deadwood stands and lies where the tree did, not in the tile's middle (0035: sim/ground-obstacles.js)
+        case F.SNAG: {
+          const [sx, sz] = snagSpot(w, x, y, bankTile), [lx, lz, sh] = snagPose(w, x, y, i);
+          this.pool(`snag:${v}`, () => G.snag(900 + v), this.bark).add(sx, hAt(sx, sz) - 0.02, sz, 1, sh, 1, rot, [0.62, 0.58, 0.52], lx, lz);
+          break;
+        }
+        case F.LOG: {
+          // a rotten log (0028 §5) has slumped into the ground under a coat of moss, and sinks into the grass
+          const soft = rottenLog(w, i), wet = isWater(w.terrain[i]);
+          const [lx, lz, yaw] = logSpot(w, x, y, bankTile);
+          const ly = wet ? w.tileH(x, y) * LEVEL + 0.02 : Math.min(hAt(lx + Math.cos(yaw) * 0.4, lz - Math.sin(yaw) * 0.4), hAt(lx - Math.cos(yaw) * 0.4, lz + Math.sin(yaw) * 0.4), hAt(lx, lz));
+          // a sound log weathers silver-grey and beds into the ground as it heads for rotten, so a
+          // burn's fallen trees settle into the meadow rather than standing out as fresh timber
+          // (its bark sloughs off within a few years, so the grey comes first: the tint pulls the warm
+          // brown toward grey, less red and more blue)
+          const age = clamp(w.featureAge[i] / (DECAY.rotten * 120), 0, 1), bare = Math.min(1, age * 3);
+          this.pool('log', () => G.log(), this.bark).add(lx, ly - (soft ? 0.03 : 0.035 * age), lz, 1, soft ? 0.62 : 1 - 0.15 * age, 1, yaw,
+            soft ? [0.74, 0.86, 0.6] : [1 - 0.24 * bare, 1 - 0.02 * bare, 1 + 0.3 * bare]);
+          break;
+        }
         case F.STUMP: {
           const rot2 = Math.min(1, w.featureAge[i] / 360), s = 0.85 + hash2(x, y, 17) * 0.4;
           this.pool(`stump:${v}`, () => G.stump(990 + v), this.bark).add(cx, cy - 0.01, cz, s, s * (1 - 0.45 * rot2), s, rot, [1 - 0.35 * rot2, 1 - 0.38 * rot2, 1 - 0.4 * rot2]);
           break;
         }
-        case F.ROCKS: this.pool(`rocks:${v}`, () => G.rocks(950 + v), this.small).add(cx, cy, cz, 1, 1, 1, rot, [1, 1, 1]); break;
+        case F.ROCKS: {
+          // stones turned up by loosening the soil (tools.js STONES): a small, low heap off the tile's middle
+          if (w.featureAge[i] === STONES && !(w.marks[i] & PLACED)) {
+            const s = 0.45 + hash2(x, y, 72) * 0.25, sx = x + 0.3 + hash2(x, y, 73) * 0.4, sz = y + 0.3 + hash2(x, y, 74) * 0.4;
+            this.pool(`rocks:${v}`, () => G.rocks(950 + v), this.small).add(sx, hAt(sx, sz) - 0.01, sz, s, s * 0.8, s, rot, [0.92, 0.9, 0.86]);
+          } else this.pool(`rocks:${v}`, () => G.rocks(950 + v), this.small).add(cx, cy, cz, 1, 1, 1, rot, [1, 1, 1]);
+          break;
+        }
         case F.BRUSH: this.pool('brush', () => G.brushPile(970), this.bark).add(cx, cy, cz, 1, 1, 1, rot, [1, 1, 1]); break;
         case F.NESTBOX: this.pool('nestbox', () => G.nestbox(), this.bark).add(cx, cy, cz, 1, 1, 1, rot, [1, 1, 1]); break;
         case F.BLIND: this.pool('blind', () => G.blind(), this.bark).add(cx, cy, cz, 1, 1, 1, Math.round(rot / 1.57) * 1.57, [1, 1, 1]); break;
@@ -701,7 +745,8 @@ export class Flora {
     }
     this.rec = null;
     for (const p of this.pools.values()) p.end(dirty);
-    if (this.incremental) this.changes.remember(game, this.light);
-    return !!this.waitingRegions;
+    if (this.incremental && !queued) this.changes.remember(game, this.light);
+    // (after the last queued region, one more call compares the map for what changed meanwhile)
+    return !!this.waitingRegions || queued;
   }
 }

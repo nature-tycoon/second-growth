@@ -19,7 +19,7 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ SHRUB: 1, RIPARIAN: 0.8, INVASIVE: 0.55, MEADOW: 0.35, YOUNG_FOREST: 0.45 });
-    def({ key: 'rabbit', name: 'Brush rabbit', sci: 'Sylvilagus bachmani', group: 'Mammals', move: 'ground',
+    def({ key: 'rabbit', kg: 0.7, name: 'Brush rabbit', sci: 'Sylvilagus bachmani', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 14, max: 20, sources: ['W', 'E'], mig: 0.4, breed: [0, 1, 2, 3, 4, 5], litter: [2, 4], life: 3, mature: 0.3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.3),
       sprite: { kind: 'rabbit', len: 18, color: '#7a6448', belly: '#a89478', show: 1.3 },
@@ -37,7 +37,7 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 0.7, SHRUB: 1, YOUNG_FOREST: 0.9, RIPARIAN: 0.85, MATURE_FOREST: 0.45, INVASIVE: 0.25, FARM: 0.05, MARSH: 0.2 });
-    def({ key: 'deer', herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'Black-tailed deer', sci: 'Odocoileus hemionus columbianus', group: 'Mammals', move: 'ground',
+    def({ key: 'deer', kg: 55, herd: true, familyHerd: true, familySize: 4, herdR: 1.4, name: 'Black-tailed deer', sci: 'Odocoileus hemionus columbianus', group: 'Mammals', move: 'ground',
       speed: 1.6, hr: 45, max: 14, minK: 1.5, groupSize: [1, 2], sources: ['N', 'E'], mig: 0.35, breed: [2, 3], litter: [1, 2], life: 10,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 4, 0.3) * (0.6 + 0.4 * Math.min(1, W.browse[i])),
       sprite: { kind: 'deer', len: 34, h: 16, leg: 16, color: '#8a6a48', belly: '#c9b595', dark: '#3a2c20', tailTop: '#1f1914',
@@ -47,7 +47,7 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, YOUNG_FOREST: 0.6, MATURE_FOREST: 0.55, RIPARIAN: 0.6, SHRUB: 0.5, MARSH: 0.25 });
-    def({ key: 'elk', herd: true, familyHerd: true, familySize: 7, herdR: 1.6,
+    def({ key: 'elk', kg: 300, herd: true, familyHerd: true, familySize: 7, herdR: 1.6,
       bachelorSize: 3, bachelorR: 4.5, bachelorJoin: 8, bachelorSoloAge: 6,
       name: 'Roosevelt elk', sci: 'Cervus canadensis roosevelti', group: 'Mammals', move: 'ground',
       speed: 1.5, hr: 120, max: 14, minK: 3, groupSize: [3, 5], sources: ['N'], mig: 0.3, intro: 15000,

@@ -46,7 +46,8 @@ function pond() {
 }
 
 check('Large animals on the identical point separate gradually without changing their heading', () => {
-  reset(); const herd = Array.from({ length: 8 }, () => spawn('elephant'));
+  // (rhinos, not a herd: herd mates go on spreading to a body length apart, checked below)
+  reset(); const herd = Array.from({ length: 8 }, () => spawn('rhino'));
   for (const a of herd) { a.x = a.y = 30.5; }
   separate(1);
   for (const a of herd) { assert.ok(Math.hypot(a.x - 30.5, a.y - 30.5) <= 0.091); assert.equal(a.orientation, 0); }
@@ -54,6 +55,15 @@ check('Large animals on the identical point separate gradually without changing 
   for (const a of herd) for (const b of herd) if (a.id < b.id) assert.ok(gap(a, b) > -0.01, `${a.id}/${b.id}: ${gap(a, b)}`);
   const before = herd.map(a => [a.x, a.y]); separate(10);
   herd.forEach((a, k) => assert.ok(Math.hypot(a.x - before[k][0], a.y - before[k][1]) < 0.005));
+});
+check('Grazing herd mates spread to about a body length apart, then stand still (0025)', () => {
+  reset(); const herd = Array.from({ length: 6 }, (_, k) => spawn('zebra', 30, 30));
+  herd.forEach((a, k) => { a.x = 30.5 + k * 0.05; a.y = 30.5; a.state = 'idle'; a.wait = 1e6; });
+  separate(1500);
+  const L = a => animalRadius(a) / 0.65;
+  for (const a of herd) { let near = Infinity; for (const b of herd) if (b !== a) near = Math.min(near, Math.hypot(a.x - b.x, a.y - b.y)); assert.ok(near > L(a) * 1.4, `${a.id}: nearest ${near.toFixed(2)} (body ${L(a).toFixed(2)})`); }
+  const before = herd.map(a => [a.x, a.y]); separate(10);
+  herd.forEach((a, k) => assert.ok(Math.hypot(a.x - before[k][0], a.y - before[k][1]) < 0.01, `${a.id} still drifting`));
 });
 check('Small species and calves use less room than large adults', () => {
   reset(); const adult = spawn('elephant'), calf = spawn('elephant', 30, 30, { juvenile: true, age: 20 });

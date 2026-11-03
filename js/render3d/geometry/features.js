@@ -229,3 +229,24 @@ export function contactShadow(segs = 16) {
 }
 
 export function blob(color, r = 0.035) { return prep(new THREE.IcosahedronGeometry(r, 0), color); }
+// A sedge tussock's hummock in a beaver meadow: a low mound of roots and old leaves the sedge sits on.
+export function hummock(seed) {
+  const r = mulberry32(seed), g = prep(new THREE.SphereGeometry(0.12, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), 0x6f6a3e);
+  g.scale(1, 0.42, 0.85 + r() * 0.3);
+  shadeVerts(g, () => 0.8 + r() * 0.35);
+  return g;
+}
+// A wallow (sim/wallows.js): a dish of bare, trodden mud a few metres across, and the muddy water
+// that stands in it after rain (drawn as its own part, shown only while it holds water).
+export function wallowDish(seed) {
+  const r = mulberry32(seed), c = new THREE.CircleGeometry(0.3, 16), p = c.attributes.position;
+  for (let k = 1; k < p.count - 1; k++) { const s = 0.85 + r() * 0.3; p.setX(k, p.getX(k) * s); p.setY(k, p.getY(k) * s); }
+  p.setX(p.count - 1, p.getX(1)); p.setY(p.count - 1, p.getY(1)); // (the last rim point closes the circle on the first)
+  c.rotateX(-Math.PI / 2);
+  return shadeVerts(prep(c, 0x5a4630), (x, y, z) => Math.hypot(x, z) < 0.01 ? 0.72 : 1.05);
+}
+export function wallowWater() {
+  const g = prep(new THREE.CircleGeometry(0.22, 14), 0x8a9a96); // (muddy water, lighter than the mud round it)
+  g.rotateX(-Math.PI / 2);
+  return g;
+}

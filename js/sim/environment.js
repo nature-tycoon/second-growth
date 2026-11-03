@@ -1,7 +1,10 @@
 // Derived environment fields: water, moisture, canopy, distances, habitat classes, food.
 
+import { meadowMoist } from './beaver-ponds.js';
+import { WALLOW_POOL } from './wallows.js';
 import { T, F, H, isWater, clamp } from '../config.js';
 import { isBlooming, isFruiting, plantLeafCover } from '../data/plants.js';
+import { rottenLog } from './plants.js';
 
 const FAR = 255;
 let queue = null;
@@ -29,7 +32,8 @@ function distanceField(w, out, isSource, cap = 20) {
 export function updateHydrology(w) {
   const t = w.terrain;
   distanceField(w, w.distWater, i => isWater(t[i]));
-  distanceField(w, w.distPond, i => t[i] === T.POND || t[i] === T.MARSH);
+  // (a wallow holding water is a pool too, small as it is: frogs breed in it, 0034)
+  distanceField(w, w.distPond, i => t[i] === T.POND || t[i] === T.MARSH || w.wallowWet[i] >= WALLOW_POOL);
   // Fish passage: 8-connected water reachable from the river, culverts block.
   const W = w.w, Hh = w.h, c = w.connected;
   c.fill(0);
@@ -77,16 +81,23 @@ export function updateCanopy(w, month = 0) {
   }
 }
 
+// A closed canopy keeps the sun and wind off the ground, and a deep humus soil holds the rain, so
+// old forest makes its own damp floor, where redcedar, hemlock and the ferns come in (0027). It is
+// shade and humus, not waterlogged ground: windthrow and fire read moisture without it (they have
+// their own canopy terms, 0028), so subtract it there.
+export const forestDamp = (w, i) => 0.14 * w.canopy[i] * w.canopy[i] + Math.max(0, w.soil[i] - 0.4) * 0.15;
+
 export function updateMoisture(w, month) {
   const off = w.catalog.definition.climate.moist[month];
   for (let i = 0; i < w.n; i++) {
     const t = w.terrain[i];
     if (isWater(t)) { w.moist[i] = t === T.MARSH ? 0.97 : 1; continue; }
     const d = w.distWater[i];
-    let m = w.baseMoist[i] + 0.55 * Math.exp(-d / 2.1) + off + w.canopy[i] * 0.06 + w.elevMoist[i];
+    let m = w.baseMoist[i] + 0.55 * Math.exp(-d / 2.1) + off + w.canopy[i] * 0.06 + forestDamp(w, i) + w.elevMoist[i];
     if (t === T.MUD) m += 0.22;
     if (w.flood[i]) m += 0.4;
     if (w.feature[i] === F.LOG) m += 0.05;
+    if (w.meadow[i]) m += meadowMoist(w.meadow[i]); // (a drained beaver pond stays soggy for decades)
     if (w.waterManaged?.[i] && w.waterDepth[i] > .01) m = Math.max(m, .86 + Math.min(.13, w.waterDepth[i]));
     w.moist[i] = clamp(m, 0, 0.99);
   }
@@ -207,7 +218,8 @@ export function classifyAndResources(w, month) {
     ins += nectar * 0.5;
     if (t === T.MARSH || t === T.POND) ins += 0.45;
     else if (w.distWater[i] <= 1) ins += 0.2;
-    if (f === F.LOG || f === F.SNAG || f === F.STUMP) ins += 0.2;
+    // dead wood feeds beetle grubs, ants and termites; a rotten log most of all (0028 §5)
+    if (f === F.LOG || f === F.SNAG || f === F.STUMP) ins += rottenLog(w, i) ? 0.3 : 0.2;
     w.insects[i] = Math.min(1, ins * insectSeason);
   }
 

@@ -1,7 +1,12 @@
 // Beaver dams: abandoned dams wash out, Demolish pulls them apart, and either way the pond
 // drains back to a flowing creek. Run: node tools/beaver-dam-check.mjs
+// This is the older, marks-based flooding, used when the Hollis water model is off (?water=0): the
+// model's beaver ponds and meadows are checked in beaver-pond-check.mjs.
 import assert from 'node:assert/strict';
+import { waterModel } from '../js/sim/hollis-water.js';
+import { PLANT } from '../js/data/plants.js';
 import { Game } from '../js/game.js';
+waterModel.enabled = false;
 import { T, F } from '../js/config.js';
 import { ANIMAL } from '../js/data/animals.js';
 import { TOOLS } from '../js/tools.js';
@@ -9,7 +14,10 @@ let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
 function farm() {
   const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw'); g.autosave = false;
-  g.wildlife.agents = []; g.wildlife.recount(); return g;
+  g.wildlife.agents = []; g.wildlife.recount();
+  // (willow round the site: beavers keep a dam up only while there is food round it, 0034)
+  const w = g.world; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const i = w.idx(SITE[0] + dx, SITE[1] + dy); if (w.terrain[i] !== T.CREEK && !w.shrub[i] && !w.tree[i]) w.setPlant(i, PLANT.willow, 0.8, 600); }
+  return g;
 }
 const SITE = [54, 58];
 // creek tiles within reach of the pool, and whether the creek still runs through the site

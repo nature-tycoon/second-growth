@@ -43,7 +43,11 @@ check('Capacity instrumentation preserves the ordinary simulation formula', () =
   for (const def of ANIMALS.filter(d => d.special !== 'salmon')) {
     const st = g.wildlife.state[def.index];
     let expected = st.suitSum / def.hr * clamp(def.req(g.wildlife.g), 0, 1.5);
-    if (def.prey) expected = Math.min(expected, def.prey.reduce((n, k) => n + g.wildlife.state[ANIMAL[k].index].pop, 0) / def.preyPer);
+    // (hunters share their prey, decision 0037: never more than all of it counted alone)
+    if (def.prey) {
+      assert.ok(st.preyK <= def.prey.reduce((n, k) => n + g.wildlife.state[ANIMAL[k].index].pop, 0) / def.preyPer + 1e-9, def.key);
+      expected = Math.min(expected, st.preyK);
+    }
     assert.equal(st.K, Math.min(def.max, expected), def.key);
   }
 });

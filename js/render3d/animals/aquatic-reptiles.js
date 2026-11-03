@@ -165,15 +165,20 @@ function snake(m, s) {
   const bulk = heavy ? .148 : boa ? .118 : python ? .102 : rat ? .075 : .060;
   const headW = heavy ? .088 : boa ? .096 : python ? .087 : rat ? .065 : .054;
   const headH = heavy ? .052 : boa || python ? .046 : .035;
-  const length = python ? 2.6 : 2.4, noseX = length * .49, tailAt = heavy ? .86 : boa ? .79 : python ? .80 : .69;
-  const curve = heavy ? .27 : python ? .35 : .38; // (the resting S: one full bend along the body)
+  // s.length: the body's length in sizes, for the long heavy snakes (an anaconda is 15-20 times as
+  // long as it is thick). The head, the markings and the crawl's bends keep their size in sizes, so
+  // a longer snake is more body, with more spots and more bends along it, not a stretched head.
+  const ref = python ? 2.6 : 2.4, length = s.length ?? ref, hl = ref / length, noseX = length * .49;
+  const tailAt = heavy ? .86 : boa ? .79 : python ? .80 : .69;
+  const curve = heavy ? .27 : python ? .35 : .38; // (the resting S: one full bend every `ref` sizes)
   const back = col(s.color), belly = col(s.belly || shade(s.color, .42)), dark = col(s.side || s.stripe || '#29291f');
   const light = col(s.blotches || s.stripe || shade(s.color, .18));
   // [length fraction, half-width, half-height, height above the resting belly]
-  const K = [[0, 0, 0, .020], [.007, headW * .48, headH * .65, .020],
-    [.022, headW * .80, headH * .92, .022], [.045, headW, headH, .022],
-    [.068, headW * .89, headH * .90, .020], [.095, bulk * .55, headH * .68, .013],
-    [.15, bulk * .75, bulk * .58, .006], [.27, bulk, bulk * .77, .004],
+  // (the head and neck, to .27, are laid out in fractions of `ref`: hl turns them into fractions of the body)
+  const K = [[0, 0, 0, .020], [.007 * hl, headW * .48, headH * .65, .020],
+    [.022 * hl, headW * .80, headH * .92, .022], [.045 * hl, headW, headH, .022],
+    [.068 * hl, headW * .89, headH * .90, .020], [.095 * hl, bulk * .55, headH * .68, .013],
+    [.15 * hl, bulk * .75, bulk * .58, .006], [.27 * hl, bulk, bulk * .77, .004],
     [.52, bulk * .97, bulk * .75, .004], [tailAt, bulk * .72, bulk * .55, .004],
     [(tailAt + 1) / 2, bulk * .28, bulk * .22, .004], [.985, .004, .003, .004], [1, 0, 0, .004]];
   const profile = t => {
@@ -181,7 +186,7 @@ function snake(m, s) {
     const a = K[k], b = K[k + 1], f = smooth(a[0], b[0], t);
     const width = a[1] + (b[1] - a[1]) * f, height = a[2] + (b[2] - a[2]) * f;
     const lift = a[3] + (b[3] - a[3]) * f;
-    const z = Math.sin(t * Math.PI * 2) * curve * smooth(.09, .22, t);
+    const tw = t / hl, z = Math.sin(tw * Math.PI * 2) * curve * smooth(.09, .22, tw);
     return { x: (noseX - t * length) * S, y: (height * .74 + lift) * S, z: z * S, width: width * S, height: height * S };
   };
   const blotch = (t, angle, count, center, spread, offset = 0) => {
@@ -230,7 +235,7 @@ function snake(m, s) {
   // for when they are too small to draw)
   const skin = pixelCoat('snake', paint, [heavy ? 4 : rat ? 3 : boa ? 2 : python ? 1 : 0, belly.r, belly.g, belly.b, back.r, back.g, back.b],
     heavy ? '#b8954c' : dark, light);
-  const R = 128, A = m.seg(24), pos = [], unit = [], idx = [];
+  const R = Math.round(128 / hl), A = m.seg(24), pos = [], unit = [], idx = [];
   for (let i = 0; i <= R; i++) {
     const t = i / R, p = profile(t);
     // Align oval cross sections to the horizontal tangent; keep the belly flat.
@@ -239,7 +244,7 @@ function snake(m, s) {
     for (let j = 0; j <= A; j++) {
       const a = j / A * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
       pos.push(p.x + nx * sa * p.width, p.y + ca * p.height * (ca < 0 ? .74 : 1), p.z + nz * sa * p.width);
-      unit.push(2 * t - 1, ca, sa);
+      unit.push(2 * t / hl - 1, ca, sa); // (paint's t runs in fractions of `ref`, past 1 on a longer snake)
     }
   }
   for (let i = 0; i < R; i++) for (let j = 0; j < A; j++) { const a = i * (A + 1) + j, b = a + A + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
@@ -250,22 +255,22 @@ function snake(m, s) {
   const spine = m.parts[m.parts.length - 1].attributes.aPivot;
   for (let i = 0; i <= R; i++) { const c = profile(i / R); for (let j = 0; j <= A; j++) spine.setXYZ(i * (A + 1) + j, c.x, c.y, c.z); }
   // Lateral eyes for the land snakes; the anaconda's eyes sit higher on its head.
-  const eyeT = .043, e = profile(eyeT), ey = heavy ? .70 : .35, er = S * (heavy ? .014 : .012);
+  const eyeT = .043 * hl, e = profile(eyeT), ey = heavy ? .70 : .35, er = S * (heavy ? .014 : .012);
   for (const side of [-1, 1]) {
     const eye = [e.x, e.y + e.height * ey, e.z + side * e.width * Math.sqrt(1 - ey * ey)];
     m.ell(eye, [er * 1.2, er, er * .72], heavy || python || boa ? '#b5a054' : '#94885e', { lo: true, gloss: 2 });
     m.ell([eye[0] + er * .12, eye[1] + er * .10, eye[2] + side * er * .50],
       [er * (boa || python ? .24 : .55), er * .66, er * .28], '#131410', { lo: true, gloss: 2 });
     m.ell([eye[0] + er * .27, eye[1] + er * .45, eye[2] + side * er * .63], [er * .20, er * .20, er * .16], '#e5dfc8', { lo: true });
-    const n = profile(.017);
+    const n = profile(.017 * hl);
     m.ell([n.x, n.y + n.height * (heavy ? .85 : .5), side * n.width * (heavy ? .45 : .82)], [S * .006, S * .003, S * .004], '#24261b', { lo: true });
-    const jaw = [.010, .026, .046, .067].map(t => { const p = profile(t); return [p.x, p.y - p.height * .24, p.z + side * p.width * .99]; });
+    const jaw = [.010, .026, .046, .067].map(t => { const p = profile(t * hl); return [p.x, p.y - p.height * .24, p.z + side * p.width * .99]; });
     tube(m, jaw, jaw.map(() => S * .0018), '#423f2c', { seg: 5, sub: 2, capRings: 1 });
   }
-  const tip = profile(.002), root = [noseX * S, tip.y - S * .005, 0], tongue = { part: P.TONGUE, pivot: root, seg: 5, caps: false };
+  const tip = profile(.002 * hl), root = [noseX * S, tip.y - S * .005, 0], tongue = { part: P.TONGUE, pivot: root, seg: 5, caps: false };
   m.limb(root, [root[0] + S * .085, root[1], 0], S * .005, S * .003, '#493038', tongue);
   for (const side of [-1, 1]) m.limb([root[0] + S * .080, root[1], 0], [root[0] + S * .126, root[1] - S * .002, side * S * .019], S * .003, S * .001, '#493038', tongue);
-  return { amp: curve * S, len: length * S, nose: noseX * S }; // the resting curve, for the crawl
+  return { amp: curve * S, len: ref * S, nose: noseX * S }; // the resting curve, for the crawl (len: one bend's length)
 }
 
 // Fish share one body plan, varied per species:

@@ -3,14 +3,16 @@
 // is drawn at. Only ground: crowns and branches never block, so birds fly and perch through the
 // leaves, and climbers (monkeys, apes, sloths, squirrels in the canopy) are left alone.
 // Elephants walk through saplings and knock them back; only small animals go round logs.
-import { T, F, isWater, clamp } from '../config.js';
-import { hash2 } from '../rng.js';
+import { T, F, LEVEL, isWater, clamp } from '../config.js';
+import { hash2, valueNoise } from '../rng.js';
 import { groveForm } from '../render3d/groves.js';
 import { CONIFER_HABITS, TREE_SHAPES } from '../render3d/geometry/tree-shapes.js';
 import { groundAt, visibleLevel } from './waterline.js';
 import { animalRadius } from './animal-positioning.js';
 import { passable } from './animal-terrain.js';
 import { isPrimate } from './primate-behavior.js';
+import { removeTree, snagLife } from './plants.js';
+import { isMaleVariant } from '../data/animals.js';
 
 // Mature trunk radius at the base for the kinds whose shape gives none (see geometry/trees.js).
 const KIND_TRUNK = { palm: 0.06, oilpalm: 0.09, banana: 0.05, fanpalm: 0.06, cecropia: 0.045, baobab: 0.31, euphorbia: 0.085, mangrove: 0.05 };
@@ -45,10 +47,59 @@ export function dryPoint(w, x, y, px, pz) {
   return best || high;
 }
 
+// Where a shrub stands in its tile, as flora.js draws it (before a bank tile moves it to the dry
+// side): toward the far side of the tile from a tree sharing it, or a blue sea star beside its coral.
+// Animals that live at one plant (a clownfish's anemone: sim/animal-territory.js) read it here.
+export function shrubSpot(x, y, p, withTree) {
+  if (!withTree) return [x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4];
+  const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
+  const d = p.look.type === 'seastar' ? 0.34 : 0.24 + hash2(x, y, 5) * 0.08;
+  return [x + 0.5 - Math.sign(ox || 1) * d, y + 0.5 - Math.sign(oz || 1) * d];
+}
+
 // Where a tree's trunk stands in its tile, as flora.js draws it.
 export function trunkSpot(w, x, y, p, bankTile) {
   const tx = x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.45, tz = y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.45;
   return bankTile && !p.aquatic ? dryPoint(w, x, y, tx, tz) : [tx, tz];
+}
+
+// ---- Where deadwood lies (0035), as flora.js draws it and walkers go round it. A snag stands where
+// its tree's trunk stood (the plant doesn't move a dry-land trunk), so a burned stand keeps the
+// living stand's scatter rather than a grid. A log lies out from that spot: downhill on a slope (trees
+// fall downhill), elsewhere along a direction that turns slowly across the map, so neighbouring logs
+// lie roughly parallel as after a storm, each with its own scatter of up to ±50°.
+const NOT_AQUATIC = { aquatic: false };
+export function snagSpot(w, x, y, bankTile) { return trunkSpot(w, x, y, NOT_AQUATIC, bankTile); }
+// A snag's lean (radians about x and z) and its drawn height: 0.8–1.15 of the model, shortening by
+// up to 40% as it rots toward its fall (tops break off first).
+export function snagPose(w, x, y, i) {
+  const lean = (hash2(x, y, 43) - 0.5) * 0.22, dir = hash2(x, y, 44) * 6.28;
+  const rot = clamp(w.featureAge[i] / (snagLife(w, i) * 120 || 1), 0, 1);
+  return [Math.cos(dir) * lean, Math.sin(dir) * lean, (0.8 + hash2(x, y, 45) * 0.35) * (1 - 0.4 * rot)];
+}
+// The broken top of the snag on tile i (the model is 1.68 tall, its top 1.64 up), turned as flora.js
+// turns it (Euler XYZ: lean about x, its yaw, lean about z): [x, z, height above its foot].
+export const SNAG_TOP = 1.64;
+export function snagTop(w, x, y, i, bankTile) {
+  const [bx, bz] = snagSpot(w, x, y, bankTile), [rx, rz, sh] = snagPose(w, x, y, i), ry = hash2(x, y, 13) * 6.28, h = SNAG_TOP * sh;
+  const x1 = -h * Math.sin(rz) * Math.cos(ry), z1 = h * Math.sin(rz) * Math.sin(ry), y1 = h * Math.cos(rz);
+  return [bx + x1, bz + y1 * Math.sin(rx) + z1 * Math.cos(rx), y1 * Math.cos(rx) - z1 * Math.sin(rx)];
+}
+// The log on tile (x, y): its centre [x, z] and yaw (its axis runs (cos yaw, -sin yaw) in x, y).
+export function logSpot(w, x, y, bankTile) {
+  const [bx, bz] = trunkSpot(w, x, y, NOT_AQUATIC, false);
+  const hx = (w.tileH(Math.min(w.w - 1, x + 1), y) - w.tileH(Math.max(0, x - 1), y)) * LEVEL / 2;
+  const hz = (w.tileH(x, Math.min(w.h - 1, y + 1)) - w.tileH(x, Math.max(0, y - 1))) * LEVEL / 2;
+  const slope = clamp(Math.hypot(hx, hz) / 0.15, 0, 1) * 0.85;
+  const field = valueNoise(x, y, 7, 47) * 12.57; // (two turns over the noise's range, so every heading occurs)
+  let ax = Math.cos(field) * (1 - slope) - (slope ? hx / Math.hypot(hx, hz) * slope : 0);
+  let az = Math.sin(field) * (1 - slope) - (slope ? hz / Math.hypot(hx, hz) * slope : 0);
+  const yaw = Math.atan2(-az, ax) + (hash2(x, y, 48) - 0.5) * 1.75;
+  const dx = Math.cos(yaw), dz = -Math.sin(yaw), out = 0.18 + hash2(x, y, 49) * 0.12; // (the root end at the stump)
+  let cx = bx + dx * out, cz = bz + dz * out;
+  cx = clamp(cx, x + 0.1, x + 0.9); cz = clamp(cz, y + 0.1, y + 0.9);
+  if (bankTile) [cx, cz] = dryPoint(w, x, y, cx, cz);
+  return [cx, cz, yaw];
 }
 
 // Drawn scale of a tree (flora.js): growth, a per-tile variation, the species' look and the grove's width.
@@ -60,7 +111,9 @@ function trunkScale(w, x, y, i, p) {
 export function treeTrunk(w, x, y, bankless = false) {
   const i = w.idx(x, y), tid = w.tree[i];
   if (!tid) return null;
-  const p = w.catalog.plants[tid], r = trunkRadius(p) * trunkScale(w, x, y, i, p);
+  const p = w.catalog.plants[tid], base = trunkRadius(p);
+  if (!(base > 0)) return null; // (a kind with no drawn trunk has no grove shape to scale either)
+  const r = base * trunkScale(w, x, y, i, p);
   if (!(r > 0)) return null;
   const bank = !bankless && w.distWater[i] <= 2 && visibleLevel(w, x, y) != null;
   return [...trunkSpot(w, x, y, p, bank), r];
@@ -78,6 +131,21 @@ function cachedTrunk(w, x, y, i) {
     c.xyr[i * 3] = t ? t[0] : 0; c.xyr[i * 3 + 1] = t ? t[1] : 0; c.xyr[i * 3 + 2] = t ? t[2] : 0;
   }
   return c;
+}
+
+// The snag or log on tile i, as drawn ([x, y, yaw]; yaw 0 for a snag), kept until the feature or
+// the distance to water changes.
+const woodCaches = new WeakMap();
+function cachedDeadwood(w, x, y, i) {
+  let c = woodCaches.get(w);
+  if (!c || c.f.length !== w.n) woodCaches.set(w, c = { f: new Uint8Array(w.n), dw: new Int16Array(w.n), xyr: new Float32Array(w.n * 3) });
+  const f = w.feature[i], dw = Math.min(w.distWater[i], 3);
+  if (c.f[i] !== f || c.dw[i] !== dw) {
+    const bank = !isWater(w.terrain[i]) && w.distWater[i] <= 2 && visibleLevel(w, x, y) != null;
+    const s = f === F.LOG ? logSpot(w, x, y, bank) : [...snagSpot(w, x, y, bank), 0];
+    c.f[i] = f; c.dw[i] = dw; c.xyr[i * 3] = s[0]; c.xyr[i * 3 + 1] = s[1]; c.xyr[i * 3 + 2] = s[2];
+  }
+  return c.xyr;
 }
 
 // Whose way wood is in: walkers on the ground. Not fliers, swimmers, climbers or any primate.
@@ -101,13 +169,15 @@ function gather(w, a, def, x, y, body) {
     const tid = w.tree[i];
     if (tid && !(big && w.treeG[i] < SAPLING)) {
       const c = cachedTrunk(w, xx, yy, i).xyr, r = c[i * 3 + 2];
-      if (r > 0) push(c[i * 3], c[i * 3 + 1], 0, 0, r, Math.min(r + body, Math.max(KEEP_MAX, r + 0.02)), i);
+      // (the cap keeps a way between thin trunks in a dense stand; beside a thick one, a baobab, it
+      // still keeps half the body clear, or a grazer feeding there stood half inside it: decision 0037)
+      if (r > 0) push(c[i * 3], c[i * 3 + 1], 0, 0, r, Math.min(r + body, Math.max(KEEP_MAX, r + body * 0.55)), i);
     }
     const f = w.feature[i];
-    if (f === F.SNAG && !tid) push(xx + 0.5, yy + 0.5, 0, 0, SNAG_R, Math.min(SNAG_R + body, KEEP_MAX), i);
+    if (f === F.SNAG && !tid) { const c = cachedDeadwood(w, xx, yy, i); push(c[i * 3], c[i * 3 + 1], 0, 0, SNAG_R, Math.min(SNAG_R + body, KEEP_MAX), i); }
     else if (f === F.LOG && small) {
-      const rot = hash2(xx, yy, 13) * 6.28; // (along the log as drawn: its local x turned by rot about the vertical)
-      push(xx + 0.5, yy + 0.5, Math.cos(rot) * LOG_HALF, -Math.sin(rot) * LOG_HALF, LOG_R, LOG_R + body, i);
+      const c = cachedDeadwood(w, xx, yy, i), rot = c[i * 3 + 2]; // (along the log as drawn: its local x turned by rot about the vertical)
+      push(c[i * 3], c[i * 3 + 1], Math.cos(rot) * LOG_HALF, -Math.sin(rot) * LOG_HALF, LOG_R, LOG_R + body, i);
     }
   }
   return count;
@@ -122,19 +192,58 @@ function closest(o, x, y) {
   const L2 = o.hx * o.hx + o.hy * o.hy, t = clamp(((x - o.cx) * o.hx + (y - o.cy) * o.hy) / L2, -1, 1);
   return [o.cx + o.hx * t, o.cy + o.hy * t];
 }
-const bodyOf = a => animalRadius(a) * 0.38; // (half the body's width: animalRadius runs along its length)
+const bodyOf = (w, a) => animalRadius(a, w.catalog) * 0.38; // (half the body's width: animalRadius runs along its length; this world's catalog, not whichever map is active)
 const active = (a, def) => groundWalker(def, a) && !(a.squeeze > 0);
+// The body seen from above (0025): a capsule along the way it faces, from rump to chest, half its
+// width round that line, and an antlered male's rack a disc at the head. A walker is long, so a
+// round keep-out the width of its body let it turn its head or rump into a trunk (an elk's
+// antlers into a fir, a deer standing half inside one). Reused record, fixed shape.
+const body = { half: 0, reach: 0, rack: 0, ux: 1, uy: 0 };
+function shape(w, a, def, heading = a.hd ?? a.orientation ?? 0) {
+  const r = animalRadius(a, w.catalog);
+  body.half = r * 0.38; body.reach = Math.max(0, r / 0.65 / 2 - body.half); // (animalRadius is 0.65 of the drawn length)
+  body.rack = def.sprite.male?.antlers && isMaleVariant(def, a) ? r * 0.3 : 0;
+  body.ux = Math.cos(heading); body.uy = Math.sin(heading);
+  return body;
+}
+// How far the body standing at (x, y) is inside obstacle o, and which way to move it out: a
+// trunk is tested against the body's line and its rack, a log (small animals) against its centre.
+const out = { depth: 0, nx: 0, ny: 0 };
+function intrusion(o, x, y, b) {
+  out.depth = 0;
+  if (o.hx || o.hy) { // (a log)
+    const [px, py] = closest(o, x, y), d = Math.hypot(x - px, y - py);
+    if (d < o.keep) set(o.keep - d, x - px, y - py, d);
+    return out;
+  }
+  const t = clamp((o.cx - x) * b.ux + (o.cy - y) * b.uy, -b.reach, b.reach);
+  const bx = x + b.ux * t, by = y + b.uy * t, d = Math.hypot(bx - o.cx, by - o.cy);
+  if (d < o.keep) set(o.keep - d, bx - o.cx, by - o.cy, d);
+  if (b.rack) {
+    const hx = x + b.ux * (b.reach + b.half), hy = y + b.uy * (b.reach + b.half), dh = Math.hypot(hx - o.cx, hy - o.cy);
+    const keep = Math.min(o.r + b.rack, Math.max(KEEP_MAX, o.r + b.rack * 0.55)); // (as for the body, in gather)
+    if (dh < keep && keep - dh > out.depth) set(keep - dh, hx - o.cx, hy - o.cy, dh);
+  }
+  return out;
+}
+function set(depth, dx, dy, d) {
+  out.depth = depth;
+  if (d > 1e-4) { out.nx = dx / d; out.ny = dy / d; } else { out.nx = 0; out.ny = 0; }
+}
 
 // A point to walk to that isn't inside a trunk: a rest spot or waypoint chosen by tile is moved
 // out to the trunk's edge, so the walker can arrive instead of pressing on it.
 export function clearSpot(w, a, def, x, y) {
   if ((x - a.x) ** 2 + (y - a.y) ** 2 > 2.25 || !active(a, def)) return [x, y]; // (only matters on arrival)
-  const n = gather(w, a, def, x, y, bodyOf(a));
+  const reach = shape(w, a, def).reach, n = gather(w, a, def, x, y, body.half);
   for (let pass = 0; pass < 2; pass++) for (let k = 0; k < n; k++) {
+    // (it will stand there facing who knows which way: room for its length too, short of the
+    // gap between two trunks, so a spot in a dense stand still exists)
     const o = near[k], [px, py] = closest(o, x, y), d = Math.hypot(x - px, y - py);
-    if (d >= o.keep) continue;
+    const keep = o.hx || o.hy ? o.keep : Math.max(o.keep, Math.min(o.keep + reach, 0.27));
+    if (d >= keep) continue;
     const [ux, uy] = d > 1e-4 ? [(x - px) / d, (y - py) / d] : [Math.cos(a.id || 0), Math.sin(a.id || 0)];
-    const nx = px + ux * (o.keep + 0.01), ny = py + uy * (o.keep + 0.01);
+    const nx = px + ux * (keep + 0.01), ny = py + uy * (keep + 0.01);
     if (standable(w, a, nx, ny, x, y)) { x = nx; y = ny; }
   }
   return [x, y];
@@ -151,7 +260,7 @@ const SWITCH = 0.35; // (radians the other way round must save before a walker c
 const EASE = 0.1; // (radians a step a dodge eases off by)
 export function steerAround(w, a, def, heading, reach) {
   if (!active(a, def)) { a.dodge = 0; a.dodgeOff = 0; return heading; }
-  const n = gather(w, a, def, a.x + Math.cos(heading) * reach * 0.5, a.y + Math.sin(heading) * reach * 0.5, bodyOf(a));
+  const n = gather(w, a, def, a.x + Math.cos(heading) * reach * 0.5, a.y + Math.sin(heading) * reach * 0.5, bodyOf(w, a));
   let side = 0, out = heading;
   const left = n ? sweep(a, heading, reach, n, 1) : heading;
   if (left !== heading) {
@@ -198,17 +307,16 @@ export function resolveStep(wl, a, def, fromX, fromY) {
   if (a.squeeze > 0) { a.squeeze -= moved; if (def.tramples) trample(w, a, def); return; }
   if (!groundWalker(def, a)) return;
   if (def.tramples) trample(w, a, def);
-  const n = gather(w, a, def, a.x, a.y, bodyOf(a));
+  const b = shape(w, a, def), n = gather(w, a, def, a.x, a.y, b.half);
   if (!n) { a.woodLost = 0; return; }
   let x = a.x, y = a.y, hit = false;
   for (let pass = 0; pass < 3; pass++) for (let k = 0; k < n; k++) {
-    const o = near[k], [px, py] = closest(o, x, y), d = Math.hypot(x - px, y - py);
-    if (d >= o.keep) continue;
+    const o = intrusion(near[k], x, y, b);
+    if (!(o.depth > 0)) continue;
     hit = true;
-    let ux, uy;
-    if (d > 1e-4) { ux = (x - px) / d; uy = (y - py) / d; }
-    else { const s = a.id & 1 ? 1 : -1, mx = a.x - fromX, my = a.y - fromY, m = Math.hypot(mx, my) || 1; ux = -my / m * s; uy = mx / m * s; }
-    x = px + ux * o.keep; y = py + uy * o.keep;
+    let ux = o.nx, uy = o.ny;
+    if (!ux && !uy) { const s = a.id & 1 ? 1 : -1, mx = a.x - fromX, my = a.y - fromY, m = Math.hypot(mx, my) || 1; ux = -my / m * s; uy = mx / m * s; }
+    x += ux * o.depth; y += uy * o.depth;
   }
   if (!hit) { a.woodLost = Math.max(0, (a.woodLost || 0) - moved); return; }
   if (!standable(w, a, x, y, a.x, a.y)) return;
@@ -230,7 +338,7 @@ function standable(w, a, x, y, fx, fy) {
 // An elephant pushing through a sapling bends or breaks it: once per tree it walks into, the
 // same knock a savanna herd's trampling gives (animals.js trample), and a seedling is flattened.
 function trample(w, a, def) {
-  const x0 = Math.floor(a.x), y0 = Math.floor(a.y), body = bodyOf(a);
+  const x0 = Math.floor(a.x), y0 = Math.floor(a.y), body = bodyOf(w, a);
   for (let yy = y0 - 1; yy <= y0 + 1; yy++) for (let xx = x0 - 1; xx <= x0 + 1; xx++) {
     if (!w.inb(xx, yy)) continue;
     const i = w.idx(xx, yy), tid = w.tree[i];
@@ -238,17 +346,33 @@ function trample(w, a, def) {
     const t = treeTrunk(w, xx, yy, true);
     if (!t || Math.hypot(a.x - t[0], a.y - t[1]) > body + t[2]) continue;
     a.trampled = i;
-    if ((w.treeG[i] -= 0.08) <= 0) { w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; }
+    if ((w.treeG[i] -= 0.08) <= 0) { w.treeG[i] = 0; removeTree(w, i, 'browse', null, { deadwood: false }); } // (trampled flat)
   }
 }
 
 // Is (x, y) inside wood this animal keeps clear of? (for spacing's shoves)
-export function inWood(w, a, def, x, y) {
+export function inWood(w, a, def, x, y, heading) {
   if (!active(a, def)) return false;
-  const n = gather(w, a, def, x, y, bodyOf(a));
-  for (let k = 0; k < n; k++) {
-    const o = near[k], [px, py] = closest(o, x, y);
-    if (Math.hypot(x - px, y - py) < o.keep) return true;
-  }
+  const b = shape(w, a, def, heading), n = gather(w, a, def, x, y, b.half);
+  for (let k = 0; k < n; k++) if (intrusion(near[k], x, y, b).depth > 0.002) return true;
   return false;
+}
+
+// Standing still, turning on the spot (to drink, to face a rival or a neighbour) can swing a long
+// body into a trunk: slide it back out, as a step would (0025). Not counted as ground lost.
+export function settleBody(wl, a, def) {
+  if (!active(a, def)) return;
+  // (nothing has moved or turned it since it was last settled: nothing to do)
+  const key = a.x * 7919 + a.y * 104729 + (a.orientation || 0);
+  if (a.settleKey === key) return;
+  const w = wl.game.world, b = shape(w, a, def), n = gather(w, a, def, a.x, a.y, b.half);
+  if (!n) { a.settleKey = key; return; }
+  let x = a.x, y = a.y, hit = false;
+  for (let pass = 0; pass < 3; pass++) for (let k = 0; k < n; k++) {
+    const o = intrusion(near[k], x, y, b);
+    if (!(o.depth > 0.002) || !o.nx && !o.ny) continue;
+    hit = true; x += o.nx * o.depth; y += o.ny * o.depth;
+  }
+  if (hit && standable(w, a, x, y, a.x, a.y)) { a.x = x; a.y = y; }
+  else a.settleKey = key;
 }

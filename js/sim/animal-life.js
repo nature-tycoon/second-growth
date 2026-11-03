@@ -3,7 +3,7 @@
 // neighbours greet or spar. All of it uses Math.random, never game.rng, and the catch roll still
 // happens once, on contact. Shared carcass meals also satisfy hunger, using the same food-stress rules.
 
-import { clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
+import { clamp, isWater, DAYS_PER_YEAR, lifeAge, F } from '../config.js';
 import { preyFor, isMale, isMaleVariant } from '../data/animals.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { passable, canLand } from './animal-terrain.js';
@@ -18,19 +18,31 @@ import { territoryArrive } from './animal-territory.js';
 import { wakeDormant } from './animal-dormancy.js';
 import { drinkEvery } from './home-range.js';
 import { markRisk } from './predation-risk.js';
+import { inWood } from './ground-obstacles.js';
 
-// How each kind of hunter closes in. approach, creep and sprint are multiples of its usual
-// speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles.
+// How each kind of hunter closes in (decision 0026). approach, creep and sprint are multiples of its
+// usual speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles. The rest is
+// the run itself: `accel` how many of those multiples it gains in a day, `turn` how many radians a
+// day it can swing its line, `stamina` days of flat-out running in it (a miss costs a share),
+// `patience` days it keeps on without gaining before it lets the prey go. `closeIn`: how much
+// nearer than `rush` a stalker still unseen creeps in full cover before it charges.
 const STYLES = {
-  stalk: { approach: 1, near: 5, creep: 0.6, rush: 3, sprint: 2.4 },      // cats slink in low, then pounce
-  chase: { approach: 1.15, near: 0, creep: 1.15, rush: 4.5, sprint: 2.1 }, // dogs and hyenas trot in, then run it down
-  ambush: { approach: 0.8, near: 3, creep: 0.5, rush: 1.5, sprint: 3.2 },  // snakes, crocodiles and monitors inch closer, then strike
-  stoop: { approach: 1.2, near: 0, creep: 1, rush: 2.2, sprint: 2.8, circle: true }, // raptors and fishing birds circle, then dive
-  wade: { approach: 0.65, near: 3, creep: 0.35, rush: 1.15, sprint: 1.8, grounded: true }, // stalk on foot, then strike
-  pursue: { approach: 1, near: 0, creep: 1, rush: 2.5, sprint: 1.9 },      // otters, bears and the rest
+  // cats slink in low, freeze when the prey looks up, then charge a short way
+  stalk: { approach: 1, near: 5, creep: 0.6, rush: 3, sprint: 2.4, accel: 10, turn: 12, stamina: 2.8, patience: 1, closeIn: 0.5 },
+  // dogs and hyenas trot in, then run it down: slower off the mark, but they keep going
+  chase: { approach: 1.15, near: 0, creep: 1.15, rush: 4.5, sprint: 2.1, accel: 6, turn: 9, stamina: 4.5, patience: 2.5 },
+  // snakes, crocodiles and monitors inch closer, then lunge
+  ambush: { approach: 0.8, near: 4, creep: 0.5, rush: 1.5, sprint: 3.2, accel: 24, turn: 8, stamina: 1.2, patience: 0.5 },
+  // raptors and fishing birds circle, then dive (a missed dive climbs and circles again)
+  stoop: { approach: 1.2, near: 0, creep: 1, rush: 2.2, sprint: 2.8, circle: true, stamina: 2 },
+  // stalk on foot, then strike
+  wade: { approach: 0.65, near: 4, creep: 0.35, rush: 1.15, sprint: 1.8, grounded: true, accel: 10, turn: 10, stamina: 0.8, patience: 0.4, closeIn: 0.3 },
+  // otters, bears and the rest
+  pursue: { approach: 1, near: 0, creep: 1, rush: 2.5, sprint: 1.9, accel: 8, turn: 10, stamina: 2, patience: 0.8 },
 };
 const KIND_STYLE = { feline: 'stalk', canine: 'chase', hyena: 'chase', snake: 'ambush', caiman: 'ambush', monitor: 'ambush' };
-const CHEETAH = { ...STYLES.stalk, near: 8, rush: 5.5, sprint: 3.4 }; // a long, flat-out sprint from further away
+// a long stalk, then a short, flat-out sprint from further away: the fastest start, and the shortest wind
+const CHEETAH = { ...STYLES.stalk, near: 8, rush: 5.5, sprint: 3.4, accel: 16, turn: 14, stamina: 2, patience: 0.5, closeIn: 0 };
 const BLACKTIP = { ...STYLES.chase, rush: 6, sprint: 2.6 }; // charges a surface fish from well back, and keeps it up across the flats
 export function huntStyle(def) {
   if (def.behavior?.hunt === 'wade') return STYLES.wade;
@@ -97,33 +109,63 @@ export function endHunt(a) {
   a.hunt = null; a.assist = false; a.run = null; a.stoop = 0;
 }
 
-// One step of a hunt. Returns true when the hunter reaches its prey (the caller rolls the catch).
+// One step of a hunt (decision 0026): one continuous run from the approach to a catch, or to the
+// hunter letting the prey go. On the ground it keeps a speed and a heading of its own, gaining or
+// losing pace no faster than `accel` and swinging its line no faster than `turn`, so it never jumps
+// from a stalk to a sprint or stops dead. Returns true when it reaches its prey (the caller rolls
+// the catch).
 export function huntStep(wl, a, def, b, sp) {
   const S = huntStyle(def), H = a.hunt || (a.hunt = { phase: 'approach' });
-  const d = dist(a, b);
+  const d = dist(a, b), t = dt(sp, def);
   // A raptor or owl catches only once its dive has brought it all the way down, not by passing
   // over (or perching beside) its prey at treetop height.
   const aerial = def.move === 'fly' && !S.grounded, down = () => !aerial || a.stoop >= 1;
-  if (S.grounded && d < 1.15) { a.run = 0; return true; } // a long bill reaches into the shallows
-  if (d * d < 0.25 && down()) return true;
+  H.stamina ??= S.stamina;
+  // which way the prey is going and how fast (smoothed), so a chase can aim ahead of it
+  if (H.bx != null && t > 0) { const k = 1 - Math.exp(-t * 6); H.vx += ((b.x - H.bx) / t - H.vx) * k; H.vy += ((b.y - H.by) / t - H.vy) * k; }
+  else { H.vx = 0; H.vy = 0; }
+  H.bx = b.x; H.by = b.y;
+  if (H.phase === 'ease') return ease(wl, a, def, S, t, sp);
+  if (H.miss > 0) H.miss -= t; // (just after a miss the prey has jinked free: no second grab at once)
+  const touch = !(H.miss > 0);
+  if (S.grounded && d < 1.15 && touch) { a.run = 0; H.v = 0; return true; } // a long bill reaches into the shallows
+  if (d * d < 0.25 && down() && touch) return true;
+  // the prey has seen it and is running (from it or its pack)
+  const fled = b.state === 'flee' && !(b.fleeDelay > 0) && (b.threat === a.id || byId(wl, b.threat)?.sp === a.sp);
   // a stalk the prey is drawing away from is given up early, not followed for days
   if (H.phase === 'approach') {
     if (H.best == null || d < H.best - 0.3) { H.best = d; H.since = 0; }
-    else if ((H.since = (H.since || 0) + dt(sp, def)) > 1.2) return giveUp(wl, a, def);
+    else if ((H.since = (H.since || 0) + t) > 1.2) return letGo(wl, a, def, b, sp);
   }
+  if (H.again > 0) H.again -= t; // (a second try gathers itself, and creeps or walks in, before it runs)
   if (H.phase === 'approach' || H.phase === 'creep') {
-    if (aerial && H.perch && d < S.rush + 1.4) startRush(wl, a, def, b, S, d); // (from a perch it drops straight on)
+    if (H.again > 0) { if (S.near && H.phase !== 'creep') { H.phase = 'creep'; H.stalk = 0; } }
+    else if (aerial && H.perch && d < S.rush + 1.4) startRush(wl, a, def, b, S, d); // (from a perch it drops straight on)
     else if (S.circle && d < S.rush + 1.4) { H.phase = 'circle'; H.t = 0.5 + Math.random() * 0.8; H.ang = Math.atan2(a.y - b.y, a.x - b.x); }
-    else if (d < S.rush || (H.phase === 'creep' && a.huntTime < 0.3)) startRush(wl, a, def, b, S, d); // (or a stalk running long: now or never)
+    // close enough to charge (a stalker still unseen in cover creeps closer first), or seen and
+    // still near enough to run it down, or a stalk running long: now or never
+    else if (d < S.rush * (H.phase === 'creep' && !(b.alertT > 0) ? 1 - (H.cover || 0) * (S.closeIn || 0) : 1) || fled && d < S.rush * 1.8 ||
+      (H.phase === 'creep' && a.huntTime < 0.3)) startRush(wl, a, def, b, S, d);
+    else if (fled && !aerial) return letGo(wl, a, def, b, sp); // (the stalk is blown, too far off to catch)
     else if (S.near && d < S.near && H.phase !== 'creep') {
       // a stalk takes the time it takes: the hunter doesn't give up halfway through one
-      H.phase = 'creep';
+      H.phase = 'creep'; H.stalk = 0;
       a.huntTime = Math.max(a.huntTime, (d - S.rush) / (def.speed * S.creep) + 2);
     }
   }
+  // Stalking: it freezes whenever the prey looks up (an alert stare, decision 0006), and slips
+  // from cover to cover (grass, brush) where there is any, which hides it from the prey (watch).
+  let frozen = false;
+  if (H.phase === 'creep') {
+    H.stalk = (H.stalk || 0) + t;
+    frozen = b.alertT > 0 && b.state !== 'flee';
+    if (frozen && H.stalk < 8) a.huntTime += t; // (the freeze doesn't count against the stalk)
+    if ((H.coverT = (H.coverT || 0) - t) <= 0) stalkCover(wl, a, b, d, H);
+    H.hide = Math.min(0.7, (H.cover || 0) + (frozen ? 0.3 : 0));
+  } else H.hide = 0;
   if (H.phase === 'circle') {
     // wheel over the prey a couple of times, then fold and drop
-    H.t -= dt(sp, def);
+    H.t -= t;
     H.ang += sp / 1.5;
     a.run = 1.1;
     if (H.t <= 0) startRush(wl, a, def, b, S, d);
@@ -131,42 +173,139 @@ export function huntStep(wl, a, def, b, sp) {
   }
   let mul = H.phase === 'rush' ? S.sprint : H.phase === 'creep' ? S.creep : S.approach;
   if (H.phase === 'rush') {
-    H.t -= dt(sp, def);
-    // the dive reaches the ground as it comes over the prey, and can only fall so fast (about a
-    // quarter of a second on screen): one that starts right above its prey drops, it doesn't snatch
-    if (aerial) a.stoop = Math.min(clamp(1 - (d - 0.5) / Math.max(0.3, (H.d0 || 2) - 0.5), 0, 1), (a.stoop || 0) + dt(sp, def) * 8);
-    if (H.t <= 0) return giveUp(wl, a, def);
+    if (aerial) {
+      H.t -= t;
+      // the dive reaches the ground as it comes over the prey, and can only fall so fast (about a
+      // quarter of a second on screen): one that starts right above its prey drops, it doesn't snatch
+      a.stoop = Math.min(clamp(1 - (d - 0.5) / Math.max(0.3, (H.d0 || 2) - 0.5), 0, 1), (a.stoop || 0) + t * 8);
+      if (H.t <= 0) return letGo(wl, a, def, b, sp);
+    } else {
+      // The chase lasts as long as its wind (running flat out uses it up, easing off saves it) and
+      // while it gains, or at least holds its ground: falling well behind, or a while with no gain, ends it.
+      H.stamina -= t * (H.v || 0) / S.sprint;
+      if (H.best == null || d < H.best - 0.05) { H.best = d; H.since = 0; } else H.since = (H.since || 0) + t;
+      if (H.stamina <= 0 || H.since > S.patience || d > H.best + 2) return letGo(wl, a, def, b, sp);
+      if (d < 1.2) mul *= 1.3; // (the last bound or lunge onto it)
+    }
+  } else if (H.phase === 'creep' && !aerial) {
+    // it keeps pace with prey wandering off, rather than creeping on as it draws away
+    const away = (H.vx * (b.x - a.x) + H.vy * (b.y - a.y)) / Math.max(d, 0.01) / Math.max(0.01, def.speed);
+    mul = frozen ? 0 : clamp(away + 0.15, S.creep, Math.max(S.creep, S.approach));
   }
-  a.run = mul;
   // pack members come in from the sides, then close
   let tx = b.x, ty = b.y;
   if (H.flank && H.phase !== 'rush' && d > 1.5) {
     const ux = (b.x - a.x) / d, uy = (b.y - a.y) / d;
     tx += -uy * H.flank; ty += ux * H.flank;
   }
+  if (aerial) {
+    a.run = mul;
+    return ((wl.stepToward(a, tx, ty, sp * mul) && tx === b.x) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25) && down();
+  }
+  // a chase aims where the prey will be by the time it gets there, not where it is
+  if (H.phase === 'rush' || fled) { const lead = Math.min(0.5, d / Math.max(0.5, (H.v || 0) * def.speed)); tx += H.vx * lead; ty += H.vy * lead; }
+  // its pace eases toward what it wants, no faster than it can speed up (and slows twice as fast)
+  H.v ??= Math.min(mul, 1);
+  const rate = (mul < H.v ? 2 : 1) * S.accel * t;
+  H.v += clamp(mul - H.v, -rate, rate);
+  // and its line swings toward the prey (or the cover beside the way to it) at its turning rate,
+  // easing off while it swings round
+  const aim = Math.atan2(ty - a.y, tx - a.x) + (H.phase === 'creep' ? H.coverOff || 0 : 0);
+  H.hd ??= a.hd ?? a.orientation ?? aim;
+  const turn = S.turn * t * (d < 1.2 ? 3 : 1);
+  H.hd = wrap(H.hd + clamp(wrap(aim - H.hd), -turn, turn));
+  const step = sp * H.v * Math.max(0.3, Math.cos(wrap(aim - H.hd)));
+  a.run = H.v;
+  // at arm's length it closes on the prey itself
+  const close = touch && d < step + 0.5;
+  const gx = close ? b.x : a.x + Math.cos(H.hd) * Math.max(step, 0.6), gy = close ? b.y : a.y + Math.sin(H.hd) * Math.max(step, 0.6);
   if (S.grounded) {
-    const w = wl.game.world, step = Math.min(d, sp * mul);
-    const nx = a.x + (tx - a.x) / Math.max(d, 0.01) * step, ny = a.y + (ty - a.y) / Math.max(d, 0.01) * step;
-    if (!w.inb(Math.floor(nx), Math.floor(ny)) || !canLand(w, w.idx(Math.floor(nx), Math.floor(ny)), def)) return giveUp(wl, a);
+    const w = wl.game.world, l = Math.hypot(gx - a.x, gy - a.y) || 1, s = Math.min(step, l);
+    const nx = a.x + (gx - a.x) / l * s, ny = a.y + (gy - a.y) / l * s;
+    if (!w.inb(Math.floor(nx), Math.floor(ny)) || !canLand(w, w.idx(Math.floor(nx), Math.floor(ny)), def)) return letGo(wl, a, def, b, sp);
     a.flying = false; a.alt = 0;
   }
-  return ((wl.stepToward(a, tx, ty, sp * mul) && tx === b.x) || (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25) && down();
+  if (step > 1e-4) wl.stepToward(a, gx, gy, step); // (frozen, it holds still as it was: turning on the spot can swing its body into a trunk)
+  return touch && (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25;
 }
 // (sp is speed × dt, so the elapsed game time is sp / speed)
 const dt = (sp, def) => sp / Math.max(0.01, def.speed);
 
+// The cover a hunter stands in, as the prey sees it (0 out in the open).
+const openCover = (w, o, a) => w.inb(Math.floor(o.x), Math.floor(o.y)) ? Math.min(1, preyCover(w, { sp: o.sp, x: o.x, y: o.y }, w.catalog.animals[a.sp]) * 2) : 0;
+
+// How well a stalker can hide on its way in to prey, 0 (open short grass, bare ground) to 1 (tall
+// grass, brush): the cover where the prey stands and one step back toward the hunter.
+export function stalkCoverAt(w, a, b) {
+  const pdef = w.catalog.animals[b.sp], d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+  const at = (x, y) => w.inb(Math.floor(x), Math.floor(y)) ? Math.min(1, preyCover(w, { sp: a.sp, x, y }, pdef) * 2) : 0;
+  return Math.max(at(b.x, b.y), at(b.x + (a.x - b.x) / d, b.y + (a.y - b.y) / d));
+}
+
+// Which way to creep: straight at the prey, or a little to one side where the grass or brush is
+// thicker, so long as that still closes on it. Checked every quarter day, three spots ahead.
+function stalkCover(wl, a, b, d, H) {
+  const w = wl.game.world, base = Math.atan2(b.y - a.y, b.x - a.x), pdef = wl.game.catalog.animals[b.sp];
+  const cover = (x, y) => w.inb(Math.floor(x), Math.floor(y)) ? Math.min(1, preyCover(w, { sp: a.sp, x, y }, pdef) * 2) : 0;
+  H.coverT = 0.25;
+  H.cover = cover(a.x, a.y);
+  let best = -1;
+  for (const off of [0, 0.45, -0.45]) {
+    const c = cover(a.x + Math.cos(base + off) * 1.2, a.y + Math.sin(base + off) * 1.2) - Math.abs(off) * 0.15 - (off === (H.coverOff || 0) ? 0 : 0.05);
+    if (c > best) { best = c; H.coverOff = d > 2 ? off : 0; }
+  }
+}
+
 function startRush(wl, a, def, b, S, d) {
   const H = a.hunt;
   H.surprise = H.phase === 'creep'; // (a stalker that crept in unseen: the prey is slower to react)
-  H.phase = 'rush'; H.d0 = d;
-  const sprint = def.speed * S.sprint;
-  // long enough to close the gap on prey running at just over half its speed
-  H.t = Math.max(1.2, d / (sprint * 0.45) * 1.6);
-  a.huntTime = Math.max(a.huntTime, H.t + 0.5);
+  H.phase = 'rush'; H.d0 = d; H.best = d; H.since = 0; H.hide = 0;
+  if (def.move === 'fly' && !S.grounded) {
+    const sprint = def.speed * S.sprint;
+    // long enough to close the gap on prey running at just over half its speed
+    H.t = Math.max(1.2, d / (sprint * 0.45) * 1.6);
+  } else H.t = H.stamina + 0.5;
+  a.huntTime = Math.max(a.huntTime, H.t + 1);
   if (!a.assist) alarm(wl, a, def, b, H.t);
 }
 
-// Out of breath: the rush failed. Stand and recover; the prey keeps running.
+// A missed grab doesn't end the hunt: the prey jinks free, and the hunter, thrown off its stride,
+// runs on after it while it has the wind (a raptor climbs and circles for another dive). Returns
+// false when it has none left.
+export function pressOn(wl, a, def) {
+  const S = huntStyle(def), H = a.hunt;
+  if (!H || !(S.stamina > 0)) return false;
+  H.stamina = (H.stamina ?? S.stamina) - S.stamina * 0.35;
+  if (H.stamina <= S.stamina * 0.1) return false;
+  H.miss = 0.3; H.best = null; H.since = 0;
+  const b = byId(wl, a.target);
+  if (def.move === 'fly' && !S.grounded) {
+    H.phase = 'circle'; H.t = 0.6 + Math.random() * 0.6; a.stoop = 0;
+    H.ang = b ? Math.atan2(a.y - b.y, a.x - b.x) : 0;
+  } else { H.phase = 'rush'; H.v = (H.v || 0) * 0.4; }
+  a.huntTime = Math.max(a.huntTime, H.stamina + 1.5);
+  return true;
+}
+
+// The hunter lets this prey go, and for a few days would rather pick another (startHunt counts it as
+// twice as far off). A running hunter slows to a stop rather than halting in one step.
+export function huntCooldown(a, b) { a.huntCool = b.id; a.huntCoolUntil = a.age + 3 + Math.random() * 3; }
+export function letGo(wl, a, def, b, sp) {
+  huntCooldown(a, b);
+  if (def.move === 'fly' && !huntStyle(def).grounded || !(a.hunt?.v > 0.3)) return giveUp(wl, a);
+  a.hunt.phase = 'ease';
+  return ease(wl, a, def, huntStyle(def), dt(sp, def), sp);
+}
+function ease(wl, a, def, S, t, sp) {
+  const H = a.hunt;
+  H.v = Math.max(0, (H.v || 0) - S.accel * t);
+  a.run = H.v;
+  if (H.v < 0.25) return giveUp(wl, a);
+  wl.stepToward(a, a.x + Math.cos(H.hd) * 0.6, a.y + Math.sin(H.hd) * 0.6, sp * H.v);
+  return false;
+}
+
+// Out of breath: the hunt failed. Stand and recover; the prey keeps running.
 function giveUp(wl, a) {
   a.state = 'idle'; a.wait = 1.5 + Math.random() * 1.5;
   if (a.move === 'fly') a.flying = false;
@@ -202,10 +341,13 @@ export function startFeed(wl, a, def, b) {
   const bd = wl.game.catalog.animals[b.sp], big = leavesCarcass(bd);
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   a.carcass = null;
+  a.searchImage = b.sp; // (it looks out for this kind of prey next: decision 0037)
   // (a bird that snatched a fish from open water eats it on the wing)
   if (a.move === 'fly' && w.inb(x, y) && !canLand(w, w.idx(x, y), def)) { a.state = 'idle'; a.wait = 0; a.flying = true; return; }
   a.state = 'feed'; a.feedAt = [b.x, b.y]; facePoint(a, b.x, b.y);
   a.flying = false;
+  // (a fish is drawn in front of it while it eats, as for the fishers in fishing.js)
+  if (!big && bd.move === 'swim' && !bd.reef) a.prey = { id: b.id, sp: b.sp, age: lifeAge(b), juvenile: !!b.juvenile, fish: true };
   if (!big) { a.feedT = 0.5 + Math.random() * 0.8; return; }
   a.feedT = 1.5 + (bd.sprite.len || 20) / 30 * (1 + Math.random());
   const c = { id: b.id, sp: b.sp, x: b.x, y: b.y, yaw: b.orientation ?? 0, age: lifeAge(b), side: Math.random() < 0.5 ? -1 : 1,
@@ -278,6 +420,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   a.fruitMeal = null; a.fruitGoal = null; a.forage = null; a.forageGoal = null;
   a.socialWith = null; a.socialUntil = 0; a.sparPath = null;
   a.greet = null; a.goal = null; a.sparT = 0; a.sparLight = false; a.sparWith = null; a.sparAt = null; a.greetT = 0; a.play = false; a.fromFire = false;
+  a.fishing = null; a.stoop = 0;
   if (a.state === 'hunt' || a.state === 'feed' || a.state === 'carry') { endHunt(a); a.feedAt = null; a.carcass = null; a.carry = null; a.prey = null; }
   if (def.reef || def.move === 'swim') {
     a.path = null; a.state = 'idle'; a.wait = 0.2;
@@ -315,7 +458,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   // a fresh flight from one of its own hunters is remembered, more faintly than a kill
   const hunter = wl.game.catalog.animals[threat.sp]; // (a threat can also be a fire or a person)
   if (a.state !== 'flee' && hunter && preyFor(hunter, wl.game)?.includes(def.key)) markRisk(wl, a.sp, a.x, a.y, 0.25);
-  if (a.state !== 'flee') a.fleeAge = 0; // (a flight already under way keeps its speed)
+  if (a.state !== 'flee') { a.fleeAge = 0; a.fleeHd = null; } // (a flight already under way keeps its speed and line)
   a.state = 'flee'; a.path = null; a.threat = threat.id; a.fleeOff = 0;
   a.fx = fx; a.fy = fy; a.fleeT = time; a.fleeSpeed = speed; a.fleeDelay = delay;
   a.fleeSide = Math.random() < 0.5 ? -1 : 1;
@@ -323,6 +466,17 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
 }
 
 const TURNS = [0, 0.45, -0.45, 0.9, -0.9, 1.4, -1.4, 2, -2];
+// Spacing entries on the ground within reach of a's next half tile or so (reused list).
+const around = [], buckets = [];
+function groundAround(wl, a) {
+  around.length = 0;
+  for (const bucket of wl.spacing.around(a.x, a.y, buckets)) for (const e of bucket) {
+    if (e.a !== a && e.band === 'ground' && Math.abs(e.a.x - a.x) < 1.6 && Math.abs(e.a.y - a.y) < 1.6) around.push(e);
+  }
+  return around;
+}
+const FLEE_TURN = 14; // (radians a day a running animal can swing its line: a quarter turn in about a tenth of a day)
+const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
 export function fleeUpdate(wl, a, def, dt) {
   const th = byId(wl, a.threat), w = wl.game.world;
   if (a.fleeDelay > 0) {
@@ -372,32 +526,47 @@ export function fleeUpdate(wl, a, def, dt) {
   // Keep play, sparring retreats and fire escapes on their existing preferred turn.
   // Real prey evaluate clearance from all nearby hunters and cover ahead.
   const turns = a.fleeOff ? [a.fleeOff, ...TURNS] : TURNS;
+  // (a land walker runs for dry ground: water is no cover, and it may only wade across it)
+  const wet = (x, y) => a.move === 'ground' && w.inb(Math.floor(x), Math.floor(y)) && isWater(w.terrain[w.idx(Math.floor(x), Math.floor(y))]);
+  const look = Math.max(step, escaping ? 1.2 : 0.45);
+  // (the others on the ground close enough to run into, gathered once for every way it weighs)
+  const mates = escaping && wl.spacing?.w === w ? groundAround(wl, a) : null, r = mates?.length ? animalRadius(a, wl.game.catalog) : 0;
+  const crowd = (x, y) => { let c = 0; if (mates) for (const e of mates) c += Math.max(0, r + e.r + 0.04 - Math.hypot(x - e.a.x, y - e.a.y)); return c; };
   if (a.fleeT > 0) for (let pass = 0; pass < 2 && !chosen; pass++) {
     let best = -Infinity;
     for (const off of turns) {
       const ang = base + off * a.fleeSide, c = Math.cos(ang), s = Math.sin(ang);
-      const look = Math.max(step, escaping ? 1.2 : 0.45);
-      const nx = a.x + c * step, ny = a.y + s * step, lx = a.x + c * look, ly = a.y + s * look;
+      const lx = a.x + c * look, ly = a.y + s * look;
       if (!safe(lx, ly, pass)) continue;
       let score = 0;
       if (escaping) {
         let clearance = Math.hypot(lx - th.x, ly - th.y);
         for (const o of nearby) clearance = Math.min(clearance, Math.hypot(lx - o.x, ly - o.y));
-        score = clearance + preyCover(w, { sp: a.sp, x: lx, y: ly }, wl.game.catalog.animals[th.sp]) * 0.8 - Math.abs(off) * 0.06;
+        score = clearance + (wet(lx, ly) ? -0.8 : preyCover(w, { sp: a.sp, x: lx, y: ly }, wl.game.catalog.animals[th.sp]) * 0.8) - Math.abs(off) * 0.06;
+        // (it holds its line rather than flicking between two ways that score alike, and swerves
+        // round the herd mates ahead rather than running into them: 0025)
+        score -= Math.abs(off - (a.fleeOff || 0)) * 0.12 + crowd(a.x + c * 0.5, a.y + s * 0.5) * 2;
       }
-      if (score > best) { best = score; chosen = { nx, ny, c, s, off }; }
+      if (score > best) { best = score; chosen = { c, s, off }; }
       if (!escaping) break;
     }
   }
   if (chosen) {
-    const { nx, ny, c, s, off } = chosen;
-    a.x = nx; a.y = ny; facePoint(a, nx + c, ny + s);
+    const { c, s, off } = chosen;
+    // It turns toward that way fast, but not in one step, and runs on through the shared step,
+    // which curves round trunks and slides off them like any walk (animals.js stepToward).
+    const want = Math.atan2(s, c), was = a.fleeHd ?? a.orientation ?? want;
+    let h = was + clamp(wrap(want - was), -FLEE_TURN * dt, FLEE_TURN * dt);
+    if (!safe(a.x + Math.cos(h) * look, a.y + Math.sin(h) * look, true)) h = want;
+    a.fleeHd = h;
+    // (still swinging round, it gathers itself rather than running on the old line: toward the danger, maybe)
+    wl.stepToward(a, a.x + Math.cos(h) * look, a.y + Math.sin(h) * look, step * Math.max(0.3, Math.cos(wrap(want - h))));
     if (off) { const mix = 1 - Math.exp(-dt * 10); a.fx += (c - a.fx) * mix; a.fy += (s - a.fy) * mix; }
     a.fleeOff = off;
     return;
   }
   // safe (or cornered): stop and look back
-  a.state = 'idle'; a.run = null; a.fleeT = 0;
+  a.state = 'idle'; a.run = null; a.fleeT = 0; a.fleeHd = null;
   a.wait = a.play ? 0.3 + Math.random() * 0.5 : 0.6 + Math.random();
   if (th && !a.play) { facePoint(a, th.x, th.y); a.alertT = 1.2 + Math.random(); }
   a.play = false; a.threat = null; a.fromFire = false;
@@ -431,14 +600,17 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
     if (!preds.has(o.sp) || o.leaving || o.state === 'feed' || byId(wl, o.id) !== o ||
       !canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
-    if (d2 >= 36) continue;
+    // (a stalker in cover, or frozen, is only seen closer: decision 0026; a hunter out in the open
+    // is seen from further, up to 8.4 tiles rather than 6: decision 0037)
+    if (d2 >= 70.6 * (1 - (o.hunt?.hide || 0)) ** 2) continue;
+    if (d2 >= 36 * (1 - (o.hunt?.hide || 0)) ** 2 && d2 >= (6 * (1.4 - 0.4 * openCover(wl.game.world, o, a)) * (1 - (o.hunt?.hide || 0))) ** 2) continue;
     const score = d2 / (o.state === 'hunt' && o.target === a.id ? 4 : 1);
     if (score < best) { best = score; bd = d2; p = o; }
   }
   if (!p) return false;
   // A stalk or an approach is a hunter in view, not yet an attack: prey bolts once it is close
   // or the rush (or a raptor's circling) begins, and before that watches it and moves off.
-  const d = Math.sqrt(bd), urgent = d < 3 || p.state === 'hunt' && (p.hunt?.phase === 'rush' || p.hunt?.phase === 'circle');
+  const d = Math.sqrt(bd), urgent = d < 3 * (1 - (p.hunt?.hide || 0)) || p.state === 'hunt' && (p.hunt?.phase === 'rush' || p.hunt?.phase === 'circle');
   if (urgent) {
     // Preserve a useful escape already under way rather than repeatedly replacing
     // the next waypoint before a swimmer or climber can reach it.
@@ -510,7 +682,8 @@ export function scavenge(wl, a, def) {
   }
   if (!c || Math.random() > 0.75) return false;
   if (wl.agents.filter(o => o.state === 'feed' && o.carcass === c.id).length >= 5) return false;
-  if (bd < 1.4) return feedAt(a, c);
+  // (a bird feeds only once it is down on the ground beside the body, never from a perch over it)
+  if (bd < 1.4 && (a.move !== 'fly' || !a.flying && !perchedUp(wl.game.world, a) && bd < 0.9)) return feedAt(a, c);
   a.goal = { carcass: c.id };
   if (a.move === 'fly') {
     const ang = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 0.5;
@@ -521,6 +694,13 @@ export function scavenge(wl, a, def) {
   a.goal = null;
   return false;
 }
+// A bird up in a tree or on a snag (as drawn: a bird on such a tile is in it unless birdGround).
+function perchedUp(w, a) {
+  const x = Math.floor(a.x), y = Math.floor(a.y);
+  if (a.birdGround || !w.inb(x, y)) return false;
+  const i = w.idx(x, y);
+  return !!w.tree[i] && w.treeG[i] > 0.5 || w.feature[i] === F.SNAG;
+}
 export function feedAt(a, c) {
   // Claim the meal only on arrival, so distant visitors cannot reserve food.
   // As with a successful catch, the first bite satisfies hunger immediately.
@@ -528,13 +708,16 @@ export function feedAt(a, c) {
   c.meals--; a.hunger = 0;
   a.state = 'feed'; a.feedT = 1 + Math.random() * 1.5; a.feedAt = [c.x, c.y]; a.carcass = c.id;
   a.flying = false; a.path = null;
+  // A carcass lies on the ground, so a bird eats down there with it, even on a tile with a tree
+  // (drawn on the ground, not in the crown overhead; the flag clears when the meal ends).
+  if (a.move === 'fly') { a.birdGround = true; a.bird = null; a.alt = 0; }
   facePoint(a, c.x, c.y);
   return true;
 }
 
-// Young of the same kind chase each other about, taking turns.
+// Young of the same kind chase each other about, taking turns (only species that play: behavior.plays).
 export function play(wl, a, def) {
-  if (!ashore(def) || !young(a, def) || Math.random() > 0.3) return false;
+  if (!def.behavior?.plays || !ashore(def) || !young(a, def) || Math.random() > 0.3) return false;
   let o = null, bd = 25;
   for (const b of wl.agents) {
     if (b === a || b.sp !== a.sp || b.leaving || !young(b, def) || (b.state !== 'idle' && b.state !== 'walk')) continue;
@@ -666,10 +849,21 @@ function squareUp(wl, a, o, light = false) {
   // chests) meet; the drawing fine-tunes this to each model's actual antler reach
   const gap = (animalRadius(a) + animalRadius(o)) / 0.65;
   const mx = (a.x + o.x) / 2, my = (a.y + o.y) / 2;
-  const necking = wl.game.catalog.animals[a.sp].behavior?.combat === 'necking';
-  const sa = [mx - ux * gap / 2, my - uy * gap / 2], so = [mx + ux * gap / 2, my + uy * gap / 2];
-  const heading = Math.atan2(uy, ux) + Math.PI / 2;
-  for (const [x, y] of [sa, so]) if (!w.inb(Math.floor(x), Math.floor(y)) || !passable(w, w.idx(Math.floor(x), Math.floor(y)), a)) return false;
+  const def = wl.game.catalog.animals[a.sp], necking = def.behavior?.combat === 'necking';
+  // The stance must have room for both: each body (and rack) clear of every trunk, facing the
+  // other, and no third animal standing in it. Where the line between them doesn't, the pair
+  // turns about its midpoint to find one (0025); with none, they only greet. A stance on a trunk
+  // could never be reached, so the bout never began and neither ever turned to face the other.
+  const room = (b, x, y, h) => w.inb(Math.floor(x), Math.floor(y)) && passable(w, w.idx(Math.floor(x), Math.floor(y)), b) &&
+    !w.fire[w.idx(Math.floor(x), Math.floor(y))] && !inWood(w, b, def, x, y, h) && othersAt(wl, b, x, y, a, o) < 0.04;
+  let sa = null, so = null, heading = 0;
+  for (const turn of [0, 0.5, -0.5, 1, -1, 1.6, -1.6]) {
+    const c = Math.cos(turn), s = Math.sin(turn), vx = ux * c - uy * s, vy = ux * s + uy * c, h = Math.atan2(vy, vx);
+    const pa = [mx - vx * gap / 2, my - vy * gap / 2], po = [mx + vx * gap / 2, my + vy * gap / 2];
+    heading = h + Math.PI / 2;
+    if (room(a, ...pa, necking ? heading : h) && room(o, ...po, necking ? heading : h + Math.PI)) { sa = pa; so = po; break; }
+  }
+  if (!sa) return false;
   const routes = [];
   for (const [b, at] of [[a, sa], [o, so]]) {
     const tile = w.idx(Math.floor(at[0]), Math.floor(at[1]));
@@ -684,11 +878,22 @@ function squareUp(wl, a, o, light = false) {
   const t = light ? 1.5 + Math.random() * 1.5 : 3 + Math.random() * 3, loser = Math.random() < 0.5 ? a.id : o.id;
   for (const [b, at, other] of [[a, sa, o], [o, so, a]]) {
     b.sparStyle = necking ? 'necking' : 'horns'; b.sparHeading = necking ? heading : null;
-    b.state = 'spar'; b.sparWith = other.id; b.sparAt = at; b.sparT = t; b.sparLoser = loser; b.sparLight = light;
+    b.state = 'spar'; b.sparWith = other.id; b.sparAt = at; b.sparT = t; b.sparLoser = loser; b.sparLight = light; b.sparSince = b.age;
     b.sparPath = routes.shift(); b.socialWith = null; b.socialUntil = 0; b.greet = null;
     b.path = null; b.trip = null; b.follow = false; b.waterTrip = false; b.greetT = 0; b.drinkT = 0; b.drinkAt = null;
   }
   return true;
+}
+
+// How much animals other than the pair (on the ground) would overlap one standing at (x, y).
+function othersAt(wl, b, x, y, a, o) {
+  const sp = wl.spacing, r = animalRadius(b, wl.game.catalog);
+  let cost = 0;
+  for (const bucket of sp.around(x, y, [])) for (const e of bucket) {
+    if (e.a === a || e.a === o || e.band !== 'ground') continue;
+    cost += Math.max(0, r + e.r + 0.04 - Math.hypot(x - e.a.x, y - e.a.y));
+  }
+  return cost;
 }
 
 // One step of a bout: get into the stance, face the rival, and when it's over, settle it.
@@ -697,15 +902,19 @@ export function sparUpdate(wl, a, def, sp, elapsed = dt(sp, def)) {
   if (!o || o.state !== 'spar' || o.sparWith !== a.id || a.leaving) return endSpar(wl, a, null, false);
   if (a.sparPath?.length) {
     const tile = a.sparPath[a.sparPath.length - 1];
-    if (!passable(w, tile, a)) { endSpar(wl, a, null, false); endSpar(wl, o, null, false); return; }
-    if (wl.stepToward(a, tile % w.w + 0.5, (tile / w.w | 0) + 0.5, sp * 0.6)) a.sparPath.pop();
+    if (!passable(w, tile, a) || a.age - (a.sparSince ?? a.age) > 1.5) { endSpar(wl, a, null, false); endSpar(wl, o, null, false); return; }
+    if (wl.stepToward(a, tile % w.w + 0.5, (tile / w.w | 0) + 0.5, sp * 0.6) && (a.sparPath.pop(), !a.sparPath.length)) a.sparSince = a.age; // (now the last steps in)
     return;
   }
   if (a.sparAt && Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]) > 0.01) {
     const tile = w.idx(Math.floor(a.sparAt[0]), Math.floor(a.sparAt[1]));
-    if (!passable(w, tile, a)) { endSpar(wl, a, null, false); endSpar(wl, o, null, false); return; }
+    // (a stance it can't get into, over half a day on: they give it up rather than stand there for good)
+    if (!passable(w, tile, a) || a.age - (a.sparSince ?? a.age) > 0.6) { endSpar(wl, a, null, false); endSpar(wl, o, null, false); return; }
     wl.stepToward(a, a.sparAt[0], a.sparAt[1], sp * 0.6);
-    return;
+    // (close is close enough: the last tenth of a tile, wood or a neighbour's shove can deny it,
+    // and the stance itself is clear: squareUp)
+    if (Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]) < 0.1) { a.x = a.sparAt[0]; a.y = a.sparAt[1]; }
+    else return;
   }
   if (a.sparStyle === 'necking') facePoint(a, a.x + Math.cos(a.sparHeading), a.y + Math.sin(a.sparHeading));
   else facePoint(a, o.x, o.y);
@@ -717,7 +926,7 @@ export function sparUpdate(wl, a, def, sp, elapsed = dt(sp, def)) {
   endSpar(wl, o, a, !lost);
 }
 function endSpar(wl, a, rival, lost) {
-  const light = a.sparLight; a.sparStyle = null; a.sparHeading = null;
+  const light = a.sparLight; a.sparStyle = null; a.sparHeading = null; a.sparSince = null;
   a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.sparPath = null; a.sparLight = false; a.wait = 2 + Math.random() * 2;
   // Rutting males fight again within days (a beaten one takes longer to come back), and
   // sparring partners within a week; otherwise a match settles things for a good while.

@@ -100,9 +100,12 @@ export function flowCoords(pos, flow, count) {
       seen[i] = 1; along[i] = along[j] + step(i, j, 0); across[i] = across[j] + step(i, j, 1); q.push(i);
     }
   }
+  // (each corner's steps to its neighbours, worked out once rather than on every pass)
+  const sa = new Float64Array(n * 4), sc = new Float64Array(n * 4);
+  for (let i = 0; i < n; i++) for (let e = 0; e < 4; e++) { const j = nb[i * 4 + e]; if (j >= 0) { sa[i * 4 + e] = step(i, j, 0); sc[i * 4 + e] = step(i, j, 1); } }
   for (let pass = 0; pass < 60; pass++) for (let i = 0; i < n; i++) {
     let a = 0, c = 0, m = 0;
-    for (let e = 0; e < 4; e++) { const j = nb[i * 4 + e]; if (j >= 0) { a += along[j] + step(i, j, 0); c += across[j] + step(i, j, 1); m++; } }
+    for (let e = 0; e < 4; e++) { const j = nb[i * 4 + e]; if (j >= 0) { a += along[j] + sa[i * 4 + e]; c += across[j] + sc[i * 4 + e]; m++; } }
     if (m) { along[i] = a / m; across[i] = c / m; }
   }
   for (let v = 0; v < count; v++) {
@@ -550,7 +553,7 @@ export class Terrain {
     const ring = [];
     for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
       const k = ty * TW + tx;
-      if (wet[k] || managed(k)) continue;
+      if (wet[k]) continue; // (a managed tile without water is bank too: the pond model's dry margins)
       let L = -Infinity, kd = 0;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const xx = tx + dx, yy = ty + dy;
@@ -561,7 +564,7 @@ export class Terrain {
       if (L > -Infinity && Math.min(...w.corners(tx + X0, ty + Y0)) < L) ring.push([k, L, kd]);
     }
     for (const [k, L, kd] of ring) { level[k] = L; kind[k] = kd; }
-    const vLevel = (vx, vy) => {
+    const levelAt = (vx, vy) => {
       let L = -Infinity;
       for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
         const tx = vx - X0 + dx, ty = vy - Y0 + dy;
@@ -581,6 +584,13 @@ export class Terrain {
       }
       return false;
     };
+    // (each corner's level worked out once: it's read for every triangle that shares it)
+    const VW = TW + 1, cornerLevel = new Float64Array(VW * (TH + 1));
+    for (let vy = 0; vy <= TH; vy++) for (let vx = 0; vx <= TW; vx++) cornerLevel[vy * VW + vx] = levelAt(vx + X0, vy + Y0);
+    const vLevel = (vx, vy) => {
+      const tx = vx - X0, ty = vy - Y0;
+      return tx >= 0 && ty >= 0 && tx <= TW && ty <= TH ? cornerLevel[ty * VW + tx] : levelAt(vx, vy);
+    };
     const shoreVertices = this.shoreVertices = new Float32Array((TW + 1) * (TH + 1) * 2);
     for (let vy = 0; vy <= TH; vy++) for (let vx = 0; vx <= TW; vx++) {
       const L = vLevel(vx + X0, vy + Y0), k = (vy * (TW + 1) + vx) * 2;
@@ -595,8 +605,7 @@ export class Terrain {
     const waterAt = (x, z) => {
       const xx = Math.floor(x), zz = Math.floor(z);
       if ([vLevel(xx, zz), vLevel(xx + 1, zz), vLevel(xx + 1, zz + 1), vLevel(xx, zz + 1)].some(v => !Number.isFinite(v))) return NaN;
-      const k = (zz - Y0) * TW + xx - X0;
-      return managed(k) && Number.isFinite(level[k]) ? level[k] * LEVEL : surfaceHeight(vLevel, x, z) * LEVEL;
+      return surfaceHeight(vLevel, x, z) * LEVEL;
     };
     this.waterAt = waterAt; // (the drawn surface at a point, NaN off the water: animals swim by it)
     this.banks.bind(w, this.border, cells, waterAt, this.bankTerrainAt, !!this.catalog.definition.look.underwater);
@@ -721,9 +730,11 @@ export class Terrain {
     for (const k of tiles) {
       const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
       for (const [vx, vy] of [[x, y], [x + 1, y + 1], [x + 1, y], [x, y], [x, y + 1], [x + 1, y + 1]]) {
-        const c = vColor(vx, vy), lv = managed(k) ? level[k] : vLevel(vx, vy);
+        // (the pond model's water too shares its level at each corner and rounds its waterline like
+        // any pond: drawn tile by tile at its own level, it ended in hard steps at the tile lines)
+        const c = vColor(vx, vy), lv = vLevel(vx, vy);
         pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
-        dep[od] = lv - w.vert(vx, vy); round[od] = managed(k) ? dep[od] : lv - smooth(vx, vy);
+        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy);
         const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
         flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;

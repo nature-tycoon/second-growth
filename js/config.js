@@ -53,6 +53,11 @@ export const F = {
   NONE: 0, SNAG: 1, LOG: 2, ROCKS: 3, BRUSH: 4, NESTBOX: 5,
   FENCE: 6, CULVERT: 7, DAM: 8, BOARDWALK: 9, BLIND: 10, STUMP: 11, DIKE: 12,
 };
+// world.marks bit for a snag, log, rock pile or brush pile the player placed: Demolish takes only those
+// out (tools.js naturalFeature). 16 and 32 are the beaver pool's (sim/animals.js).
+export const PLACED = 64;
+// featureAge of natural F.ROCKS that loosening the soil turned up (tools.js): drawn as a small heap of stones
+export const STONES = 1;
 export const FEATURE_NAMES = ['', 'Snag (standing dead tree)', 'Fallen log', 'Rock pile', 'Brush pile',
   'Nest box', 'Old fence', 'Road culvert', 'Beaver dam', 'Boardwalk', 'Wildlife viewing blind', 'Tree stump (rots away over a few years)', 'Shrimp pond dike (Demolish it to let the tide back in)'];
 
@@ -87,7 +92,7 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 export const DIFFICULTY = {
   // arrivals: how readily new wildlife finds the restored habitat
   relaxed:     { name: 'Relaxed', startMoney: 45000, grants: 1.5, costs: 0.75, disasters: 0.5, invasives: 0.6, arrivals: 0.85,
-                 desc: 'More money, cheaper work, fewer fires and floods. Just enjoy the valley coming back.' },
+                 desc: 'More money, cheaper work, fewer fires and floods, and invasive weeds spread more slowly. Just enjoy the valley coming back.' },
   standard:    { name: 'Standard', startMoney: 30000, grants: 1, costs: 1, disasters: 1, invasives: 1, arrivals: 0.5,
                  desc: 'The intended balance: money is tight, wildlife takes its time to return, and visitors become your main income.' },
   challenging: { name: 'Challenging', startMoney: 22000, grants: 0.75, costs: 1.25, disasters: 1.5, invasives: 1.4, arrivals: 0.35, ecology: true,

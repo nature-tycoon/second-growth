@@ -2,7 +2,7 @@
 
 import { tr } from './i18n.js';
 import { T, money, clamp, WATCH_PACE } from './config.js';
-import { strokeTiles, toolCost, bestSuit } from './tools.js';
+import { strokeTiles, toolCost, bestSuit, naturalFeature } from './tools.js';
 import { settings } from './settings.js';
 
 
@@ -461,6 +461,7 @@ export class Input {
     let txt = tr(tool.name);
     if (tool.key === 'demolish') {
       if (w.struct[i0] >= 0 || cost) txt += cost < 0 ? ` · ${tr(`earns ${money(-cost)} salvage`)}` : ` · ${money(cost)}`;
+      else if (naturalFeature(w, i0)) txt += ` · <span class="bad">${tr('natural, it stays')}</span>`;
       if (w.struct[i0] >= 0 && this.game.catalog.structures[w.structures[w.struct[i0]]?.type]?.roost) txt += ` · <span class="bad">${tr('bat roost')}</span>`;
     } else if (cost) txt += ` · ${tool.brush ? tr(`${money(cost)}/tile`) : money(cost)}`;
     if (tool.species) {

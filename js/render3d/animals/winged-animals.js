@@ -148,6 +148,24 @@ function butterfly(m, s) {
       if (r > 0.2 && r < 0.44 && y > 0.16 && Math.abs(f - 0.5) < 0.38) return tmp.copy(green2).lerp(green, smooth(0.18, 0.48, r)); // hindwing band
       return velvet;
     };
+  } else if (s.plain) {
+    // The rest (the ambient butterflies of each map, ambience.pollinators): one ground colour, a dark
+    // margin (edge: its width) and faint veins, and a dark wingtip with pale spots if it has a tip
+    // colour (an African monarch, an orange-tip). Whites, sulphurs and a morpho's blue all come out of this.
+    const ground = col(s.color), margin = col(s.vein || '#1a1410'), tipC = s.tip ? col(s.tip) : null, spots = col(s.spots || '#f4f0e6');
+    const edgeW = s.edge ?? 0.06;
+    paint = u => {
+      const x = u.x, y = Math.abs(u.z), [d, t] = marginDist(edge, x, y);
+      if (tipC && x > 0.3 && y > 0.6) {
+        const sp = Math.hypot(((x - 0.32) * 10) % 1 - 0.5, ((y - 0.6) * 8) % 1 - 0.5) < 0.17;
+        return sp ? spots : tipC;
+      }
+      if (d < edgeW) return margin;
+      if (y < 0.04) return tmp.copy(margin).lerp(ground, 0.3);                       // dark where it meets the body
+      const a = Math.atan2(y, x + 0.08) * 5.5;                                      // faint veins
+      const c = tmp.copy(ground).multiplyScalar(0.9 + 0.14 * y);
+      return Math.abs(a - Math.round(a)) < 0.035 ? c.lerp(margin, 0.35) : c;
+    };
   } else if (!tiger) {
     // Monarch: burnt orange, deeper on the forewing; black veins fanning from the body; a thick
     // black border with a double row of white spots; the forewing tip black with pale spots.

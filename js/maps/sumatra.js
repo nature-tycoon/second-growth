@@ -10,7 +10,8 @@ import buildSumatraAnimals from '../data/animals-sumatra.js';
 import { generateEstate, sumatraBorderCell, isPeat, streamX } from './sumatra-world.js';
 import { PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 import { isFruiting } from '../data/plants.js';
-import { T, F, clamp } from '../config.js';
+import { removeTree } from '../sim/plants.js';
+import { T, F, PLACED, clamp } from '../config.js';
 import { moment, arrivalMoment } from '../sim/moments.js';
 import { valueNoise } from '../rng.js';
 
@@ -277,14 +278,14 @@ function estateDaily(g) {
 // rot where it fell, with its fronds stacked beside it. Beetles, termites and fungi turn them into soil.
 function dropPalm(game, i) {
   const w = game.world, rng = game.rng, W = w.w;
-  if (!w.feature[i]) { w.feature[i] = F.LOG; w.featureAge[i] = 0; }
+  if (!w.feature[i]) { w.feature[i] = F.LOG; w.featureAge[i] = 0; w.deadwoodId[i] = 0; w.marks[i] &= ~PLACED; }
   const x = i % W, y = (i / W) | 0;
   for (let k = 0; k < 6; k++) {
     const dx = Math.floor(rng() * 3) - 1, dy = Math.floor(rng() * 3) - 1;
     if (!w.inb(x + dx, y + dy)) continue;
     const j = w.idx(x + dx, y + dy), t = w.terrain[j];
     if (j === i || w.feature[j] || w.tree[j] || w.struct[j] >= 0 || t === T.ROAD || t === T.TRAIL || t === T.CREEK || t === T.RIVER || t === T.POND || t === T.MARSH) continue;
-    w.feature[j] = F.BRUSH; w.featureAge[j] = 0; break;
+    w.feature[j] = F.BRUSH; w.featureAge[j] = 0; w.marks[j] &= ~PLACED; break;
   }
 }
 function fellOrPull(game, i) {
@@ -298,7 +299,7 @@ function fellOrPull(game, i) {
   if (w.shrub[i] && game.catalog.plants[w.shrub[i]].invasive) { w.shrub[i] = 0; w.shrubG[i] = 0; n++; }
   if (w.tree[i] && game.catalog.plants[w.tree[i]].invasive) {
     const big = w.treeG[i] > 0.4, palm = isPalm(w, i);
-    w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0; n++;
+    removeTree(w, i, 'player', null, { deadwood: false }); n++;
     if (big) dropPalm(game, i);
     if (big && palm) game.stats.palmsFelled = (game.stats.palmsFelled || 0) + 1;
   }
@@ -361,6 +362,7 @@ export default {
   goals: GOALS,
   moments: MOMENTS,
   generate: generateEstate,
+  stones: 0.01, // the odds loosening the soil turns up stones on a tile (0035): deep weathered and peaty soils, a few stones on the slopes
   borderCell: sumatraBorderCell,
   stats: estateStats,
   daily: estateDaily,
@@ -427,7 +429,7 @@ export default {
         const w = game.world;
         if (!w.tree[i]) return null;
         const big = w.treeG[i] > 0.4, palm = isPalm(w, i);
-        w.tree[i] = 0; w.treeG[i] = 0; w.treeAge[i] = 0;
+        removeTree(w, i, 'player', null, { deadwood: false });
         if (palm && big) { game.stats.palmsFelled = (game.stats.palmsFelled || 0) + 1; dropPalm(game, i); }
         else if (big && !w.feature[i]) { w.feature[i] = F.STUMP; w.featureAge[i] = 0; }
         game.stats.treesCut = (game.stats.treesCut || 0) + 1;
@@ -437,7 +439,7 @@ export default {
     pond: { desc: 'Deep, open water for snakeheads, arowanas, otters and monitor lizards.' },
     creek: { desc: 'Carve a channel. On the peat, any channel that runs to the river drains the peat around it, like the old canals.' },
     fill: { desc: 'Fill in water, including the old drainage canals, or rip up roads and gravel, leaving loose bare soil.' },
-    demolish: { desc: 'Tear out the elephant fence, old buildings, roads or the road culvert. Buildings and machinery sell for salvage.' },
+    demolish: { desc: 'Tear out the elephant fence, old buildings, roads, the road culvert, or habitat features you placed. Natural snags, logs, stumps and rocks stay. Buildings and machinery sell for salvage.' },
     lower: { desc: 'Scoop out a hollow. Hollows stay moist, which suits ferns, gingers and pitcher plants.' },
   },
   structureNames: { house: 'Estate office', barn: 'Fertiliser store', silo: 'Water tower', shed: 'Fruit loading ramp', tractor: 'Old fruit truck', parking: 'Trailhead', center: 'Visitor centre' },
@@ -449,6 +451,14 @@ export default {
 
   // Grazing pressure (sim/grazing.js): elephants, sambar and tapir open small clearings; rainforest still returns.
   grazing: 0.3,
+  recruitment: { cndd: 0.65 },
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // "Sumatras", the squall lines of the monsoon changeovers, throw down patches of forest.
+  // dead wood rots fast in the warm, wet lowlands: a fallen palm trunk is soft within a few years (0028 §5)
+  deadwood: { decay: 1.8 },
+  disturbance: {
+    storms: [{ name: 'A Sumatra squall', months: [1, 2, 7, 8], perYear: 1, patch: [3, 400], severity: 0.6 }],
+  },
   climate: {
     // Wet nearly all year. Mar–May the first rains, Jun–Aug the driest months (and the haze),
     // Sep–Nov the big rains and floods, Dec–Feb the fruit season, drying out in February.
@@ -491,6 +501,7 @@ export default {
     crownOut: '',
   },
   look: {
+    skyHaze: 0.65, // the clear-day sky at eye level: humid rainforest air, a milkier, paler blue (0..1, see SKY_DEEP in scene.js)
     // colour grade: humid and deep green, a little hazy
     grade: { gain: [0.99, 1.0, 0.97], lift: [0.004, 0.005, 0.004], sat: 1.03, contrast: 1.05 },
     pasture: ['#8ea456', '#a0a660', '#8aa456', '#92a65a'],
@@ -511,6 +522,10 @@ export default {
       { sun: 0xfff4e0, sunI: 2.7, sky: 0xe8eeee, ground: 0x5a6a3a, hemiI: 1.3 },
     ],
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): the map's own birdwing, a grass yellow, Asian honeybees
+      pollinators: [{ animal: 'birdwing', w: 1 },
+        { sprite: { kind: 'butterfly', size: 6, show: 1.6, plain: true, color: '#f2dc3a', vein: '#2a2216', edge: 0.04 }, w: 2 },
+        { sprite: { kind: 'bee', size: 4, color: '#c8902a', dark: '#2a1e12', show: 1.32 }, w: 4 }],
       leaves: [0.1, 0.4, 0.1, 0.2], fluff: [0.2, 0.5, 0.1, 0.3], mist: [0.7, 0.2, 1, 0.6],
       leafColors: ['#b8a040', '#a87a3a', '#8a9a3a', '#c8a450'],
       flocks: [['hornbills', 'parrots', 'egrets'], ['hornbills', 'swallows'], ['egrets', 'parrots', 'hornbills'], ['hornbills', 'parrots']],

@@ -236,6 +236,14 @@ export default function buildAtlantaPlants(def, mix, get) {
   get('redbud').nectar = { months: [0], amount: 0.4 };
   get('dogwood').nectar = { months: [1], amount: 0.2 };
   get('callery').nectar = { months: [0], amount: 0.1 };
+  // How much white-tailed deer seek out each young tree (browse, 0..1; decision 0033). Dogwood, maple,
+  // tulip poplar and oaks are favourites; black cherry, pines, magnolia and sweetgum are passed over
+  // (Strole & Anderson 1992; Horsley et al. 2003; Rossell et al. 2005; Côté et al. 2004).
+  Object.entries({ dogwood: 0.9, redmaple: 0.75, tulippoplar: 0.7, whiteoak: 0.7, willowoak: 0.6, redbud: 0.6, sycamore: 0.4, callery: 0.4,
+    sweetgum: 0.3, riverbirch: 0.3, magnolia: 0.2, blackcherry: 0.15, loblolly: 0.15, crepemyrtle: 0.1 })
+    .forEach(([k, v]) => { get(k).browse = v; });
+  for (const k of ['dogwood', 'redmaple', 'tulippoplar', 'whiteoak', 'willowoak', 'redbud', 'sycamore', 'sweetgum', 'riverbirch', 'blackcherry', 'callery']) get(k).resprout = true;
+  get('callery').thorny = true; // (wild-type Callery pear is thorny)
   for (const k of ['butterflyweed', 'swampmilkweed']) get(k).host = 'monarch';
   for (const k of ['tulippoplar', 'blackcherry', 'spicebush']) get(k).host = 'swallowtail';
   for (const k of ['whiteoak', 'willowoak', 'blackcherry']) get(k).caterpillars = true; // keystone trees: the insect food songbirds raise their young on

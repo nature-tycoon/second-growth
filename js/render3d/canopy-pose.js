@@ -49,6 +49,7 @@ function uprightTurn(current, goal, limit, target) {
 // Choose the nearest upright pose, then turn toward it at a limited rate.
 // A crowded fork can slow a step while the animal changes its grip; it must
 // never force an instant barrel roll to make a body fit between the limbs.
+const TRAIL = 45; // (accepted holds an orangutan remembers, to back out of a wedge along)
 export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, before = st.branchPoint, motion = null) {
   let yaw = st.yaw;
   if (mo.primate === 2 && motion?.heading?.lengthSq() > 1e-8) {
@@ -188,9 +189,13 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   if (goal) { st.canopyGoal ||= new THREE.Quaternion(); st.canopyGoal.copy(goal); }
   next.copy(current || goal || preferred);
   const transferPace = !mo.canopyWalkerMotion && mo.primate === 1 && motion?.journey?.trunkTransfer ? Math.max(1, motion.animationSpeed || 1) : 1;
-  const turnRate = mo.canopyWalkerMotion && st.howlerForkTurn && !jumping ? finishingTurn ? 8 : 2.6 : mo.primate === 2 ? 1 : (st.canopyLeap && trunkCatch ? 2.4 : 1.5) * transferPace;
+  // An orangutan far behind its animal (st.catchUp, see canopyStep) turns faster too, up to 3×.
+  // Its climbing catches up but a real-time turn doesn't: at a fast game speed two turns of
+  // half a circle in place, one into a crossing and one back when the destination changed,
+  // held the body at one hold for weeks of game time.
+  const turnRate = mo.canopyWalkerMotion && st.howlerForkTurn && !jumping ? finishingTurn ? 8 : 2.6 : mo.primate === 2 ? Math.min(3, st.catchUp || 1) : (st.canopyLeap && trunkCatch ? 2.4 : 1.5) * transferPace;
   if (current && goal) {
-    const limit = Math.max(0, Math.min(.1, dt)) * (mo.primate === 2 ? Math.min(turnRate, current.angleTo(goal) * 4) : turnRate);
+    const limit = Math.max(0, Math.min(.1, dt)) * (mo.primate === 2 ? turnRate * Math.min(1, current.angleTo(goal) * 4) : turnRate);
     if (mo.canopyWalkerMotion && st.howlerForkTurn && !jumping)next.copy(howlerTurnVelocity(st,current,goal,Math.max(0,Math.min(.1,dt)),turnRate));
     else if (mo.primate === 3 || mo.canopyHanging) next.rotateTowards(goal, limit);
     else uprightTurn(current, goal, limit, next);
@@ -273,6 +278,30 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
     st.canopyStall = stuck ? (st.canopyStall || 0) + step : 0;
     if (!mo.canopyWalkerMotion && mo.primate !== 2 && st.canopyStall > .3) { st.canopyStall = 0; st.canopyForce = .5; }
   } else st.canopyStall = 0;
+  // An orangutan never pushes through bark, so a body wedged at a crowded fork (clear where it is,
+  // but every step on and every small upright turn blocked) used to hold there for months. Stuck a
+  // second, it retraces its last accepted holds, each clear when it took it, at the pace it came,
+  // then plans afresh from there (see primate-stall-check).
+  if (mo.primate === 2 && current) {
+    const trail = st.canopyTrail ||= [];
+    if (st.canopyStall > 1) { st.canopyBack = TRAIL; st.canopyStall = 0; }
+    let back = null;
+    while (st.canopyBack > 0 && trail.length && !back) {
+      const hold = trail.pop();
+      if (hold.point.distanceToSquared(st.branchPoint) > 1e-12 || hold.pose.angleTo(next) > 1e-6) back = hold;
+    }
+    if (back) {
+      st.canopyBack--; st.branchPoint.copy(back.point); next.copy(back.pose); st.branchRoute = null;
+      if (motion) motion.acceptedDistance = motion.travelled; // (nothing for settleCanopyStep to roll back)
+    } else {
+      st.canopyBack = 0;
+      const last = trail[trail.length - 1];
+      if (!last || last.point.distanceToSquared(st.branchPoint) > 1e-12 || last.pose.angleTo(next) > 1e-6) {
+        trail.push({ point: st.branchPoint.clone(), pose: next.clone() });
+        if (trail.length > TRAIL) trail.shift();
+      }
+    }
+  }
   if (mo.canopyWalkerMotion) st.howlerTurnMoved = current && current.angleTo(next)>1e-4;
   if(mo.canopyWalkerMotion && current && st.howlerForkTurn && !jumping)settleHowlerTurnVelocity(st,current,next,Math.max(0,Math.min(.1,dt)));
   st.canopyQuaternion ||= new THREE.Quaternion(); st.canopyQuaternion.copy(next);

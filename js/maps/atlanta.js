@@ -44,8 +44,10 @@ function momentsDaily(g) {
         for (let k = 0; k < 14; k++) {
           const x = Math.round(best.x + (g.rng() - 0.5) * 8), y = Math.round(best.y + (g.rng() - 0.5) * 6);
           if (!w.inb(x, y)) continue;
+          // (they move on south within a few weeks: old enough that their short lives end soon. Not
+          // `passing`, which marks the birds flying over in bird-passage.js and has no wings of its own here)
           const a = W.spawn(g.catalog.animal.monarch, x, y, { silent: true, age: 0.2 * 120 });
-          a.passing = true; a.age = 0.3 * 120; // (they move on south within a few weeks)
+          a.age = 0.3 * 120;
         }
       }
     }
@@ -351,6 +353,7 @@ export default {
   animals: buildAtlantaAnimals,
   goals: GOALS,
   generate: generateSubdivision,
+  stones: 0.03, // the odds loosening the soil turns up stones on a tile (0035): Piedmont clay with quartz and granite rubble
   borderCell: atlantaBorderCell,
   stats: suburbStats,
   // trees and shrubs don't seed themselves into established meadows and gardens here
@@ -399,6 +402,19 @@ export default {
   // No grazing pressure on seedlings (sim/grazing.js): the gardens already hold their own gaps, and
   // even light deer pressure here held back the creek woods and yards that should fill in.
   grazing: 0,
+  recruitment: { cndd: 0.3 },
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // Summer thunderstorms snap trees in small patches; now and then an ice storm loads the crowns
+  // over a wider area; and a long late-summer dry spell kills trees on ground too dry for them.
+  disturbance: {
+    storms: [
+      { name: 'A summer thunderstorm', months: [2, 3, 4, 5], perYear: 1, patch: [2, 60], severity: 0.5 },
+      { name: 'An ice storm', months: [9, 10, 11], perYear: 0.15, patch: [20, 400], severity: 0.4 },
+    ],
+    // (severity 3: a deep summer drought kills a good share of the trees on the driest ground it
+    // reaches, as the 2007 drought did across the Southeast, 0028 phase 6)
+    drought: { threshold: 36, span: 10, severity: 3 },
+  },
   climate: {
     seasons: ['Spring', 'Summer', 'Fall', 'Winter'],
     // Atlanta: rain all year, summer thunderstorms, a dry spell in early fall, mild winters
@@ -439,6 +455,7 @@ export default {
     crownOut: 'Standing dead trees will host woodpeckers and owls.',
   },
   look: {
+    skyHaze: 0.45, // the clear-day sky at eye level: Southern summer humidity (0..1, see SKY_DEEP in scene.js)
     // humid Southern light: soft, green, a little hazy in summer
     grade: { gain: [1.0, 1.01, 0.98], lift: [0.004, 0.004, 0.002], sat: 1.04, contrast: 1.06 },
     pasture: ['#7cae4c', '#86b452', '#98a45a', '#b2a878'], // sod: green in spring and summer, dormant tan by winter
@@ -454,6 +471,8 @@ export default {
       { sun: 0xfff4ea, sunI: 2.3, sky: 0xe0e6ec, ground: 0x5e604a, hemiI: 1.18 },
     ],
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): the map's own monarch, swallowtail and bumblebee
+      pollinators: [{ animal: 'monarch', w: 2 }, { animal: 'swallowtail', w: 1 }, { animal: 'bumblebee', w: 4 }],
       leaves: [0, 0, 0.9, 0.2], fluff: [0.4, 0.5, 0.6, 0], mist: [0.25, 0.15, 0.2, 0.3],
       leafColors: ['#d0402a', '#e8b030', '#b8603a', '#8a2a4a'],
       petals: [0.8, 0, 0, 0.15],                            // blossom falling from redbud, dogwood and cherry

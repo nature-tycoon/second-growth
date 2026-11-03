@@ -170,7 +170,7 @@ check('Winter saves retain shelter and cooldown without aliasing; old saves and 
 });
 check('A sheltered winter resident survives low food capacity but natural mortality remains active', () => {
   const g=setup(), a=spawn(g,'bear'), wl=g.wildlife; shelter(g,a); sleep(g,a); a.hunger=50;
-  wl.computeSuitability=()=>{wl.state.forEach(s=>s.K=0)};
+  wl.suitabilityWork=function*(){wl.state.forEach(s=>s.K=0)};
   g.rng=()=>0.1; wl.monthly(); assert.ok(wl.agents.includes(a)); assert.ok(!a.leaving);
   g.rng=()=>0; wl.monthly(); assert.ok(!wl.agents.includes(a),'natural mortality still applies');
 });
@@ -182,7 +182,7 @@ check('Winter diagnostics explain paused arrivals and avoid false hunger warning
 });
 check('Winter settlement is deferred for dormant species, without changing habitat capacity', () => {
   const g=setup('atlanta'), wl=g.wildlife;
-  wl.computeSuitability=()=>{wl.state.forEach(s=>s.K=30)}; g.rng=()=>0;
+  wl.suitabilityWork=function*(){wl.state.forEach(s=>s.K=30)}; g.rng=()=>0;
   const incoming=[]; wl.immigrate=(def)=>{incoming.push(def.key);return 0}; wl.monthly();
   for(const [,key] of cases.filter(([map])=>map==='atlanta')) assert.ok(!incoming.includes(key));
   assert.ok(incoming.includes('graysquirrel')); assert.equal(wl.state[g.catalog.animal.chipmunk.index].K,30);

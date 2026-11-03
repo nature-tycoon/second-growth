@@ -80,6 +80,7 @@ export default {
   animals: buildAmazonAnimals,
   goals: GOALS,
   generate: generateRanch,
+  stones: 0.004, // the odds loosening the soil turns up stones on a tile (0035): deep, old weathered soils: hardly a stone in them
   borderCell: amazonBorderCell,
   startWildlife: [['capybara', 4, 54, 41, 3], ['armadillo', 2, 22, 50, 6], ['caiman', 1, 54, 40, 2], ['piranha', 6, 60, 86, 6],
     ['anteater', 1, 76, 30, 4]], // the forest birds and agoutis come back from the rainforest once there's forest for them
@@ -115,6 +116,20 @@ export default {
 
   // Grazing pressure (sim/grazing.js): capybara lawns along the water; the forest still closes over the pasture.
   grazing: 0.3,
+  recruitment: { cndd: 0.7 },
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // Squall lines at the start of the rains bring downbursts that flatten patches of forest, mostly
+  // a few big trees, once in a while hundreds (the blowdowns seen from space across the Amazon).
+  // dead wood rots fast in the warm, wet forest: termites, beetles and fungi have a fallen trunk
+  // gone in about ten years, where a temperate log lasts decades (0028 §5)
+  deadwood: { decay: 1.8 },
+  disturbance: {
+    storms: [{ name: 'A squall line', months: [7, 8, 9, 10], perYear: 1, patch: [3, 600], severity: 0.6 }],
+    // and once or twice a decade the dry season runs long (as in 2005, 2010 and 2015), and trees on
+    // the driest ground die of thirst (0028 phase 6). Threshold: the 85th percentile of the longest
+    // yearly dry streak, as for Atlanta and the Serengeti
+    drought: { threshold: 45, span: 10, severity: 1.5 },
+  },
   climate: {
     // Mar–May high water, Jun–Aug dry, Sep–Nov burning season and first rains, Dec–Feb rainy
     seasons: ['High water', 'Dry season', 'Burning season', 'Rainy season'],
@@ -124,6 +139,7 @@ export default {
     moist: [0.14, 0.1, 0.04, -0.05, -0.14, -0.18, -0.12, -0.02, 0.06, 0.12, 0.15, 0.16],
     snow: null,
     fireMonths: [4, 5, 6, 7],
+    crownFires: false, // (a rainforest fire is a slow surface fire under the canopy, not a crown fire, 0028 phase 6)
     floodMonths: [10, 11, 0, 1],
     tips: [
       'High water: the river swells into the flooded forest. Fish and dolphins swim among the trunks.',
@@ -139,6 +155,8 @@ export default {
     W: ['brachiaria', 'brachiaria', 'guinea', 'leucaena'],
     S: ['acai', 'cecropia', 'cyperus', 'hyacinth', 'waterlily', 'buriti'],
   },
+  // the rainforest to the north and east rains its trees' seed in all along those edges (0028 §6)
+  forestRain: { N: 0.01, E: 0.01 },
   windSeeds: ['cecropia', 'balsa', 'kapok'],
   berrySeeds: ['inga', 'fig', 'acai', 'cecropia', 'piper', 'cacao', 'heliconia'],
   floodSeeds: ['acai', 'cyperus', 'hyacinth', 'cecropia', 'buriti'],
@@ -154,6 +172,7 @@ export default {
     crownOut: 'Rainforest trees have thin bark and few survive. Cecropia and grass will race into the gap, so plant it fast; macaws and toucans will nest in the dead trunks.',
   },
   look: {
+    skyHaze: 0.6, // the clear-day sky at eye level: humid rainforest air, a milkier, paler blue (0..1, see SKY_DEEP in scene.js)
     // colour grade: humid, deep and green
     grade: { gain: [0.98, 1.0, 0.97], lift: [0.002, 0.005, 0.004], sat: 1.02, contrast: 1.06 },
     pasture: ['#98b062', '#a8b066', '#b2ac6c', '#96b062'], // lush, not lime; dry, not orange
@@ -168,6 +187,10 @@ export default {
     ],
     // falling leaves, kapok floss and mist (0..1 per season), and the flocks that pass over
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): blue morpho, a sulphur, stingless bees
+      pollinators: [{ sprite: { kind: 'butterfly', size: 11, show: 1.6, plain: true, color: '#2a78e8', vein: '#141a28', edge: 0.11 }, w: 1 },
+        { sprite: { kind: 'butterfly', size: 7, show: 1.6, plain: true, color: '#f0d840', vein: '#a8841c', edge: 0.03 }, w: 2 },
+        { sprite: { kind: 'bee', size: 3.5, color: '#5a4426', dark: '#1a1410', show: 1.32 }, w: 4 }],
       leaves: [0, 0.55, 0.8, 0], fluff: [0.15, 0.9, 0.6, 0.15], mist: [1, 0.3, 0.05, 0.8],
       leafColors: ['#c8a040', '#a8783a', '#8a9a3a', '#d0b060'],
       flocks: [['egrets', 'parrots', 'macaws'], ['parrots', 'macaws'], ['macaws', 'parrots'], ['parrots', 'egrets', 'macaws']],

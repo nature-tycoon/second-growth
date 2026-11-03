@@ -1,6 +1,6 @@
 # 0011 Grazing pressure and where elk spend their time
 
-Decided 2026-10-17 by Cole (shipped).
+Decided 2026-10-17 by Cole (shipped). The woody-plant side is extended by [0033](0033-herbivore-pressure.md): browsing by taste in kg/ha, reaching into forest gaps, and invasives no longer exempt. The sward rule here stays.
 
 ## Context
 

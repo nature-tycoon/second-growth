@@ -101,7 +101,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, SHRUB: 1, RIPARIAN: 1, MATURE_FOREST: 0.7, MEADOW: 0.7, MARSH: 0.5 });
-    def({ key: 'gajah', herd: true, tramples: true, herdR: 2.5, herdMax: 6, name: 'Sumatran elephant', sci: 'Elephas maximus sumatranus', group: 'Mammals', move: 'ground',
+    def({ key: 'gajah', kg: 2500, herd: true, tramples: true, herdR: 2.5, herdMax: 6, name: 'Sumatran elephant', sci: 'Elephas maximus sumatranus', group: 'Mammals', move: 'ground',
       speed: 1, hr: 220, max: 7, minK: 3, groupSize: [3, 6], sources: ['N'], mig: 0.12,
       breed: [7], litter: [1, 1], life: 60, mature: 12,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.3),
@@ -113,7 +113,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.6, RIPARIAN: 0.9 });
-    def({ key: 'sumrhino', name: 'Sumatran rhino', sci: 'Dicerorhinus sumatrensis', group: 'Mammals', move: 'ground', fixedMax: true,
+    def({ key: 'sumrhino', kg: 700, name: 'Sumatran rhino', sci: 'Dicerorhinus sumatrensis', group: 'Mammals', move: 'ground', fixedMax: true,
       speed: 0.8, hr: 300, max: 2, sources: ['N'], mig: 0.04, breed: [8], litter: [1, 1], life: 35, mature: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 4, 0.3),
       req: g => Math.min(1, g.forestTiles / 2800) * Math.min(1, g.matureTiles / 300), // old, quiet forest
@@ -123,7 +123,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.7, RIPARIAN: 1, MARSH: 0.7, SHRUB: 0.4 });
-    def({ key: 'tapir', name: 'Malayan tapir', sci: 'Tapirus indicus', group: 'Mammals', move: 'semi',
+    def({ key: 'tapir', kg: 300, name: 'Malayan tapir', sci: 'Tapirus indicus', group: 'Mammals', move: 'semi',
       speed: 1, hr: 120, max: 6, minK: 2, groupSize: [1, 2], sources: ['N', 'E'], mig: 0.2,
       breed: [10, 11], litter: [1, 1], life: 25, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 5, 0.4),
@@ -134,7 +134,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ SHRUB: 1, YOUNG_FOREST: 0.9, MEADOW: 0.8, RIPARIAN: 0.9, MATURE_FOREST: 0.6, MARSH: 0.4 });
-    def({ key: 'sambar', name: 'Sambar deer', sci: 'Rusa unicolor', group: 'Mammals', move: 'ground',
+    def({ key: 'sambar', kg: 180, name: 'Sambar deer', sci: 'Rusa unicolor', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 50, max: 14, minK: 2, groupSize: [2, 4], sources: ['N', 'E'], mig: 0.25,
       breed: [7, 8], litter: [1, 1], life: 16, mature: 2,
       suit: (W, i) => w[W.habitat[i]] * (0.4 + 0.6 * Math.min(1, W.browse[i] + W.graze[i])),
@@ -145,7 +145,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.9, RIPARIAN: 0.9, SHRUB: 0.5 });
-    def({ key: 'mousedeer', name: 'Lesser mouse-deer', sci: 'Tragulus kanchil', group: 'Mammals', move: 'ground',
+    def({ key: 'mousedeer', kg: 2, name: 'Lesser mouse-deer', sci: 'Tragulus kanchil', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 6, max: 24, sources: ['N', 'E'], mig: 0.35, breed: [0, 4, 8], litter: [1, 1], life: 10, mature: 0.6,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.5) * near(W.distCover[i], 1, 0.4),
       sprite: { kind: 'agouti', len: 11, color: '#8a5a34', belly: '#ece0cc', mousedeer: true, show: 1.4 },
@@ -299,7 +299,7 @@ export default function buildSumatraAnimals(def) {
       speed: 0.5, hr: 30, max: 4, sources: ['S', 'W'], mig: 0.2, breed: [6], litter: [4, 6], life: 20, mature: 3,
       prey: ['woodrat', 'boar', 'macaque'], preyPer: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 4, 0.4),
-      sprite: { kind: 'snake', reticulated: true, size: 30, color: '#8a7a4a', stripe: '#8a7a4a', side: '#2a2016', blotches: '#e0c870', belly: '#e8dcb8' },
+      sprite: { kind: 'snake', reticulated: true, size: 30, length: 3.6, color: '#8a7a4a', stripe: '#8a7a4a', side: '#2a2016', blotches: '#e0c870', belly: '#e8dcb8' },
       desc: 'The longest snake in the world, patterned like a net. It waits near water and in the palms, where it eats a great many rats.',
       hint: 'Swamp, streamside forest and palms with rats.' });
   }

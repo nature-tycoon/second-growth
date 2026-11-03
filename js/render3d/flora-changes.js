@@ -15,7 +15,7 @@ const TRAIL_CLEAR = TRAIL_THRESHOLD + TRAIL_OPENING * (TRAIL_FULL - TRAIL_THRESH
 const NEIGHBOUR_GROWTH = { groundG: Infinity, shrubG: 0.3, treeG: 0.45 };
 export const CLOSED_CANOPY = 0.5;
 
-const FIELDS = ['ground', 'groundG', 'shrub', 'shrubG', 'tree', 'treeG', 'variant', 'feature', 'featureAge', 'marks', 'terrain', 'bleach', 'canopy', 'trailDensity'];
+const FIELDS = ['ground', 'groundG', 'shrub', 'shrubG', 'tree', 'treeG', 'variant', 'feature', 'featureAge', 'marks', 'terrain', 'bleach', 'canopy', 'trailDensity', 'meadow', 'wallow', 'wallowWet'];
 const BORDER_FIELDS = ['tree', 'treeG', 'shrub', 'ground'];
 // Also read for plants under shade and beside water, but set by the simulation: they choose which
 // tiles of a changing region are worked out afresh (see `tiles`), not which regions change.

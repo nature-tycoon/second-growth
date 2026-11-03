@@ -354,4 +354,25 @@ check('A hungry vulture on a perch sets off for a carcass at once, not at the en
   for (let k = 0; k < 40 && v.state === 'bird'; k++) wl.update(0.05);
   assert.equal(v.state, 'fly', 'off within two sim-days'); assert.equal(v.goal?.carcass, wl.carcasses[0].id);
 });
+check('A vulture feeds down on the ground at the carcass, never from a tree beside it', () => {
+  // Cole saw vultures eating a carcass from a tree: one perched within 1.4 tiles fed where it sat,
+  // and one that landed on a tree tile was drawn in the crown while it ate.
+  const g = setup('serengeti'), wl = g.wildlife, w = g.world, V = g.catalog.animal.vulture;
+  for (const [x, y] of [[30, 30], [31, 30]]) { const i = w.idx(x, y); w.tree[i] = 1; w.treeG[i] = 1; }
+  const lion = wl.spawn(g.catalog.animal.lion, 31, 30, { silent: true }), prey = wl.spawn(g.catalog.animal.zebra, 31, 30, { silent: true });
+  Object.assign(lion, { x: 31.5, y: 30.5, hunger: 0 }); Object.assign(prey, { x: 31.5, y: 30.5 });
+  wl.remove(prey, 'predation'); startFeed(wl, lion, g.catalog.animal.lion, prey); lion.wait = 100;
+  const c = wl.carcasses[0];
+  const v = wl.spawn(V, 30, 30, { silent: true }); Object.assign(v, { x: 30.5, y: 30.5, hunger: 10, wait: 0 });
+  v.state = 'bird'; v.bird = { kind: 'perch', t: 0.01 };
+  for (let k = 0; k < 900 && v.state !== 'feed'; k++) {
+    wl.update(0.05);
+    assert.ok(v.state !== 'feed' || v.birdGround, 'never feeds while up in the tree');
+  }
+  assert.equal(v.state, 'feed'); assert.equal(v.carcass, c.id);
+  assert.equal(v.birdGround, true, 'eats on the ground, even on a tile with a tree'); assert.equal(v.flying, false);
+  assert.ok(Math.hypot(v.x - c.x, v.y - c.y) < 1.2, 'beside the body');
+  for (let k = 0; k < 200 && v.state === 'feed'; k++) wl.update(0.05);
+  assert.notEqual(v.state, 'feed'); assert.equal(v.birdGround, false, 'off the ground again after the meal');
+});
 console.log(`${checks} bird behavior checks passed.`);

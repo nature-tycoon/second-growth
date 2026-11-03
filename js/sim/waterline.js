@@ -57,3 +57,25 @@ export function lastDry(w, x0, y0, x1, y1, steps = 12, margin = 0.03) {
   }
   return best;
 }
+
+// A river fish swims in its own tile's water (decision 0034): the depth of that water over the
+// ground at (fx, fy), in height levels (-Infinity off the water). The renderer draws a fish at
+// this tile's surface (waterSurfaceY), down into this depth, so sim and drawing agree.
+export const FISH_DEPTH = 0.07; // (about 17 cm: a trout's room in the shallows)
+export function swimDepth(w, fx, fy) {
+  const x = Math.floor(fx), y = Math.floor(fy);
+  if (!w.inb(x, y)) return Infinity; // (the water beyond the farm's edge)
+  const L = tileWaterLevel(w, w.idx(x, y));
+  return L == null ? -Infinity : L - groundAt(w, fx, fy);
+}
+// The nearest point within r of (fx, fy) with at least `min` of water, else the deepest one there.
+export function deepWaterNear(w, fx, fy, r = 1.2, min = FISH_DEPTH) {
+  let best = null, bestD = Infinity, deep = null, deepest = -Infinity;
+  for (let dy = -r; dy <= r + 1e-9; dy += 0.15) for (let dx = -r; dx <= r + 1e-9; dx += 0.15) {
+    const x = fx + dx, y = fy + dy, d = swimDepth(w, x, y), dist = Math.hypot(dx, dy);
+    if (dist > r) continue;
+    if (d >= min && dist < bestD) { bestD = dist; best = [x, y]; }
+    if (d > deepest) { deepest = d; deep = [x, y]; }
+  }
+  return best || deep;
+}

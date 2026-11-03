@@ -1,5 +1,5 @@
 // Quadruped proportions and specialist big-mammal model builders.
-import { P, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
+import { P, SPH_HI, SPH_XL, cloudCoat, col, ellHi, felineSpots, flat, grad, hash3, jaguarCoat, locks, onProfile, pinna, pinnaAt, pixelCoat, place, sculpt, shade, smooth, solid, tmp, tube } from './model-core.js';
 
 // Common palm civet: long, low and slim on short dark legs, grizzled grey-brown with faint rows of
 // dark spots and stripes down the back and flanks, a dark mask with white patches above and below
@@ -163,14 +163,20 @@ function tiger(m, s) {
   ellHi(m, HX(29.0, 19.9), R(2.8, 2.1, 2.3), muz, { ...hd, rot: [0, 0, -0.1] });
   m.ell(HX(28.6, 21.0), R(2.9, 1.45, 2.0), headC, { ...hd, rot: [0, 0, -0.22] });       // bridge of the nose
   const ruff = (u, p) => (hash3(Math.round(p.x / k * 1.6), Math.round(p.y / k * 1.6), 3) > 0.72 ? black : white);
+  const ruffSheet = SPH_HI.clone(), rp = ruffSheet.attributes.position;
+  for (let i = 0; i < rp.count; i++) {
+    const x = rp.getX(i), y = rp.getY(i), z = rp.getZ(i), rear = smooth(0.2, -0.95, x);
+    const tuft = 1 + rear * 0.28 * Math.abs(Math.sin(Math.atan2(y, -x) * 3.5)); // (five soft points round the back edge)
+    rp.setXYZ(i, x * (x < 0 ? tuft * 1.25 : 1), y * (1 - rear * 0.15), z * (1 - rear * 0.55));
+  }
+  ruffSheet.computeVertexNormals();
   for (const side of [1, -1]) {
     // the ruff: white cheek fur standing out wide and back past the jaw, framing the face
     ellHi(m, HX(26.0, 19.8, side * 2.7), R(3.1, 2.2, 1.95), headC, { ...hd, rot: [0, side * 0.35, 0] });
     m.ell(HX(23.7, 19.3, side * 3.8), R(2.3, 2.5, 0.95), headC, { ...hd, rot: [0, side * 0.9, -0.3] });
-    for (let j = 0; j < 7; j++) {
-      const t = j / 6, b0 = HX(24.2 - t * 2.2, 17.9 + t * 3.3, side * (4.1 + Math.sin(t * Math.PI) * 0.7));
-      m.limb(b0, [b0[0] - 1.6 * k * G, b0[1] - (0.9 - t * 0.6) * k * G, b0[2] + side * 0.8 * k * G], 0.7 * k, 0.12 * k, ruff, { ...hd, seg: 5, caps: false });
-    }
+    // its fringe: one flattened sheet of fur lying back along the cheek, its rear edge combed into
+    // soft points, kept above the line of the jaw (a row of tapered cones here read as fangs)
+    m.add(ruffSheet, place(HX(23.3, 19.5, side * 3.95), [0, side * 0.75, 0.3], R(1.8, 1.45, 0.45)), ruff, hd);
     m.ell(HX(30.55, 19.0, side * 1.15), R(1.25, 1.1, 1.3), (u, p) => (u.z * side > 0.25 && u.y > -0.3 && hash3(Math.round(p.x / k * 3), Math.round(p.y / k * 3), 1) > 0.7 ? black : white), hd); // whisker pads
     m.ell(HX(27.9, 22.85, side * 2.15), R(0.95, 0.42, 0.8), white, { ...hd, lo: true });     // white spot over the eye
     m.ell(HX(28.35, 21.95, side * 2.25), R(0.72, 0.46, 0.42), black, { ...hd, lo: true, rot: [0, side * -0.5, 0.15] }); // dark rim of the eye
@@ -183,7 +189,7 @@ function tiger(m, s) {
   for (const side of [1, -1]) m.ell(HX(31.95, 19.8, side * 0.45), R(0.22, 0.2, 0.28), '#2a1612', { ...hd, lo: true });
   m.ell(HX(29.3, 17.75), R(1.45, 0.8, 1.2), white, hd);                                   // chin
   for (const side of [1, -1]) m.limb(HX(31.2, 18.0), HX(29.4, 17.9, side * 1.5), 0.16 * k, 0.12 * k, black, { ...hd, caps: false, seg: 4 }); // the line of the mouth
-  m.eyeAt = HX(28.7, 21.95, 2.4); m.eyePivot = neck;
+  m.eyeAt = HX(28.7, 21.95, 2.4); m.eyePivot = neck; ruffSheet.dispose();
 
   // the long, thick tail: down from the rump in a low curve, the end lifting; ringed, black-tipped
   const T = [[-20.5, 24.4], [-25, 19.6], [-28.2, 13.4], [-31.2, 8.4], [-35.2, 5.8], [-39.4, 6.6], [-42.2, 9.4]];

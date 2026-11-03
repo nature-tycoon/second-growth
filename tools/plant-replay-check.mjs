@@ -49,17 +49,19 @@ for (const map of ['pnw', 'sumatra', 'chinandega']) check(`${map}: a brush strok
 check('Shade changes refresh idle regions without waiting for another plant edit', () => {
   const g = plantFixture('pnw'), w = g.world, a = make(), b = make(), before = make();
   a.rebuild(g, true); before.rebuild(g, true);
-  // a grown tree's tile in the same region as a later edit, but out of the edit's reach
+  // a grown tree's tile in the same region as a later edit, but out of the edit's reach, where a
+  // change of shade changes what is drawn (forest-floor plants and litter under it)
+  const differs = () => { try { same(before, b, 'shade'); return false; } catch { return true; } };
   let i = -1;
   for (let y = 40; y < 80 && i < 0; y++) for (let x = 40; x < 80 && i < 0; x++) {
     const j = w.idx(x, y);
-    if (w.tree[j] && w.treeG[j] > 0.6) i = j;
+    if (!(w.tree[j] && w.treeG[j] > 0.6)) continue;
+    const was = w.canopy[j]; w.canopy[j] = was > 0.5 ? 0.1 : 0.95;
+    b.rebuild(g, true);
+    if (differs()) i = j; else w.canopy[j] = was;
   }
-  assert.ok(i >= 0, 'a grown tree to shade');
-  w.canopy[i] = w.canopy[i] > 0.5 ? 0.1 : 0.95;
+  assert.ok(i >= 0, 'a grown tree whose shade shows');
   a.rebuild(g); assert.ok(a.lastRebuild.regions > 0);
-  b.rebuild(g, true);
-  assert.throws(() => same(before, b, 'shade'), undefined, 'the shade change is drawn');
   same(a, b, 'shade-only change');
   editPlants(g, 34, 34); a.rebuild(g); b.rebuild(g, true);
   same(a, b, 'idle shade change');

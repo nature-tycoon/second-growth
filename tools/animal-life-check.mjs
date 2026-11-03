@@ -117,7 +117,8 @@ check('Fleeing respects blocked diagonal corners in every direction and still us
     reset(); const wl = g.wildlife, w = g.world;
     const a = wl.spawn(ANIMAL.deer, 40, 30, { silent: true });
     const pose = { x: 40 + (dx > 0 ? 0.99 : 0.01), y: 30 + (dy > 0 ? 0.99 : 0.01),
-      state: 'flee', fleeT: 2, fleeDelay: 0, fleeSpeed: 2, fx: dx * Math.SQRT1_2, fy: dy * Math.SQRT1_2, fleeSide: 1 };
+      state: 'flee', fleeT: 2, fleeDelay: 0, fleeSpeed: 2, fx: dx * Math.SQRT1_2, fy: dy * Math.SQRT1_2, fleeSide: 1,
+      orientation: Math.atan2(dy, dx), fleeHd: null }; // (already running that way: a flight turns at a running pace, 0025)
     Object.assign(a, pose);
     const sides = [w.idx(40 + dx, 30), w.idx(40, 30 + dy)];
     for (const i of sides) {

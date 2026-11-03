@@ -88,6 +88,14 @@ export default {
   // Grazing pressure (sim/grazing.js) kept light: trampling, fire and dry-season drought already
   // keep the plains open, and giraffe and elephant need young acacias to browse, so herds add only a little.
   grazing: 0.25,
+  // the herds carry grass seed in their dung onto bare ground (sim/grazing.js, decision 0036)
+  dungSeed: 1,
+  recruitment: { cndd: 0 }, // (its trees already keep their distance: the savanna spacing in trySeed)
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // Drought only: elephants and fire already open the woodland. A dry season that runs weeks long
+  // kills trees on ground at the dry edge of what they can take.
+  // (severity 3: a failed rainy season kills acacias on the dry ridges, 0028 phase 6)
+  disturbance: { drought: { threshold: 56, span: 10, severity: 3 } },
   // native seed bank: on healthy land, buried native seed beats weeds into burned and bare ground
   seedbank: true,
   // every animal walks (or flies) to water every few days to drink
@@ -98,6 +106,7 @@ export default {
   animals: buildSerengetiAnimals,
   goals: GOALS,
   generate: generateRange,
+  stones: 0.03, // the odds loosening the soil turns up stones on a tile (0035): granite grit and kopje boulders under the crust
   borderCell: serengetiBorderCell,
   startWildlife: [['warthog', 3, 50, 44, 4], ['gazelle', 5, 56, 20, 5], ['tortoise', 2, 40, 58, 4], ['monitor', 1, 56, 52, 2],
     ['catfish', 5, 58, 52, 2], ['weaver', 4, 50, 40, 3], ['dungbeetle', 3, 52, 46, 3]],
@@ -141,10 +150,14 @@ export default {
     spread: [1.0, 1.0, 0.9, 0.6, 0.5, 0.5, 0.6, 0.8, 1.0, 1.0, 0.8, 0.8],
     moist: [0.1, 0.12, 0.06, -0.08, -0.15, -0.2, -0.2, -0.12, 0.03, 0.06, -0.02, -0.02],
     snow: null,
-    fireMonths: [4, 5, 6, 7],
-    // grass fires sweep the plains most dry seasons; they kill saplings but not grown, thick-barked
-    // acacias, and never carry into the crowns. With the browsers, that's what keeps it savanna.
-    fireRate: 5, fireGap: 18, fireSpread: 1.6, crownFires: false,
+    // grass fires sweep the plains most dry seasons, May to September; they burn saplings back but not
+    // grown, thick-barked acacias, and never carry into the crowns. With the browsers, that's what keeps
+    // it savanna. Much of the Serengeti's grassland burns every one to three years (Holdo et al. 2009,
+    // PNAS 106; Probert et al. 2019, Glob. Change Biol. 25). Here, once the grass is back, a grassland
+    // tile burns about every 4–5 years (0035): fires run two tiles a day through the cured grass
+    // (fireSpeed) and are routine, so they come with a calm note and no alarm (routineFires).
+    fireMonths: [4, 5, 6, 7, 8],
+    fireRate: 8, fireGap: 8, fireSpread: 1.6, fireSpeed: 2, routineFires: true, crownFires: false,
     floodMonths: [1, 2],
     tips: [
       'Long rains: the best time to sow. Get seed into the half-moon pits while the ground is soft.',
@@ -175,6 +188,7 @@ export default {
     crownOut: 'Even the acacias burned. Standing dead trunks will host vultures and hornbills while grass takes the ground.',
   },
   look: {
+    skyHaze: 0.1, // the clear-day sky at eye level: dry savanna air, the clearest and deepest blue (0..1, see SKY_DEEP in scene.js)
     // colour grade: sunlit and clear, only a touch warm
     grade: { gain: [1.015, 1.0, 0.975], lift: [0.004, 0.002, 0.0], sat: 1.05, contrast: 1.08 },
     pasture: ['#a2a862', '#b6aa7c', '#baa47c', '#a8aa6a'], // muted straw, not mustard
@@ -188,6 +202,10 @@ export default {
     ],
     // falling leaves, seed and dust motes, and mist (0..1 per season), and the flocks that pass over
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): African monarch, brown-veined white, African honeybees
+      pollinators: [{ sprite: { kind: 'butterfly', size: 8, show: 1.6, plain: true, color: '#e8862a', vein: '#1a1410', tip: '#1a1410', edge: 0.05 }, w: 2 },
+        { sprite: { kind: 'butterfly', size: 7, show: 1.6, plain: true, color: '#f4f0e2', vein: '#6a5236', edge: 0.035 }, w: 2 },
+        { sprite: { kind: 'bee', size: 4, color: '#c8902a', dark: '#2a1e12', show: 1.32 }, w: 4 }],
       leaves: [0, 0.2, 0.4, 0], fluff: [0.25, 0.6, 0.9, 0.25], mist: [0.4, 0, 0, 0.35],
       leafColors: ['#c8a848', '#b8883a', '#9a9a4a', '#d8b860'],
       flocks: [['storks', 'weavers', 'vultures'], ['vultures', 'weavers'], ['vultures', 'storks', 'weavers'], ['storks', 'weavers', 'egrets']],

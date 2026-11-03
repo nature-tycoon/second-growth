@@ -6,6 +6,8 @@ import { isMale, preyFor } from '../data/animals.js';
 import { activeTerritory, territorialRivals } from '../data/animal-territories.js';
 import { passable, canLand } from './animal-terrain.js';
 import { facePoint } from './animal-positioning.js';
+import { shrubSpot } from './ground-obstacles.js';
+import { reefMoveSafe } from './animal-terrain.js';
 
 const at = (w, j) => [j % w.w + 0.5, (j / w.w | 0) + 0.5];
 const tileDistance = (w, j, x, y) => Math.hypot(j % w.w + 0.5 - x, (j / w.w | 0) + 0.5 - y);
@@ -19,6 +21,11 @@ function suitable(wl, a, def, j) {
     passable(w, j, a) && canLand(w, j, def) && wl.suit[a.sp][j] > 0.15 &&
     (def.behavior.territory.kind !== 'host' ||
       w.shrub[j] === w.catalog.plant.anemone?.id && w.shrubG[j] > 0.35);
+}
+// The host plant on a home tile, where it's drawn.
+export function hostSpot(w, j) {
+  const x = j % w.w, y = j / w.w | 0;
+  return shrubSpot(x, y, w.catalog.plants[w.shrub[j]], w.tree[j] > 0);
 }
 export function hasTerritory(wl, a, def) {
   return !!(activeTerritory(def, a, wl.game.month) && suitable(wl, a, def, a.territory?.home));
@@ -128,6 +135,7 @@ export function territorialChoose(wl, a, def) {
     if (!walkHome(wl, a, def, t.home)) { a.territory = null; a.territoryAfter = a.age + 5; return false; }
     a.trip = null; a.restSpot = null; t.mode = 'return'; t.goal = t.home; return true;
   }
+  if (profile.tether) return hover(wl, a, def, t, profile.tether);
   if (a.age < t.next) return false;
   t.next = a.age + 4 + Math.random() * 4;
   // A small host group stays beside its anemone, not at an exclusive individual core.
@@ -143,6 +151,36 @@ export function territorialChoose(wl, a, def) {
   if (!moved) { t.mode = 'mark'; a.alertT = 0.8; a.wait = 0.8; return true; }
   a.trip = null; a.restSpot = null; t.mode = 'patrol';
   t.goal = a.state === 'fly' ? w.idx(Math.floor(a.tx), Math.floor(a.ty)) : a.path[0];
+  return true;
+}
+// A tethered host fish (profile.tether) hangs about its plant: a fresh point within the tether
+// every second or two, swum to by hoverStep while it's idle. Past the tile, it swims home first.
+function hover(wl, a, def, t, tether) {
+  const w = wl.game.world, [hx, hy] = hostSpot(w, t.home);
+  if (distance(a, hx, hy) > 1.2) {
+    if (!walkHome(wl, a, def, t.home)) { a.territory = null; a.territoryAfter = a.age + 5; return false; }
+    a.trip = null; a.restSpot = null; a.hover = null; t.mode = 'return'; t.goal = t.home; return true;
+  }
+  const ang = Math.random() * Math.PI * 2, r = tether * Math.sqrt(Math.random());
+  a.hover = { x: hx + Math.cos(ang) * r, y: hy + Math.sin(ang) * r, home: t.home };
+  a.state = 'idle'; a.wait = 0.6 + Math.random() * 1.2; a.path = null; a.trip = null; a.restSpot = null;
+  t.mode = 'hover';
+  return true;
+}
+// Each frame an idle host fish has a hover point: turn on the spot toward it and finn over gently.
+export function hoverStep(wl, a, def, dt) {
+  const h = a.hover;
+  if (!h || a.territory?.home !== h.home) { a.hover = null; return false; }
+  const dx = h.x - a.x, dy = h.y - a.y, d = Math.hypot(dx, dy);
+  if (d < 0.03) { a.hover = null; return false; }
+  if (a.hd == null) a.hd = Math.atan2(dy, dx);
+  let turn = Math.atan2(dy, dx) - a.hd;
+  turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
+  a.hd += clamp(turn, -10 * dt, 10 * dt);
+  a.spd = Math.min(def.speed * 0.6, d * 3) * Math.max(0.2, Math.cos(turn));
+  const nx = a.x + Math.cos(a.hd) * a.spd * dt, ny = a.y + Math.sin(a.hd) * a.spd * dt;
+  if (reefMoveSafe(wl.game.world, a, nx, ny)) { a.x = nx; a.y = ny; } else { a.hover = null; return false; }
+  if (Math.abs(Math.cos(a.hd)) > 0.1) a.facing = Math.cos(a.hd) > 0 ? 1 : -1;
   return true;
 }
 export function territoryArrive(wl, a) {

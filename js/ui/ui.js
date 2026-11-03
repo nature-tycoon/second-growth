@@ -1,4 +1,7 @@
+import { meadowNote } from '../sim/beaver-ponds.js';
+import { wallowNote } from '../sim/wallows.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
+import { roostingNow } from '../data/animal-activity.js';
 // DOM interface: top bar, tool palette, inspector, notifications, minimap and modal screens.
 
 import { T, F, FEATURE_NAMES, MONTH_NAMES, DIFFICULTY, DAYS_PER_YEAR, isWater, money, moneyShort, clamp, lifeAge } from '../config.js';
@@ -14,6 +17,7 @@ import { many, isMaleVariant, animalDef } from '../data/animals.js';
 import { passageGuide } from '../sim/bird-passage.js';
 import { CATEGORIES, PLANT_TABS, BRUSH_SIZES, listPrice } from '../tools.js';
 import { plantSuit, plantLimits } from '../sim/plants.js';
+import { disturbanceTileNote } from '../sim/disturbance.js';
 import { speciesPresent } from '../sim/goals.js';
 import { speciesCounts, speciesColor, densestSpot } from '../sim/animal-density.js';
 import { campaignOn, currentChapter, unlockedTools, chapterOfTool, goalMet, campaignVisitorHint } from '../sim/campaign.js';
@@ -22,6 +26,7 @@ import { BIOMES, BIOME_LIST } from '../biome.js';
 import { worldMap } from './worldmap.js';
 import { LANG_MAPS, lang, langFor, storedLang, saveLang, langWithin, tr } from '../i18n.js';
 import { makePostcard, download } from './postcard.js';
+import { openEcoReport } from './eco-report.js';
 import { ICONS } from './icons.js';
 import { settings, saveSettings, resetSettings } from '../settings.js';
 import { Undo } from '../undo.js';
@@ -146,6 +151,7 @@ export class UI {
     this.applySettings();
     this.saving.bind();
     this.warmPortraits();
+    this.renderer.warmAnimals?.(game);
     setTimeout(() => this.renderer.warmRemains?.(game), 2500); // (once the first frames have settled)
     void music.prepare();
     const wake = () => { void music.start(); };
@@ -365,7 +371,7 @@ export class UI {
     // Dismiss the event, not its current tile count: spreading water/fire must not reopen it.
     if (!g.events.fireTiles) delete this.dismissedBanners.fire;
     if (!g.events.floodTiles) delete this.dismissedBanners.flood;
-    const fire = this.dismissedBanners.fire ? 0 : g.events.fireTiles;
+    const fire = this.dismissedBanners.fire || g.events.routine ? 0 : g.events.fireTiles; // (a routine savanna grass fire has no banner: 0035)
     const flood = this.dismissedBanners.flood ? 0 : g.events.floodTiles;
     const crown = fire && g.events.severe && g.events.heat > 0.3;
     const key = `${fire}|${flood}|${crown}`;
@@ -700,13 +706,15 @@ export class UI {
   }
   // What an animal is doing, in a few words (the inspector's Status line, and watch mode's caption).
   agentStatus(a, def = animalDef(a, this.game.catalog)) {
-    const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey' }[a.hunt?.phase] || 'Hunting';
-    const birdStatus = { forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting', soar: a.bird?.carcass != null ? 'Circling down to a carcass' : 'Soaring over open ground' }[a.bird?.kind];
+    const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey', ease: 'Giving up the chase' }[a.hunt?.phase] || 'Hunting';
+    const birdStatus = { trunk: 'Pecking at a tree trunk', forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting', soar: a.bird?.carcass != null ? 'Circling down to a carcass' : 'Soaring over open ground' }[a.bird?.kind];
+    const fishStatus = a.fishing?.phase === 'dive' ? (def.behavior.fishing?.style === 'plunge' ? 'Diving for a fish' : 'Swooping on a fish')
+      : a.fishing?.phase === 'go' ? 'Heading out to fish' : def.move === 'fly' ? 'Watching the water for fish' : 'Fishing';
     const grouped = def.familyHerd && (a.herdOf != null && a.herdOf !== a.id || this.game.wildlife.agents.some(c => c !== a && (c.herdOf === a.id || c.mom === a.id)));
     const familyStatus = a.mom != null ? (a.follow ? 'Following mother' : 'With a family herd') : grouped ? (isMaleVariant(def, a) ? 'With a bachelor group' : 'With a family herd') : null;
-    return a.leaving ? 'Leaving the property' : dormancyStatus(a) || (a.fromFire && a.state === 'fly' ? 'Fleeing the fire' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : a.fromFire ? 'Fleeing the fire' : 'Running from danger')
+    return a.leaving ? 'Leaving the property' : dormancyStatus(a) || (roostingNow(a, def, this.renderer?.nightOut) ? 'Roosting until dusk' : null) || (a.fromFire && a.state === 'fly' ? 'Fleeing the fire' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : a.fromFire ? 'Fleeing the fire' : 'Running from danger')
       : a.state === 'forage' ? ({ grass: 'Grazing', browse: 'Browsing leaves', leaves: 'Eating canopy leaves', fruit: 'Eating fruit', seeds: 'Foraging for seeds', insects: 'Catching insects', nectar: 'Feeding on nectar', seagrass: 'Grazing seagrass', sponge: 'Feeding on sponges', coral: 'Picking at coral', algae: 'Grazing algae', sediment: 'Deposit feeding', plankton: 'Feeding on plankton', dung: 'Feeding on dung', cleaning: 'Cleaning a reef fish', cleaned: 'Visiting a cleaning station' }[a.forage?.food] || 'Foraging') : a.forageGoal != null ? 'Moving to a feeding spot'
-      : a.state === 'primate' ? 'Eating fruit' : a.fruitGoal ? 'Looking for fruit' : a.state === 'play' ? 'Playing' : a.state === 'carry' ? (a.carry?.low ? 'Dragging a fish to the bank' : a.carry?.phase === 'mantle' ? 'Mantling over its catch' : 'Carrying its catch to a perch') : a.state === 'feed' ? (a.prey ? 'Eating its catch' : 'Feeding') : a.drinkT > 0 ? 'Drinking' : a.state === 'spar' ? (a.sparStyle === 'necking' ? 'Necking with a rival male' : def.sprite.male?.antlers ? 'Clashing antlers with a rival' : 'Sparring with a rival')
+      : a.state === 'primate' ? 'Eating fruit' : a.fruitGoal ? 'Looking for fruit' : a.state === 'play' ? 'Playing' : a.cache === 'bury' && a.move === 'ground' ? 'Burying a nut' : a.cache === 'dig' && a.move === 'ground' ? 'Foraging on the ground' : a.state === 'fish' ? fishStatus : a.state === 'carry' ? (a.carry?.low ? 'Dragging a fish to the bank' : a.carry?.phase === 'mantle' ? 'Mantling over its catch' : 'Carrying its catch to a perch') : a.state === 'feed' ? (a.prey ? 'Eating its catch' : 'Feeding') : a.drinkT > 0 ? 'Drinking' : a.state === 'spar' ? (a.sparStyle === 'necking' ? 'Necking with a rival male' : def.sprite.male?.antlers ? 'Clashing antlers with a rival' : 'Sparring with a rival')
       : a.greet != null && def.sprite.male?.antlers && isMaleVariant(def, a) ? 'Approaching a rival' : a.socialWith != null ? 'Watching an approaching neighbour' : a.bugleT > 0 ? 'Bugling' : a.haremOf != null ? 'In a bull’s harem' : this.game.wildlife.agents.some(c => c.haremOf === a.id) ? 'Guarding his harem' : a.greetT > 0 ? 'Greeting a neighbour' : a.alertT > 0 ? 'On the alert' : familyStatus || birdStatus || (a.state === 'walk' || a.state === 'fly' ? (a.birdGround ? 'Hopping between feeding spots' : a.move === 'fly' ? 'Flying' : a.move === 'tree' && ['monkey', 'orangutan'].includes(def.sprite.kind) ? 'Climbing through the canopy' : 'Wandering') : 'Resting / foraging'));
   }
   agentHTML(a) {
@@ -764,6 +772,7 @@ export class UI {
     html += `</div>`;
     const waterNote = g.water?.note(i);
     if (waterNote) html += `<div class="info-desc">${waterNote}</div>`;
+    for (const n of [meadowNote(g, i), wallowNote(g, i)]) if (n) html += `<div class="info-desc">${n}</div>`; // (0034)
     const note = this.game.catalog.definition.tileNote?.(this.game, i);
     if (note) html += `<div class="info-desc">${note}</div>`;
     for (const pressure of pressureTileNotes(g, i)) html += `<div class="info-desc">${pressure}</div>`;
@@ -784,6 +793,9 @@ export class UI {
         <div class="st ${cls}">${word}${lim.length && s < 0.55 ? ': ' + lim.join(', ') : ''} · ${pct(gg)} grown${extra}</div></div></div>`;
     });
     html += `<div class="section-title">Plants</div>` + (rows.length ? rows.join('') : `<div class="info-desc">Nothing growing here${t === T.PASTURE && !this.game.catalog.definition.sandBed ? ' but tired pasture grass' : ''}.</div>`);
+    if (w.understory[i]) html += `<div class="info-desc">Waiting under the canopy for a gap: a young ${this.game.catalog.plants[w.understory[i]].name} (${pct(w.understoryG[i])} grown).</div>`; // (0028 §3)
+    const rot = disturbanceTileNote(g, i); // (0028 §4: root rot in the soil)
+    if (rot) html += `<div class="info-desc">${rot}</div>`;
     // animals nearby
     const near = g.wildlife.agents.filter(a => Math.abs(a.x - x - 0.5) < 2 && Math.abs(a.y - y - 0.5) < 2);
     if (near.length) {
@@ -1136,40 +1148,8 @@ export class UI {
     track('panel_opened', { panel: 'money', map: g.map });
   }
 
-  openReport() {
-    const g = this.game, s = g.updateScore(), w = g.world, st = w.stats;
-    const rows = s.parts.map(p => {
-      const neg = p.pts < 0;
-      const width = neg ? Math.abs(p.pts) / 15 : p.pts / (p.max || 1);
-      return `<div class="srow"><span>${p.name}</span><div class="bar"><i class="${neg ? 'neg' : ''}" style="width:${pct(clamp(width, 0, 1))}"></i></div><span class="v">${neg ? '' : '+'}${p.pts.toFixed(1)}</span></div>`;
-    }).join('');
-    const land = st.land || 1;
-    const habRows = this.game.catalog.habitatInfo.map((h, k) => [h, st.counts[k] || 0]).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1])
-      .map(([h, c]) => `<div class="srow"><span><span class="chip" style="background:${h.color}"></span> ${h.name}</span><div class="bar"><i style="width:${pct(c / w.n * 2.5)};background:${h.color}"></i></div><span class="v">${c}</span></div>`).join('');
-    const body = `<div class="report">
-      <div><h4>Ecosystem health: ${Math.round(s.total)} / 100</h4>${rows}
-        <h4 style="margin-top:18px">Score over time</h4><canvas id="spark" class="ph-no-capture" width="420" height="110" style="width:100%;height:110px;background:var(--paper-2);border-radius:10px"></canvas>
-        <h4 style="margin-top:18px">Budget</h4>${this.budgetHTML()}
-      </div>
-      <div><h4>Land cover</h4>${habRows}
-        <div class="kv" style="grid-template-columns:150px 1fr;margin-top:12px"><span class="k">Native cover</span><span>${pct(s.nativeFrac || 0)} of land</span><span class="k">Invasive cover</span><span>${pct(s.invFrac || 0)}</span><span class="k">Native plant species</span><span>${s.nativePlants}</span><span class="k">Animal species</span><span>${s.animals} of ${this.game.catalog.animals.length}</span></div>
-      </div></div>`;
-    const m = this.modal('Ecosystem Report', body);
-    const c = m.querySelector('#spark'), ctx = c.getContext('2d');
-    const hist = g.history;
-    if (hist.length > 1) {
-      ctx.strokeStyle = '#4f7d3b'; ctx.lineWidth = 2.5; ctx.beginPath();
-      hist.forEach((h, k) => { const x = 8 + k / (hist.length - 1) * (c.width - 16), y = c.height - 8 - h.score / 100 * (c.height - 16); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-      ctx.stroke();
-      // invasive cover on the same 0-100 scale, so a rising pink line is an early warning
-      if (hist.some(h => h.inv != null)) {
-        ctx.strokeStyle = '#c0467a'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.beginPath();
-        hist.forEach((h, k) => { const x = 8 + k / (hist.length - 1) * (c.width - 16), y = c.height - 8 - (h.inv || 0) * 100 / 100 * (c.height - 16); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
-        ctx.stroke(); ctx.setLineDash([]);
-        ctx.font = '700 11px Nunito'; ctx.fillStyle = '#4f7d3b'; ctx.fillText(tr('Health'), 12, 16); ctx.fillStyle = '#c0467a'; ctx.fillText(tr('Invasive cover %'), 62, 16);
-      }
-    } else { ctx.fillStyle = '#7a7a62'; ctx.font = '600 13px Nunito'; ctx.fillText(tr('History builds up month by month.'), 12, 58); }
-  }
+  // The Ecosystem Report: overview, deep dives and badges (ui/eco-report.js, decision 0031)
+  openReport(view) { return openEcoReport(this, view); }
 
   openJournal() {
     const rows = this.journal.map(n => `<div class="journal-row"><span class="d">${n.date}</span><span>${n.text}</span></div>`).join('') || '<p class="info-desc">Nothing yet.</p>';
@@ -1466,7 +1446,7 @@ export class UI {
     track('map_switch', { from: this.game.map, to: pending.map, resume: !!pending.resume });
     location.reload();
   }
-  async startMode(mode, fresh, difficulty = 'standard', map = this.game.map) {
+  async startMode(mode, fresh, difficulty = 'standard', map = this.game.map, runSeed = Game.randomRunSeed()) {
     const g = this.game;
     if (map !== g.map) return this.switchMap({ map, mode, difficulty });
     if (fresh) {
@@ -1474,7 +1454,7 @@ export class UI {
       try { await Game.clearSave(map); } catch {
         this.setSpeed(speed); g.notify('The saved farm could not be replaced. Your current farm is still open.', 'warn'); return;
       }
-      track('game_restart', this.snapshot()); g.newGame(Math.floor(Math.random() * 100000), mode, difficulty, map);
+      track('game_restart', this.snapshot()); g.newGame(1987, mode, difficulty, map, runSeed); // (the same land, a new run of weather and fire)
     }
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
     track('game_start', { mode, fresh, difficulty, map });

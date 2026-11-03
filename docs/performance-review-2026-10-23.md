@@ -104,3 +104,13 @@ Before → after, organically grown 3-year games, M5 at Retina High, measured ol
 **Growth in size steps (prototyped, dropped by Cole on 2026-10-23).** Each growing plant's drawn size is rounded to a 1.5% step, and changes are compared as drawn. In review shots 0.4–0.8% of pixels differ, against 0.02% between two captures of the unchanged game. Full-grown plants and the border forest don't change. At top speed it cut plants from 4.9 to 3.9 ms in PNW, with no measurable change in Sumatra. The gain was too small and uneven to justify a stepped growth value everywhere plants read growth, so growth is still drawn exactly. Don't revisit this without a new measurement showing growth redraws dominate.
 
 Unrelated, already failing before these changes, and left alone: `tools/primate-stall-check.mjs` (an orangutan held at a failed grip for 53.9 days; identical output on the unchanged checkout) and `tools/render-boundaries-check.mjs` (`terrain-materials.js` imports `sim/animal-trails.js`, from the trail commits).
+
+## Follow-up, 2026-11-01: lag in a brand-new game
+
+Cole reported lag "right from the get go". A new game averages 60 fps on the M5 on every map but
+Sumatra; the lag is stutter. Each animal kind's first appearance built its model and compiled its
+shader mid-frame, plant regrowth redrew 48-tile regions (15-30 ms each), and the daily and monthly
+updates ran in one frame. Fixed in [0038](decisions/0038-smooth-first-minutes.md), which has the
+before/after table. Open fix 2a above (skip the whole-map comparison while regions are queued) is
+done there. Still open: 2(b), the daily plant redraw itself (nearly every region every day,
+`tools/plant-churn-probe.mjs`), and Sumatra's 4-6M triangles in its opening view.

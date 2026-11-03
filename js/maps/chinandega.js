@@ -241,6 +241,7 @@ export default {
   goals: GOALS,
   moments: MOMENTS,
   generate: generateFinca,
+  stones: 0.035, // the odds loosening the soil turns up stones on a tile (0035): volcanic: scoria and lava stones from San Cristóbal
   borderCell: chinandegaBorderCell,
   stats: fincaStats,
   daily: fincaDaily,
@@ -275,7 +276,7 @@ export default {
   toolText: {
     pull: { icon: { plant: 'jaragua' }, desc: 'Pull out jaragua, guinea grass, castor bean and neem seedlings. Native plants are left alone.' },
     marsh: { desc: 'Dig tidal marsh on low, wet ground. Mangroves can grow in it.' },
-    demolish: { desc: 'Tear out fences, old buildings, roads, the culvert, or a shrimp pond dike (breaching a dike lets the tide back into the pond).' },
+    demolish: { desc: 'Tear out fences, old buildings, roads, the culvert, habitat features you placed, or a shrimp pond dike (breaching a dike lets the tide back into the pond). Natural snags, logs, stumps and rocks stay.' },
     clear: { desc: 'Strip a tile back to bare soil: jaragua, whatever is on it. Then plant natives.' },
     burn: { desc: 'A careful early burn clears jaragua before it builds up. Keep it well away from young trees. In dry weather it can escape: cut a firebreak around it first.' },
   },
@@ -289,6 +290,14 @@ export default {
   // Grazing pressure (sim/grazing.js): the paddocks already hold their grass, and the herd must not
   // stop the dry forest coming back on the slope, so cattle and deer press on seedlings at half strength.
   grazing: 0.5,
+  recruitment: { cndd: 0.6 },
+  // Patch disturbance (0028 §4, sim/disturbance.js). Months run March..February.
+  // A hurricane once in a few decades, in the late rainy season, flattens a wide swath of trees.
+  // termites clear dead wood quickly in the warm dry forest, though it lies dry half the year (0028 §5)
+  deadwood: { decay: 1.4 },
+  disturbance: {
+    storms: [{ name: 'A hurricane', months: [6, 7, 8], perYear: 0.04, patch: [400, 4000], severity: 0.7, warn: true }],
+  },
   climate: {
     seasons: ['Late dry season', 'Rainy season', 'Late rains', 'Dry season'],
     // Chinandega: almost no rain November–April; May–October rains, with a short dry spell (the canícula) in July–August
@@ -329,6 +338,7 @@ export default {
     crownOut: 'Standing dead trees will host woodpeckers and parrots while the forest grows back.',
   },
   look: {
+    skyHaze: 0.35, // the clear-day sky at eye level: humid lowland, with the volcano gas (0..1, see SKY_DEEP in scene.js)
     grade: { gain: [1.01, 1.0, 0.98], lift: [0.004, 0.002, 0.0], sat: 1.06, contrast: 1.07 },
     pasture: ['#a8a468', '#8aa452', '#8aa452', '#b0a46a'],
     soil: [0.2, 0.17, 0.15], mud: [0.25, 0.22, 0.2],      // young volcanic ash soil: near-black
@@ -342,6 +352,10 @@ export default {
       { sun: 0xffeccc, sunI: 2.85, sky: 0xe8eaec, ground: 0x706a44, hemiI: 1.15 },
     ],
     ambience: {
+      // bees and butterflies at the flowers (pollinators.js): a morpho (Morpho peleides), a sulphur, honeybees
+      pollinators: [{ sprite: { kind: 'butterfly', size: 10, show: 1.6, plain: true, color: '#3a86e0', vein: '#16141a', edge: 0.12 }, w: 1 },
+        { sprite: { kind: 'butterfly', size: 7, show: 1.6, plain: true, color: '#f2c830', vein: '#a07a18', edge: 0.03 }, w: 2 },
+        { sprite: { kind: 'bee', size: 4, color: '#c8902a', dark: '#2a1e12', show: 1.32 }, w: 4 }],
       leaves: [0.2, 0, 0, 0.5], fluff: [0.4, 0.3, 0.3, 0.6], mist: [0.2, 0.3, 0.35, 0.1],
       leafColors: ['#c8a848', '#b8883a', '#9a8a4a', '#d8b860'],
       flocks: [['parrots', 'egrets'], ['parrots', 'egrets', 'swallows'], ['parrots', 'egrets', 'storks'], ['parrots', 'vultures']],
