@@ -85,6 +85,53 @@ An earlier run (2026-11-01, another agent's simulations loading the Mac) showed 
 from parts 1 and 2 alone, for example Sumatra at fast 20 → 39 fps; under load the stalls cost
 more, as on a slower computer.
 
+## Simulation cost per game day after the wave-2 merge (2026-11-02)
+
+The combined branch (PR 83: 0033-0038 on top of wave 1) ran the simulation 17-22% slower per game
+day than main on the Serengeti and Chinandega. Node, seeded (`Math.random` LCG s=7), untended,
+15 years, `dailyTick` plus ten `wildlife.update(0.1)` a day, M5 on mains power. Average ms per game
+day over years 2-15:
+
+| Map | main (0be3dae) | combined (7103a38) | now |
+| --- | ---: | ---: | ---: |
+| PNW | 9.0 | 7.8 | 6.1 |
+| Amazon | 7.3 | 7.9 | 6.3 |
+| Serengeti | 11.6 | 14.1 | 10.9 |
+| Atlanta | 5.8 | 5.6 | 4.4 |
+| Chinandega | 12.1 | 14.2 | 10.1 |
+| Reef | 6.8 | 7.5 | 6.6 |
+| Sumatra | 22.9 | 21.3 | 14.4 |
+
+Where it came from (bisected over the first-parent commits): on the Serengeti about half was more
+animals alive (300 against 270 on average; shared prey, 0037, lets more predators and rare prey
+persist) and half was per-animal cost from wave 1's steering (0025). On Chinandega it was nearly
+all per-animal cost, the largest step at 0034: a river fish whose waypoint or position is in the
+shallows searched ~290 points for deep water every step, and a fish stranded in shallow water
+did it every frame.
+
+The fixes give exactly the same simulation (seeded `balance-sim restore 15` and `idle 10`
+byte-identical; every map's yearly forest, mature trees, animals and score identical at s=7, and
+at s=11 on three maps). Each is a cheaper way to the same answer:
+
+- `deepWaterNear` (`sim/waterline.js`) tries its grid nearest first and stops at the first deep
+  enough point, looking each tile's water level up once; `tileWaterLevel` no longer builds an array.
+- `wetTest` looks each tile's drawn water level up once per search, for `lastDry` (bank spots),
+  `nearestWater` (where a drinker's head goes) and `backToWater`.
+- A landed bird's alarm (`birdAlarm`) checked whether every animal on the map threatens it, every
+  few hours of game time: now nearer than the best so far first, and the species-pair answer is
+  kept per map and difficulty (`threatens`). It was a tenth of the Serengeti's time.
+- Prey vigilance (`watch`) tests distance before cover and footing.
+- The spacing grid (`AnimalSpacing`) is a flat array of three-tile squares rather than a hash map.
+- The daily distance fields (`distanceField`, a dozen a day) are two sweeps rather than a flood
+  fill: the same city-block distances in about a third of the time.
+- `w.tileH` without a temporary array; the reef's dry-cay test is kept per height version (`w.hv`).
+
+Not reached: the first game year on Amazon and Chinandega is still about 1-1.5 ms a day dearer
+than main (Amazon 6.5 against 5.0, Chinandega 9.0 against 7.1), mostly more animals arriving in
+that first year (41 against 25 on Amazon) and the warm-up of the larger code. Tools for the next
+look: a per-function CPU profile (`node --cpu-prof`) of a 12-year seeded run, compared
+inclusive-time by function between two checkouts.
+
 ## Not done
 
 - **The daily plant redraw itself.** A day's growth changes almost every region on every map (27-30

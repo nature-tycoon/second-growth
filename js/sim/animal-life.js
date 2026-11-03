@@ -596,16 +596,19 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
   const preds = predatorsOf(wl, a.sp);
   if (!preds) return false;
   let p = null, best = Infinity, bd = 0;
+  // (the cheap tests first, distance before the cover and footing checks: every animal runs this
+  // against every hunter several times a day)
   for (const o of candidates) {
-    if (!preds.has(o.sp) || o.leaving || o.state === 'feed' || byId(wl, o.id) !== o ||
-      !canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) continue;
+    if (!preds.has(o.sp) || o.leaving || o.state === 'feed') continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
     // (a stalker in cover, or frozen, is only seen closer: decision 0026; a hunter out in the open
     // is seen from further, up to 8.4 tiles rather than 6: decision 0037)
     if (d2 >= 70.6 * (1 - (o.hunt?.hide || 0)) ** 2) continue;
-    if (d2 >= 36 * (1 - (o.hunt?.hide || 0)) ** 2 && d2 >= (6 * (1.4 - 0.4 * openCover(wl.game.world, o, a)) * (1 - (o.hunt?.hide || 0))) ** 2) continue;
     const score = d2 / (o.state === 'hunt' && o.target === a.id ? 4 : 1);
-    if (score < best) { best = score; bd = d2; p = o; }
+    if (score >= best || byId(wl, o.id) !== o) continue;
+    if (d2 >= 36 * (1 - (o.hunt?.hide || 0)) ** 2 && d2 >= (6 * (1.4 - 0.4 * openCover(wl.game.world, o, a)) * (1 - (o.hunt?.hide || 0))) ** 2) continue;
+    if (!canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) continue;
+    best = score; bd = d2; p = o;
   }
   if (!p) return false;
   // A stalk or an approach is a hunter in view, not yet an attack: prey bolts once it is close

@@ -13,7 +13,14 @@ import { moment, arrivalMoment, momentFree } from '../sim/moments.js';
 
 const invPct = g => (g.cache.score?.invFrac ?? 1) * 100;
 const st = (g, k) => g.world.stats?.[k] || 0;
-const dryTile = (w, i) => w.tileH(i % w.w, (i / w.w) | 0) > SEA - 0.2;
+// (the cay's tiles, worked out again only when the ground's height changes: w.hv; the reef's
+// plants ask this of every tile every day)
+const dryMasks = new WeakMap();
+const dryTile = (w, i) => {
+  let m = dryMasks.get(w);
+  if (!m || m.hv !== w.hv) dryMasks.set(w, m = { hv: w.hv, dry: Uint8Array.from({ length: w.n }, (_, j) => w.tileH(j % w.w, (j / w.w) | 0) > SEA - 0.2 ? 1 : 0) });
+  return m.dry[i] === 1;
+};
 // where the reef's animals can't go: the cay, and the ankle-deep water lapping at its beach
 // (the seabed here never changes height, so it's worked out once per world)
 const shoreMask = w => w._shore || (w._shore = Uint8Array.from({ length: w.n }, (_, i) => (w.tileH(i % w.w, (i / w.w) | 0) > SEA - 0.45 ? 1 : 0)));
