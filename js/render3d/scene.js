@@ -1316,6 +1316,7 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
   }
   if (fx.length > 400) fx.splice(0, fx.length - 400);
   const z = this.zoom;
+  drawCatchPuffs(this, ctx, game, dt, random);
   for (let k = fx.length - 1; k >= 0; k--) {
     const p = fx[k];
     p.life -= dt;
@@ -1339,6 +1340,35 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
     }
   }
 };
+
+// A fish eaten by another fish: a faint, dark red-brown cloud of a few soft blobs where it was
+// taken, drifting apart and fading in about a second and a half. The game keeps the last few
+// catches in a ring (game.js onPredation); the blobs live in a fixed pool, nothing is allocated.
+const PUFF = Array.from({ length: 30 }, () => ({ life: 0, max: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, r: 1 }));
+function drawCatchPuffs(r, ctx, game, dt, random) {
+  const c = game.fishCatches;
+  if (c && r.puffSeen !== c.n) {
+    for (let n = Math.max(r.puffSeen ?? c.n, c.n - 8); n < c.n; n++) {
+      const k = n % 8, st = r.actors.pose.get(c.id[k]), x = c.x[k], z = c.y[k];
+      const y = st?.y ?? (r.heightAtScene(x, z) + 0.3);
+      for (let b = 0, used = 0; b < PUFF.length && used < 6; b++) {
+        const p = PUFF[b]; if (p.life > 0) continue;
+        used++; p.max = p.life = 1.2 + random() * 0.8; p.x = x; p.y = y; p.z = z; p.r = 0.6 + random() * 0.6;
+        p.vx = (random() - 0.5) * 0.35; p.vz = (random() - 0.5) * 0.35; p.vy = 0.02 + random() * 0.06;
+      }
+    }
+    r.puffSeen = c.n;
+  }
+  for (const p of PUFF) {
+    if (p.life <= 0) continue;
+    p.life -= dt; if (p.life <= 0) continue;
+    p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt; p.vx *= 1 - dt * 1.5; p.vz *= 1 - dt * 1.5;
+    if (!r.actors.view.visible(p.x, p.y, p.y, p.z, 1)) continue;
+    const f = 1 - p.life / p.max, d = r.project(p.x, p.y, p.z), s = (3 + f * 9) * p.r * Math.max(0.6, r.zoom);
+    ctx.fillStyle = `rgba(92,38,30,${(0.32 * Math.min(1, f * 6) * (1 - f)).toFixed(3)})`;
+    ctx.beginPath(); ctx.ellipse(d.x, d.y, s, s * 0.8, 0, 0, 7); ctx.fill();
+  }
+}
 
 // Night-time glimpses, in the blue dusk and before dawn: fireflies drifting and blinking over
 // meadows and marshes (Hollis in summer, the Amazon all year), and eye-shine from the animals

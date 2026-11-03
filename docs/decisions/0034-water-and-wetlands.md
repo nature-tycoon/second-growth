@@ -119,6 +119,15 @@ note tells of fairy shrimp and tadpole shrimp. Drawn as a small mud dish with mu
 when wet (flora.js). Bison wallows are a few metres across and tens of centimetres deep, worn over
 years, and hold water in spring (Gerlanc & Kaufman 2003, Konza Prairie).
 
+### Reef fish over coral (2026-11-02)
+
+Reef fish are drawn over the hard corals by body size (`coralFloor` in
+`render3d/flight-clearance.js`): a fish of sprite size 6 or less (clownfish, chromis, cleaner
+wrasse) rises only over coral on its own tile, so it can sit in an anemone beside a thicket; a
+bigger one looks a crown's width round it and ahead and keeps its body depth over the top. Drawing
+only; the simulation still lets fish cross any sea tile. Check: `tools/reef-coral-clearance-check.mjs`.
+A fish eaten by a fish leaves a faint puff (`game.fishCatches`, drawn in `scene.js drawCatchPuffs`).
+
 ## Verification
 
 Checks (all in the headless suite):

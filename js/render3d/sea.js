@@ -19,7 +19,7 @@ const VERT = `
   }`;
 const FRAG = `
   uniform float uT, uGlint, uEye, uFogNear, uFogFar;
-  uniform vec3 uSun, uView, uSky, uWater, uLight, uFogColor, uFogOut;
+  uniform vec3 uSun, uView, uSky, uWater, uLight, uFogColor, uFogOut, uSeaFar;
   varying vec2 vXZ;
   varying vec3 vW;
   // a handful of crossing swells and ripples; their slopes make the surface normal
@@ -68,8 +68,12 @@ const FRAG = `
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
     gl_FragColor.rgb = mix(gl_FragColor.rgb, uFogOut * shimmer, mirror);
-    gl_FragColor.rgb = mix(gl_FragColor.rgb, uFogOut, f);
+    // (seen from above, the open sea fades to deep blue, not into the haze: on a clear day the
+    // pale band is only the sky just over a crisp horizon, as at sea)
+    gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FrontFacing ? uSeaFar : uFogOut, f);
   }`;
+
+const SEA_FAR = [0.24, 0.62, 0.92]; // (sRGB, scaled by the haze's brightness: a deep tropical-sea blue on a clear day)
 
 export class SeaSurface {
   constructor(scene) {
@@ -79,7 +83,7 @@ export class SeaSurface {
       uSun: { value: new THREE.Vector3(0, 1, 0) }, uView: { value: new THREE.Vector3(0, 1, 0) },
       uSky: { value: new THREE.Color(0.75, 0.85, 0.95) }, uWater: { value: new THREE.Color(0.2, 0.6, 0.62) },
       uLight: { value: new THREE.Color(1, 1, 1) },
-      uEye: { value: 0 }, uFogNear: { value: 1e5 }, uFogFar: { value: 2e5 }, uFogColor: { value: new THREE.Color() }, uFogOut: { value: new THREE.Color() },
+      uEye: { value: 0 }, uFogNear: { value: 1e5 }, uFogFar: { value: 2e5 }, uFogColor: { value: new THREE.Color() }, uFogOut: { value: new THREE.Color() }, uSeaFar: { value: new THREE.Color() },
     };
     this.mat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: FRAG, uniforms: this.uniforms, transparent: true, depthWrite: false, side: THREE.DoubleSide });
     this.mesh = null;
@@ -124,6 +128,10 @@ export class SeaSurface {
     // stopping in plain view overhead
     this.mesh.scale.set(eye ? this.eyeScale[0] : 1, 1, eye ? this.eyeScale[1] : 1);
     u.uFogNear.value = fog.near; u.uFogFar.value = fog.far; u.uFogColor.value.copy(fog.color); u.uFogOut.value.copy(fog.color).convertLinearToSRGB();
+    // the far sea: deep blue in clear air, as bright as the haze, going over to the haze itself as
+    // the weather closes in (fog.far is 34 on a clear day, 31 in cloud, 22 in rain: scene.js)
+    const o = u.uFogOut.value, lum = o.r * 0.3 + o.g * 0.6 + o.b * 0.1, clearAir = Math.min(1, Math.max(0, (fog.far - 22) / 12));
+    u.uSeaFar.value.setRGB(SEA_FAR[0] * lum, SEA_FAR[1] * lum, SEA_FAR[2] * lum).lerp(o, 1 - clearAir * 0.85);
     const sl = sea.uSeaLight.value; sl[0] = hemi.color.r * l; sl[1] = hemi.color.g * l; sl[2] = hemi.color.b * l;
   }
 }

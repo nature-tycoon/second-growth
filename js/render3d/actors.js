@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, drawLooks, animalDef, maleLook } from '../data/animals.js';
 import { roostingNow } from '../data/animal-activity.js';
-import { clearCanopy } from './flight-clearance.js';
+import { clearCanopy, coralFloor } from './flight-clearance.js';
 import { strideFollowsGround } from './stride.js';
 const CLEAR = { floor: -Infinity, clearing: false }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
@@ -128,6 +128,7 @@ export class Actors {
     this.people = new Map();    // visitor id -> smoothed heading and gait
     this.flames = [];
     this.smoke = [];
+    this.frameNo = 0; // (frames drawn: spreads per-animal lookups over frames)
     // a soft-edged shadow under each animal (the same fading disc as under plants)
     this.shadowGeo = contactShadow(14).scale(0.5, 1, 0.5);
     this.shadowMat = new THREE.MeshBasicMaterial({ color: 0x0a1206, vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide });
@@ -194,7 +195,7 @@ export class Actors {
 
     // ---- wildlife
     const F = this.fauna, k = Math.min(1, (this.lastT != null ? time - this.lastT : 0.016) * 6);
-    this.lastT = time;
+    this.lastT = time; this.frameNo++;
     const persp = perspectiveScale(camera, viewportHeight);
     F.begin(pixelsPerUnit(camera, viewportHeight), persp && { x: camera.position.x, y: camera.position.y, z: camera.position.z, scale: persp });
     this.silhouettes.begin();
@@ -304,6 +305,12 @@ export class Actors {
         const band = clamp(sw + amp * (0.12 * Math.sin(time * 0.11 + a.id * 1.7) + 0.06 * Math.sin(time * 0.29 + a.id * 4.1)), 0.04, 0.9);
         st.depth = st.depth == null ? band : st.depth + (band - st.depth) * k * 0.3;
         y = def.benthic ? ground + 0.008 : Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
+        // (and over the coral heads, by body size: flight-clearance.js)
+        // (looked up every fourth frame, each fish on its own frame; the lift eases between)
+        if (!def.benthic && (st.coralFloor == null || (this.frameNo + a.id & 3) === 0)) st.coralFloor = coralFloor(w, game.catalog.plants, a, def);
+        const lift = def.benthic ? 0 : Math.max(0, st.coralFloor - y);
+        st.coralLift = st.coralLift == null ? lift : st.coralLift + (lift - st.coralLift) * Math.min(1, k * 1.5);
+        if (st.coralLift > 0.001) y = Math.min(seaY - 0.08, y + st.coralLift);
         if (def.sprite.escape === 'skip') {
           const p = escapeSkip(st, game.speed > 0 && (chased.has(a.id) || a.dash > 1), time);
           st.skipP = p; // (scene.js splashes where it leaves the water and lands)

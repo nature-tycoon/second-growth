@@ -66,3 +66,27 @@ export function clearCanopy(w, plants, a, def, y, out = null, mx = 0, my = 0, ah
   if (out) out.floor = canopyTop(w, plants, a.x, a.y, 0, 0, 0);
   return Math.max(y, top + (a.passing ? PASSAGE_GAP : CANOPY_GAP));
 }
+
+// Reef fish keep clear of the hard corals (the reef's trees) by body size, one rule for every
+// fish. A fish small enough to shelter in the reef (a clownfish, a chromis, a cleaner wrasse)
+// only rises over coral growing on its own tile, so it stays down in an anemone or a gap beside
+// a thicket but never sits inside the branches. A bigger fish looks a crown's width round it and
+// a little way ahead, and keeps its own body depth over the top (a grouper, a turtle, a shark
+// swims above and round the coral heads). Returns the lowest scene y its body may be drawn at.
+export const SHELTER_SIZE = 6;
+const HERE = [[0, 0]];
+export function coralFloor(w, plants, a, def) {
+  if (def.benthic) return -Infinity;
+  const size = def.sprite.size || 10, small = size <= SHELTER_SIZE;
+  const h = a.hd ?? a.orientation ?? 0, ahead = small ? 0 : 0.7;
+  let top = -Infinity;
+  for (let s = 0; s <= (small ? 0 : 1); s++) for (const [ox, oy] of small ? HERE : AROUND) {
+    const xi = Math.floor(a.x + Math.cos(h) * ahead * s + ox), yi = Math.floor(a.y + Math.sin(h) * ahead * s + oy);
+    if (!w.inb(xi, yi)) continue;
+    const i = w.idx(xi, yi), p = w.tree[i] && plants[w.tree[i]];
+    if (!p || p.cay) continue; // (the cay's palms are out of the water)
+    const t = w.heightAt(xi + 0.5, yi + 0.5) * LEVEL + treeHeight(p) * w.treeG[i];
+    if (t > top) top = t;
+  }
+  return top + 0.02 + size * 0.006;
+}
