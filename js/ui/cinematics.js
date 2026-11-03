@@ -2,6 +2,7 @@
 import { momentScene } from '../sim/moments.js';
 import { track } from '../analytics.js';
 import { makePostcard, download } from './postcard.js';
+import { settings } from '../settings.js';
 
 export class Cinematics {
   constructor(game, renderer, state, controls) {
@@ -17,11 +18,16 @@ export class Cinematics {
   // and a title card tells the story. The game keeps running at normal speed so it plays out.
   play(m) {
     const g = this.game, r = this.renderer;
+    // Keystone moments off (Settings, Gameplay): a notification instead, which takes you there on a click
+    if (!settings.moments) { g.notify(`${m.title}. ${m.text}`, 'discover', m.agent || { x: m.x, y: m.y }); return; }
     // wait until the view is free, and leave a breather after the last one (at high speed a few
     // game weeks go by in seconds, so two moments could otherwise come back to back)
     const breather = 25000 - (performance.now() - (this.momentEnded ?? -1e9));
     if (this.moment || this.controls.isBusy() || breather > 0) { setTimeout(() => this.play(m), Math.max(3000, breather)); return; }
     this.moment = m;
+    // at eye level (watch mode) the moment needs the usual camera: leave the eye here, and watch
+    // mode goes back to eye level after (Watch.frame starts afresh once the moment ends)
+    if (r.eyeAgent || r.eyeWalk) r.setEyeLevel(null);
     this.state.clean = true; // (the land and the animals only: no brush, overlay or selection ring)
     m.prev = { x: r.target.x, z: r.target.z, zoom: r.zoom, speed: g.speed };
     // a night moment (the fireflies) jumps the clock to a clear, warm night, and the meadows light up
@@ -49,7 +55,7 @@ export class Cinematics {
     const o = document.createElement('div'); o.id = 'moment';
     o.innerHTML = `<div class="lb lb-top"></div><div class="lb lb-bot"></div>
       <div class="mo-card"><small>A moment at ${this.game.catalog.definition.farm} · Year ${g.year}</small><h2>${m.title}</h2><div class="mo-beat" hidden></div><p class="mo-text">${m.text}</p>
-      <div class="mo-btns"><button class="btn secondary" data-a="card">Save postcard</button><button class="btn" data-a="go">Continue</button></div></div>`;
+      <div class="mo-btns"><button class="btn secondary" data-a="card">Save postcard</button><button class="btn" data-a="go" title="Back to your view (Esc)">Continue</button></div></div>`;
     document.body.appendChild(o);
     document.body.classList.add('moment-on');
     // keep the subject out from under the title card: frame it in the open part of the screen

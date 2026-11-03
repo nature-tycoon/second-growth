@@ -15,6 +15,11 @@ Watch). The panels go, thin letterbox bars come in, and the camera directs itsel
 - A caption names the animal and gives the inspector's status line (`UI.agentStatus`, taken out of
   `agentHTML` so both share it).
 - Keystone moments still play, and the director starts a new shot once one ends.
+  At eye level the moment leaves the eye camera (`Cinematics.play` calls `setEyeLevel(null)`; the eye
+  view used to stay on while the overhead camera flew unseen) and the new shot goes back to eye level
+  (2026-11-02). During any moment a click on the map does nothing: clicking an animal used to follow it
+  and stop the glide in (`glideToAnimal` clears `fly`). Continue or Esc ends a moment. Settings →
+  Gameplay → Keystone moments off turns each into a notification. Check: `tools/moment-camera-browser-check.mjs`.
 - The game runs at whatever speed it was. The bar has the top bar's speed buttons (pause, watch pace, 1–3;
   added 2026-10-24 at Cole's request), and Space, 0 and 1–3 work too. Clicks, drags and the scroll
   wheel never reach the map; they only bring up the bar (speed, Next, Eye level, Done). The − on the

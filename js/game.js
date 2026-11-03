@@ -32,6 +32,7 @@ export class Game {
     this.listeners = {};
     this.selectedAgent = null;
     this.cache = {};
+    this.invasives = true; // the Invasive species setting (off: none take root, see updatePlants)
     this.dayRun = null; // a day being worked through a part a frame (see update)
     this.saveDue = false; // the month's autosave, made once the day's work is done
   }
