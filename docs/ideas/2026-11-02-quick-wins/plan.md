@@ -18,11 +18,11 @@ Branch: `claude/ideas-quick-wins` (from main 15c87b3). Cole has ~20% of the week
 ## Sessions (sequential, this checkout)
 | # | Title | Ideas | Model | Size | Status |
 |---|---|---|---|---|---|
-| 1 | Small tweaks | butterflies smaller; salmon jump lower; tree brush sometimes sparse (find out if intended, fix if not) | sonnet | S | [ ] |
-| 2 | Settings and keystone camera | setting to turn off invasives; setting to turn off keystone moments; keystone moments work from eye level; autumn rut didn't zoom at 3x | opus | S–M | [ ] |
-| 3 | Follow-cam hiding (one shared rule) | don't hide reef coral; woodpecker's trunk visible while pecking; palm fronds regression with monkeys on palms | opus | S–M | [ ] |
-| 4 | Movement glitches | elk legs move while stuck on trees/each other (gait from real speed, all walkers); followed birds jump in elevation (flight clearance smoothing) | opus | M | [ ] |
-| 5 | Reef life | fish don't swim into coral (tiny ones may weave), clownfish stuck; faint blood puff when fish eats fish; livelier, more colourful reef; reef eye-level sky grey at horizon | opus | M | [ ] |
+| 1 | Small tweaks | butterflies smaller; salmon jump lower; tree brush sometimes sparse (find out if intended, fix if not) | sonnet | S | [x] |
+| 2 | Settings and keystone camera | setting to turn off invasives; setting to turn off keystone moments; keystone moments work from eye level; autumn rut didn't zoom at 3x | opus | S–M | [x] |
+| 3 | Follow-cam hiding (one shared rule) | don't hide reef coral; woodpecker's trunk visible while pecking; palm fronds regression with monkeys on palms | opus | S–M | [x] |
+| 4 | Movement glitches | elk legs move while stuck on trees/each other (gait from real speed, all walkers); followed birds jump in elevation (flight clearance smoothing) | opus | M | [x] |
+| 5 | Reef life | fish don't swim into coral (tiny ones may weave), clownfish stuck; faint blood puff when fish eats fish; livelier, more colourful reef; reef eye-level sky grey at horizon | opus | M | [x] |
 
 ## Deferred (next batch)
 - Predators leap at prey where natural (stalkers pounce), richer hunts.
