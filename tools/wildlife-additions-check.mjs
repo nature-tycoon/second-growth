@@ -15,6 +15,9 @@ const additions = { atlanta: { otter: 2, coyote: 2 }, serengeti: { topi: 8, hart
 const originalCount = { atlanta: 30, serengeti: 26, reef: 19 };
 const present = (wl, def) => wl.agents.filter(a => a.sp === def.index).length;
 for (const [map, keys] of Object.entries(additions)) {
+  // (seeded before the landscape too: its first animals draw on Math.random, so unseeded, each run
+  // began with a different 17 to 19 of them and the check passed or failed by luck)
+  Math.random = mulberry32(8739);
   const g = restoredGame(map), wl = g.wildlife, w = g.world;
   // A pre-addition save has a shorter species state table.
   const legacy = g.saveData(); legacy.wildlife.state.length = originalCount[map];

@@ -263,9 +263,13 @@ export class Wildlife {
   }
 
   // Hunters share their prey (decision 0037). Each prey animal is split between the hunting species
-  // that eat it, in proportion to how many prey each would need to fill the room its habitat
-  // gives it, rather than counted whole by every one of them: lions, hyenas, cheetahs and
+  // that eat it, rather than counted whole by every one of them: lions, hyenas, cheetahs and
   // leopards had each counted the same gazelle, so there was one hunter for every six prey.
+  // A hunter's own share is in proportion to how many prey it would need to fill the room its
+  // habitat gives it; the others' claims are what they eat now, their numbers here (up to that
+  // room). A hunter that isn't here eats nothing: counting the room of absent ones, the bass's
+  // room for ten (fifty bluegill, where there were fifteen) left Atlanta's otters half an otter's
+  // worth of the creek, so they could never arrive.
   sharePrey() {
     const game = this.game, cat = game.catalog, hunters = [], claim = new Float64Array(cat.animals.length);
     for (const def of cat.animals) {
@@ -273,14 +277,15 @@ export class Wildlife {
       if (!diet) continue;
       const st = this.state[def.index], per = preyPer(def, game);
       const want = Math.min(def.max, st.K) * per; // (st.K is still its habitat and hosts here)
-      hunters.push({ def, st, diet, per, want });
-      for (const pk of diet) if (cat.animal[pk]) claim[cat.animal[pk].index] += want;
+      const eats = Math.min(want, st.pop * per);
+      hunters.push({ def, st, diet, per, want, eats });
+      for (const pk of diet) if (cat.animal[pk]) claim[cat.animal[pk].index] += eats;
     }
     for (const h of hunters) {
       let prey = 0;
       for (const pk of h.diet) {
-        const p = cat.animal[pk];
-        if (p && claim[p.index] > 0) prey += this.state[p.index].pop * h.want / claim[p.index];
+        const p = cat.animal[pk], all = p ? claim[p.index] - h.eats + h.want : 0;
+        if (all > 0) prey += this.state[p.index].pop * h.want / all;
       }
       h.st.preyK = prey / h.per;
       h.st.K = Math.min(h.st.K, h.st.preyK);

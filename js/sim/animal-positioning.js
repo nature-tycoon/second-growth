@@ -35,17 +35,23 @@ function layer(w, a, x = a.x, y = a.y, grounded = false) {
 }
 
 // Spacing is rebuilt twice per wildlife substep (several substeps a frame at the faster speeds), so
-// buckets are keyed by number and their arrays reused, and the neighbours are walked with plain
-// loops rather than a generator: same buckets, same order.
-const bucketKey = (bx, by) => (bx + 32768) * 65536 + by + 32768;
+// the buckets are a flat grid over the map, one array per three-tile square reused each time, and
+// the neighbours are walked with plain loops rather than a generator: same buckets, same order.
+// (Only animals on the map are bucketed, so a square off the map's edge is always empty.)
 const HERD_ROOM = 0.85; // (of the two bodies' lengths, centre to centre: about a body length of ground between)
 
 export class AnimalSpacing {
-  constructor() { this.buckets = new Map(); this.entries = []; this.filled = []; this.around9 = []; }
+  constructor() { this.grid = []; this.gw = 0; this.gh = 0; this.entries = []; this.filled = []; this.around9 = []; }
   rebuild(w, agents) {
     this.w = w;
     for (const bucket of this.filled) bucket.length = 0;
     this.filled.length = 0;
+    // (one square of margin all round, for the squares round an animal at the edge)
+    const gw = Math.ceil(w.w / 3) + 2, gh = Math.ceil(w.h / 3) + 2;
+    if (gw !== this.gw || gh !== this.gh) {
+      this.gw = gw; this.gh = gh;
+      this.grid = Array.from({ length: gw * gh }, () => []);
+    }
     // (entry records are reused from the last rebuild rather than made afresh each time)
     const pool = this.entries; let n = 0;
     // Three-tile buckets also accommodate the largest boosted reef models.
@@ -54,9 +60,7 @@ export class AnimalSpacing {
       if (band == null) continue;
       const e = pool[n] ||= { a: null, band: null, r: 0, moved: 0 }; n++;
       e.a = a; e.band = band; e.r = animalRadius(a, w.catalog); e.moved = 0;
-      const key = bucketKey(Math.floor(a.x / 3), Math.floor(a.y / 3));
-      let bucket = this.buckets.get(key);
-      if (!bucket) this.buckets.set(key, bucket = []);
+      const bucket = this.grid[(Math.floor(a.y / 3) + 1) * gw + Math.floor(a.x / 3) + 1];
       if (!bucket.length) this.filled.push(bucket);
       bucket.push(e);
     }
@@ -66,10 +70,14 @@ export class AnimalSpacing {
   // could call this again.
   around(x, y, out = this.around9) {
     out.length = 0;
-    const bx = Math.floor(x / 3), by = Math.floor(y / 3);
-    for (let yy = by - 1; yy <= by + 1; yy++) for (let xx = bx - 1; xx <= bx + 1; xx++) {
-      const bucket = this.buckets.get(bucketKey(xx, yy));
-      if (bucket?.length) out.push(bucket);
+    const bx = Math.floor(x / 3) + 1, by = Math.floor(y / 3) + 1, gw = this.gw;
+    for (let yy = by - 1; yy <= by + 1; yy++) {
+      if (yy < 0 || yy >= this.gh) continue;
+      for (let xx = bx - 1; xx <= bx + 1; xx++) {
+        if (xx < 0 || xx >= gw) continue;
+        const bucket = this.grid[yy * gw + xx];
+        if (bucket.length) out.push(bucket);
+      }
     }
     return out;
   }

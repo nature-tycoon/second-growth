@@ -222,15 +222,25 @@ function birdThreat(pred, def, game) {
     ['songbird', 'hummer', 'woodpecker'].includes(def.sprite.kind) &&
     ['raptor', 'owl', 'cat', 'snake', 'monitor'].includes(pred.sprite.kind);
 }
+// (looked up for each species pair once per map and difficulty: every landed bird asks it of
+// every animal several times a day, which was a tenth of the Serengeti's simulation time)
+function threatens(wl, pred, def) {
+  const eco = !!wl.game.diff.ecology, n = wl.game.catalog.animals.length;
+  let t = wl.birdThreats;
+  if (!t || t.eco !== eco || t.n !== n) t = wl.birdThreats = { eco, n, m: new Int8Array(n * n) };
+  const k = pred.index * n + def.index;
+  if (!t.m[k]) t.m[k] = birdThreat(pred, def, wl.game) ? 1 : -1;
+  return t.m[k] > 0;
+}
 // A flock lifts together when one notices a close predator. Pollinators and
 // airborne passersby are not recruited.
 export function birdAlarm(wl, a, def) {
   if (!isBird(def) || a.leaving || a.fromFire) return false;
   let threat = null, best = 16;
   for (const p of wl.agents) {
-    if (p === a || p.leaving || p.state === 'feed' || !birdThreat(wl.game.catalog.animals[p.sp], def, wl.game)) continue;
     const d = (a.x - p.x) ** 2 + (a.y - p.y) ** 2;
-    if (d < best) { best = d; threat = p; }
+    if (d >= best || p === a || p.leaving || p.state === 'feed' || !threatens(wl, wl.game.catalog.animals[p.sp], def)) continue;
+    best = d; threat = p;
   }
   if (!threat) return false;
   for (const b of wl.agents) if (b.sp === a.sp && !b.leaving && !b.flying && b.state !== 'hunt' &&

@@ -7,25 +7,28 @@ import { isBlooming, isFruiting, plantLeafCover } from '../data/plants.js';
 import { rottenLog } from './plants.js';
 
 const FAR = 255;
-let queue = null;
+let queue = null; // (fish passage flood fill, below)
 
-// Multi-source BFS distance (4-neighbour), capped. `isSource(i)` marks distance 0.
+// Distance (4-neighbour steps) to the nearest tile where `isSource(i)`, FAR beyond `cap`. On an open
+// grid that is the city-block distance, which two sweeps find exactly: down and right from the top
+// left, then up and left back from the bottom right. (It was a breadth-first flood; the sweeps
+// give the same numbers in about a third of the time, and the daily update runs a dozen of these.)
 function distanceField(w, out, isSource, cap = 20) {
-  const n = w.n, W = w.w, Hh = w.h;
-  if (!queue || queue.length < n) queue = new Int32Array(n);
-  let head = 0, tail = 0;
-  for (let i = 0; i < n; i++) {
-    if (isSource(i)) { out[i] = 0; queue[tail++] = i; } else out[i] = FAR;
+  const n = w.n, W = w.w;
+  for (let i = 0; i < n; i++) out[i] = isSource(i) ? 0 : FAR;
+  for (let i = 0, x = 0; i < n; i++, x = x === W - 1 ? 0 : x + 1) {
+    let v = out[i];
+    if (v === 0) continue;
+    if (x > 0 && out[i - 1] + 1 < v) v = out[i - 1] + 1;
+    if (i >= W && out[i - W] + 1 < v) v = out[i - W] + 1;
+    out[i] = v;
   }
-  while (head < tail) {
-    const i = queue[head++];
-    const d = out[i] + 1;
-    if (d > cap) continue;
-    const x = i % W, y = (i / W) | 0;
-    if (x > 0 && out[i - 1] > d) { out[i - 1] = d; queue[tail++] = i - 1; }
-    if (x < W - 1 && out[i + 1] > d) { out[i + 1] = d; queue[tail++] = i + 1; }
-    if (y > 0 && out[i - W] > d) { out[i - W] = d; queue[tail++] = i - W; }
-    if (y < Hh - 1 && out[i + W] > d) { out[i + W] = d; queue[tail++] = i + W; }
+  for (let i = n - 1, x = (n - 1) % W; i >= 0; i--, x = x === 0 ? W - 1 : x - 1) {
+    let v = out[i];
+    if (v === 0) continue;
+    if (x < W - 1 && out[i + 1] + 1 < v) v = out[i + 1] + 1;
+    if (i + W < n && out[i + W] + 1 < v) v = out[i + W] + 1;
+    out[i] = v > cap ? FAR : v;
   }
 }
 
