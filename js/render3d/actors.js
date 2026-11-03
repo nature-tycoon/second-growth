@@ -594,8 +594,13 @@ export class Actors {
           if (game.speed > 0 && mo.primate === 2) {
             // A deliberate turn is progress too. Watch the accepted body,
             // rather than the simulation agent or a repeatedly replanned route.
-            if (!st.branchRoute || !st.canopyProgress || st.branchPoint.distanceTo(st.canopyProgress) > .02 || st.canopyQuaternion.angleTo(st.canopyProgressPose) > .15) {
-              st.canopyProgress = st.branchPoint.clone(); st.canopyProgressPose = st.canopyQuaternion.clone(); st.canopyWait = 0;
+            // The turn into a crossing pose eases off as it closes in, so its last
+            // tenth of a radian turns too slowly to count by angle: count it while
+            // the remaining turn keeps halving, or the climb is abandoned just short of it.
+            const remaining = st.canopyGoal ? st.canopyQuaternion.angleTo(st.canopyGoal) : 0;
+            if (!st.branchRoute || !st.canopyProgress || st.branchPoint.distanceTo(st.canopyProgress) > .02 || st.canopyQuaternion.angleTo(st.canopyProgressPose) > .15 ||
+                remaining > .004 && remaining < st.canopyProgressTurn * .5) {
+              st.canopyProgress = st.branchPoint.clone(); st.canopyProgressPose = st.canopyQuaternion.clone(); st.canopyProgressTurn = remaining; st.canopyWait = 0;
             } else st.canopyWait = (st.canopyWait || 0) + motion.dt;
           }
           st.gait = game.speed > 0 ? gait0 + (motion.gait - gait0) * Math.min(1, k * (mo.primate === 3 ? .35 : 2)) : gait0;

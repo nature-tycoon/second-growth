@@ -104,6 +104,7 @@ Cole works on the same machine while agents test, and the 3D game is heavy.
 - In a `tools/*-browser-check.mjs`, send `Page.enable` before `Page.addScriptToEvaluateOnNewDocument`. Without it the script never runs, so seeded settings and `second-growth-pending` are ignored and the farm selector (which can't be dismissed) stays open.
 - Animals small on screen draw from their species pool's distant model (`fauna.species.get(key).far`). Animals large on screen draw from its close-up model (`.close`, see 0018). A check that counts drawn animals must add `far.count` and `close.count` to `count`.
 - "does not provide an export named …" means the browser cached an old module. Refetch with `cache: 'reload'` or clear the site's cache.
+- Seeded headless checks (`mulberry32` on `Math.random`) take a different path whenever any animal model gains or loses a geometry, because three.js draws `Math.random` for every geometry's UUID. A bird reshape once flipped `primate-stall-check`. When a seeded check breaks after an unrelated change, run it on a few other seeds before blaming that change.
 
 ## Checklists
 
