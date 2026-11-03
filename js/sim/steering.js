@@ -12,7 +12,7 @@
 import { isWater } from '../config.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { settleBody, groundWalker } from './ground-obstacles.js';
-import { underWater, swimDepth, deepWaterNear, FISH_DEPTH } from './waterline.js';
+import { wetTest, swimDepth, deepWaterNear, FISH_DEPTH } from './waterline.js';
 
 // The drawn kinds that lower their heads to graze now and then while they stand idle (actors.js).
 export const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
@@ -30,6 +30,7 @@ export const landWalker = (def, a) => a.move === 'ground' && !def.reef && !a.lea
 // a tile: the same way to face, and a drinker's water is a water tile, as everything else expects.)
 export function nearestWater(w, x, y, reach = 2, prefer = null) {
   let best = null, score = Infinity;
+  const underWater = wetTest(w);
   for (let k = 0; k < 48; k++) { // (every 7.5°)
     const ang = k * Math.PI / 24, c = Math.cos(ang), s = Math.sin(ang);
     const off = prefer == null ? 0 : Math.abs(wrap(ang - prefer)), bias = off * 0.2;
@@ -37,7 +38,7 @@ export function nearestWater(w, x, y, reach = 2, prefer = null) {
     for (let d = 0.04; d < reach && d + bias < score; d += 0.04) {
       const px = x + c * d, py = y + s * d;
       if (!w.inb(Math.floor(px), Math.floor(py))) break;
-      if (underWater(w, px, py)) { score = d + bias; best = [px, py, c, s]; break; }
+      if (underWater(px, py)) { score = d + bias; best = [px, py, c, s]; break; }
     }
   }
   if (!best) return null;
@@ -56,9 +57,10 @@ function backToWater(w, wl, a) {
   if (a.headUpKey === key) return;
   a.headUpKey = key; a.headUp = false;
   const L = animalRadius(a, wl.game.catalog) / 0.65 + 0.1, step = Math.min(0.1, L / 6); // (finer for a small body)
+  const underWater = wetTest(w);
   for (let k = -2; k <= 2; k++) {
     const ang = h + Math.PI + k * 0.26, c = Math.cos(ang), s = Math.sin(ang);
-    for (let d = step; d <= L; d += step) if (underWater(w, a.x + c * d, a.y + s * d)) { a.headUp = true; return; }
+    for (let d = step; d <= L; d += step) if (underWater(a.x + c * d, a.y + s * d)) { a.headUp = true; return; }
   }
 }
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;

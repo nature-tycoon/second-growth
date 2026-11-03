@@ -14,7 +14,7 @@ export function tileWaterLevel(w, i) {
   const t = w.terrain[i];
   if (!isWater(t)) return null;
   const x = i % w.w, y = (i / w.w) | 0;
-  return Math.min(...w.corners(x, y)) + WATER_FILL[t];
+  return Math.min(w.vert(x, y), w.vert(x + 1, y), w.vert(x + 1, y + 1), w.vert(x, y + 1)) + WATER_FILL[t];
 }
 
 // The ground under a point, on the same two triangles the terrain mesh draws (not bilinear).
@@ -47,12 +47,30 @@ export function underWater(w, fx, fy, margin = 0.02) {
 
 // Walk from (x0, y0) toward (x1, y1) and return the last point still on dry ground (or null if
 // the start is already wet). steps: how finely to search.
+// underWater for one search that samples many points over a few tiles: each tile's drawn water
+// level is looked up once. (Make a new one for each search: the water moves.)
+export function wetTest(w, margin = 0.02) {
+  let li = -1, L = null;
+  const seen = new Map();
+  return (fx, fy) => {
+    const x = Math.floor(fx), y = Math.floor(fy);
+    if (!w.inb(x, y)) return false;
+    const i = w.idx(x, y);
+    if (i !== li) {
+      li = i; L = seen.get(i);
+      if (L === undefined) seen.set(i, L = visibleLevel(w, x, y));
+    }
+    return L != null && groundAt(w, fx, fy) < L + margin;
+  };
+}
+
 export function lastDry(w, x0, y0, x1, y1, steps = 12, margin = 0.03) {
-  if (underWater(w, x0, y0, margin)) return null;
+  const wet = wetTest(w, margin);
+  if (wet(x0, y0)) return null;
   let best = [x0, y0];
   for (let k = 1; k <= steps; k++) {
     const t = k / steps, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t;
-    if (underWater(w, x, y, margin)) break;
+    if (wet(x, y)) break;
     best = [x, y];
   }
   return best;
@@ -69,13 +87,38 @@ export function swimDepth(w, fx, fy) {
   return L == null ? -Infinity : L - groundAt(w, fx, fy);
 }
 // The nearest point within r of (fx, fy) with at least `min` of water, else the deepest one there.
-export function deepWaterNear(w, fx, fy, r = 1.2, min = FISH_DEPTH) {
-  let best = null, bestD = Infinity, deep = null, deepest = -Infinity;
+// The points are a 0.15 grid round it, tried nearest first (ties in grid order), so it stops at the
+// first deep enough, and each tile's water level is looked up once: a fish stranded in the
+// shallows asks this every step.
+const offsets = new Map(), levels = new Map();
+function offsetsFor(r) {
+  let o = offsets.get(r);
+  if (o) return o;
+  o = [];
   for (let dy = -r; dy <= r + 1e-9; dy += 0.15) for (let dx = -r; dx <= r + 1e-9; dx += 0.15) {
-    const x = fx + dx, y = fy + dy, d = swimDepth(w, x, y), dist = Math.hypot(dx, dy);
-    if (dist > r) continue;
-    if (d >= min && dist < bestD) { bestD = dist; best = [x, y]; }
-    if (d > deepest) { deepest = d; deep = [x, y]; }
+    const dist = Math.hypot(dx, dy);
+    if (dist <= r) o.push({ dx, dy, dist, order: o.length });
   }
-  return best || deep;
+  o.sort((a, b) => a.dist - b.dist || a.order - b.order);
+  offsets.set(r, o);
+  return o;
+}
+export function deepWaterNear(w, fx, fy, r = 1.2, min = FISH_DEPTH) {
+  let deep = null, deepest = -Infinity, deepOrder = Infinity;
+  levels.clear();
+  for (const { dx, dy, order } of offsetsFor(r)) {
+    const x = fx + dx, y = fy + dy, tx = Math.floor(x), ty = Math.floor(y);
+    let d;
+    if (!w.inb(tx, ty)) d = Infinity; // (as swimDepth: the water beyond the farm's edge)
+    else {
+      const i = w.idx(tx, ty);
+      let L = levels.get(i);
+      if (L === undefined) levels.set(i, L = tileWaterLevel(w, i));
+      d = L == null ? -Infinity : L - groundAt(w, x, y);
+    }
+    if (d >= min) return [x, y];
+    // (the deepest, the first of equals in grid order)
+    if (d > deepest || d === deepest && d > -Infinity && order < deepOrder) { deepest = d; deep = [x, y]; deepOrder = order; }
+  }
+  return deep;
 }

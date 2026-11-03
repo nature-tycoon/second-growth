@@ -100,7 +100,7 @@ export class World {
   vert(x, y) { return this.vh[this.vi(x, y)]; }
   setVert(x, y, h) { this.vh[this.vi(x, y)] = h; }
   corners(x, y) { return [this.vert(x, y), this.vert(x + 1, y), this.vert(x + 1, y + 1), this.vert(x, y + 1)]; }
-  tileH(x, y) { const c = this.corners(x, y); return (c[0] + c[1] + c[2] + c[3]) / 4; }
+  tileH(x, y) { return (this.vert(x, y) + this.vert(x + 1, y) + this.vert(x + 1, y + 1) + this.vert(x, y + 1)) / 4; } // (as corners(), without the array: asked often)
   heightAt(fx, fy) {
     const x = Math.floor(fx), y = Math.floor(fy), tx = fx - x, ty = fy - y;
     const a = this.vert(x, y), b = this.vert(x + 1, y), c = this.vert(x, y + 1), d = this.vert(x + 1, y + 1);

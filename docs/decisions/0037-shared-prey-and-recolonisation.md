@@ -107,6 +107,33 @@ goal is still met. ms/day is unchanged: 8.0 against 9.0–9.5 for base, timed ba
   antlered bucks in this short check, not a trend. `ground-obstacles`, `cervid-behavior` and
   `animal-positioning` checks pass.
 
+## What the others eat (2026-11-02)
+
+`wildlife-additions-check` ("atlanta/otter: natural arrivals are attainable") failed about 2 runs in
+5 after this decision, and always on a fixed seed. Two causes:
+
+- **The claims.** Every hunter claimed its full habitat room (`min(max, K) × preyPer`), present or
+  not, and even when there weren't that many prey. Atlanta's bass claimed room for ten bass, 50
+  bluegill, where the creek held about 15, so the otter's share of the creek's fish was half an otter
+  (K 0.5, below `minK` 1), and otters could never settle on a restored Atlanta. Now a hunter's own
+  share is still set by its room, but the others claim only what they eat now: `min(room, pop) ×
+  preyPer`. An absent hunter eats nothing. When every hunter is at its room the split is the same as
+  before.
+- **The otter's appetite.** `preyPer` 12 was set when the otter counted every fish in the creek as
+  its own. It shares them with the bass, and on Challenging with the herons, so it is 6 now. With
+  that, the otter's K on the check's restored creek sits at its habitat limit (median 1.37, as on main
+  before this decision).
+
+Otters arrive within ten years on all three difficulties in 30 of 30 runs (Math.random seeds 1–10).
+The check was also not repeatable: it seeded `Math.random` after `restoredGame`, whose first animals
+draw on it, so each run started with 17 to 19 of them. It now seeds before.
+
+`balance-sim restore 15`, seeds 7 / 11 / 23, same code with the old and new claims: score at year 15
+59.9 / 62.5 / 61.1 → 64.7 / 64.8 / 61.4, the same predators (coyote 2–4, bobcat 1–2, hawk 1–2,
+owl 1–2). Against the base the same seeds read 73.7 / 68.7 / 59.1. That gap comes from the steering
+fixes in the same change (0025), which move every map's random sequence; three seeds spread this
+widely can't tell it from chance.
+
 ## Known limits
 
 - Predator numbers are lower on every map, as intended. A predator whose prey is mostly someone

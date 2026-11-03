@@ -556,11 +556,14 @@ export function fleeUpdate(wl, a, def, dt) {
     // It turns toward that way fast, but not in one step, and runs on through the shared step,
     // which curves round trunks and slides off them like any walk (animals.js stepToward).
     const want = Math.atan2(s, c), was = a.fleeHd ?? a.orientation ?? want;
-    let h = was + clamp(wrap(want - was), -FLEE_TURN * dt, FLEE_TURN * dt);
-    if (!safe(a.x + Math.cos(h) * look, a.y + Math.sin(h) * look, true)) h = want;
+    const h = was + clamp(wrap(want - was), -FLEE_TURN * dt, FLEE_TURN * dt);
     a.fleeHd = h;
-    // (still swinging round, it gathers itself rather than running on the old line: toward the danger, maybe)
-    wl.stepToward(a, a.x + Math.cos(h) * look, a.y + Math.sin(h) * look, step * Math.max(0.3, Math.cos(wrap(want - h))));
+    // (still swinging round, it gathers itself rather than running on the old line: toward the danger, maybe.
+    // With that line blocked, a wall or a fence ahead, it turns on the spot: snapping to the open way
+    // in one step, a chipmunk cornered by a house spun round half a turn at a time)
+    const blocked = !safe(a.x + Math.cos(h) * look, a.y + Math.sin(h) * look, true);
+    if (blocked) facePoint(a, a.x + Math.cos(h), a.y + Math.sin(h));
+    else wl.stepToward(a, a.x + Math.cos(h) * look, a.y + Math.sin(h) * look, step * Math.max(0.3, Math.cos(wrap(want - h))));
     if (off) { const mix = 1 - Math.exp(-dt * 10); a.fx += (c - a.fx) * mix; a.fy += (s - a.fy) * mix; }
     a.fleeOff = off;
     return;
@@ -596,16 +599,19 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
   const preds = predatorsOf(wl, a.sp);
   if (!preds) return false;
   let p = null, best = Infinity, bd = 0;
+  // (the cheap tests first, distance before the cover and footing checks: every animal runs this
+  // against every hunter several times a day)
   for (const o of candidates) {
-    if (!preds.has(o.sp) || o.leaving || o.state === 'feed' || byId(wl, o.id) !== o ||
-      !canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) continue;
+    if (!preds.has(o.sp) || o.leaving || o.state === 'feed') continue;
     const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
     // (a stalker in cover, or frozen, is only seen closer: decision 0026; a hunter out in the open
     // is seen from further, up to 8.4 tiles rather than 6: decision 0037)
     if (d2 >= 70.6 * (1 - (o.hunt?.hide || 0)) ** 2) continue;
-    if (d2 >= 36 * (1 - (o.hunt?.hide || 0)) ** 2 && d2 >= (6 * (1.4 - 0.4 * openCover(wl.game.world, o, a)) * (1 - (o.hunt?.hide || 0))) ** 2) continue;
     const score = d2 / (o.state === 'hunt' && o.target === a.id ? 4 : 1);
-    if (score < best) { best = score; bd = d2; p = o; }
+    if (score >= best || byId(wl, o.id) !== o) continue;
+    if (d2 >= 36 * (1 - (o.hunt?.hide || 0)) ** 2 && d2 >= (6 * (1.4 - 0.4 * openCover(wl.game.world, o, a)) * (1 - (o.hunt?.hide || 0))) ** 2) continue;
+    if (!canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) continue;
+    best = score; bd = d2; p = o;
   }
   if (!p) return false;
   // A stalk or an approach is a hunter in view, not yet an attack: prey bolts once it is close
@@ -903,7 +909,12 @@ export function sparUpdate(wl, a, def, sp, elapsed = dt(sp, def)) {
   if (a.sparPath?.length) {
     const tile = a.sparPath[a.sparPath.length - 1];
     if (!passable(w, tile, a) || a.age - (a.sparSince ?? a.age) > 1.5) { endSpar(wl, a, null, false); endSpar(wl, o, null, false); return; }
-    if (wl.stepToward(a, tile % w.w + 0.5, (tile / w.w | 0) + 0.5, sp * 0.6) && (a.sparPath.pop(), !a.sparPath.length)) a.sparSince = a.age; // (now the last steps in)
+    // (the stance's own tile: on to the stance itself, which squareUp found clear, not the tile's
+    // middle, where its tree's trunk may stand. Pressing on that trunk, an antlered buck squeezed
+    // through it rack and all)
+    const last = a.sparPath.length === 1 && a.sparAt && tile === w.idx(Math.floor(a.sparAt[0]), Math.floor(a.sparAt[1]));
+    const [tx, ty] = last ? a.sparAt : [tile % w.w + 0.5, (tile / w.w | 0) + 0.5];
+    if (wl.stepToward(a, tx, ty, sp * 0.6) && (a.sparPath.pop(), !a.sparPath.length)) a.sparSince = a.age; // (now the last steps in)
     return;
   }
   if (a.sparAt && Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]) > 0.01) {

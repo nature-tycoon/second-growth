@@ -326,7 +326,7 @@ export default function buildAtlantaAnimals(def) {
     def({ key: 'otter', name: 'North American river otter', sci: 'Lontra canadensis', group: 'Mammals', move: 'semi',
       fixedMax: true, strictMax: true, speed: 1.6, hr: 45, max: 2, sources: ['S'], mig: 0.18,
       breed: [1], litter: [1, 2], life: 10, mature: 2,
-      prey: ['bluegill', 'bass'], preyPer: 12,
+      prey: ['bluegill', 'bass'], preyPer: 6, // (12 when it counted every fish as its own; it shares them with the bass and herons now: 0037)
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i] * (W.connected[i] ? 1 : 0.15),
       sprite: { kind: 'otter', len: 30, color: '#4a3526', belly: '#8a7358' },
       desc: 'Follows the Yellow River into clean tributaries to hunt fish. Only a small family can share the neighborhood creek.',

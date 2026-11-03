@@ -156,7 +156,8 @@ export function measure(map, { seed = 1987, rut = true } = {}) {
           if (!tr || def.tramples && w.treeG[w.idx(tx, ty)] < 0.4) continue; // (an elephant walks through saplings)
           if (Math.hypot(a.x - tr[0], a.y - tr[1]) < tr[2]) inCentre = true;
           if (segDist(a.x - ux * reach, a.y - uy * reach, a.x + ux * reach, a.y + uy * reach, tr[0], tr[1]) < tr[2] + half * 0.5) inBody = true;
-          if (antlers && Math.hypot(a.x + ux * (reach + half) - tr[0], a.y + uy * (reach + half) - tr[1]) < tr[2] + r * 0.3) inRack = true;
+          // (less a hair: wood slides a rack out to exactly its edge, and rounding read that touch as inside)
+          if (antlers && Math.hypot(a.x + ux * (reach + half) - tr[0], a.y + uy * (reach + half) - tr[1]) < tr[2] + r * 0.3 - 0.003) inRack = true;
         }
         if (inBody) { c.trunk++; note(`trunk ${a.key}/${a.state}`); }
         if (inCentre) c.trunkCentre++;
@@ -170,7 +171,10 @@ export function measure(map, { seed = 1987, rut = true } = {}) {
           c.sparSteps++; sparSince.delete(a.id);
           if (Math.abs(wrap(Math.atan2(o.y - a.y, o.x - a.x) - h)) > 0.52) c.spar++;
         } else if (!a.sparPath?.length && !o?.sparPath?.length) { // (both walked over: the last steps into the stance)
-          const since = sparSince.get(a.id) ?? step; sparSince.set(a.id, since);
+          // (stuck: no nearer for half a day. A stance across its own tile is over half a day's
+          // walk at a sparring pace, and walking steadily in isn't stuck)
+          const d = a.sparAt ? Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]) : 0, was = sparSince.get(a.id);
+          const since = was && d > was[1] - 0.02 ? was[0] : step; if (since !== was?.[0]) sparSince.set(a.id, [step, d]);
           if ((step - since) * DT > 0.5) { c.sparStuck++; note(`sparStuck ${a.key} ${a.sparPath?.length ?? '-'} ${a.sparAt ? Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]).toFixed(2) : '-'}`); }
         }
       } else sparSince.delete(a.id);
