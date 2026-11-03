@@ -6,7 +6,8 @@ import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, drawLooks, animalDef, maleLook } from '../data/animals.js';
 import { roostingNow } from '../data/animal-activity.js';
 import { clearCanopy } from './flight-clearance.js';
-const CLEAR = { floor: -Infinity }; // (clearCanopy's crown under a flier, reused each frame)
+import { strideFollowsGround } from './stride.js';
+const CLEAR = { floor: -Infinity, clearing: false }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
 import { GRAZERS } from '../sim/steering.js';
 import * as S from '../render/sprites.js';
@@ -354,14 +355,18 @@ export class Actors {
       // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
       if (a.passing) y = a.flightY + (a.passage.swoop ? Math.sin(a.passage.t * 1.8 + a.passage.phase) * 0.12 : 0);
       // over the treetops: the crowns under it and just ahead, unless it's on its way down (flight-clearance.js)
-      if (flying && def.move === 'fly') y = clearCanopy(w, game.catalog.plants, a, def, y, CLEAR, a.x - st.px, a.y - st.py);
-      else CLEAR.floor = -Infinity;
+      // (looking about a second of its flight ahead, 1.4 to 4 tiles)
+      if (flying && def.move === 'fly') y = clearCanopy(w, game.catalog.plants, a, def, y, CLEAR, a.x - st.px, a.y - st.py,
+        clamp(Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, time - (st.t ?? time - 0.016)), 1.4, 4));
+      else { CLEAR.floor = -Infinity; CLEAR.clearing = false; }
       if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
       // A bird's height eases between flight, the treetops it clears and its perch, rather than
       // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
       if (def.move === 'fly' && !def.reef && !a.passing) {
         if (st.birdY == null || returning || st.sc == null) st.birdY = y;
-        else st.birdY += (y - st.birdY) * Math.min(1, k * 1.4);
+        // (in full flight it rises over the crowns ahead at an easy climb and sinks back slower
+        // still, so a run of trees of different heights is one smooth swell, not a bob per crown)
+        else st.birdY += (y - st.birdY) * Math.min(1, k * (CLEAR.clearing && st.fly > 0.9 ? (y > st.birdY ? 1 : 0.3) : 1.4));
         // (a bird in full flight climbs out of a crown it finds itself in fast, about 12 tiles a
         // second, but doesn't jump; taking off, it climbs out of its own tree at the usual ease)
         if (st.fly > 0.9 && st.birdY < CLEAR.floor) st.birdY = Math.min(CLEAR.floor, st.birdY + 2 * k);
@@ -393,7 +398,14 @@ export class Actors {
       // a longer stride at a sprint, a shorter one at a creep
       // (standing but nudged over by a neighbour: a little shuffle of the feet, not a glide)
       const shuffle = !moving && !flying && a.state === 'idle' && dx * dx + dz * dz > 1e-8;
-      st.gait += ((moving ? Math.min(1.35, 0.55 + 0.45 * (a.run || 1)) : shuffle ? 0.35 : 0) - st.gait) * k;
+      // (and the legs keep pace with the ground it covers: held up by a trunk or the one in front,
+      // it shortens its step and slows its legs instead of striding on the spot: stride.js)
+      const walker = !flying && !mo.primate && !mo.swims && !swimming && !def.reef && (def.move === 'ground' || def.move === 'semi');
+      const clock = returning ? 0 : a.phase - (st.legClock ?? a.phase);
+      st.legClock = a.phase;
+      const stride = walker && game.speed > 0 ? strideFollowsGround(st, def, Math.sqrt(dx * dx + dz * dz), clock, k) : null;
+      if (walker) st.legPhase = (st.legPhase ?? a.phase * Math.PI) + Math.max(0, Math.min(3, clock)) * Math.PI * (moving && stride ? stride.rate : 1);
+      st.gait += ((moving ? Math.min(1.35, 0.55 + 0.45 * (a.run || 1)) * (stride ? Math.max(0.3, stride.width) : 1) : shuffle ? 0.35 : 0) - st.gait) * k;
       const bathing = a.bird?.kind === 'bathe', preening = a.bird?.kind === 'preen';
       const birdWings = bathing ? 0.16 + Math.abs(Math.sin(a.phase * 1.7)) * 0.2 : preening ? 0.08 : 0;
       st.fly += ((flying ? 1 : birdWings) - st.fly) * k * 1.5;
@@ -659,7 +671,7 @@ export class Actors {
         const scull = Math.max(0, a.phase - (st.simPhase ?? a.phase)) * Math.PI * 0.4;
         st.swimPhase = ((st.swimPhase ?? a.id * 2.3) + Math.max(beat, scull)) % (Math.PI * 200); st.simPhase = a.phase;
       }
-      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : mo.swims ? st.swimPhase : a.phase * Math.PI;
+      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : mo.swims ? st.swimPhase : walker && st.legPhase != null ? st.legPhase : a.phase * Math.PI;
       if (eating) st.graze = 0;
       // A crawling snake's bends advance by the distance it covers, so they stay put on the ground
       // (one full bend per body length; see uSlither in animals/animal-material.js, which reads it from the fly slot).

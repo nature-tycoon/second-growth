@@ -8,9 +8,12 @@ import { treeHeight } from './tree-stature.js';
 const AROUND = [[0, 0], [0.45, 0], [-0.45, 0], [0, 0.45], [0, -0.45]];
 // The top of the tallest crown (scene y) a flier at x, y is over, or will be within `ahead` tiles
 // along its heading (ux, uy), so it rises before it reaches a tall tree rather than clipping it.
+// (samples every 0.7 tiles along the way, so a lone crown between them isn't missed)
 export function canopyTop(w, plants, x, y, ux = 0, uy = 0, ahead = 1.4) {
   let top = -Infinity;
-  for (const t of [0, ahead / 2, ahead]) for (const [ox, oy] of AROUND) {
+  const n = Math.ceil(ahead / 0.7);
+  for (let s = 0; s <= n; s++) for (const [ox, oy] of AROUND) {
+    const t = n ? ahead * s / n : 0;
     const xi = Math.floor(x + ux * t + ox), yi = Math.floor(y + uy * t + oy);
     if (!w.inb(xi, yi)) continue;
     const i = w.idx(xi, yi);
@@ -51,11 +54,14 @@ export function flightHeading(a, mx = 0, my = 0) {
 // The height to draw a flier at: its own flight height y, or over the crowns ahead. out.floor is
 // the top of the crown right under it, which a bird in full flight climbs out of quickly if its
 // eased height finds it there (a new heading can point straight into a tall tree).
-export function clearCanopy(w, plants, a, def, y, out = null, mx = 0, my = 0) {
-  if (out) out.floor = -Infinity;
+// `ahead` is how far it looks along its heading: the drawing passes about a second of its flight,
+// so a fast bird starts its climb as early before a tree as a slow one (no pop over the crown).
+export function clearCanopy(w, plants, a, def, y, out = null, mx = 0, my = 0, ahead = 1.4) {
+  if (out) { out.floor = -Infinity; out.clearing = false; }
   if (def.reef || descending(a, def, mx, my)) return y;
+  if (out) out.clearing = true; // (holding its height over the trees, not on its way down)
   const [ux, uy] = flightHeading(a, mx, my);
-  const top = canopyTop(w, plants, a.x, a.y, ux, uy);
+  const top = canopyTop(w, plants, a.x, a.y, ux, uy, ahead);
   if (top === -Infinity) return y;
   if (out) out.floor = canopyTop(w, plants, a.x, a.y, 0, 0, 0);
   return Math.max(y, top + (a.passing ? PASSAGE_GAP : CANOPY_GAP));

@@ -1196,7 +1196,10 @@ export class Wildlife {
             (a.path.length === 1 && remaining < 0.9 && this.spacing.crowd(a, tx, ty) > 0.08 &&
             this.spacing.crowd(a, a.x, a.y) < 0.04) ||
             // (its spot's been taken and it's getting no closer edging round the others: stop short)
-            (a.path.length === 1 && remaining < 1.5 && a.moveProgress?.stalled > 0.3 && this.spacing.crowd(a, tx, ty) > 0.08)) {
+            (a.path.length === 1 && remaining < 1.5 && a.moveProgress?.stalled > 0.3 && this.spacing.crowd(a, tx, ty) > 0.08) ||
+            // (a herd member keeping up only needs to be near the others: held up near the end by a
+            // trunk or a herd mate, it stops there instead of pressing on the spot for seconds)
+            (a.follow && a.path.length === 1 && remaining < 2.5 && a.moveProgress?.stalled > 0.4)) {
             a.path.pop(); break;
           }
           const pace = (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1); // (a.run: a startled animal dashing for cover)

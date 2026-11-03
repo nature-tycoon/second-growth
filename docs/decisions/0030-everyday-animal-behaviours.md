@@ -69,9 +69,13 @@ Species traits live in `behaviorFor` (`js/data/animal-behavior.js`), one place f
   out at its own point in the dusk; by day the panel says "Roosting until dusk". With the day
   cycle off they fly as before. Owls still hunt by day: the sim can't keep them to the drawn night.
 - **Flight clearance** (`render3d/flight-clearance.js`): every flier keeps over the crowns under
-  it and up to 1.4 tiles ahead along the way it's moving, plus 0.2 (0.8 for flyovers), and climbs
-  out of a crown fast (12 tiles/s) if its eased height finds it there. Exempt: a stoop, the last
-  tile before landing, the end of a vulture's spiral, pollinators.
+  it and ahead along the way it's moving, plus 0.2 (0.8 for flyovers), and climbs out of a crown
+  fast (12 tiles/s) if its eased height finds it there. Exempt: a stoop, the last tile before
+  landing, the end of a vulture's spiral, pollinators. It looks about a second of its own flight
+  ahead (1.4 to 4 tiles, sampled every 0.7), and while clearing crowns its height eases up at
+  `k * 1` and down at `k * 0.3`, so a run of trees is one swell, not a pop and a drop per crown
+  (2026-11-02; a followed bird looked glitchy). `flight-canopy-check` measures the `jolt` (change
+  of climb rate per frame, limit 0.4 at the 99th percentile; it was 0.37 to 0.82 before).
 
 ## Gotchas
 

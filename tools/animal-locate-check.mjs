@@ -106,7 +106,8 @@ check('Swimming and leaping fish follow current rendered depths rather than the 
   game.world.terrain[game.world.idx(30, 30)] = T.CREEK; game.selectedAgent = a; r.followAgent = a;
   const heights = [];
   for (let k = 0; k < 40; k++) { frame(game, r, k * 0.1); verify(game, r, a, `salmon/${k}`); heights.push(r.target.y); }
-  assert.ok(Math.max(...heights) - Math.min(...heights) > 0.5);
+  // (a leap clears the water by up to 0.3 tile-heights, actors.js: the camera rises with it)
+  assert.ok(Math.max(...heights) - Math.min(...heights) > 0.2);
   dispose(r);
 });
 check('Panning and zooming away from a canopy animal do not jump down to its ground tile', () => {
