@@ -20,7 +20,7 @@ export default function buildAtlantaAnimals(def) {
       season: [1, 2, 3, 4, 5, 6, 7],
       suit: (W, i) => w[W.habitat[i]] * Math.min(1, 0.15 + W.nectar[i] * 1.6),
       req: g => Math.min(1, 0.2 + stat(g, 'milkweed') / 10), // a few milkweeds in one garden bring the first monarchs
-      sprite: { kind: 'butterfly', size: 8, color: '#e8781a', vein: '#1a1210', spots: '#f4f2ea', show: 2 },
+      sprite: { kind: 'butterfly', size: 8, color: '#e8781a', vein: '#1a1210', spots: '#f4f2ea', show: 1.2 },
       desc: 'Every fall, monarchs fly 2,000 miles to the mountains of Mexico. Their caterpillars eat nothing but milkweed, so they can only breed where it grows.',
       hint: 'Milkweed for the caterpillars (butterfly weed, swamp milkweed) and flowers for nectar from spring to fall.' });
   }
@@ -31,7 +31,7 @@ export default function buildAtlantaAnimals(def) {
       season: [0, 1, 2, 3, 4, 5, 6, 7],
       suit: (W, i) => w[W.habitat[i]] * Math.min(1, 0.2 + W.nectar[i] * 1.5),
       req: g => Math.min(1, 0.3 + stat(g, 'hostSwallow') / 6),
-      sprite: { kind: 'butterfly', size: 10, color: '#f0cc2a', vein: '#1a1612', spots: '#3a6ad0', tails: true, show: 1.48 },
+      sprite: { kind: 'butterfly', size: 10, color: '#f0cc2a', vein: '#1a1612', spots: '#3a6ad0', tails: true, show: 1 },
       desc: 'Georgia\'s state butterfly: big, yellow and striped like a tiger. The caterpillars grow up on tulip poplar, black cherry and spicebush.',
       hint: 'Tulip poplar, black cherry or spicebush for the caterpillars, and flowers like Joe-Pye weed and bergamot.' });
   }

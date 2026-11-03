@@ -353,8 +353,8 @@ export default {
     ],
     ambience: {
       // bees and butterflies at the flowers (pollinators.js): a morpho (Morpho peleides), a sulphur, honeybees
-      pollinators: [{ sprite: { kind: 'butterfly', size: 10, show: 1.6, plain: true, color: '#3a86e0', vein: '#16141a', edge: 0.12 }, w: 1 },
-        { sprite: { kind: 'butterfly', size: 7, show: 1.6, plain: true, color: '#f2c830', vein: '#a07a18', edge: 0.03 }, w: 2 },
+      pollinators: [{ sprite: { kind: 'butterfly', size: 10, show: 1, plain: true, color: '#3a86e0', vein: '#16141a', edge: 0.12 }, w: 1 },
+        { sprite: { kind: 'butterfly', size: 7, show: 1, plain: true, color: '#f2c830', vein: '#a07a18', edge: 0.03 }, w: 2 },
         { sprite: { kind: 'bee', size: 4, color: '#c8902a', dark: '#2a1e12', show: 1.32 }, w: 4 }],
       leaves: [0.2, 0, 0, 0.5], fluff: [0.4, 0.3, 0.3, 0.6], mist: [0.2, 0.3, 0.35, 0.1],
       leafColors: ['#c8a848', '#b8883a', '#9a8a4a', '#d8b860'],

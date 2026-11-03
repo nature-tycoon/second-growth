@@ -231,7 +231,7 @@ export class Actors {
         let low = ground, high = ground;
         if (onWater || def.move === 'swim' || def.move === 'fly' && isWater(t)) {
           const surface = waterSurfaceY(w, a.x, a.y) ?? ground;
-          low = Math.min(low, surface); high = Math.max(high, surface + 0.75); // leaping salmon
+          low = Math.min(low, surface); high = Math.max(high, surface + 0.3); // leaping salmon
         }
         if (seaY != null) { low = Math.min(low, seaY); high = Math.max(high, seaY + (def.sprite.escape === 'skip' ? 0.5 : 0)); }
         if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground, a.flightY ?? -Infinity) + 4.2; // (over the tallest crowns too: flight-clearance.js)
@@ -318,7 +318,7 @@ export class Actors {
         y = surf != null ? surf - Math.max(0, Math.min(0.05 + mo.sink * sc, room * 0.5)) : ground;
         // running salmon leap: every few seconds one arcs clear of the water, nose up then down
         const jp = def.special === 'salmon' && surf != null ? salmonLeap(a, time) : -1;
-        if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.75 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
+        if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.3 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
       }
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
       else if (surf != null && FLOATERS.has(kind) && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
