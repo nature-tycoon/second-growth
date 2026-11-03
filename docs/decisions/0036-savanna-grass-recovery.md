@@ -168,8 +168,9 @@ Results, the same 200-year runs (seeds 1 / 2; "0036" is before this section):
   untended map reaches about 4%. Native trees peak around year 140–160 (about 480–510) and drift down
   after. Most seedlings still die in their first dry seasons in grass (`droughtKills`), which is
   realistic for a single seedling but leaves the wooded share low. Getting nearer 15% untended would
-  need recruitment pulses (wet years, elephants opening the sward) and is left for Cole to decide:
-  in the campaign the player plants the acacias.
+  need recruitment pulses (wet years, elephants opening the sward). **Cole's call: about 4% wooded
+  untended is fine**, since in the campaign the player plants the acacias. Don't tune untended
+  Serengeti woodland toward the 15% reference without asking him.
 - Mesquite gained a little (+16% / +43% trees) from pods in dung, as it does in the field; lantana
   and invasive habitat rose a little where grazed lawns burn less.
 - Hollis (`balance-sim restore 15`, seeds 7 and 11, year 16): the fuel rule is the first change here
