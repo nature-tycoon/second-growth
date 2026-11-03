@@ -104,7 +104,7 @@ function trunkCling(flora, game, w, i, a, def, sc) {
     y = site.transform[1] + treeLevel(site.geo, b.h) * site.transform[4];
   } else y = w.heightAt(t[0], t[1]) * LEVEL + treeHeight(p) * w.treeG[i] * b.h * 0.8;
   const off = t[2] * 0.8 + (def.sprite.size || 10) * sc * 0.012, side = b.side ?? 0;
-  return { x: t[0] + Math.cos(side) * off, z: t[1] + Math.sin(side) * off, y, yaw: Math.atan2(Math.sin(side), -Math.cos(side)) };
+  return { x: t[0] + Math.cos(side) * off, z: t[1] + Math.sin(side) * off, y, yaw: Math.atan2(Math.sin(side), -Math.cos(side)), trunk: t };
 }
 
 export class Actors {
@@ -413,6 +413,7 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      st.trunk = cling?.trunk ?? null; // (the trunk it clings to, which the tracking lens keeps: focus.js)
       if (cling) {
         // upright against the bark, facing it, the head hammering in bursts
         ax = cling.x; az = cling.z;
@@ -694,7 +695,7 @@ export class Actors {
         st.center.sub(this.swingGrip.set(...swing.grip).multiplyScalar(mo.len)).applyAxisAngle(this.swingAxis, swing.sway).add(this.swingBase.set(.14, 1.38, .02).multiplyScalar(mo.len));
       }
       st.center.applyMatrix4(F.m); // same heading, pitch, scale and height as the instance
-      st.revealBounds = st.branch ? mo.revealBounds : null;
+      st.revealBounds = mo.revealBounds; // (the body's box, for the tracking lens: see focus.js)
       if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
       // (after the reads of F.m above, which must still hold this animal's own instance)
       if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);

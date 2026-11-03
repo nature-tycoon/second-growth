@@ -114,3 +114,7 @@ Cost: new code is 1.3% of a PNW community run's CPU in node (`--cpu-prof`), almo
 - `tools/flight-canopy-check.mjs`: fliers inside a crown, four forested maps (limit 1%).
 - `tools/bird-behavior-check.mjs` (vulture on the ground), `tools/moments-check.mjs` (stopover).
 - `tools/moments-sweep-browser-check.mjs`: all 21 keystone moments on 7 maps in a browser.
+
+## The tracking lens keeps the support (2026-11-02)
+
+The tracking lens (`render3d/focus.js`) used to open a window about 0.85 tiles wide, starting at the back of the animal. That cut the woodpecker's trunk, the coral under reef fish and palm fronds under monkeys. One rule now covers every species: near the animal, only what lies between the camera and the animal's model box (`revealBounds`, now set for every pose) opens. The trunk an animal clings to (`st.trunk`, from `trunkCling`) stays unless it is wholly in front of the animal. Whatever lies below its feet near it, and shows below it on screen, stays. The wider gap opens gradually, over two window radii toward the camera. A new kind of support (a climber on a trunk or a rock face) sets `st.trunk` or a similar uniform; it needs no per-species shader patch. Check: `tools/follow-support-browser-check.mjs` (pictures in `tools/release-output/follow-support-*.png`), and `tools/canopy-reveal-browser-check.mjs` for covering leaves.

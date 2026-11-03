@@ -339,9 +339,9 @@ export class Renderer {
       this.focusFor = sel.id;
       focus.uFocus.value.lerp(pose.center, e);
       let radius = pose.branch ? clamp(.4 + pose.h * 1.2, .55, .95) : clamp(.75 + pose.h * 1.7, .85, 1.45);
-      let bodyRadius = 0, span = 0;
-      let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius;
-      if (pose.branch && pose.revealBounds && pose.revealMatrix) {
+      let span = 0;
+      let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius, front = .08 * radius;
+      if (pose.revealBounds && pose.revealMatrix) {
         // A downhill body can sit below its foot plane. Protect only leaves
         // below its projected silhouette, and clear cover through its full
         // depth rather than stopping at the centre of the animal.
@@ -349,24 +349,28 @@ export class Renderer {
         for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
           point.set(x, y, z).applyMatrix4(pose.revealMatrix).sub(focus.uFocus.value);
           const along = point.dot(focus.uViewDir.value), height = point.dot(focus.uCamUp.value);
-          bottom = Math.min(bottom, height - .025); back = Math.min(back, along - .025);
-          span = Math.max(span, Math.sqrt(Math.max(0, point.lengthSq() - along * along)));
+          bottom = Math.min(bottom, height - .025); back = Math.min(back, along - .025); front = Math.max(front, along + .025);
+          if (pose.branch) span = Math.max(span, Math.sqrt(Math.max(0, point.lengthSq() - along * along)));
         }
-        bodyRadius = (span + .04) / .8;
-        radius = Math.max(radius, bodyRadius);
+        // the body's own box, a couple of centimetres larger, for what covers it (see focus.js)
+        const m = pose.revealMatrix, pad = .02 / Math.max(1e-4, Math.hypot(m.elements[0], m.elements[1], m.elements[2]));
+        focus.uFocusBoxM.value.copy(m).invert();
+        focus.uFocusBoxMin.value.copy(bounds.min).subScalar(pad); focus.uFocusBoxMax.value.copy(bounds.max).addScalar(pad);
       }
       if (this.eyeOn) radius = clamp(this.eye.size * 1.4, 0.22, 0.55); // (close to the lens, a narrower gap does)
       focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
-      focus.uFocusR.value = Math.max(focus.uFocusR.value, bodyRadius);
       focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
       focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
       focus.uFocusHalfW.value = Math.max(pose.h * 0.55, (pose.foot || 0) * 0.55, span);
+      focus.uFocusFront.value = Math.max(front, focus.uFocusHalfW.value); // (its depth, or half its size across if more)
       focus.uFocusInvD.value = this.eyeOn ? 1 / Math.max(0.05, this.eye.pos.distanceTo(pose.center)) : 0;
+      if (pose.trunk) focus.uFocusTrunk.value.set(pose.trunk[0], pose.trunk[1], pose.trunk[2]); else focus.uFocusTrunk.value.z = -1;
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
       focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
-      focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value;
+      focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value; focus.uFocusFront.value = .3;
+      focus.uFocusBoxM.value.makeTranslation(-ft.x, -focus.uFocus.value.y, -ft.y); focus.uFocusBoxMin.value.setScalar(-.3); focus.uFocusBoxMax.value.setScalar(.3); focus.uFocusTrunk.value.z = -1;
       focus.uFocusInvD.value = 0;
     }
   }
