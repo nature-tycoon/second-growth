@@ -89,7 +89,20 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
       throw new Error(`Timed out: ${message}`);
     };
     return { origin, sessionId, send, evaluate, waitFor, errors, close,
-      async navigate(path) { errors.length = 0; await send('Page.navigate', { url: origin + path }); },
+      // (Page.navigate returns once loading starts: on a slow machine the next evaluate still ran in
+      // the old document, the logo, and a page's getElementById came back null. So it waits until a
+      // new document has replaced the one it marked)
+      async navigate(path) {
+        errors.length = 0;
+        await evaluate('window.__sgLeaving = true').catch(() => {});
+        await send('Page.navigate', { url: origin + path });
+        const deadline = Date.now() + 120000;
+        while (Date.now() < deadline) {
+          if (await evaluate('!window.__sgLeaving && document.readyState !== "loading"').catch(() => false)) return;
+          await pause(50);
+        }
+        throw new Error(`Timed out loading ${path}`);
+      },
       assertHealthy() { if (errors.length) throw new Error('Browser errors:\n' + errors.join('\n')); },
     };
   } catch (error) { await close(); throw error; }

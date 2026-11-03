@@ -200,3 +200,30 @@ on the overland trip") and `primate-stall-check` (orangutan hold) fail before an
   moved or turned. `headUp` and `headUpKey` (back to the water, idle grazers) are not saved either;
   `headUpKey` is cleared whenever the animal isn't an idle non-drinking grazer, or one that stops
   drinking where it stood would keep its old answer.
+
+## Racks, pivots and cornered flights (2026-11-02, itch.io release blockers)
+
+`animal-steering-check` failed CI on Atlanta seed 1987 (6.67 racks in a trunk per 1000, limit 5),
+and behind that assertion on two more: rival-steps stuck (2) and flee turns (18–20 per 1000, limit 15).
+
+- **Walking into the stance.** A rival's route to its stance (`sparPath`) walked to each tile's
+  middle, the stance's own tile too. A tree's trunk stands near its tile's middle, so the buck pressed
+  on it until the squeeze rule let him through, rack and all. The last waypoint on the stance's tile
+  is now `sparAt` itself, which `squareUp` found clear (`sparUpdate`).
+- **Pivoting on the spot.** `walkPath` slid a walker out of wood only after a step. Turning without
+  moving (a tight turn, a blocked arc) swung a stag's rack into a trunk and left it there. It now runs
+  `resolveStep` after a pivot too (`animal-walking.js`).
+- **Cornered flights.** When the line a fleeing animal could turn to this step was blocked, it snapped
+  to the open way in one step (chipmunks against houses turned 100°+ at once). Now it turns on the
+  spot at `FLEE_TURN` and runs once the line is open (`animal-life.js`).
+- **The check.** Wood slides a rack out to exactly its keep-out edge, and rounding read that touch as
+  inside: racks are counted only 0.003 tiles in. `sparStuck` counts a pair that hasn't got any nearer
+  for half a day. A stance across its own tile is over half a day's walk at the sparring pace, and
+  walking steadily in isn't stuck.
+
+Racks inside a trunk per 1000, all maps, seeds 1987 / 91 / 7 / 3 / 42 / 100 / 2024 / 555 / 11 / 23:
+at most 0.06 (base: up to 20.8 on Sumatra seed 42, 19.3 on PNW seed 555, 6.85 on PNW seed 11). Seed
+1987 passes on every map. Other seeds still trip other limits, before and after: Amazon / Sumatra
+flee turns (17–26), Serengeti seed 3 `backGraze` 3.37, PNW seed 11 `stand` 3.4, and Serengeti seed 11
+`trunkCentre` 0.94, a hippo that squeezed past a bank tree and then drank standing in its trunk:
+`clearSpot` leaves a squeezing animal's goal where it is. The check is only reliable at its default seed.

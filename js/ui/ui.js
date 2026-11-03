@@ -171,10 +171,11 @@ export class UI {
 
   // Render the field-guide portraits a few at a time in the background, so the guide opens instantly.
   warmPortraits() {
-    const queue = this.game.catalog.animals.map(a => a.key);
+    // (this map's: another map chosen meanwhile has other species, and asking it for these threw)
+    const catalog = this.game.catalog, queue = catalog.animals.map(a => a.key);
     const step = () => {
-      if (!queue.length) return;
-      animalThumb(queue.shift(), this.game.catalog);
+      if (!queue.length || this.game.catalog !== catalog) return;
+      animalThumb(queue.shift(), catalog);
       (window.requestIdleCallback || (f => setTimeout(f, 60)))(step, { timeout: 400 });
     };
     setTimeout(step, 1500);

@@ -65,7 +65,8 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
   }
   a.walkHeading=next;a.orientation=next;
   if(Math.abs(Math.cos(next))>.05)a.facing=Math.cos(next)>0?1:-1;
-  if(step>1e-7){const fx=a.x,fy=a.y;a.x=nx;a.y=ny;resolveStep(wl,a,def,fx,fy);}
+  // (out of wood after pivoting on the spot too: a stag turning there swung his rack into a trunk)
+  const fx=a.x,fy=a.y;if(step>1e-7){a.x=nx;a.y=ny;}resolveStep(wl,a,def,fx,fy);
   if(last)return Math.hypot(a.x-tx,a.y-ty)<Math.max(.045,pace*.6);
   const following=node(w,a,path.length-2),dx=following[0]-tx,dy=following[1]-ty;
   return near<.12 || (a.x-tx)*dx+(a.y-ty)*dy>=0 && near<look*1.8 && walkSegmentSafe(w,a,...following);
