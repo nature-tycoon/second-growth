@@ -25,6 +25,7 @@ Act as a senior software architect and simulation engineer working on Second Gro
 ## Project
 
 Vanilla JS, no build step, three.js vendored in `vendor/three`. Serve with `python3 tools/serve.py` (port 8347). Tune balance in `js/data/*.js` and `js/sim/`, and check it headless with `node tools/balance-sim.mjs restore 15` before and after.
+`node tools/calibrate.mjs <map|all> [years=15] [seeds=3]` is the before/after for balance: seeded runs, medians against each map's reference, only what's out of range and what moved since the last run (see /balance).
 
 Read the decision for an area before changing it. Each record in [docs/decisions/](docs/decisions/) has the design, the gotchas and its check script; this list is only an index.
 
