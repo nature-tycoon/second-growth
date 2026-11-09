@@ -50,6 +50,7 @@ for(const [map,keys]of byMap){
   // (head framing: the head's own vertices, the part round the eyes out to the nose's reach)
   let headBox=null;const eye=motion.eyeSpot;if(eye){const pos=geo.attributes.position,part=geo.attributes.aPart;let reach=0;for(let i=0;i<pos.count;i++)if(part.getX(i)===8)reach=Math.max(reach,pos.getX(i)-eye[0]);
    const r=Math.max(reach,1e-3)*1.6;headBox=new THREE.Box3();const v=new THREE.Vector3();for(let i=0;i<pos.count;i++)if(part.getX(i)===8){v.fromBufferAttribute(pos,i);if(Math.hypot(v.x-eye[0],v.y-eye[1])<r)headBox.expandByPoint(v);}}
+  if(!headBox&&motion.slither){const pos=geo.attributes.position,v=new THREE.Vector3(),from=motion.slither.nose-motion.slither.head*2.2;headBox=new THREE.Box3();for(let i=0;i<pos.count;i++){v.fromBufferAttribute(pos,i);if(v.x>from)headBox.expandByPoint(v);}} // (a snake: its head and neck)
   const flyBox=new THREE.Box3().setFromBufferAttribute(geo.attributes.aExt); // (wings spread)
   entries.push({def,geo,mesh,anim,canvas,headBox,flyBox,scale:adultAnimalScale(def.sprite)});
  }

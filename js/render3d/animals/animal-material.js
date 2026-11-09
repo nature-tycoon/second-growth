@@ -199,7 +199,7 @@ const COAT_GLSL = `
     if (t < 0.092) { // the head: a stripe down the middle, a dark line back from the eye
       if (kind < 0.5) c = mix(c, mid, coatIn(a, 0.18));
       else if (kind < 2.5) c = mix(c, dark, coatIn(a, 0.13) * step(0.018, t));
-      c = mix(c, dark, coatOver(a, 0.95) * coatIn(a, 1.5) * step(0.034, t));
+      c = mix(c, dark, coatOver(a, 1.0) * coatIn(a, 1.4) * step(0.034, t));
       c = mix(c, belly, (1.0 - smoothstep(-0.58, -0.15, u.y)) * 0.45);
     } else {
       if (kind < 0.5) { // three unbroken yellow stripes over red flank checks

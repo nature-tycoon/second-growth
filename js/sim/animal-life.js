@@ -25,13 +25,18 @@ import { inWood } from './ground-obstacles.js';
 // the run itself: `accel` how many of those multiples it gains in a day, `turn` how many radians a
 // day it can swing its line, `stamina` days of flat-out running in it (a miss costs a share),
 // `patience` days it keeps on without gaining before it lets the prey go. `closeIn`: how much
-// nearer than `rush` a stalker still unseen creeps in full cover before it charges.
+// nearer than `rush` a stalker still unseen creeps in full cover before it charges. `hidden`: how
+// well it is hidden lying still (idle, or waiting for prey to come in), as `hide` below.
 const STYLES = {
   // cats slink in low, freeze when the prey looks up, then charge a short way
   stalk: { approach: 1, near: 5, creep: 0.6, rush: 3, sprint: 2.4, accel: 10, turn: 12, stamina: 2.8, patience: 1, closeIn: 0.5 },
   // dogs and hyenas trot in, then run it down: slower off the mark, but they keep going
   chase: { approach: 1.15, near: 0, creep: 1.15, rush: 4.5, sprint: 2.1, accel: 6, turn: 9, stamina: 4.5, patience: 2.5 },
-  // snakes, crocodiles and monitors inch closer, then lunge
+  // snakes lie in wait: they mark prey that comes within a few tiles (`reach`, the furthest a hunt
+  // starts) and keep still, only turning to face it, until it is in striking range; then a short,
+  // very fast lunge, and if that misses it lets the prey go (a prey that walks off is let go too)
+  strike: { approach: 0, near: 3.5, creep: 0, rush: 1.6, sprint: 6, accel: 90, turn: 25, stamina: 0.6, patience: 0.25, reach: 3.5, hidden: 0.7 },
+  // crocodiles and monitors inch closer, then lunge
   ambush: { approach: 0.8, near: 4, creep: 0.5, rush: 1.5, sprint: 3.2, accel: 24, turn: 8, stamina: 1.2, patience: 0.5 },
   // raptors and fishing birds circle, then dive (a missed dive climbs and circles again)
   stoop: { approach: 1.2, near: 0, creep: 1, rush: 2.2, sprint: 2.8, circle: true, stamina: 2 },
@@ -40,7 +45,7 @@ const STYLES = {
   // otters, bears and the rest
   pursue: { approach: 1, near: 0, creep: 1, rush: 2.5, sprint: 1.9, accel: 8, turn: 10, stamina: 2, patience: 0.8 },
 };
-const KIND_STYLE = { feline: 'stalk', canine: 'chase', hyena: 'chase', snake: 'ambush', caiman: 'ambush', monitor: 'ambush' };
+const KIND_STYLE = { feline: 'stalk', canine: 'chase', hyena: 'chase', snake: 'strike', caiman: 'ambush', monitor: 'ambush' };
 // a long stalk, then a short, flat-out sprint from further away: the fastest start, and the shortest wind
 const CHEETAH = { ...STYLES.stalk, near: 8, rush: 5.5, sprint: 3.4, accel: 16, turn: 14, stamina: 2, patience: 0.5, closeIn: 0 };
 const BLACKTIP = { ...STYLES.chase, rush: 6, sprint: 2.6 }; // charges a surface fish from well back, and keeps it up across the flats
@@ -150,7 +155,7 @@ export function huntStep(wl, a, def, b, sp) {
     else if (S.near && d < S.near && H.phase !== 'creep') {
       // a stalk takes the time it takes: the hunter doesn't give up halfway through one
       H.phase = 'creep'; H.stalk = 0;
-      a.huntTime = Math.max(a.huntTime, (d - S.rush) / (def.speed * S.creep) + 2);
+      a.huntTime = Math.max(a.huntTime, S.creep ? (d - S.rush) / (def.speed * S.creep) + 2 : 2);
     }
   }
   // Stalking: it freezes whenever the prey looks up (an alert stare, decision 0006), and slips
@@ -161,8 +166,8 @@ export function huntStep(wl, a, def, b, sp) {
     frozen = b.alertT > 0 && b.state !== 'flee';
     if (frozen && H.stalk < 8) a.huntTime += t; // (the freeze doesn't count against the stalk)
     if ((H.coverT = (H.coverT || 0) - t) <= 0) stalkCover(wl, a, b, d, H);
-    H.hide = Math.min(0.7, (H.cover || 0) + (frozen ? 0.3 : 0));
-  } else H.hide = 0;
+    H.hide = S.hidden ?? Math.min(0.7, (H.cover || 0) + (frozen ? 0.3 : 0));
+  } else H.hide = H.phase === 'approach' ? S.hidden || 0 : 0;
   if (H.phase === 'circle') {
     // wheel over the prey a couple of times, then fold and drop
     H.t -= t;
@@ -592,6 +597,8 @@ export function updateVigilance(wl, dt) {
   }
 }
 
+// How well a hunter is hidden from prey: a stalker in cover or frozen (huntStep), a snake lying still.
+const hiddenBy = (wl, o) => o.hunt ? o.hunt.hide || 0 : o.state === 'idle' ? huntStyle(wl.game.catalog.animals[o.sp]).hidden || 0 : 0;
 // An active pursuer matters more than a nearer resting hunter. Young, flying and
 // aquatic prey use the same diet rules, then escape with their own movement policy.
 export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
@@ -603,20 +610,20 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
   // against every hunter several times a day)
   for (const o of candidates) {
     if (!preds.has(o.sp) || o.leaving || o.state === 'feed') continue;
-    const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2;
+    const d2 = (o.x - a.x) ** 2 + (o.y - a.y) ** 2, hide = hiddenBy(wl, o);
     // (a stalker in cover, or frozen, is only seen closer: decision 0026; a hunter out in the open
     // is seen from further, up to 8.4 tiles rather than 6: decision 0037)
-    if (d2 >= 70.6 * (1 - (o.hunt?.hide || 0)) ** 2) continue;
+    if (d2 >= 70.6 * (1 - hide) ** 2) continue;
     const score = d2 / (o.state === 'hunt' && o.target === a.id ? 4 : 1);
     if (score >= best || byId(wl, o.id) !== o) continue;
-    if (d2 >= 36 * (1 - (o.hunt?.hide || 0)) ** 2 && d2 >= (6 * (1.4 - 0.4 * openCover(wl.game.world, o, a)) * (1 - (o.hunt?.hide || 0))) ** 2) continue;
+    if (d2 >= 36 * (1 - hide) ** 2 && d2 >= (6 * (1.4 - 0.4 * openCover(wl.game.world, o, a)) * (1 - hide)) ** 2) continue;
     if (!canHuntPrey(wl, o, wl.game.catalog.animals[o.sp], a)) continue;
     best = score; bd = d2; p = o;
   }
   if (!p) return false;
   // A stalk or an approach is a hunter in view, not yet an attack: prey bolts once it is close
   // or the rush (or a raptor's circling) begins, and before that watches it and moves off.
-  const d = Math.sqrt(bd), urgent = d < 3 * (1 - (p.hunt?.hide || 0)) || p.state === 'hunt' && (p.hunt?.phase === 'rush' || p.hunt?.phase === 'circle');
+  const d = Math.sqrt(bd), urgent = d < 3 * (1 - hiddenBy(wl, p)) || p.state === 'hunt' && (p.hunt?.phase === 'rush' || p.hunt?.phase === 'circle');
   if (urgent) {
     // Preserve a useful escape already under way rather than repeatedly replacing
     // the next waypoint before a swimmer or climber can reach it.
@@ -657,6 +664,7 @@ export function prowl(wl, a, def) {
     if (Math.random() < p.rest) return lie();
   }
   if (p.seek && h >= p.hungry && wl.paced() && wl.startHunt(a, def, diet, 8)) return true;
+  if (p.lieInWait) return h >= p.hungry && lieInWait(wl, a, def, diet, p);
   if (h < p.search || Math.random() < 0.5) return false;
   // (a hungry red-tail searches from the soar, and stoops from up there)
   if (p.soar && soar(wl, a, def)) return true;
@@ -674,6 +682,30 @@ export function prowl(wl, a, def) {
     return true;
   }
   return wl.pathTo(a, (j, x, y) => (x + 0.5 - b.x) ** 2 + (y + 0.5 - b.y) ** 2 < 36, 2500, (x, y) => Math.hypot(x + 0.5 - b.x, y + 0.5 - b.y));
+}
+
+// A hungry snake lies in wait where its prey comes, and strikes at one that comes within reach (the
+// strike style's `reach`). It doesn't chase prey further off, a snake can't run anything down. The
+// water snakes (anaconda, python) wait at a bank where their prey drink (its home's water, decision
+// 0013), the land snakes near where prey are about; with none coming by, now and then they move on.
+function lieInWait(wl, a, def, diet, p) {
+  if (wl.paced() && wl.startHunt(a, def, diet)) return true;
+  const w = wl.game.world, rest = () => { a.wait = 0.4 + Math.random() * 0.8; return true; };
+  const spot = a.ambushAt, there = spot && Math.hypot(a.x - spot.x, a.y - spot.y) < 2;
+  if (spot && a.age < spot.until && (there || Math.random() < 0.8)) return there || !wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - spot.x, y + 0.5 - spot.y) < 1.5, 2500, (x, y) => Math.hypot(x + 0.5 - spot.x, y + 0.5 - spot.y)) ? rest() : true;
+  const preySet = new Set(diet.map(k => wl.game.catalog.animal[k]?.index));
+  let best = null, bd = 30 * 30;
+  for (const o of wl.agents) {
+    if (!preySet.has(o.sp) || o.leaving || o.state === 'dormant') continue;
+    const bank = p.atWater ? o.home?.water : null;
+    if (p.atWater && !(bank >= 0)) continue;
+    const x = bank >= 0 ? bank % w.w + 0.5 : o.x, y = bank >= 0 ? (bank / w.w | 0) + 0.5 : o.y, d2 = (x - a.x) ** 2 + (y - a.y) ** 2;
+    if (d2 < bd) { bd = d2; best = { x, y }; }
+  }
+  if (!best) return rest();
+  // (it keeps to the spot for 5 to 15 days before trying another)
+  a.ambushAt = { x: best.x, y: best.y, until: a.age + 5 + Math.random() * 10 };
+  return rest();
 }
 
 // Scavengers (and the hunter's pack) come to a carcass and feed.

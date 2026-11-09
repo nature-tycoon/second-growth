@@ -151,6 +151,21 @@ challenging-ecology, consistency. `animal-steering-check` serengeti seed 1987 fa
 (1.4 per 1000) from zebras walking, which base shows on other seeds too (a 0025 walk issue, not
 hunting); hunting leopards in trunks were fixed here (a frozen stalker no longer turns on the spot).
 
+## Snakes lie in wait (2026-11-08)
+
+Snakes used the crocodiles' `ambush` style: a hunt from up to 12 tiles, approached at 0.8 of a
+0.5-speed snake, so prey walked off or saw it, and pythons and anacondas caught nothing in 3-year
+soaks (about 40 hunts each, 0 kills). Now every snake hunts in the `strike` style: a hunt starts
+only for prey within `reach` (3.5 tiles; `startHunt` caps the reach for any style that sets it), the
+snake keeps still (`approach` and `creep` 0) and hidden (`hidden` 0.7, also while idle, through
+`hiddenBy` in `watch`) until the prey is within 1.6 tiles, then lunges. Hungry, it lies in wait
+(`lieInWait`, from `prowl` through the activity profile's `lieInWait`): the anaconda and python
+(`atWater`) at a bank where their prey drink (the prey's `home.water`, 0013), the land snakes near
+prey, moving on after 5-15 days. A meal is followed by 5 days digesting. Land snakes are no longer
+held within 2 tiles of water by `huntBlocked`. `node tools/snake-hunt-probe.mjs [map] [years]` says
+why a snake does or doesn't catch prey; `predation-soak` on 3 years: python 0 → 0.3 kills a
+snake-year (and 1.3 → 4.3 pythons), anaconda 0-1 → 2-6 catches in 8 years.
+
 ## Gotchas
 
 - `hunt.v` and `hunt.hd` are the hunter's own speed and heading. Anything that stops or turns a

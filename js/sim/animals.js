@@ -890,6 +890,7 @@ export class Wildlife {
 
   startHunt(a, def, diet = preyFor(def, this.game), reach = 12, only = null) {
     if (!canStartHunt(a) || !diet) return false;
+    reach = Math.min(reach, huntStyle(def).reach ?? reach); // (a snake strikes only at prey close by)
     let best = null, bd = reach * reach;
     const preySet = new Set(diet.map(k => this.game.catalog.animal[k].index));
     const stalker = a.move !== 'fly' && huntStyle(def).closeIn > 0;
@@ -928,7 +929,8 @@ export class Wildlife {
     const w = this.game.world, x = Math.floor(a.x + Math.sign(b.x - a.x) * 0.3), y = Math.floor(a.y + Math.sign(b.y - a.y) * 0.3);
     if (!w.inb(x, y)) return false;
     const j = w.idx(x, y);
-    return !passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2);
+    // (snakes that hunt on land, the boa and rat and garter snakes, aren't held to the water)
+    return !passable(w, j, def) || (a.move === 'semi' && def.behavior.activity?.atWater !== false && w.distWater[j] > 2);
   }
 
   // A surface fish (a longtom) runs from a charging hunter: straight away from it along the
