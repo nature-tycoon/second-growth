@@ -90,6 +90,14 @@ function heads(form, points, color, lo) {
       for (let j = 0; j <= 6; j++) { const t = j / 6, b = t * 1.9; pts.push(new THREE.Vector3(x + Math.sin(b) * 0.075, y + Math.sin(b) * 0.06 + t * 0.015 - t * t * 0.05, z)); }
       const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), lo ? 4 : 10, 0.009, lo ? 4 : 6, false);
       tube.deleteAttribute('uv'); parts.push(prep(tube, color), centre(pts[6].x, pts[6].y, pts[6].z, 0.009, 0.009, color, lo));
+    } else if (form === 'claw') {
+      // heliconia: boat-shaped bracts alternating up a zigzag stalk, like a lobster's claws
+      const n = lo ? 4 : 6;
+      parts.push(stem([x, y - 0.04, z], [x, y + 0.02 + n * 0.017, z], 0.0035, color, lo));
+      for (let j = 0; j < n; j++) {
+        const side = j % 2 ? 1 : -1, yy = y - 0.02 + j * 0.017, len = 0.042 * (1 - j / n * 0.5);
+        parts.push(petal(x, yy, z, side > 0 ? 0 : Math.PI, len, 0.019, len * 1.1, color, lo));
+      }
     } else if (form === 'spathe' || form === 'trumpet') {
       const n = form === 'spathe' ? 7 : 5;
       for (let j = 0; j < n; j++) parts.push(petal(x, y - 0.035, z, j / n * Math.PI * 2, 0.052, 0.024, 0.075, color, lo));
@@ -140,6 +148,124 @@ export function grassHeads(form, seed, lo = false) {
       const a = j * 2.4, reach = form === 'papyrus' ? 0.12 : 0.048, yy = h - (form === 'papyrus' ? 0 : j * 0.012);
       parts.push(petal(x + 0.025, yy, z, a, reach, form === 'papyrus' ? 0.003 : 0.009, -reach * 0.55,
         form === 'savannagrass' ? '#b68b57' : form === 'papyrus' ? '#7b9851' : '#c5b780', lo));
+    }
+  }
+  return merge(parts);
+}
+
+// ---- Fruit, close up: berry clusters, hips, pods and the big tree fruits, in place of a single
+// coloured lump. One geometry per form and colour, instanced over every plant bearing it; from
+// afar and at play zoom the pools draw a plain dot instead (flora.js).
+function ball(x, y, z, r, color, facets = false, sy = 1) {
+  const g = prep(facets ? new THREE.IcosahedronGeometry(1, 0) : new THREE.SphereGeometry(1, 6, 4), color);
+  return g.scale(r, r * sy, r).translate(x, y, z);
+}
+// A round fruit drawn on a turned profile ([radius, y] pairs, top to bottom), optionally ribbed.
+function turned(profile, color, segs, ribs = 0, rib = 0) {
+  const g = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), segs);
+  if (ribs) {
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) { const k = 1 + rib * Math.cos(ribs * Math.atan2(p.getZ(i), p.getX(i))); p.setX(i, p.getX(i) * k); p.setZ(i, p.getZ(i) * k); }
+  }
+  g.computeVertexNormals();
+  return prep(g, color);
+}
+// Spikes or hairs standing out of a ball, spread evenly over it.
+function spikes(parts, x, y, z, r, n, len, width, color) {
+  for (let j = 0; j < n; j++) {
+    const v = 1 - 2 * (j + 0.5) / n, s = Math.sqrt(1 - v * v), a = j * 2.39996;
+    const d = [Math.cos(a) * s, v, Math.sin(a) * s];
+    const at = t => [x + d[0] * (r + t), y + d[1] * (r + t), z + d[2] * (r + t)];
+    const g = prep(new THREE.CylinderGeometry(0, width, len, 3, 1, true), color);
+    g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...d)));
+    const m = at(len * 0.5 - 0.002); parts.push(g.translate(...m));
+  }
+}
+
+export function fruitHead(form, color) {
+  const parts = [], twig = '#6b6a3a', calyx = '#5b6a34';
+  if (form === 'drupelets') {
+    // a blackberry or salmonberry: one berry of packed drupelets under a green calyx
+    for (let j = 0; j < 13; j++) {
+      const v = 1 - 2 * (j + 0.5) / 13, s = Math.sqrt(1 - v * v), a = j * 2.39996;
+      parts.push(ball(Math.cos(a) * s * 0.012, -0.016 + v * 0.015, Math.sin(a) * s * 0.012, 0.0068, color, true));
+    }
+    parts.push(stem([0, 0.012, 0], [0, -0.002, 0], 0.0018, twig, true));
+    for (let j = 0; j < 5; j++) parts.push(petal(0, -0.001, 0, j * 1.2566, 0.014, 0.005, -0.004, calyx, true));
+  } else if (form === 'umbel') {
+    // elderberry: a broad flat-topped spray of tiny berries on fine stalks
+    for (let j = 0; j < 5; j++) {
+      const a = j * 1.2566, hub = [Math.cos(a) * 0.026, -0.004, Math.sin(a) * 0.026];
+      parts.push(stem([0, -0.02, 0], hub, 0.0013, '#7a3a3a', true));
+      for (let b = 0; b < 3; b++) { const c = a + (b - 1) * 0.55, rr = 0.026 + (b === 1 ? 0.012 : 0.006); parts.push(ball(Math.cos(c) * rr, -0.004 - 0.003 * (b % 2), Math.sin(c) * rr, 0.0062, color, true)); }
+    }
+  } else if (form === 'whorl') {
+    // beautyberry: dense rings of small berries clasping the stem at each leaf node
+    parts.push(stem([-0.04, -0.012, 0], [0.04, 0.012, 0], 0.0022, twig, true));
+    for (const nx of [-0.018, 0.022]) for (let j = 0; j < 8; j++) {
+      const a = j * 0.785, ny = nx * 0.3;
+      parts.push(ball(nx + (j % 2 - 0.5) * 0.006, ny + Math.cos(a) * 0.011, Math.sin(a) * 0.011, 0.0068, color, true));
+    }
+  } else if (form === 'hips') {
+    // rose hips: oval, glossy, with the dried sepals at the tip
+    for (const [x, z] of [[0, 0], [0.024, 0.012]]) {
+      parts.push(stem([x * 0.3, 0.012, z * 0.3], [x, -0.004, z], 0.0016, twig, true), ball(x, -0.017, z, 0.011, color, false, 1.35));
+      for (let j = 0; j < 4; j++) parts.push(petal(x, -0.033, z, j * 1.571, 0.009, 0.0025, -0.003, '#4a3a24', true));
+    }
+  } else if (form === 'pod') {
+    // cacao: a long ridged pod hanging on a short stalk
+    parts.push(stem([0, 0.01, 0], [0, -0.012, 0], 0.003, twig, true));
+    parts.push(turned([[0.001, -0.01], [0.016, -0.022], [0.024, -0.045], [0.022, -0.075], [0.012, -0.098], [0.001, -0.108]], color, 10, 5, 0.12));
+  } else if (form === 'tuna') {
+    // prickly pear fruit: barrel-shaped, standing on the pad's rim, the top flat and dimpled
+    for (const [x, z, s] of [[0, 0, 1], [0.026, 0.006, 0.85]]) {
+      const g = turned([[0.004, 0.034], [0.012, 0.036], [0.016, 0.03], [0.017, 0.016], [0.012, 0.004], [0.004, 0]], color, 8);
+      parts.push(g.scale(s, s, s).translate(x, 0, z));
+    }
+  } else if (form === 'grape') {
+    // a hanging bunch, broad at the top and narrowing down a drooping stalk (sea grape, rattan, Oregon grape)
+    parts.push(stem([0, 0.006, 0], [0.006, -0.058, 0], 0.0016, twig, true));
+    for (let j = 0; j < 10; j++) {
+      const t = (j + 0.5) / 10, a = j * 2.39996, rr = 0.011 * (1.2 - t * 0.7);
+      parts.push(ball(0.006 * t + Math.cos(a) * rr, -0.006 - t * 0.05, Math.sin(a) * rr, 0.0075, color, true));
+    }
+  } else if (form === 'spiky') {
+    // durian and terap: a big fruit covered in stout spines, hanging from its stalk
+    parts.push(stem([0, 0.02, 0], [0, -0.006, 0], 0.003, twig, true), ball(0, -0.036, 0, 0.032, color, false, 1.12));
+    spikes(parts, 0, -0.036, 0, 0.031, 26, 0.012, 0.0055, color);
+  } else if (form === 'hairy') {
+    // rambutan: a bunch of red fruit, each covered in soft hairs
+    parts.push(stem([0, 0.02, 0], [0, -0.004, 0], 0.002, twig, true));
+    for (const [x, y, z] of [[-0.016, -0.02, 0], [0.016, -0.022, 0.006], [0, -0.04, -0.012]]) {
+      parts.push(stem([0, -0.004, 0], [x, y + 0.016, z], 0.0013, twig, true), ball(x, y, z, 0.016, color, false, 1.1));
+      spikes(parts, x, y, z, 0.015, 14, 0.009, 0.0022, color);
+    }
+  } else if (form === 'capped') {
+    // mangosteen: round, deep purple, under a thick green calyx
+    parts.push(stem([0, 0.016, 0], [0, -0.004, 0], 0.0025, twig, true), ball(0, -0.032, 0, 0.03, color, false, 0.92));
+    for (let j = 0; j < 4; j++) parts.push(petal(0, -0.006, 0, j * 1.571 + 0.4, 0.02, 0.011, -0.006, calyx));
+  } else if (form === 'oblong') {
+    // cempedak: a long, warty cylinder of a fruit hanging straight down
+    parts.push(stem([0, 0.02, 0], [0, -0.004, 0], 0.0035, twig, true));
+    parts.push(turned([[0.002, -0.002], [0.018, -0.008], [0.025, -0.03], [0.026, -0.07], [0.02, -0.1], [0.002, -0.11]], color, 9, 9, 0.05));
+  } else if (form === 'pods') {
+    // petai and jengkol: a bunch of long flat pods, twisting as they hang
+    parts.push(stem([0, 0.02, 0], [0, -0.008, 0], 0.0025, twig, true));
+    for (let j = 0; j < 5; j++) {
+      const pts = [];
+      for (let k = 0; k <= 6; k++) { const t = k / 6; pts.push(new THREE.Vector3(0.012 + t * 0.03 + Math.sin(t * 2.4) * 0.012, -0.008 - t * 0.12 + t * t * 0.02, Math.sin(t * 3.2 + j) * 0.008)); }
+      const g = prep(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 8, 0.0075, 5, false), color);
+      g.scale(1, 1, 0.38).rotateY(j * 1.2566 + 0.3); parts.push(g);
+    }
+  } else if (form === 'figs') {
+    // figs: round, in twos and threes along a twig
+    parts.push(stem([-0.03, 0.004, 0], [0.03, -0.004, 0], 0.0026, twig, true));
+    for (const [x, z] of [[-0.02, 0.012], [0, -0.012], [0.02, 0.012]]) parts.push(ball(x, -0.012, z, 0.014, color, false, 1.05));
+  } else {
+    // a small cluster of berries on short stalks (huckleberry, snowberry, spicebush and most bushes)
+    for (let j = 0; j < 5; j++) {
+      const a = j * 2.39996, rr = 0.014 + 0.006 * (j % 2), b = [Math.cos(a) * rr, -0.01 - 0.007 * (j % 3), Math.sin(a) * rr];
+      parts.push(stem([0, 0.008, 0], b, 0.0012, twig, true), ball(...b, 0.0105, color));
     }
   }
   return merge(parts);

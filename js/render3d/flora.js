@@ -8,7 +8,7 @@ import { rottenLog, DECAY } from '../sim/plants.js';
 import { hash2, valueNoise } from '../rng.js';
 import * as G from './geometry.js';
 import * as Botanical from './botanical.js';
-import { flowerForm, grassForm } from '../plant-patterns.js';
+import { flowerForm, fruitForm, grassForm } from '../plant-patterns.js';
 import { snowCrown } from './snow.js';
 import { farHull, farTrunk } from './far-models.js';
 import { waterSurfaceY } from './terrain.js';
@@ -529,12 +529,14 @@ export class Flora {
           if (dotCol && g > 0.3) {
             const n = 4 + Math.round(g * 5);
             const flowering = phase === 'bloom', fruiting = !flowering;
-            const flowerShape = p.key === 'buttonbush' ? 'puff' : p.key === 'hydrangea' || p.look.plume ? 'plume'
+            const flowerShape = p.key === 'buttonbush' ? 'puff' : shape === 'heliconia' ? 'claw' : p.key === 'hydrangea' || p.look.plume ? 'plume'
               : p.key === 'elderberry' || p.key === 'lantana' || p.key === 'oceanspray' ? 'umbel'
               : p.key === 'salal' ? 'bells'
               : p.key === 'broom' || p.key === 'oregongrape' || p.key === 'aloe' || p.key === 'sweetspire' ? 'spike' : 'star';
-            const headShape = flowering ? flowerShape : p.key === 'piper' ? 'catkin' : null; // (spiked pepper's fruit is a curved spike, not a berry)
-            const heads = headShape ? this.pool(`shrubflower:${headShape}:${flowering ? p.look.flower : p.look.berry}`, () => Botanical.blossomHead(headShape, flowering ? p.look.flower : p.look.berry), this.grass, { shadow: false, kind: 'shrub' }, () => G.blob(flowering ? p.look.flower : p.look.berry, 0.035), 'lo') : null; // (from afar, and at play zoom, a dot of colour is all a flower head shows)
+            const fruit = fruiting && p.key !== 'piper' ? fruitForm(p) : null; // (spiked pepper's fruit is a curved spike, not a berry)
+            const headShape = flowering ? flowerShape : p.key === 'piper' ? 'catkin' : fruit;
+            const headCol = flowering ? p.look.flower : p.look.berry;
+            const heads = headShape ? this.pool(`${fruit ? 'shrubfruit' : 'shrubflower'}:${headShape}:${headCol}`, () => fruit ? Botanical.fruitHead(fruit, headCol) : Botanical.blossomHead(headShape, headCol), this.grass, { shadow: false, kind: 'shrub' }, () => G.blob(headCol, 0.035), 'lo') : null; // (from afar, and at play zoom, a dot of colour is all a flower head or berry cluster shows)
             // flowers and fruit sit on the bush's own outer surface, wherever its leaves actually are
             const spots = this.shrubSpots(`shrub:${shape}:${v}`);
             const cr = Math.cos(rot), sr = Math.sin(rot);
@@ -624,9 +626,14 @@ export class Flora {
             // (on the surface of the crown, around its middle, where the camera can see them)
             const fc = rgb(p.look.berry).map(c => c * dim), fs = (p.look.fruitSize || 1.3) * 1.3, ry = shapeDef.ry ?? 0.4;
             const fy = shapeDef.height + (shapeDef.lift ?? 0) - ry * 1.1, rr = shapeDef.rx * 0.78 + Math.min(shapeDef.rx, ry) * 0.5;
+            // (close up each is its own fruit, spiny, hairy, capped or in pods; from afar and at play zoom, the same dot as before)
+            const fruit = fruitForm(p);
+            const hung = fruit && this.pool(`treefruit:${fruit}:${p.look.berry}`, () => Botanical.fruitHead(fruit, p.look.berry), this.grass, { shadow: false }, () => G.blob(p.look.berry, 0.035).scale(1, 1.15, 1), 'lo');
             for (let k = 0; k < 9; k++) {
               const a = k * 2.4 + hash2(x + k, y, 15), d = rr * (0.92 + hash2(x, y + k, 16) * 0.12);
-              dots.add(...onTree(Math.cos(a) * d, fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, Math.sin(a) * d), fs, fs * 1.15, fs, rot + a, fc);
+              const at = onTree(Math.cos(a) * d, fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, Math.sin(a) * d);
+              if (hung) hung.add(...at, fs, fs, fs, rot + a, [dim, dim, dim]);
+              else dots.add(...at, fs, fs * 1.15, fs, rot + a, fc);
             }
           }
         }
