@@ -1301,6 +1301,13 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
         for (let d = 0; d < 6; d++) fx.push({ k: 'drop', x: sx, z: sz, y: st.y, vx: (random() - 0.5) * 1.2, vz: (random() - 0.5) * 1.2, vy: 1.2 + random() * 1.2, life: 0.6, max: 0.6 });
       }
     }
+    // a pouncing cat or fox kicks up dust (a splash in the shallows) where it springs and lands
+    if ((st.leapU ?? -1) >= 0 !== !!st.pouncing) {
+      st.pouncing = !st.pouncing;
+      const ahead = st.pouncing ? -0.2 : 0.25, sx = a.x + Math.cos(st.yaw) * ahead, sz = a.y - Math.sin(st.yaw) * ahead, s = (def.sprite.len || 20) / 36;
+      if (wet) { fx.push({ k: 'ring', x: sx, z: sz, y: st.y, life: 1, max: 1, s: 0.6 }); for (let d = 0; d < 5; d++) fx.push({ k: 'drop', x: sx, z: sz, y: st.y, vx: (random() - 0.5) * 1.2, vz: (random() - 0.5) * 1.2, vy: 1 + random(), life: 0.5, max: 0.5 }); }
+      else for (let d = 0; d < 2; d++) fx.push({ k: 'dust', x: sx + (random() - 0.5) * 0.2, z: sz + (random() - 0.5) * 0.2, y: st.y, life: 1.2, max: 1.6, s });
+    }
     // a longtom skipping away from a hunter splashes each time it leaves the sea and lands again
     if (def.sprite.escape === 'skip' && (st.skipP ?? -1) >= 0 !== !!st.skipping) {
       st.skipping = !st.skipping;

@@ -454,6 +454,27 @@ export class Actors {
       st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
       if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
       let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
+      // A pounce (startLeap in sim/animal-life.js): up on its arc, the body stretched out, forelegs
+      // reaching for the prey and hind legs trailing, nose up as it springs and down as it lands.
+      // A dog or hyena closing to grab drives its head and forequarters in (hunt.lunge); a hunter
+      // that came down short stumbles.
+      const hunt = a.state === 'hunt' ? a.hunt : null, leap = walker && hunt?.leap;
+      st.leapU = leap ? leap.u : -1; // (scene.js puffs dust where it springs and lands)
+      let poseFly = null, posePitch = 0, poseRoll = 0;
+      if (leap) {
+        const u = leap.u;
+        y += 4 * u * (1 - u) * leap.arc * mo.len * sc;
+        posePitch = (0.5 - u) * Math.min(0.7, 0.15 + leap.arc * 1.2);
+        poseFly = -(0.55 + 0.45 * Math.sin(Math.PI * u));
+        st.gait = 0.1;
+      }
+      st.lunge = (st.lunge || 0) + ((hunt?.lunge || 0) - (st.lunge || 0)) * Math.min(1, k * 3);
+      if (st.lunge > 0.01) {
+        const reach = st.lunge * mo.len * sc * 0.12;
+        ax += Math.cos(st.yaw) * reach; az -= Math.sin(st.yaw) * reach;
+        posePitch -= 0.12 * st.lunge; st.graze = Math.max(st.graze, 0.35 * st.lunge);
+      }
+      if (hunt?.stumble > 0) { const f = hunt.stumble / 0.3; posePitch -= 0.25 * f; poseRoll = 0.14 * f * (a.id % 2 ? 1 : -1); }
       st.trunk = cling?.trunk ?? null; // (the trunk it clings to, which the tracking lens keeps: focus.js)
       if (cling) {
         // upright against the bark, facing it, the head hammering in bursts
@@ -738,7 +759,7 @@ export class Actors {
         else st.slothBridge = null;
       }
       for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite]) if (site?.transient) bridges.add(site);
-      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : (st.bank = (st.bank || 0) + ((a.bird?.kind === 'soar' ? a.bird.dir * SOAR_BANK : 0) - (st.bank || 0)) * k))), grips, a === this.followAgent || a === game.selectedAgent);
+      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : poseFly ?? st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + posePitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + poseRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : (st.bank = (st.bank || 0) + ((a.bird?.kind === 'soar' ? a.bird.dir * SOAR_BANK : 0) - (st.bank || 0)) * k))), grips, a === this.followAgent || a === game.selectedAgent);
       st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
       // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
       st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;

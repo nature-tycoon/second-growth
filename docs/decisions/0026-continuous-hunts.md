@@ -166,6 +166,45 @@ held within 2 tiles of water by `huntBlocked`. `node tools/snake-hunt-probe.mjs 
 why a snake does or doesn't catch prey; `predation-soak` on 3 years: python 0 → 0.3 kills a
 snake-year (and 1.3 → 4.3 pythons), anaconda 0-1 → 2-6 catches in 8 years.
 
+## Pounce, grab and jink (2026-11-08)
+
+Cole: hunts should feel rich and natural, with predators leaping at prey where real, through shared
+hunt code rather than per-species patches.
+
+- **Pounce** (`pounce` on a style, `pounceFor`, `startLeap`/`leapStep`). A cat's rush ends in a
+  leap from 1.4 tiles: a short ballistic flight at where the prey will be when it lands, about 1.5×
+  its sprint, capped at 1.25× the take-off distance. Foxes and coyotes leap only at prey up to 4 kg
+  (a high mousing arc, 0.75 body lengths); a prey without `kg` counts as small. The cheetah's is a
+  low lunge from 0.9 tiles (its trip-and-grab). The leap moves only along the ground through
+  `stepToward`; `hunt.leap` (`u` from 0 to 1, `arc`) is what the drawing reads. It lands on the
+  prey (within 0.45 tiles past halfway, or 0.6 at the end) and the catch roll is the usual one.
+  Coming down short is a miss: a stumble (`hunt.stumble`, 0.3 days) and `pressOn` or `letGo`.
+- **Grab.** Hyenas, dogs and anything without a pounce keep the last bound; inside 1.2 tiles
+  `hunt.lunge` (0 to 1) has the drawing push the head and forequarters in and the head down.
+- **No jink (tried).** Turning a fleeing animal's line 0.9–1.3 rad (or 0.5–0.7) to one side after a
+  missed catch roll let far more brush rabbits get away: PNW rabbits at year 15 went from 6, 0, 14
+  to 19, 15, 19 (seeds 7, 11, 23), and to 0 and 2 again with the jink taken out. Since kills per
+  year are the balance anchor, it was left out; adding it needs the catch odds retuned with it.
+- **Drawing** (`actors.js`, `animal-material.js`). The leap lifts the body on its arc (`arc` body
+  lengths at the top), pitches the nose up then down, and passes a negative `fly`: the leg shader
+  reads `-fly` as a stretch, forelegs forward 1.1 rad and hind legs back 0.95. A dust puff (a splash
+  in water) where it springs and lands (`scene.js`, from `st.leapU`). The close-up review page has
+  the three pounce poses (`tools/animal-closeup-review.html?pose=spring|air|land`).
+
+`node tools/pounce-probe.mjs [maps]` counts leaps, landings on the prey and falls short per species.
+
+Results. `pounce-probe` (hungry hunters, 150 days, seeds 1987 and 7): about 1 leap in 30 comes down
+short; leaps are 1.3–1.7 tiles and 0.14–0.36 days. `predation-soak 12` (seeds 7, 11, 23), kills per
+hunter-year before → after: lion 1.5 → 1.8, cheetah 3.8 → 2.9, leopard 1.6 → 1.3, jaguar 2.1 → 3.6,
+ocelot 2.0 → 1.3 (Amazon) and 1.9 → 2.0 (Chinandega), tiger 3.5 → 3.5, clouded leopard 3.6 → 4.4,
+leopard cat 2.3 → 2.4, cougar 1.9 → 1.9, bobcat 2.6 → 3.1, coyote 3.0 → 1.7 (PNW) and 6.3 → 5.0
+(Atlanta), fox 6.6 → 5.6. Hunters that don't pounce moved as much (crocodile 1.1 → 0.7, owl 5.5 →
+4.4), so these are within the seed spread. Seeded `balance-sim restore 15`, year 15, seeds 7/11/23:
+score 64.7/65.3/62.6 → 60.9/64.3/62.8, mature trees 27/33/40 → 28/49/30, rabbits 6/0/14 → 0/2/9.
+`hunt-check` passes on seeds 91 and 5. On 1987 the cheetah's median stalk comes out at 0.62 days
+(limit 1.5): the run takes another path after the first leap, and the code before this change
+gives cheetahs the same short stalks on seed 5 (0.58), so it's that seed, not the pounce.
+
 ## Gotchas
 
 - `hunt.v` and `hunt.hd` are the hunter's own speed and heading. Anything that stops or turns a
@@ -174,6 +213,9 @@ snake-year (and 1.3 → 4.3 pythons), anaconda 0-1 → 2-6 catches in 8 years.
   trunks (0025). It faces the prey when it moves again.
 - Ending a hunt from outside `huntStep` should go through `letGo` (cooldown, then ease or rest), not
   set `idle` directly, or a running hunter stops dead.
+- A negative `fly` in an animal's anim slot is a leap (legs stretched), not a bird folding its
+  wings: keep `fly` ≥ 0 for everything else, and clamp it (`max(fly, 0.0)`) where the shader
+  scales by `1 - fly`.
 - `ease` is a hunt phase: `a.state` stays `hunt` while it slows, and the inspector reads "Giving up
   the chase".
 - `balance-sim` steps wildlife at 0.1 day, the game at about 0.012. Accelerations and turn rates are

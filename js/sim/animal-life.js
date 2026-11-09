@@ -27,11 +27,14 @@ import { inWood } from './ground-obstacles.js';
 // `patience` days it keeps on without gaining before it lets the prey go. `closeIn`: how much
 // nearer than `rush` a stalker still unseen creeps in full cover before it charges. `hidden`: how
 // well it is hidden lying still (idle, or waiting for prey to come in), as `hide` below.
+// `pounce`: the hunt ends in a leap onto the prey (pounceFor): from how many tiles off, how high
+// the arc is in body lengths, how much faster than its sprint it flies, and for canines only prey
+// up to `kg` (a fox or coyote mousing).
 const STYLES = {
-  // cats slink in low, freeze when the prey looks up, then charge a short way
-  stalk: { approach: 1, near: 5, creep: 0.6, rush: 3, sprint: 2.4, accel: 10, turn: 12, stamina: 2.8, patience: 1, closeIn: 0.5 },
+  // cats slink in low, freeze when the prey looks up, then charge a short way and spring
+  stalk: { approach: 1, near: 5, creep: 0.6, rush: 3, sprint: 2.4, accel: 10, turn: 12, stamina: 2.8, patience: 1, closeIn: 0.5, pounce: { from: 1.4, arc: 0.3, fast: 1.5 } },
   // dogs and hyenas trot in, then run it down: slower off the mark, but they keep going
-  chase: { approach: 1.15, near: 0, creep: 1.15, rush: 4.5, sprint: 2.1, accel: 6, turn: 9, stamina: 4.5, patience: 2.5 },
+  chase: { approach: 1.15, near: 0, creep: 1.15, rush: 4.5, sprint: 2.1, accel: 6, turn: 9, stamina: 4.5, patience: 2.5, pounce: { from: 1.3, arc: 0.75, fast: 1.2, kg: 4 } },
   // snakes lie in wait: they mark prey that comes within a few tiles (`reach`, the furthest a hunt
   // starts) and keep still, only turning to face it, until it is in striking range; then a short,
   // very fast lunge, and if that misses it lets the prey go (a prey that walks off is let go too)
@@ -47,14 +50,24 @@ const STYLES = {
 };
 const KIND_STYLE = { feline: 'stalk', canine: 'chase', hyena: 'chase', snake: 'strike', caiman: 'ambush', monitor: 'ambush' };
 // a long stalk, then a short, flat-out sprint from further away: the fastest start, and the shortest wind
-const CHEETAH = { ...STYLES.stalk, near: 8, rush: 5.5, sprint: 3.4, accel: 16, turn: 14, stamina: 2, patience: 0.5, closeIn: 0 };
-const BLACKTIP = { ...STYLES.chase, rush: 6, sprint: 2.6 }; // charges a surface fish from well back, and keeps it up across the flats
+// (and no spring at the end: a low lunge to slap the prey's hind leg out from under it and grab)
+const CHEETAH = { ...STYLES.stalk, near: 8, rush: 5.5, sprint: 3.4, accel: 16, turn: 14, stamina: 2, patience: 0.5, closeIn: 0, pounce: { from: 0.9, arc: 0.06, fast: 1.25 } };
+const BLACKTIP = { ...STYLES.chase, rush: 6, sprint: 2.6, pounce: null }; // charges a surface fish from well back, and keeps it up across the flats
 export function huntStyle(def) {
   if (def.behavior?.hunt === 'wade') return STYLES.wade;
   if (def.key === 'cheetah') return CHEETAH;
   if (def.key === 'blacktip') return BLACKTIP;
   if (def.move === 'fly') return STYLES.stoop;
   return STYLES[KIND_STYLE[def.sprite.kind]] || STYLES.pursue;
+}
+
+// The leap this hunter ends a chase with, or null: cats on anything, foxes and coyotes on small prey
+// (a high mousing arc). Wolves, wild dogs and hyenas run prey down and grab it (huntStep's lunge).
+const POUNCE_KINDS = new Set(['feline', 'canine']);
+function pounceFor(wl, def, S, b) {
+  const P = S.pounce;
+  if (!P || def.move !== 'ground' || !POUNCE_KINDS.has(def.sprite.kind)) return null;
+  return P.kg && (wl.game.catalog.animals[b.sp]?.kg ?? 0) > P.kg ? null : P; // (small prey often has no kg)
 }
 
 export function canHuntPrey(wl, a, def, prey) {
@@ -131,6 +144,8 @@ export function huntStep(wl, a, def, b, sp) {
   else { H.vx = 0; H.vy = 0; }
   H.bx = b.x; H.by = b.y;
   if (H.phase === 'ease') return ease(wl, a, def, S, t, sp);
+  if (H.stumble > 0) H.stumble -= t;
+  if (H.leap) return leapStep(wl, a, def, b, H, t, sp);
   if (H.miss > 0) H.miss -= t; // (just after a miss the prey has jinked free: no second grab at once)
   const touch = !(H.miss > 0);
   if (S.grounded && d < 1.15 && touch) { a.run = 0; H.v = 0; return true; } // a long bill reaches into the shallows
@@ -190,7 +205,10 @@ export function huntStep(wl, a, def, b, sp) {
       H.stamina -= t * (H.v || 0) / S.sprint;
       if (H.best == null || d < H.best - 0.05) { H.best = d; H.since = 0; } else H.since = (H.since || 0) + t;
       if (H.stamina <= 0 || H.since > S.patience || d > H.best + 2) return letGo(wl, a, def, b, sp);
+      const P = pounceFor(wl, def, S, b);
+      if (P && touch && d < P.from && d > 0.55) return startLeap(wl, a, def, b, S, P, H, d, t, sp);
       if (d < 1.2) mul *= 1.3; // (the last bound or lunge onto it)
+      H.lunge = !P && d < 1.2 ? 1 - d / 1.2 : 0; // (a dog or hyena drives its head and forequarters in to grab)
     }
   } else if (H.phase === 'creep' && !aerial) {
     // it keeps pace with prey wandering off, rather than creeping on as it draws away
@@ -233,6 +251,36 @@ export function huntStep(wl, a, def, b, sp) {
   if (step > 1e-4) wl.stepToward(a, gx, gy, step); // (frozen, it holds still as it was: turning on the spot can swing its body into a trunk)
   return touch && (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 0.25;
 }
+// The pounce: a short ballistic leap at where the prey will be when it lands. It moves only along
+// the ground here (the drawing lifts it on its arc: actors.js reads H.leap). It lands on the prey,
+// or just short of it: a hunter that comes down out of reach stumbles and runs on, or lets it go.
+function startLeap(wl, a, def, b, S, P, H, d, t, sp) {
+  const fast = def.speed * S.sprint * P.fast, T0 = d / fast;
+  let tx = b.x + H.vx * T0, ty = b.y + H.vy * T0;
+  const L = Math.hypot(tx - a.x, ty - a.y), cap = P.from * 1.25;
+  if (L > cap) { tx = a.x + (tx - a.x) / L * cap; ty = a.y + (ty - a.y) / L * cap; }
+  const len = Math.min(L, cap);
+  H.leap = { u: 0, T: Math.max(0.05, len / fast), len, tx, ty, arc: P.arc };
+  H.hd = Math.atan2(ty - a.y, tx - a.x); H.lunge = 0;
+  return leapStep(wl, a, def, b, H, t, sp);
+}
+function leapStep(wl, a, def, b, H, t, sp) {
+  const L = H.leap, du = Math.min(1 - L.u, t / L.T);
+  L.u += du;
+  H.stamina -= t;
+  a.run = H.v = Math.max(H.v || 0, 1);
+  if (du > 0) wl.stepToward(a, L.tx, L.ty, L.len * du);
+  const d2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+  if (d2 < 0.2 && L.u > 0.5) { H.leap = null; return true; } // (down on top of it)
+  if (L.u < 1) return false;
+  H.leap = null;
+  if (d2 < 0.36) return true;
+  // came down short or the prey jinked from under it: a stumble, then on after it or let it go
+  H.stumble = 0.3;
+  if (!pressOn(wl, a, def)) return letGo(wl, a, def, b, sp);
+  return false;
+}
+
 // (sp is speed × dt, so the elapsed game time is sp / speed)
 const dt = (sp, def) => sp / Math.max(0.01, def.speed);
 

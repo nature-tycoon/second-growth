@@ -531,7 +531,9 @@ export function faunaMaterial(motion) {
             n = normalize(n);
           } else` : ''} {
           float off = (aPart < 1.5 || aPart > 3.5) ? 0.0 : 3.14159;
-          float swing = sin(ph + off) * uLeg * gait * (1.0 - fly) - fly * 1.35;
+          // (a negative fly is a leaping cat or fox, stretched out: forelegs reach forward, hind legs trail)
+          float fl = max(fly, 0.0), lp = max(-fly, 0.0);
+          float swing = sin(ph + off) * uLeg * gait * (1.0 - fl) - fl * 1.35 + lp * (aPart < 2.5 ? 1.1 : -0.95);
           p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
           }
           }
@@ -578,7 +580,7 @@ export function faunaMaterial(motion) {
           transformed -= (siamangHold(siamangWeights(ph, gait, fly)) - vec3(.14, 1.38, .02)) * uLength;
           transformed = rotZ(transformed, vec3(.14, 1.38, .02) * uLength, sin(ph) * .12 * gait * (1.0 - fly));
         }
-        transformed.y += abs(sin(ph)) * uBob * gait * (1.0 - fly);
+        transformed.y += abs(sin(ph)) * uBob * gait * (1.0 - max(fly, 0.0));
         if (uWave > 0.0) {
           float t = clamp((uWaveHead - transformed.x) / uWaveLen, 0.0, 1.0);
           float wave = sin(transformed.x * uWaveK - ph * 1.4) * uWave * mix(uWaveMin, 1.0, pow(t, uWavePow)) * (uWaveRest + gait);

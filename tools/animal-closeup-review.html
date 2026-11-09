@@ -11,7 +11,7 @@ main{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}article
 <h1>Animal close-ups</h1>
 <p>Each animal at the game's closest zoom, under the game's midday lights and shadows (sky and ground fill, the sun from the game's default direction, the same tone mapping) and seen from the game's camera angle. For before and after comparisons: the frames are fixed. <code>?species=map:key,…</code> picks the animals; the zoom framings show them at the game's own scale.</p>
 <label>View <select id="view"><option value="game">Game camera</option><option value="side">Side</option><option value="front">Head on</option><option value="quarter">Three-quarter, head on</option></select></label>
-<label>Pose <select id="pose"><option value="rest">Standing</option><option value="walk">Walking</option><option value="graze">Head down</option><option value="fly">Flying</option></select></label>
+<label>Pose <select id="pose"><option value="rest">Standing</option><option value="walk">Walking</option><option value="graze">Head down</option><option value="fly">Flying</option><option value="spring">Pounce: springing</option><option value="air">Pounce: mid-air</option><option value="land">Pounce: landing</option></select></label>
 <label>Model <select id="model"><option value="detail">Detailed</option><option value="close">Close-up</option></select></label>
 <label>Framing <select id="framing"><option value="fit">Fill the frame</option><option value="game">Game's closest zoom</option><option value="normal">Game's usual zoom</option><option value="wide">Zoomed out</option><option value="head">The head</option></select></label>
 <label>Light <select id="light"><option value="day">Midday</option><option value="golden">Golden hour</option></select></label>
@@ -61,8 +61,9 @@ function draw(){
  sun.color.set(golden?0xffb46a:0xfff3dc);sun.intensity=golden?2.5*1.55:2.5;
  hemi.color.set(golden?0xffe8cc:0xe4eeff);
  for(const e of entries){
-  const pose=controls.pose.value;e.anim.setXYZW(0,phase,pose==='walk'?1:0,pose==='fly'?1:0,pose==='graze'?.65:0);e.anim.needsUpdate=true;
-  e.mesh.setMatrixAt(0,new THREE.Matrix4().makeScale(e.scale,e.scale,e.scale));e.mesh.instanceMatrix.needsUpdate=true;
+  const pose=controls.pose.value,u={spring:.1,air:.5,land:.9}[pose]; // (a pounce, as actors.js draws a cat's leap at that point of it)
+  e.anim.setXYZW(0,phase,u!=null?.1:pose==='walk'?1:0,u!=null?-(.55+.45*Math.sin(Math.PI*u)):pose==='fly'?1:0,pose==='graze'?.65:0);e.anim.needsUpdate=true;
+  e.mesh.setMatrixAt(0,new THREE.Matrix4().makeRotationZ(u!=null?(.5-u)*.51:0).premultiply(new THREE.Matrix4().makeScale(e.scale,e.scale,e.scale)));e.mesh.instanceMatrix.needsUpdate=true;
   const box=(controls.framing.value==='head'&&e.headBox||pose==='fly'&&e.flyBox||e.geo.boundingBox).clone();box.min.multiplyScalar(e.scale);box.max.multiplyScalar(e.scale);
   const center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
   const az={side:0,front:Math.PI/2,quarter:AZ}[controls.view.value]??AZ,el=controls.view.value==='game'?EL:THREE.MathUtils.degToRad(8);
