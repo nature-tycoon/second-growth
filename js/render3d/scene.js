@@ -519,7 +519,7 @@ export class Renderer {
   flyTo(x, y, zoom, dur = 2.2, maxZoom = 4.5) {
     this.groundCamera();
     this.zoomGoal = null;
-    this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, maxZoom), t: 0, dur };
+    this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, maxZoom), t0: performance.now(), dur };
   }
 
   // Watch mode's eye-level view (eye-camera.js): ride along low behind an animal, or null to go
@@ -928,8 +928,9 @@ export class Renderer {
       this.updateCamera();
     }
     if (this.fly) {
-      const f = this.fly; f.t += dt;
-      const u = Math.min(1, f.t / f.dur), e = u * u * (3 - 2 * u);
+      // real time, not the capped frame time: the glide lasts as long on a slow computer
+      const f = this.fly;
+      const u = Math.min(1, (performance.now() - f.t0) / 1000 / f.dur), e = u * u * (3 - 2 * u);
       this.target.x = f.x0 + (f.x1 - f.x0) * e; this.target.z = f.z0 + (f.z1 - f.z0) * e;
       this.zoom = Math.exp(Math.log(f.zoom0) + (Math.log(f.zoom1) - Math.log(f.zoom0)) * e);
       this.clampCam(); this.updateCamera();

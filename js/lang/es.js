@@ -198,7 +198,7 @@ addStrings({
   'Trails and facilities': 'Senderos e instalaciones', 'Other work': 'Otros trabajos',
   'Plants planted': 'Plantas sembradas', 'Visitor donations': 'Donaciones de visitantes', 'Trail upkeep': 'Mantenimiento de senderos', 'Land cover': 'Cobertura del terreno',
   'Native cover': 'Cobertura nativa', 'Invasive cover': 'Cobertura invasora', 'Animal species': 'Especies de animales',
-  'Invasive cover %': '% invasoras', 'History builds up month by month.': 'La historia se va llenando mes a mes.',
+  'Invasive cover %': '% invasoras', 'Invasives off': 'Invasoras desactivadas', 'No new invasive plants take root on this map, so it stays clean. Turn them on in Settings, Gameplay.': 'No arraigan plantas invasoras nuevas en este mapa, así que se mantiene limpio. Actívalas en Ajustes, Jugabilidad.', 'History builds up month by month.': 'La historia se va llenando mes a mes.',
   'Field Journal': 'Diario de campo', 'Nothing yet.': 'Nada todavía.',
 
   // ---------------------------------------------------------------- menu and settings

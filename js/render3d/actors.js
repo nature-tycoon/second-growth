@@ -658,6 +658,8 @@ export class Actors {
           y = st.branchPoint.y + motion.lift - this.holdOffset.y; st.canopyY = y;
         } else { st.branchRoute = null; st.branchAt = null; st.branchPoint = null; st.slothBridge = null; }
       } else st.branch = null;
+      // a monkey in a crown keeps the trunk it climbs as its support, like a woodpecker (focus.js)
+      if (mo.primate && st.branch && !cling) { const c = ci(); if (c >= 0 && w.tree[c]) st.trunk = treeTrunk(w, c % w.w, c / w.w | 0); }
       // Climbing down off the last tree (often to leave the map) or back up into
       // one, ease from the drawn body to the new position rather than jumping.
       if (def.move === 'tree') {
