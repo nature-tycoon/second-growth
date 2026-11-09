@@ -70,6 +70,7 @@ New decisions take the next unused number and one line here.
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
 
 Performance budget: [2026-10-23 review](docs/performance-review-2026-10-23.md) has where a frame goes, the per-part ceilings for new graphics and simulation, and the open fixes (young climbing primates, daily plant redraw, daily environment update). Measure a new feature with `node tools/play-profile.mjs [maps] [quality] [years]` before and after: an organically grown game through the real frame loop, simulation vs drawing vs GPU.
+`tools/perf-guard-check.mjs` (headless CI) fails when draw calls, triangles, plant or animal instances, or plant regions rebuilt rise over 10% on a seeded fixture; if the rise is intended, check it against the budget, run it with `--update` and commit `tools/perf-guard-baseline.json` with the change. It counts geometry only, not shader or pixel cost.
 
 ## Working alongside other agents
 
