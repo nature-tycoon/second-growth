@@ -54,6 +54,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0023](docs/decisions/0023-trunks-and-logs.md) Walkers round trunks and logs (`sim/ground-obstacles.js`)
 - [0024](docs/decisions/0024-tree-heights.md) Tree heights (`treeHeight`, `treeLevel`)
 - [0025](docs/decisions/0025-shared-steering.md) Shared steering for ground animals (`sim/steering.js`, `stepToward`)
+- Motion sweep: `node tools/motion-sweep-check.mjs [--report] [maps]` watches every species through `game.update` and `Actors.update` for visible movement glitches (position jumps, heading snaps, wobble and spins, foot slide, bodies in wood, standing in water, stalls), with per-species limits; real glitches it found are matched by `KNOWN` and listed, not hidden. Run it before and after any change to movement, facing or the drawing's turning (15–30 s)
 - [0026](docs/decisions/0026-continuous-hunts.md) Continuous hunts, snakes, pounces (`huntStep`, `letGo`)
 - [0027](docs/decisions/0027-plant-succession.md) Plant colonization and succession (`trySeed`, `forestDamp`)
 - [0028](docs/decisions/0028-succession-dynamics.md) Tree mortality, regeneration, disturbance, deadwood (`removeTree`, `sim/disturbance.js`)
