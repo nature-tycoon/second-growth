@@ -80,6 +80,7 @@ export class World {
     // grew them in a different order (a fresh farm, then a loaded save) made the hot loops
     // polymorphic and cost a later world's dailyTick about 40%. null = not made yet.
     this.canopyMonth = 0; // (updateCanopy)
+    this.distSources = null; // which tiles are sources of which distance field (updateDistances)
     this.seedbank = null; this.bankStrength = 0; // invasive seed bank (maps with definition.seedbank)
     this.grazed = null; this.herbivory = null; this.browseDamage = null; this.mulchDays = null; // herbivory and mulch
     this.trod = null; this.trailE = null; this.trailS = null; this.trailDensity = null; this.trailMax = null; // game trails
