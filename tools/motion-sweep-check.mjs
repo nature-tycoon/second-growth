@@ -56,6 +56,12 @@ const deadwoodNear = (w, a) => {
     if (w.inb(x, y) && (w.feature[w.idx(x, y)] === F.SNAG || w.feature[w.idx(x, y)] === F.LOG)) return true;
   return false;
 };
+// (a seedling, under 0.15 grown, on the animal's tile or next to it)
+const seedlingNear = (w, a) => {
+  for (let y = Math.floor(a.y) - 1; y <= Math.floor(a.y) + 1; y++) for (let x = Math.floor(a.x) - 1; x <= Math.floor(a.x) + 1; x++)
+    if (w.inb(x, y) && w.tree[w.idx(x, y)] && w.treeG[w.idx(x, y)] < 0.15) return true;
+  return false;
+};
 // Real glitches found by this sweep on 2026-11-09 (game code unchanged here; each is a follow-up).
 export const KNOWN = [
   { count: 'stall', name: 'river and estuary swimmers frozen mid-route (walk, moveProgress.stalled climbing for days; game-placed snappers too)', test: (a, def) => def.move === 'swim' && !def.reef },
@@ -63,6 +69,9 @@ export const KNOWN = [
   { count: 'wobble', name: 'river dolphin heading shivers frame to frame while swimming', test: a => a.key === 'dolphin' },
   { count: 'trunk', name: 'pythons inside wood, idle and fleeing (twice the rate before the wave2 snakes)', test: a => a.key === 'python' },
   { count: 'trunk', name: 'animals standing inside a snag or log (settle never pushes out one that has not moved)', test: (a, def, w) => !MOVING.has(a.state) && deadwoodNear(w, a) },
+  // (found after terrain relief, 0040, on Sumatra seed 1987: a sun bear foraging on the spot when a
+  // seedling sprouted under it on day 2; settleBody's settleKey covers only its own position and heading)
+  { count: 'trunk', name: 'animals standing still when a seedling sprouts under them (settle never re-checks one that has not moved)', test: (a, def, w) => !MOVING.has(a.state) && seedlingNear(w, a) },
 ];
 
 // The swimmers and reef animals `populate` leaves out, a few of each where they live.

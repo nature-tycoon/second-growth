@@ -70,6 +70,16 @@ steepest tiles on every map are still creek, pond and river banks, and structure
   there instead of walking over; the test now places it a step back. `salmon-bear-check` wanted a catch
   in each of six seeded runs; bears catch about two a run (24 in 12 runs before, 21 after), and the new
   land moved one run onto none, so it now asks for six catches in all and at most one empty run.
+- **Drawing counts** (`perf-guard-check`, baseline refreshed for PNW and Sumatra). PNW's grown forest
+  fixture has more closed canopy without groundcover, so forest-floor ferns rose from 174 to 453
+  (192 triangles each, no shadow: about 54k triangles over the whole map). Close-up shadow triangles rose
+  17% (+35k), while the play view fell 6% in triangles and shadow triangles. Close-ups draw few objects
+  (performance review), so it's well inside the budget. Sumatra's close-up draws fell 11%.
+- **Motion sweep.** On Sumatra seed 1987 a seedling sprouted on day 2 under a sun bear foraging on the
+  spot, and `settleBody` never re-checks an animal that hasn't moved (its `settleKey` covers only its
+  own position and heading), so it stood in the stem for 168 frames. That's an old bug the new land set
+  off by chance; seeds 91, 7, 42, 5 and 13 show none. It's a KNOWN line in `motion-sweep-check`, next
+  to the snag and log one.
 
 ## Checks
 
