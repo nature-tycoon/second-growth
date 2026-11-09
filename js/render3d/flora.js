@@ -8,7 +8,7 @@ import { rottenLog, DECAY } from '../sim/plants.js';
 import { hash2, valueNoise } from '../rng.js';
 import * as G from './geometry.js';
 import * as Botanical from './botanical.js';
-import { flowerForm, fruitForm, grassForm } from '../plant-patterns.js';
+import { flowerForm, fruitForm, grassForm, treeBlossomForm } from '../plant-patterns.js';
 import { snowCrown } from './snow.js';
 import { farHull, farTrunk } from './far-models.js';
 import { waterSurfaceY } from './terrain.js';
@@ -32,6 +32,9 @@ import { createPlantMaterials } from './plant-materials.js';
 export { floraVersion } from './plant-pools.js';
 export { windGust } from './plant-materials.js';
 
+// How big a tree's blossom heads are drawn: a puff or panicle is many tiny flowers, so it is drawn
+// as big as the whole cluster, or a tree in full bloom reads as bare from the play camera.
+const BLOSSOM_SIZE = { waterlily: 1.3, puff: 2, plume: 2, trumpet: 1.4, pendant: 1.2 };
 const rgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
 // A colony's colour morph (look.morphs, the reef's corals and sponges), the same colony keeping
 // its colour from one redraw to the next; any other plant keeps its own leaf colour.
@@ -602,14 +605,20 @@ export class Flora {
           this.pools.get(`crown:${key}`).add(tx, ty, tz, sx, sy, sz, rot, crownColor);
           this.pools.get(`trunk:${key}`).add(tx, ty, tz, sx, sy, sz, rot, bark);
           if (!aquaticTile) this.contactShadow(hAt, tx, tz, (shapeDef.rx ?? shapeDef.radius ?? 0.35) * sx * 1.05);
-          if (phase === 'bloom' && ['dogwood', 'magnolia', 'ipe', 'redbud'].includes(p.key) && shapeDef.rx && g > 0.45) {
-            const form = p.key === 'magnolia' ? 'waterlily' : p.key === 'ipe' ? 'trumpet' : 'star';
-            const flowers = this.pool(`treeflower:${form}:${p.look.flower}`, () => Botanical.blossomHead(form, p.look.flower), this.grass,
-              { shadow: false }, () => Botanical.blossomHead(form, p.look.flower, true));
-            for (let k = 0; k < 12; k++) {
-              const a = k * 2.4, d = shapeDef.rx * (0.5 + hash2(x, y, k + 121) * 0.36);
-              const fy = shapeDef.height + (shapeDef.lift ?? 0) - shapeDef.ry * (0.6 + hash2(x, y, k + 133) * 0.65);
-              const size = sc * (p.key === 'magnolia' ? 1.3 : 0.85);
+          const blossom = phase === 'bloom' && shapeDef.rx && g > 0.45 ? treeBlossomForm(p) : null;
+          if (blossom) {
+            // (big crowns, the genízaro's umbrella, carry more heads, so they read as covered in flowers;
+            // full heads close up only, the lighter ones at play zoom, a dot of colour zoomed right out)
+            const flowers = this.pool(`treeflower:${blossom}:${p.look.flower}`, () => Botanical.blossomHead(blossom, p.look.flower), this.grass,
+              { shadow: false, far: () => Botanical.blossomDot(p.look.flower) }, () => Botanical.blossomHead(blossom, p.look.flower, true), 'lo');
+            const n = Math.round((blossom === 'puff' ? 18 : 12) * Math.max(1, shapeDef.rx / 0.65)), hang = blossom === 'pendant';
+            const size = sc * (BLOSSOM_SIZE[blossom] ?? 0.85);
+            // (on the upper half of the crown's surface, where the camera sees them: the crown is about an
+            // ellipsoid centred 0.75 ry below its height; the sausage tree's flowers hang on long cords from its lower edge)
+            const mid = shapeDef.height + (shapeDef.lift ?? 0) - shapeDef.ry * 0.75;
+            for (let k = 0; k < n; k++) {
+              const a = k * 2.4, e = hang ? -0.5 - hash2(x, y, k + 133) * 0.25 : 0.1 + hash2(x, y, k + 133) * 1.0;
+              const d = shapeDef.rx * Math.cos(e) * (hang ? 0.9 : 1), fy = mid + shapeDef.ry * 1.05 * Math.sin(e);
               flowers.add(...onTree(Math.cos(a) * d, fy, Math.sin(a) * d), size, size, size, rot + a, [dim, dim, dim]);
             }
           }
@@ -622,7 +631,8 @@ export class Flora {
             this.pools.get(`fruit:${key}`).add(tx, ty, tz, sx, sy, sz, rot, vary(rgb(p.look.berry).map(c => c * dim), x, y, 14, 0.08));
           }
           // fruit trees (durian, rambutan, mangosteen...) hang their fruit round the outside of the crown in season
-          if (p.look.hangFruit && phase === 'fruit' && p.look.berry && g > 0.6 && shapeDef.rx) {
+          const palmTops = p.look.hangFruit && shapeDef.kind === 'palm' && shape.trunk.userData.canopyTrunks?.filter(t => t.from[1] > 0.01).map(t => t.to);
+          if (p.look.hangFruit && phase === 'fruit' && p.look.berry && g > 0.6 && (shapeDef.rx || palmTops?.length)) {
             // (on the surface of the crown, around its middle, where the camera can see them)
             const fc = rgb(p.look.berry).map(c => c * dim), fs = (p.look.fruitSize || 1.3) * 1.3, ry = shapeDef.ry ?? 0.4;
             const fy = shapeDef.height + (shapeDef.lift ?? 0) - ry * 1.1, rr = shapeDef.rx * 0.78 + Math.min(shapeDef.rx, ry) * 0.5;
@@ -631,7 +641,15 @@ export class Flora {
             const hung = fruit && this.pool(`treefruit:${fruit}:${p.look.berry}`, () => Botanical.fruitHead(fruit, p.look.berry), this.grass, { shadow: false }, () => G.blob(p.look.berry, 0.035).scale(1, 1.15, 1), 'lo');
             for (let k = 0; k < 9; k++) {
               const a = k * 2.4 + hash2(x + k, y, 15), d = rr * (0.92 + hash2(x, y + k, 16) * 0.12);
-              const at = onTree(Math.cos(a) * d, fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, Math.sin(a) * d);
+              let at;
+              if (palmTops) { // (a palm's bunches hang just under the fronds, round each stem's top)
+                if (k >= palmTops.length * 3) break;
+                const top = palmTops[k % palmTops.length];
+                at = onTree(top[0] + Math.cos(a) * 0.035, top[1] - 0.06, top[2] + Math.sin(a) * 0.035);
+              } else if (p.look.fruitOnWood) { // (the jícaro's gourds grow straight out of its trunk and main limbs)
+                const t = hash2(x + k, y + k, 17), dd = k < 3 ? shapeDef.trunkR * 1.3 : shapeDef.rx * (0.15 + t * 0.35), top = shapeDef.trunkH + (shapeDef.lift ?? 0);
+                at = onTree(Math.cos(a) * dd, k < 3 ? top * (0.45 + t * 0.4) : top + (shapeDef.height - shapeDef.trunkH) * t * 0.4, Math.sin(a) * dd);
+              } else at = onTree(Math.cos(a) * d, fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, Math.sin(a) * d);
               if (hung) hung.add(...at, fs, fs, fs, rot + a, [dim, dim, dim]);
               else dots.add(...at, fs, fs * 1.15, fs, rot + a, fc);
             }

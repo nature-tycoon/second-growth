@@ -82,7 +82,7 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'The first tree up in any clearing: pale trunk and giant umbrella leaves. Sloths love it, and ants guard it.' });
   def({ key: 'inga', name: 'Ice-cream bean (ingá)', sci: 'Inga edulis', layer: 2, heightM: 12, nfix: true,
     moist: [0.3, 0.95], light: [0.45, 1], grow: 0.008, spread: 0.01, radius: 4, life: 40, matureAge: 30, mast: 0.5, cost: 16,
-    look: { type: 'inga', leaf: '#4f8a3e', bark: '#8a7a64', berry: '#e8e4c8', fruit: [8, 9] },
+    look: { type: 'inga', leaf: '#4f8a3e', bark: '#8a7a64', berry: '#e8e4c8', fruit: [8, 9], hangFruit: true, fruitSize: 1.6 },
     desc: 'Fixes nitrogen, shades out grass fast, and its sweet pods feed monkeys and people. A restoration workhorse.' });
   def({ key: 'balsa', name: 'Balsa', sci: 'Ochroma pyramidale', layer: 2, heightM: 25,
     moist: [0.25, 0.9], light: [0.65, 1], grow: 0.011, spread: 0.012, radius: 6, life: 30, matureAge: 99, cost: 14,
@@ -90,7 +90,7 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'Among the fastest-growing trees on Earth, with wood lighter than cork. Its night flowers feed bats.' });
   def({ key: 'acai', name: 'Açaí palm', sci: 'Euterpe oleracea', layer: 2, heightM: 20, wetOK: true, swampTree: true,
     moist: [0.55, 1], light: [0.2, 1], grow: 0.006, spread: 0.01, radius: 4, life: 60, matureAge: 10, cost: 18,
-    look: { type: 'palm', leaf: '#4f7a3a', bark: '#8a8070', berry: '#3a1a3a', fruit: [4, 5, 6, 7] },
+    look: { type: 'palm', leaf: '#4f7a3a', bark: '#8a8070', berry: '#3a1a3a', fruit: [4, 5, 6, 7], hangFruit: true, fruitSize: 1.6 },
     desc: 'Clumps of slender palms on flooded ground. Toucans, macaws and people all come for the purple fruit.' });
   def({ key: 'buriti', name: 'Buriti palm', sci: 'Mauritia flexuosa', layer: 2, heightM: 30, wetOK: true, swampTree: true,
     moist: [0.65, 1], light: [0.5, 1], grow: 0.004, spread: 0.006, radius: 4, life: 100, matureAge: 14, mast: 0.4, cost: 22,

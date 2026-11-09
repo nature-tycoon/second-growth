@@ -166,7 +166,8 @@
     "m8.close.shadowTriangles": 378716,
     "m8.close.animals": 20,
     "frames100.plantRegions": 602,
-    "frames100.plantTilesWorked": 123736
+    "frames100.plantTilesWorked": 123736,
+    "instances.m8.plants.treefruit": 6561
    },
    "timings": {
     "floraRebuildMs": 742.27,

@@ -40,6 +40,7 @@ import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema
  * @property {boolean} [small]
  * @property {boolean} [crownBloom]
  * @property {boolean} [hangFruit]
+ * @property {boolean} [fruitOnWood] hung fruit grows on the trunk and main limbs (cauliflory), not round the crown
  * @property {boolean} [climbs]
  */
 
@@ -302,7 +303,7 @@ const layer = (v, path) => choice(v, path, [0, 1, 2]);
 const PLANT_BOOLEANS = 'native invasive nfix aquatic wetOK nurse conifer beaverFood resprout gravelOK birdSpread floating swampTree weedy crustOK sod exotic caterpillars dune fencePost mangrove fragile cay thorny pods';
 const PLANT_NUMBERS = 'compete soil spread radius life cost graze browse mast fuel fireSurvival matureAge soilK pioneer bleach seedSpacing smother fruitFood harvest heightM cndd windfirm decay farSeed grassFireKill';
 const PLANT_FIELDS = keys(`key name sci desc layer moist light grow look mapId id host disperser seedTravel kindName tab was nectar ${PLANT_BOOLEANS} ${PLANT_NUMBERS}`);
-const LOOK_FIELDS = keys('type leaf bloom fruit deciduous evergreen tropical savanna dryForest scale flower berry fall dry bark head stem seed plume bloomTint fruitSize airy small crownBloom hangFruit climbs morphs');
+const LOOK_FIELDS = keys('type leaf bloom fruit deciduous evergreen tropical savanna dryForest scale flower berry fall dry bark head stem seed plume bloomTint fruitSize airy small crownBloom hangFruit fruitOnWood climbs morphs');
 
 /** @param {PlantSpec} p */
 export function assertPlantSpec(p, path = 'plant') {
@@ -316,7 +317,7 @@ export function assertPlantSpec(p, path = 'plant') {
   object(p.look, `${path}.look`); fields(p.look, `${path}.look`, LOOK_FIELDS);
   text(p.look.type, `${path}.look.type`); text(p.look.leaf, `${path}.look.leaf`);
   optional(p.look, 'bloom fruit', `${path}.look`, months);
-  optional(p.look, 'deciduous evergreen tropical savanna dryForest airy small crownBloom hangFruit climbs plume', `${path}.look`, boolean);
+  optional(p.look, 'deciduous evergreen tropical savanna dryForest airy small crownBloom hangFruit fruitOnWood climbs plume', `${path}.look`, boolean);
   optional(p.look, 'scale fruitSize bloomTint', `${path}.look`, (v, q) => number(v, q, Number.MIN_VALUE));
   optional(p.look, 'flower berry fall dry bark head stem seed', `${path}.look`, text);
   if (p.nectar != null) { object(p.nectar, `${path}.nectar`); fields(p.nectar, `${path}.nectar`, keys('months amount')); months(p.nectar.months, `${path}.nectar.months`); number(p.nectar.amount, `${path}.nectar.amount`, 0); }

@@ -98,6 +98,15 @@ function heads(form, points, color, lo) {
         const side = j % 2 ? 1 : -1, yy = y - 0.02 + j * 0.017, len = 0.042 * (1 - j / n * 0.5);
         parts.push(petal(x, yy, z, side > 0 ? 0 : Math.PI, len, 0.019, len * 1.1, color, lo));
       }
+    } else if (form === 'pendant') {
+      // sausage tree: a long cord hanging from the branch, wine-red cup-shaped flowers open along its end
+      const n = lo ? 2 : 4, L = 0.16;
+      parts.push(stem([x, y + 0.02, z], [x + 0.008, y - L, z], 0.0016, '#5a4a30', true));
+      for (let j = 0; j < n; j++) {
+        const t = 1 - j * 0.09, a = j * 2.4, bx = x + 0.008 * t + Math.cos(a) * 0.012, bz = z + Math.sin(a) * 0.012, by = y - L * t;
+        parts.push(lo ? centre(bx, by - 0.012, bz, 0.016, 0.018, color, true)
+          : turned([[0.004, 0], [0.008, -0.01], [0.016, -0.024], [0.021, -0.034]], color, 7).translate(bx, by, bz));
+      }
     } else if (form === 'spathe' || form === 'trumpet') {
       const n = form === 'spathe' ? 7 : 5;
       for (let j = 0; j < n; j++) parts.push(petal(x, y - 0.035, z, j / n * Math.PI * 2, 0.052, 0.024, 0.075, color, lo));
@@ -138,6 +147,8 @@ export function wildflowerParts(form, seed, color, lo = false) {
 }
 
 export function blossomHead(form, color, lo = false) { return heads(form, [[0, 0, 0]], color, lo); }
+// A tree's blossom head zoomed right out: under a pixel, so the fewest triangles that still carry its colour.
+export function blossomDot(color) { return prep(new THREE.TetrahedronGeometry(0.03), color); }
 
 export function grassHeads(form, seed, lo = false) {
   const rng = mulberry32(seed), parts = [], n = lo ? 2 : 3;
@@ -244,6 +255,9 @@ export function fruitHead(form, color) {
     // mangosteen: round, deep purple, under a thick green calyx
     parts.push(stem([0, 0.016, 0], [0, -0.004, 0], 0.0025, twig, true), ball(0, -0.032, 0, 0.03, color, false, 0.92));
     for (let j = 0; j < 4; j++) parts.push(petal(0, -0.006, 0, j * 1.571 + 0.4, 0.02, 0.011, -0.006, calyx));
+  } else if (form === 'gourd') {
+    // jícaro (calabash): a big, hard, round green gourd on a stout stalk straight out of the wood
+    parts.push(stem([0, 0.012, 0], [0, -0.004, 0], 0.004, twig, true), ball(0, -0.034, 0, 0.032, color, false, 0.94));
   } else if (form === 'oblong') {
     // cempedak: a long, warty cylinder of a fruit hanging straight down
     parts.push(stem([0, 0.02, 0], [0, -0.004, 0], 0.0035, twig, true));
