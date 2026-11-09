@@ -63,6 +63,7 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 - [0037](docs/decisions/0037-shared-prey-and-recolonisation.md) Shared prey and recolonisation: hunting species split each prey animal between them (`sharePrey`), cats that stalk pick prey near cover (`stalkCoverAt`), a hunter in the open is seen from further, hunters keep a search image of their last catch (`a.searchImage`), so rare prey like hartebeest persist; arrivals from off-map are the existing `mig`/`sources` rule (rhino now `mig: 0.01`)
 
 - [0038](docs/decisions/0038-smooth-first-minutes.md) Smooth first minutes: animal models warmed in idle time (`Actors.warmAnimals`), 24-tile plant regions under a 4 ms frame budget, and the live day in parts (`Game.dayWork`; `dailyTick` still does it all at once, so headless results are unchanged). Tests that stub habitat replace `Wildlife.suitabilityWork`, not `computeSuitability`. Measure with `tools/new-game-profile.mjs`. Its last section has the per-day simulation cost after wave 2 and the same-answer fixes (`wetTest` is per search: make a new one each time, the water moves)
+- [0039](docs/decisions/0039-eating-styles.md) Eating styles by food, drawing only (`render3d/eating-pose.js`): crop, browse (up at trees), tear, hand to mouth, fish snap; `NIBBLERS` for idle nibbling, never `GRAZERS` (it moves grazers to water)
 
 New decisions take the next unused number and one line here.
 

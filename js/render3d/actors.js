@@ -10,6 +10,7 @@ import { strideFollowsGround } from './stride.js';
 const CLEAR = { floor: -Infinity, clearing: false }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
 import { GRAZERS } from '../sim/steering.js';
+import { mealHead, nibbles, fishSnap } from './eating-pose.js';
 import * as S from '../render/sprites.js';
 import { treeHeight, treeLevel } from './tree-stature.js';
 import { treeTrunk, snagSpot, snagPose, snagTop as snagTopAt } from '../sim/ground-obstacles.js';
@@ -446,8 +447,9 @@ export class Actors {
       const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
       const birdHead = a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
         : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
-      const head = swimming ? 0 : a.cache && a.move === 'ground' && !moving ? (Math.sin(time * 7 + a.id) > -0.3 ? 1 : 0.5) : fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
-        : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && !a.headUp && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
+      const meal = mealHead(a, w, time); // (the eating styles: eating-pose.js)
+      const head = swimming ? 0 : a.cache && a.move === 'ground' && !moving ? (Math.sin(time * 7 + a.id) > -0.3 ? 1 : 0.5) : fight ? fight.head : bugling ? -0.75 : meal != null ? meal : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
+        : !moving && (a.drinkT > 0 ? aligned : ((GRAZERS.has(kind) || nibbles(def, a)) && !a.headUp && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
       st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
       if (fight) st.gait += (fight.gait - st.gait) * k;
       // stalking cats sink low to the ground
@@ -474,6 +476,11 @@ export class Actors {
         ax += Math.cos(st.yaw) * reach; az -= Math.sin(st.yaw) * reach;
         posePitch -= 0.12 * st.lunge; st.graze = Math.max(st.graze, 0.35 * st.lunge);
       }
+      // a fish snapping at its food darts forward, nose-down at food on the bottom
+      const snap = (mo.swims || def.reef) && !def.benthic ? fishSnap(a, def, time) : null;
+      st.snap = (st.snap || 0) + ((snap?.nose || 0) - (st.snap || 0)) * Math.min(1, k * 2);
+      if (snap) { const reach = snap.dart * mo.len * sc * 0.1; ax += Math.cos(st.yaw) * reach; az -= Math.sin(st.yaw) * reach; }
+      posePitch -= st.snap;
       if (hunt?.stumble > 0) { const f = hunt.stumble / 0.3; posePitch -= 0.25 * f; poseRoll = 0.14 * f * (a.id % 2 ? 1 : -1); }
       st.trunk = cling?.trunk ?? null; // (the trunk it clings to, which the tracking lens keeps: focus.js)
       if (cling) {
@@ -715,8 +722,11 @@ export class Actors {
         this.holdOffset.copy(st.howlerBody).multiplyScalar(sc).applyQuaternion(st.canopyQuaternion);
         ax += this.holdOffset.x; y += this.holdOffset.y; az += this.holdOffset.z;
       }
-      const eating = mo.primate && a.state === 'primate' && a.fruitMeal;
-      const eatPose = eating ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0;
+      // (and a leaf-eating monkey at a forage meal: the meal's left counts down from about 1.5 to 3.5 s)
+      const leafMeal = mo.primate && a.state === 'forage' && a.forage?.food === 'leaves' ? a.forage : null;
+      const eating = mo.primate && (a.state === 'primate' && a.fruitMeal || leafMeal);
+      const eatTime = leafMeal ? time - (st.leafAt ??= time) : (st.leafAt = null, a.fruitMeal?.elapsed);
+      const eatPose = eating ? Math.min(1, eatTime / .6) * (.8 + .2 * Math.sin(eatTime * 5)) : 0;
       if (mo.primate === 2 && !st.branch) {
         const step = Math.max(0, Math.min(.1, time - (st.groundTime ?? time)));
         if (game.speed === 0) st.yaw = yaw0;
