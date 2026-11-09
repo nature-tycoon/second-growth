@@ -152,6 +152,30 @@
       "elephant": {
         "recording": "african-elephant",
         "decision": "Real African elephant social rumbles; distinct from Asian elephant trumpet."
+      },
+      "ringDove": {
+        "recording": null,
+        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Streptopelia capicola (JMK, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+      },
+      "woodDove": {
+        "recording": null,
+        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Turtur chalcospilos (JMK, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+      },
+      "francolin": {
+        "recording": null,
+        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Pternistis hildebrandti XC621048 (paulo kivuyo, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+      },
+      "starling": {
+        "recording": null,
+        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Lamprotornis superbus XC402690 (Anne Ndung'u, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+      },
+      "redbill": {
+        "recording": null,
+        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Tockus rufirostris (JMK, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+      },
+      "thickKnee": {
+        "recording": null,
+        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Burhinus capensis (JMK, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
       }
     }
   },

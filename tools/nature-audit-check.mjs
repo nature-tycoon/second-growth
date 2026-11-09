@@ -20,7 +20,7 @@ check('All seven maps have valid native voices across 448 season/weather/time co
     g.newGame(1987, 'free', 'standard', map);
     const keys = ANIMALS.map(d => d.key), P = SOUNDSCAPES[map];
     for (const [key, style] of Object.entries(P.birds)) { assert(keys.includes(key), `${map}/${key}`); const id = MAP_RECORDINGS[map].birds[key]; if (id) assert(FIELD_RECORDINGS[id], `${map}/${key}: valid recording`); }
-    for (const [key, voice] of P.calls) { assert(keys.includes(key), `${map}/${key}`); assert.equal(typeof Music.prototype[voice], 'function', voice); }
+    for (const [key, voice] of P.calls) { assert(key === '*' || keys.includes(key), `${map}/${key}`); assert.equal(typeof Music.prototype[voice], 'function', voice); }
     for (let season = 0; season < 4; season++) for (const weather of ['clear', 'cloud', 'rain', 'snow']) for (const time of [{}, { dawn: 1, tod: 0 }, { dusk: 1, tod: 0.845 }, { night: 1, tod: 0.91 }]) {
       const L = land(map, { present: keys, month: season * 3, ...time }), mix = natureMix(L, weather, season);
       for (const [name, value] of Object.entries(mix)) assert(Number.isFinite(value) && value >= 0 && value < 3, `${map}/${season}/${weather}/${name}: ${value}`);
@@ -181,5 +181,13 @@ check('Prominent calls happen promptly even when random chance would never fire'
     for (let tick = 0; tick <= 48; tick++) { m.ctx.currentTime = tick / 4; m.calls(0.25); }
     assert.deepEqual(starts.map(c => c[0]), ['hyena', 'lion']); assert(starts[1][1] - starts[0][1] >= 5, 'Featured calls should not mask each other');
   } finally { Math.random = random; }
+});
+check('A lone recorded bird calls now and then, not on a loop (the Serengeti roller)', () => {
+  const m = new Music(), random = Math.random, played = [];
+  m.ctx = { currentTime: 0 }; m.land = land('serengeti', { present: ['roller', 'weaver'] }); m.birdLife = () => 1;
+  m.birdPhrase = key => { played.push(key); return 3; };
+  Math.random = () => 0;
+  try { for (; m.ctx.currentTime < 600; m.ctx.currentTime += 0.25) m.maybeBird(); } finally { Math.random = random; }
+  assert(played.length >= 9 && played.length <= 10, `roller phrases in 10 minutes: ${played.length}`);
 });
 console.log(`${checks} nature audio checks passed.`);
