@@ -44,7 +44,7 @@ export const SOUNDSCAPES = {
 
 
 export function natureMix(L, weather, season) {
-  if (!L || !SOUNDSCAPES[L.map]) return { rain: 0, wind: 0, creek: 0, river: 0, leaves: 0, surf: 0, reef: 0, bugs: 0, birds: 0 };
+  if (!L || !SOUNDSCAPES[L.map]) return { rain: 0, wind: 0, creek: 0, river: 0, leaves: 0, surf: 0, reef: 0, bugs: 0, cicadas: 0, birds: 0 };
   const P = SOUNDSCAPES[L.map], marine = L.map === 'reef', rain = weather === 'rain', snow = weather === 'snow';
   const cold = (L.map === 'pnw' || L.map === 'atlanta') && season === 3;
   const day = Math.max(0, 1 - L.night), growth = 0.25 + 0.75 * L.health;
@@ -60,7 +60,9 @@ export function natureMix(L, weather, season) {
     leaves: marine ? 0 : 0.006 * L.canopy * (rain ? 1.4 : weather === 'cloud' ? 0.8 : 0.5),
     surf: marine ? 0.045 + 0.035 * L.shore : L.map === 'chinandega' ? 0.07 * L.river : 0,
     reef: marine ? (0.008 + 0.015 * L.health) * (1 - L.shore * 0.85) : 0,
-    bugs: bugs * (L.map === 'chinandega' && L.dry ? day : L.map === 'serengeti' ? day + 0.6 * L.night : 0.7 + 0.5 * L.night),
+    // (the Serengeti's day insects are cicadas, loudest in the midday heat; crickets take over at night)
+    bugs: bugs * (L.map === 'chinandega' && L.dry ? day : L.map === 'serengeti' ? 0.8 * L.night : 0.7 + 0.5 * L.night),
+    cicadas: L.map === 'serengeti' ? bugs * day * (L.tod >= 0.3 && L.tod < 0.62 ? 1 : 0.4) : 0,
     birds: (snow ? 0 : rain ? 0.18 : 1) * P.seasons[season] * day * (1 + 1.6 * L.dawn) * (0.45 + 0.55 * L.health),
   };
 }

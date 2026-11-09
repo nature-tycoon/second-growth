@@ -166,7 +166,7 @@ Run `node tools/nature-audit-check.mjs` to check every map across 448 season/wea
 | --- | --- |
 | Cascade foothills | Creek and river, wind and canopy rustle; robin, Pacific wren, Swainson's thrush, meadowlark, Steller's jay, belted kingfisher, pileated woodpecker, Pacific chorus frogs and great horned owl. |
 | Amazon | River, wind and insect layers; toco toucan, scarlet macaw and hoatzin calls. |
-| Serengeti | Open-ground wind and insects; lilac-breasted roller, zebra, hippo, African elephant rumbles, night hyena whoops and lion roars. |
+| Serengeti | Open-ground wind, cicadas in the midday heat and crickets at night; lilac-breasted roller and village weaver; a habitat chorus of ring-necked and emerald-spotted wood doves, superb starling and red-billed hornbill by day, Hildebrandt's francolin at dawn and dusk, spotted thick-knee at night; zebra, hippo, African elephant rumbles, night hyena whoops and lion roars. Doves, starling, hornbill, thick-knee: JMK and Anne Ndung'u (CC BY-SA 4.0); francolin: paulo kivuyo (CC BY-SA 4.0); cicada: BioAcoustica (CC BY 3.0), all on Wikimedia Commons. |
 | Atlanta | Creek and canopy; cardinal, Carolina wren and chickadee, bluebird, goldfinch, spring peepers, American toad, barred owl and pileated woodpecker. |
 | Nicaragua | Insects and a quieter seasonal creek, coastal surf, orange-fronted parakeet, mantled howlers and cattle. |
 | Sumatra | Year-round insect and canopy layers, streams; rhinoceros hornbill, crimson sunbird, stork-billed kingfisher, crested serpent eagle, morning siamang, barn owl, Asian elephant trumpets and dusk/night tiger calls. |

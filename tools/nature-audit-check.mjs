@@ -182,12 +182,23 @@ check('Prominent calls happen promptly even when random chance would never fire'
     assert.deepEqual(starts.map(c => c[0]), ['hyena', 'lion']); assert(starts[1][1] - starts[0][1] >= 5, 'Featured calls should not mask each other');
   } finally { Math.random = random; }
 });
-check('A lone recorded bird calls now and then, not on a loop (the Serengeti roller)', () => {
+check('Each bird calls now and then, not on a loop (the Serengeti roller rests a minute or two)', () => {
   const m = new Music(), random = Math.random, played = [];
   m.ctx = { currentTime: 0 }; m.land = land('serengeti', { present: ['roller', 'weaver'] }); m.birdLife = () => 1;
   m.birdPhrase = key => { played.push(key); return 3; };
   Math.random = () => 0;
   try { for (; m.ctx.currentTime < 600; m.ctx.currentTime += 0.25) m.maybeBird(); } finally { Math.random = random; }
-  assert(played.length >= 9 && played.length <= 10, `roller phrases in 10 minutes: ${played.length}`);
+  const rollers = played.filter(k => k === 'roller').length;
+  assert(rollers >= 9 && rollers <= 10, `roller phrases in 10 minutes: ${rollers}`);
+  assert(played.includes('weaver'), 'the weaver joins in');
+});
+check('The Serengeti has a day and night chorus of habitat birds, cicadas by day and crickets by night', () => {
+  const day = voices(land('serengeti', { tod: 0.45 })), night = voices(land('serengeti', { night: 1, tod: 0.95 }));
+  for (const v of ['ringDove', 'woodDove', 'starling']) assert(day.includes(v), v);
+  assert(night.includes('thickKnee') && !night.includes('ringDove'));
+  assert(voices(land('serengeti', { dawn: 1, tod: 0.05 })).includes('francolin'));
+  const noon = natureMix(land('serengeti', { tod: 0.45 }), 'clear', 1), dark = natureMix(land('serengeti', { night: 1, tod: 0.95 }), 'clear', 1);
+  assert(noon.cicadas > 0 && noon.bugs === 0 && dark.cicadas === 0 && dark.bugs > 0);
+  assert.equal(natureMix(land('pnw'), 'clear', 1).cicadas, 0);
 });
 console.log(`${checks} nature audio checks passed.`);

@@ -120,8 +120,8 @@
   "serengeti": {
     "birds": {
       "weaver": {
-        "recording": null,
-        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+        "recording": "village-weaver",
+        "decision": "Field recording (village weaver, Kenya)"
       },
       "roller": {
         "recording": "roller",
@@ -154,28 +154,28 @@
         "decision": "Real African elephant social rumbles; distinct from Asian elephant trumpet."
       },
       "ringDove": {
-        "recording": null,
-        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Streptopelia capicola (JMK, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+        "recording": "ring-necked-dove",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
       },
       "woodDove": {
-        "recording": null,
-        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Turtur chalcospilos (JMK, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+        "recording": "emerald-spotted-wood-dove",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
       },
       "francolin": {
-        "recording": null,
-        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Pternistis hildebrandti XC621048 (paulo kivuyo, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+        "recording": "hildebrandts-francolin",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
       },
       "starling": {
-        "recording": null,
-        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Lamprotornis superbus XC402690 (Anne Ndung'u, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+        "recording": "superb-starling",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
       },
       "redbill": {
-        "recording": null,
-        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Tockus rufirostris (JMK, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+        "recording": "red-billed-hornbill",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
       },
       "thickKnee": {
-        "recording": null,
-        "decision": "Habitat chorus voice; candidate on Wikimedia Commons: Burhinus capensis (JMK, CC BY-SA 4.0). Awaiting Cole's OK to download (decision 0002)."
+        "recording": "spotted-thick-knee",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
       }
     }
   },
