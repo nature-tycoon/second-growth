@@ -18,7 +18,7 @@ try {
   }else g=releaseGame(map,'forest').game;
   const w=g.world;
   const placed=[];
-  function pose(key,tx,ty,habitat='land',orientation=-.5){
+  function pose(key,tx,ty,habitat='land',heading=-.5){
     const def=g.catalog.animal[key];if(!def)throw Error('Unknown capture species '+map+':'+key);
     let best=Infinity,tile=-1;
     for(let y=ty-4;y<=ty+4;y++)for(let x=tx-4;x<=tx+4;x++){
@@ -30,7 +30,7 @@ try {
     if(tile<0)throw Error('No capture habitat for '+key);
     const x=tile%w.w+.5,y=Math.floor(tile/w.w)+.5;
     const a=g.wildlife.spawn(def,x,y,{silent:true,age:Math.max(480,def.mature*120+1)});
-    Object.assign(a,{x,y,tx:x,ty:y,wait:1000,orientation,hunger:0,thirst:0,phase:0});
+    Object.assign(a,{x,y,tx:x,ty:y,wait:1000,heading,hunger:0,thirst:0,phase:0});
     placed.push({key,tile,x,y});return a;
   }
   let keystone=null;
@@ -78,7 +78,7 @@ try {
       if(!anchor||anchor.index!==index)return null;
       let yaw=Math.atan2(-anchor.direction.z,anchor.direction.x);
       if(anchor.direction.y<0)yaw+=Math.PI;
-      a.orientation=-yaw;
+      a.heading=-yaw;
       Object.assign(st,{branch:anchor,branchAt:anchor,branchPoint:null,branchRoute:null,branchPitch:0,branchRoll:0,branchYaw:0,yaw,gripFeet:null,canopyQuaternion:null});
       for(let n=0;n<3;n++)r.draw(g,{clean:true,overlay:'none'},.1);
       st=r.actors.pose.get(a.id);

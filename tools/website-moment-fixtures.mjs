@@ -58,7 +58,7 @@ export function websiteMoment(g,pose){
     if(!plants.length)throw Error('Missing native monarch garden plants');
     for(let y=21;y<=25;y++)for(let x=18;x<=23;x++){const i=w.idx(x,y);if(w.struct[i]<0&&w.terrain[i]!==T.ROAD){w.ground[i]=0;w.tree[i]=0;w.shrub[i]=0;w.setPlant(i,plants[(x+y)%plants.length],1);}}
     g.refreshEnvironment();
-    for(let n=0;n<12;n++){const a=pose('monarch',19+n%4,22+Math.floor(n/4));a.age=36;a.flying=true;a.alt=.15+(n%3)*.12;a.phase=n*.7;a.orientation=n*1.2;}
+    for(let n=0;n<12;n++){const a=pose('monarch',19+n%4,22+Math.floor(n/4));a.age=36;a.flying=true;a.alt=.15+(n%3)*.12;a.phase=n*.7;a.heading=n*1.2;}
     g.mapDefinition.daily(g);
     // The map's migration wave marks ordinary agents as passing without a
     // bird-passage trajectory. Normalize only that flag for this frozen study.

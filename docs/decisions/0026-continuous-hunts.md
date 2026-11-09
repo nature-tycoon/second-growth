@@ -5,7 +5,7 @@
 - One hunt for every hunter on every map: `huntStep` in `sim/animal-life.js` (approach, creep, rush, circle, `ease`). Hunts move only through `wl.stepToward` (0025); a pounce moves along the ground through it too.
 - Balance anchor: each species' kills per year stay where they were tuned, not real per-hunt success rates. The catch roll on contact is unchanged (`predationCatchChance`). Anything that changes escape odds (a tried "jink" did) needs the catch odds retuned with it.
 - Per-style numbers live in `STYLES` (stalk, cheetah, chase, ambush, strike, wade, pursue, stoop): `accel`, `turn`, stamina, patience, `pounce`, `reach`.
-- `hunt.v` and `hunt.hd` are the hunter's own speed and heading: anything that stops or turns a hunter mid-hunt sets them, not `a.x`/`a.orientation`.
+- `hunt.v` and `hunt.line` are the hunter's own speed and line (`hunt.hd` before 2026-11): anything that stops or turns a hunter mid-hunt sets them, not `a.x`/`a.heading`.
 - End a hunt from outside `huntStep` only through `letGo` (cooldown, ease, rest), never by setting `idle`. A miss goes through `pressOn`. `ease` is a hunt phase (`a.state` stays `hunt`).
 - A frozen stalker doesn't turn to face its prey (its capsule would swing into trunks). Don't start hunts on unreachable prey (`huntBlocked`).
 - Cats, and foxes and coyotes on prey up to 4 kg, end a rush in a pounce (`pounce`, `pounceFor`, `startLeap`/`leapStep`); a leap that lands short is a miss. Others grab (`hunt.lunge`).

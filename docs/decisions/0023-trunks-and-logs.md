@@ -9,7 +9,7 @@
 - Keep-out = trunk radius + half body width, capped at `KEEP_MAX` 0.26 so there is always a way between trunks (0037 widened it beside thick trunks; 0025 made the body a capsule).
 - Never stuck: after 0.5 tiles lost (`a.woodLost`) an animal squeezes through (`a.squeeze`).
 - Elephants (`tramples: true`) trample saplings under 0.4 growth through `removeTree(…, 'browse')` (0028) when they die. Logs block only animals with `animalRadius` under 0.2.
-- `checkMovementProgress` measures progress to the cleared target. Walks start from `a.orientation`.
+- `checkMovementProgress` measures progress to the cleared target. Walks start from `a.heading`.
 - Per-animal fields `woodLost`, `squeeze`, `trampled`, `dodge`, `dodgeOff` are declared on `Animal` and not saved. Trunks are cached per tile (`cachedTrunk`).
 - Balance: use 16+ seeds of `restore` before calling a shift real (8 can't tell a 3-elk difference from noise).
 - Check: `node tools/ground-obstacles-check.mjs`.

@@ -39,7 +39,7 @@ const DT = 0.02, DAYS = 12, WARM = 2, HERD = +(process.env.HERD || 14);
 // (small land animals that never set foot in water: animal-terrain.js)
 const DRY_KINDS = new Set(['rodent', 'rabbit', 'squirrel', 'agouti', 'armadillo', 'turtle', 'beetle', 'pangolin', 'monitor']);
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
-const heading = a => a.hd ?? a.orientation ?? 0;
+const heading = a => a.heading ?? 0;
 
 export function populate(g, rng) {
   const wl = g.wildlife, w = g.world;

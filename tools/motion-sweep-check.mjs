@@ -137,7 +137,7 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
         now.tread = ground < 0.1 && st.gait > 0.6 && a.phase > p.phase ? (p.tread || 0) + 1 : 0;
         if (now.glide > SUSTAIN) hit(r, 'glide', a, ` gait ${st.gait.toFixed(2)}`);
         if (now.tread > SUSTAIN) hit(r, 'treadmill', a);
-        if (inWood(w, a, def, a.x, a.y, a.hd ?? a.orientation)) hit(r, 'trunk', a);
+        if (inWood(w, a, def, a.x, a.y, a.heading)) hit(r, 'trunk', a);
       }
       const xx = Math.floor(a.x), yy = Math.floor(a.y), tt = w.inb(xx, yy) ? w.terrain[w.idx(xx, yy)] : null;
       if (def.move === 'ground' && !a.flying && !(a.alt > 0.05) && !a.passing && tt != null && isWater(tt) && !(def.crossing && tt === T.RIVER) && !MOVING.has(a.state) && a.state !== 'hunt') hit(r, 'wet', a, ` ${tt}`);

@@ -10,8 +10,8 @@ let checks=0;const check=(name,fn)=>{fn();checks++;console.log('PASS '+name)};
 function setup(){Math.random=mulberry32(44);const g=new Game();g.newGame(1987,'free','standard','pnw');g.day=20;
  const w=g.world,wl=g.wildlife;wl.agents=[];wl.flyovers=[];wl.recount();wl.passageWait=1e6;
  w.terrain.fill(T.SOIL);w.struct.fill(-1);w.feature.fill(0);w.fire.fill(0);w.flood.fill(0);w.tree.fill(0);w.shrub.fill(0);w.ground.fill(0);w.distWater.fill(99);wl.suit.forEach(s=>s.fill(1));
- const d=g.catalog.animal.deer,a=wl.spawn(d,30,30,{silent:true,age:3*DAYS_PER_YEAR});Object.assign(a,{x:30.5,y:30.5,state:'idle',wait:99,thirst:0,hunger:0,orientation:0,walkHeading:0});return{g,w,wl,a,d};}
-function route(s,sx=1,sy=1){const {a,w}=s;a.x=30.5;a.y=30.5;a.orientation=sx>0?0:Math.PI;a.walkHeading=a.orientation;
+ const d=g.catalog.animal.deer,a=wl.spawn(d,30,30,{silent:true,age:3*DAYS_PER_YEAR});Object.assign(a,{x:30.5,y:30.5,state:'idle',wait:99,thirst:0,hunger:0,heading:0});return{g,w,wl,a,d};}
+function route(s,sx=1,sy=1){const {a,w}=s;a.x=30.5;a.y=30.5;a.heading=sx>0?0:Math.PI;a.walkOn=true;
  const forward=[];for(let k=1;k<=8;k++)forward.push(w.idx(30+sx*k,30));for(let k=1;k<=8;k++)forward.push(w.idx(30+sx*8,30+sy*k));a.path=forward.reverse();a.state='walk';a.restSpot=null;a.wait=0;return w.idx(30+sx*8,30+sy*8);}
 function run(s,dt=.05,observe=()=>{}){for(let k=0;k<3000&&s.a.state==='walk';k++){s.wl.update(dt);observe();}assert.equal(s.a.state,'idle','walk finishes');}
 check('Open turns are smooth actual motion in all four directions and across frame sizes',()=>{

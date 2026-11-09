@@ -81,10 +81,10 @@ check('Camera rotation, pan, resize and zoom use the current view immediately', 
 check('Returning animals resume at their current position and direction, including paused play', () => {
   reset(); const a = spawn(); frame(); const st = actors.pose.get(a.id);
   aim(100, 80); frame(2); assert.equal(st.visible, false);
-  a.x = 31.2; a.y = 31.8; a.orientation = 1.3; a.state = 'walk'; a.phase = 7;
+  a.x = 31.2; a.y = 31.8; a.heading = 1.3; a.state = 'walk'; a.phase = 7;
   aim(31, 32); g.speed = 0; frame(80);
   assert.equal(st.visible, true); assert.equal(st.x, a.x); assert.equal(st.z, a.y);
-  assert.ok(Math.abs(st.yaw + a.orientation) < 1e-8); assert.equal(st.gait, 0);
+  assert.ok(Math.abs(st.yaw + a.heading) < 1e-8); assert.equal(st.gait, 0);
   const p = actors.fauna.species.get(actors.fauna.modelKey(g.catalog.animal.zebra));
   assert.equal(p.anim.getX(0), Math.fround(a.phase * Math.PI));
   assert.ok([...p.mesh.instanceMatrix.array.slice(0, 16)].every(Number.isFinite));
@@ -112,9 +112,9 @@ check('Canopy birds and flying animals stay visible when their ground tile is be
 check('Reef depth and swimmer turns resume cleanly without a huge bend or old depth', () => {
   reset('reef'); const a = spawn('shark'); frame(); const st = actors.pose.get(a.id);
   aim(100, 80); frame(2); assert.equal(st.visible, false);
-  st.depth = 0.9; st.bend = 1; a.hd = 2.4;
+  st.depth = 0.9; st.bend = 1; a.heading = 2.4;
   aim(30, 30); frame(400);
-  assert.ok(st.depth < 0.7); assert.equal(st.bend, 0); assert.ok(Math.abs(st.yaw + a.hd) < 1e-8);
+  assert.ok(st.depth < 0.7); assert.equal(st.bend, 0); assert.ok(Math.abs(st.yaw + a.heading) < 1e-8);
 });
 check('Sea cucumbers and urchins stay on the seabed through depth changes', () => {
   for (const key of ['seacucumber', 'urchin']) {
