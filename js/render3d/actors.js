@@ -200,9 +200,11 @@ export class Actors {
     const persp = perspectiveScale(camera, viewportHeight);
     F.begin(pixelsPerUnit(camera, viewportHeight), persp && { x: camera.position.x, y: camera.position.y, z: camera.position.z, scale: persp });
     this.silhouettes.begin();
-    // the prey a hunter is rushing right now (a longtom skips away from it)
-    const chased = new Set();
-    for (const h of game.wildlife.agents) if (h.state === 'hunt' && h.hunt?.phase === 'rush') chased.add(h.target);
+    // the prey a hunter is rushing right now (a longtom skips away from it), and every hunter out
+    // hunting (a school of chromis or anthias drops into the coral when one comes near)
+    const chased = new Set(), hunters = this.hunters || (this.hunters = []);
+    hunters.length = 0;
+    for (const h of game.wildlife.agents) if (h.state === 'hunt') { hunters.push(h); if (h.hunt?.phase === 'rush') chased.add(h.target); }
     for (const a of game.wildlife.viewAgents) {
       // Dormant residents are sheltered inside dens/roosts, not walking models.
       if (a.state === 'dormant') continue;
@@ -306,6 +308,15 @@ export class Actors {
         const band = clamp(sw + amp * (0.12 * Math.sin(time * 0.11 + a.id * 1.7) + 0.06 * Math.sin(time * 0.29 + a.id * 4.1)), 0.04, 0.9);
         st.depth = st.depth == null ? band : st.depth + (band - st.depth) * k * 0.3;
         y = def.benthic ? ground + 0.008 : Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
+        if (def.sprite.dive) {
+          // (a hunter within three tiles: the school drops into the coral below at once, and drifts
+          // back up slowly once it has gone; the coral lift below settles each fish right on top of its
+          // own tile's coral, not down in the sand)
+          let scared = chased.has(a.id) || a.state === 'flee';
+          for (let h = 0; h < hunters.length && !scared; h++) scared = (hunters[h].x - a.x) ** 2 + (hunters[h].y - a.y) ** 2 < 9;
+          st.dive = clamp((st.dive || 0) + (scared ? 3 : -0.4) * frameDt, 0, 1);
+          if (st.dive > 0) y += (ground + 0.03 - y) * st.dive;
+        }
         // (and over the coral heads, by body size: flight-clearance.js)
         // (looked up every fourth frame, each fish on its own frame; the lift eases between)
         if (!def.benthic && (st.coralFloor == null || (this.frameNo + a.id & 3) === 0)) st.coralFloor = coralFloor(w, game.catalog.plants, a, def);

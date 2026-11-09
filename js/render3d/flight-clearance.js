@@ -68,7 +68,7 @@ export function clearCanopy(w, plants, a, def, y, out = null, mx = 0, my = 0, ah
 }
 
 // Reef fish keep clear of the hard corals (the reef's trees) by body size, one rule for every
-// fish. A fish small enough to shelter in the reef (a clownfish, a chromis, a cleaner wrasse)
+// fish. A fish small enough to shelter in the reef (a clownfish, a chromis, an anthias, a cleaner wrasse)
 // only rises over coral growing on its own tile, so it stays down in an anemone or a gap beside
 // a thicket but never sits inside the branches. A bigger fish looks a crown's width round it and
 // a little way ahead, and keeps its own body depth over the top (a grouper, a turtle, a shark

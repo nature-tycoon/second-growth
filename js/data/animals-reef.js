@@ -34,9 +34,17 @@ export default function buildReefAnimals(def) {
   def({ key: 'chromis', reef: true, herd: true, herdR: 1.1, name: 'Blue-green chromis', sci: 'Chromis viridis', group: 'Fish', move: 'ground',
     speed: 0.7, hr: 3, max: 80, minK: 4, groupSize: [6, 12], sources: ['E', 'W'], mig: 0.5, breed: [8, 9, 10, 11], litter: [4, 8], life: 4, mature: 1,
     suit: (W, i) => branching(W, i) || coral(W, i) * 0.25,
-    sprite: { kind: 'fish', size: 4, back: '#5ac0c8', flank: '#7ad4cc', belly: '#c4ecdc', finColor: '#6ac8cc', deep: true, swim: 0.4, show: 4.5 },
+    sprite: { kind: 'fish', size: 4, back: '#5ac0c8', flank: '#7ad4cc', belly: '#c4ecdc', finColor: '#6ac8cc', deep: true, swim: 0.4, dive: true, show: 4.5 },
     desc: 'Shimmering little fish that hang in a cloud over a staghorn thicket, picking plankton from the water, and dive into the branches all at once when a hunter swims by.',
     hint: 'Thickets of branching staghorn coral.' });
+  def({ key: 'anthias', reef: true, herd: true, herdR: 1.3, name: 'Scalefin anthias', sci: 'Pseudanthias squamipinnis', group: 'Fish', move: 'ground',
+    speed: 0.7, hr: 3, max: 90, minK: 4, groupSize: [8, 16], sources: ['E', 'W'], mig: 0.4, breed: [8, 9, 10, 11], litter: [4, 8], life: 5, mature: 1,
+    // (over living coral heads rather than inside staghorn thickets, and never over bleached coral)
+    suit: (W, i) => coral(W, i) * (1 - 0.5 * branching(W, i)) * (1 - (W.bleach?.[i] || 0)),
+    req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 150) / 300),
+    sprite: { kind: 'fish', size: 5, back: '#f07a3c', flank: '#f68a58', belly: '#f8b8a0', finColor: '#e8608c', tailShape: 'lunate', spiny: true, swim: 0.55, dive: true, show: 4.5 },
+    desc: 'Orange-pink clouds of little fish hanging over a coral head in the current, each one snapping plankton out of the water. When a hunter comes near the whole school drops into the coral at once. Every school is mostly females with a few magenta males, and if a male dies, the biggest female turns into one.',
+    hint: 'Living, unbleached coral heads.' });
   def({ key: 'tang', reef: true, name: 'Blue tang', sci: 'Paracanthurus hepatus', group: 'Fish', move: 'ground',
     speed: 0.8, hr: 5, max: 30, minK: 2, groupSize: [2, 5], sources: ['E', 'W'], mig: 0.4, breed: [8, 9, 10], litter: [2, 4], life: 10, mature: 1,
     suit: (W, i) => Math.max(reef[W.habitat[i]] * (0.6 + 0.4 * coral(W, i)), has(W, i, 'ground', 'halimeda') ? 0.7 : 0), // (it grazes Halimeda too)
@@ -60,7 +68,7 @@ export default function buildReefAnimals(def) {
     hint: 'Plenty of living coral to feed on.' });
   def({ key: 'trout', reef: true, name: 'Coral trout', sci: 'Plectropomus leopardus', group: 'Fish', move: 'ground',
     speed: 1.0, hr: 14, max: 10, minK: 1, groupSize: [1, 2], sources: ['E', 'W'], mig: 0.3, breed: [8, 9], litter: [1, 3], life: 14, mature: 2,
-    prey: ['chromis', 'tang', 'butterfly'], preyPer: 8,
+    prey: ['chromis', 'anthias', 'tang', 'butterfly'], preyPer: 8,
     suit: (W, i) => reef[W.habitat[i]] * (0.55 + 0.45 * table(W, i)), // (it lies in ambush under table corals)
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 250) / 300), // (a reef big enough to hold plenty of small fish)
     sprite: { kind: 'fish', size: 20, back: '#c8382a', flank: '#d84a32', belly: '#e8886a', spots: '#4ab0e8', finColor: '#c8382a', tailShape: 'truncate', spiny: true, jaw: true, swim: 0.3, show: 2.2 },
@@ -89,7 +97,7 @@ export default function buildReefAnimals(def) {
     hint: 'A big, healthy reef.' });
   def({ key: 'trevally', reef: true, herd: true, herdR: 1.6, name: 'Giant trevally', sci: 'Caranx ignobilis', group: 'Fish', move: 'ground',
     speed: 1.3, hr: 30, max: 12, minK: 2, groupSize: [3, 6], sources: ['E', 'W'], mig: 0.5, breed: [9, 10], litter: [2, 4], life: 20, mature: 3,
-    prey: ['chromis', 'tang', 'idol', 'butterfly'], preyPer: 6,
+    prey: ['chromis', 'anthias', 'tang', 'idol', 'butterfly'], preyPer: 6,
     suit: (W, i) => reef[W.habitat[i]],
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 450) / 400),
     sprite: { kind: 'fish', size: 26, back: '#56626e', flank: '#a4acb4', belly: '#dfe3e6', finColor: '#3a4048', tailShape: 'lunate', deep: true, swim: 0.45, show: 2.28 },
@@ -120,7 +128,7 @@ export default function buildReefAnimals(def) {
     hint: 'Big seagrass meadows.' });
   def({ key: 'shark', reef: true, name: 'Whitetip reef shark', sci: 'Triaenodon obesus', group: 'Turtles, sharks & rays', move: 'ground',
     speed: 1.1, hr: 30, max: 4, minK: 1, groupSize: [1, 2], sources: ['E', 'W'], mig: 0.3, breed: [9], litter: [1, 3], life: 20, mature: 4,
-    prey: ['parrotfish', 'tang', 'chromis', 'trout', 'sweetlips'], preyPer: 12,
+    prey: ['parrotfish', 'tang', 'chromis', 'anthias', 'trout', 'sweetlips'], preyPer: 12,
     suit: (W, i) => reef[W.habitat[i]] * (0.6 + 0.4 * Math.max(table(W, i), station(W, i))), // (it rests under table corals and old coral heads by day)
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 500) / 500),
     sprite: { kind: 'shark', size: 34, back: '#7a8088', flank: '#949aa2', belly: '#e4e6e8', swim: 0.4, show: 2.04, beat: 0.5 },
@@ -208,7 +216,7 @@ export default function buildReefAnimals(def) {
   return {
     groups: ['Fish', 'Turtles, sharks & rays', 'Seabirds', 'Invertebrates'],
     names: {
-      clownfish: ['clownfish', 'clownfish'], chromis: ['chromis', 'chromis'], tang: ['blue tang', 'blue tangs'],
+      clownfish: ['clownfish', 'clownfish'], chromis: ['chromis', 'chromis'], anthias: ['anthias', 'anthias'], tang: ['blue tang', 'blue tangs'],
       parrotfish: ['parrotfish', 'parrotfish'], butterfly: ['butterflyfish', 'butterflyfish'], trout: ['coral trout', 'coral trout'],
       greenturtle: ['green turtle', 'green turtles'], shark: ['whitetip reef shark', 'whitetip reef sharks'], manta: ['manta ray', 'manta rays'],
       cleaner: ['cleaner wrasse', 'cleaner wrasse'], idol: ['Moorish idol', 'Moorish idols'], humphead: ['humphead wrasse', 'humphead wrasse'],
@@ -218,7 +226,7 @@ export default function buildReefAnimals(def) {
       sweetlips: ['sweetlips', 'sweetlips'], hawkfish: ['hawkfish', 'hawkfish'],
       longtom: ['longtom', 'longtoms'], blacktip: ['blacktip reef shark', 'blacktip reef sharks'],
     },
-    shy: { seacucumber: 0.1, urchin: 0.1, clownfish: 0.1, chromis: 0.1, tang: 0.2, parrotfish: 0.3, butterfly: 0.2, trout: 0.4, greenturtle: 0.4, shark: 0.6, manta: 0.6,
+    shy: { seacucumber: 0.1, urchin: 0.1, clownfish: 0.1, chromis: 0.1, anthias: 0.1, tang: 0.2, parrotfish: 0.3, butterfly: 0.2, trout: 0.4, greenturtle: 0.4, shark: 0.6, manta: 0.6,
       cleaner: 0.1, idol: 0.2, humphead: 0.5, trevally: 0.4, hawksbill: 0.4, dugong: 0.8, booby: 0.3, noddy: 0.4, sweetlips: 0.3, hawkfish: 0.1,
       longtom: 0.3, blacktip: 0.7 },
     frugivores: [],
