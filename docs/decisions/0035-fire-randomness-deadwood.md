@@ -1,10 +1,24 @@
 # 0035 Fire, randomness and deadwood
 
+## Rules
+
+- Map layout keeps its fixed seed (1987); each new game gets a random run seed for `game.rng` (`Game.randomRunSeed()`, `newGame(seed, mode, difficulty, map, runSeed)`). Tools leave `runSeed` out and keep the old sequence (`seed * 31 + 7`); the game's own entry points pass a random one. `second-growth-pending` takes an optional `runSeed`. Saves store `runSeed`.
+- Sim fire and event code draws from `game.rng`, never `Math.random`. (Wildlife still uses `Math.random`, so browser runs differ even with one run seed; headless tools seed `Math.random`.)
+- Snag and log placement goes through `sim/ground-obstacles.js` (`snagSpot`, `snagPose`, `snagTop`, `logSpot`; walkers cache `cachedDeadwood`); `flora.js`, walkers and perched birds read the same functions.
+- Snags fall one by one: `snagLife(w, i)` (a per-tile hash, nothing saved), then `DECAY.snagRoll` × rot rate a day; a fire fells only a snag past its own standing life.
+- Stones: `turnUpStones` (`tools.js`) by map `stones`, fixed per tile; natural `F.ROCKS` with no `PLACED` mark.
+- Fire: `climate.fireSpeed` (spread steps a day; crown fire always 1), `fireMonths`, `fireRate`, `fireGap`; on a `hardpan` map gravel with groundcover burns. `climate.routineFires` makes natural grass fires quiet (`'grassfire'` event, one `info` note, analytics `routine: true`).
+- `topKill` (`events.js`): a `resprout` tree past 1.5 years is burned back to a sprout (10% root-killed), leaving no snag. Conifers and palms don't resprout. PNW fire rate stays unchanged (Cole).
+- `swardGrowth` (`plants.js`): a young tree in a grass sward grows at down to half pace, every map, after `grazedGrowth`.
+- Checks: `run-seed-check`, `fire-deadwood-check`; `succession-check --mode idle --years 200 --veg`; seeded `balance-sim restore 15`.
+
+## History
+
 2026-11-01. Workstream J of Cole's idea list. Five items: fires hit the same spots every game, snags
 stand in a grid, a burn stays a wall of snags and logs, loosening soil should turn up rocks, and fire
 as an ecological check on Douglas fir and mesquite (left here by 0033).
 
-## 1. Each new game has its own weather and fire (run seed)
+### 1. Each new game has its own weather and fire (run seed)
 
 **Cause.** The game behind the welcome screen always started with `newGame(1987)`, and its random
 numbers came from `mulberry32(seed * 31 + 7)`. Unless a saved farm was being replaced, the player
@@ -27,7 +41,7 @@ floods, storms and events.
 - The wildlife still draws from `Math.random` (128 sites), so in the browser a run differs even
   with the same run seed. Headless tools seed `Math.random` as before.
 
-## 2. Deadwood where the tree stood
+### 2. Deadwood where the tree stood
 
 Snags and logs were drawn at the middle of their tile, so a burned stand stood on a grid.
 `sim/ground-obstacles.js` now places them, and `flora.js`, the walkers (0023) and perched birds
@@ -44,7 +58,7 @@ read the same functions:
   its tile. The windstorm's direction isn't stored, so wind logs aren't aligned to it.
 - Walkers cache each tile's deadwood spot (`cachedDeadwood`) as they do trunks.
 
-## 3. A burn turns back into meadow, not a wall
+### 3. A burn turns back into meadow, not a wall
 
 **What was found.** Nothing stops ground plants on a snag or log tile: `terrainFit` and
 `plantSuit` ignore deadwood, and the drawing puts groundcover under it. A probe of a 466-tile crown
@@ -67,7 +81,7 @@ most came down together, as bright, fresh-looking logs.
   within about a third of its sound years, and beds into the ground (drawn up to 15% lower and
   0.035 deeper) before it turns rotten, mossy and slumped. Nurse logs work as in 0028.
 
-## 4. Loosening the soil turns up stones
+### 4. Loosening the soil turns up stones
 
 `turnUpStones` (`tools.js`): a loosened tile with no feature or tree holds stones if
 `hash2(x, y, 71)` is under the map's `stones` (a quarter of that within 3 tiles of water: river
@@ -86,9 +100,9 @@ back with the rest of the stroke.
 | Sumatra | 0.01 | deep weathered and peaty soils | 0.7% |
 | Amazon | 0.004 | old, deep oxisols | 0.3% |
 
-## 5. Fire as an ecological check
+### 5. Fire as an ecological check
 
-### PNW: unchanged rate (Cole agreed)
+#### PNW: unchanged rate (Cole agreed)
 
 More fire would favour Douglas fir, not hold it back. Mature fir has the thickest bark of the
 westside conifers; hemlock and redcedar are the fire-sensitive ones, and westside Douglas-fir
@@ -98,7 +112,7 @@ the game already kills young fir (no resprouting, under 0.5 growth) in any fire.
 is unchanged. What changed there: broadleaves that resprout (alder, birch, cottonwood, maple, ash,
 oak) now sprout back after fire (below).
 
-### Serengeti: a real grass-fire regime (Cole: every 3–5 years)
+#### Serengeti: a real grass-fire regime (Cole: every 3–5 years)
 
 Untended, the Serengeti burned about 1.5–2% of its land a year in the first 40 years (a tile every
 50–70 years), against one to three years for much of the real Serengeti's grassland (Holdo et al.
@@ -121,7 +135,7 @@ season's first, emits `'grassfire'` instead of `'fire'` (so pause-on-events does
 shows no banner, and goes out without a toast. Crown fires, controlled burns that escape and every
 other map are unchanged. Analytics still counts them (`wildfire` with `routine: true`).
 
-### Trees that resprout (every map)
+#### Trees that resprout (every map)
 
 `topKill` (`events.js`): a tree with `p.resprout` past seedling age (1.5 years) that a fire would
 kill is burned back to a sprout (0.1 growth) on its old roots instead, keeping its age; 10% are
@@ -134,7 +148,7 @@ sausage tree; elsewhere the broadleaves that already had `resprout` (PNW alder, 
 Atlanta's hardwoods; Chinandega's guácimo). Conifers and palms don't resprout. A burned-back sprout
 leaves no snag.
 
-### What fire does and doesn't do to mesquite
+#### What fire does and doesn't do to mesquite
 
 Measured (results below): fire now holds back mesquite *seedlings* in the grass, as it does in the
 field, but it doesn't bring mesquite's share of grown trees down. The share is set by the thickets:
@@ -143,7 +157,7 @@ burn it are weak, and the grown plants resprout. That matches the field too: fir
 clear established *Prosopis* stands. Clearing them is the player's work (pulling,
 `--pull=mesquite` in `herbivore-pressure.mjs`), and fire then keeps the cleared grassland clear.
 
-## Results
+### Results
 
 `succession-check --mode idle --years 200 --veg`, seeds 1 and 2, before (the water-wetlands
 commit, 699c712) and after, run side by side at `nice -n 12`:
@@ -176,7 +190,7 @@ commit, 699c712) and after, run side by side at `nice -n 12`:
   PNW), and `flora-rebuild-bench pnw` is within noise. A burning Serengeti runs its fire step twice
   a day.
 
-### Grass competition (Cole, the same day)
+#### Grass competition (Cole, the same day)
 
 Cole asked for grass to slow young trees, so the fire trap holds. `swardGrowth` (`plants.js`): a
 tree under 0.35 growth in a grass or sedge sward grows at down to half pace (full sward: groundG

@@ -1,9 +1,21 @@
 # 0021 Watch pace: a speed for sitting and watching
 
+## Rules
+
+- Watch pace is `WATCH_PACE`, speed index 4 (after fastest, so saved speeds 1–3 keep their meaning; key `0`): the calendar runs at 0.13 days a second while animals and visitors run at `ANIMAL_SPEEDS[4]` 0.45. Sky: `DAY_PACE`, `NIGHT_PACE`.
+- Compare speeds by value, never by index: `SPEEDS` for anything that follows the days (ground repaint, plant rebuild throttles in `scene.js`), `ANIMAL_SPEEDS` for anything that follows the animals (`canopy-motion.js`, `canopy-grips.js`). The save contract allows `0` to `SPEEDS.length - 1`.
+- Life stages (grown, old, independent, size) read `lifeAge(a)` (`a.age - a.lag`), never `a.age`; `a.age` stays the animals' clock for behaviour timers.
+- Anything that can start a hunt at any moment goes through `Wildlife.paced()` (`lifePace`), so tries per calendar day don't grow with animal pace.
+- Population-changing rules run on the calendar (births, arrivals, departures, mortality, hunger, the daily hunt roll); keep new ones there.
+- Watch mode doesn't switch to watch pace on its own.
+- Check: `tools/farm-state-check.mjs`.
+
+## History
+
 2026-10-24. Cole asked for "real time game speed where you can just observe the animals throughout
 a day more realistically. I want this game to be something you can sit and watch."
 
-## How time works
+### How time works
 
 `SPEEDS` in `config.js` is game days per real second. The calendar (plants, weather, months,
 births, arrivals, hunger) ticks once per game day (`Game.dailyTick`, `Wildlife.daily`/`monthly`).
@@ -14,7 +26,7 @@ days.
 
 Literal real time (a day in 24 hours) would freeze the animals.
 
-## Decision
+### Decision
 
 A fifth speed, **watch pace** (`WATCH_PACE`, index 4): the calendar slows to 0.13 days a second
 (a month in about 75 seconds, a year in about 15 minutes) while the animals and visitors live at
@@ -36,7 +48,7 @@ against the land, so it reads as slow motion.)
   the animals (`canopy-motion.js`, `canopy-grips.js`). The save contract allows `0` to
   `SPEEDS.length - 1`.
 
-### Keeping the ecology honest
+#### Keeping the ecology honest
 
 At watch pace each calendar day holds about 3½ days of animal life (5½ when the animals ran at 0.72). Most of what changes
 populations already runs on the calendar (births, arrivals, departures, mortality, hunger, the
@@ -75,7 +87,7 @@ six years at 5.54×), drinking and resting.
 calendar runs at 0.13 while the animals run at their own pace and age by the calendar, and that the two
 clocks agree at the other speeds.
 
-## Not done
+### Not done
 
 Animals don't yet act by time of day (grazers at dawn and dusk, owls at night, bedding down): the
 sky clock isn't part of the simulation.

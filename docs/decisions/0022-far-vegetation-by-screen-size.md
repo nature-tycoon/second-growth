@@ -1,5 +1,15 @@
 # 0022 Far vegetation by screen size, on every computer
 
+## Rules
+
+- Far tree and shrub models (`far-models.js`, level 3 in `PlantPool.geoFor`) are on for every computer at every Detail level, chosen for the whole view by zoom in `Flora.setZoom`: tile under ~16 CSS px (zoom < 0.36) on High and Balanced, under 23 (zoom < 0.5) on Fast.
+- Keep it a zoom test, not per-plant distance: the play camera is orthographic. Eye level passes its own fixed zoom (`eyeDetail` 1.6) and keeps close models. No per-species thresholds (the view would pop in stages).
+- `flora.setFar(false)` switches them off to compare (like `actors.fauna.farModels`). `far_models` in `perf_sample` says whether they were drawn in the sampled frame.
+- Close-ups keep their detail (Cole's condition in 0004). Palms, bamboo and corals have no far model.
+- Checks: `node tools/far-model-check.mjs`; review `node tools/far-vegetation-review.mjs` then `http://localhost:8347/tools/far-vegetation-review.html`; cost `node tools/play-profile.mjs sumatra,amazon,serengeti high|fast` with `PLAY_VIEWS=play,wide`.
+
+## History
+
 2026-10-24. Step 2 of the frame-rate plan from the [PostHog player performance](../posthog-player-perf.md)
 lookups: the typical player ran about 22 fps, a third under 20, and slow players were held back by
 drawing on the processor and, on weak laptops, the GPU. iPads and zoomed-out desktops see the most
@@ -7,7 +17,7 @@ map. This is the [performance review](../performance-review-2026-10-23.md)'s fin
 [0004](0004-ecosystem-performance.md)'s P4 vegetation item. Cole approved simplifying distant
 plants in 0004, as long as close-ups keep their detail.
 
-## Before
+### Before
 
 Trees and shrubs have four models (`PlantPool.geoFor`): close (0), distant (1), in-between (2) and
 far (3, made by `far-models.js`). `Flora.setZoom` picks one for the whole view from the zoom. The
@@ -16,7 +26,7 @@ far models were only allowed once the game had decided the computer was slow: th
 list. A computer that kept up drew the distant models even with the whole valley in view, 6–10M
 triangles over a grown rainforest.
 
-## Decision
+### Decision
 
 The far models are on for everyone, at every Detail level. The switch stays where the slow path
 had it: a tile under about 16 CSS pixels across (zoom < 0.36) on High and Balanced, under 23 (zoom
@@ -40,7 +50,7 @@ the `weakGpu` renderer option (`main.js` still uses `weakGpu` to start weak lapt
 `far_models` in `perf_sample` now says whether the far models were drawn in the sampled frame
 (previously: whether they were allowed).
 
-## Results
+### Results
 
 `node tools/play-profile.mjs sumatra,amazon,serengeti high|fast 3`, `PLAY_VIEWS=play,wide`,
 `PLAY_SETUP="R.autoRes=false;R.setRes(1)"` (before also `R.useFar(false)`: what a computer that kept
@@ -66,7 +76,7 @@ Look: at play zoom the pictures are identical. Just past the switch (zoom 0.34 H
 broadleaf crowns read as chunkier clumps without the thin white limbs, and a little more ground
 shows between them; Cole to judge on the review page.
 
-## Checks
+### Checks
 
 - `node tools/far-model-check.mjs`: far models on from the start, the switch zooms on High and
   Fast, close/in-between models at play zoom and eye level, triangle savings per map.
@@ -74,7 +84,7 @@ shows between them; Cole to judge on the review page.
   before/after screenshots of the same frozen scene (`setFar(false)` vs on).
 - `node tools/play-profile.mjs sumatra,amazon,serengeti high|fast` with `PLAY_VIEWS=play,wide`.
 
-## Open
+### Open
 
 - The switch is in CSS pixels, so on a Retina screen a far crown is about twice as many device
   pixels as on a phone. A device-pixel switch would keep the detailed models longer on Retina, the

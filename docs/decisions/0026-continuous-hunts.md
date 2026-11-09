@@ -1,5 +1,21 @@
 # 0026 Continuous hunts: stalk, freeze, charge, pursue
 
+## Rules
+
+- One hunt for every hunter on every map: `huntStep` in `sim/animal-life.js` (approach, creep, rush, circle, `ease`). Hunts move only through `wl.stepToward` (0025); a pounce moves along the ground through it too.
+- Balance anchor: each species' kills per year stay where they were tuned, not real per-hunt success rates. The catch roll on contact is unchanged (`predationCatchChance`). Anything that changes escape odds (a tried "jink" did) needs the catch odds retuned with it.
+- Per-style numbers live in `STYLES` (stalk, cheetah, chase, ambush, strike, wade, pursue, stoop): `accel`, `turn`, stamina, patience, `pounce`, `reach`.
+- `hunt.v` and `hunt.hd` are the hunter's own speed and heading: anything that stops or turns a hunter mid-hunt sets them, not `a.x`/`a.orientation`.
+- End a hunt from outside `huntStep` only through `letGo` (cooldown, ease, rest), never by setting `idle`. A miss goes through `pressOn`. `ease` is a hunt phase (`a.state` stays `hunt`).
+- A frozen stalker doesn't turn to face its prey (its capsule would swing into trunks). Don't start hunts on unreachable prey (`huntBlocked`).
+- Cats, and foxes and coyotes on prey up to 4 kg, end a rush in a pounce (`pounce`, `pounceFor`, `startLeap`/`leapStep`); a leap that lands short is a miss. Others grab (`hunt.lunge`).
+- Snakes hunt in the `strike` style: only prey within `reach`, still and hidden, `lieInWait` when hungry.
+- Drawing: `hunt.leap` (`u`, `arc`) and `hunt.lunge` are what `actors.js` reads. A negative `fly` means a leap (legs stretched): keep `fly` ≥ 0 for everything else and clamp `max(fly, 0.0)` where the shader scales by `1 - fly`.
+- Rates are per day: check balance with both `balance-sim` (0.1-day steps) and `hunt-check` (0.02).
+- Checks: `node tools/hunt-check.mjs`, `node tools/predation-soak.mjs 12`, `tools/snake-hunt-probe.mjs`, `tools/pounce-probe.mjs`, plus animal-life, prey-avoidance, activity, challenging-ecology, consistency and seeded `balance-sim restore 15`.
+
+## History
+
 2026-10-31. Cole: "Make the hunting more accurate, currently it just runs after the prey, stops,
 runs after it again, stops. I'd like it to be a more fluid and continuous hunt, also increase the
 stalking phase. Make sure that predation remains balanced." Built on 0025 (shared steering): hunts
@@ -10,7 +26,7 @@ retune balance toward real success rates; after a failed hunt the hunter rests a
 another animal; stalking cats use cover (grass, brush) in place of approaching from downwind, since
 the game has no wind.
 
-## Findings
+### Findings
 
 Measured with `tools/hunt-check.mjs` (below) on the code before this change: every map with hunters,
 hungry hunters, 150 days, three seeds.
@@ -33,7 +49,7 @@ hungry hunters, 150 days, three seeds.
 - Hunters spend most of their time walking to prey and idle (lions 37% and 29%); kills per hunter
   are low (2–5 per hunter-year in the 12-year soak), so hunting efficiency sets how well predators eat.
 
-## Decision
+### Decision
 
 One hunt, start to end, for every hunter on every map (`huntStep` in `sim/animal-life.js`). The
 phases are as before (approach, creep, rush, a raptor's circle), plus `ease`, slowing to a stop.
@@ -91,7 +107,7 @@ another one nearby is chosen first, and a second try at the same one begins with
 per-hunt success rates are the reference below, not the target: per hunt, game hunters now
 succeed more often than real ones, because kills per year were kept where the balance was tuned.
 
-## Real hunts, for reference
+### Real hunts, for reference
 
 Game time is compressed (a day is about 1.4 s), so durations are compared in shape, not length.
 
@@ -108,7 +124,7 @@ Game time is compressed (a day is about 1.4 s), so durations are compared in sha
   1997, *Journal of Zoology* 242). Tigers: one hunt in ten to twenty (Schaller 1967, *The Deer and
   the Tiger*). Crocodiles: an ambush lunge from the water; no reliable rate.
 
-## Verification
+### Verification
 
 `node tools/hunt-check.mjs` passes the limits in `problems()`: under 1 stall per 100 chase steps;
 at most 10% of failed hunts followed within 2 days by a sprint straight at the same prey (birds
@@ -151,7 +167,7 @@ challenging-ecology, consistency. `animal-steering-check` serengeti seed 1987 fa
 (1.4 per 1000) from zebras walking, which base shows on other seeds too (a 0025 walk issue, not
 hunting); hunting leopards in trunks were fixed here (a frozen stalker no longer turns on the spot).
 
-## Snakes lie in wait (2026-11-08)
+### Snakes lie in wait (2026-11-08)
 
 Snakes used the crocodiles' `ambush` style: a hunt from up to 12 tiles, approached at 0.8 of a
 0.5-speed snake, so prey walked off or saw it, and pythons and anacondas caught nothing in 3-year
@@ -166,7 +182,7 @@ held within 2 tiles of water by `huntBlocked`. `node tools/snake-hunt-probe.mjs 
 why a snake does or doesn't catch prey; `predation-soak` on 3 years: python 0 → 0.3 kills a
 snake-year (and 1.3 → 4.3 pythons), anaconda 0-1 → 2-6 catches in 8 years.
 
-## Pounce, grab and jink (2026-11-08)
+### Pounce, grab and jink (2026-11-08)
 
 Cole: hunts should feel rich and natural, with predators leaping at prey where real, through shared
 hunt code rather than per-species patches.
@@ -205,7 +221,7 @@ score 64.7/65.3/62.6 → 60.9/64.3/62.8, mature trees 27/33/40 → 28/49/30, rab
 (limit 1.5): the run takes another path after the first leap, and the code before this change
 gives cheetahs the same short stalks on seed 5 (0.58), so it's that seed, not the pounce.
 
-## Gotchas
+### Gotchas
 
 - `hunt.v` and `hunt.hd` are the hunter's own speed and heading. Anything that stops or turns a
   hunter mid-hunt should set them, not `a.x`/`a.orientation`, or the next step carries on as before.

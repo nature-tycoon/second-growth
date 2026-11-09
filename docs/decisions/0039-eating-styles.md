@@ -1,8 +1,19 @@
 # 0039 Eating styles
 
+## Rules
+
+- Eating is drawn through shared styles chosen by what the meal is, not by species (`render3d/eating-pose.js`, used by `actors.js`): crop, browse, tear, hand to mouth, snap; birds keep peck.
+- Drawing only: it reads `a.state`, `a.forage.food`, `a.fruitMeal` and the browsed tile and never writes to the animal, so simulation and balance are unchanged.
+- Drawing-only idle nibbling goes in `NIBBLERS`, never `GRAZERS` (`GRAZERS` in `sim/steering.js` also sends grazers back to water).
+- Fish eat through position and pitch (the snap), not the head: swimming forces the head level and fish use the head slot for body bend (`mo.bend`).
+- Hanging and gripping animals pass -1 in the head slot for their grips (a sloth's leaf meal shows nothing). Benthic animals are skipped.
+- Check: `tools/animal-closeup-review.html?pose=crop|browse|hand|snap`; cost `node tools/play-profile.mjs serengeti high 1`.
+
+## History
+
 Status: accepted, 2026-11-08 (wave 2, session 5)
 
-## Decision
+### Decision
 
 Every animal that has a meal in the simulation is drawn eating it, through a few shared styles
 chosen by **what the meal is**, not by species (`render3d/eating-pose.js`, used by `actors.js`):
@@ -24,7 +35,7 @@ Two cosmetic additions have no meal in the simulation behind them:
   now and then while standing, the same idle rule grazers already had (`GRAZERS`).
 - **River fish** (not reef) pick at drift now and then while idle.
 
-## Gotchas
+### Gotchas
 
 - `GRAZERS` lives in `sim/steering.js` and also sends grazers back to water, so drawing-only
   additions go in `NIBBLERS`, never `GRAZERS`.
@@ -34,7 +45,7 @@ Two cosmetic additions have no meal in the simulation behind them:
   so a sloth's leaf meal shows nothing (see s5.md).
 - Benthic animals (urchin, sea cucumber) have no head to show and are skipped.
 
-## Check
+### Check
 
 `tools/animal-closeup-review.html?pose=crop|browse|hand|snap` shows each style on any species.
 `node tools/play-profile.mjs serengeti high 1` before and after (2026-11-08, on battery):

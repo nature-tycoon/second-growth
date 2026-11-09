@@ -1,5 +1,18 @@
 # 0024 Tree heights from real heights
 
+## Rules
+
+- Each tree species carries its mature height in metres (`heightM` in `js/data/plants-*.js`); `js/render3d/tree-stature.js` turns it into drawn height on one curve for every map (`statureTiles`), never shorter than the shape (`treeStature`). A species without `heightM` draws as before.
+- Read a tree's height only through `treeHeight` / `treeStature`, never `TREE_SHAPES[...].height` or `boundingBox.max.y`.
+- Taller, not wider: the extra height is a lift after building (`liftTree` in `geometry/trees.js`, `shape.lift`); crowns keep their shape and spacing. Don't stretch the whole tree (`sy`) or raise `trunkH` (both broke the climbing checks). Conifers put half into `height`, half into `lift`.
+- Any height picked as a fraction of a tree goes through `treeLevel(geo, t)`, measured on the tree as built before the lift (`userData.lift = { at, by }`).
+- Flower and fruit positions on a crown are in shape units: add `shapeDef.lift`.
+- Geometry is cached by `type:key:variant:lift`; `setStature(false)` plus `flora.rebuild(game, true)` draws the old heights.
+- Stuck orangutans retrace their last holds (`canopyTrail`); a ~20-day wait on a blocked `crownRoute` is still open.
+- Checks: climbing checks must pass unchanged (`canopy-grips`, `canopy-route`, `canopy-support`, `howler-prototype`, `howler-jump`, `howler-fork-timing`, `primate-behavior`, `siamang-swing`); review `node tools/tree-stature-review.mjs [maps]` then `http://localhost:8347/tools/tree-stature-review.html`; cost `node tools/play-profile.mjs`.
+
+## History
+
 2026-10-25. Cole saw elk as tall as the conifers on the PNW map. Measured as drawn (a tile is about
 8 m, `tools/animal-size-audit.mjs` for the animals): an elk cow is 0.69 tiles, a bull with antlers
 1.0, and a mature Douglas-fir about 2 tiles, so the fir stood three cows tall where a real one is
@@ -7,7 +20,7 @@
 their species, while the few giants (kapok, tualang, Brazil nut, ceiba) had been drawn about 3.4
 and already looked right.
 
-## Decision
+### Decision
 
 Each tree species carries its typical mature height in metres (`heightM` in `js/data/plants-*.js`),
 and one module, `js/render3d/tree-stature.js`, turns that into how tall it is drawn:
@@ -34,7 +47,7 @@ and one module, `js/render3d/tree-stature.js`, turns that into how tall it is dr
 
 A species without `heightM` (corals, mangroves) draws as before.
 
-## Gotchas
+### Gotchas
 
 - Stretching the whole tree upward (an instance `sy`) was tried first and broke the climbing checks
   (`canopy-grips-check`, `howler-prototype-check`): it steepens every limb a monkey walks.
@@ -53,7 +66,7 @@ A species without `heightM` (corals, mangroves) draws as before.
 - Tree geometry is cached per species by `type:key:variant:lift`, so `setStature(false)` followed by
   `flora.rebuild(game, true)` draws the old heights (used by the review tool).
 
-## Checks
+### Checks
 
 - `node tools/tree-stature-review.mjs [maps]`, then
   `http://localhost:8347/tools/tree-stature-review.html`: before/after screenshots at play zoom,
@@ -62,7 +75,7 @@ A species without `heightM` (corals, mangroves) draws as before.
   `howler-prototype-check`, `howler-jump-check`, `howler-fork-timing-check`) must pass unchanged.
 - Cost: `node tools/play-profile.mjs` before and after (below).
 
-## Cost
+### Cost
 
 `play-profile` (High, 3 years, resolution held, on battery, so read differences under ~10% as
 noise), HEAD then this change:
@@ -77,7 +90,7 @@ noise), HEAD then this change:
 No new triangles (same crowns, a longer trunk). Top speed on Sumatra was already over budget
 before this (the daily plant redraw, performance review finding).
 
-## Known
+### Known
 
 `primate-stall-check` case 1 (orangutan, speed 1, 60 fps, seed 1987) went from passing to a 20.8-day
 stuck recovery route (limit 18). The stuck hold is mid-crown, where the geometry is unchanged; the
