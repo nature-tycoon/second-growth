@@ -268,6 +268,7 @@ check('Legacy drinking poses are repaired immediately and survive the restored r
 });
 check('An altered shoreline safely cancels an approach', () => {
   reset(); pond(); const a = spawn('zebra', 27, 30); a.thirst = 20;
+  a.x = 27.05; a.y = 30.5; // (a step back from the bank: spawned right at its drinking spot, it drinks there and then)
   g.wildlife.waterhole(a, ANIMAL.zebra); assert.equal(a.state, 'approach');
   g.world.terrain.fill(T.SOIL); g.wildlife.update(0.05);
   assert.equal(a.state, 'idle'); assert.equal(a.localGoal, null); assert.ok(!(a.drinkT > 0));

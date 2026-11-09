@@ -4,9 +4,13 @@
 // begins beyond the north and east fences: none of it is left on the ranch.
 
 import { World, riverRow, generateHeights } from '../world.js';
-import { T, F } from '../config.js';
+import { T, F, clamp } from '../config.js';
+import { smoothstep } from './landform.js';
 import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
+
+// the igarapé, winding down from the terra firme to the river
+const creekX = y => Math.round(52 + Math.sin(y / 9) * 6 + Math.sin(y / 23 + 1) * 4);
 
 export function generateRanch(seed = 2024, catalog = activeCatalog) {
   const w = new World(undefined, undefined, catalog);
@@ -65,7 +69,6 @@ export function generateRanch(seed = 2024, catalog = activeCatalog) {
   rect(58, 75, 63, 77, i => { if (w.terrain[i] !== T.ROAD) { w.terrain[i] = T.GRAVEL; w.clearPlants(i); } });
 
   // The igarapé: a stream meandering down from the forest to the river, its banks trampled bare.
-  const creekX = y => Math.round(52 + Math.sin(y / 9) * 6 + Math.sin(y / 23 + 1) * 4);
   for (let y = 0; y < Hh; y++) {
     const x = creekX(y), i = w.idx(x, y);
     if (w.terrain[i] === T.RIVER) break;
@@ -130,10 +133,30 @@ export function generateRanch(seed = 2024, catalog = activeCatalog) {
     if (w.inb(x, y) && open(i) && rng() < 0.18) set(i, rng() < 0.6 ? 'cecropia' : 'inga', 0.8, 6);
   }
 
-  generateHeights(w, []);
+  generateHeights(w, [], floodplainLand(w));
   for (const st of w.structures) if (st) w.flattenRect(st.x, st.y, st.w, st.h);
   w.hydroDirty = true;
   return w;
+}
+
+// Two levels (0040): the várzea, a flat strip along the river that the high water floods each
+// year, and the terra firme, 10-17 m higher behind a short bluff, gently rolling. The igarapé
+// has cut its own valley down through the bluff.
+function floodplainLand(w) {
+  return {
+    drain: true,
+    base(x, y) {
+      const rt = riverRow(x, w.h), bluff = rt - 13 + (valueNoise(x, 3, 14, 301) - 0.5) * 5;
+      const varzea = 0.2 + valueNoise(x, y, 7, 303) * 0.35 + Math.max(0, rt - 1 - y) * 0.012;
+      let firme = 4.2 + 1.6 * clamp((bluff - y) / 70, 0, 1.2) + (valueNoise(x + 20, y, 13, 305) - 0.5) * 1.6 + (valueNoise(x, y, 5, 307) - 0.5) * 0.4;
+      if (y < 0) firme += -y * 0.25;
+      const d = Math.abs(x - creekX(Math.min(y, rt))); // (the igarapé's valley)
+      const floor = varzea + 0.5 + 1.8 * clamp((bluff - y) / 80, 0, 1); // (rising gently upstream)
+      firme -= Math.max(0, firme - floor) * (1 - smoothstep(1, 15, d));
+      if (y > w.h + 3) return 0.2 + (y - w.h - 3) * 0.3; // (the far bank)
+      return varzea + (firme - varzea) * smoothstep(bluff + 2.5, bluff - 2.5, y);
+    },
+  };
 }
 
 // The land around the ranch: rainforest north and east, a neighbour's pasture west,

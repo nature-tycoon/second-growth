@@ -1,6 +1,6 @@
 # Proposal: more terrain slope
 
-2026-11-09. Wave 2, session 9. Design only: no game code has changed. Cole decides.
+2026-11-09. Wave 2, session 9. **Cole chose B the same day; it is built as [0040](../decisions/0040-terrain-relief.md).**
 
 ## How height works now
 

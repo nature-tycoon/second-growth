@@ -64,6 +64,7 @@ Read the decision for an area before changing it. Each record in [docs/decisions
 
 - [0038](docs/decisions/0038-smooth-first-minutes.md) Smooth first minutes: animal models warmed in idle time (`Actors.warmAnimals`), 24-tile plant regions under a 4 ms frame budget, and the live day in parts (`Game.dayWork`; `dailyTick` still does it all at once, so headless results are unchanged). Tests that stub habitat replace `Wildlife.suitabilityWork`, not `computeSuitability`. Measure with `tools/new-game-profile.mjs`. Its last section has the per-day simulation cost after wave 2 and the same-answer fixes (`wetTest` is per search: make a new one each time, the water moves)
 - [0039](docs/decisions/0039-eating-styles.md) Eating styles by food, drawing only (`render3d/eating-pose.js`): crop, browse (up at trees), tear, hand to mouth, fish snap; `NIBBLERS` for idle nibbling, never `GRAZERS` (it moves grazers to water)
+- [0040](docs/decisions/0040-terrain-relief.md) Terrain relief: each map's own landform (`land.base` in `generateHeights`) and a drains-downhill pass (`js/maps/landform.js`); shape water's path inside `base()`, not after; old saves keep their land. `tools/terrain-relief-check.mjs`
 
 New decisions take the next unused number and one line here.
 

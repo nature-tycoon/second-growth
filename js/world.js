@@ -5,6 +5,8 @@ import { MAP_W, MAP_H, BORDER, T, F, isWater, clamp } from './config.js';
 import { activeCatalog } from './data/catalog.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
 import { removeTree } from './sim/plants.js';
+import { fillPits, creekDownhill, tileDistance, smoothstep } from './maps/landform.js';
+import { WATER_FILL } from './sim/waterline.js';
 
 export const STRUCTURES = {
   // old farm buildings are roosts for bats, owls and swallows (roost: true); they can be torn down, and put back up
@@ -129,7 +131,8 @@ export class World {
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;
   }
   shiftTile(x, y, amt) {
-    for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) this.setVert(x + dx, y + dy, clamp(this.vert(x + dx, y + dy) + amt / 2, -1.5, 14));
+    // (40 levels: above the highest hill any map has, 0040)
+    for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) this.setVert(x + dx, y + dy, clamp(this.vert(x + dx, y + dy) + amt / 2, -1.5, 40));
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;
   }
   flattenRect(x, y, wd, hd) {
@@ -327,10 +330,34 @@ export function generateFarm(seed = 1987, catalog = activeCatalog) {
   blob(6, 30, 3, 3, 'snowberry', 0.5);
   for (let x = 48; x <= 58; x++) if (rng() < 0.45) plant('rose', x, 50, 0.9, 5);
 
-  generateHeights(w, FIELDS);
+  generateHeights(w, FIELDS, pnwLand(w));
   for (const st of w.structures) if (st) w.flattenRect(st.x, st.y, st.w, st.h);
   w.hydroDirty = true;
   return w;
+}
+
+// Cascade foothills (0040): the farm on the valley floor by the river, the land rising ever more
+// steeply into forested spurs and draws to the north, about 44 m from the river to the north fence
+// and more beyond it. The ditch runs in a swale it has cut.
+function pnwLand(w) {
+  const ditch = tileDistance(w, i => w.terrain[i] === T.CREEK, 8);
+  const ty = y => clamp((w.h - 4 - y) / (w.h - 4), 0, 1.4);
+  const rise = y => 21 * smoothstep(0.42, 1.45, ty(y)) ** 1.6; // (levels the foothills add over the valley)
+  return {
+    drain: true,
+    base(x, y, h) {
+      const hill = smoothstep(0.42, 1.2, ty(y));
+      let up = rise(y);
+      // spurs and draws running down the hillside, stronger the higher it gets
+      // (only ever adding height, so they can't leave a rim where they ease out down the hill)
+      up += valueNoise(x + 9, y * 1.8, 11, 211) * 3 * hill + valueNoise(x, y, 5, 213) * 0.7 * hill;
+      if (y < 0) up += -y * 0.6; // (steeper still in the forest beyond the fence)
+      // the ditch's swale, deeper up the hill where the water has cut further down
+      const d = w.inb(x, y) ? ditch[w.idx(x, y)] : 255;
+      if (d < 8) up -= (0.5 + 1.6 * hill) * (1 - d / 8) ** 2;
+      return h + up;
+    },
+  };
 }
 
 // Terrain of any tile, including the decorative surroundings.
@@ -343,7 +370,10 @@ export function extTerrain(w, x, y) {
 
 // A valley sloping from the foothills in the north down to the river, with rolling
 // pasture, fields the old farmers leveled, and water sitting in its own hollows.
-export function generateHeights(w, fields) {
+// A map with its own landform (0040) passes `land.base(x, y, h)`: the levels to use instead of
+// this valley's `h`, before the water is carved. With `land.drain` the land is made to drain
+// downhill (no closed hollows, creek beds falling to the river) and each pond keeps its own level.
+export function generateHeights(w, fields, land = null) {
   const B = BORDER;
   const inField = (x, y) => fields.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 + 1 && y >= y0 && y <= y1 + 1);
   for (let y = -B; y <= w.h + B; y++) for (let x = -B; x <= w.w + B; x++) {
@@ -355,8 +385,9 @@ export function generateHeights(w, fields) {
     const n = (valueNoise(x + 50, y + 50, 16, 31) - 0.5) * 2.4 + (valueNoise(x + 50, y + 50, 6, 37) - 0.5) * 0.6;
     const nearRiver = clamp((riverRow(x, w.h) - 1 - y) / 9, 0, 1);
     h += n * (inField(x, y) ? 0.25 : 1) * (y > w.h + 3 ? 0.5 : nearRiver);
-    w.setVert(x, y, h);
+    w.setVert(x, y, land ? land.base(x, y, h) : h);
   }
+  if (land?.drain) fillPits(w, (x, y) => extTerrain(w, x, y) === T.RIVER || extTerrain(w, x - 1, y - 1) === T.RIVER);
   // water tiles sit below their banks
   const pondCorners = [];
   for (let y = -B; y < w.h + B; y++) for (let x = -B; x < w.w + B; x++) {
@@ -366,12 +397,40 @@ export function generateHeights(w, fields) {
     else if (t === T.MARSH) w.carve(x, y, 0.2);
     else if (t === T.POND) pondCorners.push([x, y]);
   }
-  if (pondCorners.length) {
+  // (one level for all the ponds, the lowest; a map that drains gives each pond its own)
+  const ponds = land?.drain ? pondGroups(w, pondCorners) : [pondCorners];
+  for (const pond of ponds) if (pond.length) {
     let lo = Infinity;
-    for (const [x, y] of pondCorners) lo = Math.min(lo, ...w.corners(x, y));
-    for (const [x, y] of pondCorners) for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) w.setVert(x + dx, y + dy, lo - 0.5);
+    for (const [x, y] of pond) lo = Math.min(lo, ...w.corners(x, y));
+    for (const [x, y] of pond) for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) w.setVert(x + dx, y + dy, lo - 0.5);
+    // dug into a slope, a pond needs a bank on its low side that stands above its water, as farm
+    // ponds have (else the water model spills it down the whole hillside)
+    if (land?.drain) {
+      const bank = lo - 0.5 + WATER_FILL[T.POND] + 0.15, own = new Set(pond.map(([x, y]) => x + ',' + y));
+      for (const [x, y] of pond) for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) {
+        const vx = x + dx, vy = y + dy;
+        if ([[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([ox, oy]) => own.has((vx + ox) + ',' + (vy + oy)))) continue; // (the pond's own corners)
+        if (w.vert(vx, vy) < bank) w.setVert(vx, vy, bank);
+      }
+    }
   }
+  if (land?.drain) creekDownhill(w);
   w.heightDirty = true;
+}
+
+// Pond tiles in touching groups (8-way): each is one pond.
+function pondGroups(w, tiles) {
+  const key = (x, y) => x + ',' + y, left = new Map(tiles.map(p => [key(...p), p])), groups = [];
+  for (const [k, p] of left) {
+    left.delete(k);
+    const g = [p];
+    for (let h = 0; h < g.length; h++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const kk = key(g[h][0] + dx, g[h][1] + dy), q = left.get(kk);
+      if (q) { left.delete(kk); g.push(q); }
+    }
+    groups.push(g);
+  }
+  return groups;
 }
 
 // ---------------------------------------------------------------- Surroundings (render only)
