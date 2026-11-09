@@ -118,5 +118,5 @@ export function climberArrive(wl, a) {
   // nose down: digging up something to eat, or burying a nut for the winter (more in the fall)
   a.cache = Math.random() < ([6, 7, 8].includes(wl.game.month) ? 0.6 : 0.25) ? 'bury' : 'dig';
   a.wait = 1 + Math.random() * 1.5;
-  facePoint(a, a.x + Math.cos(a.hd ?? 0), a.y + Math.sin(a.hd ?? 0));
+  facePoint(a, a.x + Math.cos(a.heading ?? 0), a.y + Math.sin(a.heading ?? 0));
 }

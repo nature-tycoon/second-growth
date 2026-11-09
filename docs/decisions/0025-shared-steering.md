@@ -4,14 +4,17 @@
 
 - One order for every ground animal, every step: intent → steer and move (`spacing.steer`, `steerAround`, then `resolveStep`) → spacing shoves (`AnimalSpacing.separate`) → settle (`sim/steering.js`: drinkers face water, standing bodies pushed out of wood, squeezes ended, walkers off water).
 - Hunts, flight, bouts, play and approaches move only through `wl.stepToward(a, tx, ty, sp)` (or `smoothWalk`); never write `a.x`/`a.y` directly. A new paired action (pack kill, mother and young) needs a validated spot, a tolerance and a timeout, like bouts (`squareUp`, `sparAt`).
-- Bodies are capsules along `a.hd ?? a.orientation` (`animalRadius / 0.65` long), plus a rack disc for antlered males, capped at `KEEP_MAX`. Antler clearance is body shape, never a wider round radius. `inWood` takes the heading.
+- One facing: `a.heading` (radians, x east, y south) is the only field for which way an animal faces; never add another. Behaviours set it through `facePoint` or turn it at `turnRate(def)` (`steering.js`: species `turn` in its data, else by size and move type); flight (`FLEE_TURN`), a chase (`hunt.line`) and a bout (`sparHeading`) keep intent lines that feed it. Old saves map `hd`, `orientation`, `facing`, `walkHeading` (and a patrol's vector `heading` → `patrolDir`) in `oldFacing`.
+- Drawing turns every animal and visitor through `turnToward(st, target, TURN.x, k, max)` in `actors.js`, once a frame: kinds differ only by target (heading, cling bark, munch, branch) and `TURN` pace. A new special case is a target or a rate, never another `st.yaw =`.
+- Reef animals move only through `reefStep(w, a, dist)` (along `a.heading`, never out of their water): swimming, gliding, hovering and reef chases.
+- Bodies are capsules along `a.heading` (`animalRadius / 0.65` long), plus a rack disc for antlered males, capped at `KEEP_MAX`. Antler clearance is body shape, never a wider round radius. `inWood` takes the heading.
 - `settle` pushes a body out of wood only in standing states (`idle`, `feed`, `forage`): a new standing state must be added there.
 - Water: `DRY_FOOTED` small animals (`animal-terrain.js`) never enter marsh or creek. Other land walkers may wade across, but no route, rest or drink spot ends on water. A new target selector must exclude water tiles for move `ground`, or `settle` keeps walking animals off them (and `pathTo` there is only cheap because none do).
 - Herds keep `HERD_ROOM` (0.85 of two lengths) when grazing or resting (`herdRoom`, `restSpot`); drinkers and a calf by its mother are exempt. Flight turns at `FLEE_TURN`, also when cornered.
 - `GRAZERS` and the head-up rule live in `steering.js`; an idle grazer with water behind it keeps `a.headUp`. `headUpKey` must be cleared whenever the animal isn't an idle non-drinking grazer.
 - New `Animal` fields are declared on `Animal`: `drinkFrom`, `sparSince` (saved), `fleeHd`, `settleKey`, `headUp`, `headUpKey` (not saved). `walkPath` runs `resolveStep` after a pivot too.
 - Drawing: stride follows ground covered (`render3d/stride.js`, `groundPace`); `node tools/gait-pace-probe.mjs`.
-- Check: `node tools/animal-steering-check.mjs [--report] [maps]` (reliable only at its default seed); with ground-obstacles, animal-positioning, clustering, life, turning, home-range checks and seeded `balance-sim restore 15` on 8+ seeds.
+- Check: `node tools/motion-sweep-check.mjs [--report]` (snaps, wobbles, spins per species) and `node tools/animal-steering-check.mjs [--report] [maps]` (reliable only at its default seed); with ground-obstacles, animal-positioning, clustering, life, turning, home-range checks and seeded `balance-sim restore 15` on 8+ seeds.
 
 ## History
 
@@ -201,7 +204,7 @@ on the overland trip") and `primate-stall-check` (orangutan hold) fail before an
 
 ### Gotchas
 
-- `inWood` and the keep-out test the body along `a.hd ?? a.orientation`. A new behaviour that turns
+- `inWood` and the keep-out test the body along `a.heading`. A new behaviour that turns
   an animal (a `facePoint`) gets its body pushed out of wood by `settle` only if it is standing
   (`idle`, `feed`, `forage`). A new standing state must be added there.
 - Rivals stand exactly on `sparAt` once within 0.1. The drawing (`actors.js bout`) and moments
@@ -257,3 +260,38 @@ at most 0.06 (base: up to 20.8 on Sumatra seed 42, 19.3 on PNW seed 555, 6.85 on
 flee turns (17–26), Serengeti seed 3 `backGraze` 3.37, PNW seed 11 `stand` 3.4, and Serengeti seed 11
 `trunkCentre` 0.94, a hippo that squeezed past a bank tree and then drank standing in its trunk:
 `clearSpot` leaves a squeezing animal's goal where it is. The check is only reliable at its default seed.
+
+### One facing (2026-11-09, refactor audit fix 2)
+
+Facing lived in four fields: `a.orientation` (walkers, set by `facePoint`), `a.hd` (a reef fish's
+swim heading, read first by the drawing and steering whenever set), `a.facing` (±1, left or right,
+from the 2D drawing; read only as a fallback) and `a.walkHeading` (a copy of `orientation` while
+walking). `a.heading` was a patrolling otter's or dolphin's direction vector. Two real glitches came
+of it: a woodpecker kept the `hd` it was given clinging to a trunk for good, so it was drawn along
+that heading after it left the trunk, whichever way it went (most of the sweep's woodpecker snaps); and a reef fish
+starting a swim snapped `hd` straight at its first point. The drawing turned animals at eight sites
+with their own paces; a woodpecker on a trunk and a wrasse at a starfish were turned twice a frame
+(toward the heading, then toward the bark or the meal), and an orangutan on the ground twice (eased, then clamped).
+
+Now `a.heading` is the only field, `turnRate(def)` is the one body turn pace (the old walk and reef
+formulas, unchanged), and the drawing turns through `turnToward` once a frame, with a target and a
+pace per kind. A climber on a branch, and an orangutan on the ground, re-take that frame's turn from
+where it started with their own target and pace instead of adding to it. Reef moves share `reefStep`.
+A reef fish starting from rest now turns from where it faces, up to three times its swimming pace
+when barely moving (as when hovering), and a fish whose next stretch would beach it stops and turns
+on the spot rather than snapping round. The spawn keeps the random draw the 2D `facing` used, so
+seeded runs keep their animals.
+
+Motion sweep, seeds 1987/91, per 1000 frames: woodpecker snaps PNW 1.3 → 0.3, Atlanta 1.0 → 0.3;
+seeds 7/42: PNW woodpecker 1.0 → 0.8, Atlanta 0.5 → 0, squirrel / vole / langur wobbles 0.5 / 0.9 /
+0.3 → 0. No species' snaps, wobbles or spins rose on seeds 7/42; on 1987/91 Atlanta's run diverges
+(bass 3 wobble frames, a bluebird 1). `animal-steering-check` and `perf-guard-check` counts unchanged.
+
+Not done: river swimmers (`move: 'swim'`) still face their next step at once through `facePoint`;
+turning them at a rate would need them to swim along their heading, as the reef does, which in narrow
+creeks and over shallow bars (stepToward's channel following) risks new stalls. The dolphin's
+"heading shivers" in the sweep are a dolphin pinned on its own waypoint by spacing (the known frozen
+river swimmers), not a facing bug. Reef animals got no new settle rule: every reef move is checked
+by `reefMoveSafe` and spacing by `canStand`, and `recoverReef` at the start of a step covers terrain
+edits, so a settle pass would never fire. Bout snapping (`sparAt`) and the canopy's quaternion pose
+(`canopy-pose.js`, pitch and roll on a branch) were left alone.

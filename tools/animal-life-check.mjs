@@ -118,7 +118,7 @@ check('Fleeing respects blocked diagonal corners in every direction and still us
     const a = wl.spawn(ANIMAL.deer, 40, 30, { silent: true });
     const pose = { x: 40 + (dx > 0 ? 0.99 : 0.01), y: 30 + (dy > 0 ? 0.99 : 0.01),
       state: 'flee', fleeT: 2, fleeDelay: 0, fleeSpeed: 2, fx: dx * Math.SQRT1_2, fy: dy * Math.SQRT1_2, fleeSide: 1,
-      orientation: Math.atan2(dy, dx), fleeHd: null }; // (already running that way: a flight turns at a running pace, 0025)
+      heading: Math.atan2(dy, dx), fleeHd: null }; // (already running that way: a flight turns at a running pace, 0025)
     Object.assign(a, pose);
     const sides = [w.idx(40 + dx, 30), w.idx(40, 30 + dy)];
     for (const i of sides) {
@@ -268,13 +268,13 @@ check('Reef predators turn and swim nose-first at their prey', () => {
   }
   assert.ok(sx >= 0);
   const prey = wl.spawn(ANIMAL.tang, sx + 6, sy, { silent: true }), shark = wl.spawn(ANIMAL.shark, sx, sy, { silent: true });
-  prey.wait = 99; shark.hd = Math.PI / 2; // (facing away, at right angles to its prey)
+  prey.wait = 99; shark.heading = Math.PI / 2; // (facing away, at right angles to its prey)
   shark.state = 'hunt'; shark.target = prey.id; shark.huntTime = 5;
   let sideways = 0, moved = 0;
   for (let s = 0; s < 60 && shark.state === 'hunt'; s++) {
     const x = shark.x, y = shark.y; wl.update(0.05);
     const d = Math.hypot(shark.x - x, shark.y - y); if (d < 1e-4) continue;
-    let off = Math.abs(Math.atan2(shark.y - y, shark.x - x) - shark.hd) % (Math.PI * 2); if (off > Math.PI) off = Math.PI * 2 - off;
+    let off = Math.abs(Math.atan2(shark.y - y, shark.x - x) - shark.heading) % (Math.PI * 2); if (off > Math.PI) off = Math.PI * 2 - off;
     moved += d; if (off > 0.6) sideways += d;
   }
   assert.ok(moved > 0.5 && sideways / moved < 0.05, `${sideways}/${moved}`);

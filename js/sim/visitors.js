@@ -118,7 +118,7 @@ export class Visitors {
     const path = out.concat(out.slice(0, -1).reverse());
     this.agents.push({
       id: this.nextId++, x: (start % w.w) + 0.5, y: ((start / w.w) | 0) + 0.5, cur: start, path, step: 0,
-      look: Math.floor(Math.random() * 8), phase: Math.random() * 10, facing: 1, pause: 0,
+      look: Math.floor(Math.random() * 8), phase: Math.random() * 10, pause: 0,
     });
   }
 

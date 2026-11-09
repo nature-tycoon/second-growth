@@ -52,7 +52,7 @@ export function spawnPassage(wl, def, opts = {}) {
     const back = goose ? rank * 0.85 : rand(0, 2.8), side = goose ? arm * rank * 0.7 : rand(-1.6, 1.6);
     const a = { id: wl.nextId++, sp: def.index ?? -1, key: def.key, passageDef: def, passing: true,
       flock, move: 'fly', state: 'passage', flying: true, alt: 1, age: 360, phase: rand(0, 10),
-      x: x - ux * back - uy * side, y: y - uy * back + ux * side, orientation: ang, facing: ux < 0 ? -1 : 1,
+      x: x - ux * back - uy * side, y: y - uy * back + ux * side, heading: ang,
       flightY: flightY + (goose ? 0 : rand(-0.12, 0.12)), passage: { ux, uy, speed, left: distance + back, t: 0, swoop,
         glide: def.sprite.kind === 'vulture' || def.sprite.stork, phase: rand(0, 6.3) } };
     wl.flyovers.push(a); out.push(a);

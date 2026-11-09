@@ -50,7 +50,7 @@ for (const [map, tree] of [['pnw', 'fir'], ['atlanta', 'whiteoak']]) {
     const i = w.idx(40, 30), t = treeTrunk(w, 40, 30), site = flora.treeSites.get(i);
     const a = wl.spawn(W, 40, 30, { silent: true });
     for (const [h, side] of [[0.1, 0], [0.3, 2], [0.42, 4]]) {
-      Object.assign(a, { x: 40.5, y: 30.5, state: 'bird', flying: false, alt: 0, wait: 99, bird: { kind: 'trunk', t: 99, h, side }, hd: Math.atan2(-Math.sin(side), -Math.cos(side)) });
+      Object.assign(a, { x: 40.5, y: 30.5, state: 'bird', flying: false, alt: 0, wait: 99, bird: { kind: 'trunk', t: 99, h, side }, heading: Math.atan2(-Math.sin(side), -Math.cos(side)) });
       for (let f = 0; f < 90; f++) actors.update(g, right, f / 30 + h);
       const st = actors.pose.get(a.id), d = Math.hypot(st.x - t[0], st.z - t[1]);
       const ground = w.heightAt(t[0], t[1]) * LEVEL;

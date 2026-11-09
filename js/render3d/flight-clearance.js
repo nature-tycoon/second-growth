@@ -48,7 +48,7 @@ export function flightHeading(a, mx = 0, my = 0) {
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
     if (d > 1e-3) return [dx / d, dy / d];
   }
-  const h = a.hd ?? a.orientation;
+  const h = a.heading;
   return h == null ? [0, 0] : [Math.cos(h), Math.sin(h)];
 }
 // The height to draw a flier at: its own flight height y, or over the crowns ahead. out.floor is
@@ -78,7 +78,7 @@ const HERE = [[0, 0]];
 export function coralFloor(w, plants, a, def) {
   if (def.benthic) return -Infinity;
   const size = def.sprite.size || 10, small = size <= SHELTER_SIZE;
-  const h = a.hd ?? a.orientation ?? 0, ahead = small ? 0 : 0.7;
+  const h = a.heading ?? 0, ahead = small ? 0 : 0.7;
   let top = -Infinity;
   for (let s = 0; s <= (small ? 0 : 1); s++) for (const [ox, oy] of small ? HERE : AROUND) {
     const xi = Math.floor(a.x + Math.cos(h) * ahead * s + ox), yi = Math.floor(a.y + Math.sin(h) * ahead * s + oy);

@@ -73,7 +73,7 @@ const herd = [ANIMAL.wildebeest, ANIMAL.zebra, ANIMAL.gazelle];
 for (let k = 0; k < 512; k++) {
   const def = herd[k % 3], x = 34 + (k % 32) * 1.0, y = 34 + Math.floor(k / 32) * 1.4;
   const a = g.wildlife.spawn(def, x, y, { silent: true, juvenile: k % 7 === 0, age: k % 7 === 0 ? 10 : def.mature * DAYS_PER_YEAR + 1 });
-  Object.assign(a, { x, y, tx: x, ty: y, wait: 1000, orientation: -.35, phase: k });
+  Object.assign(a, { x, y, tx: x, ty: y, wait: 1000, heading: -.35, phase: k });
 }
 const right = new THREE.Vector3(1, 0, 0), VW = 1280, VH = 800, camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -300, 300);
 function aim(zoom, x = 50, z = 45) {

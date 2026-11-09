@@ -234,14 +234,14 @@ export function huntStep(wl, a, def, b, sp) {
   // and its line swings toward the prey (or the cover beside the way to it) at its turning rate,
   // easing off while it swings round
   const aim = Math.atan2(ty - a.y, tx - a.x) + (H.phase === 'creep' ? H.coverOff || 0 : 0);
-  H.hd ??= a.hd ?? a.orientation ?? aim;
+  H.line ??= a.heading ?? aim;
   const turn = S.turn * t * (d < 1.2 ? 3 : 1);
-  H.hd = wrap(H.hd + clamp(wrap(aim - H.hd), -turn, turn));
-  const step = sp * H.v * Math.max(0.3, Math.cos(wrap(aim - H.hd)));
+  H.line = wrap(H.line + clamp(wrap(aim - H.line), -turn, turn));
+  const step = sp * H.v * Math.max(0.3, Math.cos(wrap(aim - H.line)));
   a.run = H.v;
   // at arm's length it closes on the prey itself
   const close = touch && d < step + 0.5;
-  const gx = close ? b.x : a.x + Math.cos(H.hd) * Math.max(step, 0.6), gy = close ? b.y : a.y + Math.sin(H.hd) * Math.max(step, 0.6);
+  const gx = close ? b.x : a.x + Math.cos(H.line) * Math.max(step, 0.6), gy = close ? b.y : a.y + Math.sin(H.line) * Math.max(step, 0.6);
   if (S.grounded) {
     const w = wl.game.world, l = Math.hypot(gx - a.x, gy - a.y) || 1, s = Math.min(step, l);
     const nx = a.x + (gx - a.x) / l * s, ny = a.y + (gy - a.y) / l * s;
@@ -261,7 +261,7 @@ function startLeap(wl, a, def, b, S, P, H, d, t, sp) {
   if (L > cap) { tx = a.x + (tx - a.x) / L * cap; ty = a.y + (ty - a.y) / L * cap; }
   const len = Math.min(L, cap);
   H.leap = { u: 0, T: Math.max(0.05, len / fast), len, tx, ty, arc: P.arc };
-  H.hd = Math.atan2(ty - a.y, tx - a.x); H.lunge = 0;
+  H.line = Math.atan2(ty - a.y, tx - a.x); H.lunge = 0;
   return leapStep(wl, a, def, b, H, t, sp);
 }
 function leapStep(wl, a, def, b, H, t, sp) {
@@ -354,7 +354,7 @@ function ease(wl, a, def, S, t, sp) {
   H.v = Math.max(0, (H.v || 0) - S.accel * t);
   a.run = H.v;
   if (H.v < 0.25) return giveUp(wl, a);
-  wl.stepToward(a, a.x + Math.cos(H.hd) * 0.6, a.y + Math.sin(H.hd) * 0.6, sp * H.v);
+  wl.stepToward(a, a.x + Math.cos(H.line) * 0.6, a.y + Math.sin(H.line) * 0.6, sp * H.v);
   return false;
 }
 
@@ -403,7 +403,7 @@ export function startFeed(wl, a, def, b) {
   if (!big && bd.move === 'swim' && !bd.reef) a.prey = { id: b.id, sp: b.sp, age: lifeAge(b), juvenile: !!b.juvenile, fish: true };
   if (!big) { a.feedT = 0.5 + Math.random() * 0.8; return; }
   a.feedT = 1.5 + (bd.sprite.len || 20) / 30 * (1 + Math.random());
-  const c = { id: b.id, sp: b.sp, x: b.x, y: b.y, yaw: b.orientation ?? 0, age: lifeAge(b), side: Math.random() < 0.5 ? -1 : 1,
+  const c = { id: b.id, sp: b.sp, x: b.x, y: b.y, yaw: b.heading ?? 0, age: lifeAge(b), side: Math.random() < 0.5 ? -1 : 1,
     by: a.sp, t: a.feedT + 21 + Math.random() * 12 };
   // Leave 21–33 days after the first meal: distant walkers and circling birds
   // need time to discover and reach a kill. Food still runs out through c.meals.
@@ -438,7 +438,7 @@ export function leaveBody(wl, a) {
   const def = wl.game.catalog.animals[a.sp];
   if (!def || !leavesCarcass(def) || a.leaving) return null;
   const t = 21 + Math.random() * 12, meals = Math.max(1, Math.ceil(def.sprite.len / 20));
-  const c = { id: a.id, sp: a.sp, x: a.x, y: a.y, yaw: a.orientation ?? 0, age: lifeAge(a), side: Math.random() < 0.5 ? -1 : 1,
+  const c = { id: a.id, sp: a.sp, x: a.x, y: a.y, yaw: a.heading ?? 0, age: lifeAge(a), side: Math.random() < 0.5 ? -1 : 1,
     by: null, t, max: t, meals, meals0: meals, feed: 0 };
   addCarcass(wl, c);
   return c;
@@ -608,7 +608,7 @@ export function fleeUpdate(wl, a, def, dt) {
     const { c, s, off } = chosen;
     // It turns toward that way fast, but not in one step, and runs on through the shared step,
     // which curves round trunks and slides off them like any walk (animals.js stepToward).
-    const want = Math.atan2(s, c), was = a.fleeHd ?? a.orientation ?? want;
+    const want = Math.atan2(s, c), was = a.fleeHd ?? a.heading ?? want;
     const h = was + clamp(wrap(want - was), -FLEE_TURN * dt, FLEE_TURN * dt);
     a.fleeHd = h;
     // (still swinging round, it gathers itself rather than running on the old line: toward the danger, maybe.

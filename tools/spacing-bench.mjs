@@ -18,7 +18,7 @@ function herd(n, packed) {
   g.newGame(1987, 'free', 'standard', 'serengeti'); g.wildlife.agents = []; g.wildlife.recount();
   const w = g.world; for (let i = 0; i < w.n; i++) { w.terrain[i] = T.SOIL; w.struct[i] = -1; w.feature[i] = 0; w.clearPlants(i); }
   const side = Math.ceil(Math.sqrt(n)), gap = packed ? 0.12 : 1.6;
-  for (let k = 0; k < n; k++) { const a = g.wildlife.spawn(ANIMAL.zebra, 20 + (k % side) * gap + (k * 0.37 % 0.05), 20 + Math.floor(k / side) * gap, { silent: true }); a.wait = 100; a.orientation = 0; }
+  for (let k = 0; k < n; k++) { const a = g.wildlife.spawn(ANIMAL.zebra, 20 + (k % side) * gap + (k * 0.37 % 0.05), 20 + Math.floor(k / side) * gap, { silent: true }); a.wait = 100; a.heading = 0; }
 }
 for (const packed of [false, true]) for (const n of [128, 256, 512, 1024]) {
   herd(n, packed); const sp = g.wildlife.spacing, times = [];

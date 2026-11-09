@@ -7,7 +7,7 @@ import { activeTerritory, territorialRivals } from '../data/animal-territories.j
 import { passable, canLand } from './animal-terrain.js';
 import { facePoint } from './animal-positioning.js';
 import { shrubSpot } from './ground-obstacles.js';
-import { reefMoveSafe } from './animal-terrain.js';
+import { turnRate, reefStep } from './steering.js';
 
 const at = (w, j) => [j % w.w + 0.5, (j / w.w | 0) + 0.5];
 const tileDistance = (w, j, x, y) => Math.hypot(j % w.w + 0.5 - x, (j / w.w | 0) + 0.5 - y);
@@ -173,14 +173,12 @@ export function hoverStep(wl, a, def, dt) {
   if (!h || a.territory?.home !== h.home) { a.hover = null; return false; }
   const dx = h.x - a.x, dy = h.y - a.y, d = Math.hypot(dx, dy);
   if (d < 0.03) { a.hover = null; return false; }
-  if (a.hd == null) a.hd = Math.atan2(dy, dx);
-  let turn = Math.atan2(dy, dx) - a.hd;
+  let turn = Math.atan2(dy, dx) - a.heading;
   turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
-  a.hd += clamp(turn, -10 * dt, 10 * dt);
+  const rate = turnRate(def) * 3 * dt; // (on the spot, it turns three times as fast as it does swimming along)
+  a.heading += clamp(turn, -rate, rate);
   a.spd = Math.min(def.speed * 0.6, d * 3) * Math.max(0.2, Math.cos(turn));
-  const nx = a.x + Math.cos(a.hd) * a.spd * dt, ny = a.y + Math.sin(a.hd) * a.spd * dt;
-  if (reefMoveSafe(wl.game.world, a, nx, ny)) { a.x = nx; a.y = ny; } else { a.hover = null; return false; }
-  if (Math.abs(Math.cos(a.hd)) > 0.1) a.facing = Math.cos(a.hd) > 0 ? 1 : -1;
+  if (!reefStep(wl.game.world, a, a.spd * dt)) { a.hover = null; return false; }
   return true;
 }
 export function territoryArrive(wl, a) {

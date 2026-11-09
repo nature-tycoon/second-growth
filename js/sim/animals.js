@@ -20,7 +20,7 @@ import { territorialChoose, hasTerritory, hoverStep } from './animal-territory.j
 import { updateDormancy, shelteredDormant } from './animal-dormancy.js';
 import { smoothWalk, smoothWalker } from './animal-walking.js';
 import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
-import { settle, aimDrink, landWalker } from './steering.js';
+import { settle, aimDrink, landWalker, turnRate, reefStep } from './steering.js';
 import { grazeDay, decayGrazing } from './grazing.js';
 import { herbivoryDay, rubSapling } from './herbivory.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, followLeaderTrip } from './animal-trails.js';
@@ -78,23 +78,34 @@ const travelCorridor = (w, a, def, map, j) => !w.fire[j] && passable(w, j, a) &&
 // a different object layout, so the JavaScript engine fell back to slow lookups for every field
 // read in the movement loop. A field not listed still works, it is only slower to reach.
 class Animal {
-  id; sp; key; move; x; y; tx; ty; path; state; wait; age; facing; phase; hunger; flying; alt;
-  leaving; spawner; juvenile; orientation; moveProgress; bird; birdGoal; birdGround; fruitGoal;
+  id; sp; key; move; x; y; tx; ty; path; state; wait; age; heading; phase; hunger; flying; alt;
+  leaving; spawner; juvenile; moveProgress; bird; birdGoal; birdGround; fruitGoal;
   drinkAt; fruitMeal; run; rutActive; haremCenter; haremAngle; satelliteSlot; waterTrip; restSpot;
   follow; wade; forageGoal; fromFire; avoidSide; drinkT; forage; recent; forageAfter; bankGoal;
   pushX; pushY; course; thirst; trip; greet; socialWith; socialUntil; localGoal; greetT; goal;
-  birdAlertCheck; sparPath; sparT; sparLight; sparWith; sparAt; play; target; perchedAt; spd; hd;
+  birdAlertCheck; sparPath; sparT; sparLight; sparWith; sparAt; play; target; perchedAt; spd;
   swimT; threat; fleeOff; fx; fy; fleeT; fleeSpeed; fleeDelay; fleeSide; fleeAge; alertT; assist; hunt;
   woodLost; squeeze; trampled; dodge; dodgeOff;
   foragedAt; huntTime; playT; playN; nestSite; stoop; slot; disperse; alertUntil; carcass; feedAt;
   feedT; fruitAfter; socialCooldown; familySettled; familyRetryUntil; bachelorSlot; herdOf; mom;
-  momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
+  momSlot; familyFailures; patrolDir; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
-  familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
+  familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkOn;
   carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
+// Which way an animal faces is one field, `heading` (radians; decision 0025). Saves before
+// 2026-11 kept it in up to four: `hd` (a swimmer's heading, which it was drawn with when set),
+// `orientation` (everyone else's), `facing` (left or right, from the 2D drawing) and
+// `walkHeading`; and `heading` was then a patrolling otter's or dolphin's direction, now `patrolDir`.
+function oldFacing(o) {
+  const { hd, orientation, facing, walkHeading, ...a } = o;
+  if (Array.isArray(a.heading)) { a.patrolDir = a.heading; a.heading = undefined; }
+  if (!Number.isFinite(a.heading)) a.heading = [hd, orientation, walkHeading].find(Number.isFinite) ?? (facing < 0 ? Math.PI : 0);
+  if (a.hunt && 'hd' in a.hunt) { const { hd: line, ...hunt } = a.hunt; a.hunt = { ...hunt, line }; }
+  return a;
+}
 
 // Young that stay close beside their mother, and for how many years (never past adulthood):
 // bear cubs for a year and a half, fawns and calves through their first year, elephant calves for years.
@@ -299,10 +310,11 @@ export class Wildlife {
       id, sp: def.index, key: def.key, move: def.move,
       x: x + 0.5 + ox, y: y + 0.5 + oy, tx: x + 0.5, ty: y + 0.5, path: null,
       state: 'idle', wait: Math.random() * 2, age: opts.age ?? def.mature * DAYS_PER_YEAR * (1 + Math.random() * 2),
-      facing: Math.random() < 0.5 ? -1 : 1, phase: Math.random() * 10, hunger: Math.random() * 3,
+      // (a draw once spent on a left/right `facing` for the 2D drawing, kept so seeded runs keep their animals)
+      phase: (Math.random(), Math.random() * 10), hunger: Math.random() * 3,
       flying: false, alt: 0, leaving: false, spawner: !!opts.spawner, juvenile: !!opts.juvenile,
     });
-    a.orientation = a.phase * Math.PI / 5; // an initial direction without another random draw
+    a.heading = a.phase * Math.PI / 5; // an initial direction without another random draw
     if (opts.flyIn) { a.flying = true; a.alt = 1; a.state = 'fly'; a.tx = x + 0.5; a.ty = y + 0.5; a.x = opts.fromX; a.y = opts.fromY; }
     this.agents.push(a);
     this.ids?.set(id, a);
@@ -831,7 +843,7 @@ export class Wildlife {
     }
     if (best < 0) return false;
     a.x = best % w.w + 0.5; a.y = (best / w.w | 0) + 0.5;
-    a.path = null; a.spd = 0; a.hd = null; a.swimT = 0;
+    a.path = null; a.spd = 0; a.swimT = 0;
     a.forage = null; a.forageGoal = null; endHunt(a);
     a.state = a.leaving ? 'leave' : 'idle'; a.wait = 0;
     if (a.leaving) this.leaveRoute(a);
@@ -1125,7 +1137,7 @@ export class Wildlife {
       if (def.reef && w.inb(Math.floor(a.x), Math.floor(a.y)) &&
         !passable(w, w.idx(Math.floor(a.x), Math.floor(a.y)), a) && !this.recoverReef(a)) continue;
       const trailX = a.x, trailY = a.y;
-      if (a.state !== 'walk') a.walkHeading = undefined;
+      if (a.state !== 'walk') a.walkOn = undefined;
       a.age += dt;
       if (this.lifePace < 1) a.lag = (a.lag || 0) + dt * (1 - this.lifePace); // (see lifeAge)
       if (updateDormancy(this, a, def)) continue;
@@ -1419,30 +1431,26 @@ export class Wildlife {
     const h1 = hashJitter(j % w.w + a.id * 7, ((j / w.w) | 0) + a.id * 3), h2 = hashJitter(((j / w.w) | 0) - a.id * 5, j % w.w + a.id);
     const tx = (j % w.w) + 0.5 + h1 * 0.7, ty = ((j / w.w) | 0) + 0.5 + h2 * 0.7;
     const dx = tx - a.x, dy = ty - a.y, d = Math.hypot(dx, dy);
-    if (a.hd == null) a.hd = Math.atan2(dy, dx);
-    // turn toward the point, no faster than a fish can (bigger fish turn wider)
-    let turn = Math.atan2(dy, dx) - a.hd;
+    // turn toward the point, no faster than a fish can (bigger fish turn wider: turnRate), and up
+    // to three times as fast when it has barely any way on, as when it hovers (hoverStep)
+    let turn = Math.atan2(dy, dx) - a.heading;
     turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
-    const rate = (this.game.catalog.animals[a.sp].sprite.size > 25 ? 2.2 : 3.4) * dt;
-    a.hd += clamp(turn, -rate, rate);
+    const still = 1 - Math.min(1, (a.spd || 0) * dt / Math.max(sp, 1e-6));
+    const rate = turnRate(this.game.catalog.animals[a.sp]) * (1 + 2 * still) * dt;
+    a.heading += clamp(turn, -rate, rate);
     // ease up to cruising speed, ease off when the point is behind it or it's nearly there
     // (a.spd is in tiles a day, so the motion is the same at any frame rate)
     const want = sp / Math.max(dt, 1e-6) * (0.35 + 0.65 * Math.max(0, Math.cos(turn))) * (last ? clamp(d / 0.9, 0.25, 1) : 1);
     a.spd = (a.spd || 0) + (want - (a.spd || 0)) * Math.min(1, dt * 3);
-    const nx = a.x + Math.cos(a.hd) * a.spd * dt, ny = a.y + Math.sin(a.hd) * a.spd * dt;
-    // (rounding a corner mustn't carry it up the beach: if it would, it turns straight for the point)
-    if (!reefMoveSafe(w, a, nx, ny)) { a.hd = Math.atan2(dy, dx); a.spd = 0; }
-    else { a.x = nx; a.y = ny; }
-    if (Math.abs(Math.cos(a.hd)) > 0.1) a.facing = Math.cos(a.hd) > 0 ? 1 : -1;
+    // (rounding a corner mustn't carry it up the beach: if it would, it stops, and so turns on the
+    // spot toward the point rather than facing it in one step)
+    if (!reefStep(w, a, a.spd * dt)) a.spd = 0;
     a.swimT = (a.swimT || 0) + dt;
     if (d < (last ? 0.25 : 0.55) || a.swimT > 4) { a.swimT = 0; return true; } // (or gives up on a point it keeps circling)
     return false;
   }
   glide(a, dt) {
-    const sx = Math.cos(a.hd || 0) * a.spd * dt, sy = Math.sin(a.hd || 0) * a.spd * dt;
-    const w = this.game.world;
-    if (reefMoveSafe(w, a, a.x + sx, a.y + sy)) { a.x += sx; a.y += sy; }
-    else a.spd = 0;
+    if (!reefStep(this.game.world, a, a.spd * dt)) a.spd = 0;
     a.spd *= Math.exp(-dt * 2.5);
   }
 
@@ -1453,22 +1461,18 @@ export class Wildlife {
     const d = Math.hypot(dx, dy);
     // A reef fish never slides sideways at a target (hunting, leaving): it turns its nose toward
     // it, no faster than a fish can, and swims along its heading, easing off in a tight turn.
-    if (a.hd != null && this.game.catalog.animals[a.sp].reef && d > sp && sp > 0) {
-      let turn = Math.atan2(dy, dx) - a.hd;
+    if (this.game.catalog.animals[a.sp].reef && d > sp && sp > 0) {
+      let turn = Math.atan2(dy, dx) - a.heading;
       turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
-      const rate = sp * 3.5;
-      a.hd += clamp(turn, -rate, rate);
+      const rate = sp * 3.5; // (a turning circle: so much turn for each tile it swims)
+      a.heading += clamp(turn, -rate, rate);
       const step = sp * Math.max(0.25, Math.cos(turn));
-      const nx = a.x + Math.cos(a.hd) * step, ny = a.y + Math.sin(a.hd) * step, w = this.game.world;
-      if (reefMoveSafe(w, a, nx, ny)) { a.x = nx; a.y = ny; }
-      a.orientation = a.hd;
-      if (Math.abs(Math.cos(a.hd)) > 0.1) a.facing = Math.cos(a.hd) > 0 ? 1 : -1;
+      reefStep(this.game.world, a, step);
       return Math.hypot(tx - a.x, ty - a.y) <= sp;
     }
     // (curve round a trunk or log ahead rather than walking into it)
     if (d > 0.02 && sp > 0) { const h = steerAround(this.game.world, a, def, Math.atan2(dy, dx), Math.min(d, 1.6)); dx = Math.cos(h) * d; dy = Math.sin(h) * d; }
     if (d > 0.02 && sp > 0) facePoint(a, a.x + dx, a.y + dy);
-    if (Math.abs(dx) > 0.02) a.facing = dx > 0 ? 1 : -1;
     const step = Math.min(d, sp);
     let nx = d ? a.x + dx / d * step : a.x, ny = d ? a.y + dy / d * step : a.y;
     if (this.game.catalog.animals[a.sp].reef && !reefMoveSafe(this.game.world, a, nx, ny)) return false;
@@ -1755,7 +1759,7 @@ export class Wildlife {
     // milling about one spot: they hold a heading, favour water well ahead of them, and turn
     // around at dead ends, following the channel toward its farthest reach.
     const patrol = !!def.patrol;
-    if (patrol && !a.heading) { const ang = Math.random() * Math.PI * 2; a.heading = [Math.cos(ang), Math.sin(ang)]; }
+    if (patrol && !a.patrolDir) { const ang = Math.random() * Math.PI * 2; a.patrolDir = [Math.cos(ang), Math.sin(ang)]; }
     const R = patrol ? 16 : Math.min(12, 3 + Math.sqrt(def.hr) * 0.9);
     const n = w.n;
     if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
@@ -1765,7 +1769,7 @@ export class Wildlife {
     let best = start, bs = patrol ? 0 : map[start] * 0.8 * worth(start), far = -1, farD = 0;
     const W = w.w, cap = patrol ? 1200 : 380;
     const diag = swimmer(a, this.game.catalog);
-    const ahead = i => (((i % W) - x0) * a.heading[0] + (((i / W) | 0) - y0) * a.heading[1]) / R;
+    const ahead = i => (((i % W) - x0) * a.patrolDir[0] + (((i / W) | 0) - y0) * a.patrolDir[1]) / R;
     let poke = -1, pokeN = 0; // a random nearby spot it could live on, for a short wander
     while (head < tail && tail < cap) {
       const i = bfsQ[head++];
@@ -1804,12 +1808,12 @@ export class Wildlife {
     if (patrol) {
       // blocked (a bank or the end of the channel): turn toward the farthest open water instead
       if (best === start || ahead(best) < 0.35) {
-        if (far >= 0) { const dx = (far % W) - x0, dy = ((far / W) | 0) - y0, l = Math.hypot(dx, dy) || 1; a.heading = [dx / l, dy / l]; }
-        else a.heading = [-a.heading[0], -a.heading[1]];
+        if (far >= 0) { const dx = (far % W) - x0, dy = ((far / W) | 0) - y0, l = Math.hypot(dx, dy) || 1; a.patrolDir = [dx / l, dy / l]; }
+        else a.patrolDir = [-a.patrolDir[0], -a.patrolDir[1]];
       } else {
         // drift the heading a little so they also nose into creek mouths and side channels
         const t = (Math.random() - 0.5) * 0.5, c = Math.cos(t), sn = Math.sin(t);
-        a.heading = [a.heading[0] * c - a.heading[1] * sn, a.heading[0] * sn + a.heading[1] * c];
+        a.patrolDir = [a.patrolDir[0] * c - a.patrolDir[1] * sn, a.patrolDir[0] * sn + a.patrolDir[1] * c];
       }
     }
     if (best === start) { a.wait = riverFish ? 0.15 + Math.random() * 0.35 : 1 + Math.random() * 3; return; }
@@ -1919,7 +1923,7 @@ export class Wildlife {
         const bank = this.bankSpot(a);
         if (bank) { a.drinkAt = bank.water; facePoint(a, ...bank.water); }
         // (at the water beside it, or at its feet where it stands in the marsh or the creek)
-        const at = bank ? bank.water : isWater(w.terrain[w.idx(x0, y0)]) ? [a.x + Math.cos(a.hd ?? 0) * 0.35, a.y + Math.sin(a.hd ?? 0) * 0.35] : null;
+        const at = bank ? bank.water : isWater(w.terrain[w.idx(x0, y0)]) ? [a.x + Math.cos(a.heading) * 0.35, a.y + Math.sin(a.heading) * 0.35] : null;
         if (fisher && at && fishStrike(this, a, def, at[0], at[1], fisher)) { a.drinkT = 0; a.drinkAt = null; a.wait = 0; }
       }
       return true;
@@ -2107,7 +2111,7 @@ export class Wildlife {
     this.risk = null; // (a few weeks' memory of danger, not saved)
     this.carcasses = [];
     this.flyovers = []; this.passageWait = 8 + Math.random() * 10;
-    this.agents = d.agents.map(a => Object.assign(new Animal(), a, { territory: a.territory ? { ...a.territory } : undefined, dormancy: a.dormancy ? { ...a.dormancy } : undefined, range: a.range ? { ...a.range, route: a.range.route?.slice() } : undefined, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : undefined, moveProgress: null, fruitGoal: null, forageGoal: null, forage: null, state: a.state === 'walk' || a.state === 'forage' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
+    this.agents = d.agents.map(oldFacing).map(a => Object.assign(new Animal(), a, { territory: a.territory ? { ...a.territory } : undefined, dormancy: a.dormancy ? { ...a.dormancy } : undefined, range: a.range ? { ...a.range, route: a.range.route?.slice() } : undefined, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : undefined, moveProgress: null, fruitGoal: null, forageGoal: null, forage: null, state: a.state === 'walk' || a.state === 'forage' ? 'idle' : a.state, greet: null, socialWith: null, socialUntil: 0,
       wait: a.state === 'idle' ? Math.max(0.5, a.drinkT || 0) : 0.5,
       passing: undefined })); // (only flyovers pass over; older saves have monarchs marked so by mistake, which broke drawing)
     this.nextId = d.nextId;

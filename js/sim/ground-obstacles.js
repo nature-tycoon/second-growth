@@ -199,7 +199,7 @@ const active = (a, def) => groundWalker(def, a) && !(a.squeeze > 0);
 // round keep-out the width of its body let it turn its head or rump into a trunk (an elk's
 // antlers into a fir, a deer standing half inside one). Reused record, fixed shape.
 const body = { half: 0, reach: 0, rack: 0, ux: 1, uy: 0 };
-function shape(w, a, def, heading = a.hd ?? a.orientation ?? 0) {
+function shape(w, a, def, heading = a.heading ?? 0) {
   const r = animalRadius(a, w.catalog);
   body.half = r * 0.38; body.reach = Math.max(0, r / 0.65 / 2 - body.half); // (animalRadius is 0.65 of the drawn length)
   body.rack = def.sprite.male?.antlers && isMaleVariant(def, a) ? r * 0.3 : 0;
@@ -363,7 +363,7 @@ export function inWood(w, a, def, x, y, heading) {
 export function settleBody(wl, a, def) {
   if (!active(a, def)) return;
   // (nothing has moved or turned it since it was last settled: nothing to do)
-  const key = a.x * 7919 + a.y * 104729 + (a.orientation || 0);
+  const key = a.x * 7919 + a.y * 104729 + (a.heading || 0);
   if (a.settleKey === key) return;
   const w = wl.game.world, b = shape(w, a, def), n = gather(w, a, def, a.x, a.y, b.half);
   if (!n) { a.settleKey = key; return; }

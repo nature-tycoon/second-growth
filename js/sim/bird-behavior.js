@@ -80,7 +80,7 @@ function hold(wl, a, kind, t = inTree(kind) ? 5 + Math.random() * 7 : kind === '
   // trunks longer (render3d treeLevel), on the side it came in from; it hitches up as it works
   if (kind === 'trunk') {
     a.bird.h = 0.1 + Math.random() * 0.2; a.bird.side = side ?? Math.random() * Math.PI * 2;
-    a.hd = a.orientation = Math.atan2(-Math.sin(a.bird.side), -Math.cos(a.bird.side)); // (facing the trunk)
+    a.heading = Math.atan2(-Math.sin(a.bird.side), -Math.cos(a.bird.side)); // (facing the trunk)
   }
   if (kind === 'perch' || kind === 'preen') a.perchedAt = tileKey(a);
   if (kind === 'forage') a.foragedAt = tileKey(a);

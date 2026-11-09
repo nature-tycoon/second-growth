@@ -25,7 +25,7 @@ function reset(map = 'serengeti') {
 }
 function spawn(key, x = 30, y = 30, opts = {}) {
   const a = g.wildlife.spawn(ANIMAL[key], x, y, { silent: true, ...opts });
-  a.wait = 100; a.orientation = 0; return a;
+  a.wait = 100; a.heading = 0; return a;
 }
 function separate(steps = 80, dt = 0.05) {
   for (let k = 0; k < steps; k++) {
@@ -50,7 +50,7 @@ check('Large animals on the identical point separate gradually without changing 
   reset(); const herd = Array.from({ length: 8 }, () => spawn('rhino'));
   for (const a of herd) { a.x = a.y = 30.5; }
   separate(1);
-  for (const a of herd) { assert.ok(Math.hypot(a.x - 30.5, a.y - 30.5) <= 0.091); assert.equal(a.orientation, 0); }
+  for (const a of herd) { assert.ok(Math.hypot(a.x - 30.5, a.y - 30.5) <= 0.091); assert.equal(a.heading, 0); }
   separate(600); // (standing animals shuffle apart slowly: a step, not a slide)
   for (const a of herd) for (const b of herd) if (a.id < b.id) assert.ok(gap(a, b) > -0.01, `${a.id}/${b.id}: ${gap(a, b)}`);
   const before = herd.map(a => [a.x, a.y]); separate(10);
@@ -108,7 +108,7 @@ check('Drinkers approach a bank and face real water on all four sides', () => {
     assert.equal(g.wildlife.waterhole(a, ANIMAL.zebra), true); assert.ok(a.state === 'approach' || a.drinkT > 0); // (the dry spot at the waterline can be where it already stands)
     for (let k = 0; k < 30 && !(a.drinkT > 0); k++) g.wildlife.update(0.05);
     assert.ok(a.drinkT > 0); assert.equal(a.alt, 0);
-    assert.ok(Math.cos(a.orientation) * dx + Math.sin(a.orientation) * dy > 0.99);
+    assert.ok(Math.cos(a.heading) * dx + Math.sin(a.heading) * dy > 0.99);
     assert.ok(!isWater(g.world.terrain[g.world.idx(Math.floor(a.x), Math.floor(a.y))]));
     assert.ok(isWater(g.world.terrain[g.world.idx(Math.floor(a.drinkAt[0]), Math.floor(a.drinkAt[1]))]));
   }
@@ -128,7 +128,7 @@ check('Drinkers in a crowded herd spread to separate bank positions', () => {
   for (const a of herd) for (const b of herd) if (a.id < b.id) assert.ok(gap(a, b) > -0.1, `${a.id}/${b.id}: ${gap(a, b)}`);
   separate(30);
   for (const a of herd) for (const b of herd) if (a.id < b.id) assert.ok(gap(a, b) > -0.01, `${a.id}/${b.id}: ${gap(a, b)}`);
-  for (const a of herd.filter(a => a.drinkT > 0)) assert.ok(a.drinkAt && Math.cos(a.orientation - Math.atan2(a.drinkAt[1] - a.y, a.drinkAt[0] - a.x)) > 0.99);
+  for (const a of herd.filter(a => a.drinkT > 0)) assert.ok(a.drinkAt && Math.cos(a.heading - Math.atan2(a.drinkAt[1] - a.y, a.drinkAt[0] - a.x)) > 0.99);
 });
 check('Calves on dry ground do not copy their mother’s drinking pose', () => {
   reset(); pond(); const mom = spawn('zebra', 27, 30), calf = spawn('zebra', 26, 30, { juvenile: true, age: 10 });
@@ -144,10 +144,23 @@ check('A perched bird lands to drink; it does not drink from a tree crown', () =
 check('Paused animals retain their spots; older saves acquire correct headings on movement', () => {
   reset(); const a = spawn('zebra'), b = spawn('zebra');
   const before = JSON.stringify(g.wildlife.agents); g.wildlife.update(0); assert.equal(JSON.stringify(g.wildlife.agents), before);
-  const data = g.wildlife.serialize(); for (const o of data.agents) { delete o.orientation; delete o.drinkAt; delete o.restSpot; }
+  const data = g.wildlife.serialize(); for (const o of data.agents) { delete o.heading; delete o.drinkAt; delete o.restSpot; }
   g.wildlife.load(data); const old = g.wildlife.agents[0]; g.wildlife.stepToward(old, old.x, old.y + 1, 0.1);
-  assert.ok(Math.abs(old.orientation - Math.PI / 2) < 1e-6);
+  assert.ok(Math.abs(old.heading - Math.PI / 2) < 1e-6);
   assert.ok(Number.isFinite(animalRadius(b)));
+});
+check('Saves from before one heading load their facing into a.heading', () => {
+  reset(); spawn('zebra'); spawn('zebra'); spawn('zebra'); spawn('zebra');
+  const data = g.wildlife.serialize(), [o1, o2, o3, o4] = data.agents;
+  for (const o of data.agents) delete o.heading;
+  Object.assign(o1, { hd: 1.1, orientation: 0.2, facing: 1 }); // (a swimmer's hd was what it was drawn with)
+  Object.assign(o2, { hd: null, orientation: 0.7, facing: 1, walkHeading: 0.7 });
+  Object.assign(o3, { facing: -1, heading: [0, 1], hunt: { hd: 2.5, phase: 'rush' } }); // (heading was a patrol's direction)
+  g.wildlife.load(data);
+  const [a1, a2, a3, a4] = g.wildlife.agents;
+  assert.equal(a1.heading, 1.1); assert.equal(a2.heading, 0.7); assert.equal(a3.heading, Math.PI); assert.equal(a4.heading, 0);
+  assert.deepEqual(a3.patrolDir, [0, 1]); assert.equal(a3.hunt.line, 2.5); assert.ok(!('hd' in a3.hunt));
+  for (const a of g.wildlife.agents) for (const k of ['hd', 'orientation', 'facing', 'walkHeading']) assert.ok(!(k in a), k);
 });
 check('A predator can still close to catching distance', () => {
   reset(); const predator = spawn('lion'), prey = spawn('zebra'); predator.x = 30; prey.x = 30.7; predator.y = prey.y = 30.5;
@@ -260,10 +273,10 @@ check('Progress tracking pauses with the game and starts fresh after loading a s
 });
 check('Legacy drinking poses are repaired immediately and survive the restored rest timer', () => {
   reset(); pond(); const a = spawn('zebra', 30, 27), dry = spawn('zebra', 25, 30);
-  a.drinkT = dry.drinkT = 4; delete a.orientation;
+  a.drinkT = dry.drinkT = 4; delete a.heading;
   g.wildlife.load(g.wildlife.serialize()); const [wet, inland] = g.wildlife.agents;
   for (let k = 0; k < 20; k++) g.wildlife.update(0.05);
-  assert.ok(wet.drinkAt); assert.ok(Math.sin(wet.orientation) > 0.99); assert.ok(wet.drinkT > 2.9);
+  assert.ok(wet.drinkAt); assert.ok(Math.sin(wet.heading) > 0.99); assert.ok(wet.drinkT > 2.9);
   assert.equal(inland.drinkT, 0);
 });
 check('An altered shoreline safely cancels an approach', () => {
@@ -277,15 +290,15 @@ check('River patrol directions remain independent of the rendered facing angle',
   reset('amazon'); const w = g.world;
   for (let y = 18; y < 43; y++) for (let x = 18; x < 43; x++) w.terrain[w.idx(x, y)] = T.CREEK;
   for (const key of ['giantotter', 'dolphin']) {
-    const a = spawn(key); a.heading = [1, 0];
+    const a = spawn(key); a.patrolDir = [1, 0];
     g.wildlife.stepToward(a, a.x, a.y + 1, 0.1);
-    assert.deepEqual(a.heading, [1, 0]); assert.ok(Number.isFinite(a.orientation)); a.wait = 0;
+    assert.deepEqual(a.patrolDir, [1, 0]); assert.ok(Number.isFinite(a.heading)); a.wait = 0;
   }
   for (let k = 0; k < 300; k++) g.wildlife.update(0.05);
   const actors = new Actors(new THREE.Scene()); g.visitors.agents = [];
   actors.update(g, new THREE.Vector3(1, 0, 0), 0);
   for (const a of g.wildlife.agents) {
-    assert.ok(a.heading.every(Number.isFinite)); assert.ok(Number.isFinite(a.orientation));
+    assert.ok(a.patrolDir.every(Number.isFinite)); assert.ok(Number.isFinite(a.heading));
     assert.ok(Number.isFinite(a.x) && Number.isFinite(a.y));
     assert.ok(Number.isFinite(actors.pose.get(a.id).yaw));
   }
@@ -296,10 +309,10 @@ check('The rendered model turns toward water before lowering its head, and keeps
   assert.ok(a.drinkAt);
   const actors = new Actors(new THREE.Scene()); g.visitors.agents = [];
   const right = new THREE.Vector3(1, 0, 0); actors.update(g, right, 0);
-  const st = actors.pose.get(a.id); st.yaw = -a.orientation + Math.PI; st.graze = 0;
+  const st = actors.pose.get(a.id); st.yaw = -a.heading + Math.PI; st.graze = 0;
   actors.update(g, right, 0.016); assert.equal(st.graze, 0);
   for (let k = 2; k <= 160; k++) actors.update(g, right, k / 60);
-  assert.ok(Math.cos(st.yaw + a.orientation) > 0.99); assert.ok(st.graze > 0.9);
+  assert.ok(Math.cos(st.yaw + a.heading) > 0.99); assert.ok(st.graze > 0.9);
   const yaw = st.yaw; a.x += 0.02; actors.update(g, right, 3);
   assert.ok(Math.abs(st.yaw - yaw) < 0.001);
 });

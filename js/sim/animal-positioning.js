@@ -16,8 +16,7 @@ export function animalRadius(a, catalog = activeCatalog) {
 
 export function facePoint(a, x, y) {
   if (Math.hypot(x - a.x, y - a.y) < 1e-6) return;
-  a.orientation = Math.atan2(y - a.y, x - a.x);
-  if (Math.abs(x - a.x) > 0.02) a.facing = x > a.x ? 1 : -1;
+  a.heading = Math.atan2(y - a.y, x - a.x);
 }
 
 const PERCHED_WADERS = new Set(['duck', 'heron', 'crane']);
@@ -140,7 +139,7 @@ export class AnimalSpacing {
       const along = ox * dx + oy * dy, lat = oy * dx - ox * dy; // (lat > 0: it's on the left)
       if (along <= 0.02 || along > look + reach || Math.abs(lat) >= reach) continue;
       // coming the other way: both keep to their own right, so they don't mirror each other's dodge
-      const toward = e.a.state === 'walk' && Math.cos(e.a.orientation ?? 0) * dx + Math.sin(e.a.orientation ?? 0) * dy < -0.5;
+      const toward = e.a.state === 'walk' && Math.cos(e.a.heading ?? 0) * dx + Math.sin(e.a.heading ?? 0) * dy < -0.5;
       const at = Math.max(0.15, along);
       need[0] = Math.max(need[0], Math.atan2(reach + lat, at) + (toward ? 0.6 : 0));
       need[1] = Math.max(need[1], Math.atan2(reach - lat, at));
@@ -189,7 +188,7 @@ export class AnimalSpacing {
       if (a.state === 'spar') return false; // (rivals in a bout hold their ground; others step round them)
       // Drinking animals yield along the bank, not backwards away from the water.
       if (a.drinkT > 0 && a.drinkAt) {
-        const hx = Math.cos(a.orientation), hy = Math.sin(a.orientation), dot = dx * hx + dy * hy;
+        const hx = Math.cos(a.heading), hy = Math.sin(a.heading), dot = dx * hx + dy * hy;
         dx -= dot * hx; dy -= dot * hy;
       }
       const nx = a.x + dx * d, ny = a.y + dy * d;
@@ -208,10 +207,10 @@ export class AnimalSpacing {
       a.x = nx; a.y = ny; e.moved += d;
       a.pushX = dx; a.pushY = dy;
       // a reef fish nudged aside veers that way, rather than drifting sideways
-      if (a.hd != null && e.band === 'reef') {
-        let turn = Math.atan2(dy, dx) - a.hd;
+      if (e.band === 'reef') {
+        let turn = Math.atan2(dy, dx) - a.heading;
         turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
-        if (Math.abs(turn) < Math.PI * 0.75) a.hd += clamp(turn, -d * 3, d * 3);
+        if (Math.abs(turn) < Math.PI * 0.75) a.heading += clamp(turn, -d * 3, d * 3);
       }
       return true;
     };

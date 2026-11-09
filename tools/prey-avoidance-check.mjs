@@ -83,7 +83,7 @@ check('Reef escape pace actually increases swimming speed', () => {
     const g = setup('reef'), w = g.world, a = spawn(g, 'tang');
     w.terrain.fill(T.CREEK);
     a.state = 'walk'; a.path = [w.idx(44, 30), w.idx(43, 30), w.idx(42, 30)];
-    a.run = run; a.hd = 0; a.spd = 0;
+    a.run = run; a.heading = 0; a.spd = 0;
     g.wildlife.update(0.05); speeds.push(a.spd);
   }
   assert.ok(speeds[1] > speeds[0] * 1.6, 'escape pace reaches the reef locomotion controller');

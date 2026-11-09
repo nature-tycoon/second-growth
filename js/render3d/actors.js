@@ -43,7 +43,16 @@ const SOAR_BANK = 0.35; // a circling hawk leans into its turn
 const SWIM_STRIDE = 0.7; // (body lengths a fish moves per beat of its tail at a cruise: about 0.6-0.8 in real fish)
 const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
 const SPAR_FIT = { elk: 0.97, sambar: 0.86 }; // per antler type, as a share of the two heads' full reach
-const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
+// Every drawn animal and visitor turns through turnToward, and only once a frame (0025): kinds
+// differ in what they turn toward (the simulation's `a.heading`, the bark a woodpecker clings to,
+// a starfish being eaten, the branch a climber is on) and how fast (TURN), never in how. A drawn
+// yaw is minus the simulation's heading (x east, z south). `ease` is per frame ease k (about 6 a
+// second); `max` caps the radians it turns this frame.
+const TURN = { body: 1.6, cling: 3, canopy: 1.2, ape: 0.7, snap: Infinity }; // (ape: an orangutan's long body swings round slowly)
+function turnToward(st, target, ease, k, max = Infinity) {
+  let d = target - st.yaw; d -= Math.round(d / (Math.PI * 2)) * Math.PI * 2;
+  st.yaw += clamp(d * Math.min(1, k * ease), -max, max);
+}
 
 // Where a salmon is in its leap (0..1 across the arc), or -1 when it's swimming. Each fish leaps
 // on its own clock, every three seconds or so.
@@ -263,11 +272,11 @@ export class Actors {
       }
       this.visibleWildlife.push(a);
       const returning = st?.visible === false;
-      if (!st) { st = { yaw: -(a.hd ?? a.orientation ?? (a.facing < 0 ? Math.PI : 0)), gait: 0, fly: 0, graze: 0, px: a.x, py: a.y, x: a.x, y: 0, z: a.y, h: 0.2 }; this.pose.set(a.id, st); }
+      if (!st) { st = { yaw: -(a.heading ?? 0), gait: 0, fly: 0, graze: 0, px: a.x, py: a.y, x: a.x, y: 0, z: a.y, h: 0.2 }; this.pose.set(a.id, st); }
       if (returning) {
         // Resume from the current simulation state, not the position/turn/depth last drawn
         // minutes ago. The edge margin gives normal animation blending room to resume.
-        st.yaw = -(a.hd ?? a.orientation ?? (a.facing < 0 ? Math.PI : 0));
+        st.yaw = -(a.heading ?? 0);
         st.px = a.x; st.py = a.y; st.depth = null; st.bend = 0; st.t = time;
         st.gait = game.speed > 0 && a.state !== 'idle' ? 1 : 0;
         st.fly = flying ? 1 : 0; st.graze = 0;
@@ -412,11 +421,21 @@ export class Actors {
       // face the way it's moving, and blend between standing, walking and flying
       const dx = a.x - st.px, dz = a.y - st.py, yaw0 = st.yaw, gait0 = st.gait;
       const moving = a.state !== 'idle' && (dx * dx + dz * dz > 1e-7 || flying);
-      // Intentional heading wins over small spacing corrections, which mustn't turn a resting
-      // animal sideways. Drink direction also updates while it is standing still.
-      const heading = a.drinkT > 0 && a.drinkAt ? a.orientation : a.hd ?? a.orientation;
-      if (heading != null) st.yaw = lerpAngle(st.yaw, -heading, Math.min(1, k * 1.6));
-      else if (dx * dx + dz * dz > 1e-6) st.yaw = lerpAngle(st.yaw, Math.atan2(-dz, dx), Math.min(1, k * 1.6));
+      // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
+      // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).
+      const munch = def.reef && a.state === 'forage' && a.forage?.food === 'starfish' && w.shrub[a.forage.i] ? a.forage.i : -1;
+      st.munch = (st.munch || 0) + ((munch >= 0 ? 1 : 0) - (st.munch || 0)) * Math.min(1, k * 0.8);
+      if (munch >= 0) st.munchAt = climberSpot(w, game.catalog, munch, (x, z) => w.heightAt(x, z) * LEVEL);
+      // The one turn: to the simulation's heading, which wins over small spacing corrections (they
+      // mustn't turn a resting animal sideways; a drinker's heading is the water), or to the bark it
+      // clings to, or the starfish it eats. Climbers on a branch and an orangutan on the ground
+      // re-take this turn below with their own target and pace.
+      const heading = a.heading;
+      const body = cling ? { target: cling.yaw, ease: TURN.cling }
+        : munch >= 0 && st.munch > 0.01 && !returning ? { target: Math.atan2(-(st.munchAt[2] - a.y), st.munchAt[0] - a.x), ease: TURN.body }
+        : heading != null ? { target: -heading, ease: TURN.body }
+        : dx * dx + dz * dz > 1e-6 ? { target: Math.atan2(-dz, dx), ease: TURN.body } : null;
+      if (body) turnToward(st, body.target, body.ease, k);
       // a swimmer that bends (the shark) curves into its turns: the tail swings to the inside
       if (mo.bend) {
         let dy = st.yaw - yaw0; dy -= Math.round(dy / (Math.PI * 2)) * Math.PI * 2;
@@ -486,7 +505,6 @@ export class Actors {
       if (cling) {
         // upright against the bark, facing it, the head hammering in bursts
         ax = cling.x; az = cling.z;
-        st.yaw = lerpAngle(st.yaw, cling.yaw, Math.min(1, k * 3));
         st.pitch = (st.pitch || 0) + (1.2 - (st.pitch || 0)) * Math.min(1, k * 2);
         st.graze = Math.sin(time * 0.9 + a.id * 2.1) > 0.1 ? (Math.sin(time * 26 + a.id) > 0 ? 0.9 : 0.15) : 0.3;
       } else {
@@ -507,14 +525,8 @@ export class Actors {
         }
         st.drawnX = ax; st.drawnZ = az;
       }
-      // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
-      // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).
-      const munch = def.reef && a.state === 'forage' && a.forage?.food === 'starfish' && w.shrub[a.forage.i] ? a.forage.i : -1;
-      st.munch = (st.munch || 0) + ((munch >= 0 ? 1 : 0) - (st.munch || 0)) * Math.min(1, k * 0.8);
-      if (munch >= 0) st.munchAt = climberSpot(w, game.catalog, munch, (x, z) => w.heightAt(x, z) * LEVEL);
       if (st.munchAt && st.munch > 0.01 && !returning) {
         const [mx, my, mz] = st.munchAt, m = st.munch;
-        if (munch >= 0) st.yaw = lerpAngle(st.yaw, Math.atan2(-(mz - a.y), mx - a.x), Math.min(1, k * 1.6));
         const tilt = 0.55 + Math.sin(time * 2.6 + a.id) * 0.12, nose = F.noseReach(def) * sc;
         const reach = nose * Math.cos(tilt), cx = mx - Math.cos(st.yaw) * reach, cz = mz + Math.sin(st.yaw) * reach;
         ax += (cx - ax) * m; az += (cz - az) * m; y += (my + nose * Math.sin(tilt) + 0.01 - y) * m;
@@ -645,7 +657,10 @@ export class Actors {
             if (st.canopyReverse) { yaw += Math.PI; sign = -1; }
           }
           if (!steering && Math.cos(yaw - yaw0) < 0) { yaw += Math.PI; sign = -1; }
-          st.yaw = returning || firstHold ? yaw : steering ? lerpAngle(yaw0, yaw, Math.min(1, k * (kind === 'orangutan' ? .7 : 1.2))) : yaw0;
+          // (on a branch it turns to the branch's way instead of the body's heading: from where it was)
+          st.yaw = yaw0;
+          if (returning || firstHold) turnToward(st, yaw, TURN.snap, 1);
+          else if (steering) turnToward(st, yaw, mo.primate === 2 ? TURN.ape : TURN.canopy, k);
           // Follow a steep main limb with the whole body rather than holding a
           // nearly level torso through it. Rotate around the actual hold.
           const pitchLimit = mo.primate === 1 || mo.primate === 2 || mo.canopyHanging ? 1.2 : .35;
@@ -729,10 +744,10 @@ export class Actors {
       const eatPose = eating ? Math.min(1, eatTime / .6) * (.8 + .2 * Math.sin(eatTime * 5)) : 0;
       if (mo.primate === 2 && !st.branch) {
         const step = Math.max(0, Math.min(.1, time - (st.groundTime ?? time)));
+        // (on the ground an orangutan turns its body no faster than a radian a second)
         if (game.speed === 0) st.yaw = yaw0;
         else if (!returning) {
-          const turn = st.yaw - yaw0 - Math.round((st.yaw - yaw0) / (2 * Math.PI)) * 2 * Math.PI;
-          st.yaw = yaw0 + clamp(turn, -step, step);
+          st.yaw = yaw0; if (body) turnToward(st, body.target, body.ease, k, step);
           const travelled = Math.hypot(ax - st.x, az - st.z);
           st.branchPhase = (st.branchPhase || 0) + Math.min(travelled / Math.max(.06, mo.len * sc * .65) * Math.PI * 2, step * ORANGUTAN_CADENCE);
         }
@@ -842,7 +857,7 @@ export class Actors {
       let st = this.people.get(v.id);
       if (!st) { st = { yaw: 0, gait: 0, px: v.x, py: v.y }; this.people.set(v.id, st); }
       const dx = v.x - st.px, dz = v.y - st.py;
-      if (dx * dx + dz * dz > 1e-7) st.yaw = lerpAngle(st.yaw, Math.atan2(-dz, dx), Math.min(1, k * 1.6));
+      if (dx * dx + dz * dz > 1e-7) turnToward(st, Math.atan2(-dz, dx), TURN.body, k);
       st.px = v.x; st.py = v.y;
       st.gait += ((v.pause > 0 ? 0 : 1) - st.gait) * k;
       const onWet = w.inb(Math.floor(v.x), Math.floor(v.y)) && isWater(w.terrain[w.idx(Math.floor(v.x), Math.floor(v.y))]);
