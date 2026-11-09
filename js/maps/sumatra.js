@@ -169,26 +169,27 @@ function peatDaily(g, rate = 0.025) {
 }
 
 // ------------------------------------------------------------------ the estate's own counts
+let grownPalm = null; // (estateStats: palms over half grown, marked once a call rather than looked up 25 times a tree)
 function estateStats(w, s) {
-  const W = w.w;
+  const W = w.w, H = w.h, n = w.n, tree = w.tree, treeG = w.treeG, plants = w.catalog.plants;
   let peat = 0, peatWet = 0, palms = 0, inter = 0, blocks = 0;
-  for (let i = 0; i < w.n; i++) {
+  if (!grownPalm || grownPalm.length !== n) grownPalm = new Uint8Array(n);
+  for (let i = 0; i < n; i++) grownPalm[i] = tree[i] && plants[tree[i]].key === 'oilpalm' && treeG[i] > 0.5 ? 1 : 0;
+  for (let i = 0; i < n; i++) {
     if (isPeat(w, i)) {
       const t = w.terrain[i];
       if (t === T.CREEK && w.feature[i] === F.DAM) blocks++;
       if (t !== T.CREEK && t !== T.RIVER && t !== T.POND && t !== T.ROAD) { peat++; if (w.baseMoist[i] >= 0.5 || t === T.MARSH) peatWet++; }
     }
-    if (!w.tree[i]) continue;
-    const p = w.catalog.plants[w.tree[i]];
-    if (p.key === 'oilpalm') { if (w.treeG[i] > 0.6) palms++; continue; }
-    if (p.invasive || w.treeG[i] < 0.5) continue;
+    if (!tree[i]) continue;
+    const p = plants[tree[i]];
+    if (p.key === 'oilpalm') { if (treeG[i] > 0.6) palms++; continue; }
+    if (p.invasive || treeG[i] < 0.5) continue;
     // a forest tree growing up among the palms
     const x = i % W, y = (i / W) | 0;
     let among = false;
-    for (let dy = -2; dy <= 2 && !among; dy++) for (let dx = -2; dx <= 2; dx++) {
-      if (!w.inb(x + dx, y + dy)) continue;
-      const j = w.idx(x + dx, y + dy);
-      if (isPalm(w, j) && w.treeG[j] > 0.5) { among = true; break; }
+    for (let yy = Math.max(0, y - 2), y1 = Math.min(H - 1, y + 2); yy <= y1 && !among; yy++) {
+      for (let j = yy * W + Math.max(0, x - 2), end = yy * W + Math.min(W - 1, x + 2); j <= end; j++) if (grownPalm[j]) { among = true; break; }
     }
     if (among) inter++;
   }

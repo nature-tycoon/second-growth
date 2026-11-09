@@ -8,8 +8,9 @@
 - Tests that stub habitat replace `Wildlife.suitabilityWork`, not `computeSuitability`.
 - Speed-ups must give exactly the same simulation (seeded `balance-sim restore 15` and `idle 10` byte-identical).
 - `wetTest` is per search: make a new one each time, since the water moves. `deepWaterNear` stops at the first deep enough point. Bird alarm threat answers are cached per map and difficulty (`threatens`).
+- The daily environment update recomputes only what changed where that gives the same answer: a distance field is swept again only when its sources changed (`w.distSources`, cleared by `Game.refreshEnvironment`: clear it too after writing a distance array yourself), and `classifyAndResources` reads plants through its per-month table (`plantMonth`), rebuilt every call because a map can change a plant's season. New per-plant values it needs go in that table.
 - Open: the daily plant redraw itself (redraw only on visible size change needs Cole's review of the look); Sumatra's opening view on the GPU.
-- Checks: `node tools/new-game-profile.mjs [maps] [quality] [seconds]` under `nice -n 15` before and after any change to what a frame does; `plant-replay-check`, `plant-performance-check`; probes `species-warm-probe`, `month-cost-probe`, `plant-churn-probe`; `node --cpu-prof` on a 12-year seeded run to compare checkouts.
+- Checks: `node tools/new-game-profile.mjs [maps] [quality] [seconds]` under `nice -n 15` before and after any change to what a frame does; `plant-replay-check`, `plant-performance-check`; probes `species-warm-probe`, `month-cost-probe`, `plant-churn-probe`, `daily-env-profile` (node) and `daily-env-browser-probe` (where a game day goes, after 2 grown years); `node --cpu-prof` on a 12-year seeded run to compare checkouts.
 
 ## History
 

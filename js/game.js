@@ -129,7 +129,7 @@ export class Game {
 
   refreshEnvironment() {
     this.water?.sync();
-    this.world.hydroDirty = true;
+    this.world.hydroDirty = true; this.world.distSources = null;
     updateHydrology(this.world);
     updateEnvironment(this.world, this.month, this.visitors ? this.visitors.traffic : 0);
   }
