@@ -1,9 +1,20 @@
 # 0029 Bees and butterflies at the flowers, in 3D
 
+## Rules
+
+- Pollinators are small 3D insects (`render3d/pollinators.js`) drawn through the wildlife's instanced pools (`Fauna.add` between `begin` and `end` in `Actors.update`), so they are lit, hidden behind trees and use far and close models. Don't go back to the 2D effects canvas (it can't be hidden by trees).
+- Spawning: up to 40 in view over tiles with nectar (`World.nectar`), hovering at the height of the flowers on their tile.
+- Each map's species are data in `look.ambience.pollinators` (`js/maps/*.js`): `{ animal: key, w }` borrows a simulated species' model and pool, `{ sprite: {...}, w }` adds an unsimulated one. Reef has none.
+- They are scenery only: no pollination, food or field guide entry; the simulation still reads `World.nectar`.
+- The butterfly model's `plain` painter (`edge`, `tip`) makes generic species.
+- Checks: `node tools/pollinator-check.mjs`; cost `PLAY_VIEWS=play,close,closest node tools/play-profile.mjs serengeti high 1`.
+
+## History
+
 2026-10-31. Cole: "Improve the fake bees and butterflies on the Serengeti map and other maps where
 applicable, they don't match anymore."
 
-## What didn't match
+### What didn't match
 
 The ambient bees and butterflies were flat ellipses painted on the 2D effects canvas over the 3D
 picture (`drawEffects` in `scene.js`), 0.3 above the ground over any tile with nectar:
@@ -15,7 +26,7 @@ picture (`drawEffects` in `scene.js`), 0.3 above the ground over any tile with n
 - they hung at one height whatever was flowering, and vanished at eye level (the 2D effects are off
   there).
 
-## Decision
+### Decision
 
 They are small 3D insects drawn with the wildlife's own models and scale (`render3d/pollinators.js`):
 
@@ -44,14 +55,14 @@ They are small 3D insects drawn with the wildlife's own models and scale (`rende
   optional dark tip with pale spots (`tip`). Whites, sulphurs, morphos and the African monarch all
   come from it. The monarch, swallowtail and birdwing keep their own painters.
 
-## Not done
+### Not done
 
 - They are scenery, not simulated: they don't pollinate, feed anything or show in the field guide.
   `World.nectar` is still what the simulation reads.
 - A whole 2D layer of them on the effects canvas would be cheaper still, but cannot be hidden by
   the trees in front of it, which was most of what looked wrong.
 
-## Check and cost
+### Check and cost
 
 - `node tools/pollinator-check.mjs`: every map's list resolves to insect models that build, a bee
   and a butterfly on each land map, none on the reef, drawn 0.03-0.25 tiles across.

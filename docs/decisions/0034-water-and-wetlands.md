@@ -1,12 +1,25 @@
 # 0034 Water and wetlands: the Hollis water model on, beaver ponds to meadow, fish in their depth, wallows
 
+## Rules
+
+- The Hollis water model (`sim/hollis-water.js`, `waterModelOn`) is on; `?water=0` switches it off to compare. It is Hollis only; a beaver elsewhere uses the older flooding, which also leaves meadow.
+- A tile's kind of water comes from its depth at the basin's usual level, not today's. Levels publish in 0.02 steps so the drawn water rebuilds only on a real change. Old saves migrate through `migrateMarkedPools`.
+- Beaver ponds (`sim/beaver-ponds.js`): dams at most `DAM_HEAD` over the bed and `DAM_CELLS` 60 tiles; `damCrest` null means no dam there; a standing crest is rechecked on every rebuild. Sites through `damSiteOK` (`SITE_WET`, `SITE_OPEN`, `DAM_GAP`, `CREEK_PER_DAM`, food). A dam without food within 6 tiles (`FOOD_MIN`) is abandoned and breaches.
+- A drained pond becomes beaver meadow (`w.meadow`, `MEADOW_YEARS`); drowned trees die through `removeTree` (0028) and stand as snags.
+- Fish depth: river fish use `swimDepth` (`waterline.js`, the depth the drawing uses), never `underWater`/`nearestWater` (those are for a drinker's head). `FISH_DEPTH` 0.07; `deepWaterNear`, `stepToward` and `settle` keep them there; a blocked fish tries side headings, then hops the lip. River fish keep moving (`riverFish` in `chooseTarget`).
+- Wallows (`sim/wallows.js`): which species wallow is data in `WALLOWERS`; a new big herbivore adds a line there. A wet wallow counts as a pool in `distPond`. At most two per wallowing animal and 40 a farm.
+- Reef fish over coral are drawing only (`coralFloor` in `render3d/flight-clearance.js`); check `tools/reef-coral-clearance-check.mjs`.
+- Checks: `hollis-water-check`, `beaver-pond-check`, `beaver-dam-check`, `fish-water-check`, `water-check`; measures `tools/pond-edge-measure.mjs`, `tools/wallow-count.mjs`, `tools/river-fish-roam-probe.mjs`, `tools/river-fish-spread-probe.mjs`.
+
+## History
+
 2026-11-01. Workstream D. Cole agreed the design on 2026-11-01. Builds on the Hollis water model
 (5eb0bee, `sim/hollis-water.js`, switched off in f28758b), the pond edges (e609181, f970c10,
 fd7899a), the drawn waterline ([0025](0025-shared-steering.md): `waterline.js`), plant succession
 ([0027](0027-plant-succession.md), [0028](0028-succession-dynamics.md)) and herbivore pressure
 ([0033](0033-herbivore-pressure.md)).
 
-## Reports
+### Reports
 
 1. Cole: "Fix the pond, I turned it off because it looked too weird and was breaking the game."
 2. Cole: pond edges "too jagged or have pieces of pond that are separated from the main pond".
@@ -19,7 +32,7 @@ fd7899a), the drawn waterline ([0025](0025-shared-steering.md): `waterline.js`),
 7. A tester: the largest herbivores should make wallows, temporary micro-ponds for amphibians,
    triops and fairy shrimp in spring and early summer.
 
-## Findings
+### Findings
 
 Measured headless (`hollis-soak`, below) before changing anything.
 
@@ -48,9 +61,9 @@ Measured headless (`hollis-soak`, below) before changing anything.
   also stood in water too shallow to swim in (up to 12% of samples) or on a dry tile.
 - The halved Hollis forest seed rain (0fc9228) doesn't interact: it is tree seed, not water.
 
-## Decision
+### Decision
 
-### The Hollis water model is on (`waterModelOn`; `?water=0` switches it off to compare)
+#### The Hollis water model is on (`waterModelOn`; `?water=0` switches it off to compare)
 
 - A tile's kind of water comes from its depth at the basin's **usual level** (a pond's dug level, a
   dam's crest), not today's. A pond drawing down keeps its pond tiles while they hold any water;
@@ -63,7 +76,7 @@ Measured headless (`hollis-soak`, below) before changing anything.
   creek back to creek (the model rebuilds the pond behind each standing dam), flooded ground to
   meadow (`migrateMarkedPools`).
 
-### Beaver ponds (`sim/beaver-ponds.js`, `hollis-water.js`)
+#### Beaver ponds (`sim/beaver-ponds.js`, `hollis-water.js`)
 
 - **A dam** holds water at most `DAM_HEAD` 0.6 levels (1.4 m) over the creek bed (real dams are
   mostly under 1.5 m), lowered until the pond covers no more than `DAM_CELLS` 60 tiles (0.4 ha at
@@ -96,7 +109,7 @@ Minnesota (MSU thesis); recolonisation about nine years after abandonment on ave
 killing most trees and setting stands back to early succession (Wildlife Biology 14(3), 2008);
 pond-meadow-stream pathways (Naiman, Johnston & Kelley 1988, as cited there).
 
-### Fish keep to water they can swim in (`waterline.js swimDepth`)
+#### Fish keep to water they can swim in (`waterline.js swimDepth`)
 
 `swimDepth(w, x, y)`: the depth of the fish's own tile's water over the ground at the point, on the
 drawn triangles: the level the drawing puts the fish under. A river fish's waypoint is moved to water
@@ -106,12 +119,12 @@ drawing puts it no deeper than half the water there. (`underWater`/`nearestWater
 point is under the highest water drawn nearby, which is right for a drinker's head; a fish needs
 the depth under the surface it is drawn at, so it has its own measure on the same waterline data.)
 
-### The waterline fringe
+#### The waterline fringe
 
 One strip along the water: how far up the bank it reaches varies slowly along the shore and only
 its strength is patchy, so no mud stands apart from the water (`terrain-materials.js`).
 
-### Wallows (`sim/wallows.js`), every map
+#### Wallows (`sim/wallows.js`), every map
 
 Data by species key (`WALLOWERS`): elk and moose bulls in the rut, bison, buffalo, elephants (both),
 rhinos (both), warthogs, wild boar and tapirs, each with a dish size; hippos live in the water and
@@ -124,7 +137,7 @@ note tells of fairy shrimp and tadpole shrimp. Drawn as a small mud dish with mu
 when wet (flora.js). Bison wallows are a few metres across and tens of centimetres deep, worn over
 years, and hold water in spring (Gerlanc & Kaufman 2003, Konza Prairie).
 
-### Reef fish over coral (2026-11-02)
+#### Reef fish over coral (2026-11-02)
 
 Reef fish are drawn over the hard corals by body size (`coralFloor` in
 `render3d/flight-clearance.js`): a fish of sprite size 6 or less (clownfish, chromis, cleaner
@@ -133,7 +146,7 @@ bigger one looks a crown's width round it and ahead and keeps its body depth ove
 only; the simulation still lets fish cross any sea tile. Check: `tools/reef-coral-clearance-check.mjs`.
 A fish eaten by a fish leaves a faint puff (`game.fishCatches`, drawn in `scene.js drawCatchPuffs`).
 
-## Verification
+### Verification
 
 Checks (all in the headless suite):
 
@@ -180,7 +193,7 @@ Performance (`play-profile`, M5, High): normal speed, wide and close views uncha
 0.9 → 1.1 ms (ceiling 10). Plant redraws per day are the same with the model on or off; the extra
 top-speed drawing is the water rebuilds and the regions round the water's changing margins.
 
-## Known limits
+### Known limits
 
 - Hollis elk seldom wallow: only bulls' rut wallows, and elk keep to drier ground. Bison and moose
   (workstream F) are listed in `WALLOWERS` and will wallow when they arrive.
@@ -196,7 +209,7 @@ top-speed drawing is the water rebuilds and the regions round the water's changi
   older flooding, which now also leaves meadow.
 - The rabbits' rise in both balance seeds isn't explained yet.
 
-### River fish keep moving (2026-11-02)
+#### River fish keep moving (2026-11-02)
 
 A river fish (move 'swim', not reef) used to hang in one spot for days: like every animal it
 waited 0.5 to 3.5 days after arriving, and when its own tile scored best in the wander search

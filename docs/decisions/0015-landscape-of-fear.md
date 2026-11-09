@@ -1,9 +1,19 @@
 # 0015 Landscape of fear
 
+## Rules
+
+- `js/sim/predation-risk.js` keeps a per-prey-species risk memory (`wl.risk`): a kill marks 1, a fresh flight from one of its own hunters 0.25, spread 3 tiles, fading 5% a day. Fires and incidental alarms mark nothing. It is not saved; `load` clears it.
+- Prey read it only when choosing places, through `safety = 1 / (1 + 1.5 × risk)`: home settling (give up a home past risk 1.2), drinking spot choice, deer/elk feed and rest sites (0010), local wandering.
+- It is never a wall: danger everywhere only lowers scores. No population, hunger, catch or habitat formula changes.
+- Don't mark risk from where predators are (territories, patrols): prey would crowd into safe pockets and recreate the clumping 0013 removed.
+- Checks: `node tools/predation-risk-check.mjs`, `home-range-check`, `activity-check`; seeded `balance-sim restore 15`.
+
+## History
+
 2026-10-20. Phase 3 of [0013](0013-home-ranges-and-water.md), on top of [0014](0014-activity-budget.md).
 Cole asked for the next phase ("keep going"). Places where prey have been hunted become less attractive.
 
-## Decision
+### Decision
 
 `js/sim/predation-risk.js` keeps a **risk memory for each prey species** (`wl.risk`: species →
 sparse map of tile → value):
@@ -35,7 +45,7 @@ crowding into "safe" pockets would recreate the clumping 0013 removed. Kills and
 local, so the memory shapes particular places (an ambush bank, a home where kills keep happening)
 rather than the overall distribution.
 
-## Verification
+### Verification
 
 - `node tools/predation-risk-check.mjs`, six checks:
   - Kills are remembered per species, fading about half in 14 days.
@@ -57,7 +67,7 @@ rather than the overall distribution.
     and in seeds 2 and 3 before. The four-seed mean is 8.9 before and 6.9 after, inside run-to-run noise.
     Watch this if rabbits look scarce in play.
 
-## Known limits
+### Known limits
 
 - Kills happen where prey are, so the memory partly mirrors prey density. Kept weak (single
   scares never move a home) so it cannot push prey out of their best cover in general.

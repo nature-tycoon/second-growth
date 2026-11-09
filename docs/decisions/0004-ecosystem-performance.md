@@ -1,14 +1,26 @@
 # 0004 Ecosystem performance
 
+## Rules
+
+- Target: 30 FPS at native screen resolution on Fast on Intel HD 520-class laptops in a mature ecosystem. A result reached by lowering resolution must say so; record viewport, device pixel ratio and render-buffer size, and keep automatic-quality runs separate from fixed-setting comparisons.
+- Simplifying distant plants, distant animals and shadows is fine; keep close-up detail.
+- Rendering quality must never change habitat capacity, population, birth, death, migration, growth, predation or offscreen ecology. Never reduce populations or skip offscreen ecology to meet a frame target.
+- Keep the typed-array world, sim clock, pooled instancing, geometry caches and separate camera/light visibility. Fix measured work in small changes; no engine rewrite, ECS, workers, streaming or blanket cadence cuts without a measured bottleneck and a reviewed design.
+- CPU throttling is a CPU stress test, not an HD 520 emulator; software rendering is no substitute either.
+- Each milestone needs correctness checks, measured acceptance criteria and an independent rollback. Reinspect the canopy/monkey code before changing its cache or support contracts.
+- Measure against the baseline protocol in [performance-plan.md](../performance-plan.md#measurement-and-comparison-rules); current budget in [the 2026-10-23 review](../performance-review-2026-10-23.md). Keep this record current; don't silently turn a hypothesis into a constraint.
+
+## History
+
 Target and visual tradeoffs decided 2026-10-15 by Cole. On 2026-10-17 Cole asked for the plan to be carried out. Output-preserving work on loading, P1, P3 and P6 has landed, and distant animal models (P4) are live after Cole reviewed them; P2 and P5 have not (see the plan's [Progress](../performance-plan.md#progress)).
 
-## Context
+### Context
 
 Second Growth becomes slower as vegetation and wildlife accumulate. The October 15 audit found substantial existing instancing, geometry sharing, visibility caching, LOD and update scheduling. Remaining measured costs include vegetation change discovery and region replay, visible animal pose preparation, crowded animal spacing, and large submitted geometry counts.
 
 The audit covers revision `0765363aca9b9495f519f1dd0cb27b5bbaa865cb`. It does not establish current performance on an Intel HD 520. The [audit](../performance-audit.md) preserves architecture, measurements and limitations; the [implementation plan](../performance-plan.md) defines milestones and regression gates. [Baseline JSON](../performance-baselines/2026-10-15.json) preserves numerical results for other agents.
 
-## Agreed target and tradeoffs
+### Agreed target and tradeoffs
 
 - Target **30 FPS at native screen resolution on Fast** on Intel HD 520-class laptops in a mature ecosystem.
 - Simplifying distant plants, distant animals and shadows is acceptable. Preserve close-up detail.
@@ -19,7 +31,7 @@ Native resolution is part of the target. Record the browser viewport, device pix
 
 The exact tester hardware, native resolution and reference save still need to be recorded. The plan proposes a frame-time tail threshold and scene matrix; those details are not yet agreed product requirements. The target is an objective, not a claim that the current game meets it.
 
-## Proposed architecture
+### Proposed architecture
 
 Keep the typed-array world, simulation rules and clock, pooled instancing, geometry caches, and separate camera/light visibility paths. Reuse the existing diagnostic harnesses. Address measured work in small changes before considering broader infrastructure.
 
@@ -31,7 +43,7 @@ Keep the typed-array world, simulation rules and clock, pooled instancing, geome
 
 There is no evidence supporting a whole-engine rewrite, ECS conversion, worker migration, general spatial streaming system or blanket reduction in simulation cadence. Reconsider any of those only with a specific measured bottleneck and a separately reviewed design.
 
-## Consequences
+### Consequences
 
 - Benchmark changes against the [baseline protocol](../performance-plan.md#measurement-and-comparison-rules), recording CPU work, presentation intervals, GPU time where valid, geometry, population and memory.
 - CPU throttling is a CPU stress test, not an HD 520 emulator. Software rendering is not an HD 520 performance substitute.

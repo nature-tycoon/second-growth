@@ -1,18 +1,34 @@
 # 0023 Trunks and logs: walkers go round wood on the ground
 
+## Rules
+
+- `sim/ground-obstacles.js` treats wood on the ground as solid for ground walkers (move `ground`/`semi`, not reef fish, leaving or airborne animals, never primates). Fliers and climbers pass through leaves.
+- Trunk positions are shared with drawing: `trunkSpot` and `dryPoint` live in `ground-obstacles.js` and `flora.js` calls them. Change the trunk jitter in `trunkSpot` only, never in `flora.js`. Radii come from `render3d/geometry/tree-shapes.js` (or `KIND_TRUNK`).
+- `tree-shapes.js` must stay free of three.js imports (the sim and balance-sim import it).
+- Every walker path goes through the three hooks: `clearSpot` (targets within 1.5 tiles off trunks), `steerAround` (sweep both ways, keep the side, `a.dodge`), `resolveStep` (slide out; never into fence, building, water or fire). Spacing shoves can't push into wood.
+- Keep-out = trunk radius + half body width, capped at `KEEP_MAX` 0.26 so there is always a way between trunks (0037 widened it beside thick trunks; 0025 made the body a capsule).
+- Never stuck: after 0.5 tiles lost (`a.woodLost`) an animal squeezes through (`a.squeeze`).
+- Elephants (`tramples: true`) trample saplings under 0.4 growth through `removeTree(…, 'browse')` (0028) when they die. Logs block only animals with `animalRadius` under 0.2.
+- `checkMovementProgress` measures progress to the cleared target. Walks start from `a.orientation`.
+- Per-animal fields `woodLost`, `squeeze`, `trampled`, `dodge`, `dodgeOff` are declared on `Animal` and not saved. Trunks are cached per tile (`cachedTrunk`).
+- Balance: use 16+ seeds of `restore` before calling a shift real (8 can't tell a 3-elk difference from noise).
+- Check: `node tools/ground-obstacles-check.mjs`.
+
+## History
+
 2026-10-24. Cole asked: "Make it so that animals walk around trees instead of through. For large
 animals they can't get stuck. Maybe for animals like African elephants they trample small trees in
 their way and are not affected by hitting branches higher up. For small animals they should also
 have to move around fallen logs. Birds need to be able to go through leaves. Don't mess with monkeys."
 
-## Context
+### Context
 
 Routes are found tile by tile (`pathTo`), and a tree's tile is open ground, so nothing knew where a
 trunk stood inside its tile. Walkers, hunters and fleeing prey all passed straight through trunks
 and logs. Nothing has ever collided with crowns, so fliers and climbers already moved through the
 leaves.
 
-## Decision
+### Decision
 
 `sim/ground-obstacles.js` treats the wood on the ground as solid for **ground walkers** (move
 `ground` or `semi`, not reef fish, not leaving, not in the air, and no primate: macaques walk on the
@@ -45,7 +61,7 @@ ground and are still left alone).
   animals with `animalRadius` under 0.2: voles, rabbits, squirrels, chipmunks, frogs, snakes,
   tortoises. Deer-sized and up step over them. Floating logs don't count.
 
-## Steering round trunks smoothly (2026-10-25)
+### Steering round trunks smoothly (2026-10-25)
 
 Cole saw animals sidestep oddly round trees and the follow camera shake. Measured headless on
 Sumatra as it starts (walkers within 0.5 tiles of a trunk), facings that jumped more than 20° in one
@@ -74,7 +90,7 @@ A fan of candidate headings scored by clearance was tried first and turned walke
 tile in every wood, because in a stand the straight lane is almost never clear. Planning round the
 cones is better.
 
-## Gotchas
+### Gotchas
 
 - Tree positions are now shared code: change the trunk jitter in `trunkSpot` only, never in `flora.js`.
 - The sim imports `tree-shapes.js`, so that file must stay free of three.js imports (balance-sim
@@ -85,7 +101,7 @@ cones is better.
 - The new per-animal fields (`woodLost`, `squeeze`, `trampled`, `dodge`, `dodgeOff`) are declared on `Animal` and not saved.
 - Idle animals standing in a trunk (from an old save) aren't moved until they next walk.
 
-## Consequences
+### Consequences
 
 - Cost: about 7% of simulation time on dense Sumatra (0.1 ms per `wildlife.update` with ~300
   animals; CPU profile, callees included), within the 1–2 ms the 2026-10-23 performance review leaves.
@@ -104,7 +120,7 @@ cones is better.
 - Serengeti campaign completes on the same day (522). No elephants arrived in 10-year idle Serengeti
   or Sumatra runs, so the sapling trampling didn't show up in those numbers.
 
-## Check
+### Check
 
 `node tools/ground-obstacles-check.mjs`: five species cross a dense fir stand without entering a
 trunk; the detour costs a deer less than 60% extra time; 24 random trips through a mixed wood all arrive;

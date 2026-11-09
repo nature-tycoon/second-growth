@@ -1,12 +1,27 @@
 # 0030 Everyday animal behaviours: fishing, trunks, climbers, rhythm
 
+## Rules
+
+- Everyday behaviours are species traits in `behaviorFor` (`js/data/animal-behavior.js`), one place for every map: `plays`, `nocturnal`, `fishing` (`data/animal-fishing.js`, `sim/fishing.js`), `climb: { cap: 2, ground }` (`sim/climbers.js`), `birdProfile.trunk`. Add a trait there, not per species.
+- Fishing (`sim/fishing.js`): fishers never seek out drawn fish; a strike takes a drawn fish in reach only in proportion to pop/K, else an undrawn one that removes nothing. Fishing feeds no population (fishers still arrive by `fishIndex`).
+- Woodpeckers sit on the drawn trunk (`treeTrunk`, shared with flora) at `treeLevel` heights (0024).
+- Climbers: `pathTo` never ends a walk in a tree holding `cap` of its kind. A climber on the ground has `a.move` `'ground'` while the species stays `'tree'`; `passable` reads `a.move`, and drawing checks `a.move !== 'ground'` before lifting it into a crown.
+- `a.passing` is for bird flyovers only (`wl.flyovers`); never set it on a resident. Loading clears it.
+- Nocturnal animals are drawn only at night (`renderer.nightOut`, `roostingNow`).
+- Flight clearance (`render3d/flight-clearance.js`) keeps fliers over crowns, easing climb and descent; drawn bird height moves like a body (`easeBirdHeight`). Stoops, landings, vulture spirals and pollinators are exempt. `flight-canopy-check` limits `jolt`.
+- Scavenging birds eat carcass meals on the ground (`birdGround`).
+- Tests: seed `Math.random` (a fixed value breaks the water/ground samplers). A soak with more climbers than `wl.state[sp].K` shows crowding the cap can't fix.
+- Checks: `fishing-check`, `woodpecker-trunk-check`, `climber-cap-check`, `animal-rhythm-check`, `flight-canopy-check`, `bird-behavior-check`, `moments-check`, `tools/follow-height-probe.mjs`; keystone sweep `tools/moments-sweep-browser-check.mjs`.
+
+## History
+
 2026-10-31. Workstream G of Cole's idea list, built on 0025 (shared steering) and 0026 (hunts).
 Eight reports, each diagnosed before it was fixed. Cole's answers to the design questions:
 fishing takes a drawn fish when one is in reach, else one the water holds that isn't drawn; bats
 are in their roost by day and come out at dusk; at most 2 climbers of a kind per tree on every map,
 and gray squirrels forage below (flying squirrels stay up).
 
-## Findings
+### Findings
 
 - **Fishing.** On Standard, herons, kingfishers, eagles and the PNW otter never caught a fish:
   fish were only their habitat score (`fishIndex`), and only Challenging gave them fish to hunt
@@ -28,7 +43,7 @@ and gray squirrels forage below (flying squirrels stay up).
   Only a bird flying to a goal was lifted, and only over its own tile: 69-95% of samples of fliers
   over trees were inside a crown.
 
-## Decision
+### Decision
 
 Species traits live in `behaviorFor` (`js/data/animal-behavior.js`), one place for every map:
 
@@ -86,7 +101,7 @@ Species traits live in `behaviorFor` (`js/data/animal-behavior.js`), one place f
   change and jolt per frame for followed animals. Salmon leap only while running (`st.leapOk`, by
   their drawn swimming pace); one holding still stays under, and the splash reads `st.jp`.
 
-## Gotchas
+### Gotchas
 
 - `a.passing` means a bird flyover (`wl.flyovers`, with `a.passage`); never set it on a resident.
   Loading clears it.
@@ -96,7 +111,7 @@ Species traits live in `behaviorFor` (`js/data/animal-behavior.js`), one place f
 - A soak that stocks more climbers than the map holds (`wl.state[sp].K`) will show crowding the
   cap can't fix: there are no free trees.
 
-## Balance and cost
+### Balance and cost
 
 Seeded `balance-sim restore 15`, seven seeds (7, 11, 23, 1, 2, 3, 4), the branch base vs this,
 years 8-16. Every run completes every goal. Fishing is the change that reaches PNW populations.
@@ -117,7 +132,7 @@ changes. Treated as noise; worth a look if it shows up again.
 Cost: new code is 1.3% of a PNW community run's CPU in node (`--cpu-prof`), almost all of it
 `canopyTop`, about 0.04 ms a frame. `ms/day` in balance-sim unchanged (17.2-17.8 both).
 
-## Checks
+### Checks
 
 - `tools/fishing-check.mjs`: profiles per map and mode, each style end to end, a PNW soak.
 - `tools/woodpecker-trunk-check.mjs`: PNW fir and Atlanta oak: time on trunks, drawn on the bark.
@@ -128,6 +143,6 @@ Cost: new code is 1.3% of a PNW community run's CPU in node (`--cpu-prof`), almo
 - `tools/bird-behavior-check.mjs` (vulture on the ground), `tools/moments-check.mjs` (stopover).
 - `tools/moments-sweep-browser-check.mjs`: all 21 keystone moments on 7 maps in a browser.
 
-## The tracking lens keeps the support (2026-11-02)
+### The tracking lens keeps the support (2026-11-02)
 
 The tracking lens (`render3d/focus.js`) used to open a window about 0.85 tiles wide, starting at the back of the animal. That cut the woodpecker's trunk, the coral under reef fish and palm fronds under monkeys. One rule now covers every species: near the animal, only what lies between the camera and the animal's model box (`revealBounds`, now set for every pose) opens. The trunk an animal clings to (`st.trunk`, from `trunkCling`) stays unless it is wholly in front of the animal. Whatever lies below its feet near it, and shows below it on screen, stays. The wider gap opens gradually, over two window radii toward the camera. A new kind of support (a climber on a trunk or a rock face) sets `st.trunk` or a similar uniform; it needs no per-species shader patch. Check: `tools/follow-support-browser-check.mjs` (pictures in `tools/release-output/follow-support-*.png`), and `tools/canopy-reveal-browser-check.mjs` for covering leaves.

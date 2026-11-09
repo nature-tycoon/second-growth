@@ -1,5 +1,20 @@
 # 0025 Shared steering: animals share space and face what they act on
 
+## Rules
+
+- One order for every ground animal, every step: intent → steer and move (`spacing.steer`, `steerAround`, then `resolveStep`) → spacing shoves (`AnimalSpacing.separate`) → settle (`sim/steering.js`: drinkers face water, standing bodies pushed out of wood, squeezes ended, walkers off water).
+- Hunts, flight, bouts, play and approaches move only through `wl.stepToward(a, tx, ty, sp)` (or `smoothWalk`); never write `a.x`/`a.y` directly. A new paired action (pack kill, mother and young) needs a validated spot, a tolerance and a timeout, like bouts (`squareUp`, `sparAt`).
+- Bodies are capsules along `a.hd ?? a.orientation` (`animalRadius / 0.65` long), plus a rack disc for antlered males, capped at `KEEP_MAX`. Antler clearance is body shape, never a wider round radius. `inWood` takes the heading.
+- `settle` pushes a body out of wood only in standing states (`idle`, `feed`, `forage`): a new standing state must be added there.
+- Water: `DRY_FOOTED` small animals (`animal-terrain.js`) never enter marsh or creek. Other land walkers may wade across, but no route, rest or drink spot ends on water. A new target selector must exclude water tiles for move `ground`, or `settle` keeps walking animals off them (and `pathTo` there is only cheap because none do).
+- Herds keep `HERD_ROOM` (0.85 of two lengths) when grazing or resting (`herdRoom`, `restSpot`); drinkers and a calf by its mother are exempt. Flight turns at `FLEE_TURN`, also when cornered.
+- `GRAZERS` and the head-up rule live in `steering.js`; an idle grazer with water behind it keeps `a.headUp`. `headUpKey` must be cleared whenever the animal isn't an idle non-drinking grazer.
+- New `Animal` fields are declared on `Animal`: `drinkFrom`, `sparSince` (saved), `fleeHd`, `settleKey`, `headUp`, `headUpKey` (not saved). `walkPath` runs `resolveStep` after a pivot too.
+- Drawing: stride follows ground covered (`render3d/stride.js`, `groundPace`); `node tools/gait-pace-probe.mjs`.
+- Check: `node tools/animal-steering-check.mjs [--report] [maps]` (reliable only at its default seed); with ground-obstacles, animal-positioning, clustering, life, turning, home-range checks and seeded `balance-sim restore 15` on 8+ seeds.
+
+## History
+
 2026-10-31. Cole's reports: herds fleeing a predator move awkwardly; wildebeest and zebra stand
 too tightly; animals shouldn't run into each other unless they mean to (play, a hunt, a fight, a
 panicking herd); since trunk avoidance (0023) rutting elk clash antlers with a rump and deer no longer
@@ -7,7 +22,7 @@ meet head on; elk antlers clip trees; a deer stuck inside a tree; elephants that
 riverbank and drink with their backs to the creek; brush rabbits gathered under water in a marsh;
 crocodiles that never go up a creek the player dug.
 
-## Findings
+### Findings
 
 Measured with `tools/animal-steering-check.mjs` (below) before changing anything. There was no
 single steering layer: ground animals move by three paths (`smoothWalk` for walks, `stepToward` for
@@ -41,7 +56,7 @@ own way, and spacing shoves came after all of them.
 - **Crocodiles rated a creek half a river.** A home's core was scored as a patch, which a one-tile
   channel can never fill. With a dug creek joined to the Serengeti river: 0 visits in 120 days.
 
-## Decision
+### Decision
 
 One order, for every ground animal, every step:
 
@@ -107,7 +122,7 @@ In detail:
   along each arm, so a channel can hold a home. Serengeti elephants rate bush 1 and grassland 0.9
   (were 0.8 and 0.6), and good habitat runs 11 tiles from water (was 8).
 
-## Hook for the hunting rework
+### Hook for the hunting rework
 
 Hunting's pacing (approach, creep, rush, circling) stays in `huntStep`. It moves only through
 `wl.stepToward(a, tx, ty, sp)`, which already steers round wood, keeps to standable ground and
@@ -116,7 +131,7 @@ pursuit or stalk rework should keep calling `stepToward` (or `smoothWalk` for a 
 rather than writing `a.x`/`a.y` itself, and give any new paired action (a pack's kill, a mother
 and young) the same treatment as bouts: a validated spot, a tolerance and a timeout.
 
-## Verification
+### Verification
 
 `node tools/animal-steering-check.mjs [--report] [maps]` (fails on the limits below unless `--report`): restored landscapes on all seven maps.
 Animals are spread over their habitat (herds of 14, `HERD=60` for a migration-sized herd), hunters
@@ -184,7 +199,7 @@ animal-dormancy, animal-density, moments, and map-catalog, which failed before t
 (0023's body width read `activeCatalog`, not the world's). `cervid-behavior-check` ("calf keeps up
 on the overland trip") and `primate-stall-check` (orangutan hold) fail before and after.
 
-## Gotchas
+### Gotchas
 
 - `inWood` and the keep-out test the body along `a.hd ?? a.orientation`. A new behaviour that turns
   an animal (a `facePoint`) gets its body pushed out of wood by `settle` only if it is standing
@@ -201,7 +216,7 @@ on the overland trip") and `primate-stall-check` (orangutan hold) fail before an
   `headUpKey` is cleared whenever the animal isn't an idle non-drinking grazer, or one that stops
   drinking where it stood would keep its old answer.
 
-## Stride follows the ground (2026-11-02)
+### Stride follows the ground (2026-11-02)
 
 The leg clock `a.phase` ticks at the walking rate whether the animal gets anywhere or not, so a
 walker braking behind a herd mate or edging round a trunk strode on the spot. The drawing now
@@ -216,7 +231,7 @@ mate in `spacing.steer`, which is real single-file following. A herd follower th
 end of its walk now stops there instead of pressing on for up to 3 s (`a.follow` rule in the
 waypoint skip, `animals.js`).
 
-## Racks, pivots and cornered flights (2026-11-02, itch.io release blockers)
+### Racks, pivots and cornered flights (2026-11-02, itch.io release blockers)
 
 `animal-steering-check` failed CI on Atlanta seed 1987 (6.67 racks in a trunk per 1000, limit 5),
 and behind that assertion on two more: rival-steps stuck (2) and flee turns (18–20 per 1000, limit 15).

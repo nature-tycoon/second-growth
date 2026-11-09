@@ -1,9 +1,19 @@
 # 0005 Animal travel and crowding across maps
 
+## Rules
+
+- Non-reef ground movers may cross passable, non-burning dry ground when roaming or dispersing to another suitable patch (supersedes 0003's elk-only scope). That ground supplies no suitability or capacity. Buildings, deep water and species fences still block. Water and canopy specialists keep their corridor rules.
+- Roaming and flight destinations are weighted by available room through a sparse occupancy field that counts animals already en route (stencil radius at most 3 tiles); crowding lowers weight, never blocks.
+- Non-cervid herds keep stable membership through the saved `herdOf` field (living nearby leaders, max size, distance limit); formation slots grow with population and body size. Cervid families, bachelors, harems and mother/young keep their own rules.
+- No population, feeding, habitat-capacity or predator formula changes. Natural gathering at scarce food, water and nests is legitimate.
+- Checks: `node tools/animal-clustering-check.mjs` (`--audit` for before/after), `node tools/animal-clustering-soak.mjs`, cervid, positioning, animal-life and wildlife-behavior checks.
+
+## History
+
 2026-10-17. Cole requested an audit of unnatural clustering on every map, extending
 previous fixes for elk.
 
-## Findings
+### Findings
 
 The seeded shared-selector audit covers all 200 regional roster entries across
 seven maps. Before the fix, 63 ground-species entries could not leave a small
@@ -15,7 +25,7 @@ radius regardless of population and model size.
 
 These are simulation decisions, separate from model overlap or canopy animation.
 
-## Decision
+### Decision
 
 Extend the elk travel policy to non-reef ground movers for roaming and natal
 dispersal. Passable, non-burning dry ground may connect suitable patches; it
@@ -38,7 +48,7 @@ families, bachelor groups, harems and mother/young links keep their own rules.
 No population, feeding, habitat-capacity or predator formulas change. Existing
 saves acquire the corrected behavior on subsequent movement decisions.
 
-## Verification
+### Verification
 
 - `node tools/animal-clustering-check.mjs`: all 200 regional entries; dry-gap travel,
   burning barriers, occupied and reserved destinations, local herd membership and

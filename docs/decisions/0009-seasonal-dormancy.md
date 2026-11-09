@@ -1,8 +1,19 @@
 # 0009 Seasonal dormancy for selected residents
 
+## Rules
+
+- Only the selected cases sleep (PNW black bear, garter snake, pond turtle; Atlanta chipmunk, big brown bat, box turtle). Species and maps live in `js/data/animal-dormancy.js`; no generic bear/bat/reptile rule, nothing on tropical maps. The PNW little brown bat keeps its migration. Summer bat boxes are not winter roosts.
+- `js/sim/animal-dormancy.js` owns shelter choice, travel, entry, arousal and emergence, reusing the calendar, weather, pathfinder, fire evacuation and persistence. The renderer only hides sheltered animals; they stay in the population and Locate centres their shelter.
+- Hunts, meals, escapes, social interactions and fire evacuation outrank entry. Searches are bounded (600 cells, bat radius 12), retried at most every five days. Unrelated bears and chipmunks take separate sites; cubs use their mother's den.
+- Sheltered animals don't collide, hunt, breed, flee or become prey; they age and can die. Food demand 5% (chipmunks 10%); capacity is unchanged and doesn't evict validly sheltered residents. Spring always ends dormancy; fire, flooding or shelter loss wakes them.
+- Winter state, site and ages are saved and copied independently for save/undo; invalid records are repaired on the next step. Dormancy is simulation-owned, independent of render quality or culling.
+- Checks: `node tools/animal-dormancy-check.mjs`, `node tools/animal-dormancy-soak.mjs`; seeded `balance-sim restore 15`.
+
+## History
+
 2026-10-17. Cole requested hibernation where appropriate.
 
-## Decision
+### Decision
 
 Keep species and map selection in `js/data/animal-dormancy.js`, attached through
 existing behavior profiles. `js/sim/animal-dormancy.js` owns shelter selection,
@@ -47,7 +58,7 @@ arousal age and retry age survive saves; shelter records are copied independentl
 for save/undo. Missing/invalid records and out-of-season sleep are repaired on the
 next simulation step. Pause freezes timers.
 
-## Biological basis and limits
+### Biological basis and limits
 
 - [NPS: bears in winter](https://www.nps.gov/articles/bears-winter.htm): denning
   varies with location and food. [Yellowstone bears](https://home.nps.gov/yell/learn/nature/bear.htm)
@@ -74,7 +85,7 @@ measurement; not every clear winter day is actually warm. Dormancy does not add
 winter births or change the existing breeding calendars. Ecological status is
 simulation-owned and independent of render quality/offscreen culling.
 
-## Verification
+### Verification
 
 - `node tools/animal-dormancy-check.mjs`: 17 checks covering all 200 map/species
   entries, entry/travel/barriers, shelter types, demand/age/pause, spring exit,
