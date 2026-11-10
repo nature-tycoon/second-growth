@@ -21,3 +21,6 @@ Branch `claude/ideas-wave2`, not pushed. All 10 sessions landed; s8's audit also
 - Seabirds plunge-dive to fish (s5). Real for boobies; noddies dip from the surface.
 - Male anthias with magenta colour and long dorsal spine (s2).
 - Refactor fixes 5 and 8 from docs/refactor-audit-2026-11.md (fix 5: one-time reset of seeded baselines, Cole OK'd).
+
+## Cole picked for the next batch (2026-11-09)
+- Prey jink sideways; fruit birds and seabirds eat; male anthias and a little more anaconda habitat. Not now: anaconda coil and swallow.
