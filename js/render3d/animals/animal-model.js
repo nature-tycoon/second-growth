@@ -40,29 +40,6 @@ export function buildSpecies(def, { close = false } = {}) {
     case 'caiman': caiman(m, s); mo.leg = 0.4; mo.tail = 0.35; mo.wave = s.len * 0.025; mo.waveK = 6 / s.len; mo.waveHead = s.len * 0.1; mo.waveLen = s.len * 0.7; mo.sink = s.len * 0.09; break;
     case 'ray': ray(m, s); mo.flap = 0.9; mo.wingSpan = s.size * 0.66; mo.wingRoot = s.size * 0.14; mo.tail = 0.3; mo.leg = 0; break;
     case 'dolphin': dolphin(m, s); mo.swims = 1; mo.verticalWave = 1; mo.tail = 0.12; mo.wave = s.size * 0.03; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.2; mo.waveLen = s.size * 0.8; mo.sink = s.size * 0.1; break;
-    case 'deer': case 'canine': case 'feline': case 'raccoon': case 'otter': case 'beaver':
-    case 'peccary': case 'agouti': case 'anteater':
-    case 'antelope': case 'zebra': case 'wildebeest': case 'gazelle': case 'impala': case 'buffalo': case 'warthog': case 'hyena': case 'rhino': case 'giraffe': case 'elephant': {
-      const own = OWN_QUADRUPED[s.kind]?.(s);
-      if (own) { Object.assign(mo, own(m, s)); break; }
-      const o = MAMMALS[s.kind](s);
-      quadruped(m, s, o);
-      mo.bob = o.H * (o.bobMotion ?? 0.04);
-      mo.leg = o.legMotion ?? 0.55;
-      mo.sink = o.leg + o.H * 0.45;
-      break;
-    }
-    case 'songbird': case 'hummer': case 'woodpecker': case 'heron': case 'duck': case 'booby': case 'raptor': case 'owl': case 'toucan': case 'macaw': case 'ostrich': case 'hornbill': case 'vulture': case 'secretary': case 'crane': {
-      bird(m, s);
-      const o = BIRDS[s.kind](s);
-      mo.flap = o.flap ?? 2;
-      mo.leg = 0.5; mo.tail = s.cocked ? 0.13 : 0.065; mo.bird = 1; mo.billSweep = !!s.spoonbill;
-      mo.wingSpan = s.size * o.span * 1.7;
-      mo.sink = o.swimmer || o.duck ? s.size * 0.24 : 0;
-      // Wading can cover the lower legs, while the belly stays above the surface.
-      if (o.wades) mo.wadeDepth = o.legH * s.size * 0.55;
-      break;
-    }
     case 'bat': bat(m, s); mo.flap = 2.6; break;
     case 'butterfly': butterfly(m, s); mo.flap = 1.7; mo.leg = 0; mo.tail = 0; break;
     case 'bee': bee(m, s); mo.flap = 9; mo.leg = 0.2; mo.tail = 0; break;
@@ -87,7 +64,8 @@ export function buildSpecies(def, { close = false } = {}) {
     // (a fish swims like the shark, with a stiffer front: a bit over a body length per wave, the head
     // nearly still and the sweep growing toward the tail, whose fin turns in step with it: animatePart)
     case 'fish': fish(m, s); mo.swims = 1; mo.wave = s.size * 0.07; mo.waveK = 5.5 / s.size; mo.waveHead = s.size * 0.25; mo.waveLen = s.size * 0.9; mo.waveMin = 0.08; mo.wavePow = 1.5; mo.sink = s.size * 0.2; mo.tail = 0.5; break;
-    default: m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
+    // (every other four-legged mammal and every bird: the shared builders, from each kind's options)
+    default: if (MAMMALS[s.kind]) quadrupedModel(m, s, mo); else if (BIRDS[s.kind]) birdModel(m, s, mo); else m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
   }
   mo.eye = m.eyeAt || null; mo.eyePivot = m.eyePivot || [0, 0, 0]; // where the eyes are, in model units (for eye-shine)
   mo.eyeSpot = m.eyeAt || m.eyeSpot || null; // (and for fitting a kill's skull: every model with eyes)
@@ -162,6 +140,27 @@ export function buildSpecies(def, { close = false } = {}) {
     mo.canopyBounds = new THREE.Box3().setFromPoints(mo.canopyBody);
   }
   return { geo, motion: mo };
+}
+
+function quadrupedModel(m, s, mo) {
+  const own = OWN_QUADRUPED[s.kind]?.(s);
+  if (own) { Object.assign(mo, own(m, s)); return; }
+  const o = MAMMALS[s.kind](s);
+  quadruped(m, s, o);
+  mo.bob = o.H * (o.bobMotion ?? 0.04);
+  mo.leg = o.legMotion ?? 0.55;
+  mo.sink = o.leg + o.H * 0.45;
+}
+
+function birdModel(m, s, mo) {
+  bird(m, s);
+  const o = BIRDS[s.kind](s);
+  mo.flap = o.flap ?? 2;
+  mo.leg = 0.5; mo.tail = s.cocked ? 0.13 : 0.065; mo.bird = 1; mo.billSweep = !!s.spoonbill;
+  mo.wingSpan = s.size * o.span * 1.7;
+  mo.sink = o.swimmer || o.duck ? s.size * 0.24 : 0;
+  // Wading can cover the lower legs, while the belly stays above the surface.
+  if (o.wades) mo.wadeDepth = o.legH * s.size * 0.55;
 }
 
 // Fold the feeding arm at its elbow into a hand-to-mouth pose. The second
