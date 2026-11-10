@@ -1,4 +1,5 @@
 // Seeded shared movement checks over every regional roster.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { BIOME_LIST } from '../js/biome.js';
@@ -117,17 +118,17 @@ if (!audit) {
     const b = bw.spawn(bd, 80, 30, { silent: true });
     b.state = 'fly'; b.tx = 40.5; b.ty = 30.5;
   }
-  const random = Math.random;
+  const random = forcedSimRandom();
   try {
     let k = 0; const sample = [1, 0.5, 0.5, 0, 0.5, 0.5];
-    Math.random = () => sample[k++ % sample.length];
+    forceSimRandom(() => sample[k++ % sample.length]);
     assert.deepEqual(bw.bestTileSample(bd, 30, 30, 10, 2, bird), [20, 30], 'local flights avoid reserved landing patches');
     k = 0; const far = [occupied / birds.world.n, 0.5, empty / birds.world.n, 0.5];
     bird.x = 30.5; bird.y = 5.5;
-    Math.random = () => far[k++ % far.length];
+    forceSimRandom(() => far[k++ % far.length]);
     assert.ok(bw.roam(bird, bd));
     assert.ok(bird.tx < 21, 'long flights avoid reserved landing patches');
-  } finally { Math.random = random; }
+  } finally { forceSimRandom(random); }
 
   for (const [map, key, movement] of [['amazon', 'howler', 'canopy'], ['pnw', 'cutthroat', 'water'], ['pnw', 'newt', 'wet habitat'], ['reef', 'chromis', 'sea']]) {
     const game = setup(map), w = game.world, sim = game.wildlife, d = game.catalog.animal[key];

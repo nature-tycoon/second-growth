@@ -1,6 +1,7 @@
 // node tools/animal-life-check.mjs
 // Everyday behaviour from js/sim/animal-life.js: rutting stags fight a bout head to head,
 // animals get clear of a fire, and reef fish swim nose-first.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { T, F } from '../js/config.js';
@@ -31,7 +32,7 @@ function males(key, n) {
   return out;
 }
 // Math.random returns these values in turn (the last one repeats)
-const rigged = (fn, ...values) => { const r = Math.random; let k = 0; Math.random = () => values.length ? values[Math.min(k++, values.length - 1)] : 0; try { return fn(); } finally { Math.random = r; } };
+const rigged = (fn, ...values) => { const r = forcedSimRandom(); let k = 0; forceSimRandom(() => values.length ? values[Math.min(k++, values.length - 1)] : 0); try { return fn(); } finally { forceSimRandom(r); } };
 
 check('Rutting bull elk square up head to head, hold the stance, and the loser gives ground', () => {
   reset(); while (g.month !== 7) g.day++;
@@ -67,7 +68,7 @@ check('In the rut bull elk gather harems, keep their cows close, and a winning r
   // One minute of a harem is noisy (2.7-5.3 tiles across seeds), so average a few seeded runs.
   const harem = seed => {
     Math.random = mulberry32(seed);
-    reset(); while (g.month !== 7) g.day++;
+    reset(); g.wildRng.setState(seed); while (g.month !== 7) g.day++; // (each run its own sim stream)
     const wl = g.wildlife, [b1, b2] = males('elk', 2), cows = [];
     for (let k = 0; cows.length < 6 && k < 200; k++) { const c = wl.spawn(ANIMAL.elk, 40, 30, { silent: true }); if (!isMaleVariant(ANIMAL.elk, c)) cows.push(c); else wl.remove(c); }
     b1.x = 40.5; b1.y = 30.5; b2.x = 52.5; b2.y = 30.5;

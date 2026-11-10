@@ -1,4 +1,5 @@
 // Real behavior outcomes and interruption boundaries for the cross-map guild audit.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { ANIMAL, ANIMALS, isMale } from '../js/data/animals.js';
@@ -18,7 +19,7 @@ function reset(map='pnw', difficulty='standard') {
   return {wl,w,i:w.idx(40,30)};
 }
 function spawn(key,x=40,y=30) {const a=g.wildlife.spawn(ANIMAL[key],x,y,{silent:true,age:5*DAYS_PER_YEAR});a.x=x+.5;a.y=y+.5;a.hunger=12;a.wait=99;return a;}
-function rig(fn) {const original=Math.random;Math.random=()=>0;try{return fn();}finally{Math.random=original;}}
+function rig(fn) {const original = forcedSimRandom();forceSimRandom(()=>0);try{return fn();}finally{forceSimRandom(original);}}
 function male(key,sex=true) {for(let n=0;n<300;n++){const a=spawn(key);if(isMale(ANIMAL[key],a)===sex)return a;g.wildlife.remove(a);}throw Error('sex');}
 check('All 203 regional species have bounded shared profiles and valid food webs',()=>{
   let count=0;

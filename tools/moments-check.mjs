@@ -1,4 +1,5 @@
 // node tools/moments-check.mjs
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { ANIMAL, isMaleVariant } from '../js/data/animals.js';
@@ -32,7 +33,7 @@ function male(key) {
   for (let i = 0; i < 200; i++) { const a = spawn(key); if (isMaleVariant(ANIMAL[key], a)) return a; g.wildlife.remove(a); }
   throw new Error('No male variant');
 }
-function rig(fn) { const r = Math.random; Math.random = () => 0; try { return fn(); } finally { Math.random = r; } }
+function rig(fn) { const r = forcedSimRandom(); forceSimRandom(() => 0); try { return fn(); } finally { forceSimRandom(r); } }
 
 check('Animal intros wait for real behavior, even after the old arrival timeout', () => {
   for (const [map, key, species] of [['amazon', 'jaguar', 'jaguar'], ['amazon', 'howler', 'howler'], ['sumatra', 'orangutans', 'orangutan'], ['sumatra', 'harimau', 'tiger'], ['chinandega', 'congos', 'congo'], ['reef', 'manta', 'manta']]) {

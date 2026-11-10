@@ -1,4 +1,5 @@
 // node tools/challenging-ecology-check.mjs
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { T, F } from '../js/config.js';
@@ -228,8 +229,8 @@ check('Cover helps land prey against raptors and snakes, but a small refuge cann
 check('A missed land hunt leaves predators hungry in every difficulty and gives prey an escape route', () => {
   for (const mode of ['relaxed', 'standard', 'challenging']) {
     reset(mode); const { prey, predator } = huntPair('coyote', 'rabbit');
-    const random = Math.random; Math.random = g.rng = () => 0.99;
-    try { g.wildlife.update(0.05); } finally { Math.random = random; }
+    const random = forcedSimRandom(); forceSimRandom(g.rng = () => 0.99);
+    try { g.wildlife.update(0.05); } finally { forceSimRandom(random); }
     assert.ok(g.wildlife.agents.includes(prey));
     if (mode === 'challenging') {
       assert.equal(predator.hunger, 12); assert.equal(prey.state, 'walk');

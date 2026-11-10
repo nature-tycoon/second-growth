@@ -26,5 +26,7 @@ Cole works on the same machine while agents test, and the 3D game is heavy.
 
 ## Seeded checks
 
-- Seed `Math.random` before `restoredGame` (or `newGame`) in a seeded check: the first animals draw on it, so seeding after left `wildlife-additions-check` passing or failing by luck.
-- Seeded headless checks (`mulberry32` on `Math.random`) take a different path whenever any animal model gains or loses a geometry, because three.js draws `Math.random` for every geometry's UUID. A bird reshape once flipped `primate-stall-check`. When a seeded check breaks after an unrelated change, run it on a few other seeds before blaming that change.
+- The simulation draws its own random numbers (`simRandom()`, `js/sim/sim-random.js`, decision 0035): wildlife and visitors use `game.wildRng`, seeded from the run seed, and weather, fire and events use `game.rng`. Seeding or calling `Math.random` changes neither, and neither does drawing or a new model (`sim-rng-check` proves it). `Math.random` in a check now only seeds the check's own placements.
+- To vary a run, pass a run seed (`newGame(seed, mode, difficulty, map, runSeed)`, `restoredGame(map, seed, runSeed)`) or call `g.wildRng.setState(n)` after making the game. A check that varies only `Math.random` gets the same simulation every time.
+- To force a branch (`() => 0`) or share one seeded stream across games, use `forceSimRandom(fn)` and put back `forcedSimRandom()` after, never `Math.random = ...`.
+- A limit on a noisy number (a share of time, a median stalk, a stall) judges the median of three run seeds, not one run: see `hunt-check`, `primate-stall-check` and `home-range-check`. Vary the check's placements as well as the run seed: one fixed placement can sit well off the average however the sim draws.

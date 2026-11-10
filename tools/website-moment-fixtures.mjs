@@ -1,5 +1,6 @@
 // Review-only encounter setup using production behavior and keystone moment triggers.
 // These are staged studies, never represented as unassisted campaign captures.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import {isMaleVariant} from '../js/data/animals.js';
 import {riverRow} from '../js/world.js';
 import {isWater,T} from '../js/config.js';
@@ -10,7 +11,7 @@ import {momentsUpdate,momentScene} from '../js/sim/moments.js';
 export function websiteMoment(g,pose){
   const w=g.world,wl=g.wildlife,events=[];
   g.flags.moments={};g.flags.lastMomentDay=-1e9;g.on('moment',event=>events.push(event));
-  const rig=fn=>{const before=Math.random;Math.random=()=>0;try{return fn();}finally{Math.random=before;}};
+  const rig=fn=>{const before = forcedSimRandom();forceSimRandom(()=>0);try{return fn();}finally{forceSimRandom(before);}};
   function find(predicate,cx,cy){
     let tile=-1,best=Infinity;
     for(let i=0;i<w.n;i++){if(!predicate(i))continue;const d=(i%w.w-cx)**2+(Math.floor(i/w.w)-cy)**2;if(d<best){best=d;tile=i;}}
