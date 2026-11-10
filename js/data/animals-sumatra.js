@@ -38,7 +38,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 0.9, RIPARIAN: 1 });
-    def({ key: 'langur', name: "Thomas's langur", sci: 'Presbytis thomasi', group: 'Mammals', move: 'tree',
+    def({ key: 'langur', leaps: true, name: "Thomas's langur", sci: 'Presbytis thomasi', group: 'Mammals', move: 'tree',
       speed: 1, hr: 14, max: 18, minK: 3, groupSize: [3, 6], sources: ['N', 'E'], mig: 0.3,
       breed: [5, 6], litter: [1, 1], life: 20, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i),
@@ -101,7 +101,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, SHRUB: 1, RIPARIAN: 1, MATURE_FOREST: 0.7, MEADOW: 0.7, MARSH: 0.5 });
-    def({ key: 'gajah', kg: 2500, herd: true, tramples: true, herdR: 2.5, herdMax: 6, name: 'Sumatran elephant', sci: 'Elephas maximus sumatranus', group: 'Mammals', move: 'ground',
+    def({ key: 'gajah', wallow: { size: 1.4 }, kg: 2500, herd: true, tramples: true, herdR: 2.5, herdMax: 6, name: 'Sumatran elephant', sci: 'Elephas maximus sumatranus', group: 'Mammals', move: 'ground',
       speed: 1, hr: 220, max: 7, minK: 3, groupSize: [3, 6], sources: ['N'], mig: 0.12,
       breed: [7], litter: [1, 1], life: 60, mature: 12,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.3),
@@ -113,7 +113,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.6, RIPARIAN: 0.9 });
-    def({ key: 'sumrhino', kg: 700, name: 'Sumatran rhino', sci: 'Dicerorhinus sumatrensis', group: 'Mammals', move: 'ground', fixedMax: true,
+    def({ key: 'sumrhino', wallow: { size: 1.1 }, kg: 700, name: 'Sumatran rhino', sci: 'Dicerorhinus sumatrensis', group: 'Mammals', move: 'ground', fixedMax: true,
       speed: 0.8, hr: 300, max: 2, sources: ['N'], mig: 0.04, breed: [8], litter: [1, 1], life: 35, mature: 6,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 4, 0.3),
       req: g => Math.min(1, g.forestTiles / 2800) * Math.min(1, g.matureTiles / 300), // old, quiet forest
@@ -123,7 +123,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.7, RIPARIAN: 1, MARSH: 0.7, SHRUB: 0.4 });
-    def({ key: 'tapir', kg: 300, name: 'Malayan tapir', sci: 'Tapirus indicus', group: 'Mammals', move: 'semi',
+    def({ key: 'tapir', wallow: { size: 0.8 }, kg: 300, name: 'Malayan tapir', sci: 'Tapirus indicus', group: 'Mammals', move: 'semi',
       speed: 1, hr: 120, max: 6, minK: 2, groupSize: [1, 2], sources: ['N', 'E'], mig: 0.2,
       breed: [10, 11], litter: [1, 1], life: 25, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 5, 0.4),
@@ -154,7 +154,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, SHRUB: 1, MATURE_FOREST: 0.8, RIPARIAN: 0.9, INVASIVE: 0.75, FARM: 0.4, MARSH: 0.5 });
-    def({ key: 'boar', name: 'Banded wild boar', sci: 'Sus scrofa vittatus', group: 'Mammals', move: 'ground',
+    def({ key: 'boar', wallow: { size: 0.7 }, name: 'Banded wild boar', sci: 'Sus scrofa vittatus', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 24, max: 24, minK: 3, groupSize: [3, 7], sources: ['W', 'N', 'E'], mig: 0.35, breed: [9, 10, 11], litter: [3, 5], life: 10, mature: 1.2,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.55),
       sprite: { kind: 'peccary', len: 30, h: 13, leg: 9, color: '#5a4c40', belly: '#6a5c50', beard: '#d8ccb8' },
@@ -254,7 +254,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ CREEK: 1, POND: 0.9, RIVER: 0.7, MARSH: 0.6 });
-    def({ key: 'kingfisher', name: 'Stork-billed kingfisher', sci: 'Pelargopsis capensis', group: 'Birds', move: 'fly',
+    def({ key: 'kingfisher', groundFeed: false, name: 'Stork-billed kingfisher', sci: 'Pelargopsis capensis', group: 'Birds', move: 'fly',
       speed: 1.4, hr: 10, max: 8, sources: ['S'], mig: 0.4, breed: [2, 3], litter: [2, 4], life: 8, mature: 1,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i] * near(W.distPerch[i], 2, 0.4),
       req: g => Math.min(1, g.fishIndex / 8),

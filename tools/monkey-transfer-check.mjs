@@ -104,7 +104,7 @@ geo.userData.canopyBranches = [{ from: [0, 1, 0], to: [.3, 1.15, 0], r0: .05, r1
 const source = new CanopySite(geo, [0, 0, 0, 1, 1, 1, 0]);
 const destination = new CanopySite(geo, [2.6, 0, 0, 1, 1, 1, 0]);
 const from = source.endpoint(0, 1), to = destination.endpoint(0, 1);
-const st = { sc: .02 }, def = { key: 'langur', speed: 1, sprite: { kind: 'monkey', len: 20 } }, game = { speed: 1 };
+const st = { sc: .02 }, def = { key: 'langur', leaps: true, speed: 1, sprite: { kind: 'monkey', len: 20 } }, game = { speed: 1 };
 canopyStep(st, from, def, game, 0);
 for (let frame = 1; frame <= 60; frame++) {
   const motion = canopyStep(st, to, def, game, frame / 20);

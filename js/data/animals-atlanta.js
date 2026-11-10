@@ -81,7 +81,7 @@ export default function buildAtlantaAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, SHRUB: 0.5, YOUNG_FOREST: 0.35, FARM: 0.12, RIPARIAN: 0.4 });
-    def({ key: 'bluebird', name: 'Eastern bluebird', sci: 'Sialia sialis', group: 'Birds', move: 'fly',
+    def({ key: 'bluebird', nestHole: true, name: 'Eastern bluebird', sci: 'Sialia sialis', group: 'Birds', move: 'fly',
       speed: 2.6, hr: 14, max: 12, sources: ['N', 'E', 'W'], mig: 0.4, breed: [1, 2, 3], litter: [2, 4], life: 3,
       suit: (W, i) => w[W.habitat[i]] * (W.distNest[i] <= 6 ? 1 : 0.2) * (0.4 + 0.6 * Math.min(1, W.insects[i] * 1.5)),
       sprite: { kind: 'songbird', size: 11, color: '#3a6ac8', breast: '#d8783a', head: '#3a6ac8' },
@@ -102,7 +102,7 @@ export default function buildAtlantaAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.8, RIPARIAN: 0.8, SHRUB: 0.4, DEVELOPED: 0.05 });
-    def({ key: 'chickadee', name: 'Carolina chickadee', sci: 'Poecile carolinensis', group: 'Birds', move: 'fly',
+    def({ key: 'chickadee', nestHole: true, name: 'Carolina chickadee', sci: 'Poecile carolinensis', group: 'Birds', move: 'fly',
       speed: 2.4, hr: 12, max: 14, sources: ['N', 'E', 'S'], mig: 0.4, breed: [1, 2], litter: [3, 5], life: 3,
       suit: (W, i) => w[W.habitat[i]] * (0.3 + 0.7 * Math.min(1, W.insects[i] * 1.4)),
       // one brood of chickadees needs 6,000 to 9,000 caterpillars: that means native trees, mostly oaks
@@ -154,7 +154,7 @@ export default function buildAtlantaAnimals(def) {
   }
   {
     const w = habW({ POND: 1, MARSH: 0.9, RIVER: 0.5, CREEK: 0.6, RIPARIAN: 0.5 });
-    def({ key: 'woodduck', name: 'Wood duck', sci: 'Aix sponsa', group: 'Birds', move: 'fly',
+    def({ key: 'woodduck', nestHole: true, name: 'Wood duck', sci: 'Aix sponsa', group: 'Birds', move: 'fly',
       speed: 2.4, hr: 30, max: 6, sources: ['S'], mig: 0.3, breed: [1, 2], litter: [2, 4], life: 5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distForest[i], 3, 0.3),
       req: g => Math.min(1, ((g.snagCount || 0) * 2 + (g.nestboxCount || 0) * 4) / 8),

@@ -12,8 +12,12 @@ import { person } from './people.js';
 import { bakeSurface } from './animal-surface.js';
 import { howlerRig } from '../howler-motion.js';
 import { canopyWalkerBends, isCanopyWalker } from '../canopy-walker-profile.js';
+import { trait, climbStyle } from '../../data/animal-kinds.js';
 
-const SCALY = new Set(['caiman', 'monitor', 'snake', 'turtle', 'frog', 'newt', 'fish', 'butterflyfish', 'idol', 'shark', 'ray', 'dolphin', 'dugong', 'seacucumber', 'urchin', 'beetle', 'bee', 'pangolin', 'armadillo', 'person', 'elephant', 'rhino', 'hippo']);
+// Bodies with a builder of their own in place of the shared quadruped: Sumatra's tiger, elephant and rhino.
+const OWN_QUADRUPED = { feline: s => s.stripes && tiger, elephant: s => s.asian && sumatranElephant, rhino: s => s.hairy && sumatranRhino };
+// Which hand-to-mouth feeding pose and canopy rig a climber has (mo.primate), by how it climbs.
+const PRIMATE = { walk: 1, clamber: 2, swing: 3 };
 
 // Returns static geometry and movement metadata. The caller owns the returned geometry.
 // close: the close-up model, the same shapes in finer segments (drawn for animals large on screen;
@@ -21,6 +25,7 @@ const SCALY = new Set(['caiman', 'monitor', 'snake', 'turtle', 'frog', 'newt', '
 export function buildSpecies(def, { close = false } = {}) {
   const s = { ...def.sprite, canopyWalkerMotion: isCanopyWalker(def) && def.sprite.canopyWalkerMotion !== false }, m = new Model(close);
   const mo = { leg: 0.55, bob: 0, tail: 0.25, flap: 1.6, wave: 0, waveK: 0, waveHead: 0, waveLen: 1, sink: 0, len: s.len || s.size };
+  // (the one place that names body kinds: each has its own builder and motion; what an animal does is a trait)
   switch (s.kind) {
     case 'squirrel': squirrel(m, s); mo.leg = 0.45; mo.bob = 1.1; mo.sink = 3; break;
     case 'rodent': vole(m, s); mo.leg = 0.6; mo.bob = 0.5; mo.sink = 2.5; break;
@@ -36,28 +41,6 @@ export function buildSpecies(def, { close = false } = {}) {
     case 'caiman': caiman(m, s); mo.leg = 0.4; mo.tail = 0.35; mo.wave = s.len * 0.025; mo.waveK = 6 / s.len; mo.waveHead = s.len * 0.1; mo.waveLen = s.len * 0.7; mo.sink = s.len * 0.09; break;
     case 'ray': ray(m, s); mo.flap = 0.9; mo.wingSpan = s.size * 0.66; mo.wingRoot = s.size * 0.14; mo.tail = 0.3; mo.leg = 0; break;
     case 'dolphin': dolphin(m, s); mo.swims = 1; mo.verticalWave = 1; mo.tail = 0.12; mo.wave = s.size * 0.03; mo.waveK = 3 / s.size; mo.waveHead = s.size * 0.2; mo.waveLen = s.size * 0.8; mo.sink = s.size * 0.1; break;
-    case 'deer': case 'canine': case 'feline': case 'raccoon': case 'otter': case 'beaver':
-    case 'peccary': case 'agouti': case 'anteater':
-    case 'antelope': case 'zebra': case 'wildebeest': case 'gazelle': case 'impala': case 'buffalo': case 'warthog': case 'hyena': case 'rhino': case 'giraffe': case 'elephant': {
-      // Sumatra's tiger, elephant and rhino have builders of their own
-      const own = s.kind === 'feline' && s.stripes ? tiger : s.kind === 'elephant' && s.asian ? sumatranElephant : s.kind === 'rhino' && s.hairy ? sumatranRhino : null;
-      if (own) { Object.assign(mo, own(m, s)); break; }
-      const o = MAMMALS[s.kind](s);
-      quadruped(m, s, o);
-      mo.bob = o.H * (o.bobMotion ?? (s.kind === 'rabbit' ? 0.35 : s.kind === 'rodent' || s.kind === 'squirrel' ? 0.12 : 0.04));
-      mo.leg = o.legMotion ?? (s.kind === 'elephant' || s.kind === 'rhino' ? 0.3 : s.kind === 'giraffe' ? 0.38 : 0.55);
-      mo.sink = o.leg + o.H * 0.45;
-      break;
-    }
-    case 'songbird': case 'hummer': case 'woodpecker': case 'heron': case 'duck': case 'booby': case 'raptor': case 'owl': case 'toucan': case 'macaw': case 'ostrich': case 'hornbill': case 'vulture': case 'secretary': case 'crane':
-      bird(m, s);
-      mo.flap = s.kind === 'hummer' ? 7 : s.kind === 'booby' ? 1.25 : s.kind === 'heron' || s.kind === 'raptor' || s.kind === 'owl' || s.kind === 'macaw' || s.kind === 'vulture' || s.kind === 'crane' || s.kind === 'secretary' ? 0.9 : 2;
-      mo.leg = 0.5; mo.tail = s.cocked ? 0.13 : 0.065; mo.bird = 1; mo.billSweep = !!s.spoonbill;
-      mo.wingSpan = s.size * BIRDS[s.kind](s).span * 1.7;
-      mo.sink = s.kind === 'duck' || s.kind === 'booby' ? s.size * 0.24 : 0;
-      // Wading can cover the lower legs, while the belly stays above the surface.
-      if (s.kind === 'heron' || s.kind === 'crane') mo.wadeDepth = BIRDS[s.kind](s).legH * s.size * 0.55;
-      break;
     case 'bat': bat(m, s); mo.flap = 2.6; break;
     case 'butterfly': butterfly(m, s); mo.flap = 1.7; mo.leg = 0; mo.tail = 0; break;
     case 'bee': bee(m, s); mo.flap = 9; mo.leg = 0.2; mo.tail = 0; break;
@@ -82,24 +65,26 @@ export function buildSpecies(def, { close = false } = {}) {
     // (a fish swims like the shark, with a stiffer front: a bit over a body length per wave, the head
     // nearly still and the sweep growing toward the tail, whose fin turns in step with it: animatePart)
     case 'fish': fish(m, s); mo.swims = 1; mo.wave = s.size * 0.07; mo.waveK = 5.5 / s.size; mo.waveHead = s.size * 0.25; mo.waveLen = s.size * 0.9; mo.waveMin = 0.08; mo.wavePow = 1.5; mo.sink = s.size * 0.2; mo.tail = 0.5; break;
-    default: m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
+    // (every other four-legged mammal and every bird: the shared builders, from each kind's options)
+    default: if (MAMMALS[s.kind]) quadrupedModel(m, s, mo); else if (BIRDS[s.kind]) birdModel(m, s, mo); else m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
   }
   mo.eye = m.eyeAt || null; mo.eyePivot = m.eyePivot || [0, 0, 0]; // where the eyes are, in model units (for eye-shine)
   mo.eyeSpot = m.eyeAt || m.eyeSpot || null; // (and for fitting a kill's skull: every model with eyes)
-  if (['monkey', 'orangutan'].includes(s.kind)) {
-    mo.primate = s.kind === 'orangutan' ? 2 : s.ape ? 3 : 1;
+  const climb = climbStyle(def);
+  if (PRIMATE[climb]) {
+    mo.primate = PRIMATE[climb];
     mo.bob = 0; mo.len = s.len;
-    const hand = s.kind === 'orangutan' ? [.3, .06, .14] : s.ape ? [.6, 1.02, -.1] : [.32, .03, def.move === 'tree' ? .04 : .12];
+    const hand = climb === 'clamber' ? [.3, .06, .14] : climb === 'swing' ? [.6, 1.02, -.1] : [.32, .03, def.move === 'tree' ? .04 : .12];
     m.ell(hand.map((v, i) => (v + (i === 0 ? .035 : 0)) * s.len), [s.len * .045, s.len * .045, s.len * .045], '#d9a342', { part: P.FRUIT, pivot: hand.map(v => v * s.len), lo: true });
   }
   const geo = m.build();
-  if (mo.primate) feedingPose(geo, s, def.move === 'tree');
+  if (mo.primate) feedingPose(geo, s, climb, def.move === 'tree');
   if (s.ape) swingPoses(geo, s.len);
   geo.computeBoundingBox();
   // crease shading and shine, last, so the poses above keep plain normals
   bakeSurface(geo, { gloss: geo.userData.gloss });
   // fur and feathers soften the light; scales, shells, skin and fins keep a firmer edge
-  mo.fur = SCALY.has(s.kind) ? 0.3 : 1;
+  mo.fur = trait(def, 'firmSkin') ? 0.3 : 1;
   mo.coats = geo.userData.coats?.length ? geo.userData.coats : null; // (markings the shader draws per pixel)
   if (def.move === 'tree') {
     // Tails and orangutan hair can hang below the grips. Use actual toes for
@@ -107,7 +92,7 @@ export function buildSpecies(def, { close = false } = {}) {
     const p = geo.attributes.position, parts = geo.attributes.aPart;
     let foot = Infinity;
     for (let i = 0; i < p.count; i++) if (parts.getX(i) >= 1 && parts.getX(i) <= 4) foot = Math.min(foot, p.getY(i));
-    mo.supportY = s.ape ? s.len * 1.38 : s.kind === 'orangutan' ? -s.len * .015 : s.kind === 'sloth' ? s.len * .98 : Number.isFinite(foot) ? foot : 0;
+    mo.supportY = climb === 'swing' ? s.len * 1.38 : climb === 'clamber' ? -s.len * .015 : climb === 'hang' ? s.len * .98 : Number.isFinite(foot) ? foot : 0;
   }
   if (s.ape) { mo.gripX = s.len * .14; mo.gripZ = s.len * .02; }
   if (def.move === 'tree' && mo.primate === 1) {
@@ -158,10 +143,31 @@ export function buildSpecies(def, { close = false } = {}) {
   return { geo, motion: mo };
 }
 
+function quadrupedModel(m, s, mo) {
+  const own = OWN_QUADRUPED[s.kind]?.(s);
+  if (own) { Object.assign(mo, own(m, s)); return; }
+  const o = MAMMALS[s.kind](s);
+  quadruped(m, s, o);
+  mo.bob = o.H * (o.bobMotion ?? 0.04);
+  mo.leg = o.legMotion ?? 0.55;
+  mo.sink = o.leg + o.H * 0.45;
+}
+
+function birdModel(m, s, mo) {
+  bird(m, s);
+  const o = BIRDS[s.kind](s);
+  mo.flap = o.flap ?? 2;
+  mo.leg = 0.5; mo.tail = s.cocked ? 0.13 : 0.065; mo.bird = 1; mo.billSweep = !!s.spoonbill;
+  mo.wingSpan = s.size * o.span * 1.7;
+  mo.sink = o.swimmer || o.duck ? s.size * 0.24 : 0;
+  // Wading can cover the lower legs, while the belly stays above the surface.
+  if (o.wades) mo.wadeDepth = o.legH * s.size * 0.55;
+}
+
 // Fold the feeding arm at its elbow into a hand-to-mouth pose. The second
 // position/normal attributes are already shared by the fauna shader for wing poses.
-function feedingPose(geo, s, onBranches) {
-  const L = s.len, ape = !!s.ape, orang = s.kind === 'orangutan', by = s.long ? .62 : .45;
+function feedingPose(geo, s, climb, onBranches) {
+  const L = s.len, ape = climb === 'swing', orang = climb === 'clamber', by = s.long ? .62 : .45;
   const shoulder = orang ? [.07, .56, .13 * (s.flanged ? 1.15 : 1)] : ape ? [.04, .84, -.1] : [.22, by + .06, .1];
   const elbow = orang ? [.19, .31, .15] : ape ? [.32, .8, -.18] : s.canopyWalkerMotion ? canopyWalkerBends(1,by)[0] : [.26, by * .5, .12];
   const hand = orang ? [.3, .06, .14] : ape ? [.6, 1.02, -.1] : [.32, .03, onBranches ? .04 : .12];

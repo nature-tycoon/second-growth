@@ -6,12 +6,13 @@
 //   tear   a carcass: head down, pulling back hard every so often;
 //   snap   fish: a quick dart forward at plankton or a catch, nose-down at algae, coral, sponge or seagrass.
 // Fruit and leaf meals of monkeys and apes are the hand-to-mouth pose (actors.js, eatPose).
+import { trait } from '../data/animal-kinds.js';
 const UNDER = new Set(['algae', 'coral', 'sponge', 'seagrass', 'sediment']);
 // Animals with no meal of their own in the simulation that are drawn nibbling now and then
-// while they stand, as grazers are (GRAZERS in sim/steering.js): tortoises and pond turtles on
-// plants, ostriches and ground hornbills picking at the ground, beavers on stems at the bank.
-const NIBBLERS = new Set(['turtle', 'ostrich', 'hornbill', 'beaver', 'duck']);
-export const nibbles = (def, a) => NIBBLERS.has(def.sprite.kind) && !def.reef && !a.flying;
+// while they stand, as grazers are (`idleEat` 'nibble', js/data/animal-kinds.js): tortoises and
+// pond turtles on plants, ostriches and ground hornbills picking at the ground, beavers on stems
+// at the bank, ducks dabbling.
+export const nibbles = (def, a) => trait(def, 'idleEat') === 'nibble' && !def.reef && !a.flying;
 
 // The head's target (1 down, 0 level, below 0 up) for an animal at a meal, or null when it isn't
 // eating. `w` is the world (to tell a browsed shrub from a tree).

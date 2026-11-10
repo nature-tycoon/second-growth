@@ -29,7 +29,7 @@ import { passable, canLand } from '../js/sim/animal-terrain.js';
 import { underWater } from '../js/sim/waterline.js';
 import { animalRadius } from '../js/sim/animal-positioning.js';
 import { treeTrunk, groundWalker } from '../js/sim/ground-obstacles.js';
-import { GRAZERS } from '../js/sim/steering.js';
+import { trait } from '../js/data/animal-kinds.js';
 import { isMaleVariant } from '../js/data/animals.js';
 
 globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeItem() {} };
@@ -178,7 +178,7 @@ export function measure(map, { seed = 1987, rut = true } = {}) {
           if ((step - since) * DT > 0.5) { c.sparStuck++; note(`sparStuck ${a.key} ${a.sparPath?.length ?? '-'} ${a.sparAt ? Math.hypot(a.x - a.sparAt[0], a.y - a.sparAt[1]).toFixed(2) : '-'}`); }
         }
       } else sparSince.delete(a.id);
-      if (a.state === 'idle' && !(a.drinkT > 0) && def.move === 'ground' && GRAZERS.has(def.sprite.kind)) {
+      if (a.state === 'idle' && !(a.drinkT > 0) && def.move === 'ground' && trait(def, 'idleEat') === 'graze') {
         c.grazeSteps++;
         // (water behind: within 25° of straight back, nearer than its body length)
         const L = animalRadius(a, cat) / 0.65;

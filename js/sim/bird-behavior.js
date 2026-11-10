@@ -9,20 +9,16 @@ import { bolt, scavenge, feedAt } from './animal-life.js';
 import { facePoint } from './animal-positioning.js';
 import { travelSpeed } from './climb-pace.js';
 import { treeTrunk } from './ground-obstacles.js';
+import { trait } from '../data/animal-kinds.js';
 
 export const isBird = def => def?.move === 'fly' && (def.group === 'Birds' || def.group === 'Seabirds');
-const groundFeeders = new Set(['robin', 'thrush', 'cardinal', 'goldfinch', 'bluebird', 'wren', 'weaver', 'roller', 'jay', 'urraca']);
-const cavityKeys = new Set(['bluebird', 'chickadee', 'woodduck', 'barnowl', 'owl', 'woodpecker', 'macaw', 'lora', 'chocoyo', 'hornbill', 'toucan']);
-// Birds that forage on tree trunks, clinging upright and pecking and drumming (decision 0030):
-// every woodpecker, and any other species listed here (nuthatches, creepers).
-const trunkKeys = new Set([]);
+// What a bird does when it lands, from its traits (js/data/animal-kinds.js). trunk: it forages on
+// tree trunks, clinging upright and pecking and drumming (decision 0030): every woodpecker, and any
+// other species with trunkFeed (nuthatches, creepers).
 export function birdProfile(def, catalog = activeCatalog) {
-  const kind = def.sprite.kind;
-  return { ground: groundFeeders.has(def.key) || ['secretary', 'crane'].includes(kind) || kind === 'songbird' && !['sunbird', 'kingfisher', 'motmot', 'noddy'].includes(def.key),
-    perch: !['heron', 'crane', 'duck', 'booby'].includes(kind),
-    cavity: cavityKeys.has(def.key) || ['woodpecker', 'owl', 'macaw', 'hornbill', 'toucan'].includes(kind),
-    social: ['songbird', 'macaw', 'duck', 'booby'].includes(kind), bath: kind !== 'hummer' && !catalog.definition.look.underwater,
-    trunk: kind === 'woodpecker' || trunkKeys.has(def.key) };
+  return { ground: !!trait(def, 'groundFeed'), perch: trait(def, 'perches') !== false, cavity: !!trait(def, 'nestHole'),
+    social: !!trait(def, 'flocks'), bath: trait(def, 'bathes') !== false && !catalog.definition.look.underwater,
+    trunk: !!trait(def, 'trunkFeed') };
 }
 
 function groundTile(w, i) {
@@ -68,13 +64,12 @@ function nearby(wl, a, good, radius = 8, min = 0) {
   }
   return best;
 }
-// Small songbirds, hummingbirds and woodpeckers never keep still for long, though even they
-// settle in a tree for a while rather than flitting from crown to crown.
-const BRISK = new Set(['songbird', 'hummer', 'woodpecker']);
+// Small songbirds, hummingbirds and woodpeckers (restless) never keep still for long, though even
+// they settle in a tree for a while rather than flitting from crown to crown.
 const tileKey = a => Math.floor(a.y) * 1e4 + Math.floor(a.x);
 const inTree = kind => kind === 'perch' || kind === 'preen';
 function hold(wl, a, kind, t = inTree(kind) ? 5 + Math.random() * 7 : kind === 'trunk' ? 4 + Math.random() * 5 : 1.5 + Math.random() * 2, water = null, side = null) {
-  if (BRISK.has(wl.game.catalog.animals[a.sp].sprite.kind) && kind !== 'nest' && kind !== 'trunk') t *= inTree(kind) ? 0.75 : 0.5;
+  if (trait(wl.game.catalog.animals[a.sp], 'restless') && kind !== 'nest' && kind !== 'trunk') t *= inTree(kind) ? 0.75 : 0.5;
   a.state = 'bird'; a.bird = { kind, t, water }; a.birdGoal = null;
   // on a trunk: low on it, a tenth to a third of the way up the tree as built before 0024 made
   // trunks longer (render3d treeLevel), on the side it came in from; it hitches up as it works
@@ -219,8 +214,7 @@ export function carryUpdate(wl, a, def, dt, sp) {
 // where that interaction is not part of the map's modeled population food web.
 function birdThreat(pred, def, game) {
   return preyFor(pred, game)?.includes(def.key) ||
-    ['songbird', 'hummer', 'woodpecker'].includes(def.sprite.kind) &&
-    ['raptor', 'owl', 'cat', 'snake', 'monitor'].includes(pred.sprite.kind);
+    !!trait(def, 'fearsHunters') && !!trait(pred, 'scaresSmallBirds');
 }
 // (looked up for each species pair once per map and difficulty: every landed bird asks it of
 // every animal several times a day, which was a tenth of the Serengeti's simulation time)
@@ -257,7 +251,7 @@ export function birdChoose(wl, a, def) {
   if (!isBird(def) || a.leaving || a.fromFire) return false;
   if (birdAlarm(wl, a, def)) return true;
   // Hungry hunters and scavengers keep their existing feeding priorities.
-  if (preyFor(def, wl.game) ? a.hunger >= huntHunger(def) : def.key === 'vulture' && a.hunger >= 3) {
+  if (preyFor(def, wl.game) ? a.hunger >= huntHunger(def) : def.carrionSoar && a.hunger >= 3) {
     // (a hungry vulture with no carcass in sight goes up and searches from the soar)
     return !preyFor(def, wl.game) && !!def.soar && soar(wl, a, def);
   }

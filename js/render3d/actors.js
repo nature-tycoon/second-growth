@@ -4,12 +4,12 @@ import { groundAt, visibleLevel } from '../sim/waterline.js';
 import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, drawLooks, animalDef, maleLook } from '../data/animals.js';
+import { trait } from '../data/animal-kinds.js';
 import { roostingNow } from '../data/animal-activity.js';
 import { clearCanopy, coralFloor, easeBirdHeight } from './flight-clearance.js';
 import { strideFollowsGround } from './stride.js';
 const CLEAR = { floor: -Infinity, clearing: false }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
-import { GRAZERS } from '../sim/steering.js';
 import { mealHead, nibbles, fishSnap } from './eating-pose.js';
 import * as S from '../render/sprites.js';
 import { treeHeight, treeLevel } from './tree-stature.js';
@@ -38,10 +38,8 @@ import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
 import { climberSpot } from './flora.js';
 
 const PX = 1 / 50; // sprite pixels to scene units
-// Animals that float or paddle when they're on open water.
 const SOAR_BANK = 0.35; // a circling hawk leans into its turn
 const SWIM_STRIDE = 0.7; // (body lengths a fish moves per beat of its tail at a cruise: about 0.6-0.8 in real fish)
-const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
 const SPAR_FIT = { elk: 0.97, sambar: 0.86 }; // per antler type, as a share of the two heads' full reach
 // Every drawn animal and visitor turns through turnToward, and only once a frame (0025): kinds
 // differ in what they turn toward (the simulation's `a.heading`, the bark a woodpecker clings to,
@@ -236,8 +234,7 @@ export class Actors {
       const canopyKey = def.move === 'tree' ? canopyTile(w, game.border, xi, yi) : i;
       const t = inside ? w.terrain[i] : T.RIVER;
       const onWater = isWater(t) && t !== T.MARSH;
-      const kind = def.sprite.kind;
-      const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05)) || kind === 'bat' || kind === 'ray'; // (a manta "flies" through the water)
+      const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05)) || !!trait(def, 'alwaysFlying'); // (a manta "flies" through the water)
       const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
       const seaY = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : null;
       // A located animal must acquire a fresh pose even before the camera has
@@ -340,7 +337,7 @@ export class Actors {
         }
       } else if (flying && seaY != null) y = Math.max(ground, seaY) + 0.7 + a.alt * 1.2; // (seabirds fly over the water, not the seabed)
       else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
-      else if (flying) y += (kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
+      else if (flying) y += (trait(def, 'flitsLow') ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
       else if (def.move === 'swim') {
         // (in its tile's water, the same depth the simulation keeps it in (swimDepth): down to
         // half way in the shallows, so it never sinks into the bank where the water thins out)
@@ -359,7 +356,7 @@ export class Actors {
         if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.3 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
       }
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
-      else if (surf != null && FLOATERS.has(kind) && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
+      else if (surf != null && trait(def, 'floats') && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
       else if ((def.move === 'ground' || def.move === 'semi') && !def.reef && mo.eye && inside && w.distWater[i] <= 2) {
         // A land animal wades while its head is clear of the water. Where the water is deeper than
         // that it swims, body under and head out, instead of walking along the bottom. (The drawn
@@ -370,7 +367,7 @@ export class Actors {
         if (swimY > ground) { y = swimY; swimming = true; }
       }
       else if (def.move === 'fly' && a.bird?.kind === 'trunk' && inside && (cling = this.trunkCling(game, w, i, a, def, sc))) y = cling.y;
-      else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
+      else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || trait(def, 'sitsInCrowns') !== false)) {
         const c = ci(); perchSite = this.flora?.treeSites.get(c); y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * 0.55;
       } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
         // on the snag's broken top (flora.js draws it where its tree stood, 1.68 tall at full height,
@@ -385,7 +382,7 @@ export class Actors {
         // monkeys and sloths live up in the crowns (or on a snag's bare top)
         // (monkeys up in the sunlit top of the canopy, sloths hanging lower down)
         const c = ci();
-        if (w.tree[c]) y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
+        if (w.tree[c]) y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * (trait(def, 'crownHeight') ?? 0.62);
         else if (w.feature[c] === FEAT.SNAG) y += 0.9;
       }
       // Moving between crowns of different heights, a climber (or a perched bird hopping along a
@@ -396,7 +393,7 @@ export class Actors {
       if (flying && def.move === 'fly') y = clearCanopy(w, game.catalog.plants, a, def, y, CLEAR, a.x - st.px, a.y - st.py,
         clamp(Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, time - (st.t ?? time - 0.016)), 1.4, 4));
       else { CLEAR.floor = -Infinity; CLEAR.clearing = false; }
-      if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
+      if (a.birdGround && a.state === 'walk' && trait(def, 'hops')) y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
       // A bird's height eases between flight, the treetops it clears and its perch, rather than
       // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
       if (def.move === 'fly' && !def.reef && !a.passing) {
@@ -468,7 +465,7 @@ export class Actors {
         : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
       const meal = mealHead(a, w, time); // (the eating styles: eating-pose.js)
       const head = swimming ? 0 : a.cache && a.move === 'ground' && !moving ? (Math.sin(time * 7 + a.id) > -0.3 ? 1 : 0.5) : fight ? fight.head : bugling ? -0.75 : meal != null ? meal : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
-        : !moving && (a.drinkT > 0 ? aligned : ((GRAZERS.has(kind) || nibbles(def, a)) && !a.headUp && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
+        : !moving && (a.drinkT > 0 ? aligned : ((trait(def, 'idleEat') === 'graze' || nibbles(def, a)) && !a.headUp && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
       st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
       if (fight) st.gait += (fight.gait - st.gait) * k;
       // stalking cats sink low to the ground
@@ -802,7 +799,7 @@ export class Actors {
       if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
       // (after the reads of F.m above, which must still hold this animal's own instance)
       if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);
-      if (!st.branch && def.move !== 'swim' && !swimming && !(surf != null && FLOATERS.has(kind))) {
+      if (!st.branch && def.move !== 'swim' && !swimming && !(surf != null && trait(def, 'floats'))) {
         // (a shaped shadow fades and softens a little the higher the animal is above the ground)
         const shape = (def.reef || def.move === 'fly') && this.silhouettes.shape(F, def, def.reef ? 0.5 : 0);
         if (shape) this.silhouettes.add(shape, a.x, ground, a.y, st.yaw, sc * (1 + Math.min(1, Math.max(0, y - ground) * 0.06)), st.fly, Math.sin(phase * (mo.flap || 1)), clamp(1.1 - (y - ground) * 0.22, 0.4, 1));

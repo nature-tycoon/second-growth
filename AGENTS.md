@@ -71,6 +71,8 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0039](docs/decisions/0039-eating-styles.md) Eating styles, drawing only (`render3d/eating-pose.js`)
 - [0040](docs/decisions/0040-terrain-relief.md) Terrain relief: per-map landforms, land drains downhill (`js/maps/landform.js`)
 
+Ask a trait, never a species name: behaviour and drawing ask `trait(def, name)` (`js/data/animal-kinds.js`: defaults by `sprite.kind`, a species overrides with a field of the same name), so a fix reaches every animal with the trait. A name check stays only where a species is truly unique, with a one-line comment saying why. `node tools/species-name-count.mjs` (headless suite) fails if name checks rise; `--update` after they fall.
+
 New decisions take the next unused number, start with `## Rules` (5–15 lines) then `## History`, and get one short line here.
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).

@@ -40,11 +40,11 @@ function beginMeal(wl, a, def, i) {
   return true;
 }
 export function cleanerChoose(wl, a, def) {
-  if (def.key !== 'cleaner' || a.leaving || a.age < (a.forageAfter || 0)) return false;
+  if (!def.cleans || a.leaving || a.age < (a.forageAfter || 0)) return false;
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   if (!w.inb(x, y) || wl.suit[def.index][w.idx(x, y)] <= 0.15) return false;
   const client = wl.agents.find(b => b !== a && !b.leaving && b.state === 'idle' &&
-    wl.game.catalog.animals[b.sp].reef && !wl.game.catalog.animals[b.sp].benthic && wl.game.catalog.animals[b.sp].key !== 'cleaner' &&
+    wl.game.catalog.animals[b.sp].reef && !wl.game.catalog.animals[b.sp].benthic && !wl.game.catalog.animals[b.sp].cleans &&
     Math.hypot(a.x - b.x, a.y - b.y) < 2);
   if (!client || Math.random() > 0.5) return false;
   const left = 2 + Math.random();
@@ -108,7 +108,7 @@ export function forageUpdate(wl, a, def, dt) {
   meal.left -= dt;
   if (meal.left > 0) return;
   const w = wl.game.world;
-  if (meal.food === 'seagrass') w.groundG[meal.i] = Math.max(0.25, w.groundG[meal.i] - (def.key === 'dugong' ? 0.018 : 0.01));
+  if (meal.food === 'seagrass') w.groundG[meal.i] = Math.max(0.25, w.groundG[meal.i] - (def.seagrassBite ?? 0.01));
   if (meal.food === 'sponge') w.shrubG[meal.i] = Math.max(0.3, w.shrubG[meal.i] - 0.004);
   // A crown-of-thorns starfish is eaten outright: a small one in one meal, a big one in two.
   if (meal.food === 'starfish' && (w.shrubG[meal.i] -= 0.5) < 0.05) { w.shrub[meal.i] = 0; w.shrubG[meal.i] = 0; }
@@ -120,7 +120,7 @@ export function forageUpdate(wl, a, def, dt) {
   a.forageAfter = a.age + (meal.food === 'starfish' ? 0.5 + Math.random() : 6 + Math.random() * 6);
 }
 function foodAtStation(wl, a, partner, i) {
-  const cleaner = wl.game.catalog.animals[a.sp].key === 'cleaner' ? a : partner;
-  return wl.game.catalog.animals[cleaner.sp].key === 'cleaner' && wl.suit[cleaner.sp][i] > 0.15 &&
+  const cleaner = wl.game.catalog.animals[a.sp].cleans ? a : partner;
+  return !!wl.game.catalog.animals[cleaner.sp].cleans && wl.suit[cleaner.sp][i] > 0.15 &&
     wl.game.world.tree[i] && wl.game.world.treeG[i] > 0.3 && !wl.game.world.fire[i];
 }

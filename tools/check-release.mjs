@@ -20,7 +20,7 @@ browserNames.add('website-security-browser-check.mjs');
 browserNames.add('animal-trails-browser-check.mjs');
 browserNames.add('moments-sweep-browser-check.mjs');
 const files = (await readdir(new URL('./', import.meta.url))).filter(file => file.endsWith('-check.mjs')).sort();
-const headless = [...files.filter(file => !browserNames.has(file)), 'animal-size-audit.mjs'];
+const headless = [...files.filter(file => !browserNames.has(file)), 'animal-size-audit.mjs', 'species-name-count.mjs'];
 const selected = args.includes('--headless') ? headless : args.includes('--browser') ? [...browserNames] : [...headless, ...browserNames];
 let revision = 'uncommitted';
 try { revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(); } catch {}

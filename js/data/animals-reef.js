@@ -75,7 +75,7 @@ export default function buildReefAnimals(def) {
     desc: 'A red hunter speckled with electric-blue spots, lurking under table corals to ambush smaller fish. A sign of a reef with plenty of fish in it.',
     hint: 'Older reef, and plenty of small fish to hunt.' });
 
-  def({ key: 'cleaner', reef: true, name: 'Bluestreak cleaner wrasse', sci: 'Labroides dimidiatus', group: 'Fish', move: 'ground',
+  def({ key: 'cleaner', cleans: true, reef: true, name: 'Bluestreak cleaner wrasse', sci: 'Labroides dimidiatus', group: 'Fish', move: 'ground',
     speed: 0.4, hr: 2, max: 24, minK: 1, groupSize: [2, 2], sources: ['E', 'W'], mig: 0.3, breed: [8, 9], litter: [2, 3], life: 4, mature: 1,
     suit: (W, i) => station(W, i),
     sprite: { kind: 'fish', size: 5, back: '#c8d6e8', flank: '#e8eef6', belly: '#f4f6f8', rear: '#2a5ad0', stripe: 'cleaner', stripeColor: '#141418', finColor: '#2a5ad0', tailShape: 'truncate', long: true, swim: 0.2, show: 3.6 },
@@ -119,7 +119,7 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'turtle', sea: true, hawk: true, size: 19, color: '#7a4a1e', dark: '#3e2e1e', streak: '#d8a050', plastron: '#f0dca0', show: 2.55, swim: 0.35 },
     desc: 'Named for its narrow, hooked beak, which it uses to pull sponges out of cracks in the reef. Its shell is the beautiful amber "tortoiseshell" it was once hunted for.',
     hint: 'Reef with sponges to eat.' });
-  def({ key: 'dugong', reef: true, name: 'Dugong', sci: 'Dugong dugon', group: 'Turtles, sharks & rays', move: 'ground',
+  def({ key: 'dugong', seagrassBite: 0.018, reef: true, name: 'Dugong', sci: 'Dugong dugon', group: 'Turtles, sharks & rays', move: 'ground',
     speed: 0.4, hr: 40, max: 4, minK: 1, groupSize: [1, 2], sources: ['N', 'E', 'W'], mig: 0.4, breed: [], life: 70, mature: 0,
     suit: (W, i) => (W.habitat[i] === 3 ? 1 : 0.1),
     req: g => Math.min(1, Math.max(0, g.meadowTiles - 1800) / 1200),
@@ -150,7 +150,7 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'booby', size: 18, show: 1.12, bib: true, color: '#4a3a2c', breast: '#f2efe6', head: '#4a3a2c', flight: '#2e241c', bill: '#e2cc6a', eye: '#ece8c0' },
     desc: 'Plunges from the air like a dart to catch fish, then sits on the water to rest and swallow, bobbing on the swell.',
     hint: 'Plenty of fish near the surface.' });
-  def({ key: 'noddy', name: 'Black noddy', sci: 'Anous minutus', group: 'Seabirds', move: 'fly',
+  def({ key: 'noddy', groundFeed: false, name: 'Black noddy', sci: 'Anous minutus', group: 'Seabirds', move: 'fly',
     speed: 2.6, hr: 30, max: 40, minK: 4, groupSize: [4, 8], sources: ['N', 'E'], mig: 0.6, breed: [7, 8, 9], litter: [1, 1], life: 18, mature: 2,
     suit: (W, i) => (W.tree[i] === W.catalog.plant.pisonia?.id && W.treeG[i] > 0.45 ? 1 : 0),
     sprite: { kind: 'songbird', size: 12, color: '#2e2a28', breast: '#3a3430', head: '#34302c', cap: '#ecebe6', tailLength: 0.4, tailGraduation: -0.08, wingShape: 'pointed', bill: '#1a1a1a' },
