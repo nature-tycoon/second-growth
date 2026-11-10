@@ -25,10 +25,10 @@ Branch: `claude/ideas-wave3` (from `claude/ideas-wave2` 3a3ec45, which already h
 |---|---|---|---|---|---|
 | 1 | Prey jink | prey cut sideways when a chaser closes, catch odds raised to keep kills per year; hunt-check runs seeds 1987, 91, 5 and judges the median | opus | M | [x] |
 | 2 | Birds eat | perched fruit birds take short meals in fruiting crowns; boobies plunge-dive, noddies dip | opus | M | [x] |
-| 3 | Reef males, anacondas, inga | male anthias drawn and placed in harems; a little more anaconda habitat (balance-checked); Amazon inga pods yellow-green | sonnet | S | [ ] |
+| 3 | Reef males, anacondas, inga | male anthias drawn and placed in harems; a little more anaconda habitat (balance-checked); Amazon inga pods yellow-green | sonnet | S | [x] |
 | 4 | Fish in creeks and catfish | creek fish slide sideways along the bank (check `motion-sweep-check` first: wave2 fix 2, one facing, may have fixed it); Serengeti catfish fins above water: keep them under the surface (`swimDepth`, 0034) | opus | S–M | [ ] |
-| 5 | Natural tracker lens | the tracker lens cuts a cube out of plants round small animals; fade only the plants between camera and animal, with a soft round edge | opus | S–M | [ ] |
-| 6 | PostHog review (report only) | performance and other player issues from PostHog, ranked by players affected, with what to fix next; Cole picks | opus | S | [ ] |
+| 5 | Natural tracker lens | the tracker lens cuts a cube out of plants round small animals; fade only the plants between camera and animal, with a soft round edge | opus | S–M | [x] |
+| 6 | PostHog review (report only) | performance and other player issues from PostHog, ranked by players affected, with what to fix next; Cole picks | opus | S | [x] |
 
 Added 2026-11-09 (Cole). Notes: s4 is drawing and movement only, no balance. s5 keeps the lens (tracker) behaviour, changes only how plants give way. s6 needs the PostHog connector authorised (`/mcp`); if it isn't, it uses `docs/posthog-player-perf.md` and says what it couldn't reach.
 
