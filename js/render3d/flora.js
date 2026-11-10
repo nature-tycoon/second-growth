@@ -35,6 +35,39 @@ export { windGust } from './plant-materials.js';
 // How big a tree's blossom heads are drawn: a puff or panicle is many tiny flowers, so it is drawn
 // as big as the whole cluster, or a tree in full bloom reads as bare from the play camera.
 const BLOSSOM_SIZE = { waterlily: 1.3, puff: 2, plume: 2, trumpet: 1.4, pendant: 1.2 };
+// How far a crown reaches out from its trunk, by direction and height (in the shape's own units),
+// measured once per shape from its leaves, so flowers and fruit sit on its real, lumpy surface
+// rather than float off an idealised oval. reach(a, y) is the farthest leaf in that slice, reach.top the highest.
+const REACH_A = 16, REACH_Y = 8;
+function crownReach(geo) {
+  const p = geo.attributes.position, bins = new Float32Array(REACH_A * REACH_Y);
+  let y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < p.count; i++) { const y = p.getY(i); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const span = Math.max(y1 - y0, 1e-6);
+  const bin = (a, y) => {
+    const ai = ((Math.floor((a / (Math.PI * 2) + 1) * REACH_A) % REACH_A) + REACH_A) % REACH_A;
+    return Math.min(REACH_Y - 1, Math.max(0, Math.floor((y - y0) / span * REACH_Y))) * REACH_A + ai;
+  };
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i), k = bin(Math.atan2(z, x), p.getY(i));
+    bins[k] = Math.max(bins[k], Math.hypot(x, z));
+  }
+  const reach = (a, y) => bins[bin(a, y)];
+  reach.top = y1; // (the crown's highest leaf)
+  // Points on the crown's outside for blossoms: on its upper half, facing up or out (reach.up), and
+  // round its lower edge, facing down, for flowers that hang (reach.down). On a real leaf, so a
+  // head never hovers over a dip between two lumps.
+  const n = geo.attributes.normal, up = [], down = [], seen = new Set();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), r = Math.hypot(x, z), out = r > 1e-6 ? (n.getX(i) * x + n.getZ(i) * z) / r : 0;
+    const key = `${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`; if (seen.has(key)) continue; seen.add(key);
+    const t = (y - y0) / span, rim = r >= reach(Math.atan2(z, x), y) * 0.8;
+    if (t > 0.45 && n.getY(i) + out * 0.6 > 0.45 && (rim || t > 0.8)) up.push(x, y, z);
+    else if (t < 0.45 && t > 0.1 && rim && n.getY(i) < 0.1) down.push(x, y, z);
+  }
+  reach.up = up; reach.down = down;
+  return reach;
+}
 const rgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
 // A colony's colour morph (look.morphs, the reef's corals and sponges), the same colony keeping
 // its colour from one redraw to the next; any other plant keeps its own leaf colour.
@@ -613,13 +646,13 @@ export class Flora {
               { shadow: false, far: () => Botanical.blossomDot(p.look.flower) }, () => Botanical.blossomHead(blossom, p.look.flower, true), 'lo');
             const n = Math.round((blossom === 'puff' ? 18 : 12) * Math.max(1, shapeDef.rx / 0.65)), hang = blossom === 'pendant';
             const size = sc * (BLOSSOM_SIZE[blossom] ?? 0.85);
-            // (on the upper half of the crown's surface, where the camera sees them: the crown is about an
-            // ellipsoid centred 0.75 ry below its height; the sausage tree's flowers hang on long cords from its lower edge)
-            const mid = shapeDef.height + (shapeDef.lift ?? 0) - shapeDef.ry * 0.75;
-            for (let k = 0; k < n; k++) {
-              const a = k * 2.4, e = hang ? -0.5 - hash2(x, y, k + 133) * 0.25 : 0.1 + hash2(x, y, k + 133) * 1.0;
-              const d = shapeDef.rx * Math.cos(e) * (hang ? 0.9 : 1), fy = mid + shapeDef.ry * 1.05 * Math.sin(e);
-              flowers.add(...onTree(Math.cos(a) * d, fy, Math.sin(a) * d), size, size, size, rot + a, [dim, dim, dim]);
+            // (on leaves on the upper half of the crown, where the camera sees them; the sausage tree's
+            // flowers hang on long cords from its lower edge)
+            const spots = (shape.reach ??= crownReach(shape.crown))[hang ? 'down' : 'up'];
+            for (let k = 0; k < n && spots.length; k++) {
+              const j = Math.floor(hash2(x + k, y, k + 133) * spots.length / 3) * 3, a = k * 2.4;
+              // (a trumpet's petals start below its centre, so it stands up out of the leaves on its base)
+              flowers.add(...onTree(spots[j], spots[j + 1] + (hang ? -0.01 : blossom === 'trumpet' ? 0.045 : -0.005), spots[j + 2]), size, size, size, rot + a, [dim, dim, dim]);
             }
           }
           // trees with a fruit part of their own (the oil palm's bunches) show it, in the berry colour, once old enough to bear
@@ -639,6 +672,7 @@ export class Flora {
             // (close up each is its own fruit, spiny, hairy, capped or in pods; from afar and at play zoom, the same dot as before)
             const fruit = fruitForm(p);
             const hung = fruit && this.pool(`treefruit:${fruit}:${p.look.berry}`, () => Botanical.fruitHead(fruit, p.look.berry), this.grass, { shadow: false }, () => G.blob(p.look.berry, 0.035).scale(1, 1.15, 1), 'lo');
+            const reach = shapeDef.rx && (shape.reach ??= crownReach(shape.crown));
             for (let k = 0; k < 9; k++) {
               const a = k * 2.4 + hash2(x + k, y, 15), d = rr * (0.92 + hash2(x, y + k, 16) * 0.12);
               let at;
@@ -649,7 +683,10 @@ export class Flora {
               } else if (p.look.fruitOnWood) { // (the jícaro's gourds grow straight out of its trunk and main limbs)
                 const t = hash2(x + k, y + k, 17), dd = k < 3 ? shapeDef.trunkR * 1.3 : shapeDef.rx * (0.15 + t * 0.35), top = shapeDef.trunkH + (shapeDef.lift ?? 0);
                 at = onTree(Math.cos(a) * dd, k < 3 ? top * (0.45 + t * 0.4) : top + (shapeDef.height - shapeDef.trunkH) * t * 0.4, Math.sin(a) * dd);
-              } else at = onTree(Math.cos(a) * d, fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, Math.sin(a) * d);
+              } else { // (the stalk's top just inside the leaves, so the fruit hangs from them)
+                const hy = fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, hd = reach(a, hy) ? reach(a, hy) * (0.9 + hash2(x, y + k, 16) * 0.05) : d;
+                at = onTree(Math.cos(a) * hd, hy, Math.sin(a) * hd);
+              }
               if (hung) hung.add(...at, fs, fs, fs, rot + a, [dim, dim, dim]);
               else dots.add(...at, fs, fs * 1.15, fs, rot + a, fc);
             }
