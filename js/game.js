@@ -6,6 +6,7 @@ import { biome, BIOME_LIST, setBiome, mapCatalog } from './biome.js';
 import { saves, legacySaveKey, bytesFromBase64, intact } from './saves.js';
 import { World, Border } from './world.js';
 import { mulberry32 } from './rng.js';
+import { useSimRandom, wildSeed } from './sim/sim-random.js';
 import { updateEnvironment, updateHydrology } from './sim/environment.js';
 import { HollisWater, waterModelOn } from './sim/hollis-water.js';
 import { meadowDay, migrateMarkedPools } from './sim/beaver-ponds.js';
@@ -61,6 +62,7 @@ export class Game {
     this.water = waterModelOn(this.map) ? new HollisWater(this.world) : null;
     this.border = new Border(this.world, this.mapDefinition.borderCell);
     this.rng = mulberry32(runSeed);
+    this.wildRng = mulberry32(wildSeed(runSeed)); useSimRandom(this.wildRng); // wildlife and visitors (sim-random.js)
     this.wildlife = new Wildlife(this);
     this.visitors = new Visitors(this);
     this.events = new Events(this);
@@ -138,6 +140,7 @@ export class Game {
   update(dtSec) {
     const sp = SPEEDS[this.speed];
     if (!sp) return;
+    useSimRandom(this.wildRng);
     // (the calendar and the animals keep separate paces only at watch pace: see ANIMAL_SPEEDS)
     const step = Math.min(dtSec, 0.1);
     let days = step * (ANIMAL_SPEEDS[this.speed] ?? sp);
@@ -183,6 +186,7 @@ export class Game {
 
   // One game day, in parts: each yield is where the live game moves on to the next frame.
   *dayWork() {
+    useSimRandom(this.wildRng);
     const prevMonth = this.month;
     this.day++;
     const w = this.world;
@@ -367,7 +371,7 @@ export class Game {
       v: 2, seed: this.seed, runSeed: this.runSeed, day: this.day, money: this.money, speed: this.speed, flags: this.flags,
       stats: this.stats, goalsDone: this.goalsDone, history: this.history,
       world: { arrays, structures: w.structures, w: w.w, h: w.h, bloomTick: w.bloomTick, water: this.water?.serialize() },
-      wildlife: this.wildlife.serialize(), rng: this.rng.state(), cache: { hunts: this.cache.hunts },
+      wildlife: this.wildlife.serialize(), rng: this.rng.state(), wildRng: this.wildRng.state(), cache: { hunts: this.cache.hunts },
       visitors: this.visitors.serialize(), events: this.events.serialize(), lastGrant: this.lastGrant, ledger: this.ledger, lastLedger: this.lastLedger,
       mode: this.mode, campaign: this.campaign, difficulty: this.difficulty, snow: this.snow || 0, map: this.map,
       weather: this.weather, weatherDays: this.weatherDays, rainStreak: this.rainStreak, dryStreak: this.dryStreak,
@@ -503,6 +507,8 @@ export class Game {
     this.world = w;
     this.border = new Border(w, this.mapDefinition.borderCell);
     this.rng = mulberry32(1); this.rng.setState(data.rng);
+    // (a farm saved before wildlife had its own stream starts one from its rng state)
+    this.wildRng = mulberry32(data.wildRng ?? wildSeed(data.rng)); useSimRandom(this.wildRng);
     this.wildlife = new Wildlife(this);
     this.visitors = new Visitors(this); this.visitors.load(data.visitors);
     this.events = new Events(this); this.events.load(data.events);

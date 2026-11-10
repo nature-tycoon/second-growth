@@ -509,12 +509,13 @@ export function assertChapters(catalog) {
  * @typedef {{w:number, h:number, arrays:Object<string,SavedBytes|{n:number,b:SavedBytes}>, structures:Array<{type:string,x:number,y:number,w:number,h:number}|null>}} SavedWorld
  * @typedef {{id:number, sp:number, x:number, y:number, age:number, state:string, key?:string, move?:AnimalMove}} AnimalAgent
  * @typedef {{agents:AnimalAgent[], state:Object[], nextId:number, salmon:Object, dams:number}} SavedWildlife
- * @typedef {Partial<FarmState> & {v:1|2, seed:number, day:number, money:number, rng:number, world:SavedWorld, wildlife:SavedWildlife, flags:Object, stats:FarmStats, goalsDone:Object, plants?:string[], visitors?:Object, events?:Object}} FarmSave
+ * @typedef {Partial<FarmState> & {v:1|2, seed:number, day:number, money:number, rng:number, wildRng?:number, world:SavedWorld, wildlife:SavedWildlife, flags:Object, stats:FarmStats, goalsDone:Object, plants?:string[], visitors?:Object, events?:Object}} FarmSave
  */
 export function assertSaveEnvelope(data, path = 'save') {
   object(data, path); choice(data.v, `${path}.v`, [1, 2]);
   number(data.seed, `${path}.seed`); integer(data.day, `${path}.day`); number(data.money, `${path}.money`); number(data.rng, `${path}.rng`);
   optional(data, 'map', path, text);
+  if (data.wildRng != null) number(data.wildRng, `${path}.wildRng`);
   if (data.runSeed != null) number(data.runSeed, `${path}.runSeed`); // (older saves have none: their rng state is all they need)
   for (const key of ['flags', 'stats', 'goalsDone', 'world', 'wildlife']) object(data[key], `${path}.${key}`);
   integer(data.world.w, `${path}.world.w`, 1); integer(data.world.h, `${path}.world.h`, 1);

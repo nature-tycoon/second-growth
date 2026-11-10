@@ -1,6 +1,6 @@
 // Everyday wildlife behaviour on top of the population rules: predators prowl, stalk, rush and
 // feed at a kill, prey keep watch and bolt, scavengers gather at carcasses, the young play, and
-// neighbours greet or spar. All of it uses Math.random, never game.rng, and the catch roll still
+// neighbours greet or spar. All of it draws simRandom() (the wildlife stream), never game.rng, and the catch roll still
 // happens once, on contact. Shared carcass meals also satisfy hunger, using the same food-stress rules.
 
 import { clamp, isWater, DAYS_PER_YEAR, lifeAge, F } from '../config.js';
@@ -19,6 +19,7 @@ import { wakeDormant } from './animal-dormancy.js';
 import { drinkEvery } from './home-range.js';
 import { markRisk } from './predation-risk.js';
 import { inWood } from './ground-obstacles.js';
+import { simRandom } from './sim-random.js';
 
 // How each kind of hunter closes in (decision 0026). approach, creep and sprint are multiples of its
 // usual speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles. The rest is
@@ -118,7 +119,7 @@ export function beginHunt(wl, a, def, b) {
     if (remaining <= 0) break;
     if (o === a || o.sp !== a.sp || !canStartHunt(o) || o.state !== 'idle' || young(o, def) || dist(o, a) > 7) continue;
     o.state = 'hunt'; o.target = b.id; o.huntTime = a.huntTime; o.path = null; o.assist = true;
-    o.hunt = { phase: 'approach', flank: side * (1.1 + Math.random() * 0.8) };
+    o.hunt = { phase: 'approach', flank: side * (1.1 + simRandom() * 0.8) };
     side = -side; remaining--;
   }
 }
@@ -161,7 +162,7 @@ export function huntStep(wl, a, def, b, sp) {
   if (H.phase === 'approach' || H.phase === 'creep') {
     if (H.again > 0) { if (S.near && H.phase !== 'creep') { H.phase = 'creep'; H.stalk = 0; } }
     else if (aerial && H.perch && d < S.rush + 1.4) startRush(wl, a, def, b, S, d); // (from a perch it drops straight on)
-    else if (S.circle && d < S.rush + 1.4) { H.phase = 'circle'; H.t = 0.5 + Math.random() * 0.8; H.ang = Math.atan2(a.y - b.y, a.x - b.x); }
+    else if (S.circle && d < S.rush + 1.4) { H.phase = 'circle'; H.t = 0.5 + simRandom() * 0.8; H.ang = Math.atan2(a.y - b.y, a.x - b.x); }
     // close enough to charge (a stalker still unseen in cover creeps closer first), or seen and
     // still near enough to run it down, or a stalk running long: now or never
     else if (d < S.rush * (H.phase === 'creep' && !(b.alertT > 0) ? 1 - (H.cover || 0) * (S.closeIn || 0) : 1) || fled && d < S.rush * 1.8 ||
@@ -333,7 +334,7 @@ export function pressOn(wl, a, def) {
   H.miss = 0.3; H.best = null; H.since = 0;
   const b = byId(wl, a.target);
   if (def.move === 'fly' && !S.grounded) {
-    H.phase = 'circle'; H.t = 0.6 + Math.random() * 0.6; a.stoop = 0;
+    H.phase = 'circle'; H.t = 0.6 + simRandom() * 0.6; a.stoop = 0;
     H.ang = b ? Math.atan2(a.y - b.y, a.x - b.x) : 0;
   } else { H.phase = 'rush'; H.v = (H.v || 0) * 0.4; }
   a.huntTime = Math.max(a.huntTime, H.stamina + 1.5);
@@ -342,7 +343,7 @@ export function pressOn(wl, a, def) {
 
 // The hunter lets this prey go, and for a few days would rather pick another (startHunt counts it as
 // twice as far off). A running hunter slows to a stop rather than halting in one step.
-export function huntCooldown(a, b) { a.huntCool = b.id; a.huntCoolUntil = a.age + 3 + Math.random() * 3; }
+export function huntCooldown(a, b) { a.huntCool = b.id; a.huntCoolUntil = a.age + 3 + simRandom() * 3; }
 export function letGo(wl, a, def, b, sp) {
   huntCooldown(a, b);
   if (def.move === 'fly' && !huntStyle(def).grounded || !(a.hunt?.v > 0.3)) return giveUp(wl, a);
@@ -360,7 +361,7 @@ function ease(wl, a, def, S, t, sp) {
 
 // Out of breath: the hunt failed. Stand and recover; the prey keeps running.
 function giveUp(wl, a) {
-  a.state = 'idle'; a.wait = 1.5 + Math.random() * 1.5;
+  a.state = 'idle'; a.wait = 1.5 + simRandom() * 1.5;
   if (a.move === 'fly') a.flying = false;
   endHunt(a);
   return false;
@@ -382,8 +383,8 @@ function alarm(wl, pred, pdef, target, time) {
       continue;
     }
     if (o === target) {
-      if (o.move !== 'fly' && !o.flying) bolt(wl, o, pred, odef.speed * 1.9, time + 0.6, (pred.hunt?.surprise ? 0.2 : 0.12) + Math.random() * (pred.hunt?.surprise ? 0.25 : 0.18));
-    } else if (o.state !== 'flee') bolt(wl, o, pred, odef.speed * (1.6 + Math.random() * 0.4), 0.7 + Math.random() * 0.6, 0.05 + Math.random() * 0.25);
+      if (o.move !== 'fly' && !o.flying) bolt(wl, o, pred, odef.speed * 1.9, time + 0.6, (pred.hunt?.surprise ? 0.2 : 0.12) + simRandom() * (pred.hunt?.surprise ? 0.25 : 0.18));
+    } else if (o.state !== 'flee') bolt(wl, o, pred, odef.speed * (1.6 + simRandom() * 0.4), 0.7 + simRandom() * 0.6, 0.05 + simRandom() * 0.25);
   }
 }
 
@@ -401,10 +402,10 @@ export function startFeed(wl, a, def, b) {
   a.flying = false;
   // (a fish is drawn in front of it while it eats, as for the fishers in fishing.js)
   if (!big && bd.move === 'swim' && !bd.reef) a.prey = { id: b.id, sp: b.sp, age: lifeAge(b), juvenile: !!b.juvenile, fish: true };
-  if (!big) { a.feedT = 0.5 + Math.random() * 0.8; return; }
-  a.feedT = 1.5 + (bd.sprite.len || 20) / 30 * (1 + Math.random());
-  const c = { id: b.id, sp: b.sp, x: b.x, y: b.y, yaw: b.heading ?? 0, age: lifeAge(b), side: Math.random() < 0.5 ? -1 : 1,
-    by: a.sp, t: a.feedT + 21 + Math.random() * 12 };
+  if (!big) { a.feedT = 0.5 + simRandom() * 0.8; return; }
+  a.feedT = 1.5 + (bd.sprite.len || 20) / 30 * (1 + simRandom());
+  const c = { id: b.id, sp: b.sp, x: b.x, y: b.y, yaw: b.heading ?? 0, age: lifeAge(b), side: simRandom() < 0.5 ? -1 : 1,
+    by: a.sp, t: a.feedT + 21 + simRandom() * 12 };
   // Leave 21–33 days after the first meal: distant walkers and circling birds
   // need time to discover and reach a kill. Food still runs out through c.meals.
   c.max = c.t;
@@ -433,12 +434,12 @@ function addCarcass(wl, c) {
 
 // An animal that died of old age, hunger or sickness lies where it fell, as a carcass with no
 // hunter: scavengers find it and share its meals like a kill's, and it breaks down over the same
-// 21-33 days (drawn by render3d/carcass-decay.js). Math.random, so the monthly rng is untouched.
+// 21-33 days (drawn by render3d/carcass-decay.js). simRandom, so the monthly rng is untouched.
 export function leaveBody(wl, a) {
   const def = wl.game.catalog.animals[a.sp];
   if (!def || !leavesCarcass(def) || a.leaving) return null;
-  const t = 21 + Math.random() * 12, meals = Math.max(1, Math.ceil(def.sprite.len / 20));
-  const c = { id: a.id, sp: a.sp, x: a.x, y: a.y, yaw: a.heading ?? 0, age: lifeAge(a), side: Math.random() < 0.5 ? -1 : 1,
+  const t = 21 + simRandom() * 12, meals = Math.max(1, Math.ceil(def.sprite.len / 20));
+  const c = { id: a.id, sp: a.sp, x: a.x, y: a.y, yaw: a.heading ?? 0, age: lifeAge(a), side: simRandom() < 0.5 ? -1 : 1,
     by: null, t, max: t, meals, meals0: meals, feed: 0 };
   addCarcass(wl, c);
   return c;
@@ -453,7 +454,7 @@ export function missed(wl, prey, pred) {
     return;
   }
   if (prey.state === 'walk') { prey.run = 1.8; prey.alertT = 0; return; }
-  if (!prey.leaving && !def.reef && def.move !== 'swim') bolt(wl, prey, pred, def.speed * 1.8, 0.8 + Math.random() * 0.5, 0);
+  if (!prey.leaving && !def.reef && def.move !== 'swim') bolt(wl, prey, pred, def.speed * 1.8, 0.8 + simRandom() * 0.5, 0);
 }
 
 // ---------------------------------------------------------------- fleeing
@@ -465,7 +466,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   if (def.crossing && inRiver(wl, a)) { if (a.state === 'walk' && a.path?.length) a.run = Math.max(a.run || 1, speed / Math.max(0.01, def.speed)); return; }
   let fx = a.x - threat.x, fy = a.y - threat.y;
   const l = Math.hypot(fx, fy);
-  if (l < 1e-3) { const r = Math.random() * Math.PI * 2; fx = Math.cos(r); fy = Math.sin(r); } else { fx /= l; fy /= l; }
+  if (l < 1e-3) { const r = simRandom() * Math.PI * 2; fx = Math.cos(r); fy = Math.sin(r); } else { fx /= l; fy /= l; }
   a.threat = threat.id; a.trip = null; a.restSpot = null;
   if (a.territory) { a.territory.goal = null; a.territory.mode = 'away'; }
   a.drinkT = 0; a.drinkAt = null; a.localGoal = null; a.bankGoal = null; a.follow = false;
@@ -484,7 +485,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
     // If enclosed by unsuitable landing terrain, remain airborne and try again later.
     let best = null, score = -Infinity;
     for (let k = 0; k < 12; k++) {
-      const ang = Math.atan2(fy, fx) + (Math.random() - 0.5) * 1.4, r = range + Math.random() * range;
+      const ang = Math.atan2(fy, fx) + (simRandom() - 0.5) * 1.4, r = range + simRandom() * range;
       const x = clamp(a.x + Math.cos(ang) * r, 0.5, w.w - 0.5), y = clamp(a.y + Math.sin(ang) * r, 0.5, w.h - 0.5);
       const j = w.idx(Math.floor(x), Math.floor(y));
       if (!canLand(w, j, def) || w.fire[j]) continue;
@@ -514,7 +515,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   if (a.state !== 'flee') { a.fleeAge = 0; a.fleeHd = null; } // (a flight already under way keeps its speed and line)
   a.state = 'flee'; a.path = null; a.threat = threat.id; a.fleeOff = 0;
   a.fx = fx; a.fy = fy; a.fleeT = time; a.fleeSpeed = speed; a.fleeDelay = delay;
-  a.fleeSide = Math.random() < 0.5 ? -1 : 1;
+  a.fleeSide = simRandom() < 0.5 ? -1 : 1;
   a.run = speed / Math.max(0.01, def.speed);
 }
 
@@ -623,8 +624,8 @@ export function fleeUpdate(wl, a, def, dt) {
   }
   // safe (or cornered): stop and look back
   a.state = 'idle'; a.run = null; a.fleeT = 0; a.fleeHd = null;
-  a.wait = a.play ? 0.3 + Math.random() * 0.5 : 0.6 + Math.random();
-  if (th && !a.play) { facePoint(a, th.x, th.y); a.alertT = 1.2 + Math.random(); }
+  a.wait = a.play ? 0.3 + simRandom() * 0.5 : 0.6 + simRandom();
+  if (th && !a.play) { facePoint(a, th.x, th.y); a.alertT = 1.2 + simRandom(); }
   a.play = false; a.threat = null; a.fromFire = false;
 }
 
@@ -679,16 +680,16 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
     const tx = a.state === 'fly' ? a.tx : j != null ? j % wl.game.world.w + 0.5 : null;
     const ty = a.state === 'fly' ? a.ty : j != null ? (j / wl.game.world.w | 0) + 0.5 : null;
     if (a.threat === p.id && !a.play && tx != null && Math.hypot(tx - p.x, ty - p.y) > d + 0.25) return true;
-    bolt(wl, a, p, def.speed * 1.9, 1 + Math.random() * 0.5);
+    bolt(wl, a, p, def.speed * 1.9, 1 + simRandom() * 0.5);
     for (const o of wl.agents) if (o !== a && o.sp === a.sp && o.state !== 'flee' && !o.leaving && !o.fromFire &&
       dist(o, a) < 4 && canHuntPrey(wl, p, wl.game.catalog.animals[p.sp], o)) {
-      bolt(wl, o, p, wl.game.catalog.animals[o.sp].speed * 1.8, 0.8 + Math.random() * 0.5, 0.05 + Math.random() * 0.15);
+      bolt(wl, o, p, wl.game.catalog.animals[o.sp].speed * 1.8, 0.8 + simRandom() * 0.5, 0.05 + simRandom() * 0.15);
     }
     return true;
   }
   if (urgentOnly) return false;
   if (!(a.alertUntil > a.age)) {
-    a.alertT = 1.2 + Math.random() * 1.5; a.wait = a.alertT; facePoint(a, p.x, p.y);
+    a.alertT = 1.2 + simRandom() * 1.5; a.wait = a.alertT; facePoint(a, p.x, p.y);
     a.alertUntil = a.age + 4;
     return true;
   }
@@ -706,14 +707,14 @@ export function prowl(wl, a, def) {
   const p = def.behavior.activity || activityProfileFor(def), h = a.hunger;
   if (wl.drinks(def) && a.thirst / drinkEvery(wl, a, def) > Math.max(1, h / p.hungry)) return false; // (off to drink)
   if (h < p.fed) {
-    const lie = () => { a.wait = p.bout[0] + Math.random() * (p.bout[1] - p.bout[0]); return true; };
+    const lie = () => { a.wait = p.bout[0] + simRandom() * (p.bout[1] - p.bout[0]); return true; };
     if (h < p.digest) return lie();
-    if (p.soar && Math.random() < p.soar && soar(wl, a, def)) return true;
-    if (Math.random() < p.rest) return lie();
+    if (p.soar && simRandom() < p.soar && soar(wl, a, def)) return true;
+    if (simRandom() < p.rest) return lie();
   }
   if (p.seek && h >= p.hungry && wl.paced() && wl.startHunt(a, def, diet, 8)) return true;
   if (p.lieInWait) return h >= p.hungry && lieInWait(wl, a, def, diet, p);
-  if (h < p.search || Math.random() < 0.5) return false;
+  if (h < p.search || simRandom() < 0.5) return false;
   // (a hungry red-tail searches from the soar, and stoops from up there)
   if (p.soar && soar(wl, a, def)) return true;
   const preySet = new Set(diet.map(k => wl.game.catalog.animal[k]?.index));
@@ -725,7 +726,7 @@ export function prowl(wl, a, def) {
   }
   if (!b || bd < 64) return false;
   if (a.move === 'fly') {
-    const ang = Math.random() * Math.PI * 2;
+    const ang = simRandom() * Math.PI * 2;
     a.tx = b.x + Math.cos(ang) * 4; a.ty = b.y + Math.sin(ang) * 4; a.state = 'fly'; a.flying = true;
     return true;
   }
@@ -738,9 +739,9 @@ export function prowl(wl, a, def) {
 // 0013), the land snakes near where prey are about; with none coming by, now and then they move on.
 function lieInWait(wl, a, def, diet, p) {
   if (wl.paced() && wl.startHunt(a, def, diet)) return true;
-  const w = wl.game.world, rest = () => { a.wait = 0.4 + Math.random() * 0.8; return true; };
+  const w = wl.game.world, rest = () => { a.wait = 0.4 + simRandom() * 0.8; return true; };
   const spot = a.ambushAt, there = spot && Math.hypot(a.x - spot.x, a.y - spot.y) < 2;
-  if (spot && a.age < spot.until && (there || Math.random() < 0.8)) return there || !wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - spot.x, y + 0.5 - spot.y) < 1.5, 2500, (x, y) => Math.hypot(x + 0.5 - spot.x, y + 0.5 - spot.y)) ? rest() : true;
+  if (spot && a.age < spot.until && (there || simRandom() < 0.8)) return there || !wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - spot.x, y + 0.5 - spot.y) < 1.5, 2500, (x, y) => Math.hypot(x + 0.5 - spot.x, y + 0.5 - spot.y)) ? rest() : true;
   const preySet = new Set(diet.map(k => wl.game.catalog.animal[k]?.index));
   let best = null, bd = 30 * 30;
   for (const o of wl.agents) {
@@ -752,7 +753,7 @@ function lieInWait(wl, a, def, diet, p) {
   }
   if (!best) return rest();
   // (it keeps to the spot for 5 to 15 days before trying another)
-  a.ambushAt = { x: best.x, y: best.y, until: a.age + 5 + Math.random() * 10 };
+  a.ambushAt = { x: best.x, y: best.y, until: a.age + 5 + simRandom() * 10 };
   return rest();
 }
 
@@ -766,13 +767,13 @@ export function scavenge(wl, a, def) {
     const r = scav ? (def.move === 'fly' ? 40 : 22) : 10, d = Math.hypot(k.x - a.x, k.y - a.y);
     if (d < r && d < bd && k.t > 1 && k.meals > 0) { bd = d; c = k; }
   }
-  if (!c || Math.random() > 0.75) return false;
+  if (!c || simRandom() > 0.75) return false;
   if (wl.agents.filter(o => o.state === 'feed' && o.carcass === c.id).length >= 5) return false;
   // (a bird feeds only once it is down on the ground beside the body, never from a perch over it)
   if (bd < 1.4 && (a.move !== 'fly' || !a.flying && !perchedUp(wl.game.world, a) && bd < 0.9)) return feedAt(a, c);
   a.goal = { carcass: c.id };
   if (a.move === 'fly') {
-    const ang = Math.random() * Math.PI * 2, r = 0.6 + Math.random() * 0.5;
+    const ang = simRandom() * Math.PI * 2, r = 0.6 + simRandom() * 0.5;
     a.tx = c.x + Math.cos(ang) * r; a.ty = c.y + Math.sin(ang) * r; a.state = 'fly'; a.flying = true;
     return true;
   }
@@ -792,7 +793,7 @@ export function feedAt(a, c) {
   // As with a successful catch, the first bite satisfies hunger immediately.
   if (c.t <= 0 || !(c.meals > 0)) return false;
   c.meals--; a.hunger = 0;
-  a.state = 'feed'; a.feedT = 1 + Math.random() * 1.5; a.feedAt = [c.x, c.y]; a.carcass = c.id;
+  a.state = 'feed'; a.feedT = 1 + simRandom() * 1.5; a.feedAt = [c.x, c.y]; a.carcass = c.id;
   a.flying = false; a.path = null;
   // A carcass lies on the ground, so a bird eats down there with it, even on a tile with a tree
   // (drawn on the ground, not in the crown overhead; the flag clears when the meal ends).
@@ -803,7 +804,7 @@ export function feedAt(a, c) {
 
 // Young of the same kind chase each other about, taking turns (only species that play: behavior.plays).
 export function play(wl, a, def) {
-  if (!def.behavior?.plays || !ashore(def) || !young(a, def) || Math.random() > 0.3) return false;
+  if (!def.behavior?.plays || !ashore(def) || !young(a, def) || simRandom() > 0.3) return false;
   let o = null, bd = 25;
   for (const b of wl.agents) {
     if (b === a || b.sp !== a.sp || b.leaving || !young(b, def) || (b.state !== 'idle' && b.state !== 'walk')) continue;
@@ -815,7 +816,7 @@ export function play(wl, a, def) {
   return true;
 }
 function chase(wl, a, o, n) {
-  a.state = 'play'; a.target = o.id; a.playT = 0.5 + Math.random() * 0.6; a.playN = n; a.run = 1.7; a.path = null;
+  a.state = 'play'; a.target = o.id; a.playT = 0.5 + simRandom() * 0.6; a.playN = n; a.run = 1.7; a.path = null;
   bolt(wl, o, a, wl.game.catalog.animals[o.sp].speed * 1.5, a.playT + 0.3, 0.05);
   if (o.state === 'flee') o.play = true;
   facePoint(a, o.x, o.y);
@@ -832,7 +833,7 @@ export function playUpdate(wl, a, def, sp) {
     if (ok && a.playN < 3 && o.state === 'flee' && o.play) { o.fleeT = 0; o.play = false; a.state = 'idle'; chase(wl, o, a, a.playN + 1); a.play = true; return; }
     if (o.state === 'flee' && o.play) o.fleeT = 0;
   }
-  a.state = 'idle'; a.wait = 0.5 + Math.random(); a.run = null; a.target = null;
+  a.state = 'idle'; a.wait = 0.5 + simRandom(); a.run = null; a.target = null;
 }
 
 // Deer, elk and sambar stags fight in the autumn rut (Sep-Nov; months count from March).
@@ -895,7 +896,7 @@ function invite(wl, a, o, def) {
 export function greet(wl, a, def) {
   const rut = rutting(wl, def, a), light = !rut && sparring(wl, def, a);
   if (!ashore(def) || young(a, def) || !available(a) || a.socialCooldown > a.age ||
-    rut && a.rutCooldown > a.age || Math.random() > (rut ? 0.45 : light ? 0.25 : def.herd ? 0.06 : 0.12)) return false;
+    rut && a.rutCooldown > a.age || simRandom() > (rut ? 0.45 : light ? 0.25 : def.herd ? 0.06 : 0.12)) return false;
   let o = null, bd = rut ? 900 : light ? 144 : 49; // (a rutting male goes a long way to find a rival)
   // (a rival at the water is still fair game: he lifts his head from drinking to meet the challenge)
   const free = b => available(b) || ((rut || light) && b.drinkT > 0 && b.state === 'idle' && !b.leaving && !b.fromFire && !b.socialWith && b.greet == null);
@@ -912,7 +913,7 @@ function meet(wl, a) {
   const o = byId(wl, a.greet), def = wl.game.catalog.animals[a.sp];
   releaseInvitation(wl, a);
   if (!o || o.leaving || (o.state !== 'idle' && o.state !== 'walk') || dist(a, o) > 2.5) return;
-  const t = 1.5 + Math.random() * 2;
+  const t = 1.5 + simRandom() * 2;
   facePoint(a, o.x, o.y); facePoint(o, a.x, a.y);
   a.wait = t; o.wait = Math.max(o.wait, t);
   a.socialCooldown = a.age + 10; o.socialCooldown = o.age + 10;
@@ -921,7 +922,7 @@ function meet(wl, a) {
   const light = !rutting(wl, def, a) && sparring(wl, def, a) && sparring(wl, def, o);
   const odds = def.sprite.male?.antlers ? (rutting(wl, def, a) ? 0.95 : light ? 0.85 : 0.25) : 0.6;
   const maySpar = !def.sprite.male?.antlers || rutting(wl, def, a) || light;
-  if (!(rivals && maySpar && Math.random() < odds && squareUp(wl, a, o, light))) { a.greetT = o.greetT = t; }
+  if (!(rivals && maySpar && simRandom() < odds && squareUp(wl, a, o, light))) { a.greetT = o.greetT = t; }
 }
 
 // Two rivals walk into a head-to-head stance (close enough for antlers or horns to meet), then
@@ -961,7 +962,7 @@ function squareUp(wl, a, o, light = false) {
     if (!route) return false;
     routes.push(route);
   }
-  const t = light ? 1.5 + Math.random() * 1.5 : 3 + Math.random() * 3, loser = Math.random() < 0.5 ? a.id : o.id;
+  const t = light ? 1.5 + simRandom() * 1.5 : 3 + simRandom() * 3, loser = simRandom() < 0.5 ? a.id : o.id;
   for (const [b, at, other] of [[a, sa, o], [o, so, a]]) {
     b.sparStyle = necking ? 'necking' : 'horns'; b.sparHeading = necking ? heading : null;
     b.state = 'spar'; b.sparWith = other.id; b.sparAt = at; b.sparT = t; b.sparLoser = loser; b.sparLight = light; b.sparSince = b.age;
@@ -1018,19 +1019,19 @@ export function sparUpdate(wl, a, def, sp, elapsed = dt(sp, def)) {
 }
 function endSpar(wl, a, rival, lost) {
   const light = a.sparLight; a.sparStyle = null; a.sparHeading = null; a.sparSince = null;
-  a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.sparPath = null; a.sparLight = false; a.wait = 2 + Math.random() * 2;
+  a.state = 'idle'; a.sparT = 0; a.sparWith = null; a.sparAt = null; a.sparPath = null; a.sparLight = false; a.wait = 2 + simRandom() * 2;
   // Rutting males fight again within days (a beaten one takes longer to come back), and
   // sparring partners within a week; otherwise a match settles things for a good while.
   const rut = RUT.includes(wl.game.month) && antlered(wl.game.catalog.animals[a.sp], a);
-  a.rutCooldown = a.age + (rut ? (lost ? 4 : 2) + Math.random() * 2 : light ? 4 + Math.random() * 3 : 12 + Math.random() * 6); a.socialCooldown = a.rutCooldown;
+  a.rutCooldown = a.age + (rut ? (lost ? 4 : 2) + simRandom() * 2 : light ? 4 + simRandom() * 3 : 12 + simRandom() * 6); a.socialCooldown = a.rutCooldown;
   if (!rival) return;
-  if (light) { a.alertT = 0.8 + Math.random() * 0.6; a.wait = 1 + Math.random(); facePoint(a, rival.x, rival.y); return; } // (break off, look, and go back to grazing)
+  if (light) { a.alertT = 0.8 + simRandom() * 0.6; a.wait = 1 + simRandom(); facePoint(a, rival.x, rival.y); return; } // (break off, look, and go back to grazing)
   if (lost) {
-    bolt(wl, a, rival, wl.game.catalog.animals[a.sp].speed * 1.5, 0.6 + Math.random() * 0.4, 0.1);
+    bolt(wl, a, rival, wl.game.catalog.animals[a.sp].speed * 1.5, 0.6 + simRandom() * 0.4, 0.1);
     // a beaten harem bull loses his cows to the winner
     if (a.haremCenter && wl.agents.some(c => c.haremOf === a.id)) rival.haremCenter = a.haremCenter.slice();
     for (const c of wl.agents) if (c.haremOf === a.id) c.haremOf = rival.id;
-  } else { a.alertT = 1.5 + Math.random(); a.wait = a.alertT; facePoint(a, rival.x, rival.y); }
+  } else { a.alertT = 1.5 + simRandom(); a.wait = a.alertT; facePoint(a, rival.x, rival.y); }
 }
 
 // ---------------------------------------------------------------- elk harems
@@ -1066,7 +1067,7 @@ export function haremDay(wl) {
 // headless run with nobody listening never piles them up; it doesn't touch the simulation.
 export const bugles = [];
 function bugle(a, answer = false) {
-  a.bugleT = 0.8 + Math.random() * 0.5; a.wait = a.bugleT + 0.3;
+  a.bugleT = 0.8 + simRandom() * 0.5; a.wait = a.bugleT + 0.3;
   if (bugles.push({ id: a.id, answer }) > 16) bugles.shift();
 }
 function bullDay(wl, a, def) {
@@ -1098,7 +1099,7 @@ function bullDay(wl, a, def) {
     const score = !cows.length && wl.agents.some(c => c.haremOf === o.id) ? d2 * 0.2 : d2;
     if (score < rd) { rd = score; rival = o; }
   }
-  if (rival && !(a.rutCooldown > a.age) && Math.random() < 0.6 && invite(wl, a, rival, def)) {
+  if (rival && !(a.rutCooldown > a.age) && simRandom() < 0.6 && invite(wl, a, rival, def)) {
     if (a.state === 'walk') a.run = 1.6;
     return true;
   }
@@ -1119,14 +1120,14 @@ function bullDay(wl, a, def) {
       a.run = 1.5;
       return true;
     }
-    if (Math.random() < 0.3) { bugle(a, true); facePoint(a, master.x, master.y); return true; }
+    if (simRandom() < 0.3) { bugle(a, true); facePoint(a, master.x, master.y); return true; }
     if (!a.satelliteSlot) {
-      const angle = a.id * 2.39996, radius = 7 + Math.random() * 2;
+      const angle = a.id * 2.39996, radius = 7 + simRandom() * 2;
       a.satelliteSlot = [Math.cos(angle) * radius, Math.sin(angle) * radius];
     }
     return followCervid(wl, a, home, 'satelliteSlot', 1.4);
   }
-  if (Math.random() < 0.3) { bugle(a); return true; }
+  if (simRandom() < 0.3) { bugle(a); return true; }
   // the cow furthest from the others, if she's wandered off: go and turn her back
   const cx = cows.reduce((s, c) => s + c.x, 0) / cows.length, cy = cows.reduce((s, c) => s + c.y, 0) / cows.length;
   if (!a.haremCenter || Math.hypot(cx - a.haremCenter[0], cy - a.haremCenter[1]) > 8) a.haremCenter = [cx, cy];
@@ -1140,7 +1141,7 @@ function bullDay(wl, a, def) {
   }
   // Graze and watch between patrols; advance around the same herd rather than
   // picking a fresh point across it every time and pulling the cows back and forth.
-  if (Math.random() < 0.65) { a.wait = 1.5 + Math.random() * 2; return true; }
+  if (simRandom() < 0.65) { a.wait = 1.5 + simRandom() * 2; return true; }
   a.haremAngle = (a.haremAngle ?? Math.atan2(a.y - cy, a.x - cx)) + 0.7;
   const ang = a.haremAngle, r = 3, tx = a.haremCenter[0] + Math.cos(ang) * r, ty = a.haremCenter[1] + Math.sin(ang) * r;
   return wl.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 1, 600, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty));
@@ -1210,9 +1211,9 @@ export function fleeFire(wl) {
     if (!sw) continue;
     // a far-off glow: some wait and watch before going; close flames: everyone goes now
     const d = Math.sqrt(near);
-    if (d > 4 && Math.random() < 0.5) { if (a.state === 'idle') { a.alertT = 1; facePoint(a, a.x + sx / sw, a.y + sy / sw); } continue; }
+    if (d > 4 && simRandom() < 0.5) { if (a.state === 'idle') { a.alertT = 1; facePoint(a, a.x + sx / sw, a.y + sy / sw); } continue; }
     const threat = { id: null, x: a.x + sx / sw, y: a.y + sy / sw };
-    bolt(wl, a, threat, def.speed * (2 + Math.random() * 0.4), 1.2 + Math.random() * 0.8, d < 2 ? 0 : 0.05 + Math.random() * 0.2, 9);
+    bolt(wl, a, threat, def.speed * (2 + simRandom() * 0.4), 1.2 + simRandom() * 0.8, d < 2 ? 0 : 0.05 + simRandom() * 0.2, 9);
     a.fromFire = true;
   }
 }

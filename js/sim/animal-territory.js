@@ -8,6 +8,7 @@ import { passable, canLand } from './animal-terrain.js';
 import { facePoint } from './animal-positioning.js';
 import { shrubSpot } from './ground-obstacles.js';
 import { turnRate, reefStep } from './steering.js';
+import { simRandom } from './sim-random.js';
 
 const at = (w, j) => [j % w.w + 0.5, (j / w.w | 0) + 0.5];
 const tileDistance = (w, j, x, y) => Math.hypot(j % w.w + 0.5 - x, (j / w.w | 0) + 0.5 - y);
@@ -137,7 +138,7 @@ export function territorialChoose(wl, a, def) {
   }
   if (profile.tether) return hover(wl, a, def, t, profile.tether);
   if (a.age < t.next) return false;
-  t.next = a.age + 4 + Math.random() * 4;
+  t.next = a.age + 4 + simRandom() * 4;
   // A small host group stays beside its anemone, not at an exclusive individual core.
   // Wider-ranging animals make occasional boundary circuits with a marking/display pause.
   const angle = (a.id * 2.39996 + (t.angle || 0)) % (Math.PI * 2); t.angle = (t.angle || 0) + 1.7;
@@ -161,9 +162,9 @@ function hover(wl, a, def, t, tether) {
     if (!walkHome(wl, a, def, t.home)) { a.territory = null; a.territoryAfter = a.age + 5; return false; }
     a.trip = null; a.restSpot = null; a.hover = null; t.mode = 'return'; t.goal = t.home; return true;
   }
-  const ang = Math.random() * Math.PI * 2, r = tether * Math.sqrt(Math.random());
+  const ang = simRandom() * Math.PI * 2, r = tether * Math.sqrt(simRandom());
   a.hover = { x: hx + Math.cos(ang) * r, y: hy + Math.sin(ang) * r, home: t.home };
-  a.state = 'idle'; a.wait = 0.6 + Math.random() * 1.2; a.path = null; a.trip = null; a.restSpot = null;
+  a.state = 'idle'; a.wait = 0.6 + simRandom() * 1.2; a.path = null; a.trip = null; a.restSpot = null;
   t.mode = 'hover';
   return true;
 }

@@ -11,6 +11,7 @@ import { canLand, passable } from './animal-terrain.js';
 import { predationCatchChance } from './ecological-pressure.js';
 import { facePoint } from './animal-positioning.js';
 import { carryCatch, carrier } from './bird-behavior.js';
+import { simRandom } from './sim-random.js';
 
 export const isFish = d => !!d && d.move === 'swim' && !d.reef && !d.notPrey && d.sprite.kind === 'fish';
 // The species' fishing profile, if it fishes this way in this game mode: not where it already
@@ -52,7 +53,7 @@ function unseenFish(wl, def, i) {
     if (!isFish(d)) continue;
     let s = (wl.suit[d.index]?.[i] || 0) + 0.02;
     if (carrier(def) && def.carries.includes(d.key)) s *= 4;
-    s *= 0.5 + Math.random();
+    s *= 0.5 + simRandom();
     if (s > bs) { bs = s; best = d; }
   }
   return best;
@@ -67,22 +68,22 @@ export function fishStrike(wl, a, def, x, y, p = fishing(def, wl.game)) {
   // few drawn fish stand for a scarce stock, which the fishers then mostly miss, so a small
   // population isn't held down; balance check in decision 0030)
   let fish = fishNear(wl, x, y, STRIKE, p);
-  if (fish && p.unseen) { const st = wl.state[fish.sp]; if (Math.random() >= Math.min(1, (st?.pop || 0) / Math.max(1, st?.K || 0))) fish = null; }
+  if (fish && p.unseen) { const st = wl.state[fish.sp]; if (simRandom() >= Math.min(1, (st?.pop || 0) / Math.max(1, st?.K || 0))) fish = null; }
   if (fish) {
-    if (Math.random() >= predationCatchChance(g, fish, def, p.strike)) return false;
+    if (simRandom() >= predationCatchChance(g, fish, def, p.strike)) return false;
     const b = { id: fish.id, sp: fish.sp, x: fish.x, y: fish.y, age: fish.age, juvenile: !!fish.juvenile, alt: 0 };
     g.onPredation(a, fish);
     wl.remove(fish, 'predation');
     return caught(wl, a, def, b, p);
   }
   const i = tileOf(w, x, y);
-  if (!p.unseen || !fishyWater(wl, i) || Math.random() >= p.strike) return false;
+  if (!p.unseen || !fishyWater(wl, i) || simRandom() >= p.strike) return false;
   const d = unseenFish(wl, def, i);
   if (!d) return false;
   return caught(wl, a, def, { id: -1, sp: d.index, x, y, age: Math.max(1, d.mature) * DAYS_PER_YEAR, juvenile: false, alt: 0 }, p);
 }
 function caught(wl, a, def, b, p) {
-  a.fishFed = a.age + p.every[0] + Math.random() * (p.every[1] - p.every[0]);
+  a.fishFed = a.age + p.every[0] + simRandom() * (p.every[1] - p.every[0]);
   a.fishing = null; a.stoop = 0; a.goal = null;
   // an eagle carries what it can lift to a perch (and drags a heavier one to the bank: 0012)
   if (carrier(def) && carryCatch(wl, a, def, b)) return true;
@@ -98,7 +99,7 @@ function caught(wl, a, def, b, p) {
     }
   }
   // swallowed where it was caught (a heron, an otter afloat, a bear on the bank)
-  a.state = 'feed'; a.feedAt = [a.x, a.y]; a.feedT = p.style === 'wade' ? 0.6 + Math.random() * 0.6 : 1.5 + Math.random() * 1.5;
+  a.state = 'feed'; a.feedAt = [a.x, a.y]; a.feedT = p.style === 'wade' ? 0.6 + simRandom() * 0.6 : 1.5 + simRandom() * 1.5;
   if (a.move === 'fly') a.flying = false;
   facePoint(a, b.x, b.y);
   return true;
@@ -110,7 +111,7 @@ function perchNear(wl, a, def, r) {
     if (!w.inb(x0 + dx, y0 + dy)) continue;
     const j = w.idx(x0 + dx, y0 + dy);
     if (w.fire[j] || !canLand(w, j, def) || !(w.tree[j] && w.treeG[j] > 0.55 || w.feature[j] === F.SNAG)) continue;
-    const d = dx * dx + dy * dy + Math.random() * 2;
+    const d = dx * dx + dy * dy + simRandom() * 2;
     if (d < bd) { bd = d; best = j; }
   }
   return best;
@@ -124,7 +125,7 @@ function fishSpot(wl, a, def, p) {
   if (!p.unseen) { const fish = fishNear(wl, a.x, a.y, p.reach, p); return fish && { x: fish.x, y: fish.y, id: fish.id }; }
   let best = null, bd = Infinity;
   for (let k = 0; k < 60; k++) {
-    const x = a.x + (Math.random() * 2 - 1) * p.reach, y = a.y + (Math.random() * 2 - 1) * p.reach, i = tileOf(w, x, y);
+    const x = a.x + (simRandom() * 2 - 1) * p.reach, y = a.y + (simRandom() * 2 - 1) * p.reach, i = tileOf(w, x, y);
     if (!fishable(w, i, p) || !fishyWater(wl, i)) continue;
     if (a.move !== 'fly' && !passable(w, i, a)) continue;
     const d = Math.hypot(x - a.x, y - a.y);
@@ -137,7 +138,7 @@ function fishSpot(wl, a, def, p) {
 // bears at the creek: sim/animals.js wade and fishCreek). Hungry, near water, at its own pace.
 export function fishChoose(wl, a, def) {
   const p = fishing(def, wl.game);
-  if (!p || !p.strikes || p.style === 'wade' || a.leaving || fishFed(a) || Math.random() >= p.chance) return false;
+  if (!p || !p.strikes || p.style === 'wade' || a.leaving || fishFed(a) || simRandom() >= p.chance) return false;
   const spot = fishSpot(wl, a, def, p);
   if (!spot) return false;
   a.bird = null; a.birdGoal = null; a.birdGround = false; a.goal = null; a.path = null; a.stoop = 0;
@@ -155,17 +156,17 @@ export function fishArrive(wl, a, here = false) {
   if (!here && !a.goal?.fish) return;
   a.goal = null;
   if (!a.fishing) return;
-  a.state = 'fish'; a.fishing.phase = 'watch'; a.fishing.t = 0.4 + Math.random() * 0.8;
+  a.state = 'fish'; a.fishing.phase = 'watch'; a.fishing.t = 0.4 + simRandom() * 0.8;
 }
 function giveUp(a) {
-  a.fishing = null; a.stoop = 0; a.state = 'idle'; a.wait = 0.3 + Math.random() * 0.5;
+  a.fishing = null; a.stoop = 0; a.state = 'idle'; a.wait = 0.3 + simRandom() * 0.5;
 }
 // Another try close by: the same fish if it is still about, else a little way along the water.
 function moveOn(wl, a, f, p) {
   const w = wl.game.world;
   if (f.id != null) return;
   for (let k = 0; k < 8; k++) {
-    const x = f.x + (Math.random() * 2 - 1) * 1.5, y = f.y + (Math.random() * 2 - 1) * 1.5, i = tileOf(w, x, y);
+    const x = f.x + (simRandom() * 2 - 1) * 1.5, y = f.y + (simRandom() * 2 - 1) * 1.5, i = tileOf(w, x, y);
     if (fishable(w, i, p) && (a.move === 'fly' || passable(w, i, a))) { f.x = x; f.y = y; return; }
   }
 }
@@ -181,7 +182,7 @@ export function fishUpdate(wl, a, def, dt, sp) {
     a.flying = true;
     if (f.phase === 'go') {
       a.alt = Math.min(1, a.alt + dt * 2);
-      if (wl.stepToward(a, f.x, f.y, sp)) { f.phase = 'watch'; f.t = 0.4 + Math.random() * 0.8; }
+      if (wl.stepToward(a, f.x, f.y, sp)) { f.phase = 'watch'; f.t = 0.4 + simRandom() * 0.8; }
       return;
     }
     if (f.phase === 'watch') {
@@ -198,7 +199,7 @@ export function fishUpdate(wl, a, def, dt, sp) {
     if (a.stoop < 1) return;
     if (fishStrike(wl, a, def, a.x, a.y, p)) return;
     a.stoop = 0;
-    if (--f.strikes > 0) { f.phase = 'watch'; f.t = 0.6 + Math.random(); moveOn(wl, a, f, p); return; }
+    if (--f.strikes > 0) { f.phase = 'watch'; f.t = 0.6 + simRandom(); moveOn(wl, a, f, p); return; }
     giveUp(a);
     return;
   }
@@ -206,6 +207,6 @@ export function fishUpdate(wl, a, def, dt, sp) {
   if (Math.hypot(f.x - a.x, f.y - a.y) > 0.3) wl.stepToward(a, f.x, f.y, sp * (fish ? 0.9 : 0.5));
   if ((f.t -= dt) > 0) return;
   if (fishStrike(wl, a, def, a.x, a.y, p)) return;
-  if (--f.strikes > 0) { f.t = 0.6 + Math.random() * 0.8; moveOn(wl, a, f, p); return; }
+  if (--f.strikes > 0) { f.t = 0.6 + simRandom() * 0.8; moveOn(wl, a, f, p); return; }
   giveUp(a);
 }

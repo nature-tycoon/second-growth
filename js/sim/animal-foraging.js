@@ -4,6 +4,7 @@ import { preyFor } from '../data/animals.js';
 import { isFruiting } from '../data/plants.js';
 import { passable, canLand } from './animal-terrain.js';
 import { watch } from './animal-life.js';
+import { simRandom } from './sim-random.js';
 
 const grass = p => p && ['grass', 'tallgrass', 'sedge'].includes(p.look.type);
 export function foodAt(wl, def, i) {
@@ -32,7 +33,7 @@ export function foodAt(wl, def, i) {
 function beginMeal(wl, a, def, i) {
   const food = foodAt(wl, def, i);
   if (!food) return false;
-  a.state = 'forage'; a.forage = { i, food, left: 1.5 + Math.random() * 2 };
+  a.state = 'forage'; a.forage = { i, food, left: 1.5 + simRandom() * 2 };
   a.forageGoal = null; a.path = null; a.run = null; a.drinkT = 0; a.drinkAt = null;
   // Flying insectivores and nectar feeders stay on the wing; fruit bats settle at the tree.
   a.flying = def.move === 'fly' && ['insects', 'nectar', 'plankton'].includes(food);
@@ -46,8 +47,8 @@ export function cleanerChoose(wl, a, def) {
   const client = wl.agents.find(b => b !== a && !b.leaving && b.state === 'idle' &&
     wl.game.catalog.animals[b.sp].reef && !wl.game.catalog.animals[b.sp].benthic && !wl.game.catalog.animals[b.sp].cleans &&
     Math.hypot(a.x - b.x, a.y - b.y) < 2);
-  if (!client || Math.random() > 0.5) return false;
-  const left = 2 + Math.random();
+  if (!client || simRandom() > 0.5) return false;
+  const left = 2 + simRandom();
   for (const [b, partner, food] of [[a, client, 'cleaning'], [client, a, 'cleaned']]) {
     b.state = 'forage'; b.forage = { i: w.idx(x, y), food, partner: partner.id, left };
     b.path = null; b.forageGoal = null; b.run = null; b.wait = left;
@@ -61,8 +62,8 @@ export function forageChoose(wl, a, def) {
   if (preyFor(def, wl.game)) return false;
   // Fruit primates already have meals, grip poses and harvest effects of their own.
   if (['monkey', 'orangutan'].includes(def.sprite.kind) && !def.behavior.forage.includes('leaves')) return false;
-  a.forageAfter = a.age + 4 + Math.random() * 4;
-  if (Math.random() > 0.65) return false;
+  a.forageAfter = a.age + 4 + simRandom() * 4;
+  if (simRandom() > 0.65) return false;
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   if (!w.inb(x, y)) return false;
   const i = w.idx(x, y);
@@ -115,9 +116,9 @@ export function forageUpdate(wl, a, def, dt) {
   // Insect/nectar stocks are derived habitat indices, not consumable population agents.
   // Cleaning is food for the wrasse, but it cannot satisfy a predator client's hunger.
   if (meal.food !== 'cleaned') a.hunger = 0;
-  a.forage = null; a.state = 'idle'; a.wait = 1 + Math.random();
+  a.forage = null; a.state = 'idle'; a.wait = 1 + simRandom();
   // (while there are starfish about, the wrasse finishes one and goes on to the next)
-  a.forageAfter = a.age + (meal.food === 'starfish' ? 0.5 + Math.random() : 6 + Math.random() * 6);
+  a.forageAfter = a.age + (meal.food === 'starfish' ? 0.5 + simRandom() : 6 + simRandom() * 6);
 }
 function foodAtStation(wl, a, partner, i) {
   const cleaner = wl.game.catalog.animals[a.sp].cleans ? a : partner;

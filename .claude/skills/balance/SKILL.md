@@ -21,12 +21,11 @@ and a `since last:` line: findings that came or went, the score, vital signs and
 2. Make the change.
 3. Run the same command. The `since last:` line is the before/after.
 4. Run the check script for the area touched. Most decisions in `docs/decisions/` name one (`tools/*-check.mjs`); `grep -l <file you changed> tools/*-check.mjs` finds others.
-5. Ecology is chaotic: if a verdict hinges on a few animals, rerun with more seeds (`... 15 5`) before trusting it. For a year-by-year look at one seed, `balance-sim` still prints a line a year, seeded the same way:
+5. Ecology is chaotic: if a verdict hinges on a few animals, rerun with more seeds (`... 15 5`) before trusting it. For a year-by-year look at one seed, `balance-sim` still prints a line a year, with the same run seed:
 
 ```bash
-SEED='data:text/javascript,let s=7;Math.random=()=>(s=(Math.imul(s,1664525)+1013904223)>>>0)/4294967296'
-node --import "$SEED" tools/balance-sim.mjs restore 15            # Hollis
-node --import "$SEED" tools/balance-sim.mjs idle 15 --map=serengeti
+node tools/balance-sim.mjs restore 15 --run-seed=7                 # Hollis
+node tools/balance-sim.mjs idle 15 --map=serengeti --run-seed=7
 ```
 
 6. Remove the scratch worktree if you made one.

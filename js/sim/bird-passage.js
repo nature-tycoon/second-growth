@@ -3,8 +3,9 @@ import { PASSAGE_SPECIES, PASSAGE_ROUTES } from '../data/bird-passage.js';
 import { LEVEL, clamp } from '../config.js';
 import { facePoint } from './animal-positioning.js';
 import { treeStature } from '../render3d/tree-stature.js';
+import { simRandom } from './sim-random.js';
 
-const rand = (lo, hi) => lo + Math.random() * (hi - lo);
+const rand = (lo, hi) => lo + simRandom() * (hi - lo);
 export function passageChoices(game) {
   const routes = PASSAGE_ROUTES[game.map] || {};
   return (game.catalog.definition.look.ambience?.flocks?.[game.season] || []).flatMap(kind =>
@@ -45,7 +46,7 @@ export function spawnPassage(wl, def, opts = {}) {
   }
   // (tiles a second: unhurried enough to watch a flock cross the view)
   const flock = wl.nextId, speed = opts.speed ?? (goose ? 3.2 : swoop ? 4.8 : def.sprite.kind === 'vulture' ? 2.4 : 3.6);
-  const n = Math.min(opts.n ?? (goose ? 7 + Math.floor(Math.random() * 4) : ['macaw', 'hornbill', 'vulture', 'heron'].includes(def.sprite.kind) ? 2 + Math.floor(Math.random() * 3) : 5 + Math.floor(Math.random() * 5)), 28 - wl.flyovers.length);
+  const n = Math.min(opts.n ?? (goose ? 7 + Math.floor(simRandom() * 4) : ['macaw', 'hornbill', 'vulture', 'heron'].includes(def.sprite.kind) ? 2 + Math.floor(simRandom() * 3) : 5 + Math.floor(simRandom() * 5)), 28 - wl.flyovers.length);
   const out = [];
   for (let k = 0; k < n; k++) {
     const rank = Math.ceil(k / 2), arm = k ? (k % 2 ? 1 : -1) : 0;
@@ -66,7 +67,7 @@ export function updatePassage(wl, dt) {
     wl.passageWait = rand(18, 40) * (wl.game.weather === 'rain' ? 2 : 1);
     if (wl.game.weather !== 'snow' && wl.flyovers.length < 14) {
       const choices = passageChoices(wl.game);
-      if (choices.length) spawnPassage(wl, choices[Math.floor(Math.random() * choices.length)]);
+      if (choices.length) spawnPassage(wl, choices[Math.floor(simRandom() * choices.length)]);
     }
   }
   for (let k = wl.flyovers.length - 1; k >= 0; k--) {
