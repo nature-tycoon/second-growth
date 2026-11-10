@@ -12,7 +12,7 @@
 import { isWater, clamp } from '../config.js';
 import { facePoint, animalRadius } from './animal-positioning.js';
 import { settleBody, groundWalker } from './ground-obstacles.js';
-import { wetTest, swimDepth, deepWaterNear, FISH_DEPTH } from './waterline.js';
+import { wetTest, swimDepth, deepWaterNear, fishDepth, upstreamAt } from './waterline.js';
 import { reefMoveSafe } from './animal-terrain.js';
 import { trait } from '../data/animal-kinds.js';
 
@@ -110,9 +110,15 @@ export function settle(wl) {
     else if (a.headUpKey != null) { a.headUp = false; a.headUpKey = null; } // (looked at afresh next time it stands idle)
     // (a river fish nudged into the shallows, by its neighbours or the water drawing down: back to
     // where it can swim, the same depth its drawing uses)
-    if (a.move === 'swim' && !def.reef && !a.leaving && swimDepth(w, a.x, a.y) < FISH_DEPTH) {
-      const p = deepWaterNear(w, a.x, a.y);
+    if (a.move === 'swim' && !def.reef && !a.leaving && swimDepth(w, a.x, a.y) < fishDepth(def)) {
+      const p = deepWaterNear(w, a.x, a.y, 1.2, fishDepth(def));
       if (p) { a.x = p[0]; a.y = p[1]; }
+      continue;
+    }
+    // (a river fish at rest in a creek holds station nose into the current, as trout do: upstreamAt)
+    if (a.move === 'swim' && !def.reef && a.state === 'idle') {
+      const up = upstreamAt(w, a.x, a.y);
+      if (up) facePoint(a, a.x + up[0], a.y + up[1]);
       continue;
     }
     if (!groundWalker(def, a)) continue;

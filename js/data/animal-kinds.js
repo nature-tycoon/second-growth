@@ -50,6 +50,9 @@
 //   cleans        keeps a cleaning station: picks parasites off reef fish that come to it (animal-foraging.js)
 //   surfaceFish   a fish of the open water near the surface, the kind seabirds come up with (fishing.js)
 //   seagrassBite  how much seagrass one meal crops (animal-foraging.js; default 0.01)
+//   bottomDweller a river fish that lies on the bed of its pool, not up near the surface (actors.js)
+//   fishDepth     how much water a river fish keeps to, in height levels (waterline.js fishDepth;
+//                 default FISH_DEPTH): at least its drawn body's height, so it never shows its back
 
 const graze = { idleEat: 'graze' }, nibble = { idleEat: 'nibble' }, firm = { firmSkin: true };
 const smallBird = { restless: true, fearsHunters: true };
@@ -86,4 +89,4 @@ export const trait = (def, name) => def[name] ?? KIND_TRAITS[def.sprite?.kind]?.
 export const climbStyle = def => def.sprite?.ape ? 'swing' : trait(def, 'climb');
 
 // The fields above a species may set (contracts.js checks them).
-export const TRAIT_BOOLEANS = 'floats alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks surfaceFish';
+export const TRAIT_BOOLEANS = 'floats alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks surfaceFish bottomDweller';

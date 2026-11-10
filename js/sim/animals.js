@@ -25,7 +25,8 @@ import { grazeDay, decayGrazing } from './grazing.js';
 import { herbivoryDay, rubSapling } from './herbivory.js';
 import { decayTrails, recordTrailStep, preferTrailPath, rangeChoose, rangePaces, followLeaderTrip } from './animal-trails.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
-import { swimDepth, deepWaterNear, FISH_DEPTH } from './waterline.js';
+import { swimDepth, deepWaterNear, fishDepth } from './waterline.js';
+import { trait } from '../data/animal-kinds.js';
 import { wallowVisit } from './wallows.js';
 import { damSiteOK, beaverFood, FOOD_MIN, drainToMeadow, meadowTile } from './beaver-ponds.js';
 import { ensureHome, homeChoose, homeFalloff, walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
@@ -1189,8 +1190,8 @@ export class Wildlife {
           // a single point (a journey steers for where its course crosses the tile)
           let [ox, oy] = smoothWalker(def) ? pathPoint(w, a, a.path.length - 1).map((v, n) => v - (n ? (j / w.w | 0) : j % w.w) - 0.5) : spotIn(a, j, a.path.length === 1);
           // (a river fish's waypoint is in water deep enough to swim in, not up the bank's shallows)
-          if (a.move === 'swim' && !def.reef && swimDepth(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy) < FISH_DEPTH) {
-            const p = deepWaterNear(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy, 0.9);
+          if (a.move === 'swim' && !def.reef && swimDepth(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy) < fishDepth(def)) {
+            const p = deepWaterNear(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy, 0.9, fishDepth(def));
             if (p) { ox = p[0] - (j % w.w) - 0.5; oy = p[1] - (j / w.w | 0) - 0.5; }
           }
           if (a.path.length === 1 && a.restSpot?.[0] !== j) {
@@ -1476,9 +1477,10 @@ export class Wildlife {
     const step = Math.min(d, sp);
     let nx = d ? a.x + dx / d * step : a.x, ny = d ? a.y + dy / d * step : a.y;
     if (this.game.catalog.animals[a.sp].reef && !reefMoveSafe(this.game.world, a, nx, ny)) return false;
-    // (a river fish keeps to water it can swim in: it may only move into the shallows to get out of them)
+    // (a river fish keeps to water it can swim in: it may only move into the shallows to get out of
+    // them, and across water as shallow as where it is: a catfish crossing a level marsh to a pool)
     if (a.move === 'swim' && !def.reef && d > 0) {
-      const w = this.game.world, here = swimDepth(w, a.x, a.y), swims = (x, y) => { const t = swimDepth(w, x, y); return t >= FISH_DEPTH || t > here; };
+      const w = this.game.world, here = swimDepth(w, a.x, a.y), need = fishDepth(def), swims = (x, y) => { const t = swimDepth(w, x, y); return t >= need || t > here || here < need && t >= here; };
       if (!swims(nx, ny)) {
         // it follows the channel round a shallow bar: the nearest heading either side that keeps to
         // swimmable water. Held up half a day all the same (a creek running downhill is a staircase
@@ -1489,13 +1491,14 @@ export class Wildlife {
         const h0 = Math.atan2(dy, dx), ux = Math.cos(h0), uy = Math.sin(h0);
         let found = false;
         if (a.moveProgress?.stalled > 0.5) for (let t = step; !found && t <= Math.max(step, 0.35); t += 0.05) {
-          if (swimDepth(w, a.x + ux * t, a.y + uy * t) >= FISH_DEPTH) { nx = a.x + ux * t; ny = a.y + uy * t; found = true; }
+          if (swimDepth(w, a.x + ux * t, a.y + uy * t) >= need) { nx = a.x + ux * t; ny = a.y + uy * t; found = true; }
         }
         for (let k = 0; !found && k < 6; k++) {
           const turn = (k >> 1) * 0.5 + 0.5, x = a.x + Math.cos(h0 + (k & 1 ? -turn : turn)) * step, y = a.y + Math.sin(h0 + (k & 1 ? -turn : turn)) * step;
           if (swims(x, y)) { nx = x; ny = y; found = true; }
         }
         if (!found) return false;
+        facePoint(a, nx, ny); // (nose first round the bar: facing the target, it slid sideways along the bank)
       }
     }
     if (a.move !== 'fly' && !swimmer(a, this.game.catalog) && !a.leaving) {
@@ -1766,7 +1769,11 @@ export class Wildlife {
     stampN++;
     let head = 0, tail = 0;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
-    let best = start, bs = patrol ? 0 : map[start] * 0.8 * worth(start), far = -1, farD = 0;
+    // (a fish that keeps to water deeper than FISH_DEPTH, the catfish lying on the bed, only stops
+    // in a tile deep enough for it: it leaves a pool drying down to the shallows, or never goes in)
+    const need = a.move === 'swim' && !def.reef && trait(def, 'fishDepth') ? fishDepth(def) : 0;
+    const deep = i => !need || swimDepth(w, i % w.w + 0.5, (i / w.w | 0) + 0.5) >= need;
+    let best = start, bs = patrol || !deep(start) ? 0 : map[start] * 0.8 * worth(start), far = -1, farD = 0;
     const W = w.w, cap = patrol ? 1200 : 380;
     const diag = swimmer(a, this.game.catalog);
     const ahead = i => (((i % W) - x0) * a.patrolDir[0] + (((i / W) | 0) - y0) * a.patrolDir[1]) / R;
@@ -1777,6 +1784,7 @@ export class Wildlife {
       if (Math.abs(x - x0) > R || Math.abs(y - y0) > R) continue;
       let s = map[i] * (0.45 + 0.55 * Math.random()) * (patrol || i === start ? 1 : worth(i));
       if (landWalker(def, a) && isWater(w.terrain[i])) s = 0; // (a land walker doesn't stop in the water)
+      if (need && !deep(i)) s = 0;
       if (patrol) {
         const d2 = (x - x0) ** 2 + (y - y0) ** 2;
         if (map[i] > 0.15 && d2 > farD) { farD = d2; far = i; }
@@ -1788,7 +1796,7 @@ export class Wildlife {
       s *= safety(this, a.sp, i);
       if (a.range) { const r = a.range, near = Math.min(Math.hypot(x-r.feed%W,y-(r.feed/W|0)),Math.hypot(x-r.rest%W,y-(r.rest/W|0))); s /= 1 + Math.max(0,near-4)*.7; }
       if (s > bs) { bs = s; best = i; }
-      if (i !== start && map[i] > 0.01 && Math.abs(x - x0) + Math.abs(y - y0) <= 4 && !recent.includes(i) && Math.random() * ++pokeN < 1) poke = i;
+      if (i !== start && map[i] > 0.01 && deep(i) && Math.abs(x - x0) + Math.abs(y - y0) <= 4 && !recent.includes(i) && Math.random() * ++pokeN < 1) poke = i;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         if (!diag && dx && dy) continue;
@@ -1804,6 +1812,9 @@ export class Wildlife {
     // (a river fish always does: it holds in the current a while, then noses on, rather than
     // hanging in one spot for days)
     const riverFish = a.move === 'swim' && !def.reef;
+    // (and stranded in a marsh or a pool too shallow for it, with nowhere deep enough near: it swims
+    // off along the channels to the nearest water that is)
+    if (need && best === start && !deep(start) && this.pathTo(a, deep, 4000)) { recent.push(start); if (recent.length > 4) recent.shift(); return; }
     if (!patrol && best === start && poke >= 0 && (riverFish || Math.random() < 0.5)) best = poke;
     if (patrol) {
       // blocked (a bank or the end of the channel): turn toward the farthest open water instead

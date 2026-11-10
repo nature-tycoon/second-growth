@@ -282,9 +282,12 @@ export default function buildSerengetiAnimals(def) {
       hint: 'Wherever big grazers leave dung.' });
   }
   {
-    const w = habW({ RIVER: 1, POND: 1, CREEK: 0.7, MARSH: 0.6 });
+    const w = habW({ RIVER: 1, POND: 1, CREEK: 0.7 }); // (no marsh: never deep enough to cover it, fishDepth)
     def({ key: 'catfish', name: 'African catfish', sci: 'Clarias gariepinus', group: 'Reptiles & more', move: 'swim',
       speed: 1, hr: 6, max: 30, minK: 3, groupSize: [3, 6], sources: ['S'], mig: 0.5, breed: [1, 8], litter: [4, 8], life: 8, mature: 1,
+      // (a bottom-dweller of murky pools: it lies on the bed, so it keeps to water deeper than its
+      // drawn body, 0.29 levels from the bed to the top of its fins: motion-sweep-check's surfaced count)
+      bottomDweller: true, fishDepth: 0.3,
       suit: (W, i) => w[W.habitat[i]] * (W.connected[i] ? 1 : 0.6),
       sprite: { kind: 'fish', size: 18, back: '#3a3a30', flank: '#5e5e48', belly: '#c8c0a0', whiskers: true, catfish: true, long: true, finColor: '#3a3a2e', show: 1.15 },
       desc: 'Can breathe air and even wriggle across land between pools. It survives in waterholes that nearly dry out.',

@@ -12,6 +12,11 @@
 //   treadmill a ground walker striding (gait up) while its body covers under a tenth of its pace
 //   trunk     a ground walker's body inside wood (ground-obstacles.js inWood, the 0025 capsule)
 //   wet       a land walker (move 'ground') standing still on a water tile
+//   sideways  a river or estuary swimmer whose drawn body moves over a third of its pace more than
+//             SIDEWAYS off the way its drawn head points, held SUSTAIN frames (a fish swims nose first)
+//   surfaced  a river fish that keeps to water deeper than its body (trait fishDepth: the catfish)
+//             drawn with the top of its model above the water, except mid-leap. (Other fish may
+//             show a back in a riffle shallower than they are tall, as trout and salmon do.)
 //   stall     moving (walk, flee, approach, play) yet no further than STALL_R from where it was
 //             STALL_DAYS ago
 // A count breaks its limit (LIMITS, per 1000) for a species on a map when it is at least MIN_EVENTS
@@ -37,19 +42,21 @@ import { T, F, isWater, SPEEDS } from '../js/config.js';
 import { passable, canLand } from '../js/sim/animal-terrain.js';
 import { groundWalker, inWood } from '../js/sim/ground-obstacles.js';
 import { travelSpeed } from '../js/sim/climb-pace.js';
+import { trait } from '../js/data/animal-kinds.js';
 const THREE = await import('three');
 const { Actors } = await import('../js/render3d/actors.js');
+const { waterSurfaceY } = await import('../js/render3d/terrain.js');
 
 globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeItem() {} };
 const args = process.argv.slice(2), strict = !args.includes('--report');
 const maps = args.filter(s => !s.startsWith('--'));
 const DAYS = +(process.env.DAYS || 6), SEEDS = (process.env.SEEDS || '1987,91').split(',').map(Number), FPS = +(process.env.FPS || 60), WARM = 0.25;
-const SNAP = 0.6, WOBBLE = 0.08, STALL_R = 0.15, STALL_DAYS = 0.5, SUSTAIN = 10;
+const SNAP = 0.6, SIDEWAYS = 0.9, WOBBLE = 0.08, STALL_R = 0.15, STALL_DAYS = 0.5, SUSTAIN = 10;
 const MOVING = new Set(['walk', 'flee', 'approach', 'play']);
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
-const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'wet', 'stall'];
+const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'wet', 'sideways', 'surfaced', 'stall'];
 const PER_WALKER = new Set(['glide', 'treadmill', 'trunk']); // (per 1000 ground-walker frames)
-export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, wet: 0, stall: 160 };
+export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, wet: 0, sideways: 4, surfaced: 0, stall: 160 };
 const MIN_EVENTS = 3;
 const deadwoodNear = (w, a) => {
   for (let y = Math.floor(a.y) - 1; y <= Math.floor(a.y) + 1; y++) for (let x = Math.floor(a.x) - 1; x <= Math.floor(a.x) + 1; x++)
@@ -147,6 +154,14 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
         if (now.glide > SUSTAIN) hit(r, 'glide', a, ` gait ${st.gait.toFixed(2)}`);
         if (now.tread > SUSTAIN) hit(r, 'treadmill', a);
         if (inWood(w, a, def, a.x, a.y, a.heading)) hit(r, 'trunk', a);
+      }
+      if (def.move === 'swim' && !def.reef) {
+        const pace = Math.max(0.05, travelSpeed(def)) * frameDays, off = Math.abs(wrap(Math.atan2(-(st.z - p.dz), st.x - p.dx) - st.yaw));
+        now.side = dd > pace / 3 && off > SIDEWAYS ? (p.side || 0) + 1 : 0;
+        if (now.side > SUSTAIN) hit(r, 'sideways', a, ` off ${off.toFixed(1)}`);
+        // (st.h is size * 0.6 * the drawn scale for a fish: actors.js)
+        const mo = actors.fauna.motion(def), surf = waterSurfaceY(w, a.x, a.y), sc = st.h / ((def.sprite.size || def.sprite.len || 10) * 0.6);
+        if (trait(def, 'fishDepth') && mo.top != null && surf != null && !(st.jp >= 0) && st.y + mo.top * sc > surf + 0.002) hit(r, 'surfaced', a, ` ${(st.y + mo.top * sc - surf).toFixed(3)} over`);
       }
       const xx = Math.floor(a.x), yy = Math.floor(a.y), tt = w.inb(xx, yy) ? w.terrain[w.idx(xx, yy)] : null;
       if (def.move === 'ground' && !a.flying && !(a.alt > 0.05) && !a.passing && tt != null && isWater(tt) && !(def.crossing && tt === T.RIVER) && !MOVING.has(a.state) && a.state !== 'hunt') hit(r, 'wet', a, ` ${tt}`);

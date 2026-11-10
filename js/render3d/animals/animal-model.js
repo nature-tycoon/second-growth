@@ -78,6 +78,8 @@ export function buildSpecies(def, { close = false } = {}) {
     m.ell(hand.map((v, i) => (v + (i === 0 ? .035 : 0)) * s.len), [s.len * .045, s.len * .045, s.len * .045], '#d9a342', { part: P.FRUIT, pivot: hand.map(v => v * s.len), lo: true });
   }
   const geo = m.build();
+  // (how far a swimmer's body reaches above and below its origin, so actors.js keeps it under the surface)
+  if (mo.swims) { geo.computeBoundingBox(); mo.top = geo.boundingBox.max.y; mo.bottom = geo.boundingBox.min.y; }
   if (mo.primate) feedingPose(geo, s, climb, def.move === 'tree');
   if (s.ape) swingPoses(geo, s.len);
   geo.computeBoundingBox();

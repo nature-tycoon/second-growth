@@ -348,6 +348,13 @@ export class Actors {
         // half way in the shallows, so it never sinks into the bank where the water thins out)
         const room = surf != null ? surf - groundAt(w, a.x, a.y) * LEVEL : 0; // (the ground on the drawn triangles)
         y = surf != null ? surf - Math.max(0, Math.min(0.05 + mo.sink * sc, room * 0.5)) : ground;
+        // and its back stays under the surface wherever the water is deep enough, its belly never in
+        // the bed; a bottom-dweller (the catfish) lies on the bed, in water the simulation keeps
+        // deep enough for its whole body (fishDepth)
+        if (surf != null && mo.top != null) {
+          const bed = surf - room - mo.bottom * sc;
+          y = Math.max(bed, trait(def, 'bottomDweller') ? bed + 0.004 : Math.min(y, surf - 0.012 - mo.top * sc));
+        }
         // running salmon leap: every few seconds one arcs clear of the water, nose up then down,
         // only while it's making its way along the river: one holding in a pool or in the current
         // stays under (it decides between leaps, so a leap under way always finishes)
