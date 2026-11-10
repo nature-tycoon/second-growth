@@ -7,7 +7,7 @@ import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
 const { Flora } = await import('../js/render3d/flora.js');
-const { farHull, farTrunk } = await import('../js/render3d/far-models.js');
+const { farHull, farTrunk, farFronds } = await import('../js/render3d/far-models.js');
 import { restoredGame } from './map-audit-fixtures.mjs';
 import { mulberry32 } from '../js/rng.js';
 
@@ -26,7 +26,7 @@ function grown(map) {
 }
 const sources = flora => [...flora.pools].flatMap(([key, pool]) => [...pool.subs.values()].filter(p => p.n).map(p => [key, p]));
 
-for (const [map, most] of [['pnw', 0.45], ['sumatra', 0.6], ['amazon', 0.45], ['chinandega', 0.45]]) check(`${map}: zoomed out, the plants cost under ${most * 100}% of the distant models' triangles`, () => {
+for (const [map, most] of [['pnw', 0.45], ['sumatra', 0.45], ['amazon', 0.45], ['chinandega', 0.45]]) check(`${map}: zoomed out, the plants cost under ${most * 100}% of the distant models' triangles`, () => {
   let far = 0, lo = 0, shadow = 0, shadowLo = 0;
   for (const [, p] of sources(grown(map))) {
     if (p.kind === 'grass') continue; // (grass isn't drawn this far out)
@@ -55,7 +55,8 @@ check('Far models keep the distant model\'s colours and snow, and stay within it
       assert.ok(far.min[q] >= lo.min[q] - size[q] * 0.35 && far.max[q] <= lo.max[q] + size[q] * 0.35, `${key}: ${q} extent`);
     }
     // (faces turned outward, away from the middle of their own clump or ring stack, so the far
-    // model is lit from outside like the distant one)
+    // model is lit from outside like the distant one; a frond star's leaves face both ways, checked below)
+    if (p.geoFar.userData.fronds) continue;
     const pos = p.geoFar.attributes.position, idx = p.geoFar.index.array, parent = Int32Array.from({ length: pos.count }, (_, i) => i);
     const root = x => { while (parent[x] !== x) x = parent[x] = parent[parent[x]]; return x; };
     for (let f = 0; f < idx.length; f += 3) for (const k of [1, 2]) parent[root(idx[f + k])] = root(idx[f]);
@@ -73,7 +74,7 @@ check('Far models keep the distant model\'s colours and snow, and stay within it
   assert.ok(n > 20, `${n} far models checked`);
 });
 
-check('A conifer stays a spire, and palms keep their distant fronds', () => {
+check('A conifer stays a spire, and a palm a star of fronds', () => {
   const flora = grown('pnw'), fir = flora.pools.get([...flora.pools.keys()].find(k => k.startsWith('crown:fir:')));
   const g = [...fir.subs.values()][0].geoFar, p = g.attributes.position;
   g.computeBoundingBox();
@@ -84,9 +85,32 @@ check('A conifer stays a spire, and palms keep their distant fronds', () => {
     if (u < 0.3) low = Math.max(low, r); else if (u > 0.7 && u < 0.95) high = Math.max(high, r);
   }
   assert.ok(high < low * 0.6, `top ${high} vs bottom ${low}`);
-  const palms = [...grown('sumatra').pools].filter(([k]) => /^crown:(oilpalm|palm):/.test(k));
+  // (a far palm: a fraction of the fronds' triangles, as wide as most of them reach, its leaves
+  // reaching out from the hub and both faces of each lit, as the fronds are)
+  const palms = ['sumatra', 'amazon'].flatMap(map => [...grown(map).pools].filter(([k]) => /^crown:(oilpalm|palm|fanpalm):/.test(k)));
   assert.ok(palms.length);
-  for (const [key, pool] of palms) for (const p of pool.subs.values()) assert.equal(p.geoFar, p.geoLo, key);
+  for (const [key, pool] of palms) for (const p of pool.subs.values()) {
+    assert.notEqual(p.geoFar, p.geoLo, key);
+    assert.ok(tris(p.geoFar) <= 32 && tris(p.geoFar) < tris(p.geoLo) * 0.1, `${key}: ${tris(p.geoLo)} -> ${tris(p.geoFar)}`);
+    p.geoLo.computeBoundingBox(); p.geoFar.computeBoundingBox();
+    const lo = p.geoLo.boundingBox.getSize(new THREE.Vector3()), far = p.geoFar.boundingBox.getSize(new THREE.Vector3());
+    assert.ok(far.x > lo.x * 0.55 && far.z > lo.z * 0.55 && far.x <= lo.x * 1.05 && far.z <= lo.z * 1.05, `${key}: spread`);
+    const n = p.geoFar.attributes.normal; let up = 0, down = 0;
+    for (let i = 0; i < n.count; i++) n.getY(i) > 0.3 ? up++ : n.getY(i) < -0.3 ? down++ : 0;
+    assert.ok(up > n.count * 0.3 && down > n.count * 0.3, `${key}: lit from above and below`);
+  }
+});
+
+check('Giant clam shells: a coarser shell at play zoom and a far one, from the same ribs', () => {
+  const pools = [...grown('reef').pools].filter(([k]) => k.startsWith('clamshell:'));
+  assert.ok(pools.length);
+  for (const [key, pool] of pools) for (const p of pool.subs.values()) {
+    assert.equal(tris(p.geo), 5760, key); assert.equal(tris(p.geoLo), 960, key); assert.equal(tris(p.geoFar), 240, key);
+    assert.equal(p.geoMid, p.geoLo, `${key}: the distant shell at play zoom`);
+    for (const g of [p.geo, p.geoFar]) g.computeBoundingBox();
+    const a = p.geo.boundingBox.getSize(new THREE.Vector3()), b = p.geoFar.boundingBox.getSize(new THREE.Vector3());
+    for (const q of ['x', 'y', 'z']) assert.ok(Math.abs(a[q] - b[q]) < a[q] * 0.12, `${key}: ${q} size`);
+  }
 });
 
 check('Far models with the valley in view on any computer (sooner on Fast), close models at play zoom and eye level', () => {
@@ -116,6 +140,7 @@ check('Far models are built from any distant model without failing', () => {
   assert.equal(farHull(box), null, 'a single piece has no clumps');
   assert.ok(tris(farHull(box, { rings: true })) <= 48);
   assert.ok(tris(farTrunk(box)) === 10);
+  assert.ok(farFronds(box) === null || tris(farFronds(box)) <= 32, 'a frond star from any model');
 });
 
 console.log(`${checks} far model checks passed`);
