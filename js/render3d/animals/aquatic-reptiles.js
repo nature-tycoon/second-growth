@@ -441,6 +441,10 @@ function fish(m, s) {
     // a long dorsal: spiny in front, softer behind
     const spines = flat(sh => { sh.moveTo(0.5, 0); for (let k = 0; k <= 8; k++) { const x = 0.45 - k * 0.11; sh.lineTo(x + 0.04, 0.45 + 0.5 * Math.sin((k + 1) / 10 * Math.PI) ** 0.6); sh.lineTo(x - 0.03, 0.4 + 0.3 * Math.sin((k + 1) / 10 * Math.PI)); } sh.quadraticCurveTo(-0.5, 0.5, -0.55, 0); sh.lineTo(0.5, 0); }, 'xy', 3);
     m.add(spines, place([-S * 0.04 * X, cy + S * 0.12 * D * 0.92, 0], [0, 0, 0], [bx * 0.95, S * 0.12, S * 0.012]), tailC);
+    if (s.longSpine) { // a male anthias's third dorsal spine, drawn out into a long trailing filament
+      const filament = flat(sh => { sh.moveTo(0.5, 0); sh.lineTo(-0.35, 1); sh.lineTo(-0.5, 0); sh.lineTo(0.5, 0); });
+      m.add(filament, place([bx * 0.2 - S * 0.04 * X, cy + S * 0.14 * D, 0], [0, 0, 0], [S * 0.07, S * 0.3, S * 0.01]), tailC);
+    }
     if (s.finEdge) m.add(spines, place([-S * 0.04 * X, cy + S * 0.12 * D * 0.92 - S * 0.006, 0], [0, 0, 0], [bx * 1.0, S * 0.135, S * 0.008]), s.finEdge);
     if (s.longAnal) { // a long, low anal fin, mirroring the dorsal
       const ribbon = flat(sh => { sh.moveTo(0.5, 0); sh.quadraticCurveTo(0.35, 1, 0.1, 1); sh.lineTo(-0.4, 1); sh.quadraticCurveTo(-0.5, 0.6, -0.5, 0); sh.lineTo(0.5, 0); });
