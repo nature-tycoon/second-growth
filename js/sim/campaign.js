@@ -162,7 +162,7 @@ export function goalMet(g, o) {
   if (j == null || j < 0) return o.check(g);
   const met = g.campaign.met ||= {}, key = ch + ':' + j;
   if (met[key]) return true;
-  if (o.check(g)) { met[key] = true; return true; }
+  if (o.check(g)) { met[key] = true; g.emit?.('objective', { chapter: ch, index: j, objective: o }); return true; }
   return false;
 }
 

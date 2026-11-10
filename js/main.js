@@ -6,7 +6,7 @@ import { music } from './audio/music.js';
 import { createFrameLoop } from './frame-loop.js';
 import { PerformanceOverlay, probeGpu, weakGpu } from './performance.js';
 import { settings, saveSettings } from './settings.js';
-import { initAnalytics, track } from './analytics.js';
+import { initAnalytics, track, trackExit } from './analytics.js';
 import { initLang } from './i18n.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
@@ -15,7 +15,12 @@ const loadingStatus = document.getElementById('loading-status');
 const loadingProgress = document.getElementById('loading-progress');
 const loadingRetry = document.getElementById('loading-retry');
 
+// How long loading takes, step by step (ms since the page started), for game_loaded and
+// loading_left: a player who gives up on the loading screen otherwise leaves no trace.
+const loadSteps = {};
+let loadLabel = 'Starting', loaded = false;
 function stage(label, progress) {
+  loadSteps[label] = Math.round(performance.now()); loadLabel = label;
   loadingStatus.textContent = label;
   loadingProgress.style.width = `${progress}%`;
 }
@@ -37,6 +42,7 @@ async function boot() {
 
     // analytics first, so events from a game started on load (after a map switch) aren't lost
     initAnalytics();
+    window.addEventListener('pagehide', () => { if (!loaded) trackExit('loading_left', { stage: loadLabel, seconds: Math.round(performance.now() / 1000) }); });
     const game = new Game();
     game.newGame(1987, 'free', 'standard', pending?.map || Game.lastMap(), pending?.runSeed ?? Game.randomRunSeed());
     game.speed = 0; // paused until the player chooses Start or Continue
@@ -138,7 +144,9 @@ async function boot() {
         renderer.draw(game, ui.state, 0);
         ui.frame(0);
         frame(now);
-        stage('Ready', 100);
+        stage('Ready', 100); loaded = true;
+        // (page start to the first drawn frame, and each loading step's start, in ms)
+        track('game_loaded', { load_ms: loadSteps.Ready, steps: loadSteps, map: game.map, quality: settings.quality, gpu: renderer.gpuName() });
         requestAnimationFrame(() => {
           loading.classList.add('done');
           loading.addEventListener('transitionend', () => loading.remove(), { once: true });
@@ -157,6 +165,8 @@ async function boot() {
 
 function showLoadError(error) {
   console.error('Second Growth could not start:', error);
+  loaded = true;
+  track('load_failed', { stage: loadLabel, message: String(error?.message || error).slice(0, 300), seconds: Math.round(performance.now() / 1000) });
   stage('The game could not load', 100);
   loading.classList.add('failed');
   document.getElementById('loading-tip').textContent = 'Something went wrong while opening the farm. Reloading usually fixes it.';

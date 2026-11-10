@@ -964,8 +964,11 @@ export class UI {
     m.innerHTML = `<div class="modal-head"><h2>${title}</h2><button class="x" title="Close (Esc)"${dismissible ? '' : ' hidden'}>×</button></div><div class="modal-body">${bodyHTML}</div>` + (foot ? `<div class="modal-foot">${foot}</div>` : '');
     back.appendChild(m);
     root.appendChild(back);
+    const opened = performance.now(), panel = title.replace(/<[^>]+>/g, '');
     const close = (force = false) => {
       if (!dismissible && !force) return;
+      // how long a panel was read before closing it (the welcome, the mode choice, a chapter's story)
+      if (this.modalOpen && root.contains(m)) track('panel_closed', { panel, seconds: Math.round((performance.now() - opened) / 1000) });
       root.innerHTML = ''; this.modalOpen = false; if (onClose) onClose();
       // The initial selector requires an explicit Start/Continue action to close.
       if (this.startPause && !this.modalOpen) this.setSpeed(1);
@@ -1534,7 +1537,7 @@ export class UI {
       (this.questOpen ? `<div class="q-body">${c.goals.map(o => { const ok = goalMet(g, o); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${o.desc}<small>${o.prog(g)}</small></span></div>`; }).join('')}${hint ? `<p class="q-tip">${hint}</p>` : ''}<button class="q-help" aria-expanded="${helpOpen}" aria-controls="quest-help">${helpOpen ? 'Hide help' : 'Need help? Where and how'}</button>${helpOpen ? `<div id="quest-help" class="q-help-text">${c.teach}</div>` : ''}<button class="q-more">Chapter details</button></div>` : '');
     if (!setHTML(q, qhtml)) return; // unchanged: keep the existing nodes (and their listeners)
     q.querySelector('.q-head').addEventListener('click', () => { this.questOpen = !this.questOpen; this.renderQuest(true); });
-    q.querySelector('.q-help')?.addEventListener('click', () => { this.questHelpChapter = helpOpen ? null : c.key; this.renderQuest(true); });
+    q.querySelector('.q-help')?.addEventListener('click', () => { if (!helpOpen) track('quest_help', { chapter: k + 1, chapter_key: c.key, objectives_done: doneN }); this.questHelpChapter = helpOpen ? null : c.key; this.renderQuest(true); });
     q.querySelector('.q-more')?.addEventListener('click', () => this.openChapter(k, true));
   }
 

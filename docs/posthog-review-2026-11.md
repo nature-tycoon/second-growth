@@ -1,130 +1,176 @@
 # PostHog review, 2026-11
 
-Read 2026-11-09 from PostHog project 630638, mostly the last 30 days (Oct 10 – Nov 9), with the
-internal/test cohort left out. Small numbers: about 150 players sent frame-rate samples, so treat
-any figure under ~10 players as a hint. All numbers are per-player medians unless said otherwise.
+Read 2026-11-09 from PostHog project 630638: the last 30 days (Oct 10 – Nov 9), internal cohort
+left out, counted per player. About 150 players started a game, so a group under ~10 is a hint.
 
 ## Summary for Cole
 
-- **About 1 phone player in 5 never gets in.** They see "Turn your phone sideways" and leave
-  without turning it: 14 of 75 phone players in 30 days, and 13 of those 14 never started a game.
-  This is the biggest single loss the data shows, and the cheapest one to fix.
-- **The rainforests are the slow maps.** Sumatra (median 18 fps on computers) and the Amazon (22)
-  are far behind PNW (30), the Serengeti (38) and Chinandega (39). Sumatra gets worse the longer
-  people play: after 15 minutes, 88% of its frames are slow.
-- **Ordinary laptops are the main audience, and they struggle.** Windows laptops and Chromebooks
-  with built-in Intel/AMD graphics are the largest group (55 players). They run at a median 25 fps
-  and 23 of 55 run well under their frame cap. Real HD 520 laptops (the target in decision 0004)
-  run at 13 fps. Both drawing (15 ms) and the graphics chip (18 ms) are over budget there; the
-  simulation (4 ms) is not the problem.
-- **The first 30 seconds are rougher than the rest**, on every map, and still were after the Nov 2
-  smoothing release. That is exactly when new players decide whether to stay.
-- **Crashes are rare and the known one is fixed.** The bird "swoop" crash was fixed on Oct 31 and
-  only shows on old cached copies. The most common error (44 players) is a harmless browser
-  warning that clutters the list.
-- **Loading looks slower since Oct 18, but that may be the measurement.** We don't record how long
-  the game takes to load; see fix 5.
-- Few players come back: 19 of 98 computer players and 5 of 49 phone players started a game on a
-  second day.
+**Why players stop.** The game loses most people in the first two minutes, before the ecosystem
+does anything interesting:
+- Of 97 computer players who started a game, 18 never used a tool, 20 more never finished a goal,
+  and 34 reached 10 minutes. On phones: 50 → 38 → 28 → 18.
+- **Story mode loses twice as many people as Free Play.** Of 49 players whose first game was the
+  campaign, 27% reached 10 minutes and 8% came back another day. For Free Play it was 40% and 20%.
+  Half of the PNW players who open Chapter 1 ("Wake up the fields") never finish it.
+- **30 players opened the game, read the mode choice and the chapter story, and left after
+  under a minute without touching anything.**
+- On phones, about 1 in 5 stop at "Turn your phone sideways".
+- Fires and floods don't drive people away (3 of 29 players left within 3 minutes of a crown fire).
+  Running out of money is common in long games but isn't what ends short ones.
 
-## What to fix next, ranked
+What the data couldn't say until now: which chapter step players stall on, what the game told
+them just before they left, how long they read each panel, how long loading takes, and which
+species they found. `species_discovered` has sent the species *count* instead of its name since
+the start. **The new events below now record all of that.**
 
-### 1. Phone players lost at the "turn sideways" screen (S)
-- **Players:** 14 of 75 phone players (19%) saw it and never turned the phone; 13 never started.
-  Another 10 did turn it once but later left within 30 s with it up again. 51 of 75 phone players
-  saw the prompt at all.
-- **Evidence:** `rotate_prompt_shown` without `rotate_prompt_cleared`; `game_left` with
-  `rotate_prompt_up` and under 30 s active.
-- **Likely cause:** the prompt is a hard wall (`#rotate-hint` in `index.html`, shown by CSS on
-  portrait ≤700 px; tracked in `js/ui/session-analytics.js`). Many phones have rotation lock on,
-  so turning the phone does nothing and the player assumes the game is broken.
-- **Fix:** add one line ("Rotation lock on? Swipe down to turn it off") and a small "Play upright
-  anyway" button that dismisses it. Portrait stays a fallback, as AGENTS.md says; this only stops
-  it from being a dead end.
+**Performance.** Most of the frame time players lose goes to a few specific causes:
+- In Sumatra's opening view, **oil-palm crowns alone are 70% of everything drawn** (1.75M of 2.5M
+  triangles), because palms never got a far model.
+- Phones draw few pixels and spend only ~13 ms of a 40 ms frame on the processor. The other
+  ~27 ms is the graphics chip or the browser, and nothing measures it yet.
+- On ordinary laptops, both the processor's drawing work (15 ms) and the graphics chip (18 ms)
+  are over budget; the simulation is 4 ms.
 
-### 2. Rainforest maps run slowest (M)
-- **Players:** everyone who picks Sumatra or the Amazon (29 and 27 starters in 30 days, the next
-  most popular maps after PNW).
-- **Evidence (computers):** Sumatra 18 fps, 3.6M triangles, drawing 26 ms, GPU 24 ms; Amazon 22 fps,
-  GPU 39 ms. Sumatra past 15 minutes: 16 fps, 7M triangles, 88% slow frames. Sumatra's opening
-  view is already 2.1M triangles (16 fps at 30 s), against 0.3M for PNW.
-- **Likely cause:** dense canopy drawn at full detail. Far tree models switch by screen size
-  (decision 0022, `js/render3d/far-models.js`, `js/render3d/flora.js`) but rainforest still sends
-  2–7M triangles. Already listed as open in the perf review ("Sumatra's 4–6M triangles in its
-  opening view").
-- **Fix:** measure with `node tools/play-profile.mjs sumatra fast` at zoom levels players actually
-  use, then switch rainforest trees to far models sooner and thin their shadows.
+There are bigger moves than settings tweaks that keep the look: give palms a far model, draw
+distant trees as baked pictures of the real models, grow plants on the graphics chip instead of
+redrawing them, and run the simulation on a second processor core. They're ranked below.
 
-### 3. Weak built-in laptop graphics (L, in steps)
-- **Players:** 55 Windows/Chromebook players on integrated graphics, the largest computer group.
-- **Evidence:** median 25 fps, only 6 of 55 keep up with their cap. Frame split: simulation 4.3 ms,
-  drawing 15.1 ms (p95 33 ms), GPU 18.5 ms. Intel HD 520: 12.8 fps, 92% slow frames; UHD 600:
-  14 fps; Radeon R3 Chromebooks: 16 fps. Nearly all of them already run on Fast
-  (34 were moved to Fast for their graphics chip, 11 for running slowly).
-- **Likely cause:** both sides. On the processor, the daily plant redraw is still open (perf
-  review finding 2(b), `js/render3d/flora.js`, `flora-changes.js`). On the GPU, `res_scale` stays
-  at 1.0 for almost everyone: drawing fewer pixels is the only thing that cuts GPU time on these
-  chips, and the game hardly ever does it.
-- **Fix, step 1 (S–M):** when Fast still runs under ~20 fps, lower the drawing resolution (for
-  example to 0.75). This needs your OK, because decision 0004's target is "native resolution";
-  results reached this way must be labelled. Step 2 (M): finding 2(b).
+## Why players stop: the evidence
 
-### 4. Rough first 30 seconds (M)
-- **Players:** every new game. 67 computer players left within 30 s of active play.
-- **Evidence:** fps at 30 s vs 2 min: Amazon 21 vs 25, Sumatra 16 vs 24, Atlanta 23 vs 28,
-  Chinandega 21 vs 25, PNW 27 vs 29. After the Nov 2 release (decision 0038): still 23.6 fps at
-  30 s vs 27.7 at 2 min.
-- **Likely cause:** what 0038 left: first models and shaders still built mid-play, the opening
-  view's triangle count (Sumatra), plus early plant regions. `js/main.js` boot, `Actors.warm*`
-  in `js/render3d/scene.js`.
-- **Fix:** add a `perf_sample` at 10 s too, so the opening can be told apart from the loading
-  screen, then warm the remaining shaders during the loading screen.
-
-### 5. Loading time isn't measured (S)
-- **Evidence:** the browser's "largest paint" (LCP) went from p50 0.6–0.9 s, p90 3–4 s before
-  Oct 18 to p50 1.5–3.5 s, p90 10–13 s since, on every host (secondgrowth.earth, itch.io and
-  GitHub Pages alike). The new loading screen landed Oct 17 (`e7cf210`); it may simply have
-  changed which element counts as "largest", so this is not proof of a slowdown. Desktop players
-  take a median 56 s from page load to their first tool (phones 37 s).
-- **Fix:** send `load_ms` (page start to first drawn frame) with `game_start`. Then we'll know.
-
-### 6. Error list hygiene (S)
-- **Evidence:** 30 days, ~200 `js_error` events from 75 players. Most are "ResizeObserver loop
-  completed" (44 players): a harmless browser warning, triggered by our observers in
-  `js/ui/ui.js:262` and `js/render3d/watershed-view.js:59`. Real ones: the bird `passage.swoop`
-  crash (`js/render3d/actors.js:390`), fixed Oct 31 in `429f012`, last seen Nov 2 on the Oct 25
-  release only; `scene.js` "reading 'x'" (3 players, Oct, no recent release); "Maximum call stack
-  size exceeded" (1 player, Nov 5, current release, location unknown); "Unable to decode audio
-  data" (1 player, Nov 8).
-- **Fix:** ignore the ResizeObserver message in `reportError` (`js/analytics.js`) so real errors
-  stand out, and keep the full stack's first two lines for "Maximum call stack".
-
-### 7. Smaller things
-- Stepping back up from Fast rarely sticks: 10 players stepped up ("room"), 6 were stepped back
-  down ("undo"). Fine as is, but it means the step-up is mostly churn.
-- Phones' graphics-chip time is unknown: only 5 of 410 phone samples carry `gpu_frame_ms` (the
-  timer extension isn't on iOS). iPhones run 25.6 fps against a 30 cap with 32% slow frames and
-  only 10 ms of drawing, so they are most likely GPU-bound. Nothing to fix yet, just a blind spot.
-
-## Phone vs computer at a glance
-
-| | Phones/tablets | Computers |
+| Step (30 days) | Computers | Phones |
 | --- | ---: | ---: |
-| Players with samples (30 d) | 53 | 93 |
-| Median fps | 24 | 29 |
-| Under 20 fps | 14 | 16 |
-| Started a game, of visitors (secondgrowth.earth) | 35 of 52 | 79 of 87 |
-| Still playing after 2 active min | 18 | 53 |
-| Came back another day | 5 of 49 | 19 of 98 |
+| Started a game | 97 | 50 |
+| Used a tool | 79 | 38 |
+| Finished a first goal | 59 | 28 |
+| Five goals | 41 | 21 |
+| 10 active minutes | 34 | 18 |
+| Came back another day | 19 of 98 | 5 of 49 |
 
-Fps by period (computers): 22 before Oct 24 (the trail redraw bug), 33 Oct 24 – Nov 2, 30 since
-Nov 3. Phones: 25, 24, 27. The Nov 3 dip on computers is within the spread of which maps and
-machines happened to play; no regression is visible.
+- **Leaving before touching anything (30 players).** Their median active time was 0.7 min. The
+  panels they had opened: "How do you want to play?" and, for the campaign, "Chapter 1: Wake up the
+  fields". On exit, 91 departures were closing the tab with the mode choice still open, and 52 with
+  "Welcome to Second Growth" open. The first screen asks for a decision and reading before anything
+  moves.
+- **Trying a little, then leaving (31 players).** About 9 brush strokes, no goal, gone at about
+  2 minutes. Rarely "not enough money" or "unsuitable ground" in that window: they weren't
+  blocked, they just didn't see anything happen. The first rewards come in game years (the
+  `plant` goal at year 1, `species12` at year 2), so the land looks unchanged at first.
+- **Campaign vs Free Play (first game):** campaign 49 players → 22 first goal, 13 ten minutes,
+  4 returned; Free Play 96 → 62, 38, 19. PNW Chapter 1: 41 started, 21 finished (median 66 game
+  days). Its three objectives are inspect a tile, loosen 60 tiles and sow 150 tiles: setup
+  chores before any reward. Later chapters keep most of the players who reach them (Ch. 2: 16 → 13).
+- **Long players hit walls but stay.** Among players who played 30+ minutes, 69% had been refused
+  for money and the median was 34 refusals for unsuitable ground. Most refused: `mix_meadow`
+  (18 players), `mix_wet`, `mix_groundcover`, `mix_pioneer`; for money: `pull`, `demolish`, `pond`.
+  It's friction, not a reason to quit, but the "unsuitable" count suggests the brush preview
+  isn't read.
+- **Maps:** first-map players reaching 10 minutes: Chinandega 8/12, Atlanta 6/9, PNW 25/82,
+  Sumatra 3/16. Sumatra is also the slowest map. Small groups, but worth watching.
 
-## How to repeat this
+### New events (this commit)
 
-PostHog MCP connector (HogQL through `execute-sql`), project 630638, excluding cohort 595715.
-Main events: `perf_sample` (fps, `target_fps`, `cpu_*_ms`, `gpu_frame_ms`, `triangles`, `map`,
-`active_minutes`), `js_error`, `game_left`, `rotate_prompt_shown`/`_cleared`, `first_tool`,
-`play_heartbeat`, `auto_quality`, `$web_vitals`. Classify devices by `$os` (iOS/Android = phone)
-and `gpu` (NVIDIA/Arc = discrete). See [posthog-player-perf.md](posthog-player-perf.md).
+| Event | When | Fields | Answers |
+| --- | --- | --- | --- |
+| `game_loaded` | first frame drawn | `load_ms`, `steps` (each loading step's start, ms), map, quality, gpu | how long loading really takes and which step is slow |
+| `loading_left` | tab closed during loading | `stage`, `seconds` | who gives up on the loading screen |
+| `load_failed` | load error shown | `stage`, `message` | broken loads |
+| `panel_closed` | any panel closed | `panel`, `seconds` | whether the welcome, mode choice and chapter story get read or skipped |
+| `objective_done` | each campaign objective ticked | chapter, `chapter_key`, `objective` (1–3), `desc`, `days_in_chapter`, `active_minutes` | which step of Chapter 1 players stall on |
+| `quest_help` | "Need help? Where and how" opened | chapter, `objectives_done` | where players are confused |
+| `warning_shown` | a game warning, once per wording a session (max 8) | `text` (numbers as #) | what the game was saying before people left |
+| `species_lost` | a wild species gone since last month (max 5) | `species` | whether losing animals drives people away |
+| `perf_sample` at 10 s | as before, plus a 10 s sample | — | the opening view apart from later play |
+| `game_left` / `went_idle` gain | — | `tools_session`, `fails_money_session`, `fails_unsuitable_session`, `rewards_session`, `seconds_since_tool`/`_fail`/`_reward`/`_fire`/`_flood`, `paused_seconds`, `fast_seconds`, `last_month_net`, `zoom`, `species_lost_session`, `warnings_session`, campaign `objectives_done`/`objectives`/`next_objective`/`next_objective_progress`, or Free Play `goals_open` | what the player was doing, waiting for and stuck on when they left |
+
+Fixed: `species_discovered.species` is now the species' key (the old value was the count, now in
+`species_present`). Check: `node tools/play-analytics-browser-check.mjs` (in the browser suite).
+
+Read them a week after this goes live. The questions to ask:
+- Do quitters' `seconds_since_reward` look long?
+- Which `next_objective` do campaign players leave on?
+- Is `panel_closed.seconds` on the welcome under 3 s, meaning nobody reads it?
+- Does `warning_shown` come just before exits?
+
+## What to fix next for players (ranked)
+
+1. **First two minutes: show something happening (M).** Ideas, best first:
+   - Start Free Play by default and offer the story as a choice later. The mode screen is
+     where people leave, and Free Play keeps twice as many.
+   - Make the first stroke pay off within seconds: a quick visual (sprouts, a bird landing on the
+     new meadow) and a small early goal reachable in the first minute.
+   - Shorten Chapter 1 to one action with an immediate payoff before the chores.
+
+   The new `objective_done`, `panel_closed` and `seconds_since_reward` events will show which
+   matters most. Code: `js/ui/ui.js` (start flow, `openChapter`), `js/sim/campaign.js`
+   (`pnwChapters`), `js/sim/goals.js`.
+2. **Phones stuck at "turn sideways" (S).** 14 of 75 phone players never turned the phone; 13 never
+   started. Add a rotation-lock hint and "Play upright anyway". `#rotate-hint` in `index.html`.
+3. **Unsuitable-ground refusals (S–M).** Say *why* the ground is unsuitable, and which mix would
+   suit it, at the cursor. The refusal comes from `js/tool-actions.js`; the brush preview is in `js/input.js`.
+
+## Performance: bigger moves that keep the look (ranked by expected gain)
+
+| Players (30 d) | fps | Simulation | Drawing (processor) | Graphics chip | Triangles |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Built-in Intel/AMD laptops, Chromebooks (55) | 25 | 4.3 ms | 15.1 ms | 18.5 ms | 0.8M |
+| Phones and tablets (48) | 25 | 2.5 | 9.9 | not measured | 0.8M |
+| Macs (24) | 29 | 2.0 | 6.5 | 11.5 | 1.4M |
+| Discrete graphics cards (10) | 55 | 1.4 | 4.9 | 5.7 | 1.4M |
+
+Sumatra on computers: 18 fps, drawing 26 ms, chip 24 ms, 3.6M triangles (7M after 15 minutes).
+Amazon: chip 39 ms.
+
+1. **Far models for palms (S–M, Sumatra 2–3× fewer triangles).** Measured in a fresh Sumatra game
+   on Fast: 2,474+ oil-palm crowns at 476 triangles each = 1.75M of the view's 2.5M triangles.
+   `far-models.js` skips palms, bamboo and corals ("keeps its distant model"). A far palm with
+   about 40 triangles (crossed fronds) looks the same at the size palms are drawn zoomed out (a few
+   pixels). Expected: Sumatra's opening view ~2.5M → ~0.9M, and palm shadows shrink by the same
+   share. Check with `far-model-check` and `far-vegetation-review`.
+2. **Baked pictures of distant trees ("impostors", M–L, rainforest 5–10× fewer triangles).** At
+   load, render each tree model from a few angles into a small texture, including the colour and
+   the surface direction so it still lights correctly through the day. Then draw far trees as one
+   flat card each (2 triangles). The camera has a fixed tilt, so few angles are needed. Zoomed-out
+   rainforest goes from millions of triangles to tens of thousands, with the same pixels on screen.
+   This is what large open-world games use for forests.
+3. **Grow plants on the graphics chip (M, cuts the daily redraw).** Today every growing plant
+   changes daily, so nearly every plant region is re-sent each game day (perf review finding 2(b);
+   `flora.js`, `flora-changes.js`). Instead, send each plant's planting day and growth rate once
+   and let the vertex shader compute its size from the game day. The drawing is exactly as now,
+   with no stepped sizes (the prototype Cole dropped), and the processor no longer replays growth.
+4. **Simulation on a second core (L).** On laptops the simulation is 4–7 ms of every frame (Sumatra
+   6.6 ms) and most of the top-speed cost, and it runs in turn with drawing. A Web Worker running
+   `game.update` and sending positions back would let both run at once. Decision 0004 asked for a
+   measured bottleneck first, and this is the measurement. Catch: shared memory needs special
+   server headers that GitHub Pages and itch.io don't send, so the worker would post a compact
+   snapshot (animal positions, changed tiles) each frame. Needs a design review first.
+5. **Find the phones' missing 27 ms (S to measure).** Phones draw only 0.36 megapixels and spend
+   ~13 ms on the processor, yet frames take ~40 ms. iOS hides graphics-chip timing. Measure on a
+   real iPhone with Safari's timeline, and test the suspects: foliage wind and leaf lighting
+   computed per pixel (`plant-materials.js`), alpha-tested leaf overdraw, and the shadow pass.
+   Only then pick a fix.
+6. **Rough first 30 seconds.** Every map runs slower at 30 s than at 2 min, still after the Nov 2
+   release. Amazon goes from 21 to 25 fps, Sumatra from 16 to 24. Fix 1 removes most of Sumatra's
+   case. The new 10 s sample and `game_loaded.steps` will show the rest.
+
+Not recommended: lowering the drawing resolution (it changes the look, and decision 0004's target
+is native resolution).
+
+## Errors
+
+Rare. The bird `passage.swoop` crash (`actors.js:390`) was fixed Oct 31 (`429f012`); it shows
+only from the cached Oct 25 release. "ResizeObserver loop completed" (44 players) is a harmless
+browser warning: filter it in `reportError` (`js/analytics.js`). Singles: "Maximum call stack
+size exceeded" (Nov 5, current release), "Unable to decode audio data" (Nov 8).
+
+## Load time
+
+Not measured until `game_loaded`. Since Oct 18 the browser's largest-paint time is p50 1.5–3.5 s and
+p90 10–13 s, against 0.6–0.9 s and 3–4 s before, on every host. That may only be the new loading
+screen (`e7cf210`) changing what counts as "largest". Players take a median 56 s (computers) and
+37 s (phones) from page load to their first tool.
+
+## How to repeat
+
+PostHog MCP connector, HogQL via `execute-sql`, excluding cohort 595715. Device class from `$os`
+(iOS/Android = phone) and `gpu` (NVIDIA/Arc = discrete). Events are listed in
+[posthog-player-perf.md](posthog-player-perf.md).
