@@ -25,6 +25,7 @@ const PRIMATE = { walk: 1, clamber: 2, swing: 3 };
 export function buildSpecies(def, { close = false } = {}) {
   const s = { ...def.sprite, canopyWalkerMotion: isCanopyWalker(def) && def.sprite.canopyWalkerMotion !== false }, m = new Model(close);
   const mo = { leg: 0.55, bob: 0, tail: 0.25, flap: 1.6, wave: 0, waveK: 0, waveHead: 0, waveLen: 1, sink: 0, len: s.len || s.size };
+  // (the one place that names body kinds: each has its own builder and motion; what an animal does is a trait)
   switch (s.kind) {
     case 'squirrel': squirrel(m, s); mo.leg = 0.45; mo.bob = 1.1; mo.sink = 3; break;
     case 'rodent': vole(m, s); mo.leg = 0.6; mo.bob = 0.5; mo.sink = 2.5; break;

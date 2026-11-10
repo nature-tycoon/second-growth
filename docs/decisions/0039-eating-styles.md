@@ -4,7 +4,7 @@
 
 - Eating is drawn through shared styles chosen by what the meal is, not by species (`render3d/eating-pose.js`, used by `actors.js`): crop, browse, tear, hand to mouth, snap; birds keep peck.
 - Drawing only: it reads `a.state`, `a.forage.food`, `a.fruitMeal` and the browsed tile and never writes to the animal, so simulation and balance are unchanged.
-- Drawing-only idle nibbling goes in `NIBBLERS`, never `GRAZERS` (`GRAZERS` in `sim/steering.js` also sends grazers back to water).
+- Drawing-only idle nibbling is `idleEat: 'nibble'`, never `'graze'` (`js/data/animal-kinds.js`; a grazer is also turned from the water in `sim/steering.js`).
 - Fish eat through position and pitch (the snap), not the head: swimming forces the head level and fish use the head slot for body bend (`mo.bend`).
 - Hanging and gripping animals pass -1 in the head slot for their grips (a sloth's leaf meal shows nothing). Benthic animals are skipped.
 - Check: `tools/animal-closeup-review.html?pose=crop|browse|hand|snap`; cost `node tools/play-profile.mjs serengeti high 1`.

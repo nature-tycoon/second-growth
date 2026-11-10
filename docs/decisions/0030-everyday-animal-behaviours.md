@@ -2,7 +2,9 @@
 
 ## Rules
 
-- Everyday behaviours are species traits in `behaviorFor` (`js/data/animal-behavior.js`), one place for every map: `plays`, `nocturnal`, `fishing` (`data/animal-fishing.js`, `sim/fishing.js`), `climb: { cap: 2, ground }` (`sim/climbers.js`), `birdProfile.trunk`. Add a trait there, not per species.
+- Everyday behaviours are species traits in `behaviorFor` (`js/data/animal-behavior.js`), one place for every map: `plays`, `nocturnal`, `fishing` (`data/animal-fishing.js`, `sim/fishing.js`), `climb: { cap: 2, ground }` (`sim/climbers.js`). Add a trait there, not per species.
+- Bird habits are traits in `js/data/animal-kinds.js` (kind defaults, overridden by a field on the species): `groundFeed`, `perches`, `nestHole`, `flocks`, `bathes`, `trunkFeed` (`birdProfile`), `restless`, `fearsHunters`/`scaresSmallBirds`, `carrionSoar`. A nuthatch on trunks is `trunkFeed: true` on its species.
+- Canopy climbing asks `climbStyle(def)` (`walk`, `clamber`, `swing` for `sprite.ape`, `hang`) and `leaps` on the species, never the sprite kind or key; bare test fixtures must carry the trait (`leaps: true`).
 - Fishing (`sim/fishing.js`): fishers never seek out drawn fish; a strike takes a drawn fish in reach only in proportion to pop/K, else an undrawn one that removes nothing. Fishing feeds no population (fishers still arrive by `fishIndex`).
 - Woodpeckers sit on the drawn trunk (`treeTrunk`, shared with flora) at `treeLevel` heights (0024).
 - Climbers: `pathTo` never ends a walk in a tree holding `cap` of its kind. A climber on the ground has `a.move` `'ground'` while the species stays `'tree'`; `passable` reads `a.move`, and drawing checks `a.move !== 'ground'` before lifting it into a crown.

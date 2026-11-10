@@ -7,7 +7,7 @@
 - Beaver ponds (`sim/beaver-ponds.js`): dams at most `DAM_HEAD` over the bed and `DAM_CELLS` 60 tiles; `damCrest` null means no dam there; a standing crest is rechecked on every rebuild. Sites through `damSiteOK` (`SITE_WET`, `SITE_OPEN`, `DAM_GAP`, `CREEK_PER_DAM`, food). A dam without food within 6 tiles (`FOOD_MIN`) is abandoned and breaches.
 - A drained pond becomes beaver meadow (`w.meadow`, `MEADOW_YEARS`); drowned trees die through `removeTree` (0028) and stand as snags.
 - Fish depth: river fish use `swimDepth` (`waterline.js`, the depth the drawing uses), never `underWater`/`nearestWater` (those are for a drinker's head). `FISH_DEPTH` 0.07; `deepWaterNear`, `stepToward` and `settle` keep them there; a blocked fish tries side headings, then hops the lip. River fish keep moving (`riverFish` in `chooseTarget`).
-- Wallows (`sim/wallows.js`): which species wallow is data in `WALLOWERS`; a new big herbivore adds a line there. A wet wallow counts as a pool in `distPond`. At most two per wallowing animal and 40 a farm.
+- Wallows (`sim/wallows.js`): which species wallow is data, `wallow: { size, rut }` on the species definition; a new big herbivore adds it to its own data. A wet wallow counts as a pool in `distPond`. At most two per wallowing animal and 40 a farm.
 - Reef fish over coral are drawing only (`coralFloor` in `render3d/flight-clearance.js`); check `tools/reef-coral-clearance-check.mjs`.
 - Checks: `hollis-water-check`, `beaver-pond-check`, `beaver-dam-check`, `fish-water-check`, `water-check`; measures `tools/pond-edge-measure.mjs`, `tools/wallow-count.mjs`, `tools/river-fish-roam-probe.mjs`, `tools/river-fish-spread-probe.mjs`.
 
