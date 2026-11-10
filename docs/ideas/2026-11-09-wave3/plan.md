@@ -24,7 +24,7 @@ Branch: `claude/ideas-wave3` (from `claude/ideas-wave2` 3a3ec45, which already h
 | # | Title | Ideas | Model | Size | Status |
 |---|---|---|---|---|---|
 | 1 | Prey jink | prey cut sideways when a chaser closes, catch odds raised to keep kills per year; hunt-check runs seeds 1987, 91, 5 and judges the median | opus | M | [x] |
-| 2 | Birds eat | perched fruit birds take short meals in fruiting crowns; boobies plunge-dive, noddies dip | opus | M | [ ] |
+| 2 | Birds eat | perched fruit birds take short meals in fruiting crowns; boobies plunge-dive, noddies dip | opus | M | [x] |
 | 3 | Reef males, anacondas, inga | male anthias drawn and placed in harems; a little more anaconda habitat (balance-checked); Amazon inga pods yellow-green | sonnet | S | [ ] |
 | 4 | Fish in creeks and catfish | creek fish slide sideways along the bank (check `motion-sweep-check` first: wave2 fix 2, one facing, may have fixed it); Serengeti catfish fins above water: keep them under the surface (`swimDepth`, 0034) | opus | S–M | [ ] |
 | 5 | Natural tracker lens | the tracker lens cuts a cube out of plants round small animals; fade only the plants between camera and animal, with a soft round edge | opus | S–M | [ ] |
