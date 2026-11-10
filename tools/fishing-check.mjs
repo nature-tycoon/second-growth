@@ -2,7 +2,8 @@
 // Fish-eaters fish (decision 0030): herons strike from the shallows, kingfishers plunge and
 // eagles snatch and fly off to a perch, otters fish afloat, bears swipe from the bank. A strike
 // takes a drawn fish only when one is in reach; otherwise (all but bears) it comes up with one of
-// the fish the water holds, taking nothing from the drawn fish. Ends with a seeded PNW soak.
+// the fish the water holds, taking nothing from the drawn fish. Boobies plunge-dive and noddies
+// dip at the reef's sea, mostly coming up empty. Ends with a seeded PNW soak.
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { BIOME_LIST, mapCatalog } from '../js/biome.js';
@@ -36,7 +37,7 @@ function spawn(g, key, x, y) {
 const run = (g, until, n = 800) => { for (let k = 0; k < n && !until(); k++) g.wildlife.update(0.05); };
 
 check('Fishers have profiles on every map; they fish where they do not already hunt fish', () => {
-  const fishers = { pnw: ['heron', 'kingfisher', 'eagle', 'otter', 'bear'], atlanta: ['heron'], amazon: ['cocoi', 'amkingfisher'], chinandega: ['egret'], sumatra: ['stork', 'kingfisher'] };
+  const fishers = { pnw: ['heron', 'kingfisher', 'eagle', 'otter', 'bear'], atlanta: ['heron'], amazon: ['cocoi', 'amkingfisher'], chinandega: ['egret'], sumatra: ['stork', 'kingfisher'], reef: ['booby', 'noddy'] };
   for (const b of BIOME_LIST) {
     const g = new Game(); g.newGame(1987, 'free', 'standard', b.id);
     for (const key of fishers[b.id] || []) assert.ok(fishing(g.catalog.animal[key], g), `${b.id}/${key} fishes on Standard`);
@@ -98,6 +99,39 @@ check('A bear between runs swipes a trout it can see from the bank, and never an
   Math.random = mulberry32(4);
   try { run(g, () => b.state === 'feed' && b.prey?.fish, 4000); } finally { Math.random = r; }
   assert.equal(b.prey?.id, t.id, 'the trout'); assert.ok(!wl.agents.includes(t));
+});
+// The reef's seabirds over open sea, off the cay.
+function reefSea(seed = 1987) {
+  const g = new Game(); g.newGame(seed, 'free', 'standard', 'reef');
+  const wl = g.wildlife, w = g.world, dry = g.catalog.definition.dryLand;
+  wl.agents = []; wl.flyovers = []; wl.passageWait = 1e6; wl.recount(); wl.computeSuitability();
+  let at = -1;
+  for (let j = 0; j < w.n && at < 0; j++) { const x = j % w.w, y = j / w.w | 0; if (x > 10 && y > 10 && x < w.w - 10 && y < w.h - 10 && !dry(w, j)) at = j; }
+  return { g, wl, x: at % w.w + 0.5, y: (at / w.w | 0) + 0.5 };
+}
+for (const [key, style] of [['booby', 'dive'], ['noddy', 'dip']]) check(`A ${key} fishes the sea (${style}), mostly coming up empty, and catches a surface fish`, () => {
+  const { g, wl, x, y } = reefSea(), D = g.catalog.animal[key];
+  assert.equal(fishing(D, g)?.style, style);
+  const a = spawn(g, key, x, y);
+  let strikes = 0, catches = 0, maxAlt = 0, under = false, lastPhase = null;
+  const r = Math.random; Math.random = mulberry32(key === 'booby' ? 3 : 8);
+  try {
+    for (let k = 0; k < 60000 && catches < 6; k++) {
+      if (a.state !== 'fish' && a.state !== 'feed') { a.fishFed = 0; Object.assign(a, { state: 'idle', wait: 99 }); fishChoose(wl, a, D); }
+      const before = a.fishing?.phase;
+      g.wildlife.update(0.05);
+      if (a.state === 'fish') maxAlt = Math.max(maxAlt, a.alt);
+      under ||= a.fishing?.phase === 'under';
+      const now = a.state === 'fish' ? a.fishing?.phase : a.state;
+      if ((before === 'under' || before === 'touch') && now !== before) { strikes++; if (a.state === 'feed' || a.fishing?.phase === 'rise' && a.fishFed > a.age) catches++; }
+      lastPhase = now;
+    }
+  } finally { Math.random = r; }
+  assert.ok(catches >= 3, `${key}: ${catches} catches in ${strikes} strikes (${lastPhase})`);
+  assert.ok(catches / strikes < 0.5, `${key}: most strikes miss (${catches}/${strikes})`);
+  if (style === 'dive') { assert.ok(under, 'it goes under'); assert.ok(maxAlt >= 1.4, `plunges from high up (${maxAlt.toFixed(2)})`); }
+  else { assert.ok(!under, 'a noddy never goes under'); assert.ok(maxAlt <= 0.6, `flies low (${maxAlt.toFixed(2)})`); }
+  if (a.prey) assert.ok(g.catalog.animals[a.prey.sp].surfaceFish, 'a surface fish');
 });
 check('PNW community soak: every fisher is seen fishing, and the drawn fish are not emptied', () => {
   for (const seed of [7, 11]) {

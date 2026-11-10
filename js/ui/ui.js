@@ -709,8 +709,11 @@ export class UI {
   // What an animal is doing, in a few words (the inspector's Status line, and watch mode's caption).
   agentStatus(a, def = animalDef(a, this.game.catalog)) {
     const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey', ease: 'Giving up the chase' }[a.hunt?.phase] || 'Hunting';
-    const birdStatus = { trunk: 'Pecking at a tree trunk', forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting', soar: a.bird?.carcass != null ? 'Circling down to a carcass' : 'Soaring over open ground' }[a.bird?.kind];
-    const fishStatus = a.fishing?.phase === 'dive' ? (def.behavior.fishing?.style === 'plunge' ? 'Diving for a fish' : 'Swooping on a fish')
+    const birdStatus = { trunk: 'Pecking at a tree trunk', forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', fruit: 'Eating fruit in a treetop', rest: 'Resting', soar: a.bird?.carcass != null ? 'Circling down to a carcass' : 'Soaring over open ground' }[a.bird?.kind];
+    const fishStyle = def.behavior.fishing?.style;
+    const fishStatus = a.fishing?.phase === 'dive' ? (fishStyle === 'plunge' || fishStyle === 'dive' ? 'Diving for a fish' : fishStyle === 'dip' ? 'Dipping at the surface for a fish' : 'Swooping on a fish')
+      : a.fishing?.phase === 'under' ? 'Under the water after a fish' : a.fishing?.phase === 'surface' ? 'Surfaced empty-billed' : a.fishing?.phase === 'touch' ? 'Snatching at the surface'
+      : a.fishing?.phase === 'rise' ? 'Rising from the water' : fishStyle === 'dive' && a.fishing?.phase === 'watch' ? 'Watching the sea for fish from high up'
       : a.fishing?.phase === 'go' ? 'Heading out to fish' : def.move === 'fly' ? 'Watching the water for fish' : 'Fishing';
     const grouped = def.familyHerd && (a.herdOf != null && a.herdOf !== a.id || this.game.wildlife.agents.some(c => c !== a && (c.herdOf === a.id || c.mom === a.id)));
     const familyStatus = a.mom != null ? (a.follow ? 'Following mother' : 'With a family herd') : grouped ? (isMaleVariant(def, a) ? 'With a bachelor group' : 'With a family herd') : null;

@@ -91,7 +91,7 @@ class Animal {
   momSlot; familyFailures; patrolDir; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkOn;
-  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; jink; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey;
+  carry; prey; fishing; clingSide; fruitFed; ateFruitAt; climb; cache; home; homeAfter; drinkFrom; fleeHd; jink; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };

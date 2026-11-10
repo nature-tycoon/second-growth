@@ -6,6 +6,7 @@
 //   tear   a carcass: head down, pulling back hard every so often;
 //   snap   fish: a quick dart forward at plankton or a catch, nose-down at algae, coral, sponge or seagrass.
 // Fruit and leaf meals of monkeys and apes are the hand-to-mouth pose (actors.js, eatPose).
+// Fruit birds in a fruiting crown (bird-behavior.js 'fruit'), by their `eatsFruit` trait: fruitHead.
 import { trait } from '../data/animal-kinds.js';
 const UNDER = new Set(['algae', 'coral', 'sponge', 'seagrass', 'sediment']);
 // Animals with no meal of their own in the simulation that are drawn nibbling now and then
@@ -26,6 +27,29 @@ export function mealHead(a, w, time) {
     return (shrub ? 0.25 : -0.45) + 0.12 * Math.max(0, bite);
   }
   return a.flying ? 1 : 0.85 + 0.15 * bite;
+}
+
+// The head of a fruit bird at its meal in a crown (1 down, 0 level, below 0 up), by how it eats:
+//   toss  a toucan or hornbill reaches out and down for a fruit, plucks it with a tug, then
+//         throws its head back to toss it down its throat;
+//   chew  a parrot bites at the fruit with its head low, chewing, and looks up now and then;
+//   peck  a bulbul pecks berries off one after another, gulping each.
+export function fruitHead(def, a, time) {
+  const style = trait(def, 'eatsFruit'), t = time + a.id * 1.37;
+  if (style === 'toss') {
+    const u = (t / 2.6) % 1; // (about one fruit every two or three seconds)
+    return u < 0.45 ? 0.55 + 0.2 * Math.sin(u * 40) * (u > 0.3 ? 1 : 0.3) : u < 0.6 ? 0.35 : u < 0.75 ? -0.7 : 0;
+  }
+  if (style === 'chew') return Math.sin(t * 0.6) > 0.8 ? 0 : 0.55 + 0.1 * Math.sin(t * 9);
+  return Math.sin(t * 2.2) > 0.2 ? 0.85 : Math.sin(t * 1.1) > 0.6 ? -0.25 : 0.1;
+}
+
+// A seabird's plunge or swoop at the sea (sim/fishing.js, the 'dive' and 'dip' styles): 0 to 1, how
+// far into it it is (1 through the time it is under or touching the surface), or 0.
+export function seaPlunge(a, def) {
+  if (a.state !== 'fish' || !def.behavior.fishing?.sea) return 0;
+  const ph = a.fishing?.phase;
+  return ph === 'dive' ? a.stoop || 0 : ph === 'under' || ph === 'touch' ? 1 : 0;
 }
 
 // A fish's snap at its food: how far forward it darts (0 to 1 of the reach) and how far its nose

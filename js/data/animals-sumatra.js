@@ -274,7 +274,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ SHRUB: 1, YOUNG_FOREST: 0.8, MEADOW: 0.6, RIPARIAN: 0.7, INVASIVE: 0.35, FARM: 0.2 });
-    def({ key: 'bulbul', name: 'Sooty-headed bulbul', sci: 'Pycnonotus aurigaster', group: 'Birds', move: 'fly',
+    def({ key: 'bulbul', eatsFruit: 'peck', name: 'Sooty-headed bulbul', sci: 'Pycnonotus aurigaster', group: 'Birds', move: 'fly',
       speed: 1.3, hr: 4, max: 30, sources: ['W', 'N', 'E'], mig: 0.5, breed: [1, 2, 3], litter: [2, 3], life: 5, mature: 0.5,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.4),
       sprite: { kind: 'songbird', size: 11, color: '#8a8478', breast: '#e8e4dc', head: '#1a1816', crest: true, tail: '#3a3630', vent: '#d83a2a' },

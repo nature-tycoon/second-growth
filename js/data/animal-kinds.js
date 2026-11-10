@@ -32,6 +32,13 @@
 //   fearsHunters  a small bird that takes any bird-eater about (scaresSmallBirds) for a threat,
 //                 even one outside the map's food web (bird-behavior.js)
 //   scaresSmallBirds  small birds take it for a threat (bird-behavior.js)
+//   eatsFruit     a bird that flies to fruiting crowns in season for short meals there, and how it
+//                 eats: 'toss' plucks a fruit and tosses it back to swallow (toucans, hornbills),
+//                 'chew' bites at it with its head low (parrots), 'peck' pecks berries off
+//                 (bird-behavior.js; drawn by eating-pose.js fruitHead)
+//   fishes        how a bird fishes, a style in js/data/animal-fishing.js: 'dive' plunges from height
+//                 into the sea (boobies, gannets), 'dip' snatches from the surface on the wing
+//                 (noddies, terns) (fishing.js)
 //   jinks         a runner that escapes by cutting hard to one side as its hunter closes in, so the
 //                 faster hunter overshoots: hares, gazelles, impala, deer (animal-life.js, decision 0026)
 //
@@ -41,6 +48,7 @@
 //   leaps         a canopy walker that leaps the gap between crowns in an arc (canopy-motion.js)
 //   carrionSoar   hungry with no carcass in sight, it goes up and searches from the soar (bird-behavior.js)
 //   cleans        keeps a cleaning station: picks parasites off reef fish that come to it (animal-foraging.js)
+//   surfaceFish   a fish of the open water near the surface, the kind seabirds come up with (fishing.js)
 //   seagrassBite  how much seagrass one meal crops (animal-foraging.js; default 0.01)
 
 const graze = { idleEat: 'graze' }, nibble = { idleEat: 'nibble' }, firm = { firmSkin: true };
@@ -65,10 +73,10 @@ export const KIND_TRAITS = {
   hummer: { ...smallBird, bathes: false },
   woodpecker: { ...smallBird, nestHole: true, trunkFeed: true },
   duck: { ...nibble, floats: true, perches: false, sitsInCrowns: false, flocks: true },
-  booby: { floats: true, perches: false, flocks: true },
+  booby: { floats: true, perches: false, flocks: true, fishes: 'dive' },
   heron: { perches: false, sitsInCrowns: false }, crane: { perches: false, sitsInCrowns: false, groundFeed: true },
-  secretary: { groundFeed: true }, hornbill: { ...nibble, nestHole: true },
-  macaw: { nestHole: true, flocks: true }, toucan: { nestHole: true },
+  secretary: { groundFeed: true }, hornbill: { ...nibble, nestHole: true, eatsFruit: 'toss' },
+  macaw: { nestHole: true, flocks: true, eatsFruit: 'chew' }, toucan: { nestHole: true, eatsFruit: 'toss' },
   owl: { nestHole: true, scaresSmallBirds: true }, raptor: { scaresSmallBirds: true },
 };
 
@@ -78,4 +86,4 @@ export const trait = (def, name) => def[name] ?? KIND_TRAITS[def.sprite?.kind]?.
 export const climbStyle = def => def.sprite?.ape ? 'swing' : trait(def, 'climb');
 
 // The fields above a species may set (contracts.js checks them).
-export const TRAIT_BOOLEANS = 'floats alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks';
+export const TRAIT_BOOLEANS = 'floats alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks surfaceFish';

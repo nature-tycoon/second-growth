@@ -31,7 +31,7 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'fish', size: 6, back: '#e86418', flank: '#f07420', belly: '#f49038', bands: '#f6f4ee', finColor: '#ec7422', finEdge: '#141210', tailShape: 'round', spiny: true, short: true, swim: 0.1, show: 4.5 },
     desc: 'Lives its whole life in one sea anemone, sheltering among the stinging tentacles that would kill any other fish. It keeps the anemone clean, and chases off the butterflyfish that nibble it.',
     hint: 'Sea anemones to live in.' });
-  def({ key: 'chromis', reef: true, herd: true, herdR: 1.1, name: 'Blue-green chromis', sci: 'Chromis viridis', group: 'Fish', move: 'ground',
+  def({ key: 'chromis', reef: true, surfaceFish: true, herd: true, herdR: 1.1, name: 'Blue-green chromis', sci: 'Chromis viridis', group: 'Fish', move: 'ground',
     speed: 0.7, hr: 3, max: 80, minK: 4, groupSize: [6, 12], sources: ['E', 'W'], mig: 0.5, breed: [8, 9, 10, 11], litter: [4, 8], life: 4, mature: 1,
     suit: (W, i) => branching(W, i) || coral(W, i) * 0.25,
     sprite: { kind: 'fish', size: 4, back: '#5ac0c8', flank: '#7ad4cc', belly: '#c4ecdc', finColor: '#6ac8cc', deep: true, swim: 0.4, dive: true, show: 4.5 },
@@ -150,7 +150,7 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'booby', size: 18, show: 1.12, bib: true, color: '#4a3a2c', breast: '#f2efe6', head: '#4a3a2c', flight: '#2e241c', bill: '#e2cc6a', eye: '#ece8c0' },
     desc: 'Plunges from the air like a dart to catch fish, then sits on the water to rest and swallow, bobbing on the swell.',
     hint: 'Plenty of fish near the surface.' });
-  def({ key: 'noddy', groundFeed: false, name: 'Black noddy', sci: 'Anous minutus', group: 'Seabirds', move: 'fly',
+  def({ key: 'noddy', groundFeed: false, fishes: 'dip', name: 'Black noddy', sci: 'Anous minutus', group: 'Seabirds', move: 'fly',
     speed: 2.6, hr: 30, max: 40, minK: 4, groupSize: [4, 8], sources: ['N', 'E'], mig: 0.6, breed: [7, 8, 9], litter: [1, 1], life: 18, mature: 2,
     suit: (W, i) => (W.tree[i] === W.catalog.plant.pisonia?.id && W.treeG[i] > 0.45 ? 1 : 0),
     sprite: { kind: 'songbird', size: 12, color: '#2e2a28', breast: '#3a3430', head: '#34302c', cap: '#ecebe6', tailLength: 0.4, tailGraduation: -0.08, wingShape: 'pointed', bill: '#1a1a1a' },
@@ -192,7 +192,7 @@ export default function buildReefAnimals(def) {
     desc: 'A round, short-spined grazer that carries bits of shell and algae as camouflage. It nibbles turf algae from the reef floor.',
     hint: 'Established reef with patches of turf algae to graze.' });
   // The lagoon's surface hunters and the shark that hunts them (also kept at the end, for saves).
-  def({ key: 'longtom', reef: true, herd: true, herdR: 1.4, name: 'Crocodile longtom', sci: 'Tylosurus crocodilus', group: 'Fish', move: 'ground',
+  def({ key: 'longtom', reef: true, surfaceFish: true, herd: true, herdR: 1.4, name: 'Crocodile longtom', sci: 'Tylosurus crocodilus', group: 'Fish', move: 'ground',
     speed: 1.2, hr: 10, max: 18, minK: 3, groupSize: [3, 6], sources: ['N', 'E', 'W'], mig: 0.5, breed: [8, 9], litter: [2, 4], life: 5, mature: 1,
     suit: (W, i) => meadow[W.habitat[i]],
     req: g => Math.min(1, Math.max(0, g.meadowTiles - 1200) / 800),

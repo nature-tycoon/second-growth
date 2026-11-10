@@ -3,6 +3,7 @@
 import { T, F, BORDER, MONTHS_PER_YEAR, SPEEDS } from '../config.js';
 import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema.js';
 import { TRAIT_BOOLEANS } from './animal-kinds.js';
+import { FISHING_STYLES } from './animal-fishing.js';
 
 /** @typedef {0|1|2} PlantLayer Groundcover, shrub, tree; separate from species IDs. */
 /** @typedef {'ground'|'semi'|'tree'|'fly'|'swim'} AnimalMove */
@@ -337,7 +338,7 @@ export function assertSeedMix(m, plant, path = 'mix') {
 
 const ANIMAL_BOOLEANS = `herd familyHerd fixedMax strictMax notPrey patrol soar ambush noDrink quick domestic reef benthic frugivore fenced damBuilder tramples ${TRAIT_BOOLEANS}`;
 const ANIMAL_NUMBERS = 'minK mig intro life mature preyPer speed max hr familySize herdR bachelorSize bachelorR bachelorJoin bachelorSoloAge herdMax needsPer shy browseRate challengePreyPer kg crownHeight seagrassBite';
-const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey carries needs special crossing surfaceEscape idleEat climb wallow ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
+const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey carries needs special crossing surfaceEscape idleEat climb wallow eatsFruit fishes ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
 export const ANIMAL_MOVES = Object.freeze(['ground', 'semi', 'tree', 'fly', 'swim']);
 
 /** @param {AnimalSpec} a */
@@ -359,6 +360,8 @@ export function assertAnimalSpec(a, path = 'animal') {
   if (a.crossing) { object(a.crossing, `${path}.crossing`); optional(a.crossing, 'x', `${path}.crossing`, (v, q) => number(v, q, 0, 1)); }
   optional(a, 'idleEat', path, (v, q) => choice(v, q, ['graze', 'nibble']));
   optional(a, 'climb', path, (v, q) => choice(v, q, ['walk', 'clamber', 'hang']));
+  optional(a, 'eatsFruit', path, (v, q) => choice(v, q, ['toss', 'chew', 'peck']));
+  optional(a, 'fishes', path, (v, q) => choice(v, q, FISHING_STYLES));
   if (a.wallow) { object(a.wallow, `${path}.wallow`); number(a.wallow.size, `${path}.wallow.size`, Number.MIN_VALUE); optional(a.wallow, 'rut', `${path}.wallow`, boolean); }
   if (a.surfaceEscape) { object(a.surfaceEscape, `${path}.surfaceEscape`); number(a.surfaceEscape.dash, `${path}.surfaceEscape.dash`, 1, 4); number(a.surfaceEscape.tiles, `${path}.surfaceEscape.tiles`, 1, 30); }
 }

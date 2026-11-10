@@ -10,7 +10,7 @@ import { clearCanopy, coralFloor, easeBirdHeight } from './flight-clearance.js';
 import { strideFollowsGround } from './stride.js';
 const CLEAR = { floor: -Infinity, clearing: false }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
-import { mealHead, nibbles, fishSnap } from './eating-pose.js';
+import { mealHead, nibbles, fishSnap, fruitHead, seaPlunge } from './eating-pose.js';
 import * as S from '../render/sprites.js';
 import { treeHeight, treeLevel } from './tree-stature.js';
 import { treeTrunk, snagSpot, snagPose, snagTop as snagTopAt } from '../sim/ground-obstacles.js';
@@ -335,7 +335,12 @@ export class Actors {
           st.skipP = p; // (scene.js splashes where it leaves the water and lands)
           if (p >= 0) { y = seaY - 0.04 + Math.sin(p * Math.PI) * 0.5; st.pitch = Math.cos(p * Math.PI) * 0.45; } else st.pitch = 0;
         }
-      } else if (flying && seaY != null) y = Math.max(ground, seaY) + 0.7 + a.alt * 1.2; // (seabirds fly over the water, not the seabed)
+      } else if (flying && seaY != null) {
+        // (seabirds fly over the water, not the seabed; a booby's plunge drops faster the further it
+        // falls, into the sea and a little way under it, and a noddy's swoop just touches the surface)
+        const dive = seaPlunge(a, def);
+        y = a.fishing?.phase === 'under' ? seaY - mo.len * sc * 1.1 : Math.max(ground, seaY) + (0.7 + a.alt * 1.2) * (1 - dive * dive);
+      }
       else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
       else if (flying) y += (trait(def, 'flitsLow') ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
       else if (def.move === 'swim') {
@@ -398,6 +403,8 @@ export class Actors {
       // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
       if (def.move === 'fly' && !def.reef && !a.passing) {
         if (st.birdY == null || returning || st.sc == null) { st.birdY = y; st.birdVy = 0; }
+        // (a seabird's plunge is a fall, not a glide: the drawn height keeps to it, and carries its speed on under the water)
+        else if (a.fishing?.phase === 'dive' && seaPlunge(a, def) > 0) { st.birdVy = (y - st.birdY) / Math.max(1 / 120, frameDt); st.birdY = y; }
         // (in full flight it rises over the crowns ahead at an easy climb and sinks back slower
         // still, so a run of trees of different heights is one smooth swell, not a bob per crown;
         // every change of height is a slant capped by its speed: easeBirdHeight)
@@ -461,7 +468,7 @@ export class Actors {
       const stalking = a.state === 'hunt' && a.hunt?.phase === 'creep';
       const fight = this.bout(game, a, st, time);
       const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
-      const birdHead = a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
+      const birdHead = a.bird?.kind === 'fruit' ? fruitHead(def, a, time) : a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
         : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
       const meal = mealHead(a, w, time); // (the eating styles: eating-pose.js)
       const head = swimming ? 0 : a.cache && a.move === 'ground' && !moving ? (Math.sin(time * 7 + a.id) > -0.3 ? 1 : 0.5) : fight ? fight.head : bugling ? -0.75 : meal != null ? meal : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
@@ -498,6 +505,15 @@ export class Actors {
       if (snap) { const reach = snap.dart * mo.len * sc * 0.1; ax += Math.cos(st.yaw) * reach; az -= Math.sin(st.yaw) * reach; }
       posePitch -= st.snap;
       if (hunt?.stumble > 0) { const f = hunt.stumble / 0.3; posePitch -= 0.25 * f; poseRoll = 0.14 * f * (a.id % 2 ? 1 : -1); }
+      // a plunging booby points its bill at the sea and sweeps its wings back; a noddy tips down into
+      // its swoop (it follows the plunge in, and eases out of it once it is up)
+      const plunge = seaPlunge(a, def);
+      st.plunge = plunge >= (st.plunge || 0) ? plunge : st.plunge + (plunge - st.plunge) * Math.min(1, k * 0.8);
+      if (st.plunge > 0.001) {
+        const f = st.plunge * st.plunge * (3 - 2 * st.plunge), dives = def.behavior.fishing?.style === 'dive';
+        posePitch -= (dives ? 1.25 : 0.4) * f;
+        if (dives) poseFly = st.fly * (1 - 0.85 * f);
+      }
       st.trunk = cling?.trunk ?? null; // (the trunk it clings to, which the tracking lens keeps: focus.js)
       if (cling) {
         // upright against the bark, facing it, the head hammering in bursts

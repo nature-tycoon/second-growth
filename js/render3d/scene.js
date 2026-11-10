@@ -1283,7 +1283,20 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
   const random = this.trailRng || (this.trailRng = mulberry32(0x74726169)); // visual-only randomness
   if (this.zoom > 0.45 && game.speed > 0) for (const a of this.actors.visibleWildlife) {
     const st = this.actors.pose.get(a.id);
-    if (!st || a.flying) continue;
+    if (!st) continue;
+    // a plunging booby throws up a splash where it goes into the sea and leaves a ring where it comes
+    // up; a noddy's dip leaves a small ring (sim/fishing.js)
+    const plunging = a.state === 'fish' ? a.fishing?.phase === 'under' ? 'under' : a.fishing?.phase === 'touch' ? 'touch' : null : null;
+    if (plunging !== (st.plunging ?? null)) {
+      const sea = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : waterSurfaceY(w, a.x, a.y);
+      if (sea != null && (plunging || st.plunging === 'under')) {
+        const big = plunging === 'under';
+        fx.push({ k: 'ring', x: a.x, z: a.y, y: sea, life: big ? 1.3 : 0.8, max: big ? 1.3 : 0.8, s: big ? 0.6 : 0.35 });
+        if (big) for (let d = 0; d < 7; d++) fx.push({ k: 'drop', x: a.x, z: a.y, y: sea, vx: (random() - 0.5) * 0.9, vz: (random() - 0.5) * 0.9, vy: 1.4 + random() * 1.2, life: 0.6, max: 0.6 });
+      }
+      st.plunging = plunging;
+    }
+    if (a.flying) continue;
     const xi = Math.floor(a.x), yi = Math.floor(a.y);
     if (!w.inb(xi, yi)) continue;
     const i = w.idx(xi, yi), t = w.terrain[i], def = animalDef(a, game.catalog);

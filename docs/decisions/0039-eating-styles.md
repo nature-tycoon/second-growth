@@ -2,7 +2,7 @@
 
 ## Rules
 
-- Eating is drawn through shared styles chosen by what the meal is, not by species (`render3d/eating-pose.js`, used by `actors.js`): crop, browse, tear, hand to mouth, snap; birds keep peck.
+- Eating is drawn through shared styles chosen by what the meal is, not by species (`render3d/eating-pose.js`, used by `actors.js`): crop, browse, tear, hand to mouth, snap; birds keep peck; fruit birds in a crown eat by `eatsFruit` (`fruitHead`: toss, chew, peck).
 - Drawing only: it reads `a.state`, `a.forage.food`, `a.fruitMeal` and the browsed tile and never writes to the animal, so simulation and balance are unchanged.
 - Drawing-only idle nibbling is `idleEat: 'nibble'`, never `'graze'` (`js/data/animal-kinds.js`; a grazer is also turned from the water in `sim/steering.js`).
 - Fish eat through position and pitch (the snap), not the head: swimming forces the head level and fish use the head slot for body bend (`mo.bend`).
