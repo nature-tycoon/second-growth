@@ -3,19 +3,20 @@
 // view reads as peering down into the forest rather than through a hole punched in it:
 //  - the edge is ragged, following leaf clumps (world-space noise) instead of a clean circle,
 //    and the leaves along it stir with the wind;
+//  - it is sized from the animal's outline on screen (its model's box, projected): a vole or a wren
+//    gets a small gap, an elephant a wide one, so grass round a small animal and the crown round a
+//    perched bird aren't cleared away;
 //  - the opening flares toward the camera, a funnel, so the canopy layers step back one behind
-//    another down to the animal;
+//    another down to the animal (not at eye level, where the cover is right in front of the lens);
 //  - foliage lining the funnel is shaded, darker the deeper it sits, like the inside of a crown;
 //    the ground, animal and surrounding landscape keep their normal light;
 //  - shrubs, groundcover and litter on the floor stay, whole, where they show below the animal's
 //    feet or beside it on screen, so the floor of the gap isn't bare;
 //  - a tree trunk (or snag, stump, post) standing clear to the left or right of the animal on
 //    screen stays too, so the forest around it doesn't read as cleared;
-//  - the animal's support stays, for every species on every map: close to the animal only what
-//    lies between the camera and its body (its model's bounding box) opens, so the trunk a
-//    woodpecker clings to, the fronds round a monkey on a palm or the coral beside a fish stay;
-//    the trunk it clings to stays unless it's round the back of it; the wider gap opens gradually,
-//    only through cover nearer the camera; and whatever lies below
+//  - the animal's support stays, for every species on every map: near the animal only what covers
+//    its body (an ellipsoid fitted to its model's box) opens, so the fronds round a monkey on a
+//    palm or the coral beside a fish stay; the gap opens only through cover in front of it; the trunk it clings to stays unless it's round the back of it; and whatever lies below
 //    its feet near it and shows below it on screen (the crown it sits on, the coral a fish swims
 //    over) stays whole.
 // It opens and closes by growing and shrinking, and follows the animal smoothly (see
@@ -28,7 +29,12 @@ import * as THREE from 'three';
 export const focus = {
   uFocus: { value: new THREE.Vector3() },   // the selected animal, in world space
   uFocusAmt: { value: 0 },                  // 0 = off, 1 = fully see-through
-  uFocusR: { value: 0.9 },                  // radius of the see-through column (scene units)
+  uFocusR: { value: 0.9 },                  // radius of the gap at the animal: its outline on screen (scene units)
+  uFocusC: { value: new THREE.Vector3() },  // the outline's centre, offset from uFocus across the screen
+  uFocusBoxM: { value: new THREE.Matrix4() }, // world to the animal model's own frame
+  uFocusBodyC: { value: new THREE.Vector3() }, // its body, as an ellipsoid in that frame: centre
+  uFocusBodyH: { value: new THREE.Vector3(.3, .3, .3) }, // and half-lengths
+  uFocusFlare: { value: 0.12 },             // how much wider the gap gets per unit toward the camera
   uViewDir: { value: new THREE.Vector3(0, 1, 0) }, // from the scene toward the camera
   uCamUp: { value: new THREE.Vector3(0, 1, 0) },   // up on screen, in world space
   uFocusFoot: { value: 0 },                 // the height of the animal's feet
@@ -36,9 +42,6 @@ export const focus = {
   uFocusBottom: { value: -0.3 },            // bottom of the body in camera-up coordinates
   uFocusBack: { value: -0.08 },             // rear of the body along the view ray
   uFocusFront: { value: 0.3 },              // front of the body along the view ray
-  uFocusBoxM: { value: new THREE.Matrix4() }, // world to the animal model's own frame
-  uFocusBoxMin: { value: new THREE.Vector3(-.3, -.3, -.3) }, // its body's box in that frame
-  uFocusBoxMax: { value: new THREE.Vector3(.3, .3, .3) },
   uFocusTrunk: { value: new THREE.Vector3(0, 0, -1) }, // x, z, radius of the trunk it clings to; radius < 0: none
   uFocusInvD: { value: 0 },                 // 1 / distance from the animal to the eye at eye level; 0 from above
 };
@@ -83,22 +86,26 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false, side = 0 } 
       #else
         vFocusBase = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vFocusS = 1.0;
       #endif`);
-    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; uniform vec3 uCamUp; uniform float uFocusFoot; uniform float uFocusHalfW; uniform float uFocusBottom; uniform float uFocusBack; uniform float uFocusFront; uniform mat4 uFocusBoxM; uniform vec3 uFocusBoxMin; uniform vec3 uFocusBoxMax; uniform vec3 uFocusTrunk; uniform float uFocusInvD; varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + FOCUS_NOISE +
+    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; uniform vec3 uCamUp; uniform float uFocusFoot; uniform float uFocusHalfW; uniform float uFocusBottom; uniform float uFocusBack; uniform float uFocusFront; uniform vec3 uFocusC; uniform mat4 uFocusBoxM; uniform vec3 uFocusBodyC; uniform vec3 uFocusBodyH; uniform float uFocusFlare; uniform vec3 uFocusTrunk; uniform float uFocusInvD; varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + FOCUS_NOISE +
       shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
       float focusWall = 0.0;
       if (uFocusAmt > 0.001) {
         vec3 fd = vFocusW - uFocus;
         float along = dot(fd, uViewDir);                 // > 0: between the animal and the camera
-        float across = length(fd - along * uViewDir);    // distance from the line of sight
-        float up = along / uFocusR;
-        // a funnel: narrow at the animal, wider toward the camera
-        float r = uFocusR * uFocusAmt * (1.0 + 0.1 * clamp(up, 0.0, 3.0)); // (the window irises open)
+        // distance from the line of sight, as it shows on screen at the animal's depth (at eye level
+        // what is nearer the lens shows farther out)
+        vec3 sp = (fd - along * uViewDir) / max(1.0 - along * uFocusInvD, 0.05) - uFocusC;
+        float across = length(sp);
+        float wall = max(uFocusR, 0.6);                  // (the scale of the gap's shaded walls)
+        float up = along / wall;
+        // a funnel: the animal's outline at its depth, narrower beside it, wider toward the camera
+        float r = uFocusAmt * (uFocusR + uFocusFlare * max(along, 0.0)); // (the window irises open)
         // a ragged edge that follows leaf clumps, at two scales
         float n = focusNoise(vFocusW * 2.6) * 0.62 + focusNoise(vFocusW * 6.3 + 11.0) * 0.38;
         r *= 0.8 + 0.4 * n;
         // the animal's support (whatever is below its feet near it and shows below its body on
         // screen: the crown, branch, coral or rock it is on) stays, so it never stands on nothing
-        bool keep = vFocusW.y <= uFocusFoot + 0.02 && dot(fd, uCamUp) < uFocusBottom${supportCrown ? '' : ' && length(fd.xz) < 1.5 * uFocusR'};
+        bool keep = vFocusW.y <= uFocusFoot + 0.02 && dot(fd, uCamUp) < uFocusBottom${supportCrown ? '' : ' && length(fd.xz) < 1.5 * wall'};
         // and the trunk it clings to stays, unless it stands wholly in front of it (it's round the back)
         keep = keep || length(vFocusW.xz - uFocusTrunk.xy) < uFocusTrunk.z * 1.3 + 0.02 && along < uFocusFront;
         // a plant on the floor stays whole wherever all of it shows below the animal's feet or off to
@@ -112,22 +119,20 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false, side = 0 } 
         }` : ''}
         ${side ? `keep = keep || focusSide(vFocusBase - uFocus, ${side.toFixed(2)} * vFocusS) > uFocusHalfW + 0.06 && focusSide(fd, 0.0) > uFocusHalfW + 0.06
           && length((vFocusW - vFocusBase).xz) < ${(side * 1.6).toFixed(2)} * vFocusS;` : ''}
-        // what covers the body opens: the line from here away from the camera passes through the
-        // animal's box (in its model's frame; the box's slabs). The trunk it clings to, the plant it
-        // is in or on, lie beside or behind it and stay
-        vec3 bo = (uFocusBoxM * vec4(vFocusW, 1.0)).xyz, bv = (uFocusBoxM * vec4(uViewDir, 0.0)).xyz;
-        bv += 1e-6 * step(abs(bv), vec3(1e-6));
-        vec3 t1 = (bo - uFocusBoxMin) / bv, t2 = (bo - uFocusBoxMax) / bv, tn3 = min(t1, t2), tf3 = max(t1, t2);
-        float tn = max(max(tn3.x, tn3.y), tn3.z), tf = min(min(tf3.x, tf3.y), tf3.z);
-        bool covers = tn <= tf && tf > 0.0;
-        // and around it a gap like a clearing that widens slowly, over two window radii past its
-        // front, so it opens wide only through cover nearer the camera
-        float open = r * smoothstep(uFocusFront * 0.5, uFocusFront + 2.0 * uFocusR, along);
-        if (!keep && (covers || along > uFocusBack && across < open)) discard;
+        // what covers the body opens: the line from here away from the camera passes through it, as
+        // an ellipsoid in its model's frame (round on screen: a box would cut a box-shaped hole in the
+        // grass round a small animal). Around it a gap like a clearing that widens slowly, over two
+        // wall widths past its front, so it opens wide only through cover nearer the camera and what
+        // stands beside the animal (its support, the grass round its feet) stays
+        vec3 bo = ((uFocusBoxM * vec4(vFocusW, 1.0)).xyz - uFocusBodyC) / uFocusBodyH, bv = (uFocusBoxM * vec4(uViewDir, 0.0)).xyz / uFocusBodyH;
+        float ba = dot(bv, bv), bb = dot(bo, bv), bdisc = bb * bb - ba * (dot(bo, bo) - uFocusAmt * uFocusAmt);
+        bool covers = bdisc >= 0.0 && bb + sqrt(max(bdisc, 0.0)) > 0.0;
+        float open = r * smoothstep(uFocusFront * 0.5, uFocusFront + 2.0 * wall, along);
+        if (!keep && (covers || across < open)) discard;
         // the walls of the gap: what still stands near the edge, above the animal, falls into shade,
         // deepest low down by the animal and easing off toward the open top of the funnel
-        float edge = 1.0 - smoothstep(0.0, 0.8 * uFocusR, across - r);
-        float above = smoothstep(0.2, 0.75, (vFocusW.y - uFocus.y) / uFocusR) * step(-0.3 * uFocusR, along);
+        float edge = 1.0 - smoothstep(0.0, 0.8 * wall, across - r);
+        float above = smoothstep(0.2, 0.75, (vFocusW.y - uFocus.y) / wall) * step(-0.3 * wall, along);
         float deep = 1.0 - 0.3 * smoothstep(0.5, 3.5, up);
         focusWall = edge * above * deep * uFocusAmt;
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
