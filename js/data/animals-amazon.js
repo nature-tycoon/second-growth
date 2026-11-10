@@ -23,7 +23,7 @@ export default function buildAmazonAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.7, RIPARIAN: 1, MARSH: 0.6, SHRUB: 0.4 });
-    def({ key: 'tapir', kg: 250, name: 'Lowland tapir', sci: 'Tapirus terrestris', group: 'Mammals', move: 'semi',
+    def({ key: 'tapir', wallow: { size: 0.8 }, kg: 250, name: 'Lowland tapir', sci: 'Tapirus terrestris', group: 'Mammals', move: 'semi',
       speed: 1.1, hr: 100, max: 8, minK: 2, groupSize: [1, 2], sources: ['N', 'E'], mig: 0.25, intro: 12000,
       breed: [10, 11], litter: [1, 1], life: 25, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 6, 0.4),
@@ -91,7 +91,7 @@ export default function buildAmazonAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.7, RIPARIAN: 0.8 });
-    def({ key: 'howler', name: 'Red-handed howler monkey', sci: 'Alouatta belzebul', group: 'Mammals', move: 'tree',
+    def({ key: 'howler', leaps: true, name: 'Red-handed howler monkey', sci: 'Alouatta belzebul', group: 'Mammals', move: 'tree',
       speed: 0.7, hr: 25, max: 20, minK: 3, groupSize: [4, 8], sources: ['N', 'E'], mig: 0.3, breed: [4, 5, 6], litter: [1, 1], life: 18, mature: 3,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i) * fruit(W, i),
       req: g => Math.max(0, Math.min(1, (g.forestTiles - 450) / 300)), // a good stretch of grown forest
@@ -101,7 +101,7 @@ export default function buildAmazonAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.4 });
-    def({ key: 'spider', name: 'White-cheeked spider monkey', sci: 'Ateles marginatus', group: 'Mammals', move: 'tree',
+    def({ key: 'spider', leaps: true, name: 'White-cheeked spider monkey', sci: 'Ateles marginatus', group: 'Mammals', move: 'tree',
       speed: 1.2, hr: 60, max: 14, minK: 3, groupSize: [3, 6], sources: ['N'], mig: 0.2, intro: 9000,
       breed: [9], litter: [1, 1], life: 25, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i) * fruit(W, i),

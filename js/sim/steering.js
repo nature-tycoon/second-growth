@@ -14,9 +14,7 @@ import { facePoint, animalRadius } from './animal-positioning.js';
 import { settleBody, groundWalker } from './ground-obstacles.js';
 import { wetTest, swimDepth, deepWaterNear, FISH_DEPTH } from './waterline.js';
 import { reefMoveSafe } from './animal-terrain.js';
-
-// The drawn kinds that lower their heads to graze now and then while they stand idle (actors.js).
-export const GRAZERS = new Set(['deer', 'rabbit', 'rodent', 'capybara', 'tapir', 'peccary', 'agouti', 'zebra', 'wildebeest', 'gazelle', 'impala', 'buffalo', 'warthog', 'rhino', 'hippo', 'elephant']);
+import { trait } from '../data/animal-kinds.js';
 
 // How fast an animal swings its body round as it goes about its day, in radians a game day: the
 // rate a walk (animal-walking.js), a reef swim (swimToward) and a hover (hoverStep) turn at. A
@@ -108,7 +106,7 @@ export function settle(wl) {
       if (a.drinkFrom && Math.hypot(a.x - a.drinkFrom[0], a.y - a.drinkFrom[1]) > 0.1 && !a.flying) aimDrink(w, a, a.drinkAt);
       else facePoint(a, ...a.drinkAt);
     }
-    if (a.state === 'idle' && !(a.drinkT > 0) && def.move === 'ground' && GRAZERS.has(def.sprite.kind)) backToWater(w, wl, a);
+    if (a.state === 'idle' && !(a.drinkT > 0) && def.move === 'ground' && trait(def, 'idleEat') === 'graze') backToWater(w, wl, a);
     else if (a.headUpKey != null) { a.headUp = false; a.headUpKey = null; } // (looked at afresh next time it stands idle)
     // (a river fish nudged into the shallows, by its neighbours or the water drawing down: back to
     // where it can swim, the same depth its drawing uses)

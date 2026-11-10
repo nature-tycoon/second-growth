@@ -70,7 +70,7 @@ export default function buildSerengetiAnimals(def) {
     // (they browse the bush and graze the open grassland as much as the riverine woods, and range
     // far from water between drinks: a herd isn't tied to the riverbank)
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 1, RIPARIAN: 1, SHRUB: 1, MEADOW: 0.9, MARSH: 0.6 });
-    def({ key: 'elephant', kg: 3500, herd: true, tramples: true, herdR: 2.5, herdMax: 5, name: 'African elephant', sci: 'Loxodonta africana', group: 'Mammals', move: 'ground',
+    def({ key: 'elephant', wallow: { size: 1.5 }, kg: 3500, herd: true, tramples: true, herdR: 2.5, herdMax: 5, name: 'African elephant', sci: 'Loxodonta africana', group: 'Mammals', move: 'ground',
       speed: 1.1, hr: 160, max: 8, minK: 2, groupSize: [3, 6], sources: ['N'], mig: 0.2, intro: 16000,
       breed: [1], litter: [1, 1], life: 60, mature: 12,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 11, 0.3),
@@ -81,7 +81,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ RIPARIAN: 1, MARSH: 0.8, MEADOW: 0.8, SHRUB: 0.5, YOUNG_FOREST: 0.5 });
-    def({ key: 'buffalo', kg: 550, herd: true, herdR: 2.2, herdMax: 10, name: 'Cape buffalo', sci: 'Syncerus caffer', group: 'Mammals', move: 'ground',
+    def({ key: 'buffalo', wallow: { size: 1.1 }, kg: 550, herd: true, herdR: 2.2, herdMax: 10, name: 'Cape buffalo', sci: 'Syncerus caffer', group: 'Mammals', move: 'ground',
       speed: 1.1, hr: 30, max: 30, minK: 4, groupSize: [6, 12], sources: ['N', 'S'], mig: 0.3, breed: [1, 2], litter: [1, 1], life: 20, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * grazing(W, i) * near(W.distWater[i], 3, 0.15),
       req: g => Math.min(1, g.meadowTiles / 1200),
@@ -91,7 +91,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, SHRUB: 0.8, FARM: 0.4, BARE: 0.3, RIPARIAN: 0.5 });
-    def({ key: 'warthog', kg: 70, name: 'Warthog', sci: 'Phacochoerus africanus', group: 'Mammals', move: 'ground',
+    def({ key: 'warthog', wallow: { size: 0.7 }, kg: 70, name: 'Warthog', sci: 'Phacochoerus africanus', group: 'Mammals', move: 'ground',
       speed: 1.3, hr: 6, max: 18, minK: 2, groupSize: [2, 5], sources: ['N', 'E', 'W'], mig: 0.4, breed: [9, 10], litter: [2, 4], life: 12, mature: 1.5,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.4),
       sprite: { kind: 'warthog', len: 24, h: 13, leg: 9, color: '#6a5a50', belly: '#7a6a5e', dark: '#2a2420' },
@@ -110,7 +110,7 @@ export default function buildSerengetiAnimals(def) {
   }
   {
     const w = habW({ SHRUB: 1, YOUNG_FOREST: 0.8, RIPARIAN: 0.6, MEADOW: 0.3 });
-    def({ key: 'rhino', kg: 1000, name: 'Black rhino', sci: 'Diceros bicornis', group: 'Mammals', move: 'ground', fixedMax: true,
+    def({ key: 'rhino', wallow: { size: 1.2 }, kg: 1000, name: 'Black rhino', sci: 'Diceros bicornis', group: 'Mammals', move: 'ground', fixedMax: true,
       speed: 1, hr: 60, max: 4, minK: 1, groupSize: [1, 1], sources: ['N'], mig: 0.01, intro: 22000, breed: [2], litter: [1, 1], life: 40, mature: 7,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 8, 0.4),
       req: g => Math.min(1, g.forestTiles / 250),
@@ -180,7 +180,7 @@ export default function buildSerengetiAnimals(def) {
   {
     const w = habW({ MEADOW: 1, SHRUB: 0.7, YOUNG_FOREST: 0.6, MATURE_FOREST: 0.6, FARM: 0.4 });
     // (speed: a Gyps glides at 50–60 km/h, as fast as the hawks and eagles fly)
-    def({ key: 'vulture', name: 'White-backed vulture', sci: 'Gyps africanus', group: 'Birds', move: 'fly', soar: true,
+    def({ key: 'vulture', carrionSoar: true, name: 'White-backed vulture', sci: 'Gyps africanus', group: 'Birds', move: 'fly', soar: true,
       speed: 3, hr: 60, max: 12, minK: 2, groupSize: [2, 4], sources: ['N'], mig: 0.3, breed: [5], litter: [1, 1], life: 25, mature: 5,
       needs: ['topi', 'hartebeest', 'wildebeest', 'zebra', 'buffalo', 'gazelle'], needsPer: 8,
       suit: (W, i) => w[W.habitat[i]],
