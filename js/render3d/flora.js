@@ -10,7 +10,7 @@ import * as G from './geometry.js';
 import * as Botanical from './botanical.js';
 import { flowerForm, fruitForm, grassForm, treeBlossomForm } from '../plant-patterns.js';
 import { snowCrown } from './snow.js';
-import { farHull, farTrunk } from './far-models.js';
+import { farHull, farTrunk, farFronds } from './far-models.js';
 import { waterSurfaceY } from './terrain.js';
 import { activeCatalog } from '../data/catalog.js';
 import { meadowPatch, patchColor } from './patches.js';
@@ -88,6 +88,7 @@ export function leafColor(p, phase) {
 
 const STEM = { dogwood: '#b0302a', willow: '#c8923a' };
 const SPADIX = '#e4d48c'; // (a corpse flower's spadix, unless its look gives a head colour)
+const FROND_CROWNS = new Set(['palm', 'oilpalm', 'fanpalm', 'banana', 'cecropia']); // (tree shapes whose far crown is a star of leaves: far-models.js farFronds)
 const BLEACHED = [0.95, 0.94, 0.9]; // coral that has lost its algae: the white skeleton shows through
 // shrub looks with a geometry of their own; everything else is a generic leafy mound
 // Broadleaf shrubs drawn by growth habit rather than one shared mound (see G.shrub).
@@ -557,7 +558,7 @@ export class Flora {
           this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub', far: true }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
           if (!aquaticTile && !SEA_SHAPES.has(shape)) this.contactShadow(hAt, sx, sz, 0.34 * sc);
           // a giant clam's shells are pale and chalky, whatever colour its mantle is
-          if (shape === 'clam') this.pool(`clamshell:${v}`, () => G.clamShell(sseed), this.shrubs, { kind: 'shrub' }).add(sx, sy, sz, sc, sc, sc, rot, vary([0.86, 0.84, 0.76].map(c => c * dim), x, y, 10, 0.05));
+          if (shape === 'clam') this.pool(`clamshell:${v}`, () => G.clamShell(sseed), this.shrubs, { kind: 'shrub', far: () => G.clamShell(sseed, 3) }, () => G.clamShell(sseed, 1), 'lo').add(sx, sy, sz, sc, sc, sc, rot, vary([0.86, 0.84, 0.76].map(c => c * dim), x, y, 10, 0.05));
           // torch ginger's flowers are torches on stalks of their own, and pandan's fruit hangs under its tufts, not dots among the leaves
           const accCol = shape === 'ginger' && phase === 'bloom' ? p.look.flower : shape === 'pandan' && phase === 'fruit' ? p.look.berry : null;
           if (accCol && g > 0.3) this.pool(`shrub:acc:${shape}:${v}`, () => G.accent(shape, sseed), this.shrubs, { kind: 'shrub', far: true }, () => G.accent(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, vary(rgb(accCol).map(c => c * dim), x, y, 9, 0.06));
@@ -620,7 +621,7 @@ export class Flora {
           if (!shape) {
             shape = build(); shape.lo = build(1); shape.mid = build(G.MID);
             snowCrown(shape.crown); snowCrown(shape.lo.crown); if (shape.mid.crown !== shape.crown) snowCrown(shape.mid.crown);
-            shape.far = { crown: farHull(shape.lo.crown, { rings: shapeDef.kind === 'conifer' }), trunk: farTrunk(shape.lo.trunk) };
+            shape.far = { crown: FROND_CROWNS.has(shapeDef.kind) ? farFronds(shape.lo.crown) : farHull(shape.lo.crown, { rings: shapeDef.kind === 'conifer' }), trunk: farTrunk(shape.lo.trunk) };
             this.geos.set(`treeparts:${key}`, shape);
           }
           if (!this.pools.has(`crown:${key}`)) {

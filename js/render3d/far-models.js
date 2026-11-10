@@ -7,12 +7,16 @@
 // - a conifer becomes a stack of four six-sided rings between a top and a bottom point, each as
 //   wide as the model typically is at that height and in that direction (a spire stays a spire),
 //   coloured like that slice of the model, its shaded inside included;
+// - a crown of fronds or big spreading leaves (palms, bananas, cecropias) becomes a star of eight
+//   leaves round its hub, each reaching as far, drooping as low and coloured like the fronds on
+//   that side, seen from above and below;
 // - a trunk becomes a tapered five-sided post as tall and thick as the model's stem;
-// - anything else (palm fronds, bamboo canes, corals) keeps its distant model: no far model.
+// - anything else (bamboo canes, corals) keeps its distant model: no far model.
 import * as THREE from 'three';
 
 const SIDES = 6, RINGS = [0.12, 0.38, 0.64, 0.86]; // (ring heights, as a share of the model's)
-const CLUMPS = 6, CLUMP_TRIS = 14; // (at most this many clumps kept; smaller pieces aren't clumps, nor are long thin ones)
+const CLUMPS = 6, CLUMP_TRIS = 14;
+const PETALS = 8, FROND_SHADE = 0.86; // (a frond crown's far leaves, one to each eighth of the way round) // (at most this many clumps kept; smaller pieces aren't clumps, nor are long thin ones)
 
 // Every attribute but position and normal, averaged over the given vertices of `geo`.
 function average(geo, verts) {
@@ -146,6 +150,52 @@ function farRings(geo) {
   }
   for (let k = 0; k < SIDES; k++) faces.push([at(RINGS.length - 1, k), tip, at(RINGS.length - 1, k + 1), [cx, y(RINGS.length - 1), cz]], [at(0, k), at(0, k + 1), foot, [cx, y(0), cz]]);
   return assemble(geo, points, faces, attrs);
+}
+
+// A frond crown as a star of leaves: each eighth of the way round the hub becomes one leaf, from
+// the hub out to where that side's fronds reach (most of them: the 85th percentile), bending
+// through their height halfway out and at the tips, about half as wide as the eighth is halfway out.
+// Each leaf is drawn twice, facing up and facing down, as the fronds are (twoSided).
+export function farFronds(geo) {
+  geo.computeBoundingBox();
+  const p = geo.attributes.position, n = p.count, { min, max } = geo.boundingBox, H = Math.max(1e-4, max.y - min.y);
+  const all = Array.from({ length: n }, (_, i) => i);
+  // the hub: under the topmost fronds (the young ones stand up round it)
+  const top = all.filter(i => p.getY(i) > max.y - H * 0.15);
+  const cx = top.reduce((s, i) => s + p.getX(i), 0) / top.length, cz = top.reduce((s, i) => s + p.getZ(i), 0) / top.length;
+  const dist = all.map(i => Math.hypot(p.getX(i) - cx, p.getZ(i) - cz)), ang = all.map(i => (Math.atan2(p.getZ(i) - cz, p.getX(i) - cx) / (Math.PI * 2) + 1) % 1);
+  const reachOf = list => { const d = list.map(i => dist[i]).sort((a, b) => a - b); return d[Math.min(d.length - 1, Math.floor(d.length * 0.85))]; };
+  const meanY = list => list.reduce((s, i) => s + p.getY(i), 0) / list.length;
+  const R = reachOf(all), near = all.filter(i => dist[i] < R * 0.25);
+  // (a flat leaf faces the sun more squarely than fronds that twist and hang, so it's a shade darker)
+  const shaded = look => look.color ? { ...look, color: look.color.map(c => c * FROND_SHADE) } : look;
+  const hubY = near.length ? Math.max(meanY(near), min.y + H * 0.5) : max.y, hubLook = shaded(average(geo, near.length ? near : top));
+  const petals = [];
+  for (let k = 0; k < PETALS; k++) {
+    const here = all.filter(i => Math.floor(ang[i] * PETALS) % PETALS === k);
+    if (here.length < 3) continue;
+    const r = reachOf(here), mid = here.filter(i => dist[i] > r * 0.3 && dist[i] < r * 0.7), tip = here.filter(i => dist[i] >= r * 0.75);
+    const rm = mid.length ? mid.reduce((s, i) => s + dist[i], 0) / mid.length : r * 0.5;
+    // pointing the way that side's fronds point (weighted to the far ends), narrower than the eighth so gaps show between
+    let sx = 0, sz = 0; for (const i of here) { sx += (p.getX(i) - cx) * dist[i]; sz += (p.getZ(i) - cz) * dist[i]; }
+    const a = Math.atan2(sz, sx), half = Math.PI / PETALS * 0.55, at = (rad, an, y) => [cx + Math.cos(an) * rad, y, cz + Math.sin(an) * rad];
+    const ym = mid.length ? meanY(mid) : (hubY + meanY(here)) / 2, yt = tip.length ? meanY(tip) : meanY(here);
+    petals.push({ pts: [at(rm, a - half, ym), at(r, a, yt), at(rm, a + half, ym)], looks: [shaded(average(geo, mid.length ? mid : here)), shaded(average(geo, tip.length ? tip : here)), shaded(average(geo, mid.length ? mid : here))] });
+  }
+  if (petals.length < 3) return null;
+  const points = [], attrs = [], faces = [];
+  for (const up of [1, -1]) {
+    const hub = points.length, ref = [cx, hubY - up * H * 4, cz]; // (faces turned away from a point far below, or far above)
+    points.push([cx, hubY, cz]); attrs.push(hubLook);
+    for (const { pts, looks } of petals) {
+      const b = points.length;
+      pts.forEach((q, j) => { points.push(q); attrs.push(looks[j]); });
+      faces.push([hub, b, b + 1, ref], [hub, b + 1, b + 2, ref]);
+    }
+  }
+  const g = assemble(geo, points, faces, attrs);
+  g.userData.fronds = true; // (two-sided leaves, not a closed shell: far-model-check)
+  return g;
 }
 
 export function farTrunk(geo) {

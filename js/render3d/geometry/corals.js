@@ -97,8 +97,11 @@ export function platingCoral(opts, seed, lod = 0) {
 // and deeply fluted, each with five big ribs that run from the hinge out to the rim, so the rims
 // are zig-zagged and the two shells' points interlock along the gape. (The mantle is drawn by
 // shrub('clam'), in the clam's own colour; these take a shell colour.)
-export function clamShell(seed = 1) {
-  const parts = [], L = 0.44, W = 0.15, H = 0.085, U = 60, V = 12, PH = 0.82 * Math.PI;
+// lod 1 (distant, also at play zoom) and 3 (far) sample the shell more coarsely: every rib's
+// crest and groove still falls on a sample (U a multiple of 10), so the zig-zag rims stay exact.
+// Triangles: 5760 close, 960 distant, 240 far.
+export function clamShell(seed = 1, lod = 0) {
+  const parts = [], L = 0.44, W = 0.15, H = 0.085, U = lod === 3 ? 10 : lod ? 20 : 60, V = lod === 3 ? 3 : lod ? 6 : 12, PH = 0.82 * Math.PI;
   for (const side of [1, -1]) {
     const pos = [], col = [], idx = [];
     for (let i = 0; i <= U; i++) {

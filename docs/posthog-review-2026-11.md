@@ -120,7 +120,7 @@ Read them a week after this goes live. The questions to ask:
 Sumatra on computers: 18 fps, drawing 26 ms, chip 24 ms, 3.6M triangles (7M after 15 minutes).
 Amazon: chip 39 ms.
 
-1. **Far models for palms (S–M, Sumatra 2–3× fewer triangles).** Measured in a fresh Sumatra game
+1. **Far models for palms (S–M, Sumatra 2–3× fewer triangles). Done 2026-11-10, with giant clams (decision 0022).** Measured in a fresh Sumatra game
    on Fast: 2,474+ oil-palm crowns at 476 triangles each = 1.75M of the view's 2.5M triangles.
    `far-models.js` skips palms, bamboo and corals ("keeps its distant model"). A far palm with
    about 40 triangles (crossed fronds) looks the same at the size palms are drawn zoomed out (a few
