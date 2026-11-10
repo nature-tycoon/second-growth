@@ -3,7 +3,8 @@
 ## Rules
 
 - One hunt for every hunter on every map: `huntStep` in `sim/animal-life.js` (approach, creep, rush, circle, `ease`). Hunts move only through `wl.stepToward` (0025); a pounce moves along the ground through it too.
-- Balance anchor: each species' kills per year stay where they were tuned, not real per-hunt success rates. The catch roll on contact is unchanged (`predationCatchChance`). Anything that changes escape odds (a tried "jink" did) needs the catch odds retuned with it.
+- Balance anchor: each species' kills per year stay where they were tuned, not real per-hunt success rates. The catch roll on contact is unchanged (`predationCatchChance`). Anything that changes escape odds needs kills measured before and after (`hunt-check` and `predation-soak`, or more seeds), and the catch odds retuned with it if they move.
+- Prey with the `jinks` trait (rabbits, gazelles, impala, deer by kind; elk and sambar opt out) cut sideways in flight as a rushing hunter springs or comes within a body length (`JINK`, `jinkLine`), at most 3 times a flight. While the prey is cutting, `huntStep` gives the hunter no close-range turn boost and no snap onto it, so it overshoots.
 - Per-style numbers live in `STYLES` (stalk, cheetah, chase, ambush, strike, wade, pursue, stoop): `accel`, `turn`, stamina, patience, `pounce`, `reach`.
 - `hunt.v` and `hunt.line` are the hunter's own speed and line (`hunt.hd` before 2026-11): anything that stops or turns a hunter mid-hunt sets them, not `a.x`/`a.heading`.
 - End a hunt from outside `huntStep` only through `letGo` (cooldown, ease, rest), never by setting `idle`. A miss goes through `pressOn`. `ease` is a hunt phase (`a.state` stays `hunt`).
@@ -12,7 +13,7 @@
 - Snakes hunt in the `strike` style: only prey within `reach`, still and hidden, `lieInWait` when hungry.
 - Drawing: `hunt.leap` (`u`, `arc`) and `hunt.lunge` are what `actors.js` reads. A negative `fly` means a leap (legs stretched): keep `fly` ≥ 0 for everything else and clamp `max(fly, 0.0)` where the shader scales by `1 - fly`.
 - Rates are per day: check balance with both `balance-sim` (0.1-day steps) and `hunt-check` (0.02).
-- Checks: `node tools/hunt-check.mjs`, `node tools/predation-soak.mjs 12`, `tools/snake-hunt-probe.mjs`, `tools/pounce-probe.mjs`, plus animal-life, prey-avoidance, activity, challenging-ecology, consistency and seeded `balance-sim restore 15`.
+- Checks: `node tools/hunt-check.mjs` (seeds 1987, 91, 5; each limit judged on the median), `node tools/predation-soak.mjs 12`, `tools/snake-hunt-probe.mjs`, `tools/pounce-probe.mjs`, plus animal-life, prey-avoidance, activity, challenging-ecology, consistency and seeded `balance-sim restore 15`.
 
 ## History
 
@@ -220,6 +221,48 @@ score 64.7/65.3/62.6 → 60.9/64.3/62.8, mature trees 27/33/40 → 28/49/30, rab
 `hunt-check` passes on seeds 91 and 5. On 1987 the cheetah's median stalk comes out at 0.62 days
 (limit 1.5): the run takes another path after the first leap, and the code before this change
 gives cheetahs the same short stalks on seed 5 (0.58), so it's that seed, not the pounce.
+
+### Prey jink sideways (2026-11-09)
+
+Cole picked "prey jink sideways" (wave3): hares, gazelles and impala cut sideways when a chaser is
+a body length or two behind, and the faster, less agile chaser overshoots. Keep kills per year by
+raising the catch odds a little, not by weakening the jink.
+
+- **Who.** The `jinks` trait (`animal-kinds.js`): on by kind for rabbits, gazelles, impala and deer;
+  elk (300 kg) and sambar (180 kg) set `jinks: false`, as big deer run straight.
+- **When.** In flight from a hunter that is rushing it (`th.hunt.phase === 'rush'`), each time the
+  hunter springs (`hunt.leap`) or comes within 0.6 tiles plus one of its body lengths, with odds
+  0.7. At most 3 jinks a flight, 0.4 days apart. Owls and hawks on a rabbit count too.
+- **How** (`JINK`, `jinkLine` in `fleeUpdate`). 1.4 rad (80°) off its line, to the side further from
+  where the hunter's run is carrying it, swinging at 40 rad a day (flight turns at 14), held 0.18
+  days (about a quarter of a second at normal speed, 0.4 s at watch pace) at 85% pace. It moves
+  through `stepToward` like any flight. While the prey is cutting, `huntStep` gives the hunter no
+  ×3 close-range turn and no snap onto the prey, so it runs on along its line and swings round at
+  its style's `turn`.
+- **The earlier try** (2026-11-08) jinked after a missed catch roll and let far more brush rabbits
+  get away. This one jinks before the grab, and the catch roll for jinking prey is 0.48 (was 0.45,
+  `catchOdds`).
+
+Results. Kills of jinking prey, hungry hunters at 0.02-day steps (hunt-check's setup), 200 days,
+seeds 1987, 91, 5, 7, 11, 23, on Serengeti, PNW and Atlanta: 98 before; 91 with the jink (−7%); 96
+with the catch odds raised. 102 jinks in that run, about one per kill. At balance-sim's 0.1-day
+step (4 years, seeds 7, 11, 23, 31, 43, 59): 264 before, 263 with the jink, 279 with both.
+`pounce-probe`: cheetah leaps still land (15 of 15: its lunge from 0.9 tiles is too quick for the cut
+to take the prey out of reach), leopards 4 of 6, fox 5 of 6, so the jink shows most against the
+longer springs and against dogs and raptors.
+
+`predation-soak 12` (seeds 7, 11, 23), kills per hunter-year before → after: cheetah 3.3 → 3.1,
+leopard 2.2 → 1.3, lion 1.5 → 1.6, hyena 1.3 → 1.3, bobcat 2.6 → 2.1, cougar 2.3 → 2.4, coyote 3.1 →
+2.0 (PNW) and 4.5 → 6.6 (Atlanta), fox 5.6 → 5.5, owl 6.6 → 6.3 (PNW); maps without jinking prey
+unchanged. Both ways, as wide as the seed spread in the pounce change above. PNW rabbits at year 12:
+21.7 → 11.3. Seeded `calibrate` 15 years: no finding came or went that holds up; PNW rabbits
+(median of 6 seeds) 10.5 → 17 and Atlanta cottontails 24 → 25.5, chipmunks 16 → 15.5 (3 seeds
+had shown chipmunks 10 → 0). PNW rabbits are the number to watch.
+
+`hunt-check` now runs seeds 1987, 91 and 5 and judges each limit on the median over the seeds with
+enough hunts to judge it, if that is at least half of them. A limit only one seed can judge is
+printed as a note: on 1987 the cheetah's stalk is 0.58 days with the jink (1.66 before), but over
+seeds 7, 11, 23, 42 and 1987 its median stalk is 1.50 before and 1.64 after, so that's the seed's path.
 
 ### Gotchas
 

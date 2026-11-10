@@ -15,8 +15,9 @@
 //   rehunt     the same hunter starting on the same prey again within 4 days of a failed hunt, per
 //              failed hunt, and idleRe the median days between. The old stop-and-start-again was
 //              that, straight into another sprint after 1.5 days standing: `restart` counts those.
-// It fails on the limits in decision 0026 (problems() below); --report only prints. SEED=91 another
-// seed, DAYS=150 a longer run, TRACE=1 a few hunts step by step, BUDGET=1 how each hunter spends its time.
+// It fails on the limits in decision 0026 (checks() below), each judged on its median over seeds
+// 1987, 91 and 5 (when at least half of them have enough hunts to judge it); --report only
+// prints. SEED=91 one seed (or SEED=1,2,3 others), DAYS=150 a longer run, TRACE=1 a few hunts step by step, BUDGET=1 how each hunter spends its time.
 import { pathToFileURL } from 'node:url';
 import { BIOMES } from '../js/biome.js';
 import { restoredGame } from './map-audit-fixtures.mjs';
@@ -110,34 +111,51 @@ function row(key, s) {
     `  gaps ${(s.chase ? 100 * s.gaps / s.chase : 0).toFixed(1).padStart(4)}/100  rehunt ${pct(s.rehunt, s.failed).padStart(4)}  restart ${pct(s.restart, s.failed).padStart(4)}  idleRe ${median(s.idleRe).toFixed(2)}`;
 }
 
-// The limits in decision 0026, for a species with enough hunts to judge.
-export function problems(map, by, cat) {
-  const out = [];
+// The limits in decision 0026, for a species with enough hunts to judge: each check's value, and
+// whether that value is over its limit.
+export function checks(map, by, cat) {
+  const out = [], add = (id, v, bad, msg) => out.push({ id, v, test: bad, bad: bad(v), msg: v => `${map}/${id.split(':')[0]}: ${msg(v)}` });
   for (const [key, s] of Object.entries(by)) {
-    if (s.chase >= 50 && s.gaps / s.chase > 0.01) out.push(`${map}/${key}: ${(100 * s.gaps / s.chase).toFixed(1)} stops per 100 chase steps (limit 1)`);
+    if (s.chase >= 50) add(key + ':gaps', 100 * s.gaps / s.chase, v => v > 1, v => `${v.toFixed(1)} stops per 100 chase steps (limit 1)`);
     // (not birds: a hawk on a perch drops straight on its prey, which is how it hunts)
-    if (cat.animal[key]?.move !== 'fly' && s.failed >= 5 && s.restart / s.failed > 0.1) out.push(`${map}/${key}: ${(100 * s.restart / s.failed).toFixed(0)}% of failed hunts followed within 2 days by a sprint straight at the same prey (limit 10%)`);
-    if (s.hunts >= 25 && !s.catch) out.push(`${map}/${key}: ${s.hunts} hunts and no catch`);
-    if (cat.animal[key]?.sprite.kind === 'feline' && s.stalked >= 8 && median(s.stalk) < 1.5) out.push(`${map}/${key}: median stalk ${median(s.stalk).toFixed(2)} days (at least 1.5)`);
+    if (cat.animal[key]?.move !== 'fly' && s.failed >= 5) add(key + ':restart', 100 * s.restart / s.failed, v => v > 10, v => `${v.toFixed(0)}% of failed hunts followed within 2 days by a sprint straight at the same prey (limit 10%)`);
+    if (s.hunts >= 25) add(key + ':catch', s.catch, v => !v, v => `${s.hunts} hunts and ${v} catches`);
+    if (cat.animal[key]?.sprite.kind === 'feline' && s.stalked >= 8) add(key + ':stalk', median(s.stalk), v => v < 1.5, v => `median stalk ${v.toFixed(2)} days (at least 1.5)`);
   }
   return out;
 }
+export const problems = (map, by, cat) => checks(map, by, cat).filter(c => c.bad).map(c => c.msg(c.v));
 
+// Seeds 1987, 91 and 5 by default (SEED=n for one): a hunt-to-hunt measure swings a lot with the
+// seed, so each limit is judged on the median over the seeds, and kills/10d is reported as one too.
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const seed = +(process.env.SEED || 1987);
-  const list = maps.length ? maps : Object.keys(BIOMES), failures = [];
+  const seeds = (process.env.SEED || '1987,91,5').split(',').map(Number);
+  const list = maps.length ? maps : Object.keys(BIOMES), failures = [], notes = [];
   for (const map of list) {
-    const { by, cat } = measure(map, { seed });
-    failures.push(...problems(map, by, cat));
-    const keys = Object.keys(by);
-    if (!keys.length) continue;
-    console.log(`\n${map}`);
-    for (const k of keys.sort()) if (by[k].hunts) console.log(row(k, by[k]));
-    if (process.env.BUDGET) for (const k of keys.sort()) if (by[k].hunts) console.log(`  ${k}: ` + Object.entries(by[k].time).sort((x, y) => y[1] - x[1]).map(([w, v]) => `${w} ${(100 * v / by[k].hunterDays).toFixed(0)}%`).join(' '));
-    if (process.env.TRACE) for (const k of keys) for (const q of by[k].seq) {
-      console.log(`  ${k} ${q.how}: ` + q.steps.filter((_, i) => i % 3 === 0).map(([p, m, d, st]) => `${p[0] === 'X' ? 'X' + p[1] : p[0]}${m}@${d}${st}`).join(' '));
+    const all = new Map(), kills = {};
+    for (const seed of seeds) {
+      const { by, cat } = measure(map, { seed });
+      for (const c of checks(map, by, cat)) (all.get(c.id) || all.set(c.id, []).get(c.id)).push(c);
+      const keys = Object.keys(by);
+      if (!keys.length) continue;
+      console.log(`\n${map} (seed ${seed})`);
+      for (const k of keys.sort()) if (by[k].hunts) { console.log(row(k, by[k])); (kills[k] ||= []).push(10 * by[k].catch / Math.max(1, by[k].hunterDays)); }
+      if (process.env.BUDGET) for (const k of keys.sort()) if (by[k].hunts) console.log(`  ${k}: ` + Object.entries(by[k].time).sort((x, y) => y[1] - x[1]).map(([w, v]) => `${w} ${(100 * v / by[k].hunterDays).toFixed(0)}%`).join(' '));
+      if (process.env.TRACE) for (const k of keys) for (const q of by[k].seq) {
+        console.log(`  ${k} ${q.how}: ` + q.steps.filter((_, i) => i % 3 === 0).map(([p, m, d, st]) => `${p[0] === 'X' ? 'X' + p[1] : p[0]}${m}@${d}${st}`).join(' '));
+      }
+    }
+    if (seeds.length > 1 && Object.keys(kills).length) console.log(`${map} median kills/10d: ` + Object.entries(kills).sort().map(([k, v]) => `${k} ${median(v).toFixed(2)}`).join('  '));
+    // (over the seeds with enough hunts to judge it; with fewer than half the seeds, one seed's
+    // path would decide it, so it is only noted)
+    for (const cs of all.values()) {
+      const v = median(cs.map(x => x.v));
+      if (!cs[0].test(v)) continue;
+      if (cs.length * 2 >= seeds.length) failures.push(cs[0].msg(v) + (seeds.length > 1 ? ` [median of ${cs.length} seeds]` : ''));
+      else notes.push(cs[0].msg(v) + ` [${cs.length} of ${seeds.length} seeds had enough hunts: not judged]`);
     }
   }
+  if (notes.length) console.log('\n' + notes.join('\n'));
   if (failures.length) { console.log('\n' + failures.join('\n')); if (strict) process.exit(1); }
-  else console.log('\nhunt-check: within the 0026 limits');
+  else console.log('\nhunt-check: within the 0026 limits' + (seeds.length > 1 ? ` (median over seeds ${seeds.join(', ')})` : ''));
 }

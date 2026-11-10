@@ -8,7 +8,7 @@ import { removeTree } from './plants.js';
 import { moment, momentFree } from './moments.js';
 import { browseSapling, predationCatchChance, preyCover, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-positioning.js';
-import { huntStyle, stalkCoverAt, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
+import { huntStyle, stalkCoverAt, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, catchOdds, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate, carryCatch, carryUpdate } from './bird-behavior.js';
 import { climberChoose, climberArrive, fullTrees } from './climbers.js';
 import { fishChoose, fishArrive, fishUpdate, fishStrike, fishing, fishFed, isFish } from './fishing.js';
@@ -91,7 +91,7 @@ class Animal {
   momSlot; familyFailures; patrolDir; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkOn;
-  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey;
+  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; jink; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -1269,7 +1269,7 @@ export class Wildlife {
           // Only an actual catch or carcass meal satisfies hunger.
           // (a swimmer in the crossing can't run or turn: the crocodiles' best chance all year)
           const swimmer = def.ambush && inCrossing(this, b);
-          if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def, swimmer ? 0.7 : 0.45)) {
+          if ((this.game.diff.ecology ? this.game.rng() : Math.random()) < predationCatchChance(this.game, b, def, swimmer ? 0.7 : catchOdds(this.game.catalog.animals[b.sp]))) {
             a.state = 'idle'; a.wait = 1.5; endHunt(a);
             a.hunger = 0;
             if (swimmer) a.crossRest = this.game.day + 2;
@@ -2100,7 +2100,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, settleKey, headUp, headUpKey, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, jink, settleKey, headUp, headUpKey, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,

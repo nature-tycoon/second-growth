@@ -32,6 +32,8 @@
 //   fearsHunters  a small bird that takes any bird-eater about (scaresSmallBirds) for a threat,
 //                 even one outside the map's food web (bird-behavior.js)
 //   scaresSmallBirds  small birds take it for a threat (bird-behavior.js)
+//   jinks         a runner that escapes by cutting hard to one side as its hunter closes in, so the
+//                 faster hunter overshoots: hares, gazelles, impala, deer (animal-life.js, decision 0026)
 //
 // Traits set on a species only (no kind default):
 //   wallow        { size, rut }: it wears a wallow in damp ground, `size` how big a dish (1 for an
@@ -45,8 +47,8 @@ const graze = { idleEat: 'graze' }, nibble = { idleEat: 'nibble' }, firm = { fir
 const smallBird = { restless: true, fearsHunters: true };
 
 export const KIND_TRAITS = {
-  deer: graze, rabbit: graze, rodent: graze, peccary: graze, agouti: graze,
-  gazelle: graze, impala: graze, buffalo: graze, warthog: graze,
+  deer: { ...graze, jinks: true }, rabbit: { ...graze, jinks: true }, rodent: graze, peccary: graze, agouti: graze,
+  gazelle: { ...graze, jinks: true }, impala: { ...graze, jinks: true }, buffalo: graze, warthog: graze,
   capybara: { ...graze, floats: true }, tapir: { ...graze, floats: true },
   zebra: { ...graze, floats: true }, wildebeest: { ...graze, floats: true }, // (the migrating herds swim the river)
   rhino: { ...graze, ...firm }, elephant: { ...graze, ...firm }, hippo: { ...graze, ...firm, floats: true },
@@ -76,4 +78,4 @@ export const trait = (def, name) => def[name] ?? KIND_TRAITS[def.sprite?.kind]?.
 export const climbStyle = def => def.sprite?.ape ? 'swing' : trait(def, 'climb');
 
 // The fields above a species may set (contracts.js checks them).
-export const TRAIT_BOOLEANS = 'floats alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans';
+export const TRAIT_BOOLEANS = 'floats alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks';

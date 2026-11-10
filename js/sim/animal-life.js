@@ -19,6 +19,7 @@ import { wakeDormant } from './animal-dormancy.js';
 import { drinkEvery } from './home-range.js';
 import { markRisk } from './predation-risk.js';
 import { inWood } from './ground-obstacles.js';
+import { trait } from '../data/animal-kinds.js';
 
 // How each kind of hunter closes in (decision 0026). approach, creep and sprint are multiples of its
 // usual speed; it creeps once inside `near` tiles and rushes once inside `rush` tiles. The rest is
@@ -235,12 +236,14 @@ export function huntStep(wl, a, def, b, sp) {
   // easing off while it swings round
   const aim = Math.atan2(ty - a.y, tx - a.x) + (H.phase === 'creep' ? H.coverOff || 0 : 0);
   H.line ??= a.heading ?? aim;
-  const turn = S.turn * t * (d < 1.2 ? 3 : 1);
+  // (close in it turns faster for the grab, but not after a prey cutting to one side: it overshoots)
+  const jinked = b.jink?.t > 0;
+  const turn = S.turn * t * (d < 1.2 && !jinked ? 3 : 1);
   H.line = wrap(H.line + clamp(wrap(aim - H.line), -turn, turn));
   const step = sp * H.v * Math.max(0.3, Math.cos(wrap(aim - H.line)));
   a.run = H.v;
   // at arm's length it closes on the prey itself
-  const close = touch && d < step + 0.5;
+  const close = touch && !jinked && d < step + 0.5;
   const gx = close ? b.x : a.x + Math.cos(H.line) * Math.max(step, 0.6), gy = close ? b.y : a.y + Math.sin(H.line) * Math.max(step, 0.6);
   if (S.grounded) {
     const w = wl.game.world, l = Math.hypot(gx - a.x, gy - a.y) || 1, s = Math.min(step, l);
@@ -511,7 +514,7 @@ export function bolt(wl, a, threat, speed, time, delay = 0, range = 4) {
   // a fresh flight from one of its own hunters is remembered, more faintly than a kill
   const hunter = wl.game.catalog.animals[threat.sp]; // (a threat can also be a fire or a person)
   if (a.state !== 'flee' && hunter && preyFor(hunter, wl.game)?.includes(def.key)) markRisk(wl, a.sp, a.x, a.y, 0.25);
-  if (a.state !== 'flee') { a.fleeAge = 0; a.fleeHd = null; } // (a flight already under way keeps its speed and line)
+  if (a.state !== 'flee') { a.fleeAge = 0; a.fleeHd = null; a.jink = null; } // (a flight already under way keeps its speed and line)
   a.state = 'flee'; a.path = null; a.threat = threat.id; a.fleeOff = 0;
   a.fx = fx; a.fy = fy; a.fleeT = time; a.fleeSpeed = speed; a.fleeDelay = delay;
   a.fleeSide = Math.random() < 0.5 ? -1 : 1;
@@ -530,6 +533,39 @@ function groundAround(wl, a) {
 }
 const FLEE_TURN = 14; // (radians a day a running animal can swing its line: a quarter turn in about a tenth of a day)
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
+// The jink (trait `jinks`: hares, gazelles, impala, deer). As its hunter, flat out, comes within a
+// body length or so behind, or springs at it, a runner cuts hard to one side (`cut` radians off
+// its line, swinging at `turn` radians a day) and holds the new line for `t` days, losing a little
+// pace (`pace`). The hunter, faster but slower to turn, runs on past and has to swing round
+// (huntStep). It doesn't always manage it (`odds`, rolled each time the hunter closes), and at most
+// `n` times a flight, with `rest` days between: a long chase still wears it down.
+const JINK = { cut: 1.4, turn: 40, t: 0.18, pace: 0.85, odds: 0.7, n: 3, rest: 0.4 };
+// The catch roll on contact (0.45, decision 0026): a little higher on prey that jinks, so its
+// hunters kill about as often as before the jink, which cost them about 7% of their kills.
+export const catchOdds = pdef => trait(pdef, 'jinks') ? 0.48 : 0.45;
+function jinkLine(wl, a, th, dt, look, safe) {
+  const J = a.jink ||= { t: 0, n: 0, wait: 0, near: false, hd: 0 };
+  J.wait -= dt;
+  if (J.t > 0) { if ((J.t -= dt) > 0) return J.hd; J.wait = JINK.rest; }
+  const H = th.state === 'hunt' && th.target === a.id ? th.hunt : null;
+  // (as the hunter springs, or comes within a body length of a grab)
+  const d = dist(a, th), near = H?.phase === 'rush' && (!!H.leap || d > 0.6 && d < 0.6 + animalRadius(th, wl.game.catalog) / 0.65);
+  const fresh = near && !J.near;
+  J.near = near;
+  if (!fresh || J.n >= JINK.n || J.wait > 0 || Math.random() > JINK.odds) return null;
+  // to whichever side takes it further from where the hunter's run is carrying it
+  const was = a.fleeHd ?? a.heading ?? Math.atan2(a.fy, a.fx), line = H.line ?? Math.atan2(a.y - th.y, a.x - th.x);
+  const px = th.x + Math.cos(line) * (d + 0.5), py = th.y + Math.sin(line) * (d + 0.5);
+  let best = -1;
+  for (const side of [1, -1]) {
+    const hd = was + side * JINK.cut, x = a.x + Math.cos(hd) * look, y = a.y + Math.sin(hd) * look;
+    const far = Math.hypot(x - px, y - py);
+    if (safe(x, y, false) && far > best) { best = far; J.hd = hd; }
+  }
+  if (best < 0) return null;
+  J.t = JINK.t; J.n++;
+  return J.hd;
+}
 export function fleeUpdate(wl, a, def, dt) {
   const th = byId(wl, a.threat), w = wl.game.world;
   if (a.fleeDelay > 0) {
@@ -585,6 +621,8 @@ export function fleeUpdate(wl, a, def, dt) {
   // (the others on the ground close enough to run into, gathered once for every way it weighs)
   const mates = escaping && wl.spacing?.w === w ? groundAround(wl, a) : null, r = mates?.length ? animalRadius(a, wl.game.catalog) : 0;
   const crowd = (x, y) => { let c = 0; if (mates) for (const e of mates) c += Math.max(0, r + e.r + 0.04 - Math.hypot(x - e.a.x, y - e.a.y)); return c; };
+  const jink = escaping && trait(def, 'jinks') ? jinkLine(wl, a, th, dt, look, safe) : null;
+  if (jink != null) chosen = { c: Math.cos(jink), s: Math.sin(jink), off: 0, jink: true };
   if (a.fleeT > 0) for (let pass = 0; pass < 2 && !chosen; pass++) {
     let best = -Infinity;
     for (const off of turns) {
@@ -605,24 +643,25 @@ export function fleeUpdate(wl, a, def, dt) {
     }
   }
   if (chosen) {
-    const { c, s, off } = chosen;
+    const { c, s, off } = chosen, turn = (chosen.jink ? JINK.turn : FLEE_TURN) * dt;
     // It turns toward that way fast, but not in one step, and runs on through the shared step,
     // which curves round trunks and slides off them like any walk (animals.js stepToward).
     const want = Math.atan2(s, c), was = a.fleeHd ?? a.heading ?? want;
-    const h = was + clamp(wrap(want - was), -FLEE_TURN * dt, FLEE_TURN * dt);
+    const h = was + clamp(wrap(want - was), -turn, turn);
     a.fleeHd = h;
     // (still swinging round, it gathers itself rather than running on the old line: toward the danger, maybe.
     // With that line blocked, a wall or a fence ahead, it turns on the spot: snapping to the open way
     // in one step, a chipmunk cornered by a house spun round half a turn at a time)
     const blocked = !safe(a.x + Math.cos(h) * look, a.y + Math.sin(h) * look, true);
     if (blocked) facePoint(a, a.x + Math.cos(h), a.y + Math.sin(h));
-    else wl.stepToward(a, a.x + Math.cos(h) * look, a.y + Math.sin(h) * look, step * Math.max(0.3, Math.cos(wrap(want - h))));
+    else wl.stepToward(a, a.x + Math.cos(h) * look, a.y + Math.sin(h) * look, step * (chosen.jink ? JINK.pace : 1) * Math.max(0.3, Math.cos(wrap(want - h))));
+    if (chosen.jink) return; // (its line of flight picks up again from the new heading once the cut is done)
     if (off) { const mix = 1 - Math.exp(-dt * 10); a.fx += (c - a.fx) * mix; a.fy += (s - a.fy) * mix; }
     a.fleeOff = off;
     return;
   }
   // safe (or cornered): stop and look back
-  a.state = 'idle'; a.run = null; a.fleeT = 0; a.fleeHd = null;
+  a.state = 'idle'; a.run = null; a.fleeT = 0; a.fleeHd = null; a.jink = null;
   a.wait = a.play ? 0.3 + Math.random() * 0.5 : 0.6 + Math.random();
   if (th && !a.play) { facePoint(a, th.x, th.y); a.alertT = 1.2 + Math.random(); }
   a.play = false; a.threat = null; a.fromFire = false;
