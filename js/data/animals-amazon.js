@@ -214,10 +214,10 @@ export default function buildAmazonAnimals(def) {
       hint: 'Ponds, marshes and slow water.' });
   }
   {
-    const w = habW({ MARSH: 1, POND: 0.9, CREEK: 0.7, RIPARIAN: 0.6 });
+    const w = habW({ MARSH: 1, POND: 0.9, CREEK: 0.9, RIPARIAN: 0.85 });
     def({ key: 'anaconda', name: 'Green anaconda', sci: 'Eunectes murinus', group: 'Reptiles & amphibians', move: 'semi',
-      speed: 0.5, hr: 25, max: 4, sources: ['S'], mig: 0.2, breed: [2], litter: [4, 6], life: 20, mature: 3,
-      prey: ['capybara'], preyPer: 6,
+      speed: 0.5, hr: 19, max: 4, sources: ['S'], mig: 0.2, breed: [2], litter: [4, 6], life: 20, mature: 3,
+      prey: ['capybara'], preyPer: 4,
       suit: (W, i) => w[W.habitat[i]],
       sprite: { kind: 'snake', heavy: true, size: 30, color: '#5a6a2a', stripe: '#5a6a2a', side: '#141410', blotches: '#16160f', belly: '#c8b860' },
       desc: 'The heaviest snake on Earth. Lies in swampy shallows with only its eyes above the surface.',

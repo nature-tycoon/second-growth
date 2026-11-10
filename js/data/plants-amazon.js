@@ -82,7 +82,7 @@ export default function buildAmazonPlants(def, mix, get) {
     desc: 'The first tree up in any clearing: pale trunk and giant umbrella leaves. Sloths love it, and ants guard it.' });
   def({ key: 'inga', name: 'Ice-cream bean (ingá)', sci: 'Inga edulis', layer: 2, heightM: 12, nfix: true,
     moist: [0.3, 0.95], light: [0.45, 1], grow: 0.008, spread: 0.01, radius: 4, life: 40, matureAge: 30, mast: 0.5, cost: 16,
-    look: { type: 'inga', leaf: '#4f8a3e', bark: '#8a7a64', berry: '#e8e4c8', fruit: [8, 9], hangFruit: true, fruitSize: 1.6 },
+    look: { type: 'inga', leaf: '#4f8a3e', bark: '#8a7a64', berry: '#b8c85a', fruit: [8, 9], hangFruit: true, fruitSize: 1.6 },
     desc: 'Fixes nitrogen, shades out grass fast, and its sweet pods feed monkeys and people. A restoration workhorse.' });
   def({ key: 'balsa', name: 'Balsa', sci: 'Ochroma pyramidale', layer: 2, heightM: 25,
     moist: [0.25, 0.9], light: [0.65, 1], grow: 0.011, spread: 0.012, radius: 6, life: 30, matureAge: 99, cost: 14,

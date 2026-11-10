@@ -42,7 +42,9 @@ export default function buildReefAnimals(def) {
     // (over living coral heads rather than inside staghorn thickets, and never over bleached coral)
     suit: (W, i) => coral(W, i) * (1 - 0.5 * branching(W, i)) * (1 - (W.bleach?.[i] || 0)),
     req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 150) / 300),
-    sprite: { kind: 'fish', size: 5, back: '#f07a3c', flank: '#f68a58', belly: '#f8b8a0', finColor: '#e8608c', tailShape: 'lunate', spiny: true, swim: 0.55, dive: true, show: 4.5 },
+    sprite: { kind: 'fish', size: 5, back: '#f07a3c', flank: '#f68a58', belly: '#f8b8a0', finColor: '#e8608c', tailShape: 'lunate', spiny: true, swim: 0.55, dive: true, show: 4.5,
+      // (about one male in eight, so a school of 8-16 has a male or two over its orange females)
+      male: { back: '#b03ec0', flank: '#c85ad0', belly: '#e8a8e0', finColor: '#a02ca8', longSpine: true }, maleShare: 0.12, maleName: 'adult male' },
     desc: 'Orange-pink clouds of little fish hanging over a coral head in the current, each one snapping plankton out of the water. When a hunter comes near the whole school drops into the coral at once. Every school is mostly females with a few magenta males, and if a male dies, the biggest female turns into one.',
     hint: 'Living, unbleached coral heads.' });
   def({ key: 'tang', reef: true, name: 'Blue tang', sci: 'Paracanthurus hepatus', group: 'Fish', move: 'ground',
