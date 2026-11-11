@@ -7,7 +7,8 @@ register('./three-loader.mjs', import.meta.url);
 const { loadAnimals, ANIMALS } = await import('../js/data/animals.js');
 const { buildSpecies } = await import('../js/render3d/fauna.js');
 const { adultAnimalScale } = await import('../js/render3d/animal-scale.js');
-const actors = fs.readFileSync(new URL('../js/render3d/actors.js', import.meta.url), 'utf8');
+// (the drawing of a swimmer: its tail beat in actors-swim.js, the phase it's drawn with in actors-common.js)
+const actors = ['actors-swim.js', 'actors-common.js'].map(f => fs.readFileSync(new URL('../js/render3d/' + f, import.meta.url), 'utf8')).join('\n');
 const material = fs.readFileSync(new URL('../js/render3d/animals/animal-material.js', import.meta.url), 'utf8');
 const STRIDE = +actors.match(/const SWIM_STRIDE = ([\d.]+)/)[1];
 let checks = 0;

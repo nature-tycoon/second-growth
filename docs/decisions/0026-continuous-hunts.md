@@ -11,7 +11,7 @@
 - A frozen stalker doesn't turn to face its prey (its capsule would swing into trunks). Don't start hunts on unreachable prey (`huntBlocked`).
 - Cats, and foxes and coyotes on prey up to 4 kg, end a rush in a pounce (`pounce`, `pounceFor`, `startLeap`/`leapStep`); a leap that lands short is a miss. Others grab (`hunt.lunge`).
 - Snakes hunt in the `strike` style: only prey within `reach`, still and hidden, `lieInWait` when hungry.
-- Drawing: `hunt.leap` (`u`, `arc`) and `hunt.lunge` are what `actors.js` reads. A negative `fly` means a leap (legs stretched): keep `fly` ≥ 0 for everything else and clamp `max(fly, 0.0)` where the shader scales by `1 - fly`.
+- Drawing: `hunt.leap` (`u`, `arc`) and `hunt.lunge` are what `huntPose` (`actors-ground.js`) reads. A negative `fly` means a leap (legs stretched): keep `fly` ≥ 0 for everything else and clamp `max(fly, 0.0)` where the shader scales by `1 - fly`.
 - Rates are per day: check balance with both `balance-sim` (0.1-day steps) and `hunt-check` (0.02).
 - Checks: `node tools/hunt-check.mjs` (seeds 1987, 91, 5; each limit judged on the median), `node tools/predation-soak.mjs 12`, `tools/snake-hunt-probe.mjs`, `tools/pounce-probe.mjs`, plus animal-life, prey-avoidance, activity, challenging-ecology, consistency and seeded `balance-sim restore 15`.
 
