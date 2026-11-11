@@ -43,6 +43,22 @@ contact-shadow radii and reef stars.
 `perf-guard-check` with the deadwood fix: tiles worked in 100 frames, Amazon 124,791 → 48,411,
 Sumatra 144,205 → 54,985; draw calls, triangles and instances unchanged (baseline updated).
 
+**Timed on a quiet machine (2026-11-11, load 3–9, M5 on mains), old code vs the deadwood fix,
+back to back.** A game day's plant redraw in node (the release farms, two years grown, 25 days,
+two runs each): Sumatra 67–73 → 53 ms, Amazon 65–66 → 49–51, PNW 49 → 46–54, Serengeti 40–42
+→ 39–44 (no change where deadwood is scarce). Through the real frame loop (`play-profile
+sumatra,amazon high 2`, play and top-speed views, two alternating runs each), plants per frame:
+
+| | Sumatra play | Amazon play | Sumatra top speed | Amazon top speed |
+| --- | ---: | ---: | ---: | ---: |
+| Before | 0.54, 0.58 ms | 0.48, 0.56 | 4.7, 4.9 | 1.2, 1.8 |
+| After | 0.41, 0.52 | 0.39, 0.40 | 4.6, 5.0 | 1.3, 1.2 |
+
+About 0.1 ms a frame less at normal speed; at top speed the difference is inside the run-to-run
+noise (the views' triangle counts and frame rates swing more between runs than between
+versions). The redraw is a small part of the frame on the M5 at normal speed either way; it
+matters most at top speed and on processors several times slower.
+
 `growth-predict-probe` (in-map tiles, 60 days): a linear prediction from the last day's rate
 misses by more than 0.005 on about 490 of 3,560 changed tiles a day in PNW (460 of 3,750 in the
 Serengeti). The misses are mostly real: groundcover cropped by grazers (the largest), then
