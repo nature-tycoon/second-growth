@@ -210,17 +210,8 @@ export class WildlifeMove {
     [tx, ty] = clearSpot(this.game.world, a, def, tx, ty);
     let dx = tx - a.x, dy = ty - a.y;
     const d = Math.hypot(dx, dy);
-    // A reef fish never slides sideways at a target (hunting, leaving): it turns its nose toward
-    // it, no faster than a fish can, and swims along its heading, easing off in a tight turn.
-    if (this.game.catalog.animals[a.sp].reef && d > sp && sp > 0) {
-      let turn = Math.atan2(dy, dx) - a.heading;
-      turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
-      const rate = sp * 3.5; // (a turning circle: so much turn for each tile it swims)
-      a.heading += clamp(turn, -rate, rate);
-      const step = sp * Math.max(0.25, Math.cos(turn));
-      reefStep(this.game.world, a, step);
-      return Math.hypot(tx - a.x, ty - a.y) <= sp;
-    }
+    // (a reef fish swims along its heading toward it: reefToward)
+    if (this.game.catalog.animals[a.sp].reef && d > sp && sp > 0) return reefToward(this.game.world, a, tx, ty, dx, dy, sp);
     // (curve round a trunk or log ahead rather than walking into it)
     if (d > 0.02 && sp > 0) { const h = steerAround(this.game.world, a, def, Math.atan2(dy, dx), Math.min(d, 1.6)); dx = Math.cos(h) * d; dy = Math.sin(h) * d; }
     const was = a.heading;
@@ -231,52 +222,80 @@ export class WildlifeMove {
     // (a river fish keeps to water it can swim in: it may only move into the shallows to get out of
     // them, and across water as shallow as where it is: a catfish crossing a level marsh to a pool)
     if (a.move === 'swim' && !def.reef && d > 0) {
-      const w = this.game.world, here = swimDepth(w, a.x, a.y), need = fishDepth(def), swims = (x, y) => { const t = swimDepth(w, x, y); return t >= need || t > here || here < need && t >= here; };
-      if (!swims(nx, ny)) {
-        // it follows the channel round a shallow bar: the nearest heading either side that keeps to
-        // swimmable water. Held up half a day all the same (a creek running downhill is a staircase
-        // of pools, shallow at each lip: swimDepth), it hops the lip to the first swimmable water
-        // within a third of a tile ahead, as trout and salmon leap a riffle; it never rests in the
-        // shallows, where steering.js would put it back in the pool behind. Without this, fish
-        // pressed against one lip for years and the ones behind piled up at it.
-        const h0 = Math.atan2(dy, dx), ux = Math.cos(h0), uy = Math.sin(h0);
-        let found = false;
-        if (a.moveProgress?.stalled > 0.5) for (let t = step; !found && t <= Math.max(step, 0.35); t += 0.05) {
-          if (swimDepth(w, a.x + ux * t, a.y + uy * t) >= need) { nx = a.x + ux * t; ny = a.y + uy * t; found = true; }
-        }
-        // (the side it went round last time first: trying left then right afresh each step, a fish
-        // along a lip went left one step and right the next, its heading flipping half round a frame)
-        const side = a.detour || 1;
-        for (let k = 0; !found && k < 6; k++) {
-          const s = k & 1 ? -side : side, turn = (k >> 1) * 0.5 + 0.5, x = a.x + Math.cos(h0 + s * turn) * step, y = a.y + Math.sin(h0 + s * turn) * step;
-          if (swims(x, y)) { nx = x; ny = y; found = true; a.detour = s; }
-        }
-        if (!found) { a.heading = was; return false; } // (no way round: it stays as it was, not nosing at the bank)
-        facePoint(a, nx, ny); // (nose first round the bar: facing the target, it slid sideways along the bank)
-      }
+      if (!riverFishStep(this.game.world, a, def, nx, ny, dx, dy, step, was)) return false;
+      nx = TO.x; ny = TO.y;
     }
-    if (a.move !== 'fly' && !swimmer(a, this.game.catalog) && !a.leaving) {
-      const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
-      // (an animal stranded where it can't stand, say in a pond, may still move about its own tile
-      // and step out of it: otherwise every step lands in the same tile and it freezes there)
-      // (and the migration swims the river at the crossing, walking in from beyond the map's edge)
-      const crosser = !!this.game.catalog.animals[a.sp].crossing;
-      const can = (xx, yy) => !w.inb(xx, yy) ? crosser && !w.inb(x0, y0) : passable(w, w.idx(xx, yy), a) || (crosser && w.terrain[w.idx(xx, yy)] === T.RIVER);
-      const safe = (x, y) => {
-        const xx = Math.floor(x), yy = Math.floor(y);
-        return (can(xx, yy) || (xx === x0 && yy === y0)) && (xx === x0 || yy === y0 || can(xx, y0) && can(x0, yy));
-      };
-      if (!safe(nx, ny)) {
-        // Tile offsets and spacing can turn an orthogonal route into a diagonal
-        // corner cut. Slide along its open side; never step into the obstruction.
-        if (Math.abs(dx) > 0.001 && safe(nx, a.y)) a.x = nx;
-        else if (Math.abs(dy) > 0.001 && safe(a.x, ny)) a.y = ny;
-        return false;
-      }
-    }
+    if (a.move !== 'fly' && !swimmer(a, this.game.catalog) && !a.leaving && !groundStep(this.game, a, nx, ny, dx, dy)) return false;
     const fromX = a.x, fromY = a.y;
     a.x = nx; a.y = ny;
     resolveStep(this, a, def, fromX, fromY);
     return d <= sp;
   }
+}
+
+// ---- each mode's step (stepToward above takes them in turn)
+
+// Reef fish: never slides sideways at a target (hunting, leaving); it turns its nose toward it,
+// no faster than a fish can, and swims along its heading, easing off in a tight turn.
+function reefToward(w, a, tx, ty, dx, dy, sp) {
+  let turn = Math.atan2(dy, dx) - a.heading;
+  turn -= Math.round(turn / (Math.PI * 2)) * Math.PI * 2;
+  const rate = sp * 3.5; // (a turning circle: so much turn for each tile it swims)
+  a.heading += clamp(turn, -rate, rate);
+  const step = sp * Math.max(0.25, Math.cos(turn));
+  reefStep(w, a, step);
+  return Math.hypot(tx - a.x, ty - a.y) <= sp;
+}
+
+// River fish: where its step (nx, ny) lands, in TO; false when there's no way on.
+const TO = { x: 0, y: 0 };
+function riverFishStep(w, a, def, nx, ny, dx, dy, step, was) {
+  const here = swimDepth(w, a.x, a.y), need = fishDepth(def), swims = (x, y) => { const t = swimDepth(w, x, y); return t >= need || t > here || here < need && t >= here; };
+  if (!swims(nx, ny)) {
+    // it follows the channel round a shallow bar: the nearest heading either side that keeps to
+    // swimmable water. Held up half a day all the same (a creek running downhill is a staircase
+    // of pools, shallow at each lip: swimDepth), it hops the lip to the first swimmable water
+    // within a third of a tile ahead, as trout and salmon leap a riffle; it never rests in the
+    // shallows, where steering.js would put it back in the pool behind. Without this, fish
+    // pressed against one lip for years and the ones behind piled up at it.
+    const h0 = Math.atan2(dy, dx), ux = Math.cos(h0), uy = Math.sin(h0);
+    let found = false;
+    if (a.moveProgress?.stalled > 0.5) for (let t = step; !found && t <= Math.max(step, 0.35); t += 0.05) {
+      if (swimDepth(w, a.x + ux * t, a.y + uy * t) >= need) { nx = a.x + ux * t; ny = a.y + uy * t; found = true; }
+    }
+    // (the side it went round last time first: trying left then right afresh each step, a fish
+    // along a lip went left one step and right the next, its heading flipping half round a frame)
+    const side = a.detour || 1;
+    for (let k = 0; !found && k < 6; k++) {
+      const s = k & 1 ? -side : side, turn = (k >> 1) * 0.5 + 0.5, x = a.x + Math.cos(h0 + s * turn) * step, y = a.y + Math.sin(h0 + s * turn) * step;
+      if (swims(x, y)) { nx = x; ny = y; found = true; a.detour = s; }
+    }
+    if (!found) { a.heading = was; return false; } // (no way round: it stays as it was, not nosing at the bank)
+    facePoint(a, nx, ny); // (nose first round the bar: facing the target, it slid sideways along the bank)
+  }
+  TO.x = nx; TO.y = ny;
+  return true;
+}
+
+// Ground walkers (and anything else that isn't swimming, flying or leaving): false when the step
+// (nx, ny) can't be taken, after sliding along the open side.
+function groundStep(game, a, nx, ny, dx, dy) {
+  const w = game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+  // (an animal stranded where it can't stand, say in a pond, may still move about its own tile
+  // and step out of it: otherwise every step lands in the same tile and it freezes there)
+  // (and the migration swims the river at the crossing, walking in from beyond the map's edge)
+  const crosser = !!game.catalog.animals[a.sp].crossing;
+  const can = (xx, yy) => !w.inb(xx, yy) ? crosser && !w.inb(x0, y0) : passable(w, w.idx(xx, yy), a) || (crosser && w.terrain[w.idx(xx, yy)] === T.RIVER);
+  const safe = (x, y) => {
+    const xx = Math.floor(x), yy = Math.floor(y);
+    return (can(xx, yy) || (xx === x0 && yy === y0)) && (xx === x0 || yy === y0 || can(xx, y0) && can(x0, yy));
+  };
+  if (!safe(nx, ny)) {
+    // Tile offsets and spacing can turn an orthogonal route into a diagonal
+    // corner cut. Slide along its open side; never step into the obstruction.
+    if (Math.abs(dx) > 0.001 && safe(nx, a.y)) a.x = nx;
+    else if (Math.abs(dy) > 0.001 && safe(a.x, ny)) a.y = ny;
+    return false;
+  }
+  return true;
 }
