@@ -33,7 +33,7 @@ Branch: `claude/ideas-wave3` (from `claude/ideas-wave2` 3a3ec45, which already h
 Added 2026-11-09 (Cole). Notes: s4 is drawing and movement only, no balance. s5 keeps the lens (tracker) behaviour, changes only how plants give way. s6 needs the PostHog connector authorised (`/mcp`); if it isn't, it uses `docs/posthog-player-perf.md` and says what it couldn't reach.
 
 ## After the last wave3 session (Cole, via s8)
-| 7 | Refactor fix 8: split `render3d/actors.js` and `sim/animals.js` | first merge `claude/ideas-wave2` (a963a0f, ends in fix 5) into `claude/ideas-wave3`, run the guards in the brief, then start fix 8 in its own worktree from wave3. Not while any wave3 session edits those files. Brief: `~/Library/Application Support/Claude/side-session-notes/local_4092a99c-05b6-4e1c-90fb-a811f906d56e/fix8-split-giant-files-brief.md` | opus | M | [ ] |
+| 7 | Refactor fix 8: split `render3d/actors.js` and `sim/animals.js` | first merge `claude/ideas-wave2` (a963a0f, ends in fix 5) into `claude/ideas-wave3`, run the guards in the brief, then start fix 8 in its own worktree from wave3. Not while any wave3 session edits those files. Brief: `~/Library/Application Support/Claude/side-session-notes/local_4092a99c-05b6-4e1c-90fb-a811f906d56e/fix8-split-giant-files-brief.md` | opus | M | started (own worktree, from f20b763) |
 
 ## Parallel run (Cole, 2026-11-09: "start the other sessions that won't conflict")
 - s2 here on `claude/ideas-wave3`. s3, s5, s6 each in their own worktree cut from wave3; the coordinator merges their branches into wave3 when they land (Cole's OK).
