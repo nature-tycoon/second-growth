@@ -1,13 +1,14 @@
 # 0041 Plant growth on the GPU: re-send a plant only when it changes for real
 
-Status: proposed 2026-11-10, waiting for Cole's go-ahead before the shader refactor. Only the
-exact deadwood fix (Rules, first point) is in.
+Status: decided 2026-11-11. Cole kept the deadwood fix and chose not to build growth on the GPU:
+the measured gain (below) doesn't justify the refactor. Don't revisit without a new measurement
+showing growth redraws dominate a frame.
 
 ## Rules
 
 - Deadwood's age (`featureAge`) draws only its own tile: a weathering log, a shortening snag, a rotting stump. `FloraChanges.find` re-works just that tile, not its 5×5 neighbourhood. A feature appearing or going is `feature`, which still marks the neighbourhood (fences, boardwalks, dams join their neighbours).
 - Measure plant redraw work with `node tools/growth-predict-probe.mjs [maps] [days] [eps]` (tiles and regions a day, today vs a growth prediction) and `tools/plant-churn-probe.mjs`. Count tiles, not milliseconds, when the machine is loaded (load average above ~4): the tile counts are exact, the times are not.
-- If the shader growth below is built: the shader's growth law must be the one `Flora.rebuild` uses (`0.35+0.6g` groundcover, `0.32+0.6g` shrubs, `0.2+0.8g` trees, `groveForm` for woody crowns), and the processor must re-send a tile when the actual growth is more than `eps` from the shader's prediction, or crosses any threshold the drawing reads (tuft counts 0.3/0.65, grass heads 0.55, shrub heads 0.3 and their count, blossom 0.45, hanging fruit 0.6, forest floor 0.45, wood-edge fringe). Anything with no law in the shader (climbers on trees, reef stars crusting over) is compared exactly, as now.
+- Growth on the GPU is not built (Cole, 2026-11-11). If it is ever revisited: the shader's growth law must be the one `Flora.rebuild` uses (`0.35+0.6g` groundcover, `0.32+0.6g` shrubs, `0.2+0.8g` trees, `groveForm` for woody crowns), and the processor must re-send a tile when the actual growth is more than `eps` from the shader's prediction, or crosses any threshold the drawing reads (tuft counts 0.3/0.65, grass heads 0.55, shrub heads 0.3 and their count, blossom 0.45, hanging fruit 0.6, forest floor 0.45, wood-edge fringe). Anything with no law in the shader (climbers on trees, reef stars crusting over) is compared exactly, as now.
 - Never step the drawn size: a re-send may correct by at most `eps`, and the drawn size moves continuously between re-sends.
 
 ## History
@@ -70,7 +71,7 @@ The machine's load average was 14–23 during these runs (other sessions), so mi
 noisy; the tile counts are exact. At normal speed the redraw is about 1 ms a frame on the M5; at
 top speed (a day every ~8 frames) it is the 5–9 ms "plants" figure in the review.
 
-**The shader design (not built).** Each plant instance gets two more attributes: the growth when
+**The shader design (not built, by decision).** Each plant instance gets two more attributes: the growth when
 sent, its daily rate and the send day (`vec3`), and the law's constants and pivot (`vec4`: the
 size offset `k` in `(k+g)`, grove height spread; pivot = the plant's base, so flowers and fruit
 on a crown move out with it). A uniform carries the game day (fractional, so growth is continuous

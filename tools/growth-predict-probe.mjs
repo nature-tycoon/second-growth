@@ -1,5 +1,5 @@
 // How often a plant's drawn growth would have to be re-sent if the GPU extrapolated it from the
-// growth and daily rate sent last time (decision 0041, not built: a probe): per day, the tiles whose growth changed
+// growth and daily rate sent last time (decision 0041: measured, declined): per day, the tiles whose growth changed
 // (today's redraw), the tiles a linear prediction misses by more than eps, and the regions each touches.
 //   node tools/growth-predict-probe.mjs [maps] [days=90] [eps=0.002,0.005]
 import { register } from 'node:module';
