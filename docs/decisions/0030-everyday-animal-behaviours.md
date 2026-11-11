@@ -2,6 +2,7 @@
 
 ## Rules
 
+- Files (2026-11, fix 8): what an animal does next is `sim/wildlife-intent.js` (`chooseTarget`, which hands birds, climbers, fishers, primates and foragers to their own modules; `pathTo`), trips to water and fishing from the bank `sim/wildlife-water.js`, the salmon run `wildlife-salmon.js`. Drawing: birds (perches, trunks, snags, flight height, plunges, the tracked bird's limb) `render3d/actors-fly.js`, climbers (crowns, branches, grips, sloth bridges) `actors-climb.js`, river fish `actors-swim.js`, reef `actors-reef.js`, walkers' gait and head `actors-ground.js`.
 - Everyday behaviours are species traits in `behaviorFor` (`js/data/animal-behavior.js`), one place for every map: `plays`, `nocturnal`, `fishing` (`data/animal-fishing.js`, `sim/fishing.js`), `climb: { cap: 2, ground }` (`sim/climbers.js`). Add a trait there, not per species.
 - Bird habits are traits in `js/data/animal-kinds.js` (kind defaults, overridden by a field on the species): `groundFeed`, `perches`, `nestHole`, `flocks`, `bathes`, `trunkFeed` (`birdProfile`), `restless`, `fearsHunters`/`scaresSmallBirds`, `carrionSoar`. A nuthatch on trunks is `trunkFeed: true` on its species.
 - Canopy climbing asks `climbStyle(def)` (`walk`, `clamber`, `swing` for `sprite.ape`, `hang`) and `leaps` on the species, never the sprite kind or key; bare test fixtures must carry the trait (`leaps: true`).
@@ -9,7 +10,7 @@
 - Seabirds fish by the `fishes` trait (`dive`: boobies plunge from `alt` 1.6, a moment `under`, surface; `dip`: noddies snatch on the wing). They fish the open sea (`seaTile`: off `dryLand` on the reef) and come up only with `surfaceFish` species, never a drawn agent; most strikes miss (0.3, 0.22). Drawing: `seaPlunge` (eating-pose.js); the plunge's drawn height follows the fall directly, not `easeBirdHeight`.
 - Fruit birds (`eatsFruit`: toucans, parrots, hornbills, bulbuls) take a 2.5–4.5-day meal in a crown where `fruitAt` (primate-behavior.js) holds, then `fruitFed` for 2–6 days. Drawing and motion only: no hunger, plant or seed change (seed spread is `seedTravel`, 0027).
 - Woodpeckers sit on the drawn trunk (`treeTrunk`, shared with flora) at `treeLevel` heights (0024).
-- Climbers: `pathTo` never ends a walk in a tree holding `cap` of its kind. A climber on the ground has `a.move` `'ground'` while the species stays `'tree'`; `passable` reads `a.move`, and drawing checks `a.move !== 'ground'` before lifting it into a crown.
+- Climbers: `pathTo` never ends a walk in a tree holding `cap` of its kind. A climber on the ground has `a.move` `'ground'` while the species stays `'tree'`; `passable` reads `a.move`, and drawing checks `a.move !== 'ground'` before lifting it into a crown (`drawnHeight`, actors.js).
 - `a.passing` is for bird flyovers only (`wl.flyovers`); never set it on a resident. Loading clears it.
 - Nocturnal animals are drawn only at night (`renderer.nightOut`, `roostingNow`).
 - Flight clearance (`render3d/flight-clearance.js`) keeps fliers over crowns, easing climb and descent; drawn bird height moves like a body (`easeBirdHeight`). Stoops, landings, vulture spirals and pollinators are exempt. `flight-canopy-check` limits `jolt`.

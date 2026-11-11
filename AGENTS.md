@@ -53,7 +53,8 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0022](docs/decisions/0022-far-vegetation-by-screen-size.md) Far vegetation by zoom
 - [0023](docs/decisions/0023-trunks-and-logs.md) Walkers round trunks and logs (`sim/ground-obstacles.js`)
 - [0024](docs/decisions/0024-tree-heights.md) Tree heights (`treeHeight`, `treeLevel`)
-- [0025](docs/decisions/0025-shared-steering.md) Shared steering and one facing (`sim/steering.js`, `stepToward`, `a.heading`, `turnRate`, `reefStep`, `turnToward` in actors.js)
+- [0025](docs/decisions/0025-shared-steering.md) Shared steering and one facing (`sim/steering.js`, `stepToward`, `a.heading`, `turnRate`, `reefStep`, `turnToward` in actors-common.js)
+- File map (fix 8): `Wildlife` (`sim/animals.js`: update's order, save/load) is split by step into `sim/wildlife-intent.js` (what next, hunts, `pathTo`), `-water`, `-move` (`stepToward` per mode), `-population`, `-salmon`, `-beavers`, `-shared`; `Actors.update` (`render3d/actors.js`) dispatches to `actors-common.js` and per-mode `actors-ground.js`, `-climb`, `-fly`, `-swim`, `-reef`. Rules in 0025
 - Motion sweep: `node tools/motion-sweep-check.mjs [--report] [maps]` watches every species through `game.update` and `Actors.update` for visible movement glitches (position jumps, heading snaps, wobble and spins, foot slide, bodies in wood, standing in water, stalls), with per-species limits; real glitches it found are matched by `KNOWN` and listed, not hidden. Run it before and after any change to movement, facing or the drawing's turning (15–30 s)
 - [0026](docs/decisions/0026-continuous-hunts.md) Continuous hunts, snakes, pounces, prey jinks (`huntStep`, `letGo`, `jinkLine`)
 - [0027](docs/decisions/0027-plant-succession.md) Plant colonization and succession (`trySeed`, `forestDamp`)
