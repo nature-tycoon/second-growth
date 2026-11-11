@@ -15,6 +15,7 @@ import { snow, SNOW_RGB } from './snow.js';
 
 export const VIEW_TILT = THREE.MathUtils.degToRad(34); // the play camera's fixed tilt (scene.js EL)
 const VIEWS = 8; // (pictures round each crown: the nearest is drawn, at most 22.5° off)
+const FADE = 0.12; // (crossfade between neighbouring pictures over this share either side of halfway)
 const PAD = 3; // (empty pixels round each picture, so neighbours don't bleed into it)
 
 const viewAxes = k => {
@@ -37,14 +38,26 @@ const colorBake = new THREE.MeshBasicMaterial({ vertexColors: true });
 
 export class TreeImpostors {
   // cell: pixels per picture (128 is about a crown's size on a Retina screen zoomed out; 64 is
-  // enough at a device pixel ratio of 1). size: the atlas's width and height in pixels.
-  constructor(wind, { cell = 128, size = 2048 } = {}) {
-    this.cell = cell; this.size = size; this.enabled = true;
-    this.perRow = Math.floor(size / (cell * VIEWS)); this.capacity = this.perRow * Math.floor(size / cell);
-    this.slots = new Map(); this.queue = [];
+  // enough at a device pixel ratio of 1). size: each atlas page's width and height in pixels; a
+  // page holds 32 crown models whatever the size. pages: at most this many (a crown model past
+  // them draws its far model).
+  constructor(wind, { cell = 128, size = 2048, pages = 4 } = {}) {
+    this.wind = wind; this.cell = cell; this.size = size; this.maxPages = pages; this.enabled = true;
+    this.perRow = Math.floor(size / (cell * VIEWS)); this.perPage = this.perRow * Math.floor(size / cell);
+    this.slots = new Map(); this.queue = []; this.pages = [];
     this.stats = { baked: 0, ms: 0, full: 0 };
-    this.uniforms = { tCardColor: { value: null }, tCardNormal: { value: null }, uCardCell: { value: new THREE.Vector2(cell / size, cell / size) }, uCardPad: { value: PAD / cell } };
-    this.material = cardMaterial(wind, this.uniforms);
+  }
+  get capacity() { return this.perPage * this.maxPages; }
+  // graphics memory the pages take (two textures each, with their smaller copies)
+  get bytes() { return this.pages.length * this.size * this.size * 4 * 2 * 4 / 3; }
+
+  // A page: its two pictures, and the crowns' card material that reads them.
+  page(i) {
+    while (this.pages.length <= i) {
+      const uniforms = { tCardColor: { value: null }, tCardNormal: { value: null }, uCardCell: { value: new THREE.Vector2(this.cell / this.size, this.cell / this.size) }, uCardPad: { value: PAD / this.cell } };
+      this.pages.push({ uniforms, material: cardMaterial(this.wind, uniforms), color: null, normal: null });
+    }
+    return this.pages[i];
   }
 
   // The card for a crown model, or null when the atlas is full (the far model is drawn instead).
@@ -53,7 +66,8 @@ export class TreeImpostors {
     let slot = this.slots.get(key);
     if (slot) return slot.card;
     if (this.slots.size >= this.capacity) { this.stats.full++; return null; }
-    const n = this.slots.size, col = n % this.perRow, row = Math.floor(n / this.perRow);
+    const n = this.slots.size % this.perPage, page = this.page(Math.floor(this.slots.size / this.perPage));
+    const col = n % this.perRow, row = Math.floor(n / this.perRow);
     geo.computeBoundingBox();
     const box = geo.boundingBox, c = new THREE.Vector3(0, (box.min.y + box.max.y) / 2, 0), p = geo.attributes.position, v = new THREE.Vector3();
     let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity, depth = 0;
@@ -77,22 +91,25 @@ export class TreeImpostors {
     card.setAttribute('aCard', new THREE.Float32BufferAttribute(new Array(4).fill([cu, cv, c.y, depth]).flat(), 4));
     card.setIndex([0, 1, 2, 0, 2, 3]);
     card.boundingBox = box.clone(); card.boundingSphere = box.getBoundingSphere(new THREE.Sphere());
-    card.userData = { ready: false, atlas: this };
-    slot = { key, geo, card, col, row, c, rect, depth };
+    card.userData = { ready: false, atlas: this, material: page.material };
+    slot = { key, geo, card, page, col, row, c, rect, depth };
     this.slots.set(key, slot); this.queue.push(slot);
     return card;
   }
 
-  targets() {
-    if (this.color) return;
-    // (the atlas needs no depth buffer: each picture is drawn in a small target that has one, then copied in)
+  targets(gl, page) {
+    if (!this.cellColor) {
+      const cell = { depthBuffer: true, generateMipmaps: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter };
+      this.cellColor = new THREE.WebGLRenderTarget(this.cell, this.cell, { ...cell, colorSpace: THREE.SRGBColorSpace });
+      this.cellNormal = new THREE.WebGLRenderTarget(this.cell, this.cell, cell);
+    }
+    if (page.color) return;
+    // (a page needs no depth buffer: each picture is drawn in the small target above, then copied in)
     const opts = { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false };
-    this.color = new THREE.WebGLRenderTarget(this.size, this.size, { ...opts, colorSpace: THREE.SRGBColorSpace });
-    this.normal = new THREE.WebGLRenderTarget(this.size, this.size, opts);
-    const cell = { depthBuffer: true, generateMipmaps: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter };
-    this.cellColor = new THREE.WebGLRenderTarget(this.cell, this.cell, { ...cell, colorSpace: THREE.SRGBColorSpace });
-    this.cellNormal = new THREE.WebGLRenderTarget(this.cell, this.cell, cell);
-    this.uniforms.tCardColor.value = this.color.texture; this.uniforms.tCardNormal.value = this.normal.texture;
+    page.color = new THREE.WebGLRenderTarget(this.size, this.size, { ...opts, colorSpace: THREE.SRGBColorSpace });
+    page.normal = new THREE.WebGLRenderTarget(this.size, this.size, opts);
+    for (const target of [page.color, page.normal]) gl.initRenderTarget(target); // (a copy needs its texture made first)
+    page.uniforms.tCardColor.value = page.color.texture; page.uniforms.tCardNormal.value = page.normal.texture;
   }
 
   // Bakes the crowns waiting for their pictures. Returns how many, so the caller can redraw its
@@ -100,16 +117,17 @@ export class TreeImpostors {
   bake(gl) {
     if (!this.queue.length) return 0;
     const t0 = performance.now();
-    this.targets();
-    for (const target of [this.color, this.normal]) gl.initRenderTarget(target); // (a copy needs its texture made first)
     const scene = this.bakeScene ||= new THREE.Scene(), mesh = this.bakeMesh ||= new THREE.Mesh(undefined, colorBake);
     if (!mesh.parent) scene.add(mesh);
     const cam = this.bakeCam ||= new THREE.OrthographicCamera();
     const prevTarget = gl.getRenderTarget(), prevColor = gl.getClearColor(new THREE.Color()), prevAlpha = gl.getClearAlpha(), prevAuto = gl.autoClear, prevShadow = gl.shadowMap.autoUpdate;
     gl.autoClear = false; gl.shadowMap.autoUpdate = false;
-    this.color.texture.generateMipmaps = this.normal.texture.generateMipmaps = false; // (made once, at the end)
-    const n = this.queue.length;
+    const n = this.queue.length, touched = new Set();
     for (const slot of this.queue.splice(0)) {
+      if (!touched.has(slot.page)) {
+        this.targets(gl, slot.page); touched.add(slot.page);
+        slot.page.color.texture.generateMipmaps = slot.page.normal.texture.generateMipmaps = false; // (made once, at the end)
+      }
       const { geo, c, rect, depth } = slot, cols = geo.attributes.color, avg = [0, 0, 0];
       if (cols) { for (let i = 0; i < cols.count; i++) { avg[0] += cols.getX(i); avg[1] += cols.getY(i); avg[2] += cols.getZ(i); } avg.forEach((x, q) => avg[q] = x / cols.count); }
       mesh.geometry = geo;
@@ -122,7 +140,7 @@ export class TreeImpostors {
         normalBake.uniforms.uC.value.copy(c); normalBake.uniforms.uD.value.copy(ax.d); normalBake.uniforms.uR.value = depth;
         // (the empty pixels round a crown take its average colour, so the blurred edges of the
         // smaller copies GPUs draw from far away don't darken it)
-        for (const [cellTarget, target, material, clear, alpha] of [[this.cellColor, this.color, colorBake, avg, 0], [this.cellNormal, this.normal, normalBake, [0.5, 1, 0.5], 0.5]]) {
+        for (const [cellTarget, target, material, clear, alpha] of [[this.cellColor, slot.page.color, colorBake, avg, 0], [this.cellNormal, slot.page.normal, normalBake, [0.5, 1, 0.5], 0.5]]) {
           cellTarget.viewport.set(PAD, PAD, this.cell - PAD * 2, this.cell - PAD * 2);
           gl.setRenderTarget(cellTarget);
           gl.setClearColor(new THREE.Color().setRGB(...clear, THREE.LinearSRGBColorSpace), alpha); gl.clear();
@@ -133,7 +151,7 @@ export class TreeImpostors {
       slot.card.userData.ready = true;
     }
     // the smaller copies, once for all the new pictures (a render with mipmaps on makes them)
-    for (const target of [this.color, this.normal]) {
+    for (const target of [...touched].flatMap(p => [p.color, p.normal])) {
       target.texture.generateMipmaps = true; target.viewport.set(0, 0, 1, 1);
       gl.setRenderTarget(target); mesh.visible = false; gl.render(scene, cam); mesh.visible = true;
       target.viewport.set(0, 0, this.size, this.size);
@@ -145,17 +163,19 @@ export class TreeImpostors {
 
   // After a lost graphics context: the pictures are gone with it, bake them all again.
   restore() {
-    for (const t of [this.color, this.normal, this.cellColor, this.cellNormal]) t?.dispose();
-    this.color = this.normal = null;
+    for (const t of this.targetList()) t.dispose();
+    this.cellColor = this.cellNormal = null;
+    for (const p of this.pages) p.color = p.normal = null;
     for (const slot of this.slots.values()) { slot.card.userData.ready = false; this.queue.push(slot); }
   }
 
-  dispose() { for (const t of [this.color, this.normal, this.cellColor, this.cellNormal]) t?.dispose(); for (const s of this.slots.values()) s.card.dispose(); this.slots.clear(); this.queue.length = 0; }
+  targetList() { return [this.cellColor, this.cellNormal, ...this.pages.flatMap(p => [p.color, p.normal])].filter(Boolean); }
+  dispose() { for (const t of this.targetList()) t.dispose(); for (const s of this.slots.values()) s.card.dispose(); this.slots.clear(); this.queue.length = 0; }
 }
 
 // The crowns' own material (wind, leaf light, the window round a selected animal, cloud shade),
-// drawing a card: turned to face the camera, showing the picture nearest the camera's direction
-// relative to the tree, lit by the picture's surface directions.
+// drawing a card: turned to face the camera, showing the pictures either side of the camera's
+// direction relative to the tree (crossfaded near halfway), lit by their surface directions.
 function cardMaterial(wind, uniforms) {
   const mat = withClouds(withFocusFade(windy(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.012, wind)));
   const prev = mat.onBeforeCompile, baseKey = mat.customProgramCacheKey();
@@ -177,9 +197,14 @@ function cardMaterial(wind, uniforms) {
       vec3 cardW = vec3(0.0, aCard.z * cardSy, 0.0) + cardR * position.x * cardS + cardU * position.y * cardVs;
       vec3 transformed = vec3(dot(cardM[0], cardW) / (cardS * cardS), dot(cardM[1], cardW) / (cardSy * cardSy), dot(cardM[2], cardW) / (cardS * cardS));
       float cardTurn = atan(cardM[2].x, cardM[2].z);
-      float cardK = mod(floor((atan(cardD.x, cardD.z) - cardTurn) / 6.2831853 * ${VIEWS.toFixed(1)} + 0.5), ${VIEWS.toFixed(1)});
+      // (the two pictures either side of the camera's direction; near halfway between them the
+      // card crossfades, so a turning camera doesn't flick every crown from one to the next)
+      float cardF = (atan(cardD.x, cardD.z) - cardTurn) / 6.2831853 * ${VIEWS.toFixed(1)};
+      float cardK = mod(floor(cardF), ${VIEWS.toFixed(1)});
+      vCardMix = smoothstep(${(0.5 - FADE).toFixed(2)}, ${(0.5 + FADE).toFixed(2)}, fract(cardF));
       vec2 cardIn = mix(vec2(uCardPad), vec2(1.0 - uCardPad), aCardUv);
       vCardUv = aCard.xy + vec2((cardK + cardIn.x) * uCardCell.x, cardIn.y * uCardCell.y);
+      vCardUv2 = aCard.xy + vec2((mod(cardK + 1.0, ${VIEWS.toFixed(1)}) + cardIn.x) * uCardCell.x, cardIn.y * uCardCell.y);
       vCardTurn = vec2(cos(cardTurn), sin(cardTurn)); vCardH = aCardUv.y;
       vCardXZ = (instanceMatrix * vec4(transformed, 1.0)).xz;`)
       .replace('#include <shadowmap_vertex>', `#include <shadowmap_vertex>
@@ -188,13 +213,21 @@ function cardMaterial(wind, uniforms) {
       #else
         vCardShadow = vec4(0.0);
       #endif`);
-    shader.vertexShader = 'attribute vec2 aCardUv;\nattribute vec4 aCard;\nuniform vec2 uCardCell;\nuniform float uCardPad;\nvarying vec2 vCardUv;\nvarying vec2 vCardTurn;\nvarying float vCardH;\nvarying vec2 vCardXZ;\nvarying vec4 vCardShadow;\n' + shader.vertexShader;
+    shader.vertexShader = 'attribute vec2 aCardUv;\nattribute vec4 aCard;\nuniform vec2 uCardCell;\nuniform float uCardPad;\nvarying vec2 vCardUv;\nvarying vec2 vCardUv2;\nvarying float vCardMix;\nvarying vec2 vCardTurn;\nvarying float vCardH;\nvarying vec2 vCardXZ;\nvarying vec4 vCardShadow;\n' + shader.vertexShader;
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <color_fragment>', `#include <color_fragment>
-      vec4 cardC = texture2D(tCardColor, vCardUv);
+      vec4 cardC, cardN;
+      if (vCardMix < 0.001) { cardC = texture2D(tCardColor, vCardUv); cardN = texture2D(tCardNormal, vCardUv); }
+      else if (vCardMix > 0.999) { cardC = texture2D(tCardColor, vCardUv2); cardN = texture2D(tCardNormal, vCardUv2); }
+      else {
+        // (weighted by coverage: at a crossfade's edge, the colour of the picture that has a crown there)
+        vec4 c1 = texture2D(tCardColor, vCardUv), c2 = texture2D(tCardColor, vCardUv2);
+        float w1 = c1.a * (1.0 - vCardMix), w2 = c2.a * vCardMix;
+        cardC = vec4((c1.rgb * w1 + c2.rgb * w2) / max(w1 + w2, 0.001), w1 + w2);
+        cardN = mix(texture2D(tCardNormal, vCardUv), texture2D(tCardNormal, vCardUv2), vCardMix);
+      }
       if (cardC.a < 0.5) discard;
       diffuseColor.rgb *= cardC.rgb;
-      vec4 cardN = texture2D(tCardNormal, vCardUv);
       vec3 cardNo = normalize(cardN.xyz * 2.0 - 1.0);
       vec3 cardNw = vec3(cardNo.x * vCardTurn.x + cardNo.z * vCardTurn.y, cardNo.y, -cardNo.x * vCardTurn.y + cardNo.z * vCardTurn.x);
       float cardDepth = cardN.a * 2.0 - 1.0;
@@ -208,7 +241,7 @@ function cardMaterial(wind, uniforms) {
       normal = normalize(mat3(viewMatrix) * cardNw); nonPerturbedNormal = normal;`)
       // (shadows are looked up on the crown's front surface, from the picture's depth)
       .replace('#include <lights_fragment_begin>', THREE.ShaderChunk.lights_fragment_begin.replaceAll('vDirectionalShadowCoord[ i ]', '( vDirectionalShadowCoord[ i ] + vCardShadow * cardDepth )'));
-    shader.fragmentShader = 'uniform sampler2D tCardColor;\nuniform sampler2D tCardNormal;\nuniform float uSnow;\nvarying vec2 vCardUv;\nvarying vec2 vCardTurn;\nvarying float vCardH;\nvarying vec2 vCardXZ;\nvarying vec4 vCardShadow;\n' + shader.fragmentShader;
+    shader.fragmentShader = 'uniform sampler2D tCardColor;\nuniform sampler2D tCardNormal;\nuniform float uSnow;\nvarying vec2 vCardUv;\nvarying vec2 vCardUv2;\nvarying float vCardMix;\nvarying vec2 vCardTurn;\nvarying float vCardH;\nvarying vec2 vCardXZ;\nvarying vec4 vCardShadow;\n' + shader.fragmentShader;
   };
   mat.customProgramCacheKey = () => baseKey + '|card' + VIEWS;
   return mat;

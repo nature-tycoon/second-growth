@@ -1,16 +1,17 @@
-# 0042 Tree impostors: far crowns as baked cards (proposed, prototype)
+# 0042 Tree impostors: far crowns as baked cards
 
 ## Rules
 
-- Status: prototype on a branch, for Cole to review before it's built out. Nothing here is live.
+- Cole approved the look on 2026-11-11 and asked for it to be made ready to ship (on a branch until he says to push).
 - With the far level on (`Flora.setZoom` level 3, decision 0022), each tree crown is one camera-facing card (2 triangles) showing a picture of its close model, from `TreeImpostors` (`render3d/tree-impostors.js`). The switch is the far level's own zoom test: no per-plant distance, no second threshold.
-- Pictures are baked once per crown model (`crown:<type>:<species>:<variant>:<lift>`) at load, on the GPU, from 8 directions round it at the play camera's fixed 34° tilt (`VIEW_TILT`, keep it equal to `EL` in scene.js). The nearest direction to the camera, relative to the tree's own turn, is drawn.
+- Pictures are baked once per crown model (`crown:<type>:<species>:<variant>:<lift>`) at load, on the GPU, from 8 directions round it at the play camera's fixed 34° tilt (`VIEW_TILT`, keep it equal to `EL` in scene.js). The two pictures either side of the camera's direction (relative to the tree's own turn) are drawn, crossfading near halfway (`FADE`) so a turning camera doesn't flick crowns between pictures.
+- Atlas pages of 32 crown models each, up to 4 (`pages`), each with its own card material: 2048×2048 with 128-pixel pictures (about 43 MB a page), or 1024×1024 with 64-pixel ones (about 11 MB) on phones, tablets, `weakGpu` chips and screens at a device pixel ratio of 1 (`smallCards` in scene.js). A crown past the last page keeps its far model.
 - The atlas holds colour (the model's vertex colours, without the per-tree tint), surface direction and depth. The per-tree tint (season, autumn colour, bleaching, the border's dimming) is applied when drawn, so seasons need no rebake.
 - Lighting goes through the crowns' own material (`windy`, `withFocusFade`, `withClouds`) with the normal from the picture, and snow is the crown formula from `withSnowTops` per pixel. Change one, change the other.
 - The far model (`far-models.js`) still casts each crown's shadow (through the pool's shadow proxy). Shadows falling on a card are looked up at the crown's front surface from the picture's depth.
 - Trunks keep their far posts; bare winter trees, bamboo, shrubs and anything without a crown pool keep their far models.
-- A crown with no card (atlas full, not yet baked, no renderer as in headless checks, `flora.setImpostors(false)`) draws its far model: never nothing.
-- Checks: `FAR_REVIEW=impostors node tools/far-vegetation-review.mjs sumatra,amazon high` then `http://localhost:8347/tools/far-vegetation-review.html` (before: far models, after: cards); `node tools/play-profile.mjs sumatra,amazon high|fast` with `PLAY_VIEWS=play,wide`; `node tools/far-model-check.mjs`. `perf-guard-check` runs headless with no renderer, so it can't see cards.
+- A crown with no card (atlas full, not yet baked, no renderer as in headless checks, `flora.setImpostors(false)`) draws its far model: never nothing. After a lost graphics context `TreeImpostors.restore` bakes every picture again.
+- Checks: `node tools/impostor-check.mjs` (headless: card coverage, pages, which model a pool shows); `node tools/impostor-browser-check.mjs [--shots]` (cards drawn with both atlas sizes, fewer triangles, a camera turn, snow, a lost and restored context); `FAR_REVIEW=impostors [FAR_MONTH=8] node tools/far-vegetation-review.mjs sumatra,amazon high` then `http://localhost:8347/tools/far-vegetation-review.html` (before: far models, after: cards); `node tools/play-profile.mjs sumatra,amazon high|fast` with `PLAY_VIEWS=play,wide`; `node tools/far-model-check.mjs`. `perf-guard-check` runs headless with no renderer, so it can't see cards.
 
 ## History
 
@@ -40,12 +41,13 @@ is a separate question for Cole (see Open).
 
 ### Design
 
-- **Atlas and memory.** One 2048×2048 atlas of 128-pixel pictures: 2 crowns per row of 8 views,
-  32 crown models (Sumatra uses 30, the Amazon 22). Two textures (colour in sRGB, direction and
-  depth) with their smaller copies: about 43 MB of graphics memory. Each picture is drawn in a
-  small 128-pixel target with a depth buffer and copied in, so the atlas itself has none. 128 pixels is about a big crown's size on a Retina screen just
-  past the switch; a 1024 atlas of 64-pixel pictures (11 MB) is enough at a device pixel ratio
-  of 1, so weak GPUs and phones would take that. A 33rd crown model draws its far model.
+- **Atlas and memory.** Pages of 2048×2048 with 128-pixel pictures: 2 crowns per row of 8
+  views, 32 crown models a page (Sumatra uses 30, the Amazon 22), up to 4 pages. Two textures a
+  page (colour in sRGB, direction and depth) with their smaller copies: about 43 MB of graphics
+  memory a page. Each picture is drawn in a small target with a depth buffer and copied in, so
+  pages have none. 128 pixels is about a big crown's size on a Retina screen just past the
+  switch; phones, tablets, weak GPUs and screens at a device pixel ratio of 1 get 1024 pages of
+  64-pixel pictures (about 11 MB a page). A crown model past the last page draws its far model.
 - **Load time.** Baking draws each crown model 16 times (8 directions × 2 pictures) into the
   atlas, then makes the smaller copies once. It runs in `Renderer.draw` for crowns that appeared
   since the last frame, so it follows the plants as they're built; measured below.
@@ -70,13 +72,16 @@ is a separate question for Cole (see Open).
 - **Camera turning.** The camera turns in quarter steps (watch mode drifts slowly, mostly zoomed
   in, where there are no cards); each tree's picture changes when the
   direction to the camera crosses the halfway point between two of the 8 views, at different
-  moments for different trees (each tree has its own turn). During the quarter-second turn the
-  forest's crowns flick between neighbouring pictures; crossfading the two nearest is the fix if
-  Cole sees it.
+  moments for different trees (each tree has its own turn). Built out: within 12% either side of
+  halfway the card crossfades between the two pictures (colours weighted by coverage, so an edge
+  takes the colour of the picture that has a crown there), so crowns morph instead of flicking.
+  A tree that stands near halfway shows the blend all the time; at this size it reads as one
+  crown. Four texture reads instead of two, only for those trees.
 - **Picking.** Plants aren't picked by their drawn meshes (clicks resolve to tiles), so nothing
   changes. The focus window round a selected animal still opens through cards.
 - **Weak GPUs.** Needs only what WebGL 2 already has (8-bit render targets, smaller copies).
-  If the graphics context is lost, the pictures go with it and are baked again on restore. The
+  If the graphics context is lost, the pictures go with it and are baked again on restore
+  (`impostor-browser-check` loses and restores it). The
   card's fragment work is two texture reads and the usual leaf lighting, over roughly the same
   pixels as the far model; alpha-tested cards do overdraw where crowns overlap, as the models do.
 - **The LOD switch.** Cards appear where the far models did. They look like the close model
@@ -111,6 +116,18 @@ held, base checkout (`PLAY_ROOT`) vs this one, M5 at 2880×1800 on mains but wit
 | Sumatra Fast | 3.4M → 3.1M | 12.1 → 12.2 | 11.9 → 11.8 | 55 → 55 |
 | Amazon Fast | 1.2M → 0.9M | 11.1 → 10.9 | 5.3 → 5.1 | 60 → 60 |
 
+Again after the build-out (crossfade, pages), 2026-11-11, with the machine quiet (load average
+under 4), base checkout vs this one; every view held the 60 fps cap:
+
+| Wide view (zoom 0.25) | Triangles | GPU ms | Drawing ms |
+| --- | ---: | ---: | ---: |
+| Sumatra High | 3.5M → 3.1M | 12.2 → 11.9 | 4.5 → 4.7 |
+| Amazon High | 1.3M → 0.9M | 10.9 → 10.3 | 3.5 → 3.3 |
+| Sumatra Fast | 3.5M → 3.1M | 11.5 → 11.9 | 4.2 → 5.2 |
+| Amazon Fast | 1.2M → 0.9M | 9.8 → 7.6 | 3.4 → 3.5 |
+
+At play zoom triangles are unchanged (2.1M High, 1.7M Fast in Sumatra) and so is the cost.
+
 On the M5 nothing moves beyond noise: at Retina size its GPU is limited by pixels, not triangles,
 and the cards cover about the same pixels as the far models. The gain is for triangle-limited
 chips (weak laptops, phones), and it is modest: 10–40% of the wide view's triangles. It is not
@@ -120,10 +137,26 @@ Look (`tools/far-vegetation-review.html`, before = far models, after = cards): a
 switch the crowns read like the play-zoom crowns (lumpy, lit from the sun's side, darker
 underneath) instead of the far models' flat diamonds. They are fuller and a little lighter, so
 less ground shows between crowns than with the far models; that is closer to the close model,
-but it is a visible change at the switch. The thin limbs inside crowns stay lost. Not yet
-checked: the camera turning (view flicker), snow, autumn and a lost graphics context.
+but it is a visible change at the switch. The thin limbs inside crowns stay lost. Cole reviewed the
+crops and the review page on 2026-11-11 and approved the look.
 
-2026-11-11: Cole reviewed the crops and the review page and approved the look.
+### Built out (2026-11-11)
+
+- Atlas pages (4 at most, 128 crown models): a game grown for a few years in Sumatra already
+  uses 30 of a page's 32.
+- The quarter-size atlas (1024, 64-pixel pictures, about 11 MB a page) on phones, tablets,
+  `weakGpu` chips and screens at a device pixel ratio of 1, where a far crown is under 64 device
+  pixels. Sumatra at a device pixel ratio of 1 (`impostor-browser-check --shots`) shows the same
+  lumpy, shaded crowns, a little softer.
+- Crossfade between pictures (see Camera turning).
+- Each picture is drawn in a 128-pixel target with a depth buffer and copied into its page, so
+  pages have no depth buffer of their own (32 MB less).
+- Checked in the browser: a camera turn mid-way (no gaps or doubled crowns), snow (white on the
+  crowns' tops, as on the models), autumn on Atlanta (`FAR_MONTH=8`: each tree keeps its own red,
+  orange or yellow), conifers on the Pacific Northwest (tiered spires), and a lost and restored
+  graphics context (every picture baked again).
+- More triangles saved elsewhere (`FAR_REVIEW=impostors`, zoom 0.25): Pacific Northwest 0.61M →
+  0.39M, Atlanta 0.31M → 0.21M. Bake: 16 crown models in 16 ms, 28 in 13 ms.
 
 ### Open
 
@@ -131,4 +164,4 @@ checked: the camera turning (view flicker), snow, autumn and a lost graphics con
   win, but the card must hold up at 70–130 px. Needs Cole's eye on a review crop first.
 - Trunks into the crown's card (one card per tree, another 0.08M triangles zoomed out).
 - Bare winter trees and palms (frond stars are already 32 triangles: little to gain).
-- Crossfading between views while the camera turns, if the flicker shows.
+- The flicker during a turn is judged from still frames only; Cole to watch one in play.

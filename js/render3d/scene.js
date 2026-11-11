@@ -23,7 +23,7 @@ import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
-import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS, GpuTimer } from '../performance.js';
+import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS, GpuTimer, weakGpu } from '../performance.js';
 import { RELEASE } from '../release.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 import { animalDensity } from '../sim/animal-density.js';
@@ -155,7 +155,11 @@ export class Renderer {
     this.scene.add(this.hemi, this.sun, this.sun.target);
     this.atlas = buildAtlas(this.catalog);
     this.terrain = new Terrain(this.scene, this.atlas);
-    this.flora = new Flora(this.scene, { catalog: this.catalog, impostors: {} });
+    // far crowns as baked cards (decision 0042): quarter-size pictures (about 11 MB of graphics
+    // memory instead of 43 per page) on phones, tablets, weak graphics and screens without Retina,
+    // where a far crown is under 64 device pixels
+    const smallCards = TOUCH || this.dpr <= 1 || weakGpu(this.gpuName());
+    this.flora = new Flora(this.scene, { catalog: this.catalog, impostors: smallCards ? { cell: 64, size: 1024 } : {} });
     this.lightingDepth = true;
     this.actors = new Actors(this.scene, this.flora);
     this.actors.terrain = this.terrain; // (for the drawn water surface)

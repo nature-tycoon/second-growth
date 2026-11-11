@@ -4,7 +4,7 @@
 // used to see) and on (after), in the same frozen scene. Writes tools/release-output/far-vegetation/
 // and its index for tools/far-vegetation-review.html (open http://localhost:8347/tools/far-vegetation-review.html).
 // FAR_REVIEW=impostors compares the far crowns as models (before) and as baked cards (after,
-// decision 0041) instead.
+// decision 0042) instead. FAR_MONTH=<0-11> draws that month's leaves (8: autumn colour).
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { openBrowser, projectRoot, pause } from './browser-session.mjs';
@@ -29,7 +29,9 @@ try {
       if(!game.restoreSave(fx.game.saveData())) throw new Error('Restore failed');
       for (const f of ['tree','treeG','shrub','ground']) game.border[f].set(fx.game.border[f]);
       if (ui.modalOpen) ui.closeModal(); ui.afterNewGame(); ui.refreshTop(true);
-      game.speed=0; return fx.center;})()`, 600000);
+      game.speed=0;
+      ${process.env.FAR_MONTH ? `game.day=${Number(process.env.FAR_MONTH)}*10+3; window.secondGrowth.renderer.flora.rebuild(game,true);` : ''}
+      return fx.center;})()`, 600000);
     for (const [view, zoom] of VIEWS[quality]) {
       for (const [when, far] of [['before', false], ['after', true]]) {
         const s = await browser.evaluate(`(async()=>{

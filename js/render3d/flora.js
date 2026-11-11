@@ -642,7 +642,7 @@ export class Flora {
           if (!this.pools.has(`crown:${key}`)) {
             const receive = () => this.lightingDepth !== false && !this.light && !game.catalog.definition.look.underwater;
             const geoCard = this.impostors?.card(`crown:${key}`, shape.crown) || null;
-            const crown = new ChunkedPlantPool(() => new PlantPool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, geoFar: shape.far.crown, shadowGeo: shape.lo.crown, geoCard, cardMat: this.impostors?.material, receive: receive(), geometryIndex: this.geometryIndex }), this);
+            const crown = new ChunkedPlantPool(() => new PlantPool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, geoFar: shape.far.crown, shadowGeo: shape.lo.crown, geoCard, cardMat: geoCard?.userData.material, receive: receive(), geometryIndex: this.geometryIndex }), this);
             const trunkP = new ChunkedPlantPool(() => new PlantPool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk, geoMid: shape.mid.trunk, geoFar: shape.far.trunk, shadowGeo: shape.lo.trunk, receive: receive(), geometryIndex: this.geometryIndex }), this);
             crown.setView(...this.view); trunkP.setView(...this.view);
             this.pools.set(`crown:${key}`, crown); this.pools.set(`trunk:${key}`, trunkP);
