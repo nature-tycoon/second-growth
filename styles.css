@@ -328,8 +328,10 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .notice-close { display: grid; place-items: center; flex: none; width: 32px; min-width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; font: 24px/1 var(--ui); cursor: pointer; }
 .notice-close:hover, .notice-close:focus-visible { background: #ffffff38; }
 .toast > .toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.toast .toast-act { flex: none; align-self: center; padding: 4px 10px; white-space: nowrap; }
 @media (pointer: coarse) {
   .notice-close { width: 44px; min-width: 44px; height: 44px; }
+  .toast .toast-act { min-height: 44px; }
   #banner .btn { min-height: 44px; }
 }
 .stars { color: #d8a020; letter-spacing: 1px; }

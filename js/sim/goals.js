@@ -71,8 +71,16 @@ export const pop = (g, k) => g.catalog.animal[k] ? g.wildlife.state[g.catalog.an
 export const GOALS = [];
 export function loadGoals(list) { GOALS.length = 0; GOALS.push(...list); }
 
+// The first goal on every map: one stroke of a planting tool meets it, and it is checked every day
+// (`daily`) rather than at the month's end, so a new player is rewarded within seconds.
+export const FIRST_GOAL = { key: 'sprout', name: 'First sprouts', reward: 500, daily: true,
+  desc: 'Plant 10 native plants. Open Plant, pick a seed mix and drag it across open ground.',
+  done: 'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make.',
+  check: g => g.stats.planted >= 10, prog: g => `${Math.min(10, g.stats.planted)} / 10 planted` };
+
 // Pacific Northwest (Hollis farm) milestones.
 export const PNW_GOALS = [
+  FIRST_GOAL,
   { key: 'plant', name: 'Break ground', reward: 1000,
     desc: 'Plant 200 native plants anywhere on the farm.',
     check: g => g.stats.planted >= 200, prog: g => `${Math.min(200, g.stats.planted)} / 200 planted` },

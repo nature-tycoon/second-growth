@@ -6,7 +6,7 @@
 import buildReefPlants from '../data/plants-reef.js';
 import buildReefAnimals from '../data/animals-reef.js';
 import { generateReef, reefBorderCell, SEA } from './reef-world.js';
-import { pop, speciesPresent } from '../sim/goals.js';
+import { FIRST_GOAL, pop, speciesPresent } from '../sim/goals.js';
 import { T, F, clamp } from '../config.js';
 import { removeTree } from '../sim/plants.js';
 import { moment, arrivalMoment, momentFree } from '../sim/moments.js';
@@ -29,6 +29,8 @@ const shoreMask = w => w._shore || (w._shore = Uint8Array.from({ length: w.n }, 
 const softNew = g => { const f = g.flags; if (f.soft0 == null && g.world.stats?.softCoral != null) f.soft0 = st(g, 'softCoral'); return f.soft0 == null ? 0 : Math.max(0, st(g, 'softCoral') - f.soft0); };
 const goal = (key, name, reward, desc, check, prog) => ({ key, name, reward, desc, check, prog });
 const GOALS = [
+  { ...FIRST_GOAL, desc: 'Plant 10 corals, seagrass or algae. Open Plant, pick one and drag it across sand or rubble.',
+    done: 'Your first fragments are down. Watch them settle and grow over the coming weeks; fish come to the shelter they make.' },
   goal('stars', 'Hold the rubble down', 1500, 'Lay 120 tiles of reef stars (Landscape → Reef stars) over the loose rubble. Young corals can\'t take hold on rubble that rolls with every swell.',
     g => (g.stats.used?.rip || 0) >= 120, g => `${Math.min(120, g.stats.used?.rip || 0)} / 120 tiles`),
   goal('cull', 'Beat the outbreak', 2500, 'Cull every crown-of-thorns starfish on the reef (Remove → Cull starfish & algae).',

@@ -23,9 +23,9 @@ try {
     // a panel read and closed
     ui.modal('Test panel','<p>x</p>'); await new Promise(r=>setTimeout(r,1100)); ui.closeModal();
     const closed=find('panel_closed').find(e=>e.props.panel==='Test panel');
-    // a chapter objective met: the first Hollis objective is "inspect a tile"
+    // a chapter objective met: the first Hollis objective is sowing 10 tiles of meadow mix
     if (ui.modalOpen) ui.closeModal();
-    g.flags.inspected=true; ui.renderQuest(true);
+    (g.stats.used||={}).mix_meadow=20; ui.renderQuest(true);
     const objective=find('objective_done')[0];
     // the quest tracker's help button
     ui.questOpen=true; ui.renderQuest(true); document.querySelector('#quest .q-help')?.click();

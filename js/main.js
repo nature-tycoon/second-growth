@@ -81,6 +81,10 @@ async function boot() {
         game.notify(`Welcome back. It's ${game.dateString()}.`, 'season');
       }
     } else if (pending) await ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map, pending.runSeed);
+    // A first visit goes straight into Free Play on the farm already generated: the mode choice
+    // was where most new players left (docs/posthog-review-2026-11.md). The story is offered from
+    // the menu and after the first goal.
+    else if (!Game.hasSave()) await ui.startMode('free', false, 'standard', game.map, undefined, { firstVisit: true });
     else {
       // Choose a place and mode (or resume) before entering the farm. Escape and
       // backdrop clicks cannot start an unchosen farm or make it save-ready.

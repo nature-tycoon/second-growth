@@ -34,13 +34,15 @@ export const CHAPTERS = [];
 const pnwChapters = ({ layerTools, wildlifeTools }) => [
   {
     key: 'fields', title: 'Wake up the fields', reward: 2000,
-    story: 'The old Hollis fields have been plowed and grazed for seventy years. Start small: look around, break up the compacted ground, and sow native meadow.',
-    teach: 'Use <b>Inspect</b> to click the land. Then pick <b>Landscape → Loosen soil</b> and drag across a plowed field, and sow <b>Plant → Upland meadow mix</b> on top. The brush preview turns green where plants will thrive.',
+    story: 'The old Hollis fields have been plowed and grazed for seventy years. Start small: sow a strip of native meadow and watch it sprout, then break up the compacted ground so the rest can follow.',
+    teach: 'Pick <b>Plant → Upland meadow mix</b> and drag across a plowed field. The brush preview turns green where plants will thrive. Then use <b>Landscape → Loosen soil</b> on the compacted fields and sow more meadow on top. <b>Inspect</b> any tile or animal to see how it is doing.',
     unlock: ['rip', 'mix_meadow'],
+    // (the first goal is one stroke with an immediate tick; it replaced "inspect a tile", so the
+    // saved indices of the other two still mean loosening and sowing)
     goals: [
-      flag('Inspect a tile or an animal', g => !!g.flags.inspected),
-      count('Loosen 60 tiles of plowed field or pasture', g => used(g, 'rip'), 60, ' tiles'),
-      count('Sow 150 tiles of upland meadow mix', g => used(g, 'mix_meadow'), 150, ' seeded'),
+      count('Sow your first 10 tiles of upland meadow mix', g => used(g, 'mix_meadow'), 10, ' seeded'),
+      count('Loosen 40 tiles of plowed field or pasture', g => used(g, 'rip'), 40, ' tiles'),
+      count('Sow 120 tiles of upland meadow mix', g => used(g, 'mix_meadow'), 120, ' seeded'),
     ],
   },
   {
