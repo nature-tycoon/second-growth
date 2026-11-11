@@ -1182,56 +1182,9 @@ export class Wildlife {
           if (a.move === 'fly' && a.alt > 0) a.alt = Math.max(0, a.alt - dt * 3); // settle to the ground (or a branch) after landing
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
-        case 'walk': {
-          if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = a.move === 'swim' && !def.reef ? 0.1 + simRandom() * 0.3 : def.patrol ? 0.2 + simRandom() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + simRandom() * 1.5 : 3 + simRandom() * 4) : 0.5 + simRandom() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); fishArrive(this, a); climberArrive(this, a); break; }
-          if (smoothWalker(def) && a.course?.path !== a.path) shapeCourse(this, a, def); // (a journey walks a curve: see animal-course.js)
-          const j = a.path[a.path.length - 1];
-          if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1) * (a.dash || a.run || 1), dt) && (a.path.pop(), !a.path.length)) a.dash = null; break; }
-          // each animal keeps to its own line through a tile and stops at its own spot in the last
-          // one, so two walking the same way don't trace one track, and a group doesn't pile onto
-          // a single point (a journey steers for where its course crosses the tile)
-          let [ox, oy] = smoothWalker(def) ? pathPoint(w, a, a.path.length - 1).map((v, n) => v - (n ? (j / w.w | 0) : j % w.w) - 0.5) : spotIn(a, j, a.path.length === 1);
-          // (a river fish's waypoint is in water deep enough to swim in, not up the bank's shallows)
-          if (a.move === 'swim' && !def.reef && swimDepth(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy) < fishDepth(def)) {
-            const p = deepWaterNear(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy, 0.9, fishDepth(def));
-            if (p) { ox = p[0] - (j % w.w) - 0.5; oy = p[1] - (j / w.w | 0) - 0.5; }
-          }
-          if (a.path.length === 1 && a.restSpot?.[0] !== j) {
-            const bank = !a.dormancy && this.drinks(def) && a.thirst > drinkEvery(this, a, def) * 0.5 ? this.bankSpot(a, j) : null;
-            const drink = bank && bank.crowd < 0.08;
-            a.restSpot = [j, ...(a.dormancy ? [j % w.w + 0.5, (j / w.w | 0) + 0.5] : drink ? [bank.x, bank.y] : this.spacing.restSpot(a, j, ox, oy))];
-            // (on a low bank the dry spot can be a tile or two back from the water, off the tile
-            // it walked to: remember it, or on arrival it doesn't know it's at the water and sets
-            // off for the bank again, pacing back and forth without ever drinking)
-            if (drink) a.bankGoal = bank;
-          }
-          // (a spot picked by tile can fall on a trunk: aim beside it, see ground-obstacles.js)
-          const [tx, ty] = clearSpot(w, a, def, a.path.length === 1 ? a.restSpot[1] : (j % w.w) + 0.5 + ox,
-            a.path.length === 1 ? a.restSpot[2] : ((j / w.w) | 0) + 0.5 + oy);
-          const wading = def.crossing && w.terrain[j] === T.RIVER; // swimming the river is slow going
-          // A waypoint isn't a pin that every animal must stand on. Step past occupied
-          // transit points, or finish beside an occupied destination when already clear.
-          const remaining = Math.hypot(a.x - tx, a.y - ty);
-          if ((!smoothWalker(def) && a.path.length > 1 && remaining < 0.35 && w.idx(Math.floor(a.x), Math.floor(a.y)) === j) ||
-            // (someone stands on this waypoint: on to the next, rather than braking behind them: 0025)
-            (a.path.length > 1 && remaining < 0.6 && this.spacing.crowd(a, tx, ty) > 0.08) ||
-            (a.path.length === 1 && remaining < 0.9 && this.spacing.crowd(a, tx, ty) > 0.08 &&
-            this.spacing.crowd(a, a.x, a.y) < 0.04) ||
-            // (its spot's been taken and it's getting no closer edging round the others: stop short)
-            (a.path.length === 1 && remaining < 1.5 && a.moveProgress?.stalled > 0.3 && this.spacing.crowd(a, tx, ty) > 0.08) ||
-            // (a herd member keeping up only needs to be near the others: held up near the end by a
-            // trunk or a herd mate, it stops there instead of pressing on the spot for seconds)
-            (a.follow && a.path.length === 1 && remaining < 2.5 && a.moveProgress?.stalled > 0.4)) {
-            a.path.pop(); break;
-          }
-          const pace = (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1); // (a.run: a startled animal dashing for cover)
-          // curve round anyone in the way rather than walking into them (not on a dash for cover)
-          const round = a.run ? null : this.spacing.steer(a, tx, ty, standable);
-          if (smoothWalker(def)) { if (smoothWalk(this, a, def, tx, ty, pace, dt, round)) a.path.pop(); }
-          else if (round) { this.stepToward(a, round[0], round[1], pace * round[2]); if (Math.hypot(a.x - tx, a.y - ty) <= pace) a.path.pop(); }
-          else if (this.stepToward(a, tx, ty, pace)) a.path.pop();
+        case 'walk':
+          this.walkStep(a, def, sp, dt);
           break;
-        }
         case 'approach':
           if (a.move === 'fly') a.alt = Math.max(0, a.alt - dt * 3);
           if (!a.localGoal || !(this.heldBank(a) || this.bankSpot(a)) || this.stepToward(a, ...a.localGoal, sp)) {
@@ -1251,45 +1204,9 @@ export class Wildlife {
             forageArrive(this, a);
           }
           break;
-        case 'hunt': {
-          // A difficulty change also stops hunts that only exist in Challenging.
-          if (!preyFor(def, this.game)) { a.state = 'idle'; a.wait = 1; a.flying = false; endHunt(a); break; }
-          a.huntTime -= dt;
-          const b = this.ids.get(a.target);
-          if (!b || b.leaving || a.huntTime <= 0) {
-            a.state = 'idle'; a.wait = 1; endHunt(a);
-            if (this.game.diff.ecology && a.move === 'fly') a.flying = false;
-            break;
-          }
-          if (!canHuntPrey(this, a, def, b)) { a.state = 'idle'; a.wait = 1; endHunt(a); break; }
-          if (a.move === 'fly' && !huntStyle(def).grounded && a.alt < 1) a.alt = Math.min(1, a.alt + dt * 2); // (a soaring hawk starts from higher up)
-          // (the way is shut, say the prey has taken to the water: it lets it go, easing off if running)
-          if (a.hunt?.phase !== 'ease' && this.huntBlocked(a, def, b)) { letGo(this, a, def, b, sp); break; }
-          // approach, stalk or circle, then rush (animal-life.js); the catch is decided on contact
-          const reached = huntStep(this, a, def, b, sp);
-          if (a.state !== 'hunt' || !reached) break;
-          if (a.assist) { a.state = 'idle'; a.wait = 1.5; endHunt(a); if (a.move === 'fly') a.flying = false; break; } // (the pack's flankers leave the kill to the one in front)
-          // Only an actual catch or carcass meal satisfies hunger.
-          // (a swimmer in the crossing can't run or turn: the crocodiles' best chance all year)
-          const swimmer = def.ambush && inCrossing(this, b);
-          if ((this.game.diff.ecology ? this.game.rng() : simRandom()) < predationCatchChance(this.game, b, def, swimmer ? 0.7 : catchOdds(this.game.catalog.animals[b.sp]))) {
-            a.state = 'idle'; a.wait = 1.5; endHunt(a);
-            a.hunger = 0;
-            if (swimmer) a.crossRest = this.game.day + 2;
-            this.game.onPredation(a, b);
-            markRisk(this, b.sp, b.x, b.y, 1); // its kind will remember this place
-            this.remove(b, 'predation');
-            if (!carryCatch(this, a, def, b)) startFeed(this, a, def, b);
-          } else {
-            if (this.game.diff.ecology) this.evadeHunt(b, a);
-            missed(this, b, a);
-            // the prey jinks free, and the hunter runs on after it while it has the wind, or lets it
-            // go, easing off (decision 0026)
-            if (pressOn(this, a, def) || (letGo(this, a, def, b, sp), a.state === 'hunt')) break;
-          }
-          if (a.move === 'fly' && a.state !== 'feed' && a.state !== 'carry') a.flying = false;
+        case 'hunt':
+          this.huntUpdate(a, def, sp, dt);
           break;
-        }
         case 'carry':
           carryUpdate(this, a, def, dt, sp);
           break;
@@ -1345,6 +1262,98 @@ export class Wildlife {
     // Measure progress after spacing: movement can appear successful and then be
     // completely undone by a neighbour pushing the animal back in the same frame.
     for (const a of this.agents) this.checkMovementProgress(a, dt);
+  }
+
+  // One step along a walk's path (state 'walk'): to the next waypoint, round anyone in the way.
+  walkStep(a, def, sp, dt) {
+    const w = this.game.world;
+    if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = a.move === 'swim' && !def.reef ? 0.1 + simRandom() * 0.3 : def.patrol ? 0.2 + simRandom() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + simRandom() * 1.5 : 3 + simRandom() * 4) : 0.5 + simRandom() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); fishArrive(this, a); climberArrive(this, a); return; }
+    if (smoothWalker(def) && a.course?.path !== a.path) shapeCourse(this, a, def); // (a journey walks a curve: see animal-course.js)
+    const j = a.path[a.path.length - 1];
+    if (def.reef) { if (this.swimToward(a, j, sp * (a.pace || 1) * (a.dash || a.run || 1), dt) && (a.path.pop(), !a.path.length)) a.dash = null; return; }
+    // each animal keeps to its own line through a tile and stops at its own spot in the last
+    // one, so two walking the same way don't trace one track, and a group doesn't pile onto
+    // a single point (a journey steers for where its course crosses the tile)
+    let [ox, oy] = smoothWalker(def) ? pathPoint(w, a, a.path.length - 1).map((v, n) => v - (n ? (j / w.w | 0) : j % w.w) - 0.5) : spotIn(a, j, a.path.length === 1);
+    // (a river fish's waypoint is in water deep enough to swim in, not up the bank's shallows)
+    if (a.move === 'swim' && !def.reef && swimDepth(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy) < fishDepth(def)) {
+      const p = deepWaterNear(w, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy, 0.9, fishDepth(def));
+      if (p) { ox = p[0] - (j % w.w) - 0.5; oy = p[1] - (j / w.w | 0) - 0.5; }
+    }
+    if (a.path.length === 1 && a.restSpot?.[0] !== j) {
+      const bank = !a.dormancy && this.drinks(def) && a.thirst > drinkEvery(this, a, def) * 0.5 ? this.bankSpot(a, j) : null;
+      const drink = bank && bank.crowd < 0.08;
+      a.restSpot = [j, ...(a.dormancy ? [j % w.w + 0.5, (j / w.w | 0) + 0.5] : drink ? [bank.x, bank.y] : this.spacing.restSpot(a, j, ox, oy))];
+      // (on a low bank the dry spot can be a tile or two back from the water, off the tile
+      // it walked to: remember it, or on arrival it doesn't know it's at the water and sets
+      // off for the bank again, pacing back and forth without ever drinking)
+      if (drink) a.bankGoal = bank;
+    }
+    // (a spot picked by tile can fall on a trunk: aim beside it, see ground-obstacles.js)
+    const [tx, ty] = clearSpot(w, a, def, a.path.length === 1 ? a.restSpot[1] : (j % w.w) + 0.5 + ox,
+      a.path.length === 1 ? a.restSpot[2] : ((j / w.w) | 0) + 0.5 + oy);
+    const wading = def.crossing && w.terrain[j] === T.RIVER; // swimming the river is slow going
+    // A waypoint isn't a pin that every animal must stand on. Step past occupied
+    // transit points, or finish beside an occupied destination when already clear.
+    const remaining = Math.hypot(a.x - tx, a.y - ty);
+    if ((!smoothWalker(def) && a.path.length > 1 && remaining < 0.35 && w.idx(Math.floor(a.x), Math.floor(a.y)) === j) ||
+      // (someone stands on this waypoint: on to the next, rather than braking behind them: 0025)
+      (a.path.length > 1 && remaining < 0.6 && this.spacing.crowd(a, tx, ty) > 0.08) ||
+      (a.path.length === 1 && remaining < 0.9 && this.spacing.crowd(a, tx, ty) > 0.08 &&
+      this.spacing.crowd(a, a.x, a.y) < 0.04) ||
+      // (its spot's been taken and it's getting no closer edging round the others: stop short)
+      (a.path.length === 1 && remaining < 1.5 && a.moveProgress?.stalled > 0.3 && this.spacing.crowd(a, tx, ty) > 0.08) ||
+      // (a herd member keeping up only needs to be near the others: held up near the end by a
+      // trunk or a herd mate, it stops there instead of pressing on the spot for seconds)
+      (a.follow && a.path.length === 1 && remaining < 2.5 && a.moveProgress?.stalled > 0.4)) {
+      a.path.pop(); return;
+    }
+    const pace = (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1); // (a.run: a startled animal dashing for cover)
+    // curve round anyone in the way rather than walking into them (not on a dash for cover)
+    const round = a.run ? null : this.spacing.steer(a, tx, ty, standable);
+    if (smoothWalker(def)) { if (smoothWalk(this, a, def, tx, ty, pace, dt, round)) a.path.pop(); }
+    else if (round) { this.stepToward(a, round[0], round[1], pace * round[2]); if (Math.hypot(a.x - tx, a.y - ty) <= pace) a.path.pop(); }
+    else if (this.stepToward(a, tx, ty, pace)) a.path.pop();
+  }
+
+  // One step of a hunt (state 'hunt'): on after the prey, and the catch or the miss on contact.
+  huntUpdate(a, def, sp, dt) {
+    // A difficulty change also stops hunts that only exist in Challenging.
+    if (!preyFor(def, this.game)) { a.state = 'idle'; a.wait = 1; a.flying = false; endHunt(a); return; }
+    a.huntTime -= dt;
+    const b = this.ids.get(a.target);
+    if (!b || b.leaving || a.huntTime <= 0) {
+      a.state = 'idle'; a.wait = 1; endHunt(a);
+      if (this.game.diff.ecology && a.move === 'fly') a.flying = false;
+      return;
+    }
+    if (!canHuntPrey(this, a, def, b)) { a.state = 'idle'; a.wait = 1; endHunt(a); return; }
+    if (a.move === 'fly' && !huntStyle(def).grounded && a.alt < 1) a.alt = Math.min(1, a.alt + dt * 2); // (a soaring hawk starts from higher up)
+    // (the way is shut, say the prey has taken to the water: it lets it go, easing off if running)
+    if (a.hunt?.phase !== 'ease' && this.huntBlocked(a, def, b)) { letGo(this, a, def, b, sp); return; }
+    // approach, stalk or circle, then rush (animal-life.js); the catch is decided on contact
+    const reached = huntStep(this, a, def, b, sp);
+    if (a.state !== 'hunt' || !reached) return;
+    if (a.assist) { a.state = 'idle'; a.wait = 1.5; endHunt(a); if (a.move === 'fly') a.flying = false; return; } // (the pack's flankers leave the kill to the one in front)
+    // Only an actual catch or carcass meal satisfies hunger.
+    // (a swimmer in the crossing can't run or turn: the crocodiles' best chance all year)
+    const swimmer = def.ambush && inCrossing(this, b);
+    if ((this.game.diff.ecology ? this.game.rng() : simRandom()) < predationCatchChance(this.game, b, def, swimmer ? 0.7 : catchOdds(this.game.catalog.animals[b.sp]))) {
+      a.state = 'idle'; a.wait = 1.5; endHunt(a);
+      a.hunger = 0;
+      if (swimmer) a.crossRest = this.game.day + 2;
+      this.game.onPredation(a, b);
+      markRisk(this, b.sp, b.x, b.y, 1); // its kind will remember this place
+      this.remove(b, 'predation');
+      if (!carryCatch(this, a, def, b)) startFeed(this, a, def, b);
+    } else {
+      if (this.game.diff.ecology) this.evadeHunt(b, a);
+      missed(this, b, a);
+      // the prey jinks free, and the hunter runs on after it while it has the wind, or lets it
+      // go, easing off (decision 0026)
+      if (pressOn(this, a, def) || (letGo(this, a, def, b, sp), a.state === 'hunt')) return;
+    }
+    if (a.move === 'fly' && a.state !== 'feed' && a.state !== 'carry') a.flying = false;
   }
 
   checkMovementProgress(a, dt) {
