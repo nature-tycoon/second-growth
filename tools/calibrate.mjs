@@ -4,7 +4,8 @@
 //   node tools/calibrate.mjs <map|all> [years=15] [seeds=3]
 //   node tools/calibrate.mjs pnw            (Hollis runs the scripted restoration, as /balance does)
 //   node tools/calibrate.mjs all 15 3       (every map at once, in parallel child processes under nice)
-// Seed 7 is the /balance skill's seed, so seed 7's run is exactly `/balance`'s `restore 15`.
+// Each seed is a run seed (decision 0035); seed 7 is the /balance skill's, so seed 7's run is exactly
+// `/balance`'s `restore 15 --run-seed=7`.
 // --idle runs Hollis untended too. The last run of each map is kept in tools/release-output/calibrate.json.
 
 import { spawn } from 'node:child_process';
@@ -25,8 +26,6 @@ const modeOf = m => (m === 'pnw' && !idle ? 'restore' : 'idle');
 
 const SIM = fileURLToPath(new URL('./balance-sim.mjs', import.meta.url));
 const SAVE = fileURLToPath(new URL('./release-output/calibrate.json', import.meta.url));
-// the /balance skill's seeding: an LCG on Math.random before the game loads
-const seedImport = s => `data:text/javascript,let s=${s};Math.random=()=>(s=(Math.imul(s,1664525)+1013904223)>>>0)/4294967296`;
 
 // ------------------------------------------------------------------ what counts as out of range
 // The reference is the intact ecosystem, which no farm reaches in 15 years, so falling short of it
@@ -38,7 +37,7 @@ const OVER_PARTS = ['meadow', 'shrub', 'forest', 'old', 'wetland', 'deadwood', '
 
 function runOne(map, seed) {
   return new Promise((resolve, reject) => {
-    const child = spawn('nice', ['-n', '15', process.execPath, '--import', seedImport(seed), SIM, modeOf(map), String(years), `--map=${map}`, '--json'],
+    const child = spawn('nice', ['-n', '15', process.execPath, SIM, modeOf(map), String(years), `--map=${map}`, `--run-seed=${seed}`, '--json'],
       { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '', err = '';
     child.stdout.on('data', d => (out += d));

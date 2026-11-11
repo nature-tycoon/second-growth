@@ -1,4 +1,5 @@
 // node tools/bird-behavior-check.mjs
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -30,7 +31,7 @@ function spawn(g, key, x = 40.5, y = 30.5) {
   const a = g.wildlife.spawn(ANIMAL[key], Math.floor(x), Math.floor(y), { silent: true });
   Object.assign(a, { x, y, state: 'idle', flying: false, alt: 0, wait: 99 }); return a;
 }
-function fixed(value, fn) { const before = Math.random; Math.random = () => value; try { return fn(); } finally { Math.random = before; } }
+function fixed(value, fn) { const before = forcedSimRandom(); forceSimRandom(() => value); try { return fn(); } finally { forceSimRandom(before); } }
 const idx = (g, a) => g.world.idx(Math.floor(a.x), Math.floor(a.y));
 check('A bathing bird renders splash rings without crashing the frame, including a removed water tile', () => {
   const g = setup(), w = g.world, a = spawn(g, 'robin');
@@ -111,8 +112,8 @@ check('Perch and preen routines stay on a tree, and react to its removal', () =>
   fixed(0.8, () => birdChoose(wl, a, ANIMAL.robin));
   assert.equal(a.state, 'fly'); assert.equal(a.birdGoal.kind, 'perch'); assert.equal(a.birdGoal.i, far);
   Object.assign(a, { state: 'idle', flying: false, birdGoal: null, perchedAt: null });
-  const random = Math.random; let calls = 0; Math.random = () => calls++ ? 0.2 : 0.8;
-  try { birdChoose(wl, a, ANIMAL.robin); } finally { Math.random = random; }
+  const random = forcedSimRandom(); let calls = 0; forceSimRandom(() => calls++ ? 0.2 : 0.8);
+  try { birdChoose(wl, a, ANIMAL.robin); } finally { forceSimRandom(random); }
   assert.equal(a.bird.kind, 'preen');
   const actors = new Actors(new THREE.Scene()); actors.update(g, new THREE.Vector3(1, 0, 0), 1);
   assert.ok(actors.pose.get(a.id).y > 0.4);

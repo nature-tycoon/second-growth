@@ -4,6 +4,7 @@
 // takes a drawn fish only when one is in reach; otherwise (all but bears) it comes up with one of
 // the fish the water holds, taking nothing from the drawn fish. Boobies plunge-dive and noddies
 // dip at the reef's sea, mostly coming up empty. Ends with a seeded PNW soak.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { BIOME_LIST, mapCatalog } from '../js/biome.js';
@@ -11,11 +12,11 @@ import { T, DAYS_PER_YEAR } from '../js/config.js';
 import { fishing, fishStrike, fishChoose, isFish } from '../js/sim/fishing.js';
 import { restoredGame } from './map-audit-fixtures.mjs';
 import { mulberry32 } from '../js/rng.js';
-import { passable, canLand } from '../js/sim/animal-terrain.js';
+import { passable, canLand, shallows } from '../js/sim/animal-terrain.js';
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log(`PASS ${name}`); };
-const seeded = (seed, fn) => { const r = Math.random; Math.random = mulberry32(seed); try { return fn(); } finally { Math.random = r; } };
-const fixed = (v, fn) => { const r = Math.random; Math.random = () => v; try { return fn(); } finally { Math.random = r; } };
+const seeded = (seed, fn) => { const r = forcedSimRandom(); forceSimRandom(mulberry32(seed)); try { return fn(); } finally { forceSimRandom(r); } };
+const fixed = (v, fn) => { const r = forcedSimRandom(); forceSimRandom(() => v); try { return fn(); } finally { forceSimRandom(r); } };
 Math.random = mulberry32(30);
 // A strip of land with a creek down x = 30 and a fir beside it at (27, 30).
 function setup(map = 'pnw', diff = 'standard') {
@@ -66,15 +67,16 @@ check('A hungry heron goes to the shallows and fishes there', () => {
   let fished = false;
   run(g, () => (fished = h.state === 'feed' && h.prey?.fish), 3000);
   assert.ok(fished, `caught a fish (${h.state})`);
-  assert.ok(Math.abs(h.x - 30.5) < 2.5, 'at the creek');
+  // (at the test creek, or real shallows past the test ground: the map around it is the real pnw)
+  const w = g.world; assert.ok(shallows(w, w.idx(Math.floor(h.x), Math.floor(h.y))) || Math.abs(h.x - 30.5) < 2.5, `at the water (${h.x.toFixed(1)}, ${h.y.toFixed(1)})`);
 });
 for (const [key, style] of [['kingfisher', 'plunge'], ['eagle', 'snatch']]) check(`A ${key} dives on the water and flies to a perch with its fish`, () => {
   const g = setup(), wl = g.wildlife, D = g.catalog.animal[key], a = spawn(g, key, 27.5, 30.5);
   assert.equal(fishing(D, g).style, style);
   assert.equal(seeded(2, () => { for (let k = 0; k < 20; k++) if (fishChoose(wl, a, D)) return true; return false; }), true); assert.equal(a.state, 'fish');
   const seen = new Set();
-  const r = Math.random; Math.random = mulberry32(5);
-  try { run(g, () => { seen.add(a.state === 'fish' ? a.fishing.phase : a.state); return a.state === 'feed'; }, 2000); } finally { Math.random = r; }
+  const r = forcedSimRandom(); forceSimRandom(mulberry32(5));
+  try { run(g, () => { seen.add(a.state === 'fish' ? a.fishing.phase : a.state); return a.state === 'feed'; }, 2000); } finally { forceSimRandom(r); }
   assert.ok(seen.has('dive'), 'a dive'); assert.ok(seen.has('carry'), `carried it (${[...seen]})`);
   assert.equal(a.state, 'feed'); assert.equal(a.prey?.fish, true);
   const w = g.world, i = w.idx(Math.floor(a.x), Math.floor(a.y));
@@ -83,21 +85,21 @@ for (const [key, style] of [['kingfisher', 'plunge'], ['eagle', 'snatch']]) chec
 check('An otter swims out to fish and eats its catch afloat', () => {
   const g = setup(), wl = g.wildlife, O = g.catalog.animal.otter, o = spawn(g, 'otter', 26.5, 30.5);
   assert.equal(seeded(2, () => { for (let k = 0; k < 20; k++) if (fishChoose(wl, o, O)) return true; return false; }), true);
-  const r = Math.random; Math.random = mulberry32(9);
-  try { run(g, () => o.state === 'feed', 3000); } finally { Math.random = r; }
+  const r = forcedSimRandom(); forceSimRandom(mulberry32(9));
+  try { run(g, () => o.state === 'feed', 3000); } finally { forceSimRandom(r); }
   assert.equal(o.state, 'feed'); assert.equal(o.prey?.fish, true);
   assert.ok(isFinite(o.x) && Math.abs(o.x - 30.5) < 2, 'in or by the creek');
 });
 check('A bear between runs swipes a trout it can see from the bank, and never an unseen one', () => {
   const g = setup(), wl = g.wildlife, B = g.catalog.animal.bear, b = spawn(g, 'bear', 25.5, 30.5); b.wait = 0;
   assert.equal(fishing(B, g).unseen, false);
-  const r = Math.random; Math.random = mulberry32(3);
-  try { run(g, () => b.state === 'feed', 3000); } finally { Math.random = r; }
+  const r = forcedSimRandom(); forceSimRandom(mulberry32(3));
+  try { run(g, () => b.state === 'feed', 3000); } finally { forceSimRandom(r); }
   assert.notEqual(b.state, 'feed', 'no fish, no catch');
   const t = spawn(g, 'cutthroat', 30.5, 30.5); t.wait = 99;
   Object.assign(b, { x: 25.5, y: 30.5, state: 'idle', wait: 0, path: null, home: null, range: null });
-  Math.random = mulberry32(4);
-  try { run(g, () => b.state === 'feed' && b.prey?.fish, 4000); } finally { Math.random = r; }
+  forceSimRandom(mulberry32(4));
+  try { run(g, () => b.state === 'feed' && b.prey?.fish, 4000); } finally { forceSimRandom(r); }
   assert.equal(b.prey?.id, t.id, 'the trout'); assert.ok(!wl.agents.includes(t));
 });
 // The reef's seabirds over open sea, off the cay.
@@ -114,7 +116,7 @@ for (const [key, style] of [['booby', 'dive'], ['noddy', 'dip']]) check(`A ${key
   assert.equal(fishing(D, g)?.style, style);
   const a = spawn(g, key, x, y);
   let strikes = 0, catches = 0, maxAlt = 0, under = false, lastPhase = null;
-  const r = Math.random; Math.random = mulberry32(key === 'booby' ? 3 : 8);
+  const r = forcedSimRandom(); forceSimRandom(mulberry32(key === 'booby' ? 3 : 8));
   try {
     for (let k = 0; k < 60000 && catches < 6; k++) {
       if (a.state !== 'fish' && a.state !== 'feed') { a.fishFed = 0; Object.assign(a, { state: 'idle', wait: 99 }); fishChoose(wl, a, D); }
@@ -126,7 +128,7 @@ for (const [key, style] of [['booby', 'dive'], ['noddy', 'dip']]) check(`A ${key
       if ((before === 'under' || before === 'touch') && now !== before) { strikes++; if (a.state === 'feed' || a.fishing?.phase === 'rise' && a.fishFed > a.age) catches++; }
       lastPhase = now;
     }
-  } finally { Math.random = r; }
+  } finally { forceSimRandom(r); }
   assert.ok(catches >= 3, `${key}: ${catches} catches in ${strikes} strikes (${lastPhase})`);
   assert.ok(catches / strikes < 0.5, `${key}: most strikes miss (${catches}/${strikes})`);
   if (style === 'dive') { assert.ok(under, 'it goes under'); assert.ok(maxAlt >= 1.4, `plunges from high up (${maxAlt.toFixed(2)})`); }

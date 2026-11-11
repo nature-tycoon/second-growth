@@ -8,6 +8,7 @@ import { F, isWater } from '../config.js';
 import { passable } from './animal-terrain.js';
 import { facePoint } from './animal-positioning.js';
 import { isPrimate } from './primate-behavior.js';
+import { simRandom } from './sim-random.js';
 
 const tileOf = (w, a) => { const x = Math.floor(a.x), y = Math.floor(a.y); return w.inb(x, y) ? w.idx(x, y) : -1; };
 export const climbing = (def, a) => def.move === 'tree' && a.move === 'tree';
@@ -65,7 +66,7 @@ export function climberChoose(wl, a, def) {
   if (i < 0) return false;
   a.cache = null;
   if (downBelow(def, a)) {
-    if (!danger(wl, a) && Math.random() < 0.45 && groundHop(wl, a, 2)) return true;
+    if (!danger(wl, a) && simRandom() < 0.45 && groundHop(wl, a, 2)) return true;
     if (climbUp(wl, a, def, c.cap)) return true;
     // (nowhere to climb: stay on the ground and forage on)
     return groundHop(wl, a, 3);
@@ -83,7 +84,7 @@ export function climberChoose(wl, a, def) {
       if (!isPrimate(def) && climbUp(wl, a, def, c.cap)) return true;
     }
   }
-  if (c.ground && Math.random() < c.ground && !danger(wl, a) && goDown(wl, a)) return true;
+  if (c.ground && simRandom() < c.ground && !danger(wl, a) && goDown(wl, a)) return true;
   return false;
 }
 // Down the trunk to forage on the ground close by.
@@ -97,7 +98,7 @@ function goDown(wl, a) {
 function groundHop(wl, a, r) {
   const w = wl.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
   for (let k = 0; k < 12; k++) {
-    const x = x0 + Math.round((Math.random() * 2 - 1) * r), y = y0 + Math.round((Math.random() * 2 - 1) * r);
+    const x = x0 + Math.round((simRandom() * 2 - 1) * r), y = y0 + Math.round((simRandom() * 2 - 1) * r);
     if (!w.inb(x, y) || x === x0 && y === y0) continue;
     const j = w.idx(x, y);
     if (isWater(w.terrain[j]) || w.fire[j] || !passable(w, j, a)) continue;
@@ -111,12 +112,12 @@ export function climberArrive(wl, a) {
   const def = wl.game.catalog.animals[a.sp], w = wl.game.world, i = tileOf(w, a), kind = a.climb;
   a.climb = null;
   if (kind === 'up') {
-    if (i >= 0 && treeTile(w, i)) { a.move = 'tree'; a.wait = 0.5 + Math.random(); a.cache = null; }
+    if (i >= 0 && treeTile(w, i)) { a.move = 'tree'; a.wait = 0.5 + simRandom(); a.cache = null; }
     return;
   }
   if (!downBelow(def, a)) return;
   // nose down: digging up something to eat, or burying a nut for the winter (more in the fall)
-  a.cache = Math.random() < ([6, 7, 8].includes(wl.game.month) ? 0.6 : 0.25) ? 'bury' : 'dig';
-  a.wait = 1 + Math.random() * 1.5;
+  a.cache = simRandom() < ([6, 7, 8].includes(wl.game.month) ? 0.6 : 0.25) ? 'bury' : 'dig';
+  a.wait = 1 + simRandom() * 1.5;
   facePoint(a, a.x + Math.cos(a.heading ?? 0), a.y + Math.sin(a.heading ?? 0));
 }

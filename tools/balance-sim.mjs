@@ -2,6 +2,7 @@
 //   node tools/balance-sim.mjs idle 10        (leave the farm alone)
 //   node tools/balance-sim.mjs restore 15 x   (scripted restoration; a 3rd arg prints the event log)
 // --map=serengeti runs another map (restore is the Hollis plan, so pnw only; other maps run idle).
+// --run-seed=N picks the run seed (weather, fires, wildlife: decision 0035), as calibrate.mjs does per seed.
 // --json prints one JSON line at the end instead (vital signs, species and herbivores at the start
 // and the end), for tools/calibrate.mjs.
 
@@ -16,7 +17,8 @@ const flag = name => process.argv.find(a => a.startsWith(`--${name}=`))?.slice(n
 const json = process.argv.includes('--json');
 const mode = args[0] || 'idle';
 const years = +(args[1] || 10);
-const g = new Game(); g.newGame(1987, undefined, undefined, flag('map') || undefined);
+const runSeed = flag('run-seed'); // (the run seed, decision 0035: weather, fires and wildlife; left out, the fixed default)
+const g = new Game(); g.newGame(1987, undefined, undefined, flag('map') || undefined, runSeed == null ? undefined : +runSeed >>> 0);
 if (mode === 'restore' && g.map !== 'pnw') throw new Error('restore is the Hollis (pnw) plan; use idle on other maps');
 const notes = [];
 g.on('notify', n => notes.push(`[${g.dateString()}] ${n.text}`));

@@ -3,14 +3,15 @@
 ## Rules
 
 - Map layout keeps its fixed seed (1987); each new game gets a random run seed for `game.rng` (`Game.randomRunSeed()`, `newGame(seed, mode, difficulty, map, runSeed)`). Tools leave `runSeed` out and keep the old sequence (`seed * 31 + 7`); the game's own entry points pass a random one. `second-growth-pending` takes an optional `runSeed`. Saves store `runSeed`.
-- Sim fire and event code draws from `game.rng`, never `Math.random`. (Wildlife still uses `Math.random`, so browser runs differ even with one run seed; headless tools seed `Math.random`.)
+- Sim fire and event code draws from `game.rng`; wildlife, visitors and tool strokes draw `simRandom()` (`sim/sim-random.js`), the game's `wildRng`, seeded from the run seed (`wildSeed`) and saved. Nothing in `js/sim/` calls `Math.random`: drawing, audio and three.js (a UUID per geometry) keep it, so a new model can't change the simulation. Draws only for looks belong in drawing code.
+- Checks pick a run with a run seed or `g.wildRng.setState(n)`, force a branch with `forceSimRandom(fn)`, and judge noisy limits on the median of three run seeds. `sim-rng-check` proves the separation (1,000 extra `Math.random` calls or a new geometry between ticks leave the seeded hash unchanged).
 - Snag and log placement goes through `sim/ground-obstacles.js` (`snagSpot`, `snagPose`, `snagTop`, `logSpot`; walkers cache `cachedDeadwood`); `flora.js`, walkers and perched birds read the same functions.
 - Snags fall one by one: `snagLife(w, i)` (a per-tile hash, nothing saved), then `DECAY.snagRoll` × rot rate a day; a fire fells only a snag past its own standing life.
 - Stones: `turnUpStones` (`tools.js`) by map `stones`, fixed per tile; natural `F.ROCKS` with no `PLACED` mark.
 - Fire: `climate.fireSpeed` (spread steps a day; crown fire always 1), `fireMonths`, `fireRate`, `fireGap`; on a `hardpan` map gravel with groundcover burns. `climate.routineFires` makes natural grass fires quiet (`'grassfire'` event, one `info` note, analytics `routine: true`).
 - `topKill` (`events.js`): a `resprout` tree past 1.5 years is burned back to a sprout (10% root-killed), leaving no snag. Conifers and palms don't resprout. PNW fire rate stays unchanged (Cole).
 - `swardGrowth` (`plants.js`): a young tree in a grass sward grows at down to half pace, every map, after `grazedGrowth`.
-- Checks: `run-seed-check`, `fire-deadwood-check`; `succession-check --mode idle --years 200 --veg`; seeded `balance-sim restore 15`.
+- Checks: `run-seed-check`, `sim-rng-check`, `fire-deadwood-check`; `succession-check --mode idle --years 200 --veg`; `balance-sim restore 15 --run-seed=7`.
 
 ## History
 

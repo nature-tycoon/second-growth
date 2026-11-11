@@ -5,6 +5,7 @@ import { strokeTiles, toolCost } from './tools.js';
 import { plantLimits } from './sim/plants.js';
 import { toolUnlocked } from './sim/campaign.js';
 import { assertToolCost, assertToolResult } from './data/contracts.js';
+import { simRandom } from './sim/sim-random.js';
 
 /**
  * @typedef {Object} ToolStroke
@@ -35,7 +36,7 @@ export class ToolActions {
   }
 
   /** @returns {ToolStroke|null} */
-  begin(key, { random = Math.random } = {}) {
+  begin(key, { random = simRandom } = {}) { // (the sim's stream: which plants a stroke places is simulation)
     const tool = typeof key === 'string' ? this.game.catalog.tools[key] : key;
     if (!tool || this.game.catalog.tools[tool.key] !== tool || !toolUnlocked(this.game, tool.key)) return null;
     const stroke = {

@@ -11,6 +11,7 @@ import { travelSpeed } from './climb-pace.js';
 import { treeTrunk } from './ground-obstacles.js';
 import { trait } from '../data/animal-kinds.js';
 import { fruitAt } from './primate-behavior.js';
+import { simRandom } from './sim-random.js';
 
 export const isBird = def => def?.move === 'fly' && (def.group === 'Birds' || def.group === 'Seabirds');
 // What a bird does when it lands, from its traits (js/data/animal-kinds.js). trunk: it forages on
@@ -60,7 +61,7 @@ function nearby(wl, a, good, radius = 8, min = 0) {
     if (!w.inb(x + dx, y + dy) || dx * dx + dy * dy < min * min) continue;
     const i = w.idx(x + dx, y + dy);
     if (!good(i)) continue;
-    const s = dx * dx + dy * dy + Math.random() * 3;
+    const s = dx * dx + dy * dy + simRandom() * 3;
     if (s < score) { score = s; best = i; }
   }
   return best;
@@ -69,13 +70,13 @@ function nearby(wl, a, good, radius = 8, min = 0) {
 // they settle in a tree for a while rather than flitting from crown to crown.
 const tileKey = a => Math.floor(a.y) * 1e4 + Math.floor(a.x);
 const inTree = kind => kind === 'perch' || kind === 'preen' || kind === 'fruit';
-function hold(wl, a, kind, t = inTree(kind) ? 5 + Math.random() * 7 : kind === 'trunk' ? 4 + Math.random() * 5 : 1.5 + Math.random() * 2, water = null, side = null) {
+function hold(wl, a, kind, t = inTree(kind) ? 5 + simRandom() * 7 : kind === 'trunk' ? 4 + simRandom() * 5 : 1.5 + simRandom() * 2, water = null, side = null) {
   if (trait(wl.game.catalog.animals[a.sp], 'restless') && kind !== 'nest' && kind !== 'trunk') t *= inTree(kind) ? 0.75 : 0.5;
   a.state = 'bird'; a.bird = { kind, t, water }; a.birdGoal = null;
   // on a trunk: low on it, a tenth to a third of the way up the tree as built before 0024 made
   // trunks longer (render3d treeLevel), on the side it came in from; it hitches up as it works
   if (kind === 'trunk') {
-    a.bird.h = 0.1 + Math.random() * 0.2; a.bird.side = side ?? Math.random() * Math.PI * 2;
+    a.bird.h = 0.1 + simRandom() * 0.2; a.bird.side = side ?? simRandom() * Math.PI * 2;
     a.heading = Math.atan2(-Math.sin(a.bird.side), -Math.cos(a.bird.side)); // (facing the trunk)
   }
   if (inTree(kind)) a.perchedAt = tileKey(a);
@@ -93,13 +94,13 @@ function flyTo(a, w, i, kind, x = i % w.w + 0.5, y = (i / w.w | 0) + 0.5, water 
 // Soaring raptors (def.soar) wheel over open ground on still wings, a few tiles across and high
 // over the trees, with a few wingbeats now and then, before they go to a perch or break off to hunt.
 export function soar(wl, a, def) {
-  const w = wl.game.world, suit = wl.suit[a.sp], r = 2.5 + Math.random() * 1.5;
+  const w = wl.game.world, suit = wl.suit[a.sp], r = 2.5 + simRandom() * 1.5;
   const j = nearby(wl, a, j => groundTile(w, j) && suit[j] > 0.03, 6);
   const cx = clamp(j >= 0 ? j % w.w + 0.5 : a.x, r + 1, w.w - r - 1), cy = clamp(j >= 0 ? (j / w.w | 0) + 0.5 : a.y, r + 1, w.h - r - 1);
   if (cx > w.w - r - 1 || cy > w.h - r - 1) return false; // (a map too small to circle in)
   a.state = 'bird'; a.birdGoal = null; a.birdGround = false; a.flying = true; a.path = null;
-  a.bird = { kind: 'soar', t: 20 + Math.random() * 20, cx, cy, r, dir: Math.random() < 0.5 ? -1 : 1,
-    ang: Math.atan2(a.y - cy, a.x - cx), ph: a.phase, beat: Math.random() * 6.3 };
+  a.bird = { kind: 'soar', t: 20 + simRandom() * 20, cx, cy, r, dir: simRandom() < 0.5 ? -1 : 1,
+    ang: Math.atan2(a.y - cy, a.x - cx), ph: a.phase, beat: simRandom() * 6.3 };
   return true;
 }
 function soarStep(wl, a, def, b, dt, pace = 0.8) {
@@ -118,11 +119,11 @@ function soarStep(wl, a, def, b, dt, pace = 0.8) {
 // vultures watch for, and what draws a crowd from far off. Called on arriving over the carcass.
 export function circleDown(wl, a, def, c) {
   if (!def.soar || !isBird(def) || preyFor(def, wl.game)) return false;
-  const r = 1.4 + Math.random() * 0.4;
+  const r = 1.4 + simRandom() * 0.4;
   a.state = 'bird'; a.birdGround = false; a.flying = true; a.path = null; a.alt = Math.max(a.alt, 1);
   // (it lands just off the body, about half a tile from its middle: a carcass is about half a tile long)
-  a.bird = { kind: 'soar', carcass: c.id, t: 1.8 + Math.random() * 0.4, cx: c.x, cy: c.y, r, r0: r, land: 0.38 + Math.random() * 0.12, alt0: a.alt,
-    dir: Math.random() < 0.5 ? -1 : 1, ang: Math.atan2(a.y - c.y, a.x - c.x), ph: a.phase, beat: Math.random() * 6.3 };
+  a.bird = { kind: 'soar', carcass: c.id, t: 1.8 + simRandom() * 0.4, cx: c.x, cy: c.y, r, r0: r, land: 0.38 + simRandom() * 0.12, alt0: a.alt,
+    dir: simRandom() < 0.5 ? -1 : 1, ang: Math.atan2(a.y - c.y, a.x - c.x), ph: a.phase, beat: simRandom() * 6.3 };
   a.bird.t0 = a.bird.t;
   return true;
 }
@@ -151,9 +152,9 @@ export const liftable = (def, preyDef, prey) => !!prey.juvenile || def.carries.i
 const OWLS = new Set(['owl']);
 function eatTime(def, preyDef) {
   // an owl swallows small prey whole; hawks, eagles and falcons pluck and tear it
-  if (OWLS.has(def.sprite.kind) && (preyDef.sprite.len || preyDef.sprite.size || 10) <= 14) return 1.5 + Math.random() * 1.5;
+  if (OWLS.has(def.sprite.kind) && (preyDef.sprite.len || preyDef.sprite.size || 10) <= 14) return 1.5 + simRandom() * 1.5;
   // (2–4 sim-days plus a little for bigger prey: a few seconds on screen, short of the time a meal lasts, 0014)
-  return 2 + Math.random() * 2 + (preyDef.sprite.len || preyDef.sprite.size || 10) / 8;
+  return 2 + simRandom() * 2 + (preyDef.sprite.len || preyDef.sprite.size || 10) / 8;
 }
 function eatHere(a, def, preyDef) {
   a.state = 'feed'; a.feedT = eatTime(def, preyDef); a.feedAt = [a.x, a.y]; a.carry = null;
@@ -175,7 +176,7 @@ export function carryCatch(wl, a, def, b) {
     if (k < 0) { a.prey = null; return false; }
     // mantle over a catch on open ground; a fish or a monkey in a crown is taken in one movement
     const mantle = !wet && !a.prey.fish && bd.move !== 'tree' && !(b.alt > 0.2);
-    a.carry = { phase: mantle ? 'mantle' : 'lift', t: mantle ? 0.6 + Math.random() * 0.6 : 0, i: k, tx: k % w.w + 0.5, ty: (k / w.w | 0) + 0.5, low: false, left: 20 };
+    a.carry = { phase: mantle ? 'mantle' : 'lift', t: mantle ? 0.6 + simRandom() * 0.6 : 0, i: k, tx: k % w.w + 0.5, ty: (k / w.w | 0) + 0.5, low: false, left: 20 };
   } else if (wet) {
     const k = nearby(wl, a, j => !isWater(w.terrain[j]) && canLand(w, j, def) && !w.fire[j], 12);
     if (k < 0) { a.prey = null; return false; }
@@ -258,9 +259,9 @@ export function birdChoose(wl, a, def) {
   }
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   if (!w.inb(x, y)) return false;
-  const i = w.idx(x, y), profile = birdProfile(def, wl.game.catalog), roll = Math.random();
+  const i = w.idx(x, y), profile = birdProfile(def, wl.game.catalog), roll = simRandom();
   const suit = wl.suit[a.sp];
-  if (def.soar && Math.random() < 0.35 && soar(wl, a, def)) return true;
+  if (def.soar && simRandom() < 0.35 && soar(wl, a, def)) return true;
   // A breeding bird returns to a remembered suitable site. Removing the tree,
   // snag or nest box makes it choose another; the visit is a visible routine.
   if (def.breed?.includes(wl.game.month) && roll < 0.16) {
@@ -276,7 +277,7 @@ export function birdChoose(wl, a, def) {
     const bank = wl.bankSpot(a);
     if (bank) {
       if (Math.hypot(a.x - bank.x, a.y - bank.y) > 0.09) flyTo(a, w, i, 'bathe', bank.x, bank.y, bank.water);
-      else hold(wl, a, 'bathe', 1.5 + Math.random() * 2, bank.water);
+      else hold(wl, a, 'bathe', 1.5 + simRandom() * 2, bank.water);
       return true;
     }
     const j = nearby(wl, a, j => w.distWater[j] === 1 && groundTile(w, j) && !!wl.bankSpot(a, j), 6);
@@ -287,7 +288,7 @@ export function birdChoose(wl, a, def) {
   // Fruit birds (toucans, parrots, hornbills, bulbuls: eatsFruit) go to a fruiting crown in season
   // for a short meal, then move on to rest and digest elsewhere (which is how they spread the
   // seeds: seedTravel 'bird', decision 0027). No food economy: the meal feeds no population.
-  if (profile.fruit && !(a.fruitFed > a.age) && Math.random() < 0.55) {
+  if (profile.fruit && !(a.fruitFed > a.age) && simRandom() < 0.55) {
     if (fruitAt(wl.game, i) && a.ateFruitAt !== tileKey(a)) { fruitMeal(wl, a); return true; }
     const j = nearby(wl, a, j => j !== i && fruitAt(wl.game, j) && canLand(w, j, def), 9, 1);
     if (j >= 0) { flyTo(a, w, j, 'fruit'); return true; }
@@ -297,7 +298,7 @@ export function birdChoose(wl, a, def) {
       // Short hops between adjacent feeding spots, with a pecking pause at the end.
       const j = nearby(wl, a, j => j !== i && forageTile(w, j) && suit[j] > 0.03, 1);
       // (one pecking pause per spot, then on to the next)
-      if (j >= 0 && (a.foragedAt === tileKey(a) || Math.random() < 0.55) && wl.pathTo(a, k => k === j, 12, null, k => forageTile(w, k))) {
+      if (j >= 0 && (a.foragedAt === tileKey(a) || simRandom() < 0.55) && wl.pathTo(a, k => k === j, 12, null, k => forageTile(w, k))) {
         a.flying = false; a.alt = 0; a.birdGround = true; a.birdGoal = { kind: 'forage', i: j }; return true;
       }
       if (a.foragedAt !== tileKey(a)) { hold(wl, a, 'forage'); return true; }
@@ -310,13 +311,13 @@ export function birdChoose(wl, a, def) {
     if (trunkTile(w, i) && a.foragedAt !== tileKey(a)) { hold(wl, a, 'trunk', undefined, null, a.clingSide); a.foragedAt = tileKey(a); return true; }
     const j = nearby(wl, a, j => j !== i && trunkTile(w, j) && suit[j] > 0.03, 8, 2);
     if (j >= 0) {
-      const side = Math.random() * Math.PI * 2, at = trunkSide(w, j, side);
+      const side = simRandom() * Math.PI * 2, at = trunkSide(w, j, side);
       if (at) { a.clingSide = side; flyTo(a, w, j, 'trunk', at[0], at[1]); return true; }
     }
   }
   if (profile.perch && roll < 0.9) {
     // A spell or two in a tree, then on to another a few trees away, not the next trunk over.
-    if (perchTile(w, i) && (a.perchedAt !== tileKey(a) || Math.random() < 0.5)) { hold(wl, a, Math.random() < 0.4 ? 'preen' : 'perch'); return true; }
+    if (perchTile(w, i) && (a.perchedAt !== tileKey(a) || simRandom() < 0.5)) { hold(wl, a, simRandom() < 0.4 ? 'preen' : 'perch'); return true; }
     const j = nearby(wl, a, j => j !== i && perchTile(w, j) && suit[j] > 0.03, 8, 3);
     if (j >= 0) { flyTo(a, w, j, 'perch'); return true; }
   }
@@ -326,7 +327,7 @@ export function birdChoose(wl, a, def) {
       let n = 0;
       for (const b of wl.agents) if (b.sp === a.sp && !b.leaving && (b.state === 'idle' || b.state === 'bird') &&
         (b.x - a.x) ** 2 + (b.y - a.y) ** 2 < 16 && n++ < 6) {
-        flyTo(b, w, j, profile.perch && perchTile(w, j) ? 'perch' : 'rest', j % w.w + 0.25 + Math.random() * 0.5, (j / w.w | 0) + 0.25 + Math.random() * 0.5);
+        flyTo(b, w, j, profile.perch && perchTile(w, j) ? 'perch' : 'rest', j % w.w + 0.25 + simRandom() * 0.5, (j / w.w | 0) + 0.25 + simRandom() * 0.5);
       }
       return a.state === 'fly';
     }
@@ -337,7 +338,7 @@ export function birdChoose(wl, a, def) {
 // A few fruits plucked, then off: a short meal (2.5 to 4.5 sim-days, a few seconds at watch pace),
 // and a while before it looks for fruit again.
 function fruitMeal(wl, a) {
-  hold(wl, a, 'fruit', 2.5 + Math.random() * 2);
+  hold(wl, a, 'fruit', 2.5 + simRandom() * 2);
   a.ateFruitAt = tileKey(a);
 }
 export function birdArrive(wl, a) {
@@ -373,7 +374,7 @@ export function birdUpdate(wl, a, def, dt) {
     // A hungry hawk hunts from up here: it watches the ground below and stoops on what it sees,
     // and moves on before long if nothing shows.
     if (diet && a.hunger >= huntHunger(def)) {
-      if (!b.hunting) { b.hunting = true; b.t = Math.min(b.t, 4 + Math.random() * 3); }
+      if (!b.hunting) { b.hunting = true; b.t = Math.min(b.t, 4 + simRandom() * 3); }
       if ((b.scan = (b.scan || 0) - dt) <= 0) { b.scan = 0.3; if (wl.paced() && wl.startHunt(a, def, diet, 7)) return; }
     }
     soarStep(wl, a, def, b, dt);
@@ -383,7 +384,7 @@ export function birdUpdate(wl, a, def, dt) {
     b.kind === 'forage' && !forageTile(w, i) || b.kind === 'nest' && !nestTile(w, i, birdProfile(def, wl.game.catalog)) ||
     b.kind === 'bathe' && !bathValid(w, a, b.water) || b.kind === 'trunk' && !trunkTile(w, i) || b.kind === 'fruit' && !fruitAt(wl.game, i);
   // (hitching up the trunk as it works, a little at a time)
-  if (b.kind === 'trunk' && Math.random() < dt * 0.8) b.h = Math.min(0.42, b.h + 0.02 + Math.random() * 0.03);
-  if (b.kind === 'fruit' && b.t <= 0) a.fruitFed = a.age + 2 + Math.random() * 4;
-  if (invalid || b.t <= 0) { a.bird = null; a.state = 'idle'; a.wait = invalid ? 0 : 0.3 + Math.random() * 0.5; }
+  if (b.kind === 'trunk' && simRandom() < dt * 0.8) b.h = Math.min(0.42, b.h + 0.02 + simRandom() * 0.03);
+  if (b.kind === 'fruit' && b.t <= 0) a.fruitFed = a.age + 2 + simRandom() * 4;
+  if (invalid || b.t <= 0) { a.bird = null; a.state = 'idle'; a.wait = invalid ? 0 : 0.3 + simRandom() * 0.5; }
 }

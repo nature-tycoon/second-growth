@@ -4,6 +4,7 @@
 
 import { T, F, H, clamp, money } from '../config.js';
 import { STRUCTURES } from '../world.js';
+import { simRandom, useSimRandom } from './sim-random.js';
 
 const SEASON_DEMAND = [0.7, 0.9, 1.1, 1.3, 1.5, 1.4, 1.1, 1.0, 0.5, 0.35, 0.35, 0.5];
 // Walkers step to any of the 8 neighbours, so trails drawn on a diagonal stay connected.
@@ -105,24 +106,25 @@ export class Visitors {
       }
     }
     if (!heads.length) return;
-    const start = heads[Math.floor(Math.random() * heads.length)];
+    const start = heads[Math.floor(simRandom() * heads.length)];
     // Hikers head for a trail end or the far reaches of the network, then walk back out.
     const { prev, order } = this.routes(start);
     const far = order.slice(Math.floor(order.length * 0.8));
     const ends = order.filter(i => i !== start && this.neighbours(i).length <= 1);
-    const pool = ends.length && Math.random() < 0.9 ? ends : far;
-    const goal = pool[Math.floor(Math.random() * pool.length)];
+    const pool = ends.length && simRandom() < 0.9 ? ends : far;
+    const goal = pool[Math.floor(simRandom() * pool.length)];
     const out = [];
     for (let i = goal; i !== -1 && i != null; i = prev.get(i)) out.push(i);
     out.reverse();
     const path = out.concat(out.slice(0, -1).reverse());
     this.agents.push({
       id: this.nextId++, x: (start % w.w) + 0.5, y: ((start / w.w) | 0) + 0.5, cur: start, path, step: 0,
-      look: Math.floor(Math.random() * 8), phase: Math.random() * 10, pause: 0,
+      look: Math.floor(simRandom() * 8), phase: simRandom() * 10, pause: 0,
     });
   }
 
   update(dt) {
+    if (this.game.wildRng) useSimRandom(this.game.wildRng);
     const w = this.game.world;
     for (let k = this.agents.length - 1; k >= 0; k--) {
       const a = this.agents[k];
@@ -143,7 +145,7 @@ export class Visitors {
       if (d <= sp) {
         a.x = tx; a.y = ty; a.cur = next; a.step++;
         // people stop to look at things
-        if (Math.random() < 0.05) a.pause = 0.5 + Math.random() * 2;
+        if (simRandom() < 0.05) a.pause = 0.5 + simRandom() * 2;
       } else { a.x += dx / d * sp; a.y += dy / d * sp; }
       a.dx = dx; a.dy = dy;
     }
