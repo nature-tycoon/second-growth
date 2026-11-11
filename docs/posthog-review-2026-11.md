@@ -105,8 +105,7 @@ Read them a week after this goes live. The questions to ask:
    (`pnwChapters`), `js/sim/goals.js`.
 2. **Phones stuck at "turn sideways" (S). Done 2026-11-10:** a rotation-lock hint and "Play upright anyway" (remembered per device; `rotate_prompt_cleared` gains `upright`), and the screen is centred. 14 of 75 phone players never turned the phone; 13 never
    started. Add a rotation-lock hint and "Play upright anyway". `#rotate-hint` in `index.html`.
-3. **Unsuitable-ground refusals (S–M). Done 2026-11-10 in the warning:** it already gave the reason; it now names the unlocked tool of the same layer that suits the spot (`suitedTool` in `js/tool-actions.js`). Showing it at the cursor before the stroke is still open. Say *why* the ground is unsuitable, and which mix would
-   suit it, at the cursor. The refusal comes from `js/tool-actions.js`; the brush preview is in `js/input.js`.
+3. **Unsuitable-ground refusals (S–M). Done 2026-11-10.** The warning after a refused stroke leads with the unlocked tool of the same layer that suits the spot, then the reasons (`refusal` in `js/tool-actions.js`: `plantLimits` and `suitedTool`), so a phone's two-line toast still shows it. Before the stroke, the brush cursor tip adds a second line on a tile the tool would refuse ("too shady, too wet · try Forest floor mix"; `refusalTip` in `js/input.js`, worked out only when the hovered tile changes). Touch has no hover, so phones get it from the first refused tap's warning. Worth rechecking `fails_unsuitable_session` after a release.
 
 ## Performance: bigger moves that keep the look (ranked by expected gain)
 

@@ -4,6 +4,7 @@ import { tr } from './i18n.js';
 import { T, money, clamp, WATCH_PACE } from './config.js';
 import { strokeTiles, toolCost, bestSuit, naturalFeature } from './tools.js';
 import { settings } from './settings.js';
+import { refusal } from './tool-actions.js';
 
 
 const SHIFTED = { '-': '_', '_': '-', '=': '+', '+': '=' };
@@ -470,13 +471,30 @@ export class Input {
     if (tool.species) {
       const s = bestSuit(g, i0, tool.species);
       txt += s > 0.55 ? ` · ${tr('good spot')}` : s > 0.3 ? ` · ${tr('okay spot')}` : ` · <span class="bad">${tr('poor spot')}</span>`;
-      if (this.game.catalog.definition.hardpan && w.terrain[i0] === T.GRAVEL && !tool.species.some(k => this.game.catalog.plants.find(p => p?.key === k)?.crustOK || this.game.catalog.plants.find(p => p?.key === k)?.gravelOK)) txt += ` · <span class="bad">${tr(this.game.catalog.definition.text.hardpanTip || 'hardpan: loosen it first')}</span>`;
+      const hardpan = this.game.catalog.definition.hardpan && w.terrain[i0] === T.GRAVEL && !tool.species.some(k => this.game.catalog.plants.find(p => p?.key === k)?.crustOK || this.game.catalog.plants.find(p => p?.key === k)?.gravelOK);
+      if (hardpan) txt += ` · <span class="bad">${tr(this.game.catalog.definition.text.hardpanTip || 'hardpan: loosen it first')}</span>`;
+      // where the tool would be refused, say why and what would grow, before the click (player data:
+      // the red preview alone wasn't read). Hover only: on touch the refused tap's warning says it.
+      if (!this.touching) txt += this.refusalTip(i0, tool, s, hardpan);
     }
     if (this.stroke && this.stroke.cost) txt += ` · ${tr(`spent ${money(this.stroke.cost)}`)}`;
     this.tip.innerHTML = txt;
     this.tip.classList.remove('hidden');
     this.tipSize = { w: this.tip.offsetWidth, h: this.tip.offsetHeight };
     this.placeTip();
+  }
+  // A second line for a planting tool refused on tile i (as plantTool refuses: lawn, or suitability
+  // 0.2 or under on open ground): the limits and the unlocked tool that suits the spot. Runs only on
+  // a new hover key, like the rest of the tip.
+  refusalTip(i, tool, s, hardpan) {
+    const g = this.game, w = g.world, layer = g.catalog.plant[tool.species[0]].layer;
+    const sod = w.ground[i] && g.catalog.plants[w.ground[i]]?.sod;
+    if (!sod && (s > 0.2 || (layer === 0 ? w.ground[i] : layer === 1 ? w.shrub[i] : w.tree[i]))) return '';
+    if (sod) return `<br>${tr('lawn: lift the sod first')}`;
+    const { limits, better } = refusal(g, i, tool);
+    const why = hardpan ? limits.filter(l => !/hardpan/i.test(l)) : limits;
+    const parts = [why.length && why.slice(0, 2).map(l => tr(l)).join(', '), better && `${tr('try')} ${tr(better.name)}`].filter(Boolean);
+    return parts.length ? `<br>${parts.join(' · ')}` : '';
   }
   // The tip follows the pointer every frame, from its size when last written (reading the size
   // every frame would make the browser lay the page out again each time)
