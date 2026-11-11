@@ -123,6 +123,8 @@ less ground shows between crowns than with the far models; that is closer to the
 but it is a visible change at the switch. The thin limbs inside crowns stay lost. Not yet
 checked: the camera turning (view flicker), snow, autumn and a lost graphics context.
 
+2026-11-11: Cole reviewed the crops and the review page and approved the look.
+
 ### Open
 
 - Cards at play zoom (level 2), where crowns are 8M of 18M triangles on the whole map: the bigger
