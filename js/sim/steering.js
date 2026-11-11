@@ -82,7 +82,8 @@ function backToWater(w, wl, a) {
   const underWater = wetTest(w);
   for (let k = -2; k <= 2; k++) {
     const ang = h + Math.PI + k * 0.26, c = Math.cos(ang), s = Math.sin(ang);
-    for (let d = step; d <= L; d += step) if (underWater(a.x + c * d, a.y + s * d)) { a.headUp = true; return; }
+    // (from half a step back: water lapping at its heels, under its rump, was missed)
+    for (let d = step / 2; d <= L; d += step) if (underWater(a.x + c * d, a.y + s * d)) { a.headUp = true; return; }
   }
 }
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;

@@ -139,11 +139,15 @@ export class AnimalSpacing {
       const along = ox * dx + oy * dy, lat = oy * dx - ox * dy; // (lat > 0: it's on the left)
       if (along <= 0.02 || along > look + reach || Math.abs(lat) >= reach) continue;
       // coming the other way: both keep to their own right, so they don't mirror each other's dodge
-      const toward = e.a.state === 'walk' && Math.cos(e.a.heading ?? 0) * dx + Math.sin(e.a.heading ?? 0) * dy < -0.5;
+      const coming = Math.cos(e.a.heading ?? 0) * dx + Math.sin(e.a.heading ?? 0) * dy < -0.5;
+      const toward = e.a.state === 'walk' && coming;
+      // (one on a chase or in flight coming at it won't give way: it steps aside rather than waiting
+      // in its path, where a bass hunting up a creek pushed another along backwards)
+      const charging = coming && (e.a.state === 'hunt' || e.a.state === 'flee');
       const at = Math.max(0.15, along);
       need[0] = Math.max(need[0], Math.atan2(reach + lat, at) + (toward ? 0.6 : 0));
       need[1] = Math.max(need[1], Math.atan2(reach - lat, at));
-      if (Math.abs(lat) < reach * 0.7) ahead = Math.min(ahead, along - reach);
+      if (Math.abs(lat) < reach * 0.7 && !charging) ahead = Math.min(ahead, along - reach);
       any = true;
     }
     if (!any) { a.avoidSide = 0; return null; }

@@ -93,7 +93,7 @@ class Animal {
   momSlot; familyFailures; patrolDir; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkOn;
-  carry; prey; fishing; clingSide; fruitFed; ateFruitAt; climb; cache; home; homeAfter; drinkFrom; fleeHd; jink; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey;
+  carry; prey; fishing; clingSide; fruitFed; ateFruitAt; climb; cache; home; homeAfter; drinkFrom; fleeHd; jink; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey; detour;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -1475,6 +1475,7 @@ export class Wildlife {
     }
     // (curve round a trunk or log ahead rather than walking into it)
     if (d > 0.02 && sp > 0) { const h = steerAround(this.game.world, a, def, Math.atan2(dy, dx), Math.min(d, 1.6)); dx = Math.cos(h) * d; dy = Math.sin(h) * d; }
+    const was = a.heading;
     if (d > 0.02 && sp > 0) facePoint(a, a.x + dx, a.y + dy);
     const step = Math.min(d, sp);
     let nx = d ? a.x + dx / d * step : a.x, ny = d ? a.y + dy / d * step : a.y;
@@ -1495,11 +1496,14 @@ export class Wildlife {
         if (a.moveProgress?.stalled > 0.5) for (let t = step; !found && t <= Math.max(step, 0.35); t += 0.05) {
           if (swimDepth(w, a.x + ux * t, a.y + uy * t) >= need) { nx = a.x + ux * t; ny = a.y + uy * t; found = true; }
         }
+        // (the side it went round last time first: trying left then right afresh each step, a fish
+        // along a lip went left one step and right the next, its heading flipping half round a frame)
+        const side = a.detour || 1;
         for (let k = 0; !found && k < 6; k++) {
-          const turn = (k >> 1) * 0.5 + 0.5, x = a.x + Math.cos(h0 + (k & 1 ? -turn : turn)) * step, y = a.y + Math.sin(h0 + (k & 1 ? -turn : turn)) * step;
-          if (swims(x, y)) { nx = x; ny = y; found = true; }
+          const s = k & 1 ? -side : side, turn = (k >> 1) * 0.5 + 0.5, x = a.x + Math.cos(h0 + s * turn) * step, y = a.y + Math.sin(h0 + s * turn) * step;
+          if (swims(x, y)) { nx = x; ny = y; found = true; a.detour = s; }
         }
-        if (!found) return false;
+        if (!found) { a.heading = was; return false; } // (no way round: it stays as it was, not nosing at the bank)
         facePoint(a, nx, ny); // (nose first round the bar: facing the target, it slid sideways along the bank)
       }
     }
@@ -2113,7 +2117,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, jink, settleKey, headUp, headUpKey, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, jink, settleKey, headUp, headUpKey, detour, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,

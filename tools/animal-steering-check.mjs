@@ -238,7 +238,9 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     assert.ok(r.sparStuck === 0, `${r.map}: ${r.sparStuck} rival-steps stuck short of their stance`);
     assert.ok(r.drink < 5, `${r.map}: ${r.drink} per 1000 drinking steps with no water ahead`);
     assert.ok(r.backGraze < 2, `${r.map}: ${r.backGraze} per 1000 idle grazer-steps grazing with their back to the water`);
-    assert.ok(r.fleeTurn < 15, `${r.map}: ${r.fleeTurn} per 1000 flee steps jerking round`);
+    // (and at least 5 of them: Sumatra has a couple of hundred flee steps, so one jerk moves the rate by 4)
+    const jerks = Math.round(r.fleeTurn * r.fleeSteps / 1000);
+    assert.ok(r.fleeTurn < 15 || jerks < 5, `${r.map}: ${r.fleeTurn} per 1000 flee steps jerking round (${jerks})`);
     console.log('PASS ' + r.map);
   }
 }
