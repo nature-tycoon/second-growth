@@ -143,6 +143,8 @@ Amazon: chip 39 ms.
    measured bottleneck first, and this is the measurement. Catch: shared memory needs special
    server headers that GitHub Pages and itch.io don't send, so the worker would post a compact
    snapshot (animal positions, changed tiles) each frame. Needs a design review first.
+   **Designed 2026-11-10, [0041](decisions/0041-simulation-worker.md): no-go for now.** At normal speed the
+   graphics chip is the limit on every device class, so the gain is 0–5%. Revisit after moves 2–3.
 5. **Find the phones' missing 27 ms (S to measure).** Phones draw only 0.36 megapixels and spend
    ~13 ms on the processor, yet frames take ~40 ms. iOS hides graphics-chip timing. Measure on a
    real iPhone with Safari's timeline, and test the suspects: foliage wind and leaf lighting
