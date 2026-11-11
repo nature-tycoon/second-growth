@@ -151,16 +151,18 @@ export class SessionAnalytics {
     // the "turn your phone sideways" screen: how many players meet it, how long they take to turn
     // the phone, and (in game_left) whether it was still up when they gave up
     const upright = window.matchMedia('(orientation: portrait) and (max-width: 700px)');
+    const prompted = () => upright.matches && !document.documentElement.classList.contains('upright-ok');
     const rotate = () => {
-      if (upright.matches && S.rotateSince == null) {
+      if (prompted() && S.rotateSince == null) {
         S.rotateSince = performance.now();
         if ((S.rotateShown = (S.rotateShown || 0) + 1) <= 3) track('rotate_prompt_shown', { times: S.rotateShown, seconds_since_load: Math.round(performance.now() / 1000) });
-      } else if (!upright.matches && S.rotateSince != null) {
-        if (S.rotateShown <= 3) track('rotate_prompt_cleared', { seconds: Math.round((performance.now() - S.rotateSince) / 1000), times: S.rotateShown });
+      } else if (!prompted() && S.rotateSince != null) {
+        if (S.rotateShown <= 3) track('rotate_prompt_cleared', { seconds: Math.round((performance.now() - S.rotateSince) / 1000), times: S.rotateShown, upright: upright.matches });
         S.rotateSince = null;
       }
     };
     rotate();
     upright.addEventListener?.('change', rotate);
+    window.addEventListener('upright-ok', rotate);
   }
 }
