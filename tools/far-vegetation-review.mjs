@@ -3,11 +3,14 @@
 // models switched off (before: the distant models at every zoom, what a computer that kept up
 // used to see) and on (after), in the same frozen scene. Writes tools/release-output/far-vegetation/
 // and its index for tools/far-vegetation-review.html (open http://localhost:8347/tools/far-vegetation-review.html).
+// FAR_REVIEW=impostors compares the far crowns as models (before) and as baked cards (after,
+// decision 0041) instead.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { openBrowser, projectRoot, pause } from './browser-session.mjs';
 
 const [maps = 'sumatra,pnw,serengeti', qualities = 'high,fast'] = process.argv.slice(2);
+const cards = process.env.FAR_REVIEW === 'impostors';
 // (play zoom, just past each Detail level's switch, and the zoomed-out view play-profile measures)
 const VIEWS = { high: [['play zoom', 0.62], ['just past the switch', 0.34], ['zoomed out', 0.25]], fast: [['play zoom', 0.62], ['just past the switch', 0.48], ['zoomed out', 0.25]] };
 const out = join(projectRoot, 'tools/release-output/far-vegetation');
@@ -32,16 +35,16 @@ try {
         const s = await browser.evaluate(`(async()=>{
           const {renderer:R}=window.secondGrowth;
           R.autoRes=false; R.setRes(1); R.zoom=${zoom}; R.zoomGoal=null; R.centerOn(${center.join(',')}); R.updateCamera();
-          R.flora.setFar(${far});
+          ${cards ? `R.flora.setFar(true); R.flora.setImpostors(${far});` : `R.flora.setFar(${far});`}
           await new Promise(r=>setTimeout(r,${shots.length ? 1500 : 4000}));
           R.perfSample(true); await new Promise(r=>setTimeout(r,600)); const s=R.perfSample(false);
-          return {triangles:s.triangles, farModels:s.far_models, lod:R.flora.view[0]};})()`, 60000);
+          return {triangles:s.triangles, farModels:s.far_models, lod:R.flora.view[0], cards:R.flora.impostors&&{...R.flora.impostors.stats,models:R.flora.impostors.slots.size}};})()`, 60000);
         await pause(100);
         const { data } = await browser.send('Page.captureScreenshot', { format: 'jpeg', quality: 85 });
         const file = `${map}-${quality}-${zoom}-${when}.jpg`;
         await writeFile(join(out, file), Buffer.from(data, 'base64'));
         shots.push({ map, quality, view, zoom, when, file, ...s });
-        console.log(`${map} ${quality} ${view} (zoom ${zoom}) ${when}: ${(s.triangles / 1e6).toFixed(2)}M triangles, far models ${s.farModels ? 'drawn' : 'not drawn'}`);
+        console.log(`${map} ${quality} ${view} (zoom ${zoom}) ${when}: ${(s.triangles / 1e6).toFixed(2)}M triangles, far models ${s.farModels ? 'drawn' : 'not drawn'}${cards && s.cards ? `, cards baked ${s.cards.baked} in ${s.cards.ms.toFixed(0)} ms` : ''}`);
       }
     }
     browser.assertHealthy();

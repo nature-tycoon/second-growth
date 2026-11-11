@@ -11,6 +11,7 @@ import * as Botanical from './botanical.js';
 import { flowerForm, fruitForm, grassForm, treeBlossomForm } from '../plant-patterns.js';
 import { snowCrown } from './snow.js';
 import { farHull, farTrunk, farFronds } from './far-models.js';
+import { TreeImpostors } from './tree-impostors.js';
 import { waterSurfaceY } from './terrain.js';
 import { activeCatalog } from '../data/catalog.js';
 import { meadowPatch, patchColor } from './patches.js';
@@ -118,7 +119,9 @@ export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vi
   'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
 
 export class Flora {
-  constructor(scene, { chunkSize = 24, incremental = true, cullInstances = true, indexedGeometry = true, cullShadows = true, catalog = activeCatalog } = {}) {
+  // impostors: options for far crowns drawn as baked cards (tree-impostors.js; needs a renderer
+  // to bake them, Renderer.draw), or null for none (headless checks)
+  constructor(scene, { chunkSize = 24, incremental = true, cullInstances = true, indexedGeometry = true, cullShadows = true, catalog = activeCatalog, impostors = null } = {}) {
     this.catalog = catalog;
     this.scene = scene;
     this.cullInstances = cullInstances; this.plantView = new PlantView(scene);
@@ -128,6 +131,7 @@ export class Flora {
     this.editRegions = new Set();
     this.wind = { value: 0 };
     Object.assign(this, createPlantMaterials(this.wind));
+    this.impostors = impostors ? new TreeImpostors(this.wind, impostors) : null;
     this.treeSites = new Map(); this.canopyPools = new Map(); this.canopyVisible = new Set();
     this.pools = new Map();
     this.geos = new Map();
@@ -254,6 +258,17 @@ export class Flora {
     if (on === this.far) return;
     this.far = on;
     this.setZoom(this.zoom ?? 1, true);
+  }
+
+  // Far crowns as baked cards (tree-impostors.js) on or off; off keeps the far models, for comparing.
+  setImpostors(on) {
+    if (!this.impostors || this.impostors.enabled === !!on) return;
+    this.impostors.enabled = !!on;
+    this.setZoom(this.zoom ?? 1, true);
+  }
+  // Bakes any new crowns' pictures, then shows their cards (a renderer's job: see Renderer.draw).
+  bakeImpostors(gl) {
+    if (this.impostors?.bake(gl)) this.setZoom(this.zoom ?? 1, true);
   }
 
   // a tree climbers can use, remembered with the tile's plants
@@ -626,7 +641,8 @@ export class Flora {
           }
           if (!this.pools.has(`crown:${key}`)) {
             const receive = () => this.lightingDepth !== false && !this.light && !game.catalog.definition.look.underwater;
-            const crown = new ChunkedPlantPool(() => new PlantPool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, geoFar: shape.far.crown, shadowGeo: shape.lo.crown, receive: receive(), geometryIndex: this.geometryIndex }), this);
+            const geoCard = this.impostors?.card(`crown:${key}`, shape.crown) || null;
+            const crown = new ChunkedPlantPool(() => new PlantPool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, geoFar: shape.far.crown, shadowGeo: shape.lo.crown, geoCard, cardMat: this.impostors?.material, receive: receive(), geometryIndex: this.geometryIndex }), this);
             const trunkP = new ChunkedPlantPool(() => new PlantPool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk, geoMid: shape.mid.trunk, geoFar: shape.far.trunk, shadowGeo: shape.lo.trunk, receive: receive(), geometryIndex: this.geometryIndex }), this);
             crown.setView(...this.view); trunkP.setView(...this.view);
             this.pools.set(`crown:${key}`, crown); this.pools.set(`trunk:${key}`, trunkP);

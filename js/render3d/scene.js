@@ -120,6 +120,8 @@ export class Renderer {
       this.perf = null;
       this.cpuPerf.reset(); this.cpuSkipNext = true;
       this.gpuTimer = new GpuTimer(this.gl.getContext()); // (the old timer's queries went with the old context)
+      this.flora.impostors?.restore(); // (the baked tree pictures went with it too)
+      this.flora.setZoom(this.flora.zoom ?? 1, true);
       this.onContextRestored?.();
     });
     this.gl.setPixelRatio(this.dpr);
@@ -153,7 +155,7 @@ export class Renderer {
     this.scene.add(this.hemi, this.sun, this.sun.target);
     this.atlas = buildAtlas(this.catalog);
     this.terrain = new Terrain(this.scene, this.atlas);
-    this.flora = new Flora(this.scene, { catalog: this.catalog });
+    this.flora = new Flora(this.scene, { catalog: this.catalog, impostors: {} });
     this.lightingDepth = true;
     this.actors = new Actors(this.scene, this.flora);
     this.actors.terrain = this.terrain; // (for the drawn water surface)
@@ -1016,6 +1018,7 @@ export class Renderer {
     const gustTo = wx === 'rain' ? 1.5 : wx === 'snow' ? 1.2 : wx === 'cloud' ? 1.0 : 0.65;
     windGust.value += (gustTo - windGust.value) * Math.min(1, dt * 0.4);
     this.flora.setZoom(this.eyeOn ? this.eyeDetail : this.zoom);
+    this.flora.bakeImpostors(this.gl);
     // plant contact shadows only stand in for the sun's when those are off (by choice, or dropped to
     // keep up): alongside real shadows they'd only smudge the ground around each trunk
     this.flora.contact.visible = !this.sun.castShadow;
