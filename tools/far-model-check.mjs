@@ -26,7 +26,7 @@ function grown(map) {
 }
 const sources = flora => [...flora.pools].flatMap(([key, pool]) => [...pool.subs.values()].filter(p => p.n).map(p => [key, p]));
 
-for (const [map, most] of [['pnw', 0.45], ['sumatra', 0.45], ['amazon', 0.45], ['chinandega', 0.45]]) check(`${map}: zoomed out, the plants cost under ${most * 100}% of the distant models' triangles`, () => {
+for (const [map, most] of [['pnw', 0.45], ['sumatra', 0.3], ['amazon', 0.3], ['chinandega', 0.45], ['reef', 0.3]]) check(`${map}: zoomed out, the plants cost under ${most * 100}% of the distant models' triangles`, () => {
   let far = 0, lo = 0, shadow = 0, shadowLo = 0;
   for (const [, p] of sources(grown(map))) {
     if (p.kind === 'grass') continue; // (grass isn't drawn this far out)
@@ -57,6 +57,7 @@ check('Far models keep the distant model\'s colours and snow, and stay within it
     // (faces turned outward, away from the middle of their own clump or ring stack, so the far
     // model is lit from outside like the distant one; a frond star's leaves face both ways, checked below)
     if (p.geoFar.userData.fronds) continue;
+    if (!p.geoFar.index) continue; // (built by the plant's own builder at lod 3: checked below)
     const pos = p.geoFar.attributes.position, idx = p.geoFar.index.array, parent = Int32Array.from({ length: pos.count }, (_, i) => i);
     const root = x => { while (parent[x] !== x) x = parent[x] = parent[parent[x]]; return x; };
     for (let f = 0; f < idx.length; f += 3) for (const k of [1, 2]) parent[root(idx[f + k])] = root(idx[f]);
@@ -111,6 +112,51 @@ check('Giant clam shells: a coarser shell at play zoom and a far one, from the s
     const a = p.geo.boundingBox.getSize(new THREE.Vector3()), b = p.geoFar.boundingBox.getSize(new THREE.Vector3());
     for (const q of ['x', 'y', 'z']) assert.ok(Math.abs(a[q] - b[q]) < a[q] * 0.12, `${key}: ${q} size`);
   }
+});
+
+// Bamboo, strap-leaved shrubs, rattan, corals, a giant clam's mantle, ginger's torches and pandan's
+// fruit, and the dots of flowers and fruit: each builder's own far model (lod 3), the distant
+// model's leaves and parts where they are, fewer and plainer. As seen by the play camera (faces'
+// area towards it), it covers about as much and is the same shade; it spreads as wide and stands
+// most of the height; and it's a small fraction of the triangles.
+const VIEW = new THREE.Vector3(0, 1, 0.8).normalize();
+function seen(g) { // (area towards the camera, and its mean colour)
+  const p = g.attributes.position, c = g.attributes.color, idx = g.index?.array, n = idx ? idx.length : p.count;
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), mean = [0, 0, 0];
+  let area = 0;
+  for (let t = 0; t < n; t += 3) {
+    const v = [0, 1, 2].map(k => idx ? idx[t + k] : t + k);
+    A.fromBufferAttribute(p, v[0]); B.fromBufferAttribute(p, v[1]); C.fromBufferAttribute(p, v[2]);
+    const a = Math.max(0, B.sub(A).cross(C.sub(A)).dot(VIEW)) / 2;
+    area += a; for (let q = 0; q < 3; q++) mean[q] += a * v.reduce((s, i) => s + c.getComponent(i, q), 0) / 3;
+  }
+  return { area, mean: mean.map(x => x / area) };
+}
+const OWN_FAR = [ // [pools, at most this share of the distant model's triangles, spread checked]
+  [/^shrub:(pandan|rattan):/, 0.25, true], [/^shrub:ginger:/, 0.4, true], [/^shrub:bamboo:/, 0.5, true], [/^shrub:heliconia:/, 0.5, true],
+  [/^shrub:acc:/, 0.15, true], [/^(shrubflower|shrubfruit|treefruit):/, 0.4, false],
+  [/^crown:(brain|tablecoral):/, 0.7, true], [/^shrub:(clam|seafan|sponge):/, 0.3, true], [/^shrub:(softcoral|mushroom):/, 0.7, true],
+];
+check('Bamboo, strap leaves, rattan, corals, torches and flower dots: far models of their own, as wide, as many pixels and the same shade', () => {
+  const found = new Set();
+  for (const map of ['sumatra', 'amazon', 'reef']) for (const [key, p] of sources(grown(map))) {
+    const rule = OWN_FAR.find(([re]) => re.test(key));
+    if (!rule) continue;
+    found.add(key.split(':').slice(0, 2).join(':'));
+    const [, share, spread] = rule;
+    assert.ok(p.geoFar && p.geoFar !== p.geoLo, `${key}: a far model`);
+    assert.ok(tris(p.geoFar) <= tris(p.geoLo) * share, `${key}: ${tris(p.geoLo)} -> ${tris(p.geoFar)} triangles`);
+    const lo = seen(p.geoLo), far = seen(p.geoFar);
+    assert.ok(far.area > lo.area * 0.8 && far.area < lo.area * 1.2, `${key}: covers ${(far.area / lo.area).toFixed(2)} as much`);
+    for (let q = 0; q < 3; q++) assert.ok(Math.abs(far.mean[q] - lo.mean[q]) < 0.05 + lo.mean[q] * 0.03, `${key}: shade ${lo.mean} -> ${far.mean}`);
+    if (!spread) continue;
+    p.geoLo.computeBoundingBox(); p.geoFar.computeBoundingBox();
+    const a = p.geoLo.boundingBox.getSize(new THREE.Vector3()), b = p.geoFar.boundingBox.getSize(new THREE.Vector3());
+    for (const q of ['x', 'z']) if (a[q] > 0.05) assert.ok(b[q] > a[q] * 0.75 && b[q] < a[q] * 1.12, `${key}: ${q} spread ${(b[q] / a[q]).toFixed(2)}`);
+    assert.ok(b.y > a.y * 0.65 && b.y < a.y * 1.1, `${key}: height ${(b.y / a.y).toFixed(2)}`);
+  }
+  for (const k of ['shrub:ginger', 'shrub:pandan', 'shrub:bamboo', 'shrub:rattan', 'shrub:acc', 'shrub:heliconia', 'shrubflower:claw', 'crown:brain', 'crown:tablecoral', 'shrub:clam', 'shrub:sponge'])
+    assert.ok(found.has(k), `${k} in a grown game`);
 });
 
 check('Far models with the valley in view on any computer (sooner on Fast), close models at play zoom and eye level', () => {

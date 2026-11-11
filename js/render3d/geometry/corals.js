@@ -35,16 +35,16 @@ export function staghorn(opts, seed, lod = 0) {
 }
 
 // Table coral: a short stalk holding up a broad, nearly flat plate, its rim a little wavy and
-// its underside in shadow.
+// its underside in shadow. lod 3 (far): a seven-sided plate on a three-sided stalk.
 export function tableCoral(opts, seed, lod = 0) {
-  const r = mulberry32(seed), H = opts.height, R = 0.38 + r() * 0.08;
-  const plate = soft(new THREE.CylinderGeometry(R, R * 0.82, 0.07, lod ? 10 : 22, 1), { seed, lump: 0.05, transform: g => {
+  const r = mulberry32(seed), H = opts.height, R = 0.38 + r() * 0.08, far = lod === 3;
+  const plate = soft(new THREE.CylinderGeometry(R, R * 0.82, 0.07, far ? 7 : lod ? 10 : 22, 1), { seed, lump: 0.05, transform: g => {
     const p = g.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), d = Math.hypot(x, z); p.setY(i, p.getY(i) + d * d * 0.18 + Math.sin(Math.atan2(z, x) * 5) * 0.015 * d); }
     g.translate(0, H * 0.82, 0);
   } });
-  shadeVerts(plate, (x, y, z) => (y > H * 0.84 ? 1.0 + 0.12 * Math.sin(Math.atan2(z, x) * 13) : 0.6)); // fine radial ridges on top, shadow underneath
-  const stalk = rod([0, 0, 0], [0.02, H * 0.8, 0], 0.07, 0.05, lod ? 5 : 7);
+  shadeVerts(plate, (x, y, z) => (y > H * 0.84 ? (far ? 0.97 : 1.0 + 0.12 * Math.sin(Math.atan2(z, x) * 13)) : 0.6)); // fine radial ridges on top, shadow underneath
+  const stalk = rod([0, 0, 0], [0.02, H * 0.8, 0], 0.07, 0.05, far ? 3 : lod ? 5 : 7);
   const parts = [plate, stalk];
   if (!lod && r() < 0.6) { // a second, smaller plate to one side
     const a = r() * 6.28, d = 0.18;
@@ -65,14 +65,17 @@ export function boulderCoral(opts, seed, lod = 0) {
   return { crown, trunk: reefRock(seed, 0.1) };
 }
 
-// Brain coral: one smooth dome, ridged all over with meandering grooves.
+// Brain coral: one smooth dome, ridged all over with meandering grooves. lod 3 (far): an
+// eight-sided ball, too coarse for the grooves, so shaded with their average.
+const BRAIN_VALLEYS = 0.89; // (grooves at 0.62 over part of the surface, ridges at 1 elsewhere: their mean)
 export function brainCoral(opts, seed, lod = 0) {
-  const H = opts.height, R = 0.36;
-  const g = soft(new THREE.IcosahedronGeometry(R, lod ? 2 : 4), { seed, lump: 0.02, transform: gg => { gg.scale(1, H / R, 1); } });
+  const H = opts.height, R = 0.36, far = lod === 3;
+  const ball = far ? new THREE.SphereGeometry(R, 8, 4) : new THREE.IcosahedronGeometry(R, lod ? 2 : 4);
+  const g = soft(ball, { seed, lump: 0.02, transform: gg => { gg.scale(1, H / R, 1); } });
   const k = (seed % 7) * 0.7;
   shadeVerts(g, (x, y, z) => {
     const m = Math.sin(x * 26 + Math.sin(z * 17 + k) * 2.2) * Math.cos(z * 21 + Math.sin(x * 13) * 1.8);
-    return (0.68 + 0.4 * Math.min(1, Math.max(0, y) / H)) * (Math.abs(m) < 0.28 ? 0.62 : 1); // dark valleys between the ridges
+    return (0.68 + 0.4 * Math.min(1, Math.max(0, y) / H)) * (far ? BRAIN_VALLEYS : Math.abs(m) < 0.28 ? 0.62 : 1); // dark valleys between the ridges
   });
   return { crown: g, trunk: reefRock(seed, 0.08) };
 }
