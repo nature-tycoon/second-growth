@@ -82,12 +82,12 @@
     "m8.close.shadowTriangles": 238424,
     "m8.close.animals": 5,
     "frames100.plantRegions": 410,
-    "frames100.plantTilesWorked": 29427
+    "frames100.plantTilesWorked": 28964
    },
    "timings": {
-    "floraRebuildMs": 309.49,
-    "actorsUpdateMs": 18.48,
-    "gameUpdateMs": 5.23
+    "floraRebuildMs": 1006.79,
+    "actorsUpdateMs": 47.7,
+    "gameUpdateMs": 13.5
    }
   },
   "amazon": {
@@ -167,12 +167,12 @@
     "m8.close.shadowTriangles": 390104,
     "m8.close.animals": 20,
     "frames100.plantRegions": 605,
-    "frames100.plantTilesWorked": 124791
+    "frames100.plantTilesWorked": 48411
    },
    "timings": {
-    "floraRebuildMs": 252.53,
-    "actorsUpdateMs": 14.33,
-    "gameUpdateMs": 4.12
+    "floraRebuildMs": 700.86,
+    "actorsUpdateMs": 24.53,
+    "gameUpdateMs": 7.9
    }
   },
   "serengeti": {
@@ -258,12 +258,12 @@
     "m8.close.shadowTriangles": 24976,
     "m8.close.animals": 7,
     "frames100.plantRegions": 526,
-    "frames100.plantTilesWorked": 51657
+    "frames100.plantTilesWorked": 48859
    },
    "timings": {
-    "floraRebuildMs": 206.47,
-    "actorsUpdateMs": 16.63,
-    "gameUpdateMs": 5.24
+    "floraRebuildMs": 425.28,
+    "actorsUpdateMs": 33.37,
+    "gameUpdateMs": 11.15
    }
   },
   "sumatra": {
@@ -354,12 +354,12 @@
     "m8.close.shadowTriangles": 349058,
     "m8.close.animals": 2,
     "frames100.plantRegions": 475,
-    "frames100.plantTilesWorked": 144205
+    "frames100.plantTilesWorked": 54985
    },
    "timings": {
-    "floraRebuildMs": 293.72,
-    "actorsUpdateMs": 21.06,
-    "gameUpdateMs": 3.36
+    "floraRebuildMs": 814.87,
+    "actorsUpdateMs": 52.08,
+    "gameUpdateMs": 9.86
    }
   },
   "atlanta": {
@@ -452,12 +452,12 @@
     "m8.close.shadowTriangles": 249528,
     "m8.close.animals": 27,
     "frames100.plantRegions": 199,
-    "frames100.plantTilesWorked": 12742
+    "frames100.plantTilesWorked": 11745
    },
    "timings": {
-    "floraRebuildMs": 221.44,
-    "actorsUpdateMs": 15.04,
-    "gameUpdateMs": 3.28
+    "floraRebuildMs": 762.46,
+    "actorsUpdateMs": 44.11,
+    "gameUpdateMs": 8.86
    }
   },
   "chinandega": {
@@ -537,12 +537,12 @@
     "m8.close.shadowTriangles": 212776,
     "m8.close.animals": 17,
     "frames100.plantRegions": 425,
-    "frames100.plantTilesWorked": 47355
+    "frames100.plantTilesWorked": 45696
    },
    "timings": {
-    "floraRebuildMs": 266.37,
-    "actorsUpdateMs": 12.39,
-    "gameUpdateMs": 4.09
+    "floraRebuildMs": 722.42,
+    "actorsUpdateMs": 26.29,
+    "gameUpdateMs": 9.83
    }
   },
   "reef": {
@@ -613,9 +613,9 @@
     "frames100.plantTilesWorked": 40334
    },
    "timings": {
-    "floraRebuildMs": 191.79,
-    "actorsUpdateMs": 7.83,
-    "gameUpdateMs": 3.98
+    "floraRebuildMs": 381.09,
+    "actorsUpdateMs": 15.43,
+    "gameUpdateMs": 13.62
    }
   }
  },
