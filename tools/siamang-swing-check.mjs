@@ -9,6 +9,7 @@ const { ANIMAL, drawDef } = await import('../js/data/animals.js');
 const { PLANT } = await import('../js/data/plants.js');
 const { Flora } = await import('../js/render3d/flora.js');
 const { Actors } = await import('../js/render3d/actors.js');
+const { crownsJoin } = await import('../js/sim/canopy-links.js');
 let checks=0;
 function check(name,fn){fn();checks++;console.log(`PASS ${name}`);}
 check('Both hands take turns supporting the body, with overlapping catches before release',()=>{
@@ -85,7 +86,7 @@ for (const tree of ['meranti','fig']) for (const fps of [15,60]) for (const spee
   actors.update(game,right,1);game.speed=speed;
   const st=actors.pose.get(a.id),pool=actors.fauna.pool(drawDef(ANIMAL.siamang,a)),bodyLength=pool.motion.len*st.sc;
   let point=st.branchPoint.clone(),center=st.center.clone(),rotation=st.canopyQuaternion.clone(),last=new THREE.Vector3();
-  let reversals=0,finished=0,paused=false,maxGait=0;
+  let reversals=0,finished=0,paused=false,maxGait=0,leapt=null;
   const duration=mode==='fork'?95:35;
   for(let frame=1;frame<=fps*duration;frame++){
     const time=1+frame/fps;
@@ -94,10 +95,12 @@ for (const tree of ['meranti','fig']) for (const fps of [15,60]) for (const spee
     const journey=st.branchRoute,cursor=journey?.cursor,phase=st.branchPhase;
     actors.update(game,right,time);
     const delta=st.branchPoint.clone().sub(point),turn=st.canopyQuaternion.angleTo(rotation);
-    assert.ok(delta.length()<=bodyLength*1.6*2.8/(Math.PI*2)/fps+1e-7,'catch-up cannot outrun the supporting-arm cycle');
-    assert.ok(st.center.distanceTo(center)<=bodyLength*4/fps+1e-7,`body handovers and stopping stay smooth: ${st.center.distanceTo(center)/bodyLength*fps} body lengths/sec`);
+    // (a leap between crowns flies faster than the arm cycle, in its own time: canopy-motion.js flightTime)
+    const leaping=!!st.canopyLeap||!!leapt;leapt=st.canopyLeap;
+    if(!leaping)assert.ok(delta.length()<=bodyLength*1.6*2.8/(Math.PI*2)/fps+1e-7,'catch-up cannot outrun the supporting-arm cycle');
+    if(!leaping)assert.ok(st.center.distanceTo(center)<=bodyLength*4/fps+1e-7,`body handovers and stopping stay smooth: ${st.center.distanceTo(center)/bodyLength*fps} body lengths/sec`);
     assert.ok(turn<=1.5/fps+1e-6,'forks cannot cause sudden torso turns');
-    assert.ok(st.branchPhase>=phase&&st.branchPhase-phase<=2.8/fps+1e-8,'swing phase stays continuous');
+    assert.ok(st.branchPhase>=phase&&st.branchPhase-phase<=(leaping?5.6:2.8)/fps+1e-8,'swing phase stays continuous');
     assert.ok(Math.abs(pool.anim.getX(0)-st.branchPhase)<1e-5,'drawn arms follow the accepted route progress');
     assert.ok(!st.canopyForce,'normal travel never forces through wood after a stall');
     if(journey===st.branchRoute&&journey)assert.ok(journey.cursor>=cursor,'an accepted bark waypoint cannot be replayed');
@@ -114,6 +117,9 @@ for (const tree of ['meranti','fig']) for (const fps of [15,60]) for (const spee
     }
     point.copy(st.branchPoint);center.copy(st.center);rotation.copy(st.canopyQuaternion);
   }
+  // (a crossing between crowns that don't join, which the simulation never asks for, stays put: 0041)
+  const joins=mode!=='crown'||crownsJoin(game.world,game.world.idx(40,32),game.world.idx(41,32),ANIMAL.siamang);
+  if(!joins){assert.ok(!finished&&st.branchPoint.x<40.9,'no crossing between crowns that don\'t join');actors.clear();return;}
   assert.ok(finished>=(mode==='crown'?1:2),'committed handovers finish');
   assert.equal(Boolean(st.branchRoute),false,'last route finishes');
   assert.ok(reversals<=(mode==='crown'?1:8),`unnecessary path reversals: ${reversals}`);

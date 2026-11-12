@@ -1,5 +1,6 @@
 // Seeded simulation checks for families, rut encounters and repeated short walks.
 // Run: node tools/cervid-behavior-check.mjs
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { T, F, H, DAYS_PER_YEAR } from '../js/config.js';
@@ -13,6 +14,7 @@ function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
 function setup(seed = 44, map = 'pnw', month = 1) {
   Math.random = mulberry32(seed);
   const g = new Game(); g.newGame(1987, 'free', 'standard', map); g.day = month * 10;
+  g.wildRng.setState(seed); // (the seed picks the wildlife's own stream too, decision 0035)
   const wl = g.wildlife, w = g.world;
   wl.agents = []; wl.flyovers = []; wl.passageWait = 1e6; wl.recount();
   w.terrain.fill(T.SOIL); w.struct.fill(-1); w.tree.fill(0); w.shrub.fill(0); w.feature.fill(0); w.fire.fill(0); w.distWater.fill(99);
@@ -189,8 +191,8 @@ check('Rut satellites arriving from one direction choose different sides of the 
   cow.haremOf = bull.id; bull.haremCenter = [40.5, 31.5]; bull.socialCooldown = bull.age + 100;
   const rivals = Array.from({ length: 5 }, (_, i) => spawn(g, 'elk', true, 40 + i * .2, 39.5));
   for (const a of [bull, ...rivals]) a.rutCooldown = a.age + 100; // watch positioning between challenges
-  const random = Math.random; Math.random = () => .5;
-  try { for (const a of rivals) harem(wl, a, ANIMAL.elk); } finally { Math.random = random; }
+  const random = forcedSimRandom(); forceSimRandom(() => .5);
+  try { for (const a of rivals) harem(wl, a, ANIMAL.elk); } finally { forceSimRandom(random); }
   const slots = rivals.map(a => a.satelliteSlot); assert.ok(slots.every(Boolean));
   let min = Infinity;
   for (let i = 0; i < slots.length; i++) for (let j = i + 1; j < slots.length; j++) min = Math.min(min, Math.hypot(slots[i][0] - slots[j][0], slots[i][1] - slots[j][1]));

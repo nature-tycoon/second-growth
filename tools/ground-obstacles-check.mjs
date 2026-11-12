@@ -94,7 +94,7 @@ function turning() {
   const last = new Map();
   return {
     step(a, k) {
-      const p = last.get(a.id), h = a.orientation;
+      const p = last.get(a.id), h = a.heading;
       if (p && h != null && p.h != null) {
         const m = Math.hypot(a.x - p.x, a.y - p.y), t = angle(h, p.h);
         if (m > 1e-4 && m < 0.5) {

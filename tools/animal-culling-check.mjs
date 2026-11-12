@@ -12,8 +12,6 @@ import { ANIMAL, ANIMALS } from '../js/data/animals.js';
 import { PLANT } from '../js/data/plants.js';
 import { T, LEVEL } from '../js/config.js';
 import { adultAnimalScale } from '../js/render3d/animal-scale.js';
-import { mulberry32 } from '../js/rng.js';
-Math.random = mulberry32(1987);
 let checks = 0, g, actors, camera;
 const right = new THREE.Vector3(1, 0, 0);
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
@@ -81,12 +79,12 @@ check('Camera rotation, pan, resize and zoom use the current view immediately', 
 check('Returning animals resume at their current position and direction, including paused play', () => {
   reset(); const a = spawn(); frame(); const st = actors.pose.get(a.id);
   aim(100, 80); frame(2); assert.equal(st.visible, false);
-  a.x = 31.2; a.y = 31.8; a.orientation = 1.3; a.state = 'walk'; a.phase = 7;
+  a.x = 31.2; a.y = 31.8; a.heading = 1.3; a.state = 'walk'; a.phase = 7;
   aim(31, 32); g.speed = 0; frame(80);
   assert.equal(st.visible, true); assert.equal(st.x, a.x); assert.equal(st.z, a.y);
-  assert.ok(Math.abs(st.yaw + a.orientation) < 1e-8); assert.equal(st.gait, 0);
+  assert.ok(Math.abs(st.yaw + a.heading) < 1e-8); assert.equal(st.gait, 0);
   const p = actors.fauna.species.get(actors.fauna.modelKey(g.catalog.animal.zebra));
-  assert.equal(p.anim.getX(0), Math.fround(a.phase * Math.PI));
+  assert.equal(p.anim.getX(0), Math.fround(st.legPhase)); // (walkers carry their own leg clock, actors.js: no jump on return)
   assert.ok([...p.mesh.instanceMatrix.array.slice(0, 16)].every(Number.isFinite));
 });
 check('Dead or removed animals cannot remain in the pose cache or reappear', () => {
@@ -112,9 +110,9 @@ check('Canopy birds and flying animals stay visible when their ground tile is be
 check('Reef depth and swimmer turns resume cleanly without a huge bend or old depth', () => {
   reset('reef'); const a = spawn('shark'); frame(); const st = actors.pose.get(a.id);
   aim(100, 80); frame(2); assert.equal(st.visible, false);
-  st.depth = 0.9; st.bend = 1; a.hd = 2.4;
+  st.depth = 0.9; st.bend = 1; a.heading = 2.4;
   aim(30, 30); frame(400);
-  assert.ok(st.depth < 0.7); assert.equal(st.bend, 0); assert.ok(Math.abs(st.yaw + a.hd) < 1e-8);
+  assert.ok(st.depth < 0.7); assert.equal(st.bend, 0); assert.ok(Math.abs(st.yaw + a.heading) < 1e-8);
 });
 check('Sea cucumbers and urchins stay on the seabed through depth changes', () => {
   for (const key of ['seacucumber', 'urchin']) {
@@ -146,11 +144,9 @@ check('A dense visible herd keeps every shadow when the camera moves or the buff
 });
 check('Drawing and animal effects do not modify wildlife, saves or simulation randomness', () => {
   reset('pnw'); const a = spawn('coho'); g.world.terrain[g.world.idx(30, 30)] = T.CREEK;
-  frame(); const r = sceneStub(); const data = JSON.stringify(g.wildlife.serialize()), rng = g.rng.state();
-  const random = Math.random; Math.random = () => { throw new Error('Rendering consumed simulation randomness'); };
-  try { frame(2); Renderer.prototype.drawTrails.call(r, ctx, g, 1); }
-  finally { Math.random = random; }
-  assert.equal(JSON.stringify(g.wildlife.serialize()), data); assert.equal(g.rng.state(), rng);
+  frame(); const r = sceneStub(); const data = JSON.stringify(g.wildlife.serialize()), rng = g.rng.state(), wild = g.wildRng.state();
+  frame(2); Renderer.prototype.drawTrails.call(r, ctx, g, 1); // (drawing may draw Math.random; never the sim's streams)
+  assert.equal(JSON.stringify(g.wildlife.serialize()), data); assert.equal(g.rng.state(), rng); assert.equal(g.wildRng.state(), wild);
   aim(100, 80); frame(3); r.trailFx = []; Renderer.prototype.drawTrails.call(r, ctx, g, 1);
   assert.equal(r.trailFx.length, 0); assert.equal(a.rippled, undefined); assert.equal(a.leaping, undefined);
 });
@@ -167,8 +163,8 @@ check('Offscreen animals continue moving and predators continue catching prey', 
   predator.x = 30.5; prey.x = 30.7; predator.y = prey.y = 30.5;
   predator.state = 'hunt'; predator.target = prey.id; predator.huntTime = 3;
   aim(100, 80); frame(); assert.equal(count(), 0);
-  const random = Math.random; Math.random = () => 0;
-  try { g.wildlife.update(0.05); } finally { Math.random = random; }
+  const wild = g.wildRng; g.wildRng = () => 0; // (the catch roll succeeds)
+  try { g.wildlife.update(0.05); } finally { g.wildRng = wild; }
   assert.equal(g.wildlife.agents.includes(prey), false); assert.equal(predator.hunger, 0);
   frame(2); assert.equal(count(), 0);
 });

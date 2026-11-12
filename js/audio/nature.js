@@ -11,6 +11,10 @@ export const PROMINENT_CALLS = {
   elephant: { first: [2, 5], repeat: [35, 65], duration: 5.5 },
   tiger: { first: [3, 6], repeat: [40, 75], duration: 1.6 },
 };
+// Seconds a bird species rests after a phrase before it can call again, so a map with few
+// recorded birds doesn't loop one voice. A lilac-breasted roller calls now and then, not on repeat.
+export const BIRD_REST = { roller: [60, 120] };
+export const DEFAULT_BIRD_REST = [6, 14];
 export const SOUNDSCAPES = {
   pnw: { birds: { robin: 'robin', wren: 'wren', thrush: 'thrush', meadowlark: 'meadowlark', jay: 'jay', kingfisher: 'rattle' },
     seasons: [1, 0.8, 0.35, 0.22], insects: [0, 0.003, 0.001, 0],
@@ -23,7 +27,12 @@ export const SOUNDSCAPES = {
     calls: [['howler', 'howler', 'dawnDusk', 0.045], ['dartfrog', 'dartfrog', 'dampDay', 0.12]] },
   serengeti: { birds: { weaver: 'weaver', roller: 'rasp' },
     seasons: [1, 0.75, 0.7, 0.9], insects: [0.003, 0.012, 0.009, 0.004],
-    calls: [['hyena', 'hyena', 'night', 0.025], ['lion', 'lion', 'night', 0.012], ['hornbill', 'groundHornbill', 'dawnDusk', 0.06], ['hippo', 'hippo', 'water', 0.025], ['zebra', 'zebra', 'day', 0.018], ['elephant', 'elephant', 'anytime', 0.015]] },
+    // '*' voices are common savanna birds the game doesn't model as animals; they call
+    // wherever the range is healthy (more as it recovers). Each stays silent until its
+    // recording is in MAP_RECORDINGS (see docs/ideas/2026-11-08-wave2/s7.md).
+    calls: [['hyena', 'hyena', 'night', 0.025], ['lion', 'lion', 'night', 0.012], ['hornbill', 'groundHornbill', 'dawnDusk', 0.06], ['hippo', 'hippo', 'water', 0.025], ['zebra', 'zebra', 'anytime', 0.018], ['elephant', 'elephant', 'anytime', 0.015],
+      ['*', 'ringDove', 'day', 0.03], ['*', 'woodDove', 'midday', 0.025], ['*', 'francolin', 'dawnDusk', 0.08], ['*', 'starling', 'day', 0.02],
+      ['*', 'redbill', 'morning', 0.02], ['*', 'thickKnee', 'night', 0.03]] },
   chinandega: { birds: { motmot: 'motmot', lora: 'parrot', chocoyo: 'parakeet', urraca: 'jay', guaco: 'falcon', hummingbird: 'hummer' },
     seasons: [0.85, 1, 1, 0.85], insects: [0.01, 0.008, 0.01, 0.009],
     calls: [['congo', 'howler', 'dawnDusk', 0.045], ['cattle', 'moo', 'day', 0.025]] },
@@ -35,7 +44,7 @@ export const SOUNDSCAPES = {
 
 
 export function natureMix(L, weather, season) {
-  if (!L || !SOUNDSCAPES[L.map]) return { rain: 0, wind: 0, creek: 0, river: 0, leaves: 0, surf: 0, reef: 0, bugs: 0, birds: 0 };
+  if (!L || !SOUNDSCAPES[L.map]) return { rain: 0, wind: 0, creek: 0, river: 0, leaves: 0, surf: 0, reef: 0, bugs: 0, cicadas: 0, birds: 0 };
   const P = SOUNDSCAPES[L.map], marine = L.map === 'reef', rain = weather === 'rain', snow = weather === 'snow';
   const cold = (L.map === 'pnw' || L.map === 'atlanta') && season === 3;
   const day = Math.max(0, 1 - L.night), growth = 0.25 + 0.75 * L.health;
@@ -51,7 +60,9 @@ export function natureMix(L, weather, season) {
     leaves: marine ? 0 : 0.006 * L.canopy * (rain ? 1.4 : weather === 'cloud' ? 0.8 : 0.5),
     surf: marine ? 0.045 + 0.035 * L.shore : L.map === 'chinandega' ? 0.07 * L.river : 0,
     reef: marine ? (0.008 + 0.015 * L.health) * (1 - L.shore * 0.85) : 0,
-    bugs: bugs * (L.map === 'serengeti' || (L.map === 'chinandega' && L.dry) ? day : 0.7 + 0.5 * L.night),
+    // (the Serengeti's day insects are cicadas, loudest in the midday heat; crickets take over at night)
+    bugs: bugs * (L.map === 'chinandega' && L.dry ? day : L.map === 'serengeti' ? 0.8 * L.night : 0.7 + 0.5 * L.night),
+    cicadas: L.map === 'serengeti' ? bugs * day * (L.tod >= 0.3 && L.tod < 0.62 ? 1 : 0.4) : 0,
     birds: (snow ? 0 : rain ? 0.18 : 1) * P.seasons[season] * day * (1 + 1.6 * L.dawn) * (0.45 + 0.55 * L.health),
   };
 }
@@ -61,8 +72,8 @@ export function natureCallRates(L, weather, season) {
   const day = 1 - L.night, evening = Math.max(L.night, L.dusk), month = L.month ?? season * 3;
   const activity = { anytime: 1, day, night: evening, dawnDusk: L.dawn + L.dusk * 0.35,
     morning: day * (L.dawn + (L.tod >= 0.07 && L.tod < 0.3 ? 0.7 : 0)),
-    wetNight: evening * L.wet, dampDay: day * L.canopy, water: L.water };
-  const rates = SOUNDSCAPES[L.map].calls.filter(([key, , , , months]) => (L.callPresent ?? L.present).includes(key) && (!months || months.includes(month)))
-    .map(([, voice, when, rate]) => ({ voice, rate: rate * activity[when] * (weather === 'rain' ? (when === 'wetNight' ? 1.2 : 0.35) : 1) }));
+    midday: day * (L.tod >= 0.3 && L.tod < 0.62 ? 1 : 0), wetNight: evening * L.wet, dampDay: day * L.canopy, water: L.water };
+  const rates = SOUNDSCAPES[L.map].calls.filter(([key, , , , months]) => (key === '*' || (L.callPresent ?? L.present).includes(key)) && (!months || months.includes(month)))
+    .map(([key, voice, when, rate]) => ({ voice, rate: rate * activity[when] * (key === '*' ? 0.25 + 0.75 * L.health : 1) * (weather === 'rain' ? (when === 'wetNight' ? 1.2 : 0.35) : 1) }));
   return rates.filter(c => c.rate > 0 && MAP_RECORDINGS[L.map]?.calls[c.voice]);
 }

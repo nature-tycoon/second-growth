@@ -1,4 +1,5 @@
 // Real behavior outcomes and interruption boundaries for the cross-map guild audit.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { ANIMAL, ANIMALS, isMale } from '../js/data/animals.js';
@@ -18,14 +19,14 @@ function reset(map='pnw', difficulty='standard') {
   return {wl,w,i:w.idx(40,30)};
 }
 function spawn(key,x=40,y=30) {const a=g.wildlife.spawn(ANIMAL[key],x,y,{silent:true,age:5*DAYS_PER_YEAR});a.x=x+.5;a.y=y+.5;a.hunger=12;a.wait=99;return a;}
-function rig(fn) {const original=Math.random;Math.random=()=>0;try{return fn();}finally{Math.random=original;}}
+function rig(fn) {const original = forcedSimRandom();forceSimRandom(()=>0);try{return fn();}finally{forceSimRandom(original);}}
 function male(key,sex=true) {for(let n=0;n<300;n++){const a=spawn(key);if(isMale(ANIMAL[key],a)===sex)return a;g.wildlife.remove(a);}throw Error('sex');}
-check('All 202 regional species have bounded shared profiles and valid food webs',()=>{
+check('All 203 regional species have bounded shared profiles and valid food webs',()=>{
   let count=0;
   for(const map of ['pnw','amazon','serengeti','atlanta','chinandega','reef','sumatra']) {
     reset(map);for(const d of ANIMALS){assert(Array.isArray(d.behavior.forage));assert(d.behavior.partners<=3);for(const k of d.prey||[])assert(ANIMAL[k]);count++;}
   }
-  assert.equal(count,202);
+  assert.equal(count,203);
 });
 check('Eating differs by habitat across every map and never creates additional animals',()=>{
   for(const [map,key,food] of [['pnw','rabbit','grass'],['atlanta','anole','insects'],['amazon','anteater','insects'],['serengeti','topi','grass'],['chinandega','iguana','browse'],['reef','greenturtle','seagrass'],['sumatra','pangolin','insects']]) {

@@ -4,7 +4,7 @@
 // nature mix, following local habitat, wildlife, weather and time of day.
 
 import { TRACKS } from './tracks.js';
-import { SOUNDSCAPES, PROMINENT_CALLS, natureMix, natureCallRates } from './nature.js';
+import { SOUNDSCAPES, PROMINENT_CALLS, BIRD_REST, DEFAULT_BIRD_REST, natureMix, natureCallRates } from './nature.js';
 import { RUT_SOUNDS, RACK_PITCH, THUNDER, THUNDER_RECORDINGS, soundFile } from './sounds.js';
 import { FIELD_RECORDINGS, MAP_RECORDINGS, RECORDED_BEDS } from './recordings.js';
 import { seamlessLoop } from './loop.js';
@@ -341,14 +341,25 @@ export class Music {
   zebra() { return this.recordedCall('zebra'); }
   elephant() { return this.recordedCall('elephant'); }
   tiger() { return this.recordedCall('tiger'); }
+  // Savanna birds the game doesn't model as animals (SOUNDSCAPES '*' voices)
+  ringDove() { return this.recordedCall('ringDove'); }
+  woodDove() { return this.recordedCall('woodDove'); }
+  francolin() { return this.recordedCall('francolin'); }
+  starling() { return this.recordedCall('starling'); }
+  redbill() { return this.recordedCall('redbill'); }
+  thickKnee() { return this.recordedCall('thickKnee'); }
   birdPhrase(key) { return this.playField(MAP_RECORDINGS[this.land?.map]?.birds[key], this.land?.callPositions?.[key]); }
   maybeBird() {
     if (!this.ctx || !this.land || this.ctx.currentTime < this.nextBird || this.ctx.currentTime < this.foregroundUntil) return;
-    const choices = Object.keys(MAP_RECORDINGS[this.land.map]?.birds || {}).filter(key => this.land.present.includes(key));
+    const t = this.ctx.currentTime;
+    const choices = Object.keys(MAP_RECORDINGS[this.land.map]?.birds || {}).filter(key => this.land.present.includes(key) && t >= (this.cooldowns.get('bird:' + key) ?? 0));
     const life = this.birdLife();
     if (!choices.length || Math.random() >= 1 - Math.exp(-0.38 * life * 0.25)) return;
-    const duration = this.birdPhrase(choices[Math.floor(Math.random() * choices.length)]);
-    if (duration) this.nextBird = this.ctx.currentTime + duration + 1.5 + Math.random() * 2.5;
+    const key = choices[Math.floor(Math.random() * choices.length)], duration = this.birdPhrase(key);
+    if (!duration) return;
+    const [min, max] = BIRD_REST[key] ?? DEFAULT_BIRD_REST;
+    this.nextBird = t + duration + 1.5 + Math.random() * 2.5;
+    this.cooldowns.set('bird:' + key, t + duration + min + Math.random() * (max - min));
   }
   // ------------------------------------------------------------ the rut
   // Recorded bugles and antler clashes (sounds.js), fetched and decoded once the animals that

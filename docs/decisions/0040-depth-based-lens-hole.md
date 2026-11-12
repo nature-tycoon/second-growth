@@ -1,8 +1,18 @@
 # 0040 A depth-based tracking lens
 
+## Rules
+
+- Nothing is cut close round the followed animal. It is drawn again faintly, a little nearer the camera, so it shows through cover within about its own size (`render3d/look-through.js`), and trees farther in front stay in front.
+- Cover beyond that opens over the animal's outline, a little wider the nearer the camera, with a soft rim of world-fixed leaf clumps (`render3d/focus.js`, sizes set in `Renderer` in `scene.js`). Trunks are never cut.
+- Any cut round the animal showed as its shape: don't bring one back. Wave 3's ellipsoid cut (`claude/wave3-s5-tracker-lens-aaed29`) was dropped for this lens when wave 3 was merged.
+- `tools/canopy-support-check.mjs` matches the shader's discard line as text: update it with the shader.
+- Check: `node tools/lens-depth-browser-check.mjs`; also `canopy-reveal-browser-check`.
+
+## History
+
 Decided 2026-11-11 (idea batch wildlife-polish, session 3). Drawing only: the simulation is unchanged.
 
-## Context
+### Context
 
 Cole likes how the tracking lens (`render3d/focus.js`) pierces the canopy to show a followed
 animal, but the ellipse cut round the animal "looks fake". His chosen fix: depth-based. Foliage
@@ -16,7 +26,7 @@ radii toward the camera, with a crisp ragged edge. From above that cleared a dis
 and shrubs far wider than the animal (in `tools/lens-depth-browser-check.mjs` 25 to 60% of the
 view; the trunk in front of the deer was sliced off at the knee).
 
-## Decision
+### Decision
 
 One rule in `withFocusFade`, every material that uses it (foliage, shrubs, grass, bark, small
 plants, buildings):
@@ -75,7 +85,7 @@ plants, buildings):
 The gap's shaded walls now follow the new gap and only where it has opened (`near` past 0.05), so
 leaves beside the animal aren't darkened either.
 
-## Cost
+### Cost
 
 Look-through: two draws of one animal a frame, only while an animal is selected, and a depth clear.
 
@@ -83,7 +93,7 @@ A handful of extra ALU operations and one more value-noise call (8 hashes), only
 fragments in the soft rim, and only while an animal is selected (`uFocusAmt > 0`). No new uniforms, passes or textures. Within the drawing budget of the
 2026-10-23 review.
 
-## Check
+### Check
 
 `node tools/lens-depth-browser-check.mjs`: a deer and a brush rabbit in wildrye under big-leaf
 maples from four sides (from above), and each behind a huckleberry at eye level, through the real `EyeCamera`: from four
@@ -95,14 +105,13 @@ floor plants in red (trees hidden), to judge the cut's shape round the animal. T
 89%) and `tools/canopy-reveal-browser-check.mjs` (leaves over a langur open: 80 of 80 pass).
 `tools/canopy-support-check.mjs` matches the shader's discard line as text.
 
-## Related unmerged work
+### Related work, since merged
 
 `claude/wave3-s5-tracker-lens-aaed29` (2026-11-09) reworked the same shader differently (an
-ellipsoid body cut, a gap starting from the outline) and is not on main. Cole then turned down a
-screen-space dithered edge; the rim here thins by world-fixed leaf clumps instead. Merging both
-conflicts in `focus.js`: pick one (see `docs/ideas/2026-11-11-wildlife-polish/s3.md`).
+ellipsoid body cut, a gap starting from the outline). Cole chose this lens; when wave 3 was merged
+(2026-11-11) its `focus.js` and `scene.js` lens changes and `tracker-lens-browser-check` were left out.
 
-## Tried after: see-through trees by leaf clumps (2026-11-11, not kept)
+### Tried after: see-through trees by leaf clumps (2026-11-11, not kept)
 
 The see-through trees mode (`Flora.setFade`) blends leaves at 28% opacity, which draws crowns out of
 order where they overlap. Leaving out whole leaf clumps instead (the lens rim's noise, opaque, no

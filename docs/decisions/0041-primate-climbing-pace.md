@@ -1,13 +1,22 @@
 # 0041 Primate movement: fix today's climbing piece by piece, not the canopy rewrite
 
+## Rules
+
+- Today's climbing is fixed piece by piece; Cole's canopy rewrite (`monkey/canopy-rewrite-wip`, on origin only) is not merged.
+- A primate's simulated `climbSpeed` is its drawn pace along the wood (`drawnClimbPace` in `sim/climb-pace.js`: the walker stride cap, the siamang swing) over `CANOPY_ROUTE`, so the body never trails the simulation. Walker strides and leaps quicken with game speed (up to four times); apes keep real-time limbs.
+- Siamangs and orangutans cross only between crowns that join (`crownsJoin` in `sim/canopy-links.js`, used by `pathTo` in `sim/wildlife-intent.js`). Orangutans climb down and walk a gap (`crossGap`, `a.gapTo`, called from `walkStep`); siamangs leap a gap in an arc, arm reaching ahead (`render3d/canopy-motion.js`: `leaps` is the `leaps` trait or `sprite.ape`).
+- Measure with `node tools/monkey-movement-measure.mjs`; checks `canopy-links-check`, `monkey-pace-check`.
+
+## History
+
 Decided 2026-11-11 (wildlife-polish batch, session 4). Cole asked for a choice between his own movement model and fixing today's code, then for the winner to be built.
 
-## What was on the branches
+### What was on the branches
 
 - `monkey/canopy-walker`, `canopy-primates`, `smooth-primate-hitches`, `codex/primate-canopy-recovery`, `codex/primate-movement-fixes`, `codex/primate-tree-transfers`, `codex/canopy-climbing-fixes`: nothing that isn't already in `main` (`git log main..<branch>` is empty). The walker rig (alternating limbs, trunk climbs, leaps) is live.
 - `monkey/canopy-rewrite-wip` (one WIP commit, 2026-10-17): the unmerged model. 107 files, about 29,000 lines (most of them baselines), on a base 307 commits behind today's `main`. It adds a canonical tree skeleton (`js/trees/`), a navigation graph and router (`js/navigation/`, with a worker), and a simulation-owned locomotion state machine (`sim/canopy-locomotion.js`) behind an off-by-default species flag. Its own record (`docs/decisions/0003-canopy-locomotion.md` on that branch) ends with "Forest-scale audit: rollout blocked", a guanacaste transfer clearance check still failing, growth re-preparation, save/load, troop spacing and other maps untested, and no proof yet that it is cheaper than the live code (Cole's requirement). It rewrites `render3d/geometry/trees.js`, which `main` has changed a lot since (tree heights 0024, trunks 0023, far models 0022).
 
-## Decision
+### Decision
 
 Fix today's code piece by piece. Don't port the rewrite.
 
@@ -18,7 +27,7 @@ Fix today's code piece by piece. Don't port the rewrite.
 
 The rewrite's idea that the simulation should know which crowns really connect is still right; the follow-up below builds a small version of it. The branch was deleted locally once that was done (`origin/monkey/canopy-rewrite-wip` still has it).
 
-## The problems, measured
+### The problems, measured
 
 `tools/monkey-movement-measure.mjs` runs eight of a species in a seeded patchy forest (about one tile in three open, plus an open strip) through the real `game.update` and `Actors.update`, headless, and reports how far the drawn body trails the simulation (lag), snaps (a jump of over half a tile in one frame), stuck time (still for a second while over a tile behind), blocked crossings, dashes, ground time, how much longer the drawn route is than the straight line (route stretch), and how fast the body actually goes while catching up, relative to the simulation (chase/sim pace).
 
@@ -31,14 +40,14 @@ Why:
 3. At faster game speeds the strides, swings and leaps stayed at real-time pace while the simulation ran 4× faster.
 4. Orangutans could only cross between crowns whose limb tips came within 0.85 body lengths. In a real Sumatran stand the nearest tips are a median 1.9 body lengths apart, so 3 crossings succeeded and 166 were blocked in a minute.
 
-## What changed
+### What changed
 
 - `sim/climb-pace.js`: `drawnClimbPace` is the drawn body's real top speed along the wood (the walker stride cap, the siamang swing, or `climbPace`), in tiles per game day. A primate's `climbSpeed` is that over `CANOPY_ROUTE` (1.7). Squirrels and sloths keep the old `climbPace * .75` (not measured here). `WALKER_STRIDES` and `SWING_CADENCE` are shared with `canopyStep`, so the two can't drift apart again.
 - `render3d/canopy-motion.js`: at faster game speeds the stride, swing and leap timings quicken with the simulation (up to 4×). An orangutan reaches 1.6 body lengths across a gap (its arm span), still only where the crossing clears the wood. That is nearer life but made no measurable difference: the clearance check, not the reach, rejects most crossings.
 
 Primates now travel about a third (capuchin, siamang) to two thirds (howler, langur) as fast as before in the simulation. Real howlers, siamangs and orangutans travel well under a kilometre a day and rest most of it, so slower is also nearer life.
 
-## Results
+### Results
 
 `monkey-movement-measure`, eight of each for 40 s, old code (a worktree at the previous commit) vs new:
 
@@ -54,7 +63,7 @@ Primates now travel about a third (capuchin, siamang) to two thirds (howler, lan
 
 The dense stand moved the same way (spider 2.36 → 0.79, capuchin 2.72 → 0.83, siamang 1.96 → 0.67 tiles). Orangutans are no better: blocked 31% → 33%, stuck 12% → 14% (noise). At speed 2 the walker monkeys trail about half as far as before (capuchin 5.7 → 2.1, langur 5.1 → 2.6 tiles), but still too far. Actors time is unchanged within noise. Balance: `balance-sim restore 15` (Hollis, seeded) is identical. On the three primate maps over three seeds, year-9 primate counts move both ways within seed noise. `play-profile amazon high 1`: simulation and drawing time unchanged (0.4 ms and 2.3 ms in the play view). In a real browser on a grown Amazon game, 23 howlers and spider monkeys trailed by 0.32 tiles on average, with no snaps.
 
-## Follow-up the same day: which crowns connect, siamang leaps, orangutans on the ground
+### Follow-up the same day: which crowns connect, siamang leaps, orangutans on the ground
 
 Cole asked for the recommendations below to be built, and pointed out that siamangs floated between trees instead of swinging.
 
@@ -71,7 +80,7 @@ Measured with `monkey-movement-measure` against the first commit of this decisio
 
 Howlers and capuchins measure identically. In a grown Sumatra forest (the release fixture, one year) an orangutan spends 11% of its time on the ground and siamangs none; the test stands, with every growth from half to full, have far more gaps. Balance: Hollis, Amazon and Chinandega identical; Sumatra within seed noise over three seeds (orangutans 1/6/6 → 8/6/5, siamangs 7/14/12 → 6/11/11). A browser check on a grown Sumatra game: siamangs and langurs drawn 0.19 tiles from their simulated spot, no snaps, no errors.
 
-## Still open
+### Still open
 
 - **Some crossings are still blocked** (siamangs 6–17%, orangutans about 20% in the test stands): `crownsJoin` is an estimate from the crown's outline, and the drawing then also checks the body's clearance limb by limb. Tightening it strands more animals in one tree; loosening it brings back the waits.
 - **The ground crossing is drawn as an ease** from the limb down to the ground and back up (the climbers' `shiftOffset`), not a climb down the trunk hand over hand.
@@ -79,6 +88,6 @@ Howlers and capuchins measure identically. In a grown Sumatra forest (the releas
 - Capuchins and colobus still snap forward a few times a minute in the patchy stand.
 - How much of the day each species spends travelling isn't tuned. Capuchins are on the move about 90% of the time.
 
-## Checks
+### Checks
 
 `node tools/monkey-movement-measure.mjs [species] [patchy|dense] [speed] [seconds] [count]` (`MEASURE_ROOT=<checkout>` for an A/B), and the existing primate checks: `canopy-grips-check`, `canopy-route-check`, `canopy-support-check`, `canopy-walker-profile-check`, `monkey-pace-check`, `monkey-transfer-check`, `orangutan-motion-check`, `primate-behavior-check`, `primate-stall-check`, `climber-cap-check`, and `canopy-links-check` (crown joins, an orangutan's ground crossing, a siamang's leap).

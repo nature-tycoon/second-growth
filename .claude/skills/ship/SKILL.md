@@ -9,7 +9,7 @@ description: Finish a task in Second Growth - run the right checks, commit only 
 
 1. `git status` and `git diff`. Other agents edit this checkout at the same time, so any change you didn't make is theirs: leave it unstaged and tell Cole whose files are in progress.
 2. If the branch is `main`, create a branch first (`claude/<short-topic>`).
-3. Run the checks for what you touched: the `tools/*-check.mjs` named in the matching `docs/decisions/` record, `node tools/balance-sim.mjs restore 15` (see /balance) for ecology changes, `play-profile` (see /perf) for anything that could cost frame time. Report failures as failures; don't commit over a failing check without saying so.
+3. Run the checks for what you touched: the `tools/*-check.mjs` named in the matching `docs/decisions/` record, `node tools/calibrate.mjs <map> 15 3` (see /balance) for ecology changes, `play-profile` (see /perf) for anything that could cost frame time. Report failures as failures; don't commit over a failing check without saying so.
 4. Stage only your hunks: `git add <file>` when the whole file is yours, otherwise `git add -p`, or build the staged blob from HEAD plus your change. Check with `git diff --cached`.
 5. If you learned something durable (a decision, a gotcha, a workflow), put it in `docs/decisions/` or AGENTS.md in the same commit. A new decision gets the next unused number (`ls docs/decisions`) and one line in AGENTS.md.
 6. Commit message: a plain-language summary of what a player would notice, then the why and how in the body. End with the Co-Authored-By line.

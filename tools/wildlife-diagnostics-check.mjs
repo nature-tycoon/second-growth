@@ -1,4 +1,5 @@
 // node tools/wildlife-diagnostics-check.mjs
+import { forceSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { ANIMALS, ANIMAL } from '../js/data/animals.js';
@@ -22,7 +23,7 @@ check('Every map produces finite diagnostics without changing simulation state o
     g.newGame(1987, 'free', 'standard', map);
     const before = JSON.stringify({ states: g.wildlife.state, globals: g.wildlife.g, flags: g.flags, agents: g.wildlife.agents });
     const rng = g.rng, random = Math.random;
-    g.rng = Math.random = () => { throw Error('Diagnostics consumed random state'); };
+    g.rng = Math.random = () => { throw Error('Diagnostics consumed random state'); }; forceSimRandom(g.rng);
     try {
       for (const def of ANIMALS) {
         const d = wildlifeDiagnostics(g, def);
@@ -31,10 +32,10 @@ check('Every map produces finite diagnostics without changing simulation state o
         assert.ok(Number.isFinite(g.wildlife.state[def.index].K));
         count++;
       }
-    } finally { g.rng = rng; Math.random = random; }
+    } finally { g.rng = rng; Math.random = random; forceSimRandom(null); }
     assert.equal(JSON.stringify({ states: g.wildlife.state, globals: g.wildlife.g, flags: g.flags, agents: g.wildlife.agents }), before);
   }
-  assert.equal(count, 202); // Adult model variants share their species' diagnostic.
+  assert.equal(count, 203); // Adult model variants share their species' diagnostic. (202 + the reef hawkfish)
 });
 
 g.newGame(1987, 'free', 'standard', 'pnw');

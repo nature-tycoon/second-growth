@@ -43,7 +43,7 @@ try {
         const game = bare('pnw'), w = game.world; w.vh.fill(0); w.terrain.fill(T.SOIL);
         w.setPlant(w.idx(40, 30), game.catalog.plants.find(p => p?.key === 'fir'), 1);
         const a = game.wildlife.spawn(game.catalog.animal.woodpecker, 40, 30, { silent: true });
-        Object.assign(a, { x: 40.5, y: 30.5, state: 'bird', flying: false, alt: 0, wait: 99, bird: { kind: 'trunk', t: 99, h: .2, side: 0 }, hd: Math.atan2(-Math.sin(0), -Math.cos(0)) });
+        Object.assign(a, { x: 40.5, y: 30.5, state: 'bird', flying: false, alt: 0, wait: 99, bird: { kind: 'trunk', t: 99, h: .2, side: 0 }, heading: Math.atan2(-Math.sin(0), -Math.cos(0)) });
         game.selectedAgent = a; return { game, a, half: .5 };
       },
       palm() {

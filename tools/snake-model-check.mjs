@@ -27,10 +27,10 @@ for (const map of ['pnw', 'atlanta', 'amazon', 'chinandega', 'sumatra']) {
 }
 check('All five regional snakes have finite geometry within the mesh budget', () => {
   assert.equal(models.size, 5);
-  for (const [key, { geo, def }] of models) {
+  for (const [key, { geo, def, motion }] of models) {
     for (const attr of Object.values(geo.attributes)) assert.ok([...attr.array].every(Number.isFinite), `${key}: finite attributes`);
     assert.ok(geo.index.count / 3 < 12000 && geo.attributes.position.count < 7000, `${key}: mesh budget`);
-    const size = geo.boundingBox.getSize(new Vector3()), S = def.sprite.size, L = def.sprite.length ?? (def.sprite.reticulated ? 2.6 : 2.4);
+    const size = geo.boundingBox.getSize(new Vector3()), S = def.sprite.size, L = motion.slither.nose / S / .49; // (the body's length, in sizes)
     assert.ok(size.x > S * (L - .1) && size.x < S * (L + .5), `${key}: long body and tapered tail`);
     assert.ok(geo.boundingBox.min.y >= 0 && geo.boundingBox.min.y < S * .015, `${key}: rests on the ground`);
     assert.ok(size.y < S * .25, `${key}: low profile`);
@@ -73,23 +73,34 @@ check('Anacondas are stockier than land snakes and pythons have a longer silhoue
   const py = models.get('python'), boa = models.get('boa');
   assert.ok(py.geo.boundingBox.getSize(new Vector3()).x > boa.geo.boundingBox.getSize(new Vector3()).x * 1.06);
 });
-check('The giant snakes are long for their girth, with heads the same size as before', () => {
+check('Every snake is as long for its girth as the real one, the giants 1.3-1.9 tiles long', () => {
   // A green anaconda is commonly 4-6 m and about 30 cm thick, a reticulated python 4-6 m and slimmer:
   // drawn about 2.5 times life size (decision 0024), 1.3-1.9 tiles from nose to tail.
-  for (const key of ['anaconda', 'python']) {
-    const { geo, body, def } = models.get(key), p = geo.attributes.position, S = def.sprite.size;
+  // (as long as thick: anaconda about 15, boa and python over 20, the slim colubrids about 30)
+  const slender = { anaconda: [14, 17], python: [20, 26], boa: [19, 25], ratsnake: [27, 34], gartersnake: [26, 33] };
+  for (const key of Object.keys(slender)) {
+    const { geo, body, def, motion } = models.get(key), p = geo.attributes.position, S = def.sprite.size, L = motion.slither.nose / S / .49;
     const piv = geo.attributes.aPivot, rings = new Map(); // (thickness: the widest ring of the skin, across the spine)
     for (const i of body) { const k = piv.getX(i).toFixed(3); if (!rings.has(k)) rings.set(k, []); rings.get(k).push(i); }
     const thick = Math.max(...[...rings.values()].map(r => Math.max(...r.flatMap(a => r.map(b => Math.hypot(p.getX(a) - p.getX(b), p.getZ(a) - p.getZ(b)))))));
     const tiles = geo.boundingBox.getSize(new Vector3()).x * adultAnimalScale(def.sprite);
-    assert.ok(def.sprite.length * S / thick > 14, `${key}: ${(def.sprite.length * S / thick).toFixed(1)} times as long as thick`);
-    assert.ok(tiles > 1.3 && tiles < 1.9, `${key}: ${tiles.toFixed(2)} tiles long`);
+    const ratio = L * S / thick;
+    assert.ok(ratio > slender[key][0] && ratio < slender[key][1], `${key}: ${ratio.toFixed(1)} times as long as thick`);
+    if (key === 'anaconda' || key === 'python') assert.ok(tiles > 1.3 && tiles < 1.9, `${key}: ${tiles.toFixed(2)} tiles long`);
   }
-  // the head keeps its length: eye to nose is the same in sizes on a long snake as on a short one
-  const eyeToNose = key => { const { geo, def, motion } = models.get(key), p = geo.attributes.position, c = geo.attributes.color, iris = new Color('#b5a054');
-    let x = -Infinity; for (let i = 0; i < p.count; i++) if (Math.abs(c.getX(i) - iris.r) + Math.abs(c.getY(i) - iris.g) + Math.abs(c.getZ(i) - iris.b) < 1e-5) x = Math.max(x, p.getX(i));
-    return (motion.slither.nose - x) / def.sprite.size; };
-  assert.ok(Math.abs(eyeToNose('anaconda') - eyeToNose('boa')) < .03, `anaconda head ${eyeToNose('anaconda').toFixed(3)} vs boa ${eyeToNose('boa').toFixed(3)}`);
+});
+check('Heads are wider than the neck: broad over a slim neck on the boids, a little on the colubrids', () => {
+  for (const [key, { geo, body, def, motion }] of models) {
+    const p = geo.attributes.position, S = def.sprite.size, { nose, head } = motion.slither;
+    const piv = geo.attributes.aPivot, rings = new Map(); // (each ring's width, across the spine: the ring nearest x)
+    for (const i of body) { const k = piv.getX(i); if (!rings.has(k)) rings.set(k, []); rings.get(k).push(i); }
+    const widthAt = x => { let best = null; for (const k of rings.keys()) if (best === null || Math.abs(k - x) < Math.abs(best - x)) best = k;
+      const r = rings.get(best); return Math.max(...r.flatMap(a => r.map(b => Math.hypot(p.getX(a) - p.getX(b), p.getZ(a) - p.getZ(b))))); };
+    let skull = 0; for (let f = .5; f <= 1; f += .05) skull = Math.max(skull, widthAt(nose - head * f));
+    const neck = widthAt(nose - head * 1.32), boid = def.sprite.heavy || def.sprite.saddles || def.sprite.reticulated;
+    assert.ok(skull / neck > (boid ? 1.35 : 1.1) && skull / neck < (boid ? 1.8 : 1.45), `${key}: head ${(skull / neck).toFixed(2)} times the neck`);
+    assert.ok(head / S > .12 && head / S < .3, `${key}: head length ${(head / S).toFixed(2)} sizes`);
+  }
 });
 check('Garter snakes retain three continuous yellow stripes through the curved body', () => {
   const { geo, body, def } = models.get('gartersnake'), p = geo.attributes.position, c = geo.attributes.color, S = def.sprite.size;

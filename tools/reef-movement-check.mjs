@@ -29,15 +29,15 @@ check('Manta departure routes go around the cay', () => {
   }
   assert(!wl.ids.has(a.id), 'Ray must still be able to leave');
 });
-check('A short direct step without a swimming heading cannot enter land', () => {
-  land(31, 30); const a = manta(30.95, 30.5); a.hd = null;
+check('A short direct step cannot enter land', () => {
+  land(31, 30); const a = manta(30.95, 30.5); a.heading = 0;
   wl.stepToward(a, 31.05, 30.5, 0.2);
   assert(a.x < 31);
 });
 check('Turning and gliding cannot cut a dry diagonal corner', () => {
   land(31, 30); land(30, 31);
   for (const move of ['step', 'swim', 'glide']) {
-    const a = manta(30.95, 30.95); a.hd = Math.PI / 4; a.spd = 2; a.path = [w.idx(31, 31)];
+    const a = manta(30.95, 30.95); a.heading = Math.PI / 4; a.spd = 2; a.path = [w.idx(31, 31)];
     if (move === 'step') wl.stepToward(a, 31.5, 31.5, 0.1);
     else if (move === 'swim') wl.swimToward(a, w.idx(31, 31), 0.1, 0.05);
     else wl.glide(a, 0.05);
@@ -45,7 +45,7 @@ check('Turning and gliding cannot cut a dry diagonal corner', () => {
   }
 });
 check('A fast movement cannot jump across land into water beyond it', () => {
-  land(31, 30); const a = manta(); a.hd = 0; a.spd = 10;
+  land(31, 30); const a = manta(); a.heading = 0; a.spd = 10;
   wl.glide(a, 0.3);
   assert(a.x < 31);
 });

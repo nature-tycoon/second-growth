@@ -1,15 +1,25 @@
 # 0032 The real moon and a deeper clear-day sky
 
+## Rules
+
+- Moon and clear-sky changes show only at eye level (`eye-sky.js`). The usual view draws no sky; don't blue the hemisphere light (it would tint every map's land).
+- The moon (`js/render3d/moon.js`) is a generated 128 px texture of the real near side, always full (the land's moonlight never changes), turned for the map's `lat` (`moonAxes`; scene north is -z).
+- Clear-day sky: `updateSky` in scene.js and the dome gradient move toward `SKY_DEEP`/`SKY_PALE` with strength `SKY_BLUE` (0.7, Cole's pick), held back per map by `look.skyHaze`. Dawn, dusk, night, cloud, rain, snow and storms keep their old colours (clear factor 0).
+- No new draw calls or per-frame allocations.
+- Check: `node tools/watch-check.mjs`.
+
+## History
+
 2026-10-31. Cole asked to "make the moon look more like the real moon with texture" and to "make the
 sky bluer on clear days".
 
-## Where they show
+### Where they show
 
 Only at eye level (watch mode's ride-along view and walking, `eye-sky.js`). The usual view looks down
 on the land and draws no sky or moon: what reads as "sky" there is the hemisphere light's colour on
 the ground and in the water, and that's left alone, since bluing it would tint every map's land.
 
-## Decision
+### Decision
 
 **The moon** (`js/render3d/moon.js`). Its face is the real near side, worked out once at start-up into
 a 128 px texture (64 KB, no download, no image file): the maria placed at their real selenographic
@@ -43,12 +53,12 @@ horizon colour, which greyed any deeper blue.
   had: the clear factor is 0 for all of them (cloud cover past about 0.54, a storm, the night, or a
   sun under 24 degrees).
 
-## Cost
+### Cost
 
 No new draw calls or per-frame allocations. The dome gains one uniform and a texture lookup that
 only runs on the moon's own pixels at night. The usual view runs none of this.
 
-## Uncertain
+### Uncertain
 
 - The scene's north is taken as -z (Chinandega's volcano stands "off the north edge" at -z). If that's
   wrong, the moon near the equator is tipped the wrong way round; north and south hemispheres are
@@ -56,7 +66,7 @@ only runs on the moon's own pixels at night. The usual view runs none of this.
 - The moon still rides where the game's night "sun" is, low in the sky (6 to 7 degrees). Nothing
   ties its place in the sky to the date.
 
-## Check
+### Check
 
 `node tools/watch-check.mjs`: the face has dark seas where the real ones are and Tycho brightest,
 the face turns with latitude, a clear sky is deeper blue than a cloudy one, a cloudy day keeps

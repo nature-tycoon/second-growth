@@ -14,8 +14,13 @@ let queue = null; // (fish passage flood fill, below)
 // left, then up and left back from the bottom right. (It was a breadth-first flood; the sweeps
 // give the same numbers in about a third of the time, and the daily update runs a dozen of these.)
 function distanceField(w, out, isSource, cap = 20) {
+  for (let i = 0; i < w.n; i++) out[i] = isSource(i) ? 0 : FAR;
+  sweep(w, out, cap);
+}
+
+// The two sweeps, over `out` already 0 at the sources and FAR elsewhere.
+function sweep(w, out, cap) {
   const n = w.n, W = w.w;
-  for (let i = 0; i < n; i++) out[i] = isSource(i) ? 0 : FAR;
   for (let i = 0, x = 0; i < n; i++, x = x === W - 1 ? 0 : x + 1) {
     let v = out[i];
     if (v === 0) continue;
@@ -118,19 +123,60 @@ export function layerLight(w, i, layer) {
   return clamp(1 - w.nbCanopy[i] * 0.75, 0, 1);
 }
 
+// The habitat distance fields, one bit each in w.distSources. A day changes the sources of only a
+// few (a tree grows past a threshold, a snag falls), so one pass finds every tile's sources and only
+// the fields whose sources moved are swept again: the same numbers as sweeping them all. Code that
+// writes one of these arrays itself must clear w.distSources (Game.refreshEnvironment does).
+const DIST_FIELDS = ['distCover', 'distForest', 'distPerch', 'distSnag', 'distLog', 'distNest', 'distRocks', 'distWoody'];
 export function updateDistances(w) {
-  const tr = w.tree, tg = w.treeG, sh = w.shrub, sg = w.shrubG, f = w.feature;
-  distanceField(w, w.distCover, i => (sh[i] && sg[i] > 0.4) || (tr[i] && tg[i] > 0.3) || f[i] === F.BRUSH);
-  distanceField(w, w.distForest, i => tr[i] && tg[i] > 0.45);
-  distanceField(w, w.distPerch, i => (tr[i] && tg[i] > 0.7) || f[i] === F.SNAG || f[i] === F.FENCE || f[i] === F.NESTBOX);
-  distanceField(w, w.distSnag, i => f[i] === F.SNAG);
-  distanceField(w, w.distLog, i => f[i] === F.LOG);
-  distanceField(w, w.distNest, i => f[i] === F.NESTBOX || f[i] === F.SNAG);
-  distanceField(w, w.distRocks, i => f[i] === F.ROCKS || f[i] === F.BRUSH);
-  distanceField(w, w.distWoody, i => (sh[i] && w.catalog.plants[sh[i]].beaverFood && sg[i] > 0.3) || (tr[i] && w.catalog.plants[tr[i]].beaverFood && tg[i] > 0.2));
+  const tr = w.tree, tg = w.treeG, sh = w.shrub, sg = w.shrubG, f = w.feature, n = w.n;
+  const food = w.catalog.plants.map(p => !!(p && p.beaverFood));
+  const fresh = !w.distSources || w.distSources.length !== n;
+  if (fresh) w.distSources = new Uint8Array(n);
+  const src = w.distSources;
+  let changed = fresh ? 255 : 0;
+  for (let i = 0; i < n; i++) {
+    const t = tr[i], s = sh[i], fi = f[i];
+    let b = 0;
+    if ((s && sg[i] > 0.4) || (t && tg[i] > 0.3) || fi === F.BRUSH) b |= 1;
+    if (t && tg[i] > 0.45) b |= 2;
+    if ((t && tg[i] > 0.7) || fi === F.SNAG || fi === F.FENCE || fi === F.NESTBOX) b |= 4;
+    if (fi === F.SNAG) b |= 8;
+    if (fi === F.LOG) b |= 16;
+    if (fi === F.NESTBOX || fi === F.SNAG) b |= 32;
+    if (fi === F.ROCKS || fi === F.BRUSH) b |= 64;
+    if ((s && food[s] && sg[i] > 0.3) || (t && food[t] && tg[i] > 0.2)) b |= 128;
+    changed |= b ^ src[i];
+    src[i] = b;
+  }
+  if (!changed) return;
+  for (let k = 0; k < DIST_FIELDS.length; k++) {
+    const bit = 1 << k;
+    if (!(changed & bit)) continue;
+    const out = w[DIST_FIELDS[k]];
+    for (let i = 0; i < n; i++) out[i] = src[i] & bit ? 0 : FAR;
+    sweep(w, out, 20);
+  }
 }
 
 const GRASSY = { grass: 1, sedge: 0.7, tallgrass: 0.4, tallforb: 0.2, forb: 0.3 };
+
+// What classifyAndResources reads of each plant this month, in objects of one shape: the catalog's
+// plants differ in shape, so reading them tile by tile was most of its time. Built every call,
+// since a map can change a plant's season mid-game (Sumatra's titan arum). Values are copied as
+// they are (undefined stays undefined), so the sums come out exactly as before.
+function plantMonth(plants, month) {
+  return plants.map(p => p && {
+    invasive: !!p.invasive, exotic: !!p.exotic, weedy: !!p.weedy, sod: !!p.sod, conifer: !!p.conifer,
+    caterpillars: !!p.caterpillars, aquatic: !!p.aquatic,
+    matureAge: p.matureAge ?? (p.conifer ? 12 : 18),
+    bloom: isBlooming(p, month), fruiting: isFruiting(p, month), hasFruit: !!p.look.fruit,
+    grassy: GRASSY[p.look.type] || 0, forb: p.look.type === 'forb' || p.look.type === 'tallforb',
+    browse: p.browse, treeBrowse: p.browse || 0.3, mast: p.mast, fruitFood: p.fruitFood,
+    nectar: p.nectar && p.nectar.months.includes(month) ? p.nectar.amount : null,
+    leafCover: plantLeafCover(p, month),
+  });
+}
 
 export function classifyAndResources(w, month) {
   const n = w.n, W = w.w;
@@ -139,10 +185,11 @@ export function classifyAndResources(w, month) {
   const st = { native: 0, land: 0, invasive: 0, farm: 0, meadow: 0, forest: 0, mature: 0, berry: 0,
     bigTrees: 0, water: 0, counts: new Array(13).fill(0), snags: 0, nestboxes: 0, logs: 0, matureConifer: 0,
     shadedCreek: 0, creek: 0 };
+  const info = plantMonth(w.catalog.plants, month), mast = month === 6 || month === 7;
   for (let i = 0; i < n; i++) {
     const t = w.terrain[i];
     const g = w.ground[i], s = w.shrub[i], tr = w.tree[i];
-    const gp = g ? w.catalog.plants[g] : null, sp = s ? w.catalog.plants[s] : null, tp = tr ? w.catalog.plants[tr] : null;
+    const gp = g ? info[g] : null, sp = s ? info[s] : null, tp = tr ? info[tr] : null;
     const gG = w.groundG[i], sG = w.shrubG[i], tG = w.treeG[i];
     const f = w.feature[i];
     if (f === F.SNAG) st.snags++;
@@ -163,8 +210,7 @@ export function classifyAndResources(w, month) {
       // (exotic: a non-native ornamental, like lawn, boxwood or crepe myrtle, that isn't habitat)
       if (inv > 0.5 && !(tp && !tp.invasive && tG > 0.6)) h = H.INVASIVE;
       else if (tp && !tp.exotic && tG >= 0.35) {
-        const matureAge = tp.matureAge ?? (tp.conifer ? 12 : 18);
-        const mature = tG >= 0.98 && w.treeAge[i] >= matureAge * 120;
+        const mature = tG >= 0.98 && w.treeAge[i] >= tp.matureAge * 120;
         if (nearW && !tp.conifer && !mature) h = H.RIPARIAN;
         else h = mature ? H.MATURE_FOREST : H.YOUNG_FOREST;
       } else if (sp && !sp.invasive && !sp.exotic && sG >= 0.4) h = nearW ? H.RIPARIAN : H.SHRUB;
@@ -175,7 +221,8 @@ export function classifyAndResources(w, month) {
     w.habitat[i] = h;
     st.counts[h]++;
 
-    const land = !isWater(t) && h !== H.DEVELOPED;
+    const water = isWater(t);
+    const land = !water && h !== H.DEVELOPED;
     if (land) {
       st.land++;
       if ((gp && !gp.invasive && !gp.exotic && gG > 0.3) || (sp && !sp.invasive && !sp.exotic && sG > 0.3) || (tp && !tp.exotic && tG > 0.3)) st.native++;
@@ -186,27 +233,27 @@ export function classifyAndResources(w, month) {
     if (h === H.YOUNG_FOREST || h === H.MATURE_FOREST) st.forest++;
     if (h === H.MATURE_FOREST) { st.mature++; if (tp.conifer) st.matureConifer++; }
     if (tp && tG >= 0.95 && w.treeAge[i] > 15 * 120) st.bigTrees++;
-    if (isWater(t) && t !== T.RIVER) st.water++;
+    if (water && t !== T.RIVER) st.water++;
 
     // food & resources
     let nectar = 0, berries = 0, graze = 0, browse = 0;
     if (gp) {
-      if (isBlooming(gp, month)) nectar += gG * 0.8 * (gp.invasive || gp.exotic ? 0.3 : 1);
-      graze += (GRASSY[gp.look.type] || 0) * gG * (gp.invasive ? 0.5 : 1);
-      if (gp.look.type === 'forb' || gp.look.type === 'tallforb') browse += gG * 0.25;
+      if (gp.bloom) nectar += gG * 0.8 * (gp.invasive || gp.exotic ? 0.3 : 1);
+      graze += gp.grassy * gG * (gp.invasive ? 0.5 : 1);
+      if (gp.forb) browse += gG * 0.25;
     } else if (t === T.PASTURE) graze += 0.3;
     if (sp) {
-      if (isBlooming(sp, month)) nectar += sG * (sp.invasive || sp.exotic ? 0.3 : 1);
-      if (isFruiting(sp, month)) berries += sG;
+      if (sp.bloom) nectar += sG * (sp.invasive || sp.exotic ? 0.3 : 1);
+      if (sp.fruiting) berries += sG;
       browse += sG * sp.browse;
-      if (sp.look.fruit && sG > 0.5 && !sp.invasive) st.berry++;
-      if (sp.invasive && sp.look.fruit && sG > 0.5) st.berry += 0.3;
+      if (sp.hasFruit && sG > 0.5 && !sp.invasive) st.berry++;
+      if (sp.invasive && sp.hasFruit && sG > 0.5) st.berry += 0.3;
     }
     if (tp) {
-      if (tG < 0.6) browse += tG * (tp.browse || 0.3);
-      if (tp.mast && (month === 6 || month === 7)) berries += tp.mast * tG;
-      if (tp.fruitFood && tG > 0.6 && isFruiting(tp, month)) berries += tp.fruitFood * tG; // (a fruit tree in season: Sumatra's durian, rambutan...)
-      if (tp.nectar && tp.nectar.months.includes(month)) nectar += tp.nectar.amount * tG;
+      if (tG < 0.6) browse += tG * tp.treeBrowse;
+      if (tp.mast && mast) berries += tp.mast * tG;
+      if (tp.fruitFood && tG > 0.6 && tp.fruiting) berries += tp.fruitFood * tG; // (a fruit tree in season: Sumatra's durian, rambutan...)
+      if (tp.nectar !== null) nectar += tp.nectar * tG;
     }
     w.nectar[i] = Math.min(1, nectar);
     w.berries[i] = Math.min(1, berries);
@@ -240,14 +287,14 @@ export function classifyAndResources(w, month) {
       const j = yy * W + xx;
       if (isWater(w.terrain[j]) && w.terrain[j] !== T.MARSH) continue;
       cnt++;
-      const treeShade = w.tree[j] && w.treeG[j] > 0.4 ? plantLeafCover(w.catalog.plants[w.tree[j]], month) : 0;
-      const shrubShade = w.shrub[j] && w.shrubG[j] > 0.5 && !w.catalog.plants[w.shrub[j]].invasive ? plantLeafCover(w.catalog.plants[w.shrub[j]], month) : 0;
+      const treeShade = w.tree[j] && w.treeG[j] > 0.4 ? info[w.tree[j]].leafCover : 0;
+      const shrubShade = w.shrub[j] && w.shrubG[j] > 0.5 && !info[w.shrub[j]].invasive ? info[w.shrub[j]].leafCover : 0;
       shade += Math.max(treeShade, shrubShade);
       const gj = w.ground[j];
-      if (gj && !w.catalog.plants[gj].invasive) veg++;
-      if ((gj && w.catalog.plants[gj].invasive) || (w.shrub[j] && w.catalog.plants[w.shrub[j]].invasive)) inv++;
+      if (gj && !info[gj].invasive) veg++;
+      if ((gj && info[gj].invasive) || (w.shrub[j] && info[w.shrub[j]].invasive)) inv++;
     }
-    const own = w.ground[i] && w.catalog.plants[w.ground[i]].aquatic ? 0.15 : 0;
+    const own = w.ground[i] && info[w.ground[i]].aquatic ? 0.15 : 0;
     const q = cnt ? 0.25 + 0.5 * shade / cnt + 0.25 * veg / cnt - 0.15 * inv / cnt : 0.35;
     w.waterQ[i] = clamp(q + own, 0, 1);
     if (t === T.CREEK) { st.creek++; if (cnt && shade / cnt >= 0.35) st.shadedCreek++; }

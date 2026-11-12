@@ -1,5 +1,6 @@
 import { T, H, clamp } from '../config.js';
 import { CALL_RANGE } from './nature.js';
+import { trait } from '../data/animal-kinds.js';
 
 // Sample around the camera instead of making a restored corner sound like the whole property.
 export function sampleSoundLand(game, renderer, biome, animals) {
@@ -24,7 +25,7 @@ export function sampleSoundLand(game, renderer, biome, animals) {
     if (distance <= 28) local.add(key);
     const range = CALL_RANGE[key] ?? 28;
     // (a woodpecker's drum comes from one that is on a trunk, working it: decision 0030)
-    if (animals[a.sp].sprite.kind === 'woodpecker' && a.bird?.kind !== 'trunk') continue;
+    if (trait(animals[a.sp], 'trunkFeed') && a.bird?.kind !== 'trunk') continue;
     if (distance <= range) {
       audible.add(key);
       if (!callPositions[key] || distance < callPositions[key].distance) callPositions[key] = {

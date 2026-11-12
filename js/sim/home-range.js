@@ -10,6 +10,7 @@ import { travelSpeed } from './climb-pace.js';
 import { followRoute, preferTrailPath } from './animal-trails.js';
 import { hasTerritory } from './animal-territory.js';
 import { riskAt, safety } from './predation-risk.js';
+import { simRandom } from './sim-random.js';
 
 // Residents: land mammals that walk to water. Migrants keep migrating; river patrollers keep patrolling.
 export function homeEligible(wl, def) {
@@ -175,7 +176,7 @@ export function walkToWater(wl, a, def) {
   if (Math.hypot(a.x - wx, a.y - wy) < 3) {
     // At its drinking place but the spot is taken: a free spot along the same stretch, or wait a turn.
     if (wl.pathTo(a, j => dist(w, j, water) <= 3 && w.distWater[j] <= 1 && (wl.bankSpot(a, j)?.crowd ?? Infinity) < 0.08, 120, null, visit)) { a.waterTrip = true; return true; }
-    a.wait = 0.5 + Math.random(); return true;
+    a.wait = 0.5 + simRandom(); return true;
   }
   if (followRoute(wl, a, h.waterRoute, true, Math.max(6, h.r))) { a.waterTrip = true; return true; }
   // Learn the route from the home's center, so later trips from anywhere in the home join it.

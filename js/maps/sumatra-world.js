@@ -8,6 +8,7 @@
 import { World, riverRow, generateHeights } from '../world.js';
 import { T, F } from '../config.js';
 import { activeCatalog } from '../data/catalog.js';
+import { smoothstep } from './landform.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
 // The edge of the peat: north of it is mineral soil on the low hills, south of it deep peat.
@@ -178,10 +179,26 @@ export function generateEstate(seed = 2024, catalog = activeCatalog) {
   for (let y = 0; y < peatTop(W - 1); y++) { const i = w.idx(W - 1, y); if (open(i)) w.feature[i] = F.FENCE; }
 
   // the peat lies flat and low; the hills behind roll
-  generateHeights(w, [[0, 48, W - 1, Hh - 1]]);
+  generateHeights(w, [[0, 48, W - 1, Hh - 1]], hillsLand(w));
   for (const st of w.structures) if (st) w.flattenRect(st.x, st.y, st.w, st.h);
   w.hydroDirty = true;
   return w;
+}
+
+// Low mineral hills (0044): rolling ridges and the stream's valley in the north, 10-25 m of relief,
+// easing out onto the flat peat.
+function hillsLand(w) {
+  return {
+    drain: true,
+    base(x, y, h) {
+      const hill = smoothstep(peatTop(x) - 1, peatTop(x) - 14, y);
+      // (the swells only ever add height: a dip that eased back up at the peat's edge would close a basin)
+      let add = 2.6 * smoothstep(peatTop(x), -6, y) + valueNoise(x + 30, y, 13, 501) * 3.6 * hill;
+      add = Math.max(0, add - 1.8 * hill * (1 - smoothstep(1, 11, Math.abs(x - streamX(y))))); // (the stream's valley, no lower than the peat)
+      if (y < 0) add += -y * 0.3;
+      return h + add * hill;
+    },
+  };
 }
 
 // The land around the estate: the Leuser rainforest north and east (peat swamp forest in the

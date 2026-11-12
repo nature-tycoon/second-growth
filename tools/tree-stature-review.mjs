@@ -45,7 +45,7 @@ try {
         const s=spots.find(s=>placed.every(p=>Math.hypot(p[0]-s[1],p[1]-s[2])>2.5)); if (!s) break;
         while (isMaleVariant(def,{id:game.wildlife.nextId,age:def.mature*DAYS_PER_YEAR+1})!==male) game.wildlife.nextId++;
         const x=s[1]+0.5, y=s[2]+0.5, a=game.wildlife.spawn(def,x,y,{silent:true,age:def.mature*DAYS_PER_YEAR+1});
-        Object.assign(a,{x,y,tx:x,ty:y,wait:1e6,orientation:-.35,hunger:0,phase:0,thirst:0}); placed.push([x,y]);
+        Object.assign(a,{x,y,tx:x,ty:y,wait:1e6,heading:-.35,hunger:0,phase:0,thirst:0}); placed.push([x,y]);
       }
       game.wildlife.recount(); game.refreshEnvironment();
       return placed.length ? [placed.reduce((s,p)=>s+p[0],0)/placed.length, placed.reduce((s,p)=>s+p[1],0)/placed.length] : fx.center;})()`, 600000);

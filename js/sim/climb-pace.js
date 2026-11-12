@@ -1,4 +1,5 @@
 import { ANIMAL_SPEEDS } from '../config.js';
+import { climbStyle } from '../data/animal-kinds.js';
 // How fast a climber moves along the drawn wood. Heavy apes place each hold
 // deliberately; gibbons and monkeys travel faster.
 export const climbPace = def => Math.max(def.sprite.kind === 'sloth' ? .1 : .3, def.speed) * (def.sprite.ape ? .55 : 1) * (def.sprite.kind === 'orangutan' ? .8 : 1);
@@ -12,7 +13,7 @@ export const SWING_CADENCE = 2.8;
 // How fast the drawn body can travel along the wood, in tiles per game day.
 export function drawnClimbPace(def) {
   const perSecond = def.sprite.ape ? bodyLength(def) * 1.6 * SWING_CADENCE / (Math.PI * 2)
-    : def.sprite.kind === 'monkey' ? bodyLength(def) * WALKER_STRIDES : Infinity;
+    : climbStyle(def) === 'walk' ? bodyLength(def) * WALKER_STRIDES : Infinity;
   return Math.min(climbPace(def), perSecond / ANIMAL_SPEEDS[1]);
 }
 // The simulation moves a climber in straight lines between tiles, while the drawn
@@ -21,7 +22,7 @@ export function drawnClimbPace(def) {
 // and sloths keep the older allowance of a third. Keep the simulation within that,
 // so the drawing never trails it, races to catch up or snaps forward.
 export const CANOPY_ROUTE = 1.7;
-const primate = def => def.sprite.kind === 'monkey' || def.sprite.kind === 'orangutan';
+const primate = def => ['walk', 'clamber', 'swing'].includes(climbStyle(def));
 export const climbSpeed = def => Math.min(def.speed, primate(def) ? drawnClimbPace(def) / CANOPY_ROUTE : climbPace(def) * .75);
 // Everyday travel speed in the simulation, in tiles per game day.
 export const travelSpeed = def => def.move === 'tree' ? climbSpeed(def) : def.speed;

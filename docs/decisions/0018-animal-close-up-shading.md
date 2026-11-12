@@ -1,5 +1,19 @@
 # 0018 Animals look better up close
 
+## Rules
+
+- A model's vertex-normal **length** carries baked shading (occlusion 0.3–1 plus 2 × shine). Anything that reads a model's normals must normalize them. `simplifyAnimal` keeps the average length.
+- `bakeSurface` (`render3d/animals/animal-surface.js`) runs last in `buildSpecies`. Don't add a vertex attribute for shading (canopy climbers already use every attribute some GPUs allow) and don't darken vertex colours (breaks exact palette checks).
+- Eyes: the shared `eyes()` helper tags them; a builder that draws its own eyes passes `Model.add(..., { gloss: 2 })`. Eyes must sit on the head's outer surface (`node tools/animal-eyes-check.mjs`).
+- Markings are per pixel: write the painter as `pixelCoat(kind, ...)` (`model-core.js`), add a GLSL function with the same signature to `COAT_GLSL` and name it in `COAT_FN` (`animal-material.js`). Avoid GLSL reserved words (`patch`). Wrapping a `pixelCoat` in another function loses the tag and draws unmarked. Only marked models carry `aCoat`.
+- Close-up model: `buildSpecies(def, { close: true })` (1.6× finer segments), drawn above `CLOSE_PIXELS` (64 CSS px, `animal-lod.js`) and built in idle time (`Fauna.closeUp`). Poses, contact and picking come from the usual model. A check that counts drawn animals must add `close.count` and `far.count`.
+- Body shape lives in `quadruped()` (`loftBody` `tuck`/`keel`, smooth thigh legs, `headLoft`, `roundHead: true` to opt out, `muscles: false`) and `bird()` in `birds.js`; fix shared faults there, not per species.
+- Ears: every mammal ear is `pinna`/`pinnaAt` (`model-core.js`); never build ears from tapered limbs or solid ovals (elephants and primates excepted). Sink the base well inside the head, measured from its own radii, and lean the ear out with the skull, or the root floats.
+- Swimming: a wave swimmer's tail turns with the body wave's slope (`animatePart`); its phase runs by distance swum (`SWIM_STRIDE`). Check `node tools/fish-swim-check.mjs`. A snake's length is `sprite.length`.
+- Review: `http://localhost:8347/tools/animal-closeup-review.html` (`?bench=1`, `?model=close`, `map:key:male`), `node tools/animal-closeup-capture.mjs`. Cost: `?bench=1` and `play-profile` (`PLAY_VIEWS=closest`).
+
+## History
+
 2026-10-23. Cole asked for animals to look better zoomed in, without making the game much slower to
 draw. The plan has four steps, cheapest first:
 
@@ -13,7 +27,7 @@ draw. The plan has four steps, cheapest first:
 
 Bending knees and a fine fur texture would come after that, as their own decision.
 
-## How steps 1 and 2 work
+### How steps 1 and 2 work
 
 - `bakeSurface` (`render3d/animals/animal-surface.js`) runs last in `buildSpecies`. For each vertex
   it adds up how much of the sky the model's other surfaces nearby hide (out to 9% of the model's
@@ -37,7 +51,7 @@ Bending knees and a fine fur texture would come after that, as their own decisio
   - `motion.fur` is 1 for fur and feathers and 0.3 for scales, shells, fins and bare skin (`SCALY`
     in `animal-model.js`).
 
-## Cost
+### Cost
 
 - **GPU:** none measurable. `play-profile serengeti,amazon high 2` (play and close views, M5, on
   battery):
@@ -53,7 +67,7 @@ Bending knees and a fine fur texture would come after that, as their own decisio
   species is drawn, so that is a one-time hitch when a new kind first appears. Step 3 should cut it
   back, since the bake scales with vertex count.
 
-## How step 3 works
+### How step 3 works
 
 - `pixelCoat(kind, base, params, dark, mid)` (`model-core.js`) is a painter the shader finishes.
   Its vertices take `base` (the unmarked coat with its countershading), plus an `aCoat` attribute:
@@ -191,7 +205,7 @@ Bending knees and a fine fur texture would come after that, as their own decisio
   - The cutthroat's throat slash, the coho's kype, the arapaima's red rear: soft gradients.
   - Crease shading on the elephants' and rhinos' hides: texture, not markings.
 
-## How step 4 works
+### How step 4 works
 
 - `buildSpecies(def, { close: true })` builds the same model with every segment count 1.6 times
   finer (`Model.seg`, `CLOSE` in `model-core.js`): legs, tubes, the body loft, and spheres swapped
@@ -215,7 +229,7 @@ Bending knees and a fine fur texture would come after that, as their own decisio
   species. Added details could come later, per species, on top of this.
 - A check that counts drawn animals must add `close.count`, as well as `far.count`.
 
-## Body shape (after step 4)
+### Body shape (after step 4)
 
 Cole said some animals looked fake or blobby. The 51 mammals built by `quadruped()` (deer, dogs,
 cats, antelope, pigs, raccoons and the rest) shared three faults: a sausage body, legs hanging under
@@ -284,7 +298,7 @@ ball for a head. Now:
 Cost: 3.7% more triangles over the 56 birds (337k to 350k; at most +9% on the hawks and eagles),
 6% on the close-up models. Review: Pose → Flying (`pose=fly`, framed on the spread wings).
 
-## Ears
+### Ears
 
 Every mammal's ear is one shared model, `pinna` in `animals/model-core.js` (`pinnaAt` places it
 like an upright oval, the way older hand-placed ears were laid out): a thin leaf of skin rolled
@@ -301,7 +315,7 @@ whole ear, floating. Put the base well inside the head, measured from the head's
 bears' `ear()` in `small-mammals.js` sinks it 10–16% in from the surface), and lean the ear out
 with the skull, not in toward the midline.
 
-## Swimming (2026-10-31)
+### Swimming (2026-10-31)
 
 Cole saw coral trout wiggle out of phase. Every swimmer's tail fin swayed on a clock of its own
 (`sin(ph * 0.5)`) while the body wave ran at `1.4 * ph`, so the two drifted in and out of step. Now:
@@ -320,7 +334,7 @@ Snakes: `sprite.length` sets a snake's body length in sizes (the anaconda 4.4, t
 python 3.6, others 2.4/2.6). The head, the markings and the crawl's bends keep their size, so a
 longer snake has more body, more spots and more bends (`snake()` in `aquatic-reptiles.js`).
 
-## Review
+### Review
 
 `http://localhost:8347/tools/animal-closeup-review.html` draws nine animals large under the
 game's lights, camera angle and tone mapping. Framing can also show the game's own closest, usual

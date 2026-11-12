@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { buildSpecies } from './animals/animal-model.js';
+import { trait } from '../data/animal-kinds.js';
 import { faunaMaterial } from './animals/animal-material.js';
 import * as G from './geometry.js';
 import { leafColor, shrubShape } from './flora.js';
@@ -118,7 +119,7 @@ export function renderPlants(list) {
 export function renderPortrait(def, { fly: flying = false } = {}) {
   if (!R) setup();
   const { geo, motion } = buildSpecies(def);
-  const fly = def.sprite.kind === 'bat' || def.sprite.kind === 'ray' || flying ? 1 : 0; // bats are shown on the wing
+  const fly = trait(def, 'alwaysFlying') || flying ? 1 : 0; // bats (and mantas) are shown on the wing
   geo.setAttribute('aAnim', new THREE.InstancedBufferAttribute(new Float32Array([0, 0, fly, 0]), 4));
   if (motion.canopyFeet) for (const name of ['aGripA', 'aGripB', 'aGripC'])
     geo.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(4), 4));

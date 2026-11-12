@@ -94,6 +94,20 @@ export function generateReef(seed = 2026, catalog = activeCatalog) {
     const x = 4 + Math.floor(rng() * (W - 8)), y = Math.floor(Hh * 0.45 + rng() * Hh * 0.4), i = w.idx(x, y);
     w.terrain[i] = T.SOIL; w.soil[i] = 0.22; set(i, rng() < 0.55 ? 'boulder' : 'brain', 0.85 + rng() * 0.15, 40 + rng() * 150);
   }
+  // Two small coral heads that came through untouched, in a cool pocket of water: what the whole
+  // reef flat looked like before the heatwaves. A crowded little garden of staghorn, table and plate
+  // coral round an old brain coral, soft corals, sponges and a giant clam in the gaps, pink coralline
+  // algae underneath and no turf. Kept small (a dozen or so tiles each), so the coral cover goals
+  // still mean growing the reef back.
+  const HEALTHY = [[64, 47, 2.4, 'anemone'], [98, 41, 2.2, 'clam']];
+  for (const [cx, cy, r] of HEALTHY) blob(cx, cy, r, r, (i, x, y, d) => {
+    w.terrain[i] = T.SOIL; w.soil[i] = 0.3; w.clearPlants(i); set(i, 'cca', 0.7 + rng() * 0.3);
+    if (d < 0.08) { set(i, 'brain', 0.95, 60 + rng() * 60); return; }
+    const c = rng();
+    if (rng() < 0.85) set(i, c < 0.45 ? 'staghorn' : c < 0.7 ? 'tablecoral' : c < 0.88 ? 'montipora' : 'brain', 0.75 + rng() * 0.25, 6 + rng() * 10);
+    if (rng() < 0.35) set(i, rng() < 0.5 ? 'softcoral' : rng() < 0.6 ? 'sponge' : 'fungia', 0.6 + rng() * 0.3);
+  });
+  for (const [cx, cy, r, gem] of HEALTHY) { const i = w.idx(cx + Math.round(r * 0.7), cy); set(i, gem, 0.9); }
   for (let x = 0; x < W; x++) for (let y = Math.floor(Hh * 0.8); y < Hh; y++) { // the slope: sea fans and soft corals in the current
     const i = w.idx(x, y);
     if (rng() < 0.08) set(i, rng() < 0.55 ? 'seafan' : 'softcoral', 0.6 + rng() * 0.4);

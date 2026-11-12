@@ -1,8 +1,18 @@
 # 0017 Controlled burns can torch into crown fires
 
+## Rules
+
+- A controlled burn goes wrong only by torching: `Events.rxTorch(i)` needs a big tree (`treeG >= 0.6`) with ladder fuel (shrub, brush pile or log) under it, scaled by dryness, the dry streak (`rxDrought()`), the fire season and `RX_TORCH`. Open meadow never torches.
+- A torched tile starts a crown fire through the normal `ignite(..., severe)` path; an escaped burn already running goes up into the crowns instead.
+- Maps with `crownFires: false` never torch. Natural crown fires and the escape chance are unchanged.
+- Crown spread uses the ladder fuel under each big tree (`Events.ladder`, shared with `rxTorch`; `LADDER_FULL`, `CROWN_BARE`), so burning the understory protects a stand for 3–5 years with no new saved state.
+- Checks: `node tools/rx-crown-fire-check.mjs`, `campaign-sim`; seeded `balance-sim restore 15` (its plan never burns, so it should be identical).
+
+## History
+
 2026-10-23. Cole felt the controlled burn didn't do much and asked for it to be able to become a crown fire.
 
-## Decision
+### Decision
 
 A controlled burn was always low risk: it could jump the line as a grass wildfire, but it never
 touched big trees and never reached the canopy. Real prescribed burns go wrong by *torching*: a
@@ -23,7 +33,7 @@ nothing broader.
 The player's defenses are the realistic ones: burn after rain or outside the fire season, and clear
 the shrubs and saplings under trees first. Open meadow never torches.
 
-## Evidence
+### Evidence
 
 `node tools/rx-crown-fire-check.mjs` checks the conditions and both ignition paths.
 
@@ -42,7 +52,7 @@ In that patchy forest a crown fire killed only 1–3 big trees: it spreads by th
 natural crown fire, so it does real damage only where forest is continuous. `balance-sim restore 15`
 (seeded) is identical before and after, since its plan never burns, and `campaign-sim` passes.
 
-## Burning the understory slows later crown fires
+### Burning the understory slows later crown fires
 
 2026-10-23, the same day. A burn has a lasting payoff as well as a risk: in a crown fire, a big tree's
 canopy carries the fire in proportion to the ladder fuel under it (`Events.ladder`, shared with

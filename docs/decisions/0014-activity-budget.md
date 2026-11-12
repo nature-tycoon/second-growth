@@ -1,10 +1,22 @@
 # 0014 Hunters' activity budget, hunts that can land, lasting trails
 
+## Rules
+
+- Needs compete for time; none overrides the rest on a timer. Hunters' budget is data in `js/data/animal-activity.js` (`behavior.activity`: `hungry`, `digest`, `rest`/`bout`, `soar`); `prowl()` in `sim/animal-life.js` decides. Patrols, dormancy and bird routines use the same threshold (`huntHunger`).
+- Hunger counts from the end of a meal. Meal lengths keep kills per hunter near what the population balance assumed (4-day values crashed voles).
+- Hunts that can land (amends 0006): prey bolt from an approaching or creeping hunter only within 3 tiles or once the rush starts; flight builds to escape pace over half a day and tires after 1.5 days. 0026 later replaced the hunt itself.
+- Hawks hunt from the soar (scan every 0.3 day, stoop within 7 tiles).
+- New transient fields (`fleeAge`, `hunt.best`, `hunt.since`, `hunt.surprise`, `bird.hunting`, `bird.scan`) are saved with the existing fields; undefined reads as 0/false.
+- Trail fade values here were superseded by 0010's later sections.
+- Checks: `node tools/activity-check.mjs`, `tools/activity-budget.mjs`, prey-avoidance, bird-behavior, animal-trails, home-range; seeded `balance-sim restore 15`.
+
+## History
+
 2026-10-20. Phase 2 of [0013](0013-home-ranges-and-water.md). Cole asked for needs that compete
 for time instead of overriding each other, and approved the design with "make the decisions you
 think are best and most realistic while allowing for the most entertaining gameplay".
 
-## Findings
+### Findings
 
 Measured with `tools/activity-budget.mjs` and scratch probes on `claude/home-ranges` (the same on
 main). A sim-day is one dt unit, about 1.4 s at normal speed.
@@ -21,7 +33,7 @@ main). A sim-day is one dt unit, about 1.4 s at normal speed.
   under the 1.5%/day fade, just under the 0.09 visibility threshold. Making trips more frequent
   would need animals to walk more than all of their time.
 
-## Decision
+### Decision
 
 - **Activity budget for hunters** (`js/data/animal-activity.js`, exposed as `behavior.activity`;
   `prowl()` in `sim/animal-life.js` is the decision). Each hunter has `hungry` (days after a meal before
@@ -59,13 +71,13 @@ main). A sim-day is one dt unit, about 1.4 s at normal speed.
 - **Trails** (amends 0010). Edges and density fade 0.5% a day (`TRAIL_FADE`, about half in 140 days)
   instead of 1.5%. `trod` keeps its own ecological decay. Feed↔rest dwell is 3–5 days (it was 5–9).
 
-## Persistence
+### Persistence
 
 New field `fleeAge` (time spent fleeing), plus `hunt.best`, `hunt.since`, `hunt.surprise` and
 `bird.hunting`/`bird.scan`. All of these are transient and are saved with the existing fields.
 Older saves default them to undefined, which reads as 0 or false. No migration is needed.
 
-## Verification
+### Verification
 
 - `node tools/activity-check.mjs`, six checks:
   - a fed lion lies up, and a hungry one hunts prey 4 tiles away;
@@ -95,7 +107,7 @@ Older saves default them to undefined, which reads as 0 or false. No migration i
     which shows the noise between runs.
 - ms/day is within run-to-run noise (the runs shared the machine).
 
-## Known limits
+### Known limits
 
 - The activity-budget community stocks up to 10 of every predator, so on the Serengeti they are
   food-limited and still hunt or eat about 40–60% of the time. That is an honest response to

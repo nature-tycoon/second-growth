@@ -76,6 +76,15 @@ export class FloraChanges {
         }
         continue;
       }
+      // Deadwood ages a day at a time, and its age draws only its own tile (a log weathering, a
+      // snag shortening, a stump rotting); a feature appearing or going is `feature`, below.
+      if (f === 'featureAge' && a && old && a.length === old.length) {
+        for (let i = 0; i < a.length; i++) if (a[i] !== old[i]) {
+          const x = i % w.w, y = (i / w.w) | 0;
+          dirty.add(floraChunkKey(x, y, this.size)); tiles[(y + BORDER) * GW + x + BORDER] = 1;
+        }
+        continue;
+      }
       const edge = NEIGHBOUR_GROWTH[f];
       if (edge !== undefined && a && old && a.length === old.length) {
         for (let i = 0; i < a.length; i++) {

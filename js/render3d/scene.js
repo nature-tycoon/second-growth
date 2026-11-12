@@ -27,7 +27,7 @@ import { SeaSurface } from './sea.js';
 import { building, diveBoat, JETTY_BOAT } from './geometry/buildings.js';
 import { hash2, mulberry32 } from '../rng.js';
 import { Border } from '../world.js';
-import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS, GpuTimer } from '../performance.js';
+import { FrameCpuStats, CPU_STAGES, CHECK_SHADERS, GpuTimer, weakGpu } from '../performance.js';
 import { RELEASE } from '../release.js';
 import { updateHydrology, updateEnvironment } from '../sim/environment.js';
 import { animalDensity } from '../sim/animal-density.js';
@@ -149,6 +149,8 @@ export class Renderer {
       this.perf = null;
       this.cpuPerf.reset(); this.cpuSkipNext = true;
       this.gpuTimer = new GpuTimer(this.gl.getContext()); // (the old timer's queries went with the old context)
+      this.flora.impostors?.restore(); // (the baked tree pictures went with it too)
+      this.flora.setZoom(this.flora.zoom ?? 1, true);
       this.onContextRestored?.();
     });
     this.gl.setPixelRatio(this.dpr);
@@ -182,7 +184,11 @@ export class Renderer {
     this.scene.add(this.hemi, this.sun, this.sun.target);
     this.atlas = buildAtlas(this.catalog);
     this.terrain = new Terrain(this.scene, this.atlas);
-    this.flora = new Flora(this.scene, { catalog: this.catalog });
+    // far crowns as baked cards (decision 0042): quarter-size pictures (about 11 MB of graphics
+    // memory instead of 43 per page) on phones, tablets, weak graphics and screens without Retina,
+    // where a far crown is under 64 device pixels
+    const smallCards = TOUCH || this.dpr <= 1 || weakGpu(this.gpuName());
+    this.flora = new Flora(this.scene, { catalog: this.catalog, impostors: smallCards ? { cell: 64, size: 1024 } : {} });
     this.lightingDepth = true;
     this.actors = new Actors(this.scene, this.flora);
     this.actors.terrain = this.terrain; // (for the drawn water surface)
@@ -570,7 +576,7 @@ export class Renderer {
   flyTo(x, y, zoom, dur = 2.2, maxZoom = 4.5) {
     this.groundCamera();
     this.zoomGoal = null;
-    this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, maxZoom), t: 0, dur };
+    this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, maxZoom), t0: performance.now(), dur };
   }
 
   // Watch mode's eye-level view (eye-camera.js): ride along low behind an animal, or null to go
@@ -979,8 +985,9 @@ export class Renderer {
       this.updateCamera();
     }
     if (this.fly) {
-      const f = this.fly; f.t += dt;
-      const u = Math.min(1, f.t / f.dur), e = u * u * (3 - 2 * u);
+      // real time, not the capped frame time: the glide lasts as long on a slow computer
+      const f = this.fly;
+      const u = Math.min(1, (performance.now() - f.t0) / 1000 / f.dur), e = u * u * (3 - 2 * u);
       this.target.x = f.x0 + (f.x1 - f.x0) * e; this.target.z = f.z0 + (f.z1 - f.z0) * e;
       this.zoom = Math.exp(Math.log(f.zoom0) + (Math.log(f.zoom1) - Math.log(f.zoom0)) * e);
       this.clampCam(); this.updateCamera();
@@ -1066,6 +1073,7 @@ export class Renderer {
     const gustTo = wx === 'rain' ? 1.5 : wx === 'snow' ? 1.2 : wx === 'cloud' ? 1.0 : 0.65;
     windGust.value += (gustTo - windGust.value) * Math.min(1, dt * 0.4);
     this.flora.setZoom(this.eyeOn ? this.eyeDetail : this.zoom);
+    this.flora.bakeImpostors(this.gl);
     // plant contact shadows only stand in for the sun's when those are off (by choice, or dropped to
     // keep up): alongside real shadows they'd only smudge the ground around each trunk
     this.flora.contact.visible = !this.sun.castShadow;
@@ -1334,7 +1342,20 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
   const random = this.trailRng || (this.trailRng = mulberry32(0x74726169)); // visual-only randomness
   if (this.zoom > 0.45 && game.speed > 0) for (const a of this.actors.visibleWildlife) {
     const st = this.actors.pose.get(a.id);
-    if (!st || a.flying) continue;
+    if (!st) continue;
+    // a plunging booby throws up a splash where it goes into the sea and leaves a ring where it comes
+    // up; a noddy's dip leaves a small ring (sim/fishing.js)
+    const plunging = a.state === 'fish' ? a.fishing?.phase === 'under' ? 'under' : a.fishing?.phase === 'touch' ? 'touch' : null : null;
+    if (plunging !== (st.plunging ?? null)) {
+      const sea = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : waterSurfaceY(w, a.x, a.y);
+      if (sea != null && (plunging || st.plunging === 'under')) {
+        const big = plunging === 'under';
+        fx.push({ k: 'ring', x: a.x, z: a.y, y: sea, life: big ? 1.3 : 0.8, max: big ? 1.3 : 0.8, s: big ? 0.6 : 0.35 });
+        if (big) for (let d = 0; d < 7; d++) fx.push({ k: 'drop', x: a.x, z: a.y, y: sea, vx: (random() - 0.5) * 0.9, vz: (random() - 0.5) * 0.9, vy: 1.4 + random() * 1.2, life: 0.6, max: 0.6 });
+      }
+      st.plunging = plunging;
+    }
+    if (a.flying) continue;
     const xi = Math.floor(a.x), yi = Math.floor(a.y);
     if (!w.inb(xi, yi)) continue;
     const i = w.idx(xi, yi), t = w.terrain[i], def = animalDef(a, game.catalog);
@@ -1351,6 +1372,13 @@ Renderer.prototype.drawTrails = function (ctx, game, dt) {
         fx.push({ k: 'ring', x: sx, z: sz, y: st.y, life: 1.2, max: 1.2, s: 0.8 });
         for (let d = 0; d < 6; d++) fx.push({ k: 'drop', x: sx, z: sz, y: st.y, vx: (random() - 0.5) * 1.2, vz: (random() - 0.5) * 1.2, vy: 1.2 + random() * 1.2, life: 0.6, max: 0.6 });
       }
+    }
+    // a pouncing cat or fox kicks up dust (a splash in the shallows) where it springs and lands
+    if ((st.leapU ?? -1) >= 0 !== !!st.pouncing) {
+      st.pouncing = !st.pouncing;
+      const ahead = st.pouncing ? -0.2 : 0.25, sx = a.x + Math.cos(st.yaw) * ahead, sz = a.y - Math.sin(st.yaw) * ahead, s = (def.sprite.len || 20) / 36;
+      if (wet) { fx.push({ k: 'ring', x: sx, z: sz, y: st.y, life: 1, max: 1, s: 0.6 }); for (let d = 0; d < 5; d++) fx.push({ k: 'drop', x: sx, z: sz, y: st.y, vx: (random() - 0.5) * 1.2, vz: (random() - 0.5) * 1.2, vy: 1 + random(), life: 0.5, max: 0.5 }); }
+      else for (let d = 0; d < 2; d++) fx.push({ k: 'dust', x: sx + (random() - 0.5) * 0.2, z: sz + (random() - 0.5) * 0.2, y: st.y, life: 1.2, max: 1.6, s });
     }
     // a longtom skipping away from a hunter splashes each time it leaves the sea and lands again
     if (def.sprite.escape === 'skip' && (st.skipP ?? -1) >= 0 !== !!st.skipping) {

@@ -157,30 +157,43 @@ function turtle(m, s) {
   m.limb([-S * 0.42, S * 0.16, 0], [-S * 0.58, S * 0.08, 0], S * 0.05, S * 0.015, skin, { part: P.TAIL, pivot: [-S * 0.42, S * 0.16, 0] });
 }
 
-// One closed surface from the blunt snout through the skull, neck, body and tail.
-// Paint follows length and radial coordinates, so patterns stay on the back/flanks
+// One closed surface from the blunt snout through the skull, neck, body and tail, shared by every
+// snake. Paint follows length and radial coordinates, so patterns stay on the back/flanks
 // rather than drifting across the body when it curves. No separate head blob.
+// Each kind's real build, in sizes (SNAKE_BUILD): the body's length and half-girth (an anaconda is
+// about 15 times as long as it is thick, a boa 22, a python 23, the colubrids 30), and the head's
+// length, half-width and half-height and the neck behind it. The boids' heads are broad at the jaw
+// hinge over a slim neck; the colubrids' (garter, rat snake) are barely wider than the neck, with
+// rounder snouts and bigger eyes. A sprite's own `length` or `bulk` overrides its kind's.
+const SNAKE_BUILD = {
+  heavy: { length: 4.4, bulk: .148, head: .27, headW: .108, headH: .062, neck: .074, tail: .86, eye: .72, eyeR: .15, boid: true },
+  boa: { length: 3.0, bulk: .068, head: .21, headW: .074, headH: .044, neck: .044, tail: .79, eye: .42, eyeR: .2, boid: true },
+  python: { length: 4.0, bulk: .086, head: .24, headW: .080, headH: .046, neck: .050, tail: .80, eye: .45, eyeR: .19, boid: true },
+  rat: { length: 3.0, bulk: .048, head: .16, headW: .049, headH: .033, neck: .039, tail: .80, eye: .38, eyeR: .27 },
+  garter: { length: 2.7, bulk: .045, head: .14, headW: .045, headH: .031, neck: .036, tail: .74, eye: .36, eyeR: .27 },
+};
+// [fraction of the head's length from the nose, of its half-width, of its half-height]: a boid's
+// long squared snout widening to the jaw hinge; a colubrid's rounder, more even head
+const BOID_HEAD = [[0, 0, 0], [.03, .44, .52], [.12, .60, .70], [.35, .73, .86], [.62, .88, .97], [.86, 1, 1], [1, .88, .90]];
+const COLUBRID_HEAD = [[0, 0, 0], [.04, .55, .58], [.15, .78, .80], [.40, .93, .95], [.70, 1, 1], [.90, .95, .96], [1, .87, .90]];
 function snake(m, s) {
   const S = s.size, heavy = !!s.heavy, python = !!s.reticulated, boa = !!s.saddles, rat = !!s.mottled;
-  const bulk = heavy ? .148 : boa ? .118 : python ? .102 : rat ? .075 : .060;
-  const headW = heavy ? .088 : boa ? .096 : python ? .087 : rat ? .065 : .054;
-  const headH = heavy ? .052 : boa || python ? .046 : .035;
-  // s.length: the body's length in sizes, for the long heavy snakes (an anaconda is 15-20 times as
-  // long as it is thick). The head, the markings and the crawl's bends keep their size in sizes, so
-  // a longer snake is more body, with more spots and more bends along it, not a stretched head.
-  const ref = python ? 2.6 : 2.4, length = s.length ?? ref, hl = ref / length, noseX = length * .49;
-  const tailAt = heavy ? .86 : boa ? .79 : python ? .80 : .69;
+  const B = SNAKE_BUILD[heavy ? 'heavy' : boa ? 'boa' : python ? 'python' : rat ? 'rat' : 'garter'];
+  const bulk = s.bulk ?? B.bulk, length = s.length ?? B.length, { head, headW, headH, neck } = B;
+  // The markings and the crawl's bends keep their size in sizes (one bend every `ref`), so a longer
+  // snake is more body, with more spots and more bends along it.
+  const ref = python ? 2.6 : 2.4, hl = ref / length, noseX = length * .49, tailAt = B.tail;
   const curve = heavy ? .27 : python ? .35 : .38; // (the resting S: one full bend every `ref` sizes)
   const back = col(s.color), belly = col(s.belly || shade(s.color, .42)), dark = col(s.side || s.stripe || '#29291f');
   const light = col(s.blotches || s.stripe || shade(s.color, .18));
-  // [length fraction, half-width, half-height, height above the resting belly]
-  // (the head and neck, to .27, are laid out in fractions of `ref`: hl turns them into fractions of the body)
-  const K = [[0, 0, 0, .020], [.007 * hl, headW * .48, headH * .65, .020],
-    [.022 * hl, headW * .80, headH * .92, .022], [.045 * hl, headW, headH, .022],
-    [.068 * hl, headW * .89, headH * .90, .020], [.095 * hl, bulk * .55, headH * .68, .013],
-    [.15 * hl, bulk * .75, bulk * .58, .006], [.27 * hl, bulk, bulk * .77, .004],
+  // [length fraction, half-width, half-height, height above the resting belly]: the head, laid out
+  // in sizes, then the neck swelling into the body
+  const lift = headH * .42, at = d => d / length, neckEnd = head * 1.32;
+  const K = [...(B.boid ? BOID_HEAD : COLUBRID_HEAD).map(([f, w, h]) => [at(head * f), headW * w, headH * h, lift]),
+    [at(neckEnd), neck, neck * .86, lift * .45], [Math.max(at(neckEnd) + .05, .12), bulk * .72, bulk * .56, .006],
+    [Math.max(at(neckEnd) + .12, .26), bulk, bulk * .77, .004],
     [.52, bulk * .97, bulk * .75, .004], [tailAt, bulk * .72, bulk * .55, .004],
-    [(tailAt + 1) / 2, bulk * .28, bulk * .22, .004], [.985, .004, .003, .004], [1, 0, 0, .004]];
+    [(tailAt + 1) / 2, bulk * .28, bulk * .22, .004], [.985, bulk * .03, bulk * .02, .004], [1, 0, 0, .004]];
   const profile = t => {
     let k = 0; while (k < K.length - 2 && K[k + 1][0] < t) k++;
     const a = K[k], b = K[k + 1], f = smooth(a[0], b[0], t);
@@ -202,7 +215,7 @@ function snake(m, s) {
     if (t < .092) {
       if (!heavy && !python && !boa && !rat && a < .18) color = col(s.stripe);
       else if ((boa || python) && a < .13 && t > .018) color = dark;
-      else if (a > .95 && a < 1.5 && t > .034) color = heavy ? col('#b8954c') : dark;
+      else if (a > 1.0 && a < 1.4 && t > .034) color = heavy ? col('#b8954c') : dark;
       return tmp.copy(color).lerp(belly, smooth(-.15, -.58, u.y) * .45);
     }
     if (s.reticulated) {
@@ -235,16 +248,21 @@ function snake(m, s) {
   // for when they are too small to draw)
   const skin = pixelCoat('snake', paint, [heavy ? 4 : rat ? 3 : boa ? 2 : python ? 1 : 0, belly.r, belly.g, belly.b, back.r, back.g, back.b],
     heavy ? '#b8954c' : dark, light);
-  const R = Math.round(128 / hl), A = m.seg(24), pos = [], unit = [], idx = [];
+  // (rings: 20 over the head and neck, so the skull keeps its shape on a long snake, then evenly)
+  const H = 20, R = H + Math.round(112 / hl), A = m.seg(24), pos = [], unit = [], idx = [], neckT = at(neckEnd);
+  const ringT = i => i <= H ? neckT * (i / H) ** 1.15 : neckT + (1 - neckT) * (i - H) / (R - H);
+  // paint's t: the head fills paint's head (to .092, where coatSnake draws the face); the neck and
+  // body's markings run on in fractions of `ref`, past 1 on a longer snake
+  const headT = at(head), paintT = t => t < headT ? t / headT * .092 : .092 + (t - headT) * length / ref;
   for (let i = 0; i <= R; i++) {
-    const t = i / R, p = profile(t);
+    const t = ringT(i), p = profile(t);
     // Align oval cross sections to the horizontal tangent; keep the belly flat.
     const ahead = profile(Math.max(0, t - .001)), behind = profile(Math.min(1, t + .001));
     const dx = ahead.x - behind.x, dz = ahead.z - behind.z, d = Math.hypot(dx, dz), nx = -dz / d, nz = dx / d;
     for (let j = 0; j <= A; j++) {
       const a = j / A * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
       pos.push(p.x + nx * sa * p.width, p.y + ca * p.height * (ca < 0 ? .74 : 1), p.z + nz * sa * p.width);
-      unit.push(2 * t / hl - 1, ca, sa); // (paint's t runs in fractions of `ref`, past 1 on a longer snake)
+      unit.push(2 * paintT(t) - 1, ca, sa);
     }
   }
   for (let i = 0; i < R; i++) for (let j = 0; j < A; j++) { const a = i * (A + 1) + j, b = a + A + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
@@ -253,24 +271,28 @@ function snake(m, s) {
   paintGeo.setAttribute('position', new THREE.Float32BufferAttribute(unit, 3));
   m.add(g, new THREE.Matrix4(), skin, { paintGeo, part: P.SPINE }); g.dispose(); paintGeo.dispose();
   const spine = m.parts[m.parts.length - 1].attributes.aPivot;
-  for (let i = 0; i <= R; i++) { const c = profile(i / R); for (let j = 0; j <= A; j++) spine.setXYZ(i * (A + 1) + j, c.x, c.y, c.z); }
-  // Lateral eyes for the land snakes; the anaconda's eyes sit higher on its head.
-  const eyeT = .043 * hl, e = profile(eyeT), ey = heavy ? .70 : .35, er = S * (heavy ? .014 : .012);
+  for (let i = 0; i <= R; i++) { const c = profile(ringT(i)); for (let j = 0; j <= A; j++) spine.setXYZ(i * (A + 1) + j, c.x, c.y, c.z); }
+  // Eyes a little over a third of the way back along the head: lateral and large on the colubrids,
+  // higher on the boids, on top on the anaconda, which lies with only its eyes and nostrils out of the
+  // water. The jaw line runs from the lip to the hinge at the back of the skull.
+  const hp = f => profile(at(head * f)), e = hp(.40), ey = B.eye, er = S * headW * B.eyeR;
   for (const side of [-1, 1]) {
-    const eye = [e.x, e.y + e.height * ey, e.z + side * e.width * Math.sqrt(1 - ey * ey)];
+    const eye = [e.x, e.y + e.height * ey * .93, e.z + side * e.width * Math.sqrt(1 - ey * ey) * .9]; // (set into the skull)
     m.ell(eye, [er * 1.2, er, er * .72], heavy || python || boa ? '#b5a054' : '#94885e', { lo: true, gloss: 2 });
     m.ell([eye[0] + er * .12, eye[1] + er * .10, eye[2] + side * er * .50],
       [er * (boa || python ? .24 : .55), er * .66, er * .28], '#131410', { lo: true, gloss: 2 });
     m.ell([eye[0] + er * .27, eye[1] + er * .45, eye[2] + side * er * .63], [er * .20, er * .20, er * .16], '#e5dfc8', { lo: true });
-    const n = profile(.017 * hl);
-    m.ell([n.x, n.y + n.height * (heavy ? .85 : .5), side * n.width * (heavy ? .45 : .82)], [S * .006, S * .003, S * .004], '#24261b', { lo: true });
-    const jaw = [.010, .026, .046, .067].map(t => { const p = profile(t * hl); return [p.x, p.y - p.height * .24, p.z + side * p.width * .99]; });
-    tube(m, jaw, jaw.map(() => S * .0018), '#423f2c', { seg: 5, sub: 2, capRings: 1 });
+    const n = hp(.07), nr = S * headW * .07;
+    m.ell([n.x, n.y + n.height * (heavy ? .85 : .5), side * n.width * (heavy ? .45 : .82)], [nr, nr * .5, nr * .66], '#24261b', { lo: true });
+    // (the mouth line: where the oval's flattened lower half is .24 of its height below the middle)
+    const jaw = [.04, .25, .55, .80, .93].map(f => { const p = hp(f); return [p.x, p.y - p.height * (B.boid ? .30 : .24) * (f > .8 ? .8 : 1), p.z + side * p.width * .94]; });
+    tube(m, jaw, jaw.map(() => S * headW * .032), '#423f2c', { seg: 5, sub: 2, capRings: 1 });
   }
-  const tip = profile(.002 * hl), root = [noseX * S, tip.y - S * .005, 0], tongue = { part: P.TONGUE, pivot: root, seg: 5, caps: false };
-  m.limb(root, [root[0] + S * .085, root[1], 0], S * .005, S * .003, '#493038', tongue);
-  for (const side of [-1, 1]) m.limb([root[0] + S * .080, root[1], 0], [root[0] + S * .126, root[1] - S * .002, side * S * .019], S * .003, S * .001, '#493038', tongue);
-  return { amp: curve * S, len: ref * S, nose: noseX * S }; // the resting curve, for the crawl (len: one bend's length)
+  const T = head / .17; // (the tongue: as long as the head)
+  const tip = profile(at(head * .01)), root = [noseX * S, tip.y - S * .005, 0], tongue = { part: P.TONGUE, pivot: root, seg: 5, caps: false };
+  m.limb(root, [root[0] + S * .085 * T, root[1], 0], S * .005, S * .003, '#493038', tongue);
+  for (const side of [-1, 1]) m.limb([root[0] + S * .080 * T, root[1], 0], [root[0] + S * .126 * T, root[1] - S * .002, side * S * .019 * T], S * .003, S * .001, '#493038', tongue);
+  return { amp: curve * S, len: ref * S, nose: noseX * S, head: head * S }; // the resting curve, for the crawl (len: one bend's length; head: its length)
 }
 
 // Fish share one body plan, varied per species:
@@ -419,6 +441,10 @@ function fish(m, s) {
     // a long dorsal: spiny in front, softer behind
     const spines = flat(sh => { sh.moveTo(0.5, 0); for (let k = 0; k <= 8; k++) { const x = 0.45 - k * 0.11; sh.lineTo(x + 0.04, 0.45 + 0.5 * Math.sin((k + 1) / 10 * Math.PI) ** 0.6); sh.lineTo(x - 0.03, 0.4 + 0.3 * Math.sin((k + 1) / 10 * Math.PI)); } sh.quadraticCurveTo(-0.5, 0.5, -0.55, 0); sh.lineTo(0.5, 0); }, 'xy', 3);
     m.add(spines, place([-S * 0.04 * X, cy + S * 0.12 * D * 0.92, 0], [0, 0, 0], [bx * 0.95, S * 0.12, S * 0.012]), tailC);
+    if (s.longSpine) { // a male anthias's third dorsal spine, drawn out into a long trailing filament
+      const filament = flat(sh => { sh.moveTo(0.5, 0); sh.lineTo(-0.35, 1); sh.lineTo(-0.5, 0); sh.lineTo(0.5, 0); });
+      m.add(filament, place([bx * 0.2 - S * 0.04 * X, cy + S * 0.14 * D, 0], [0, 0, 0], [S * 0.07, S * 0.3, S * 0.01]), tailC);
+    }
     if (s.finEdge) m.add(spines, place([-S * 0.04 * X, cy + S * 0.12 * D * 0.92 - S * 0.006, 0], [0, 0, 0], [bx * 1.0, S * 0.135, S * 0.008]), s.finEdge);
     if (s.longAnal) { // a long, low anal fin, mirroring the dorsal
       const ribbon = flat(sh => { sh.moveTo(0.5, 0); sh.quadraticCurveTo(0.35, 1, 0.1, 1); sh.lineTo(-0.4, 1); sh.quadraticCurveTo(-0.5, 0.6, -0.5, 0); sh.lineTo(0.5, 0); });
