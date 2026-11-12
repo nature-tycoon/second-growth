@@ -789,7 +789,7 @@
       "file": "landscape-sumatra.jpg",
       "width": 1800,
       "height": 1200,
-      "sha256": "3acd91b8ef8fbda40d964fbab44692208527914c7ae101e48d3f2b81dce160f3",
+      "sha256": "b776c0b5eb959a0f512dbf663e5a8d69da3120d018ed1056dc9436007bb0cd09",
       "map": "sumatra",
       "kind": "staged keystone moment study",
       "day": 120,
@@ -831,7 +831,8 @@
           ]
         }
       },
-      "note": "Kept from the 2026-10-17 capture (source revision 52d973f): the 2026-11-12 recapture drew ragged canopy cut-outs round the orangutan."
+      "sourceRevision": "9991ac78ecf7c9e241d05b20beb9bdd1d22c4ead",
+      "capturedAt": "2026-11-12T06:42:56.320Z"
     }
   ]
 }
