@@ -46,7 +46,8 @@ try {
   await b.waitFor('!!document.querySelector("#loading-retry:not(.hidden)")||(!!window.secondGrowth&&!document.querySelector("#loading-screen:not(.done)"))', 'Game boots with CSP');
   assert.ok(await ev('!!window.secondGrowth&&!document.querySelector("#loading-retry:not(.hidden)")'), 'No game startup failure');
   assert.equal(await ev('!!document.querySelector("script[src*=posthog]")'), false, 'Opt-out keeps SDK absent');
-  await ev('document.querySelector("[data-m=free]").click()');
+  // (a first visit goes straight into Free Play; with a saved farm, the chooser comes first)
+  await ev('document.querySelector("[data-m=free]")?.click()');
   await b.waitFor('window.secondGrowth.game.saveReady&&!window.secondGrowth.ui.modalOpen');
   await ev('window.secondGrowth.ui.setSpeed(0);window.secondGrowth.ui.openCategory("plants")');
   await ev('document.querySelector(".tool-card img").decode()');

@@ -138,7 +138,9 @@ try {
     music.ctx.createBuffer=(...args)=>{buffers++;return createBuffer(...args);};
     music.start=()=>{const before=buffers,t=performance.now();const result=start();window.audioStarts.push({ms:performance.now()-t,buffers:buffers-before});return result;};
   })()`);
-  const startButton = await b.evaluate(`(()=>{const r=document.querySelector('[data-m="free"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+  // (the first real click: Free Play on the chooser, or, on a first visit that goes straight into
+  // Free Play, the top of the screen; any pointerdown starts the audio, ui.js)
+  const startButton = await b.evaluate(`(()=>{const e=document.querySelector('[data-m="free"]');if(!e)return{x:innerWidth/2,y:4};const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
   await b.send('Emulation.setCPUThrottlingRate', { rate: 6 });
   await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...startButton, button: 'left', clickCount: 1 });
   await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...startButton, button: 'left', clickCount: 1 });

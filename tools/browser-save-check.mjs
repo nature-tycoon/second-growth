@@ -29,13 +29,13 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   if (!await evaluate('!!window.secondGrowth')) throw new Error('Game boot failed: ' + await evaluate('document.body.innerText.slice(0, 1200)'));
-  if (!await evaluate('!!document.querySelector(".startup-selector") && window.secondGrowth.game.speed === 0 && !window.secondGrowth.game.saveReady')) throw new Error('Startup must show the selector before entering or saving a farm');
-  await evaluate('window.secondGrowth.ui.closeModal(); document.querySelector(".modal-back").dispatchEvent(new MouseEvent("mousedown", {bubbles:true}))');
-  if (!await evaluate('!!document.querySelector(".startup-selector") && window.secondGrowth.game.speed === 0 && !window.secondGrowth.game.saveReady')) throw new Error('Dismissing the selector must not start an unchosen farm');
-  console.log('PASS Startup selector cannot be dismissed into an unchosen farm');
+  // A first visit (no saved farm) goes straight into Free Play (first-minutes-browser-check).
+  for (let i = 0; i < 150 && !await evaluate('window.secondGrowth.game.saveReady'); i++) await new Promise(resolve => setTimeout(resolve, 100));
+  if (!await evaluate('window.secondGrowth.game.mode === "free" && window.secondGrowth.game.saveReady && !document.querySelector(".startup-selector")')) throw new Error('A first visit must go straight into Free Play');
+  console.log('PASS A first visit goes straight into Free Play');
   await evaluate(`(async () => {
-    const { game, ui } = window.secondGrowth;
-    ui.closeModal(true); await ui.startMode('free', false); game.speed = 0; game.day = 42;
+    const { game } = window.secondGrowth;
+    game.speed = 0; game.day = 42;
     if (!await game.save()) throw new Error('UI game save failed');
     if (document.getElementById('save-status').textContent !== 'Saved') throw new Error('Missing saved indicator');
   })()`);
@@ -44,6 +44,11 @@ try {
     if (await evaluate('!!window.secondGrowth && !!document.querySelector("[data-a=resume]")')) break;
     await new Promise(resolve => setTimeout(resolve, 100));
   }
+  // A returning player gets the chooser, which can't be dismissed into an unchosen farm.
+  if (!await evaluate('!!document.querySelector(".startup-selector") && window.secondGrowth.game.speed === 0 && !window.secondGrowth.game.saveReady')) throw new Error('With a saved farm, startup must show the selector before entering or saving a farm');
+  await evaluate('window.secondGrowth.ui.closeModal(); document.querySelector(".modal-back").dispatchEvent(new MouseEvent("mousedown", {bubbles:true}))');
+  if (!await evaluate('!!document.querySelector(".startup-selector") && window.secondGrowth.game.speed === 0 && !window.secondGrowth.game.saveReady')) throw new Error('Dismissing the selector must not start an unchosen farm');
+  console.log('PASS Startup selector cannot be dismissed into an unchosen farm');
   await evaluate('document.querySelector("[data-a=resume]").click()');
   for (let i = 0; i < 100; i++) {
     if (await evaluate('window.secondGrowth.game.loaded')) break;

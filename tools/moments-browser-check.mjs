@@ -21,7 +21,8 @@ try {
     const spawn=key=>{ const a=g.wildlife.spawn(ANIMAL[key],40,30,{silent:true}); a.x=40.5; a.y=30.5; return a; };
     const lion=spawn('lion'), prey=spawn('wildebeest'); prey.x=43;
     lion.state='hunt'; lion.target=prey.id; lion.hunt={phase:'creep'};
-    window.momentTest={lion,prey,spawn,startFeed,scavenge,ANIMAL,momentsUpdate};
+    const {forceSimRandom,forcedSimRandom}=await import('/js/sim/sim-random.js'); // (the simulation's own random stream)
+    window.momentTest={lion,prey,spawn,startFeed,scavenge,ANIMAL,momentsUpdate,forceSimRandom,forcedSimRandom};
     g.selectedAgent=lion; g.speed=3; momentsUpdate(g); g.speed=0;
   })()`);
   await b.waitFor('document.querySelector("#moment.card") && window.secondGrowth.ui.moment?.stage === "stalk"', 'Stalk card');
@@ -31,7 +32,7 @@ try {
   await b.evaluate(`{ const {game:g}=window.secondGrowth,{lion,prey,startFeed,ANIMAL}=window.momentTest; g.wildlife.remove(prey,'predation'); startFeed(g.wildlife,lion,ANIMAL.lion,prey); }`);
   await b.waitFor('window.secondGrowth.ui.moment.stage === "kill"', 'Carcass beat');
   await b.evaluate(`{ const {game:g}=window.secondGrowth,{spawn,scavenge,ANIMAL}=window.momentTest,c=g.wildlife.carcasses[0];
-    const r=Math.random; Math.random=()=>0; try { for(const key of ['hyena','vulture']) { const a=spawn(key); a.x=c.x+.3; a.y=c.y; a.hunger=40; scavenge(g.wildlife,a,ANIMAL[key]); } } finally { Math.random=r; } }`);
+    const {forceSimRandom,forcedSimRandom}=window.momentTest, was=forcedSimRandom(); forceSimRandom(()=>0); try { for(const key of ['hyena','vulture']) { const a=spawn(key); a.x=c.x+.3; a.y=c.y; a.hunger=40; scavenge(g.wildlife,a,ANIMAL[key]); } } finally { forceSimRandom(was); } }`);
   await b.waitFor('window.secondGrowth.ui.moment.stage === "foodweb"', 'Food web beat');
   assert.equal(await b.evaluate('window.secondGrowth.ui.follow === null && !!window.secondGrowth.renderer.focusTile'), true, 'Carcass stays in view');
   for (const [name, width, height] of [['desktop', 960, 600], ['phone', 390, 844], ['landscape', 844, 390]]) {
@@ -71,7 +72,8 @@ try {
     const bulls=[]; for(let i=0;bulls.length<2 && i<200;i++) { const a=g.wildlife.spawn(ANIMAL.elk,40,30,{silent:true}); a.age=600; a.juvenile=false; if(isMaleVariant(ANIMAL.elk,a)) bulls.push(a); else g.wildlife.remove(a); }
     const [a,b]=bulls; a.x=39.5; b.x=40.8; a.y=b.y=30.5; a.wait=b.wait=99;
     let cow; for(let i=0;i<200;i++) { cow=g.wildlife.spawn(ANIMAL.elk,40,32,{silent:true}); if(!isMaleVariant(ANIMAL.elk,cow)) break; g.wildlife.remove(cow); } cow.haremOf=a.id;
-    const r=Math.random; Math.random=()=>0; try { greet(g.wildlife,a,ANIMAL.elk); } finally { Math.random=r; }
+    // (the simulation draws from simRandom, not Math.random: sim-random.js)
+    const {forceSimRandom,forcedSimRandom}=await import('/js/sim/sim-random.js'), was=forcedSimRandom(); forceSimRandom(()=>0); try { greet(g.wildlife,a,ANIMAL.elk); } finally { forceSimRandom(was); }
     momentsUpdate(g); g.speed=0;
     for(let i=0;i<50 && (a.sparPath?.length || Math.hypot(a.x-a.sparAt[0],a.y-a.sparAt[1])>.01 || Math.hypot(b.x-b.sparAt[0],b.y-b.sparAt[1])>.01);i++) g.wildlife.update(.05);
   })()`);

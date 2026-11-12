@@ -965,6 +965,9 @@ export class UI {
   }
 
   // ------------------------------------------------------------ modals
+  // (replaced by each modal's own close; before the first one, as on a first visit that goes
+  // straight into Free Play, there is nothing to close)
+  closeModal() {}
   modal(title, bodyHTML, { narrow = false, foot = null, onClose = null, dismissible = true } = {}) {
     const root = $('#modal-root');
     root.innerHTML = '';

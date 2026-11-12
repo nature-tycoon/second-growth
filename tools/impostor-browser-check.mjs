@@ -39,7 +39,11 @@ for (const [map, pixelRatio, cell] of [['sumatra', 1, 64], ['amazon', 2, 128]]) 
       let crowns=0, cards=0;
       for (const [key,pool] of F.pools) if (key.startsWith('crown:')) for (const p of pool.subs.values()) if (p.n) { crowns++; if (p.mesh.material===p.geoCard?.userData.material) cards++; }
       return {cell:I.cell, models:I.slots.size, ready:[...I.slots.values()].every(s=>s.card.userData.ready), baked:I.stats.baked, full:I.stats.full, crowns, cards, lod:F.view[0]};})()`;
-    const triangles = `(async()=>{const R=window.secondGrowth.renderer; await new Promise(r=>setTimeout(r,1200)); R.perfSample(true); await new Promise(r=>setTimeout(r,600)); return R.perfSample(false).triangles;})()`;
+    // (one frame's count: the fewest of several, since a frame that also redraws the shadow map,
+    // where crowns cast through their far models, counts those too; with software graphics on CI
+    // that redraw often fell in the sampled frame)
+    const triangles = `(async()=>{const R=window.secondGrowth.renderer; await new Promise(r=>setTimeout(r,1200)); let fewest=Infinity;
+      for(let i=0;i<8;i++){ await new Promise(r=>setTimeout(r,${software ? 900 : 300})); fewest=Math.min(fewest,R.perfSample(false).triangles); } return fewest;})()`;
     await pause(software ? 8000 : 4000);
     const s = await browser.evaluate(state);
     if (s.lod !== 3) fail(`${map}: not at the far level (${s.lod})`);
