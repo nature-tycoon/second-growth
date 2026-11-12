@@ -27,7 +27,7 @@ Branch: `claude/ideas-wildlife-polish` (from `main`). Sessions run one at a time
 
 | # | Session | Ideas | Model | Size | Status |
 |---|---|---|---|---|---|
-| 1 | Small animals | garter snakes still, brush rabbit numbers | Opus | S–M | [ ] |
-| 2 | Birds and fish motion | jerky flight, submerged mallard, fish depth + camera | Opus | M | [ ] |
-| 3 | Lens hole | depth-based see-through hole | Opus | M | [ ] |
-| 4 | Monkeys | compare model vs piecewise, build winner | Opus | L | [ ] |
+| 1 | Small animals | garter snakes still, brush rabbit numbers | Opus | S–M | [x] aed7cd7 |
+| 2 | Birds and fish motion | jerky flight, submerged mallard, fish depth + camera | Opus | M | [x] 2cf4495 |
+| 3 | Lens hole | depth-based see-through hole | Opus | M | [x] f86d41c |
+| 4 | Monkeys | compare model vs piecewise, build winner | Opus | L | [x] 1e26e09 |
