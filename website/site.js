@@ -12,6 +12,8 @@ const fields = {
   species: document.querySelector('#map-species'),
 };
 const mapImage = document.querySelector('#map-image');
+// "Play this landscape" opens the game's start screen on the chosen map (?map=…).
+const mapPlay = document.querySelector('#map-play'), mapPlayName = document.querySelector('#map-play-name');
 for (const choice of choices) {
   choice.addEventListener('click', () => {
     for (const button of choices) button.setAttribute('aria-pressed', String(button === choice));
@@ -24,6 +26,7 @@ for (const choice of choices) {
     document.querySelector('#moment-title').textContent = choice.dataset.momentTitle;
     document.querySelector('#moment-description').textContent = choice.dataset.momentDescription;
     document.querySelector('.map-panel').dataset.landscape = choice.dataset.map;
+    if (mapPlay) { mapPlay.href = choice.dataset.play; mapPlayName.textContent = choice.dataset.name; }
   });
 }
 // Fetch the other landscape images once the explorer nears the

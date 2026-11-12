@@ -1,6 +1,6 @@
 {
-  "sourceRevision": "b6207467fc86ed46bb9043fa9cb45531916a4b02",
-  "capturedAt": "2026-10-17T04:59:17.783Z",
+  "sourceRevision": "0b13737d6c2c8462a525cc642f394a2cb16d1c1c",
+  "capturedAt": "2026-11-12T06:26:30.741Z",
   "map": "pnw",
   "scene": "Seeded restored Pacific Northwest creek habitat with a thinned foreground bank and posed Roosevelt elk, black-tailed deer, North American beaver, great blue heron and wood ducks; not a campaign playthrough.",
   "camera": {
@@ -16,7 +16,7 @@
         54,
         58.5
       ],
-      "sha256": "1d821feb5e95abddd233f959bc8fd421a27fddc187ea7b70d2608b7d5b2f2666"
+      "sha256": "9b4a45cadc9c80e7e8d0d4a56d436a11cccbbc035fd10c9a4b17bf4ea20bff5c"
     },
     {
       "file": "header-mobile.jpg",
@@ -27,7 +27,7 @@
         54,
         52
       ],
-      "sha256": "97fc972b28c85ece8766fe6fc2d175e77cf393403750fcfcbb67772eb861aae5"
+      "sha256": "af354e0e927a0ebda6bbec84fed4536e3ca7147c9c524bfb3855285fa9be3ed7"
     }
   ]
 }

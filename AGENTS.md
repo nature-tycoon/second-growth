@@ -71,6 +71,8 @@ New decisions take the next unused number and one line here.
 
 Reference: [PostHog player performance lookups](docs/posthog-player-perf.md).
 
+Website (secondgrowth.earth, `website/`): the plan is [docs/website-plan-2026-11.md](docs/website-plan-2026-11.md). Recapture stills with `tools/capture-site-content.mjs` (then `--maps=<all seven> --moments`) and `tools/capture-header-review.mjs`, under `nice -n 15`; look at each image before keeping it. Sumatra keeps its October still: the November recapture drew ragged canopy cut-outs round the orangutan. `play/?map=<id>` opens the game's start screen on that map (`main.js`); each landscape on the homepage links there. Preview the built site at `http://localhost:8347/dist/website/` after `node tools/website-check.mjs`.
+
 Performance budget: [2026-10-23 review](docs/performance-review-2026-10-23.md) has where a frame goes, the per-part ceilings for new graphics and simulation, and the open fixes (young climbing primates, daily plant redraw, daily environment update). Measure a new feature with `node tools/play-profile.mjs [maps] [quality] [years]` before and after: an organically grown game through the real frame loop, simulation vs drawing vs GPU.
 
 ## Working alongside other agents
