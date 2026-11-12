@@ -1,11 +1,9 @@
 // Offline artwork studio: current production scenes, no player saves or animation loop.
 import * as THREE from 'three';
 import {Renderer} from '../js/render3d/scene.js';
-import {websiteMoment} from './website-moment-fixtures.mjs';
+import {websiteMoment,posing} from './website-moment-fixtures.mjs';
 import {Game} from '../js/game.js';
 import {releaseGame} from './release-fixtures.mjs';
-import {T,isWater} from '../js/config.js';
-import {passable,shallows} from '../js/sim/animal-terrain.js';
 const params=new URLSearchParams(location.search),map=params.get('map')||'pnw';
 window.websiteScene={ready:false};
 try {
@@ -18,21 +16,7 @@ try {
   }else g=releaseGame(map,'forest').game;
   const w=g.world;
   const placed=[];
-  function pose(key,tx,ty,habitat='land',orientation=-.5){
-    const def=g.catalog.animal[key];if(!def)throw Error('Unknown capture species '+map+':'+key);
-    let best=Infinity,tile=-1;
-    for(let y=ty-4;y<=ty+4;y++)for(let x=tx-4;x<=tx+4;x++){
-      if(!w.inb(x,y))continue;const i=w.idx(x,y),d=(x-tx)**2+(y-ty)**2;
-      const water=isWater(w.terrain[i]);
-      const suitable=habitat==='tree'?w.tree[i]&&w.treeG[i]>.6:habitat==='reef'?w.tileH(x,y)<5&&!w.tree[i]&&!w.shrub[i]:habitat==='water'?water:habitat==='shallows'?shallows(w,i):!water&&!w.tree[i];
-      if(suitable&&passable(w,i,def)&&w.struct[i]<0&&!placed.some(a=>a.tile===i)&&d<best){tile=i;best=d;}
-    }
-    if(tile<0)throw Error('No capture habitat for '+key);
-    const x=tile%w.w+.5,y=Math.floor(tile/w.w)+.5;
-    const a=g.wildlife.spawn(def,x,y,{silent:true,age:Math.max(480,def.mature*120+1)});
-    Object.assign(a,{x,y,tx:x,ty:y,wait:1000,orientation,hunger:0,thirst:0,phase:0});
-    placed.push({key,tile,x,y});return a;
-  }
+  const pose=posing(g,placed);
   let keystone=null;
   if(params.has('moments')){
     keystone=websiteMoment(g,pose);
