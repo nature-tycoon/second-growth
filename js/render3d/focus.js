@@ -15,7 +15,7 @@
 //  - a tree trunk (or snag, stump, post) standing clear to the left or right of the animal on
 //    screen stays too, so the forest around it doesn't read as cleared;
 //  - the animal's support stays, for every species on every map: close to the animal only what
-//    lies between the camera and its body (its model's bounding box) opens, so the trunk a
+//    lies between the camera and its body (an ellipsoid fitted to its model's box) opens, so the trunk a
 //    woodpecker clings to, the fronds round a monkey on a palm or the coral beside a fish stay;
 //    the trunk it clings to stays unless it's round the back of it; the wider gap opens gradually,
 //    only through cover nearer the camera; and whatever lies below
@@ -40,8 +40,8 @@ export const focus = {
   uFocusBack: { value: -0.08 },             // rear of the body along the view ray
   uFocusFront: { value: 0.3 },              // front of the body along the view ray
   uFocusBoxM: { value: new THREE.Matrix4() }, // world to the animal model's own frame
-  uFocusBoxMin: { value: new THREE.Vector3(-.3, -.3, -.3) }, // its body's box in that frame
-  uFocusBoxMax: { value: new THREE.Vector3(.3, .3, .3) },
+  uFocusBodyC: { value: new THREE.Vector3() }, // its body, as an ellipsoid in that frame: centre
+  uFocusBodyH: { value: new THREE.Vector3(.3, .3, .3) }, // and half-lengths
   uFocusTrunk: { value: new THREE.Vector3(0, 0, -1) }, // x, z, radius of the trunk it clings to; radius < 0: none
   uFocusInvD: { value: 0 },                 // 1 / distance from the animal to the eye at eye level; 0 from above
 };
@@ -86,7 +86,7 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false, side = 0 } 
       #else
         vFocusBase = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vFocusS = 1.0;
       #endif`);
-    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; uniform vec3 uCamUp; uniform float uFocusFoot; uniform float uFocusHalfW; uniform float uFocusBottom; uniform float uFocusBack; uniform float uFocusFront; uniform mat4 uFocusBoxM; uniform vec3 uFocusBoxMin; uniform vec3 uFocusBoxMax; uniform vec3 uFocusTrunk; uniform float uFocusInvD; varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + FOCUS_NOISE +
+    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; uniform vec3 uCamUp; uniform float uFocusFoot; uniform float uFocusHalfW; uniform float uFocusBottom; uniform float uFocusBack; uniform float uFocusFront; uniform mat4 uFocusBoxM; uniform vec3 uFocusBodyC; uniform vec3 uFocusBodyH; uniform vec3 uFocusTrunk; uniform float uFocusInvD; varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + FOCUS_NOISE +
       shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
       float focusWall = 0.0;
       if (uFocusAmt > 0.001) {
@@ -119,16 +119,15 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false, side = 0 } 
         // its limbs still go with the leaves)
         keep = keep || dot(fd, uCamUp) / max(1.0 - dot(fd, uViewDir) * uFocusInvD, 0.05) < uFocusBottom - 0.03
           && length((vFocusW - vFocusBase).xz) < ${(side * 1.6).toFixed(2)} * vFocusS;` : ''}
-        // what covers the body opens: the line from here away from the camera passes through the
-        // animal's box (in its model's frame; the box's slabs). The trunk it clings to, the plant it
-        // is in or on, lie beside or behind it and stay. Leaves level with the animal open only here,
-        // so the box's faces are made ragged by leaf clumps: its straight edges would show otherwise
-        vec3 bo = (uFocusBoxM * vec4(vFocusW, 1.0)).xyz, bv = (uFocusBoxM * vec4(uViewDir, 0.0)).xyz;
-        vec3 bpad = vec3((n - 0.4) * min(uFocusHalfW, 0.12) * length(bv)); // (-5 to +7 cm: a monkey's crown stays)
-        bv += 1e-6 * step(abs(bv), vec3(1e-6));
-        vec3 t1 = (bo - uFocusBoxMin + bpad) / bv, t2 = (bo - uFocusBoxMax - bpad) / bv, tn3 = min(t1, t2), tf3 = max(t1, t2);
-        float tn = max(max(tn3.x, tn3.y), tn3.z), tf = min(min(tf3.x, tf3.y), tf3.z);
-        bool covers = tn <= tf && tf > 0.0;
+        // what covers the body opens: the line from here away from the camera passes through it, as
+        // an ellipsoid fitted to its model's box (long and low for a deer, round for a rabbit; a box
+        // cut showed as a rectangle). Its edge is ragged by leaf clumps, so the cut follows the body
+        // without reading as any shape. The trunk it clings to, the plant it is in or on, lie beside
+        // or behind it and stay
+        vec3 bo = ((uFocusBoxM * vec4(vFocusW, 1.0)).xyz - uFocusBodyC) / uFocusBodyH, bv = (uFocusBoxM * vec4(uViewDir, 0.0)).xyz / uFocusBodyH;
+        float brad = uFocusAmt * (0.88 + 0.3 * n); // (it grows open with the lens)
+        float ba = dot(bv, bv), bb = dot(bo, bv), bdisc = bb * bb - ba * (dot(bo, bo) - brad * brad);
+        bool covers = bdisc >= 0.0 && bb + sqrt(max(bdisc, 0.0)) > 0.0;
         // and a wider gap only through cover well nearer the camera than the animal, growing with how
         // much nearer: leaves level with the animal open just where they cover its body. The nearness
         // is a share of the way from the animal to the eye at eye level, of four window radii from

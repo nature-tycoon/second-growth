@@ -1,13 +1,15 @@
 // node tools/lens-depth-browser-check.mjs
 // The tracking lens (focus.js) is depth-based: foliage level with the animal opens only where it
 // covers the animal's body, foliage well nearer the camera opens wider with a soft rim. Two scenes:
-//  - from above: a black-tailed deer under big-leaf maples with salal round it, four sides;
-//  - eye level: a brush rabbit just behind a huckleberry bush, seen through the real EyeCamera: the
+//  - from above: a black-tailed deer, and a brush rabbit, in blue wildrye under big-leaf maples
+//    with salal round them, four sides;
+//  - eye level: the rabbit, and the deer, just behind a huckleberry bush in wildrye, seen through the real EyeCamera: the
 //    bush squarely in the way from four sides, swung half out of the way, and lifted to look down
 //    over it (where the lens should open next to nothing).
 // For each view it measures how much of the animal shows (against the same view with no plants)
 // and how much of the screen the lens opened (pixels that change, less the animal's own), and
-// saves the open view to tools/release-output/lens-depth-*.png.
+// saves the open view to tools/release-output/lens-depth-*.png, and beside it
+// lens-depth-*-cut.png: what the lens took away, in red, to judge the shape of its outline.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -69,34 +71,50 @@ try {
       animals(true); const shown = pixels(); animals(false);
       const revealed = count(shown, open);
       animals(true); gl.render(scene, camera);
-      return { bare: bareN, ratio: bareN ? revealed / bareN : 0, hole: hole / (W * H), shot: gl.domElement.toDataURL('image/png') };
+      // and what the lens took from the floor plants (grass, bushes; trees hidden, which open wide by
+      // design), in red over the closed view: the shape of the cut round the animal. Flipped upright
+      // (readPixels starts at the bottom row)
+      animals(false); flora.foliage.visible = flora.bark.visible = false;
+      game.selectedAgent = null; r.eyeAgent = null; Renderer.prototype.updateFocus.call(r, game, 1);
+      const floorClosed = pixels();
+      game.selectedAgent = a; r.eyeAgent = was; Renderer.prototype.updateFocus.call(r, game, 1);
+      const floorOpen = pixels(); flora.foliage.visible = flora.bark.visible = true; animals(true);
+      const mask = new ImageData(W, H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const i = ((H - 1 - y) * W + x) * 4, o = (y * W + x) * 4, cut = diff(floorOpen, floorClosed, i) > 12, c = cut || !sil[i] ? floorClosed : withA;
+        mask.data[o] = cut ? 230 : c[i]; mask.data[o + 1] = cut ? 30 : c[i + 1]; mask.data[o + 2] = cut ? 40 : c[i + 2]; mask.data[o + 3] = 255;
+      }
+      const c2 = Object.assign(document.createElement('canvas'), { width: W, height: H }); c2.getContext('2d').putImageData(mask, 0, 0);
+      return { bare: bareN, ratio: bareN ? revealed / bareN : 0, hole: hole / (W * H), shot: gl.domElement.toDataURL('image/png'), mask: c2.toDataURL('image/png') };
     }
     const cases = {
-      canopy() {
+      canopy(kind) {
         const game = bare(), w = game.world;
-        for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) {
-          if ((dx + dz) % 2 === 0) w.setPlant(w.idx(40 + dx, 30 + dz), plant(game, 'maple'), 1);
-          w.setPlant(w.idx(40 + dx, 30 + dz), plant(game, 'salal'), .8);
+        for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+          if ((dx + dz) % 2 === 0 && Math.abs(dx) + Math.abs(dz) > 0) w.setPlant(w.idx(40 + dx, 30 + dz), plant(game, 'maple'), 1);
+          if ((dx + dz) % 2 !== 0) w.setPlant(w.idx(40 + dx, 30 + dz), plant(game, 'salal'), .8);
+          w.setPlant(w.idx(40 + dx, 30 + dz), plant(game, 'wildrye'), 1);
         }
-        const a = game.wildlife.spawn(game.catalog.animal.deer, 40, 30, { silent: true, age: 900 });
+        const a = game.wildlife.spawn(game.catalog.animal[kind], 40, 30, { silent: true, age: 900 });
         Object.assign(a, { x: 40.2, y: 30.5, state: 'idle', wait: 99 });
         game.selectedAgent = a;
         const st = stage(game); for (let f = 0; f < 60; f++) st.actors.update(game, new THREE.Vector3(1, 0, 0), f / 30);
-        const pose = st.actors.pose.get(a.id), half = 1.6, rows = [];
+        const pose = st.actors.pose.get(a.id), half = kind === 'deer' ? 1.6 : .8, rows = [];
         const camera = new THREE.OrthographicCamera(-half, half, half * .75, -half * .75, .01, 200);
         const r = { actors: st.actors, camera, world: w };
         for (const az of [.785, 2.356, 3.927, 5.498]) {
           camera.position.copy(pose.center).addScaledVector(new THREE.Vector3(Math.sin(az) * .83, .56, Math.cos(az) * .83), 40);
           camera.lookAt(pose.center); camera.updateMatrixWorld();
-          rows.push({ view: 'above ' + az, ...measure(st, camera, r, game, a) });
+          rows.push({ view: kind + ' above ' + az, ...measure(st, camera, r, game, a) });
         }
         return rows;
       },
-      bush() {
+      bush(kind) {
         const game = bare(), w = game.world, salal = plant(game, 'huckleberry');
+        for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) w.setPlant(w.idx(40 + dx, 30 + dz), plant(game, 'wildrye'), 1);
         w.setPlant(w.idx(40, 30), salal, 1);
         const [sx, sz] = shrubSpot(40, 30, salal, false), rows = [];
-        const a = game.wildlife.spawn(game.catalog.animal.rabbit, 40, 30, { silent: true, age: 400 });
+        const a = game.wildlife.spawn(game.catalog.animal[kind], 40, 30, { silent: true, age: 900 }), past = kind === 'deer' ? .7 : .42;
         const st = stage(game), eye = new EyeCamera(), groundAt = (x, z) => w.heightAt(x, z) * LEVEL;
         const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x8a7a55 }));
         ground.position.set(sx, groundAt(sx, sz) - .005, sz); st.scene.add(ground);
@@ -105,7 +123,7 @@ try {
         // that line (the bush half in the way), and lifted to look down (a drag, as Cole does)
         for (const [az, swing, lift] of [[0, 0, 0], [1.571, 0, 0], [3.142, 0, 0], [4.712, 0, 0], [0, .5, 0], [3.142, -.5, 0], [1.571, 0, .6], [4.712, 0, .6]]) {
           const fx = Math.cos(az), fz = Math.sin(az);
-          Object.assign(a, { x: sx + fx * .42, y: sz + fz * .42, state: 'idle', wait: 99 });
+          Object.assign(a, { x: sx + fx * past, y: sz + fz * past, state: 'idle', wait: 99 });
           st.actors.pose.clear(); for (let f = 0; f < 30; f++) st.actors.update(game, new THREE.Vector3(1, 0, 0), f / 30);
           const pose = st.actors.pose.get(a.id);
           // the real eye camera, fresh on this animal: it rides behind along its heading (-yaw), so
@@ -113,22 +131,25 @@ try {
           // down by the lift raises it
           eye.agentId = null;
           eye.update(pose, a.id, W / H, 1 / 30, groundAt, null, { yaw: az + pose.yaw + swing, pitch: -lift });
-          rows.push({ view: 'eye ' + az + (swing ? ' swung ' + swing : '') + (lift ? ' lifted ' + lift : ''), ...measure(st, eye.camera, r, game, a) });
+          rows.push({ view: kind + ' eye ' + az + (swing ? ' swung ' + swing : '') + (lift ? ' lifted ' + lift : ''), ...measure(st, eye.camera, r, game, a) });
         }
         return rows;
       },
     };
-    window.measureLens = name => cases[name]();
+    window.measureLens = (name, kind) => cases[name](kind);
   })()`);
-  for (const name of ['canopy', 'bush']) {
-    const rows = await b.evaluate(`window.measureLens(${JSON.stringify(name)})`);
-    rows.forEach((row, k) => writeFile(join(out, `lens-depth-${name}-${k}.png`), Buffer.from(row.shot.split(',')[1], 'base64')));
+  for (const [name, kind] of [['canopy', 'deer'], ['canopy', 'rabbit'], ['bush', 'rabbit'], ['bush', 'deer']]) {
+    const rows = await b.evaluate(`window.measureLens(${JSON.stringify(name)}, ${JSON.stringify(kind)})`);
+    for (let k = 0; k < rows.length; k++) {
+      await writeFile(join(out, `lens-depth-${name}-${kind}-${k}.png`), Buffer.from(rows[k].shot.split(',')[1], 'base64'));
+      await writeFile(join(out, `lens-depth-${name}-${kind}-${k}-cut.png`), Buffer.from(rows[k].mask.split(',')[1], 'base64'));
+    }
     for (const row of rows) console.log(`${row.view}: animal ${row.bare} px, ${(row.ratio * 100).toFixed(1)}% shows; lens opened ${(row.hole * 100).toFixed(1)}% of the view`);
     for (const row of rows) {
       assert.ok(row.bare > 300, `${row.view}: the view shows the animal`);
       assert.ok(row.ratio >= .95, `${row.view}: plants hid ${((1 - row.ratio) * 100).toFixed(1)}% of the selected animal`);
     }
-    console.log(`PASS ${name}: the selected animal shows through the lens`);
+    console.log(`PASS ${name} ${kind}: the selected animal shows through the lens`);
     b.assertHealthy();
   }
 } finally { await b.close(); }

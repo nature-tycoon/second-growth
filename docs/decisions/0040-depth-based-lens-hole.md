@@ -21,11 +21,14 @@ view; the trunk in front of the deer was sliced off at the knee).
 One rule in `withFocusFade`, every material that uses it (foliage, shrubs, grass, bark, small
 plants, buildings):
 
-- **Level with the animal, only its outline.** The body cut stays (the model box's slabs, 0030),
-  with its faces made ragged by leaf clumps (each face moves out or in by -5 to +7 cm, from the
-  edge noise): with nothing else opening there, the bare box showed as a straight-edged gable in
-  the leaves over a deer's antlers. A margin that only grew the box (up to 8 cm, or a share of a
-  climber's half width) cut 15 to 20% of the palm crown a langur sits in (`follow-support`). The wider gap starts only past the body's front.
+- **Level with the animal, only its outline.** What covers the body opens: the line from the
+  fragment away from the camera passes through an ellipsoid fitted to the model's box (1.2 times the
+  box's inscribed one, so long and low for a deer, round for a rabbit), its radius ragged by the
+  edge's leaf-clump noise (0.88 to 1.18). The wider gap starts only past the body's front.
+  History: the box itself first (0030), then the box with ragged faces; Cole saw both as a
+  rectangle round the animal (2026-11-11). The ellipsoid is ported from the unmerged
+  `claude/wave3-s5-tracker-lens-aaed29` (e0ac9e2), only that part. A margin that only grew the box
+  (up to 8 cm, or a share of a climber's half width) had cut 15 to 20% of a langur's palm crown.
 - **Nearer the camera, wider.** `near` is how far a fragment sits in front of the body, as a share
   of the way to the eye at eye level (`uFocusInvD`) or of four window radii from above. The gap
   opens from `near` 0.05 and reaches the full window radius at 0.7.
@@ -56,12 +59,13 @@ fragments in the soft rim, and only while an animal is selected (`uFocusAmt > 0`
 
 ## Check
 
-`node tools/lens-depth-browser-check.mjs`: a deer under big-leaf maples from four sides (from
-above) and a brush rabbit behind a huckleberry at eye level, through the real `EyeCamera`: from four
+`node tools/lens-depth-browser-check.mjs`: a deer and a brush rabbit in wildrye under big-leaf
+maples from four sides (from above), and each behind a huckleberry at eye level, through the real `EyeCamera`: from four
 sides, swung 0.5 rad off the line (the bush half in the way) and lifted to look down over it. Asserts at least 95% of
 the animal shows; prints how much of the view the lens opened; saves
-`tools/release-output/lens-depth-*.png`. The older checks still apply:
-`tools/follow-support-browser-check.mjs` (the support stays: palm 83 to 90% kept, old code 82 to
+`tools/release-output/lens-depth-*.png`, and `-cut.png` beside each: what the lens took from the
+floor plants in red (trees hidden), to judge the cut's shape round the animal. The older checks still apply:
+`tools/follow-support-browser-check.mjs` (the support stays: palm 86 to 92% kept with the ellipsoid, old code 82 to
 89%) and `tools/canopy-reveal-browser-check.mjs` (leaves over a langur open: 80 of 80 pass).
 `tools/canopy-support-check.mjs` matches the shader's discard line as text.
 

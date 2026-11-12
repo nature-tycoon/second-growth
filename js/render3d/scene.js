@@ -352,10 +352,11 @@ export class Renderer {
           bottom = Math.min(bottom, height - .025); back = Math.min(back, along - .025); front = Math.max(front, along + .025);
           if (pose.branch) span = Math.max(span, Math.sqrt(Math.max(0, point.lengthSq() - along * along)));
         }
-        // the body's own box, a couple of centimetres larger, for what covers it (see focus.js)
+        // the body as an ellipsoid in its model's frame, for what covers it (see focus.js): 1.2 times
+        // the box's inscribed one, past its faces but short of its corners, which a body rarely fills
         const m = pose.revealMatrix, pad = .02 / Math.max(1e-4, Math.hypot(m.elements[0], m.elements[1], m.elements[2]));
         focus.uFocusBoxM.value.copy(m).invert();
-        focus.uFocusBoxMin.value.copy(bounds.min).subScalar(pad); focus.uFocusBoxMax.value.copy(bounds.max).addScalar(pad);
+        bounds.getCenter(focus.uFocusBodyC.value); bounds.getSize(focus.uFocusBodyH.value).multiplyScalar(.6).addScalar(pad);
       }
       if (this.eyeOn) radius = clamp(this.eye.size * 1.4, 0.22, 0.55); // (close to the lens, a narrower gap does)
       focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
@@ -370,7 +371,7 @@ export class Renderer {
       focus.uFocusR.value = 1.3;
       focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
       focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value; focus.uFocusFront.value = .3;
-      focus.uFocusBoxM.value.makeTranslation(-ft.x, -focus.uFocus.value.y, -ft.y); focus.uFocusBoxMin.value.setScalar(-.3); focus.uFocusBoxMax.value.setScalar(.3); focus.uFocusTrunk.value.z = -1;
+      focus.uFocusBoxM.value.makeTranslation(-ft.x, -focus.uFocus.value.y, -ft.y); focus.uFocusBodyC.value.set(0, 0, 0); focus.uFocusBodyH.value.setScalar(.3); focus.uFocusTrunk.value.z = -1;
       focus.uFocusInvD.value = 0;
     }
   }
