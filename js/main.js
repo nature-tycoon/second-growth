@@ -8,6 +8,7 @@ import { PerformanceOverlay, probeGpu, weakGpu } from './performance.js';
 import { settings, saveSettings } from './settings.js';
 import { initAnalytics, track, trackExit } from './analytics.js';
 import { initLang } from './i18n.js';
+import { BIOMES } from './biome.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
 const loading = document.getElementById('loading-screen');
@@ -33,9 +34,15 @@ async function boot() {
     // a map switch reloads the page (see UI.switchMap); otherwise open on the last map played
     let pending = null;
     try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)); sessionStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+    // A link to one landscape (?map=amazon, from the website) opens the start screen on that map.
+    // The address is tidied so a later reload or map switch behaves as usual.
+    const linked = new URLSearchParams(location.search).get('map');
+    const linkedMap = !pending && Object.hasOwn(BIOMES, linked) ? linked : null;
+    if (linked) { const url = new URL(location.href); url.searchParams.delete('map'); history.replaceState(history.state, '', url); }
     stage('Opening your saved farms', 12);
     await Game.prepareSaves();
-    initLang(pending?.map || Game.lastMap()); // the language this map is played in (see i18n.js), from the loading screen on
+    const startMap = pending?.map || linkedMap || Game.lastMap();
+    initLang(startMap); // the language this map is played in (see i18n.js), from the loading screen on
     await nextPaint();
     stage('Preparing the land', 22);
     await nextPaint();
@@ -44,7 +51,7 @@ async function boot() {
     initAnalytics();
     window.addEventListener('pagehide', () => { if (!loaded) trackExit('loading_left', { stage: loadLabel, seconds: Math.round(performance.now() / 1000) }); });
     const game = new Game();
-    game.newGame(1987, 'free', 'standard', pending?.map || Game.lastMap(), pending?.runSeed ?? Game.randomRunSeed());
+    game.newGame(1987, 'free', 'standard', startMap, pending?.runSeed ?? Game.randomRunSeed());
     game.speed = 0; // paused until the player chooses Start or Continue
     stage('Growing the landscape', 52);
     await nextPaint();
@@ -90,7 +97,7 @@ async function boot() {
       // backdrop clicks cannot start an unchosen farm or make it save-ready.
       ui.startPause = true;
       document.body.classList.add('choosing-map');
-      ui.openModeChoice(Game.hasSave());
+      ui.openModeChoice(Game.hasSave(startMap));
     }
     ui.afterNewGame();
     ui.refreshTop(true);

@@ -323,3 +323,9 @@
 
 /* Google Tag Manager's no-JavaScript frame stays invisible. */
 .gtm-frame { display: none; visibility: hidden; }
+/* Four game facts across on wide screens; one per row on phones (the 720px rule above). */
+@media(min-width:721px){.game-facts{grid-template-columns:repeat(4,1fr)}}
+/* "Play this landscape" under the landscape details. */
+.map-play{display:inline-flex;align-items:center;gap:14px;margin-top:24px;padding:11px 20px;border-radius:100px;border:1px solid #edb58e;color:#f6d9bf;font-size:13px;font-weight:800;transition:background .2s,color .2s}
+.map-play:hover{background:#edb58e;color:#17392b}
+.map-play>span[aria-hidden]{font-size:18px;line-height:1}

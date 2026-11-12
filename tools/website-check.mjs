@@ -94,14 +94,21 @@ for (const [attribute, property] of [['property', 'og:image'], ['name', 'twitter
 assert.deepEqual([...homepage.matchAll(/<script[^>]+src="([^"]+)"/g)].map(m => m[1].split('?')[0]), ['gtm.js', 'site.js'], 'Homepage may load only Tag Manager and its static image selectors, never the game engine');
 assert.ok(!(await readFile(join(output, 'play/index.html'), 'utf8')).includes('googletagmanager'), 'Tag Manager stays off the game');
 assert.equal((homepage.match(/href="play\/"/g) || []).length, 3, 'All three play buttons use the hosted game');
+// Each landscape's "Play" link opens the game's start screen on that map (main.js reads ?map=).
+const { BIOMES } = await import('../js/biome.js');
+for (const map of facts.maps) {
+  assert.ok(Object.hasOwn(BIOMES, map.map), `${map.name}: unknown game map ${map.map}`);
+  assert.equal(map.play, `play/?map=${map.map}`, `${map.name} needs its own play link`);
+}
+assert.ok(homepage.includes(`id="map-play" href="${facts.maps[0].play}"`), 'The play link starts on the first landscape shown');
 for (const name of ['index.html', 'visuals.html', 'site.css', 'play/index.html']) {
   const path = join(output, name), source = await readFile(path, 'utf8');
   const links = [...source.matchAll(/(?:src|srcset|href|data-image)="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
   for (const link of links) {
     if (/^(?:https?:|data:|#)/.test(link)) continue;
-    const target = resolve(dirname(path), decodeURIComponent(link.split(/[?#]/)[0]));
+    const file = link.split(/[?#]/)[0], target = resolve(dirname(path), decodeURIComponent(file));
     assert.ok(!relative(output, target).startsWith('..'), `Asset escapes website: ${link}`);
-    try { await readFile(link.endsWith('/') ? join(target, 'index.html') : target); }
+    try { await readFile(file.endsWith('/') ? join(target, 'index.html') : target); }
     catch (error) { throw new Error(`${name}: missing asset ${link}`, { cause: error }); }
   }
 }
