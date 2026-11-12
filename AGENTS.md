@@ -73,6 +73,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0040](docs/decisions/0040-terrain-relief.md) Terrain relief: per-map landforms, land drains downhill (`js/maps/landform.js`)
 - [0041](docs/decisions/0041-simulation-worker.md) Simulation in a Web Worker: proposed design and spike, no-go for now (`tools/sim-worker-spike.mjs`)
 - [0041](docs/decisions/0041-plant-growth-on-the-gpu.md) Plant redraw: deadwood age redraws its own tile; growth on the GPU measured and declined
+- [0042](docs/decisions/0042-tree-impostors.md) Tree impostors: far crowns as baked cards (`render3d/tree-impostors.js`)
 
 Ask a trait, never a species name: behaviour and drawing ask `trait(def, name)` (`js/data/animal-kinds.js`: defaults by `sprite.kind`, a species overrides with a field of the same name), so a fix reaches every animal with the trait. A name check stays only where a species is truly unique, with a one-line comment saying why. `node tools/species-name-count.mjs` (headless suite) fails if name checks rise; `--update` after they fall.
 
