@@ -37,16 +37,6 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'fish', size: 4, back: '#5ac0c8', flank: '#7ad4cc', belly: '#c4ecdc', finColor: '#6ac8cc', deep: true, swim: 0.4, dive: true, show: 4.5 },
     desc: 'Shimmering little fish that hang in a cloud over a staghorn thicket, picking plankton from the water, and dive into the branches all at once when a hunter swims by.',
     hint: 'Thickets of branching staghorn coral.' });
-  def({ key: 'anthias', reef: true, herd: true, herdR: 1.3, name: 'Scalefin anthias', sci: 'Pseudanthias squamipinnis', group: 'Fish', move: 'ground',
-    speed: 0.7, hr: 3, max: 90, minK: 4, groupSize: [8, 16], sources: ['E', 'W'], mig: 0.4, breed: [8, 9, 10, 11], litter: [4, 8], life: 5, mature: 1,
-    // (over living coral heads rather than inside staghorn thickets, and never over bleached coral)
-    suit: (W, i) => coral(W, i) * (1 - 0.5 * branching(W, i)) * (1 - (W.bleach?.[i] || 0)),
-    req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 150) / 300),
-    sprite: { kind: 'fish', size: 5, back: '#f07a3c', flank: '#f68a58', belly: '#f8b8a0', finColor: '#e8608c', tailShape: 'lunate', spiny: true, swim: 0.55, dive: true, show: 4.5,
-      // (about one male in eight, so a school of 8-16 has a male or two over its orange females)
-      male: { back: '#b03ec0', flank: '#c85ad0', belly: '#e8a8e0', finColor: '#a02ca8', longSpine: true }, maleShare: 0.12, maleName: 'adult male' },
-    desc: 'Orange-pink clouds of little fish hanging over a coral head in the current, each one snapping plankton out of the water. When a hunter comes near the whole school drops into the coral at once. Every school is mostly females with a few magenta males, and if a male dies, the biggest female turns into one.',
-    hint: 'Living, unbleached coral heads.' });
   def({ key: 'tang', reef: true, name: 'Blue tang', sci: 'Paracanthurus hepatus', group: 'Fish', move: 'ground',
     speed: 0.8, hr: 5, max: 30, minK: 2, groupSize: [2, 5], sources: ['E', 'W'], mig: 0.4, breed: [8, 9, 10], litter: [2, 4], life: 10, mature: 1,
     suit: (W, i) => Math.max(reef[W.habitat[i]] * (0.6 + 0.4 * coral(W, i)), has(W, i, 'ground', 'halimeda') ? 0.7 : 0), // (it grazes Halimeda too)
@@ -214,6 +204,18 @@ export default function buildReefAnimals(def) {
     sprite: { kind: 'shark', size: 30, back: '#8a867c', flank: '#a29e94', belly: '#eeede8', finTip: '#17191b', flankBand: true, swim: 0.75, show: 2.1, beat: 0.5 },
     desc: 'Patrols the lagoon\'s shallow sand and seagrass by day, often in water so shallow that its black-tipped fin cuts the surface. It hunts small fish over the flats, and the fish it hunts are a sign the meadow is feeding the lagoon.',
     hint: 'Shallow seagrass flats with fish to hunt.' });
+  // (anthias came after the saved species, so a reef saved before them keeps every animal's
+  // index: tools/wildlife-additions-check.mjs)
+  def({ key: 'anthias', reef: true, herd: true, herdR: 1.3, name: 'Scalefin anthias', sci: 'Pseudanthias squamipinnis', group: 'Fish', move: 'ground',
+    speed: 0.7, hr: 3, max: 90, minK: 4, groupSize: [8, 16], sources: ['E', 'W'], mig: 0.4, breed: [8, 9, 10, 11], litter: [4, 8], life: 5, mature: 1,
+    // (over living coral heads rather than inside staghorn thickets, and never over bleached coral)
+    suit: (W, i) => coral(W, i) * (1 - 0.5 * branching(W, i)) * (1 - (W.bleach?.[i] || 0)),
+    req: g => Math.min(1, Math.max(0, (g.stats?.coral || 0) - 150) / 300),
+    sprite: { kind: 'fish', size: 5, back: '#f07a3c', flank: '#f68a58', belly: '#f8b8a0', finColor: '#e8608c', tailShape: 'lunate', spiny: true, swim: 0.55, dive: true, show: 4.5,
+      // (about one male in eight, so a school of 8-16 has a male or two over its orange females)
+      male: { back: '#b03ec0', flank: '#c85ad0', belly: '#e8a8e0', finColor: '#a02ca8', longSpine: true }, maleShare: 0.12, maleName: 'adult male' },
+    desc: 'Orange-pink clouds of little fish hanging over a coral head in the current, each one snapping plankton out of the water. When a hunter comes near the whole school drops into the coral at once. Every school is mostly females with a few magenta males, and if a male dies, the biggest female turns into one.',
+    hint: 'Living, unbleached coral heads.' });
 
   return {
     groups: ['Fish', 'Turtles, sharks & rays', 'Seabirds', 'Invertebrates'],

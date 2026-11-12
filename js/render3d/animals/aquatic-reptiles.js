@@ -166,7 +166,7 @@ function turtle(m, s) {
 // hinge over a slim neck; the colubrids' (garter, rat snake) are barely wider than the neck, with
 // rounder snouts and bigger eyes. A sprite's own `length` or `bulk` overrides its kind's.
 const SNAKE_BUILD = {
-  heavy: { length: 4.4, bulk: .148, head: .27, headW: .108, headH: .062, neck: .074, tail: .86, eye: .72, eyeR: .15, boid: true },
+  heavy: { length: 4.4, bulk: .148, head: .27, headW: .108, headH: .062, neck: .074, tail: .86, eye: .72, eyeR: .16, boid: true },
   boa: { length: 3.0, bulk: .068, head: .21, headW: .074, headH: .044, neck: .044, tail: .79, eye: .42, eyeR: .2, boid: true },
   python: { length: 4.0, bulk: .086, head: .24, headW: .080, headH: .046, neck: .050, tail: .80, eye: .45, eyeR: .19, boid: true },
   rat: { length: 3.0, bulk: .048, head: .16, headW: .049, headH: .033, neck: .039, tail: .80, eye: .38, eyeR: .27 },

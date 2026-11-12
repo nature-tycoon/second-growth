@@ -444,9 +444,9 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
     // Apes can lag while turning at a fork. Keep the body within its
     // real-time limb cadence instead of racing through holds to catch up.
     if (intent) budget = Math.min(budget, dt * (def.sprite.ape ? swingPace : (def.sprite.len || 14) * st.sc * 1.5));
-    // At a faster game speed a walker's strides and leaps quicken with the simulation (up to four
-    // times), as every other animal's do, rather than trailing it ever further. (Apes, above, keep
-    // their real-time limb pace: orangutan-motion-check, primate-stall-check.)
+    // Strides and leaps keep real-time pace at every game speed, apes' and walkers' alike: quickened
+    // with the game, a howler's crouch, landing and limb placements went by unreadably fast
+    // (howler-jump-check, howler-prototype-check; decision 0041).
     const fast = 1;
     if (walkerMotion) {
       // Preserve the normal walking pace, so a complete stride remains visible between rendered frames.

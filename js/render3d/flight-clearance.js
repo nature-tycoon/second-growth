@@ -142,13 +142,14 @@ export function holdCruise(st, y, level, dt) {
 
 // How far a reef fish is lifted over the coral and rock under it eases like a body too (it was a
 // plain ease, so a head coming into view lifted a grouper or a dugong 0.3 tiles in one frame): up
-// at most LIFT_RISE tiles a second, down a quarter as fast, and its climb rate builds and fades.
-// st.coralLift is the lift, st.coralVy its rate.
-export const LIFT_RISE = 2, LIFT_ACCEL = 8;
+// at most LIFT_RISE tiles a second, down an eighth as fast, and its climb rate builds and fades.
+// (Gentler since the reef starts with healthy coral heads, wave 2: it was 8 and a quarter, and a
+// fish crossing a field of heads bobbed over each one.) st.coralLift is the lift, st.coralVy its rate.
+export const LIFT_RISE = 2, LIFT_ACCEL = 5;
 export function easeCoralLift(st, lift, dt) {
   if (st.coralLift == null || !(dt > 0)) { st.coralVy = 0; return (st.coralLift = lift); }
   const gap = lift - st.coralLift, up = gap > 0;
-  const want = Math.sign(gap) * Math.min(up ? LIFT_RISE : LIFT_RISE / 4, Math.abs(gap) * (up ? 6 : 1.2),
+  const want = Math.sign(gap) * Math.min(up ? LIFT_RISE : LIFT_RISE / 8, Math.abs(gap) * (up ? 6 : 0.6),
     Math.sqrt(2 * LIFT_ACCEL * 0.8 * Math.abs(gap)));
   const v = st.coralVy || 0, dv = LIFT_ACCEL * dt;
   st.coralVy = v + Math.max(-dv, Math.min(dv, want - v));

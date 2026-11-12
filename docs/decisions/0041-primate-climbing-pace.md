@@ -3,9 +3,10 @@
 ## Rules
 
 - Today's climbing is fixed piece by piece; Cole's canopy rewrite (`monkey/canopy-rewrite-wip`, on origin only) is not merged.
-- A primate's simulated `climbSpeed` is its drawn pace along the wood (`drawnClimbPace` in `sim/climb-pace.js`: the walker stride cap, the siamang swing) over `CANOPY_ROUTE`, so the body never trails the simulation. Walker strides and leaps quicken with game speed (up to four times); apes keep real-time limbs.
+- A primate's simulated `climbSpeed` is its drawn pace along the wood (`drawnClimbPace` in `sim/climb-pace.js`: the walker stride cap, the siamang swing) over `CANOPY_ROUTE`, so the body never trails the simulation. Every primate keeps real-time limbs at fast game speeds: the walkers' strides and leaps quickened with the game for a day (wildlife polish 4) and broke the howler jump checks (a readable crouch and landing, no skipped placements), so `fast` in `canopyStep` is 1. At speed 2 and up the body trails more; nobody follows one monkey in fast-forward.
 - Siamangs and orangutans cross only between crowns that join (`crownsJoin` in `sim/canopy-links.js`, used by `pathTo` in `sim/wildlife-intent.js`). Orangutans climb down and walk a gap (`crossGap`, `a.gapTo`, called from `walkStep`); siamangs leap a gap in an arc, arm reaching ahead (`render3d/canopy-motion.js`: `leaps` is the `leaps` trait or `sprite.ape`).
-- Measure with `node tools/monkey-movement-measure.mjs`; checks `canopy-links-check`, `monkey-pace-check`.
+- A check that forces a crossing must ask `crownsJoin` first: between crowns that don't join, a siamang now stays in its tree (`siamang-swing-check`).
+- Measure with `node tools/monkey-movement-measure.mjs`; checks `canopy-links-check`, `monkey-pace-check`, `siamang-swing-check`, `howler-jump-check`, `howler-prototype-check`, `howler-game-tree-jump-check`.
 
 ## History
 
