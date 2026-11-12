@@ -1,8 +1,8 @@
 {
-  "sourceRevision": "0252823af6f308f9491b61e0b426567490b91820",
-  "sourceDate": "2026-11-11",
+  "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+  "sourceDate": "2026-11-12",
   "uncommittedGameChanges": false,
-  "capturedAt": "2026-11-12T07:07:19.052Z",
+  "capturedAt": "2026-11-12T13:55:04.130Z",
   "method": "Production renderer, models and per-step simulation (Game.update's wildlife steps, the calendar held so no day redraw lands mid-shot) in headless Chrome on the GPU, at a fixed 30 fps timestep. Scenes are seeded restored maps (release-fixtures, Math.random seeded) with posed animals that then behave on their own; keystone clips start from production moment triggers (website-moment-fixtures). Encoded in the page with WebCodecs (H.264 High, VP9), muxed by tools/video-mux.mjs. Crossfade loops dissolve the last second into the first; a dissolve joins the overhead view to eye level. Nothing is generated or painted.",
   "seed": {
     "map": 1987,
@@ -12,7 +12,7 @@
     {
       "id": "hollis-creek-flyover",
       "clip": "hollis-creek-flyover",
-      "sourceRevision": "0252823af6f308f9491b61e0b426567490b91820",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
       "title": "Hollis creek flyover",
       "map": "pnw",
       "kind": "staged restored habitat study",
@@ -20,9 +20,9 @@
       "height": 1080,
       "fps": 30,
       "frames": 300,
-      "renderedFrames": 330,
+      "renderedFrames": 300,
       "seconds": 10,
-      "loop": "crossfade",
+      "loop": "none",
       "keyframeEvery": 60,
       "timeOfDay": 0.79,
       "animalPace": 4,
@@ -30,7 +30,7 @@
         "mp4": 2900000,
         "webm": 2300000
       },
-      "description": "A slow drift over the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.",
+      "description": "A steady drift up the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.",
       "moment": null,
       "focus": {
         "key": "elk",
@@ -85,207 +85,181 @@
             "camera": "map",
             "keys": [
               {
-                "x": 56.6,
-                "y": 58.6,
+                "x": 56.4,
+                "y": 62,
                 "zoom": 3.1,
-                "az": 0.6853981633974483
+                "az": 0.7253981633974482
               },
               {
                 "x": 57.6,
-                "y": 57.2,
-                "zoom": 3.25,
-                "az": 0.7853981633974483
-              },
-              {
-                "x": 58.4,
-                "y": 56.2,
+                "y": 53,
                 "zoom": 3.1,
-                "az": 0.8853981633974483
-              },
-              {
-                "x": 57.4,
-                "y": 57.6,
-                "zoom": 2.95,
-                "az": 0.7853981633974483
+                "az": 0.8453981633974483
               }
             ],
-            "closed": true
+            "ease": "linear"
           }
         ],
         "everyHalfSecond": [
           {
             "t": 0,
-            "x": 56.6,
-            "y": 58.6,
+            "x": 56.4,
+            "y": 62,
             "zoom": 3.1,
-            "az": 0.6854
+            "az": 0.7254
           },
           {
             "t": 0.5,
-            "x": 56.688,
-            "y": 58.467,
-            "zoom": 3.1346,
-            "az": 0.6926
+            "x": 56.46,
+            "y": 61.55,
+            "zoom": 3.1,
+            "az": 0.7314
           },
           {
             "t": 1,
-            "x": 56.88,
-            "y": 58.194,
-            "zoom": 3.174,
-            "az": 0.711
+            "x": 56.52,
+            "y": 61.1,
+            "zoom": 3.1,
+            "az": 0.7374
           },
           {
             "t": 1.5,
-            "x": 57.128,
-            "y": 57.846,
-            "zoom": 3.2113,
-            "az": 0.7358
+            "x": 56.58,
+            "y": 60.65,
+            "zoom": 3.1,
+            "az": 0.7434
           },
           {
             "t": 2,
-            "x": 57.384,
-            "y": 57.493,
-            "zoom": 3.2391,
-            "az": 0.7622
+            "x": 56.64,
+            "y": 60.2,
+            "zoom": 3.1,
+            "az": 0.7494
           },
           {
             "t": 2.5,
-            "x": 57.6,
-            "y": 57.2,
-            "zoom": 3.25,
-            "az": 0.7854
+            "x": 56.7,
+            "y": 59.75,
+            "zoom": 3.1,
+            "az": 0.7554
           },
           {
             "t": 3,
-            "x": 57.802,
-            "y": 56.936,
-            "zoom": 3.2391,
-            "az": 0.8086
+            "x": 56.76,
+            "y": 59.3,
+            "zoom": 3.1,
+            "az": 0.7614
           },
           {
             "t": 3.5,
-            "x": 58.021,
-            "y": 56.656,
-            "zoom": 3.2113,
-            "az": 0.835
+            "x": 56.82,
+            "y": 58.85,
+            "zoom": 3.1,
+            "az": 0.7674
           },
           {
             "t": 4,
-            "x": 58.219,
-            "y": 56.408,
-            "zoom": 3.174,
-            "az": 0.8598
+            "x": 56.88,
+            "y": 58.4,
+            "zoom": 3.1,
+            "az": 0.7734
           },
           {
             "t": 4.5,
-            "x": 58.358,
-            "y": 56.24,
-            "zoom": 3.1346,
-            "az": 0.8782
+            "x": 56.94,
+            "y": 57.95,
+            "zoom": 3.1,
+            "az": 0.7794
           },
           {
             "t": 5,
-            "x": 58.4,
-            "y": 56.2,
+            "x": 57,
+            "y": 57.5,
             "zoom": 3.1,
-            "az": 0.8854
-          },
-          {
-            "t": 5.5,
-            "x": 58.312,
-            "y": 56.333,
-            "zoom": 3.065,
-            "az": 0.8782
-          },
-          {
-            "t": 6,
-            "x": 58.12,
-            "y": 56.606,
-            "zoom": 3.0252,
-            "az": 0.8598
-          },
-          {
-            "t": 6.5,
-            "x": 57.872,
-            "y": 56.954,
-            "zoom": 2.988,
-            "az": 0.835
-          },
-          {
-            "t": 7,
-            "x": 57.616,
-            "y": 57.307,
-            "zoom": 2.9607,
-            "az": 0.8086
-          },
-          {
-            "t": 7.5,
-            "x": 57.4,
-            "y": 57.6,
-            "zoom": 2.95,
             "az": 0.7854
           },
           {
+            "t": 5.5,
+            "x": 57.06,
+            "y": 57.05,
+            "zoom": 3.1,
+            "az": 0.7914
+          },
+          {
+            "t": 6,
+            "x": 57.12,
+            "y": 56.6,
+            "zoom": 3.1,
+            "az": 0.7974
+          },
+          {
+            "t": 6.5,
+            "x": 57.18,
+            "y": 56.15,
+            "zoom": 3.1,
+            "az": 0.8034
+          },
+          {
+            "t": 7,
+            "x": 57.24,
+            "y": 55.7,
+            "zoom": 3.1,
+            "az": 0.8094
+          },
+          {
+            "t": 7.5,
+            "x": 57.3,
+            "y": 55.25,
+            "zoom": 3.1,
+            "az": 0.8154
+          },
+          {
             "t": 8,
-            "x": 57.198,
-            "y": 57.864,
-            "zoom": 2.9607,
-            "az": 0.7622
+            "x": 57.36,
+            "y": 54.8,
+            "zoom": 3.1,
+            "az": 0.8214
           },
           {
             "t": 8.5,
-            "x": 56.979,
-            "y": 58.144,
-            "zoom": 2.988,
-            "az": 0.7358
+            "x": 57.42,
+            "y": 54.35,
+            "zoom": 3.1,
+            "az": 0.8274
           },
           {
             "t": 9,
-            "x": 56.781,
-            "y": 58.392,
-            "zoom": 3.0252,
-            "az": 0.711
+            "x": 57.48,
+            "y": 53.9,
+            "zoom": 3.1,
+            "az": 0.8334
           },
           {
             "t": 9.5,
-            "x": 56.642,
-            "y": 58.56,
-            "zoom": 3.065,
-            "az": 0.6926
-          },
-          {
-            "t": 10,
-            "x": 56.6,
-            "y": 58.6,
+            "x": 57.54,
+            "y": 53.45,
             "zoom": 3.1,
-            "az": 0.6854
-          },
-          {
-            "t": 10.5,
-            "x": 56.688,
-            "y": 58.467,
-            "zoom": 3.1346,
-            "az": 0.6926
+            "az": 0.8394
           }
         ]
       },
       "motion": {
-        "median": 5.19,
+        "median": 5.98,
         "jumps": [
           {
-            "frame": 164,
-            "change": 6.35,
+            "frame": 298,
+            "change": 6.88,
             "times": 1.2
           },
           {
-            "frame": 163,
-            "change": 6.34,
-            "times": 1.2
+            "frame": 295,
+            "change": 6.85,
+            "times": 1.1
           },
           {
-            "frame": 166,
-            "change": 6.34,
-            "times": 1.2
+            "frame": 296,
+            "change": 6.85,
+            "times": 1.1
           }
         ]
       },
@@ -294,8 +268,8 @@
           "file": "hollis-creek-flyover.mp4",
           "role": "video",
           "type": "video/mp4; codecs=\"avc1.640028\"",
-          "bytes": 3676293,
-          "sha256": "2930ccacdd21fb610571beb4f03ac608ea321fa57437341c822f67519d9e2a61",
+          "bytes": 3665816,
+          "sha256": "de58bfa1f006c2ea9120631377228f924656cbe5b885859c667c7a987fe25e83",
           "checked": {
             "duration": 10,
             "width": 1920,
@@ -306,8 +280,8 @@
           "file": "hollis-creek-flyover.webm",
           "role": "video",
           "type": "video/webm; codecs=\"vp9\"",
-          "bytes": 3378472,
-          "sha256": "4296e2faf4856e67873a9cad8fe10b94f6bc025e757b7d966e689837d15dd650",
+          "bytes": 2957911,
+          "sha256": "96f8da94ff743ebc1149212f247ba906e7b5c2d33fbbbbf3d3222f303be9033a",
           "checked": {
             "duration": 10,
             "width": 1920,
@@ -318,15 +292,15 @@
           "file": "hollis-creek-flyover.jpg",
           "role": "poster",
           "type": "image/jpeg",
-          "bytes": 391162,
-          "sha256": "8cee7809dd38dc28e38fa2520aa430285e670a19ecc24d7e2b31744a2dc09a5c"
+          "bytes": 404295,
+          "sha256": "f6cd307d3f9fc46ec1b942b9a6a7aebd67bc2ba9c5b4a7ceff5c966891458f88"
         }
       ]
     },
     {
       "id": "hollis-creek-flyover-vertical",
       "clip": "hollis-creek-flyover",
-      "sourceRevision": "0252823af6f308f9491b61e0b426567490b91820",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
       "title": "Hollis creek flyover",
       "map": "pnw",
       "kind": "staged restored habitat study",
@@ -334,9 +308,9 @@
       "height": 1920,
       "fps": 30,
       "frames": 300,
-      "renderedFrames": 330,
+      "renderedFrames": 300,
       "seconds": 10,
-      "loop": "crossfade",
+      "loop": "none",
       "keyframeEvery": 60,
       "timeOfDay": 0.79,
       "animalPace": 4,
@@ -344,7 +318,7 @@
         "mp4": 2900000,
         "webm": 2300000
       },
-      "description": "A slow drift over the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.",
+      "description": "A steady drift up the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.",
       "moment": null,
       "focus": {
         "key": "elk",
@@ -399,207 +373,181 @@
             "camera": "map",
             "keys": [
               {
-                "x": 56.6,
-                "y": 58.6,
+                "x": 56.4,
+                "y": 62,
                 "zoom": 3.1,
-                "az": 0.6853981633974483
+                "az": 0.7253981633974482
               },
               {
                 "x": 57.6,
-                "y": 57.2,
-                "zoom": 3.25,
-                "az": 0.7853981633974483
-              },
-              {
-                "x": 58.4,
-                "y": 56.2,
+                "y": 53,
                 "zoom": 3.1,
-                "az": 0.8853981633974483
-              },
-              {
-                "x": 57.4,
-                "y": 57.6,
-                "zoom": 2.95,
-                "az": 0.7853981633974483
+                "az": 0.8453981633974483
               }
             ],
-            "closed": true
+            "ease": "linear"
           }
         ],
         "everyHalfSecond": [
           {
             "t": 0,
-            "x": 56.6,
-            "y": 58.6,
+            "x": 56.4,
+            "y": 62,
             "zoom": 3.1,
-            "az": 0.6854
+            "az": 0.7254
           },
           {
             "t": 0.5,
-            "x": 56.688,
-            "y": 58.467,
-            "zoom": 3.1346,
-            "az": 0.6926
+            "x": 56.46,
+            "y": 61.55,
+            "zoom": 3.1,
+            "az": 0.7314
           },
           {
             "t": 1,
-            "x": 56.88,
-            "y": 58.194,
-            "zoom": 3.174,
-            "az": 0.711
+            "x": 56.52,
+            "y": 61.1,
+            "zoom": 3.1,
+            "az": 0.7374
           },
           {
             "t": 1.5,
-            "x": 57.128,
-            "y": 57.846,
-            "zoom": 3.2113,
-            "az": 0.7358
+            "x": 56.58,
+            "y": 60.65,
+            "zoom": 3.1,
+            "az": 0.7434
           },
           {
             "t": 2,
-            "x": 57.384,
-            "y": 57.493,
-            "zoom": 3.2391,
-            "az": 0.7622
+            "x": 56.64,
+            "y": 60.2,
+            "zoom": 3.1,
+            "az": 0.7494
           },
           {
             "t": 2.5,
-            "x": 57.6,
-            "y": 57.2,
-            "zoom": 3.25,
-            "az": 0.7854
+            "x": 56.7,
+            "y": 59.75,
+            "zoom": 3.1,
+            "az": 0.7554
           },
           {
             "t": 3,
-            "x": 57.802,
-            "y": 56.936,
-            "zoom": 3.2391,
-            "az": 0.8086
+            "x": 56.76,
+            "y": 59.3,
+            "zoom": 3.1,
+            "az": 0.7614
           },
           {
             "t": 3.5,
-            "x": 58.021,
-            "y": 56.656,
-            "zoom": 3.2113,
-            "az": 0.835
+            "x": 56.82,
+            "y": 58.85,
+            "zoom": 3.1,
+            "az": 0.7674
           },
           {
             "t": 4,
-            "x": 58.219,
-            "y": 56.408,
-            "zoom": 3.174,
-            "az": 0.8598
+            "x": 56.88,
+            "y": 58.4,
+            "zoom": 3.1,
+            "az": 0.7734
           },
           {
             "t": 4.5,
-            "x": 58.358,
-            "y": 56.24,
-            "zoom": 3.1346,
-            "az": 0.8782
+            "x": 56.94,
+            "y": 57.95,
+            "zoom": 3.1,
+            "az": 0.7794
           },
           {
             "t": 5,
-            "x": 58.4,
-            "y": 56.2,
+            "x": 57,
+            "y": 57.5,
             "zoom": 3.1,
-            "az": 0.8854
-          },
-          {
-            "t": 5.5,
-            "x": 58.312,
-            "y": 56.333,
-            "zoom": 3.065,
-            "az": 0.8782
-          },
-          {
-            "t": 6,
-            "x": 58.12,
-            "y": 56.606,
-            "zoom": 3.0252,
-            "az": 0.8598
-          },
-          {
-            "t": 6.5,
-            "x": 57.872,
-            "y": 56.954,
-            "zoom": 2.988,
-            "az": 0.835
-          },
-          {
-            "t": 7,
-            "x": 57.616,
-            "y": 57.307,
-            "zoom": 2.9607,
-            "az": 0.8086
-          },
-          {
-            "t": 7.5,
-            "x": 57.4,
-            "y": 57.6,
-            "zoom": 2.95,
             "az": 0.7854
           },
           {
+            "t": 5.5,
+            "x": 57.06,
+            "y": 57.05,
+            "zoom": 3.1,
+            "az": 0.7914
+          },
+          {
+            "t": 6,
+            "x": 57.12,
+            "y": 56.6,
+            "zoom": 3.1,
+            "az": 0.7974
+          },
+          {
+            "t": 6.5,
+            "x": 57.18,
+            "y": 56.15,
+            "zoom": 3.1,
+            "az": 0.8034
+          },
+          {
+            "t": 7,
+            "x": 57.24,
+            "y": 55.7,
+            "zoom": 3.1,
+            "az": 0.8094
+          },
+          {
+            "t": 7.5,
+            "x": 57.3,
+            "y": 55.25,
+            "zoom": 3.1,
+            "az": 0.8154
+          },
+          {
             "t": 8,
-            "x": 57.198,
-            "y": 57.864,
-            "zoom": 2.9607,
-            "az": 0.7622
+            "x": 57.36,
+            "y": 54.8,
+            "zoom": 3.1,
+            "az": 0.8214
           },
           {
             "t": 8.5,
-            "x": 56.979,
-            "y": 58.144,
-            "zoom": 2.988,
-            "az": 0.7358
+            "x": 57.42,
+            "y": 54.35,
+            "zoom": 3.1,
+            "az": 0.8274
           },
           {
             "t": 9,
-            "x": 56.781,
-            "y": 58.392,
-            "zoom": 3.0252,
-            "az": 0.711
+            "x": 57.48,
+            "y": 53.9,
+            "zoom": 3.1,
+            "az": 0.8334
           },
           {
             "t": 9.5,
-            "x": 56.642,
-            "y": 58.56,
-            "zoom": 3.065,
-            "az": 0.6926
-          },
-          {
-            "t": 10,
-            "x": 56.6,
-            "y": 58.6,
+            "x": 57.54,
+            "y": 53.45,
             "zoom": 3.1,
-            "az": 0.6854
-          },
-          {
-            "t": 10.5,
-            "x": 56.688,
-            "y": 58.467,
-            "zoom": 3.1346,
-            "az": 0.6926
+            "az": 0.8394
           }
         ]
       },
       "motion": {
-        "median": 4.94,
+        "median": 6.06,
         "jumps": [
           {
-            "frame": 16,
-            "change": 6,
-            "times": 1.2
+            "frame": 298,
+            "change": 6.75,
+            "times": 1.1
           },
           {
-            "frame": 17,
-            "change": 6,
-            "times": 1.2
+            "frame": 295,
+            "change": 6.72,
+            "times": 1.1
           },
           {
-            "frame": 15,
-            "change": 5.99,
-            "times": 1.2
+            "frame": 297,
+            "change": 6.72,
+            "times": 1.1
           }
         ]
       },
@@ -608,8 +556,8 @@
           "file": "hollis-creek-flyover-vertical.mp4",
           "role": "video",
           "type": "video/mp4; codecs=\"avc1.640028\"",
-          "bytes": 3667120,
-          "sha256": "ae53f097c311cd33efa6332566b56de1c97625022456fcb09faca2ad1a1188c1",
+          "bytes": 3664103,
+          "sha256": "9daabf2a9ca92438f04a0c5d8e3c37292cc4fd839aeaa2f0c43816159e9062e2",
           "checked": {
             "duration": 10,
             "width": 1080,
@@ -620,8 +568,8 @@
           "file": "hollis-creek-flyover-vertical.webm",
           "role": "video",
           "type": "video/webm; codecs=\"vp9\"",
-          "bytes": 3191118,
-          "sha256": "27ccdc80afc100ea9be07e7c7899c54279548f6bcc77d4e6ded412a673b73945",
+          "bytes": 2942616,
+          "sha256": "185774353538298dbaa127e635671dc7e3923fdc68165aa0f57c53ccb90b3dac",
           "checked": {
             "duration": 10,
             "width": 1080,
@@ -632,15 +580,15 @@
           "file": "hollis-creek-flyover-vertical.jpg",
           "role": "poster",
           "type": "image/jpeg",
-          "bytes": 394102,
-          "sha256": "0fcebc57549dfae3461b910a2a2d8cd3fa4e24f96162b8964642f9ee4c504964"
+          "bytes": 401332,
+          "sha256": "9e8c1becf1d073ed54ef99c7a0028f2d5875794daedd6b21473b7b814168b344"
         }
       ]
     },
     {
       "id": "map-to-forest-floor",
       "clip": "map-to-forest-floor",
-      "sourceRevision": "0252823af6f308f9491b61e0b426567490b91820",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
       "title": "From the map to the forest floor",
       "map": "pnw",
       "kind": "staged restored habitat study",
@@ -656,7 +604,7 @@
       "animalPace": 4,
       "bitrate": {
         "mp4": 2900000,
-        "webm": 1943434
+        "webm": 1875364
       },
       "description": "The overhead view of restored Hollis pushes in on a Roosevelt elk at the creek, then dissolves to eye level behind it as it walks up the bank (sent there through the game's pathfinding). Both are the game's own cameras (the usual view, then watch mode's eye level).",
       "moment": null,
@@ -713,16 +661,10 @@
             "camera": "map",
             "keys": [
               {
-                "x": 52,
-                "y": 52,
+                "x": 53,
+                "y": 51.5,
                 "zoom": 0.6,
                 "az": 0.7853981633974483
-              },
-              {
-                "x": 57,
-                "y": 56,
-                "zoom": 1.5,
-                "az": 0.8853981633974483
               },
               {
                 "focus": true,
@@ -741,87 +683,87 @@
         "everyHalfSecond": [
           {
             "t": 0,
-            "x": 52,
-            "y": 52,
+            "x": 53,
+            "y": 51.5,
             "zoom": 0.6,
             "az": 0.7854
           },
           {
             "t": 0.5,
-            "x": 52.026,
-            "y": 52.021,
-            "zoom": 0.6029,
-            "az": 0.7859
+            "x": 53.039,
+            "y": 51.53,
+            "zoom": 0.6055,
+            "az": 0.7864
           },
           {
             "t": 1,
-            "x": 52.204,
-            "y": 52.168,
-            "zoom": 0.6227,
-            "az": 0.7894
+            "x": 53.279,
+            "y": 51.698,
+            "zoom": 0.6394,
+            "az": 0.7925
           },
           {
             "t": 1.5,
-            "x": 52.726,
-            "y": 52.622,
-            "zoom": 0.6838,
-            "az": 0.7996
+            "x": 53.831,
+            "y": 52.047,
+            "zoom": 0.7223,
+            "az": 0.8061
           },
           {
             "t": 2,
-            "x": 53.786,
-            "y": 53.576,
-            "zoom": 0.8279,
-            "az": 0.8203
+            "x": 54.721,
+            "y": 52.548,
+            "zoom": 0.8739,
+            "az": 0.8274
           },
           {
             "t": 2.5,
-            "x": 55.348,
-            "y": 54.922,
-            "zoom": 1.1024,
-            "az": 0.8515
+            "x": 55.907,
+            "y": 53.133,
+            "zoom": 1.1165,
+            "az": 0.8547
           },
           {
             "t": 3,
-            "x": 57,
-            "y": 56,
-            "zoom": 1.5,
+            "x": 57.287,
+            "y": 53.715,
+            "zoom": 1.4697,
             "az": 0.8854
           },
           {
             "t": 3.5,
-            "x": 58.632,
-            "y": 56.201,
-            "zoom": 2.025,
-            "az": 0.9193
+            "x": 58.722,
+            "y": 54.21,
+            "zoom": 1.9346,
+            "az": 0.9161
           },
           {
             "t": 4,
-            "x": 60.219,
-            "y": 55.823,
-            "zoom": 2.6575,
-            "az": 0.9505
+            "x": 60.065,
+            "y": 54.553,
+            "zoom": 2.4716,
+            "az": 0.9434
           },
           {
             "t": 4.5,
-            "x": 61.396,
-            "y": 55.295,
-            "zoom": 3.1815,
-            "az": 0.9712
+            "x": 61.181,
+            "y": 54.711,
+            "zoom": 2.9906,
+            "az": 0.9647
           },
           {
             "t": 5,
-            "x": 62.094,
-            "y": 54.859,
-            "zoom": 3.4754,
-            "az": 0.9814
+            "x": 61.979,
+            "y": 54.681,
+            "zoom": 3.3782,
+            "az": 0.9783
           },
           {
             "t": 5.5,
-            "x": 62.464,
-            "y": 54.523,
-            "zoom": 3.5837,
-            "az": 0.9849
+            "x": 62.444,
+            "y": 54.5,
+            "zoom": 3.5673,
+            "az": 0.9844
           },
           {
             "t": 6,
@@ -922,22 +864,22 @@
         ]
       },
       "motion": {
-        "median": 7.74,
+        "median": 7.86,
         "jumps": [
           {
-            "frame": 76,
-            "change": 15.58,
-            "times": 2
+            "frame": 89,
+            "change": 14.66,
+            "times": 1.9
+          },
+          {
+            "frame": 90,
+            "change": 14.65,
+            "times": 1.9
           },
           {
             "frame": 77,
-            "change": 15.58,
-            "times": 2
-          },
-          {
-            "frame": 78,
-            "change": 15.54,
-            "times": 2
+            "change": 14.6,
+            "times": 1.9
           }
         ]
       },
@@ -946,8 +888,8 @@
           "file": "map-to-forest-floor.mp4",
           "role": "video",
           "type": "video/mp4; codecs=\"avc1.640028\"",
-          "bytes": 4412659,
-          "sha256": "9032b6f9348f68dfcfca0626e9a871534f5e20f9961fb52949bff0a4fde6cfc4",
+          "bytes": 4415601,
+          "sha256": "a5b3e299fd8989bf2a7d30b4ee49088089118e235a3518ca2c0a5a244d9bee50",
           "checked": {
             "duration": 12,
             "width": 1920,
@@ -958,8 +900,8 @@
           "file": "map-to-forest-floor.webm",
           "role": "video",
           "type": "video/webm; codecs=\"vp9\"",
-          "bytes": 4309605,
-          "sha256": "a4b42b7b2e086541a8d7ad45a34af16f6d4897d051eb2817b818041b39faf89a",
+          "bytes": 4309077,
+          "sha256": "4a9d542ecaab8c72739188754de51b8743b2a9ba0c6ae15c3c3347a9c3605b91",
           "checked": {
             "duration": 12,
             "width": 1920,
@@ -970,15 +912,15 @@
           "file": "map-to-forest-floor.jpg",
           "role": "poster",
           "type": "image/jpeg",
-          "bytes": 622977,
-          "sha256": "28566102972422e758787a4eb1ed4f19eb12d0fa08ae519689be702b83130ead"
+          "bytes": 628471,
+          "sha256": "ebc031ca4ca22474b4d8f9160cf87ab9344fccee9fb002486f3b44ecd8f78b1a"
         }
       ]
     },
     {
       "id": "moment-elk-rut",
       "clip": "moment-elk-rut",
-      "sourceRevision": "0252823af6f308f9491b61e0b426567490b91820",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
       "title": "Keystone moment: the elk rut",
       "map": "pnw",
       "kind": "staged keystone moment study",
@@ -996,7 +938,7 @@
         "mp4": 2900000,
         "webm": 2300000
       },
-      "description": "Two adult Roosevelt elk during the antler-contact beat of the autumn rut. The bout is initialized through the production social behavior. The camera circles slowly while the bout plays out at watch pace.",
+      "description": "Two adult Roosevelt elk during the antler-contact beat of the autumn rut. The bout is initialized through the production social behavior. The camera turns steadily round them while the bout plays out at watch pace.",
       "moment": {
         "key": "elkRut",
         "title": "The autumn rut",
@@ -1031,29 +973,17 @@
               {
                 "x": 62.5,
                 "y": 58.5,
-                "zoom": 6.768,
-                "az": 0.4853981633974483
+                "zoom": 7.2,
+                "az": 0.4353981633974483
               },
               {
                 "x": 62.5,
                 "y": 58.5,
                 "zoom": 7.2,
-                "az": 0.7853981633974483
-              },
-              {
-                "x": 62.5,
-                "y": 58.5,
-                "zoom": 7.488,
-                "az": 1.0853981633974483
-              },
-              {
-                "x": 62.5,
-                "y": 58.5,
-                "zoom": 7.2,
-                "az": 0.7853981633974483
+                "az": 1.1353981633974484
               }
             ],
-            "closed": true
+            "ease": "linear"
           }
         ],
         "everyHalfSecond": [
@@ -1061,132 +991,132 @@
             "t": 0,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 6.768,
-            "az": 0.4854
+            "zoom": 7.2,
+            "az": 0.4354
           },
           {
             "t": 0.5,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 6.8176,
-            "az": 0.5182
+            "zoom": 7.2,
+            "az": 0.4791
           },
           {
             "t": 1,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 6.9367,
-            "az": 0.5979
+            "zoom": 7.2,
+            "az": 0.5229
           },
           {
             "t": 1.5,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 7.0802,
-            "az": 0.6963
+            "zoom": 7.2,
+            "az": 0.5666
           },
           {
             "t": 2,
             "x": 62.5,
             "y": 58.5,
             "zoom": 7.2,
-            "az": 0.7854
+            "az": 0.6104
           },
           {
             "t": 2.5,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 7.2959,
-            "az": 0.8745
+            "zoom": 7.2,
+            "az": 0.6541
           },
           {
             "t": 3,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 7.3891,
-            "az": 0.9729
+            "zoom": 7.2,
+            "az": 0.6979
           },
           {
             "t": 3.5,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 7.4599,
-            "az": 1.0526
+            "zoom": 7.2,
+            "az": 0.7416
           },
           {
             "t": 4,
-            "x": 62.5,
-            "y": 58.5,
-            "zoom": 7.488,
-            "az": 1.0854
-          },
-          {
-            "t": 4.5,
-            "x": 62.5,
-            "y": 58.5,
-            "zoom": 7.4599,
-            "az": 1.0526
-          },
-          {
-            "t": 5,
-            "x": 62.5,
-            "y": 58.5,
-            "zoom": 7.3891,
-            "az": 0.9729
-          },
-          {
-            "t": 5.5,
-            "x": 62.5,
-            "y": 58.5,
-            "zoom": 7.2959,
-            "az": 0.8745
-          },
-          {
-            "t": 6,
             "x": 62.5,
             "y": 58.5,
             "zoom": 7.2,
             "az": 0.7854
           },
           {
+            "t": 4.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.8291
+          },
+          {
+            "t": 5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.8729
+          },
+          {
+            "t": 5.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.9166
+          },
+          {
+            "t": 6,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.9604
+          },
+          {
             "t": 6.5,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 7.0802,
-            "az": 0.6963
+            "zoom": 7.2,
+            "az": 1.0041
           },
           {
             "t": 7,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 6.9367,
-            "az": 0.5979
+            "zoom": 7.2,
+            "az": 1.0479
           },
           {
             "t": 7.5,
             "x": 62.5,
             "y": 58.5,
-            "zoom": 6.8176,
-            "az": 0.5182
+            "zoom": 7.2,
+            "az": 1.0916
           }
         ]
       },
       "motion": {
-        "median": 3.96,
+        "median": 2.41,
         "jumps": [
           {
-            "frame": 197,
-            "change": 4.66,
+            "frame": 67,
+            "change": 2.81,
             "times": 1.2
           },
           {
-            "frame": 83,
-            "change": 4.59,
+            "frame": 85,
+            "change": 2.81,
             "times": 1.2
           },
           {
-            "frame": 81,
-            "change": 4.56,
+            "frame": 4,
+            "change": 2.8,
             "times": 1.2
           }
         ]
@@ -1196,8 +1126,8 @@
           "file": "moment-elk-rut.mp4",
           "role": "video",
           "type": "video/mp4; codecs=\"avc1.640028\"",
-          "bytes": 2927819,
-          "sha256": "c3b861285a7c6303dfe63499097678e281f924e742a54c9c7e3e5bcc889361fd",
+          "bytes": 2941345,
+          "sha256": "70451c62ed7baf73890ed0527d2ea074b168134955fd877ba5d546b1980bbea3",
           "checked": {
             "duration": 8,
             "width": 1920,
@@ -1208,8 +1138,8 @@
           "file": "moment-elk-rut.webm",
           "role": "video",
           "type": "video/webm; codecs=\"vp9\"",
-          "bytes": 2468564,
-          "sha256": "ecfaa807e2f01b6adde1e5045b4065b5033dcfceeb0aa724ed18a6909ecd1576",
+          "bytes": 2215205,
+          "sha256": "eb8b9e8431d46ee02825f6e36a697c06c97dc47c121fc16103d94e83a956f14e",
           "checked": {
             "duration": 8,
             "width": 1920,
@@ -1220,15 +1150,15 @@
           "file": "moment-elk-rut.jpg",
           "role": "poster",
           "type": "image/jpeg",
-          "bytes": 290101,
-          "sha256": "96e103e4960e7436171ce70b4762a24499d6a17510b726758029ab6f32df62e3"
+          "bytes": 279078,
+          "sha256": "3f40d1e297fcaf53f31ade69960668be9193afddbfa6be46bb1f6517376ed075"
         }
       ]
     },
     {
       "id": "moment-hatchlings",
       "clip": "moment-hatchlings",
-      "sourceRevision": "0252823af6f308f9491b61e0b426567490b91820",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
       "title": "Keystone moment: hatchlings run for the sea",
       "map": "chinandega",
       "kind": "staged keystone moment study",
@@ -1273,11 +1203,11 @@
               },
               {
                 "focus": true,
-                "zoom": 9.9,
+                "zoom": 9.35,
                 "az": 0.8853981633974483
               }
             ],
-            "ease": "inout"
+            "ease": "linear"
           }
         ],
         "everyHalfSecond": [
@@ -1290,128 +1220,128 @@
           },
           {
             "t": 0.5,
-            "x": 30,
-            "y": 82.6,
-            "zoom": 9.3506,
-            "az": 0.6856
+            "x": 29.972,
+            "y": 82.608,
+            "zoom": 9.35,
+            "az": 0.6979
           },
           {
             "t": 1,
-            "x": 29.996,
-            "y": 82.602,
-            "zoom": 9.3545,
-            "az": 0.6871
+            "x": 29.945,
+            "y": 82.626,
+            "zoom": 9.35,
+            "az": 0.7104
           },
           {
             "t": 1.5,
-            "x": 29.988,
-            "y": 82.608,
-            "zoom": 9.3649,
-            "az": 0.691
+            "x": 29.918,
+            "y": 82.654,
+            "zoom": 9.35,
+            "az": 0.7229
           },
           {
             "t": 2,
-            "x": 29.971,
-            "y": 82.625,
-            "zoom": 9.3857,
-            "az": 0.6987
+            "x": 29.892,
+            "y": 82.693,
+            "zoom": 9.35,
+            "az": 0.7354
           },
           {
             "t": 2.5,
-            "x": 29.943,
-            "y": 82.66,
-            "zoom": 9.4212,
-            "az": 0.712
+            "x": 29.866,
+            "y": 82.742,
+            "zoom": 9.35,
+            "az": 0.7479
           },
           {
             "t": 3,
-            "x": 29.902,
-            "y": 82.724,
-            "zoom": 9.4739,
-            "az": 0.7315
+            "x": 29.841,
+            "y": 82.802,
+            "zoom": 9.35,
+            "az": 0.7604
           },
           {
             "t": 3.5,
-            "x": 29.85,
-            "y": 82.822,
-            "zoom": 9.5425,
-            "az": 0.7567
+            "x": 29.816,
+            "y": 82.872,
+            "zoom": 9.35,
+            "az": 0.7729
           },
           {
             "t": 4,
             "x": 29.791,
             "y": 82.952,
-            "zoom": 9.6211,
+            "zoom": 9.35,
             "az": 0.7854
           },
           {
             "t": 4.5,
-            "x": 29.733,
-            "y": 83.107,
-            "zoom": 9.7003,
-            "az": 0.8141
+            "x": 29.767,
+            "y": 83.043,
+            "zoom": 9.35,
+            "az": 0.7979
           },
           {
             "t": 5,
-            "x": 29.684,
-            "y": 83.27,
-            "zoom": 9.7705,
-            "az": 0.8393
+            "x": 29.743,
+            "y": 83.144,
+            "zoom": 9.35,
+            "az": 0.8104
           },
           {
             "t": 5.5,
-            "x": 29.647,
-            "y": 83.427,
-            "zoom": 9.8252,
-            "az": 0.8588
+            "x": 29.72,
+            "y": 83.256,
+            "zoom": 9.35,
+            "az": 0.8229
           },
           {
             "t": 6,
-            "x": 29.624,
-            "y": 83.568,
-            "zoom": 9.8623,
-            "az": 0.8721
+            "x": 29.698,
+            "y": 83.378,
+            "zoom": 9.35,
+            "az": 0.8354
           },
           {
             "t": 6.5,
-            "x": 29.612,
-            "y": 83.689,
-            "zoom": 9.8843,
-            "az": 0.8798
+            "x": 29.675,
+            "y": 83.51,
+            "zoom": 9.35,
+            "az": 0.8479
           },
           {
             "t": 7,
-            "x": 29.608,
-            "y": 83.794,
-            "zoom": 9.8952,
-            "az": 0.8837
+            "x": 29.654,
+            "y": 83.653,
+            "zoom": 9.35,
+            "az": 0.8604
           },
           {
             "t": 7.5,
-            "x": 29.608,
-            "y": 83.886,
-            "zoom": 9.8994,
-            "az": 0.8852
+            "x": 29.632,
+            "y": 83.807,
+            "zoom": 9.35,
+            "az": 0.8729
           }
         ]
       },
       "motion": {
-        "median": 2.87,
+        "median": 3.25,
         "jumps": [
           {
-            "frame": 121,
-            "change": 5.42,
-            "times": 1.9
+            "frame": 170,
+            "change": 3.49,
+            "times": 1.1
           },
           {
-            "frame": 124,
-            "change": 5.42,
-            "times": 1.9
+            "frame": 172,
+            "change": 3.49,
+            "times": 1.1
           },
           {
-            "frame": 120,
-            "change": 5.41,
-            "times": 1.9
+            "frame": 176,
+            "change": 3.49,
+            "times": 1.1
           }
         ]
       },
@@ -1420,8 +1350,8 @@
           "file": "moment-hatchlings.mp4",
           "role": "video",
           "type": "video/mp4; codecs=\"avc1.640028\"",
-          "bytes": 2902756,
-          "sha256": "846d440e11ac9fde7bfaf1c8fdf8b622d4ac7339b166340cb39b6d24e4ac13e8",
+          "bytes": 2905750,
+          "sha256": "c0ea71d573c6990350e6ec270fee6932c8329ca8fa346a63c404b026ba610e7f",
           "checked": {
             "duration": 8,
             "width": 1920,
@@ -1432,8 +1362,8 @@
           "file": "moment-hatchlings.webm",
           "role": "video",
           "type": "video/webm; codecs=\"vp9\"",
-          "bytes": 2221616,
-          "sha256": "0ced7d3142a1d6393b36ec70e653c647cfc05f1d1ea5c5d9b40b7d58d3dbbc45",
+          "bytes": 2225402,
+          "sha256": "e1b5f8b4a2140b3c2499fb6038d7d3d0bb2f79b3edbfd8ce050a021516d6a63c",
           "checked": {
             "duration": 8,
             "width": 1920,

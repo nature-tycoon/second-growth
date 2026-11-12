@@ -2,9 +2,11 @@
 // seeded restored map, filmed through the production renderer and simulation at a fixed timestep.
 //
 // A clip:
-//   map, seconds (the finished clip), loop ('crossfade': the last second dissolves into the first,
-//     so a <video loop> has no jump; 'none' loops with a cut, for a clip to scrub or one whose
-//     subject moves too far for a dissolve: two elk bulls half-faded over each other look broken)
+//   map, seconds (the finished clip), loop ('none': a <video loop> restarts with a cut; 'crossfade':
+//     the last second dissolves into the first, only for a camera that holds still or comes back to
+//     where it started (a closed path), or the dissolve shows two views of the land at once).
+//     Cole's call (12 Nov): the camera keeps moving one way, drifting along or turning round its
+//     subject, never there and back, so most clips loop with a cut
 //   time: time of day, 0..1 (scene.js TOD: .35 midday, .76 late afternoon, .8 golden hour)
 //   pace: game speed index for the animals (config.js ANIMAL_SPEEDS: 1 normal, 4 watch pace). The
 //     calendar is held: no new day, so no daily plant redraw lands mid-shot
@@ -16,8 +18,9 @@
 //     { until, camera: 'map', keys: [{ x, y, zoom, az }], ease } the usual (overhead) view, gliding
 //       through the keys (Catmull-Rom, evenly spaced in time); ease 'linear' (steady) or 'inout'.
 //       A key { focus: true, zoom, az } sits on the focus animal wherever it has got to.
-//       closed: true goes round the keys and back to the first once per clip.seconds, steadily: a
-//       crossfade loop then only blends the animals, never two different views of the land
+//       A two-key path with ease 'linear' moves at one steady speed (a drift, a slow turn).
+//       closed: true goes round the keys and back to the first once per clip.seconds (a full turn
+//       round a subject, say), so a crossfade loop only blends the animals
 //     { until, camera: 'eye', dissolve } eye level behind the focus animal (render3d/eye-camera.js),
 //       dissolving in from the last frame of the shot before over `dissolve` seconds
 import { websiteMoment } from './website-moment-fixtures.mjs';
@@ -42,16 +45,16 @@ function hollisCreek(g, pose) {
 
 export const CLIPS = [
   {
-    id: 'hollis-creek-flyover', title: 'Hollis creek flyover', map: 'pnw', seconds: 10, loop: 'crossfade', time: .79, pace: 4, vertical: true,
+    id: 'hollis-creek-flyover', title: 'Hollis creek flyover', map: 'pnw', seconds: 10, loop: 'none', time: .79, pace: 4, vertical: true,
     kind: 'staged restored habitat study',
     setup(g, pose) {
       const animals = hollisCreek(g, pose);
       return {
         focus: animals[0],
-        description: 'A slow drift over the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.',
-        // a slow drift round the elk's bank and back, the view swinging a little with it
-        shots: [{ until: Infinity, camera: 'map', closed: true, keys: [
-          { x: 56.6, y: 58.6, zoom: 3.1, az: Q - .1 }, { x: 57.6, y: 57.2, zoom: 3.25, az: Q }, { x: 58.4, y: 56.2, zoom: 3.1, az: Q + .1 }, { x: 57.4, y: 57.6, zoom: 2.95, az: Q },
+        description: 'A steady drift up the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.',
+        // up the creek past the elk's bank at one steady speed, the view turning a little as it goes
+        shots: [{ until: Infinity, camera: 'map', ease: 'linear', keys: [
+          { x: 56.4, y: 62, zoom: 3.1, az: Q - .06 }, { x: 57.6, y: 53, zoom: 3.1, az: Q + .06 },
         ] }],
       };
     },
@@ -69,7 +72,8 @@ export const CLIPS = [
         description: 'The overhead view of restored Hollis pushes in on a Roosevelt elk at the creek, then dissolves to eye level behind it as it walks up the bank (sent there through the game\'s pathfinding). Both are the game\'s own cameras (the usual view, then watch mode\'s eye level).',
         shots: [
           { until: 6, camera: 'map', ease: 'inout', keys: [
-            { x: 52, y: 52, zoom: .6, az: Q }, { x: 57, y: 56, zoom: 1.5, az: Q + .1 }, { focus: true, zoom: 3.6, az: Q + .2 },
+            // (straight in to the elk, no waypoint between: one bent the glide sideways and back)
+            { x: 53, y: 51.5, zoom: .6, az: Q }, { focus: true, zoom: 3.6, az: Q + .2 },
           ] },
           { until: Infinity, camera: 'eye', dissolve: .8 },
         ],
@@ -83,9 +87,9 @@ export const CLIPS = [
       const m = websiteMoment(g, pose), [x, y, zoom] = m.frame;
       return {
         focus: m.focus, moment: m,
-        description: m.description + ' The camera circles slowly while the bout plays out at watch pace.',
-        shots: [{ until: Infinity, camera: 'map', closed: true, keys: [
-          { x, y, zoom: zoom * .94, az: Q - .3 }, { x, y, zoom, az: Q }, { x, y, zoom: zoom * 1.04, az: Q + .3 }, { x, y, zoom, az: Q },
+        description: m.description + ' The camera turns steadily round them while the bout plays out at watch pace.',
+        shots: [{ until: Infinity, camera: 'map', ease: 'linear', keys: [
+          { x, y, zoom, az: Q - .35 }, { x, y, zoom, az: Q + .35 },
         ] }],
       };
     },
@@ -101,8 +105,8 @@ export const CLIPS = [
       return {
         focus: runner, moment: m,
         description: m.description + ' The camera follows them down the beach at watch pace.',
-        shots: [{ until: Infinity, camera: 'map', ease: 'inout', keys: [
-          { x, y, zoom: zoom * .85, az: Q - .1 }, { focus: true, zoom: zoom * .9, az: Q + .1 },
+        shots: [{ until: Infinity, camera: 'map', ease: 'linear', keys: [
+          { x, y, zoom: zoom * .85, az: Q - .1 }, { focus: true, zoom: zoom * .85, az: Q + .1 },
         ] }],
       };
     },

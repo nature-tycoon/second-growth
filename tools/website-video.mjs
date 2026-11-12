@@ -41,8 +41,11 @@ try{
     const u=s.closed?((t-s.from)/clip.seconds)%1:ease[s.ease||'linear'](Math.min(1,Math.max(0,(t-s.from)/(end-s.from))));
     // (a closed path comes back to its first key, so a crossfade loop only blends the animals)
     const K=s.keys,n=s.closed?K.length:K.length-1,f=u*n,i=Math.min(n-1,Math.floor(f)),v=f-i;
-    const at=j=>{const k=where(s.closed?K[(j+K.length)%K.length]:K[Math.max(0,Math.min(n,j))]);if(k.focus){r.centerOn(k.x,k.y);k.h=r.target.y;}return k;};
-    const a=at(i-1),b=at(i),c=at(i+1),d=at(i+2);
+    const at=j=>{const k=where(s.closed?K[(j+K.length)%K.length]:K[j]);if(k.focus){r.centerOn(k.x,k.y);k.h=r.target.y;}return k;};
+    // (an open path's ends are carried straight on past its first and last keys, so a two-key path
+    // moves at one steady speed rather than easing in and out by itself: the clip's ease decides that)
+    const past=(p,q)=>({x:2*p.x-q.x,y:2*p.y-q.y,h:2*p.h-q.h,az:2*p.az-q.az,zoom:p.zoom*p.zoom/q.zoom});
+    const b=at(i),c=at(i+1),a=s.closed||i>0?at(i-1):past(b,c),d=s.closed||i+2<=n?at(i+2):past(c,b);
     const p=key=>cr(a[key],b[key],c[key],d[key],v);
     r.setEyeLevel(null);r.followAgent=null;
     r.zoom=Math.exp(cr(...[a,b,c,d].map(k=>Math.log(k.zoom)),v));
