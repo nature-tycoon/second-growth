@@ -73,6 +73,8 @@ addStrings({
   // ---------------------------------------------------------------- top bar and tool bar
   'Turn your phone sideways': 'Poné el teléfono de lado',
   'Second Growth plays in landscape. Rotate your phone to keep restoring the land.': 'Second Growth se juega en horizontal. Girá el teléfono para seguir recuperando la tierra.',
+  "Screen won't turn? Switch off rotation lock in Control Center (iPhone) or Quick Settings (Android).": '¿No gira la pantalla? Desactivá el bloqueo de rotación en el Centro de control (iPhone) o en Ajustes rápidos (Android).',
+  'Play upright anyway': 'Jugar en vertical igual',
   'Play from your Home Screen': 'Jugá desde tu pantalla de inicio',
   'Add Second Growth for a full-screen game without the browser bars.': 'Agregá Second Growth para jugar a pantalla completa, sin las barras del navegador.',
   'Open this page in Safari and tap Share (the square with an upward arrow). It may be inside the page menu.': 'Abrí esta página en Safari y tocá Compartir (el cuadrado con una flecha hacia arriba). Puede estar dentro del menú de la página.',

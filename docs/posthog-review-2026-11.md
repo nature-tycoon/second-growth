@@ -103,9 +103,9 @@ Read them a week after this goes live. The questions to ask:
    The new `objective_done`, `panel_closed` and `seconds_since_reward` events will show which
    matters most. Code: `js/ui/ui.js` (start flow, `openChapter`), `js/sim/campaign.js`
    (`pnwChapters`), `js/sim/goals.js`.
-2. **Phones stuck at "turn sideways" (S).** 14 of 75 phone players never turned the phone; 13 never
+2. **Phones stuck at "turn sideways" (S). Done 2026-11-10:** a rotation-lock hint and "Play upright anyway" (remembered per device; `rotate_prompt_cleared` gains `upright`), and the screen is centred. 14 of 75 phone players never turned the phone; 13 never
    started. Add a rotation-lock hint and "Play upright anyway". `#rotate-hint` in `index.html`.
-3. **Unsuitable-ground refusals (S–M).** Say *why* the ground is unsuitable, and which mix would
+3. **Unsuitable-ground refusals (S–M). Done 2026-11-10 in the warning:** it already gave the reason; it now names the unlocked tool of the same layer that suits the spot (`suitedTool` in `js/tool-actions.js`). Showing it at the cursor before the stroke is still open. Say *why* the ground is unsuitable, and which mix would
    suit it, at the cursor. The refusal comes from `js/tool-actions.js`; the brush preview is in `js/input.js`.
 
 ## Performance: bigger moves that keep the look (ranked by expected gain)
@@ -159,7 +159,7 @@ is native resolution).
 
 Rare. The bird `passage.swoop` crash (`actors.js:390`) was fixed Oct 31 (`429f012`); it shows
 only from the cached Oct 25 release. "ResizeObserver loop completed" (44 players) is a harmless
-browser warning: filter it in `reportError` (`js/analytics.js`). Singles: "Maximum call stack
+browser warning, now filtered in `reportError` (`js/analytics.js`). Singles: "Maximum call stack
 size exceeded" (Nov 5, current release), "Unable to decode audio data" (Nov 8).
 
 ## Load time
