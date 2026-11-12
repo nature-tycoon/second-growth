@@ -328,8 +328,10 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .notice-close { display: grid; place-items: center; flex: none; width: 32px; min-width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: inherit; font: 24px/1 var(--ui); cursor: pointer; }
 .notice-close:hover, .notice-close:focus-visible { background: #ffffff38; }
 .toast > .toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.toast .toast-act { flex: none; align-self: center; padding: 4px 10px; white-space: nowrap; }
 @media (pointer: coarse) {
   .notice-close { width: 44px; min-width: 44px; height: 44px; }
+  .toast .toast-act { min-height: 44px; }
   #banner .btn { min-height: 44px; }
 }
 .stars { color: #d8a020; letter-spacing: 1px; }
@@ -605,7 +607,8 @@ body.panels-hidden #joystick, body.photo-mode #joystick { display: none !importa
   background: radial-gradient(ellipse 80% 50% at 50% 38%, rgba(242, 196, 90, .18), transparent 70%), linear-gradient(#1b3326, #16291f); }
 #rotate-hint > * { flex-shrink: 0; }
 #rotate-hint > :first-child { margin-top: auto; }
-#rotate-hint > :last-child { margin-bottom: auto; }
+/* centred: the bottom margin goes on the last element actually shown (the install card is often hidden) */
+#rotate-hint > :last-child, #rotate-hint > :has(+ [hidden]:last-child) { margin-bottom: auto; }
 #rotate-hint h2 { font: 700 30px/1.1 var(--display); margin: 8px 0 0; color: #f6efd8; }
 #rotate-hint p { margin: 0; max-width: 300px; color: #bcd2a8; font-size: 15px; line-height: 1.5; }
 .home-install { width: min(100%, 360px); margin-top: 14px; padding: 18px; text-align: left;
@@ -622,6 +625,10 @@ body.panels-hidden #joystick, body.photo-mode #joystick { display: none !importa
 @keyframes rh-turn { 0%, 25% { transform: rotate(0); } 55%, 85% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
 @keyframes rh-fade { 0%, 20% { opacity: 1; } 45%, 90% { opacity: 0; } 100% { opacity: 1; } }
 @media (orientation: portrait) and (max-width: 700px) { #rotate-hint { display: flex; } }
+#rotate-hint .rh-lock { font-size: 13px; color: #9fb68e; }
+#rotate-skip { margin-top: 6px; }
+/* the player chose to play upright: the cramped fallback layout instead of the prompt */
+html.upright-ok #rotate-hint { display: none; }
 
 /* short landscape screens (phones on their side): tighter bars, panels that fit */
 @media (max-height: 520px) {

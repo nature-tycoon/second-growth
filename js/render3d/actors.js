@@ -1,118 +1,63 @@
 // Animals (instanced 3D models, see animals/animal-model.js), plus visitors and flames drawn as camera-facing sprites.
 
-import { groundAt, visibleLevel } from '../sim/waterline.js';
 import * as THREE from 'three';
-import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
-import { drawDef, drawLooks, animalDef, maleLook } from '../data/animals.js';
-import { roostingNow } from '../data/animal-activity.js';
-import { clearCanopy, coralFloor, smoothSeabed, easeCoralLift, easeBirdHeight, holdCruise, CLIMB_ACCEL } from './flight-clearance.js';
-import { strideFollowsGround } from './stride.js';
-const CLEAR = { floor: -Infinity, clearing: false }; // (clearCanopy's crown under a flier, reused each frame)
+import { LEVEL, isWater, F as FEAT, clamp } from '../config.js';
+import { drawDef, drawLooks, maleLook } from '../data/animals.js';
+import { trait } from '../data/animal-kinds.js';
 import { leavesCarcass } from '../sim/animal-life.js';
-import { GRAZERS } from '../sim/steering.js';
 import * as S from '../render/sprites.js';
-import { treeHeight, treeLevel } from './tree-stature.js';
-import { treeTrunk, snagSpot, snagPose, snagTop as snagTopAt } from '../sim/ground-obstacles.js';
-// a snag on a bank tile stands on the dry side, as flora.js draws it
-const snagBank = (w, x, y, i) => !isWater(w.terrain[i]) && w.distWater[i] <= 2 && visibleLevel(w, x, y) != null;
+import { snagSpot, snagPose } from '../sim/ground-obstacles.js';
 import { contactShadow } from './geometry/features.js';
 import { AnimalShadows } from './animal-shadows.js';
 import { Fauna, PERSON_LOOKS, SNORKEL_LOOKS } from './animals/animal-pools.js';
 import { adultAnimalScale } from './animal-scale.js';
-import { waterSurfaceY } from './terrain.js';
 import { boutCycle, CRASH } from './bout-clock.js';
-import { siamangSwing } from './siamang-swing.js';
-import { canopyStep, settleCanopyStep, rebaseCanopy, recoverCanopyRoute } from './canopy-motion.js';
-import { canopyLean, canopyRotation } from './canopy-pose.js';
-import { CanopySite, canopyTile } from './canopy-support.js';
+import { CanopySite } from './canopy-support.js';
 import { hash2 } from '../rng.js';
-import { PerchBough, perchPoint } from './bird-perch.js';
-import { ORANGUTAN_CADENCE } from './orangutan-motion.js';
-import { canopyGrips } from './canopy-grips.js';
-import { SlothBridges, slothBridge } from './sloth-bridge.js';
-import { howlerWeight, limitHowlerWeight } from './howler-motion.js';
-import { isCanopyWalker } from './canopy-walker-profile.js';
+import { PerchBough } from './bird-perch.js';
+import { SlothBridges } from './sloth-bridge.js';
 import { ActorView, animalViewRadius, pixelsPerUnit, perspectiveScale } from './actor-view.js';
 import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
-import { climberSpot } from './flora.js';
+import { PX, TURN, turnToward, beginAnimal, crownTile, turnBody, bodyPhase, finishAnimal } from './actors-common.js';
+import { wadeOrSwim, gait, headPose, huntPose, stumblePose } from './actors-ground.js';
+import { crownHeight, canopyHeight, branchPose, climbSupport, grips } from './actors-climb.js';
+import { snagBank, trunkCling, seaFlightHeight, crownPerch, snagPerch, birdHeight, plungePose, anchorPose, perchLimb } from './actors-fly.js';
+import { riverFishHeight, tailBend, snapPose, tailBeat } from './actors-swim.js';
+import { reefHeight, munchTarget, munchPose } from './actors-reef.js';
 
-const PX = 1 / 50; // sprite pixels to scene units
-// Animals that float or paddle when they're on open water.
-const SOAR_BANK = 0.35; // a circling hawk leans into its turn
-const SWIM_STRIDE = 0.7; // (body lengths a fish moves per beat of its tail at a cruise: about 0.6-0.8 in real fish)
-const FLOATERS = new Set(['duck', 'booby', 'beaver', 'otter', 'frog', 'newt', 'turtle', 'snake', 'capybara', 'tapir', 'caiman', 'hippo', 'wildebeest', 'zebra']); // (the migrating herds swim the river)
+export { salmonLeap } from './actors-common.js';
+export { escapeSkip } from './actors-reef.js';
+
 const SPAR_FIT = { elk: 0.97, sambar: 0.86 }; // per antler type, as a share of the two heads' full reach
-const lerpAngle = (a, b, t) => { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return a + d * t; };
 
-// Where a salmon is in its leap (0..1 across the arc), or -1 when it's swimming. Each fish leaps
-// on its own clock, every three seconds or so.
-export function salmonLeap(a, time) {
-  const period = 2.4 + (a.id % 7) * 0.35, dur = 0.95;
-  const t = (time + a.id * 1.37) % period;
-  return t < dur ? t / dur : -1;
-}
-
-// A fish that escapes by skipping across the surface (a longtom). While a hunter is rushing it, or
-// it is still darting off after a miss, it makes runs of two or three low leaps clear of the water,
-// swims a moment, and goes again. Drawing only: the hunt and the catch roll are the simulation's.
-// The pose keeps the run's clock. Returns 0..1 through the current leap, or -1 in the water.
-const SKIP = 0.6, SKIP_GAP = 0.05, SKIP_REST = 0.4; // (seconds: a long, low skip, a touch on the water, and a breather)
-export function escapeSkip(st, chased, time) {
-  if (st.skip) {
-    const t = time - st.skip.t0, k = Math.floor(t / (SKIP + SKIP_GAP));
-    if (k < st.skip.n) { const u = (t - k * (SKIP + SKIP_GAP)) / SKIP; return u <= 1 ? u : -1; }
-    if (t < st.skip.n * (SKIP + SKIP_GAP) + SKIP_REST) return -1;
-    st.skip = null;
-  }
-  if (chased) st.skip = { t0: time, n: 2 + ((st.skipRuns = (st.skipRuns || 0) + 1) % 2) };
-  return -1;
-}
-
-// A raptor's or owl's catch (sim/bird-behavior.js carryCatch): hanging limp below its feet in
-// flight (a fish carried level, back up) and lying under its feet while it eats.
-const CARRY_FORWARD = 0.18;
-function drawCatch(F, game, a, def, st, sc) {
-  const pdef0 = game.catalog.animals[a.prey.sp];
-  if (!pdef0) return;
-  const pdef = drawDef(pdef0, a.prey, game.month);
-  const ageF = pdef.mature > 0 ? clamp(0.55 + 0.45 * (a.prey.age || 0) / (pdef.mature * 120), 0.55, 1) : 1;
-  const len = s => s.sprite.len || s.sprite.size || 10;
-  // (never drawn longer than the bird that holds it: the display boost that makes a vole readable
-  // on the ground would otherwise hand a hawk a vole its own size)
-  let psc = adultAnimalScale(pdef.sprite) * (a.prey.juvenile ? pdef.sprite.juv ?? 0.5 : 1) * ageF;
-  psc = Math.min(psc, len(def) * sc * 0.85 / len(pdef));
-  const lie = (pdef.sprite.h || 10) * psc * 0.32, fx = Math.cos(st.yaw), fz = -Math.sin(st.yaw);
-  const aloft = a.state === 'carry' && a.carry?.phase !== 'mantle';
-  if (aloft) {
-    const f = len(def) * sc * CARRY_FORWARD * 0.5, y = st.center.y - st.h * 0.35 - (a.prey.fish ? (pdef.sprite.h || 8) * psc * 0.6 : lie * 1.4); // (in the feet, tucked under the body)
-    F.add(pdef, st.x + fx * f, y, st.z + fz * f, st.yaw, psc, 0, 0, 0, 0.6, 0, a.prey.fish ? 0 : Math.PI / 2);
-  } else {
-    const f = len(def) * sc * CARRY_FORWARD;
-    F.add(pdef, st.x + fx * f, st.y + lie, st.z + fz * f, st.yaw + 0.5, psc, 0, 0, 0, 0.6, 0, Math.PI / 2);
-  }
-}
-
-// Where a bird working a trunk clings (sim/bird-behavior.js 'trunk'): the trunk as drawn
-// (treeTrunk, shared with flora.js), on the side it came in from, at a height read on the tree as
-// built (treeLevel, decision 0024) so it stays on the bark below the crown however tall the trunk.
-function trunkCling(flora, game, w, i, a, def, sc) {
-  const t = treeTrunk(w, i % w.w, i / w.w | 0);
-  if (!t) return null;
-  const site = flora?.treeSites.get(i), b = a.bird, p = game.catalog.plants[w.tree[i]];
-  let y;
-  if (site?.geo) {
-    if (!site.geo.boundingBox) site.geo.computeBoundingBox();
-    y = site.transform[1] + treeLevel(site.geo, b.h) * site.transform[4];
-  } else y = w.heightAt(t[0], t[1]) * LEVEL + treeHeight(p) * w.treeG[i] * b.h * 0.8;
-  const off = t[2] * 0.8 + (def.sprite.size || 10) * sc * 0.012, side = b.side ?? 0;
-  return { x: t[0] + Math.cos(side) * off, z: t[1] + Math.sin(side) * off, y, yaw: Math.atan2(Math.sin(side), -Math.cos(side)), trunk: t };
+// Where an animal is drawn up and down, by mode: the first that applies (actors-*.js).
+function drawnHeight(A, c) {
+  const { game, w, a, def, mo, sc, time, surf, seaY, ground, flying, inside, i } = c;
+  if (def.reef && seaY != null) reefHeight(A, c);
+  else if (flying && seaY != null) seaFlightHeight(c);
+  else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) c.y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
+  else if (flying) c.y += (trait(def, 'flitsLow') ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
+  else if (def.move === 'swim') riverFishHeight(c);
+  else if (surf != null && mo.wadeDepth) c.y = Math.max(ground, surf - mo.wadeDepth * sc);
+  // (floating at the drawn surface: the creek's own level where it is, which on a creek
+  // stepping down from pool to pool can be above the tile's simulated level, so a mallard sat
+  // under it; and out on the drawn water over the bank's edge too, wherever it's deep enough
+  // to float. Where it isn't, it stands on the bank.)
+  else if (trait(def, 'floats') && a.bird?.kind !== 'nest' && (c.fl = A.floatLevel(a, surf, ground, mo.sink * sc)) != null)
+    c.y = def.move === 'fly' ? Math.max(ground, c.fl - mo.sink * sc) : c.fl - mo.sink * sc;
+  else if ((def.move === 'ground' || def.move === 'semi') && !def.reef && mo.eye && inside && w.distWater[i] <= 2) wadeOrSwim(A, c);
+  else if (def.move === 'fly' && a.bird?.kind === 'trunk' && inside && (c.cling = A.trunkCling(game, w, i, a, def, sc))) c.y = c.cling.y;
+  else if (def.move === 'fly' && !a.birdGround && inside && w.tree[crownTile(A, c)] && w.treeG[crownTile(A, c)] > 0.5 && (a.bird?.kind === 'nest' || trait(def, 'sitsInCrowns') !== false)) crownPerch(A, c);
+  else if (def.move === 'fly' && !a.birdGround && inside && w.feature[crownTile(A, c)] === FEAT.SNAG) snagPerch(A, c);
+  else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) c.y += 0.65;
+  else if (def.move === 'tree' && inside && a.move !== 'ground') crownHeight(A, c); // (a squirrel down foraging is on the ground: sim/climbers.js)
 }
 
 export class Actors {
-  trunkCling(game, w, i, a, def, sc) { return trunkCling(this.flora, game, w, i, a, def, sc); }
-  // The water surface an animal that floats (FLOATERS) floats at here: the drawn sheet (the creek's
-  // own level, terrain.waterAt), else the simulated one on a water tile (surf). Off a water tile,
-  // only where the drawn sheet is deep enough to float in (sink below the surface clears the
+  trunkCling(game, w, i, a, def, sc) { return trunkCling(this.flora, game, w, i, a, def, sc); } // (actors-fly.js)
+  // The water surface an animal that floats (trait floats) floats at here: the drawn sheet (the
+  // creek's own level, terrain.waterAt), else the simulated one on a water tile (surf). Off a water
+  // tile, only where the drawn sheet is deep enough to float in (sink below the surface clears the
   // ground); null to stand on the bank.
   floatLevel(a, surf, ground, sink) {
     const drawn = this.terrain?.waterAt?.(a.x, a.y);
@@ -210,572 +155,38 @@ export class Actors {
     const persp = perspectiveScale(camera, viewportHeight);
     F.begin(pixelsPerUnit(camera, viewportHeight), persp && { x: camera.position.x, y: camera.position.y, z: camera.position.z, scale: persp });
     this.silhouettes.begin();
-    // the prey a hunter is rushing right now (a longtom skips away from it)
-    const chased = new Set();
-    for (const h of game.wildlife.agents) if (h.state === 'hunt' && h.hunt?.phase === 'rush') chased.add(h.target);
+    // the prey a hunter is rushing right now (a longtom skips away from it), and every hunter out
+    // hunting (a school of chromis or anthias drops into the coral when one comes near)
+    const chased = new Set(), hunters = this.hunters || (this.hunters = []);
+    hunters.length = 0;
+    for (const h of game.wildlife.agents) if (h.state === 'hunt') { hunters.push(h); if (h.hunt?.phase === 'rush') chased.add(h.target); }
+    const fr = { game, w, F, k, frameDt, time, seen, chased, hunters, canopySites, bridges, shadow };
+    // Each animal through the same steps in the same order; a step is a mode's (actors-ground.js,
+    // -climb, -fly, -swim, -reef) or everyone's (actors-common.js), and does nothing for the others.
     for (const a of game.wildlife.viewAgents) {
-      // Dormant residents are sheltered inside dens/roosts, not walking models.
-      if (a.state === 'dormant') continue;
-      let def = drawDef(animalDef(a, game.catalog), a, game.month); // Adult sex traits and seasonal plumage.
-      if (roostingNow(a, def, this.nightOut)) continue; // (a bat by day: in its roost until dusk)
-      if (isCanopyWalker(def)) {
-        let walker = this.walkerModels.get(def);
-        if (!walker) {
-          walker = { ...def, key: this.canopyWalkerMotion ? def.key : `${def.key}:legacy-motion`, sprite: { ...def.sprite, canopyWalkerMotion: this.canopyWalkerMotion } };
-          this.walkerModels.set(def, walker);
-        }
-        def = walker;
-      }
-      seen.add(a.id);
-      let st = this.pose.get(a.id);
-      const xi = Math.floor(a.x), yi = Math.floor(a.y);
-      const inside = w.inb(xi, yi);
-      const i = inside ? w.idx(xi, yi) : -1;
-      const canopyKey = def.move === 'tree' ? canopyTile(w, game.border, xi, yi) : i;
-      const t = inside ? w.terrain[i] : T.RIVER;
-      const onWater = isWater(t) && t !== T.MARSH;
-      const kind = def.sprite.kind;
-      const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05)) || kind === 'bat' || kind === 'ray'; // (a manta "flies" through the water)
-      const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
-      const seaY = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : null;
-      // A located animal must acquire a fresh pose even before the camera has
-      // reached it. Otherwise an offscreen canopy animal can never be followed.
-      if (this.view.enabled && a !== this.followAgent) {
-        let low = ground, high = ground;
-        if (onWater || def.move === 'swim' || def.move === 'fly' && isWater(t)) {
-          const surface = waterSurfaceY(w, a.x, a.y) ?? ground;
-          low = Math.min(low, surface); high = Math.max(high, surface + 0.3); // leaping salmon
-        }
-        if (seaY != null) { low = Math.min(low, seaY); high = Math.max(high, seaY + (def.sprite.escape === 'skip' ? 0.5 : 0)); }
-        if (flying && !def.reef) high = Math.max(high, ground, seaY ?? ground, a.flightY ?? -Infinity) + 4.2; // (over the tallest crowns too: flight-clearance.js)
-        else if (inside && (def.move === 'fly' || def.move === 'tree')) {
-          if (w.tree[i]) {
-            const p = game.catalog.plants[w.tree[i]];
-            high += treeHeight(p) * w.treeG[i];
-          } else if (w.feature[i] === FEAT.SNAG) high += 0.9;
-        }
-        if (!inside && def.move === 'tree') {
-          const site = this.flora?.treeSites.get(canopyKey);
-          if (site) {
-            if (!site.geo.boundingBox) site.geo.computeBoundingBox();
-            high = Math.max(high, site.transform[1] + site.geo.boundingBox.max.y * site.transform[4]);
-          }
-        }
-        const travellingHold = def.move === 'tree' && st?.branchPoint && st.visible !== false &&
-          this.view.visible(st.x, st.y, st.y + st.h, st.z, animalViewRadius(def));
-        if (!travellingHold && !this.view.visible(a.x, low, high, a.y, animalViewRadius(def))) {
-          if (st) st.visible = false;
-          continue;
-        }
-      }
-      this.visibleWildlife.push(a);
-      const returning = st?.visible === false;
-      if (!st) { st = { yaw: -(a.hd ?? a.orientation ?? (a.facing < 0 ? Math.PI : 0)), gait: 0, fly: 0, graze: 0, px: a.x, py: a.y, x: a.x, y: 0, z: a.y, h: 0.2 }; this.pose.set(a.id, st); }
-      if (returning) {
-        // Resume from the current simulation state, not the position/turn/depth last drawn
-        // minutes ago. The edge margin gives normal animation blending room to resume.
-        st.yaw = -(a.hd ?? a.orientation ?? (a.facing < 0 ? Math.PI : 0));
-        st.px = a.x; st.py = a.y; st.depth = null; st.bend = 0; st.t = time;
-        st.gait = game.speed > 0 && a.state !== 'idle' ? 1 : 0;
-        st.fly = flying ? 1 : 0; st.graze = 0;
-        st.rippled = a.drinkT > 0; st.leaping = salmonLeap(a, time) >= 0;
-      }
-      st.visible = true;
-      const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * lifeAge(a) / (def.mature * 120), 0.55, 1) : 1;
-      const sc = adultAnimalScale(def.sprite) * (a.juvenile ? def.sprite.juv ?? 0.5 : 1) * ageF; // (scale: relative proportions; show: display boost; juv: how small the young are)
-      const mo = F.motion(def);
-      const surf = onWater || def.move === 'swim' || def.move === 'fly' && isWater(t) ? waterSurfaceY(w, a.x, a.y) : null;
-      // Flyers descend relative to the visible surface, even above a deeply carved basin.
-      let y = def.move === 'fly' ? Math.max(ground, surf ?? ground) : ground;
-      let perchSite = null; // (the tree a perched bird sits in, when its limbs are known)
-      let cling = null; // (a woodpecker on a trunk: where on it, and facing it: trunkCling)
-      let snagTop = null; // (the snag a perched bird sits on top of: its middle)
-      let swimming = false; // (a land animal out of its depth, paddling with its head out)
-      let fl = null; // (the water surface a floater floats at: floatLevel)
-      // Which crown a climber or percher is in: it keeps the tree it's in until it's clearly into
-      // the next one, so an animal nudged back and forth across the line between two trees of
-      // different heights doesn't bob up and down between them.
-      const ci = () => {
-        if (def.move === 'tree' && this.flora) {
-          const old = this.flora.treeSites.get(st.ctile), cell = old?.cell;
-          if (cell && !returning && Math.max(cell[0] - a.x, a.x - cell[0] - 1, cell[1] - a.y, a.y - cell[1] - 1) < .25) return st.ctile;
-          return (st.ctile = canopyKey);
-        }
-        if (st.ctile != null && st.ctile !== i && !returning && st.ctile < w.n) {
-          const ox = st.ctile % w.w, oy = (st.ctile / w.w) | 0;
-          if (Math.max(ox - a.x, a.x - ox - 1, oy - a.y, a.y - oy - 1) < 0.25 && (w.tree[st.ctile] || w.feature[st.ctile] === FEAT.SNAG)) return st.ctile;
-        }
-        return (st.ctile = i);
-      };
-      if (def.reef && seaY != null) {
-        // under the sea: fish, turtles and rays swim at their own depth between the seabed and the
-        // surface (clownfish right down in their anemone, sharks and mantas well up off the bottom),
-        // drifting gently up and down
-        // (each one wanders slowly up and down through its own band of water, so a school isn't a flat sheet)
-        // (over the seabed as it runs a tile or so round, not every rock and hollow under it: a reef
-        // fish holds a fairly level depth over rough bottom; the bumps it can't clear it rises over
-        // with the coral below)
-        const bed = smoothSeabed(w, a.x, a.y);
-        st.bed = st.bed == null || returning ? bed : st.bed + (bed - st.bed) * Math.min(1, k * 0.25);
-        const room = Math.max(0.15, seaY - st.bed - 0.12);
-        const sw = def.sprite.swim ?? 0.3, amp = Math.min(1, sw / 0.3); // (clownfish keep down in their anemone)
-        const band = clamp(sw + amp * (0.12 * Math.sin(time * 0.11 + a.id * 1.7) + 0.06 * Math.sin(time * 0.29 + a.id * 4.1)), 0.04, 0.9);
-        st.depth = st.depth == null ? band : st.depth + (band - st.depth) * k * 0.3;
-        y = def.benthic ? ground + 0.008 : Math.min(seaY - 0.08, st.bed + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
-        // (and over the coral heads, by body size: flight-clearance.js)
-        // (looked up every fourth frame, each fish on its own frame; the lift eases between)
-        if (!def.benthic && (st.coralFloor == null || (this.frameNo + a.id & 3) === 0)) st.coralFloor = coralFloor(w, game.catalog.plants, a, def);
-        // (the seabed right under it is a floor too; it rises over a head promptly and settles
-        // back down slowly, so a run of coral heads is one swell, not a bounce over each)
-        const lift = def.benthic ? 0 : Math.max(0, st.coralFloor - y, ground + 0.06 - y);
-        if (returning) { st.coralLift = lift; st.coralVy = 0; } else easeCoralLift(st, lift, frameDt);
-        if (st.coralLift > 0.001) y = Math.min(seaY - 0.08, y + st.coralLift);
-        if (def.sprite.escape === 'skip') {
-          const p = escapeSkip(st, game.speed > 0 && (chased.has(a.id) || a.dash > 1), time);
-          st.skipP = p; // (scene.js splashes where it leaves the water and lands)
-          if (p >= 0) { y = seaY - 0.04 + Math.sin(p * Math.PI) * 0.5; st.pitch = Math.cos(p * Math.PI) * 0.45; } else st.pitch = 0;
-        }
-      } else if (flying && seaY != null) y = Math.max(ground, seaY) + 0.7 + a.alt * 1.2; // (seabirds fly over the water, not the seabed)
-      else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
-      else if (flying) y += (kind === 'butterfly' || kind === 'bee' ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
-      else if (def.move === 'swim') {
-        // (in its tile's water, the same depth the simulation keeps it in (swimDepth): down to
-        // half way in the shallows, so it never sinks into the bank where the water thins out)
-        const room = surf != null ? surf - groundAt(w, a.x, a.y) * LEVEL : 0; // (the ground on the drawn triangles)
-        y = surf != null ? surf - Math.max(0, Math.min(0.05 + mo.sink * sc, room * 0.5)) : ground;
-        // running salmon leap: every few seconds one arcs clear of the water, nose up then down,
-        // only while it's making its way along the river: one holding in a pool or in the current
-        // stays under (it decides between leaps, so a leap under way always finishes)
-        let jp = def.special === 'salmon' && surf != null ? salmonLeap(a, time) : -1;
-        if (def.special === 'salmon') {
-          st.swimPace = (st.swimPace || 0) + (Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, frameDt) - (st.swimPace || 0)) * Math.min(1, k);
-          if (jp < 0) st.leapOk = a.state !== 'idle' && st.swimPace > 0.15;
-          if (!st.leapOk) jp = -1;
-        }
-        st.jp = jp;
-        if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.3 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
-      }
-      else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
-      // (floating at the drawn surface: the creek's own level where it is, which on a creek
-      // stepping down from pool to pool can be above the tile's simulated level, so a mallard sat
-      // under it; and out on the drawn water over the bank's edge too, wherever it's deep enough
-      // to float. Where it isn't, it stands on the bank.)
-      else if (FLOATERS.has(kind) && a.bird?.kind !== 'nest' && (fl = this.floatLevel(a, surf, ground, mo.sink * sc)) != null)
-        y = def.move === 'fly' ? Math.max(ground, fl - mo.sink * sc) : fl - mo.sink * sc;
-      else if ((def.move === 'ground' || def.move === 'semi') && !def.reef && mo.eye && inside && w.distWater[i] <= 2) {
-        // A land animal wades while its head is clear of the water. Where the water is deeper than
-        // that it swims, body under and head out, instead of walking along the bottom. (The drawn
-        // water also reaches onto the bank, and managed water covers land tiles.)
-        const drawn = this.terrain?.waterAt?.(a.x, a.y);
-        const level = Number.isFinite(drawn) ? drawn : surf ?? waterSurfaceY(w, a.x, a.y) ?? -Infinity;
-        const swimY = level - mo.eye[1] * sc * 0.85;
-        if (swimY > ground) { y = swimY; swimming = true; }
-      }
-      else if (def.move === 'fly' && a.bird?.kind === 'trunk' && inside && (cling = this.trunkCling(game, w, i, a, def, sc))) y = cling.y;
-      else if (def.move === 'fly' && !a.birdGround && inside && w.tree[ci()] && w.treeG[ci()] > 0.5 && (a.bird?.kind === 'nest' || kind !== 'duck' && kind !== 'heron' && kind !== 'crane')) {
-        const c = ci(); perchSite = this.flora?.treeSites.get(c); y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * 0.55;
-      } else if (def.move === 'fly' && !a.birdGround && inside && w.feature[ci()] === FEAT.SNAG) {
-        // on the snag's broken top (flora.js draws it where its tree stood, 1.68 tall at full height,
-        // leaning a little: ground-obstacles.js): at its own place in the tile 0.9 up, it hung in the air beside the trunk
-        const c = ci(), sx = c % w.w, sy = (c / w.w) | 0, bank = snagBank(w, sx, sy, c);
-        const [bx, bz] = snagSpot(w, sx, sy, bank), [tx, tz, th] = snagTopAt(w, sx, sy, c, bank);
-        snagTop = [tx, tz];
-        y = w.heightAt(bx, bz) * LEVEL - 0.02 + th;
-      } else if (def.move === 'fly' && a.bird?.kind === 'nest' && inside && w.feature[i] === FEAT.NESTBOX) {
-        y += 0.65;
-      } else if (def.move === 'tree' && inside && a.move !== 'ground') { // (a squirrel down foraging is on the ground: sim/climbers.js)
-        // monkeys and sloths live up in the crowns (or on a snag's bare top)
-        // (monkeys up in the sunlit top of the canopy, sloths hanging lower down)
-        const c = ci();
-        if (w.tree[c]) y += treeHeight(game.catalog.plants[w.tree[c]]) * w.treeG[c] * (kind === 'monkey' || kind === 'orangutan' ? 0.9 : 0.62);
-        else if (w.feature[c] === FEAT.SNAG) y += 0.9;
-      }
-      // Moving between crowns of different heights, a climber (or a perched bird hopping along a
-      // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
-      if (a.passing) y = a.flightY + (a.passage.swoop ? Math.sin(a.passage.t * 1.8 + a.passage.phase) * 0.12 : 0);
-      // over the treetops: the crowns under it and just ahead, unless it's on its way down (flight-clearance.js)
-      // (looking about a second and a half of its flight ahead, 1.4 to 6 tiles, so it starts a
-      // climb early enough to make it a gentle one)
-      if (flying && def.move === 'fly') y = clearCanopy(w, game.catalog.plants, a, def, y, CLEAR, a.x - st.px, a.y - st.py,
-        clamp(1.5 * Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, time - (st.t ?? time - 0.016)), 1.4, 6));
-      else { CLEAR.floor = -Infinity; CLEAR.clearing = false; }
-      if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
-      // A bird's height eases between flight, the treetops it clears and its perch, rather than
-      // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
-      if (def.move === 'fly' && !def.reef && !a.passing) {
-        // (in level flight it holds its height: a climb when the way ahead needs one, then only a
-        // long shallow glide back down, so a forest or a dip in the ground isn't a bob: holdCruise)
-        const level = CLEAR.clearing && st.fly > 0.9;
-        if (st.birdY == null || returning || st.sc == null) { st.birdY = holdCruise(st, y, false, 0); st.birdVy = 0; }
-        // (every change of height is a slant capped by its speed: easeBirdHeight)
-        else st.birdY = easeBirdHeight(st, holdCruise(st, y, level, frameDt), 6 * (level ? 1 : 1.2),
-          Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, frameDt), frameDt);
-        // (a bird in full flight that finds itself in a crown, a new heading pointing straight into
-        // a tall tree, climbs out of it hard, up to 4 tiles a second, but by its climb rate, not a
-        // jump in height; taking off, it climbs out of its own tree at the usual ease)
-        if (st.fly > 0.9 && st.birdY < CLEAR.floor) st.birdVy = Math.max(st.birdVy, Math.min(4, st.birdVy + 2 * CLIMB_ACCEL * frameDt,
-          Math.sqrt(2 * CLIMB_ACCEL * 0.8 * Math.max(0, st.cruise - st.birdY)))); // (braking in time to level off over it)
-        y = st.birdY;
-      }
-      const perched = def.move === 'tree' || (def.move === 'fly' && !a.birdGround && !flying && inside && !!w.tree[i]);
-      if (perched && st.canopyY != null && !returning) {
-        const gap = y - st.canopyY;
-        st.canopyY += gap * Math.min(1, k * 0.9);
-        if (a.state !== 'idle') y = st.canopyY + Math.min(0.12, Math.abs(y - st.canopyY) * 0.3); // (a hop only when it's actually moving)
-        else y = st.canopyY;
-      } else st.canopyY = perched ? y : null;
-      // face the way it's moving, and blend between standing, walking and flying
-      const dx = a.x - st.px, dz = a.y - st.py, yaw0 = st.yaw, gait0 = st.gait;
-      const moving = a.state !== 'idle' && (dx * dx + dz * dz > 1e-7 || flying);
-      // Intentional heading wins over small spacing corrections, which mustn't turn a resting
-      // animal sideways. Drink direction also updates while it is standing still.
-      const heading = a.drinkT > 0 && a.drinkAt ? a.orientation : a.hd ?? a.orientation;
-      if (heading != null) st.yaw = lerpAngle(st.yaw, -heading, Math.min(1, k * 1.6));
-      else if (dx * dx + dz * dz > 1e-6) st.yaw = lerpAngle(st.yaw, Math.atan2(-dz, dx), Math.min(1, k * 1.6));
-      // a swimmer that bends (the shark) curves into its turns: the tail swings to the inside
-      if (mo.bend) {
-        let dy = st.yaw - yaw0; dy -= Math.round(dy / (Math.PI * 2)) * Math.PI * 2;
-        const rate = dy / Math.max(1e-3, time - (st.t ?? time - 0.016));
-        st.bend = (st.bend || 0) + (clamp(-rate * 0.45, -1, 1) - (st.bend || 0)) * Math.min(1, k * 0.8);
-      }
-      st.t = time;
-      st.px = a.x; st.py = a.y;
-      // a longer stride at a sprint, a shorter one at a creep
-      // (standing but nudged over by a neighbour: a little shuffle of the feet, not a glide)
-      const shuffle = !moving && !flying && a.state === 'idle' && dx * dx + dz * dz > 1e-8;
-      // (and the legs keep pace with the ground it covers: held up by a trunk or the one in front,
-      // it shortens its step and slows its legs instead of striding on the spot: stride.js)
-      const walker = !flying && !mo.primate && !mo.swims && !swimming && !def.reef && (def.move === 'ground' || def.move === 'semi');
-      const clock = returning ? 0 : a.phase - (st.legClock ?? a.phase);
-      st.legClock = a.phase;
-      const stride = walker && game.speed > 0 ? strideFollowsGround(st, def, Math.sqrt(dx * dx + dz * dz), clock, k) : null;
-      if (walker) st.legPhase = (st.legPhase ?? a.phase * Math.PI) + Math.max(0, Math.min(3, clock)) * Math.PI * (moving && stride ? stride.rate : 1);
-      st.gait += ((moving ? Math.min(1.35, 0.55 + 0.45 * (a.run || 1)) * (stride ? Math.max(0.3, stride.width) : 1) : shuffle ? 0.35 : 0) - st.gait) * k;
-      const bathing = a.bird?.kind === 'bathe', preening = a.bird?.kind === 'preen';
-      const birdWings = bathing ? 0.16 + Math.abs(Math.sin(a.phase * 1.7)) * 0.2 : preening ? 0.08 : 0;
-      st.fly += ((flying ? 1 : birdWings) - st.fly) * k * 1.5;
-      // heads down to graze, and for everyone drinking at the water's edge or feeding at a kill;
-      // low while stalking, sniffing at a neighbour or locking horns, up when something's wrong
-      const aligned = heading == null || Math.cos(st.yaw + heading) > 0.95;
-      const stalking = a.state === 'hunt' && a.hunt?.phase === 'creep';
-      const fight = this.bout(game, a, st, time);
-      const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
-      const birdHead = a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
-        : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
-      const head = swimming ? 0 : a.cache && a.move === 'ground' && !moving ? (Math.sin(time * 7 + a.id) > -0.3 ? 1 : 0.5) : fight ? fight.head : bugling ? -0.75 : a.state === 'feed' || a.state === 'forage' && a.forage?.food !== 'cleaned' ? 1 : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
-        : !moving && (a.drinkT > 0 ? aligned : (GRAZERS.has(kind) && !a.headUp && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
-      st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
-      if (fight) st.gait += (fight.gait - st.gait) * k;
-      // stalking cats sink low to the ground
-      st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
-      if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
-      let ax = a.x + (fight?.dx || 0), az = a.y + (fight?.dz || 0);
-      st.trunk = cling?.trunk ?? null; // (the trunk it clings to, which the tracking lens keeps: focus.js)
-      if (cling) {
-        // upright against the bark, facing it, the head hammering in bursts
-        ax = cling.x; az = cling.z;
-        st.yaw = lerpAngle(st.yaw, cling.yaw, Math.min(1, k * 3));
-        st.pitch = (st.pitch || 0) + (1.2 - (st.pitch || 0)) * Math.min(1, k * 2);
-        st.graze = Math.sin(time * 0.9 + a.id * 2.1) > 0.1 ? (Math.sin(time * 26 + a.id) > 0 ? 0.9 : 0.15) : 0.3;
-      } else {
-        if (snagTop) [ax, az] = snagTop;
-        if (def.move === 'fly' && st.pitch) st.pitch += (0 - st.pitch) * Math.min(1, k * 2);
-      }
-      // (a bird letting go of a trunk or a snag's top, or landing on one, swoops between the bark
-      // and where it flies rather than jumping there: the gap fades over about half a second)
-      if (def.move === 'fly' && !def.reef) {
-        const anchor = cling ? 1 : snagTop ? 2 : 0;
-        if (!returning && st.anchor != null && anchor !== st.anchor && st.drawnX != null) { st.offX = (st.offX || 0) + st.drawnX - ax; st.offZ = (st.offZ || 0) + st.drawnZ - az; }
-        if (returning) st.offX = st.offZ = 0;
-        st.anchor = anchor;
-        if (st.offX || st.offZ) {
-          const fade = Math.exp(-frameDt * 6); st.offX *= fade; st.offZ *= fade;
-          if (Math.abs(st.offX) + Math.abs(st.offZ) < 1e-3) st.offX = st.offZ = 0;
-          ax += st.offX; az += st.offZ;
-        }
-        st.drawnX = ax; st.drawnZ = az;
-      }
-      // A humphead wrasse eating a crown-of-thorns starfish turns to it, tips nose-down and puts its
-      // mouth on it, rocking as it bites (the meal is on the starfish's tile; this finds the mouth a spot).
-      const munch = def.reef && a.state === 'forage' && a.forage?.food === 'starfish' && w.shrub[a.forage.i] ? a.forage.i : -1;
-      st.munch = (st.munch || 0) + ((munch >= 0 ? 1 : 0) - (st.munch || 0)) * Math.min(1, k * 0.8);
-      if (munch >= 0) st.munchAt = climberSpot(w, game.catalog, munch, (x, z) => w.heightAt(x, z) * LEVEL);
-      if (st.munchAt && st.munch > 0.01 && !returning) {
-        const [mx, my, mz] = st.munchAt, m = st.munch;
-        if (munch >= 0) st.yaw = lerpAngle(st.yaw, Math.atan2(-(mz - a.y), mx - a.x), Math.min(1, k * 1.6));
-        const tilt = 0.55 + Math.sin(time * 2.6 + a.id) * 0.12, nose = F.noseReach(def) * sc;
-        const reach = nose * Math.cos(tilt), cx = mx - Math.cos(st.yaw) * reach, cz = mz + Math.sin(st.yaw) * reach;
-        ax += (cx - ax) * m; az += (cz - az) * m; y += (my + nose * Math.sin(tilt) + 0.01 - y) * m;
-        st.pitch = -tilt * m;
-      } else if (st.munchAt) { st.munchAt = null; st.munch = 0; st.pitch = 0; }
-      // The bird being tracked, perched in a tree, sits on one of its real limbs (see bird-perch.js);
-      // the others keep their place in the crown. Moving onto a limb, off it (selected or let go,
-      // or taking off) or between limbs, the jump fades out over a moment as an offset, so the
-      // drawn bird never trails behind one that's flying away.
-      const tracked = a === this.followAgent || a === game.selectedAgent;
-      const spot = perchSite && tracked ? perchPoint(perchSite, a.x, a.y, this.perchGoal, st.limbSite === perchSite ? st.limbSpot : -1) : -1;
-      const onLimb = spot >= 0;
-      st.limbSite = onLimb ? perchSite : null; st.limbSpot = spot; // (it keeps its limb until it leaves the tree)
-      if (onLimb) { ax = this.perchGoal.x; az = this.perchGoal.z; y = this.perchGoal.y; }
-      if (st.sc != null && !returning && (onLimb !== !!st.onLimb || onLimb && st.limbAt.distanceToSquared(this.perchGoal) > 1e-4))
-        (st.perchOffset ||= new THREE.Vector3()).set(st.x - ax, st.y - y, st.z - az);
-      else if (returning) st.perchOffset?.set(0, 0, 0);
-      st.onLimb = onLimb;
-      if (onLimb) (st.limbAt ||= new THREE.Vector3()).copy(this.perchGoal);
-      const off = st.perchOffset;
-      if (off && off.lengthSq() > 1e-6) { ax += off.x; y += off.y; az += off.z; off.multiplyScalar(1 - Math.min(1, k * 1.2)); }
-      if (onLimb && tracked) this.perchBough.show(perchSite, spot, this.perchGoal); // (a conifer's bough under it: bird-perch.js)
-      // (the focus window opens everything in front of the bird being tracked: keep the snag it's on solid, as a tree's wood is)
-      if (snagTop && tracked) { const site = this.snagSite(w, Math.floor(snagTop[0]), Math.floor(snagTop[1])); if (site) canopySites.add(site); }
-      if (onLimb) {
-        st.canopyY = y;
-        // (the focus window opens the whole tree in front of it: keep the limb it sits on solid, as for a climber)
-        if (this.flora.treeSites.get(perchSite.tile) === perchSite) canopySites.add(perchSite);
-      }
-      let branchPitch = 0, branchRoll = 0, branchYaw = 0;
-      if (def.move === 'tree') {
-        let site = this.flora?.treeSites.get(ci());
-        const requestedSite = site;
-        const supportsValid = !this.flora || rebaseCanopy(st, this.flora);
-        const deliberateTransfer = mo.primate === 1 || mo.primate === 2 || mo.primate === 3;
-        if (game.speed > 0 && supportsValid && !returning && mo.primate === 2 && st.canopyWait > 1 && st.branchRoute &&
-            Math.hypot(st.branchPoint.x - a.x, st.branchPoint.z - a.y) > 1.8 &&
-            (st.branchRoute.recovery || st.branchRoute.fromSite !== st.branchRoute.target.site)) {
-          recoverCanopyRoute(st, source => {
-            const [cx, cz] = source.cell, alternatives = [];
-            for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
-              if (!dx && !dz) continue;
-              const neighbor = this.flora.treeSites.get(canopyTile(w, game.border, cx + dx, cz + dz));
-              if (!neighbor) continue;
-              const next = neighbor.anchor(clamp(a.x, cx + dx + .1, cx + dx + .9), clamp(a.y, cz + dz + .1, cz + dz + .9),
-                null, mo.len * sc * .34, false, { motion: mo, scale: sc });
-              if (next) alternatives.push(next);
-            }
-            return alternatives;
-          }, def, time, { x: a.x, z: a.y });
-          st.canopyWait = 0;
-        }
-        const planned = deliberateTransfer && supportsValid && !returning && st.branchRoute && !st.branchRoute.blocked ? st.branchRoute.target : null;
-        if (site && planned) site = planned.site;
-        else if (site && deliberateTransfer && supportsValid && !returning && st.branchAt?.site.cell && site.cell) {
-          const [x, z] = st.branchAt.site.cell;
-          if (Math.max(Math.abs(site.cell[0] - x), Math.abs(site.cell[1] - z)) > 1) {
-            // At fast game speeds the simulation can pass several trees while
-            // a drawn catch finishes. Follow adjacent real supports in turn,
-            // instead of requesting a distant jump and resetting onto it.
-            let next = null, best = Infinity;
-            for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
-              if (!dx && !dz) continue;
-              const neighbor = this.flora.treeSites.get(canopyTile(w, game.border, x + dx, z + dz));
-              if (!neighbor) continue;
-              const distance = (x + dx + .5 - a.x) ** 2 + (z + dz + .5 - a.y) ** 2;
-              if (distance < best) { best = distance; next = neighbor; }
-            }
-            if (next) site = next;
-          }
-        }
-        const intermediate = site !== requestedSite && site?.cell;
-        const x = intermediate ? clamp(a.x, site.cell[0] + .1, site.cell[0] + .9) : a.x;
-        const z = intermediate ? clamp(a.y, site.cell[1] + .1, site.cell[1] + .9) : a.y;
-        const anchor = site && planned ? planned : site?.anchor(x, z, returning ? null : st.branch, mo.len * sc * (mo.canopyHanging ? .48 : .34), mo.primate === 3 || mo.canopyHanging, mo.primate || mo.canopyFeet ? { motion: mo, scale: sc } : null);
-        st.branch = anchor ?? null;
-        if (anchor) {
-          canopySites.add(site);
-          st.sc = sc;
-          const invalidRoute = !supportsValid;
-          const firstHold = !st.branchPoint;
-          if (firstHold || returning || invalidRoute) {
-            st.canopyQuaternion = null; st.canopyGoal = null; st.gripFeet = null; st.canopyReverse = false; st.slothBridge = null;
-            st.canopyProgress = null; st.canopyProgressPose = null; st.canopyWait = 0; st.canopyAvoid = null; st.canopyTrail = null; st.canopyBack = 0;
-          }
-          const previousWeight = mo.canopyWalkerMotion ? st.howlerBody?.clone() : null;
-          const motion = canopyStep(st, anchor, def, game, time, returning || invalidRoute, { x: a.x, z: a.y });
-          // (only while crossing a gap the leap can't clear: see canopyStep)
-          st.walkerClassicTransfer=!!motion.journey&&motion.journey.gap>=1&&!motion.journey.walkerJumpClear&&motion.journey.cursor===motion.journey.gap;
-          const walkerMotion=mo.canopyWalkerMotion&&!st.walkerClassicTransfer;
-          if(mo.canopyWalkerMotion && st.walkerClassicTransfer) {
-            st.howlerBody?.set(0,0,0);st.howlerFinalPose=null;st.howlerForkTurn=false;
-          }
-          if (walkerMotion) {
-            howlerWeight(st, mo, motion.dt, game.speed, firstHold || returning || invalidRoute);
-            // Walking on after a jump is straight branch travel, not a fork turn:
-            // keep the alternating hand/foot sequence instead of paired swings.
-            const afterJump=motion.journey?.gap>=1 && motion.journey.cursor>motion.journey.gap;
-            // Approaching a crossing keeps the paired fork handling its timing is tuned for. Just
-            // landed with a pair unsupported, it re-plants that pair, once and for at most 0.6 s
-            // (paired steps themselves leave a pair lifted, so waiting for both to be planted kept
-            // whole trunk climbs in paired steps). After that, limbs pair only where the walker
-            // turns: a bend just ahead, or a body facing well away from its way on (backwards counts
-            // as aligned, for backing down a trunk; a climbing body sits about .4 off its line).
-            const facing=st.canopyQuaternion&&new THREE.Vector3(1,0,0).applyQuaternion(st.canopyQuaternion);
-            const away=facing&&motion.heading.lengthSq()>1e-10 ? Math.acos(Math.min(1,Math.abs(facing.dot(motion.heading.clone().normalize())))) : 0;
-            const turning=motion.bend>(st.howlerForkTurn?.35:.5)||away>(st.howlerForkTurn?.7:.9);
-            const journey=motion.journey,pairsHeld=st.gripFeet&&st.gripFeet.slice(0,2).some(f=>!f.free&&!f.from)&&st.gripFeet.slice(2).some(f=>!f.free&&!f.from);
-            if(journey&&!afterJump)st.howlerForkTurn=true;
-            else if(afterJump && !journey.regrouped && !pairsHeld && (journey.regroupTime=(journey.regroupTime||0)+motion.dt)<.6) {
-              st.howlerForkTurn=true;st.howlerRegrouping=true;
-            } else if(afterJump&&st.howlerRegrouping) {st.howlerForkTurn=false;st.howlerRegrouping=false;journey.regrouped=true;}
-            else if(afterJump) {journey.regrouped=true;st.howlerForkTurn=turning;}
-            if (game.speed>0)limitHowlerWeight(st, mo, motion.before, st.canopyLeap?.lift || 0, previousWeight,
-              new Set([site, st.branchAt?.site, st.branchRoute?.fromSite, st.branchRoute?.target.site]));
-          }
-          if (mo.canopyHanging) slothBridge(st, this.flora, mo.len * sc);
-          const route = st.branchRoute;
-          if (route && this.flora.treeSites.get(route.fromSite.tile) === route.fromSite) canopySites.add(route.fromSite);
-          const steering = game.speed > 0 && motion.heading.lengthSq() > 1e-8;
-          const settlePose = (mo.primate !== 2 && mo.primate !== 3) || steering || st.canopyBack > 0 || (mo.primate === 3 && gait0 > .01) || firstHold || returning || invalidRoute;
-          const dir = steering ? motion.heading : (st.branchAt || anchor).direction;
-          let yaw = Math.atan2(-dir.z, dir.x), sign = 1;
-          // Orangutans back down a steep main limb with the head uphill.
-          // Turning headfirst swings their long torso into neighbouring forks.
-          // Walker monkeys back down a steep trunk the same way (see canopyStep).
-          if (mo.primate === 2 || mo.canopyWalkerMotion && !st.walkerClassicTransfer) {
-            if (st.canopyReverse) { yaw += Math.PI; sign = -1; }
-          }
-          if (!steering && Math.cos(yaw - yaw0) < 0) { yaw += Math.PI; sign = -1; }
-          st.yaw = returning || firstHold ? yaw : steering ? lerpAngle(yaw0, yaw, Math.min(1, k * (kind === 'orangutan' ? .7 : 1.2))) : yaw0;
-          // Follow a steep main limb with the whole body rather than holding a
-          // nearly level torso through it. Rotate around the actual hold.
-          const pitchLimit = mo.primate === 1 || mo.primate === 2 || mo.canopyHanging ? 1.2 : .35;
-          const pitch = mo.primate === 3 ? 0 : clamp(Math.atan2(dir.y * sign, Math.hypot(dir.x, dir.z)), -pitchLimit, pitchLimit);
-          if (settlePose && (game.speed > 0 || firstHold || returning)) st.branchSlope = firstHold || returning ? pitch
-            : (st.branchSlope || 0) + (pitch - (st.branchSlope || 0)) * Math.min(1, k * 2.4);
-          branchPitch = st.branchPitch || 0;
-          if (settlePose && (game.speed > 0 || firstHold || returning)) {
-            const supportSites = new Set([site, st.branchAt?.site, route?.fromSite, route?.target.site]);
-            for (const supportSite of supportSites) if (supportSite) canopySites.add(supportSite);
-            const profile=st.walkerClassicTransfer&&mo.canopyWalkerMotion ? (mo.trunkClamber ||= {...mo,canopyWalkerMotion:false}) : mo;
-            const lean = canopyLean(st, profile, supportSites, st.branchSlope || 0, mo.primate === 3 ? gait0 : st.gait,
-              a.fruitMeal ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0, motion.dt, motion.before, motion);
-            settleCanopyStep(st, motion);
-            // A blocked step can be rolled back onto the gap (or off it): the grips and pose
-            // must follow where the body actually is.
-            const settled = st.branchRoute;
-            st.walkerClassicTransfer = !!settled && settled.gap >= 1 && !settled.walkerJumpClear && settled.cursor === settled.gap;
-            st.branchRoll = lean.roll; st.branchPitch = lean.pitch; st.branchYaw = lean.yaw; branchPitch = lean.pitch;
-          }
-          if (walkerMotion && steering) st.howlerBacking = motion.heading.dot(new THREE.Vector3(1,0,0).applyQuaternion(st.canopyQuaternion)) < 0;
-          if (walkerMotion && game.speed > 0) limitHowlerWeight(st, mo, st.branchPoint, st.canopyLeap?.lift || 0, previousWeight,
-            new Set([site, st.branchAt?.site, st.branchRoute?.fromSite, st.branchRoute?.target.site]));
-          if (mo.canopyWalkerMotion) {
-            const final=st.howlerFinalPose,matching=final&&final.site===anchor.site&&final.index===anchor.index&&final.point.distanceTo(anchor.point)<.004;
-            st.howlerResting = !st.branchRoute && st.branchPoint.distanceTo(anchor.point)<.004 &&
-              (!st.canopyGoal || st.canopyQuaternion.angleTo(st.canopyGoal)<.015) && (!matching || st.canopyQuaternion.angleTo(final.pose)<.015);
-          }
-          if (mo.canopyWalkerMotion && st.howlerResting && st.gripFeet?.slice(0,2).some(f=>!f.free&&!f.from) && st.gripFeet.slice(2).some(f=>!f.free&&!f.from)) st.howlerForkTurn=false;
-          if (game.speed > 0 && mo.primate === 2) {
-            // A deliberate turn is progress too. Watch the accepted body,
-            // rather than the simulation agent or a repeatedly replanned route.
-            // The turn into a crossing pose eases off as it closes in, so its last
-            // tenth of a radian turns too slowly to count by angle: count it while
-            // the remaining turn keeps halving, or the climb is abandoned just short of it.
-            const remaining = st.canopyGoal ? st.canopyQuaternion.angleTo(st.canopyGoal) : 0;
-            if (!st.branchRoute || !st.canopyProgress || st.branchPoint.distanceTo(st.canopyProgress) > .02 || st.canopyQuaternion.angleTo(st.canopyProgressPose) > .15 ||
-                remaining > .004 && remaining < st.canopyProgressTurn * .5) {
-              st.canopyProgress = st.branchPoint.clone(); st.canopyProgressPose = st.canopyQuaternion.clone(); st.canopyProgressTurn = remaining; st.canopyWait = 0;
-            } else st.canopyWait = (st.canopyWait || 0) + motion.dt;
-          }
-          st.gait = game.speed > 0 ? gait0 + (motion.gait - gait0) * Math.min(1, k * (mo.primate === 3 ? .35 : 2)) : gait0;
-          branchRoll = st.branchRoll || 0;
-          branchYaw = st.branchYaw || 0;
-          // Hanging apes attach by the supporting hand; branch walkers use feet.
-          this.holdOffset.set(mo.gripX || 0, mo.supportY || 0, mo.gripZ || 0).multiplyScalar(sc)
-            .applyQuaternion(canopyRotation(st.yaw + branchYaw, branchPitch, branchRoll, this.holdRotation));
-          ax = st.branchPoint.x - this.holdOffset.x; az = st.branchPoint.z - this.holdOffset.z;
-          y = st.branchPoint.y + motion.lift - this.holdOffset.y; st.canopyY = y;
-        } else { st.branchRoute = null; st.branchAt = null; st.branchPoint = null; st.slothBridge = null; }
-      } else st.branch = null;
-      // Climbing down off the last tree (often to leave the map) or back up into
-      // one, ease from the drawn body to the new position rather than jumping.
-      if (def.move === 'tree') {
-        if (st.onBranch !== undefined && !!st.branch !== st.onBranch && !returning) st.shiftOffset = { x: st.x - ax, y: st.y - y, z: st.z - az, time };
-        st.onBranch = !!st.branch;
-        if (returning) st.shiftOffset = null;
-        else if (st.shiftOffset) {
-          const o = st.shiftOffset, step = Math.max(0, Math.min(.1, time - o.time));
-          let fade = game.speed > 0 ? Math.exp(-6 * step) : 1;
-          if (mo.primate === 2) {
-            // A delayed climb must not become a dash when leaving the wood.
-            const distance = Math.hypot(o.x, o.y, o.z);
-            fade = Math.max(fade, 1 - step * mo.len * sc * 3 / Math.max(distance, 1e-9));
-          }
-          o.time = time; o.x *= fade; o.y *= fade; o.z *= fade;
-          ax += o.x; y += o.y; az += o.z;
-          if (Math.hypot(o.x, o.y, o.z) < .002) st.shiftOffset = null;
-        }
-      }
-      if (st.branch && mo.canopyWalkerMotion && !st.walkerClassicTransfer) {
-        this.holdOffset.copy(st.howlerBody).multiplyScalar(sc).applyQuaternion(st.canopyQuaternion);
-        ax += this.holdOffset.x; y += this.holdOffset.y; az += this.holdOffset.z;
-      }
-      const eating = mo.primate && a.state === 'primate' && a.fruitMeal;
-      const eatPose = eating ? Math.min(1, a.fruitMeal.elapsed / .6) * (.8 + .2 * Math.sin(a.fruitMeal.elapsed * 5)) : 0;
-      if (mo.primate === 2 && !st.branch) {
-        const step = Math.max(0, Math.min(.1, time - (st.groundTime ?? time)));
-        if (game.speed === 0) st.yaw = yaw0;
-        else if (!returning) {
-          const turn = st.yaw - yaw0 - Math.round((st.yaw - yaw0) / (2 * Math.PI)) * 2 * Math.PI;
-          st.yaw = yaw0 + clamp(turn, -step, step);
-          const travelled = Math.hypot(ax - st.x, az - st.z);
-          st.branchPhase = (st.branchPhase || 0) + Math.min(travelled / Math.max(.06, mo.len * sc * .65) * Math.PI * 2, step * ORANGUTAN_CADENCE);
-        }
-      }
-      st.groundTime = time;
-      // A swimmer's tail beats once for every SWIM_STRIDE body lengths it covers, as a real fish's
-      // does, so its body wave travels back a little faster than it swims, whatever its size or speed.
-      // Hovering, it sculls slowly on the simulation's clock (a.phase). (Its wave runs at 1.4 times
-      // the phase: uWave in animals/animal-material.js.)
-      if (mo.swims) {
-        const beat = Math.min(0.5, Math.hypot(dx, dz)) / (SWIM_STRIDE * mo.len * sc) * Math.PI * 2 / 1.4;
-        const scull = Math.max(0, a.phase - (st.simPhase ?? a.phase)) * Math.PI * 0.4;
-        st.swimPhase = ((st.swimPhase ?? a.id * 2.3) + Math.max(beat, scull)) % (Math.PI * 200); st.simPhase = a.phase;
-      }
-      const phase = mo.primate === 2 || st.branch && (mo.primate || mo.canopyFeet) ? st.branchPhase || 0 : mo.swims ? st.swimPhase : walker && st.legPhase != null ? st.legPhase : a.phase * Math.PI;
-      if (eating) st.graze = 0;
-      // A crawling snake's bends advance by the distance it covers, so they stay put on the ground
-      // (one full bend per body length; see uSlither in animals/animal-material.js, which reads it from the fly slot).
-      if (mo.slither) st.slither = ((st.slither ?? a.id * 2.3) + Math.min(0.5, Math.hypot(dx, dz)) / (mo.slither.len * sc) * Math.PI * 2) % (Math.PI * 2);
-      let grips = null;
-      if (st.branch && mo.canopyFeet) {
-        st.sc = sc;
-        this.m.compose(this.holdOffset.set(ax, y, az), canopyRotation(st.yaw + branchYaw, branchPitch, branchRoll, this.holdRotation), this.swingBase.set(sc, sc, sc));
-        const route = st.branchRoute, sites = new Set([st.branch.site, st.branchAt?.site, route?.fromSite, route?.target.site]);
-        if (st.slothBridge) sites.add(st.slothBridge);
-        for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite])
-          if (site && (site.transient || this.flora.treeSites.get(site.tile) === site)) sites.add(site);
-        grips = canopyGrips(st, mo, sites, this.m, time, game.speed, returning);
-        for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite])
-          if (site && this.flora.treeSites.get(site.tile) === site) canopySites.add(site);
-      } else { st.gripFeet = null; st.gripTime = time; }
-      if (st.slothBridge) {
-        if (st.branchRoute === st.slothBridge.route || st.gripFeet?.some(foot => foot.site === st.slothBridge || foot.to?.canopySite === st.slothBridge)) bridges.add(st.slothBridge);
-        else st.slothBridge = null;
-      }
-      for (const foot of st.gripFeet || []) for (const site of [foot.site, foot.to?.canopySite]) if (site?.transient) bridges.add(site);
-      F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : (st.bank = (st.bank || 0) + ((a.bird?.kind === 'soar' ? a.bird.dir * SOAR_BANK : 0) - (st.bank || 0)) * k))), grips, a === this.followAgent || a === game.selectedAgent);
-      st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
-      // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
-      st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
-      st.foot = (def.sprite.len || def.sprite.size || 10) * sc;
-      st.x = ax; st.y = y; st.z = az; st.h = (def.sprite.h ? def.sprite.h + (def.sprite.leg || 0) : (def.sprite.size || def.sprite.len || 10) * 0.6) * sc;
-      st.tall = F.height(def) * sc; // (the model's real height, for eye level)
-      st.center ||= new THREE.Vector3();
-      st.center.copy(mo.center); st.center.y += st.bob;
-      if (mo.primate === 3) {
-        const swing = siamangSwing(phase, st.gait, eatPose);
-        st.center.sub(this.swingGrip.set(...swing.grip).multiplyScalar(mo.len)).applyAxisAngle(this.swingAxis, swing.sway).add(this.swingBase.set(.14, 1.38, .02).multiplyScalar(mo.len));
-      }
-      st.center.applyMatrix4(F.m); // same heading, pitch, scale and height as the instance
-      st.revealBounds = mo.revealBounds; // (the body's box, for the tracking lens: see focus.js)
-      if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
-      // (after the reads of F.m above, which must still hold this animal's own instance)
-      if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);
-      if (!st.branch && def.move !== 'swim' && !swimming && !((surf != null || fl != null) && FLOATERS.has(kind))) { // (no shadow afloat)
-        // (a shaped shadow fades and softens a little the higher the animal is above the ground)
-        const shape = (def.reef || def.move === 'fly') && this.silhouettes.shape(F, def, def.reef ? 0.5 : 0);
-        if (shape) this.silhouettes.add(shape, a.x, ground, a.y, st.yaw, sc * (1 + Math.min(1, Math.max(0, y - ground) * 0.06)), st.fly, Math.sin(phase * (mo.flap || 1)), clamp(1.1 - (y - ground) * 0.22, 0.4, 1));
-        else shadow(a.x, ground, a.y, (def.sprite.len || def.sprite.size || 10) * sc * (0.4 / 0.62) * (flying || def.reef ? 0.7 : 1));
-      }
+      const c = beginAnimal(this, fr, a);
+      if (!c) continue;
+      drawnHeight(this, c);
+      birdHeight(c);
+      canopyHeight(c);
+      munchTarget(c);
+      turnBody(c);
+      tailBend(c);
+      gait(c);
+      headPose(this, c);
+      huntPose(c);
+      snapPose(c);
+      stumblePose(c);
+      plungePose(c);
+      anchorPose(c);
+      munchPose(c);
+      perchLimb(this, c);
+      branchPose(this, c);
+      climbSupport(this, c);
+      tailBeat(c);
+      bodyPhase(c);
+      grips(this, c);
+      finishAnimal(this, c);
     }
     for (const id of this.pose.keys()) if (!seen.has(id)) this.pose.delete(id);
     for (const bridge of bridges) { canopySites.add(bridge.source); canopySites.add(bridge.target); }
@@ -825,7 +236,7 @@ export class Actors {
       let st = this.people.get(v.id);
       if (!st) { st = { yaw: 0, gait: 0, px: v.x, py: v.y }; this.people.set(v.id, st); }
       const dx = v.x - st.px, dz = v.y - st.py;
-      if (dx * dx + dz * dz > 1e-7) st.yaw = lerpAngle(st.yaw, Math.atan2(-dz, dx), Math.min(1, k * 1.6));
+      if (dx * dx + dz * dz > 1e-7) turnToward(st, Math.atan2(-dz, dx), TURN.body, k);
       st.px = v.x; st.py = v.y;
       st.gait += ((v.pause > 0 ? 0 : 1) - st.gait) * k;
       const onWet = w.inb(Math.floor(v.x), Math.floor(v.y)) && isWater(w.terrain[w.idx(Math.floor(v.x), Math.floor(v.y))]);

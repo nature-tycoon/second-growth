@@ -65,6 +65,8 @@ export function trackExit(event, props = {}) {
 let errorsSent = 0;
 const errorsSeen = new Set();
 function reportError(kind, message, where) {
+  // A harmless browser notice (layout settled over two frames), not a game error.
+  if (/^ResizeObserver loop/.test(String(message))) return;
   const key = `${message}|${where}`;
   if (errorsSent >= 5 || errorsSeen.has(key)) return;
   errorsSeen.add(key); errorsSent++;

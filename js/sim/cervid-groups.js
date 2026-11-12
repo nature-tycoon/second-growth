@@ -4,6 +4,7 @@ import { DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { isMaleVariant } from '../data/animals.js';
 import { passable } from './animal-terrain.js';
 import { followLeaderTrip } from './animal-trails.js';
+import { simRandom } from './sim-random.js';
 export const inRut = game => [6, 7, 8].includes(game.month);
 const adult = (a, d) => !a.juvenile && lifeAge(a) >= d.mature * DAYS_PER_YEAR;
 const male = (a, d) => adult(a, d) && isMaleVariant(d, a);
@@ -46,7 +47,7 @@ export function followCervid(wl, a, home, field = 'slot', radius = 1.5) {
     return true;
   }
   if (!a[field]) {
-    const angle = Math.random() * Math.PI * 2, r = radius * (0.6 + Math.random());
+    const angle = simRandom() * Math.PI * 2, r = radius * (0.6 + simRandom());
     a[field] = [Math.cos(angle) * r, Math.sin(angle) * r];
   }
   const tx = home[0] + a[field][0], ty = home[1] + a[field][1], d = Math.hypot(a.x - tx, a.y - ty);
@@ -54,7 +55,7 @@ export function followCervid(wl, a, home, field = 'slot', radius = 1.5) {
   a.trip = null;
   if (d < radius || settled && d < radius + 1) {
     a.familyRetryUntil = null;
-    a.familySettled = field; a.follow = false; a.wait = 2 + Math.random() * 3;
+    a.familySettled = field; a.follow = false; a.wait = 2 + simRandom() * 3;
     return true;
   }
   a.familySettled = null;
@@ -66,7 +67,7 @@ export function followCervid(wl, a, home, field = 'slot', radius = 1.5) {
   }
   // If the tile grid cannot improve a near-enough position, graze here. A
   // genuinely blocked route eventually releases the group, rather than pacing.
-  a.follow = false; a.wait = 2 + Math.random() * 2;
+  a.follow = false; a.wait = 2 + simRandom() * 2;
   // A blocked calf/harem member still belongs to its family. The distance-based
   // wake-up must respect this wait, rather than repeating a BFS every substep.
   a.familyRetryUntil = a.age + a.wait;
@@ -82,7 +83,7 @@ export function keepCervidGroup(wl, a, def) {
   if (loose && !a[field]) {
     // Loose feeding companions occupy different sides of the group, even when
     // they arrived in a line. Settling tolerance stays smaller than the spread.
-    const angle = a.id * 2.39996, r = def.bachelorR + Math.random() * 2;
+    const angle = a.id * 2.39996, r = def.bachelorR + simRandom() * 2;
     a[field] = [Math.cos(angle) * r, Math.sin(angle) * r];
   }
   if (!loose && followLeaderTrip(wl, a, lead)) return true; // (single file behind the leader on its trip)

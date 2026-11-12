@@ -47,6 +47,7 @@ const $ = sel => document.querySelector(sel);
 // A phone or tablet (no mouse), and a screen too short for the full layout.
 const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 const COMPACT = () => innerHeight <= 520;
+const STORY_OFFERED = 'sg-story-offered'; // (offered once per device, after the first Free Play goal)
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const pct = v => Math.round(v * 100) + '%';
 // Only touch the page when something actually changed: every write is a DOM mutation, and the
@@ -136,6 +137,10 @@ export class UI {
     game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
     game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
+    // the first goal's follow-up ("watch it grow"), once its grant has had a moment on screen
+    game.on('goal', goal => { if (goal.done) setTimeout(() => this.firstGoalNote(goal), 6000); });
+    // a chapter objective ticked: say so where the eye is, not only in the folded tracker
+    game.on('objective', ({ objective }) => { this.toast({ text: `Objective done: ${objective.desc}`, kind: 'goal', date: game.dateString() }); this.renderQuest(true); });
     game.on('month', () => {
       if (this.state.cat !== 'inspect') this.renderToolPanel();
       this.refreshWildlifeGuide?.();
@@ -709,8 +714,11 @@ export class UI {
   // What an animal is doing, in a few words (the inspector's Status line, and watch mode's caption).
   agentStatus(a, def = animalDef(a, this.game.catalog)) {
     const hunt = { creep: 'Stalking prey', rush: 'Chasing prey', circle: 'Circling over prey', ease: 'Giving up the chase' }[a.hunt?.phase] || 'Hunting';
-    const birdStatus = { trunk: 'Pecking at a tree trunk', forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', rest: 'Resting', soar: a.bird?.carcass != null ? 'Circling down to a carcass' : 'Soaring over open ground' }[a.bird?.kind];
-    const fishStatus = a.fishing?.phase === 'dive' ? (def.behavior.fishing?.style === 'plunge' ? 'Diving for a fish' : 'Swooping on a fish')
+    const birdStatus = { trunk: 'Pecking at a tree trunk', forage: 'Pecking for food', perch: 'Resting on a perch', preen: 'Preening feathers', bathe: 'Bathing at the water’s edge', nest: 'Visiting a nest site', fruit: 'Eating fruit in a treetop', rest: 'Resting', soar: a.bird?.carcass != null ? 'Circling down to a carcass' : 'Soaring over open ground' }[a.bird?.kind];
+    const fishStyle = def.behavior.fishing?.style;
+    const fishStatus = a.fishing?.phase === 'dive' ? (fishStyle === 'plunge' || fishStyle === 'dive' ? 'Diving for a fish' : fishStyle === 'dip' ? 'Dipping at the surface for a fish' : 'Swooping on a fish')
+      : a.fishing?.phase === 'under' ? 'Under the water after a fish' : a.fishing?.phase === 'surface' ? 'Surfaced empty-billed' : a.fishing?.phase === 'touch' ? 'Snatching at the surface'
+      : a.fishing?.phase === 'rise' ? 'Rising from the water' : fishStyle === 'dive' && a.fishing?.phase === 'watch' ? 'Watching the sea for fish from high up'
       : a.fishing?.phase === 'go' ? 'Heading out to fish' : def.move === 'fly' ? 'Watching the water for fish' : 'Fishing';
     const grouped = def.familyHerd && (a.herdOf != null && a.herdOf !== a.id || this.game.wildlife.agents.some(c => c !== a && (c.herdOf === a.id || c.mom === a.id)));
     const familyStatus = a.mom != null ? (a.follow ? 'Following mother' : 'With a family herd') : grouped ? (isMaleVariant(def, a) ? 'With a bachelor group' : 'With a family herd') : null;
@@ -829,8 +837,9 @@ export class UI {
     if (settings.notifications === 'important' && (n.kind === 'info' || n.kind === 'season') && !n.loc) return;
     const box = $('#toasts');
     const icon = { good: 'good', warn: 'warn', discover: 'star', goal: 'star', season: 'leaf', info: 'info', fire: 'fire', flood: 'rain' }[n.kind] || 'info';
-    const t = el('div', `toast ${n.kind}` + (n.loc ? ' clickable' : ''), `<span class="ti">${ICONS[icon]}</span><span class="toast-text">${n.text}</span><button type="button" class="notice-close" aria-label="Dismiss notification" title="Dismiss notification">×</button>`);
+    const t = el('div', `toast ${n.kind}` + (n.loc ? ' clickable' : ''), `<span class="ti">${ICONS[icon]}</span><span class="toast-text">${n.text}</span>${n.action ? `<button type="button" class="btn toast-act">${n.action.label}</button>` : ''}<button type="button" class="notice-close" aria-label="Dismiss notification" title="Dismiss notification">×</button>`);
     t.querySelector('.notice-close').addEventListener('click', e => { e.stopPropagation(); t.remove(); });
+    t.querySelector('.toast-act')?.addEventListener('click', e => { e.stopPropagation(); t.remove(); n.action.run(); });
     if (n.loc) t.addEventListener('click', () => {
       this.follow = null;
       const lx = n.loc.x ?? 0, ly = n.loc.y ?? 0;
@@ -850,7 +859,7 @@ export class UI {
       const kids = [...box.children], routine = kids.slice(1).reverse().find(c => /\b(info|season|good)\b/.test(c.className));
       (routine || box.lastChild).remove();
     }
-    const life = n.kind === 'discover' || n.kind === 'goal' || n.kind === 'fire' || n.kind === 'flood' ? 10000 : n.kind === 'warn' ? 8000 : 5500;
+    const life = n.life || (n.kind === 'discover' || n.kind === 'goal' || n.kind === 'fire' || n.kind === 'flood' ? 10000 : n.kind === 'warn' ? 8000 : 5500);
     setTimeout(() => { t.classList.add('fade'); setTimeout(() => t.remove(), 600); }, life);
   }
 
@@ -964,8 +973,11 @@ export class UI {
     m.innerHTML = `<div class="modal-head"><h2>${title}</h2><button class="x" title="Close (Esc)"${dismissible ? '' : ' hidden'}>×</button></div><div class="modal-body">${bodyHTML}</div>` + (foot ? `<div class="modal-foot">${foot}</div>` : '');
     back.appendChild(m);
     root.appendChild(back);
+    const opened = performance.now(), panel = title.replace(/<[^>]+>/g, '');
     const close = (force = false) => {
       if (!dismissible && !force) return;
+      // how long a panel was read before closing it (the welcome, the mode choice, a chapter's story)
+      if (this.modalOpen && root.contains(m)) track('panel_closed', { panel, seconds: Math.round((performance.now() - opened) / 1000) });
       root.innerHTML = ''; this.modalOpen = false; if (onClose) onClose();
       // The initial selector requires an explicit Start/Continue action to close.
       if (this.startPause && !this.modalOpen) this.setSpeed(1);
@@ -1177,7 +1189,9 @@ export class UI {
       <button class="btn secondary" data-a="help">How to play</button>
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="backups">Restore an earlier save</button>
+      ${this.game.mode !== 'campaign' && this.game.catalog.definition.campaign ? '<button class="btn secondary" data-a="story">Story mode (guided chapters)</button>' : ''}
       <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
+    m.querySelector('[data-a=story]')?.addEventListener('click', () => { track('story_offer_taken', { map: this.game.map, from: 'menu' }); this.openModeChoice(true); });
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
     m.querySelector('[data-a=overlay]').addEventListener('click', () => this.openOverlayPicker());
     m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
@@ -1189,6 +1203,19 @@ export class UI {
     m.querySelector('[data-a=save]').addEventListener('click', event => this.saving.manualSave(event.currentTarget));
     m.querySelector('[data-a=backups]').addEventListener('click', () => this.openSaveRecovery());
     m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true));
+  }
+
+  // After the first goal: watch the seeds grow. In Free Play, the first time on this device, the
+  // same note offers the story (new players start in Free Play rather than at a mode choice).
+  firstGoalNote(goal) {
+    const g = this.game;
+    let offer = false;
+    if (g.mode === 'free' && g.catalog.definition.campaign) {
+      try { offer = !localStorage.getItem(STORY_OFFERED); localStorage.setItem(STORY_OFFERED, '1'); } catch { /* storage unavailable */ }
+    }
+    if (offer) track('story_offered', { map: g.map });
+    this.toast({ text: goal.done + (offer ? ' Want a guided start? Story mode teaches restoration one chapter at a time.' : ''), kind: 'tip', date: g.dateString(),
+      life: offer ? 16000 : 9000, action: offer ? { label: 'Story mode', run: () => { track('story_offer_taken', { map: g.map }); this.openModeChoice(true); } } : null });
   }
 
   openSaveRecovery() { return this.saving.openRecovery(); }
@@ -1450,7 +1477,7 @@ export class UI {
     track('map_switch', { from: this.game.map, to: pending.map, resume: !!pending.resume });
     location.reload();
   }
-  async startMode(mode, fresh, difficulty = 'standard', map = this.game.map, runSeed = Game.randomRunSeed()) {
+  async startMode(mode, fresh, difficulty = 'standard', map = this.game.map, runSeed = Game.randomRunSeed(), { firstVisit = false } = {}) {
     const g = this.game;
     if (map !== g.map) return this.switchMap({ map, mode, difficulty });
     if (fresh) {
@@ -1461,7 +1488,7 @@ export class UI {
       track('game_restart', this.snapshot()); g.newGame(1987, mode, difficulty, map, runSeed); // (the same land, a new run of weather and fire)
     }
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
-    track('game_start', { mode, fresh, difficulty, map });
+    track('game_start', { mode, fresh, difficulty, map, ...(firstVisit ? { first_visit: true } : {}) });
     this.newCats = new Set();
     this.afterNewGame();
     g.saveReady = true;
@@ -1470,6 +1497,8 @@ export class UI {
     if (g.speed === 0) this.setSpeed(1);
     if (mode === 'campaign') this.openChapter(0);
     else g.notify(this.game.catalog.definition.startText, 'season');
+    // a first visit starts without any panel to read, so say what to try first (kept up a while)
+    if (firstVisit) this.toast({ text: `Try it: open Plant, pick a seed mix and ${TOUCH ? 'drag a finger' : 'drag'} across a field. The brush turns green where seeds will grow.`, kind: 'tip', life: 16000, date: g.dateString() });
   }
 
   // A chapter's introduction: the story, what to do, the goals, and the tools it unlocks.
@@ -1534,7 +1563,7 @@ export class UI {
       (this.questOpen ? `<div class="q-body">${c.goals.map(o => { const ok = goalMet(g, o); return `<div class="q-goal ${ok ? 'ok' : ''}"><span class="q-box">${ok ? '✓' : ''}</span><span>${o.desc}<small>${o.prog(g)}</small></span></div>`; }).join('')}${hint ? `<p class="q-tip">${hint}</p>` : ''}<button class="q-help" aria-expanded="${helpOpen}" aria-controls="quest-help">${helpOpen ? 'Hide help' : 'Need help? Where and how'}</button>${helpOpen ? `<div id="quest-help" class="q-help-text">${c.teach}</div>` : ''}<button class="q-more">Chapter details</button></div>` : '');
     if (!setHTML(q, qhtml)) return; // unchanged: keep the existing nodes (and their listeners)
     q.querySelector('.q-head').addEventListener('click', () => { this.questOpen = !this.questOpen; this.renderQuest(true); });
-    q.querySelector('.q-help')?.addEventListener('click', () => { this.questHelpChapter = helpOpen ? null : c.key; this.renderQuest(true); });
+    q.querySelector('.q-help')?.addEventListener('click', () => { if (!helpOpen) track('quest_help', { chapter: k + 1, chapter_key: c.key, objectives_done: doneN }); this.questHelpChapter = helpOpen ? null : c.key; this.renderQuest(true); });
     q.querySelector('.q-more')?.addEventListener('click', () => this.openChapter(k, true));
   }
 

@@ -8,9 +8,10 @@ import { rottenLog, DECAY } from '../sim/plants.js';
 import { hash2, valueNoise } from '../rng.js';
 import * as G from './geometry.js';
 import * as Botanical from './botanical.js';
-import { flowerForm, grassForm } from '../plant-patterns.js';
+import { flowerForm, fruitForm, grassForm, treeBlossomForm } from '../plant-patterns.js';
 import { snowCrown } from './snow.js';
-import { farHull, farTrunk } from './far-models.js';
+import { farHull, farTrunk, farFronds } from './far-models.js';
+import { TreeImpostors } from './tree-impostors.js';
 import { waterSurfaceY } from './terrain.js';
 import { activeCatalog } from '../data/catalog.js';
 import { meadowPatch, patchColor } from './patches.js';
@@ -27,11 +28,48 @@ import { PlantPool, ChunkedPlantPool, floraVersion } from './plant-pools.js';
 import { trailMask } from '../sim/animal-trails.js';
 import { dryPoint, shrubSpot, trunkSpot, snagSpot, snagPose, logSpot } from '../sim/ground-obstacles.js';
 import { createPlantMaterials } from './plant-materials.js';
+const SPROUT_G = 0.3; // the smallest a groundcover seedling is drawn (see the groundcover tufts)
 
 // Preserve public imports used by existing rendering tools.
 export { floraVersion } from './plant-pools.js';
 export { windGust } from './plant-materials.js';
 
+// How big a tree's blossom heads are drawn: a puff or panicle is many tiny flowers, so it is drawn
+// as big as the whole cluster, or a tree in full bloom reads as bare from the play camera.
+const BLOSSOM_SIZE = { waterlily: 1.3, puff: 2, plume: 2, trumpet: 1.4, pendant: 1.2 };
+// How far a crown reaches out from its trunk, by direction and height (in the shape's own units),
+// measured once per shape from its leaves, so flowers and fruit sit on its real, lumpy surface
+// rather than float off an idealised oval. reach(a, y) is the farthest leaf in that slice, reach.top the highest.
+const REACH_A = 16, REACH_Y = 8;
+function crownReach(geo) {
+  const p = geo.attributes.position, bins = new Float32Array(REACH_A * REACH_Y);
+  let y0 = Infinity, y1 = -Infinity;
+  for (let i = 0; i < p.count; i++) { const y = p.getY(i); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const span = Math.max(y1 - y0, 1e-6);
+  const bin = (a, y) => {
+    const ai = ((Math.floor((a / (Math.PI * 2) + 1) * REACH_A) % REACH_A) + REACH_A) % REACH_A;
+    return Math.min(REACH_Y - 1, Math.max(0, Math.floor((y - y0) / span * REACH_Y))) * REACH_A + ai;
+  };
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), z = p.getZ(i), k = bin(Math.atan2(z, x), p.getY(i));
+    bins[k] = Math.max(bins[k], Math.hypot(x, z));
+  }
+  const reach = (a, y) => bins[bin(a, y)];
+  reach.top = y1; // (the crown's highest leaf)
+  // Points on the crown's outside for blossoms: on its upper half, facing up or out (reach.up), and
+  // round its lower edge, facing down, for flowers that hang (reach.down). On a real leaf, so a
+  // head never hovers over a dip between two lumps.
+  const n = geo.attributes.normal, up = [], down = [], seen = new Set();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), r = Math.hypot(x, z), out = r > 1e-6 ? (n.getX(i) * x + n.getZ(i) * z) / r : 0;
+    const key = `${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`; if (seen.has(key)) continue; seen.add(key);
+    const t = (y - y0) / span, rim = r >= reach(Math.atan2(z, x), y) * 0.8;
+    if (t > 0.45 && n.getY(i) + out * 0.6 > 0.45 && (rim || t > 0.8)) up.push(x, y, z);
+    else if (t < 0.45 && t > 0.1 && rim && n.getY(i) < 0.1) down.push(x, y, z);
+  }
+  reach.up = up; reach.down = down;
+  return reach;
+}
 const rgb = h => { const n = parseInt(h.slice(1), 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; };
 // A colony's colour morph (look.morphs, the reef's corals and sponges), the same colony keeping
 // its colour from one redraw to the next; any other plant keeps its own leaf colour.
@@ -52,6 +90,8 @@ export function leafColor(p, phase) {
 
 const STEM = { dogwood: '#b0302a', willow: '#c8923a' };
 const SPADIX = '#e4d48c'; // (a corpse flower's spadix, unless its look gives a head colour)
+const FROND_CROWNS = new Set(['palm', 'oilpalm', 'fanpalm', 'banana', 'cecropia']); // (tree shapes whose far crown is a star of leaves: far-models.js farFronds)
+const FAR_BUILT = new Set(['brain', 'tablecoral']); // (tree shapes whose builder makes its own far crown, lod 3: geometry/corals.js)
 const BLEACHED = [0.95, 0.94, 0.9]; // coral that has lost its algae: the white skeleton shows through
 // shrub looks with a geometry of their own; everything else is a generic leafy mound
 // Broadleaf shrubs drawn by growth habit rather than one shared mound (see G.shrub).
@@ -81,7 +121,9 @@ export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vi
   'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
 
 export class Flora {
-  constructor(scene, { chunkSize = 24, incremental = true, cullInstances = true, indexedGeometry = true, cullShadows = true, catalog = activeCatalog } = {}) {
+  // impostors: options for far crowns drawn as baked cards (tree-impostors.js; needs a renderer
+  // to bake them, Renderer.draw), or null for none (headless checks)
+  constructor(scene, { chunkSize = 24, incremental = true, cullInstances = true, indexedGeometry = true, cullShadows = true, catalog = activeCatalog, impostors = null } = {}) {
     this.catalog = catalog;
     this.scene = scene;
     this.cullInstances = cullInstances; this.plantView = new PlantView(scene);
@@ -91,6 +133,7 @@ export class Flora {
     this.editRegions = new Set();
     this.wind = { value: 0 };
     Object.assign(this, createPlantMaterials(this.wind));
+    this.impostors = impostors ? new TreeImpostors(this.wind, impostors) : null;
     this.treeSites = new Map(); this.canopyPools = new Map(); this.canopyVisible = new Set();
     this.pools = new Map();
     this.geos = new Map();
@@ -219,6 +262,17 @@ export class Flora {
     this.setZoom(this.zoom ?? 1, true);
   }
 
+  // Far crowns as baked cards (tree-impostors.js) on or off; off keeps the far models, for comparing.
+  setImpostors(on) {
+    if (!this.impostors || this.impostors.enabled === !!on) return;
+    this.impostors.enabled = !!on;
+    this.setZoom(this.zoom ?? 1, true);
+  }
+  // Bakes any new crowns' pictures, then shows their cards (a renderer's job: see Renderer.draw).
+  bakeImpostors(gl) {
+    if (this.impostors?.bake(gl)) this.setZoom(this.zoom ?? 1, true);
+  }
+
   // a tree climbers can use, remembered with the tile's plants
   site(i, s) { this.treeSites.set(i, s); if (this.rec) this.rec.site = s; }
 
@@ -262,6 +316,10 @@ export class Flora {
     for (const pool of this.canopyPools.values()) pool.setView(pool.lod, true, true);
     floraVersion.n++; this.plantShadows.floraVersion = -1; this.plantShadows.version++;
   }
+
+  // The occupied branches in view, drawn with a tracked animal through the leaves round it
+  // (look-through.js), so a climber is seen on its branch.
+  lookNear() { const out = []; for (const p of this.canopyPools.values()) if (p.mat === this.canopyBark && p.mesh?.visible && p.mesh.count) out.push(p.mesh); return out; }
 
   showCanopySites(sites) {
     if (sites.size === this.canopyVisible.size && [...sites].every(s => this.canopyVisible.has(s))) return;
@@ -390,6 +448,8 @@ export class Flora {
       }
 
       // ---- groundcover tufts
+      // (a fresh sowing, g 0.1, is drawn as a scatter of seedlings as large as at SPROUT_G, so a
+      // first stroke shows from the default zoom; growth itself is unchanged)
       if (gid) {
         const p = game.catalog.plants[gid];
         const g = inside ? w.groundG[i] : 1;
@@ -400,7 +460,7 @@ export class Flora {
         // (lush: on maps whose wildflower gardens are the payoff, a mature bed is drawn thick and full)
         const lush = game.catalog.definition.look.lush && (type === 'forb' || type === 'tallforb') && g >= 0.3;
         const titan = type === 'titan'; // (one to a tile, a little tree of a leaf, so drawn with the shrubs)
-        const n0 = titan ? 1 : lush ? (g < 0.65 ? 4 : 6) : g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 4); // a healthy sward fills its tile
+        const n0 = titan ? 1 : lush ? (g < 0.65 ? 4 : 6) : g < 0.3 ? 4 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 4); // a healthy sward fills its tile
         // meadow patches: thicker, taller and deeper green in some places, thinner and more golden in others
         const pt = meadowPatch(x + 0.5, y + 0.5), aquaticT = type === 'lily' || type === 'cattail' || type === 'tule';
         const n = Math.max(1, Math.round((aquaticT ? n0 : n0 * (0.6 + pt.lush * 0.8)) * (this.light ? 0.5 : 1)));
@@ -449,7 +509,7 @@ export class Flora {
           // Keep the plant opening aligned with the actual narrow track, not the whole tile.
           if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > TRAIL_OPENING) continue;
           if (inside && w.wallow[i]) { const [wx, wz, ws] = wallowSpot(w, x, y, i); if (Math.hypot(px - wx, pz - wz) < 0.32 * ws) continue; } // (nothing grows in a wallow's trodden mud)
-          const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
+          const sc = (0.35 + 0.6 * Math.max(g, SPROUT_G)) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
           // lily pads float on the water surface instead of sitting on the pond bed
           if (bankTile && !aquaticT && !grassyWet(type) && underWater(w, px, pz)) continue; // (dry-land groundcover doesn't grow in the creek)
           const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz) + (tussock && k % 3 !== 2 ? 0.035 * (0.6 + 0.4 * g) : 0);
@@ -518,23 +578,25 @@ export class Flora {
           let col = vary(morph(p, x, y, leafColor(p, phase)).map(c => c * dim), x, y, 8, 0.045);
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
-          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub', far: true }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
+          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub', far: G.FAR_SHRUBS.has(shape) ? () => G.shrub(shape, sseed, 3) : true }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
           if (!aquaticTile && !SEA_SHAPES.has(shape)) this.contactShadow(hAt, sx, sz, 0.34 * sc);
           // a giant clam's shells are pale and chalky, whatever colour its mantle is
-          if (shape === 'clam') this.pool(`clamshell:${v}`, () => G.clamShell(sseed), this.shrubs, { kind: 'shrub' }).add(sx, sy, sz, sc, sc, sc, rot, vary([0.86, 0.84, 0.76].map(c => c * dim), x, y, 10, 0.05));
+          if (shape === 'clam') this.pool(`clamshell:${v}`, () => G.clamShell(sseed), this.shrubs, { kind: 'shrub', far: () => G.clamShell(sseed, 3) }, () => G.clamShell(sseed, 1), 'lo').add(sx, sy, sz, sc, sc, sc, rot, vary([0.86, 0.84, 0.76].map(c => c * dim), x, y, 10, 0.05));
           // torch ginger's flowers are torches on stalks of their own, and pandan's fruit hangs under its tufts, not dots among the leaves
           const accCol = shape === 'ginger' && phase === 'bloom' ? p.look.flower : shape === 'pandan' && phase === 'fruit' ? p.look.berry : null;
-          if (accCol && g > 0.3) this.pool(`shrub:acc:${shape}:${v}`, () => G.accent(shape, sseed), this.shrubs, { kind: 'shrub', far: true }, () => G.accent(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, vary(rgb(accCol).map(c => c * dim), x, y, 9, 0.06));
+          if (accCol && g > 0.3) this.pool(`shrub:acc:${shape}:${v}`, () => G.accent(shape, sseed), this.shrubs, { kind: 'shrub', far: () => G.accent(shape, sseed, 3) }, () => G.accent(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, vary(rgb(accCol).map(c => c * dim), x, y, 9, 0.06));
           const dotCol = accCol ? null : phase === 'bloom' && p.look.flower ? rgb(p.look.flower) : phase === 'fruit' && p.look.berry ? rgb(p.look.berry) : null;
           if (dotCol && g > 0.3) {
             const n = 4 + Math.round(g * 5);
             const flowering = phase === 'bloom', fruiting = !flowering;
-            const flowerShape = p.key === 'buttonbush' ? 'puff' : p.key === 'hydrangea' || p.look.plume ? 'plume'
+            const flowerShape = p.key === 'buttonbush' ? 'puff' : shape === 'heliconia' ? 'claw' : p.key === 'hydrangea' || p.look.plume ? 'plume'
               : p.key === 'elderberry' || p.key === 'lantana' || p.key === 'oceanspray' ? 'umbel'
               : p.key === 'salal' ? 'bells'
               : p.key === 'broom' || p.key === 'oregongrape' || p.key === 'aloe' || p.key === 'sweetspire' ? 'spike' : 'star';
-            const headShape = flowering ? flowerShape : p.key === 'piper' ? 'catkin' : null; // (spiked pepper's fruit is a curved spike, not a berry)
-            const heads = headShape ? this.pool(`shrubflower:${headShape}:${flowering ? p.look.flower : p.look.berry}`, () => Botanical.blossomHead(headShape, flowering ? p.look.flower : p.look.berry), this.grass, { shadow: false, kind: 'shrub' }, () => G.blob(flowering ? p.look.flower : p.look.berry, 0.035), 'lo') : null; // (from afar, and at play zoom, a dot of colour is all a flower head shows)
+            const fruit = fruiting && p.key !== 'piper' ? fruitForm(p) : null; // (spiked pepper's fruit is a curved spike, not a berry)
+            const headShape = flowering ? flowerShape : p.key === 'piper' ? 'catkin' : fruit;
+            const headCol = flowering ? p.look.flower : p.look.berry;
+            const heads = headShape ? this.pool(`${fruit ? 'shrubfruit' : 'shrubflower'}:${headShape}:${headCol}`, () => fruit ? Botanical.fruitHead(fruit, headCol) : Botanical.blossomHead(headShape, headCol), this.grass, { shadow: false, kind: 'shrub', far: () => G.blob(headCol, 0.035, 3) }, () => G.blob(headCol, 0.035), 'lo') : null; // (from afar, and at play zoom, a dot of colour is all a flower head or berry cluster shows)
             // flowers and fruit sit on the bush's own outer surface, wherever its leaves actually are
             const spots = this.shrubSpots(`shrub:${shape}:${v}`);
             const cr = Math.cos(rot), sr = Math.sin(rot);
@@ -582,12 +644,13 @@ export class Flora {
           if (!shape) {
             shape = build(); shape.lo = build(1); shape.mid = build(G.MID);
             snowCrown(shape.crown); snowCrown(shape.lo.crown); if (shape.mid.crown !== shape.crown) snowCrown(shape.mid.crown);
-            shape.far = { crown: farHull(shape.lo.crown, { rings: shapeDef.kind === 'conifer' }), trunk: farTrunk(shape.lo.trunk) };
+            shape.far = { crown: FAR_BUILT.has(shapeDef.kind) ? build(3).crown : FROND_CROWNS.has(shapeDef.kind) ? farFronds(shape.lo.crown) : farHull(shape.lo.crown, { rings: shapeDef.kind === 'conifer' }), trunk: farTrunk(shape.lo.trunk) };
             this.geos.set(`treeparts:${key}`, shape);
           }
           if (!this.pools.has(`crown:${key}`)) {
             const receive = () => this.lightingDepth !== false && !this.light && !game.catalog.definition.look.underwater;
-            const crown = new ChunkedPlantPool(() => new PlantPool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, geoFar: shape.far.crown, shadowGeo: shape.lo.crown, receive: receive(), geometryIndex: this.geometryIndex }), this);
+            const geoCard = this.impostors?.card(`crown:${key}`, shape.crown) || null;
+            const crown = new ChunkedPlantPool(() => new PlantPool(this.scene, shape.crown, this.foliage, { geoLo: shape.lo.crown, geoMid: shape.mid.crown, geoFar: shape.far.crown, shadowGeo: shape.lo.crown, geoCard, cardMat: geoCard?.userData.material, receive: receive(), geometryIndex: this.geometryIndex }), this);
             const trunkP = new ChunkedPlantPool(() => new PlantPool(this.scene, shape.trunk, this.bark, { geoLo: shape.lo.trunk, geoMid: shape.mid.trunk, geoFar: shape.far.trunk, shadowGeo: shape.lo.trunk, receive: receive(), geometryIndex: this.geometryIndex }), this);
             crown.setView(...this.view); trunkP.setView(...this.view);
             this.pools.set(`crown:${key}`, crown); this.pools.set(`trunk:${key}`, trunkP);
@@ -600,15 +663,21 @@ export class Flora {
           this.pools.get(`crown:${key}`).add(tx, ty, tz, sx, sy, sz, rot, crownColor);
           this.pools.get(`trunk:${key}`).add(tx, ty, tz, sx, sy, sz, rot, bark);
           if (!aquaticTile) this.contactShadow(hAt, tx, tz, (shapeDef.rx ?? shapeDef.radius ?? 0.35) * sx * 1.05);
-          if (phase === 'bloom' && ['dogwood', 'magnolia', 'ipe', 'redbud'].includes(p.key) && shapeDef.rx && g > 0.45) {
-            const form = p.key === 'magnolia' ? 'waterlily' : p.key === 'ipe' ? 'trumpet' : 'star';
-            const flowers = this.pool(`treeflower:${form}:${p.look.flower}`, () => Botanical.blossomHead(form, p.look.flower), this.grass,
-              { shadow: false }, () => Botanical.blossomHead(form, p.look.flower, true));
-            for (let k = 0; k < 12; k++) {
-              const a = k * 2.4, d = shapeDef.rx * (0.5 + hash2(x, y, k + 121) * 0.36);
-              const fy = shapeDef.height + (shapeDef.lift ?? 0) - shapeDef.ry * (0.6 + hash2(x, y, k + 133) * 0.65);
-              const size = sc * (p.key === 'magnolia' ? 1.3 : 0.85);
-              flowers.add(...onTree(Math.cos(a) * d, fy, Math.sin(a) * d), size, size, size, rot + a, [dim, dim, dim]);
+          const blossom = phase === 'bloom' && shapeDef.rx && g > 0.45 ? treeBlossomForm(p) : null;
+          if (blossom) {
+            // (big crowns, the genízaro's umbrella, carry more heads, so they read as covered in flowers;
+            // full heads close up only, the lighter ones at play zoom, a dot of colour zoomed right out)
+            const flowers = this.pool(`treeflower:${blossom}:${p.look.flower}`, () => Botanical.blossomHead(blossom, p.look.flower), this.grass,
+              { shadow: false, far: () => Botanical.blossomDot(p.look.flower) }, () => Botanical.blossomHead(blossom, p.look.flower, true), 'lo');
+            const n = Math.round((blossom === 'puff' ? 18 : 12) * Math.max(1, shapeDef.rx / 0.65)), hang = blossom === 'pendant';
+            const size = sc * (BLOSSOM_SIZE[blossom] ?? 0.85);
+            // (on leaves on the upper half of the crown, where the camera sees them; the sausage tree's
+            // flowers hang on long cords from its lower edge)
+            const spots = (shape.reach ??= crownReach(shape.crown))[hang ? 'down' : 'up'];
+            for (let k = 0; k < n && spots.length; k++) {
+              const j = Math.floor(hash2(x + k, y, k + 133) * spots.length / 3) * 3, a = k * 2.4;
+              // (a trumpet's petals start below its centre, so it stands up out of the leaves on its base)
+              flowers.add(...onTree(spots[j], spots[j + 1] + (hang ? -0.01 : blossom === 'trumpet' ? 0.045 : -0.005), spots[j + 2]), size, size, size, rot + a, [dim, dim, dim]);
             }
           }
           // trees with a fruit part of their own (the oil palm's bunches) show it, in the berry colour, once old enough to bear
@@ -620,13 +689,31 @@ export class Flora {
             this.pools.get(`fruit:${key}`).add(tx, ty, tz, sx, sy, sz, rot, vary(rgb(p.look.berry).map(c => c * dim), x, y, 14, 0.08));
           }
           // fruit trees (durian, rambutan, mangosteen...) hang their fruit round the outside of the crown in season
-          if (p.look.hangFruit && phase === 'fruit' && p.look.berry && g > 0.6 && shapeDef.rx) {
+          const palmTops = p.look.hangFruit && shapeDef.kind === 'palm' && shape.trunk.userData.canopyTrunks?.filter(t => t.from[1] > 0.01).map(t => t.to);
+          if (p.look.hangFruit && phase === 'fruit' && p.look.berry && g > 0.6 && (shapeDef.rx || palmTops?.length)) {
             // (on the surface of the crown, around its middle, where the camera can see them)
             const fc = rgb(p.look.berry).map(c => c * dim), fs = (p.look.fruitSize || 1.3) * 1.3, ry = shapeDef.ry ?? 0.4;
             const fy = shapeDef.height + (shapeDef.lift ?? 0) - ry * 1.1, rr = shapeDef.rx * 0.78 + Math.min(shapeDef.rx, ry) * 0.5;
+            // (close up each is its own fruit, spiny, hairy, capped or in pods; from afar and at play zoom, the same dot as before)
+            const fruit = fruitForm(p);
+            const hung = fruit && this.pool(`treefruit:${fruit}:${p.look.berry}`, () => Botanical.fruitHead(fruit, p.look.berry), this.grass, { shadow: false, far: () => G.blob(p.look.berry, 0.035, 3).scale(1, 1.15, 1) }, () => G.blob(p.look.berry, 0.035).scale(1, 1.15, 1), 'lo');
+            const reach = shapeDef.rx && (shape.reach ??= crownReach(shape.crown));
             for (let k = 0; k < 9; k++) {
               const a = k * 2.4 + hash2(x + k, y, 15), d = rr * (0.92 + hash2(x, y + k, 16) * 0.12);
-              dots.add(...onTree(Math.cos(a) * d, fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, Math.sin(a) * d), fs, fs * 1.15, fs, rot + a, fc);
+              let at;
+              if (palmTops) { // (a palm's bunches hang just under the fronds, round each stem's top)
+                if (k >= palmTops.length * 3) break;
+                const top = palmTops[k % palmTops.length];
+                at = onTree(top[0] + Math.cos(a) * 0.035, top[1] - 0.06, top[2] + Math.sin(a) * 0.035);
+              } else if (p.look.fruitOnWood) { // (the jícaro's gourds grow straight out of its trunk and main limbs)
+                const t = hash2(x + k, y + k, 17), dd = k < 3 ? shapeDef.trunkR * 1.3 : shapeDef.rx * (0.15 + t * 0.35), top = shapeDef.trunkH + (shapeDef.lift ?? 0);
+                at = onTree(Math.cos(a) * dd, k < 3 ? top * (0.45 + t * 0.4) : top + (shapeDef.height - shapeDef.trunkH) * t * 0.4, Math.sin(a) * dd);
+              } else { // (the stalk's top just inside the leaves, so the fruit hangs from them)
+                const hy = fy + (hash2(x + k, y + k, 17) - 0.5) * 0.25, hd = reach(a, hy) ? reach(a, hy) * (0.9 + hash2(x, y + k, 16) * 0.05) : d;
+                at = onTree(Math.cos(a) * hd, hy, Math.sin(a) * hd);
+              }
+              if (hung) hung.add(...at, fs, fs, fs, rot + a, [dim, dim, dim]);
+              else dots.add(...at, fs, fs * 1.15, fs, rot + a, fc);
             }
           }
         }

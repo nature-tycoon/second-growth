@@ -15,8 +15,10 @@
 //   rehunt     the same hunter starting on the same prey again within 4 days of a failed hunt, per
 //              failed hunt, and idleRe the median days between. The old stop-and-start-again was
 //              that, straight into another sprint after 1.5 days standing: `restart` counts those.
-// It fails on the limits in decision 0026 (problems() below); --report only prints. SEED=91 another
-// seed, DAYS=150 a longer run, TRACE=1 a few hunts step by step, BUDGET=1 how each hunter spends its time.
+// Each map runs on three run seeds (decision 0035: the hunts' own random numbers), and a limit fails
+// only when the median run breaks it (2 of the 3), so one unlucky run can't flip the check. It fails
+// on the limits in decision 0026 (problems() below); --report only prints. SEED=91 another layout
+// seed, RUNS=5,6,7 other run seeds, DAYS=150 a longer run, TRACE=1 a few hunts step by step, BUDGET=1 how each hunter spends its time.
 import { pathToFileURL } from 'node:url';
 import { BIOMES } from '../js/biome.js';
 import { restoredGame } from './map-audit-fixtures.mjs';
@@ -30,10 +32,9 @@ const maps = args.filter(s => !s.startsWith('--'));
 const DT = 0.02, DAYS = +(process.env.DAYS || 100), WARM = 1;
 const median = xs => { if (!xs.length) return NaN; const s = [...xs].sort((a, b) => a - b); return s[s.length >> 1]; };
 
-export function measure(map, { seed = 1987 } = {}) {
-  Math.random = mulberry32(seed);
+export function measure(map, { seed = 1987, runSeed } = {}) {
   const rng = mulberry32(seed + 1);
-  const g = restoredGame(map, seed), wl = g.wildlife, cat = g.catalog;
+  const g = restoredGame(map, seed, runSeed), wl = g.wildlife, cat = g.catalog;
   populate(g, rng);
   // keep the hunters hungry, so hunts keep happening all run long
   const hunters = new Set(cat.animals.filter(d => preyFor(d, g)).map(d => d.index));
@@ -124,12 +125,20 @@ export function problems(map, by, cat) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const seed = +(process.env.SEED || 1987);
+  const seed = +(process.env.SEED || 1987), runs = (process.env.RUNS || '1,2,3').split(',').map(Number);
   const list = maps.length ? maps : Object.keys(BIOMES), failures = [];
+  // a limit's name without its number: the same limit broken in 2 of 3 runs is the median run breaking it
+  const limit = msg => msg.replace(/[\d.]+/g, '#');
   for (const map of list) {
-    const { by, cat } = measure(map, { seed });
-    failures.push(...problems(map, by, cat));
-    const keys = Object.keys(by);
+    const tally = new Map();
+    let by, cat;
+    for (const runSeed of runs) {
+      ({ by, cat } = measure(map, { seed, runSeed }));
+      for (const msg of problems(map, by, cat)) { const t = tally.get(limit(msg)) || []; t.push(`${msg} [run ${runSeed}]`); tally.set(limit(msg), t); }
+    }
+    for (const t of tally.values()) if (t.length * 2 > runs.length) failures.push(...t);
+    else console.log(`  (one run only, not a failure: ${t.join('; ')})`);
+    const keys = Object.keys(by); // (the table shows the last run)
     if (!keys.length) continue;
     console.log(`\n${map}`);
     for (const k of keys.sort()) if (by[k].hunts) console.log(row(k, by[k]));

@@ -3,6 +3,7 @@
 // - plays: only the young of mammals that play-chase do (Cole saw a Pacific chorus frog "Playing").
 // - nocturnal: bats (and flying squirrels) are out from sunset to before dawn as drawn, and in their
 //   roosts by day (Cole saw a bat flying around in daylight). Counts bats drawn by day and by night.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -17,7 +18,7 @@ const THREE = await import('three');
 const { Actors } = await import('../js/render3d/actors.js');
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log(`PASS ${name}`); }
-const fixed = (v, fn) => { const r = Math.random; Math.random = () => v; try { return fn(); } finally { Math.random = r; } };
+const fixed = (v, fn) => { const r = forcedSimRandom(); forceSimRandom(() => v); try { return fn(); } finally { forceSimRandom(r); } };
 function setup(map) {
   const g = new Game(); g.newGame(1987, 'free', 'standard', map);
   g.wildlife.agents = []; g.wildlife.flyovers = []; g.wildlife.passageWait = 1e6; g.wildlife.recount();

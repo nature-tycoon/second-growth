@@ -1,11 +1,24 @@
 # 0031 Ecosystem Report: vital signs against a reference ecosystem, carbon, badges
 
+## Rules
+
+- The numbers live in the sim (`js/sim/eco-metrics.js`, no DOM); the screen only draws (`js/ui/eco-report.js`, `ui.openReport(view)`). `game.updateEco()` runs at start, after a load, in `monthlyTick` and when the report opens, never per frame. Other code calls `ecoMetrics(game)` or reads `game.cache.eco`.
+- Each map has a reference ecosystem in `js/data/eco-reference.js` (carbon, habitat shares, top predators, stage names); a new map needs one. Top predators are named per map, not inferred from prey lists.
+- Carbon is labelled as an estimate everywhere it shows. Read real tree height from `heightM`, never the drawn height (0024). A full reference stand must equal the published figure.
+- Badges are for show and pay nothing. The badge list's vital order must match `landVitals` / `reefVitals` (badges index vitals by position).
+- `ensureBaseline` must run after `updateScore`. Compare metrics across a save only after `refreshEnvironment()` (water quality is recomputed on load).
+- Saved state: `stats.eco = { start, blue, badges, streak }`; monthly `history` gains `c` and `v`.
+- Every report string except reef-only ones needs a Spanish entry in `js/lang/es.js`.
+- Checks: `node tools/eco-metrics-check.mjs`; `nice -n 15 node tools/eco-report-browser-check.mjs [--shots]` (812×375, 844×390, 1280×800).
+
+## History
+
 2026-11-01. Cole asked to improve the metrics screen: more detail on ecosystem health, carbon
 storage, and make it a game. The old report was one score breakdown, a land-cover list and a
 score chart. Cole chose concept B of three mockups (a road to the reference ecosystem), with each
 card opening a deep dive like concept A's tabs, and concept C's badges.
 
-## Decision
+### Decision
 
 **The numbers live in the sim, the screen only draws.** `js/sim/eco-metrics.js` (no DOM) computes
 everything from the world and game state. `game.updateEco()` runs it at the start of a game, after
@@ -47,7 +60,7 @@ day one, for "since you arrived". An older save gets its baseline the day it's f
 the report then says "since Year N". Each month's `history` entry gains `c` (total carbon) and `v`
 (the six signs, two decimals) for the trend lines.
 
-## The carbon estimate (labelled as an estimate everywhere it shows)
+### The carbon estimate (labelled as an estimate everywhere it shows)
 
 A tile is about 67 m² (the 180-acre maps are 120 × 90 tiles), room for one canopy tree's share
 of a stand.
@@ -105,7 +118,7 @@ Sources:
 - US EPA Greenhouse Gas Equivalencies Calculator, calculations and references: 4.63 t CO₂e per
   passenger vehicle per year (2019 revision).
 
-## Gotchas
+### Gotchas
 
 - Water quality is derived state that a load recomputes, so compare metrics across a save only
   after `refreshEnvironment()` (the check does).
@@ -115,13 +128,13 @@ Sources:
 - Spanish: only Chinandega plays in Spanish, so the reef-only strings are English. The check
   asserts every other report string has a Spanish entry in `js/lang/es.js`.
 
-## Performance
+### Performance
 
 One pass over the tiles, about 2–6 ms on an M-series Mac (Amazon and Sumatra slowest). It runs
 once a month, next to `wildlife.monthly`'s existing 8–27 ms month-change hitch (performance review
 2026-10-23, finding 5), and when the report opens. Nothing runs per frame.
 
-## Checks
+### Checks
 
 - `node tools/eco-metrics-check.mjs` (headless, every map). Metrics are finite and in range. A
   month adds history. The numbers survive a save and reload. Older saves get a baseline. A full
@@ -131,7 +144,7 @@ once a month, next to `wildlife.monthly`'s existing 8–27 ms month-change hitch
   812×375, 844×390 and 1280×800, fits the screen, has no NaN, and has nothing wider than the
   dialog.
 
-## Open
+### Open
 
 - Analytics and the postcard don't read `ecoMetrics` yet. Both can call it.
 - The reference shares (`cover`, `wet`, `big`, `dead`) are judgement calls for a game-sized

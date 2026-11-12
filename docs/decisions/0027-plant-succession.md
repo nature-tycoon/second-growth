@@ -1,5 +1,19 @@
 # 0027 Plant colonization and succession
 
+## Rules
+
+- Layered on 0028: 0028 owns how trees die, wait and regenerate; this record owns which species arrive and establish, the moisture they need, and the groundcover community. Shared engine rules in `sim/plants.js` and `sim/environment.js` plus data; no per-species code.
+- Every seed goes through `trySeed`. Regional seed rain (`regionalRain`, map `regionalRain`, reef 0) picks a random native; `seedTravel(p)` (overridable `p.seedTravel`) sets its odds. Set `w.seedFrom` before any new `trySeed` caller.
+- `forestDamp(w, i)` is shade and humus for what grows. Anything reading `w.moist` as soil water (windthrow, fire, flooding) subtracts it.
+- Light only matters to young trees: from `CANOPY_G` (0.6) a tree gets its own best light in `updatePlants`.
+- Natural recruitment × `patchOdds` (`plantAffinity`); invasives are exempt. Checks that pin exact `trySeed` odds divide it out, and checks of edge or forest seed set `def.regionalRain = 0`.
+- Sward succession: a native living twice as long takes a tile at `OUTLIVE` × `compete`; groundcovers living 10+ years (`TUSSOCK_LIFE`) die back at 1/life. Shade plants scorch (`SCORCH`). `meadowsHold` holds only open meadow.
+- Herbivore effects stay in `trySeed` and the growth step (`grazedRecruitOdds`, `grazedGrowth`, now 0033); don't tune mesquite away in the plant engine.
+- Regional rain uses the game rng, so any change shifts every later roll: compare runs by trend over several seeds. Hemlock and redcedar won't start in an open field; fixtures that sow in the open use another tree.
+- Checks: `node tools/plant-establishment.mjs [maps] [years]` (why a species never shows up), `dispersal-check`, `plant-ecology-check`, `succession-check`.
+
+## History
+
 2026-10-31. Playtesters left farms untended for 100–850 years. On the PNW map almost every tree
 ended up Douglas-fir, and camas, Oregon sunshine, skunk cabbage, cattail, bulrush, red huckleberry,
 vine maple, oceanspray, Oregon ash, hemlock and redcedar never appeared, nor did a flower-rich
@@ -10,7 +24,7 @@ flowers), and then that it sits on top of the earlier tree-dynamics work, [0028]
 merged first: 0028 owns how trees die, wait and regenerate; this record owns which species can
 arrive and establish, the moisture they need, and the groundcover community.
 
-## Diagnosis
+### Diagnosis
 
 `tools/plant-establishment.mjs` runs an untended farm headless and reports, for every species on
 a map: the share of land it could take, how many seeds arrived and from where (parent, edge rain,
@@ -32,7 +46,7 @@ Before this change (seed 1987):
 - Serengeti untended goes to invasive mesquite (88% of trees at 800); its baobab got 7 seeds in 800
   years and the candelabra tree died out (thickets crowd its seedlings).
 
-## Decision
+### Decision
 
 Shared engine rules in `sim/plants.js` and `sim/environment.js`, plus data calibrated to the real
 habitats. No per-species code.
@@ -87,7 +101,7 @@ habitats. No per-species code.
    bottomlands, beaver food, drawn with the alder model and white bark, in the pioneer mix. Atlanta
    already has river birch.
 
-## Hook for herbivore pressure (workstream E2)
+### Hook for herbivore pressure (workstream E2)
 
 Where herbivores shape the forest mix, keep it in `trySeed` and the growth step, not a new pass:
 `trySeed` multiplies `odds` by `grazedRecruitOdds(w, i, p)` (seedlings eaten as they come up) and
@@ -95,7 +109,7 @@ growth by `grazedGrowth` (saplings browsed back), both in `sim/grazing.js`. Make
 per-tile herbivore load (kg/ha) and a per-species palatability (`browse`, `graze`), and the gap
 rules above decide who wins the opening.
 
-### Known gap for E2: mesquite on an untended Serengeti
+#### Known gap for E2: mesquite on an untended Serengeti
 
 An untended Serengeti farm turns to invasive mesquite thicket: 73% of trees at year 100 and 82–88% at
 200–800 before this change, 60–75% at year 100 after (it varies with the run). This change didn't
@@ -110,7 +124,7 @@ E2 should give herbivore pressure a say over invasive woody seedlings too, by pa
 camels eat Prosopis pods and seedlings, cattle spread the seed. Don't tune it away in the plant
 engine. Until then, keeping grassland open on the Serengeti is the player's job (pulling, cool burns).
 
-## Consequences
+### Consequences
 
 `node tools/plant-establishment.mjs`, seed 1987, untended: PNW 400 years with animals, Serengeti 800
 with `--still`, the other maps 200 with animals. "Main" is before 0027 and 0028; "0028" is the tree
@@ -149,7 +163,7 @@ dynamics alone (commit 2366f1b); "now" is both.
   forest take the old fields, as they would on a real abandoned farm west of the Cascades.
   Flower-rich grassland needs something holding trees back (fire, grazing, the player).
 
-## Gotchas
+### Gotchas
 
 - `w.seedFrom` tags where a seed came from for the diagnostic; set it before any new `trySeed` caller.
 - Regional rain uses the game rng, so any change to it shifts every later random roll: compare runs

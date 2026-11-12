@@ -1,8 +1,18 @@
 # 0008 Longer carcass window for scavengers
 
+## Rules
+
+- A carcass lasts the hunter's feeding time plus a 21–33 day window, from the same single random draw as before (keep the number and order of random calls at creation). The `max` field drives the final 30% fade.
+- Food stays finite: size-based meal budget, hunger threshold, detection radii, five concurrent feeders, meals taken on arrival and the 16-carcass limit are unchanged. Waiting never creates food; small prey is eaten on the spot.
+- Carcass state is transient (unsaved); already-created carcasses keep their timers.
+- Carcasses rot on screen through 0016 (drawing only); natural deaths leave bodies under the same 16-carcass limit, oldest natural body first.
+- Checks: `node tools/scavenger-arrival-check.mjs` (`--audit` for a baseline), animal-life, moments and challenging-ecology checks; seeded `balance-sim restore 15`.
+
+## History
+
 2026-10-17. Cole asked for longer-lasting carcasses to increase scavenging.
 
-## Decision
+### Decision
 
 Extend the post-hunter-meal decay window from 7–11 to 21–33 simulation days.
 The total lifetime remains the original hunter's feeding time plus that window.
@@ -17,7 +27,7 @@ require another prey kill. Small prey still gets eaten on the spot. Existing
 expiration/pause behavior and transient (unsaved) carcass state are unchanged.
 New kills use the extended lifetime; already-created carcasses keep their timers.
 
-## Evidence and checks
+### Evidence and checks
 
 `node tools/scavenger-arrival-check.mjs --audit` reports the baseline without
 requiring arrivals; running without `--audit` asserts that each visitor reaches

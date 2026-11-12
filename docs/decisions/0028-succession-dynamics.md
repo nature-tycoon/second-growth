@@ -1,8 +1,25 @@
 # 0028 Long-term forest dynamics: mortality, regeneration and disturbance
 
+## Rules
+
+- Only `removeTree(w, i, cause, rng, { snagOdds, minG, deadwood })` clears a living tree (plus `World.clearPlants(i, cause)` and the `*-world.js` generators); pass a real `cause` (`age stress fire wind drought pathogen flood browse beaver player`). `deadwood: false` leaves nothing. `tools/tree-mortality-check.mjs` fails on any other site that zeroes `w.tree`.
+- Natural recruitment happens only in `trySeed`; player planting goes through `setPlant` on empty tiles. Planted trees are never killed by CNDD or recruitment rules (hazard and disturbance do apply).
+- One tree and at most one understory sapling (`w.understory`, `w.understoryG`) per tile. No understory without a living tree: release or clearing empties it in the same call. Fire, flood and player removal kill it (`KILLS_UNDERSTORY`); other causes release it.
+- Adult mortality is one yearly hazard in `treeHazard` (base, senescence, stress, poorSite, suppression, drought), applied daily as h/120 with one `rng()` per tree. Suppression only hits trees below the canopy.
+- Patch disturbance other than fire lives in `sim/disturbance.js` and is per-map data (`definition.disturbance`: `storms`, `drought`, `pathogen`); no map-specific branches in shared sim code. Gated with fire and flood in the campaign (`disturbanceOn`), scaled by `diff.disasters`. Root rot `spread × 10 years` must stay well under 1 or it runs away.
+- Snags come down only through `fellSnag(w, i)`. Deadwood rots by `decayRate` (wood × moisture × map `deadwood.decay`); a rotten log is still `F.LOG`.
+- Traits derive from existing plant fields (`life`, `light`, `moist`, `conifer`, …) with optional overrides (`mortality`, `cndd`, `windfirm`, `decay`, `nurse`, `farSeed`); map data: `mortality`, `recruitment: { cndd, understory }`, `deadwood`, `forestRain`. The data contract checks them.
+- Deterministic under `game.rng`; no `Math.random` in sim code.
+- Declare every new per-world field and array in the `World` constructor (adding one mid-game, e.g. with `||=`, changed the object's shape and slowed `updateEnvironment` 35–55%). Saved arrays go in `EXTRA_ARRAYS` (`data/world-schema.js`); missing arrays load empty.
+- Reef (`look.underwater`, `deadTree` hook) and Atlanta's `nativesHold` gardens keep their behavior unless their map data opts in.
+- Budget: `dailyTick` +5% at most (`tools/daily-tick-ab.mjs`, `tools/boot-profile.mjs`).
+- Checks: `tools/succession-check.mjs` (no args = 25 s smoke; full: `--map pnw --mode restore --years 200 --seeds 1,2,3 --assert`, run seeds as separate background jobs), `tree-mortality-check`, `plant-ecology-check`, `disturbance-check`, `deadwood-check`, `dispersal-check`, `data-contracts-check`, `balance-sim restore 15`.
+
+## History
+
 Proposed 2026-10-18. Status: done 2026-10-22 (phases 1–6). Follows the ecologist review (Jacob, 2026-10-16), §5, §8 and §12. Renumbered from 0013 in phase 6 (`main` has its own 0013–0016), and to 0028 when it was merged on 2026-10-31 (`main` had its own 0017–0027).
 
-## Outcome
+### Outcome
 
 What changed for a player, over the six phases: trees now die across their whole lives (old age, stress, shade, windstorms, drought, root rot), not only at a fixed age or in fire. Shade-tolerant saplings wait under the canopy and take the gap when the tree above dies. Seedlings do worse among their own kind. Dead trees stand, fall and rot at a pace set by their wood and the ground, and hemlock and redcedar come up on rotten logs. Seed now travels as real seed does: mostly near the parent, a little far, and a forest beyond the map edge rains its trees in. An intact rainforest or wet conifer forest rarely burns while the pasture beside it does.
 
@@ -15,7 +32,7 @@ Where it stands (phase 6, full wildlife, 200 years):
 
 Still open: Chinandega's neem (29–48%, unchanged within noise), Serengeti mesquite (92–93%) and its weak drought, Atlanta's slow loss of trees to invasive thicket, and the canopy's effect on moisture itself (only on fire fuel so far). Merged into `main`'s line on 2026-10-31 together with 0027 (branch `claude/succession-stack-0027`); in the merge, elephants trampling a sapling (0023, `sim/ground-obstacles.js`) now goes through `removeTree(…, 'browse')`. Before the merge, the stack was cut from an older `main` (9d99a33). The whole stack costs about +3% `dailyTick` against the baseline on identical land, inside the 5% budget (see Phase 6 results). Merging it needs a conflict pass in `sim/animals.js`, `events.js`, `plants.js`, `tools.js` and `world.js`, which `main` has since changed (home ranges, landscape of fear, carcass decay).
 
-## Problem
+### Problem
 
 Seeded 200-year headless runs with `tools/succession-check.mjs` on all seven maps (PNW restore and idle, Atlanta, Amazon and Serengeti ×3 seeds; Sumatra, Chinandega and Reef ×1). The full numbers are under [Baselines](#baselines-phase-1-2026-10-19).
 
@@ -27,7 +44,7 @@ Seeded 200-year headless runs with `tools/succession-check.mjs` on all seven map
 - **Wildlife plateaus first.** PNW reaches about 30 animal species by year 40 and holds there (29–32 at year 200).
 - **Atlanta is losing trees.** The tree count falls from about 2,600 at year 40 to 1,160–1,520 at year 200. Recruits ÷ deaths over years 150–200 is 0.64–0.72, and invasive thicket takes the gaps (mature→invasive is the largest transition from year 100 on).
 
-## Root causes
+### Root causes
 
 These are architectural gaps, not bugs:
 
@@ -37,7 +54,7 @@ These are architectural gaps, not bugs:
 4. **Only one patch-scale disturbance.** Fire is the only thing that kills trees in groups. There is no windthrow, drought die-off or pathogen patch, which are the main gap-makers in PNW, Atlanta and Amazon forests.
 5. **Tree removal is scattered.** About a dozen call sites zero `w.tree` directly (`events.js`, `animals.js`, `tools.js`, `plants.js`). None of them records why a tree died, and only `killTree` leaves deadwood. Any new process that reacts to a tree dying (release, gaps, decay) would have to be added to each one.
 
-## Design principles
+### Design principles
 
 - **Process over outcome.** Don't target a land-cover mix. Model the processes (mortality, release, density dependence, disturbance), and let the mosaic come from them and from the map's climate.
 - **Traits are derived by default.** Every new behavior reads existing plant fields (`life`, `light`, `moist`, `soil`, `conifer`, `layer`) to get its defaults, with an optional explicit override. A new species or map works without new data. Overrides are for where evidence says the default is wrong.
@@ -45,9 +62,9 @@ These are architectural gaps, not bugs:
 - **One entry point per concept.** One function removes a tree. One module owns disturbance patches. Recruitment rules stay in `trySeed`.
 - **Measurable.** Every phase ships with numbers from the succession check, before and after.
 
-## Architecture
+### Architecture
 
-### 1. Tree removal (`sim/plants.js`, replaces `killTree`)
+#### 1. Tree removal (`sim/plants.js`, replaces `killTree`)
 
 Built in phase 2. `removeTree(w, i, cause, rng, { snagOdds, minG, deadwood })` is the only code that clears a living tree. `cause` is one of `'age' | 'stress' | 'fire' | 'wind' | 'drought' | 'pathogen' | 'flood' | 'browse' | 'beaver' | 'player'`. It:
 
@@ -73,7 +90,7 @@ Sites moved to it, each keeping its behavior apart from the bookkeeping:
 
 `World.clearPlants(i, cause)` and `addStructure(…, cause)` take an optional cause. The tools pass `'player'`; map generation passes none, because laying out a new map isn't a death. Planting (`setPlant`) only goes on empty tiles. `tools/tree-mortality-check.mjs` fails if any file other than `removeTree` and `clearPlants` (and the `*-world.js` generators) zeroes `w.tree`.
 
-### 2. Mortality hazard (`sim/plants.js`, `treeHazard`)
+#### 2. Mortality hazard (`sim/plants.js`, `treeHazard`)
 
 Built in phase 2. It replaces the hard age cutoff (`ageY > p.life && rng() < 0.004`) and the two old poor-site death rolls with one yearly hazard, applied daily as h/120. That's one `rng()` per tree per day, as before:
 
@@ -93,7 +110,7 @@ suppression = 0.03 * min(1, (light[0] − L)/light[0])₊ * min(1, (0.95 − tre
 - **Map data.** `definition.mortality: { background, senescence, stress, suppression }` scales each new term; the default is 1. `poorSite` isn't scaled, because every map had it before. The reef sets `background`, `stress` and `suppression` to 0: with them on, coral fell from 2,182 to 1,447 colonies by year 200 (`--veg`, seed 1). It keeps senescence, which replaces its old cutoff at `life` too. The data contract checks the field.
 - Planted trees get the hazard; nothing tells them apart.
 
-### 3. Recruitment (`sim/plants.js`, `trySeed`)
+#### 3. Recruitment (`sim/plants.js`, `trySeed`)
 
 Built in phase 3. `trySeed` is still the one place natural recruitment happens (seed rain, dispersal, burn and flood seeds). Player planting goes through `setPlant` and the tools, so none of this applies to it.
 
@@ -125,7 +142,7 @@ Built in phase 3. `trySeed` is still the one place natural recruitment happens (
 
 **Seed supply (PNW data).** Hemlock and redcedar came only from the north seed rain, onto the outer eight rows. That edge is dry upland: moisture 0.25, against minimums of 0.4 and 0.5. Neither ever established in the open there, and neither existed anywhere on the map by year 40. The east edge ("the woods to the east", moisture 0.39, like the interior) now carries them too, as real lowland PNW woods would.
 
-### 4. Disturbance regimes (`sim/disturbance.js`)
+#### 4. Disturbance regimes (`sim/disturbance.js`)
 
 Built in phase 4. The module owns patch-scale tree mortality other than fire, which stays in `events.js`. Every tree it kills goes through `removeTree` with cause `wind` or `pathogen`; drought deaths come from the hazard with cause `drought`. `Events.daily` calls `disturbanceDaily(game)` right after the campaign's disaster gate (`disturbanceOn`), so in the campaign disturbance starts with the chapter that brings fire and flood, and in free play from the start. Storm and root-rot rates and drought depth scale with the difficulty's `disasters`.
 
@@ -165,7 +182,7 @@ disturbance: {
 - **Each map lists only what fits it.** PNW: winter windstorms (Oct–Feb) and laminated root rot in Douglas-fir. Atlanta: summer thunderstorms (May–Aug), ice storms (Dec–Feb, rarer, wider), drought. Amazon: squall-line blowdowns at the start of the rains (Oct–Jan). Sumatra: "Sumatra" squalls at the monsoon changeovers. Chinandega: a hurricane every ~25 years (Sep–Nov), 400–4,000 tiles. Serengeti: drought only (elephants and fire already open the woodland). Reef: none (its cyclones are its own map code).
 - `tools/disturbance-check.mjs` checks windfirmness, the kill chance, a storm's kills, releases and snags, determinism, the drought term, root rot's spread, kills and fading, the save round trip, the campaign gate and the data contract.
 
-### 5. Deadwood (`sim/plants.js`, feature aging)
+#### 5. Deadwood (`sim/plants.js`, feature aging)
 
 Built in phase 5. A dead tree goes snag → sound log → rotten log → gone. These are the existing `F.SNAG` and `F.LOG` features: "rotten" is a log far enough into its rot, not a new feature, so nothing that reads `F.LOG` changes.
 
@@ -198,7 +215,7 @@ Built in phase 5. A dead tree goes snag → sound log → rotten log → gone. T
 - Fungi and decomposers can later set the rate through `decayRate`: this phase only makes it depend on conditions.
 - `tools/deadwood-check.mjs` checks the wood and moisture factors, the classes and their timing, the savanna and reef, nurse logs (suitability, the sward, the understory), wind and fire felling, insects, the save round trip and the data contract.
 
-### 6. Seed dispersal (`sim/plants.js`, `disperse`, `seedRain`)
+#### 6. Seed dispersal (`sim/plants.js`, `disperse`, `seedRain`)
 
 Built in phase 6. Phases 3–5 left every forested map seed-limited: a tree's seed landed uniformly within `p.radius` of it, and seed from beyond the map reached at most `radius + 4` tiles in. So the commonest tree supplied nearly all the seed for every gap, and a species that arrived only from an edge (PNW hemlock and redcedar) stayed within 15 tiles of it for 200 years. Real seed shadows have a peak under the parent and a long, thin tail, and seed rain from a neighbouring forest falls off with distance rather than stopping. Three changes, all from existing traits:
 
@@ -215,7 +232,7 @@ Phase 6 also lowers the fire fuel of a rotten log (decay class, §5) from 0.4 to
 
 `tools/dispersal-check.mjs` checks the trait defaults and override, the kernel's far share and tail, the edge kernel for trees and shrubs, the forest rain (native trees only) and its contract, and the fuel of rotten logs.
 
-### Interfaces between parts
+#### Interfaces between parts
 
 ```
 disturbance.js ──► removeTree(cause) ◄── plants.js hazard, events.js fire/flood, animals.js, tools.js
@@ -226,7 +243,7 @@ disturbance.js ──► removeTree(cause) ◄── plants.js hazard, events.js
 trySeed ──► (tree slot | understory slot) × CNDD × grazing × suitability
 ```
 
-## Invariants
+### Invariants
 
 - Deterministic under `game.rng`. No `Math.random` in sim code.
 - One tree and at most one understory sapling per tile. An understory sapling never exists on a tile without a tree; promotion or failure clears it.
@@ -235,7 +252,7 @@ trySeed ──► (tree slot | understory slot) × CNDD × grazing × suitabilit
 - Reef (`look.underwater`, `deadTree` hook) and Atlanta's `nativesHold` gardens keep their current behavior unless their map data opts in.
 - Campaign gating: disturbances, like fire and flood, start where the campaign says, and in free play from the start.
 
-## Performance
+### Performance
 
 - Hazard: no new loops, a few multiplies per tree per day in the existing loop.
 - Understory: two arrays of n (about 10k) tiles. The work happens only when a seed lands on an occupied tile.
@@ -243,7 +260,7 @@ trySeed ──► (tree slot | understory slot) × CNDD × grazing × suitabilit
 - Disturbance: rare events with patch-sized work.
 - Budget: `dailyTick` grows by at most 5%, measured in node with `tools/boot-profile.mjs` and a dailyTick timing in the succession check. That stays within the [0004](0004-ecosystem-performance.md) low-end target.
 
-## Acceptance criteria
+### Acceptance criteria
 
 Each criterion runs on 3 seeds and 200 years, through `tools/succession-check.mjs`:
 
@@ -262,7 +279,7 @@ The opening criterion counts only tiles that didn't burn. Phase 1 found that fir
 
 Existing checks keep passing: `data-contracts-check`, `browser-save-check`, `challenging-ecology-check`, `consistency-check`, and the grazing and trails checks.
 
-### Baselines (phase 1, 2026-10-19)
+#### Baselines (phase 1, 2026-10-19)
 
 Before any phase 2 change: `main` at 9d99a33, 200 years, full wildlife (10 × `update(0.1)` a day), `--every 10`. A range is the min–max across seeds. Shares are of established trees (`treeG` > 0.35). "Shade-tolerant" means `light[0]` ≤ 0.15, which on PNW is exactly cedar and hemlock. The window measures are over years 150–200.
 
@@ -304,7 +321,7 @@ Before any phase 2 change: `main` at 9d99a33, 200 years, full wildlife (10 × `u
 
 Grazing outcomes (elk numbers, grazing pressure, meadow and mature area) stay within seed noise: meadow swings between 5 and 380 tiles across seeds in full mode alone. Composition does not: `--veg` leaves fir 10–15 points lower at years 100–200 (76–87% against 92–93%). The likely cause is animal effects that happen once per `update` call rather than per unit of time, but that is unconfirmed. So use `--veg` for structure, turnover and mortality questions and for 300-year runs. Measure species shares and every acceptance number with full wildlife. `--veg` saves about half the wall time (wildlife is about 60% of a full day).
 
-### Phase 2 results (2026-10-20)
+#### Phase 2 results (2026-10-20)
 
 `removeTree` and the hazard, measured as for the baselines: full wildlife, 200 years, same seeds, so each row compares exactly with the baseline row above. Deaths by cause now come from `w.treeDeathsEst`.
 
@@ -342,7 +359,7 @@ Regression, expected until phase 3:
 - **Chinandega loses trees.** 3,876 trees at year 200 against 5,379 in full mode on seed 1. Under `--veg`, seeds 1–3: 4,064–5,043 against 5,045–6,810 before, a mean 23% fewer, with invasive tiles 5,051–6,008 against 4,238–4,783. Recruits ÷ deaths is 1.01–1.15 against 1.10–1.33, still inside the band. Its trees are short-lived (life 40–100), and the map burns heavily. The extra background deaths open gaps that fire and invasive thicket take before trees can. The hazard terms there are small (about 1% a year). The lever is map data, `mortality: { background }`, which belongs in the phase 6 cross-map tuning.
 - **Animal species below baseline − 1:** Sumatra 32 (baseline 34, one seed), and one Atlanta seed at 24 (the other two 28 and 29; baseline 29). Atlanta seed 1 had 29 at year 150. Both may be single-seed noise, but neither is confirmed.
 
-### Phase 3 results (2026-10-21)
+#### Phase 3 results (2026-10-21)
 
 Advance regeneration, CNDD and the PNW east seed rain, measured as for phase 2: full wildlife, 200 years, same seeds. These runs used `--every 50`, so the tool's "changed" figure spans 50 years and isn't comparable with the decade figure above; it's left out. "Waiting" is understory saplings at year 200; "released" is saplings promoted into the tree slot over the whole run.
 
@@ -378,7 +395,7 @@ Against the targets:
 | Atlanta | 2,102 → 1,537 | 1,506 → 1,139 | 1,258 → 1,043 | Mature forest 1,742 → 1,873. |
 | Chinandega | 7,038 → 6,967 | 7,126 → 6,912 | 6,352 → 6,483 | No real change. Jaragua fills the open pasture within 25 years either way: it's limited by space, not seed. A Relaxed lever there would have to act on established grass (fire resprouting, or the native seed bank), not on seedlings. |
 
-### Phase 4 results (2026-10-22)
+#### Phase 4 results (2026-10-22)
 
 Windstorms, drought and root rot (§4), measured as before: full wildlife, 200 years, `--every 10`, on Cole's Mac at `nice -n 5`. "Before" is a rerun of the phase 3 commit (bb2e3ef) on the same seeds, not the phase 3 table above: that table doesn't reproduce. Rerunning phase 3 Amazon gives Brazil nut 69/75/78%, matching the phase 3 session's own per-seed JSON files but not the table's 74–75%. Shares are of deaths of established trees in years 150–200.
 
@@ -411,7 +428,7 @@ Also:
 - **Chinandega**: one hurricane-size storm in 200 years on seed 1 (6 storms, the 400–4,000-tile draws mostly on open pasture). Neem became the largest species (35%), as in the phase 3 table; its rise came from phase 3's understory, not from storms.
 - Not checked in a browser: the root-rot inspector line and the storm notice. Port 8347 was serving another checkout. `tools/disturbance-check.mjs` covers their logic and the Spanish pattern was checked in node.
 
-### Phase 5 results (2026-10-22)
+#### Phase 5 results (2026-10-22)
 
 Deadwood decay, decay classes, nurse logs and snag fall (§5), measured as before: full wildlife, 200 years, `--every 10`, on Cole's Mac at `nice -n 5`, four runs at a time. "Before" is the phase 4 commit (b70c5c5). The phase 4 session's per-seed JSONs reproduce exactly (checked at year 20, and in full for the six PNW runs), so they serve as the before for the other maps. PNW was rerun with the new `succession-check` to get nurse-log numbers for the before. Before phase 5, a log's `featureAge` is plain days, so the before's "rotten" column counts logs at least 12 years old.
 
@@ -471,7 +488,7 @@ Checks:
 - `deadwood-check` (11 checks), `data-contracts-check`, `consistency-check`, `tree-mortality-check`, `plant-ecology-check`, `disturbance-check`, `vegetation-check`, `plant-replay-check`, `farm-state-check`, `challenging-ecology-check`, `beaver-dam-check`, `animal-dormancy-check` and `browser-save-check` pass.
 - **Browser.** Phase 4's storm notice, root-rot first-kill notice and root-rot inspector line show and read well (PNW, forced through the console). A rotten log draws slumped and moss-green beside sound brown ones.
 
-### Open for phase 6
+#### Open for phase 6
 
 - **Seed supply and long-distance dispersal.** Hemlock and redcedar: 92–100% within 15 tiles of the seed edges after 200 years. Amazon's long-lived competitors (mahogany, ipê) need a larger share of seed.
 - **Fir and Brazil nut dominance**: fir 85–96%, Brazil nut 78%.
@@ -481,7 +498,7 @@ Checks:
 - **Wood overrides** worth considering with the tuning: ipê and mahogany (very durable), balsa and cecropia (rot fast). Only redcedar and hemlock have them now.
 - **World shape.** Declare the lazily added world fields (`seedbank`, `bankStrength`, `browseDamage`, `grazed`) in the `World` constructor, and check whether a session that loads a second farm slows down.
 
-### Phase 6 results (2026-10-22)
+#### Phase 6 results (2026-10-22)
 
 Seed dispersal (§6), rotten-log fuel, canopy fire damping, drought and the disperser bonus, measured as before: full wildlife, 200 years, `--every 10`, on Cole's Mac at `nice -n 5`, several runs at a time under a high load average (so the runs' ms figures mean nothing). "Before" is phase 5 (27de3ff): the phase 5 session's per-seed JSONs, plus reruns of Amazon and Atlanta seeds 2–6 and Chinandega seeds 2–3.
 
@@ -528,7 +545,7 @@ Also:
 - Checks: `data-contracts`, `consistency`, `tree-mortality`, `plant-ecology`, `disturbance`, `deadwood`, the new `dispersal` (5 checks), `vegetation`, `plant-replay`, `farm-state`, `challenging-ecology`, `beaver-dam` and `animal-dormancy` pass. `browser-save-check` passes (rerun 2026-10-23: 19 save checks and the in-game save, reload, backup and map-switch checks).
 - No new world fields.
 
-### Merge with main (2026-10-23)
+#### Merge with main (2026-10-23)
 
 `origin/main` (37f8ba1: home ranges, activity budget, landscape of fear, carcass decay, spaced tree planting) merged into the stack. The only text conflict was AGENTS.md. No site in main's changes clears a tree outside `removeTree`. The world-fields work from its side session is folded in: every lazily added `World` field is declared in the constructor (null until made), so a farm loaded after playing another keeps one object shape.
 
@@ -541,7 +558,7 @@ Checked after the merge:
 - **Succession sweep**, full wildlife, 200 years: PNW restore (3 seeds) fir 82–89%, hemlock + cedar 7–11% of mature trees, recruits ÷ deaths 0.96–1.05, unburned openings 23–33%, species 30–31. PNW idle (1) fir 83%, tolerant 11%. Amazon (3) largest 30–38% (Brazil nut, or fig on seed 1), species 24, fire 5–20% of deaths. Atlanta (3) recruits ÷ deaths 0.69–0.74, species 27–29, the same Atlanta shortfall as before. Chinandega (1) neem 37%, recruits ÷ deaths 1.54 and species 21, both just outside their targets on this one seed (phase 6: 1.08–1.13 and 22–23). Serengeti (1) mesquite 89%. Reef (1) boulder 54%, species 21.
 - **`dailyTick` against current `main`** (`tools/daily-tick-ab.mjs`, same land each block, 30 blocks, both orders, on battery): +2.8% ± 0.7% and +4.7% ± 0.4%, about **+3.7%**, inside the 5% budget.
 
-### Forest rain and succession pace (Cole, 2026-10-23)
+#### Forest rain and succession pace (Cole, 2026-10-23)
 
 Two design calls after the merge.
 
@@ -554,7 +571,7 @@ Two design calls after the merge.
 
 Confirmed with full wildlife, 200 years, PNW restore, 3 seeds: hemlock + cedar **15–16% of mature trees** (after the merge 7–11%), fir 78–81% (82–89%), Simpson 0.32–0.36 (0.21–0.32), recruits ÷ deaths 0.94–1.11, unburned openings 28–30%, species 30–32. PNW idle seed 1: 14%, fir 81%. **25% by year 150–200 isn't reached.** Seed is no longer the limit at ×2; fir now holds its share by regenerating in large openings (burns, blowdown patches, root-rot patches, mature forest turning to shrub), so the next lever would be how fir regenerates by opening size, a separate change.
 
-### How to run
+#### How to run
 
 ```
 nice -n 5 node tools/succession-check.mjs --map pnw --mode restore --years 200 --seeds 1,2,3 --assert --json out.json
@@ -562,7 +579,7 @@ nice -n 5 node tools/succession-check.mjs --map pnw --mode restore --years 200 -
 
 With no arguments it runs a 15-year PNW restore `--veg` smoke run (about 25 s), because `check-release` runs every `*-check.mjs` without arguments under a 5-minute limit. `--map` takes `pnw`, `all`, or a comma list of map ids. `--mode restore` runs the Hollis plan from `tools/hollis-restore-plan.mjs` (shared with `balance-sim`). Other maps fall back to `idle` with a note. `--every` sets the report interval in years. `--veg` is the fast structure mode. `--assert` checks the targets above and exits 1 on a miss; today it fails, as expected. `--json` writes every report and the per-run summary. A seed sets both `Math.random` and `game.rng`, on the same world. A 200-year full run takes 10–40 minutes depending on the map and machine load, so run several seeds as separate background processes. The per-map targets live in `TARGETS` and `BASELINE_SPECIES` at the top of the tool.
 
-## Phases
+### Phases
 
 Each phase is one session, run in order, each building on the last:
 
@@ -575,7 +592,7 @@ Each phase is one session, run in order, each building on the last:
 
 Hydrology (finishing `sim/hollis-water.js`) is a separate track. It plugs in through the drought and stress term and `w.moist`, with no new mortality code.
 
-## Out of scope
+### Out of scope
 
 - Mycorrhiza.
 - Individual-tree height or crown models.

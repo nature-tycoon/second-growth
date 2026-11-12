@@ -4,7 +4,7 @@
 import buildSerengetiPlants from '../data/plants-serengeti.js';
 import buildSerengetiAnimals from '../data/animals-serengeti.js';
 import { generateRange, serengetiBorderCell } from './serengeti-world.js';
-import { PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
+import { FIRST_GOAL, PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 
 
 const reuse = key => PNW_GOALS.find(g => g.key === key);
@@ -19,6 +19,7 @@ const invPct = g => (g.cache.score?.invFrac ?? 1) * 100;
 // true once cond has held for `days` days in a row (the start is remembered in flags.held)
 const held = (g, k, cond, days) => { const h = g.flags.held || (g.flags.held = {}); if (!cond) { delete h[k]; return false; } h[k] ??= g.day; return g.day - h[k] >= days; };
 const GOALS = [
+  FIRST_GOAL,
   { key: 'plant', name: 'Break ground', reward: 1000,
     desc: 'Plant 200 native plants anywhere on the range.',
     check: g => g.stats.planted >= 200, prog: g => `${Math.min(200, g.stats.planted)} / 200 planted` },

@@ -45,7 +45,7 @@ Milliseconds per frame, averaged; organic games, 3 years in, M5, High, 2880×180
 
 1. **Young climbing primates cost 7–10× what adults do (bug; fixed, see below).** A juvenile's drawn size grows a little every frame (`ageF` in `Actors.update`). `canopyLean` (`render3d/canopy-pose.js`) keeps its body outline only while `st.sc` is unchanged, so every young climber copies its 700–860-point outline and `clustersFor` (`render3d/wood-clearance.js`) regroups it from scratch, every frame. `tools/canopy-bench.mjs` with the fixture's ages changed from 1200 to 200 days: 12 howlers/spiders went from 3.3 to 21.4 ms per frame and 12 langurs/siamangs from 2.9 to 29.5 ms. In the Amazon CPU profile, `clustersFor` was a quarter of all main-thread time. This is why rainforest maps fall to about 30 fps zoomed out, even on an M5. The October monkey speed-ups were measured on adults only. Fix: keep the outline when only its scale changes, and scale the cached cluster radii with it. Spheres that bound their members under one uniform scale still bound them after it, and every candidate is still tested point by point, so the answers stay exactly the same. Check with `canopy-bench` signatures at both ages.
 2. **Plants redraw the whole map every game day (the every-frame part fixed, see below).** Every growing plant changes `treeG`/`shrubG`/`groundG` daily, so `FloraChanges.find` marks nearly all 12 regions dirty, and `Flora.rebuild` redraws one region per frame for 12 frames out of every ~83 at normal speed. Each of those frames costs 25–60 ms on the M5, which shows as a stutter even while the average reads 59 fps. Plants are the largest steady drawing cost on every map (4–11 ms per frame averaged). Within that, `find` scans about 14 whole-map arrays on every call, including each continuing region frame; in PNW it was 22% of frame time. Fixes, smallest first: (a) skip `find` while waiting regions are still being worked through. The next `find` still compares against the saved snapshot, so nothing is missed. (b) Then redraw a plant only when its drawn size changes visibly, or move growth into a per-instance scale so it needs no replay. (b) is a small visual tradeoff and needs Cole's review.
-3. **The daily environment update is heavy on wet maps.** `dailyTick` takes a median of 21 ms in Sumatra after 2 years (8 ms in the Serengeti), and only about 1 ms of that is wildlife. The rest is `updateEnvironment`, mostly `classifyAndResources`, `updatePlants`/`plantSuit`, the distance fields and the Sumatran `estateStats`. At normal speed it lands once every 1.4 s. At top speed (8 days a second) it is most of the 23 ms simulation figure. This is the plan's P5. Recompute only what each day can change, or spread it over frames. Either changes ecology timing, so `balance-sim` must be run before and after.
+3. **The daily environment update is heavy on wet maps.** `dailyTick` takes a median of 21 ms in Sumatra after 2 years (8 ms in the Serengeti), and only about 1 ms of that is wildlife. The rest is `updateEnvironment`, mostly `classifyAndResources`, `updatePlants`/`plantSuit`, the distance fields and the Sumatran `estateStats`. At normal speed it lands once every 1.4 s. At top speed (8 days a second) it is most of the 23 ms simulation figure. This is the plan's P5. Recompute only what each day can change, or spread it over frames. Either changes ecology timing, so `balance-sim` must be run before and after. **Done 2026-11-09, exactly (no timing change), see below:** the environment update is about a quarter of what it was.
 4. **Zoomed-out rainforest is heavy on the GPU too.** 6–10M triangles and 15–20 ms of GPU even with the animal fix. Far vegetation models exist (`useFar`) but switch on only when the game detects it is slow. A screen-size switch for distant trees, like the one animals already use, is the plan's open P4 vegetation item. Done 2026-10-24 ([0022](decisions/0022-far-vegetation-by-screen-size.md)): far models zoomed out on every computer; Amazon zoomed out 7.9M → 2.6M triangles, Sumatra 12.3M → 6.3M.
 5. **Monthly hitch.** `wildlife.monthly` takes 8–27 ms, and a month change also redraws every plant region. Smaller than the above.
 
@@ -63,7 +63,7 @@ Per frame on the M5 at Retina High, normal speed, in an organic 3-year game (`to
 | Part | Ceiling | Now (ordinary views) | After findings 1–2 (estimate) |
 | --- | ---: | ---: | ---: |
 | Simulation, normal speed | 3 ms | 1–3 ms | unchanged |
-| Simulation, top speed | 10 ms | 4–23 ms | finding 3 needed |
+| Simulation, top speed | 10 ms | 4–23 ms | about 1.5–3 ms at 60 fps after finding 3 (node) |
 | Drawing on the processor | 8 ms | 6–13 ms | about 3–6 ms |
 | GPU (2880×1800, High) | 11 ms | 8–12 ms | unchanged |
 | Slowest frame, normal speed | 33 ms | 41–61 ms | target |
@@ -112,5 +112,24 @@ Sumatra; the lag is stutter. Each animal kind's first appearance built its model
 shader mid-frame, plant regrowth redrew 48-tile regions (15-30 ms each), and the daily and monthly
 updates ran in one frame. Fixed in [0038](decisions/0038-smooth-first-minutes.md), which has the
 before/after table. Open fix 2a above (skip the whole-map comparison while regions are queued) is
-done there. Still open: 2(b), the daily plant redraw itself (nearly every region every day,
+done there. Still open: 2(b), the daily plant redraw itself (settled 2026-11-11 in [0046](decisions/0046-plant-growth-on-the-gpu.md): deadwood ageing redraws only its own tile, growth on the GPU declined) (nearly every region every day,
 `tools/plant-churn-probe.mjs`), and Sumatra's 4-6M triangles in its opening view.
+
+## Finding 3, 2026-11-09: the daily environment update
+
+Measured with `node tools/daily-env-profile.mjs` (play-profile's restored farm, grown 2 years, seeded; 120 days; under load from other sessions, so A/B in the same minute) and `tools/daily-env-browser-probe.mjs` (the same in headless Chrome, median of 60 days). The 21 ms in the finding did not reproduce on the unchanged code: the browser median was 7.7 ms in Sumatra. Before the change the environment update was half the day: in Sumatra distances 1.35 ms, classification 1.5, the estate's own counts 0.8, canopy, moisture and disturbance about 0.5 together; `updatePlants` 3.3.
+
+| dailyTick median | Sumatra | Amazon | Serengeti |
+| --- | ---: | ---: | ---: |
+| node, before → after | 9.7 → 6.7 ms | 7.1 → 3.7 | 7.4 → 3.6 |
+| `updateEnvironment` alone, node | 4.9 → 1.9 | 3.6 → 1.0 | 3.3 → 0.9 |
+| browser, before → after | 7.7 → 5.2 | 5.5 → 4.3 | 4.5 → 3.9 |
+
+Every change gives exactly the same answers: seeded `balance-sim restore 15`, `idle 10` and six other maps for 6 years are byte-identical, and a hash of every derived array and `w.stats`, each day for 150 days on five maps, matches.
+
+- **Distance fields** (`updateDistances`): one pass finds each tile's sources for all eight fields (`w.distSources`, a bit per field), and only the fields whose sources changed since yesterday are swept again. Most days that is none or one or two. Code that writes a distance array itself must clear `w.distSources`; `Game.refreshEnvironment` does.
+- **Classification** (`classifyAndResources`): the catalog's plants differ in shape, so reading their fields tile by tile was most of the pass. It now reads a per-month table of the same values in objects of one shape (`plantMonth`), rebuilt every call since Sumatra changes the titan arum's bloom months mid-game.
+- **Sumatra's `estateStats`**: grown palms are marked once a call; the 5×5 search around each forest tree reads the mark instead of the catalog.
+- **Not done:** dirty tiles for classification. Growth (`treeG` and the rest) and `treeAge` change on almost every planted tile every day, so nearly every tile would be dirty. Spreading the update over days was not needed.
+
+**What top speed costs now.** At 8 days a second and 60 fps the simulation is about 3 ms a frame in Sumatra and 1.3–1.7 in Amazon and the Serengeti (node). The larger part is no longer the day but the animals' steps: a game day of `wildlife.update` (20 steps of 0.05 days) takes about 16 ms in Sumatra, against 6.7 ms for the whole `dailyTick`. `play-profile`'s 23 ms top-speed figure is a slow frame carrying most of a game day of animal steps (Sumatra draws at about 10–12 fps at top speed, mostly drawing), so it measures the frame rate as much as the simulation. The next simulation saving at top speed is in the animal steps, then `updatePlants` (about 3–4 ms a day in Sumatra, mostly `plantSuit` and the grazing terms).

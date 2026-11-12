@@ -18,10 +18,13 @@ export const floraVersion = { n: 0 };
 // lod: 0 close, 1 distant, 2 in-between (geoMid, where a plant has one), 3 far (geoFar, with the
 // whole valley in view: see far-models.js; pools without one keep the distant model). shadowGeo: a simpler
 // model that casts this pool's shadow in its place (soft shadows look the same from the
-// distant tree model, at a fraction of the cost).
+// distant tree model, at a fraction of the cost). geoCard, cardMat: a crown's impostor card
+// (tree-impostors.js), drawn in place of the far model once baked; the far model still casts
+// the shadow.
 export class PlantPool {
-  constructor(scene, geo, mat, { shadow = true, receive = false, geoLo = null, geoMid = null, geoFar = null, shadowGeo = null, kind = 'plant', geometryIndex = null } = {}) {
+  constructor(scene, geo, mat, { shadow = true, receive = false, geoLo = null, geoMid = null, geoFar = null, shadowGeo = null, geoCard = null, cardMat = null, kind = 'plant', geometryIndex = null } = {}) {
     this.scene = scene; this.geo = geo; this.geoLo = geoLo || geo; this.geoMid = geoMid || geo; this.geoFar = geoFar || this.geoLo; this.shadowGeo = shadowGeo;
+    this.geoCard = geoCard; this.cardMat = cardMat;
     this.mat = mat; this.shadow = shadow; this.receive = receive;
     this.kind = kind; this.lod = 0;
     this.geometryIndex = geometryIndex; this.castsShadow = shadow; this.packedShadows = false;
@@ -30,9 +33,10 @@ export class PlantPool {
   }
   geoFor(lod) { return lod === 1 ? this.geoLo : lod === 2 ? this.geoMid : lod === 3 ? this.geoFar : this.geo; }
   renderGeo(geometry) { return this.geometryIndex?.get(geometry) || geometry; }
-  // the stand-in only casts while the view shows a more detailed model than it
-  standIn() { return !!this.shadowGeo && (this.lod === 0 || this.lod === 2); }
-  shadowGeometry() { return this.standIn() ? this.shadowGeo : this.geoFor(this.lod); }
+  card() { const d = this.lod === 3 && this.geoCard?.userData; return !!(d && d.ready && d.atlas.enabled); }
+  // the stand-in only casts while the view shows a more detailed model than it, or a card
+  standIn() { return !!this.shadowGeo && (this.lod === 0 || this.lod === 2 || this.card()); }
+  shadowGeometry() { return this.standIn() ? (this.lod === 3 ? this.geoFar : this.shadowGeo) : this.geoFor(this.lod); }
   // The stand-in casts the shadow only while the view shows a more detailed model than it; when
   // the distant or far model is on show anyway, that casts its own shadow and the stand-in rests.
   useProxy() {
@@ -113,8 +117,10 @@ export class PlantPool {
     this.onChange?.();
     this.lod = lod;
     if (!this.mesh) return;
-    this.mesh.geometry = this.renderGeo(this.geoFor(lod));
-    if (this.proxy) this.proxy.geometry = this.renderGeo(this.shadowGeo);
+    const card = this.card();
+    this.mesh.geometry = card ? this.geoCard : this.renderGeo(this.geoFor(lod));
+    this.mesh.material = card ? this.cardMat : this.mat;
+    if (this.proxy) this.proxy.geometry = this.renderGeo(this.shadowGeometry());
     if (this.kind === 'grass') this.mesh.visible = grass && this.n > 0;
     this.castsShadow = this.shadow && (this.kind !== 'shrub' || shrubShadow);
     this.useProxy(); // flower heads and fruit on a bush never cast shadows

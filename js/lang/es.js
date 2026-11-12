@@ -73,6 +73,8 @@ addStrings({
   // ---------------------------------------------------------------- top bar and tool bar
   'Turn your phone sideways': 'Poné el teléfono de lado',
   'Second Growth plays in landscape. Rotate your phone to keep restoring the land.': 'Second Growth se juega en horizontal. Girá el teléfono para seguir recuperando la tierra.',
+  "Screen won't turn? Switch off rotation lock in Control Center (iPhone) or Quick Settings (Android).": '¿No gira la pantalla? Desactivá el bloqueo de rotación en el Centro de control (iPhone) o en Ajustes rápidos (Android).',
+  'Play upright anyway': 'Jugar en vertical igual',
   'Play from your Home Screen': 'Jugá desde tu pantalla de inicio',
   'Add Second Growth for a full-screen game without the browser bars.': 'Agregá Second Growth para jugar a pantalla completa, sin las barras del navegador.',
   'Open this page in Safari and tap Share (the square with an upward arrow). It may be inside the page menu.': 'Abrí esta página en Safari y tocá Compartir (el cuadrado con una flecha hacia arriba). Puede estar dentro del menú de la página.',
@@ -126,6 +128,7 @@ addStrings({
   'Rebuild farmhouse': 'Reconstruir la casa', "Put the farmhouse back up, as a caretaker's home. Bats roost in the attic.": 'Levantá otra vez la casa, para el cuidador. Los murciélagos duermen en el techo.',
   'Rebuild silo': 'Reconstruir la pila', 'A grain silo. Swifts and bats roost inside tall old silos.': 'Una pila de agua. Los vencejos y murciélagos duermen en ella.',
   'good spot': 'buen lugar', 'okay spot': 'lugar regular', 'poor spot': 'mal lugar',
+  ...LIMITS, try: 'probá', 'lawn: lift the sod first': 'zacate de jardín: quitá el pasto primero',
   Later: 'Después', 'Unlocks when you finish the campaign': 'Se abre al terminar la campaña',
   Brush: 'Pincel', 'Click a tile to place.': 'Tocá un cuadro para ponerlo.', "Click where you'd like to release them.": 'Tocá donde los querés soltar.',
   'needs rich soil': 'necesita tierra rica', 'fixes nitrogen': 'fija nitrógeno', '(invasive)': '(invasora)', 'No trailhead parking yet': 'Todavía no hay parqueo',
@@ -198,12 +201,17 @@ addStrings({
   'Trails and facilities': 'Senderos e instalaciones', 'Other work': 'Otros trabajos',
   'Plants planted': 'Plantas sembradas', 'Visitor donations': 'Donaciones de visitantes', 'Trail upkeep': 'Mantenimiento de senderos', 'Land cover': 'Cobertura del terreno',
   'Native cover': 'Cobertura nativa', 'Invasive cover': 'Cobertura invasora', 'Animal species': 'Especies de animales',
-  'Invasive cover %': '% invasoras', 'History builds up month by month.': 'La historia se va llenando mes a mes.',
+  'Invasive cover %': '% invasoras', 'Invasives off': 'Invasoras desactivadas', 'No new invasive plants take root on this map, so it stays clean. Turn them on in Settings, Gameplay.': 'No arraigan plantas invasoras nuevas en este mapa, así que se mantiene limpio. Actívalas en Ajustes, Jugabilidad.', 'History builds up month by month.': 'La historia se va llenando mes a mes.',
   'Field Journal': 'Diario de campo', 'Nothing yet.': 'Nada todavía.',
 
   // ---------------------------------------------------------------- menu and settings
   'Field journal': 'Diario de campo', 'See through trees': 'Ver a través de los árboles', 'Show trees normally': 'Ver los árboles normal', 'Photo mode': 'Modo foto',
   'Send feedback': 'Enviar opinión', 'How to play': 'Cómo jugar', 'Save game': 'Guardar partida', 'Start a new game (campaign or free play)': 'Empezar una partida nueva (campaña o juego libre)',
+  'Story mode (guided chapters)': 'Modo historia (capítulos guiados)', 'Story mode': 'Modo historia',
+  'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make.': 'Tus semillas ya están en la tierra. Mirá cómo crecen los brotes en las próximas semanas; los animales vienen por la comida y el refugio que dan.',
+  'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make. Want a guided start? Story mode teaches restoration one chapter at a time.': 'Tus semillas ya están en la tierra. Mirá cómo crecen los brotes en las próximas semanas; los animales vienen por la comida y el refugio que dan. ¿Querés empezar con guía? El modo historia enseña la restauración capítulo por capítulo.',
+  'Try it: open Plant, pick a seed mix and drag across a field. The brush turns green where seeds will grow.': 'Probá: abrí Sembrar, elegí una mezcla de semillas y arrastrá sobre un potrero. El pincel se pone verde donde las semillas van a crecer.',
+  'Try it: open Plant, pick a seed mix and drag a finger across a field. The brush turns green where seeds will grow.': 'Probá: abrí Sembrar, elegí una mezcla de semillas y arrastrá un dedo sobre un potrero. El pincel se pone verde donde las semillas van a crecer.',
   'Game saved. It also autosaves every month.': 'Partida guardada. También se guarda sola cada mes.', 'Could not save (browser storage unavailable).': 'No se pudo guardar (el navegador no deja guardar).',
   'Opening your saved farms': 'Abriendo tus fincas guardadas', 'Opening your saved farms…': 'Abriendo tus fincas guardadas…',
   'Saved': 'Guardado', 'Saving…': 'Guardando…', 'Save failed': 'No se pudo guardar', 'Autosave off': 'Guardado automático apagado',
@@ -493,6 +501,7 @@ addPatterns([
   [/^(.+) · Year (\d+)(?:, (.+))?$/, (_, r, y, s) => `${r} · Año ${y}${s ? ', ' + low(s) : ''}`],
 
   // ---------------------------------------------------------------- messages
+  [/^Objective done: (.+)$/, 'Objetivo cumplido: $1'],
   [/^Goal complete: (.+)! The land trust awarded a (\$[\d,]+) grant\.$/, '¡Meta cumplida: $1! La fundación te dio una ayuda de $2.'],
   [/^New species! An? (.+) has arrived on the farm\. \(\+(\$[\d,]+) discovery grant\)$/, '¡Especie nueva! Llegó a la finca: $1. (+$2 de ayuda por el descubrimiento)'],
   [/^An? (.+) caught an? (.+)\. The food web is working\.$/, (_, a, b) => `${cap(art(a))} atrapó ${art(b)}. La cadena alimenticia está funcionando.`],
@@ -506,6 +515,7 @@ addPatterns([
   ['The dike is breached. Over the next few weeks the tide will flood in and out of the old pond, and it will turn to tidal mud and marsh. Mangrove seedlings will drift in on the tide and take root, fastest next to healthy mangroves.', 'Se rompió el bordo. En las próximas semanas la marea va a entrar y salir de la camaronera vieja, y se va a volver lodo y estero. Las semillas de mangle llegarán flotando con la marea y pegarán, más rápido junto a los manglares sanos.'],
   ['The culvert is out! The creek now flows freely into the river, and fish can reach the upper creek.', '¡Se quitó la alcantarilla! La quebrada corre libre hasta el estero, y los peces pueden subir.'],
   [/^Not enough money\. Monthly grants will top up your budget\. Healthier land earns bigger grants\.$/, 'No alcanza la plata. Las ayudas de cada mes llenan el presupuesto. La tierra más sana gana ayudas más grandes.'],
+  [/^(.+) won't survive here: try (.+?)(?: \((.+)\))?\.$/, (_, p, b, l) => `${p} no va a sobrevivir aquí: probá ${b}${l ? ` (${limits(l)})` : ''}.`],
   [/^(.+) won't survive here(?: \((.+)\))?\. Green previews show where it will grow\.$/, (_, p, l) => `${p} no va a sobrevivir aquí${l ? ` (${limits(l)})` : ''}. Lo verde muestra dónde va a crecer.`],
   [/^(.+) unlocks in Chapter (\d+), "(.+)"\. Finish this chapter's goals to get there\.$/, '$1 se abre en el capítulo $2, "$3". Cumplí las metas de este capítulo para llegar.'],
   [/^Wildfire! (.+) started a fire in the dry grass\. It will spread through dry fuel until rain comes\. Send a fire crew \(Remove tab\) or let it burn: fire renews meadows but kills young forest\.$/, '¡Incendio! $1 prendió fuego en el zacate seco. Se va a regar por lo seco hasta que llueva. Mandá a los bomberos (pestaña Quitar) o dejalo quemar: el fuego renueva el zacate pero mata el bosque joven.'],

@@ -75,7 +75,7 @@ check('Every species, adult variant and juvenile centres on its visible body in 
         assert.equal(isMaleVariant(def, a), stage === 'male', `${map}/${def.key}: requested adult variant`);
       }
       game.wildlife.agents = [a]; game.selectedAgent = a;
-      tree(game, a); a.phase = 0.4; a.hd = 1.2;
+      tree(game, a); a.phase = 0.4; a.heading = 1.2;
       const states = def.move === 'fly' ? [false, true] : [false];
       for (const flying of states) {
         a.flying = flying; a.alt = flying ? 1 : 0;

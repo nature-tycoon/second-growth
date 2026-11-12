@@ -26,7 +26,7 @@ for (const [id, def] of Object.entries(FIELD_RECORDINGS)) {
     total += bytes; clips++;
   }
 }
-assert.ok(total < 6_000_000, `sound pack budget: ${total}`);
+assert.ok(total < 6_500_000, `sound pack budget: ${total}`);
 for (const [map, P] of Object.entries(SOUNDSCAPES)) {
   assert.ok(Object.values(MAP_RECORDINGS[map]).some(kind => Object.keys(kind).length), `${map}: real wildlife recordings`);
   for (const [kind, entries] of Object.entries(MAP_RECORDINGS[map])) for (const [key, id] of Object.entries(entries)) {

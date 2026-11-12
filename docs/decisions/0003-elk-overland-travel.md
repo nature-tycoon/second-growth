@@ -1,6 +1,16 @@
 # 0003 Elk travel between separated habitat patches
 
-## Context
+## Rules
+
+- Elk (and, since 0005, every non-reef ground mover) may cross passable, non-burning dry ground to reach another suitable patch. The destination threshold and habitat-weighted choice are unchanged.
+- Crossing ground isn't habitat and adds no capacity; fences, buildings, ponds and rivers still block.
+- Reuse the existing roaming search (bounded, reusable BFS buffers, leader decisions only, never per frame), remembered trip, herd following and calf rejoining; rutting bulls keep harem behavior. No new saved state.
+- A family leader slows for a lagging member on overland journeys (`a.trip`) as well as home-range trips (`rangePaces` in `sim/animal-trails.js`); while a lagging member is still standing she slows to a quarter pace. Calves wake by `cervidNeedsRejoin`.
+- Checks: `node tools/cervid-behavior-check.mjs` (calf gap limit 3.5 tiles), positioning, animal-life, animal-behavior checks, `node tools/balance-sim.mjs restore 15` before and after.
+
+## History
+
+### Context
 
 Elk arrive from the northern boundary. The long-distance roaming search formerly
 required every route tile to have positive habitat suitability. Physically
@@ -8,7 +18,7 @@ passable pasture and bare ground therefore isolated the northern creek habitat
 from restored interior meadows. A family could follow its leader correctly but
 never discover a route out of that patch.
 
-## Decision
+### Decision
 
 Elk may cross passable, non-burning dry ground when roaming to another suitable
 habitat patch. The existing destination threshold and habitat-weighted selection
@@ -22,7 +32,7 @@ save migration is needed, and existing saves use the corrected search on their
 next roaming decision. The search retains its existing world-size bound and
 reusable BFS buffers; it runs on occasional leader decisions, not every frame.
 
-## Verification
+### Verification
 
 `node tools/cervid-behavior-check.mjs` checks a north-edge cow/calf family crossing
 zero-suitability pasture into an interior meadow, barriers and openings, refusal
@@ -31,7 +41,7 @@ The existing family, bachelor and rut regressions remain part of that check.
 Also run the positioning, animal-life and animal-behavior checks, and the required
 before/after `node tools/balance-sim.mjs restore 15` runs.
 
-## Gotcha: a calf napping when its mother sets off (2026-10-31)
+### Gotcha: a calf napping when its mother sets off (2026-10-31)
 
 A family leader slows for a lagging calf or member (`rangePaces` in `sim/animal-trails.js`) on an
 overland journey (`a.trip`) as well as on a home-range trip. It used to be home-range trips only,

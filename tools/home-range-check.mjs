@@ -104,20 +104,26 @@ check('A resident walks the same route to its water time after time', () => {
 });
 
 check('Water trips take a modest share of every resident species\' time on six maps', () => {
+  // (a share over 30 days is noisy, so the limit judges the median of three runs: decision 0035)
+  const median = xs => [...xs].sort((a, b) => a - b)[xs.length >> 1], RUNS = (process.env.RUNS || '1,2,3').split(',').map(Number);
   for (const map of ['pnw', 'amazon', 'serengeti', 'atlanta', 'chinandega', 'sumatra']) {
-    const { g, wl, habitat, put, step } = scene(map, 5);
-    for (const d of g.catalog.animals) {
-      if (!homeEligible(wl, d)) continue;
-      const good = habitat(d);
-      for (let k = 0; good.length && k < Math.min(d.max, 6); k++) put(d, good[Math.floor(Math.random() * good.length)]);
+    const shares = new Map();
+    let cat;
+    for (const run of RUNS) {
+      const { g, wl, habitat, put, step } = scene(map, 5);
+      Math.random = mulberry32(100 + run); g.wildRng.setState(run); cat = g.catalog; // (each run its own placements and its own sim stream)
+      for (const d of g.catalog.animals) {
+        if (!homeEligible(wl, d)) continue;
+        const good = habitat(d);
+        for (let k = 0; good.length && k < Math.min(d.max, 6); k++) put(d, good[Math.floor(Math.random() * good.length)]);
+      }
+      const tally = new Map();
+      step(700, k => { if (k < 100) return; for (const a of wl.agents) { if (a.leaving) continue; const t = tally.get(a.key) || [0, 0]; t[0]++; if (a.drinkT > 0 || a.waterTrip) t[1]++; tally.set(a.key, t); } });
+      for (const [key, [n, water]] of tally) if (homeEligible(wl, cat.animal[key])) shares.set(key, [...(shares.get(key) || []), water / n]);
     }
-    const tally = new Map();
-    step(700, k => { if (k < 100) return; for (const a of wl.agents) { if (a.leaving) continue; const t = tally.get(a.key) || [0, 0]; t[0]++; if (a.drinkT > 0 || a.waterTrip) t[1]++; tally.set(a.key, t); } });
-    for (const [key, [n, water]] of tally) {
-      const d = g.catalog.animal[key];
-      if (!homeEligible(wl, d)) continue;
-      const limit = d.behavior.water.share > 0.1 ? 0.3 : 0.2;
-      assert.ok(water / n <= limit, `${map}/${key}: ${(100 * water / n).toFixed(0)}% of time on water trips`);
+    for (const [key, xs] of shares) {
+      const limit = cat.animal[key].behavior.water.share > 0.1 ? 0.3 : 0.2;
+      assert.ok(median(xs) <= limit, `${map}/${key}: ${(100 * median(xs)).toFixed(0)}% of time on water trips (median run; ${xs.map(x => (100 * x).toFixed(0)).join(', ')}%)`);
     }
   }
 });

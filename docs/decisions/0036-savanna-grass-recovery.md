@@ -1,9 +1,20 @@
 # 0036 Savanna grass recovery: perennial grass takes the meadow, lantana held back
 
+## Rules
+
+- A `pioneer` plant fades on any tile whose `w.soil` is past its level, even where it's the only thing that can grow: give a fading pioneer something to hand over to, or the land goes bare. A `crustOK` plant on crusted hardpan is exempt (`plantSuit`) until its roots break the crust (`rootsLoosen`).
+- Dung seed (`grazeDay` in `sim/grazing.js`, map `dungSeed`, Serengeti only): grazers drop grass seed, or pods from `pods` trees (`POD_SHARE`), through `trySeed`. It draws random numbers only when a map sets it; turning it on elsewhere changes that map's whole random sequence, so compare seeded runs over several seeds.
+- A grass fire root-kills a plant standing in grass by its `grassFireKill` × the grass around it (`burnTile`, `grassAround` in `events.js`); inside a closed thicket it survives.
+- Groundcover burns by its own `fuel` (`Events.fuel`), × (1 − 0.8 × min(1, grazed / 0.5)) where grazed, on every map.
+- Cole's call: about 4% wooded land on an untended Serengeti is fine. Don't tune it toward the 15% reference without asking him.
+- Checks: `savanna-grass-check`; `tools/savanna-sward-probe.mjs [--years] [--every] [--seed] [--why] [--trees] [--map]` shows the meadow's species and where young mesquite stands; plus herbivore-pressure, plant-ecology, fire-deadwood, rx-crown-fire, data-contracts and seeded `balance-sim restore 15`.
+
+## History
+
 2026-11-01. Follows 0035, which left this open: on an untended Serengeti the meadow turned from
 grass to the pioneer legumes, then to invasive lantana with mesquite under it.
 
-## What was happening
+### What was happening
 
 Untended for 200 years (`succession-check --map serengeti --mode idle --veg`, seeds 1 and 2), the
 meadow went from dropseed (about 1,700–2,000 tiles at year 30) to rattlepod and wild indigo
@@ -34,7 +45,7 @@ The real reference: recovering East African rangeland goes from annuals and legu
 grasses (Themeda, Digitaria, Pennisetum) within years to decades, and a vigorous sward with fire
 every few years holds lantana to thickets and gullies.
 
-## Decision
+### Decision
 
 Five small rules. Cole saw the design first: legumes fade on rich soil, then measure
 lantana and add fire only if needed (it was).
@@ -66,7 +77,7 @@ lantana and add fire only if needed (it was).
   Red oat grass is the Serengeti's main fire fuel, and with lantana and mesquite thickets gone it's
   what carries the 0035 fire regime.
 
-## Results
+### Results
 
 Untended Serengeti, 200 years, seeds 1 and 2, before (the 0035 branch tip, 1f6707b) and after,
 both seeded (`succession-check --map serengeti --mode idle --years 200 --veg`, and
@@ -121,7 +132,7 @@ both seeded (`succession-check --map serengeti --mode idle --years 200 --veg`, a
   `herbivore-pressure-check`, `plant-ecology-check`, `rx-crown-fire-check`, `challenging-ecology-check`,
   `vegetation-check`, `consistency-check`, `data-contracts-check` pass.
 
-## Native trees (Cole, the next day)
+### Native trees (Cole, the next day)
 
 With the grass back, native trees fell by about 60% (290 → 116 and 312 → 129 at year 200). A
 diagnosis (`savanna-sward-probe --trees`, and a cohort of 600 umbrella thorn seedlings in thick red
@@ -184,7 +195,7 @@ Results, the same 200-year runs (seeds 1 / 2; "0036" is before this section):
 - `savanna-grass-check` adds both rules (5 checks); `herbivore-pressure`, `plant-ecology`,
   `fire-deadwood`, `rx-crown-fire`, `challenging-ecology` and `data-contracts` checks pass.
 
-## Gotchas
+### Gotchas
 
 - A `pioneer` plant fades on any tile whose `w.soil` is past its level, including ground where it's
   the only thing that can grow. Give a fading pioneer somewhere to hand over to (`crustOK` on crust is

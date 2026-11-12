@@ -1,6 +1,7 @@
+import { climbStyle } from '../data/animal-kinds.js';
 // Four-limbed branch walkers share contact timing, but keep their own anatomy.
 export function isCanopyWalker(def) {
-  return def.move === 'tree' && def.sprite?.kind === 'monkey' && !def.sprite.ape;
+  return def.move === 'tree' && climbStyle(def) === 'walk';
 }
 
 export function canopyWalkerBends(length, height) {

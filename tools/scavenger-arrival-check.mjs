@@ -1,4 +1,5 @@
 // Exercise delayed visitors through normal movement, not teleporting them onto a kill.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { T } from '../js/config.js';
@@ -27,8 +28,8 @@ for (const [map, hunterKey, preyKey, visitorKey, distance] of [
   hunter.wait = 100;
   const visitor = wl.spawn(g.catalog.animal[visitorKey], 40 + distance, 30, { silent: true });
   visitor.x = 40.5 + distance; visitor.y = 30.5; visitor.hunger = 40; visitor.wait = 0;
-  const random = Math.random; Math.random = () => 0.1;
-  try { assert.ok(scavenge(wl, visitor, g.catalog.animal[visitorKey])); } finally { Math.random = random; }
+  const random = forcedSimRandom(); forceSimRandom(() => 0.1);
+  try { assert.ok(scavenge(wl, visitor, g.catalog.animal[visitorKey])); } finally { forceSimRandom(random); }
   assert.equal(visitor.hunger, 40); assert.equal(carcass.meals, meals, 'no reservation consumes food');
   let arrival = null;
   for (let k = 0; k < 900; k++) {

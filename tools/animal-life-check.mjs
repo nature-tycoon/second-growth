@@ -1,6 +1,7 @@
 // node tools/animal-life-check.mjs
 // Everyday behaviour from js/sim/animal-life.js: rutting stags fight a bout head to head,
 // animals get clear of a fire, and reef fish swim nose-first.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { T, F } from '../js/config.js';
@@ -31,7 +32,7 @@ function males(key, n) {
   return out;
 }
 // Math.random returns these values in turn (the last one repeats)
-const rigged = (fn, ...values) => { const r = Math.random; let k = 0; Math.random = () => values.length ? values[Math.min(k++, values.length - 1)] : 0; try { return fn(); } finally { Math.random = r; } };
+const rigged = (fn, ...values) => { const r = forcedSimRandom(); let k = 0; forceSimRandom(() => values.length ? values[Math.min(k++, values.length - 1)] : 0); try { return fn(); } finally { forceSimRandom(r); } };
 
 check('Rutting bull elk square up head to head, hold the stance, and the loser gives ground', () => {
   reset(); while (g.month !== 7) g.day++;
@@ -67,7 +68,7 @@ check('In the rut bull elk gather harems, keep their cows close, and a winning r
   // One minute of a harem is noisy (2.7-5.3 tiles across seeds), so average a few seeded runs.
   const harem = seed => {
     Math.random = mulberry32(seed);
-    reset(); while (g.month !== 7) g.day++;
+    reset(); g.wildRng.setState(seed); while (g.month !== 7) g.day++; // (each run its own sim stream)
     const wl = g.wildlife, [b1, b2] = males('elk', 2), cows = [];
     for (let k = 0; cows.length < 6 && k < 200; k++) { const c = wl.spawn(ANIMAL.elk, 40, 30, { silent: true }); if (!isMaleVariant(ANIMAL.elk, c)) cows.push(c); else wl.remove(c); }
     b1.x = 40.5; b1.y = 30.5; b2.x = 52.5; b2.y = 30.5;
@@ -118,7 +119,7 @@ check('Fleeing respects blocked diagonal corners in every direction and still us
     const a = wl.spawn(ANIMAL.deer, 40, 30, { silent: true });
     const pose = { x: 40 + (dx > 0 ? 0.99 : 0.01), y: 30 + (dy > 0 ? 0.99 : 0.01),
       state: 'flee', fleeT: 2, fleeDelay: 0, fleeSpeed: 2, fx: dx * Math.SQRT1_2, fy: dy * Math.SQRT1_2, fleeSide: 1,
-      orientation: Math.atan2(dy, dx), fleeHd: null }; // (already running that way: a flight turns at a running pace, 0025)
+      heading: Math.atan2(dy, dx), fleeHd: null }; // (already running that way: a flight turns at a running pace, 0025)
     Object.assign(a, pose);
     const sides = [w.idx(40 + dx, 30), w.idx(40, 30 + dy)];
     for (const i of sides) {
@@ -268,13 +269,13 @@ check('Reef predators turn and swim nose-first at their prey', () => {
   }
   assert.ok(sx >= 0);
   const prey = wl.spawn(ANIMAL.tang, sx + 6, sy, { silent: true }), shark = wl.spawn(ANIMAL.shark, sx, sy, { silent: true });
-  prey.wait = 99; shark.hd = Math.PI / 2; // (facing away, at right angles to its prey)
+  prey.wait = 99; shark.heading = Math.PI / 2; // (facing away, at right angles to its prey)
   shark.state = 'hunt'; shark.target = prey.id; shark.huntTime = 5;
   let sideways = 0, moved = 0;
   for (let s = 0; s < 60 && shark.state === 'hunt'; s++) {
     const x = shark.x, y = shark.y; wl.update(0.05);
     const d = Math.hypot(shark.x - x, shark.y - y); if (d < 1e-4) continue;
-    let off = Math.abs(Math.atan2(shark.y - y, shark.x - x) - shark.hd) % (Math.PI * 2); if (off > Math.PI) off = Math.PI * 2 - off;
+    let off = Math.abs(Math.atan2(shark.y - y, shark.x - x) - shark.heading) % (Math.PI * 2); if (off > Math.PI) off = Math.PI * 2 - off;
     moved += d; if (off > 0.6) sideways += d;
   }
   assert.ok(moved > 0.5 && sideways / moved < 0.05, `${sideways}/${moved}`);

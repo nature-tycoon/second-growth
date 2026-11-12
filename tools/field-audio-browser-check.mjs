@@ -17,7 +17,7 @@ try {
   console.log('Cascade review includes three bugles and Autumn playback through the game rut audio path.');
   const decoded = await b.evaluate('window.auditFieldFiles()', 60000);
   assert.ok(decoded.files >= 60);
-  assert.ok(decoded.bytes < 6_000_000);
+  assert.ok(decoded.bytes < 6_500_000);
   console.log(`${decoded.files} AAC clips decoded; peaks, RMS, mono channels and download budget passed.`);
   const loops = await b.evaluate(`(async () => {
     const { Music }=await import('/js/audio/music.js');
@@ -54,8 +54,8 @@ try {
       return rows;
     } finally {await ctx.close();}
   })()`,60000);
-  assert.equal(loops.length,5);
-  console.log('All five continuous recordings loop for three passes without restart gaps, seam clicks or abrupt level changes.');
+  assert.equal(loops.length,6);
+  console.log('All six continuous recordings loop for three passes without restart gaps, seam clicks or abrupt level changes.');
   const rain = await b.evaluate(`(async () => {
     const { Music }=await import('/js/audio/music.js');
     const { createRainSource }=await import('/js/audio/rain.js');

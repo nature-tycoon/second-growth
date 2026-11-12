@@ -145,7 +145,7 @@ check('Animal follow camera eases torso shifts with a bounded speed and converge
 });
 check('Tree leaps rise and land continuously at every game speed and frame rate', () => {
   for (const key of ['howler', 'spider', 'langur', 'congo']) for (const fps of [15, 30, 60]) for (const speed of [1, 2, 3]) {
-    const def = { key, speed: 1, sprite: { kind: 'monkey', len: 16 } }, game = { speed }, st = { sc: .02 };
+    const def = { key, leaps: true, speed: 1, sprite: { kind: 'monkey', len: 16 } }, game = { speed }, st = { sc: .02 };
     const site = {}, direction = new THREE.Vector3(1, 0, 0);
     const start = { site, index: 0, point: new THREE.Vector3(), direction }, end = { ...start, site: {}, point: new THREE.Vector3(2, .2, 0) };
     canopyStep(st, start, def, game, 0);

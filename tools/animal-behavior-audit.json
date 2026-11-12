@@ -153,8 +153,8 @@
           "movement": "ground",
           "domestic": false,
           "feeding": [
-            "browse",
-            "grass"
+            "grass",
+            "browse"
           ],
           "prey": [],
           "challengingPrey": [],
@@ -3325,6 +3325,28 @@
           "strictMax": false
         },
         {
+          "key": "anthias",
+          "name": "Scalefin anthias",
+          "scientificName": "Pseudanthias squamipinnis",
+          "movement": "ground",
+          "domestic": false,
+          "feeding": [
+            "plankton"
+          ],
+          "prey": [],
+          "challengingPrey": [],
+          "huntingStyle": null,
+          "huntCompanions": 0,
+          "adultMaleCombat": null,
+          "herd": true,
+          "frugivore": false,
+          "damBuilder": false,
+          "existingBirdActivities": false,
+          "existingPrimateMeals": false,
+          "max": 126,
+          "strictMax": false
+        },
+        {
           "key": "tang",
           "name": "Blue tang",
           "scientificName": "Paracanthurus hepatus",
@@ -3399,6 +3421,7 @@
           "feeding": [],
           "prey": [
             "chromis",
+            "anthias",
             "tang",
             "butterfly"
           ],
@@ -3464,7 +3487,9 @@
           "scientificName": "Cheilinus undulatus",
           "movement": "ground",
           "domestic": false,
-          "feeding": [],
+          "feeding": [
+            "starfish"
+          ],
           "prey": [],
           "challengingPrey": [],
           "huntingStyle": null,
@@ -3487,6 +3512,7 @@
           "feeding": [],
           "prey": [
             "chromis",
+            "anthias",
             "tang",
             "idol",
             "butterfly"
@@ -3580,6 +3606,7 @@
             "parrotfish",
             "tang",
             "chromis",
+            "anthias",
             "trout",
             "sweetlips"
           ],
@@ -3740,6 +3767,49 @@
           "existingPrimateMeals": false,
           "max": 8,
           "strictMax": true
+        },
+        {
+          "key": "longtom",
+          "name": "Crocodile longtom",
+          "scientificName": "Tylosurus crocodilus",
+          "movement": "ground",
+          "domestic": false,
+          "feeding": [],
+          "prey": [],
+          "challengingPrey": [],
+          "huntingStyle": null,
+          "huntCompanions": 0,
+          "adultMaleCombat": null,
+          "herd": true,
+          "frugivore": false,
+          "damBuilder": false,
+          "existingBirdActivities": false,
+          "existingPrimateMeals": false,
+          "max": 25,
+          "strictMax": false
+        },
+        {
+          "key": "blacktip",
+          "name": "Blacktip reef shark",
+          "scientificName": "Carcharhinus melanopterus",
+          "movement": "ground",
+          "domestic": false,
+          "feeding": [],
+          "prey": [
+            "longtom",
+            "chromis"
+          ],
+          "challengingPrey": [],
+          "huntingStyle": "pursue",
+          "huntCompanions": 0,
+          "adultMaleCombat": null,
+          "herd": false,
+          "frugivore": false,
+          "damBuilder": false,
+          "existingBirdActivities": false,
+          "existingPrimateMeals": false,
+          "max": 4,
+          "strictMax": false
         }
       ]
     },
@@ -4519,5 +4589,5 @@
       ]
     }
   ],
-  "speciesCount": 200
+  "speciesCount": 203
 }

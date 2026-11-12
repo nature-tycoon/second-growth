@@ -1,4 +1,5 @@
 // node tools/bird-behavior-check.mjs
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -10,7 +11,8 @@ import { Game } from '../js/game.js';
 import { ANIMALS, ANIMAL, animalDef } from '../js/data/animals.js';
 import { PASSAGE_SPECIES } from '../js/data/bird-passage.js';
 import { passageChoices, spawnPassage, updatePassage } from '../js/sim/bird-passage.js';
-import { birdChoose, birdUpdate, birdAlarm, isBird, carryCatch, liftable } from '../js/sim/bird-behavior.js';
+import { birdChoose, birdArrive, birdUpdate, birdAlarm, isBird, carryCatch, liftable } from '../js/sim/bird-behavior.js';
+import { trait } from '../js/data/animal-kinds.js';
 import { T, F, isWater } from '../js/config.js';
 import { mulberry32 } from '../js/rng.js';
 import { startFeed } from '../js/sim/animal-life.js';
@@ -29,7 +31,7 @@ function spawn(g, key, x = 40.5, y = 30.5) {
   const a = g.wildlife.spawn(ANIMAL[key], Math.floor(x), Math.floor(y), { silent: true });
   Object.assign(a, { x, y, state: 'idle', flying: false, alt: 0, wait: 99 }); return a;
 }
-function fixed(value, fn) { const before = Math.random; Math.random = () => value; try { return fn(); } finally { Math.random = before; } }
+function fixed(value, fn) { const before = forcedSimRandom(); forceSimRandom(() => value); try { return fn(); } finally { forceSimRandom(before); } }
 const idx = (g, a) => g.world.idx(Math.floor(a.x), Math.floor(a.y));
 check('A bathing bird renders splash rings without crashing the frame, including a removed water tile', () => {
   const g = setup(), w = g.world, a = spawn(g, 'robin');
@@ -110,12 +112,37 @@ check('Perch and preen routines stay on a tree, and react to its removal', () =>
   fixed(0.8, () => birdChoose(wl, a, ANIMAL.robin));
   assert.equal(a.state, 'fly'); assert.equal(a.birdGoal.kind, 'perch'); assert.equal(a.birdGoal.i, far);
   Object.assign(a, { state: 'idle', flying: false, birdGoal: null, perchedAt: null });
-  const random = Math.random; let calls = 0; Math.random = () => calls++ ? 0.2 : 0.8;
-  try { birdChoose(wl, a, ANIMAL.robin); } finally { Math.random = random; }
+  const random = forcedSimRandom(); let calls = 0; forceSimRandom(() => calls++ ? 0.2 : 0.8);
+  try { birdChoose(wl, a, ANIMAL.robin); } finally { forceSimRandom(random); }
   assert.equal(a.bird.kind, 'preen');
   const actors = new Actors(new THREE.Scene()); actors.update(g, new THREE.Vector3(1, 0, 0), 1);
   assert.ok(actors.pose.get(a.id).y > 0.4);
   g.world.tree[i] = 0; birdUpdate(wl, a, ANIMAL.robin, 0.05); assert.equal(a.state, 'idle');
+});
+check('Fruit birds fly to a fruiting crown in season, take a short meal there, then move on', () => {
+  for (const [map, key] of [['amazon', 'toucan'], ['amazon', 'macaw'], ['sumatra', 'hornbill'], ['sumatra', 'bulbul']]) {
+    const g = setup(map), wl = g.wildlife, w = g.world, D = g.catalog.animal[key];
+    assert.ok(trait(D, 'eatsFruit'), `${key} eats fruit`);
+    const tree = g.catalog.plants.find(p => p && p.layer === 2 && p.look.fruit?.length && p.look.fruit.length < 12);
+    const at = w.idx(44, 30); w.tree[at] = tree.id; w.treeG[at] = 1;
+    const a = spawn(g, key); a.hunger = 0;
+    g.day = [...Array(12).keys()].find(m => !tree.look.fruit.includes(m)) * 10; // (out of season: no fruit, so it goes about its other routines)
+    fixed(0.3, () => birdChoose(wl, a, D)); assert.notEqual(a.birdGoal?.kind, 'fruit', `${key}: no fruit out of season`);
+    Object.assign(a, { x: 40.5, y: 30.5, state: 'idle', flying: false, bird: null, birdGoal: null });
+    g.day = tree.look.fruit[0] * 10;
+    fixed(0.3, () => birdChoose(wl, a, D));
+    assert.equal(a.state, 'fly'); assert.equal(a.birdGoal?.kind, 'fruit', `${key} heads for the ${tree.key}`); assert.equal(a.birdGoal.i, at);
+    Object.assign(a, { x: 44.5, y: 30.5 }); birdArrive(wl, a);
+    assert.equal(a.bird?.kind, 'fruit'); assert.ok(a.bird.t >= 1 && a.bird.t <= 5, `a short meal (${a.bird.t})`);
+    const actors = new Actors(new THREE.Scene()); actors.update(g, new THREE.Vector3(1, 0, 0), 1);
+    assert.ok(actors.pose.get(a.id).y > 0.4, `${key} eats up in the crown`);
+    let n = 0; while (a.state === 'bird' && n++ < 200) birdUpdate(wl, a, D, 0.05);
+    assert.equal(a.state, 'idle'); assert.ok(a.fruitFed > a.age, 'full for a while after');
+    fixed(0.3, () => birdChoose(wl, a, D)); assert.notEqual(a.bird?.kind, 'fruit'); assert.notEqual(a.birdGoal?.kind, 'fruit', 'moves on');
+    // the crown it was eating in burns: it leaves at once
+    Object.assign(a, { fruitFed: 0, ateFruitAt: null, state: 'idle' }); fixed(0.3, () => birdChoose(wl, a, D)); assert.equal(a.bird?.kind, 'fruit');
+    w.fire[at] = 1; birdUpdate(wl, a, D, 0.05); assert.equal(a.state, 'idle');
+  }
 });
 check('Nest visits remember a nest box and stop when it is removed; saves retain resident routines', () => {
   const g = setup('atlanta'), wl = g.wildlife, a = spawn(g, 'chickadee'), i = idx(g, a);

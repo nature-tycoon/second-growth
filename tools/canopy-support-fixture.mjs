@@ -14,7 +14,7 @@ export function canopyFixture(map = 'amazon', key = 'howler', growth = 1) {
   if (!tree) throw new Error(`Missing canopy fixture tree for ${map}`);
   for (const [x, z] of [[40, 32], [41, 32]]) w.setPlant(w.idx(x, z), tree, growth);
   const a = game.wildlife.spawn(ANIMAL[key], 40, 32, { silent: true, age: 1200 });
-  a.x = 40.68; a.y = 32.44; a.state = 'idle'; a.hd = .3; a.phase = .4; a.wait = 100;
+  a.x = 40.68; a.y = 32.44; a.state = 'idle'; a.heading = .3; a.phase = .4; a.wait = 100;
   game.selectedAgent = a;
   return { game, a };
 }

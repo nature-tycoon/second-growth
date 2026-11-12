@@ -1,5 +1,19 @@
 # 0038 Smooth first minutes: no stalls for new animals, plant regions or the daily update
 
+## Rules
+
+- Animal models and shaders are warmed in idle time (`Actors.warmAnimals`, every look from `drawLooks`, `compileAsync`); anything not ready is built on the spot. Don't build them while loading.
+- Plant regions are 24 tiles (`Flora` `chunkSize`), rebuilt under a 4 ms frame budget (`FLORA_FRAME_MS`). The plants drawn must stay the same: `tools/flora-rebuild-bench.mjs`'s `plant set` must match.
+- The live day runs in parts (`Game.dayWork`, one part a frame; autosave on its own frame via `saveDue`; `finishDay` before a new day or save). `dailyTick`, `monthlyTick`, `Wildlife.monthly` and `computeSuitability` still do it all at once in the same order, so headless results stay byte-identical. Keep both paths in step.
+- Tests that stub habitat replace `Wildlife.suitabilityWork`, not `computeSuitability`.
+- Speed-ups must give exactly the same simulation (seeded `balance-sim restore 15` and `idle 10` byte-identical).
+- `wetTest` is per search: make a new one each time, since the water moves. `deepWaterNear` stops at the first deep enough point. Bird alarm threat answers are cached per map and difficulty (`threatens`).
+- The daily environment update recomputes only what changed where that gives the same answer: a distance field is swept again only when its sources changed (`w.distSources`, cleared by `Game.refreshEnvironment`: clear it too after writing a distance array yourself), and `classifyAndResources` reads plants through its per-month table (`plantMonth`), rebuilt every call because a map can change a plant's season. New per-plant values it needs go in that table.
+- Open: Sumatra's opening view on the GPU. The daily plant redraw is settled in [0046](0046-plant-growth-on-the-gpu.md) (deadwood fix in, growth on the GPU declined).
+- Checks: `node tools/new-game-profile.mjs [maps] [quality] [seconds]` under `nice -n 15` before and after any change to what a frame does; `plant-replay-check`, `plant-performance-check`; probes `species-warm-probe`, `month-cost-probe`, `plant-churn-probe`, `daily-env-profile` (node) and `daily-env-browser-probe` (where a game day goes, after 2 grown years); `node --cpu-prof` on a 12-year seeded run to compare checkouts.
+
+## History
+
 2026-11-01. Cole: "Still noticeable lag... right from the get go." PostHog agreed: over the previous
 10 days, players under 20 fps in their first 10 minutes of a game (Chromebooks, older Windows
 laptops, Android phones) spent a median 42 ms a frame drawing on the processor, 110 ms in their
@@ -11,7 +25,7 @@ Measured with `tools/new-game-profile.mjs` (new): each map started fresh, as a p
 at normal and fast speed, through the real frame loop, counting long frames and what each of the
 slowest went to.
 
-## What stalled a frame (M5, High, a new game)
+### What stalled a frame (M5, High, a new game)
 
 | Cause | One frame | How often |
 | --- | ---: | --- |
@@ -20,7 +34,7 @@ slowest went to.
 | The daily update (`Game.dailyTick`) | 5-25 ms | every game day (1.4 s at normal speed) |
 | A new month (`Wildlife.monthly`, mostly every species' habitat on every tile) plus the autosave packing the save | 26-36 ms + 7-9 ms | every 10 game days (`tools/month-cost-probe.mjs`) |
 
-## Decision
+### Decision
 
 1. **Animals warmed in idle time** (`Actors.warmAnimals`, started with the game). Every look of
    every kind on the map (`drawLooks`: adult male, winter plumage) is built one per idle moment,
@@ -48,7 +62,7 @@ slowest went to.
    day still in progress first (`finishDay`), a load or new game drops it, and the ground and
    plant redraws wait until the day's parts are done.
 
-## Results
+### Results
 
 New games, M5 on mains power with the Mac otherwise quiet, High, 2880x1800, 20 s at each speed,
 `new-game-profile`, the code before this change (821628a) and all three parts back to back,
@@ -85,7 +99,7 @@ An earlier run (2026-11-01, another agent's simulations loading the Mac) showed 
 from parts 1 and 2 alone, for example Sumatra at fast 20 → 39 fps; under load the stalls cost
 more, as on a slower computer.
 
-## Simulation cost per game day after the wave-2 merge (2026-11-02)
+### Simulation cost per game day after the wave-2 merge (2026-11-02)
 
 The combined branch (PR 83: 0033-0038 on top of wave 1) ran the simulation 17-22% slower per game
 day than main on the Serengeti and Chinandega. Node, seeded (`Math.random` LCG s=7), untended,
@@ -132,7 +146,7 @@ that first year (41 against 25 on Amazon) and the warm-up of the larger code. To
 look: a per-function CPU profile (`node --cpu-prof`) of a 12-year seeded run, compared
 inclusive-time by function between two checkouts.
 
-## Not done
+### Not done
 
 - **The daily plant redraw itself.** A day's growth changes almost every region on every map (27-30
   of 30 regions a day), so plants are rebuilt all over each day: 21 ms of work per game day in
@@ -144,7 +158,7 @@ inclusive-time by function between two checkouts.
 - `perf_sample` has no count of single long frames; `slow_frames_pct` mixes stutter with a low
   steady rate. A `long_frames` count (over 100 ms) would show in PostHog whether this helped.
 
-## Check
+### Check
 
 `node tools/new-game-profile.mjs [maps] [quality] [seconds]` (under `nice -n 15`) before and after
 any change to what a frame does; `tools/flora-rebuild-bench.mjs` (its `plant set` must match),

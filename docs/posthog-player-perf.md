@@ -14,6 +14,19 @@ From then on `renderer_revision`, and the `release` property on every event, is 
 
 Also look at `auto_quality` (its `reason`: `graphics_chip` or `slow` for a step down to Fast, `room` for a step back up, `undo` when a step up proved too much), `setting_changed` and `tool_used` (tool, tiles). Device details come from `$os`, `$browser` and `$screen_width`.
 
+## Why players stop
+
+`game_left` (and `went_idle`) carry the session's story: tools used, refusals for money and
+unsuitable ground, rewards (goals, objectives, new species) and the seconds since the last tool,
+refusal, reward, fire and flood, time paused and at speed 3+, last month's net money, zoom, and
+the campaign's next objective (or Free Play's open goal count). Alongside: `objective_done` (each
+campaign objective), `quest_help`, `panel_closed` (seconds a panel was open), `warning_shown` (each
+warning wording once a session, numbers as #), `species_lost`, and `game_loaded` (`load_ms` and
+each loading step's start), `loading_left` and `load_failed`. `species_discovered.species` is the
+species key from 2026-11-09; before that it held the species count. `perf_sample` also fires at
+10 s from then. Most players now arrive at secondgrowth.earth/play. Check:
+`node tools/play-analytics-browser-check.mjs`. First findings: [posthog-review-2026-11.md](posthog-review-2026-11.md).
+
 ## History
 
 - 2026-10-11: a Windows laptop with HD 620 graphics fell from 30 to 2 fps as the farm grew and the player zoomed out to 0.16 (13M triangles). The game had moved it to Fast and the player switched back to High. That led to the far-model, partial ground repaint and desktop auto-resolution fixes (`renderer_revision: low-end-1`, PR #24). They went live on GitHub Pages on 2026-10-11 and on itch.io on 2026-10-12.

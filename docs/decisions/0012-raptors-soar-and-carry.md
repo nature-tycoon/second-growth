@@ -1,12 +1,24 @@
 # 0012 Raptors soar, and carry off what they can lift
 
+## Rules
+
+- Soaring is `def.soar` (hawks, white-backed vulture): an idle, fed bird circles open ground; a hungry one hunts or searches from the soar. Ease altitude, never clamp it.
+- After a catch, `carryCatch` (`sim/bird-behavior.js`) decides: prey listed in `def.carries` (or any juvenile) is mantled and carried to a perch within 10 tiles; heavier prey is eaten where it fell; a heavy fish is dragged to the bank. The data contract checks that `carries` names only prey the species hunts.
+- `a.prey` is drawn in the talons and under the feet, never longer than 0.85× the bird.
+- A flier catches only once `a.stoop` reaches 1 (the dive reaches the ground over its prey). A raptor hunting from a perch (`hunt.perch`) drops straight on. `carryCatch` mantles by where the prey was.
+- Vultures find carrion through `scavenge` (fliers, 40 tiles, checked every half sim-day), then `circleDown` spirals them over it; circling claims no meal, landing feeds through `feedAt`. `circleDown` is only for soaring birds with no prey; hawks and eagles never circle down.
+- Catch odds, hunger and population ecology are unchanged by carrying.
+- Checks: `tools/bird-behavior-check.mjs`, `challenging-ecology-check`, `scavenger-arrival-check`.
+
+## History
+
 Decided 2026-10-18 by Cole.
 
-## Context
+### Context
 
 Hawks only perched, hopped between trees and wheeled for about a second before a stoop, though the field guide says the red-tailed hawk "circles over open country". After a catch, the prey vanished and the bird "ate" for about a second with nothing in its feet. A fish taken over water vanished in mid-air.
 
-## Decision
+### Decision
 
 - **Soaring** (`def.soar`, the two hawks). An idle, fed hawk sometimes picks open ground near it with suitable habitat, and circles over it for 20–40 s on a 2.5–4 tile radius. It flies higher than ordinary flight (alt up to 1.6), holds its wings out with a short flapping bout now and then, and leans into the turn (`SOAR_BANK` in `render3d/actors.js`). A hungry hawk breaks off and the hunt starts from up there. Flight and hunting now ease alt down from above 1 instead of clamping, so it doesn't jump.
 - **Carrying** (`def.carries`, every raptor and owl that hunts). After a catch, `carryCatch` in `sim/bird-behavior.js` decides what happens:
@@ -30,13 +42,13 @@ Hawks only perched, hopped between trees and wheeled for about a second before a
 
 - The data contract checks that `carries` only names prey the species hunts.
 
-## Consequences
+### Consequences
 
 - Catch odds, hunger and population ecology are unchanged. On the Hollis restore run over 3 seeds, hawks, owls and their prey stay within seed noise.
 - Herons, kingfishers and otters still eat on the spot. Adding them would be a separate change (in reality they carry fish in the bill).
 - `tools/bird-behavior-check.mjs` covers the carry table, the mantle → carry → perch → eat sequence (including a save made mid-carry), eating on the ground, owls swallowing whole, and the eagle with trout and coho.
 
-## Amendment 2026-10-20: the catch comes at the bottom of the dive
+### Amendment 2026-10-20: the catch comes at the bottom of the dive
 
 Cole saw hawks "picking a vole out of the top of a tree" and flying to another tree to eat it.
 A flier caught its prey as soon as it was within half a tile horizontally, whatever its height,
@@ -58,7 +70,7 @@ Catch counts held (hawk 9 → 9, owl 12 → 14). `bird-behavior-check` covers a 
 beside a vole and a hawk directly above one. `challenging-ecology-check` gives fliers up to four
 steps to finish the dive on contact.
 
-## Amendment 2026-10-22: vultures soar, and circle down to carrion
+### Amendment 2026-10-22: vultures soar, and circle down to carrion
 
 Cole asked for vultures to circle carrion using the soar. The white-backed vulture (Serengeti) now
 has `soar: true`, and the soar gained one variant for scavengers rather than a separate system:

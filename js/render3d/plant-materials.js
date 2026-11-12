@@ -1,6 +1,7 @@
 // Foliage wind and leaf lighting, plus the materials used by plant placement.
 import * as THREE from 'three';
 import { withFocusFade } from './focus.js';
+import { withLookShift } from './look-through.js';
 import { withSnowTops } from './snow.js';
 import { withClouds } from './atmosphere.js';
 
@@ -58,7 +59,8 @@ export function createPlantMaterials(wind) {
   materials.small = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true }), 0.35), 1));
   // Occupied branches stay solid when foliage is revealed. They use the real
   // tree scaffold, with no focus cutout, wind deformation or global tree fade.
-  materials.canopyBark = withClouds(withSnowTops(new THREE.MeshLambertMaterial({ vertexColors: true }), 1));
+  // (seen faintly through the leaves round an animal on it, with the animal: look-through.js)
+  materials.canopyBark = withLookShift(withClouds(withSnowTops(new THREE.MeshLambertMaterial({ vertexColors: true }), 1)), { near: true });
   // Keep the occupied tree's leaves beneath the feet as well as its wood.
   // Higher foliage still opens around a selected animal so it remains visible.
   materials.canopyCrown = withClouds(withSnowTops(withFocusFade(new THREE.MeshLambertMaterial({ vertexColors: true,
