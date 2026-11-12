@@ -111,7 +111,7 @@ export function climberArrive(wl, a) {
   const def = wl.game.catalog.animals[a.sp], w = wl.game.world, i = tileOf(w, a), kind = a.climb;
   a.climb = null;
   if (kind === 'up') {
-    if (i >= 0 && treeTile(w, i)) { a.move = 'tree'; a.wait = 0.5 + Math.random(); a.cache = null; }
+    if (i >= 0 && treeTile(w, i)) { a.move = 'tree'; a.gapTo = null; a.wait = 0.5 + Math.random(); a.cache = null; }
     return;
   }
   if (!downBelow(def, a)) return;

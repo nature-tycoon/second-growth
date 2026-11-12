@@ -99,8 +99,10 @@ export function updateDormancy(wl, a, def) {
     }
     return false;
   }
+  // (a hungry bear keeps foraging, but a cold snake brumates whether or not it has eaten lately:
+  // while the hunger gate held them, garter snakes that rarely ate stayed out all winter)
   if (a.age < (a.dormancyAfter || 0) || a.state !== 'idle' || a.drinkT > 0 || a.socialWith != null ||
-    a.greet != null || a.alertT > 0 || preyFor(def, wl.game) && a.hunger >= huntHunger(def)) return false;
+    a.greet != null || a.alertT > 0 || p.kind !== 'brumation' && preyFor(def, wl.game) && a.hunger >= huntHunger(def)) return false;
   a.dormancyAfter = a.age + 5;
   const x0 = Math.floor(a.x), y0 = Math.floor(a.y);
   if (!w.inb(x0, y0) || danger(wl, a, def)) return false;

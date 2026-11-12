@@ -3,11 +3,12 @@ import * as THREE from 'three';
 import { withClouds } from '../atmosphere.js';
 import { buildSpecies } from './animal-model.js';
 import { faunaMaterial } from './animal-material.js';
+import { withLookShift } from '../look-through.js';
 import { CLOSE_PIXELS, FAR_PIXELS, simplifyAnimal } from './animal-lod.js';
 
 // ---------------------------------------------------------------- instanced pools
 class SpeciesMesh {
-  constructor(scene, def, { geo, motion } = buildSpecies(def), mat = withClouds(faunaMaterial(motion))) {
+  constructor(scene, def, { geo, motion } = buildSpecies(def), mat = withLookShift(withClouds(faunaMaterial(motion)))) {
     this.geo = geo; this.motion = motion; this.scene = scene; this.def = def;
     this.mat = mat; // (the field-guide portraits use faunaMaterial bare)
     this.cap = 0; this.count = 0; this.mesh = null; this.far = null; this.close = null;
@@ -62,6 +63,7 @@ export class Fauna {
     this.farModels = true; this.pixelsPerUnit = Infinity;
     // and close-up models for animals larger than CLOSE_PIXELS, built one at a time when the page is idle
     this.closeModels = true; this.closeWanted = new Set(); this.closeBuilding = false;
+    this.tracked = [];
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.v = new THREE.Vector3(); this.s = new THREE.Vector3();
     this.yAxis = new THREE.Vector3(0, 1, 0); this.zAxis = new THREE.Vector3(0, 0, 1); this.xAxis = new THREE.Vector3(1, 0, 0); this.qp = new THREE.Quaternion();
   }
@@ -117,6 +119,7 @@ export class Fauna {
   // fall off with each animal's distance.
   begin(pixelsPerUnit = Infinity, eye = null) {
     this.pixelsPerUnit = pixelsPerUnit; this.eye = eye;
+    this.tracked = []; // (where the tracked animals went this frame, for look-through.js)
     for (const p of this.species.values()) { p.count = 0; if (p.far) p.far.count = 0; if (p.close) p.close.count = 0; }
   }
   // The close-up model if it's ready; otherwise null, and it's built when the page is next idle
@@ -155,6 +158,7 @@ export class Fauna {
       oldGrips?.forEach((a, i) => p.grips[i].array.set(a));
     }
     const k = p.count++;
+    if (detail) this.tracked.push({ pool: p, k });
     this.q.setFromAxisAngle(this.yAxis, yaw);
     if (pitch) this.q.multiply(this.qp.setFromAxisAngle(this.zAxis, pitch)); // nose up or down (a leaping fish)
     if (roll) this.q.multiply(this.qp.setFromAxisAngle(this.xAxis, roll)); // over on its side (a kill)

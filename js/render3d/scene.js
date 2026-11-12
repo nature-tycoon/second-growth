@@ -1,13 +1,17 @@
 // The isometric 3D view: an orthographic camera over a lit, shadowed heightmap diorama.
 // A transparent 2D canvas on top carries weather, sparkles and labels.
 
-import { easeAnimalTarget } from './animal-camera.js';
+import { easeAnimalTarget, followHeight } from './animal-camera.js';
 import { EyeCamera, EYE_FAR, EYE_FOG_NEAR, WATER_FAR } from './eye-camera.js';
 import { EyeSky } from './eye-sky.js';
 import { Lightning } from './lightning.js';
 import { perspectiveScale } from './actor-view.js';
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
+import { drawLookThrough } from './look-through.js';
+import { treeTrunk, trunkRadius } from '../sim/ground-obstacles.js';
+import { treeHeight } from './tree-stature.js';
+import { TREE_SHAPES } from './geometry/tree-shapes.js';
 import { snow, withSnowTops } from './snow.js';
 import { sky, haze, sea, withClouds } from './atmosphere.js';
 import { lightingBalance } from './lighting.js';
@@ -97,6 +101,31 @@ const FLORA_REGIONS_PER_FRAME = 1, FLORA_FRAME_MS = 4;
 // a phone or tablet (no mouse)
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
+// The trunks standing close in front of the tracked animal (within 3 tiles, nearest first: x, z,
+// radius, the top of the bare trunk), for
+// look-through.js: the animal drawn through cover passes behind them. Not the one it clings to.
+const lookFound = [];
+function lookTrunks(w, pose, V) {
+  const out = focus.uLookTrunks.value;
+  lookFound.length = 0;
+  if (!w?.tree) { for (const v of out) v.set(0, 0, 0, 0); return; }
+  const found = lookFound;
+  const cx = pose.center.x, cz = pose.center.z, x0 = Math.floor(cx), z0 = Math.floor(cz);
+  for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+    const x = x0 + dx, z = z0 + dz;
+    if (x < 0 || z < 0 || x >= w.w || z >= w.h) continue;
+    const t = treeTrunk(w, x, z);
+    if (!t || (pose.trunk && Math.hypot(t[0] - pose.trunk[0], t[1] - pose.trunk[1]) < .01)) continue;
+    const ox = t[0] - cx, oz = t[1] - cz;
+    if (ox * V.x + oz * V.z <= 0) continue; // (behind it)
+    // up to where its crown begins (the bare bole; above it, its leaves are cover like any other)
+    const p = w.catalog.plants[w.tree[w.idx(x, z)]], shape = TREE_SHAPES[p.look.type] || {};
+    const top = w.heightAt(t[0], t[1]) * LEVEL + treeHeight(p) * (t[2] / trunkRadius(p)) * (shape.trunkH ?? shape.base ?? .45);
+    found.push([ox * ox + oz * oz, t[0], t[1], t[2] * .9, top]); // (a little inside the base: trunks taper)
+  }
+  found.sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i < out.length; i++) { const f = found[i]; if (f) out[i].set(f[1], f[2], f[3], f[4]); else out[i].set(0, 0, 0, 0); }
+}
 
 export class Renderer {
   constructor(canvas, { preserveDrawingBuffer = false, catalog = activeCatalog } = {}) {
@@ -333,14 +362,19 @@ export class Renderer {
     const amt = focus.uFocusAmt;
     amt.value += ((pose || ft ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
     if (pose) {
-      // follow the animal smoothly, and hold one size for it: climbing between trees of different
-      // heights or switching animals glides the window rather than jumping it
+      // stay right on the animal (easing behind it, the gap trailed a walking animal: a mushroom it
+      // had passed went on being opened), and hold one size for it: climbing between trees of
+      // different heights or switching animals glides the size rather than jumping it
       const e = this.focusFor === sel.id ? Math.min(1, dt * 10) : 1;
       this.focusFor = sel.id;
-      focus.uFocus.value.lerp(pose.center, e);
-      let radius = pose.branch ? clamp(.4 + pose.h * 1.2, .55, .95) : clamp(.75 + pose.h * 1.7, .85, 1.45);
-      let span = 0;
+      focus.uFocus.value.copy(pose.center);
+      // how much wider than the animal the gap through cover nearer the camera grows (Cole: it was
+      // too wide; it was 0.85 to 1.45 tiles whatever the animal)
+      let radius = pose.branch ? clamp(.05 + pose.h * .3, .06, .25) : clamp(.05 + pose.h * .35, .06, .3);
+      let span = 0, body = 0, reach = 0;
       let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius, front = .08 * radius;
+      const invD = this.eyeOn ? 1 / Math.max(0.05, this.eye.pos.distanceTo(pose.center)) : 0;
+      const V = focus.uViewDir.value, U = focus.uCamUp.value;
       if (pose.revealBounds && pose.revealMatrix) {
         // A downhill body can sit below its foot plane. Protect only leaves
         // below its projected silhouette, and clear cover through its full
@@ -348,29 +382,35 @@ export class Renderer {
         const point = this.focusCorner ||= new THREE.Vector3(), bounds = pose.revealBounds;
         for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) {
           point.set(x, y, z).applyMatrix4(pose.revealMatrix).sub(focus.uFocus.value);
-          const along = point.dot(focus.uViewDir.value), height = point.dot(focus.uCamUp.value);
+          const along = point.dot(V), height = point.dot(U);
           bottom = Math.min(bottom, height - .025); back = Math.min(back, along - .025); front = Math.max(front, along + .025);
           if (pose.branch) span = Math.max(span, Math.sqrt(Math.max(0, point.lengthSq() - along * along)));
+          body = Math.max(body, Math.sqrt(Math.max(0, point.lengthSq() - along * along)) / Math.max(.05, 1 - along * invD));
+          reach = Math.max(reach, point.length());
         }
-        // the body's own box, a couple of centimetres larger, for what covers it (see focus.js)
-        const m = pose.revealMatrix, pad = .02 / Math.max(1e-4, Math.hypot(m.elements[0], m.elements[1], m.elements[2]));
-        focus.uFocusBoxM.value.copy(m).invert();
-        focus.uFocusBoxMin.value.copy(bounds.min).subScalar(pad); focus.uFocusBoxMax.value.copy(bounds.max).addScalar(pad);
       }
-      if (this.eyeOn) radius = clamp(this.eye.size * 1.4, 0.22, 0.55); // (close to the lens, a narrower gap does)
+      if (!body) body = reach = Math.max(pose.h, pose.foot || 0, .12) * .6;
+      // the gap's core: the body's outline across the screen (its box's corners, a little inside them,
+      // which a body rarely fills); and how far in front of it cover is seen through rather than
+      // opened (look-through.js): its own size and a little more
+      focus.uFocusBodyR.value += (body * .85 + .03 - focus.uFocusBodyR.value) * e;
+      focus.uLookD.value += (reach * 1.2 + .15 - focus.uLookD.value) * e;
+      if (this.eyeOn) radius = clamp(this.eye.size * .5, 0.06, 0.25); // (close to the lens, a narrower gap does)
       focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
       focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
-      focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
+      focus.uFocusFoot.value = pose.y;
       focus.uFocusHalfW.value = Math.max(pose.h * 0.55, (pose.foot || 0) * 0.55, span);
       focus.uFocusFront.value = Math.max(front, focus.uFocusHalfW.value); // (its depth, or half its size across if more)
-      focus.uFocusInvD.value = this.eyeOn ? 1 / Math.max(0.05, this.eye.pos.distanceTo(pose.center)) : 0;
+      focus.uFocusInvD.value = invD;
       if (pose.trunk) focus.uFocusTrunk.value.set(pose.trunk[0], pose.trunk[1], pose.trunk[2]); else focus.uFocusTrunk.value.z = -1;
+      lookTrunks(this.world, pose, V);
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
       focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
       focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value; focus.uFocusFront.value = .3;
-      focus.uFocusBoxM.value.makeTranslation(-ft.x, -focus.uFocus.value.y, -ft.y); focus.uFocusBoxMin.value.setScalar(-.3); focus.uFocusBoxMax.value.setScalar(.3); focus.uFocusTrunk.value.z = -1;
+      focus.uFocusBodyR.value = .3; focus.uLookD.value = .3;
+      focus.uFocusTrunk.value.z = -1;
       focus.uFocusInvD.value = 0;
     }
   }
@@ -433,7 +473,7 @@ export class Renderer {
   centerOnAnimal(a) {
     this.fly = null; this.zoomGoal = null; this.followGlide = null;
     this.followAgent = a;
-    this.followPoseId = null;
+    this.followPoseId = null; if (this.followH) this.followH.y = null;
     const pose = this.actors.pose.get(a.id);
     if (pose?.visible) { this.centerOn(pose.center.x, pose.center.z, pose.center.y); this.followPoseId = a.id; }
     else this.centerOn(a.x, a.y); // next draw computes its fresh pose, even if offscreen
@@ -455,7 +495,7 @@ export class Renderer {
   updateAnimalCamera(dt = 1 / 60) {
     const pose = this.followAgent && this.actors.pose.get(this.followAgent.id);
     if (!pose?.visible) return;
-    const glide = this.followGlide;
+    const glide = this.followGlide, fh = this.followH ||= { y: null, vy: 0 };
     if (glide && glide.id !== this.followAgent.id) this.followGlide = null;
     else if (glide) {
       glide.t += dt;
@@ -463,12 +503,23 @@ export class Renderer {
       this.animalCentered = true; this.updateCamera();
       if (glide.t > 0.8 || this.target.distanceToSquared(pose.center) < 1e-4) this.followGlide = null;
       this.followPoseId = this.followAgent.id;
+      fh.y = this.target.y; fh.vy = 0;
       return;
     }
     if (pose.branchPoint && this.followPoseId === this.followAgent.id) {
       easeAnimalTarget(this.target, pose.center, dt);
       this.animalCentered = true; this.updateCamera();
-    } else this.centerOn(pose.center.x, pose.center.z, pose.center.y);
+      fh.y = this.target.y; fh.vy = 0;
+    } else {
+      // (across and along the ground it stays right on the animal; its height is eased, so a fish
+      // nosing over the reef or a bird's small corrections don't jog the view: followHeight)
+      // (and a new animal, or one that's jumped a tile or more since the last frame, say back on
+      // screen somewhere else, is centred outright)
+      const c = pose.center;
+      if (this.followPoseId !== this.followAgent.id || !(Math.abs(c.x - fh.x) < 1 && Math.abs(c.z - fh.z) < 1)) fh.y = null;
+      fh.x = c.x; fh.z = c.z;
+      this.centerOn(c.x, c.z, followHeight(fh, c.y, dt));
+    }
     this.followPoseId = this.followAgent.id;
   }
   groundCamera() {
@@ -1059,6 +1110,7 @@ export class Renderer {
     const at = performance.now();
     this.gpuTimer.poll(); this.gpuTimer.begin();
     this.gl.render(this.scene, cam);
+    drawLookThrough(this.gl, this.scene, cam, this.actors.fauna, focus.uFocusAmt.value);
     this.gpuTimer.end();
     this.submitMs = performance.now() - at;
     this.drawFX(game, ui, dt);

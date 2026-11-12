@@ -3,12 +3,15 @@
 // A mixed community flies about a restored map for a while, drawn by the real Actors, and every
 // sample of a flier over trees is compared with the top of the crown under it. Fliers on their way
 // down (a stoop, the last tile before landing, the end of a vulture's spiral) may go below, and so
-// may one in its first 0.6 s in the air (TAKEOFF): it flies out through its own crown at a slant
-// rather than popping straight up out of it (easeBirdHeight in flight-clearance.js).
+// may one in its first second in the air (TAKEOFF): it flies out through its own crown at a slant
+// rather than popping straight up out of it (easeBirdHeight in flight-clearance.js). (0.6 s while
+// a bird found inside a crown was lifted out 8 tiles a second, a jump of 0.4 tiles a frame; since
+// 2026-11-11 it climbs out by its climb rate, and out of a tall crown that takes about a second.)
 // Fails if more than 1% of the other samples are inside a crown.
 // `jolt` is how sharply a flier in level flight changes its climb rate from one frame to the next
 // (tiles a frame, frames 0.05 s apart): the 99th percentile and the worst. A pop over a crown is a
-// big jolt; an eased climb a small one. Fails if the 99th percentile is over JOLT.
+// big jolt; an eased climb a small one. Fails if the 99th percentile is over JOLT (0.19-0.25
+// before the held cruise height of 2026-11-11; 0.0225 after, the eased climb's own acceleration).
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -18,7 +21,7 @@ import { passable, canLand } from '../js/sim/animal-terrain.js';
 import { canopyTop, descending } from '../js/render3d/flight-clearance.js';
 const THREE = await import('three');
 const { Actors } = await import('../js/render3d/actors.js');
-const args = process.argv.slice(2), report = args.includes('--report'), JOLT = 0.4, TAKEOFF = 0.6;
+const args = process.argv.slice(2), report = args.includes('--report'), JOLT = 0.05, TAKEOFF = 1.0;
 const maps = (args.find(a => !a.startsWith('--')) || 'pnw,atlanta,amazon,sumatra').split(',');
 let failed = false;
 for (const map of maps) {

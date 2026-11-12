@@ -80,7 +80,8 @@ export function coralFloor(w, plants, a, def) {
   const size = def.sprite.size || 10, small = size <= SHELTER_SIZE;
   const h = a.hd ?? a.orientation ?? 0, ahead = small ? 0 : 0.7;
   let top = -Infinity;
-  for (let s = 0; s <= (small ? 0 : 1); s++) for (const [ox, oy] of small ? HERE : AROUND) {
+  // (a big fish looks 1.4 tiles ahead, so it can rise over a head as a slope: easeCoralLift)
+  for (let s = 0; s <= (small ? 0 : 2); s++) for (const [ox, oy] of small ? HERE : AROUND) {
     const xi = Math.floor(a.x + Math.cos(h) * ahead * s + ox), yi = Math.floor(a.y + Math.sin(h) * ahead * s + oy);
     if (!w.inb(xi, yi)) continue;
     const i = w.idx(xi, yi), p = w.tree[i] && plants[w.tree[i]];
@@ -89,6 +90,17 @@ export function coralFloor(w, plants, a, def) {
     if (t > top) top = t;
   }
   return top + 0.02 + size * 0.006;
+}
+
+// The seabed a reef fish keeps its depth over: the scene height averaged over a ring 1.2 tiles
+// round it, so it holds a fairly level line over rough bottom instead of rising and falling with
+// every rock and hollow (2026-11-11). What it can't clear it rises over: coralFloor, and the
+// seabed right under it, in the drawing.
+const RING = [[0, 0], [1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2], [0.85, 0.85], [-0.85, 0.85], [0.85, -0.85], [-0.85, -0.85]];
+export function smoothSeabed(w, x, y) {
+  let sum = 0;
+  for (const [ox, oy] of RING) sum += w.heightAt(Math.max(0, Math.min(w.w, x + ox)), Math.max(0, Math.min(w.h, y + oy)));
+  return sum / RING.length * LEVEL;
 }
 
 // The drawn height of a bird moves like a body, not a number easing to its target: a vertical
@@ -101,10 +113,46 @@ export const CLIMB_BASE = 1.4, CLIMB_SLOPE = 1.1, CLIMB_ACCEL = 9;
 export function easeBirdHeight(st, y, rate, speed, dt) {
   if (!(dt > 0)) return st.birdY;
   const cap = CLIMB_BASE + CLIMB_SLOPE * Math.min(4, speed);
-  const want = Math.max(-cap, Math.min(cap, (y - st.birdY) * rate));
+  // (and no faster than it can brake from by the time it gets there, so a climb rounds off into
+  // level flight instead of stopping dead at the top)
+  const gap = y - st.birdY, brake = Math.sqrt(2 * CLIMB_ACCEL * 0.8 * Math.abs(gap));
+  const want = Math.sign(gap) * Math.min(cap, Math.abs(gap) * rate, brake);
   const vy = st.birdVy || 0, dv = CLIMB_ACCEL * dt;
   st.birdVy = vy + Math.max(-dv, Math.min(dv, want - vy));
   let next = st.birdY + st.birdVy * dt;
   if ((y - st.birdY) * (y - next) < 0) { next = y; st.birdVy = 0; } // (arrived: no overshoot)
   return next;
+}
+
+// A bird in level flight holds its height (2026-11-11, Cole: "bird flight bobs jerkily up and
+// down"). The height it's drawn at was its flight height over the ground, or over the crowns
+// ahead, worked out afresh each frame, so it climbed over every crown and sank between them and
+// followed each rise of the ground. Real flapping flight keeps a steady line: it climbs at once
+// when the way ahead calls for it, but comes down only as a long, shallow glide (GLIDE tiles a
+// second), and only once the way has been lower for HOLD seconds, so a forest is one level
+// crossing, a dip in the ground passes under it, and a bird circling over uneven crowns doesn't
+// rise and sink with each. Off level flight (taking off, coming in to land, stooping) the hold is
+// the plain target. st.cruise keeps it, st.cruiseHold the time left before it may glide down.
+export const GLIDE = 0.35, HOLD = 1.5;
+export function holdCruise(st, y, level, dt) {
+  if (!level || st.cruise == null || !(dt > 0) || y >= st.cruise) { st.cruiseHold = HOLD; return (st.cruise = y); }
+  if ((st.cruiseHold = (st.cruiseHold ?? HOLD) - dt) > 0) return st.cruise;
+  return (st.cruise = Math.max(y, st.cruise - GLIDE * dt));
+}
+
+// How far a reef fish is lifted over the coral and rock under it eases like a body too (it was a
+// plain ease, so a head coming into view lifted a grouper or a dugong 0.3 tiles in one frame): up
+// at most LIFT_RISE tiles a second, down a quarter as fast, and its climb rate builds and fades.
+// st.coralLift is the lift, st.coralVy its rate.
+export const LIFT_RISE = 2, LIFT_ACCEL = 8;
+export function easeCoralLift(st, lift, dt) {
+  if (st.coralLift == null || !(dt > 0)) { st.coralVy = 0; return (st.coralLift = lift); }
+  const gap = lift - st.coralLift, up = gap > 0;
+  const want = Math.sign(gap) * Math.min(up ? LIFT_RISE : LIFT_RISE / 4, Math.abs(gap) * (up ? 6 : 1.2),
+    Math.sqrt(2 * LIFT_ACCEL * 0.8 * Math.abs(gap)));
+  const v = st.coralVy || 0, dv = LIFT_ACCEL * dt;
+  st.coralVy = v + Math.max(-dv, Math.min(dv, want - v));
+  let next = st.coralLift + st.coralVy * dt;
+  if (gap * (lift - next) < 0) { next = lift; st.coralVy = 0; }
+  return (st.coralLift = next);
 }

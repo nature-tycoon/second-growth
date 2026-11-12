@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, drawLooks, animalDef, maleLook } from '../data/animals.js';
 import { roostingNow } from '../data/animal-activity.js';
-import { clearCanopy, coralFloor, easeBirdHeight } from './flight-clearance.js';
+import { clearCanopy, coralFloor, smoothSeabed, easeCoralLift, easeBirdHeight, holdCruise, CLIMB_ACCEL } from './flight-clearance.js';
 import { strideFollowsGround } from './stride.js';
 const CLEAR = { floor: -Infinity, clearing: false }; // (clearCanopy's crown under a flier, reused each frame)
 import { leavesCarcass } from '../sim/animal-life.js';
@@ -110,6 +110,16 @@ function trunkCling(flora, game, w, i, a, def, sc) {
 
 export class Actors {
   trunkCling(game, w, i, a, def, sc) { return trunkCling(this.flora, game, w, i, a, def, sc); }
+  // The water surface an animal that floats (FLOATERS) floats at here: the drawn sheet (the creek's
+  // own level, terrain.waterAt), else the simulated one on a water tile (surf). Off a water tile,
+  // only where the drawn sheet is deep enough to float in (sink below the surface clears the
+  // ground); null to stand on the bank.
+  floatLevel(a, surf, ground, sink) {
+    const drawn = this.terrain?.waterAt?.(a.x, a.y);
+    const level = Number.isFinite(drawn) ? surf != null ? Math.max(drawn, surf) : drawn : surf;
+    if (level == null) return null;
+    return surf != null || level - sink > ground ? level : null;
+  }
   constructor(scene, flora = null, { canopyWalkerMotion = true, howlerPrototype } = {}) {
     this.scene = scene;
     this.flora = flora;
@@ -281,6 +291,7 @@ export class Actors {
       let cling = null; // (a woodpecker on a trunk: where on it, and facing it: trunkCling)
       let snagTop = null; // (the snag a perched bird sits on top of: its middle)
       let swimming = false; // (a land animal out of its depth, paddling with its head out)
+      let fl = null; // (the water surface a floater floats at: floatLevel)
       // Which crown a climber or percher is in: it keeps the tree it's in until it's clearly into
       // the next one, so an animal nudged back and forth across the line between two trees of
       // different heights doesn't bob up and down between them.
@@ -301,16 +312,23 @@ export class Actors {
         // surface (clownfish right down in their anemone, sharks and mantas well up off the bottom),
         // drifting gently up and down
         // (each one wanders slowly up and down through its own band of water, so a school isn't a flat sheet)
-        const room = Math.max(0.15, seaY - ground - 0.12);
+        // (over the seabed as it runs a tile or so round, not every rock and hollow under it: a reef
+        // fish holds a fairly level depth over rough bottom; the bumps it can't clear it rises over
+        // with the coral below)
+        const bed = smoothSeabed(w, a.x, a.y);
+        st.bed = st.bed == null || returning ? bed : st.bed + (bed - st.bed) * Math.min(1, k * 0.25);
+        const room = Math.max(0.15, seaY - st.bed - 0.12);
         const sw = def.sprite.swim ?? 0.3, amp = Math.min(1, sw / 0.3); // (clownfish keep down in their anemone)
         const band = clamp(sw + amp * (0.12 * Math.sin(time * 0.11 + a.id * 1.7) + 0.06 * Math.sin(time * 0.29 + a.id * 4.1)), 0.04, 0.9);
         st.depth = st.depth == null ? band : st.depth + (band - st.depth) * k * 0.3;
-        y = def.benthic ? ground + 0.008 : Math.min(seaY - 0.08, ground + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
+        y = def.benthic ? ground + 0.008 : Math.min(seaY - 0.08, st.bed + 0.06 + room * st.depth + Math.sin(time * 0.9 + a.id * 2.3) * Math.min(0.04, room * 0.06));
         // (and over the coral heads, by body size: flight-clearance.js)
         // (looked up every fourth frame, each fish on its own frame; the lift eases between)
         if (!def.benthic && (st.coralFloor == null || (this.frameNo + a.id & 3) === 0)) st.coralFloor = coralFloor(w, game.catalog.plants, a, def);
-        const lift = def.benthic ? 0 : Math.max(0, st.coralFloor - y);
-        st.coralLift = st.coralLift == null ? lift : st.coralLift + (lift - st.coralLift) * Math.min(1, k * 1.5);
+        // (the seabed right under it is a floor too; it rises over a head promptly and settles
+        // back down slowly, so a run of coral heads is one swell, not a bounce over each)
+        const lift = def.benthic ? 0 : Math.max(0, st.coralFloor - y, ground + 0.06 - y);
+        if (returning) { st.coralLift = lift; st.coralVy = 0; } else easeCoralLift(st, lift, frameDt);
         if (st.coralLift > 0.001) y = Math.min(seaY - 0.08, y + st.coralLift);
         if (def.sprite.escape === 'skip') {
           const p = escapeSkip(st, game.speed > 0 && (chased.has(a.id) || a.dash > 1), time);
@@ -338,7 +356,12 @@ export class Actors {
         if (jp >= 0) { y = surf + Math.sin(jp * Math.PI) * 0.3 - 0.05; st.pitch = Math.cos(jp * Math.PI) * 0.95; } else st.pitch = 0;
       }
       else if (surf != null && mo.wadeDepth) y = Math.max(ground, surf - mo.wadeDepth * sc);
-      else if (surf != null && FLOATERS.has(kind) && a.bird?.kind !== 'nest') y = def.move === 'fly' ? Math.max(ground, surf - mo.sink * sc) : surf - mo.sink * sc;
+      // (floating at the drawn surface: the creek's own level where it is, which on a creek
+      // stepping down from pool to pool can be above the tile's simulated level, so a mallard sat
+      // under it; and out on the drawn water over the bank's edge too, wherever it's deep enough
+      // to float. Where it isn't, it stands on the bank.)
+      else if (FLOATERS.has(kind) && a.bird?.kind !== 'nest' && (fl = this.floatLevel(a, surf, ground, mo.sink * sc)) != null)
+        y = def.move === 'fly' ? Math.max(ground, fl - mo.sink * sc) : fl - mo.sink * sc;
       else if ((def.move === 'ground' || def.move === 'semi') && !def.reef && mo.eye && inside && w.distWater[i] <= 2) {
         // A land animal wades while its head is clear of the water. Where the water is deeper than
         // that it swims, body under and head out, instead of walking along the bottom. (The drawn
@@ -371,23 +394,27 @@ export class Actors {
       // branch) rises or drops smoothly with a little hop, instead of snapping to each tree's height.
       if (a.passing) y = a.flightY + (a.passage.swoop ? Math.sin(a.passage.t * 1.8 + a.passage.phase) * 0.12 : 0);
       // over the treetops: the crowns under it and just ahead, unless it's on its way down (flight-clearance.js)
-      // (looking about a second of its flight ahead, 1.4 to 4 tiles)
+      // (looking about a second and a half of its flight ahead, 1.4 to 6 tiles, so it starts a
+      // climb early enough to make it a gentle one)
       if (flying && def.move === 'fly') y = clearCanopy(w, game.catalog.plants, a, def, y, CLEAR, a.x - st.px, a.y - st.py,
-        clamp(Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, time - (st.t ?? time - 0.016)), 1.4, 4));
+        clamp(1.5 * Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, time - (st.t ?? time - 0.016)), 1.4, 6));
       else { CLEAR.floor = -Infinity; CLEAR.clearing = false; }
       if (a.birdGround && a.state === 'walk' && kind === 'songbird') y += Math.abs(Math.sin(a.phase * Math.PI)) * 0.045;
       // A bird's height eases between flight, the treetops it clears and its perch, rather than
       // jumping a tile's tree height when it takes off, lands, or crosses from open ground to trees.
       if (def.move === 'fly' && !def.reef && !a.passing) {
-        if (st.birdY == null || returning || st.sc == null) { st.birdY = y; st.birdVy = 0; }
-        // (in full flight it rises over the crowns ahead at an easy climb and sinks back slower
-        // still, so a run of trees of different heights is one smooth swell, not a bob per crown;
-        // every change of height is a slant capped by its speed: easeBirdHeight)
-        else st.birdY = easeBirdHeight(st, y, 6 * (CLEAR.clearing && st.fly > 0.9 ? (y > st.birdY ? 1 : 0.3) : 1.2),
+        // (in level flight it holds its height: a climb when the way ahead needs one, then only a
+        // long shallow glide back down, so a forest or a dip in the ground isn't a bob: holdCruise)
+        const level = CLEAR.clearing && st.fly > 0.9;
+        if (st.birdY == null || returning || st.sc == null) { st.birdY = holdCruise(st, y, false, 0); st.birdVy = 0; }
+        // (every change of height is a slant capped by its speed: easeBirdHeight)
+        else st.birdY = easeBirdHeight(st, holdCruise(st, y, level, frameDt), 6 * (level ? 1 : 1.2),
           Math.hypot(a.x - st.px, a.y - st.py) / Math.max(1 / 120, frameDt), frameDt);
-        // (a bird in full flight climbs out of a crown it finds itself in quickly, about 8 tiles a
-        // second, but doesn't jump; taking off, it climbs out of its own tree at the usual ease)
-        if (st.fly > 0.9 && st.birdY < CLEAR.floor) { st.birdY = Math.min(CLEAR.floor, st.birdY + 8 * frameDt); st.birdVy = Math.max(st.birdVy, 0); }
+        // (a bird in full flight that finds itself in a crown, a new heading pointing straight into
+        // a tall tree, climbs out of it hard, up to 4 tiles a second, but by its climb rate, not a
+        // jump in height; taking off, it climbs out of its own tree at the usual ease)
+        if (st.fly > 0.9 && st.birdY < CLEAR.floor) st.birdVy = Math.max(st.birdVy, Math.min(4, st.birdVy + 2 * CLIMB_ACCEL * frameDt,
+          Math.sqrt(2 * CLIMB_ACCEL * 0.8 * Math.max(0, st.cruise - st.birdY)))); // (braking in time to level off over it)
         y = st.birdY;
       }
       const perched = def.move === 'tree' || (def.move === 'fly' && !a.birdGround && !flying && inside && !!w.tree[i]);
@@ -743,7 +770,7 @@ export class Actors {
       if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
       // (after the reads of F.m above, which must still hold this animal's own instance)
       if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);
-      if (!st.branch && def.move !== 'swim' && !swimming && !(surf != null && FLOATERS.has(kind))) {
+      if (!st.branch && def.move !== 'swim' && !swimming && !((surf != null || fl != null) && FLOATERS.has(kind))) { // (no shadow afloat)
         // (a shaped shadow fades and softens a little the higher the animal is above the ground)
         const shape = (def.reef || def.move === 'fly') && this.silhouettes.shape(F, def, def.reef ? 0.5 : 0);
         if (shape) this.silhouettes.add(shape, a.x, ground, a.y, st.yaw, sc * (1 + Math.min(1, Math.max(0, y - ground) * 0.06)), st.fly, Math.sin(phase * (mo.flap || 1)), clamp(1.1 - (y - ground) * 0.22, 0.4, 1));

@@ -19,6 +19,7 @@ try {
     const { Renderer } = await import('/js/render3d/scene.js');
     const { PLANT } = await import('/js/data/plants.js');
     const { focus } = await import('/js/render3d/focus.js');
+    const { drawLookThrough } = await import('/js/render3d/look-through.js');
     const gl = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
     gl.setSize(640, 480); gl.outputColorSpace = THREE.SRGBColorSpace; gl.toneMapping = THREE.NeutralToneMapping;
     const camera = new THREE.OrthographicCamera(-.8, .8, .6, -.6, .01, 100), ctx = gl.getContext();
@@ -32,7 +33,7 @@ try {
       actors.update(game, right, 1); const site = actors.pose.get(a.id).branch.site; site.prepare();
       const positions = plant === 'fig' ? [3, 17] : plant === 'meranti' ? [0, 2] : [null];
       const rows = [], r = { actors, camera, world: game.world };
-      const pixels = () => { gl.render(scene, camera); const p = new Uint8Array(640 * 480 * 4); ctx.readPixels(0, 0, 640, 480, ctx.RGBA, ctx.UNSIGNED_BYTE, p); return p; };
+      const pixels = () => { gl.render(scene, camera); drawLookThrough(gl, scene, camera, actors.fauna, focus.uFocusAmt.value); const p = new Uint8Array(640 * 480 * 4); ctx.readPixels(0, 0, 640, 480, ctx.RGBA, ctx.UNSIGNED_BYTE, p); return p; };
       const visible = () => {
         const p = pixels(); for (const pool of actors.fauna.species.values()) pool.mesh.visible = false;
         const q = pixels(); for (const pool of actors.fauna.species.values()) pool.mesh.visible = true;
@@ -53,7 +54,7 @@ try {
           for (const mat of [flora.foliage, flora.canopyCrown]) mat.visible = true;
           rows.push({ plant, fast, fade, position, az, revealed, bare, ratio: bare ? revealed / bare : 0 });
           if (plant === 'fig' && position === 17 && az === 3.927 && !fade) {
-            gl.render(scene, camera); window.canopyRevealImage = gl.domElement.toDataURL('image/png');
+            gl.render(scene, camera); drawLookThrough(gl, scene, camera, actors.fauna, focus.uFocusAmt.value); window.canopyRevealImage = gl.domElement.toDataURL('image/png');
           }
           // Deselecting must restore ordinary cover, including lower leaves.
           game.selectedAgent = null; Renderer.prototype.updateFocus.call(r, game, 1);

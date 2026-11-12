@@ -20,7 +20,7 @@ export default function buildPnwAnimals(def) {
   {
     const w = habW({ SHRUB: 1, RIPARIAN: 0.8, INVASIVE: 0.55, MEADOW: 0.35, YOUNG_FOREST: 0.45 });
     def({ key: 'rabbit', kg: 0.7, name: 'Brush rabbit', sci: 'Sylvilagus bachmani', group: 'Mammals', move: 'ground',
-      speed: 1.3, hr: 14, max: 20, sources: ['W', 'E'], mig: 0.4, breed: [0, 1, 2, 3, 4, 5], litter: [2, 4], life: 3, mature: 0.3,
+      speed: 1.3, hr: 14, max: 20, groupSize: [1, 2], sources: ['W', 'E'], mig: 0.4, breed: [0, 1, 2, 3, 4, 5], litter: [2, 4], life: 3, mature: 0.3,
       suit: (W, i) => w[W.habitat[i]] * near(W.distCover[i], 2, 0.3),
       sprite: { kind: 'rabbit', len: 18, color: '#7a6448', belly: '#a89478', show: 1.3 },
       desc: 'A small, dark rabbit that never strays far from dense brush.',
@@ -320,7 +320,7 @@ export default function buildPnwAnimals(def) {
     const w = habW({ MEADOW: 0.8, MARSH: 0.6, RIPARIAN: 0.8, SHRUB: 0.5, FARM: 0.1 });
     def({ key: 'gartersnake', name: 'Common garter snake', sci: 'Thamnophis sirtalis', group: 'Amphibians & reptiles', move: 'semi',
       speed: 0.6, hr: 10, max: 12, sources: ['N', 'E', 'S', 'W'], mig: 0.35, breed: [4], litter: [3, 5], life: 6,
-      prey: ['treefrog'], preyPer: 3,
+      prey: ['treefrog'], preyPer: 3, huntsAshore: true,
       suit: (W, i) => w[W.habitat[i]] * near(W.distWater[i], 5, 0.3) * (W.distRocks[i] <= 3 ? 1 : 0.6),
       sprite: { kind: 'snake', size: 18, color: '#2a3a2a', stripe: '#e8d23a', side: '#b03a2a' },
       desc: 'Harmless and colorful. Hunts frogs and slugs near water, warms up on rock piles.',

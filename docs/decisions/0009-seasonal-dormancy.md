@@ -91,3 +91,13 @@ simulation-owned and independent of render quality/offscreen culling.
   populations. Later food-web trajectories differ, as expected for an ecological
   behavior change. These runs are correctness/balance checks, not a controlled
   hardware performance claim.
+
+## 2026-11-11: brumation does not wait for a meal
+
+Entry used to require a hunter to be below its hunt hunger (`huntHunger`), which suits a bear
+fattening before its den but not a reptile: garter snakes rarely ate (see below), so their
+hunger never fell and they stayed out all winter. Brumation (`kind: 'brumation'`) now skips that
+gate; denning and torpor keep it. Garter snakes are semi-aquatic (`move: 'semi'`), and the
+water-edge hunting limit for caimans and otters (`huntBlocked`: no step more than 2 tiles from
+water) stopped them hunting frogs in the meadow, so they started about one hunt in fifty tries.
+The species flag `huntsAshore` lifts that limit for them.
