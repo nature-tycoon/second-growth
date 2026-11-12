@@ -1,6 +1,6 @@
 {
-  "sourceRevision": "52d973f94565c62675754de0a04c826d9bbfc33e",
-  "capturedAt": "2026-10-17T16:23:31.578Z",
+  "sourceRevision": "0b13737d6c2c8462a525cc642f394a2cb16d1c1c",
+  "capturedAt": "2026-11-12T06:26:06.632Z",
   "method": "Production renderer and models; captures with moment metadata are staged encounters using production keystone triggers and behavior poses, tightly framed with selected-animal canopy reveal. Regional/detail images are seeded restored fixtures with posed wildlife; PNW foreground bank thinned for visibility. Creek images use one evolving game save and ToolActions, followed by 240 daily ticks with wildlife movement, without editing plant maturity or habitat rules.",
   "sequence": {
     "seed": 1987,
@@ -16,8 +16,8 @@
       },
       {
         "tool": "pull",
-        "count": 49,
-        "cost": 392
+        "count": 56,
+        "cost": 448
       },
       {
         "tool": "rip",
@@ -31,18 +31,18 @@
       },
       {
         "tool": "mix_riparian",
-        "count": 63,
-        "cost": 630
+        "count": 49,
+        "cost": 490
       },
       {
         "tool": "mix_pioneer",
-        "count": 82,
-        "cost": 1476
+        "count": 75,
+        "cost": 1350
       },
       {
         "tool": "mix_meadow",
-        "count": 211,
-        "cost": 633
+        "count": 198,
+        "cost": 594
       }
     ],
     "stages": {
@@ -53,35 +53,98 @@
         "planted": 0,
         "trees": 0,
         "fishAccess": 0,
-        "saveSha256": "8b5cf09c8a3f2a477136d08f9af652f16f456ee32365a450c6828233e700af8f"
+        "saveSha256": "8a12283088c51b019c56c8724b7d493dc3934ae1a174046723274ad65268a63b"
       },
       "planted": {
         "day": 20,
         "date": "May, Year 1",
         "culvert": false,
-        "planted": 356,
-        "trees": 82,
+        "planted": 322,
+        "trees": 75,
         "fishAccess": 1,
-        "saveSha256": "7ebba6e423ce8b062fb1c8e0854a930ac62efc1e002c1186b7dfeccc2524f999"
+        "saveSha256": "61b5b48c0ad5377f74fd962d6760b0361449f500540c10ab958732f4895dbbba"
       },
       "later": {
         "day": 260,
         "date": "May, Year 3",
         "culvert": false,
-        "planted": 356,
-        "trees": 82,
+        "planted": 322,
+        "trees": 75,
         "fishAccess": 1,
-        "saveSha256": "25aab728db4e9ea0232464d464be613210910ee5b66f4a1bebac60bcd7a9c3cc"
+        "saveSha256": "31f649028dfa60a09bc3363e856ceba068d1d15691b776fa85c257c9ac5f23fc"
       }
     },
     "sourceSaves": "dist/website-capture-source/ (local, excluded from website)"
   },
   "captures": [
     {
+      "file": "creek-before.jpg",
+      "width": 1800,
+      "height": 1200,
+      "sha256": "c8dc0acdadc4276d222d0db1732972b066544a93c8f863b93330be670f6d9d1b",
+      "map": "pnw",
+      "kind": "same-save sequence",
+      "stage": "before",
+      "frame": [
+        54,
+        73,
+        2.4
+      ],
+      "day": 20,
+      "date": "May, Year 1",
+      "culvert": true,
+      "planted": 0,
+      "trees": 0,
+      "fishAccess": 0,
+      "saveSha256": "8a12283088c51b019c56c8724b7d493dc3934ae1a174046723274ad65268a63b"
+    },
+    {
+      "file": "creek-planted.jpg",
+      "width": 1800,
+      "height": 1200,
+      "sha256": "eb3556bce5dc8eb1c1385cc06eb55baecd21da2085c497b1a78977036b5f3578",
+      "map": "pnw",
+      "kind": "same-save sequence",
+      "stage": "planted",
+      "frame": [
+        54,
+        73,
+        2.4
+      ],
+      "day": 20,
+      "date": "May, Year 1",
+      "culvert": false,
+      "planted": 322,
+      "trees": 75,
+      "fishAccess": 1,
+      "saveSha256": "61b5b48c0ad5377f74fd962d6760b0361449f500540c10ab958732f4895dbbba"
+    },
+    {
+      "file": "creek-later.jpg",
+      "width": 1800,
+      "height": 1200,
+      "sha256": "c7fad2e77c6d23f947ceae85cce15916c9936d330842b468a3f343e8597aad24",
+      "map": "pnw",
+      "kind": "same-save sequence",
+      "stage": "later",
+      "frame": [
+        54,
+        73,
+        2.4
+      ],
+      "day": 260,
+      "date": "May, Year 3",
+      "culvert": false,
+      "planted": 322,
+      "trees": 75,
+      "fishAccess": 1,
+      "saveSha256": "31f649028dfa60a09bc3363e856ceba068d1d15691b776fa85c257c9ac5f23fc"
+    },
+    {
       "file": "detail-woodland.jpg",
       "width": 1800,
       "height": 1200,
-      "sha256": "68c8ca046dedd6d9386925978970b418c7724b045f3f566c94558f970921f1f5",
+      "sha256": "5d18b55e18353ddb19680cdf96d895438e2dd2902e55ca5f98ac2c0950dfcbd8",
       "map": "pnw",
       "kind": "staged vegetation study",
       "frame": [
@@ -94,7 +157,7 @@
       "file": "detail-heron.jpg",
       "width": 1800,
       "height": 1200,
-      "sha256": "fd01975b8732b67fed7849a1c6d395d16b888177f5d003e739bc659dbb6e990d",
+      "sha256": "b4456c2e8042c9a187ffbb8693296fd2166fb7a8e2ba62a9d2b52d24db90a624",
       "map": "pnw",
       "kind": "staged wildlife habitat study",
       "frame": [
@@ -145,7 +208,7 @@
       "file": "detail-coral.jpg",
       "width": 1800,
       "height": 1200,
-      "sha256": "c977f5ad004f50ed17163fda94d5a5597945a079bd90ca13293a5fc47965e63a",
+      "sha256": "ce9633517e0bb83d5f5cf360202d2099f466cfc30041f9fdbc8d750b379523cb",
       "map": "reef",
       "kind": "staged coral habitat study",
       "frame": [
@@ -202,7 +265,7 @@
       "file": "landscape-pnw.jpg",
       "width": 1800,
       "height": 1200,
-      "sha256": "36b491ea9ef5735914e5b6496d6d1b6679e4b99bfe6679467a2e4ddc56c45707",
+      "sha256": "05e9c7b6e7451f59d60426ac940888c5139d5c241e6cc03ef93cafa5675710a8",
       "map": "pnw",
       "kind": "staged keystone moment study",
       "day": 70,
@@ -217,20 +280,26 @@
         {
           "key": "elk",
           "tile": 7021,
-          "x": 61.5,
-          "y": 58.5
+          "x": 61.95192,
+          "y": 58.5,
+          "state": "spar",
+          "juvenile": false
         },
         {
           "key": "elk",
           "tile": 7023,
-          "x": 63.5,
-          "y": 58.5
+          "x": 63.04808,
+          "y": 58.5,
+          "state": "spar",
+          "juvenile": false
         },
         {
           "key": "elk",
           "tile": 7381,
           "x": 61.5,
-          "y": 61.5
+          "y": 61.5,
+          "state": "idle",
+          "juvenile": false
         }
       ],
       "moment": {
@@ -243,177 +312,10 @@
       }
     },
     {
-      "file": "landscape-serengeti.jpg",
-      "width": 1800,
-      "height": 1200,
-      "sha256": "52bc8ad41daa686e7fcdab2b2870d2130a3ade4d6f3528bd6a1dc2d5b9d08363",
-      "map": "serengeti",
-      "kind": "staged keystone moment study",
-      "day": 20,
-      "date": "May, Year 1",
-      "seed": 1987,
-      "frame": [
-        48.3,
-        43.3,
-        5.6
-      ],
-      "posedSpecies": [
-        {
-          "key": "elephant",
-          "tile": 5087,
-          "x": 47.5,
-          "y": 42.5
-        },
-        {
-          "key": "elephant",
-          "tile": 5209,
-          "x": 49.5,
-          "y": 43.5
-        },
-        {
-          "key": "elephant",
-          "tile": 5448,
-          "x": 48.5,
-          "y": 45.5
-        }
-      ],
-      "moment": {
-        "key": "elephant",
-        "title": "The elephant family at work",
-        "stage": "browse",
-        "description": "An African elephant browsing native shrubs with another adult and a calf nearby. The production forage and family-moment conditions are active.",
-        "day": 20,
-        "date": "May, Year 1"
-      }
-    },
-    {
-      "file": "landscape-atlanta.jpg",
-      "width": 1800,
-      "height": 1200,
-      "sha256": "a31138edfc5aef67d75c5b5ea132ac81a1af868bf7d50066f115b3a6f305f2a5",
-      "map": "atlanta",
-      "kind": "staged keystone moment study",
-      "day": 60,
-      "date": "September, Year 1",
-      "seed": 1987,
-      "frame": [
-        21,
-        24,
-        10
-      ],
-      "posedSpecies": [
-        {
-          "key": "monarch",
-          "tile": 1603,
-          "x": 19.5,
-          "y": 22.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1604,
-          "x": 20.5,
-          "y": 22.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1605,
-          "x": 21.5,
-          "y": 22.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1606,
-          "x": 22.5,
-          "y": 22.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1675,
-          "x": 19.5,
-          "y": 23.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1676,
-          "x": 20.5,
-          "y": 23.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1677,
-          "x": 21.5,
-          "y": 23.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1678,
-          "x": 22.5,
-          "y": 23.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1747,
-          "x": 19.5,
-          "y": 24.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1748,
-          "x": 20.5,
-          "y": 24.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1749,
-          "x": 21.5,
-          "y": 24.5
-        },
-        {
-          "key": "monarch",
-          "tile": 1750,
-          "x": 22.5,
-          "y": 24.5
-        }
-      ],
-      "moment": {
-        "key": "monarchs",
-        "title": "The monarchs stop over",
-        "stage": "monarchs",
-        "description": "A monarch stopover above a staged native flower garden. The map’s actual monarch moment adds the passing migration butterflies.",
-        "day": 60,
-        "date": "September, Year 1"
-      }
-    },
-    {
-      "file": "landscape-chinandega.jpg",
-      "width": 1800,
-      "height": 1200,
-      "sha256": "3e477d143cb056a1714da3075c84019cb5658a728fcaab64ebe97315bf2b21ce",
-      "map": "chinandega",
-      "kind": "staged keystone moment study",
-      "day": 50,
-      "date": "August, Year 1",
-      "seed": 1987,
-      "frame": [
-        30,
-        82.6,
-        11
-      ],
-      "posedSpecies": [],
-      "moment": {
-        "key": "hatchlings",
-        "title": "The hatchlings run for the sea",
-        "stage": "hatchlings",
-        "description": "Olive ridley hatchlings at the beach edge. The map’s production nest-hatching event creates the juveniles and their route toward the sea; nest positions and age are staged.",
-        "day": 50,
-        "date": "August, Year 1"
-      }
-    },
-    {
       "file": "landscape-amazon.jpg",
       "width": 1800,
       "height": 1200,
-      "sha256": "01004c1cd038897edda20255f9697f37141cc4a4beada53292b1c3b62c05110b",
+      "sha256": "28ed7ebca0b7ca0985f5fb1f3d01ff26689bfb45aa04a9a227f0da448b8ba277",
       "map": "amazon",
       "kind": "staged keystone moment study",
       "day": 120,
@@ -444,57 +346,392 @@
       }
     },
     {
-      "file": "landscape-sumatra.jpg",
+      "file": "landscape-serengeti.jpg",
       "width": 1800,
       "height": 1200,
-      "sha256": "3acd91b8ef8fbda40d964fbab44692208527914c7ae101e48d3f2b81dce160f3",
-      "map": "sumatra",
+      "sha256": "78f3a1e8d6bbe812523ae6e9795b02087c9308d17a1e831e446054a2a424ffc8",
+      "map": "serengeti",
       "kind": "staged keystone moment study",
-      "day": 120,
-      "date": "March, Year 2",
+      "day": 20,
+      "date": "May, Year 1",
       "seed": 1987,
       "frame": [
-        60.5,
-        38.5,
-        14
+        48.3,
+        43.3,
+        5.6
       ],
       "posedSpecies": [
         {
-          "key": "orangutan",
-          "tile": 4620,
-          "x": 60.5,
-          "y": 38.5,
-          "state": "primate",
+          "key": "elephant",
+          "tile": 5087,
+          "x": 47.5,
+          "y": 42.5,
+          "state": "forage",
+          "juvenile": false
+        },
+        {
+          "key": "elephant",
+          "tile": 5209,
+          "x": 49.5,
+          "y": 43.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "elephant",
+          "tile": 5448,
+          "x": 48.5,
+          "y": 45.5,
+          "state": "idle",
+          "juvenile": true
+        }
+      ],
+      "moment": {
+        "key": "elephant",
+        "title": "The elephant family at work",
+        "stage": "browse",
+        "description": "An African elephant browsing native shrubs with another adult and a calf nearby. The production forage and family-moment conditions are active.",
+        "day": 20,
+        "date": "May, Year 1"
+      }
+    },
+    {
+      "file": "landscape-atlanta.jpg",
+      "width": 1800,
+      "height": 1200,
+      "sha256": "f253deb7c7dd02b8bf9e1d49fad90709a0f4881ca15c3daee93d0a2dba44f595",
+      "map": "atlanta",
+      "kind": "staged keystone moment study",
+      "day": 60,
+      "date": "September, Year 1",
+      "seed": 1987,
+      "frame": [
+        21,
+        24,
+        10
+      ],
+      "posedSpecies": [
+        {
+          "key": "monarch",
+          "tile": 1603,
+          "x": 19.5,
+          "y": 22.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1604,
+          "x": 20.5,
+          "y": 22.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1605,
+          "x": 21.5,
+          "y": 22.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1606,
+          "x": 22.5,
+          "y": 22.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1675,
+          "x": 19.5,
+          "y": 23.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1676,
+          "x": 20.5,
+          "y": 23.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1677,
+          "x": 21.5,
+          "y": 23.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1678,
+          "x": 22.5,
+          "y": 23.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1747,
+          "x": 19.5,
+          "y": 24.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1748,
+          "x": 20.5,
+          "y": 24.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1749,
+          "x": 21.5,
+          "y": 24.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1750,
+          "x": 22.5,
+          "y": 24.5,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1533,
+          "x": 21.82710685317725,
+          "y": 21.42610900726868,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1457,
+          "x": 17.55895555267809,
+          "y": 20.839653240783957,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1673,
+          "x": 17.245246404616626,
+          "y": 23.63854353311108,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1461,
+          "x": 21.576090555689298,
+          "y": 20.824581665036675,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1459,
+          "x": 19.697632054885325,
+          "y": 20.81664828444773,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1601,
+          "x": 17.576655080414493,
+          "y": 22.390127818939508,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1751,
+          "x": 23.293820263402303,
+          "y": 24.813748299333966,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1818,
+          "x": 18.246578225304546,
+          "y": 25.238986162481595,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1746,
+          "x": 18.34066947643878,
+          "y": 24.30905758236855,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1823,
+          "x": 23.46644838230277,
+          "y": 25.30226835226582,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1750,
+          "x": 22.34223757037544,
+          "y": 24.156185740579968,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1748,
+          "x": 20.43214036466379,
+          "y": 24.72088470618066,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1530,
+          "x": 18.245480436531363,
+          "y": 21.722121885702364,
+          "state": "idle",
+          "juvenile": false
+        },
+        {
+          "key": "monarch",
+          "tile": 1607,
+          "x": 23.476266825710482,
+          "y": 22.57434064627887,
+          "state": "idle",
           "juvenile": false
         }
       ],
       "moment": {
-        "key": "orangutans",
-        "title": "A meal above the old plantation",
-        "stage": "meal",
-        "description": "A feeding pause on a mature seasonal fruit tree. Production primate feeding and the live canopy moment supply the pose; the selected-animal canopy reveal keeps the subject visible. The review portrait uses a level supporting branch and a camera aligned with the animal’s face.",
-        "day": 120,
-        "date": "March, Year 2",
-        "camera": {
-          "az": 0.9582403327278252,
-          "placement": {
-            "x": 0.61,
-            "y": 0.47
-          },
-          "branch": 7,
-          "faceDirection": [
-            0.8120558864554043,
-            0.12213395235994912,
-            0.5706562318542272
-          ]
+        "key": "monarchs",
+        "title": "The monarchs stop over",
+        "stage": "monarchs",
+        "description": "A monarch stopover above a staged native flower garden. The map\u2019s actual monarch moment adds the passing migration butterflies.",
+        "day": 60,
+        "date": "September, Year 1"
+      }
+    },
+    {
+      "file": "landscape-chinandega.jpg",
+      "width": 1800,
+      "height": 1200,
+      "sha256": "5505ac20693b3660b514c2da4408ae3675dfe3a8698248eeab507deffe09e08f",
+      "map": "chinandega",
+      "kind": "staged keystone moment study",
+      "day": 50,
+      "date": "August, Year 1",
+      "seed": 1987,
+      "frame": [
+        30,
+        82.6,
+        11
+      ],
+      "posedSpecies": [
+        {
+          "key": "seaturtle",
+          "tile": 9750,
+          "x": 30.637557008850024,
+          "y": 81.86849844571329,
+          "state": "leave",
+          "juvenile": true
+        },
+        {
+          "key": "seaturtle",
+          "tile": 9749,
+          "x": 29.333466086258806,
+          "y": 81.50348466296082,
+          "state": "leave",
+          "juvenile": true
+        },
+        {
+          "key": "seaturtle",
+          "tile": 9869,
+          "x": 29.445589778547255,
+          "y": 82.9154240500522,
+          "state": "leave",
+          "juvenile": true
+        },
+        {
+          "key": "seaturtle",
+          "tile": 9749,
+          "x": 29.561420574915488,
+          "y": 81.95153508264082,
+          "state": "leave",
+          "juvenile": true
+        },
+        {
+          "key": "seaturtle",
+          "tile": 9870,
+          "x": 30.679416125365425,
+          "y": 82.59313206417015,
+          "state": "leave",
+          "juvenile": true
+        },
+        {
+          "key": "seaturtle",
+          "tile": 9872,
+          "x": 32.04937924543944,
+          "y": 82.46123208667383,
+          "state": "leave",
+          "juvenile": true
+        },
+        {
+          "key": "seaturtle",
+          "tile": 9871,
+          "x": 31.533010226118737,
+          "y": 82.9144839910457,
+          "state": "leave",
+          "juvenile": true
+        },
+        {
+          "key": "seaturtle",
+          "tile": 9869,
+          "x": 29.552509015886166,
+          "y": 82.63858094758889,
+          "state": "leave",
+          "juvenile": true
+        },
+        {
+          "key": "seaturtle",
+          "tile": 9870,
+          "x": 30.473639130733353,
+          "y": 82.3419965691473,
+          "state": "leave",
+          "juvenile": true
         }
+      ],
+      "moment": {
+        "key": "hatchlings",
+        "title": "The hatchlings run for the sea",
+        "stage": "hatchlings",
+        "description": "Olive ridley hatchlings at the beach edge. The map\u2019s production nest-hatching event creates the juveniles and their route toward the sea; nest positions and age are staged.",
+        "day": 50,
+        "date": "August, Year 1"
       }
     },
     {
       "file": "landscape-reef.jpg",
       "width": 1800,
       "height": 1200,
-      "sha256": "899267ac5ac95be00071bd461217cdceb5ca5853a838eb359021af9dabe4c988",
+      "sha256": "d8fddc111eed2c20660a2ef3eb0399433335234cf52f9e13ec56b052e21bdcd3",
       "map": "reef",
       "kind": "staged keystone moment study",
       "day": 20,
@@ -549,67 +786,52 @@
       }
     },
     {
-      "file": "creek-before.jpg",
+      "file": "landscape-sumatra.jpg",
       "width": 1800,
       "height": 1200,
-      "sha256": "f06cf6bd9fe568ec9145111385b992bec08f94d71848f649a774408a08bf2219",
-      "map": "pnw",
-      "kind": "same-save sequence",
-      "stage": "before",
+      "sha256": "3acd91b8ef8fbda40d964fbab44692208527914c7ae101e48d3f2b81dce160f3",
+      "map": "sumatra",
+      "kind": "staged keystone moment study",
+      "day": 120,
+      "date": "March, Year 2",
+      "seed": 1987,
       "frame": [
-        54,
-        73,
-        2.4
+        60.5,
+        38.5,
+        14
       ],
-      "day": 20,
-      "date": "May, Year 1",
-      "culvert": true,
-      "planted": 0,
-      "trees": 0,
-      "fishAccess": 0,
-      "saveSha256": "8b5cf09c8a3f2a477136d08f9af652f16f456ee32365a450c6828233e700af8f"
-    },
-    {
-      "file": "creek-planted.jpg",
-      "width": 1800,
-      "height": 1200,
-      "sha256": "6e81831cd479f2ac110f28c0adec27512a273799a19c2f6962c1e68155b96c25",
-      "map": "pnw",
-      "kind": "same-save sequence",
-      "stage": "planted",
-      "frame": [
-        54,
-        73,
-        2.4
+      "posedSpecies": [
+        {
+          "key": "orangutan",
+          "tile": 4620,
+          "x": 60.5,
+          "y": 38.5,
+          "state": "primate",
+          "juvenile": false
+        }
       ],
-      "day": 20,
-      "date": "May, Year 1",
-      "culvert": false,
-      "planted": 356,
-      "trees": 82,
-      "fishAccess": 1,
-      "saveSha256": "7ebba6e423ce8b062fb1c8e0854a930ac62efc1e002c1186b7dfeccc2524f999"
-    },
-    {
-      "file": "creek-later.jpg",
-      "width": 1800,
-      "height": 1200,
-      "sha256": "e1d4a42de37422f708e40c530cf9355fe3e6b91735acfff7dbc9092185bec443",
-      "map": "pnw",
-      "kind": "same-save sequence",
-      "stage": "later",
-      "frame": [
-        54,
-        73,
-        2.4
-      ],
-      "day": 260,
-      "date": "May, Year 3",
-      "culvert": false,
-      "planted": 356,
-      "trees": 82,
-      "fishAccess": 1,
-      "saveSha256": "25aab728db4e9ea0232464d464be613210910ee5b66f4a1bebac60bcd7a9c3cc"
+      "moment": {
+        "key": "orangutans",
+        "title": "A meal above the old plantation",
+        "stage": "meal",
+        "description": "A feeding pause on a mature seasonal fruit tree. Production primate feeding and the live canopy moment supply the pose; the selected-animal canopy reveal keeps the subject visible. The review portrait uses a level supporting branch and a camera aligned with the animal\u2019s face.",
+        "day": 120,
+        "date": "March, Year 2",
+        "camera": {
+          "az": 0.9582403327278252,
+          "placement": {
+            "x": 0.61,
+            "y": 0.47
+          },
+          "branch": 7,
+          "faceDirection": [
+            0.8120558864554043,
+            0.12213395235994912,
+            0.5706562318542272
+          ]
+        }
+      },
+      "note": "Kept from the 2026-10-17 capture (source revision 52d973f): the 2026-11-12 recapture drew ragged canopy cut-outs round the orangutan."
     }
   ]
 }
