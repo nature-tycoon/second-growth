@@ -57,7 +57,8 @@ fragments in the soft rim, and only while an animal is selected (`uFocusAmt > 0`
 ## Check
 
 `node tools/lens-depth-browser-check.mjs`: a deer under big-leaf maples from four sides (from
-above) and a brush rabbit behind a huckleberry at eye level from four sides. Asserts at least 95% of
+above) and a brush rabbit behind a huckleberry at eye level, through the real `EyeCamera`: from four
+sides, swung 0.5 rad off the line (the bush half in the way) and lifted to look down over it. Asserts at least 95% of
 the animal shows; prints how much of the view the lens opened; saves
 `tools/release-output/lens-depth-*.png`. The older checks still apply:
 `tools/follow-support-browser-check.mjs` (the support stays: palm 83 to 90% kept, old code 82 to
@@ -70,3 +71,11 @@ the animal shows; prints how much of the view the lens opened; saves
 ellipsoid body cut, a gap starting from the outline) and is not on main. Cole then turned down a
 screen-space dithered edge; the rim here thins by world-fixed leaf clumps instead. Merging both
 conflicts in `focus.js`: pick one (see `docs/ideas/2026-11-11-wildlife-polish/s3.md`).
+
+## Tried after: see-through trees by leaf clumps (2026-11-11, not kept)
+
+The see-through trees mode (`Flora.setFade`) blends leaves at 28% opacity, which draws crowns out of
+order where they overlap. Leaving out whole leaf clumps instead (the lens rim's noise, opaque, no
+sorting) was tried and dropped: a leaf mass is a closed shell drawn one side only, so cutting parts
+of it shows its hollow inside as crescents and rings, and crowns read as eaten. Doing it well needs
+whole leaf masses dropped at a time, which the merged plant models don't record.

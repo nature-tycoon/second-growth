@@ -2,7 +2,9 @@
 // The tracking lens (focus.js) is depth-based: foliage level with the animal opens only where it
 // covers the animal's body, foliage well nearer the camera opens wider with a soft rim. Two scenes:
 //  - from above: a black-tailed deer under big-leaf maples with salal round it, four sides;
-//  - eye level: a brush rabbit just behind a huckleberry bush, the eye on the far side of the bush.
+//  - eye level: a brush rabbit just behind a huckleberry bush, seen through the real EyeCamera: the
+//    bush squarely in the way from four sides, swung half out of the way, and lifted to look down
+//    over it (where the lens should open next to nothing).
 // For each view it measures how much of the animal shows (against the same view with no plants)
 // and how much of the screen the lens opened (pixels that change, less the animal's own), and
 // saves the open view to tools/release-output/lens-depth-*.png.
@@ -26,6 +28,7 @@ try {
     const { Actors } = await import('/js/render3d/actors.js');
     const { Renderer } = await import('/js/render3d/scene.js');
     const { shrubSpot } = await import('/js/sim/ground-obstacles.js');
+    const { EyeCamera } = await import('/js/render3d/eye-camera.js');
     const W = ${W}, H = ${H}, gl = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
     gl.setSize(W, H); gl.outputColorSpace = THREE.SRGBColorSpace; gl.toneMapping = THREE.NeutralToneMapping;
     const ctx = gl.getContext();
@@ -94,20 +97,23 @@ try {
         w.setPlant(w.idx(40, 30), salal, 1);
         const [sx, sz] = shrubSpot(40, 30, salal, false), rows = [];
         const a = game.wildlife.spawn(game.catalog.animal.rabbit, 40, 30, { silent: true, age: 400 });
-        const st = stage(game), eye = new THREE.PerspectiveCamera(50, W / H, 0.03, 34);
+        const st = stage(game), eye = new EyeCamera(), groundAt = (x, z) => w.heightAt(x, z) * LEVEL;
         const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x8a7a55 }));
-        ground.position.set(sx, w.heightAt(sx, sz) * LEVEL - .005, sz); st.scene.add(ground);
-        const r = { actors: st.actors, camera: eye, world: w, eyeOn: true, eyeAgent: a, eye: { pos: new THREE.Vector3(), size: .12, camera: eye } };
-        for (const az of [0, 1.571, 3.142, 4.712]) {
-          // the rabbit 0.42 tiles past the bush's middle, the eye where EyeCamera would ride behind it
+        ground.position.set(sx, groundAt(sx, sz) - .005, sz); st.scene.add(ground);
+        const r = { actors: st.actors, camera: eye.camera, world: w, eyeOn: true, eyeAgent: a, eye };
+        // the bush squarely between the eye and the rabbit from four sides; then swung 0.5 rad off
+        // that line (the bush half in the way), and lifted to look down (a drag, as Cole does)
+        for (const [az, swing, lift] of [[0, 0, 0], [1.571, 0, 0], [3.142, 0, 0], [4.712, 0, 0], [0, .5, 0], [3.142, -.5, 0], [1.571, 0, .6], [4.712, 0, .6]]) {
           const fx = Math.cos(az), fz = Math.sin(az);
           Object.assign(a, { x: sx + fx * .42, y: sz + fz * .42, state: 'idle', wait: 99 });
           st.actors.pose.clear(); for (let f = 0; f < 30; f++) st.actors.update(game, new THREE.Vector3(1, 0, 0), f / 30);
-          const pose = st.actors.pose.get(a.id), size = Math.max(pose.h || 0, pose.foot || 0, .12), reach = .55 + size * 2.4;
-          r.eye.size = size;
-          r.eye.pos.set(pose.center.x - fx * reach, pose.center.y + size * .9 + .06, pose.center.z - fz * reach);
-          eye.position.copy(r.eye.pos); eye.lookAt(pose.center.x + fx * size * 4, pose.center.y + size * .25, pose.center.z + fz * size * 4); eye.updateMatrixWorld();
-          rows.push({ view: 'eye ' + az, ...measure(st, eye, r, game, a) });
+          const pose = st.actors.pose.get(a.id);
+          // the real eye camera, fresh on this animal: it rides behind along its heading (-yaw), so
+          // swinging it round by az + yaw puts it on the bush's side (plus the swing), and a drag
+          // down by the lift raises it
+          eye.agentId = null;
+          eye.update(pose, a.id, W / H, 1 / 30, groundAt, null, { yaw: az + pose.yaw + swing, pitch: -lift });
+          rows.push({ view: 'eye ' + az + (swing ? ' swung ' + swing : '') + (lift ? ' lifted ' + lift : ''), ...measure(st, eye.camera, r, game, a) });
         }
         return rows;
       },
