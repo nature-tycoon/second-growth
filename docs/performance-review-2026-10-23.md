@@ -112,7 +112,7 @@ Sumatra; the lag is stutter. Each animal kind's first appearance built its model
 shader mid-frame, plant regrowth redrew 48-tile regions (15-30 ms each), and the daily and monthly
 updates ran in one frame. Fixed in [0038](decisions/0038-smooth-first-minutes.md), which has the
 before/after table. Open fix 2a above (skip the whole-map comparison while regions are queued) is
-done there. Still open: 2(b), the daily plant redraw itself (nearly every region every day,
+done there. Still open: 2(b), the daily plant redraw itself (settled 2026-11-11 in [0041](decisions/0041-plant-growth-on-the-gpu.md): deadwood ageing redraws only its own tile, growth on the GPU declined) (nearly every region every day,
 `tools/plant-churn-probe.mjs`), and Sumatra's 4-6M triangles in its opening view.
 
 ## Finding 3, 2026-11-09: the daily environment update
