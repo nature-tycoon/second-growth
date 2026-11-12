@@ -93,7 +93,18 @@ Read them a week after this goes live. The questions to ask:
 
 ## What to fix next for players (ranked)
 
-1. **First two minutes: show something happening (M).** Ideas, best first:
+1. **First two minutes: show something happening (M). Done 2026-11-11:** a first visit (no saved
+   farm) starts straight in Free Play with a "Try it" tip, and returning players keep the chooser.
+   The first goal on every map, `sprout` ("First sprouts", 10 plants, `FIRST_GOAL` in `goals.js`),
+   is checked daily (`daily: true`), so one stroke pays within about 2 seconds. Its follow-up
+   offers Story mode once per device, and the menu has a Story mode entry. Groundcover seedlings
+   are drawn at least as large as at growth 0.3 (`SPROUT_G` in `flora.js`, drawing only), so a
+   sown strip shows from the default zoom. PNW Chapter 1 now opens with "sow your first 10 tiles"
+   in place of "inspect a tile", and has smaller chores (loosen 40, sow 120). Ticked objectives show
+   a toast. Measure it with `game_start.first_visit`, `goal_completed` for `sprout` and the time
+   it takes, `story_offered` / `story_offer_taken`, `objective_done` objective 1 on `fields`, and
+   `seconds_since_reward` on `game_left`. Check: `tools/first-minutes-browser-check.mjs`.
+   Ideas, best first:
    - Start Free Play by default and offer the story as a choice later. The mode screen is
      where people leave, and Free Play keeps twice as many.
    - Make the first stroke pay off within seconds: a quick visual (sprouts, a bird landing on the

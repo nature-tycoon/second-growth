@@ -7,7 +7,7 @@
 import buildAtlantaPlants from '../data/plants-atlanta.js';
 import buildAtlantaAnimals from '../data/animals-atlanta.js';
 import { generateSubdivision, atlantaBorderCell } from './atlanta-world.js';
-import { PNW_GOALS, pop, speciesPresent } from '../sim/goals.js';
+import { FIRST_GOAL, PNW_GOALS, pop, speciesPresent } from '../sim/goals.js';
 import { isBlooming } from '../data/plants.js';
 import { plantSuit } from '../sim/plants.js';
 import { riverRow } from '../world.js';
@@ -65,6 +65,7 @@ function momentsDaily(g) {
 }
 
 const GOALS = [
+  FIRST_GOAL,
   { key: 'plant', name: 'First beds', reward: 1000,
     desc: 'Plant 100 native plants. Lift some lawn first (Remove → Pull invasives): nothing grows through sod.',
     check: g => g.stats.planted >= 100, prog: g => `${Math.min(100, g.stats.planted)} / 100 planted` },

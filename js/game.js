@@ -205,6 +205,7 @@ export class Game {
     this.visitors.daily();
     this.events.daily();
     checkCampaign(this);
+    this.checkGoals(true);
     this.mapDefinition.daily?.(this); // anything a map runs for itself each day
     // weather
     const r = this.rng();
@@ -323,9 +324,10 @@ export class Game {
     return m;
   }
 
-  checkGoals() {
+  // dailyOnly: the goals marked `daily` (the first goal, so its reward follows the first stroke)
+  checkGoals(dailyOnly = false) {
     for (const g of this.catalog.goals) {
-      if (this.goalsDone[g.key]) continue;
+      if (this.goalsDone[g.key] || dailyOnly && !g.daily) continue;
       if (g.check(this)) {
         this.goalsDone[g.key] = this.day;
         const paid = this.grant(g.reward * 0.6, 'goal');

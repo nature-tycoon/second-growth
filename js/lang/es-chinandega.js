@@ -179,6 +179,7 @@ const CHAPTERS_ES = [
 
 // name, description, and how the progress line reads
 const GOALS = {
+  sprout: ['Primeros brotes', 'Sembrá 10 plantas nativas. Abrí Sembrar, elegí una mezcla de semillas y arrastrala sobre terreno abierto.'],
   plant: ['Primeros árboles', 'Sembrá 200 plantas nativas en cualquier parte de la finca.'],
   livingfence: ['Cercas vivas', 'Sembrá 100 árboles de cerca viva (Sembrar → Árboles → Cerca viva). Las líneas de madero negro y jiñocuabo en las orillas de los potreros unen los parches de bosque.'],
   culvert: ['Liberá la quebrada', 'Quitá la alcantarilla donde el camino de la finca cruza la quebrada, para que los peces puedan subir del estero en el invierno.'],

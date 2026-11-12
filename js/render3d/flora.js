@@ -27,6 +27,7 @@ import { PlantPool, ChunkedPlantPool, floraVersion } from './plant-pools.js';
 import { trailMask } from '../sim/animal-trails.js';
 import { dryPoint, shrubSpot, trunkSpot, snagSpot, snagPose, logSpot } from '../sim/ground-obstacles.js';
 import { createPlantMaterials } from './plant-materials.js';
+const SPROUT_G = 0.3; // the smallest a groundcover seedling is drawn (see the groundcover tufts)
 
 // Preserve public imports used by existing rendering tools.
 export { floraVersion } from './plant-pools.js';
@@ -427,6 +428,8 @@ export class Flora {
       }
 
       // ---- groundcover tufts
+      // (a fresh sowing, g 0.1, is drawn as a scatter of seedlings as large as at SPROUT_G, so a
+      // first stroke shows from the default zoom; growth itself is unchanged)
       if (gid) {
         const p = game.catalog.plants[gid];
         const g = inside ? w.groundG[i] : 1;
@@ -437,7 +440,7 @@ export class Flora {
         // (lush: on maps whose wildflower gardens are the payoff, a mature bed is drawn thick and full)
         const lush = game.catalog.definition.look.lush && (type === 'forb' || type === 'tallforb') && g >= 0.3;
         const titan = type === 'titan'; // (one to a tile, a little tree of a leaf, so drawn with the shrubs)
-        const n0 = titan ? 1 : lush ? (g < 0.65 ? 4 : 6) : g < 0.3 ? 2 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 4); // a healthy sward fills its tile
+        const n0 = titan ? 1 : lush ? (g < 0.65 ? 4 : 6) : g < 0.3 ? 4 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 4); // a healthy sward fills its tile
         // meadow patches: thicker, taller and deeper green in some places, thinner and more golden in others
         const pt = meadowPatch(x + 0.5, y + 0.5), aquaticT = type === 'lily' || type === 'cattail' || type === 'tule';
         const n = Math.max(1, Math.round((aquaticT ? n0 : n0 * (0.6 + pt.lush * 0.8)) * (this.light ? 0.5 : 1)));
@@ -486,7 +489,7 @@ export class Flora {
           // Keep the plant opening aligned with the actual narrow track, not the whole tile.
           if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > TRAIL_OPENING) continue;
           if (inside && w.wallow[i]) { const [wx, wz, ws] = wallowSpot(w, x, y, i); if (Math.hypot(px - wx, pz - wz) < 0.32 * ws) continue; } // (nothing grows in a wallow's trodden mud)
-          const sc = (0.35 + 0.6 * g) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
+          const sc = (0.35 + 0.6 * Math.max(g, SPROUT_G)) * (0.85 + hash2(x, y, 60 + k) * 0.3) * (lush ? 1.12 : 1) * (aquaticT ? 1 : 0.88 + pt.lush * 0.26) * (edge && grassy ? 1 + edge.e * 0.35 : 1); // (grass grows taller where the woods shelter it)
           // lily pads float on the water surface instead of sitting on the pond bed
           if (bankTile && !aquaticT && !grassyWet(type) && underWater(w, px, pz)) continue; // (dry-land groundcover doesn't grow in the creek)
           const py = type === 'lily' && inside && isWater(w.terrain[i]) ? (waterSurfaceY(w, px, pz) ?? hAt(px, pz)) + 0.01 : hAt(px, pz) + (tussock && k % 3 !== 2 ? 0.035 * (0.6 + 0.4 * g) : 0);

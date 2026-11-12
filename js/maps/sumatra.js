@@ -8,7 +8,7 @@
 import buildSumatraPlants from '../data/plants-sumatra.js';
 import buildSumatraAnimals from '../data/animals-sumatra.js';
 import { generateEstate, sumatraBorderCell, isPeat, streamX } from './sumatra-world.js';
-import { PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
+import { FIRST_GOAL, PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 import { isFruiting } from '../data/plants.js';
 import { removeTree } from '../sim/plants.js';
 import { T, F, PLACED, clamp } from '../config.js';
@@ -23,6 +23,7 @@ const felled = g => g.stats.palmsFelled || 0;
 const isPalm = (w, i) => w.tree[i] && w.catalog.plants[w.tree[i]].key === 'oilpalm';
 
 const GOALS = [
+  FIRST_GOAL,
   { key: 'plant', name: 'First seedlings', reward: 1000,
     desc: 'Plant 200 native plants anywhere on the estate.',
     check: g => g.stats.planted >= 200, prog: g => `${Math.min(200, g.stats.planted)} / 200 planted` },

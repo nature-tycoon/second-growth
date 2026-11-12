@@ -206,6 +206,11 @@ addStrings({
   // ---------------------------------------------------------------- menu and settings
   'Field journal': 'Diario de campo', 'See through trees': 'Ver a través de los árboles', 'Show trees normally': 'Ver los árboles normal', 'Photo mode': 'Modo foto',
   'Send feedback': 'Enviar opinión', 'How to play': 'Cómo jugar', 'Save game': 'Guardar partida', 'Start a new game (campaign or free play)': 'Empezar una partida nueva (campaña o juego libre)',
+  'Story mode (guided chapters)': 'Modo historia (capítulos guiados)', 'Story mode': 'Modo historia',
+  'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make.': 'Tus semillas ya están en la tierra. Mirá cómo crecen los brotes en las próximas semanas; los animales vienen por la comida y el refugio que dan.',
+  'Your seeds are in. Watch the new shoots fill in over the coming weeks; animals come to the food and cover they make. Want a guided start? Story mode teaches restoration one chapter at a time.': 'Tus semillas ya están en la tierra. Mirá cómo crecen los brotes en las próximas semanas; los animales vienen por la comida y el refugio que dan. ¿Querés empezar con guía? El modo historia enseña la restauración capítulo por capítulo.',
+  'Try it: open Plant, pick a seed mix and drag across a field. The brush turns green where seeds will grow.': 'Probá: abrí Sembrar, elegí una mezcla de semillas y arrastrá sobre un potrero. El pincel se pone verde donde las semillas van a crecer.',
+  'Try it: open Plant, pick a seed mix and drag a finger across a field. The brush turns green where seeds will grow.': 'Probá: abrí Sembrar, elegí una mezcla de semillas y arrastrá un dedo sobre un potrero. El pincel se pone verde donde las semillas van a crecer.',
   'Game saved. It also autosaves every month.': 'Partida guardada. También se guarda sola cada mes.', 'Could not save (browser storage unavailable).': 'No se pudo guardar (el navegador no deja guardar).',
   'Opening your saved farms': 'Abriendo tus fincas guardadas', 'Opening your saved farms…': 'Abriendo tus fincas guardadas…',
   'Saved': 'Guardado', 'Saving…': 'Guardando…', 'Save failed': 'No se pudo guardar', 'Autosave off': 'Guardado automático apagado',
@@ -495,6 +500,7 @@ addPatterns([
   [/^(.+) · Year (\d+)(?:, (.+))?$/, (_, r, y, s) => `${r} · Año ${y}${s ? ', ' + low(s) : ''}`],
 
   // ---------------------------------------------------------------- messages
+  [/^Objective done: (.+)$/, 'Objetivo cumplido: $1'],
   [/^Goal complete: (.+)! The land trust awarded a (\$[\d,]+) grant\.$/, '¡Meta cumplida: $1! La fundación te dio una ayuda de $2.'],
   [/^New species! An? (.+) has arrived on the farm\. \(\+(\$[\d,]+) discovery grant\)$/, '¡Especie nueva! Llegó a la finca: $1. (+$2 de ayuda por el descubrimiento)'],
   [/^An? (.+) caught an? (.+)\. The food web is working\.$/, (_, a, b) => `${cap(art(a))} atrapó ${art(b)}. La cadena alimenticia está funcionando.`],
