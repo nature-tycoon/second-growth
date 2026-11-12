@@ -35,3 +35,8 @@ All four sessions landed on `claude/ideas-wildlife-polish` (aed7cd7, 2cf4495, f8
 - Capuchin/colobus forward snaps in patchy stands, trace with `tools/monkey-movement-measure.mjs`.
 - Lens soft rim shared with see-through tree mode; finer close-up shrub model at eye level.
 - Precomputed blurred canopy-height grid for flight look-ahead (only if flier counts grow).
+
+## Cole's answers (2026-11-11)
+- Lens: keep this batch's depth-based lens with the soft rim; close `claude/wave3-s5-tracker-lens-aaed29` (not deleted yet).
+- Orangutan crown-gap fix: yes, next batch.
+- Next batch also takes: primate rest budget, mallard dabbling + tucked legs, brush rabbit freeze-and-dash, fix `animal-culling-check`.
