@@ -3,8 +3,11 @@
 // view reads as peering down into the forest rather than through a hole punched in it:
 //  - the edge is ragged, following leaf clumps (world-space noise) instead of a clean circle,
 //    and the leaves along it stir with the wind;
-//  - the opening flares toward the camera, a funnel, so the canopy layers step back one behind
-//    another down to the animal;
+//  - it is depth-based: foliage level with the animal opens only where it covers the animal's own
+//    body, so the leaves beside it stay; foliage well nearer the camera opens wider, the more so the
+//    nearer it is (as a share of the way to the eye at eye level), with a soft, thinning rim. The
+//    canopy layers step back one behind another down to the animal, and at eye level a bush in
+//    front of a small animal parts the same way;
 //  - foliage lining the funnel is shaded, darker the deeper it sits, like the inside of a crown;
 //    the ground, animal and surrounding landscape keep their normal light;
 //  - shrubs, groundcover and litter on the floor stay, whole, where they show below the animal's
@@ -20,8 +23,8 @@
 //    over) stays whole.
 // It opens and closes by growing and shrinking, and follows the animal smoothly (see
 // Renderer.updateFocus). Only what sits in front of the animal along the line of sight is
-// affected, and only while an animal is selected. Fragments are discarded (a crisp edge, no
-// dithering), so there is no transparency to depth-sort.
+// affected, and only while an animal is selected. Fragments are discarded (the soft rim is
+// leaf-sized specks thinning out), so there is no transparency to depth-sort.
 
 import * as THREE from 'three';
 
@@ -111,22 +114,38 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false, side = 0 } 
           keep = keep || low && (bu + ext * (uCamUp.y + 0.5) < (uFocusFoot - uFocus.y) * uCamUp.y - 0.03 || focusSide(bd, ext * 0.6) > uFocusHalfW + 0.06);
         }` : ''}
         ${side ? `keep = keep || focusSide(vFocusBase - uFocus, ${side.toFixed(2)} * vFocusS) > uFocusHalfW + 0.06 && focusSide(fd, 0.0) > uFocusHalfW + 0.06
+          && length((vFocusW - vFocusBase).xz) < ${(side * 1.6).toFixed(2)} * vFocusS;
+        // and the stretch of a trunk that shows below the animal's feet on screen (it can't cover it;
+        // its limbs still go with the leaves)
+        keep = keep || dot(fd, uCamUp) / max(1.0 - dot(fd, uViewDir) * uFocusInvD, 0.05) < uFocusBottom - 0.03
           && length((vFocusW - vFocusBase).xz) < ${(side * 1.6).toFixed(2)} * vFocusS;` : ''}
         // what covers the body opens: the line from here away from the camera passes through the
         // animal's box (in its model's frame; the box's slabs). The trunk it clings to, the plant it
-        // is in or on, lie beside or behind it and stay
+        // is in or on, lie beside or behind it and stay. Leaves level with the animal open only here,
+        // so the box's faces are made ragged by leaf clumps: its straight edges would show otherwise
         vec3 bo = (uFocusBoxM * vec4(vFocusW, 1.0)).xyz, bv = (uFocusBoxM * vec4(uViewDir, 0.0)).xyz;
+        vec3 bpad = vec3((n - 0.4) * min(uFocusHalfW, 0.12) * length(bv)); // (-5 to +7 cm: a monkey's crown stays)
         bv += 1e-6 * step(abs(bv), vec3(1e-6));
-        vec3 t1 = (bo - uFocusBoxMin) / bv, t2 = (bo - uFocusBoxMax) / bv, tn3 = min(t1, t2), tf3 = max(t1, t2);
+        vec3 t1 = (bo - uFocusBoxMin + bpad) / bv, t2 = (bo - uFocusBoxMax - bpad) / bv, tn3 = min(t1, t2), tf3 = max(t1, t2);
         float tn = max(max(tn3.x, tn3.y), tn3.z), tf = min(min(tf3.x, tf3.y), tf3.z);
         bool covers = tn <= tf && tf > 0.0;
-        // and around it a gap like a clearing that widens slowly, over two window radii past its
-        // front, so it opens wide only through cover nearer the camera
-        float open = r * smoothstep(uFocusFront * 0.5, uFocusFront + 2.0 * uFocusR, along);
-        if (!keep && (covers || along > uFocusBack && across < open)) discard;
+        // and a wider gap only through cover well nearer the camera than the animal, growing with how
+        // much nearer: leaves level with the animal open just where they cover its body. The nearness
+        // is a share of the way from the animal to the eye at eye level, of four window radii from
+        // above. The gap is measured as it shows on screen (at the animal's depth), so foliage right
+        // at the lens opens about as wide as foliage halfway there, not a wall of it
+        float near = (along - uFocusFront) / (uFocusInvD > 0.0 ? max(0.05, 1.0 / uFocusInvD - uFocusFront) : 4.0 * uFocusR);
+        float open = r * smoothstep(0.05, 0.7, near);
+        float acrossS = across / max(1.0 - along * uFocusInvD, 0.05);
+        // its rim is soft: over the outer third the leaves thin out, fewer the nearer the middle, by
+        // leaf-sized specks fixed in the world (so they hold still as the view moves, and there is
+        // still nothing to depth-sort)
+        float rim = (acrossS - 0.65 * open) / (0.35 * open + 1e-4);
+        float dither = rim > 0.0 && rim < 1.0 ? smoothstep(0.25, 0.75, focusNoise(vFocusW * 22.0 + 5.0)) : 0.5; // (only in the rim)
+        if (!keep && (covers || along > uFocusBack && rim < dither)) discard;
         // the walls of the gap: what still stands near the edge, above the animal, falls into shade,
         // deepest low down by the animal and easing off toward the open top of the funnel
-        float edge = 1.0 - smoothstep(0.0, 0.8 * uFocusR, across - r);
+        float edge = (1.0 - smoothstep(0.0, 0.8 * uFocusR, acrossS - open)) * smoothstep(0.05, 0.3, near);
         float above = smoothstep(0.2, 0.75, (vFocusW.y - uFocus.y) / uFocusR) * step(-0.3 * uFocusR, along);
         float deep = 1.0 - 0.3 * smoothstep(0.5, 3.5, up);
         focusWall = edge * above * deep * uFocusAmt;
