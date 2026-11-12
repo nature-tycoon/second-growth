@@ -38,6 +38,7 @@ export const focus = {
   uFocusFront: { value: 0.3 },              // front of the body along the view ray
   uFocusTrunk: { value: new THREE.Vector3(0, 0, -1) }, // x, z, radius of the trunk it clings to; radius < 0: none
   uFocusBodyR: { value: 0.3 },              // half the animal's size across the screen, at its depth: the gap's core
+  uLookTrunks: { value: Array.from({ length: 8 }, () => new THREE.Vector4()) }, // trunks close in front of it: x, z, radius (0: none), top, look-through.js
   uLookD: { value: 0.5 },                   // how far in front of the animal cover is seen through, not opened (look-through.js)
   uFocusInvD: { value: 0 },                 // 1 / distance from the animal to the eye at eye level; 0 from above
 };
@@ -134,7 +135,7 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false, side = 0 } 
         float edge = (1.0 - smoothstep(0.0, 0.8 * uFocusR, acrossS - open)) * past;
         float above = smoothstep(0.2, 0.75, (vFocusW.y - uFocus.y) / uFocusR) * step(-0.3 * uFocusR, along);
         float deep = 1.0 - 0.3 * smoothstep(0.5, 3.5, up);
-        focusWall = edge * above * deep * uFocusAmt;
+        focusWall = keep ? 0.0 : edge * above * deep * uFocusAmt; // (none on what stays: a trunk showed a dark patch)
       }`).replace('#include <dithering_fragment>', `#include <dithering_fragment>
       gl_FragColor.rgb *= mix(vec3(1.0), vec3(0.3, 0.38, 0.36), focusWall);`);
   };

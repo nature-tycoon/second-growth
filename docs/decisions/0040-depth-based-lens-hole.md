@@ -41,6 +41,14 @@ plants, buildings):
   parts reach as far again as it is deep) shows it, anything farther in front hides it. The gap
   opens exactly what lies farther than that (`past` in focus.js), and its core is the animal's
   outline across the screen (`uFocusBodyR`), so foliage farther in front never hides it.
+- **The animal passes behind trunks** (2026-11-11, Cole: it still seemed to pass in front of a
+  tree). Up to 8 trunks within 3 tiles in front of it (`treeTrunk`, nearest first, up to where the
+  crown begins: `trunkH` or a conifer's `base`) go to the look-through pass (`focus.uLookTrunks`);
+  what of the animal has one of them on its line to the camera isn't drawn there.
+- **The gap stays on the animal.** It used to ease toward it (a tenth of a second behind), so it
+  trailed a walking animal: a mushroom it had passed went on being opened. Only its size eases now.
+- **No shading on what stays.** The gap's dark walls were drawn on the trunks it no longer cuts,
+  a dark patch that followed small animals walking behind a tree.
 - **Trunks are never opened** (near their axis): a trunk in front of the animal stays in front of
   it, and a cut across one showed as a straight line. Limbs up in the crown still go with the leaves.
 - **Nearer the camera, a little wider.** Past the core the gap widens with `near`, how far a
@@ -79,8 +87,8 @@ fragments in the soft rim, and only while an animal is selected (`uFocusAmt > 0`
 
 `node tools/lens-depth-browser-check.mjs`: a deer and a brush rabbit in wildrye under big-leaf
 maples from four sides (from above), and each behind a huckleberry at eye level, through the real `EyeCamera`: from four
-sides, swung 0.5 rad off the line (the bush half in the way) and lifted to look down over it. Asserts at least 95% of
-the animal shows; prints how much of the view the lens opened; saves
+sides, swung 0.5 rad off the line (the bush half in the way) and lifted to look down over it. Asserts that no layer of cover (leaves, bushes, grass) hides more than 5% of
+the animal (taking it away shows no more of it); a trunk may; prints how much of the view the lens opened; saves
 `tools/release-output/lens-depth-*.png`, and `-cut.png` beside each: what the lens took from the
 floor plants in red (trees hidden), to judge the cut's shape round the animal. The older checks still apply:
 `tools/follow-support-browser-check.mjs` (the support stays: palm 86 to 92% kept with the ellipsoid, old code 82 to

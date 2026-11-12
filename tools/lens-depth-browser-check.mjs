@@ -11,7 +11,8 @@
 // same view with no plants)
 // and how much of the screen the lens opened (pixels that change, less the animal's own), and
 // saves the open view to tools/release-output/lens-depth-*.png, and beside it
-// lens-depth-*-cut.png: what the lens took away, in red, to judge the shape of its outline.
+// lens-depth-*-cut.png: what the lens took away, in red, to judge the shape of its outline, and in
+// blue what of the animal didn't show (behind a trunk, say).
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -63,8 +64,7 @@ try {
       const diff = (p, q, i) => Math.max(Math.abs(p[i] - q[i]), Math.abs(p[i + 1] - q[i + 1]), Math.abs(p[i + 2] - q[i + 2]));
       const count = (p, q, mask) => { let n = 0; for (let i = 0; i < p.length; i += 4) if ((!mask || mask[i]) && diff(p, q, i) > 4) n++; return n; };
       // the animal alone, no plants: its silhouette
-      // (trunks stay: one standing in front of the animal may hide it, as it would; leaves may not)
-      plants(false); flora.bark.visible = true; animals(true); const withA = pixels(); animals(false); const noA = pixels(); plants(true);
+      plants(false); animals(true); const withA = pixels(); animals(false); const noA = pixels(); plants(true);
       const sil = new Uint8Array(withA.length); for (let i = 0; i < withA.length; i += 4) sil[i] = diff(withA, noA, i) > 4 ? 1 : 0;
       const bareN = count(withA, noA);
       // the lens closed and open, no animal: what it opened, beside the animal's own outline
@@ -75,6 +75,13 @@ try {
       let hole = 0; for (let i = 0; i < open.length; i += 4) if (!sil[i] && diff(open, closed, i) > 12) hole++;
       animals(true); const shown = pixels(); animals(false);
       const revealed = count(shown, open);
+      // and with each layer of cover taken away in turn: how much more of it that shows
+      const diag = {};
+      for (const [name, m] of [['foliage', flora.foliage], ['shrubs', flora.shrubs], ['grass', flora.grass], ['tall', flora.tallGrass], ['small', flora.small], ['bark', flora.bark]]) {
+        m.visible = false; animals(true); const a1 = pixels(); animals(false); const a0 = pixels(); m.visible = true;
+        diag[name] = +(count(a1, a0) / bareN).toFixed(3);
+      }
+      window.lensMiss = []; for (let i = 0; i < shown.length; i += 4) if (diff(withA, noA, i) > 4 && !(diff(shown, open, i) > 4)) window.lensMiss.push(i);
       animals(true); pixels(); const shot = gl.domElement.toDataURL('image/png');
       // and what the lens took from the floor plants (grass, bushes; trees hidden, which open wide by
       // design), in red over the closed view: the shape of the cut round the animal. Flipped upright
@@ -84,13 +91,13 @@ try {
       const floorClosed = pixels();
       game.selectedAgent = a; r.eyeAgent = was; Renderer.prototype.updateFocus.call(r, game, 1);
       const floorOpen = pixels(); flora.foliage.visible = flora.bark.visible = true; animals(true);
-      const mask = new ImageData(W, H);
+      window.lensMissSet = new Set(window.lensMiss); const mask = new ImageData(W, H);
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const i = ((H - 1 - y) * W + x) * 4, o = (y * W + x) * 4, cut = diff(floorOpen, floorClosed, i) > 12, c = cut || !sil[i] ? floorClosed : withA;
-        mask.data[o] = cut ? 230 : c[i]; mask.data[o + 1] = cut ? 30 : c[i + 1]; mask.data[o + 2] = cut ? 40 : c[i + 2]; mask.data[o + 3] = 255;
+        const i = ((H - 1 - y) * W + x) * 4, o = (y * W + x) * 4, miss = window.lensMissSet.has(i), cut = !miss && diff(floorOpen, floorClosed, i) > 12, c = cut || !sil[i] ? floorClosed : withA;
+        mask.data[o] = miss ? 30 : cut ? 230 : c[i]; if (miss) { mask.data[o + 1] = 60; mask.data[o + 2] = 255; mask.data[o + 3] = 255; continue; } mask.data[o + 1] = cut ? 30 : c[i + 1]; mask.data[o + 2] = cut ? 40 : c[i + 2]; mask.data[o + 3] = 255;
       }
       const c2 = Object.assign(document.createElement('canvas'), { width: W, height: H }); c2.getContext('2d').putImageData(mask, 0, 0);
-      return { R: focus.uFocusR.value, bare: bareN, ratio: bareN ? revealed / bareN : 0, hole: hole / (W * H), shot, mask: c2.toDataURL('image/png') };
+      return { diag, R: focus.uFocusR.value, bare: bareN, ratio: bareN ? revealed / bareN : 0, hole: hole / (W * H), shot, mask: c2.toDataURL('image/png') };
     }
     const cases = {
       canopy(kind) {
@@ -153,7 +160,12 @@ try {
     for (const row of rows) console.log(`${row.view}: gap ${row.R.toFixed(2)}, animal ${row.bare} px, ${Math.min(100, row.ratio * 100).toFixed(1)}% shows; lens opened ${(row.hole * 100).toFixed(1)}% of the view`);
     for (const row of rows) {
       assert.ok(row.bare > 300, `${row.view}: the view shows the animal`);
-      assert.ok(row.ratio >= .95, `${row.view}: plants hid ${((1 - row.ratio) * 100).toFixed(1)}% of the selected animal`);
+      // no layer of cover (leaves, bushes, grass) hides more than 5% of it: taking that layer away
+      // shows no more of it. Trunks may: Cole wants it to pass behind a trunk, not seem to walk in
+      // front of one
+      for (const layer of ['foliage', 'shrubs', 'grass', 'tall', 'small'])
+        assert.ok(row.diag[layer] - row.ratio <= .05, `${row.view}: ${layer} hid ${((row.diag[layer] - row.ratio) * 100).toFixed(1)}% of the selected animal`);
+      assert.ok(row.ratio >= .5, `${row.view}: only ${(row.ratio * 100).toFixed(1)}% of the selected animal shows`);
     }
     console.log(`PASS ${name} ${kind}: the selected animal shows through the lens`);
     b.assertHealthy();

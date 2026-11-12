@@ -20,6 +20,7 @@ export const LOOK_LAYER = 7;
 // or crown it is in, the grass round it). A tree standing farther toward the camera stays in front
 // of it (Cole: the animal looked to walk in front of foreground trees); focus.js opens that instead.
 const lookShift = { value: 0 };
+export const LOOK_TRUNKS = 8; // (the trunks nearest in front of it, focus.uLookTrunks)
 
 // The animal's material, drawn this pass a set distance nearer the camera along each line of
 // sight (so it shows in the same place on screen, and passes the depth test only against what lies
@@ -29,12 +30,34 @@ export function withLookShift(mat) {
   const prev = mat.onBeforeCompile, baseKey = mat.customProgramCacheKey();
   mat.onBeforeCompile = (shader, renderer) => {
     if (prev) prev.call(mat, shader, renderer);
-    shader.uniforms.uLookShift = lookShift;
-    shader.vertexShader = 'uniform float uLookShift;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+    Object.assign(shader.uniforms, { uLookShift: lookShift, uLookTrunks: focus.uLookTrunks, uLookDir: focus.uViewDir });
+    shader.vertexShader = 'uniform float uLookShift;\nvarying vec3 vLookW;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      vec4 lookW = vec4(transformed, 1.0);
+      #ifdef USE_INSTANCING
+        lookW = instanceMatrix * lookW;
+      #endif
+      vLookW = (modelMatrix * lookW).xyz;
       if (uLookShift > 0.0) {
         vec4 mvLook = mvPosition;
         if (isOrthographic) mvLook.z += uLookShift; else mvLook.xyz *= max(0.1, 1.0 - uLookShift / max(length(mvLook.xyz), 1e-3));
         gl_Position = projectionMatrix * mvLook;
+      }`);
+    // a trunk close in front hides it, as the trees farther off do by depth: what of it lies behind
+    // one of the trunks round it (Renderer.updateFocus, focus.uLookTrunks: x, z, radius, top) isn't drawn
+    // this pass, so it passes behind the trunk rather than seeming to walk in front of it
+    shader.fragmentShader = `uniform float uLookShift; uniform vec4 uLookTrunks[${LOOK_TRUNKS}]; uniform vec3 uLookDir; varying vec3 vLookW;\n` + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+      if (uLookShift > 0.0) {
+        vec3 lookTo = isOrthographic ? uLookDir : cameraPosition - vLookW; // (to the eye: as far as the eye)
+        float lookA = dot(lookTo.xz, lookTo.xz);
+        for (int i = 0; i < ${LOOK_TRUNKS}; i++) {
+          vec4 tr = uLookTrunks[i];
+          vec2 o = vLookW.xz - tr.xy;
+          float b = dot(o, lookTo.xz), c = dot(o, o) - tr.z * tr.z, disc = b * b - lookA * c;
+          if (tr.z > 0.0 && lookA > 1e-6 && c > 0.0 && disc > 0.0) {
+            float t = (-b - sqrt(disc)) / lookA;
+            if (t > 0.0 && (isOrthographic || t < 1.0) && vLookW.y + t * lookTo.y < tr.w) discard; // (below the crown)
+          }
+        }
       }`);
   };
   mat.customProgramCacheKey = () => baseKey + '|look';

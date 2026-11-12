@@ -9,6 +9,9 @@ import { perspectiveScale } from './actor-view.js';
 import * as THREE from 'three';
 import { focus, withFocusFade } from './focus.js';
 import { drawLookThrough } from './look-through.js';
+import { treeTrunk, trunkRadius } from '../sim/ground-obstacles.js';
+import { treeHeight } from './tree-stature.js';
+import { TREE_SHAPES } from './geometry/tree-shapes.js';
 import { snow, withSnowTops } from './snow.js';
 import { sky, haze, sea, withClouds } from './atmosphere.js';
 import { lightingBalance } from './lighting.js';
@@ -98,6 +101,31 @@ const FLORA_REGIONS_PER_FRAME = 1, FLORA_FRAME_MS = 4;
 // a phone or tablet (no mouse)
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 
+// The trunks standing close in front of the tracked animal (within 3 tiles, nearest first: x, z,
+// radius, the top of the bare trunk), for
+// look-through.js: the animal drawn through cover passes behind them. Not the one it clings to.
+const lookFound = [];
+function lookTrunks(w, pose, V) {
+  const out = focus.uLookTrunks.value;
+  lookFound.length = 0;
+  if (!w?.tree) { for (const v of out) v.set(0, 0, 0, 0); return; }
+  const found = lookFound;
+  const cx = pose.center.x, cz = pose.center.z, x0 = Math.floor(cx), z0 = Math.floor(cz);
+  for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+    const x = x0 + dx, z = z0 + dz;
+    if (x < 0 || z < 0 || x >= w.w || z >= w.h) continue;
+    const t = treeTrunk(w, x, z);
+    if (!t || (pose.trunk && Math.hypot(t[0] - pose.trunk[0], t[1] - pose.trunk[1]) < .01)) continue;
+    const ox = t[0] - cx, oz = t[1] - cz;
+    if (ox * V.x + oz * V.z <= 0) continue; // (behind it)
+    // up to where its crown begins (the bare bole; above it, its leaves are cover like any other)
+    const p = w.catalog.plants[w.tree[w.idx(x, z)]], shape = TREE_SHAPES[p.look.type] || {};
+    const top = w.heightAt(t[0], t[1]) * LEVEL + treeHeight(p) * (t[2] / trunkRadius(p)) * (shape.trunkH ?? shape.base ?? .45);
+    found.push([ox * ox + oz * oz, t[0], t[1], t[2] * .9, top]); // (a little inside the base: trunks taper)
+  }
+  found.sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i < out.length; i++) { const f = found[i]; if (f) out[i].set(f[1], f[2], f[3], f[4]); else out[i].set(0, 0, 0, 0); }
+}
 
 export class Renderer {
   constructor(canvas, { preserveDrawingBuffer = false, catalog = activeCatalog } = {}) {
@@ -334,11 +362,12 @@ export class Renderer {
     const amt = focus.uFocusAmt;
     amt.value += ((pose || ft ? 1 : 0) - amt.value) * Math.min(1, dt * 7);
     if (pose) {
-      // follow the animal smoothly, and hold one size for it: climbing between trees of different
-      // heights or switching animals glides the window rather than jumping it
+      // stay right on the animal (easing behind it, the gap trailed a walking animal: a mushroom it
+      // had passed went on being opened), and hold one size for it: climbing between trees of
+      // different heights or switching animals glides the size rather than jumping it
       const e = this.focusFor === sel.id ? Math.min(1, dt * 10) : 1;
       this.focusFor = sel.id;
-      focus.uFocus.value.lerp(pose.center, e);
+      focus.uFocus.value.copy(pose.center);
       // how much wider than the animal the gap through cover nearer the camera grows (Cole: it was
       // too wide; it was 0.85 to 1.45 tiles whatever the animal)
       let radius = pose.branch ? clamp(.05 + pose.h * .3, .06, .25) : clamp(.05 + pose.h * .35, .06, .3);
@@ -369,11 +398,12 @@ export class Renderer {
       if (this.eyeOn) radius = clamp(this.eye.size * .5, 0.06, 0.25); // (close to the lens, a narrower gap does)
       focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
       focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
-      focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
+      focus.uFocusFoot.value = pose.y;
       focus.uFocusHalfW.value = Math.max(pose.h * 0.55, (pose.foot || 0) * 0.55, span);
       focus.uFocusFront.value = Math.max(front, focus.uFocusHalfW.value); // (its depth, or half its size across if more)
       focus.uFocusInvD.value = invD;
       if (pose.trunk) focus.uFocusTrunk.value.set(pose.trunk[0], pose.trunk[1], pose.trunk[2]); else focus.uFocusTrunk.value.z = -1;
+      lookTrunks(this.world, pose, V);
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
       focus.uFocus.value.set(ft.x, this.world.heightAt(ft.x, ft.y) * LEVEL + 0.35, ft.y);
       focus.uFocusR.value = 1.3;
