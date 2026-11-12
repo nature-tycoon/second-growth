@@ -923,12 +923,13 @@ export class Wildlife {
 
   // The way to this prey is shut: the next step toward it is ground the hunter can't cross, or (for
   // water hunters: caiman, anaconda, giant otter, which strike from the water's edge) too far from water.
+  // A garter snake (huntsAshore) hunts frogs out in the meadow as well as at the bank.
   huntBlocked(a, def, b) {
     if (a.move === 'fly') return false;
     const w = this.game.world, x = Math.floor(a.x + Math.sign(b.x - a.x) * 0.3), y = Math.floor(a.y + Math.sign(b.y - a.y) * 0.3);
     if (!w.inb(x, y)) return false;
     const j = w.idx(x, y);
-    return !passable(w, j, def) || (a.move === 'semi' && w.distWater[j] > 2);
+    return !passable(w, j, def) || (a.move === 'semi' && !def.huntsAshore && w.distWater[j] > 2);
   }
 
   // A surface fish (a longtom) runs from a charging hunter: straight away from it along the
