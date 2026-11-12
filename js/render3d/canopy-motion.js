@@ -11,16 +11,29 @@ import { howlerArcHeight, howlerJumpGate, howlerLandingGate, howlerJumpPose, set
 
 const leapers = new Set(['howler', 'congo', 'spider', 'langur', 'capuchin']);
 const leapSpeed = 2.6;
+// Siamangs and gibbons (sprite.ape) cross a gap between crowns in a ricochetal leap: they let go
+// at the end of a swing, fly in a short arc with an arm reaching ahead, and catch the far limb
+// with that hand. The flight takes its own time, however slowly the swing before it went.
+const leaps = def => leapers.has(def.key?.split(':')[0]) || !!def.sprite?.ape;
+const flightTime = (gap, size) => THREE.MathUtils.clamp(.3 + .1 * gap / size, .35, .8);
+// (the swing cycle's point with the free arm reaching furthest ahead: siamang-swing.js)
+const REACH = Math.PI * 2 * .46, TAU = Math.PI * 2;
+function swingPhase(phase, step, dt, cadence, flying) {
+  if (!flying) return phase + (cadence ? Math.min(step, dt * cadence) : step);
+  const c = (phase % TAU + TAU) % TAU;
+  return phase + Math.min(dt * cadence * 2, ((REACH - c) % TAU + TAU) % TAU);
+}
 
 function canopyLeap(st, def) {
   const route = st.branchRoute;
   if (def.sprite?.canopyWalkerMotion && ['prepare','push'].includes(st.howlerJump?.phase)) return null;
-  if (!leapers.has(def.key?.split(':')[0]) || !route || route.cursor !== route.gap) return null;
+  if (!leaps(def) || !route || route.cursor !== route.gap) return null;
   const start = route.points[route.gap - 1], end = route.points[route.gap], gap = start.distanceTo(end);
   if (gap < .025) return null;
   const t = THREE.MathUtils.clamp(1 - st.branchPoint.distanceTo(end) / gap, 0, 1);
   const size=(def.sprite.len || 14)*st.sc;
-  const height = def.sprite.canopyWalkerMotion && route.walkerJumpClear ? howlerArcHeight(start,end,size) : Math.min(.5, Math.max(size * .65, gap * .35));
+  const height = def.sprite.canopyWalkerMotion && route.walkerJumpClear ? howlerArcHeight(start,end,size)
+    : def.sprite.ape ? Math.min(.35, Math.max(size * .3, gap * .25)) : Math.min(.5, Math.max(size * .65, gap * .35));
   return { t, lift: 4 * t * (1 - t) * height };
 }
 
@@ -39,13 +52,16 @@ function crownRoute(from, to, point, def, scale) {
   const ends = (site, anchor) => site.branches.map((br, i) => br.length < Math.max(.1, (anchor.reach || 0) * 2) ? null : site.endpoint(i, 1, anchor));
   const exits = ends(a, from), entries = ends(b, to);
   const fromDistances = a.distances(from, point), toDistances = b.distances(to);
-  const monkey = def.sprite.kind === 'monkey' && !def.sprite.ape, orangutan = def.sprite.kind === 'orangutan';
+  const monkey = def.sprite.kind === 'monkey' && !def.sprite.ape, orangutan = def.sprite.kind === 'orangutan', ape = !!def.sprite.ape;
   const size = (def.sprite.len || 14) * scale;
   // These are conservative display-scale limits, not measured species maxima.
   // A few body lengths sideways are fine; gaining a whole crown in flight is not.
   const maxHorizontal = THREE.MathUtils.clamp(size * 5, .65, 1.4), maxRise = Math.max(.08, size * 1.2), maxDrop = Math.max(.3, size * 4);
   // (an orangutan reaches across with its arms, whose span is about 1.6 body lengths, decision 0041)
-  const reachable = (aa, bb) => orangutan ? aa.point.distanceTo(bb.point) <= size * 1.6 : !monkey || (Math.hypot(bb.point.x - aa.point.x, bb.point.z - aa.point.z) <= maxHorizontal &&
+  // (a siamang leaps up to about four body lengths across and catches up to an outstretched arm above it)
+  const reachable = (aa, bb) => orangutan ? aa.point.distanceTo(bb.point) <= size * 1.6
+    : ape ? Math.hypot(bb.point.x - aa.point.x, bb.point.z - aa.point.z) <= size * 4 && bb.point.y - aa.point.y <= size * 1.6 && aa.point.y - bb.point.y <= size * 4
+    : !monkey || (Math.hypot(bb.point.x - aa.point.x, bb.point.z - aa.point.z) <= maxHorizontal &&
     bb.point.y - aa.point.y <= maxRise && aa.point.y - bb.point.y <= maxDrop);
   const cost = (aa, bb) => aa.point.distanceTo(bb.point) * 2 + a.routeCost(from, aa, fromDistances, point) + b.routeCost(to, bb, toDistances);
   if (monkey && (from.surface || to.surface) && reachable(from, to)) best = from.point.distanceTo(to.point) * 2;
@@ -127,7 +143,7 @@ function crownRoute(from, to, point, def, scale) {
   }
   // This renderer has rigid branches. Only bridge a gap the limbs can span;
   // tree-sway crossings would require animated, load-bearing tree geometry.
-  if (orangutan && !Number.isFinite(best)) return { points: [copyHold(point)], sites: [a], gap: -1, blocked: true };
+  if ((orangutan || ape) && !Number.isFinite(best)) return { points: [copyHold(point)], sites: [a], gap: -1, blocked: true };
   const out = a.route(from, exit, point), into = b.route(entry, to);
   if (!out.length) out.push(copyHold(exit.point));
   const route={ points: [...out, copyHold(entry.point), ...into], sites: [...out.map(() => a), b, ...into.map(() => b)], gap: out.length,
@@ -442,6 +458,8 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
       }
     }
     if (walkerMotion && howlerLandingGate(st,dt*fast))budget=0; // (a leap quickens with the game too)
+    // (once a siamang has let go, the flight carries on whatever the swing's budget)
+    if (route && def.sprite.ape && route.cursor === route.gap) budget = Math.max(budget, 1e-6);
     if (route) {
       while (budget > 0 && route.cursor < route.points.length) {
         const target = route.points[route.cursor], distance = st.branchPoint.distanceTo(target);
@@ -456,7 +474,9 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
         // still walks the remaining wood at its ordinary climbing pace.
         let boost = 1;
         if (route.cursor === route.gap) {
-          if (leapers.has(def.key?.split(':')[0])) {
+          const span = route.points[route.gap - 1].distanceTo(target), size = (def.sprite.len || 14) * st.sc;
+          if (def.sprite.ape) { if (span >= .025) boost = span * dt / flightTime(span, size) / budget; }
+          else if (leapers.has(def.key?.split(':')[0])) {
             boost = leapSpeed;
             // Give the body time to pitch into a trunk catch at normal speed.
             // Scale that time with game/catch-up speed so the body keeps up.
@@ -536,7 +556,7 @@ export function canopyStep(st, anchor, def, game, time, reset = false, sim = nul
   const stride = Math.max(.06, (def.sprite.len || 14) * st.sc * (def.sprite.ape ? 1.6 : .65));
   const phaseStep = travelled / stride * Math.PI * 2;
   const cadence = walkerMotion ? 12 : def.sprite.ape ? SWING_CADENCE : def.sprite.kind === 'orangutan' ? ORANGUTAN_CADENCE : 0;
-  st.branchPhase += cadence ? Math.min(phaseStep, dt * cadence) : phaseStep;
+  st.branchPhase = swingPhase(st.branchPhase, phaseStep, dt, cadence, def.sprite.ape && !!st.canopyLeap);
   const pose = walkerMotion && st.howlerJump ? howlerJumpPose(st)
     : walkerMotion && !transfer && anchor.trunk != null ? anchor.point.canopyPose
     : def.sprite.kind === 'orangutan' && transfer ? route.bridgePose
@@ -571,11 +591,11 @@ export function settleCanopyStep(st, motion) {
   }
   const phaseStep = distance / motion.stride * Math.PI * 2;
   const cadence = motion.cadence || (motion.ape ? SWING_CADENCE : 0);
-  st.branchPhase = motion.phase + (cadence ? Math.min(phaseStep, motion.dt * cadence) : phaseStep);
   motion.gait = motion.dt > 0 ? Math.min(1, distance / motion.dt / motion.pace) : 0;
   // Clearance can shorten a step. Draw the arc at the accepted position.
   st.canopyLeap = canopyLeap(st, motion.def);
+  st.branchPhase = swingPhase(motion.phase, phaseStep, motion.dt, cadence, motion.ape && !!st.canopyLeap);
   if(motion.def?.sprite?.canopyWalkerMotion)settleHowlerJump(st);
-  if (leapers.has(motion.def?.key?.split(':')[0])) motion.lift = st.canopyLeap?.lift || 0;
+  if (motion.def && leaps(motion.def)) motion.lift = st.canopyLeap?.lift || 0;
   return distance;
 }

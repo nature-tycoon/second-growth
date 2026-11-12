@@ -16,7 +16,7 @@ Fix today's code piece by piece. Don't port the rewrite.
 - **Cost.** Its main-thread navigation measured 0.3–0.5 ms per update for 24 monkeys plus a worker; the live simulation side is about 0.04 ms, and the render side is the cost the perf review already cut (young climbers, 2026-10-23). There is no evidence it would be cheaper.
 - **What the measurements say.** The worst problem today is not missing navigation but a mismatch of speeds: the simulation moved climbers faster than their drawn bodies can go along the wood.
 
-The rewrite's idea that the simulation should know which crowns really connect is still right, and it is the follow-up for the gaps below. Its branch stays as a reference.
+The rewrite's idea that the simulation should know which crowns really connect is still right; the follow-up below builds a small version of it. The branch was deleted locally once that was done (`origin/monkey/canopy-rewrite-wip` still has it).
 
 ## The problems, measured
 
@@ -54,13 +54,31 @@ Primates now travel about a third (capuchin, siamang) to two thirds (howler, lan
 
 The dense stand moved the same way (spider 2.36 → 0.79, capuchin 2.72 → 0.83, siamang 1.96 → 0.67 tiles). Orangutans are no better: blocked 31% → 33%, stuck 12% → 14% (noise). At speed 2 the walker monkeys trail about half as far as before (capuchin 5.7 → 2.1, langur 5.1 → 2.6 tiles), but still too far. Actors time is unchanged within noise. Balance: `balance-sim restore 15` (Hollis, seeded) is identical. On the three primate maps over three seeds, year-9 primate counts move both ways within seed noise. `play-profile amazon high 1`: simulation and drawing time unchanged (0.4 ms and 2.3 ms in the play view). In a real browser on a grown Amazon game, 23 howlers and spider monkeys trailed by 0.32 tiles on average, with no snaps.
 
+## Follow-up the same day: which crowns connect, siamang leaps, orangutans on the ground
+
+Cole asked for the recommendations below to be built, and pointed out that siamangs floated between trees instead of swinging.
+
+- **Siamangs leap.** A siamang used to cross any gap between crowns in a straight line at its climbing pace, hanging from nothing, with its arms still swinging hand over hand. Now (`canopy-motion.js`) it crosses in a ricochetal leap, as gibbons do: it lets go, flies a short arc (`canopyLeap`) in a third of a second to one second (`flightTime`, its own time, not the swing's budget), and holds its free arm reaching ahead (`swingPhase` holds the swing at `REACH`) until it catches the far limb. Clearance doesn't shorten a leap once it has let go (`canopy-pose.js`): that stretched flights to two seconds. It only leaps gaps it could: up to four body lengths across, up to 1.6 higher (an outstretched arm), four lower.
+- **The simulation knows which crowns connect** (`sim/canopy-links.js`). `crownOf` estimates each tree's crown from the plain data flora.js draws it from (trunk spot, shape radius and height, growth, size variation, grove form). `crownsJoin` says whether a species can cross between two neighbouring crowns. The limits were fitted to what `crownRoute` actually manages, from 200 recorded crossings: walker monkeys always find a way (a leap to the far trunk at worst), so they are unchanged; a siamang can't leap up to a crown topping its own by more than 1.5 body lengths; an orangutan only crosses where the crowns interlace by a body length. `pathTo` keeps these species to joined crowns.
+- **Orangutans climb down at a gap.** If no path through joined crowns reaches the goal, an orangutan's path may cross gaps (`pathTo(..., overGround)`). Walking it, `crossGap` sets `a.move = 'ground'` at the gap and back to `'tree'` at the far tree (`a.gapTo`). The ground walk reuses the climbers' ground mode, so threats and recovery already work (`climberChoose` sends a stranded one up the nearest tree). Siamangs don't do this; they almost never come down.
+
+Measured with `monkey-movement-measure` against the first commit of this decision (patchy / dense stand, normal speed):
+
+| | blocked | lag mean (tiles) | ground |
+| --- | --- | --- | --- |
+| orangutan | 33% → 19% / 36% → 21% | 1.42 → 0.73 / 1.89 → 0.96 | 0 → 35% / 38% |
+| siamang | 0 → 6% / 0 → 17% (it floated across instead) | 0.47 → 0.42 / 0.55 → 0.56 | 0 |
+
+Howlers and capuchins measure identically. In a grown Sumatra forest (the release fixture, one year) an orangutan spends 11% of its time on the ground and siamangs none; the test stands, with every growth from half to full, have far more gaps. Balance: Hollis, Amazon and Chinandega identical; Sumatra within seed noise over three seeds (orangutans 1/6/6 → 8/6/5, siamangs 7/14/12 → 6/11/11). A browser check on a grown Sumatra game: siamangs and langurs drawn 0.19 tiles from their simulated spot, no snaps, no errors.
+
 ## Still open
 
-- **Orangutans still meet crowns they can't cross** (blocked about a third of the time in the patchy stand). Real ones sway a tree to close the gap or come down and walk. Both need the simulation to know which neighbouring crowns connect, as the rewrite's tree layer did; then a blocked crossing becomes a climb down, a walk and a climb up (the existing `climbers.js` ground mode).
-- **At speed 2 and above the body still trails** (about 1.5 tiles on average). The simulated point wanders inside a crown faster than the drawn body can reroute limb to limb.
+- **Some crossings are still blocked** (siamangs 6–17%, orangutans about 20% in the test stands): `crownsJoin` is an estimate from the crown's outline, and the drawing then also checks the body's clearance limb by limb. Tightening it strands more animals in one tree; loosening it brings back the waits.
+- **The ground crossing is drawn as an ease** from the limb down to the ground and back up (the climbers' `shiftOffset`), not a climb down the trunk hand over hand.
+- **At speed 2 and above the body still trails** (about 1.5–2 tiles). The simulated point wanders inside a crown faster than the drawn body can reroute limb to limb. Left alone on purpose: nothing snaps, and nobody follows one monkey in fast-forward.
 - Capuchins and colobus still snap forward a few times a minute in the patchy stand.
 - How much of the day each species spends travelling isn't tuned. Capuchins are on the move about 90% of the time.
 
 ## Checks
 
-`node tools/monkey-movement-measure.mjs [species] [patchy|dense] [speed] [seconds] [count]` (`MEASURE_ROOT=<checkout>` for an A/B), and the existing primate checks: `canopy-grips-check`, `canopy-route-check`, `canopy-support-check`, `canopy-walker-profile-check`, `monkey-pace-check`, `monkey-transfer-check`, `orangutan-motion-check`, `primate-behavior-check`, `primate-stall-check`, `climber-cap-check`.
+`node tools/monkey-movement-measure.mjs [species] [patchy|dense] [speed] [seconds] [count]` (`MEASURE_ROOT=<checkout>` for an A/B), and the existing primate checks: `canopy-grips-check`, `canopy-route-check`, `canopy-support-check`, `canopy-walker-profile-check`, `monkey-pace-check`, `monkey-transfer-check`, `orangutan-motion-check`, `primate-behavior-check`, `primate-stall-check`, `climber-cap-check`, and `canopy-links-check` (crown joins, an orangutan's ground crossing, a siamang's leap).

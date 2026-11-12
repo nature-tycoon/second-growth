@@ -6,7 +6,7 @@ export const climbPace = def => Math.max(def.sprite.kind === 'sloth' ? .1 : .3, 
 // many body lengths a second at normal speed, so each stride stays visible (canopyStep).
 export const WALKER_STRIDES = 1.5;
 // (the drawn adult body length in tiles: render3d/animal-scale.js)
-const bodyLength = def => (def.sprite.len || 14) * .0124 * (def.sprite.scale ?? 1) * (def.sprite.show ?? 1);
+export const bodyLength = def => (def.sprite.len || 14) * .0124 * (def.sprite.scale ?? 1) * (def.sprite.show ?? 1);
 // Gibbons and siamangs gain one arm's stride (1.6 body lengths) per swing, SWING_CADENCE radians a second.
 export const SWING_CADENCE = 2.8;
 // How fast the drawn body can travel along the wood, in tiles per game day.

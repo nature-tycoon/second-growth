@@ -11,6 +11,7 @@ import { AnimalSpacing, animalRadius, facePoint, shoreSpot } from './animal-posi
 import { huntStyle, stalkCoverAt, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, startFeed, leaveBody, missed, fleeUpdate, updateVigilance, playUpdate, sparUpdate, watch, prowl, scavenge, play, greet, harem, haremDay, arrive, fleeFire, socialHold, restless } from './animal-life.js';
 import { birdChoose, birdArrive, birdUpdate, carryCatch, carryUpdate } from './bird-behavior.js';
 import { climberChoose, climberArrive, fullTrees } from './climbers.js';
+import { crossingLimits, crownsJoin, crossGap } from './canopy-links.js';
 import { fishChoose, fishArrive, fishUpdate, fishStrike, fishing, fishFed, isFish } from './fishing.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut, cervidNeedsRejoin } from './cervid-groups.js';
 import { primateChoose, primateArrive, primateUpdate } from './primate-behavior.js';
@@ -91,7 +92,7 @@ class Animal {
   momSlot; familyFailures; heading; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkHeading;
-  carry; prey; fishing; clingSide; climb; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey;
+  carry; prey; fishing; clingSide; climb; gapTo; cache; home; homeAfter; drinkFrom; fleeHd; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; headUp; headUpKey;
 }
 // (undefined fields are left out of saves and undo snapshots, as before)
 const saved = a => { for (const k in a) if (a[k] === undefined) delete a[k]; return a; };
@@ -1167,6 +1168,7 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk': {
+          if (a.gapTo != null || a.move === 'tree') crossGap(this, a, def, a.path?.[a.path.length - 1] ?? -1); // (down a trunk at a gap the crowns don't span, and up the far one)
           if (!a.path || !a.path.length) { a.state = 'idle'; a.run = null; a.wait = a.move === 'swim' && !def.reef ? 0.1 + Math.random() * 0.3 : def.patrol ? 0.2 + Math.random() * 0.8 : def.familyHerd && a.follow ? 0.25 : def.familyHerd && !a.greet && !a.follow ? (inRut(this.game) && isMaleVariant(def, a) && def.sprite.male?.antlers ? 0.5 + Math.random() * 1.5 : 3 + Math.random() * 4) : 0.5 + Math.random() * 3; arrive(this, a); birdArrive(this, a); primateArrive(this, a); forageArrive(this, a); fishArrive(this, a); climberArrive(this, a); break; }
           if (smoothWalker(def) && a.course?.path !== a.path) shapeCourse(this, a, def); // (a journey walks a curve: see animal-course.js)
           const j = a.path[a.path.length - 1];
@@ -2036,8 +2038,11 @@ export class Wildlife {
   // tiles and a distance function is given, head for the searched tile closest to the target.
   // Recovery can additionally avoid occupied tiles, without changing ordinary habitat paths.
   // Sets up the path and returns true if the animal is now walking.
-  pathTo(a, goal, cap, dist = null, canVisit = null, canPass = passable) {
+  pathTo(a, goal, cap, dist = null, canVisit = null, canPass = passable, overGround = false) {
     const w = this.game.world, W = w.w, n = w.n;
+    // (a climbing primate goes only between crowns it can cross up there; failing that, an
+    // orangutan may climb down and walk the gap: canopy-links.js)
+    const crowns = a.move === 'tree' && !overGround ? crossingLimits(this.game.catalog.animals[a.sp]) : null;
     const x0 = Math.floor(a.x), y0 = Math.floor(a.y), start = w.idx(x0, y0);
     if (!stamp || stamp.length < n) { stamp = new Int32Array(n); parent = new Int32Array(n); bfsQ = new Int32Array(n); }
     stampN++;
@@ -2059,11 +2064,12 @@ export class Wildlife {
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
         if (stamp[j] === stampN || !canPass(w, j, a) || (canVisit && !canVisit(j)) || cutsCorner(W, x, y, dx, dy, k => canPass(w, k, a))) continue;
+        if (crowns && !crownsJoin(w, i, j, this.game.catalog.animals[a.sp])) continue;
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }
     const dest = found >= 0 ? found : near;
-    if (dest < 0 || dest === start) return false;
+    if (dest < 0 || dest === start) return !!crowns?.ground && this.pathTo(a, goal, cap, dist, canVisit, canPass, true);
     const path = [];
     for (let i = dest; i !== start && i >= 0; i = parent[i]) path.push(i);
     a.path = dist ? path : preferTrailPath(this, a, this.game.catalog.animals[a.sp], path, canVisit, canPass); a.state = 'walk';

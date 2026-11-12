@@ -222,8 +222,9 @@ export function canopyLean(st, mo, sites, pitch, gait, eating = 0, dt = 1 / 60, 
   // (Without the second case a walker could hold one rejected step for months.)
   if (mo.canopyWalkerMotion && !jumping && !(st.canopyForce > 0) &&
     (st.howlerForkTurn && st.howlerGripStall > .4 || st.canopyStall > .5)) st.canopyForce = .4;
+  // (a siamang that has let go of the branch is committed to its leap: canopy-motion.js)
   const forced = mo.canopyWalkerMotion ? !jumping && st.canopyForce > 0
-    : mo.primate !== 2 && (st.canopyForce > 0 || (mo.primate !== 1 && st.canopyLag > 1.8));
+    : mo.primate !== 2 && (st.canopyForce > 0 || (mo.primate !== 1 && st.canopyLag > 1.8) || mo.primate === 3 && !!st.canopyLeap);
   if (forced) st.canopyForce -= step;
   if (mo.canopyWalkerMotion) st.howlerTurnBlocked = current &&
     (!howlerSupportedTurn(st, mo, st.branchPoint, next, (!!motion?.journey || st.howlerForkTurn),wood) || finishingTurn && !bodyClear(next));
