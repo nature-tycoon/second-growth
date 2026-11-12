@@ -15,6 +15,7 @@ try {
     const { T, H } = await import('/js/config.js');
     const { forageChoose, cleanerChoose } = await import('/js/sim/animal-foraging.js');
     const { greet, arrive } = await import('/js/sim/animal-life.js');
+    const { forceSimRandom, forcedSimRandom } = await import('/js/sim/sim-random.js');
     const { buildSpecies, faunaMaterial } = await import('/js/render3d/fauna.js');
     await import('/js/lang/es.js');
     const { initLang, tr } = await import('/js/i18n.js');
@@ -31,7 +32,8 @@ try {
       if(food==='browse'){const p=PLANTS.find(p=>p&&p.layer===1&&!p.invasive);w.shrub[i]=p.id;w.shrubG[i]=.9;}
       if(food==='leaves'){const p=PLANTS.find(p=>p&&p.layer===2&&!p.invasive);w.tree[i]=p.id;w.treeG[i]=.9;}
       const a=wl.spawn(ANIMAL[key],40,30,{silent:true,age:600});a.x=40.5;a.y=30.5;
-      const random=Math.random;Math.random=()=>0;try{if(!forageChoose(wl,a,ANIMAL[key]))throw Error(map+' failed to forage');}finally{Math.random=random;}
+      // (the simulation draws from simRandom, not Math.random: sim-random.js)
+      const was=forcedSimRandom();forceSimRandom(()=>0);try{if(!forageChoose(wl,a,ANIMAL[key]))throw Error(map+' failed to forage');}finally{forceSimRandom(was);}
       renderer.setWorld(game);renderer.centerOn(40.5,30.5);renderer.zoom=3;renderer.updateCamera();renderer.draw(game,ui.state,0);
       const html=ui.agentHTML(a),pose=renderer.actors.pose.get(a.id);
       if(!html.includes(status)||!pose?.visible||![pose.x,pose.y,pose.z].every(Number.isFinite))throw Error(map+' missing rendered foraging/status');
