@@ -1118,7 +1118,7 @@ export class Renderer {
     const at = performance.now();
     this.gpuTimer.poll(); this.gpuTimer.begin();
     this.gl.render(this.scene, cam);
-    drawLookThrough(this.gl, this.scene, cam, this.actors.fauna, focus.uFocusAmt.value);
+    drawLookThrough(this.gl, this.scene, cam, this.actors.fauna, focus.uFocusAmt.value, this.flora.lookNear());
     this.gpuTimer.end();
     this.submitMs = performance.now() - at;
     this.drawFX(game, ui, dt);

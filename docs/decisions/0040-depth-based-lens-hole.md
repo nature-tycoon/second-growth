@@ -51,6 +51,9 @@ plants, buildings):
   parts reach as far again as it is deep) shows it, anything farther in front hides it. The gap
   opens exactly what lies farther than that (`past` in focus.js), and its core is the animal's
   outline across the screen (`uFocusBodyR`), so foliage farther in front never hides it.
+- **A climber is seen on its branch** (2026-11-11, Cole: an orangutan looked to float in the
+  leaves). The occupied tree's wood (`canopyBark`, `withLookShift({ near: true })`) is drawn in the
+  same pass, only within `uLookD` of the animal and fading out from 40% of it (`Flora.lookNear`).
 - **The animal passes behind trunks** (2026-11-11, Cole: it still seemed to pass in front of a
   tree). Up to 8 trunks within 3 tiles in front of it (`treeTrunk`, nearest first, up to where the
   crown begins: `trunkH` or a conifer's `base`) go to the look-through pass (`focus.uLookTrunks`);

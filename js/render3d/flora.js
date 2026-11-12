@@ -317,6 +317,10 @@ export class Flora {
     floraVersion.n++; this.plantShadows.floraVersion = -1; this.plantShadows.version++;
   }
 
+  // The occupied branches in view, drawn with a tracked animal through the leaves round it
+  // (look-through.js), so a climber is seen on its branch.
+  lookNear() { const out = []; for (const p of this.canopyPools.values()) if (p.mat === this.canopyBark && p.mesh?.visible && p.mesh.count) out.push(p.mesh); return out; }
+
   showCanopySites(sites) {
     if (sites.size === this.canopyVisible.size && [...sites].every(s => this.canopyVisible.has(s))) return;
     this.canopyVisible = sites;

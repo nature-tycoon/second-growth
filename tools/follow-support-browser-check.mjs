@@ -79,7 +79,7 @@ try {
       const camera = new THREE.OrthographicCamera(-half, half, half * .75, -half * .75, .01, 100);
       const r = { actors, camera, world: game.world };
       const animals = v => { for (const pool of actors.fauna.species.values()) { pool.mesh.visible = v; if (pool.far) pool.far.visible = v; if (pool.close) pool.close.visible = v; } actors.ring.visible = false; };
-      const pixels = () => { gl.render(scene, camera); drawLookThrough(gl, scene, camera, actors.fauna, focus.uFocusAmt.value); const p = new Uint8Array(W * H * 4); ctx.readPixels(0, 0, W, H, ctx.RGBA, ctx.UNSIGNED_BYTE, p); return p; };
+      const pixels = () => { gl.render(scene, camera); drawLookThrough(gl, scene, camera, actors.fauna, focus.uFocusAmt.value, flora.lookNear()); const p = new Uint8Array(W * H * 4); ctx.readPixels(0, 0, W, H, ctx.RGBA, ctx.UNSIGNED_BYTE, p); return p; };
       const rows = [], shots = [];
       for (const az of [.785, 2.356, 3.927, 5.498]) {
         const dir = new THREE.Vector3(Math.sin(az) * .83, .56, Math.cos(az) * .83);
@@ -101,7 +101,7 @@ try {
           const k = [0, 1, 2].map(c => (open[i + c] + 1) / (closed[i + c] + 1));
           if (Math.max(...k) < 1.03 && Math.max(...k) - Math.min(...k) < .25) kept++;
         }
-        animals(true); gl.render(scene, camera); drawLookThrough(gl, scene, camera, actors.fauna, focus.uFocusAmt.value); shots.push(gl.domElement.toDataURL('image/png'));
+        animals(true); gl.render(scene, camera); drawLookThrough(gl, scene, camera, actors.fauna, focus.uFocusAmt.value, flora.lookNear()); shots.push(gl.domElement.toDataURL('image/png'));
         rows.push({ name, az, front, support, kept: support ? kept / support : 1 });
       }
       for (const pool of flora.pools.values()) for (const sub of pool.subs.values()) sub.dispose();
