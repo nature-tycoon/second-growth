@@ -21,17 +21,22 @@ view; the trunk in front of the deer was sliced off at the knee).
 One rule in `withFocusFade`, every material that uses it (foliage, shrubs, grass, bark, small
 plants, buildings):
 
-- **Level with the animal, only its outline.** What covers the body opens: the line from the
-  fragment away from the camera passes through an ellipsoid fitted to the model's box (1.2 times the
-  box's inscribed one, so long and low for a deer, round for a rabbit), its radius ragged by the
-  edge's leaf-clump noise (0.88 to 1.18). The wider gap starts only past the body's front.
-  History: the box itself first (0030), then the box with ragged faces; Cole saw both as a
-  rectangle round the animal (2026-11-11). The ellipsoid is ported from the unmerged
-  `claude/wave3-s5-tracker-lens-aaed29` (e0ac9e2), only that part. A margin that only grew the box
-  (up to 8 cm, or a share of a climber's half width) had cut 15 to 20% of a langur's palm crown.
+- **Close round the animal, nothing is cut: it shows through** (2026-11-11, `render3d/look-through.js`).
+  After the scene, the tracked animal is drawn again over everything at 42%: the depth buffer is
+  cleared, its own depth laid down (so it hides its own far side), then its colour blended in where
+  it is nearest. Its hidden parts show faintly through the leaves, grass or trunk in front, its
+  visible parts look as they were. `Fauna.add` records where the tracked animal went
+  (`fauna.tracked`); the pass copies that one instance into a one-instance mesh on layer 7 sharing
+  the species' geometry and material. History: the model's box cut first (0030), then its box with
+  ragged faces, then an ellipsoid fitted to it (ported from wave3-s5, e0ac9e2), then a jagged circle
+  on screen: Cole saw each as its shape (a rectangle, an oval) round the animal, worst for an animal
+  in a tree or bush. Any cut close round the animal draws its own outline through the leaves, so
+  none is made. The tree an animal is in now stays whole (the palm under a langur 100% kept, was 82
+  to 92% with the cuts).
 - **Nearer the camera, wider.** `near` is how far a fragment sits in front of the body, as a share
   of the way to the eye at eye level (`uFocusInvD`) or of four window radii from above. The gap
-  opens from `near` 0.05 and reaches the full window radius at 0.7.
+  opens from `near` 0.25 and reaches the full window radius at 0.8 (0.05 to 0.7 while the animal
+  was still cut out; nearer, it read as a circle round an animal in a crown).
 - **Measured on screen.** At eye level the gap's width is taken at the animal's depth (the
   `focusSide` projection), so leaves right at the lens open about as wide on screen as leaves
   halfway there, instead of a cylinder that fills the near view. From above (orthographic) this
@@ -52,6 +57,8 @@ The gap's shaded walls now follow the new gap and only where it has opened (`nea
 leaves beside the animal aren't darkened either.
 
 ## Cost
+
+Look-through: two draws of one animal a frame, only while an animal is selected, and a depth clear.
 
 A handful of extra ALU operations and one more value-noise call (8 hashes), only for
 fragments in the soft rim, and only while an animal is selected (`uFocusAmt > 0`). No new uniforms, passes or textures. Within the drawing budget of the

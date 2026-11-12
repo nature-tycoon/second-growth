@@ -1,12 +1,14 @@
 // node tools/lens-depth-browser-check.mjs
-// The tracking lens (focus.js) is depth-based: foliage level with the animal opens only where it
-// covers the animal's body, foliage well nearer the camera opens wider with a soft rim. Two scenes:
+// The tracking lens (focus.js, look-through.js): nothing is cut close round the animal, which shows
+// faintly through what hides it; foliage well nearer the camera opens, wider the nearer, with a soft
+// rim. Two scenes:
 //  - from above: a black-tailed deer, and a brush rabbit, in blue wildrye under big-leaf maples
 //    with salal round them, four sides;
 //  - eye level: the rabbit, and the deer, just behind a huckleberry bush in wildrye, seen through the real EyeCamera: the
 //    bush squarely in the way from four sides, swung half out of the way, and lifted to look down
 //    over it (where the lens should open next to nothing).
-// For each view it measures how much of the animal shows (against the same view with no plants)
+// For each view it measures how much of the animal shows, plainly or through cover (against the
+// same view with no plants)
 // and how much of the screen the lens opened (pixels that change, less the animal's own), and
 // saves the open view to tools/release-output/lens-depth-*.png, and beside it
 // lens-depth-*-cut.png: what the lens took away, in red, to judge the shape of its outline.
@@ -31,6 +33,8 @@ try {
     const { Renderer } = await import('/js/render3d/scene.js');
     const { shrubSpot } = await import('/js/sim/ground-obstacles.js');
     const { EyeCamera } = await import('/js/render3d/eye-camera.js');
+    const { drawLookThrough } = await import('/js/render3d/look-through.js');
+    const { focus } = await import('/js/render3d/focus.js');
     const W = ${W}, H = ${H}, gl = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
     gl.setSize(W, H); gl.outputColorSpace = THREE.SRGBColorSpace; gl.toneMapping = THREE.NeutralToneMapping;
     const ctx = gl.getContext();
@@ -55,7 +59,7 @@ try {
     function measure({ scene, flora, actors }, camera, r, game, a) {
       const animals = v => { for (const pool of actors.fauna.species.values()) { pool.mesh.visible = v; if (pool.far) pool.far.visible = v; if (pool.close) pool.close.visible = v; } actors.ring.visible = false; };
       const plants = v => { for (const m of [flora.foliage, flora.shrubs, flora.bark, flora.grass, flora.tallGrass, flora.small]) m.visible = v; };
-      const pixels = () => { gl.render(scene, camera); const p = new Uint8Array(W * H * 4); ctx.readPixels(0, 0, W, H, ctx.RGBA, ctx.UNSIGNED_BYTE, p); return p; };
+      const pixels = () => { gl.render(scene, camera); drawLookThrough(gl, scene, camera, actors.fauna, focus.uFocusAmt.value); const p = new Uint8Array(W * H * 4); ctx.readPixels(0, 0, W, H, ctx.RGBA, ctx.UNSIGNED_BYTE, p); return p; };
       const diff = (p, q, i) => Math.max(Math.abs(p[i] - q[i]), Math.abs(p[i + 1] - q[i + 1]), Math.abs(p[i + 2] - q[i + 2]));
       const count = (p, q, mask) => { let n = 0; for (let i = 0; i < p.length; i += 4) if ((!mask || mask[i]) && diff(p, q, i) > 4) n++; return n; };
       // the animal alone, no plants: its silhouette
@@ -70,7 +74,7 @@ try {
       let hole = 0; for (let i = 0; i < open.length; i += 4) if (!sil[i] && diff(open, closed, i) > 12) hole++;
       animals(true); const shown = pixels(); animals(false);
       const revealed = count(shown, open);
-      animals(true); gl.render(scene, camera);
+      animals(true); pixels(); const shot = gl.domElement.toDataURL('image/png');
       // and what the lens took from the floor plants (grass, bushes; trees hidden, which open wide by
       // design), in red over the closed view: the shape of the cut round the animal. Flipped upright
       // (readPixels starts at the bottom row)
@@ -85,7 +89,7 @@ try {
         mask.data[o] = cut ? 230 : c[i]; mask.data[o + 1] = cut ? 30 : c[i + 1]; mask.data[o + 2] = cut ? 40 : c[i + 2]; mask.data[o + 3] = 255;
       }
       const c2 = Object.assign(document.createElement('canvas'), { width: W, height: H }); c2.getContext('2d').putImageData(mask, 0, 0);
-      return { bare: bareN, ratio: bareN ? revealed / bareN : 0, hole: hole / (W * H), shot: gl.domElement.toDataURL('image/png'), mask: c2.toDataURL('image/png') };
+      return { bare: bareN, ratio: bareN ? revealed / bareN : 0, hole: hole / (W * H), shot, mask: c2.toDataURL('image/png') };
     }
     const cases = {
       canopy(kind) {
@@ -115,6 +119,7 @@ try {
         w.setPlant(w.idx(40, 30), salal, 1);
         const [sx, sz] = shrubSpot(40, 30, salal, false), rows = [];
         const a = game.wildlife.spawn(game.catalog.animal[kind], 40, 30, { silent: true, age: 900 }), past = kind === 'deer' ? .7 : .42;
+        game.selectedAgent = a;
         const st = stage(game), eye = new EyeCamera(), groundAt = (x, z) => w.heightAt(x, z) * LEVEL;
         const ground = new THREE.Mesh(new THREE.PlaneGeometry(20, 20).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x8a7a55 }));
         ground.position.set(sx, groundAt(sx, sz) - .005, sz); st.scene.add(ground);
