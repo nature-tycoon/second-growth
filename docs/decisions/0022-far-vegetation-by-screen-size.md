@@ -5,8 +5,9 @@
 - Far tree and shrub models (`far-models.js`, level 3 in `PlantPool.geoFor`) are on for every computer at every Detail level, chosen for the whole view by zoom in `Flora.setZoom`: tile under ~16 CSS px (zoom < 0.36) on High and Balanced, under 23 (zoom < 0.5) on Fast.
 - Keep it a zoom test, not per-plant distance: the play camera is orthographic. Eye level passes its own fixed zoom (`eyeDetail` 1.6) and keeps close models. No per-species thresholds (the view would pop in stages).
 - `flora.setFar(false)` switches them off to compare (like `actors.fauna.farModels`). `far_models` in `perf_sample` says whether they were drawn in the sampled frame.
-- Close-ups keep their detail (Cole's condition in 0004). Frond crowns (tree shapes in `FROND_CROWNS`, flora.js: palms, oil palm, fan palm, banana, cecropia) get `farFronds`, a two-sided star of eight leaves (32 triangles); add a new frond-crowned shape there. Giant clam shells have their own coarser builds (`clamShell(seed, lod)`, 5760 / 960 / 240 triangles; the distant one also at play zoom). Bamboo, corals and strap-leaved shrubs (pandan, ginger, heliconia) still have none.
-- Find what still lacks a far model by triangles before adding one: count `pool.subs` with `geoFar === geoLo` on `restoredGame(map)` at zoom 0.25 (as far-model-check does).
+- Close-ups keep their detail (Cole's condition in 0004). Frond crowns (tree shapes in `FROND_CROWNS`, flora.js: palms, oil palm, fan palm, banana, cecropia) get `farFronds`, a two-sided star of eight leaves (32 triangles); add a new frond-crowned shape there. Giant clam shells have their own coarser builds (`clamShell(seed, lod)`, 5760 / 960 / 240 triangles; the distant one also at play zoom).
+- Shapes far-models.js can't simplify get a far build of their own, lod 3 in their builder: `FAR_SHRUBS` in `G.shrub` (bamboo, ginger, pandan, heliconia, rattan, soft coral, sea fan, clam mantle, mushroom coral, sponge), `FAR_BUILT` tree shapes in flora.js (brain and table coral), `G.accent(type, seed, 3)` (torches, pandan fruit) and `G.blob(color, r, 3)` (flower and fruit dots). Keep the distant model's random draws in the same order (skip drawing, not drawing lots), so leaves stay where they were; leave out what's under a pixel (canes, stalks, whips); widen or lighten what's left to cover as much and keep the shade. far-model-check measures this per pool: area towards the camera within 20%, mean colour within ~0.05, spread and height.
+- Still without one: brush piles (Sumatra 0.19M zoomed out), the titan arum's leaf, Amazon's bigleaf shrubs. Find what still lacks a far model by triangles before adding one: count `pool.subs` with `geoFar === geoLo` on `restoredGame(map)` at zoom 0.25 (as far-model-check does).
 - Checks: `node tools/far-model-check.mjs`; review `node tools/far-vegetation-review.mjs` then `http://localhost:8347/tools/far-vegetation-review.html`; cost `node tools/play-profile.mjs sumatra,amazon,serengeti high|fast` with `PLAY_VIEWS=play,wide`.
 
 ## History
@@ -90,7 +91,7 @@ shows between them; Cole to judge on the review page.
 - The switch is in CSS pixels, so on a Retina screen a far crown is about twice as many device
   pixels as on a phone. A device-pixel switch would keep the detailed models longer on Retina, the
   opposite of what slow iPads need.
-- Bamboo, corals and strap-leaved shrubs have no far model (Sumatra's pandan and ginger 0.7M, Amazon's claw flowers 0.26M, Reef's brain coral 0.12M of a grown game zoomed out).
+- Bamboo, corals and strap-leaved shrubs have no far model (Sumatra's pandan and ginger 0.7M, Amazon's claw flowers 0.26M, Reef's brain coral 0.12M of a grown game zoomed out). Done 2026-11-11, below.
 - The low-end GPU gate (Intel HD 520 on Fast) is still unmeasured on real hardware.
 
 ### 2026-11-10: palms and giant clams
@@ -126,3 +127,37 @@ order or load, not the models. At Retina size the M5's GPU is limited by pixels,
 triangles. The gain is for triangle-limited chips (weak laptops, phones). Read it in PostHog
 `perf_sample` (fps and triangles by map) after release; it is not measured on those devices.
 
+### 2026-11-11: bamboo, strap leaves, corals and flower dots
+
+What was left after the palms: per pool, `restoredGame` at zoom 0.25, Sumatra's ginger 0.30M, pandan
+0.25M, their torches and fruit 0.17M, fig and flower dots 0.28M, bamboo 0.13M, rattan 0.09M; the
+Amazon's claw-flower dots 0.26M, bamboo 0.10M, heliconia 0.06M; the Reef's brain coral 0.12M, clam
+mantles 0.06M, table, soft and mushroom corals, sea fans and sponges 0.14M.
+
+These are built of thin straps, canes and lathes, which far-models.js can't turn into clumps or
+rings, so each builder draws its own far model (lod 3) from the same random draws as the distant
+one: ginger keeps every leaf in two pieces instead of three, a little wider, without the canes and
+flower stalks (160 of 428 triangles; with only two leaves a cane it read as a broken zig-zag
+beside the leafy column); pandan every other leaf, wider, on one thin post for the stilt roots
+(76 of 452); rattan's fronds become straps as wide as their leaflets, a shade yellower for the
+canes and whips left out (64 of 408); bamboo's culms lose their caps and a side, its leaves are
+straight (70 of 160); heliconia's paddles are straight, a little narrower and lighter (20 of 40).
+Torches and pandan fruit are an eight-sided ball each in their average shade (24 of 240). Flower
+and fruit dots are octahedra 1.24 times the radius, which covers as many pixels (8 of 20). Brain
+coral is an eight-sided ball shaded with its grooves' average (48 of 180), table coral a
+seven-sided plate (40 of 60), the clam mantle a flat 12-triangle disc, sponges, sea fans, soft and
+mushroom corals fewer sides.
+
+Triangles, `restoredGame` at zoom 0.25 (far-model-check): Sumatra 2.29M → 1.46M, Amazon 1.35M →
+1.11M, Reef 0.59M → 0.37M (shadows 0.27M → 0.16M; shrubs cast none this far out). perf-guard
+(seeded fixtures, wide): Sumatra 2.60M → 2.07M and 2.89M → 2.14M half a year on, Amazon 1.87M →
+1.64M, Reef 1.18M → 0.96M; play and close views unchanged (a few hundred triangles of seeded
+drift). Review screenshots (far-vegetation-review, Fast, just past the switch at 0.48): Sumatra
+1.86M → 0.46M, Amazon 1.68M → 0.33M, Reef 1.09M → 0.24M against the distant models.
+
+Look: rendered side by side at game size, distant beside far, the pairs match in tone, spread and
+height. Close up (not drawn there), the far pandan's leaves read bolder and the far rattan
+heavier than the airy fronds. In the reef review crops the new corals are unchanged to the eye;
+the staghorn and boulder corals, which have had far-models.js clumps since this decision, read
+lumpier than their branching distant models, a separate look question.
+`plant-render-browser-check`, `plant-view-browser-check` and `plant-replay-check` pass.

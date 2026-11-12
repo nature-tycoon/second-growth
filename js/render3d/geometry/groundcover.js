@@ -172,13 +172,16 @@ function pitcherSpots(seed, n) {
 //   'pitcher'    the pitchers, mottled red and green: the flower colour, always
 //   'pandan'     screw pine's fruit, hanging under the leaf tufts: the berry colour, while fruiting
 //   'titanbloom' the corpse flower's tall spadix: look.head (pale yellow), while in bloom
+// lo 3 (far, for ginger and pandan): each torch or fruit an eight-sided ball in its average shade.
 export function accent(type, seed, lo = false) {
-  const parts = [];
+  const parts = [], far = lo === 3;
+  const ball = (c, rx, ry, shade) => parts.push(shadeVerts(prep(new THREE.OctahedronGeometry(1).scale(rx, ry, rx).translate(...c)), () => shade));
   switch (type) {
     case 'pandan':
       // big, round, knobbly heads like pineapples, each on a short stalk under a tuft
       for (const { tip, a } of pandanBranches(seed).slice(0, 2)) {
         const f = [tip[0] + Math.cos(a + 1) * 0.03, tip[1] - 0.08, tip[2] + Math.sin(a + 1) * 0.03];
+        if (far) { ball([f[0], f[1] - 0.04, f[2]], 0.055, 0.065, 0.97); continue; }
         parts.push(shadeVerts(rod([tip[0], tip[1] - 0.01, tip[2]], f, 0.006, 0.005, 3), () => 0.5));
         parts.push(shadeVerts(soft(new THREE.IcosahedronGeometry(0.045, lo ? 0 : 1), { seed, lump: 0.012, transform: g => { g.scale(1, 1.2, 1); g.translate(f[0], f[1] - 0.04, f[2]); } }),
           (x, y, z) => (0.8 + 0.35 * Math.min(1, Math.max(0, (y - f[1] + 0.09) / 0.1))) * (0.85 + 0.3 * Math.abs(Math.sin(x * 240) * Math.sin(z * 240 + y * 200)))));
@@ -186,6 +189,7 @@ export function accent(type, seed, lo = false) {
       break;
     case 'ginger':
       for (const s of gingerStalks(seed)) {
+        if (far) { ball([s.t[0], s.t[1] + 0.03, s.t[2]], 0.065, 0.045, 0.95); continue; }
         const pos = [], col = [];
         // a collar of flared, waxy outer bracts round a tight cone of inner ones
         for (let k = 0, m = lo ? 5 : 8; k < m; k++) strap({ base: [s.t[0], s.t[1] + 0.008, s.t[2]], az: k / m * 6.28, elev: 0.35, droop: 0.9, L: 0.07, w: 0.026, segs: lo ? 1 : 2, lance: true, shade: 1.25 }, pos, col);

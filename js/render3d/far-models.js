@@ -11,7 +11,8 @@
 //   leaves round its hub, each reaching as far, drooping as low and coloured like the fronds on
 //   that side, seen from above and below;
 // - a trunk becomes a tapered five-sided post as tall and thick as the model's stem;
-// - anything else (bamboo canes, corals) keeps its distant model: no far model.
+// - anything else (bamboo canes, strap leaves, corals) has a far build of its own (lod 3 in its builder:
+//   FAR_SHRUBS in geometry/shrubs.js, FAR_BUILT in flora.js) or keeps its distant model.
 import * as THREE from 'three';
 
 const SIDES = 6, RINGS = [0.12, 0.38, 0.64, 0.86]; // (ring heights, as a share of the model's)

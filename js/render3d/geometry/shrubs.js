@@ -28,11 +28,14 @@ function gingerStalks(seed) {
 
 // lod: 0 close, 1 distant, 2 in-between (play zoom): the close model's shape and branches, with
 // plainer leaf clumps, which are most of a shrub's triangles. Shapes without leaf clumps come out
-// the same as the close model.
+// the same as the close model. 3 (far, the whole valley in view: decision 0022) for the shapes in
+// FAR_SHRUBS: the distant model's leaves and stems where they are (the same random draws), fewer
+// and plainer, the stems too thin to see left out.
+export const FAR_SHRUBS = new Set(['heliconia', 'bamboo', 'rattan', 'pandan', 'ginger', 'softcoral', 'seafan', 'clam', 'mushroom', 'sponge']);
 export function shrub(type, seed, lod = 0) {
   const r = mulberry32(seed);
   const parts = [];
-  const mid = lod === 2;
+  const far = lod === 3, mid = lod === 2;
   if (mid) lod = 0;
   let cy = 0.2;
   const blob = (x, y, z, s, sy = 0.85, shade = 1) => {
@@ -54,7 +57,8 @@ export function shrub(type, seed, lod = 0) {
     case 'heliconia': {
       // upright paddle leaves on long stalks
       cy = 0.35;
-      for (let k = 0; k < (lod ? 5 : 9); k++) parts.push(twoSided(ribbon(0.46 + r() * 0.2, 0.075, 0.5 + r() * 0.4, lod ? 2 : 4, r() * 6.28, 0.12 + r() * 0.3, (r() - 0.5) * 0.12, (r() - 0.5) * 0.12, 0xffffff, 0.015)));
+      // (far: each paddle straight, so a little narrower and lighter to cover the same)
+      for (let k = 0; k < (lod ? 5 : 9); k++) parts.push(shadeVerts(twoSided(ribbon(0.46 + r() * 0.2, far ? 0.066 : 0.075, 0.5 + r() * 0.4, far ? 1 : lod ? 2 : 4, r() * 6.28, 0.12 + r() * 0.3, (r() - 0.5) * 0.12, (r() - 0.5) * 0.12, 0xffffff, 0.015)), () => (far ? 1.08 : 1)));
       break;
     }
     case 'aloe': {
@@ -85,14 +89,14 @@ export function shrub(type, seed, lod = 0) {
       for (let k = 0; k < (lod ? 5 : 8); k++) {
         const a = r() * 6.28, lean = 0.1 + r() * 0.25, h = 0.75 + r() * 0.35, bx = Math.cos(a) * 0.05, bz = Math.sin(a) * 0.05;
         const tx = bx + Math.cos(a) * Math.sin(lean) * h, tz = bz + Math.sin(a) * Math.sin(lean) * h, ty = Math.cos(lean) * h;
-        parts.push(soft(new THREE.CylinderGeometry(0.008, 0.014, h, 4), { color: 0xd8e0a0, transform: g => {
+        parts.push(soft(new THREE.CylinderGeometry(0.008, 0.014, h, far ? 3 : 4, 1, far), { color: 0xd8e0a0, transform: g => {
           g.translate(0, h / 2, 0);
           g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(tx - bx, ty, tz - bz).normalize()));
           g.translate(bx, 0, bz);
         } }));
         for (let l = 0; l < (lod ? 2 : 4); l++) {
           const t = 0.55 + l * 0.13;
-          parts.push(twoSided(ribbon(0.16, 0.03, 0.9, 2, r() * 6.28, 0.9 + r() * 0.4, bx + (tx - bx) * t, bz + (tz - bz) * t)).translate(0, ty * t, 0));
+          parts.push(twoSided(ribbon(0.16, 0.03, 0.9, far ? 1 : 2, r() * 6.28, 0.9 + r() * 0.4, bx + (tx - bx) * t, bz + (tz - bz) * t)).translate(0, ty * t, 0));
         }
       }
       break;
@@ -105,19 +109,21 @@ export function shrub(type, seed, lod = 0) {
       for (let k = 0, ns = lod ? 4 : 6; k < ns; k++) {
         const a = k / ns * 6.28 + r() * 0.8, lean = 0.35 + r() * 0.5, h = 0.3 + r() * 0.25;
         const b = [Math.cos(a) * 0.03, 0, Math.sin(a) * 0.03], tip = [b[0] + Math.cos(a) * Math.sin(lean) * h, Math.cos(lean) * h, b[2] + Math.sin(a) * Math.sin(lean) * h];
-        parts.push(shadeVerts(rod(b, tip, 0.011, 0.007, 4), () => [0.8, 0.7, 0.45]));
+        if (!far) parts.push(shadeVerts(rod(b, tip, 0.011, 0.007, 4), () => [0.8, 0.7, 0.45]));
         if (!lod) for (let j = 1; j <= 3; j++) { // spines on the leaf sheaths
           const t = j / 4, sa = a + j * 2.2, p = [b[0] + (tip[0] - b[0]) * t, tip[1] * t, b[2] + (tip[2] - b[2]) * t];
           parts.push(shadeVerts(rod(p, [p[0] + Math.cos(sa) * 0.03, p[1] + 0.012, p[2] + Math.sin(sa) * 0.03], 0.004, 0.0006, 3), () => 0.4));
         }
         for (let f = 0; f < (lod ? 2 : 3); f++) {
           const last = f === (lod ? 1 : 2), t = last ? 1 : 0.5 + f * 0.25, p = [b[0] + (tip[0] - b[0]) * t, tip[1] * t, b[2] + (tip[2] - b[2]) * t];
-          frond({ base: p, az: last ? a : a + (f % 2 ? 1 : -1) * (0.7 + r() * 0.6), elev: 0.55 + r() * 0.3, droop: 1.4, L: 0.32 + r() * 0.12,
-            n: lod ? 5 : 8, w: lod ? 0.13 : 0.11, segs: lod ? 2 : 3, bare: 0.08, v: 0.15, sweep: 0.45, hang: 0.45, rib: 0.006, fill: lod ? 0.9 : 0.6 }, pos, col);
+          const o = { base: p, az: last ? a : a + (f % 2 ? 1 : -1) * (0.7 + r() * 0.6), elev: 0.55 + r() * 0.3, droop: 1.4, L: 0.32 + r() * 0.12 };
+          // (far: each frond a strap as wide as its leaflets reach either side)
+          if (far) strap({ ...o, w: 0.085, segs: 2, shade: 1.12, tint: [1, 0.99, 0.93] }, pos, col); // (a shade lighter and yellower: the canes and whips left out)
+          else frond({ ...o, n: lod ? 5 : 8, w: lod ? 0.13 : 0.11, segs: lod ? 2 : 3, bare: 0.08, v: 0.15, sweep: 0.45, hang: 0.45, rib: 0.006, fill: lod ? 0.9 : 0.6 }, pos, col);
         }
       }
       // cirri: long thin whips arching out and down to the ground
-      for (let k = 0, nc = lod ? 2 : 4; k < nc; k++) {
+      for (let k = 0, nc = far ? 0 : lod ? 2 : 4; k < nc; k++) {
         const a = r() * 6.28, h0 = 0.28 + r() * 0.14, reach = 0.42 + r() * 0.2, pts = [];
         for (let j = 0; j <= 5; j++) { const t = j / 5; pts.push([Math.cos(a) * (0.08 + reach * t), h0 + 0.16 * Math.sin(Math.PI * t * 0.7) - (h0 + 0.02) * t ** 2.2, Math.sin(a) * (0.08 + reach * t)]); }
         for (let j = 0; j < 5; j++) parts.push(shadeVerts(rod(pts[j], pts[j + 1], 0.005 - j * 0.0007, 0.0044 - j * 0.0007, 3), () => [1.05, 1, 0.65]));
@@ -134,15 +140,18 @@ export function shrub(type, seed, lod = 0) {
       for (let k = 0, nr = lod ? 5 : 7; k < nr; k++) {
         const a = k / nr * 6.28 + r() * 0.4, out = 0.12 + r() * 0.05, h0 = tb + r() * 0.07;
         const p0 = [Math.cos(a) * 0.015, h0, Math.sin(a) * 0.015], knee = [Math.cos(a) * out * 0.55, h0 * 0.5, Math.sin(a) * out * 0.55], foot = [Math.cos(a) * out, -0.02, Math.sin(a) * out];
-        parts.push(shadeVerts(rod(p0, knee, 0.011, 0.01, 4), wood), shadeVerts(rod(knee, foot, 0.01, 0.009, 4), wood));
+        if (!far) parts.push(shadeVerts(rod(p0, knee, 0.011, 0.01, 4), wood), shadeVerts(rod(knee, foot, 0.01, 0.009, 4), wood));
       }
-      parts.push(shadeVerts(rod([0, tb - 0.03, 0], [0, tt, 0], 0.024, 0.021, lod ? 5 : 6), wood));
+      // (far: the stilt roots and trunk one thin post, the branches hidden in their tufts)
+      parts.push(shadeVerts(far ? rod([0, 0, 0], [0, tt, 0], 0.035, 0.021, 3) : rod([0, tb - 0.03, 0], [0, tt, 0], 0.024, 0.021, lod ? 5 : 6), wood));
       for (const { tip, elbow } of pandanBranches(seed)) {
-        parts.push(shadeVerts(rod([0, tt - 0.01, 0], elbow, 0.019, 0.017, 5), wood), shadeVerts(rod(elbow, tip, 0.017, 0.014, 5), wood));
+        if (!far) parts.push(shadeVerts(rod([0, tt - 0.01, 0], elbow, 0.019, 0.017, 5), wood), shadeVerts(rod(elbow, tip, 0.017, 0.014, 5), wood));
         for (let j = 0, m = lod ? 8 : 12; j < m; j++) {
           const u = j / (m - 1);
-          strap({ base: tip, az: j * 2.25 + r() * 0.2, elev: 1.3 - 1.05 * u, droop: 0.8 + 0.8 * u + r() * 0.2, L: (0.3 + 0.16 * u) * (0.9 + r() * 0.2), w: lod ? 0.034 : 0.028,
-            segs: lod ? 3 : 4, twist: (r() - 0.5) * 1.6, fold: lod ? 0 : 0.7 }, pos, col);
+          const o = { base: tip, az: j * 2.25 + r() * 0.2, elev: 1.3 - 1.05 * u, droop: 0.8 + 0.8 * u + r() * 0.2, L: (0.3 + 0.16 * u) * (0.9 + r() * 0.2), w: lod ? 0.034 : 0.028,
+            segs: lod ? 3 : 4, twist: (r() - 0.5) * 1.6, fold: lod ? 0 : 0.7 };
+          // (far: every other leaf, wider for the ones left out, round the same spiral)
+          if (!far) strap(o, pos, col); else if (j % 2) strap({ ...o, w: o.w * 2.4, segs: 2, twist: 0 }, pos, col);
         }
       }
       parts.push(twoSided(sheet(pos, col)));
@@ -157,14 +166,15 @@ export function shrub(type, seed, lod = 0) {
       for (let k = 0, nk = lod ? 5 : 7; k < nk; k++) {
         const a = r() * 6.28, d = 0.02 + r() * 0.07, lean = 0.06 + r() * 0.2, h = 0.72 + r() * 0.3;
         const b = [Math.cos(a) * d, 0, Math.sin(a) * d], tip = [b[0] + Math.cos(a) * Math.sin(lean) * h, Math.cos(lean) * h, b[2] + Math.sin(a) * Math.sin(lean) * h];
-        parts.push(shadeVerts(rod(b, tip, 0.009, 0.006, 4), () => [0.8, 0.85, 0.6]));
+        if (!far) parts.push(shadeVerts(rod(b, tip, 0.009, 0.006, 4), () => [0.8, 0.85, 0.6]));
         const plane = r() * 6.28;
         for (let l = 0, nl = lod ? 4 : 7; l < nl; l++) {
           const t = 0.34 + 0.64 * l / (nl - 1), p = [b[0] + (tip[0] - b[0]) * t, tip[1] * t, b[2] + (tip[2] - b[2]) * t];
-          strap({ base: p, az: plane + (l % 2 ? Math.PI : 0) + (r() - 0.5) * 0.4, elev: 0.75 - 0.3 * t, droop: 1.3, L: (0.34 - 0.08 * t) * (0.9 + r() * 0.2), w: 0.024 * (lod ? 1.3 : 1), segs: 3, lance: true }, pos, col);
+          const o = { base: p, az: plane + (l % 2 ? Math.PI : 0) + (r() - 0.5) * 0.4, elev: 0.75 - 0.3 * t, droop: 1.3, L: (0.34 - 0.08 * t) * (0.9 + r() * 0.2), w: 0.024 * (lod ? 1.3 : 1), segs: 3, lance: true };
+          strap(far ? { ...o, segs: 2, w: o.w * 1.3 } : o, pos, col); // (far: each leaf in two straight pieces, a little wider for the canes left out)
         }
       }
-      for (const s of gingerStalks(seed)) {
+      if (!far) for (const s of gingerStalks(seed)) { // (far: the flower stalks too thin to see; accent's torches still show)
         parts.push(shadeVerts(rod(s.b, s.t, 0.006, 0.005, 4), () => [1.1, 1.1, 0.7]));
         parts.push(soft(new THREE.IcosahedronGeometry(0.017, 0), { transform: g => { g.scale(1, 1.4, 1); g.translate(s.t[0], s.t[1] + 0.012, s.t[2]); } }));
       }
@@ -194,8 +204,8 @@ export function shrub(type, seed, lod = 0) {
     case 'softcoral': {
       // leather coral: a thick stalk under a wide, deeply folded cap
       cy = 0.16;
-      parts.push(rod([0, 0, 0], [0, 0.12, 0], 0.07, 0.08, 7));
-      parts.push(soft(new THREE.CylinderGeometry(0.22, 0.14, 0.06, lod ? 10 : 24, 1), { seed, transform: g => {
+      parts.push(rod([0, 0, 0], [0, 0.12, 0], 0.07, 0.08, far ? 4 : 7));
+      parts.push(soft(new THREE.CylinderGeometry(0.22, 0.14, 0.06, far ? 7 : lod ? 10 : 24, 1), { seed, transform: g => {
         const p = g.attributes.position;
         for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), d = Math.hypot(x, z), a = Math.atan2(z, x); p.setY(i, p.getY(i) + Math.sin(a * 7 + 1) * 0.045 * d / 0.22); }
         g.translate(0, 0.15, 0);
@@ -205,11 +215,11 @@ export function shrub(type, seed, lod = 0) {
     case 'seafan': {
       // a gorgonian: a broad, flat lattice fan standing up into the current
       cy = 0.25;
-      const fan = prep(new THREE.CircleGeometry(0.3, lod ? 8 : 16, 0.15, Math.PI - 0.3).translate(0, 0.05, 0));
+      const fan = prep(new THREE.CircleGeometry(far ? 0.32 : 0.3, far ? 5 : lod ? 8 : 16, 0.15, Math.PI - 0.3).translate(0, 0.05, 0)); // (far: no ribs, so a little bigger)
       shadeVerts(fan, (x, y) => 0.8 + y * 0.6);
       parts.push(twoSided(fan));
-      for (let k = 0; k < (lod ? 3 : 6); k++) { const a = 0.3 + k / 5 * (Math.PI - 0.6); parts.push(rod([0, 0.02, 0.005], [Math.cos(a) * 0.3, 0.05 + Math.sin(a) * 0.3, 0.005], 0.012, 0.005, 4)); }
-      parts.push(rod([0, 0, 0], [0, 0.06, 0], 0.025, 0.02, 5));
+      for (let k = 0; k < (far ? 0 : lod ? 3 : 6); k++) { const a = 0.3 + k / 5 * (Math.PI - 0.6); parts.push(rod([0, 0.02, 0.005], [Math.cos(a) * 0.3, 0.05 + Math.sin(a) * 0.3, 0.005], 0.012, 0.005, 4)); }
+      if (!far) parts.push(rod([0, 0, 0], [0, 0.06, 0], 0.025, 0.02, 5));
       const g = merge(parts); return g;
     }
     case 'anemone': {
@@ -233,7 +243,7 @@ export function shrub(type, seed, lod = 0) {
       // slit of its siphon at one end. The shells are their own model (clamShell), in shell colour.
       cy = 0.1;
       const L = 0.4, Wd = 0.1, rimY = 0.128;
-      const mantle = soft(new THREE.SphereGeometry(1, lod ? 12 : 28, lod ? 6 : 12), { seed: seed + 5, transform: g => {
+      const mantle = soft(new THREE.SphereGeometry(1, far ? 6 : lod ? 12 : 28, far ? 2 : lod ? 6 : 12), { seed: seed + 5, transform: g => {
         const p = g.attributes.position;
         for (let i = 0; i < p.count; i++) {
           const x = p.getX(i), y = p.getY(i), z = p.getZ(i), a = Math.atan2(z, x);
@@ -242,7 +252,8 @@ export function shrub(type, seed, lod = 0) {
           p.setXYZ(i, x * L * 0.5 * frill, rimY + Math.max(-0.4, y) * 0.018 + 0.006 * Math.sin(a * 22 + seed) * edge, z * Wd * frill);
         }
       } });
-      shadeVerts(mantle, (x, y, z) => {
+      // (far: too few corners for the siphon, flecks and frilled edge, so its overall shade)
+      shadeVerts(mantle, far ? (x, y) => (y < rimY ? 0.7 : 0.98) : (x, y, z) => {
         const edge = Math.hypot(x / (L * 0.5), z / Wd);
         if (Math.hypot(x - L * 0.3, z) < 0.025 && y > rimY) return 0.25;            // the siphon
         const spot = speck(Math.round(x * 40) / 40, 0, Math.round(z * 40) / 40, seed) > 0.8 ? 1.35 : 1; // pale flecks
@@ -271,12 +282,12 @@ export function shrub(type, seed, lod = 0) {
     case 'mushroom': {
       // mushroom coral: a single loose, oval disc lying on the sand, its top ridged like a mushroom's gills
       cy = 0.03;
-      const g = soft(new THREE.CylinderGeometry(0.16, 0.13, 0.05, lod ? 10 : 28, 1), { seed, transform: gg => {
+      const g = soft(new THREE.CylinderGeometry(far ? 0.168 : 0.16, far ? 0.137 : 0.13, 0.05, far ? 6 : lod ? 10 : 28, 1), { seed, transform: gg => {
         const p = gg.attributes.position;
         for (let i = 0; i < p.count; i++) { if (p.getY(i) > 0) p.setY(i, p.getY(i) + 0.03 * (1 - Math.hypot(p.getX(i), p.getZ(i)) / 0.16)); }
         gg.scale(1.25, 1, 0.85); gg.translate(0, 0.025, 0);
       } });
-      shadeVerts(g, (x, y, z) => (y > 0.04 ? 0.9 + 0.2 * Math.abs(Math.sin(Math.atan2(z, x) * 14)) : 0.6));
+      shadeVerts(g, (x, y, z) => (y > 0.04 ? (far ? 0.97 : 0.9 + 0.2 * Math.abs(Math.sin(Math.atan2(z, x) * 14))) : 0.6)); // (far: the gills' average)
       return g;
     }
     case 'seastar': {
@@ -293,10 +304,12 @@ export function shrub(type, seed, lod = 0) {
     case 'sponge': {
       // a barrel sponge: a thick-walled vase, open at the top
       cy = 0.2;
-      const outer = soft(new THREE.CylinderGeometry(0.17, 0.12, 0.34, lod ? 8 : 16, 3, true), { seed, lump: 0.02, transform: g => g.translate(0, 0.17, 0) });
-      const inner = soft(new THREE.CylinderGeometry(0.13, 0.09, 0.3, lod ? 8 : 16, 1, true), { transform: g => { g.scale(-1, 1, 1); g.translate(0, 0.2, 0); } });
+      const outer = soft(new THREE.CylinderGeometry(0.17, 0.12, 0.34, far ? 6 : lod ? 8 : 16, far ? 1 : 3, true), { seed, lump: 0.02, transform: g => g.translate(0, 0.17, 0) });
+      const inner = soft(new THREE.CylinderGeometry(0.13, 0.09, 0.3, far ? 6 : lod ? 8 : 16, 1, true), { transform: g => { g.scale(-1, 1, 1); g.translate(0, 0.2, 0); } });
       shadeVerts(inner, () => 0.45);
-      parts.push(outer, inner, soft(new THREE.TorusGeometry(0.15, 0.025, 5, lod ? 8 : 16), { transform: g => { g.rotateX(Math.PI / 2); g.translate(0, 0.34, 0); } }));
+      // (far: the rim a flat ring, its outer edge flush with the wall)
+      const rim = far ? new THREE.RingGeometry(0.125, 0.175, 6, 1).rotateX(-Math.PI / 2).translate(0, 0.34, 0) : new THREE.TorusGeometry(0.15, 0.025, 5, lod ? 8 : 16).rotateX(Math.PI / 2).translate(0, 0.34, 0);
+      parts.push(outer, inner, soft(rim));
       shadeVerts(outer, (x, y) => 0.75 + y * 0.8);
       return merge(parts);
     }

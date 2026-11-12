@@ -90,6 +90,7 @@ export function leafColor(p, phase) {
 const STEM = { dogwood: '#b0302a', willow: '#c8923a' };
 const SPADIX = '#e4d48c'; // (a corpse flower's spadix, unless its look gives a head colour)
 const FROND_CROWNS = new Set(['palm', 'oilpalm', 'fanpalm', 'banana', 'cecropia']); // (tree shapes whose far crown is a star of leaves: far-models.js farFronds)
+const FAR_BUILT = new Set(['brain', 'tablecoral']); // (tree shapes whose builder makes its own far crown, lod 3: geometry/corals.js)
 const BLEACHED = [0.95, 0.94, 0.9]; // coral that has lost its algae: the white skeleton shows through
 // shrub looks with a geometry of their own; everything else is a generic leafy mound
 // Broadleaf shrubs drawn by growth habit rather than one shared mound (see G.shrub).
@@ -558,13 +559,13 @@ export class Flora {
           let col = vary(morph(p, x, y, leafColor(p, phase)).map(c => c * dim), x, y, 8, 0.045);
           if (inside && w.bleach && p.bleach && w.bleach[i] > 0) col = mixc(col, BLEACHED, w.bleach[i]);
           const sseed = 200 + v * 31 + shape.length;
-          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub', far: true }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
+          this.pool(`shrub:${shape}:${v}`, () => G.shrub(shape, sseed), this.shrubs, { kind: 'shrub', far: G.FAR_SHRUBS.has(shape) ? () => G.shrub(shape, sseed, 3) : true }, () => G.shrub(shape, sseed, 1), () => G.shrub(shape, sseed, 2)).add(sx, sy, sz, sc, sc, sc, rot, col);
           if (!aquaticTile && !SEA_SHAPES.has(shape)) this.contactShadow(hAt, sx, sz, 0.34 * sc);
           // a giant clam's shells are pale and chalky, whatever colour its mantle is
           if (shape === 'clam') this.pool(`clamshell:${v}`, () => G.clamShell(sseed), this.shrubs, { kind: 'shrub', far: () => G.clamShell(sseed, 3) }, () => G.clamShell(sseed, 1), 'lo').add(sx, sy, sz, sc, sc, sc, rot, vary([0.86, 0.84, 0.76].map(c => c * dim), x, y, 10, 0.05));
           // torch ginger's flowers are torches on stalks of their own, and pandan's fruit hangs under its tufts, not dots among the leaves
           const accCol = shape === 'ginger' && phase === 'bloom' ? p.look.flower : shape === 'pandan' && phase === 'fruit' ? p.look.berry : null;
-          if (accCol && g > 0.3) this.pool(`shrub:acc:${shape}:${v}`, () => G.accent(shape, sseed), this.shrubs, { kind: 'shrub', far: true }, () => G.accent(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, vary(rgb(accCol).map(c => c * dim), x, y, 9, 0.06));
+          if (accCol && g > 0.3) this.pool(`shrub:acc:${shape}:${v}`, () => G.accent(shape, sseed), this.shrubs, { kind: 'shrub', far: () => G.accent(shape, sseed, 3) }, () => G.accent(shape, sseed, 1)).add(sx, sy, sz, sc, sc, sc, rot, vary(rgb(accCol).map(c => c * dim), x, y, 9, 0.06));
           const dotCol = accCol ? null : phase === 'bloom' && p.look.flower ? rgb(p.look.flower) : phase === 'fruit' && p.look.berry ? rgb(p.look.berry) : null;
           if (dotCol && g > 0.3) {
             const n = 4 + Math.round(g * 5);
@@ -576,7 +577,7 @@ export class Flora {
             const fruit = fruiting && p.key !== 'piper' ? fruitForm(p) : null; // (spiked pepper's fruit is a curved spike, not a berry)
             const headShape = flowering ? flowerShape : p.key === 'piper' ? 'catkin' : fruit;
             const headCol = flowering ? p.look.flower : p.look.berry;
-            const heads = headShape ? this.pool(`${fruit ? 'shrubfruit' : 'shrubflower'}:${headShape}:${headCol}`, () => fruit ? Botanical.fruitHead(fruit, headCol) : Botanical.blossomHead(headShape, headCol), this.grass, { shadow: false, kind: 'shrub' }, () => G.blob(headCol, 0.035), 'lo') : null; // (from afar, and at play zoom, a dot of colour is all a flower head or berry cluster shows)
+            const heads = headShape ? this.pool(`${fruit ? 'shrubfruit' : 'shrubflower'}:${headShape}:${headCol}`, () => fruit ? Botanical.fruitHead(fruit, headCol) : Botanical.blossomHead(headShape, headCol), this.grass, { shadow: false, kind: 'shrub', far: () => G.blob(headCol, 0.035, 3) }, () => G.blob(headCol, 0.035), 'lo') : null; // (from afar, and at play zoom, a dot of colour is all a flower head or berry cluster shows)
             // flowers and fruit sit on the bush's own outer surface, wherever its leaves actually are
             const spots = this.shrubSpots(`shrub:${shape}:${v}`);
             const cr = Math.cos(rot), sr = Math.sin(rot);
@@ -624,7 +625,7 @@ export class Flora {
           if (!shape) {
             shape = build(); shape.lo = build(1); shape.mid = build(G.MID);
             snowCrown(shape.crown); snowCrown(shape.lo.crown); if (shape.mid.crown !== shape.crown) snowCrown(shape.mid.crown);
-            shape.far = { crown: FROND_CROWNS.has(shapeDef.kind) ? farFronds(shape.lo.crown) : farHull(shape.lo.crown, { rings: shapeDef.kind === 'conifer' }), trunk: farTrunk(shape.lo.trunk) };
+            shape.far = { crown: FAR_BUILT.has(shapeDef.kind) ? build(3).crown : FROND_CROWNS.has(shapeDef.kind) ? farFronds(shape.lo.crown) : farHull(shape.lo.crown, { rings: shapeDef.kind === 'conifer' }), trunk: farTrunk(shape.lo.trunk) };
             this.geos.set(`treeparts:${key}`, shape);
           }
           if (!this.pools.has(`crown:${key}`)) {
@@ -675,7 +676,7 @@ export class Flora {
             const fy = shapeDef.height + (shapeDef.lift ?? 0) - ry * 1.1, rr = shapeDef.rx * 0.78 + Math.min(shapeDef.rx, ry) * 0.5;
             // (close up each is its own fruit, spiny, hairy, capped or in pods; from afar and at play zoom, the same dot as before)
             const fruit = fruitForm(p);
-            const hung = fruit && this.pool(`treefruit:${fruit}:${p.look.berry}`, () => Botanical.fruitHead(fruit, p.look.berry), this.grass, { shadow: false }, () => G.blob(p.look.berry, 0.035).scale(1, 1.15, 1), 'lo');
+            const hung = fruit && this.pool(`treefruit:${fruit}:${p.look.berry}`, () => Botanical.fruitHead(fruit, p.look.berry), this.grass, { shadow: false, far: () => G.blob(p.look.berry, 0.035, 3).scale(1, 1.15, 1) }, () => G.blob(p.look.berry, 0.035).scale(1, 1.15, 1), 'lo');
             const reach = shapeDef.rx && (shape.reach ??= crownReach(shape.crown));
             for (let k = 0; k < 9; k++) {
               const a = k * 2.4 + hash2(x + k, y, 15), d = rr * (0.92 + hash2(x, y + k, 16) * 0.12);
