@@ -6,13 +6,40 @@
 //
 // Fauna.add records which pool and instance the tracked animal went into (detail = true). This
 // copies that instance into a one-instance mesh sharing the species' geometry and material, kept on
-// its own layer so the normal draw skips it. The pass: the depth buffer is cleared, the animal's own
-// depth laid down (so it hides its own far side, not just the leaves), then its colour blended in
-// where it is nearest. Two draws of one animal a frame.
+// its own layer so the normal draw skips it. The pass draws it a little nearer the camera (about its
+// own size, withLookShift), so it shows through cover close round it but not through a tree well in
+// front: its depth is laid down against the scene's (it also hides its own far side), then its
+// colour blended in where it is nearest. Where it is in plain view the blend changes nothing. Two
+// draws of one animal a frame.
 
 import * as THREE from 'three';
+import { focus } from './focus.js';
 
 export const LOOK_LAYER = 7;
+// How far in front of the animal cover is seen through is focus.uLookD (about its size: the bush
+// or crown it is in, the grass round it). A tree standing farther toward the camera stays in front
+// of it (Cole: the animal looked to walk in front of foreground trees); focus.js opens that instead.
+const lookShift = { value: 0 };
+
+// The animal's material, drawn this pass a set distance nearer the camera along each line of
+// sight (so it shows in the same place on screen, and passes the depth test only against what lies
+// within that distance in front of it); its lighting and shade still come from where it is. 0 in
+// the normal draw.
+export function withLookShift(mat) {
+  const prev = mat.onBeforeCompile, baseKey = mat.customProgramCacheKey();
+  mat.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev.call(mat, shader, renderer);
+    shader.uniforms.uLookShift = lookShift;
+    shader.vertexShader = 'uniform float uLookShift;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      if (uLookShift > 0.0) {
+        vec4 mvLook = mvPosition;
+        if (isOrthographic) mvLook.z += uLookShift; else mvLook.xyz *= max(0.1, 1.0 - uLookShift / max(length(mvLook.xyz), 1e-3));
+        gl_Position = projectionMatrix * mvLook;
+      }`);
+  };
+  mat.customProgramCacheKey = () => baseKey + '|look';
+  return mat;
+}
 export const LOOK_ALPHA = 0.42; // how strongly a hidden part shows through (1: as if nothing were in front)
 
 // pool: a species' SpeciesMesh (animal-pools.js). Its per-instance attributes are copied for the one
@@ -54,11 +81,14 @@ export function drawLookThrough(gl, scene, camera, fauna, amt) {
   for (const l of lights) l.layers.enable(LOOK_LAYER);
   const layers = camera.layers.mask, background = scene.background, autoClear = gl.autoClear, shadows = gl.shadowMap.needsUpdate;
   camera.layers.set(LOOK_LAYER); scene.background = null; gl.autoClear = false; gl.shadowMap.needsUpdate = false;
-  gl.clearDepth();
+  // how far in front of it to see through (see Renderer.updateFocus), from its front: its far
+  // parts are drawn as much farther forward again as it is deep, so cover anywhere up to that line
+  // shows it, and focus.js opens what lies beyond
+  lookShift.value = focus.uLookD.value + Math.max(0, focus.uFocusFront.value - focus.uFocusBack.value);
   const mats = [...new Set(ghosts.map(g => g.mesh.material))];
   const saved = mats.map(m => ({ colorWrite: m.colorWrite, depthFunc: m.depthFunc, depthWrite: m.depthWrite, transparent: m.transparent, opacity: m.opacity }));
   // its own depth first, then its colour where it is nearest
-  for (const m of mats) { m.colorWrite = false; m.depthWrite = true; }
+  for (const m of mats) { m.colorWrite = false; m.depthWrite = true; } // (tested against the scene: nothing farther in front is drawn over)
   gl.render(scene, camera);
   for (const m of mats) { m.colorWrite = true; m.depthWrite = false; m.depthFunc = THREE.EqualDepth; m.transparent = true; m.opacity = LOOK_ALPHA * Math.min(1, amt); }
   gl.render(scene, camera);
@@ -66,4 +96,5 @@ export function drawLookThrough(gl, scene, camera, fauna, amt) {
   camera.layers.mask = layers; scene.background = background; gl.autoClear = autoClear; gl.shadowMap.needsUpdate = shadows;
   for (const l of lights) l.layers.disable(LOOK_LAYER);
   for (const g of ghosts) g.mesh.visible = false;
+  lookShift.value = 0;
 }

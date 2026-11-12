@@ -33,15 +33,26 @@ plants, buildings):
   in a tree or bush. Any cut close round the animal draws its own outline through the leaves, so
   none is made. The tree an animal is in now stays whole (the palm under a langur 100% kept, was 82
   to 92% with the cuts).
-- **Nearer the camera, wider.** `near` is how far a fragment sits in front of the body, as a share
-  of the way to the eye at eye level (`uFocusInvD`) or of four window radii from above. The gap
-  opens from `near` 0.25 and reaches the full window radius at 0.8 (0.05 to 0.7 while the animal
-  was still cut out; nearer, it read as a circle round an animal in a crown).
+- **Only close cover is seen through; trees in front stay in front** (2026-11-11, Cole: the animal
+  seemed to walk in front of foreground trees). The look-through pass draws the animal a set
+  distance nearer the camera along each line of sight (`withLookShift`: same place on screen, its
+  light and shade from where it really is) and tests it against the scene's depth: cover within
+  `uLookD` of its front (its own size times 1.2 plus 0.15, from `Renderer.updateFocus`; its far
+  parts reach as far again as it is deep) shows it, anything farther in front hides it. The gap
+  opens exactly what lies farther than that (`past` in focus.js), and its core is the animal's
+  outline across the screen (`uFocusBodyR`), so foliage farther in front never hides it.
+- **Trunks are never opened** (near their axis): a trunk in front of the animal stays in front of
+  it, and a cut across one showed as a straight line. Limbs up in the crown still go with the leaves.
+- **Nearer the camera, a little wider.** Past the core the gap widens with `near`, how far a
+  fragment sits in front of the body as a share of the way to the eye at eye level, or of four
+  window radii from above, full at 0.7. The extra width is small and scales with the animal (Cole:
+  it was too wide): from above 0.06 to 0.3 tiles (`0.05 + h * 0.35`), on a branch to 0.25, at eye
+  level half the eye's size up to 0.25. It was 0.85 to 1.45 tiles for every animal.
 - **Measured on screen.** At eye level the gap's width is taken at the animal's depth (the
   `focusSide` projection), so leaves right at the lens open about as wide on screen as leaves
   halfway there, instead of a cylinder that fills the near view. From above (orthographic) this
   is the same as before.
-- **A soft rim.** Over the outer third of the gap the leaves thin out, by leaf-sized specks fixed in
+- **A soft rim.** Over a band just past the open core (30% of its width) the leaves thin out, by leaf-sized specks fixed in
   the world (`focusNoise` at 22 per tile). Still a discard, so nothing to depth-sort, and the specks
   hold still as the view moves. A screen-space dither was tried first; at a pixel ratio of 1 it
   read as a grainy stipple.

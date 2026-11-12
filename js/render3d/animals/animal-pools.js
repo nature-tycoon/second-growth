@@ -3,11 +3,12 @@ import * as THREE from 'three';
 import { withClouds } from '../atmosphere.js';
 import { buildSpecies } from './animal-model.js';
 import { faunaMaterial } from './animal-material.js';
+import { withLookShift } from '../look-through.js';
 import { CLOSE_PIXELS, FAR_PIXELS, simplifyAnimal } from './animal-lod.js';
 
 // ---------------------------------------------------------------- instanced pools
 class SpeciesMesh {
-  constructor(scene, def, { geo, motion } = buildSpecies(def), mat = withClouds(faunaMaterial(motion))) {
+  constructor(scene, def, { geo, motion } = buildSpecies(def), mat = withLookShift(withClouds(faunaMaterial(motion)))) {
     this.geo = geo; this.motion = motion; this.scene = scene; this.def = def;
     this.mat = mat; // (the field-guide portraits use faunaMaterial bare)
     this.cap = 0; this.count = 0; this.mesh = null; this.far = null; this.close = null;

@@ -339,8 +339,10 @@ export class Renderer {
       const e = this.focusFor === sel.id ? Math.min(1, dt * 10) : 1;
       this.focusFor = sel.id;
       focus.uFocus.value.lerp(pose.center, e);
-      let radius = pose.branch ? clamp(.4 + pose.h * 1.2, .55, .95) : clamp(.75 + pose.h * 1.7, .85, 1.45);
-      let span = 0;
+      // how much wider than the animal the gap through cover nearer the camera grows (Cole: it was
+      // too wide; it was 0.85 to 1.45 tiles whatever the animal)
+      let radius = pose.branch ? clamp(.05 + pose.h * .3, .06, .25) : clamp(.05 + pose.h * .35, .06, .3);
+      let span = 0, body = 0, reach = 0;
       let bottom = -Math.max(pose.h, pose.foot || 0) * .6, back = -.08 * radius, front = .08 * radius;
       const invD = this.eyeOn ? 1 / Math.max(0.05, this.eye.pos.distanceTo(pose.center)) : 0;
       const V = focus.uViewDir.value, U = focus.uCamUp.value;
@@ -354,9 +356,17 @@ export class Renderer {
           const along = point.dot(V), height = point.dot(U);
           bottom = Math.min(bottom, height - .025); back = Math.min(back, along - .025); front = Math.max(front, along + .025);
           if (pose.branch) span = Math.max(span, Math.sqrt(Math.max(0, point.lengthSq() - along * along)));
+          body = Math.max(body, Math.sqrt(Math.max(0, point.lengthSq() - along * along)) / Math.max(.05, 1 - along * invD));
+          reach = Math.max(reach, point.length());
         }
       }
-      if (this.eyeOn) radius = clamp(this.eye.size * 1.4, 0.22, 0.55); // (close to the lens, a narrower gap does)
+      if (!body) body = reach = Math.max(pose.h, pose.foot || 0, .12) * .6;
+      // the gap's core: the body's outline across the screen (its box's corners, a little inside them,
+      // which a body rarely fills); and how far in front of it cover is seen through rather than
+      // opened (look-through.js): its own size and a little more
+      focus.uFocusBodyR.value += (body * .85 + .03 - focus.uFocusBodyR.value) * e;
+      focus.uLookD.value += (reach * 1.2 + .15 - focus.uLookD.value) * e;
+      if (this.eyeOn) radius = clamp(this.eye.size * .5, 0.06, 0.25); // (close to the lens, a narrower gap does)
       focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
       focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
       focus.uFocusFoot.value += (pose.y - focus.uFocusFoot.value) * e;
@@ -369,6 +379,7 @@ export class Renderer {
       focus.uFocusR.value = 1.3;
       focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
       focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value; focus.uFocusFront.value = .3;
+      focus.uFocusBodyR.value = .3; focus.uLookD.value = .3;
       focus.uFocusTrunk.value.z = -1;
       focus.uFocusInvD.value = 0;
     }

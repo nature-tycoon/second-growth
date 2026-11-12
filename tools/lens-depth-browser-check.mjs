@@ -63,7 +63,8 @@ try {
       const diff = (p, q, i) => Math.max(Math.abs(p[i] - q[i]), Math.abs(p[i + 1] - q[i + 1]), Math.abs(p[i + 2] - q[i + 2]));
       const count = (p, q, mask) => { let n = 0; for (let i = 0; i < p.length; i += 4) if ((!mask || mask[i]) && diff(p, q, i) > 4) n++; return n; };
       // the animal alone, no plants: its silhouette
-      plants(false); animals(true); const withA = pixels(); animals(false); const noA = pixels(); plants(true);
+      // (trunks stay: one standing in front of the animal may hide it, as it would; leaves may not)
+      plants(false); flora.bark.visible = true; animals(true); const withA = pixels(); animals(false); const noA = pixels(); plants(true);
       const sil = new Uint8Array(withA.length); for (let i = 0; i < withA.length; i += 4) sil[i] = diff(withA, noA, i) > 4 ? 1 : 0;
       const bareN = count(withA, noA);
       // the lens closed and open, no animal: what it opened, beside the animal's own outline
@@ -89,7 +90,7 @@ try {
         mask.data[o] = cut ? 230 : c[i]; mask.data[o + 1] = cut ? 30 : c[i + 1]; mask.data[o + 2] = cut ? 40 : c[i + 2]; mask.data[o + 3] = 255;
       }
       const c2 = Object.assign(document.createElement('canvas'), { width: W, height: H }); c2.getContext('2d').putImageData(mask, 0, 0);
-      return { bare: bareN, ratio: bareN ? revealed / bareN : 0, hole: hole / (W * H), shot, mask: c2.toDataURL('image/png') };
+      return { R: focus.uFocusR.value, bare: bareN, ratio: bareN ? revealed / bareN : 0, hole: hole / (W * H), shot, mask: c2.toDataURL('image/png') };
     }
     const cases = {
       canopy(kind) {
@@ -149,7 +150,7 @@ try {
       await writeFile(join(out, `lens-depth-${name}-${kind}-${k}.png`), Buffer.from(rows[k].shot.split(',')[1], 'base64'));
       await writeFile(join(out, `lens-depth-${name}-${kind}-${k}-cut.png`), Buffer.from(rows[k].mask.split(',')[1], 'base64'));
     }
-    for (const row of rows) console.log(`${row.view}: animal ${row.bare} px, ${(row.ratio * 100).toFixed(1)}% shows; lens opened ${(row.hole * 100).toFixed(1)}% of the view`);
+    for (const row of rows) console.log(`${row.view}: gap ${row.R.toFixed(2)}, animal ${row.bare} px, ${Math.min(100, row.ratio * 100).toFixed(1)}% shows; lens opened ${(row.hole * 100).toFixed(1)}% of the view`);
     for (const row of rows) {
       assert.ok(row.bare > 300, `${row.view}: the view shows the animal`);
       assert.ok(row.ratio >= .95, `${row.view}: plants hid ${((1 - row.ratio) * 100).toFixed(1)}% of the selected animal`);

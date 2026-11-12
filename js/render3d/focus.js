@@ -13,9 +13,8 @@
 //    the ground, animal and surrounding landscape keep their normal light;
 //  - shrubs, groundcover and litter on the floor stay, whole, where they show below the animal's
 //    feet or beside it on screen, so the floor of the gap isn't bare;
-//  - a tree trunk (or snag, stump, post) standing clear to the left or right of the animal on
-//    screen stays too, so the forest around it doesn't read as cleared, and so does the stretch of
-//    any trunk showing below the animal's feet;
+//  - tree trunks (and snags, stumps, posts) are never opened: one in front of the animal stays in
+//    front of it (seen through only close by), and the forest doesn't read as cleared;
 //  - the animal's support stays, for every species on every map: the trunk it clings to unless
 //    it's round the back of it, and whatever lies below its feet near it and shows below it on
 //    screen (the crown it sits on, the coral a fish swims over).
@@ -38,6 +37,8 @@ export const focus = {
   uFocusBack: { value: -0.08 },             // rear of the body along the view ray
   uFocusFront: { value: 0.3 },              // front of the body along the view ray
   uFocusTrunk: { value: new THREE.Vector3(0, 0, -1) }, // x, z, radius of the trunk it clings to; radius < 0: none
+  uFocusBodyR: { value: 0.3 },              // half the animal's size across the screen, at its depth: the gap's core
+  uLookD: { value: 0.5 },                   // how far in front of the animal cover is seen through, not opened (look-through.js)
   uFocusInvD: { value: 0 },                 // 1 / distance from the animal to the eye at eye level; 0 from above
 };
 
@@ -60,10 +61,9 @@ float focusSide(vec3 d, float reach) {
 // scale 1). Each one stays whole in the window when all of it shows below the animal's feet or
 // off to its side on screen (see above). Trees and buildings (no keep) open fully: keeping part of
 // one would leave a sliced-off skirt behind.
-// side: for trunks, about their radius at scale 1. A trunk whose base stands clear to the animal's
-// left or right on screen stays (a trunk is upright, so it keeps that offset all the way up). Its
-// limbs, spreading off the trunk up in the crown, still open with the leaves: left standing bare in
-// the gap they'd read as a dead tree.
+// side: for trunks, about their radius at scale 1. The trunk itself is never opened (see below).
+// Its limbs, spreading off the trunk up in the crown, still open with the leaves: left standing
+// bare in the gap they'd read as a dead tree.
 export function withFocusFade(mat, keep = 0, { supportCrown = false, side = 0 } = {}) {
   const prev = mat.onBeforeCompile;
   const baseKey = mat.customProgramCacheKey();
@@ -81,7 +81,7 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false, side = 0 } 
       #else
         vFocusBase = (modelMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz; vFocusS = 1.0;
       #endif`);
-    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; uniform vec3 uCamUp; uniform float uFocusFoot; uniform float uFocusHalfW; uniform float uFocusBottom; uniform float uFocusBack; uniform float uFocusFront; uniform vec3 uFocusTrunk; uniform float uFocusInvD; varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + FOCUS_NOISE +
+    shader.fragmentShader = 'uniform vec3 uFocus; uniform float uFocusAmt; uniform float uFocusR; uniform vec3 uViewDir; uniform vec3 uCamUp; uniform float uFocusFoot; uniform float uFocusHalfW; uniform float uFocusBottom; uniform float uFocusBack; uniform float uFocusFront; uniform vec3 uFocusTrunk; uniform float uFocusInvD; uniform float uFocusBodyR; uniform float uLookD; varying vec3 vFocusW; varying vec3 vFocusBase; varying float vFocusS;\n' + FOCUS_NOISE +
       shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
       float focusWall = 0.0;
       if (uFocusAmt > 0.001) {
@@ -108,29 +108,30 @@ export function withFocusFade(mat, keep = 0, { supportCrown = false, side = 0 } 
           bool low = vFocusBase.y - uFocusFoot < 0.4;
           keep = keep || low && (bu + ext * (uCamUp.y + 0.5) < (uFocusFoot - uFocus.y) * uCamUp.y - 0.03 || focusSide(bd, ext * 0.6) > uFocusHalfW + 0.06);
         }` : ''}
-        ${side ? `keep = keep || focusSide(vFocusBase - uFocus, ${side.toFixed(2)} * vFocusS) > uFocusHalfW + 0.06 && focusSide(fd, 0.0) > uFocusHalfW + 0.06
-          && length((vFocusW - vFocusBase).xz) < ${(side * 1.6).toFixed(2)} * vFocusS;
-        // and the stretch of a trunk that shows below the animal's feet on screen (it can't cover it;
-        // its limbs still go with the leaves)
-        keep = keep || dot(fd, uCamUp) / max(1.0 - dot(fd, uViewDir) * uFocusInvD, 0.05) < uFocusBottom - 0.03
-          && length((vFocusW - vFocusBase).xz) < ${(side * 1.6).toFixed(2)} * vFocusS;` : ''}
-        // a gap only through cover well nearer the camera than the animal, growing with how much
-        // nearer: what is close round the animal stays (it shows through, look-through.js). The nearness
-        // is a share of the way from the animal to the eye at eye level, of four window radii from
-        // above. The gap is measured as it shows on screen (at the animal's depth), so foliage right
-        // at the lens opens about as wide as foliage halfway there, not a wall of it
+        // a trunk is never opened (near its axis): one standing in front of the animal stays in front
+        // of it, close by the animal shows through it (look-through.js), and a straight cut across a
+        // trunk showed as a line. Its limbs, up in the crown, still go with the leaves
+        ${side ? `keep = keep || length((vFocusW - vFocusBase).xz) < ${(side * 1.1).toFixed(2)} * vFocusS;` : ''}
+        // a gap only through cover farther in front of the animal than look-through.js sees through
+        // (uLookD, about its size): close cover stays and the animal shows through it, farther cover
+        // opens. The gap's core is the animal's outline (uFocusBodyR), so nothing farther in front
+        // hides it; it widens a little more the nearer the cover is to the camera (a share of the way
+        // to the eye at eye level, of four window radii from above). It is measured as it shows on
+        // screen (at the animal's depth), so foliage right at the lens opens about as wide as foliage
+        // halfway there, not a wall of it
+        float past = smoothstep(0.6 * uLookD, uLookD, along - uFocusFront);
         float near = (along - uFocusFront) / (uFocusInvD > 0.0 ? max(0.05, 1.0 / uFocusInvD - uFocusFront) : 4.0 * uFocusR);
-        float open = r * smoothstep(0.25, 0.8, near);
+        float open = past * (uFocusBodyR * uFocusAmt + r * smoothstep(0.0, 0.7, near));
         float acrossS = across / max(1.0 - along * uFocusInvD, 0.05);
-        // its rim is soft: over the outer third the leaves thin out, fewer the nearer the middle, by
+        // its rim is soft: just past the open core the leaves thin out, fewer the nearer the middle, by
         // leaf-sized specks fixed in the world (so they hold still as the view moves, and there is
         // still nothing to depth-sort)
-        float rim = (acrossS - 0.65 * open) / (0.35 * open + 1e-4);
+        float rim = (acrossS - open) / (0.3 * open + 1e-4);
         float dither = rim > 0.0 && rim < 1.0 ? smoothstep(0.25, 0.75, focusNoise(vFocusW * 22.0 + 5.0)) : 0.5; // (only in the rim)
         if (!keep && along > uFocusBack && rim < dither) discard;
         // the walls of the gap: what still stands near the edge, above the animal, falls into shade,
         // deepest low down by the animal and easing off toward the open top of the funnel
-        float edge = (1.0 - smoothstep(0.0, 0.8 * uFocusR, acrossS - open)) * smoothstep(0.25, 0.5, near);
+        float edge = (1.0 - smoothstep(0.0, 0.8 * uFocusR, acrossS - open)) * past;
         float above = smoothstep(0.2, 0.75, (vFocusW.y - uFocus.y) / uFocusR) * step(-0.3 * uFocusR, along);
         float deep = 1.0 - 0.3 * smoothstep(0.5, 3.5, up);
         focusWall = edge * above * deep * uFocusAmt;
