@@ -6,6 +6,7 @@ const THREE = await import('three');
 const { Actors } = await import('../js/render3d/actors.js');
 const { Renderer } = await import('../js/render3d/scene.js');
 const { focus } = await import('../js/render3d/focus.js');
+const { FOLLOW_LAG } = await import('../js/render3d/animal-camera.js');
 import { Game } from '../js/game.js';
 import { Input } from '../js/input.js';
 import { startFeed } from '../js/sim/animal-life.js';
@@ -40,7 +41,11 @@ function frame(game, r, time = 1) {
 function verify(game, r, a, label) {
   const st = r.actors.pose.get(a.id); assert.ok(st?.visible, `${label}: no current pose`);
   const p = r.project(st.center.x, st.center.y, st.center.z);
-  near(p.x, r.vw * r.frame.x, `${label}: screen x`); near(p.y, r.vh * r.frame.y, `${label}: screen y`);
+  // (centred exactly across the ground; the camera's height eases after the body's, never more
+  // than FOLLOW_LAG behind: followHeight, decision 0039)
+  const q = r.project(st.center.x, r.target.y, st.center.z);
+  near(q.x, r.vw * r.frame.x, `${label}: screen x`); near(q.y, r.vh * r.frame.y, `${label}: screen y`);
+  assert.ok(Math.abs(r.target.y - st.center.y) <= FOLLOW_LAG + 1e-6, `${label}: camera height within ${FOLLOW_LAG} of the body`);
   assert.equal(r.pickAgent(game, p.x, p.y), a, `${label}: pick the visible animal`);
   // the marker lies flat under the animal (never over its body), and the foliage opens at the body
   assert.ok(r.actors.ring.visible);
@@ -109,9 +114,10 @@ check('Swimming and leaping fish follow current rendered depths rather than the 
   const still = [];
   for (let k = 0; k < 40; k++) { a.state = 'idle'; frame(game, r, k * 0.1); verify(game, r, a, `salmon still/${k}`); still.push(r.target.y); }
   assert.ok(Math.max(...still) - Math.min(...still) < 0.05, 'a salmon holding still does not leap');
-  // (swimming up the creek, a leap clears the water by up to 0.3 tile-heights: the camera rises with it)
+  // (swimming up the creek, a leap clears the water by up to 0.3 tile-heights: the camera rises
+  // with it, eased, within FOLLOW_LAG: verify)
   const heights = [];
-  for (let k = 0; k < 40; k++) { a.state = 'walk'; a.x = 28.5 + k * 0.1; frame(game, r, 4 + k * 0.1); verify(game, r, a, `salmon/${k}`); heights.push(r.target.y); }
+  for (let k = 0; k < 40; k++) { a.state = 'walk'; a.x = 28.5 + k * 0.1; frame(game, r, 4 + k * 0.1); verify(game, r, a, `salmon/${k}`); heights.push(r.actors.pose.get(a.id).center.y); }
   assert.ok(Math.max(...heights) - Math.min(...heights) > 0.2, 'a running salmon leaps');
   dispose(r);
 });

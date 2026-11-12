@@ -1,7 +1,7 @@
 // The isometric 3D view: an orthographic camera over a lit, shadowed heightmap diorama.
 // A transparent 2D canvas on top carries weather, sparkles and labels.
 
-import { easeAnimalTarget } from './animal-camera.js';
+import { easeAnimalTarget, followHeight } from './animal-camera.js';
 import { EyeCamera, EYE_FAR, EYE_FOG_NEAR, WATER_FAR } from './eye-camera.js';
 import { EyeSky } from './eye-sky.js';
 import { Lightning } from './lightning.js';
@@ -433,7 +433,7 @@ export class Renderer {
   centerOnAnimal(a) {
     this.fly = null; this.zoomGoal = null; this.followGlide = null;
     this.followAgent = a;
-    this.followPoseId = null;
+    this.followPoseId = null; if (this.followH) this.followH.y = null;
     const pose = this.actors.pose.get(a.id);
     if (pose?.visible) { this.centerOn(pose.center.x, pose.center.z, pose.center.y); this.followPoseId = a.id; }
     else this.centerOn(a.x, a.y); // next draw computes its fresh pose, even if offscreen
@@ -455,7 +455,7 @@ export class Renderer {
   updateAnimalCamera(dt = 1 / 60) {
     const pose = this.followAgent && this.actors.pose.get(this.followAgent.id);
     if (!pose?.visible) return;
-    const glide = this.followGlide;
+    const glide = this.followGlide, fh = this.followH ||= { y: null, vy: 0 };
     if (glide && glide.id !== this.followAgent.id) this.followGlide = null;
     else if (glide) {
       glide.t += dt;
@@ -463,12 +463,23 @@ export class Renderer {
       this.animalCentered = true; this.updateCamera();
       if (glide.t > 0.8 || this.target.distanceToSquared(pose.center) < 1e-4) this.followGlide = null;
       this.followPoseId = this.followAgent.id;
+      fh.y = this.target.y; fh.vy = 0;
       return;
     }
     if (pose.branchPoint && this.followPoseId === this.followAgent.id) {
       easeAnimalTarget(this.target, pose.center, dt);
       this.animalCentered = true; this.updateCamera();
-    } else this.centerOn(pose.center.x, pose.center.z, pose.center.y);
+      fh.y = this.target.y; fh.vy = 0;
+    } else {
+      // (across and along the ground it stays right on the animal; its height is eased, so a fish
+      // nosing over the reef or a bird's small corrections don't jog the view: followHeight)
+      // (and a new animal, or one that's jumped a tile or more since the last frame, say back on
+      // screen somewhere else, is centred outright)
+      const c = pose.center;
+      if (this.followPoseId !== this.followAgent.id || !(Math.abs(c.x - fh.x) < 1 && Math.abs(c.z - fh.z) < 1)) fh.y = null;
+      fh.x = c.x; fh.z = c.z;
+      this.centerOn(c.x, c.z, followHeight(fh, c.y, dt));
+    }
     this.followPoseId = this.followAgent.id;
   }
   groundCamera() {
