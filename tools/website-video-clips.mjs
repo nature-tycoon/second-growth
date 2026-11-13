@@ -11,7 +11,10 @@
 //   pace: game speed index for the animals (config.js ANIMAL_SPEEDS: 1 normal, 4 watch pace). The
 //     calendar is held: no new day, so no daily plant redraw lands mid-shot
 //   keyEvery: seconds between keyframes (short for a clip a page will scrub)
-//   vertical: also film a 1080×1920 (9:16) version, for Shorts
+//   vertical: also film a 1080×1920 (9:16) version, for Shorts (and the phone hero)
+//   scale, bitrate { mp4, webm }, budget: for a clip shown full screen, film at a higher pixel ratio
+//     (4/3: 2560×1440, the same view) with more bits and a bigger file cap (bytes; website-check
+//     allows 10 MB only for the hero and descent). The defaults: 1920×1080, 2.9 and 2.3 Mbit/s, 4.6 MB
 //   setup(g, pose, wl): poses the scene, returns { focus, shots, description }
 //   shots: what the camera does, one after another in the rendered time (which includes the
 //     crossfade's extra second at the start):
@@ -46,6 +49,8 @@ function hollisCreek(g, pose) {
 export const CLIPS = [
   {
     id: 'hollis-creek-flyover', title: 'Hollis creek flyover', map: 'pnw', seconds: 10, loop: 'none', time: .79, pace: 4, vertical: true,
+    // (the hero, full screen: 2560×1440 at 7 Mbit/s keeps about 87% of the rendered detail, against 77% at 1920×1080 and 2.9)
+    scale: 4 / 3, bitrate: { mp4: 7e6, webm: 5.5e6 }, budget: 9.4e6,
     kind: 'staged restored habitat study',
     setup(g, pose) {
       const animals = hollisCreek(g, pose);
@@ -61,6 +66,9 @@ export const CLIPS = [
   },
   {
     id: 'map-to-forest-floor', title: 'From the map to the forest floor', map: 'pnw', seconds: 12, loop: 'none', time: .79, pace: 4, keyEvery: .5,
+    // (pinned full screen while it scrubs. Its fast push-in is the hardest footage to encode: at 2.9 Mbit/s
+    // it kept half the rendered detail. A keyframe every second instead of every half made no visible difference)
+    scale: 4 / 3, bitrate: { mp4: 6e6, webm: 4.2e6 }, budget: 9.4e6,
     kind: 'staged restored habitat study',
     setup(g, pose) {
       const animals = hollisCreek(g, pose), elk = animals[1];

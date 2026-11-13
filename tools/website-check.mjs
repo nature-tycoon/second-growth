@@ -45,7 +45,10 @@ for (const name of ['header-provenance.json', 'content-provenance.json']) {
 const videoProvenance = JSON.parse(await readFile(join(root, 'website/review-media/video/video-provenance.json'), 'utf8'));
 for (const id of ['hollis-creek-flyover', 'map-to-forest-floor']) assert.ok(videoProvenance.clips.some(clip => clip.id === id), `Missing the ${id} clip`);
 assert.ok(videoProvenance.clips.filter(clip => clip.moment?.key).length >= 2, 'At least two keystone moment clips');
+// The hero and the descent fill the screen, so they are filmed bigger and sharper (10 MB); every other clip 5 MB.
+const fullScreenClips = new Set(['hollis-creek-flyover', 'hollis-creek-flyover-vertical', 'map-to-forest-floor']);
 for (const clip of videoProvenance.clips) {
+  const videoCap = fullScreenClips.has(clip.id) ? 10_000_000 : 5_000_000;
   assert.match(clip.sourceRevision, /^[0-9a-f]{40}$/, `${clip.id}: record the game revision it was filmed from`);
   assert.ok(clip.seconds >= 6 && clip.seconds <= 12 && clip.frames === clip.seconds * clip.fps, `${clip.id}: 6–12 s at a fixed frame rate`);
   assert.ok(Math.max(clip.width, clip.height) >= 1600, `${clip.id}: at least 1600 px on the long side`);
@@ -55,7 +58,7 @@ for (const clip of videoProvenance.clips) {
     const bytes = await readFile(join(root, 'website/review-media/video', file.file));
     assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256, `${file.file} must match its capture provenance`);
     if (file.role === 'video') {
-      assert.ok(bytes.length <= 5_000_000, `${file.file}: keep each video at 5 MB or less`);
+      assert.ok(bytes.length <= videoCap, `${file.file}: keep it at ${videoCap / 1e6} MB or less`);
       assert.ok(file.checked?.duration, `${file.file}: the capture must have played it back`);
     } else assert.ok(bytes.length < 1_500_000, `${file.file}: keep posters below 1.5 MB`);
     freshFiles.add('video/' + file.file);
