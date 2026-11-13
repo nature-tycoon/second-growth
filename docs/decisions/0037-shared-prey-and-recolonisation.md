@@ -1,10 +1,23 @@
 # 0037 Shared prey, cover for stalkers, search images, and recolonisation
 
+## Rules
+
+- All rules are general, every map. Shared prey (`Wildlife.sharePrey`, after `computeSuitability`): each prey animal is split between the hunting species that eat it. A hunter's own share is set by its habitat room (`min(max, K) × preyPer`); others claim only what they eat now (`min(room, pop) × preyPer`); an absent hunter eats nothing. `preyK` is never above the old unshared count.
+- A new hunter's `preyPer` assumes it shares its prey; set it for its share, not the whole stock.
+- Stalking cats (`closeIn > 0`, not cheetahs) prefer prey near cover (`stalkCoverAt`, reusing `preyCover`). Prey see a hunter in the open from further (`watch`, up to 8.4 tiles). Chasers ignore cover by design.
+- Search image: `a.searchImage` (set in `startFeed`) makes other kinds count 1.5× as far, so rare prey persist. It isn't cleared.
+- Arrivals from off-map use the existing `mig`/`sources` rule (rhino `mig: 0.01`). Rare species (hartebeest, topi) depend on arrivals, as in life.
+- Trunk keep-out keeps at least 0.55 of the body's half-width clear beside a thick trunk (`r + half × 0.55`, `ground-obstacles.js`).
+- Seed `Math.random` before `restoredGame` in a seeded check (its first animals draw on it).
+- Checks: `wildlife-diagnostics-check`, `wildlife-additions-check`, `hunt-check`, `animal-life`, `prey-avoidance`, `challenging-ecology`, `scavenger-arrival`, `animal-steering-check`; seeded `balance-sim restore 15`.
+
+## History
+
 2026-11-01. Workstream F. Cole agreed the design on 2026-11-01. He dropped the new species (bison,
 moose, brown bear) for a later map: none of them fits the Hollis valley's real range (moose live in
 northeast Washington, bison never lived west of the Cascades), and only bison fits Atlanta.
 
-## Context
+### Context
 
 Two reports: on an untended Serengeti, rhino, cheetah and spotted hyena were gone and never came
 back; and Coke's hartebeest died out on the integration work.
@@ -35,7 +48,7 @@ removed, hartebeest held at about 5. Two causes:
 
 With herds of 2–3, one kill leaves too few to breed.
 
-## Decision
+### Decision
 
 All three rules are general, on every map:
 
@@ -61,7 +74,7 @@ All three rules are general, on every map:
 Hartebeest and topi stay naturally rare. 73 ha holds one or two hartebeest in the wild (1–3/km²), so
 they depend on arrivals from the population beyond the farm's edge, as they would in life.
 
-## Results
+### Results
 
 `balance-sim`-style seeded runs, untended, 40 years, mean count and kills per head per year
 (before → after all four rules):
@@ -85,7 +98,7 @@ and is now 60.7/72.3/75.1. Natural cover at year 16 went 54% → 62%, forest 168
 mature trees 43 → 51. Rabbits 7 → 13 and elk 13 → 18; bobcats 4 → 1 and owls 3 → 1. Every restoration
 goal is still met. ms/day is unchanged: 8.0 against 9.0–9.5 for base, timed back to back on 5-year runs.
 
-## Verification
+### Verification
 
 - `wildlife-diagnostics-check` now checks the shared `preyK` (never above the unshared count) instead of
   the old formula.
@@ -107,7 +120,7 @@ goal is still met. ms/day is unchanged: 8.0 against 9.0–9.5 for base, timed ba
   antlered bucks in this short check, not a trend. `ground-obstacles`, `cervid-behavior` and
   `animal-positioning` checks pass.
 
-## What the others eat (2026-11-02)
+### What the others eat (2026-11-02)
 
 `wildlife-additions-check` ("atlanta/otter: natural arrivals are attainable") failed about 2 runs in
 5 after this decision, and always on a fixed seed. Two causes:
@@ -134,7 +147,7 @@ owl 1–2). Against the base the same seeds read 73.7 / 68.7 / 59.1. That gap co
 fixes in the same change (0025), which move every map's random sequence; three seeds spread this
 widely can't tell it from chance.
 
-## Known limits
+### Known limits
 
 - Predator numbers are lower on every map, as intended. A predator whose prey is mostly someone
   else's (Sumatra's leopard cat shares rodents with pythons, owls and civets) loses the most.

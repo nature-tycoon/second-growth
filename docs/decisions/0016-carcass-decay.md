@@ -1,5 +1,20 @@
 # 0016 Carcasses break down on screen
 
+## Rules
+
+- Decay is drawing only (`carcassDecay(c)` in `js/render3d/carcass-decay.js`); the carcass's simulation (0008) is unchanged apart from `meals0` and `feed`, recorded at the kill without a random draw. Stages only advance. Graphics → Carcass decay (`settings.decay`) turns it off.
+- Natural deaths leave a body through `leaveBody(wl, a)` (`sim/animal-life.js`) only for `leavesCarcass(def)` animals; it draws from `Math.random`, not `game.rng`. At the 16-carcass limit the oldest natural body goes first. Tree-dwellers leave none yet.
+- Fauna shaders have no attribute to spare (ANGLE can take one of the 16; canopy climbers use 15): carcass decay rides in the animation phase (`carcassPhase()` in `animal-pools.js`). Never add attributes; `carcass-decay-check` keeps every species at 15 or fewer.
+- `BufferGeometry.clone()` shares `userData` by reference: give a part a new object (`g.userData = { ...g.userData, hard: true }`). The older `canopyFur` tag in `model-core.js` mutates in place and may leak.
+- Horns, antlers, ossicones and tusks must be tagged `hard` (part option or inside an `antlers` callback) to stay on the skeleton. The skull is anchored to the eyes (`motion.eyeSpot`, `skullFit`).
+- Tints multiply in linear light: pick colours as they should look and raise them to the power 2.2.
+- Models stand on their origin; a carcass on its side passes the ground along z (`aGround`). A carcass is drawn with graze 0, the pose the skeleton is fitted to.
+- Nothing is built while loading: `Actors.warmRemains` builds skeletons in idle time; the bone shader compiles with `compileAsync` and recompiles when sun shadows switch.
+- Following a killed animal stays on its carcass (`Input.trackFollow`, `Renderer.followCarcass`); `animal-locate-check`.
+- Checks: `node tools/carcass-decay-check.mjs [--print]`, `moments-browser-check`, `canopy-reveal-browser-check`; review `http://localhost:8347/tools/skeleton-review.html`.
+
+## History
+
 2026-10-21. Cole asked to show a kill breaking down over time from scavenging and decay. The first
 version flattened the whole body into a hide with a ribcage laid on top. Cole wanted the ribs to
 grow from the spine, the torso to look as though it were being pulled away in 3D, and the end to
@@ -15,7 +30,7 @@ Next, Cole asked for two more things. Animals that die of old age, hunger or sic
 a body too; until then they just vanished. And skeletons should keep their antlers, horns and tusks,
 so the remains stay recognisable.
 
-## Natural deaths
+### Natural deaths
 
 `leaveBody(wl, a)` in `sim/animal-life.js` runs when the monthly update removes an animal as
 `'natural'`. That is the one cause behind old age, starvation, overcrowding and poor habitat. Animals
@@ -56,7 +71,7 @@ Cole confirmed that every carcass, a kill's or a natural death's, belongs to the
 meals are finite (one per 20 units of length), and whatever the scavengers don't eat goes when its
 timer ends: the decomposers' share. So carrion can't feed scavengers without limit.
 
-## Decision
+### Decision
 
 This is drawing only. A carcass's simulation (meals, lifetime, scavenger visits; 0008) is unchanged,
 apart from two fields recorded at the kill so the renderer can tell how much is gone: `meals0` (the
@@ -127,7 +142,7 @@ It is drawn with the carcass's own matrix, so it sits inside the body as the fle
 piece carries its centre, a scatter direction and the point at which it goes, so `Remains`' shader
 can slump, scatter and shrink pieces individually.
 
-## Gotchas
+### Gotchas
 
 - Tints multiply in linear light: a multiplier of 0.4 reads as ~66% on screen. Pick colours as they
   should look and raise them to the power 2.2.
@@ -164,7 +179,7 @@ Tree-dwellers (`move: 'tree'`, the orangutans) leave no body yet, and are eaten 
 caught. Their models are posed for climbing (an orangutan stands upright), and this skeleton is
 fitted to a level body on four legs.
 
-## Following onto the carcass
+### Following onto the carcass
 
 A carcass has its animal's id. When a followed animal is killed, or dies where it stands, the
 camera stays on its carcass until the carcass is gone (`Input.trackFollow`,
@@ -173,14 +188,14 @@ the shot on the carcass too, captioned with who's eating it. Panning still lets 
 eaten on the spot and fish carried off leave no carcass, so following ends there as before.
 `animal-locate-check` covers it.
 
-## Review page
+### Review page
 
 `http://localhost:8347/tools/skeleton-review.html` (with the server running) shows every species
 that leaves a carcass, on any map. It can show the skeleton alone, the skeleton inside a faint
 outline of the body, or a carcass at any age. It can frame the whole skeleton, the skull or the
 pelvis, from four angles.
 
-## Checks
+### Checks
 
 `node tools/carcass-decay-check.mjs [--print]` checks:
 

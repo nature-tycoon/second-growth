@@ -7,6 +7,7 @@
 // enough that kills per hunter stay near what the population balance was tuned for (hunts that
 // fail less often would otherwise empty the vole meadows: decision 0014).
 const BIG_CATS = new Set(['lion', 'tiger', 'leopard', 'jaguar', 'cougar', 'clouded']);
+const WATER_SNAKES = new Set(['anaconda', 'python']);
 const MID = new Set(['bobcat', 'ocelot', 'leopardcat', 'coyote', 'fox', 'hyena']);
 // (the old prowl rule, kept for ambushers, waders, otters and fish)
 const DEFAULT = { hungry: 7, search: 5, rest: 0.45, fed: 3, bout: [2, 5], digest: 0, soar: 0, seek: false };
@@ -19,6 +20,9 @@ export function activityProfileFor(def) {
   // Raptors and owls: a fed red-tail circles high for long spells; others sit on a perch.
   if (def.move === 'fly' && ['raptor', 'owl'].includes(def.sprite.kind))
     return { ...DEFAULT, hungry: 7, search: 5, rest: 0.4, fed: 7, bout: [1, 2], digest: 1, soar: def.soar ? 0.7 : 0, seek: true };
+  // Snakes lie in wait (lieInWait in sim/animal-life.js), the water snakes at the water's edge, and
+  // after swallowing a meal lie up for days digesting it: an anaconda or python eats only now and then.
+  if (def.sprite.kind === 'snake') return { ...DEFAULT, hungry: 9, search: 99, rest: 0.8, fed: 9, bout: [2, 5], digest: 5, lieInWait: true, atWater: WATER_SNAKES.has(def.key) };
   return DEFAULT;
 }
 // Night animals (behavior.nocturnal) are out from sunset until just before dawn, as drawn, and by

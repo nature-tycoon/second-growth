@@ -31,7 +31,7 @@ try {
       ['heron',54,57,'shallows',-.5],
       ['woodduck',54,55,'water',.4],['woodduck',54,60,'water',-.2]
     ];
-    for(const [key,tx,ty,habitat,orientation] of subjects){
+    for(const [key,tx,ty,habitat,heading] of subjects){
       const w=g.world,def=ANIMAL[key];let tile=-1,best=Infinity;
       for(let y=ty-2;y<=ty+2;y++)for(let x=tx-2;x<=tx+2;x++){
         if(!w.inb(x,y))continue;const i=w.idx(x,y),d=(x-tx)**2+(y-ty)**2;
@@ -42,7 +42,7 @@ try {
       if(tile<0)throw Error('No suitable capture position for '+key);
       occupied.add(tile);const x=tile%w.w+.5,y=Math.floor(tile/w.w)+.5;
       const a=g.wildlife.spawn(def,x,y,{silent:true,age:480});
-      Object.assign(a,{x,y,tx:x,ty:y,wait:1000,orientation,hunger:0,thirst:0,flying:false});
+      Object.assign(a,{x,y,tx:x,ty:y,wait:1000,heading,hunger:0,thirst:0,flying:false});
     }
     g.wildlife.recount();
   })()`);

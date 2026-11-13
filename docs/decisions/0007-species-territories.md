@@ -1,8 +1,21 @@
 # 0007 Species-specific territorial cores
 
+## Rules
+
+- Territory is a defended core inside a home range, only for species with an explicit, evidence-based profile in `animal-territories.js` (bobcat, cougar, ocelot, jaguar, leopard, Sumatran tiger, robin, cardinal, clownfish). Other species keep their behavior; group territories (lions, coyotes) need their own researched model.
+- `animal-territory.js` owns claims, core return, patrols and boundary responses, using ordinary pathfinding, passability, facing and alert poses. No new movement state or renderer position correction.
+- `chooseTarget` runs territorial choices after danger, family care, hunting, scavenging, drinking and feeding. A territory is not a prison; escapes and hunts cancel patrols but keep the home.
+- Encounters are nonlethal (pause, face, display, retreat); no damage, no new population cap, no eviction. No space means a retry after five days. Food, breeding, K and predation formulas are unchanged.
+- Claims use bounded local searches at decisions, never per-frame world scans.
+- A species that lives at one plant adds `tether` to a `host` profile (`hostSpot` from `shrubSpot` in `sim/ground-obstacles.js`, `hoverStep`).
+- `territory` and `territoryAfter` use the animal save/undo mechanism; the claim record is copied on serialization and load. Stale claims are rechecked when used.
+- Checks: `node tools/animal-territory-check.mjs`, `node tools/animal-territory-soak.mjs`, plus clustering, cervid, prey-avoidance, challenging-ecology checks and seeded `balance-sim restore 15`.
+
+## History
+
 2026-10-17. Cole requested territorial behavior where ecologically appropriate.
 
-## Ecological scope
+### Ecological scope
 
 Territory is a defended part of a home range, rather than a rule that every solitary
 animal excludes every neighbor. Profiles are explicit; species without evidence
@@ -28,7 +41,7 @@ home affinity is not claimed to be exclusive defense in the male-only profiles.
 Clownfish sex change, size rank, breeding monopolies and eviction are not modeled;
 existing host-group members are tolerated, including young.
 
-## Architecture and behavior
+### Architecture and behavior
 
 - `animal-territories.js` owns explicit species profiles, adult/season eligibility
   and rival rules. `behaviorFor` exposes the selected profile in the catalog.
@@ -73,7 +86,7 @@ carrying capacity and predation formulas are unchanged; movement can alter later
 population trajectories. Group territories for lions/coyotes and unsupported
 species were deliberately left for their own researched social models.
 
-## Persistence and invariants
+### Persistence and invariants
 
 `territory` and `territoryAfter` use the existing animal save/undo mechanism. The
 nested claim record is copied on serialization and load so snapshots do not share
@@ -82,7 +95,7 @@ later decision; they need no format migration. A stale claim is checked against
 current suitability/terrain/season when used. Paths obey barriers and cannot
 teleport; no territory action manufactures animals, food or hunger relief.
 
-## Verification
+### Verification
 
 - `node tools/animal-territory-check.mjs`: 13 seeded regressions for explicit
   regional profiles, stable/separated cores, sex/family exceptions, seasonal

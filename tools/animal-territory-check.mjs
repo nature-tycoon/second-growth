@@ -1,3 +1,4 @@
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import assert from 'node:assert/strict';
 import { Game } from '../js/game.js';
 import { BIOME_LIST } from '../js/biome.js';
@@ -157,8 +158,8 @@ check('Old and new saves preserve independent home state and lazily acquire miss
 });
 check('Territorial rivals do not seek friendly greetings, while herd behavior is retained', () => {
   const g = setup(), a = spawn(g, 'bobcat'), b = spawn(g, 'bobcat', 41.5, 30.5);
-  const random = Math.random; Math.random = () => 0;
-  try { assert.equal(greet(g.wildlife, a, g.catalog.animal.bobcat), false); } finally { Math.random = random; }
+  const random = forcedSimRandom(); forceSimRandom(() => 0);
+  try { assert.equal(greet(g.wildlife, a, g.catalog.animal.bobcat), false); } finally { forceSimRandom(random); }
   assert.equal(g.catalog.animal.elk.behavior.territory, null);
 });
 console.log(`${checks} territorial behavior checks passed.`);

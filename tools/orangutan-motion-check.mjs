@@ -96,13 +96,13 @@ for (const fps of [15, 60]) for (const speed of [1, 2, 3]) {
   const st = actors.pose.get(a.id), pool = actors.fauna.pool(drawDef(ANIMALS[a.sp], a));
   for (let frame = 1; frame <= fps * 2; frame++) {
     const phase = st.branchPhase || 0, yaw = st.yaw;
-    a.x += .24 / fps; a.phase += 2; a.hd = Math.floor(frame / (fps / 2)) % 2 * Math.PI;
+    a.x += .24 / fps; a.phase += 2; a.heading = Math.floor(frame / (fps / 2)) % 2 * Math.PI;
     actors.update(game, right, 1 + frame / fps);
     assert.ok(st.branchPhase >= phase && st.branchPhase - phase <= 4.2 / fps + 1e-8, 'ground walking keeps the slow clamber cadence instead of adopting the fast simulation cycle');
     assert.ok(Math.abs(st.yaw - yaw) <= 1 / fps + 1e-8, 'ordinary walking does not spin with sudden simulation headings');
     assert.ok(Math.abs(pool.anim.getX(0) - st.branchPhase) < 1e-5);
   }
-  const phase = st.branchPhase, yaw = st.yaw; game.speed = 0; a.hd += Math.PI;
+  const phase = st.branchPhase, yaw = st.yaw; game.speed = 0; a.heading += Math.PI;
   actors.update(game, right, 4);
   assert.equal(st.branchPhase, phase); assert.equal(st.yaw, yaw, 'pause freezes ground walking');
   actors.clear();

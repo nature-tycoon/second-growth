@@ -113,7 +113,7 @@ export default function buildChinandegaPlants(def, mix, get) {
     desc: 'Jiñocuabo, the "tourist tree", for its red, peeling bark. Its small red fruits feed dozens of kinds of birds.' });
   def({ key: 'jicaro', name: 'Calabash tree', sci: 'Crescentia alata', layer: 2, heightM: 7, moist: [0.1, 0.8], light: [0.5, 1],
     grow: 0.004, spread: 0.007, radius: 3, life: 60, cost: 12,
-    look: { type: 'commiphora', leaf: '#4f8a3a', berry: '#8aa050', fruit: [9, 10, 11, 0], bark: '#6a6050' },
+    look: { type: 'commiphora', leaf: '#4f8a3a', berry: '#8aa050', fruit: [9, 10, 11, 0], hangFruit: true, fruitOnWood: true, fruitSize: 0.8, bark: '#6a6050' },
     desc: 'Jícaro. Its round, hard fruits grow straight out of the trunk; the seeds make the drink semilla de jícaro, and horses crack the fruits open.' });
   def({ key: 'chilamate', name: 'Wild fig', sci: 'Ficus insipida', layer: 2, heightM: 30, moist: [0.45, 1], light: [0.3, 1], soil: 0.1,
     grow: 0.005, spread: 0.008, radius: 5, life: 200, cost: 20,

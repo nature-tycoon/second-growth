@@ -47,7 +47,7 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ MEADOW: 1, YOUNG_FOREST: 0.6, MATURE_FOREST: 0.55, RIPARIAN: 0.6, SHRUB: 0.5, MARSH: 0.25 });
-    def({ key: 'elk', kg: 300, herd: true, familyHerd: true, familySize: 7, herdR: 1.6,
+    def({ key: 'elk', jinks: false, wallow: { rut: true, size: 1 }, kg: 300, herd: true, familyHerd: true, familySize: 7, herdR: 1.6,
       bachelorSize: 3, bachelorR: 4.5, bachelorJoin: 8, bachelorSoloAge: 6,
       name: 'Roosevelt elk', sci: 'Cervus canadensis roosevelti', group: 'Mammals', move: 'ground',
       speed: 1.5, hr: 120, max: 14, minK: 3, groupSize: [3, 5], sources: ['N'], mig: 0.3, intro: 15000,
@@ -200,7 +200,7 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ POND: 1, CREEK: 1, RIVER: 0.6, MARSH: 0.3 });
-    def({ key: 'kingfisher', name: 'Belted kingfisher', sci: 'Megaceryle alcyon', group: 'Birds', move: 'fly',
+    def({ key: 'kingfisher', groundFeed: false, name: 'Belted kingfisher', sci: 'Megaceryle alcyon', group: 'Birds', move: 'fly',
       speed: 3.5, hr: 50, max: 3, sources: ['S'], mig: 0.4, breed: [2], litter: [2, 3], life: 5,
       suit: (W, i) => w[W.habitat[i]] * W.waterQ[i] * near(W.distPerch[i], 2, 0.2),
       req: g => Math.min(1, g.fishIndex / 4),
@@ -210,7 +210,7 @@ export default function buildPnwAnimals(def) {
   }
   {
     const w = habW({ POND: 1, MARSH: 1, CREEK: 0.5 });
-    def({ key: 'woodduck', name: 'Wood duck', sci: 'Aix sponsa', group: 'Birds', move: 'fly',
+    def({ key: 'woodduck', nestHole: true, name: 'Wood duck', sci: 'Aix sponsa', group: 'Birds', move: 'fly',
       speed: 2.5, hr: 20, max: 10, groupSize: [1, 2], sources: ['S'], mig: 0.4, breed: [1, 2], litter: [2, 4], life: 4,
       suit: (W, i) => w[W.habitat[i]] * (W.distForest[i] <= 2 || W.distNest[i] <= 3 ? 1 : 0.2),
       sprite: { kind: 'duck', size: 15, woodduck: true, color: '#786958', head: '#777873', breast: '#ada18a', mottled: true, eyePatch: true, bill: '#575a53', speculum: '#2a5aa0',

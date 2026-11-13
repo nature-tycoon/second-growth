@@ -1198,5 +1198,174 @@
     "modified": "Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license.",
     "highpass": 25,
     "bitrate": "80k"
+  },
+  "ring-necked-dove": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/3/3a/Streptopelia_capicola_abunda%2C_roep%2C_17_s%2C_Bronberg%2C_a.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "source": "https://commons.wikimedia.org/wiki/File:Streptopelia_capicola_abunda,_roep,_17_s,_Bronberg,_a.mp3",
+    "by": "JMK",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": "Call of Streptopelia capicola abunda recorded in autumn, at 16:30, at Merops on the Bronberg Ridge near Pretoria",
+    "size": 410828,
+    "title": "Streptopelia capicola abunda, roep, 17 s, Bronberg, a.mp3",
+    "clips": [
+      {
+        "name": "field-ring-necked-dove-1",
+        "offset": 10.1,
+        "duration": 6,
+        "bytes": 61860
+      }
+    ],
+    "sha256": "c449fb22b22964375d6efa5231bee9697fe08c3f78db25346780be43f87a8309",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "encoder": "afconvert + Node (no ffmpeg on the Mac in session wave2-s7); prepare-field-audio.py rebuilds the same window with ffmpeg"
+  },
+  "emerald-spotted-wood-dove": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/3/39/Turtur_chalcospilos%2C_roepe%2C_Skrikfontein%2C_a.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "source": "https://commons.wikimedia.org/wiki/File:Turtur_chalcospilos,_roepe,_Skrikfontein,_a.mp3",
+    "by": "JMK",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": "Calls of Turtur chalcospilos during late afternoon in dense woodland on the eastern escarpment of the Waterberg, at Skrikfontein near Magagamatala, Limpopo, South Africa",
+    "size": 803233,
+    "title": "Turtur chalcospilos, roepe, Skrikfontein, a.mp3",
+    "clips": [
+      {
+        "name": "field-emerald-spotted-wood-dove-1",
+        "offset": 6.8,
+        "duration": 8,
+        "bytes": 81899
+      }
+    ],
+    "sha256": "0b14e744fc56d57973089ecc7242414c705452a55a8ee31e2418069220cf9a17",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "encoder": "afconvert + Node (no ffmpeg on the Mac in session wave2-s7); prepare-field-audio.py rebuilds the same window with ffmpeg"
+  },
+  "hildebrandts-francolin": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/6/6f/Pternistis_hildebrandti_-_Hildebrandt%27s_Francolin_XC621048.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "source": "https://commons.wikimedia.org/wiki/File:Pternistis_hildebrandti_-_Hildebrandt%27s_Francolin_XC621048.mp3",
+    "by": "paulo kivuyo",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":they were calling under a small bush bird-seen:yes playback-used:no Common name: Hildebrandt's Francolin Type: adult, duet, female, male Genus: Pternistis Species: hildebrandti Location: kikatiti, Meru, Arusha Region Country: Tanzania Elevation: 1100 m",
+    "size": 1490283,
+    "title": "Pternistis hildebrandti - Hildebrandt's Francolin XC621048.mp3",
+    "clips": [
+      {
+        "name": "field-hildebrandts-francolin-1",
+        "offset": 53.5,
+        "duration": 6,
+        "bytes": 63567
+      }
+    ],
+    "sha256": "be8bcb63dbc37722aa43841d99e801d53643345854afa0f4b29a0ac56e556267",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "encoder": "afconvert + Node (no ffmpeg on the Mac in session wave2-s7); prepare-field-audio.py rebuilds the same window with ffmpeg"
+  },
+  "superb-starling": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/d/d9/Lamprotornis_superbus_-_Superb_Starling_XC402690.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "source": "https://commons.wikimedia.org/wiki/File:Lamprotornis_superbus_-_Superb_Starling_XC402690.mp3",
+    "by": "Anne Ndung'u",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":The bird was on an acacia tree but there were a couple of them hopping around looking for food. There are a number of birds in the background, a type of dove which I did not see and some eastern grey woodpeckers which i saw. Human voices in the background unfortunately. bird-seen:yes playback-used:no Common name: Superb Starling Type: call Genus: Lamprotornis Species: superbus Location: Nakuru Co",
+    "size": 521719,
+    "title": "Lamprotornis superbus - Superb Starling XC402690.mp3",
+    "clips": [
+      {
+        "name": "field-superb-starling-1",
+        "offset": 46.2,
+        "duration": 6,
+        "bytes": 62739
+      }
+    ],
+    "sha256": "d48b1c5f90375aa6764e27d74c3bffe10cdb9f7356c6e1f4f749698f563c1ecc",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "encoder": "afconvert + Node (no ffmpeg on the Mac in session wave2-s7); prepare-field-audio.py rebuilds the same window with ffmpeg"
+  },
+  "red-billed-hornbill": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/6/66/Tockus_rufirostris%2C_roep_te_Hartbeesfontein%2C_2024-02-24_15h44.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "source": "https://commons.wikimedia.org/wiki/File:Tockus_rufirostris,_roep_te_Hartbeesfontein,_2024-02-24_15h44.mp3",
+    "by": "JMK",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": "Call of Tockus rufirostris at Hartbeesfontein in eastern Dinokeng Game Reserve, Gauteng, South Africa",
+    "size": 468448,
+    "title": "Tockus rufirostris, roep te Hartbeesfontein, 2024-02-24 15h44.mp3",
+    "clips": [
+      {
+        "name": "field-red-billed-hornbill-1",
+        "offset": 9.5,
+        "duration": 7,
+        "bytes": 72313
+      }
+    ],
+    "sha256": "9b1f805097108e468ec5db09be3ba6448e98bb8563b23050267c656ece759517",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "encoder": "afconvert + Node (no ffmpeg on the Mac in session wave2-s7); prepare-field-audio.py rebuilds the same window with ffmpeg"
+  },
+  "spotted-thick-knee": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/5/50/Burhinus_capensis%2C_roep%2C_2022-09-24_02h07%2C_Pretoria%2C_a.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "source": "https://commons.wikimedia.org/wiki/File:Burhinus_capensis,_roep,_2022-09-24_02h07,_Pretoria,_a.mp3",
+    "by": "JMK",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": "Call of Burhinus capensis in the early morning hours in suburban Pretoria",
+    "size": 275351,
+    "title": "Burhinus capensis, roep, 2022-09-24 02h07, Pretoria, a.mp3",
+    "clips": [
+      {
+        "name": "field-spotted-thick-knee-1",
+        "offset": 3.9,
+        "duration": 6,
+        "bytes": 62987
+      }
+    ],
+    "sha256": "a4f9a7a0571a8c647fe964853f9fcb25ac6fa8e23ea63172ffc1bdd1a0566175",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "encoder": "afconvert + Node (no ffmpeg on the Mac in session wave2-s7); prepare-field-audio.py rebuilds the same window with ffmpeg"
+  },
+  "village-weaver": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/3/35/Ploceus_cucullatus_-_Village_Weaver_XC405117.mp3?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "source": "https://commons.wikimedia.org/wiki/File:Ploceus_cucullatus_-_Village_Weaver_XC405117.mp3",
+    "by": "Anne Ndung'u",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "description": ":First, there was a pair fighting or pecking at each other on a yellow oleander tree, then they went up a palm tree where there were other birds. I have trimmed the audio due to the Interruption from two people working in the background. bird-seen:yes playback-used:no Common name: Village Weaver Type: call Genus: Ploceus Species: cucullatus Location: Kilifi County Country: Kenya Elevation: 0 m",
+    "size": 285132,
+    "title": "Ploceus cucullatus - Village Weaver XC405117.mp3",
+    "clips": [
+      {
+        "name": "field-village-weaver-1",
+        "offset": 27.7,
+        "duration": 5,
+        "bytes": 52979
+      }
+    ],
+    "sha256": "20cf2508bcfefc20e09b897a6a07cad1b231fa83ce392d9ba17f8d8e7c1e4dd2",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "encoder": "afconvert + Node (no ffmpeg on the Mac in session wave2-s7); prepare-field-audio.py rebuilds the same window with ffmpeg"
+  },
+  "bed-cicadas": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/d/dc/BioAcoustica_MHV_973_P.haglundi_nr_Barberton_2.flac?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "source": "https://commons.wikimedia.org/wiki/File:BioAcoustica_MHV_973_P.haglundi_nr_Barberton_2.flac",
+    "by": "BioAcoustica (Martin H. Villet cicada collection)",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "description": "Sound recording of Platypleura haglundi",
+    "size": 4324050,
+    "title": "BioAcoustica MHV 973 P.haglundi nr Barberton 2.flac",
+    "clips": [
+      {
+        "name": "field-bed-cicadas-1",
+        "offset": 4.4,
+        "duration": 23,
+        "bytes": 242668
+      }
+    ],
+    "sha256": "f48e08bb040bb7f53f45815ac4fa3e949d73842e210e7a1b006261fbe3f64fad",
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
+    "encoder": "afconvert + Node (no ffmpeg on the Mac in session wave2-s7); prepare-field-audio.py rebuilds the same window with ffmpeg",
+    "loop": true
   }
 }

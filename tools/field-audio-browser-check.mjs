@@ -17,7 +17,7 @@ try {
   console.log('Cascade review includes three bugles and Autumn playback through the game rut audio path.');
   const decoded = await b.evaluate('window.auditFieldFiles()', 60000);
   assert.ok(decoded.files >= 60);
-  assert.ok(decoded.bytes < 6_000_000);
+  assert.ok(decoded.bytes < 6_500_000);
   console.log(`${decoded.files} AAC clips decoded; peaks, RMS, mono channels and download budget passed.`);
   const loops = await b.evaluate(`(async () => {
     const { Music }=await import('/js/audio/music.js');
@@ -54,8 +54,8 @@ try {
       return rows;
     } finally {await ctx.close();}
   })()`,60000);
-  assert.equal(loops.length,5);
-  console.log('All five continuous recordings loop for three passes without restart gaps, seam clicks or abrupt level changes.');
+  assert.equal(loops.length,6);
+  console.log('All six continuous recordings loop for three passes without restart gaps, seam clicks or abrupt level changes.');
   const rain = await b.evaluate(`(async () => {
     const { Music }=await import('/js/audio/music.js');
     const { createRainSource }=await import('/js/audio/rain.js');
@@ -138,7 +138,9 @@ try {
     music.ctx.createBuffer=(...args)=>{buffers++;return createBuffer(...args);};
     music.start=()=>{const before=buffers,t=performance.now();const result=start();window.audioStarts.push({ms:performance.now()-t,buffers:buffers-before});return result;};
   })()`);
-  const startButton = await b.evaluate(`(()=>{const r=document.querySelector('[data-m="free"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+  // (the first real click: Free Play on the chooser, or, on a first visit that goes straight into
+  // Free Play, the top of the screen; any pointerdown starts the audio, ui.js)
+  const startButton = await b.evaluate(`(()=>{const e=document.querySelector('[data-m="free"]');if(!e)return{x:innerWidth/2,y:4};const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2};})()`);
   await b.send('Emulation.setCPUThrottlingRate', { rate: 6 });
   await b.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...startButton, button: 'left', clickCount: 1 });
   await b.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...startButton, button: 'left', clickCount: 1 });

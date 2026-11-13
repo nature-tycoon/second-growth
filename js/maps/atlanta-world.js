@@ -7,7 +7,8 @@
 // (72 x 60), so the gardens and their pollinators are close up.
 
 import { World, riverRow, generateHeights } from '../world.js';
-import { T, F } from '../config.js';
+import { T, F, clamp } from '../config.js';
+import { smoothstep } from './landform.js';
 import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
@@ -165,11 +166,26 @@ export function generateSubdivision(seed = 2006, catalog = activeCatalog) {
     for (const x of xs) for (const y of [sy, sy + 1]) { const i = w.idx(x, y); w.terrain[i] = T.CREEK; w.clearPlants(i); w.feature[i] = F.BOARDWALK; }
   }
 
-  generateHeights(w, []);
+  generateHeights(w, [], piedmontLand(w));
   for (const st of w.structures) if (st) w.flattenRect(st.x, st.y, st.w, st.h);
   w.heightDirty = true;
   w.hydroDirty = true;
   return w;
+}
+
+// Piedmont ridge and ravine (0044): the ridge high to the north, Hollins Creek in a ravine down
+// the middle with the lots on its flanks, and a flat strip of floodplain along the river.
+function piedmontLand(w) {
+  return {
+    drain: true,
+    base(x, y, h) {
+      const t = clamp((w.h - 4 - y) / (w.h - 4), 0, 1.4);
+      let add = 4.5 * smoothstep(0.25, 1.3, t) ** 1.3;
+      add += 2.6 * smoothstep(2, 24, Math.abs(x - creekX(y))) * (0.45 + 0.55 * smoothstep(0, 1, t));
+      if (y < 0) add += -y * 0.35;
+      return h + add * smoothstep(3, 14, riverRow(x, w.h) - 1 - y); // (the floodplain stays low)
+    },
+  };
 }
 
 // Around Magnolia Ridge: the last oak-hickory woods on the ridge to the north, the four-lane

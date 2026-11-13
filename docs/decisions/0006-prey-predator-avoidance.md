@@ -1,8 +1,20 @@
 # 0006 Prey vigilance and escape choices
 
+## Rules
+
+- Prey vigilance reuses `watch`, `bolt`, bird alarms, diet relationships, `preyCover`, terrain policy and the existing aquatic and canopy escape paths. It runs every 0.2 game days in the ordinary wildlife update, offscreen too, interrupts idle, walking, feeding, social and play for real danger, and includes young animals. Fire evacuation keeps priority.
+- Build the predator candidate list once per interval; no per-prey cached paths or world danger field. Lookout range 6 tiles; immediate danger is a hunter within 3 tiles or an active hunt in range. Feeding hunters are ignored.
+- Flight choice weighs clearance from all hunters, cover and turn continuity (now through 0025's shared steering), sampled at 0.2-tile steps so it can't tunnel through barriers or fire. Smoothing uses elapsed time, not a per-frame constant.
+- Birds launch at once and land only on legal, non-burning sites; with none sampled they stay airborne and retry.
+- No population, habitat, hunger or catch-probability formula changes. Transient vigilance state resets on load; no renderer position edits.
+- 0014 and 0026 later changed when prey bolt from a stalking hunter.
+- Checks: `node tools/prey-avoidance-check.mjs` (all predator-prey pairs), `challenging-ecology-check`, `node tools/animal-clustering-soak.mjs`; seeded `balance-sim restore 15` (`node --import ./tools/avoidance-seed.mjs`).
+
+## History
+
 2026-10-17. Cole requested better predator avoidance after the cross-map clustering fixes.
 
-## Findings
+### Findings
 
 Shared lookout ran mostly when choosing a new destination. Resting/walking prey
 could miss an approaching hunter; juveniles were excluded. A predator's own target
@@ -12,7 +24,7 @@ pursuit continued. The rush also capped target speed at half the predator sprint
 Aquatic prey mainly reacted after a rush/missed catch, and reef walking ignored
 the escape pace multiplier that those reactions set.
 
-## Decision
+### Decision
 
 - Reuse `watch`, `bolt`, bird alarms, diet relationships, `preyCover`, terrain
   policy and existing aquatic/canopy escape paths. Vigilance runs every 0.2 game
@@ -48,7 +60,7 @@ no migration: the existing threat/escape fields are reused, and transient vigila
 state resets when the agent list is replaced or loaded. Canopy escapes still issue
 path intents using the existing locomotion system; no renderer position edits.
 
-## Verification
+### Verification
 
 - `node tools/prey-avoidance-check.mjs`: 17 seeded regressions, covering stalked and
   juvenile prey, activity interruptions, threat priority, birds and legal landings,

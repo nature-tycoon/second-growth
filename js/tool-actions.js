@@ -2,9 +2,10 @@
 // tool rules, prices, bookkeeping and completion work. Drawing stays with the UI.
 import { T } from './config.js';
 import { strokeTiles, toolCost } from './tools.js';
-import { plantLimits } from './sim/plants.js';
+import { plantLimits, plantSuit } from './sim/plants.js';
 import { toolUnlocked } from './sim/campaign.js';
 import { assertToolCost, assertToolResult } from './data/contracts.js';
+import { simRandom } from './sim/sim-random.js';
 
 /**
  * @typedef {Object} ToolStroke
@@ -35,7 +36,7 @@ export class ToolActions {
   }
 
   /** @returns {ToolStroke|null} */
-  begin(key, { random = Math.random } = {}) {
+  begin(key, { random = simRandom } = {}) { // (the sim's stream: which plants a stroke places is simulation)
     const tool = typeof key === 'string' ? this.game.catalog.tools[key] : key;
     if (!tool || this.game.catalog.tools[tool.key] !== tool || !toolUnlocked(this.game, tool.key)) return null;
     const stroke = {
@@ -122,9 +123,10 @@ export class ToolActions {
     if (stroke.locked != null && !stroke.count && map.lockedNote) g.notify(map.lockedNote(g, stroke.locked), 'info');
     if (stroke.broke) g.notify('Not enough money. Monthly grants will top up your budget. Healthier land earns bigger grants.', 'warn');
     if (!stroke.count && stroke.unsuitable && tool.species) {
-      const plant = this.game.catalog.plant[tool.species[0]];
-      const limits = stroke.lastBad != null ? plantLimits(g.world, stroke.lastBad, plant) : [];
-      g.notify(`${tool.name} won't survive here${limits.length ? ` (${limits.join(', ')})` : ''}. Green previews show where it will grow.`, 'warn');
+      const { limits, better } = stroke.lastBad != null ? refusal(g, stroke.lastBad, tool) : { limits: [], better: null };
+      // (the tool that suits comes before the reasons: a phone shows two lines of a warning)
+      const why = limits.length ? ` (${limits.join(', ')})` : '';
+      g.notify(better ? `${tool.name} won't survive here: try ${better.name}${why}.` : `${tool.name} won't survive here${why}. Green previews show where it will grow.`, 'warn');
       if (map.hardpan && stroke.lastBad != null && g.world.terrain[stroke.lastBad] === T.GRAVEL && !g.flags.hardpanHint) {
         g.flags.hardpanHint = true;
         g.notify(map.text.hardpanHint || 'This is crusted hardpan: rain runs straight off it and seed can\'t root. Break the crust first with Landscape → Loosen soil or Half-moon pits, then sow. Only the Soil builders mix will take on bare crust, slowly.', 'info', {
@@ -133,4 +135,26 @@ export class ToolActions {
       }
     }
   }
+}
+
+// Why a planting tool is refused on tile i (plantLimits of its first plant) and the unlocked tool
+// that would grow there instead: the after-stroke warning and the brush cursor tip both say it.
+export function refusal(g, i, tool) {
+  return { limits: plantLimits(g.world, i, g.catalog.plant[tool.species[0]]), better: suitedTool(g, i, tool) };
+}
+
+// The unlocked planting tool of the same layer (groundcover, shrub or tree) that suits tile i best,
+// as plantTool judges a seed (suitability over 0.2), or null. Lawn suits nothing until it's lifted.
+function suitedTool(g, i, tool) {
+  const w = g.world, layer = g.catalog.plant[tool.species[0]].layer;
+  if (w.ground[i] && g.catalog.plants[w.ground[i]]?.sod) return null;
+  let best = null, bestSuit = 0.2;
+  for (const t of Object.values(g.catalog.tools)) {
+    if (t === tool || !t.species?.length || !toolUnlocked(g, t.key)) continue;
+    const plants = t.species.map(k => g.catalog.plant[k]);
+    if (plants[0]?.layer !== layer) continue;
+    const suit = Math.max(...plants.map(p => plantSuit(w, i, p)));
+    if (suit > bestSuit) { best = t; bestSuit = suit; }
+  }
+  return best;
 }

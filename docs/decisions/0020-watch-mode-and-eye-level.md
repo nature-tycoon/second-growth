@@ -1,8 +1,23 @@
 # 0020 Watch mode and eye level
 
+## Rules
+
+- Watch mode is `js/ui/watch.js` (`C`); the director picks by `interest()` and `pick()`. The caption reuses `UI.agentStatus`. Clicks, drags and wheel in watch mode never reach the map. Shuffle (`Watch.shuffle`) is off at eye level, on in the usual view.
+- Keystone moments leave the eye camera (`Cinematics.play` calls `setEyeLevel(null)`) and the next shot returns to eye level; a click during a moment does nothing. Check `tools/moment-camera-browser-check.mjs`.
+- Eye level is a ride-along camera (`js/render3d/eye-camera.js`), never closer than 0.3 tiles to the ground. Framing comes from the drawn model (`Fauna.height`/`st.tall`, `Fauna.extent`), not sprite numbers. `EyeCamera.forward` is where the eye looks; `heading` is the animal's.
+- Fog stays in every shader permanently (pushed to ~1e5 in the usual view) so switching to eye level never recompiles materials. Keep it that way.
+- three's fog is applied after tone mapping in sRGB (`fogColor`): a ShaderMaterial that fogs must mix in after `colorspace_fragment` (as `sea.js` does with `uFogOut`), or the horizon shows a band.
+- Eye level only: far plane 34 tiles (14 under water, `WATER_FAR`), perspective culling in `ActorView`, distant models by distance (`begin(ppu, eye)`), plant detail `Renderer.eyeDetail`, 2D effects layer skipped.
+- Lightning bolt: segment ends use `aOther = 2B − A`, and the material must stay double-sided or strips running the "wrong" way are culled. The flash is exposure, not a light. Lightning is drawing only; it never starts a fire.
+- Thunder (`js/audio/thunder.js`) uses real recordings (0002), credited; `node tools/thunder-check.mjs`. Graphics → Weather off and the reef turn rain, snow and lightning off.
+- On the reef the eye stays on the animal's side of the surface (`EyeCamera.update(…, seaY)`). Perched birds on conifer boughs get a `PerchBough`; birds on snags sit on the top (`Actors.snagSite`).
+- Phones: check the watch bar in landscape (812×375). Check `node tools/watch-check.mjs`. Eye level is unmeasured on the low-end target: run `tools/play-profile.mjs` with watch mode before promoting it.
+
+## History
+
 2026-10-23. Cole asked for a cinematic mode just for watching, and to explore watching in first person.
 
-## Decision
+### Decision
 
 **Watch mode** (`js/ui/watch.js`, key `C`, the camera button beside the rotate buttons, or Menu →
 Watch). The panels go, thin letterbox bars come in, and the camera directs itself:
@@ -183,7 +198,7 @@ in `updateEye`:
   the snag is kept solid against the focus window like a tree's wood (`Actors.snagSite`).
   Not covered: palms and other trees without limbs keep their foliage spots, without a bough.
 
-## Evidence
+### Evidence
 
 Measured on Enkare Conservancy (year 9, 402 animals, Fast). Triangles are a fair comparison here;
 the preview tab's frame rate wasn't, since it read 1–2 fps in both views.
@@ -199,7 +214,7 @@ the preview tab's frame rate wasn't, since it read 1–2 fps in both views.
 in the grass), swinging round the animal, that it snaps to a new animal and eases after the same one, the wider phone view,
 perspective culling, and distant models by distance.
 
-## Open
+### Open
 
 - Eye level hasn't been measured on the low-end target (Intel HD 520). Run `tools/play-profile.mjs`
   with watch mode on before promoting it beyond the watch bar.

@@ -4,6 +4,7 @@
 // tiles (the renderer carries each body's level one ring out onto the bank). Animals drinking at
 // the bank and plants on bank tiles use this to stay on the dry side of the waterline.
 import { T, isWater } from '../config.js';
+import { trait } from '../data/animal-kinds.js';
 
 // How far water fills each kind of basin above its lowest corner, in height levels.
 export const WATER_FILL = { [T.POND]: .4, [T.CREEK]: .32, [T.RIVER]: .35, [T.MARSH]: .16 };
@@ -80,6 +81,9 @@ export function lastDry(w, x0, y0, x1, y1, steps = 12, margin = 0.03) {
 // ground at (fx, fy), in height levels (-Infinity off the water). The renderer draws a fish at
 // this tile's surface (waterSurfaceY), down into this depth, so sim and drawing agree.
 export const FISH_DEPTH = 0.07; // (about 17 cm: a trout's room in the shallows)
+// The water a river fish keeps to: FISH_DEPTH, or more for one whose body is deeper than that and
+// never shows above the surface (the catfish, lying on the bed: trait fishDepth)
+export const fishDepth = def => trait(def, 'fishDepth') ?? FISH_DEPTH;
 export function swimDepth(w, fx, fy) {
   const x = Math.floor(fx), y = Math.floor(fy);
   if (!w.inb(x, y)) return Infinity; // (the water beyond the farm's edge)
@@ -121,4 +125,26 @@ export function deepWaterNear(w, fx, fy, r = 1.2, min = FISH_DEPTH) {
     if (d > deepest || d === deepest && d > -Infinity && order < deepOrder) { deepest = d; deep = [x, y]; deepOrder = order; }
   }
   return deep;
+}
+
+// Which way is upstream in a creek or river at (fx, fy): the unit vector up the slope of the bed
+// (each tile's lowest corner) along the channel within two tiles, or null where the bed is level
+// or it is off the channel (ponds and marsh hold still water). The water surface itself is flat
+// across each pool of a creek's staircase, but the current still runs down the bed. A trout or
+// salmon holds station facing into the current, so a river fish at rest turns this way.
+export function upstreamAt(w, fx, fy) {
+  const x = Math.floor(fx), y = Math.floor(fy);
+  if (!w.inb(x, y)) return null;
+  const moving = (x, y) => w.inb(x, y) && (w.terrain[w.idx(x, y)] === T.CREEK || w.terrain[w.idx(x, y)] === T.RIVER);
+  const bed = (x, y) => Math.min(w.vert(x, y), w.vert(x + 1, y), w.vert(x + 1, y + 1), w.vert(x, y + 1));
+  if (!moving(x, y)) return null;
+  const B0 = bed(x, y);
+  let ux = 0, uy = 0;
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+    if ((!dx && !dy) || !moving(x + dx, y + dy)) continue;
+    const d2 = dx * dx + dy * dy, rise = bed(x + dx, y + dy) - B0;
+    ux += dx * rise / d2; uy += dy * rise / d2;
+  }
+  const l = Math.hypot(ux, uy);
+  return l > 0.02 ? [ux / l, uy / l] : null; // (a fall of a fiftieth of a level or less: still water)
 }

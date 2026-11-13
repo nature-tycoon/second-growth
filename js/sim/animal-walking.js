@@ -3,6 +3,7 @@ import { T, clamp } from '../config.js';
 import { passable } from './animal-terrain.js';
 import { pathPoint } from './animal-course.js';
 import { resolveStep, steerAround } from './ground-obstacles.js';
+import { turnRate } from './steering.js';
 const angleDelta=(a,b)=>{let d=a-b;return d-Math.round(d/(Math.PI*2))*Math.PI*2;};
 export const smoothWalker=def=>!def.reef&&(def.move==='ground'||def.move==='semi'&&!def.patrol);
 // Check the swept segment and both sides of each diagonal boundary. Short look-ahead
@@ -48,8 +49,8 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
   // last leg no further than its spot, which may stand beside a trunk: ground-obstacles.js)
   desired=steerAround(w,a,def,desired,last?Math.min(look,distance+.3):Math.max(look,1.6));
   // (setting off, it turns from the way it faces rather than snapping round; a startled dash spins at once)
-  const heading=a.walkHeading??(a.run?desired:a.orientation??desired);
-  const turn=angleDelta(desired,heading),rate=clamp(5-size*.045,2.4,4.5);
+  const heading=a.walkOn?a.heading:a.run?desired:a.heading??desired;
+  const turn=angleDelta(desired,heading),rate=turnRate(def);
   let next=heading+clamp(turn,-rate*dt,rate*dt);
   // A tight turn trades speed for rotation, instead of skating sideways or orbiting a point.
   const alignment=Math.max(0,Math.cos(angleDelta(desired,next)));
@@ -63,8 +64,7 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
     next=heading+clamp(angleDelta(bearing,heading),-rate*dt,rate*dt);
     step=0;nx=a.x;ny=a.y;
   }
-  a.walkHeading=next;a.orientation=next;
-  if(Math.abs(Math.cos(next))>.05)a.facing=Math.cos(next)>0?1:-1;
+  a.walkOn=true;a.heading=next;
   // (out of wood after pivoting on the spot too: a stag turning there swung his rack into a trunk)
   const fx=a.x,fy=a.y;if(step>1e-7){a.x=nx;a.y=ny;}resolveStep(wl,a,def,fx,fy);
   if(last)return Math.hypot(a.x-tx,a.y-ty)<Math.max(.045,pace*.6);

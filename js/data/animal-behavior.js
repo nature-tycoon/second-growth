@@ -56,7 +56,7 @@ export function behaviorFor(def) {
   if (def.reef) {
     const reefFood = { greenturtle: ['seagrass'], dugong: ['seagrass'], hawksbill: ['sponge'],
       idol: ['sponge'], butterfly: ['coral'], cleaner: ['cleaning'], manta: ['plankton'],
-      chromis: ['plankton'], clownfish: ['plankton'], tang: ['algae'], parrotfish: ['algae'],
+      chromis: ['plankton'], anthias: ['plankton'], clownfish: ['plankton'], tang: ['algae'], parrotfish: ['algae'],
       urchin: ['algae'], seacucumber: ['sediment'], humphead: ['starfish'] };
     forage = reefFood[def.key] || [];
   }

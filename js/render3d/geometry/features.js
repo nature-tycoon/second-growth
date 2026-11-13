@@ -228,7 +228,8 @@ export function contactShadow(segs = 16) {
   return g;
 }
 
-export function blob(color, r = 0.035) { return prep(new THREE.IcosahedronGeometry(r, 0), color); }
+// lod 3 (far): eight faces, a little bigger so it covers as much of the screen as the twenty-sided one
+export function blob(color, r = 0.035, lod = 0) { return prep(lod === 3 ? new THREE.OctahedronGeometry(r * 1.24) : new THREE.IcosahedronGeometry(r, 0), color); }
 // A sedge tussock's hummock in a beaver meadow: a low mound of roots and old leaves the sedge sits on.
 export function hummock(seed) {
   const r = mulberry32(seed), g = prep(new THREE.SphereGeometry(0.12, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), 0x6f6a3e);

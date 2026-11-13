@@ -78,6 +78,19 @@ check('Regions spread over several calls keep the tiles that changed meanwhile',
   same(a, b, 'budgeted');
 });
 
+check('Deadwood ageing works out only its own tile, and matches a complete rebuild', () => {
+  const g = plantFixture('pnw'), w = g.world, a = make(), b = make();
+  const logs = [];
+  for (let n = 0; n < 6; n++) { const i = w.idx(30 + n * 7, 40); w.feature[i] = n % 3 === 0 ? F.LOG : n % 3 === 1 ? F.STUMP : F.SNAG; w.featureAge[i] = 40; logs.push(i); }
+  a.rebuild(g, true);
+  for (let day = 0; day < 3; day++) {
+    for (const i of logs) w.featureAge[i] += 400; // (enough to show: a log greys, a stump rots, a snag shortens)
+    a.rebuild(g); b.rebuild(g, true);
+    assert.equal(a.lastRebuild.worked, logs.length, `${a.lastRebuild.worked} tiles worked out for ${logs.length} ageing features`);
+    same(a, b, `deadwood day ${day}`);
+  }
+});
+
 check('Climbers get a fresh tree site each rebuild, as from a complete rebuild', () => {
   const g = plantFixture('sumatra'), w = g.world, a = make();
   a.rebuild(g, true);

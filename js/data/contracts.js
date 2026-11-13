@@ -2,6 +2,8 @@
 // Keep these independent of Game, map modules and rendering so they create no import cycle.
 import { T, F, BORDER, MONTHS_PER_YEAR, SPEEDS } from '../config.js';
 import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema.js';
+import { TRAIT_BOOLEANS } from './animal-kinds.js';
+import { FISHING_STYLES } from './animal-fishing.js';
 
 /** @typedef {0|1|2} PlantLayer Groundcover, shrub, tree; separate from species IDs. */
 /** @typedef {'ground'|'semi'|'tree'|'fly'|'swim'} AnimalMove */
@@ -40,6 +42,7 @@ import { WORLD_ARRAY_TYPES, EXTRA_ARRAYS, extraArrayLimit } from './world-schema
  * @property {boolean} [small]
  * @property {boolean} [crownBloom]
  * @property {boolean} [hangFruit]
+ * @property {boolean} [fruitOnWood] hung fruit grows on the trunk and main limbs (cauliflory), not round the crown
  * @property {boolean} [climbs]
  */
 
@@ -303,7 +306,7 @@ const layer = (v, path) => choice(v, path, [0, 1, 2]);
 const PLANT_BOOLEANS = 'native invasive nfix aquatic wetOK nurse conifer beaverFood resprout gravelOK birdSpread floating swampTree weedy crustOK sod exotic caterpillars dune fencePost mangrove fragile cay thorny pods';
 const PLANT_NUMBERS = 'compete soil spread radius life cost graze browse mast fuel fireSurvival matureAge soilK pioneer bleach seedSpacing smother fruitFood harvest heightM cndd windfirm decay farSeed grassFireKill';
 const PLANT_FIELDS = keys(`key name sci desc layer moist light grow look mapId id host disperser seedTravel kindName tab was nectar ${PLANT_BOOLEANS} ${PLANT_NUMBERS}`);
-const LOOK_FIELDS = keys('type leaf bloom fruit deciduous evergreen tropical savanna dryForest scale flower berry fall dry bark head stem seed plume bloomTint fruitSize airy small crownBloom hangFruit climbs morphs');
+const LOOK_FIELDS = keys('type leaf bloom fruit deciduous evergreen tropical savanna dryForest scale flower berry fall dry bark head stem seed plume bloomTint fruitSize airy small crownBloom hangFruit fruitOnWood climbs morphs');
 
 /** @param {PlantSpec} p */
 export function assertPlantSpec(p, path = 'plant') {
@@ -317,7 +320,7 @@ export function assertPlantSpec(p, path = 'plant') {
   object(p.look, `${path}.look`); fields(p.look, `${path}.look`, LOOK_FIELDS);
   text(p.look.type, `${path}.look.type`); text(p.look.leaf, `${path}.look.leaf`);
   optional(p.look, 'bloom fruit', `${path}.look`, months);
-  optional(p.look, 'deciduous evergreen tropical savanna dryForest airy small crownBloom hangFruit climbs plume', `${path}.look`, boolean);
+  optional(p.look, 'deciduous evergreen tropical savanna dryForest airy small crownBloom hangFruit fruitOnWood climbs plume', `${path}.look`, boolean);
   optional(p.look, 'scale fruitSize bloomTint', `${path}.look`, (v, q) => number(v, q, Number.MIN_VALUE));
   optional(p.look, 'flower berry fall dry bark head stem seed', `${path}.look`, text);
   if (p.nectar != null) { object(p.nectar, `${path}.nectar`); fields(p.nectar, `${path}.nectar`, keys('months amount')); months(p.nectar.months, `${path}.nectar.months`); number(p.nectar.amount, `${path}.nectar.amount`, 0); }
@@ -334,9 +337,9 @@ export function assertSeedMix(m, plant, path = 'mix') {
   // Repeated keys are intentional weights (for example, the reef's starter mix).
 }
 
-const ANIMAL_BOOLEANS = 'herd familyHerd fixedMax strictMax notPrey patrol soar ambush huntsAshore noDrink quick domestic reef benthic frugivore fenced damBuilder tramples';
-const ANIMAL_NUMBERS = 'minK mig intro life mature preyPer speed max hr familySize herdR bachelorSize bachelorR bachelorJoin bachelorSoloAge herdMax needsPer shy browseRate challengePreyPer kg';
-const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey carries needs special crossing surfaceEscape ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
+const ANIMAL_BOOLEANS = `herd familyHerd fixedMax strictMax notPrey patrol soar ambush huntsAshore noDrink quick domestic reef benthic frugivore fenced damBuilder tramples ${TRAIT_BOOLEANS}`;
+const ANIMAL_NUMBERS = 'minK mig intro life mature preyPer speed max hr familySize herdR bachelorSize bachelorR bachelorJoin bachelorSoloAge herdMax needsPer shy browseRate challengePreyPer kg crownHeight seagrassBite fishDepth';
+const ANIMAL_FIELDS = keys(`key name sci desc group move sources suit sprite req hint mapId index nouns behavior groupSize breed litter season prey challengePrey carries needs special crossing surfaceEscape idleEat climb wallow eatsFruit fishes ${ANIMAL_BOOLEANS} ${ANIMAL_NUMBERS}`);
 export const ANIMAL_MOVES = Object.freeze(['ground', 'semi', 'tree', 'fly', 'swim']);
 
 /** @param {AnimalSpec} a */
@@ -356,6 +359,11 @@ export function assertAnimalSpec(a, path = 'animal') {
   optional(a.sprite, 'breedingPlumage', `${path}.sprite`, months);
   if (a.sprite.winter && !a.sprite.breedingPlumage?.length) fail(`${path}.sprite.breedingPlumage`, 'months for a winter plumage profile');
   if (a.crossing) { object(a.crossing, `${path}.crossing`); optional(a.crossing, 'x', `${path}.crossing`, (v, q) => number(v, q, 0, 1)); }
+  optional(a, 'idleEat', path, (v, q) => choice(v, q, ['graze', 'nibble']));
+  optional(a, 'climb', path, (v, q) => choice(v, q, ['walk', 'clamber', 'hang']));
+  optional(a, 'eatsFruit', path, (v, q) => choice(v, q, ['toss', 'chew', 'peck']));
+  optional(a, 'fishes', path, (v, q) => choice(v, q, FISHING_STYLES));
+  if (a.wallow) { object(a.wallow, `${path}.wallow`); number(a.wallow.size, `${path}.wallow.size`, Number.MIN_VALUE); optional(a.wallow, 'rut', `${path}.wallow`, boolean); }
   if (a.surfaceEscape) { object(a.surfaceEscape, `${path}.surfaceEscape`); number(a.surfaceEscape.dash, `${path}.surfaceEscape.dash`, 1, 4); number(a.surfaceEscape.tiles, `${path}.surfaceEscape.tiles`, 1, 30); }
 }
 
@@ -505,12 +513,13 @@ export function assertChapters(catalog) {
  * @typedef {{w:number, h:number, arrays:Object<string,SavedBytes|{n:number,b:SavedBytes}>, structures:Array<{type:string,x:number,y:number,w:number,h:number}|null>}} SavedWorld
  * @typedef {{id:number, sp:number, x:number, y:number, age:number, state:string, key?:string, move?:AnimalMove}} AnimalAgent
  * @typedef {{agents:AnimalAgent[], state:Object[], nextId:number, salmon:Object, dams:number}} SavedWildlife
- * @typedef {Partial<FarmState> & {v:1|2, seed:number, day:number, money:number, rng:number, world:SavedWorld, wildlife:SavedWildlife, flags:Object, stats:FarmStats, goalsDone:Object, plants?:string[], visitors?:Object, events?:Object}} FarmSave
+ * @typedef {Partial<FarmState> & {v:1|2, seed:number, day:number, money:number, rng:number, wildRng?:number, world:SavedWorld, wildlife:SavedWildlife, flags:Object, stats:FarmStats, goalsDone:Object, plants?:string[], visitors?:Object, events?:Object}} FarmSave
  */
 export function assertSaveEnvelope(data, path = 'save') {
   object(data, path); choice(data.v, `${path}.v`, [1, 2]);
   number(data.seed, `${path}.seed`); integer(data.day, `${path}.day`); number(data.money, `${path}.money`); number(data.rng, `${path}.rng`);
   optional(data, 'map', path, text);
+  if (data.wildRng != null) number(data.wildRng, `${path}.wildRng`);
   if (data.runSeed != null) number(data.runSeed, `${path}.runSeed`); // (older saves have none: their rng state is all they need)
   for (const key of ['flags', 'stats', 'goalsDone', 'world', 'wildlife']) object(data[key], `${path}.${key}`);
   integer(data.world.w, `${path}.world.w`, 1); integer(data.world.h, `${path}.world.h`, 1);

@@ -6,7 +6,8 @@
 // of the old bush; lone umbrella thorns and a pair of ancient baobabs survived the axe.
 
 import { World, riverRow, generateHeights } from '../world.js';
-import { T, F } from '../config.js';
+import { T, F, clamp } from '../config.js';
+import { smoothstep, tileDistance } from './landform.js';
 import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
 
@@ -105,12 +106,15 @@ export function generateRange(seed = 2024, catalog = activeCatalog) {
   rect(60, 60, luggaX(60) + 6, 60, i => { if (w.terrain[i] !== T.CREEK && w.terrain[i] !== T.RIVER) { w.terrain[i] = T.ROAD; w.clearPlants(i); } });
   w.feature[w.idx(luggaX(60), 60)] = F.CULVERT;
 
-  // Gullies: erosion scars running downhill (south) from the trampled ground to the river.
+  // Gullies: erosion scars running downhill (south) from the trampled ground to the river, down
+  // the korongos (drainage lines) the land already had
+  const gully = new Uint8Array(w.n);
   for (const [gx, gy, len] of [[30, 34, 40], [58, 30, 44], [100, 34, 38], [14, 44, 34]]) {
     let x = gx;
     for (let y = gy; y < gy + len && y < riverRow(Math.round(x)) - 1; y++) {
       x += (valueNoise(x, y, 5, 71) - 0.5) * 1.6;
       const xi = Math.round(x), i = w.idx(xi, y);
+      if (w.inb(xi, y)) gully[i] = 1;
       if (!w.inb(xi, y) || !open(i)) continue;
       w.terrain[i] = T.MUD; w.clearPlants(i); w.soil[i] = 0.02;
       const j = w.idx(xi + 1, y);
@@ -179,16 +183,37 @@ export function generateRange(seed = 2024, catalog = activeCatalog) {
     if (w.inb(x, y) && open(i) && rng() < 0.14) set(i, rng() < 0.55 ? 'fevertree' : rng() < 0.6 ? 'sycamorefig' : 'sausage', 0.8, 12);
   }
 
-  generateHeights(w, []);
-  // raise the kopjes: smooth granite domes
-  for (const [kx, ky, r] of KOPJES) for (let y = Math.floor(ky - r - 1); y <= Math.ceil(ky + r + 1); y++) for (let x = Math.floor(kx - r - 1); x <= Math.ceil(kx + r + 1); x++) {
-    const d = Math.hypot(x - kx, y - ky) / (r + 0.8);
-    if (d < 1) w.setVert(x, y, w.vert(x, y) + 2.4 * (1 - d * d) * (0.85 + hash2(x, y, 13) * 0.3));
-  }
+  generateHeights(w, [], plainsLand(w, gully));
   for (const st of w.structures) if (st) w.flattenRect(st.x, st.y, st.w, st.h);
   w.heightDirty = true;
   w.hydroDirty = true;
   return w;
+}
+
+// Serengeti plains (0044): long gentle swells falling to the river, 1-3%, with korongos, shallow
+// drainage lines 1-2 m deep, where the gullies now run, and the kopjes.
+function plainsLand(w, gully) {
+  const near = tileDistance(w, i => gully[i], 8);
+  return {
+    drain: true,
+    base(x, y, h) {
+      const t = clamp((w.h - 4 - y) / (w.h - 4), 0, 1.4), up = clamp((riverRow(x, w.h) - 1 - y) / 9, 0, 1);
+      if (y > w.h + 3) return h; // (the far bank)
+      // (swells only add height, so easing them out by the river can't leave a rim that closes a hollow)
+      const swell = smoothstep(2, 16, riverRow(x, w.h) - 1 - y);
+      let p = 3.4 * t ** 1.1 + valueNoise(x + 70, y + 20, 30, 401) * 1.8 * swell + valueNoise(x, y, 7, 403) * 0.35 * up;
+      if (y < 0) p += -y * 0.15;
+      const d = w.inb(x, y) ? near[w.idx(x, y)] : 255;
+      if (d < 8) p -= 0.55 * Math.max(0, 1 - d / 2.5) ** 2 + 0.3 * (1 - d / 8);
+      // the kopjes: smooth granite domes, about 10 m (raised before the land is drained, so water
+      // finds its way round them)
+      for (const [kx, ky, r] of KOPJES) {
+        const k = Math.hypot(x - kx, y - ky) / (r + 0.8);
+        if (k < 1) p += 4 * (1 - k * k) * (0.85 + hash2(x, y, 13) * 0.3);
+      }
+      return p;
+    },
+  };
 }
 
 // The land around Enkare: the national park north, the neighbours' overgrazed range east,

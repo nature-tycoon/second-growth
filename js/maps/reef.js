@@ -6,7 +6,7 @@
 import buildReefPlants from '../data/plants-reef.js';
 import buildReefAnimals from '../data/animals-reef.js';
 import { generateReef, reefBorderCell, SEA } from './reef-world.js';
-import { pop, speciesPresent } from '../sim/goals.js';
+import { FIRST_GOAL, pop, speciesPresent } from '../sim/goals.js';
 import { T, F, clamp } from '../config.js';
 import { removeTree } from '../sim/plants.js';
 import { moment, arrivalMoment, momentFree } from '../sim/moments.js';
@@ -29,6 +29,8 @@ const shoreMask = w => w._shore || (w._shore = Uint8Array.from({ length: w.n }, 
 const softNew = g => { const f = g.flags; if (f.soft0 == null && g.world.stats?.softCoral != null) f.soft0 = st(g, 'softCoral'); return f.soft0 == null ? 0 : Math.max(0, st(g, 'softCoral') - f.soft0); };
 const goal = (key, name, reward, desc, check, prog) => ({ key, name, reward, desc, check, prog });
 const GOALS = [
+  { ...FIRST_GOAL, desc: 'Plant 10 corals, seagrass or algae. Open Plant, pick one and drag it across sand or rubble.',
+    done: 'Your first fragments are down. Watch them settle and grow over the coming weeks; fish come to the shelter they make.' },
   goal('stars', 'Hold the rubble down', 1500, 'Lay 120 tiles of reef stars (Landscape → Reef stars) over the loose rubble. Young corals can\'t take hold on rubble that rolls with every swell.',
     g => (g.stats.used?.rip || 0) >= 120, g => `${Math.min(120, g.stats.used?.rip || 0)} / 120 tiles`),
   goal('cull', 'Beat the outbreak', 2500, 'Cull every crown-of-thorns starfish on the reef (Remove → Cull starfish & algae).',
@@ -459,8 +461,8 @@ export default {
   scoreWater: g => ({ name: 'Living coral cover', pts: 10 * clamp((g.world.stats?.coral || 0) / 1500, 0, 1), max: 10 }),
   stats: reefStats,
   startView: { x: 56, y: 52, zoom: 0.7 },
-  startWildlife: [['parrotfish', 2, 60, 58, 6], ['chromis', 8, 34, 72, 3], ['butterfly', 2, 18, 56, 3], ['tang', 3, 86, 66, 4]],
-  startText: 'Autumn, Year 1. The water is cooling again after a hard summer. A few parrotfish and a school of chromis hang on around the coral that survived.',
+  startWildlife: [['parrotfish', 2, 60, 58, 6], ['chromis', 8, 34, 72, 3], ['anthias', 10, 64, 47, 2], ['butterfly', 2, 18, 56, 3], ['tang', 3, 86, 66, 4]],
+  startText: 'Autumn, Year 1. The water is cooling again after a hard summer. A few parrotfish and a school of chromis hang on around the coral that survived, and two little coral heads came through untouched, with orange anthias hanging over them: that is what the whole reef can look like again.',
   story: `<p><b>The marine park has asked you to bring Kalinda Reef back.</b> Two summers of marine heatwaves bleached it white, and most of its branching coral died. The dead thickets collapsed into loose rubble that rolls with every swell, so young corals can't settle; algae has grown over it, and crown-of-thorns starfish are eating into the coral that's left. But the old boulder corals came through, and coral larvae drift in on the current every spawning season, looking for somewhere to settle.</p>`,
   rules: [
     'You don\'t buy animals or upgrades. <b>You build habitat</b>, and the fish follow: they drift in from the rest of the reef when there\'s coral and food for them, and leave when there isn\'t.',

@@ -60,7 +60,7 @@ try {
     function measure({ scene, flora, actors }, camera, r, game, a) {
       const animals = v => { for (const pool of actors.fauna.species.values()) { pool.mesh.visible = v; if (pool.far) pool.far.visible = v; if (pool.close) pool.close.visible = v; } actors.ring.visible = false; };
       const plants = v => { for (const m of [flora.foliage, flora.shrubs, flora.bark, flora.grass, flora.tallGrass, flora.small]) m.visible = v; };
-      const pixels = () => { gl.render(scene, camera); drawLookThrough(gl, scene, camera, actors.fauna, focus.uFocusAmt.value); const p = new Uint8Array(W * H * 4); ctx.readPixels(0, 0, W, H, ctx.RGBA, ctx.UNSIGNED_BYTE, p); return p; };
+      const pixels = () => { gl.render(scene, camera); drawLookThrough(gl, scene, camera, actors.fauna, focus.uFocusAmt.value, flora.lookNear()); const p = new Uint8Array(W * H * 4); ctx.readPixels(0, 0, W, H, ctx.RGBA, ctx.UNSIGNED_BYTE, p); return p; };
       const diff = (p, q, i) => Math.max(Math.abs(p[i] - q[i]), Math.abs(p[i + 1] - q[i + 1]), Math.abs(p[i + 2] - q[i + 2]));
       const count = (p, q, mask) => { let n = 0; for (let i = 0; i < p.length; i += 4) if ((!mask || mask[i]) && diff(p, q, i) > 4) n++; return n; };
       // the animal alone, no plants: its silhouette

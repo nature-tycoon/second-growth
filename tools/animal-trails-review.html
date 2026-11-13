@@ -10,7 +10,9 @@ import { Flora } from '../js/render3d/flora.js';
 import { Actors } from '../js/render3d/actors.js';
 import { createTrailFixture,runTrailDays } from './animal-trails-fixtures.mjs';
 import { snow } from '../js/render3d/snow.js';
-const {g}=createTrailFixture(Game);runTrailDays(g,220);
+// (the herd's run seed: the elk draw from game.wildRng, not Math.random, and this one wears a trail
+// across about 150 tiles in 220 days; most runs wear 30-100, too faint to judge the drawing by)
+const {g}=createTrailFixture(Game);g.wildRng.setState(11*7919);runTrailDays(g,220);
 g.speed=0;g.weather='clear';g.snow=0;snow.uSnow.value=0;
 const w=g.world,canvas=document.querySelector('canvas'),gl=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
 gl.setSize(innerWidth,innerHeight-76);gl.outputColorSpace=THREE.SRGBColorSpace;gl.toneMapping=THREE.NeutralToneMapping;

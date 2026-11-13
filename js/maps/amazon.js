@@ -3,7 +3,7 @@
 import buildAmazonPlants from '../data/plants-amazon.js';
 import buildAmazonAnimals from '../data/animals-amazon.js';
 import { generateRanch, amazonBorderCell } from './amazon-world.js';
-import { PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
+import { FIRST_GOAL, PNW_GOALS, perimeterFence, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 
 
 const reuse = key => PNW_GOALS.find(g => g.key === key);
@@ -12,6 +12,7 @@ const countTrees = (w, key) => { const id = w.catalog.plant[key]?.id; let n = 0;
 const invPct = g => (g.cache.score?.invFrac ?? 1) * 100;
 
 const GOALS = [
+  FIRST_GOAL,
   { key: 'plant', name: 'Break ground', reward: 1000,
     desc: 'Plant 200 native plants anywhere on the ranch.',
     check: g => g.stats.planted >= 200, prog: g => `${Math.min(200, g.stats.planted)} / 200 planted` },

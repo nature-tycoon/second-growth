@@ -413,3 +413,67 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - License: CC BY 3.0 — https://creativecommons.org/licenses/by/3.0
 - Changes: Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license.
 - Recording notes: A distant rumble. Played for far bolts and for flashes inside the clouds.
+
+## ring-necked-dove
+
+- Files: `field-ring-necked-dove-1.m4a`
+- Creator: JMK
+- Source: https://commons.wikimedia.org/wiki/File:Streptopelia_capicola_abunda,_roep,_17_s,_Bronberg,_a.mp3
+- License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+
+## emerald-spotted-wood-dove
+
+- Files: `field-emerald-spotted-wood-dove-1.m4a`
+- Creator: JMK
+- Source: https://commons.wikimedia.org/wiki/File:Turtur_chalcospilos,_roepe,_Skrikfontein,_a.mp3
+- License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+
+## hildebrandts-francolin
+
+- Files: `field-hildebrandts-francolin-1.m4a`
+- Creator: paulo kivuyo
+- Source: https://commons.wikimedia.org/wiki/File:Pternistis_hildebrandti_-_Hildebrandt%27s_Francolin_XC621048.mp3
+- License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+
+## superb-starling
+
+- Files: `field-superb-starling-1.m4a`
+- Creator: Anne Ndung'u
+- Source: https://commons.wikimedia.org/wiki/File:Lamprotornis_superbus_-_Superb_Starling_XC402690.mp3
+- License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+
+## red-billed-hornbill
+
+- Files: `field-red-billed-hornbill-1.m4a`
+- Creator: JMK
+- Source: https://commons.wikimedia.org/wiki/File:Tockus_rufirostris,_roep_te_Hartbeesfontein,_2024-02-24_15h44.mp3
+- License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+
+## spotted-thick-knee
+
+- Files: `field-spotted-thick-knee-1.m4a`
+- Creator: JMK
+- Source: https://commons.wikimedia.org/wiki/File:Burhinus_capensis,_roep,_2022-09-24_02h07,_Pretoria,_a.mp3
+- License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+
+## village-weaver
+
+- Files: `field-village-weaver-1.m4a`
+- Creator: Anne Ndung'u
+- Source: https://commons.wikimedia.org/wiki/File:Ploceus_cucullatus_-_Village_Weaver_XC405117.mp3
+- License: CC BY-SA 4.0 — https://creativecommons.org/licenses/by-sa/4.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+
+## bed-cicadas
+
+- Files: `field-bed-cicadas-1.m4a`
+- Creator: BioAcoustica (Martin H. Villet cicada collection)
+- Source: https://commons.wikimedia.org/wiki/File:BioAcoustica_MHV_973_P.haglundi_nr_Barberton_2.flac
+- License: CC BY 3.0 — https://creativecommons.org/licenses/by/3.0
+- Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.

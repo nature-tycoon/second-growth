@@ -132,6 +132,7 @@ export function openEcoReport(ui, view = ui.reportView || 'overview') {
         <div class="er-stage"><span class="er-k">${tr('Reference')}: ${tr(ref.name)}</span><div class="er-track">${stages}</div><span class="er-cs">${nextAt ? `${tr('Next stage when the vital signs average')} ${pct(nextAt)} (${tr('now')} ${pct(m.overall)})` : tr('Your land is as healthy as the reference.')}</span></div>
       </div>
       <div class="er-grid">${cards}</div>
+      ${g.invasives === false ? `<div class="er-hint"><span class="er-ic">🌿</span><span><b>${tr('Invasives off')}.</b> ${tr('No new invasive plants take root on this map, so it stays clean. Turn them on in Settings, Gameplay.')}</span></div>` : ''}
       <div class="er-hint"><span class="er-ic">💡</span><span><b>${tr('Weakest vital sign')}: ${tr(VITAL_NAMES[m.weakest])}.</b> ${tr(hintFor(m))}</span></div>
       <button class="er-badges" data-go="badges"><span class="er-k">${tr('Badges')} <b>${earned.length}</b> / ${badgeList(g).length}</span><span class="er-strip">${shown.map(b => `<span class="er-badge ${b.tier}" title="${tr(VITAL_NAMES[b.vital])}, ${tr(TIER_NAMES[b.tier])}">${b.icon}</span>`).join('') || `<span class="er-cs">${tr('Your first badge comes at 30% on any vital sign.')}</span>`}</span><span class="er-more">${tr('All badges')} ›</span></button>`;
   }
@@ -141,7 +142,7 @@ export function openEcoReport(ui, view = ui.reportView || 'overview') {
       case 'carbon': return `${tonnes(c.living)} ${tr('in plants')}`;
       case 'layers': return `${v.parts.filter(p => p.score >= 0.5).length} ${tr('of')} 4 ${tr('layers well grown')}`;
       case 'foodweb': { const gr = m.foodWeb.groups; return gr.apex.present.length ? `${tr('Top predator')}: ${gr.apex.present[0]}` : tr('No top predator yet'); }
-      case 'native': return `${tr('Invasives')} ${pct(g.cache.score?.invFrac || 0)}`;
+      case 'native': return g.invasives === false ? tr('Invasives off') : `${tr('Invasives')} ${pct(g.cache.score?.invFrac || 0)}`;
       case 'water': return count((st.counts[H.MARSH] || 0) + (st.counts[H.POND] || 0), 'tile of wetland', 'tiles of wetland');
       case 'oldgrowth': return `${count(c.oldTrees, 'old tree', 'old trees')} · ${count((st.logs || 0) + (st.snags || 0), 'log or snag', 'logs and snags')}`;
       case 'coral': return count(st.coral || 0, 'tile of coral', 'tiles of coral');

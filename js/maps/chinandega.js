@@ -6,7 +6,7 @@
 import buildChinandegaPlants from '../data/plants-chinandega.js';
 import buildChinandegaAnimals from '../data/animals-chinandega.js';
 import { generateFinca, chinandegaBorderCell, volcanoTint, ESTUARY_X, BEACH, SLOPE_Y, FARM_ROAD } from './chinandega-world.js';
-import { PNW_GOALS, culvertExists, pop, speciesPresent } from '../sim/goals.js';
+import { FIRST_GOAL, PNW_GOALS, culvertExists, pop, speciesPresent } from '../sim/goals.js';
 import { riverRow } from '../world.js';
 import { T, F, H } from '../config.js';
 import { moment, arrivalMoment, momentFree } from '../sim/moments.js';
@@ -24,6 +24,7 @@ const shadedPct = g => st(g, 'creek') ? Math.round(100 * st(g, 'shadedCreek') / 
 // the first day of this dry season (January), for the no-fire goal
 const dryStart = g => g.day - (g.day % 120) - (g.month >= 10 ? -100 : 20);
 const GOALS = [
+  FIRST_GOAL,
   { key: 'plant', name: 'First trees', reward: 1000,
     desc: 'Plant 200 native plants anywhere on the finca.',
     check: g => g.stats.planted >= 200, prog: g => `${Math.min(200, g.stats.planted)} / 200 planted` },

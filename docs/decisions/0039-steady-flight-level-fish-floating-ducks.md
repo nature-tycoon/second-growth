@@ -1,8 +1,19 @@
 # 0039 Steady flight, level reef fish, ducks on the creek, an eased follow camera
 
+## Rules
+
+- Drawing only: the simulation is unchanged.
+- A bird in level flight holds a cruise height (`holdCruise` in `render3d/flight-clearance.js`): it climbs when the way ahead needs it and glides down only after `HOLD` (1.5 s), at `GLIDE`. It climbs out of a crown it finds itself in by its climb rate (`CLIMB_ACCEL`), never a jump in height. The look-ahead is about 1.5 s of flight, 1.4 to 6 tiles.
+- Reef fish swim over a smoothed seabed (`smoothSeabed`), and their lift over coral and rock eases like a body (`easeCoralLift`). Both reset when the animal comes back into view (`returning`).
+- Floaters float at the drawn water (`Actors.floatLevel`), not `waterSurfaceY`; where the drawn water is too shallow they stand on the bank. No shadow afloat.
+- The follow camera's height rides a spring within 0.25 tiles of the animal (`followHeight`).
+- Check: `node tools/motion-smoothness-check.mjs`.
+
+## History
+
 Decided 2026-11-11 (idea batch wildlife-polish, session 2). Drawing only: the simulation is unchanged.
 
-## Context
+### Context
 
 Cole: bird flight "bobs jerkily up and down"; a mallard sat submerged near a creek edge; reef fish
 "rise and fall over coral" and the follow camera is bumpy.
@@ -24,7 +35,7 @@ Cole: bird flight "bobs jerkily up and down"; a mallard sat submerged near a cre
   drawn surface, by up to 0.09 tiles.
 - **Camera.** Following an animal in the usual view centred on its drawn height exactly, every frame.
 
-## Decision
+### Decision
 
 - **A held cruise height** (`holdCruise` in `render3d/flight-clearance.js`). In level flight a bird
   climbs as soon as the way ahead needs it, but comes down only after the way has been lower for
@@ -48,7 +59,7 @@ Cole: bird flight "bobs jerkily up and down"; a mallard sat submerged near a cre
   tile in a frame (the tree it was in is gone) is centred outright. The eye-level camera already
   eased its position; it gets the smoother animal heights for free.
 
-## Measured (`tools/motion-smoothness-check.mjs`, frames 0.05 s apart)
+### Measured (`tools/motion-smoothness-check.mjs`, frames 0.05 s apart)
 
 | | before | after |
 |---|---|---|
@@ -64,7 +75,7 @@ Cole: bird flight "bobs jerkily up and down"; a mallard sat submerged near a cre
 smooth climb can show. `follow-height-probe` (robin): worst frame 0.59 → 0.22 tiles, jolt 0.077 →
 0.023. `Actors.update` cost unchanged in node (0.05 ms reef, 0.08 ms PNW per frame).
 
-## Consequences and gotchas
+### Consequences and gotchas
 
 - `flight-canopy-check`: the take-off grace is now 1 s (was 0.6 s). Out of a tall crown, a climb
   with no jump in it takes about a second; after that, fliers are inside a crown less often than

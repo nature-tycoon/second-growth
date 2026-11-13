@@ -1,12 +1,25 @@
 # 0033 Herbivore pressure: kg per hectare, by guild and by taste
 
+## Rules
+
+- One model on every map (`sim/herbivory.js`, effects in `sim/grazing.js` through the plant hooks `grazedRecruitOdds`, `grazedGrowth`, `grazedSeedlingLost`). No map-specific branches.
+- Read pressure only through `herbivoreKg(w, i, guild)` / `herbivoreIndex`, never the `w.herbivory` arrays (cells, not tiles). Report totals come from `herbivoreTotals(w)`.
+- A new large herbivore needs `kg` (adult live mass) in its definition, and a `BROWSE_SHARE` entry if its diet isn't the default for its forage order. `behaviorFor` builds `behavior.herbivore = { kg, browse, breaks, rubs }`.
+- A new map needs `REFERENCE[map].herbivores: [low, high]` (kg/ha, with a source) in `data/eco-reference.js`, or the field is off there.
+- Tree `browse` is both forage value and palatability, one number on purpose; no value counts as 0.3. `thorny` and `resprout` flags shelter and spare plants.
+- Shelters (brush, fences, thorny shrubs, thicket edges, nurse logs, `UNDER_CANOPY`) cut browsing; trampling (`trampledSeedling`), elephants (`elephantFelled`) and rut rubbing (`rubSapling`) are general rules on every map (the savanna-only trample is gone). Trees killed go through `removeTree` (0028).
+- `w.herbivory` is declared in the `World` constructor and isn't saved; a loaded farm rebuilds it from that day's animals.
+- Checks: `node tools/herbivore-pressure-check.mjs`; long runs `node tools/herbivore-pressure.mjs pnw,serengeti,atlanta 200 7,11,23 [--exclosure]`; seeded `balance-sim restore 15`.
+
+## History
+
 2026-11-01. Workstream E2. Cole agreed the design and targets on 2026-11-01, then changed the PNW
 and Serengeti targets after the first results (below). Builds on [0011](0011-grazing-pressure.md)
 (the per-tile sward, `w.grazed`), and fills the hook [0027](0027-plant-succession.md) and
 [0028](0028-succession-dynamics.md) left in the plant step (`grazedRecruitOdds`, `grazedGrowth`,
 `grazedSeedlingLost`).
 
-## Context
+### Context
 
 A tester wrote that with intact large herbivores (grazing, browsing, trampling, rubbing) the forest
 should be much more mixed, that the engine should account for which herbivores are present and at
@@ -40,7 +53,7 @@ to keep the herds as they are and to measure pressure in real kg/ha. The Serenge
 real savanna, mostly giraffe, elephants and buffalo on a small farm. That is left to workstream F
 (animals and species), and pressure here mustn't make the hartebeest decline worse.
 
-## Decision
+### Decision
 
 One model on every map. No map-specific branches.
 
@@ -100,7 +113,7 @@ One model on every map. No map-specific branches.
 - **The Ecosystem Report** food-web page has one line: large herbivores in kg/ha, mostly grazers or
   browsers, against the wild range. The score is unchanged.
 
-## Targets, and what changed
+### Targets, and what changed
 
 Cole's first targets (2026-11-01):
 - PNW, year 200: no tree species above 50%, at least 6 species at 3% or more, fir at least 10 points
@@ -122,7 +135,7 @@ After the first results, Cole changed two of them (same day):
   under heavy grazing and is dispersed by livestock and wildlife (Mwangi & Swallow 2008). Mesquite
   control is left to fire (workstream J) and the player.
 
-## Results
+### Results
 
 `node tools/herbivore-pressure.mjs <map> 200 <seed> [--exclosure] [--pull=mesquite]`, untended,
 year 200 unless noted. Exclosure removes every large herbivore each day.
@@ -187,7 +200,7 @@ a frame on average). The field itself is about 0.1% of a profile; the rest is th
 every young woody plant. If it ever matters, `herbivoreIndex` can be precomputed per tile once a
 day. `balance-sim` ms/day didn't rise (table above).
 
-## Consequences
+### Consequences
 
 - Restoring the PNW farm: more meadow and fewer invasives early, but **planted saplings are browsed
   too**. Forest tiles at year 15 are about 30% fewer. Brush piles, fences and thickets shelter them,
@@ -197,7 +210,7 @@ day. `balance-sim` ms/day didn't rise (table above).
 - The Serengeti's numbers rest on herds 3–5× real. When workstream F brings stocking down, the
   same curve gives a weaker effect; recheck mesquite and native woody cover then.
 
-## Gotchas
+### Gotchas
 
 - Read pressure through `herbivoreKg` / `herbivoreIndex`, never `w.herbivory` arrays directly
   (cells, not tiles). Totals for reports come from `herbivoreTotals(w)`.
@@ -209,7 +222,7 @@ day. `balance-sim` ms/day didn't rise (table above).
   purpose.
 - `w.herbivory` is declared in the `World` constructor (0028's rule) and isn't saved.
 
-## Checks
+### Checks
 
 - `node tools/herbivore-pressure-check.mjs` (headless): data for every large herbivore and map; the
   field adds up to the animals and lands where they are; taste order; the browse trap; shelters;
@@ -217,7 +230,7 @@ day. `balance-sim` ms/day didn't rise (table above).
 - `node tools/herbivore-pressure.mjs pnw,serengeti,atlanta 200 7,11,23 [--exclosure]` for the long
   runs.
 
-## Sources
+### Sources
 
 Volumes and pages are given where they were checked; the palatability values are read from these and
 from regional deer-resistance ratings, not measured.

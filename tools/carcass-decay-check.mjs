@@ -121,7 +121,7 @@ for (const [map, keys] of Object.entries(HORNED)) {
 {
   const list = createAnimals((await import('../js/data/animals-serengeti.js')).default, 'serengeti'), defs = list.animals || list;
   const wl = { carcasses: [], agents: [], game: { catalog: { animals: defs }, world: { inb: () => true, idx: () => 0 } } };
-  const idx = key => defs.findIndex(d => d.key === key), an = (key, id) => ({ id, sp: idx(key), x: 10, y: 10, age: 900, orientation: 0.5 });
+  const idx = key => defs.findIndex(d => d.key === key), an = (key, id) => ({ id, sp: idx(key), x: 10, y: 10, age: 900, heading: 0.5 });
   ok(leaveBody(wl, an('wildebeest', 1)) && wl.carcasses.length === 1, 'a wildebeest that dies naturally leaves a body');
   const c = wl.carcasses[0];
   ok(c.by == null && c.meals === c.meals0 && c.meals > 0 && c.t >= 21 && c.t <= 33 && c.max === c.t, 'the body has meals for scavengers and lasts 21-33 days');

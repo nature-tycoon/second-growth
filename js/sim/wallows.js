@@ -9,17 +9,13 @@
 // don't need one. A wallow is smaller than a tile (8 m): world.wallow holds how worn it is
 // (0 none, up to 255), world.wallowWet how full of water (0-255, never above its depth).
 //
-// Who wallows is data, by species key, so a species added later (bison, moose) wallows as soon as it
-// appears on a map. rut: only in the rut (the bulls' wallows); size: how big a dish, 1 for an elk.
+// Who wallows is data: a species with `wallow: { size, rut }` on its definition (js/data/animal-kinds.js),
+// so a species added later (bison, moose) wallows as soon as it has one. rut: only in the rut (the
+// bulls' wallows); size: how big a dish, 1 for an elk.
 import { T, F, isWater } from '../config.js';
 import { inRut } from './cervid-groups.js';
 
-export const WALLOWERS = {
-  elk: { rut: true, size: 1 }, moose: { rut: true, size: 1 }, bison: { size: 1.1 },
-  buffalo: { size: 1.1 }, elephant: { size: 1.5 }, gajah: { size: 1.4 },
-  rhino: { size: 1.2 }, sumrhino: { size: 1.1 }, warthog: { size: 0.7 }, boar: { size: 0.7 }, tapir: { size: 0.8 },
-};
-export const wallower = def => WALLOWERS[def.key] || null;
+export const wallower = def => def.wallow || null;
 
 // A wallow holding at least this much water counts as a pool (for frogs: environment.js distPond).
 export const WALLOW_POOL = 25;

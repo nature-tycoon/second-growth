@@ -581,6 +581,94 @@ export const FIELD_RECORDINGS = {
     "license": "CC BY 3.0",
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
     "modified": "Trimmed, mixed to mono, high-pass filtered at 25 Hz, level normalized, faded and encoded as mono AAC (decoded and cut in Chrome, encoded with macOS afconvert, since the ffmpeg chain in tools/prepare-field-audio.py was unavailable). Derived clips retain the source license."
+  },
+  "ring-necked-dove": {
+    "clips": [
+      "field-ring-necked-dove-1"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:Streptopelia_capicola_abunda,_roep,_17_s,_Bronberg,_a.mp3",
+    "by": "JMK",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "emerald-spotted-wood-dove": {
+    "clips": [
+      "field-emerald-spotted-wood-dove-1"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:Turtur_chalcospilos,_roepe,_Skrikfontein,_a.mp3",
+    "by": "JMK",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "hildebrandts-francolin": {
+    "clips": [
+      "field-hildebrandts-francolin-1"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:Pternistis_hildebrandti_-_Hildebrandt%27s_Francolin_XC621048.mp3",
+    "by": "paulo kivuyo",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "superb-starling": {
+    "clips": [
+      "field-superb-starling-1"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:Lamprotornis_superbus_-_Superb_Starling_XC402690.mp3",
+    "by": "Anne Ndung'u",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "red-billed-hornbill": {
+    "clips": [
+      "field-red-billed-hornbill-1"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:Tockus_rufirostris,_roep_te_Hartbeesfontein,_2024-02-24_15h44.mp3",
+    "by": "JMK",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "spotted-thick-knee": {
+    "clips": [
+      "field-spotted-thick-knee-1"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:Burhinus_capensis,_roep,_2022-09-24_02h07,_Pretoria,_a.mp3",
+    "by": "JMK",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "village-weaver": {
+    "clips": [
+      "field-village-weaver-1"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:Ploceus_cucullatus_-_Village_Weaver_XC405117.mp3",
+    "by": "Anne Ndung'u",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "bed-cicadas": {
+    "clips": [
+      "field-bed-cicadas-1"
+    ],
+    "gain": 0.32,
+    "source": "https://commons.wikimedia.org/wiki/File:BioAcoustica_MHV_973_P.haglundi_nr_Barberton_2.flac",
+    "by": "BioAcoustica (Martin H. Villet cicada collection)",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
   }
 };
 
@@ -626,9 +714,16 @@ export const MAP_RECORDINGS = {
   },
   "serengeti": {
     "birds": {
-      "roller": "roller"
+      "roller": "roller",
+      "weaver": "village-weaver"
     },
     "calls": {
+      "ringDove": "ring-necked-dove",
+      "woodDove": "emerald-spotted-wood-dove",
+      "francolin": "hildebrandts-francolin",
+      "starling": "superb-starling",
+      "redbill": "red-billed-hornbill",
+      "thickKnee": "spotted-thick-knee",
       "hyena": "hyena",
       "lion": "lion",
       "hippo": "hippo",
@@ -667,4 +762,4 @@ export const MAP_RECORDINGS = {
   }
 };
 
-export const RECORDED_BEDS = { creek: "bed-stream", river: "bed-stream", surf: "bed-ocean", bugs: "bed-crickets", reef: "bed-reef", wind: "bed-wind", leaves: "bed-wind" };
+export const RECORDED_BEDS = { creek: "bed-stream", river: "bed-stream", surf: "bed-ocean", bugs: "bed-crickets", cicadas: "bed-cicadas", reef: "bed-reef", wind: "bed-wind", leaves: "bed-wind" };

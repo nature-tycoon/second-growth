@@ -1,5 +1,6 @@
 // Review-only encounter setup using production behavior and keystone moment triggers.
 // These are staged studies, never represented as unassisted campaign captures.
+import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import {isMaleVariant} from '../js/data/animals.js';
 import {riverRow} from '../js/world.js';
 import {isWater,T} from '../js/config.js';
@@ -12,7 +13,7 @@ import {momentsUpdate,momentScene} from '../js/sim/moments.js';
 // study. placed collects what was posed, for the provenance.
 export function posing(g,placed=[]){
   const w=g.world;
-  return function pose(key,tx,ty,habitat='land',orientation=-.5){
+  return function pose(key,tx,ty,habitat='land',heading=-.5){
     const def=g.catalog.animal[key];if(!def)throw Error('Unknown capture species '+g.map+':'+key);
     let best=Infinity,tile=-1;
     for(let y=ty-4;y<=ty+4;y++)for(let x=tx-4;x<=tx+4;x++){
@@ -24,14 +25,14 @@ export function posing(g,placed=[]){
     if(tile<0)throw Error('No capture habitat for '+key);
     const x=tile%w.w+.5,y=Math.floor(tile/w.w)+.5;
     const a=g.wildlife.spawn(def,x,y,{silent:true,age:Math.max(480,def.mature*120+1)});
-    Object.assign(a,{x,y,tx:x,ty:y,wait:1000,orientation,hunger:0,thirst:0,phase:0});
+    Object.assign(a,{x,y,tx:x,ty:y,wait:1000,heading,hunger:0,thirst:0,phase:0});
     placed.push({key,tile,x,y});return a;
   };
 }
 export function websiteMoment(g,pose){
   const w=g.world,wl=g.wildlife,events=[];
   g.flags.moments={};g.flags.lastMomentDay=-1e9;g.on('moment',event=>events.push(event));
-  const rig=fn=>{const before=Math.random;Math.random=()=>0;try{return fn();}finally{Math.random=before;}};
+  const rig=fn=>{const before = forcedSimRandom();forceSimRandom(()=>0);try{return fn();}finally{forceSimRandom(before);}};
   function find(predicate,cx,cy){
     let tile=-1,best=Infinity;
     for(let i=0;i<w.n;i++){if(!predicate(i))continue;const d=(i%w.w-cx)**2+(Math.floor(i/w.w)-cy)**2;if(d<best){best=d;tile=i;}}
@@ -79,7 +80,7 @@ export function websiteMoment(g,pose){
     if(!plants.length)throw Error('Missing native monarch garden plants');
     for(let y=21;y<=25;y++)for(let x=18;x<=23;x++){const i=w.idx(x,y);if(w.struct[i]<0&&w.terrain[i]!==T.ROAD){w.ground[i]=0;w.tree[i]=0;w.shrub[i]=0;w.setPlant(i,plants[(x+y)%plants.length],1);}}
     g.refreshEnvironment();
-    for(let n=0;n<12;n++){const a=pose('monarch',19+n%4,22+Math.floor(n/4));a.age=36;a.flying=true;a.alt=.15+(n%3)*.12;a.phase=n*.7;a.orientation=n*1.2;}
+    for(let n=0;n<12;n++){const a=pose('monarch',19+n%4,22+Math.floor(n/4));a.age=36;a.flying=true;a.alt=.15+(n%3)*.12;a.phase=n*.7;a.heading=n*1.2;}
     g.mapDefinition.daily(g);
     // The map's migration wave marks ordinary agents as passing without a
     // bird-passage trajectory. Normalize only that flag for this frozen study.

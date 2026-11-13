@@ -20,7 +20,7 @@ const FORMS = {
   goldenrod: 'plume', phlox: 'star', sodomapple: 'star', pescaprae: 'trumpet',
   asystasia: 'trumpet', honeysuckle: 'trumpet',
   beebalm: 'crown', mimosa: 'puff', dormilona: 'puff', fireball: 'globe',
-  skunk: 'spathe', costus: 'cone', calathea: 'spathe',
+  skunk: 'spathe', heliconia: 'claw', costus: 'cone', calathea: 'spathe',
   bluelily: 'waterlily', waterlily: 'waterlily', lotus: 'waterlily', hyacinth: 'camas',
 };
 export function flowerForm(p) {
@@ -28,6 +28,28 @@ export function flowerForm(p) {
   if (FORMS[p.key]) return FORMS[p.key];
   return ['forb', 'tallforb'].includes(p.look.type) ? 'star' : null;
 }
+
+// Fruit drawn close up (render3d/botanical.js fruitHead): shrubs bear berry clusters unless
+// listed; trees only show fruit where their look says so (hangFruit).
+const FRUITS = {
+  blackberry: 'drupelets', salmonberry: 'drupelets', elderberry: 'umbel', beautyberry: 'whorl',
+  rose: 'hips', cacao: 'pod', pricklypear: 'tuna', seagrape: 'grape', rattan: 'grape', oregongrape: 'grape',
+  durian: 'spiky', terap: 'spiky', rambutan: 'hairy', mangosteen: 'capped', cempedak: 'oblong',
+  petai: 'pods', jengkol: 'pods', fig: 'figs', jicaro: 'gourd', inga: 'pods', acai: 'grape',
+};
+
+export function fruitForm(p) {
+  if (!p.look.berry) return null;
+  return FRUITS[p.key] || (p.layer === 1 ? 'berries' : null);
+}
+
+// Trees that show real blossom heads round the crown in bloom (render3d/flora.js); the rest
+// show their flowers as a crown tint.
+const TREE_BLOSSOMS = {
+  dogwood: 'star', redbud: 'star', magnolia: 'waterlily', ipe: 'trumpet', cortes: 'trumpet', macuelizo: 'trumpet',
+  crepemyrtle: 'plume', genizaro: 'puff', sausage: 'pendant',
+};
+export function treeBlossomForm(p) { return p.look.flower ? TREE_BLOSSOMS[p.key] || null : null; }
 
 export function grassForm(p) {
   return p.key === 'redoat' ? 'savannagrass' : p.key === 'sporobolus' ? 'dropseed'

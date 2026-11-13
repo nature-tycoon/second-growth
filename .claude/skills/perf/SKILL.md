@@ -15,6 +15,8 @@ Low Power Mode, battery (the game's Auto frame rate caps at 30 fps on battery, `
 
 ## 2. Pick the measurement
 
+First, `node tools/perf-guard-check.mjs [maps]` (about 15 s, no GPU): exact draw, triangle, instance and plant-region counts for seeded fixtures in two seasons, against `tools/perf-guard-baseline.json`. CI fails on a rise over 10%. If the rise is intended, measure the real cost below, then `--update` and commit the baseline with the change, saying why in the commit. `GUARD_ROOT=<checkout>` measures another checkout (for an A/B, write that one's baseline with `GUARD_BASELINE=<file> --update` first). It can't see shader, overdraw or resolution cost, terrain, water or sky: a material change (say double-sided, or wind-animated) passes it and still costs GPU time, so the timers below are still needed for those.
+
 | Question | Tool |
 | --- | --- |
 | Whole frame: simulation vs drawing vs GPU | `node tools/play-profile.mjs [maps] [quality] [years]` (default serengeti,sumatra,amazon,pnw high 3; writes `tools/release-output/play-profile.json`) |

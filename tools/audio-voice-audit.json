@@ -120,8 +120,8 @@
   "serengeti": {
     "birds": {
       "weaver": {
-        "recording": null,
-        "decision": "Retired synthesized approximation; no matching, reusable recording obtained."
+        "recording": "village-weaver",
+        "decision": "Field recording (village weaver, Kenya)"
       },
       "roller": {
         "recording": "roller",
@@ -152,6 +152,30 @@
       "elephant": {
         "recording": "african-elephant",
         "decision": "Real African elephant social rumbles; distinct from Asian elephant trumpet."
+      },
+      "ringDove": {
+        "recording": "ring-necked-dove",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
+      },
+      "woodDove": {
+        "recording": "emerald-spotted-wood-dove",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
+      },
+      "francolin": {
+        "recording": "hildebrandts-francolin",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
+      },
+      "starling": {
+        "recording": "superb-starling",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
+      },
+      "redbill": {
+        "recording": "red-billed-hornbill",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
+      },
+      "thickKnee": {
+        "recording": "spotted-thick-knee",
+        "decision": "Field recording; habitat chorus voice (not a modelled animal)"
       }
     }
   },

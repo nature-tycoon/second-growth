@@ -1,12 +1,26 @@
 # 0010 Repeated wildlife routes and visible game trails
 
+## Rules
+
+- Which animals wear trails, and how much, is data in `data/animal-trails.js`: large terrestrial mammals only (hoofed mammals, tapirs, large bears/canids/felids/hyenas). Tiny, canopy, flying, aquatic and ground-feeding birds never draw trails. Migrating herds keep migration, not resident circuits.
+- Only a journey draws a trail: a curved walk (`a.course`) or a herd leaving the map. Herd keeping-up, foraging steps, chases and flight still count as edge crossings (`trailE`/`trailS`, route choice, `trod`) but draw nothing. Standing, flying, dormancy, spacing pushes and recovery jumps make no wear.
+- `trailDensity` (16 samples a tile) is what terrain and grass openings draw; tune through the shared constants (`TRAIL_FOOTPRINT` 0.17, `TRAIL_FULL`, `TRAIL_FADE`, `TRAIL_CAP` 0.4, `rut`), which the shader reads too. Undo doesn't snapshot it. No wear in water, on roads, gravel, structures or reef.
+- Courses: `sim/animal-course.js` redraws walks of six tiles or more as a curve from a land-anchored meander (shared, so return trips retrace it), refused if unwalkable or more than 35% + 2 tiles longer. `pathPoint` gives the walker its point. Fleeing (`a.run`), fire escapes and off-map starts keep the plain route. Don't add per-animal bows (`resourceBend` was removed).
+- Route preference (`preferTrailPath`) stays within a 25% + 2 steps detour; searches are bounded (1,800 expansions) and fall back to the original BFS route.
+- Continuous walking (`animal-walking.js`) must never cut a fence, building, pond or fire corner (swept segment test).
+- Resource ranges: arrival flips the leg first (`rangeChoose`), keep the bed when only the feeding ground went (`sharedSite`), followers walk the leader's route (`followLeaderTrip`). Trails never attract animals to empty ground or change habitat, capacity or food.
+- `range` records are copied on wildlife serialization so undo/save snapshots stay independent; derived bounds, textures and `trailMax` aren't saved. Old saves' marks fade; never invent paths from them.
+- Checks: `animal-trails-check`, `animal-turning-check`, `animal-trails-render-check`, `animal-course-check`, `animal-trails-soak`, `animal-trails-browser-check`, `node tools/trail-width-report.mjs serengeti 5 <seed>`; regression gates: clustering, territory, home-range and `balance-sim restore 15` (seeded).
+
+## History
+
 2026-10-17. Cole requested visible, accurate animal trails, with movement that
 concentrates meaningful travel rather than painting the landscape indiscriminately.
 During preview review Cole requested more winding trails. A follow-up the same day
 replaced tile-edge ribbons with continuous walking and recorded foot traffic, because
 the ribbons still showed grid corners where animals had not walked.
 
-## Findings and scope
+### Findings and scope
 
 The previous `trod` field added 0.05 every day beneath stationary large grazers.
 Terrain rendering tinted an entire occupied tile. It recorded neither crossings
@@ -29,7 +43,7 @@ discusses repeated trails for resource access; [hippo feeding research](https://
 observes paths between resting and feeding areas. These support repeated resource
 travel and shared corridors, not the numerical distances, curves or rates below.
 
-## Responsibilities
+### Responsibilities
 
 - `animal-trails.js` in data owns the species/guild selection and wear weights.
 - The simulation module records actual movement before physical spacing, fades
@@ -46,7 +60,7 @@ travel and shared corridors, not the numerical distances, curves or rates below.
   ecological field. Plant rendering omits only tufts inside the ribbon; incremental
   plant input tracking includes the two edge arrays.
 
-## Traffic and persistence
+### Traffic and persistence
 
 `trailDensity` (Float32, `TRAIL_RESOLUTION`² = 16 samples per tile) records where
 walkers actually went: each move stamps a soft 0.28-tile footprint along the swept
@@ -72,7 +86,7 @@ world-array save format includes edge fields. `range` records, including route
 arrays, are copied on wildlife serialization and load so undo/save snapshots are
 independent. Derived routing bounds, texture data and `trailMax` are not saved.
 
-## Travel behavior and winding shapes
+### Travel behavior and winding shapes
 
 Eligible adults learn a local feeding site with actual food and a separate usable
 resting site. Search at most 1,600 reachable cells, within 22 tiles; favor feed sites
@@ -107,7 +121,7 @@ turn habitat into visitor paths. Movement can change later ecological outcomes.
 Groundcover openings are a local rendering response to compaction, not a blanket
 reduction of a tile's forage or native-plant capacity.
 
-## Narrow, wandering tracks (2026-10-22)
+### Narrow, wandering tracks (2026-10-22)
 
 Cole reported trails as too straight and too wide, worst on the Serengeti, where wildebeest
 moving along the river bank laid a grid. Cause: outside learned resource trips, ground walkers
@@ -126,7 +140,7 @@ to the water traced the other direction. The 0.28-tile footprint drew each about
 
 Existing saves keep their old wide, straight wear until it fades; new traffic wears the new shape.
 
-## Curved journeys and beaten paths (2026-10-23)
+### Curved journeys and beaten paths (2026-10-23)
 
 The 2026-10-22 waypoints still left a checkerboard wherever traffic crossed: routes are searched
 north/south/east/west, so every walk ran along a tile row or column, only wobbling inside each tile.
@@ -155,7 +169,7 @@ line, two animals get the same course on the same corridor, an animal a tile to 
 a worn track, and shaping costs about 0.4 ms a 40-tile journey including the route search.
 `wildlife.update` on the stocked Serengeti timed the same before and after.
 
-## Only journeys, more traffic, longer memory (2026-10-23)
+### Only journeys, more traffic, longer memory (2026-10-23)
 
 - Only a journey draws a trail: a curved walk (`a.course`) or a herd leaving the map. Keeping up
   with the herd, foraging steps, chases and flight no longer draw (they were most of the wear and
@@ -174,7 +188,7 @@ resident deer and elk make only about four feed-to-rest trips in two game years 
 about three times, so no route reaches 20 passes, and at about 12 passes the Serengeti already
 draws 4% while PNW still draws almost nothing. Steadier daily routes for residents is the open fix.
 
-## Steadier routes, longer memory, thinner and longer trails (2026-10-23)
+### Steadier routes, longer memory, thinner and longer trails (2026-10-23)
 
 Cole asked for steadier routes for residents without the clumping of 0005/0013. Read with 0014: a
 deer walks about a tile a sim-day, so a leg takes a week or more and a literal daily routine is not
@@ -210,7 +224,7 @@ after: buffalo 11% → 4%, deer 18.5% → 20%, elk 18% → 15%, boar 7.75% → 7
 `animal-clustering-soak` and `home-range-check` pass. `animal-territory-soak` fails on the
 Serengeti leopard; it already did before this trail work (7e7a610).
 
-## Busy trails stay narrow (2026-10-24)
+### Busy trails stay narrow (2026-10-24)
 
 Cole saw some Serengeti trails grow wide, and put it down to elephants walking between water and the
 map edge and giraffes between a stand of trees and a lone tree, back and forth for years. The cause
@@ -238,7 +252,7 @@ Still open: the migration. Herds leaving the map walk straight lines toward the 
 tiles apart, so the Serengeti's northward migration wears a broad band of parallel straight lines
 (most of the remaining wide trail, and it varies a lot from run to run).
 
-## Verification
+### Verification
 
 - `animal-trails-check.mjs`: 15 checks (including years of offset journeys staying one narrow trail) over every map roster, actual crossings,
   pause/stationary exclusions, repeated versus single traffic, shape/seam continuity,

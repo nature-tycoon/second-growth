@@ -62,7 +62,7 @@ try {
       if(!anchor||anchor.index!==index)return null;
       let yaw=Math.atan2(-anchor.direction.z,anchor.direction.x);
       if(anchor.direction.y<0)yaw+=Math.PI;
-      a.orientation=-yaw;
+      a.heading=-yaw;
       Object.assign(st,{branch:anchor,branchAt:anchor,branchPoint:null,branchRoute:null,branchPitch:0,branchRoll:0,branchYaw:0,yaw,gripFeet:null,canopyQuaternion:null});
       for(let n=0;n<3;n++)r.draw(g,{clean:true,overlay:'none'},.1);
       st=r.actors.pose.get(a.id);

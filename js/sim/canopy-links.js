@@ -16,6 +16,7 @@ import { TREE_SHAPES } from '../render3d/geometry/tree-shapes.js';
 import { statureShape } from '../render3d/tree-stature.js';
 import { trunkSpot } from './ground-obstacles.js';
 import { bodyLength } from './climb-pace.js';
+import { climbStyle } from '../data/animal-kinds.js';
 
 // A tree's crown: its trunk spot, how far its limbs reach sideways, and its height.
 const crowns = new Map(); // (by tile: recomputed when the tree or its growth changes)
@@ -43,8 +44,9 @@ const TIP_REACH = .8;
 // cross up there (orangutans do; siamangs almost never leave the trees). Null for climbers that
 // always find a way.
 export function crossingLimits(def) {
-  if (def.sprite.kind === 'orangutan') return { overlap: 1, rise: 1.5, ground: true };
-  if (def.sprite.kind === 'monkey' && def.sprite.ape) return { overlap: -4, rise: 1.5 };
+  const climb = climbStyle(def);
+  if (climb === 'clamber') return { overlap: 1, rise: 1.5, ground: true };
+  if (climb === 'swing') return { overlap: -4, rise: 1.5 };
   return null;
 }
 

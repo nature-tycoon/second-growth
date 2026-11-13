@@ -4,7 +4,7 @@
 //   node tools/run-seed-check.mjs
 import assert from 'node:assert/strict';
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
-// Seeded before the game loads: the wildlife still draws from Math.random, and an exact replay needs it fixed.
+// (Math.random seeded too, though the simulation no longer draws it: sim-rng-check proves that.)
 let lcg = 1;
 const reseed = s => { lcg = s; };
 Math.random = () => ((lcg = (lcg * 1103515245 + 12345) % 2147483648) / 2147483648);

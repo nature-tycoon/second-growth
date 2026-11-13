@@ -1,11 +1,24 @@
 # 0013 Home ranges and water trips
 
+## Rules
+
+- Movement comes from natural causes (food, territory, predators, each animal's own nearest water), never from rules written to spread animals out. A need must not run on a timer shorter than the trip it sets off.
+- Resident land mammals that drink hold a home range (`a.home`, `js/sim/home-range.js`, `homeEligible`); migrants, river patrollers and reef animals don't. A group's leader holds it; young stay with their mother. A 0010 range or 0007 territory is that animal's home.
+- Settling is a bounded search (2,500 tiles) scored by habitat over overlap with homes of its own kind; animals spread because homes are scored against homes.
+- Water: the home's nearest reachable bank within `clamp(√hr × 2, 6, 40) × water.reach` tiles; none in reach means no water trips (recheck every 20 days). `drinkEvery` fits trip and drink within `water.share` of time (8%, 15% for water-dependent grazers).
+- The water route is learned once and reused both ways through `followRoute` (shared with resource trips in `animal-trails.js`).
+- Population, food, breeding, K and predation formulas are unchanged by homes.
+- `home` (with `waterRoute`) and `homeAfter` use the animal save/undo fields and are copied on serialization and load; older saves settle a home later.
+- Checks: `node tools/home-range-check.mjs`; `tools/activity-budget.mjs` shows how each species spends its time; clustering and territory soaks; seeded `balance-sim restore 15`.
+
+## History
+
 2026-10-20. Cole saw PNW brush rabbits clumped against one stretch of river with plenty of
 other riverside free, and asked for an architectural fix. He also asked that movement come
 from natural causes (food, territory, predators, each animal's own nearest water) rather than
 from rules written to spread animals out.
 
-## Findings
+### Findings
 
 Drinking was the only movement rule with no bound. Every 5–9 sim-days a thirst timer sent an
 animal on a breadth-first search of up to 5,000 tiles to the nearest free bank, wherever it stood.
@@ -31,7 +44,7 @@ The same pattern (a need on a timer shorter than what it sets off, winning a fix
 also crowds out other behaviour: hawks hunt about 45% of the time and soar 0% of it. That is Phase 2,
 below, and is not changed here.
 
-## Decision
+### Decision
 
 Resident land mammals hold a **home range** (`a.home`, owned by `js/sim/home-range.js`):
 
@@ -68,13 +81,13 @@ Resident land mammals hold a **home range** (`a.home`, owned by `js/sim/home-ran
 Population, food, breeding, carrying-capacity and predation formulas are unchanged. `followRoute`
 was extracted from `rangeChoose` in `animal-trails.js` so water trips and resource trips share it.
 
-## Persistence
+### Persistence
 
 `home` (with its `waterRoute` array) and `homeAfter` use the existing animal save/undo fields and
 are copied on serialization and load. Older saves have no homes and settle one on a later
 decision; no migration is needed.
 
-## Verification
+### Verification
 
 - `node tools/home-range-check.mjs`, six checks:
   - PNW rabbits stay off the bank (bank share below twice the habitat's share plus 3%) and
@@ -93,7 +106,7 @@ decision; no migration is needed.
   restoration goal, and predator and prey populations persist. Trajectories differ. ms/day was 14.3
   before and 13.7 after.
 
-## Known limits and next phases
+### Known limits and next phases
 
 - **Trails got fainter, not stronger.** After 150 days on PNW there were 40–60% fewer
   visible trail edges than before, because the endless water commuting had been making most

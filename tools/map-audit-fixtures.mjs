@@ -18,9 +18,10 @@ export const TARGETS = {
   sumatra: 'Dipterocarp rainforest on mineral soil, rewetted peat swamp forest, village fruit trees.',
 };
 
-export function restoredGame(map, seed = 1987) {
+// seed lays out the map; runSeed (decision 0035) picks weather, fires and wildlife, left out the fixed default
+export function restoredGame(map, seed = 1987, runSeed) {
   const g = new Game();
-  g.newGame(seed, 'free', 'standard', map);
+  g.newGame(seed, 'free', 'standard', map, runSeed);
   g.speed = 0;
   const w = g.world, rng = g.rng;
   for (let i = 0; i < w.n; i++) {

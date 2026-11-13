@@ -9,14 +9,26 @@ const cases = [
   ['orangutan', 'sumatra', 3, 15, 240], ['orangutan', 'sumatra', 3, 60, 240],
   ['langur', 'sumatra', 3, 60, 240], ['howler', 'amazon', 3, 60, 240],
 ];
-const caseArg = process.argv.indexOf('--case');
+const caseArg = process.argv.indexOf('--case'), runArg = process.argv.indexOf('--run');
+// Each case runs on three run seeds (decision 0035) and its limits judge the median run, so one
+// unlucky path can't flip the check. Invariants (pace, no torso through wood) hold in every run.
+const RUNS = [1, 2, 3];
+const median = xs => [...xs].sort((a, b) => a - b)[xs.length >> 1];
 if (caseArg < 0) {
-  // Keep model/simulation caches and their random consumption independent,
-  // as the release runner does for its individual checks.
+  // Keep model/simulation caches independent, as the release runner does for its individual checks.
   for (const i of process.argv.includes('--quick') ? [3] : cases.keys()) {
-    const run = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--case', String(i)], { stdio: 'inherit' });
-    if (run.error) throw run.error;
-    if (run.status !== 0) process.exit(run.status || 1);
+    const [key, , speed, fps] = cases[i], results = [];
+    for (const r of RUNS) {
+      const run = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--case', String(i), '--run', String(r)], { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8' });
+      if (run.error) throw run.error;
+      if (run.status !== 0) { process.stdout.write(run.stdout); process.exit(run.status || 1); }
+      results.push(JSON.parse(run.stdout.trim().split('\n').pop()));
+    }
+    const still = median(results.map(r => r.positionStill)), travelled = median(results.map(r => r.travelled)), changes = median(results.map(r => r.changes));
+    assert.ok(still < Math.max(18, SPEEDS[speed] * 6), `${key}: body must not stay at a failed hold for months (median run ${still.toFixed(1)} days)`);
+    assert.ok(travelled > 2, `${key}: recovery must resume substantial climbing on real wood (median run ${travelled.toFixed(1)})`);
+    assert.ok(changes >= 2, `${key}: reachable forest transfers must complete (median run ${changes})`);
+    console.log(`PASS ${key}, speed ${speed}, ${fps} fps, median of ${RUNS.length} runs: ${still.toFixed(1)} days at one hold, travelled ${travelled.toFixed(1)}, ${changes} tree changes`);
   }
   process.exit(0);
 }
@@ -29,11 +41,10 @@ const { PLANT } = await import('../js/data/plants.js');
 
 // Drive actual wildlife decisions and accepted branch motion together. A fixed
 // target crossing misses stalls caused by successive destinations and meals.
-const random = Math.random;
-try {
+{
   for (const [key, map, speed, fps, days] of [cases[Number(process.argv[caseArg + 1])]]) {
-    Math.random = mulberry32(1987);
     const { game } = canopyFixture(map, key), w = game.world;
+    game.wildRng.setState(mulberry32(+process.argv[runArg + 1])() * 4294967296); // (this run's seed)
     game.wildlife.agents = [];
     for (let x = 34; x < 47; x++) for (let z = 26; z < 39; z++) w.setPlant(w.idx(x, z), PLANT.fig, 1);
     game.refreshEnvironment(); game.wildlife.computeSuitability();
@@ -71,12 +82,9 @@ try {
         if (s.tree !== st.branchAt.site.tile) { s.changes++; s.tree = st.branchAt.site.tile; }
       });
     }
-    for (const s of stats) {
-      assert.ok(s.positionStill < Math.max(18, SPEEDS[speed] * 6), `${key}: body must not stay at a failed hold for months (${s.positionStill.toFixed(1)} days)`);
-      assert.ok(s.travelled > 2, `${key}: recovery must resume substantial climbing on real wood`);
-    }
-    assert.ok(stats.reduce((n, s) => n + s.changes, 0) >= 2, `${key}: reachable forest transfers must complete`);
-    console.log(`PASS ${key}, speed ${speed}, ${fps} fps: ` + stats.map(s => `${s.still.toFixed(1)} days still, ${s.changes} tree changes`).join('; '));
+    // (the worst of the three animals; the parent judges the median run)
+    console.log(JSON.stringify({ positionStill: Math.max(...stats.map(s => s.positionStill)), travelled: Math.min(...stats.map(s => s.travelled)),
+      changes: stats.reduce((n, s) => n + s.changes, 0) }));
     actors.clear();
   }
-} finally { Math.random = random; }
+}

@@ -48,7 +48,7 @@ export function flightHeading(a, mx = 0, my = 0) {
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
     if (d > 1e-3) return [dx / d, dy / d];
   }
-  const h = a.hd ?? a.orientation;
+  const h = a.heading;
   return h == null ? [0, 0] : [Math.cos(h), Math.sin(h)];
 }
 // The height to draw a flier at: its own flight height y, or over the crowns ahead. out.floor is
@@ -68,7 +68,7 @@ export function clearCanopy(w, plants, a, def, y, out = null, mx = 0, my = 0, ah
 }
 
 // Reef fish keep clear of the hard corals (the reef's trees) by body size, one rule for every
-// fish. A fish small enough to shelter in the reef (a clownfish, a chromis, a cleaner wrasse)
+// fish. A fish small enough to shelter in the reef (a clownfish, a chromis, an anthias, a cleaner wrasse)
 // only rises over coral growing on its own tile, so it stays down in an anemone or a gap beside
 // a thicket but never sits inside the branches. A bigger fish looks a crown's width round it and
 // a little way ahead, and keeps its own body depth over the top (a grouper, a turtle, a shark
@@ -78,7 +78,7 @@ const HERE = [[0, 0]];
 export function coralFloor(w, plants, a, def) {
   if (def.benthic) return -Infinity;
   const size = def.sprite.size || 10, small = size <= SHELTER_SIZE;
-  const h = a.hd ?? a.orientation ?? 0, ahead = small ? 0 : 0.7;
+  const h = a.heading ?? 0, ahead = small ? 0 : 0.7;
   let top = -Infinity;
   // (a big fish looks 1.4 tiles ahead, so it can rise over a head as a slope: easeCoralLift)
   for (let s = 0; s <= (small ? 0 : 2); s++) for (const [ox, oy] of small ? HERE : AROUND) {
@@ -142,13 +142,14 @@ export function holdCruise(st, y, level, dt) {
 
 // How far a reef fish is lifted over the coral and rock under it eases like a body too (it was a
 // plain ease, so a head coming into view lifted a grouper or a dugong 0.3 tiles in one frame): up
-// at most LIFT_RISE tiles a second, down a quarter as fast, and its climb rate builds and fades.
-// st.coralLift is the lift, st.coralVy its rate.
-export const LIFT_RISE = 2, LIFT_ACCEL = 8;
+// at most LIFT_RISE tiles a second, down an eighth as fast, and its climb rate builds and fades.
+// (Gentler since the reef starts with healthy coral heads, wave 2: it was 8 and a quarter, and a
+// fish crossing a field of heads bobbed over each one.) st.coralLift is the lift, st.coralVy its rate.
+export const LIFT_RISE = 2, LIFT_ACCEL = 5;
 export function easeCoralLift(st, lift, dt) {
   if (st.coralLift == null || !(dt > 0)) { st.coralVy = 0; return (st.coralLift = lift); }
   const gap = lift - st.coralLift, up = gap > 0;
-  const want = Math.sign(gap) * Math.min(up ? LIFT_RISE : LIFT_RISE / 4, Math.abs(gap) * (up ? 6 : 1.2),
+  const want = Math.sign(gap) * Math.min(up ? LIFT_RISE : LIFT_RISE / 8, Math.abs(gap) * (up ? 6 : 0.6),
     Math.sqrt(2 * LIFT_ACCEL * 0.8 * Math.abs(gap)));
   const v = st.coralVy || 0, dv = LIFT_ACCEL * dt;
   st.coralVy = v + Math.max(-dv, Math.min(dv, want - v));

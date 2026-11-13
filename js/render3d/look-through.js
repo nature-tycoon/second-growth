@@ -26,11 +26,13 @@ export const LOOK_TRUNKS = 8; // (the trunks nearest in front of it, focus.uLook
 // sight (so it shows in the same place on screen, and passes the depth test only against what lies
 // within that distance in front of it); its lighting and shade still come from where it is. 0 in
 // the normal draw.
-export function withLookShift(mat) {
+// near: for the branch the animal is on (flora's canopyBark), drawn this pass only round it, fading
+// out within uLookD of it, so it is seen sitting on wood rather than floating in the leaves.
+export function withLookShift(mat, { near = false } = {}) {
   const prev = mat.onBeforeCompile, baseKey = mat.customProgramCacheKey();
   mat.onBeforeCompile = (shader, renderer) => {
     if (prev) prev.call(mat, shader, renderer);
-    Object.assign(shader.uniforms, { uLookShift: lookShift, uLookTrunks: focus.uLookTrunks, uLookDir: focus.uViewDir });
+    Object.assign(shader.uniforms, { uLookShift: lookShift, uLookTrunks: focus.uLookTrunks, uLookDir: focus.uViewDir, uLookAt: focus.uFocus, uLookD: focus.uLookD });
     shader.vertexShader = 'uniform float uLookShift;\nvarying vec3 vLookW;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vec4 lookW = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
@@ -45,7 +47,8 @@ export function withLookShift(mat) {
     // a trunk close in front hides it, as the trees farther off do by depth: what of it lies behind
     // one of the trunks round it (Renderer.updateFocus, focus.uLookTrunks: x, z, radius, top) isn't drawn
     // this pass, so it passes behind the trunk rather than seeming to walk in front of it
-    shader.fragmentShader = `uniform float uLookShift; uniform vec4 uLookTrunks[${LOOK_TRUNKS}]; uniform vec3 uLookDir; varying vec3 vLookW;\n` + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+    shader.fragmentShader = `uniform float uLookShift; uniform vec4 uLookTrunks[${LOOK_TRUNKS}]; uniform vec3 uLookDir; uniform vec3 uLookAt; uniform float uLookD; varying vec3 vLookW;\n` + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+      ${near ? 'if (uLookShift > 0.0 && distance(vLookW, uLookAt) > uLookD) discard;' : ''}
       if (uLookShift > 0.0) {
         vec3 lookTo = isOrthographic ? uLookDir : cameraPosition - vLookW; // (to the eye: as far as the eye)
         float lookA = dot(lookTo.xz, lookTo.xz);
@@ -59,8 +62,11 @@ export function withLookShift(mat) {
           }
         }
       }`);
+    // (the branch fades out round it)
+    if (near) shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      if (uLookShift > 0.0) gl_FragColor.a *= 1.0 - smoothstep(0.4 * uLookD, uLookD, distance(vLookW, uLookAt));`);
   };
-  mat.customProgramCacheKey = () => baseKey + '|look';
+  mat.customProgramCacheKey = () => baseKey + '|look' + (near ? '-near' : '');
   return mat;
 }
 export const LOOK_ALPHA = 0.42; // how strongly a hidden part shows through (1: as if nothing were in front)
@@ -85,7 +91,9 @@ function ghostFor(pool) {
 }
 
 // Draw the tracked animal through cover. amt: 0 off .. 1 full (the lens's uFocusAmt).
-export function drawLookThrough(gl, scene, camera, fauna, amt) {
+// near: other meshes drawn in the same pass round it (the branch it is on: Flora.lookNear), whose
+// material has withLookShift({ near: true }).
+export function drawLookThrough(gl, scene, camera, fauna, amt, near = []) {
   const tracked = fauna.tracked;
   if (!tracked?.length || amt < 0.01) return;
   const ghosts = [];
@@ -108,7 +116,8 @@ export function drawLookThrough(gl, scene, camera, fauna, amt) {
   // parts are drawn as much farther forward again as it is deep, so cover anywhere up to that line
   // shows it, and focus.js opens what lies beyond
   lookShift.value = focus.uLookD.value + Math.max(0, focus.uFocusFront.value - focus.uFocusBack.value);
-  const mats = [...new Set(ghosts.map(g => g.mesh.material))];
+  for (const m of near) m.layers.enable(LOOK_LAYER);
+  const mats = [...new Set([...ghosts, ...near.map(mesh => ({ mesh }))].map(g => g.mesh.material))];
   const saved = mats.map(m => ({ colorWrite: m.colorWrite, depthFunc: m.depthFunc, depthWrite: m.depthWrite, transparent: m.transparent, opacity: m.opacity }));
   // its own depth first, then its colour where it is nearest
   for (const m of mats) { m.colorWrite = false; m.depthWrite = true; } // (tested against the scene: nothing farther in front is drawn over)
@@ -119,5 +128,6 @@ export function drawLookThrough(gl, scene, camera, fauna, amt) {
   camera.layers.mask = layers; scene.background = background; gl.autoClear = autoClear; gl.shadowMap.needsUpdate = shadows;
   for (const l of lights) l.layers.disable(LOOK_LAYER);
   for (const g of ghosts) g.mesh.visible = false;
+  for (const m of near) m.layers.disable(LOOK_LAYER);
   lookShift.value = 0;
 }

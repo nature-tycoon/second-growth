@@ -2,10 +2,10 @@
 import assert from 'node:assert/strict';
 import { Game, WORLD_ARRAYS } from '../js/game.js';
 import { BIOME_LIST } from '../js/biome.js';
-import { ToolActions } from '../js/tool-actions.js';
+import { ToolActions, refusal } from '../js/tool-actions.js';
 import { TOOLS, toolCost, naturalFeature } from '../js/tools.js';
 import { Undo } from '../js/undo.js';
-import { removeTree } from '../js/sim/plants.js';
+import { removeTree, plantSuit } from '../js/sim/plants.js';
 import { T, F, PLACED } from '../js/config.js';
 
 let checks = 0;
@@ -172,6 +172,22 @@ check('A stroke from a replaced world cannot edit the new farm', () => {
   actions.end(stroke);
   assert.deepEqual(landscape(), before);
   assert.equal(g.money, balance);
+});
+
+// The cursor tip and the refused stroke's warning share one reason: why the tool fails and what suits the spot
+check('A refused planting names its limits and a tool that suits the spot, in the warning and for the cursor tip', () => {
+  reset();
+  const w = g.world, tool = g.catalog.tools.mix_meadow, plants = tool.species.map(k => g.catalog.plant[k]);
+  const i = [...w.terrain.keys()].find(j => !w.ground[j] && w.struct[j] < 0 && Math.max(...plants.map(p => plantSuit(w, j, p))) <= 0.2 && refusal(g, j, tool).better);
+  assert.ok(i != null, 'a bare tile meadow mix is refused on but another groundcover suits');
+  const { limits, better } = refusal(g, i, tool);
+  assert.ok(limits.length);
+  assert.notEqual(better, tool);
+  assert.ok(better.species.some(k => plantSuit(w, i, g.catalog.plant[k]) > 0.2));
+  const notes = [], notify = g.notify;
+  g.notify = (text, ...rest) => { notes.push(text); return notify.call(g, text, ...rest); };
+  try { new ToolActions(g).apply('mix_meadow', [i], { random: () => 0 }); } finally { g.notify = notify; }
+  assert.ok(notes.some(n => n.includes(limits[0]) && n.includes(`try ${better.name}`)), notes.join(' | '));
 });
 
 console.log(`${checks} shared player-action checks passed.`);
