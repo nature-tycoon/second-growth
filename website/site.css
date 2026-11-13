@@ -409,3 +409,41 @@
 /* Link from the landscapes to the field guide. */
 .guide-link { display: inline-flex; gap: 12px; margin-top: 18px; font-size: 15px; font-weight: 800; color: #f6d9bf; border-bottom: 1px solid #edb58e88; padding-bottom: 3px; }
 .guide-link:hover { border-color: #edb58e; }
+
+/* Press kit (/press/) and the "Follow along" links it shares with the homepage. */
+.brief-intro a, .brief-section > p a, .press-facts a, .press-note a { text-decoration: underline; text-underline-offset: 4px; }
+.press-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 32px; border-top: 1px solid var(--line); margin-top: 30px; padding-top: 24px; }
+.press-facts dt { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: #b5c498; }
+.press-facts dd { font-size: 14px; color: #d3dcc6; margin-top: 6px; line-height: 1.7; }
+.press-facts-wide { grid-column: 1 / -1; }
+.press-places { list-style: none; padding: 0; margin: 4px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 32px; }
+.press-places strong, .press-features strong { color: var(--cream); }
+.press-subhead { margin-top: 30px; font-size: 20px; }
+.brief-section .press-subhead + p { margin-top: 12px; }
+.brief-section .press-subhead ~ p { max-width: 760px; }
+.press-features { list-style: none; padding: 0; margin: 28px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 40px; font-size: 14px; color: var(--muted); }
+.press-features li { border-top: 1px solid var(--line); padding-top: 14px; }
+.press-gallery figcaption { font-size: 12px; }
+.press-gallery figcaption a { color: #e1d0a9; text-decoration: underline; text-underline-offset: 3px; }
+.brief-section > .press-note { font-size: 13px; color: #a9bea4; }
+.press-logo { display: grid; grid-template-columns: 200px 1fr; gap: 36px; align-items: center; margin-top: 30px; }
+.press-logo img { display: block; width: 200px; height: 200px; padding: 18px; border-radius: 22px; background: var(--cream); }
+.press-logo p { font-size: 14px; color: var(--muted); max-width: 640px; }
+.press-downloads { display: flex; flex-wrap: wrap; gap: 10px 24px; margin-top: 18px; }
+.press-downloads a { font-weight: 800; color: #e1d0a9; border-bottom: 1px solid #e1d0a966; padding-bottom: 3px; }
+.press-downloads a:hover { border-color: currentColor; }
+.follow-links { list-style: none; padding: 0; margin: 28px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.follow-links a { display: block; height: 100%; padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; font-size: 13px; color: var(--muted); transition: background .2s, border-color .2s; }
+.follow-links a:hover { background: #ffffff0a; border-color: #d9c79b88; }
+.follow-links strong { display: block; font-size: 15px; color: var(--cream); margin-bottom: 4px; }
+.follow-along-home { padding-block: 44px 6px; }
+.follow-along-home h2 { font-size: 30px; margin-top: 10px; }
+@media (max-width: 1100px) { .press-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .follow-links { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .press-facts, .press-places, .press-features, .follow-links { grid-template-columns: 1fr; }
+  .press-facts { gap: 18px; }
+  .press-facts dd, .press-features, .press-logo p { font-size: 13px; }
+  .press-logo { grid-template-columns: 1fr; gap: 20px; }
+  .press-logo img { width: 150px; height: 150px; }
+  .follow-along-home h2 { font-size: 26px; }
+}
