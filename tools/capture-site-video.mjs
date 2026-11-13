@@ -46,7 +46,7 @@ try{
     // (scale films at a higher pixel ratio: the same view, more pixels. The 9:16 version is for phones,
     // so it stays 1080×1920 with the same bits per pixel as the wide one)
     const scale=tall?1:clip.scale||1,bits=tall?1/(clip.scale||1)**2:1;
-    const [cssWidth,cssHeight]=tall?[1080,1920]:[1920,1080],[width,height]=[Math.round(cssWidth*scale),Math.round(cssHeight*scale)];
+    const [cssWidth,cssHeight]=tall?[1080,1920]:clip.frame||[1920,1080],[width,height]=[Math.round(cssWidth*scale),Math.round(cssHeight*scale)];
     await browser.send('Emulation.setDeviceMetricsOverride',{width:cssWidth,height:cssHeight,deviceScaleFactor:scale,mobile:false});
     await browser.navigate('/tools/website-video.html?clip='+id);
     await browser.waitFor('window.websiteVideo?.ready','Video studio for '+id,300000);
@@ -62,7 +62,7 @@ try{
     let bitrate=Object.fromEntries(Object.entries(clip.bitrate||BITRATE).map(([k,v])=>[k,Math.round(v*bits)])),result;
     for(let attempt=0;;attempt++){
       if(attempt)await browser.navigate('/tools/website-video.html?clip='+id),await browser.waitFor('window.websiteVideo?.ready','Video studio for '+id,300000);
-      result=await browser.evaluate(`websiteVideo.record(${JSON.stringify({mp4Bitrate:bitrate.mp4,webmBitrate:bitrate.webm,samples,posterWidth:cssWidth})})`,1800000);
+      result=await browser.evaluate(`websiteVideo.record(${JSON.stringify({mp4Bitrate:bitrate.mp4,webmBitrate:bitrate.webm,samples,posterWidth:Math.min(cssWidth,width)})})`,1800000);
       if(result.width!==width||result.height!==height)throw Error(`${name}: filmed ${result.width}×${result.height}, not ${width}×${height}`);
       browser.assertHealthy();
       const over=['mp4','webm'].filter(k=>result.sizes[k]>budget);
@@ -97,7 +97,7 @@ try{
     await rm(framesOut+name,{recursive:true,force:true});await mkdir(framesOut+name,{recursive:true});
     for(const [frame,data] of Object.entries(result.samples))await writeFile(`${framesOut}${name}/frame-${String(frame).padStart(4,'0')}.jpg`,Buffer.from(data,'base64'));
     clips.push({id:name,clip:id,sourceRevision:revision,title:meta.clip.title,map:meta.clip.map,kind:meta.clip.kind,width,height,fps:result.fps,frames:result.frames,
-      renderedFrames:result.rendered,seconds:meta.clip.seconds,loop:meta.clip.loop,keyframeEvery:result.keyEvery,timeOfDay:meta.clip.time,
+      renderedFrames:result.rendered,seconds:meta.clip.seconds,prerollSeconds:meta.clip.preroll,loop:meta.clip.loop,keyframeEvery:result.keyEvery,timeOfDay:meta.clip.time,
       animalPace:meta.clip.pace,bitrate,description:meta.description,moment:meta.moment,focus:meta.focus,posedSpecies:meta.posed,
       camera:{shots:meta.shots,everyHalfSecond:result.path.filter((_,i)=>i%15===0)},motion:result.motion,files});
     console.log(`  ${files.map(f=>`${f.file} ${(f.bytes/1e6).toFixed(2)} MB`).join(', ')} in ${Math.round((Date.now()-started)/1000)} s\n  frame-to-frame change: median ${result.motion.median}, biggest ${result.motion.jumps.map(j=>`frame ${j.frame} ×${j.times}`).join(', ')}; sample frames in dist/website-video-frames/${name}/`);

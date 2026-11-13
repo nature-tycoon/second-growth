@@ -58,23 +58,23 @@ function page({ title, description, path, depth, land, top, body, schema, image,
   <script src="${up}gtm.js" async></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="${up}site.css?v=guide-20261113">
-  <link rel="stylesheet" href="${up}guide.css?v=guide-20261113">
-  <script type="application/ld+json">${JSON.stringify(schema).replace(/</g, '\\u003c')}</script>${script ? `\n  <script src="${up}guide.js?v=guide-20261113" defer></script>` : ''}
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="${up}site.css?v=logo-20261113">
+  <link rel="stylesheet" href="${up}guide.css?v=logo-20261113">
+  <script type="application/ld+json">${JSON.stringify(schema).replace(/</g, '\\u003c')}</script>${script ? `\n  <script src="${up}guide.js?v=logo-20261113" defer></script>` : ''}
 </head>
 <body class="guide">
   <a class="skip" href="#main">Skip to content</a>
   <div class="g-top" data-land="${esc(land || '')}">
 ${top.backdrop}
     <div class="g-shade" aria-hidden="true"></div>
-    <header class="header wrap"><a class="brand" href="${up}">Second Growth</a><nav class="site-nav" aria-label="Main navigation"><a href="${up}guide/" aria-current="${depth === 1 ? 'page' : 'false'}">Field guide</a><a href="${up}#places">Landscapes</a><a href="${up}#ecology">Ecology</a></nav><a class="button small" href="${up}play/">Play <span aria-hidden="true">↗</span></a></header>
+    <header class="header wrap"><a class="brand" href="${up}" aria-label="Second Growth"><span class="wordmark" aria-hidden="true">Sec<i class="brand-o"></i>nd Growth</span></a><nav class="site-nav" aria-label="Main navigation"><a href="${up}guide/" aria-current="${depth === 1 ? 'page' : 'false'}">Field guide</a><a href="${up}#places">Landscapes</a><a href="${up}#ecology">Ecology</a></nav><a class="button small" href="${up}play/">Play <span aria-hidden="true">↗</span></a></header>
 ${top.content}
   </div>
   <main id="main" class="wrap">
 ${body}
   </main>
-  <footer class="footer wrap"><a class="brand" href="${up}">Second Growth</a><nav aria-label="Footer"><a href="${up}guide/">Field guide</a><a href="${up}#about">Project &amp; credits</a><a href="${up}visuals.html">Game imagery</a></nav><span>Free browser game · In development</span><small class="copyright">© 2026 Second Growth</small></footer>
+  <footer class="footer wrap"><a class="brand" href="${up}" aria-label="Second Growth"><span class="wordmark" aria-hidden="true">Sec<i class="brand-o"></i>nd Growth</span></a><nav aria-label="Footer"><a href="${up}guide/">Field guide</a><a href="${up}#about">Project &amp; credits</a><a href="${up}visuals.html">Game imagery</a></nav><span>Free browser game · In development</span><small class="copyright">© 2026 Second Growth</small></footer>
 </body>
 </html>
 `;

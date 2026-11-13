@@ -10,5 +10,46 @@
     "sha256": "hash of the file as committed (shasum -a 256 website/art/<file>)",
     "notes": "optional: crop, resize, who approved it"
   },
-  "art": []
+  "art": [
+    {
+      "file": "logo-marks.jpg",
+      "use": "logo",
+      "tool": "ChatGPT (GPT image), chosen by Cole",
+      "prompt": "The attached images are from my game \"Second Growth\": its current detailed badge (a young fir growing from an old cut stump by a creek) and my website's header, which uses a simple flat silhouette of that idea. Design 8 alternative flat logo marks for the same idea, new growth rising from old damage: a young conifer sprouting from a tree stump, seen simply. Clean geometric shapes, one colour only (soft fern green #b7d494 on a dark pine green #102019 background), readable at 16 pixels, no gradients, no outlines, no text, no extra scenery. Calm, natural and quietly confident, like the mark of a thoughtful independent nature studio. Show all 8 on one sheet in a grid. (the prompt as written in docs/key-art-prompts.md; any follow-ups were not recorded)",
+      "source": null,
+      "date": "2026-11-13",
+      "sha256": "2c9654d415b7e8d1e93f187327782ce270fb6900c1a4d6a5a46e1ddd031e4ec9",
+      "notes": "Eight flat marks. No. 2 (top row, second: a fir from a stump with growth rings) was redrawn by Claude as website/mark.svg and website/favicon.svg."
+    },
+    {
+      "file": "app-icon.webp",
+      "use": "logo",
+      "tool": "ChatGPT (GPT image), chosen by Cole",
+      "prompt": "Using the attached badge from my game \"Second Growth\" as the reference for the subject, redesign it as a modern app icon: a rounded square with a young Douglas-fir rising from an old cut stump with visible growth rings, a strip of creek and a low sun. Soft, simple shapes in the game's own gentle low-poly style, with at most one soft gradient: simple enough to recognise at 48 pixels, rich enough to enjoy at 512. Palette: dark pine green #102019 and moss #1b3128 behind, soft fern green #b7d494 for the young tree, a warm sun #e8bf7a, creek blue-green #63bdf6, the stump in warm brown and cream. No text, no border, no drop shadow outside the square. Show 4 options. (the prompt as written in docs/key-art-prompts.md; any follow-ups were not recorded)",
+      "source": null,
+      "date": "2026-11-13",
+      "sha256": "4c9247c203ea9d2353453fe9a4c7d8a676f1f8e8efc7b9f2d07f08bab5770319",
+      "notes": "The new app icon. Cropped just inside its rounded square into assets/icon-512.png, icon-192.png, icon-180.png, website/apple-touch-icon.png and art/app-icon-1024.png."
+    },
+    {
+      "file": "app-icon-1024.png",
+      "use": "logo",
+      "tool": "ChatGPT (GPT image), chosen by Cole",
+      "prompt": "Using the attached badge from my game \"Second Growth\" as the reference for the subject, redesign it as a modern app icon: a rounded square with a young Douglas-fir rising from an old cut stump with visible growth rings, a strip of creek and a low sun. Soft, simple shapes in the game's own gentle low-poly style, with at most one soft gradient: simple enough to recognise at 48 pixels, rich enough to enjoy at 512. Palette: dark pine green #102019 and moss #1b3128 behind, soft fern green #b7d494 for the young tree, a warm sun #e8bf7a, creek blue-green #63bdf6, the stump in warm brown and cream. No text, no border, no drop shadow outside the square. Show 4 options. (the prompt as written in docs/key-art-prompts.md; any follow-ups were not recorded)",
+      "source": null,
+      "date": "2026-11-13",
+      "sha256": "9ce60e9945aca046cfd265e4994d87b8abd1ac5445ad59107be034a7d28f4cf6",
+      "notes": "app-icon.webp cropped just inside its rounded square (no dark corners) and scaled to 1024 px, for the press kit download."
+    },
+    {
+      "file": "wordmark.jpg",
+      "use": "wordmark",
+      "tool": "ChatGPT (GPT image), chosen by Cole",
+      "prompt": "The name \"Second Growth\" set in a friendly modern grotesque in the style of Bricolage Grotesque at a medium weight, slightly tight letter spacing, cream #fbf6e7 on dark pine green #102019. Give it one small, quiet detail drawn from the logo: a tiny fir sprouting from the dot or the end of one letter, in fern #b7d494. Calm, not flashy. Show 4 options. Spell it exactly: Second Growth. (the prompt as written in docs/key-art-prompts.md; any follow-ups were not recorded)",
+      "source": null,
+      "date": "2026-11-13",
+      "sha256": "1133a645521ae25766ad2602efc615b9fb403e7a7e7f11b5f4dc8d1788072d44",
+      "notes": "The design reference for the site's wordmark: rebuilt as live text in Bricolage Grotesque, with the fir-in-the-o drawn as website/brand-o.svg."
+    }
+  ]
 }

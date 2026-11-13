@@ -3,6 +3,13 @@
 // A short fade when a picture changes, skipped for reduced motion.
 const calm = matchMedia('(prefers-reduced-motion: reduce)');
 const fadeIn = image => { if (!calm.matches && image.animate) image.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 450, easing: 'ease' }); };
+// The floating header turns solid once the page has scrolled past the top of the hero.
+const header = document.querySelector('.home .header');
+if (header) {
+  const solid = () => header.classList.toggle('scrolled', scrollY > 40);
+  addEventListener('scroll', solid, { passive: true });
+  solid();
+}
 const choices = [...document.querySelectorAll('.map-choice')];
 const fields = {
   name: document.querySelector('#map-name'),
@@ -99,10 +106,12 @@ const overPicture = (video, picture, quietly) => {
   } else video.addEventListener('loadeddata', () => video.classList.add('on'));
 };
 // Play while on screen (and the tab is showing), pause otherwise.
-function whileVisible(video, onShow = play) {
+// (share: how much of it must be on screen; the reel asks for half, so a grid of clips plays only the
+// rows in view, not six videos at once on a slow laptop)
+function whileVisible(video, onShow = play, share = 0.15) {
   let seen = false;
   const update = () => seen && !document.hidden ? onShow(video) : video.pause();
-  if ('IntersectionObserver' in window) new IntersectionObserver(entries => { seen = entries.some(e => e.isIntersecting); update(); }, { threshold: 0.15 }).observe(video);
+  if ('IntersectionObserver' in window) new IntersectionObserver(entries => { seen = entries.some(e => e.isIntersecting && e.intersectionRatio >= share); update(); }, { threshold: [share] }).observe(video);
   else seen = true;
   document.addEventListener('visibilitychange', update);
   update();
@@ -145,13 +154,21 @@ if (descent) {
     descent.classList.add('scrub');
     const track = descent.querySelector('.descent-track');
     // One seek at a time: when it lands, seek again if the reader has scrolled on meanwhile.
-    let progress = 0, frame = 0;
+    let progress = 0, frame = 0, wanted = 0, misses = 0, looping = false;
     const seek = () => {
-      if (!video.duration || video.seeking) return;
+      if (looping || !video.duration || video.seeking) return;
       const target = progress * (video.duration - 0.05);
-      if (Math.abs(video.currentTime - target) > 0.02) video.currentTime = target;
+      if (Math.abs(video.currentTime - target) > 0.02) video.currentTime = wanted = target;
     };
-    video.addEventListener('seeked', seek);
+    // A server that can't answer byte ranges (an old tools/serve.py) can't seek: every seek lands back
+    // at the start. Then just play the clip on a loop, so it never sits frozen on its first frame.
+    video.addEventListener('seeked', () => {
+      if (wanted > 0.5 && video.currentTime < 0.1 && ++misses >= 2) {
+        looping = true; video.loop = true; whileVisible(video);
+        return;
+      }
+      seek();
+    });
     video.addEventListener('loadedmetadata', seek);
     const onScroll = () => {
       frame = 0;
@@ -175,10 +192,10 @@ if (descent) {
   }
 }
 
-// Keystone moments: each clip plays while it is on screen.
+// Keystone moments: each clip plays while at least half of it is on screen.
 for (const video of document.querySelectorAll('.moment-clip video')) {
   const source = () => { if (!video.src) { video.src = pick(video.dataset.mp4, video.dataset.webm); video.preload = 'auto'; } };
   overPicture(video, video.parentElement.querySelector('img'), quiet);
   if (quiet) video.src = pick(video.dataset.mp4, video.dataset.webm);
-  else afterLoad(() => whileVisible(video, v => { source(); play(v); }));
+  else afterLoad(() => whileVisible(video, v => { source(); play(v); }, 0.5));
 }
