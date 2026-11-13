@@ -358,9 +358,9 @@
 .descent.scrub .descent-poster { height: 100%; aspect-ratio: auto; }
 /* The words follow the footage up the page, laid over it from its top (-100svh): the title, then four
    cards half a screen apart, so one is always passing. The track is as tall as the words (250vh), so
-   the footage plays over 150vh of scrolling. "Above" and "Closer" pass while the view pushes in; "Eye
-   level" rises from the bottom as the clip dissolves to eye level, halfway; "Watch" is on screen when
-   the section scrolls away. Elsewhere only "Above" and "Eye level" show, over the picture. */
+   the footage plays over 150vh of scrolling. "Trails" and "Grazing" pass while the view pushes in;
+   "Eye level" rises from the bottom as the clip dissolves to eye level, halfway; "Fear" is on screen
+   when the section scrolls away. Elsewhere only "Trails" and "Eye level" show, over the picture. */
 .descent-beats li.more { display: none; }
 .descent.scrub .descent-copy { position: relative; inset: auto; display: block; padding-block: 0; margin-top: -100vh; margin-top: -100svh; }
 .descent.scrub .descent-intro { height: 40vh; padding-top: clamp(28px, 7vh, 80px); }
