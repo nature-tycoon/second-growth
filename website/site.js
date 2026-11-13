@@ -106,10 +106,12 @@ const overPicture = (video, picture, quietly) => {
   } else video.addEventListener('loadeddata', () => video.classList.add('on'));
 };
 // Play while on screen (and the tab is showing), pause otherwise.
-function whileVisible(video, onShow = play) {
+// (share: how much of it must be on screen; the reel asks for half, so a grid of clips plays only the
+// rows in view, not six videos at once on a slow laptop)
+function whileVisible(video, onShow = play, share = 0.15) {
   let seen = false;
   const update = () => seen && !document.hidden ? onShow(video) : video.pause();
-  if ('IntersectionObserver' in window) new IntersectionObserver(entries => { seen = entries.some(e => e.isIntersecting); update(); }, { threshold: 0.15 }).observe(video);
+  if ('IntersectionObserver' in window) new IntersectionObserver(entries => { seen = entries.some(e => e.isIntersecting && e.intersectionRatio >= share); update(); }, { threshold: [share] }).observe(video);
   else seen = true;
   document.addEventListener('visibilitychange', update);
   update();
@@ -190,10 +192,10 @@ if (descent) {
   }
 }
 
-// Keystone moments: each clip plays while it is on screen.
+// Keystone moments: each clip plays while at least half of it is on screen.
 for (const video of document.querySelectorAll('.moment-clip video')) {
   const source = () => { if (!video.src) { video.src = pick(video.dataset.mp4, video.dataset.webm); video.preload = 'auto'; } };
   overPicture(video, video.parentElement.querySelector('img'), quiet);
   if (quiet) video.src = pick(video.dataset.mp4, video.dataset.webm);
-  else afterLoad(() => whileVisible(video, v => { source(); play(v); }));
+  else afterLoad(() => whileVisible(video, v => { source(); play(v); }, 0.5));
 }

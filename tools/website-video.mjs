@@ -52,8 +52,17 @@ try{
     r.az=r.azTarget=p('az');
     r.centerOn(p('x'),p('y'),p('h'));
   }
+  // A follow shot is the game's own follow camera (Renderer.updateAnimalCamera: centred on the animal's
+  // drawn body, its height eased), so a bird above the crowns or a gibbon up in them stays in frame;
+  // the clip only sets the zoom and a slow turn, from zoom[0]/az[0] to zoom[1]/az[1].
+  function followCamera(s,t){
+    const end=Math.min(s.until,rendered/fps),u=Math.min(1,Math.max(0,(t-s.from)/(end-s.from)));
+    if(r.followAgent!==shot.focus){r.setEyeLevel(null);r.centerOn(shot.focus.x,shot.focus.y);r.followAgent=shot.focus;}
+    r.zoom=Math.exp(Math.log(s.zoom[0])+(Math.log(s.zoom[1])-Math.log(s.zoom[0]))*u);
+    r.az=r.azTarget=s.az[0]+(s.az[1]-s.az[0])*u;
+  }
   const shotAt=t=>shots.find(s=>t<s.until)||shots[shots.length-1];
-  function camera(t){const s=shotAt(t);if(s.camera==='map')mapCamera(s,t);else if(r.eyeAgent!==shot.focus)r.setEyeLevel(shot.focus);return s;}
+  function camera(t){const s=shotAt(t);if(s.camera==='map')mapCamera(s,t);else if(s.camera==='follow')followCamera(s,t);else if(r.eyeAgent!==shot.focus)r.setEyeLevel(shot.focus);return s;}
 
   // ---- the animals: the game's own per-step updates (Game.update), the calendar held
   const pace=clip.pace;g.speed=pace;g.wildlife.lifePace=SPEEDS[pace]/ANIMAL_SPEEDS[pace];
@@ -62,6 +71,10 @@ try{
     while(days>0){const d=Math.min(days,.05);g.wildlife.update(d);g.visitors.update(d);g.mapDefinition.update?.(g,d);days-=d;}
     momentsUpdate(g);
   }
+  // A clip can start some way into its scene (preroll seconds, stepped a frame at a time as filming
+  // does, so a staged hunt reaches the same moment it did when it was planned): the slow part of a
+  // stalk happens before the camera rolls.
+  for(let i=0;i<Math.round((clip.preroll||0)*fps);i++)simulate(dt);
   // Settle: plants built and models compiled for both cameras, so nothing pops in on the first frames.
   let clock=0;
   const settle=()=>{for(let n=0;n<240&&(n<6||r.floraPending||r.flora.waitingRegions?.size);n++){clock+=500;r.diagnosticTime=clock;r.draw(g,ui,0);}};
@@ -117,7 +130,8 @@ try{
       const frame=new VideoFrame(out,{timestamp:Math.round(k*1e6/fps),duration:Math.round(1e6/fps)});
       for(const e of [mp4,webm])e.encode(frame,{keyFrame:k%keyEvery===0});
       frame.close();
-      // (the poster stays at the page's size, 1920 wide, even when the clip is filmed bigger: it is the
+      // (the poster stays at the page's size, 1920 wide, even when the clip is filmed bigger (and as filmed when
+    // smaller: the reel's 1600): it is the
       // still the page loads first. The sample frames are full size, to judge sharpness by)
       if(k===0)poster=await jpeg(out,.88,posterWidth);
       if(samples.includes(k))sampled[k]=base64(await jpeg(out,.9));
@@ -145,10 +159,10 @@ try{
   // a slice of an encoded file as base64, for the capture script to read back in pieces
   function base64(b){let s='';for(let i=0;i<b.length;i+=32768)s+=String.fromCharCode(...b.subarray(i,i+32768));return btoa(s);}
   const slice=(name,start,length)=>base64(window.websiteVideo.files[name].subarray(start,start+length));
-  window.websiteVideo={ready:true,clip:{id:clip.id,title:clip.title,map:clip.map,kind:clip.kind,seconds:clip.seconds,loop:clip.loop,time:clip.time,pace:clip.pace},
+  window.websiteVideo={ready:true,clip:{id:clip.id,title:clip.title,map:clip.map,kind:clip.kind,seconds:clip.seconds,preroll:clip.preroll||0,loop:clip.loop,time:clip.time,pace:clip.pace},
     description:shot.description,moment:shot.moment?{key:shot.moment.key,title:shot.moment.title,stage:shot.moment.stage,day:shot.moment.day,date:shot.moment.date}:null,
     focus:shot.focus?{key:shot.focus.key,id:shot.focus.id}:null,
     posed:placed.map(({key,x,y})=>({key,x,y})),
-    shots:shot.shots.map(({until,camera,keys,ease,closed,dissolve})=>({until:until===Infinity?null:until,camera,keys,ease,closed,dissolve})),
+    shots:shot.shots.map(({until,camera,keys,ease,closed,dissolve,zoom,az})=>({until:until===Infinity?null:until,camera,keys,ease,closed,dissolve,zoom,az})),
     vertical,game:g,renderer:r,record,slice};
 }catch(error){window.websiteVideo={ready:true,error:error.stack||String(error)};throw error;}

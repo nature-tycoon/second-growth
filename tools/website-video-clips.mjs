@@ -11,7 +11,9 @@
 //   pace: game speed index for the animals (config.js ANIMAL_SPEEDS: 1 normal, 4 watch pace). The
 //     calendar is held: no new day, so no daily plant redraw lands mid-shot
 //   keyEvery: seconds between keyframes (short for a clip a page will scrub)
+//   preroll: seconds the scene runs before filming starts (a staged hunt's slow approach), a frame at a time
 //   vertical: also film a 1080×1920 (9:16) version, for Shorts (and the phone hero)
+//   frame: [width, height] of a wide clip's window (default 1920×1080)
 //   scale, bitrate { mp4, webm }, budget: for a clip shown full screen, film at a higher pixel ratio
 //     (4/3: 2560×1440, the same view) with more bits and a bigger file cap (bytes; website-check
 //     allows 10 MB only for the hero and descent). The defaults: 1920×1080, 2.9 and 2.3 Mbit/s, 4.6 MB
@@ -24,9 +26,12 @@
 //       A two-key path with ease 'linear' moves at one steady speed (a drift, a slow turn).
 //       closed: true goes round the keys and back to the first once per clip.seconds (a full turn
 //       round a subject, say), so a crossfade loop only blends the animals
+//     { until, camera: 'follow', zoom: [from, to], az: [from, to] } the game's own follow camera on the focus
+//       animal (its drawn body, height and all: a bird over the crowns stays in frame), zooming and turning steadily
 //     { until, camera: 'eye', dissolve } eye level behind the focus animal (render3d/eye-camera.js),
 //       dissolving in from the last frame of the shot before over `dissolve` seconds
 import { websiteMoment } from './website-moment-fixtures.mjs';
+import { startFeed } from '../js/sim/animal-life.js';
 
 const Q = Math.PI / 4;
 
@@ -45,6 +50,31 @@ function hollisCreek(g, pose) {
   g.wildlife.recount();
   return animals;
 }
+
+// A staged hunt: hungry hunters posed near their prey, and the hunt begun through the game's own
+// startHunt (prey limited to `diet`). Everything after that, the stalk, rush, leap and catch or miss,
+// is the simulation's. Returns the hunter.
+function huntFrom(g, wl, hunter, diet) {
+  const def = g.catalog.animals[hunter.sp];
+  hunter.hunger = 30; hunter.wait = 0;
+  if (!wl.startHunt(hunter, def, diet, 14)) throw Error(`The ${def.key} found no ${diet.join(' or ')} to hunt`);
+  return hunter;
+}
+// A staged kill: the catch as the game makes one (wildlife-intent.js after a successful roll), the
+// prey removed and the hunter left feeding at its carcass. Only the roll itself is skipped.
+function killFor(g, wl, hunter, prey) {
+  hunter.hunger = 0; hunter.wait = 0;
+  g.onPredation(hunter, prey); wl.remove(prey, 'predation');
+  startFeed(wl, hunter, g.catalog.animals[hunter.sp], prey);
+}
+// The keystone reel's clips play in a grid, never more than about 430 px wide, so they are filmed in a
+// 1600×900 frame (the smallest website-check allows; the renderer never draws below a pixel ratio of 1,
+// so it is a smaller window, not a smaller scale: the animals as big, a little less ground round them)
+// with the bits per pixel of 1920×1080 at 3.9 Mbit/s. The default 2.9 Mbit/s at 1920 smeared fur,
+// feathers and grass; this keeps the detail at about two thirds of the bytes.
+const REEL = { frame: [1600, 900], bitrate: { mp4: 2.7e6, webm: 2.15e6 }, budget: 4.6e6 };
+// Release posed animals to get on with their own lives, a moment apart.
+const release = (animals, from = .05) => animals.forEach((a, n) => { a.wait = from + n * .04; });
 
 export const CLIPS = [
   {
@@ -89,7 +119,7 @@ export const CLIPS = [
     },
   },
   {
-    id: 'moment-elk-rut', title: 'Keystone moment: the elk rut', map: 'pnw', seconds: 8, loop: 'none', time: .8, pace: 4,
+    id: 'moment-elk-rut', title: 'Keystone moment: the elk rut', map: 'pnw', seconds: 8, loop: 'none', time: .8, pace: 4, ...REEL,
     kind: 'staged keystone moment study',
     setup(g, pose) {
       const m = websiteMoment(g, pose), [x, y, zoom] = m.frame;
@@ -103,7 +133,135 @@ export const CLIPS = [
     },
   },
   {
-    id: 'moment-hatchlings', title: 'Keystone moment: hatchlings run for the sea', map: 'chinandega', seconds: 8, loop: 'none', time: .6, pace: 4,
+    id: 'hunt-lions', title: 'Lions stalk wildebeest', map: 'serengeti', seconds: 9, preroll: 8.5, loop: 'none', time: .74, pace: 4, ...REEL,
+    kind: 'staged hunt study',
+    setup(g, pose, wl) {
+      const herd = [[50, 40], [52, 41], [52, 39], [51, 43], [54, 42]].map(([x, y]) => pose('wildebeest', x, y, 'land', 2.8));
+      release(herd);
+      const lion = pose('lion', 44, 41, 'land', 0), mate = pose('lion', 44, 44, 'land', .2);
+      mate.hunger = 30; huntFrom(g, wl, lion, ['wildebeest']);
+      g.selectedAgent = mate; // (the tracking lens shows it through leaves and cover, as in play: 0040)
+      return {
+        focus: mate, watch: [lion, mate, herd[0], herd[1]],
+        description: 'Two hungry lions posed downwind of a grazing wildebeest herd on restored grassland; the hunt is begun through the game\'s own startHunt and the stalk, rush and outcome are the simulation\'s.',
+        shots: [{ until: Infinity, camera: 'map', ease: 'linear', keys: [
+          { focus: true, zoom: 7, az: Q - .25 }, { focus: true, zoom: 7.6, az: Q + .15 },
+        ] }],
+      };
+    },
+  },
+  {
+    id: 'vultures-descend', title: 'Vultures circle down to a kill', map: 'serengeti', seconds: 9, preroll: 2, loop: 'none', time: .62, pace: 4, ...REEL,
+    kind: 'staged scavenging study',
+    setup(g, pose, wl) {
+      const lion = pose('lion', 60, 30, 'land', 1.2), mate = pose('lion', 61, 32, 'land', 2.4), prey = pose('buffalo', 61, 30, 'land', .4);
+      killFor(g, wl, lion, prey);
+      mate.wait = .1; // (already fed: it lies up by the kill)
+      const vultures = [[55, 26], [57, 24], [66, 27]].map(([x, y], n) => {
+        const v = pose('vulture', x, y, 'land', n);
+        Object.assign(v, { flying: true, alt: 1.2 + n * .1, hunger: 30, wait: .05 + n * .05 });
+        return v;
+      });
+      g.selectedAgent = lion; // (the tracking lens shows it through leaves and cover, as in play: 0040)
+      return {
+        focus: lion, watch: [lion, mate, ...vultures],
+        description: 'A pride\'s fresh buffalo kill (the catch staged through the game\'s own catch path) with hungry vultures soaring nearby; they find the carcass and spiral down to it by the game\'s scavenging behaviour.',
+        shots: [{ until: Infinity, camera: 'map', ease: 'linear', keys: [
+          { x: 60.5, y: 30.5, zoom: 5.6, az: Q - .3 }, { x: 61, y: 30.8, zoom: 6.6, az: Q + .3 },
+        ] }],
+      };
+    },
+  },
+  {
+    id: 'hunt-blacktip', title: 'A blacktip shark chases longtom', map: 'reef', seconds: 8, loop: 'none', time: .45, pace: 4, ...REEL,
+    kind: 'staged hunt study',
+    setup(g, pose, wl) {
+      const school = [[62, 56], [63, 57], [63, 55], [64, 56]].map(([x, y], n) => pose('longtom', x, y, 'reef', 3 + n * .2));
+      release(school);
+      const shark = pose('blacktip', 56, 56, 'reef', 0);
+      huntFrom(g, wl, shark, ['longtom']);
+      g.selectedAgent = shark; // (the tracking lens shows it through leaves and cover, as in play: 0040)
+      return {
+        focus: shark, watch: [shark, ...school.slice(0, 3)],
+        description: 'A hungry blacktip reef shark posed a few tiles from a school of longtom over the reef; the hunt is begun through the game\'s own startHunt, and the chase, the longtom\'s skipping escape across the surface and the outcome are the simulation\'s.',
+        shots: [{ until: Infinity, camera: 'map', ease: 'linear', keys: [
+          { focus: true, zoom: 9, az: Q - .2 }, { focus: true, zoom: 9.6, az: Q + .2 },
+        ] }],
+      };
+    },
+  },
+  {
+    id: 'hunt-anaconda', title: 'An anaconda strikes from the water', map: 'amazon', seconds: 9, preroll: 1.5, loop: 'none', time: .7, pace: 4, ...REEL,
+    kind: 'staged hunt study',
+    setup(g, pose, wl) {
+      // (run seed 12: in this run the strike lands; in most it misses, as most ambushes do)
+      g.wildRng.setState(12);
+      const snake = pose('anaconda', 54, 40, 'shallows', 0);
+      // thirsty capybara coming down to drink; the hungry snake picks one as it comes near (lieInWait)
+      const capybaras = [[58, 42], [59, 43]].map(([x, y], n) => pose('capybara', x, y, 'land', 3.3 + n * .3));
+      for (const c of capybaras) c.thirst = 30;
+      release(capybaras); snake.hunger = 30; snake.wait = 0;
+      g.selectedAgent = snake; // (the tracking lens shows it through leaves and cover, as in play: 0040)
+      return {
+        focus: snake, watch: [snake, ...capybaras],
+        description: 'A hungry green anaconda posed in the lake shallows and two thirsty capybara posed up the bank (run seed 12). The capybara come down to drink, and the snake\'s own lie-in-wait behaviour picks one, strikes and feeds; nothing after the posing is scripted.',
+        shots: [{ until: Infinity, camera: 'follow', zoom: [8.4, 9.4], az: [Q - .3, Q + .25] }],
+      };
+    },
+  },
+  {
+    id: 'hunt-harpy', title: 'A harpy eagle takes a howler monkey', map: 'amazon', seconds: 10, loop: 'none', time: .55, pace: 4, ...REEL,
+    kind: 'staged hunt study',
+    setup(g, pose, wl) {
+      const troop = [[64, 46], [65, 47], [63, 47], [65, 45]].map(([x, y], n) => pose('howler', x, y, 'tree', n));
+      release(troop);
+      const harpy = pose('harpy', 59, 44, 'tree', 0);
+      harpy.flying = false;
+      huntFrom(g, wl, harpy, ['howler']);
+      g.selectedAgent = harpy; // (the tracking lens shows it through leaves and cover, as in play: 0040)
+      return {
+        focus: harpy, watch: [harpy, ...troop.slice(0, 3)],
+        description: 'A hungry harpy eagle posed on a crown near a howler troop in restored forest; the hunt is begun through the game\'s own startHunt, and the drop from the perch, the catch roll and carrying the catch off are the simulation\'s.',
+        shots: [{ until: Infinity, camera: 'follow', zoom: [6.4, 7.2], az: [Q - .25, Q + .2] }],
+      };
+    },
+  },
+  {
+    id: 'hunt-hawk', title: 'A red-tailed hawk takes a chipmunk', map: 'atlanta', seconds: 8, loop: 'none', time: .5, pace: 4, ...REEL,
+    kind: 'staged hunt study',
+    setup(g, pose, wl) {
+      g.wildRng.setState(1); // (run seed 1: in this run the first stoop connects; in many it misses)
+      const chipmunks = [[34, 26], [36, 27]].map(([x, y], n) => pose('chipmunk', x, y, 'land', n * 2));
+      release(chipmunks);
+      const hawk = pose('hawk', 30, 23, 'land', 0);
+      Object.assign(hawk, { flying: true, alt: 1.1 });
+      huntFrom(g, wl, hawk, ['chipmunk']);
+      g.selectedAgent = hawk; // (the tracking lens shows it through leaves and cover, as in play: 0040)
+      return {
+        focus: hawk, watch: [hawk, ...chipmunks],
+        description: 'A hungry red-tailed hawk posed on the wing over backyards near two foraging chipmunks (run seed 1); the hunt is begun through the game\'s own startHunt, and the circling, the stoop, the catch roll and carrying the catch to a perch are the simulation\'s.',
+        shots: [{ until: Infinity, camera: 'follow', zoom: [7.4, 8.2], az: [Q - .25, Q + .2] }],
+      };
+    },
+  },
+  {
+    id: 'hunt-tiger', title: 'A tiger stalks sambar', map: 'sumatra', seconds: 9, preroll: 6, loop: 'none', time: .66, pace: 4, ...REEL,
+    kind: 'staged hunt study',
+    setup(g, pose, wl) {
+      const herd = [[71, 33], [72, 35], [73, 33]].map(([x, y]) => pose('sambar', x, y, 'land', 2.6));
+      release(herd);
+      const tiger = pose('tiger', 65, 33, 'land', 0);
+      huntFrom(g, wl, tiger, ['sambar']);
+      g.selectedAgent = tiger; // (the tracking lens shows it through leaves and cover, as in play: 0040)
+      return {
+        focus: tiger, watch: [tiger, ...herd],
+        description: 'A hungry tiger posed at the forest edge near three grazing sambar deer; the hunt is begun through the game\'s own startHunt, and the stalk, rush and outcome are the simulation\'s.',
+        shots: [{ until: Infinity, camera: 'follow', zoom: [7, 7.8], az: [Q - .3, Q + .15] }],
+      };
+    },
+  },
+  {
+    id: 'moment-hatchlings', title: 'Keystone moment: hatchlings run for the sea', map: 'chinandega', seconds: 8, loop: 'none', time: .6, pace: 4, ...REEL,
     kind: 'staged keystone moment study',
     setup(g, pose) {
       const m = websiteMoment(g, pose), [x, y, zoom] = m.frame;
