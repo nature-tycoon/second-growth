@@ -2,7 +2,8 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import { websiteDiscovery } from './website-discovery.mjs';
+import { websiteDiscovery, websiteFacts } from './website-discovery.mjs';
+import { buildFieldGuide, guidePaths } from './build-field-guide.mjs';
 
 export const websiteOutput = fileURLToPath(new URL('../dist/website/', import.meta.url));
 export async function buildWebsite() {
@@ -18,7 +19,11 @@ export async function buildWebsite() {
   await writeFile(join(websiteOutput, '.nojekyll'), '');
   await writeFile(join(websiteOutput, 'CNAME'), 'secondgrowth.earth\n');
   const homepage = await readFile(join(websiteOutput, 'index.html'), 'utf8');
-  const discovery = websiteDiscovery(homepage);
+  // The field guide: a page per species, named for the landscapes as the homepage names them.
+  const landscapes = Object.fromEntries(websiteFacts(homepage).maps.map(map => [map.map, map.name]));
+  const { portraits } = JSON.parse(await readFile(join(root, 'website/guide-media/guide-provenance.json'), 'utf8'));
+  const guide = await buildFieldGuide(websiteOutput, landscapes, portraits);
+  const discovery = websiteDiscovery(homepage, guidePaths(guide));
   const schema = JSON.stringify(discovery.schema, null, 2).replace(/</g, '\\u003c');
   await writeFile(join(websiteOutput, 'index.html'), homepage.replace('</head>', `  <script type="application/ld+json" id="site-schema">\n${schema}\n  </script>\n</head>`));
   await writeFile(join(websiteOutput, 'index.md'), discovery.markdown);

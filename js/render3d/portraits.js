@@ -10,15 +10,23 @@ import { leafColor, shrubShape } from './flora.js';
 import { plantPhase } from '../data/plants.js';
 import { CHECK_SHADERS } from '../performance.js';
 
-let R = null, scene, camera;
+let R = null, scene, camera, scale = 1;
 const W = 320, H = 240;
+
+// Portraits drawn at a multiple of their usual size (the website's field guide asks for larger
+// ones; the game always uses 1).
+export function setPortraitScale(n) {
+  if (n === scale) return;
+  scale = n;
+  if (R) R.setPixelRatio(scale), R.setSize(W, H, false);
+}
 
 function setup() {
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   R = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
   R.debug.checkShaderErrors = CHECK_SHADERS;
-  R.setPixelRatio(1);
+  R.setPixelRatio(scale);
   R.setSize(W, H, false);
   R.outputColorSpace = THREE.SRGBColorSpace;
   R.toneMapping = THREE.NeutralToneMapping;
@@ -52,7 +60,7 @@ function shoot(box, dir, spread = 1.05) {
   camera.near = dist * 0.1; camera.far = dist * 10; camera.updateProjectionMatrix();
   R.render(scene, camera);
   const out = document.createElement('canvas');
-  out.width = W; out.height = H;
+  out.width = W * scale; out.height = H * scale;
   out.getContext('2d').drawImage(R.domElement, 0, 0);
   return out;
 }
@@ -144,7 +152,7 @@ export function renderPortrait(def, { fly: flying = false } = {}) {
   R.render(scene, camera);
 
   const out = document.createElement('canvas');
-  out.width = W; out.height = H;
+  out.width = W * scale; out.height = H * scale;
   out.getContext('2d').drawImage(R.domElement, 0, 0);
   scene.remove(mesh); geo.dispose(); mat.dispose(); mesh.dispose();
   if (branch) { scene.remove(branch); branch.geometry.dispose(); branch.material.dispose(); }
