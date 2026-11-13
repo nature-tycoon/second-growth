@@ -152,13 +152,21 @@ if (descent) {
     descent.classList.add('scrub');
     const track = descent.querySelector('.descent-track');
     // One seek at a time: when it lands, seek again if the reader has scrolled on meanwhile.
-    let progress = 0, frame = 0;
+    let progress = 0, frame = 0, wanted = 0, misses = 0, looping = false;
     const seek = () => {
-      if (!video.duration || video.seeking) return;
+      if (looping || !video.duration || video.seeking) return;
       const target = progress * (video.duration - 0.05);
-      if (Math.abs(video.currentTime - target) > 0.02) video.currentTime = target;
+      if (Math.abs(video.currentTime - target) > 0.02) video.currentTime = wanted = target;
     };
-    video.addEventListener('seeked', seek);
+    // A server that can't answer byte ranges (an old tools/serve.py) can't seek: every seek lands back
+    // at the start. Then just play the clip on a loop, so it never sits frozen on its first frame.
+    video.addEventListener('seeked', () => {
+      if (wanted > 0.5 && video.currentTime < 0.1 && ++misses >= 2) {
+        looping = true; video.loop = true; whileVisible(video);
+        return;
+      }
+      seek();
+    });
     video.addEventListener('loadedmetadata', seek);
     const onScroll = () => {
       frame = 0;
