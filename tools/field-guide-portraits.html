@@ -7,6 +7,9 @@
 // tools/capture-field-guide.mjs calls window.fieldGuidePortraits(list, scale).
 import { setBiome, mapCatalog } from '../js/biome.js';
 import { renderPortrait, renderPlants, setPortraitScale } from '../js/render3d/portraits.js';
+import { setWingDetail } from '../js/render3d/animals/winged-animals.js';
+// Butterfly wings on a finer grid than the game's, so their edges and spots stay smooth this large.
+setWingDetail(14);
 // Crop to what was drawn, with a margin, in a 4:3 frame (the renderer leaves much of its frame empty),
 // at each output size: [width, height] pairs, largest first.
 function crop(src, sizes) {

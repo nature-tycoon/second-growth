@@ -1,6 +1,6 @@
 {
-  "sourceRevision": "36f35759b3e7b23112358d9f424945dc37458f2b",
-  "capturedAt": "2026-11-13T03:56:58.207Z",
+  "sourceRevision": "30a3d289cb7eae09968959a3436d95921713d213",
+  "capturedAt": "2026-11-13T03:59:52.657Z",
   "method": "The game's field-guide portraits (js/render3d/portraits.js: renderPortrait for animals, renderPlants for one plant), at 8× under the map's own biome, cropped to the subject with a margin (1200×900, and a 480×360 card); the male look where a species has one.",
   "portraits": {
     "acai-palm": {
@@ -1535,12 +1535,12 @@
       "file": "eastern-tiger-swallowtail.webp",
       "width": 1200,
       "height": 900,
-      "sha256": "f86a306e5085c617c264a2e1f0bc5a0d23653dc5080af3f2219ab3af3180c71e",
+      "sha256": "41c86dd0acb9f8675a791da820641c66a7667aa7fa742a9f4a98f77a734723f2",
       "card": {
         "file": "eastern-tiger-swallowtail-card.webp",
         "width": 480,
         "height": 360,
-        "sha256": "e25e20cd678d70f4c705f73323c025a9c6eb17eb76f1401da6625621e39cdf8a"
+        "sha256": "02976f4a07b66ed48cb2de94cdc3ac8c26d7e036bc8c8f98257557a7bf640af6"
       }
     },
     "eelgrass": {
@@ -2762,12 +2762,12 @@
       "file": "monarch-butterfly.webp",
       "width": 1200,
       "height": 900,
-      "sha256": "b46ef7ef2b108a5abc3bec21b766e5f0b29e73267d4181ae4868fe1615f18f6c",
+      "sha256": "92ed6e9aa5fbd3ec94dddcbfebda13f79d0a165c8fd952dd231dc798e1b4e0d5",
       "card": {
         "file": "monarch-butterfly-card.webp",
         "width": 480,
         "height": 360,
-        "sha256": "d63025abe6fd6b0849da488a875ea7d0eda4223cd8cc659a67d4888dde80ca10"
+        "sha256": "b2b5f9e9b6d9713683d7e392f52d80306fee7c0525680cfe8beb463bd396527f"
       }
     },
     "moorish-idol": {
@@ -3351,12 +3351,12 @@
       "file": "rajah-brookes-birdwing.webp",
       "width": 1200,
       "height": 900,
-      "sha256": "7ea21db0efdc71c6df7fef02c165dce99c53e209e5274fcb2df447bff2ef5e46",
+      "sha256": "6158ebe21a0b117923a98318da51f2d199203894d42c93bdc63af5c8337ac102",
       "card": {
         "file": "rajah-brookes-birdwing-card.webp",
         "width": 480,
         "height": 360,
-        "sha256": "4ee2587fd94eda7e066d50cc3dc5c0474f4106ee57a956e2bbcc4a739fc7ebff"
+        "sha256": "b483c618245ea28dedf8f341e402710f5e23fd9ab5b97bcd4eb931461e27e421"
       }
     },
     "rambutan": {
