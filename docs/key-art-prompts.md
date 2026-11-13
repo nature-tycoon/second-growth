@@ -21,7 +21,7 @@ Anything the site shows as **a scene from the game** stays a real capture (`webs
 
 Shared style line, already inside every prompt below: *painterly but grounded nature illustration, soft golden-hour light, deep forest greens, cream and warm ochre, calm and hopeful, true-to-life animals and plants of this region, no people, no buildings unless named, no text, no logos, no user interface, no borders.*
 
-Palette, for reference (website redesign, 2026-11): night pine `#0b1712`, moss `#172c23`, paper `#f3ecda`, cream `#fbf6e7`, and one bright accent, sprout `#c5f05f` ("new growth"), used for everything you can press. Each landscape has its own colour (`[data-map]` in `website/site.css`, `[data-land]` in `guide.css`). The painted art itself can stay warm and golden; the sprout green belongs to type and buttons laid over it, so leave it out of the paintings.
+Palette, for reference (website redesign, 2026-11): night pine `#102019`, moss `#172c23`, paper `#f3ecda`, cream `#fbf6e7`, and one soft accent, fern `#b7d494`, used for everything you can press. Each landscape has its own colour (`[data-map]` in `website/site.css`, `[data-land]` in `guide.css`). The painted art itself can stay warm and golden; the sprout green belongs to type and buttons laid over it, so keep it out of the paintings.
 
 ---
 
@@ -68,15 +68,15 @@ Since the 2026-11 redesign the website uses a flat one-colour mark (`website/mar
 
 **4a. A sharper mark.** Attach `assets/icon-512.png` and a screenshot of the site header.
 
-> The attached images are my game "Second Growth": its current detailed badge (a young fir growing from an old cut stump by a creek) and my website's header, which uses a simple flat silhouette of that idea. Design 8 alternative flat logo marks for the same idea, new growth rising from old damage: a young conifer sprouting from a tree stump, seen simply. Bold geometric shapes, one colour only (bright lime green #c5f05f on a near-black green #0b1712 background), must read clearly at 16 pixels, no gradients, no outlines, no text, no extra scenery. Think modern indie game studio mark: confident, friendly, a little playful. Show all 8 on one sheet in a grid.
+> The attached images are my game "Second Growth": its current detailed badge (a young fir growing from an old cut stump by a creek) and my website's header, which uses a simple flat silhouette of that idea. Design 8 alternative flat logo marks for the same idea, new growth rising from old damage: a young conifer sprouting from a tree stump, seen simply. Bold geometric shapes, one colour only (soft fern green #b7d494 on a near-black green #102019 background), must read clearly at 16 pixels, no gradients, no outlines, no text, no extra scenery. Think modern indie game studio mark: calm, natural, quietly confident. Show all 8 on one sheet in a grid.
 
 **4b. A refreshed badge / app icon.** The same idea as the current badge, in the new look, for the game's home-screen icon, itch.io and the press kit.
 
-> Using the attached badge from my game "Second Growth" as the reference for the subject, redesign it as a modern app icon: a rounded square, a young Douglas-fir rising from an old cut stump with visible growth rings, a strip of creek, a low sun. Flat, bold shapes with at most one soft gradient, the way the best indie game app icons look today: simple enough to recognise at 48 pixels, rich enough to enjoy at 512. Palette: deep night green #0b1712 and moss #172c23 behind, bright lime #c5f05f for the young tree, warm sun #ffb648, creek teal #63bdf6, stump in warm brown and cream. No text, no border, no drop shadow outside the square. Show 4 options.
+> Using the attached badge from my game "Second Growth" as the reference for the subject, redesign it as a modern app icon: a rounded square, a young Douglas-fir rising from an old cut stump with visible growth rings, a strip of creek, a low sun. Flat, bold shapes with at most one soft gradient, the way the best indie game app icons look today: simple enough to recognise at 48 pixels, rich enough to enjoy at 512. Palette: deep night green #102019 and moss #172c23 behind, soft fern green #b7d494 for the young tree, warm sun #ffb648, creek teal #63bdf6, stump in warm brown and cream. No text, no border, no drop shadow outside the square. Show 4 options.
 
 **4c. Wordmark detail (optional).**
 
-> The name "Second Growth" set in a heavy, friendly grotesque in the style of Bricolage Grotesque ExtraBold, tight letter spacing, cream #fbf6e7 on near-black green #0b1712. Give it one small detail drawn from the logo: a tiny fir sprouting from the dot or terminal of one letter, in lime #c5f05f. Show 4 options. Spell it exactly: Second Growth.
+> The name "Second Growth" set in a heavy, friendly grotesque in the style of Bricolage Grotesque ExtraBold, tight letter spacing, cream #fbf6e7 on near-black green #102019. Give it one small detail drawn from the logo: a tiny fir sprouting from the dot or terminal of one letter, in fern #b7d494. Show 4 options. Spell it exactly: Second Growth.
 
 Pick one and give it to Claude with its prompt. Claude redraws it as SVG (`website/mark.svg`, or a new badge in `assets/` if Cole wants the game's icon changed too; the badge is also the game's home-screen icon, so that is a game change), records the ChatGPT image in `art-provenance.json` as the design reference (`"use": "logo"`, `"source": null`), and updates the press kit's logo section.
 
@@ -86,7 +86,7 @@ Used for: the itch.io page background and banner (itch lets a page have a wide b
 
 **Source capture:** `website/review-media/landscape-amazon.jpg` and `website/review-media/header-desktop.jpg`. **Final size:** 2560 × 1440, plus a 960 × 250 banner crop.
 
-> Using the attached screenshots from my game as the reference for the look of the plants and animals, paint a wide, dark, atmospheric backdrop for my game's store page: a restored valley at dusk seen from slightly above, layered silhouettes of conifers and broadleaf trees, a winding creek catching the last light, fireflies, a herd of elk small in the middle distance. Mostly deep night greens (#0b1712, #172c23) so light text reads on top of it anywhere, with a warm glow (#ffb648) low on the horizon. Calm, hopeful, true-to-life plants and animals, no people, no buildings, no text, no logos, no user interface, no borders. Wide format.
+> Using the attached screenshots from my game as the reference for the look of the plants and animals, paint a wide, dark, atmospheric backdrop for my game's store page: a restored valley at dusk seen from slightly above, layered silhouettes of conifers and broadleaf trees, a winding creek catching the last light, fireflies, a herd of elk small in the middle distance. Mostly deep night greens (#102019, #172c23) so light text reads on top of it anywhere, with a warm glow (#ffb648) low on the horizon. Calm, hopeful, true-to-life plants and animals, no people, no buildings, no text, no logos, no user interface, no borders. Wide format.
 
 ---
 
