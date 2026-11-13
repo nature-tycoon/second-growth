@@ -35,7 +35,7 @@ function drawnHeight(A, c) {
   const { game, w, a, def, mo, sc, time, surf, seaY, ground, flying, inside, i } = c;
   if (def.reef && seaY != null) reefHeight(A, c);
   else if (flying && seaY != null) seaFlightHeight(c);
-  else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) c.y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
+  else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) c.y = (c.fl = seaY) - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
   else if (flying) c.y += (trait(def, 'flitsLow') ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
   else if (def.move === 'swim') riverFishHeight(c);
   else if (surf != null && mo.wadeDepth) c.y = Math.max(ground, surf - mo.wadeDepth * sc);
