@@ -8,6 +8,8 @@ import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildWebsite } from './build-website.mjs';
 import { publicWebsitePaths, websiteFacts, websiteOrigin, websiteText } from './website-discovery.mjs';
+import { GUIDE_CSP, guidePaths } from './build-field-guide.mjs';
+import { fieldGuide } from './field-guide-data.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 async function files(directory) {
@@ -108,7 +110,25 @@ assert.ok(!/^Disallow:\s*\S/m.test(robots), 'Do not accidentally block public as
 assert.ok(robots.includes('Sitemap: ' + websiteOrigin + '/sitemap.xml'));
 const sitemap = await readFile(join(output, 'sitemap.xml'), 'utf8');
 const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, url]) => url);
-assert.deepEqual(locations, publicWebsitePaths.map(path => websiteOrigin + path));
+const guide = fieldGuide();
+assert.deepEqual(locations, [...publicWebsitePaths, ...guidePaths(guide)].map(path => websiteOrigin + path));
+// Field guide: every species has a page and a portrait that matches its capture.
+const guideProvenance = JSON.parse(await readFile(join(root, 'website/guide-media/guide-provenance.json'), 'utf8'));
+assert.equal(Object.keys(guideProvenance.portraits).length, guide.length, 'One portrait per species, none left over: rerun tools/capture-field-guide.mjs');
+for (const entry of guide) {
+  const portrait = guideProvenance.portraits[entry.slug];
+  assert.ok(portrait, `${entry.name}: no portrait`);
+  const bytes = await readFile(join(root, 'website/guide-media', portrait.file));
+  assert.equal(createHash('sha256').update(bytes).digest('hex'), portrait.sha256, `${portrait.file} must match its capture`);
+  assert.ok(bytes.length < 200_000, `${portrait.file}: keep portraits under 200 KB`);
+  const html = await readFile(join(output, 'guide', entry.slug, 'index.html'), 'utf8');
+  assert.ok(html.includes(`<meta http-equiv="Content-Security-Policy" content="${GUIDE_CSP}">`), `${entry.slug}: the guide's policy`);
+  assert.ok(html.includes(`<link rel="canonical" href="${websiteOrigin}/guide/${entry.slug}/">`), `${entry.slug}: its own canonical URL`);
+  assert.ok(html.includes(`<h1>${entry.name.replace(/&/g, '&amp;').replace(/'/g, "'")}</h1>`), `${entry.slug}: titled with the species`);
+  for (const map of entry.maps) assert.ok(html.includes(`href="../../play/?map=${map.id}"`), `${entry.slug}: plays ${map.id}`);
+}
+assert.ok(homepage.includes(`Meet all ${guide.length} species in the field guide`), `The homepage's field-guide link counts ${guide.length} species`);
+assert.ok(!/<script\b(?![^>]*\bsrc=)(?![^>]*application\/ld\+json)[^>]*>/.test(await readFile(join(output, 'guide/index.html'), 'utf8')), 'Guide pages run no inline script');
 for (const url of locations) {
   const path = new URL(url).pathname;
   await readFile(join(output, path.endsWith('/') ? path + 'index.html' : path));
@@ -149,7 +169,7 @@ for (const map of facts.maps) {
   assert.equal(map.play, `play/?map=${map.map}`, `${map.name} needs its own play link`);
 }
 assert.ok(homepage.includes(`id="map-play" href="${facts.maps[0].play}"`), 'The play link starts on the first landscape shown');
-for (const name of ['index.html', 'visuals.html', 'site.css', 'play/index.html']) {
+for (const name of ['index.html', 'visuals.html', 'site.css', 'guide.css', 'play/index.html', 'guide/index.html', ...guide.map(e => `guide/${e.slug}/index.html`)]) {
   const path = join(output, name), source = await readFile(path, 'utf8');
   const links = [...source.matchAll(/(?:src|srcset|href|data-image|poster|data-(?:wide-|tall-)?(?:mp4|webm))="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
   for (const link of links) {

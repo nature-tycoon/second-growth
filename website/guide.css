@@ -1,0 +1,73 @@
+/* The field guide (/guide/): an index of every species and a page for each. Builds on site.css. */
+@media (min-width: 721px) { .guide .header { height: 96px; } }
+.crumbs { font-size: 12px; color: #b5c49d; padding-top: 8px; }
+.crumbs a { text-decoration: underline; text-underline-offset: 4px; }
+
+/* Species page */
+.species { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: start; padding-block: 28px 56px; }
+.species-portrait { position: sticky; top: 24px; margin: 0; border-radius: 32px 44px 32px 32px; background: radial-gradient(circle at 50% 42%, #f1ecd6, #cfd6b8 70%); padding: 20px; }
+.species-portrait.invasive { background: radial-gradient(circle at 50% 42%, #efe2cf, #d5c3a4 70%); }
+.species-portrait img { display: block; width: 100%; height: auto; }
+.species-portrait figcaption { margin: 4px 0 0; text-align: center; color: #4d6450; font-size: 11px; max-width: none; }
+.species-text .eyebrow { color: #b8c79b; }
+.species-text h1 { font: 400 clamp(40px, 5vw, 64px)/1.05 var(--serif); letter-spacing: -2px; margin: 12px 0 0; }
+.sci { font: italic 400 20px/1.4 var(--serif); color: #d9d2ad; margin-top: 8px; }
+.species-desc { font: 400 22px/1.5 var(--serif); letter-spacing: -.3px; margin-top: 26px; color: #f0ecd8; }
+.species-lead { font-size: 15px; color: var(--muted); margin-top: 18px; }
+.species-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; margin-top: 28px; border-top: 1px solid var(--line); }
+.species-facts div { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.species-facts dt { font-size: 10px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: #b2c295; }
+.species-facts dd { font-size: 15px; margin-top: 3px; }
+.species-call { margin-top: 30px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 20px; background: #ffffff06; }
+.species-call audio { display: block; width: 100%; margin-top: 10px; }
+.species-call .credit { font-size: 11px; color: #a9bea4; margin-top: 10px; }
+.species-call a { text-decoration: underline; text-underline-offset: 3px; }
+.species-where { padding-block: 10px 50px; }
+.species-where h2 { margin: 0 0 20px; }
+.species-where ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.species-where li { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 22px; border: 1px solid var(--line); border-radius: 20px; background: #1e4034; }
+.species-where strong { display: block; font: 500 22px/1.2 var(--serif); }
+.species-where span { display: block; font-size: 12px; color: #a9bea4; margin-top: 3px; }
+.species-where li p { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.species-where .map-play { margin-top: 0; flex-shrink: 0; }
+.guide-note { margin-bottom: 60px; }
+
+/* Index */
+.guide-intro { padding-block: 40px 30px; max-width: 820px; }
+.guide-intro h1 { font: 400 clamp(44px, 6vw, 76px)/1.02 var(--serif); letter-spacing: -2.6px; margin-block: 16px; }
+.guide-intro > p:last-child { font-size: 16px; color: var(--muted); max-width: 640px; }
+.guide-tools { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; padding-block: 14px; background: var(--forest); border-bottom: 1px solid var(--line); }
+.guide-search { flex: 1 1 260px; max-width: 380px; }
+.guide-search span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.guide-search input { width: 100%; font: 15px var(--sans); color: var(--cream); background: #ffffff0d; border: 1px solid var(--line); border-radius: 100px; padding: 11px 18px; }
+.guide-search input::placeholder { color: #a9bea4; }
+.guide-search input:focus-visible { outline: 3px solid var(--ochre); outline-offset: 2px; }
+.guide-tools nav { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; font-weight: 700; color: #d5ddcc; }
+.guide-tools nav a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.guide-map { padding-block: 50px 10px; scroll-margin-top: 80px; }
+.guide-map .section-head { margin-bottom: 18px; }
+.guide-map h3 { font-size: 20px; margin: 26px 0 14px; }
+.guide-map h3 small { font: 700 12px var(--sans); color: #a9bea4; margin-left: 8px; }
+.guide-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.guide-cards a { display: block; height: 100%; border-radius: 18px; background: #1e4034; border: 1px solid transparent; overflow: hidden; transition: border-color .2s, transform .2s; }
+.guide-cards a:hover { border-color: #edb58e; transform: translateY(-2px); }
+.guide-cards img { display: block; width: 100%; height: auto; aspect-ratio: 4/3; background: radial-gradient(circle at 50% 42%, #e9e4cc, #c3cdad 75%); }
+.guide-cards span { display: block; padding: 10px 12px 12px; }
+.guide-cards strong { display: block; font-size: 14px; line-height: 1.35; }
+.guide-cards em { display: block; font: italic 12px/1.4 var(--serif); color: #b9c4a6; margin-top: 2px; }
+.guide-cards .tag { display: inline-block; margin-top: 6px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #f1c39c; }
+.guide-empty { padding-block: 40px; color: var(--muted); }
+
+@media (max-width: 900px) {
+  .species { grid-template-columns: 1fr; gap: 28px; }
+  .species-portrait { position: static; max-width: 560px; }
+}
+@media (max-width: 720px) {
+  .species-desc { font-size: 19px; }
+  .species-facts { grid-template-columns: 1fr; }
+  .species-where li { flex-direction: column; align-items: start; gap: 14px; }
+  .guide-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .guide-tools nav { font-size: 12px; }
+  .guide-tools { position: static; }
+  .crumbs { padding-top: 16px; }
+}

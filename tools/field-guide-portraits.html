@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Field guide portraits</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<script type="module">
+// The website field guide's portraits: the game's own field-guide renderer, larger.
+// tools/capture-field-guide.mjs calls window.fieldGuidePortraits(list, scale).
+import { setBiome, mapCatalog } from '../js/biome.js';
+import { renderPortrait, renderPlants, setPortraitScale } from '../js/render3d/portraits.js';
+// Crop to what was drawn, with a margin, in a 4:3 frame (the renderer leaves much of its frame empty).
+function crop(src) {
+  const { width: w, height: h } = src, data = src.getContext('2d').getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (data[(y * w + x) * 4 + 3] > 8) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) return src;
+  let cw = (x1 - x0 + 1) * 1.16, ch = (y1 - y0 + 1) * 1.16;
+  if (cw / ch > 4 / 3) ch = cw * 3 / 4; else cw = ch * 4 / 3;
+  const out = document.createElement('canvas'); out.width = 640; out.height = 480;
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  out.getContext('2d').drawImage(src, cx - cw / 2, cy - ch / 2, cw, ch, 0, 0, 640, 480);
+  return out;
+}
+window.fieldGuidePortraits = (list, scale) => {
+  setPortraitScale(scale);
+  return list.map(({ slug, kind, key, firstMap }) => {
+    setBiome(firstMap);
+    const c = mapCatalog(firstMap), def = kind === 'animal' ? c.animal[key] : c.plant[key];
+    // (where a species has a male look, the bull or the cock: antlers, manes and plumage read best)
+    const shown = kind === 'animal' && def.sprite.male ? { ...def, sprite: { ...def.sprite, ...def.sprite.male } } : def;
+    const canvas = crop(kind === 'animal' ? renderPortrait(shown) : renderPlants([def]));
+    return [slug, canvas.toDataURL('image/webp', 0.86), canvas.width, canvas.height, shown !== def];
+  });
+};
+document.body.dataset.ready = '1';
+</script>

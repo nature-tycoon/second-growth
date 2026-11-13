@@ -1,0 +1,2478 @@
+{
+  "sourceRevision": "92c8c635985df815ca36838001679ecfb54695d3",
+  "capturedAt": "2026-11-13T03:18:09.807Z",
+  "method": "The game's field-guide portraits (js/render3d/portraits.js: renderPortrait for animals, renderPlants for one plant), at 2× under the map's own biome, cropped to the subject with a margin; the male look where a species has one.",
+  "portraits": {
+    "acai-palm": {
+      "file": "acai-palm.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "39f2bdcfd152db5d39ec5729d0b45107e8ce0d2bb51f8468c707437517d49a1a"
+    },
+    "african-catfish": {
+      "file": "african-catfish.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "537c89db70799d3eb7b22e32cacb88e9b13962fa4bcc00489377412bf8a0737d"
+    },
+    "african-elephant": {
+      "file": "african-elephant.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "19176ec17a281d6bc3957d1d0950b4aba65192bbda54fe4f32ffeb36e8c52624"
+    },
+    "alang-alang": {
+      "file": "alang-alang.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b30dceb1d23a26d09bd1b4c30313ba73931ecfa10fd375567636209d78c19f79"
+    },
+    "amazon-kingfisher": {
+      "file": "amazon-kingfisher.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2298828e11f42936d78d5ba2a79858b920826079e49878faa5d5ac064d5615bb"
+    },
+    "amazon-river-dolphin": {
+      "file": "amazon-river-dolphin.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "075670fbc04126f5a10e3bfbde26e183e0866ff53e21dcf33a77379ad1318978"
+    },
+    "american-beautyberry": {
+      "file": "american-beautyberry.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1426d6886ba1be4971dc9eaf2327577dcce2b0fb3d16a0660bc68fa306ff0f89"
+    },
+    "american-black-bear": {
+      "file": "american-black-bear.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "65c50f2ef301adf36bdc7254da4652f9954a7591f69c5972ed34fa07774d3c91"
+    },
+    "american-crocodile": {
+      "file": "american-crocodile.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "68ae9d219679c792b07b5a773fd292752d57c92a3473397f12511617170ebc54"
+    },
+    "american-elderberry": {
+      "file": "american-elderberry.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "8891a56af223876aa5e3d0491588de512f615ffbe0ff0b94cfe8ded512359a7f"
+    },
+    "american-goldfinch": {
+      "file": "american-goldfinch.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "04dc0720c0a59e43736ad47c40b899bf86b86a07aa32ca9106e6c157bdc4c15f"
+    },
+    "american-robin": {
+      "file": "american-robin.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4b7a729ef2b578b537db43cdd3bf5c0a18e6838b88aac5bf42bcd3db30c41697"
+    },
+    "american-sycamore": {
+      "file": "american-sycamore.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ebf9d3630202317767083b9a6d56fb2b72133ae60d380ccaaa26b64474c15a8c"
+    },
+    "american-toad": {
+      "file": "american-toad.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "acf6e220b0280e76c35d782f1dd7c131bfd92c0457e8adfc2062c2d21eadb2c1"
+    },
+    "arapaima-pirarucu": {
+      "file": "arapaima-pirarucu.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "885f433f960c3c34cbd97204dc3625aa0b2dd26a72498e2f313774f2c870ca47"
+    },
+    "aromatic-aster": {
+      "file": "aromatic-aster.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "adda62ef0230448dd54457e07e6468baa3afb5eb8dbbc1733f269ab23c11c634"
+    },
+    "asian-arowana": {
+      "file": "asian-arowana.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e1bf17bcd57eaf9b5ac7b92e027a095eff0e72fd0c076724571ae3abb6ea4fc3"
+    },
+    "asian-water-monitor": {
+      "file": "asian-water-monitor.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "94aa8a28fe2b137d15cbb31651dab59a092f9184b57bf285144eaf819991db76"
+    },
+    "bald-eagle": {
+      "file": "bald-eagle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9a7f7eddf556e7fab4e5e2fbe87793d6a86803c5260f9054ac51cfda4f1e15dd"
+    },
+    "balsa": {
+      "file": "balsa.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b7608c51a30275fe730377a9c07679a3f8ee00b8f114039f54fa5b333842da3d"
+    },
+    "banana": {
+      "file": "banana.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b880d54f0ff810ef08bedd9e373f07ef8c2849896d6f8609d74a796397c00508"
+    },
+    "banded-wild-boar": {
+      "file": "banded-wild-boar.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c661307ad9af732be32c4c7b91bf7523fa6e8b234b692b2b5c6231e2c04fc90e"
+    },
+    "baobab": {
+      "file": "baobab.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "7d03659d75036579891db2f9cf11cdc91e6b9f8138b5f7d69fc2f42a3e3453f3"
+    },
+    "barn-owl": {
+      "file": "barn-owl.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "cc5cd1ad3eff339fbc12877f833dd7ed7b0bd201a22337c3b6a84381f45ceb64"
+    },
+    "barred-owl": {
+      "file": "barred-owl.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4c1b7ff5c080ffbcfb06dcb16402f1d92232e7138774edfc084ffa4a3ac35ceb"
+    },
+    "barrel-sponge": {
+      "file": "barrel-sponge.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "830df32462c93d70b63bd6a9860d642c3dfb675fbc5116d246e79d85c2a42bb1"
+    },
+    "beach-morning-glory": {
+      "file": "beach-morning-glory.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a39797c5527514d4538962b46bb63f25c6f63648f35fe68daea7c30a1aafa8a8"
+    },
+    "beach-spinifex": {
+      "file": "beach-spinifex.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "002ce986c884cd10e8e3d7005f25bfb4f1175083b1f499091404272f7f4d7c75"
+    },
+    "belted-kingfisher": {
+      "file": "belted-kingfisher.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9921219cf086e1fdaef979eff62a089399ef716ff39d31162b3243cac3d2fc05"
+    },
+    "bermuda-grass-lawn": {
+      "file": "bermuda-grass-lawn.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2cf278eb5baf74087744506a8645e6173010062ad03e23942de0375f020ac7ba"
+    },
+    "big-brown-bat": {
+      "file": "big-brown-bat.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1ea90a3050c11909ed5c094443cd19a068325c50af63aa7c50c144068ee742e6"
+    },
+    "big-leaf-mahogany": {
+      "file": "big-leaf-mahogany.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f471b092ad0458e5502cee917286c3c86bdebae4ad953cdba6dc943830eb1841"
+    },
+    "bigleaf-maple": {
+      "file": "bigleaf-maple.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "def8f41bb8d269c25f35e6e2863b3fdaf23f37350a046ece57d3847e27ce1973"
+    },
+    "black-caiman": {
+      "file": "black-caiman.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "be8def266d4b79443fc66d1b7189391f85abb2d4fb5aa48a78e3e12bf961fb73"
+    },
+    "black-cherry": {
+      "file": "black-cherry.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4d906f7deeda81db8daaefa039cf83592e1c1bb2aea5ab6a18d0ba8892c51733"
+    },
+    "black-cottonwood": {
+      "file": "black-cottonwood.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0d62fc87e3e2ab0e91134a3cdc06d46e5fb8b2d5f57c14b72e3299650d307938"
+    },
+    "black-eyed-susan": {
+      "file": "black-eyed-susan.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a8931a2b6cd3d97fedd4118f5616ac87db4730bcd77f73fe6e5ef2fc9ea121f1"
+    },
+    "black-mangrove": {
+      "file": "black-mangrove.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9f006ef89ae4f09c5aa0ce68eec4a6a617693cb67e54488c87ba26004361c486"
+    },
+    "black-noddy": {
+      "file": "black-noddy.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ab2a0a8414885a0705cfc4921bf54d70a9c1fc0e95e5e00fd1f3eacbaae8b4fc"
+    },
+    "black-rhino": {
+      "file": "black-rhino.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "552a3be13210db2b06fe8b62d549a326d8830abfbe016f6a640d88c73af3917c"
+    },
+    "black-sea-cucumber": {
+      "file": "black-sea-cucumber.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "5a09b0be785aecc9ad0d838adbf5913ecd44031d8fdb8f0bedb5831463150896"
+    },
+    "black-spiny-tailed-iguana": {
+      "file": "black-spiny-tailed-iguana.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2042445fe7fda440018da35b20f8dd9a99857c7a64fe0af95542261aa1496668"
+    },
+    "black-tailed-deer": {
+      "file": "black-tailed-deer.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "615df0100b63f58bc36788300069a1ecfe394392ef1f9c4625cb5f31f23e7633"
+    },
+    "blacktip-reef-shark": {
+      "file": "blacktip-reef-shark.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "8489d5408fe3149e5f47e77a1977d8ac39a9cf639e2a8f3b513b808ef7d159f5"
+    },
+    "blue-green-chromis": {
+      "file": "blue-green-chromis.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "3edc768011b493bd7cd4638a4b6292e9bd0a106f0391729c50cf312fedb356ef"
+    },
+    "blue-sea-star": {
+      "file": "blue-sea-star.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "192680f85952283d33c3cd77f0f8a501141d6d60ff3b4faeec84b5d132e9f3c3"
+    },
+    "blue-tang": {
+      "file": "blue-tang.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "143afc8b213371c79df291bbd38938fd72871dd05317e31a3718941363b5c4dc"
+    },
+    "blue-water-lily": {
+      "file": "blue-water-lily.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "bfbae1bce439956e860c7fdd4aba6ea21d8ee9cac75cd8d8063e2f81a65e1cca"
+    },
+    "blue-wildrye": {
+      "file": "blue-wildrye.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "29805ce15efffbdd7164f5f04283e0c4aaf10825c9c44bc9d434e4f08768fbb3"
+    },
+    "bluegill": {
+      "file": "bluegill.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "129d69d971ef0bca34d1bffb0cab4856d4fb21636bcd16bafa52957a1cef3260"
+    },
+    "bluestreak-cleaner-wrasse": {
+      "file": "bluestreak-cleaner-wrasse.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "beab403e36eef7c59c7db7c4e92ffe46ddbf25c4692e058ae51848b0ceae2207"
+    },
+    "boa-constrictor": {
+      "file": "boa-constrictor.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ffb41a37fc9e2d82a1d2c9c44ff6f6887609ebae010c56273ccf482c8ff201b2"
+    },
+    "bobcat": {
+      "file": "bobcat.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "83a9c3d57e1affb773db41699d20bd396f5c43bf8550dca44fb8289c6247f02f"
+    },
+    "boulder-coral": {
+      "file": "boulder-coral.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "db13fd122edaba7f2ac479f9d442e896d5864a33067f657ca8eb138cd28f33a9"
+    },
+    "boxwood": {
+      "file": "boxwood.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "81cae175df0074a9da7fb0f19a3f3fa2089d50f7b75bd6ac44548cdedc48458e"
+    },
+    "bradford-pear": {
+      "file": "bradford-pear.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6ec66954b52829b2c28934aef6e4123ff2ba9d36a7de5835fb52baff2c10fbc9"
+    },
+    "brahman-cattle": {
+      "file": "brahman-cattle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f5e6da0c86ec5710fd3a4e9e7acd3183499d44778390ce911e0f9cf9a77b660d"
+    },
+    "brain-coral": {
+      "file": "brain-coral.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "696f0eccba02980bf562d6ee6540a267659ad2be144f39aff5691c5bd1e43837"
+    },
+    "brazil-nut-castanheira": {
+      "file": "brazil-nut-castanheira.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "48a9f89a9b0272c6aac77195f4a3e652b59c8dc13f5510cbbf2d426c06c234e2"
+    },
+    "broadleaf-cattail": {
+      "file": "broadleaf-cattail.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9ae7ef683a1612b6144149f42abd5fe08be49e4a393c86abb72c888c6fceb7d4"
+    },
+    "broomsedge-rabo-de-burro": {
+      "file": "broomsedge-rabo-de-burro.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "05b069fd1e5dea855a453372081e74c0cb9447bd41cbfac40d788ab4b33286ff"
+    },
+    "brown-booby": {
+      "file": "brown-booby.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "23e6fcc916b270c90f6ef6e3eeff9a7e0fedbd65d064ab9fe4d9956496ef56c8"
+    },
+    "brown-salwood": {
+      "file": "brown-salwood.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "3db70e655b7a9066ebc1b347a0c07092ecca254e799e86e0f196b5acfc16602f"
+    },
+    "brown-throated-sloth": {
+      "file": "brown-throated-sloth.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "de231eeee84613d3541369b9617cb65107f1d143419f3752bfa121a885ef98f3"
+    },
+    "brush-rabbit": {
+      "file": "brush-rabbit.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "44afc0c9a7c9d0dc831b306ca3f051868c140dc26c015a1e53d351a670aee5ad"
+    },
+    "bullhorn-acacia": {
+      "file": "bullhorn-acacia.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "af2acd182233b71fd60c5dd8d34f8f567465bae12424b60269c4fcc28fff693b"
+    },
+    "buriti-palm": {
+      "file": "buriti-palm.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "8d45eb69f9be57eef63a60ffa9b7dbf771c1ded61ad877e40fe6e818b2ab1517"
+    },
+    "butterfly-weed": {
+      "file": "butterfly-weed.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "370cab596f818e60dc1203aa453fa89eb775a08c19a4d640dab2ac3f9da04ba6"
+    },
+    "buttonbush": {
+      "file": "buttonbush.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "8b1e561557edea02c8b02b7d66a5b13d3b55cc4bb1ab7b74ab9c30ea77a7715b"
+    },
+    "cacao": {
+      "file": "cacao.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "577ee1fd5d5f701989f383c04cfe3e8f1486bba2298ac5e5f7f8031b63267a40"
+    },
+    "calabash-tree": {
+      "file": "calabash-tree.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "5943667f95eb207417b80015f83bf4613e9e062e2cddcef0943555dd2e831fcb"
+    },
+    "candelabra-tree": {
+      "file": "candelabra-tree.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "55c223ebfff47528221131630f051b73f9d6ece740080284addba682fff09977"
+    },
+    "cape-buffalo": {
+      "file": "cape-buffalo.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e7971b1acd43d15b3e9286a93772b8ba71339976a39285e0da2133a988cb7ab9"
+    },
+    "capybara": {
+      "file": "capybara.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c719577fca9f4378be91b813fd79b7c2952676ac8077309b8b008a23fbcebba3"
+    },
+    "cardinal-flower": {
+      "file": "cardinal-flower.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "fa29357dc14043dc42889b185aa641705d4266b7279b41fca3216fbaf204bf2f"
+    },
+    "carolina-chickadee": {
+      "file": "carolina-chickadee.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "36797d952f765bcd797409bee9e8d3ef54d876ee30e095a90eb6990d056f738b"
+    },
+    "carolina-wren": {
+      "file": "carolina-wren.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d4bbd32b11dba42146a06b3ace282a438481804ad284e05f7de81b4b3c3eb268"
+    },
+    "castor-bean": {
+      "file": "castor-bean.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "446dc72c5f2f5065901a7e8fdfd988d952b34efc769d8eec2f122ac553f165d2"
+    },
+    "ceiba": {
+      "file": "ceiba.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "12dd240afb8ea63e38f28299de15a1a7ba4853890e23e79cd096d7fccdd7897a"
+    },
+    "cempedak": {
+      "file": "cempedak.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c23784cd4d9d3f0c60f5b057d9a4e3ba835da028e10066da832a60166ad36356"
+    },
+    "central-american-agouti": {
+      "file": "central-american-agouti.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ae9f2e90e971072bbbd9e42f8fbab56ec73be16bd7c81be013efcac74240d431"
+    },
+    "cheetah": {
+      "file": "cheetah.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b9951abc55c3ebf666130b0b587ea13dc8c0fdd19f9eb375ef6a18539b20e95f"
+    },
+    "chinese-privet": {
+      "file": "chinese-privet.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "cd46ba29b920994e97667ed661ead7b02446cfd76c306ec62d188710c3edc3ac"
+    },
+    "chinese-violet": {
+      "file": "chinese-violet.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "5d3431b3aa4e339ab6f1fef83a575ad7c388f5e0c203567be40071ceab4c715b"
+    },
+    "christmas-fern": {
+      "file": "christmas-fern.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "878663aaae96369b0013e45fb00ccc66b9c2db3a71cde4429eef3949f29426fa"
+    },
+    "cinnamon-hummingbird": {
+      "file": "cinnamon-hummingbird.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a07dd047e35319ca2a56e9bff90f5cd1bed52569f0bc81be19cf67efc9459dc8"
+    },
+    "coastal-cutthroat-trout": {
+      "file": "coastal-cutthroat-trout.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e7217a2f645e5a7e24e3cab65d096493f58e53975b9539495a3e6c0c2da1a465"
+    },
+    "cocoi-heron": {
+      "file": "cocoi-heron.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "cde6864f8234b9012e2febe16ec082cd6b936b3a7330ad66949a063538aa01c5"
+    },
+    "coho-salmon": {
+      "file": "coho-salmon.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "281557141040b96feaa33336e827fa9f5b2901f65e6ccf560c75734a93bb70c5"
+    },
+    "cokes-hartebeest": {
+      "file": "cokes-hartebeest.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "fcbd4c80be74eb4ac51bff7552aa402f8a961ab86009fa5db735bbe29eba1d79"
+    },
+    "collared-peccary": {
+      "file": "collared-peccary.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f33add5d8671e390c6b7d3faa754a8bf4e78e0aea061f40baba0c69a0e6447fc"
+    },
+    "collector-sea-urchin": {
+      "file": "collector-sea-urchin.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0e88dbae165d6b5bdf85e5f224476487d35b6fd76a0cff364cdb5c2ba140946f"
+    },
+    "common-camas": {
+      "file": "common-camas.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d52576987866aa4462ba92f51a711602aad7ff6c7f6eea0ae91767aad3e28b1d"
+    },
+    "common-eastern-bumblebee": {
+      "file": "common-eastern-bumblebee.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "bed956bf7e8213a05bd5a5c568358cfc40162da191e114b5f2f8022cbeeebb8a"
+    },
+    "common-garter-snake": {
+      "file": "common-garter-snake.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6c6a1e868c112bfe0562214c8c65c94ba5465f3c9d425b634f6989c770ad4b41"
+    },
+    "common-ostrich": {
+      "file": "common-ostrich.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "afa15a47032a1f4be70462b80f8ae53e1b705946aaa8938f4b38c12da8a26981"
+    },
+    "common-palm-civet": {
+      "file": "common-palm-civet.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "29defa3d535a92a592d6b6272637975f283bf0efc8383b88dbd370209fb0f16f"
+    },
+    "common-snook": {
+      "file": "common-snook.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "29886fddbe671f0009019482bd5999a608e1fee2149d273b2016cdf4ec5acbf6"
+    },
+    "common-snowberry": {
+      "file": "common-snowberry.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "10f6c52222185ac210c6dca6ab55c013f7680086f03f39440c37e72a06d3daba"
+    },
+    "common-yarrow": {
+      "file": "common-yarrow.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b55a38fe7cb892051d3b7f8a74e8391be2e556fa5933d0950a5f270ec489c73b"
+    },
+    "coral-trout": {
+      "file": "coral-trout.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1c007d21b06590651b4cb93ba534a246af406bc04cbf9ff7a30333483cb23a17"
+    },
+    "coralline-algae": {
+      "file": "coralline-algae.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "664669c812f181a15b66945683740bb77ca73afc189dd93ca907d43eb1db929e"
+    },
+    "corkwood": {
+      "file": "corkwood.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b776728f18d178b48b7378c506f6122473c40398512582bd9872b041d4ea664a"
+    },
+    "corpse-flower": {
+      "file": "corpse-flower.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "017a5d278c7087487eb195aeba44693e9877d61e023dd97d0704240c951b03bd"
+    },
+    "cortez": {
+      "file": "cortez.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2e7e0889bda12824861fd8f24041579b7925124dcce373fe19fab511c1fd5767"
+    },
+    "cougar": {
+      "file": "cougar.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2f3d0349b60258a83583e1cb996fb9b76925b455b7282805819633b0db138dad"
+    },
+    "coyote": {
+      "file": "coyote.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "7b1cafe8f1b046f0b35542d5688bf72a11a227c6f66393baff7c4b680531eaae"
+    },
+    "crab-eating-raccoon": {
+      "file": "crab-eating-raccoon.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f03ed3921a51f9b6232261b877f9ab3655f7172f9850bd891aef467a1805c2cd"
+    },
+    "crepe-myrtle": {
+      "file": "crepe-myrtle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f4d4167aa3cfdcd3699e5e1b4f78f7988183753b9201d3425c862c97b9e81759"
+    },
+    "crested-serpent-eagle": {
+      "file": "crested-serpent-eagle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "83aec886da331776e973c4b68726142902d5ae33a32d0e364437e30574d9a1d4"
+    },
+    "crimson-sunbird": {
+      "file": "crimson-sunbird.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "24026710e4908514e0a0f8e21b0848982f11af693e424433391f97e25980bd29"
+    },
+    "crocodile-longtom": {
+      "file": "crocodile-longtom.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0a61688e24aa70c8588f73e3747411fdcb7e8cb6cc79467290c8348dc30b70aa"
+    },
+    "croton": {
+      "file": "croton.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "00418fa6a6cb89ffae2750e468df9cd85ac586862166d5cefc47806a63543159"
+    },
+    "crown-of-thorns-starfish": {
+      "file": "crown-of-thorns-starfish.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "45bb213a83ad5451a67ac0f648c048e5c168e4e65a3710da915186d954508077"
+    },
+    "desert-date": {
+      "file": "desert-date.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "87383983e5b4dd9163861fda5eaf393b0a4e87e8d8415da38fc4857b4e633232"
+    },
+    "douglas-fir": {
+      "file": "douglas-fir.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "acaf0f78bc2ea38a11ac5dbea8789c47fc7deb0537aaf83c894c73378a12588e"
+    },
+    "douglas-squirrel": {
+      "file": "douglas-squirrel.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "35eb565bfc95672cfcf67d495d7d30ad335630568501027bf3a610c78bbc5eb7"
+    },
+    "dugong": {
+      "file": "dugong.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "315fd354ee734499fb2315f0f30d31b05aa595d66ed2563101b1f9f0c36cbc7c"
+    },
+    "dung-beetle": {
+      "file": "dung-beetle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "30eac8c3db0af032d4f7fdac00f93af1f479a711dc4aeb1ebc0d5547812e1f16"
+    },
+    "durian": {
+      "file": "durian.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b0a667dfad2aa8ac7f907e468af669b4d6882a0c3ab60fc28e3419d38dae62a8"
+    },
+    "dyeing-poison-frog": {
+      "file": "dyeing-poison-frog.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9a8bde1961f58fa90d9cdc831b489b56dd575f9d908d95ac23a86b32905d280c"
+    },
+    "eastern-bluebird": {
+      "file": "eastern-bluebird.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "5df16c13bdaa5078a825f3a0be60cab5dc6752c043c61d272921eac21c247641"
+    },
+    "eastern-box-turtle": {
+      "file": "eastern-box-turtle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f449fbf1b4e8177ad84eaf2ed58a030f96b756791d43381173c54bc994f72612"
+    },
+    "eastern-chipmunk": {
+      "file": "eastern-chipmunk.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "be3778c5365029306e6297e73f3359239faa6efae9702ceba4b844677518c200"
+    },
+    "eastern-cottontail": {
+      "file": "eastern-cottontail.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "77894e585e6eacf2d81a7988a1fee0f70f7f30179ed15fa0a1915e6b92dd5d79"
+    },
+    "eastern-gray-squirrel": {
+      "file": "eastern-gray-squirrel.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "289ef89a0d64c5bf99931519e95d4b1c963f94fd81c2a37284df103aa885213e"
+    },
+    "eastern-redbud": {
+      "file": "eastern-redbud.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b3edf6e1c8ec52a2e892d2f8a191085ec27428b24d5851e70d3be1220c13e278"
+    },
+    "eastern-tiger-swallowtail": {
+      "file": "eastern-tiger-swallowtail.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6da60367432fcb1b181ea917f23af91f4d526391ce3026eaf75da1596f5e9e0a"
+    },
+    "eelgrass": {
+      "file": "eelgrass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c7d2f25ef3afc02cde01f40260432e5dfbecdeebfeed0b109d0cd086f08b1f1d"
+    },
+    "embauba-cecropia": {
+      "file": "embauba-cecropia.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c9ca17a8e6c8444d95f7c0bb9ccfd61247e32cf05054a051c66046e7be139985"
+    },
+    "english-ivy": {
+      "file": "english-ivy.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "fd85e9e50400310f040f89816f0f4ae8e390b0c361b82ebc00625ab262704c83"
+    },
+    "false-gharial": {
+      "file": "false-gharial.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2b2874120fa41ed56f85d00914379727d290464756bc83ca41decacbde9805e7"
+    },
+    "famine-weed": {
+      "file": "famine-weed.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2a12e63a79898d3c3a09fde2ae08efa9de0e798e8c9303d35a70c0d54cc1d17e"
+    },
+    "fever-tree": {
+      "file": "fever-tree.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9d49a97b7494a4adc50724310d0ad220aee45e02a6291775b7126117a7f27a7e"
+    },
+    "finger-grass": {
+      "file": "finger-grass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a2e81c41e485c534dedac14fdcc3961f0e54c099289f4c71321a380c4e6c63a1"
+    },
+    "fireball-lily": {
+      "file": "fireball-lily.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "76545314c64facd6f2118e1571517e6836d708294d7789b30bb707c3bf756c64"
+    },
+    "firebush": {
+      "file": "firebush.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4c3d2e125e10fb8f5eaf80194fa72d578ba3bb53f4bc18f317ea780e76d882e2"
+    },
+    "fireweed": {
+      "file": "fireweed.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "47d135d7a903c51f174af4563dfb53efef9a301f030d485c097b1c4d5900f8c4"
+    },
+    "flowering-dogwood": {
+      "file": "flowering-dogwood.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "40b43cc7c1bb2237d9cddaff44015d89fcf827a8f60c8d6b8afbb38aeb88560c"
+    },
+    "fox-sedge": {
+      "file": "fox-sedge.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "fc241ea7b4a061b386814c1c44542ea03d78008418551797f844b608d7049586"
+    },
+    "giant-anteater": {
+      "file": "giant-anteater.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d09c7a0d205f1dcc79e06c41d9c959e5277ce676c525c2215f0499868898f10b"
+    },
+    "giant-bamboo": {
+      "file": "giant-bamboo.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0e792537ee697c6325b96479713f1c1bf8b38cbe3908f5e4fff3ba2b35ed4225"
+    },
+    "giant-clam": {
+      "file": "giant-clam.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "610b9f02a90f041b28f7177b51b2da349277815677a9d6a80d2a94311fca6d72"
+    },
+    "giant-otter": {
+      "file": "giant-otter.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ca7a89f335075b0ed736f99fe90cd774a10e29595295c154cec72ad5a6a9f39f"
+    },
+    "giant-sedge": {
+      "file": "giant-sedge.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4f0b3cc5b99eb4a5cb17b07e456ff4a71d0fe98a1bebb574798039b33b6df3a0"
+    },
+    "giant-snakehead": {
+      "file": "giant-snakehead.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d4615992c81a1a37af17edacbafaef9ebb616f364567cf49435370c9dc37128f"
+    },
+    "giant-trevally": {
+      "file": "giant-trevally.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "beff20f016b2229eaa9888f075c69034550dfa80dac149a9dea6a0e9f2017169"
+    },
+    "giant-water-lily": {
+      "file": "giant-water-lily.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "aebd7ab903641a78c3496487132ef5cd4c97c0b2df8ba61cfa795e9fae4a34d6"
+    },
+    "gray-fox": {
+      "file": "gray-fox.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c4eefe111ba19b5139dde19599095fde05ac045bcafc64edb87d8bf574c2e294"
+    },
+    "gray-rat-snake": {
+      "file": "gray-rat-snake.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "57059b423360f2d88c527e37a7f6f0498716ae70fa5ad271839597c990950ce3"
+    },
+    "great-blue-heron": {
+      "file": "great-blue-heron.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d7a2cd890654ed5547053788ca62d8b96096d4cb658c44c6e489f871f5252e2a"
+    },
+    "great-egret": {
+      "file": "great-egret.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "cc5f7aaa33e9f104407e32e7c5225bd9f18114c5158704b6aabd9584ebe981cd"
+    },
+    "great-horned-owl": {
+      "file": "great-horned-owl.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "bd9addb0d79f8bb093dae3e444a244a6cec780ca98320c743db98d006dc08239"
+    },
+    "green-anaconda": {
+      "file": "green-anaconda.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f683c0b168a14a8bde873fdc2b17ff064482325bd7916a96068399c0c38ff120"
+    },
+    "green-anole": {
+      "file": "green-anole.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c91046a4234eaf912685787ffb851a7719b0242842396c0bf59e2cec55c7594a"
+    },
+    "green-iguana": {
+      "file": "green-iguana.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "5165f9d98f2685a821a19de1b2f0bdf29f06100e1b1266d05b58a6412e1306bb"
+    },
+    "green-sea-turtle": {
+      "file": "green-sea-turtle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "35c55d16568e85f4269aa5d33f3e669332c798822928a1b58f93d0a731ee2ae9"
+    },
+    "grey-crowned-crane": {
+      "file": "grey-crowned-crane.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "374ce33b6c1f815535ec034b0b6d679c1c569ca1cef145a55a0429a0ceb6c816"
+    },
+    "guacimo": {
+      "file": "guacimo.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f286b577611edc3ace768569d413d9be32d8fd2fedf40f29f953101177ede583"
+    },
+    "guadua-bamboo": {
+      "file": "guadua-bamboo.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ed1c09430141bcb2bbf41e4c3587b9fd1c4f1f986215d658d9bf90b8b2a45b62"
+    },
+    "guanacaste": {
+      "file": "guanacaste.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "054396cc1bda960f470e0b8c914bd0d60541aca7e1faad6d3c1502f9091e08a4"
+    },
+    "guinea-grass": {
+      "file": "guinea-grass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ece7343455d1e912491b9433c4f8b1e6a342cf089a137f9d4f79b4fe8b2d027c"
+    },
+    "guinea-grass-coloniao": {
+      "file": "guinea-grass-coloniao.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "26b7a95674f18127e00f32b7ff6f6d438d6a3d400bd47b05af9e3c4212182a7c"
+    },
+    "gumbo-limbo": {
+      "file": "gumbo-limbo.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c7ee73f98d3e917183e26137a69fa0c15e23ddf00e156825aed153b5860111ab"
+    },
+    "halimeda": {
+      "file": "halimeda.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "7a1cd5eb7bacf4a5ff74869c8a3256594ee4da6900ec9c0ecabbcabce8c1ce27"
+    },
+    "hardstem-bulrush": {
+      "file": "hardstem-bulrush.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "29fdc26d01669d1c14c87151e037dc644794c3639b39034e0db438355c4225dd"
+    },
+    "harpy-eagle": {
+      "file": "harpy-eagle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "671af8f73b53dc0cba4bd3746a7991803f60603d0fd74c8460f98db1e6b65805"
+    },
+    "hawksbill-turtle": {
+      "file": "hawksbill-turtle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "333c7feefede88fbb297df0171c97e80ef56ba391f856b71960b217fc49f8654"
+    },
+    "heliconia": {
+      "file": "heliconia.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "769fea56e8ad2c8ce444f0e11980dda9e37dd328baebebdd8bd618ad147d1c1c"
+    },
+    "himalayan-blackberry": {
+      "file": "himalayan-blackberry.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1206d5f391ee5b993142db9ea07d2c87558f7651f23f6d7fe846671462a3946d"
+    },
+    "hippopotamus": {
+      "file": "hippopotamus.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "bac8ff6c2fe4c33f76cf64cb2bdd5e85b48a4a902d97c7dca7a13b3fa0a5b845"
+    },
+    "hoatzin": {
+      "file": "hoatzin.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c3ee01bf94f3ae308c5cd5116bcdcc59de4c774ef09d124c55becb5b4f4ff9ad"
+    },
+    "hot-lips": {
+      "file": "hot-lips.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f42ed19a23ae8c03d16fe3e78af4029a0d3adaa193d093253c615ead0870191a"
+    },
+    "humphead-wrasse": {
+      "file": "humphead-wrasse.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "11cb20f104c06b5d2db835ecb1a74b25e8e8d99e307025c35e58517410cfcaed"
+    },
+    "ice-cream-bean-inga": {
+      "file": "ice-cream-bean-inga.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "50ea1894eb49e8d4b98e5072eabd4b2007351ca325e42db85ae38e82e99193ee"
+    },
+    "impala": {
+      "file": "impala.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "24be17cd5b1d18789015b9ac0b75153ca44abd2a470cd54f3bf328a6bfe432c1"
+    },
+    "jaguar": {
+      "file": "jaguar.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c4969715f6b1d7b73a21831958613e0a5fd1fb8e95c623e9ddf7b27908ae6784"
+    },
+    "jamaican-fruit-bat": {
+      "file": "jamaican-fruit-bat.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "7eb46b0e6cdc51895c5758788ade3bffda12d32f9e00bad14135114b91c5e8da"
+    },
+    "japanese-honeysuckle": {
+      "file": "japanese-honeysuckle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1f9b8569da099d0a94d3abc04e4d534daa95f9b4765ace71182f59fa705039e9"
+    },
+    "jaragua-grass": {
+      "file": "jaragua-grass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "734309de0f7f8724a2c6c36a0a7224870e9f490743cc0d8c8903ad9d99f2a336"
+    },
+    "jelutong": {
+      "file": "jelutong.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "445f17b3fdec32e75ec79342623955f2aed674c74cf28b4640c0737396dbe3a5"
+    },
+    "jengkol": {
+      "file": "jengkol.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ccbcf3c3395b4e6f68c3fda1cfd33a9c21708d1c9a39e6961f56cfeb7d033e47"
+    },
+    "joe-pye-weed": {
+      "file": "joe-pye-weed.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9ab995d27956c81f055b0a7265bb1c4b94db3e5ed9dbb9448e91100a7a64b32a"
+    },
+    "jungle-geranium": {
+      "file": "jungle-geranium.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "196aad0854a497c759785a35132db5934c4a6d420c4bd8d434b24e04e45be5e1"
+    },
+    "kapok-samauma": {
+      "file": "kapok-samauma.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f1dcc75ab7c9a3b24d04fe5afe1e9c8a1cb83950f5c395ccce6fab8cab50b337"
+    },
+    "kelakai-swamp-fern": {
+      "file": "kelakai-swamp-fern.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b9f272d5743c31ec2a88bba308468185c18e68e97a3636858227145db93e23ef"
+    },
+    "keruing": {
+      "file": "keruing.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "dfd861bea2dcff076421072ab0393235d2587bf4d7b1f42a63f7babe66dd88f3"
+    },
+    "kosters-curse": {
+      "file": "kosters-curse.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "06ea8ccc2c82271da6d79ebe86c3a7a82e9e44dd060e6a22e7cf81717e119d2b"
+    },
+    "kudzu": {
+      "file": "kudzu.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "741ed7696a1f4f6102c56326449d585f0ca69d9d14527fd4d1ba047c408fb5d8"
+    },
+    "lacre": {
+      "file": "lacre.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "77e97cb99d75090893f330b7333624550901d5ba934b12c43d9f504c45ea52e0"
+    },
+    "lanceleaf-coreopsis": {
+      "file": "lanceleaf-coreopsis.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2c3b0512027b1726bb1bdd0ece44417e4c424ed4898bb81518c73198748fd5fa"
+    },
+    "lantana": {
+      "file": "lantana.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f835e71c03995dce8b106b759c9c3b72ac3a371502c895506258aa2fab71a774"
+    },
+    "large-flying-fox": {
+      "file": "large-flying-fox.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "051e758650f887c27ac969d5911bdb7262a8e45a2a94cc2bdf3c00f74114e0a3"
+    },
+    "large-leaf-lupine": {
+      "file": "large-leaf-lupine.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "32690b549ab77ca051fe2d8a02789b99a34435cfb24c1c335f3b64cc474ddc6d"
+    },
+    "largemouth-bass": {
+      "file": "largemouth-bass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "632c0f037d1fdb854d4ea2e1a85b0aa354e4a6d6148ea7e9088e87d9ad1799d2"
+    },
+    "laughing-falcon": {
+      "file": "laughing-falcon.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b2b5c4b38e1725ad6da30b920c0664e8c536563a53675ecd0787634a790e1b80"
+    },
+    "leather-coral": {
+      "file": "leather-coral.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "490be5836a7d254d3f810895b87498c9dcc0df7a72bc594a0dae795d9f8e8b13"
+    },
+    "leopard": {
+      "file": "leopard.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "aea820cd1470efbf8d87e7ce9cd2bf205ddc19fb688547c8b281e3b2992422da"
+    },
+    "leopard-cat": {
+      "file": "leopard-cat.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9e936576805d3111d3d70747489d4f10ee475152e23740268042106e61d8b639"
+    },
+    "leopard-tortoise": {
+      "file": "leopard-tortoise.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "df854e0969adcae65707b550b3df44a509c2ba2f91d6e8e2578506860e4259bd"
+    },
+    "lesser-mouse-deer": {
+      "file": "lesser-mouse-deer.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e26f33f27f61f6035c612ba1b1d2647020660350dd1d37646b82314ac1be1aed"
+    },
+    "leucaena": {
+      "file": "leucaena.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "599e606b605df1eaa436748d5dd185790dfc067682cf48e3ac9aefad8b5f6ca4"
+    },
+    "light-red-meranti": {
+      "file": "light-red-meranti.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1500f9f90eebc96dc616a2340a8a9051e1684ae3d9fc04d3bc67107b3b5ba2fa"
+    },
+    "lilac-breasted-roller": {
+      "file": "lilac-breasted-roller.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e8510243b5e49ee8d36b3b0d2a251ffe95b616efd32b9dec185259edec02cc0a"
+    },
+    "lion": {
+      "file": "lion.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "06e27e3dd182f9ee1c786c06fdad389b666ad86de893d8d0999db82b68059689"
+    },
+    "little-bluestem": {
+      "file": "little-bluestem.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "313a4d7e71938a94e86d67228a82de517e2827fc1745351a8deea3f1721166fb"
+    },
+    "little-brown-bat": {
+      "file": "little-brown-bat.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2be2a5867aab83635a4597f5128489ad117c8196944dfb5d9765b27ddd3ba2cb"
+    },
+    "loblolly-pine": {
+      "file": "loblolly-pine.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "159d4373a78247cbfce3936c475a61ad16958f7e5b3ddba7653e5e8e93493878"
+    },
+    "lobster-claw-heliconia": {
+      "file": "lobster-claw-heliconia.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b8b0a95e328ed5a263d2f72b4fbbf40999ef98e335bdcef43d7ca6691295f678"
+    },
+    "long-tailed-hermit": {
+      "file": "long-tailed-hermit.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "37858f828b3ab49836f24320218f921287a12575547cb5987d905884ec829cf7"
+    },
+    "longnose-hawkfish": {
+      "file": "longnose-hawkfish.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0927349a7ccc9177cfa52f9106405dca7502c0bd7ab143c92ecd5ee7d0c90689"
+    },
+    "lowland-tapir": {
+      "file": "lowland-tapir.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "66fa32b25f6b62cde36b38b7b40baefd8f79cd8c1a535f13f6744a5d69c65b28"
+    },
+    "maasai-giraffe": {
+      "file": "maasai-giraffe.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "8e851bcfde3b682055d2e809661b806bd781787a7126acceb73d1a306203bbb4"
+    },
+    "madrono": {
+      "file": "madrono.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d5762dbc6a3b0c031c686de35790f035b7b7446b5d9b5cfc9ca2580e61be9a93"
+    },
+    "magnificent-sea-anemone": {
+      "file": "magnificent-sea-anemone.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "60e7a22a7f00f9a57a579fb4c869b93474f6129a2915d5e07f82d6109a604101"
+    },
+    "mahang": {
+      "file": "mahang.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "274e692aaea48686d03edbebd260ed82b07449c0a06ffe025157b6d56949eed6"
+    },
+    "maidenhair-fern": {
+      "file": "maidenhair-fern.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "32453ad037d99fe4dbe4b2c2c45619e7f3205ae5439e506032ce4faa0b6e9980"
+    },
+    "malayan-mahseer": {
+      "file": "malayan-mahseer.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "49822e60271aabe9c418cdd08c4112f67c98b69fafa5c4003a86f2e30504c813"
+    },
+    "malayan-tapir": {
+      "file": "malayan-tapir.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f02719d06c410b626843b9ba43a5559af5100977b448f5c13b52c284c5231874"
+    },
+    "malaysian-wood-rat": {
+      "file": "malaysian-wood-rat.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2ca3ac2a0fd6012f58bcaa110711af4151bf7b9af084805e6f458d90cb6076ff"
+    },
+    "mallard": {
+      "file": "mallard.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "6ba91e67ee838fe6fd64141e207ee6b0588f0560a132eedf2831cd35cce012ab"
+    },
+    "mangosteen": {
+      "file": "mangosteen.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e016fb3c39f0bce0959869724702d5a9f1907d8da62cd611aa338ac0eae1dce5"
+    },
+    "mangrove-fern": {
+      "file": "mangrove-fern.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "06f83358214adf2db006a14d5178daa5b355ea42cb5fb6295bc4276519456d60"
+    },
+    "mangrove-snapper": {
+      "file": "mangrove-snapper.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "dcefef66737a1a51de13f4b1f286429d8c229f3709e65b6e5b0dd15aecc2d841"
+    },
+    "mantled-howler-monkey": {
+      "file": "mantled-howler-monkey.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "759c827a2e1a74bbece9cb2695a3a864c5ace5667325f74d5070b526480485db"
+    },
+    "many-spotted-sweetlips": {
+      "file": "many-spotted-sweetlips.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ef5a8d9f85a3203cdc7a53ad0ffe5c411b3732126710ef1102bf7bb5ce621fa0"
+    },
+    "mesquite": {
+      "file": "mesquite.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "69983dabf66f3d3b07f035b4f4ca0260f335a3d1c9084818e24f14f5f2785dd4"
+    },
+    "mexican-sunflower": {
+      "file": "mexican-sunflower.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "5fb66c65aec9db2d519c7a93e5e5f4fbcd27088be1c0e103aaa2a77b8896a1f5"
+    },
+    "mile-a-minute": {
+      "file": "mile-a-minute.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6745bd6642f2eac5f7ca7525c9dad51292c4a048033c1270219d93aa8682bc3b"
+    },
+    "monarch-butterfly": {
+      "file": "monarch-butterfly.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "3332fda3008f7cb1ecf4a0c679d6e13f8a1ab85f2fe709087ca4cab8f59c3c5a"
+    },
+    "moorish-idol": {
+      "file": "moorish-idol.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e8a59430b9e26a57b27fb7c03ce135c5536ba220da5da5e4f6e3cb30b689ba30"
+    },
+    "mountain-mint": {
+      "file": "mountain-mint.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "3f7586cbfcafbde76f2e99c21d3f7bea9b9d71c56dd2a87b377ed6dae0397e46"
+    },
+    "mushroom-coral": {
+      "file": "mushroom-coral.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "64573af5f40a0ef85369822f3e0b885d8a4b70ddae631bd6a133a38e8a1a12a0"
+    },
+    "nandina": {
+      "file": "nandina.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "597c45f3af050337de56baedbb1fe00d0e18502df791c5128ce7911bac3393b7"
+    },
+    "native-paspalum": {
+      "file": "native-paspalum.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "87f97323db4bf480d5de83bcb25a10c83e3d0046e8106167ed780be841946350"
+    },
+    "neem": {
+      "file": "neem.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "fb889dd96529f3e80c44e653da3861321a133e532fecc7d1b5f7e5cf6fc9c37c"
+    },
+    "nibung-palm": {
+      "file": "nibung-palm.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "82e8ca0341e0900cb30d585271fe5c544dc6b7558c27c6f54c29ad52253a9f9c"
+    },
+    "nile-crocodile": {
+      "file": "nile-crocodile.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d597940abba5e7b3b96c2cd8dd4a7be8aa4e706e6fc3ce36c73da9669e238ea3"
+    },
+    "nile-monitor": {
+      "file": "nile-monitor.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "7974291559ddd69957d42bb0520efc4ef91ddc5fa30c4645c40c29a63632f830"
+    },
+    "nine-banded-armadillo": {
+      "file": "nine-banded-armadillo.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "3cad3d48a034a14754ec4f2f9b631b82f97bb6260ffdb88268e64e658f5ebe7a"
+    },
+    "nootka-rose": {
+      "file": "nootka-rose.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "441bbfb1c593a533e8b9b8e35bcf7ffbb3a1dd05ffda2b38db1c5a2045d6c7f3"
+    },
+    "north-american-beaver": {
+      "file": "north-american-beaver.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f32dd0c38f4856f1405b896441cc133b11790cea0f5d638fb47abc9702fb23e4"
+    },
+    "north-american-river-otter": {
+      "file": "north-american-river-otter.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "03878058abeae55e6e2381373e1e6e0d5f77409540d655997e343e89bc63a331"
+    },
+    "northern-cardinal": {
+      "file": "northern-cardinal.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "c6eddcbfd587b9bb765e1b63db033f48070628a3c02c4c78940ad28a9ac6b0a9"
+    },
+    "northern-red-legged-frog": {
+      "file": "northern-red-legged-frog.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "cc39586595d59070bc48825a1a1fa932b4cd050a61e8a398f60b97376134110a"
+    },
+    "oakleaf-hydrangea": {
+      "file": "oakleaf-hydrangea.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c292047b6909bf292cdf47e85c137579490319761c013bcce9015c61dab97220"
+    },
+    "oceanspray": {
+      "file": "oceanspray.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0a2c84e112884a649a5cb7a1a2c39f5be16edb4f56ed5db16710a9fe0ae5cf98"
+    },
+    "ocelot": {
+      "file": "ocelot.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "951419370512b492ec6ca83f10d80ee2d08a5f2d087fe07d0912060e01c7e61c"
+    },
+    "octopus-bush": {
+      "file": "octopus-bush.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ab51442b0ed6d847c9da2511fe47165c0da4e5e009ac9ba3ceee0b589eb4ce05"
+    },
+    "oil-palm": {
+      "file": "oil-palm.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "7d607cc2847555f07d0ca4f0cf06285616c2291caaf6a664dd90f1132c2fc9ae"
+    },
+    "olive-ridley-sea-turtle": {
+      "file": "olive-ridley-sea-turtle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "20b29a5034184cb7fc3adafeb41dd08c7358e6d33c2b317133050cb33bbef3f8"
+    },
+    "orange-clownfish": {
+      "file": "orange-clownfish.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "fddb74bef2b898d31bedd32dc6fab9e90f31a369d60bfce7caa0c3a4ce3f2cb9"
+    },
+    "orange-fronted-parakeet": {
+      "file": "orange-fronted-parakeet.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "67b3b24970970b767ae959559035a9edda820b9d4a147d6cffd884230818af5b"
+    },
+    "oregon-ash": {
+      "file": "oregon-ash.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "cc762fb780a3d51807e7a9d2b2f97f3f9485965341c436e75ec4a4a6f24cb3e3"
+    },
+    "oregon-sunshine": {
+      "file": "oregon-sunshine.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "182fbe37c27e90c9d753da9203489e72023d978e44d17d49e4d400e872714ab2"
+    },
+    "oregon-white-oak": {
+      "file": "oregon-white-oak.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "83bb91aab8e7e8aefd50e470413a98fdec75fe041ef42273db2858792437641b"
+    },
+    "pacific-chorus-frog": {
+      "file": "pacific-chorus-frog.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "dd3c66e6267f413278af0ed5339bef33b6ea517e09f600d7b45ae5a8ff210f99"
+    },
+    "pacific-wren": {
+      "file": "pacific-wren.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a33a7a32a02db56f23bfe7f80cd8a97387a8722805ab03b6e2df2d5151712416"
+    },
+    "paper-birch": {
+      "file": "paper-birch.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d78b86eeb0a3ae6a15b131eb74746199938274b14196e75c233451fcdecf767e"
+    },
+    "papyrus": {
+      "file": "papyrus.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4d44eea2835451acfe3ac536e811f40aac6bb62289a6fc81f08c51074771b614"
+    },
+    "peacock-spikemoss": {
+      "file": "peacock-spikemoss.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d926e9e0697d6b536e9851668c268e18661e4ed41cc0ae3236163556e27068d4"
+    },
+    "petai": {
+      "file": "petai.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "49db4b2d36e667b6223fa59595acc1895d968142661534b16b442a5f8fc42389"
+    },
+    "piedmont-azalea": {
+      "file": "piedmont-azalea.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "557a50e22d084de3562d1185a02b853b8bf08a7b44926bc47f48bd9631cd7011"
+    },
+    "pileated-woodpecker": {
+      "file": "pileated-woodpecker.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "27791573dab3fc9592652856aa0a9bd71d0b9fddcdd2d32b83258e635deac5be"
+    },
+    "pink-ipe": {
+      "file": "pink-ipe.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6c1690e5c91e7522fcaba0ecc4e19ecea4b9b1b498f404acaa1d503a3dde4ff5"
+    },
+    "pink-trumpet-tree": {
+      "file": "pink-trumpet-tree.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "cfe8d2fedac0a6425a069019b980f9147290e28bd87251c5421075597b7dd562"
+    },
+    "pisonia": {
+      "file": "pisonia.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0db56a0e843c641b18a667222b2f2eee844993bce6e507a6f8f9bc1d4ca329f0"
+    },
+    "pitcher-plant": {
+      "file": "pitcher-plant.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "fe1bc0bd5e20c1601a95272e3eb3cc9a00458cc36216d058d3d761450d6abe2d"
+    },
+    "plains-zebra": {
+      "file": "plains-zebra.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d751d33a46525b48a524be3307aea247fe62d243c404bf952f1fd45522b5856c"
+    },
+    "plate-coral": {
+      "file": "plate-coral.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "837433c93dbe02b9257794b781bf6fb5e0319bd9aa2fdcad376b359721307340"
+    },
+    "prayer-plant": {
+      "file": "prayer-plant.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "783ca6a51dfe2beacbb71987394714f87368abb18491eaa5c3df196fc9440264"
+    },
+    "prickly-pear": {
+      "file": "prickly-pear.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f9d7875d14538d20cb9e85d09fcbe828df9e2a886990408843bc757c1b261524"
+    },
+    "purple-coneflower": {
+      "file": "purple-coneflower.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "15232d0617f0fe77cc4d6f1bea9f449962dd3a9ac8d7c224021be47b90e42eba"
+    },
+    "purun-sedge": {
+      "file": "purun-sedge.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0da62455981b2dee37812cf953a37aa06b0f43f79a8ef2ce9693ff92ccd271fa"
+    },
+    "quickstick": {
+      "file": "quickstick.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "3106f8ce5f5936b8987ce19448b46bf9edb0f6dde1dcf955cb03e8304da28451"
+    },
+    "raccoon": {
+      "file": "raccoon.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "21e2f939839a68413d814dacb31c5c1d8ef6ef06ca227bfe18acb9f3a1a904d0"
+    },
+    "rain-tree": {
+      "file": "rain-tree.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b73f97ce3dfc813ab77b35fb4f2f6dda63eb685eb823f46a11346a5391860581"
+    },
+    "raisin-bush": {
+      "file": "raisin-bush.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6ff6ca914251038d166ee3f097f2480f023153ae4a94c81af04caa8fd8c1dc98"
+    },
+    "rajah-brookes-birdwing": {
+      "file": "rajah-brookes-birdwing.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e19905a419ed8f26a1c18932b318105460dc580c65c0026f445c7efe7127f5b2"
+    },
+    "rambutan": {
+      "file": "rambutan.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "70d077c0e9e927543f581e6bc48ba02e0f3d6d3b6138684a32ed614d4a62f912"
+    },
+    "rats-tail-dropseed": {
+      "file": "rats-tail-dropseed.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "58d2b5fc845f0d31b06e383f0e93acdd67755bb21c41fc9e44a0f69663012a1f"
+    },
+    "rattan": {
+      "file": "rattan.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2c8d0fc97415643785cd8660acde253a3bde17a7cdee5c5274e7796aae97f566"
+    },
+    "rattlepod": {
+      "file": "rattlepod.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "5a1cd7e0939271ed318d827dcc7e55e79889b98a6fbb02ae095e06d585ce89bc"
+    },
+    "red-alder": {
+      "file": "red-alder.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "7b9688b6e673ecc8cf757238396250813e5639b36fcc174c8262b870e118fb83"
+    },
+    "red-bellied-piranha": {
+      "file": "red-bellied-piranha.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9d651e1596fbe2292d57547928233d852bd47079b433300680a3edf53dd9ad80"
+    },
+    "red-elderberry": {
+      "file": "red-elderberry.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e7789519d50c45e22d2fa2b0204ffaee1803b3335fb6734fe481f620f52950f8"
+    },
+    "red-handed-howler-monkey": {
+      "file": "red-handed-howler-monkey.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1c6b4d255ac32200e09024536d5d1422750fc0c49f13c443c09ddaf91d964cde"
+    },
+    "red-huckleberry": {
+      "file": "red-huckleberry.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e12d675d4ef84ab3a9ab8464a5df23c2c60fc6361fe622f4a999066794f1bd11"
+    },
+    "red-mangrove": {
+      "file": "red-mangrove.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9d4e0beed7fcb9802556968c67a8f5a9ff32a4d3264663c36c6076ced2205cf9"
+    },
+    "red-maple": {
+      "file": "red-maple.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4714067235f366b20cc815d07fbf1a4551e54dba8c33345f8dcb8cec8a161af3"
+    },
+    "red-oat-grass": {
+      "file": "red-oat-grass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0a1d8b758b7108838180c5bc1252805532f232eb9132922087554762fa7e3b78"
+    },
+    "red-osier-dogwood": {
+      "file": "red-osier-dogwood.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "46c6a72b682bba9d565155e097547d69e04a5bd070e51340c1df88b07a387c65"
+    },
+    "red-rumped-agouti": {
+      "file": "red-rumped-agouti.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d61dc0ec161cd5afeddba2c5ab000bbfcc3e5ae5d99304b7c3d0a0ccb04a36ca"
+    },
+    "red-shouldered-hawk": {
+      "file": "red-shouldered-hawk.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "7cba52ec35b33fe2663a3f0feb6a6a917e70b4f126e1d89f06f7193f7c20081f"
+    },
+    "red-tailed-hawk": {
+      "file": "red-tailed-hawk.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c61a0c677b3e8fbc14b791ca26af49829867660ca5851e79d5b787f644b29414"
+    },
+    "reed-canarygrass": {
+      "file": "reed-canarygrass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "52028ac11b0b1366d5c1cf7c51a30666685560edc5bb7b5c6523688a78294453"
+    },
+    "reef-manta-ray": {
+      "file": "reef-manta-ray.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4d57667d26b6611cfea54de6117e3578ca30ca99acec53e18e4ef0a311531a4b"
+    },
+    "resam-fern": {
+      "file": "resam-fern.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "39e75c69e11765604d7fe18fd0a7f456304a69e3ac3e768136423791b5c13958"
+    },
+    "reticulated-python": {
+      "file": "reticulated-python.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "887e1840670a946d46dfd65a6fe2dc63dae7d08c6155c35a46b0bc00cba2e106"
+    },
+    "rhinoceros-hornbill": {
+      "file": "rhinoceros-hornbill.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9024a1db60b5c7a415abe67ad61ce11e21c15782a30d6e0ea44c3903a8782e17"
+    },
+    "river-birch": {
+      "file": "river-birch.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c16e389b77efbc5a2d66375ea8e8454ae4eb528f6ecf07e59a90d936566919fa"
+    },
+    "roemers-fescue": {
+      "file": "roemers-fescue.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a0d6bf17614c91201ae1babdafb8e15e4efeab1dd639b80a95eb71f163a5eaec"
+    },
+    "roosevelt-elk": {
+      "file": "roosevelt-elk.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "deb978fb0ba8f951ee76fbd98af1cf532a3bfec726aaaac6a003b375deba7a07"
+    },
+    "roseate-spoonbill": {
+      "file": "roseate-spoonbill.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "8b787fc71142115b92896d48d9a84935601af686063323f1a9c0a9b16843c988"
+    },
+    "rough-skinned-newt": {
+      "file": "rough-skinned-newt.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "04f526448500dcdce2e69f8957a50de8322ca9655041230242497951bd8d0295"
+    },
+    "ruby-throated-hummingbird": {
+      "file": "ruby-throated-hummingbird.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "6f5bcf91378b3549e521cb61532cd9689b09ee467fe7706ead8af95c95f5f808"
+    },
+    "rufous-hummingbird": {
+      "file": "rufous-hummingbird.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "6b4fa4deff38b25c9e59f18f4672871ac93e6a2d032528e3c7818cbfea64635f"
+    },
+    "salal": {
+      "file": "salal.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f9e9b877246ce2956819834db175ead9c009f1675465f6090dd477c91dd5026b"
+    },
+    "salmonberry": {
+      "file": "salmonberry.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d5db34b5e6d77f03f96176175ea15bde98bff04bb9e38f573b0ff62722625d5f"
+    },
+    "sambar-deer": {
+      "file": "sambar-deer.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "60e91138d2ef6963083b2815bc5c5dcb9456df345c3b5ad1be14bb626759bd36"
+    },
+    "sausage-tree": {
+      "file": "sausage-tree.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4460837a5faf1f9bd313c293fa1764c9a80b00350f392ff9edde87c132dc408d"
+    },
+    "scalefin-anthias": {
+      "file": "scalefin-anthias.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "511da683d5228799d032a3ac0051dcbc190664dbefdc0bbbc69d106f9be82ec2"
+    },
+    "scarlet-macaw": {
+      "file": "scarlet-macaw.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9fcba83c5d3fe714747968f240919da852dc43df58914f36f59d1067db9af611"
+    },
+    "scotch-broom": {
+      "file": "scotch-broom.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "883c6a4192b2c4e05a98da1d504ac446a138819d62ad9c164ad30378af20d310"
+    },
+    "sea-fan": {
+      "file": "sea-fan.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "66806c6185e1cae5dc3f802982dcb234b23fe63bba8cf90dfa964f5f6c5111f6"
+    },
+    "sea-grape": {
+      "file": "sea-grape.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6cca7b34c878d308993d5417c2867693a1a3a058c50db079962f14bb23642a0b"
+    },
+    "secretary-bird": {
+      "file": "secretary-bird.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "308fb7fbd4ae862580a7e416e1fa627d1a01e14b20ea9c04ea90db00064267f0"
+    },
+    "senduduk": {
+      "file": "senduduk.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "748d683d8e8b563b3826ecf698b26a9aa08914ca74c99e1576e4b8e20d24237d"
+    },
+    "sensitive-plant": {
+      "file": "sensitive-plant.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d508be1419526eedf6a668ba49d0c7704f1e11d06bcabf1ef0440ed8e1536d9a"
+    },
+    "serengeti-aloe": {
+      "file": "serengeti-aloe.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "31ee4d2dfbfdfd20a87e8d758cf35a737f51af5cd2685da38824cc18537c4181"
+    },
+    "siam-weed": {
+      "file": "siam-weed.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "98f7909ce2b4cf8f7620d4ae5f97687534021dd23b7806705448abd0730fb6f6"
+    },
+    "siamang": {
+      "file": "siamang.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2f96021c631ebb6ae430fc53664ac2386c99becd64fe5ab4d8379e34275c2f95"
+    },
+    "signal-grass-braquiaria": {
+      "file": "signal-grass-braquiaria.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "73d56183a07d05852ed7d9eaa2e3633ff3762d7b3cc442d645763608452d41ae"
+    },
+    "sitka-willow": {
+      "file": "sitka-willow.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "44cfd70147de5f5c3190f34e55ca5ecbaf80b3deee92a15e1e90a91f26f4e170"
+    },
+    "slough-sedge": {
+      "file": "slough-sedge.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2f1a568dfd3c760bbef490038215cb12ed23b990e8545ccdd32c502611132c88"
+    },
+    "smooth-coated-otter": {
+      "file": "smooth-coated-otter.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b75ab8ed3100c24a16b7de71f3c93ab7779be7210820b1491466e7ac0b9f9d8b"
+    },
+    "sodom-apple": {
+      "file": "sodom-apple.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "30a87b4c207a44f5364adcc81de34ff6fa8e63a71d48fef4054add68a4caf56d"
+    },
+    "sooty-headed-bulbul": {
+      "file": "sooty-headed-bulbul.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "5c6dd037f9adff624c11fc96e7f7dbb1fe79fa6ff506157f5b5fb38700497d47"
+    },
+    "southern-flying-squirrel": {
+      "file": "southern-flying-squirrel.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "299a3b139a81ee066ca50cb17a47dd3c6ce9cd9fe48dd1764adccab14aae5e8a"
+    },
+    "southern-ground-hornbill": {
+      "file": "southern-ground-hornbill.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "46d7e894efe1e0e770e06d5e309179dd6dec785fa6cdd51ca751bbc6544e0056"
+    },
+    "southern-magnolia": {
+      "file": "southern-magnolia.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "66d4a3a7e0ef248654ee1ee0efe703c2df307aef038654dddd762394f7f1096d"
+    },
+    "southern-pig-tailed-macaque": {
+      "file": "southern-pig-tailed-macaque.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0fe24d28221686ca54b71599c62248c3af536212c41bbaf73cdbd79b66b7899f"
+    },
+    "spekes-weaver": {
+      "file": "spekes-weaver.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2f43d183c7124fae16224263d45d139293e4b2cd011bb223bc9dd1d4f60061b3"
+    },
+    "spicebush": {
+      "file": "spicebush.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "45c2a7f624906d30eda2530fb06fdc9f31086d725997a04c7917901ae061ecd4"
+    },
+    "spiked-pepper": {
+      "file": "spiked-pepper.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f4d8972abcf1da9f3082655738b9c0bf5e2fb50ee8a6a44b84a387a4b13ed1dc"
+    },
+    "spiral-ginger": {
+      "file": "spiral-ginger.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e64beec19b1b9731e22e5382c3a057437e0aecd6ec778e328c144ceaa571670a"
+    },
+    "spoon-seagrass": {
+      "file": "spoon-seagrass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "58650f7f24f7f86ca42856ed129eca6a166289bad7d96ef5661ce949aa6d690f"
+    },
+    "spotted-hyena": {
+      "file": "spotted-hyena.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "958d84f842b8c48b5d1845a835cb6b43144bb214a06212f371a0ef20efd2ceb3"
+    },
+    "spring-peeper": {
+      "file": "spring-peeper.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1de021b1cd8fae2ea5cafeeb01dd64bff315fdfaeb31e6e5719751e65413c293"
+    },
+    "staghorn-coral": {
+      "file": "staghorn-coral.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "97bc8b8921e36322bb35e1b9d64490e04adbd58d9b4a00003b5f3028120d1347"
+    },
+    "star-grass": {
+      "file": "star-grass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "38cca28f512545c99a00301b44fbea6f3e94a6d5d491e8e5f54eeb45519378af"
+    },
+    "steephead-parrotfish": {
+      "file": "steephead-parrotfish.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e134a10dedc2fcfc4a7733b81ed90351c10933234002cc2c7def616a98b4b3de"
+    },
+    "stellers-jay": {
+      "file": "stellers-jay.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "ddbd9f13658413001e2ea06e0161d77f20b16bf676a2fe66400ec8d8bab5d696"
+    },
+    "stork-billed-kingfisher": {
+      "file": "stork-billed-kingfisher.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "523fb5735b6a598e8712b4f268510868fed4910761757beea1ce178532d1e070"
+    },
+    "storms-stork": {
+      "file": "storms-stork.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "8955cbb83e95ed8e561a64e1ed77e55f601c0a02375647e014c076489f3a2a71"
+    },
+    "strangler-fig": {
+      "file": "strangler-fig.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "f8f1a5e4ea2292a530b29ee31dd9f99d3f3e4255f0f438700e13789e1458a867"
+    },
+    "sumatran-elephant": {
+      "file": "sumatran-elephant.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "73dd6aab50b1937796d8d587a778f78634b8dc2e05b563f45e5826445f86ad4b"
+    },
+    "sumatran-orangutan": {
+      "file": "sumatran-orangutan.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "f965639863afae7258f7f5901a4d8406a3ef57b188009712bab64ef3b017e4fe"
+    },
+    "sumatran-rhino": {
+      "file": "sumatran-rhino.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "245de8cfb531194aa1fb76e2be54abae3012e45ec71d500d8d12dd9523646b2a"
+    },
+    "sumatran-tiger": {
+      "file": "sumatran-tiger.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2428f4f8ab70f0a5a62183107f6f5871e06054403158f2fd921209c314ed759b"
+    },
+    "sun-bear": {
+      "file": "sun-bear.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9cc8ef6760ac8faa4fdde561fdf3249fba91f89d900ef1635bfcb9775dbae80a"
+    },
+    "sunda-clouded-leopard": {
+      "file": "sunda-clouded-leopard.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "bfe145f6d5d3be8cbdf143d970939aac780b1baa5e29b0a1afac2ccfad7e9d0e"
+    },
+    "sunda-pangolin": {
+      "file": "sunda-pangolin.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2719adc105d26314a59ead307b52652fd92e3670452beecd978bc4131e872fa8"
+    },
+    "swainsons-thrush": {
+      "file": "swainsons-thrush.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2845b2b3b1c1d012883b344998494903f2c4eb74aa1c85a5a2640433d9c0eb39"
+    },
+    "swamp-milkweed": {
+      "file": "swamp-milkweed.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "374d4b4dd9ad6ed6591587611b780f10ee2373aaf0e58b5dcead134944f6aa1b"
+    },
+    "swamp-screw-pine": {
+      "file": "swamp-screw-pine.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "86de098a044bf10b40561667ff1b91b9b7573e52ef4cc671a49e2052ff99fdd0"
+    },
+    "sweetgum": {
+      "file": "sweetgum.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "7cc416eb18b5e828566f9a5d2cdfefdad799cca34dc43c8f4c0a069250a46327"
+    },
+    "switchgrass": {
+      "file": "switchgrass.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b2e27bc739be8e3d3beabc08dca87c664efe16248d52a82658d8c2184e03c720"
+    },
+    "sycamore-fig": {
+      "file": "sycamore-fig.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "85e5d1842af6b11a4d5ecfdee0481281d38a307d39b3117e0ba5341f98469dfe"
+    },
+    "table-coral": {
+      "file": "table-coral.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "159b3ca0bcb4c7115ed0336bd3420ef75a5d729e9b32e1d222061962a41b1bed"
+    },
+    "tall-oregon-grape": {
+      "file": "tall-oregon-grape.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1394dfc6f318c2945650d729c6eac3bdb95a8accce6d812dc95a6420e29ceb34"
+    },
+    "terap": {
+      "file": "terap.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "167284c695a43f25cdc0787abb281a59af6c182e0781350752a2ad88a9c401d8"
+    },
+    "thomass-langur": {
+      "file": "thomass-langur.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a574c72f3c077852161fe8cd2793ef312270f55eec717a50ab6980e5082e1b85"
+    },
+    "thomsons-gazelle": {
+      "file": "thomsons-gazelle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2ae0a45abb483e0fd4212ea8fdb61c1bb31e09c5373f8ed7914cbb1d47d2a229"
+    },
+    "threadfin-butterflyfish": {
+      "file": "threadfin-butterflyfish.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "73c12dc09367fe32df9bc33c63eea6f9fa2375ec54c6fdb27cf6e911fcd8ddb1"
+    },
+    "toco-toucan": {
+      "file": "toco-toucan.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a8900cade08b8bc93779eb1d621c1986ce10121a00db1aefd267048bcd3a6ae2"
+    },
+    "topi": {
+      "file": "topi.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "92494349d7ea76c2c28000f72f8f7ab56393313f0bc3832bd5fd893f17327b4c"
+    },
+    "torch-ginger": {
+      "file": "torch-ginger.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4882e8f656048da30590da925dd25ab896ba4e63a217e5f692245460d2ce9da5"
+    },
+    "townsends-vole": {
+      "file": "townsends-vole.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6f0d4acafe2063c235c5e2326ad44c27c1bf9180a3460599794701312e104df7"
+    },
+    "tropical-sage": {
+      "file": "tropical-sage.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4c7e393f752b3f97aa17a639164aeda441940201596475569bd7caed075eaf41"
+    },
+    "tualang": {
+      "file": "tualang.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "38cd87bd8374a9acad275afaa1e18a2dcf7be21ed216e797e90cb16cd68fc06b"
+    },
+    "tulip-poplar": {
+      "file": "tulip-poplar.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "cdc4232b76dab17c103b921e3b39fcd1eecff99492282decabd39654d2604dcf"
+    },
+    "turf-algae": {
+      "file": "turf-algae.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d2bac7dbbd6b557fe1c323ae120720a5ccb0d7efb3e2a72e8346203a0482e64f"
+    },
+    "turquoise-browed-motmot": {
+      "file": "turquoise-browed-motmot.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b1bfb4833777f494078ff2cfa23c69dd8b14518134711498560d74dd24ce6e34"
+    },
+    "umbrella-thorn": {
+      "file": "umbrella-thorn.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "fbce08400b3b0cabdb0cc60f47e529e963f48edb09b0fe853e2844e5136820a1"
+    },
+    "vine-maple": {
+      "file": "vine-maple.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b0ed0c13188fe6c486836c5cee8e3b0a3aa71c64798d491935799ee6e0de5a69"
+    },
+    "virginia-opossum": {
+      "file": "virginia-opossum.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b05aaa2e57805074ac949b44f7f27d014fc92c5089b1fbed92bef40c33e96c65"
+    },
+    "virginia-sweetspire": {
+      "file": "virginia-sweetspire.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0fbdb59635ce4d1629c1cd30574194a5cdc07b56e6398f6851443bf5d4cbd5ec"
+    },
+    "wallaces-flying-frog": {
+      "file": "wallaces-flying-frog.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "098bb2521db2e3112ceb59372942574dd6ea3b9be8b606bfce9db736f2445150"
+    },
+    "warthog": {
+      "file": "warthog.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "698719997720331fca94a1a7f5d39cf71ad84e39bf39e38229d856cb796cf766"
+    },
+    "water-hyacinth": {
+      "file": "water-hyacinth.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6f6e1d51b9f737c80abeabb153cfb428e0bb00af9e83091acc96c8c24f7d3e25"
+    },
+    "water-lily": {
+      "file": "water-lily.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a6a00ff64541250aac44c9e8100196643a3031c7bbcc1c3fc51236ae43a8e64b"
+    },
+    "western-hemlock": {
+      "file": "western-hemlock.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "31fa39b44a989c57ed60c5b36e50cb14a1fb6cbab98375b560b97b3b7f52e375"
+    },
+    "western-meadowlark": {
+      "file": "western-meadowlark.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "278a76339d47ea5fff5d81cae2196489aa0792918b732e004c9d49cf50399a21"
+    },
+    "western-pond-turtle": {
+      "file": "western-pond-turtle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "8f1b32f7eea75dfff64336a18debbd4659852f1f6db2a252e4e968f4ed5ed4b0"
+    },
+    "western-redcedar": {
+      "file": "western-redcedar.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c1838c7325ceeab554b17b36f4b46f6d8f25bf647b400e9764c327f824a37d4a"
+    },
+    "western-skunk-cabbage": {
+      "file": "western-skunk-cabbage.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "4d1e29ad363964b9f41cca78fb23d4eafbeddcb287d3298467a667a6483d9e20"
+    },
+    "western-sword-fern": {
+      "file": "western-sword-fern.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "3e9e6c7e7eedc2c5145b61c941aa3ee136e96474bedf59045082c70db18b53a3"
+    },
+    "whistling-thorn": {
+      "file": "whistling-thorn.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "afe9146bcd9932c48b92978d50da410ea61af1099d8182ca625dd7a284f3fbae"
+    },
+    "white-backed-vulture": {
+      "file": "white-backed-vulture.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6955d8640d1020558b230e632202d5cbd368355f7f6ba8ce02263d6ec4a2d3d0"
+    },
+    "white-cheeked-spider-monkey": {
+      "file": "white-cheeked-spider-monkey.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "d0407c6f4ced6cdd2fea7cb53eb5d0cdca1a30a48b8d1f964f43200bf0eea1be"
+    },
+    "white-faced-capuchin": {
+      "file": "white-faced-capuchin.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1115033d2a2256a489929bab62a2d10c6f136a7b6f991d435425aadbcdd972e9"
+    },
+    "white-mangrove": {
+      "file": "white-mangrove.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "b2c3a434c7c5a38d3f4cadbf0df3704cb5fed7827e198f5c5b9781d79e88f73a"
+    },
+    "white-nosed-coati": {
+      "file": "white-nosed-coati.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "237f84ac7120e8963a0a85eaeb82a0493b41e5f0fe421ca91240d8c6a45125fc"
+    },
+    "white-oak": {
+      "file": "white-oak.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "0968f5ebbd094db02d7af72d8aa2b424d7aa585ac879b0dd9998da5b2efb4ebd"
+    },
+    "white-tailed-deer": {
+      "file": "white-tailed-deer.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "b8b671bffc986f29582a511597b81ff6d148d90b4c4632f402f964ee6a0cab27"
+    },
+    "white-throated-magpie-jay": {
+      "file": "white-throated-magpie-jay.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "1513a3c044fe8dfc6a8c459db2c23ba70f6d15401506c5ce5c87eafe381e266a"
+    },
+    "whitetip-reef-shark": {
+      "file": "whitetip-reef-shark.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "686729900b692c8b926b24045e852c0c1e232c3de8701191979db9b31aa7ce95"
+    },
+    "wild-bergamot": {
+      "file": "wild-bergamot.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c249e71f737759e4276c2aa8629cf0c6e8e8a1752d0980ea5cb828462c19ada6"
+    },
+    "wild-fig": {
+      "file": "wild-fig.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "e95a4bca056b36b8dab063b02595d4b47de1fecc74f3a290b4a581ec7ce22724"
+    },
+    "wild-indigo": {
+      "file": "wild-indigo.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "2d1e491fcb30aa6101b2319ea52f56c1a080d8fbefd73bdbf2b848018ca30f5d"
+    },
+    "wildebeest": {
+      "file": "wildebeest.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "9354e3d2a3e3670a7e53eaf7315f74a51a237a34d036ed22cc96eb35fa8e76f2"
+    },
+    "willow-oak": {
+      "file": "willow-oak.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "85016133ed6a95188fb51c49f7e400ed62431bce8cf7c2da0b54421f395a6dd1"
+    },
+    "wood-duck": {
+      "file": "wood-duck.webp",
+      "width": 640,
+      "height": 480,
+      "look": "male",
+      "sha256": "d3fdff6c90aa5b1aef708b09ed00b560c2383e19f9492ec4fb2b49e897e898b1"
+    },
+    "woodland-phlox": {
+      "file": "woodland-phlox.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "a8897a6a6fe3ffc94712e3a341329d75c299b7f8172f735fb7d0846b1f0b28bc"
+    },
+    "wrinkleleaf-goldenrod": {
+      "file": "wrinkleleaf-goldenrod.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "6c8be3d439f2d2c4758018b4901453a41c76d96a2ed397f6d9af24f6899623c0"
+    },
+    "yellow-cosmos": {
+      "file": "yellow-cosmos.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "c96eb5b515e7fdc5d46a39528532349e973be78b3590d7f20c11383b1efe43cf"
+    },
+    "yellow-naped-parrot": {
+      "file": "yellow-naped-parrot.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "43777711d28345343d97cec48bc433333b5f0b60954ce99f861246c796e795c6"
+    },
+    "yellow-spotted-river-turtle": {
+      "file": "yellow-spotted-river-turtle.webp",
+      "width": 640,
+      "height": 480,
+      "sha256": "355ed96d868a1f2d455031c90823aa371509f7c08d4b36351f1c7af708c60418"
+    }
+  }
+}
