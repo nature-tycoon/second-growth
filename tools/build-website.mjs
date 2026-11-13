@@ -2,7 +2,8 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import { websiteDiscovery } from './website-discovery.mjs';
+import { websiteDiscovery, websiteFacts } from './website-discovery.mjs';
+import { buildFieldGuide, guidePaths } from './build-field-guide.mjs';
 
 export const websiteOutput = fileURLToPath(new URL('../dist/website/', import.meta.url));
 export async function buildWebsite() {
@@ -10,15 +11,25 @@ export async function buildWebsite() {
   await rm(websiteOutput, { recursive: true, force: true });
   await mkdir(join(websiteOutput, 'play'), { recursive: true });
   await cp(join(root, 'website'), websiteOutput, { recursive: true });
-  // Retain legacy source artwork in Git, but do not publish it with the homepage.
+  // Retain legacy source artwork in Git, but do not publish it with the homepage. Generated art
+  // (key art, capsules, logo lockups) is published only with a line in art/art-provenance.json.
   await rm(join(websiteOutput, 'art'), { recursive: true, force: true });
+  const { art } = JSON.parse(await readFile(join(root, 'website/art/art-provenance.json'), 'utf8'));
+  if (art.length) {
+    await mkdir(join(websiteOutput, 'art'));
+    for (const name of ['art-provenance.json', ...art.map(entry => entry.file)]) await cp(join(root, 'website/art', name), join(websiteOutput, 'art', name));
+  }
   for (const path of ['index.html', 'styles.css', 'manifest.json', 'js', 'assets', 'vendor']) {
     await cp(join(root, path), join(websiteOutput, 'play', path), { recursive: true });
   }
   await writeFile(join(websiteOutput, '.nojekyll'), '');
   await writeFile(join(websiteOutput, 'CNAME'), 'secondgrowth.earth\n');
   const homepage = await readFile(join(websiteOutput, 'index.html'), 'utf8');
-  const discovery = websiteDiscovery(homepage);
+  // The field guide: a page per species, named for the landscapes as the homepage names them.
+  const landscapes = Object.fromEntries(websiteFacts(homepage).maps.map(map => [map.map, map.name]));
+  const { portraits } = JSON.parse(await readFile(join(root, 'website/guide-media/guide-provenance.json'), 'utf8'));
+  const guide = await buildFieldGuide(websiteOutput, landscapes, portraits);
+  const discovery = websiteDiscovery(homepage, guidePaths(guide));
   const schema = JSON.stringify(discovery.schema, null, 2).replace(/</g, '\\u003c');
   await writeFile(join(websiteOutput, 'index.html'), homepage.replace('</head>', `  <script type="application/ld+json" id="site-schema">\n${schema}\n  </script>\n</head>`));
   await writeFile(join(websiteOutput, 'index.md'), discovery.markdown);

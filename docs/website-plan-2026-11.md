@@ -124,13 +124,20 @@ GTM is on the site and PostHog is in the game. Track the funnel end to end: land
 | 1 | Refresh copy and stills for the current game; add `?map=` play links | Small |
 | 2 | Video capture pipeline + freshness warning | Medium |
 | 3 | New landing page (hero video, map-to-eye-level scroll, loop clips, moments reel) | Large |
-| 4 | Press kit, logo lockup and key art (ChatGPT), trailer, newsletter, community link | Medium |
+| 4 | Press kit, logo lockup and key art (ChatGPT), trailer, newsletter, community link | Medium (press kit, follow links and art rules built; art and trailer to do, see below) |
 | 5 | Living Field Guide generator | Medium |
 | 6 | Sim Diaries devlog (first 4 posts) and real-places pages, plus outreach | Ongoing |
 | 7 | Slow TV videos and Shorts from the pipeline | Ongoing |
 | 8 | Weekly seed challenge, postcard gallery, classroom page, Spanish site | Medium each |
 
 Steps 1 and 2 come first because everything else uses them. Step 3 is the big visible change.
+
+### Step 4 status (12 Nov)
+
+- **Built:** `/press/` (fact sheet with species counts checked against the game data, short and long descriptions, features, footage and stills to download, logo, credits and licences, contact), a "Follow along" block on the homepage and the press kit, and the generated-art rules: `website/art/art-provenance.json` and `website-check` keeping generated art out of game-capture slots.
+- **Decided:** "a game by Cole Weiler"; press contact info@secondgrowth.earth (Porkbun forwards it to Cole's Gmail, and Gmail sends as it); news by following on itch.io (itch emails followers when a devlog is posted), so no newsletter service and no change to the site's security policy; community is the itch.io comments; no social accounts yet.
+- **Key art and logo lockup:** the ChatGPT prompt pack is [docs/key-art-prompts.md](key-art-prompts.md). Cole runs it; Claude sizes the results and adds them as labelled illustrations.
+- **Trailer (not built yet):** its raw material is the clips from `tools/capture-site-video.mjs` (the list in `tools/website-video-clips.mjs`; add trailer shots there so they're filmed the same way), plus a CC0 track by HoliznaCC0 from `assets/music/` and a title card from the key art. The press kit's footage section says a trailer is coming.
 
 ## Decisions for Cole
 

@@ -1,0 +1,4932 @@
+{
+  "sourceRevision": "30a3d289cb7eae09968959a3436d95921713d213",
+  "capturedAt": "2026-11-13T03:59:52.657Z",
+  "method": "The game's field-guide portraits (js/render3d/portraits.js: renderPortrait for animals, renderPlants for one plant), at 8× under the map's own biome, cropped to the subject with a margin (1200×900, and a 480×360 card); the male look where a species has one.",
+  "portraits": {
+    "acai-palm": {
+      "file": "acai-palm.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "8812f5a7341eec9b50267e95cd254c1725c349b184db3cc369291f90d4abdde3",
+      "card": {
+        "file": "acai-palm-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "362672537b88b9a82502b09b47148ab60e3c68a4e189b462ee80d0cfcf4061ba"
+      }
+    },
+    "african-catfish": {
+      "file": "african-catfish.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cb4b8fb31bfa2b19081b072b18cc8b51f882b51992630f8022b068f843c535c6",
+      "card": {
+        "file": "african-catfish-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "16ce0d36aa707585aad2bf336537f2b4ce42177d3063dacf7d7c29b715944e97"
+      }
+    },
+    "african-elephant": {
+      "file": "african-elephant.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "845b2d9b38115ab363a46fa6c93056443cd0fbdd6fae40045b1c2fe22aa690f6",
+      "card": {
+        "file": "african-elephant-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "87370f6bee954bb75aa4a156e9e14e468edcfca005acd9ab5e410216e6f8786c"
+      }
+    },
+    "alang-alang": {
+      "file": "alang-alang.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "27dfff27745e527232266deb6ec4f05fb14bc39a53afbb4f05a0063df1b1bcdb",
+      "card": {
+        "file": "alang-alang-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f527123ed891b39a82b06fcb4c096aca6316938533603d3f513d3cc999eb3363"
+      }
+    },
+    "amazon-kingfisher": {
+      "file": "amazon-kingfisher.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f48561b4d81eabde0fc61945b558d0041725691b71529d3689aee97f727e709e",
+      "card": {
+        "file": "amazon-kingfisher-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2227470eea5719c23ee93f6f1845d23a784ec8871eb61d8e77949fd08150a995"
+      }
+    },
+    "amazon-river-dolphin": {
+      "file": "amazon-river-dolphin.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0a1e6197185b4f99a805d9a0f583db5b56f0e8e9fbc1a07022e02fb215148257",
+      "card": {
+        "file": "amazon-river-dolphin-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "7d06883f8e280b213cd8fcd928aed7980bb498e2e924ed7427f496b756b782de"
+      }
+    },
+    "american-beautyberry": {
+      "file": "american-beautyberry.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "949b41f4c146d7c962dedb8c16d71fb3f8da54a2545b8fd851494a20d248744d",
+      "card": {
+        "file": "american-beautyberry-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f894feb3ae0ba8bc6f4a195863373218a6457b73bc2c3a0a4262fdaaefb3095a"
+      }
+    },
+    "american-black-bear": {
+      "file": "american-black-bear.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "da5078d0413d0c53be71a8a7a7236490685e1d13f39d272766d28afc16115353",
+      "card": {
+        "file": "american-black-bear-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6734df6953565729776088d67e61eb87d2f1385a3157af1c89e98c6553a3dff0"
+      }
+    },
+    "american-crocodile": {
+      "file": "american-crocodile.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "3f9fe61b3035f8737d47c5c0872d5523aa9ac202051c45910239d9bf7c19dece",
+      "card": {
+        "file": "american-crocodile-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "7e4398c1ae89f0fd3733ad02f93a74d7881b52e7a9869bff3cedac919daa4759"
+      }
+    },
+    "american-elderberry": {
+      "file": "american-elderberry.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "1f5818f6c8467779324f82e022a103fe265568d2d71dbfcd941768710a70127a",
+      "card": {
+        "file": "american-elderberry-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "23160e0283e812e63936e5e58150dab6844e8cdcbf064ff824c904d1470b1a61"
+      }
+    },
+    "american-goldfinch": {
+      "file": "american-goldfinch.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "f57c8460262dda7eb80520ff37d7fcffb084db9c0f7122feb29a5381b1db1597",
+      "card": {
+        "file": "american-goldfinch-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "105409e5fc977d78e5eb5469dff858742e781ccf9c061aadf36578c3a58c922c"
+      }
+    },
+    "american-robin": {
+      "file": "american-robin.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "8373c7548c86915ff93c5b47b8caea9b46674b5613ce61a692ce25999047e82b",
+      "card": {
+        "file": "american-robin-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "983d80c580faec17e876a86f156d4535eaa3adef14b2e3c911d1013bf914983f"
+      }
+    },
+    "american-sycamore": {
+      "file": "american-sycamore.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "3f6de578c8dc6405120f4e2a440c18cacce12fd7a1f342630684b1f99c694526",
+      "card": {
+        "file": "american-sycamore-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "083abe13908d095c01bfeaeaf371b472c0394a2c77d26d2e2fe4f60f0bd3a989"
+      }
+    },
+    "american-toad": {
+      "file": "american-toad.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "74da23818c8e4ebbb52133905336b836b4d8a4c7b8f3bc25522e983b381819e5",
+      "card": {
+        "file": "american-toad-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "4330a0de30562f9252cdf8f269bf1f73ebe0471f3efb6ae36179e8bd58c7e28c"
+      }
+    },
+    "arapaima-pirarucu": {
+      "file": "arapaima-pirarucu.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9ed408dd61292e4c2f2e6b02ad38a3c9bd1c5ac49ac1ca7d1fc51f2543039fb8",
+      "card": {
+        "file": "arapaima-pirarucu-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2142219dba1d6267cd1cdac829ebf4abffd412c0982408b771d30d2934eaa61c"
+      }
+    },
+    "aromatic-aster": {
+      "file": "aromatic-aster.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5aad3a905718b907fc723249f632480fa48366bd3f4b1a92e1c7cf9bc33e0584",
+      "card": {
+        "file": "aromatic-aster-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5f88220b6d1871115956a4daecb6c42b07bf2494f9465c8868bb67622b39ac9d"
+      }
+    },
+    "asian-arowana": {
+      "file": "asian-arowana.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "024036f197f3b9384e691be1de672b60932dd98109f8b49c5a639b99c283e5de",
+      "card": {
+        "file": "asian-arowana-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "043f1e82eed4ba6adad5e29298a358fd05bf84b00768e419ef0d5f538b341725"
+      }
+    },
+    "asian-water-monitor": {
+      "file": "asian-water-monitor.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b64f9ad80d030a7fd56e1ff23e5e5ca023227d5ea0ca3285cfcbee2221f0f921",
+      "card": {
+        "file": "asian-water-monitor-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f0b35eb3aead615c73d61e0d615c27cae96072df5e5992ff4c2d9430d7ddcd36"
+      }
+    },
+    "bald-eagle": {
+      "file": "bald-eagle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9b473395396051b718834cf5b5ce6d80f7fb85ca8a392411f9c3675586bfed18",
+      "card": {
+        "file": "bald-eagle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5a05fda077c373c6452d27b6d4fe811c3ec7d9803e87ff33a4752c3dcba99276"
+      }
+    },
+    "balsa": {
+      "file": "balsa.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "85d739091ad790fda66dca1c90e42a89df69c886976a48be663b8115221e95cb",
+      "card": {
+        "file": "balsa-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "709f024faf81507a3d53a561ca47c931750a125471db500f006528281691c4b5"
+      }
+    },
+    "banana": {
+      "file": "banana.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "681f9256076b70f3a59f28d224ffbbf8b71e9c8cd8c6fe883bb52711b382ec0c",
+      "card": {
+        "file": "banana-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "356c1bf0bb0065bbcdc32d5e89a89bd39df4ffc767e2e858994d8b996ee0702b"
+      }
+    },
+    "banded-wild-boar": {
+      "file": "banded-wild-boar.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2b48274cf4219228fc9f8d0b2815640c96941155314d895e533acf93ea700ea4",
+      "card": {
+        "file": "banded-wild-boar-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "598ef0ffb2f66fa3bff38823dc178506e3517f9866892f04e5368682685fb869"
+      }
+    },
+    "baobab": {
+      "file": "baobab.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "758a5ec64c7a05281b78050cbedd901216d61a47fd1b0290d5146c7476606c71",
+      "card": {
+        "file": "baobab-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "13408cc6d347b7c4e4c33909e0e2f1d2bc922b099a0a1cedfd93647992bff1d5"
+      }
+    },
+    "barn-owl": {
+      "file": "barn-owl.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "43bb2d0de2651050fa9d74897638bbc940508906e0e4254904c7a9857bd1bdb1",
+      "card": {
+        "file": "barn-owl-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2d7fc3d54a0ed434900a357423d8cb656bff263b3d09c884fa2a500dc226488c"
+      }
+    },
+    "barred-owl": {
+      "file": "barred-owl.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "d47105e0dfca80ce0fd7d87be3d53cc1977dc05b00ab50b16e2df8dcab31f806",
+      "card": {
+        "file": "barred-owl-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a83d285a05209e8cf9696bac9ad4d69017e8f48993cdbcf2898da46e5d5347be"
+      }
+    },
+    "barrel-sponge": {
+      "file": "barrel-sponge.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7b7ba882882d8351f143ee6b7430ba515409717e1bed7522034bd46a45a51495",
+      "card": {
+        "file": "barrel-sponge-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c67e03f5c734c9cd2181248c780888dead79218f612218476ed28a79c7810248"
+      }
+    },
+    "beach-morning-glory": {
+      "file": "beach-morning-glory.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9f867c4981a894980f56f553e845c0eb1c6a40503113f09f234ebf7fabcc4045",
+      "card": {
+        "file": "beach-morning-glory-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6ac6f50f56201cd91cfb89e0969b2cf214416451cfd2ee4dc9874ac44cde491c"
+      }
+    },
+    "beach-spinifex": {
+      "file": "beach-spinifex.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2df56fcacadc56cf839a7e2e2155b2fd0f2e04735acc46eed247b54e3a4b6283",
+      "card": {
+        "file": "beach-spinifex-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3e6da2f8f38507106f4277b51fa471cb1cbfb6632c92df2e75faa2ba12fb19d4"
+      }
+    },
+    "belted-kingfisher": {
+      "file": "belted-kingfisher.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e739b82357cda542b8d2db4e4637c03be493ea18443a70205f906bcf8ca659cb",
+      "card": {
+        "file": "belted-kingfisher-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c71daa3a86d7bae0834ae7f9c2d1e2b5ce40c263f392586c6b9482d729e4b452"
+      }
+    },
+    "bermuda-grass-lawn": {
+      "file": "bermuda-grass-lawn.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ae601bb9c91ff923a2d4d6e6e4343687c574a7bbf4c79b91ecc5001d28fb051b",
+      "card": {
+        "file": "bermuda-grass-lawn-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e03cb9ae463fb735b55a3b15c451f4dd956c88b4301f7253441c4dac5e6ef448"
+      }
+    },
+    "big-brown-bat": {
+      "file": "big-brown-bat.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "577893f603b55f001104ba84460245fb6d03b9b2c2c436c6201b7757f0fbd95a",
+      "card": {
+        "file": "big-brown-bat-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2ffeb820e77591453f747d033953dedf779440ba3228d892a8133d8960ec8dbc"
+      }
+    },
+    "big-leaf-mahogany": {
+      "file": "big-leaf-mahogany.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cb8f6229067a4864172469e6fb93b833c4bd2dbcafe1a6d40b05aaf0d35d3f22",
+      "card": {
+        "file": "big-leaf-mahogany-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b5f7b4c2d95455bb3ca3baba927eb70cbc06a1185a53eb1dc9e596e28e10e98e"
+      }
+    },
+    "bigleaf-maple": {
+      "file": "bigleaf-maple.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "eedd1d385f89be030e3a3def51db023d7b4b5f79af13b211f0e98cca2933fc09",
+      "card": {
+        "file": "bigleaf-maple-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5c63c6ce976d43e8a827262c893e421a8f3a6bb82d6dec237094373a839a453a"
+      }
+    },
+    "black-caiman": {
+      "file": "black-caiman.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "d5a29c0c1d96ea2317194dd34dd42d0f2b3249d98e19ded8bd55e0c2bb65d7ab",
+      "card": {
+        "file": "black-caiman-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "89d78340cf6965bd0fffab6028e3990059e2c5e86232270919b8fd150605b482"
+      }
+    },
+    "black-cherry": {
+      "file": "black-cherry.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9ab95d239d796f34d3e58848178b80b530b55dfe81fbaeb5ac8f8094e48be456",
+      "card": {
+        "file": "black-cherry-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "4b0ca37cba615579c640ecb561a78eadd4c2d59a9cb896f4fd05b3903dc303db"
+      }
+    },
+    "black-cottonwood": {
+      "file": "black-cottonwood.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "52d47dad2f31cf12149aad11c078159228f3790f79d497c0991854518d37c0f1",
+      "card": {
+        "file": "black-cottonwood-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ba3e00ba710cebae231b14b3e45bf2cfcb63cec65d0ef4ef58c2286282d1aac6"
+      }
+    },
+    "black-eyed-susan": {
+      "file": "black-eyed-susan.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cf071e65ca1a7e618be524f11a87333997feeed194ca649bc3c36177ce02a56e",
+      "card": {
+        "file": "black-eyed-susan-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "05cdc4b5504c359c130ba6d543664831b60729bd2d04af5a158e62b3d13b268c"
+      }
+    },
+    "black-mangrove": {
+      "file": "black-mangrove.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "eb406c6805d8b63e6d4eb13175dde65b8bb332b8bba865aa29c07a84045a6035",
+      "card": {
+        "file": "black-mangrove-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6649be16259635c57295dc94be6c8696902be7f34e093883b80de7781e5990f2"
+      }
+    },
+    "black-noddy": {
+      "file": "black-noddy.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b519125efb45891f555d12eb227a052cba5c291bf6edfaa881a9af2bab47856b",
+      "card": {
+        "file": "black-noddy-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fa3cd45adfba39a0aa2e5db9dcdddb75b85caf7cb52269fc123003ad86f18c2d"
+      }
+    },
+    "black-rhino": {
+      "file": "black-rhino.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e2714b20c1528081e2856a317dcf942e542da972abdba8ee9bd93b5bf087b770",
+      "card": {
+        "file": "black-rhino-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "7f3a038670ecc24db0e2e32984f82b0c43ab3b4d7c97b8fe0c4cfa618f0bed4e"
+      }
+    },
+    "black-sea-cucumber": {
+      "file": "black-sea-cucumber.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "108f631e79e698ece5cc46c47ca6a05018e26426bc1294a41f496159c26ee0da",
+      "card": {
+        "file": "black-sea-cucumber-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "85c2ab5bbc35d49585793a50ce6c116b35b688f10528c746941670759beb26df"
+      }
+    },
+    "black-spiny-tailed-iguana": {
+      "file": "black-spiny-tailed-iguana.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7a9fec32c14f9056200b81dd10ab7a0f9a3e7543fa1f9704738555727497311f",
+      "card": {
+        "file": "black-spiny-tailed-iguana-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0bf9dfb3be28c19f22336e1a9d1d4f84f95ed022d32249f0fd0f3e4da626c2f5"
+      }
+    },
+    "black-tailed-deer": {
+      "file": "black-tailed-deer.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "c9210dc32410cca6bdc478776e2094b0be48f9e2de6eb6e7a074d23651805dc6",
+      "card": {
+        "file": "black-tailed-deer-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "7a917a692f456c1f618333c372a2e2d5d87cfda67703291915e6738bf8db3cf1"
+      }
+    },
+    "blacktip-reef-shark": {
+      "file": "blacktip-reef-shark.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "4096f42d8962726f90f216301e6e6c6683fae6d423a90396bfbb81e57bbcffec",
+      "card": {
+        "file": "blacktip-reef-shark-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b8308a350d0de0a2bff69ea069cbcf492ba2a1f83baabda7a6ceb252486b7d26"
+      }
+    },
+    "blue-green-chromis": {
+      "file": "blue-green-chromis.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "70153754c626fb7d1b9a4bf8819aa6b1f9d51f6c57254f933312a9101ace4131",
+      "card": {
+        "file": "blue-green-chromis-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e74bc50f0995bb01cf2fd4afe3a1376b685a6b9d0fb597db2bf5b1368cbdc402"
+      }
+    },
+    "blue-sea-star": {
+      "file": "blue-sea-star.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a4b288b080edb6e7f9f0b2b00705c982278e0a3684c3bf698872f5c82216acc0",
+      "card": {
+        "file": "blue-sea-star-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "30f11480a6d6b6a1c4b7e7266db316039b05425844924304b38184517e507b8f"
+      }
+    },
+    "blue-tang": {
+      "file": "blue-tang.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "478d8b227e0b25c64080831089b04812238bd153be268d2fb050661e7634720c",
+      "card": {
+        "file": "blue-tang-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "79bb2bafe8b00d923e82c26bf7c16bc625fe897b67dca85d3e878380d63b51d4"
+      }
+    },
+    "blue-water-lily": {
+      "file": "blue-water-lily.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e17feff2e0c1884460d4c175359ccf3912a934a60f27ee230f755390d0af46d0",
+      "card": {
+        "file": "blue-water-lily-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3b4130034708dc41a2820fa71ab82e8232bf6c18e20614e61f93a14609bc790c"
+      }
+    },
+    "blue-wildrye": {
+      "file": "blue-wildrye.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2c264451183776cc0ed3c392675a1f2825a9ec8ed41d72f4f3b1f137881956e4",
+      "card": {
+        "file": "blue-wildrye-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2f5590a55acbb13e32bfc49a506f49bdc727c28e1e3c5b6be2ef53da118d4848"
+      }
+    },
+    "bluegill": {
+      "file": "bluegill.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "20067b663f7712687689241f32f791f177bfc31be30db4c3c7f7907e8a5ce49a",
+      "card": {
+        "file": "bluegill-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "aabb36f27911de5ce09243ed9d26222156e57a1c6c29d1e23b0be92a7137649d"
+      }
+    },
+    "bluestreak-cleaner-wrasse": {
+      "file": "bluestreak-cleaner-wrasse.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "22e141c40419eb7851e6804d8132daac8dd27f621112e5d8fdb76e5a407a8fb0",
+      "card": {
+        "file": "bluestreak-cleaner-wrasse-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "64722f88461b19806ad2000aba9d23de7829c6f3896b64cec326afe07dc2681e"
+      }
+    },
+    "boa-constrictor": {
+      "file": "boa-constrictor.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e8a8d817204713b18a244737a33b2339d9d960a0d1df34f45653fdd100401a96",
+      "card": {
+        "file": "boa-constrictor-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "1f49d0011256ca984739b3ce552794314faee7f72b39d02ad77b533ac38d1d37"
+      }
+    },
+    "bobcat": {
+      "file": "bobcat.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "59cdd5e50c4c79ec4fe6d6000de3aec492c0c35563fa58720c2a473f61b35277",
+      "card": {
+        "file": "bobcat-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "273810abbec04b940c8c0ebb348be84cc1003cfd832935f0a573c0e2bf073bab"
+      }
+    },
+    "boulder-coral": {
+      "file": "boulder-coral.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c1eeb3bbb153388db569e4555118bdf9cffd63eed0659da3254348706e0c4511",
+      "card": {
+        "file": "boulder-coral-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6dd40e9e7d2eb1952d0f4865d13821e757578cb1349aa482b7b1076fd8bbca42"
+      }
+    },
+    "boxwood": {
+      "file": "boxwood.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "664ef12bd21de816cce058d5468b1470752b59da6177cfc8828e9d5ea7cbe3dc",
+      "card": {
+        "file": "boxwood-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d6da98f57eafa66fdc89878bc13d4a8cc3c3d8cb0b1af755d13e3121b6912182"
+      }
+    },
+    "bradford-pear": {
+      "file": "bradford-pear.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "8466f468d79fefe451f0df10991e2b731f434f79639aaa5a9bfed591397aa6f5",
+      "card": {
+        "file": "bradford-pear-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c6a97125e1170d7cd7d2d8a735500959e9b9551090e09ff395df0d8d5c7701f2"
+      }
+    },
+    "brahman-cattle": {
+      "file": "brahman-cattle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "64184bba0cd324aa720a7944746ed9b7101fe50b3a3dff0abfe3f5d2574cf690",
+      "card": {
+        "file": "brahman-cattle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fc9643faea7bb22b07ff737dbf86bf9e016b9233cabf59117d611e78bbb820ee"
+      }
+    },
+    "brain-coral": {
+      "file": "brain-coral.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5ac6f8ac641b76a837bf60b929cf2bcc30d1a10daae8de4b5630a3a1dae8c853",
+      "card": {
+        "file": "brain-coral-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "40a9cc1f0049d8329cf078c87a82d1ee41121aa334d63f45f40d2ab26decde13"
+      }
+    },
+    "brazil-nut-castanheira": {
+      "file": "brazil-nut-castanheira.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "acdc0a37318d53f9a8293cb5ece9a9bde5c77c408253ae2cf15f6e3c9e30778b",
+      "card": {
+        "file": "brazil-nut-castanheira-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "453072c6d9e82af30c96ca10343453985ae6a55a70103f5e306142d6252f2981"
+      }
+    },
+    "broadleaf-cattail": {
+      "file": "broadleaf-cattail.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "918c593628aa96f5d54cceab57c7dca2b794d583cb5bd053b1d6daaa7d0fb36d",
+      "card": {
+        "file": "broadleaf-cattail-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0f0a1607ce06d361e2c66f822edd24e0af3b338afa853ec7ccd62711f6c85f7c"
+      }
+    },
+    "broomsedge-rabo-de-burro": {
+      "file": "broomsedge-rabo-de-burro.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "398d9c33d50be5ae175717af49ead04ba553f6351150ccbbd403736cfd360deb",
+      "card": {
+        "file": "broomsedge-rabo-de-burro-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d9c9c1fc7cc7a4ed85595ff8b6e993784404fd53df0311576a389769bbfe4984"
+      }
+    },
+    "brown-booby": {
+      "file": "brown-booby.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "8879cba89b2a58bc32d71eb152709ad2a12debde030f4b7ad4ee668e4380253c",
+      "card": {
+        "file": "brown-booby-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "76d11821504b5898a31bdc4985cc071f0c5f2cb29ab68b3bcaea23d9a9f87adf"
+      }
+    },
+    "brown-salwood": {
+      "file": "brown-salwood.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6d53e12ec15ccd5dbef31fd2f423e4cc42881e034feeecc955201190d0b7707d",
+      "card": {
+        "file": "brown-salwood-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "80b2f2c1ff01b56fa5c3f51310c2a2c46663e8c8ff32669dd1100b59f2426f08"
+      }
+    },
+    "brown-throated-sloth": {
+      "file": "brown-throated-sloth.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "50c216bd2939b585408d8034f0e9e2525d2ecdaff400403e4f5a15f52b905eb1",
+      "card": {
+        "file": "brown-throated-sloth-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fa23df0e3c7667f345824eb810ff4639ec0269acd7fb33b34e23e5e981afffda"
+      }
+    },
+    "brush-rabbit": {
+      "file": "brush-rabbit.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "923f934c87095f8dd1630053f1e3638631bd9f356618170879f0d7d6659b73c7",
+      "card": {
+        "file": "brush-rabbit-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "1a305a7b741aa7038222f5136711f7fa99a7811eda4208ab14261ef74325b65e"
+      }
+    },
+    "bullhorn-acacia": {
+      "file": "bullhorn-acacia.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0b8dd45d6860b52083536cfd834d383cace5f3a0b42101c646aaaba4fba83208",
+      "card": {
+        "file": "bullhorn-acacia-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ff630406cc5be0a55ddb09b3d3238a80a7cc82ea0c6499b4a136936073dabf21"
+      }
+    },
+    "buriti-palm": {
+      "file": "buriti-palm.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "522393676849aff5ee6013f80a33fdb71706e30bc838f7bf4792e063e1c682e8",
+      "card": {
+        "file": "buriti-palm-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "df01bb81d07acc00d0342b3aa22b92362c81de69a6fabfe7a0989285271f1f44"
+      }
+    },
+    "butterfly-weed": {
+      "file": "butterfly-weed.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e1656e2491dd4bec83a3ddfc31a6e0cd6ab5dedbc5403d4f2286bdf487c354c7",
+      "card": {
+        "file": "butterfly-weed-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8b0a9877ef809245647fc011ed19dcbe24d11ebd161a18ec113c137873cc6aeb"
+      }
+    },
+    "buttonbush": {
+      "file": "buttonbush.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2e5f4c850c71450faf184bafe88175089faabf849f36d418cbb6114bd2567fc9",
+      "card": {
+        "file": "buttonbush-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "bf5beb4391a3ec9dd5b728771fa160cd158e05877c6e3292ba751cc98b97a40f"
+      }
+    },
+    "cacao": {
+      "file": "cacao.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "74bbf2ec9c4383b42f2214c1c9ea938a440d334fd588946843e6a134c4162a2f",
+      "card": {
+        "file": "cacao-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c3883e742ac50e3838314c55268b9c9f1a8a8173a77e2f97ce0b1b2040e58501"
+      }
+    },
+    "calabash-tree": {
+      "file": "calabash-tree.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0fd4803b22a9040ab49a320aad1548d91a6288d81bd4ed95d187904e50ec8825",
+      "card": {
+        "file": "calabash-tree-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e6123ea510a4072f52bc2bf0ea39d66870178d1d3f74d062e63543d739f47001"
+      }
+    },
+    "candelabra-tree": {
+      "file": "candelabra-tree.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "626b9d2d3426ff6a71d33806940c0dc46ef9819a1f4007d03a685288e1466aa7",
+      "card": {
+        "file": "candelabra-tree-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e5789ae2c342f856a3a2b551f636176326643aafaabe1c783263790a6de639fb"
+      }
+    },
+    "cape-buffalo": {
+      "file": "cape-buffalo.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9057ad9c72288d4a104d6539ce0c362d9aef262cb9f7aa1424d5961d17d027ef",
+      "card": {
+        "file": "cape-buffalo-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2e4d62c15c87263b746c31daadaa34c2d436a51837860cde0854c045a09901c5"
+      }
+    },
+    "capybara": {
+      "file": "capybara.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "8b40b89ee30f8bdb27cf132f93cf6c602891ff338d0d0edb5e88dff14c52c957",
+      "card": {
+        "file": "capybara-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fe7be3043287e25ac5b5c4697ce14f5cdaa804cc58f0b737795d4e225239106c"
+      }
+    },
+    "cardinal-flower": {
+      "file": "cardinal-flower.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cedf99742d9844acf9ba739e2e81ebe782972fde156d388c0367b4bd09acddd5",
+      "card": {
+        "file": "cardinal-flower-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e2fa7538c7886638e74367bb0ab7f4b8649aa492faa925e67430c04ffcbabc4d"
+      }
+    },
+    "carolina-chickadee": {
+      "file": "carolina-chickadee.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "d7d36ecd9b3a745a8a0380cd2f9bb99d0528c01387f9ac62feeeb0cd2dcffe2d",
+      "card": {
+        "file": "carolina-chickadee-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "898518b00b90d4602772087292657a91e25308c8340356913a5ad03289e94814"
+      }
+    },
+    "carolina-wren": {
+      "file": "carolina-wren.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "edceb74bee87c3f78f484f615a46a42d455780d5142ee875f025457927d69caa",
+      "card": {
+        "file": "carolina-wren-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "49f7e705e77846cbf4cca4b716ee47a1576394e8da2ae921647ed62b2e4c4684"
+      }
+    },
+    "castor-bean": {
+      "file": "castor-bean.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2eb0e12e3b91de0b922a751c4171d16921927eccfe548ecb5032f99c1c9b9b8d",
+      "card": {
+        "file": "castor-bean-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8b697bd87c688d3e7437def32e0812294fc7311b278499650dae122823c0d08d"
+      }
+    },
+    "ceiba": {
+      "file": "ceiba.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "bcc6ef627d5c10ee344ecbde999c2f8e7c7022a62ba4df96247cd0cce3cf5a6b",
+      "card": {
+        "file": "ceiba-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a6a94dd3fff2b58c56582f67780f56b5083d860b112800ca042f589654cd7948"
+      }
+    },
+    "cempedak": {
+      "file": "cempedak.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "27f2d6b4bd02231e5d5bd7cdf15b99c7dd8830778b86a92092173cc9a9424a41",
+      "card": {
+        "file": "cempedak-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ffb4714915de8acfc561a197eba3665f61937f12a6c757b8462181c04bc11328"
+      }
+    },
+    "central-american-agouti": {
+      "file": "central-american-agouti.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e2ecb5aa592029ecdcde3729ae7d3a0cd63d88060653960bb20be11ba7e5ebea",
+      "card": {
+        "file": "central-american-agouti-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fbfb7ded2590bf1dcf23768414efa5458dfbaf40604c31ace8270ed10bf9b038"
+      }
+    },
+    "cheetah": {
+      "file": "cheetah.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "1d206635bfe6154f3ed0abbeaf63d3ae91c845c4d73496a2084cc3a49e441d16",
+      "card": {
+        "file": "cheetah-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2a9f9d7fb96d87b2b3d4be8e0a7e3ddfa3ad6812d4f2ddda6beea94957bcc735"
+      }
+    },
+    "chinese-privet": {
+      "file": "chinese-privet.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "3b5cf2e8f0f84f09887b81651a6ca5db55d2d609331f9973f7518cc85bebc04d",
+      "card": {
+        "file": "chinese-privet-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "829732b526c55b6ab04d635a346bea1d85a0eeae10c495f071b57ed47775382d"
+      }
+    },
+    "chinese-violet": {
+      "file": "chinese-violet.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "bd9726c502d745a6ebd9ec5eacf3990222782753a431e8a207b780d6148dc3c8",
+      "card": {
+        "file": "chinese-violet-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a2232f53f2f21189c97c4649179593f241fa20683fa5d4c696e67df8fff3db0c"
+      }
+    },
+    "christmas-fern": {
+      "file": "christmas-fern.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f437902e76fb35c2e2adeab6a7de34323e1f4dd6c51ef03629db86da54cd7142",
+      "card": {
+        "file": "christmas-fern-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "34dc9dcf57dfef76d7700bb42a5870b2a7df66f744a30b294fb75147d3b1e86d"
+      }
+    },
+    "cinnamon-hummingbird": {
+      "file": "cinnamon-hummingbird.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "66cd8b5ab090f9d0b387b8115fd989eb9f0144685b9050e2cd7abc58b023b8d9",
+      "card": {
+        "file": "cinnamon-hummingbird-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3d92b209cf6e301020f03885b64703ad5d2a46a4bf3b3f855135f7b235577a4b"
+      }
+    },
+    "coastal-cutthroat-trout": {
+      "file": "coastal-cutthroat-trout.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ad30b61271ca3a90616c736f0e7c821f6ae9ebf87e8925f8eae4d5dfbd17fc7a",
+      "card": {
+        "file": "coastal-cutthroat-trout-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "090a87e2cbbb4b398dc2c88ebe78deadf8d94df1b4c604be3394c74215b9d459"
+      }
+    },
+    "cocoi-heron": {
+      "file": "cocoi-heron.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f742cf215f747476fd03556bf8382db90323458e07d583adf98ae226e81e761a",
+      "card": {
+        "file": "cocoi-heron-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d54b6aa5d3eded69d38330fce73b016d06f13f0cea6f1d9787c3ed68eb2441e1"
+      }
+    },
+    "coho-salmon": {
+      "file": "coho-salmon.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a94162f6da79b81be0088dd1bd52a5198c1b10c362de28df88f522aaa8eb2f4c",
+      "card": {
+        "file": "coho-salmon-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a28f293fea406b0c7f89a743c22794677a7fc39c6e0aa1d09770b847a68a1ae1"
+      }
+    },
+    "cokes-hartebeest": {
+      "file": "cokes-hartebeest.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cc8db0eb5abb7bb9707503fb53a4a908d3ebc7de210cfaf24efc5849e778ef53",
+      "card": {
+        "file": "cokes-hartebeest-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "bdf07be1134385700b5ab62ae3f9dd0f773eca49a002523a3d14de067ae0011f"
+      }
+    },
+    "collared-peccary": {
+      "file": "collared-peccary.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b988dc23aa90f4252b7a1110aa8184e10c109ccc6f2d381a27fe8a65b8468456",
+      "card": {
+        "file": "collared-peccary-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "7ca5d4f5681198f21e81cc8f92d4c2b6e964b3fb5f958da2e3986bbefeaf0447"
+      }
+    },
+    "collector-sea-urchin": {
+      "file": "collector-sea-urchin.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "51e96782783708d703c4a862cacadc355b7cd50efd2b8daa88f2ad546e11b6e7",
+      "card": {
+        "file": "collector-sea-urchin-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2f528247df35f42bfbde67fc2b22b60d1763a2edcef979cfdf7bad29739719e1"
+      }
+    },
+    "common-camas": {
+      "file": "common-camas.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e244cf51eab66d7caf33b8162c7be74b18cb245d6b7ce166a64ab13e31979524",
+      "card": {
+        "file": "common-camas-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "62d15e176236379808551a4ec392e143acf0f903a082280786dbac5ebefc5fd1"
+      }
+    },
+    "common-eastern-bumblebee": {
+      "file": "common-eastern-bumblebee.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ac86069e995d4c95e055c1413c3ab2697f40ca59e3c4f1f19030122a541c1906",
+      "card": {
+        "file": "common-eastern-bumblebee-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "89541d26299f5204679938c36a5da232a51961a45588070d18ebe9691d4c4868"
+      }
+    },
+    "common-garter-snake": {
+      "file": "common-garter-snake.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "46e2bb11e22fdde3c53566f7c429249e0c0b9ff7ebc4344dd68458ccb6aab9ad",
+      "card": {
+        "file": "common-garter-snake-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c6d93c946c0e8a98dc8efc627bc3516139bf04f539968cacb29cabb9788a10da"
+      }
+    },
+    "common-ostrich": {
+      "file": "common-ostrich.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "68b0e0052f2963e3950dfd02e1e9fc474a9580d22f3951defa96f16e4dc5e951",
+      "card": {
+        "file": "common-ostrich-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d8b162d326ccb31fda5a474981e75188a5b3855ce75c91fa5ff598a7c27ee204"
+      }
+    },
+    "common-palm-civet": {
+      "file": "common-palm-civet.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c8cf46cd3fcc4138bff6fe182c0112545c32778598001fbe23560e93ea9e9a92",
+      "card": {
+        "file": "common-palm-civet-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3adaca5b5937787668a9d3359f1da19873d1375a50a3c23c0c975fb26b5a03e6"
+      }
+    },
+    "common-snook": {
+      "file": "common-snook.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "73f402adb582d327a89c5339443aac902608e88defed3d2a5d6e8d0a3b3b3972",
+      "card": {
+        "file": "common-snook-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8d47ca0df6c793a77416495a8846a6e007395b0eb9dc7f182b1ced7182ea20fa"
+      }
+    },
+    "common-snowberry": {
+      "file": "common-snowberry.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ac4adbed15dc74b3e1bf6906ab8ceefa5114263daa62b56c37d6d6e67a136031",
+      "card": {
+        "file": "common-snowberry-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "9a3700440a34af2b2bbddf8580e58efe4939221f6a99c2521608185148b056ce"
+      }
+    },
+    "common-yarrow": {
+      "file": "common-yarrow.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "390867826be4b459925d1d0b78bb52f073adb11b1734ac0562b39b5602716fd4",
+      "card": {
+        "file": "common-yarrow-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "80cfaffbb8bba9f57f6e9818df0e40a8d63eaf8230ab3097e643c0ff9f50436c"
+      }
+    },
+    "coral-trout": {
+      "file": "coral-trout.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "87813159c1c4759e9f5e177bff33cc4a6b8339ddd11c8dee603a67ab969cd339",
+      "card": {
+        "file": "coral-trout-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "beece0d41c87ee691b31c16365b368697b57ae0e49594d1d50e0e1a816c34c25"
+      }
+    },
+    "coralline-algae": {
+      "file": "coralline-algae.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2bd8c80c54af2a7ae35a093dc6301887681fdcb532801557c614b30588aa22b5",
+      "card": {
+        "file": "coralline-algae-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "414aabf1e20dfb1dfa22098b2e527719ce7879eaf1ace9b6e3041e676fd18391"
+      }
+    },
+    "corkwood": {
+      "file": "corkwood.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "48ffb0793fcac93f11a548f3479cf2cad44b184f3ac64b11e739cdd45ef332b2",
+      "card": {
+        "file": "corkwood-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ef57140d6c1bd84b15b7d6ae1c186fe446b2ca68c41a61ce873b49e3b6ef5a3f"
+      }
+    },
+    "corpse-flower": {
+      "file": "corpse-flower.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0c9cb04fceb2adbf829546050e594a9958b565871f0567ae15dbbf5c3b49b764",
+      "card": {
+        "file": "corpse-flower-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "26cdd1a6112a9e8adcba89bb2cecd94062fa108b20e835cadb13b9cbdaa51b32"
+      }
+    },
+    "cortez": {
+      "file": "cortez.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b6e1ef7695920c8bb95b3ee7176b5af86c4c9ffe5256f945d789903ccbade3b0",
+      "card": {
+        "file": "cortez-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3b1a9cd62fe6d68712d399ef8b8090b123da4a78a32413546aff26fc26649d6c"
+      }
+    },
+    "cougar": {
+      "file": "cougar.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f0df74c21eb50d4538d6a630a712ccf5f885b69c76a9a74373add770e75deefb",
+      "card": {
+        "file": "cougar-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "bad6c906b690a4599b09dd257f1c5a73950de6590e20ab651fadd4b0a91da322"
+      }
+    },
+    "coyote": {
+      "file": "coyote.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "219104d81f41c09cf2022fbe41ed7ddae371ba67a234d2baaed0b55fe13e0c3f",
+      "card": {
+        "file": "coyote-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e4fcd0fef5cb4ec2e1d28c350ebb2e2097ca313c79dfd814adc9d2a50b3b02f2"
+      }
+    },
+    "crab-eating-raccoon": {
+      "file": "crab-eating-raccoon.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b68160a1a1b22608cfc8dfe20832956b8dbe0ea363ac8b07fda4e05058a86fef",
+      "card": {
+        "file": "crab-eating-raccoon-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ead12d50c9c69649a787c7097e7fa0cc6f7ec3c498d3ec4293e635907bdd26db"
+      }
+    },
+    "crepe-myrtle": {
+      "file": "crepe-myrtle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "d64a3f0131e86b2fd90c25efc54ad9a813636935ce7d5dd2c4252b63df5d089c",
+      "card": {
+        "file": "crepe-myrtle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "465a08c27186cade5b461c1791be5dfddcc04b6aec86545d39791ba8423be085"
+      }
+    },
+    "crested-serpent-eagle": {
+      "file": "crested-serpent-eagle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "530db169fe91a6f88d9b5a1565f738cbd5c3728cf82e37e6f7f31e83b9b589d2",
+      "card": {
+        "file": "crested-serpent-eagle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a370ed88e01d01fc2b8914ecd22b4aac0e37de216950e949123d9bffa87e0c7c"
+      }
+    },
+    "crimson-sunbird": {
+      "file": "crimson-sunbird.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "4376b11535e3146d667531c5254ed46c2bcd89ce1a09d13fafb8571a1110bf46",
+      "card": {
+        "file": "crimson-sunbird-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "824bbcefd19ab3cb698757dd0bbd0b8414e89d36c2b69afca4e546cea5a1a965"
+      }
+    },
+    "crocodile-longtom": {
+      "file": "crocodile-longtom.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5ecb5aeb2121112d19ff0ea3a581af58762c4f782a7911246307800111dd5512",
+      "card": {
+        "file": "crocodile-longtom-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e3985802641fd495d1830b375ae0c7d2863fef4402313cc1866ee7e3b5ec6aec"
+      }
+    },
+    "croton": {
+      "file": "croton.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f0d47d03653c858154809f4c62828660313911c184a1e7f0436d1a4adae7ed3e",
+      "card": {
+        "file": "croton-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8684d52040384270561c1c73d1fb3004bfb07e98debd8d14c3966b8172ac06b3"
+      }
+    },
+    "crown-of-thorns-starfish": {
+      "file": "crown-of-thorns-starfish.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "76d5d6b339a81f778d0994164b8162f5d090c7855a34cc904f465d0c593fc525",
+      "card": {
+        "file": "crown-of-thorns-starfish-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "63523e3b54a4c56888dd81d8b15521d6c8ade428f9b949916fe8070729dfaec3"
+      }
+    },
+    "desert-date": {
+      "file": "desert-date.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "1bb4c4117eb386bb86d1b3ff524fa3b2a3144275d929bbfbb8db8859f5acf392",
+      "card": {
+        "file": "desert-date-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ea32aa9c59e3daab031aee029fd5e00f2171003a287c8538ca7334382e8d6115"
+      }
+    },
+    "douglas-fir": {
+      "file": "douglas-fir.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6d69733c6eb7497e65368d22ddf0157355444f644b9e9154aa3e4fa805d5f0e8",
+      "card": {
+        "file": "douglas-fir-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6853928cc9a07c4baa9c222c543c8fb9d795acdd0a81107831755d64f695e5bb"
+      }
+    },
+    "douglas-squirrel": {
+      "file": "douglas-squirrel.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0de95adfbb9972af8b2dd1bf1fe1c5d663a0d8b401669f759cede95d1f1bd874",
+      "card": {
+        "file": "douglas-squirrel-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0d4fb75ac7b23117991e661c949ff7e4ff6f5f13dc31bccadde115e4057fa676"
+      }
+    },
+    "dugong": {
+      "file": "dugong.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e8594fe9e64545300c1cc99ef0f9c77b34ab9a178998e22d22b397900a75bb97",
+      "card": {
+        "file": "dugong-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a24d6d194289f39d1c32644069bbf63e9c2ba98a910ad7b143609bb555a6dcdb"
+      }
+    },
+    "dung-beetle": {
+      "file": "dung-beetle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6ed07b17918237db118d842adc214f12bb7c424a570af5d9badfca095c1e6c64",
+      "card": {
+        "file": "dung-beetle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c0d449b2e442e2da5ca63e23d53451e5b9e17e35c3a635d589b21d266e75a09c"
+      }
+    },
+    "durian": {
+      "file": "durian.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a108150dceba2be80a17204b486e303088de8560065bd4dba83ea860a9923066",
+      "card": {
+        "file": "durian-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c2b5d98b415513ac640c961f90de6dd5d731eacf148f19716443013c464cb9f5"
+      }
+    },
+    "dyeing-poison-frog": {
+      "file": "dyeing-poison-frog.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e10cd46a8c620b76e225e52788854ccfac8b753198cbd5aa2407bce29076fd9c",
+      "card": {
+        "file": "dyeing-poison-frog-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f349396c75aa12da85dc7b2cabfc537aec40dd2663979c66b08af6ff7cb0c2bc"
+      }
+    },
+    "eastern-bluebird": {
+      "file": "eastern-bluebird.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9d5af14ca221ad5fe2a9a6688d94799822992f65f800924f80c44804ffeb9bfb",
+      "card": {
+        "file": "eastern-bluebird-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "46c59939035487cdc90da375bee3abbaccc86a820b0aaf316795e341e26ac003"
+      }
+    },
+    "eastern-box-turtle": {
+      "file": "eastern-box-turtle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "70dfda80796bd9f1429e88137244aeb74599e747d1b42ce812f015dbbff1949a",
+      "card": {
+        "file": "eastern-box-turtle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a9a91d2bd4bb72b81680729507af33f5b4773ab2f3d65d6de4e122833f504fcc"
+      }
+    },
+    "eastern-chipmunk": {
+      "file": "eastern-chipmunk.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ec096d229b92a316afd9fb1173522fda075484736c9948c858a725c5f455a673",
+      "card": {
+        "file": "eastern-chipmunk-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "37f33c1e081c8c1d5c764b3f0cb8f03db6df6c6c9b0274fa0a4b97800c9a4bce"
+      }
+    },
+    "eastern-cottontail": {
+      "file": "eastern-cottontail.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "88bac5beb95487446c68232b3c7dff6c5bc1d3c4babcf2d2f18acbb840ac4f3d",
+      "card": {
+        "file": "eastern-cottontail-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0159b46d5d199b95955a68ccc56ce4e1196d1af7497ad76a1c9d638745b24ce3"
+      }
+    },
+    "eastern-gray-squirrel": {
+      "file": "eastern-gray-squirrel.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fdf9edc35b404c4db1f2b4b90db62b0fdac0e9e8d6c33d4d514e30bbc8373917",
+      "card": {
+        "file": "eastern-gray-squirrel-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f0de0728b0dc69fb6074dc36f5b7894f8ba0d6a7ba0abfc87a73855d5faddd48"
+      }
+    },
+    "eastern-redbud": {
+      "file": "eastern-redbud.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2961d29798b2e243d2611dd07a1b4784c858098b6b4c14baf86046231b2e4d3b",
+      "card": {
+        "file": "eastern-redbud-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2f5e52019d01ac04c470827bd50fe91449146199479fd776bad95c4a71a296c5"
+      }
+    },
+    "eastern-tiger-swallowtail": {
+      "file": "eastern-tiger-swallowtail.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "41c86dd0acb9f8675a791da820641c66a7667aa7fa742a9f4a98f77a734723f2",
+      "card": {
+        "file": "eastern-tiger-swallowtail-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "02976f4a07b66ed48cb2de94cdc3ac8c26d7e036bc8c8f98257557a7bf640af6"
+      }
+    },
+    "eelgrass": {
+      "file": "eelgrass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b9fce33b3d9ba3c8fc8e4e11b1f84bfcb2f290e5ae217e84d3a56a60108b702d",
+      "card": {
+        "file": "eelgrass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2cd155d1d1ae4210439a939f5a6e6157e7af8301a5f86579bb4cdc821b1d2d44"
+      }
+    },
+    "embauba-cecropia": {
+      "file": "embauba-cecropia.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "4726be399e0791159939d40851368aa0394867d3b68106f68b76b5f6ac80e80a",
+      "card": {
+        "file": "embauba-cecropia-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "4515d2e51322cc2c51e9c71c0dab2a889c6177ba4fd8482d207f08430ec69bed"
+      }
+    },
+    "english-ivy": {
+      "file": "english-ivy.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a491c13142abb6ae2746e8cb4ed119f24d03548344f8934ea80715432acebe2c",
+      "card": {
+        "file": "english-ivy-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d7254de73a4a52a0cd68a0373c0eac0c6c21a5e6dfb5d29ef3cedacb2aa0c422"
+      }
+    },
+    "false-gharial": {
+      "file": "false-gharial.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "56c746d602ba57c8de669eaa3254a1d4dad8c8ef4ae5bfbe1d664472c046b45b",
+      "card": {
+        "file": "false-gharial-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f7eadad337529a713f40f7b6c6e32542048195d3ea8369172f2a263aa0a9c4a8"
+      }
+    },
+    "famine-weed": {
+      "file": "famine-weed.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "afd0903fa2c9bb6258a30df3842001c6b98abc98527f11cadca751196714d758",
+      "card": {
+        "file": "famine-weed-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b938c7386c37f4b0b20c73b22ae0ffbe65c52ec30e9e369a3f6004decde34f78"
+      }
+    },
+    "fever-tree": {
+      "file": "fever-tree.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cc4eb595de4f6ad2ca96176c0e983f7a7e99297ae92006e9fe161e2c766b76fc",
+      "card": {
+        "file": "fever-tree-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f527428d0829adc7ad2479c0adda820ee4081e3b94426a7f94141b483e8a159a"
+      }
+    },
+    "finger-grass": {
+      "file": "finger-grass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "454511da0e3bf0a2230f7bad405c4e226072c30fd547f7c412a7ec0071ffcc4f",
+      "card": {
+        "file": "finger-grass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a607777deaf6f2a694e3e8f52ccf7d9bf829cc46f71bea10aab0381fc22ba4cb"
+      }
+    },
+    "fireball-lily": {
+      "file": "fireball-lily.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c84a671acaecc15e298dbdeceb0a7daa45e3f1540370cd556327a05f3d580b4e",
+      "card": {
+        "file": "fireball-lily-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "676d4d1fabc495c3906916c4705ba05650c2826692795e80511c4ce3324108f5"
+      }
+    },
+    "firebush": {
+      "file": "firebush.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5a3a89308daba5612b48dcb3dab8fe4d56b64599996327746b968630534275ea",
+      "card": {
+        "file": "firebush-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2218d13715ce9406d32e0cc4bd7d0c5d9f5c9a443a2a34556301f1d994437e3d"
+      }
+    },
+    "fireweed": {
+      "file": "fireweed.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "20b301bd6f81f921980c2d2cd8b14a31bdd5a4fde25d4ef16dc64a1affabaa22",
+      "card": {
+        "file": "fireweed-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "dac0243ca3befdbb7cc537fe2a88cbb08dbdee6dbbf31d0f8cb63a7dd541419e"
+      }
+    },
+    "flowering-dogwood": {
+      "file": "flowering-dogwood.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c168a9170fa352e6d82b6b30ea412f2d706ad7d42cc60ff5f87502da0e25b5ab",
+      "card": {
+        "file": "flowering-dogwood-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "1b49ae40530283b217f806db10147c3e06491fd9c5be1a3ce1feb922d14ca687"
+      }
+    },
+    "fox-sedge": {
+      "file": "fox-sedge.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "73c1871ce42e324b3b310700ed512d391ab81823ce71e0fcfd390ec9323a75f8",
+      "card": {
+        "file": "fox-sedge-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ac3da3da88aff1e3249e466dce05f5cdde5c4ab777ff54115c29ef71c9e8b756"
+      }
+    },
+    "giant-anteater": {
+      "file": "giant-anteater.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6a9680292e8ce441a3d41c557c2f5399e293203968c3b2ce62cd063c26796acb",
+      "card": {
+        "file": "giant-anteater-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6338619c0e0d55e225c0dfd55de80bc1fa64a7d0ab606292b1a48cadac75218b"
+      }
+    },
+    "giant-bamboo": {
+      "file": "giant-bamboo.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b800fca1385669d419be284ac548c66533445ed06fccdbb4cdb32898ba9ea196",
+      "card": {
+        "file": "giant-bamboo-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e492deb594beb7687e4cb8efee7ae3b95de2a4f4e56032e45545319e5daf8944"
+      }
+    },
+    "giant-clam": {
+      "file": "giant-clam.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0ea2d1939d01109b3526bbcbf8516babb919ac5779fd56c795612297d07e403d",
+      "card": {
+        "file": "giant-clam-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "7c56625996cc54128a634911329822ab4a085082f2763830bcadd04663b9ec80"
+      }
+    },
+    "giant-otter": {
+      "file": "giant-otter.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "93b5dd925c8c7191baa0056387f1a6c5407e79820412697c2becaf512de924ee",
+      "card": {
+        "file": "giant-otter-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a296b464c293fe03e22c268fc0bd56031e2923c9f4bfc1a50a59ee46926de149"
+      }
+    },
+    "giant-sedge": {
+      "file": "giant-sedge.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "67d6d97f2e210c2c9fa7da1bad7bd6060cd7252ddaf122a2a69950b00f679761",
+      "card": {
+        "file": "giant-sedge-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b1754e5ed732c0ba055f2d7614f52646a352f3b9221f73afd7b1eb735ea83b0a"
+      }
+    },
+    "giant-snakehead": {
+      "file": "giant-snakehead.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "17807eb32c2b354dfe9f11775607986459e7ecbd5359ddcdbfd417f9b39e6e84",
+      "card": {
+        "file": "giant-snakehead-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "9a49253332f8ab7f1212b015ae2ac6f5932b9377eac0b2fd7919468149e5800c"
+      }
+    },
+    "giant-trevally": {
+      "file": "giant-trevally.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c8642a93b723548fd32e99c85582393961b76fced5a5aa712db3d916408f6d49",
+      "card": {
+        "file": "giant-trevally-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "40b672a14b660d42b7358a920d9cf96428268b28412b00ce49de1e5f3575f388"
+      }
+    },
+    "giant-water-lily": {
+      "file": "giant-water-lily.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "06816a27766b0c17c9f746c487c04248c72619a63ddc8511f0e5515e9b77123c",
+      "card": {
+        "file": "giant-water-lily-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "509590098adaf9f598e8e5eaed6c689ff1254909d8c12a8b353abd20490342ae"
+      }
+    },
+    "gray-fox": {
+      "file": "gray-fox.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "056686c1de51399bfdcc190dfd6193be400356c843f70b75e0048b82519083da",
+      "card": {
+        "file": "gray-fox-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "355b8681664013763f1126608a5441429001b34b8bf76b288053de8c8fe26343"
+      }
+    },
+    "gray-rat-snake": {
+      "file": "gray-rat-snake.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0c6d90e89dc9d79778f262844d044c457515706c39c8fc42c48d114bacc0cc76",
+      "card": {
+        "file": "gray-rat-snake-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c7539d1731ec9d43956c00e85202dfe3f938ef476934f5db5d3e6a13a307c420"
+      }
+    },
+    "great-blue-heron": {
+      "file": "great-blue-heron.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fd76a07cc4e1a4ab5389e2117b97098621467ed3788e2868249f64605f0385a2",
+      "card": {
+        "file": "great-blue-heron-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "56c447d8943d17e6d7d6be20ac29e88f87d02bf7b303502d9ceb684118a08cfb"
+      }
+    },
+    "great-egret": {
+      "file": "great-egret.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "55ec7ed32a7749acc78422c8cf208ba16ce8d2e9dc2ef832d13492bdeb7abffe",
+      "card": {
+        "file": "great-egret-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fc50bc42624ddf2fc422e5c2cbcd545f9694510e9039f299a0ca40d7930a2c02"
+      }
+    },
+    "great-horned-owl": {
+      "file": "great-horned-owl.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "250ca92fa171c3588cabed03a63ea28eb802fec3fbbf8f469e104ed5b05405f4",
+      "card": {
+        "file": "great-horned-owl-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ccb50a336f28709a4cfa28aef3926b0674505e65c0f5aa51fbae674328225fcc"
+      }
+    },
+    "green-anaconda": {
+      "file": "green-anaconda.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fd1a0abb621ec24f85dd42d6571106a8fae60ea08f1397e9da6e36397513a557",
+      "card": {
+        "file": "green-anaconda-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "47f1d5caf2ec8a0ab6664b3524d921ad1e09f701349578360470042b7902dcdd"
+      }
+    },
+    "green-anole": {
+      "file": "green-anole.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7dd0ae1b3f5475ca722704f7b3f007393c61ded8a1771ff81349f8408d8c7e09",
+      "card": {
+        "file": "green-anole-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ada45e7c73431a43713f98a72a559da9dd51a00cd2789b072b809ab9ae8d071d"
+      }
+    },
+    "green-iguana": {
+      "file": "green-iguana.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b5da8a297485a71dd6b0d97839b4a573ee9c5e3d4a795f72a43d337648d9a140",
+      "card": {
+        "file": "green-iguana-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "71b95616fa5f3625a0ed796e44f0d7353804e8b2aae7374718d2b2ad5a4fa520"
+      }
+    },
+    "green-sea-turtle": {
+      "file": "green-sea-turtle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0b2d18931c9eedfb044df2fa5751d2c937aa7ade380bb4c6499d2963355647d3",
+      "card": {
+        "file": "green-sea-turtle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ad82133584a1ff7bb0bb6be293c1c14db1cfbe4822df4680f15e70dfbec84259"
+      }
+    },
+    "grey-crowned-crane": {
+      "file": "grey-crowned-crane.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "3e27e6ab1967a20e7bab9e9438008d0f8c436cabc51ada450dd09490bf511e8b",
+      "card": {
+        "file": "grey-crowned-crane-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "89de482f2ffbf7a71d3cb406abe39143225b1f0aad68d30b455596da6c444f1a"
+      }
+    },
+    "guacimo": {
+      "file": "guacimo.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "838a69181060319fb71c95dc944c3d77c188d17ad423e475253d594b862806b7",
+      "card": {
+        "file": "guacimo-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b6d6604f912e99ec91ffff6ac0e0e0b6d5582d9fc1809cf81867c946009ec51f"
+      }
+    },
+    "guadua-bamboo": {
+      "file": "guadua-bamboo.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9eef4dc4b52dc629a6b18f54e05d1b669a92edaad239714e1e0700b2d208f357",
+      "card": {
+        "file": "guadua-bamboo-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8eda52a5cbe6569746d4d8106dbdaa5aceb6be516d9ce0c8bc5fb61bdf98dde1"
+      }
+    },
+    "guanacaste": {
+      "file": "guanacaste.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "21a987e50333afe4a3b2cd00330102d569d32f07cd8517596713b7d639f9d8a6",
+      "card": {
+        "file": "guanacaste-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2a502f3fafac3652a1eadc15264fa09c7646b27638f0005c89b216582f03a21e"
+      }
+    },
+    "guinea-grass": {
+      "file": "guinea-grass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f6e8d89b3e5987734db619c4749855f6cbdb7d0ef375e139a049dab7fc62dc7c",
+      "card": {
+        "file": "guinea-grass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "aae1886174c958371bff24a36ba03f05d5d1dbf4a0dd55d7ee48ffcf909a443c"
+      }
+    },
+    "guinea-grass-coloniao": {
+      "file": "guinea-grass-coloniao.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "d0566e3034dd80aa6d836fe49c4399bdfc03d22438499b401e36383174d9f289",
+      "card": {
+        "file": "guinea-grass-coloniao-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f17e914b13db499e4134a9c3a8645b38712f5150e608bd6dcdfa7253f7b93bd2"
+      }
+    },
+    "gumbo-limbo": {
+      "file": "gumbo-limbo.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "971ebd27680d8f1b48f3bb4635bbc7054f6c82c70a519baf217c0f5fcd01057a",
+      "card": {
+        "file": "gumbo-limbo-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d957898d930df8ce51a778109afa992f7fb2da5c7474d80eba3da26434c8d449"
+      }
+    },
+    "halimeda": {
+      "file": "halimeda.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "61c8d848c527ed69622badb97233978cf9b8bb3c2fad6dbf25915e7ae63f066e",
+      "card": {
+        "file": "halimeda-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b9638b754337610e633b470d86ee7ef98fb40cf940ff7c6fcbac804ac092f773"
+      }
+    },
+    "hardstem-bulrush": {
+      "file": "hardstem-bulrush.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "93e0e99bba6f94f022c10b514eb9fc0b8a339b0239fb4e25995f0cd14b50ae87",
+      "card": {
+        "file": "hardstem-bulrush-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6f12323ae80c41c3a66b5705865da5f13b95ff932ed75def721d4b2771c502f2"
+      }
+    },
+    "harpy-eagle": {
+      "file": "harpy-eagle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "552ce128ac3924dcba243958fcce14528c5d01277ba44472005f348b8334334d",
+      "card": {
+        "file": "harpy-eagle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6002f7bb02e94c1e265a145cd638f3c03782ab5a9aee76db463393a54408de75"
+      }
+    },
+    "hawksbill-turtle": {
+      "file": "hawksbill-turtle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7b2696f544143d6ea75e7907fdb17824ecd34e4e3c4782877ab01e3b619174bf",
+      "card": {
+        "file": "hawksbill-turtle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "af4ab37ea31d6d8bb11e76c7d2404f1a68981b3558fe8ee8f977d898e5162946"
+      }
+    },
+    "heliconia": {
+      "file": "heliconia.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "dcefce76e00bb791d8a1f1fc253a16d0604032c4713991385f851606efdf4d23",
+      "card": {
+        "file": "heliconia-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d0ae091d61f4c4b20529a2b91befac26e4eb88e9517d10f303fa21ec7557e598"
+      }
+    },
+    "himalayan-blackberry": {
+      "file": "himalayan-blackberry.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e44f6eacd1ca315b84ff30636c9c6d23bc481e75f03ad60321a5d3f9d2071f1c",
+      "card": {
+        "file": "himalayan-blackberry-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "cd97a8207ea97f0bb812ec431f88347c22feb61f16c0eec8ba976c5e4d841e26"
+      }
+    },
+    "hippopotamus": {
+      "file": "hippopotamus.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b11949ea1ee3cbb90cb63c671c98033bfd03bf78d5daa1f68dc75ce075bd08f1",
+      "card": {
+        "file": "hippopotamus-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ed16adac4c973c7677334330d8c6560abd2df889f6c6c150507670224be28ba3"
+      }
+    },
+    "hoatzin": {
+      "file": "hoatzin.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "d14adf56aac818c2fd98220caff8a7c801a3deccae9c8c353e8fa65827e533ad",
+      "card": {
+        "file": "hoatzin-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "70fa0ffb80599a0ecf3af4765a193e8926ff7c7f22c686a296e8c96f150e8e84"
+      }
+    },
+    "hot-lips": {
+      "file": "hot-lips.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cbd92a46d974248e618e512cf23da10a0b9aecbe1b2056a4d04743faa8c78c09",
+      "card": {
+        "file": "hot-lips-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "00d84c020f0d62d61639099748509510a0717a78858e1b35f0ff744ef447b942"
+      }
+    },
+    "humphead-wrasse": {
+      "file": "humphead-wrasse.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6c8c21f5e67857c5d699ce0fbcdc3d72dc4774a562b44d6a41073fcfd32d84d9",
+      "card": {
+        "file": "humphead-wrasse-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "34fd4855df0a43aeb76a1057050456a28f199d706fbfa225684f1773004dfd8c"
+      }
+    },
+    "ice-cream-bean-inga": {
+      "file": "ice-cream-bean-inga.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5ebe7411b22379b3bc2654b4bd5f21f643339eae40230b3e9cb107d529d5a47b",
+      "card": {
+        "file": "ice-cream-bean-inga-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "4b5e3644694d29f6918e8f699f8b2f1d3f39343964a86f3eb7136fb7ab9d56c0"
+      }
+    },
+    "impala": {
+      "file": "impala.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "033ed42acafa2fb4dd877a96989bb663df5e54578bea07819a40b640252cc93f",
+      "card": {
+        "file": "impala-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "969d5f3f55c5b3fe3810c32163798ef81f7d4ebda61047c2d0e176fd91712d28"
+      }
+    },
+    "jaguar": {
+      "file": "jaguar.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c6df460a98558f4f141b874e68d63ce1767716f2b92d13f89784d3578add4c55",
+      "card": {
+        "file": "jaguar-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "53f1f77086280367c7bc9d58fe2f3f1c6b561d432a67907fb05db9790482fbd7"
+      }
+    },
+    "jamaican-fruit-bat": {
+      "file": "jamaican-fruit-bat.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "4d6f7a703f9b006589fa6ae8214a5f1b6aac887ce804c1177925cef52a8ff0b7",
+      "card": {
+        "file": "jamaican-fruit-bat-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "905787cdb79fc3e23cbcd16986c5ae16017db5b38239bdc5bf873a973cbeaeb4"
+      }
+    },
+    "japanese-honeysuckle": {
+      "file": "japanese-honeysuckle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "afbcb0753b3ba67aac576418249a62c05d978a09904835768fd2be6a89ca0f85",
+      "card": {
+        "file": "japanese-honeysuckle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b43bfe4cbdeb599a7af3f25ee572ebaa01bbc8656eb6bf13bbfa3eee40102376"
+      }
+    },
+    "jaragua-grass": {
+      "file": "jaragua-grass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2b6aac993d0eaa912126ae9933c98d4dff153e4f6ed493b0a2a01db8d258784c",
+      "card": {
+        "file": "jaragua-grass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "61a3aa8cff8d451dcc9b09103acc2a5d7bd8635f5fbfbfe52d5a934501101efd"
+      }
+    },
+    "jelutong": {
+      "file": "jelutong.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0ad861981889a8d097eb4be1d9d8e4ea850af04cd0eb8e72cea7e26c4ec050cc",
+      "card": {
+        "file": "jelutong-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "598164d5783a492ffc7e8982f2197883bf3d40782c1ad782d19a594856a87aaf"
+      }
+    },
+    "jengkol": {
+      "file": "jengkol.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "798b962e996bffac939b2a27df9f286d8f0763cf26d8b590a5b986887cc03931",
+      "card": {
+        "file": "jengkol-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "adb2fdc3447ca5627fc3b225769e24a795f4743810f87e278f82dbc0503e776b"
+      }
+    },
+    "joe-pye-weed": {
+      "file": "joe-pye-weed.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a65db411ee23f09962a9ffae170e1ace79ff2a641a7de13cea7d07732c68289a",
+      "card": {
+        "file": "joe-pye-weed-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c380af77730d1dcafd5794c92c6ce023c334a409ebb8eda0c24a8c4c76d0f31d"
+      }
+    },
+    "jungle-geranium": {
+      "file": "jungle-geranium.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f58053cb0dc72e2408802eee08feb9fb875bb5d29722abaa2876121f089f512e",
+      "card": {
+        "file": "jungle-geranium-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f6b7b283f55fc6362cc900d5a505ce1ebf6f2d1bd5ebe067d47920109424a061"
+      }
+    },
+    "kapok-samauma": {
+      "file": "kapok-samauma.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "714acf71f9ff87959a528759e8d0d423fc3a5acff2031270cf8684e1bee5b4be",
+      "card": {
+        "file": "kapok-samauma-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "aa17ca5608fa0cebd2bcdc30e10a05d2ebae7111e97984cf4369b60d087d2762"
+      }
+    },
+    "kelakai-swamp-fern": {
+      "file": "kelakai-swamp-fern.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b40c8ed71f9bd139ac5b845c36f56f11aa06473906ba85d99bff75be29993756",
+      "card": {
+        "file": "kelakai-swamp-fern-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0641e6297a8f7700a282c035e600a913132df030de36013e7d6192f35f852549"
+      }
+    },
+    "keruing": {
+      "file": "keruing.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b83df53858ae427008a927d1e96e336a99c6c86ba919735efe49f232917f9574",
+      "card": {
+        "file": "keruing-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5b04ff9b3fbb3e4b717eff8824cdb908b46d53440ee6cd749377a7e1590e384d"
+      }
+    },
+    "kosters-curse": {
+      "file": "kosters-curse.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6f09f28641e91309cb0e3f5b48242e8cc89fef6b756ca6d2bdd909f650d6dc21",
+      "card": {
+        "file": "kosters-curse-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "968651cc74b8466af49362cbae567313481b7e2a128751bc303c6ec12fad8c7d"
+      }
+    },
+    "kudzu": {
+      "file": "kudzu.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fb873c4acecba3970001007c6036d2a9327733f446593ed6ca5c931e8c5684b0",
+      "card": {
+        "file": "kudzu-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "40c81be4ab4eaf46c7dd0c992cc1660acd6a2c937016e4abfc24aac7f85523b0"
+      }
+    },
+    "lacre": {
+      "file": "lacre.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "72878ade09d0dea3f14042f484279a68fe20eef19228136c3b90b8f5df5bf883",
+      "card": {
+        "file": "lacre-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f1cf01e6daea7226bd2f1ac925abfcf8106d90f3a6c56eb9fecd0e76ddab78ca"
+      }
+    },
+    "lanceleaf-coreopsis": {
+      "file": "lanceleaf-coreopsis.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "60992f7d0877bfa0b389a9e3eefb4482e78177f7086e2f346d1db1edec46986b",
+      "card": {
+        "file": "lanceleaf-coreopsis-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "441eab986d6622bf606d3e480f30c86a9993a3d7506e82909602cdcd16c0ead9"
+      }
+    },
+    "lantana": {
+      "file": "lantana.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0bfc72954ccc68e6cdc530a84a2e292248e0682efd1631eff5e55a5d7bb7e06a",
+      "card": {
+        "file": "lantana-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "844c6c943f9ed30aa2892b6f4ecd95b2ac006491aa6e9b03a8960c50ef060a15"
+      }
+    },
+    "large-flying-fox": {
+      "file": "large-flying-fox.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "dbaaa270661058ded1052282282b79eb32b9002fb1c1a78bc14a9101bf7869cc",
+      "card": {
+        "file": "large-flying-fox-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "dc61316c18bdfc5d2b05ab8b5d1e328d18183ffda6440e54ea4767fd329a784d"
+      }
+    },
+    "large-leaf-lupine": {
+      "file": "large-leaf-lupine.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ebb7032be98db57a232118e2f013b7670882f5c53f435d9c11c7d9115e974c2c",
+      "card": {
+        "file": "large-leaf-lupine-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3d685af4081631589d6fa6c0e9c8f41bda43d6179fdc09db09e2bfe4467fd06a"
+      }
+    },
+    "largemouth-bass": {
+      "file": "largemouth-bass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "616224b5df2bda60a7cf4777fbc9998468cc13993c104c2271c982e4737bee36",
+      "card": {
+        "file": "largemouth-bass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b0d8743f3383ad964e1932941ae6209ce56ff3ed811c0ec7de98c6ef1935a56a"
+      }
+    },
+    "laughing-falcon": {
+      "file": "laughing-falcon.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fc3b6b2a84c2d79781a2e85dfca6bdde10debfaa71878b3c34862173d7d38725",
+      "card": {
+        "file": "laughing-falcon-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "89b2682cde3fc50d2d57dadcff02e5f374ce776d187f277c6567e3b85d8e8698"
+      }
+    },
+    "leather-coral": {
+      "file": "leather-coral.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b7bcdc57ee939c8a57ba3f754272e9339c32d63567bc5679360601e1f0e2e2a9",
+      "card": {
+        "file": "leather-coral-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3d591993a9587807f34730ca1091b3738e40abf254057555ba7df1261b90bc71"
+      }
+    },
+    "leopard": {
+      "file": "leopard.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7b1d926a2a5d8dc36c3a6952acbe5561be0790477dd5cbace63e12cb6e445fa4",
+      "card": {
+        "file": "leopard-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d1a5883ac6affa7004735e4f258e367ed8cc3264250277f40146ef3c7bc84969"
+      }
+    },
+    "leopard-cat": {
+      "file": "leopard-cat.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "1dc7db8b3eaf9badd16ecc565d00e67a6320fd1f071d8408e4e379876ffad2b0",
+      "card": {
+        "file": "leopard-cat-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "1bab15aedc196a8e284052f1970db144989833d46532657598e80a9bb795243c"
+      }
+    },
+    "leopard-tortoise": {
+      "file": "leopard-tortoise.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "256bee33f8cbe8ed253ff61912c85bc84f2f422b6d635efa3410495a1069deb0",
+      "card": {
+        "file": "leopard-tortoise-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "cb40d56f355ce2cfdb0fd79356b6c293e88d0898407a8c182ef2fe0ae61225ef"
+      }
+    },
+    "lesser-mouse-deer": {
+      "file": "lesser-mouse-deer.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6d4516db3d3a93f5e84bdd0ed0ab8b317a29f1ab58abfd8ee6e7df97f9c9664f",
+      "card": {
+        "file": "lesser-mouse-deer-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8ff0d05678502042a31e8d0f7f5ddb53ba1292ad7dfe9518426d1a4819864ec2"
+      }
+    },
+    "leucaena": {
+      "file": "leucaena.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2262503d6d642c90b0623dec9290f1fb4ae8f0b198c9ac37fd6ba20ed320a32c",
+      "card": {
+        "file": "leucaena-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e24ad17288a7e91888b2e16469edcdceafde1c60722e8230275a89e5b7070036"
+      }
+    },
+    "light-red-meranti": {
+      "file": "light-red-meranti.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e37292cae94f59d622879c9f372f0de44e76dd6f07811db03b9264fc79c3245c",
+      "card": {
+        "file": "light-red-meranti-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3c4f4587ce13b3ca07a2beecb4e5f16a43e6738b7505baf909ad33bc0a629c47"
+      }
+    },
+    "lilac-breasted-roller": {
+      "file": "lilac-breasted-roller.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "53d6577591b85c27cbd095b8b2c10aa3ed499d25808653c74a77caf938c0ea08",
+      "card": {
+        "file": "lilac-breasted-roller-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "56b9ad70ccb2ec4a527c5d92ade6d2c04aa1c2efe0f07f591b17fbf9061e26e4"
+      }
+    },
+    "lion": {
+      "file": "lion.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "895c41dded53e0d31c0c584f4b18aaa86891e9113f15f13dfca524e08406888e",
+      "card": {
+        "file": "lion-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "967483333aa0af492a7723d34247a74ebc020a278d225d3c3058cf8ea1c9ad1c"
+      }
+    },
+    "little-bluestem": {
+      "file": "little-bluestem.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5b1502b95b02fc1d11693e8cea05b6aa0f67527b76874afdb976d6cfb591a45b",
+      "card": {
+        "file": "little-bluestem-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "614f693d41192695720876004c5b25120b929e95616872d6d251fb4acfceb1d1"
+      }
+    },
+    "little-brown-bat": {
+      "file": "little-brown-bat.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6379e30b1e41259ab17585b6827dfc73c65299fe73ec3a0d2e4add0d0276d1ee",
+      "card": {
+        "file": "little-brown-bat-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "633664da2c0bbba07b88689dc3aeae9a52e0105291bd8f4b27e9ba9ab7081507"
+      }
+    },
+    "loblolly-pine": {
+      "file": "loblolly-pine.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "8af4c93569da87697714826262a139c925f392ebd28bd9c246ab7a7fe7319a72",
+      "card": {
+        "file": "loblolly-pine-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d39c3dadd8b4aa27db5026829faa931c63b3ae72538c900bcf2e7dee18d8e36e"
+      }
+    },
+    "lobster-claw-heliconia": {
+      "file": "lobster-claw-heliconia.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "34e857c26e546c772a5ed74858084e6a5b68b575e933d2e55b90c9b288165105",
+      "card": {
+        "file": "lobster-claw-heliconia-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "cff9be156a85fc8e1088c92627c5aa000ae60bba590eeb7b06635f363af5e9a5"
+      }
+    },
+    "long-tailed-hermit": {
+      "file": "long-tailed-hermit.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "030dd70e6e7c5a908dbb551868ac1513ee70a83f66055daca69dcd01e53e8c9f",
+      "card": {
+        "file": "long-tailed-hermit-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e0bf3824aba224b2df73573d825b84126808510d5f45eda2afa993bb76a83025"
+      }
+    },
+    "longnose-hawkfish": {
+      "file": "longnose-hawkfish.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9b426a0be29fee4b044ab0fa788fb1151b7f3ab6b0214341ffb237aabd070208",
+      "card": {
+        "file": "longnose-hawkfish-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ae45d914310b29438a45ed2cb5fbe8573042b805b568c2c7e813219ac3a4e50a"
+      }
+    },
+    "lowland-tapir": {
+      "file": "lowland-tapir.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e0162a42d3389d9b92f01cab50d9e0ec8c7d5bc4af620c4475a78d7fdeb47a41",
+      "card": {
+        "file": "lowland-tapir-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d39681f4167aab363bb26ea6cebf70c17df1120f72e24022cee1fb38a3792f33"
+      }
+    },
+    "maasai-giraffe": {
+      "file": "maasai-giraffe.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5c3d917b436e3ef50b122391a83d838c316a0815bdd7d71da154ba8769370d54",
+      "card": {
+        "file": "maasai-giraffe-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "bf35d70db280daae4e4921886a693f06201bedd3994a2790b64a2b03e9512022"
+      }
+    },
+    "madrono": {
+      "file": "madrono.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "105c84461b8f83935b59bfa78b806a0821ffcfcb2ac1b1bf6c0753a7b940f4d7",
+      "card": {
+        "file": "madrono-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "bc7a308b52d817cffb5aa1c3ef4ed860d810ab670444d1218726d9125543eec1"
+      }
+    },
+    "magnificent-sea-anemone": {
+      "file": "magnificent-sea-anemone.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "32db81253ca035e7027286be6e17fec4cb81bf2419de3250fc04ac89710bdb8d",
+      "card": {
+        "file": "magnificent-sea-anemone-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "75eaf1594e61479670b3f2958d57f4751729270b46b4e811e406aa3bfd0805e3"
+      }
+    },
+    "mahang": {
+      "file": "mahang.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "dcd812cf41a4c5e5e2f0bf0883da89538a6ae5acf80919d7b6103154d29ba3c1",
+      "card": {
+        "file": "mahang-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "637eb7018448322a52dd3cc66c688209fab2722b24e5310840855fee90c8839b"
+      }
+    },
+    "maidenhair-fern": {
+      "file": "maidenhair-fern.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "203778851fd943663956e189a9e2cdade064f00a049e20a32033b4a04a4e3c67",
+      "card": {
+        "file": "maidenhair-fern-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a67c5f05663615f9f00e5de1874521d9e42725fb8adc1553680cd8813179861d"
+      }
+    },
+    "malayan-mahseer": {
+      "file": "malayan-mahseer.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "1687fa787a23bbc87407959010f8c0e06c043de20ee84e305f75e264deefab2a",
+      "card": {
+        "file": "malayan-mahseer-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a26f90237881a8f36ce813c31d2f0f7cb144733847a53aa7862e4424cd6e6bf5"
+      }
+    },
+    "malayan-tapir": {
+      "file": "malayan-tapir.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6af89ab7965daf1c0ebf6b84b7310d5d8312b852d40b098a4b182deb08a9e683",
+      "card": {
+        "file": "malayan-tapir-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "800bedf4df04c0b1467676ddff45d32bcc9993d9218fc5db65b0f0b14e373304"
+      }
+    },
+    "malaysian-wood-rat": {
+      "file": "malaysian-wood-rat.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "34584a14bde5b24ac300511079d8e0ed9fbde3e84b40385517d680e0f0cc9eb3",
+      "card": {
+        "file": "malaysian-wood-rat-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3d3356abe4afdb1c0ab41e8513e1cb9dcd34e185b4cbb153c96d0fc1abb4f266"
+      }
+    },
+    "mallard": {
+      "file": "mallard.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "f2b45be4c9c7ff443abecc3d4ab95c6166db5d3cd0398e85a3470f8521f6f520",
+      "card": {
+        "file": "mallard-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a653c4888dc4cc087108779858909945c3ce9674cd90aad2e5ed38938ec03791"
+      }
+    },
+    "mangosteen": {
+      "file": "mangosteen.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7f3a3388178ad85f8ac52c6f5ec6998fe0e9248a50492340d0eb87df002f86bd",
+      "card": {
+        "file": "mangosteen-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "19820fa84d85ef0de6c2a0142388401e3d8262883acbabb6be7f8db3deb366d5"
+      }
+    },
+    "mangrove-fern": {
+      "file": "mangrove-fern.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "699dce423aeb00fc13c600f7c5ffff52d977729c615063a2a3ab3b3cbb23e051",
+      "card": {
+        "file": "mangrove-fern-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f2e996e05c0f1d41ad0290829bff1c38358f73416a6ff9b466afeb9eda52668a"
+      }
+    },
+    "mangrove-snapper": {
+      "file": "mangrove-snapper.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "4b0bf0da49a816cfea3eadbb9fe03aab1d30f96c44f04a03a5090ac2350c9208",
+      "card": {
+        "file": "mangrove-snapper-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "746ee18c33f2a41eb70c1460987b0a35186ea313b24149d4f13fb37be2820e43"
+      }
+    },
+    "mantled-howler-monkey": {
+      "file": "mantled-howler-monkey.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "74e6931f5b714742112961e40ba014a2bcc378ba4b762991b927e8a65bb73b33",
+      "card": {
+        "file": "mantled-howler-monkey-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0a1007bc8ded3db210e296b15989bd84c0e713def0d4f4718d37e5bc9ca6fe38"
+      }
+    },
+    "many-spotted-sweetlips": {
+      "file": "many-spotted-sweetlips.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "253237d701f8cf1f189457eea1576fd6ae82f1ac874ea9d317320a2d23eaf91f",
+      "card": {
+        "file": "many-spotted-sweetlips-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f26910b80db38eb0e43b1f94af83a3f5076f0fb76ae68551865630d041ef5ce4"
+      }
+    },
+    "mesquite": {
+      "file": "mesquite.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "53a0661957e27744c97bace9ab863cb20a8707642f86f7cf0dd5a2640c96ad93",
+      "card": {
+        "file": "mesquite-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "31e0927f0cce456b2e4e9c37a31e719bdff205492d7221127c744530806ae3cb"
+      }
+    },
+    "mexican-sunflower": {
+      "file": "mexican-sunflower.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c9579dfa2a7731cc750fbc6744fdc74f52880704685aa95f9b8534fb5469b7a6",
+      "card": {
+        "file": "mexican-sunflower-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3ff80f5d16c11032e59e81eb691f1018bfa63be8dff397a4f6e4824222b908e0"
+      }
+    },
+    "mile-a-minute": {
+      "file": "mile-a-minute.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "bbf24516a5a53f0a83830ed7b83e3e94cfc5649f5a9ffd062c83ca8b64b15b93",
+      "card": {
+        "file": "mile-a-minute-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5a49ad0f9cd2338e55ff5d40e9046b448f74a703db24fcd6ab9d73f14c52dd98"
+      }
+    },
+    "monarch-butterfly": {
+      "file": "monarch-butterfly.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "92ed6e9aa5fbd3ec94dddcbfebda13f79d0a165c8fd952dd231dc798e1b4e0d5",
+      "card": {
+        "file": "monarch-butterfly-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b2b5f9e9b6d9713683d7e392f52d80306fee7c0525680cfe8beb463bd396527f"
+      }
+    },
+    "moorish-idol": {
+      "file": "moorish-idol.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "703b23fc3049cc520d49e9eb1e3cd63f49fbc6ba32c47141ced29847ae72dd44",
+      "card": {
+        "file": "moorish-idol-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c9b84ca01dc44728de0e7ff05b9e1c8a379d53ef08bbbfadaf3605e44110bdd4"
+      }
+    },
+    "mountain-mint": {
+      "file": "mountain-mint.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "51e00bdb3eb43a040bf8ab1f2527e66306f0ad9af5a036c629f2896f31b10541",
+      "card": {
+        "file": "mountain-mint-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "23098dea76452f691b47bf6a93710d476f3a6627cb959d91ff75c4b3d5fbb18e"
+      }
+    },
+    "mushroom-coral": {
+      "file": "mushroom-coral.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f02ccda8083b165af7682efc9fc8fc0c6ab0134e95423de64cdf43e2cace7d81",
+      "card": {
+        "file": "mushroom-coral-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2e5a47fb689000a146662f9a91708f8b1c48eb6bcbf1d000ad836aebf16b9bad"
+      }
+    },
+    "nandina": {
+      "file": "nandina.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "148f78d07b152c5093b0b52d3f645e3911f357c4735520acde4da855eb8642eb",
+      "card": {
+        "file": "nandina-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fc7a302ff3a6f4e85dffbeaaf4d2b8fb578c6a814d627fe4888fa3380f297403"
+      }
+    },
+    "native-paspalum": {
+      "file": "native-paspalum.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f4201fd0f0ba4afcb2e3d059448fbb13b9f4a874b8c2c4d479b968aea49014d0",
+      "card": {
+        "file": "native-paspalum-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "928b498d85a0e18914642d79fd5e17ede062aca0639a3e1ce57ef37e9bab2972"
+      }
+    },
+    "neem": {
+      "file": "neem.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "8ddab9133e05217ea16535ee1379173832d43b211ab35f0bb3b490cfbf4e3ae9",
+      "card": {
+        "file": "neem-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "276e389e7e6c07c123a5d98720185f608918a1dbfe84775a5f015aed8550d9ce"
+      }
+    },
+    "nibung-palm": {
+      "file": "nibung-palm.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6adf1bad1eef66ee5e7bc1977e41daf41c160c7b1a708ced6a988b08b9dd06b4",
+      "card": {
+        "file": "nibung-palm-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "784e24c510ccf2b218d605f8b7843ccc9d033fff5c83b7fb8cc1c749e3cfd3db"
+      }
+    },
+    "nile-crocodile": {
+      "file": "nile-crocodile.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9d718ad24812a399714c2d35c2eeb510b821255baf7878c7d4f79d2b1729f2e2",
+      "card": {
+        "file": "nile-crocodile-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2708b6cb9116a3677de158a67c4bc0cf81033e618647bba1ffd2e6d4b9fc3df2"
+      }
+    },
+    "nile-monitor": {
+      "file": "nile-monitor.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "bf8b25d08ef54d60ae738a5922398131b982fd37822c5dfa265c3769756c9898",
+      "card": {
+        "file": "nile-monitor-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "525bf5f2b08d9270cb67a8843b05f3b806a3025b110af65ea0bd3afa93bc4a77"
+      }
+    },
+    "nine-banded-armadillo": {
+      "file": "nine-banded-armadillo.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "74e628d029bc40985229775b68289ae19f6530dc0eb43b6074254c3ab761148f",
+      "card": {
+        "file": "nine-banded-armadillo-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5fd8cbf360341e8aba9313e68a18c11f28596845fc1d9e7e278032ac2c72989b"
+      }
+    },
+    "nootka-rose": {
+      "file": "nootka-rose.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "dafe9aab3af0a2adf9e804bc4b08f61f93815a1e9252688d5345471e488003e2",
+      "card": {
+        "file": "nootka-rose-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e67ec205f624655e3bf0fa1db75f3e6278a41e4129730a879f8198ecc88cb303"
+      }
+    },
+    "north-american-beaver": {
+      "file": "north-american-beaver.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a83e4d2f29ce35ed4493190099783645d3d514115ee1a337daad5e0542457edf",
+      "card": {
+        "file": "north-american-beaver-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a2076b7a159858b2e5c57c8c9f5dd70511961b15f212642b66a56b399126a111"
+      }
+    },
+    "north-american-river-otter": {
+      "file": "north-american-river-otter.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2bc473874d1c114c59b5a7b662369156efe59a1488a348bbec55c6cbeec5c34a",
+      "card": {
+        "file": "north-american-river-otter-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "39c68cd78cfe6eee37340d905e3ed2433d3fb57177a7acc35aa382e5790d36b8"
+      }
+    },
+    "northern-cardinal": {
+      "file": "northern-cardinal.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "4ef76a25d853339cebc53aed5558ca5ca0e6d74aac91ccc6d7d15395f487d88f",
+      "card": {
+        "file": "northern-cardinal-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "318b32fb041c322a78befab8a8d733bd4df526e4809aab3522a5b79f1ae920bf"
+      }
+    },
+    "northern-red-legged-frog": {
+      "file": "northern-red-legged-frog.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "758b07195dd28449f705566f75cad4107e8e5da9df7e46b342e82f9603e48cc3",
+      "card": {
+        "file": "northern-red-legged-frog-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "4e9676a47ef5eb6d1fc11474adf11429b281e7e29000d6247add8492c483158f"
+      }
+    },
+    "oakleaf-hydrangea": {
+      "file": "oakleaf-hydrangea.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "109df4be86c7ccfb05eee80b1a4e66c3e6054b691f7a1cb9a39c48ea488692ac",
+      "card": {
+        "file": "oakleaf-hydrangea-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0e248ae94f859be426535df50508af61f3283779cafc8d27b2af2eb73c7f5d07"
+      }
+    },
+    "oceanspray": {
+      "file": "oceanspray.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f5050e132c89be4c49796376d59d1e4bd9e69efbffb7ed2e59472613653939d7",
+      "card": {
+        "file": "oceanspray-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0b5cd1e209f1efac79fe963b874b76b796e848de4259f7fde0a75e39a711820b"
+      }
+    },
+    "ocelot": {
+      "file": "ocelot.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "90f6a1d9200c0673bb2eaaacdbf399c4f13862f9e3dc6ef5b70d0cb02da270ed",
+      "card": {
+        "file": "ocelot-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "03d992a507a793ff124c36f2053066efc25d7ccaac3ceea4d004f175336ee69e"
+      }
+    },
+    "octopus-bush": {
+      "file": "octopus-bush.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7433734ca761772447579b2ea855338e9f14fb126c35f8344fbc5cd2bd558097",
+      "card": {
+        "file": "octopus-bush-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "00c1d10f706df21eb5be735b262967ed561bb43aa94a5f0c6eed020be568fc4e"
+      }
+    },
+    "oil-palm": {
+      "file": "oil-palm.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f473eac18e84e030df2260bf10ee71e8c8e58b3ab9516c32e8c86795f54bcf2d",
+      "card": {
+        "file": "oil-palm-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c3ee31e9500c09d2c681c2b35cc4a82cf0120353339728ecaf9ea54586bc8f78"
+      }
+    },
+    "olive-ridley-sea-turtle": {
+      "file": "olive-ridley-sea-turtle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ca50343df862c03fb7dcf2f1ab2b7170cd159f7ff712bf8fff90ea2f9a5f1e38",
+      "card": {
+        "file": "olive-ridley-sea-turtle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fff5d4eb117905e303cc552b2a82fe2a8dbe5a74e79946fa81f55609d051ee16"
+      }
+    },
+    "orange-clownfish": {
+      "file": "orange-clownfish.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "df85c753149d72cc335cb2c40e3f1db136e82c750189b7651d113e9c63920aca",
+      "card": {
+        "file": "orange-clownfish-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "485d7648cbd412c711b9a2d33b355be23ca10e7a49f3ea736d88e033acfd44c4"
+      }
+    },
+    "orange-fronted-parakeet": {
+      "file": "orange-fronted-parakeet.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c9866b4c47b32a0910bf65254a4dffb0b733b3790c5c783c96b540fb78c74677",
+      "card": {
+        "file": "orange-fronted-parakeet-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b96a1f944b3ddd11030ce1974ea2e3a96b2b8a640a13c6084ba46c1b08511892"
+      }
+    },
+    "oregon-ash": {
+      "file": "oregon-ash.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2f3a41f883b8902f73eb00fb637bc72ed2e20fe70f8651ec3bbd504420691522",
+      "card": {
+        "file": "oregon-ash-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "50914428835bb30f104995bc3ea2aac66a5f7efa067f229a173850a4790db6af"
+      }
+    },
+    "oregon-sunshine": {
+      "file": "oregon-sunshine.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2b9ef9793cb7743b3e4c086da10b36afb4315000d85f86ddfbd24ceb49818c47",
+      "card": {
+        "file": "oregon-sunshine-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ed7b7cd6bf46c08e3ab1247d1e44756494a2b8f372f98096d06e23fd93fcbcb2"
+      }
+    },
+    "oregon-white-oak": {
+      "file": "oregon-white-oak.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f16326df72b20809e8ac5db847bfc7d1dff1e2cd639146bcae37a25e20de53bf",
+      "card": {
+        "file": "oregon-white-oak-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b76f2678378e21ec664e1887b9b7eb069b3a6948baa33193bb695142c6701c95"
+      }
+    },
+    "pacific-chorus-frog": {
+      "file": "pacific-chorus-frog.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e3de0bd4f709c22abad60b0ba360b04b46c6c8999ff8f41571cf6b7238e65f18",
+      "card": {
+        "file": "pacific-chorus-frog-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f1dbc50bbb7ec5518ac4abc80a66ad459c347ab661e80f31a7e2b30d928ad3a6"
+      }
+    },
+    "pacific-wren": {
+      "file": "pacific-wren.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "83c9b69c5c0a4d267d8b4088d104e64ac9a1956fcd6d7653c1642e3d0448d04c",
+      "card": {
+        "file": "pacific-wren-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "9516ace99ef2cbafaca3a92eabbf213194219b0f96611ed0d5caf7342ae01493"
+      }
+    },
+    "paper-birch": {
+      "file": "paper-birch.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9f44307f6b8c022d4469ab287cb56917622eda4d0c5bf7548590c1ded6ecf1da",
+      "card": {
+        "file": "paper-birch-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c0be38617202a055a708b066b46e88b97276f34c4660630806a5aff7c94345c6"
+      }
+    },
+    "papyrus": {
+      "file": "papyrus.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "745a9b2dfb46b7869640c92e451ba6400f79b5c6b88e3039daa08192ec3b2ed6",
+      "card": {
+        "file": "papyrus-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "7fd0f027ff4f6cb86995a076ef8559d194f90f48ebbe5d110593019bcefe50a4"
+      }
+    },
+    "peacock-spikemoss": {
+      "file": "peacock-spikemoss.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "79139723d01a79f9e6b18ebf446abc39f15e0826aa80d37f2f24b1565d496561",
+      "card": {
+        "file": "peacock-spikemoss-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6dae75b8753507a50d0c372fd9cc09bc45af0977412126e8d5bc451923e55921"
+      }
+    },
+    "petai": {
+      "file": "petai.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ce09bff184b7d2769b0a011c28ed5899f8352eb3f136674b60939b8c1c2cead3",
+      "card": {
+        "file": "petai-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ed589d1f38e16853541a09f02e91196c0b168b5f6cea21df1e82397df34742cd"
+      }
+    },
+    "piedmont-azalea": {
+      "file": "piedmont-azalea.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cb7e5888089758cc9daf183145bde06ac50ccf8a8e7f38d13ee11011a7e68ee8",
+      "card": {
+        "file": "piedmont-azalea-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "aaf58fa57fe5e2fa4598c38dfb07397225d3fdffb2d1594a409aebe6a8cf85f6"
+      }
+    },
+    "pileated-woodpecker": {
+      "file": "pileated-woodpecker.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0f922f4b81c5500588ffb548e36119ddd1575f4c98fdfea132b4915b8912ad1d",
+      "card": {
+        "file": "pileated-woodpecker-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d632c2ca6c9c23cdc4e5272fc441feda9e8e5f97cbbd8d7c04020daa1775826c"
+      }
+    },
+    "pink-ipe": {
+      "file": "pink-ipe.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2fc860baa19b95dd80ecaca9c533824502ca2a10229704ddfd0ed5a5d6df5f6f",
+      "card": {
+        "file": "pink-ipe-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ebf72671f05056bdb4491ef072b4a0bfb3e3966bc2ea9d9aeb1e18f4d613c461"
+      }
+    },
+    "pink-trumpet-tree": {
+      "file": "pink-trumpet-tree.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "031f3f38c9461cccb283a34c04f83ec725b6d5993c0b0a735522ca78a50c9f59",
+      "card": {
+        "file": "pink-trumpet-tree-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "add211c35a6d5f9016438fbf1a0fb90e99abe698d8a8d80dc1c0c96b770d7554"
+      }
+    },
+    "pisonia": {
+      "file": "pisonia.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ca597cf9189789ecc26ae34c014a8d9025f128e9b0109e3027b30341f6092c2d",
+      "card": {
+        "file": "pisonia-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "38464e87b06cf5b3d4eb348e8e37b5db89679a9c3ce0e9ec05065508edc0bac8"
+      }
+    },
+    "pitcher-plant": {
+      "file": "pitcher-plant.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "d55e288ec0442684ed1d6229038765ecd48e64716a4794d6217aec58874c4b7a",
+      "card": {
+        "file": "pitcher-plant-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "1dff2e85521e1db1f7ec01e7a5cba3ba1e4f9c427a78aab6716cb7b041ab386d"
+      }
+    },
+    "plains-zebra": {
+      "file": "plains-zebra.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5d9b84f5ecda008294c89fa3b15df9759d7a9bc6768fcd063ffbb11675557889",
+      "card": {
+        "file": "plains-zebra-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8e1a3d1872e33fcbb47a20d083bf2f9a48acdedc0032fe6499cc0930ed7d0140"
+      }
+    },
+    "plate-coral": {
+      "file": "plate-coral.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "093b265d6b0ff2c290d497e681fab9d8ff33119992ef14931cc39ee87b44be02",
+      "card": {
+        "file": "plate-coral-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "acfe069a308c5313e94b0b3f1ee4b877c2b1b889b0358812d727cc2417685c56"
+      }
+    },
+    "prayer-plant": {
+      "file": "prayer-plant.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5fab6167646a854ad399022e4e6b16034eafc15e0b8e0997ca9a634f22882589",
+      "card": {
+        "file": "prayer-plant-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "12f05a48ff273b2ec19b8a9d70aba14e362b4f0bd215407a414faf737e71e607"
+      }
+    },
+    "prickly-pear": {
+      "file": "prickly-pear.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e86824fbf32adc1a3a80665308d716a97e948b013a9672ccb092cafe3bff6066",
+      "card": {
+        "file": "prickly-pear-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "47cadae62f7add1a6ab4c60562392ad8bcfb54e4cf79baa6c75d154fc9e4f82a"
+      }
+    },
+    "purple-coneflower": {
+      "file": "purple-coneflower.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6a7a63a0de674cec4207407770568bf4483d64e76a130782c5fe07f0ec939242",
+      "card": {
+        "file": "purple-coneflower-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "9007eae76742be646d8c739f066af5a0f33a83b604cf10969c637d476d545d12"
+      }
+    },
+    "purun-sedge": {
+      "file": "purun-sedge.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "db8ded828393da17f34c4056f4b6fd4dc914c3976e8bcab71c510da9007bce6d",
+      "card": {
+        "file": "purun-sedge-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "958c4e01655125c0ceb64847ab505d288ace85b4618df4eaf067d56b26ba24a9"
+      }
+    },
+    "quickstick": {
+      "file": "quickstick.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0b79266bee129f8492d3e958fa853eb6cc4d226ea1324f13f26b958c2909689d",
+      "card": {
+        "file": "quickstick-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0e9f2490377d2f65ca89ef554d3a174f5abc8c1c31259bdb6d25fa7bb92389e1"
+      }
+    },
+    "raccoon": {
+      "file": "raccoon.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "667af2d4d2d89684ce7870dcc17efc4a53f7021f4566315c12233115594ef10a",
+      "card": {
+        "file": "raccoon-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "220dc808243a414c37b270568ede7c3a0867ae39f5f0edff81c4da4efc26cb57"
+      }
+    },
+    "rain-tree": {
+      "file": "rain-tree.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7653ee018789e62a1d0ccc783b9d7d5c2609471d91c626432de07a19d3c0baef",
+      "card": {
+        "file": "rain-tree-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5423b531fa8458a342559027b57aa664a3c8092eb6c3a69f3f371265c68c8f7a"
+      }
+    },
+    "raisin-bush": {
+      "file": "raisin-bush.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "755bb0fe0a94135e406c2b3aa90182650f701a72724e56ad4c08a4173e3b4c5b",
+      "card": {
+        "file": "raisin-bush-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "041df87ee7aad1f8fb0f9d250bfd810fed7de058d25cce79cd079095f0b8691c"
+      }
+    },
+    "rajah-brookes-birdwing": {
+      "file": "rajah-brookes-birdwing.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6158ebe21a0b117923a98318da51f2d199203894d42c93bdc63af5c8337ac102",
+      "card": {
+        "file": "rajah-brookes-birdwing-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b483c618245ea28dedf8f341e402710f5e23fd9ab5b97bcd4eb931461e27e421"
+      }
+    },
+    "rambutan": {
+      "file": "rambutan.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0b6b996b66f88dee09a9a7fd76f76ce03dcb1cbdf3086002c8d57a5b61bc610d",
+      "card": {
+        "file": "rambutan-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3deff53b1357884e4450fbf6446c66156f076c87d2b43852bc7af93ca50d8df4"
+      }
+    },
+    "rats-tail-dropseed": {
+      "file": "rats-tail-dropseed.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "1af5815695aa9c77fe0a7251a332edaad6a37fe9df4b4638e6d98df2855e1f63",
+      "card": {
+        "file": "rats-tail-dropseed-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "37b9597a0947e543b64ea16543933e880eb48fc4be722fa82eb0862416164bb3"
+      }
+    },
+    "rattan": {
+      "file": "rattan.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fd6e014ec2ad608a2408e5aeb2142180a5a5e71356114c59bb2f44b272f5a27d",
+      "card": {
+        "file": "rattan-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "dc99302a9c321b36bc498faf3859e4cd3fd371108220f34873076d17757972ef"
+      }
+    },
+    "rattlepod": {
+      "file": "rattlepod.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "22aef31dcd462007cc3c5cafcf512b1cd3eab11815435ec5925d308f9ca19c73",
+      "card": {
+        "file": "rattlepod-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e9baa00fad6b9cbae8ee6507e346e81c9c7a37e40361444f9eb65fcd8b1365b8"
+      }
+    },
+    "red-alder": {
+      "file": "red-alder.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "41dfeda026ad8fbf9ebcaba46efa84670340eb24fa46c11abddec14d9c566a78",
+      "card": {
+        "file": "red-alder-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f416547792a017631414bf16861972a5ad9f29dc808d8902aa39cd6da9903185"
+      }
+    },
+    "red-bellied-piranha": {
+      "file": "red-bellied-piranha.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6fe2aaf279ddbd83b1fed2b8d0fc30bb5474641f916d62f37e75d8616b8d559b",
+      "card": {
+        "file": "red-bellied-piranha-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5cbea50bcf3155dff52be71210651dc9590646ab6088eef659b061c0c416585b"
+      }
+    },
+    "red-elderberry": {
+      "file": "red-elderberry.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "bd3c8fc542bcc8fe01b5228f7e4873edf4406d84e378c04ab14530430a0a46ec",
+      "card": {
+        "file": "red-elderberry-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d49c9584e36aa355450319c568ee788899562b2ab183ea63014b23dba941b4c9"
+      }
+    },
+    "red-handed-howler-monkey": {
+      "file": "red-handed-howler-monkey.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6661d6aa1800af4416729d9fcb211de3c2719e4cfc9ef7a2bba6d5eb9bae9a5d",
+      "card": {
+        "file": "red-handed-howler-monkey-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "4a5328f56155277812eca0271c1d88cd73be7eb03cf072f94d8c3375aba6ffd8"
+      }
+    },
+    "red-huckleberry": {
+      "file": "red-huckleberry.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e3d65afbf427cc9d0c0027d0eecc92f2fe838782615a44fb90cf392587fbbed3",
+      "card": {
+        "file": "red-huckleberry-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "00073f4b787c6e61ae29624bd7bb6fd97e3a3671f7ae56f48221da7005aa6785"
+      }
+    },
+    "red-mangrove": {
+      "file": "red-mangrove.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "d5106aa6d7434dd719a8f6addf96a0f845d1f2db7629657ac04388f77310d1d9",
+      "card": {
+        "file": "red-mangrove-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "70debc8986b8e7a822b09529833fe0e215359dd86f55bff4bc50b328d706929e"
+      }
+    },
+    "red-maple": {
+      "file": "red-maple.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2960fbba6d75cf658a33d12d228843ef9cd4c0ec4afdd145af6d4cf61ab16a08",
+      "card": {
+        "file": "red-maple-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "547be31ee98e3c25522adda576d11e54decd2e4240e21c928560081eb60940ae"
+      }
+    },
+    "red-oat-grass": {
+      "file": "red-oat-grass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cfb1d3024dd9c22424a24f1024b1628ee3b6911e0534b555bc283aa65b4fd4e3",
+      "card": {
+        "file": "red-oat-grass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "949b8eccf3cef93c45372e0919e89430e8628dbd457c9e74460daf66ab163cc0"
+      }
+    },
+    "red-osier-dogwood": {
+      "file": "red-osier-dogwood.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "1b991adf1b285c92614c5c6dba5f80aef34891bfd088c0e67aa4f7931e66a1f8",
+      "card": {
+        "file": "red-osier-dogwood-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "87141f51333c50db7912a1407564203ae00607ae3bac9ccae09212a1247e059b"
+      }
+    },
+    "red-rumped-agouti": {
+      "file": "red-rumped-agouti.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "34c0cbf1ca598ee1097dc978eea96a7517f6d19e39d9c217bb91dd3a9d9c0200",
+      "card": {
+        "file": "red-rumped-agouti-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "dae4a0d70350c0c0d2afdebae4da44fc908f7ab717b59340e0c98c771d32f5d0"
+      }
+    },
+    "red-shouldered-hawk": {
+      "file": "red-shouldered-hawk.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b2d3502f9ad41dd8f43c3e285fac4fb0f8c2128a96ace7064a562406a746b3e3",
+      "card": {
+        "file": "red-shouldered-hawk-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c5e959bcc1453b56eee953ffce0b1425408f8b87a009b25d87b56a198069e417"
+      }
+    },
+    "red-tailed-hawk": {
+      "file": "red-tailed-hawk.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a0b447858536c9f399de2c1823090f42cb1ca716135446742cd4a3924660c127",
+      "card": {
+        "file": "red-tailed-hawk-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5298622c09c0c37945c598ba1b4c69694790761f9d3b80548656c72fa342c09b"
+      }
+    },
+    "reed-canarygrass": {
+      "file": "reed-canarygrass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a035e327391ae754a2fe6e4f3a6e222878b3405d0e7ed7ab8f87644d22b876e4",
+      "card": {
+        "file": "reed-canarygrass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2c6c37eabd31e2a5cad4da33abdb63b6972c5ef1580dda7f0d6b213a31e50e9f"
+      }
+    },
+    "reef-manta-ray": {
+      "file": "reef-manta-ray.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "560ef204483aa579533eb1931a1c67860ded49b893440f77d57f9d79cea407b8",
+      "card": {
+        "file": "reef-manta-ray-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2563da257d6242ee5fc3707b30497eb1c8d125227953e3643d67b9999e201443"
+      }
+    },
+    "resam-fern": {
+      "file": "resam-fern.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "09a85f2fe5c7fa82e20ee50bc2a1c34280938cbaa7ff48537532c204a06458e8",
+      "card": {
+        "file": "resam-fern-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "35af09fc64db6b7ab8f7c9e76cac2b4dfe304aefb334004e6c7b01149a71c71b"
+      }
+    },
+    "reticulated-python": {
+      "file": "reticulated-python.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ba1aea837ed19965e64bc2778973387f16330c47d736e432e343178a8c5150aa",
+      "card": {
+        "file": "reticulated-python-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6050546dfcf9c2a533bc7fedf409930f10704ea48d7c2b2169b0aac3536547a6"
+      }
+    },
+    "rhinoceros-hornbill": {
+      "file": "rhinoceros-hornbill.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "74e9de984caa66dc3136051aef09be4ebd890da23eb734a8af94e9440cc957ba",
+      "card": {
+        "file": "rhinoceros-hornbill-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "aedad96bfc3ee96aefe138aebeb39d9de4b3346b873227e2adbdf1d025de3579"
+      }
+    },
+    "river-birch": {
+      "file": "river-birch.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0e24326e147be481c909dee49c69be23c0a973a88d6844be103f277ffeedbeb8",
+      "card": {
+        "file": "river-birch-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ed332cb01cd8476fd276a4441468b9e976dc59c4b42710213ef5e455a796bba1"
+      }
+    },
+    "roemers-fescue": {
+      "file": "roemers-fescue.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "33b6f418dd54a667ae98a702010fc5c610ca4daf5699ff0aa59ebfe4c68f5c4e",
+      "card": {
+        "file": "roemers-fescue-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "bf241669f75fdeda5e395665e3997c94c1e8da879b2f9c27d07953de8b8c334c"
+      }
+    },
+    "roosevelt-elk": {
+      "file": "roosevelt-elk.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "5b660eacc4538253b15e2cb8c6a77ee78a9e05b04af98d614743fe18f53b5136",
+      "card": {
+        "file": "roosevelt-elk-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f713d7bdccf6b228c5a2bcac87ec59165b5f2834100563df73832c914483c048"
+      }
+    },
+    "roseate-spoonbill": {
+      "file": "roseate-spoonbill.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "920071f4b97c54d3419c5fc2b0124d19b4740f6ff476d190d9c5c42e9a6a028d",
+      "card": {
+        "file": "roseate-spoonbill-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2de1b3b6754a59a75260dba70ede47f2a955fd07eb652486b9fdfc8d078ba4ca"
+      }
+    },
+    "rough-skinned-newt": {
+      "file": "rough-skinned-newt.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a836b217c3a26a1989de32039bb8a8cd8aa1c6fd69bcd107ed75a693b881dcbe",
+      "card": {
+        "file": "rough-skinned-newt-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "93542cfd5659d17f0286849b4b9de69427bc2eee331261ee3a0a1e91b27c6b02"
+      }
+    },
+    "ruby-throated-hummingbird": {
+      "file": "ruby-throated-hummingbird.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "244736fc957248bd401383b453a19fd7a1931994fe48702bd4fbcfa94ed87c7a",
+      "card": {
+        "file": "ruby-throated-hummingbird-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c30b2fd0692d22117dc0bb6751fd7f4ca733aa39416679e00cb3e3be5d36514a"
+      }
+    },
+    "rufous-hummingbird": {
+      "file": "rufous-hummingbird.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "4f833025985ca1d4305255fc9778ae06aa1db04b37ddf69f0a54bc4db7dc21c5",
+      "card": {
+        "file": "rufous-hummingbird-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "12ac16b551cbdf6a62df31918059e62efacd86a4042b420f5604c093a248b71b"
+      }
+    },
+    "salal": {
+      "file": "salal.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "d72b740b57985ba7a65f1ec2818d4f6aed77bc8976447d8e0f6f05c08abb8a4d",
+      "card": {
+        "file": "salal-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6b2342ca848819af4cf9c7f92ab470341a014c29075d1fb215b00dcaf104c332"
+      }
+    },
+    "salmonberry": {
+      "file": "salmonberry.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7deda1288d15b83239096b5cffe144f004025e0462e740b69a602c871919390d",
+      "card": {
+        "file": "salmonberry-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ce4208c4f415da8aa56c47be198201867371694468b6167cd8506356d778a94e"
+      }
+    },
+    "sambar-deer": {
+      "file": "sambar-deer.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "c095a39a5aa98d36f7c4efbbc616a5062b0bfa57ce4cb3b9cc939fff7bb7463f",
+      "card": {
+        "file": "sambar-deer-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "83cc1c211b32b395d27895fdcec09ac3c843677b40341a8d771090f6b6a291b9"
+      }
+    },
+    "sausage-tree": {
+      "file": "sausage-tree.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "929b171b134a4588f34eee3282e7572aecdd2a603e2dfc9598aaaad0c9c0da39",
+      "card": {
+        "file": "sausage-tree-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a9535d73f728b9f78c2edd73df674e8ee35e330140f602897f21cecd13c40315"
+      }
+    },
+    "scalefin-anthias": {
+      "file": "scalefin-anthias.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "702515a67780a77dc072891e602a7f274c9e77de6d2b02ad7da257c1b4dfe460",
+      "card": {
+        "file": "scalefin-anthias-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8c6ec4d621f2d0674ebde1fe37f4ee5b9cca36564743fd2bc16c928f9392f705"
+      }
+    },
+    "scarlet-macaw": {
+      "file": "scarlet-macaw.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "efa0affbfe2cd2b2c3ddadec530461f6fd4f4e5c5554fed69a2b35027898d161",
+      "card": {
+        "file": "scarlet-macaw-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "9ac5b06c10b750628b3462be9c67ebc134db5db9fc923796a372f26c0889ed81"
+      }
+    },
+    "scotch-broom": {
+      "file": "scotch-broom.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c50e6200a460e7a4fbe0cc11afd1751ba8fb96b5ac2ab2b6b3be821d66a5fd6b",
+      "card": {
+        "file": "scotch-broom-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2a2bfdfdb060addfa49a2145927a32dc7e671f69d2509284db5f8ea2404e7430"
+      }
+    },
+    "sea-fan": {
+      "file": "sea-fan.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5d2d99cc6caeb9afe133bb5a9b8a9b5742d3bb9d0a83964cd0e3993c36adff67",
+      "card": {
+        "file": "sea-fan-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "42f80c78fa38cd92ccd4b83b3dc04b2e7ae19a2ee55e583b33b6c1809f80f0e8"
+      }
+    },
+    "sea-grape": {
+      "file": "sea-grape.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5e82269466f576d1c096ae45fa56eba1afc337975c4e7eaa564d8e1f641009fc",
+      "card": {
+        "file": "sea-grape-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f25665cf810f603df9f495566ede4f915610f360ae7471763f9af9bebfab913c"
+      }
+    },
+    "secretary-bird": {
+      "file": "secretary-bird.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9b67719346e307ea4a78293fdbb9f6cfb17bd53b102fc100dda9bec246f358d5",
+      "card": {
+        "file": "secretary-bird-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "568abcb054c80b47707e5bfc91cbe112d59148166c34cadcb99884b3ba33135c"
+      }
+    },
+    "senduduk": {
+      "file": "senduduk.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "72e7253cb87585c730c1986786499e731fe30d871b4a403f7a95e14a192e0fb8",
+      "card": {
+        "file": "senduduk-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f58063bf45249d3b0c45fc4bb1b0df89a3b6cd1bff1c38522dbb5fd47a7e5ef4"
+      }
+    },
+    "sensitive-plant": {
+      "file": "sensitive-plant.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a86510dfcbc9667184bfb76cb1d083c517d5b842d4dedec1aa8e30861b0e667a",
+      "card": {
+        "file": "sensitive-plant-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "cdc826481daf3f4e93592b64f2caca596a6677979c8c3290b95664a483dae2f4"
+      }
+    },
+    "serengeti-aloe": {
+      "file": "serengeti-aloe.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "46519aaf13c84e4f0474183db4adc1277e8cc552add97678b9320977a07d3887",
+      "card": {
+        "file": "serengeti-aloe-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c2697d39332f850ca51ec096b7838c9d7876a1e4a0eb9ab652b54d3275c09d99"
+      }
+    },
+    "siam-weed": {
+      "file": "siam-weed.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fdb291761775dcc4a442076aa061384592140a6f18469bcca55d3f12e532d9c4",
+      "card": {
+        "file": "siam-weed-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "bc4f1286762419ddf48ab6c0c2bda35eb457584dc4dfab7efc4040c140d7d689"
+      }
+    },
+    "siamang": {
+      "file": "siamang.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9e18349e841f5e1ab6ac959dd053985c3b2e75088ae91126438fc39486a86947",
+      "card": {
+        "file": "siamang-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "32c2c47a2ea5aa1921326f976d1140144f41c36b6b0a5e469b8d1e725b9c0a15"
+      }
+    },
+    "signal-grass-braquiaria": {
+      "file": "signal-grass-braquiaria.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "64d57e1846ec1ba87ea000afa5709203b37363204d6a8ac18ff48a30ac2e7e60",
+      "card": {
+        "file": "signal-grass-braquiaria-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d209e0490d90aa7b9393b4c7e0f464203619b6046f508e23221cef3ee7b67557"
+      }
+    },
+    "sitka-willow": {
+      "file": "sitka-willow.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "25861961291649812129f9e0ddf85714490a0a46db6270b55407d625f38216e4",
+      "card": {
+        "file": "sitka-willow-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "4106c19e33ca4272620e51e579e31e54b624c77d33a11a3f207722cafb60d073"
+      }
+    },
+    "slough-sedge": {
+      "file": "slough-sedge.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a6945439dc608281554a974c5a79cb1f1ea2fae5c49ca7af23769775672804ee",
+      "card": {
+        "file": "slough-sedge-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a052c6ea27c8225a4bf2455ef091d53848db12232778bf7a7026ebd0597aed3b"
+      }
+    },
+    "smooth-coated-otter": {
+      "file": "smooth-coated-otter.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fe2ba1e89b4fe1fcd0088470ad9c74c0fef43961e5cd205bbfd911966b151a5c",
+      "card": {
+        "file": "smooth-coated-otter-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b89c2fc0cf5226e84d701f9125688d35be38d65df22b528083192aafa6f6c87d"
+      }
+    },
+    "sodom-apple": {
+      "file": "sodom-apple.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fdb6339c60366c53205bb3c4dff42e774a7afb1867c9817f95d2e59178a3ecb4",
+      "card": {
+        "file": "sodom-apple-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "eb1792df4f8dbfbf38d2ff701bcd1c2d9aa9c9ae62c4b8a47973d75d29d07717"
+      }
+    },
+    "sooty-headed-bulbul": {
+      "file": "sooty-headed-bulbul.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "646f45fde0044684a52806017e7f661f1939d3e01b0433d53617a4735713de5d",
+      "card": {
+        "file": "sooty-headed-bulbul-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3242f8510a5d4c7818ce6b4314cf708ae38246eec926dd019a6b4da29348959c"
+      }
+    },
+    "southern-flying-squirrel": {
+      "file": "southern-flying-squirrel.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9e578262cc8ce27c34d1b9fd85152b47db13d6daf7f83afd0415eff5ea082e18",
+      "card": {
+        "file": "southern-flying-squirrel-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6729fd1d98506e53ac3ee4f6a7b37f40e9c6a8fab5236aee039d85467d91e7af"
+      }
+    },
+    "southern-ground-hornbill": {
+      "file": "southern-ground-hornbill.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cdca15723384cfaac3effb13061bdf1ba258cec8f06777be29322fc9c8aef3a9",
+      "card": {
+        "file": "southern-ground-hornbill-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e67bff1ed9438f51108fd4829728f89ce0e536d4d87eb018577c19688d2b18f7"
+      }
+    },
+    "southern-magnolia": {
+      "file": "southern-magnolia.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6fa860f1dda4e9ed48de8e1dec041380bb398cf41bcec9bb7823a8a871dd014f",
+      "card": {
+        "file": "southern-magnolia-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d5bc967a3869188dbaa67292a27f38f8ed5398e624e0fb4b73e628041d1ce4cd"
+      }
+    },
+    "southern-pig-tailed-macaque": {
+      "file": "southern-pig-tailed-macaque.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ce09034397a81a1a23cdd7f5baa4fae33f4edea984bef32926bd20e30d4fb6d4",
+      "card": {
+        "file": "southern-pig-tailed-macaque-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "854551c99b4f0dde3dae3c57716fab9c9849b2adc1db7da74d2d1dbfba21ecd5"
+      }
+    },
+    "spekes-weaver": {
+      "file": "spekes-weaver.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cdbfd4b3edea4ee91649dfff5eb728aae884fef0630b47506182230fc87044a1",
+      "card": {
+        "file": "spekes-weaver-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a6fa129134335c974971ee05ff78ee182da8c9270ade62fa8af1a9cb83b3ad17"
+      }
+    },
+    "spicebush": {
+      "file": "spicebush.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b96209d97217a15ef59d2de84f181cbe3034736bda24cfb87016edee3f56f301",
+      "card": {
+        "file": "spicebush-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ba7725c9c3b7085f89fb775b8154bb10dc1d425c7ce123bd37df907aa203b15d"
+      }
+    },
+    "spiked-pepper": {
+      "file": "spiked-pepper.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "86ab31ede108aebeb381f332132bef96e65ac25be49c837976afd75ddcf0f705",
+      "card": {
+        "file": "spiked-pepper-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3af6d92dc5da371a71273bc6184ce3bda1ec9a2cd618ee3f10725812eecbf26e"
+      }
+    },
+    "spiral-ginger": {
+      "file": "spiral-ginger.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "3fdd188f8f084db0618c1f924d915ee640cd79d0cf797c67a389d8690fe09698",
+      "card": {
+        "file": "spiral-ginger-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0bd683e117da26726b1737bc8f1fed6710d2756674a477c76dd37f3c9cfb1beb"
+      }
+    },
+    "spoon-seagrass": {
+      "file": "spoon-seagrass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cd1cb25915e370e1f3faa8f037df088d946273f4fca63f015dfc92b0d7bfe72f",
+      "card": {
+        "file": "spoon-seagrass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "7f572a966be13b02d4a793043edd653791b112339e05d0aa87dfe81e07865ed3"
+      }
+    },
+    "spotted-hyena": {
+      "file": "spotted-hyena.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "69beb91d22af916d1aa9b21558455c47c6a2582737fabe840b7353aeb200706d",
+      "card": {
+        "file": "spotted-hyena-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2b308efeabed1f1b3b4293d47395ac0bfaa3640c5f28b1f67cf3bcd60a0215a8"
+      }
+    },
+    "spring-peeper": {
+      "file": "spring-peeper.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "ad73e0d3bf8634e1b8ab7b9974cbf5e3fbece131ef163910943fe4d34f8b3575",
+      "card": {
+        "file": "spring-peeper-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e80b4ca0ecb2d2881e9be2220a9baaf89118442990f3c359114c22e5d2e5d4bd"
+      }
+    },
+    "staghorn-coral": {
+      "file": "staghorn-coral.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "495516f51b24c208a0debf4496bc2e0ec755dfe97002afb6859fc7f4c877a31f",
+      "card": {
+        "file": "staghorn-coral-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "9247fd0719c4a41ff5e34f811965de70e7759e7d6d8eb88fbfcb68da0f7de5d7"
+      }
+    },
+    "star-grass": {
+      "file": "star-grass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6d6cade047bd32a795332f7047f156a7bae49bdd250026ce96187479f4f84bf9",
+      "card": {
+        "file": "star-grass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ac2156cf465c70ba837a93ee9e8aa8066e03983217b7789e0eb3afa469cd06ec"
+      }
+    },
+    "steephead-parrotfish": {
+      "file": "steephead-parrotfish.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9b1815c5ee05ce72a935d45945935c89009e5b7d58a59a51ee365534aaef5e45",
+      "card": {
+        "file": "steephead-parrotfish-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "876cc9a9d800c955df637befdc160beff1ca42e22f65f8a91f24969513cc5c25"
+      }
+    },
+    "stellers-jay": {
+      "file": "stellers-jay.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a219faf8f49428db838f985f9935aa301713a6faa57feccbb0d86766739a21d6",
+      "card": {
+        "file": "stellers-jay-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6a62a51167af4197a5384085de63e8f1eb9cd7237e61a65f79890e91ec44575d"
+      }
+    },
+    "stork-billed-kingfisher": {
+      "file": "stork-billed-kingfisher.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7f81ff8a6e1563484b8cb04fabdffcd6f3215300299596eed628c03093e8fcf8",
+      "card": {
+        "file": "stork-billed-kingfisher-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b990758f16e10ca5fd6dcd08d1818f615604ccf288f731a99c2fbaf62b549d9a"
+      }
+    },
+    "storms-stork": {
+      "file": "storms-stork.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6a2e88639542ac9732dfa8cd4e69a9c1aa8b1d0b0e876c1f8fb8664d4ca9305a",
+      "card": {
+        "file": "storms-stork-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "15e0b0130663cdf0469d33267cf26316c03e70802ed379ed71f88597cc8169a6"
+      }
+    },
+    "strangler-fig": {
+      "file": "strangler-fig.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "04e6c60a4ddfa02554a32dea0ec54e659c51a750b8ecf2497ddcee1aeae8b073",
+      "card": {
+        "file": "strangler-fig-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ade8d0dd450750b8ecf1baabb2cbad804c50b4c9ab728f4ec30699fc1a791027"
+      }
+    },
+    "sumatran-elephant": {
+      "file": "sumatran-elephant.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "fe6c55de3cee07a892f3489c1c9467969e65073e4266eb36a46312a366cb27ad",
+      "card": {
+        "file": "sumatran-elephant-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b595dbb2ebccdd408335b618bc07064bf87041ab6fd5a64b3b5658a3e6cc3466"
+      }
+    },
+    "sumatran-orangutan": {
+      "file": "sumatran-orangutan.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "f3e708ba0a51d0e2219386722dd928e9ec606259f11f5461b9e1e6bad549f616",
+      "card": {
+        "file": "sumatran-orangutan-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "07ecbc2bd297d7a353485c2242bce465b66d0e56b9fd0eb4a08dd599fde15589"
+      }
+    },
+    "sumatran-rhino": {
+      "file": "sumatran-rhino.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "14d64c4efec38c6d032837b6fbb9b21887eb374527adc275b148f988ac8561db",
+      "card": {
+        "file": "sumatran-rhino-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2753924b4b7da35cc315c7126e6c77f58ef569695d275cedff389da498136db1"
+      }
+    },
+    "sumatran-tiger": {
+      "file": "sumatran-tiger.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2d7269df3ffa4eb572021c5a97585f7c27f977351e8ee605aadfcb7ad46c729f",
+      "card": {
+        "file": "sumatran-tiger-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "146391d0bd7c759c1aa2a22e0d9165a267b68e0312e7562aaec37e036aa147d1"
+      }
+    },
+    "sun-bear": {
+      "file": "sun-bear.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "305b8847e15bc4ca68c9e6eaadfd66313b8b54ee13b7e3faa40e674195e85ba4",
+      "card": {
+        "file": "sun-bear-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "d53493b9a301e598e02faac5a9698bc098554817c534206ce627fe3fc7b7c27a"
+      }
+    },
+    "sunda-clouded-leopard": {
+      "file": "sunda-clouded-leopard.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "3dd690a31ffb9b42873bd309fc4d23d2e8f5aed08918bed946e21212f5f0dc47",
+      "card": {
+        "file": "sunda-clouded-leopard-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6f6a7ce8bd157ca20c72f9a1cb0ce5809bdf90a8157c4fae3c79f89e721a4d46"
+      }
+    },
+    "sunda-pangolin": {
+      "file": "sunda-pangolin.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "217f7a79d2f4d03e8386d738099829dd6d43031688e8fed3328729f7d7ab4be6",
+      "card": {
+        "file": "sunda-pangolin-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b923912d618a06d7ed0f0d0a1edd9000c3945dd35d3c8e543d82bda227b71f9f"
+      }
+    },
+    "swainsons-thrush": {
+      "file": "swainsons-thrush.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6522a4139e58c31f6a41f675bb558014cae97d66e56d9703028a5955c4059e85",
+      "card": {
+        "file": "swainsons-thrush-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "f82e45f24e12373e026063d1e0ec4d70ad55077ebdb59aec54cb0848d6cbcdca"
+      }
+    },
+    "swamp-milkweed": {
+      "file": "swamp-milkweed.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7f128b1e970160d7768e93921679569cdffaa6cfe69318f3ed18a0b7383718da",
+      "card": {
+        "file": "swamp-milkweed-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8297ee5e97768f4891a42feed00730cbcdc7173b211567a8d83839b0a1f70377"
+      }
+    },
+    "swamp-screw-pine": {
+      "file": "swamp-screw-pine.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b06cb60dc6b9a053e9b8379b8db1f9ea9c563450bd4c939cbc02f611d7e6afd9",
+      "card": {
+        "file": "swamp-screw-pine-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "2a696ab3968a3e5e9f00880f0bec7f42006952768bdb34f741c624c48d7599b2"
+      }
+    },
+    "sweetgum": {
+      "file": "sweetgum.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "28ab94ed8f7d0c414807721a17f13b221ecebbb1b8f9dae77c7a98f9b26b38f6",
+      "card": {
+        "file": "sweetgum-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fa7115152a92ecc14fef2c6dafdf08d7e3ef6089ecec72efde8b54106c318163"
+      }
+    },
+    "switchgrass": {
+      "file": "switchgrass.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0893a2043b1bf54b919d2b9de6af9b1b68205a3543c4240a39e3d5883ea7f5a0",
+      "card": {
+        "file": "switchgrass-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "61ade074fc3b0b2424a28c5bfcdaea5004011af0135c74231f86215bfbba08e2"
+      }
+    },
+    "sycamore-fig": {
+      "file": "sycamore-fig.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6d5b991947218b33e783aec611374e44d25ecffbf824bf2fce097481b8d4c0d9",
+      "card": {
+        "file": "sycamore-fig-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "732724e1297cc508607e01b52062ab0cd2780e929c901447bc10f71a479a5d31"
+      }
+    },
+    "table-coral": {
+      "file": "table-coral.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "27309b6645a6188a347d9215ba51f220d90dc0cf34a6d02b5768b15ced8e20c6",
+      "card": {
+        "file": "table-coral-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "695d370af29a3f45cbccde7b744afb0fbf3113e68d1938120eec126797871d56"
+      }
+    },
+    "tall-oregon-grape": {
+      "file": "tall-oregon-grape.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7ba6d52f52f3845c6bf0a1b9b5fe3c22c579d41643e4e32e35ac6ffcb66c5236",
+      "card": {
+        "file": "tall-oregon-grape-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "902f5363385552e45e00ec1d6660e9273d8acfff236d3ae16991726001ad5467"
+      }
+    },
+    "terap": {
+      "file": "terap.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "f107c7aeb04f3828750a28d634eea706a79869b8b71dfb1b6973bd62c9c98f50",
+      "card": {
+        "file": "terap-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "841ef0ab078bc7fe9556176de9bfd566d33533befb29f174cc8089f9e564783d"
+      }
+    },
+    "thomass-langur": {
+      "file": "thomass-langur.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "dc6debf9824a802cb4eaf1a0e0b5d886784aacf90a22e44834c4c80198d19818",
+      "card": {
+        "file": "thomass-langur-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ab083f621fd9e3d5c8aef58dcb3a7327cc88f258814c33d9e6e6120fb636799c"
+      }
+    },
+    "thomsons-gazelle": {
+      "file": "thomsons-gazelle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "92175b7352c509da813ecff62b7b3241e2902a0bcea9ca04bd4a3e7253abc422",
+      "card": {
+        "file": "thomsons-gazelle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "790f9ea1001d527d80d64715d31098e2c868dad1f2fdff326eedc68c52a5f88f"
+      }
+    },
+    "threadfin-butterflyfish": {
+      "file": "threadfin-butterflyfish.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "93ad72b722f0410a2e9dee596bcdb3bfbfdab5af22c2d4b9f9bbc427efb59096",
+      "card": {
+        "file": "threadfin-butterflyfish-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "0d7c04809bd556faa8972223cc8e45e55d8f77a72141605fcc151e9776b4ecf6"
+      }
+    },
+    "toco-toucan": {
+      "file": "toco-toucan.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "15af71a5ea3a75029cb903793407e4d838f51d99ae6f8fbeb0c80a6980fce138",
+      "card": {
+        "file": "toco-toucan-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "bd1cfdc5ae1e5b6f397f8e16dd7a6a171350024ff09bb17301e4e0c07c6018c9"
+      }
+    },
+    "topi": {
+      "file": "topi.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "83e294c94356c4a8ee193181c2c1bf21392e9e13955f62d68c3cd1a0699171bb",
+      "card": {
+        "file": "topi-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8330ca5cac96b8c2957184bf6f603d1d20285768553dca50411d66f26be9967f"
+      }
+    },
+    "torch-ginger": {
+      "file": "torch-ginger.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "6af5428ad5458e5c59bca94d9ef987163cee05d1a2245ab51c089d1184052aba",
+      "card": {
+        "file": "torch-ginger-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "331ea1d6c790c682932f344d83cc4a31b9894a58864905f25902d32c04180052"
+      }
+    },
+    "townsends-vole": {
+      "file": "townsends-vole.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "b9ee2e2f3ab600251d78e966c63d585f59497dad79089849aea0e8fb48b06cf2",
+      "card": {
+        "file": "townsends-vole-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "1af9ed2721c2008c0ec0605073e26186e4b82d61f3db51960a70f2ac4074b685"
+      }
+    },
+    "tropical-sage": {
+      "file": "tropical-sage.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "3235ac244c90a3870c29aeb3d1ac7a43c9f300a541cb4ba69fb9402c60a48efe",
+      "card": {
+        "file": "tropical-sage-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "8acc25444bc8e1d123e94bd93ac22645a7b2308a8b3777c2b3d6cd9bb615f0a2"
+      }
+    },
+    "tualang": {
+      "file": "tualang.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "3e53dc2534401827e2012e503fbf112592803dde58c9ec64bd52ab7ed60b83d6",
+      "card": {
+        "file": "tualang-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "60e6d2895cdc483a0d5320599820c51d2cf129b6f7a5fa7a878eab15e55a4ff8"
+      }
+    },
+    "tulip-poplar": {
+      "file": "tulip-poplar.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "97892db9bc754b9a6faf7d3a13854f04ed5f27c28631032de7e59f78019d1ee0",
+      "card": {
+        "file": "tulip-poplar-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "45ff7a898f8d558eca1f4340bf4ca526c543368e994f70f482288273875ca763"
+      }
+    },
+    "turf-algae": {
+      "file": "turf-algae.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "cb0137b165c970dd55d3c16c2d582810203afe768c2e43ada2e8bf51461ae8fc",
+      "card": {
+        "file": "turf-algae-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6edb7bbe5ba0b3cf017a9b3cd9e78d4d34a24b41bb7a4806f2927837efc7a648"
+      }
+    },
+    "turquoise-browed-motmot": {
+      "file": "turquoise-browed-motmot.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "98a888b6170947725a6bd4c9c67d85d0d61b7362abb17465ff0a0fbffd267be4",
+      "card": {
+        "file": "turquoise-browed-motmot-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5b4966e86f4ce9355e961e0f78802233c35d2cddde90ccf16d59720c22b84167"
+      }
+    },
+    "umbrella-thorn": {
+      "file": "umbrella-thorn.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "c496e628426b2b1fa72f688edb1237884f1fa98e600a3840f9a1a71a2fe85008",
+      "card": {
+        "file": "umbrella-thorn-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "fcf222e9d14b6a3611850d5d02702adb32003941ab39b19ea3ce3de719677759"
+      }
+    },
+    "vine-maple": {
+      "file": "vine-maple.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7e2b626ae1bdac3c8fed6c70ce2f9a3f7331bb2feabc70d096af48565dc176c4",
+      "card": {
+        "file": "vine-maple-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3071792bbe76a881582860b3dc7e908350d635e9acd80d0896b5493f6e57f7d8"
+      }
+    },
+    "virginia-opossum": {
+      "file": "virginia-opossum.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a799ccef62fe002cde66c69b3e239e067d4c929bb8e7f957d9c48b27077a14e5",
+      "card": {
+        "file": "virginia-opossum-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "74fcd55ed355443c5374e18dbd4f3879b88fc8c72ea63a396bd52f03dd95c91d"
+      }
+    },
+    "virginia-sweetspire": {
+      "file": "virginia-sweetspire.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "47cec526e1c242e72959739d363469dfe2ea6b304470092621f5dfac469ede96",
+      "card": {
+        "file": "virginia-sweetspire-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e11edfcf0255936eef542215f42d41cdf9e998d5818ace15c6411f0b4212e481"
+      }
+    },
+    "wallaces-flying-frog": {
+      "file": "wallaces-flying-frog.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e829f59d46fdfb8d44bf704737b169d1af520d7c6ea72dc28448b45d29822ed6",
+      "card": {
+        "file": "wallaces-flying-frog-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "1e64a7efe17f48b7e7aa132018ab046c8ba814dd294adef5a5931bd59385b9a0"
+      }
+    },
+    "warthog": {
+      "file": "warthog.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "de481fe558466c6c192b97fa8370198181ea16d058a83a3a7ff2277844205616",
+      "card": {
+        "file": "warthog-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b5ca49def6466995b1e74f4fa76650c39870a07c6e954f8ee8fdcdc9f44dcc48"
+      }
+    },
+    "water-hyacinth": {
+      "file": "water-hyacinth.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "3f6033188ed4ff5c829691e189aa25ade37342cfc5248f16f3c3fa5a6d9ef1aa",
+      "card": {
+        "file": "water-hyacinth-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6e3ada097711380afa980f6c5eaa496ef6098fd94e4349526e6b80703a21d6a3"
+      }
+    },
+    "water-lily": {
+      "file": "water-lily.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7416717824342c309d520af047c8910bd2b3c84cc6d24b1e49bf2de0f2724f5b",
+      "card": {
+        "file": "water-lily-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5f56c4d55dbfc01275da1682657006911fe2455744ad9e594c29bce6301d3696"
+      }
+    },
+    "western-hemlock": {
+      "file": "western-hemlock.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "abbb5231ac3cee075256cf7cefb530f75a5176e152f617997e565d8fd8d4b3e2",
+      "card": {
+        "file": "western-hemlock-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "b78b7164990831db45dac27cd053f5a5e25c0ed3d4318508b4f6ed60d31132e3"
+      }
+    },
+    "western-meadowlark": {
+      "file": "western-meadowlark.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "80eafc4c1197378f530a29ea29aac7172aafea7c9c18a5bd4ba01dd86575dee7",
+      "card": {
+        "file": "western-meadowlark-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e6a1d587583f13ae0f98bdfdd252894a92aca3a3e58a043e0bdc9054dc3c4af1"
+      }
+    },
+    "western-pond-turtle": {
+      "file": "western-pond-turtle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e195f4be9bf98159b80427e8f372fdb7c39ca3f8bd0fdddcf1a8210bb7f35913",
+      "card": {
+        "file": "western-pond-turtle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3846040ecbc28e952b4e2fcd88dc9cddfc7993eff9ace86428b9c619c03cdabc"
+      }
+    },
+    "western-redcedar": {
+      "file": "western-redcedar.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "4fe7c44767e05be973583515fdfeb5aaff55a237babc525b0802651cf899bd08",
+      "card": {
+        "file": "western-redcedar-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "600ea36a69c9a828c67bc05ae1bdd422343928344bc0652e2903162a94d41c97"
+      }
+    },
+    "western-skunk-cabbage": {
+      "file": "western-skunk-cabbage.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "fc4fc0e677cae1c1287708566d972ac1fe9b16bdd3d0f7357ffa2d418b6bc2fb",
+      "card": {
+        "file": "western-skunk-cabbage-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a63451f70a6af4c6de0313dbd1a476cd1685ea5bd90667a51f83d2e405d36c4b"
+      }
+    },
+    "western-sword-fern": {
+      "file": "western-sword-fern.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "984eb69ddc084ce32a0888798bbde7134ae881af82c528036f1b07faa24ae69c",
+      "card": {
+        "file": "western-sword-fern-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e666818e4f7b3758aee4bdc735bdee6faf77a6c8b3cbcf1e73322ec8e8dc9ee4"
+      }
+    },
+    "whistling-thorn": {
+      "file": "whistling-thorn.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "414c8dc97028d758af84eba5f93e3c2d176c0351b52aabaeb03bc0f91b6c0428",
+      "card": {
+        "file": "whistling-thorn-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "876936957875bd3451e86f92a3cb0f39fceb5fd0628d85b666644f9619937e3c"
+      }
+    },
+    "white-backed-vulture": {
+      "file": "white-backed-vulture.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "e00f312a419f142ed49e4371b69ad4e7e477238136590bc7ade66ea85785eef6",
+      "card": {
+        "file": "white-backed-vulture-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ffeec10915ede5f24fcd42d3036cd5f3e2c60d841d8bcd2097916ff23ab07df8"
+      }
+    },
+    "white-cheeked-spider-monkey": {
+      "file": "white-cheeked-spider-monkey.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7cfa745702d46ac50e7340f8f1509c7cd7a13b77ecbc67149c1e1b7074aaef6e",
+      "card": {
+        "file": "white-cheeked-spider-monkey-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "4737e9ca95332b31f0b0c9dcfe3dad2ab89c1b78025cf7d6f69d8be18147605a"
+      }
+    },
+    "white-faced-capuchin": {
+      "file": "white-faced-capuchin.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "7960a68fa2fb300fafbe6be22c6d5e66db6de7e26fc3833c907b342976634128",
+      "card": {
+        "file": "white-faced-capuchin-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "c9cbaa60442ef585c961ce9c557b959aa3884f7030daa2fbe513981b62a19333"
+      }
+    },
+    "white-mangrove": {
+      "file": "white-mangrove.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "facdfc8db9e379bc1acbde6d525341b18defbdf0a343f93f2f2d1957d48919b6",
+      "card": {
+        "file": "white-mangrove-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "dd9558f2d38875efde9437750d26cc0488f9be16bd05d23c681178e6a7a9d516"
+      }
+    },
+    "white-nosed-coati": {
+      "file": "white-nosed-coati.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "35f4b0023cc8160bf23b6c1bdbd9fe0689e21c2c806934dafc20c94d472d9efd",
+      "card": {
+        "file": "white-nosed-coati-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e495194af579407ba0ff9c472a79cd87c3f5d0631492efd904e637c7b28eb5a1"
+      }
+    },
+    "white-oak": {
+      "file": "white-oak.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2f34c956114c1e28e8bc15b7f82fe4990e83695afde19557dc4fa0ae7febe673",
+      "card": {
+        "file": "white-oak-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "939a6c8e9b7e674da2355373f6247e5c80fb96b59989efc6334a8937259f0267"
+      }
+    },
+    "white-tailed-deer": {
+      "file": "white-tailed-deer.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "81d1d40b58c9acbb43c0bd7a44060206c0ec13f3910c39666c3fb7afdd410a2e",
+      "card": {
+        "file": "white-tailed-deer-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "da962a88444c48a8076afe7b35528909bb87062b8d63c6e49c145f74261863be"
+      }
+    },
+    "white-throated-magpie-jay": {
+      "file": "white-throated-magpie-jay.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "79c13097b8bc1ff7f37e9ff6cdf4298150260942651b385d117209633e8af569",
+      "card": {
+        "file": "white-throated-magpie-jay-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "ea1e9dc8319839c231357f659f543d6d86a4d4ff0a1d87cd146a3139949eef27"
+      }
+    },
+    "whitetip-reef-shark": {
+      "file": "whitetip-reef-shark.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "db62b0d7763185e15a03f9f6f4da8a6bd11b4a0b2696b458cbeb42c74ae861ce",
+      "card": {
+        "file": "whitetip-reef-shark-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "3c7b2959f39201fb1317e17ba7bee03fb01ce25ddef7f681c86622adb9fe4646"
+      }
+    },
+    "wild-bergamot": {
+      "file": "wild-bergamot.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "bcccffce87e7c722a372cc14427256a1ae7d1ddb242ba6403b9383e4030eea15",
+      "card": {
+        "file": "wild-bergamot-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "cdfd03ede9e9d2c7d1c7b822d257361528afd2886f2319f01bfd1e6040c9f810"
+      }
+    },
+    "wild-fig": {
+      "file": "wild-fig.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "abe14ad87633cf303e3c11c1bb2e98b296776f9a5e1e41d9df4c5887db1f1019",
+      "card": {
+        "file": "wild-fig-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "493651ddf41cb19634902501b95f04fdfb400793198e9a22ebfb658554a6a49d"
+      }
+    },
+    "wild-indigo": {
+      "file": "wild-indigo.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "8d95342dc8808099f5b16a691a055a19e237d81f1abfe402f023aeab3680b875",
+      "card": {
+        "file": "wild-indigo-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "10e843ae57a27dbd0eaf15a2c69cfd73dc9e856fbb2d94217af9f473c63f6d7e"
+      }
+    },
+    "wildebeest": {
+      "file": "wildebeest.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "2a2fa4db04fd5102a628f0369c6828ac38a060972c85cd5f467aec6b34bd1a97",
+      "card": {
+        "file": "wildebeest-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "6ffe59708a96d18436a8f0474da728da8f8549c505330a3e67d666f29ea257f2"
+      }
+    },
+    "willow-oak": {
+      "file": "willow-oak.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "9122ec043e047f3b01a1124877afcea72e61459f5f36789d631dc5a5463ef865",
+      "card": {
+        "file": "willow-oak-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5a183d4051b7d423605bee7d471174dae8cae4bf584428732851c6a31f342359"
+      }
+    },
+    "wood-duck": {
+      "file": "wood-duck.webp",
+      "width": 1200,
+      "height": 900,
+      "look": "male",
+      "sha256": "a651bb9bc24ffcc25d8f4f45baec6cf7ae01bd8aabc30ea1ce202ec0f1467333",
+      "card": {
+        "file": "wood-duck-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "a4c18f07bd0f84cd1689d0dcd6a72dacc52f9285dbd53403c3df63a47fca1129"
+      }
+    },
+    "woodland-phlox": {
+      "file": "woodland-phlox.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "a7096aa2b5133b426f9d4fd04324c595b3ef51a040ea089b611a1ac6e51ca9f0",
+      "card": {
+        "file": "woodland-phlox-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "1ccb283070186c3617e156b9b0a231e2ca6cb46bed38d06d821e52d25d86711a"
+      }
+    },
+    "wrinkleleaf-goldenrod": {
+      "file": "wrinkleleaf-goldenrod.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "336686a25b2bf9b5e62c623c13a8d8033a4db63eb9ddc5d4311562cd1ab5f848",
+      "card": {
+        "file": "wrinkleleaf-goldenrod-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "5fa0f75bd2ad25d15215fc66ab18ec3ca2d6f130b9786daab9356f5fed099b2f"
+      }
+    },
+    "yellow-cosmos": {
+      "file": "yellow-cosmos.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "5f9b48649721ea292c644f2972f3fbcf8ed506ab816bd8bf56db25a42f1c85a3",
+      "card": {
+        "file": "yellow-cosmos-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "efcc615374e8d66f4197de75abffa1218dcbbf0ed3a3030264fd3de723ed1fdb"
+      }
+    },
+    "yellow-naped-parrot": {
+      "file": "yellow-naped-parrot.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "57e150f080886359726af9935ab65a2b970aa2b1d40eefc958b578a437d0376d",
+      "card": {
+        "file": "yellow-naped-parrot-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "e9b2c9331f265824a216f81eb3325c76998762368d0161323d70244b73711c92"
+      }
+    },
+    "yellow-spotted-river-turtle": {
+      "file": "yellow-spotted-river-turtle.webp",
+      "width": 1200,
+      "height": 900,
+      "sha256": "0d518757a3e9194c75494872cd6e0632d68226db544134f4fe2fbeac1cf8ba22",
+      "card": {
+        "file": "yellow-spotted-river-turtle-card.webp",
+        "width": 480,
+        "height": 360,
+        "sha256": "45b941e003ad416979258254d839030669f0166c3c318e8a81e137265e6a74b6"
+      }
+    }
+  }
+}

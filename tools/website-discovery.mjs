@@ -1,7 +1,7 @@
 // Derive discovery content from the same authored HTML people read. No browser,
 // simulation, network or extra build dependency is needed by GitHub Pages.
 export const websiteOrigin = 'https://secondgrowth.earth';
-export const publicWebsitePaths = ['/', '/play/', '/visuals.html'];
+export const publicWebsitePaths = ['/', '/play/', '/visuals.html', '/press/'];
 
 export function websiteText(html) {
   return html.replace(/<br\s*\/?\s*>/gi, ' ').replace(/<[^>]*>/g, '').replace(/&(?:amp|quot|apos|lt|gt|nbsp|#39|#x[\da-f]+|#\d+);/gi, entity => {
@@ -23,7 +23,8 @@ export function websiteFacts(homepage) {
   return {description, title, maps, questions, modelNote};
 }
 
-export function websiteDiscovery(homepage) {
+// extraPaths: generated pages (the field guide) for the sitemap.
+export function websiteDiscovery(homepage, extraPaths = []) {
   const {description, title, maps, questions, modelNote} = websiteFacts(homepage);
   const home = websiteOrigin + '/', game = home + '#game', site = home + '#website';
   const schema = {
@@ -52,7 +53,9 @@ export function websiteDiscovery(homepage) {
   lines.push('## Playing Second Growth', '');
   for (const {question, answer} of questions) lines.push('### ' + question, '', answer, '');
   lines.push('## Project and imagery', '', '[Source and feedback](https://github.com/nature-tycoon/second-growth)', '',
-    '[Game imagery and capture notes](' + home + 'visuals.html): Staged game scenes and a same-save creek restoration sequence.', '');
+    '[Game imagery and capture notes](' + home + 'visuals.html): Staged game scenes and a same-save creek restoration sequence.', '',
+    '[Field guide](' + home + 'guide/): Every animal and plant in the game, a page each, by landscape.', '',
+    '[Press kit](' + home + 'press/): Fact sheet, descriptions, game footage and screenshots to download, logo, credits and press contact.', '');
   return {schema, markdown: lines.join('\n'), sitemap: '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + publicWebsitePaths.map(path => '  <url><loc>' + websiteOrigin + path + '</loc></url>').join('\n') + '\n</urlset>\n'};
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + [...publicWebsitePaths, ...extraPaths].map(path => '  <url><loc>' + websiteOrigin + path + '</loc></url>').join('\n') + '\n</urlset>\n'};
 }

@@ -134,7 +134,9 @@ if (hero && !quiet) {
 // while on screen, and with reduced motion it waits for the player's own Play.
 const descent = document.querySelector('.descent');
 if (descent) {
-  const video = descent.querySelector('video'), beats = [...descent.querySelectorAll('.descent-beats li')];
+  // (the two beats the clip is cut around: the overhead view, then eye level. The other cards only show
+  // while scrolling plays it, where they pass by one after another)
+  const video = descent.querySelector('video'), beats = [...descent.querySelectorAll('.descent-beats li:not(.more)')];
   overPicture(video, descent.querySelector('.descent-poster'), quiet);
   const beat = progress => beats.forEach((li, i) => li.classList.toggle('on', i === (progress < 0.5 ? 0 : 1)));
   const source = () => { if (!video.src) { video.src = pick(video.dataset.mp4, video.dataset.webm); video.preload = 'auto'; } };

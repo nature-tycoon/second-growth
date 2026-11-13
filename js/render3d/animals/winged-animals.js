@@ -91,10 +91,14 @@ function marginDist(edge, x, y) {
 // veins, spots and bars need vertices to land on).
 const inWing = (edge, x, y) => { let c = false; for (let k = 0, j = edge.length - 1; k < edge.length; j = k++) { const [ax, ay] = edge[k], [bx, by] = edge[j]; if ((ay > y) !== (by > y) && x < (bx - ax) * (y - ay) / (by - ay) + ax) c = !c; } return c; };
 const wingCache = new Map();
+// Grid density: 1 in the game; the website's field-guide portraits ask for more, since a wing filling
+// a large picture shows each grid cell in its outline and spots.
+let wingDetail = 1;
+export function setWingDetail(n) { wingDetail = n; }
 function butterflyWing(side, tails) {
-  const key = side + ':' + !!tails;
+  const key = side + ':' + !!tails + ':' + wingDetail;
   if (wingCache.has(key)) return wingCache.get(key);
-  const edge = wingEdge(tails), NX = 44, NY = 32, x0 = -0.7, x1 = 0.66, y1 = 1.0;
+  const edge = wingEdge(tails), NX = 44 * wingDetail, NY = 32 * wingDetail, x0 = -0.7, x1 = 0.66, y1 = 1.0;
   const pos = [];
   const P2 = (i, j) => [x0 + (x1 - x0) * i / NX, y1 * j / NY];
   for (let i = 0; i < NX; i++) for (let j = 0; j < NY; j++) {
