@@ -188,7 +188,7 @@
 }
 @media (max-width: 720px) {
   .guide .header { height: auto; padding: 14px 16px 11px; gap: 10px; border-radius: 23px; }
-  .guide .header .brand { font-size: 20px; }
+  .guide .header .brand { font-size: 23px; }
   .guide .header > .button { padding: 9px 14px; gap: 19px; font-size: 11px; }
   .guide .site-nav { border-top: 1px solid #dce8c92e; border-bottom: 0; padding: 11px 0 0; font-size: 12px; gap: 12px; }
   .gi-copy { padding: 22px 22px; border-radius: 26px 32px 26px 26px; background: #10201999; }

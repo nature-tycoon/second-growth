@@ -36,9 +36,11 @@ h3 { font-size: 23px; line-height: 1.2; font-weight: 600; letter-spacing: -.015e
 .topic-label { color: var(--sprout); font-size: 14px; }
 
 /* ------------------------------------------------------------------ brand, header, buttons */
-.brand { display: inline-flex; align-items: center; gap: 10px; font: 600 21px/1 var(--display); letter-spacing: -.02em; color: var(--cream); white-space: nowrap; }
-.brand::before { content: ""; width: 1.25em; height: 1.25em; flex-shrink: 0; background: var(--sprout); -webkit-mask: url(mark.svg) center / contain no-repeat; mask: url(mark.svg) center / contain no-repeat; transition: transform .4s ease; }
-.brand:hover::before { transform: translateY(-1px); }
+.brand { display: inline-flex; align-items: center; font: 700 25px/1 var(--display); letter-spacing: -.025em; color: var(--cream); white-space: nowrap; }
+/* The wordmark (Cole's ChatGPT design, art/wordmark.jpg): live text whose "o" in "Second" is a solid round
+   with a young fir cut out of it (brand-o.svg), painted in the text's colour so the fir shows the page. */
+.brand-o { display: inline-block; width: .6em; height: .6em; margin: 0 .025em; vertical-align: -.02em; background: currentColor; -webkit-mask: url(brand-o.svg) center / contain no-repeat; mask: url(brand-o.svg) center / contain no-repeat; }
+.brand:hover .brand-o { background: var(--sprout); }
 .header { display: flex; align-items: center; justify-content: space-between; gap: 28px; height: 96px; }
 .site-nav { display: flex; gap: 6px; font-size: 15px; font-weight: 600; }
 .site-nav a { padding: 8px 14px; border-radius: 100px; color: #e6ecdf; transition: background .2s, color .2s; }
@@ -308,7 +310,7 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
 .follow-along-home h2 { font-size: clamp(32px, 3.4vw, 46px); }
 
 .footer { display: flex; flex-wrap: wrap; gap: 20px 28px; align-items: center; justify-content: space-between; padding-block: 44px; margin-top: 30px; border-top: 1px solid var(--line); }
-.footer .brand { font-size: 22px; }
+.footer .brand { font-size: 26px; }
 .footer nav { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 14px; color: var(--muted); }
 .footer a:hover { color: var(--sprout); }
 .footer > span { font-size: 13px; color: var(--dim); }
@@ -367,6 +369,7 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
 .press-logo { display: grid; grid-template-columns: 200px 1fr; gap: 36px; align-items: center; margin-top: 30px; }
 .press-logo img { display: block; width: 200px; height: 200px; padding: 18px; border-radius: var(--r-lg); background: var(--paper); }
 .press-logo p { font-size: 16px; color: var(--muted); max-width: 640px; }
+.press-logo img.app-icon { padding: 0; background: none; border-radius: 22%; box-shadow: 0 20px 50px -20px #000c; }
 .press-downloads { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .press-downloads a { padding: 9px 16px; border-radius: 100px; background: #ffffff10; font-size: 14px; font-weight: 700; color: var(--sprout); transition: background .2s, color .2s; }
 .press-downloads a:hover { background: var(--sprout); color: var(--ink); }
@@ -411,7 +414,7 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
   .header { height: 76px; gap: 12px; }
   .site-nav { display: none; }
   .home .header { top: 10px; width: calc(100% - 24px); height: 56px; padding: 0 7px 0 16px; }
-  .brand { font-size: 20px; }
+  .brand { font-size: 23px; }
   .section { padding-block: 80px; }
   .section-head { display: block; margin-bottom: 30px; }
   .section-head > p { margin-top: 16px; font-size: 16px; }
