@@ -2,6 +2,7 @@
 // and the game copy must be byte-for-byte identical to the tested source.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, dirname, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,7 +41,54 @@ for (const name of ['header-provenance.json', 'content-provenance.json']) {
     freshFiles.add(capture.file);
   }
 }
-for (const match of homepage.matchAll(/(?:src|srcset|data-image)="review-media\/([^"?]+)"/g)) assert.ok(freshFiles.has(match[1]), 'Homepage imagery must have recorded fresh provenance');
+// Video loops (tools/capture-site-video.mjs): every file hashed, a size cap, both formats and a poster.
+const videoProvenance = JSON.parse(await readFile(join(root, 'website/review-media/video/video-provenance.json'), 'utf8'));
+for (const id of ['hollis-creek-flyover', 'map-to-forest-floor']) assert.ok(videoProvenance.clips.some(clip => clip.id === id), `Missing the ${id} clip`);
+assert.ok(videoProvenance.clips.filter(clip => clip.moment?.key).length >= 2, 'At least two keystone moment clips');
+for (const clip of videoProvenance.clips) {
+  assert.match(clip.sourceRevision, /^[0-9a-f]{40}$/, `${clip.id}: record the game revision it was filmed from`);
+  assert.ok(clip.seconds >= 6 && clip.seconds <= 12 && clip.frames === clip.seconds * clip.fps, `${clip.id}: 6–12 s at a fixed frame rate`);
+  assert.ok(Math.max(clip.width, clip.height) >= 1600, `${clip.id}: at least 1600 px on the long side`);
+  assert.ok(clip.camera?.shots?.length, `${clip.id}: record the camera path`);
+  assert.deepEqual(clip.files.map(file => file.file.split('.').pop()).sort(), ['jpg', 'mp4', 'webm'], `${clip.id}: an MP4, a WebM and a poster`);
+  for (const file of clip.files) {
+    const bytes = await readFile(join(root, 'website/review-media/video', file.file));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256, `${file.file} must match its capture provenance`);
+    if (file.role === 'video') {
+      assert.ok(bytes.length <= 5_000_000, `${file.file}: keep each video at 5 MB or less`);
+      assert.ok(file.checked?.duration, `${file.file}: the capture must have played it back`);
+    } else assert.ok(bytes.length < 1_500_000, `${file.file}: keep posters below 1.5 MB`);
+    freshFiles.add('video/' + file.file);
+  }
+}
+const mediaAttribute = /(?:src|srcset|data-image|poster|data-(?:wide-|tall-)?(?:mp4|webm))="review-media\/([^"?]+)"/g;
+for (const match of homepage.matchAll(mediaAttribute)) assert.ok(freshFiles.has(match[1]), 'Homepage imagery and footage must have recorded fresh provenance');
+// The landing page's footage: the hero flyover (wide and upright), the descent, and the keystone reel.
+for (const id of ['hollis-creek-flyover', 'hollis-creek-flyover-vertical', 'map-to-forest-floor']) assert.ok(homepage.includes(`review-media/video/${id}.mp4`) && homepage.includes(`review-media/video/${id}.webm`), `Homepage plays ${id} in both formats`);
+assert.ok(homepage.match(/class="moment-clip"/g)?.length >= 2, 'At least two keystone clips on the homepage');
+assert.ok(!/<video\b[^>]*\bautoplay\b/.test(homepage), 'site.js starts footage after load and never with reduced motion or Save-Data, so no autoplay attribute');
+assert.ok([...homepage.matchAll(/<video\b[^>]*>/g)].every(([tag]) => /\bmuted\b/.test(tag) && /\bplaysinline\b/.test(tag) && /preload="none"/.test(tag)), 'Every homepage video is muted, inline and downloads nothing up front');
+// Media captured from a much older game: a warning, not a failure (recapturing is a manual step on a
+// Mac with a GPU). The game's date is its release stamp (js/release.js, set at deploy) or the
+// checkout's last commit; the media's is the date of the revision it was captured from.
+{
+  const { RELEASE } = await import('../js/release.js');
+  const git = (...args) => { try { return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; } };
+  const gameDate = RELEASE.match(/^\d{4}-\d{2}-\d{2}/)?.[0] || git('show', '-s', '--format=%cs', 'HEAD');
+  const stale = [];
+  for (const [name, path] of [['header stills', 'header-provenance.json'], ['content stills', 'content-provenance.json'], ['video loops', 'video/video-provenance.json']]) {
+    const provenance = JSON.parse(await readFile(join(root, 'website/review-media', path), 'utf8'));
+    const revisions = [...new Set([provenance.sourceRevision, ...(provenance.clips || []).map(clip => clip.sourceRevision)].filter(Boolean))];
+    for (const revision of revisions) {
+      // (CI checks out one commit, so an older revision may be missing: then the capture date stands in)
+      const capturedDate = git('show', '-s', '--format=%cs', revision) || provenance.capturedAt.slice(0, 10);
+      const days = Math.round((Date.parse(gameDate) - Date.parse(capturedDate)) / 864e5);
+      const gameCommits = git('rev-list', '--count', `${revision}..HEAD`, '--', 'js', 'vendor', 'index.html', 'styles.css');
+      if (days > 30 || Number(gameCommits) > 80) stale.push(`${name} (${path}) were captured from ${revision.slice(0, 7)} on ${capturedDate}, ${days} days${gameCommits ? ` and ${gameCommits} game commits` : ''} before this game (${gameDate})`);
+    }
+  }
+  for (const line of stale) console.warn('WARNING: ' + line + '. Recapture: see the Website paragraph in AGENTS.md.');
+}
 assert.ok(!/Fresh captures? needed|This sequence is planned|visual-slot/.test(homepage), 'Finished homepage must not contain image placeholders');
 const output = await buildWebsite();
 const publishedHome = await readFile(join(output, 'index.html'), 'utf8');
@@ -103,7 +151,7 @@ for (const map of facts.maps) {
 assert.ok(homepage.includes(`id="map-play" href="${facts.maps[0].play}"`), 'The play link starts on the first landscape shown');
 for (const name of ['index.html', 'visuals.html', 'site.css', 'play/index.html']) {
   const path = join(output, name), source = await readFile(path, 'utf8');
-  const links = [...source.matchAll(/(?:src|srcset|href|data-image)="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
+  const links = [...source.matchAll(/(?:src|srcset|href|data-image|poster|data-(?:wide-|tall-)?(?:mp4|webm))="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
   for (const link of links) {
     if (/^(?:https?:|data:|#)/.test(link)) continue;
     const file = link.split(/[?#]/)[0], target = resolve(dirname(path), decodeURIComponent(file));

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; script-src 'self' https://www.googletagmanager.com; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; img-src 'self' https://*.google-analytics.com https://*.googletagmanager.com; font-src 'self' https://fonts.gstatic.com; connect-src https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; form-action 'none'; frame-src https://www.googletagmanager.com; worker-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; script-src 'self' https://www.googletagmanager.com; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; img-src 'self' https://*.google-analytics.com https://*.googletagmanager.com; media-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; form-action 'none'; frame-src https://www.googletagmanager.com; worker-src 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="index, follow, max-image-preview:large">
@@ -35,8 +35,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="site.css?v=refresh-20261111">
-  <script src="site.js?v=refresh-20261111" defer></script>
+  <link rel="stylesheet" href="site.css?v=landing-20261112">
+  <script src="site.js?v=landing-20261112" defer></script>
 </head>
 <body class="home">
   <!-- Google Tag Manager (noscript) -->
@@ -45,10 +45,17 @@
   <a class="skip" href="#hero-title">Skip to content</a>
   <main id="main">
     <section class="hero" aria-labelledby="hero-title">
-      <picture class="hero-backdrop">
-        <source media="(max-width: 720px)" srcset="review-media/header-mobile.jpg">
-        <img src="review-media/header-desktop.jpg" alt="A newly rendered Pacific Northwest habitat scene with Roosevelt elk and a black-tailed deer beside a creek with a beaver, great blue heron and wood ducks." width="2400" height="1200" fetchpriority="high">
-      </picture>
+      <div class="hero-backdrop">
+        <picture>
+          <source media="(max-width: 720px) and (orientation: portrait)" srcset="review-media/video/hollis-creek-flyover-vertical.jpg">
+          <img src="review-media/video/hollis-creek-flyover.jpg" alt="The restored Hollis creek at golden hour in Second Growth, with Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks at the water." width="1920" height="1080" fetchpriority="high">
+        </picture>
+        <!-- Real game footage. site.js starts it after the page loads, never with reduced motion or Save-Data;
+             until then (and without JavaScript) the first frame above stands in. -->
+        <video class="hero-video" muted playsinline preload="none" aria-hidden="true" tabindex="-1"
+          data-wide-mp4="review-media/video/hollis-creek-flyover.mp4" data-wide-webm="review-media/video/hollis-creek-flyover.webm"
+          data-tall-mp4="review-media/video/hollis-creek-flyover-vertical.mp4" data-tall-webm="review-media/video/hollis-creek-flyover-vertical.webm"></video>
+      </div>
       <div class="hero-shade" aria-hidden="true"></div>
   <header class="header wrap">
     <a class="brand" href="./" aria-label="Second Growth home">Second Growth<span class="brand-rule" aria-hidden="true"></span></a>
@@ -64,20 +71,37 @@
         <p class="play-note">Free in your browser, on a computer or a phone. No download or account.</p>
       </div>
       </div>
-      <div class="hero-bottom wrap"><div class="scene-caption"><span>Pacific Northwest</span><p>Elk, deer, beaver and heron along a restored creek</p></div><a class="hero-scroll" href="#the-game">About the game <span aria-hidden="true">↓</span></a></div>
+      <div class="hero-bottom wrap"><div class="scene-caption"><span>Pacific Northwest · real game footage</span><p>Elk, deer, beaver and heron along a restored creek</p></div><a class="hero-scroll" href="#the-game">About the game <span aria-hidden="true">↓</span></a></div>
     </section>
     <section class="overview" id="the-game" aria-labelledby="overview-title"><div class="wrap overview-grid">
       <div><p class="eyebrow">The game</p><h2 id="overview-title">Every place starts<br> out broken.</h2></div>
       <div class="overview-copy"><p class="lead">An old dairy farm with a blocked salmon creek. A suburb paved over oak woodland. A reef cooked by heatwaves. Each one has its own history and its own problems to fix.</p><p>You decide where the money goes: pull out invasive plants, reopen water, plant natives that suit the soil and light. Then watch what grows, check what each species needs, and change course when something doesn't take.</p><p>Animals come in from the surrounding land when there is food, water and cover for them. They graze, fish, stalk and chase, raise young, and leave again if the habitat stops supporting them.</p><p>Then put the tools down. Let the camera follow the wildlife on its own, or drop to eye level and walk the ground among elk, elephants and orangutans, through rainstorms, thunder and moonlit nights.</p></div>
       <dl class="game-facts"><div><dt>Seven landscapes</dt><dd>Regional plants, wildlife and restoration work</dd></div><div><dt>About 200 animal species</dt><dd>And more than 200 plants, each with its own needs</dd></div><div><dt>Eye level &amp; watch mode</dt><dd>Sit back and follow the wildlife, or walk among it</dd></div><div><dt>Campaign &amp; free play</dt><dd>Guided chapters on supported maps, or all tools from the start</dd></div></dl>
     </div></section>
+    <section class="descent" id="eye-level" aria-labelledby="descent-title">
+      <div class="descent-track">
+        <div class="descent-stage">
+          <img class="descent-poster" src="review-media/video/map-to-forest-floor.jpg" alt="Game footage: the overhead view of a restored creek pushes in on a Roosevelt elk, then drops to eye level behind it as it walks up the bank." width="1920" height="1080" loading="lazy" decoding="async">
+          <video class="descent-video" muted playsinline preload="none" aria-hidden="true" tabindex="-1"
+            data-mp4="review-media/video/map-to-forest-floor.mp4" data-webm="review-media/video/map-to-forest-floor.webm"></video>
+          <div class="descent-shade" aria-hidden="true"></div>
+          <div class="descent-copy wrap">
+            <div class="descent-intro"><p class="eyebrow">Two ways to see it</p><h2 id="descent-title">From the map<br> to the forest floor.</h2></div>
+            <ol class="descent-beats">
+              <li class="on"><span>Above</span>Work the land from overhead: brush in natives, pull invasives, read the overlays.</li>
+              <li><span>Eye level</span>Then drop in behind any animal and walk the ground you restored.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
     <section class="restoration section wrap" aria-labelledby="restoration-title">
       <div class="section-head"><div><p class="eyebrow">An example from the Pacific Northwest</p><h2 id="restoration-title">Reopening a salmon creek.</h2></div><p>One save, two game years apart. Pull out one<br> culvert and the whole creek changes.</p></div>
       <div class="restoration-layout">
         <figure class="sequence-figure">
           <div class="compare">
             <img src="review-media/creek-later.jpg" alt="The same creek two game years later, with the planted streamside vegetation grown in around the open crossing." width="1800" height="1200" loading="lazy" decoding="async">
-            <img class="compare-before" src="review-media/creek-before.jpg" alt="The Pacific Northwest creek before restoration, with a culvert at the road crossing and bare banks." width="1800" height="1200" decoding="async">
+            <img class="compare-before" src="review-media/creek-before.jpg" alt="The Pacific Northwest creek before restoration, with a culvert at the road crossing and bare banks." width="1800" height="1200" loading="lazy" decoding="async">
             <span class="image-tag compare-tag before">Before<span class="tag-date"> · May, Year 1</span></span>
             <span class="image-tag compare-tag after">Two years later<span class="tag-date"> · May, Year 3</span></span>
             <span class="compare-handle" aria-hidden="true"><span><svg viewBox="0 0 24 24" width="22" height="22"><path d="M9 6 3 12l6 6M15 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
@@ -107,6 +131,19 @@
       </div>
       <p class="section-note">All seven landscapes are in the game. Every picture on this page is a scene from the game.</p><noscript><p class="section-note">This page shows the Pacific Northwest. See <a href="visuals.html#landscapes">all seven landscapes and their descriptions</a>, or select a landscape in the game.</p></noscript>
     </div></section>
+    <section class="moments section wrap" id="moments" aria-labelledby="moments-title">
+      <div class="section-head"><div><p class="eyebrow">Keystone moments</p><h2 id="moments-title">Moments worth waiting for.</h2></div><p>When the habitat is right, the big events of the year<br> happen on their own. These are filmed in the game.</p></div>
+      <div class="moment-reel">
+        <figure class="moment-clip">
+          <div class="moment-frame"><img src="review-media/video/moment-elk-rut.jpg" alt="Game footage: two bull Roosevelt elk sparring in an autumn meadow, the camera circling them." width="1920" height="1080" loading="lazy" decoding="async"><video muted playsinline loop preload="none" aria-hidden="true" tabindex="-1" data-mp4="review-media/video/moment-elk-rut.mp4" data-webm="review-media/video/moment-elk-rut.webm"></video></div>
+          <figcaption><span class="topic-label">Pacific Northwest</span><strong>The autumn rut</strong><p>Two bulls lock antlers in the meadow while the cows graze nearby.</p></figcaption>
+        </figure>
+        <figure class="moment-clip">
+          <div class="moment-frame"><img src="review-media/video/moment-hatchlings.jpg" alt="Game footage: olive ridley sea turtle hatchlings crossing the beach toward the Pacific." width="1920" height="1080" loading="lazy" decoding="async"><video muted playsinline loop preload="none" aria-hidden="true" tabindex="-1" data-mp4="review-media/video/moment-hatchlings.mp4" data-webm="review-media/video/moment-hatchlings.webm"></video></div>
+          <figcaption><span class="topic-label">Nicaragua</span><strong>The hatchlings run for the sea</strong><p>Olive ridley hatchlings leave their nests together and head for the waves.</p></figcaption>
+        </figure>
+      </div>
+    </section>
     <section class="ecology section wrap" id="ecology" aria-labelledby="ecology-title">
       <div class="ecology-heading"><div class="ecology-heading-inner"><p class="eyebrow">How the ecosystem responds</p><h2 id="ecology-title">You plant it.<br> Nature takes it from there.</h2><p>Every plant and animal in the game follows its own needs. Your work changes the conditions, and the ecosystem sorts out the rest.</p></div></div>
       <div class="ecology-topics">

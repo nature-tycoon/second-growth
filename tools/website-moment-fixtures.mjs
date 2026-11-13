@@ -4,10 +4,31 @@ import { forceSimRandom, forcedSimRandom } from '../js/sim/sim-random.js';
 import {isMaleVariant} from '../js/data/animals.js';
 import {riverRow} from '../js/world.js';
 import {isWater,T} from '../js/config.js';
+import {passable,shallows} from '../js/sim/animal-terrain.js';
 import {greet} from '../js/sim/animal-life.js';
 import {foodAt,forageChoose,cleanerChoose} from '../js/sim/animal-foraging.js';
 import {fruitAt,primateChoose,primateUpdate} from '../js/sim/primate-behavior.js';
 import {momentsUpdate,momentScene} from '../js/sim/moments.js';
+// Place an adult of a species on the nearest suitable tile, standing still (wait), for a staged
+// study. placed collects what was posed, for the provenance.
+export function posing(g,placed=[]){
+  const w=g.world;
+  return function pose(key,tx,ty,habitat='land',heading=-.5){
+    const def=g.catalog.animal[key];if(!def)throw Error('Unknown capture species '+g.map+':'+key);
+    let best=Infinity,tile=-1;
+    for(let y=ty-4;y<=ty+4;y++)for(let x=tx-4;x<=tx+4;x++){
+      if(!w.inb(x,y))continue;const i=w.idx(x,y),d=(x-tx)**2+(y-ty)**2;
+      const water=isWater(w.terrain[i]);
+      const suitable=habitat==='tree'?w.tree[i]&&w.treeG[i]>.6:habitat==='reef'?w.tileH(x,y)<5&&!w.tree[i]&&!w.shrub[i]:habitat==='water'?water:habitat==='shallows'?shallows(w,i):!water&&!w.tree[i];
+      if(suitable&&passable(w,i,def)&&w.struct[i]<0&&!placed.some(a=>a.tile===i)&&d<best){tile=i;best=d;}
+    }
+    if(tile<0)throw Error('No capture habitat for '+key);
+    const x=tile%w.w+.5,y=Math.floor(tile/w.w)+.5;
+    const a=g.wildlife.spawn(def,x,y,{silent:true,age:Math.max(480,def.mature*120+1)});
+    Object.assign(a,{x,y,tx:x,ty:y,wait:1000,heading,hunger:0,thirst:0,phase:0});
+    placed.push({key,tile,x,y});return a;
+  };
+}
 export function websiteMoment(g,pose){
   const w=g.world,wl=g.wildlife,events=[];
   g.flags.moments={};g.flags.lastMomentDay=-1e9;g.on('moment',event=>events.push(event));

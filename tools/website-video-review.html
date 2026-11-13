@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Second Growth — website video review</title>
+<style>
+body{margin:0;padding:16px;background:#edf0e8;color:#26392e;font:14px system-ui}h1{font-size:20px;margin:0 0 6px}p{margin:6px 0 12px;max-width:80ch}label{margin-right:14px}select{font:inherit;padding:4px}
+main{display:grid;gap:16px}article{background:#fafbf7;border:1px solid #d1d9cd;border-radius:8px;padding:10px;display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:12px}
+article.tall{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr)}
+h2{font-size:16px;margin:0 0 4px}video,img{display:block;width:100%;border-radius:4px;background:#1f2c24}article.tall video,article.tall img{max-height:80vh;object-fit:contain}
+figure{margin:0}figcaption{font-size:12px;color:#5b6b60;margin-top:4px}dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:8px 0;font-size:13px}dt{color:#5b6b60}dd{margin:0}code{font-size:12px}
+.info{grid-column:1/-1}@media(max-width:850px){article,article.tall{grid-template-columns:1fr}}
+</style>
+<h1>Website video loops</h1>
+<p>Every clip recorded by <code>tools/capture-site-video.mjs</code> from the real game, with its poster (the first frame, shown before the video plays) and the provenance in <code>website/review-media/video/video-provenance.json</code>. Crossfade loops should repeat with no visible seam; the others loop with a cut.</p>
+<label>Format <select id="format"><option value="mp4">MP4 (H.264): Safari, iPhone, everything</option><option value="webm">WebM (VP9): Chrome, Firefox, Android</option></select></label>
+<main id="clips"></main>
+<script type="module">
+const base='../website/review-media/video/';
+const provenance=await (await fetch(base+'video-provenance.json',{cache:'no-store'})).json();
+const main=document.getElementById('clips'),format=document.getElementById('format');
+const mb=n=>(n/1e6).toFixed(2)+' MB',esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function render(){
+  main.innerHTML='';
+  for(const clip of provenance.clips){
+    const file=role=>clip.files.find(f=>role==='poster'?f.role==='poster':f.file.endsWith('.'+role));
+    const video=file(format.value),poster=file('poster'),tall=clip.height>clip.width;
+    const a=document.createElement('article');if(tall)a.className='tall';
+    a.innerHTML=`<figure><video src="${base+video.file}" poster="${base+poster.file}" autoplay muted loop playsinline controls></video>
+      <figcaption>${esc(video.file)} · ${mb(video.bytes)} · ${clip.width}×${clip.height}, ${clip.seconds} s at ${clip.fps} fps</figcaption></figure>
+      <figure><img src="${base+poster.file}" alt="Poster for ${esc(clip.title)}"><figcaption>Poster ${esc(poster.file)} · ${mb(poster.bytes)}</figcaption></figure>
+      <div class="${tall?'':'info'}"><h2>${esc(clip.title)}${tall?' (9:16, for Shorts)':''}</h2><p>${esc(clip.description)}</p>
+      <dl><dt>Map</dt><dd>${esc(clip.map)}${clip.moment?` · keystone moment <b>${esc(clip.moment.title)}</b> (${esc(clip.moment.date)})`:''}</dd>
+      <dt>Loop</dt><dd>${clip.loop==='crossfade'?'crossfade (last second dissolves into the first)':'cut'}</dd>
+      <dt>Files</dt><dd>${clip.files.filter(f=>f.role==='video').map(f=>`${esc(f.file)} ${mb(f.bytes)}`).join(' · ')}</dd>
+      <dt>Smoothness</dt><dd>median frame-to-frame change ${clip.motion.median}; biggest jumps ${clip.motion.jumps.map(j=>`frame ${j.frame} ×${j.times}`).join(', ')} (a pop shows as ×5 or more on one frame)</dd>
+      <dt>Camera</dt><dd>${clip.camera.shots.map(s=>s.camera==='eye'?`eye level behind the ${esc(clip.focus?.key)}${s.dissolve?`, dissolving in over ${s.dissolve} s`:''}`:`overhead view through ${s.keys.length} keys${s.closed?', closed loop':''}`).join(' → ')}</dd>
+      <dt>Game</dt><dd><code>${esc(clip.sourceRevision.slice(0,7))}</code>, time of day ${clip.timeOfDay}, animal pace ${clip.animalPace===4?'watch pace':'normal'}</dd></dl></div>`;
+    main.append(a);
+  }
+}
+format.onchange=render;render();
+</script>
+</html>

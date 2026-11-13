@@ -1,0 +1,1383 @@
+{
+  "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+  "sourceDate": "2026-11-12",
+  "uncommittedGameChanges": false,
+  "capturedAt": "2026-11-12T13:55:04.130Z",
+  "method": "Production renderer, models and per-step simulation (Game.update's wildlife steps, the calendar held so no day redraw lands mid-shot) in headless Chrome on the GPU, at a fixed 30 fps timestep. Scenes are seeded restored maps (release-fixtures, Math.random seeded) with posed animals that then behave on their own; keystone clips start from production moment triggers (website-moment-fixtures). Encoded in the page with WebCodecs (H.264 High, VP9), muxed by tools/video-mux.mjs. Crossfade loops dissolve the last second into the first; a dissolve joins the overhead view to eye level. Nothing is generated or painted.",
+  "seed": {
+    "map": 1987,
+    "random": 20261011
+  },
+  "clips": [
+    {
+      "id": "hollis-creek-flyover",
+      "clip": "hollis-creek-flyover",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+      "title": "Hollis creek flyover",
+      "map": "pnw",
+      "kind": "staged restored habitat study",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "frames": 300,
+      "renderedFrames": 300,
+      "seconds": 10,
+      "loop": "none",
+      "keyframeEvery": 60,
+      "timeOfDay": 0.79,
+      "animalPace": 4,
+      "bitrate": {
+        "mp4": 2900000,
+        "webm": 2300000
+      },
+      "description": "A steady drift up the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.",
+      "moment": null,
+      "focus": {
+        "key": "elk",
+        "id": 18
+      },
+      "posedSpecies": [
+        {
+          "key": "elk",
+          "x": 59.5,
+          "y": 55.5
+        },
+        {
+          "key": "elk",
+          "x": 60.5,
+          "y": 57.5
+        },
+        {
+          "key": "elk",
+          "x": 61.5,
+          "y": 59.5
+        },
+        {
+          "key": "deer",
+          "x": 58.5,
+          "y": 59.5
+        },
+        {
+          "key": "beaver",
+          "x": 55.5,
+          "y": 59.5
+        },
+        {
+          "key": "heron",
+          "x": 54.5,
+          "y": 57.5
+        },
+        {
+          "key": "woodduck",
+          "x": 54.5,
+          "y": 55.5
+        },
+        {
+          "key": "woodduck",
+          "x": 54.5,
+          "y": 60.5
+        }
+      ],
+      "camera": {
+        "shots": [
+          {
+            "until": null,
+            "camera": "map",
+            "keys": [
+              {
+                "x": 56.4,
+                "y": 62,
+                "zoom": 3.1,
+                "az": 0.7253981633974482
+              },
+              {
+                "x": 57.6,
+                "y": 53,
+                "zoom": 3.1,
+                "az": 0.8453981633974483
+              }
+            ],
+            "ease": "linear"
+          }
+        ],
+        "everyHalfSecond": [
+          {
+            "t": 0,
+            "x": 56.4,
+            "y": 62,
+            "zoom": 3.1,
+            "az": 0.7254
+          },
+          {
+            "t": 0.5,
+            "x": 56.46,
+            "y": 61.55,
+            "zoom": 3.1,
+            "az": 0.7314
+          },
+          {
+            "t": 1,
+            "x": 56.52,
+            "y": 61.1,
+            "zoom": 3.1,
+            "az": 0.7374
+          },
+          {
+            "t": 1.5,
+            "x": 56.58,
+            "y": 60.65,
+            "zoom": 3.1,
+            "az": 0.7434
+          },
+          {
+            "t": 2,
+            "x": 56.64,
+            "y": 60.2,
+            "zoom": 3.1,
+            "az": 0.7494
+          },
+          {
+            "t": 2.5,
+            "x": 56.7,
+            "y": 59.75,
+            "zoom": 3.1,
+            "az": 0.7554
+          },
+          {
+            "t": 3,
+            "x": 56.76,
+            "y": 59.3,
+            "zoom": 3.1,
+            "az": 0.7614
+          },
+          {
+            "t": 3.5,
+            "x": 56.82,
+            "y": 58.85,
+            "zoom": 3.1,
+            "az": 0.7674
+          },
+          {
+            "t": 4,
+            "x": 56.88,
+            "y": 58.4,
+            "zoom": 3.1,
+            "az": 0.7734
+          },
+          {
+            "t": 4.5,
+            "x": 56.94,
+            "y": 57.95,
+            "zoom": 3.1,
+            "az": 0.7794
+          },
+          {
+            "t": 5,
+            "x": 57,
+            "y": 57.5,
+            "zoom": 3.1,
+            "az": 0.7854
+          },
+          {
+            "t": 5.5,
+            "x": 57.06,
+            "y": 57.05,
+            "zoom": 3.1,
+            "az": 0.7914
+          },
+          {
+            "t": 6,
+            "x": 57.12,
+            "y": 56.6,
+            "zoom": 3.1,
+            "az": 0.7974
+          },
+          {
+            "t": 6.5,
+            "x": 57.18,
+            "y": 56.15,
+            "zoom": 3.1,
+            "az": 0.8034
+          },
+          {
+            "t": 7,
+            "x": 57.24,
+            "y": 55.7,
+            "zoom": 3.1,
+            "az": 0.8094
+          },
+          {
+            "t": 7.5,
+            "x": 57.3,
+            "y": 55.25,
+            "zoom": 3.1,
+            "az": 0.8154
+          },
+          {
+            "t": 8,
+            "x": 57.36,
+            "y": 54.8,
+            "zoom": 3.1,
+            "az": 0.8214
+          },
+          {
+            "t": 8.5,
+            "x": 57.42,
+            "y": 54.35,
+            "zoom": 3.1,
+            "az": 0.8274
+          },
+          {
+            "t": 9,
+            "x": 57.48,
+            "y": 53.9,
+            "zoom": 3.1,
+            "az": 0.8334
+          },
+          {
+            "t": 9.5,
+            "x": 57.54,
+            "y": 53.45,
+            "zoom": 3.1,
+            "az": 0.8394
+          }
+        ]
+      },
+      "motion": {
+        "median": 5.98,
+        "jumps": [
+          {
+            "frame": 298,
+            "change": 6.88,
+            "times": 1.2
+          },
+          {
+            "frame": 295,
+            "change": 6.85,
+            "times": 1.1
+          },
+          {
+            "frame": 296,
+            "change": 6.85,
+            "times": 1.1
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "hollis-creek-flyover.mp4",
+          "role": "video",
+          "type": "video/mp4; codecs=\"avc1.640028\"",
+          "bytes": 3665816,
+          "sha256": "de58bfa1f006c2ea9120631377228f924656cbe5b885859c667c7a987fe25e83",
+          "checked": {
+            "duration": 10,
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "file": "hollis-creek-flyover.webm",
+          "role": "video",
+          "type": "video/webm; codecs=\"vp9\"",
+          "bytes": 2957911,
+          "sha256": "96f8da94ff743ebc1149212f247ba906e7b5c2d33fbbbbf3d3222f303be9033a",
+          "checked": {
+            "duration": 10,
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "file": "hollis-creek-flyover.jpg",
+          "role": "poster",
+          "type": "image/jpeg",
+          "bytes": 404295,
+          "sha256": "f6cd307d3f9fc46ec1b942b9a6a7aebd67bc2ba9c5b4a7ceff5c966891458f88"
+        }
+      ]
+    },
+    {
+      "id": "hollis-creek-flyover-vertical",
+      "clip": "hollis-creek-flyover",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+      "title": "Hollis creek flyover",
+      "map": "pnw",
+      "kind": "staged restored habitat study",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "frames": 300,
+      "renderedFrames": 300,
+      "seconds": 10,
+      "loop": "none",
+      "keyframeEvery": 60,
+      "timeOfDay": 0.79,
+      "animalPace": 4,
+      "bitrate": {
+        "mp4": 2900000,
+        "webm": 2300000
+      },
+      "description": "A steady drift up the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.",
+      "moment": null,
+      "focus": {
+        "key": "elk",
+        "id": 18
+      },
+      "posedSpecies": [
+        {
+          "key": "elk",
+          "x": 59.5,
+          "y": 55.5
+        },
+        {
+          "key": "elk",
+          "x": 60.5,
+          "y": 57.5
+        },
+        {
+          "key": "elk",
+          "x": 61.5,
+          "y": 59.5
+        },
+        {
+          "key": "deer",
+          "x": 58.5,
+          "y": 59.5
+        },
+        {
+          "key": "beaver",
+          "x": 55.5,
+          "y": 59.5
+        },
+        {
+          "key": "heron",
+          "x": 54.5,
+          "y": 57.5
+        },
+        {
+          "key": "woodduck",
+          "x": 54.5,
+          "y": 55.5
+        },
+        {
+          "key": "woodduck",
+          "x": 54.5,
+          "y": 60.5
+        }
+      ],
+      "camera": {
+        "shots": [
+          {
+            "until": null,
+            "camera": "map",
+            "keys": [
+              {
+                "x": 56.4,
+                "y": 62,
+                "zoom": 3.1,
+                "az": 0.7253981633974482
+              },
+              {
+                "x": 57.6,
+                "y": 53,
+                "zoom": 3.1,
+                "az": 0.8453981633974483
+              }
+            ],
+            "ease": "linear"
+          }
+        ],
+        "everyHalfSecond": [
+          {
+            "t": 0,
+            "x": 56.4,
+            "y": 62,
+            "zoom": 3.1,
+            "az": 0.7254
+          },
+          {
+            "t": 0.5,
+            "x": 56.46,
+            "y": 61.55,
+            "zoom": 3.1,
+            "az": 0.7314
+          },
+          {
+            "t": 1,
+            "x": 56.52,
+            "y": 61.1,
+            "zoom": 3.1,
+            "az": 0.7374
+          },
+          {
+            "t": 1.5,
+            "x": 56.58,
+            "y": 60.65,
+            "zoom": 3.1,
+            "az": 0.7434
+          },
+          {
+            "t": 2,
+            "x": 56.64,
+            "y": 60.2,
+            "zoom": 3.1,
+            "az": 0.7494
+          },
+          {
+            "t": 2.5,
+            "x": 56.7,
+            "y": 59.75,
+            "zoom": 3.1,
+            "az": 0.7554
+          },
+          {
+            "t": 3,
+            "x": 56.76,
+            "y": 59.3,
+            "zoom": 3.1,
+            "az": 0.7614
+          },
+          {
+            "t": 3.5,
+            "x": 56.82,
+            "y": 58.85,
+            "zoom": 3.1,
+            "az": 0.7674
+          },
+          {
+            "t": 4,
+            "x": 56.88,
+            "y": 58.4,
+            "zoom": 3.1,
+            "az": 0.7734
+          },
+          {
+            "t": 4.5,
+            "x": 56.94,
+            "y": 57.95,
+            "zoom": 3.1,
+            "az": 0.7794
+          },
+          {
+            "t": 5,
+            "x": 57,
+            "y": 57.5,
+            "zoom": 3.1,
+            "az": 0.7854
+          },
+          {
+            "t": 5.5,
+            "x": 57.06,
+            "y": 57.05,
+            "zoom": 3.1,
+            "az": 0.7914
+          },
+          {
+            "t": 6,
+            "x": 57.12,
+            "y": 56.6,
+            "zoom": 3.1,
+            "az": 0.7974
+          },
+          {
+            "t": 6.5,
+            "x": 57.18,
+            "y": 56.15,
+            "zoom": 3.1,
+            "az": 0.8034
+          },
+          {
+            "t": 7,
+            "x": 57.24,
+            "y": 55.7,
+            "zoom": 3.1,
+            "az": 0.8094
+          },
+          {
+            "t": 7.5,
+            "x": 57.3,
+            "y": 55.25,
+            "zoom": 3.1,
+            "az": 0.8154
+          },
+          {
+            "t": 8,
+            "x": 57.36,
+            "y": 54.8,
+            "zoom": 3.1,
+            "az": 0.8214
+          },
+          {
+            "t": 8.5,
+            "x": 57.42,
+            "y": 54.35,
+            "zoom": 3.1,
+            "az": 0.8274
+          },
+          {
+            "t": 9,
+            "x": 57.48,
+            "y": 53.9,
+            "zoom": 3.1,
+            "az": 0.8334
+          },
+          {
+            "t": 9.5,
+            "x": 57.54,
+            "y": 53.45,
+            "zoom": 3.1,
+            "az": 0.8394
+          }
+        ]
+      },
+      "motion": {
+        "median": 6.06,
+        "jumps": [
+          {
+            "frame": 298,
+            "change": 6.75,
+            "times": 1.1
+          },
+          {
+            "frame": 295,
+            "change": 6.72,
+            "times": 1.1
+          },
+          {
+            "frame": 297,
+            "change": 6.72,
+            "times": 1.1
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "hollis-creek-flyover-vertical.mp4",
+          "role": "video",
+          "type": "video/mp4; codecs=\"avc1.640028\"",
+          "bytes": 3664103,
+          "sha256": "9daabf2a9ca92438f04a0c5d8e3c37292cc4fd839aeaa2f0c43816159e9062e2",
+          "checked": {
+            "duration": 10,
+            "width": 1080,
+            "height": 1920
+          }
+        },
+        {
+          "file": "hollis-creek-flyover-vertical.webm",
+          "role": "video",
+          "type": "video/webm; codecs=\"vp9\"",
+          "bytes": 2942616,
+          "sha256": "185774353538298dbaa127e635671dc7e3923fdc68165aa0f57c53ccb90b3dac",
+          "checked": {
+            "duration": 10,
+            "width": 1080,
+            "height": 1920
+          }
+        },
+        {
+          "file": "hollis-creek-flyover-vertical.jpg",
+          "role": "poster",
+          "type": "image/jpeg",
+          "bytes": 401332,
+          "sha256": "9e8c1becf1d073ed54ef99c7a0028f2d5875794daedd6b21473b7b814168b344"
+        }
+      ]
+    },
+    {
+      "id": "map-to-forest-floor",
+      "clip": "map-to-forest-floor",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+      "title": "From the map to the forest floor",
+      "map": "pnw",
+      "kind": "staged restored habitat study",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "frames": 360,
+      "renderedFrames": 360,
+      "seconds": 12,
+      "loop": "none",
+      "keyframeEvery": 15,
+      "timeOfDay": 0.79,
+      "animalPace": 4,
+      "bitrate": {
+        "mp4": 2900000,
+        "webm": 1875364
+      },
+      "description": "The overhead view of restored Hollis pushes in on a Roosevelt elk at the creek, then dissolves to eye level behind it as it walks up the bank (sent there through the game's pathfinding). Both are the game's own cameras (the usual view, then watch mode's eye level).",
+      "moment": null,
+      "focus": {
+        "key": "elk",
+        "id": 19
+      },
+      "posedSpecies": [
+        {
+          "key": "elk",
+          "x": 59.5,
+          "y": 55.5
+        },
+        {
+          "key": "elk",
+          "x": 60.5,
+          "y": 57.5
+        },
+        {
+          "key": "elk",
+          "x": 61.5,
+          "y": 59.5
+        },
+        {
+          "key": "deer",
+          "x": 58.5,
+          "y": 59.5
+        },
+        {
+          "key": "beaver",
+          "x": 55.5,
+          "y": 59.5
+        },
+        {
+          "key": "heron",
+          "x": 54.5,
+          "y": 57.5
+        },
+        {
+          "key": "woodduck",
+          "x": 54.5,
+          "y": 55.5
+        },
+        {
+          "key": "woodduck",
+          "x": 54.5,
+          "y": 60.5
+        }
+      ],
+      "camera": {
+        "shots": [
+          {
+            "until": 6,
+            "camera": "map",
+            "keys": [
+              {
+                "x": 53,
+                "y": 51.5,
+                "zoom": 0.6,
+                "az": 0.7853981633974483
+              },
+              {
+                "focus": true,
+                "zoom": 3.6,
+                "az": 0.9853981633974482
+              }
+            ],
+            "ease": "inout"
+          },
+          {
+            "until": null,
+            "camera": "eye",
+            "dissolve": 0.8
+          }
+        ],
+        "everyHalfSecond": [
+          {
+            "t": 0,
+            "x": 53,
+            "y": 51.5,
+            "zoom": 0.6,
+            "az": 0.7854
+          },
+          {
+            "t": 0.5,
+            "x": 53.039,
+            "y": 51.53,
+            "zoom": 0.6055,
+            "az": 0.7864
+          },
+          {
+            "t": 1,
+            "x": 53.279,
+            "y": 51.698,
+            "zoom": 0.6394,
+            "az": 0.7925
+          },
+          {
+            "t": 1.5,
+            "x": 53.831,
+            "y": 52.047,
+            "zoom": 0.7223,
+            "az": 0.8061
+          },
+          {
+            "t": 2,
+            "x": 54.721,
+            "y": 52.548,
+            "zoom": 0.8739,
+            "az": 0.8274
+          },
+          {
+            "t": 2.5,
+            "x": 55.907,
+            "y": 53.133,
+            "zoom": 1.1165,
+            "az": 0.8547
+          },
+          {
+            "t": 3,
+            "x": 57.287,
+            "y": 53.715,
+            "zoom": 1.4697,
+            "az": 0.8854
+          },
+          {
+            "t": 3.5,
+            "x": 58.722,
+            "y": 54.21,
+            "zoom": 1.9346,
+            "az": 0.9161
+          },
+          {
+            "t": 4,
+            "x": 60.065,
+            "y": 54.553,
+            "zoom": 2.4716,
+            "az": 0.9434
+          },
+          {
+            "t": 4.5,
+            "x": 61.181,
+            "y": 54.711,
+            "zoom": 2.9906,
+            "az": 0.9647
+          },
+          {
+            "t": 5,
+            "x": 61.979,
+            "y": 54.681,
+            "zoom": 3.3782,
+            "az": 0.9783
+          },
+          {
+            "t": 5.5,
+            "x": 62.444,
+            "y": 54.5,
+            "zoom": 3.5673,
+            "az": 0.9844
+          },
+          {
+            "t": 6,
+            "eye": [
+              62.054,
+              1.272,
+              56.091
+            ]
+          },
+          {
+            "t": 6.5,
+            "eye": [
+              62.103,
+              1.274,
+              55.927
+            ]
+          },
+          {
+            "t": 7,
+            "eye": [
+              62.163,
+              1.281,
+              55.632
+            ]
+          },
+          {
+            "t": 7.5,
+            "eye": [
+              62.215,
+              1.286,
+              55.303
+            ]
+          },
+          {
+            "t": 8,
+            "eye": [
+              62.291,
+              1.291,
+              54.974
+            ]
+          },
+          {
+            "t": 8.5,
+            "eye": [
+              62.389,
+              1.298,
+              54.651
+            ]
+          },
+          {
+            "t": 9,
+            "eye": [
+              62.501,
+              1.303,
+              54.332
+            ]
+          },
+          {
+            "t": 9.5,
+            "eye": [
+              62.62,
+              1.309,
+              54.016
+            ]
+          },
+          {
+            "t": 10,
+            "eye": [
+              62.742,
+              1.275,
+              53.701
+            ]
+          },
+          {
+            "t": 10.5,
+            "eye": [
+              62.865,
+              1.209,
+              53.387
+            ]
+          },
+          {
+            "t": 11,
+            "eye": [
+              63.014,
+              1.136,
+              53.084
+            ]
+          },
+          {
+            "t": 11.5,
+            "eye": [
+              63.189,
+              1.093,
+              52.79
+            ]
+          }
+        ]
+      },
+      "motion": {
+        "median": 7.86,
+        "jumps": [
+          {
+            "frame": 89,
+            "change": 14.66,
+            "times": 1.9
+          },
+          {
+            "frame": 90,
+            "change": 14.65,
+            "times": 1.9
+          },
+          {
+            "frame": 77,
+            "change": 14.6,
+            "times": 1.9
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "map-to-forest-floor.mp4",
+          "role": "video",
+          "type": "video/mp4; codecs=\"avc1.640028\"",
+          "bytes": 4415601,
+          "sha256": "a5b3e299fd8989bf2a7d30b4ee49088089118e235a3518ca2c0a5a244d9bee50",
+          "checked": {
+            "duration": 12,
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "file": "map-to-forest-floor.webm",
+          "role": "video",
+          "type": "video/webm; codecs=\"vp9\"",
+          "bytes": 4309077,
+          "sha256": "4a9d542ecaab8c72739188754de51b8743b2a9ba0c6ae15c3c3347a9c3605b91",
+          "checked": {
+            "duration": 12,
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "file": "map-to-forest-floor.jpg",
+          "role": "poster",
+          "type": "image/jpeg",
+          "bytes": 628471,
+          "sha256": "ebc031ca4ca22474b4d8f9160cf87ab9344fccee9fb002486f3b44ecd8f78b1a"
+        }
+      ]
+    },
+    {
+      "id": "moment-elk-rut",
+      "clip": "moment-elk-rut",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+      "title": "Keystone moment: the elk rut",
+      "map": "pnw",
+      "kind": "staged keystone moment study",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "frames": 240,
+      "renderedFrames": 240,
+      "seconds": 8,
+      "loop": "none",
+      "keyframeEvery": 60,
+      "timeOfDay": 0.8,
+      "animalPace": 4,
+      "bitrate": {
+        "mp4": 2900000,
+        "webm": 2300000
+      },
+      "description": "Two adult Roosevelt elk during the antler-contact beat of the autumn rut. The bout is initialized through the production social behavior. The camera turns steadily round them while the bout plays out at watch pace.",
+      "moment": {
+        "key": "elkRut",
+        "title": "The autumn rut",
+        "stage": "antlers",
+        "day": 70,
+        "date": "October, Year 1"
+      },
+      "focus": null,
+      "posedSpecies": [
+        {
+          "key": "elk",
+          "x": 61.5,
+          "y": 58.5
+        },
+        {
+          "key": "elk",
+          "x": 63.5,
+          "y": 58.5
+        },
+        {
+          "key": "elk",
+          "x": 61.5,
+          "y": 61.5
+        }
+      ],
+      "camera": {
+        "shots": [
+          {
+            "until": null,
+            "camera": "map",
+            "keys": [
+              {
+                "x": 62.5,
+                "y": 58.5,
+                "zoom": 7.2,
+                "az": 0.4353981633974483
+              },
+              {
+                "x": 62.5,
+                "y": 58.5,
+                "zoom": 7.2,
+                "az": 1.1353981633974484
+              }
+            ],
+            "ease": "linear"
+          }
+        ],
+        "everyHalfSecond": [
+          {
+            "t": 0,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.4354
+          },
+          {
+            "t": 0.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.4791
+          },
+          {
+            "t": 1,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.5229
+          },
+          {
+            "t": 1.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.5666
+          },
+          {
+            "t": 2,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.6104
+          },
+          {
+            "t": 2.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.6541
+          },
+          {
+            "t": 3,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.6979
+          },
+          {
+            "t": 3.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.7416
+          },
+          {
+            "t": 4,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.7854
+          },
+          {
+            "t": 4.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.8291
+          },
+          {
+            "t": 5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.8729
+          },
+          {
+            "t": 5.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.9166
+          },
+          {
+            "t": 6,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 0.9604
+          },
+          {
+            "t": 6.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 1.0041
+          },
+          {
+            "t": 7,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 1.0479
+          },
+          {
+            "t": 7.5,
+            "x": 62.5,
+            "y": 58.5,
+            "zoom": 7.2,
+            "az": 1.0916
+          }
+        ]
+      },
+      "motion": {
+        "median": 2.41,
+        "jumps": [
+          {
+            "frame": 67,
+            "change": 2.81,
+            "times": 1.2
+          },
+          {
+            "frame": 85,
+            "change": 2.81,
+            "times": 1.2
+          },
+          {
+            "frame": 4,
+            "change": 2.8,
+            "times": 1.2
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "moment-elk-rut.mp4",
+          "role": "video",
+          "type": "video/mp4; codecs=\"avc1.640028\"",
+          "bytes": 2941345,
+          "sha256": "70451c62ed7baf73890ed0527d2ea074b168134955fd877ba5d546b1980bbea3",
+          "checked": {
+            "duration": 8,
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "file": "moment-elk-rut.webm",
+          "role": "video",
+          "type": "video/webm; codecs=\"vp9\"",
+          "bytes": 2215205,
+          "sha256": "eb8b9e8431d46ee02825f6e36a697c06c97dc47c121fc16103d94e83a956f14e",
+          "checked": {
+            "duration": 8,
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "file": "moment-elk-rut.jpg",
+          "role": "poster",
+          "type": "image/jpeg",
+          "bytes": 279078,
+          "sha256": "3f40d1e297fcaf53f31ade69960668be9193afddbfa6be46bb1f6517376ed075"
+        }
+      ]
+    },
+    {
+      "id": "moment-hatchlings",
+      "clip": "moment-hatchlings",
+      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+      "title": "Keystone moment: hatchlings run for the sea",
+      "map": "chinandega",
+      "kind": "staged keystone moment study",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "frames": 240,
+      "renderedFrames": 240,
+      "seconds": 8,
+      "loop": "none",
+      "keyframeEvery": 60,
+      "timeOfDay": 0.6,
+      "animalPace": 4,
+      "bitrate": {
+        "mp4": 2900000,
+        "webm": 2300000
+      },
+      "description": "Olive ridley hatchlings at the beach edge. The map’s production nest-hatching event creates the juveniles and their route toward the sea; nest positions and age are staged. The camera follows them down the beach at watch pace.",
+      "moment": {
+        "key": "hatchlings",
+        "title": "The hatchlings run for the sea",
+        "stage": "hatchlings",
+        "day": 50,
+        "date": "August, Year 1"
+      },
+      "focus": {
+        "key": "seaturtle",
+        "id": 55
+      },
+      "posedSpecies": [],
+      "camera": {
+        "shots": [
+          {
+            "until": null,
+            "camera": "map",
+            "keys": [
+              {
+                "x": 30,
+                "y": 82.6,
+                "zoom": 9.35,
+                "az": 0.6853981633974483
+              },
+              {
+                "focus": true,
+                "zoom": 9.35,
+                "az": 0.8853981633974483
+              }
+            ],
+            "ease": "linear"
+          }
+        ],
+        "everyHalfSecond": [
+          {
+            "t": 0,
+            "x": 30,
+            "y": 82.6,
+            "zoom": 9.35,
+            "az": 0.6854
+          },
+          {
+            "t": 0.5,
+            "x": 29.972,
+            "y": 82.608,
+            "zoom": 9.35,
+            "az": 0.6979
+          },
+          {
+            "t": 1,
+            "x": 29.945,
+            "y": 82.626,
+            "zoom": 9.35,
+            "az": 0.7104
+          },
+          {
+            "t": 1.5,
+            "x": 29.918,
+            "y": 82.654,
+            "zoom": 9.35,
+            "az": 0.7229
+          },
+          {
+            "t": 2,
+            "x": 29.892,
+            "y": 82.693,
+            "zoom": 9.35,
+            "az": 0.7354
+          },
+          {
+            "t": 2.5,
+            "x": 29.866,
+            "y": 82.742,
+            "zoom": 9.35,
+            "az": 0.7479
+          },
+          {
+            "t": 3,
+            "x": 29.841,
+            "y": 82.802,
+            "zoom": 9.35,
+            "az": 0.7604
+          },
+          {
+            "t": 3.5,
+            "x": 29.816,
+            "y": 82.872,
+            "zoom": 9.35,
+            "az": 0.7729
+          },
+          {
+            "t": 4,
+            "x": 29.791,
+            "y": 82.952,
+            "zoom": 9.35,
+            "az": 0.7854
+          },
+          {
+            "t": 4.5,
+            "x": 29.767,
+            "y": 83.043,
+            "zoom": 9.35,
+            "az": 0.7979
+          },
+          {
+            "t": 5,
+            "x": 29.743,
+            "y": 83.144,
+            "zoom": 9.35,
+            "az": 0.8104
+          },
+          {
+            "t": 5.5,
+            "x": 29.72,
+            "y": 83.256,
+            "zoom": 9.35,
+            "az": 0.8229
+          },
+          {
+            "t": 6,
+            "x": 29.698,
+            "y": 83.378,
+            "zoom": 9.35,
+            "az": 0.8354
+          },
+          {
+            "t": 6.5,
+            "x": 29.675,
+            "y": 83.51,
+            "zoom": 9.35,
+            "az": 0.8479
+          },
+          {
+            "t": 7,
+            "x": 29.654,
+            "y": 83.653,
+            "zoom": 9.35,
+            "az": 0.8604
+          },
+          {
+            "t": 7.5,
+            "x": 29.632,
+            "y": 83.807,
+            "zoom": 9.35,
+            "az": 0.8729
+          }
+        ]
+      },
+      "motion": {
+        "median": 3.25,
+        "jumps": [
+          {
+            "frame": 170,
+            "change": 3.49,
+            "times": 1.1
+          },
+          {
+            "frame": 172,
+            "change": 3.49,
+            "times": 1.1
+          },
+          {
+            "frame": 176,
+            "change": 3.49,
+            "times": 1.1
+          }
+        ]
+      },
+      "files": [
+        {
+          "file": "moment-hatchlings.mp4",
+          "role": "video",
+          "type": "video/mp4; codecs=\"avc1.640028\"",
+          "bytes": 2905750,
+          "sha256": "c0ea71d573c6990350e6ec270fee6932c8329ca8fa346a63c404b026ba610e7f",
+          "checked": {
+            "duration": 8,
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "file": "moment-hatchlings.webm",
+          "role": "video",
+          "type": "video/webm; codecs=\"vp9\"",
+          "bytes": 2225402,
+          "sha256": "e1b5f8b4a2140b3c2499fb6038d7d3d0bb2f79b3edbfd8ce050a021516d6a63c",
+          "checked": {
+            "duration": 8,
+            "width": 1920,
+            "height": 1080
+          }
+        },
+        {
+          "file": "moment-hatchlings.jpg",
+          "role": "poster",
+          "type": "image/jpeg",
+          "bytes": 222565,
+          "sha256": "eaef6c0cfe39869f57e186062bbfc3faa3323996a6ed4f59e2540f0a2796e54c"
+        }
+      ]
+    }
+  ]
+}

@@ -14,6 +14,9 @@ for (const path of ['index.html', 'website/index.html', 'website/visuals.html'])
   for (const name of ['default-src', 'base-uri', 'object-src', 'script-src-attr', 'form-action', 'worker-src', ...(site ? [] : ['frame-src'])]) {
     assert.deepEqual(directives.get(name), ["'none'"], `${path}: ${name}`);
   }
+  // The homepage plays its own game footage (website/review-media/video) and nothing else.
+  if (path === 'website/index.html') assert.deepEqual(directives.get('media-src'), ["'self'"], `${path}: media-src`);
+  else if (path === 'website/visuals.html') assert.ok(!directives.has('media-src'), `${path}: no media-src (no video here)`);
   // The website (not the game) runs Google Tag Manager; its no-JavaScript frame is the only allowed frame.
   if (site) assert.deepEqual(directives.get('frame-src'), ['https://www.googletagmanager.com'], `${path}: frame-src`);
   assert.ok(html.indexOf(matches[0][0]) < html.search(/<(?:script|link|style)\b/), `${path}: policy precedes subresources`);
