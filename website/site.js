@@ -3,6 +3,13 @@
 // A short fade when a picture changes, skipped for reduced motion.
 const calm = matchMedia('(prefers-reduced-motion: reduce)');
 const fadeIn = image => { if (!calm.matches && image.animate) image.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 450, easing: 'ease' }); };
+// The floating header turns solid once the page has scrolled past the top of the hero.
+const header = document.querySelector('.home .header');
+if (header) {
+  const solid = () => header.classList.toggle('scrolled', scrollY > 40);
+  addEventListener('scroll', solid, { passive: true });
+  solid();
+}
 const choices = [...document.querySelectorAll('.map-choice')];
 const fields = {
   name: document.querySelector('#map-name'),
