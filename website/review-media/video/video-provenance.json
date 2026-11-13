@@ -1,8 +1,8 @@
 {
-  "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+  "sourceRevision": "92c8c635985df815ca36838001679ecfb54695d3",
   "sourceDate": "2026-11-12",
   "uncommittedGameChanges": false,
-  "capturedAt": "2026-11-12T13:55:04.130Z",
+  "capturedAt": "2026-11-13T03:47:06.047Z",
   "method": "Production renderer, models and per-step simulation (Game.update's wildlife steps, the calendar held so no day redraw lands mid-shot) in headless Chrome on the GPU, at a fixed 30 fps timestep. Scenes are seeded restored maps (release-fixtures, Math.random seeded) with posed animals that then behave on their own; keystone clips start from production moment triggers (website-moment-fixtures). Encoded in the page with WebCodecs (H.264 High, VP9), muxed by tools/video-mux.mjs. Crossfade loops dissolve the last second into the first; a dissolve joins the overhead view to eye level. Nothing is generated or painted.",
   "seed": {
     "map": 1987,
@@ -12,12 +12,12 @@
     {
       "id": "hollis-creek-flyover",
       "clip": "hollis-creek-flyover",
-      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+      "sourceRevision": "92c8c635985df815ca36838001679ecfb54695d3",
       "title": "Hollis creek flyover",
       "map": "pnw",
       "kind": "staged restored habitat study",
-      "width": 1920,
-      "height": 1080,
+      "width": 2560,
+      "height": 1440,
       "fps": 30,
       "frames": 300,
       "renderedFrames": 300,
@@ -27,8 +27,8 @@
       "timeOfDay": 0.79,
       "animalPace": 4,
       "bitrate": {
-        "mp4": 2900000,
-        "webm": 2300000
+        "mp4": 7000000,
+        "webm": 5500000
       },
       "description": "A steady drift up the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.",
       "moment": null,
@@ -244,21 +244,21 @@
         ]
       },
       "motion": {
-        "median": 5.98,
+        "median": 6.4,
         "jumps": [
           {
             "frame": 298,
-            "change": 6.88,
-            "times": 1.2
-          },
-          {
-            "frame": 295,
-            "change": 6.85,
+            "change": 7.04,
             "times": 1.1
           },
           {
-            "frame": 296,
-            "change": 6.85,
+            "frame": 292,
+            "change": 7.03,
+            "times": 1.1
+          },
+          {
+            "frame": 295,
+            "change": 7,
             "times": 1.1
           }
         ]
@@ -267,40 +267,40 @@
         {
           "file": "hollis-creek-flyover.mp4",
           "role": "video",
-          "type": "video/mp4; codecs=\"avc1.640028\"",
-          "bytes": 3665816,
-          "sha256": "de58bfa1f006c2ea9120631377228f924656cbe5b885859c667c7a987fe25e83",
+          "type": "video/mp4; codecs=\"avc1.640032\"",
+          "bytes": 8816480,
+          "sha256": "1c2ac973237c1d617a92bbcbd517929f12a46654f6971ce41578e2cde10f103b",
           "checked": {
             "duration": 10,
-            "width": 1920,
-            "height": 1080
+            "width": 2560,
+            "height": 1440
           }
         },
         {
           "file": "hollis-creek-flyover.webm",
           "role": "video",
           "type": "video/webm; codecs=\"vp9\"",
-          "bytes": 2957911,
-          "sha256": "96f8da94ff743ebc1149212f247ba906e7b5c2d33fbbbbf3d3222f303be9033a",
+          "bytes": 7002466,
+          "sha256": "34f84f57a0680f122153129521496c7f6f2a3af49a5a3174a6daf419d978ed24",
           "checked": {
             "duration": 10,
-            "width": 1920,
-            "height": 1080
+            "width": 2560,
+            "height": 1440
           }
         },
         {
           "file": "hollis-creek-flyover.jpg",
           "role": "poster",
           "type": "image/jpeg",
-          "bytes": 404295,
-          "sha256": "f6cd307d3f9fc46ec1b942b9a6a7aebd67bc2ba9c5b4a7ceff5c966891458f88"
+          "bytes": 391470,
+          "sha256": "e5f640ef6b1ed990e0c63a543795404f824396aef5b0ac65272cb82dc33125e9"
         }
       ]
     },
     {
       "id": "hollis-creek-flyover-vertical",
       "clip": "hollis-creek-flyover",
-      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+      "sourceRevision": "92c8c635985df815ca36838001679ecfb54695d3",
       "title": "Hollis creek flyover",
       "map": "pnw",
       "kind": "staged restored habitat study",
@@ -315,8 +315,8 @@
       "timeOfDay": 0.79,
       "animalPace": 4,
       "bitrate": {
-        "mp4": 2900000,
-        "webm": 2300000
+        "mp4": 3937500,
+        "webm": 3093750
       },
       "description": "A steady drift up the restored Hollis creek at golden hour, at watch pace: Roosevelt elk, a black-tailed deer, a beaver, a great blue heron and wood ducks posed at the water, then left to their own behaviour.",
       "moment": null,
@@ -532,21 +532,21 @@
         ]
       },
       "motion": {
-        "median": 6.06,
+        "median": 5.91,
         "jumps": [
           {
-            "frame": 298,
-            "change": 6.75,
-            "times": 1.1
-          },
-          {
-            "frame": 295,
-            "change": 6.72,
+            "frame": 299,
+            "change": 6.6,
             "times": 1.1
           },
           {
             "frame": 297,
-            "change": 6.72,
+            "change": 6.58,
+            "times": 1.1
+          },
+          {
+            "frame": 298,
+            "change": 6.58,
             "times": 1.1
           }
         ]
@@ -556,8 +556,8 @@
           "file": "hollis-creek-flyover-vertical.mp4",
           "role": "video",
           "type": "video/mp4; codecs=\"avc1.640028\"",
-          "bytes": 3664103,
-          "sha256": "9daabf2a9ca92438f04a0c5d8e3c37292cc4fd839aeaa2f0c43816159e9062e2",
+          "bytes": 4973245,
+          "sha256": "96b538309a53bfef3ce5ad0278216a6a56f84e9da42db52229abdc32b9223ab7",
           "checked": {
             "duration": 10,
             "width": 1080,
@@ -568,8 +568,8 @@
           "file": "hollis-creek-flyover-vertical.webm",
           "role": "video",
           "type": "video/webm; codecs=\"vp9\"",
-          "bytes": 2942616,
-          "sha256": "185774353538298dbaa127e635671dc7e3923fdc68165aa0f57c53ccb90b3dac",
+          "bytes": 3939049,
+          "sha256": "7af8289581011f3293e7f5bae02151a03730d2cb72a04ecbed8a03959be31022",
           "checked": {
             "duration": 10,
             "width": 1080,
@@ -580,20 +580,20 @@
           "file": "hollis-creek-flyover-vertical.jpg",
           "role": "poster",
           "type": "image/jpeg",
-          "bytes": 401332,
-          "sha256": "9e8c1becf1d073ed54ef99c7a0028f2d5875794daedd6b21473b7b814168b344"
+          "bytes": 406260,
+          "sha256": "74eafbba826413d34859a0511897bff9389c8df9e68577102e263628ac943a66"
         }
       ]
     },
     {
       "id": "map-to-forest-floor",
       "clip": "map-to-forest-floor",
-      "sourceRevision": "3b522bf2628c56b94e2091f5902cd005a775c07f",
+      "sourceRevision": "92c8c635985df815ca36838001679ecfb54695d3",
       "title": "From the map to the forest floor",
       "map": "pnw",
       "kind": "staged restored habitat study",
-      "width": 1920,
-      "height": 1080,
+      "width": 2560,
+      "height": 1440,
       "fps": 30,
       "frames": 360,
       "renderedFrames": 360,
@@ -603,8 +603,8 @@
       "timeOfDay": 0.79,
       "animalPace": 4,
       "bitrate": {
-        "mp4": 2900000,
-        "webm": 1875364
+        "mp4": 6000000,
+        "webm": 4200000
       },
       "description": "The overhead view of restored Hollis pushes in on a Roosevelt elk at the creek, then dissolves to eye level behind it as it walks up the bank (sent there through the game's pathfinding). Both are the game's own cameras (the usual view, then watch mode's eye level).",
       "moment": null,
@@ -809,7 +809,7 @@
             "t": 8.5,
             "eye": [
               62.389,
-              1.298,
+              1.297,
               54.651
             ]
           },
@@ -817,7 +817,7 @@
             "t": 9,
             "eye": [
               62.501,
-              1.303,
+              1.302,
               54.332
             ]
           },
@@ -825,7 +825,7 @@
             "t": 9.5,
             "eye": [
               62.62,
-              1.309,
+              1.307,
               54.016
             ]
           },
@@ -833,7 +833,7 @@
             "t": 10,
             "eye": [
               62.742,
-              1.275,
+              1.283,
               53.701
             ]
           },
@@ -841,7 +841,7 @@
             "t": 10.5,
             "eye": [
               62.865,
-              1.209,
+              1.234,
               53.387
             ]
           },
@@ -849,7 +849,7 @@
             "t": 11,
             "eye": [
               63.014,
-              1.136,
+              1.18,
               53.084
             ]
           },
@@ -857,28 +857,28 @@
             "t": 11.5,
             "eye": [
               63.189,
-              1.093,
+              1.145,
               52.79
             ]
           }
         ]
       },
       "motion": {
-        "median": 7.86,
+        "median": 8.01,
         "jumps": [
           {
-            "frame": 89,
-            "change": 14.66,
+            "frame": 78,
+            "change": 15.07,
             "times": 1.9
           },
           {
-            "frame": 90,
-            "change": 14.65,
+            "frame": 76,
+            "change": 15.02,
             "times": 1.9
           },
           {
             "frame": 77,
-            "change": 14.6,
+            "change": 15,
             "times": 1.9
           }
         ]
@@ -887,33 +887,33 @@
         {
           "file": "map-to-forest-floor.mp4",
           "role": "video",
-          "type": "video/mp4; codecs=\"avc1.640028\"",
-          "bytes": 4415601,
-          "sha256": "a5b3e299fd8989bf2a7d30b4ee49088089118e235a3518ca2c0a5a244d9bee50",
+          "type": "video/mp4; codecs=\"avc1.640032\"",
+          "bytes": 9149569,
+          "sha256": "a120dcde7e5b8d4773f9b4cfe6293ab3f06bdbea0bf893b3b30f3f24caf71608",
           "checked": {
             "duration": 12,
-            "width": 1920,
-            "height": 1080
+            "width": 2560,
+            "height": 1440
           }
         },
         {
           "file": "map-to-forest-floor.webm",
           "role": "video",
           "type": "video/webm; codecs=\"vp9\"",
-          "bytes": 4309077,
-          "sha256": "4a9d542ecaab8c72739188754de51b8743b2a9ba0c6ae15c3c3347a9c3605b91",
+          "bytes": 9113233,
+          "sha256": "d30929a5799421efe73f34ae3ae1f92694206ffa4f8cda0e51505fab168978f6",
           "checked": {
             "duration": 12,
-            "width": 1920,
-            "height": 1080
+            "width": 2560,
+            "height": 1440
           }
         },
         {
           "file": "map-to-forest-floor.jpg",
           "role": "poster",
           "type": "image/jpeg",
-          "bytes": 628471,
-          "sha256": "ebc031ca4ca22474b4d8f9160cf87ab9344fccee9fb002486f3b44ecd8f78b1a"
+          "bytes": 571115,
+          "sha256": "01a93eba10c340c443199fbf73871809fc257bc40e3c80f34dfcbc5db47591ed"
         }
       ]
     },

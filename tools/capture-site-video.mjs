@@ -23,9 +23,12 @@ const arg=name=>process.argv.find(a=>a.startsWith(`--${name}=`))?.slice(name.len
 const ids=arg('clips')?.split(',')||CLIPS.map(c=>c.id);
 for(const id of ids)if(!CLIPS.some(c=>c.id===id))throw Error(`Unknown clip ${id}. Clips: ${CLIPS.map(c=>c.id).join(', ')}`);
 const vertical=process.argv.includes('--vertical');
-// About 2.5–4 MB for ten seconds at 1920×1080: sharp enough for a full-width hero, light enough for a phone.
+// About 2.5–4 MB for ten seconds at 1920×1080: sharp enough for a small clip, light enough for a phone.
+// A clip can ask for more (bitrate, budget and scale in website-video-clips.mjs): the full-screen hero
+// and descent are filmed at 2560×1440 with about three times the bits, since at this rate the encoders
+// smeared grass and animals to half their detail.
 const BITRATE={mp4:2.9e6,webm:2.3e6};
-const BUDGET=4.6e6; // bytes per video file (website-check allows 5 MB)
+const BUDGET=4.6e6; // bytes per video file (website-check allows 5 MB, 10 MB for the hero and descent)
 await mkdir(out,{recursive:true});
 const provenanceFile=out+'video-provenance.json';
 const previous=await readFile(provenanceFile,'utf8').then(JSON.parse).catch(()=>null);
@@ -39,32 +42,37 @@ try{
   const {gpu}=await browser.evaluate('(()=>{const c=new OffscreenCanvas(1,1).getContext("webgl2"),d=c.getExtension("WEBGL_debug_renderer_info");return {gpu:d?c.getParameter(d.UNMASKED_RENDERER_WEBGL):"unknown"};})()');
   console.log('Rendering on',gpu);
   for(const id of ids)for(const tall of vertical||CLIPS.find(c=>c.id===id).vertical?[false,true]:[false]){
-    const [width,height]=tall?[1080,1920]:[1920,1080],name=id+(tall?'-vertical':'');
-    await browser.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});
+    const clip=CLIPS.find(c=>c.id===id),name=id+(tall?'-vertical':'');
+    // (scale films at a higher pixel ratio: the same view, more pixels. The 9:16 version is for phones,
+    // so it stays 1080×1920 with the same bits per pixel as the wide one)
+    const scale=tall?1:clip.scale||1,bits=tall?1/(clip.scale||1)**2:1;
+    const [cssWidth,cssHeight]=tall?[1080,1920]:[1920,1080],[width,height]=[Math.round(cssWidth*scale),Math.round(cssHeight*scale)];
+    await browser.send('Emulation.setDeviceMetricsOverride',{width:cssWidth,height:cssHeight,deviceScaleFactor:scale,mobile:false});
     await browser.navigate('/tools/website-video.html?clip='+id);
     await browser.waitFor('window.websiteVideo?.ready','Video studio for '+id,300000);
     const error=await browser.evaluate('window.websiteVideo.error');if(error)throw Error(error);
     const meta=await browser.evaluate('(({clip,description,moment,focus,posed,shots,vertical})=>({clip,description,moment,focus,posed,shots,vertical}))(window.websiteVideo)');
-    const clip=CLIPS.find(c=>c.id===id),frames=Math.round(clip.seconds*30);
+    const frames=Math.round(clip.seconds*30),budget=Math.max(BUDGET,(clip.budget||BUDGET)*bits);
     // a frame each second and the last, to look at before keeping the clip
     const samples=[...Array.from({length:Math.ceil(frames/30)},(_,n)=>n*30),frames-1];
     const started=Date.now();
     console.log(`Recording ${name} (${clip.seconds} s, ${width}×${height})…`);
     // The encoders overshoot their bitrate on busy footage (VP9 by up to half again), so a file over
     // budget is filmed again at a lower rate: the same frames, since the scene is seeded.
-    let bitrate={...BITRATE},result;
+    let bitrate=Object.fromEntries(Object.entries(clip.bitrate||BITRATE).map(([k,v])=>[k,Math.round(v*bits)])),result;
     for(let attempt=0;;attempt++){
       if(attempt)await browser.navigate('/tools/website-video.html?clip='+id),await browser.waitFor('window.websiteVideo?.ready','Video studio for '+id,300000);
-      result=await browser.evaluate(`websiteVideo.record(${JSON.stringify({mp4Bitrate:bitrate.mp4,webmBitrate:bitrate.webm,samples})})`,1800000);
+      result=await browser.evaluate(`websiteVideo.record(${JSON.stringify({mp4Bitrate:bitrate.mp4,webmBitrate:bitrate.webm,samples,posterWidth:cssWidth})})`,1800000);
+      if(result.width!==width||result.height!==height)throw Error(`${name}: filmed ${result.width}×${result.height}, not ${width}×${height}`);
       browser.assertHealthy();
-      const over=['mp4','webm'].filter(k=>result.sizes[k]>BUDGET);
+      const over=['mp4','webm'].filter(k=>result.sizes[k]>budget);
       if(!over.length)break;
-      if(attempt===2)throw Error(`${name}: ${over.join(' and ')} still over ${BUDGET/1e6} MB`);
-      for(const k of over)bitrate[k]=Math.round(bitrate[k]*BUDGET*.92/result.sizes[k]);
+      if(attempt===2)throw Error(`${name}: ${over.join(' and ')} still over ${budget/1e6} MB`);
+      for(const k of over)bitrate[k]=Math.round(bitrate[k]*budget*.92/result.sizes[k]);
       console.log(`  ${over.map(k=>`${k} ${(result.sizes[k]/1e6).toFixed(2)} MB`).join(', ')} over budget; again at ${over.map(k=>`${k} ${(bitrate[k]/1e6).toFixed(2)} Mbit/s`).join(', ')}`);
     }
     const files=[];
-    for(const [kind,ext,type] of [['mp4','mp4','video/mp4; codecs="avc1.640028"'],['webm','webm','video/webm; codecs="vp9"'],['poster','jpg','image/jpeg']]){
+    for(const [kind,ext,type] of [['mp4','mp4',`video/mp4; codecs="${result.codecs.mp4}"`],['webm','webm','video/webm; codecs="vp9"'],['poster','jpg','image/jpeg']]){
       const parts=[];
       for(let at=0;at<result.sizes[kind];at+=1.5e6)parts.push(Buffer.from(await browser.evaluate(`websiteVideo.slice(${JSON.stringify(kind)},${at},1500000)`),'base64'));
       const bytes=Buffer.concat(parts),file=`${name}.${ext}`;

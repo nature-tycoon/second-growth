@@ -338,8 +338,10 @@
 .hero-video.on { opacity: 1; }
 
 /* From the map to the forest floor. Without JavaScript, on touch screens and with reduced motion
-   it is a picture with its words over it; .scrub (mouse, wide screen) pins it while scrolling plays it. */
+   it is a picture with its words over it; .scrub (mouse, wide screen) pins the footage while
+   scrolling plays it, and the words scroll up over it as usual, so the page still feels like it moves. */
 .descent { position: relative; z-index: 1; background: #0f2a22; color: var(--cream); }
+.descent-track { position: relative; }
 .descent-stage { position: relative; overflow: hidden; }
 .descent-poster { display: block; width: 100%; height: auto; aspect-ratio: 16/9; object-fit: cover; background: #0f2a22; }
 .descent-video, .moment-frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .5s ease; }
@@ -352,9 +354,16 @@
 .descent-beats li { padding: 14px 18px; border: 1px solid #eff2d535; border-radius: 20px; background: #102f2680; -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px); font-size: 14px; line-height: 1.6; color: #f1eedb; opacity: .45; transition: opacity .4s; }
 .descent-beats li.on { opacity: 1; }
 .descent-beats li > span { display: block; font-size: 10px; font-weight: 800; letter-spacing: 1.6px; text-transform: uppercase; color: #edb58e; margin-bottom: 3px; }
-.descent.scrub .descent-track { height: 280vh; }
 .descent.scrub .descent-stage { position: sticky; top: 0; height: 100vh; height: 100svh; }
 .descent.scrub .descent-poster { height: 100%; aspect-ratio: auto; }
+/* The words follow the footage up the page, laid over it from its top (-100svh): the title, then each
+   card in a screen of its own. The track is as tall as the words (250vh), so the footage plays over
+   150vh of scrolling. "Above" passes while the view pushes in; "Eye level" rises from the bottom as the
+   clip dissolves to eye level, halfway, and is still on screen when the section scrolls away. */
+.descent.scrub .descent-copy { position: relative; inset: auto; display: block; padding-block: 0; margin-top: -100vh; margin-top: -100svh; }
+.descent.scrub .descent-intro { height: 60vh; padding-top: clamp(28px, 7vh, 80px); }
+.descent.scrub .descent-beats { grid-auto-rows: 80vh; align-items: center; gap: 0; padding-bottom: 30vh; }
+.descent.scrub .descent-beats li { opacity: 1; font-size: 16px; padding: 18px 22px; }
 @media (max-width: 720px) {
   /* Phones held upright: the picture, then the words under it. */
   .descent-copy { position: relative; padding-block: 26px 40px; gap: 20px; }

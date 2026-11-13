@@ -75,7 +75,7 @@ try{
     bg.addColorStop(0,'#56715a');bg.addColorStop(.55,'#34493a');bg.addColorStop(1,'#1f2c24');
     ctx.globalAlpha=1;ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);ctx.drawImage(r.gl.domElement,0,0);
   }
-  async function record({mp4Bitrate,webmBitrate,samples=[]}){
+  async function record({mp4Bitrate,webmBitrate,samples=[],posterWidth=W}){
     const keyEvery=Math.round((clip.keyEvery??2)*fps),chunks={mp4:[],webm:[]};let description=null,failed=null;
     const encoder=(key,config)=>{
       const e=new VideoEncoder({output:(chunk,meta)=>{
@@ -85,8 +85,10 @@ try{
       },error:e=>{failed=e;}});
       e.configure({width:W,height:H,framerate:fps,bitrateMode:'variable',latencyMode:'quality',...config});return e;
     };
-    const mp4=encoder('mp4',{codec:'avc1.640028',bitrate:mp4Bitrate,avc:{format:'avc'}});
-    const webm=encoder('webm',{codec:'vp09.00.40.08',bitrate:webmBitrate});
+    // (H.264 High and VP9 profile 0: level 4 up to 1920×1080, level 5 for 2560×1440)
+    const big=W*H>2097152,codecs={mp4:big?'avc1.640032':'avc1.640028',webm:big?'vp09.00.50.08':'vp09.00.40.08'};
+    const mp4=encoder('mp4',{codec:codecs.mp4,bitrate:mp4Bitrate,avc:{format:'avc'}});
+    const webm=encoder('webm',{codec:codecs.webm,bitrate:webmBitrate});
     const head=[],sampled={},path=[],change=[],small=new OffscreenCanvas(320,Math.round(320*H/W));let previous=null;let poster=null,dissolveFrom=null,lastShot=null;
     for(let i=0;i<rendered;i++){
       if(failed)throw failed;
@@ -115,8 +117,10 @@ try{
       const frame=new VideoFrame(out,{timestamp:Math.round(k*1e6/fps),duration:Math.round(1e6/fps)});
       for(const e of [mp4,webm])e.encode(frame,{keyFrame:k%keyEvery===0});
       frame.close();
-      if(k===0)poster=await jpeg(out,.88);
-      if(samples.includes(k))sampled[k]=base64(await jpeg(out,.8,960));
+      // (the poster stays at the page's size, 1920 wide, even when the clip is filmed bigger: it is the
+      // still the page loads first. The sample frames are full size, to judge sharpness by)
+      if(k===0)poster=await jpeg(out,.88,posterWidth);
+      if(samples.includes(k))sampled[k]=base64(await jpeg(out,.9));
       while(mp4.encodeQueueSize>3||webm.encodeQueueSize>3)await new Promise(done=>setTimeout(done,5));
     }
     await mp4.flush();await webm.flush();mp4.close();webm.close();
@@ -130,7 +134,7 @@ try{
     // (the median change, and the biggest jumps: frame k is the change from frame k-1 to k)
     const sorted=[...change].sort((a,b)=>a-b),median=sorted[sorted.length>>1];
     const jumps=change.map((v,k)=>({frame:k+1,change:+v.toFixed(2),times:+(v/Math.max(median,.05)).toFixed(1)})).sort((a,b)=>b.change-a.change).slice(0,3);
-    return {width:W,height:H,fps,frames,rendered,keyEvery,path,motion:{median:+median.toFixed(2),jumps},
+    return {width:W,height:H,fps,frames,rendered,keyEvery,codecs,path,motion:{median:+median.toFixed(2),jumps},
       sizes:{mp4:files.mp4.length,webm:files.webm.length,poster:poster.length},samples:sampled};
   }
   async function jpeg(canvas,quality,width=canvas.width){
