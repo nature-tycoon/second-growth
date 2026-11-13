@@ -191,42 +191,6 @@ export const CLIPS = [
     },
   },
   {
-    id: 'hunt-anaconda', title: 'An anaconda strikes from the water', map: 'amazon', seconds: 9, preroll: 1.5, loop: 'none', time: .7, pace: 4, ...REEL,
-    kind: 'staged hunt study',
-    setup(g, pose, wl) {
-      // (run seed 12: in this run the strike lands; in most it misses, as most ambushes do)
-      g.wildRng.setState(12);
-      const snake = pose('anaconda', 54, 40, 'shallows', 0);
-      // thirsty capybara coming down to drink; the hungry snake picks one as it comes near (lieInWait)
-      const capybaras = [[58, 42], [59, 43]].map(([x, y], n) => pose('capybara', x, y, 'land', 3.3 + n * .3));
-      for (const c of capybaras) c.thirst = 30;
-      release(capybaras); snake.hunger = 30; snake.wait = 0;
-      g.selectedAgent = snake; // (the tracking lens shows it through leaves and cover, as in play: 0040)
-      return {
-        focus: snake, watch: [snake, ...capybaras],
-        description: 'A hungry green anaconda posed in the lake shallows and two thirsty capybara posed up the bank (run seed 12). The capybara come down to drink, and the snake\'s own lie-in-wait behaviour picks one, strikes and feeds; nothing after the posing is scripted.',
-        shots: [{ until: Infinity, camera: 'follow', zoom: [8.4, 9.4], az: [Q - .3, Q + .25] }],
-      };
-    },
-  },
-  {
-    id: 'hunt-harpy', title: 'A harpy eagle takes a howler monkey', map: 'amazon', seconds: 10, loop: 'none', time: .55, pace: 4, ...REEL,
-    kind: 'staged hunt study',
-    setup(g, pose, wl) {
-      const troop = [[64, 46], [65, 47], [63, 47], [65, 45]].map(([x, y], n) => pose('howler', x, y, 'tree', n));
-      release(troop);
-      const harpy = pose('harpy', 59, 44, 'tree', 0);
-      harpy.flying = false;
-      huntFrom(g, wl, harpy, ['howler']);
-      g.selectedAgent = harpy; // (the tracking lens shows it through leaves and cover, as in play: 0040)
-      return {
-        focus: harpy, watch: [harpy, ...troop.slice(0, 3)],
-        description: 'A hungry harpy eagle posed on a crown near a howler troop in restored forest; the hunt is begun through the game\'s own startHunt, and the drop from the perch, the catch roll and carrying the catch off are the simulation\'s.',
-        shots: [{ until: Infinity, camera: 'follow', zoom: [6.4, 7.2], az: [Q - .25, Q + .2] }],
-      };
-    },
-  },
-  {
     id: 'hunt-hawk', title: 'A red-tailed hawk takes a chipmunk', map: 'atlanta', seconds: 8, loop: 'none', time: .5, pace: 4, ...REEL,
     kind: 'staged hunt study',
     setup(g, pose, wl) {
@@ -241,22 +205,6 @@ export const CLIPS = [
         focus: hawk, watch: [hawk, ...chipmunks],
         description: 'A hungry red-tailed hawk posed on the wing over backyards near two foraging chipmunks (run seed 1); the hunt is begun through the game\'s own startHunt, and the circling, the stoop, the catch roll and carrying the catch to a perch are the simulation\'s.',
         shots: [{ until: Infinity, camera: 'follow', zoom: [7.4, 8.2], az: [Q - .25, Q + .2] }],
-      };
-    },
-  },
-  {
-    id: 'hunt-tiger', title: 'A tiger stalks sambar', map: 'sumatra', seconds: 9, preroll: 6, loop: 'none', time: .66, pace: 4, ...REEL,
-    kind: 'staged hunt study',
-    setup(g, pose, wl) {
-      const herd = [[71, 33], [72, 35], [73, 33]].map(([x, y]) => pose('sambar', x, y, 'land', 2.6));
-      release(herd);
-      const tiger = pose('tiger', 65, 33, 'land', 0);
-      huntFrom(g, wl, tiger, ['sambar']);
-      g.selectedAgent = tiger; // (the tracking lens shows it through leaves and cover, as in play: 0040)
-      return {
-        focus: tiger, watch: [tiger, ...herd],
-        description: 'A hungry tiger posed at the forest edge near three grazing sambar deer; the hunt is begun through the game\'s own startHunt, and the stalk, rush and outcome are the simulation\'s.',
-        shots: [{ until: Infinity, camera: 'follow', zoom: [7, 7.8], az: [Q - .3, Q + .15] }],
       };
     },
   },
