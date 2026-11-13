@@ -30,7 +30,7 @@ const badges = e => [
   e.nocturnal && `<span class="badge night" title="Active at night">${ICONS.night}<span class="visually-hidden">Active at night</span></span>`,
 ].filter(Boolean).join('');
 // A species card: the portrait on a stage tinted for its landscape, used by the index and "more from".
-const card = (e, portrait, up, land) => `<li data-slug="${esc(e.slug)}" data-kind="${e.kind}" data-search="${esc((e.name + ' ' + (e.sci || '') + ' ' + e.group).toLowerCase())}"><a class="card" data-land="${esc(land)}" href="${up}${e.slug}/"><span class="card-stage"><img src="${up}../guide-media/${esc(portrait.file)}" alt="" width="320" height="240" loading="lazy" decoding="async"></span><span class="card-text"><strong>${esc(e.name)}</strong>${e.sci ? `<em>${esc(e.sci)}</em>` : ''}<span class="badges">${badges(e)}</span></span></a></li>`;
+const card = (e, portrait, up, land) => `<li data-slug="${esc(e.slug)}" data-kind="${e.kind}" data-search="${esc((e.name + ' ' + (e.sci || '') + ' ' + e.group).toLowerCase())}"><a class="card" data-land="${esc(land)}" href="${up}${e.slug}/"><span class="card-stage"><img src="${up}../guide-media/${esc(portrait.card.file)}" alt="" width="${portrait.card.width}" height="${portrait.card.height}" loading="lazy" decoding="async"></span><span class="card-text"><strong>${esc(e.name)}</strong>${e.sci ? `<em>${esc(e.sci)}</em>` : ''}<span class="badges">${badges(e)}</span></span></a></li>`;
 
 function page({ title, description, path, depth, land, top, body, schema, image, script }) {
   const up = '../'.repeat(depth);
@@ -175,7 +175,7 @@ function indexPage(guide, landscapes, portraits) {
         <p>Meet the ${animals} animals and ${plants} plants of seven landscapes, each shown as the game draws it, with what it needs to come back.</p>
         <dl class="gi-stats"><div><dt>Animals</dt><dd>${animals}</dd></div><div><dt>Plants</dt><dd>${plants}</dd></div><div><dt>Landscapes</dt><dd>${ids.length}</dd></div><div><dt>Real calls</dt><dd>${calls}</dd></div></dl>
       </div>
-      <ul class="gi-parade" aria-hidden="true">${parade.map(slug => `<li><img src="../guide-media/${esc(portraits[slug].file)}" alt="" width="320" height="240"></li>`).join('')}</ul>
+      <ul class="gi-parade" aria-hidden="true">${parade.map(slug => `<li><img src="../guide-media/${esc(portraits[slug].card.file)}" alt="" width="480" height="360"></li>`).join('')}</ul>
     </div>`,
   };
   const body = `    <div class="guide-tools">

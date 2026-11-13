@@ -118,9 +118,12 @@ assert.equal(Object.keys(guideProvenance.portraits).length, guide.length, 'One p
 for (const entry of guide) {
   const portrait = guideProvenance.portraits[entry.slug];
   assert.ok(portrait, `${entry.name}: no portrait`);
-  const bytes = await readFile(join(root, 'website/guide-media', portrait.file));
-  assert.equal(createHash('sha256').update(bytes).digest('hex'), portrait.sha256, `${portrait.file} must match its capture`);
-  assert.ok(bytes.length < 200_000, `${portrait.file}: keep portraits under 200 KB`);
+  assert.ok(portrait.card, `${entry.slug}: no card-size portrait: rerun tools/capture-field-guide.mjs`);
+  for (const { file, sha256 } of [portrait, portrait.card]) {
+    const bytes = await readFile(join(root, 'website/guide-media', file));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), sha256, `${file} must match its capture`);
+    assert.ok(bytes.length < 200_000, `${file}: keep portraits under 200 KB`);
+  }
   const html = await readFile(join(output, 'guide', entry.slug, 'index.html'), 'utf8');
   assert.ok(html.includes(`<meta http-equiv="Content-Security-Policy" content="${GUIDE_CSP}">`), `${entry.slug}: the guide's policy`);
   assert.ok(html.includes(`<link rel="canonical" href="${websiteOrigin}/guide/${entry.slug}/">`), `${entry.slug}: its own canonical URL`);
