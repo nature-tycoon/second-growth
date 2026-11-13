@@ -76,3 +76,107 @@ if (compare) {
     hint.observe(compare);
   }
 }
+// ------------------------------------------------------------ game footage
+// Every clip is real game footage (review-media/video/, see video-provenance.json). Nothing
+// downloads until the page has loaded, nothing plays with reduced motion or Save-Data (the posters
+// stand in), and every clip pauses off-screen and in a background tab.
+const connection = navigator.connection || {};
+const quiet = calm.matches || connection.saveData || /(^|-)2g$/.test(connection.effectiveType || '');
+const probe = document.createElement('video');
+// WebM is smaller; MP4 (H.264) plays everywhere, Safari included.
+const pick = (mp4, webm) => probe.canPlayType('video/webm; codecs="vp9"') === 'probably' ? webm : mp4;
+const afterLoad = fn => document.readyState === 'complete' ? fn() : addEventListener('load', fn, { once: true });
+const play = video => { if (!document.hidden) video.play().catch(() => {}); };
+// Each clip sits over a lazy-loaded picture of its first frame (a poster attribute would download
+// straight away, before the hero). The video fades in once it has a frame to show. With reduced
+// motion it stays on top with its controls, the picture as its poster once that has loaded.
+const overPicture = (video, picture, quietly) => {
+  if (quietly) {
+    const setPoster = () => { video.poster = picture.currentSrc || picture.src; };
+    if (picture.complete && picture.naturalWidth) setPoster(); else picture.addEventListener('load', setPoster, { once: true });
+    video.controls = true; video.classList.add('on'); video.removeAttribute('aria-hidden'); video.removeAttribute('tabindex');
+    video.setAttribute('aria-label', picture.alt);
+  } else video.addEventListener('loadeddata', () => video.classList.add('on'));
+};
+// Play while on screen (and the tab is showing), pause otherwise.
+function whileVisible(video, onShow = play) {
+  let seen = false;
+  const update = () => seen && !document.hidden ? onShow(video) : video.pause();
+  if ('IntersectionObserver' in window) new IntersectionObserver(entries => { seen = entries.some(e => e.isIntersecting); update(); }, { threshold: 0.15 }).observe(video);
+  else seen = true;
+  document.addEventListener('visibilitychange', update);
+  update();
+}
+
+// Hero: the creek flyover behind the title. Its camera moves one way, so instead of a hard cut at
+// the end it fades back to the still underneath (the clip's first frame) and starts again.
+const hero = document.querySelector('.hero-video');
+if (hero && !quiet) {
+  const tall = matchMedia('(max-width: 720px) and (orientation: portrait)');
+  const load = () => {
+    const kind = tall.matches ? 'tall' : 'wide';
+    if (hero.dataset.kind === kind) return;
+    hero.dataset.kind = kind;
+    hero.classList.remove('on');
+    hero.src = pick(hero.dataset[kind + 'Mp4'], hero.dataset[kind + 'Webm']);
+    hero.preload = 'auto';
+    if (!hero.dataset.watched) { hero.dataset.watched = 1; whileVisible(hero); } else play(hero);
+  };
+  hero.addEventListener('playing', () => hero.classList.add('on'));
+  hero.addEventListener('timeupdate', () => { if (hero.duration - hero.currentTime < 0.8) hero.classList.remove('on'); });
+  hero.addEventListener('ended', () => { hero.currentTime = 0; play(hero); });
+  afterLoad(load);
+  tall.addEventListener?.('change', load);
+}
+
+// "From the map to the forest floor". With a mouse on a wide screen, scrolling plays the descent
+// (the clip has a keyframe every half second so seeking stays quick). Elsewhere it simply plays
+// while on screen, and with reduced motion it waits for the player's own Play.
+const descent = document.querySelector('.descent');
+if (descent) {
+  const video = descent.querySelector('video'), beats = [...descent.querySelectorAll('.descent-beats li')];
+  overPicture(video, descent.querySelector('.descent-poster'), quiet);
+  const beat = progress => beats.forEach((li, i) => li.classList.toggle('on', i === (progress < 0.5 ? 0 : 1)));
+  const source = () => { if (!video.src) { video.src = pick(video.dataset.mp4, video.dataset.webm); video.preload = 'auto'; } };
+  if (quiet) { video.src = pick(video.dataset.mp4, video.dataset.webm); video.addEventListener('timeupdate', () => beat(video.currentTime / video.duration)); }
+  else if (matchMedia('(pointer: fine) and (min-width: 721px)').matches) {
+    descent.classList.add('scrub');
+    const track = descent.querySelector('.descent-track');
+    // One seek at a time: when it lands, seek again if the reader has scrolled on meanwhile.
+    let progress = 0, frame = 0;
+    const seek = () => {
+      if (!video.duration || video.seeking) return;
+      const target = progress * (video.duration - 0.05);
+      if (Math.abs(video.currentTime - target) > 0.02) video.currentTime = target;
+    };
+    video.addEventListener('seeked', seek);
+    video.addEventListener('loadedmetadata', seek);
+    const onScroll = () => {
+      frame = 0;
+      const box = track.getBoundingClientRect();
+      progress = Math.min(1, Math.max(0, -box.top / (box.height - innerHeight)));
+      beat(progress);
+      seek();
+    };
+    addEventListener('scroll', () => { frame ||= requestAnimationFrame(onScroll); }, { passive: true });
+    // Fetch it as the section nears, so the first scroll already moves the picture.
+    afterLoad(() => {
+      if (!('IntersectionObserver' in window)) return source();
+      const near = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) { near.disconnect(); source(); } }, { rootMargin: '150% 0px' });
+      near.observe(descent);
+    });
+    onScroll();
+  } else {
+    video.loop = true;
+    video.addEventListener('timeupdate', () => beat(video.currentTime / video.duration));
+    afterLoad(() => whileVisible(video, v => { source(); play(v); }));
+  }
+}
+
+// Keystone moments: each clip plays while it is on screen.
+for (const video of document.querySelectorAll('.moment-clip video')) {
+  const source = () => { if (!video.src) { video.src = pick(video.dataset.mp4, video.dataset.webm); video.preload = 'auto'; } };
+  overPicture(video, video.parentElement.querySelector('img'), quiet);
+  if (quiet) video.src = pick(video.dataset.mp4, video.dataset.webm);
+  else afterLoad(() => whileVisible(video, v => { source(); play(v); }));
+}

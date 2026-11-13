@@ -61,7 +61,13 @@ for (const clip of videoProvenance.clips) {
     freshFiles.add('video/' + file.file);
   }
 }
-for (const match of homepage.matchAll(/(?:src|srcset|data-image|poster)="review-media\/([^"?]+)"/g)) assert.ok(freshFiles.has(match[1]), 'Homepage imagery must have recorded fresh provenance');
+const mediaAttribute = /(?:src|srcset|data-image|poster|data-(?:wide-|tall-)?(?:mp4|webm))="review-media\/([^"?]+)"/g;
+for (const match of homepage.matchAll(mediaAttribute)) assert.ok(freshFiles.has(match[1]), 'Homepage imagery and footage must have recorded fresh provenance');
+// The landing page's footage: the hero flyover (wide and upright), the descent, and the keystone reel.
+for (const id of ['hollis-creek-flyover', 'hollis-creek-flyover-vertical', 'map-to-forest-floor']) assert.ok(homepage.includes(`review-media/video/${id}.mp4`) && homepage.includes(`review-media/video/${id}.webm`), `Homepage plays ${id} in both formats`);
+assert.ok(homepage.match(/class="moment-clip"/g)?.length >= 2, 'At least two keystone clips on the homepage');
+assert.ok(!/<video\b[^>]*\bautoplay\b/.test(homepage), 'site.js starts footage after load and never with reduced motion or Save-Data, so no autoplay attribute');
+assert.ok([...homepage.matchAll(/<video\b[^>]*>/g)].every(([tag]) => /\bmuted\b/.test(tag) && /\bplaysinline\b/.test(tag) && /preload="none"/.test(tag)), 'Every homepage video is muted, inline and downloads nothing up front');
 // Media captured from a much older game: a warning, not a failure (recapturing is a manual step on a
 // Mac with a GPU). The game's date is its release stamp (js/release.js, set at deploy) or the
 // checkout's last commit; the media's is the date of the revision it was captured from.
@@ -145,7 +151,7 @@ for (const map of facts.maps) {
 assert.ok(homepage.includes(`id="map-play" href="${facts.maps[0].play}"`), 'The play link starts on the first landscape shown');
 for (const name of ['index.html', 'visuals.html', 'site.css', 'play/index.html']) {
   const path = join(output, name), source = await readFile(path, 'utf8');
-  const links = [...source.matchAll(/(?:src|srcset|href|data-image)="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
+  const links = [...source.matchAll(/(?:src|srcset|href|data-image|poster|data-(?:wide-|tall-)?(?:mp4|webm))="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
   for (const link of links) {
     if (/^(?:https?:|data:|#)/.test(link)) continue;
     const file = link.split(/[?#]/)[0], target = resolve(dirname(path), decodeURIComponent(file));
