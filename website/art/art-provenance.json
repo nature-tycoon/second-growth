@@ -1,0 +1,14 @@
+{
+  "about": "Generated art for the website: key art, store capsules, share cards, logo lockups. Not game captures: each is shown only as a labelled illustration (or, for a logo or wordmark, where nobody reads it as gameplay). Prompts are in docs/key-art-prompts.md; tools/website-check.mjs enforces the fields and where the art may appear.",
+  "format": {
+    "file": "file name in website/art/, e.g. key-art-16x9.jpg",
+    "use": "key-art | capsule | social-card | logo | wordmark | illustration",
+    "tool": "what made it, e.g. ChatGPT (GPT image), with any finishing tool after it",
+    "prompt": "the exact prompt used, plus any follow-up edits asked for",
+    "source": "the game capture attached as reference, e.g. review-media/landscape-pnw.jpg (null only for a logo or wordmark)",
+    "date": "YYYY-MM-DD it was made",
+    "sha256": "hash of the file as committed (shasum -a 256 website/art/<file>)",
+    "notes": "optional: crop, resize, who approved it"
+  },
+  "art": []
+}

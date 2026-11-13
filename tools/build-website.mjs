@@ -10,8 +10,14 @@ export async function buildWebsite() {
   await rm(websiteOutput, { recursive: true, force: true });
   await mkdir(join(websiteOutput, 'play'), { recursive: true });
   await cp(join(root, 'website'), websiteOutput, { recursive: true });
-  // Retain legacy source artwork in Git, but do not publish it with the homepage.
+  // Retain legacy source artwork in Git, but do not publish it with the homepage. Generated art
+  // (key art, capsules, logo lockups) is published only with a line in art/art-provenance.json.
   await rm(join(websiteOutput, 'art'), { recursive: true, force: true });
+  const { art } = JSON.parse(await readFile(join(root, 'website/art/art-provenance.json'), 'utf8'));
+  if (art.length) {
+    await mkdir(join(websiteOutput, 'art'));
+    for (const name of ['art-provenance.json', ...art.map(entry => entry.file)]) await cp(join(root, 'website/art', name), join(websiteOutput, 'art', name));
+  }
   for (const path of ['index.html', 'styles.css', 'manifest.json', 'js', 'assets', 'vendor']) {
     await cp(join(root, path), join(websiteOutput, 'play', path), { recursive: true });
   }

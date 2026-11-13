@@ -10,6 +10,7 @@ The official website is https://secondgrowth.earth/. The game is in active devel
 - [Official homepage](https://secondgrowth.earth/): Introduction, restoration example, regional explorer and ecological processes.
 - [Play Second Growth](https://secondgrowth.earth/play/): Launch the game in a browser with WebGL support; no installation or account is required. Add `?map=` with pnw, amazon, serengeti, atlanta, chinandega, reef or sumatra to open the start screen on that landscape, for example https://secondgrowth.earth/play/?map=reef.
 - [Game imagery and capture notes](https://secondgrowth.earth/visuals.html): Current game images, staged keystone scenes and the same-save creek restoration sequence.
+- [Press kit](https://secondgrowth.earth/press/): Fact sheet, short and long descriptions, game footage and screenshots to download, logo, credits and press contact (info@secondgrowth.earth).
 
 ## Project and feedback
 
