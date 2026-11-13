@@ -356,21 +356,25 @@
 .descent-beats li > span { display: block; font-size: 10px; font-weight: 800; letter-spacing: 1.6px; text-transform: uppercase; color: #edb58e; margin-bottom: 3px; }
 .descent.scrub .descent-stage { position: sticky; top: 0; height: 100vh; height: 100svh; }
 .descent.scrub .descent-poster { height: 100%; aspect-ratio: auto; }
-/* The words follow the footage up the page, laid over it from its top (-100svh): the title, then each
-   card in a screen of its own. The track is as tall as the words (250vh), so the footage plays over
-   150vh of scrolling. "Above" passes while the view pushes in; "Eye level" rises from the bottom as the
-   clip dissolves to eye level, halfway, and is still on screen when the section scrolls away. */
+/* The words follow the footage up the page, laid over it from its top (-100svh): the title, then four
+   cards half a screen apart, so one is always passing. The track is as tall as the words (250vh), so
+   the footage plays over 150vh of scrolling. "Above" and "Closer" pass while the view pushes in; "Eye
+   level" rises from the bottom as the clip dissolves to eye level, halfway; "Watch" is on screen when
+   the section scrolls away. Elsewhere only "Above" and "Eye level" show, over the picture. */
+.descent-beats li.more { display: none; }
 .descent.scrub .descent-copy { position: relative; inset: auto; display: block; padding-block: 0; margin-top: -100vh; margin-top: -100svh; }
-.descent.scrub .descent-intro { height: 60vh; padding-top: clamp(28px, 7vh, 80px); }
-.descent.scrub .descent-beats { grid-auto-rows: 80vh; align-items: center; gap: 0; padding-bottom: 30vh; }
-.descent.scrub .descent-beats li { opacity: 1; font-size: 16px; padding: 18px 22px; }
+.descent.scrub .descent-intro { height: 40vh; padding-top: clamp(28px, 7vh, 80px); }
+.descent.scrub .descent-beats { grid-auto-rows: 50vh; align-items: center; gap: 0; max-width: 480px; padding-bottom: 10vh; }
+.descent.scrub .descent-beats li { display: block; opacity: 1; font-size: 17px; line-height: 1.6; padding: 20px 24px; }
+.descent.scrub .descent-beats li > span { font-size: 11px; margin-bottom: 5px; }
 @media (max-width: 720px) {
-  /* Phones held upright: the picture, then the words under it. */
+  /* Phones held upright: the picture, then the words under it, all four cards. */
   .descent-copy { position: relative; padding-block: 26px 40px; gap: 20px; }
   .descent-video { bottom: auto; height: auto; aspect-ratio: 16/9; }
   .descent-shade { display: none; }
   .descent-intro h2 { font-size: 36px; }
   .descent-beats li { opacity: 1; font-size: 13px; }
+  .descent-beats li.more { display: block; }
 }
 @media (min-width: 721px) and (max-height: 500px) {
   /* Phones on their side: the screen is short, so keep the words small and to the left. */
