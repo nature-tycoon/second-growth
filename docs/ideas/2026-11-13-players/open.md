@@ -42,3 +42,9 @@ All six sessions landed on `claude/ideas-players` (S0 1465bcc, S1 4d1ea0e, S2 f4
 - Share links double as "move my farm to my phone"; teachers can share a starting farm with a class; hand-picked player farms on the homepage. (S5)
 - itch.io may also serve from `html.itch.zone`: add that origin if itch feedback gets 403. (S1)
 - Compact wildlife encoding would shrink saves and shares (up to 500 KB of wildlife JSON). (S5)
+
+## Cole's answers (2026-11-13)
+- Next batch: share-by-link plus Export/Import farm file, after the Worker is deployed.
+- Privacy: add "13 or older, or ask a parent" to the signups and a short privacy page (S6 of this batch).
+- Reminder: scheduled task `second-growth-newsletter-notes` drafts the notes on the 1st at 9:00 (never sends).
+- Every recommended default above: accepted.
