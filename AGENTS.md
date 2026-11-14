@@ -116,9 +116,10 @@ Cole works on the same machine while agents test, and the 3D game is heavy. Befo
 
 ## Checklists
 
-Step-by-step checklists live in `.claude/skills/` (Claude Code runs them as `/balance`, `/perf`, `/ship` and `/testing`; other agents can read them as plain files):
+Step-by-step checklists live in `.claude/skills/` (Claude Code runs them as `/balance`, `/perf`, `/ship`, `/testing` and `/ideas`; other agents can read them as plain files):
 
 - [balance](.claude/skills/balance/SKILL.md): seeded before/after `balance-sim` for ecology changes. `balance-sim` is unseeded, so seed `Math.random` through `node --import` to compare.
 - [perf](.claude/skills/perf/SKILL.md): check the machine first (Low Power Mode, battery, load average), which profiler answers which question, and the per-part budget.
 - [ship](.claude/skills/ship/SKILL.md): checks, committing only your own hunks, the preview for Cole, and the push/merge steps.
 - [testing](.claude/skills/testing/SKILL.md): sharing Cole's Mac while testing, and the gotchas of browser and seeded checks.
+- [ideas](.claude/skills/ideas/SKILL.md): turn a list of Cole's rough game ideas into a chain of right-sized sessions on one batch branch, then collect their open questions (`docs/ideas/`). It was once committed only on a side branch and vanished on a branch switch: skills must live on main.
