@@ -1,5 +1,6 @@
 // Exercise the production ES modules with inert browser APIs. Never contact PostHog.
 import assert from 'node:assert/strict';
+import { BACKEND_URL } from '../js/backend.js';
 
 const stored = new Map([['second-growth-settings', JSON.stringify({ analytics: false, v: 2 })]]);
 globalThis.localStorage = { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) };
@@ -7,7 +8,7 @@ const { settings, saveSettings } = await import('../js/settings.js');
 assert.equal(settings.analytics, false, 'Stored opt-out is loaded');
 let sequence = 0;
 async function fixture({ enabled = false, navigator = {}, windowFlags = {}, host = 'secondgrowth.earth', search = '' } = {}) {
-  const scripts = [], feedback = [];
+  const scripts = [], feedback = [], mail = [];
   settings.analytics = enabled;
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: navigator });
   globalThis.window = { ...windowFlags, addEventListener() {} };
@@ -16,24 +17,36 @@ async function fixture({ enabled = false, navigator = {}, windowFlags = {}, host
     getElementsByTagName: () => [{ parentNode: { insertBefore: script => scripts.push(script) } }],
   };
   globalThis.location = { hostname: host, search, href: `https://${host}/play/${search}` };
-  globalThis.fetch = async (url, options) => { feedback.push({ url, body: JSON.parse(options.body) }); return { ok: true }; };
+  // (PostHog capture calls in `feedback`; notes to the Worker, BACKEND_URL, in `mail`)
+  globalThis.fetch = async (url, options) => {
+    (BACKEND_URL && url.startsWith(BACKEND_URL) ? mail : feedback).push({ url, body: JSON.parse(options.body) });
+    return { ok: true, json: async () => ({ ok: true }) };
+  };
   // Fresh analytics lifecycle per case; settings remain the actual shared production module.
   const api = await import(`../js/analytics.js?privacy-case=${sequence++}`);
-  return { api, scripts, feedback };
+  return { api, scripts, feedback, mail };
 }
 
 {
-  const { api, scripts, feedback } = await fixture();
+  const { api, scripts, feedback, mail } = await fixture();
   assert.equal(api.initAnalytics(), false);
   api.track('disabled'); api.trackExit('disabled'); api.setContext({ map: 'pnw' });
   assert.equal(api.analyticsReady(), false);
   assert.equal(scripts.length, 0, 'Cold opt-out never inserts the SDK');
   assert.equal(feedback.length, 0, 'Opt-out sends no implicit feedback');
   assert.equal((await api.sendFeedback({ message: 'An explicitly submitted note' })).ok, true);
-  assert.equal(feedback.length, 1);
-  assert.equal(feedback[0].body.event, 'feedback');
-  assert.match(feedback[0].body.distinct_id, /^feedback-/);
-  assert.equal(feedback[0].body.properties.$process_person_profile, false);
+  if (BACKEND_URL) {
+    // (with the Worker live, an opted-out player's note is emailed and never reaches PostHog)
+    assert.equal(feedback.length, 0, 'Opt-out feedback skips PostHog when the Worker is set');
+    assert.equal(mail.length, 1);
+    assert.equal(mail[0].body.message, 'An explicitly submitted note');
+    assert.equal(mail[0].body.source, 'game');
+  } else {
+    assert.equal(feedback.length, 1);
+    assert.equal(feedback[0].body.event, 'feedback');
+    assert.match(feedback[0].body.distinct_id, /^feedback-/);
+    assert.equal(feedback[0].body.properties.$process_person_profile, false);
+  }
   assert.equal(scripts.length, 0, 'Explicit feedback does not load the SDK');
 }
 {
@@ -74,8 +87,11 @@ async function fixture({ enabled = false, navigator = {}, windowFlags = {}, host
   assert.equal(calls.length, count, 'Opt-out blocks normal, exit and context calls');
   assert.equal(calls.at(-1)[0], 'out');
   await api.sendFeedback({ message: 'Unlinked after opting out' });
-  assert.match(feedback[1].body.distinct_id, /^feedback-/);
-  assert.equal(feedback[1].body.properties.$session_id, undefined);
+  if (BACKEND_URL) assert.equal(feedback.length, 1, 'After opting out, feedback goes only to the Worker');
+  else {
+    assert.match(feedback[1].body.distinct_id, /^feedback-/);
+    assert.equal(feedback[1].body.properties.$session_id, undefined);
+  }
 }
 for (const privacy of [
   { navigator: { doNotTrack: '1' } }, { navigator: { doNotTrack: 'yes' } },
@@ -90,7 +106,7 @@ for (const privacy of [
 for (const host of ['localhost', '127.0.0.1', '']) {
   const { api, scripts } = await fixture({ enabled: true, host });
   assert.equal(api.initAnalytics(), false);
-  assert.equal(api.feedbackPossible(), false);
+  assert.equal(api.feedbackPossible(), !!BACKEND_URL); // (a note sent on purpose still reaches the Worker)
   assert.equal(scripts.length, 0, 'Local testing stays quiet');
 }
 {
