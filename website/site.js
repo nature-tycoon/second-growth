@@ -204,7 +204,7 @@ for (const video of document.querySelectorAll('.moment-clip video')) {
 // Cole's Worker address, no trailing slash; the same value as BACKEND_URL in js/backend.js. When you set it,
 // also add it to connect-src in index.html's Content-Security-Policy. While it is empty the feedback form
 // opens an email instead, the newsletter form stays hidden and no ratings show.
-const BACKEND_URL = '';
+const BACKEND_URL = 'https://second-growth-api.secondgrowth.workers.dev';
 const MIN_RATINGS = 20;
 const SUPPORT = 'info@secondgrowth.earth';
 const MESSAGES = {

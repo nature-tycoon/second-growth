@@ -3,7 +3,7 @@
 
 // Cole's Worker address (no trailing slash), once it is deployed. When you set it, also add it to
 // connect-src in index.html's Content-Security-Policy.
-export const BACKEND_URL = '';
+export const BACKEND_URL = 'https://second-growth-api.secondgrowth.workers.dev';
 
 export const backendOn = () => !!BACKEND_URL;
 
