@@ -17,7 +17,8 @@ export default function buildPnwPlants(def, mix, get) {
     look: { type: 'grass', leaf: '#7fa86b', dry: '#bfae78' },
     desc: 'A tall, tolerant native grass that grows in sun or dappled shade along forest edges.' });
   def({ key: 'camas', name: 'Common camas', sci: 'Camassia quamash', layer: 0, moist: [0.35, 0.85], light: [0.5, 1], soil: 0.15,
-    grow: 0.015, spread: 0.018, radius: 2, life: 20, graze: 0.3, cost: 5,
+    grow: 0.015, spread: 0.08, radius: 2, life: 20, compete: 0.4, graze: 0.3, cost: 5,
+    dormant: [3, 4, 5, 6], // (withers after seeding and rests underground Jun–Sep; seeds heavily, and a long-lived bulb slowly crowds out short-lived forbs)
     look: { type: 'forb', leaf: '#6f9a4f', flower: '#6d6fe0', bloom: [1, 2] },
     desc: 'Its blue spring flowers once carpeted wet prairies; the bulbs were a staple food of Coast Salish peoples.' });
   def({ key: 'lupine', name: 'Large-leaf lupine', sci: 'Lupinus polyphyllus', layer: 0, moist: [0.2, 0.8], light: [0.5, 1],
