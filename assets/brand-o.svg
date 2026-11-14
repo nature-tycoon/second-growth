@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+  <!-- The "o" of the wordmark (Cole's ChatGPT wordmark, art/wordmark.jpg): a solid round with a young fir
+       cut out of it. CSS paints it in the text's colour, so the fir shows the page behind. -->
+  <path fill-rule="evenodd" d="M10 0A10 10 0 1 1 10 20 10 10 0 1 1 10 0ZM10 3.2 13.1 8H11.8L14.6 12H13L15.8 15.4H10.75V17.4H9.25V15.4H4.2L7 12H5.4L8.2 8H6.9Z"/>
+</svg>
