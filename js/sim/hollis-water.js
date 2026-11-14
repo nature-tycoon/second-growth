@@ -196,6 +196,8 @@ export class HollisWater {
   }
   sync() {
     const w = this.w; let dirty = this.hv !== w.hv;
+    // (a broken dam's pool that has run dry goes, so its creek is free for a new dam)
+    if (this.basins.some(b => b.kind === 'receding' && b.volume <= .001)) dirty = true;
     // (only a change in or beside the water, or a pond dug or filled, rebuilds the basins: pasture
     // turning to soil across the farm leaves them as they are)
     for (let i = 0; i < w.n; i++) {
@@ -244,8 +246,9 @@ export class HollisWater {
       const level = this.level(b);
       const wetArea = b.cells.reduce((n, v) => n + (v.threshold <= level && tileWaterVolume(v.c, level) > .002 ? 1 : 0), 0);
       const inflow = b.kind === 'dam' ? (summer ? .75 : 1.8) + rain * 12 : 0;
-      // Small catchment allowance, not a full landscape runoff simulation.
-      b.input = (rain + melt) * b.core.length * 1.35 + inflow;
+      // Small catchment allowance, not a full landscape runoff simulation. (None for a broken dam's
+      // pool: the creek runs out through the breach. With it, rain held it at a third full for good.)
+      b.input = b.kind === 'receding' ? 0 : (rain + melt) * b.core.length * 1.35 + inflow;
       const shade = b.core.reduce((s, i) => s + this.w.canopy[i], 0) / b.core.length;
       const evap = (summer ? .014 : .005) * (1 - shade * .4);
       const seep = b.kind === 'receding' ? .12 * b.volume : b.kind === 'dam' ? .018 * b.volume : .002 * wetArea;

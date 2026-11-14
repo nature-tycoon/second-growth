@@ -61,8 +61,10 @@ export default function buildPnwAnimals(def) {
   }
   {
     const wt = habW({ CREEK: 1, POND: 0.9, MARSH: 0.8, RIVER: 0.3, RIPARIAN: 0.35 });
+    // (hr 20: a family of about five, the parents and two years' young, shares one stretch of creek,
+    // so the farm's creek holds a colony; at 40 it held two or three, and one alone builds nothing: 0034)
     def({ key: 'beaver', name: 'North American beaver', sci: 'Castor canadensis', group: 'Mammals', move: 'semi',
-      speed: 0.9, hr: 40, max: 8, groupSize: [2, 2], sources: ['S'], mig: 0.2, intro: 3000,
+      speed: 0.9, hr: 20, max: 8, groupSize: [2, 2], sources: ['S'], mig: 0.2, intro: 3000,
       breed: [1], litter: [1, 3], life: 12, mature: 2,
       suit: (W, i) => wt[W.habitat[i]] * near(W.distWoody[i], 3, 0.1),
       sprite: { kind: 'beaver', len: 26, color: '#5b3f2a', belly: '#6d4d34' },
