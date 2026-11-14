@@ -4,6 +4,7 @@
 import { T, F, isWater } from '../config.js';
 
 import { WATER_FILL } from './waterline.js';
+import { valueNoise } from '../rng.js';
 export { WATER_FILL };
 const neighbours = (w, i) => {
   const x = i % w.w, y = Math.floor(i / w.w), out = [];
@@ -49,6 +50,13 @@ export const waterModelOn = map => waterModel.enabled && map === 'pnw';
 // tiles (0.4 ha at 8 m tiles: a large beaver pond). Open water where it stands deeper than
 // POND_DEPTH (about 0.6 m), marsh in the shallows round it.
 export const DAM_HEAD = .6, DAM_CELLS = 60, POND_DEPTH = .25, DAM_POND_DEPTH = .15, WET_DEPTH = .04;
+// A beaver pond raises the water table round it: land beside its water, up to FRINGE_REACH tiles out
+// and up to about FRINGE over the pond's usual level, is saturated marsh, a sedge margin that
+// follows the lie of the land. How far it reaches varies slowly along the shore (old channels and
+// hummocks the land's heights don't have), so it pushes out in bays and pulls in at spits rather
+// than lying in a band. Since terrain relief (0044) cut the Hollis ditch into a smooth swale, a
+// dam's water alone filled only its channel.
+export const FRINGE = .2, FRINGE_REACH = 4;
 
 export class HollisWater {
   constructor(w, saved = null) {
@@ -130,6 +138,30 @@ export class HollisWater {
     }
     return null;
   }
+  // The tiles a dam's water stands on at `crest` (the drowned channel, and land under WET_DEPTH or more).
+  damWetCells(cells, crest) {
+    return cells.filter(v => this.base[v.i] === T.CREEK ? crest - this.nominal(v.i) > .12 : tileWaterVolume(v.c, crest) > .002 && crest - groundCentre(v.c) > WET_DEPTH).map(v => v.i);
+  }
+  // The saturated land round a dam's water (FRINGE): on the pond's side of the dam, not under
+  // another basin, a road, a trail or a building.
+  fringe(wet, crest, site, axis, occupied) {
+    const w = this.w, own = new Set(wet), out = [], sx = site % w.w, sy = Math.floor(site / w.w);
+    let edge = wet;
+    for (let step = 0; step < FRINGE_REACH; step++) {
+      const next = [];
+      for (const i of edge) for (const j of neighbours(w, i)) {
+        const t = this.base[j];
+        if (own.has(j) || occupied[j] || isWater(t) || t === T.MUD || t === T.ROAD || t === T.TRAIL || w.struct[j] >= 0 || w.feature[j] === F.DAM || w.feature[j] === F.CULVERT) continue;
+        if (((j % w.w - sx) * axis[0] + (Math.floor(j / w.w) - sy) * axis[1]) > 0) continue;
+        // (0.2-1.4 times FRINGE over the water, and the further out the higher it has to lie)
+        const x = j % w.w, y = Math.floor(j / w.w), reach = FRINGE * (0.2 + 1.2 * valueNoise(x, y, 4, 517)) * (1 - step / (FRINGE_REACH + 1));
+        if (groundCentre(this.corners(j)) > crest + reach) continue;
+        own.add(j); out.push(j); next.push(j);
+      }
+      edge = next;
+    }
+    return out;
+  }
   // How big a pond a dam at `site` would hold back: { wet, open } tiles at its full level.
   damPotential(site) {
     const occupied = new Uint8Array(this.w.n);
@@ -144,6 +176,8 @@ export class HollisWater {
       if (tileWaterVolume(v.c, crest) <= .002 || depth <= WET_DEPTH) continue;
       wet++; if (depth > DAM_POND_DEPTH) open++;
     }
+    const cells = this.footprint([site], crest, 'dam', site, axis, occupied).cells;
+    wet += this.fringe(this.damWetCells(cells, crest), crest, site, axis, occupied).length; // (its marsh margin)
     return { wet, open };
   }
   makeBasin(kind, site, core, previous, occupied) {
@@ -192,10 +226,13 @@ export class HollisWater {
     const b = { kind, site, core, crest, axis, cells, lo, table, capacity, floor, usual: kind === 'pond' ? initial : crest, shown: previous?.shown,
       volume: Math.min(capacity, previous?.volume ?? volumeAt(initial)), input: 0, loss: 0, overflow: 0 };
     for (const v of cells) occupied[v.i] = 1;
+    if (kind === 'dam') { b.fringe = this.fringe(this.damWetCells(cells, crest), crest, site, axis, occupied); for (const i of b.fringe) occupied[i] = 1; }
     return b;
   }
   sync() {
     const w = this.w; let dirty = this.hv !== w.hv;
+    // (a broken dam's pool that has run dry goes, so its creek is free for a new dam)
+    if (this.basins.some(b => b.kind === 'receding' && b.volume <= .001)) dirty = true;
     // (only a change in or beside the water, or a pond dug or filled, rebuilds the basins: pasture
     // turning to soil across the farm leaves them as they are)
     for (let i = 0; i < w.n; i++) {
@@ -244,8 +281,9 @@ export class HollisWater {
       const level = this.level(b);
       const wetArea = b.cells.reduce((n, v) => n + (v.threshold <= level && tileWaterVolume(v.c, level) > .002 ? 1 : 0), 0);
       const inflow = b.kind === 'dam' ? (summer ? .75 : 1.8) + rain * 12 : 0;
-      // Small catchment allowance, not a full landscape runoff simulation.
-      b.input = (rain + melt) * b.core.length * 1.35 + inflow;
+      // Small catchment allowance, not a full landscape runoff simulation. (None for a broken dam's
+      // pool: the creek runs out through the breach. With it, rain held it at a third full for good.)
+      b.input = b.kind === 'receding' ? 0 : (rain + melt) * b.core.length * 1.35 + inflow;
       const shade = b.core.reduce((s, i) => s + this.w.canopy[i], 0) / b.core.length;
       const evap = (summer ? .014 : .005) * (1 - shade * .4);
       const seep = b.kind === 'receding' ? .12 * b.volume : b.kind === 'dam' ? .018 * b.volume : .002 * wetArea;
@@ -294,6 +332,7 @@ export class HollisWater {
         else if (t === T.POND) w.terrain[i] = T.MUD;
         // (a dug marsh stays marsh, saturated and sedgy, through a dry spell)
       }
+      for (const i of b.fringe || []) if (w.waterOwner[i] < 0) { w.waterOwner[i] = k; w.waterManaged[i] = 1; w.terrain[i] = T.MARSH; } // (the pond's marsh margin: saturated, no water of its own drawn, so the pond's edge keeps its level)
     }
     this.published.set(w.terrain);
     if (last.some((t, i) => t !== w.terrain[i])) { w.hydroDirty = true; w.renderDirty = true; }

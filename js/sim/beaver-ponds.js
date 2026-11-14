@@ -49,7 +49,8 @@ const dams = w => { const out = []; for (let i = 0; i < w.n; i++) if (w.feature[
 export function damSiteOK(game, site) {
   const w = game.world;
   if (w.terrain[site] !== T.CREEK || w.feature[site] !== 0) return false;
-  if (game.water && w.waterOwner[site] >= 0 && game.water.basins[w.waterOwner[site]]?.kind !== 'pond') return false; // (already in another dam's pond)
+  // (already in another dam's pond; a broken dam's draining pool is no bar: beavers mend a breach)
+  if (game.water && w.waterOwner[site] >= 0 && game.water.basins[w.waterOwner[site]]?.kind === 'dam') return false;
   const existing = dams(w), x = site % w.w, y = (site / w.w) | 0;
   if (existing.some(j => Math.max(Math.abs(j % w.w - x), Math.abs(((j / w.w) | 0) - y)) <= DAM_GAP)) return false;
   let creek = 0; for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.CREEK || (w.terrain[i] === T.POND && w.waterOwner?.[i] >= 0 && game.water?.base[i] === T.CREEK)) creek++;
@@ -71,6 +72,8 @@ export function drainToMeadow(game, site) {
       if (w.waterOwner[i] !== k || t === T.CREEK || t === T.RIVER || t === T.POND || w.waterDepth[i] <= .04) continue;
       w.meadow[i] = w.terrain[i] === T.POND ? PENDING_DEEP : PENDING_SHALLOW;
     }
+    // (its saturated margin stays marsh when the water goes, and dries back over the years)
+    for (const i of b.fringe || []) if (w.waterOwner[i] === k && w.terrain[i] === T.MARSH) w.meadow[i] = PENDING_DEEP;
   }
 }
 // (the older, water-model-free flooding: its marsh and mud become meadow straight away)

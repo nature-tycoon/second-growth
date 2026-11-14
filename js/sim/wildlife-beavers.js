@@ -100,7 +100,7 @@ export class WildlifeBeavers {
       // (featureAge: days since tended. A colony keeps its dam up while there is food round it;
       // once the willow and alder are eaten out it moves on, and the dam is left to go)
       if (this.game.day % 30 === 0 || !this.damFood.has(i)) this.damFood.set(i, beaverFood(w, i));
-      if (this.damFood.get(i) >= FOOD_MIN && keepers.some(a => Math.abs(a.x - x) < 8 && Math.abs(a.y - y) < 8)) w.featureAge[i] = 0;
+      if (this.damFood.get(i) >= FOOD_MIN && keepers.some(a => a.home?.center === i || Math.abs(a.x - x) < 8 && Math.abs(a.y - y) < 8)) w.featureAge[i] = 0; // (its colony's lodge is here: home-range.js)
       else if (w.featureAge[i] > 60 && rng() < 1 / 120) { this.breakDam(i); this.game.notify('An abandoned beaver dam has washed out. The pond is draining, and its bed will grow into a wet beaver meadow of sedge, willow and standing dead trees.', 'info', { x, y }); continue; }
       dams++;
     }

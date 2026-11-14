@@ -3,7 +3,7 @@
 // hold, so a population spreads over its habitat, and each animal's "nearest water" starts from
 // its own home rather than from wherever it happens to stand. Water trips follow a remembered
 // route, so repeated trips wear a trail. Decision 0013.
-import { clamp } from '../config.js';
+import { clamp, F } from '../config.js';
 import { hash2 } from '../rng.js';
 import { passable } from './animal-terrain.js';
 import { travelSpeed } from './climb-pace.js';
@@ -43,7 +43,8 @@ export function ensureHome(wl, a, def) {
   const r = homeRadius(def);
   let center = -1, radius = r;
   if (a.range && ok(a.range.rest)) { center = a.range.rest; radius = Math.max(r, dist(w, a.range.feed, a.range.rest) + 3); }
-  else if (hasTerritory(wl, a, def)) center = a.territory.home;
+  if (center < 0 && def.damBuilder) center = colonyDam(w, a, j => !w.fire[j] && passable(w, j, a), Math.ceil(r * 3));
+  if (center < 0 && hasTerritory(wl, a, def)) center = a.territory.home;
   if (center >= 0) {
     if (!h || h.center !== center) { h = a.home = { center, r: radius, water: null, waterRoute: null, back: false }; }
     else h.r = radius;
@@ -57,6 +58,18 @@ export function ensureHome(wl, a, def) {
   const j = settle(wl, a, def, r);
   a.home = j < 0 ? null : { center: j, r, water: null, waterRoute: null, back: false };
   return a.home;
+}
+
+// A dam builder lives at its colony's pond: its home is the nearest standing dam within reach, so
+// the family stays round the dam it keeps up rather than spreading along the creek (0034). -1: none.
+function colonyDam(w, a, ok, reach) {
+  const x = Math.floor(a.x), y = Math.floor(a.y);
+  let best = -1, bd = reach * reach;
+  for (let yy = Math.max(0, y - reach); yy <= Math.min(w.h - 1, y + reach); yy++) for (let xx = Math.max(0, x - reach); xx <= Math.min(w.w - 1, x + reach); xx++) {
+    const j = yy * w.w + xx, d = (xx - x) ** 2 + (yy - y) ** 2;
+    if (w.feature[j] === F.DAM && !(w.marks[j] & 4) && d <= bd && ok(j)) { best = j; bd = d; }
+  }
+  return best;
 }
 
 // Choose a home center within a bounded search: good habitat around it, little overlap with

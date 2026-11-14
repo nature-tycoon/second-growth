@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
 const { Game } = await import('../js/game.js');
 const { T, F, isWater } = await import('../js/config.js');
-const { DAM_CELLS } = await import('../js/sim/hollis-water.js');
+const { DAM_CELLS, FRINGE, groundCentre } = await import('../js/sim/hollis-water.js');
 const { damSiteOK, meadowYear, migrateMarkedPools, SITE_WET, SITE_OPEN, DAM_GAP, PENDING_DEEP, MEADOW_YEARS } = await import('../js/sim/beaver-ponds.js');
 const { wallowVisit, wallowDay, wallowCount, wallowGround, WALLOW_POOL, wallower } = await import('../js/sim/wallows.js');
 const { updateHydrology } = await import('../js/sim/environment.js');
 const { compactSave } = await import('../js/saves.js');
+const { ensureHome } = await import('../js/sim/home-range.js');
 let checks = 0;
 const check = (name, fn) => { fn(); checks++; console.log('PASS ' + name); };
 const { PLANT } = await import('../js/data/plants.js');
@@ -45,6 +46,17 @@ check('Beavers dam slow stretches with room and food, and leave flowing creek be
     assert.ok(!(w.waterOwner[i] >= 0 && g.water.basins[w.waterOwner[i]].kind === 'dam'), 'no dam inside another pond');
   }
 });
+check('A beaver pond has a marsh margin on the saturated ground round it, which stays marsh meadow when it drains', () => {
+  // (since terrain relief, 0044, a dam's water alone filled only the ditch's channel)
+  const g = farm(), w = g.world, site = w.idx(54, 71); g.wildlife.buildDam(site); fill(g);
+  const k = g.water.basins.findIndex(b => b.kind === 'dam'), b = g.water.basins[k];
+  const margin = b.fringe.filter(i => w.waterOwner[i] === k && w.terrain[i] === T.MARSH);
+  assert.ok(margin.length >= 10, `a marsh margin of ${margin.length} tiles`);
+  for (const i of margin) assert.ok(groundCentre(g.water.corners(i)) <= b.usual + FRINGE + 1e-9, 'only ground just above the water');
+  g.wildlife.breakDam(site); g.weather = 'clear'; for (let d = 0; d < 80; d++) g.dailyTick();
+  const kept = margin.filter(i => w.meadow[i] && w.terrain[i] === T.MARSH).length;
+  assert.ok(kept >= margin.length * 0.8, `${kept} of ${margin.length} margin tiles are marsh meadow`);
+});
 check('A drained beaver pond becomes meadow, and its marsh dries back over the decades', () => {
   const g = farm(), w = g.world, site = w.idx(...GOOD); g.wildlife.buildDam(site); fill(g);
   const was = w.terrain.slice();
@@ -61,6 +73,30 @@ check('A drained beaver pond becomes meadow, and its marsh dries back over the d
   assert.ok(left < m0 * 0.4, `marsh after 40 years: ${left} of ${m0}`);
   for (let y = 0; y < MEADOW_YEARS; y++) meadowYear(g);
   assert.ok(w.meadow.every(m => !m), 'after decades it is ordinary ground');
+});
+check('A broken dam\'s pool drains away in the rain and frees its creek for a new dam', () => {
+  // (rain once held it at a third full for good, so beavers could never mend the best site on the creek)
+  const g = farm(), w = g.world, site = w.idx(...GOOD); willows(g); g.wildlife.buildDam(site); fill(g);
+  g.wildlife.breakDam(site); g.water.sync();
+  assert.ok(g.water.basins.some(b => b.kind === 'receding'), 'the pool drains over days, not at once');
+  g.weather = 'rain'; for (let k = 0; k < 120; k++) g.water.step(g);
+  assert.ok(!g.water.basins.some(b => b.kind === 'receding'), 'after a wet season it is gone');
+  assert.ok(damSiteOK(g, site), 'beavers can build there again');
+});
+check('A flood breaches a tended dam, which the beavers mend; one they left washes out', () => {
+  const g = farm(), w = g.world, site = w.idx(...GOOD); g.wildlife.buildDam(site); fill(g);
+  const b = () => g.water.basins.find(b => b.kind === 'dam'), full = b().volume;
+  g.rng = () => 0; // (the flood hits every dam)
+  w.featureAge[site] = 0; g.events.finishFlood(1.5, 0, 50);
+  assert.equal(w.feature[site], F.DAM, 'the tended dam stands'); assert.ok(b().volume < full * 0.5, 'its pond dropped');
+  w.featureAge[site] = 200; g.events.finishFlood(1.5, 0, 50);
+  assert.notEqual(w.feature[site], F.DAM, 'the abandoned one washed out');
+});
+check('A beaver colony lives at its dam', () => {
+  const g = farm(), w = g.world, site = w.idx(...GOOD); willows(g); g.wildlife.buildDam(site); fill(g); g.refreshEnvironment(); g.wildlife.computeSuitability();
+  const def = g.catalog.animals.find(d => d.damBuilder), a = g.wildlife.spawn(def, GOOD[0] + 6.5, GOOD[1] + 0.5, { silent: true });
+  a.juvenile = false; a.home = null; a.homeAfter = 0;
+  assert.equal(ensureHome(g.wildlife, a, def)?.center, site);
 });
 check('Old saves: beaver pools kept by marks go back to creek and meadow under the water model', () => {
   const g = farm(), w = g.world, i = w.idx(...GOOD), j = w.idx(GOOD[0] + 2, GOOD[1]);
