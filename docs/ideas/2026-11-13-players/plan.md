@@ -34,4 +34,4 @@ Branch: `claude/ideas-players` (from main e23b833). Sessions run one at a time i
 - [x] S3 sonnet: Website: feedback form, newsletter signup, ratings block, FAQ text — 998d1b1
 - [x] S4 sonnet: Monthly update notes tool (released features from git log + rewilding news prompts) — cf59eda
 - [x] S5 Opus: Decision record: login, map sharing without login, itch vs website — 487764d
-- [ ] S6 sonnet: Signup age line and privacy page (Cole's answer at catalog time)
+- [x] S6 sonnet: Signup age line and privacy page (Cole's answer at catalog time) — 38f59fc
