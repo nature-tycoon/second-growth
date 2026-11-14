@@ -2,7 +2,7 @@
 
 ## Rules
 
-- Far tree and shrub models (`far-models.js`, level 3 in `PlantPool.geoFor`) are on for every computer at every Detail level, chosen for the whole view by zoom in `Flora.setZoom`: tile under ~16 CSS px (zoom < 0.36) on High and Balanced, under 23 (zoom < 0.5) on Fast.
+- Far tree and shrub models (`far-models.js`, level 3 in `PlantPool.geoFor`) are on for every computer at every Detail level, chosen for the whole view by zoom in `Flora.setZoom`: tile under ~16 CSS px (zoom < 0.36) on High and Balanced; on Fast, under about 34 device pixels (`Flora.setFarBelow`, set from `baseDpr` in `Renderer.applySettings`: zoom < 0.5 on a 1.5x screen, < 0.75 on a phone or a 1x screen, which draw one pixel a point, so phones open on the far models and cards).
 - Keep it a zoom test, not per-plant distance: the play camera is orthographic. Eye level passes its own fixed zoom (`eyeDetail` 1.6) and keeps close models. No per-species thresholds (the view would pop in stages).
 - `flora.setFar(false)` switches them off to compare (like `actors.fauna.farModels`). `far_models` in `perf_sample` says whether they were drawn in the sampled frame.
 - Close-ups keep their detail (Cole's condition in 0004). Frond crowns (tree shapes in `FROND_CROWNS`, flora.js: palms, oil palm, fan palm, banana, cecropia) get `farFronds`, a two-sided star of eight leaves (32 triangles); add a new frond-crowned shape there. Giant clam shells have their own coarser builds (`clamShell(seed, lod)`, 5760 / 960 / 240 triangles; the distant one also at play zoom).
