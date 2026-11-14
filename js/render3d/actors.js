@@ -21,7 +21,7 @@ import { carcassDecay, fitCarcass, Remains } from './carcass-decay.js';
 import { PX, TURN, turnToward, beginAnimal, crownTile, turnBody, bodyPhase, finishAnimal } from './actors-common.js';
 import { wadeOrSwim, gait, headPose, huntPose, stumblePose } from './actors-ground.js';
 import { crownHeight, canopyHeight, branchPose, climbSupport, grips } from './actors-climb.js';
-import { snagBank, trunkCling, seaFlightHeight, crownPerch, snagPerch, birdHeight, plungePose, anchorPose, perchLimb } from './actors-fly.js';
+import { snagBank, trunkCling, seaFlightHeight, crownPerch, snagPerch, birdHeight, plungePose, anchorPose, dabblePose, perchLimb } from './actors-fly.js';
 import { riverFishHeight, tailBend, snapPose, tailBeat } from './actors-swim.js';
 import { reefHeight, munchTarget, munchPose } from './actors-reef.js';
 
@@ -35,7 +35,7 @@ function drawnHeight(A, c) {
   const { game, w, a, def, mo, sc, time, surf, seaY, ground, flying, inside, i } = c;
   if (def.reef && seaY != null) reefHeight(A, c);
   else if (flying && seaY != null) seaFlightHeight(c);
-  else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) c.y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; // (and settle on the water to rest, bobbing on the surface)
+  else if (seaY != null && def.move === 'fly' && ground < seaY - 0.05) { c.y = seaY - mo.sink * sc + Math.sin(time * 1.3 + a.id) * 0.008; c.afloat = true; } // (and settle on the water to rest, bobbing on the surface)
   else if (flying) c.y += (trait(def, 'flitsLow') ? 0.12 + a.alt * 0.3 : 0.7 + a.alt * 1.2) * (1 - (a.stoop || 0) * 0.85); // pollinators flit low over the flowers; a stooping hawk drops onto its prey
   else if (def.move === 'swim') riverFishHeight(c);
   else if (surf != null && mo.wadeDepth) c.y = Math.max(ground, surf - mo.wadeDepth * sc);
@@ -43,8 +43,10 @@ function drawnHeight(A, c) {
   // stepping down from pool to pool can be above the tile's simulated level, so a mallard sat
   // under it; and out on the drawn water over the bank's edge too, wherever it's deep enough
   // to float. Where it isn't, it stands on the bank.)
-  else if (trait(def, 'floats') && a.bird?.kind !== 'nest' && (c.fl = A.floatLevel(a, surf, ground, mo.sink * sc)) != null)
+  else if (trait(def, 'floats') && a.bird?.kind !== 'nest' && (c.fl = A.floatLevel(a, surf, ground, mo.sink * sc)) != null) {
     c.y = def.move === 'fly' ? Math.max(ground, c.fl - mo.sink * sc) : c.fl - mo.sink * sc;
+    c.afloat = c.y > ground; // (not sat on the bed of water too shallow to float in)
+  }
   else if ((def.move === 'ground' || def.move === 'semi') && !def.reef && mo.eye && inside && w.distWater[i] <= 2) wadeOrSwim(A, c);
   else if (def.move === 'fly' && a.bird?.kind === 'trunk' && inside && (c.cling = A.trunkCling(game, w, i, a, def, sc))) c.y = c.cling.y;
   else if (def.move === 'fly' && !a.birdGround && inside && w.tree[crownTile(A, c)] && w.treeG[crownTile(A, c)] > 0.5 && (a.bird?.kind === 'nest' || trait(def, 'sitsInCrowns') !== false)) crownPerch(A, c);
@@ -179,6 +181,7 @@ export class Actors {
       stumblePose(c);
       plungePose(c);
       anchorPose(c);
+      dabblePose(c);
       munchPose(c);
       perchLimb(this, c);
       branchPose(this, c);

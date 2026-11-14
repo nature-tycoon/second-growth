@@ -45,17 +45,20 @@ export function headPose(A, c) {
   let { y } = c;
   const aligned = heading == null || Math.cos(st.yaw + heading) > 0.95;
   const stalking = a.state === 'hunt' && a.hunt?.phase === 'creep';
+  // (a freezer gone still at a hunter in view sits crouched with its head low, not up and staring:
+  // trait freezes, sim/animal-life.js freeze)
+  const frozen = a.state === 'idle' && a.alertT > 0 && trait(def, 'freezes');
   const fight = A.bout(game, a, st, time);
   const bugling = a.bugleT > 0 && !moving; // (a bull elk throws his head back to bugle)
   const birdHead = a.bird?.kind === 'fruit' ? fruitHead(def, a, time) : a.bird?.kind === 'forage' ? (Math.sin(a.phase * 1.8) > 0.25 ? 1 : -0.1)
     : bathing ? 0.5 + Math.sin(a.phase * 2.1) * 0.35 : preening ? 0.35 + Math.sin(a.phase * 0.8) * 0.3 : a.bird?.kind === 'nest' ? 0.45 : null;
   const meal = mealHead(a, w, time); // (the eating styles: eating-pose.js)
-  const head = swimming ? 0 : a.cache && a.move === 'ground' && !moving ? (Math.sin(time * 7 + a.id) > -0.3 ? 1 : 0.5) : fight ? fight.head : bugling ? -0.75 : meal != null ? meal : stalking ? 0.45 : a.greetT > 0 ? 0.35 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
+  const head = swimming ? 0 : a.cache && a.move === 'ground' && !moving ? (Math.sin(time * 7 + a.id) > -0.3 ? 1 : 0.5) : fight ? fight.head : bugling ? -0.75 : meal != null ? meal : stalking ? 0.45 : a.greetT > 0 ? 0.35 : frozen ? 0.2 : a.alertT > 0 ? -0.3 : birdHead != null ? birdHead
     : !moving && (a.drinkT > 0 ? aligned : ((trait(def, 'idleEat') === 'graze' || nibbles(def, a)) && !a.headUp && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
   st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
   if (fight) st.gait += (fight.gait - st.gait) * k;
-  // stalking cats sink low to the ground
-  st.crouch = (st.crouch || 0) + ((stalking && !swimming ? 1 : 0) - (st.crouch || 0)) * k;
+  // stalking cats sink low to the ground, and a frozen rabbit a little
+  st.crouch = (st.crouch || 0) + ((swimming ? 0 : stalking ? 1 : frozen ? 0.5 : 0) - (st.crouch || 0)) * k;
   if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
   c.y = y; c.fight = fight; c.bugling = bugling;
 }
