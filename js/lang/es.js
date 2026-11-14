@@ -504,7 +504,7 @@ addPatterns([
   [/^(One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten) places to bring back\. Tap a pin to pick one, or start right here at (.+)\.$/, (_, n, f) => `${{ One: 'Un lugar', Two: 'Dos lugares', Three: 'Tres lugares', Four: 'Cuatro lugares', Five: 'Cinco lugares', Six: 'Seis lugares', Seven: 'Siete lugares', Eight: 'Ocho lugares', Nine: 'Nueve lugares', Ten: 'Diez lugares' }[n]} para recuperar. Tocá un punto para elegir uno, o empezá aquí mismo en ${f}.`],
   [/^Saved farm, year (\d+)$/, 'Finca guardada, año $1'],
   [/^Saved on this device(?: at (.+))?\.$/, (_, time) => `Guardado en este dispositivo${time ? ' a las ' + time : ''}.`],
-  [/^Continue your saved (.+) farm$/, 'Seguir con tu finca guardada: $1'],
+  [/^Continue at (.+)$/, 'Seguir en $1'],
   [/^Eight chapters on (.+)\. Each one teaches a new part of restoration and unlocks new tools as you go\. Best for your first time\.$/, 'Ocho capítulos en la $1. Cada uno te enseña una parte nueva de la restauración y abre herramientas nuevas. Lo mejor para la primera vez.'],
   [/^No campaign on (.+) yet\. Free Play has its own milestone goals for this map\.$/, 'Todavía no hay campaña en $1. El juego libre tiene sus propias metas para este mapa.'],
   [/^Chapter (\d+): (.+)$/, 'Capítulo $1: $2'],
