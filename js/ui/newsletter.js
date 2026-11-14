@@ -28,7 +28,7 @@ function form(box, source, done) {
   box.innerHTML = `<form class="news-form" novalidate>
     <input type="email" class="ph-mask" maxlength="200" autocomplete="email" placeholder="${tr('you@example.com')}" aria-label="${tr('Email address')}">
     <button class="btn" type="submit">${tr('Subscribe')}</button></form>
-    <div class="small news-status" role="status"></div>`;
+    <div class="small news-status" role="status"></div>${ageLine()}`;
   const f = box.querySelector('form'), status = box.querySelector('.news-status'), btn = box.querySelector('button'), input = box.querySelector('input');
   f.addEventListener('submit', async e => {
     e.preventDefault();
@@ -45,6 +45,9 @@ function form(box, source, done) {
 }
 
 const NOTE = 'One email a month about what\'s new in Second Growth. Unsubscribe from any email.';
+const AGE = 'For players 13 and older, or ask a parent first.';
+const PRIVACY = 'Privacy';
+const ageLine = () => `<div class="small news-age">${tr(AGE)} <a href="https://secondgrowth.earth/privacy/" target="_blank" rel="noopener">${tr(PRIVACY)}</a></div>`;
 
 // The card, appended to the notifications stack (not a modal). Returns it, or null.
 export function offerCard(ui) {

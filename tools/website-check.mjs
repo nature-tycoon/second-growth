@@ -140,6 +140,7 @@ const gallery = await readFile(join(output, 'visuals.html'), 'utf8');
 const press = await readFile(join(output, 'press/index.html'), 'utf8');
 await checkArtSlots('visuals.html', gallery);
 await checkArtSlots('press/index.html', press);
+const privacy = await readFile(join(output, 'privacy/index.html'), 'utf8');
 // The press kit: every game image or clip it offers is a recorded capture, and its species counts match the game.
 for (const [, file] of press.matchAll(/(?:src|href)="\.\.\/review-media\/([^"?#]+)"/g)) if (!file.endsWith('.json')) assert.ok(freshFiles.has(file), `press: ${file} must be a recorded capture`);
 {
@@ -155,7 +156,7 @@ const facts = websiteFacts(homepage);
 assert.equal(facts.maps.length, 7);
 assert.ok(facts.questions.length >= 6, 'Keep clear player questions in crawlable HTML');
 for (const map of facts.maps) assert.ok(websiteText(gallery).includes(map.copy), `${map.name} must have a readable description without JavaScript`);
-for (const [path, page] of [['/', publishedHome], ['/visuals.html', gallery], ['/press/', press]]) {
+for (const [path, page] of [['/', publishedHome], ['/visuals.html', gallery], ['/press/', press], ['/privacy/', privacy]]) {
   assert.ok(page.includes(`<link rel="canonical" href="${websiteOrigin}${path}">`), 'Each content page needs its own canonical URL');
   assert.ok(/rel="describedby" href="(?:\.\.\/)?llms\.txt"/.test(page), 'Publish a discovery link for the AI guide');
   if (!review) assert.ok(!/data-review="true"|noindex|nofollow|class="review-bar"|Homepage preview|Website review/.test(page), 'Remove all preview notices and indexing restrictions before release');
@@ -228,7 +229,7 @@ for (const map of facts.maps) {
   assert.equal(map.play, `play/?map=${map.map}`, `${map.name} needs its own play link`);
 }
 assert.ok(homepage.includes(`id="map-play" href="${facts.maps[0].play}"`), 'The play link starts on the first landscape shown');
-for (const name of ['index.html', 'visuals.html', 'press/index.html', 'site.css', 'guide.css', 'play/index.html', 'guide/index.html', ...guide.map(e => `guide/${e.slug}/index.html`)]) {
+for (const name of ['index.html', 'visuals.html', 'press/index.html', 'privacy/index.html', 'site.css', 'guide.css', 'play/index.html', 'guide/index.html', ...guide.map(e => `guide/${e.slug}/index.html`)]) {
   const path = join(output, name), source = await readFile(path, 'utf8');
   const links = [...source.matchAll(/(?:src|srcset|href|data-image|poster|data-(?:wide-|tall-)?(?:mp4|webm))="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
   for (const link of links) {

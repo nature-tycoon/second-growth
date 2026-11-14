@@ -257,6 +257,7 @@ addStrings({
   'Brush sizes are remembered for each tool group.': 'El tamaño del pincel se recuerda para cada grupo de herramientas.',
   Detail: 'Detalle', 'Fast suits most phones. On a touch screen the resolution also adjusts itself to keep things smooth.': 'Rápida le queda bien a la mayoría de los celulares. En pantalla táctil la resolución también se ajusta sola para que todo vaya fluido.',
   'Lower it if the game feels slow. Fast also uses simpler plants until you zoom in.': 'Bajala si el juego va lento. Rápida también usa plantas más simples hasta que te acercás.',
+  'For players 13 and older, or ask a parent first.': 'Para jugadores de 13 años o más, o pedile permiso a un adulto.', 'What we collect and how to ask for deletion': 'Qué datos recogemos y cómo pedir que se borren',
   'Share anonymous play data': 'Compartir datos anónimos del juego',
   'Which tools get used, progress, and game performance. No session recordings or cookies. Turn off to stop sharing play data.': 'Qué herramientas se usan, el progreso y el rendimiento del juego. Sin grabaciones de sesiones ni cookies. Desactivá esta opción para dejar de compartir datos del juego.',
   // feedback

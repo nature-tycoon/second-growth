@@ -1272,7 +1272,8 @@ export class UI {
         <p class="small">The rotation arrows turn the view by 15°. Q / E do the same. Hold Shift for a 90° turn.</p>
         <div class="small" style="margin-top:10px">Brush sizes are remembered for each tool group.</div>`],
       privacy: ['Privacy', `
-        ${toggle('analytics', 'Share anonymous play data', 'Which tools get used, progress, and game performance. No session recordings or cookies. Turn off to stop sharing play data.')}`],
+        ${toggle('analytics', 'Share anonymous play data', 'Which tools get used, progress, and game performance. No session recordings or cookies. Turn off to stop sharing play data.')}
+        <p class="small"><a href="https://secondgrowth.earth/privacy/" target="_blank" rel="noopener">${tr('What we collect and how to ask for deletion')}</a></p>`],
     };
     const nav = Object.entries(TABS).map(([k, [name]]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${name}</button>`).join('');
     const m = this.modal('Settings', `<div class="settings-wrap"><nav class="settings-nav">${nav}</nav><div class="settings">${TABS[tab][1]}</div></div>`,
@@ -1318,7 +1319,7 @@ export class UI {
       <textarea class="ph-mask" rows="6" maxlength="4000" placeholder="I wish I could… / I got stuck when… / The best part was…"></textarea>
       <label class="fb-contact"><span class="small">Want a reply? Leave an email or Reddit username (optional)</span><input type="text" class="ph-mask" maxlength="200"></label>
       <div class="small fb-status"></div>
-      <div class="small" style="margin-top:6px">Prefer email? Write to <a href="mailto:info@secondgrowth.earth">info@secondgrowth.earth</a>.${newsletterAvailable() ? ' <a href="#" data-a="news">Get updates by email</a>' : ''}</div>
+      <div class="small" style="margin-top:6px">Prefer email? Write to <a href="mailto:info@secondgrowth.earth">info@secondgrowth.earth</a>. <a href="https://secondgrowth.earth/privacy/" target="_blank" rel="noopener">${tr('Privacy')}</a>.${newsletterAvailable() ? ' <a href="#" data-a="news">Get updates by email</a>' : ''}</div>
       </div>`, { narrow: true, foot: '<button class="btn secondary" data-a="cancel">Cancel</button><button class="btn" data-a="send">Send</button>' });
     let rating = 0;
     m.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {

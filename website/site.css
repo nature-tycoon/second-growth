@@ -572,3 +572,11 @@ button[disabled] { opacity: .6; cursor: progress; }
 .ratings-quotes li { padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--pine); font-size: 15px; color: var(--muted); }
 .ratings-quotes cite { display: block; margin-top: 8px; font-style: normal; font-size: 13px; color: var(--dim); }
 @media (max-width: 700px) { .feedback { margin-top: 22px; } }
+
+.signup-age { margin-top: 10px; font-size: 13px; color: var(--muted); }
+.signup-age a { color: var(--sprout); text-decoration: underline; text-underline-offset: 3px; }
+.privacy h3 { font: 600 22px/1.2 var(--display); margin-top: 34px; }
+.privacy h3:first-of-type { margin-top: 0; }
+.privacy > p { margin-top: 10px; }
+.privacy a { color: var(--sprout); text-decoration: underline; text-underline-offset: 4px; }
+.privacy code { font-size: .9em; }

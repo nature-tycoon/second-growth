@@ -1,7 +1,7 @@
 // Derive discovery content from the same authored HTML people read. No browser,
 // simulation, network or extra build dependency is needed by GitHub Pages.
 export const websiteOrigin = 'https://secondgrowth.earth';
-export const publicWebsitePaths = ['/', '/play/', '/visuals.html', '/press/'];
+export const publicWebsitePaths = ['/', '/play/', '/visuals.html', '/press/', '/privacy/'];
 
 export function websiteText(html) {
   return html.replace(/<br\s*\/?\s*>/gi, ' ').replace(/<[^>]*>/g, '').replace(/&(?:amp|quot|apos|lt|gt|nbsp|#39|#x[\da-f]+|#\d+);/gi, entity => {
