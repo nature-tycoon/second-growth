@@ -1,12 +1,13 @@
 # Backend setup: feedback email, newsletter signup, ratings
 
-Second Growth has one small backend: a Cloudflare Worker in [`server/`](../server/). It does three things:
+Second Growth has one small backend: a Cloudflare Worker in [`server/`](../server/). It does four things:
 
 - **Feedback**: the game's (and later the website's) feedback form sends to it, and it emails the note to info@secondgrowth.earth through Resend. If the player left an email address, pressing Reply in Gmail answers them.
 - **Newsletter**: the signup forms send an email address to it, and it adds the person to Kit (ConvertKit) with a tag saying where they signed up (website or game). You write and send the monthly email in Kit yourself; nothing here sends newsletters.
 - **Ratings**: it keeps the 1–5 face rating from each feedback note, and the website asks it for the average.
+- **Shared farms**: "Share this farm" in the game sends a compressed copy of the farm; the Worker keeps it for a year and gives back a link (`secondgrowth.earth/play/?farm=…`) that opens a copy. No accounts. Design: [decision 0047](decisions/0047-accounts-sharing-and-home.md).
 
-Everything below runs on free plans (Cloudflare Workers and D1 free tier, Resend 3,000 emails a month, Kit free up to 10,000 subscribers). Part 1 is for Cole, start to finish, about 45 minutes plus waiting for DNS. Part 2 is the contract the game and website code follow.
+Everything below runs on free plans (Cloudflare Workers, D1 and KV free tier, Resend 3,000 emails a month, Kit free up to 10,000 subscribers). Part 1 is for Cole, start to finish, about 45 minutes plus waiting for DNS. Part 2 is the contract the game and website code follow.
 
 ---
 
@@ -72,6 +73,14 @@ It prints a block with `database_id = "…"`. Open `server/wrangler.toml` in any
 npx wrangler@4 d1 execute second-growth --remote --file=schema.sql
 ```
 
+### 5b. Create the store for shared farms
+
+```bash
+npx wrangler@4 kv namespace create FARMS
+```
+
+It prints a block with `id = "…"`. In `server/wrangler.toml`, replace `PASTE-THE-ID-FROM-wrangler-kv-namespace-create` with that id (keep the quotes) and save. (KV needs no payment card. It holds about 3,000 shared farms on the free plan; decision 0047 says what to do if it fills.)
+
 ### 6. Deploy, then add the two keys
 
 ```bash
@@ -116,6 +125,22 @@ Ratings (should show your test 5):
 curl ADDRESS/ratings
 ```
 
+Shared farms (the answer has an `id`, a `url` and a `deleteKey`; the second command opens it again and should print `200`):
+
+```bash
+printf 'test' | gzip | curl -X POST "ADDRESS/farms?map=pnw" -H "Origin: https://secondgrowth.earth" -H "Content-Type: application/octet-stream" --data-binary @-
+```
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" ADDRESS/farms/THE-ID-IT-GAVE
+```
+
+Remove that test farm (from the `server` folder):
+
+```bash
+npx wrangler@4 kv key delete --binding=FARMS --remote "farm:THE-ID-IT-GAVE"
+```
+
 Then remove the test rating so it doesn't count:
 
 ```bash
@@ -133,6 +158,8 @@ Tell the next agent session the workers.dev address. The game and website code k
 - **See what it's doing**: `npx wrangler@4 tail` (from the `server` folder) shows each request live. It never shows what players wrote or their addresses, only counts and statuses.
 - **Change something**: after editing `server/`, run `node tools/backend-check.mjs`, then `npx wrangler@4 deploy` from `server/`.
 - **Replace a key** (if one leaks): make a new one in Resend or Kit, run the `secret put` command again, then delete the old key there.
+- **A reported farm**: the report email has the link to look at it and the exact command to remove it (`npx wrangler@4 kv key delete --binding=FARMS --remote "farm:<id>"`, from the `server` folder).
+- **How full the farm store is**: Cloudflare dashboard → Storage & Databases → KV → FARMS. Past about 700 MB, see decision 0047 (move to R2, or shorten how long farms are kept).
 - **Look at the ratings**: `npx wrangler@4 d1 execute second-growth --remote --command "SELECT rating, COUNT(*) FROM ratings GROUP BY rating"`.
 
 ---
@@ -149,7 +176,7 @@ Tell the next agent session the workers.dev address. The game and website code k
 
 **Honeypot**: every form has a hidden text input named `website` (off-screen, `tabindex="-1"`, `autocomplete="off"`, `aria-hidden="true"`), sent as the `website` field. People leave it empty; when a bot fills it, the server answers `{"ok":true}` and does nothing.
 
-**Rate limit**: 5 requests a minute per IP, separately for `/feedback` and `/subscribe`. Over that: `429 rate_limited` with `Retry-After: 60`.
+**Rate limit**: 5 requests a minute per IP, separately for `/feedback`, `/subscribe`, `POST /farms` and farm reports. Over that: `429 rate_limited` with `Retry-After: 60`.
 
 Every response is JSON with `ok: true` or `ok: false` plus `error` (one of the codes below).
 
@@ -196,6 +223,24 @@ Every response is JSON with `ok: true` or `ok: false` plus `error` (one of the c
 - `average` has one decimal, or is `null` when `count` is 0. Cached for 10 minutes (`Cache-Control: public, max-age=600`).
 - The website shows it only once `count` is at least 20 (`MIN_RATINGS` in `website/site.js`, Cole asked for about 20), and otherwise shows nothing (no "0 ratings").
 
+### Shared farms (decision 0047)
+
+The share file is the game's farm (`js/share-file.js`): gzip of `SGF1`, the save's JSON part and its landscape arrays. It holds nothing personal and no typed text.
+
+**`POST /farms?map=<map id>&v=<save version>`**: body is the share file, `Content-Type: application/octet-stream`, at most 2 MB. Allowed origins only. At most 400 shares a day in all (then `503 sharing_paused` until the next UTC day), so a script can't fill the free plan.
+
+```json
+{ "ok": true, "id": "k3j9x0qz7a", "url": "https://secondgrowth.earth/play/?farm=k3j9x0qz7a", "deleteKey": "<32 hex>", "expires": "2027-11-13" }
+```
+
+Status `201`. The game keeps `id`, `deleteKey` and the map in localStorage (`second-growth-shared`); the Worker keeps only a SHA-256 of the key. Ids are 10 characters from `23456789abcdefghjkmnpqrstuvwxyz`.
+
+**`GET /farms/<id>`**: open to every origin. `200` with the share file as sent (`application/octet-stream`), headers `X-Farm-Map` and `X-Farm-Version` (exposed to pages), cached a day. `404 not_found` when it never existed, expired or was removed.
+
+**`DELETE /farms/<id>`** with header `X-Delete-Key`: allowed origins only. `200 {"ok":true}`, `403 wrong_key`, `404 not_found`.
+
+**`POST /farms/<id>/report`** with `{"reason": "…"}` (optional, cut at 200): emails Cole the id, map, reason, a link and the command to remove it. `200`, or `404 not_found`, `502 send_failed`.
+
 ### Error codes
 
 | Status | `error` | Meaning / what the client does |
@@ -206,15 +251,19 @@ Every response is JSON with `ok: true` or `ok: false` plus `error` (one of the c
 | 400 | `empty` | Neither a rating nor a message. Ask for one. |
 | 400 | `invalid_source` | `source` isn't `game` or `website`. |
 | 400 | `invalid_email` | `/subscribe` address doesn't look valid (or Kit refused it). Ask them to check it. |
+| 400 | `invalid_map` | `POST /farms` with a map id the game doesn't have. A bug in the client. |
+| 400 | `invalid_farm` | The shared farm isn't a gzip file. A bug in the client. |
+| 403 | `wrong_key` | `DELETE /farms/<id>` with a delete key that isn't this farm's. |
 | 403 | `origin_not_allowed` | Page origin isn't in the list above. |
 | 404 | `not_found` | Unknown path. |
 | 405 | `method_not_allowed` | Wrong method for the path. |
-| 413 | `too_large` | Body over 16 KB. |
+| 413 | `too_large` | Body over 16 KB (over 2 MB for a shared farm). |
 | 429 | `rate_limited` | Too many tries; ask them to wait a minute. |
-| 500 | `misconfigured` | A key or the database isn't set up (Part 1, steps 5–6). Offer the fallback. |
+| 500 | `misconfigured` | A key, the database or the farm store isn't set up (Part 1, steps 5–6). Offer the fallback. |
 | 500 | `server_error` | Unexpected failure. Offer the fallback. |
 | 502 | `send_failed` | Resend didn't take the email. Offer retry or the fallback. |
 | 502 | `subscribe_failed` | Kit didn't take the signup. Offer retry. |
+| 503 | `sharing_paused` | The day's shares are used up; sharing works again tomorrow (UTC). Offer the farm file instead. |
 
 A network failure (offline, blocked) has no response at all: treat it like `server_error`.
 
@@ -224,5 +273,5 @@ The Worker never logs a message, contact or email address; logs hold only status
 
 ### Code and checks
 
-- `server/src/worker.js`: the whole Worker. `server/wrangler.toml`: its settings. `server/schema.sql`: the ratings table.
-- `node tools/backend-check.mjs` runs the Worker headless with Resend, Kit and the database mocked (part of the headless suite). It also fails if an error code or origin in the Worker is missing from this page, so keep the two in step.
+- `server/src/worker.js`: the whole Worker. `server/wrangler.toml`: its settings (the `FARMS` KV namespace, `SHARE_BASE`). `server/schema.sql`: the ratings table.
+- `node tools/backend-check.mjs` runs the Worker headless with Resend, Kit, the database and KV mocked (part of the headless suite). It also fails if an error code or origin in the Worker is missing from this page, so keep the two in step.

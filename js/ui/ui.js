@@ -39,6 +39,7 @@ import { animalThumb, plantThumb, iconThumb } from './thumbnails.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
 import { saves } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
+import { openShare } from './share.js';
 import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible } from '../analytics.js';
 import { watchForOffer, openNewsletter, newsletterAvailable } from './newsletter.js';
 
@@ -1189,6 +1190,7 @@ export class UI {
       <button class="btn secondary" data-a="journal">Field journal</button>
       <button class="btn secondary" data-a="trees">${this.renderer.fadeTrees ? 'Show trees normally' : 'See through trees'}</button>
       <button class="btn secondary" data-a="photo">Photo mode</button>
+      <button class="btn secondary" data-a="share">Share this farm</button>
       <button class="btn secondary" data-a="watch">Watch (the camera finds the wildlife)</button>
       <button class="btn secondary" data-a="feedback">Send feedback</button>
       ${newsletterAvailable() ? '<button class="btn secondary" data-a="news">Get updates by email</button>' : ''}
@@ -1205,6 +1207,7 @@ export class UI {
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
     m.querySelector('[data-a=news]')?.addEventListener('click', () => openNewsletter(this));
+    m.querySelector('[data-a=share]').addEventListener('click', () => openShare(this));
     m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
     m.querySelector('[data-a=watch]').addEventListener('click', () => { this.closeModal(); this.watch.start(); });
     m.querySelector('[data-a=save]').addEventListener('click', event => this.saving.manualSave(event.currentTarget));

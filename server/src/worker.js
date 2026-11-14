@@ -1,5 +1,5 @@
-// Second Growth's one small backend: player feedback by email (Resend), newsletter signups (Kit)
-// and the average in-game rating. The contract and setup steps are in docs/backend-setup.md;
+// Second Growth's one small backend: player feedback by email (Resend), newsletter signups (Kit),
+// the average in-game rating, and farms shared by link (Cloudflare KV, decision 0047). The contract and setup steps are in docs/backend-setup.md;
 // tools/backend-check.mjs runs this handler headless with Resend, Kit and storage mocked.
 //
 // Privacy: never log a message, contact or email address. Logs carry statuses and counts only.
@@ -18,6 +18,12 @@ const MAX_MESSAGE = 4000, MAX_CONTACT = 200, MAX_EXTRA_FIELDS = 30;
 // requests per IP per minute, per endpoint
 const LIMIT_PER_MINUTE = 5;
 const RATINGS_MAX_AGE = 600;
+// shared farms (decision 0047): gzip-compressed share files, kept a year, at most this many a day
+// in all (two KV writes each, under the free tier's 1,000 writes a day)
+export const MAPS = ['pnw', 'amazon', 'serengeti', 'atlanta', 'chinandega', 'reef', 'sumatra'];
+const MAX_FARM = 2 * 1024 * 1024, FARM_TTL = 365 * 86400, SHARES_PER_DAY = 400;
+const ID_LETTERS = '23456789abcdefghjkmnpqrstuvwxyz'; // (no 0/o, 1/l/i look-alikes)
+const ID_RE = /^[23456789abcdefghjkmnpqrstuvwxyz]{10}$/;
 const EMAIL_RE = /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]{2,}$/;
 
 export function isEmail(s) {
@@ -203,12 +209,95 @@ async function handleRatings(env) {
   return json(200, { ok: true, average, count, distribution }, headers);
 }
 
+// --- shared farms (decision 0047) --------------------------------------------------------------
+// A farm is stored as KV key farm:<id>, the share file exactly as the game sent it, with its map,
+// save version and a hash of the sharer's delete key as metadata. The Worker can't run the game,
+// so it checks only the size, the gzip header and the map; the game validates a farm on opening.
+function randomId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  return [...bytes].map(b => ID_LETTERS[b % ID_LETTERS.length]).join('');
+}
+async function sha256(text) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function handleShare(request, env, cors, url) {
+  if (!env.FARMS) { console.log('share: FARMS namespace missing'); return fail(500, 'misconfigured', cors); }
+  const map = url.searchParams.get('map'), v = url.searchParams.get('v');
+  if (!MAPS.includes(map)) return fail(400, 'invalid_map', cors);
+  if (Number(request.headers.get('Content-Length')) > MAX_FARM) return fail(413, 'too_large', cors);
+  const body = new Uint8Array(await request.arrayBuffer());
+  if (body.length > MAX_FARM) return fail(413, 'too_large', cors);
+  if (body.length < 18 || body[0] !== 0x1f || body[1] !== 0x8b) return fail(400, 'invalid_farm', cors);
+  // the day's count across everyone: a script can't fill the free tier (approximate, which is fine)
+  const day = new Date().toISOString().slice(0, 10), countKey = `count:${day}`;
+  const shared = Number(await env.FARMS.get(countKey)) || 0;
+  if (shared >= SHARES_PER_DAY) { console.log('share: daily cap reached'); return fail(503, 'sharing_paused', cors); }
+  let id = randomId();
+  if (await env.FARMS.get(`farm:${id}`, { type: 'stream' })) id = randomId(); // (50 bits: a repeat is all but impossible)
+  const deleteKey = [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
+  const created = new Date(), expires = new Date(created.getTime() + FARM_TTL * 1000).toISOString().slice(0, 10);
+  await env.FARMS.put(`farm:${id}`, body, { expirationTtl: FARM_TTL,
+    metadata: { map, v: /^\d{1,3}$/.test(v || '') ? +v : null, size: body.length, created: created.toISOString(), delHash: await sha256(deleteKey) } });
+  await env.FARMS.put(countKey, String(shared + 1), { expirationTtl: 2 * 86400 });
+  console.log(`farm shared: map=${map} bytes=${body.length}`);
+  const base = env.SHARE_BASE || 'https://secondgrowth.earth/play/';
+  return json(201, { ok: true, id, url: `${base}?farm=${id}`, deleteKey, expires }, cors);
+}
+
+async function handleFarmGet(env, id) {
+  const headers = corsHeaders(null, true);
+  if (!env.FARMS) return fail(500, 'misconfigured', headers);
+  const { value, metadata } = await env.FARMS.getWithMetadata(`farm:${id}`, { type: 'arrayBuffer' });
+  if (!value) return fail(404, 'not_found', headers);
+  return new Response(value, { headers: { ...headers, 'Content-Type': 'application/octet-stream',
+    'X-Farm-Map': metadata?.map || '', 'X-Farm-Version': String(metadata?.v ?? ''),
+    'Access-Control-Expose-Headers': 'X-Farm-Map, X-Farm-Version',
+    'Cache-Control': 'public, max-age=86400, immutable' } });
+}
+
+async function handleFarmDelete(request, env, cors, id) {
+  if (!env.FARMS) return fail(500, 'misconfigured', cors);
+  const { metadata } = await env.FARMS.getWithMetadata(`farm:${id}`, { type: 'stream' });
+  if (!metadata) return fail(404, 'not_found', cors);
+  const key = request.headers.get('X-Delete-Key') || '';
+  if (!key || await sha256(key) !== metadata.delHash) return fail(403, 'wrong_key', cors);
+  await env.FARMS.delete(`farm:${id}`);
+  console.log('farm removed by its sharer');
+  return json(200, { ok: true }, cors);
+}
+
+async function handleFarmReport(request, env, cors, id) {
+  const { body, error } = await readBody(request);
+  if (error) return fail(error === 'too_large' ? 413 : 400, error, cors);
+  if (!env.RESEND_API_KEY) return fail(500, 'misconfigured', cors);
+  const reason = typeof body.reason === 'string' ? oneLine(body.reason, 200) : '';
+  const meta = env.FARMS ? (await env.FARMS.getWithMetadata(`farm:${id}`, { type: 'stream' })).metadata : null;
+  if (!meta) return fail(404, 'not_found', cors);
+  const email = {
+    from: env.FEEDBACK_FROM || 'Second Growth feedback <feedback@secondgrowth.earth>',
+    to: [env.FEEDBACK_TO || 'info@secondgrowth.earth'],
+    subject: `Shared farm reported: ${id} (${meta.map})`,
+    text: [`A player reported the shared farm ${id} (${meta.map}, shared ${meta.created?.slice(0, 10)}).`, `Reason: ${reason || 'none given'}`, '',
+      `Look at it: ${(env.SHARE_BASE || 'https://secondgrowth.earth/play/')}?farm=${id}`,
+      `Remove it (from the server folder): npx wrangler@4 kv key delete --binding=FARMS --remote "farm:${id}"`].join('\n'),
+  };
+  let sent = false;
+  try { sent = await sendEmail(env, email); } catch (e) { console.log('resend unreachable'); }
+  if (!sent) return fail(502, 'send_failed', cors);
+  console.log('farm reported');
+  return json(200, { ok: true }, cors);
+}
+
 // --- routing ------------------------------------------------------------------------------
 export async function handle(request, env) {
   const url = new URL(request.url), origin = request.headers.get('Origin');
   const route = url.pathname.replace(/\/+$/, '') || '/';
   const isPost = route === '/feedback' || route === '/subscribe';
   const cors = corsHeaders(origin);
+  const farm = route.match(/^\/farms(?:\/([^/]+))?(\/report)?$/);
+  if (farm) return handleFarms(request, env, cors, url, farm[1], !!farm[2]);
 
   if (request.method === 'OPTIONS') {
     if (route === '/ratings') return new Response(null, { status: 204, headers: { ...corsHeaders(null, true), 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Access-Control-Max-Age': '86400' } });
@@ -225,6 +314,26 @@ export async function handle(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   if (!await allowed(env, `${route}:${ip}`)) return fail(429, 'rate_limited', { ...cors, 'Retry-After': '60' });
   return route === '/feedback' ? handleFeedback(request, env, cors) : handleSubscribe(request, env, cors);
+}
+
+// /farms (POST: share), /farms/<id> (GET: open, DELETE: stop sharing), /farms/<id>/report (POST)
+async function handleFarms(request, env, cors, url, id, report) {
+  const m = request.method;
+  if (id && !ID_RE.test(id)) return fail(404, 'not_found', id && m === 'GET' ? corsHeaders(null, true) : cors);
+  const methods = !id ? ['POST'] : report ? ['POST'] : ['GET', 'DELETE'];
+  if (m === 'OPTIONS') {
+    if (id && !report && !cors['Access-Control-Allow-Origin']) return new Response(null, { status: 204, headers: { ...corsHeaders(null, true), 'Access-Control-Allow-Methods': 'GET, OPTIONS' } });
+    if (!cors['Access-Control-Allow-Origin']) return fail(403, 'origin_not_allowed');
+    return new Response(null, { status: 204, headers: { ...cors, 'Access-Control-Allow-Methods': `${methods.join(', ')}, OPTIONS`, 'Access-Control-Allow-Headers': 'Content-Type, X-Delete-Key', 'Access-Control-Max-Age': '86400' } });
+  }
+  // opening a shared farm is open to everyone, like /ratings (the link is the key)
+  if (m === 'GET' && id && !report) return handleFarmGet(env, id);
+  if (!methods.includes(m)) return fail(405, 'method_not_allowed', cors);
+  if (!cors['Access-Control-Allow-Origin']) return fail(403, 'origin_not_allowed');
+  if (m === 'DELETE') return handleFarmDelete(request, env, cors, id);
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  if (!await allowed(env, `/farms${report ? '/report' : ''}:${ip}`)) return fail(429, 'rate_limited', { ...cors, 'Retry-After': '60' });
+  return report ? handleFarmReport(request, env, cors, id) : handleShare(request, env, cors, url);
 }
 
 export default {

@@ -1,14 +1,17 @@
 # 0047 Accounts, sharing farms, and where the game lives
 
-Status: proposed 2026-11-13, design only (Cole asked to explore login, not build it). Nothing here
-is built. Written for Cole first: plain words, the reasoning, then the parts for whoever builds it.
+Status: decided 2026-11-13. Cole took every recommendation. Sharing by link and farm files are
+built (`js/share-file.js`, `js/ui/share.js`, `/farms` in `server/`), live once the Worker is
+deployed with its `FARMS` store; login is not built. Written for Cole first: plain words, the
+reasoning, then the parts for whoever builds on it.
 
 ## Rules
 
 - **No login for now.** "Free, no account, saves stay in your browser" stays true and stays on the site. Revisit only on one of the triggers in *Login* below, and if it ever comes, start with an email magic link from a hosted sign-in service, never our own passwords.
-- **The recommended next build is share-by-link without login**: a *Share this farm* button sends a compressed save to the Worker, which keeps it in Cloudflare KV for a year and returns `secondgrowth.earth/play/?farm=<id>`; opening that link visits a copy. Contract and flow in *Sharing* below (about two sessions: Worker, then game).
+- **Share by link without login (built)**: *Share this farm* (menu) sends the share file to the Worker, which keeps it in Cloudflare KV for a year and returns `secondgrowth.earth/play/?farm=<id>`; opening that link visits a copy. The same dialog saves and opens `.sgfarm` files with no server (the only part that works until the Worker is live). Contract: `docs/backend-setup.md` Part 2. Checks: `tools/share-file-check.mjs` (every map round-trips to the same `saveChecksum`), `tools/backend-check.mjs`.
+- Every farm opens through a page load (`sharedFarmAtBoot` in `main.js`; a file waits in sessionStorage), so a farm from another map gets that map's catalog. Never restore a shared farm into a live game of another map.
 - A shared farm holds **no free text and nothing personal**: no farm names, notes, player names, player ids or timestamps beyond the game date. Adding any typed text to a shared farm needs moderation first and is a new decision. This is also what keeps sharing clear of COPPA.
-- Opening a shared farm **never overwrites the player's own farm silently**: it opens as a visit with autosave off; "Make it mine" asks first and says it replaces their farm on that map.
+- Opening a shared farm **never overwrites the player's own farm silently**: it opens as a visit (`game.visiting`: `Game.save` refuses, autosave and the save label say so); "Make it my farm" asks first when the player has a farm on that map and offers to save theirs as a file, because the backups rotate within minutes of play and are no safe home for it.
 - A shared save is untrusted input: the game decompresses it with a size cap, then loads it only through `restoreSnapshot` (validated off to the side), exactly as a damaged local save would be rejected.
 - Each share keeps a secret delete key in the sharer's browser (`second-growth-shared` in localStorage). That list is also how a later login would adopt farms shared before it existed.
 - Share links always point at secondgrowth.earth, never itch.io: itch runs the game in an iframe on another address and drops the link's `?farm=`.
@@ -338,6 +341,13 @@ itch players arrive from links Cole posted himself, those links should point to 
   accounts and cloud saves for free. It needs a desktop wrapper (Electron or Tauri), a $100 fee,
   a store page with capsule art (the key-art prompts are a start) and a few weeks of work. Worth a
   decision record of its own once the website and newsletter have a following to announce it to.
+
+### Built (2026-11-13, after Cole said "do the recommended")
+
+- Worker: `POST /farms`, `GET`/`DELETE /farms/<id>`, `POST /farms/<id>/report` (`server/src/worker.js`), `FARMS` KV namespace and `SHARE_BASE` in `wrangler.toml`, Part 1 step 5b and Part 2 in `docs/backend-setup.md`. Differences from the sketch above: the share rate limit is the existing 5 a minute per IP (Cloudflare's limiter only counts per 10 or 60 seconds), and the daily cap is 400, not 500, because each share is two KV writes (the farm and the day's count) under the free 1,000.
+- Game: `js/share-file.js` (the SGF1 format), `js/ui/share.js` (dialog, list of this browser's shares with Stop sharing, visit card with Make it my farm / Back to my farm / Report, file export and import), `?farm=` in `main.js`, `Game.save` refusing while visiting, Spanish strings, a line on the privacy page.
+- Checked: `share-file-check` on all seven maps (86–222 KB a year in); `backend-check`; in the browser at 844×390 against a local stand-in for the Worker: share → link, open the link (same map and Sumatra from an Atlanta session), nothing saved after 30 s of visiting, Make it my farm with and without a farm of one's own, save own farm as a file first, Report (email sent), Stop sharing (link then 404), opening a farm file, and a missing farm's message.
+- Not yet: no browser check script for it (the manual run above); not tried against the real Worker and KV, which needs Cole's deploy (step 5b).
 
 ### Small steps (in order, each an hour or less)
 

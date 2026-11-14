@@ -382,6 +382,7 @@ export class Game {
   }
 
   async save({ speed = this.speed } = {}) {
+    if (this.visiting) return false; // (a shared farm being visited never overwrites the player's own: ui/share.js)
     this.finishDay(); // (never half a day)
     const map = this.map, epoch = this.saveEpoch, request = this.saveRequest = (this.saveRequest || 0) + 1;
     this.saveStatus = { state: 'saving' }; this.emit('save', this.saveStatus);

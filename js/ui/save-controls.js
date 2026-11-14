@@ -39,7 +39,7 @@ export class SaveControls {
     const label = $('#save-status'), g = this.game;
     if (!label) return;
     const status = g.saveStatus || { state: 'idle' };
-    label.textContent = status.state === 'saving' ? 'Saving…' : status.state === 'saved' ? 'Saved' : status.state === 'error' ? 'Save failed' : g.autosave === false ? 'Autosave off' : '';
+    label.textContent = g.visiting ? 'Visiting: not saved' : status.state === 'saving' ? 'Saving…' : status.state === 'saved' ? 'Saved' : status.state === 'error' ? 'Save failed' : g.autosave === false ? 'Autosave off' : '';
     label.classList.toggle('error', status.state === 'error');
     // "Saved" (and "Autosave off") show for a moment and fade; "Saving…" and a failed save stay
     clearTimeout(this.saveFade);
@@ -50,6 +50,7 @@ export class SaveControls {
   }
 
   async manualSave(button) {
+    if (this.game.visiting) { this.controls.closeModal(); this.game.notify('You\'re visiting a shared farm, so it isn\'t saved. Choose "Make it my farm" to keep it.', 'info'); return; }
     button.disabled = true;
     const ok = await this.game.save();
     if (ok) { this.controls.closeModal(); this.game.notify('Game saved on this device.', 'good'); }

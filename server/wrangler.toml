@@ -10,6 +10,8 @@ workers_dev = true
 [vars]
 FEEDBACK_TO = "info@secondgrowth.earth"
 FEEDBACK_FROM = "Second Growth feedback <feedback@secondgrowth.earth>"
+# Where share links point (decision 0047); the game reads ?farm= there
+SHARE_BASE = "https://secondgrowth.earth/play/"
 # Kit tag ids (numbers from the tag's page URL in Kit); leave empty to skip tagging
 KIT_TAG_WEBSITE = ""
 KIT_TAG_GAME = ""
@@ -21,7 +23,12 @@ binding = "DB"
 database_name = "second-growth"
 database_id = "PASTE-THE-ID-FROM-wrangler-d1-create"
 
-# 5 requests a minute per visitor to /feedback and /subscribe (period must be 10 or 60)
+# Shared farms (decision 0047): kept a year each
+[[kv_namespaces]]
+binding = "FARMS"
+id = "PASTE-THE-ID-FROM-wrangler-kv-namespace-create"
+
+# 5 requests a minute per visitor to /feedback, /subscribe, /farms and /farms/<id>/report (period must be 10 or 60)
 [[ratelimits]]
 name = "LIMITER"
 namespace_id = "1001"

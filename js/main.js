@@ -9,6 +9,7 @@ import { settings, saveSettings } from './settings.js';
 import { initAnalytics, track, trackExit } from './analytics.js';
 import { initLang } from './i18n.js';
 import { BIOMES } from './biome.js';
+import { sharedFarmAtBoot, startVisit, openError } from './ui/share.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
 const loading = document.getElementById('loading-screen');
@@ -41,7 +42,10 @@ async function boot() {
     if (linked) { const url = new URL(location.href); url.searchParams.delete('map'); history.replaceState(history.state, '', url); }
     stage('Opening your saved farms', 12);
     await Game.prepareSaves();
-    const startMap = pending?.map || linkedMap || Game.lastMap();
+    // A shared farm (?farm=<id>, or a farm file opened from the menu): decision 0047, ui/share.js
+    const shared = pending ? null : await sharedFarmAtBoot();
+    const sharedMap = shared?.data && Object.hasOwn(BIOMES, shared.data.map || 'pnw') ? shared.data.map || 'pnw' : null;
+    const startMap = pending?.map || sharedMap || linkedMap || Game.lastMap();
     initLang(startMap); // the language this map is played in (see i18n.js), from the loading screen on
     await nextPaint();
     stage('Preparing the land', 22);
@@ -81,7 +85,12 @@ async function boot() {
       for (const ms of [100, 400, 1000]) setTimeout(() => dispatchEvent(new Event('resize')), ms);
     });
 
-    if (pending?.resume) {
+    const visiting = !!sharedMap && startVisit(ui, shared);
+    if (shared && !visiting) setTimeout(() => game.notify(openError(shared.error), 'warn'), 1500);
+    if (visiting) {
+      track('game_start', { mode: 'visit', map: game.map, game_year: game.year });
+      if (game.speed === 0) ui.setSpeed(1);
+    } else if (pending?.resume) {
       if (!await game.load(pending.map)) { game.newGame(1987, 'free', 'standard', pending.map, Game.randomRunSeed()); setTimeout(() => game.notify('That saved farm could not be opened. Your stored saves have been kept. Choose a new game to start over.', 'warn'), 1500); }
       else {
         track('game_start', { mode: 'continue', saved_mode: game.mode, map: game.map, difficulty: game.difficulty, game_year: game.year });

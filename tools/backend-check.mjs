@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const worker = (await import('../server/src/worker.js')).default;
-const { ALLOWED_ORIGINS, resetMemoryLimiter } = await import('../server/src/worker.js');
+const { ALLOWED_ORIGINS, MAPS, resetMemoryLimiter } = await import('../server/src/worker.js');
 
 // --- mocks --------------------------------------------------------------------------------
 let calls = [], replies = {};
@@ -45,14 +45,27 @@ function mockDb() {
   };
 }
 
+// a stand-in for Workers KV: get / getWithMetadata / put / delete, with expirationTtl recorded
+function mockKv() {
+  const store = new Map();
+  const bytes = v => typeof v === 'string' ? v : new Uint8Array(v).slice().buffer;
+  return {
+    store,
+    async get(key, opts) { const e = store.get(key); if (!e) return null; return opts?.type === 'arrayBuffer' || opts?.type === 'stream' ? bytes(e.value) : String(e.value); },
+    async getWithMetadata(key, opts) { const e = store.get(key); return { value: e ? await this.get(key, opts) : null, metadata: e?.metadata ?? null }; },
+    async put(key, value, { expirationTtl, metadata } = {}) { store.set(key, { value: typeof value === 'string' ? value : new Uint8Array(value).slice(), expirationTtl, metadata }); },
+    async delete(key) { store.delete(key); },
+  };
+}
+
 let env;
 function reset(extra = {}) {
   calls = []; replies = {}; resetMemoryLimiter();
-  env = { RESEND_API_KEY: 're_test', KIT_API_KEY: 'kit_test', KIT_TAG_GAME: '11', KIT_TAG_WEBSITE: '22', FEEDBACK_TO: 'info@secondgrowth.earth', DB: mockDb(), ...extra };
+  env = { RESEND_API_KEY: 're_test', KIT_API_KEY: 'kit_test', KIT_TAG_GAME: '11', KIT_TAG_WEBSITE: '22', FEEDBACK_TO: 'info@secondgrowth.earth', DB: mockDb(), FARMS: mockKv(), ...extra };
 }
 let ipN = 0;
-function req(path, { method = 'POST', origin = 'https://secondgrowth.earth', body, raw, type = 'application/json', ip } = {}) {
-  const headers = { 'CF-Connecting-IP': ip || `10.0.0.${++ipN % 250}` };
+function req(path, { method = 'POST', origin = 'https://secondgrowth.earth', body, raw, type = 'application/json', ip, extra = {} } = {}) {
+  const headers = { 'CF-Connecting-IP': ip || `10.0.0.${++ipN % 250}`, ...extra };
   if (origin) headers.Origin = origin;
   if (method === 'POST') headers['Content-Type'] = type;
   return worker.fetch(new Request('https://api.secondgrowth.earth' + path, { method, headers, body: raw ?? (body ? JSON.stringify(body) : undefined) }), env);
@@ -218,9 +231,82 @@ assert.equal((await req('/feedback', { method: 'GET' })).status, 405);
 assert.equal((await req('/feedback/', { body: { rating: 3 } })).status, 200, 'trailing slash');
 assert.equal((await req('/', { method: 'GET' })).status, 200);
 
+// --- shared farms (decision 0047) ------------------------------------------------------------
+const { BIOME_LIST } = await import('../js/biome.js');
+assert.deepEqual([...MAPS].sort(), BIOME_LIST.map(b => b.id).sort(), 'the Worker knows every map');
+const { gzipSync } = await import('node:zlib');
+const farmFile = gzipSync(Buffer.from('SGF1' + 'x'.repeat(5000)));
+reset();
+r = await read(await req('/farms?map=serengeti&v=2', { raw: farmFile, type: 'application/octet-stream', origin: 'https://secondgrowth.earth' }));
+assert.equal(r.status, 201);
+const shared = r.body;
+assert.match(shared.id, /^[2-9a-hjkmnp-z]{10}$/);
+assert.equal(shared.url, `https://secondgrowth.earth/play/?farm=${shared.id}`);
+assert.match(shared.deleteKey, /^[0-9a-f]{32}$/);
+assert.match(shared.expires, /^\d{4}-\d\d-\d\d$/);
+const stored = env.FARMS.store.get(`farm:${shared.id}`);
+assert.equal(stored.expirationTtl, 365 * 86400, 'kept a year');
+assert.deepEqual([stored.metadata.map, stored.metadata.v, stored.metadata.size], ['serengeti', 2, farmFile.length]);
+assert.ok(!JSON.stringify(stored.metadata).includes(shared.deleteKey), 'only a hash of the delete key is kept');
+// opening it: anyone, byte for byte, with its map
+let got = await req(`/farms/${shared.id}`, { method: 'GET', origin: null });
+assert.equal(got.status, 200);
+assert.deepEqual(new Uint8Array(await got.arrayBuffer()), new Uint8Array(farmFile));
+assert.equal(got.headers.get('X-Farm-Map'), 'serengeti');
+assert.equal(got.headers.get('Access-Control-Allow-Origin'), '*');
+assert.match(got.headers.get('Access-Control-Expose-Headers'), /X-Farm-Map/);
+assert.equal((await read(await req('/farms/zzzzzzzzzz', { method: 'GET' }))).body.error, 'not_found');
+assert.equal((await req('/farms/../../x', { method: 'GET' })).status, 404);
+// preflights: the share (octet-stream) and the delete key header
+let pre = await req('/farms', { method: 'OPTIONS', origin: 'https://html-classic.itch.zone' });
+assert.equal(pre.status, 204); assert.match(pre.headers.get('Access-Control-Allow-Methods'), /POST/);
+pre = await req(`/farms/${shared.id}`, { method: 'OPTIONS' });
+assert.match(pre.headers.get('Access-Control-Allow-Headers'), /X-Delete-Key/); assert.match(pre.headers.get('Access-Control-Allow-Methods'), /DELETE/);
+// refused shares
+for (const [path, opts, status, error] of [
+  ['/farms?map=mars', { raw: farmFile }, 400, 'invalid_map'],
+  ['/farms?map=reef', { raw: Buffer.from('not gzip at all, just text') }, 400, 'invalid_farm'],
+  ['/farms?map=reef', { raw: Buffer.concat([farmFile, Buffer.alloc(2 * 1024 * 1024)]) }, 413, 'too_large'],
+  ['/farms?map=reef', { raw: farmFile, origin: 'https://evil.example' }, 403, 'origin_not_allowed'],
+  ['/farms?map=reef', { raw: farmFile, origin: null }, 403, 'origin_not_allowed'],
+]) {
+  r = await read(await req(path, { type: 'application/octet-stream', ...opts }));
+  assert.deepEqual([r.status, r.body.error], [status, error], `${path} ${error}`);
+}
+assert.equal((await read(await req(`/farms/${shared.id}`, { body: {} }))).status, 405);
+// the day's cap pauses sharing for everyone
+env.FARMS.store.set(`count:${new Date().toISOString().slice(0, 10)}`, { value: '400' });
+r = await read(await req('/farms?map=reef', { raw: farmFile, type: 'application/octet-stream' }));
+assert.deepEqual([r.status, r.body.error], [503, 'sharing_paused']);
+// rate limit per IP
+reset();
+const shareStatuses = [];
+for (let k = 0; k < 6; k++) shareStatuses.push((await req('/farms?map=reef', { raw: farmFile, type: 'application/octet-stream', ip: '7.7.7.7' })).status);
+assert.deepEqual(shareStatuses, [201, 201, 201, 201, 201, 429]);
+assert.equal(env.FARMS.store.get(`count:${new Date().toISOString().slice(0, 10)}`).value, '5');
+// report: emails Cole the id, never more than the reason
+reset();
+const one = (await read(await req('/farms?map=atlanta&v=2', { raw: farmFile, type: 'application/octet-stream' }))).body;
+r = await read(await req(`/farms/${one.id}/report`, { body: { reason: 'rude\r\nshape drawn in fences' } }));
+assert.deepEqual([r.status, r.body], [200, { ok: true }]);
+mail = resendCalls()[0].body;
+assert.match(mail.subject, new RegExp(`Shared farm reported: ${one.id} \\(atlanta\\)`));
+assert.ok(mail.text.includes('rude shape drawn in fences') && mail.text.includes(`kv key delete --binding=FARMS --remote "farm:${one.id}"`));
+assert.equal((await read(await req('/farms/zzzzzzzzzz/report', { body: {} }))).body.error, 'not_found');
+// stop sharing: only with the right key
+r = await read(await req(`/farms/${one.id}`, { method: 'DELETE', extra: { 'X-Delete-Key': 'f'.repeat(32) } }));
+assert.deepEqual([r.status, r.body.error], [403, 'wrong_key']);
+r = await read(await req(`/farms/${one.id}`, { method: 'DELETE', origin: 'https://evil.example', extra: { 'X-Delete-Key': one.deleteKey } }));
+assert.equal(r.status, 403);
+r = await read(await req(`/farms/${one.id}`, { method: 'DELETE', extra: { 'X-Delete-Key': one.deleteKey } }));
+assert.deepEqual([r.status, r.body], [200, { ok: true }]);
+assert.equal((await req(`/farms/${one.id}`, { method: 'GET' })).status, 404);
+reset({ FARMS: undefined });
+assert.equal((await read(await req('/farms?map=reef', { raw: farmFile, type: 'application/octet-stream' }))).body.error, 'misconfigured');
+
 // --- privacy: nothing a player wrote reaches the logs ----------------------------------------
 assert.ok(logs.length > 0);
-for (const line of logs) for (const secret of [SECRET_MESSAGE, SECRET_EMAIL, 'wolves', '@example', 'new.player', 'u/rewilder', 'buy pills']) {
+for (const line of logs) for (const secret of [SECRET_MESSAGE, SECRET_EMAIL, 'wolves', '@example', 'new.player', 'u/rewilder', 'buy pills', 'rude', shared.deleteKey]) {
   assert.ok(!line.includes(secret), `log line leaks "${secret}": ${line}`);
 }
 
@@ -230,13 +316,14 @@ const toml = await readFile(new URL('server/wrangler.toml', root), 'utf8');
 assert.match(toml, /main = "src\/worker\.js"/);
 assert.match(toml, /binding = "DB"/);
 assert.match(toml, /name = "LIMITER"/);
+assert.match(toml, /binding = "FARMS"/);
 assert.ok(!/RESEND_API_KEY\s*=|KIT_API_KEY\s*=/.test(toml), 'secrets never live in wrangler.toml');
 const schema = await readFile(new URL('server/schema.sql', root), 'utf8');
 assert.match(schema, /player TEXT UNIQUE/);
 const doc = await readFile(new URL('docs/backend-setup.md', root), 'utf8');
 const source = await readFile(new URL('server/src/worker.js', root), 'utf8');
 const codes = new Set([...source.matchAll(/fail\(\d+, '([a-z_]+)'/g)].map(m => m[1]));
-for (const code of ['invalid_json', 'invalid_rating', 'invalid_message', 'empty', 'invalid_source', 'invalid_email', 'too_large', 'misconfigured', 'send_failed', 'subscribe_failed', 'rate_limited', 'origin_not_allowed', 'not_found', 'method_not_allowed', 'server_error']) codes.add(code);
+for (const code of ['invalid_json', 'invalid_rating', 'invalid_message', 'empty', 'invalid_source', 'invalid_email', 'too_large', 'misconfigured', 'send_failed', 'subscribe_failed', 'rate_limited', 'origin_not_allowed', 'not_found', 'method_not_allowed', 'server_error', 'invalid_map', 'invalid_farm', 'sharing_paused', 'wrong_key']) codes.add(code);
 for (const code of codes) assert.ok(doc.includes('`' + code + '`'), `docs/backend-setup.md lists error ${code}`);
 for (const origin of ALLOWED_ORIGINS) assert.ok(doc.includes(origin), `docs/backend-setup.md lists origin ${origin}`);
 
