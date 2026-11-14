@@ -118,6 +118,37 @@ export class World {
     for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) this.setVert(x + dx, y + dy, Math.min(this.vert(x + dx, y + dy), target));
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;
   }
+  // A dug pond is one body of water with one surface, so its whole floor goes down to its lowest
+  // point, and a low bank round it stands above its water, as the map's own ponds have (0044).
+  // Dug into a slope without this, the uphill tiles stood above the water and were mud at once.
+  levelPond(x, y) {
+    const pond = [this.idx(x, y)], own = new Set(pond);
+    for (let k = 0; k < pond.length; k++) {
+      const px = pond[k] % this.w, py = (pond[k] / this.w) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const j = this.idx(px + dx, py + dy);
+        if (this.inb(px + dx, py + dy) && !own.has(j) && this.terrain[j] === T.POND) { own.add(j); pond.push(j); }
+      }
+    }
+    let lo = Infinity;
+    for (const i of pond) lo = Math.min(lo, ...this.corners(i % this.w, (i / this.w) | 0));
+    const bank = lo + WATER_FILL[T.POND] + 0.15;
+    for (const i of pond) {
+      const px = i % this.w, py = (i / this.w) | 0;
+      for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) this.setVert(px + dx, py + dy, lo);
+      for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) {
+        const vx = px + dx, vy = py + dy;
+        if (vx < 0 || vy < 0 || vx > this.w || vy > this.h || this.vert(vx, vy) >= bank) continue;
+        // (not the pond's own corners, nor the bed of a creek or marsh beside it: the bank may rise on
+        // a water tile's side only where another of its corners is as low, so its water stays put)
+        const h = this.vert(vx, vy), touching = [[0, 0], [-1, 0], [0, -1], [-1, -1]].map(([ox, oy]) => [vx + ox, vy + oy]).filter(([tx, ty]) => this.inb(tx, ty));
+        if (touching.some(([tx, ty]) => own.has(this.idx(tx, ty)))) continue;
+        if (touching.some(([tx, ty]) => isWater(this.terrain[this.idx(tx, ty)]) && Math.min(...this.corners(tx, ty)) >= h)) continue;
+        this.setVert(vx, vy, bank);
+      }
+    }
+    this.heightDirty = true; this.hv = (this.hv || 0) + 1;
+  }
   // Bring a filled-in tile back up to the level of the land around it.
   raiseToSurroundings(x, y) {
     let s = 0, n = 0;

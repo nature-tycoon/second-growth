@@ -40,6 +40,7 @@ export function createTools(catalog) {
       w.terrain[i] = terrain;
       w.soil[i] = Math.max(w.soil[i], 0.3);
       w.carve(i % w.w, (i / w.w) | 0, DEPTH[terrain]);
+      if (terrain === T.POND) w.levelPond(i % w.w, (i / w.w) | 0);
       if (wasLand) game.stats.dug++;
       w.hydroDirty = true;
       return true;
