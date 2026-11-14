@@ -133,3 +133,11 @@ Every change gives exactly the same answers: seeded `balance-sim restore 15`, `i
 - **Not done:** dirty tiles for classification. Growth (`treeG` and the rest) and `treeAge` change on almost every planted tile every day, so nearly every tile would be dirty. Spreading the update over days was not needed.
 
 **What top speed costs now.** At 8 days a second and 60 fps the simulation is about 3 ms a frame in Sumatra and 1.3–1.7 in Amazon and the Serengeti (node). The larger part is no longer the day but the animals' steps: a game day of `wildlife.update` (20 steps of 0.05 days) takes about 16 ms in Sumatra, against 6.7 ms for the whole `dailyTick`. `play-profile`'s 23 ms top-speed figure is a slow frame carrying most of a game day of animal steps (Sumatra draws at about 10–12 fps at top speed, mostly drawing), so it measures the frame rate as much as the simulation. The next simulation saving at top speed is in the animal steps, then `updatePlants` (about 3–4 ms a day in Sumatra, mostly `plantSuit` and the grazing terms).
+
+## Loading: the first frame, 2026-11-14
+
+The first frame is built and its shaders compiled before it is drawn (`Renderer.prepareFirstFrame` and `warmShaders`, called from `main.js`; numbers in [posthog-review-2026-11.md](posthog-review-2026-11.md#load-time)). Rules for anything drawn from the start of a game:
+
+- It must be visible by the time `draw` returns early for `this.preparing` (after `flora.updateView`), or its shader compiles inside the first draw, serially, as before. `warmShaders` compiles only what is shown (`compileShown`), because three.js's own `compile` walks hidden objects too (about ten extra programs).
+- Check with `node tools/first-frame-profile.mjs [maps]`: 'compiled in the first draw' should list nothing beyond one hidden helper, and the programs added by the draw should be the sun's 3 shadow programs (three.js keeps the depth materials private, so they can't be warmed without copying its shadow pass).
+- Each distinct material variant (a define, `onBeforeCompile`, instancing or not, a map or not) is a program. On the M5 one costs 5–45 ms; on Windows ANGLE/D3D and Chromebooks many times that. Share materials rather than adding variants.

@@ -21,73 +21,145 @@
   --ui: 'Nunito', system-ui, sans-serif;
 }
 
-/* Loading screen: painted straight from the HTML while three.js and the world load.
-   Daylight horizon behind one sage glass card, in the game's panel style. Its own ls- classes,
-   so changes to .panel or .glass-menu don't reach it. No backdrop blur (the card sits over a
-   still sky) and nothing animated in the background, so the busy boot thread paints little. */
+/* Loading screen: painted straight from the HTML while three.js and the world load, in the website's look
+   (night pine, cream, one soft green). Night turns to dawn over the landscape being loaded while its land
+   grows back, drawn by the inline script in index.html. Its own ls- classes, so the game's panels don't
+   reach it. Everything that moves is a transform or opacity animation, which the browser runs off the
+   main thread, so it keeps moving while the game builds the scene (seconds on slow machines). No
+   backdrop blur: it would be redrawn under every moving part. */
 .loading-screen {
-  position: fixed; inset: 0; z-index: 100; overflow: hidden; display: grid; place-items: center;
-  background: #e7eed6; color: var(--ink); font-family: var(--ui);
+  --scene-h: 58vh; --ls-cream: #fbf6e7; --ls-muted: #b5c3b3; --ls-sprout: #b7d494;
+  --land: #8fc79b; --sky-1: #0c1914; --sky-2: #14281f; --sky-3: #2c4436; --dawn: #e9b98c; --sun: #f7dcaa;
+  --far: #2b4136; --mid: #1d3229; --back: #15261f; --near: #102019; --front: #0a140f;
+  position: fixed; inset: 0; z-index: 100; overflow: hidden; display: grid; place-items: start center;
+  background: var(--sky-1); color: var(--ls-cream); font-family: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   transition: opacity .7s ease, visibility .7s ease;
 }
 .loading-screen.done { opacity: 0; visibility: hidden; pointer-events: none; }
-.ls-sky { position: absolute; inset: 0; background:
-  radial-gradient(ellipse 70% 50% at 50% 30%, #fbf2d2, #fbf2d200 70%),
-  linear-gradient(#d4e3c6 0%, #e8eed6 45%, #f2edd2 72%, #ece5c4 100%); }
-.ls-ridges { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 46vh; min-height: 240px; }
-.ls-center {
-  position: relative; display: grid; justify-items: center; text-align: center;
-  grid-template-areas: "logo" "title" "tagline" "progress" "tip" "retry";
-  width: min(calc(100vw - 32px), 440px); padding: 26px clamp(20px, 5vw, 34px) 22px; margin-top: -4vh;
-  background: rgba(248, 251, 242, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 26px;
-  box-shadow: 0 2px 4px rgba(17, 43, 24, 0.06), 0 30px 70px -20px rgba(17, 43, 24, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-/* The app icon and the wordmark, as on the website: Bricolage Grotesque, its "o" a round with a young fir
-   cut out (assets/brand-o.svg), painted in the text's colour so the fir shows the card behind. */
-.ls-logo { grid-area: logo; width: clamp(84px, 13vh, 112px); height: auto; aspect-ratio: 1; border-radius: 22%; box-shadow: 0 10px 22px -10px #1a322266; animation: ls-pop .9s cubic-bezier(.2, .9, .25, 1.15) .1s both; }
-.ls-title { grid-area: title; font: 700 clamp(30px, 5vw, 40px)/1.05 'Bricolage Grotesque', var(--ui); letter-spacing: -.025em; margin: 14px 0 6px; color: var(--moss-2); white-space: nowrap; }
-.ls-o { display: inline-block; width: .6em; height: .6em; margin: 0 .025em; vertical-align: -.02em; background: currentColor; -webkit-mask: url(assets/brand-o.svg) center / contain no-repeat; mask: url(assets/brand-o.svg) center / contain no-repeat; }
-.ls-tagline { grid-area: tagline; color: var(--moss); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; line-height: 1.5; }
-.ls-progress { grid-area: progress; width: 100%; margin-top: 20px; }
-.ls-track { position: relative; height: 8px; border-radius: 99px; background: #2c4c2f1f; box-shadow: inset 0 1px 2px #1a32221f; overflow: hidden; }
-/* (no sliding: loading keeps the page busy between steps, so a slide barely starts before the next
-   step, and on a phone the bar sat near the start until the very end) */
-.ls-bar { width: 8%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #3f6d3c, #6f9a52); }
-.ls-track::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, #ffffff59, transparent); transform: translateX(-100%); animation: ls-shimmer 1.6s ease-in-out infinite; }
-.ls-status { margin-top: 9px; color: var(--ink-2); font-size: 13px; font-weight: 700; }
-.ls-tip { grid-area: tip; width: 100%; min-height: 3.6em; margin: 18px 0 0; padding-top: 14px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 12.5px; line-height: 1.5; }
-.ls-tip::before { content: 'Field note'; display: block; margin-bottom: 3px; font-weight: 800; letter-spacing: .1em; font-size: 10.5px; color: var(--muted); text-transform: uppercase; }
-.ls-retry { grid-area: retry; margin-top: 16px; border: 0; border-radius: 10px; background: #2f5a3c; color: #f1f6e3; padding: 10px 22px; font: 800 13px var(--ui); cursor: pointer; box-shadow: 0 3px 8px #112b1833; }
-.ls-retry:hover { background: #3a6b47; }
-.ls-retry:focus-visible { outline: 2px solid #2f5a3c; outline-offset: 3px; }
+/* each landscape: its colour (the website's [data-map] colours), its sky, and its hills from far to near */
+.loading-screen[data-map="amazon"] { --land: #4fd38f; --sky-3: #2f4a3b; --dawn: #d7c48e; --sun: #f3e2b0; --far: #29473a; --mid: #1b3629; --back: #13291f; --near: #0e2018; --front: #08140e; }
+.loading-screen[data-map="serengeti"] { --land: #f2bf55; --sky-1: #121717; --sky-2: #1e2420; --sky-3: #4a4231; --dawn: #f0a860; --sun: #ffd889; --far: #4b3f2e; --mid: #362d21; --back: #2a2219; --near: #1f1912; --front: #120f0b; }
+.loading-screen[data-map="atlanta"] { --land: #ff9d72; --sky-2: #172623; --sky-3: #3a4038; --dawn: #f1a88b; --sun: #ffd6b5; --far: #2d3a35; --mid: #212f2a; --back: #18241f; --near: #111b17; --front: #0a120f; }
+.loading-screen[data-map="chinandega"] { --land: #6fd6c2; --sky-2: #13262a; --sky-3: #33453c; --dawn: #f2b47a; --sun: #ffd9a2; --far: #2f3f39; --mid: #23332c; --back: #192820; --near: #121e18; --front: #0a130f; }
+.loading-screen[data-map="sumatra"] { --land: #b6dc5a; --sky-3: #33493a; --dawn: #d9c99b; --sun: #f2e6bc; --far: #2b463a; --mid: #1d372b; --back: #142a20; --near: #0f2119; --front: #08140e; }
+/* the reef is seen from under water: the light comes down from the surface instead of up from a horizon */
+.loading-screen[data-map="reef"] { --land: #63bdf6; --sky-1: #123e4c; --sky-2: #0d2f3a; --sky-3: #08202a; --dawn: #6fc3d6; --sun: #d8f2f2; --far: #0f3540; --mid: #0b2b35; --back: #08232c; --near: #061d24; --front: #04141a; }
+
+.ls-sky { position: absolute; inset: 0; background: linear-gradient(var(--sky-1) 0%, var(--sky-2) 42%, var(--sky-3) 78%, var(--sky-3)); }
+/* dawn: a warm band low in the sky that comes up over the first quarter minute */
+.ls-dawn { position: absolute; inset: 0; background: radial-gradient(ellipse 70% 42% at 50% 74%, var(--dawn), transparent 72%), linear-gradient(transparent 38%, color-mix(in srgb, var(--dawn) 55%, transparent) 82%);
+  opacity: .14; animation: ls-dawn 22s cubic-bezier(.3, .1, .3, 1) .2s forwards; }
+.loading-screen[data-map="reef"] .ls-dawn { background: radial-gradient(ellipse 80% 55% at 50% -8%, var(--dawn), transparent 70%); }
+.ls-stars, .ls-stars-b { position: absolute; left: 0; top: 0; width: 1.5px; height: 1.5px; border-radius: 50%; }
+.ls-stars { animation: ls-stars-fade 22s ease-in .2s forwards; }
+.ls-stars-b { animation: ls-twinkle 3.2s ease-in-out infinite alternate; }
+.loading-screen[data-map="reef"] .ls-stars { display: none; }
+
+.ls-scene { position: absolute; left: 0; right: 0; bottom: 0; height: var(--scene-h); pointer-events: none; }
+.ls-scene > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ls-far { fill: var(--far); } .ls-mid { fill: var(--mid); } .ls-near { fill: var(--near); } .ls-ground { fill: var(--front); }
+.ls-far .ls-snow { fill: color-mix(in srgb, var(--far) 55%, #e8e4d4); }
+/* mist lying in front of the far hills */
+.ls-haze { position: absolute; left: 0; right: 0; top: 46%; height: 26%; background: linear-gradient(transparent, color-mix(in srgb, var(--dawn) 22%, transparent) 50%, transparent); opacity: .5; }
+/* the sun (on the reef, the bright surface) rises behind the far hills as the land loads */
+.ls-sun { position: absolute; left: 61%; top: 26%; width: 15vh; height: 15vh; margin-left: -7.5vh; border-radius: 50%;
+  background: radial-gradient(circle, var(--sun) 0 34%, color-mix(in srgb, var(--sun) 35%, transparent) 36%, transparent 70%);
+  transform: translateY(14vh); opacity: .6; animation: ls-sunrise 24s cubic-bezier(.3, .1, .3, 1) .2s forwards; }
+.loading-screen[data-map="serengeti"] .ls-sun { width: 22vh; height: 22vh; margin-left: -11vh; left: 34%; }
+.loading-screen[data-map="reef"] .ls-sun { display: none; }
+/* light rays from the surface, reaching past every edge of the screen so their drift never shows one */
+.loading-screen[data-map="reef"] .ls-scene::before { content: ''; position: absolute; left: -12vw; right: -12vw; bottom: 40%; top: calc(var(--scene-h) - 112vh);
+  background: repeating-linear-gradient(100deg, transparent 0, #d8f2f214 4vw, transparent 8vw, transparent 13vw, #d8f2f20c 15vw, transparent 18vw); -webkit-mask: linear-gradient(#000 10%, transparent); mask: linear-gradient(#000 10%, transparent);
+  animation: ls-rays 9s ease-in-out infinite alternate; }
+
+/* plants come up from the ground (pioneers first), then sway; the far row is paler with distance */
+.ls-plant { position: absolute; transform-origin: 50% 100%; animation: ls-grow var(--g) cubic-bezier(.25, .7, .3, 1) var(--d) both; }
+.ls-plant.ls-back { color: var(--back); }
+.ls-plant.ls-front { color: var(--front); }
+.ls-plant.ls-still { animation: ls-appear .8s ease both; }
+.ls-sway { width: 100%; height: 100%; transform-origin: 50% 100%; animation: ls-sway var(--st) ease-in-out calc(var(--d) * -.5) infinite alternate; }
+.ls-plant svg, .ls-flier svg { display: block; width: 100%; height: 100%; fill: currentColor; overflow: visible; }
+
+/* birds (fish and a turtle on the reef) crossing, and pollen (bubbles) drifting up */
+.ls-flier { position: absolute; left: 0; width: 30px; height: 13px; color: color-mix(in srgb, var(--front) 70%, var(--sky-2)); animation: ls-cross var(--fd) linear var(--fdl) infinite both; }
+.ls-flap { width: 100%; height: 100%; transform: scale(var(--fs)); animation: ls-flap .5s ease-in-out infinite alternate; }
+.ls-school { display: grid; grid-template-columns: repeat(2, 18px); gap: 6px 10px; transform: scale(var(--fs)); animation: ls-bob 3s ease-in-out infinite alternate; }
+.ls-school svg { width: 18px; height: 8px; }
+.ls-school svg:nth-child(2n) { translate: 6px 3px; }
+.ls-turtle .ls-school { display: block; }
+.ls-turtle .ls-school svg { width: 48px; height: 32px; }
+/* living coral: a little colour coming back into the silhouettes */
+.loading-screen[data-map="reef"] .ls-plant.ls-back { color: color-mix(in srgb, var(--back) 86%, #e88f8a); }
+.loading-screen[data-map="reef"] .ls-plant.ls-front { color: color-mix(in srgb, var(--front) 90%, #c78fb0); }
+.loading-screen[data-map="reef"] .ls-flier { color: color-mix(in srgb, var(--front) 50%, var(--sky-1)); }
+.ls-mote { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--land) 60%, #fff), transparent 70%); opacity: 0;
+  animation: ls-float var(--md) ease-in-out var(--mdl) infinite; }
+.loading-screen[data-map="reef"] .ls-mote { width: 6px; height: 6px; background: none; box-shadow: inset 0 0 0 1px #d8f2f266; }
+
+/* the title, the place and the progress, over the night sky */
+.ls-center { position: relative; z-index: 1; display: grid; justify-items: center; text-align: center; width: min(calc(100vw - 32px), 400px); margin-top: clamp(36px, 12vh, 130px);
+  animation: ls-in .9s cubic-bezier(.2, .8, .3, 1) both; }
+.ls-logo { width: clamp(52px, 8vh, 72px); height: auto; aspect-ratio: 1; border-radius: 22%; box-shadow: 0 0 0 1px #ffffff1f, 0 14px 30px -12px #000a; }
+.ls-title { font: 700 clamp(34px, 5.4vh, 48px)/1 'Bricolage Grotesque', 'Avenir Next', system-ui, sans-serif; letter-spacing: -.03em; margin: 16px 0 0; color: var(--ls-cream); white-space: nowrap; }
+/* the wordmark's "o" (assets/brand-o.svg), a round with a young fir cut out, in the website's green */
+.ls-o { display: inline-block; width: .6em; height: .6em; margin: 0 .025em; vertical-align: -.02em; background: var(--ls-sprout); -webkit-mask: url(assets/brand-o.svg) center / contain no-repeat; mask: url(assets/brand-o.svg) center / contain no-repeat; }
+.ls-land { display: inline-flex; align-items: center; gap: 9px; margin: 12px 0 0; font-size: 14px; font-weight: 600; color: var(--land); }
+.ls-land::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .75; }
+.ls-progress { width: min(100%, 300px); margin-top: 24px; }
+.ls-track { height: 3px; border-radius: 99px; background: #ffffff1f; overflow: hidden; }
+.ls-bar { height: 100%; border-radius: inherit; background: var(--ls-sprout); transform: scaleX(.05); transform-origin: 0 50%; transition: transform .6s cubic-bezier(.3, .7, .3, 1); }
+.ls-status-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: 13px; color: var(--ls-muted); }
+.ls-percent { font-variant-numeric: tabular-nums; opacity: .8; }
+.ls-retry { margin-top: 20px; border: 0; border-radius: 100px; background: var(--ls-sprout); color: #0d1a13; padding: 12px 24px; font: 600 15px/1.2 inherit; font-family: inherit; cursor: pointer; }
+.ls-retry:hover { background: #c9e1ab; }
+.ls-retry:focus-visible { outline: 3px solid var(--ls-sprout); outline-offset: 4px; }
 .ls-retry.hidden { display: none; }
-.loading-screen.failed .ls-bar { background: var(--rust); }
-.loading-screen.failed .ls-track::after { animation: none; }
-.loading-screen.failed .ls-status { color: var(--bad); }
-.loading-screen.failed .ls-tip::before { display: none; }
-@keyframes ls-pop { from { transform: scale(.8); opacity: 0; } }
-@keyframes ls-shimmer { to { transform: translateX(100%); } }
-/* Short screens (phones held sideways): logo beside the title, field note dropped. */
+/* a field note at the foot of the scene, a new one every few seconds */
+.ls-note { position: absolute; z-index: 1; left: 50%; bottom: max(26px, 4vh); width: min(calc(100vw - 32px), 560px); translate: -50% 0; text-align: center; }
+.ls-note-label { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--land); }
+.ls-note-label::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .7; }
+.ls-tip { margin: 8px 0 0; min-height: 3em; font-size: 15px; line-height: 1.5; color: #e6ecdf; text-wrap: balance; text-shadow: 0 1px 12px #000c; transition: opacity .45s ease; }
+.ls-tip.out { opacity: 0; }
+.loading-screen.failed .ls-bar { background: #e58c62; }
+.loading-screen.failed .ls-status { color: #f2b49a; }
+.loading-screen.failed .ls-note-label { display: none; }
+
+@keyframes ls-dawn { to { opacity: 1; } }
+@keyframes ls-stars-fade { to { opacity: .25; } }
+@keyframes ls-twinkle { from { opacity: .25; } to { opacity: 1; } }
+@keyframes ls-sunrise { to { transform: none; opacity: 1; } }
+@keyframes ls-rays { from { opacity: .5; transform: translateX(-2vw); } to { opacity: 1; transform: translateX(2vw); } }
+@keyframes ls-grow { 0% { transform: scale(.1, .04); opacity: 0; } 12% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes ls-appear { from { opacity: 0; } }
+@keyframes ls-sway { from { transform: rotate(calc(var(--sw) * -1)); } to { transform: rotate(var(--sw)); } }
+@keyframes ls-cross { from { transform: translateX(-12vw); } to { transform: translateX(112vw); } }
+@keyframes ls-flap { from { transform: scale(var(--fs)); } to { transform: scale(var(--fs), calc(var(--fs) * -.55)); } }
+@keyframes ls-bob { from { transform: scale(var(--fs)) translateY(-4px); } to { transform: scale(var(--fs)) translateY(4px); } }
+@keyframes ls-float { 0% { transform: none; opacity: 0; } 20% { opacity: .9; } 80% { opacity: .6; } 100% { transform: translate(var(--mx), var(--my)); opacity: 0; } }
+@keyframes ls-in { from { opacity: 0; transform: translateY(10px); } }
+
+/* Short screens (phones held sideways): the logo beside the title, and a shorter note. */
 @media (max-height: 560px) {
-  .ls-center {
-    grid-template-areas: "logo title" "logo tagline" "progress progress" "tip tip" "retry retry";
-    grid-template-columns: auto 1fr; column-gap: 14px; justify-items: start; text-align: left;
-    width: min(calc(100vw - 32px), 420px); padding: 16px 20px 14px; margin-top: -8vh; border-radius: 18px;
-  }
-  .ls-logo { width: 62px; }
-  .ls-title { font-size: 26px; margin: 4px 0 2px; align-self: end; }
-  .ls-tagline { font-size: 10px; letter-spacing: .1em; align-self: start; }
-  .ls-progress { margin-top: 14px; }
-  .ls-status { text-align: center; margin-top: 7px; }
-  .ls-tip { display: none; }
-  .loading-screen.failed .ls-tip { display: block; min-height: 0; margin-top: 10px; padding-top: 0; border: 0; text-align: center; }
-  .ls-retry { justify-self: center; margin-top: 10px; }
-  .ls-ridges { height: 30vh; min-height: 0; }
+  .loading-screen { --scene-h: 62vh; }
+  .ls-center { grid-template-columns: auto auto; grid-template-areas: "logo title" "logo land" "progress progress" "retry retry"; column-gap: 14px; align-items: center; width: min(calc(100vw - 32px), 380px); margin-top: max(16px, 6vh, env(safe-area-inset-top)); }
+  .ls-logo { grid-area: logo; width: 52px; }
+  .ls-title { grid-area: title; font-size: 30px; margin: 0; justify-self: start; }
+  .ls-land { grid-area: land; margin: 4px 0 0; font-size: 12.5px; justify-self: start; }
+  .ls-progress { grid-area: progress; width: 100%; margin-top: 16px; }
+  .ls-retry { grid-area: retry; margin-top: 12px; padding: 10px 20px; }
+  .ls-note { bottom: max(12px, env(safe-area-inset-bottom)); width: min(calc(100vw - 48px), 600px); }
+  .ls-note-label { font-size: 10.5px; }
+  .ls-tip { margin-top: 4px; min-height: 0; font-size: 13px; line-height: 1.4; }
 }
+@media (max-height: 340px) { .ls-note { display: none; } .loading-screen.failed .ls-note { display: block; } }
+/* Reduced motion: the grown landscape at dawn, standing still; the bar and notes still change. */
 @media (prefers-reduced-motion: reduce) {
-  .ls-logo, .ls-track::after { animation: none !important; }
-  .loading-screen, .ls-bar { transition-duration: .01ms; }
+  .ls-plant, .ls-sway, .ls-center, .ls-stars-b, .loading-screen[data-map="reef"] .ls-scene::before { animation: none !important; }
+  .ls-dawn { animation: none; opacity: .75; }
+  .ls-stars { animation: none; opacity: .4; }
+  .ls-sun { animation: none; transform: translateY(4vh); opacity: .9; }
+  .ls-flier, .ls-mote { display: none; }
+  .loading-screen, .ls-bar, .ls-tip { transition-duration: .01ms; }
 }
 
 * { box-sizing: border-box; }

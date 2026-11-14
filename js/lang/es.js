@@ -54,7 +54,7 @@ addStrings({
   'This bird is passing over the map. It does not live on the property or count toward its resident population.': 'Esta ave está pasando sobre el mapa. No vive en la finca ni cuenta en su población residente.',
   // ---------------------------------------------------------------- loading screen
   'Loading Second Growth': 'Cargando Second Growth', 'From salmon creeks to the Serengeti': 'De las quebradas de salmones al Serengueti',
-  'Waking the land': 'Despertando la tierra', 'Preparing the land': 'Preparando la tierra', 'Growing the landscape': 'Haciendo crecer el paisaje', 'Welcoming the wild': 'Recibiendo a los animales',
+  'Waking the land': 'Despertando la tierra', 'Preparing the land': 'Preparando la tierra', 'Growing the landscape': 'Haciendo crecer el paisaje', 'Welcoming the wild': 'Recibiendo a los animales', 'Catching the light': 'Atrapando la luz',
   'Try again': 'Probar otra vez',
   'Beavers are ecosystem engineers: one dam can turn a ditch into a wetland full of frogs and ducks.': 'Los castores son ingenieros de la naturaleza: una sola represa puede volver una zanja un humedal lleno de ranas y patos.',
   'Coho salmon need shaded, cool creeks. Plant alders and willows along the banks.': 'Los salmones necesitan quebradas frescas y con sombra. Sembrá alisos y sauces en las orillas.',
@@ -69,6 +69,12 @@ addStrings({
   'On the Serengeti, half-moon pits catch the rain and blown seed, so grass can take hold on bare, crusted ground.': 'En el Serengueti, unos hoyos en forma de media luna atrapan la lluvia y las semillas, para que el zacate pegue en la tierra pelada.',
   'Grass fires keep the savanna open: they kill tree seedlings but not the grown, thick-barked acacias.': 'Los incendios de zacate mantienen abierta la sabana: matan los arbolitos, pero no las acacias grandes de corteza gruesa.',
   'Dung beetles and vultures only live where there are herds to follow.': 'Los escarabajos y los zopilotes solo viven donde hay manadas que seguir.',
+  'Field note': 'Nota de campo',
+  'Living fences grow from cuttings pushed into the ground. In a few years they give shade, fruit and a path for wildlife.': 'Los cercos vivos nacen de estacas metidas en la tierra. En pocos años dan sombra, fruta y un camino para los animales.',
+  'Jaragua grass burns hot every dry season and keeps the dry forest from coming back. Shade it out with trees.': 'El zacate jaragua arde fuerte cada verano y no deja volver al bosque seco. Sombrealo con árboles.',
+  'Mangroves are nurseries for fish and shrimp. Opening old shrimp ponds lets the tide back in.': 'Los manglares son criaderos de peces y camarones. Abrir las viejas camaroneras deja entrar la marea otra vez.',
+  'Sea turtles come ashore to nest on dark, quiet beaches in the rainy season.': 'Las tortugas marinas salen a anidar en playas oscuras y tranquilas durante el invierno.',
+  'The guardabarranco, the national bird, nests in burrows dug into the banks of the quebrada.': 'El guardabarranco, el ave nacional, anida en túneles que cava en las orillas de la quebrada.',
 
   // ---------------------------------------------------------------- top bar and tool bar
   'Turn your phone sideways': 'Poné el teléfono de lado',
