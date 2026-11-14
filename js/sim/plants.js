@@ -157,6 +157,7 @@ export function trySeed(w, p, i, rng) {
     }
   } else if (cur) {
     const cp = w.catalog.plants[cur];
+    if (dormantNow(cp, w.canopyMonth)) return no(w, p, i, 'resident'); // (a bulb resting underground still holds its ground)
     const cs = plantSuit(w, i, cp);
     // Struggling residents get replaced by better-suited newcomers; invasives push harder.
     const push = p.compete * (p.invasive && !cp.invasive ? 1 : 0.4);
@@ -206,6 +207,9 @@ export function trySeed(w, p, i, rng) {
 
 // How much of a natural recruit's chance survives on tile (x, y) for its species' patches (0027).
 export const patchOdds = (p, x, y) => Math.min(1, Math.max(0.08, Math.sqrt(plantAffinity(p, x, y))));
+// Summer-dormant bulbs (camas) wither after seeding and rest underground through the dry months,
+// so the summer drought neither shrinks them nor lets another plant take their ground.
+const dormantNow = (p, m) => !!p.dormant && p.dormant.includes(m);
 const MEADOW_LIGHT = 0.3; // a groundcover needing at least this much sun is a meadow plant
 const OUTLIVE = 0.25; // how hard a long-lived native presses on a short-lived one (vs 0.5 for a better-suited one)
 const CANOPY_G = 0.6; // a tree this grown has its crown up in the canopy, in the sun
@@ -396,11 +400,13 @@ export function updatePlants(game) {
       const p = game.catalog.plants[id];
       const s = plantSuit(w, i, p);
       let g = w.groundG[i];
-      if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4;
+      const resting = dormantNow(p, m);
+      if (resting) { /* underground: no growth, no die-back, nothing for grazers */ }
+      else if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4;
       // (a shade plant left in full sun, like sword fern after a clearcut, scorches within a summer
       // however slowly it grows)
       else g -= (layerLight(w, i, 0) > p.light[1] + 0.15 ? Math.max(p.grow, SCORCH) : p.grow) * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
-      if (!p.aquatic && g > 0.15) g = Math.max(0.15, g - overgrazedLoss(w, i)); // a crowded herd crops it short
+      if (!p.aquatic && !resting && g > 0.15) g = Math.max(0.15, g - overgrazedLoss(w, i)); // a crowded herd crops it short
       // Old bunchgrass tussocks and clumps die back and leave a gap, where the quick-seeding
       // wildflowers get back in until the grasses outlive them again (see trySeed), so a meadow
       // stays a shifting mix instead of ending as one grass. Lawn and ornamentals are kept up.
@@ -408,7 +414,7 @@ export function updatePlants(game) {
       if (g <= 0) { w.ground[i] = 0; w.groundG[i] = 0; }
       else {
         g = Math.min(1, g); w.groundG[i] = g; cover += g;
-        if (g > 0.6 && rng() < p.spread * sf * (0.4 + s * 0.6)) disperse(w, p, x, y, rng, 0);
+        if (g > 0.6 && !resting && rng() < p.spread * sf * (0.4 + s * 0.6)) disperse(w, p, x, y, rng, 0);
         if (p.nfix) w.soil[i] += 0.0005 * g;
         if (bank && !p.invasive && !p.weedy && g > 0.6) bank[i] = id;
         // an invasive on native seed bank, in a healthy ecosystem, is slowly shaded out by natives

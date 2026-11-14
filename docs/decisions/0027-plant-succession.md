@@ -8,6 +8,7 @@
 - Light only matters to young trees: from `CANOPY_G` (0.6) a tree gets its own best light in `updatePlants`.
 - Natural recruitment × `patchOdds` (`plantAffinity`); invasives are exempt. Checks that pin exact `trySeed` odds divide it out, and checks of edge or forest seed set `def.regionalRain = 0`.
 - Sward succession: a native living twice as long takes a tile at `OUTLIVE` × `compete`; groundcovers living 10+ years (`TUSSOCK_LIFE`) die back at 1/life. Shade plants scorch (`SCORCH`). `meadowsHold` holds only open meadow.
+- Summer-dormant bulbs (`dormant: [months]`, camas): in those months `updatePlants` skips their growth, die-back, grazing loss and seeding, and `trySeed` can't take their tile (month from `w.canopyMonth`). Judged against summer moisture, camas died every July.
 - Herbivore effects stay in `trySeed` and the growth step (`grazedRecruitOdds`, `grazedGrowth`, now 0033); don't tune mesquite away in the plant engine.
 - Regional rain uses the game rng, so any change shifts every later roll: compare runs by trend over several seeds. Hemlock and redcedar won't start in an open field; fixtures that sow in the open use another tree.
 - Checks: `node tools/plant-establishment.mjs [maps] [years]` (why a species never shows up), `dispersal-check`, `plant-ecology-check`, `succession-check`.
@@ -162,6 +163,29 @@ dynamics alone (commit 2366f1b); "now" is both.
 - An untended PNW farm has almost no meadow after 50 years, before and after: blackberry and then
   forest take the old fields, as they would on a real abandoned farm west of the Cascades.
   Flower-rich grassland needs something holding trees back (fire, grazing, the player).
+
+### Camas persistence (2026-11-14)
+
+An ecologist playtester (Jacob) found no camas after 120–850 untended PNW years. Seeded probe (seed 1,
+invasives off, 80 years): camas arrived by regional rain, took 31 times, lived a median 2.3 years and
+was gone by year 40. Deaths fell in Jul–Sep: open-meadow moisture runs about 0.40 in spring and
+0.14–0.17 in July–August, under camas's 0.35 floor, so every summer it scored 0 suitability, shrank
+and fireweed took the tile. Real camas withers after seeding in June and rests as a bulb until the
+rains. Fix, smallest that worked (each step measured over 400 years, seeds 1 and 2):
+
+- `dormant: [3, 4, 5, 6]` (Jun–Sep) alone: median life 2.3 → 12–17 years, deaths only under
+  encroaching shrubs and trees, but still 0–7 tiles (too few seeds: about one every two years per plant).
+- Lowering the moisture floor to 0.25 or 0.30 did not help; nor spread 0.05.
+- Seed that lands is mostly blocked by forbs holding the sward (`resident`, camas as suited as them);
+  its long-life push was `compete` 0.15 × 0.4 × `OUTLIVE` ≈ 1.5% per seed.
+- Kept: dormancy + `spread` 0.08 + `compete` 0.4. Camas tiles at years 50/100/200/300/400, invasives
+  off: seed 1 196/216/226/154/102 (before 1/0/0/0/0), seed 2 141/112/230/280/303 (before 9/6/1/0/0),
+  of about 10,800 tiles, so it persists without taking over. Most of it grows in the moist, shrubby
+  ground by the creeks (light ~0.65), little in the drier open meadow.
+- Invasives on: still dies out by year 200 (seed 2: 22/18/6/1/0), as reed canarygrass and the
+  invasives take the moist ground; that matches real wet prairies.
+- `calibrate pnw 15 8`: score 66 → 65 (in range), meadow 1953 → 1791, shrub 2535 → 2702, native
+  .46 → .42, invasives 22% → 24%: a small shift, partly the rng moving; not chased.
 
 ### Gotchas
 

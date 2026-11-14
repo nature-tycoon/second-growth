@@ -174,6 +174,16 @@ check('Succession recruits beside living trees and after natural death, preservi
   assert.equal(w.treeAge[i], 0); assert.ok(Math.abs(w.treeG[i] - .04) < 1e-6);
   assert.equal(w.feature[i], F.SNAG, 'new sapling does not erase deadwood');
 });
+check('A summer-dormant bulb rides out the summer drought: no die-back, its ground not taken', () => {
+  const g = fixture('pnw', T.SOIL, .15), w = g.world, camas = PLANT.camas, i = w.idx(4, 4);
+  assert.ok(camas.dormant.includes(4) && plantSuit(w, i, camas) < .3, 'July, too dry for camas');
+  w.ground[i] = camas.id; w.groundG[i] = .8; updateCanopy(w, 4);
+  const g0 = w.groundG[i]; updatePlants(g);
+  assert.equal(w.ground[i], camas.id); assert.equal(w.groundG[i], g0, 'resting underground');
+  assert.equal(trySeed(w, PLANT.fireweed, i, () => 0), false, 'a forb seed cannot take a resting bulb');
+  g.month = 1; updateCanopy(w, 1); updatePlants(g);
+  assert.ok(w.groundG[i] < g0, 'in its growing season the same drought sets it back');
+});
 check('Older saves rebuild seasonal light and preserve tree ages on restoration', () => {
   const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw'); g.day = 100;
   const i = g.world.idx(40, 35); g.world.clearPlants(i); g.world.struct[i] = -1;
