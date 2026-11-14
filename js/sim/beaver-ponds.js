@@ -72,6 +72,8 @@ export function drainToMeadow(game, site) {
       if (w.waterOwner[i] !== k || t === T.CREEK || t === T.RIVER || t === T.POND || w.waterDepth[i] <= .04) continue;
       w.meadow[i] = w.terrain[i] === T.POND ? PENDING_DEEP : PENDING_SHALLOW;
     }
+    // (its saturated margin stays marsh when the water goes, and dries back over the years)
+    for (const i of b.fringe || []) if (w.waterOwner[i] === k && w.terrain[i] === T.MARSH) w.meadow[i] = PENDING_DEEP;
   }
 }
 // (the older, water-model-free flooding: its marsh and mud become meadow straight away)

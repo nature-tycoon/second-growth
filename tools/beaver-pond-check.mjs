@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
 const { Game } = await import('../js/game.js');
 const { T, F, isWater } = await import('../js/config.js');
-const { DAM_CELLS } = await import('../js/sim/hollis-water.js');
+const { DAM_CELLS, FRINGE, groundCentre } = await import('../js/sim/hollis-water.js');
 const { damSiteOK, meadowYear, migrateMarkedPools, SITE_WET, SITE_OPEN, DAM_GAP, PENDING_DEEP, MEADOW_YEARS } = await import('../js/sim/beaver-ponds.js');
 const { wallowVisit, wallowDay, wallowCount, wallowGround, WALLOW_POOL, wallower } = await import('../js/sim/wallows.js');
 const { updateHydrology } = await import('../js/sim/environment.js');
@@ -45,6 +45,17 @@ check('Beavers dam slow stretches with room and food, and leave flowing creek be
     assert.ok(Math.max(Math.abs(x - GOOD[0]), Math.abs(y - GOOD[1])) > DAM_GAP, 'no dam crowding another');
     assert.ok(!(w.waterOwner[i] >= 0 && g.water.basins[w.waterOwner[i]].kind === 'dam'), 'no dam inside another pond');
   }
+});
+check('A beaver pond has a marsh margin on the saturated ground round it, which stays marsh meadow when it drains', () => {
+  // (since terrain relief, 0044, a dam's water alone filled only the ditch's channel)
+  const g = farm(), w = g.world, site = w.idx(54, 71); g.wildlife.buildDam(site); fill(g);
+  const k = g.water.basins.findIndex(b => b.kind === 'dam'), b = g.water.basins[k];
+  const margin = b.fringe.filter(i => w.waterOwner[i] === k && w.terrain[i] === T.MARSH);
+  assert.ok(margin.length >= 10, `a marsh margin of ${margin.length} tiles`);
+  for (const i of margin) assert.ok(groundCentre(g.water.corners(i)) <= b.usual + FRINGE + 1e-9, 'only ground just above the water');
+  g.wildlife.breakDam(site); g.weather = 'clear'; for (let d = 0; d < 80; d++) g.dailyTick();
+  const kept = margin.filter(i => w.meadow[i] && w.terrain[i] === T.MARSH).length;
+  assert.ok(kept >= margin.length * 0.8, `${kept} of ${margin.length} margin tiles are marsh meadow`);
 });
 check('A drained beaver pond becomes meadow, and its marsh dries back over the decades', () => {
   const g = farm(), w = g.world, site = w.idx(...GOOD); g.wildlife.buildDam(site); fill(g);
