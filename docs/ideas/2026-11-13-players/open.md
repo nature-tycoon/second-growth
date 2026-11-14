@@ -7,7 +7,7 @@ All six sessions landed on `claude/ideas-players` (S0 1465bcc, S1 4d1ea0e, S2 f4
 - Then set the address in one commit: `BACKEND_URL` in `js/backend.js` and `website/site.js`, and `connect-src` in the game's `index.html` and `website/index.html`. Until then the game and site behave as before, plus email fallbacks.
 
 ## Open questions (recommended answer first)
-### Backend
+### Backend (answered 2026-11-13: go with the recommendations; contract now says 20)
 - Address: workers.dev now; api.secondgrowth.earth only if DNS ever moves to Cloudflare. (S1)
 - Newsletter opt-in: single opt-in now, Kit's confirmation email if spam signups appear. (S1)
 - Only in-game ratings count in the average; website ratings still email Cole. (S1)

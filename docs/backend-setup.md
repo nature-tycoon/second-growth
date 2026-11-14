@@ -194,7 +194,7 @@ Every response is JSON with `ok: true` or `ok: false` plus `error` (one of the c
 
 - Only ratings given in the game count (`source: "game"`), the latest one per `player`.
 - `average` has one decimal, or is `null` when `count` is 0. Cached for 10 minutes (`Cache-Control: public, max-age=600`).
-- The website shows it only once `count` is at least 10, and otherwise shows nothing (no "0 ratings").
+- The website shows it only once `count` is at least 20 (`MIN_RATINGS` in `website/site.js`, Cole asked for about 20), and otherwise shows nothing (no "0 ratings").
 
 ### Error codes
 
