@@ -208,9 +208,9 @@ button, select { font-family: inherit; color: inherit; }
   transition: opacity 0.2s, visibility 0.2s;
 }
 #toolpanel, #infopanel, #quest, #legend { background: var(--glass-dense); }
-body.choosing-map .panel, body.choosing-map #joystick { visibility: hidden; pointer-events: none; }
+body.choosing-map .panel, body.choosing-map #joystick, body.choosing-map #btn-undo-float { visibility: hidden; pointer-events: none; }
 /* (a dialog has the screen to itself: the HUD steps away rather than smearing through its glass) */
-body:has(#modal-root .modal-back) .panel { opacity: 0; visibility: hidden; }
+body:has(#modal-root .modal-back) :is(.panel, #joystick, #btn-undo-float) { opacity: 0; visibility: hidden; }
 body.menu-effects-off .panel { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
 @media (pointer: coarse) { .panel { background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; } }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
@@ -1116,6 +1116,18 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
   #btn-undo-float:active:not(:disabled) { background: var(--moss); color: #fff; }
   body.moment-on #btn-undo-float, body.photo-mode #btn-undo-float { opacity: 0; pointer-events: none; }
 }
+/* Phones on their side: an open tool panel covers the thumbstick's corner, so the stick and Undo
+   step away while it's open (a touch on the map folds it, tuckToolPanel, and they're back). The
+   notification sits in the gap between the left-hand controls and the Map button, and the camera
+   buttons stand above it, so it never covers anything you'd press. */
+@media (pointer: coarse) and (max-height: 520px) {
+  body:has(#toolpanel:not(.hidden):not(.collapsed)) #joystick, body:has(#toolpanel:not(.hidden):not(.collapsed)) #btn-undo-float { display: none; }
+  #toasts { left: calc(226px + env(safe-area-inset-left)); right: calc(86px + env(safe-area-inset-right)); width: auto; max-width: 340px; margin-inline: auto; transform: none; }
+  body:not(.mini-collapsed) #toasts { right: calc(200px + env(safe-area-inset-right)); }
+  body:not(.panels-hidden):has(#toolpanel:not(.hidden):not(.collapsed)) #toasts { left: calc(344px + env(safe-area-inset-left)); }
+  .toast > .toast-text, .toast.season > .toast-text { -webkit-line-clamp: 3; }
+  body.mini-collapsed #view-ctrls { bottom: 78px; }
+}
 /* save status: a small tag tucked under the right end of the top bar, outside its row so it never
    pushes the buttons around. "Saved" fades after a moment; a failed save stays. */
 #save-status { position: fixed; top: 86px; right: 24px; z-index: 11; pointer-events: none;
@@ -1257,4 +1269,11 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
   .er-top, .er-cols, .er-bgrid { grid-template-columns: 1fr; }
   .er-grid { grid-template-columns: 1fr 1fr; }
   .er-row { grid-template-columns: 110px 1fr 84px; }
+}
+
+/* Touch screens: no frosted blur on the dark cards over the moving view either (like .panel): a
+   phone's graphics chip blurs what's behind them again every frame. (Last, to win over each card's own rule.) */
+@media (pointer: coarse) {
+  .toast, #watch .w-menu, #moment .mo-card { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .toast { background: rgba(28, 38, 30, 0.88); }
 }

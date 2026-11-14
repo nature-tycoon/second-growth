@@ -22,7 +22,7 @@ refusal, reward, fire and flood, time paused and at speed 3+, last month's net m
 the campaign's next objective (or Free Play's open goal count). Alongside: `objective_done` (each
 campaign objective), `quest_help`, `panel_closed` (seconds a panel was open), `warning_shown` (each
 warning wording once a session, numbers as #), `species_lost`, and `game_loaded` (`load_ms` and
-each loading step's start), `loading_left` and `load_failed`. `species_discovered.species` is the
+each loading step's start), `loading_left` and `load_failed`. `webgl_context_lost` (from 2026-11-14: `stage` is the loading step or `playing`, with `seconds`, `quality`, `gpu`) counts the view being dropped, which the iOS simulator did once while loading. `species_discovered.species` is the
 species key from 2026-11-09; before that it held the species count. `perf_sample` also fires at
 10 s from then. Most players now arrive at secondgrowth.earth/play. Check:
 `node tools/play-analytics-browser-check.mjs`. First findings: [posthog-review-2026-11.md](posthog-review-2026-11.md).

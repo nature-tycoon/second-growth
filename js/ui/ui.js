@@ -1388,10 +1388,9 @@ export class UI {
     const shownLang = () => (LANG_MAPS[map] ? langFor(map) : 'en');
     const savedYear = id => Math.floor((saves.summary(id)?.day || 0) / DAYS_PER_YEAR) + 1;
     const m = this.modal('How do you want to play?', `<div class="section-title" style="margin-top:0">Map</div>
-      ${worldMap(BIOME_LIST, map)}<div class="map-pick"></div>
+      ${worldMap(BIOME_LIST, map)}<button class="btn secondary map-resume" data-a="resume" hidden></button><div class="map-pick"></div>
       <div class="lang-pick" hidden><div class="section-title">Language · Idioma</div>
       <div class="seg" data-seg="lang"><button data-l="en">English</button><button data-l="es">Español</button></div></div>
-      <button class="btn secondary map-resume" data-a="resume" hidden></button>
       <div class="section-title">Difficulty</div>
       <div class="seg" data-seg="diff">${Object.entries(DIFFICULTY).map(([k, d]) => `<button data-d="${k}" class="${k === diff ? 'on' : ''}">${d.name}</button>`).join('')}</div>
       <p class="small diff-desc">${DIFFICULTY[diff].desc}</p>
@@ -1421,7 +1420,7 @@ export class UI {
       if (langs) lp.querySelectorAll('[data-l]').forEach(o => { o.hidden = !langs.includes(o.dataset.l); o.classList.toggle('on', o.dataset.l === langFor(map)); });
       const resume = m.querySelector('[data-a=resume]');
       resume.hidden = !Game.hasSave(map) || (map === this.game.map && this.game.loaded && !relang());
-      resume.textContent = `Continue your saved ${b.farm} farm`;
+      resume.textContent = `Continue at ${b.farm}`;
     };
     showMap();
     m.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => {

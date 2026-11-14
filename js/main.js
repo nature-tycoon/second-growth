@@ -161,7 +161,11 @@ async function boot() {
           : 'The game hit a display problem. If the view does not recover, reload to continue.', 'warn');
       },
     });
-    renderer.onContextLost = () => game.notify('Graphics were interrupted. The farm is waiting for the view to recover.', 'warn');
+    // (counted: a phone short of graphics memory drops the view, and nothing else would tell us how often)
+    renderer.onContextLost = () => {
+      track('webgl_context_lost', { stage: loaded ? 'playing' : loadLabel, seconds: Math.round(performance.now() / 1000), quality: settings.quality, gpu: renderer.gpuName(), map: game.map });
+      game.notify('Graphics were interrupted. The farm is waiting for the view to recover.', 'warn');
+    };
     renderer.onContextRestored = () => game.notify('The view has recovered.', 'info');
 
     // The scene gets its first frame before the loading page fades away: built, then its shaders

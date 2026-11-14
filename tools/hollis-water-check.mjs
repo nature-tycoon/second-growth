@@ -77,6 +77,21 @@ check('Terrain tools rebuild basin storage, and undo restores the basin', () => 
   assert.ok(undo.undo());assert.deepEqual(g.water.base,base);assert.ok(Math.abs(g.water.basins[0].volume-volume)<1e-10);
   const v=w.hv;assert.equal(TOOLS.lower.apply(g,w.idx(92,34)),true);g.refreshEnvironment();assert.ok(w.hv>v);assert.equal(g.water.hv,w.hv);
 });
+check('A pond dug into a hillside fills every tile, stays in its bank and lasts the summer', () => {
+  // (Cole: "when you dig it the pond immediately empties out"; (19,6) slopes 1.4 levels over 3 tiles,
+  // and (57,42) is one tile above a creek, where the water once ran out along the bank over 700 tiles)
+  for (const [x0, y0, n] of [[19, 6, 3], [57, 42, 4]]) {
+    const g=farm(),w=g.world,tiles=[];
+    for(let dy=0;dy<n;dy++)for(let dx=0;dx<n;dx++)tiles.push(w.idx(x0+dx,y0+dy));
+    for(const i of tiles)assert.equal(TOOLS.pond.apply(g,i),true);
+    g.refreshEnvironment();
+    assert.deepEqual(tiles.map(i=>w.terrain[i]),tiles.map(()=>T.POND),'every dug tile holds open water');
+    const b=g.water.basins.find(b=>b.core.includes(tiles[0]));
+    assert.ok(b.cells.length<=(n+2)*(n+2),`the water stays in the pond and its bank (${b.cells.length} tiles)`);
+    g.day=50;g.weather='clear';for(let k=0;k<90;k++)g.water.step(g);
+    assert.ok(tiles.every(i=>w.terrain[i]===T.POND||w.terrain[i]===T.MARSH),'a dry summer leaves it wet');
+  }
+});
 check('Splitting or joining a pond does not duplicate its stored water', () => {
   const g=farm(),w=g.world,b=g.water.basins[0],before=b.volume;
   const strip=b.core.filter(i=>i%w.w===93);

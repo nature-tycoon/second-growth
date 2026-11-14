@@ -139,6 +139,7 @@ export class Flora {
     this.geos = new Map();
     this.view = [0, true, true, 0];
     this.far = true; // (far models with the valley in view, see setZoom; false reverts to the distant ones, for comparing)
+    this.farBelow = 0.5; // (on Fast, the zoom under which the far models show: see setFarBelow)
   }
 
   geo(key, build) {
@@ -241,16 +242,25 @@ export class Flora {
   setZoom(zoom, force = false) {
     this.zoom = zoom;
     // (trees: the close model only once zoomed right in, the in-between one at play zoom, and the
-    // far models once a tile is under about 16 pixels across, or 23 on Fast. The camera has no
+    // far models once a tile is under about 16 pixels across, or 23 on Fast (farBelow: sooner on a
+    // phone, which draws one pixel a point). The camera has no
     // perspective, so every plant on screen is drawn at the same scale and the zoom alone says
     // how small they are. Eye level passes its own fixed zoom: always the close models.)
     const far = this.far;
     const v = this.light
-      ? [far && zoom < 0.5 ? 3 : zoom < 1.4 ? 1 : zoom < 2.2 ? 2 : 0, zoom > 0.5, false, zoom < 1.8 ? 1 : 0]
+      ? [far && zoom < this.farBelow ? 3 : zoom < 1.4 ? 1 : zoom < 2.2 ? 2 : 0, zoom > 0.5, false, zoom < 1.8 ? 1 : 0]
       : [far && zoom < 0.36 ? 3 : zoom < 0.5 ? 1 : zoom < 1.35 ? 2 : 0, zoom > 0.34, zoom > 0.7, zoom < 1.1 ? 1 : 0];
     if (!force && this.view && v.every((x, k) => x === this.view[k])) return;
     this.view = v;
     for (const p of this.pools.values()) p.setView(...v);
+  }
+
+  // The zoom under which Fast shows the far models: a phone draws one pixel a point, so its crowns
+  // are as few pixels across at its opening zoom as a 1.5x laptop's are at 0.5.
+  setFarBelow(zoom) {
+    if (zoom === this.farBelow) return;
+    this.farBelow = zoom;
+    this.setZoom(this.zoom ?? 1, true);
   }
 
   // Far models (see far-models.js) on or off; off keeps the distant models at every zoom, for

@@ -235,6 +235,9 @@ export class Renderer {
     // Phones keep one pixel a point.
     const cap = { high: 2, balanced: 1.5, fast: TOUCH ? 1 : 1.5 }[s.quality] ?? 2;
     this.baseDpr = Math.max(1, Math.min(cap, window.devicePixelRatio || 1));
+    // (Fast on a phone: far plant models from its opening zoom, as many device pixels a tile as a
+    // 1.5x laptop at 0.5, decision 0022. Computers wait for sharper tree pictures on 1x screens.)
+    this.flora.setFarBelow(fast && TOUCH ? 0.75 : 0.5);
     // the view adjusts its resolution to keep up (see autoResolution); it starts afresh whenever
     // the settings change
     this.autoRes = true;

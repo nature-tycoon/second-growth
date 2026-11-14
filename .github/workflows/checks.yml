@@ -1,4 +1,5 @@
-# Pull requests get the fast headless suite. The slower browser suite runs before the
+# Pull requests get the fast headless suite, and main is protected so a PR merges only once its
+# `headless` job passes (`gh pr merge N --merge --auto`). The slower browser suite runs before the
 # itch.io upload on main (itch.yml calls this workflow) and whenever it's started by hand.
 name: Release checks
 
@@ -9,6 +10,11 @@ on:
 
 permissions:
   contents: read
+
+# (a new push to a PR cancels that PR's older run; elsewhere each run has a group of its own)
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   headless:
@@ -32,9 +38,14 @@ jobs:
   browser:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    # (the suite takes 33 to over 60 minutes on CI's software graphics, depending on the runner: at 60,
-    # a slow runner cut it off in the last check with everything passing)
-    timeout-minutes: 90
+    # (the suite took 33 to over 60 minutes in one job on CI's software graphics, so it runs as four
+    # parts at once, split by each check's CI time in check-release.mjs: about 15 minutes each)
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    name: browser (${{ matrix.shard }}/4)
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -43,10 +54,10 @@ jobs:
           package-manager-cache: false
       - name: Check Chromium availability
         run: google-chrome --version
-      - run: node tools/check-release.mjs --browser
+      - run: node tools/check-release.mjs --browser --shard=${{ matrix.shard }}/4
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: browser-checks
+          name: browser-checks-${{ matrix.shard }}
           path: tools/release-output/
           retention-days: 14

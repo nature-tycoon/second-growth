@@ -22,5 +22,6 @@ Start a preview for the checkout the change is in (`.claude/launch.json`, `secon
 ## Only when Cole says push / make it live
 
 1. `git push -u origin <branch>`, then `gh pr create --base main` with a plain summary.
-2. `gh pr merge <N> --merge` (a merge commit). If a permission check blocks it, try once, then give Cole the command. Never work around the block.
-3. Merging deploys GitHub Pages and the itch.io build. Don't wait for or poll CI. `[skip ci]` in the message skips checks and the itch.io upload; only use it when Cole asks or the change is docs only.
+2. `gh pr merge <N> --merge --auto` (a merge commit, made by GitHub once the required `headless` check passes, about 10 minutes). If a permission check blocks it, try once, then give Cole the command. Never work around the block.
+3. Turn Auto-fix on for the PR, always, without asking (Cole's standing rule): in the Claude desktop app, `ccd_pr` `get_status` (bind the PR if it isn't bound), then `set_monitor` with `auto_fix: true`. In other tools, fix a failing check or conflict on the same branch.
+4. Merging deploys GitHub Pages and the itch.io build. Don't wait for or poll CI: `--auto` does the waiting. Tell Cole the PR merges itself when its checks pass; if they fail it stays open, so fix it on the same branch. `[skip ci]` in the message skips checks and the itch.io upload; only use it when Cole asks or the change is docs only, and then merge with `gh pr merge <N> --merge --admin`, since the skipped check never reports.
