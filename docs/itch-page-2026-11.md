@@ -31,3 +31,15 @@ Second Growth is a free game about bringing damaged land back to life. Take a wo
 - Plays on phones (turn sideways).
 
 Free, no account, no ads. Saves stay in your browser. [Privacy](https://secondgrowth.earth/privacy/) · [Field guide](https://secondgrowth.earth/guide/) · [Newsletter and feedback](https://secondgrowth.earth)
+
+---
+
+Posted to itch.io on 2026-11-13 (Claude in Chrome, Cole's account). The "Save your farm as a file"
+line is true once `claude/ideas-players` is merged to main (the itch build comes from main).
+
+Previous text, for going back (plain text; it had a "See More at Second Growth" link above it):
+"Some features: Five places to restore (Pacific Northwest farm, Amazon cattle ranch, Serengeti
+range, Atlanta suburb, Nicaraguan finca with Spanish); 134 native plant species; succession on
+its own; over 120 wildlife species that rate every tile for habitat; keystone moments; seasons
+and migration; wildfires and floods; a campaign on four maps or free play; trails and visitors;
+working land on the Nicaragua finca."
