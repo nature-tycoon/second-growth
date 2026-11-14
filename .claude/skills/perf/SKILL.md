@@ -22,6 +22,7 @@ First, `node tools/perf-guard-check.mjs [maps]` (about 15 s, no GPU): exact draw
 | Whole frame: simulation vs drawing vs GPU | `node tools/play-profile.mjs [maps] [quality] [years]` (default serengeti,sumatra,amazon,pnw high 3; writes `tools/release-output/play-profile.json`) |
 | Simulation only, headless | time `game.update`, `wildlife.update`, `Flora.rebuild`, `Actors.update` in node; `balance-sim` prints `ms/day` |
 | Loading | `node tools/boot-profile.mjs 4 1` |
+| Loading's last step (first frame: build, shader programs, first draw) | `node tools/first-frame-profile.mjs [maps] [runs]` (`FF_ROOT=<checkout>` for an A/B) |
 | Plants / spacing / climbing monkeys | `tools/flora-rebuild-bench.mjs`, `spacing-bench.mjs`, `canopy-bench.mjs` (they print output signatures, so check those match too) |
 
 For a simulation-cost A/B on the same grown world, `node tools/daily-tick-ab.mjs <new> <old> <world.bin>` times `dailyTick` in alternating blocks; run both orders, since differences under about 3 points are noise. A ms figure from a niced or parallel run measures the queue, not the code (under load `nice -n 15` once starved a run about 40×): time an A/B back to back, one process at a time.

@@ -157,7 +157,13 @@ async function boot() {
     renderer.onContextLost = () => game.notify('Graphics were interrupted. The farm is waiting for the view to recover.', 'warn');
     renderer.onContextRestored = () => game.notify('The view has recovered.', 'info');
 
-    // The scene gets its first frame before the loading page fades away.
+    // The scene gets its first frame before the loading page fades away: built, then its shaders
+    // compiled together while the bar moves (Renderer.prepareFirstFrame), then drawn.
+    window.secondGrowth = { game, renderer, ui, diagnostics }; // (handy for debugging from the console)
+    renderer.prepareFirstFrame(game, ui.state);
+    stage('Catching the light', 90);
+    await nextPaint();
+    await renderer.warmShaders(f => { loadingProgress.style.width = `${90 + 9 * f}%`; });
     requestAnimationFrame(now => {
       try {
         // Startup failures still show the loading error instead of opening a blank farm.
@@ -175,9 +181,6 @@ async function boot() {
         showLoadError(error);
       }
     });
-
-    // Handy for debugging from the console.
-    window.secondGrowth = { game, renderer, ui, diagnostics };
   } catch (error) {
     showLoadError(error);
   }

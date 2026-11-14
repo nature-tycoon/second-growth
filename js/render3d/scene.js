@@ -252,6 +252,44 @@ export class Renderer {
     this.resize();
   }
 
+  // The first frame in two loading steps (main.js), so the bar moves instead of sitting near the end:
+  // the land, plants and animals built (a draw that stops short of the shadows and the drawing),
+  // then every shader the scene uses compiled at once, in the background where the browser can
+  // (KHR_parallel_shader_compile). Drawn without this, the first frame compiled its 20-odd programs
+  // one after another, seconds on Windows and Chromebook graphics (docs/posthog-review-2026-11.md).
+  // The sun's shadow programs still compile in the first draw (three.js can't warm those).
+  prepareFirstFrame(game, ui) {
+    this.preparing = true;
+    try { this.draw(game, ui, 0); } finally { this.preparing = false; }
+    this.perf = null; // (the real first frame starts the frame timing)
+  }
+  async warmShaders(onProgress = () => {}, limitMs = 30000) {
+    const gl = this.gl, t0 = performance.now(), parallel = !!gl.extensions.get('KHR_parallel_shader_compile');
+    const programs = [...new Set(this.compileShown().map(m => gl.properties.get(m).currentProgram).filter(Boolean))];
+    // Each program is finished here, as its first draw would (getUniforms waits for it and reads its
+    // uniforms): with the extension once the browser says it's compiled, so they all compile at once;
+    // without it one after another, in slices so the bar still moves.
+    let left = programs;
+    while (left.length && !this.contextLost && performance.now() - t0 < limitMs) {
+      const slice = performance.now(), waiting = [];
+      for (const p of left) {
+        if ((parallel && !p.isReady()) || performance.now() - slice > 50) waiting.push(p);
+        else p.getUniforms();
+      }
+      left = waiting;
+      onProgress(1 - left.length / programs.length);
+      if (left.length) await new Promise(resolve => setTimeout(resolve, parallel ? 30 : 0));
+    }
+  }
+  // Starts compiling the shaders of everything shown (programs already built are reused).
+  // Only what is shown: three.js's compile walks hidden things too (eye level's sky, lightning, ...),
+  // about ten more programs that would only lengthen the wait. (Its lights still come from the scene.)
+  compileShown() {
+    const shown = [];
+    this.scene.traverseVisible(o => { if (o.material && (o.isMesh || o.isPoints || o.isLine || o.isSprite)) shown.push(o); });
+    return [...this.gl.compile({ traverse: f => shown.forEach(f), traverseVisible() {} }, this.camera, this.scene)];
+  }
+
   // Kills' skeletons and their shader, prepared in idle moments (see Actors.warmRemains).
   warmRemains(game) { this.actors.warmRemains(game, this.gl, this.camera, this.scene, () => `${this.gl.shadowMap.enabled}:${this.sun.castShadow}`); }
   // Every animal kind's models and shader, prepared in idle moments (see Actors.warmAnimals).
@@ -970,6 +1008,7 @@ export class Renderer {
     if (dt > 0) { this.autoResolution(); this.autoQuality(game); }
     const swapped = game.world !== this.world; // (a new world, or then-and-now's day-one farm: paint it all this frame)
     if (swapped) this.setWorld(game);
+    if (this.preparing) this.compileShown(); // (the land's shaders compile while the plants and animals are built)
     const now = this.diagnosticTime ?? performance.now();
 
     if (Math.abs(this.azTarget - this.az) > 0.001) {
@@ -1106,6 +1145,7 @@ export class Renderer {
     this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game, this.scene.fog, this.eyeOn);
     this.flora.syncShadows();
     this.flora.updateView(cam);
+    if (this.preparing) return; // (see prepareFirstFrame; updateView builds the batches the plants are drawn from)
     const redrawShadows = this.shadowsStale();
     if (redrawShadows) {
       this.flora.updateShadows(this.sun, this.camera);

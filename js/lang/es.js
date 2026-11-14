@@ -54,7 +54,7 @@ addStrings({
   'This bird is passing over the map. It does not live on the property or count toward its resident population.': 'Esta ave está pasando sobre el mapa. No vive en la finca ni cuenta en su población residente.',
   // ---------------------------------------------------------------- loading screen
   'Loading Second Growth': 'Cargando Second Growth', 'From salmon creeks to the Serengeti': 'De las quebradas de salmones al Serengueti',
-  'Waking the land': 'Despertando la tierra', 'Preparing the land': 'Preparando la tierra', 'Growing the landscape': 'Haciendo crecer el paisaje', 'Welcoming the wild': 'Recibiendo a los animales',
+  'Waking the land': 'Despertando la tierra', 'Preparing the land': 'Preparando la tierra', 'Growing the landscape': 'Haciendo crecer el paisaje', 'Welcoming the wild': 'Recibiendo a los animales', 'Catching the light': 'Atrapando la luz',
   'Try again': 'Probar otra vez',
   'Beavers are ecosystem engineers: one dam can turn a ditch into a wetland full of frogs and ducks.': 'Los castores son ingenieros de la naturaleza: una sola represa puede volver una zanja un humedal lleno de ranas y patos.',
   'Coho salmon need shaded, cool creeks. Plant alders and willows along the banks.': 'Los salmones necesitan quebradas frescas y con sombra. Sembrá alisos y sauces en las orillas.',

@@ -181,6 +181,24 @@ p90 10–13 s, against 0.6–0.9 s and 3–4 s before, on every host. That may o
 screen (`e7cf210`) changing what counts as "largest". Players take a median 56 s (computers) and
 37 s (phones) from page load to their first tool.
 
+**The last step, 2026-11-14.** `game_loaded` since Nov 12: p50 4.6 s, p90 15.5 s on computers, and in
+the slowest loads 'Welcoming the wild' (82%) to 'Ready' took 6–14 s (Intel UHD 600 / Iris Xe on
+Windows, Mali and Intel Chromebooks, some Apple GPUs) while the bar sat still. `node
+tools/first-frame-profile.mjs` splits that step. On the M5 it was the first `renderer.draw`: building
+the land, plants and animals (0.5–1 s) and then 22–24 shader programs compiled one after another
+inside the draw (0.2–1 s of waiting on links, cold cache the most). Windows (ANGLE/D3D) and
+Chromebooks compile each program many times slower, so that serial compile is the likely bulk there.
+Now (`Renderer.prepareFirstFrame`, `warmShaders`): 'Welcoming the wild' builds the scene, the land's
+shaders start compiling while the plants and animals are built, then 'Catching the light' (90–99%,
+moving as programs finish) compiles every shown shader together (KHR_parallel_shader_compile), and
+the first draw only compiles the sun's 3 shadow programs (three.js keeps their materials private) and
+1 hidden helper. M5, A/B back to back under load: programs compiled in the first draw 22–24 → 3–4,
+its WebGL waits 170–260 → 25–47 ms; the whole step about the same (PNW 0.72–0.99 → 0.70–0.92 s,
+Sumatra 1.1–1.3 → 1.05–1.35 s; shaders were never slow here). The gain on the slow machines is not
+measured: it depends on how parallel their driver compiles, and SwiftShader (no parallel compile) was
+too noisy to tell. `game_loaded.steps` now has 'Catching the light', so the split of build vs shaders
+vs first draw shows in PostHog from this release.
+
 ## How to repeat
 
 PostHog MCP connector, HogQL via `execute-sql`, excluding cohort 595715. Device class from `$os`
