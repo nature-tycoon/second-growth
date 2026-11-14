@@ -171,6 +171,12 @@ export class HollisWater {
       // the water it was dug for, rather than spilling away to mud the moment it's made)
       crest = Math.max(Math.min(...core.map(i => Math.min(...this.corners(i)))), footprint.spill - .001, initial);
       footprint = this.footprint(core, crest, kind, site, axis, occupied);
+      // (held above its spill, the water stays in the pond and its bank, rather than running out
+      // along a low creek bank beside it: one dug next to a creek once flooded 700 tiles)
+      if (crest > footprint.spill) {
+        const own = new Set(core);
+        footprint.cells = footprint.cells.filter(v => own.has(v.i) || neighbours(this.w, v.i).some(j => own.has(j)));
+      }
     }
     const cells = footprint.cells;
     const lo = Math.min(...cells.map(v => Math.min(...v.c))), steps = 64;
