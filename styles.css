@@ -43,14 +43,11 @@
   border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 26px;
   box-shadow: 0 2px 4px rgba(17, 43, 24, 0.06), 0 30px 70px -20px rgba(17, 43, 24, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
-.ls-logo { grid-area: logo; width: clamp(84px, 13vh, 112px); aspect-ratio: 1; }
-.ls-emblem { width: 100%; height: 100%; filter: drop-shadow(0 6px 10px #1a32222e); }
-.ls-emblem .sg-sapling { transform-origin: 100px 126px; animation: ls-grow 1.6s cubic-bezier(.2, .9, .25, 1.15) .15s both; }
-.ls-emblem .sg-rays { transform-origin: 100px 96px; animation: ls-spin 60s linear infinite; }
-.ls-emblem .sg-rings ellipse { stroke-dasharray: 120; stroke-dashoffset: 120; animation: ls-draw 1.4s ease-out forwards; }
-.ls-emblem .sg-rings ellipse:nth-child(2) { animation-delay: .2s; }
-.ls-emblem .sg-rings ellipse:nth-child(3) { animation-delay: .4s; }
-.ls-title { grid-area: title; font: 700 clamp(30px, 5vw, 40px)/1.05 var(--display); letter-spacing: -.005em; margin: 14px 0 6px; color: var(--moss-2); }
+/* The app icon and the wordmark, as on the website: Bricolage Grotesque, its "o" a round with a young fir
+   cut out (assets/brand-o.svg), painted in the text's colour so the fir shows the card behind. */
+.ls-logo { grid-area: logo; width: clamp(84px, 13vh, 112px); height: auto; aspect-ratio: 1; border-radius: 22%; box-shadow: 0 10px 22px -10px #1a322266; animation: ls-pop .9s cubic-bezier(.2, .9, .25, 1.15) .1s both; }
+.ls-title { grid-area: title; font: 700 clamp(30px, 5vw, 40px)/1.05 'Bricolage Grotesque', var(--ui); letter-spacing: -.025em; margin: 14px 0 6px; color: var(--moss-2); white-space: nowrap; }
+.ls-o { display: inline-block; width: .6em; height: .6em; margin: 0 .025em; vertical-align: -.02em; background: currentColor; -webkit-mask: url(assets/brand-o.svg) center / contain no-repeat; mask: url(assets/brand-o.svg) center / contain no-repeat; }
 .ls-tagline { grid-area: tagline; color: var(--moss); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; line-height: 1.5; }
 .ls-progress { grid-area: progress; width: 100%; margin-top: 20px; }
 .ls-track { position: relative; height: 8px; border-radius: 99px; background: #2c4c2f1f; box-shadow: inset 0 1px 2px #1a32221f; overflow: hidden; }
@@ -67,9 +64,7 @@
 .loading-screen.failed .ls-track::after { animation: none; }
 .loading-screen.failed .ls-status { color: var(--bad); }
 .loading-screen.failed .ls-tip::before { display: none; }
-@keyframes ls-grow { 0% { transform: scale(.15, .05); opacity: 0; } 40% { opacity: 1; } 100% { transform: none; } }
-@keyframes ls-spin { to { transform: rotate(360deg); } }
-@keyframes ls-draw { to { stroke-dashoffset: 0; } }
+@keyframes ls-pop { from { transform: scale(.8); opacity: 0; } }
 @keyframes ls-shimmer { to { transform: translateX(100%); } }
 /* Short screens (phones held sideways): logo beside the title, field note dropped. */
 @media (max-height: 560px) {
@@ -89,8 +84,7 @@
   .ls-ridges { height: 30vh; min-height: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ls-emblem *, .ls-track::after { animation: none !important; }
-  .ls-emblem .sg-rings ellipse { stroke-dashoffset: 0; }
+  .ls-logo, .ls-track::after { animation: none !important; }
   .loading-screen, .ls-bar { transition-duration: .01ms; }
 }
 

@@ -249,7 +249,9 @@ h3 { font-size: 23px; line-height: 1.2; font-weight: 600; letter-spacing: -.015e
 .ecology-topics summary::after { font-size: 18px; color: var(--sprout); }
 .ecology-topics details p { font-size: 15px; color: #cbd6c6; margin-top: 10px; }
 .ecology-gallery { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 40px; }
-.ecology-gallery figure { position: relative; min-width: 0; overflow: hidden; border-radius: var(--r-lg); }
+/* (clip-path clips picture and caption together: with overflow + border-radius each was clipped on its
+   own, and the picture's anti-aliased rim showed as a light line round the dark caption's corners) */
+.ecology-gallery figure { position: relative; min-width: 0; overflow: hidden; border-radius: var(--r-lg); clip-path: inset(0 round var(--r-lg)); }
 .ecology-gallery img { display: block; width: 100%; height: auto; aspect-ratio: 4/5; object-fit: cover; transition: transform .6s; }
 .ecology-gallery figure:hover img { transform: scale(1.025); }
 .ecology-gallery figcaption { position: absolute; inset: auto 0 0; margin: 0; padding: 60px 22px 20px; background: linear-gradient(0deg, #102019e6, transparent); }

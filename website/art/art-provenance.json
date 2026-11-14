@@ -29,7 +29,7 @@
       "source": null,
       "date": "2026-11-13",
       "sha256": "4c9247c203ea9d2353453fe9a4c7d8a676f1f8e8efc7b9f2d07f08bab5770319",
-      "notes": "The new app icon. Cropped just inside its rounded square into assets/icon-512.png, icon-192.png, icon-180.png, website/apple-touch-icon.png and art/app-icon-1024.png."
+      "notes": "The new app icon. Cropped just inside its rounded square into assets/icon-512.png, icon-256.png (loading screen), icon-192.png, icon-180.png, website/apple-touch-icon.png and art/app-icon-1024.png."
     },
     {
       "file": "app-icon-1024.png",
