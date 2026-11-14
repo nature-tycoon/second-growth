@@ -39,6 +39,9 @@
 //   fishes        how a bird fishes, a style in js/data/animal-fishing.js: 'dive' plunges from height
 //                 into the sea (boobies, gannets), 'dip' snatches from the surface on the wing
 //                 (noddies, terns) (fishing.js)
+//   restShare     a primate: the share of the daylight hours it spends resting, sitting in a crown
+//                 (or on the ground for a ground monkey), most of it through the midday heat, and
+//                 asleep at night (primate-behavior.js primateRest, decision 0047)
 //   jinks         a runner that escapes by cutting hard to one side as its hunter closes in, so the
 //                 faster hunter overshoots: hares, gazelles, impala, deer (animal-life.js, decision 0026)
 //
@@ -71,7 +74,7 @@ export const KIND_TRAITS = {
   seacucumber: firm, urchin: firm, beetle: firm, pangolin: firm, armadillo: firm, person: firm,
   ray: { ...firm, alwaysFlying: true }, bat: { alwaysFlying: true },
   butterfly: { flitsLow: true }, bee: { ...firm, flitsLow: true },
-  monkey: { climb: 'walk', crownHeight: 0.9 }, orangutan: { climb: 'clamber', crownHeight: 0.9 }, sloth: { climb: 'hang' },
+  monkey: { climb: 'walk', crownHeight: 0.9, restShare: 0.4 }, orangutan: { climb: 'clamber', crownHeight: 0.9, restShare: 0.25 }, sloth: { climb: 'hang' },
   songbird: { ...smallBird, groundFeed: true, flocks: true, hops: true },
   hummer: { ...smallBird, bathes: false },
   woodpecker: { ...smallBird, nestHole: true, trunkFeed: true },

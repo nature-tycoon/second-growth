@@ -2,6 +2,7 @@
 // wildlife and reduces the harvest. They don't create a second fruit economy.
 import { isFruiting } from '../data/plants.js';
 import { watch } from './animal-life.js';
+import { trait } from '../data/animal-kinds.js';
 
 export const isPrimate = def => ['monkey', 'orangutan'].includes(def?.sprite.kind);
 export function fruitAt(game, i, plant = null) {
@@ -54,4 +55,37 @@ export function primateUpdate(wl, a, def, dt) {
     a.hunger = 0; a.fruitMeal = null; a.state = 'idle'; a.wait = 1 + wl.game.rng();
     a.fruitAfter = a.age + 6 + wl.game.rng() * 6;
   }
+}
+
+// The rest budget (decision 0047). A primate rests its species' share of the day (`restShare`,
+// from field studies), most of it through the midday heat, and sleeps at night. The simulation has
+// no clock of its own, so the time of day is the drawn sun's (game.todU, set by the renderer; 0 is
+// dawn, about 0.42 noon, 0.86 sunset); headless, with no sun, the share is flat. A balance of rest
+// owed (target share of the time since the last decision, less the time it sat idle: a pause after
+// a climb is rest too) decides, so the share holds however long the walks and meals in between run. It is asked only between walks,
+// after meals had their chance, so a monkey never stops mid-route and still eats as often as it
+// finds food; a climber rests up in a crown, never on the ground under it.
+const NOON = 0.42, DAYLIGHT = 0.86, DAWN_END = 0.975, MIDDAY = 0.6, OWED_MAX = 30;
+export const asleep = wl => wl.game.todU > DAYLIGHT && wl.game.todU < DAWN_END;
+export function restTarget(share, u) {
+  if (u == null) return share;
+  if (u > DAYLIGHT && u < DAWN_END) return 1; // asleep
+  // (a cosine over the daylight hours: mean `share`, highest at noon, lowest at dawn and dusk)
+  return Math.min(0.95, share * (1 + MIDDAY * Math.cos(2 * Math.PI * (u - NOON) / DAYLIGHT)));
+}
+export function primateRest(wl, a, def) {
+  const share = isPrimate(def) && trait(def, 'restShare');
+  if (!share || a.leaving || a.fromFire || a.drinkT) return false;
+  const now = a.age, target = restTarget(share, wl.game.todU), el = now - (a.restAt ?? now);
+  // (one just arrived starts part way through its day: some of a troop owe a rest already)
+  if (a.restAt == null) a.restBal = (wl.game.rng() - 0.5) * 10 * share;
+  a.restBal = Math.max(-OWED_MAX, Math.min(OWED_MAX, a.restBal + target * el - (a.stillT || 0)));
+  a.restAt = now; a.stillT = 0; a.restUntil = 0;
+  if (target < 1 && a.restBal <= 0) return false;
+  const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
+  if (!w.inb(x, y) || w.fire[w.idx(x, y)] || def.move === 'tree' && (a.move === 'ground' || !w.tree[w.idx(x, y)])) return false;
+  // a bout of a few days (about 6 to 13 seconds at normal speed), long enough to read as a rest
+  const bout = 4 + wl.game.rng() * 5;
+  a.state = 'idle'; a.path = null; a.wait = bout; a.restUntil = now + bout;
+  return true;
 }
