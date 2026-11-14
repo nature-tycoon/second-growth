@@ -312,6 +312,7 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
 .follow-links a:hover { background: var(--moss); border-color: #b7d49455; }
 .follow-links strong { display: block; font: 600 19px/1.2 var(--display); color: var(--cream); margin-bottom: 6px; }
 .follow-along-home { padding-block: 40px 30px; }
+.follow-along-home .follow-links { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* (two cards: email and the press kit) */
 .follow-along-home h2 { font-size: clamp(32px, 3.4vw, 46px); }
 
 .footer { display: flex; flex-wrap: wrap; gap: 20px 28px; align-items: center; justify-content: space-between; padding-block: 44px; margin-top: 30px; border-top: 1px solid var(--line); }
@@ -477,7 +478,7 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
   summary { font-size: 16px; }
   .closing { padding-block: 110px 100px; }
   .closing p:not(.eyebrow) { font-size: 17px; }
-  .follow-links, .press-facts, .press-places, .press-features { grid-template-columns: 1fr; }
+  .follow-links, .follow-along-home .follow-links, .press-facts, .press-places, .press-features { grid-template-columns: 1fr; }
   .footer { flex-direction: column; align-items: start; }
   .brief-intro { padding-block: 40px; }
   .brief-specs, .review-criteria, .capture-gallery { grid-template-columns: 1fr; }
