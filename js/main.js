@@ -15,6 +15,7 @@ import './lang/es.js'; // the Spanish language pack (only used when a map is pla
 const loading = document.getElementById('loading-screen');
 const loadingStatus = document.getElementById('loading-status');
 const loadingProgress = document.getElementById('loading-progress');
+const loadingPercent = document.getElementById('loading-percent');
 const loadingRetry = document.getElementById('loading-retry');
 
 // How long loading takes, step by step (ms since the page started), for game_loaded and
@@ -24,7 +25,12 @@ let loadLabel = 'Starting', loaded = false;
 function stage(label, progress) {
   loadSteps[label] = Math.round(performance.now()); loadLabel = label;
   loadingStatus.textContent = label;
-  loadingProgress.style.width = `${progress}%`;
+  setProgress(progress);
+}
+// (a transform, not a width, so the bar's easing runs off the main thread while a step holds it)
+function setProgress(progress) {
+  loadingProgress.style.transform = `scaleX(${progress / 100})`;
+  loadingPercent.textContent = `${Math.round(progress)}%`;
 }
 
 // Give the browser a chance to paint the loading page between the heavy setup steps.
@@ -47,6 +53,7 @@ async function boot() {
     const sharedMap = shared?.data && Object.hasOwn(BIOMES, shared.data.map || 'pnw') ? shared.data.map || 'pnw' : null;
     const startMap = pending?.map || sharedMap || linkedMap || Game.lastMap();
     initLang(startMap); // the language this map is played in (see i18n.js), from the loading screen on
+    window.sgLoadingLand?.(startMap); // the loading scene shows this landscape (index.html guessed it from the last one played)
     await nextPaint();
     stage('Preparing the land', 22);
     await nextPaint();
@@ -163,7 +170,7 @@ async function boot() {
     renderer.prepareFirstFrame(game, ui.state);
     stage('Catching the light', 90);
     await nextPaint();
-    await renderer.warmShaders(f => { loadingProgress.style.width = `${90 + 9 * f}%`; });
+    await renderer.warmShaders(f => setProgress(90 + 9 * f));
     requestAnimationFrame(now => {
       try {
         // Startup failures still show the loading error instead of opening a blank farm.
