@@ -40,6 +40,7 @@ import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
 import { saves } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
 import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible } from '../analytics.js';
+import { watchForOffer, openNewsletter, newsletterAvailable } from './newsletter.js';
 
 export { animalThumb, plantThumb } from './thumbnails.js';
 
@@ -137,6 +138,7 @@ export class UI {
     game.canPlayMoment = () => !this.moment && !this.modalOpen && !this.photo && performance.now() - (this.momentEnded ?? -1e9) >= 25000;
     game.on('reset', () => { this.moment?.end(false); this.undo.clear(); this.journal = []; this.dismissedBanners = {}; this.bannerKey = null; this.closeInfo(); this.buildToolbar(); this.refreshTop(true); this.renderQuest(true); });
     game.on('chapter', e => this.onChapterDone(e));
+    watchForOffer(this, game, () => !!currentChapter(game)); // (a guided chapter is on screen)
     // the first goal's follow-up ("watch it grow"), once its grant has had a moment on screen
     game.on('goal', goal => { if (goal.done) setTimeout(() => this.firstGoalNote(goal), 6000); });
     // a chapter objective ticked: say so where the eye is, not only in the folded tracker
@@ -1189,6 +1191,7 @@ export class UI {
       <button class="btn secondary" data-a="photo">Photo mode</button>
       <button class="btn secondary" data-a="watch">Watch (the camera finds the wildlife)</button>
       <button class="btn secondary" data-a="feedback">Send feedback</button>
+      ${newsletterAvailable() ? '<button class="btn secondary" data-a="news">Get updates by email</button>' : ''}
       <button class="btn secondary" data-a="help">How to play</button>
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="backups">Restore an earlier save</button>
@@ -1201,6 +1204,7 @@ export class UI {
     m.querySelector('[data-a=journal]').addEventListener('click', () => this.openJournal());
     m.querySelector('[data-a=trees]').addEventListener('click', () => { this.toggleTrees(); this.closeModal(); });
     m.querySelector('[data-a=feedback]').addEventListener('click', () => this.openFeedback());
+    m.querySelector('[data-a=news]')?.addEventListener('click', () => openNewsletter(this));
     m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
     m.querySelector('[data-a=watch]').addEventListener('click', () => { this.closeModal(); this.watch.start(); });
     m.querySelector('[data-a=save]').addEventListener('click', event => this.saving.manualSave(event.currentTarget));
@@ -1314,7 +1318,7 @@ export class UI {
       <textarea class="ph-mask" rows="6" maxlength="4000" placeholder="I wish I could… / I got stuck when… / The best part was…"></textarea>
       <label class="fb-contact"><span class="small">Want a reply? Leave an email or Reddit username (optional)</span><input type="text" class="ph-mask" maxlength="200"></label>
       <div class="small fb-status"></div>
-      <div class="small" style="margin-top:6px">Rather post publicly? <a href="https://github.com/nature-tycoon/second-growth/issues" target="_blank" rel="noopener">Open an issue on GitHub</a>.</div>
+      <div class="small" style="margin-top:6px">Prefer email? Write to <a href="mailto:info@secondgrowth.earth">info@secondgrowth.earth</a>.${newsletterAvailable() ? ' <a href="#" data-a="news">Get updates by email</a>' : ''}</div>
       </div>`, { narrow: true, foot: '<button class="btn secondary" data-a="cancel">Cancel</button><button class="btn" data-a="send">Send</button>' });
     let rating = 0;
     m.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {
@@ -1322,18 +1326,19 @@ export class UI {
       m.querySelectorAll('[data-r]').forEach(o => o.classList.toggle('on', o === b));
     }));
     const ta = m.querySelector('textarea'), status = m.querySelector('.fb-status');
+    m.querySelector('a[data-a=news]')?.addEventListener('click', e => { e.preventDefault(); openNewsletter(this); });
     setTimeout(() => ta.focus(), 30);
     m.querySelector('[data-a=cancel]').addEventListener('click', () => this.closeModal());
     const sendBtn = m.querySelector('[data-a=send]');
     sendBtn.addEventListener('click', async () => {
       const message = ta.value.trim(), contact = m.querySelector('.fb-contact input').value.trim();
       if (!message && !rating) { status.textContent = 'Pick a face or write a few words first.'; return; }
-      if (!feedbackPossible()) { status.textContent = 'Feedback can\'t be sent from this copy of the game. Please use the GitHub link below.'; return; }
+      if (!feedbackPossible()) { status.textContent = 'Feedback can\'t be sent from this copy of the game. Please email us instead, below.'; return; }
       sendBtn.disabled = true; status.textContent = 'Sending…';
-      const ok = await sendFeedback({ rating: rating || null, message, contact: contact || null, map: this.game.map, ...this.snapshot() });
+      const { ok, error } = await sendFeedback({ rating: rating || null, message, contact: contact || null, map: this.game.map, ...this.snapshot() });
       sendBtn.disabled = false;
       // keep what they wrote if it didn't go through, so they can copy it elsewhere
-      if (!ok) { status.innerHTML = 'That didn\'t go through (an ad blocker or a lost connection can stop it). Your note is still here: please try again, or post it on GitHub below.'; return; }
+      if (!ok) { status.innerHTML = error === 'rate_limited' ? 'Too many tries. Your note is still here: please wait a minute and send it again.' : 'That didn\'t go through (an ad blocker or a lost connection can stop it). Your note is still here: please try again, or email it to us below.'; return; }
       this.closeModal();
       this.game.notify('Thanks for the feedback! It really helps.', 'good');
     });

@@ -266,6 +266,15 @@ addStrings({
   'Pick a face or write a few words first.': 'Primero elegí una carita o escribí unas palabras.',
   "Feedback can't be sent from this copy of the game. Please use the GitHub link below.": 'No se puede enviar desde esta copia del juego. Usá el enlace de GitHub de abajo.',
   "That didn't go through (an ad blocker or a lost connection can stop it). Your note is still here: please try again, or post it on GitHub below.": 'No se envió (un bloqueador de anuncios o una conexión caída lo pueden parar). Tu mensaje sigue aquí: probá otra vez, o publicalo en GitHub abajo.',
+  'Prefer email? Write to': '¿Preferís el correo? Escribinos a', 'Get updates by email': 'Recibir novedades por correo',
+  "Feedback can't be sent from this copy of the game. Please email us instead, below.": 'No se puede enviar desde esta copia del juego. Mejor escribinos por correo, abajo.',
+  "That didn't go through (an ad blocker or a lost connection can stop it). Your note is still here: please try again, or email it to us below.": 'No se envió (un bloqueador de anuncios o una conexión caída lo pueden parar). Tu mensaje sigue aquí: probá otra vez, o mandanoslo por correo, abajo.',
+  'Too many tries. Your note is still here: please wait a minute and send it again.': 'Demasiados intentos. Tu mensaje sigue aquí: esperá un minuto y enviálo otra vez.',
+  'Want monthly updates?': '¿Querés novedades cada mes?', "One email a month about what's new in Second Growth. Unsubscribe from any email.": 'Un correo al mes con las novedades de Second Growth. Podés darte de baja desde cualquier correo.',
+  'you@example.com': 'vos@ejemplo.com', 'Email address': 'Correo electrónico', Subscribe: 'Suscribirme', Dismiss: 'Descartar',
+  "That email doesn't look right. Please check it.": 'Ese correo no parece correcto. Revisalo, por favor.', 'Too many tries. Please wait a minute.': 'Demasiados intentos. Esperá un minuto.',
+  "That didn't go through. Please try again in a moment.": 'No se envió. Probá otra vez en un momento.',
+  "Thanks! You're on the list.": '¡Gracias! Ya estás en la lista.', "You're on the list. Thanks!": 'Ya estás en la lista. ¡Gracias!',
   'Thanks for the feedback! It really helps.': '¡Gracias por tu opinión! Ayuda mucho.',
 
   // ---------------------------------------------------------------- welcome, maps and modes

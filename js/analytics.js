@@ -4,6 +4,7 @@
 
 import { settings } from './settings.js';
 import { RELEASE } from './release.js';
+import { backendOn, postBackend, playerId } from './backend.js';
 
 // Project API key from PostHog (Project settings → Project API key). It is meant to be public.
 const POSTHOG_KEY = 'phc_wWDczF7Egr2VV5Nj6JN2duzKW4ND298DaKjgaQ3B78sf';
@@ -85,11 +86,17 @@ export function track(event, props = {}) {
 // library: it's something the player chose to send, so Do Not Track or opting out of play data
 // shouldn't swallow it, and a failure (an ad blocker, no network) is reported instead of hidden.
 // When analytics is on, it's tied to the player's session so their play data can be found.
-export const feedbackPossible = () => {
-  return !!POSTHOG_KEY && !localOnly();
-};
+export const feedbackPossible = () => backendOn() || (!!POSTHOG_KEY && !localOnly());
+// Resolves to { ok, error }. With the backend address set, the note is emailed to us through the
+// Worker, and the PostHog event goes too when play data is allowed; without it, PostHog alone.
 export async function sendFeedback(props) {
-  if (!feedbackPossible()) return false;
+  const mail = backendOn() ? postBackend('/feedback', { ...props, source: 'game', player: playerId(), game_version: GAME_VERSION, release: RELEASE }) : null;
+  const ph = (!backendOn() || trackingAllowed()) ? sendFeedbackEvent(props) : null;
+  if (mail) { const r = await mail; return r; }
+  return { ok: await ph, error: 'network' };
+}
+async function sendFeedbackEvent(props) {
+  if (!POSTHOG_KEY || localOnly()) return false;
   const ph = P(), linked = ph && trackingAllowed();
   let distinct = null, session = null;
   try { if (linked) { distinct = ph.get_distinct_id?.(); session = ph.get_session_id?.(); } } catch (e) { /* ignore */ }
