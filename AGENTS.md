@@ -107,9 +107,9 @@ Several agents (Claude Code, Codex, Cursor) often edit this checkout at the same
 
 - When you finish a task, commit your changes on the current branch without being asked (if that's `main`, branch first). Commit only your own hunks, as above, and run the relevant checks first.
 - Don't push or open a PR on your own. Wait until Cole says to.
-- When Cole says to push it or make it live, open a PR against main and merge it yourself with a merge commit (`gh pr merge N --merge`). If a tool's permission check blocks the merge, try once, then give Cole the command. Never work around the block.
+- When Cole says to push it or make it live, open a PR against main and set it to merge itself with a merge commit once its checks pass (`gh pr merge N --merge --auto`). If a tool's permission check blocks the merge, try once, then give Cole the command. Never work around the block.
 - Merging to main deploys GitHub Pages (nature-tycoon.github.io/second-growth) and runs the itch.io workflow.
-- CI: PRs run only the headless suite. The browser suite runs on main before the itch.io upload. Run the relevant `tools/*-check.mjs` locally, and don't wait for or poll CI before merging. `[skip ci]` in the commit message skips the checks and the itch.io upload.
+- CI: PRs run only the headless suite, and main is protected: a PR merges only once its `headless` check passes (about 10 minutes), which `--auto` waits for on GitHub's side, so don't wait for or poll CI yourself. Before 2026-11-14 PRs merged seconds after opening, and failing checks landed on main and blocked most itch.io uploads. If the check fails, the PR stays open: tell Cole and fix it on the same branch. The browser suite runs on main before the itch.io upload, as four parallel parts (`check-release.mjs --browser --shard=i/4`, split by `browserSeconds`; add a slow new check there), one run at a time (a newer merge cancels an older run). Browser-check time limits are set for a fast Mac and stretched 3x on CI (`slowness` in `tools/browser-session.mjs`). Run the relevant `tools/*-check.mjs` locally. `[skip ci]` in the commit message skips the checks and the itch.io upload; a PR whose checks are skipped never gets its required check, so merge it with `gh pr merge N --merge --admin` (only for docs-only changes or when Cole asks).
 
 ## Phones
 
