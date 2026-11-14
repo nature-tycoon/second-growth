@@ -10,6 +10,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# One run at a time, the newest: a merge cancels the run still checking an older one, which could
+# otherwise finish last and upload the older game over the newer.
+concurrency:
+  group: itch
+  cancel-in-progress: true
+
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml

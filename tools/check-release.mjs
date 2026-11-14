@@ -6,28 +6,37 @@ import { join } from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url)), out = join(root, 'tools/release-output');
 const args = process.argv.slice(2);
-const allowed = ['--headless', '--browser', '--update-visuals', '--help'];
-if (args.some(arg => !allowed.includes(arg)) || args.includes('--headless') && args.includes('--browser')) throw new Error('Use --headless or --browser, optionally --update-visuals.');
+const allowed = ['--headless', '--browser', '--update-visuals', '--list', '--help'];
+const shardArg = args.find(arg => arg.startsWith('--shard='));
+const [shard, shards] = shardArg ? shardArg.slice(8).split('/').map(Number) : [1, 1];
+if (!(shards >= 1 && shard >= 1 && shard <= shards) || shards > 1 && !args.includes('--browser')) throw new Error('--shard=i/n splits the browser suite: use it with --browser, 1 <= i <= n.');
+if (args.some(arg => !allowed.includes(arg) && arg !== shardArg) || args.includes('--headless') && args.includes('--browser')) throw new Error('Use --headless or --browser, optionally --update-visuals.');
 if (args.includes('--help')) {
-  console.log('node tools/check-release.mjs [--headless | --browser] [--update-visuals]\nDefault: all headless and browser checks. --update-visuals explicitly replaces reference images; never use it in CI. Reports: tools/release-output/.');
+  console.log('node tools/check-release.mjs [--headless | --browser [--shard=i/n]] [--update-visuals] [--list]\n--list prints the checks that would run, without running them. --shard=i/n runs the i-th of n parts of the browser suite, split by how long each check takes on CI.\nDefault: all headless and browser checks. --update-visuals explicitly replaces reference images; never use it in CI. Reports: tools/release-output/.');
   process.exit(0);
 }
 if (args.includes('--update-visuals') && (process.env.CI || args.includes('--headless'))) throw new Error('Visual references can only be updated explicitly in a local browser run.');
 await mkdir(out, { recursive: true });
-const browserNames = new Set(['animal-behavior-browser-check.mjs', 'bird-variant-browser-check.mjs', 'browser-save-check.mjs', 'animal-locate-browser-check.mjs', 'canopy-reveal-browser-check.mjs', 'cervid-groups-browser-check.mjs', 'plant-view-browser-check.mjs', 'plant-render-browser-check.mjs', 'field-audio-browser-check.mjs', 'moments-browser-check.mjs', 'perf-analytics-browser-check.mjs', 'tool-actions-browser-check.mjs', 'map-catalog-browser-check.mjs', 'eco-report-browser-check.mjs', 'release-browser-check.mjs']);
-browserNames.add('plant-cache-browser-check.mjs');
-browserNames.add('website-security-browser-check.mjs');
-browserNames.add('animal-trails-browser-check.mjs');
-browserNames.add('moments-sweep-browser-check.mjs');
-browserNames.add('play-analytics-browser-check.mjs');
-browserNames.add('first-minutes-browser-check.mjs');
-browserNames.add('impostor-browser-check.mjs');
+// The browser suite is every check that opens Chrome, found by name: a list kept by hand missed
+// three (follow-support, lens-depth, moment-camera), which then ran on every PR, and a flaky one
+// blocked merges once PRs had to pass their checks.
 const files = (await readdir(new URL('./', import.meta.url))).filter(file => file.endsWith('-check.mjs')).sort();
+const browserNames = new Set(files.filter(file => file.endsWith('-browser-check.mjs') || file === 'browser-save-check.mjs'));
+// Seconds each browser check takes on CI (2026-11-14 run), to split the suite into parts of about
+// equal length for checks.yml's parallel jobs. A check not listed counts as a minute.
+const browserSeconds = { 'plant-cache-browser-check.mjs': 820, 'release-browser-check.mjs': 730, 'impostor-browser-check.mjs': 470, 'plant-render-browser-check.mjs': 400, 'plant-view-browser-check.mjs': 310, 'moments-sweep-browser-check.mjs': 170 };
+function browserShard() {
+  const parts = Array.from({ length: shards }, () => ({ seconds: 0, files: [] }));
+  const longestFirst = [...browserNames].sort((a, b) => (browserSeconds[b] ?? 60) - (browserSeconds[a] ?? 60) || a.localeCompare(b));
+  for (const file of longestFirst) { const part = parts.reduce((a, b) => b.seconds < a.seconds ? b : a); part.seconds += browserSeconds[file] ?? 60; part.files.push(file); }
+  return parts[shard - 1].files;
+}
 const headless = [...files.filter(file => !browserNames.has(file)), 'animal-size-audit.mjs', 'species-name-count.mjs'];
-const selected = args.includes('--headless') ? headless : args.includes('--browser') ? [...browserNames] : [...headless, ...browserNames];
+const selected = args.includes('--headless') ? headless : args.includes('--browser') ? browserShard() : [...headless, ...browserNames];
+if (args.includes('--list')) { console.log(selected.join('\n')); process.exit(0); }
 let revision = 'uncommitted';
 try { revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(); } catch {}
-const report = { revision, node: process.version, startedAt: new Date().toISOString(), checks: [] };
+const report = { revision, node: process.version, ...(shards > 1 && { shard: `${shard}/${shards}` }), startedAt: new Date().toISOString(), checks: [] };
 let failed = false;
 for (const file of selected) {
   const started = Date.now();

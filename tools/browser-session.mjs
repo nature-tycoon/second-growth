@@ -9,6 +9,11 @@ import { fileURLToPath } from 'node:url';
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.m4a': 'audio/mp4' };
 export const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Every time limit here is set for a fast Mac. CI's runners draw with software graphics and run
+// checks 2-3x slower, and a check that fit with a little to spare locally kept timing out there
+// (the impostor check's triangle count blocked four itch.io uploads), so on CI each limit is
+// stretched by this much. CHECK_SLOWNESS overrides it. check-release.mjs's per-script caps are not.
+export const slowness = Number(process.env.CHECK_SLOWNESS) || (process.env.CI ? 3 : 1);
 
 export async function openBrowser({ label = 'release', root = projectRoot, software = true, width = 960, height = 600, pixelRatio = 1 } = {}) {
   if (typeof WebSocket !== 'function') throw new Error('Browser checks require Node 22 or newer.');
@@ -52,7 +57,7 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
     chrome = spawn(executable, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--force-device-scale-factor=1', ...(software ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] : []), 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
     const debug = await new Promise((resolve, reject) => {
       let log = '';
-      const timeout = setTimeout(() => reject(new Error('Chrome did not start within 15 seconds. Set CHROME_PATH to a Chromium executable.')), 15000);
+      const timeout = setTimeout(() => reject(new Error(`Chrome did not start within ${15 * slowness} seconds. Set CHROME_PATH to a Chromium executable.`)), 15000 * slowness);
       const fail = error => { clearTimeout(timeout); reject(error); };
       chrome.once('error', fail); chrome.once('exit', code => fail(new Error(`Chrome exited ${code}: ${log.slice(-500)}`)));
       chrome.stderr.on('data', data => { log += data; const match = log.match(/DevTools listening on (ws:\/\/[^\s]+)/); if (match) { clearTimeout(timeout); resolve(match[1]); } });
@@ -69,7 +74,9 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
       if (message.error) request.reject(new Error(message.error.message)); else request.resolve(message.result);
     };
     const request = (method, params = {}, sessionId, timeoutMs = 120000) => new Promise((resolve, reject) => {
-      const id = ++sequence, timeout = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out`)); }, timeoutMs);
+      // (the error names what was evaluated, so a CI log says which step ran out of time)
+      const what = method === 'Runtime.evaluate' ? `: ${String(params.expression).replace(/\s+/g, ' ').slice(0, 120)}` : '';
+      const id = ++sequence, timeout = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out after ${Math.round(timeoutMs * slowness / 1000)} s${what}`)); }, timeoutMs * slowness);
       pending.set(id, { resolve, reject, timeout }); socket.send(JSON.stringify({ id, method, params, sessionId }));
     });
     const { targetId } = await request('Target.createTarget', { url: origin + '/assets/logo.svg' });
@@ -84,10 +91,13 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
       return r.result.value;
     };
     const waitFor = async (expression, message = expression, timeoutMs = 120000) => {
-      const deadline = Date.now() + timeoutMs;
+      const deadline = Date.now() + timeoutMs * slowness;
       while (Date.now() < deadline) { if (await evaluate(expression)) return; await pause(100); }
       throw new Error(`Timed out: ${message}`);
     };
+    // (Target.createTarget returns before the logo has loaded: on CI a check's first evaluate, setting
+    // localStorage, twice ran in the blank page still there and was denied. So it waits for the logo)
+    await waitFor(`location.origin === ${JSON.stringify(origin)}`, 'the first page loads', 15000);
     return { origin, sessionId, send, evaluate, waitFor, errors, close,
       // (Page.navigate returns once loading starts: on a slow machine the next evaluate still ran in
       // the old document, the logo, and a page's getElementById came back null. So it waits until a
@@ -96,7 +106,7 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
         errors.length = 0;
         await evaluate('window.__sgLeaving = true').catch(() => {});
         await send('Page.navigate', { url: origin + path });
-        const deadline = Date.now() + 120000;
+        const deadline = Date.now() + 120000 * slowness;
         while (Date.now() < deadline) {
           if (await evaluate('!window.__sgLeaving && document.readyState !== "loading"').catch(() => false)) return;
           await pause(50);

@@ -4,7 +4,7 @@
 // level (it leaves the eye for the moment and goes back to eye level after). Also the two Gameplay
 // settings: Keystone moments off plays none, Invasive species off stops invasive seedlings taking.
 import assert from 'node:assert/strict';
-import { openBrowser, pause } from './browser-session.mjs';
+import { openBrowser, pause, slowness } from './browser-session.mjs';
 
 const b = await openBrowser({ label: 'moment-camera', width: 844, height: 390 });
 const S = 'window.secondGrowth';
@@ -27,10 +27,17 @@ try {
   await b.evaluate(`(() => { const {game:g,ui,renderer:r}=${S}; if(ui.modalOpen) ui.closeModal(); ui.setSpeed(3); r.target.x=60; r.target.z=50; r.zoom=0.5; })()`);
   assert.ok(await b.evaluate(fire), 'moment fired');
   await b.waitFor(`${S}.ui.moment?.key === 'elkRut'`, 'cinematic starts', 20000);
+  // an elk standing at the moment's spot, so there is always an animal to click: the farm's own
+  // animals were often nowhere near it, and on CI the check failed with none on screen
+  await b.evaluate(`(async () => { const {game:g}=${S}, {ANIMAL}=await import('/js/data/animals.js');
+    const a=g.wildlife.spawn(ANIMAL.elk,21,20,{silent:true,age:600}); a.x=21.5; a.y=20.5; a.wait=99; })()`);
   await pause(700);
-  // click an animal on screen, as a player might (that used to start following it and stop the glide)
+  // click an animal on screen while the moment plays, as a player might (that used to start following
+  // it and stop the glide). On a fast machine this lands mid-glide; with CI's slow frames the glide
+  // can be over first, and the click must still not take the camera away from the moment
+  const glideDone = `${S}.renderer.zoom > 2 && Math.hypot(${S}.renderer.target.x - 20, ${S}.renderer.target.z - 20) < 3`;
   let clicked = null;
-  for (let k = 0; k < 30 && clicked == null; k++, await pause(250)) clicked = await b.evaluate(`(() => { const {game:g,renderer:r}=${S}, c=r.canvas, rc=c.getBoundingClientRect();
+  for (const until = Date.now() + 20000 * slowness; clicked == null && Date.now() < until; await pause(250)) clicked = await b.evaluate(`(() => { const {game:g,renderer:r}=${S}, c=r.canvas, rc=c.getBoundingClientRect();
     for (const a of g.wildlife.viewAgents) { const s=r.actors.pose.get(a.id); if(!s?.visible) continue;
       const p=r.project(s.center.x,s.center.y,s.center.z); if(p.x<40||p.y<40||p.x>r.vw-40||p.y>r.vh-40) continue;
       if (r.pickAgent(g,p.x,p.y)!==a) continue;
@@ -39,9 +46,9 @@ try {
       return a.id; }
     return null; })()`);
   console.log('clicked animal', clicked);
-  assert.ok(clicked != null, 'found an animal to click during the glide');
+  assert.ok(clicked != null, 'found an animal to click during the moment');
   const t0 = Date.now();
-  await b.waitFor(`${S}.renderer.zoom > 2 && Math.hypot(${S}.renderer.target.x - 20, ${S}.renderer.target.z - 20) < 3`, 'zoomed in on the moment despite the click', 30000);
+  await b.waitFor(glideDone, 'zoomed in on the moment despite the click', 30000);
   console.log(`glide took ${Date.now() - t0} ms (dt is capped at 0.1 s a frame, so slow software frames stretch it)`);
   let v = await b.evaluate(`(() => { const {game:g,renderer:r}=${S}; return {zoom:r.zoom, x:r.target.x, z:r.target.z, speed:g.speed}; })()`);
   console.log('overhead at speed 3:', v);
