@@ -17,14 +17,11 @@ if (args.includes('--help')) {
 }
 if (args.includes('--update-visuals') && (process.env.CI || args.includes('--headless'))) throw new Error('Visual references can only be updated explicitly in a local browser run.');
 await mkdir(out, { recursive: true });
-const browserNames = new Set(['animal-behavior-browser-check.mjs', 'bird-variant-browser-check.mjs', 'browser-save-check.mjs', 'animal-locate-browser-check.mjs', 'canopy-reveal-browser-check.mjs', 'cervid-groups-browser-check.mjs', 'plant-view-browser-check.mjs', 'plant-render-browser-check.mjs', 'field-audio-browser-check.mjs', 'moments-browser-check.mjs', 'perf-analytics-browser-check.mjs', 'tool-actions-browser-check.mjs', 'map-catalog-browser-check.mjs', 'eco-report-browser-check.mjs', 'release-browser-check.mjs']);
-browserNames.add('plant-cache-browser-check.mjs');
-browserNames.add('website-security-browser-check.mjs');
-browserNames.add('animal-trails-browser-check.mjs');
-browserNames.add('moments-sweep-browser-check.mjs');
-browserNames.add('play-analytics-browser-check.mjs');
-browserNames.add('first-minutes-browser-check.mjs');
-browserNames.add('impostor-browser-check.mjs');
+// The browser suite is every check that opens Chrome, found by name: a list kept by hand missed
+// three (follow-support, lens-depth, moment-camera), which then ran on every PR, and a flaky one
+// blocked merges once PRs had to pass their checks.
+const files = (await readdir(new URL('./', import.meta.url))).filter(file => file.endsWith('-check.mjs')).sort();
+const browserNames = new Set(files.filter(file => file.endsWith('-browser-check.mjs') || file === 'browser-save-check.mjs'));
 // Seconds each browser check takes on CI (2026-11-14 run), to split the suite into parts of about
 // equal length for checks.yml's parallel jobs. A check not listed counts as a minute.
 const browserSeconds = { 'plant-cache-browser-check.mjs': 820, 'release-browser-check.mjs': 730, 'impostor-browser-check.mjs': 470, 'plant-render-browser-check.mjs': 400, 'plant-view-browser-check.mjs': 310, 'moments-sweep-browser-check.mjs': 170 };
@@ -34,7 +31,6 @@ function browserShard() {
   for (const file of longestFirst) { const part = parts.reduce((a, b) => b.seconds < a.seconds ? b : a); part.seconds += browserSeconds[file] ?? 60; part.files.push(file); }
   return parts[shard - 1].files;
 }
-const files = (await readdir(new URL('./', import.meta.url))).filter(file => file.endsWith('-check.mjs')).sort();
 const headless = [...files.filter(file => !browserNames.has(file)), 'animal-size-audit.mjs', 'species-name-count.mjs'];
 const selected = args.includes('--headless') ? headless : args.includes('--browser') ? browserShard() : [...headless, ...browserNames];
 if (args.includes('--list')) { console.log(selected.join('\n')); process.exit(0); }

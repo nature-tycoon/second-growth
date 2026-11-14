@@ -95,6 +95,9 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
       while (Date.now() < deadline) { if (await evaluate(expression)) return; await pause(100); }
       throw new Error(`Timed out: ${message}`);
     };
+    // (Target.createTarget returns before the logo has loaded: on CI a check's first evaluate, setting
+    // localStorage, twice ran in the blank page still there and was denied. So it waits for the logo)
+    await waitFor(`location.origin === ${JSON.stringify(origin)}`, 'the first page loads', 15000);
     return { origin, sessionId, send, evaluate, waitFor, errors, close,
       // (Page.navigate returns once loading starts: on a slow machine the next evaluate still ran in
       // the old document, the logo, and a page's getElementById came back null. So it waits until a
