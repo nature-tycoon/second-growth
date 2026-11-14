@@ -32,9 +32,11 @@ an iPhone (`node tools/phone-review.mjs`) and real iPhone Safari in the iOS Simu
    never is: on the phone the bar sat near the start while the text read "Growing the landscape".
 6. Frosted blur on notifications, the Watch menu and keystone cards over the moving view, on touch
    screens (panels already had it off): the blur is redone every frame on a phone's graphics chip.
-7. Fast at one pixel a point (every phone, 1x laptop screens) switches to far plant models and tree
-   cards at zoom 0.75 instead of 0.5, the same ~34 device pixels a tile as a 1.5x laptop (decision
-   0022). Phones open on them. Grown farms, phone emulation, opening zoom: Amazon 1.09M -> 0.40M
+7. Phones on Fast switch to far plant models and tree cards at zoom 0.75 instead of 0.5, the same
+   ~34 device pixels a tile as a 1.5x laptop (decision 0022), so they open on them. Phones only (Cole,
+   2026-11-14): on a 1x laptop the same switch made crowns visibly darker and blobbier and hid the
+   trunks (release check: Sumatra Fast 41% of pixels changed). Next for computers: full-size tree
+   pictures on 1x screens, then compare again. Grown farms, phone emulation, opening zoom: Amazon 1.09M -> 0.40M
    triangles, Sumatra 0.89M -> 0.66M. Processor time unchanged; the gain is on the graphics chip,
    which nothing here can measure.
 8. `webgl_context_lost` is now tracked: the simulator dropped the 3D view once while loading
