@@ -115,6 +115,8 @@ Several agents (Claude Code, Codex, Cursor) often edit this checkout at the same
 
 The game is played on phones in **landscape**. Design and check phone layouts at a landscape size (for example 812×375 or 844×390), where the height is the tight side. Upright (portrait) phone layouts are a fallback, not the target.
 
+No real phone is hooked up: `node tools/phone-review.mjs` screenshots the HUD and panels in Chrome emulating an iPhone, and Xcode's iOS Simulator runs real iPhone Safari (its address bar takes about 60 of 402 points in landscape). Neither measures a phone's graphics chip. Findings and how-to: [phone review 2026-11-14](docs/phone-review-2026-11-14.md).
+
 ## Testing on Cole's Mac
 
 Cole works on the same machine while agents test, and the 3D game is heavy. Before opening a preview, running headless Chrome or writing a check, read [testing](.claude/skills/testing/SKILL.md): close preview tabs when done, `nice -n 15` headless Chrome, ask before reloading Cole's tab, and the browser-check and seeding gotchas.
