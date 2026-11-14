@@ -242,8 +242,8 @@ export class Flora {
   setZoom(zoom, force = false) {
     this.zoom = zoom;
     // (trees: the close model only once zoomed right in, the in-between one at play zoom, and the
-    // far models once a tile is under about 16 pixels across, or on Fast about 34 device pixels
-    // (farBelow: 23 points on a 1.5x screen, 34 on a phone drawn at one pixel a point). The camera has no
+    // far models once a tile is under about 16 pixels across, or 23 on Fast (farBelow: sooner on a
+    // phone, which draws one pixel a point). The camera has no
     // perspective, so every plant on screen is drawn at the same scale and the zoom alone says
     // how small they are. Eye level passes its own fixed zoom: always the close models.)
     const far = this.far;
@@ -255,8 +255,8 @@ export class Flora {
     for (const p of this.pools.values()) p.setView(...v);
   }
 
-  // Fast switches to the far models by device pixels, not points: a phone draws one pixel a point,
-  // so its crowns are as few pixels across at its opening zoom as a laptop's are at 0.5.
+  // The zoom under which Fast shows the far models: a phone draws one pixel a point, so its crowns
+  // are as few pixels across at its opening zoom as a 1.5x laptop's are at 0.5.
   setFarBelow(zoom) {
     if (zoom === this.farBelow) return;
     this.farBelow = zoom;
