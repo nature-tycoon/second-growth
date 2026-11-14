@@ -4,7 +4,7 @@
 // begins beyond the north and east fences: none of it is left on the ranch.
 
 import { World, riverRow, generateHeights } from '../world.js';
-import { T, F, clamp } from '../config.js';
+import { T, F, LAID, clamp } from '../config.js';
 import { smoothstep } from './landform.js';
 import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
@@ -66,7 +66,7 @@ export function generateRanch(seed = 2024, catalog = activeCatalog) {
   // Dirt roads: in from the neighbour's ranch to the yard, and along the river to the old port.
   rect(0, 24, 42, 24, i => { w.terrain[i] = T.ROAD; w.clearPlants(i); });
   rect(0, 76, 64, 76, i => { w.terrain[i] = T.ROAD; w.clearPlants(i); });
-  rect(58, 75, 63, 77, i => { if (w.terrain[i] !== T.ROAD) { w.terrain[i] = T.GRAVEL; w.clearPlants(i); } });
+  rect(58, 75, 63, 77, i => { if (w.terrain[i] !== T.ROAD) { w.terrain[i] = T.GRAVEL; w.marks[i] |= LAID; w.clearPlants(i); } });
 
   // The igarapé: a stream meandering down from the forest to the river, its banks trampled bare.
   for (let y = 0; y < Hh; y++) {

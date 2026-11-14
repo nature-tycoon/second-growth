@@ -1,7 +1,7 @@
 // Tool definitions and tile mutations. Player controls and scripted plans apply
 // these through ToolActions, which handles eligibility, money and stroke completion.
 
-import { T, F, PLACED, STONES, isWater } from './config.js';
+import { T, F, PLACED, LAID, STONES, isWater } from './config.js';
 import { MIX, L } from './data/plants.js';
 import { ANIMAL, many } from './data/animals.js';
 import { plantSuit, removeTree } from './sim/plants.js';
@@ -57,10 +57,13 @@ export function createTools(catalog) {
   tool({ key: 'creek', cat: 'land', name: 'Creek channel', cost: 45, icon: { terrain: T.CREEK }, size: 0,
     desc: 'Carve a flowing creek. Connect it to the river so fish can swim in. Try adding some bends.', apply: dig(T.CREEK) });
   tool({ key: 'fill', cat: 'land', name: 'Fill & grade', cost: 25, icon: { terrain: T.SOIL },
-    desc: 'Fill in water, or rip up old roads and gravel, leaving loose bare soil.',
-    apply: (game, i) => {
+    desc: 'Fill in water, or rip up old roads and gravel people laid, leaving loose bare soil. Natural sand and gravel bars stay.',
+    apply: (game, i, random, stroke) => {
       const w = game.world, t = w.terrain[i];
       if (t === T.RIVER || w.struct[i] >= 0 || w.feature[i] === F.CULVERT) return null;
+      // (beach sand, gravel bars, kopjes and rubble are natural ground: only gravel people laid comes up,
+      // or a slip of the brush could lose a turtle beach for good)
+      if (t === T.GRAVEL && !(w.marks[i] & LAID)) { if (stroke) stroke.natural ??= i; return null; }
       if (t === T.ROAD && biome.fixedRoads) return null; // (the suburb's streets and driveways stay)
       if (!isWater(t) && t !== T.ROAD && t !== T.GRAVEL && t !== T.MUD) return null;
       w.terrain[i] = T.SOIL;

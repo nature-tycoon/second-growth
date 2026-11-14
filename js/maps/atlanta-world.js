@@ -7,7 +7,7 @@
 // (72 x 60), so the gardens and their pollinators are close up.
 
 import { World, riverRow, generateHeights } from '../world.js';
-import { T, F, clamp } from '../config.js';
+import { T, F, LAID, clamp } from '../config.js';
 import { smoothstep } from './landform.js';
 import { activeCatalog } from '../data/catalog.js';
 import { mulberry32, hash2, valueNoise } from '../rng.js';
@@ -120,7 +120,7 @@ export function generateSubdivision(seed = 2006, catalog = activeCatalog) {
     if (y < 49) return;
     const d = ((x - pcx) / prx) ** 2 + ((y - pcy) / pry) ** 2;
     if (d <= 1) { w.terrain[i] = T.POND; w.clearPlants(i); }
-    else if (d <= 1.9 && w.terrain[i] === T.PASTURE) { w.terrain[i] = T.GRAVEL; w.clearPlants(i); }  // riprap slopes
+    else if (d <= 1.9 && w.terrain[i] === T.PASTURE) { w.terrain[i] = T.GRAVEL; w.marks[i] |= LAID; w.clearPlants(i); }  // riprap slopes
   });
   for (let a = 0; a < Math.PI * 2; a += 0.02) { const x = Math.round(pcx + Math.cos(a) * (prx + 2.4)), y = Math.round(pcy + Math.sin(a) * (pry + 1.4)); if (y >= 49) fence(x, y); }
   for (let y = Math.ceil(pcy + pry); y < Hh; y++) { const i = w.idx(pcx, y); if (w.terrain[i] === T.RIVER) break; w.terrain[i] = T.CREEK; w.clearPlants(i); w.feature[i] = 0; }

@@ -1,7 +1,7 @@
 // The map: typed arrays per tile, plus generation of the starting farm and the
 // decorative surroundings (forest to the north and east, river to the south, road west).
 
-import { MAP_W, MAP_H, BORDER, T, F, isWater, clamp } from './config.js';
+import { MAP_W, MAP_H, BORDER, T, F, LAID, isWater, clamp } from './config.js';
 import { activeCatalog } from './data/catalog.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
 import { removeTree } from './sim/plants.js';
@@ -54,7 +54,8 @@ export class World {
     this.deadwoodId = u8();
     this.struct = new Int16Array(n).fill(-1);
     // marks laid over the ground without changing it (the reef: 1 = a buoyed snorkel trail, 2 = reef stars;
-    // 4 = a canal block, 8 = shade cloth, 16 and 32 = what a beaver pool drowned, 64 = a snag, log, rock pile or brush pile the player placed: PLACED)
+    // 4 = a canal block, 8 = shade cloth, 16 and 32 = what a beaver pool drowned, 64 = a snag, log, rock pile or brush pile the player placed: PLACED,
+    // 128 = gravel people laid: LAID)
     this.marks = u8();
     // a drained beaver pond's age as meadow (years, or pending while it drains: sim/beaver-ponds.js),
     // and wallows (sim/wallows.js): how deep a dug wallow is and how much water stands in it (0-255)
@@ -214,14 +215,14 @@ export function generateFarm(seed = 1987, catalog = activeCatalog) {
 
   // Farmstead yard
   rect(15, 14, 40, 33, (i, x, y) => {
-    if (valueNoise(x, y, 3, 21) > 0.3) w.terrain[i] = T.GRAVEL;
+    if (valueNoise(x, y, 3, 21) > 0.3) { w.terrain[i] = T.GRAVEL; w.marks[i] |= LAID; }
     w.soil[i] = 0.18;
   });
 
   // Roads: county access from the west to the farmstead lane, and the river road.
   rect(0, 27, 64, 27, i => { w.terrain[i] = T.ROAD; });
   rect(0, 75, 58, 75, i => { w.terrain[i] = T.ROAD; });
-  rect(56, 74, 60, 76, i => { if (w.terrain[i] !== T.ROAD) w.terrain[i] = T.GRAVEL; });
+  rect(56, 74, 60, 76, i => { if (w.terrain[i] !== T.ROAD) { w.terrain[i] = T.GRAVEL; w.marks[i] |= LAID; } });
 
   // The drainage ditch: a straightened creek, runs from a spring in the north to the river.
   const ditch = [];

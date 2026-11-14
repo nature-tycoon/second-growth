@@ -6,7 +6,7 @@ import { ToolActions, refusal } from '../js/tool-actions.js';
 import { TOOLS, toolCost, naturalFeature } from '../js/tools.js';
 import { Undo } from '../js/undo.js';
 import { removeTree, plantSuit } from '../js/sim/plants.js';
-import { T, F, PLACED } from '../js/config.js';
+import { T, F, PLACED, LAID } from '../js/config.js';
 
 let checks = 0;
 const g = new Game();
@@ -188,6 +188,33 @@ check('A refused planting names its limits and a tool that suits the spot, in th
   g.notify = (text, ...rest) => { notes.push(text); return notify.call(g, text, ...rest); };
   try { new ToolActions(g).apply('mix_meadow', [i], { random: () => 0 }); } finally { g.notify = notify; }
   assert.ok(notes.some(n => n.includes(limits[0]) && n.includes(`try ${better.name}`)), notes.join(' | '));
+});
+
+for (const map of BIOME_LIST.map(b => b.id)) check(`${map}: Fill & grade rips up laid gravel only, and a save keeps which is which`, () => {
+  g.newGame(1987, 'free', 'standard', map);
+  const w = g.world, open = i => w.struct[i] < 0 && w.feature[i] !== F.CULVERT;
+  const natural = [], laid = [];
+  for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.GRAVEL && open(i)) (w.marks[i] & LAID ? laid : natural).push(i);
+  // (a loaded save takes its marks from the map as generated, so an older save without them gets them too)
+  const data = structuredClone(g.saveData());
+  for (const i of laid) w.marks[i] &= ~LAID;
+  assert.ok(g.restoreSave(data));
+  for (const i of laid) assert.ok(g.world.marks[i] & LAID, `${map}: laid gravel lost its mark on load`);
+  const notes = [], notify = g.notify;
+  g.notify = text => notes.push(text);
+  try {
+    if (natural.length) {
+      const s = new ToolActions(g).apply('fill', natural.slice(0, 40));
+      assert.equal(s.count, 0);
+      assert.ok(natural.every(i => g.world.terrain[i] === T.GRAVEL), `${map}: natural gravel was filled`);
+      assert.ok(notes.some(n => n.includes('gravel people laid')), notes.join(' | '));
+    }
+    if (laid.length) {
+      const s = new ToolActions(g).apply('fill', laid.slice(0, 5));
+      assert.equal(s.count, Math.min(5, laid.length));
+      assert.ok(laid.slice(0, 5).every(i => g.world.terrain[i] === T.SOIL));
+    }
+  } finally { g.notify = notify; }
 });
 
 console.log(`${checks} shared player-action checks passed.`);
