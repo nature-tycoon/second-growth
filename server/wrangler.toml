@@ -1,0 +1,28 @@
+# Second Growth's backend (feedback email, newsletter signup, ratings). Setup: docs/backend-setup.md
+name = "second-growth-api"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# Uncomment once secondgrowth.earth is on Cloudflare (step 7 of the setup doc):
+# routes = [{ pattern = "api.secondgrowth.earth", custom_domain = true }]
+
+[vars]
+FEEDBACK_TO = "info@secondgrowth.earth"
+FEEDBACK_FROM = "Second Growth feedback <feedback@secondgrowth.earth>"
+# Kit tag ids (numbers from the tag's page URL in Kit); leave empty to skip tagging
+KIT_TAG_WEBSITE = ""
+KIT_TAG_GAME = ""
+# Secrets, set with `npx wrangler@4 secret put NAME`, never written here:
+#   RESEND_API_KEY, KIT_API_KEY
+
+[[d1_databases]]
+binding = "DB"
+database_name = "second-growth"
+database_id = "PASTE-THE-ID-FROM-wrangler-d1-create"
+
+# 5 requests a minute per visitor to /feedback and /subscribe (period must be 10 or 60)
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
