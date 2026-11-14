@@ -526,3 +526,49 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .home .header, .hero-pill, .descent-beats li, .moment-bubble { background: #102019e8; }
 }
+
+/* ------------------------------------------------------------------ feedback, newsletter, ratings */
+.sr, .trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.feedback { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--line-ink); max-width: 560px; }
+.feedback h3, .signup h3 { font: 600 21px/1.2 var(--display); margin-bottom: 8px; }
+.feedback > p { font-size: 16px; color: var(--ink-muted); }
+.feedback > p a { text-decoration: underline; text-underline-offset: 3px; color: var(--ink); }
+.feedback-form { display: grid; gap: 14px; margin-top: 16px; }
+.feedback-form[hidden], .signup-form[hidden] { display: none; }
+.field { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
+.field small, .rating-field small { font-weight: 400; opacity: .75; }
+.feedback .field input, .feedback .field textarea { font: 16px/1.5 var(--sans); padding: 11px 14px; border: 1.5px solid var(--line-ink); border-radius: 12px; background: var(--cream); color: var(--ink); width: 100%; }
+.feedback .field textarea { resize: vertical; min-height: 110px; }
+.feedback .field input:focus-visible, .feedback .field textarea:focus-visible { outline: 3px solid #4f7a1c; outline-offset: 2px; }
+.rating-field { border: 0; padding: 0; margin: 0; font-size: 14px; font-weight: 600; }
+.rating-row { display: flex; gap: 8px; margin-top: 6px; }
+.rating-row label { position: relative; }
+.rating-row input { position: absolute; opacity: 0; inset: 0; }
+.rating-row span { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 100px; box-shadow: inset 0 0 0 1.5px var(--ink); font-weight: 700; cursor: pointer; transition: background .2s, color .2s; }
+.rating-row input:checked + span { background: var(--ink); color: var(--cream); }
+.rating-row input:focus-visible + span { outline: 3px solid #4f7a1c; outline-offset: 2px; }
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.feedback button, .signup button { padding: 11px 22px; border: 0; border-radius: 100px; background: var(--ink); color: var(--cream); font-size: 14px; font-weight: 700; transition: background .2s; }
+.feedback button:hover { background: #2a4034; }
+.signup button { background: var(--sprout); color: var(--ink); }
+.signup button:hover { background: var(--sprout-hi); }
+button[disabled] { opacity: .6; cursor: progress; }
+.form-status { font-size: 14px; }
+.feedback .form-status { color: var(--ink-muted); }
+.form-status[data-state="error"] { color: #a33a22; }
+.signup .form-status[data-state="error"] { color: #f0a58f; }
+.signup { margin-top: 28px; max-width: 620px; }
+.signup > p { color: var(--muted); font-size: 16px; }
+.signup-form { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; align-items: flex-start; }
+.signup-form .field { flex: 1 1 240px; }
+.signup-form input[type=email] { font: 16px/1.5 var(--sans); padding: 11px 16px; border: 1px solid var(--line); border-radius: 100px; background: var(--pine); color: var(--cream); width: 100%; }
+.signup-form input:focus-visible { outline: 3px solid var(--sprout); outline-offset: 2px; }
+.signup-form .form-status { flex-basis: 100%; min-height: 1.4em; }
+.signup-fallback { margin-top: 12px; font-size: 14px !important; color: var(--dim) !important; }
+.signup-fallback a, .signup > p a { color: var(--sprout); text-decoration: underline; text-underline-offset: 3px; }
+.ratings { margin-top: 24px; }
+.ratings-line { font: 600 21px/1.3 var(--display); color: var(--cream); }
+.ratings-quotes { list-style: none; padding: 0; margin: 16px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.ratings-quotes li { padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--pine); font-size: 15px; color: var(--muted); }
+.ratings-quotes cite { display: block; margin-top: 8px; font-style: normal; font-size: 13px; color: var(--dim); }
+@media (max-width: 700px) { .feedback { margin-top: 22px; } }

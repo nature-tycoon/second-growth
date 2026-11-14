@@ -1,0 +1,4 @@
+{
+  "_how_to_add": "Add a line to \"quotes\" like { \"text\": \"What the player said\", \"name\": \"First name or handle, optional\" }, separated by commas. Only quote people who agreed to it. Leave the list empty to show no quotes. The average rating needs no editing: it comes from the game.",
+  "quotes": []
+}
