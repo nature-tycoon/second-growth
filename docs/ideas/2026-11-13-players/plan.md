@@ -29,7 +29,7 @@ Branch: `claude/ideas-players` (from main e23b833). Sessions run one at a time i
 
 ## Sessions
 - [x] S0 (here): Fill & grade leaves natural gravel alone — 1465bcc
-- [ ] S1 Opus: Worker backend (`server/`): feedback email, Kit signup, ratings store and average, setup doc
+- [x] S1 Opus: Worker backend (`server/`): feedback email, Kit signup, ratings store and average, setup doc — 4d1ea0e
 - [ ] S2 sonnet: Game: feedback form to Worker, email fallback, first-play newsletter prompt
 - [ ] S3 sonnet: Website: feedback form, newsletter signup, ratings block, FAQ text
 - [ ] S4 sonnet: Monthly update notes tool (released features from git log + rewilding news prompts)
