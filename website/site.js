@@ -199,3 +199,90 @@ for (const video of document.querySelectorAll('.moment-clip video')) {
   if (quiet) video.src = pick(video.dataset.mp4, video.dataset.webm);
   else afterLoad(() => whileVisible(video, v => { source(); play(v); }, 0.5));
 }
+
+// Feedback, newsletter and ratings talk to the Worker in server/ (contract: docs/backend-setup.md, Part 2).
+// Cole's Worker address, no trailing slash; the same value as BACKEND_URL in js/backend.js. When you set it,
+// also add it to connect-src in index.html's Content-Security-Policy. While it is empty the feedback form
+// opens an email instead, the newsletter form stays hidden and no ratings show.
+const BACKEND_URL = '';
+const MIN_RATINGS = 20;
+const SUPPORT = 'info@secondgrowth.earth';
+const MESSAGES = {
+  invalid_email: 'That email doesn’t look right. Please check it.',
+  empty: 'Please write a message or pick a rating.',
+  rate_limited: 'Too many tries. Please wait a minute and try again.',
+  network: 'Couldn’t reach the server. Please try again, or email ' + SUPPORT + '.',
+};
+const say = (form, text, state) => { const p = form.querySelector('.form-status'); p.textContent = text; p.dataset.state = state || ''; };
+const send = async (path, body) => {
+  try {
+    const r = await fetch(BACKEND_URL + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({}));
+    return r.ok && j.ok ? { ok: true } : { ok: false, error: j.error || 'server_error' };
+  } catch { return { ok: false, error: 'network' }; }
+};
+// Submit handler shared by both forms: `build` returns the body, or a string to show instead of sending.
+const wire = (form, path, build, thanks) => {
+  form.hidden = false;
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const body = build(new FormData(form));
+    if (typeof body === 'string') return say(form, body, 'error');
+    const button = form.querySelector('button[type=submit]');
+    button.disabled = true; say(form, 'Sending…');
+    const result = await send(path, { ...body, website: form.elements.website.value });
+    button.disabled = false;
+    if (result.ok) { form.reset(); say(form, thanks, 'ok'); }
+    else say(form, MESSAGES[result.error] || 'Something went wrong on our side. Please try again, or email ' + SUPPORT + '.', 'error');
+  });
+};
+
+const feedbackForm = document.querySelector('[data-backend-form=feedback]');
+if (feedbackForm) {
+  const build = data => {
+    const message = String(data.get('message') || '').trim(), rating = Number(data.get('rating')) || null, contact = String(data.get('contact') || '').trim();
+    if (!message && !rating) return MESSAGES.empty;
+    return { message, rating, contact: contact || undefined, source: 'website' };
+  };
+  if (BACKEND_URL) wire(feedbackForm, '/feedback', build, 'Thank you. Your message reached Cole.');
+  else {
+    // No backend yet: the same form opens the visitor's email app with their words in it.
+    feedbackForm.hidden = false;
+    feedbackForm.addEventListener('submit', event => {
+      event.preventDefault();
+      const body = build(new FormData(feedbackForm));
+      if (typeof body === 'string') return say(feedbackForm, body, 'error');
+      const text = [body.message, body.rating ? `\nRating: ${body.rating}/5` : ''].join('');
+      location.href = `mailto:${SUPPORT}?subject=${encodeURIComponent('Second Growth feedback')}&body=${encodeURIComponent(text)}`;
+      say(feedbackForm, 'Your email app should open with the message ready to send.');
+    });
+  }
+}
+const signupForm = document.querySelector('[data-backend-form=subscribe]');
+if (signupForm && BACKEND_URL) wire(signupForm, '/subscribe', data => {
+  const email = String(data.get('email') || '').trim();
+  return /^\S+@\S+\.\S+$/.test(email) ? { email, source: 'website' } : MESSAGES.invalid_email;
+}, 'Thank you. You’re on the list.');
+
+// Ratings: the real average from the game once there are enough of them, plus quotes Cole picks in quotes.json.
+const ratings = document.querySelector('#ratings');
+if (ratings && BACKEND_URL) {
+  const stats = fetch(BACKEND_URL + '/ratings').then(r => r.json()).catch(() => null);
+  const picked = fetch('quotes.json').then(r => r.json()).catch(() => null);
+  Promise.all([stats, picked]).then(([s, q]) => {
+    const enough = s && s.ok && s.count >= MIN_RATINGS && s.average;
+    const quotes = ((q && q.quotes) || []).filter(x => x && typeof x.text === 'string' && x.text.trim());
+    if (!enough && !quotes.length) return;
+    const line = ratings.querySelector('.ratings-line');
+    if (enough) line.textContent = `Players rate it ${s.average}/5 from ${s.count} ratings.`; else line.remove();
+    const list = ratings.querySelector('.ratings-quotes');
+    for (const x of quotes) {
+      const li = document.createElement('li'), p = document.createElement('q');
+      p.textContent = x.text.trim(); li.append(p);
+      if (x.name) { const c = document.createElement('cite'); c.textContent = '— ' + x.name; li.append(c); }
+      list.append(li);
+    }
+    if (!quotes.length) list.remove();
+    ratings.hidden = false;
+  });
+}

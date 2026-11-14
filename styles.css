@@ -342,6 +342,23 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
   animation: toastIn 0.3s ease-out; cursor: default;
 }
 .toast.clickable { cursor: pointer; }
+.news-card .news-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.news-card .small { opacity: 0.85; }
+/* sharing a farm (ui/share.js): the visit card and the share dialog */
+.visit-card .small { color: inherit; opacity: 0.85; }
+.visit-card .visit-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.visit-card .btn { padding: 5px 10px; font-size: 12px; }
+.share-link[hidden] { display: none; }
+.share-link { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.share-link .share-url { width: 100%; box-sizing: border-box; font: inherit; padding: 7px 9px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.92); color: #1f2a21; }
+.share-buttons { display: flex; gap: 6px; }
+.shared-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; font-size: 12.5px; }
+.shared-row .btn { padding: 4px 9px; font-size: 12px; }
+.report-reason { width: 100%; box-sizing: border-box; font: inherit; padding: 7px 9px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.25); }
+.news-form { display: flex; gap: 6px; margin-top: 2px; }
+.news-form input { flex: 1; min-width: 0; box-sizing: border-box; border: 1px solid var(--line); border-radius: 9px; padding: 6px 9px; font: inherit; font-size: 13px; background: #fffdf6; color: var(--ink); }
+.news-form .btn { flex: none; padding: 4px 12px; }
+.toast.fade { opacity: 0; transition: opacity 0.5s; }
 .toast .ti { flex: none; width: 20px; height: 20px; margin-top: 1px; }
 .toast.discover { background: rgba(50, 54, 26, 0.72); }
 .toast.goal { background: rgba(74, 60, 20, 0.74); }

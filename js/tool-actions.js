@@ -121,6 +121,10 @@ export class ToolActions {
       g.notify('Visitors need a way in: build a Trailhead parking lot right beside a road, then connect your trail to it.', 'warn');
     }
     if (stroke.locked != null && !stroke.count && map.lockedNote) g.notify(map.lockedNote(g, stroke.locked), 'info');
+    if (stroke.natural != null && !stroke.count) {
+      g.notify(map.hardpan ? 'Fill & grade only rips up gravel people laid. To break this crust, use Loosen soil or Half-moon pits.'
+        : 'Fill & grade only rips up gravel people laid: natural sand, gravel bars and rubble stay as they are.', 'info');
+    }
     if (stroke.broke) g.notify('Not enough money. Monthly grants will top up your budget. Healthier land earns bigger grants.', 'warn');
     if (!stroke.count && stroke.unsuitable && tool.species) {
       const { limits, better } = stroke.lastBad != null ? refusal(g, stroke.lastBad, tool) : { limits: [], better: null };

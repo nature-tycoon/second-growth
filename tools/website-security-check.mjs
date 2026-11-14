@@ -35,8 +35,9 @@ for (const path of ['index.html', 'website/index.html', 'website/visuals.html', 
   assert.deepEqual(scripts.filter(value => value.startsWith("'sha256-")), expectedHashes, `${path}: no unused inline-script permissions`);
   const remoteScripts = scripts.filter(value => value.startsWith('https:'));
   assert.deepEqual(remoteScripts, site ? ['https://www.googletagmanager.com'] : ['https://us-assets.i.posthog.com']);
+  // (the homepage also reads its own quotes.json for the ratings block; setting BACKEND_URL adds the Worker here and in the game's list)
   assert.deepEqual(directives.get('connect-src'), site
-    ? ['https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://*.googletagmanager.com']
+    ? [...(path === 'website/index.html' ? ["'self'"] : []), 'https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://*.googletagmanager.com']
     : ["'self'", 'https://us.i.posthog.com', 'https://us-assets.i.posthog.com']);
 }
 console.log('PASS early CSP/referrer coverage, exact game inline hashes, narrow script/network allowlists, blocked inline handlers, frames, objects, forms and workers.');

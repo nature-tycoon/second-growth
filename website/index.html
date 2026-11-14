@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; script-src 'self' https://www.googletagmanager.com; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; img-src 'self' https://*.google-analytics.com https://*.googletagmanager.com; media-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; form-action 'none'; frame-src https://www.googletagmanager.com; worker-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; object-src 'none'; script-src 'self' https://www.googletagmanager.com; script-src-attr 'none'; style-src 'self' https://fonts.googleapis.com; img-src 'self' https://*.google-analytics.com https://*.googletagmanager.com; media-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; form-action 'none'; frame-src https://www.googletagmanager.com; worker-src 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="index, follow, max-image-preview:large">
@@ -36,7 +36,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="site.css?v=hero-wordmark-20261113">
-  <script src="site.js?v=bloom-20261113" defer></script>
+  <script src="site.js?v=feedback-20261113" defer></script>
 </head>
 <body class="home">
   <!-- Google Tag Manager (noscript) -->
@@ -179,7 +179,20 @@
       <aside class="model-note"><span class="eyebrow">About the model</span><p>The game represents ecological processes through simplified rules and accelerated time. Its outcomes describe the simulation; they are not forecasts for real restoration sites.</p></aside>
     </section>
     <section class="about-project" id="about" aria-labelledby="about-title"><div class="wrap project-grid">
-      <div><p class="eyebrow">About the project</p><h2 id="about-title">An independent game,<br> still growing.</h2></div><div><p>Second Growth is an independent game, updated several times a week with new species, behaviors and fixes.</p><p>If an animal acts wrong, a plant grows somewhere it shouldn't, or the game runs slowly on your machine, say so. The most useful reports name the map, what happened, and what you expected.</p><div class="project-links"><a href="https://github.com/nature-tycoon/second-growth/issues" target="_blank" rel="noopener">Report a problem or suggest an improvement <span aria-hidden="true">↗</span></a><a href="https://github.com/nature-tycoon/second-growth" target="_blank" rel="noopener">Explore the project <span aria-hidden="true">↗</span></a></div></div>
+      <div><p class="eyebrow">About the project</p><h2 id="about-title">An independent game,<br> still growing.</h2></div><div><p>Second Growth is an independent game, updated several times a week with new species, behaviors and fixes.</p><p>If an animal acts wrong, a plant grows somewhere it shouldn't, or the game runs slowly on your machine, say so. The most useful reports name the map, what happened, and what you expected.</p><div class="feedback" id="feedback">
+        <h3>Send feedback</h3>
+        <p class="feedback-fallback">Write to <a href="mailto:info@secondgrowth.earth?subject=Second%20Growth%20feedback">info@secondgrowth.earth</a> and Cole reads every message.</p>
+        <form class="feedback-form" data-backend-form="feedback" novalidate hidden>
+          <label class="field"><span>Your message</span><textarea name="message" rows="4" maxlength="4000" placeholder="Which map, what happened, what you expected"></textarea></label>
+          <fieldset class="rating-field"><legend>How is it going? <small>(optional)</small></legend>
+            <span class="rating-row"><label><input type="radio" name="rating" value="1"><span>1</span></label><label><input type="radio" name="rating" value="2"><span>2</span></label><label><input type="radio" name="rating" value="3"><span>3</span></label><label><input type="radio" name="rating" value="4"><span>4</span></label><label><input type="radio" name="rating" value="5"><span>5</span></label></span>
+          </fieldset>
+          <label class="field"><span>Email <small>(optional, only if you want a reply)</small></span><input type="email" name="contact" maxlength="200" autocomplete="email" inputmode="email"></label>
+          <label class="trap" aria-hidden="true">Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+          <div class="form-actions"><button type="submit">Send feedback</button><p class="form-status" role="status" aria-live="polite"></p></div>
+        </form>
+      </div>
+      <div class="project-links"><a href="https://github.com/nature-tycoon/second-growth" target="_blank" rel="noopener">Explore the project <span aria-hidden="true">↗</span></a><a href="https://github.com/nature-tycoon/second-growth/issues" target="_blank" rel="noopener">Or post publicly on GitHub <span aria-hidden="true">↗</span></a></div></div>
       <details class="credits"><summary>Sound, music and credits</summary><p>Wildlife calls and environmental soundscapes use credited field recordings. Music is by HoliznaCC0, released under CC0. Full recording sources, edits and licenses are available in the game’s Audio settings and in the project.</p><div class="project-links"><a href="https://github.com/nature-tycoon/second-growth/blob/main/assets/sounds/LICENSES.md" target="_blank" rel="noopener">Recording credits <span aria-hidden="true">↗</span></a><a href="https://github.com/nature-tycoon/second-growth/blob/main/js/audio/tracks.js" target="_blank" rel="noopener">Music credits <span aria-hidden="true">↗</span></a></div></details>
     </div></section>
     <section class="playing section wrap" id="playing" aria-labelledby="playing-title"><div><p class="eyebrow">Playing Second Growth</p><h2 id="playing-title">Before you start.</h2><p class="playing-intro">Choose a landscape and a difficulty in the game. You can pause to inspect the habitat, plan your work, or watch individual animals.</p></div><div class="questions">
@@ -190,10 +203,23 @@
       <details><summary>How should I start?</summary><p>Campaigns on supported maps introduce restoration work through guided chapters. Free Play makes every tool available from the start. The introduction and inspection tools explain the landscape and the actions available.</p></details>
       <details><summary>Can I adjust the pace and difficulty?</summary><p>You can pause or change the simulation speed, and choose Relaxed, Standard or Challenging difficulty. A slow watch pace lets the calendar crawl while the animals keep moving at their own speed. Graphics and audio settings let you adjust the game to your device and preferences.</p></details>
       <details><summary>Is the game available in Spanish?</summary><p>The Nicaragua landscape can be played in Spanish. Choose Español when you pick the map. The other landscapes are in English for now.</p></details>
-      <details><summary>Where can I send feedback?</summary><p>Use the project’s <a href="https://github.com/nature-tycoon/second-growth/issues" target="_blank" rel="noopener">issue tracker</a> to report a problem or suggest an improvement. Include the map and browser where relevant. A GitHub account is needed to post there.</p></details>
+      <details><summary>Where can I send feedback?</summary><p>Use the <a href="#feedback">feedback form</a> above, or write to <a href="mailto:info@secondgrowth.earth">info@secondgrowth.earth</a>. Include the map and browser where relevant. To post publicly instead, use the project’s <a href="https://github.com/nature-tycoon/second-growth/issues" target="_blank" rel="noopener">issue tracker</a> (a GitHub account is needed).</p></details>
     </div></section>
     <section class="closing"><img class="closing-backdrop" src="review-media/landscape-amazon.jpg" alt="" width="1800" height="1200" loading="lazy" decoding="async"><div class="wrap"><p class="eyebrow">Second Growth</p><h2>Pick a place<br> to bring back.</h2><p>Free in your browser. No download, no account. Your progress saves on this device.</p><a class="button big" href="play/">Play Second Growth <span aria-hidden="true">→</span></a></div></section>
     <section class="follow-along follow-along-home wrap" id="follow" aria-labelledby="follow-title"><p class="eyebrow">Follow along</p><h2 id="follow-title">See what grows next.</h2>
+      <div class="ratings" id="ratings" hidden><p class="ratings-line"></p><ul class="ratings-quotes"></ul></div>
+      <div class="signup" id="newsletter">
+        <h3>A quiet monthly note</h3>
+        <p>Once a month: what’s new, new species and features, and stories of land coming back to life. Unsubscribe from any email.</p>
+        <form class="signup-form" data-backend-form="subscribe" novalidate hidden>
+          <label class="trap" aria-hidden="true">Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+          <label class="field"><span class="sr">Email address</span><input type="email" name="email" required maxlength="200" autocomplete="email" inputmode="email" placeholder="you@example.com"></label>
+          <button type="submit">Subscribe</button>
+          <p class="form-status" role="status" aria-live="polite"></p>
+        </form>
+        <p class="signup-age">For players 13 and older, or ask a parent first. <a href="privacy/">Privacy</a></p>
+        <p class="signup-fallback"><a href="https://second-growth.itch.io/second-growth" target="_blank" rel="noopener">Follow on itch.io</a> for news by email, or <a href="mailto:info@secondgrowth.earth?subject=Newsletter">ask to be added</a>.</p>
+      </div>
       <ul class="follow-links">
         <li><a href="https://second-growth.itch.io/second-growth" target="_blank" rel="noopener"><strong>Follow on itch.io</strong>Get an email when there’s news <span aria-hidden="true">↗</span></a></li>
         <li><a href="https://second-growth.itch.io/second-growth#comments" target="_blank" rel="noopener"><strong>Comments &amp; ideas</strong>Talk about the game on itch.io <span aria-hidden="true">↗</span></a></li>
@@ -202,6 +228,6 @@
       </ul>
     </section>
   </main>
-  <footer class="footer wrap"><a class="brand" href="./" aria-label="Second Growth"><span class="wordmark" aria-hidden="true">Sec<i class="brand-o"></i>nd Growth</span></a><nav aria-label="Footer"><a href="guide/">Field guide</a><a href="#ecology">Ecological approach</a><a href="#about">Project &amp; credits</a><a href="visuals.html">Game imagery</a><a href="press/">Press kit</a></nav><span>Free browser game · In development</span><small class="copyright">© 2026 Second Growth</small></footer>
+  <footer class="footer wrap"><a class="brand" href="./" aria-label="Second Growth"><span class="wordmark" aria-hidden="true">Sec<i class="brand-o"></i>nd Growth</span></a><nav aria-label="Footer"><a href="guide/">Field guide</a><a href="#ecology">Ecological approach</a><a href="#about">Project &amp; credits</a><a href="visuals.html">Game imagery</a><a href="press/">Press kit</a><a href="privacy/">Privacy</a></nav><span>Free browser game · In development</span><small class="copyright">© 2026 Second Growth</small></footer>
 </body>
 </html>

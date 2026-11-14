@@ -1,7 +1,7 @@
 // Game state and the simulation clock.
 
 import { arrivalMoment, momentsDaily, momentsUpdate, ARRIVAL_MOMENTS } from './sim/moments.js';
-import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, ANIMAL_SPEEDS, DIFFICULTY, seasonOfMonth, money, T } from './config.js';
+import { DAYS_PER_MONTH, DAYS_PER_YEAR, MONTH_NAMES, SPEEDS, ANIMAL_SPEEDS, DIFFICULTY, seasonOfMonth, money, T, LAID } from './config.js';
 import { biome, BIOME_LIST, setBiome, mapCatalog } from './biome.js';
 import { saves, legacySaveKey, bytesFromBase64, intact } from './saves.js';
 import { World, Border } from './world.js';
@@ -382,6 +382,7 @@ export class Game {
   }
 
   async save({ speed = this.speed } = {}) {
+    if (this.visiting) return false; // (a shared farm being visited never overwrites the player's own: ui/share.js)
     this.finishDay(); // (never half a day)
     const map = this.map, epoch = this.saveEpoch, request = this.saveRequest = (this.saveRequest || 0) + 1;
     this.saveStatus = { state: 'saving' }; this.emit('save', this.saveStatus);
@@ -465,6 +466,9 @@ export class Game {
       if (a) restoreArray(a, w[k]);
       else if (data.v === 2) return false;
     }
+    // (gravel people laid, which Fill & grade may rip up: taken from the map as generated, so a save from
+    // before the mark has it too; laid gravel already filled stays soil)
+    for (let i = 0; i < w.n; i++) if ((fresh.marks[i] & LAID) && w.terrain[i] === T.GRAVEL) w.marks[i] |= LAID;
     for (const [k, Type] of Object.entries(EXTRA_ARRAYS)) {
       const a = data.world.arrays[k];
       if (a?.b) {

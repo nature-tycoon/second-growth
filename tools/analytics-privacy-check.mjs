@@ -29,7 +29,7 @@ async function fixture({ enabled = false, navigator = {}, windowFlags = {}, host
   assert.equal(api.analyticsReady(), false);
   assert.equal(scripts.length, 0, 'Cold opt-out never inserts the SDK');
   assert.equal(feedback.length, 0, 'Opt-out sends no implicit feedback');
-  assert.equal(await api.sendFeedback({ message: 'An explicitly submitted note' }), true);
+  assert.equal((await api.sendFeedback({ message: 'An explicitly submitted note' })).ok, true);
   assert.equal(feedback.length, 1);
   assert.equal(feedback[0].body.event, 'feedback');
   assert.match(feedback[0].body.distinct_id, /^feedback-/);
