@@ -89,8 +89,8 @@ export function terrainEdit(w, tiles, want, { self = null, join = null, shore = 
 
 // Raise or Lower ground: the tile's corners go up or down by half of `amt` (40 levels: above the
 // highest hill any map has, 0044). Beside water or a building only the land corners move. On water,
-// the tiles of the same kind round it are its own body (a pond deepened or a creek tile raised moves
-// that water's corners), but never another kind of water's.
+// the tiles of the same kind round it are its own body (a pond deepened moves that pond's corners),
+// but never another kind of water's. (The tools refuse the river and creeks.)
 export function shiftGround(w, i, amt) {
   const t = w.terrain[i], self = isWater(t) ? j => j === i || w.terrain[j] === t : j => j === i;
   return terrainEdit(w, [i], (vx, vy, h) => clamp(h + amt / 2, -1.5, 40), { self });

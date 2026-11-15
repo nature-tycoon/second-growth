@@ -113,7 +113,8 @@ export function createTools(catalog) {
   function reshape(amt) {
     return (game, i) => {
       const w = game.world;
-      if (w.terrain[i] === T.RIVER || w.struct[i] >= 0) return null;
+      // (nor a creek: reshaping one undid the grading its fish swim by; fill and re-dig it instead. Cole, 2026-11-15)
+      if (w.terrain[i] === T.RIVER || w.terrain[i] === T.CREEK || w.struct[i] >= 0) return null;
       // (beside water or a building only the land's corners move: 0048)
       if (!shiftGround(w, i, amt)) return null;
       // a half-moon pit dug into hardpan cracks the crust, so rain and seed can get in

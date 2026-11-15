@@ -18,6 +18,8 @@ are still proposals. 2026-11-14, ideas batch water-fixes, session 2.
   shares with the rest of it). A building's corners never move. Corners are decided from the heights
   before the edit, then written. So Raise/Lower beside a creek or pond moves only the land's corners
   (it moved the creek's before), and a pond's bank no longer lifts a building's or a creek's corners.
+  Raise/Lower refuse creek tiles as they refuse the river (Cole, 2026-11-15): reshaping a creek undid
+  the grading its fish swim by; fill and re-dig it instead. Ponds and marshes can still be lowered.
 - Check: `node tools/terrain-edit-check.mjs [maps]` (every land tool beside a creek, pond and building
   on every map; a shed beside the creek; no height writes outside the edit path).
 - **Digging never moves another water body's bed** (`join`): no corner goes below the bed of other
@@ -210,8 +212,8 @@ What it does not change: river and reef water, floods' regional overlay, the dra
 
 ### Phase 2 as built (2026-11-15)
 
-- Simpler than the sketch: ownership is read per corner when an edit runs (`cornerOwner`, four tile
-  lookups), not kept as a derived array, so nothing has to be rebuilt or saved and there is no stale
+- Simpler than the sketch (Cole agreed, 2026-11-15): ownership is read per corner when an edit runs
+  (`cornerOwner`, four tile lookups), not kept as a derived array, so nothing has to be rebuilt or saved and there is no stale
   state. An edit touches a handful of corners, so the cost is nothing measurable.
 - `terrainEdit(w, tiles, want, { self, join, shore })` runs per tool call; it doesn't "re-grade
   channels, rebuild bodies, publish once": the Hollis bodies and hydrology are still rebuilt by the
@@ -221,7 +223,7 @@ What it does not change: river and reef water, floods' regional overlay, the dra
   `addStructure(…, level = false)` for the player's buildings. Each tool's own copy of "hold this
   corner" is gone.
 - Behaviour that changed, all toward the rules: Raise/Lower beside water moves only land corners; on
-  water it moves that water's own corners (the tiles of the same kind round it), never another kind's
+  a pond or marsh it moves that water's own corners (the tiles of the same kind round it), never another kind's
   (the hollis-water check lowers a pond tile and its basin follows); the dig and a pond's bank no longer move a
   building's corners or lift another water tile's; a pond dug beside a marsh or another pond no longer
   pulls their beds below their level; a building put up beside water leaves the water's corners.
