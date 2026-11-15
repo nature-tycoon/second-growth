@@ -192,4 +192,27 @@ check('Locate, picking and reveal follow the branch-attached body rather than it
   assert.ok(focus.uFocus.value.distanceTo(st.center) < 1e-6);
   focus.uFocusAmt.value = 0; dispose(f);
 });
+// (water writes no depth, so the lens showed a swimmer's whole body through the surface at eye
+// level, as if it swam on top: 2026-11-14, 0040)
+check('The lens leaves what is under the creek or pond to the water, while the eye is above it', () => {
+  const f = setup('sumatra', 'orangutan'), { actors, game, a } = f;
+  const r = Object.create(Renderer.prototype);
+  Object.assign(r, { world: game.world, actors, catalog: game.catalog, vw: 844, vh: 390, zoom: 2.2, az: Math.PI / 4, azTarget: Math.PI / 4,
+    target: new THREE.Vector3(), frame: { x: .5, y: .5 }, v3: new THREE.Vector3(),
+    camera: new THREE.OrthographicCamera(-1, 1, 1, -1, -300, 300), sun: new THREE.DirectionalLight() });
+  game.selectedAgent = a; r.centerOnAnimal(a); r.updateAnimalCamera();
+  r.terrain = { waterAt: () => -0.1 }; r.camera.position.y = 20; r.updateFocus(game, 1);
+  assert.equal(focus.uLookWater.value, -0.1, 'from above (watch mode follows a selected animal): the surface over it');
+  r.eyeOn = true; r.eyeAgent = a; r.eye = { pos: new THREE.Vector3(a.x + 1, 0.4, a.y), camera: new THREE.PerspectiveCamera(), size: 0.3 }; r.updateFocus(game, 1);
+  assert.equal(focus.uLookWater.value, -0.1, 'eye level: the surface over it, eye above');
+  r.eye.pos.y = -0.5; r.updateFocus(game, 1);
+  assert.ok(focus.uLookWater.value < -1e8, 'eye under the water: no limit');
+  r.terrain = { waterAt: () => NaN }; r.eye.pos.y = 0.4; r.updateFocus(game, 1);
+  assert.ok(focus.uLookWater.value < -1e8, 'off the water: no limit');
+  const mat = [...actors.fauna.species.values()][0].mat, shader = { uniforms: {}, vertexShader: '#include <project_vertex>', fragmentShader: '#include <clipping_planes_fragment>\n#include <dithering_fragment>' };
+  mat.onBeforeCompile(shader, {});
+  assert.equal(shader.uniforms.uLookWater, focus.uLookWater);
+  assert.ok(shader.fragmentShader.includes('if (uLookShift > 0.0 && vLookW.y < uLookWater) discard;'), 'the look-through pass skips what is under the water');
+  game.selectedAgent = null; focus.uFocusAmt.value = 0; focus.uLookWater.value = -1e9; dispose(f);
+});
 console.log(`${checks} canopy support checks passed.`);

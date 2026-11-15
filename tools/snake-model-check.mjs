@@ -7,6 +7,7 @@ const { loadAnimals, ANIMALS } = await import('../js/data/animals.js');
 const { buildSpecies, faunaMaterial } = await import('../js/render3d/fauna.js');
 const { adultAnimalScale } = await import('../js/render3d/animal-scale.js');
 const { Box3, Color, Vector3 } = await import('three');
+const actorsCommon = await import('../js/render3d/actors-common.js');
 let checks = 0;
 const models = new Map();
 function check(name, test) { test(); checks++; console.log(`PASS ${name}`); }
@@ -176,6 +177,23 @@ check('Crawling bends stay put on the ground, keep the body\'s girth, and tongue
   }
   const material = faunaMaterial({ wave: 0 }), shader = { uniforms: {}, vertexShader: '', fragmentShader: '' }; material.onBeforeCompile(shader);
   assert.equal(shader.uniforms.uSlither.value, 0); assert.equal(shader.uniforms.uTongue.value, 0); material.dispose();
+});
+check('A swallowed meal swells behind the head, then moves down the body and goes down as it digests', () => {
+  const { gulpBulge } = actorsCommon;
+  const ana = models.get('anaconda').def, capy = { sprite: { len: 30 } }, game = { catalog: { animals: [capy] } };
+  const unpack = v => [Math.floor(v) / 1000, v % 1 * 2];
+  const a = { state: 'feed', feedT: 4, gulp: { sp: 0, T: 4 }, hunger: 0 };
+  assert.equal(gulpBulge(game, a, ana), 0, 'nothing in it while it holds the catch in its coils');
+  a.feedT = 1; const [at0, amp0] = unpack(gulpBulge(game, a, ana));
+  a.feedT = 0; const [at1, amp1] = unpack(gulpBulge(game, a, ana));
+  assert.ok(at0 > .1 && at0 < .25 && amp1 > amp0 && amp1 > 1, `swells behind the head as it goes in (${at0}, ${amp0} -> ${amp1})`);
+  a.state = 'idle'; a.hunger = 2.5; const [at2, amp2] = unpack(gulpBulge(game, a, ana));
+  assert.ok(at2 > at1 && amp2 < amp1, `moves down and shrinks (${at2}, ${amp2})`);
+  a.hunger = 5; assert.equal(gulpBulge(game, a, ana), 0, 'gone once digested');
+  a.gulp = null; assert.equal(gulpBulge(game, a, ana), 0);
+  const material = faunaMaterial(models.get('anaconda').motion), shader = { uniforms: {}, vertexShader: '', fragmentShader: '' }; material.onBeforeCompile(shader);
+  assert.ok(shader.uniforms.uSlitherBody.value > shader.uniforms.uSlitherLen.value, 'the bulge measures along the whole body');
+  assert.ok(shader.vertexShader.includes('aAnim.w > 0.5')); material.dispose();
 });
 for (const { geo } of models.values()) geo.dispose();
 console.log(`${checks} snake model checks passed.`);

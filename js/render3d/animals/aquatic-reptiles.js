@@ -292,7 +292,7 @@ function snake(m, s) {
   const tip = profile(at(head * .01)), root = [noseX * S, tip.y - S * .005, 0], tongue = { part: P.TONGUE, pivot: root, seg: 5, caps: false };
   m.limb(root, [root[0] + S * .085 * T, root[1], 0], S * .005, S * .003, '#493038', tongue);
   for (const side of [-1, 1]) m.limb([root[0] + S * .080 * T, root[1], 0], [root[0] + S * .126 * T, root[1] - S * .002, side * S * .019 * T], S * .003, S * .001, '#493038', tongue);
-  return { amp: curve * S, len: ref * S, nose: noseX * S, head: head * S }; // the resting curve, for the crawl (len: one bend's length; head: its length)
+  return { amp: curve * S, len: ref * S, nose: noseX * S, head: head * S, body: length * S }; // the resting curve, for the crawl (len: one bend's length; head: its length; body: nose to tail)
 }
 
 // Fish share one body plan, varied per species:

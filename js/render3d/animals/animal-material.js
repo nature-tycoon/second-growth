@@ -379,7 +379,7 @@ export function faunaMaterial(motion) {
     uLeg: { value: motion.leg }, uBob: { value: motion.bob }, uTail: { value: motion.tail }, uFlap: { value: motion.flap },
     uHead: { value: motion.head ?? 0.9 }, uWave: { value: motion.wave }, uWaveK: { value: motion.waveK }, uWaveHead: { value: motion.waveHead }, uWaveLen: { value: motion.waveLen },
     uVerticalWave: { value: motion.verticalWave ?? 0 }, uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uWaveRest: { value: motion.waveRest ?? .35 }, uTongue: { value: motion.tongue ?? 0 }, uBend: { value: motion.bend ?? 0 },
-    uSlither: { value: motion.slither?.amp ?? 0 }, uSlitherLen: { value: motion.slither?.len ?? 1 }, uSlitherNose: { value: motion.slither?.nose ?? 0 },
+    uSlither: { value: motion.slither?.amp ?? 0 }, uSlitherLen: { value: motion.slither?.len ?? 1 }, uSlitherNose: { value: motion.slither?.nose ?? 0 }, uSlitherBody: { value: motion.slither?.body ?? 1 },
     uFur: { value: motion.fur ?? 1 },
     // (a bird afloat: the point on its waterline it turns about, actors-fly.js dabblePose)
     uFloatAt: { value: new THREE.Vector3(motion.center?.x ?? 0, motion.sink ?? 0, 0) },
@@ -413,7 +413,7 @@ export function faunaMaterial(motion) {
       ${motion.primate === 3 ? 'attribute vec3 aSwing; attribute vec3 aSwingN;' : ''}
       ${motion.canopyFeet ? 'attribute vec4 aGripA; attribute vec4 aGripB; attribute vec4 aGripC;' : ''}
       ${motion.canopyWalkerMotion ? 'uniform vec3 uHowlerRoots[4], uHowlerBends[4], uHowlerTips[4];' : ''}
-      uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan, uWingRoot, uSlither, uSlitherLen, uSlitherNose;
+      uniform float uPrimate, uLength, uLeg, uBob, uTail, uFlap, uHead, uWave, uWaveK, uWaveHead, uWaveLen, uWaveMin, uWavePow, uWaveRest, uTongue, uVerticalWave, uBend, uBird, uWingSpan, uWingRoot, uSlither, uSlitherLen, uSlitherNose, uSlitherBody;
       vec3 rotX(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c); }
       vec3 rotY(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c + q.z * s, q.y, -q.x * s + q.z * c); }
       vec3 rotZ(vec3 p, vec3 o, float a) { vec3 q = p - o; float c = cos(a), s = sin(a); return o + vec3(q.x * c - q.y * s, q.x * s + q.y * c, q.z); }
@@ -428,6 +428,13 @@ export function faunaMaterial(motion) {
       float slitherCrawl(float x, float ph) { float t = (uSlitherNose - x) / uSlitherLen; return uSlither * smoothstep(-.02, .32, t) * sin(t * 6.283185 - ph); }
       void slither(inout vec3 p, inout vec3 n, float ph) {
         if (aPart < 10.5) { p.z += slitherCrawl(p.x, ph) - slitherRest(p.x); return; } // (eyes, jaw, tongue: carried along with the head)
+        // a meal swallowed whole (actors-common.js gulpBulge, in the last anim slot): the body swells
+        // round its spine "at" of the way down, "amp" thicker, the flat belly sinking a little only
+        if (aAnim.w > 0.5) {
+          float at = floor(aAnim.w) / 1000.0, amp = fract(aAnim.w) * 2.0, t = (uSlitherNose - aPivot.x) / uSlitherBody;
+          float d = (t - at) / .055, f = 1.0 + amp * exp(-d * d); // (not pow: undefined below zero)
+          vec3 o = p - aPivot; p = aPivot + vec3(o.x, o.y * (o.y > 0.0 ? f : mix(1.0, f, .3)), o.z * f);
+        }
         float x = aPivot.x, e = uSlitherLen * .01;
         float turn = atan((slitherCrawl(x + e, ph) - slitherCrawl(x - e, ph)) / (2.0 * e)) - atan((slitherRest(x + e) - slitherRest(x - e)) / (2.0 * e));
         vec3 q = rotY(p, aPivot, -turn);

@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, animalDef } from '../data/animals.js';
 import { trait } from '../data/animal-kinds.js';
-import { roostingNow } from '../data/animal-activity.js';
+import { roostingNow, activityProfileFor } from '../data/animal-activity.js';
 import { treeHeight } from './tree-stature.js';
 import { adultAnimalScale } from './animal-scale.js';
 import { waterSurfaceY } from './terrain.js';
@@ -21,9 +21,19 @@ const SOAR_BANK = 0.35; // a circling hawk leans into its turn
 // a starfish being eaten, the branch a climber is on) and how fast (TURN), never in how. A drawn
 // yaw is minus the simulation's heading (x east, z south). `ease` is per frame ease k (about 6 a
 // second); `max` caps the radians it turns this frame.
+const ABOUT_FACE = 2.8; // (radians: a turn this near a half circle is an about-face, see turnToward)
 export const TURN = { body: 1.6, cling: 3, canopy: 1.2, ape: 0.7, snap: Infinity }; // (ape: an orangutan's long body swings round slowly)
 export function turnToward(st, target, ease, k, max = Infinity) {
   let d = target - st.yaw; d -= Math.round(d / (Math.PI * 2)) * Math.PI * 2;
+  // An about-face can go either way round. One straight after another (within about a second,
+  // st.aboutClock in ease units) goes back the way the last came: a salmon stopping to face
+  // upstream and setting off again turned both times the same way, a full circle in half a second
+  // (motion-sweep `spin`). Once chosen, a turn keeps its side until it is nearly done.
+  st.aboutClock = (st.aboutClock ?? 99) + k;
+  if (Math.abs(d) > ABOUT_FACE) {
+    st.about ||= st.aboutClock < 6 && st.aboutLast ? -st.aboutLast : Math.sign(d);
+    if (Math.sign(d) !== st.about) d += st.about * Math.PI * 2;
+  } else if (st.about && Math.abs(d) < ABOUT_FACE - 0.5) { st.aboutLast = st.about; st.about = 0; st.aboutClock = 0; }
   st.yaw += clamp(d * Math.min(1, k * ease), -max, max);
 }
 
@@ -38,7 +48,7 @@ export function salmonLeap(a, time) {
 // A raptor's or owl's catch (sim/bird-behavior.js carryCatch): hanging limp below its feet in
 // flight (a fish carried level, back up) and lying under its feet while it eats.
 const CARRY_FORWARD = 0.18;
-function drawCatch(F, game, a, def, st, sc) {
+function drawCatch(F, game, a, def, st, sc, mo) {
   const pdef0 = game.catalog.animals[a.prey.sp];
   if (!pdef0) return;
   const pdef = drawDef(pdef0, a.prey, game.month);
@@ -49,6 +59,16 @@ function drawCatch(F, game, a, def, st, sc) {
   let psc = adultAnimalScale(pdef.sprite) * (a.prey.juvenile ? pdef.sprite.juv ?? 0.5 : 1) * ageF;
   psc = Math.min(psc, len(def) * sc * 0.85 / len(pdef));
   const lie = (pdef.sprite.h || 10) * psc * 0.32, fx = Math.cos(st.yaw), fz = -Math.sin(st.yaw);
+  if (a.prey.whole && mo.slither) {
+    // A snake's catch (sim/animal-life.js swallow) lies on its side at its jaws, head to the snake's
+    // mouth, held while it stops breathing; then it goes in head first, drawn sliding into the mouth
+    // and shrinking away as the bulge behind the head grows (gulpBulge).
+    const u = swallowed(a);
+    if (u >= 0.97) return;
+    const half = len(pdef) * psc * 0.5, k = 1 - 0.75 * u, f = mo.slither.nose * sc + half * k * (1 - u * 0.6);
+    F.add(pdef, st.x + fx * f, st.y + lie * k, st.z + fz * f, st.yaw + Math.PI, psc * k, 0, 0, 0, 0.6, 0, Math.PI / 2);
+    return;
+  }
   const aloft = a.state === 'carry' && a.carry?.phase !== 'mantle';
   if (aloft) {
     const f = len(def) * sc * CARRY_FORWARD * 0.5, y = st.center.y - st.h * 0.35 - (a.prey.fish ? (pdef.sprite.h || 8) * psc * 0.6 : lie * 1.4); // (in the feet, tucked under the body)
@@ -57,6 +77,32 @@ function drawCatch(F, game, a, def, st, sc) {
     const f = len(def) * sc * CARRY_FORWARD;
     F.add(pdef, st.x + fx * f, st.y + lie, st.z + fz * f, st.yaw + 0.5, psc, 0, 0, 0, 0.6, 0, Math.PI / 2);
   }
+}
+
+// How far a snake's meal has gone in, 0 to 1: the first third it holds its catch in its coils, the
+// rest it swallows it (sim/animal-life.js swallow, a.gulp.T: the whole meal), or 1 after the meal.
+function swallowed(a) {
+  if (a.state !== 'feed' || !a.gulp) return 1;
+  return clamp((1 - Math.max(0, a.feedT) / (a.gulp.T || 1) - 0.35) / 0.65, 0, 1);
+}
+// A snake's swallowed meal as a bulge along its body, packed into the instance's last anim slot
+// (the shader's slither, animals/animal-material.js): the whole part is how far down the body its
+// middle is, in thousandths of the body, and the fraction half how much thicker the body is there
+// (0: none; a capybara in an anaconda about two and a half times as thick). It swells behind the
+// head as the prey goes in, then while the snake lies up digesting (`digest` days of hunger,
+// data/animal-activity.js) it moves down to mid-body and goes down.
+export function gulpBulge(game, a, def) {
+  const g = a.gulp, pdef = g && game.catalog.animals[g.sp];
+  if (!pdef) return 0;
+  const size = clamp(0.4 + 1.2 * (pdef.sprite.len || pdef.sprite.size || 10) * (g.juvenile ? pdef.sprite.juv ?? 0.5 : 1) / (def.sprite.size || 20), 0.3, 1.8);
+  let at, amp;
+  if (a.state === 'feed') { const u = swallowed(a); at = 0.15 + 0.07 * u; amp = size * u; }
+  else {
+    const digest = (def.behavior?.activity || activityProfileFor(def))?.digest || 0, v = digest > 0 ? (a.hunger || 0) / digest : 1;
+    if (v >= 1) return 0;
+    at = 0.22 + 0.33 * v; amp = size * (1 - 0.8 * v) * Math.min(1, (1 - v) * 6);
+  }
+  return amp > 0.02 ? Math.round(at * 1000) + Math.min(0.99, amp / 2) : 0;
 }
 
 // One animal's set-up for this frame: null when it isn't drawn (dormant, roosting, out of view).
@@ -203,7 +249,7 @@ export function bodyPhase(c) {
 // and its shadow.
 export function finishAnimal(A, c) {
   const { game, F, k, a, def, st, sc, mo, surf, ground, flying, swimming, ax, az, y, phase, grips, eatPose, poseFly, posePitch, poseRoll, branchPitch, branchRoll, branchYaw, fight, bugling, bathing, shadow } = c;
-  F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : poseFly ?? st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : st.graze, branchPitch + posePitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + poseRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : (st.bank = (st.bank || 0) + ((a.bird?.kind === 'soar' ? a.bird.dir * SOAR_BANK : 0) - (st.bank || 0)) * k))), grips, a === A.followAgent || a === game.selectedAgent);
+  F.add(def, ax, y, az, st.yaw + branchYaw, sc, phase, st.gait, mo.primate ? eatPose : mo.slither ? st.slither : poseFly ?? st.fly, mo.primate === 2 ? 0 : mo.bend ? st.bend : mo.slither ? gulpBulge(game, a, def) : st.graze, branchPitch + posePitch + (st.pitch || 0) + (fight?.pitch || 0) + (st.bugle = (st.bugle || 0) + ((bugling ? 0.14 : 0) - (st.bugle || 0)) * k), branchRoll + poseRoll + (fight?.roll || (bathing ? Math.sin(a.phase * 2.1) * 0.12 : (st.bank = (st.bank || 0) + ((a.bird?.kind === 'soar' ? a.bird.dir * SOAR_BANK : 0) - (st.bank || 0)) * k))), grips, a === A.followAgent || a === game.selectedAgent);
   st.sc = sc; st.eye = mo.eye; st.eyePivot = mo.eyePivot; st.bob = Math.abs(Math.sin(phase)) * (mo.bob || 0) * st.gait * (1 - st.fly);
   // (the marker lies on the ground under a flyer, at the surface under a swimmer, else at its feet)
   st.base = flying && !def.reef ? Math.max(ground, surf ?? ground) : def.move === 'swim' && surf != null ? surf : y;
@@ -220,7 +266,7 @@ export function finishAnimal(A, c) {
   st.revealBounds = mo.revealBounds; // (the body's box, for the tracking lens: see focus.js)
   if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
   // (after the reads of F.m above, which must still hold this animal's own instance)
-  if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);
+  if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc, mo);
   // (no shadow afloat: on a seabird resting on the sea it lay on the seabed, a dark bird on the bottom)
   if (!st.branch && def.move !== 'swim' && !swimming && c.fl == null && !(surf != null && trait(def, 'floats'))) {
     // (a shaped shadow fades and softens a little the higher the animal is above the ground)

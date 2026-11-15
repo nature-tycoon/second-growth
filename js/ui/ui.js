@@ -341,10 +341,10 @@ export class UI {
     this.lastTop = now;
     if (force && !this.fitOnce) { this.fitOnce = true; document.fonts?.ready.then(() => this.fitTopbar()); }
     const m = $('#stat-money');
-    const mt = moneyShort(g.money);
+    const mt = g.sandbox ? '∞' : moneyShort(g.money);
     if (m.textContent !== mt) { m.textContent = mt; this.fitTopbar(); }
-    m.classList.toggle('low', g.money < 2000);
-    setAttr(m, 'title', `Conservation budget: ${money(g.money)}. Tap to see where the money comes from.`);
+    m.classList.toggle('low', !g.sandbox && g.money < 2000);
+    setAttr(m, 'title', g.sandbox ? 'Sandbox: unlimited money.' : `Conservation budget: ${money(g.money)}. Tap to see where the money comes from.`);
     setText($('#stat-season'), g.seasonName());
     setText($('#stat-date'), `${MONTH_NAMES[g.month]} ${g.dayOfMonth * 3 - 2}, Year ${g.year}`);
     setText($('#stat-date-short'), `${MONTH_NAMES[g.month].slice(0, 3)} ${g.dayOfMonth * 3 - 2} · Y${g.year}`); // (phones)
@@ -544,7 +544,7 @@ export class UI {
     for (const t of this.toolsFor(st.cat)) {
       const open = this.isOpen(t.key), ch = open ? -1 : chapterOfTool(t.key, this.game);
       const price = listPrice(this.game, t);
-      const card = el('div', 'tool-card' + (t.key === st.tool ? ' on' : '') + (open && price > this.game.money ? ' poor' : '') + (open ? '' : ' locked'));
+      const card = el('div', 'tool-card' + (t.key === st.tool ? ' on' : '') + (open && !this.game.sandbox && price > this.game.money ? ' poor' : '') + (open ? '' : ' locked'));
       const costTxt = !open ? (ch < 0 ? 'Later' : `Chapter ${ch + 1}`) : t.costFor ? 'varies' : price ? money(price) + (t.brush ? '/tile' : '') : 'free';
       card.innerHTML = `<img src="${iconThumb(t.icon, this.game.catalog)}" alt="">${open ? '' : `<span class="lock">${ICONS.lock}</span>`}<div class="nm">${t.name}</div><div class="cost">${costTxt}</div>`;
       // (a few tools aren't part of any chapter and open when the campaign is finished)
@@ -1164,7 +1164,7 @@ export class UI {
   }
   openMoney() {
     const g = this.game;
-    this.modal('Money', `<p class="info-desc" style="margin-top:0">You have ${money(g.money)}. ${g.lastLedger ? 'Last month' : 'At the end of each month this shows last month'}, and everything since the start, by where it came from.</p>${this.budgetHTML()}`, { narrow: true });
+    this.modal('Money', `<p class="info-desc" style="margin-top:0">${g.sandbox ? 'This is a sandbox farm: money is unlimited and nothing is counted. ' : ''}You have ${money(g.money)}. ${g.lastLedger ? 'Last month' : 'At the end of each month this shows last month'}, and everything since the start, by where it came from.</p>${this.budgetHTML()}`, { narrow: true });
     track('panel_opened', { panel: 'money', map: g.map });
   }
 
@@ -1388,7 +1388,7 @@ export class UI {
     const shownLang = () => (LANG_MAPS[map] ? langFor(map) : 'en');
     const savedYear = id => Math.floor((saves.summary(id)?.day || 0) / DAYS_PER_YEAR) + 1;
     const m = this.modal('How do you want to play?', `<div class="section-title" style="margin-top:0">Map</div>
-      ${worldMap(BIOME_LIST, map)}<button class="btn secondary map-resume" data-a="resume" hidden></button><div class="map-pick"></div>
+      ${worldMap(BIOME_LIST, map)}<button class="btn map-resume" data-a="resume" hidden></button><div class="map-pick"></div>
       <div class="lang-pick" hidden><div class="section-title">Language · Idioma</div>
       <div class="seg" data-seg="lang"><button data-l="en">English</button><button data-l="es">Español</button></div></div>
       <div class="section-title">Difficulty</div>
@@ -1397,11 +1397,13 @@ export class UI {
       <div class="section-title">Mode</div><div class="modes">
       <button class="mode-card" data-m="campaign"><b>Campaign</b><span></span></button>
       <button class="mode-card" data-m="free"><b>Free play</b><span>Every tool from the start and no chapters, just the land, the grants and the milestone goals.</span></button>
-      </div><p class="small replace-note" style="margin:10px 2px 0" hidden>This replaces your saved farm.</p>`, { narrow: true, dismissible: !this.startPause });
+      </div><label class="set-row sandbox-row"><span><b>Sandbox: unlimited money</b><small>Build anything with no budget, to try things out. Sandbox farms stay out of ratings and the numbers we share.</small></span><input type="checkbox" data-sandbox></label>
+      <p class="small replace-note" style="margin:10px 2px 0" hidden>This replaces your saved farm.</p>`, { narrow: true, dismissible: !this.startPause });
     if (this.startPause) m.classList.add('startup-selector');
     const pickerLang = shownLang();
     if (pickerLang !== lang) langWithin(m, pickerLang);
     const FREE_TEXT = m.querySelector('[data-m=free] span').textContent;
+    const sandboxBox = m.querySelector('[data-sandbox]');
     const willReplace = () => (replacing || map !== this.game.map) && Game.hasSave(map);
     // playing in a different language than this page is in means reloading into it
     const relang = () => map === this.game.map && langFor(map) !== lang;
@@ -1420,7 +1422,7 @@ export class UI {
       if (langs) lp.querySelectorAll('[data-l]').forEach(o => { o.hidden = !langs.includes(o.dataset.l); o.classList.toggle('on', o.dataset.l === langFor(map)); });
       const resume = m.querySelector('[data-a=resume]');
       resume.hidden = !Game.hasSave(map) || (map === this.game.map && this.game.loaded && !relang());
-      resume.textContent = `Continue at ${b.farm}`;
+      resume.textContent = `Continue at ${b.farm} →`;
     };
     showMap();
     m.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => {
@@ -1469,8 +1471,9 @@ export class UI {
       }
       m.querySelectorAll('[data-m]').forEach(o => { o.disabled = true; });
       this.closeModal(true);
-      if (relang()) return this.switchMap({ map, mode: b.dataset.m, difficulty: diff });
-      await this.startMode(b.dataset.m, replacing, diff, map);
+      const sandbox = sandboxBox.checked;
+      if (relang()) return this.switchMap({ map, mode: b.dataset.m, difficulty: diff, sandbox });
+      await this.startMode(b.dataset.m, replacing, diff, map, undefined, { sandbox });
     }));
   }
   // Another map means a different cast of plants and animals, so the page reloads into it:
@@ -1488,9 +1491,9 @@ export class UI {
     track('map_switch', { from: this.game.map, to: pending.map, resume: !!pending.resume });
     location.reload();
   }
-  async startMode(mode, fresh, difficulty = 'standard', map = this.game.map, runSeed = Game.randomRunSeed(), { firstVisit = false } = {}) {
+  async startMode(mode, fresh, difficulty = 'standard', map = this.game.map, runSeed = Game.randomRunSeed(), { firstVisit = false, sandbox = false } = {}) {
     const g = this.game;
-    if (map !== g.map) return this.switchMap({ map, mode, difficulty });
+    if (map !== g.map) return this.switchMap({ map, mode, difficulty, sandbox });
     if (fresh) {
       const speed = g.speed; this.setSpeed(0);
       try { await Game.clearSave(map); } catch {
@@ -1499,7 +1502,8 @@ export class UI {
       track('game_restart', this.snapshot()); g.newGame(1987, mode, difficulty, map, runSeed); // (the same land, a new run of weather and fire)
     }
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
-    track('game_start', { mode, fresh, difficulty, map, ...(firstVisit ? { first_visit: true } : {}) });
+    if (sandbox) g.flags.sandbox = true; else delete g.flags.sandbox; // (saved with the farm)
+    track('game_start', { mode, fresh, difficulty, map, ...(sandbox ? { sandbox: true } : {}), ...(firstVisit ? { first_visit: true } : {}) });
     this.newCats = new Set();
     this.afterNewGame();
     g.saveReady = true;

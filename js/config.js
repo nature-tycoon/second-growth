@@ -56,8 +56,8 @@ export const F = {
 // world.marks bit for a snag, log, rock pile or brush pile the player placed: Demolish takes only those
 // out (tools.js naturalFeature). 16 and 32 are the beaver pool's (sim/animals.js).
 export const PLACED = 64;
-// world.marks bit for gravel people laid (a farmyard, a pull-out, riprap): Fill & grade rips up only that,
-// never natural beach, gravel bars, kopjes or rubble (tools.js fill). Set by the map's generator and
+// world.marks bit for gravel people laid (a farmyard, a pull-out, riprap): Demolish takes up only that,
+// never natural beach, gravel bars, kopjes or rubble (tools.js demolish); Fill & grade levels but keeps both. Set by the map's generator and
 // copied onto a loaded save from a freshly generated world (game.js), so older saves get it too.
 export const LAID = 128;
 // featureAge of natural F.ROCKS that loosening the soil turned up (tools.js): drawn as a small heap of stones

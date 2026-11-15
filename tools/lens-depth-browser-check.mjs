@@ -6,7 +6,8 @@
 //    with salal round them, four sides;
 //  - eye level: the rabbit, and the deer, just behind a huckleberry bush in wildrye, seen through the real EyeCamera: the
 //    bush squarely in the way from four sides, swung half out of the way, and lifted to look down
-//    over it (where the lens should open next to nothing).
+//    over it (where the lens should open next to nothing). At eye level the bush, just in front of
+//    the animal, is seen through rather than opened, from every side.
 // For each view it measures how much of the animal shows, plainly or through cover (against the
 // same view with no plants)
 // and how much of the screen the lens opened (pixels that change, less the animal's own), and
@@ -166,6 +167,9 @@ try {
       for (const layer of ['foliage', 'shrubs', 'grass', 'tall', 'small'])
         assert.ok(row.diag[layer] - row.ratio <= .05, `${row.view}: ${layer} hid ${((row.diag[layer] - row.ratio) * 100).toFixed(1)}% of the selected animal`);
       assert.ok(row.ratio >= .5, `${row.view}: only ${(row.ratio * 100).toFixed(1)}% of the selected animal shows`);
+      // at eye level a bush just in front of it is seen through, not opened: a gap through it showed
+      // the animal, and any other animal beside it, whole, as if in front of the leaves (0040)
+      if (row.view.includes(' eye ')) assert.ok(row.hole <= .01, `${row.view}: the lens opened ${(row.hole * 100).toFixed(1)}% of the view through the bush in front of it`);
     }
     console.log(`PASS ${name} ${kind}: the selected animal shows through the lens`);
     b.assertHealthy();

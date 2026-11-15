@@ -180,6 +180,17 @@ export class HollisWater {
     wet += this.fringe(this.damWetCells(cells, crest), crest, site, axis, occupied).length; // (its marsh margin)
     return { wet, open };
   }
+  // The water a pond dug up to a creek or the river is joined to: the lowest level of those beside it
+  // whose water reaches over the shared edge, or null for a pond on its own. (The creek's level is
+  // fixed for now: when creeks run low in a dry summer, this is where a joined pond learns of it)
+  feedLevel(core) {
+    let feed = Infinity;
+    for (const i of core) for (const j of neighbours(this.w, i)) {
+      const t = this.base[j];
+      if ((t === T.CREEK || t === T.RIVER) && this.sill(i, j) < this.nominal(j) - .02) feed = Math.min(feed, this.nominal(j));
+    }
+    return feed < Infinity ? feed : null;
+  }
   makeBasin(kind, site, core, previous, occupied) {
     const axis = previous?.axis || this.downstream(site);
     const initial = kind === 'pond' ? Math.min(...core.map(i => this.nominal(i))) : this.nominal(site);
@@ -200,7 +211,17 @@ export class HollisWater {
       }
       crest = low;
     }
-    if (kind === 'pond' && footprint.spill < crest) {
+    // A pond dug up to a creek or the river (an oxbow, a backwater) shares its water: it stands at the
+    // creek's level, full while the creek runs, and drops only when the creek does. Only a pond on its
+    // own is a vernal pool, filled by rain and drawn down in summer. (Rain on it runs on down the creek)
+    const feed = kind === 'pond' ? this.feedLevel(core) : null;
+    if (feed != null) {
+      crest = Math.max(feed, Math.min(...core.map(i => Math.min(...this.corners(i)))) + .01);
+      footprint = this.footprint(core, crest, kind, site, axis, occupied);
+      // (the water stays in the pond and its bank, not out along the creek's lower banks downstream)
+      const own = new Set(core);
+      footprint.cells = footprint.cells.filter(v => own.has(v.i) || neighbours(this.w, v.i).some(j => own.has(j)));
+    } else if (kind === 'pond' && footprint.spill < crest) {
       // (never below its own dug water level: a freshly dug pond or marsh on a slope still holds
       // the water it was dug for, rather than spilling away to mud the moment it's made)
       crest = Math.max(Math.min(...core.map(i => Math.min(...this.corners(i)))), footprint.spill - .001, initial);
@@ -220,11 +241,12 @@ export class HollisWater {
     const capacity = table[steps];
     // A pond's deepest part outlasts a dry summer: evaporation and seepage only draw it down to a
     // quarter of its usual water (groundwater keeps a dug pond from drying out completely).
-    const floor = kind === 'pond' ? Math.min(capacity, volumeAt(initial) * .25) : 0;
+    // (a joined pond's floor is its creek's level: the creek tops it up as fast as it dries)
+    const floor = feed != null ? capacity : kind === 'pond' ? Math.min(capacity, volumeAt(initial) * .25) : 0;
     // (usual: the level its tiles are classed by. A pond's draws down in summer, but a tile that is
     // pond at its usual level stays pond while it holds any water, rather than turning to marsh)
-    const b = { kind, site, core, crest, axis, cells, lo, table, capacity, floor, usual: kind === 'pond' ? initial : crest, shown: previous?.shown,
-      volume: Math.min(capacity, previous?.volume ?? volumeAt(initial)), input: 0, loss: 0, overflow: 0 };
+    const b = { kind, site, core, crest, axis, cells, lo, table, capacity, floor, usual: feed ?? (kind === 'pond' ? initial : crest), shown: previous?.shown,
+      volume: Math.max(floor, Math.min(capacity, previous?.volume ?? volumeAt(initial))), input: 0, loss: 0, overflow: 0, feed };
     for (const v of cells) occupied[v.i] = 1;
     if (kind === 'dam') { b.fringe = this.fringe(this.damWetCells(cells, crest), crest, site, axis, occupied); for (const i of b.fringe) occupied[i] = 1; }
     return b;
@@ -284,6 +306,7 @@ export class HollisWater {
       // Small catchment allowance, not a full landscape runoff simulation. (None for a broken dam's
       // pool: the creek runs out through the breach. With it, rain held it at a third full for good.)
       b.input = b.kind === 'receding' ? 0 : (rain + melt) * b.core.length * 1.35 + inflow;
+      if (b.feed != null) b.input += Math.max(0, b.floor - b.volume); // (the creek keeps a joined pond full)
       const shade = b.core.reduce((s, i) => s + this.w.canopy[i], 0) / b.core.length;
       const evap = (summer ? .014 : .005) * (1 - shade * .4);
       const seep = b.kind === 'receding' ? .12 * b.volume : b.kind === 'dam' ? .018 * b.volume : .002 * wetArea;
@@ -329,7 +352,7 @@ export class HollisWater {
         const usual = b.usual - groundCentre(v.c), was = last[i], open = b.kind === 'pond' ? POND_DEPTH : DAM_POND_DEPTH;
         const wetNow = volume > .002 && depth > (was === T.MUD || !isWater(was) ? WET_DEPTH + .03 : WET_DEPTH - .02);
         if (wetNow) w.terrain[i] = t === T.MARSH ? T.MARSH : usual > open + .03 || (was === T.POND && usual > open - .03) ? T.POND : T.MARSH;
-        else if (t === T.POND) w.terrain[i] = T.MUD;
+        else if (t === T.POND) w.terrain[i] = b.feed != null ? T.MARSH : T.MUD; // (beside the creek, its seep keeps a dry edge marshy)
         // (a dug marsh stays marsh, saturated and sedgy, through a dry spell)
       }
       for (const i of b.fringe || []) if (w.waterOwner[i] < 0) { w.waterOwner[i] = k; w.waterManaged[i] = 1; w.terrain[i] = T.MARSH; } // (the pond's marsh margin: saturated, no water of its own drawn, so the pond's edge keeps its level)
@@ -342,6 +365,7 @@ export class HollisWater {
     const b = this.basins[k], wet = this.w.waterDepth[i] > .04;
     if (b.kind === 'receding') return 'The dam is gone. The pool is draining and its wet banks are gradually reappearing.';
     if (b.kind === 'dam') return wet ? 'A beaver dam holds creek water against this low ground. Wetland plants can settle here; prolonged flooding can turn trees into snags.' : 'This ground is in the beaver pool’s reach. It floods when the water behind the dam rises high enough.';
+    if (b.feed != null) return 'This pond is joined to the creek and shares its water: it stays full while the creek runs and drops only if the creek does.';
     return wet ? 'Rain and snowmelt refill this basin. Its shallows recede during dry weather; streamside shade slows evaporation.' : 'The basin has drawn down to mud. Autumn rain can fill it again; deeper hollows hold water longer.';
   }
   restoreEdit(saved, back) {

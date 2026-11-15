@@ -440,7 +440,7 @@ export default {
     nestbox: { name: 'Barn owl box', desc: 'A nest box on a pole for barn owls. Plantations put them up because a family of barn owls eats over a thousand rats a year.' },
     pond: { desc: 'Deep, open water for snakeheads, arowanas, otters and monitor lizards.' },
     creek: { desc: 'Carve a channel. On the peat, any channel that runs to the river drains the peat around it, like the old canals.' },
-    fill: { desc: 'Fill in water, including the old drainage canals, or rip up roads and gravel, leaving loose bare soil.' },
+    fill: { desc: 'Grade the ground level at the height where you start, filling in water (the old drainage canals too) and old roads as loose bare soil.' },
     demolish: { desc: 'Tear out the elephant fence, old buildings, roads, the road culvert, or habitat features you placed. Natural snags, logs, stumps and rocks stay. Buildings and machinery sell for salvage.' },
     lower: { desc: 'Scoop out a hollow. Hollows stay moist, which suits ferns, gingers and pitcher plants.' },
   },

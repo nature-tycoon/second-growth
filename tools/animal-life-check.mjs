@@ -280,4 +280,19 @@ check('Reef predators turn and swim nose-first at their prey', () => {
   }
   assert.ok(moved > 0.5 && sideways / moved < 0.05, `${sideways}/${moved}`);
 });
+check('A snake swallows its catch whole: no carcass, a long meal with the prey at its jaws, then it lies up', () => {
+  for (const [map, key, preyKey] of [['amazon', 'anaconda', 'capybara'], ['pnw', 'gartersnake', 'vole']]) {
+    reset(map, 'challenging');
+    const wl = g.wildlife, c = kill(key, preyKey), a = wl.agents.find(o => o.key === key);
+    assert.equal(c, undefined, `${key}: leaves no carcass`); assert.equal(wl.carcasses.length, 0);
+    assert.equal(a.state, 'feed'); assert.equal(a.carcass, null);
+    assert.equal(a.prey?.whole, true, `${key}: the prey is held at its jaws`); assert.equal(a.gulp?.T, a.feedT);
+    assert.ok(a.feedT >= (preyKey === 'capybara' ? 2.5 : 0.5), `${key}: as long a meal as the prey's carcass would be (${a.feedT.toFixed(2)})`);
+    a.wait = 0; for (let k = 0; k < 400 && a.state === 'feed'; k++) wl.update(0.02);
+    assert.notEqual(a.state, 'feed'); assert.equal(a.prey, null, `${key}: swallowed`);
+    assert.ok(a.gulp, `${key}: the meal is still in it, digesting`);
+  }
+  // a hawk's or cougar's kill is unchanged: carcasses still come from everything else
+  reset('pnw', 'challenging'); assert.ok(kill('cougar', 'deer'));
+});
 console.log(`${checks} animal life checks passed.`);

@@ -12,6 +12,7 @@
 - Cats, and foxes and coyotes on prey up to 4 kg, end a rush in a pounce (`pounce`, `pounceFor`, `startLeap`/`leapStep`); a leap that lands short is a miss. Others grab (`hunt.lunge`).
 - Prey with the `freezes` trait (rabbit kind) freeze in cover and dash for the brush (0006); measured against this anchor on 2026-11-13.
 - Snakes hunt in the `strike` style: only prey within `reach`, still and hidden, `lieInWait` when hungry.
+- Snakes (`swallowsWhole`, by kind) swallow their catch whole and leave no carcass (`swallow`): a meal as long as that prey's carcass meal would be (kills per year unchanged), `a.prey.whole` drawn at the jaws going in, then `a.gulp` drawn as a bulge going down the body while it digests (`gulpBulge` in `actors-common.js`, packed into the snake's last anim slot; the shader's `slither`). `a.gulp` is cleared on the next hunt.
 - Drawing: `hunt.leap` (`u`, `arc`) and `hunt.lunge` are what `huntPose` (`actors-ground.js`) reads. A negative `fly` means a leap (legs stretched), or on a bird a bird afloat with its legs tucked (0039): keep `fly` ≥ 0 for everything else and clamp `max(fly, 0.0)` where the shader scales by `1 - fly`.
 - Rates are per day: check balance with both `balance-sim` (0.1-day steps) and `hunt-check` (0.02).
 - Checks: `node tools/hunt-check.mjs` (seeds 1987, 91, 5; each limit judged on the median), `node tools/predation-soak.mjs 12`, `tools/snake-hunt-probe.mjs`, `tools/pounce-probe.mjs`, plus animal-life, prey-avoidance, activity, challenging-ecology, consistency and seeded `balance-sim restore 15`.
@@ -280,3 +281,13 @@ seeds 7, 11, 23, 42 and 1987 its median stalk is 1.50 before and 1.64 after, so 
   the chase".
 - `balance-sim` steps wildlife at 0.1 day, the game at about 0.012. Accelerations and turn rates are
   per day, so they hold at both, but check balance with both `balance-sim` and `hunt-check` (0.02).
+
+2026-11-14 (ideas batch water-fixes, session 5). Cole: the anaconda didn't swallow its prey. A
+snake's big kill went through the carcass path: a body on the ground, torn at like a lion's, then
+left for scavengers. Now every snake swallows: it holds the prey at its jaws for the first third of
+the meal (the constriction: the coils themselves are not drawn, the snake model has one fixed
+resting curve), works it in head first while a bulge grows behind its head, and the bulge moves
+down to mid-body and goes down over its `digest` days of lying up. Meal length and catch odds are
+unchanged; only the carcass is gone, so scavengers lose snake kills (rare: a few anaconda and python
+kills in 15 years). Checks: `animal-life-check` (no carcass, prey at the jaws, meal kept),
+`snake-model-check` (the bulge's path and size), `?gulp=210.8` on `tools/animal-closeup-review.html`.

@@ -11,7 +11,7 @@ import { Game } from '../js/game.js';
 import { ANIMALS, ANIMAL, animalDef } from '../js/data/animals.js';
 import { PASSAGE_SPECIES } from '../js/data/bird-passage.js';
 import { passageChoices, spawnPassage, updatePassage } from '../js/sim/bird-passage.js';
-import { birdChoose, birdArrive, birdUpdate, birdAlarm, isBird, carryCatch, liftable } from '../js/sim/bird-behavior.js';
+import { birdChoose, birdArrive, birdUpdate, birdAlarm, isBird, carryCatch, liftable, soar } from '../js/sim/bird-behavior.js';
 import { trait } from '../js/data/animal-kinds.js';
 import { T, F, isWater } from '../js/config.js';
 import { mulberry32 } from '../js/rng.js';
@@ -236,6 +236,25 @@ check('A fed hawk circles over open ground on still wings, then glides down to a
     for (let k = 0; k < 200 && a.state === 'fly'; k++) { wl.update(0.05); assert.ok(Math.abs(a.alt - prev) < 0.16, `${map}: altitude jumped ${prev} -> ${a.alt}`); prev = a.alt; }
   }
 });
+check('Soaring birds face along their circle, also at watch pace, never tail first', () => {
+  // (at watch pace a step is tiny: chasing a point one step ahead, under the 0.02 tiles stepToward
+  // needs to turn, the heading froze while the bird went on round, and a red-tail flew backwards)
+  for (const [map, key] of [['pnw', 'hawk'], ['serengeti', 'vulture']]) {
+    const g = setup(map), wl = g.wildlife, def = g.catalog.animal[key], a = spawn(g, key);
+    a.hunger = 0; assert.equal(soar(wl, a, def), true);
+    for (const dt of [0.05, 0.002]) {
+      let worst = 0, n = 0;
+      for (let k = 0; k < 3000 && a.bird?.kind === 'soar'; k++) {
+        const x = a.x, y = a.y; a.hunger = 0; a.bird.t = 99; wl.update(dt);
+        const d = Math.hypot(a.x - x, a.y - y); if (d < 1e-6) continue;
+        let off = Math.atan2(a.y - y, a.x - x) - a.heading; off -= Math.round(off / (2 * Math.PI)) * 2 * Math.PI;
+        if (k > 20) { worst = Math.max(worst, Math.abs(off)); n++; }
+      }
+      assert.ok(n > 100, `${map} ${key}: soared (${n} steps at ${dt})`);
+      assert.ok(worst < 0.6, `${map} ${key}: heading within ${worst.toFixed(2)} rad of its flight at ${dt} a step`);
+    }
+  }
+});
 check('A hungry soaring hawk hunts from its circle, and moves on soon if nothing shows', () => {
   const g = setup(), wl = g.wildlife, a = spawn(g, 'hawk');
   a.hunger = 0; fixed(0.1, () => birdChoose(wl, a, ANIMAL.hawk));
@@ -359,7 +378,7 @@ check('A hungry vulture soars, then spirals down over a carcass and lands to fee
   for (let k = 0; k < 900 && v.state !== 'feed'; k++) {
     wl.update(0.05);
     if (v.bird?.carcass === c.id) {
-      if (ang != null) turned += Math.abs(v.bird.ang - ang); ang = v.bird.ang;
+      if (ang != null) { const d = v.bird.ang - ang; turned += Math.abs(d - Math.round(d / (2 * Math.PI)) * 2 * Math.PI); } ang = v.bird.ang;
       top = Math.max(top, v.alt); low = Math.min(low, v.alt);
       assert.ok(Math.hypot(v.x - c.x, v.y - c.y) < 3, 'circles over the carcass');
       assert.equal(c.meals, meals, 'circling claims no meal');
