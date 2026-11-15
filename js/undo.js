@@ -57,7 +57,8 @@ export class Undo {
     w.structures = c.structures;
     // the money and the books
     const t = c.tool;
-    if (c.cost > 0) { g.money += c.cost; g.stats.spent -= c.cost; unbook(g, 'out', t.cat, c.cost); }
+    if (g.sandbox) { /* nothing was taken, so nothing comes back */ }
+    else if (c.cost > 0) { g.money += c.cost; g.stats.spent -= c.cost; unbook(g, 'out', t.cat, c.cost); }
     else if (c.cost < 0) { g.money += c.cost; g.stats.earned += c.cost; unbook(g, 'in', 'salvage', -c.cost); }
     Object.assign(g.stats, c.stats);
     if (g.stats.used?.[t.key]) g.stats.used[t.key] = Math.max(0, g.stats.used[t.key] - c.count);

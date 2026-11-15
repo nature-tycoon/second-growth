@@ -3,9 +3,12 @@
 ## Rules
 
 - Nothing is cut close round the followed animal. It is drawn again faintly, a little nearer the camera, so it shows through cover within about its own size (`render3d/look-through.js`), and trees farther in front stay in front.
+- At eye level "about its own size" becomes most of the way back to the eye (75% of it, at most 2.5 tiles, `uLookD` in `Renderer.updateFocus`); only cover nearer the lens opens. A gap through a bush just in front of the followed animal showed it, and any animal beside it, whole, as if in front of the leaves. The branch a climber is on still shows only within about its size (`uLookNear`).
+- The second draw must stay faint (`LOOK_ALPHA`): switching a material to transparent for that pass needs `needsUpdate`, or three keeps its opaque shader, which sets alpha to 1, and the animal is drawn whole over its cover (it was, in the game, until 2026-11-14).
 - Cover beyond that opens over the animal's outline, a little wider the nearer the camera, with a soft rim of world-fixed leaf clumps (`render3d/focus.js`, sizes set in `Renderer` in `scene.js`). Trunks are never cut.
 - Any cut round the animal showed as its shape: don't bring one back. Wave 3's ellipsoid cut (`claude/wave3-s5-tracker-lens-aaed29`) was dropped for this lens when wave 3 was merged.
-- `tools/canopy-support-check.mjs` matches the shader's discard line as text: update it with the shader.
+- Water is not cover. It writes no depth, so the look-through pass skips what lies under the creek, river or pond surface at the animal at eye level, while the eye is above it (`focus.uLookWater`, set in `Renderer.updateFocus` from `terrain.waterAt`). Not from above, where it helps find a selected fish, and not the reef's sea, where the lens shows fish through coral. Without it every swimmer looked to swim on top of the water at eye level (2026-11-14).
+- `tools/canopy-support-check.mjs` matches the shader's discard lines as text (the leaves' and the water's): update it with the shader.
 - Check: `node tools/lens-depth-browser-check.mjs`; also `canopy-reveal-browser-check`.
 
 ## History
@@ -121,3 +124,26 @@ order where they overlap. Leaving out whole leaf clumps instead (the lens rim's 
 sorting) was tried and dropped: a leaf mass is a closed shell drawn one side only, so cutting parts
 of it shows its hollow inside as crescents and rings, and crowns read as eaten. Doing it well needs
 whole leaf masses dropped at a time, which the merged plant models don't record.
+
+### 2026-11-14: water
+
+Cole: the river dolphin swam above the water and the beaver walked on it, in watch mode only. The
+heights were right (the dolphin's back and head clear the surface, the beaver floats with its back
+out); the eye camera follows its animal, so the lens was on, and its second draw of the animal at 42%
+showed the whole body through the water, which writes no depth. The look-through pass now discards
+what is under the drawn water at the animal (`uLookWater`), so the water draws over it as usual.
+Watched in the game on the Amazon river and a Hollis pond.
+
+### 2026-11-14: eye-level occlusion
+
+Cole: animals still sometimes showed in front of foliage when they walked past it, at eye level.
+Two causes, both the lens. The eye rides about 1.3 tiles behind a rabbit, so a bush 0.4 in front of it
+was past the see-through depth (its size) and the lens cut a gap through it over the rabbit's
+outline: the followed rabbit, and a second one beside it, showed at full strength through the leaves
+(80% and 61% of their hidden parts, measured against the same view with the lens off). And the
+faint second draw wasn't faint in the game: `transparent` was flipped without `needsUpdate`, so the
+opaque shader (`#define OPAQUE`, alpha 1) drew the animal whole over everything within its size.
+At eye level cover is now seen through over 75% of the way back to the eye (60% still opened a leaf reaching toward the lens beside it), and the pass switches
+shaders: the followed rabbit shows at 35-42% through the bush, the other rabbit stays hidden.
+Before/after stills (with a no-lens view) were taken in the game in
+`tools/release-output/eye-occlusion/` (not kept in the repo).

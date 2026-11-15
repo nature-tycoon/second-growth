@@ -40,7 +40,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0009](docs/decisions/0009-seasonal-dormancy.md) Seasonal dormancy
 - [0010](docs/decisions/0010-game-trails.md) Game trails and curved journeys (`sim/animal-course.js`)
 - [0011](docs/decisions/0011-grazing-pressure.md) Grazing pressure (`sim/grazing.js`)
-- [0012](docs/decisions/0012-raptors-soar-and-carry.md) Raptors soar and carry (`sim/bird-behavior.js`)
+- [0012](docs/decisions/0012-raptors-soar-and-carry.md) Raptors soar and carry (`sim/bird-behavior.js`; soarers steer `SOAR_LOOK` ahead so they never fly tail first)
 - [0013](docs/decisions/0013-home-ranges-and-water.md) Home ranges and water (`sim/home-range.js`)
 - [0014](docs/decisions/0014-activity-budget.md) Hunters' activity budget
 - [0015](docs/decisions/0015-landscape-of-fear.md) Landscape of fear (`sim/predation-risk.js`)
@@ -56,7 +56,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0025](docs/decisions/0025-shared-steering.md) Shared steering and one facing (`sim/steering.js`, `stepToward`, `a.heading`, `turnRate`, `reefStep`, `turnToward` in actors-common.js)
 - File map (fix 8): `Wildlife` (`sim/animals.js`: update's order, save/load) is split by step into `sim/wildlife-intent.js` (what next, hunts, `pathTo`), `-water`, `-move` (`stepToward` per mode), `-population`, `-salmon`, `-beavers`, `-shared`; `Actors.update` (`render3d/actors.js`) dispatches to `actors-common.js` and per-mode `actors-ground.js`, `-climb`, `-fly`, `-swim`, `-reef`. Rules in 0025
 - Motion sweep: `node tools/motion-sweep-check.mjs [--report] [maps]` watches every species through `game.update` and `Actors.update` for visible movement glitches (position jumps, heading snaps, wobble and spins, foot slide, bodies in wood, standing in water, stalls), with per-species limits; real glitches it found are matched by `KNOWN` and listed, not hidden. Run it before and after any change to movement, facing or the drawing's turning (15–30 s)
-- [0026](docs/decisions/0026-continuous-hunts.md) Continuous hunts, snakes, pounces, prey jinks (`huntStep`, `letGo`, `jinkLine`)
+- [0026](docs/decisions/0026-continuous-hunts.md) Continuous hunts, snakes (swallow whole, `swallow`, `gulpBulge`), pounces, prey jinks (`huntStep`, `letGo`, `jinkLine`)
 - [0027](docs/decisions/0027-plant-succession.md) Plant colonization and succession (`trySeed`, `forestDamp`)
 - [0028](docs/decisions/0028-succession-dynamics.md) Tree mortality, regeneration, disturbance, deadwood (`removeTree`, `sim/disturbance.js`)
 - [0029](docs/decisions/0029-pollinators-in-3d.md) 3D pollinators (`render3d/pollinators.js`)
@@ -70,7 +70,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0037](docs/decisions/0037-shared-prey-and-recolonisation.md) Shared prey and recolonisation (`sharePrey`)
 - [0038](docs/decisions/0038-smooth-first-minutes.md) Smooth first minutes and per-day cost (`Game.dayWork`)
 - [0039](docs/decisions/0039-steady-flight-level-fish-floating-ducks.md) Steady flight, level reef fish, floating ducks, eased follow camera (`holdCruise`, `smoothSeabed`, `Actors.floatLevel`, `followHeight`)
-- [0040](docs/decisions/0040-depth-based-lens-hole.md) Tracking lens: the animal drawn faintly through cover, cover opens over its outline, trunks never cut (`render3d/look-through.js`, `render3d/focus.js`)
+- [0040](docs/decisions/0040-depth-based-lens-hole.md) Tracking lens: the animal drawn faintly through cover, cover opens over its outline (at eye level only near the lens), trunks never cut, never through water at eye level (`render3d/look-through.js`, `render3d/focus.js`)
 - [0041](docs/decisions/0041-primate-climbing-pace.md) Primate climbing pace and crown gaps (`drawnClimbPace`, `sim/canopy-links.js`, `crossGap`)
 - [0042](docs/decisions/0042-tree-impostors.md) Tree impostors: far crowns as baked cards (`render3d/tree-impostors.js`)
 - [0043](docs/decisions/0043-eating-styles.md) Eating styles, drawing only (`render3d/eating-pose.js`)
@@ -78,6 +78,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0045](docs/decisions/0045-simulation-worker.md) Simulation in a Web Worker: proposed design and spike, no-go for now (`tools/sim-worker-spike.mjs`)
 - [0046](docs/decisions/0046-plant-growth-on-the-gpu.md) Plant redraw: deadwood age redraws its own tile; growth on the GPU measured and declined
 - [0047](docs/decisions/0047-accounts-sharing-and-home.md) Accounts, sharing farms, home: no login for now; share by link and farm files built (`js/share-file.js`, `js/ui/share.js`, Worker `/farms` on KV, `?farm=` opens a visit that never saves over the player's farm); website the main link, itch a storefront
+- [0048](docs/decisions/0048-water-and-elevation-model.md) Water and elevation: audit, proposed rework (proposed), digging never moves other water, dug creeks graded for fish (`gradeDugCreek`), ponds joined to a creek hold its level (`feedLevel`), Fill & grade levels a stroke to one height (`gradeTile`), Demolish takes up gravel lots
 
 Ask a trait, never a species name: behaviour and drawing ask `trait(def, name)` (`js/data/animal-kinds.js`: defaults by `sprite.kind`, a species overrides with a field of the same name), so a fix reaches every animal with the trait. A name check stays only where a species is truly unique, with a one-line comment saying why. `node tools/species-name-count.mjs` (headless suite) fails if name checks rise; `--update` after they fall.
 

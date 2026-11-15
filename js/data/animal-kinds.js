@@ -41,6 +41,8 @@
 //                 (noddies, terns) (fishing.js)
 //   jinks         a runner that escapes by cutting hard to one side as its hunter closes in, so the
 //                 faster hunter overshoots: hares, gazelles, impala, deer (animal-life.js, decision 0026)
+//   swallowsWhole  it swallows its catch whole, head first, and leaves no carcass: snakes
+//                 (animal-life.js swallow; the bulge drawn by actors-common.js gulpBulge)
 //
 // Traits set on a species only (no kind default):
 //   wallow        { size, rut }: it wears a wallow in damp ground, `size` how big a dish (1 for an
@@ -65,7 +67,7 @@ export const KIND_TRAITS = {
   rhino: { ...graze, ...firm }, elephant: { ...graze, ...firm }, hippo: { ...graze, ...firm, floats: true },
   turtle: { ...nibble, ...firm, floats: true }, beaver: { ...nibble, floats: true }, ostrich: nibble,
   otter: { floats: true }, frog: { ...firm, floats: true }, newt: { ...firm, floats: true },
-  caiman: { ...firm, floats: true }, snake: { ...firm, floats: true, scaresSmallBirds: true },
+  caiman: { ...firm, floats: true }, snake: { ...firm, floats: true, scaresSmallBirds: true, swallowsWhole: true },
   monitor: { ...firm, scaresSmallBirds: true },
   fish: firm, butterflyfish: firm, idol: firm, shark: firm, dolphin: firm, dugong: firm,
   seacucumber: firm, urchin: firm, beetle: firm, pangolin: firm, armadillo: firm, person: firm,

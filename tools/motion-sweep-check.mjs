@@ -14,6 +14,9 @@
 //   wet       a land walker (move 'ground') standing still on a water tile
 //   sideways  a river or estuary swimmer whose drawn body moves over a third of its pace more than
 //             SIDEWAYS off the way its drawn head points, held SUSTAIN frames (a fish swims nose first)
+//   tailFirst a flier on the wing whose drawn body moves over a third of its pace more than TAIL off
+//             the way its drawn head points, held SUSTAIN frames (a bird flies head first, and a
+//             soaring hawk circles banked into the turn, never backwards: limit 0)
 //   surfaced  a river fish that keeps to water deeper than its body (trait fishDepth: the catfish)
 //             drawn with the top of its model above the water, except mid-leap. (Other fish may
 //             show a back in a riffle shallower than they are tall, as trout and salmon do.)
@@ -28,7 +31,8 @@
 // standing in water (elephant, topi, gajah, deer) and bodies in trunks on every map (giraffe 152,
 // Sumatran rhino 252 per 1000, with the looser keep-out of the time); before the trunk steering of
 // 334e28b, opossums treadmill (30 per 1000).
-// --report prints without failing. SEEDS=1987,91 DAYS=6 game days per map and seed, FPS=60,
+// --report prints without failing. SEEDS=1987,91 DAYS=6 game days per map and seed, FPS=60, SPEED=1
+// (4 is watch pace, where a step is tiny: how a soaring hawk's frozen heading was found),
 // DETAIL=1 the species/state behind each count. Not covered: climbers and perched birds are drawn
 // without the plant models (no Flora headless), so their branch and perch positions are not tested.
 import { register } from 'node:module';
@@ -38,7 +42,7 @@ import { BIOME_LIST } from '../js/biome.js';
 import { restoredGame } from './map-audit-fixtures.mjs';
 import { populate } from './animal-steering-check.mjs';
 import { mulberry32 } from '../js/rng.js';
-import { T, F, isWater, SPEEDS } from '../js/config.js';
+import { T, F, isWater, SPEEDS, ANIMAL_SPEEDS } from '../js/config.js';
 import { passable, canLand } from '../js/sim/animal-terrain.js';
 import { groundWalker, inWood } from '../js/sim/ground-obstacles.js';
 import { travelSpeed } from '../js/sim/climb-pace.js';
@@ -50,13 +54,13 @@ const { waterSurfaceY } = await import('../js/render3d/terrain.js');
 globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeItem() {} };
 const args = process.argv.slice(2), strict = !args.includes('--report');
 const maps = args.filter(s => !s.startsWith('--'));
-const DAYS = +(process.env.DAYS || 6), SEEDS = (process.env.SEEDS || '1987,91').split(',').map(Number), FPS = +(process.env.FPS || 60), WARM = 0.25;
-const SNAP = 0.6, SIDEWAYS = 0.9, WOBBLE = 0.08, STALL_R = 0.15, STALL_DAYS = 0.5, SUSTAIN = 10;
+const SPEED = +(process.env.SPEED || 1), DAYS = +(process.env.DAYS || 6), SEEDS = (process.env.SEEDS || '1987,91').split(',').map(Number), FPS = +(process.env.FPS || 60), WARM = 0.25;
+const SNAP = 0.6, SIDEWAYS = 0.9, TAIL = 1.9, WOBBLE = 0.08, STALL_R = 0.15, STALL_DAYS = 0.5, SUSTAIN = 10;
 const MOVING = new Set(['walk', 'flee', 'approach', 'play']);
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
-const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'wet', 'sideways', 'surfaced', 'stall'];
+const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'wet', 'sideways', 'tailFirst', 'surfaced', 'stall'];
 const PER_WALKER = new Set(['glide', 'treadmill', 'trunk']); // (per 1000 ground-walker frames)
-export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, wet: 0, sideways: 4, surfaced: 0, stall: 160 };
+export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, wet: 0, sideways: 4, tailFirst: 0, surfaced: 0, stall: 160 };
 const MIN_EVENTS = 3;
 const deadwoodNear = (w, a) => {
   for (let y = Math.floor(a.y) - 1; y <= Math.floor(a.y) + 1; y++) for (let x = Math.floor(a.x) - 1; x <= Math.floor(a.x) + 1; x++)
@@ -101,9 +105,10 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
   const rng = mulberry32(seed + 1);
   const g = restoredGame(map, seed), wl = g.wildlife, w = g.world, cat = g.catalog;
   populate(g, rng); addSwimmers(g, rng);
-  g.speed = 1;
+  g.speed = SPEED;
   const actors = new Actors(new THREE.Scene()), right = new THREE.Vector3(1, 0, 0), drawRandom = mulberry32(seed + 2);
-  const frameDays = SPEEDS[1] / fps, frames = Math.round((days + WARM) / frameDays), warm = Math.round(WARM / frameDays);
+  // (stepDays: how far animals move in a frame, on their own clock, faster than the days at watch pace: 0021)
+  const frameDays = SPEEDS[SPEED] / fps, stepDays = ANIMAL_SPEEDS[SPEED] / fps, frames = Math.round((days + WARM) / frameDays), warm = Math.round(WARM / frameDays);
   const by = {}, why = {}, known = {}, last = new Map();
   const row = key => by[key] ||= Object.fromEntries([['frames', 0], ['walkerFrames', 0], ...COUNTS.map(k => [k, 0])]);
   const hit = (r, k, a, extra = '') => {
@@ -134,7 +139,7 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
       const r = row(a.key); r.frames++;
       // (how far it may go in a frame: its everyday pace times the faster of this frame's and the last's gait, with room to spare)
       const pace = Math.max(0.05, travelSpeed(def), def.speed || 0);
-      const allow = pace * Math.max(1, now.run, p.run) * frameDays * 2.5 + 0.01;
+      const allow = pace * Math.max(1, now.run, p.run) * stepDays * 2.5 + 0.01;
       const sd = Math.hypot(a.x - p.sx, a.y - p.sy), dd = Math.hypot(st.x - p.dx, st.z - p.dz);
       if (sd > allow && sd > 0.05) hit(r, 'simJump', a, ` ${(sd / allow).toFixed(0)}x`);
       if (dd > allow && dd > 0.05) hit(r, 'drawJump', a, ` ${(dd / allow).toFixed(0)}x`);
@@ -146,7 +151,7 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
       const walking = groundWalker(def, a) && !def.reef;
       if (walking) {
         r.walkerFrames++;
-        const ground = dd / (travelSpeed(def) * frameDays);
+        const ground = dd / (travelSpeed(def) * stepDays);
         // (held for SUSTAIN frames: the gait blends over a few frames as it sets off or stops. A
         // pounce, hunt.leap, is drawn in the air with its legs stretched out, not sliding)
         now.glide = ground > 0.5 && st.gait < 0.15 && !a.hunt?.leap ? (p.glide || 0) + 1 : 0;
@@ -155,8 +160,13 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
         if (now.tread > SUSTAIN) hit(r, 'treadmill', a);
         if (inWood(w, a, def, a.x, a.y, a.heading)) hit(r, 'trunk', a);
       }
+      if (def.move === 'fly' && a.flying) {
+        const pace = Math.max(0.05, travelSpeed(def)) * stepDays, off = Math.abs(wrap(Math.atan2(-(st.z - p.dz), st.x - p.dx) - st.yaw));
+        now.tail = dd > pace / 3 && off > TAIL ? (p.tail || 0) + 1 : 0;
+        if (now.tail > SUSTAIN) hit(r, 'tailFirst', a, ` ${a.bird?.kind || a.hunt?.phase || ''} off ${off.toFixed(1)}`);
+      }
       if (def.move === 'swim' && !def.reef) {
-        const pace = Math.max(0.05, travelSpeed(def)) * frameDays, off = Math.abs(wrap(Math.atan2(-(st.z - p.dz), st.x - p.dx) - st.yaw));
+        const pace = Math.max(0.05, travelSpeed(def)) * stepDays, off = Math.abs(wrap(Math.atan2(-(st.z - p.dz), st.x - p.dx) - st.yaw));
         now.side = dd > pace / 3 && off > SIDEWAYS ? (p.side || 0) + 1 : 0;
         if (now.side > SUSTAIN) hit(r, 'sideways', a, ` off ${off.toFixed(1)}`);
         // (st.h is size * 0.6 * the drawn scale for a fish: actors.js)

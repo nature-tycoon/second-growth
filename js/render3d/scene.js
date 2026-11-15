@@ -441,7 +441,7 @@ export class Renderer {
       // which a body rarely fills); and how far in front of it cover is seen through rather than
       // opened (look-through.js): its own size and a little more
       focus.uFocusBodyR.value += (body * .85 + .03 - focus.uFocusBodyR.value) * e;
-      focus.uLookD.value += (reach * 1.2 + .15 - focus.uLookD.value) * e;
+      focus.uLookNear.value += (reach * 1.2 + .15 - focus.uLookNear.value) * e;
       if (this.eyeOn) radius = clamp(this.eye.size * .5, 0.06, 0.25); // (close to the lens, a narrower gap does)
       focus.uFocusR.value += (radius - focus.uFocusR.value) * e; // keep foliage around a climber's supporting limbs
       focus.uFocusBottom.value = bottom; focus.uFocusBack.value = back;
@@ -449,6 +449,17 @@ export class Renderer {
       focus.uFocusHalfW.value = Math.max(pose.h * 0.55, (pose.foot || 0) * 0.55, span);
       focus.uFocusFront.value = Math.max(front, focus.uFocusHalfW.value); // (its depth, or half its size across if more)
       focus.uFocusInvD.value = invD;
+      // at eye level cover is seen through, faintly, over most of the way back to the eye, and only
+      // what is near the lens opens: a gap cut through a bush a little in front of the animal showed
+      // it, and any animal beside it, whole, as if in front of the leaves (Cole, 2026-11-14). (At
+      // most 2.5 tiles: look-through.js knows the trunks within 3 tiles of it.)
+      const see = invD ? Math.max(focus.uLookNear.value, Math.min(2.5, .75 * (1 / invD - focus.uFocusFront.value))) : focus.uLookNear.value;
+      focus.uLookD.value += (see - focus.uLookD.value) * e;
+      // (at eye level, the creek, river or pond surface over it while the eye is above that:
+      // look-through.js leaves what's under it to the water. From above, a selected fish still shows
+      // through the water, which helps find it; and never the reef's sea, where it shows through coral)
+      const water = this.eyeOn && this.seaY == null ? this.terrain?.waterAt?.(sel.x, sel.y) : NaN;
+      focus.uLookWater.value = Number.isFinite(water) && this.eye.pos.y > water ? water : -1e9;
       if (pose.trunk) focus.uFocusTrunk.value.set(pose.trunk[0], pose.trunk[1], pose.trunk[2]); else focus.uFocusTrunk.value.z = -1;
       lookTrunks(this.world, pose, V);
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)
@@ -456,9 +467,10 @@ export class Renderer {
       focus.uFocusR.value = 1.3;
       focus.uFocusFoot.value = focus.uFocus.value.y - 0.35; focus.uFocusHalfW.value = 0.3;
       focus.uFocusBottom.value = -.3; focus.uFocusBack.value = -.08 * focus.uFocusR.value; focus.uFocusFront.value = .3;
-      focus.uFocusBodyR.value = .3; focus.uLookD.value = .3;
+      focus.uFocusBodyR.value = .3; focus.uLookD.value = focus.uLookNear.value = .3;
       focus.uFocusTrunk.value.z = -1;
       focus.uFocusInvD.value = 0;
+      focus.uLookWater.value = -1e9;
     }
   }
 

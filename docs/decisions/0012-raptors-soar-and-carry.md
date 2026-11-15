@@ -3,6 +3,7 @@
 ## Rules
 
 - Soaring is `def.soar` (hawks, white-backed vulture): an idle, fed bird circles open ground; a hungry one hunts or searches from the soar. Ease altitude, never clamp it.
+- A soaring bird steers for a point `SOAR_LOOK` (0.35 rad) round its circle ahead of where it is (`soarStep`; the hunt's `circle` phase and a seabird's `watch` circle in `fishing.js` do the same), never for a point one step ahead: `stepToward` turns the heading only for a target over 0.02 tiles away, and at watch pace a step is less, so a hawk circled tail first. `bird-behavior-check` tests heading against flight at 0.002 days a step; `SPEED=4 node tools/motion-sweep-check.mjs` runs the sweep at watch pace (`tailFirst`, limit 0, any flier).
 - After a catch, `carryCatch` (`sim/bird-behavior.js`) decides: prey listed in `def.carries` (or any juvenile) is mantled and carried to a perch within 10 tiles; heavier prey is eaten where it fell; a heavy fish is dragged to the bank. The data contract checks that `carries` names only prey the species hunts.
 - `a.prey` is drawn in the talons and under the feet, never longer than 0.85× the bird.
 - A flier catches only once `a.stoop` reaches 1 (the dive reaches the ground over its prey). A raptor hunting from a perch (`hunt.perch`) drops straight on. `carryCatch` mantles by where the prey was.
@@ -97,3 +98,14 @@ held at 2–4 and spent about 2–3% of their time feeding (0–0.2% before). Th
 already glide in `bird-passage.js` and are unchanged. `bird-behavior-check` covers the search
 soar, at least a full turn over the carcass, the descent, the single meal on landing, and a
 perched vulture leaving at once for a carcass.
+
+2026-11-14 (ideas batch water-fixes, session 5). Cole: the red-tailed hawk sometimes soars
+backwards. The soar chased a point on its circle one step ahead of the bird. At watch pace a step
+is about 0.018 tiles, under the 0.02 `stepToward` needs before it turns the heading, so the
+heading froze while the bird went on round its circle: 369 of 2108 soaring frames tail first on
+PNW (seed 1987, watch pace), none at normal speed, which is why the motion sweep never saw it. It
+now aims 0.35 rad ahead round the circle from its own angle; the circle it flies is about 6%
+tighter (r cos 0.35). After: 4 single drawn frames in 4393 off by over 110°, none in the simulation.
+The new `tailFirst` count then found the reef's noddies (23 frames in 1000) and boobies tail first
+at normal speed while circling over a fishing spot (`seaFishing` 'watch', a point moving round at
+its own rate that the bird caught up with); that circle now steers the same way, and both read 0.
