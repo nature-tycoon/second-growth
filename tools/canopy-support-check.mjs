@@ -201,8 +201,8 @@ check('The lens leaves what is under the creek or pond to the water, while the e
     target: new THREE.Vector3(), frame: { x: .5, y: .5 }, v3: new THREE.Vector3(),
     camera: new THREE.OrthographicCamera(-1, 1, 1, -1, -300, 300), sun: new THREE.DirectionalLight() });
   game.selectedAgent = a; r.centerOnAnimal(a); r.updateAnimalCamera();
-  r.terrain = { waterAt: () => -0.1 }; r.updateFocus(game, 1);
-  assert.ok(focus.uLookWater.value < -1e8, 'from above: a selected fish still shows through the water');
+  r.terrain = { waterAt: () => -0.1 }; r.camera.position.y = 20; r.updateFocus(game, 1);
+  assert.equal(focus.uLookWater.value, -0.1, 'from above (watch mode follows a selected animal): the surface over it');
   r.eyeOn = true; r.eyeAgent = a; r.eye = { pos: new THREE.Vector3(a.x + 1, 0.4, a.y), camera: new THREE.PerspectiveCamera(), size: 0.3 }; r.updateFocus(game, 1);
   assert.equal(focus.uLookWater.value, -0.1, 'eye level: the surface over it, eye above');
   r.eye.pos.y = -0.5; r.updateFocus(game, 1);

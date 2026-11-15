@@ -455,11 +455,12 @@ export class Renderer {
       // most 2.5 tiles: look-through.js knows the trunks within 3 tiles of it.)
       const see = invD ? Math.max(focus.uLookNear.value, Math.min(2.5, .75 * (1 / invD - focus.uFocusFront.value))) : focus.uLookNear.value;
       focus.uLookD.value += (see - focus.uLookD.value) * e;
-      // (at eye level, the creek, river or pond surface over it while the eye is above that:
-      // look-through.js leaves what's under it to the water. From above, a selected fish still shows
-      // through the water, which helps find it; and never the reef's sea, where it shows through coral)
-      const water = this.eyeOn && this.seaY == null ? this.terrain?.waterAt?.(sel.x, sel.y) : NaN;
-      focus.uLookWater.value = Number.isFinite(water) && this.eye.pos.y > water ? water : -1e9;
+      // (the creek, river or pond surface over it while the eye is above that, in every view (watch
+      // mode's follow shot from above too): look-through.js leaves what's under it to the water. Never
+      // the reef's sea, where the lens shows fish through coral)
+      const water = this.terrain && this.seaY == null ? this.terrain.waterAt?.(sel.x, sel.y) : NaN;
+      const eyeY = this.eyeOn ? this.eye.pos.y : this.camera.position.y;
+      focus.uLookWater.value = Number.isFinite(water) && eyeY > water ? water : -1e9;
       if (pose.trunk) focus.uFocusTrunk.value.set(pose.trunk[0], pose.trunk[1], pose.trunk[2]); else focus.uFocusTrunk.value.z = -1;
       lookTrunks(this.world, pose, V);
     } else if (ft) { // (a spot on the ground, not an animal: a moment about a plant)

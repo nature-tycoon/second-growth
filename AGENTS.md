@@ -70,7 +70,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0037](docs/decisions/0037-shared-prey-and-recolonisation.md) Shared prey and recolonisation (`sharePrey`)
 - [0038](docs/decisions/0038-smooth-first-minutes.md) Smooth first minutes and per-day cost (`Game.dayWork`)
 - [0039](docs/decisions/0039-steady-flight-level-fish-floating-ducks.md) Steady flight, level reef fish, floating ducks, eased follow camera (`holdCruise`, `smoothSeabed`, `Actors.floatLevel`, `followHeight`)
-- [0040](docs/decisions/0040-depth-based-lens-hole.md) Tracking lens: the animal drawn faintly through cover, cover opens over its outline (at eye level only near the lens), trunks never cut, never through water at eye level (`render3d/look-through.js`, `render3d/focus.js`)
+- [0040](docs/decisions/0040-depth-based-lens-hole.md) Tracking lens: the animal drawn faintly through cover, cover opens over its outline (at eye level only near the lens), trunks never cut, never through water (`render3d/look-through.js`, `render3d/focus.js`)
 - [0041](docs/decisions/0041-primate-climbing-pace.md) Primate climbing pace and crown gaps (`drawnClimbPace`, `sim/canopy-links.js`, `crossGap`)
 - [0042](docs/decisions/0042-tree-impostors.md) Tree impostors: far crowns as baked cards (`render3d/tree-impostors.js`)
 - [0043](docs/decisions/0043-eating-styles.md) Eating styles, drawing only (`render3d/eating-pose.js`)
