@@ -23,6 +23,6 @@ Nothing unnatural: phase 2 is the plumbing behind what Cole asked for. Removing 
 
 | # | Title | Ideas | Model | Size | Status |
 |---|-------|-------|-------|------|--------|
-| 1 | One terrain edit path + roads via Demolish | 0048 phase 2, roads | opus | L | [ ] |
+| 1 | One terrain edit path + roads via Demolish | 0048 phase 2, roads | opus | L | [x] d4ba432 |
 
 One session: roads touch the same fill tool that phase 2 reroutes, so splitting would mean two sessions editing the same lines.
