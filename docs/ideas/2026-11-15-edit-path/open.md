@@ -16,3 +16,9 @@ Note: another agent's commit, f6fbf35 "Website: remove the press kit", landed on
 - The roads and gravel hints share one "seen" flag. They say the same thing, so this is fine.
 
 Still waiting from the last batch: phase 3 (creeks drop gently in a dry summer, which Cole approved; salmon leap cascades) and phase 4 (seasonal ponds on Serengeti and Chinandega).
+
+## Cole's answers (2026-11-15)
+
+- Raise/Lower refuses creek tiles. Sent back to session 1 to build.
+- Ownership is read at edit time (recommended; Cole didn't object).
+- The press kit removal had already shipped in PR 114 (b4c1a4a). f6fbf35 here is the same change.
