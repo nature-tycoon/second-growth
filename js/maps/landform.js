@@ -1,7 +1,8 @@
 // Landforms: the helpers each map's height recipe is built from, and the "drains downhill" pass
 // (docs/decisions/0044-terrain-relief.md). Heights are in levels (2.4 m) on tile corners.
 
-import { BORDER, T } from '../config.js';
+import { BORDER, T, isWater } from '../config.js';
+import { WATER_FILL } from '../sim/waterline.js';
 
 export const smoothstep = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -113,4 +114,82 @@ export function creekDownhill(w) {
     const drop = bed(i) - c;
     if (drop > 0) for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) w.setVert(x + dx, y + dy, w.vert(x + dx, y + dy) - drop);
   }
+}
+
+// How far a creek's bed may fall from one tile to the next and still be one swimmable stream: each
+// tile's water stands WATER_FILL (0.32) over its lowest corner, so a bed whose highest corner is at most
+// 0.2 over its lowest is covered by about 0.12 (30 cm) everywhere, more than a river fish needs
+// (FISH_DEPTH 0.07). And how much deeper than carve() cut it grading may take a dug tile (0.6, about
+// 1.4 m), so a creek dug straight up a steep hill keeps a few cascades rather than becoming a ravine.
+export const CHANNEL_STEP = 0.2, CHANNEL_CUT = 0.6;
+
+// A creek the player digs (decision 0048): carve() cuts each tile from its own highest corner, so
+// across a slope a dug creek was a staircase of flat pools and dry chutes over a metre high, and
+// salmon in it could never reach the creek it joined. This grades the dug creek tiles 4-connected to
+// (x, y) (`dugBed`: NaN off them, else the floor carve gave each, its highest corner) so that each dug
+// tile's floor stands within CHANNEL_STEP of every corner it shares with the water it joins (a creek,
+// the river, a pond or a marsh) and of every dug tile it shares a corner with: then each tile's water
+// covers its whole bed. Floors go at most CHANNEL_CUT under carve's floor and never over it, and no
+// corner of the map's own creeks or any other water moves. A dug creek joined to no other water (yet)
+// is left as it is: it's graded when it's joined.
+export function gradeDugCreek(w, x, y, dugBed) {
+  const dug = i => w.terrain[i] === T.CREEK && Number.isFinite(dugBed[i]);
+  const start = w.idx(x, y);
+  if (!dug(start)) return false;
+  const top = i => { const x = i % w.w, y = (i / w.w) | 0; return Math.max(w.vert(x, y), w.vert(x + 1, y), w.vert(x + 1, y + 1), w.vert(x, y + 1)); };
+  const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const comp = [start], b = new Map([[start, top(start)]]);
+  let joined = false;
+  for (let k = 0; k < comp.length; k++) {
+    const i = comp[k], cx = i % w.w, cy = (i / w.w) | 0;
+    for (const [dx, dy] of N4) {
+      if (!w.inb(cx + dx, cy + dy)) continue;
+      const j = w.idx(cx + dx, cy + dy);
+      if (dug(j)) { if (!b.has(j)) { b.set(j, top(j)); comp.push(j); } }
+      else if (isWater(w.terrain[j])) joined = true;
+    }
+  }
+  if (!joined) return false;
+  const fixed = (vx, vy) => [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([ox, oy]) => w.inb(vx + ox, vy + oy) && isWater(w.terrain[w.idx(vx + ox, vy + oy)]) && !dug(w.idx(vx + ox, vy + oy)));
+  const C4 = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  // (each floor within CHANNEL_STEP of the other water's corners it shares, then of each dug tile it
+  // shares a corner with: a shortest-path relaxation, as each lowered tile may lower those above it.
+  // First down (the floor comes down to the water it joins), then up (a floor cut deeper than the
+  // water beside it comes back up), each within its bounds)
+  const was = new Map(b), lo = i => dugBed[i] - CHANNEL_CUT, hi = i => Math.max(dugBed[i], was.get(i));
+  for (const sign of [1, -1]) {
+    for (const i of comp) {
+      const cx = i % w.w, cy = (i / w.w) | 0;
+      for (const [dx, dy] of C4) if (fixed(cx + dx, cy + dy)) {
+        const bound = w.vert(cx + dx, cy + dy) + sign * CHANNEL_STEP;
+        b.set(i, sign > 0 ? Math.max(lo(i), Math.min(b.get(i), bound)) : Math.min(hi(i), Math.max(b.get(i), bound)));
+      }
+    }
+    const q = comp.slice();
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k], cx = i % w.w, cy = (i / w.w) | 0, bound = b.get(i) + sign * CHANNEL_STEP;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const j = w.inb(cx + dx, cy + dy) ? w.idx(cx + dx, cy + dy) : -1;
+        if (!b.has(j)) continue;
+        const v = sign > 0 ? Math.max(lo(j), Math.min(b.get(j), bound)) : Math.min(hi(j), Math.max(b.get(j), bound));
+        if (Math.abs(v - b.get(j)) > 1e-6) { b.set(j, v); q.push(j); }
+      }
+    }
+  }
+  // (a corner takes the lowest floor of the dug tiles round it; the other water's corners stay put)
+  const corner = new Map();
+  for (const i of comp) {
+    const cx = i % w.w, cy = (i / w.w) | 0;
+    for (const [dx, dy] of C4) {
+      const vx = cx + dx, vy = cy + dy, key = vy * (w.w + 1) + vx;
+      if (!fixed(vx, vy)) corner.set(key, Math.min(corner.get(key) ?? Infinity, b.get(i)));
+    }
+  }
+  let changed = false;
+  for (const [key, h] of corner) {
+    const vx = key % (w.w + 1), vy = (key / (w.w + 1)) | 0;
+    if (Math.abs(w.vert(vx, vy) - h) > 1e-6) { w.setVert(vx, vy, h); changed = true; }
+  }
+  if (changed) { w.heightDirty = true; w.hv = (w.hv || 0) + 1; }
+  return changed;
 }

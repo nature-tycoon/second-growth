@@ -9,6 +9,7 @@ import { onBiome, mapCatalog } from './biome.js';
 import { MULCH_DAYS } from './sim/ecological-pressure.js';
 import { plantAffinity } from './plant-patterns.js';
 import { hash2 } from './rng.js';
+import { gradeDugCreek } from './maps/landform.js';
 import { assertCatalogTools } from './data/contracts.js';
 
 const land = t => !isWater(t);
@@ -39,8 +40,10 @@ export function createTools(catalog) {
       if (t === T.TRAIL && terrain !== T.MARSH) w.feature[i] = 0;
       w.terrain[i] = terrain;
       w.soil[i] = Math.max(w.soil[i], 0.3);
-      w.carve(i % w.w, (i / w.w) | 0, DEPTH[terrain]);
+      w.carve(i % w.w, (i / w.w) | 0, DEPTH[terrain], true);
       if (terrain === T.POND) w.levelPond(i % w.w, (i / w.w) | 0);
+      // (a dug creek is graded toward the water it joins, so its fish can swim it both ways: 0048)
+      if (terrain === T.CREEK) { w.dugBed[i] = Math.max(...w.corners(i % w.w, (i / w.w) | 0)); gradeDugCreek(w, i % w.w, (i / w.w) | 0, w.dugBed); }
       if (wasLand) game.stats.dug++;
       w.hydroDirty = true;
       return true;

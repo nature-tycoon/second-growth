@@ -5,7 +5,7 @@ import { MAP_W, MAP_H, BORDER, T, F, LAID, isWater, clamp } from './config.js';
 import { activeCatalog } from './data/catalog.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
 import { removeTree } from './sim/plants.js';
-import { fillPits, creekDownhill, tileDistance, smoothstep } from './maps/landform.js';
+import { fillPits, creekDownhill, tileDistance, smoothstep, CHANNEL_STEP } from './maps/landform.js';
 import { WATER_FILL } from './sim/waterline.js';
 
 export const STRUCTURES = {
@@ -57,6 +57,10 @@ export class World {
     // 4 = a canal block, 8 = shade cloth, 16 and 32 = what a beaver pool drowned, 64 = a snag, log, rock pile or brush pile the player placed: PLACED,
     // 128 = gravel people laid: LAID)
     this.marks = u8();
+    // the bed carve() gave each creek tile the player dug (NaN elsewhere: the map's own creeks), so
+    // gradeDugCreek (maps/landform.js) grades only those. Not saved: a loaded farm takes it from the
+    // creek tiles the map as generated doesn't have (game.js)
+    this.dugBed = f32().fill(NaN);
     // a drained beaver pond's age as meadow (years, or pending while it drains: sim/beaver-ponds.js),
     // and wallows (sim/wallows.js): how deep a dug wallow is and how much water stands in it (0-255)
     this.meadow = u8(); this.wallow = u8(); this.wallowWet = u8();
@@ -111,11 +115,22 @@ export class World {
     return (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty;
   }
   // Lower a tile so water sits in it. Only ever lowers.
-  carve(x, y, depth) {
+  carve(x, y, depth, keepWater = false) {
     // measure from the highest corner, so digging next to existing water doesn't compound
     const c = this.corners(x, y);
     const target = Math.max(...c) - depth - 0.15;
-    for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) this.setVert(x + dx, y + dy, Math.min(this.vert(x + dx, y + dy), target));
+    // (keepWater, for the player's digging: no corner goes below the bed of other water it touches, so
+    // a tile dug beside a creek doesn't sink that creek's bed. Dug where all four corners were water
+    // already, the creek's junction tile cut half a level under the creek and dried two of its tiles)
+    const floor = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([dx, dy]) => {
+      let f = -Infinity;
+      if (keepWater) for (const [ox, oy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
+        const tx = x + dx + ox, ty = y + dy + oy;
+        if ((tx !== x || ty !== y) && this.inb(tx, ty) && isWater(this.terrain[this.idx(tx, ty)])) f = Math.max(f, Math.min(...this.corners(tx, ty)));
+      }
+      return f;
+    });
+    [[0, 0], [1, 0], [1, 1], [0, 1]].forEach(([dx, dy], k) => this.setVert(x + dx, y + dy, Math.min(this.vert(x + dx, y + dy), Math.max(target, floor[k]))));
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;
   }
   // A dug pond is one body of water with one surface, so its whole floor goes down to its lowest
@@ -132,10 +147,36 @@ export class World {
     }
     let lo = Infinity;
     for (const i of pond) lo = Math.min(lo, ...this.corners(i % this.w, (i / this.w) | 0));
-    const bank = lo + WATER_FILL[T.POND] + 0.15;
+    // (a pond dug up to a creek or the river is joined to it, an oxbow or a backwater: its floor goes a
+    // pond's depth under that water, so it holds the creek's level rather than standing above or below it)
     for (const i of pond) {
       const px = i % this.w, py = (i / this.w) | 0;
-      for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) this.setVert(px + dx, py + dy, lo);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        if (!this.inb(px + dx, py + dy)) continue;
+        const t = this.terrain[this.idx(px + dx, py + dy)];
+        if (t === T.CREEK || t === T.RIVER) lo = Math.min(lo, Math.min(...this.corners(px + dx, py + dy)) + WATER_FILL[t] - WATER_FILL[T.POND]);
+      }
+    }
+    const bank = lo + WATER_FILL[T.POND] + 0.15;
+    // (a corner shared with a creek or the river goes at most CHANNEL_STEP under that channel's bed, so
+    // the creek beside a pond keeps its level and gains no step its fish can't swim: down a steep
+    // creek, the pond's upstream edge stands on the creek's higher bed and the pond joins it at its low end)
+    const floor = new Map();
+    for (const i of pond) {
+      const px = i % this.w, py = (i / this.w) | 0;
+      for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) {
+        const vx = px + dx, vy = py + dy;
+        let f = lo;
+        for (const [ox, oy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) {
+          const tx = vx + ox, ty = vy + oy, t = this.inb(tx, ty) ? this.terrain[this.idx(tx, ty)] : -1;
+          if (t === T.CREEK || t === T.RIVER) f = Math.max(f, Math.min(...this.corners(tx, ty)) - CHANNEL_STEP);
+        }
+        floor.set(vy * (this.w + 1) + vx, f);
+      }
+    }
+    for (const i of pond) {
+      const px = i % this.w, py = (i / this.w) | 0;
+      for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) this.setVert(px + dx, py + dy, Math.min(this.vert(px + dx, py + dy), floor.get((py + dy) * (this.w + 1) + px + dx)));
       for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) {
         const vx = px + dx, vy = py + dy;
         if (vx < 0 || vy < 0 || vx > this.w || vy > this.h || this.vert(vx, vy) >= bank) continue;
