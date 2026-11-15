@@ -16,9 +16,10 @@ import * as THREE from 'three';
 import { focus } from './focus.js';
 
 export const LOOK_LAYER = 7;
-// How far in front of the animal cover is seen through is focus.uLookD (about its size: the bush
-// or crown it is in, the grass round it). A tree standing farther toward the camera stays in front
-// of it (Cole: the animal looked to walk in front of foreground trees); focus.js opens that instead.
+// How far in front of the animal cover is seen through is focus.uLookD (about its size from above:
+// the bush or crown it is in, the grass round it; at eye level most of the way back to the eye). A
+// tree standing farther toward the camera stays in front of it (Cole: the animal looked to walk in
+// front of foreground trees); focus.js opens that instead.
 const lookShift = { value: 0 };
 export const LOOK_TRUNKS = 8; // (the trunks nearest in front of it, focus.uLookTrunks)
 
@@ -27,12 +28,12 @@ export const LOOK_TRUNKS = 8; // (the trunks nearest in front of it, focus.uLook
 // within that distance in front of it); its lighting and shade still come from where it is. 0 in
 // the normal draw.
 // near: for the branch the animal is on (flora's canopyBark), drawn this pass only round it, fading
-// out within uLookD of it, so it is seen sitting on wood rather than floating in the leaves.
+// out within about its size of it (focus.uLookNear), so it is seen sitting on wood rather than floating in the leaves.
 export function withLookShift(mat, { near = false } = {}) {
   const prev = mat.onBeforeCompile, baseKey = mat.customProgramCacheKey();
   mat.onBeforeCompile = (shader, renderer) => {
     if (prev) prev.call(mat, shader, renderer);
-    Object.assign(shader.uniforms, { uLookShift: lookShift, uLookTrunks: focus.uLookTrunks, uLookDir: focus.uViewDir, uLookAt: focus.uFocus, uLookD: focus.uLookD, uLookWater: focus.uLookWater });
+    Object.assign(shader.uniforms, { uLookShift: lookShift, uLookTrunks: focus.uLookTrunks, uLookDir: focus.uViewDir, uLookAt: focus.uFocus, uLookNear: focus.uLookNear, uLookWater: focus.uLookWater });
     shader.vertexShader = 'uniform float uLookShift;\nvarying vec3 vLookW;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vec4 lookW = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
@@ -50,8 +51,8 @@ export function withLookShift(mat, { near = false } = {}) {
     // Water is not cover: it writes no depth, so this pass showed a swimmer's body through the
     // surface as if it swam on top (Cole, 2026-11-14: every animal in the water at eye level). What
     // is under the water (focus.uLookWater, set while the eye is above it) is left to the normal draw.
-    shader.fragmentShader = `uniform float uLookShift; uniform vec4 uLookTrunks[${LOOK_TRUNKS}]; uniform vec3 uLookDir; uniform vec3 uLookAt; uniform float uLookD; uniform float uLookWater; varying vec3 vLookW;\n` + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
-      ${near ? 'if (uLookShift > 0.0 && distance(vLookW, uLookAt) > uLookD) discard;' : ''}
+    shader.fragmentShader = `uniform float uLookShift; uniform vec4 uLookTrunks[${LOOK_TRUNKS}]; uniform vec3 uLookDir; uniform vec3 uLookAt; uniform float uLookNear; uniform float uLookWater; varying vec3 vLookW;\n` + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+      ${near ? 'if (uLookShift > 0.0 && distance(vLookW, uLookAt) > uLookNear) discard;' : ''}
       if (uLookShift > 0.0 && vLookW.y < uLookWater) discard;
       if (uLookShift > 0.0) {
         vec3 lookTo = isOrthographic ? uLookDir : cameraPosition - vLookW; // (to the eye: as far as the eye)
@@ -68,7 +69,7 @@ export function withLookShift(mat, { near = false } = {}) {
       }`);
     // (the branch fades out round it)
     if (near) shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
-      if (uLookShift > 0.0) gl_FragColor.a *= 1.0 - smoothstep(0.4 * uLookD, uLookD, distance(vLookW, uLookAt));`);
+      if (uLookShift > 0.0) gl_FragColor.a *= 1.0 - smoothstep(0.4 * uLookNear, uLookNear, distance(vLookW, uLookAt));`);
   };
   mat.customProgramCacheKey = () => baseKey + '|look' + (near ? '-near' : '');
   return mat;
@@ -126,9 +127,12 @@ export function drawLookThrough(gl, scene, camera, fauna, amt, near = []) {
   // its own depth first, then its colour where it is nearest
   for (const m of mats) { m.colorWrite = false; m.depthWrite = true; } // (tested against the scene: nothing farther in front is drawn over)
   gl.render(scene, camera);
-  for (const m of mats) { m.colorWrite = true; m.depthWrite = false; m.depthFunc = THREE.EqualDepth; m.transparent = true; m.opacity = LOOK_ALPHA * Math.min(1, amt); }
+  // (needsUpdate: an opaque material's shader sets its alpha to 1 whatever its opacity, so without
+  // switching to its transparent version the animal was drawn whole over the cover, not faintly.
+  // three keeps both versions, so switching back and forth is a lookup, not a compile)
+  for (const m of mats) { m.colorWrite = true; m.depthWrite = false; m.depthFunc = THREE.EqualDepth; m.transparent = true; m.opacity = LOOK_ALPHA * Math.min(1, amt); m.needsUpdate = true; }
   gl.render(scene, camera);
-  mats.forEach((m, i) => Object.assign(m, saved[i]));
+  mats.forEach((m, i) => { Object.assign(m, saved[i]); m.needsUpdate = true; });
   camera.layers.mask = layers; scene.background = background; gl.autoClear = autoClear; gl.shadowMap.needsUpdate = shadows;
   for (const l of lights) l.layers.disable(LOOK_LAYER);
   for (const g of ghosts) g.mesh.visible = false;

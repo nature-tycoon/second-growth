@@ -40,6 +40,7 @@ export const focus = {
   uFocusBodyR: { value: 0.3 },              // half the animal's size across the screen, at its depth: the gap's core
   uLookTrunks: { value: Array.from({ length: 8 }, () => new THREE.Vector4()) }, // trunks close in front of it: x, z, radius (0: none), top, look-through.js
   uLookD: { value: 0.5 },                   // how far in front of the animal cover is seen through, not opened (look-through.js)
+  uLookNear: { value: 0.5 },                // about its size: how far round it the branch it is on shows through (look-through.js)
   uFocusInvD: { value: 0 },                 // 1 / distance from the animal to the eye at eye level; 0 from above
   uLookWater: { value: -1e9 },              // the water's surface at the animal, when the eye is above it (look-through.js); -1e9: none
 };
