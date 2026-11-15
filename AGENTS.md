@@ -78,7 +78,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0045](docs/decisions/0045-simulation-worker.md) Simulation in a Web Worker: proposed design and spike, no-go for now (`tools/sim-worker-spike.mjs`)
 - [0046](docs/decisions/0046-plant-growth-on-the-gpu.md) Plant redraw: deadwood age redraws its own tile; growth on the GPU measured and declined
 - [0047](docs/decisions/0047-accounts-sharing-and-home.md) Accounts, sharing farms, home: no login for now; share by link and farm files built (`js/share-file.js`, `js/ui/share.js`, Worker `/farms` on KV, `?farm=` opens a visit that never saves over the player's farm); website the main link, itch a storefront
-- [0048](docs/decisions/0048-water-and-elevation-model.md) Water and elevation: audit, proposed rework (proposed), digging never moves other water, dug creeks graded for fish (`gradeDugCreek`), ponds joined to a creek hold its level (`feedLevel`)
+- [0048](docs/decisions/0048-water-and-elevation-model.md) Water and elevation: audit, proposed rework (proposed), digging never moves other water, dug creeks graded for fish (`gradeDugCreek`), ponds joined to a creek hold its level (`feedLevel`), Fill & grade levels a stroke to one height (`gradeTile`), Demolish takes up gravel lots
 
 Ask a trait, never a species name: behaviour and drawing ask `trait(def, name)` (`js/data/animal-kinds.js`: defaults by `sprite.kind`, a species overrides with a field of the same name), so a fix reaches every animal with the trait. A name check stays only where a species is truly unique, with a one-line comment saying why. `node tools/species-name-count.mjs` (headless suite) fails if name checks rise; `--update` after they fall.
 

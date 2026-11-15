@@ -193,3 +193,54 @@ export function gradeDugCreek(w, x, y, dugBed) {
   if (changed) { w.heightDirty = true; w.hv = (w.hv || 0) + 1; }
   return changed;
 }
+
+// Fill & grade: one level across a stroke. How far (in levels) a land tile may sit from the stroke's
+// level and still be graded to it: 1.5 levels (3.6 m) over the tile's 8 m is the steepest cut bank
+// or fill slope a grader leaves; past that the pad simply stops where the ground gets too steep.
+export const GRADE_REACH = 1.5;
+// (a tile whose corners all stand this near the level is left as it is, so grading ground that is
+// already level, or has the 0.02 lean fillPits leaves, moves and charges nothing)
+const GRADE_SLACK = 0.03;
+
+// The level a Fill & grade stroke starting on tile (x, y) grades to: that tile's own height, or, on
+// water being filled, the land round it (as before) but never under the water's surface plus a bank
+// (0.15), so the filled ground stands dry rather than being flooded again by the water beside it.
+export function gradeLevel(w, x, y) {
+  const i = w.idx(x, y), t = w.terrain[i];
+  if (!isWater(t)) return w.tileH(x, y);
+  let s = 0, n = 0;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if ((!dx && !dy) || !w.inb(x + dx, y + dy) || isWater(w.terrain[w.idx(x + dx, y + dy)])) continue;
+    s += w.tileH(x + dx, y + dy); n++;
+  }
+  const c = w.corners(x, y), surface = Math.min(...c) + (WATER_FILL[t] ?? 0.3) + 0.15;
+  return Math.max(n ? s / n : Math.max(...c), surface);
+}
+
+// Set tile (x, y)'s corners to `level`, so the ground there is perfectly flat; the tiles round it
+// that aren't graded take the slope between (a one-tile cut bank or fill slope). A corner shared with
+// other water or a building stays put (0048: an edit never moves another water body's corners, and a
+// building keeps the flat ground it was built on). One exception: filling part of a pond or marsh
+// (`filling`) may raise, never lower, the corners it shares with the rest of it, as tipped earth
+// slumps into the water's edge; held there, a filled shore tile sloped down under the water and the
+// water model called it marsh. A creek's or the river's bed never moves. Returns whether any corner moved.
+export function gradeTile(w, x, y, level, filling = false) {
+  const C4 = [[0, 0], [1, 0], [1, 1], [0, 1]];
+  if (C4.every(([dx, dy]) => Math.abs(w.vert(x + dx, y + dy) - level) <= GRADE_SLACK)) return false;
+  let moved = false;
+  for (const [dx, dy] of C4) {
+    const vx = x + dx, vy = y + dy;
+    if (w.vert(vx, vy) === level) continue;
+    const held = [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([ox, oy]) => {
+      const tx = vx + ox, ty = vy + oy;
+      if ((tx === x && ty === y) || !w.inb(tx, ty)) return false;
+      const j = w.idx(tx, ty), t = w.terrain[j];
+      if (filling && (t === T.POND || t === T.MARSH) && level > w.vert(vx, vy)) return false;
+      return isWater(t) || w.struct[j] >= 0;
+    });
+    if (held) continue;
+    w.setVert(vx, vy, level); moved = true;
+  }
+  if (moved) { w.heightDirty = true; w.hv = (w.hv || 0) + 1; }
+  return moved;
+}

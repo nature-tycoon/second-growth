@@ -9,7 +9,7 @@ import { onBiome, mapCatalog } from './biome.js';
 import { MULCH_DAYS } from './sim/ecological-pressure.js';
 import { plantAffinity } from './plant-patterns.js';
 import { hash2 } from './rng.js';
-import { gradeDugCreek } from './maps/landform.js';
+import { gradeDugCreek, gradeLevel, gradeTile, GRADE_REACH } from './maps/landform.js';
 import { assertCatalogTools } from './data/contracts.js';
 
 const land = t => !isWater(t);
@@ -61,19 +61,27 @@ export function createTools(catalog) {
   tool({ key: 'creek', cat: 'land', name: 'Creek channel', cost: 45, icon: { terrain: T.CREEK }, size: 0,
     desc: 'Carve a flowing creek. Connect it to the river so fish can swim in. Try adding some bends.', apply: dig(T.CREEK) });
   tool({ key: 'fill', cat: 'land', name: 'Fill & grade', cost: 25, icon: { terrain: T.SOIL },
-    desc: 'Fill in water, or rip up old roads and gravel people laid, leaving loose bare soil. Natural sand and gravel bars stay.',
+    desc: 'Grade the ground level at the height where you start, filling in water and old roads as loose bare soil. Gravel stays (Demolish takes up gravel people laid).',
     apply: (game, i, random, stroke) => {
-      const w = game.world, t = w.terrain[i];
+      const w = game.world, t = w.terrain[i], x = i % w.w, y = (i / w.w) | 0;
       if (t === T.RIVER || w.struct[i] >= 0 || w.feature[i] === F.CULVERT) return null;
-      // (beach sand, gravel bars, kopjes and rubble are natural ground: only gravel people laid comes up,
-      // or a slip of the brush could lose a turtle beach for good)
-      if (t === T.GRAVEL && !(w.marks[i] & LAID)) { if (stroke) stroke.natural ??= i; return null; }
       if (t === T.ROAD && biome.fixedRoads) return null; // (the suburb's streets and driveways stay)
-      if (!isWater(t) && t !== T.ROAD && t !== T.GRAVEL && t !== T.MUD) return null;
-      w.terrain[i] = T.SOIL;
-      if (w.feature[i] === F.DAM || w.feature[i] === F.BOARDWALK) w.feature[i] = 0;
-      if (isWater(t)) { w.clearPlants(i, 'player'); w.hydroDirty = true; w.raiseToSurroundings(i % w.w, (i / w.w) | 0); }
-      return true;
+      // one level across the whole stroke: the height where it starts (the brush's centre), so a
+      // dragged stroke leaves a flat pad, cut into the slope uphill and built up downhill
+      const at = stroke?.last && w.inb(stroke.last.x, stroke.last.y) ? stroke.last : { x, y };
+      const level = stroke ? (stroke.level ??= gradeLevel(w, at.x, at.y)) : gradeLevel(w, x, y);
+      const fills = isWater(t) || t === T.ROAD || t === T.MUD;
+      if (t === T.GRAVEL && stroke) stroke[w.marks[i] & LAID ? 'laidGravel' : 'gravel'] ??= i; // (graded, but it stays: notifyOutcome says why)
+      // (land too far above or below the level is left: the pad stops where the slope gets too steep)
+      if (!isWater(t) && Math.abs(w.tileH(x, y) - level) > GRADE_REACH) { if (stroke) stroke.steep ??= i; return null; }
+      if (fills) {
+        w.terrain[i] = T.SOIL;
+        if (w.feature[i] === F.DAM || w.feature[i] === F.BOARDWALK) w.feature[i] = 0;
+        if (isWater(t)) { w.clearPlants(i, 'player'); w.hydroDirty = true; }
+      }
+      const moved = gradeTile(w, x, y, level, t === T.POND || t === T.MARSH);
+      if (moved) w.hydroDirty = true; // (the water beside it may now spill onto it, or no longer reach it)
+      return fills || moved ? true : null;
     } });
   tool({ key: 'rip', cat: 'land', name: 'Loosen soil', cost: 4, icon: { terrain: T.FIELD },
     desc: 'Break up compacted fields and old pasture sod so native seeds can take hold.',
@@ -273,7 +281,7 @@ export function createTools(catalog) {
       return true;
     } });
   tool({ key: 'demolish', cat: 'remove', name: 'Demolish', cost: 0, icon: { svg: 'demolish' }, size: 0,
-    desc: 'Tear out fences, old buildings, roads, the road culvert, or habitat features you placed. Natural snags, logs, stumps and rocks stay. Buildings and machinery sell for salvage.',
+    desc: 'Tear out fences, old buildings, roads, gravel lots, the road culvert, or habitat features you placed. Natural snags, logs, stumps and rocks stay. Buildings and machinery sell for salvage.',
     costFor: (game, i) => {
       if (naturalFeature(game.world, i)) return 0;
       const w = game.world;
@@ -281,6 +289,7 @@ export function createTools(catalog) {
       const f = w.feature[i];
       if ((w.terrain[i] === T.TRAIL || (w.marks[i] & 1)) && !f) return 2;
       if (w.terrain[i] === T.ROAD && !f) return biome.fixedRoads ? 0 : 15;
+      if (w.terrain[i] === T.GRAVEL && (w.marks[i] & LAID) && !f) return 15; // (a gravel lot: as a road)
       if (f === F.CULVERT) return 4000;
       if (f === F.DIKE) return 60;
       if (biome.fixedRoads && f === F.BOARDWALK && (w.terrain[i - 1] === T.ROAD || w.terrain[i + 1] === T.ROAD)) return 0;
@@ -308,6 +317,12 @@ export function createTools(catalog) {
       if (w.terrain[i] === T.ROAD && !f) {
         if (biome.fixedRoads) { if (!game.flags.permanentHint) { game.flags.permanentHint = true; game.notify('People live here: the homes, the clubhouse and the streets stay. Work around them. Every yard can still be a garden.', 'info'); } return null; }
         w.terrain[i] = T.SOIL; w.soil[i] = Math.min(w.soil[i], 0.12); w.hydroDirty = true;
+        return true;
+      }
+      // gravel people laid (a farmyard, a pull-out, riprap): taken up to the bare soil under it. What grew
+      // there before isn't known, so it's bare ground for seed to find. Natural gravel stays.
+      if (w.terrain[i] === T.GRAVEL && (w.marks[i] & LAID) && !f) {
+        w.terrain[i] = T.SOIL; w.soil[i] = Math.min(w.soil[i], 0.12); w.marks[i] &= ~LAID; w.hydroDirty = true;
         return true;
       }
       if (f === F.DAM) {

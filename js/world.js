@@ -190,20 +190,6 @@ export class World {
     }
     this.heightDirty = true; this.hv = (this.hv || 0) + 1;
   }
-  // Bring a filled-in tile back up to the level of the land around it.
-  raiseToSurroundings(x, y) {
-    let s = 0, n = 0;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-      if (!dx && !dy) continue;
-      const xx = x + dx, yy = y + dy;
-      if (!this.inb(xx, yy) || isWater(this.terrain[this.idx(xx, yy)])) continue;
-      s += this.tileH(xx, yy); n++;
-    }
-    if (!n) return;
-    const target = s / n;
-    for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) this.setVert(x + dx, y + dy, Math.max(this.vert(x + dx, y + dy), target));
-    this.heightDirty = true; this.hv = (this.hv || 0) + 1;
-  }
   shiftTile(x, y, amt) {
     // (40 levels: above the highest hill any map has, 0044)
     for (const [dx, dy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) this.setVert(x + dx, y + dy, clamp(this.vert(x + dx, y + dy) + amt / 2, -1.5, 40));

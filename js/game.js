@@ -469,7 +469,7 @@ export class Game {
       if (a) restoreArray(a, w[k]);
       else if (data.v === 2) return false;
     }
-    // (gravel people laid, which Fill & grade may rip up: taken from the map as generated, so a save from
+    // (gravel people laid, which Demolish may take up: taken from the map as generated, so a save from
     // before the mark has it too; laid gravel already filled stays soil)
     for (let i = 0; i < w.n; i++) if ((fresh.marks[i] & LAID) && w.terrain[i] === T.GRAVEL) w.marks[i] |= LAID;
     // (creek the player dug: what the map as generated doesn't have. Graded again when next dug or joined)

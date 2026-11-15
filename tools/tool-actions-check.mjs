@@ -6,7 +6,7 @@ import { ToolActions, refusal } from '../js/tool-actions.js';
 import { TOOLS, toolCost, naturalFeature } from '../js/tools.js';
 import { Undo } from '../js/undo.js';
 import { removeTree, plantSuit } from '../js/sim/plants.js';
-import { T, F, PLACED, LAID } from '../js/config.js';
+import { T, F, PLACED, LAID, isWater } from '../js/config.js';
 
 let checks = 0;
 const g = new Game();
@@ -190,9 +190,9 @@ check('A refused planting names its limits and a tool that suits the spot, in th
   assert.ok(notes.some(n => n.includes(limits[0]) && n.includes(`try ${better.name}`)), notes.join(' | '));
 });
 
-for (const map of BIOME_LIST.map(b => b.id)) check(`${map}: Fill & grade rips up laid gravel only, and a save keeps which is which`, () => {
+for (const map of BIOME_LIST.map(b => b.id)) check(`${map}: Demolish takes up laid gravel only, Fill & grade keeps all gravel, and a save keeps which is which`, () => {
   g.newGame(1987, 'free', 'standard', map);
-  const w = g.world, open = i => w.struct[i] < 0 && w.feature[i] !== F.CULVERT;
+  const w = g.world, open = i => w.struct[i] < 0 && w.feature[i] !== F.CULVERT && !w.feature[i] && (!g.mapDefinition.canEdit || g.mapDefinition.canEdit(g, i));
   const natural = [], laid = [];
   for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.GRAVEL && open(i)) (w.marks[i] & LAID ? laid : natural).push(i);
   // (a loaded save takes its marks from the map as generated, so an older save without them gets them too)
@@ -203,18 +203,82 @@ for (const map of BIOME_LIST.map(b => b.id)) check(`${map}: Fill & grade rips up
   const notes = [], notify = g.notify;
   g.notify = text => notes.push(text);
   try {
-    if (natural.length) {
-      const s = new ToolActions(g).apply('fill', natural.slice(0, 40));
-      assert.equal(s.count, 0);
-      assert.ok(natural.every(i => g.world.terrain[i] === T.GRAVEL), `${map}: natural gravel was filled`);
-      assert.ok(notes.some(n => n.includes('gravel people laid')), notes.join(' | '));
-    }
+    if (!g.catalog.tools.fill) return;
+    new ToolActions(g).apply('fill', [...natural.slice(0, 40), ...laid.slice(0, 5)]);
+    assert.ok([...natural, ...laid].every(i => g.world.terrain[i] === T.GRAVEL), `${map}: Fill & grade took up gravel`);
+    if (laid.length) assert.ok(notes.some(n => n.includes('Demolish')), notes.join(' | '));
     if (laid.length) {
-      const s = new ToolActions(g).apply('fill', laid.slice(0, 5));
-      assert.equal(s.count, Math.min(5, laid.length));
-      assert.ok(laid.slice(0, 5).every(i => g.world.terrain[i] === T.SOIL));
+      const some = laid.slice(0, 5), balance = g.money;
+      for (const i of some) assert.equal(toolCost(g, g.catalog.tools.demolish, i), 15);
+      const undo = new Undo(g), s = new ToolActions(g, { undo }).apply('demolish', some);
+      assert.equal(s.count, some.length);
+      assert.equal(g.money, balance - 15 * some.length);
+      assert.ok(some.every(i => g.world.terrain[i] === T.SOIL && !(g.world.marks[i] & LAID)));
+      assert.ok(undo.undo());
+      assert.ok(some.every(i => g.world.terrain[i] === T.GRAVEL && g.world.marks[i] & LAID), `${map}: Undo didn't put the gravel lot back`);
+    }
+    if (natural.length) {
+      const s = new ToolActions(g).apply('demolish', natural.slice(0, 40));
+      assert.equal(s.count, 0);
+      assert.ok(natural.every(i => g.world.terrain[i] === T.GRAVEL), `${map}: Demolish took up natural gravel`);
     }
   } finally { g.notify = notify; }
+});
+
+// Fill & grade leaves one level across the stroke: every corner of every graded tile at the height
+// where the stroke started, unless it's shared with other water or a building (which never move)
+for (const map of BIOME_LIST.map(b => b.id)) check(`${map}: Fill & grade levels a stroke to the height where it starts`, () => {
+  g.newGame(1987, 'free', 'standard', map);
+  const w = g.world, tools = g.catalog.tools;
+  if (!tools.fill) return;
+  const canEdit = i => !g.mapDefinition.canEdit || g.mapDefinition.canEdit(g, i);
+  const dry = (x, y) => { for (let dy = -3; dy <= 3; dy++) for (let dx = -4; dx <= 4; dx++) { if (!w.inb(x + dx, y + dy)) return false; const j = w.idx(x + dx, y + dy); if (isWater(w.terrain[j]) || w.struct[j] >= 0 || w.terrain[j] === T.ROAD || !canEdit(j)) return false; } return true; };
+  // the steepest dry patch the map has (the stroke and the ring round it), so the stroke cuts and fills
+  let best = null, relief = 0;
+  for (let y = 4; y < w.h - 4; y += 3) for (let x = 4; x < w.w - 4; x += 3) {
+    if (!dry(x, y)) continue;
+    const r = Math.abs(w.tileH(x + 2, y) - w.tileH(x - 2, y)) + Math.abs(w.tileH(x, y + 2) - w.tileH(x, y - 2));
+    if (r > relief && r < 2) { relief = r; best = [x, y]; }
+  }
+  assert.ok(best, `${map}: no dry patch to grade`);
+  const [cx, cy] = best, level = w.tileH(cx - 2, cy), vh = w.vh.slice(), balance = g.money;
+  const undo = new Undo(g), actions = new ToolActions(g, { undo }), stroke = actions.begin('fill');
+  for (let x = cx - 2; x <= cx + 2; x++) actions.paint(stroke, x, cy, 1);
+  actions.end(stroke);
+  assert.ok(stroke.count > 0, `${map}: nothing was graded`);
+  let off = 0;
+  for (const i of stroke.changed) for (const h of w.corners(i % w.w, (i / w.w) | 0)) off = Math.max(off, Math.abs(h - level));
+  assert.ok(off < 1e-6, `${map}: a graded corner stands ${off.toFixed(3)} levels off the stroke's level`);
+  assert.ok(g.money < balance || g.sandbox);
+  assert.ok(undo.undo());
+  assert.deepEqual(w.vh, vh);
+});
+
+// Grading beside water never moves that water's corners, and filled water stands dry
+check('pnw: Fill & grade beside a creek leaves the creek, and a filled pond tile stands dry above the water', () => {
+  g.newGame(1987, 'free', 'standard', 'pnw');
+  const w = g.world;
+  const i = w.terrain.findIndex((t, j) => t === T.CREEK && [1, -1, w.w, -w.w].some(d => !isWater(w.terrain[j + d]) && w.terrain[j + d] !== T.ROAD && w.struct[j + d] < 0));
+  assert.ok(i >= 0);
+  const x = i % w.w, y = (i / w.w) | 0, creek = w.corners(x, y);
+  const land = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [x + dx, y + dy]).filter(([xx, yy]) => w.inb(xx, yy) && !isWater(w.terrain[w.idx(xx, yy)]));
+  const actions = new ToolActions(g);
+  for (const [lx, ly] of land) {
+    // (a stroke started a level above or below the bank, either way the creek's own corners hold)
+    for (const shift of [0.6, -0.6]) {
+      const s = actions.begin('fill');
+      w.shiftTile(lx + (lx - x) * 2, ly + (ly - y) * 2, shift * 2);
+      actions.paint(s, lx + (lx - x) * 2, ly + (ly - y) * 2, 2);
+      actions.end(s);
+      assert.deepEqual(w.corners(x, y), creek, 'grading moved the creek bed');
+    }
+  }
+  const p = w.terrain.findIndex(t => t === T.POND), px = p % w.w, py = (p / w.w) | 0;
+  const surface = Math.min(...w.corners(px, py)) + 0.4;
+  actions.apply('fill', [p]);
+  assert.equal(w.terrain[p], T.SOIL);
+  // (its corners shared with the rest of the pond come up with it, so it stands dry, not as a marsh)
+  assert.ok(Math.min(...w.corners(px, py)) > surface, 'a filled pond tile sits under the pond\'s water');
 });
 
 console.log(`${checks} shared player-action checks passed.`);

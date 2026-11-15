@@ -26,6 +26,16 @@ Status: **proposed** (the rework below waits for Cole's go-ahead). The first fix
   seeds, joined pond vs a vernal pool through a dry summer, save and load). Also run
   `hollis-water-check`, `tool-actions-check`, `fish-water-check` and `terrain-relief-check` after
   any change to digging or the water model.
+- **Fill & grade levels a stroke to one height** (`gradeLevel`, `gradeTile`, `js/maps/landform.js`): the
+  height of the tile where the stroke starts (on water, the land round it but at least a bank, 0.15,
+  over that water's surface). Every corner of a graded tile goes to that level; the tiles round it take
+  the slope between. Land more than `GRADE_REACH` (1.5 levels, 3.6 m) off the level is skipped, so the
+  pad stops where the ground gets steep. Corners shared with a creek, the river, other water or a
+  building never move; filling part of a pond or marsh may only *raise* the corners it shares with the
+  rest of it (held, a filled shore tile sloped under the water and the Hollis model made it marsh).
+  Gravel is graded but stays gravel; **Demolish takes up gravel people laid** (`LAID`) to bare soil, at
+  a road's price (15). Check: `tool-actions-check` (level per map, creek bed untouched, filled pond tile
+  dry, gravel lots).
 - Before building the rework, read "Proposed model" below. Until then, any new edit that touches heights
   next to water should follow the same rule: it may lower its own tiles and the land, never another
   water body's corners.
@@ -50,7 +60,7 @@ up to eight neighbours.
 | Map generator | `generateHeights` (world.js), `land.base` per map (0044) | Builds the land, then `fillPits`, carves water (`carve`, river at -0.7, ponds levelled with a bank), `creekDownhill` |
 | Dig pond / marsh / creek | `dig()` in tools.js → `carve` (+ `levelPond` for ponds, + `gradeDugCreek` for creeks since this record) | Lowers the tile's corners to its highest corner less a depth |
 | Raise / Lower ground | `shiftTile` | Moves all four corners, any tile but the river, water included |
-| Fill & grade | `raiseToSurroundings` | Raises a filled water tile toward the average of the land round it |
+| Fill & grade | `gradeTile` (was `raiseToSurroundings`, which also raised the corners of the water beside it) | Sets every stroked tile's corners to the stroke's level, holding other water's corners |
 | Buildings | `flattenRect` (generators only) | Levels a rectangle to its mean |
 | Beaver dams | none: dams change water, not heights | |
 
