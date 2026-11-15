@@ -134,7 +134,8 @@ Steps 1 and 2 come first because everything else uses them. Step 3 is the big vi
 
 ### Step 4 status (12 Nov)
 
-- **Built:** `/press/` (fact sheet with species counts checked against the game data, short and long descriptions, features, footage and stills to download, logo, credits and licences, contact), a "Follow along" block on the homepage and the press kit, and the generated-art rules: `website/art/art-provenance.json` and `website-check` keeping generated art out of game-capture slots.
+- **Removed 2026-11-15** (Cole): the press kit below is gone from the site; it is in git history before then.
+- **Built (since removed):** `/press/` (fact sheet with species counts checked against the game data, short and long descriptions, features, footage and stills to download, logo, credits and licences, contact), a "Follow along" block on the homepage and the press kit, and the generated-art rules: `website/art/art-provenance.json` and `website-check` keeping generated art out of game-capture slots.
 - **Decided:** "a game by Cole Weiler"; press contact info@secondgrowth.earth (Porkbun forwards it to Cole's Gmail, and Gmail sends as it); news by following on itch.io (itch emails followers when a devlog is posted), so no newsletter service and no change to the site's security policy; community is the itch.io comments; no social accounts yet.
 - **Key art and logo lockup:** the ChatGPT prompt pack is [docs/key-art-prompts.md](key-art-prompts.md). Cole runs it; Claude sizes the results and adds them as labelled illustrations.
 - **Trailer (not built yet):** its raw material is the clips from `tools/capture-site-video.mjs` (the list in `tools/website-video-clips.mjs`; add trailer shots there so they're filmed the same way), plus a CC0 track by HoliznaCC0 from `assets/music/` and a title card from the key art. The press kit's footage section says a trailer is coming.
