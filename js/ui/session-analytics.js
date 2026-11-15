@@ -46,12 +46,12 @@ export class SessionAnalytics {
   snapshot() {
     const g = this.game;
     return { game_year: g.year, game_month: g.month, score: Math.round(g.cache.score?.total ?? 0),
-      species: speciesPresent(g), money: Math.round(g.money), visitors: g.visitors.monthly };
+      species: speciesPresent(g), money: Math.round(g.money), visitors: g.visitors.monthly, ...(g.sandbox ? { sandbox: true } : {}) };
   }
 
   context() {
     const g = this.game;
-    return { map: g.map, mode: g.mode, difficulty: g.difficulty,
+    return { map: g.map, mode: g.mode, difficulty: g.difficulty, sandbox: g.sandbox,
       chapter: campaignOn(g) ? g.campaign.chapter + 1 : null, chapter_key: currentChapter(g)?.key ?? null };
   }
 

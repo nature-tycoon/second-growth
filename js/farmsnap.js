@@ -35,7 +35,7 @@ export function farmSnapshot(g) {
   return {
     snap_version: SNAP_VERSION, width: w.w, height: w.h, grid: encodeGrid(w),
     game_year: g.year, game_month: g.month, day: g.day,
-    score: Math.round(g.cache.score?.total ?? 0), money: Math.round(g.money),
+    score: Math.round(g.cache.score?.total ?? 0), money: Math.round(g.money), ...(g.sandbox ? { sandbox: true } : {}),
     visitors_total: g.visitors.total, rating: +(g.visitors.rating || 0).toFixed(1),
     populations: pops, habitats: counts, tools_used: { ...(g.stats.used || {}) },
     trees_planted: g.stats.treesPlanted || 0, planted: g.stats.planted || 0,

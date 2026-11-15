@@ -332,6 +332,7 @@ addStrings({
   'For a full screen experience, add the game to your home screen: tap Share, then Add to Home Screen.': 'Para jugar en pantalla completa, agregá el juego a tu pantalla de inicio: tocá Compartir y después Agregar a inicio.',
   'For the most room, use full screen (the corner button at the top) or add the game to your home screen.': 'Para tener más espacio, usá pantalla completa (el botón de la esquina de arriba) o agregá el juego a tu pantalla de inicio.',
   'How do you want to play?': '¿Cómo querés jugar?', Difficulty: 'Dificultad', Mode: 'Modo', Campaign: 'Campaña', 'Free play': 'Juego libre',
+  'Sandbox: unlimited money': 'Modo libre: dinero ilimitado', 'Build anything with no budget, to try things out. Sandbox farms stay out of ratings and the numbers we share.': 'Construí lo que quieras sin presupuesto, para probar cosas. Las fincas en modo libre no cuentan en las valoraciones ni en las cifras que compartimos.',
   Relaxed: 'Tranquilo', Standard: 'Normal', Challenging: 'Difícil',
   'More money, cheaper work, fewer fires and floods, and invasive weeds spread more slowly. Just enjoy the valley coming back.': 'Más plata, trabajo más barato, menos incendios y llenas, y las plantas invasoras se extienden más despacio. Solo disfrutá cómo vuelve la finca.',
   'The intended balance: money is tight, wildlife takes its time to return, and visitors become your main income.': 'El balance normal: la plata alcanza justo y los animales tardan en volver.',

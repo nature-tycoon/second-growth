@@ -103,7 +103,7 @@ async function boot() {
         track('game_start', { mode: 'continue', saved_mode: game.mode, map: game.map, difficulty: game.difficulty, game_year: game.year });
         game.notify(`Welcome back. It's ${game.dateString()}.`, 'season');
       }
-    } else if (pending) await ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map, pending.runSeed);
+    } else if (pending) await ui.startMode(pending.mode || 'free', true, pending.difficulty, pending.map, pending.runSeed, { sandbox: !!pending.sandbox });
     // A first visit goes straight into Free Play on the farm already generated: the mode choice
     // was where most new players left (docs/posthog-review-2026-11.md). The story is offered from
     // the menu and after the first goal.

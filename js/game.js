@@ -95,19 +95,22 @@ export class Game {
   dateString() { return `${MONTH_NAMES[this.month]}, Year ${this.year}`; }
   seasonName() { return this.mapDefinition.climate.seasons[this.season]; }
 
-  canAfford(c) { return this.money >= c; }
+  // Sandbox (chosen at new game, saved in flags): money never limits building, and nothing is
+  // booked, so the farm's economy numbers (ledger, spent, earned) stay out of any report.
+  get sandbox() { return !!this.flags?.sandbox; }
+  canAfford(c) { return this.sandbox || this.money >= c; }
   // Every dollar in and out is booked under where it came from or went (see INCOME and SPENDING
   // in ui.js for the names), month by month, so the money panel can show the player what pays.
   spend(c, what = 'work') {
-    if (c <= 0) return true;
+    if (c <= 0 || this.sandbox) return true;
     if (this.money < c) return false;
     this.money -= c; this.stats.spent += c;
     this.book('out', what, c);
     return true;
   }
-  earn(c, from = 'other') { this.money += c; this.stats.earned += c; this.book('in', from, c); }
+  earn(c, from = 'other') { if (this.sandbox) return; this.money += c; this.stats.earned += c; this.book('in', from, c); }
   // a bill that's paid whether or not there's money for it (trail upkeep)
-  pay(c, what) { if (c > 0) { this.money -= c; this.stats.spent += c; this.book('out', what, c); } }
+  pay(c, what) { if (c > 0 && !this.sandbox) { this.money -= c; this.stats.spent += c; this.book('out', what, c); } }
   book(side, key, c) {
     const l = this.ledger ||= { in: {}, out: {} };
     l[side][key] = (l[side][key] || 0) + c;
@@ -118,7 +121,7 @@ export class Game {
   // Land trust money (grants and rewards) scales with difficulty; visitor donations don't.
   // kind is only bookkeeping (monthly, goal, discovery, chapter), so the balance can be checked
   grant(c, kind = 'other') {
-    const v = Math.round(c * this.diff.grants); this.earn(v, kind === 'monthly' ? 'grant' : kind === 'discovery' ? 'discovery' : 'reward');
+    const v = Math.round(c * this.diff.grants); if (this.sandbox) return v; this.earn(v, kind === 'monthly' ? 'grant' : kind === 'discovery' ? 'discovery' : 'reward');
     const gs = this.stats.grants ||= {}; gs[kind] = (gs[kind] || 0) + v;
     return v;
   }
@@ -434,7 +437,7 @@ export class Game {
       // Validate off to the side so a rejected save cannot partially replace the farm.
       const restored = new Game();
       if (!restored.restoreSave(structuredClone(snapshot.data))) { setBiome(this.map); return false; }
-      const { listeners, ...state } = restored;
+      const { listeners, invasives, ...state } = restored; // (invasives is the player's setting, not the farm's: a fresh Game would turn it back on)
       Object.assign(this, state);
       this.wildlife.game = this; this.visitors.game = this; this.events.game = this;
       this.loaded = true; this.saveReady = true;
