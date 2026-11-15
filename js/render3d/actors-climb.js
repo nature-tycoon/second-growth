@@ -7,7 +7,7 @@ import { F as FEAT, clamp } from '../config.js';
 import { trait } from '../data/animal-kinds.js';
 import { treeHeight } from './tree-stature.js';
 import { treeTrunk } from '../sim/ground-obstacles.js';
-import { canopyStep, settleCanopyStep, rebaseCanopy, recoverCanopyRoute } from './canopy-motion.js';
+import { canopyStep, settleCanopyStep, rebaseCanopy, regripCanopy, recoverCanopyRoute } from './canopy-motion.js';
 import { canopyLean, canopyRotation } from './canopy-pose.js';
 import { canopyTile } from './canopy-support.js';
 import { ORANGUTAN_CADENCE } from './orangutan-motion.js';
@@ -49,10 +49,11 @@ export function branchPose(A, rec) {
   if (def.move === 'tree') {
     let site = A.flora?.treeSites.get(crownTile(A, rec));
     const requestedSite = site;
-    const supportsValid = !A.flora || rebaseCanopy(st, A.flora);
+    const supportsValid = !A.flora || rebaseCanopy(st, A.flora) || regripCanopy(st, A.flora, mo, sc); // (a crown on a new scaffold)
     const deliberateTransfer = mo.primate === 1 || mo.primate === 2 || mo.primate === 3;
     if (game.speed > 0 && supportsValid && !returning && mo.primate === 2 && st.canopyWait > 1 && st.branchRoute &&
-        Math.hypot(st.branchPoint.x - a.x, st.branchPoint.z - a.y) > 1.8 &&
+        // (from .75 tiles, not 1.8: a resting orangutan gives a wedged body no new target to free it, 0049)
+        Math.hypot(st.branchPoint.x - a.x, st.branchPoint.z - a.y) > .75 &&
         (st.branchRoute.recovery || st.branchRoute.fromSite !== st.branchRoute.target.site)) {
       recoverCanopyRoute(st, source => {
         const [cx, cz] = source.cell, alternatives = [];

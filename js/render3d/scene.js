@@ -1078,6 +1078,8 @@ export class Renderer {
     const todU = this.dayCycleOn === false ? 0.35 : this.todClock / DAY_CYCLE;
     const tod = timeOfDay(todU);
     this.tod = tod; this.todU = todU;
+    // (primates rest through midday and sleep at night by the drawn sun: primateRest in primate-behavior.js)
+    game.todU = this.dayCycleOn === false ? null : todU;
     // how "night" it is: the blue dusk through to just before dawn (for fireflies, eye-shine, owls)
     const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
     this.night = ss(0.872, 0.893, todU) * (1 - ss(0.93, 0.95, todU)); // full night (see NIGHT_PACE for how long it lasts)
