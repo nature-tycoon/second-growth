@@ -8,7 +8,10 @@
 //                 turns its back to water with its head up rather than seem to drink backwards
 //                 (steering.js); 'nibble': drawn nibbling the same way, off reef and not in flight,
 //                 with no meal of its own in the simulation (eating-pose.js, decision 0043)
-//   floats        on open water it floats or paddles at the surface (actors.js)
+//   floats        on open water it floats or paddles at the surface (actors.js); a bird afloat is
+//                 drawn with its legs tucked under it, paddling (actors-fly.js dabblePose)
+//   dabbles       a dabbling duck: afloat, it tips up now and then, head and front under and tail
+//                 up, for a few seconds (drawing only: eating-pose.js dabbleTip, actors-fly.js)
 //   alwaysFlying  drawn on the wing even when the simulation has it at rest: bats, and mantas
 //                 "flying" through the water (actors.js)
 //   flitsLow      flies low over the flowers rather than up over the trees (actors.js)
@@ -39,8 +42,15 @@
 //   fishes        how a bird fishes, a style in js/data/animal-fishing.js: 'dive' plunges from height
 //                 into the sea (boobies, gannets), 'dip' snatches from the surface on the wing
 //                 (noddies, terns) (fishing.js)
+//   restShare     a primate: the share of the daylight hours it spends resting, sitting in a crown
+//                 (or on the ground for a ground monkey), most of it through the midday heat, and
+//                 asleep at night (primate-behavior.js primateRest, decision 0049)
 //   jinks         a runner that escapes by cutting hard to one side as its hunter closes in, so the
 //                 faster hunter overshoots: hares, gazelles, impala, deer (animal-life.js, decision 0026)
+//   freezes      small prey that lives by cover: with a hunter in view but not yet close it freezes,
+//                 crouched, where it sits in thick cover, or slips off to the nearest thicket from the
+//                 open; when the hunter closes or rushes it dashes for the thickest cover (animal-life.js
+//                 watch and fleeUpdate; drawn crouched by actors-ground.js headPose; decision 0006)
 //   swallowsWhole  it swallows its catch whole, head first, and leaves no carcass: snakes
 //                 (animal-life.js swallow; the bulge drawn by actors-common.js gulpBulge)
 //
@@ -60,7 +70,7 @@ const graze = { idleEat: 'graze' }, nibble = { idleEat: 'nibble' }, firm = { fir
 const smallBird = { restless: true, fearsHunters: true };
 
 export const KIND_TRAITS = {
-  deer: { ...graze, jinks: true }, rabbit: { ...graze, jinks: true }, rodent: graze, peccary: graze, agouti: graze,
+  deer: { ...graze, jinks: true }, rabbit: { ...graze, jinks: true, freezes: true }, rodent: graze, peccary: graze, agouti: graze,
   gazelle: { ...graze, jinks: true }, impala: { ...graze, jinks: true }, buffalo: graze, warthog: graze,
   capybara: { ...graze, floats: true }, tapir: { ...graze, floats: true },
   zebra: { ...graze, floats: true }, wildebeest: { ...graze, floats: true }, // (the migrating herds swim the river)
@@ -73,11 +83,11 @@ export const KIND_TRAITS = {
   seacucumber: firm, urchin: firm, beetle: firm, pangolin: firm, armadillo: firm, person: firm,
   ray: { ...firm, alwaysFlying: true }, bat: { alwaysFlying: true },
   butterfly: { flitsLow: true }, bee: { ...firm, flitsLow: true },
-  monkey: { climb: 'walk', crownHeight: 0.9 }, orangutan: { climb: 'clamber', crownHeight: 0.9 }, sloth: { climb: 'hang' },
+  monkey: { climb: 'walk', crownHeight: 0.9, restShare: 0.4 }, orangutan: { climb: 'clamber', crownHeight: 0.9, restShare: 0.25 }, sloth: { climb: 'hang' },
   songbird: { ...smallBird, groundFeed: true, flocks: true, hops: true },
   hummer: { ...smallBird, bathes: false },
   woodpecker: { ...smallBird, nestHole: true, trunkFeed: true },
-  duck: { ...nibble, floats: true, perches: false, sitsInCrowns: false, flocks: true },
+  duck: { ...nibble, floats: true, dabbles: true, perches: false, sitsInCrowns: false, flocks: true },
   booby: { floats: true, perches: false, flocks: true, fishes: 'dive' },
   heron: { perches: false, sitsInCrowns: false }, crane: { perches: false, sitsInCrowns: false, groundFeed: true },
   secretary: { groundFeed: true }, hornbill: { ...nibble, nestHole: true, eatsFruit: 'toss' },
@@ -91,4 +101,4 @@ export const trait = (def, name) => def[name] ?? KIND_TRAITS[def.sprite?.kind]?.
 export const climbStyle = def => def.sprite?.ape ? 'swing' : trait(def, 'climb');
 
 // The fields above a species may set (contracts.js checks them).
-export const TRAIT_BOOLEANS = 'floats alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks surfaceFish bottomDweller';
+export const TRAIT_BOOLEANS = 'floats dabbles alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks freezes surfaceFish bottomDweller';

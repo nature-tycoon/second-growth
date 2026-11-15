@@ -2,7 +2,9 @@
 // How far ground walkers actually move for each step of their leg clock (a.phase), as a fraction
 // of their unhindered walking pace: the ratio the drawing uses to slow the stride (actors.js,
 // strideFollowsGround). STATE=1 splits it by state. Per species: the median ratio while walking, and the share of walking
-// steps it falls below 0.35 (held up by a trunk, a neighbour or its own herd).
+// steps it falls below 0.35 (held up by a trunk, a neighbour or its own herd). Standing states
+// (idle, feed, forage) aren't walking: the drawing stands them still, so they're left out (counted
+// in, grazing alone read as "held up" on over half of a herd's steps).
 import { restoredGame } from './map-audit-fixtures.mjs';
 import { populate } from './animal-steering-check.mjs';
 import { mulberry32 } from '../js/rng.js';
@@ -20,7 +22,7 @@ for (const map of maps) {
     for (const a of wl.agents) {
       const def = cat.animals[a.sp], p = last.get(a.id);
       last.set(a.id, [a.x, a.y, a.phase]);
-      if (!p || a.state === 'idle' || def.move !== 'ground' || def.reef) continue;
+      if (!p || a.state === 'idle' || a.state === 'feed' || a.state === 'forage' || def.move !== 'ground' || def.reef) continue;
       const r = groundPace(def, Math.hypot(a.x - p[0], a.y - p[1]), a.phase - p[2]);
       if (r == null) continue;
       (by[process.env.STATE ? `${a.key}/${a.state}${a.follow ? "+follow" : ""}${a.moveProgress?.stalled > 0.3 ? "+stalled" : ""}` : a.key] ||= []).push(r);

@@ -12,7 +12,7 @@ import { climberChoose, fullTrees } from './climbers.js';
 import { crossingLimits, crownsJoin } from './canopy-links.js';
 import { fishChoose, fishing, fishFed } from './fishing.js';
 import { cervidLeader, keepCervidGroup, followCervid, inRut } from './cervid-groups.js';
-import { primateChoose } from './primate-behavior.js';
+import { primateChoose, primateRest, asleep } from './primate-behavior.js';
 import { forageChoose } from './animal-foraging.js';
 import { territorialChoose, hasTerritory } from './animal-territory.js';
 import { settle, landWalker } from './steering.js';
@@ -341,10 +341,12 @@ export class WildlifeIntent {
     if (!a.leaving && harem(this, a, def)) return;    // elk in the rut: bulls gather and guard harems
     if (this.drinks(def) && !a.leaving && this.waterhole(a, def)) return;
     if (!a.leaving && homeChoose(this, a, def)) return; // back from the water, a hunt or a scare
+    if (!a.leaving && asleep(this) && primateRest(this, a, def)) return; // (at night a primate sleeps before it eats)
     if (!a.leaving && forageChoose(this, a, def)) return;
     if (!a.leaving && territorialChoose(this, a, def)) return;
     if (!a.leaving && birdChoose(this, a, def)) return;
     if (!a.leaving && primateChoose(this, a, def)) return;
+    if (!a.leaving && primateRest(this, a, def)) return; // (between walks, never mid-route)
     if (!a.leaving && greet(this, a, def)) return;    // say hello to a neighbour (or spar with a rival)
     // herd animals stay together: one leads, the rest keep their place around it
     if (def.herd && !a.leaving && this.keepWithHerd(a, def)) return;

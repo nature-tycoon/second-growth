@@ -142,6 +142,7 @@ export class Wildlife {
       switch (a.state) {
         case 'idle':
           a.wait -= dt;
+          if (a.restAt != null) a.stillT += dt; // (a primate's time sitting still: its rest budget, primate-behavior.js)
           if (def.familyHerd && !a.drinkT && a.socialWith == null && !(a.greetT > 0) && cervidNeedsRejoin(this, a, def)) a.wait = 0;
           if (a.hover) hoverStep(this, a, def, dt); // (a clownfish about its anemone: animal-territory.js)
           else if (def.reef && a.spd > 0.001) this.glide(a, dt); // (a fish coasts to a stop, it doesn't brake)

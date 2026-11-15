@@ -1,4 +1,5 @@
-// node tools/activity-budget.mjs [map] [seed]
+// node tools/activity-budget.mjs [map] [seed]   (TOD=0.42 holds the drawn sun at that time of day,
+// e.g. noon; unset, there is no sun, as in every headless run)
 // How each species spends its time (percent of samples) in a mixed community on a restored map,
 // over 75 days with the daily tick. A report, not a check: decision 0013 uses it to find
 // behaviours that crowd out others (water commuting, nonstop hunting, never soaring).
@@ -8,6 +9,7 @@ import { passable, canLand } from '../js/sim/animal-terrain.js';
 const map = process.argv[2] || 'pnw', seed = +(process.argv[3] || 7);
 Math.random = mulberry32(seed);
 const g = restoredGame(map, seed), wl = g.wildlife, w = g.world;
+if (process.env.TOD) g.todU = +process.env.TOD;
 wl.agents = []; wl.flyovers = []; wl.recount(); wl.passageWait = 1e6; wl.computeSuitability();
 for (const d of g.catalog.animals) {
   const suit = wl.suit[d.index], good = [];
@@ -15,12 +17,12 @@ for (const d of g.catalog.animals) {
   if (!good.length) continue;
   for (let k = 0; k < Math.min(d.max, 10); k++) { const j = good[Math.floor(Math.random() * good.length)]; const a = wl.spawn(d, j % w.w, j / w.w | 0, { silent: true }); a.wait = Math.random(); a.thirst = Math.random() * 5; }
 }
-const cat = a => a.state === 'dormant' ? 'dormant' : a.drinkT > 0 || a.waterTrip ? 'water'
+const cat = a => a.state === 'dormant' ? 'dormant' : a.state === 'idle' && a.restUntil > a.age ? 'rest' : a.drinkT > 0 || a.waterTrip ? 'water'
   : ['hunt', 'feed', 'carry', 'forage'].includes(a.state) || a.forageGoal != null || a.fruitMeal || a.fruitGoal != null || a.bird?.kind === 'forage' ? 'eat'
   : a.bird?.kind === 'soar' ? 'soar' : a.state === 'flee' ? 'flee'
   : a.range?.goal != null ? 'rangeTrip' : a.trip != null ? 'roam' : a.follow ? 'follow' : a.territory?.goal != null ? 'patrol'
   : a.state === 'walk' || a.state === 'fly' || a.state === 'approach' ? 'wander' : 'still';
-const C = ['eat', 'water', 'rangeTrip', 'roam', 'wander', 'follow', 'patrol', 'soar', 'flee', 'still', 'dormant'];
+const C = ['eat', 'water', 'rangeTrip', 'roam', 'wander', 'follow', 'patrol', 'soar', 'flee', 'rest', 'still', 'dormant'];
 const tally = new Map();
 for (let k = 0; k < 1600; k++) { if (k % 20 === 0) { g.day++; wl.daily(); } wl.update(0.05); if (k < 100) continue;
   for (const a of wl.agents) { if (a.leaving) continue; const t = tally.get(a.key) || {}; const c = cat(a); t[c] = (t[c] || 0) + 1; t.n = (t.n || 0) + 1; tally.set(a.key, t); } }

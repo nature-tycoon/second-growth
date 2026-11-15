@@ -630,7 +630,7 @@ export class Renderer {
   flyTo(x, y, zoom, dur = 2.2, maxZoom = 4.5) {
     this.groundCamera();
     this.zoomGoal = null;
-    this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, maxZoom), t0: performance.now(), dur };
+    this.fly = { x0: this.target.x, z0: this.target.z, x1: x, z1: y, zoom0: this.zoom, zoom1: clamp(zoom, 0.16, maxZoom), t: 0, last: null, dur };
   }
 
   // Watch mode's eye-level view (eye-camera.js): ride along low behind an animal, or null to go
@@ -1040,9 +1040,12 @@ export class Renderer {
       this.updateCamera();
     }
     if (this.fly) {
-      // real time, not the capped frame time: the glide lasts as long on a slow computer
+      // real time, not the capped frame time: the glide lasts as long on a slow computer. Each frame
+      // counts at most 0.2 s, so a stall or a hidden tab doesn't skip it ahead (and filming, which
+      // sets diagnosticTime, gets the same glide frame by frame)
       const f = this.fly;
-      const u = Math.min(1, (performance.now() - f.t0) / 1000 / f.dur), e = u * u * (3 - 2 * u);
+      f.t += f.last == null ? 0 : Math.min(0.2, Math.max(0, now - f.last) / 1000); f.last = now;
+      const u = Math.min(1, f.t / f.dur), e = u * u * (3 - 2 * u);
       this.target.x = f.x0 + (f.x1 - f.x0) * e; this.target.z = f.z0 + (f.z1 - f.z0) * e;
       this.zoom = Math.exp(Math.log(f.zoom0) + (Math.log(f.zoom1) - Math.log(f.zoom0)) * e);
       this.clampCam(); this.updateCamera();
@@ -1088,6 +1091,8 @@ export class Renderer {
     const todU = this.dayCycleOn === false ? 0.35 : this.todClock / DAY_CYCLE;
     const tod = timeOfDay(todU);
     this.tod = tod; this.todU = todU;
+    // (primates rest through midday and sleep at night by the drawn sun: primateRest in primate-behavior.js)
+    game.todU = this.dayCycleOn === false ? null : todU;
     // how "night" it is: the blue dusk through to just before dawn (for fireflies, eye-shine, owls)
     const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
     this.night = ss(0.872, 0.893, todU) * (1 - ss(0.93, 0.95, todU)); // full night (see NIGHT_PACE for how long it lasts)

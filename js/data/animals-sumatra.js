@@ -15,7 +15,7 @@ export default function buildSumatraAnimals(def) {
   // ------------------------------------------------------------------ Mammals
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.55, RIPARIAN: 0.9, MARSH: 0.5 });
-    def({ key: 'orangutan', name: 'Sumatran orangutan', sci: 'Pongo abelii', group: 'Mammals', move: 'tree',
+    def({ key: 'orangutan', restShare: 0.25, name: 'Sumatran orangutan', sci: 'Pongo abelii', group: 'Mammals', move: 'tree',
       speed: 0.6, hr: 70, max: 8, sources: ['N', 'E'], mig: 0.15, intro: 15000,
       breed: [9], litter: [1, 1], life: 45, mature: 10,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i) * fruit(W, i, 0.3),
@@ -27,7 +27,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ MATURE_FOREST: 1, YOUNG_FOREST: 0.5, RIPARIAN: 0.8 });
-    def({ key: 'siamang', name: 'Siamang', sci: 'Symphalangus syndactylus', group: 'Mammals', move: 'tree',
+    def({ key: 'siamang', restShare: 0.38, name: 'Siamang', sci: 'Symphalangus syndactylus', group: 'Mammals', move: 'tree',
       speed: 1.2, hr: 30, max: 12, minK: 2, groupSize: [2, 4], sources: ['N', 'E'], mig: 0.2,
       breed: [3], litter: [1, 1], life: 35, mature: 6,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i) * fruit(W, i),
@@ -38,7 +38,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 0.9, RIPARIAN: 1 });
-    def({ key: 'langur', leaps: true, name: "Thomas's langur", sci: 'Presbytis thomasi', group: 'Mammals', move: 'tree',
+    def({ key: 'langur', leaps: true, restShare: 0.45, name: "Thomas's langur", sci: 'Presbytis thomasi', group: 'Mammals', move: 'tree',
       speed: 1, hr: 14, max: 18, minK: 3, groupSize: [3, 6], sources: ['N', 'E'], mig: 0.3,
       breed: [5, 6], litter: [1, 1], life: 20, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * canopy(W, i),
@@ -49,7 +49,7 @@ export default function buildSumatraAnimals(def) {
   }
   {
     const w = habW({ YOUNG_FOREST: 1, MATURE_FOREST: 0.9, RIPARIAN: 0.9, SHRUB: 0.7, INVASIVE: 0.5, FARM: 0.2 });
-    def({ key: 'macaque', name: 'Southern pig-tailed macaque', sci: 'Macaca nemestrina', group: 'Mammals', move: 'ground',
+    def({ key: 'macaque', restShare: 0.2, name: 'Southern pig-tailed macaque', sci: 'Macaca nemestrina', group: 'Mammals', move: 'ground',
       speed: 1.2, hr: 30, max: 22, minK: 4, groupSize: [5, 10], sources: ['N', 'E', 'W'], mig: 0.35,
       breed: [8, 9, 10], litter: [1, 1], life: 25, mature: 4,
       suit: (W, i) => w[W.habitat[i]] * fruit(W, i, 0.5),
