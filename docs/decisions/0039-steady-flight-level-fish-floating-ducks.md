@@ -5,7 +5,7 @@
 - Drawing only: the simulation is unchanged.
 - A bird in level flight holds a cruise height (`holdCruise` in `render3d/flight-clearance.js`): it climbs when the way ahead needs it and glides down only after `HOLD` (1.5 s), at `GLIDE`. It climbs out of a crown it finds itself in by its climb rate (`CLIMB_ACCEL`), never a jump in height. The look-ahead is about 1.5 s of flight, 1.4 to 6 tiles.
 - Reef fish swim over a smoothed seabed (`smoothSeabed`), and their lift over coral and rock eases like a body (`easeCoralLift`). Both reset when the animal comes back into view (`returning`).
-- Floaters float at the drawn water (`Actors.floatLevel`), not `waterSurfaceY`; where the drawn water is too shallow they stand on the bank. No shadow afloat.
+- Floaters float at the drawn water (`Actors.floatLevel`), not `waterSurfaceY`; where the drawn water is too shallow they stand on the bank. No shadow afloat: that includes a seabird resting on the reef's sea (`c.fl = seaY`), whose bird-shaped shadow on the seabed read as a bird lying on the bottom.
 - The follow camera's height rides a spring within 0.25 tiles of the animal (`followHeight`).
 - Check: `node tools/motion-smoothness-check.mjs`.
 

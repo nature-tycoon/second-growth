@@ -57,6 +57,20 @@ try {
       console.log(`${failures ? '...' : 'PASS'} ${map} ${name}: ${res.length} tabs`);
     }
   }
+  // Invasives off: a small tag in the title on every tab, on one line with it at phone landscape
+  await evaluate(`(window.secondGrowth.game.invasives = false, true)`);
+  for (const [name, width, height, mobile] of sizes) {
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile }, sessionId);
+    await pause(150);
+    const res = await evaluate(`(() => { const out = window.ecoTabs(), h = document.querySelector('.er-modal .modal-head h2'), t = h.querySelector('.er-tag');
+      const line = parseFloat(getComputedStyle(h).lineHeight) || parseFloat(getComputedStyle(h).fontSize) * 1.3;
+      return { out, tag: t?.textContent, oneLine: !!t && h.getBoundingClientRect().height < line * 1.6, inHead: !!t && t.getBoundingClientRect().right <= h.getBoundingClientRect().right + 0.5 }; })()`);
+    for (const r of res.out) if (!r.fits || r.overflow) { failures++; console.log(`FAIL invasives off ${name} ${r.tab}`, JSON.stringify(r)); }
+    if (!res.tag || !res.oneLine || !res.inHead) { failures++; console.log(`FAIL invasives off ${name}: tag`, JSON.stringify(res)); }
+    if (shots) { const { data } = await send('Page.captureScreenshot', { format: 'png' }, sessionId); await writeFile(join(tmpdir(), `eco-report-invasives-off-${name}.png`), Buffer.from(data, 'base64')); }
+    console.log(`${failures ? '...' : 'PASS'} invasives off ${name}: tag "${res.tag}"`);
+  }
+  await evaluate(`(window.secondGrowth.game.invasives = true, true)`);
   if (browser.errors.length) { failures++; console.log('Page errors:', browser.errors.slice(0, 5).join('\n\n')); }
   if (shots) console.log('Screenshots in', tmpdir());
 } finally { await browser.close(); }

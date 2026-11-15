@@ -220,7 +220,8 @@ export function finishAnimal(A, c) {
   if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
   // (after the reads of F.m above, which must still hold this animal's own instance)
   if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc);
-  if (!st.branch && def.move !== 'swim' && !swimming && !((surf != null || c.fl != null) && trait(def, 'floats'))) { // (no shadow afloat)
+  // (no shadow afloat: on a seabird resting on the sea it lay on the seabed, a dark bird on the bottom)
+  if (!st.branch && def.move !== 'swim' && !swimming && c.fl == null && !(surf != null && trait(def, 'floats'))) {
     // (a shaped shadow fades and softens a little the higher the animal is above the ground)
     const shape = (def.reef || def.move === 'fly') && A.silhouettes.shape(F, def, def.reef ? 0.5 : 0);
     if (shape) A.silhouettes.add(shape, a.x, ground, a.y, st.yaw, sc * (1 + Math.min(1, Math.max(0, y - ground) * 0.06)), st.fly, Math.sin(phase * (mo.flap || 1)), clamp(1.1 - (y - ground) * 0.22, 0.4, 1));

@@ -1205,6 +1205,7 @@ body.moment-on #joystick, body.moment-on #view-ctrls, body.moment-on #toolpanel,
 .er-legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin: 0 4px 0 8px; }
 .er-hint { display: flex; gap: 8px; align-items: center; background: #fff6dd; border: 1px solid #e3c98a; border-radius: 12px; padding: 8px 11px; margin-top: 10px; font-weight: 600; line-height: 1.35; }
 .er-ic { font-size: 18px; flex: none; }
+.er-tag { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: #fff6dd; border: 1px solid #e3c98a; color: var(--warn); font-family: var(--ui); font-size: 12px; font-weight: 700; white-space: nowrap; }
 .er-badges { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; font: inherit; color: var(--ink); cursor: pointer;
   background: var(--fill); border: 1.5px solid var(--fill-edge); border-radius: 14px; padding: 7px 11px; text-align: left; }
 .er-badges:hover { background: var(--fill-hover); }

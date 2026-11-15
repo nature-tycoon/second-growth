@@ -49,7 +49,7 @@ try {
   assert.ok(clicked != null, 'found an animal to click during the moment');
   const t0 = Date.now();
   await b.waitFor(glideDone, 'zoomed in on the moment despite the click', 30000);
-  console.log(`glide took ${Date.now() - t0} ms (dt is capped at 0.1 s a frame, so slow software frames stretch it)`);
+  console.log(`glide took ${Date.now() - t0} ms (real time, at most 0.2 s a frame, so very slow software frames stretch it)`);
   let v = await b.evaluate(`(() => { const {game:g,renderer:r}=${S}; return {zoom:r.zoom, x:r.target.x, z:r.target.z, speed:g.speed}; })()`);
   console.log('overhead at speed 3:', v);
   assert.ok(v.zoom > 2 && Math.hypot(v.x - 20, v.z - 20) < 3, 'zoomed in on the moment despite the click');
@@ -57,6 +57,16 @@ try {
   await end();
   await b.waitFor(`${S}.renderer.zoom < 0.55 && ${S}.game.speed === 3`, 'back to the player view and speed', 30000);
   console.log('PASS overhead, fastest speed, click during glide');
+
+  // 1b. the glide runs on the frame clock, and a stall (a hidden tab, a long frame) moves it on 0.2 s at most
+  const stall = await b.evaluate(`(async () => { const {renderer:r}=${S}, wait=() => new Promise(f => setTimeout(f, 250));
+    let clock = performance.now(); r.diagnosticTime = clock; r.flyTo(r.target.x + 10, r.target.z, r.zoom, 2.4); await wait();
+    const start = r.fly?.t; clock += 5000; r.diagnosticTime = clock; await wait();
+    const after = r.fly?.t; r.diagnosticTime = undefined; r.fly = null; return { start, after }; })()`);
+  console.log('glide clock across a 5 s stall:', stall);
+  assert.equal(stall.start, 0, 'a frozen clock holds the glide still');
+  assert.ok(stall.after > 0 && stall.after <= 0.2 + 1e-9, 'a 5 s stall moves the glide on 0.2 s at most');
+  console.log('PASS glide clock');
 
   // 2. watch mode at eye level
   await b.evaluate(`(() => { const {ui}=${S}; ui.setSpeed(1); ui.watch.toggle(); })()`);
