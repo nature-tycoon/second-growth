@@ -32,7 +32,7 @@ export function withLookShift(mat, { near = false } = {}) {
   const prev = mat.onBeforeCompile, baseKey = mat.customProgramCacheKey();
   mat.onBeforeCompile = (shader, renderer) => {
     if (prev) prev.call(mat, shader, renderer);
-    Object.assign(shader.uniforms, { uLookShift: lookShift, uLookTrunks: focus.uLookTrunks, uLookDir: focus.uViewDir, uLookAt: focus.uFocus, uLookD: focus.uLookD });
+    Object.assign(shader.uniforms, { uLookShift: lookShift, uLookTrunks: focus.uLookTrunks, uLookDir: focus.uViewDir, uLookAt: focus.uFocus, uLookD: focus.uLookD, uLookWater: focus.uLookWater });
     shader.vertexShader = 'uniform float uLookShift;\nvarying vec3 vLookW;\n' + shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vec4 lookW = vec4(transformed, 1.0);
       #ifdef USE_INSTANCING
@@ -47,8 +47,12 @@ export function withLookShift(mat, { near = false } = {}) {
     // a trunk close in front hides it, as the trees farther off do by depth: what of it lies behind
     // one of the trunks round it (Renderer.updateFocus, focus.uLookTrunks: x, z, radius, top) isn't drawn
     // this pass, so it passes behind the trunk rather than seeming to walk in front of it
-    shader.fragmentShader = `uniform float uLookShift; uniform vec4 uLookTrunks[${LOOK_TRUNKS}]; uniform vec3 uLookDir; uniform vec3 uLookAt; uniform float uLookD; varying vec3 vLookW;\n` + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+    // Water is not cover: it writes no depth, so this pass showed a swimmer's body through the
+    // surface as if it swam on top (Cole, 2026-11-14: every animal in the water at eye level). What
+    // is under the water (focus.uLookWater, set while the eye is above it) is left to the normal draw.
+    shader.fragmentShader = `uniform float uLookShift; uniform vec4 uLookTrunks[${LOOK_TRUNKS}]; uniform vec3 uLookDir; uniform vec3 uLookAt; uniform float uLookD; uniform float uLookWater; varying vec3 vLookW;\n` + shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
       ${near ? 'if (uLookShift > 0.0 && distance(vLookW, uLookAt) > uLookD) discard;' : ''}
+      if (uLookShift > 0.0 && vLookW.y < uLookWater) discard;
       if (uLookShift > 0.0) {
         vec3 lookTo = isOrthographic ? uLookDir : cameraPosition - vLookW; // (to the eye: as far as the eye)
         float lookA = dot(lookTo.xz, lookTo.xz);

@@ -21,9 +21,19 @@ const SOAR_BANK = 0.35; // a circling hawk leans into its turn
 // a starfish being eaten, the branch a climber is on) and how fast (TURN), never in how. A drawn
 // yaw is minus the simulation's heading (x east, z south). `ease` is per frame ease k (about 6 a
 // second); `max` caps the radians it turns this frame.
+const ABOUT_FACE = 2.8; // (radians: a turn this near a half circle is an about-face, see turnToward)
 export const TURN = { body: 1.6, cling: 3, canopy: 1.2, ape: 0.7, snap: Infinity }; // (ape: an orangutan's long body swings round slowly)
 export function turnToward(st, target, ease, k, max = Infinity) {
   let d = target - st.yaw; d -= Math.round(d / (Math.PI * 2)) * Math.PI * 2;
+  // An about-face can go either way round. One straight after another (within about a second,
+  // st.aboutClock in ease units) goes back the way the last came: a salmon stopping to face
+  // upstream and setting off again turned both times the same way, a full circle in half a second
+  // (motion-sweep `spin`). Once chosen, a turn keeps its side until it is nearly done.
+  st.aboutClock = (st.aboutClock ?? 99) + k;
+  if (Math.abs(d) > ABOUT_FACE) {
+    st.about ||= st.aboutClock < 6 && st.aboutLast ? -st.aboutLast : Math.sign(d);
+    if (Math.sign(d) !== st.about) d += st.about * Math.PI * 2;
+  } else if (st.about && Math.abs(d) < ABOUT_FACE - 0.5) { st.aboutLast = st.about; st.about = 0; st.aboutClock = 0; }
   st.yaw += clamp(d * Math.min(1, k * ease), -max, max);
 }
 

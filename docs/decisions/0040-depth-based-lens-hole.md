@@ -5,7 +5,8 @@
 - Nothing is cut close round the followed animal. It is drawn again faintly, a little nearer the camera, so it shows through cover within about its own size (`render3d/look-through.js`), and trees farther in front stay in front.
 - Cover beyond that opens over the animal's outline, a little wider the nearer the camera, with a soft rim of world-fixed leaf clumps (`render3d/focus.js`, sizes set in `Renderer` in `scene.js`). Trunks are never cut.
 - Any cut round the animal showed as its shape: don't bring one back. Wave 3's ellipsoid cut (`claude/wave3-s5-tracker-lens-aaed29`) was dropped for this lens when wave 3 was merged.
-- `tools/canopy-support-check.mjs` matches the shader's discard line as text: update it with the shader.
+- Water is not cover. It writes no depth, so the look-through pass skips what lies under the creek, river or pond surface at the animal at eye level, while the eye is above it (`focus.uLookWater`, set in `Renderer.updateFocus` from `terrain.waterAt`). Not from above, where it helps find a selected fish, and not the reef's sea, where the lens shows fish through coral. Without it every swimmer looked to swim on top of the water at eye level (2026-11-14).
+- `tools/canopy-support-check.mjs` matches the shader's discard lines as text (the leaves' and the water's): update it with the shader.
 - Check: `node tools/lens-depth-browser-check.mjs`; also `canopy-reveal-browser-check`.
 
 ## History
@@ -121,3 +122,12 @@ order where they overlap. Leaving out whole leaf clumps instead (the lens rim's 
 sorting) was tried and dropped: a leaf mass is a closed shell drawn one side only, so cutting parts
 of it shows its hollow inside as crescents and rings, and crowns read as eaten. Doing it well needs
 whole leaf masses dropped at a time, which the merged plant models don't record.
+
+### 2026-11-14: water
+
+Cole: the river dolphin swam above the water and the beaver walked on it, in watch mode only. The
+heights were right (the dolphin's back and head clear the surface, the beaver floats with its back
+out); the eye camera follows its animal, so the lens was on, and its second draw of the animal at 42%
+showed the whole body through the water, which writes no depth. The look-through pass now discards
+what is under the drawn water at the animal (`uLookWater`), so the water draws over it as usual.
+Watched in the game on the Amazon river and a Hollis pond.
