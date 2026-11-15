@@ -1,13 +1,27 @@
 # 0048 Water and elevation: one owner for every corner (audit, proposed rework, first fixes)
 
-Status: **proposed** (the rework below waits for Cole's go-ahead). The first fixes under "Rules" are in.
-2026-11-14, ideas batch water-fixes, session 2.
+Status: **approved**, phases 1 and 2 built (phase 2: 2026-11-15, ideas batch edit-path). Phases 3 and 4
+are still proposals. 2026-11-14, ideas batch water-fixes, session 2.
 
 ## Rules
 
-- **Digging never moves another water body's bed.** The dig tools call `carve(x, y, depth, true)`
-  (`keepWater`): no corner goes below the bed of other water it touches. Map generation still calls
-  `carve` without it, so generated maps are byte-for-byte unchanged.
+- **One edit path** (phase 2): every height the player changes after the map is made goes through
+  `terrainEdit` (`js/terrain-edit.js`): `digWater` (pond, marsh, creek), `shiftGround` (Raise/Lower),
+  `gradeTile` (Fill & grade), `levelBuilding` (a building put up). Never write `setVert`/`vh` from a tool;
+  map generation (`world.js`, `maps/*-world.js`, `landform.js`, `carve`, `flattenRect`) keeps its own
+  passes, so generated maps are byte-for-byte unchanged.
+- **Every corner has an owner** (`cornerOwner`, read from the tiles round it other than the ones the
+  edit shapes): a building, then a channel (creek, river), then a body (pond, marsh), then land. An edit
+  moves land corners only, with two exceptions it asks for: `join` (water dug up to other water may take
+  the corners they share down to that water's bed, never below and never up; a pond joining a creek or
+  the river, `CHANNEL_STEP` below) and `shore` (filling part of a pond or marsh may raise the corners it
+  shares with the rest of it). A building's corners never move. Corners are decided from the heights
+  before the edit, then written. So Raise/Lower beside a creek or pond moves only the land's corners
+  (it moved the creek's before), and a pond's bank no longer lifts a building's or a creek's corners.
+- Check: `node tools/terrain-edit-check.mjs [maps]` (every land tool beside a creek, pond and building
+  on every map; a shed beside the creek; no height writes outside the edit path).
+- **Digging never moves another water body's bed** (`join`): no corner goes below the bed of other
+  water it touches.
 - **A creek the player digs is graded** (`gradeDugCreek`, `js/maps/landform.js`): each dug tile's floor
   stands within `CHANNEL_STEP` (0.2 levels) of every corner it shares with the water it joins and with
   the dug tiles round it, so its water (0.32 over its lowest corner) covers its whole bed by about 30 cm
@@ -26,19 +40,19 @@ Status: **proposed** (the rework below waits for Cole's go-ahead). The first fix
   seeds, joined pond vs a vernal pool through a dry summer, save and load). Also run
   `hollis-water-check`, `tool-actions-check`, `fish-water-check` and `terrain-relief-check` after
   any change to digging or the water model.
-- **Fill & grade levels a stroke to one height** (`gradeLevel`, `gradeTile`, `js/maps/landform.js`): the
+- **Fill & grade levels a stroke to one height** (`gradeLevel`, `gradeTile`, `js/terrain-edit.js`): the
   height of the tile where the stroke starts (on water, the land round it but at least a bank, 0.15,
   over that water's surface). Every corner of a graded tile goes to that level; the tiles round it take
   the slope between. Land more than `GRADE_REACH` (1.5 levels, 3.6 m) off the level is skipped, so the
   pad stops where the ground gets steep. Corners shared with a creek, the river, other water or a
   building never move; filling part of a pond or marsh may only *raise* the corners it shares with the
   rest of it (held, a filled shore tile sloped under the water and the Hollis model made it marsh).
-  Gravel is graded but stays gravel; **Demolish takes up gravel people laid** (`LAID`) to bare soil, at
-  a road's price (15). Check: `tool-actions-check` (level per map, creek bed untouched, filled pond tile
-  dry, gravel lots).
-- Before building the rework, read "Proposed model" below. Until then, any new edit that touches heights
-  next to water should follow the same rule: it may lower its own tiles and the land, never another
-  water body's corners.
+  Gravel and roads are graded but stay (Cole, 2026-11-15: roads are Demolish-only, like gravel lots),
+  with one hint pointing to Demolish; **Demolish takes up roads and gravel people laid** (`LAID`) to bare
+  soil (15 a tile; the suburb's streets stay). Check: `tool-actions-check` (level per map, creek bed
+  untouched, filled pond tile dry, gravel lots, roads).
+- Before building phase 3, read "Proposed model" below. A new tool or event that changes heights calls
+  `terrainEdit` with the tiles it shapes; it never gets its own copy of the owner rules.
 
 ## History
 
@@ -173,8 +187,8 @@ applies to new games only (the 0044 rule). Body volumes carry over by site, as `
 ### Phases (each a session or two, each shippable)
 
 1. **Local rules** (this record): `keepWater`, dug-creek grading, joined ponds. Done.
-2. **One edit path**: `terrainEdit`, corner ownership as a derived array, Raise/Lower and Fill & grade
-   beside water through it. Fixes class A for every tool.
+2. **One edit path**: `terrainEdit`, corner ownership, Raise/Lower and Fill & grade beside water
+   through it. Fixes class A for every tool. Done (2026-11-15): see "Phase 2 as built" below.
 3. **Channels**: graded beds and cascades for every creek, seasonal flow per map, a joined pond that
    drops with the creek in a dry summer. Retires the fish hop for graded creeks.
 4. **Bodies on every map**: ponds elsewhere dry seasonally where the climate says so (Cole decides per
@@ -193,3 +207,24 @@ What it does not change: river and reef water, floods' regional overlay, the dra
 - Steep creeks: the pond's upstream edge stands on the creek's bed (at most 0.2 under it), so on the
   steep upper ditch a 3×3 pond has a marsh corner or two above its water. Digging a creek straight up a
   hill steeper than 0.2 levels a tile still leaves cascades (`CHANNEL_CUT`); phase 3 would list them.
+
+### Phase 2 as built (2026-11-15)
+
+- Simpler than the sketch: ownership is read per corner when an edit runs (`cornerOwner`, four tile
+  lookups), not kept as a derived array, so nothing has to be rebuilt or saved and there is no stale
+  state. An edit touches a handful of corners, so the cost is nothing measurable.
+- `terrainEdit(w, tiles, want, { self, join, shore })` runs per tool call; it doesn't "re-grade
+  channels, rebuild bodies, publish once": the Hollis bodies and hydrology are still rebuilt by the
+  usual `hydroDirty` refresh at the end of a stroke. Re-grading channels belongs to phase 3.
+- What moved: `levelPond` and the keep-water part of `carve` from `world.js`, `gradeDugCreek`,
+  `gradeLevel`, `gradeTile` and `GRADE_REACH` from `maps/landform.js`, `shiftTile` from `world.js`;
+  `addStructure(…, level = false)` for the player's buildings. Each tool's own copy of "hold this
+  corner" is gone.
+- Behaviour that changed, all toward the rules: Raise/Lower beside water moves only land corners; on
+  water it moves that water's own corners (the tiles of the same kind round it), never another kind's
+  (the hollis-water check lowers a pond tile and its basin follows); the dig and a pond's bank no longer move a
+  building's corners or lift another water tile's; a pond dug beside a marsh or another pond no longer
+  pulls their beds below their level; a building put up beside water leaves the water's corners.
+  Generated maps hash the same on every map (two seeds each).
+- Measured: the new check fails on the code before phase 2 (Raise beside a creek on pnw, atlanta and
+  amazon moved the creek's corner by 0.23 levels, 55 cm).

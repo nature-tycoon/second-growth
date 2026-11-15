@@ -121,8 +121,8 @@ export class ToolActions {
       g.notify('Visitors need a way in: build a Trailhead parking lot right beside a road, then connect your trail to it.', 'warn');
     }
     if (stroke.locked != null && !stroke.count && map.lockedNote) g.notify(map.lockedNote(g, stroke.locked), 'info');
-    // (Fill & grade levels gravel but leaves it: a gravel lot comes up with Demolish, a crust with Loosen soil)
-    if (stroke.laidGravel != null && !g.flags.gravelGradeHint) { g.flags.gravelGradeHint = true; g.notify('Fill & grade levels gravel but leaves it in place. To take up a gravel lot people laid, use Remove → Demolish.', 'info'); }
+    // (Fill & grade levels roads and gravel but leaves them: a road or gravel lot comes up with Demolish, a crust with Loosen soil)
+    if ((stroke.laidGravel != null || stroke.road != null) && !g.flags.gravelGradeHint) { g.flags.gravelGradeHint = true; g.notify('Fill & grade levels roads and gravel but leaves them in place. To take up a road or a gravel lot people laid, use Remove → Demolish.', 'info'); }
     if (stroke.gravel != null && map.hardpan && !g.flags.crustGradeHint) { g.flags.crustGradeHint = true; g.notify('Fill & grade levels the crust but doesn\'t break it. To break it, use Loosen soil or Half-moon pits.', 'info'); }
     if (stroke.steep != null && !g.flags.steepGradeHint) {
       g.flags.steepGradeHint = true;
