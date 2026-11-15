@@ -319,6 +319,7 @@ export class UI {
     this.renderer.fadeTrees = !this.renderer.fadeTrees;
     $('#btn-trees').classList.toggle('on', this.renderer.fadeTrees);
   }
+  habitatShown(k) { return this.state.overlay === 'species' && this.state.overlaySpecies === k; }
   setOverlay(v, species = null) {
     if (v === 'species' && species == null) species = this.state.overlaySpecies ?? (this.game.catalog.animal.deer ?? this.game.catalog.animals[0]).index;
     this.state.overlay = v;
@@ -703,7 +704,11 @@ export class UI {
     panel.prepend(mini);
     panel.classList.toggle('min', !!this.infoMin);
     panel.querySelectorAll('[data-guide]').forEach(b => b.addEventListener('click', () => this.openGuide('animals', b.dataset.guide)));
-    panel.querySelectorAll('[data-overlay]').forEach(b => b.addEventListener('click', () => this.setOverlay('species', +b.dataset.overlay)));
+    panel.querySelectorAll('[data-overlay]').forEach(b => b.addEventListener('click', () => { // (a toggle: a second press hides it again)
+      const k = +b.dataset.overlay;
+      this.setOverlay(this.habitatShown(k) ? 'none' : 'species', k);
+      this.renderInfo();
+    }));
     panel.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => this.locateAnimal(this.game.catalog.animal[b.dataset.next])));
     panel.querySelector('[data-follow]')?.addEventListener('click', () => {
       const a = this.game.wildlife.findAgent(ins.agent);
@@ -743,7 +748,7 @@ export class UI {
     const ageTxt = ageY < 1 ? `${Math.max(1, Math.round(ageY * 12))} months` : `${ageY.toFixed(1)} years`;
     return `<button class="close">×</button>
       <div class="animal-hero"><img src="${animalThumb(def.key, this.game.catalog, isMaleVariant(def, a))}"><div><h3>${def.name}</h3><div class="small"><i>${def.sci}</i></div></div></div>
-      <div class="info-actions"><button type="button" class="primary" data-overlay="${def.index}" title="Show where its habitat is on the map">${PILL.habitat}Habitat</button>${st.pop > 1 ? `<button type="button" data-next="${def.key}" title="Jump to another ${def.name.toLowerCase()}">${PILL.next}Find next</button>` : ''}<button type="button" data-guide="${def.key}" title="Open the field guide">${PILL.guide}Guide</button></div>
+      <div class="info-actions"><button type="button" class="primary${this.habitatShown(def.index) ? ' on' : ''}" data-overlay="${def.index}" aria-pressed="${this.habitatShown(def.index)}" title="${this.habitatShown(def.index) ? 'Hide its habitat on the map' : 'Show where its habitat is on the map'}">${PILL.habitat}${this.habitatShown(def.index) ? 'Hide habitat' : 'Habitat'}</button>${st.pop > 1 ? `<button type="button" data-next="${def.key}" title="Jump to another ${def.name.toLowerCase()}">${PILL.next}Find next</button>` : ''}<button type="button" data-guide="${def.key}" title="Open the field guide">${PILL.guide}Guide</button></div>
       <div class="kv"><span class="k">Status</span><span>${status}${a.spawner ? ' (spawning run)' : ''}${a.juvenile ? ' (juvenile)' : ''}${isMaleVariant(def, a) ? ` (${def.sprite.maleName || 'adult male'})` : ''}</span>
       <span class="k">Age</span><span>${ageTxt}</span>
       <span class="k">Population</span><span>${st.pop} here · room for ${Math.floor(st.K)}</span></div>
@@ -1110,11 +1115,12 @@ export class UI {
         if (pass) showPassing(pass);
         else showAnimal(key && this.game.catalog.animal[key] || this.game.catalog.animals.find(a => wl.state[a.index].pop) || this.game.catalog.animals[0]);
       } else {
+        const sea = !!this.game.catalog.definition.look.underwater;
         for (let layer = 0; layer < 3; layer++) {
           list.appendChild(el('div', 'guide-group', (this.game.catalog.definition.plantTabs ? [this.game.catalog.definition.plantTabs.ground, this.game.catalog.definition.plantTabs.shrub, this.game.catalog.definition.plantTabs.tree] : ['Groundcover', 'Shrubs', 'Trees'])[layer]));
           const grid = el('div', 'guide-grid');
           for (const p of this.game.catalog.plants.filter(q => q && q.layer === layer)) {
-            const c = el('div', 'gcard', `<img src="${plantThumb(p.key, this.game.catalog)}"><div class="nm">${p.name}</div><div class="pop ${counts[p.id] ? 'here' : ''}">${counts[p.id] ? counts[p.id] + ' tiles' : 'none yet'}</div>`);
+            const c = el('div', 'gcard', `${p.invasive ? `<span class="inv-badge">${sea ? 'Nuisance' : 'Invasive'}</span>` : ''}<img src="${plantThumb(p.key, this.game.catalog)}"><div class="nm">${p.name}</div><div class="pop ${counts[p.id] ? 'here' : ''}">${counts[p.id] ? counts[p.id] + ' tiles' : 'none yet'}</div>`);
             c.dataset.key = p.key;
             c.addEventListener('click', () => showPlant(p));
             grid.appendChild(c);
