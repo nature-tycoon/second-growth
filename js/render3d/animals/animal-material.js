@@ -381,6 +381,8 @@ export function faunaMaterial(motion) {
     uVerticalWave: { value: motion.verticalWave ?? 0 }, uWaveMin: { value: motion.waveMin ?? 0.25 }, uWavePow: { value: motion.wavePow ?? 1 }, uWaveRest: { value: motion.waveRest ?? .35 }, uTongue: { value: motion.tongue ?? 0 }, uBend: { value: motion.bend ?? 0 },
     uSlither: { value: motion.slither?.amp ?? 0 }, uSlitherLen: { value: motion.slither?.len ?? 1 }, uSlitherNose: { value: motion.slither?.nose ?? 0 },
     uFur: { value: motion.fur ?? 1 },
+    // (a bird afloat: the point on its waterline it turns about, actors-fly.js dabblePose)
+    uFloatAt: { value: new THREE.Vector3(motion.center?.x ?? 0, motion.sink ?? 0, 0) },
   };
   const coats = motion.coats?.length ? motion.coats : null;
   if (coats) Object.assign(u, {
@@ -403,6 +405,7 @@ export function faunaMaterial(motion) {
   mat.onBeforeCompile = shader => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = `
+      uniform vec3 uFloatAt; varying float vUnder;
       attribute float aPart; attribute vec3 aPivot; attribute vec3 aExt; attribute vec3 aExtN; attribute vec4 aAnim; varying float vMeat; varying float vDry; varying float vLight; varying float vShine;
       ${coats ? 'attribute vec4 aCoat; varying vec4 vCoat; varying vec3 vCoatP;' : ''}
       vec3 faunaNormal; // (the unit normal: the attribute's length carries crease shading and shine, see animal-surface.js)
@@ -459,6 +462,8 @@ export function faunaMaterial(motion) {
       void animatePart(inout vec3 p, inout vec3 n) {
         if (aPart > 10.5) return; // (a snake's spine: see slither)
         float ph = animPhase(), gait = aAnim.y, fly = aAnim.z;
+        // (a negative fly on a bird is a bird afloat, its legs tucked up under it: actors-fly.js dabblePose)
+        float tuck = uBird * max(-fly, 0.0); fly = max(fly, -1.0 + uBird);
         vec3 zero = vec3(0.0);
         bool wing = aPart > 5.5 && aPart < 7.5;
         bool tail = aPart > 4.5 && aPart < 5.5;
@@ -533,7 +538,7 @@ export function faunaMaterial(motion) {
           float off = (aPart < 1.5 || aPart > 3.5) ? 0.0 : 3.14159;
           // (a negative fly is a leaping cat or fox, stretched out: forelegs reach forward, hind legs trail)
           float fl = max(fly, 0.0), lp = max(-fly, 0.0);
-          float swing = sin(ph + off) * uLeg * gait * (1.0 - fl) - fl * 1.35 + lp * (aPart < 2.5 ? 1.1 : -0.95);
+          float swing = sin(ph + off) * uLeg * gait * (1.0 - fl) - fl * 1.35 + lp * (aPart < 2.5 ? 1.1 : -0.95) - tuck * 1.1;
           p = rotZ(p, aPivot, swing); n = rotZ(n, zero, swing);
           }
           }
@@ -590,6 +595,15 @@ export function faunaMaterial(motion) {
           if (uBend > 0.0) transformed.z += graze * uBend * t * t;
         }
       `);
+    // A bird afloat (a negative fly: dabblePose) is seen through the water below its waterline:
+    // how far under each point is, in body lengths, for the tint in the fragment shader. Its
+    // waterline is where uFloatAt lands, which stays on the surface however it tips.
+    shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+      vUnder = 0.0;
+      if (uBird > 0.5 && aAnim.z < 0.0) {
+        mat4 place = modelMatrix * instanceMatrix;
+        vUnder = ((place * vec4(uFloatAt, 1.0)).y - (place * vec4(transformed, 1.0)).y) / (length(place[0].xyz) * uLength);
+      }`);
     // (red meat where a kill has been opened, drying to dark brown)
     const coatHead = coats ? `varying vec4 vCoat; varying vec3 vCoatP;
       uniform vec4 uCoatA[${coats.length}], uCoatB[${coats.length}]; uniform vec3 uCoatDark[${coats.length}], uCoatMid[${coats.length}];
@@ -599,12 +613,14 @@ export function faunaMaterial(motion) {
         ${coats.map((c, k) => `if (k == ${k}) return ${COAT_FN[c.kind]}(vCoat.xyz, vCoatP, base, uCoatA[${k}], uCoatB[${k}], uCoatDark[${k}], uCoatMid[${k}]);`).join('\n        ')}
         return base;
       }\n` : '';
-    shader.fragmentShader = 'varying float vMeat; varying float vDry; varying float vLight; varying float vShine; uniform float uFur;\n' + coatHead + shader.fragmentShader
+    shader.fragmentShader = 'varying float vMeat; varying float vDry; varying float vLight; varying float vShine; varying float vUnder; uniform float uFur;\n' + coatHead + shader.fragmentShader
       .replace('#include <lights_lambert_pars_fragment>', FAUNA_LIGHT)
       .replace('#include <color_fragment>', `#include <color_fragment>
       ${coats ? 'if (vCoat.w > 0.5) diffuseColor.rgb = mix(diffuseColor.rgb, faunaCoat(diffuseColor.rgb), clamp((vCoat.w - floor(vCoat.w + 0.5)) * 2.2 + 1.0, 0.0, 1.0)); // (a slot a little under its number fades the markings out: Model.add, coatFade)' : ''}
       diffuseColor.rgb *= mix(vec3(1.0), vec3(0.268, 0.218, 0.164), vDry); // (the coat dulls as it dries: 0.55, 0.5, 0.44 on screen)
-      diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.3, 0.035, 0.03), vec3(0.07, 0.04, 0.025), vDry), vMeat);`);
+      diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.3, 0.035, 0.03), vec3(0.07, 0.04, 0.025), vDry), vMeat);
+      // (under the water: dimmed into the creek's green-grey, more the deeper it goes)
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.27, 0.24), smoothstep(0.0, 0.008, vUnder) * (0.62 + 0.3 * smoothstep(0.01, 0.2, vUnder)));`);
   };
   mat.customProgramCacheKey = () => `fauna:${motion.canopyWalkerMotion ? 'canopy-walker-joints' : motion.canopyHanging ? 'hanging-grips' : motion.canopyFeet ? 'grips' : motion.primate === 3 ? 'swing' : motion.primate === 2 ? 'clamber' : 'base'}${motion.billSweep ? ':bill-sweep' : ''}${coats ? ':coat=' + coats.map(c => c.kind).join(',') : ''}`;
   return mat;

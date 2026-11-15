@@ -623,6 +623,8 @@ export function fleeUpdate(wl, a, def, dt) {
   const mates = escaping && wl.spacing?.w === w ? groundAround(wl, a) : null, r = mates?.length ? animalRadius(a, wl.game.catalog) : 0;
   const crowd = (x, y) => { let c = 0; if (mates) for (const e of mates) c += Math.max(0, r + e.r + 0.04 - Math.hypot(x - e.a.x, y - e.a.y)); return c; };
   const jink = escaping && trait(def, 'jinks') ? jinkLine(wl, a, th, dt, look, safe) : null;
+  // (cover ahead counts for more with a freezer, which dashes for the thicket: FREEZE)
+  const coverPull = trait(def, 'freezes') ? FREEZE.pull : 0.8;
   if (jink != null) chosen = { c: Math.cos(jink), s: Math.sin(jink), off: 0, jink: true };
   if (a.fleeT > 0) for (let pass = 0; pass < 2 && !chosen; pass++) {
     let best = -Infinity;
@@ -634,7 +636,7 @@ export function fleeUpdate(wl, a, def, dt) {
       if (escaping) {
         let clearance = Math.hypot(lx - th.x, ly - th.y);
         for (const o of nearby) clearance = Math.min(clearance, Math.hypot(lx - o.x, ly - o.y));
-        score = clearance + (wet(lx, ly) ? -0.8 : preyCover(w, { sp: a.sp, x: lx, y: ly }, wl.game.catalog.animals[th.sp]) * 0.8) - Math.abs(off) * 0.06;
+        score = clearance + (wet(lx, ly) ? -0.8 : preyCover(w, { sp: a.sp, x: lx, y: ly }, wl.game.catalog.animals[th.sp]) * coverPull) - Math.abs(off) * 0.06;
         // (it holds its line rather than flicking between two ways that score alike, and swerves
         // round the herd mates ahead rather than running into them: 0025)
         score -= Math.abs(off - (a.fleeOff || 0)) * 0.12 + crowd(a.x + c * 0.5, a.y + s * 0.5) * 2;
@@ -727,6 +729,7 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
     return true;
   }
   if (urgentOnly) return false;
+  if (trait(def, 'freezes') && freeze(wl, a, p, d)) return true;
   if (!(a.alertUntil > a.age)) {
     a.alertT = 1.2 + simRandom() * 1.5; a.wait = a.alertT; facePoint(a, p.x, p.y);
     a.alertUntil = a.age + 4;
@@ -734,6 +737,24 @@ export function watch(wl, a, def, urgentOnly = false, candidates = wl.agents) {
   }
   const far = (d + 4) ** 2;
   return wl.pathTo(a, (j, x, y) => (x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2 > far, 500);
+}
+
+// A freezer (trait freezes: brush rabbits, cottontails) with a hunter in view but not yet close:
+// sat in thick cover (`cover` or more) it freezes, crouched and still, for a short while at a
+// time (`t` days) as long as the hunter stays off; out in the open it slips away to the nearest
+// thicket further from the hunter (searched over `search` tiles). Once the hunter is close or
+// rushes, watch bolts it as any prey, and fleeUpdate weighs cover ahead `pull` times (0.8 for
+// others), so it dashes for the brush.
+const FREEZE = { cover: 0.4, t: 0.6, pull: 2, search: 400 };
+function freeze(wl, a, p, d) {
+  const w = wl.game.world, hunter = wl.game.catalog.animals[p.sp];
+  const cover = (x, y) => preyCover(w, { sp: a.sp, x, y }, hunter);
+  if (cover(a.x, a.y) >= FREEZE.cover) {
+    a.state = 'idle'; a.path = null; a.alertT = a.wait = FREEZE.t; facePoint(a, p.x, p.y);
+    return true;
+  }
+  const far = (d + 2) ** 2;
+  return wl.pathTo(a, (j, x, y) => (x + 0.5 - p.x) ** 2 + (y + 0.5 - p.y) ** 2 > far && cover(x + 0.5, y + 0.5) >= FREEZE.cover, FREEZE.search);
 }
 
 // A hunter's needs compete for its time (decision 0014). Just after a meal it lies up; while fed

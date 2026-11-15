@@ -34,7 +34,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0003](docs/decisions/0003-elk-overland-travel.md) Elk travel between habitat patches
 - [0004](docs/decisions/0004-ecosystem-performance.md) Performance target: 30 FPS, Fast, Intel HD 520
 - [0005](docs/decisions/0005-animal-clustering.md) Animal travel and crowding
-- [0006](docs/decisions/0006-prey-predator-avoidance.md) Prey vigilance and escape
+- [0006](docs/decisions/0006-prey-predator-avoidance.md) Prey vigilance and escape, rabbits' freeze-and-dash (`freezes`)
 - [0007](docs/decisions/0007-species-territories.md) Territorial cores
 - [0008](docs/decisions/0008-longer-carcass-window.md) Carcass window for scavengers
 - [0009](docs/decisions/0009-seasonal-dormancy.md) Seasonal dormancy
@@ -69,7 +69,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0036](docs/decisions/0036-savanna-grass-recovery.md) Savanna grass recovery
 - [0037](docs/decisions/0037-shared-prey-and-recolonisation.md) Shared prey and recolonisation (`sharePrey`)
 - [0038](docs/decisions/0038-smooth-first-minutes.md) Smooth first minutes and per-day cost (`Game.dayWork`)
-- [0039](docs/decisions/0039-steady-flight-level-fish-floating-ducks.md) Steady flight, level reef fish, floating ducks, eased follow camera (`holdCruise`, `smoothSeabed`, `Actors.floatLevel`, `followHeight`)
+- [0039](docs/decisions/0039-steady-flight-level-fish-floating-ducks.md) Steady flight, level reef fish, floating ducks (tucked legs, dabbling, tint under the waterline), eased follow camera (`holdCruise`, `smoothSeabed`, `Actors.floatLevel`, `dabblePose`, `followHeight`)
 - [0040](docs/decisions/0040-depth-based-lens-hole.md) Tracking lens: the animal drawn faintly through cover, cover opens over its outline, trunks never cut (`render3d/look-through.js`, `render3d/focus.js`)
 - [0041](docs/decisions/0041-primate-climbing-pace.md) Primate climbing pace and crown gaps (`drawnClimbPace`, `sim/canopy-links.js`, `crossGap`)
 - [0042](docs/decisions/0042-tree-impostors.md) Tree impostors: far crowns as baked cards (`render3d/tree-impostors.js`)

@@ -57,7 +57,7 @@ export function primateUpdate(wl, a, def, dt) {
   }
 }
 
-// The rest budget (decision 0047). A primate rests its species' share of the day (`restShare`,
+// The rest budget (decision 0049). A primate rests its species' share of the day (`restShare`,
 // from field studies), most of it through the midday heat, and sleeps at night. The simulation has
 // no clock of its own, so the time of day is the drawn sun's (game.todU, set by the renderer; 0 is
 // dawn, about 0.42 noon, 0.86 sunset); headless, with no sun, the share is flat. A balance of rest

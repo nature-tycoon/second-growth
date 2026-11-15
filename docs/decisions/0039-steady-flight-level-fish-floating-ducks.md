@@ -6,8 +6,10 @@
 - A bird in level flight holds a cruise height (`holdCruise` in `render3d/flight-clearance.js`): it climbs when the way ahead needs it and glides down only after `HOLD` (1.5 s), at `GLIDE`. It climbs out of a crown it finds itself in by its climb rate (`CLIMB_ACCEL`), never a jump in height. The look-ahead is about 1.5 s of flight, 1.4 to 6 tiles.
 - Reef fish swim over a smoothed seabed (`smoothSeabed`), and their lift over coral and rock eases like a body (`easeCoralLift`). Both reset when the animal comes back into view (`returning`).
 - Floaters float at the drawn water (`Actors.floatLevel`), not `waterSurfaceY`; where the drawn water is too shallow they stand on the bank. No shadow afloat: that includes a seabird resting on the reef's sea (`c.fl = seaY`), whose bird-shaped shadow on the seabed read as a bird lying on the bottom.
+- A bird afloat (`c.afloat`, set in `drawnHeight`) tucks its legs back under it, paddling (`dabblePose` in `actors-fly.js`). It is sent to the shader as a negative `fly` on a bird (no new instance slot); the shader clamps a bird's `fly` to 0 and reads the tuck from it. Below its waterline it is tinted into the creek's green-grey, deeper more (`vUnder` in `animal-material.js`): the waterline is where `uFloatAt` (the model's centre x at `sink` height) lands, which is the point `dabblePose` tips it about, so it stays on the surface. The water's own see-through depends on the bed's depth, so without the tint a dipped head looked dry.
+- Dabblers (trait `dabbles`, duck kind) tip up for about 3 s every 11 to 17 s while afloat, still or drifting, and not alert, bathing or preening (`dabbleTip` in `eating-pose.js`): pitch 1.25 rad nose down about that waterline point, head down, feet untucked to paddle at the surface. Drawing only, on the render clock like nibbling.
 - The follow camera's height rides a spring within 0.25 tiles of the animal (`followHeight`).
-- Check: `node tools/motion-smoothness-check.mjs`.
+- Check: `node tools/motion-smoothness-check.mjs`; floating ducks at eye level on `pnw` (a mallard spawned on the pond, `renderer.setEyeLevel`, `eyeLook.yaw` to see it side on).
 
 ## History
 
@@ -88,3 +90,13 @@ smooth climb can show. `follow-height-probe` (robin): worst frame 0.59 → 0.22 
 - Any new floater kind goes in `FLOATERS`; it floats by `floatLevel`, not `waterSurfaceY`.
 - Checks: `tools/motion-smoothness-check.mjs` (birds, reef fish, ducks, camera), `flight-canopy-check`,
   `reef-coral-clearance-check`, `bird-landing-check`.
+
+### 2026-11-13: tucked legs and dabbling
+
+Cole: mallards should tip up to dabble now and then and tuck their legs afloat; a floating duck's
+legs hung down in a standing pose, visible through the clear creek. Then, seeing the first tip-up:
+"I'd love for it to look like their head is under water, currently you can't see it's under
+water." The tint below the waterline is the answer to that: the water mesh's transparency comes
+from the bed's depth, so it can't show how deep a head is. Wood ducks dabble too (kind default);
+geese passing over share the duck kind but only fly.
+
