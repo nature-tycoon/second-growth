@@ -494,6 +494,7 @@ export default {
 
   text: {
     edges: { N: 'the Leuser forest to the north', E: 'the forest to the east', S: 'the river', W: 'the village to the west' },
+    creekShapeHint: 'Raise and Lower leave channels alone, so their fish can still swim them. To move a channel, fill it with Fill & grade and dig it again.',
     creekFish: 'mahseer', culvertBlocks: 'mahseer and otters', fenceBlocks: 'the elephants',
     fenceName: 'Elephant fence (electric)',
     flood: 'The river is in flood!',

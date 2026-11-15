@@ -104,9 +104,12 @@ for (const map of maps) {
 check('Raise and Lower refuse creek tiles, as they refuse the river (Cole, 2026-11-15)', () => {
   const g = new Game();
   g.newGame(1987, 'free', 'standard', 'pnw');
-  const w = g.world, i = w.terrain.findIndex(t => t === T.CREEK), vh = w.vh.slice();
+  const w = g.world, i = w.terrain.findIndex(t => t === T.CREEK), vh = w.vh.slice(), notes = [];
+  g.notify = text => notes.push(text);
   for (const key of ['raise', 'lower']) assert.equal(new ToolActions(g).apply(key, [i]).count, 0, key);
   assert.deepEqual(w.vh, vh);
+  // (one hint, the first time, saying how to move a creek instead)
+  assert.equal(notes.filter(n => n.includes('Fill & grade')).length, 1, notes.join(' | '));
 });
 
 check('pnw: a building put up beside a creek levels its footprint and leaves the creek', () => {

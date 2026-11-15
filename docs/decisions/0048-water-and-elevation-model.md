@@ -19,7 +19,8 @@ are still proposals. 2026-11-14, ideas batch water-fixes, session 2.
   before the edit, then written. So Raise/Lower beside a creek or pond moves only the land's corners
   (it moved the creek's before), and a pond's bank no longer lifts a building's or a creek's corners.
   Raise/Lower refuse creek tiles as they refuse the river (Cole, 2026-11-15): reshaping a creek undid
-  the grading its fish swim by; fill and re-dig it instead. Ponds and marshes can still be lowered.
+  the grading its fish swim by; fill and re-dig it instead, which a one-time hint says (`creekShapeHint`,
+  Sumatra's says "channel"). Ponds and marshes can still be lowered.
 - Check: `node tools/terrain-edit-check.mjs [maps]` (every land tool beside a creek, pond and building
   on every map; a shed beside the creek; no height writes outside the edit path).
 - **Digging never moves another water body's bed** (`join`): no corner goes below the bed of other

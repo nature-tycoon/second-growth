@@ -124,6 +124,7 @@ export class ToolActions {
     // (Fill & grade levels roads and gravel but leaves them: a road or gravel lot comes up with Demolish, a crust with Loosen soil)
     if ((stroke.laidGravel != null || stroke.road != null) && !g.flags.gravelGradeHint) { g.flags.gravelGradeHint = true; g.notify('Fill & grade levels roads and gravel but leaves them in place. To take up a road or a gravel lot people laid, use Remove → Demolish.', 'info'); }
     if (stroke.gravel != null && map.hardpan && !g.flags.crustGradeHint) { g.flags.crustGradeHint = true; g.notify('Fill & grade levels the crust but doesn\'t break it. To break it, use Loosen soil or Half-moon pits.', 'info'); }
+    if (stroke.creek != null && !stroke.count && !g.flags.creekShapeHint) { g.flags.creekShapeHint = true; g.notify(map.text.creekShapeHint || 'Raise and Lower leave creeks alone, so their fish can still swim them. To move a creek, fill it with Fill & grade and dig it again.', 'info'); }
     if (stroke.steep != null && !g.flags.steepGradeHint) {
       g.flags.steepGradeHint = true;
       g.notify('Fill & grade levels everything to the height where your stroke starts, and stops where the ground is more than a few metres higher or lower. Start a new stroke there to grade it at its own level.', 'info');

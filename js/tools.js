@@ -111,9 +111,11 @@ export function createTools(catalog) {
     } });
 
   function reshape(amt) {
-    return (game, i) => {
+    return (game, i, random, stroke) => {
       const w = game.world;
-      // (nor a creek: reshaping one undid the grading its fish swim by; fill and re-dig it instead. Cole, 2026-11-15)
+      // (nor a creek: reshaping one undid the grading its fish swim by; fill and re-dig it instead.
+      // Cole, 2026-11-15. notifyOutcome says so once)
+      if (w.terrain[i] === T.CREEK && stroke) stroke.creek ??= i;
       if (w.terrain[i] === T.RIVER || w.terrain[i] === T.CREEK || w.struct[i] >= 0) return null;
       // (beside water or a building only the land's corners move: 0048)
       if (!shiftGround(w, i, amt)) return null;
