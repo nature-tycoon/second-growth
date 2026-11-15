@@ -52,8 +52,9 @@ export function branchPose(A, rec) {
     const supportsValid = !A.flora || rebaseCanopy(st, A.flora) || regripCanopy(st, A.flora, mo, sc); // (a crown on a new scaffold)
     const deliberateTransfer = mo.primate === 1 || mo.primate === 2 || mo.primate === 3;
     if (game.speed > 0 && supportsValid && !returning && mo.primate === 2 && st.canopyWait > 1 && st.branchRoute &&
-        // (from .75 tiles, not 1.8: a resting orangutan gives a wedged body no new target to free it, 0049)
-        Math.hypot(st.branchPoint.x - a.x, st.branchPoint.z - a.y) > .75 &&
+        // (from .75 tiles while resting, not 1.8: a resting orangutan gives a wedged body no new target to free it, 0049;
+        // on the move the recovery's re-route would turn the body faster than its slow clamber turn)
+        Math.hypot(st.branchPoint.x - a.x, st.branchPoint.z - a.y) > (a.restUntil > a.age ? .75 : 1.8) &&
         (st.branchRoute.recovery || st.branchRoute.fromSite !== st.branchRoute.target.site)) {
       recoverCanopyRoute(st, source => {
         const [cx, cz] = source.cell, alternatives = [];
