@@ -14,9 +14,9 @@
 - Water: `DRY_FOOTED` small animals (`animal-terrain.js`) never enter marsh or creek. Other land walkers may wade across, but no route, rest or drink spot ends on water. A new target selector must exclude water tiles for move `ground`, or `settle` keeps walking animals off them (and `pathTo` there is only cheap because none do).
 - Herds keep `HERD_ROOM` (0.85 of two lengths) when grazing or resting (`herdRoom`, `restSpot`); drinkers and a calf by its mother are exempt. Flight turns at `FLEE_TURN`, also when cornered.
 - Grazers are the `idleEat: 'graze'` trait (`js/data/animal-kinds.js`, by kind, a species may override); the head-up rule lives in `steering.js`: an idle grazer with water behind it keeps `a.headUp`. `headUpKey` must be cleared whenever the animal isn't an idle non-drinking grazer. Drawing differences (floats, alwaysFlying, sitsInCrowns, crownHeight, hops, climb) are traits too: ask `trait(def, name)`, never `kind ===`.
-- `spacing.steer` brakes behind one in its way, but steps round one coming at it on a chase or in flight (it won't give way: a hunting bass shoved another backwards up a creek).
+- `spacing.steer` brakes behind one in the lane it actually walks (turned aside by up to `STEER_VEER`, which `smoothWalk` caps its veer at too), never for one on the straight line to its target that it is already stepping round; it steps round one coming at it on a chase or in flight (it won't give way: a hunting bass shoved another backwards up a creek).
 - New `Animal` fields are declared on `Animal`: `drinkFrom`, `sparSince` (saved), `fleeHd`, `settleKey`, `headUp`, `headUpKey`, `detour` (not saved). `walkPath` runs `resolveStep` after a pivot too.
-- Drawing: stride follows ground covered (`render3d/stride.js`, `groundPace`); `node tools/gait-pace-probe.mjs`.
+- Drawing: stride follows ground covered (`render3d/stride.js`, `groundPace`); `node tools/gait-pace-probe.mjs` (walking states only: idle, feed and forage stand still and aren't counted).
 - Check: a pure move between these files must leave every seeded output identical (`sim-rng-check`, `motion-sweep-check --report`, `perf-guard-check`, seeded `balance-sim`). `node tools/motion-sweep-check.mjs [--report]` (snaps, wobbles, spins per species) and `node tools/animal-steering-check.mjs [--report] [maps]` (reliable only at its default seed); with ground-obstacles, animal-positioning, clustering, life, turning, home-range checks and seeded `balance-sim restore 15` on 8+ seeds.
 
 ## History
@@ -236,6 +236,36 @@ species is held up. Elk were held up most: half their walking steps are braking 
 mate in `spacing.steer`, which is real single-file following. A herd follower that stalls near the
 end of its walk now stops there instead of pressing on for up to 3 s (`a.follow` rule in the
 waypoint skip, `animals.js`).
+
+### Herds braking for animals they were already passing (2026-11-13)
+
+The open-ideas list had Serengeti herds "held up" on 55–70% of their steps (`gait-pace-probe`).
+Two things made that number. First, the probe counted grazing (`forage`) steps, where the clock
+ticks but the animal stands still and is drawn standing: 100% "held up" by definition. It now
+counts walking states only. Second, a real rule: `spacing.steer` chose a side to pass a standing
+or grazing herd mate, but braked (down to 0.15 of its pace) whenever that animal sat on the
+straight line to the waypoint, though the walker was already turning past it. An instrumented run
+(real frame loop, 60 fps, seeds 1987/91/5) put braking behind a standing or grazing animal at most
+of the herds' slow steps, mid-route (path median 4 tiles, last leg only 7%), with the walker
+already veering 0.5–0.9 rad aside; the rest were pivots and turns, which are real turning. The
+brake now looks along the lane the walker actually takes, turned as far as it veers; and the veer
+cap `smoothWalk` used (0.75 rad, too little to clear a packed grazing herd) is now `STEER_VEER`
+1.0, shared by both.
+
+Walking steps under a third of pace (`gait-pace-probe`, walking states), before → after:
+wildebeest 34 → 23%, zebra 20 → 12%, buffalo 29 → 20%, elephant 47 → 23%, impala 48 → 30%,
+giraffe 18 → 13%, PNW deer 21 → 13%. All walkers in the frame-loop probe: 26/19/30% → 19/17/17%.
+Motion sweep (all maps): half-day stalls summed over species 1013 → 766 per 1000 frames (elephant
+61 → 27, leopard 95 → 43, hippo 75 → 43), trunk 4.8 → 1.1, sideways 3.8 → 0.8, all within limits;
+`animal-steering-check` overlaps fell on every map. `steer` costs about 1% more of
+`wildlife.update` (a second pass over the same neighbours). Still slow: turning on the spot
+(`smoothWalk` slows in a tight turn) and genuinely full lanes; PNW elk stay high in the probe's
+day-70 snapshot from other causes (a leader slowing for a lagging calf, turning).
+Balance (`calibrate`, 9 seeds): Serengeti score 71 → 71, herbivores 776 → 930 kg/ha median
+(per seed 7 up, 2 down, mean +13%, seed spread ±300; elephant 7 → 9, buffalo 17 → 21, warthog
+10 → 16, rhino 0 → 1, all under carrying capacity; the map was already 4× over the 100–200
+reference before). PNW restore score 66 → 65, herbivores 79 → 67. Likely a small real gain from
+herds spending less time braking; the herbivore overshoot itself is older and not from this.
 
 ### Racks, pivots and cornered flights (2026-11-02, itch.io release blockers)
 
