@@ -40,7 +40,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0009](docs/decisions/0009-seasonal-dormancy.md) Seasonal dormancy
 - [0010](docs/decisions/0010-game-trails.md) Game trails and curved journeys (`sim/animal-course.js`)
 - [0011](docs/decisions/0011-grazing-pressure.md) Grazing pressure (`sim/grazing.js`)
-- [0012](docs/decisions/0012-raptors-soar-and-carry.md) Raptors soar and carry (`sim/bird-behavior.js`)
+- [0012](docs/decisions/0012-raptors-soar-and-carry.md) Raptors soar and carry (`sim/bird-behavior.js`; soarers steer `SOAR_LOOK` ahead so they never fly tail first)
 - [0013](docs/decisions/0013-home-ranges-and-water.md) Home ranges and water (`sim/home-range.js`)
 - [0014](docs/decisions/0014-activity-budget.md) Hunters' activity budget
 - [0015](docs/decisions/0015-landscape-of-fear.md) Landscape of fear (`sim/predation-risk.js`)
@@ -56,7 +56,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0025](docs/decisions/0025-shared-steering.md) Shared steering and one facing (`sim/steering.js`, `stepToward`, `a.heading`, `turnRate`, `reefStep`, `turnToward` in actors-common.js)
 - File map (fix 8): `Wildlife` (`sim/animals.js`: update's order, save/load) is split by step into `sim/wildlife-intent.js` (what next, hunts, `pathTo`), `-water`, `-move` (`stepToward` per mode), `-population`, `-salmon`, `-beavers`, `-shared`; `Actors.update` (`render3d/actors.js`) dispatches to `actors-common.js` and per-mode `actors-ground.js`, `-climb`, `-fly`, `-swim`, `-reef`. Rules in 0025
 - Motion sweep: `node tools/motion-sweep-check.mjs [--report] [maps]` watches every species through `game.update` and `Actors.update` for visible movement glitches (position jumps, heading snaps, wobble and spins, foot slide, bodies in wood, standing in water, stalls), with per-species limits; real glitches it found are matched by `KNOWN` and listed, not hidden. Run it before and after any change to movement, facing or the drawing's turning (15–30 s)
-- [0026](docs/decisions/0026-continuous-hunts.md) Continuous hunts, snakes, pounces, prey jinks (`huntStep`, `letGo`, `jinkLine`)
+- [0026](docs/decisions/0026-continuous-hunts.md) Continuous hunts, snakes (swallow whole, `swallow`, `gulpBulge`), pounces, prey jinks (`huntStep`, `letGo`, `jinkLine`)
 - [0027](docs/decisions/0027-plant-succession.md) Plant colonization and succession (`trySeed`, `forestDamp`)
 - [0028](docs/decisions/0028-succession-dynamics.md) Tree mortality, regeneration, disturbance, deadwood (`removeTree`, `sim/disturbance.js`)
 - [0029](docs/decisions/0029-pollinators-in-3d.md) 3D pollinators (`render3d/pollinators.js`)

@@ -11,7 +11,7 @@ import { F, isWater, isDeepWater, DAYS_PER_YEAR } from '../config.js';
 import { canLand, passable } from './animal-terrain.js';
 import { predationCatchChance } from './ecological-pressure.js';
 import { facePoint } from './animal-positioning.js';
-import { carryCatch, carrier } from './bird-behavior.js';
+import { carryCatch, carrier, SOAR_LOOK } from './bird-behavior.js';
 import { simRandom } from './sim-random.js';
 
 export const isFish = d => !!d && d.move === 'swim' && !d.reef && !d.notPrey && d.sprite.kind === 'fish';
@@ -237,8 +237,9 @@ function seaFishing(wl, a, def, f, p, dt, sp) {
       if (wl.stepToward(a, f.x, f.y, sp)) { f.phase = 'watch'; f.t = 1 + simRandom() * 1.5; f.ang = Math.atan2(a.y - f.y, a.x - f.x); }
       return;
     }
-    // gliding round over the spot, looking down, until it is high enough and sees one
-    f.ang = (f.ang || 0) + dt * 1.1;
+    // gliding round over the spot, looking down, until it is high enough and sees one (aimed a
+    // little way round ahead of where it is, so it faces along its circle: soarStep)
+    f.ang = Math.atan2(a.y - f.y, a.x - f.x) + SOAR_LOOK;
     wl.stepToward(a, f.x + Math.cos(f.ang) * 1.2, f.y + Math.sin(f.ang) * 1.2, sp * 0.6);
     if ((f.t -= dt) <= 0 && a.alt >= high * 0.9) { f.phase = 'dive'; a.stoop = 0; }
     return;

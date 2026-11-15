@@ -103,9 +103,14 @@ export function soar(wl, a, def) {
     ang: Math.atan2(a.y - cy, a.x - cx), ph: a.phase, beat: simRandom() * 6.3 };
   return true;
 }
+// It steers for a point SOAR_LOOK round the circle ahead of where it is, so it always faces along
+// its turn. (It chased a point one step ahead: at watch pace a step is under the 0.02 tiles
+// stepToward needs to turn the heading, so the heading froze while the bird went on round, and a
+// red-tail circled tail first.)
+export const SOAR_LOOK = 0.35;
 function soarStep(wl, a, def, b, dt, pace = 0.8) {
   const sp = travelSpeed(def) * dt * pace;
-  b.ang += b.dir * sp / b.r;
+  b.ang = Math.atan2(a.y - b.cy, a.x - b.cx) + b.dir * SOAR_LOOK;
   wl.stepToward(a, b.cx + Math.cos(b.ang) * b.r, b.cy + Math.sin(b.ang) * b.r, sp * 1.2);
   a.alt = Math.min(1.6, a.alt + dt * 0.6);
   // wings held out, with a short bout of flapping every so often (a.phase drives the wingbeat)

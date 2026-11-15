@@ -11,7 +11,7 @@ import { inRiver } from './animals.js';
 import { followCervid } from './cervid-groups.js';
 import { travelSpeed } from './climb-pace.js';
 import { preyCover } from './ecological-pressure.js';
-import { birdAlarm, soar, circleDown } from './bird-behavior.js';
+import { birdAlarm, soar, circleDown, SOAR_LOOK } from './bird-behavior.js';
 import { activityProfileFor } from '../data/animal-activity.js';
 import { territorialRivals } from '../data/animal-territories.js';
 import { territoryArrive } from './animal-territory.js';
@@ -111,7 +111,7 @@ export const canStartHunt = a => a.state !== 'dormant' && !a.leaving && !a.fromF
   a.state !== 'feed' && a.state !== 'forage' && (a.state !== 'flee' || a.play);
 
 export function beginHunt(wl, a, def, b) {
-  a.hunt = { phase: 'approach' };
+  a.hunt = { phase: 'approach' }; a.gulp = null;
   if (!PACK.has(def.key)) return;
   let remaining = def.behavior?.partners ?? 3;
   // the rest of the pride or pack nearby joins in, fanning out to either side
@@ -191,7 +191,8 @@ export function huntStep(wl, a, def, b, sp) {
     H.ang += sp / 1.5;
     a.run = 1.1;
     if (H.t <= 0) startRush(wl, a, def, b, S, d);
-    else { wl.stepToward(a, b.x + Math.cos(H.ang) * 1.5, b.y + Math.sin(H.ang) * 1.5, sp * 1.15); return false; }
+    // (aimed a little way round ahead, so it faces along the turn even when a step is tiny: soarStep)
+    else { wl.stepToward(a, b.x + Math.cos(H.ang + SOAR_LOOK) * 1.5, b.y + Math.sin(H.ang + SOAR_LOOK) * 1.5, sp * 1.15); return false; }
   }
   let mul = H.phase === 'rush' ? S.sprint : H.phase === 'creep' ? S.creep : S.approach;
   if (H.phase === 'rush') {
@@ -393,12 +394,13 @@ function alarm(wl, pred, pdef, target, time) {
 
 // ---------------------------------------------------------------- after the hunt
 // A catch: big prey leaves a carcass the hunter feeds at (and its pack and the scavengers come to);
-// small prey is eaten on the spot.
+// small prey is eaten on the spot. A snake (`swallowsWhole`) leaves nothing: it swallows its catch.
 export function startFeed(wl, a, def, b) {
   const bd = wl.game.catalog.animals[b.sp], big = leavesCarcass(bd);
   const w = wl.game.world, x = Math.floor(a.x), y = Math.floor(a.y);
   a.carcass = null;
   a.searchImage = b.sp; // (it looks out for this kind of prey next: decision 0037)
+  if (trait(def, 'swallowsWhole')) return swallow(a, b, bd, big);
   // (a bird that snatched a fish from open water eats it on the wing)
   if (a.move === 'fly' && w.inb(x, y) && !canLand(w, w.idx(x, y), def)) { a.state = 'idle'; a.wait = 0; a.flying = true; return; }
   a.state = 'feed'; a.feedAt = [b.x, b.y]; facePoint(a, b.x, b.y);
@@ -419,6 +421,18 @@ export function startFeed(wl, a, def, b) {
   c.meals0 = c.meals; c.feed = a.feedT;
   addCarcass(wl, c);
   a.carcass = c.id;
+}
+
+// A snake holds its catch in its coils until it stops breathing, then works it down whole, head
+// first, and leaves no carcass. The meal takes as long as a carcass meal of that prey would (so
+// kills per year are unchanged, decision 0026); then it lies up digesting (`digest`,
+// animal-activity.js). a.prey (cleared when the meal ends) draws the prey at its jaws; a.gulp
+// (kept until its next hunt) draws the bulge going down its body (actors-common.js gulpBulge).
+function swallow(a, b, bd, big) {
+  a.state = 'feed'; a.feedAt = [b.x, b.y]; facePoint(a, b.x, b.y);
+  a.feedT = big ? 1.5 + (bd.sprite.len || 20) / 30 * (1 + simRandom()) : 0.5 + simRandom() * 0.8;
+  a.prey = { id: b.id, sp: b.sp, age: lifeAge(b), juvenile: !!b.juvenile, whole: true };
+  a.gulp = { sp: b.sp, juvenile: !!b.juvenile, T: a.feedT };
 }
 
 // Large land animals leave a body when they die; small, flying and swimming ones don't. Nor do
