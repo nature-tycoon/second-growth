@@ -22,7 +22,7 @@ export class Animal {
   momSlot; familyFailures; patrolDir; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
   leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkOn;
-  carry; prey; fishing; clingSide; fruitFed; ateFruitAt; climb; gapTo; cache; home; homeAfter; drinkFrom; fleeHd; jink; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; gulp; headUp; headUpKey; detour;
+  carry; prey; fishing; clingSide; fruitFed; ateFruitAt; restBal; restAt; restUntil; stillT; climb; gapTo; cache; home; homeAfter; drinkFrom; fleeHd; jink; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; gulp; headUp; headUpKey; detour;
 }
 
 // Animals that swim in open water move in any direction, diagonals too (river fish, and everything on the reef).

@@ -15,6 +15,14 @@ const UNDER = new Set(['algae', 'coral', 'sponge', 'seagrass', 'sediment']);
 // at the bank, ducks dabbling.
 export const nibbles = (def, a) => trait(def, 'idleEat') === 'nibble' && !def.reef && !a.flying;
 
+// A dabbling duck afloat (trait dabbles) tipping up to feed: 1 while it is up-ended, head and
+// front under and tail in the air, else 0. Every 11 to 17 seconds (by the bird), for about three.
+export function dabbleTip(def, a, time) {
+  if (!trait(def, 'dabbles') || a.alertT > 0) return 0;
+  const period = 11 + (a.id % 7);
+  return ((time + a.id * 3.7) % period) < 3 ? 1 : 0;
+}
+
 // The head's target (1 down, 0 level, below 0 up) for an animal at a meal, or null when it isn't
 // eating. `w` is the world (to tell a browsed shrub from a tree).
 export function mealHead(a, w, time) {

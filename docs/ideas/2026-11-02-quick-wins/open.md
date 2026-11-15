@@ -18,12 +18,12 @@ All 5 sessions landed on `claude/ideas-quick-wins` (c0008c2..f338096). Not pushe
 - Reef: 3–4 healthy colourful bommies at map start as a "what you're restoring" preview (s5).
 - Reef: anthias schools as a new species (s5).
 - Fix `animal-steering-check` on Atlanta (antler racks in trunks, failing before this batch) (s4).
-- Keystone glide on real time so it's the same length on slow computers (s2).
-- Small "Invasives off" tag in the Ecosystem Report (s2).
+- Keystone glide on real time so it's the same length on slow computers (s2). **Done** (06869cb; 2026-11-13: frame clock, at most 0.2 s a frame, so a stall doesn't skip it).
+- Small "Invasives off" tag in the Ecosystem Report (s2). **Done** (2026-11-13: a tag by the title on every tab).
 - Climbing monkeys set their trunk as support for the lens, like woodpeckers (s3).
 - Serengeti herds held up 55–70% of steps (s4 probe): real slowdown worth a look with the refactor audit.
 - Fishing birds leave tree crowns cleanly (Amazon kingfisher perch exit) (s4).
-- Seabirds float on the surface over deep water instead of the seabed (s5; may be test-spawn only).
+- Seabirds float on the surface over deep water instead of the seabed (s5; may be test-spawn only). **Done** (2026-11-13): the bird was at the surface, but its bird-shaped shadow lay on the seabed; no shadow afloat now.
 - Nature-checked, lower priority: salmon leap height by current and spawning season (s1); brush preview of poor tiles (s1); chromis diving into staghorn when a hunter comes near, as a moment (s5).
 
 ## Beaver dam flooding (Cole's playtest)

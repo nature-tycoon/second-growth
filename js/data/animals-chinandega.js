@@ -12,7 +12,7 @@ export default function buildChinandegaAnimals(def) {
 
   // ------------------------------------------------------------------ Mammals
   {
-    def({ key: 'congo', leaps: true, name: 'Mantled howler monkey', sci: 'Alouatta palliata', group: 'Mammals', move: 'tree',
+    def({ key: 'congo', leaps: true, restShare: 0.65, name: 'Mantled howler monkey', sci: 'Alouatta palliata', group: 'Mammals', move: 'tree',
       speed: 0.7, hr: 60, max: 12, minK: 3, groupSize: [3, 5], sources: ['N'], mig: 0.3, intro: 6000, breed: [2, 3, 4], litter: [1, 1], life: 20, mature: 3,
       suit: (W, i) => (W.tree[i] && W.treeG[i] > 0.6 ? 1 : 0),
       req: g => Math.min(1, (g.forestTiles || 0) / 250),
@@ -21,7 +21,7 @@ export default function buildChinandegaAnimals(def) {
       hint: 'Tall dry forest whose crowns connect, joined to the forest on the volcano.' });
   }
   {
-    def({ key: 'capuchin', leaps: true, name: 'White-faced capuchin', sci: 'Cebus imitator', group: 'Mammals', move: 'tree',
+    def({ key: 'capuchin', leaps: true, restShare: 0.2, name: 'White-faced capuchin', sci: 'Cebus imitator', group: 'Mammals', move: 'tree',
       speed: 1.2, hr: 80, max: 10, minK: 3, groupSize: [3, 5], sources: ['N'], mig: 0.25, breed: [2, 3], litter: [1, 1], life: 25, mature: 4,
       suit: (W, i) => (W.tree[i] && W.treeG[i] > 0.6 ? 0.6 + 0.4 * Math.min(1, W.berries[i] * 2) : 0),
       req: g => Math.min(1, (g.forestTiles || 0) / 350),

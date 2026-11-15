@@ -355,6 +355,25 @@ export function rebaseCanopy(st, flora) {
   return true;
 }
 
+// A deciduous crown that leafs out or drops its leaves is drawn on another scaffold (flora.js:
+// bareTree in its leafless phase, treeParts otherwise), so rebaseCanopy can't carry the hold
+// across. Keep the body where it is and take the nearest hold on the new wood, rather than
+// restarting the climb at the simulation's spot: a trailing monkey jumped forward up to a few
+// tiles at every leaf-out (decision 0049). Mid-leap too: the leap is only the route's gap, and a
+// body far from any wood finds no close hold. False when there is none; the caller resets.
+export function regripCanopy(st, flora, mo, sc) {
+  const route = st.branchRoute, old = route ? route.sites[Math.min(route.cursor, route.sites.length - 1)] : st.branchAt?.site;
+  if (!old || old.transient || !st.branchPoint) return false;
+  const live = flora.treeSites.get(old.tile);
+  if (!live || live === old || live.plant !== old.plant) return false;
+  const p = st.branchPoint, hold = live.anchor(p.x, p.z, null, mo.len * sc * (mo.canopyHanging ? .48 : .34),
+    mo.primate === 3 || mo.canopyHanging, mo.primate || mo.canopyFeet ? { motion: mo, scale: sc } : null);
+  if (!hold || Math.hypot(hold.point.x - p.x, hold.point.z - p.z) > .45) return false;
+  st.branchAt = hold; st.branch = hold; st.branchRoute = null; st.branchPoint = hold.point.clone();
+  st.gripFeet = null; st.slothBridge = null; st.canopyTrail = null; st.howlerJump = null; st.howlerFinalPose = null; st.canopyLeap = null;
+  return true;
+}
+
 // Rendering follows the branch network; simulation positions and tile paths stay authoritative.
 export function canopyStep(st, anchor, def, game, time, reset = false, sim = null) {
   let walkerMotion=def.sprite.canopyWalkerMotion;

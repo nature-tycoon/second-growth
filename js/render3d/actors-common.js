@@ -190,6 +190,7 @@ export function beginAnimal(A, fr, a) {
     snagTop: null, // (the snag a perched bird sits on top of: its middle)
     swimming: false, // (a land animal out of its depth, paddling with its head out)
     fl: null, // (the water surface a floater floats at: Actors.floatLevel)
+    afloat: false, // (a floater drawn on the water, not on the bank or the bed)
     // (worked out on the way: the turn, gait and pose, then where it's drawn)
     dx: 0, dz: 0, yaw0: 0, gait0: 0, moving: false, munch: -1, heading: null, body: null,
     walker: false, bathing: false, preening: false, fight: null, bugling: false,
@@ -266,7 +267,8 @@ export function finishAnimal(A, c) {
   if (st.revealBounds) { st.revealMatrix ||= new THREE.Matrix4(); st.revealMatrix.copy(F.m); }
   // (after the reads of F.m above, which must still hold this animal's own instance)
   if (a.prey && (a.state === 'carry' || a.state === 'feed')) drawCatch(F, game, a, def, st, sc, mo);
-  if (!st.branch && def.move !== 'swim' && !swimming && !((surf != null || c.fl != null) && trait(def, 'floats'))) { // (no shadow afloat)
+  // (no shadow afloat: on a seabird resting on the sea it lay on the seabed, a dark bird on the bottom)
+  if (!st.branch && def.move !== 'swim' && !swimming && c.fl == null && !(surf != null && trait(def, 'floats'))) {
     // (a shaped shadow fades and softens a little the higher the animal is above the ground)
     const shape = (def.reef || def.move === 'fly') && A.silhouettes.shape(F, def, def.reef ? 0.5 : 0);
     if (shape) A.silhouettes.add(shape, a.x, ground, a.y, st.yaw, sc * (1 + Math.min(1, Math.max(0, y - ground) * 0.06)), st.fly, Math.sin(phase * (mo.flap || 1)), clamp(1.1 - (y - ground) * 0.22, 0.4, 1));

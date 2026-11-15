@@ -37,6 +37,9 @@ function layer(w, a, x = a.x, y = a.y, grounded = false) {
 // the buckets are a flat grid over the map, one array per three-tile square reused each time, and
 // the neighbours are walked with plain loops rather than a generator: same buckets, same order.
 // (Only animals on the map are bucketed, so a square off the map's edge is always empty.)
+// How far a walker veers off its line to pass one in its way (radians): smoothWalk turns no
+// further than this toward steer's point, and steer brakes for whoever is in that lane.
+export const STEER_VEER = 1.0;
 const HERD_ROOM = 0.85; // (of the two bodies' lengths, centre to centre: about a body length of ground between)
 
 export class AnimalSpacing {
@@ -132,7 +135,6 @@ export class AnimalSpacing {
     dx /= d; dy /= d;
     const r = animalRadius(a, this.w.catalog), look = Math.min(d, r * 2 + 0.6);
     let need = [0, 0], any = false; // clearance angle needed passing on the left [0] or the right [1]
-    let ahead = Infinity; // (room left before it touches the nearest one straight ahead)
     for (const bucket of this.around(a.x, a.y)) for (const e of bucket) {
       if (!this.compatible(a, e, band)) continue;
       const ox = e.a.x - a.x, oy = e.a.y - a.y, reach = r + e.r + 0.04;
@@ -141,13 +143,9 @@ export class AnimalSpacing {
       // coming the other way: both keep to their own right, so they don't mirror each other's dodge
       const coming = Math.cos(e.a.heading ?? 0) * dx + Math.sin(e.a.heading ?? 0) * dy < -0.5;
       const toward = e.a.state === 'walk' && coming;
-      // (one on a chase or in flight coming at it won't give way: it steps aside rather than waiting
-      // in its path, where a bass hunting up a creek pushed another along backwards)
-      const charging = coming && (e.a.state === 'hunt' || e.a.state === 'flee');
       const at = Math.max(0.15, along);
       need[0] = Math.max(need[0], Math.atan2(reach + lat, at) + (toward ? 0.6 : 0));
       need[1] = Math.max(need[1], Math.atan2(reach - lat, at));
-      if (Math.abs(lat) < reach * 0.7 && !charging) ahead = Math.min(ahead, along - reach);
       any = true;
     }
     if (!any) { a.avoidSide = 0; return null; }
@@ -163,8 +161,23 @@ export class AnimalSpacing {
     if (!p) { side = 1 - side; p = open(Math.min(need[side], 1.3) * (side === 0 ? 1 : -1)); }
     if (!p) return null;
     a.avoidSide = side === 0 ? 1 : -1;
-    // (and nearly touching the one in front, it waits a moment rather than walking into it: one
-    // following along behind another, or edging through a resting herd: 0025)
+    // (and nearly touching one in front, it waits a moment rather than walking into it: one
+    // following along behind another, or edging through a resting herd: 0025. In front means in
+    // the lane it actually walks, turned aside as far as a walker veers (STEER_VEER), not on the
+    // straight line to its target: braking for one it was already stepping round held herds up
+    // on half their walking steps through a grazing herd)
+    const veer = clamp(Math.min(need[side], 1.3) * (side === 0 ? 1 : -1), -STEER_VEER, STEER_VEER);
+    const ux = dx * Math.cos(veer) - dy * Math.sin(veer), uy = dx * Math.sin(veer) + dy * Math.cos(veer);
+    let ahead = Infinity; // (room left before it touches the nearest one in that lane)
+    for (const bucket of this.around(a.x, a.y)) for (const e of bucket) {
+      if (!this.compatible(a, e, band)) continue;
+      const ox = e.a.x - a.x, oy = e.a.y - a.y, reach = r + e.r + 0.04, along = ox * ux + oy * uy;
+      if (along <= 0.02 || along > look + reach || Math.abs(oy * ux - ox * uy) >= reach * 0.7) continue;
+      // (one on a chase or in flight coming at it won't give way: it steps aside rather than waiting
+      // in its path, where a bass hunting up a creek pushed another along backwards)
+      if (Math.cos(e.a.heading ?? 0) * dx + Math.sin(e.a.heading ?? 0) * dy < -0.5 && (e.a.state === 'hunt' || e.a.state === 'flee')) continue;
+      ahead = Math.min(ahead, along - reach);
+    }
     const brake = ahead < 0.08 ? clamp(0.15 + ahead * 5, 0.15, 1) : 1;
     return [p[0], p[1], Math.min(brake, need[side] > 1.3 ? 0.35 : 1 - 0.3 * Math.min(1, need[side] / 1.3))];
   }

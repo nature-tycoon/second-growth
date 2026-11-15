@@ -8,6 +8,7 @@
 - Birds launch at once and land only on legal, non-burning sites; with none sampled they stay airborne and retry.
 - No population, habitat, hunger or catch-probability formula changes. Transient vigilance state resets on load; no renderer position edits.
 - 0014 and 0026 later changed when prey bolt from a stalking hunter.
+- Freezers (trait `freezes`: rabbit kind, so brush rabbits and cottontails): with a hunter in view but not yet urgent, one sat in thick cover (`preyCover` ≥ `FREEZE.cover`) freezes, still, for `FREEZE.t` at a time; out in the open it walks to the nearest thicket further from the hunter (`freeze` in `animal-life.js`), else the usual stare and move off. The urgent bolt is unchanged, but `fleeUpdate` weighs cover ahead `FREEZE.pull` (2) instead of 0.8, so it dashes for the brush. The freeze is `alertT` on an idle animal, drawn crouched with the head low (`headPose`): no new saved state. Kills per year are the 0026 anchor: measure with `hunt-check`, `predation-soak 12 pnw atlanta`, `challenging-ecology-check` and `calibrate pnw` before and after a change to it.
 - Checks: `node tools/prey-avoidance-check.mjs` (all predator-prey pairs), `challenging-ecology-check`, `node tools/animal-clustering-soak.mjs`; seeded `balance-sim restore 15` (`node --import ./tools/avoidance-seed.mjs`).
 
 ## History
@@ -83,3 +84,22 @@ path intents using the existing locomotion system; no renderer position edits.
 This is headless behavior validation, not an exhaustive visual or ecological
 realism review. Refuge and escape opportunities improve prey survival without
 making escape or a catch guaranteed.
+
+### 2026-11-13: brush rabbits freeze, then dash for the brush
+
+Cole agreed to it in the wildlife-polish batch (real brush rabbits freeze when a predator is near,
+then bolt into dense brush). Built as the `freezes` trait in watch and fleeUpdate; Challenging's
+cover rule for catch odds is unchanged. Measured before and after (0026 anchor):
+
+- Hunts on rabbits with populations held and hunters hungry (hunt-check's setup, PNW, 8 run seeds x
+  2 layouts, 100-150 days): caught on 79% of 71 hunts before, 75% of 79 after; Atlanta cottontail
+  44% of 45 before, 67% of 36 after. No sign the dash makes them harder to catch, so the catch odds
+  were not retuned.
+- `predation-soak 12 pnw atlanta`: kills per hunter-year bobcat 3.7 to 3.1, coyote 2.5 to 3.1, hawk
+  5.3 to 5.7, owl 6.6 to 6.6, cougar 1.4 to 1.7 (3 seeds; noisy both ways). Brush rabbits ended at
+  11 rather than 19, but over 6 seeds x 8 years their mean numbers held (13.4 to 12.6), and runs
+  with the dash weaker and stronger did not order by it: population swings, not the escape.
+- `calibrate pnw 15 3`: score 66 to 67, vital signs about the same; Douglas squirrel absent at the
+  median after (0/5.9), a prey-switch or noise to watch.
+- `hunt-check`, `challenging-ecology-check`, `prey-avoidance-check`, `motion-sweep-check pnw atlanta` pass.
+
