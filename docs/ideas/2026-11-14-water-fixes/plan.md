@@ -45,11 +45,11 @@ Branch: `claude/ideas-water-fixes`, cut from `origin/main` (d626592), which incl
 
 | # | Title | Ideas | Model | Size | Status |
 |---|-------|-------|-------|------|--------|
-| 1 | UI and settings | continue button, sandbox money, invasive toggle | sonnet | S–M | [ ] |
-| 2 | Water model audit + connected ponds + salmon passage | pond level, salmon, rework proposal | opus | L | [ ] |
-| 3 | Terrain tools | flat fill & grade, gravel lot via demolish | opus | M | [ ] |
-| 4 | Animals at the water surface | dolphin, beaver in watch mode | opus | M | [ ] |
-| 5 | Hunts and soaring | anaconda swallow, hawk soars backwards | opus | M | [ ] |
-| 6 | Eye-level foliage occlusion | animals in front of foliage | opus | M | [ ] |
+| 1 | UI and settings | continue button, sandbox money, invasive toggle | sonnet | S–M | [x] 7054cd7 |
+| 2 | Water model audit + connected ponds + salmon passage | pond level, salmon, rework proposal | opus | L | [x] 1cbd18d |
+| 3 | Terrain tools | flat fill & grade, gravel lot via demolish | opus | M | [x] 0ba9c5d |
+| 4 | Animals at the water surface | dolphin, beaver in watch mode | opus | M | [x] 942b61d |
+| 5 | Hunts and soaring | anaconda swallow, hawk soars backwards | opus | M | [x] 47f8a7e |
+| 6 | Eye-level foliage occlusion | animals in front of foliage | opus | M | [x] d18ef43 |
 
 All sequential in this checkout (3 and 4 depend on 2's water levels; 6 uses browser checks).
