@@ -6,13 +6,13 @@ import { readFileSync, statSync, readdirSync } from 'node:fs';
 import { RUT_SOUNDS, SOUND_CREDITS, RACK_PITCH, soundFile } from '../js/audio/sounds.js';
 import { mapCatalog } from '../js/biome.js';
 import { Game } from '../js/game.js';
-import { T, DAYS_PER_YEAR, DAYS_PER_MONTH } from '../js/config.js';
+import { T, DAYS_PER_YEAR, DAYS_PER_MONTH, SPEEDS } from '../js/config.js';
 import { ANIMAL, ANIMALS, isMaleVariant } from '../js/data/animals.js';
 import { bugles } from '../js/sim/animal-life.js';
 import { boutCycle, CRASH } from '../js/render3d/bout-clock.js';
 import { rutSounds } from '../js/audio/rut-events.js';
 import { mulberry32 } from '../js/rng.js';
-import { Music } from '../js/audio/music.js';
+import { Music, RUT_CALLS_PER_MINUTE } from '../js/audio/music.js';
 import { FIELD_RECORDINGS } from '../js/audio/recordings.js';
 
 const root = new URL('../', import.meta.url);
@@ -132,6 +132,36 @@ check('Off-screen bulls call throughout the rut using audio time, with no overla
   a.leaving = b.leaving = true;
   for (let k = 0; k < 30; k++) { music.ctx.currentTime++; rutSounds(g, renderer, music, k); }
   assert.equal(heard.length, n, 'no phantom bugles after bulls leave');
+});
+check('At the top game speed the rut stays occasional: a few calls a real minute, never back to back', () => {
+  // (Jacob, 2026-11-14: at the fastest speed elk bugling played constantly)
+  const g = setup(77), heard = [], music = new Music();
+  for (const [x, y] of [[40.5, 30.5], [47.5, 31.5], [34.5, 36.5], [44.5, 40.5], [52.5, 26.5]]) spawn(g, true, x, y);
+  for (const [x, y] of [[41, 33], [43, 29], [38, 31], [44, 34], [39, 28], [48, 36], [36, 34]]) spawn(g, false, x + 0.5, y + 0.5);
+  const node = () => ({ gain: { value: 0 }, playbackRate: { value: 1 }, connect() { return this; } });
+  music.ctx = { state: 'running', currentTime: 0, createGain: node, createBufferSource() {
+    const src = node(); src.start = () => heard.push(music.ctx.currentTime); return src;
+  } };
+  Object.assign(music, { callGain: node(), warmRut() {}, voice: () => node(), trackSource() {} });
+  for (const name of RUT_SOUNDS.bugle) music.rutClips.set(name, { duration: 3.5 });
+  const renderer = { target: { x: 42, z: 32 }, right: () => ({ x: 1, z: 0 }), vw: 960, ppu: 30 };
+  bugles.length = 0;
+  let pushed = 0;
+  const days = SPEEDS[3] / 30; // (the fastest speed's days a real second, at 30 frames a second)
+  for (let frame = 0; frame < 30 * 180; frame++) { // three real minutes
+    const before = bugles.length;
+    g.wildlife.update(days);
+    pushed += Math.max(0, bugles.length - before);
+    music.ctx.currentTime = frame / 30;
+    rutSounds(g, renderer, music, frame / 30);
+  }
+  assert.ok(pushed > 3 * RUT_CALLS_PER_MINUTE, `the bulls bugled often in the simulation (${pushed})`);
+  assert.ok(heard.length >= 3, `the rut is still heard (${heard.length} calls)`);
+  for (let i = 0; i < heard.length; i++) {
+    const inMinute = heard.filter(t => t >= heard[i] && t < heard[i] + 60).length;
+    assert.ok(inMinute <= RUT_CALLS_PER_MINUTE, `${inMinute} calls in the real minute from ${heard[i].toFixed(0)} s`);
+  }
+  console.log(`     ${pushed} bugles in the simulation, ${heard.length} heard over three real minutes`);
 });
 check('A lone bull calls without a harem, but females and calves do not', () => {
   const g = setup(66), a = spawn(g, true, 110, 80), heard = [];
