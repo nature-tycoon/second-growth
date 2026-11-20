@@ -5,7 +5,7 @@
 - Elk (and, since 0005, every non-reef ground mover) may cross passable, non-burning dry ground to reach another suitable patch. The destination threshold and habitat-weighted choice are unchanged.
 - Crossing ground isn't habitat and adds no capacity; fences, buildings, ponds and rivers still block.
 - Reuse the existing roaming search (bounded, reusable BFS buffers, leader decisions only, never per frame), remembered trip, herd following and calf rejoining; rutting bulls keep harem behavior. No new saved state.
-- A family leader slows for a lagging member on overland journeys (`a.trip`) as well as home-range trips (`rangePaces` in `sim/animal-trails.js`); while a lagging member is still standing she slows to a quarter pace. Calves wake by `cervidNeedsRejoin`.
+- A family leader slows for a lagging member on overland journeys (`a.trip`) as well as home-range trips (`rangePaces` in `sim/animal-trails.js`); for her own calf (`b.mom`) on any walk, from 2.5 tiles back, and to a quarter pace while it is still standing; never a quarter pace for a standing herd member (one with no slot is never woken: the family crept at a quarter pace, 2026-11-19). Calves wake by `cervidNeedsRejoin`. `cervid-behavior-check`'s calf gap (limit 3.5) was 3.42 before, 2.83 after.
 - Checks: `node tools/cervid-behavior-check.mjs` (calf gap limit 3.5 tiles), positioning, animal-life, animal-behavior checks, `node tools/balance-sim.mjs restore 15` before and after.
 
 ## History

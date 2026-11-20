@@ -22,6 +22,14 @@
 //             show a back in a riffle shallower than they are tall, as trout and salmon do.)
 //   stall     moving (walk, flee, approach, play) yet no further than STALL_R from where it was
 //             STALL_DAYS ago
+//   crawl     a ground walker walking (not dashing) at under CRAWL of the pace it walks at (its
+//             walking speed, trotting to keep up, wading), held HOLD seconds: a deer family once
+//             crept at a quarter pace for a herd mate standing behind (rangePaces), and followers
+//             braked to a crawl behind one grazing in their lane (spacing.steer), 2026-11-19
+//   clump     a ground walker or river fish with CLUMP_N or more of its own kind within CLUMP_LEN
+//             body lengths, centre to centre, held HOLD seconds: herds keep a body length of ground
+//             between them (0025). Not counted: a mother with her young, littermates, rivals in a
+//             bout, a pack on a kill. (River fish piling at a lip over years: river-fish-pile-probe.mjs)
 // A count breaks its limit (LIMITS, per 1000) for a species on a map when it is at least MIN_EVENTS
 // frames and over the rate, both seeds together. The limits were set on 2026-11-09 from seeds 1987,
 // 91, 7 and 42, with room. Glitches that are clearly real are matched by KNOWN (by what they are,
@@ -30,7 +38,8 @@
 // It catches past glitches: on the commit before 0025 (a1fc92c^) 25 limits break, land walkers
 // standing in water (elephant, topi, gajah, deer) and bodies in trunks on every map (giraffe 152,
 // Sumatran rhino 252 per 1000, with the looser keep-out of the time); before the trunk steering of
-// 334e28b, opossums treadmill (30 per 1000).
+// 334e28b, opossums treadmill (30 per 1000). On 017ce21 (before crawl and clump were fixed) 13 break:
+// crawl for deer, elk, zebra, buffalo, giraffe, elephant, cattle and more, clump for deer and buffalo.
 // --report prints without failing. SEEDS=1987,91 DAYS=6 game days per map and seed, FPS=60, SPEED=1
 // (4 is watch pace, where a step is tiny: how a soaring hawk's frozen heading was found),
 // DETAIL=1 the species/state behind each count. Not covered: climbers and perched birds are drawn
@@ -47,6 +56,7 @@ import { passable, canLand } from '../js/sim/animal-terrain.js';
 import { groundWalker, inWood } from '../js/sim/ground-obstacles.js';
 import { travelSpeed } from '../js/sim/climb-pace.js';
 import { trait } from '../js/data/animal-kinds.js';
+import { animalRadius } from '../js/sim/animal-positioning.js';
 const THREE = await import('three');
 const { Actors } = await import('../js/render3d/actors.js');
 const { waterSurfaceY } = await import('../js/render3d/terrain.js');
@@ -55,12 +65,12 @@ globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeIt
 const args = process.argv.slice(2), strict = !args.includes('--report');
 const maps = args.filter(s => !s.startsWith('--'));
 const SPEED = +(process.env.SPEED || 1), DAYS = +(process.env.DAYS || 6), SEEDS = (process.env.SEEDS || '1987,91').split(',').map(Number), FPS = +(process.env.FPS || 60), WARM = 0.25;
-const SNAP = 0.6, SIDEWAYS = 0.9, TAIL = 1.9, WOBBLE = 0.08, STALL_R = 0.15, STALL_DAYS = 0.5, SUSTAIN = 10;
+const CRAWL = 0.35, CLUMP_N = 2, CLUMP_LEN = 1.5, CLUMP_HOLD = 4,  HOLD = 2, SNAP = 0.6, SIDEWAYS = 0.9, TAIL = 1.9, WOBBLE = 0.08, STALL_R = 0.15, STALL_DAYS = 0.5, SUSTAIN = 10;
 const MOVING = new Set(['walk', 'flee', 'approach', 'play']);
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
-const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'wet', 'sideways', 'tailFirst', 'surfaced', 'stall'];
-const PER_WALKER = new Set(['glide', 'treadmill', 'trunk']); // (per 1000 ground-walker frames)
-export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, wet: 0, sideways: 4, tailFirst: 0, surfaced: 0, stall: 160 };
+const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'wet', 'sideways', 'tailFirst', 'surfaced', 'stall', 'crawl', 'clump'];
+const PER_WALKER = new Set(['glide', 'treadmill', 'trunk', 'crawl']); // (per 1000 ground-walker frames)
+export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, wet: 0, sideways: 4, tailFirst: 0, surfaced: 0, stall: 160, crawl: 4, clump: 4 };
 const MIN_EVENTS = 3;
 const deadwoodNear = (w, a) => {
   for (let y = Math.floor(a.y) - 1; y <= Math.floor(a.y) + 1; y++) for (let x = Math.floor(a.x) - 1; x <= Math.floor(a.x) + 1; x++)
@@ -78,11 +88,17 @@ export const KNOWN = [
   { count: 'stall', name: 'river and estuary swimmers frozen mid-route (walk, moveProgress.stalled climbing for days; game-placed snappers too)', test: (a, def) => def.move === 'swim' && !def.reef },
   { count: 'spin', name: 'fleeing prey turn a full circle within a second (flight turning at FLEE_TURN the whole time)', test: a => a.state === 'flee' },
   { count: 'wobble', name: 'river dolphin heading shivers frame to frame while swimming', test: a => a.key === 'dolphin' },
+  // (3.1 per 1000 on seeds 1987 and 91 before 2026-11-19; 5.0 once a change to deer pacing shifted
+  // the random stream: the same glitch, seed-dependent. Swimming its route 1-2 radians off its nose)
+  { count: 'sideways', name: 'arapaima swimming its route sideways (walk, 1-2 radians off its nose)', test: a => a.key === 'arapaima' && a.state === 'walk' },
   { count: 'trunk', name: 'pythons inside wood, idle and fleeing (twice the rate before the wave2 snakes)', test: a => a.key === 'python' },
   { count: 'trunk', name: 'animals standing inside a snag or log (settle never pushes out one that has not moved)', test: (a, def, w) => !MOVING.has(a.state) && deadwoodNear(w, a) },
   // (found after terrain relief, 0044, on Sumatra seed 1987: a sun bear foraging on the spot when a
   // seedling sprouted under it on day 2; settleBody's settleKey covers only its own position and heading)
   { count: 'trunk', name: 'animals standing still when a seedling sprouts under them (settle never re-checks one that has not moved)', test: (a, def, w) => !MOVING.has(a.state) && seedlingNear(w, a) },
+  // (found 2026-11-19 when crawl was added; the same rates on the code before it: hippos and
+  // crocodiles walking a route through the river, held at one spot with moveProgress.stalled climbing)
+  { count: 'crawl', name: 'semi-aquatic walkers held up mid-route in the river (moveProgress.stalled climbing)', test: (a, def, w) => def.move === 'semi' && w.inb(Math.floor(a.x), Math.floor(a.y)) && isWater(w.terrain[w.idx(Math.floor(a.x), Math.floor(a.y))]) },
 ];
 
 // The swimmers and reef animals `populate` leaves out, a few of each where they live.
@@ -126,7 +142,9 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
     const sim = Math.random; Math.random = drawRandom;
     actors.update(g, right, t);
     Math.random = sim;
-    const seen = new Set();
+    const seen = new Set(), kin = new Map(); // (ground walkers by species, for clump)
+    const clumps = (def, a) => groundWalker(def, a) || def.move === 'swim' && !def.reef;
+    for (const a of wl.viewAgents) if (a.state !== 'dormant' && clumps(cat.animals[a.sp], a)) (kin.get(a.sp) || kin.set(a.sp, []).get(a.sp)).push(a);
     for (const a of wl.viewAgents) {
       const st = actors.pose.get(a.id);
       if (!st || st.visible === false || a.state === 'dormant') continue;
@@ -159,6 +177,19 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
         if (now.glide > SUSTAIN) hit(r, 'glide', a, ` gait ${st.gait.toFixed(2)}`);
         if (now.tread > SUSTAIN) hit(r, 'treadmill', a);
         if (inWood(w, a, def, a.x, a.y, a.heading)) hit(r, 'trunk', a);
+        // (its pace this frame as walkStep sets it: trotting to keep up, wading slowly, a river crossing)
+        const tile = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.terrain[w.idx(Math.floor(a.x), Math.floor(a.y))] : null;
+        const walkPace = travelSpeed(def) * stepDays * (a.follow ? 1.3 : a.wade ? 0.3 : 1) * (a.pace || 1) * (def.crossing && tile === T.RIVER ? 0.55 : 1);
+        now.crawl = a.state === 'walk' && p.state === 'walk' && !a.run && sd < walkPace * CRAWL ? (p.crawl || 0) + 1 : 0;
+        if (now.crawl > HOLD * fps) hit(r, 'crawl', a, ` follow=${!!a.follow} path=${a.path?.length ?? '-'}`);
+      }
+      if (clumps(def, a)) {
+        const len = animalRadius(a, cat) / 0.65, pair = b => b.mom === a.id || a.mom === b.id || a.mom != null && a.mom === b.mom ||
+          a.state === 'spar' && a.sparWith === b.id || a.state === 'hunt' && b.state === 'hunt' && a.target === b.target;
+        let n = 0;
+        for (const b of kin.get(a.sp) || []) if (b !== a && !pair(b) && Math.hypot(a.x - b.x, a.y - b.y) < len * CLUMP_LEN) n++;
+        now.clump = n >= CLUMP_N ? (p.clump || 0) + 1 : 0;
+        if (now.clump > CLUMP_HOLD * fps) hit(r, 'clump', a, ` n=${n}`);
       }
       if (def.move === 'fly' && a.flying) {
         const pace = Math.max(0.05, travelSpeed(def)) * stepDays, off = Math.abs(wrap(Math.atan2(-(st.z - p.dz), st.x - p.dx) - st.yaw));

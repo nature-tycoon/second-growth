@@ -344,11 +344,16 @@ export function rangePaces(wl) {
   const paces=new Map();
   for(const b of wl.agents) {
     const id=b.mom ?? b.herdOf;if(id==null||id===b.id||b.leaving)continue;
-    const lead=wl.ids.get(id);if(lead?.range?.goal==null&&lead?.trip==null||lead.state!=='walk'||lead.fromFire)continue;
+    // (on a trip or a home-range trip; and on any walk with her own calf behind: a calf lagging a
+    // short local walk after a journey fell 3.7 tiles back, 2026-11-19)
+    const lead=wl.ids.get(id),calf=b.mom===id;if(lead?.range?.goal==null&&lead?.trip==null&&!calf||lead?.state!=='walk'||lead.fromFire)continue;
     if(!wl.game.catalog.animals[lead.sp].familyHerd)continue;
     const d=Math.hypot(lead.x-b.x,lead.y-b.y);
-    // (a calf still standing can't close any gap: she all but waits until it walks)
-    if(d>3.2)paces.set(id,Math.min(paces.get(id)||1,b.state!=='walk'?.25:d>6?.5:.7));
+    // (her own calf still standing can't close any gap: she all but waits until it walks, and
+    // cervidNeedsRejoin wakes it. Not for a grown herd member standing: one with no slot is never
+    // woken, and she crept at a quarter pace with the family queued behind her: 2026-11-19)
+    // (and for her calf, slower to close a gap, she slows from 2.5 tiles back)
+    if(d>(calf?2.5:3.2))paces.set(id,Math.min(paces.get(id)||1,b.state!=='walk'&&calf?.25:d>6?.5:.7));
   }
   return paces;
 }
