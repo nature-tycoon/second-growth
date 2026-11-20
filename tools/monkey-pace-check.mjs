@@ -44,7 +44,9 @@ try {
         }
       }
       if (frame === fps * 5) {
-        const saved = monkeys.map(a => {
+        // (a monkey the fixture's thin habitat sent leaving, unable to climb off the map, is gone
+        // after LEAVE_DAYS: wildlife-population.js. The pause is checked on those still here.)
+        const saved = monkeys.filter(a => actors.pose.get(a.id)).map(a => {
           const st = actors.pose.get(a.id);
           return { st, point: st.branchPoint?.clone(), phase: st.branchPhase, pace: st.catchUp };
         });
