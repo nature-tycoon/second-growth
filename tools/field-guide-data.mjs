@@ -43,16 +43,23 @@ export function fieldGuide() {
       let entry = bySlug.get(slug);
       if (!entry) bySlug.set(slug, entry = { slug, kind, key: def.key, firstMap: map.id, name: def.name, sci: def.sci || null, desc: (def.desc || '').replace(/^INVASIVE\.\s*/, ''), maps: [], ...facts });
       if (!entry.maps.some(m => m.id === map.id)) entry.maps.push({ ...place, hint: def.hint || null });
+      if (facts.prey) entry.prey = [...new Set([...entry.prey, ...facts.prey])];
       entry.recording ||= kind === 'animal' ? recordingFor(map.id, def.key, def.name) : null;
     };
     for (const a of catalog.animals) if (a) add('animal', a, {
       group: a.group || 'Wildlife', kg: a.kg ?? null, life: a.life ?? null, young: monthSpan(a.breed), // (breed: the months young are born)
       move: a.move, nocturnal: !!a.nocturnal,
+      // What it hunts, by name (the sim's prey keys on this map), and how it feeds otherwise.
+      prey: [...(a.prey || []), ...(a.challengePrey || [])].map(k => catalog.animals.find(o => o?.key === k)?.name).filter(Boolean),
+      frugivore: !!a.frugivore, browser: a.browseRate > 0, damBuilder: !!a.damBuilder,
     });
     for (const p of catalog.plants) if (p) add('plant', p, {
       group: LAYERS[p.layer] || 'Plant', status: p.invasive ? 'invasive' : p.native === false ? 'introduced' : 'native',
       heightM: p.heightM ?? null, grows: `${wetness(p.moist)}, ${sunlight(p.light)}`,
       nitrogen: !!p.nfix, aquatic: !!p.aquatic,
+      blooms: monthSpan(p.look?.bloom), fruits: monthSpan(p.look?.fruit), mast: !!p.mast,
+      leaves: p.look?.evergreen ? 'evergreen' : p.look?.deciduous ? 'deciduous' : null,
+      grazed: p.graze > 0, browsed: p.browse > 0,
     });
   }
   return [...bySlug.values()].sort((a, b) => a.name.localeCompare(b.name));

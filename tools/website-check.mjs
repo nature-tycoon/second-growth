@@ -10,6 +10,8 @@ import { buildWebsite } from './build-website.mjs';
 import { publicWebsitePaths, websiteFacts, websiteOrigin, websiteText } from './website-discovery.mjs';
 import { GUIDE_CSP, guidePaths } from './build-field-guide.mjs';
 import { fieldGuide } from './field-guide-data.mjs';
+import { helpPaths } from './build-help.mjs';
+import { changedUrls } from './indexnow.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 async function files(directory) {
@@ -155,7 +157,19 @@ assert.ok(robots.includes('Sitemap: ' + websiteOrigin + '/sitemap.xml'));
 const sitemap = await readFile(join(output, 'sitemap.xml'), 'utf8');
 const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(([, url]) => url);
 const guide = fieldGuide();
-assert.deepEqual(locations, [...publicWebsitePaths, ...guidePaths(guide)].map(path => websiteOrigin + path));
+assert.deepEqual(locations, [...publicWebsitePaths, ...guidePaths(guide), ...helpPaths].map(path => websiteOrigin + path));
+// lastmod comes from git history; a shallow clone gives none rather than every page dated today.
+assert.ok([...sitemap.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].every(([, d]) => /^\d{4}-\d{2}-\d{2}$/.test(d)), 'sitemap lastmod is a plain date');
+// IndexNow: one key file, its name is its content, and only new or re-dated pages are sent.
+const keyFiles = (await readdir(join(output))).filter(f => /^[0-9a-f]{32}\.txt$/.test(f));
+assert.equal(keyFiles.length, 1, 'Exactly one IndexNow key file at the site root');
+assert.equal(await readFile(join(output, keyFiles[0]), 'utf8'), keyFiles[0].slice(0, -4), 'The IndexNow key file holds its own name');
+const u = (loc, mod) => `<url><loc>${loc}</loc>${mod ? `<lastmod>${mod}</lastmod>` : ''}</url>`;
+assert.deepEqual(changedUrls(u('a', '2026-01-01') + u('b', '2026-01-01'), u('a', '2026-01-01') + u('b', '2026-02-01') + u('c')), ['b', 'c']);
+assert.equal(changedUrls('', sitemap).length, locations.length, 'With no old sitemap IndexNow sends every page');
+// The game's page is the site's /play/: its own title, canonical and share card.
+const play = await readFile(join(output, 'play/index.html'), 'utf8');
+assert.ok(play.includes(`<link rel="canonical" href="${websiteOrigin}/play/">`) && /<title>Play Second Growth[^<]+<\/title>/.test(play) && play.includes('og:image'), '/play/ has a descriptive title, canonical and share card');
 // Field guide: every species has a page and a portrait that matches its capture.
 const guideProvenance = JSON.parse(await readFile(join(root, 'website/guide-media/guide-provenance.json'), 'utf8'));
 assert.equal(Object.keys(guideProvenance.portraits).length, guide.length, 'One portrait per species, none left over: rerun tools/capture-field-guide.mjs');

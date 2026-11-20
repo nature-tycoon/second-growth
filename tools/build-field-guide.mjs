@@ -13,6 +13,8 @@ export const GUIDE_CSP = "default-src 'none'; base-uri 'none'; object-src 'none'
 const weight = kg => kg >= 1000 ? `about ${+(kg / 1000).toFixed(1)} tonnes` : kg >= 1 ? `about ${+kg.toFixed(kg < 10 ? 1 : 0)} kg` : `about ${Math.round(kg * 1000)} g`;
 const years = n => n >= 1.5 ? `about ${Math.round(n)} years` : n >= 0.9 ? 'about a year' : `about ${Math.round(n * 12)} months`;
 const list = items => items.length < 2 ? items.join('') : items.slice(0, -1).join(', ') + ' and ' + items.at(-1);
+// monthSpan's words in a sentence: "in May", "from April to June", "all year", "in March, May and July".
+const when = span => span === 'all year' ? span : / to /.test(span) && !span.includes(',') ? `from ${span}` : `in ${span}`;
 const STATUS = { native: 'Native', invasive: 'Invasive', introduced: 'Introduced' };
 
 // Each landscape's still from the homepage (real game captures, website/review-media/content-provenance.json).
@@ -32,7 +34,7 @@ const badges = e => [
 // A species card: the portrait on a stage tinted for its landscape, used by the index and "more from".
 const card = (e, portrait, up, land) => `<li data-slug="${esc(e.slug)}" data-kind="${e.kind}" data-search="${esc((e.name + ' ' + (e.sci || '') + ' ' + e.group).toLowerCase())}"><a class="card" data-land="${esc(land)}" href="${up}${e.slug}/"><span class="card-stage"><img src="${up}../guide-media/${esc(portrait.card.file)}" alt="" width="${portrait.card.width}" height="${portrait.card.height}" loading="lazy" decoding="async"></span><span class="card-text"><strong>${esc(e.name)}</strong>${e.sci ? `<em>${esc(e.sci)}</em>` : ''}<span class="badges">${badges(e)}</span></span></a></li>`;
 
-function page({ title, description, path, depth, land, top, body, schema, image, script }) {
+export function page({ title, description, path, depth, land, top, body, schema, image, script, type = 'website' }) {
   const up = '../'.repeat(depth);
   return `<!doctype html>
 <html lang="en">
@@ -48,7 +50,7 @@ function page({ title, description, path, depth, land, top, body, schema, image,
   <link rel="canonical" href="${ORIGIN}${path}">
   <link rel="icon" href="${up}favicon.svg" type="image/svg+xml">
   <link rel="describedby" href="${up}llms.txt" type="text/plain">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="${type}">
   <meta property="og:site_name" content="Second Growth">
   <meta property="og:title" content="${esc(title)}">
   <meta property="og:description" content="${esc(description)}">
@@ -68,13 +70,13 @@ function page({ title, description, path, depth, land, top, body, schema, image,
   <div class="g-top" data-land="${esc(land || '')}">
 ${top.backdrop}
     <div class="g-shade" aria-hidden="true"></div>
-    <header class="header wrap"><a class="brand" href="${up}" aria-label="Second Growth"><span class="wordmark" aria-hidden="true">Sec<i class="brand-o"></i>nd Growth</span></a><nav class="site-nav" aria-label="Main navigation"><a href="${up}guide/" aria-current="${depth === 1 ? 'page' : 'false'}">Field guide</a><a href="${up}#places">Landscapes</a><a href="${up}#ecology">Ecology</a></nav><a class="button small" href="${up}play/">Play <span aria-hidden="true">↗</span></a></header>
+    <header class="header wrap"><a class="brand" href="${up}" aria-label="Second Growth"><span class="wordmark" aria-hidden="true">Sec<i class="brand-o"></i>nd Growth</span></a><nav class="site-nav" aria-label="Main navigation"><a href="${up}guide/" aria-current="${depth === 1 && path === '/guide/' ? 'page' : 'false'}">Field guide</a><a href="${up}#places">Landscapes</a><a href="${up}#ecology">Ecology</a></nav><a class="button small" href="${up}play/">Play <span aria-hidden="true">↗</span></a></header>
 ${top.content}
   </div>
   <main id="main" class="wrap">
 ${body}
   </main>
-  <footer class="footer wrap"><a class="brand" href="${up}" aria-label="Second Growth"><span class="wordmark" aria-hidden="true">Sec<i class="brand-o"></i>nd Growth</span></a><nav aria-label="Footer"><a href="${up}guide/">Field guide</a><a href="${up}#about">Project &amp; credits</a><a href="${up}visuals.html">Game imagery</a></nav><span>Free browser game · In development</span><small class="copyright">© 2026 Second Growth</small></footer>
+  <footer class="footer wrap"><a class="brand" href="${up}" aria-label="Second Growth"><span class="wordmark" aria-hidden="true">Sec<i class="brand-o"></i>nd Growth</span></a><nav aria-label="Footer"><a href="${up}guide/">Field guide</a><a href="${up}help/flooding/">Help: flooding</a><a href="${up}#about">Project &amp; credits</a><a href="${up}visuals.html">Game imagery</a></nav><span>Free browser game · In development</span><small class="copyright">© 2026 Second Growth</small></footer>
 </body>
 </html>
 `;
@@ -101,7 +103,30 @@ function speciesPage(e, landscapes, portraits, guide) {
     ['Layer', e.group + (e.aquatic ? ', aquatic' : '')],
     e.nitrogen && ['Soil', 'Fixes nitrogen'],
   ];
-  const description = `${e.name}${e.sci ? ` (${e.sci})` : ''} in Second Growth: ${e.desc}`.slice(0, 300);
+  // Its life and food web in plain sentences, from the game's own data. Species named here link
+  // to their pages, so the guide's pages link each other as the food web does.
+  const bySpecies = new Map(guide.map(o => [o.name, o]));
+  const named = names => list(names.map(n => bySpecies.has(n) ? `<a href="../${bySpecies.get(n).slug}/">${esc(n)}</a>` : esc(n)));
+  const huntedBy = animal ? guide.filter(o => o.prey?.includes(e.name)).map(o => o.name) : [];
+  const life = animal ? [
+    e.prey.length && `It hunts ${named(e.prey)}.`,
+    huntedBy.length && `It is hunted by ${named(huntedBy)}.`,
+    e.frugivore && 'It eats fruit and carries the seeds of fruiting trees and shrubs far from the parent plant.',
+    e.browser && 'It browses shrubs and saplings, so a crowd of them can hold back young forest.',
+    e.damBuilder && 'It dams creeks, flooding them into ponds and wetlands that other species move into.',
+    e.young && `Its young are born ${when(e.young)}.`,
+  ] : [
+    e.blooms && `It flowers ${when(e.blooms)}${e.fruits ? ` and fruits ${when(e.fruits)}` : ''}.`,
+    !e.blooms && e.fruits && `It fruits ${when(e.fruits)}.`,
+    e.mast && 'Its fruit, nuts or seeds are a food crop for wildlife.',
+    (e.grazed || e.browsed) && `${e.grazed && e.browsed ? 'Grazing and browsing' : e.grazed ? 'Grazing' : 'Browsing'} animals eat it.`,
+    e.leaves && (e.leaves === 'evergreen' ? 'It keeps its leaves all year.' : 'It drops its leaves each year.'),
+    e.nitrogen && 'It fixes nitrogen, feeding the soil for the plants that follow.',
+  ];
+  const lifeText = life.filter(Boolean).join(' ');
+  const placeLine = `Meet it in the ${list(where)} landscape${where.length > 1 ? 's' : ''} of Second Growth, a free game about restoring habitat.`;
+  const plain = html => html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&');
+  const description = [e.desc, plain(lifeText).split('. ')[0].replace(/\.?$/, '.'), placeLine].filter(t => t && t !== '.').join(' ').slice(0, 300);
   const rec = e.recording;
   // More from its first landscape: the same kind first, then its own group, starting after it
   // alphabetically so neighbouring pages suggest different species.
@@ -125,7 +150,7 @@ function speciesPage(e, landscapes, portraits, guide) {
   };
   const body = `    <dl class="sp-stats">${facts.filter(Boolean).map(([k, v, note]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}${note ? ` <small>${esc(note)}</small>` : ''}</dd></div>`).join('')}</dl>
     <div class="sp-about${rec ? '' : ' solo'}">
-      <p class="sp-lead">${esc(lead)}</p>
+      <div class="sp-lead">${lifeText ? `<p>${lifeText}</p>` : ''}<p>${esc(lead)}</p></div>
       ${rec ? `<div class="call-player" id="call"><p class="eyebrow">Its call, as heard in the game</p><audio controls preload="none" src="../../play/assets/sounds/${esc(rec.clip)}.m4a"></audio><p class="credit">Recording by ${esc(rec.by)}, <a href="${esc(rec.licenseUrl)}" rel="license noopener" target="_blank">${esc(rec.license)}</a> · <a href="${esc(rec.source)}" rel="noopener" target="_blank">source</a></p></div>` : ''}
     </div>
     <section class="sp-where" aria-labelledby="where-title">
@@ -138,7 +163,7 @@ function speciesPage(e, landscapes, portraits, guide) {
     </section>
     <aside class="model-note guide-note"><span class="eyebrow">About the game</span><p>Second Growth simplifies how species live and speeds up time. Sizes are real-world figures; lifespans and seasons are the game's. For real-world identification and status, check a regional field guide.</p></aside>`;
   return page({
-    title: `${e.name}${e.sci ? ` (${e.sci})` : ''} · Second Growth field guide`, description, path: `/guide/${e.slug}/`, depth: 2, land: home.id, top, body,
+    title: `${e.name}${e.sci ? ` (${e.sci})` : ''}: field guide | Second Growth`, description, path: `/guide/${e.slug}/`, depth: 2, land: home.id, top, body, type: 'article',
     image: `guide-media/${portrait.file}`, script: !!rec,
     schema: { '@context': 'https://schema.org', '@type': 'WebPage', name: `${e.name} in Second Growth`, url: `${ORIGIN}/guide/${e.slug}/`, description,
       isPartOf: { '@type': 'WebSite', name: 'Second Growth', url: ORIGIN + '/' },
