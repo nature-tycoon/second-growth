@@ -23,8 +23,8 @@ export function websiteFacts(homepage) {
   return {description, title, maps, questions, modelNote};
 }
 
-// extraPaths: generated pages (the field guide) for the sitemap.
-export function websiteDiscovery(homepage, extraPaths = []) {
+// extraPaths: generated pages (the field guide) for the sitemap. lastmod: { path: 'YYYY-MM-DD' }.
+export function websiteDiscovery(homepage, extraPaths = [], lastmod = {}) {
   const {description, title, maps, questions, modelNote} = websiteFacts(homepage);
   const home = websiteOrigin + '/', game = home + '#game', site = home + '#website';
   const schema = {
@@ -56,5 +56,5 @@ export function websiteDiscovery(homepage, extraPaths = []) {
     '[Game imagery and capture notes](' + home + 'visuals.html): Staged game scenes and a same-save creek restoration sequence.', '',
     '[Field guide](' + home + 'guide/): Every animal and plant in the game, a page each, by landscape.', '');
   return {schema, markdown: lines.join('\n'), sitemap: '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + [...publicWebsitePaths, ...extraPaths].map(path => '  <url><loc>' + websiteOrigin + path + '</loc></url>').join('\n') + '\n</urlset>\n'};
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + [...publicWebsitePaths, ...extraPaths].map(path => '  <url><loc>' + websiteOrigin + path + '</loc>' + (lastmod[path] ? '<lastmod>' + lastmod[path] + '</lastmod>' : '') + '</url>').join('\n') + '\n</urlset>\n'};
 }

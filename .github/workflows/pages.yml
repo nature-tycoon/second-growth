@@ -22,6 +22,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # (the sitemap's lastmod dates each page from git history; blobs stay on demand)
+          filter: blob:none
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -30,9 +33,14 @@ jobs:
       - run: sh tools/stamp-release.sh
       - run: node tools/website-security-check.mjs
       - run: node tools/website-check.mjs
+      - name: Save the live sitemap (IndexNow sends what changed against it)
+        run: curl -sf https://secondgrowth.earth/sitemap.xml -o "$RUNNER_TEMP/old-sitemap.xml" || true
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist/website
       - name: Publish website and game
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Tell Bing which pages changed (IndexNow)
+        continue-on-error: true
+        run: node tools/indexnow.mjs "$RUNNER_TEMP/old-sitemap.xml" dist/website/sitemap.xml

@@ -4,6 +4,25 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { websiteDiscovery, websiteFacts } from './website-discovery.mjs';
 import { buildFieldGuide, guidePaths } from './build-field-guide.mjs';
+import { buildHelp, helpPaths } from './build-help.mjs';
+import { execFileSync } from 'node:child_process';
+
+// The sitemap's lastmod: the last commit touching a page's sources. None from a shallow clone
+// (every file would date to HEAD), so pages.yml checks out the full history without blobs.
+const git = args => { try { return execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; } };
+const fullHistory = git(['rev-parse', '--is-shallow-repository']) === 'false';
+const lastChanged = files => fullHistory ? git(['log', '-1', '--format=%cs', '--', ...files]) || null : null;
+const GUIDE_SOURCES = ['tools/build-field-guide.mjs', 'tools/field-guide-data.mjs', 'website/guide.css'];
+function sitemapDates(guide) {
+  const dates = {
+    '/': lastChanged(['website/index.html']), '/play/': lastChanged(['index.html', 'styles.css', 'js']),
+    '/visuals.html': lastChanged(['website/visuals.html']), '/privacy/': lastChanged(['website/privacy']),
+    '/guide/': lastChanged([...GUIDE_SOURCES, 'js/data']),
+  };
+  dates['/help/flooding/'] = lastChanged(['tools/build-help.mjs']);
+  for (const e of guide) dates[`/guide/${e.slug}/`] = lastChanged([...GUIDE_SOURCES, ...e.maps.flatMap(m => [`js/data/animals-${m.id}.js`, `js/data/plants-${m.id}.js`])]);
+  return dates;
+}
 
 export const websiteOutput = fileURLToPath(new URL('../dist/website/', import.meta.url));
 export async function buildWebsite() {
@@ -29,7 +48,8 @@ export async function buildWebsite() {
   const landscapes = Object.fromEntries(websiteFacts(homepage).maps.map(map => [map.map, map.name]));
   const { portraits } = JSON.parse(await readFile(join(root, 'website/guide-media/guide-provenance.json'), 'utf8'));
   const guide = await buildFieldGuide(websiteOutput, landscapes, portraits);
-  const discovery = websiteDiscovery(homepage, guidePaths(guide));
+  await buildHelp(websiteOutput, landscapes);
+  const discovery = websiteDiscovery(homepage, [...guidePaths(guide), ...helpPaths], sitemapDates(guide));
   const schema = JSON.stringify(discovery.schema, null, 2).replace(/</g, '\\u003c');
   await writeFile(join(websiteOutput, 'index.html'), homepage.replace('</head>', `  <script type="application/ld+json" id="site-schema">\n${schema}\n  </script>\n</head>`));
   await writeFile(join(websiteOutput, 'index.md'), discovery.markdown);

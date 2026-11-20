@@ -142,6 +142,8 @@
 .sp-about { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px 48px; align-items: center; padding-block: 48px 20px; }
 .sp-about.solo { grid-template-columns: minmax(0, 760px); }
 .sp-lead { font-size: 17px; line-height: 1.8; color: var(--muted); }
+.sp-lead p + p { margin-top: 14px; }
+.sp-lead a { color: var(--sprout); text-underline-offset: 3px; }
 .call-player { padding: 22px 24px; border-radius: 26px; background: linear-gradient(135deg, #1f382d, var(--moss)); border: 1px solid #ffffff17; scroll-margin-top: 30px; }
 .call-player .eyebrow { color: #d8d0a7; }
 .call-player audio { display: block; width: 100%; margin-top: 12px; }
@@ -238,3 +240,12 @@
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .guide .header, .gi-copy, .guide-tools { background: #102019ee; }
 }
+
+/* Help pages (tools/build-help.mjs) */
+.help { max-width: 760px; padding-block: 56px 72px; }
+.help section + section { margin-top: 44px; }
+.help h2 { font: 500 clamp(26px, 3vw, 34px)/1.15 var(--display); letter-spacing: -0.8px; margin: 0 0 14px; }
+.help p, .help li { font-size: 17px; line-height: 1.75; color: var(--muted); }
+.help p + p { margin-top: 12px; }
+.help-list { margin: 10px 0 0 1.2em; }
+.help-play { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin-top: 52px; }
