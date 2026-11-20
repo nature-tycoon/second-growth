@@ -131,7 +131,7 @@ assert.ok([...homepage.matchAll(/<video\b[^>]*>/g)].every(([tag]) => /\bmuted\b/
       if (days > 30 || Number(gameCommits) > 80) stale.push(`${name} (${path}) were captured from ${revision.slice(0, 7)} on ${capturedDate}, ${days} days${gameCommits ? ` and ${gameCommits} game commits` : ''} before this game (${gameDate})`);
     }
   }
-  for (const line of stale) console.warn('WARNING: ' + line + '. Recapture: see the Website paragraph in AGENTS.md.');
+  for (const line of stale) console.warn('WARNING: ' + line + '. Recapture: see docs/website-notes.md.');
 }
 assert.ok(!/Fresh captures? needed|This sequence is planned|visual-slot/.test(homepage), 'Finished homepage must not contain image placeholders');
 const output = await buildWebsite();
