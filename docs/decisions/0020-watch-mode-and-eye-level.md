@@ -11,6 +11,7 @@
 - Lightning bolt: segment ends use `aOther = 2B − A`, and the material must stay double-sided or strips running the "wrong" way are culled. The flash is exposure, not a light. Lightning is drawing only; it never starts a fire.
 - Thunder (`js/audio/thunder.js`) uses real recordings (0002), credited; `node tools/thunder-check.mjs`. Graphics → Weather off and the reef turn rain, snow and lightning off.
 - On the reef the eye stays on the animal's side of the surface (`EyeCamera.update(…, seaY)`). Perched birds on conifer boughs get a `PerchBough`; birds on snags sit on the top (`Actors.snagSite`).
+- A click or tap in watch mode (not a drag) locks the camera onto the animal under it (`Watch.tap`, `Watch.lock`: the shot never ends while locked, at eye level too); empty ground, Esc (before it leaves watch mode), the chip's ✕, Next, walking and a keystone moment let go. `pickAgent` projects through the eye's camera at eye level. The date sits in the top letterbox bar (`showDate`, the map's own season names). Two fingers twisted on the map turn it (`Renderer.twistAt`) once past `TWIST_START`, so a pinch's wobble never does. Check `tools/watch-lock-browser-check.mjs`.
 - Phones: check the watch bar in landscape (812×375). Check `node tools/watch-check.mjs`. Eye level is unmeasured on the low-end target: run `tools/play-profile.mjs` with watch mode before promoting it.
 
 ## History
@@ -234,3 +235,21 @@ itself. Off, a shot with an animal never times out: it ends only on Next, or whe
 (killed at eye level, left the map) or out of sight for good; wide land shots are skipped too. Each
 view keeps its own setting for the session (`Watch.shuffle`): **off at eye level, on for the usual
 view**, as Cole's complaint was about eye level. The button shows the setting of the view you're in.
+
+### Lock on, date, twist (2026-11-19)
+
+Cole asked for three things in cinema (watch) mode: the time of year, click an animal to lock the
+camera on it, and two-finger rotate on phones. The date goes in the top letterbox bar, small and
+faint, as the top bar writes it (short form under 960 px), with the map's own season name (wet/dry
+where the map has them). A click or tap on an animal locks the director onto it: it reuses the shot
+and follow camera the director already has, just with no end, so eye level, the drift round and the
+carcass shot all work as before; a chip at the top left ("Locked on Roosevelt elk ✕") says so. Letting
+go doesn't cut away: the director carries on from that shot and moves on about 5 s later. Esc now lets
+go first and leaves watch mode on a second press. A keystone moment drops the lock (the next shot
+starts afresh, as before). Picking used to project only through the overhead camera, so at eye level
+it now goes through the eye's camera, with reach scaled by distance.
+On the usual map, two fingers twisted turn the view round the ground between them, alongside pan and
+pinch. A twist only counts past about 11°, so a pinch's wobble never turns the map; the view is
+tilted, so a turned point doesn't stay exactly under the finger (it's foreshortened), but it goes the
+fingers' way.
+

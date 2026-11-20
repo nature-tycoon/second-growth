@@ -9,6 +9,7 @@ import { refusal } from './tool-actions.js';
 
 const SHIFTED = { '-': '_', '_': '-', '=': '+', '+': '=' };
 const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
+const TWIST_START = 0.2; // radians (about 11°) two fingers turn before a pinch counts as a twist
 const WALK_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 
 export class Input {
@@ -222,7 +223,8 @@ export class Input {
       if (this.touch && this.touch.timer) clearTimeout(this.touch.timer);
       if (this.stroke) this.endStroke();
       const [a, b] = ts;
-      this.touch = { mode: 'gesture', mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2, d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1 };
+      this.touch = { mode: 'gesture', mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2, d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
+        ang: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX), turn: 0, twisting: false };
       this.hideHover();
     }
   }
@@ -241,7 +243,13 @@ export class Input {
       const [a, b] = ts, mx = (a.clientX + b.clientX) / 2, my = (a.clientY + b.clientY) / 2, d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1;
       this.r.panBy(mx - T.mx, my - T.my);
       this.r.zoomAt(mx, my, d / T.d);
-      T.mx = mx; T.my = my; T.d = d;
+      // a twist turns the view with the fingers, once it's clearly a twist (a pinch wobbles a few degrees)
+      const ang = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
+      let da = ang - T.ang; da -= Math.round(da / (2 * Math.PI)) * 2 * Math.PI;
+      T.turn += da;
+      if (!T.twisting && Math.abs(T.turn) > TWIST_START) { T.twisting = true; da = T.turn - Math.sign(T.turn) * TWIST_START; }
+      if (T.twisting && da) this.r.twistAt(mx, my, da);
+      T.mx = mx; T.my = my; T.d = d; T.ang = ang;
       return;
     }
     if (ts.length !== 1) return;
