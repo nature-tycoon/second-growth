@@ -38,7 +38,7 @@ export class Pollinators {
     const kinds = this.species(game), list = this.list, w = game.world;
     if (!on || !kinds.length) { list.length = 0; return; }
     const total = kinds.reduce((s, k) => s + k.w, 0);
-    if (list.length < MAX) for (let k = 0; k < SPAWN_TRIES; k++) {
+    if (dt > 0 && list.length < MAX) for (let k = 0; k < SPAWN_TRIES; k++) { // (none arrive while paused)
       const x = Math.floor(rand(view[0], view[1] + 1)), z = Math.floor(rand(view[2], view[3] + 1));
       if (!w.inb(x, z)) continue;
       const n = w.nectar[w.idx(x, z)];

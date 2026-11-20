@@ -21,10 +21,15 @@ export function rutSounds(game, renderer, music, time) {
   const now = music.ctx.currentTime ?? time;
   let landscape = soundscapes.get(wl);
   if (!landscape) { landscape = { next: now + 2, lastId: null, warmAt: -Infinity }; soundscapes.set(wl, landscape); }
-  const heard = id => { landscape.next = now + 8 + Math.random() * 6; landscape.lastId = id; };
+  // (a bugle opens a short window for a rival's answer)
+  const heard = (id, answer) => { landscape.next = now + 8 + Math.random() * 6; landscape.lastId = id; landscape.answerBy = answer ? 0 : now + 12; };
+  // The simulation's bugles come faster the faster the game runs (many bulls a real second at the
+  // top speed). Play one only when the landscape is due a call, when it answers the call just
+  // heard, or when the bull is in view; music.rut also caps the calls in any real minute.
   while (bugles.length) {
     const { id, answer } = bugles.shift(), a = byId(id), at = a && !a.leaving && place(a.x, a.y, BUGLE_RANGE, true);
-    if (at && music.rut(answer ? 'answer' : 'bugle', { ...at, id })) heard(id);
+    const due = now >= landscape.next || answer && now < (landscape.answerBy ?? 0) || at && Math.hypot(a.x - cx, a.y - cy) < half;
+    if (at && due && music.rut(answer ? 'answer' : 'bugle', { ...at, id })) heard(id, answer);
   }
   // The landscape keeps calling even when a bull is off screen or its next
   // simulation action is grazing. Use audio time so game speed cannot cram calls together.
@@ -38,7 +43,8 @@ export function rutSounds(game, renderer, music, time) {
     landscape.next = now + 1; // retry clips still loading or a bull still on its playback cooldown
     if (pool.length) {
       const a = pool[Math.floor(Math.random() * pool.length)];
-      if (music.rut(landscape.lastId != null && a.id !== landscape.lastId ? 'answer' : 'bugle', { ...place(a.x, a.y, BUGLE_RANGE, true), id: a.id })) heard(a.id);
+      const kind = landscape.lastId != null && a.id !== landscape.lastId ? 'answer' : 'bugle';
+      if (music.rut(kind, { ...place(a.x, a.y, BUGLE_RANGE, true), id: a.id })) heard(a.id, kind === 'answer');
     }
   }
   // build the clips for the antlered animals here, a little at a time, before anyone fights

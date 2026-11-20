@@ -80,3 +80,7 @@ They are small 3D insects drawn with the wildlife's own models and scale (`rende
   in this one run (plants 0.41 to 0.86, animals 0.06 to 0.13); the two games diverge, so it wants a
   repeat on a quiet machine before reading anything into it. The insects add up to three species
   pools (and their far and close models): a few draw calls.
+
+### Size kept (2026-11-15)
+
+Jacob (playtester, 2026-11-14) found the bees and butterflies very large beside the other wildlife. Shrinking them to near real size (a bee a fifth of a songbird) made them specks even at full zoom, and Cole preferred the size as it was: visible but not huge. They stay as they are. Measured cost at the default view on the Cascades: 9 insects add 3 draw calls and about 29k triangles (about 3.3k each); a zoom threshold above 0.5 would save that if it ever matters.

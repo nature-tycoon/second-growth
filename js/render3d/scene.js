@@ -55,7 +55,7 @@ function installGrade(grade = {}) {
 // properly dark, so the land stays readable. Each key: [position in the cycle, sun strength,
 // sun colour, how much of it, sky colour, how much of it, sun elevation in degrees, sweep].
 const DAY_CYCLE = 360;
-const NIGHT_PACE = [1.5, 1.5, 2.6, 4, 1]; // how much faster the dark hours pass, at each game speed (paused, normal, fast, fastest, watch)
+const NIGHT_PACE = [1.5, 1.5, 2.6, 4, 1]; // how much faster the dark hours pass, at each game speed (paused: the clock stops, normal, fast, fastest, watch)
 // how fast the whole cycle runs at each game speed: at watch pace a day takes about 18 minutes,
 // night as unhurried as the day, so a sunset, dusk and dawn play out while the animals live them
 const DAY_PACE = [1, 1, 1, 1, 1 / 3];
@@ -1014,7 +1014,11 @@ export class Renderer {
   // ------------------------------------------------------------------ frame
   draw(game, ui, dt) {
     if (this.contextLost) return;
-    this.time += dt;
+    // The drawn world's clock: it stops while the game is paused, so the sky and light, weather,
+    // wind, water and the animals' animation all hold still. Camera moves, eases and the interface
+    // keep real time (dt).
+    const wdt = game.speed === 0 ? 0 : dt;
+    this.time += wdt;
     // frame timing for the analytics' performance samples (see perfSample): real time between frames
     {
       const t = performance.now(), P = this.perf ||= { frames: 0, time: 0, slow: 0, last: t };
@@ -1083,7 +1087,7 @@ export class Renderer {
       const u = (this.todClock / DAY_CYCLE) % 1, sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
       const dark = u > 0.5 ? sm(0.8, 0.87, u) : 1 - sm(0, 0.05, u);
       const fast = NIGHT_PACE[game.speed] ?? NIGHT_PACE[1];
-      this.todClock = (this.todClock + dt * (DAY_PACE[game.speed] ?? 1) * (1 + (fast - 1) * dark)) % DAY_CYCLE;
+      this.todClock = (this.todClock + wdt * (DAY_PACE[game.speed] ?? 1) * (1 + (fast - 1) * dark)) % DAY_CYCLE;
     }
     const todU = this.dayCycleOn === false ? 0.35 : this.todClock / DAY_CYCLE;
     const tod = timeOfDay(todU);
@@ -1144,11 +1148,11 @@ export class Renderer {
     this.actors.nightOut = this.nightOut;
     this.actors.followAgent = this.followAgent || this.eyeAgent;
     // bees and butterflies over the flowers in view (pollinators.js), drawn with the animals
-    this.pollinators.update(game, dt, this.eyeOn ? [this.eye.pos.x - 8, this.eye.pos.x + 8, this.eye.pos.z - 8, this.eye.pos.z + 8] : this.viewTiles(),
+    this.pollinators.update(game, wdt, this.eyeOn ? [this.eye.pos.x - 8, this.eye.pos.x + 8, this.eye.pos.z - 8, this.eye.pos.z + 8] : this.viewTiles(),
       this.weatherOn !== false && (this.eyeOn || this.zoom > 0.5));
     this.actors.pollinators = this.pollinators;
     this.actors.update(game, this.eyeOn ? this.eye.right : r, this.time, this.eyeOn ? this.eye.camera : this.camera, this.vh);
-    this.updateLightning(dt, game);
+    this.updateLightning(wdt, game);
     this.updateEye(dt, game);
     const cam = this.eyeOn ? this.eye.camera : this.camera;
     if (!this.eyeOn) this.updateAnimalCamera(dt);
@@ -1157,7 +1161,7 @@ export class Renderer {
     // snow settles and melts gradually on screen rather than popping in with the daily tick
     const su = snow.uSnow;
     su.value += ((game.snow || 0) - su.value) * Math.min(1, dt * 1.5);
-    this.actors.updateFire(game, this.time, dt);
+    this.actors.updateFire(game, this.time, wdt);
     this.seaSurface.update(this.time, this.sun, this.hemi, this.viewDir(), game, this.scene.fog, this.eyeOn);
     this.flora.syncShadows();
     this.flora.updateView(cam);
@@ -1177,7 +1181,7 @@ export class Renderer {
     drawLookThrough(this.gl, this.scene, cam, this.actors.fauna, focus.uFocusAmt.value, this.flora.lookNear());
     this.gpuTimer.end();
     this.submitMs = performance.now() - at;
-    this.drawFX(game, ui, dt);
+    this.drawFX(game, ui, wdt); // (rain, snow, fireflies and drifting leaves hold still too)
   }
 
   // A picture of the view for photo mode: the 3D scene and the effects layer, with a soft vignette.
@@ -1367,12 +1371,11 @@ export class Renderer {
     const want = this.weatherOn === false ? 0 : (kind === 'rain' ? 240 : kind === 'snow' ? 150 : 0) * (this.light ? 0.5 : 1);
     while (wp.length < want) wp.push({ x: Math.random() * this.vw, y: Math.random() * this.vh, s: 0.6 + Math.random() * 0.8 });
     if (wp.length > want) wp.length = want;
-    const run = game.speed > 0 ? 1 : 0.15;
     if (kind === 'rain') {
       ctx.fillStyle = 'rgba(50,60,75,0.045)'; ctx.fillRect(0, 0, this.vw, this.vh);
       ctx.strokeStyle = 'rgba(210,225,240,0.45)'; ctx.lineWidth = 1; ctx.beginPath();
       for (const p of wp) {
-        p.x += -120 * dt * p.s * run; p.y += 700 * dt * p.s * run;
+        p.x += -120 * dt * p.s; p.y += 700 * dt * p.s;
         if (p.y > this.vh) { p.y -= this.vh + 20; p.x = Math.random() * (this.vw + 100); }
         if (p.x < -10) p.x += this.vw + 20;
         ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 3 * p.s, p.y + 14 * p.s);
@@ -1381,7 +1384,7 @@ export class Renderer {
     } else if (kind === 'snow') {
       ctx.fillStyle = 'rgba(250,252,255,0.85)';
       for (const p of wp) {
-        p.x += Math.sin(this.time + p.s * 10) * 20 * dt; p.y += 50 * dt * p.s * run;
+        p.x += Math.sin(this.time + p.s * 10) * 20 * dt; p.y += 50 * dt * p.s;
         if (p.y > this.vh) { p.y -= this.vh + 10; p.x = Math.random() * this.vw; }
         ctx.beginPath(); ctx.arc(p.x, p.y, 1.4 * p.s, 0, Math.PI * 2); ctx.fill();
       }
