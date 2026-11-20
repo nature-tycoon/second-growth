@@ -838,11 +838,26 @@ export class Flora {
           const surf = Math.max(...w.corners(x, y)) * LEVEL;
           if (f === F.DAM && (w.marks[i] & 4)) this.pool('canalblock', () => G.canalBlock(985), this.bark).add(cx, w.tileH(x, y) * LEVEL, cz, 1, 1, 1, vertical ? 0 : Math.PI / 2, [1, 1, 1]); // (a canal block across a drainage canal)
           else if (f === F.DAM) {
-            const basin = game.water?.basins.find(b => b.kind === 'dam' && b.site === i);
-            const baseY = w.tileH(x, y) * LEVEL + .03;
-            const damHeight = basin ? Math.max(1, (basin.crest * LEVEL - baseY + .025) / .16) : 1;
-            const angle = basin ? (basin.axis[1] ? 0 : Math.PI / 2) : vertical ? 0 : Math.PI / 2;
-            this.pool('dam', () => G.dam(980), this.bark).add(cx, baseY, cz, 1, damHeight, 1, angle, [1, 1, 1]);
+            const basin = game.water?.basins.find(b => b.kind === 'dam' && b.site === i), pool = this.pool('dam', () => G.dam(980), this.bark);
+            if (basin?.dam?.length) {
+              // One mound on each edge the dam holds, bank to bank across the creek (damLine in
+              // hollis-water.js), its top at the crest and its ends running out where the bank rises
+              // to meet it, bowed a little upstream toward the middle as beaver dams are.
+              const [ax, ay] = basin.axis, angle = ay ? 0 : Math.PI / 2, top = basin.crest * LEVEL;
+              const across = e => (e[0] % w.w - x) * ay - (((e[0] / w.w) | 0) - y) * ax, half = Math.max(1, ...basin.dam.map(e => Math.abs(across(e))));
+              for (const e of basin.dam) {
+                const p = across(e), bow = 0.16 * (1 - (p / (half + 1)) ** 2);
+                const mx = (e[0] % w.w + e[1] % w.w) / 2 + 0.5 - ax * bow, mz = ((e[0] / w.w) | 0) / 2 + ((e[1] / w.w) | 0) / 2 + 0.5 - ay * bow;
+                const baseY = hAt(mx, mz) + .03;
+                if (top - baseY < -.02) continue; // (an end on ground already above the water)
+                pool.add(mx, baseY, mz, 1.15, Math.max(.5, (top - baseY + .025) / .16), 1, angle, [1, 1, 1]);
+              }
+            } else {
+              const baseY = w.tileH(x, y) * LEVEL + .03;
+              const damHeight = basin ? Math.max(1, (basin.crest * LEVEL - baseY + .025) / .16) : 1;
+              const angle = basin ? (basin.axis[1] ? 0 : Math.PI / 2) : vertical ? 0 : Math.PI / 2;
+              pool.add(cx, baseY, cz, 1, damHeight, 1, angle, [1, 1, 1]);
+            }
           }
           else this.pool('culvert', () => G.culvert(), this.small).add(cx, surf, cz, 1, 1, 1, vertical ? 0 : Math.PI / 2, [1, 1, 1]);
           break;

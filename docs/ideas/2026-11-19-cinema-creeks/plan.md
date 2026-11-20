@@ -32,7 +32,7 @@ Branch: `claude/ideas-cinema-creeks` (cut from origin/main 382bb46). Sessions ru
 | 3 | Movement bugs | slow deer, clumping + check | default | M | [x] 78a0b11 |
 | 4 | Water routes | fish stuck (routes cross dry strips, per s3), hippos/crocs stuck mid-river | default | M | [x] cce771c (checks cut short by usage limit) |
 | 4b | Verify water routes | s4's unrun checks, Chinandega crawl seeds; fix what fails | default | S | [x] 7a576ae (sweep still fails: cattle crawl, see s4b.md) |
-| 5 | Beaver dams hold water | dam spans creek, water backs up | default | M–L | [ ] |
+| 5 | Beaver dams hold water | dam spans creek, water backs up | default | M–L | [x] (see s5.md) |
 | 6 | Waterfalls | natural spring-fed falls | default | L | [ ] |
 | 7 | Plants look natural | gradual leaf-out, patchy shrubs/grass, trees in creeks die (moved from 4) | default | M | [ ] |
 | 8 | Serengeti herd routes | herds follow green grass | default | M | [ ] |

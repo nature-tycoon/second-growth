@@ -50,6 +50,10 @@ export const waterModelOn = map => waterModel.enabled && map === 'pnw';
 // tiles (0.4 ha at 8 m tiles: a large beaver pond). Open water where it stands deeper than
 // POND_DEPTH (about 0.6 m), marsh in the shallows round it.
 export const DAM_HEAD = .6, DAM_CELLS = 60, POND_DEPTH = .25, DAM_POND_DEPTH = .15, WET_DEPTH = .04;
+// A dam runs bank to bank along its line, up to DAM_SPAN tiles (64 m: most beaver dams are 5-30 m,
+// a few over 100), and its pond stands SPILL_MARGIN under the lowest bank the water would get
+// round it at (its shown level rounds to 0.02, so it never stands over that bank).
+export const DAM_SPAN = 8, SPILL_MARGIN = .01;
 // A beaver pond raises the water table round it: land beside its water, up to FRINGE_REACH tiles out
 // and up to about FRINGE over the pond's usual level, is saturated marsh, a sedge margin that
 // follows the lie of the land. How far it reaches varies slowly along the shore (old channels and
@@ -89,12 +93,27 @@ export class HollisWater {
     if (b > a) return Math.min(w.vert(x, y + 1), w.vert(x + 1, y + 1));
     return Math.min(w.vert(x, y), w.vert(x + 1, y));
   }
+  // Each creek tile's distance down the creek to the river (-1 off it), kept until the creek changes.
+  creekDist() {
+    const w = this.w, key = this.base.reduce((h, t, i) => t === T.CREEK || t === T.RIVER ? Math.imul(h ^ (i * 3 + t), 16777619) >>> 0 : h, 2166136261);
+    if (this.dist?.key === key) return this.dist.d;
+    const d = new Int32Array(w.n).fill(-1), next = new Int32Array(w.n).fill(-1), q = [];
+    for (let i = 0; i < w.n; i++) if (this.base[i] === T.RIVER) { d[i] = 0; q.push(i); }
+    for (let k = 0; k < q.length; k++) for (const j of neighbours(w, q[k])) if (d[j] < 0 && this.base[j] === T.CREEK) { d[j] = d[q[k]] + 1; next[j] = q[k]; q.push(j); }
+    this.dist = { key, d, next }; // (next: the tile below it on its way down to the river)
+    return d;
+  }
+  // Is creek tile j, across the dam line, the creek above the dam come back round a meander? Its
+  // way down runs back over the line into the pond (a tributary joining below the dam never does).
+  meanders(j, side) {
+    const next = this.dist.next;
+    for (let k = next[j], n = 0; k >= 0 && n < 4096; k = next[k], n++) if (side(k) <= 0) return true;
+    return false;
+  }
   downstream(site) {
     // Hydraulic passage ignores the fish-blocking culvert. River distance also
     // follows the farm's right-angle ditch where elevation alone is ambiguous.
-    const w = this.w, d = new Int32Array(w.n).fill(-1), q = [];
-    for (let i = 0; i < w.n; i++) if (this.base[i] === T.RIVER) { d[i] = 0; q.push(i); }
-    for (let k = 0; k < q.length; k++) for (const j of neighbours(w, q[k])) if (d[j] < 0 && this.base[j] === T.CREEK) { d[j] = d[q[k]] + 1; q.push(j); }
+    const w = this.w, d = this.creekDist();
     const candidates = neighbours(w, site).filter(j => this.base[j] === T.CREEK || this.base[j] === T.RIVER);
     candidates.sort((a, b) => (d[a] < 0 ? 1e6 + this.nominal(a) : d[a]) - (d[b] < 0 ? 1e6 + this.nominal(b) : d[b]));
     const j = candidates[0];
@@ -114,7 +133,7 @@ export class HollisWater {
       for (const j of neighbours(w, i)) {
         const t = this.base[j];
         if (kind === 'pond' && (t === T.CREEK || t === T.RIVER)) spill = Math.min(spill, Math.max(reach.get(i), this.sill(i, j)));
-        if (((t === T.POND || t === T.MARSH) && !ownCore.has(j)) || occupied[j] || w.struct[j] >= 0 || t === T.ROAD || t === T.TRAIL || t === T.RIVER || w.feature[j] === F.CULVERT || (w.feature[j] === F.DAM && j !== site)) continue;
+        if (this.walled(j, ownCore, site, occupied)) continue;
         if (kind !== 'pond' && ((j % w.w - sx) * axis[0] + (Math.floor(j / w.w) - sy) * axis[1]) > 0) continue;
         // Pond catchments don't dam the creek beside them.
         if (kind === 'pond' && t === T.CREEK) continue;
@@ -125,16 +144,78 @@ export class HollisWater {
     }
     return { cells: [...reach].map(([i, threshold]) => ({ i, threshold, c: this.corners(i) })), spill };
   }
+  // Ground water can't stand on: another pond or marsh, another basin, a building, a road, a trail,
+  // the river, a culvert, another dam.
+  walled(j, ownCore, site, occupied) {
+    const w = this.w, t = this.base[j];
+    return ((t === T.POND || t === T.MARSH) && !ownCore.has(j)) || occupied[j] || w.struct[j] >= 0 || t === T.ROAD || t === T.TRAIL || t === T.RIVER || w.feature[j] === F.CULVERT || (w.feature[j] === F.DAM && j !== site);
+  }
+  // Where the water behind a dam at `site` first gets past the dam line under `level`: the lowest
+  // level at which it crosses from the pond's side (dot(axis) <= 0) into a tile downstream of the
+  // line (or reaches the river), other than over a dam edge in `blocked`, and that edge. Null if it
+  // stays in under `level`. (The same fill as footprint, without its half-plane: the dam line is
+  // only as long as the dam, and the water goes round its ends wherever the bank is lower.)
+  leak(site, axis, level, blocked, occupied) {
+    const w = this.w, n = w.n, sx = site % w.w, sy = Math.floor(site / w.w), own = new Set([site]);
+    const side = j => (j % w.w - sx) * axis[0] + (Math.floor(j / w.w) - sy) * axis[1];
+    const reach = new Map([[site, Math.min(...this.corners(site))]]), q = [site], dist = this.creekDist();
+    let best = null;
+    for (let k = 0; k < q.length; k++) {
+      const i = q[k], r = reach.get(i);
+      for (const j of neighbours(w, i)) {
+        const required = Math.max(r, this.sill(i, j));
+        if (this.base[j] === T.RIVER) { if (required < level && (!best || required < best.level)) best = { level: required, a: i, b: j }; continue; }
+        if (this.walled(j, own, site, occupied)) continue;
+        if (side(j) > 0) {
+          // (a meander bringing the creek above the dam back across the line is the pond's own
+          // water, held by the half-plane as in footprint, not a way round the dam)
+          if (this.base[j] === T.CREEK && (dist[j] >= 0 ? this.meanders(j, side) : this.nominal(j) > this.nominal(site))) continue;
+          if (!blocked.has(i * n + j) && required < level && (!best || required < best.level)) best = { level: required, a: i, b: j };
+          continue;
+        }
+        const need = Math.max(required, Math.min(...this.corners(j)));
+        if (need >= level || need >= (reach.get(j) ?? Infinity)) continue;
+        reach.set(j, need); q.push(j);
+      }
+    }
+    return best;
+  }
+  // The line a dam at `site` runs along at `level`: from the creek bank to bank, like a real dam.
+  // Beavers build where they hear water running out, so it starts across the channel and grows
+  // along the dam line wherever water would get round its end, until it meets ground above the
+  // water (keyed into the banks) or reaches DAM_SPAN tiles. Returns its edges [pond tile, tile
+  // below the dam] and `spill`, the lowest level the water still gets round it at: the pond can
+  // rise to its crest or that bank, whichever is lower.
+  damLine(site, axis, level, occupied) {
+    const w = this.w, n = w.n, x = site % w.w + axis[0], y = Math.floor(site / w.w) + axis[1];
+    const edges = [], blocked = new Set(), across = [];
+    const perp = (i) => (i % w.w - site % w.w) * axis[1] - (Math.floor(i / w.w) - Math.floor(site / w.w)) * axis[0];
+    if (w.inb(x, y)) { const b = w.idx(x, y); edges.push([site, b]); blocked.add(site * n + b); across.push(0); }
+    let lk = this.leak(site, axis, level, blocked, occupied);
+    while (lk && edges.length < DAM_SPAN && this.base[lk.b] !== T.RIVER) {
+      // (only a leak at the dam's end: one round a far side of the pond is a bank too low to dam)
+      const p = perp(lk.a);
+      if (!across.some(q => Math.abs(q - p) === 1)) break;
+      edges.push([lk.a, lk.b]); blocked.add(lk.a * n + lk.b); across.push(p);
+      lk = this.leak(site, axis, level, blocked, occupied);
+    }
+    return { edges, spill: lk ? lk.level : Infinity };
+  }
   // Tiles a dam's water at `level` actually stands on (shallower than WET_DEPTH doesn't count).
   damWet(cells, level) { return cells.filter(v => tileWaterVolume(v.c, level) > .002 && level - groundCentre(v.c) > WET_DEPTH).length; }
   // The crest a new dam holds its water at: DAM_HEAD over the bed, or less if the pond would spread
   // over more than DAM_CELLS tiles. Null where even a low dam would spread wider than that: a
   // stretch of creek with flat ground level with its bed, which beavers don't dam (it once flooded
   // 1,300 tiles, an eighth of Hollis Farm).
+  // The water also stops at the lowest bank the dam can't reach past (damLine): a dam on a low
+  // bank holds a lower pond.
   damCrest(site, axis, occupied) {
-    const bed = Math.min(...this.corners(site));
+    // (leaks are plugged lowest first, so the line at the highest head gives the bank for every head)
+    const bed = Math.min(...this.corners(site)), bank = this.damLine(site, axis, bed + DAM_HEAD, occupied).spill - SPILL_MARGIN;
     for (let head = DAM_HEAD; head > .15 - 1e-9; head -= .05) {
-      if (this.damWet(this.footprint([site], bed + head, 'dam', site, axis, occupied).cells, bed + head) <= DAM_CELLS) return bed + head;
+      const crest = Math.min(bed + head, bank);
+      if (crest < bed + .15 - 1e-9) return null;
+      if (this.damWet(this.footprint([site], crest, 'dam', site, axis, occupied).cells, crest) <= DAM_CELLS) return crest;
     }
     return null;
   }
@@ -194,14 +275,20 @@ export class HollisWater {
   makeBasin(kind, site, core, previous, occupied) {
     const axis = previous?.axis || this.downstream(site);
     const initial = kind === 'pond' ? Math.min(...core.map(i => this.nominal(i))) : this.nominal(site);
-    let crest = kind === 'pond' ? initial + .18 : previous?.crest ?? this.damCrest(site, axis, occupied);
+    let crest = kind === 'pond' ? initial + .18 : (kind === 'dam' ? previous?.top : null) ?? previous?.crest ?? this.damCrest(site, axis, occupied);
+    const top = kind === 'dam' ? crest : null; // (the crest it was built to: saved, so a bank raised again lets the pond back up)
+    // (a standing dam's pond is rechecked against its banks on every rebuild: ground lowered
+    // beside it, or a save from before dams spanned the creek, lets it out to the lowest bank)
+    let line = null;
+    if (kind === 'dam' && crest != null) { line = this.damLine(site, axis, crest, occupied); crest = Math.min(crest, line.spill - SPILL_MARGIN); }
     let footprint = crest == null ? null : this.footprint(core, crest, kind, site, axis, occupied);
     if (kind !== 'pond' && (!footprint || this.damWet(footprint.cells, crest) > DAM_CELLS)) {
       // (a dam's crest is set when it is built, but the ground round it changes: a marsh dries, a
       // road or another pond goes. Lower it again rather than let the pond spread over the farm.
       // A dam on flat ground, from an old save, holds a low pool cut off at DAM_CELLS tiles)
       crest = this.damCrest(site, axis, occupied);
-      const low = crest ?? Math.min(...this.corners(site)) + .15;
+      let low = crest ?? Math.min(...this.corners(site)) + .15;
+      if (kind === 'dam') { line = this.damLine(site, axis, low, occupied); low = Math.min(low, line.spill - SPILL_MARGIN); }
       footprint = this.footprint(core, low, kind, site, axis, occupied);
       if (crest == null) {
         footprint.cells.sort((a, b) => a.threshold - b.threshold);
@@ -248,6 +335,7 @@ export class HollisWater {
     const b = { kind, site, core, crest, axis, cells, lo, table, capacity, floor, usual: feed ?? (kind === 'pond' ? initial : crest), shown: previous?.shown,
       volume: Math.max(floor, Math.min(capacity, previous?.volume ?? volumeAt(initial))), input: 0, loss: 0, overflow: 0, feed };
     for (const v of cells) occupied[v.i] = 1;
+    if (kind === 'dam') { b.dam = line?.edges ?? []; if (top != null && top > crest) b.top = top; } // (the dam's edges, bank to bank: drawn, not saved)
     if (kind === 'dam') { b.fringe = this.fringe(this.damWetCells(cells, crest), crest, site, axis, occupied); for (const i of b.fringe) occupied[i] = 1; }
     return b;
   }
@@ -357,6 +445,7 @@ export class HollisWater {
       }
       for (const i of b.fringe || []) if (w.waterOwner[i] < 0) { w.waterOwner[i] = k; w.waterManaged[i] = 1; w.terrain[i] = T.MARSH; } // (the pond's marsh margin: saturated, no water of its own drawn, so the pond's edge keeps its level)
     }
+    w.damEdges = this.basins.flatMap(b => b.dam || []); // (for the drawn water: not past a dam)
     this.published.set(w.terrain);
     if (last.some((t, i) => t !== w.terrain[i])) { w.hydroDirty = true; w.renderDirty = true; }
   }
@@ -377,6 +466,6 @@ export class HollisWater {
   }
   serialize() {
     this.sync();
-    return { v: 1, base: Array.from(this.base), wetDays: Array.from(this.wetDays), basins: this.basins.map(({ kind, site, crest, axis, volume, shown }) => ({ kind, site, crest, axis, volume, ...(Number.isFinite(shown) ? { shown } : {}) })) };
+    return { v: 1, base: Array.from(this.base), wetDays: Array.from(this.wetDays), basins: this.basins.map(({ kind, site, crest, top, axis, volume, shown }) => ({ kind, site, crest: top ?? crest, axis, volume, ...(Number.isFinite(shown) ? { shown } : {}) })) };
   }
 }

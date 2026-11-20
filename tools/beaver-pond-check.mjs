@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 globalThis.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
 const { Game } = await import('../js/game.js');
 const { T, F, isWater } = await import('../js/config.js');
-const { DAM_CELLS, FRINGE, groundCentre } = await import('../js/sim/hollis-water.js');
+const { DAM_CELLS, DAM_SPAN, FRINGE, groundCentre } = await import('../js/sim/hollis-water.js');
 const { damSiteOK, meadowYear, migrateMarkedPools, SITE_WET, SITE_OPEN, DAM_GAP, PENDING_DEEP, MEADOW_YEARS } = await import('../js/sim/beaver-ponds.js');
 const { wallowVisit, wallowDay, wallowCount, wallowGround, WALLOW_POOL, wallower } = await import('../js/sim/wallows.js');
 const { updateHydrology } = await import('../js/sim/environment.js');
@@ -130,5 +130,55 @@ check('Saves keep beaver meadows and wallows', () => {
   const g = farm(), w = g.world; w.meadow[100] = 7; w.wallow[200] = 90; w.wallowWet[200] = 40;
   const r = new Game(); assert.ok(r.restoreSave(compactSave(g.saveData())));
   assert.equal(r.world.meadow[100], 7); assert.equal(r.world.wallow[200], 90); assert.equal(r.world.wallowWet[200], 40);
+});
+check('A dam spans the creek bank to bank and its pond stops at the lowest bank (cinema-creeks s5)', () => {
+  // (a dam was one tile, its pond held along the whole dam line by an invisible wall: at 54,71 the
+  // channel is 3 tiles wide and water stood beside the dam 0.3 levels over the ground below it)
+  const sites = [[54, 71], [54, 46], ...Array.from({ length: 12 }, (_, k) => null)];
+  const g0 = farm(), creek = []; for (let i = 0; i < g0.world.n; i += 11) if (g0.world.terrain[i] === T.CREEK) creek.push(i);
+  let spans = 0, tested = 0;
+  for (const s of [...sites.filter(Boolean).map(([x, y]) => g0.world.idx(x, y)), ...creek]) {
+    const g = farm(), w = g.world; g.wildlife.buildDam(s); fill(g);
+    const b = g.water.basins.find(b => b.kind === 'dam' && b.site === s); if (!b) continue;
+    tested++;
+    const L = g.water.level(b), n = w.n, blocked = new Set(b.dam.map(([a, c]) => a * n + c));
+    assert.ok(L <= b.crest + 1e-9, 'never over the crest');
+    // no way round the dam under its water (other basins as walls, as the rebuild has them)
+    const occupied = new Uint8Array(n); for (const o of g.water.basins) if (o !== b) { for (const v of o.cells) occupied[v.i] = 1; for (const i of o.fringe || []) occupied[i] = 1; }
+    const lk = g.water.leak(s, b.axis, b.crest, blocked, occupied);
+    assert.equal(lk, null, `dam at ${s % w.w},${(s / w.w) | 0}: water gets round it at ${lk?.level?.toFixed(3)} under its crest ${b.crest.toFixed(3)}`);
+    // the whole channel across: every creek tile along the dam line next to the site is dammed
+    const [ax, ay] = b.axis;
+    for (const dir of [1, -1]) for (let k = 1; ; k++) {
+      const x = s % w.w + ay * dir * k, y = ((s / w.w) | 0) - ax * dir * k;
+      if (!w.inb(x, y) || g.water.base[w.idx(x, y)] !== T.CREEK) break;
+      assert.ok(b.dam.some(e => e[0] === w.idx(x, y)), `creek tile ${x},${y} beside the dam is dammed`);
+    }
+    if (b.dam.length > 1) spans++;
+    // drawn water stops at the dam: none carried onto the dry ground just below it
+    for (const [, c] of b.dam) if (!isWater(w.terrain[c])) assert.ok(w.damEdges.some(e => e[1] === c));
+  }
+  assert.ok(tested >= 8 && spans >= 2, `${tested} dams, ${spans} wider than a tile`);
+  // the pond fills to its crest, and a save keeps the crest and the dam's line
+  const g = farm(), w = g.world, site = w.idx(54, 71); g.wildlife.buildDam(site); fill(g, 40);
+  const b = g.water.basins.find(b => b.kind === 'dam');
+  assert.ok(g.water.level(b) >= b.crest - .03, `filled to ${g.water.level(b).toFixed(2)} of ${b.crest.toFixed(2)}`);
+  assert.ok(b.dam.length >= 3, `dam ${b.dam.length} tiles across a 3-tile channel`);
+  const r = new Game(); assert.ok(r.restoreSave(compactSave(g.saveData())));
+  const rb = r.water.basins.find(b => b.kind === 'dam');
+  assert.equal(rb.crest, b.crest); assert.deepEqual(rb.dam, b.dam);
+  assert.ok(Math.abs(r.water.level(rb) - g.water.level(b)) < 1e-6, 'same level after loading');
+  // a bank lowered beside the dam, wider than a dam reaches, lets the pond out to it; raised back,
+  // the pond backs up again (lowered only one tile wide, the beavers carry the dam across it)
+  const [ex] = b.dam.reduce((m, e) => Math.abs(e[0] % w.w - 54) > Math.abs(m[0] % w.w - 54) ? e : m), dir = ex % w.w > 54 ? 1 : -1;
+  const vs = []; for (let k = 0; k <= DAM_SPAN + 2; k++) for (let y = 70; y <= 74; y++) vs.push([ex % w.w + (dir > 0) + dir * k, y]); // (corners, from the dam end's outer edge)
+  const was = vs.map(([x, y]) => w.vert(x, y));
+  for (const [x, y] of vs) w.setVert(x, y, Math.min(w.vert(x, y), b.crest - .2)); w.hv++; g.water.sync();
+  const low = g.water.basins.find(b => b.kind === 'dam');
+  assert.ok(low.crest < b.crest - .1, `bank lowered: crest ${low.crest.toFixed(2)} of ${b.crest.toFixed(2)}`);
+  const r2 = new Game(); assert.ok(r2.restoreSave(compactSave(g.saveData())));
+  vs.forEach(([x, y], k) => { w.setVert(x, y, was[k]); r2.world.setVert(x, y, was[k]); }); w.hv++; r2.world.hv++; g.water.sync(); r2.water.sync();
+  assert.equal(g.water.basins.find(b => b.kind === 'dam').crest, b.crest, 'raised again, it holds its old crest');
+  assert.equal(r2.water.basins.find(b => b.kind === 'dam').crest, b.crest, 'also after a save made while the bank was low');
 });
 console.log(checks + ' beaver pond and wallow checks passed.');

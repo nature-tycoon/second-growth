@@ -550,15 +550,21 @@ export class Terrain {
       }
     }
     // one ring of bank tiles carries the neighbouring water level
+    // (except the pond's level onto the dry ground just below a beaver dam: the dam holds the pond
+    // off it, and the sheet carried over would run down the bank past the dam's mounds)
+    const belowDam = new Set();
+    for (const e of w.damEdges || []) belowDam.add(e[1]);
     const ring = [];
     for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
       const k = ty * TW + tx;
       if (wet[k]) continue; // (a managed tile without water is bank too: the pond model's dry margins)
+      const below = belowDam.size > 0 && w.inb(tx + X0, ty + Y0) && belowDam.has(w.idx(tx + X0, ty + Y0));
       let L = -Infinity, kd = 0;
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const xx = tx + dx, yy = ty + dy;
         if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
         const j = yy * TW + xx;
+        if (below && managed(j)) continue; // (the pond's water, held behind the dam; the creek below still banks it)
         if (wet[j] && level[j] > L) { L = level[j]; kd = kind[j]; }
       }
       if (L > -Infinity && Math.min(...w.corners(tx + X0, ty + Y0)) < L) ring.push([k, L, kd]);
