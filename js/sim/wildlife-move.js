@@ -72,6 +72,11 @@ export class WildlifeMove {
       // off for the bank again, pacing back and forth without ever drinking)
       if (drink) a.bankGoal = bank;
     }
+    // (a river fish whose rest spot is still too shallow, in a tile with only a sliver of water,
+    // rests where it is once it is close and in water deep enough: pressing at the lip for a spot
+    // 6 mm too shallow, a snapper nosed left and right on the spot for seconds, Chinandega 2026-11-20)
+    if (a.path.length === 1 && a.restSpot?.[0] === j && a.move === 'swim' && !def.reef && Math.hypot(a.restSpot[1] - a.x, a.restSpot[2] - a.y) < 0.6 &&
+      swimDepth(w, a.restSpot[1], a.restSpot[2]) < fishDepth(def) && swimDepth(w, a.x, a.y) >= fishDepth(def)) { a.restSpot[1] = a.x; a.restSpot[2] = a.y; }
     // (a spot picked by tile can fall on a trunk: aim beside it, see ground-obstacles.js)
     const [tx, ty] = clearSpot(w, a, def, a.path.length === 1 ? a.restSpot[1] : (j % w.w) + 0.5 + ox,
       a.path.length === 1 ? a.restSpot[2] : ((j / w.w) | 0) + 0.5 + oy);
