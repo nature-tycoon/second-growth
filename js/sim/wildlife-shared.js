@@ -20,7 +20,7 @@ export class Animal {
   foragedAt; huntTime; playT; playN; nestSite; stoop; slot; disperse; alertUntil; carcass; feedAt;
   feedT; fruitAfter; socialCooldown; familySettled; familyRetryUntil; bachelorSlot; herdOf; mom;
   momSlot; familyFailures; patrolDir; haremOf; pace; sparStyle; sparHeading; sparLoser; rutCooldown;
-  leaveWait; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
+  leaveWait; leaveDays; landed; haremSlot; haremHome; passing; nestUntil; bugleT; visit; fishFed; crossRest;
   familyBlockedBy; familyBlockedUntil; soaring; territory; territoryAfter; dormancy; dormancyAfter; range; rangeAfter; trailEdge; trailEdgeAge; walkOn;
   carry; prey; fishing; clingSide; fruitFed; ateFruitAt; restBal; restAt; restUntil; stillT; climb; gapTo; cache; home; homeAfter; drinkFrom; fleeHd; jink; sparSince; settleKey; huntCool; huntCoolUntil; searchImage; gulp; headUp; headUpKey; detour;
 }

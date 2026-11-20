@@ -8,6 +8,7 @@
 - Anything that can start a hunt at any moment goes through `Wildlife.paced()` (`lifePace`), so tries per calendar day don't grow with animal pace.
 - Population-changing rules run on the calendar (births, arrivals, departures, mortality, hunger, the daily hunt roll); keep new ones there.
 - Watch mode doesn't switch to watch pace on its own.
+- Pause freezes the drawn world: `Renderer.draw` advances `this.time` (animation, wind, water, clouds, fire, boats), `todClock` (sky and light), the pollinators, lightning and the 2D effects (rain, snow, fireflies, leaves) by `wdt`, which is 0 at speed 0. Camera moves, eases and the interface keep real `dt`. A new drawn clock reads `this.time` or `wdt`, never `performance.now()` (Jacob, 2026-11-14: the sky, rain, insects and rutting elk ran on while paused).
 - Check: `tools/farm-state-check.mjs`.
 
 ## History

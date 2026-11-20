@@ -4,6 +4,7 @@ import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
 const THREE = await import('three');
 const { Flora } = await import('../js/render3d/flora.js');
+const { floraChunkKey } = await import('../js/render3d/flora-changes.js');
 import { Game } from '../js/game.js';
 import { ANIMAL } from '../js/data/animals.js';
 import { mulberry32 } from '../js/rng.js';
@@ -58,12 +59,23 @@ check('Panning never changes a model batch\'s draw-order bounds', () => {
   aim(70); flora.updateView(camera);
   assert.deepEqual(flora.plantView.batches.get(pool).mesh.boundingSphere, sphere);
 });
-check('Zoom and rotation invalidate a covered pan immediately', () => {
+check('Zoom out and rotation invalidate a covered pan immediately', () => {
   aim(4); flora.updateView(camera);
   aim(4, Math.PI / 4 + .01); assert.equal(flora.updateView(camera), true);
-  camera.left = -4.9; camera.updateProjectionMatrix();
+  camera.left = -5.5; camera.updateProjectionMatrix();
   assert.equal(flora.updateView(camera), true);
-  camera.left = -5; aim(4);
+  camera.left = -5; camera.updateProjectionMatrix(); aim(4); flora.updateView(camera);
+});
+check('A zoom in keeps the picked plants while it moves, then picks again at rest', () => {
+  aim(4); flora.updateView(camera); flora.updateView(camera);
+  const fresh = flora.plantView.stats.visible;
+  camera.left = -4.6; camera.right = 4.6; camera.updateProjectionMatrix();
+  assert.equal(flora.updateView(camera), false); // (moving: the wider pick still covers it)
+  assert.equal(flora.plantView.stats.visible, fresh);
+  assert.equal(flora.updateView(camera), true); // (at rest: picked again for the view itself)
+  camera.left = -2; camera.right = 2; camera.updateProjectionMatrix();
+  assert.equal(flora.updateView(camera), true); // (past ZOOM_SLACK)
+  camera.left = -5; camera.right = 5; camera.updateProjectionMatrix(); aim(4); flora.updateView(camera);
 });
 check('Panning and rotation immediately bring offscreen plants back with their original colours', () => {
   for (const az of [0, Math.PI / 4, Math.PI / 2, Math.PI]) {
@@ -113,6 +125,24 @@ check('A local edit uploads its model while other models keep their instance buf
   paint(a, 5); f.updateView(camera);
   assert.equal(f.plantView.batches.get(a).mesh.instanceMatrix.array[12], 5);
   assert.equal(f.plantView.batches.get(b).mesh.instanceMatrix.version, unchanged);
+});
+check('A region whose plants change in place rewrites only its own run, matching a full write', () => {
+  const { f, a } = batchFixture();
+  let e = 2; while (floraChunkKey(e, 4, f.chunkSize) === floraChunkKey(e - 1, 4, f.chunkSize)) e++; // (a region's edge)
+  a.begin(); for (const x of [e - 3, e - 2, e + 2, e + 3]) a.add(x, 0, 4, 1, 1, 1, 0, [.4, .5, .2]); a.end();
+  aim(e); f.updateView(camera);
+  const batch = f.plantView.batches.get(a), [left, right] = [...a.subs.values()].filter(p => p.n);
+  assert.ok(left && right && batch.mesh.count === 4, 'two regions in one batch');
+  right.begin(); right.add(e + 2, 0, 4, 1.2, 1.3, 1.2, 0, [.5, .5, .2]); right.add(e + 3, 0, 4, 1, 1, 1, 0, [.4, .5, .2]); right.end();
+  let wrote = 0; const write = batch.write; batch.write = function (...w) { wrote++; return write.apply(this, w); };
+  f.updateView(camera); batch.write = write;
+  assert.equal(wrote, 0, 'patched, not written whole');
+  assert.deepEqual(batch.mesh.instanceMatrix.updateRanges, [{ start: 32, count: 32 }]);
+  const patched = batch.mesh.instanceMatrix.array.slice(0, 64), colours = batch.mesh.instanceColor.array.slice(0, 12);
+  batch.write([...a.subs.values()].filter(p => p.mesh), batch.mesh.geometry, batch.mesh.material, batch.mesh.receiveShadow);
+  assert.deepEqual(batch.mesh.instanceMatrix.array.slice(0, 64), patched);
+  assert.deepEqual(batch.mesh.instanceColor.array.slice(0, 12), colours);
+  aim(4); f.updateView(camera);
 });
 check('An offscreen edit to the same model does not upload its visible buffer', () => {
   const { f, a } = batchFixture();

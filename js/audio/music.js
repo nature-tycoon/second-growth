@@ -12,6 +12,7 @@ import { makeRainBuffer, prepareRainBuffer, createRainSource } from './rain.js';
 
 const FADE = 4;        // seconds of crossfade between tracks
 const GAP = 1.5;       // quiet seconds after a track fails to load, before the next
+export const RUT_CALLS_PER_MINUTE = 5; // bugles and answers heard in any real minute, at any game speed
 
 // a few milliseconds of silent WAV, for unlocking audio on iOS
 const SILENCE = (() => {
@@ -32,7 +33,7 @@ export class Music {
     this.listeners = [];
     this.activeSources = new Set(); this.cooldowns = new Map(); this.nextBird = 0;
     this.callDue = new Map(); this.foregroundUntil = 0;
-    this.rutClips = new Map(); this.rutLast = 0; this.rutBulls = new Map();
+    this.rutClips = new Map(); this.rutLast = 0; this.rutBulls = new Map(); this.rutHeard = [];
     this.fieldClips = new Map(); this.fieldLoads = new Map(); this.fieldRetry = new Map();
     this.fieldBeds = new Map();
     this.rainClip = null; this.thundering = 0;
@@ -185,7 +186,7 @@ export class Music {
 
   setLand(L) {
     if (this.land?.map !== L.map) {
-      this.cooldowns.clear(); this.callDue.clear(); this.foregroundUntil = 0; this.nextBird = 0; this.rutBulls.clear();
+      this.cooldowns.clear(); this.callDue.clear(); this.foregroundUntil = 0; this.nextBird = 0; this.rutBulls.clear(); this.rutHeard.length = 0;
       if (this.ctx && this.callGain) {
         // Retire already scheduled calls as well as the current voice when switching maps.
         const t = this.ctx.currentTime, old = this.callGain;
@@ -381,6 +382,12 @@ export class Music {
     // One bugle at a time, so a rival can answer but never talks over him, and each bull
     // rests between calls: at fast game speed the herd would otherwise bugle without a break.
     if (bugling && (t < this.rutLast || t < (this.rutBulls.get(id) ?? 0))) return false;
+    // However fast the game runs, the rut stays occasional: at most RUT_CALLS_PER_MINUTE bugles and
+    // answers in any real minute (at the top speed the bulls once bugled back to back).
+    if (bugling) {
+      while (this.rutHeard.length && this.rutHeard[0] <= t - 60) this.rutHeard.shift();
+      if (this.rutHeard.length >= RUT_CALLS_PER_MINUTE) return false;
+    }
     const ready = RUT_SOUNDS[kind].map(n => this.rutClips.get(n)).filter(Boolean);
     if (!ready.length) return false; // (still loading)
     const src = this.ctx.createBufferSource(), g = this.ctx.createGain();
@@ -394,6 +401,7 @@ export class Music {
     if (bugling) {
       const ends = t + src.buffer.duration / src.playbackRate.value;
       this.rutLast = ends + 0.6 + Math.random() * 1.5; this.rutBulls.set(id, ends + 6 + Math.random() * 6);
+      this.rutHeard.push(t);
       this.foregroundUntil = Math.max(this.foregroundUntil, ends);
     }
     return true;

@@ -259,10 +259,11 @@ function riverFishStep(w, a, def, nx, ny, dx, dy, step, was) {
     // of pools, shallow at each lip: swimDepth), it hops the lip to the first swimmable water
     // within a third of a tile ahead, as trout and salmon leap a riffle; it never rests in the
     // shallows, where steering.js would put it back in the pool behind. Without this, fish
-    // pressed against one lip for years and the ones behind piled up at it.
+    // pressed against one lip for years and the ones behind piled up at it. (A fish leaving down
+    // the creek isn't timed for stalls, so it hops at once: young coho otherwise never got out.)
     const h0 = Math.atan2(dy, dx), ux = Math.cos(h0), uy = Math.sin(h0);
     let found = false;
-    if (a.moveProgress?.stalled > 0.5) for (let t = step; !found && t <= Math.max(step, 0.35); t += 0.05) {
+    if (a.leaving || a.moveProgress?.stalled > 0.5) for (let t = step; !found && t <= Math.max(step, 0.35); t += 0.05) {
       if (swimDepth(w, a.x + ux * t, a.y + uy * t) >= need) { nx = a.x + ux * t; ny = a.y + uy * t; found = true; }
     }
     // (the side it went round last time first: trying left then right afresh each step, a fish

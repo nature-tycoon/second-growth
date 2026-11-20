@@ -9,6 +9,7 @@
 - Trim, encode as 96 kbps mono AAC (`.m4a`) in `assets/sounds/`, register in `js/audio/sounds.js`.
 - Credit in `assets/sounds/LICENSES.md`, Settings > Audio and the README.
 - Check: `tools/field-audio-check.mjs` and the other audio asset checks.
+- Calls stay occasional at any game speed: schedule them in audio time (`music.ctx.currentTime`), never per simulated event. The simulation's elk bugles (`bugles`, drained by `rut-events.js`) play only when the landscape is due a call, answering one, or in view, and `music.rut` allows at most `RUT_CALLS_PER_MINUTE` (5) in any real minute (Jacob, 2026-11-14: at the top speed bugling never stopped). Check: `tools/rut-audio-check.mjs`.
 
 ## History
 

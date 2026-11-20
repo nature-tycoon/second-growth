@@ -14,6 +14,8 @@ export function skipMainDraw(mesh) {
   return mesh;
 }
 
+const ZOOM_SLACK = 1.5; // (how far a view may zoom in on the plants picked for it before they're picked again)
+
 export class PlantBatch {
   constructor(scene, shadow = false) { this.scene = scene; this.shadow = shadow; this.mesh = null; this.capacity = 0; this.indices = []; this.count = 0; }
   write(sources, geometry, material, receiveShadow) {
@@ -53,6 +55,43 @@ export class PlantBatch {
       }
       if (this.shadow) mesh.computeBoundingSphere();
     }
+    this.runs = { sources: sources.slice(), lengths: this.lengths(sources.length) };
+  }
+  // How many instances each source has in the batch, from the pairs in this.indices.
+  lengths(n) {
+    const out = new Int32Array(n);
+    for (let k = 0; k < this.count; k++) out[this.indices[k * 2]]++;
+    return out;
+  }
+  // Rewrites only the runs of the sources in `changed` (their positions in `sources`), when every
+  // source keeps its place and its number of instances: one region's plants grown a little since
+  // yesterday no longer copies and uploads every plant of that model on the map. False, touching
+  // nothing, when the batch must be written whole.
+  patch(sources, changed) {
+    const mesh = this.mesh, runs = this.runs;
+    if (!mesh || !runs || mesh.count !== this.count || runs.sources.length !== sources.length) return false;
+    for (let s = 0; s < sources.length; s++) if (sources[s] !== runs.sources[s]) return false;
+    const lengths = this.lengths(sources.length);
+    for (let s = 0; s < lengths.length; s++) if (lengths[s] !== runs.lengths[s]) return false;
+    const matrices = mesh.instanceMatrix.array, colors = mesh.instanceColor?.array;
+    mesh.instanceMatrix.clearUpdateRanges(); mesh.instanceColor?.clearUpdateRanges();
+    let start = 0, s = 0, wrote = false;
+    for (const c of changed) {
+      for (; s < c; s++) start += lengths[s];
+      const n = lengths[c];
+      if (!n) continue;
+      const original = sources[c].mesh, m = original.instanceMatrix.array, col = original.instanceColor?.array;
+      for (let k = start; k < start + n; k++) {
+        const index = this.indices[k * 2 + 1];
+        for (let j = 0; j < 16; j++) matrices[k * 16 + j] = m[index * 16 + j];
+        if (colors) { colors[k * 3] = col[index * 3]; colors[k * 3 + 1] = col[index * 3 + 1]; colors[k * 3 + 2] = col[index * 3 + 2]; }
+      }
+      mesh.instanceMatrix.addUpdateRange(start * 16, n * 16);
+      if (colors) mesh.instanceColor.addUpdateRange(start * 3, n * 3);
+      wrote = true;
+    }
+    if (wrote) { mesh.instanceMatrix.needsUpdate = true; if (colors) mesh.instanceColor.needsUpdate = true; }
+    return true;
   }
   sortBounds(sources) {
     // Main batches are already culled. Use the complete model's source bounds for draw
@@ -78,7 +117,7 @@ export class PlantView {
   constructor(scene, { panMargin = 0.04, incremental = true } = {}) {
     this.scene = scene; this.batches = new Map(); this.bounds = new WeakMap();
     this.frustum = new THREE.Frustum(); this.matrix = new THREE.Matrix4();
-    this.previous = new Float64Array(16).fill(NaN); this.version = -1; this.enabled = false;
+    this.previous = new Float64Array(16).fill(NaN); this.last = new Float64Array(16).fill(NaN); this.version = -1; this.enabled = false;
     this.panMargin = panMargin; this.cameraReady = false; this.orthographic = false;
     this.incremental = incremental; this.selections = new WeakMap();
     this.box = new THREE.Box3(); this.sphere = new THREE.Sphere();
@@ -93,11 +132,26 @@ export class PlantView {
   covers(camera, elements) {
     if (!this.cameraReady || this.orthographic !== !!camera.isOrthographicCamera) return false;
     if (!this.panMargin || !camera.isOrthographicCamera) return elements.every((v, k) => v === this.previous[k]);
-    // Orthographic pans change only the translation in clip space. Ignore numerical noise
-    // from lookAt, but refresh immediately for zoom, rotation or changed clipping planes.
-    for (let k = 0; k < 12; k++) if (Math.abs(elements[k] - this.previous[k]) > 1e-12) return false;
-    for (let k = 12; k < 15; k++) if (Math.abs(elements[k] - this.previous[k]) > this.panMargin) return false;
-    return elements[15] === this.previous[15];
+    // Orthographic pans change only the translation in clip space, and zooming in only scales the
+    // x and y rows: the plants picked for the culled view still cover a view panned within the
+    // margin or zoomed in on it, so a wheel zoom in doesn't pick every plant again each frame of its
+    // glide (the extra ones are clipped by the GPU). Ignore numerical noise from lookAt, and pick
+    // again for rotation, changed clipping planes, a zoom out past the margin, a zoom in past
+    // ZOOM_SLACK, and once the camera comes to rest zoomed in, so a still view draws no extra plants.
+    const p = this.previous, last = this.last, still = elements.every((v, k) => v === last[k]);
+    last.set(elements);
+    if (elements[15] !== p[15]) return false;
+    for (const k of [2, 6, 10]) if (Math.abs(elements[k] - p[k]) > 1e-12) return false;
+    if (Math.abs(elements[14] - p[14]) > this.panMargin) return false;
+    for (let row = 0; row < 2; row++) {
+      const r = [row, row + 4, row + 8], big = r.reduce((a, k) => Math.abs(p[k]) > Math.abs(p[a]) ? k : a), scale = elements[big] / p[big];
+      if (!(scale >= 1 - 1e-9 && scale <= ZOOM_SLACK) || (still && scale > 1 + 1e-9)) return false;
+      for (const k of r) if (Math.abs(elements[k] - scale * p[k]) > 1e-12 * Math.max(1, Math.abs(elements[k]))) return false;
+      // (the view's edges, in the culled view's clip space, must lie inside the culled margin)
+      const t = elements[row + 12], at = p[row + 12], lo = at + (-1 - t) / scale, hi = at + (1 - t) / scale, edge = 1 + this.panMargin + 1e-12;
+      if (lo < -edge || hi > edge) return false;
+    }
+    return true;
   }
   boundsFor(pool) {
     const mesh = pool.mesh, attribute = mesh.instanceMatrix;
@@ -132,6 +186,10 @@ export class PlantView {
     const region = this.box.getBoundingSphere(new THREE.Sphere());
     this.bounds.set(pool, { attribute, version: attribute.version, count: pool.n, data, region });
     return data;
+  }
+  within(sphere) {
+    for (const plane of this.frustum.planes) if (plane.distanceToPoint(sphere.center) < sphere.radius) return false;
+    return true;
   }
   visible(bounds, offset) {
     for (const plane of this.frustum.planes) {
@@ -208,6 +266,7 @@ export class PlantView {
       }
       worked = true;
       let needsPack = !this.incremental || !covered || batch.sourceCount !== pool.subs.size;
+      const changedSources = [];
       batch.count = 0;
       const sources = [...pool.subs.values()].filter(p => p.mesh);
       const first = sources[0]?.mesh;
@@ -232,8 +291,10 @@ export class PlantView {
         if (!this.incremental || !covered || changed) {
           selected.indices.length = 0;
           if (mesh.visible && mesh.material.visible && source.n) {
-            const bounds = this.boundsFor(source);
-            if (this.frustum.intersectsSphere(this.bounds.get(source).region)) {
+            const bounds = this.boundsFor(source), region = this.bounds.get(source).region;
+            // (a region wholly in view, as most are zoomed out, needs no test plant by plant)
+            if (this.within(region)) for (let k = 0; k < source.n; k++) selected.indices.push(k);
+            else if (this.frustum.intersectsSphere(region)) {
               for (let k = 0; k < source.n; k++) if (this.visible(bounds, k * 4)) selected.indices.push(k);
             }
           }
@@ -242,13 +303,16 @@ export class PlantView {
         }
         // A distant source can change while remaining outside the padded view. Retain the
         // model's packed buffer unless a previously or currently visible source changed.
-        if ((changed || colorChanged) && (wasVisible || selected.indices.length)) needsPack = true;
+        if ((changed || colorChanged) && (wasVisible || selected.indices.length)) changedSources.push(s);
         selected.color = color; selected.colorVersion = color?.version;
         for (const k of selected.indices) {
           batch.indices[batch.count * 2] = s; batch.indices[batch.count * 2 + 1] = k; batch.count++;
         }
       }
-      if (first && needsPack) { batch.write(sources, first.geometry, first.material, first.receiveShadow); stats.packedUpdates++; }
+      if (first && (needsPack || changedSources.length)) {
+        if (needsPack || !batch.patch(sources, changedSources)) batch.write(sources, first.geometry, first.material, first.receiveShadow);
+        stats.packedUpdates++;
+      }
       else if (!combine && batch.mesh) batch.mesh.visible = false;
       if (combine && batch.mesh) batch.sortBounds(sources);
       Object.assign(batch, { first: sources[0], revision, sourceCount: pool.subs.size, geometry: first?.geometry,

@@ -121,10 +121,10 @@ export default function buildPnwPlants(def, mix, get) {
     grow: 0.0055, spread: 0.012, radius: 5, life: 22, browse: 0.3, beaverFood: true, cost: 18,
     look: { type: 'alder', leaf: '#6f9d4f', fall: '#a09a58', deciduous: true, bark: '#c9c7bd' },
     desc: 'The great healer of disturbed ground. Grows fast, fixes nitrogen, and dies young, making way for conifers.' });
-  def({ key: 'birch', name: 'Paper birch', sci: 'Betula papyrifera', layer: 2, heightM: 20, moist: [0.4, 1], light: [0.55, 1], wetOK: true,
+  def({ key: 'birch', name: 'Paper birch', sci: 'Betula papyrifera', layer: 2, heightM: 20, moist: [0.4, 0.85], light: [0.55, 1], // moist banks, not standing water (that's river birch)
     grow: 0.0055, spread: 0.012, radius: 6, life: 70, browse: 0.4, beaverFood: true, cost: 16,
     look: { type: 'alder', leaf: '#7aa452', fall: '#e8c83c', deciduous: true, bark: '#ebe8df' },
-    desc: 'Chalk-white bark that peels in papery curls. A pioneer of wet bottomlands and burns, and a beaver favourite.' });
+    desc: 'Chalk-white bark that peels in papery curls. A pioneer of moist stream banks, bottomlands and burns, and a beaver favourite.' });
   def({ key: 'cottonwood', name: 'Black cottonwood', sci: 'Populus trichocarpa', layer: 2, heightM: 40, moist: [0.6, 1], light: [0.6, 1],
     grow: 0.006, spread: 0.01, radius: 7, life: 40, browse: 0.3, beaverFood: true, cost: 18,
     look: { type: 'cottonwood', leaf: '#5f8d4a', fall: '#e4c64a', deciduous: true, bark: '#9a968a' },
