@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { BACKEND_URL as BACKEND } from '../js/backend.js';
 
 const root = new URL('../', import.meta.url);
-for (const path of ['index.html', 'website/index.html', 'website/visuals.html', 'website/press/index.html']) {
+for (const path of ['index.html', 'website/index.html', 'website/visuals.html']) {
   const html = await readFile(new URL(path, root), 'utf8');
   const matches = [...html.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/g)];
   assert.equal(matches.length, 1, `${path}: exactly one CSP`);

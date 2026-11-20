@@ -100,6 +100,8 @@ export function openEcoReport(ui, view = ui.reportView || 'overview') {
 
   const modal = ui.modal('Ecosystem Report', '<div class="tabs er-tabs"></div><div class="er-view"></div>');
   modal.classList.add('er-modal');
+  // (Invasives off: a tag on every tab, so a report from such a run isn't compared as a normal one)
+  if (g.invasives === false) modal.querySelector('.modal-head h2').insertAdjacentHTML('beforeend', `<span class="er-tag" title="${tr('No new invasive plants take root on this map. Turn them on in Settings, Gameplay.')}">${tr('Invasives off')}</span>`);
   const tabBar = modal.querySelector('.er-tabs'), body = modal.querySelector('.er-view');
   tabBar.innerHTML = tabs.map(([k, n]) => `<button data-go="${k}">${tr(n)}</button>`).join('');
 

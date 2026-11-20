@@ -6,7 +6,7 @@ import { visibleLevel } from '../sim/waterline.js';
 import { LEVEL, isWater, clamp } from '../config.js';
 import { trait } from '../data/animal-kinds.js';
 import { clearCanopy, easeBirdHeight, holdCruise, CLIMB_ACCEL } from './flight-clearance.js';
-import { seaPlunge } from './eating-pose.js';
+import { seaPlunge, dabbleTip } from './eating-pose.js';
 import { treeHeight, treeLevel } from './tree-stature.js';
 import { treeTrunk, snagSpot, snagTop as snagTopAt } from '../sim/ground-obstacles.js';
 import { perchPoint } from './bird-perch.js';
@@ -104,6 +104,32 @@ export function plungePose(c) {
     c.posePitch -= (dives ? 1.25 : 0.4) * f;
     if (dives) c.poseFly = st.fly * (1 - 0.85 * f);
   }
+}
+
+// A bird afloat tucks its legs up under it, paddling, rather than hanging them down as if it
+// stood on the bed (seen through a clear creek). The shader takes a negative fly on a bird for the
+// tuck (animal-material.js), so it needs no slot of its own. A dabbler (trait dabbles) tips up
+// now and then (eating-pose.js dabbleTip): nose down about its middle at the waterline, so the
+// head and front go under and the tail comes up, and back.
+export function dabblePose(c) {
+  const { a, def, st, mo, sc, k, time, flying, afloat, bathing, preening } = c;
+  if (def.move !== 'fly' || !mo.bird) return;
+  const on = afloat && !flying;
+  st.tuck = (st.tuck || 0) + ((on ? 1 : 0) - (st.tuck || 0)) * Math.min(1, k * 2);
+  if (st.tuck > 0.01 && st.fly < st.tuck && c.poseFly == null) c.poseFly = -st.tuck;
+  const tip = on && !bathing && !preening && st.gait < 0.5 ? dabbleTip(def, a, time) : 0;
+  st.dabble = (st.dabble || 0) + (tip - (st.dabble || 0)) * Math.min(1, k * 1.5);
+  if (st.dabble < 0.002) return;
+  const f = st.dabble * st.dabble * (3 - 2 * st.dabble), pitch = -1.25 * f;
+  // (turned about its middle at the waterline, not about its feet: offset the model by what that
+  // pivot would move)
+  const px = mo.center.x, py = mo.sink, cs = Math.cos(pitch), sn = Math.sin(pitch);
+  const ox = (px - (px * cs - py * sn)) * sc, oy = (py - (px * sn + py * cs)) * sc;
+  // (its feet paddle down at the surface behind it, not tucked up into the air)
+  if (c.poseFly === -st.tuck) c.poseFly = -st.tuck * (1 - 0.85 * f);
+  c.posePitch += pitch;
+  c.ax += Math.cos(st.yaw) * ox; c.az -= Math.sin(st.yaw) * ox; c.y += oy;
+  st.graze = Math.max(st.graze, f);
 }
 
 // On the bark or a snag's top, and the swoop between there and flight.

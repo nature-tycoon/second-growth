@@ -1,4 +1,4 @@
-/* Second Growth website. One stylesheet for the homepage, press kit and imagery page; the field guide adds guide.css.
+/* Second Growth website. One stylesheet for the homepage and imagery page; the field guide adds guide.css.
    Look: deep pine night, warm paper, and one bright "new growth" green for everything you can press. */
 :root {
   --night: #102019; --pine: #14271f; --moss: #1b3128; --moss-hi: #223a30;
@@ -306,13 +306,13 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
 .closing p:not(.eyebrow) { font-size: 19px; color: #e3e9dc; margin-top: 24px; max-width: 520px; }
 .closing .button { margin-top: 36px; }
 
-/* Follow along (homepage and press kit). */
+/* Follow along (homepage). */
 .follow-links { list-style: none; padding: 0; margin: 28px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .follow-links a { display: block; height: 100%; padding: 22px 24px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--pine); font-size: 15px; color: var(--muted); transition: background .2s, border-color .2s, transform .2s; }
 .follow-links a:hover { background: var(--moss); border-color: #b7d49455; }
 .follow-links strong { display: block; font: 600 19px/1.2 var(--display); color: var(--cream); margin-bottom: 6px; }
 .follow-along-home { padding-block: 40px 30px; }
-.follow-along-home .follow-links { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* (two cards: email and the press kit) */
+.follow-along-home .follow-links { grid-template-columns: minmax(0, 420px); } /* (one card: email) */
 .follow-along-home h2 { font-size: clamp(32px, 3.4vw, 46px); }
 
 .footer { display: flex; flex-wrap: wrap; gap: 20px 28px; align-items: center; justify-content: space-between; padding-block: 44px; margin-top: 30px; border-top: 1px solid var(--line); }
@@ -322,11 +322,11 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
 .footer > span { font-size: 13px; color: var(--dim); }
 .footer .copyright { padding: 5px 13px; border: 1px solid var(--line); border-radius: 100px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 
-/* ------------------------------------------------------------------ press kit and game imagery pages */
+/* ------------------------------------------------------------------ game imagery page */
 .brief-intro { padding-block: 60px 70px; max-width: 900px; margin-left: 0; }
 .brief-intro h1 { font-size: clamp(42px, 5.4vw, 76px); line-height: 1; letter-spacing: -.03em; font-weight: 500; margin-block: 20px; }
 .brief-intro > p:last-child { color: var(--muted); font-size: 18px; max-width: 700px; }
-.brief-intro a, .brief-section > p a, .press-facts a, .press-note a { color: var(--sprout); text-decoration: underline; text-underline-offset: 4px; }
+.brief-intro a, .brief-section > p a { color: var(--sprout); text-decoration: underline; text-underline-offset: 4px; }
 .brief-nav { display: flex; gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 600; padding-bottom: 26px; border-bottom: 1px solid var(--line); }
 .brief-nav a { padding: 7px 14px; border-radius: 100px; background: #ffffff0d; transition: background .2s, color .2s; }
 .brief-nav a:hover { background: var(--sprout); color: var(--ink); }
@@ -359,26 +359,6 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
 .review-bar > .wrap { display: flex; justify-content: space-between; gap: 18px; padding-block: 9px; }
 .review-bar a { color: var(--sprout); text-decoration: underline; text-underline-offset: 3px; }
 .review-divider { margin-inline: 10px; color: var(--dim); }
-.press-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 32px; border-top: 1px solid var(--line); margin-top: 30px; padding-top: 24px; }
-.press-facts dt { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--sprout); }
-.press-facts dd { font-size: 16px; color: #d8e0d2; margin-top: 6px; line-height: 1.6; }
-.press-facts-wide { grid-column: 1 / -1; }
-.press-places { list-style: none; padding: 0; margin: 4px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 32px; }
-.press-places strong, .press-features strong { color: var(--cream); }
-.press-subhead { margin-top: 34px; font-size: 24px; }
-.brief-section .press-subhead + p { margin-top: 12px; }
-.brief-section .press-subhead ~ p { max-width: 760px; }
-.press-features { list-style: none; padding: 0; margin: 28px 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 40px; font-size: 16px; color: var(--muted); }
-.press-features li { border-top: 1px solid var(--line); padding-top: 14px; }
-.press-gallery figcaption a { color: var(--sprout); text-decoration: underline; text-underline-offset: 3px; }
-.brief-section > .press-note { font-size: 15px; color: var(--dim); }
-.press-logo { display: grid; grid-template-columns: 200px 1fr; gap: 36px; align-items: center; margin-top: 30px; }
-.press-logo img { display: block; width: 200px; height: 200px; padding: 18px; border-radius: var(--r-lg); background: var(--paper); }
-.press-logo p { font-size: 16px; color: var(--muted); max-width: 640px; }
-.press-logo img.app-icon { padding: 0; background: none; border-radius: 22%; box-shadow: 0 20px 50px -20px #000c; }
-.press-downloads { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-.press-downloads a { padding: 9px 16px; border-radius: 100px; background: #ffffff10; font-size: 14px; font-weight: 700; color: var(--sprout); transition: background .2s, color .2s; }
-.press-downloads a:hover { background: var(--sprout); color: var(--ink); }
 
 /* ------------------------------------------------------------------ things rising into view as you scroll (no script; browsers without it just show them) */
 @supports (animation-timeline: view()) {
@@ -407,7 +387,6 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
   .ecology { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ecology-topics article:nth-child(5) { grid-column: 1 / -1; }
   .playing { gap: 48px; }
-  .press-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .follow-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .capture-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -478,13 +457,11 @@ details p a { color: var(--sprout); text-decoration: underline; text-underline-o
   summary { font-size: 16px; }
   .closing { padding-block: 110px 100px; }
   .closing p:not(.eyebrow) { font-size: 17px; }
-  .follow-links, .follow-along-home .follow-links, .press-facts, .press-places, .press-features { grid-template-columns: 1fr; }
+  .follow-links, .follow-along-home .follow-links { grid-template-columns: 1fr; }
   .footer { flex-direction: column; align-items: start; }
   .brief-intro { padding-block: 40px; }
   .brief-specs, .review-criteria, .capture-gallery { grid-template-columns: 1fr; }
   .brief-table { font-size: 12px; }
-  .press-logo { grid-template-columns: 1fr; gap: 20px; }
-  .press-logo img { width: 150px; height: 150px; }
 }
 @media (max-width: 360px) { .map-image-wrap > img { aspect-ratio: 3/5; object-position: 60% center; } }
 @media (min-width: 721px) and (max-width: 1100px) {
