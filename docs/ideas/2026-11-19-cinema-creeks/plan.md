@@ -27,7 +27,7 @@ Branch: `claude/ideas-cinema-creeks` (cut from origin/main 382bb46). Sessions ru
 
 | # | Title | Ideas | Model | Size | Status |
 |---|---|---|---|---|---|
-| 1 | Fresh version on launch | force refresh | sonnet | S | [ ] |
+| 1 | Fresh version on launch | force refresh | sonnet | S | [x] (in 0f0e8e9) |
 | 2 | Cinema mode & touch camera | time of year, click-to-lock, two-finger rotate | default | M | [ ] |
 | 3 | Movement bugs | slow deer, clumping + check | default | M | [ ] |
 | 4 | Creek fixes | fish stuck, trees in creeks | default | M | [ ] |
