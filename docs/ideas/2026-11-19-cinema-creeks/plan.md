@@ -37,3 +37,5 @@ Branch: `claude/ideas-cinema-creeks` (cut from origin/main 382bb46). Sessions ru
 | 8 | Serengeti herd routes | herds follow green grass | default | M | [ ] |
 
 Sessions 5 and 6 both change water flow; 6 builds on 5.
+
+Token rule (Cole, 2026-11-19: save tokens, but not at the cost of bugs): sessions 2–8 stay on Opus; 3 and 4 are recurring bugs ("again", "still"), so no downgrade. Briefs allow the Sonnet `checker` subagent for long check runs (balance-sim, motion sweep, play-profile, calibrate) so their output stays out of the session; `scout` only for broad searches. Sessions 5 and 6 (water across sim, terrain, drawing, save/load) run `regression-reviewer` on the plan and on the diff before committing.

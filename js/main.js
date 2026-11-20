@@ -10,6 +10,7 @@ import { initAnalytics, track, trackExit } from './analytics.js';
 import { initLang } from './i18n.js';
 import { BIOMES } from './biome.js';
 import { sharedFarmAtBoot, startVisit, openError } from './ui/share.js';
+import { reloadIfStale, watchForNewVersion } from './fresh-version.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
 const loading = document.getElementById('loading-screen');
@@ -38,6 +39,9 @@ const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => setTi
 
 async function boot() {
   try {
+    // A newer release is live: load it now, while there is nothing to lose (js/fresh-version.js)
+    stage('Checking for a new version', 4);
+    if (await reloadIfStale()) return;
     // a map switch reloads the page (see UI.switchMap); otherwise open on the last map played
     let pending = null;
     try { pending = JSON.parse(sessionStorage.getItem(PENDING_KEY)); sessionStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
@@ -116,6 +120,7 @@ async function boot() {
       ui.openModeChoice(Game.hasSave(startMap));
     }
     ui.afterNewGame();
+    watchForNewVersion(game);
     ui.refreshTop(true);
     // A map reload has no welcome click. Reuse browser autoplay permission when
     // available; the ordinary gesture listeners retry if this browser requires a tap.

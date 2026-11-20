@@ -29,7 +29,7 @@ jobs:
       - name: Build (the same files as tools/build-itch.sh)
         run: |
           mkdir -p dist/web
-          git archive HEAD index.html styles.css manifest.json js assets vendor | tar -x -C dist/web
+          git archive HEAD index.html styles.css manifest.json version.json js assets vendor | tar -x -C dist/web
           sh tools/stamp-release.sh dist/web/js/release.js
           ls dist/web
 
