@@ -30,10 +30,10 @@ Branch: `claude/ideas-cinema-creeks` (cut from origin/main 382bb46). Sessions ru
 | 1 | Fresh version on launch | force refresh | sonnet | S | [x] (in 0f0e8e9) |
 | 2 | Cinema mode & touch camera | time of year, click-to-lock, two-finger rotate | default | M | [x] 5ae13c9 |
 | 3 | Movement bugs | slow deer, clumping + check | default | M | [x] 78a0b11 |
-| 4 | Creek fixes | fish stuck, trees in creeks | default | M | [ ] |
+| 4 | Water routes | fish stuck (routes cross dry strips, per s3), hippos/crocs stuck mid-river | default | M | [ ] |
 | 5 | Beaver dams hold water | dam spans creek, water backs up | default | M–L | [ ] |
 | 6 | Waterfalls | natural spring-fed falls | default | L | [ ] |
-| 7 | Plants look natural | gradual leaf-out, patchy shrubs/grass | default | M | [ ] |
+| 7 | Plants look natural | gradual leaf-out, patchy shrubs/grass, trees in creeks die (moved from 4) | default | M | [ ] |
 | 8 | Serengeti herd routes | herds follow green grass | default | M | [ ] |
 
 Sessions 5 and 6 both change water flow; 6 builds on 5.
