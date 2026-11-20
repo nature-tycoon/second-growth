@@ -17,7 +17,10 @@ import { dormancySeason } from '../data/animal-dormancy.js';
 import { huntHunger } from '../data/animal-activity.js';
 import { passable, canLand } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
+import { swimDepth } from './waterline.js';
 import { territory, Animal, inRiver, spotIn, WITH_MOM } from './wildlife-shared.js';
+
+const LEAVE_DAYS = 20; // (days a leaving animal has to get off the map: a walk off takes one or two)
 
 export const migrationFenceCount = w => {
   let count = 0;
@@ -483,6 +486,7 @@ export class WildlifePopulation {
   leaveRoute(a) {
     const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
     const def = this.game.catalog.animals[a.sp], reef = !!def.reef;
+    if (a.move === 'swim' && !reef) return this.swimOut(a);
     if ((a.move !== 'ground' && !reef) || !w.inb(x0, y0)) return;
     const out = a.ty < 0 ? (x, y) => y === 0 : a.ty > w.h ? (x, y) => y === w.h - 1 : a.tx > w.w ? (x) => x === w.w - 1 : (x) => x === 0;
     if (out(x0, y0)) return;
@@ -502,6 +506,24 @@ export class WildlifePopulation {
     if (!ok) a.path = null;
   }
 
+  // Fish leave down the water to wherever it runs off the map, not straight south: young coho
+  // reared in a creek that joins the river far from the south edge were pressed against its bank
+  // for good. With no way out by water they head south as before (and see LEAVE_DAYS).
+  swimOut(a) {
+    const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+    if (!w.inb(x0, y0)) return;
+    const edge = (x, y) => x === 0 || y === 0 || x === w.w - 1 || y === w.h - 1;
+    let to = edge(x0, y0) ? w.idx(x0, y0) : -1;
+    // (through water deep enough to swim: a marsh can be dry)
+    const wet = (w, j, a) => passable(w, j, a) && swimDepth(w, j % w.w + 0.5, ((j / w.w) | 0) + 0.5) > 0;
+    if (to < 0 && this.pathTo(a, (j, x, y) => edge(x, y), w.n, null, null, wet)) to = a.path[0];
+    a.state = 'leave';
+    if (to < 0) { a.path = null; return; }
+    const x = to % w.w, y = (to / w.w) | 0;
+    a.tx = x === 0 ? -3 : x === w.w - 1 ? w.w + 3 : x + 0.5;
+    a.ty = y === 0 ? -3 : y === w.h - 1 ? w.h + 3 : y + 0.5;
+  }
+
   // -------------------------------------------------------------- daily behaviour
   daily() {
     decayRisk(this);
@@ -516,7 +538,9 @@ export class WildlifePopulation {
     haremDay(this);
     this.damDay();
     for (const a of this.agents.slice()) {
-      if (a.leaving) continue;
+      // (an animal that can't find its way off the map slips away unseen rather than staying for
+      // ever: stuck coho fry once piled up by the thousand over centuries, never ageing, 2026-11)
+      if (a.leaving) { if ((a.leaveDays = (a.leaveDays || 0) + 1) > LEAVE_DAYS) this.remove(a, 'left'); continue; }
       const def = this.game.catalog.animals[a.sp];
       const x = Math.floor(a.x), y = Math.floor(a.y);
       if (!w.inb(x, y)) continue;

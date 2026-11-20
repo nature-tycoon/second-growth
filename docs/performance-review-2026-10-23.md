@@ -141,3 +141,25 @@ The first frame is built and its shaders compiled before it is drawn (`Renderer.
 - It must be visible by the time `draw` returns early for `this.preparing` (after `flora.updateView`), or its shader compiles inside the first draw, serially, as before. `warmShaders` compiles only what is shown (`compileShown`), because three.js's own `compile` walks hidden objects too (about ten extra programs).
 - Check with `node tools/first-frame-profile.mjs [maps]`: 'compiled in the first draw' should list nothing beyond one hidden helper, and the programs added by the draw should be the sun's 3 shadow programs (three.js keeps the depth materials private, so they can't be warmed without copying its shadow pass).
 - Each distinct material variant (a define, `onBeforeCompile`, instancing or not, a map or not) is a program. On the M5 one costs 5–45 ms; on Windows ANGLE/D3D and Chromebooks many times that. Share materials rather than adding variants.
+
+## Old forest, 2026-11-15: lag that grows over centuries
+
+Jacob (RTX 5070 laptop, Windows, Chrome, Sharp) found Hollis steadily laggier as it filled with trees, badly by year 1,250, at every zoom, with stutter while zooming. Measured on a PNW restore grown headless for 400 years (`hollis-restore-plan`, saved as a farm file and loaded with `PLAY_FARM=<file> node tools/play-profile.mjs pnw high`; the new `zoom sweep` view wheels in and out while sampling and reports real frame gaps). Trees level off by year 300 (7,500–8,000 of 10,800 tiles), so they are not what keeps growing.
+
+**The cause: leaving animals that never left.** Every coho fry ever hatched was still on the map: 2,340 at year 400 (443 at year 100), all `leaving`, swimming straight south into the creek bank, never ageing (`daily` skips leavers), adding about 8 a year, so about 10,000 by year 1,250. About 300 cutthroat trout were stuck the same way. Fixed in `wildlife-population.js`: fish leave by swimming the water to wherever it runs off the map (`swimOut`, through tiles with water in them; `riverFishStep` lets a leaving fish hop pool lips at once), and any animal still leaving after `LEAVE_DAYS` (20) is taken off the map. An existing save clears within 20 game days. `tools/leaving-check.mjs` covers both (fails on the old code). Calibrate `all 15 3` before/after: no new out-of-range finding beyond seed noise.
+
+**Plant culling scaled with the whole map.** Each plant region redrawn (about 30 frames a game day) re-copied and re-uploaded every visible instance of each model it touched, and every shadow redraw re-tested and copied every caster on the map. Now: `PlantBatch.patch` rewrites only the changed regions' runs when every region keeps its count; shadow casters are tested again only when the sun's camera moved, compared by index instead of copying matrices; a region wholly in view skips the per-plant test; and a zoom in reuses the wider pick until the view has shrunk 1.5x or the camera comes to rest (`ZOOM_SLACK` in `plant-view.js`; at rest the drawn set is exactly a fresh pick's). Drawn output is byte-identical to the old code in a hashed node bench (region redraws, sun move, pan, zoom, rest).
+
+| 400-year forest, M5, High, 2880×1800 (load average 8–13, so approximate) | Before | After |
+| --- | ---: | ---: |
+| Play view: fps, simulation, animal drawing | 35, 9.0 ms, 7.6 ms | 50, 4.5 ms, 1.4 ms |
+| Zoomed out: fps, drawing | 32, 22.8 ms | 47, 11.7 ms |
+| Closest zoom: fps, simulation | 60, 4.8 ms | 60, 1.7 ms |
+| Zoom sweep: fps, longest gap, frames over 50 ms | 48.5, 83 ms, 3 | 52, 33 ms, 0 |
+| Frames over 50 ms in 8 s, play / zoomed out | 15 / 8 | 2 / 3 |
+| Node, per region redraw at zoom 0.25: instances copied (4 days), shadow selection | 9.3M, 3.1 ms | 1.06M, 0.3 ms |
+| Node, zoom sweep, view + shadow selection per frame | 4.1–4.6 ms | 2.2–2.6 ms |
+
+Still open: the GPU at play zoom over a full forest (16 ms on the M5 at Retina High, 4M triangles: mid-detail tree models at zoom 0.7), and zoom-out frames still pick every plant again.
+
+**Hybrid graphics.** The game can tell which chip it got (`renderer.gpuName()`, e.g. `ANGLE (Intel, Intel(R) Arc(TM) Graphics ...)` vs `ANGLE (NVIDIA, ... RTX 5070 Laptop GPU ...)`), but not that a faster one exists. The context already asks for `powerPreference: 'high-performance'`, which Chrome on Windows may ignore. A hint is worthwhile only when the frame rate is low and the renderer is Intel/AMD integrated on Windows: "if your laptop has a separate graphics card, set Chrome to High performance in Windows Graphics settings". `game_loaded` already records `gpu`, so PostHog can show how many players on Windows run on integrated chips before building it. Not built.

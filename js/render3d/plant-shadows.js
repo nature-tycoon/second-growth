@@ -6,7 +6,7 @@ import { PlantBatch, shadowOnly } from './plant-view.js';
 export class PlantShadows {
   constructor(scene, enabled = true) {
     this.scene = scene; this.enabled = enabled; this.version = 0; this.floraVersion = -1;
-    this.frustum = new THREE.Frustum(); this.matrix = new THREE.Matrix4(); this.hasFrustum = false;
+    this.frustum = new THREE.Frustum(); this.matrix = new THREE.Matrix4(); this.hasFrustum = false; this.culledWith = new Float64Array(16).fill(NaN);
     this.states = new Map(); this.groups = new Map(); this.batches = new Map(); this.bounds = new WeakMap();
     this.stats = { candidates: 0, instances: 0, batches: 0, updates: 0 };
   }
@@ -42,6 +42,10 @@ export class PlantShadows {
     const record = { attribute, version: attribute.version, count: source.n, geometry, data, region };
     this.bounds.set(source, record); return record;
   }
+  within(sphere) {
+    for (const plane of this.frustum.planes) if (plane.distanceToPoint(sphere.center) < sphere.radius) return false;
+    return true;
+  }
   visible(data, b) {
     for (const plane of this.frustum.planes) {
       const n = plane.normal;
@@ -68,27 +72,19 @@ export class PlantShadows {
       const geometry = source.shadowGeometry(), attribute = mesh.instanceMatrix, old = this.states.get(source);
       stats.candidates += source.n;
       let state;
-      if (!force && old?.geometry === geometry && old.attribute === attribute && old.attributeVersion === attribute.version && old.count === source.n && old.packed === packed) state = old;
+      const same = old?.geometry === geometry && old.attribute === attribute && old.attributeVersion === attribute.version && old.count === source.n && old.packed === packed;
+      if (!force && same) state = old;
       else {
-        state = old || { indices: [], matrices: new Float32Array(0), revision: 0 };
-        const previousCount = state.indices.length, previousGeometry = state.geometry, previousPacked = state.packed;
-        const indices = state.indices, bounds = this.boundsFor(source, geometry), original = attribute.array;
-        indices.length = 0; let different = false;
-        if (!packed || this.frustum.intersectsSphere(bounds.region)) for (let k = 0; k < source.n; k++) if (!packed || this.visible(bounds.data, k * 4)) {
-          const at = indices.length * 16; indices.push(k);
-          if (at + 16 > state.matrices.length) {
-            const grown = new Float32Array(Math.max(64, Math.ceil((at + 16) * 1.5)));
-            grown.set(state.matrices); state.matrices = grown;
-          }
-          for (let j = 0; j < 16; j++) {
-            const v = original[k * 16 + j];
-            if (v !== state.matrices[at + j]) different = true;
-            state.matrices[at + j] = v;
-          }
-        }
-        if (indices.length || previousCount) {
-          different ||= !old || previousGeometry !== geometry || previousPacked !== packed || previousCount !== indices.length || !packed;
-        }
+        state = old || { indices: [], revision: 0 };
+        const previous = state.indices, previousGeometry = state.geometry, previousPacked = state.packed;
+        const indices = state.indices = [], bounds = this.boundsFor(source, geometry);
+        // (a region wholly in the sun's view needs no test plant by plant)
+        if (!packed || this.within(bounds.region)) for (let k = 0; k < source.n; k++) indices.push(k);
+        else if (this.frustum.intersectsSphere(bounds.region)) for (let k = 0; k < source.n; k++) if (this.visible(bounds.data, k * 4)) indices.push(k);
+        // (the instance buffer only changes when its plants do: PlantPool.end)
+        let different = !same || !packed || previous.length !== indices.length;
+        for (let k = 0; !different && k < indices.length; k++) different = indices[k] !== previous[k];
+        if (!indices.length && !previous.length) different = false;
         if (different) { changed = true; state.revision++; }
         Object.assign(state, { geometry, attribute, attributeVersion: attribute.version, count: source.n, packed });
       }
@@ -108,8 +104,12 @@ export class PlantShadows {
     light.shadow.updateMatrices(light, camera);
     const c = light.shadow.camera;
     this.matrix.multiplyMatrices(c.projectionMatrix, c.matrixWorldInverse);
-    this.frustum.setFromProjectionMatrix(this.matrix); this.hasFrustum = true;
-    this.sync(flora, version, true); this.stats.updates++;
+    // (every caster is tested again only when the shadow camera has moved; a redraw for changed
+    // plants alone re-tests just the regions that changed, as sync does every frame)
+    const moved = !this.hasFrustum || this.matrix.elements.some((v, k) => v !== this.culledWith[k]);
+    if (moved) { this.frustum.setFromProjectionMatrix(this.matrix); this.culledWith.set(this.matrix.elements); }
+    this.hasFrustum = true;
+    this.sync(flora, version, moved); this.stats.updates++;
     for (const batch of this.batches.values()) if (batch.mesh) batch.mesh.visible = false;
     for (const [pool, entries] of this.groups) {
       let batch = this.batches.get(pool);
@@ -119,11 +119,14 @@ export class PlantShadows {
         batch.mesh.visible = batch.count > 0; continue;
       }
       batch.count = 0;
-      const sources = entries.map(e => e.source);
-      for (let s = 0; s < entries.length; s++) for (const index of entries[s].state.indices) {
-        batch.indices[batch.count * 2] = s; batch.indices[batch.count * 2 + 1] = index; batch.count++;
+      const sources = entries.map(e => e.source), changed = [];
+      for (let s = 0; s < entries.length; s++) {
+        for (const index of entries[s].state.indices) { batch.indices[batch.count * 2] = s; batch.indices[batch.count * 2 + 1] = index; batch.count++; }
+        if (batch.shadowStates?.[s] !== entries[s].state || batch.shadowRevisions[s] !== entries[s].state.revision) changed.push(s);
       }
-      batch.write(sources, geometry, shadowOnly, false);
+      // (only the regions whose casters changed, when the rest keep their places: PlantBatch.patch)
+      if (batch.mesh?.geometry !== geometry || !batch.patch(sources, changed)) batch.write(sources, geometry, shadowOnly, false);
+      else batch.mesh.visible = batch.count > 0;
       batch.shadowSources = sources; batch.shadowStates = entries.map(e => e.state); batch.shadowRevisions = entries.map(e => e.state.revision);
     }
   }
