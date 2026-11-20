@@ -25,7 +25,7 @@ All four sessions landed on `claude/ideas-wildlife-polish` (aed7cd7, 2cf4495, f8
 - Delete `monkey/canopy-rewrite-wip`? **Keep until the orangutan fix, then delete.**
 
 **Pre-existing**
-- `animal-culling-check` fails on main too (zebra leg clock, `tools/animal-culling-check.mjs:89`). **Fix in a small session.**
+- `animal-culling-check` fails on main too (zebra leg clock, `tools/animal-culling-check.mjs:89`). **Done** (a963a0f updated the check's stale expectation: walkers keep their own leg clock through culling, no snap).
 
 ## New ideas (nature-checked)
 - Garter snakes also eat slugs, earthworms and rough-skinned newts (real; they tolerate the newt toxin). Balance change.

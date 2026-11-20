@@ -7,6 +7,7 @@
 - Drawing-only idle nibbling is `idleEat: 'nibble'`, never `'graze'` (`js/data/animal-kinds.js`; a grazer is also turned from the water in `sim/steering.js`).
 - Fish eat through position and pitch (the snap), not the head: swimming forces the head level and fish use the head slot for body bend (`mo.bend`).
 - Hanging and gripping animals pass -1 in the head slot for their grips (a sloth's leaf meal shows nothing). Benthic animals are skipped.
+- Ducks afloat also tip up to dabble (`dabbleTip`, trait `dabbles`): a body pose, recorded in 0039.
 - Check: `tools/animal-closeup-review.html?pose=crop|browse|hand|snap`; cost `node tools/play-profile.mjs serengeti high 1`.
 
 ## History

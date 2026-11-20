@@ -7,6 +7,7 @@ import { TOOLS, toolCost, naturalFeature } from '../js/tools.js';
 import { Undo } from '../js/undo.js';
 import { removeTree, plantSuit } from '../js/sim/plants.js';
 import { T, F, PLACED, LAID, isWater } from '../js/config.js';
+import { shiftGround } from '../js/terrain-edit.js';
 
 let checks = 0;
 const g = new Game();
@@ -225,6 +226,37 @@ for (const map of BIOME_LIST.map(b => b.id)) check(`${map}: Demolish takes up la
   } finally { g.notify = notify; }
 });
 
+// Roads are like gravel lots (Cole, 2026-11-15): Fill & grade levels a road but keeps it, with the same
+// one-time hint pointing to Demolish, which takes it up (except the suburb's streets, which stay)
+for (const map of BIOME_LIST.map(b => b.id)) check(`${map}: Fill & grade levels a road but keeps it; Demolish takes it up`, () => {
+  g.newGame(1987, 'free', 'standard', map);
+  const w = g.world, tools = g.catalog.tools;
+  if (!tools.fill) return;
+  const canEdit = i => !g.mapDefinition.canEdit || g.mapDefinition.canEdit(g, i);
+  const roads = [];
+  for (let i = 0; i < w.n && roads.length < 30; i++) if (w.terrain[i] === T.ROAD && !w.feature[i] && w.struct[i] < 0 && canEdit(i)) roads.push(i);
+  if (!roads.length) return;
+  const notes = [], notify = g.notify;
+  g.notify = text => notes.push(text);
+  try {
+    // (a bump in the road, so there is something to level)
+    const r = roads[Math.min(roads.length - 1, 5)];
+    shiftGround(w, r, 0.4);
+    new ToolActions(g).apply('fill', roads);
+    assert.ok(roads.every(i => w.terrain[i] === T.ROAD), `${map}: Fill & grade took up a road`);
+    if (g.mapDefinition.fixedRoads) return;
+    const c = w.corners(r % w.w, (r / w.w) | 0);
+    assert.ok(Math.max(...c) - Math.min(...c) < 1e-6, `${map}: Fill & grade didn't level the road`);
+    assert.ok(notes.some(n => n.includes('roads') && n.includes('Demolish')), `${map}: no Demolish hint: ${notes.join(' | ')}`);
+    const n = notes.length;
+    new ToolActions(g).apply('fill', roads);
+    assert.equal(notes.filter(t => t.includes('Demolish')).length, notes.slice(0, n).filter(t => t.includes('Demolish')).length, 'the hint shows once');
+    const s = new ToolActions(g).apply('demolish', roads.slice(0, 3));
+    assert.equal(s.count, 3);
+    assert.ok(roads.slice(0, 3).every(i => w.terrain[i] === T.SOIL), `${map}: Demolish left the road`);
+  } finally { g.notify = notify; }
+});
+
 // Fill & grade leaves one level across the stroke: every corner of every graded tile at the height
 // where the stroke started, unless it's shared with other water or a building (which never move)
 for (const map of BIOME_LIST.map(b => b.id)) check(`${map}: Fill & grade levels a stroke to the height where it starts`, () => {
@@ -267,7 +299,7 @@ check('pnw: Fill & grade beside a creek leaves the creek, and a filled pond tile
     // (a stroke started a level above or below the bank, either way the creek's own corners hold)
     for (const shift of [0.6, -0.6]) {
       const s = actions.begin('fill');
-      w.shiftTile(lx + (lx - x) * 2, ly + (ly - y) * 2, shift * 2);
+      shiftGround(w, w.idx(lx + (lx - x) * 2, ly + (ly - y) * 2), shift * 2);
       actions.paint(s, lx + (lx - x) * 2, ly + (ly - y) * 2, 2);
       actions.end(s);
       assert.deepEqual(w.corners(x, y), creek, 'grading moved the creek bed');

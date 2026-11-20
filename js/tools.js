@@ -9,11 +9,10 @@ import { onBiome, mapCatalog } from './biome.js';
 import { MULCH_DAYS } from './sim/ecological-pressure.js';
 import { plantAffinity } from './plant-patterns.js';
 import { hash2 } from './rng.js';
-import { gradeDugCreek, gradeLevel, gradeTile, GRADE_REACH } from './maps/landform.js';
+import { digWater, shiftGround, gradeLevel, gradeTile, levelBuilding, GRADE_REACH } from './terrain-edit.js';
 import { assertCatalogTools } from './data/contracts.js';
 
 const land = t => !isWater(t);
-const DEPTH = { [T.POND]: 0.6, [T.MARSH]: 0.2, [T.CREEK]: 0.4 };
 
 // Build once per map. Every callback closes over that catalog's species and names.
 /** @param {import('./data/catalog.js').MapCatalog} catalog
@@ -40,10 +39,7 @@ export function createTools(catalog) {
       if (t === T.TRAIL && terrain !== T.MARSH) w.feature[i] = 0;
       w.terrain[i] = terrain;
       w.soil[i] = Math.max(w.soil[i], 0.3);
-      w.carve(i % w.w, (i / w.w) | 0, DEPTH[terrain], true);
-      if (terrain === T.POND) w.levelPond(i % w.w, (i / w.w) | 0);
-      // (a dug creek is graded toward the water it joins, so its fish can swim it both ways: 0048)
-      if (terrain === T.CREEK) { w.dugBed[i] = Math.max(...w.corners(i % w.w, (i / w.w) | 0)); gradeDugCreek(w, i % w.w, (i / w.w) | 0, w.dugBed); }
+      digWater(w, i); // (heights go through the one edit path, which keeps other water's beds: 0048)
       if (wasLand) game.stats.dug++;
       w.hydroDirty = true;
       return true;
@@ -61,7 +57,7 @@ export function createTools(catalog) {
   tool({ key: 'creek', cat: 'land', name: 'Creek channel', cost: 45, icon: { terrain: T.CREEK }, size: 0,
     desc: 'Carve a flowing creek. Connect it to the river so fish can swim in. Try adding some bends.', apply: dig(T.CREEK) });
   tool({ key: 'fill', cat: 'land', name: 'Fill & grade', cost: 25, icon: { terrain: T.SOIL },
-    desc: 'Grade the ground level at the height where you start, filling in water and old roads as loose bare soil. Gravel stays (Demolish takes up gravel people laid).',
+    desc: 'Grade the ground level at the height where you start, filling in water as loose bare soil. Roads and gravel stay (Demolish takes up roads and gravel people laid).',
     apply: (game, i, random, stroke) => {
       const w = game.world, t = w.terrain[i], x = i % w.w, y = (i / w.w) | 0;
       if (t === T.RIVER || w.struct[i] >= 0 || w.feature[i] === F.CULVERT) return null;
@@ -70,8 +66,10 @@ export function createTools(catalog) {
       // dragged stroke leaves a flat pad, cut into the slope uphill and built up downhill
       const at = stroke?.last && w.inb(stroke.last.x, stroke.last.y) ? stroke.last : { x, y };
       const level = stroke ? (stroke.level ??= gradeLevel(w, at.x, at.y)) : gradeLevel(w, x, y);
-      const fills = isWater(t) || t === T.ROAD || t === T.MUD;
-      if (t === T.GRAVEL && stroke) stroke[w.marks[i] & LAID ? 'laidGravel' : 'gravel'] ??= i; // (graded, but it stays: notifyOutcome says why)
+      const fills = isWater(t) || t === T.MUD;
+      // (graded, but they stay: roads and gravel lots come up with Demolish; notifyOutcome says so)
+      if (t === T.GRAVEL && stroke) stroke[w.marks[i] & LAID ? 'laidGravel' : 'gravel'] ??= i;
+      if (t === T.ROAD && stroke) stroke.road ??= i;
       // (land too far above or below the level is left: the pad stops where the slope gets too steep)
       if (!isWater(t) && Math.abs(w.tileH(x, y) - level) > GRADE_REACH) { if (stroke) stroke.steep ??= i; return null; }
       if (fills) {
@@ -113,10 +111,14 @@ export function createTools(catalog) {
     } });
 
   function reshape(amt) {
-    return (game, i) => {
+    return (game, i, random, stroke) => {
       const w = game.world;
-      if (w.terrain[i] === T.RIVER || w.struct[i] >= 0) return null;
-      w.shiftTile(i % w.w, (i / w.w) | 0, amt);
+      // (nor a creek: reshaping one undid the grading its fish swim by; fill and re-dig it instead.
+      // Cole, 2026-11-15. notifyOutcome says so once)
+      if (w.terrain[i] === T.CREEK && stroke) stroke.creek ??= i;
+      if (w.terrain[i] === T.RIVER || w.terrain[i] === T.CREEK || w.struct[i] >= 0) return null;
+      // (beside water or a building only the land's corners move: 0048)
+      if (!shiftGround(w, i, amt)) return null;
       // a half-moon pit dug into hardpan cracks the crust, so rain and seed can get in
       if (amt < 0 && biome.hardpan && w.terrain[i] === T.GRAVEL) { w.terrain[i] = T.SOIL; w.soil[i] = Math.min(1, w.soil[i] + 0.03); }
       return true;
@@ -422,7 +424,7 @@ export function createTools(catalog) {
           const j = w.idx(xx, yy);
           w.terrain[j] = T.GRAVEL;
         }
-        w.addStructure(type, x, y, 'player');
+        levelBuilding(w, w.addStructure(type, x, y, 'player', false));
         const doneText = TOOLS['build_' + type].doneText ?? done; // (the roosts say it in their own map's words)
         if (doneText) { game.notify(doneText, 'good'); return true; }
         game.notify(type === 'parking' ? 'Trailhead parking built. Now lay a trail out from it into the best habitat.' : 'The visitor center is open. Visitors give more, and the gift shop and exhibits raise your rating.', 'good');

@@ -440,7 +440,7 @@ export default {
     nestbox: { name: 'Barn owl box', desc: 'A nest box on a pole for barn owls. Plantations put them up because a family of barn owls eats over a thousand rats a year.' },
     pond: { desc: 'Deep, open water for snakeheads, arowanas, otters and monitor lizards.' },
     creek: { desc: 'Carve a channel. On the peat, any channel that runs to the river drains the peat around it, like the old canals.' },
-    fill: { desc: 'Grade the ground level at the height where you start, filling in water (the old drainage canals too) and old roads as loose bare soil.' },
+    fill: { desc: 'Grade the ground level at the height where you start, filling in water (the old drainage canals too) as loose bare soil. Roads and gravel stay (Demolish takes them up).' },
     demolish: { desc: 'Tear out the elephant fence, old buildings, roads, the road culvert, or habitat features you placed. Natural snags, logs, stumps and rocks stay. Buildings and machinery sell for salvage.' },
     lower: { desc: 'Scoop out a hollow. Hollows stay moist, which suits ferns, gingers and pitcher plants.' },
   },
@@ -494,6 +494,7 @@ export default {
 
   text: {
     edges: { N: 'the Leuser forest to the north', E: 'the forest to the east', S: 'the river', W: 'the village to the west' },
+    creekShapeHint: 'Raise and Lower leave channels alone, so their fish can still swim them. To move a channel, fill it with Fill & grade and dig it again.',
     creekFish: 'mahseer', culvertBlocks: 'mahseer and otters', fenceBlocks: 'the elephants',
     fenceName: 'Elephant fence (electric)',
     flood: 'The river is in flood!',

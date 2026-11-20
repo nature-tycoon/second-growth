@@ -10,7 +10,8 @@
 //          or a forest isn't one; a bounce over each crown or coral head is
 // Ducks on the water float at the drawn surface (terrain.waterAt, the creek's own level), never
 // under it, and the camera's eased height (followHeight) stays within a body length of the
-// animal while smoothing its bumps away.
+// animal while smoothing its bumps away. Seabirds resting on the reef's sea float at its surface,
+// with no shadow on the seabed.
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -152,6 +153,37 @@ for (const map of ['pnw', 'atlanta']) {
   // (before: 486 of 7064, as deep as 0.09 tiles, floating at the tile's own level under the creek's)
   if (under > on * 0.01) fail(`${under} duck samples under the water's surface`);
   if (sunk) fail(`${sunk} duck samples sunk into the ground`);
+}
+// Seabirds resting on the reef's open sea float at its surface and cast no shadow on the seabed
+// (a bird-shaped shadow there read as a bird lying on the bottom). In node there's no canvas for
+// the shaped shadows, so they're stubbed and counted.
+{
+  Math.random = mulberry32(11);
+  const g = restoredGame('reef', 11), w = g.world, seaY = g.catalog.definition.look.underwater.level * LEVEL;
+  populate(g, d => d.move === 'fly' && !d.reef, 10);
+  const actors = new Actors(new THREE.Scene()), shadows = new Set();
+  actors.silhouettes.shape = () => ({}); actors.silhouettes.add = (shape, x, y, z) => shadows.add(x + ',' + z);
+  let rest = 0, under = 0, shaded = 0;
+  const wl = g.wildlife;
+  for (let k = 0, t = 0; k < 1600; k++) {
+    if (k % 20 === 0) { g.day++; wl.daily(); }
+    wl.update(0.036); shadows.clear();
+    actors.update(g, new THREE.Vector3(1, 0, 0), (t += DT));
+    for (const a of wl.agents) {
+      const def = g.catalog.animals[a.sp], st = actors.pose.get(a.id);
+      if (def.move !== 'fly' || def.reef || !st || st.visible === false || a.flying || a.alt > 0.05 || st.fly > 0.3) continue;
+      if (groundY(w, a) > seaY - 0.3 || a.state === 'fish') continue; // (a booby's plunge goes under: plungePose)
+      rest++;
+      const sink = (actors.fauna.motion(def).sink || 0) * st.sc;
+      if (st.y < seaY - sink - 0.02) under++; // (above it is a bird still gliding down to land)
+      if (shadows.has(a.x + ',' + a.y)) shaded++;
+    }
+  }
+  console.log(`seabirds resting on the open sea: ${rest} samples, ${under} under the surface, ${shaded} with a shadow on the seabed`);
+  if (rest < 50) fail('too few seabird samples resting on the sea');
+  if (under) fail(`${under} seabird samples under the sea's surface`);
+  // (before 2026-11-13: every one, at about 0.85 opacity)
+  if (shaded) fail(`${shaded} seabird samples cast a shadow on the seabed`);
 }
 function groundY(w, a) { return w.heightAt(a.x, a.y) * LEVEL; }
 if (report) process.exit(0);

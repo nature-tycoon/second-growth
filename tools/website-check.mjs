@@ -131,32 +131,19 @@ assert.ok([...homepage.matchAll(/<video\b[^>]*>/g)].every(([tag]) => /\bmuted\b/
       if (days > 30 || Number(gameCommits) > 80) stale.push(`${name} (${path}) were captured from ${revision.slice(0, 7)} on ${capturedDate}, ${days} days${gameCommits ? ` and ${gameCommits} game commits` : ''} before this game (${gameDate})`);
     }
   }
-  for (const line of stale) console.warn('WARNING: ' + line + '. Recapture: see the Website paragraph in AGENTS.md.');
+  for (const line of stale) console.warn('WARNING: ' + line + '. Recapture: see docs/website-notes.md.');
 }
 assert.ok(!/Fresh captures? needed|This sequence is planned|visual-slot/.test(homepage), 'Finished homepage must not contain image placeholders');
 const output = await buildWebsite();
 const publishedHome = await readFile(join(output, 'index.html'), 'utf8');
 const gallery = await readFile(join(output, 'visuals.html'), 'utf8');
-const press = await readFile(join(output, 'press/index.html'), 'utf8');
 await checkArtSlots('visuals.html', gallery);
-await checkArtSlots('press/index.html', press);
 const privacy = await readFile(join(output, 'privacy/index.html'), 'utf8');
-// The press kit: every game image or clip it offers is a recorded capture, and its species counts match the game.
-for (const [, file] of press.matchAll(/(?:src|href)="\.\.\/review-media\/([^"?#]+)"/g)) if (!file.endsWith('.json')) assert.ok(freshFiles.has(file), `press: ${file} must be a recorded capture`);
-{
-  const { BIOME_LIST, mapCatalog } = await import('../js/biome.js');
-  const slug = text => text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-');
-  const species = { animals: new Set(), plants: new Set() };
-  for (const map of BIOME_LIST) for (const kind of ['animals', 'plants']) for (const def of mapCatalog(map.id)[kind]) if (def?.name) species[kind].add(slug(def.name));
-  for (const kind of ['animals', 'plants']) assert.equal(Number(press.match(new RegExp(`data-press-count="${kind}">(\\d+)<`))?.[1]), species[kind].size, `press: the game has ${species[kind].size} ${kind}; update the fact sheet`);
-  for (const map of BIOME_LIST) assert.ok(press.includes(`<strong>${map.farm}</strong>`), `press: list the ${map.farm} landscape`);
-}
-assert.ok(press.includes('mailto:info@secondgrowth.earth'), 'press: a contact');
 const facts = websiteFacts(homepage);
 assert.equal(facts.maps.length, 7);
 assert.ok(facts.questions.length >= 6, 'Keep clear player questions in crawlable HTML');
 for (const map of facts.maps) assert.ok(websiteText(gallery).includes(map.copy), `${map.name} must have a readable description without JavaScript`);
-for (const [path, page] of [['/', publishedHome], ['/visuals.html', gallery], ['/press/', press], ['/privacy/', privacy]]) {
+for (const [path, page] of [['/', publishedHome], ['/visuals.html', gallery], ['/privacy/', privacy]]) {
   assert.ok(page.includes(`<link rel="canonical" href="${websiteOrigin}${path}">`), 'Each content page needs its own canonical URL');
   assert.ok(/rel="describedby" href="(?:\.\.\/)?llms\.txt"/.test(page), 'Publish a discovery link for the AI guide');
   if (!review) assert.ok(!/data-review="true"|noindex|nofollow|class="review-bar"|Homepage preview|Website review/.test(page), 'Remove all preview notices and indexing restrictions before release');
@@ -229,7 +216,7 @@ for (const map of facts.maps) {
   assert.equal(map.play, `play/?map=${map.map}`, `${map.name} needs its own play link`);
 }
 assert.ok(homepage.includes(`id="map-play" href="${facts.maps[0].play}"`), 'The play link starts on the first landscape shown');
-for (const name of ['index.html', 'visuals.html', 'press/index.html', 'privacy/index.html', 'site.css', 'guide.css', 'play/index.html', 'guide/index.html', ...guide.map(e => `guide/${e.slug}/index.html`)]) {
+for (const name of ['index.html', 'visuals.html', 'privacy/index.html', 'site.css', 'guide.css', 'play/index.html', 'guide/index.html', ...guide.map(e => `guide/${e.slug}/index.html`)]) {
   const path = join(output, name), source = await readFile(path, 'utf8');
   const links = [...source.matchAll(/(?:src|srcset|href|data-image|poster|data-(?:wide-|tall-)?(?:mp4|webm))="([^"#]+)"|url\(['"]?([^)'"\s]+)['"]?\)/g)].map(m => m[1] || m[2]);
   for (const link of links) {
