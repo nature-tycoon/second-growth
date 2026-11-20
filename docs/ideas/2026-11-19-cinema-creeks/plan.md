@@ -31,12 +31,13 @@ Branch: `claude/ideas-cinema-creeks` (cut from origin/main 382bb46). Sessions ru
 | 2 | Cinema mode & touch camera | time of year, click-to-lock, two-finger rotate | default | M | [x] 5ae13c9 |
 | 3 | Movement bugs | slow deer, clumping + check | default | M | [x] 78a0b11 |
 | 4 | Water routes | fish stuck (routes cross dry strips, per s3), hippos/crocs stuck mid-river | default | M | [x] cce771c (checks cut short by usage limit) |
-| 4b | Verify water routes | s4's unrun checks, Chinandega crawl seeds; fix what fails | default | S | [ ] |
+| 4b | Verify water routes | s4's unrun checks, Chinandega crawl seeds; fix what fails | default | S | [x] 7a576ae (sweep still fails: cattle crawl, see s4b.md) |
 | 5 | Beaver dams hold water | dam spans creek, water backs up | default | M–L | [ ] |
 | 6 | Waterfalls | natural spring-fed falls | default | L | [ ] |
 | 7 | Plants look natural | gradual leaf-out, patchy shrubs/grass, trees in creeks die (moved from 4) | default | M | [ ] |
 | 8 | Serengeti herd routes | herds follow green grass | default | M | [ ] |
+| 9 | Herd squeeze crawl | walkers pressing into grazing/resting herd mates; sweep over a wider seed set (s4b Q1–4) | default | M | [ ] |
 
-Sessions 5 and 6 both change water flow; 6 builds on 5. 4b runs first (resumed 2026-11-20): 5 and 6 build on s4's routes.
+Sessions 5 and 6 both change water flow; 6 builds on 5. 4b runs first (resumed 2026-11-20). 9 added from s4b: the motion sweep fails on cattle crawl, so the branch can't merge until it's fixed: 5 and 6 build on s4's routes.
 
 Token rule (Cole, 2026-11-19: save tokens, but not at the cost of bugs): sessions 2–8 stay on Opus; 3 and 4 are recurring bugs ("again", "still"), so no downgrade. Briefs allow the Sonnet `checker` subagent for long check runs (balance-sim, motion sweep, play-profile, calibrate) so their output stays out of the session; `scout` only for broad searches. Sessions 5 and 6 (water across sim, terrain, drawing, save/load) run `regression-reviewer` on the plan and on the diff before committing.
