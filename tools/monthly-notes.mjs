@@ -181,7 +181,7 @@ export function render(month, items, linker, pics) {
   const p = pics(slugs);
   if (p.portraits.length) { lines.push('Field guide portraits for the species named above (`website/guide-media/`):', ''); p.portraits.forEach(f => lines.push(`- ${f}`)); lines.push(''); }
   if (p.review.length) { lines.push(`Stills and clips from \`website/review-media/\` added or changed in ${label}:`, ''); p.review.forEach(f => lines.push(`- ${f}`)); lines.push(''); }
-  if (!p.portraits.length && !p.review.length) lines.push('_Nothing new in the media folders this month; record a new still or clip (see AGENTS.md, website section)._', '');
+  if (!p.portraits.length && !p.review.length) lines.push('_Nothing new in the media folders this month; record a new still or clip (see docs/website-notes.md)._', '');
   return lines.join('\n');
 }
 
