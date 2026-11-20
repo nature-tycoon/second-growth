@@ -75,15 +75,25 @@ export class PlantShadows {
       const same = old?.geometry === geometry && old.attribute === attribute && old.attributeVersion === attribute.version && old.count === source.n && old.packed === packed;
       if (!force && same) state = old;
       else {
-        state = old || { indices: [], revision: 0 };
+        state = old || { indices: [], matrices: new Float32Array(0), revision: 0 };
         const previous = state.indices, previousGeometry = state.geometry, previousPacked = state.packed;
         const indices = state.indices = [], bounds = this.boundsFor(source, geometry);
         // (a region wholly in the sun's view needs no test plant by plant)
         if (!packed || this.within(bounds.region)) for (let k = 0; k < source.n; k++) indices.push(k);
         else if (this.frustum.intersectsSphere(bounds.region)) for (let k = 0; k < source.n; k++) if (this.visible(bounds.data, k * 4)) indices.push(k);
-        // (the instance buffer only changes when its plants do: PlantPool.end)
-        let different = !same || !packed || previous.length !== indices.length;
+        let different = !old || previousGeometry !== geometry || previousPacked !== packed || !packed || previous.length !== indices.length;
         for (let k = 0; !different && k < indices.length; k++) different = indices[k] !== previous[k];
+        // (the same casters with the same instance buffer can't have moved, so the copy of their
+        // matrices is compared, and kept, only when the buffer or the pick changed: a re-cull for a
+        // moved sun or camera no longer copies every caster on the map)
+        if (!same || different) {
+          const original = attribute.array;
+          if (indices.length * 16 > state.matrices.length) { const grown = new Float32Array(Math.ceil(indices.length * 16 * 1.5)); grown.set(state.matrices); state.matrices = grown; }
+          for (let k = 0; k < indices.length; k++) for (let j = 0, o = indices[k] * 16; j < 16; j++) {
+            const v = original[o + j];
+            if (v !== state.matrices[k * 16 + j]) { different = true; state.matrices[k * 16 + j] = v; }
+          }
+        }
         if (!indices.length && !previous.length) different = false;
         if (different) { changed = true; state.revision++; }
         Object.assign(state, { geometry, attribute, attributeVersion: attribute.version, count: source.n, packed });
