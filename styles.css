@@ -239,6 +239,11 @@ button.stat:hover { background: var(--paper-2); }
 .stat .small, .small { font-size: 11px; color: var(--muted); font-weight: 600; }
 .stat .label { font-weight: 800; font-size: 14px; }
 #stat-season { font-weight: 800; font-size: 14px; }
+/* The date column keeps one width as the months and years change, so nothing beside it moves under the cursor */
+.stat.date { flex-shrink: 0; }
+#stat-date, #stat-date-short { font-variant-numeric: tabular-nums; }
+#stat-season, #stat-date { min-width: 118px; }
+#stat-date-short { min-width: 76px; }
 .weather { width: 28px; height: 28px; display: inline-grid; place-items: center; }
 .weather svg { width: 26px; height: 26px; }
 .speed { display: flex; background: var(--paper-2); border-radius: 999px; padding: 3px; gap: 2px; margin-inline: 6px; }
@@ -516,6 +521,7 @@ body.menu-effects-off .toast { background: rgba(28, 38, 30, 0.86); -webkit-backd
 .gcard:hover { border-color: var(--paper-3); }
 .gcard.on { border-color: var(--moss); }
 .gcard img { width: 76px; height: 60px; object-fit: contain; }
+.gcard .inv-badge { position: absolute; top: 4px; left: 4px; padding: 1px 6px; border-radius: 8px; background: var(--bad); color: #fff; font-size: 10px; font-weight: 800; line-height: 15px; }
 .gcard.unknown img { filter: brightness(0) opacity(0.35); }
 .gcard .nm { font-size: 12px; font-weight: 700; line-height: 1.15; }
 .gcard .pop { font-size: 11px; color: var(--muted); font-weight: 700; margin-top: 2px; }
