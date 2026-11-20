@@ -19,6 +19,7 @@ import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
 import { turnRate, reefStep } from './steering.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
 import { swimDepth, deepWaterNear, fishDepth } from './waterline.js';
+import { blockSwim } from './swim-routes.js';
 import { drinkEvery } from './home-range.js';
 import { passable, reefMoveSafe } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
@@ -64,6 +65,8 @@ export class WildlifeMove {
       const bank = !a.dormancy && this.drinks(def) && a.thirst > drinkEvery(this, a, def) * 0.5 ? this.bankSpot(a, j) : null;
       const drink = bank && bank.crowd < 0.08;
       a.restSpot = [j, ...(a.dormancy ? [j % w.w + 0.5, (j / w.w | 0) + 0.5] : drink ? [bank.x, bank.y] : this.spacing.restSpot(a, j, ox, oy))];
+      // (a river fish moved aside from the others still rests in water it can swim in)
+      if (a.move === 'swim' && !def.reef && swimDepth(w, a.restSpot[1], a.restSpot[2]) < fishDepth(def)) a.restSpot = [j, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy];
       // (on a low bank the dry spot can be a tile or two back from the water, off the tile
       // it walked to: remember it, or on arrival it doesn't know it's at the water and sets
       // off for the bank again, pacing back and forth without ever drinking)
@@ -127,6 +130,9 @@ export class WildlifeMove {
       const y0 = Math.floor(a.y);
       if (this.pathTo(a, (j, x, y) => y < y0 - 2 - (a.id % 3) && passable(w, j, a), 4000, null, null, standable)) { a.landed = true; a.moveProgress = null; return; }
     }
+    // (a river fish that couldn't swim on into the next tile shuts that way for the day, so its
+    // new route goes round by other water, or it turns back, rather than pressing at the edge)
+    if (!approaching) blockSwim(this, a, this.game.catalog.animals[a.sp], w.idx(Math.floor(a.x), Math.floor(a.y)), a.path[a.path.length - 1]);
     const dest = approaching ? w.idx(Math.floor(a.localGoal[0]), Math.floor(a.localGoal[1])) : a.path[0];
     const tx = dest % w.w + 0.5, ty = (dest / w.w | 0) + 0.5;
     const wasFollowing = a.follow, inTransit = !approaching && a.path.length > 1;
@@ -273,10 +279,10 @@ function riverFishStep(w, a, def, nx, ny, dx, dy, step, was) {
       const s = k & 1 ? -side : side, turn = (k >> 1) * 0.5 + 0.5, x = a.x + Math.cos(h0 + s * turn) * step, y = a.y + Math.sin(h0 + s * turn) * step;
       if (swims(x, y)) { nx = x; ny = y; found = true; a.detour = s; }
     }
-    if (!found) { a.heading = was; return false; } // (no way round: it stays as it was, not nosing at the bank)
+    if (!found) { a.heading = was; a.swimHeld = true; return false; } // (no way round: it stays as it was, not nosing at the bank)
     facePoint(a, nx, ny); // (nose first round the bar: facing the target, it slid sideways along the bank)
   }
-  TO.x = nx; TO.y = ny;
+  TO.x = nx; TO.y = ny; a.swimHeld = false;
   return true;
 }
 

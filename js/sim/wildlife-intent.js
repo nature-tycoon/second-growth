@@ -22,6 +22,7 @@ import { trait } from '../data/animal-kinds.js';
 import { ensureHome, homeChoose, homeFalloff } from './home-range.js';
 import { markRisk, safety } from './predation-risk.js';
 import { passable, canLand, WADERS, shallows } from './animal-terrain.js';
+import { swimRoute } from './swim-routes.js';
 import { simRandom } from './sim-random.js';
 import { swimmer, territory, standable, inRiver, inCrossing, WITH_MOM } from './wildlife-shared.js';
 
@@ -92,13 +93,14 @@ export class WildlifeIntent {
     const w = this.game.world, def = this.game.catalog.animals[a.sp];
     let dx = a.x - predator.x, dy = a.y - predator.y;
     const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
-    const path = [];
-    for (let k = 1; k <= tiles * 2 && path.length < tiles; k++) {
+    const path = [], swim = swimRoute(this, a, def);
+    for (let k = 1, prev = w.idx(Math.floor(a.x), Math.floor(a.y)); k <= tiles * 2 && path.length < tiles; k++) {
       const x = Math.floor(a.x + dx * k * 0.5), y = Math.floor(a.y + dy * k * 0.5);
       if (!w.inb(x, y)) break;
       const j = w.idx(x, y);
-      if (j === path[path.length - 1]) continue;
-      if (!passable(w, j, def) || !canLand(w, j, def)) break;
+      if (j === prev) continue;
+      if (!passable(w, j, def) || !canLand(w, j, def) || (swim && !swim(prev, j))) break;
+      prev = j;
       path.push(j);
     }
     if (!path.length) { this.evadeHunt(a, predator); a.run = 1.7; return; }
@@ -110,6 +112,7 @@ export class WildlifeIntent {
     const x = Math.floor(a.x), y = Math.floor(a.y);
     const distance = (a.x - predator.x) ** 2 + (a.y - predator.y) ** 2;
     let best = -1, score = -Infinity;
+    const swim = swimRoute(this, a, def); // (a river fish only darts into water it can swim to)
     // Only evaluate neighbouring tiles after a failed catch: no extra pathfinding
     // or searches in the ordinary per-frame movement loop.
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -117,6 +120,7 @@ export class WildlifeIntent {
       const j = w.idx(x + dx, y + dy);
       if (w.fire[j] || !passable(w, j, def) || !canLand(w, j, def)) continue;
       if (dx && dy && def.move !== 'fly' && (!w.inb(x + dx, y) || !w.inb(x, y + dy) || !passable(w, w.idx(x + dx, y), def) || !passable(w, w.idx(x, y + dy), def))) continue;
+      if (swim && !swim(w.idx(x, y), j)) continue;
       const d = (x + dx + 0.5 - predator.x) ** 2 + (y + dy + 0.5 - predator.y) ** 2;
       if (d <= distance) continue;
       const s = d + preyCover(w, { sp: a.sp, x: x + dx, y: y + dy }, pd) * 2;
@@ -414,13 +418,16 @@ export class WildlifeIntent {
     stampN++;
     let head = 0, tail = 0;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
-    // (a fish that keeps to water deeper than FISH_DEPTH, the catfish lying on the bed, only stops
-    // in a tile deep enough for it: it leaves a pool drying down to the shallows, or never goes in)
-    const need = a.move === 'swim' && !def.reef && trait(def, 'fishDepth') ? fishDepth(def) : 0;
+    // (a river fish only stops in a tile deep enough for it at its centre: it leaves a pool drying
+    // down to the shallows, or never goes in. Stopping in a marsh tile with only a sliver of water
+    // at its edge, every fish there aimed at the same spot and they piled up: 2026-11-19. Where no
+    // deep water can be reached today, one without a fishDepth of its own stops where it can)
+    const need = a.move === 'swim' && !def.reef && (trait(def, 'fishDepth') || a.noDeep !== this.game.day) ? fishDepth(def) : 0;
     const deep = i => !need || swimDepth(w, i % w.w + 0.5, (i / w.w | 0) + 0.5) >= need;
     let best = start, bs = patrol || !deep(start) ? 0 : map[start] * 0.8 * worth(start), far = -1, farD = 0;
     const W = w.w, cap = patrol ? 1200 : 380;
     const diag = swimmer(a, this.game.catalog);
+    const swim = swimRoute(this, a, def); // (a river fish only goes where it can swim there: swim-routes.js)
     const ahead = i => (((i % W) - x0) * a.patrolDir[0] + (((i / W) | 0) - y0) * a.patrolDir[1]) / R;
     let poke = -1, pokeN = 0; // a random nearby spot it could live on, for a short wander
     while (head < tail && tail < cap) {
@@ -448,7 +455,7 @@ export class WildlifeIntent {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !passable(w, j, a) || cutsCorner(W, x, y, dx, dy, k => passable(w, k, a))) continue;
+        if (stamp[j] === stampN || !passable(w, j, a) || cutsCorner(W, x, y, dx, dy, k => passable(w, k, a)) || (swim && !swim(i, j))) continue;
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }
     }
@@ -459,7 +466,10 @@ export class WildlifeIntent {
     const riverFish = a.move === 'swim' && !def.reef;
     // (and stranded in a marsh or a pool too shallow for it, with nowhere deep enough near: it swims
     // off along the channels to the nearest water that is)
-    if (need && best === start && !deep(start) && this.pathTo(a, deep, 4000)) { recent.push(start); if (recent.length > 4) recent.shift(); return; }
+    if (need && best === start && !deep(start) && a.noDeep !== this.game.day) {
+      if (this.pathTo(a, deep, 4000)) { recent.push(start); if (recent.length > 4) recent.shift(); return; }
+      a.noDeep = this.game.day; // (nothing deep within reach: not searching again all day)
+    }
     if (!patrol && best === start && poke >= 0 && (riverFish || simRandom() < 0.5)) best = poke;
     if (patrol) {
       // blocked (a bank or the end of the channel): turn toward the farthest open water instead
@@ -565,6 +575,7 @@ export class WildlifeIntent {
     let head = 0, tail = 0, found = -1, near = -1, nd = dist ? dist(x0, y0) : 1e9;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1;
     const diag = swimmer(a, this.game.catalog);
+    const swim = swimRoute(this, a, this.game.catalog.animals[a.sp]); // (a river fish only through water it can swim: swim-routes.js)
     // (a land walker may wade across a creek or a marsh on the way, but no walk of its ends in one: 0025)
     const dry = landWalker(this.game.catalog.animals[a.sp], a), wet = i => dry && isWater(w.terrain[i]);
     // (nor does a climber's end in a tree that already holds as many of its kind as it takes: climbers.js)
@@ -579,7 +590,7 @@ export class WildlifeIntent {
         const xx = x + dx, yy = y + dy;
         if (xx < 0 || yy < 0 || xx >= W || yy >= w.h) continue;
         const j = yy * W + xx;
-        if (stamp[j] === stampN || !canPass(w, j, a) || (canVisit && !canVisit(j)) || cutsCorner(W, x, y, dx, dy, k => canPass(w, k, a))) continue;
+        if (stamp[j] === stampN || !canPass(w, j, a) || (canVisit && !canVisit(j)) || cutsCorner(W, x, y, dx, dy, k => canPass(w, k, a)) || (swim && !swim(i, j))) continue;
         if (crowns && !crownsJoin(w, i, j, this.game.catalog.animals[a.sp])) continue;
         stamp[j] = stampN; parent[j] = i; bfsQ[tail++] = j;
       }

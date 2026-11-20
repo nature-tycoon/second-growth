@@ -85,7 +85,6 @@ const seedlingNear = (w, a) => {
 };
 // Real glitches found by this sweep on 2026-11-09 (game code unchanged here; each is a follow-up).
 export const KNOWN = [
-  { count: 'stall', name: 'river and estuary swimmers frozen mid-route (walk, moveProgress.stalled climbing for days; game-placed snappers too)', test: (a, def) => def.move === 'swim' && !def.reef },
   { count: 'spin', name: 'fleeing prey turn a full circle within a second (flight turning at FLEE_TURN the whole time)', test: a => a.state === 'flee' },
   { count: 'wobble', name: 'river dolphin heading shivers frame to frame while swimming', test: a => a.key === 'dolphin' },
   // (3.1 per 1000 on seeds 1987 and 91 before 2026-11-19; 5.0 once a change to deer pacing shifted
@@ -96,9 +95,6 @@ export const KNOWN = [
   // (found after terrain relief, 0044, on Sumatra seed 1987: a sun bear foraging on the spot when a
   // seedling sprouted under it on day 2; settleBody's settleKey covers only its own position and heading)
   { count: 'trunk', name: 'animals standing still when a seedling sprouts under them (settle never re-checks one that has not moved)', test: (a, def, w) => !MOVING.has(a.state) && seedlingNear(w, a) },
-  // (found 2026-11-19 when crawl was added; the same rates on the code before it: hippos and
-  // crocodiles walking a route through the river, held at one spot with moveProgress.stalled climbing)
-  { count: 'crawl', name: 'semi-aquatic walkers held up mid-route in the river (moveProgress.stalled climbing)', test: (a, def, w) => def.move === 'semi' && w.inb(Math.floor(a.x), Math.floor(a.y)) && isWater(w.terrain[w.idx(Math.floor(a.x), Math.floor(a.y))]) },
 ];
 
 // The swimmers and reef animals `populate` leaves out, a few of each where they live.

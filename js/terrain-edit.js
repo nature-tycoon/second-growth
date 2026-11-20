@@ -12,6 +12,7 @@
 // bed where they join), and filling part of a pond or marsh (`shore`) may raise the shore corners it
 // shares with the rest of it, as tipped earth slumps into the water's edge.
 
+import { forgetSwimRoutes } from './sim/swim-routes.js';
 import { T, isWater, clamp } from './config.js';
 import { WATER_FILL } from './sim/waterline.js';
 import { CHANNEL_STEP, CHANNEL_CUT } from './maps/landform.js';
@@ -57,6 +58,7 @@ function joinFloor(w, vx, vy, self, join) {
  * would give corner (vx, vy), now h. `self(i)`: tiles counted as the edit's own when reading owners
  * (default: `tiles`). Returns whether any corner moved. */
 export function terrainEdit(w, tiles, want, { self = null, join = null, shore = false } = {}) {
+  forgetSwimRoutes(w); // (fish routes are worked out afresh over the new ground: swim-routes.js)
   if (!self) { const s = new Set(tiles); self = j => s.has(j); }
   // (every corner is decided from the heights before the edit, then written: a bed lowered by one
   // corner must not lower the floor the next corner is held to)

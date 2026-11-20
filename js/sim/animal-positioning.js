@@ -180,8 +180,9 @@ export class AnimalSpacing {
       // (nor for one standing still: it won't move off, so waiting behind it only creeps; it edges
       // round instead, easing to 0.65 while it's in the lane (only near contact, walkers pressed
       // into resting buffalo herds). Braking behind a grazing deer held a family's followers at a
-      // crawl for up to 12 seconds, queued nose to tail: 2026-11-19)
-      if (band === 'ground' && standing(e.a)) { edging = true; continue; }
+      // crawl for up to 12 seconds, queued nose to tail: 2026-11-19. The same in the water: hippos
+      // and crocodiles crept through the river behind one resting there)
+      if (band !== 'canopy' && standing(e.a)) { edging = true; continue; }
       ahead = Math.min(ahead, along - reach);
     }
     const brake = ahead < 0.08 ? clamp(0.15 + ahead * 5, 0.15, 1) : edging ? 0.65 : 1;
