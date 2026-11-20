@@ -66,7 +66,8 @@ export class PlantPool {
   // region is rebuilt for a change in one corner, and most of its buffers come out the same.
   // (An upload would also make the visible and shadow batches and the shadow map redo theirs.)
   end() {
-    if (!this.mesh ? this.n === 0 : this.n === this.mesh.count && this.n <= this.cap && this.unchanged()) return false;
+    const kept = this.mesh && this.n === this.mesh.count && this.n <= this.cap, matricesSame = kept && this.sameMatrices();
+    if (!this.mesh ? this.n === 0 : matricesSame && this.sameColours()) return false;
     floraVersion.n++;
     this.onChange?.();
     if (this.n > this.cap) {
@@ -88,20 +89,22 @@ export class PlantPool {
     const ma = this.mesh.instanceMatrix.array, ca = this.mesh.instanceColor.array;
     for (let k = 0; k < this.n; k++) { ma.set(this.m[k], k * 16); ca[k * 3] = this.c[k][0]; ca[k * 3 + 1] = this.c[k][1]; ca[k * 3 + 2] = this.c[k][2]; }
     this.mesh.count = this.n;
-    this.mesh.instanceMatrix.needsUpdate = true;
+    // (a colour-only edit leaves the matrices, and so the shadow casters picked from them, as they were)
+    if (!matricesSame) this.mesh.instanceMatrix.needsUpdate = true;
     this.mesh.instanceColor.needsUpdate = true;
     // lets three.js skip this chunk when it's off screen
     if (this.n) { this.mesh.computeBoundingSphere(); this.mesh.boundingSphere.radius += 3; }
     if (this.proxy) { this.proxy.count = this.n; if (this.n) this.proxy.boundingSphere = this.mesh.boundingSphere.clone(); this.useProxy(); }
     return true;
   }
-  unchanged() {
-    const ma = this.mesh.instanceMatrix.array, ca = this.mesh.instanceColor.array, f = Math.fround;
-    for (let k = 0; k < this.n; k++) {
-      const m = this.m[k], c = this.c[k], o = k * 16;
-      for (let j = 0; j < 16; j++) if (ma[o + j] !== m[j]) return false;
-      if (ca[k * 3] !== f(c[0]) || ca[k * 3 + 1] !== f(c[1]) || ca[k * 3 + 2] !== f(c[2])) return false;
-    }
+  sameMatrices() {
+    const ma = this.mesh.instanceMatrix.array;
+    for (let k = 0; k < this.n; k++) { const m = this.m[k], o = k * 16; for (let j = 0; j < 16; j++) if (ma[o + j] !== m[j]) return false; }
+    return true;
+  }
+  sameColours() {
+    const ca = this.mesh.instanceColor.array, f = Math.fround;
+    for (let k = 0; k < this.n; k++) { const c = this.c[k]; if (ca[k * 3] !== f(c[0]) || ca[k * 3 + 1] !== f(c[1]) || ca[k * 3 + 2] !== f(c[2])) return false; }
     return true;
   }
   dispose() {
