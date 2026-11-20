@@ -314,11 +314,11 @@ export function waterLook(mat, time, noise, rain, sky) {
   mat.onBeforeCompile = shader => {
     prev(shader);
     Object.assign(shader.uniforms, { uNoiseW: { value: noise }, uRain: rain, uSky: sky });
-    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute vec2 aCurrent;\nvarying vec2 vCurrent;\nattribute float aBend;\nattribute float aQual;\nattribute float aRound;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
+    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute vec2 aCurrent;\nvarying vec2 vCurrent;\nattribute float aBend;\nattribute float aQual;\nattribute float aRound;\nattribute float aWhite;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
       // Fade wave displacement at the bank, while retaining signed bed depth for shading.
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vRound = aRound; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
-    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vCurrent;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
+      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vRound = aRound; vWhite = aWhite; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
+    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vCurrent;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       {
         // drifting ripples: two layers of noise sliding past each other tilt the normal
@@ -395,6 +395,17 @@ export function waterLook(mat, time, noise, rain, sky) {
         foam = max(foam, lap * 0.8);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.65, 0.79, 0.76), foam * 0.5);
         diffuseColor.a = max(diffuseColor.a, foam * 0.45 * step(0.001, diffuseColor.a));
+        // falling water (a waterfall, a steep cascade): white streaks racing down over the lip and
+        // foam boiling out across the pool at its foot
+        if (vWhite > 0.01) {
+          vec2 p = vCurrent;
+          float s1 = texture2D(uNoiseW, vec2(p.x * 0.5 - uTime * 0.8, p.y * 2.2)).r;
+          float s2 = texture2D(uNoiseW, vec2(p.x * 1.1 - uTime * 1.3, p.y * 4.6 + 0.37)).r;
+          float boil = texture2D(uNoiseW, vWXZ * 1.6 + vec2(uTime * 0.05, -uTime * 0.04)).r;
+          float wh = vWhite * (0.55 + 0.45 * smoothstep(0.35, 0.75, (s1 + s2) * 0.5 + (boil - 0.5) * 0.3));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.84, 0.9, 0.9), wh * 0.85);
+          diffuseColor.a = max(diffuseColor.a, wh * 0.92 * step(0.001, diffuseColor.a));
+        }
         // rain rings: expanding circles in a grid of cells, each on its own clock
         if (uRain > 0.01) {
           vec2 c = vWXZ * 2.2, ci = floor(c), cf = fract(c) - 0.5;

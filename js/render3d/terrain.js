@@ -16,6 +16,7 @@ import { meadowPatch, patchColor } from './patches.js';
 import { Riverbanks, bankAllowed, surfaceHeight } from './riverbanks.js';
 import { PALETTES, paletteLeafColor, pastureColor } from './palettes.js';
 import { WATER_FILL } from '../sim/waterline.js';
+import { FALL_MIN } from '../maps/landform.js';
 
 // Grass, soil and water colours come from the world’s map catalog.
 
@@ -151,7 +152,7 @@ export class Terrain {
     this.X0 = -BORDER; this.Y0 = -BORDER;
     this.TW = world.w + BORDER * 2; this.TH = world.h + BORDER * 2;
     const n = this.TW * this.TH;
-    for (const m of [this.mesh, this.water, this.flood, this.skirt, this.line, this.overlay, this.preview]) if (m) { this.scene.remove(m); m.geometry.dispose(); }
+    for (const m of [this.mesh, this.water, this.falls, this.flood, this.skirt, this.line, this.overlay, this.preview]) if (m) { this.scene.remove(m); m.geometry.dispose(); }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
     g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
@@ -181,7 +182,7 @@ export class Terrain {
     this.tiles.density.value = trails;
     this.tiles.soil.value.fromArray(world.catalog.definition.look.soil).convertSRGBToLinear().multiplyScalar(0.72);
     this.tiles.origin.value.set(this.X0, this.Y0); this.tiles.size.value.set(this.TW, this.TH);
-    this.water = null; this.flood = null; this.overlay = null; this.preview = null;
+    this.water = null; this.falls = null; this.flood = null; this.overlay = null; this.preview = null;
     this.updateHeights();
   }
 
@@ -559,13 +560,20 @@ export class Terrain {
       const k = ty * TW + tx;
       if (wet[k]) continue; // (a managed tile without water is bank too: the pond model's dry margins)
       const below = belowDam.size > 0 && w.inb(tx + X0, ty + Y0) && belowDam.has(w.idx(tx + X0, ty + Y0));
+      // (the water beside it, or else at its corner: beside a steep creek, the creek a tile upstream
+      // stood the bank's water up to 0.6 over the creek's own, and over a waterfall it held the
+      // lip's level out over the pool below)
       let L = -Infinity, kd = 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        const xx = tx + dx, yy = ty + dy;
-        if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
-        const j = yy * TW + xx;
-        if (below && managed(j)) continue; // (the pond's water, held behind the dam; the creek below still banks it)
-        if (wet[j] && level[j] > L) { L = level[j]; kd = kind[j]; }
+      for (const diag of [0, 1]) {
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if ((dx && dy ? 1 : 0) !== diag || !(dx || dy)) continue;
+          const xx = tx + dx, yy = ty + dy;
+          if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
+          const j = yy * TW + xx;
+          if (below && managed(j)) continue; // (the pond's water, held behind the dam; the creek below still banks it)
+          if (wet[j] && level[j] > L) { L = level[j]; kd = kind[j]; }
+        }
+        if (L > -Infinity) break;
       }
       if (L > -Infinity && Math.min(...w.corners(tx + X0, ty + Y0)) < L) ring.push([k, L, kd]);
     }
@@ -732,6 +740,26 @@ export class Terrain {
       const vi = (vy * (TW + 1) + vx) * 3;
       if (n) { vertexFlow[vi] = fx / n; vertexFlow[vi + 1] = fy / n; vertexFlow[vi + 2] = b / n; }
     }
+    // Falling water: how far the sheet drops across each moving tile, so a waterfall (landform.js
+    // creekFalls) runs white over its lip and foams out across the pool at its foot, and a steep
+    // cascade shows a little white. Each corner takes the most of the tiles round it.
+    const tileDrop = new Float32Array(TW * TH);
+    for (const k of tiles) {
+      if (!moving(k)) continue;
+      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
+      // (from one edge to the edge opposite, as isFall measures the bed: not the tilt across the stream)
+      const l = [vLevel(x, y), vLevel(x + 1, y), vLevel(x + 1, y + 1), vLevel(x, y + 1)];
+      tileDrop[k] = Math.max(Math.abs(l[0] + l[1] - l[2] - l[3]), Math.abs(l[0] + l[3] - l[1] - l[2])) / 2;
+    }
+    const vWhite = (vx, vy) => {
+      let d = 0;
+      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+        const tx = vx - X0 + dx, ty = vy - Y0 + dy;
+        if (tx >= 0 && ty >= 0 && tx < TW && ty < TH) d = Math.max(d, tileDrop[ty * TW + tx]);
+      }
+      return d <= 0.9 ? 0 : Math.min(1, (d - 0.9) / 0.8); // (a steep reach's 0.6 a tile stays clear; a fall's 2 runs white)
+    };
+    const white = new Float32Array(tiles.length * 6);
     let o = 0, oc = 0, od = 0;
     for (const k of tiles) {
       const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
@@ -740,7 +768,7 @@ export class Terrain {
         // any pond: drawn tile by tile at its own level, it ended in hard steps at the tile lines)
         const c = vColor(vx, vy), lv = vLevel(vx, vy);
         pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
-        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy);
+        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy); white[od] = vWhite(vx, vy);
         const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
         flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
@@ -756,10 +784,65 @@ export class Terrain {
     g.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
     g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(od), 1));
     g.setAttribute('aRound', new THREE.BufferAttribute(round, 1));
+    g.setAttribute('aWhite', new THREE.BufferAttribute(white, 1));
     this.water = new THREE.Mesh(g, this.waterMat);
     this.water.renderOrder = 2;
     this.scene.add(this.water);
+    this.buildFalls(tiles, tileDrop, wet, vLevel, vColor, vertexFlow);
     this.refreshWaterQuality();
+  }
+
+  // Waterfalls (landform.js creekFalls): over each tile where the creek's sheet drops FALL_MIN or
+  // more, a curtain of white water leaves the lip level and plunges into the pool at the tile's foot
+  // (a curve, t^2 down: the flat sheet the water mesh draws there reads as a chute down a slope).
+  // It is drawn with the water's own material, white all over; the sheet beneath shows as the wet
+  // rock face behind it from the side. One mesh for all of them; none where there are none.
+  buildFalls(tiles, tileDrop, wet, vLevel, vColor, vertexFlow) {
+    if (this.falls) { this.scene.remove(this.falls); this.falls.geometry.dispose(); this.falls = null; }
+    const TW = this.TW, X0 = this.X0, Y0 = this.Y0, R = 8, falls = [];
+    for (const k of tiles) if (wet[k] && tileDrop[k] >= FALL_MIN) falls.push(k);
+    if (!falls.length) return;
+    const n = falls.length * (R + 1) * 2, pos = new Float32Array(n * 3), col = new Float32Array(n * 4), flow = new Float32Array(n * 2), cur = new Float32Array(n * 2), idx = [];
+    let v = 0;
+    for (const k of falls) {
+      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
+      const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]], L = c.map(([vx, vy]) => vLevel(vx, vy));
+      // the lip: the tile's edge with the highest water; the foot the edge opposite it
+      let lip = 0, best = -Infinity;
+      for (let e = 0; e < 4; e++) { const m = L[e] + L[(e + 1) % 4]; if (m > best) { best = m; lip = e; } }
+      const a0 = lip, a1 = (lip + 1) % 4, b0 = (lip + 3) % 4, b1 = (lip + 2) % 4; // (a0-a1 the lip, b0 under a0, b1 under a1)
+      const ax = (c[b0][0] - c[a0][0]), az = (c[b0][1] - c[a0][1]); // (downstream, one tile)
+      const base = v;
+      for (let r = 0; r <= R; r++) {
+        const t = r / R, fall = t * t;
+        for (const [p, q] of [[a0, b0], [a1, b1]]) {
+          const lv = L[p] - (L[p] - L[q]) * fall;
+          pos[v * 3] = c[p][0] + (c[q][0] - c[p][0]) * t; pos[v * 3 + 1] = lv * LEVEL + 0.02; pos[v * 3 + 2] = c[p][1] + (c[q][1] - c[p][1]) * t;
+          const cc = vColor(c[p][0], c[p][1]);
+          col[v * 4] = lin(cc[0]); col[v * 4 + 1] = lin(cc[1]); col[v * 4 + 2] = lin(cc[2]); col[v * 4 + 3] = 1;
+          flow[v * 2] = ax * 0.7; flow[v * 2 + 1] = az * 0.7;
+          // (down the curtain's own length, so the streaks race down the drop, and across it)
+          cur[v * 2] = t * (1 + (L[p] - L[q]) * LEVEL * 0.6); cur[v * 2 + 1] = p === a0 ? 0 : 1;
+          v++;
+        }
+        if (r) { const s = base + (r - 1) * 2; idx.push(s, s + 2, s + 1, s + 1, s + 2, s + 3); } // (facing up and downstream, as the water does)
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(col, 4));
+    g.setAttribute('aDepth', new THREE.BufferAttribute(new Float32Array(n).fill(0.5), 1));
+    g.setAttribute('aFlow', new THREE.BufferAttribute(flow, 2));
+    g.setAttribute('aCurrent', new THREE.BufferAttribute(cur, 2));
+    g.setAttribute('aBend', new THREE.BufferAttribute(new Float32Array(n), 1));
+    g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(n).fill(0.8), 1));
+    g.setAttribute('aRound', new THREE.BufferAttribute(new Float32Array(n).fill(99), 1));
+    g.setAttribute('aWhite', new THREE.BufferAttribute(new Float32Array(n).fill(1), 1));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    this.falls = new THREE.Mesh(g, this.waterMat);
+    this.falls.renderOrder = 2;
+    this.scene.add(this.falls);
   }
 
   // How clean the water is at each corner: the simulation's water quality on the tiles around it.
@@ -878,6 +961,7 @@ export class Terrain {
     geo.setAttribute('aQual', new THREE.BufferAttribute(qual, 1));
     // (floodwater keeps its own edge)
     geo.setAttribute('aRound', new THREE.BufferAttribute(new Float32Array(qual.length).fill(99), 1));
+    geo.setAttribute('aWhite', new THREE.BufferAttribute(new Float32Array(qual.length), 1));
     this.flood = new THREE.Mesh(geo, this.floodMat);
     this.flood.renderOrder = 3;
     this.scene.add(this.flood);

@@ -1,0 +1,41 @@
+# 0050 Waterfalls: a steep creek reach gathered at one ledge, a plunge pool, a drawn curtain
+
+2026-11-20, ideas batch cinema-creeks, session 6. Cole picked natural spring-fed falls on creeks over
+steep steps, no player tool.
+
+## Rules
+
+- Falls are made with the map (`creekFalls`, `js/maps/landform.js`), only on maps whose landform opts in
+  (`land.falls`: PNW's `pnwLand` only), after `creekDownhill`. Along each creek from its spring it finds a
+  straight, one-tile-wide reach whose bed falls `FALL_STEEP` (0.45) or more a tile and gathers it at one
+  ledge: the bed below the lip drops `FALL_DROP` (1.5) more, a plunge pool's far end stands `POOL_RISE`
+  (0.12) over its near end, and the gorge eases back to the old bed at least `FALL_MIN_DROP` (0.18) a
+  tile. Only lowers. Rocks (`F.ROCKS`) either side. A map without such a reach gets none; don't force one.
+- Nothing is saved: the heights are (`vh`), and everything else is read from them (`isFall`: a creek tile
+  whose bed drops `FALL_MIN` 1.2 from edge to edge). Old saves keep their land, so no fall.
+- No new water solver or basin. The pool is creek water at its own level (lowest corner + 0.32), which by
+  its shape stands 0.2 over its tail-out (its lowest way out), far under its banks, and over the creek
+  below (`FALL_MIN_DROP` > `POOL_RISE`). Edits can't change it: Raise, Lower and Fill never move a creek's
+  corners (0048). A pond dug beside the pool joins it and takes it down 0.08.
+- Fish: the fall's upper part stands far over its own water, so `swimRoute`'s depth test refuses the lip
+  both ways (no species leaps; don't add one here). Beavers: `damCrest` passes over a head whose pond
+  would stand more than 0.12 over a fall's foot (it would stand flat up the face).
+- Drawing (`terrain.js`): the bank ring takes the water beside it before the water at its corner (it took
+  the highest of all eight, so beside any steep creek the drawn water stood up to 0.6 over the creek's own,
+  over its banks, and a fall's lip level spread over its pool). `aWhite` whitens water whose sheet drops
+  more than 0.9 across a tile (a steep reach's 0.6 stays clear). `buildFalls` draws one curtain mesh for all
+  falls with the water's own material, a t² curve from the lip to the pool.
+- Check: `node tools/waterfall-check.mjs` (which maps get falls, pool level against tail-out and banks,
+  a year, save/load, edits and a dug pond beside it, fish, beaver crest, the drawn curtain).
+
+## History
+
+PNW's ditch runs down the foothills at a steady 0.6 levels a tile from its spring at (69,1) to y=12.
+`creekFalls` puts the fall at (69,6): 11.39 -> 9.29, 2.1 levels (5 m) in one 8 m tile, pool at (69,7)
+standing at 9.61. Other maps' creeks (measured on the 1987 map): Atlanta and Chinandega at most 0.36-0.39
+a tile, Serengeti 0.25, Amazon one 0.7 step at the bluff, Sumatra one 1.08 step into the peat; none has a
+steep reach, so none gets a fall even if it opted in.
+
+The tile grid can't hold a vertical face: the ground under a fall is a steep 8 m ramp. The curtain arcs
+out over it; from the side the gorge bank mostly hides the ramp. A taller, sheer fall would need a drawn
+rock face (a ledge mesh) or a finer height grid.

@@ -1,7 +1,7 @@
 // Landforms: the helpers each map's height recipe is built from, and the "drains downhill" pass
 // (docs/decisions/0044-terrain-relief.md). Heights are in levels (2.4 m) on tile corners.
 
-import { BORDER, T } from '../config.js';
+import { BORDER, T, F, isWater } from '../config.js';
 
 export const smoothstep = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 
@@ -69,11 +69,11 @@ export function fillPits(w, isOutlet, lean = 0.02) {
   }
 }
 
-// Make each creek's bed fall (or at worst stay level) all the way to where it runs out: into the
-// river, a pond, a marsh or off the map. Only ever lowers, from the top of the creek down.
-export function creekDownhill(w) {
+// Each creek tile's distance (4-way steps along the creek) from where it runs out into the river, a
+// pond, a marsh or off the map's south edge (0 there; -1 off the creek). In order: `q`.
+function creekOutletDist(w, q = []) {
   const creek = i => w.terrain[i] === T.CREEK;
-  const dist = new Int32Array(w.n).fill(-1), q = [];
+  const dist = new Int32Array(w.n).fill(-1);
   const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   for (let i = 0; i < w.n; i++) {
     if (!creek(i)) continue;
@@ -96,6 +96,14 @@ export function creekDownhill(w) {
       if (creek(j) && dist[j] < 0) { dist[j] = dist[i] + 1; q.push(j); }
     }
   }
+  return dist;
+}
+
+// Make each creek's bed fall (or at worst stay level) all the way to where it runs out: into the
+// river, a pond, a marsh or off the map. Only ever lowers, from the top of the creek down.
+export function creekDownhill(w) {
+  const creek = i => w.terrain[i] === T.CREEK, q = [], dist = creekOutletDist(w, q);
+  const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const bed = i => { const x = i % w.w, y = (i / w.w) | 0; return Math.min(w.vert(x, y), w.vert(x + 1, y), w.vert(x + 1, y + 1), w.vert(x, y + 1)); };
   const cap = new Float32Array(w.n);
   const order = q.slice().sort((a, b) => dist[b] - dist[a]); // from the top of each creek down
@@ -122,3 +130,76 @@ export function creekDownhill(w) {
 // 1.4 m), so a creek dug straight up a steep hill keeps a few cascades rather than becoming a ravine.
 // (The player's edits, creek grading and Fill & grade included, are in js/terrain-edit.js: 0048.)
 export const CHANNEL_STEP = 0.2, CHANNEL_CUT = 0.6;
+
+// Waterfalls (ideas batch cinema-creeks, session 6): where a creek runs down a steep reach (each
+// tile's bed STEEP or more under the one above, as the PNW ditch does in the foothills), the drop
+// is gathered at one resistant ledge, as falls form in real Cascade creeks: the bed below the ledge
+// is lowered by FALL_DROP, so the creek runs off a lip and drops about 5 m in one tile; a plunge
+// pool is scoured at its foot (its far end POOL_RISE over its near end, so it holds water at its
+// tail-out, the lowest way out, and the creek runs on from there); and the gorge below eases back
+// out to the old bed, each tile at least MIN_DROP (more than POOL_RISE: the water below never
+// stands higher than the pool). Only ever lowers, and only on a straight reach one tile wide. Rocks
+// stand on the land either side of the fall. Maps opt in (`land.falls`); a map without such a reach
+// gets none. Returns the falls made: [{ x, y, drop }] (the fall's tile; drop in levels).
+// Drawing and checks find them from the heights alone (fallTiles), so nothing is saved.
+export const FALL_STEEP = 0.45, FALL_DROP = 1.5, POOL_RISE = 0.12, FALL_MIN_DROP = 0.18, FALL_MIN = 1.2;
+export function creekFalls(w, max = 2) {
+  const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]], creek = i => w.terrain[i] === T.CREEK;
+  const dist = creekOutletDist(w), falls = [];
+  const bed = i => Math.min(...w.corners(i % w.w, (i / w.w) | 0));
+  const nb = i => { const x = i % w.w, y = (i / w.w) | 0, out = []; for (const [dx, dy] of N4) if (w.inb(x + dx, y + dy) && creek(w.idx(x + dx, y + dy))) out.push(w.idx(x + dx, y + dy)); return out; };
+  // the two corners a tile shares with the next one down
+  const edge = (i, j) => {
+    const x = i % w.w, y = (i / w.w) | 0, dx = j % w.w - x, dy = ((j / w.w) | 0) - y;
+    return dx === 1 ? [[x + 1, y], [x + 1, y + 1]] : dx === -1 ? [[x, y], [x, y + 1]] : dy === 1 ? [[x, y + 1], [x + 1, y + 1]] : [[x, y], [x + 1, y]];
+  };
+  for (let s0 = 0; s0 < w.n && falls.length < max; s0++) {
+    // from each spring (a creek tile with nothing above it) down to where the creek runs out
+    if (!creek(s0) || dist[s0] <= 0 || nb(s0).some(j => dist[j] === dist[s0] + 1)) continue;
+    const c = [s0];
+    for (let i = s0; dist[i] > 0;) { const j = nb(i).find(j => dist[j] === dist[i] - 1); if (j == null) break; c.push(i = j); }
+    const h = c.map(bed), m = c.length;
+    const straight = (a, b) => { for (let k = Math.max(1, a); k <= Math.min(m - 2, b); k++) if (c[k + 1] - c[k] !== c[k] - c[k - 1] || nb(c[k]).length > 2) return false; return true; };
+    // steep runs: tiles k whose bed stands STEEP or more over the next one's
+    for (let s = 0; s < m - 1 && falls.length < max;) {
+      if (h[s] - h[s + 1] < FALL_STEEP) { s++; continue; }
+      let e = s; while (e + 1 < m - 1 && h[e + 1] - h[e + 2] >= FALL_STEEP) e++;
+      const mid = (s + e) >> 1, tries = [];
+      for (let f = s + 2; f <= e - 2; f++) tries.push(f);
+      tries.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid) || a - b);
+      for (const f of tries) {
+        // the new height of each edge below the ledge (edge k joins tile k to k + 1)
+        const nh = new Map([[f, h[f] - FALL_DROP], [f + 1, h[f] - FALL_DROP + POOL_RISE]]);
+        let k = f + 2;
+        for (; k < m - 1; k++) { const v = Math.min(h[k], nh.get(k - 1) - FALL_MIN_DROP); if (v >= h[k]) break; nh.set(k, v); }
+        if (k > e + 1 || h[f + 1] < nh.get(f + 1) || !straight(f - 1, k)) continue;
+        for (const [kk, v] of nh) for (const [vx, vy] of edge(c[kk], c[kk + 1])) w.setVert(vx, vy, w.vert(vx, vy) - (h[kk] - v));
+        const x = c[f] % w.w, y = (c[f] / w.w) | 0, along = [c[f + 1] % w.w - x, ((c[f + 1] / w.w) | 0) - y];
+        for (const sd of [-1, 1]) { // (the ledge's rock, either side of the fall)
+          const rx = x + along[1] * sd, ry = y - along[0] * sd;
+          if (!w.inb(rx, ry)) continue;
+          const r = w.idx(rx, ry);
+          if (!isWater(w.terrain[r]) && w.terrain[r] !== T.ROAD && w.struct[r] < 0 && !w.feature[r] && !w.tree[r] && !w.shrub[r]) w.feature[r] = F.ROCKS;
+        }
+        falls.push({ x, y, drop: h[f - 1] - nh.get(f) });
+        break;
+      }
+      s = e + 1;
+    }
+  }
+  return falls;
+}
+
+// Is creek tile i a fall: its bed drops FALL_MIN or more from one edge to the edge opposite (not
+// counting the tilt across it)? From the heights alone; drawing (terrain.js) and beaver dams
+// (hollis-water.js damCrest: a pond never drowns a fall) ask it.
+export function isFall(w, i) {
+  if (w.terrain[i] !== T.CREEK) return false;
+  const c = w.corners(i % w.w, (i / w.w) | 0);
+  return Math.max(Math.abs(c[0] + c[1] - c[2] - c[3]), Math.abs(c[0] + c[3] - c[1] - c[2])) / 2 >= FALL_MIN;
+}
+export function fallTiles(w) {
+  const out = [];
+  for (let i = 0; i < w.n; i++) if (isFall(w, i)) out.push(i);
+  return out;
+}

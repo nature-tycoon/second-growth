@@ -5,6 +5,7 @@ import { T, F, isWater } from '../config.js';
 
 import { WATER_FILL } from './waterline.js';
 import { valueNoise } from '../rng.js';
+import { isFall } from '../maps/landform.js';
 export { WATER_FILL };
 const neighbours = (w, i) => {
   const x = i % w.w, y = Math.floor(i / w.w), out = [];
@@ -215,7 +216,9 @@ export class HollisWater {
     for (let head = DAM_HEAD; head > .15 - 1e-9; head -= .05) {
       const crest = Math.min(bed + head, bank);
       if (crest < bed + .15 - 1e-9) return null;
-      if (this.damWet(this.footprint([site], crest, 'dam', site, axis, occupied).cells, crest) <= DAM_CELLS) return crest;
+      const cells = this.footprint([site], crest, 'dam', site, axis, occupied).cells;
+      // (and not over a waterfall: the pond would stand flat up its face. Beavers dam slow water)
+      if (this.damWet(cells, crest) <= DAM_CELLS && !cells.some(v => crest - this.nominal(v.i) > .12 && isFall(this.w, v.i))) return crest;
     }
     return null;
   }
