@@ -16,7 +16,7 @@ import { updateDormancy } from './animal-dormancy.js';
 import { settle, aimDrink } from './steering.js';
 import { recordTrailStep, rangePaces } from './animal-trails.js';
 import { updatePassage } from './bird-passage.js';
-import { passable, canLand, WADERS, shallows } from './animal-terrain.js';
+import { passable, canLand, wader, shallowsFor } from './animal-terrain.js';
 import { simRandom, useSimRandom } from './sim-random.js';
 import { WildlifePopulation } from './wildlife-population.js';
 import { WildlifeSalmon } from './wildlife-salmon.js';
@@ -172,7 +172,7 @@ export class Wildlife {
             const i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
             if (i >= 0 && !canLand(w, i, def)) { a.flying = true; a.wait = 0; break; }
             // a wader settles in (one come to fish starts soon: fishing.js)
-            a.wait = WADERS.has(def.sprite.kind) && i >= 0 && shallows(w, i) ? (fishing(def, this.game) && !fishFed(a) ? 0.5 + simRandom() : 4 + simRandom() * 6) : 0.5 + simRandom() * 3;
+            a.wait = wader(def) && i >= 0 && shallowsFor(w, i, def) ? (fishing(def, this.game) && !fishFed(a) ? 0.5 + simRandom() : 4 + simRandom() * 6) : 0.5 + simRandom() * 3;
             arrive(this, a);
             birdArrive(this, a);
             forageArrive(this, a);
@@ -241,7 +241,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, jink, settleKey, headUp, headUpKey, detour, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, jink, settleKey, headUp, headUpKey, detour, pressT, swimHeld, noDeep, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,

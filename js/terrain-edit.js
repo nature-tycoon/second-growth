@@ -12,6 +12,7 @@
 // bed where they join), and filling part of a pond or marsh (`shore`) may raise the shore corners it
 // shares with the rest of it, as tipped earth slumps into the water's edge.
 
+import { forgetSwimRoutes } from './sim/swim-routes.js';
 import { T, isWater, clamp } from './config.js';
 import { WATER_FILL } from './sim/waterline.js';
 import { CHANNEL_STEP, CHANNEL_CUT } from './maps/landform.js';
@@ -22,6 +23,19 @@ const ROUND = [[0, 0], [-1, 0], [0, -1], [-1, -1]]; // (the tiles round a corner
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const xy = (w, i) => [i % w.w, (i / w.w) | 0];
 const bedOf = (w, x, y) => Math.min(...w.corners(x, y));
+// A creek's or the river's bed beside a pond, from its corners the pond doesn't share (`self(i)`: the
+// pond's tiles). Its shared corners are the pond's to set, so reading them back let every re-level of the
+// pond (each tile of a widening stroke) take the joined creek CHANNEL_STEP lower again: a ratchet that
+// sank a creek-fed pond metres under its banks with its water far below the rim. A creek tile the pond
+// wraps round (touching all four corners) gives null: it sets no level and its corners don't go lower.
+function channelBed(w, x, y, self) {
+  let bed = Infinity;
+  for (const [dx, dy] of C4) {
+    const vx = x + dx, vy = y + dy;
+    if (!ROUND.some(([ox, oy]) => w.inb(vx + ox, vy + oy) && self(w.idx(vx + ox, vy + oy)))) bed = Math.min(bed, w.vert(vx, vy));
+  }
+  return Number.isFinite(bed) ? bed : null; // (null: the pond touches every corner, so it gives no bed of its own)
+}
 
 // Who owns corner (vx, vy), leaving out the tiles the edit is shaping (`self(i)`): a building beats a
 // channel, which beats a body, which beats the land.
@@ -48,7 +62,10 @@ function joinFloor(w, vx, vy, self, join) {
     const tx = vx + ox, ty = vy + oy;
     if (!w.inb(tx, ty) || self(w.idx(tx, ty))) continue;
     const t = w.terrain[w.idx(tx, ty)];
-    if (isWater(t)) f = Math.max(f, bedOf(w, tx, ty) - (join === 'pond' && (t === T.CREEK || t === T.RIVER) ? CHANNEL_STEP : 0));
+    if (!isWater(t)) continue;
+    const channel = join === 'pond' && (t === T.CREEK || t === T.RIVER);
+    const cb = channel ? channelBed(w, tx, ty, self) : null;
+    f = Math.max(f, cb != null ? cb - CHANNEL_STEP : bedOf(w, tx, ty));
   }
   return f;
 }
@@ -57,6 +74,7 @@ function joinFloor(w, vx, vy, self, join) {
  * would give corner (vx, vy), now h. `self(i)`: tiles counted as the edit's own when reading owners
  * (default: `tiles`). Returns whether any corner moved. */
 export function terrainEdit(w, tiles, want, { self = null, join = null, shore = false } = {}) {
+  forgetSwimRoutes(w); // (fish routes are worked out afresh over the new ground: swim-routes.js)
   if (!self) { const s = new Set(tiles); self = j => s.has(j); }
   // (every corner is decided from the heights before the edit, then written: a bed lowered by one
   // corner must not lower the floor the next corner is held to)
@@ -123,7 +141,7 @@ function levelPond(w, start) {
       if (w.inb(px + dx, py + dy) && !own.has(j) && w.terrain[j] === T.POND) { own.add(j); pond.push(j); }
     }
   }
-  let lo = Infinity;
+  let lo = Infinity, feed = -Infinity;
   for (const i of pond) lo = Math.min(lo, bedOf(w, ...xy(w, i)));
   // (a pond dug up to a creek or the river is joined to it, an oxbow or a backwater: its floor goes a
   // pond's depth under that water, so it holds the creek's level rather than standing above or below it)
@@ -132,7 +150,13 @@ function levelPond(w, start) {
     for (const [dx, dy] of N4) {
       if (!w.inb(px + dx, py + dy)) continue;
       const t = w.terrain[w.idx(px + dx, py + dy)];
-      if (t === T.CREEK || t === T.RIVER) lo = Math.min(lo, bedOf(w, px + dx, py + dy) + WATER_FILL[t] - WATER_FILL[T.POND]);
+      if (t !== T.CREEK && t !== T.RIVER) continue;
+      // (a creek tile the pond wraps round sets no floor, but its water still sets the bank: raising
+      // a bank never sinks anything)
+      const cb = channelBed(w, px + dx, py + dy, j => own.has(j));
+      const level = (cb ?? bedOf(w, px + dx, py + dy)) + WATER_FILL[t];
+      if (cb != null) lo = Math.min(lo, level - WATER_FILL[T.POND]);
+      feed = feed === -Infinity ? level : Math.min(feed, level);
     }
   }
   // (the floor: joined to a creek or the river, at most CHANNEL_STEP under that channel's bed, so the
@@ -142,7 +166,9 @@ function levelPond(w, start) {
   terrainEdit(w, pond, (vx, vy, h) => Math.min(h, lo), { self, join: 'pond' });
   // (the bank: the land round it comes up to stand above its water; the corners it shares with the
   // pond, other water or a building stay, by the owner rules)
-  const bank = lo + WATER_FILL[T.POND] + 0.15, ring = new Set();
+  // (joined, its water stands at the creek's level, which may be over a pond's depth above its floor:
+  // the bank stands over that, so the water sits just under the rim rather than over the bank's foot)
+  const bank = Math.max(lo + WATER_FILL[T.POND], feed) + 0.15, ring = new Set();
   for (const i of pond) {
     const [px, py] = xy(w, i);
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {

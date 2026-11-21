@@ -38,7 +38,7 @@ export async function buildWebsite() {
     await mkdir(join(websiteOutput, 'art'));
     for (const name of ['art-provenance.json', ...art.map(entry => entry.file)]) await cp(join(root, 'website/art', name), join(websiteOutput, 'art', name));
   }
-  for (const path of ['index.html', 'styles.css', 'manifest.json', 'js', 'assets', 'vendor']) {
+  for (const path of ['index.html', 'styles.css', 'manifest.json', 'version.json', 'js', 'assets', 'vendor']) {
     await cp(join(root, path), join(websiteOutput, 'play', path), { recursive: true });
   }
   await writeFile(join(websiteOutput, '.nojekyll'), '');

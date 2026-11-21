@@ -133,11 +133,11 @@ export default function buildPnwPlants(def, mix, get) {
     grow: 0.0038, spread: 0.008, radius: 4, life: 90, mast: 0.3, cost: 22,
     look: { type: 'maple', leaf: '#5d9444', fall: '#e8b331', deciduous: true, bark: '#7b6a55' },
     desc: 'Giant leaves, mossy limbs draped in licorice fern. Its fallen leaves enrich the soil.' });
-  def({ key: 'ash', name: 'Oregon ash', sci: 'Fraxinus latifolia', layer: 2, heightM: 20, moist: [0.65, 1], light: [0.3, 1], soil: 0.15, wetOK: true,
+  def({ key: 'ash', leafOut: 6, name: 'Oregon ash', sci: 'Fraxinus latifolia', layer: 2, heightM: 20, moist: [0.65, 1], light: [0.3, 1], soil: 0.15, wetOK: true,
     grow: 0.0032, spread: 0.008, radius: 4, life: 90, cost: 22,
     look: { type: 'ash', leaf: '#6c9a4c', fall: '#d9c55a', deciduous: true, bark: '#8a8174' },
     desc: 'One of the few trees that can stand in seasonally flooded bottomlands.' });
-  def({ key: 'oak', name: 'Oregon white oak', sci: 'Quercus garryana', layer: 2, heightM: 20, moist: [0.0, 0.5], light: [0.6, 1],
+  def({ key: 'oak', leafOut: 6, name: 'Oregon white oak', sci: 'Quercus garryana', layer: 2, heightM: 20, moist: [0.0, 0.5], light: [0.6, 1],
     grow: 0.0022, spread: 0.006, radius: 4, life: 250, mast: 1, cost: 26,
     look: { type: 'oak', leaf: '#5b7f3f', fall: '#a8783a', deciduous: true, bark: '#6d6457' },
     desc: 'Slow, gnarled, and long-lived. Its acorns and open savannas support hundreds of species.' });

@@ -50,8 +50,12 @@ export function dryPoint(w, x, y, px, pz) {
 // Where a shrub stands in its tile, as flora.js draws it (before a bank tile moves it to the dry
 // side): toward the far side of the tile from a tree sharing it, or a blue sea star beside its coral.
 // Animals that live at one plant (a clownfish's anemone: sim/animal-territory.js) read it here.
+// The reef's bush-layer looks (drawn as sea creatures, not bushes)
+export const SEA_SHAPES = new Set(['softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']);
 export function shrubSpot(x, y, p, withTree) {
-  if (!withTree) return [x + 0.5 + (hash2(x, y, 3) - 0.5) * 0.4, y + 0.5 + (hash2(x, y, 4) - 0.5) * 0.4];
+  // (a land bush wanders over most of its tile, so a thicket doesn't stand in grid rows; a sea
+  // creature keeps near the middle)
+  if (!withTree) { const j = SEA_SHAPES.has(p.look.type) ? 0.4 : 0.76; return [x + 0.5 + (hash2(x, y, 3) - 0.5) * j, y + 0.5 + (hash2(x, y, 4) - 0.5) * j]; }
   const ox = hash2(x, y, 3) - 0.5, oz = hash2(x, y, 4) - 0.5;
   const d = p.look.type === 'seastar' ? 0.34 : 0.24 + hash2(x, y, 5) * 0.08;
   return [x + 0.5 - Math.sign(ox || 1) * d, y + 0.5 - Math.sign(oz || 1) * d];

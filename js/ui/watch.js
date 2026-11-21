@@ -20,6 +20,10 @@
 // drag looks round. Next (N) goes back to the animals. On a touch screen the thumbstick shows at eye
 // level and walks the same way (up forward, sideways turns).
 //
+// A click or tap on an animal locks the camera onto it: the director stays with it (at eye level
+// too) until a click on empty ground, Esc, the chip's ✕, or Next lets go. The date sits small in the
+// top letterbox bar, as the top bar names it.
+//
 // Shuffle (the crossed arrows on the bar) is whether the director moves on by itself. Off, it stays
 // on the animal it has until Next is pressed (or the animal is gone). Each view keeps its own: on
 // for the usual view, off at eye level, where a cut away loses the animal you were watching.
@@ -27,7 +31,7 @@
 import { animalDef, drawDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
 import { roostingNow } from '../data/animal-activity.js';
-import { SEASONS, clamp } from '../config.js';
+import { SEASONS, MONTH_NAMES, clamp } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
 import { track } from '../analytics.js';
 import { animalThumb } from './thumbnails.js';
@@ -55,6 +59,7 @@ export class Watch {
     this.on = false; this.eyeLevel = false; this.min = false; this.species = null;
     this.shot = null; this.recent = []; this.n = 0;
     this.walking = false;
+    this.locked = null; // the animal a click locked the camera onto
     this.shuffle = { follow: true, eye: false };
   }
 
@@ -88,6 +93,7 @@ export class Watch {
     this.build();
     this.showSpecies();
     this.showShuffle();
+    this.lock(null); this.dateShown = null; this.showDate();
     requestAnimationFrame(() => this.el.classList.add('bars'));
     this.shot = null; this.n = 0;
     this.showControls();
@@ -99,6 +105,7 @@ export class Watch {
     const ui = this.ui, r = this.renderer;
     this.on = false;
     this.walking = false;
+    this.locked = null;
     this.endShot();
     this.closeMenu();
     r.setEyeLevel(null);
@@ -125,7 +132,8 @@ export class Watch {
     if (this.el) return;
     const o = document.createElement('div'); o.id = 'watch';
     o.innerHTML = `<div class="lb lb-top"></div><div class="lb lb-bot"></div>
-      <div class="w-cap"><b></b><span></span></div>
+      <div class="w-cap"><b></b><span></span></div><div class="w-date" aria-live="off"></div>
+      <button class="w-lock" title="Let go (Esc, or click empty ground)"><span></span><svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg></button>
       <div class="w-menu" role="listbox"></div>
       <div class="w-bar"><button class="w-sp" data-a="species" title="Watch one species (S)" aria-haspopup="listbox"><span></span><svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4"/></svg></button>
         <div class="speed w-speed">${document.getElementById('speed').innerHTML}</div>
@@ -142,6 +150,7 @@ export class Watch {
     o.querySelector('[data-a=min]').addEventListener('click', () => this.setMinimized(true));
     o.querySelector('.w-expand').addEventListener('click', () => this.setMinimized(false));
     o.querySelector('[data-a=species]').addEventListener('click', () => this.toggleMenu());
+    o.querySelector('.w-lock').addEventListener('click', () => this.lock(null));
     this.menu = o.querySelector('.w-menu');
     this.menu.addEventListener('click', e => { const b = e.target.closest('button'); if (b) this.setSpecies(b.dataset.key || null); });
     // a click anywhere else puts the list away
@@ -151,8 +160,14 @@ export class Watch {
     const show = () => this.showControls();
     o.addEventListener('pointermove', show); o.addEventListener('pointerdown', show);
     // at eye level a drag over the view swings round the animal, or looks round when walking
+    // a click or tap (not a drag) over the view locks onto the animal under it, or lets go on empty ground
+    o.addEventListener('pointerdown', e => { this.press = e.target.closest('button, .w-menu') ? null : { id: e.pointerId, x: e.clientX, y: e.clientY }; });
+    o.addEventListener('pointerup', e => {
+      const p = this.press; this.press = null;
+      if (p?.id === e.pointerId && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 8) this.tap(e.clientX, e.clientY);
+    });
     o.addEventListener('pointerdown', e => {
-      if (!(this.walking || this.orbiting()) || e.target.closest('.w-bar, .w-menu, .w-expand')) return;
+      if (!(this.walking || this.orbiting()) || e.target.closest('.w-bar, .w-menu, .w-expand, .w-lock')) return;
       this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
       o.setPointerCapture?.(e.pointerId);
     });
@@ -239,9 +254,45 @@ export class Watch {
     b.classList.toggle('on', !!this.species);
   }
 
+  // ------------------------------------------------------------ locked on
+  // A click or tap at x, y (screen): lock onto the animal there, or let go if there's none.
+  tap(x, y) {
+    if (!this.on || this.ui.moment || this.menuOpen) return; // (a keystone moment has the camera: 0020)
+    const a = this.renderer.pickAgent(this.game, x, y, TOUCH ? 48 : 34);
+    if (a) { if (a !== this.locked) { this.lock(a); track('watch_lock', { map: this.game.map, eye: this.eyeLevel }); } }
+    else if (this.locked) this.lock(null);
+  }
+
+  // Lock the camera onto an animal (it stays until let go), or let go (null): the director carries on
+  // from the shot it's in, moving on a few seconds later.
+  lock(a) {
+    this.locked = a;
+    if (a) {
+      this.walking = false;
+      if (this.shot?.agent !== a) this.frameAnimal(a); else this.shot.len = Infinity;
+    } else if (this.shot && this.shot.len === Infinity && !this.shot.walk) this.shot.len = this.shot.t + 5;
+    const b = this.el?.querySelector('.w-lock');
+    if (!b) return;
+    b.classList.toggle('on', !!a);
+    if (a) b.querySelector('span').textContent = `Locked on ${animalDef(a, this.game.catalog).name}`;
+  }
+
+  // The date, small in the top bar: the map's season, then the date as the top bar names it.
+  showDate() {
+    const g = this.game, el = this.el?.querySelector('.w-date');
+    if (!el) return;
+    const narrow = innerWidth < 960, day = g.dayOfMonth * 3 - 2, m = MONTH_NAMES[g.month];
+    const t = [g.seasonName(), narrow ? `${m.slice(0, 3)} ${day} · Y${g.year}` : `${m} ${day}, Year ${g.year}`];
+    if (t.join('|') === this.dateShown) return;
+    this.dateShown = t.join('|');
+    el.innerHTML = '<span></span> · <span></span>'; // (two strings, so each is translated on its own)
+    el.children[0].textContent = t[0]; el.children[1].textContent = t[1];
+  }
+
   // Keys while watching (see Input.key). True when the key was used.
   key(k) {
     if (k === 'escape' && this.menuOpen) { this.closeMenu(); return true; }
+    if (k === 'escape' && this.locked) { this.lock(null); return true; }
     if (k === 's') { this.toggleMenu(); return true; }
     if (k === 'escape' || k === 'c') { this.stop(); return true; }
     if (k === 'n' || k === 'arrowright') { this.next(); return true; }
@@ -259,6 +310,7 @@ export class Watch {
   walk() {
     if (this.walking) return true;
     if (!this.eyeLevel || this.ui.moment || !this.renderer.walkEye()) return false;
+    if (this.locked) this.lock(null);
     this.endShot();
     this.walking = true;
     this.ui.follow = null; this.game.selectedAgent = null;
@@ -272,6 +324,7 @@ export class Watch {
   frame(dt) {
     if (!this.on) return;
     const g = this.game, r = this.renderer, ui = this.ui;
+    if ((this.dateAt = (this.dateAt || 0) - dt) <= 0) { this.dateAt = 0.5; this.showDate(); }
     // walking about: nothing to direct (a keystone moment takes over as usual, and the animals come back after)
     if (this.walking) {
       if (!ui.moment) return;
@@ -280,6 +333,7 @@ export class Watch {
     // a keystone moment has the camera: wait it out, and start afresh after
     if (ui.moment) {
       if (this.shot) { this.endShot(); this.shot = null; }
+      if (this.locked) this.lock(null);
       this.cap.classList.remove('show');
       return;
     }
@@ -315,6 +369,7 @@ export class Watch {
 
   next() {
     this.walking = false;
+    if (this.locked) this.lock(null);
     this.endShot();
     const g = this.game, wide = !this.eyeLevel && !this.species && this.shuffling() && this.n % 4 === 3;
     this.n++;
@@ -350,7 +405,7 @@ export class Watch {
     const r = this.renderer, ui = this.ui, g = this.game, eye = this.eyeLevel;
     const t = keep && this.shot ? this.shot.t : 0;
     this.endShot();
-    this.shot = { agent: a, t, len: eye ? SHOT.eye : SHOT.follow, eye, drift: (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.04) };
+    this.shot = { agent: a, t, len: a === this.locked ? Infinity : eye ? SHOT.eye : SHOT.follow, eye, drift: (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.04) };
     if (eye) {
       ui.follow = null; g.selectedAgent = null;
       r.centerOnAnimal(a); r.followAgent = null; // (so its pose is fresh, and the usual view is near it to come back to)

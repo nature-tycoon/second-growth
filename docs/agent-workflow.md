@@ -23,6 +23,8 @@ How Claude Code sessions should spend tokens on Second Growth, and the tools tha
 | Editing, deciding, talking to Cole | the main session | Opus |
 | Small mechanical batches (renames, docs, copy) | a session started on Sonnet | Sonnet |
 
+Never save tokens by giving the thinking to a weaker model where it risks a bug (Cole, 2026-11-19): recurring bugs, new behavior and cross-subsystem work stay on Opus. The saving comes from keeping bulky output (checks, searches, screenshots) out of the main session.
+
 Subagents pay twice over: their model is cheaper, and only their short answer enters the main session, which every later call re-reads. Use Fable only through `architect`, about once per large feature, and say so to Cole when you do.
 
 ## Token habits for the main session

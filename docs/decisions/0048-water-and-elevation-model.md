@@ -34,13 +34,16 @@ are still proposals. 2026-11-14, ideas batch water-fixes, session 2.
   It isn't saved: loading takes it from the creek tiles the map as generated doesn't have (`game.js`).
 - **A pond dug up to a creek or the river is joined to it** (an oxbow, a backwater). `levelPond` digs its
   floor a pond's depth under that water, but never pulls a creek corner more than `CHANNEL_STEP` under
-  its bed. In the Hollis water model `feedLevel` gives it the lowest level of the creeks beside it whose
+  its bed, read from its corners the pond doesn't share (`channelBed`: reading back the corners the
+  pond had just lowered sank pond and creek a step for every tile of a widening stroke, a pit with its
+  water far under the rim; fixed 2026-11-20; a creek tile the pond wraps on every side sets no floor).
+  Ponds sunk before the fix stay until filled and re-dug. Its bank stands 0.15 over the creek's level. In the Hollis water model `feedLevel` gives it the lowest level of the creeks beside it whose
   water reaches over the shared edge: it stands at that level, the creek keeps it full (`b.floor` =
   capacity, refilled each day), and a pond tile above the water on a steep creek is marsh, not mud. Only a
   pond on its own is a vernal pool. Creeks have no seasonal level yet, so a joined pond stays full all
   year. `feedLevel` is where a seasonal creek level would plug in.
 - Check: `node tools/dug-creek-check.mjs` (grading, two-stroke digging, salmon both ways over three run
-  seeds, joined pond vs a vernal pool through a dry summer, save and load). Also run
+  seeds, joined pond vs a vernal pool through a dry summer, save and load, widening a joined pond). Also run
   `hollis-water-check`, `tool-actions-check`, `fish-water-check` and `terrain-relief-check` after
   any change to digging or the water model.
 - **Fill & grade levels a stroke to one height** (`gradeLevel`, `gradeTile`, `js/terrain-edit.js`): the

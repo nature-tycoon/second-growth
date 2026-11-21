@@ -9,13 +9,15 @@ import * as S from '../render/sprites.js';
 import { withClouds } from './atmosphere.js';
 import { hash2 } from '../rng.js';
 export { buildAtlas } from './terrain-atlas.js';
-import { noiseTexture, groundDetail, waves, waterLook } from './terrain-materials.js';
+import { noiseTexture, groundDetail, waves, waterLook, fallLook, rockIce } from './terrain-materials.js';
+import { withSnowTops } from './snow.js';
 import { trailSurface } from '../sim/animal-trails.js';
 import { TRAIL_RESOLUTION } from '../data/animal-trails.js';
 import { meadowPatch, patchColor } from './patches.js';
 import { Riverbanks, bankAllowed, surfaceHeight } from './riverbanks.js';
 import { PALETTES, paletteLeafColor, pastureColor } from './palettes.js';
 import { WATER_FILL } from '../sim/waterline.js';
+import { FALL_MIN } from '../maps/landform.js';
 
 // Grass, soil and water colours come from the world’s map catalog.
 
@@ -50,6 +52,13 @@ function turfColor(p, month, season, catalog) {
 
 // How far water fills each kind of basin above its lowest corner, in height levels.
 const FILL = WATER_FILL;
+// A waterfall's drawn ledge (buildFalls): the water runs level over the rock's top for FALL_RUN of the
+// fall's tile, then falls on its arc over FALL_TRAVEL more (landing just short of the foot, where the
+// tile's ramp is still under the arc: the tile grid can't hold a sheer face).
+const FALL_RUN = 0.4, FALL_TRAVEL = 0.55;
+// a small seeded random stream (the same rock and streaks for a fall every time it's drawn)
+const hashRand = seed => { let h = (seed * 2654435761) >>> 0 || 1; return () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; }; };
+const DAM_SPILL_WIDTH = 0.85; // (of a dam edge's length: a full dam spills thinly over most of each mound across the channel)
 
 // Height of the water surface on a tile, in scene units (null on dry land).
 export function waterSurfaceY(w, x, y) {
@@ -128,6 +137,11 @@ export class Terrain {
     this.waterMat = withClouds(waterLook(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 140, specular: 0xb4ccd8, depthWrite: false }), this.time, 1), this.time, this.noise, this.rain, this.sky));
     // floodwater uses the same living water as ponds and rivers (silty, running downhill: see buildFlood)
     this.floodMat = withClouds(waterLook(waves(new THREE.MeshPhongMaterial({ vertexColors: true, transparent: true, opacity: 1, shininess: 110, specular: 0x9aaab0, depthWrite: false }), this.time, 0.45), this.time, this.noise, this.rain, this.sky));
+    // falling water (waterfalls, dam spills) and the wet rock ledge a fall pours off: see buildFalls
+    this.viewH = { value: 800 }; // (the view's height in CSS pixels: scene.js sets it each frame, for the mist's fade)
+    this.fallMat = withClouds(fallLook(new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide }), this.time, this.noise, this.viewH));
+    // (in a cold snap the wet rock glazes with ice and its dry tops take snow like the ground: rockIce, withSnowTops)
+    this.rockMat = withClouds(withSnowTops(rockIce(new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 30, specular: 0x283032 }), this.noise), 0.8));
     this.skirtMat = withClouds(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     this.overlayMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.previewMat = this.overlayMat.clone();
@@ -151,7 +165,7 @@ export class Terrain {
     this.X0 = -BORDER; this.Y0 = -BORDER;
     this.TW = world.w + BORDER * 2; this.TH = world.h + BORDER * 2;
     const n = this.TW * this.TH;
-    for (const m of [this.mesh, this.water, this.flood, this.skirt, this.line, this.overlay, this.preview]) if (m) { this.scene.remove(m); m.geometry.dispose(); }
+    for (const m of [this.mesh, this.water, this.falls, this.spills, this.fallRock, this.flood, this.skirt, this.line, this.overlay, this.preview]) if (m) { this.scene.remove(m); m.geometry.dispose(); }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
     g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
@@ -181,7 +195,7 @@ export class Terrain {
     this.tiles.density.value = trails;
     this.tiles.soil.value.fromArray(world.catalog.definition.look.soil).convertSRGBToLinear().multiplyScalar(0.72);
     this.tiles.origin.value.set(this.X0, this.Y0); this.tiles.size.value.set(this.TW, this.TH);
-    this.water = null; this.flood = null; this.overlay = null; this.preview = null;
+    this.water = null; this.falls = null; this.spills = null; this.fallRock = null; this.flood = null; this.overlay = null; this.preview = null;
     this.updateHeights();
   }
 
@@ -478,6 +492,8 @@ export class Terrain {
       if (isWater(t[i])) h = Math.imul(h ^ (i * 16 + t[i]), 16777619) >>> 0;
       if (w.waterManaged?.[i] && Number.isFinite(w.waterLevel[i])) h = Math.imul(h ^ (i * 113 + Math.round(w.waterLevel[i] * 100)), 16777619) >>> 0;
     }
+    // (a dam starting or stopping spilling, or raised, redraws its spill)
+    for (const d of w.damSpills || []) h = Math.imul(h ^ (d.site * 7 + Math.round(d.crest * 100) * 131071 + d.edges.length), 16777619) >>> 0;
     return h;
   }
   floodKey() {
@@ -550,16 +566,29 @@ export class Terrain {
       }
     }
     // one ring of bank tiles carries the neighbouring water level
+    // (except the pond's level onto the dry ground just below a beaver dam: the dam holds the pond
+    // off it, and the sheet carried over would run down the bank past the dam's mounds)
+    const belowDam = new Set();
+    for (const e of w.damEdges || []) belowDam.add(e[1]);
     const ring = [];
     for (let ty = 0; ty < TH; ty++) for (let tx = 0; tx < TW; tx++) {
       const k = ty * TW + tx;
       if (wet[k]) continue; // (a managed tile without water is bank too: the pond model's dry margins)
+      const below = belowDam.size > 0 && w.inb(tx + X0, ty + Y0) && belowDam.has(w.idx(tx + X0, ty + Y0));
+      // (the water beside it, or else at its corner: beside a steep creek, the creek a tile upstream
+      // stood the bank's water up to 0.6 over the creek's own, and over a waterfall it held the
+      // lip's level out over the pool below)
       let L = -Infinity, kd = 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        const xx = tx + dx, yy = ty + dy;
-        if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
-        const j = yy * TW + xx;
-        if (wet[j] && level[j] > L) { L = level[j]; kd = kind[j]; }
+      for (const diag of [0, 1]) {
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if ((dx && dy ? 1 : 0) !== diag || !(dx || dy)) continue;
+          const xx = tx + dx, yy = ty + dy;
+          if (xx < 0 || yy < 0 || xx >= TW || yy >= TH) continue;
+          const j = yy * TW + xx;
+          if (below && managed(j)) continue; // (the pond's water, held behind the dam; the creek below still banks it)
+          if (wet[j] && level[j] > L) { L = level[j]; kd = kind[j]; }
+        }
+        if (L > -Infinity) break;
       }
       if (L > -Infinity && Math.min(...w.corners(tx + X0, ty + Y0)) < L) ring.push([k, L, kd]);
     }
@@ -726,6 +755,26 @@ export class Terrain {
       const vi = (vy * (TW + 1) + vx) * 3;
       if (n) { vertexFlow[vi] = fx / n; vertexFlow[vi + 1] = fy / n; vertexFlow[vi + 2] = b / n; }
     }
+    // Falling water: how far the sheet drops across each moving tile, so a waterfall (landform.js
+    // creekFalls) runs white over its lip and foams out across the pool at its foot, and a steep
+    // cascade shows a little white. Each corner takes the most of the tiles round it.
+    const tileDrop = new Float32Array(TW * TH);
+    for (const k of tiles) {
+      if (!moving(k)) continue;
+      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
+      // (from one edge to the edge opposite, as isFall measures the bed: not the tilt across the stream)
+      const l = [vLevel(x, y), vLevel(x + 1, y), vLevel(x + 1, y + 1), vLevel(x, y + 1)];
+      tileDrop[k] = Math.max(Math.abs(l[0] + l[1] - l[2] - l[3]), Math.abs(l[0] + l[3] - l[1] - l[2])) / 2;
+    }
+    const vWhite = (vx, vy) => {
+      let d = 0;
+      for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+        const tx = vx - X0 + dx, ty = vy - Y0 + dy;
+        if (tx >= 0 && ty >= 0 && tx < TW && ty < TH) d = Math.max(d, tileDrop[ty * TW + tx]);
+      }
+      return d <= 0.9 ? 0 : Math.min(1, (d - 0.9) / 0.8); // (a steep reach's 0.6 a tile stays clear; a fall's 2 runs white)
+    };
+    const white = new Float32Array(tiles.length * 6);
     let o = 0, oc = 0, od = 0;
     for (const k of tiles) {
       const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
@@ -734,7 +783,7 @@ export class Terrain {
         // any pond: drawn tile by tile at its own level, it ended in hard steps at the tile lines)
         const c = vColor(vx, vy), lv = vLevel(vx, vy);
         pos[o] = vx; pos[o + 1] = lv * LEVEL; pos[o + 2] = vy; nor[o + 1] = 1; o += 3;
-        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy);
+        dep[od] = lv - w.vert(vx, vy); round[od] = lv - smooth(vx, vy); white[od] = vWhite(vx, vy);
         const vi = ((vy - Y0) * (TW + 1) + vx - X0) * 3;
         flow[od * 2] = vertexFlow[vi]; flow[od * 2 + 1] = vertexFlow[vi + 1]; bend[od] = vertexFlow[vi + 2]; od++;
         col[oc] = lin(c[0]); col[oc + 1] = lin(c[1]); col[oc + 2] = lin(c[2]); col[oc + 3] = vWet(vx, vy) ? c[3] : 0; oc += 4;
@@ -750,10 +799,188 @@ export class Terrain {
     g.setAttribute('aBend', new THREE.BufferAttribute(bend, 1));
     g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(od), 1));
     g.setAttribute('aRound', new THREE.BufferAttribute(round, 1));
+    g.setAttribute('aWhite', new THREE.BufferAttribute(white, 1));
     this.water = new THREE.Mesh(g, this.waterMat);
     this.water.renderOrder = 2;
     this.scene.add(this.water);
+    this.buildFalls(tiles, tileDrop, wet, vLevel, vColor, vertexFlow);
     this.refreshWaterQuality();
+  }
+
+  // Waterfalls (landform.js creekFalls): over each tile where the creek's sheet drops FALL_MIN or
+  // more, the water runs over a rock ledge and pours off its brow into the pool at the tile's foot.
+  // The tile grid can't hold a sheer face (the ground under a fall is a steep ramp), so the ledge is
+  // drawn: a slab of dark rock standing on the ramp, its top under the water at the lip level for
+  // FALL_RUN of the tile, then a face curving down behind the falling sheet, and wings reaching into
+  // the banks either side that taper into the ground (fallRock, one opaque mesh). The water leaves the
+  // brow and falls on a t^2 arc over FALL_TRAVEL of the tile; it thins as it falls and tears into
+  // white streaks, foam boils out round where it lands, and a little mist hangs over the pool
+  // (fallMesh: one mesh for all of them, fallLook's material). None where there are none.
+  // A full beaver dam's spill is the same falling water, thinner, without rock or mist (`spills`):
+  // over the crest of each mound across the channel and down its downstream face (damSpill).
+  buildFalls(tiles, tileDrop, wet, vLevel, vColor, vertexFlow) {
+    for (const m of [this.falls, this.spills, this.fallRock]) if (m) { this.scene.remove(m); m.geometry.dispose(); }
+    this.falls = this.spills = this.fallRock = null;
+    const TW = this.TW, X0 = this.X0, Y0 = this.Y0, w = this.world, strips = [], spills = [];
+    // a strip: its lip's two ends [x, z, level] (a), the points under them at its foot (b), and how it falls
+    for (const k of tiles) if (wet[k] && tileDrop[k] >= FALL_MIN) {
+      const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
+      const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]], L = c.map(([vx, vy]) => vLevel(vx, vy));
+      // the lip: the tile's edge with the highest water; the foot the edge opposite it
+      let lip = 0, best = -Infinity;
+      for (let e = 0; e < 4; e++) { const m = L[e] + L[(e + 1) % 4]; if (m > best) { best = m; lip = e; } }
+      const a0 = lip, a1 = (lip + 1) % 4, b0 = (lip + 3) % 4, b1 = (lip + 2) % 4; // (a0-a1 the lip, b0 under a0, b1 under a1)
+      const at = e => [c[e][0], c[e][1], L[e]];
+      strips.push({ a: [at(a0), at(a1)], b: [at(b0), at(b1)], ground: [w.vert(...c[a0]), w.vert(...c[a1])], run: FALL_RUN, travel: FALL_TRAVEL, edge: 0.1, thick: 1, foam: 0.6, mist: true, seed: k, colour: [vColor(...c[a0]), vColor(...c[a1])] });
+    }
+    for (const d of w.damSpills || []) this.damSpill(d, spills, vColor);
+    this.falls = this.fallMesh(strips); this.spills = this.fallMesh(spills); this.fallRock = this.ledge(strips);
+  }
+  // One mesh of falling water (null for none): each strip's sheet, its foam, its mist.
+  fallMesh(strips) {
+    if (!strips.length) return null;
+    const R = 10, C = 5, pos = [], col = [], nor = [], fall = [], idx = [], sheet = [];
+    const put = (p, n, cc, f) => { pos.push(...p); nor.push(...n); col.push(lin(cc[0]), lin(cc[1]), lin(cc[2])); fall.push(...f); return pos.length / 3 - 1; };
+    for (const s of strips) {
+      const rnd = hashRand(s.seed ?? 7);
+      const P = (u, t) => this.fallPoint(s, u, t), drop = (s.a[0][2] + s.a[1][2] - s.b[0][2] - s.b[1][2]) / 2;
+      // the sheet: rows down it (two over the ledge top, then R falling), columns across; thick in the
+      // middle and at the lip, thinning toward its ragged edges and as it falls
+      const rows = [0, s.run * 0.5, ...Array.from({ length: R + 1 }, (_, r) => s.run + s.travel * (r / R))].filter((t, i, a) => i === 0 || t > a[i - 1] + 1e-6);
+      const colT = Array.from({ length: C + 1 }, () => 0.75 + rnd() * 0.25), base = pos.length / 3;
+      rows.forEach((t, r) => {
+        const tau = Math.max(0, (t - s.run) / (s.travel || 1));
+        for (let ci = 0; ci <= C; ci++) {
+          const u = s.edge + (1 - 2 * s.edge) * ci / C, mid = 1 - Math.abs(ci / C - 0.5) * 2;
+          const th = s.thick * colT[ci] * (0.35 + 0.65 * Math.min(1, mid * 2.2)) * (1 - 0.6 * tau);
+          put(P(u, t), [0, 1, 0], s.colour[ci < C / 2 ? 0 : 1], [ci / C, t * (1 + drop * LEVEL * 2), th, 0]);
+        }
+        if (r) for (let ci = 0; ci < C; ci++) { const b = base + (r - 1) * (C + 1) + ci, n = b + C + 1; sheet.push(b, n, b + 1, b + 1, n, n + 1); }
+      });
+      idx.push(...sheet.splice(0));
+      // foam: a disc on the water where it lands, boiling outward
+      if (s.foam) {
+        const land = P(0.5, s.run + s.travel), RAD = s.foam, RS = 12, rings = [0, 0.35, 0.7, 1];
+        const dx = s.b[0][0] - s.a[0][0], dz = s.b[0][1] - s.a[0][1], l = Math.hypot(dx, dz) || 1; // (downstream: the disc sits a little past where it lands)
+        const cx = land[0] + dx / l * RAD * 0.35, cz = land[2] + dz / l * RAD * 0.35, fb = pos.length / 3;
+        // (on the drawn water there: a pond's surface can stand over the foot's own level)
+        const wa = this.waterAt?.(cx, cz), fy = Math.max(Math.max(s.b[0][2], s.b[1][2]) * LEVEL, Number.isFinite(wa) ? wa : -Infinity) + 0.012;
+        rings.forEach((rr, ri) => {
+          for (let q = 0; q <= RS; q++) {
+            const ang = q / RS * Math.PI * 2;
+            put([cx + Math.cos(ang) * rr * RAD, fy, cz + Math.sin(ang) * rr * RAD], [0, 1, 0], s.colour[0], [rr, q / RS, s.thick, 1]);
+          }
+          if (ri) for (let q = 0; q < RS; q++) { const b = fb + (ri - 1) * (RS + 1) + q, n = b + RS + 1; idx.push(b, n, b + 1, b + 1, n, n + 1); }
+        });
+      }
+      // mist: a few soft puffs over the pool, drawn after the water they hang over
+      if (s.mist) {
+        const fy = Math.max(s.b[0][2], s.b[1][2]) * LEVEL;
+        for (let m = 0; m < 4; m++) {
+          const at = P(0.2 + 0.6 * rnd(), s.run + s.travel * (0.85 + 0.25 * rnd())), size = 0.28 + 0.22 * rnd(), ph = 2 + rnd() * 0.9, y = fy + 0.06 + m * 0.07 + rnd() * 0.05, mb = pos.length / 3;
+          for (const [cu, cv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) put([at[0], y, at[2]], [0, 1, 0], s.colour[0], [cu, cv, size, ph]);
+          idx.push(mb, mb + 1, mb + 2, mb, mb + 2, mb + 3);
+        }
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('aFall', new THREE.Float32BufferAttribute(fall, 4));
+    g.setIndex(idx);
+    // (the sheet's own normals, facing up and downstream; foam and mist keep theirs pointing up)
+    const ng = new THREE.BufferGeometry(); ng.setAttribute('position', g.attributes.position); ng.setIndex(idx.filter((_, i) => fall[idx[i - i % 3] * 4 + 3] === 0 && fall[idx[i - i % 3 + 1] * 4 + 3] === 0)); ng.computeVertexNormals();
+    const nn = ng.attributes.normal.array; for (let v = 0; v < fall.length / 4; v++) if (fall[v * 4 + 3] === 0) { nor[v * 3] = nn[v * 3]; nor[v * 3 + 1] = nn[v * 3 + 1]; nor[v * 3 + 2] = nn[v * 3 + 2]; }
+    g.attributes.normal.array.set(nor);
+    const mesh = new THREE.Mesh(g, this.fallMat);
+    mesh.renderOrder = 3; // (over the water it pours into)
+    this.scene.add(mesh);
+    return mesh;
+  }
+  // A point of a strip's falling water: u across the lip (0-1, beyond it to either side for the
+  // rock's wings), t down the tile (0 the lip, 1 the foot); level over the ledge's top, then a t^2 arc.
+  fallPoint(s, u, t) {
+    const lp = [0, 1, 2].map(k => s.a[0][k] + (s.a[1][k] - s.a[0][k]) * u), fp = [0, 1, 2].map(k => s.b[0][k] + (s.b[1][k] - s.b[0][k]) * u);
+    const tau = Math.max(0, Math.min(1, (t - s.run) / (s.travel || 1))), lv = lp[2] - (lp[2] - fp[2]) * tau * tau;
+    return [lp[0] + (fp[0] - lp[0]) * t, lv * LEVEL + 0.02, lp[1] + (fp[1] - lp[1]) * t];
+  }
+  // The rock a fall pours off (null for none): per fall, columns across from one bank to the other, each
+  // a profile from under the bed upstream, over the ledge's top just under the water, round its brow
+  // and down a face behind the falling sheet into the ground; the outer columns lie along the ramp
+  // under the banks, so the wings taper into them. Wet and dark behind the water, drier and mossy
+  // on top of the wings.
+  ledge(strips) {
+    const falls = strips.filter(s => s.mist);
+    if (!falls.length) return null;
+    const pos = [], col = [], ice = [], idx = [], w = this.world;
+    const groundY = (x, z) => { // (the ground's height at a point, between its tile's corners)
+      const x0 = Math.floor(x), z0 = Math.floor(z), fx = x - x0, fz = z - z0, v = (a, b) => w.vert(Math.max(0, Math.min(w.w, a)), Math.max(0, Math.min(w.h, b)));
+      return ((v(x0, z0) * (1 - fx) + v(x0 + 1, z0) * fx) * (1 - fz) + (v(x0, z0 + 1) * (1 - fx) + v(x0 + 1, z0 + 1) * fx) * fz) * LEVEL;
+    };
+    const U = [-0.5, -0.3, -0.12, 0.05, 0.3, 0.5, 0.7, 0.95, 1.12, 1.3, 1.5];
+    const wetC = [0.3, 0.31, 0.3], rockC = [0.47, 0.45, 0.41], mossC = [0.36, 0.42, 0.24];
+    for (const s of falls) {
+      const rnd = hashRand(s.seed * 31 + 5), base = pos.length / 3;
+      const lipY = u => (s.a[0][2] + (s.a[1][2] - s.a[0][2]) * u) * LEVEL - 0.012, footY = u => (s.b[0][2] + (s.b[1][2] - s.b[0][2]) * u) * LEVEL;
+      const bedY = u => (s.ground[0] + (s.ground[1] - s.ground[0]) * u) * LEVEL;
+      // the profile: [t down the tile, height (1 at the lip, 0 at the foot)]
+      const prof = [[-0.18, null], [0.02, 1], [s.run * 0.6, 1.01], [s.run - 0.03, 0.985], [s.run + 0.02, 0.9]];
+      for (const tau of [0.3, 0.5, 0.7, 0.88, 1.05]) prof.push([s.run - 0.02 + s.travel * 0.5 * tau, 1 - tau * tau]);
+      for (let ci = 0; ci < U.length; ci++) {
+        const u = U[ci], outer = ci === 0 || ci === U.length - 1, wing = u < 0 || u > 1, bulge = (rnd() - 0.5) * 0.08, lift = (rnd() - 0.5) * 0.04;
+        prof.forEach(([t, h], pi) => {
+          const ly = lipY(u), fy = footY(u);
+          let y = h == null ? bedY(u) - 0.05 : fy + (ly - fy) * h + (pi > 1 ? lift : 0);
+          let tt = t + (pi > 3 ? bulge + (rnd() - 0.5) * 0.06 : 0);
+          if (pi > 1) y += (rnd() - 0.5) * 0.03;
+          // (the wings sink toward their ends, the end columns under the bank's ramp: they taper into the bank)
+          const ramp = bedY(u) - (ly - fy) * Math.max(0, tt) - 0.04, sink = outer ? 1 : wing ? 0.45 : 0;
+          if (h != null) y = Math.min(y, y + (ramp - y) * sink);
+          // (and never far over the real bank, however it's been raised or lowered: an outcrop by the
+          // fall, under the ground toward the wings' ends)
+          const q = this.fallPoint(s, u, tt), tx = Math.floor(q[0]), tz = Math.floor(q[2]);
+          if (w.inb(tx, tz) && !isWater(w.terrain[w.idx(tx, tz)])) y = Math.min(y, groundY(q[0], q[2]) + (outer ? -0.04 : Math.abs(u - Math.min(1, Math.max(0, u))) < 0.2 ? 0.06 : 0.01));
+          pos.push(q[0], y, q[2]);
+          const top = pi > 0 && pi < 4, c = !wing && !top ? wetC : wing && top && rnd() < 0.7 ? mossC : pi > 3 ? (wing ? rockC.map(v => v * 0.8) : wetC) : rockC, j = 0.9 + rnd() * 0.2;
+          col.push(lin(c[0] * j), lin(c[1] * j), lin(c[2] * j));
+          ice.push(top ? 0 : wing ? (pi > 3 ? 0.55 : 0.3) : 1); // (where the spray wets it: rockIce)
+        });
+        if (ci) for (let pi = 0; pi < prof.length - 1; pi++) {
+          const a = base + (ci - 1) * prof.length + pi, b = a + prof.length;
+          idx.push(a, a + 1, b, b, a + 1, b + 1);
+        }
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('aIce', new THREE.Float32BufferAttribute(ice, 1));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, this.rockMat);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    this.scene.add(mesh);
+    return mesh;
+  }
+  // A full dam's spill: over each mound whose tile below is water (the channel, not a dam end on a
+  // bank), a thin sheet DAM_SPILL_WIDTH of the edge wide leaves the crest on the mound's line (bowed
+  // upstream as flora.js draws it) and falls into the water half a tile below.
+  damSpill(d, strips, vColor) {
+    const w = this.world, [ax, ay] = d.axis, x = d.site % w.w, y = (d.site / w.w) | 0;
+    const across = e => (e[0] % w.w - x) * ay - (((e[0] / w.w) | 0) - y) * ax, half = Math.max(1, ...d.edges.map(e => Math.abs(across(e))));
+    for (const e of d.edges) {
+      const below = e[1], bx = below % w.w, by = (below / w.w) | 0;
+      if (!isWater(w.terrain[below]) || w.waterManaged?.[below]) continue;
+      const foot = Math.min(...w.corners(bx, by)) + FILL[w.terrain[below]];
+      if (d.crest - foot < 0.03) continue; // (water standing up to the crest below: nothing to fall)
+      const p = across(e), bow = 0.16 * (1 - (p / (half + 1)) ** 2);
+      const mx = (e[0] % w.w + bx) / 2 + 0.5 - ax * bow, mz = ((e[0] / w.w) | 0) / 2 + by / 2 + 0.5 - ay * bow;
+      const sx = ay * DAM_SPILL_WIDTH / 2, sz = -ax * DAM_SPILL_WIDTH / 2, out = 0.5 + bow; // (along the line, wound as a fall's lip is, and down to the foot)
+      const lip = [[mx - sx, mz - sz, d.crest + 0.01], [mx + sx, mz + sz, d.crest + 0.01]];
+      const c = vColor(bx, by);
+      strips.push({ a: lip, b: lip.map(([px, pz]) => [px + ax * out, pz + ay * out, foot]), run: 0, travel: 1, edge: 0.04, thick: 0.7, foam: 0.34, mist: false, seed: e[0] * 3 + e[1], colour: [c, c] });
+    }
   }
 
   // How clean the water is at each corner: the simulation's water quality on the tiles around it.
@@ -872,6 +1099,7 @@ export class Terrain {
     geo.setAttribute('aQual', new THREE.BufferAttribute(qual, 1));
     // (floodwater keeps its own edge)
     geo.setAttribute('aRound', new THREE.BufferAttribute(new Float32Array(qual.length).fill(99), 1));
+    geo.setAttribute('aWhite', new THREE.BufferAttribute(new Float32Array(qual.length), 1));
     this.flood = new THREE.Mesh(geo, this.floodMat);
     this.flood.renderOrder = 3;
     this.scene.add(this.flood);

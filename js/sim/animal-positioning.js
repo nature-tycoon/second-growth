@@ -6,6 +6,7 @@ import { T, F, isWater, clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
 import { lastDry } from './waterline.js';
 import { inWood } from './ground-obstacles.js';
+import { trait } from '../data/animal-kinds.js';
 
 export function animalRadius(a, catalog = activeCatalog) {
   const def = drawDef(animalDef(a, catalog), a), s = def.sprite;
@@ -19,7 +20,8 @@ export function facePoint(a, x, y) {
   a.heading = Math.atan2(y - a.y, x - a.x);
 }
 
-const PERCHED_WADERS = new Set(['duck', 'heron', 'crane']);
+// (a bird that never sits in a crown, a duck, heron or dipper, is on the ground or water under one)
+const offCrowns = def => trait(def, 'sitsInCrowns') === false;
 // (x, y and grounded: where it would be standing on the ground, without copying the animal)
 function layer(w, a, x = a.x, y = a.y, grounded = false) {
   if (a.state === 'dormant') return null;
@@ -29,7 +31,7 @@ function layer(w, a, x = a.x, y = a.y, grounded = false) {
   const i = w.idx(tx, ty), def = w.catalog.animals[a.sp];
   if (def.reef) return 'reef';
   if (a.move === 'tree' || a.move === 'fly' && w.tree[i] && w.treeG[i] > 0.5 &&
-    !PERCHED_WADERS.has(def.sprite.kind)) return 'canopy';
+    !offCrowns(def)) return 'canopy';
   return isWater(w.terrain[i]) && w.terrain[i] !== T.MARSH ? 'water' : 'ground';
 }
 
@@ -38,8 +40,9 @@ function layer(w, a, x = a.x, y = a.y, grounded = false) {
 // the neighbours are walked with plain loops rather than a generator: same buckets, same order.
 // (Only animals on the map are bucketed, so a square off the map's edge is always empty.)
 // How far a walker veers off its line to pass one in its way (radians): smoothWalk turns no
-// further than this toward steer's point, and steer brakes for whoever is in that lane.
+// further than this toward steer's point, and steer brakes for whoever is walking in that lane.
 export const STEER_VEER = 1.0;
+const standing = a => a.state === 'idle' || a.state === 'feed' || a.state === 'forage';
 const HERD_ROOM = 0.85; // (of the two bodies' lengths, centre to centre: about a body length of ground between)
 
 export class AnimalSpacing {
@@ -95,6 +98,21 @@ export class AnimalSpacing {
       cost += Math.max(0, r + e.r + 0.04 - Math.hypot(x - e.a.x, y - e.a.y));
     }
     return cost;
+  }
+  // One standing still (grazing, resting) right in front of it and touching: steer curves round
+  // before contact, so this is one hemmed in, pressing into it (walkStep: a follower stops there).
+  // Returns its band ('ground' or 'water'), else null. (A follower stops only on the ground, where
+  // herd room then spreads them: stopped touching in the river, a hippo pod stayed clumped.)
+  standingAhead(a) {
+    const band = layer(this.w, a);
+    if (band !== 'ground' && band !== 'water') return null;
+    const r = animalRadius(a, this.w.catalog), hx = Math.cos(a.heading ?? 0), hy = Math.sin(a.heading ?? 0);
+    for (const bucket of this.around(a.x, a.y)) for (const e of bucket) {
+      if (!this.compatible(a, e, band) || !standing(e.a)) continue;
+      const ox = e.a.x - a.x, oy = e.a.y - a.y, d = Math.hypot(ox, oy);
+      if (d < r + e.r + 0.04 && ox * hx + oy * hy > d * 0.7) return band;
+    }
+    return null;
   }
   // Grazing herd mates leave about a body length of clear ground between them (0025): bodies
   // centre to centre about 1.7 lengths apart. How far short of that (x, y) is, summed over them.
@@ -168,7 +186,7 @@ export class AnimalSpacing {
     // on half their walking steps through a grazing herd)
     const veer = clamp(Math.min(need[side], 1.3) * (side === 0 ? 1 : -1), -STEER_VEER, STEER_VEER);
     const ux = dx * Math.cos(veer) - dy * Math.sin(veer), uy = dx * Math.sin(veer) + dy * Math.cos(veer);
-    let ahead = Infinity; // (room left before it touches the nearest one in that lane)
+    let ahead = Infinity, edging = false; // (room left before it touches the nearest one in that lane)
     for (const bucket of this.around(a.x, a.y)) for (const e of bucket) {
       if (!this.compatible(a, e, band)) continue;
       const ox = e.a.x - a.x, oy = e.a.y - a.y, reach = r + e.r + 0.04, along = ox * ux + oy * uy;
@@ -176,9 +194,15 @@ export class AnimalSpacing {
       // (one on a chase or in flight coming at it won't give way: it steps aside rather than waiting
       // in its path, where a bass hunting up a creek pushed another along backwards)
       if (Math.cos(e.a.heading ?? 0) * dx + Math.sin(e.a.heading ?? 0) * dy < -0.5 && (e.a.state === 'hunt' || e.a.state === 'flee')) continue;
+      // (nor for one standing still: it won't move off, so waiting behind it only creeps; it edges
+      // round instead, easing to 0.65 while it's in the lane (only near contact, walkers pressed
+      // into resting buffalo herds). Braking behind a grazing deer held a family's followers at a
+      // crawl for up to 12 seconds, queued nose to tail: 2026-11-19. The same in the water: hippos
+      // and crocodiles crept through the river behind one resting there)
+      if (band !== 'canopy' && standing(e.a)) { edging = true; continue; }
       ahead = Math.min(ahead, along - reach);
     }
-    const brake = ahead < 0.08 ? clamp(0.15 + ahead * 5, 0.15, 1) : 1;
+    const brake = ahead < 0.08 ? clamp(0.15 + ahead * 5, 0.15, 1) : edging ? 0.65 : 1;
     return [p[0], p[1], Math.min(brake, need[side] > 1.3 ? 0.35 : 1 - 0.3 * Math.min(1, need[side] / 1.3))];
   }
 
@@ -285,7 +309,7 @@ export function shoreSpot(w, a, j, spacing, canStand) {
   const dry = a.move === 'ground' && !w.catalog.animals[a.sp]?.reef; // (a land walker drinks from the bank, never standing in the water: 0025)
   if (dry && isWater(w.terrain[j])) return null;
   if (a.move === 'fly' && w.tree[j] && w.treeG[j] > 0.5 &&
-    !PERCHED_WADERS.has(w.catalog.animals[a.sp].sprite.kind)) return null;
+    !offCrowns(w.catalog.animals[a.sp])) return null;
   const x = j % w.w, y = (j / w.w) | 0;
   let best = null, score = Infinity;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {

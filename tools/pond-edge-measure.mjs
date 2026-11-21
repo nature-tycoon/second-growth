@@ -114,11 +114,11 @@ export function paintMarsh(game, seed = 5, n = 25) {
 }
 export function damCreeks(game, gap = 9) {
   const w = game.world; let n = 0;
-  for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.CREEK && w.feature[i] === 0 && !game.wildlife.damNear(i, gap)) { game.wildlife.buildDam(i); n++; }
+  for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.CREEK && w.feature[i] === 0 && !game.wildlife.damNear(i, gap)) { game.wildlife.buildDam(i, 1); n++; }
   w.hv++; return n;
 }
 if (process.argv[1] && import.meta.url === (await import("node:url")).pathToFileURL(process.argv[1]).href && process.argv.includes('--scenarios')) {
-  const summer = game => { game.wildlife.buildDam(game.world.idx(54, 46)); game.weather = 'rain'; for (let k = 0; k < 30; k++) game.water?.step(game); game.weather = 'clear'; game.day = 50; for (let k = 0; k < 60; k++) game.water?.step(game); };
+  const summer = game => { game.wildlife.buildDam(game.world.idx(54, 46), 1); game.weather = 'rain'; for (let k = 0; k < 30; k++) game.water?.step(game); game.weather = 'clear'; game.day = 50; for (let k = 0; k < 60; k++) game.water?.step(game); };
   for (const [name, fn] of [['marsh', paintMarsh], ['dams', damCreeks], ['dam pond in late summer', summer]]) {
     const game = new Game(); game.newGame(1987, 'free', 'standard', 'pnw'); fn(game);
     const t = makeView(game); console.log('pnw ' + name, JSON.stringify(measure(game, t)));

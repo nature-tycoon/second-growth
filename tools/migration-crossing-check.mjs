@@ -22,6 +22,14 @@ let swimmingAt = null;
 const watch = () => { momentsUpdate(g); if (g.flags.moments.crossing != null && swimmingAt == null) swimmingAt = herd.filter(a => wl.agents.includes(a) && wet(a) && a.y < w.h).length; };
 wl.crossRiver(def, 25);
 const herd = wl.agents.filter(a => a.key === 'wildebeest');
+// (the herds cross where the grass beyond the bank is greenest, within the middle 40% of the river,
+// and a group arriving while a crossing is under way joins it: decision 0052)
+const cx = wl.crossingAt.x;
+check(Math.abs(cx - w.w * 0.5) <= w.w * 0.2 + 1 && w.h - 1 - wl.crossingAt.bank <= 10, `the crossing is in the middle of the river, at a straight reach (x ${cx}, bank row ${wl.crossingAt.bank})`);
+wl.crossRiver(def, 1);
+const late = wl.agents[wl.agents.length - 1];
+check(wl.crossingAt.x === cx && Math.abs(late.x - cx) < 12, 'a group arriving during the crossing joins it');
+wl.remove(late, 'left');
 const wet = a => (w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.terrain[w.idx(Math.floor(a.x), Math.floor(a.y))] : serengetiBorderCell(Math.floor(a.x), Math.floor(a.y), 0.5, 0.5, w).t) === T.RIVER;
 check(herd.length === 25 && herd.every(a => a.y >= w.h && !wet(a)), 'the herd starts on the far bank, out of the water');
 watch();
@@ -34,4 +42,4 @@ for (; t < 20 * 40 && !herd.every(a => !wl.agents.includes(a) || a.y < w.h && !w
 check(herd.every(a => !wl.agents.includes(a) || a.y < w.h && !wet(a)), `the herd swims over and climbs out onto the range (${t} updates)`);
 check(swimmingAt >= 3, `the great crossing moment plays once the herd is swimming (${swimmingAt} in the river)`);
 if (failed) { console.log(`${failed} migration crossing checks failed.`); process.exit(1); }
-console.log('5 migration crossing checks passed.');
+console.log('7 migration crossing checks passed.');

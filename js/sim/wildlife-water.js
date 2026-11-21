@@ -8,9 +8,41 @@ import { restless } from './animal-life.js';
 import { fishStrike, fishing, fishFed } from './fishing.js';
 import { aimDrink } from './steering.js';
 import { walkToWater, drinkEvery, homeEligible, waterReach } from './home-range.js';
-import { passable, canLand, shallows } from './animal-terrain.js';
+import { passable, canLand, shallowsFor } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
 import { inCrossing } from './wildlife-shared.js';
+import { trait } from '../data/animal-kinds.js';
+import { isFall } from '../maps/landform.js';
+
+// A creek wader (fastWater) walks only in the creek and along its edge.
+const creekSide = (w, j) => w.terrain[j] === T.CREEK || w.distWater[j] <= 1 && !isWater(w.terrain[j]);
+// Every point of the straight line from (x0, y0) to (x1, y1) is over water or the bank beside it:
+// a dipper's flight follows the creek and never cuts across land.
+function overWater(w, x0, y0, x1, y1) {
+  const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 0.4);
+  for (let s = 1; s < n; s++) {
+    const x = Math.floor(x0 + (x1 - x0) * s / n), y = Math.floor(y0 + (y1 - y0) * s / n);
+    if (!w.inb(x, y)) return false;
+    const j = w.idx(x, y);
+    if (!isWater(w.terrain[j]) && w.distWater[j] > 1) return false;
+  }
+  return true;
+}
+// The nest of a creek bird in the nesting months: the nearest fall within reach of its home (it
+// nests on the wet rock beside or behind the curtain), else none (a bank or a bridge anywhere along
+// its reach does). Read from the land each time, nothing saved.
+function creekNest(wl, a) {
+  const w = wl.game.world, c = a.home?.center;
+  const cx = c != null ? c % w.w : Math.floor(a.x), cy = c != null ? (c / w.w) | 0 : Math.floor(a.y);
+  let best = -1, bd = 11 * 11;
+  for (let dy = -10; dy <= 10; dy++) for (let dx = -10; dx <= 10; dx++) {
+    const x = cx + dx, y = cy + dy;
+    if (!w.inb(x, y) || dx * dx + dy * dy >= bd) continue;
+    const j = w.idx(x, y);
+    if (w.terrain[j] === T.CREEK && isFall(w, j)) { bd = dx * dx + dy * dy; best = j; }
+  }
+  return best;
+}
 
 export class WildlifeWater {
   // -------------------------------------------------------------- herds and waterholes
@@ -102,13 +134,13 @@ export class WildlifeWater {
     const def = this.game.catalog.animals[a.sp], fisher = fishing(def, this.game);
     if (!w.inb(x0, y0)) return false;
     // a hungry heron that fishes flies down to the shallows to fish (fishing.js)
-    if (a.flying || !shallows(w, w.idx(x0, y0))) return !!fisher && !fishFed(a) && this.toShallows(a, def);
-    const hungry = !!fisher && !fishFed(a);
+    if (a.flying || !shallowsFor(w, w.idx(x0, y0), def)) return !!fisher && !fishFed(a) && this.toShallows(a, def);
+    const hungry = !!fisher && !fishFed(a), brisk = trait(def, 'fastWater');
     if (simRandom() < (hungry ? 0.8 : 0.55)) {
       // (a hungry heron stands and strikes every day or so; a fed one stands longer, and strikes
-      // only when it is hungry again: fishing.js)
-      a.wait = hungry ? 0.8 + simRandom() * 1.2 : 3 + simRandom() * 6;
-      if (simRandom() < (fisher ? 0.7 : 0.45) && (hungry || !fisher)) {
+      // only when it is hungry again: fishing.js. A dipper feeds all day, a short stand and under.)
+      a.wait = hungry ? 0.8 + simRandom() * 1.2 : brisk ? 1.5 + simRandom() * 2.5 : 3 + simRandom() * 6;
+      if (simRandom() < (fisher ? 0.7 : brisk ? 0.7 : 0.45) && (hungry || !fisher)) {
         a.drinkT = 1 + simRandom(); // head down: a strike at a fish or frog
         const bank = this.bankSpot(a);
         if (bank) { a.drinkAt = bank.water; facePoint(a, ...bank.water); }
@@ -118,9 +150,54 @@ export class WildlifeWater {
       }
       return true;
     }
-    const ok = this.pathTo(a, (j, x, y) => shallows(w, j) && Math.hypot(x - x0, y - y0) >= 1.5 && simRandom() < 0.35, 90);
+    const ok = this.pathTo(a, (j, x, y) => shallowsFor(w, j, def) && Math.hypot(x - x0, y - y0) >= 1.5 && simRandom() < 0.35, 90,
+      null, null, trait(def, 'fastWater') ? creekSide : passable);
     if (ok) { a.wade = true; a.alt = 0; }
     return ok;
+  }
+
+  // A dipper (fastWater) on its creek: mostly it stands on a splash rock bobbing, or walks into the
+  // riffle and dips under to pick larvae off the stones (wade); now and then it flies low and
+  // straight along the creek to another rock a few tiles off, never over land. In the nesting
+  // months it keeps close to its nest, at the nearest fall where there is one. Off the creek (just
+  // arrived) it flies to the nearest good stretch.
+  alongCreek(a, def) {
+    const w = this.game.world, x0 = Math.floor(a.x), y0 = Math.floor(a.y);
+    if (!w.inb(x0, y0)) return false;
+    const map = this.suit[a.sp], onCreek = !a.flying && shallowsFor(w, w.idx(x0, y0), def);
+    if (onCreek && simRandom() < 0.7 && this.wade(a)) return true;
+    const nest = def.breed.includes(this.game.month) && !a.juvenile ? creekNest(this, a) : -1;
+    const h = a.home, R = onCreek ? 8 : 14;
+    let best = -1, bs = -Infinity;
+    for (let k = 0; k < 40; k++) {
+      const x = x0 + Math.round((simRandom() * 2 - 1) * R), y = y0 + Math.round((simRandom() * 2 - 1) * R);
+      if (!w.inb(x, y)) continue;
+      const j = w.idx(x, y), d = Math.hypot(x - x0, y - y0);
+      if (!shallowsFor(w, j, def) || !canLand(w, j, def) || map[j] <= 0.05 || w.fire[j]) continue;
+      if (onCreek && (d < 2 || !overWater(w, a.x, a.y, x + 0.5, y + 0.5))) continue;
+      let s = map[j] + simRandom() * 0.5 - (onCreek ? 0 : d * 0.1);
+      if (h) s -= Math.max(0, Math.hypot(x - h.center % w.w, y - ((h.center / w.w) | 0)) - h.r) * 0.2;
+      if (nest >= 0) s -= Math.hypot(x - nest % w.w, y - ((nest / w.w) | 0)) * 0.15;
+      if (s > bs) { bs = s; best = j; }
+    }
+    if (best < 0 && !onCreek && !(this.state[a.sp].K < 0.05)) {
+      // (none in sight: the nearest good stretch anywhere, as a newcomer follows the valley down to
+      // its creek; skipped when the map holds none, so a dipper whose creek has gone isn't rescanning)
+      let bd = Infinity;
+      for (let j = 0; j < w.n; j++) {
+        if (map[j] <= 0.05 || !shallowsFor(w, j, def) || w.fire[j]) continue;
+        const d = Math.hypot(j % w.w - x0, (j / w.w | 0) - y0);
+        if (d < bd) { bd = d; best = j; }
+      }
+    }
+    if (best < 0) {
+      if (!onCreek) return false;
+      a.wait = 1 + simRandom() * 2; // (nowhere along the water to go: it stays on its rock)
+      return true;
+    }
+    a.tx = best % w.w + 0.3 + simRandom() * 0.4; a.ty = (best / w.w | 0) + 0.3 + simRandom() * 0.4;
+    a.state = 'fly'; a.flying = true; a.path = null; a.bird = null; a.birdGoal = null; a.wade = false;
+    return true;
   }
 
   // Shallows beside water that holds fish, within a short flight.
@@ -131,7 +208,7 @@ export class WildlifeWater {
       const x = x0 + Math.round((simRandom() * 2 - 1) * 10), y = y0 + Math.round((simRandom() * 2 - 1) * 10);
       if (!w.inb(x, y)) continue;
       const j = w.idx(x, y);
-      if (!shallows(w, j) || !canLand(w, j, def) || w.fire[j] || !(w.waterQ[j] > 0.3 || w.distWater[j] <= 1)) continue;
+      if (!shallowsFor(w, j, def) || !canLand(w, j, def) || w.fire[j] || !(w.waterQ[j] > 0.3 || w.distWater[j] <= 1)) continue;
       const d = Math.hypot(x - x0, y - y0);
       if (d < bd) { bd = d; best = j; }
     }

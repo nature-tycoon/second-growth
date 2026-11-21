@@ -7,6 +7,11 @@
 // - A pond dug up to the creek holds the creek's level through a dry summer; one two tiles off is a
 //   vernal pool and draws down.
 // - Digging never moves the corners of other water (the map's creek), and generated maps are unchanged.
+// - Widening a pond joined to a creek (the map's, or a creek dug into it) keeps its water surface, its
+//   floor a pond's depth under that water and a bank round it over the water, and leaves the creek's bed where it
+//   was. Before, each tile of the widening stroke re-levelled the pond against the creek corners it had
+//   just lowered, sinking pond and creek a step at a time: 1.9 levels (4.5 m) for a 6 by 4 stroke, a pit
+//   with its water far under the rim (Cole, 2026-11-20).
 import assert from 'node:assert/strict';
 globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeItem() {} };
 const { Game } = await import('../js/game.js');
@@ -100,6 +105,63 @@ check('A joined pond keeps its level through a save and load', () => {
   const b = h.water.basins.find(b => b.core.includes(h.world.idx(MAIN + 1, 60)));
   assert.ok(b.feed != null && Math.abs(h.water.level(b) - tileWaterLevel(h.world, h.world.idx(MAIN, 61))) < .02);
   assert.ok(Number.isFinite(h.world.dugBed[h.world.idx(60, Y)]) && !Number.isFinite(h.world.dugBed[h.world.idx(MAIN, Y)]), 'dug creek known again after loading');
+});
+
+// (the corners of creek tiles no pond tile touches, before and after: the creek's own bed)
+const creekBed = (w, pond) => {
+  const out = [];
+  for (let i = 0; i < w.n; i++) {
+    if (w.terrain[i] !== T.CREEK) continue;
+    const x = i % w.w, y = (i / w.w) | 0;
+    for (const [vx, vy] of [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]]) {
+      if ([[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([ox, oy]) => pond.has(w.idx(vx + ox, vy + oy)))) continue;
+      out.push(w.vert(vx, vy));
+    }
+  }
+  return out;
+};
+const rect = (x0, x1, y0, y1) => { const out = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) out.push([x, y]); return out; };
+for (const [name, first, feeder, widen] of [
+  ['beside the map\'s creek', rect(MAIN + 1, MAIN + 3, 60, 62), null, rect(MAIN + 1, MAIN + 6, 63, 66)],
+  ['with a creek dug into it', rect(60, 62, 60, 62), row(68, 63, 61), rect(60, 65, 63, 66)],
+  // (the pond wraps round the creek's end tile, touching all its corners, then widens)
+  ['wrapped round the creek\'s end', rect(60, 62, 60, 62), row(68, 63, 61), [[63, 60], [63, 62], ...rect(60, 65, 63, 66)]],
+]) check(`Widening a creek-fed pond ${name} keeps its water near the rim, and the creek's bed`, () => {
+  const g = farm(), w = g.world;
+  dig(g, 'pond', first);
+  if (feeder) dig(g, 'creek', feeder);
+  const at = () => g.water.basins.find(b => b.core.includes(w.idx(...first[0])));
+  const before = g.water.level(at()), all = new Set([...first, ...widen].map(([x, y]) => w.idx(x, y))), creekWas = creekBed(w, all);
+  dig(g, 'pond', widen);
+  const b = at(), pond = new Set(b.core), L = g.water.level(b);
+  assert.ok(b.feed != null, 'still joined to the creek');
+  assert.deepEqual(creekBed(w, all), creekWas, 'the creek keeps its bed');
+  // (the same surface, or the creek's a little lower where the pond now reaches further down it: a pond
+  // along a falling creek joins it at its low end)
+  assert.ok(Math.abs(L - before) < .1, `the same water surface (${before.toFixed(2)} -> ${L.toFixed(2)})`);
+  const floor = Math.min(...b.core.map(i => Math.min(...w.corners(i % w.w, (i / w.w) | 0))));
+  assert.ok(L - floor < .65, `floor a pond's depth under the water, no pit (${(L - floor).toFixed(2)} deep)`);
+  // (the bank: the outer corners of the land round the pond stand over its water, where no other
+  // water or building holds them)
+  const ring = new Set();
+  for (const i of b.core) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    const j = w.idx(i % w.w + dx, ((i / w.w) | 0) + dy);
+    if (!pond.has(j) && w.terrain[j] !== T.CREEK && w.terrain[j] !== T.RIVER && w.struct[j] < 0) ring.add(j);
+  }
+  const wet = [...ring].filter(j => w.terrain[j] === T.POND || w.terrain[j] === T.MARSH);
+  // (a shallow sedge margin on the bank's foot is fine where the pond is dug deeper than a pond's depth
+  // under the creek's level; a pit isn't: the rim stands over the water all round)
+  assert.ok(wet.length <= ring.size * .5, `mostly a dry bank round it (${wet.length} of ${ring.size} bank tiles wet)`);
+  // (leaving out the land between the pond and the creek, whose corners the creek holds)
+  const byCreek = j => [-1, 0, 1].some(dy => [-1, 0, 1].some(dx => w.terrain[j + dy * w.w + dx] === T.CREEK));
+  const low = [...ring].filter(j => !byCreek(j) && Math.max(...w.corners(j % w.w, (j / w.w) | 0)) < L + .1);
+  assert.equal(low.length, 0, `the rim stands over the water (${low.length} bank tiles under it)`);
+  // (digging the same stroke again moves nothing: re-levelling is stable)
+  const again = creekBed(w, pond), hv = w.hv;
+  dig(g, 'pond', widen);
+  assert.deepEqual(creekBed(w, pond), again, 'a second pass leaves the creek as it is');
+  assert.equal(w.hv, hv, 'a second pass moves no corner');
+  assert.ok(Math.abs(g.water.level(at()) - L) < .02, 'nor the water');
 });
 
 console.log(`dug-creek-check: ${checks} checks passed`);

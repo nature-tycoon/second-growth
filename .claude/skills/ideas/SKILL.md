@@ -31,7 +31,8 @@ Right-size each session:
 - One subsystem per session, so it reads one or two decision records and one area of code. Typically 2–5 small related changes, or one substantial feature.
 - Split a session if its brief needs more than two decision records, touches more than two subsystems, or would need both `balance-sim` and `play-profile` at length.
 - Merge tiny one-file tweaks in the same area into one session rather than paying a session's start-up cost for each.
-- Model: `sonnet` for data tuning, copy, small UI and website changes; default (Opus) for new behavior, rendering, or anything design-heavy.
+- Model: `sonnet` for data tuning, copy, small UI and website changes; default (Opus) for new behavior, rendering, anything design-heavy, and bugs that came back ("again", "still"). Don't downgrade to save tokens where it risks a bug (Cole, 2026-11-19): save tokens by routing check output to `checker`, not by picking a weaker model for the thinking.
+- Sessions that touch water, terrain, movement, save/load or more than one subsystem run `regression-reviewer` on the plan and on the diff before committing (say so in the brief).
 
 Order:
 
@@ -64,7 +65,7 @@ Read first: AGENTS.md, docs/decisions/<record>.md. Code area: <files/dirs>.
 Done when: <observable result>; checks: <tools/*-check.mjs, balance-sim, play-profile as fits>.
 
 Rules:
-- Run slow checks (balance-sim, play-profile, browser checks) with run_in_background and work on a non-conflicting part (the next change in other files, the decision record) while they run. Don't start extra sessions or subagents for this.
+- Hand long check runs (balance-sim, motion sweep, calibrate, play-profile) to the `checker` subagent, so only pass/fail and what moved reach you; run browser checks with run_in_background. Work on a non-conflicting part while they run. Use `scout` only for broad searches. Don't start extra sessions.
 - If an idea turns out unnatural or much bigger than expected, build the realistic or smaller version and log why. Don't stop to ask; log the question.
 - Close preview tabs and stop any server when your check is done. Don't leave a preview open.
 - Commit only your own hunks (see /ship), then write docs/ideas/<slug>/s<N>.md with three lists: Done, Open questions for Cole (each with your recommended answer), New ideas noticed. Commit it with your work.

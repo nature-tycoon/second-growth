@@ -45,6 +45,7 @@ for (const [map, tree] of [['pnw', 'fir'], ['atlanta', 'whiteoak']]) {
   });
   check(`${map}: drawn upright on the bark, under the crown, facing the trunk`, () => {
     const g = grove(map, tree), wl = g.wildlife, w = g.world, W = g.catalog.animal.woodpecker;
+    g.day = 25; // (drawn in late April: on 1 March the white oaks are still bare, 0051)
     const scene = new THREE.Scene(), flora = new Flora(scene); flora.rebuild(g, true);
     const actors = new Actors(scene, flora), right = new THREE.Vector3(1, 0, 0);
     const i = w.idx(40, 30), t = treeTrunk(w, 40, 30), site = flora.treeSites.get(i);

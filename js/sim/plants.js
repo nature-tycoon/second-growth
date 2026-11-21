@@ -6,6 +6,8 @@ import { stressYoungPlant } from './ecological-pressure.js';
 import { grazedRecruitOdds, grazedSeedlingLost, grazedGrowth, overgrazedLoss, grazedForbEdge, elephantFelled, trampledSeedling } from './grazing.js';
 import { plantAffinity } from '../plant-patterns.js';
 import { hash2 } from '../rng.js';
+import { tileWaterLevel, groundAt } from './waterline.js';
+import { trunkSpot } from './ground-obstacles.js';
 
 const rangeFit = (v, lo, hi, soft) => v < lo ? Math.max(0, 1 - (lo - v) / soft) : v > hi ? Math.max(0, 1 - (v - hi) / soft) : 1;
 
@@ -107,6 +109,42 @@ function conspecificShare(w, i, id) {
 }
 
 // (w.seedLog, when a diagnostic sets it, hears why each seed failed: tools/plant-establishment.mjs)
+// ---- Roots under water (0034, 0028). A tree or bush standing in a beaver pond or other held water
+// drowns over a season or two unless it is wet-tolerant (wetOK: willow, ash, red maple, river birch):
+// those live with wet feet on the soggy margin and through a flood of a year or two, then die if the
+// water stays deep (floodDays). Mangroves, swamp trees and water plants are made for it. A tree whose
+// trunk stands in a flowing creek or river (a bank tile the drawn channel reaches over, or a channel
+// tile) dies within a season whatever it is: running water undercuts and topples it. Each is daily
+// odds rather than one day, so a new pond's drowned stand dies over weeks, not all at once.
+const WET_START = 20, STILL_ODDS = 1 / 25, TOLERANT_DAYS = 240, TOLERANT_ODDS = 1 / 60, CHANNEL_ODDS = 0.08;
+const flowing = (w, j) => (w.terrain[j] === T.CREEK || w.terrain[j] === T.RIVER) && !w.waterManaged?.[j];
+// Does this tree's drawn trunk stand in a creek or river? (trunkSpot as flora.js draws it)
+export function inChannel(w, i, p) {
+  if (flowing(w, i)) return true;
+  if (!(w.distWater[i] <= 1) || isWater(w.terrain[i])) return false;
+  const x = i % w.w, y = (i / w.w) | 0;
+  let L = -Infinity;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!w.inb(x + dx, y + dy)) continue;
+    const j = w.idx(x + dx, y + dy);
+    if (flowing(w, j)) L = Math.max(L, tileWaterLevel(w, j) ?? -Infinity);
+  }
+  if (L === -Infinity) return false;
+  const [tx, tz] = trunkSpot(w, x, y, p, true);
+  return groundAt(w, tx, tz) < L - 0.03;
+}
+const waterproof = p => p.aquatic || p.mangrove || p.swampTree;
+export function drownOdds(w, i, p, tree = true) {
+  if (waterproof(p)) return 0;
+  const wet = w.waterWetDays?.[i] || 0;
+  if (wet >= WET_START) {
+    const d = w.waterDepth[i];
+    if (!p.wetOK && d > .04) return STILL_ODDS;
+    if (p.wetOK && d > .15 && wet >= (p.floodDays ?? TOLERANT_DAYS)) return TOLERANT_ODDS;
+  }
+  return tree && inChannel(w, i, p) ? CHANNEL_ODDS : 0;
+}
+
 const no = (w, p, i, why) => { w.seedLog?.(p, i, why); return false; };
 
 // A natural seed lands on tile i (player planting doesn't come through here). Returns true if it
@@ -140,6 +178,7 @@ export function trySeed(w, p, i, rng) {
   }
   const s = under ? plantSuit(w, i, p, underLight) : plantSuit(w, i, p);
   if (s < 0.3) return no(w, p, i, 'unsuited');
+  if (p.layer === 2 && !waterproof(p) && inChannel(w, i, p)) return no(w, p, i, 'channel'); // (it would stand in the creek)
   // a healthy native seed bank in the soil stands in the way of invasive seedlings
   if (p.invasive && w.seedbank && w.seedbank[i] && w.bankStrength > 0 && rng() < w.bankStrength * 0.85) return no(w, p, i, 'seedbank');
   // On maps where natives hold their ground (the suburb), an established native garden is a closed
@@ -344,7 +383,20 @@ function disperse(w, p, x, y, rng, radiusBoost, far = 0) {
   if (!dx && !dy) return;
   const xx = x + dx, yy = y + dy;
   if (!w.inb(xx, yy)) return;
+  // Birds drop the seed they carry where they perch: under a tree, on a snag or a fence line. Out in
+  // open grass most of it is lost, so berry bushes gather at wood edges, round lone trees and along
+  // fences, and spread out from there, rather than speckling the whole meadow (nucleation).
+  if (radiusBoost > 0 && !perchNear(w, xx, yy) && rng() < PERCHLESS_LOSS) return;
   trySeed(w, p, w.idx(xx, yy), rng);
+}
+const PERCHLESS_LOSS = 0.6;
+function perchNear(w, x, y) {
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    if (!w.inb(x + dx, y + dy)) continue;
+    const j = w.idx(x + dx, y + dy), f = w.feature[j];
+    if (w.tree[j] && w.treeG[j] > 0.4 || f === F.SNAG || f === F.FENCE) return true;
+  }
+  return false;
 }
 
 export function updatePlants(game) {
@@ -439,8 +491,8 @@ export function updatePlants(game) {
       else if (g < 0.9) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       else if (rng() < 0.004 * (0.3 - s) / 0.3) g = 0; // shaded out
       if (droughtKills(w, i, g, gf, rng) || grazedSeedlingLost(w, i, p, g, rng) || trampledSeedling(w, i, p, g, rng)) g = 0;
-      // (drowned: a month and more under a beaver pond, a dry-ground bush dies, as the trees do: 0034)
-      else if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) g = 0;
+      // (drowned under a beaver pond, as the trees are: drownOdds)
+      else if (w.waterWetDays?.[i] >= WET_START && rng() < drownOdds(w, i, p, false)) g = 0;
       // weedy bushes on healthy grassland lose out over the years (a thick native sward, hotter
       // grass fires and browsing all work against them)
       else if (bank && p.invasive && bank[i] && bankK > 0 && w.ground[i] && !game.catalog.plants[w.ground[i]].invasive && w.groundG[i] > 0.5 && rng() < 0.0025 * bankK) g = 0;
@@ -475,8 +527,9 @@ export function updatePlants(game) {
         if (s >= 0.3) g += p.grow * gf * (s - 0.3) / 0.7 * 1.4 * grazedGrowth(w, i, p, g) * swardGrowth(w, i, p, g);
         else if (g < 0.5) g -= p.grow * 0.5 * (0.3 - s) / 0.3 * (gf > 0.1 ? 1 : 0.3);
       } else if (s >= 0.3) g = Math.min(1, g + p.grow * gf * 0.5);
-      // Sustained inundation, rather than the day a dam is built, creates snags.
-      if (w.waterWetDays?.[i] >= 30 && w.waterDepth[i] > .15 && !p.wetOK) dies = 'flood';
+      // Sustained inundation, rather than the day a dam is built, creates snags; so does a trunk
+      // standing in a creek (drownOdds). (Odds are rolled only where water reaches the tree.)
+      if ((w.waterWetDays?.[i] >= WET_START || w.distWater[i] <= 1 || isWater(w.terrain[i])) && !waterproof(p)) { const o = drownOdds(w, i, p); if (o && rng() < o) dies = 'flood'; }
       const ageY = w.treeAge[i] / 120, r = rng() * 120;
       const haz = r < ageHazard(p, ageY, mort) + droughtCap + hazCap ? treeHazard(w, i, p, s, g, ageY, mort) : null;
       if (haz && r < haz.h) dies ||= r < haz.age ? 'age' : r < haz.age + haz.drought ? 'drought' : 'stress';

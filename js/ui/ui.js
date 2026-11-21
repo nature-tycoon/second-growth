@@ -1078,13 +1078,16 @@ export class UI {
       m.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
       list.innerHTML = '';
       if (tab === 'animals') {
+        // the same count as the top bar and the Ecosystem Report: wild species with animals here (livestock is not wildlife)
+        const wildMax = this.game.catalog.animals.filter(a => !a.domestic).length;
+        list.appendChild(el('div', 'small guide-tally', `${speciesPresent(g)} of ${wildMax} wild species here now`));
         for (const grp of this.game.catalog.animalGroups) {
           list.appendChild(el('div', 'guide-group', grp));
           const grid = el('div', 'guide-grid');
           for (const def of this.game.catalog.animals.filter(a => a.group === grp)) {
             const st = wl.state[def.index];
             const known = st.discovered || def.intro;
-            const c = el('div', 'gcard' + (known ? '' : ' unknown'), `<img src="${animalThumb(def.key, this.game.catalog)}"><div class="nm">${known ? def.name : '???'}</div><div class="pop ${st.pop ? 'here' : ''}">${st.pop ? st.pop + ' here' : known ? 'not here' : 'undiscovered'}</div>`);
+            const c = el('div', 'gcard' + (known ? '' : ' unknown'), `<img src="${animalThumb(def.key, this.game.catalog)}"><div class="nm">${known ? def.name : '???'}</div><div class="pop ${st.pop ? 'here' : ''}">${st.pop ? st.pop + (def.domestic ? ' kept (livestock)' : ' here') : known ? 'not here' : 'undiscovered'}</div>`);
             c.dataset.key = def.key;
             if (st.pop) {
               const pin = el('button', 'locate', ICONS.pin);
@@ -1243,12 +1246,14 @@ export class UI {
     const choice = (key, name, desc, opts, value = settings[key]) => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><select data-s="${key}">${opts.map(([v, t]) => `<option value="${v}" ${value === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`;
     const slider = (key, name, desc, min = 0.4, max = 2.5, fmt = v => v.toFixed(1) + '×') => `<label class="set-row"><span><b>${name}</b><small>${desc}</small></span><span class="set-slide"><input type="range" min="${min}" max="${max}" step="${(max - min) / 20}" data-s="${key}" value="${settings[key]}" data-fmt="${fmt === pctFmt ? 'pct' : 'x'}"><output>${fmt(settings[key])}</output></span></label>`;
     const pctFmt = v => Math.round(v * 100) + '%';
+    // rarely used options fold under a "More" line so the everyday ones stay in view (kept open if you opened it last)
+    const more = (id, body, label = 'More options') => `<details class="set-more" data-more="${id}" ${this.settingsMore?.[id] ? 'open' : ''}><summary>${label}</summary>${body}</details>`;
     const TABS = {
       audio: ['Audio', `
         ${toggle('muted', 'Mute everything', 'Also the speaker button in the top bar, or press M.')}
         ${toggle('music', 'Lo-fi music', 'Relaxed lo-fi tracks, shuffled. Streamed one at a time.')}
         ${slider('musicVolume', 'Music volume', '', 0, 1, pctFmt)}
-        <div class="set-row now-playing"><span><b>Now playing</b><small class="np-title">${music.nowPlaying ? `${music.nowPlaying.title} · ${music.nowPlaying.artist}` : 'Starts when you begin playing'}</small></span><button type="button" class="btn secondary np-skip">Next track</button></div>
+        ${more('audio', `<div class="set-row now-playing"><span><b>Now playing</b><small class="np-title">${music.nowPlaying ? `${music.nowPlaying.title} · ${music.nowPlaying.artist}` : 'Starts when you begin playing'}</small></span><button type="button" class="btn secondary np-skip">Next track</button></div>`, 'Now playing')}
         ${toggle('nature', 'Nature sounds', 'Local wildlife, water, wind and insects, following each map’s seasons and time of day.')}
         ${slider('natureVolume', 'Nature volume', '', 0, 1, pctFmt)}
         <details class="audio-credits">
@@ -1264,17 +1269,17 @@ export class UI {
         ${toggle('autosave', 'Autosave', 'Save every 30 seconds, at the end of each month, and when you leave the tab.')}
         <p class="small">Progress stays in this browser on this device. Clearing site data removes it.</p>
         ${toggle('pauseOnEvents', 'Pause on wildfire or flood', 'Stop the clock so you can respond.')}
-        ${toggle('invasives', 'Invasive species', 'Invasive plants seed in from the neighbours and spread. Off: no new ones take root; any already on the land stay until you clear them.')}
-        ${toggle('moments', 'Keystone moments', 'The camera flies to big natural events with a title card. Off: you get a notification instead, and can click it to look.')}
-        ${choice('notifications', 'Notifications', 'All updates stay in the field journal, even when pop-ups are hidden.', [['all', 'Show everything'], ['important', 'Important only'], ['hidden', 'Hide pop-ups']])}`],
+        ${choice('notifications', 'Notifications', 'All updates stay in the field journal, even when pop-ups are hidden.', [['all', 'Show everything'], ['important', 'Important only'], ['hidden', 'Hide pop-ups']])}
+        ${more('game', `${toggle('moments', 'Keystone moments', 'The camera flies to big natural events with a title card. Off: you get a notification instead, and can click it to look.')}
+        ${toggle('invasives', 'Invasive species', 'Invasive plants seed in from the neighbours and spread. Off: no new ones take root; any already on the land stay until you clear them.')}`)}`],
       graphics: ['Graphics', `
         ${choice('quality', 'Detail', TOUCH ? 'Fast suits most phones. On a touch screen the resolution also adjusts itself to keep things smooth.' : 'Lower it if the game feels slow. Fast also uses simpler plants until you zoom in.', [['high', 'Sharp'], ['balanced', 'Balanced'], ['fast', 'Fast']])}
         ${toggle('shadows', 'Shadows', 'Trees and buildings cast soft shadows.')}
-        ${choice('fps', 'Frame rate', 'Auto runs at 30 frames a second on phones and on battery power, which keeps devices cool, and 60 otherwise.', [['auto', 'Auto'], ['60', 'Smooth (60)'], ['30', 'Battery saver (30)']])}
-        ${toggle('wind', 'Wind in the plants', 'Grass, shrubs and treetops sway.')}
         ${toggle('weather', 'Rain and snow', 'Falling rain and snow over the view.')}
         ${toggle('dayCycle', 'Time of day', 'The light drifts from midday through golden hour and dusk to dawn every few minutes.')}
-        ${toggle('decay', 'Carcass decay', 'A kill is eaten and rots down to bones, which scatter and disappear over a few weeks. Off: it lies whole, then fades away.')}`],
+        ${more('graphics', `${choice('fps', 'Frame rate', 'Auto runs at 30 frames a second on phones and on battery power, which keeps devices cool, and 60 otherwise.', [['auto', 'Auto'], ['60', 'Smooth (60)'], ['30', 'Battery saver (30)']])}
+        ${toggle('wind', 'Wind in the plants', 'Grass, shrubs and treetops sway.')}
+        ${toggle('decay', 'Carcass decay', 'A kill is eaten and rots down to bones, which scatter and disappear over a few weeks. Off: it lies whole, then fades away.')}`)}`],
       controls: ['Controls', `
         ${slider('panSpeed', 'Camera pan speed', 'WASD and arrow keys.')}
         ${slider('zoomSpeed', 'Zoom speed', 'Mouse wheel and + / − keys.')}
@@ -1288,6 +1293,7 @@ export class UI {
     const m = this.modal('Settings', `<div class="settings-wrap"><nav class="settings-nav">${nav}</nav><div class="settings">${TABS[tab][1]}</div></div>`,
       { foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>' });
     m.classList.add('settings-modal');
+    m.querySelectorAll('.set-more').forEach(d => d.addEventListener('toggle', () => { (this.settingsMore ||= {})[d.dataset.more] = d.open; }));
     m.querySelectorAll('.settings-nav [data-tab]').forEach(b => b.addEventListener('click', () => this.openSettings(b.dataset.tab)));
     m.querySelector('.np-skip')?.addEventListener('click', () => { music.start(); if (music.nowPlaying) music.skip(); else music.syncPlayback(); });
     if (!this.npHooked) { this.npHooked = true; music.onTrack(t => document.querySelectorAll('.np-title').forEach(e => { e.textContent = `${t.title} · ${t.artist}`; })); }

@@ -19,6 +19,7 @@ import { clearSpot, resolveStep, steerAround } from './ground-obstacles.js';
 import { turnRate, reefStep } from './steering.js';
 import { shapeCourse, pathPoint } from './animal-course.js';
 import { swimDepth, deepWaterNear, fishDepth } from './waterline.js';
+import { blockSwim } from './swim-routes.js';
 import { drinkEvery } from './home-range.js';
 import { passable, reefMoveSafe } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
@@ -64,11 +65,18 @@ export class WildlifeMove {
       const bank = !a.dormancy && this.drinks(def) && a.thirst > drinkEvery(this, a, def) * 0.5 ? this.bankSpot(a, j) : null;
       const drink = bank && bank.crowd < 0.08;
       a.restSpot = [j, ...(a.dormancy ? [j % w.w + 0.5, (j / w.w | 0) + 0.5] : drink ? [bank.x, bank.y] : this.spacing.restSpot(a, j, ox, oy))];
+      // (a river fish moved aside from the others still rests in water it can swim in)
+      if (a.move === 'swim' && !def.reef && swimDepth(w, a.restSpot[1], a.restSpot[2]) < fishDepth(def)) a.restSpot = [j, j % w.w + 0.5 + ox, (j / w.w | 0) + 0.5 + oy];
       // (on a low bank the dry spot can be a tile or two back from the water, off the tile
       // it walked to: remember it, or on arrival it doesn't know it's at the water and sets
       // off for the bank again, pacing back and forth without ever drinking)
       if (drink) a.bankGoal = bank;
     }
+    // (a river fish whose rest spot is still too shallow, in a tile with only a sliver of water,
+    // rests where it is once it is close and in water deep enough: pressing at the lip for a spot
+    // 6 mm too shallow, a snapper nosed left and right on the spot for seconds, Chinandega 2026-11-20)
+    if (a.path.length === 1 && a.restSpot?.[0] === j && a.move === 'swim' && !def.reef && Math.hypot(a.restSpot[1] - a.x, a.restSpot[2] - a.y) < 0.6 &&
+      swimDepth(w, a.restSpot[1], a.restSpot[2]) < fishDepth(def) && swimDepth(w, a.x, a.y) >= fishDepth(def)) { a.restSpot[1] = a.x; a.restSpot[2] = a.y; }
     // (a spot picked by tile can fall on a trunk: aim beside it, see ground-obstacles.js)
     const [tx, ty] = clearSpot(w, a, def, a.path.length === 1 ? a.restSpot[1] : (j % w.w) + 0.5 + ox,
       a.path.length === 1 ? a.restSpot[2] : ((j / w.w) | 0) + 0.5 + oy);
@@ -88,6 +96,18 @@ export class WildlifeMove {
       (a.follow && a.path.length === 1 && remaining < 2.5 && a.moveProgress?.stalled > 0.4)) {
       a.path.pop(); return;
     }
+    // (nor pressing into one standing right in front of it: it stops there with the herd, a
+    // moment, and sets off afresh. Edging round, shoved back, an elephant crept for seconds
+    // through its resting herd, Serengeti 2026-11-20)
+    // (its slot lies past that one: it picks another next time, or it pressed the same one again a
+    // quarter second later, walk and idle in turn)
+    // A walker on its own way presses no longer than about a second before it goes round by
+    // other ground (recoverMovement): a doe leading her family crept into one of them grazing,
+    // sliding just enough to keep the stall timer from running, PNW 2026-11-20. (a.pressT: not saved)
+    const pressed = smoothWalker(def) && !(def.crossing && wading) ? this.spacing.standingAhead(a) : null;
+    a.pressT = pressed ? (a.pressT || 0) + dt : 0;
+    if (pressed === 'ground' && a.follow) { a.pressT = 0; a.path.length = 0; a.slot = null; a.bachelorSlot = null; a.momSlot = null; return; }
+    if (a.pressT >= 0.7) { a.pressT = 0; this.recoverMovement(a); return; } // (on along its new way next step)
     const pace = (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1); // (a.run: a startled animal dashing for cover)
     // curve round anyone in the way rather than walking into them (not on a dash for cover)
     const round = a.run ? null : this.spacing.steer(a, tx, ty, standable);
@@ -118,7 +138,13 @@ export class WildlifeMove {
     }
     if (distance < p.best - 0.04) { p.best = distance; p.stalled = 0; }
     else p.stalled += dt;
-    if (p.stalled >= 3) this.recoverMovement(a);
+    // (pressed against another, nose to nose in a river channel or jammed in a walking herd, it
+    // goes round or waits a day sooner: a hippo and a crocodile pushed head on for four seconds,
+    // and an elk queue braked behind its stuck leader, 2026-11-20)
+    // (walks only: not a drinker's approach to a bank lined shoulder to shoulder, nor a herd swimming
+    // the river packed together)
+    const def = this.game.catalog.animals[a.sp];
+    if (p.stalled >= 3 || p.stalled >= 1 && a.state === 'walk' && smoothWalker(def) && !(def.crossing && inRiver(this, a)) && this.spacing.crowd(a, a.x, a.y) > 0.01) this.recoverMovement(a);
   }
 
   recoverMovement(a) {
@@ -127,6 +153,9 @@ export class WildlifeMove {
       const y0 = Math.floor(a.y);
       if (this.pathTo(a, (j, x, y) => y < y0 - 2 - (a.id % 3) && passable(w, j, a), 4000, null, null, standable)) { a.landed = true; a.moveProgress = null; return; }
     }
+    // (a river fish that couldn't swim on into the next tile shuts that way for the day, so its
+    // new route goes round by other water, or it turns back, rather than pressing at the edge)
+    if (!approaching) blockSwim(this, a, this.game.catalog.animals[a.sp], w.idx(Math.floor(a.x), Math.floor(a.y)), a.path[a.path.length - 1]);
     const dest = approaching ? w.idx(Math.floor(a.localGoal[0]), Math.floor(a.localGoal[1])) : a.path[0];
     const tx = dest % w.w + 0.5, ty = (dest / w.w | 0) + 0.5;
     const wasFollowing = a.follow, inTransit = !approaching && a.path.length > 1;
@@ -273,10 +302,10 @@ function riverFishStep(w, a, def, nx, ny, dx, dy, step, was) {
       const s = k & 1 ? -side : side, turn = (k >> 1) * 0.5 + 0.5, x = a.x + Math.cos(h0 + s * turn) * step, y = a.y + Math.sin(h0 + s * turn) * step;
       if (swims(x, y)) { nx = x; ny = y; found = true; a.detour = s; }
     }
-    if (!found) { a.heading = was; return false; } // (no way round: it stays as it was, not nosing at the bank)
+    if (!found) { a.heading = was; a.swimHeld = true; return false; } // (no way round: it stays as it was, not nosing at the bank)
     facePoint(a, nx, ny); // (nose first round the bar: facing the target, it slid sideways along the bank)
   }
-  TO.x = nx; TO.y = ny;
+  TO.x = nx; TO.y = ny; a.swimHeld = false;
   return true;
 }
 

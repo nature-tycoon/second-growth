@@ -762,4 +762,5 @@ export const MAP_RECORDINGS = {
   }
 };
 
-export const RECORDED_BEDS = { creek: "bed-stream", river: "bed-stream", surf: "bed-ocean", bugs: "bed-crickets", cicadas: "bed-cicadas", reef: "bed-reef", wind: "bed-wind", leaves: "bed-wind" };
+// (falls: the stream recording for now, until a licensed waterfall recording is approved: docs/ideas/2026-11-20-waterfall-polish/s6.md)
+export const RECORDED_BEDS = { creek: "bed-stream", river: "bed-stream", falls: "bed-stream", surf: "bed-ocean", bugs: "bed-crickets", cicadas: "bed-cicadas", reef: "bed-reef", wind: "bed-wind", leaves: "bed-wind" };

@@ -314,11 +314,11 @@ export function waterLook(mat, time, noise, rain, sky) {
   mat.onBeforeCompile = shader => {
     prev(shader);
     Object.assign(shader.uniforms, { uNoiseW: { value: noise }, uRain: rain, uSky: sky });
-    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute vec2 aCurrent;\nvarying vec2 vCurrent;\nattribute float aBend;\nattribute float aQual;\nattribute float aRound;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
+    shader.vertexShader = 'attribute float aDepth;\nattribute vec2 aFlow;\nattribute vec2 aCurrent;\nvarying vec2 vCurrent;\nattribute float aBend;\nattribute float aQual;\nattribute float aRound;\nattribute float aWhite;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vWXZ;\n' + shader.vertexShader
       // Fade wave displacement at the bank, while retaining signed bed depth for shading.
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vRound = aRound; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
-    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vCurrent;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
+      vDepth = aDepth; vFlow = aFlow; vCurrent = aCurrent; vBend = aBend; vQual = aQual; vRound = aRound; vWhite = aWhite; vWXZ = position.xz;`).replace('transformed.y +=', 'transformed.y += smoothstep(0.0, 0.16, aDepth) *');
+    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nuniform float uRain;\nuniform vec3 uSky;\nvarying float vWhite;\nvarying float vRound;\nvarying float vQual;\nvarying float vBend;\nvarying float vDepth;\nvarying vec2 vFlow;\nvarying vec2 vCurrent;\nvarying vec2 vWXZ;\n' + shader.fragmentShader
       .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
       {
         // drifting ripples: two layers of noise sliding past each other tilt the normal
@@ -395,6 +395,17 @@ export function waterLook(mat, time, noise, rain, sky) {
         foam = max(foam, lap * 0.8);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.65, 0.79, 0.76), foam * 0.5);
         diffuseColor.a = max(diffuseColor.a, foam * 0.45 * step(0.001, diffuseColor.a));
+        // falling water (a waterfall, a steep cascade): white streaks racing down over the lip and
+        // foam boiling out across the pool at its foot
+        if (vWhite > 0.01) {
+          vec2 p = vCurrent;
+          float s1 = texture2D(uNoiseW, vec2(p.x * 0.5 - uTime * 0.8, p.y * 2.2)).r;
+          float s2 = texture2D(uNoiseW, vec2(p.x * 1.1 - uTime * 1.3, p.y * 4.6 + 0.37)).r;
+          float boil = texture2D(uNoiseW, vWXZ * 1.6 + vec2(uTime * 0.05, -uTime * 0.04)).r;
+          float wh = vWhite * (0.55 + 0.45 * smoothstep(0.35, 0.75, (s1 + s2) * 0.5 + (boil - 0.5) * 0.3));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.84, 0.9, 0.9), wh * 0.85);
+          diffuseColor.a = max(diffuseColor.a, wh * 0.92 * step(0.001, diffuseColor.a));
+        }
         // rain rings: expanding circles in a grid of cells, each on its own clock
         if (uRain > 0.01) {
           vec2 c = vWXZ * 2.2, ci = floor(c), cf = fract(c) - 0.5;
@@ -408,5 +419,112 @@ export function waterLook(mat, time, noise, rain, sky) {
   };
   const key = mat.customProgramCacheKey();
   mat.customProgramCacheKey = () => key + '-living-water-quality';
+  return mat;
+}
+
+// Falling water (waterfalls and full beaver dams' spills: terrain.js fallMesh). One mesh holds three
+// kinds of part, told apart by aFall.w: 0 the sheet, 1 the foam at its foot, 2 mist (camera-facing).
+// The sheet: aFall.x across it (0-1), aFall.y down its length, aFall.z its thickness. Thick water is
+// whole, dark and glassy; as it thins it tears into white streaks racing down, brighter where thin.
+// Foam: aFall.x out from the plunge (0-1), aFall.y round it (0-1), aFall.z how strong; it boils outward
+// in broken rings. Mist: aFall.xy the corner (-1..1), aFall.z its size; soft white puffs that drift and
+// fade out as a tile gets small on screen (viewH: the view's height in CSS pixels), so a wide view draws none.
+// How much a waterfall has frozen (0-1, GLSL, from the shared eased snowpack uSnow): none until a
+// couple of snowy days have settled, full after four; it thaws as the snowpack melts (game.js).
+export const FALL_ICE = 'smoothstep(0.3, 0.75, uSnow)';
+// Ice on a fall's rock ledge (rockMat): a blue-white glaze in vertical runs where the spray wets it
+// (aIce: 1 the face behind the water, less out on the wings, 0 the dry tops, which take snow instead).
+export function rockIce(mat, noise) {
+  mat.onBeforeCompile = shader => {
+    // (its own name for the snowpack: withSnowTops on the same material declares uSnow)
+    Object.assign(shader.uniforms, { uIceSnow: snow.uSnow, uNoiseR: { value: noise } });
+    shader.vertexShader = 'attribute float aIce;\nvarying float vIce;\nvarying vec3 vIcePos;\n' + shader.vertexShader
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+      vIce = aIce; vIcePos = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+    shader.fragmentShader = 'uniform float uIceSnow;\nuniform sampler2D uNoiseR;\nvarying float vIce;\nvarying vec3 vIcePos;\n' + shader.fragmentShader
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      {
+        float ice = ${FALL_ICE.replace('uSnow', 'uIceSnow')} * vIce;
+        if (ice > 0.001) {
+          float run = texture2D(uNoiseR, vec2((vIcePos.x + vIcePos.z) * 1.7, vIcePos.y * 0.35)).r;
+          float glaze = ice * smoothstep(0.35 - ice * 0.25, 0.6 - ice * 0.25, run);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.88, 0.95), glaze * 0.9);
+        }
+      }`);
+  };
+  mat.customProgramCacheKey = () => 'fall-rock-ice';
+  return mat;
+}
+export function fallLook(mat, time, noise, viewH) {
+  mat.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, { uTime: time, uNoiseW: { value: noise }, uViewH: viewH, uSnow: snow.uSnow });
+    shader.vertexShader = 'uniform float uTime;\nuniform float uViewH;\nattribute vec4 aFall;\nvarying vec4 vFall;\nvarying float vFade;\n' + shader.vertexShader
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+      vFall = aFall; vFade = 1.0;
+      if (aFall.w > 1.5) transformed.y += sin(uTime * 0.6 + aFall.w * 9.0) * 0.03;`)
+      .replace('#include <project_vertex>', `#include <project_vertex>
+      if (aFall.w > 1.5) {
+        // how many pixels a tile spans on screen here: puffs fade out as it gets small (a wide view, or far off)
+        float ppu = (isPerspectiveMatrix(projectionMatrix) ? projectionMatrix[1][1] / max(-mvPosition.z, 0.01) : projectionMatrix[1][1]) * uViewH * 0.5;
+        vFade = smoothstep(28.0, 55.0, ppu);
+        float breathe = 1.0 + 0.12 * sin(uTime * 0.45 + aFall.w * 5.0);
+        mvPosition.xy += aFall.xy * aFall.z * breathe * step(0.001, vFade);
+        gl_Position = projectionMatrix * mvPosition;
+      }`);
+    shader.fragmentShader = 'uniform float uTime;\nuniform float uSnow;\nuniform sampler2D uNoiseW;\nvarying vec4 vFall;\nvarying float vFade;\n' + shader.fragmentShader
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      {
+        vec3 foamC = vec3(0.86, 0.92, 0.93);
+        // winter ice (FALL_ICE): after a few snowy days the edges freeze, the centre keeps running
+        float ice = ${FALL_ICE};
+        vec3 iceC = vec3(0.8, 0.9, 0.97);
+        if (vFall.w < 0.5) {
+          float u = vFall.x, v = vFall.y, th = vFall.z;
+          float s1 = texture2D(uNoiseW, vec2(u * 2.1, v * 0.45 - uTime * 0.55)).r;
+          float s2 = texture2D(uNoiseW, vec2(u * 5.3 + 0.31, v * 0.9 - uTime * 0.95)).r;
+          float streak = s1 * 0.55 + s2 * 0.45;
+          // whole where thick; thinning, it tears into streaks with gaps between
+          float a = smoothstep(0.52 - th * 0.8, 0.7 - th * 0.6, streak);
+          // thick water dark and glassy, thin water aerated and white; streaks a touch brighter
+          float white = clamp(1.15 - th * 1.05 + (streak - 0.5) * 0.5, 0.0, 1.0);
+          diffuseColor.rgb = mix(diffuseColor.rgb * vec3(0.55, 0.66, 0.66), foamC, white);
+          diffuseColor.a = a * mix(0.8, 0.97, th) * smoothstep(0.0, 0.1, u) * smoothstep(1.0, 0.9, u); // (soft, ragged sides)
+          if (ice > 0.001) {
+            // a solid rim at each side, and from it columns of ice hanging down the face, each its
+            // own length (icicles off the lip); frozen still, glassy blue-white, no streaks moving
+            float side = min(u, 1.0 - u), col = texture2D(uNoiseW, vec2(u * 3.7 + 0.13, 0.41)).r;
+            float reach = ice * (0.12 + 0.18 * col); // (at most 0.3 of the width each side: the middle keeps running)
+            float len = ice * (0.5 + 2.4 * texture2D(uNoiseW, vec2(u * 6.1, 0.77)).r);
+            float frozen = max(1.0 - smoothstep(reach * 0.45, reach * 0.55, side),
+              (1.0 - smoothstep(reach * 0.85, reach, side)) * (1.0 - smoothstep(len * 0.85, len, v)));
+            float glint = texture2D(uNoiseW, vec2(u * 9.0, v * 0.6)).r;
+            diffuseColor.rgb = mix(diffuseColor.rgb, iceC * (0.86 + 0.2 * glint), frozen);
+            diffuseColor.a = mix(diffuseColor.a, 0.88 * smoothstep(0.0, 0.03, u) * smoothstep(1.0, 0.97, u), frozen);
+          }
+        } else if (vFall.w < 1.5) {
+          float r = vFall.x;
+          float n1 = texture2D(uNoiseW, vec2(vFall.y * 4.0, r * 0.9 - uTime * 0.22)).r;
+          float n2 = texture2D(uNoiseW, vec2(vFall.y * 7.0 + 0.5, r * 1.7 - uTime * 0.37)).r;
+          float rings = smoothstep(0.55, 0.85, fract(r * 2.6 - uTime * 0.35 + n2 * 0.7));
+          float churn = smoothstep(0.38, 0.62, n1 * 0.7 + n2 * 0.3 + (1.0 - r) * 0.35);
+          float f = max(churn * (1.0 - smoothstep(0.35, 1.0, r)), rings * churn * (1.0 - r) * 0.8);
+          diffuseColor.rgb = foamC;
+          diffuseColor.a = f * vFall.z * 0.9;
+          if (ice > 0.001) {
+            // shelf ice round the plunge pool's rim, ragged at its inner edge (the churn keeps the middle open)
+            float ni = texture2D(uNoiseW, vec2(vFall.y * 3.0 + 0.2, r * 0.8)).r;
+            float shelf = ice * smoothstep(0.78 - ice * 0.25, 0.92 - ice * 0.25, r + (ni - 0.5) * 0.35) * (1.0 - smoothstep(0.93, 1.0, r));
+            diffuseColor.rgb = mix(foamC, iceC * (0.9 + 0.15 * ni), shelf);
+            diffuseColor.a = max(diffuseColor.a * (1.0 - shelf), shelf * 0.85);
+          }
+        } else {
+          float d = length(vFall.xy);
+          float n = texture2D(uNoiseW, vFall.xy * 0.22 + vec2(uTime * 0.02, -uTime * 0.035) + fract(vFall.w)).r;
+          diffuseColor.rgb = vec3(0.92, 0.95, 0.96);
+          diffuseColor.a = (1.0 - smoothstep(0.15, 1.0, d)) * (0.55 + 0.45 * n) * 0.38 * vFade;
+        }
+      }`);
+  };
+  mat.customProgramCacheKey = () => 'falling-water';
   return mat;
 }

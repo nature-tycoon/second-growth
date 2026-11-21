@@ -35,6 +35,7 @@ addStrings({
   'overhead now': 'volando encima', 'passing through': 'de paso', 'Follow a bird': 'Seguir a un ave',
   // watch mode's bar (ui/watch.js)
   'All animals': 'Todos los animales', 'No animals out right now': 'No hay animales afuera ahora', 'Watch one species (S)': 'Ver una sola especie (S)',
+  'Let go (Esc, or click empty ground)': 'Soltar (Esc, o hacé clic en el suelo)',
   'Next animal (N)': 'Siguiente animal (N)', 'Eye level (F)': 'A ras del suelo (F)', 'Stop watching (Esc)': 'Dejar de mirar (Esc)', 'Hide the controls (H)': 'Esconder los controles (H)',
   'Eye level': 'A ras del suelo', 'Show the controls': 'Mostrar los controles',
   "Flocks cross the property on their way somewhere else. They don't live here, so they don't count toward your species.": 'Las bandadas cruzan la finca de camino a otro lugar. No viven aquí, así que no cuentan entre tus especies.',
@@ -433,6 +434,7 @@ addStrings({
 
 addPatterns([
   [/^(\d+) birds$/, '$1 aves'],
+  [/^Locked on (.+)$/, 'Siguiendo a $1'],
   [/^(\d+) adults have gone at least (\d+) days without a meal\. Restore connected prey habitat; these adults cannot breed until they feed and may move away\.$/, '$1 adultos llevan al menos $2 días sin comer. Restaurá hábitats conectados para las presas; estos adultos no pueden tener crías hasta comer y pueden irse.'],
   [/^Predators here: (\d+)\. Potential hunters: (.+)\. Successful catches reduce this population; habitat and shelter help survivors recover\.$/, 'Depredadores aquí: $1. Cazadores posibles: $2. Las capturas reducen esta población; el hábitat y los refugios ayudan a los sobrevivientes a recuperarse.'],
   [/^Mulch establishment protection: (\d+) days remaining\.$/, 'Protección de abono y hojarasca: quedan $1 días.'],

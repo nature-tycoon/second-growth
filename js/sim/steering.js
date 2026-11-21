@@ -15,6 +15,8 @@ import { settleBody, groundWalker } from './ground-obstacles.js';
 import { wetTest, swimDepth, deepWaterNear, fishDepth, upstreamAt } from './waterline.js';
 import { reefMoveSafe } from './animal-terrain.js';
 import { trait } from '../data/animal-kinds.js';
+import { drinkEvery } from './home-range.js';
+const thirsty = (wl, a, def) => !a.dormancy && wl.drinks(def) && a.thirst > drinkEvery(wl, a, def) * 0.5;
 
 // How fast an animal swings its body round as it goes about its day, in radians a game day: the
 // rate a walk (animal-walking.js), a reef swim (swimToward) and a hover (hoverStep) turn at. A
@@ -130,7 +132,18 @@ export function settle(wl) {
     if (still && landWalker(def, a)) {
       const x = Math.floor(a.x), y = Math.floor(a.y);
       // (stopped on a water tile: walk off to the nearest dry ground, before anything else)
-      if (w.inb(x, y) && isWater(w.terrain[w.idx(x, y)]) && !(def.crossing && wl.crossingAt)) wl.pathTo(a, j => !isWater(w.terrain[j]), 80);
+      // (to a spot there no herd mate stands on, chosen afresh: aimed at the spot it kept from an
+      // earlier walk to that tile, taken since by one grazing, walkStep stopped short at once and
+      // the buffalo stood on the marsh flipping walk, idle, walk for seconds, Serengeti 2026-11-20)
+      if (w.inb(x, y) && isWater(w.terrain[w.idx(x, y)]) && !(def.crossing && wl.crossingAt)) {
+        const spots = new Map(), free = j => {
+          if (!spots.has(j)) { const p = wl.spacing.restSpot(a, j, 0, 0); spots.set(j, wl.spacing.crowd(a, p[0], p[1]) < 0.08 ? p : null); }
+          return spots.get(j);
+        };
+        a.restSpot = null;
+        if (wl.pathTo(a, j => !isWater(w.terrain[j]) && !!free(j), 80)) { if (!thirsty(wl, a, def)) a.restSpot = [a.path[0], ...free(a.path[0])]; } // (a thirsty one's walk picks its bank spot: walkStep)
+        else wl.pathTo(a, j => !isWater(w.terrain[j]), 80);
+      }
     }
   }
 }

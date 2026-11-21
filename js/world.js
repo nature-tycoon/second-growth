@@ -5,7 +5,7 @@ import { MAP_W, MAP_H, BORDER, T, F, LAID, isWater, clamp } from './config.js';
 import { activeCatalog } from './data/catalog.js';
 import { mulberry32, hash2, valueNoise } from './rng.js';
 import { removeTree } from './sim/plants.js';
-import { fillPits, creekDownhill, tileDistance, smoothstep } from './maps/landform.js';
+import { fillPits, creekDownhill, creekFalls, tileDistance, smoothstep } from './maps/landform.js';
 import { WATER_FILL } from './sim/waterline.js';
 
 export const STRUCTURES = {
@@ -333,6 +333,7 @@ function pnwLand(w) {
   const rise = y => 21 * smoothstep(0.42, 1.45, ty(y)) ** 1.6; // (levels the foothills add over the valley)
   return {
     drain: true,
+    falls: true, // (Cascade creeks drop over basalt ledges: the ditch's steep reach in the foothills gets one)
     base(x, y, h) {
       const hill = smoothstep(0.42, 1.2, ty(y));
       let up = rise(y);
@@ -403,6 +404,7 @@ export function generateHeights(w, fields, land = null) {
     }
   }
   if (land?.drain) creekDownhill(w);
+  if (land?.falls) creekFalls(w); // (after the creeks fall to the river: a fall gathers a steep reach's drop at one ledge)
   w.heightDirty = true;
 }
 

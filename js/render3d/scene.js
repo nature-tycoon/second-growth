@@ -624,6 +624,16 @@ export class Renderer {
     this.target.x += before.x - after.x; this.target.z += before.z - after.z;
     this.clampCam(); this.updateCamera();
   }
+  // Two fingers twisted: the view turns by `rad` round the ground between them, which stays put.
+  twistAt(sx, sy, rad) {
+    this.groundCamera();
+    const before = this.groundPoint(sx, sy);
+    this.az = this.azTarget = this.az + rad;
+    this.updateCamera();
+    const after = this.groundPoint(sx, sy);
+    this.target.x += before.x - after.x; this.target.z += before.z - after.z;
+    this.clampCam(); this.updateCamera();
+  }
   rotate(dir, degrees = 90) { this.azTarget += dir * degrees * Math.PI / 180; }
   // Glide the camera to a spot and zoom (for keystone moments), easing in and out. Watch mode may
   // come in closer than the wheel goes (maxZoom), so a squirrel isn't a speck.
@@ -790,15 +800,22 @@ export class Renderer {
   // The animal under a click. Each one can be clicked anywhere over its body as drawn (a manta's
   // wingtips, not just its middle), and a small one anywhere within `radius` pixels of its centre;
   // of several in reach, the one whose centre is nearest the pointer wins.
+  // At eye level (watch mode) it looks through the eye's camera, where size shrinks with distance.
   pickAgent(game, sx, sy, radius = 34) {
     let best = null, bd = Infinity;
-    const all = game.wildlife.viewAgents, ppu = this.ppu || 0;
+    const all = game.wildlife.viewAgents, ppu = this.ppu || 0, eye = this.eyeOn && this.eye.camera, v = this.v3;
     for (const a of all) {
       const s = this.actors.pose.get(a.id);
       if (!s?.visible) continue;
-      const p = this.project(s.center.x, s.center.y, s.center.z);
+      let p, k = ppu;
+      if (eye) {
+        v.set(s.center.x, s.center.y, s.center.z).project(eye);
+        if (v.z > 1) continue; // (behind the eye)
+        p = { x: (v.x + 1) / 2 * this.vw, y: (1 - v.y) / 2 * this.vh };
+        k = this.vh / (2 * Math.tan(eye.fov * Math.PI / 360) * Math.max(0.1, eye.position.distanceTo(s.center)));
+      } else p = this.project(s.center.x, s.center.y, s.center.z);
       const d = (p.x - sx) ** 2 + (p.y - sy) ** 2;
-      const reach = Math.max(radius, 0.55 * Math.max(s.foot || 0, s.h || 0) * ppu);
+      const reach = Math.max(radius, 0.55 * Math.max(s.foot || 0, s.h || 0) * k);
       if (d < reach * reach && d < bd) { bd = d; best = a; }
     }
     return best;
@@ -1143,6 +1160,7 @@ export class Renderer {
     this.flora.contact.visible = !this.sun.castShadow;
     this.actors.shadowMat.opacity = this.sun.castShadow ? 0.32 : 0.5;
     this.terrain.time.value = this.time;
+    this.terrain.viewH.value = this.vh || 800; // (the falls' mist fades by how big a tile is on screen)
     // rain rings on the water, and the ground darkening while it's wet and drying after
     const raining = game.weather === 'rain' && this.weatherOn !== false;
     this.terrain.rain.value += ((raining ? 1 : 0) - this.terrain.rain.value) * Math.min(1, dt * 1.5);

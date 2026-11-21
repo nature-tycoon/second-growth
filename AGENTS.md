@@ -55,16 +55,16 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0024](docs/decisions/0024-tree-heights.md) Tree heights (`treeHeight`, `treeLevel`)
 - [0025](docs/decisions/0025-shared-steering.md) Shared steering and one facing (`sim/steering.js`, `stepToward`, `a.heading`, `turnRate`, `reefStep`, `turnToward` in actors-common.js)
 - File map (fix 8): `Wildlife` (`sim/animals.js`: update's order, save/load) is split by step into `sim/wildlife-intent.js` (what next, hunts, `pathTo`), `-water`, `-move` (`stepToward` per mode), `-population`, `-salmon`, `-beavers`, `-shared`; `Actors.update` (`render3d/actors.js`) dispatches to `actors-common.js` and per-mode `actors-ground.js`, `-climb`, `-fly`, `-swim`, `-reef`. Rules in 0025
-- Motion sweep: `node tools/motion-sweep-check.mjs [--report] [maps]` watches every species through `game.update` and `Actors.update` for visible movement glitches (position jumps, heading snaps, wobble and spins, foot slide, bodies in wood, standing in water, stalls), with per-species limits; real glitches it found are matched by `KNOWN` and listed, not hidden. Run it before and after any change to movement, facing or the drawing's turning (15–30 s)
+- Motion sweep: `node tools/motion-sweep-check.mjs [--report] [maps]` watches every species through `game.update` and `Actors.update` for visible movement glitches (position jumps, heading snaps, wobble and spins, foot slide, bodies in wood, standing in water, stalls), with per-species limits; real glitches it found are matched by `KNOWN` and listed, not hidden. Run it before and after any change to movement, facing or the drawing's turning (15–30 s); `node tools/herd-crawl-probe.mjs [maps]` runs it over ten seed pairs (the default two sit at seed-noise level for crawl)
 - [0026](docs/decisions/0026-continuous-hunts.md) Continuous hunts, snakes (swallow whole, `swallow`, `gulpBulge`), pounces, prey jinks (`huntStep`, `letGo`, `jinkLine`)
 - [0027](docs/decisions/0027-plant-succession.md) Plant colonization and succession (`trySeed`, `forestDamp`)
 - [0028](docs/decisions/0028-succession-dynamics.md) Tree mortality, regeneration, disturbance, deadwood (`removeTree`, `sim/disturbance.js`)
 - [0029](docs/decisions/0029-pollinators-in-3d.md) 3D pollinators (`render3d/pollinators.js`)
-- [0030](docs/decisions/0030-everyday-animal-behaviours.md) Everyday behaviours: fishing, woodpeckers, climbers, night animals, flight clearance
+- [0030](docs/decisions/0030-everyday-animal-behaviours.md) Everyday behaviours: fishing, woodpeckers, climbers, night animals, flight clearance, waders (`wades`, `shallowsFor`) and the creek-bound dipper (`fastWater`, `alongCreek`)
 - [0031](docs/decisions/0031-ecosystem-report.md) Ecosystem Report (`sim/eco-metrics.js`)
 - [0032](docs/decisions/0032-real-moon-and-clear-sky.md) Real moon and clear-day sky
 - [0033](docs/decisions/0033-herbivore-pressure.md) Herbivore pressure (`sim/herbivory.js`)
-- [0034](docs/decisions/0034-water-and-wetlands.md) Water model, beaver ponds, fish depth, wallows
+- [0034](docs/decisions/0034-water-and-wetlands.md) Water model, beaver ponds (dams grow over years, `rise`; spill when full), fish depth, wallows
 - [0035](docs/decisions/0035-fire-randomness-deadwood.md) Run seed, deadwood placement, stones, savanna fire
 - [0036](docs/decisions/0036-savanna-grass-recovery.md) Savanna grass recovery
 - [0037](docs/decisions/0037-shared-prey-and-recolonisation.md) Shared prey and recolonisation (`sharePrey`)
@@ -80,6 +80,9 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0047](docs/decisions/0047-accounts-sharing-and-home.md) Accounts, sharing farms, home: no login for now; share by link and farm files built (`js/share-file.js`, `js/ui/share.js`, Worker `/farms` on KV, `?farm=` opens a visit that never saves over the player's farm); website the main link, itch a storefront
 - [0048](docs/decisions/0048-water-and-elevation-model.md) Water and elevation: audit, rework phases 1–2 built, one edit path with corner owners for every player height change (`js/terrain-edit.js`, `terrainEdit`; `terrain-edit-check`), roads and gravel lots Demolish-only, digging never moves other water, dug creeks graded for fish (`gradeDugCreek`), ponds joined to a creek hold its level (`feedLevel`), Fill & grade levels a stroke to one height (`gradeTile`), Demolish takes up gravel lots
 - [0049](docs/decisions/0049-primate-rest-budget.md) Primate rest budget by species, midday rest and night sleep by the drawn sun, leaf-out regrip (`restShare`, `primateRest`, `regripCanopy`)
+- [0050](docs/decisions/0050-waterfalls.md) Waterfalls: a steep creek reach gathered at one ledge with a plunge pool, PNW only (`creekFalls`, `isFall`, `buildFalls`); drawn as a rock ledge with a falling sheet, foam and mist (`ledge`, `fallMesh`, `fallLook`); bank ring takes the water beside it first; winter ice from the snowpack (`FALL_ICE`, `rockIce`); heard only close and zoomed in (`falls` in `sampleSoundLand`)
+- [0051](docs/decisions/0051-leaf-out-by-the-day.md) Leaf-out by the day: each plant's own leaf-out and leaf-fall day, drawing only (`plantPhaseOn`, `leafOut`); the plant drawing redraws only tiles that turned
+- [0052](docs/decisions/0052-migration-route.md) Migration route: herds with `crossing` cross where it's greenest and drift north through their season on green grass (`sim/migration-route.js`, `greenness`, `driftRow`; `tools/migration-route-probe.mjs`)
 
 Ask a trait, never a species name: behaviour and drawing ask `trait(def, name)` (`js/data/animal-kinds.js`: defaults by `sprite.kind`, a species overrides with a field of the same name), so a fix reaches every animal with the trait. A name check stays only where a species is truly unique, with a one-line comment saying why. `node tools/species-name-count.mjs` (headless suite) fails if name checks rise; `--update` after they fall.
 

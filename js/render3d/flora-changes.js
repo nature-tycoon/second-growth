@@ -2,7 +2,34 @@
 // ecological system that can alter them. No hashes or quantization: small growth still shows.
 import { TRAIL_RESOLUTION } from '../data/animal-trails.js';
 import { TRAIL_THRESHOLD, TRAIL_FULL } from '../data/animal-trails.js';
-import { BORDER } from '../config.js';
+import { BORDER, clamp } from '../config.js';
+import { plantPhaseOn, DAY_PHASED } from '../data/plants.js';
+
+// How cool a tile is for its leaf-out day (plantPhaseOn): 0 on the map's lowest ground, 1 on its
+// highest. Worked out once per world and shape of the land.
+const COOL = new WeakMap();
+export function phenoCool(w) {
+  let c = COOL.get(w);
+  if (!c || c.hv !== w.hv) {
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < w.vh.length; i++) { const h = w.vh[i]; if (h < lo) lo = h; if (h > hi) hi = h; }
+    const span = hi - lo > 0.5 ? hi - lo : Infinity; // (flat land: no cool ground)
+    c = { hv: w.hv, at: (x, y) => clamp((w.tileH(x, y) - lo) / span, 0, 1) };
+    COOL.set(w, c);
+  }
+  return c.at;
+}
+// The phase each plant is drawn in today (see plantPhaseOn)
+// Phases step every PHASE_STEP days (each step turns a few plants; stepping daily redrew every
+// region every day through spring and autumn for little visible gain)
+export const PHASE_STEP = 2;
+const phaseDay = day => day - day % PHASE_STEP;
+export function phaseOn(game) {
+  const cool = phenoCool(game.world), day = phaseDay(game.day);
+  return (p, x, y) => plantPhaseOn(p, day, x, y, cool(x, y));
+}
+const phased = new WeakMap(); // (catalog -> per plant id, does its look change by the day)
+const dayPhased = catalog => { let a = phased.get(catalog); if (!a) phased.set(catalog, a = catalog.plants.map(p => !!p && DAY_PHASED(p))); return a; };
 
 // A plant is left out of a trail where trailMask passes TRAIL_OPENING (Flora.rebuild). trailMask
 // is a blend of wear samples, so wear that stays at or below TRAIL_CLEAR never opens a gap, and
@@ -23,6 +50,10 @@ const BORDER_FIELDS = ['tree', 'treeG', 'shrub', 'ground'];
 // whose plant identities and growth haven't changed.
 const TILE_FIELDS = ['distWater', 'waterLevel', 'waterManaged'];
 const differ = (a, b) => a !== b && !(a !== a && b !== b); // (two missing water levels are the same)
+// Each beaver dam's drawn shape (its crest and its edges, bank to bank): its mounds follow the
+// water model, not the tile fields, so a dam raised a step is compared here (flora.js draws them
+// from the dam's own tile).
+const damShapes = game => new Map((game.water?.basins || []).filter(b => b.kind === 'dam').map(b => [b.site, `${b.crest.toFixed(4)}|${(b.dam || []).join(';')}`]));
 export const floraChunkKey = (x, y, size) => Math.floor((x + BORDER) / size) * 65536 + Math.floor((y + BORDER) / size);
 
 export class FloraChanges {
@@ -44,6 +75,22 @@ export class FloraChanges {
     // `tiles`: within those regions, the tiles whose plants must be worked out again; the rest
     // are as they were drawn last time (see Flora.rebuild)
     const GW = w.w + BORDER * 2, GH = w.h + BORDER * 2, tiles = dirty.tiles = new Uint8Array(GW * GH);
+    // Leaf-out and leaf fall go plant by plant over weeks: on a new day, the tiles whose plants
+    // changed phase (most days a few in each region in spring and autumn, none in summer)
+    if (s.day != null && s.day !== phaseDay(game.day)) {
+      const P = game.catalog.plants, on = dayPhased(game.catalog), cool = phenoCool(w);
+      const turned = (id, x, y) => {
+        if (!id || !on[id]) return false;
+        const c = cool(x, y);
+        return plantPhaseOn(P[id], s.day, x, y, c) !== plantPhaseOn(P[id], phaseDay(game.day), x, y, c);
+      };
+      for (let y = -BORDER; y < w.h + BORDER; y++) for (let x = -BORDER; x < w.w + BORDER; x++) {
+        const inside = x >= 0 && y >= 0 && x < w.w && y < w.h, src = inside ? w : b, i = inside ? y * w.w + x : b.bi(x, y);
+        if (turned(src.tree[i], x, y) || turned(src.shrub[i], x, y) || turned(src.ground[i], x, y)) {
+          dirty.add(floraChunkKey(x, y, this.size)); tiles[(y + BORDER) * GW + x + BORDER] = 1;
+        }
+      }
+    }
     const touch = (x, y) => {
       for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
         const gx = x + dx + BORDER, gy = y + dy + BORDER;
@@ -98,6 +145,8 @@ export class FloraChanges {
       if (a && old && a.length === old.length) { for (let i = 0; i < a.length; i++) if (a[i] !== old[i]) touchValue(i); continue; }
       for (let i = 0; i < Math.max(a?.length || 0, old?.length || 0); i++) if ((a?.[i] ?? 0) !== (old?.[i] ?? 0)) touchValue(i);
     }
+    const dams = damShapes(game);
+    for (const [site, shape] of dams) if (s.dams?.get(site) !== shape) mark(site % w.w, Math.floor(site / w.w));
     for (const f of BORDER_FIELDS) {
       const a = b[f], old = s.outside[f];
       for (let i = 0; i < a.length; i++) if (a[i] !== old[i]) mark(i % b.W - BORDER, Math.floor(i / b.W) - BORDER);
@@ -115,7 +164,7 @@ export class FloraChanges {
     const s = this.saved && this.saved.world === w && this.saved.border === b ? this.saved : {
       world: w, border: b, height: w.vh.slice(), inside: {}, outside: {}
     };
-    s.month = game.month; s.light = !!light; s.height.set(w.vh);
+    s.month = game.month; s.day = phaseDay(game.day); s.dams = damShapes(game); s.light = !!light; s.height.set(w.vh);
     const trailsWaiting = this.trailsWaiting && s === this.saved; this.trailsWaiting = false;
     for (const [fields, source, target] of [[[...FIELDS, ...TILE_FIELDS], w, s.inside], [BORDER_FIELDS, b, s.outside]]) for (const f of fields) {
       if (trailsWaiting && f === 'trailDensity') continue; // (the wear these plants were drawn with)
