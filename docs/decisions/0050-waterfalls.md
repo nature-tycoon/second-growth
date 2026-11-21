@@ -23,10 +23,15 @@ steep steps, no player tool.
 - Drawing (`terrain.js`): the bank ring takes the water beside it before the water at its corner (it took
   the highest of all eight, so beside any steep creek the drawn water stood up to 0.6 over the creek's own,
   over its banks, and a fall's lip level spread over its pool). `aWhite` whitens water whose sheet drops
-  more than 0.9 across a tile (a steep reach's 0.6 stays clear). `buildFalls` draws one curtain mesh for all
-  falls with the water's own material, a t² curve from the lip to the pool.
+  more than 0.9 across a tile (a steep reach's 0.6 stays clear). `buildFalls` draws a fall as a drawn rock
+  ledge (`fallRock`: one opaque flat-shaded mesh, the top just under the lip's water for `FALL_RUN` of the
+  tile, a face curving down behind the water, wings tapering into the banks) and falling water off it
+  (`falls`, `fallMesh` with `fallLook`'s material: a sheet on a t² arc over `FALL_TRAVEL`, thick and glassy
+  at the lip, thinning into white streaks; a foam disc on the drawn pool surface; four mist puffs that fade
+  out in a wide view). One mesh of each for all falls; a full dam's spill (`spills`) is the same water,
+  thinner, no rock or mist. Drawing only, built when the water rebuilds: nothing per frame but the shader.
 - Check: `node tools/waterfall-check.mjs` (which maps get falls, pool level against tail-out and banks,
-  a year, save/load, edits and a dug pond beside it, fish, beaver crest, the drawn curtain).
+  a year, save/load, edits and a dug pond beside it, fish, beaver crest, the drawn ledge, sheet, foam, mist).
 
 ## History
 
@@ -39,3 +44,9 @@ steep reach, so none gets a fall even if it opted in.
 The tile grid can't hold a vertical face: the ground under a fall is a steep 8 m ramp. The curtain arcs
 out over it; from the side the gorge bank mostly hides the ramp. A taller, sheer fall would need a drawn
 rock face (a ledge mesh) or a finer height grid.
+
+2026-11-20, batch waterfall-polish session 5 (Cole: "a good start, but looks fake and cheap"; he picked rock
+ledge + water + mist). The flat curtain read as a tilted pale slab. The ledge answers the old note above: the
+ramp stays, the rock stands on it, and the water's arc lands at 0.95 of the tile, just above the ramp. Rock
+wings sink toward their ends so they meet a bank at any height without an open side.
+

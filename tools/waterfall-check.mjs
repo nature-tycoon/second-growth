@@ -6,7 +6,8 @@
 // - The pool holds its level through a year of weather, a save and load, and Raise, Lower and
 //   Fill & grade beside the fall and the pool (they never move a creek's corners: 0048).
 // - A river fish can't swim up the fall (no species leaps one); a beaver pond never drowns it.
-// - Drawn: a curtain over the fall, white water, and the sheet at the fall's foot at the pool's level.
+// - Drawn: a rock ledge, falling water off it (sheet, foam, mist), and the sheet at the fall's foot at
+//   the pool's level.
 import assert from 'node:assert/strict';
 import { register } from 'node:module';
 register('./three-loader.mjs', import.meta.url);
@@ -155,20 +156,38 @@ check('A beaver dam below the fall never drowns it', () => {
   }
 });
 
-check('Drawn: a white curtain over the fall, its foot at the pool', () => {
+check('Drawn: a rock ledge and falling water off it (sheet, foam, mist), its foot at the pool', () => {
   const atlas = { tex: null, uv: {}, slot: {} };
   for (let s = 0; s < 4; s++) { atlas.uv[T.PASTURE + '|' + s + '|0'] = [0, 0, 1, 1]; atlas.slot[T.PASTURE + '|' + s + '|0'] = 0; }
   const t = new Terrain(new THREE.Scene(), atlas); t.setWorld(w, g.border); t.updateSurface(g);
-  assert.ok(t.falls && t.falls.geometry.index.count / 3 === 16, 'one curtain');
-  const p = t.falls.geometry.attributes.position;
-  let top = -Infinity, bot = Infinity;
-  for (let k = 0; k < p.count; k++) { top = Math.max(top, p.getY(k)); bot = Math.min(bot, p.getY(k)); }
-  // (facing up and downstream, or it is culled: each triangle's normal)
+  assert.ok(t.falls, 'falling water drawn');
+  // (one mesh: the sheet (aFall.w 0), the foam where it lands (1), mist puffs (2))
+  const p = t.falls.geometry.attributes.position, kind = k => t.falls.geometry.attributes.aFall.getW(k);
   const ix = t.falls.geometry.index.array, v3 = k => new THREE.Vector3(p.getX(k), p.getY(k), p.getZ(k));
+  let top = -Infinity, bot = Infinity, sheetTris = 0, foam = 0, mist = 0;
+  for (let k = 0; k < p.count; k++) if (kind(k) === 0) { top = Math.max(top, p.getY(k)); bot = Math.min(bot, p.getY(k)); } else if (kind(k) === 1) foam++; else mist++;
+  assert.ok(foam >= 12 && mist >= 4, `foam ${foam} and mist ${mist} corners`);
+  // (the sheet faces up and downstream: each triangle's normal)
   const down = new THREE.Vector3(P.dx, 0, P.dy).normalize().add(new THREE.Vector3(0, 1, 0));
   for (let k = 0; k < ix.length; k += 3) {
+    if (kind(ix[k]) !== 0) continue;
+    sheetTris++;
     const a = v3(ix[k]), n = v3(ix[k + 1]).sub(a).cross(v3(ix[k + 2]).sub(a));
-    assert.ok(n.dot(down) > 0, `curtain triangle ${k / 3} faces away`);
+    assert.ok(n.dot(down) > 0, `sheet triangle ${k / 3} faces away`);
+  }
+  assert.ok(sheetTris >= 40 && sheetTris <= 200, `${sheetTris} sheet triangles`);
+  // the rock ledge it pours off: its top just under the lip's water, never over the sheet
+  assert.ok(t.fallRock, 'a rock ledge drawn');
+  const rp = t.fallRock.geometry.attributes.position;
+  let rTop = -Infinity; for (let k = 0; k < rp.count; k++) rTop = Math.max(rTop, rp.getY(k));
+  assert.ok(rTop < top && rTop > top - 0.1, `rock top ${rTop.toFixed(3)} under the sheet's ${top.toFixed(3)}`);
+  assert.ok(t.fallRock.geometry.index.count / 3 <= 400, 'a small rock mesh');
+  // (its wings stand at most a low outcrop over the bank beside the fall, never a slab out of it)
+  const groundY = (x, z) => { const x0 = Math.floor(x), z0 = Math.floor(z), fx = x - x0, fz = z - z0, v = (a, b) => w.vert(a, b); return ((v(x0, z0) * (1 - fx) + v(x0 + 1, z0) * fx) * (1 - fz) + (v(x0, z0 + 1) * (1 - fx) + v(x0 + 1, z0 + 1) * fx) * fz) * LEVEL; };
+  for (let k = 0; k < rp.count; k++) {
+    const x = rp.getX(k), z = rp.getZ(k);
+    if (isWater(w.terrain[w.idx(Math.floor(x), Math.floor(z))])) continue;
+    assert.ok(rp.getY(k) - groundY(x, z) < 0.065, `rock ${(rp.getY(k) - groundY(x, z)).toFixed(3)} over the bank at ${x.toFixed(2)},${z.toFixed(2)}`);
   }
   assert.ok((top - bot) / LEVEL > drop * 0.8, `curtain ${((top - bot) / LEVEL).toFixed(2)} of ${drop.toFixed(2)}`);
   assert.ok(Math.abs(bot / LEVEL - 0.02 / LEVEL - level()) < 0.05, `curtain foot ${(bot / LEVEL).toFixed(2)} at pool ${level().toFixed(2)}`);
@@ -182,7 +201,7 @@ check('Drawn: a white curtain over the fall, its foot at the pool', () => {
   for (const { id } of BIOME_LIST) {
     if (id === 'pnw') continue;
     const a = farm(id), ta = new Terrain(new THREE.Scene(), atlas); ta.setWorld(a.world, a.border); ta.updateSurface(a);
-    assert.ok(!ta.falls, `no curtain on ${id}`);
+    assert.ok(!ta.falls && !ta.fallRock, `no falling water or ledge on ${id}`);
     assert.ok(ta.water.geometry.attributes.aWhite.array.every(v => v === 0), `no white water on ${id}`);
   }
 });

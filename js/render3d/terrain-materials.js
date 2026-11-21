@@ -421,3 +421,62 @@ export function waterLook(mat, time, noise, rain, sky) {
   mat.customProgramCacheKey = () => key + '-living-water-quality';
   return mat;
 }
+
+// Falling water (waterfalls and full beaver dams' spills: terrain.js fallMesh). One mesh holds three
+// kinds of part, told apart by aFall.w: 0 the sheet, 1 the foam at its foot, 2 mist (camera-facing).
+// The sheet: aFall.x across it (0-1), aFall.y down its length, aFall.z its thickness. Thick water is
+// whole, dark and glassy; as it thins it tears into white streaks racing down, brighter where thin.
+// Foam: aFall.x out from the plunge (0-1), aFall.y round it (0-1), aFall.z how strong; it boils outward
+// in broken rings. Mist: aFall.xy the corner (-1..1), aFall.z its size; soft white puffs that drift and
+// fade out as a tile gets small on screen (viewH: the view's height in CSS pixels), so a wide view draws none.
+export function fallLook(mat, time, noise, viewH) {
+  mat.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, { uTime: time, uNoiseW: { value: noise }, uViewH: viewH });
+    shader.vertexShader = 'uniform float uTime;\nuniform float uViewH;\nattribute vec4 aFall;\nvarying vec4 vFall;\nvarying float vFade;\n' + shader.vertexShader
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+      vFall = aFall; vFade = 1.0;
+      if (aFall.w > 1.5) transformed.y += sin(uTime * 0.6 + aFall.w * 9.0) * 0.03;`)
+      .replace('#include <project_vertex>', `#include <project_vertex>
+      if (aFall.w > 1.5) {
+        // how many pixels a tile spans on screen here: puffs fade out as it gets small (a wide view, or far off)
+        float ppu = (isPerspectiveMatrix(projectionMatrix) ? projectionMatrix[1][1] / max(-mvPosition.z, 0.01) : projectionMatrix[1][1]) * uViewH * 0.5;
+        vFade = smoothstep(28.0, 55.0, ppu);
+        float breathe = 1.0 + 0.12 * sin(uTime * 0.45 + aFall.w * 5.0);
+        mvPosition.xy += aFall.xy * aFall.z * breathe * step(0.001, vFade);
+        gl_Position = projectionMatrix * mvPosition;
+      }`);
+    shader.fragmentShader = 'uniform float uTime;\nuniform sampler2D uNoiseW;\nvarying vec4 vFall;\nvarying float vFade;\n' + shader.fragmentShader
+      .replace('#include <color_fragment>', `#include <color_fragment>
+      {
+        vec3 foamC = vec3(0.86, 0.92, 0.93);
+        if (vFall.w < 0.5) {
+          float u = vFall.x, v = vFall.y, th = vFall.z;
+          float s1 = texture2D(uNoiseW, vec2(u * 2.1, v * 0.45 - uTime * 0.55)).r;
+          float s2 = texture2D(uNoiseW, vec2(u * 5.3 + 0.31, v * 0.9 - uTime * 0.95)).r;
+          float streak = s1 * 0.55 + s2 * 0.45;
+          // whole where thick; thinning, it tears into streaks with gaps between
+          float a = smoothstep(0.52 - th * 0.8, 0.7 - th * 0.6, streak);
+          // thick water dark and glassy, thin water aerated and white; streaks a touch brighter
+          float white = clamp(1.15 - th * 1.05 + (streak - 0.5) * 0.5, 0.0, 1.0);
+          diffuseColor.rgb = mix(diffuseColor.rgb * vec3(0.55, 0.66, 0.66), foamC, white);
+          diffuseColor.a = a * mix(0.8, 0.97, th) * smoothstep(0.0, 0.1, u) * smoothstep(1.0, 0.9, u); // (soft, ragged sides)
+        } else if (vFall.w < 1.5) {
+          float r = vFall.x;
+          float n1 = texture2D(uNoiseW, vec2(vFall.y * 4.0, r * 0.9 - uTime * 0.22)).r;
+          float n2 = texture2D(uNoiseW, vec2(vFall.y * 7.0 + 0.5, r * 1.7 - uTime * 0.37)).r;
+          float rings = smoothstep(0.55, 0.85, fract(r * 2.6 - uTime * 0.35 + n2 * 0.7));
+          float churn = smoothstep(0.38, 0.62, n1 * 0.7 + n2 * 0.3 + (1.0 - r) * 0.35);
+          float f = max(churn * (1.0 - smoothstep(0.35, 1.0, r)), rings * churn * (1.0 - r) * 0.8);
+          diffuseColor.rgb = foamC;
+          diffuseColor.a = f * vFall.z * 0.9;
+        } else {
+          float d = length(vFall.xy);
+          float n = texture2D(uNoiseW, vFall.xy * 0.22 + vec2(uTime * 0.02, -uTime * 0.035) + fract(vFall.w)).r;
+          diffuseColor.rgb = vec3(0.92, 0.95, 0.96);
+          diffuseColor.a = (1.0 - smoothstep(0.15, 1.0, d)) * (0.55 + 0.45 * n) * 0.38 * vFade;
+        }
+      }`);
+  };
+  mat.customProgramCacheKey = () => 'falling-water';
+  return mat;
+}

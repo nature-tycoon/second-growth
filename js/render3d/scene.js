@@ -1160,6 +1160,7 @@ export class Renderer {
     this.flora.contact.visible = !this.sun.castShadow;
     this.actors.shadowMat.opacity = this.sun.castShadow ? 0.32 : 0.5;
     this.terrain.time.value = this.time;
+    this.terrain.viewH.value = this.vh || 800; // (the falls' mist fades by how big a tile is on screen)
     // rain rings on the water, and the ground darkening while it's wet and drying after
     const raining = game.weather === 'rain' && this.weatherOn !== false;
     this.terrain.rain.value += ((raining ? 1 : 0) - this.terrain.rain.value) * Math.min(1, dt * 1.5);

@@ -115,7 +115,7 @@ check('Drawn: the mounds the day after it is built, lower than full, and the spi
   g.water.raiseDam(site, 1); g.water.sync(); g.day++; more = true; for (let k = 0; k < 400 && more; k++) more = flora.rebuild(g, false, 1);
   assert.ok(mounds() >= 1 && damOf(g, site).dam.length >= 1, 'still drawn');
   assert.ok(Number.isFinite(lowBase) && top() > lowBase + 0.02, `redrawn taller: ${lowBase.toFixed(3)} -> ${top().toFixed(3)}`);
-  // the spill: a full dam's thin white curtain over the channel, on its own mesh, facing up and downstream
+  // the spill: a full dam's thin falling water over the channel (sheet and foam), on its own mesh, the sheet facing up and downstream
   rain(g, 30);
   const b = damOf(g, site); assert.ok(b.full, 'full'); assert.ok(w.damSpills?.some(d => d.site === site), 'published as spilling');
   const atlas = { tex: null, uv: {}, slot: {} };
@@ -123,10 +123,10 @@ check('Drawn: the mounds the day after it is built, lower than full, and the spi
   const t = new Terrain(new THREE.Scene(), atlas); t.setWorld(w, g.border); t.updateSurface(g);
   assert.ok(t.spills, 'a spill drawn'); const plain = farm(), tp = new Terrain(new THREE.Scene(), atlas); tp.setWorld(plain.world, plain.border); tp.updateSurface(plain);
   assert.equal(t.falls?.geometry.index.count ?? 0, tp.falls?.geometry.index.count ?? 0, 'the waterfalls\' mesh is as without the dam (the spill is its own)');
-  const p = t.spills.geometry.attributes.position, wh = t.spills.geometry.attributes.aWhite, ix = t.spills.geometry.index.array;
+  const p = t.spills.geometry.attributes.position, fa = t.spills.geometry.attributes.aFall, ix = t.spills.geometry.index.array;
   const [ax, ay] = b.axis, down = new THREE.Vector3(ax, 0, ay).normalize().add(new THREE.Vector3(0, 1, 0)), v3 = k => new THREE.Vector3(p.getX(k), p.getY(k), p.getZ(k));
-  for (let k = 0; k < ix.length; k += 3) { const a = v3(ix[k]), n = v3(ix[k + 1]).sub(a).cross(v3(ix[k + 2]).sub(a)); assert.ok(n.dot(down) > 0, `spill triangle ${k / 3} faces away`); }
-  let hi = -Infinity, lo = Infinity; for (let k = 0; k < p.count; k++) { hi = Math.max(hi, p.getY(k)); lo = Math.min(lo, p.getY(k)); assert.ok(wh.getX(k) < 0.9, 'fainter than a fall'); }
+  for (let k = 0; k < ix.length; k += 3) { if (fa.getW(ix[k]) !== 0) continue; const a = v3(ix[k]), n = v3(ix[k + 1]).sub(a).cross(v3(ix[k + 2]).sub(a)); assert.ok(n.dot(down) > 0, `spill triangle ${k / 3} faces away`); }
+  let hi = -Infinity, lo = Infinity; for (let k = 0; k < p.count; k++) { hi = Math.max(hi, p.getY(k)); lo = Math.min(lo, p.getY(k)); assert.ok(fa.getW(k) === 1 || fa.getZ(k) < 0.9, 'thinner than a fall'); assert.ok(fa.getW(k) < 1.5, 'no mist'); }
   const lip = (hi - 0.02) / LEVEL - 0.01; // (curtains ride 0.02 over their water; the lip 0.01 over the crest)
   assert.ok(Math.abs(lip - b.crest) < 0.02, `lip ${lip.toFixed(2)} at the crest ${b.crest.toFixed(2)}`);
   assert.ok(hi - lo > 0.05 * LEVEL, 'it falls');

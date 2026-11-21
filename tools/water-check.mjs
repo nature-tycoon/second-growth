@@ -27,7 +27,7 @@ function make(map = 'pnw') {
 function dispose(t) {
   t.banks.dispose();
   for (const m of [t.mesh,t.water,t.flood,t.skirt,t.line,t.overlay,t.preview]) m?.geometry.dispose();
-  for (const m of [t.material,t.waterMat,t.floodMat,t.skirtMat,t.overlayMat,t.previewMat]) m.dispose();
+  for (const m of [t.material,t.waterMat,t.floodMat,t.skirtMat,t.overlayMat,t.previewMat,t.fallMat,t.rockMat]) m.dispose();
   t.noise.dispose();t.tiles.tex.value.dispose();t.tiles.tint.value.dispose();
 }
 check('Signed depth follows the rendered bed, and shared vertices have seamless flow', () => {
