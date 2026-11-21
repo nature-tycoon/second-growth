@@ -34,7 +34,7 @@ Branch: `claude/ideas-cinema-creeks` (cut from origin/main 382bb46). Sessions ru
 | 4b | Verify water routes | s4's unrun checks, Chinandega crawl seeds; fix what fails | default | S | [x] 7a576ae (sweep still fails: cattle crawl, see s4b.md) |
 | 5 | Beaver dams hold water | dam spans creek, water backs up | default | M–L | [x] (see s5.md) |
 | 6 | Waterfalls | natural spring-fed falls | default | L | [x] (see s6.md) |
-| 7 | Plants look natural | gradual leaf-out, patchy shrubs/grass, trees in creeks die (moved from 4) | default | M | [ ] |
+| 7 | Plants look natural | gradual leaf-out, patchy shrubs/grass, trees in creeks die (moved from 4) | default | M | [x] bc51257 |
 | 8 | Serengeti herd routes | herds follow green grass | default | M | [ ] |
 | 9 | Herd squeeze crawl | walkers pressing into grazing/resting herd mates; sweep over a wider seed set (s4b Q1–4) | default | M | [ ] |
 
