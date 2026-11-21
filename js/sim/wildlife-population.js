@@ -18,6 +18,7 @@ import { huntHunger } from '../data/animal-activity.js';
 import { passable, canLand } from './animal-terrain.js';
 import { simRandom } from './sim-random.js';
 import { swimDepth } from './waterline.js';
+import { crossingColumn } from './migration-route.js';
 import { territory, Animal, inRiver, spotIn, WITH_MOM } from './wildlife-shared.js';
 
 const LEAVE_DAYS = 20; // (days a leaving animal has to get off the map: a walk off takes one or two)
@@ -279,7 +280,9 @@ export class WildlifePopulation {
       }
       return 0;
     }
-    const cx = Math.round(w.w * (def.crossing.x ?? 0.5));
+    // (where the grass beyond the far bank is greenest this year; groups arriving while a crossing is
+    // under way join it: 0052)
+    const cx = this.crossingAt && this.game.day < this.crossingAt.until ? this.crossingAt.x : crossingColumn(this.game, def);
     let bank = w.h - 1;
     while (bank > 0 && isWater(w.terrain[w.idx(cx, bank)])) bank--;
     // (the crocodiles know; a big enough herd is the keystone moment once it's swimming, see momentsUpdate)

@@ -82,6 +82,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0049](docs/decisions/0049-primate-rest-budget.md) Primate rest budget by species, midday rest and night sleep by the drawn sun, leaf-out regrip (`restShare`, `primateRest`, `regripCanopy`)
 - [0050](docs/decisions/0050-waterfalls.md) Waterfalls: a steep creek reach gathered at one ledge with a plunge pool, PNW only (`creekFalls`, `isFall`, `buildFalls`); bank ring takes the water beside it first
 - [0051](docs/decisions/0051-leaf-out-by-the-day.md) Leaf-out by the day: each plant's own leaf-out and leaf-fall day, drawing only (`plantPhaseOn`, `leafOut`); the plant drawing redraws only tiles that turned
+- [0052](docs/decisions/0052-migration-route.md) Migration route: herds with `crossing` cross where it's greenest and drift north through their season on green grass (`sim/migration-route.js`, `greenness`, `driftRow`; `tools/migration-route-probe.mjs`)
 
 Ask a trait, never a species name: behaviour and drawing ask `trait(def, name)` (`js/data/animal-kinds.js`: defaults by `sprite.kind`, a species overrides with a field of the same name), so a fix reaches every animal with the trait. A name check stays only where a species is truly unique, with a one-line comment saying why. `node tools/species-name-count.mjs` (headless suite) fails if name checks rise; `--update` after they fall.
 

@@ -24,6 +24,7 @@ import { markRisk, safety } from './predation-risk.js';
 import { passable, canLand, WADERS, shallows } from './animal-terrain.js';
 import { swimRoute } from './swim-routes.js';
 import { simRandom } from './sim-random.js';
+import { routeWeight, stepWeight, driftRow, grassGone, greenSpot } from './migration-route.js';
 import { swimmer, territory, standable, inRiver, inCrossing, WITH_MOM } from './wildlife-shared.js';
 
 let stamp = null, parent = null, bfsQ = null, depth = null, stampN = 1;
@@ -178,7 +179,9 @@ export class WildlifeIntent {
   roamChance(def, a) {
     const w = this.game.world, i = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
     const inRiver = i >= 0 && w.terrain[i] === T.RIVER && !def.patrol;
-    return (0.04 + Math.min(0.06, def.hr / 1000)) * (inRiver ? 3 : 1) * (def.crossing ? 2.5 : 1); // the migrants keep moving across the plains
+    // (the migrants keep moving across the plains, and sooner where the grass is eaten or dried out: 0052)
+    const migrant = def.crossing ? (i >= 0 && !a.leaving && grassGone(w, Math.floor(a.x), Math.floor(a.y)) ? 5 : 2.5) : 1;
+    return (0.04 + Math.min(0.06, def.hr / 1000)) * (inRiver ? 3 : 1) * migrant;
   }
 
   // Roaming: set off for another patch of good habitat somewhere else on the map. Walkers, swimmers
@@ -212,6 +215,8 @@ export class WildlifeIntent {
     stampN++;
     let head = 0, tail = 0, pick = -1, seen = 0;
     const dest = resume ?? -1;
+    // (a migrating leader picks the greenest grass along the season's drift north: 0052)
+    const route = def.crossing && !a.leaving && dest < 0 ? driftRow(this.game, def) : null;
     bfsQ[tail++] = start; stamp[start] = stampN; parent[start] = -1; depth[start] = 0;
     while (head < tail) {
       const i = bfsQ[head++], x = i % W, y = (i / W) | 0;
@@ -219,7 +224,7 @@ export class WildlifeIntent {
       else
       // a far, good tile: keep one at random, weighted toward the best habitat (reservoir sampling)
       // (the river is mostly a corridor: a place to pass through rather than settle)
-      if (depth[i] >= 12 && map[i] > 0.3 && !(landWalker(def, a) && isWater(w.terrain[i]))) { const wgt = map[i] * map[i] * room(i) * (w.terrain[i] === T.RIVER && !def.patrol ? 0.25 : 1); seen += wgt; if (simRandom() * seen < wgt) pick = i; }
+      if (depth[i] >= 12 && map[i] > 0.3 && !(landWalker(def, a) && isWater(w.terrain[i]))) { const wgt = map[i] * map[i] * room(i) * (w.terrain[i] === T.RIVER && !def.patrol ? 0.25 : 1) * (route != null ? routeWeight(this.game, def, i, route) : 1); seen += wgt; if (simRandom() * seen < wgt) pick = i; }
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
         if (!swimmer(a, this.game.catalog) && dx && dy) continue;
@@ -430,6 +435,8 @@ export class WildlifeIntent {
     const swim = swimRoute(this, a, def); // (a river fish only goes where it can swim there: swim-routes.js)
     const ahead = i => (((i % W) - x0) * a.patrolDir[0] + (((i / W) | 0) - y0) * a.patrolDir[1]) / R;
     let poke = -1, pokeN = 0; // a random nearby spot it could live on, for a short wander
+    // (a migrating leader walks on toward green grass, north with the season: 0052)
+    const row = def.crossing && !a.leaving && (!def.herd || this.herdLeader(a) === a) ? driftRow(this.game, def) : null;
     while (head < tail && tail < cap) {
       const i = bfsQ[head++];
       const x = i % W, y = (i / W) | 0;
@@ -446,6 +453,7 @@ export class WildlifeIntent {
       // Established resource ranges limit aimless drift between purposeful trips.
       if (a.home) s *= homeFalloff(w, a, i);
       s *= safety(this, a.sp, i);
+      if (row != null) s *= stepWeight(this.game, def, i, row, y0, R);
       if (a.range) { const r = a.range, near = Math.min(Math.hypot(x-r.feed%W,y-(r.feed/W|0)),Math.hypot(x-r.rest%W,y-(r.rest/W|0))); s /= 1 + Math.max(0,near-4)*.7; }
       if (s > bs) { bs = s; best = i; }
       if (i !== start && map[i] > 0.01 && deep(i) && Math.abs(x - x0) + Math.abs(y - y0) <= 4 && !recent.includes(i) && simRandom() * ++pokeN < 1) poke = i;
@@ -553,9 +561,16 @@ export class WildlifeIntent {
       const ang = simRandom() * Math.PI * 2, r = 0.8 + radius * Math.sqrt(0.25 + simRandom() * 0.75);
       a.slot = [Math.cos(ang) * r, Math.sin(ang) * r];
     }
-    const tx = lead.x + a.slot[0], ty = lead.y + a.slot[1];
-    if (Math.hypot(a.x - tx, a.y - ty) < 1.2) { a.wait = 0.4 + simRandom() * 1.5; a.trip = null; return true; }
+    const tx = lead.x + a.slot[0], ty = lead.y + a.slot[1], w = this.game.world;
+    // (a migrating herd grazes as it goes: each stands on the green grass within a step or two of
+    // its place rather than on bare ground or in the bush, and falls back to its place: 0052)
+    const here = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.idx(Math.floor(a.x), Math.floor(a.y)) : -1;
+    const spot = def.crossing ? greenSpot(w, a, tx, ty) : null;
+    const at = Math.hypot(a.x - tx, a.y - ty) < 1.2;
+    if (spot && spot.here || at && !spot) { a.wait = 0.4 + simRandom() * 1.5; a.trip = null; return true; }
     a.trip = null;
+    // (already near its place it steps over at a walk, grazing; from further off it trots to catch up)
+    if (spot && this.pathTo(a, j => j === spot.i, 900)) { a.follow = !at && Math.hypot(a.x - tx, a.y - ty) > 2.5; return true; }
     if (this.pathTo(a, (j, x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty) < 1, 900, (x, y) => Math.hypot(x + 0.5 - tx, y + 0.5 - ty))) { a.follow = true; return true; }
     return false;
   }
