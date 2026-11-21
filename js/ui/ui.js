@@ -50,6 +50,11 @@ const $ = sel => document.querySelector(sel);
 const TOUCH = matchMedia('(pointer: coarse)').matches && !matchMedia('(pointer: fine)').matches;
 const COMPACT = () => innerHeight <= 520;
 const STORY_OFFERED = 'sg-story-offered'; // (offered once per device, after the first Free Play goal)
+// A first visit's opening minutes (docs/ideas/2026-11-21-first-minutes/s2.md): what the simulation
+// announces on its own is held back this long (alarms go to the journal only, good news one at a
+// time), and the Story offer waits for a pause, the menu, or this long without a click or key.
+const QUIET_MS = 5 * 60e3, QUIET_GAP_MS = 45e3, STORY_IDLE_MS = 25e3;
+const ALARMS = new Set(['warn', 'fire', 'flood', 'bad']);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const pct = v => Math.round(v * 100) + '%';
 // Only touch the page when something actually changed: every write is a DOM mutation, and the
@@ -113,6 +118,8 @@ export class UI {
     this.lastTop = 0; this.lastInfo = 0; this.lastMini = 0;
     this.toastCount = 0;
     this.dismissedBanners = {};
+    this.quiet = null; this.storyPending = false; this.lastInput = performance.now();
+    for (const type of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(type, () => { this.lastInput = performance.now(); }, { capture: true, passive: true });
     this.newCats = new Set(); // tool categories a chapter just unlocked (they glow until opened)
     this.undo = new Undo(game);
     this.actions = new ToolActions(game, { undo: this.undo });
@@ -150,6 +157,7 @@ export class UI {
     });
     game.on('event', kind => {
       if (kind === 'fire' || kind === 'flood') {
+        if (this.quietNow()) { this.dismissedBanners[kind] = true; this.bannerKey = null; return; } // (no banner or pause in a first visit's opening minutes)
         delete this.dismissedBanners[kind]; this.bannerKey = null;
         if (settings.pauseOnEvents && game.speed) this.setSpeed(0);
       }
@@ -826,6 +834,7 @@ export class UI {
   // ------------------------------------------------------------ per-frame
   frame(dt = 0) {
     this.watch.frame(dt);
+    if (this.storyPending) this.maybeOfferStory();
     this.refreshTop();
     rutSounds(this.game, this.renderer, music, this.renderer.time);
     flightCalls(this.game, this.renderer, music);
@@ -843,6 +852,7 @@ export class UI {
     if (settings.notifications === 'hidden') return;
     // "important only": routine updates skip the pop-up but stay in the journal
     if (settings.notifications === 'important' && (n.kind === 'info' || n.kind === 'season') && !n.loc) return;
+    if (this.holdInFirstMinutes(n)) return;
     const box = $('#toasts');
     const icon = { good: 'good', warn: 'warn', discover: 'star', goal: 'star', season: 'leaf', info: 'info', fire: 'fire', flood: 'rain' }[n.kind] || 'info';
     const t = el('div', `toast ${n.kind}` + (n.loc ? ' clickable' : ''), `<span class="ti">${ICONS[icon]}</span><span class="toast-text">${n.text}</span>${n.action ? `<button type="button" class="btn toast-act">${n.action.label}</button>` : ''}<button type="button" class="notice-close" aria-label="Dismiss notification" title="Dismiss notification">×</button>`);
@@ -869,6 +879,21 @@ export class UI {
     }
     const life = n.life || (n.kind === 'discover' || n.kind === 'goal' || n.kind === 'fire' || n.kind === 'flood' ? 10000 : n.kind === 'warn' ? 8000 : 5500);
     setTimeout(() => { t.classList.add('fade'); setTimeout(() => t.remove(), 600); }, life);
+  }
+
+  quietNow() {
+    if (this.quiet && performance.now() > this.quiet.until) this.quiet = null;
+    return !!this.quiet;
+  }
+  // A first visit's opening minutes: the simulation runs as usual, but what it says on its own
+  // (n.sim: floods, fires, invasives, warnings) stays in the journal, and its good news pops up one
+  // at a time. Replies to the player (a refused stroke, an undo), goals, tips and offers still show.
+  holdInFirstMinutes(n) {
+    if (!n.sim || n.keep || n.kind === 'goal' || n.action || !this.quietNow()) return false;
+    const now = performance.now(), q = this.quiet;
+    if (!ALARMS.has(n.kind) && now - q.lastSoft >= QUIET_GAP_MS) { q.lastSoft = now; return false; }
+    q.held++;
+    return true;
   }
 
   // ------------------------------------------------------------ minimap
@@ -1206,9 +1231,14 @@ export class UI {
       <button class="btn secondary" data-a="help">How to play</button>
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="backups">Restore an earlier save</button>
-      ${this.game.mode !== 'campaign' && this.game.catalog.definition.campaign ? '<button class="btn secondary" data-a="story">Story mode (guided chapters)</button>' : ''}
+      ${this.game.mode !== 'campaign' && this.game.catalog.definition.campaign ? `<button class="btn ${this.storyPending ? '' : 'secondary'}" data-a="story">${this.storyPending ? 'Want a guided start? Story mode, on this farm' : 'Story mode (guided chapters)'}</button>` : ''}
       <button class="btn secondary" data-a="new">Start a new game (campaign or free play)</button></div>`, { narrow: true });
-    m.querySelector('[data-a=story]')?.addEventListener('click', () => { track('story_offer_taken', { map: this.game.map, from: 'menu' }); this.openModeChoice(true); });
+    // (the waiting Story offer is made here too: opening the menu is a pause)
+    const offered = this.storyPending && this.markStoryOffered('menu');
+    m.querySelector('[data-a=story]')?.addEventListener('click', () => {
+      track('story_offer_taken', { map: this.game.map, from: 'menu' });
+      if (offered) { this.closeModal(); this.startStoryHere(); } else this.openModeChoice(true);
+    });
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
     m.querySelector('[data-a=overlay]').addEventListener('click', () => this.openOverlayPicker());
     m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
@@ -1225,16 +1255,42 @@ export class UI {
   }
 
   // After the first goal: watch the seeds grow. In Free Play, the first time on this device, the
-  // same note offers the story (new players start in Free Play rather than at a mode choice).
+  // story is offered too (new players start in Free Play rather than at a mode choice), but not
+  // now: players left within seconds of an offer made straight after a goal. It waits for a pause,
+  // the menu, or a while without input (maybeOfferStory).
   firstGoalNote(goal) {
     const g = this.game;
-    let offer = false;
-    if (g.mode === 'free' && g.catalog.definition.campaign) {
-      try { offer = !localStorage.getItem(STORY_OFFERED); localStorage.setItem(STORY_OFFERED, '1'); } catch { /* storage unavailable */ }
+    if (g.mode === 'free' && g.catalog.definition.campaign && !this.storyPending) {
+      try { this.storyPending = !localStorage.getItem(STORY_OFFERED); } catch { /* storage unavailable */ }
     }
-    if (offer) track('story_offered', { map: g.map });
-    this.toast({ text: goal.done + (offer ? ' Want a guided start? Story mode teaches restoration one chapter at a time.' : ''), kind: 'tip', date: g.dateString(),
-      life: offer ? 16000 : 9000, action: offer ? { label: 'Story mode', run: () => { track('story_offer_taken', { map: g.map }); this.openModeChoice(true); } } : null });
+    this.toast({ text: goal.done, kind: 'tip', date: g.dateString(), life: 9000 });
+  }
+  markStoryOffered(from) {
+    this.storyPending = false;
+    try { localStorage.setItem(STORY_OFFERED, '1'); } catch { /* storage unavailable */ }
+    track('story_offered', { map: this.game.map, from });
+    return true;
+  }
+  maybeOfferStory() {
+    const g = this.game, now = performance.now();
+    if (g.mode !== 'free' || this.modalOpen || this.moment || this.photo || this.watch?.on) return;
+    const paused = g.speed === 0, idle = now - this.lastInput >= STORY_IDLE_MS;
+    if (!paused && !idle) return;
+    this.markStoryOffered(paused ? 'pause' : 'idle');
+    this.toast({ text: 'Want a guided start? Story mode teaches restoration one chapter at a time, right here on this farm.', kind: 'tip', date: g.dateString(),
+      life: 16000, action: { label: 'Story mode', run: () => { track('story_offer_taken', { map: g.map }); this.startStoryHere(); } } });
+  }
+  // Taking the Story offer: Chapter 1 starts on this farm as it stands. It used to open the mode
+  // choice, which started a new farm (asking twice) and threw away what the player had planted.
+  startStoryHere() {
+    const g = this.game;
+    g.mode = 'campaign'; g.campaign = { chapter: 0 };
+    this.analyticsContext?.();
+    this.openCategory('inspect'); // (the tool in hand may belong to a later chapter)
+    this.buildToolbar();
+    this.renderQuest(true);
+    if (g.autosave !== false) void g.save();
+    this.openChapter(0);
   }
 
   openSaveRecovery() { return this.saving.openRecovery(); }
@@ -1516,6 +1572,7 @@ export class UI {
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
     if (sandbox) g.flags.sandbox = true; else delete g.flags.sandbox; // (saved with the farm)
     if (firstVisit) loadState.firstVisit = true; // (for first_animal_seen, ui/session-analytics.js)
+    this.quiet = firstVisit ? { until: performance.now() + QUIET_MS, lastSoft: -1e9, held: 0 } : null;
     track('game_start', { mode, fresh, difficulty, map, ...(sandbox ? { sandbox: true } : {}), ...(firstVisit ? { first_visit: true } : {}) });
     this.newCats = new Set();
     this.afterNewGame();

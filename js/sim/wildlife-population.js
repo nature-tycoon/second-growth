@@ -262,7 +262,7 @@ export class WildlifePopulation {
     if (!placed && blocked && !this.state[def.index].blockedNotified) {
       this.state[def.index].blockedNotified = true;
       const dir = { N: 'north', E: 'east', W: 'west', S: 'south' }[edge];
-      this.game.notify(`${cap(many(def))} tried to wander in from the ${dir}, but the old boundary fence stopped them. Tearing out fences opens a wildlife corridor.`, 'warn');
+      this.game.notify(`${cap(many(def))} tried to wander in from the ${dir}, but the old boundary fence stopped them. Tearing out fences opens a wildlife corridor.`, 'warn', null, { keep: true }); // (shown even in a first visit's quiet minutes: session 3 turns it into the opening's hook)
     }
     return placed;
   }

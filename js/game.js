@@ -130,7 +130,9 @@ export class Game {
   // scaled by difficulty (the UI shows this figure, so it always matches the payout).
   goalReward(r) { return Math.round(r * 0.6 * this.diff.grants); }
 
-  notify(text, kind = 'info', loc = null) { this.emit('notify', { text, kind, loc, date: this.dateString() }); }
+  // (`sim`: said by the clock on its own, not in reply to the player; a first visit's opening
+  // minutes hold those back, ui.holdInFirstMinutes. `extra` adds fields, e.g. { keep: true })
+  notify(text, kind = 'info', loc = null, extra = null) { this.emit('notify', { text, kind, loc, date: this.dateString(), ...(this.inSim ? { sim: true } : null), ...extra }); }
 
   refreshEnvironment() {
     this.water?.sync();
@@ -141,6 +143,10 @@ export class Game {
 
   // ------------------------------------------------------------------ clock
   update(dtSec) {
+    this.inSim = true;
+    try { this.advance(dtSec); } finally { this.inSim = false; }
+  }
+  advance(dtSec) {
     const sp = SPEEDS[this.speed];
     if (!sp) return;
     useSimRandom(this.wildRng);

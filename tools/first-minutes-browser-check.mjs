@@ -1,7 +1,9 @@
 // The first two minutes for a brand-new player (docs/posthog-review-2026-11.md, player fix 1): no
 // saved farm means no mode choice, straight into Free Play with a tip; one stroke of seed meets the
-// first goal within a few game days; its follow-up offers the story once. A player with a saved farm
-// still gets the chooser. FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
+// first goal within a few game days; its follow-up offers the story once, but only once the player
+// pauses or goes idle, and taking it starts Chapter 1 on the same farm without a reload. The opening
+// minutes hold back what the simulation announces on its own (alarms, a stack of good news), and a
+// refused building says where it fits. A player with a saved farm still gets the chooser. FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { openBrowser } from './browser-session.mjs';
@@ -33,6 +35,43 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.equal(start.start?.first_visit, true, 'game_start marks the first visit');
     assert.ok(start.tip, 'a first visit gets a tip on what to try');
 
+    // quiet opening minutes: what the simulation says on its own stays in the journal
+    const quiet = await b.evaluate(`(()=>{
+      const {game:g,ui}=window.secondGrowth, shown=()=>[...document.querySelectorAll('#toasts .toast-text')].map(t=>t.textContent);
+      g.inSim=true;
+      g.notify('QFlood: the river spilled over','flood'); g.notify('QWarn: invasives are spreading','warn'); g.notify('QFire: wildfire','fire');
+      g.notify('QFound A arrived','discover'); g.notify('QFound B arrived','discover');
+      g.notify('QFence: deer tried to wander in, but the old boundary fence stopped them','warn',null,{keep:true});
+      g.inSim=false;
+      g.notify('QReply: not enough money','warn'); // (a reply to the player: shown)
+      const t=shown(), j=ui.journal.map(n=>n.text);
+      return { alarm:t.some(x=>/^Q(Flood|Warn|Fire)/.test(x)), found:t.filter(x=>/^QFound/.test(x)).length,
+        fence:t.some(x=>/^QFence/.test(x)), reply:t.some(x=>/^QReply/.test(x)), journal:j.filter(x=>/^Q/.test(x)).length, held:ui.quiet?.held };
+    })()`);
+    assert.equal(quiet.alarm, false, 'no alarm notices pop up in a first visit\'s opening minutes');
+    assert.ok(quiet.found <= 1, `good news comes one at a time (${quiet.found} shown)`);
+    assert.ok(quiet.fence && quiet.reply, 'the fence note and replies to the player still show');
+    assert.equal(quiet.journal, 7, 'every held notice is still in the journal');
+    await b.evaluate(`document.querySelectorAll('#toasts .toast').forEach(t=>t.remove())`);
+
+    // a refused visitor center says where it fits
+    const refused = await b.evaluate(`(async()=>{
+      const {game:g,ui}=window.secondGrowth, w=g.world, money=g.money, {T}=await import('/js/config.js'); g.money=1e6;
+      // dry open ground with no road within three tiles: the center can't go here
+      let at=-1;
+      for(let i=0;i<w.n&&at<0;i++){ const x=i%w.w,y=(i/w.w)|0; if(x<4||y<4||x>w.w-6||y>w.h-6||w.terrain[i]===T.ROAD||w.struct[i]>=0||(g.mapDefinition.canEdit&&!g.mapDefinition.canEdit(g,i))) continue;
+        let road=false; for(let yy=y-3;yy<=y+4;yy++) for(let xx=x-3;xx<=x+4;xx++) if(w.terrain[w.idx(xx,yy)]===T.ROAD) road=true;
+        if(!road) at=i; }
+      const s=ui.actions.begin('build_center'); ui.actions.applyTiles(s,[at]); ui.actions.end(s);
+      g.money=money;
+      const t=[...document.querySelectorAll('#toasts .toast')].find(x=>/visitor center/i.test(x.textContent));
+      return { text:t?.textContent||'', clickable:!!t?.classList.contains('clickable'), built:s.count };
+    })()`);
+    assert.equal(refused.built, 0, 'the center is refused away from roads');
+    assert.match(refused.text, /It fits about \d+ tiles to the|Lay a Gravel road/, `a refused building says where it can go: ${refused.text}`);
+    if (/It fits/.test(refused.text)) assert.ok(refused.clickable, 'the refusal note looks there when clicked');
+    await b.evaluate(`document.querySelectorAll('#toasts .toast').forEach(t=>t.remove())`);
+
     // one stroke of meadow mix across a field, then a few game days
     const sown = await b.evaluate(`(async()=>{
       const {game:g,ui,renderer}=window.secondGrowth;
@@ -52,19 +91,33 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
       const shot = await b.send('Page.captureScreenshot', { format: 'png' });
       await writeFile(`${shots}/sown-${width}x${height}.png`, Buffer.from(shot.data, 'base64'));
     }
-    // the follow-up, with the one-time story offer
-    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>x.textContent==='Story mode')`, 'story offer', 20000);
+    // the follow-up, then the one-time story offer: never while the player is busy, only on a pause
+    // (the phone size) or after a while without input (the desktop size, the idle clock wound on)
+    await b.waitFor(`window.secondGrowth.ui.storyPending`, 'story offer queued after the goal', 20000);
+    const busy = await b.evaluate(`(async()=>{
+      for(let k=0;k<6;k++){ window.dispatchEvent(new PointerEvent('pointerdown')); await new Promise(r=>setTimeout(r,500)); }
+      return [...document.querySelectorAll('#toasts .toast-act')].some(x=>x.textContent==='Story mode');
+    })()`);
+    assert.equal(busy, false, 'no Story offer while the player is busy');
+    if (width < 1000) await b.evaluate(`window.secondGrowth.ui.setSpeed(0)`);
+    else await b.evaluate(`window.secondGrowth.ui.lastInput -= 30000`);
+    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>x.textContent==='Story mode')`, 'story offer', 5000);
     if (shots) {
       const shot = await b.send('Page.captureScreenshot', { format: 'png' });
       await writeFile(`${shots}/offer-${width}x${height}.png`, Buffer.from(shot.data, 'base64'));
     }
     const offer = await b.evaluate(`(()=>{
-      document.querySelector('#toasts .toast-act').click();
-      return { offered:window.events.some(e=>e.event==='story_offered'), taken:window.events.some(e=>e.event==='story_offer_taken'),
-        chooser:document.querySelector('.modal-head h2')?.textContent, stored:localStorage.getItem('sg-story-offered') };
+      const g=window.secondGrowth.game, planted=g.stats.planted, day=g.day;
+      [...document.querySelectorAll('#toasts .toast-act')].find(x=>x.textContent==='Story mode').click();
+      return { offered:window.events.find(e=>e.event==='story_offered')?.props, taken:window.events.some(e=>e.event==='story_offer_taken'),
+        panel:document.querySelector('.modal-head h2')?.textContent, stored:localStorage.getItem('sg-story-offered'),
+        mode:g.mode, kept:g.stats.planted===planted && g.day>=day, restarted:window.events.some(e=>e.event==='game_restart'||e.event==='map_switch') };
     })()`);
     assert.ok(offer.offered && offer.taken, 'story_offered and story_offer_taken are tracked');
-    assert.equal(offer.chooser, 'How do you want to play?', 'Story mode opens the chooser');
+    assert.equal(offer.offered.from, width < 1000 ? 'pause' : 'idle', 'the offer came on a pause or when idle');
+    assert.equal(offer.mode, 'campaign', 'Story mode starts the campaign');
+    assert.match(offer.panel || '', /^Chapter 1:/, 'Story mode opens Chapter 1 at once');
+    assert.ok(offer.kept && !offer.restarted, 'the same farm carries on: no new farm, no reload');
     assert.equal(offer.stored, '1', 'the story is offered once per device');
     await b.evaluate(`window.secondGrowth.ui.closeModal()`);
 
@@ -77,6 +130,6 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.equal(back.modal, 'How do you want to play?', 'a returning player gets the chooser');
     assert.equal(back.start, false, 'nothing starts before a returning player chooses');
     b.assertHealthy();
-    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, first goal in ${sown.days} day(s) after one stroke, story offered once, returning player gets the chooser`);
+    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, first goal in ${sown.days} day(s) after one stroke, alarms held (${quiet.held}), refusal says where, story offered on ${offer.offered.from} and taken in place, returning player gets the chooser`);
   } finally { await b.close(); }
 }
