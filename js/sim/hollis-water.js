@@ -55,6 +55,14 @@ export const DAM_HEAD = .6, DAM_CELLS = 60, POND_DEPTH = .25, DAM_POND_DEPTH = .
 // a few over 100), and its pond stands SPILL_MARGIN under the lowest bank the water would get
 // round it at (its shown level rounds to 0.02, so it never stands over that bank).
 export const DAM_SPAN = 8, SPILL_MARGIN = .01;
+// A dam grows (b.rise, 0 new to 1 full): a colony throws up a low dam that backs the creek up
+// DAM_START over its own water (about 30 cm: just enough to still it into a pond), and raises it
+// toward its full crest a step at a time through the building months (wildlife-beavers.js damDay):
+// about half way the first season, full the next, so the pond deepens and spreads over its first
+// two years. (A colony mostly lasts a few years before the willow runs out: at a third of this,
+// its pond was rarely more than marsh, and beavers fell off in the soak.)
+// A flood that breaches a tended dam knocks it down DAM_BREACH; they raise it again.
+export const DAM_START = .13, DAM_RAISE = .15, DAM_BREACH = .2;
 // A beaver pond raises the water table round it: land beside its water, up to FRINGE_REACH tiles out
 // and up to about FRINGE over the pond's usual level, is saturated marsh, a sedge margin that
 // follows the lie of the land. How far it reaches varies slowly along the shore (old channels and
@@ -79,7 +87,7 @@ export class HollisWater {
       if (saved.base.some(v => !Number.isInteger(v) || v < 0 || v > T.TRAIL) || saved.wetDays.some(v => !Number.isInteger(v) || v < 0 || v > 65535)) throw new Error('Invalid saved water terrain');
       this.base.set(saved.base); this.wetDays.set(saved.wetDays);
       for (const b of saved.basins) {
-        if (!['pond', 'dam', 'receding'].includes(b.kind) || !Number.isInteger(b.site) || b.site < 0 || b.site >= w.n || !Number.isFinite(b.volume) || b.volume < 0 || !Number.isFinite(b.crest) || !Array.isArray(b.axis) || b.axis.length !== 2 || !b.axis.every(Number.isFinite) || Math.abs(b.axis[0]) + Math.abs(b.axis[1]) !== 1 || (b.shown != null && !Number.isFinite(b.shown))) throw new Error('Invalid saved reservoir');
+        if (!['pond', 'dam', 'receding'].includes(b.kind) || !Number.isInteger(b.site) || b.site < 0 || b.site >= w.n || !Number.isFinite(b.volume) || b.volume < 0 || !Number.isFinite(b.crest) || !Array.isArray(b.axis) || b.axis.length !== 2 || !b.axis.every(Number.isFinite) || Math.abs(b.axis[0]) + Math.abs(b.axis[1]) !== 1 || (b.shown != null && !Number.isFinite(b.shown)) || (b.rise != null && !(b.rise >= 0 && b.rise <= 1))) throw new Error('Invalid saved reservoir');
       }
       this.pending = saved.basins;
     }
@@ -280,6 +288,11 @@ export class HollisWater {
     const initial = kind === 'pond' ? Math.min(...core.map(i => this.nominal(i))) : this.nominal(site);
     let crest = kind === 'pond' ? initial + .18 : (kind === 'dam' ? previous?.top : null) ?? previous?.crest ?? this.damCrest(site, axis, occupied);
     const top = kind === 'dam' ? crest : null; // (the crest it was built to: saved, so a bank raised again lets the pond back up)
+    // (how far the beavers have raised it: a new dam starts low; one from an older save is full)
+    // (a draining pool's basin is no dam: one built across it starts low too)
+    const rise = kind === 'dam' ? (previous?.kind === 'dam' ? previous.rise ?? 1 : 0) : null, low = this.nominal(site) + DAM_START;
+    const built = top != null ? Math.min(top, low + rise * Math.max(0, top - low)) : null;
+    if (built != null) crest = built;
     // (a standing dam's pond is rechecked against its banks on every rebuild: ground lowered
     // beside it, or a save from before dams spanned the creek, lets it out to the lowest bank)
     let line = null;
@@ -291,6 +304,7 @@ export class HollisWater {
       // A dam on flat ground, from an old save, holds a low pool cut off at DAM_CELLS tiles)
       crest = this.damCrest(site, axis, occupied);
       let low = crest ?? Math.min(...this.corners(site)) + .15;
+      if (built != null) low = Math.min(low, built); // (never higher than the beavers have built it)
       if (kind === 'dam') { line = this.damLine(site, axis, low, occupied); low = Math.min(low, line.spill - SPILL_MARGIN); }
       footprint = this.footprint(core, low, kind, site, axis, occupied);
       if (crest == null) {
@@ -338,12 +352,15 @@ export class HollisWater {
     const b = { kind, site, core, crest, axis, cells, lo, table, capacity, floor, usual: feed ?? (kind === 'pond' ? initial : crest), shown: previous?.shown,
       volume: Math.max(floor, Math.min(capacity, previous?.volume ?? volumeAt(initial))), input: 0, loss: 0, overflow: 0, feed };
     for (const v of cells) occupied[v.i] = 1;
-    if (kind === 'dam') { b.dam = line?.edges ?? []; if (top != null && top > crest) b.top = top; } // (the dam's edges, bank to bank: drawn, not saved)
+    if (kind === 'dam') { b.dam = line?.edges ?? []; if (top != null && top > crest) b.top = top; b.rise = rise; } // (the dam's edges, bank to bank: drawn, not saved)
+    // (spilling over its crest, drawn, see step: kept through a rebuild while it stands near the crest)
+    b.full = b.volume >= capacity - 1e-6 || (!!previous?.full && this.level(b) >= crest - .03);
     if (kind === 'dam') { b.fringe = this.fringe(this.damWetCells(cells, crest), crest, site, axis, occupied); for (const i of b.fringe) occupied[i] = 1; }
     return b;
   }
   sync() {
-    const w = this.w; let dirty = this.hv !== w.hv;
+    const w = this.w; let dirty = this.hv !== w.hv || this.regrown;
+    this.regrown = false;
     // (a broken dam's pool that has run dry goes, so its creek is free for a new dam)
     if (this.basins.some(b => b.kind === 'receding' && b.volume <= .001)) dirty = true;
     // (only a change in or beside the water, or a pond dug or filled, rebuilds the basins: pasture
@@ -405,6 +422,9 @@ export class HollisWater {
       const available = b.volume + b.input - b.loss;
       b.overflow = Math.max(0, available - b.capacity);
       b.volume = Math.max(0, Math.min(b.capacity, available));
+      // (full and spilling over its crest, for the drawn spill: until it has dropped a little, so
+      // a dry day doesn't take the spill away and a shower bring it back)
+      if (b.volume >= b.capacity - 1e-6) b.full = true; else if (this.level(b) < b.crest - .03) b.full = false;
     }
     this.publish();
     for (let i = 0; i < this.w.n; i++) this.wetDays[i] = this.w.waterDepth[i] > .04 ? Math.min(65535, this.wetDays[i] + 1) : Math.max(0, this.wetDays[i] - 2);
@@ -449,6 +469,8 @@ export class HollisWater {
       for (const i of b.fringe || []) if (w.waterOwner[i] < 0) { w.waterOwner[i] = k; w.waterManaged[i] = 1; w.terrain[i] = T.MARSH; } // (the pond's marsh margin: saturated, no water of its own drawn, so the pond's edge keeps its level)
     }
     w.damEdges = this.basins.flatMap(b => b.dam || []); // (for the drawn water: not past a dam)
+    // (full dams spilling over their crest, for the drawn spill: terrain.js)
+    w.damSpills = this.basins.filter(b => b.kind === 'dam' && b.full && b.dam?.length).map(b => ({ site: b.site, crest: b.crest, axis: b.axis, edges: b.dam }));
     this.published.set(w.terrain);
     if (last.some((t, i) => t !== w.terrain[i])) { w.hydroDirty = true; w.renderDirty = true; }
   }
@@ -467,8 +489,22 @@ export class HollisWater {
     for (const i of back) { this.base[i] = saved.base[i]; this.published[i] = this.w.terrain[i]; this.wetDays[i] = saved.wetDays[i]; }
     this.pending = [...unaffected, ...affected]; this.basins = []; this.hv = -1;
   }
+  // Beavers raise the dam at `site` by `by` of its height, toward its full crest. True if it rose
+  // (the basins rebuild on the next sync: the pond's room grows, and it fills from the creek).
+  raiseDam(site, by) {
+    const b = this.basins.find(b => b.kind === 'dam' && b.site === site);
+    if (!b || (b.rise ?? 1) >= 1) return false;
+    b.rise = Math.min(1, b.rise + by); this.regrown = true;
+    return true;
+  }
+  // A flood breaches a tended dam: its pond drops, and it stands DAM_BREACH lower until rebuilt.
+  breachDam(site) {
+    const b = this.basins.find(b => b.kind === 'dam' && b.site === site);
+    if (!b) return;
+    b.volume *= 0.3; b.rise = Math.max(0, (b.rise ?? 1) - DAM_BREACH); this.regrown = true;
+  }
   serialize() {
     this.sync();
-    return { v: 1, base: Array.from(this.base), wetDays: Array.from(this.wetDays), basins: this.basins.map(({ kind, site, crest, top, axis, volume, shown }) => ({ kind, site, crest: top ?? crest, axis, volume, ...(Number.isFinite(shown) ? { shown } : {}) })) };
+    return { v: 1, base: Array.from(this.base), wetDays: Array.from(this.wetDays), basins: this.basins.map(({ kind, site, crest, top, axis, volume, shown, rise }) => ({ kind, site, crest: top ?? crest, axis, volume, ...(Number.isFinite(shown) ? { shown } : {}), ...(rise != null && rise < 1 ? { rise } : {}) })) };
   }
 }

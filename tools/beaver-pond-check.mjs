@@ -22,7 +22,7 @@ const wetTiles = (g, b) => b.cells.reduce((n, v) => n + (g.world.terrain[v.i] ==
 const GOOD = [54, 46]; // (a slow stretch of Hollis Farm's creek: a dam here makes a real pond)
 
 check('A dam backs up a distinct pond: open water in the middle, marsh at the edge, never past DAM_CELLS', () => {
-  const g = farm(), w = g.world; g.wildlife.buildDam(w.idx(...GOOD)); fill(g);
+  const g = farm(), w = g.world; g.wildlife.buildDam(w.idx(...GOOD), 1); fill(g);
   const b = g.water.basins.find(b => b.kind === 'dam');
   const open = pondTiles(g, b), wet = wetTiles(g, b);
   assert.ok(open >= SITE_OPEN && open >= wet * 0.4, `open water ${open} of ${wet}`);
@@ -30,7 +30,7 @@ check('A dam backs up a distinct pond: open water in the middle, marsh at the ed
   assert.ok(b.crest - Math.min(...g.water.corners(b.site)) <= 0.6 + 1e-9, 'a dam stands at most about 1.4 m');
   // every dam anywhere on the creek stays within the size limit
   for (let i = 0; i < w.n; i += 7) if (w.terrain[i] === T.CREEK) {
-    const h = farm(); h.wildlife.buildDam(i); fill(h, 20);
+    const h = farm(); h.wildlife.buildDam(i, 1); fill(h, 20);
     const d = h.water.basins.find(b => b.kind === 'dam'); if (d) assert.ok(wetTiles(h, d) <= DAM_CELLS, `dam at ${i % w.w},${(i / w.w) | 0}: ${wetTiles(h, d)} tiles`);
   }
 });
@@ -39,7 +39,7 @@ check('Beavers dam slow stretches with room and food, and leave flowing creek be
   let ok = 0, steep = 0;
   for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.CREEK) { if (damSiteOK(g, i)) ok++; else if (g.water.damPotential(i).wet < SITE_WET) steep++; }
   assert.ok(ok > 0, 'somewhere to build'); assert.ok(steep > 0, 'steep riffles are passed over');
-  g.wildlife.buildDam(w.idx(...GOOD)); fill(g, 10);
+  g.wildlife.buildDam(w.idx(...GOOD), 1); fill(g, 10);
   for (let i = 0; i < w.n; i++) if (w.terrain[i] === T.CREEK && damSiteOK(g, i)) {
     const x = i % w.w, y = (i / w.w) | 0;
     assert.ok(Math.max(Math.abs(x - GOOD[0]), Math.abs(y - GOOD[1])) > DAM_GAP, 'no dam crowding another');
@@ -48,7 +48,7 @@ check('Beavers dam slow stretches with room and food, and leave flowing creek be
 });
 check('A beaver pond has a marsh margin on the saturated ground round it, which stays marsh meadow when it drains', () => {
   // (since terrain relief, 0044, a dam's water alone filled only the ditch's channel)
-  const g = farm(), w = g.world, site = w.idx(54, 71); g.wildlife.buildDam(site); fill(g);
+  const g = farm(), w = g.world, site = w.idx(54, 71); g.wildlife.buildDam(site, 1); fill(g);
   const k = g.water.basins.findIndex(b => b.kind === 'dam'), b = g.water.basins[k];
   const margin = b.fringe.filter(i => w.waterOwner[i] === k && w.terrain[i] === T.MARSH);
   assert.ok(margin.length >= 10, `a marsh margin of ${margin.length} tiles`);
@@ -58,7 +58,7 @@ check('A beaver pond has a marsh margin on the saturated ground round it, which 
   assert.ok(kept >= margin.length * 0.8, `${kept} of ${margin.length} margin tiles are marsh meadow`);
 });
 check('A drained beaver pond becomes meadow, and its marsh dries back over the decades', () => {
-  const g = farm(), w = g.world, site = w.idx(...GOOD); g.wildlife.buildDam(site); fill(g);
+  const g = farm(), w = g.world, site = w.idx(...GOOD); g.wildlife.buildDam(site, 1); fill(g);
   const was = w.terrain.slice();
   g.wildlife.breakDam(site);
   assert.ok(w.meadow.some(m => m === PENDING_DEEP), 'its open water waits to become meadow');
@@ -76,7 +76,7 @@ check('A drained beaver pond becomes meadow, and its marsh dries back over the d
 });
 check('A broken dam\'s pool drains away in the rain and frees its creek for a new dam', () => {
   // (rain once held it at a third full for good, so beavers could never mend the best site on the creek)
-  const g = farm(), w = g.world, site = w.idx(...GOOD); willows(g); g.wildlife.buildDam(site); fill(g);
+  const g = farm(), w = g.world, site = w.idx(...GOOD); willows(g); g.wildlife.buildDam(site, 1); fill(g);
   g.wildlife.breakDam(site); g.water.sync();
   assert.ok(g.water.basins.some(b => b.kind === 'receding'), 'the pool drains over days, not at once');
   g.weather = 'rain'; for (let k = 0; k < 120; k++) g.water.step(g);
@@ -84,7 +84,7 @@ check('A broken dam\'s pool drains away in the rain and frees its creek for a ne
   assert.ok(damSiteOK(g, site), 'beavers can build there again');
 });
 check('A flood breaches a tended dam, which the beavers mend; one they left washes out', () => {
-  const g = farm(), w = g.world, site = w.idx(...GOOD); g.wildlife.buildDam(site); fill(g);
+  const g = farm(), w = g.world, site = w.idx(...GOOD); g.wildlife.buildDam(site, 1); fill(g);
   const b = () => g.water.basins.find(b => b.kind === 'dam'), full = b().volume;
   g.rng = () => 0; // (the flood hits every dam)
   w.featureAge[site] = 0; g.events.finishFlood(1.5, 0, 50);
@@ -93,7 +93,7 @@ check('A flood breaches a tended dam, which the beavers mend; one they left wash
   assert.notEqual(w.feature[site], F.DAM, 'the abandoned one washed out');
 });
 check('A beaver colony lives at its dam', () => {
-  const g = farm(), w = g.world, site = w.idx(...GOOD); willows(g); g.wildlife.buildDam(site); fill(g); g.refreshEnvironment(); g.wildlife.computeSuitability();
+  const g = farm(), w = g.world, site = w.idx(...GOOD); willows(g); g.wildlife.buildDam(site, 1); fill(g); g.refreshEnvironment(); g.wildlife.computeSuitability();
   const def = g.catalog.animals.find(d => d.damBuilder), a = g.wildlife.spawn(def, GOOD[0] + 6.5, GOOD[1] + 0.5, { silent: true });
   a.juvenile = false; a.home = null; a.homeAfter = 0;
   assert.equal(ensureHome(g.wildlife, a, def)?.center, site);
@@ -138,7 +138,7 @@ check('A dam spans the creek bank to bank and its pond stops at the lowest bank 
   const g0 = farm(), creek = []; for (let i = 0; i < g0.world.n; i += 11) if (g0.world.terrain[i] === T.CREEK) creek.push(i);
   let spans = 0, tested = 0;
   for (const s of [...sites.filter(Boolean).map(([x, y]) => g0.world.idx(x, y)), ...creek]) {
-    const g = farm(), w = g.world; g.wildlife.buildDam(s); fill(g);
+    const g = farm(), w = g.world; g.wildlife.buildDam(s, 1); fill(g);
     const b = g.water.basins.find(b => b.kind === 'dam' && b.site === s); if (!b) continue;
     tested++;
     const L = g.water.level(b), n = w.n, blocked = new Set(b.dam.map(([a, c]) => a * n + c));
@@ -160,7 +160,7 @@ check('A dam spans the creek bank to bank and its pond stops at the lowest bank 
   }
   assert.ok(tested >= 8 && spans >= 2, `${tested} dams, ${spans} wider than a tile`);
   // the pond fills to its crest, and a save keeps the crest and the dam's line
-  const g = farm(), w = g.world, site = w.idx(54, 71); g.wildlife.buildDam(site); fill(g, 40);
+  const g = farm(), w = g.world, site = w.idx(54, 71); g.wildlife.buildDam(site, 1); fill(g, 40);
   const b = g.water.basins.find(b => b.kind === 'dam');
   assert.ok(g.water.level(b) >= b.crest - .03, `filled to ${g.water.level(b).toFixed(2)} of ${b.crest.toFixed(2)}`);
   assert.ok(b.dam.length >= 3, `dam ${b.dam.length} tiles across a 3-tile channel`);

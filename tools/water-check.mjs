@@ -96,7 +96,7 @@ check('Digging and filling water refresh the depth/flow buffers without changing
 });
 check('Gameplay water planes match actor samples and disappear from a dried pond bed', () => {
   const {game,terrain:t}=make(),w=game.world;
-  game.wildlife.buildDam(w.idx(54,58));game.weather='rain';for(let k=0;k<10;k++)game.water.step(game);
+  game.wildlife.buildDam(w.idx(54,58), 1);game.weather='rain';for(let k=0;k<10;k++)game.water.step(game);
   t.refreshWater();const b=game.water.basins.find(b=>b.kind==='dam');
   const i=b.cells.find(v=>game.water.base[v.i]!==T.CREEK&&w.waterDepth[v.i]>.15).i,x=i%w.w,z=Math.floor(i/w.w);
   assert.ok(Math.abs(waterSurfaceY(w,x+.5,z+.5)-w.waterLevel[i]*LEVEL)<1e-7);

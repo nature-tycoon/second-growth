@@ -54,7 +54,7 @@ function setup(){
     const game=new Game();game.newGame(1987,'free','standard','pnw');
     const w=game.world;
     if(version==='after'){
-      if(controls.place.value==='dam')game.wildlife.buildDam(w.idx(54,58));
+      if(controls.place.value==='dam')game.wildlife.buildDam(w.idx(54,58), 1);
       game.weather='rain';for(let k=0;k<10;k++)game.water.step(game);
       if(controls.stage.value!=='wet'){
         game.day=50;game.weather='clear';

@@ -35,8 +35,8 @@ check('Stock pond refills, overflows at its outlet, and draws down in summer', (
 });
 check('A dam fills connected uphill low ground without a circle or immediate clearing', () => {
   const g=farm(),w=g.world,site=w.idx(54,58),trees=w.tree.slice(),heights=w.vh.slice();
-  g.wildlife.buildDam(site); const b=g.water.basins.find(b=>b.kind==='dam');
-  assert.deepEqual(w.tree,trees);assert.deepEqual(w.vh,heights);
+  g.wildlife.buildDam(site, 1); const b=g.water.basins.find(b=>b.kind==='dam');
+  const ends=new Set(b.dam.flat()); for(let i=0;i<w.n;i++) if(!ends.has(i)) assert.equal(w.tree[i],trees[i],'no clearing beyond where the dam ends land (cut for the dam: beaver-dam-growth-check)');assert.deepEqual(w.vh,heights);
   assert.deepEqual(b.axis,[0,1]); const initial=b.volume;
   for(let k=0;k<10;k++)rain(g);
   assert.ok(b.volume>initial);assert.ok(b.cells.some(v=>g.water.base[v.i]!==T.CREEK&&w.waterDepth[v.i]>.04));
@@ -44,7 +44,7 @@ check('A dam fills connected uphill low ground without a circle or immediate cle
   for(const v of b.cells)assert.ok(v.threshold<=b.crest);
 });
 check('The reservoir budget has bounded loss and overflow', () => {
-  const g=farm();g.wildlife.buildDam(g.world.idx(54,58));
+  const g=farm();g.wildlife.buildDam(g.world.idx(54,58), 1);
   for(let k=0;k<80;k++){
     g.day=k;g.weather=k%7<3?'rain':'clear';
     const before=g.water.basins.map(b=>b.volume);g.water.step(g);
@@ -52,7 +52,7 @@ check('The reservoir budget has bounded loss and overflow', () => {
   }
 });
 check('A removed dam drains gradually and returns its underlying terrain', () => {
-  const g=farm(),w=g.world,site=w.idx(54,58);g.wildlife.buildDam(site);
+  const g=farm(),w=g.world,site=w.idx(54,58);g.wildlife.buildDam(site, 1);
   for(let k=0;k<8;k++)rain(g);
   const volume=g.water.basins.find(b=>b.kind==='dam').volume;
   w.feature[site]=0;g.refreshEnvironment();
@@ -104,7 +104,7 @@ check('Splitting or joining a pond does not duplicate its stored water', () => {
   assert.ok(g.water.basins[0].volume<=sum+1e-10);
 });
 check('Standing water affects plant diagnostics and only sustained flooding makes snags', () => {
-  const g=farm(),w=g.world;g.wildlife.buildDam(w.idx(54,58));for(let k=0;k<8;k++)rain(g);g.refreshEnvironment();
+  const g=farm(),w=g.world;g.wildlife.buildDam(w.idx(54,58), 1);for(let k=0;k<8;k++)rain(g);g.refreshEnvironment();
   const b=g.water.basins.find(b=>b.kind==='dam'),i=b.cells.find(v=>g.water.base[v.i]!==T.CREEK&&w.waterDepth[v.i]>.15)?.i;
   assert.ok(i!=null);w.setPlant(i,PLANT.fir,1,1200);
   assert.ok(plantLimits(w,i,PLANT.fir).some(s=>s.includes('standing water')));
@@ -113,7 +113,7 @@ check('Standing water affects plant diagnostics and only sustained flooding make
   let d=0;while(w.tree[i]&&d<120){w.waterWetDays[i]=30+d;updatePlants(g);d++;}assert.equal(w.tree[i],0,`still alive after ${d} flooded days`);assert.equal(w.feature[i],F.SNAG);
 });
 check('Binary and legacy saves preserve water, wet days, and future evolution', () => {
-  const g=farm();g.wildlife.buildDam(g.world.idx(54,58));for(let k=0;k<5;k++)rain(g);
+  const g=farm();g.wildlife.buildDam(g.world.idx(54,58), 1);for(let k=0;k<5;k++)rain(g);
   const saved=g.saveData(), checksum=saveChecksum(saved);assert.ok(intact({data:saved,checksum}));
   const r=new Game();assert.equal(r.restoreSave(compactSave(saved)),true);assert.deepEqual(r.water.serialize(),g.water.serialize());
   rain(g);rain(r);assert.deepEqual(r.water.serialize(),g.water.serialize());
@@ -144,5 +144,5 @@ check('A pond keeps its open water through a dry summer, and a year of weather c
     if(d===80)assert.ok(pond.filter(i=>w.terrain[i]===T.POND).length>=pond.length*.6,'late summer: most of the pond is still pond');}
   assert.ok(flips<pond.length*2,`${flips} tile changes in a year`);
 });
-const g=farm();g.wildlife.buildDam(g.world.idx(54,58));const start=performance.now();for(let k=0;k<120;k++)g.water.step(g);
+const g=farm();g.wildlife.buildDam(g.world.idx(54,58), 1);const start=performance.now();for(let k=0;k<120;k++)g.water.step(g);
 console.log(`${checks} Hollis water checks passed. Water-only 120-day benchmark: ${(performance.now()-start).toFixed(1)} ms.`);

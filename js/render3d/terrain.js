@@ -51,6 +51,7 @@ function turfColor(p, month, season, catalog) {
 
 // How far water fills each kind of basin above its lowest corner, in height levels.
 const FILL = WATER_FILL;
+const DAM_SPILL_WIDTH = 0.6; // (of a dam edge's length: a full dam spills thinly over its lowest middle)
 
 // Height of the water surface on a tile, in scene units (null on dry land).
 export function waterSurfaceY(w, x, y) {
@@ -152,7 +153,7 @@ export class Terrain {
     this.X0 = -BORDER; this.Y0 = -BORDER;
     this.TW = world.w + BORDER * 2; this.TH = world.h + BORDER * 2;
     const n = this.TW * this.TH;
-    for (const m of [this.mesh, this.water, this.falls, this.flood, this.skirt, this.line, this.overlay, this.preview]) if (m) { this.scene.remove(m); m.geometry.dispose(); }
+    for (const m of [this.mesh, this.water, this.falls, this.spills, this.flood, this.skirt, this.line, this.overlay, this.preview]) if (m) { this.scene.remove(m); m.geometry.dispose(); }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
     g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(n * 18), 3));
@@ -182,7 +183,7 @@ export class Terrain {
     this.tiles.density.value = trails;
     this.tiles.soil.value.fromArray(world.catalog.definition.look.soil).convertSRGBToLinear().multiplyScalar(0.72);
     this.tiles.origin.value.set(this.X0, this.Y0); this.tiles.size.value.set(this.TW, this.TH);
-    this.water = null; this.falls = null; this.flood = null; this.overlay = null; this.preview = null;
+    this.water = null; this.falls = null; this.spills = null; this.flood = null; this.overlay = null; this.preview = null;
     this.updateHeights();
   }
 
@@ -479,6 +480,8 @@ export class Terrain {
       if (isWater(t[i])) h = Math.imul(h ^ (i * 16 + t[i]), 16777619) >>> 0;
       if (w.waterManaged?.[i] && Number.isFinite(w.waterLevel[i])) h = Math.imul(h ^ (i * 113 + Math.round(w.waterLevel[i] * 100)), 16777619) >>> 0;
     }
+    // (a dam starting or stopping spilling, or raised, redraws its spill)
+    for (const d of w.damSpills || []) h = Math.imul(h ^ (d.site * 7 + Math.round(d.crest * 100) * 131071 + d.edges.length), 16777619) >>> 0;
     return h;
   }
   floodKey() {
@@ -797,35 +800,47 @@ export class Terrain {
   // (a curve, t^2 down: the flat sheet the water mesh draws there reads as a chute down a slope).
   // It is drawn with the water's own material, white all over; the sheet beneath shows as the wet
   // rock face behind it from the side. One mesh for all of them; none where there are none.
+  // The same curtain, thinner and fainter, is a full beaver dam's spill (its own mesh, `spills`):
+  // over the crest of each mound across the channel and down its downstream face (damSpill).
   buildFalls(tiles, tileDrop, wet, vLevel, vColor, vertexFlow) {
-    if (this.falls) { this.scene.remove(this.falls); this.falls.geometry.dispose(); this.falls = null; }
-    const TW = this.TW, X0 = this.X0, Y0 = this.Y0, R = 8, falls = [];
-    for (const k of tiles) if (wet[k] && tileDrop[k] >= FALL_MIN) falls.push(k);
-    if (!falls.length) return;
-    const n = falls.length * (R + 1) * 2, pos = new Float32Array(n * 3), col = new Float32Array(n * 4), flow = new Float32Array(n * 2), cur = new Float32Array(n * 2), idx = [];
-    let v = 0;
-    for (const k of falls) {
+    for (const m of [this.falls, this.spills]) if (m) { this.scene.remove(m); m.geometry.dispose(); }
+    this.falls = this.spills = null;
+    const TW = this.TW, X0 = this.X0, Y0 = this.Y0, w = this.world, strips = [], spills = [];
+    // a strip: its lip's two ends [x, z, level] (a), the points under them at its foot (b), how white
+    for (const k of tiles) if (wet[k] && tileDrop[k] >= FALL_MIN) {
       const x = (k % TW) + X0, y = Math.floor(k / TW) + Y0;
       const c = [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]], L = c.map(([vx, vy]) => vLevel(vx, vy));
       // the lip: the tile's edge with the highest water; the foot the edge opposite it
       let lip = 0, best = -Infinity;
       for (let e = 0; e < 4; e++) { const m = L[e] + L[(e + 1) % 4]; if (m > best) { best = m; lip = e; } }
       const a0 = lip, a1 = (lip + 1) % 4, b0 = (lip + 3) % 4, b1 = (lip + 2) % 4; // (a0-a1 the lip, b0 under a0, b1 under a1)
-      const ax = (c[b0][0] - c[a0][0]), az = (c[b0][1] - c[a0][1]); // (downstream, one tile)
-      const base = v;
+      const at = e => [c[e][0], c[e][1], L[e]];
+      strips.push({ a: [at(a0), at(a1)], b: [at(b0), at(b1)], white: 1, colour: [vColor(...c[a0]), vColor(...c[a1])] });
+    }
+    for (const d of w.damSpills || []) this.damSpill(d, spills, vColor);
+    this.falls = this.curtain(strips); this.spills = this.curtain(spills);
+  }
+  // One mesh of curtains (null for none), with the water's own material.
+  curtain(strips) {
+    if (!strips.length) return null;
+    const R = 8, n = strips.length * (R + 1) * 2, pos = new Float32Array(n * 3), col = new Float32Array(n * 4), flow = new Float32Array(n * 2), cur = new Float32Array(n * 2), white = new Float32Array(n), idx = [];
+    let v = 0;
+    for (const s of strips) {
+      const base = v, ax = s.b[0][0] - s.a[0][0], az = s.b[0][1] - s.a[0][1]; // (downstream)
       for (let r = 0; r <= R; r++) {
         const t = r / R, fall = t * t;
-        for (const [p, q] of [[a0, b0], [a1, b1]]) {
-          const lv = L[p] - (L[p] - L[q]) * fall;
-          pos[v * 3] = c[p][0] + (c[q][0] - c[p][0]) * t; pos[v * 3 + 1] = lv * LEVEL + 0.02; pos[v * 3 + 2] = c[p][1] + (c[q][1] - c[p][1]) * t;
-          const cc = vColor(c[p][0], c[p][1]);
+        for (let side = 0; side < 2; side++) {
+          const p = s.a[side], q = s.b[side], lv = p[2] - (p[2] - q[2]) * fall;
+          pos[v * 3] = p[0] + (q[0] - p[0]) * t; pos[v * 3 + 1] = lv * LEVEL + 0.02; pos[v * 3 + 2] = p[1] + (q[1] - p[1]) * t;
+          const cc = s.colour[side];
           col[v * 4] = lin(cc[0]); col[v * 4 + 1] = lin(cc[1]); col[v * 4 + 2] = lin(cc[2]); col[v * 4 + 3] = 1;
           flow[v * 2] = ax * 0.7; flow[v * 2 + 1] = az * 0.7;
           // (down the curtain's own length, so the streaks race down the drop, and across it)
-          cur[v * 2] = t * (1 + (L[p] - L[q]) * LEVEL * 0.6); cur[v * 2 + 1] = p === a0 ? 0 : 1;
+          cur[v * 2] = t * (1 + (p[2] - q[2]) * LEVEL * 0.6); cur[v * 2 + 1] = side;
+          white[v] = s.white;
           v++;
         }
-        if (r) { const s = base + (r - 1) * 2; idx.push(s, s + 2, s + 1, s + 1, s + 2, s + 3); } // (facing up and downstream, as the water does)
+        if (r) { const b = base + (r - 1) * 2; idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); } // (facing up and downstream, as the water does)
       }
     }
     const g = new THREE.BufferGeometry();
@@ -837,12 +852,32 @@ export class Terrain {
     g.setAttribute('aBend', new THREE.BufferAttribute(new Float32Array(n), 1));
     g.setAttribute('aQual', new THREE.BufferAttribute(new Float32Array(n).fill(0.8), 1));
     g.setAttribute('aRound', new THREE.BufferAttribute(new Float32Array(n).fill(99), 1));
-    g.setAttribute('aWhite', new THREE.BufferAttribute(new Float32Array(n).fill(1), 1));
+    g.setAttribute('aWhite', new THREE.BufferAttribute(white, 1));
     g.setIndex(idx);
     g.computeVertexNormals();
-    this.falls = new THREE.Mesh(g, this.waterMat);
-    this.falls.renderOrder = 2;
-    this.scene.add(this.falls);
+    const mesh = new THREE.Mesh(g, this.waterMat);
+    mesh.renderOrder = 2;
+    this.scene.add(mesh);
+    return mesh;
+  }
+  // A full dam's spill: over each mound whose tile below is water (the channel, not a dam end on a
+  // bank), a thin sheet DAM_SPILL_WIDTH of the edge wide leaves the crest on the mound's line (bowed
+  // upstream as flora.js draws it) and falls into the water half a tile below.
+  damSpill(d, strips, vColor) {
+    const w = this.world, [ax, ay] = d.axis, x = d.site % w.w, y = (d.site / w.w) | 0;
+    const across = e => (e[0] % w.w - x) * ay - (((e[0] / w.w) | 0) - y) * ax, half = Math.max(1, ...d.edges.map(e => Math.abs(across(e))));
+    for (const e of d.edges) {
+      const below = e[1], bx = below % w.w, by = (below / w.w) | 0;
+      if (!isWater(w.terrain[below]) || w.waterManaged?.[below]) continue;
+      const foot = Math.min(...w.corners(bx, by)) + FILL[w.terrain[below]];
+      if (d.crest - foot < 0.03) continue; // (water standing up to the crest below: nothing to fall)
+      const p = across(e), bow = 0.16 * (1 - (p / (half + 1)) ** 2);
+      const mx = (e[0] % w.w + bx) / 2 + 0.5 - ax * bow, mz = ((e[0] / w.w) | 0) / 2 + by / 2 + 0.5 - ay * bow;
+      const sx = ay * DAM_SPILL_WIDTH / 2, sz = -ax * DAM_SPILL_WIDTH / 2, out = 0.5 + bow; // (along the line, wound as a fall's lip is, and down to the foot)
+      const lip = [[mx - sx, mz - sz, d.crest + 0.01], [mx + sx, mz + sz, d.crest + 0.01]];
+      const c = vColor(bx, by);
+      strips.push({ a: lip, b: lip.map(([px, pz]) => [px + ax * out, pz + ay * out, foot]), white: 0.6, colour: [c, c] });
+    }
   }
 
   // How clean the water is at each corner: the simulation's water quality on the tiles around it.

@@ -527,13 +527,14 @@ export class Events {
     this.lastFlood = g.day;
     if (!flooded) return;
     this.floodTiles = flooded;
-    // big floods can blow out beaver dams. One the beavers are keeping is breached and mended within
-    // days (its pond drops and fills again); one they've left washes out (0034)
+    // big floods can blow out beaver dams. One the beavers are keeping is breached: its pond drops,
+    // and it stands lower until they raise it again in the building months; one they've left
+    // washes out (0034)
     let broke = 0;
     for (let i = 0; i < w.n; i++) {
       if (w.feature[i] !== F.DAM || (w.marks[i] & 4) || rng() >= 0.12 * intensity) continue;
       if (w.featureAge[i] > 30 || !g.water) { g.wildlife.breakDam(i); broke++; }
-      else for (const b of g.water.basins) if (b.kind === 'dam' && b.site === i) b.volume *= 0.3;
+      else g.water.breachDam(i); // (its pond drops, and it stands lower until they raise it again)
     }
     const soak = Math.round(sponge * 100);
     // point the notice at the middle of the flooded ground

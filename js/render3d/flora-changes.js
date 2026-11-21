@@ -50,6 +50,10 @@ const BORDER_FIELDS = ['tree', 'treeG', 'shrub', 'ground'];
 // whose plant identities and growth haven't changed.
 const TILE_FIELDS = ['distWater', 'waterLevel', 'waterManaged'];
 const differ = (a, b) => a !== b && !(a !== a && b !== b); // (two missing water levels are the same)
+// Each beaver dam's drawn shape (its crest and its edges, bank to bank): its mounds follow the
+// water model, not the tile fields, so a dam raised a step is compared here (flora.js draws them
+// from the dam's own tile).
+const damShapes = game => new Map((game.water?.basins || []).filter(b => b.kind === 'dam').map(b => [b.site, `${b.crest.toFixed(4)}|${(b.dam || []).join(';')}`]));
 export const floraChunkKey = (x, y, size) => Math.floor((x + BORDER) / size) * 65536 + Math.floor((y + BORDER) / size);
 
 export class FloraChanges {
@@ -141,6 +145,8 @@ export class FloraChanges {
       if (a && old && a.length === old.length) { for (let i = 0; i < a.length; i++) if (a[i] !== old[i]) touchValue(i); continue; }
       for (let i = 0; i < Math.max(a?.length || 0, old?.length || 0); i++) if ((a?.[i] ?? 0) !== (old?.[i] ?? 0)) touchValue(i);
     }
+    const dams = damShapes(game);
+    for (const [site, shape] of dams) if (s.dams?.get(site) !== shape) mark(site % w.w, Math.floor(site / w.w));
     for (const f of BORDER_FIELDS) {
       const a = b[f], old = s.outside[f];
       for (let i = 0; i < a.length; i++) if (a[i] !== old[i]) mark(i % b.W - BORDER, Math.floor(i / b.W) - BORDER);
@@ -158,7 +164,7 @@ export class FloraChanges {
     const s = this.saved && this.saved.world === w && this.saved.border === b ? this.saved : {
       world: w, border: b, height: w.vh.slice(), inside: {}, outside: {}
     };
-    s.month = game.month; s.day = phaseDay(game.day); s.light = !!light; s.height.set(w.vh);
+    s.month = game.month; s.day = phaseDay(game.day); s.dams = damShapes(game); s.light = !!light; s.height.set(w.vh);
     const trailsWaiting = this.trailsWaiting && s === this.saved; this.trailsWaiting = false;
     for (const [fields, source, target] of [[[...FIELDS, ...TILE_FIELDS], w, s.inside], [BORDER_FIELDS, b, s.outside]]) for (const f of fields) {
       if (trailsWaiting && f === 'trailDensity') continue; // (the wear these plants were drawn with)
