@@ -284,7 +284,7 @@ Sessions run one at a time in this checkout. "Step" is the step number above.
 | 2 | Quiet first minutes | 2 (notices, Story offer, refusals) | default | M | [x] 00902f5 |
 | 3 | Open the farm to the wild | 3 | default | M | [x] ba77bf7 |
 | 4 | Watch it grow + follow a deer | 5, 6 | default | M | [x] ee8f05c |
-| 5 | Visible animals at the start | 4 (animals) | default | M | [ ] |
+| 5 | Visible animals at the start | 4 (animals) | default | M | [x] 125385b |
 | 6 | Old forest edge | 4 (edge forest) | default | M | [ ] |
 | 7 | Smooth first 10 s, faster weak-laptop loading | 2 (frames, loading) | default | M–L | [ ] |
 | 8 | Film the intro | 7 | default | L | [ ] |
