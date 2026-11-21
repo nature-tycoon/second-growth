@@ -2,6 +2,8 @@
 
 All 9 sessions (plus 4b) landed on `claude/ideas-cinema-creeks`. Each question carries the session's recommended answer; unless Cole says otherwise, the recommendation stands. Sources: s1–s9.md.
 
+**Cole, 2026-11-20:** all recommendations accepted. Next batch: beaver dam polish, Serengeti balance (incl. resident grazers on green grass), waterfall extras (sound, mist, ice, dipper), small movement fixes (waiting family leads, coati in trunk, sweep catches walkers stuck on water).
+
 ## Open questions
 
 ### Updates / web
