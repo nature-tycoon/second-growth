@@ -160,6 +160,7 @@ Tell the next agent session the workers.dev address. The game and website code k
 - **Replace a key** (if one leaks): make a new one in Resend or Kit, run the `secret put` command again, then delete the old key there.
 - **A reported farm**: the report email has the link to look at it and the exact command to remove it (`npx wrangler@4 kv key delete --binding=FARMS --remote "farm:<id>"`, from the `server` folder).
 - **How full the farm store is**: Cloudflare dashboard → Storage & Databases → KV → FARMS. Past about 700 MB, see decision 0047 (move to R2, or shorten how long farms are kept).
+- **Feedback shows "Delivered" in Resend but never reaches Gmail** (found 2026-11-21): the Porkbun forward from info@ to Gmail drops mail that comes from feedback@secondgrowth.earth, the same domain. Skip the forward by sending straight to Gmail: from `server/`, run `npx wrangler@4 secret put FEEDBACK_TO` and paste the Gmail address (the Worker reads `FEEDBACK_TO` and falls back to info@). No deploy needed.
 - **Look at the ratings**: `npx wrangler@4 d1 execute second-growth --remote --command "SELECT rating, COUNT(*) FROM ratings GROUP BY rating"`.
 
 ---
