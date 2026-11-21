@@ -36,7 +36,7 @@ Branch: `claude/ideas-cinema-creeks` (cut from origin/main 382bb46). Sessions ru
 | 6 | Waterfalls | natural spring-fed falls | default | L | [x] (see s6.md) |
 | 7 | Plants look natural | gradual leaf-out, patchy shrubs/grass, trees in creeks die (moved from 4) | default | M | [x] bc51257 |
 | 8 | Serengeti herd routes | herds follow green grass | default | M | [x] 25150db |
-| 9 | Herd squeeze crawl | walkers pressing into grazing/resting herd mates; sweep over a wider seed set (s4b Q1–4) | default | M | [ ] |
+| 9 | Herd squeeze crawl | walkers pressing into grazing/resting herd mates; sweep over a wider seed set (s4b Q1–4) | default | M | [x] 36ee413 |
 
 Sessions 5 and 6 both change water flow; 6 builds on 5. 4b runs first (resumed 2026-11-20). 9 added from s4b: the motion sweep fails on cattle crawl, so the branch can't merge until it's fixed: 5 and 6 build on s4's routes.
 
