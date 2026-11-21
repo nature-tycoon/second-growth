@@ -32,7 +32,7 @@ Branch `claude/ideas-waterfall-polish`, cut from the tip of `claude/ideas-cinema
 |---|---|---|---|---|---|
 | 1 | Usage review | last week's PostHog usage, what to fix next | default | S | [x] cbb68ab |
 | 2 | Menus & camera keys | settings regroup, arrow keys pan, report vs guide counts | sonnet | M | [x] 5f411e7 |
-| 3 | Pond edge cliff | expanding a creek-fed pond leaves a cliff and low water | default | M | [ ] |
+| 3 | Pond edge cliff | expanding a creek-fed pond leaves a cliff and low water | default | M | [x] 4ec8d02 |
 | 4 | Beaver dam polish | spill over full dam, dams rise over years, fell trees at dam ends, drawn-next-day check | default | M | [ ] |
 | 5 | Waterfall look | rock ledge, moving sheet, foam, mist and spray | default | M–L | [ ] |
 | 6 | Waterfall sound & ice | real recording at the fall, winter ice at the edges | default | S–M | [ ] |
