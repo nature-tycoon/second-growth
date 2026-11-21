@@ -7,6 +7,7 @@
 // floating = foliage on still pond water; other aquatic plants occupy shallow shores/marshes.
 
 import { assertPlantSpec, assertSeedMix, ContractError } from './contracts.js';
+import { hash2 } from '../rng.js';
 
 export const L = { GROUND: 0, SHRUB: 1, TREE: 2 };
 export const LAYER_NAMES = ['Groundcover', 'Shrub', 'Tree'];
@@ -85,6 +86,43 @@ export function plantPhase(p, m) {
     if (m >= 4 && m <= 6) return 'late';
   }
   return 'green';
+}
+
+// The same phase on a given day for one plant at (x, y), drawing only: winter to spring and summer to
+// bare spread over weeks instead of flipping every plant on the first of the month. Each plant leafs
+// out on its own day: bushes first, then grasses, then trees, a species' leafOut later still (oaks
+// and ash are among the last), a few days' spread between individuals, and later on cool high
+// ground (cool: 0 lowest ground .. 1 highest). Autumn colour and leaf drop spread the same way,
+// cool ground first. Flowers, fruit and every other regime keep plantPhase's months.
+// Food and shade still go by the month (plantPhase, plantLeafCover).
+export const DAY_PHASED = p => {
+  const lk = p.look;
+  if (lk.evergreen || p.conifer) return false;
+  if (lk.dryForest) return !!lk.deciduous && p.layer !== 0;
+  return !lk.tropical && !lk.savanna && (!!lk.deciduous || p.layer === 0);
+};
+const YEAR = 120, MONTH = 10;
+export function leafDays(p, x, y, cool = 0) {
+  const dry = !!p.look.dryForest;
+  const spring = (dry ? 2 * MONTH : 0) + (p.layer === 1 ? -2 : p.layer === 0 ? 0 : 3) + (p.leafOut ?? 0)
+    + hash2(x, y, 401) * 5 + cool * 3;
+  const late = 4 * MONTH + (hash2(x, y, 404) - 0.5) * 4;
+  const color = (dry ? 8 : 7) * MONTH + (hash2(x, y, 402) - 0.5) * 8 - cool * 2;
+  const drop = 9 * MONTH + (hash2(x, y, 403) - 0.5) * 10 - cool * 2;
+  return { spring, late, color, drop };
+}
+export function plantPhaseOn(p, day, x, y, cool = 0) {
+  const doy = ((day % YEAR) + YEAR) % YEAR, m = Math.floor(doy / MONTH);
+  if (!DAY_PHASED(p)) return plantPhase(p, m);
+  const lk = p.look, mb = Math.floor(((doy - hash2(x, y, 405) * 6 + 3 + YEAR) % YEAR) / MONTH); // (each plant flowers and fruits a few days either side of the month)
+  if (lk.bloom && lk.bloom.includes(mb)) return 'bloom';
+  if (lk.fruit && lk.fruit.includes(mb)) return 'fruit';
+  const L = leafDays(p, x, y, cool), d = doy >= 10 * MONTH ? doy - YEAR : doy; // (late winter counts toward spring)
+  if (d < L.spring) return 'winter';
+  if (d < L.spring + MONTH) return 'spring';
+  if (!lk.dryForest && d >= L.late && d < L.color) return 'late';
+  if (d < L.color) return 'green';
+  return d < L.drop ? 'fall' : 'winter';
 }
 
 export const isBlooming = (p, m) => !!(p.look.bloom && p.look.bloom.includes(m));

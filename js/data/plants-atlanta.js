@@ -135,11 +135,11 @@ export default function buildAtlantaPlants(def, mix, get) {
     desc: 'The builder\'s foundation shrub, clipped into a green box. Evergreen and tidy, but no flowers, berries or insects to speak of.' });
 
   // ---------- Trees ----------
-  def({ key: 'whiteoak', name: 'White oak', sci: 'Quercus alba', layer: 2, heightM: 25, moist: [0.1, 0.7], light: [0.45, 1],
+  def({ key: 'whiteoak', leafOut: 6, name: 'White oak', sci: 'Quercus alba', layer: 2, heightM: 25, moist: [0.1, 0.7], light: [0.45, 1],
     grow: 0.0026, spread: 0.006, radius: 4, life: 300, mast: 1, cost: 26,
     look: { type: 'oak', leaf: '#5b8040', fall: '#9a4a2a', deciduous: true, bark: '#8a8478', scale: 1.33 },
     desc: 'The keystone tree of the Piedmont. Over 500 kinds of caterpillars eat oak leaves, and those caterpillars feed nearly every songbird\'s nestlings.' });
-  def({ key: 'willowoak', name: 'Willow oak', sci: 'Quercus phellos', layer: 2, heightM: 25, moist: [0.3, 1], light: [0.45, 1],
+  def({ key: 'willowoak', leafOut: 6, name: 'Willow oak', sci: 'Quercus phellos', layer: 2, heightM: 25, moist: [0.3, 1], light: [0.45, 1],
     grow: 0.0036, spread: 0.006, radius: 4, life: 150, mast: 0.8, cost: 22,
     look: { type: 'ash', leaf: '#5f8a44', fall: '#b89a3a', deciduous: true, bark: '#6d665a' },
     desc: 'The great street tree of Atlanta, with narrow leaves and a wide, shady crown over the sidewalk. Tough in compacted clay.' });

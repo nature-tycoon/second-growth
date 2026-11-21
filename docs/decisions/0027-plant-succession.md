@@ -9,6 +9,7 @@
 - Natural recruitment × `patchOdds` (`plantAffinity`); invasives are exempt. Checks that pin exact `trySeed` odds divide it out, and checks of edge or forest seed set `def.regionalRain = 0`.
 - Sward succession: a native living twice as long takes a tile at `OUTLIVE` × `compete`; groundcovers living 10+ years (`TUSSOCK_LIFE`) die back at 1/life. Shade plants scorch (`SCORCH`). `meadowsHold` holds only open meadow.
 - Summer-dormant bulbs (`dormant: [months]`, camas): in those months `updatePlants` skips their growth, die-back, grazing loss and seeding, and `trySeed` can't take their tile (month from `w.canopyMonth`). Judged against summer moisture, camas died every July.
+- Bird-carried bush seed (`disperse` with a radius boost) is mostly lost (`PERCHLESS_LOSS` 0.6) unless it lands within a tile of a perch: a tree over 0.4, a snag or a fence. Berry bushes gather at wood edges, round lone trees and along fences (nucleation) instead of speckling the meadow (2026-11-20, cinema-creeks s7).
 - Herbivore effects stay in `trySeed` and the growth step (`grazedRecruitOdds`, `grazedGrowth`, now 0033); don't tune mesquite away in the plant engine.
 - Regional rain uses the game rng, so any change shifts every later roll: compare runs by trend over several seeds. Hemlock and redcedar won't start in an open field; fixtures that sow in the open use another tree.
 - Checks: `node tools/plant-establishment.mjs [maps] [years]` (why a species never shows up), `dispersal-check`, `plant-ecology-check`, `succession-check`.

@@ -15,7 +15,7 @@ import { TreeImpostors } from './tree-impostors.js';
 import { waterSurfaceY } from './terrain.js';
 import { activeCatalog } from '../data/catalog.js';
 import { meadowPatch, patchColor } from './patches.js';
-import { FloraChanges, floraChunkKey, TRAIL_OPENING, CLOSED_CANOPY } from './flora-changes.js';
+import { FloraChanges, floraChunkKey, TRAIL_OPENING, CLOSED_CANOPY, phaseOn } from './flora-changes.js';
 import { groveForm } from './groves.js';
 import { statureShape, treeHeight } from './tree-stature.js';
 import { underWater, visibleLevel } from '../sim/waterline.js';
@@ -26,7 +26,7 @@ import { GeometryIndex } from './geometry-index.js';
 import { PlantShadows } from './plant-shadows.js';
 import { PlantPool, ChunkedPlantPool, floraVersion } from './plant-pools.js';
 import { trailMask } from '../sim/animal-trails.js';
-import { dryPoint, shrubSpot, trunkSpot, snagSpot, snagPose, logSpot } from '../sim/ground-obstacles.js';
+import { dryPoint, shrubSpot, SEA_SHAPES, trunkSpot, snagSpot, snagPose, logSpot } from '../sim/ground-obstacles.js';
 import { createPlantMaterials } from './plant-materials.js';
 const SPROUT_G = 0.3; // the smallest a groundcover seedling is drawn (see the groundcover tufts)
 
@@ -115,10 +115,29 @@ export const shrubShape = p => SHRUB_HABIT[p.key] || (SHRUB_SHAPES.includes(p.lo
 // Where a wallow's dish lies in its tile, and how big it is (sim/wallows.js): [x, z, scale].
 const wallowSpot = (w, x, y, i) => [x + 0.3 + hash2(x, y, 211) * 0.4, y + 0.3 + hash2(x, y, 212) * 0.4, 0.7 + Math.min(1, w.wallow[i] / 140) * 0.6];
 const grassyWet = type => type === 'sedge' || type === 'cattail' || type === 'tule' || type === 'lily' || type === 'papyrus';
-const SEA_SHAPES = new Set(['softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']);
 export const SHRUB_SHAPES = ['bramble', 'willow', 'broom', 'salal', 'holly', 'vinemaple', 'heliconia', 'bamboo', 'aloe', 'cactus',
   'rattan', 'pandan', 'ginger', // (Sumatra)
   'softcoral', 'seafan', 'anemone', 'clam', 'starfish', 'sponge', 'mushroom', 'seastar']; // (the last row: the reef)
+
+// Groundcover clumps (drawing only): how thick a tile's sward is drawn, 0.3 (a thin gap between
+// clumps) .. 1.9 (a clump's heart), about 1 on average, from noise a couple of tiles across.
+export function clumpMask(x, y) {
+  const m = valueNoise(x + 401, y + 257, 2.2, 97) * 0.75 + hash2(x, y, 98) * 0.25;
+  return 0.3 + 1.6 * Math.pow(m, 1.5) * 1.15;
+}
+// The point a 2-tile cell's grass gathers round, clamped into tile (x, y)
+function sharedClump(x, y) {
+  const cx = Math.floor(x / 2), cz = Math.floor(y / 2);
+  const px = cx * 2 + 0.3 + hash2(cx, cz, 901) * 1.4, pz = cz * 2 + 0.3 + hash2(cx, cz, 902) * 1.4;
+  return [clamp(px, x + 0.2, x + 0.8), clamp(pz, y + 0.2, y + 0.8)];
+}
+// A bush's size beyond its growth: patches of larger and smaller bushes a few tiles across, and a
+// bush with bushes on all four sides drawn larger so a thicket's heart closes into one mass.
+function bushStature(w, x, y, i, inside, sid) {
+  let k = 0.72 + valueNoise(x + 77, y + 191, 4.5, 99) * 0.56;
+  if (inside && x > 0 && y > 0 && x < w.w - 1 && y < w.h - 1 && w.shrub[i - 1] && w.shrub[i + 1] && w.shrub[i - w.w] && w.shrub[i + w.w]) k *= 1.22;
+  return k;
+}
 
 export class Flora {
   // impostors: options for far crowns drawn as baked cards (tree-impostors.js; needs a renderer
@@ -369,7 +388,7 @@ export class Flora {
   // the change until it is worked out again, even if its region waits for a later call.
   rebuild(game, force = false, maxRegions = Infinity) {
     this.catalog = game.catalog;
-    const w = game.world, B = game.border, month = game.month;
+    const w = game.world, B = game.border, month = game.month, phaseAt = phaseOn(game); // (leaf-out by the day: plantPhaseOn)
     const saved = this.changes.saved, GW = w.w + BORDER * 2, N = GW * (w.h + BORDER * 2);
     // While a day's regions are still waiting, work through them without comparing the whole map
     // again: the snapshot isn't refreshed either (see remember below), so the next comparison
@@ -473,8 +492,11 @@ export class Flora {
         const n0 = titan ? 1 : lush ? (g < 0.65 ? 4 : 6) : g < 0.3 ? 4 : g < 0.65 ? (grassy ? 4 : 3) : (type === 'fern' || type === 'skunk' || type === 'tallforb' ? 3 : grassy ? 7 : 4); // a healthy sward fills its tile
         // meadow patches: thicker, taller and deeper green in some places, thinner and more golden in others
         const pt = meadowPatch(x + 0.5, y + 0.5), aquaticT = type === 'lily' || type === 'cattail' || type === 'tule';
-        const n = Math.max(1, Math.round((aquaticT ? n0 : n0 * (0.6 + pt.lush * 0.8)) * (this.light ? 0.5 : 1)));
-        const phase = plantPhase(p, month);
+        // and a sward comes in clumps a couple of tiles across with thin, near-bare ground between
+        // (clumpMask): a tile's tufts run from one to nearly twice the usual
+        const mask = aquaticT || titan || lush ? 1 : clumpMask(x, y);
+        const n = Math.max(1, Math.round((aquaticT ? n0 : n0 * (0.6 + pt.lush * 0.8) * mask) * (this.light ? 0.5 : 1)));
+        const phase = phaseAt(p, x, y);
         const col = aquaticT ? leafColor(p, phase) : patchColor(leafColor(p, phase), pt);
         // grasses grow in clumps: one or two centres per tile that the tufts gather round
         // (a beaver meadow's sedge stands on tussocks: hummocks of root and old leaf, one under each clump: 0034)
@@ -513,8 +535,11 @@ export class Flora {
           let px = x + 0.08 + hash2(x, y, 20 + k) * 0.84, pz = y + 0.08 + hash2(x, y, 40 + k) * 0.84;
           if (titan) { px = x + 0.3 + hash2(x, y, 20) * 0.4; pz = y + 0.3 + hash2(x, y, 40) * 0.4; }
           if (clumps && k % 3 !== 2) { // two in three tufts close in round a clump; the rest scatter between
-            const c = k % clumps, cxp = x + 0.2 + hash2(x, y, 14 + c) * 0.6, czp = y + 0.2 + hash2(x, y, 15 + c) * 0.6, a = hash2(x, y, 21 + k) * 6.28, r = Math.sqrt(hash2(x, y, 41 + k)) * 0.2;
-            px = cxp + Math.cos(a) * r; pz = czp + Math.sin(a) * r;
+            const c = k % clumps, a = hash2(x, y, 21 + k) * 6.28, r = Math.sqrt(hash2(x, y, 41 + k)) * 0.2;
+            // (the first clump leans toward a centre shared by a 2-tile cell, so clumps run across
+            // tile edges instead of repeating once a tile; a tussock keeps its hummock)
+            const [cxp, czp] = c === 0 && !tussock ? sharedClump(x, y) : [x + 0.2 + hash2(x, y, 14 + c) * 0.6, y + 0.2 + hash2(x, y, 15 + c) * 0.6];
+            px = clamp(cxp + Math.cos(a) * r, x + 0.04, x + 0.96); pz = clamp(czp + Math.sin(a) * r, y + 0.04, y + 0.96);
           }
           // Keep the plant opening aligned with the actual narrow track, not the whole tile.
           if (inside && !p.aquatic && w.trailDensity && trailMask(w, i, px - x, pz - y, 0.06) > TRAIL_OPENING) continue;
@@ -570,14 +595,15 @@ export class Flora {
       if (sid) {
         const p = game.catalog.plants[sid];
         const g = fringeS || (inside ? w.shrubG[i] : 1);
-        const phase = plantPhase(p, month);
+        const phase = fringeS ? plantPhase(p, month) : phaseAt(p, x, y); // (an edge fringe's bush goes by the month: flora-changes doesn't track it)
         // (a bush sharing a tile with a tree grows at the far side of the tile from the trunk, not
         // inside it; a blue sea star lies on the sand beside its coral: shrubSpot)
         let [sx, sz] = shrubSpot(x, y, p, !!tid);
         if (bankTile) [sx, sz] = this.dryPoint(w, x, y, sx, sz);
         let sy = hAt(sx, sz);
         if (p.look.climbs && tid) [sx, sy, sz] = climberSpot(w, game.catalog, i, hAt, inside ? w.treeG[i] : 0.9);
-        const sc = (0.32 + 0.6 * g) * (p.look.small ? 0.8 : 1) * (p.look.scale ?? 1) * (0.8 + hash2(x, y, 6) * 0.35); // (look.scale: a plant drawn bigger or smaller than its shape's usual size)
+        const sc = (0.32 + 0.6 * g) * (p.look.small ? 0.8 : 1) * (p.look.scale ?? 1) * (0.8 + hash2(x, y, 6) * 0.35) // (look.scale: a plant drawn bigger or smaller than its shape's usual size)
+          * (aquaticTile ? 1 : bushStature(w, x, y, i, inside, sid)); // (patches of big old bushes and young ones; a thicket's heart grows into one mass)
         const rot = hash2(x, y, 7) * 6.28;
         if (p.look.deciduous && phase === 'winter') {
           const stem = rgb(STEM[p.key] || '#7a6a52');
@@ -632,7 +658,7 @@ export class Flora {
           : p.key === 'dogwood' && p.layer === 2 ? 'layered'
           : ['redbud', 'riverbirch', 'vinemaple'].includes(p.key) ? 'vase' : baseShape.habit;
         const shapeDef = statureShape(p, habit === baseShape.habit ? baseShape : { ...baseShape, habit }); // (as tall as the species grows: tree-stature.js)
-        const phase = p.conifer ? 'green' : plantPhase(p, month);
+        const phase = p.conifer ? 'green' : fringeG ? plantPhase(p, month) : phaseAt(p, x, y); // (likewise an edge sapling)
         const [tx, tz] = trunkSpot(w, x, y, p, bankTile); // (animals walk round it there: sim/ground-obstacles.js)
         const ty = hAt(tx, tz) - 0.02;
         const sc = (0.2 + 0.8 * g) * (0.78 + hash2(x, y, 9) * 0.42) * (p.look.scale ?? 1);
