@@ -283,7 +283,7 @@ Sessions run one at a time in this checkout. "Step" is the step number above.
 | 1 | Measure and tag testers | 1 | sonnet | S | [x] be9fa92 |
 | 2 | Quiet first minutes | 2 (notices, Story offer, refusals) | default | M | [x] 00902f5 |
 | 3 | Open the farm to the wild | 3 | default | M | [x] ba77bf7 |
-| 4 | Watch it grow + follow a deer | 5, 6 | default | M | [ ] |
+| 4 | Watch it grow + follow a deer | 5, 6 | default | M | [x] ee8f05c |
 | 5 | Visible animals at the start | 4 (animals) | default | M | [ ] |
 | 6 | Old forest edge | 4 (edge forest) | default | M | [ ] |
 | 7 | Smooth first 10 s, faster weak-laptop loading | 2 (frames, loading) | default | M–L | [ ] |
