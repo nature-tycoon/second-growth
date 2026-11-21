@@ -48,4 +48,4 @@ Sessions 1–7 merged to main in PR #120 with cinema-creeks. The website went li
 
 | # | Title | Ideas | Model | Size | Status |
 |---|---|---|---|---|---|
-| 7b | Browser suite green | 5 older failures (animal trails, cervid groups, reef landscape tool, website-security load, release reef) and 3 new (Chinandega draw calls, Amazon impostor triangles, Sumatra gajah card) | default | M–L | [ ] |
+| 7b | Browser suite green | 5 older failures (animal trails, cervid groups, reef landscape tool, website-security load, release reef) and 3 new (Chinandega draw calls, Amazon impostor triangles, Sumatra gajah card) | default | M–L | [x] e0bf3fb |
