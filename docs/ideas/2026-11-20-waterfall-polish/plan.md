@@ -37,7 +37,15 @@ Branch `claude/ideas-waterfall-polish`, cut from the tip of `claude/ideas-cinema
 | 5 | Waterfall look | rock ledge, moving sheet, foam, mist and spray | default | M–L | [x] e98ae19 |
 | 6 | Waterfall sound & ice | real recording at the fall, winter ice at the edges | default | S–M | [x] 77d3510 (uses stream recording until Cole OKs a waterfall download) |
 | 7 | American dipper | new PNW bird at falls and fast creeks | default | M | [x] 6f3a3de (look not yet seen in browser) |
-| 8 | Serengeti residents | gazelle, topi, buffalo drift to green grass within home ranges | default | M | [ ] |
-| 9 | Movement fixes | waiting lead stops, coati in trunk, sweep catches walkers on water | default | M | [ ] |
+| 8 | Serengeti residents | gazelle, topi, buffalo drift to green grass within home ranges | default | M | [-] skipped (Cole, 2026-11-21) |
+| 9 | Movement fixes | waiting lead stops, coati in trunk, sweep catches walkers on water | default | M | [x] 3ef98fc |
 
 Order: usage first (read-only, its findings may add to the next batch); cheap UI early; water/terrain before dams before falls (4–7 build on each other's drawing); Serengeti and movement last. Sessions 3, 4, 5 and 9 (water, terrain, movement) run `regression-reviewer` on the plan and the diff. Long checks go to `checker`.
+
+## After PR #120 (2026-11-21)
+
+Sessions 1–7 merged to main in PR #120 with cinema-creeks. The website went live (after two GitHub artifact errors); the itch.io upload is blocked by 8 browser check failures. Cole: fix all 8 first, skip session 8, then do 9. Both run on `claude/ideas-waterfall-polish-2`, cut from origin/main 3ff8137.
+
+| # | Title | Ideas | Model | Size | Status |
+|---|---|---|---|---|---|
+| 7b | Browser suite green | 5 older failures (animal trails, cervid groups, reef landscape tool, website-security load, release reef) and 3 new (Chinandega draw calls, Amazon impostor triangles, Sumatra gajah card) | default | M–L | [x] e0bf3fb |

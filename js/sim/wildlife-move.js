@@ -121,6 +121,7 @@ export class WildlifeMove {
       a.moveProgress = null;
       return;
     }
+    if (a.waitFam?.on != null) { a.moveProgress = null; return; } // (a family lead standing to wait isn't stuck, and sets off afresh: animal-trails.js waitForFamily)
     const w = this.game.world, j = a.state === 'walk' ? a.path[a.path.length - 1] : -1;
     let tx = a.localGoal?.[0], ty = a.localGoal?.[1];
     if (j >= 0) {

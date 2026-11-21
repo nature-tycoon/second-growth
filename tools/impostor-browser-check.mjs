@@ -42,8 +42,14 @@ for (const [map, pixelRatio, cell] of [['sumatra', 1, 64], ['amazon', 2, 128]]) 
     // (one frame's count: the fewest of several, since a frame that also redraws the shadow map,
     // where crowns cast through their far models, counts those too; with software graphics on CI
     // that redraw often fell in the sampled frame)
-    const triangles = `(async()=>{const R=window.secondGrowth.renderer; await new Promise(r=>setTimeout(r,1200)); let fewest=Infinity;
-      for(let i=0;i<8;i++){ await new Promise(r=>setTimeout(r,${software ? 900 : 300})); fewest=Math.min(fewest,R.perfSample(false).triangles); } return fewest;})()`;
+    // (and only once no plant region is still waiting to be redrawn, from frames that didn't redraw
+    // the shadow map: on CI's multi-second software frames the regions were still being worked
+    // through when the cards were counted, and the Amazon read 0.73M with cards, 0.56M without)
+    const triangles = `(async()=>{const R=window.secondGrowth.renderer, F=R.flora, wait=ms=>new Promise(r=>setTimeout(r,ms)); await wait(1200);
+      for(let i=0;i<60 && F.waitingRegions?.size;i++) await wait(500);
+      let fewest=Infinity, any=Infinity;
+      for(let i=0;i<24 && (i<8 || fewest===Infinity);i++){ await wait(${software ? 900 : 300}); const t=R.perfSample(false).triangles; any=Math.min(any,t); if(!R.lastShadowRedraw) fewest=Math.min(fewest,t); }
+      return fewest===Infinity ? any : fewest;})()`;
     await pause(software ? 8000 : 4000);
     const s = await browser.evaluate(state);
     if (s.lod !== 3) fail(`${map}: not at the far level (${s.lod})`);

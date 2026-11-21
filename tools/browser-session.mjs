@@ -21,6 +21,9 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
     try {
       const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
       if (pathname === '/favicon.ico') { res.writeHead(204); res.end(); return; }
+      // (the first page each tab opens: it exists whatever the root, unlike /assets/logo.svg, which the
+      // built website lacks, so its tab sat on Chrome's 404 error page and "the first page loads" timed out)
+      if (pathname === '/__check-blank') { res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' }); res.end('<!doctype html><title>check</title>'); return; }
       const path = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname));
       const rel = relative(root, path);
       if (rel.startsWith('..') || isAbsolute(rel)) throw new Error('Invalid path');
@@ -79,7 +82,7 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
       const id = ++sequence, timeout = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out after ${Math.round(timeoutMs * slowness / 1000)} s${what}`)); }, timeoutMs * slowness);
       pending.set(id, { resolve, reject, timeout }); socket.send(JSON.stringify({ id, method, params, sessionId }));
     });
-    const { targetId } = await request('Target.createTarget', { url: origin + '/assets/logo.svg' });
+    const { targetId } = await request('Target.createTarget', { url: origin + '/__check-blank' });
     const { sessionId } = await request('Target.attachToTarget', { targetId, flatten: true });
     const send = (method, params = {}, session = sessionId, timeoutMs) => request(method, params, session, timeoutMs);
     await send('Runtime.enable'); await send('Log.enable'); await send('Page.bringToFront');
@@ -95,8 +98,8 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
       while (Date.now() < deadline) { if (await evaluate(expression)) return; await pause(100); }
       throw new Error(`Timed out: ${message}`);
     };
-    // (Target.createTarget returns before the logo has loaded: on CI a check's first evaluate, setting
-    // localStorage, twice ran in the blank page still there and was denied. So it waits for the logo)
+    // (Target.createTarget returns before the first page has loaded: on CI a check's first evaluate,
+    // setting localStorage, twice ran in the blank page still there and was denied. So it waits for it)
     await waitFor(`location.origin === ${JSON.stringify(origin)}`, 'the first page loads', 15000);
     return { origin, sessionId, send, evaluate, waitFor, errors, close,
       // (Page.navigate returns once loading starts: on a slow machine the next evaluate still ran in

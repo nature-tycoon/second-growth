@@ -10,7 +10,7 @@
 //   - an idle grazer with its back to the water keeps its head up (`a.headUp`), since head down
 //     there it looks as if it is drinking backwards.
 import { isWater, clamp } from '../config.js';
-import { facePoint, animalRadius } from './animal-positioning.js';
+import { facePoint, animalRadius, standsStill } from './animal-positioning.js';
 import { settleBody, groundWalker } from './ground-obstacles.js';
 import { wetTest, swimDepth, deepWaterNear, fishDepth, upstreamAt } from './waterline.js';
 import { reefMoveSafe } from './animal-terrain.js';
@@ -125,7 +125,7 @@ export function settle(wl) {
       continue;
     }
     if (!groundWalker(def, a)) continue;
-    const still = a.state === 'idle' || a.state === 'feed' || a.state === 'forage';
+    const still = standsStill(a);
     // (a squeeze through a cramped stand lasts while it walks: stopped half inside a trunk, it was
     // left there, so a deer could stand in a tree for good)
     if (still) { a.squeeze = 0; settleBody(wl, a, def); }
