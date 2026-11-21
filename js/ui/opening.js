@@ -33,7 +33,9 @@ function openingSpecies(g) {
     g.wildlife.state[d.index].K >= (d.minK ?? 1)) || null;
 }
 
-// A north fence column near the middle with the most forest just beyond it (the forest edge).
+// A north fence column with the most forest just beyond it (the forest edge), held near a third of
+// the way along: with an old forest the whole length of the fence (session 6), any column has one,
+// and there the opening picture also takes in the farm's hawk and crows (startWildlife).
 function gateColumn(g, def) {
   const w = g.world, B = g.border;
   let best = -1, bs = -1;
@@ -42,7 +44,7 @@ function gateColumn(g, def) {
     let s = 0;
     for (let y = -6; y <= -1; y++) for (let dx = -3; dx <= 3; dx++) { const j = B.bi(x + dx, y); if (j >= 0 && B.tree[j]) s += 1 + B.treeG[j]; }
     if (B.tree[B.bi(x, -2)]) s -= 3; // (not standing in a trunk)
-    s -= Math.abs(x - w.w * 0.4) * 0.05;
+    s -= Math.abs(x - w.w * 0.3);
     if (s > bs) { bs = s; best = x; }
   }
   return best;
