@@ -55,6 +55,7 @@ const STORY_OFFERED = 'sg-story-offered'; // (offered once per device, after the
 // A first visit's opening minutes (docs/ideas/2026-11-21-first-minutes/s2.md): what the simulation
 // announces on its own is held back this long (alarms go to the journal only, good news one at a
 // time), and the Story offer waits for a pause, the menu, or this long without a click or key.
+const PORTRAIT_WARM_DELAY_MS = 30e3; // (see warmPortraits)
 const QUIET_MS = 5 * 60e3, QUIET_GAP_MS = 45e3, STORY_IDLE_MS = 25e3;
 const ALARMS = new Set(['warn', 'fire', 'flood', 'bad']);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -189,16 +190,23 @@ export class UI {
     if (stroke.tool.cat === 'visitors') this.renderToolPanel();
   }
 
-  // Render the field-guide portraits a few at a time in the background, so the guide opens instantly.
+  // Render the field-guide portraits one at a time in idle moments, so the guide opens instantly.
+  // They wait out the first half minute: each is a shader compile and a read back from the
+  // graphics chip, and on a weak laptop the queue starting at 1.5 s held the opening at 3-5 frames
+  // a second (s7.md). A portrait asked for sooner (the guide, an animal's panel) is drawn on the spot.
   warmPortraits() {
     // (this map's: another map chosen meanwhile has other species, and asking it for these threw)
     const catalog = this.game.catalog, queue = catalog.animals.map(a => a.key);
+    const idle = window.requestIdleCallback ? f => window.requestIdleCallback(f, { timeout: 3000 }) : f => setTimeout(f, 250);
     const step = () => {
       if (!queue.length || this.game.catalog !== catalog) return;
       animalThumb(queue.shift(), catalog);
-      (window.requestIdleCallback || (f => setTimeout(f, 60)))(step, { timeout: 400 });
+      idle(step);
     };
-    setTimeout(step, 1500);
+    // (counted from the end of loading, which can itself take half a minute there)
+    const loaded = () => { const l = document.getElementById('loading-screen'); return !l || l.classList.contains('done'); };
+    const wait = () => loaded() ? setTimeout(() => idle(step), PORTRAIT_WARM_DELAY_MS) : setTimeout(wait, 1000);
+    wait();
   }
 
   snapshot() { return this.analytics.snapshot(); }

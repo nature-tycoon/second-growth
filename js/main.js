@@ -39,7 +39,14 @@ function setProgress(progress) {
 }
 
 // Give the browser a chance to paint the loading page between the heavy setup steps.
-const nextPaint = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+// (or after a quarter second without one: a background tab, or an itch.io frame scrolled out of
+// view, paints nothing, and loading used to stop there until the player came back, s7.md)
+const nextPaint = () => new Promise(resolve => {
+  let done = false;
+  const go = () => { if (!done) { done = true; resolve(); } };
+  requestAnimationFrame(() => setTimeout(go, 0));
+  setTimeout(go, 250);
+});
 
 async function boot() {
   try {
@@ -85,6 +92,7 @@ async function boot() {
       settings.quality = 'fast'; saveSettings();
     }
     const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog });
+    renderer.gpuName(); // (asked now, while the chip is idle: asked first after the first draw, it waited for that frame to finish, a second on weak graphics)
     const ui = new UI(game, renderer);
     const input = new Input(game, renderer, ui);
     renderer.resetView();

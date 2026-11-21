@@ -3,6 +3,7 @@
 ## Rules
 
 - Animal models and shaders are warmed in idle time (`Actors.warmAnimals`, every look from `drawLooks`, `compileAsync`); anything not ready is built on the spot. Don't build them while loading.
+- Field-guide portraits (`UI.warmPortraits`, a second WebGL context) wait until 30 s after loading and run only in idle time: each is a shader compile and a read back from the chip, and queued from 1.5 s they held a weak laptop's opening at 30 fps or less (2026-11-21, `docs/ideas/2026-11-21-first-minutes/s7.md`). `renderPortrait` keeps a material per shader key so the program is reused. Measure the opening with `node tools/first-seconds-profile.mjs` (loading by step, then 0-30 s in windows).
 - Plant regions are 24 tiles (`Flora` `chunkSize`), rebuilt under a 4 ms frame budget (`FLORA_FRAME_MS`). The plants drawn must stay the same: `tools/flora-rebuild-bench.mjs`'s `plant set` must match.
 - The live day runs in parts (`Game.dayWork`, one part a frame; autosave on its own frame via `saveDue`; `finishDay` before a new day or save). `dailyTick`, `monthlyTick`, `Wildlife.monthly` and `computeSuitability` still do it all at once in the same order, so headless results stay byte-identical. Keep both paths in step.
 - Tests that stub habitat replace `Wildlife.suitabilityWork`, not `computeSuitability`.

@@ -22,6 +22,7 @@ First, `node tools/perf-guard-check.mjs [maps]` (about 15 s, no GPU): exact draw
 | Whole frame: simulation vs drawing vs GPU | `node tools/play-profile.mjs [maps] [quality] [years]` (default serengeti,sumatra,amazon,pnw high 3; writes `tools/release-output/play-profile.json`) |
 | Simulation only, headless | time `game.update`, `wildlife.update`, `Flora.rebuild`, `Actors.update` in node; `balance-sim` prints `ms/day` |
 | Loading | `node tools/boot-profile.mjs 4 1` |
+| A first visit's loading by step and its first 30 s of frames (what a new player gets) | `node tools/first-seconds-profile.mjs [map] [quality] [runs] [cpuSlowdown]` (`FS_SOFTWARE=1`, `FS_PROFILE=1` for top functions and who called the WebGL waits, `FS_ROOT=<checkout>`) |
 | Loading's last step (first frame: build, shader programs, first draw) | `node tools/first-frame-profile.mjs [maps] [runs]` (`FF_ROOT=<checkout>` for an A/B) |
 | Plants / spacing / climbing monkeys | `tools/flora-rebuild-bench.mjs`, `spacing-bench.mjs`, `canopy-bench.mjs` (they print output signatures, so check those match too) |
 
