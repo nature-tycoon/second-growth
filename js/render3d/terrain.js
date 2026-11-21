@@ -9,7 +9,8 @@ import * as S from '../render/sprites.js';
 import { withClouds } from './atmosphere.js';
 import { hash2 } from '../rng.js';
 export { buildAtlas } from './terrain-atlas.js';
-import { noiseTexture, groundDetail, waves, waterLook, fallLook } from './terrain-materials.js';
+import { noiseTexture, groundDetail, waves, waterLook, fallLook, rockIce } from './terrain-materials.js';
+import { withSnowTops } from './snow.js';
 import { trailSurface } from '../sim/animal-trails.js';
 import { TRAIL_RESOLUTION } from '../data/animal-trails.js';
 import { meadowPatch, patchColor } from './patches.js';
@@ -139,7 +140,8 @@ export class Terrain {
     // falling water (waterfalls, dam spills) and the wet rock ledge a fall pours off: see buildFalls
     this.viewH = { value: 800 }; // (the view's height in CSS pixels: scene.js sets it each frame, for the mist's fade)
     this.fallMat = withClouds(fallLook(new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide }), this.time, this.noise, this.viewH));
-    this.rockMat = withClouds(new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 30, specular: 0x283032 }));
+    // (in a cold snap the wet rock glazes with ice and its dry tops take snow like the ground: rockIce, withSnowTops)
+    this.rockMat = withClouds(withSnowTops(rockIce(new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 30, specular: 0x283032 }), this.noise), 0.8));
     this.skirtMat = withClouds(new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     this.overlayMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.previewMat = this.overlayMat.clone();
@@ -911,7 +913,7 @@ export class Terrain {
   ledge(strips) {
     const falls = strips.filter(s => s.mist);
     if (!falls.length) return null;
-    const pos = [], col = [], idx = [], w = this.world;
+    const pos = [], col = [], ice = [], idx = [], w = this.world;
     const groundY = (x, z) => { // (the ground's height at a point, between its tile's corners)
       const x0 = Math.floor(x), z0 = Math.floor(z), fx = x - x0, fz = z - z0, v = (a, b) => w.vert(Math.max(0, Math.min(w.w, a)), Math.max(0, Math.min(w.h, b)));
       return ((v(x0, z0) * (1 - fx) + v(x0 + 1, z0) * fx) * (1 - fz) + (v(x0, z0 + 1) * (1 - fx) + v(x0 + 1, z0 + 1) * fx) * fz) * LEVEL;
@@ -942,6 +944,7 @@ export class Terrain {
           pos.push(q[0], y, q[2]);
           const top = pi > 0 && pi < 4, c = !wing && !top ? wetC : wing && top && rnd() < 0.7 ? mossC : pi > 3 ? (wing ? rockC.map(v => v * 0.8) : wetC) : rockC, j = 0.9 + rnd() * 0.2;
           col.push(lin(c[0] * j), lin(c[1] * j), lin(c[2] * j));
+          ice.push(top ? 0 : wing ? (pi > 3 ? 0.55 : 0.3) : 1); // (where the spray wets it: rockIce)
         });
         if (ci) for (let pi = 0; pi < prof.length - 1; pi++) {
           const a = base + (ci - 1) * prof.length + pi, b = a + prof.length;
@@ -952,6 +955,7 @@ export class Terrain {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('aIce', new THREE.Float32BufferAttribute(ice, 1));
     g.setIndex(idx);
     g.computeVertexNormals();
     const mesh = new THREE.Mesh(g, this.rockMat);

@@ -5,7 +5,9 @@ import { Game } from '../js/game.js';
 import { ANIMALS } from '../js/data/animals.js';
 import { T, H } from '../js/config.js';
 import { SOUNDSCAPES, natureMix, natureCallRates } from '../js/audio/nature.js';
-import { sampleSoundLand } from '../js/audio/land.js';
+import { sampleSoundLand, FALL_EARSHOT } from '../js/audio/land.js';
+import { fallTiles } from '../js/maps/landform.js';
+import { RECORDED_BEDS } from '../js/audio/recordings.js';
 import { Music } from '../js/audio/music.js';
 import { FIELD_RECORDINGS, MAP_RECORDINGS } from '../js/audio/recordings.js';
 
@@ -200,5 +202,20 @@ check('The Serengeti has a day and night chorus of habitat birds, cicadas by day
   const noon = natureMix(land('serengeti', { tod: 0.45 }), 'clear', 1), dark = natureMix(land('serengeti', { night: 1, tod: 0.95 }), 'clear', 1);
   assert(noon.cicadas > 0 && noon.bugs === 0 && dark.cicadas === 0 && dark.bugs > 0);
   assert.equal(natureMix(land('pnw'), 'clear', 1).cicadas, 0);
+});
+check('A waterfall is heard close up and zoomed in, not from the overhead view or across the valley', () => {
+  g.newGame(1987, 'free', 'standard', 'pnw');
+  const w = g.world, f = fallTiles(w)[0], fx = f % w.w + 0.5, fy = ((f / w.w) | 0) + 0.5, biome = g.catalog.definition;
+  assert(f != null, 'PNW has a fall');
+  const at = (x, z, view) => sampleSoundLand(g, { target: { x, z }, ...view }, biome, ANIMALS).falls;
+  assert(at(fx, fy, { zoom: 2 }) > 0.95, 'beside it, zoomed in');
+  assert(at(fx, fy, { eyeOn: true, zoom: 0.4 }) > 0.95, 'beside it at eye level');
+  assert.equal(at(fx, fy, { zoom: 0.62 }), 0, 'the default overhead view');
+  assert(at(fx + 4, fy, { zoom: 2 }) < at(fx + 1, fy, { zoom: 2 }), 'fades with distance');
+  assert.equal(at(fx + FALL_EARSHOT + 1, fy, { zoom: 2 }), 0, 'out of earshot');
+  assert.equal(natureMix(land('pnw', { falls: 0 }), 'clear', 0).falls, 0);
+  const near = natureMix(land('pnw', { falls: 1 }), 'clear', 0);
+  assert(near.falls > near.creek, 'the fall over the creek beside it');
+  assert(RECORDED_BEDS.falls, 'a recorded bed');
 });
 console.log(`${checks} nature audio checks passed.`);

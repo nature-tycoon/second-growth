@@ -30,6 +30,15 @@ steep steps, no player tool.
   at the lip, thinning into white streaks; a foam disc on the drawn pool surface; four mist puffs that fade
   out in a wide view). One mesh of each for all falls; a full dam's spill (`spills`) is the same water,
   thinner, no rock or mist. Drawing only, built when the water rebuilds: nothing per frame but the shader.
+- Winter ice (drawing only, no state): `FALL_ICE` (smoothstep 0.3-0.75 of the eased snowpack `snow.uSnow`, so
+  after two or more snowy days, thawing as the snowpack melts) freezes the sheet's sides into a rim with
+  icicle columns (at most 0.3 of the width each side: the middle always runs), puts shelf ice round the foam
+  disc's rim, and glazes the rock where `aIce` says spray wets it (`rockIce`); the rock's dry tops take snow
+  (`withSnowTops`). There is no temperature in the game: the snowpack is the cold signal.
+- Sound: `sampleSoundLand` (`js/audio/land.js`) gives `falls`: full within a tile or two of the camera's focus,
+  none `FALL_EARSHOT` (8) tiles off, scaled by zoom (`FALL_ZOOM`: none from the default overhead view) or full
+  at eye level; `natureMix.falls` plays a recorded bed (`RECORDED_BEDS.falls`). Real recordings only (0002).
+  Check: `node tools/nature-audit-check.mjs`.
 - Check: `node tools/waterfall-check.mjs` (which maps get falls, pool level against tail-out and banks,
   a year, save/load, edits and a dug pond beside it, fish, beaver crest, the drawn ledge, sheet, foam, mist).
 

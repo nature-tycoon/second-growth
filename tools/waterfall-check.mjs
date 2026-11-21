@@ -15,6 +15,8 @@ globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeIt
 globalThis.document = { createElement: () => ({ getContext: () => ({ createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {} }) }) };
 const THREE = await import('three');
 const { Terrain } = await import('../js/render3d/terrain.js');
+const { fallLook, FALL_ICE } = await import('../js/render3d/terrain-materials.js');
+const { snow } = await import('../js/render3d/snow.js');
 const { Game } = await import('../js/game.js');
 const { BIOME_LIST } = await import('../js/biome.js');
 const { ToolActions } = await import('../js/tool-actions.js');
@@ -182,6 +184,21 @@ check('Drawn: a rock ledge and falling water off it (sheet, foam, mist), its foo
   let rTop = -Infinity; for (let k = 0; k < rp.count; k++) rTop = Math.max(rTop, rp.getY(k));
   assert.ok(rTop < top && rTop > top - 0.1, `rock top ${rTop.toFixed(3)} under the sheet's ${top.toFixed(3)}`);
   assert.ok(t.fallRock.geometry.index.count / 3 <= 400, 'a small rock mesh');
+  // (winter ice: the rock says where spray wets it, the wet face behind the water most, the dry tops none)
+  const iceA = t.fallRock.geometry.attributes.aIce;
+  assert.ok(iceA && iceA.count === rp.count && iceA.array.every(v => v >= 0 && v <= 1) && iceA.array.includes(1) && iceA.array.includes(0), 'rock ice where the spray wets it');
+  const fs = { uniforms: {}, vertexShader: '#include <begin_vertex>\n#include <project_vertex>', fragmentShader: '#include <color_fragment>' };
+  fallLook(new THREE.MeshLambertMaterial(), { value: 0 }, null, { value: 800 }).onBeforeCompile(fs);
+  assert.ok(fs.uniforms.uSnow === snow.uSnow && fs.fragmentShader.includes(FALL_ICE), 'the falling water freezes with the snowpack');
+  // (every layer on the rock and the water (clouds, snow tops, ice) declares each uniform once: a repeat fails to compile)
+  for (const mat of [t.rockMat, t.fallMat]) {
+    const sh = { uniforms: {}, vertexShader: '#include <common>\n#include <beginnormal_vertex>\n#include <begin_vertex>\n#include <project_vertex>\n#include <worldpos_vertex>', fragmentShader: '#include <common>\n#include <color_fragment>\n#include <fog_fragment>' };
+    mat.onBeforeCompile(sh, {});
+    for (const src of [sh.vertexShader, sh.fragmentShader]) {
+      const decl = src.match(/^\s*(uniform|varying|attribute)\s+\w+\s+\w+;/gm) || [], seen = new Set();
+      for (const d of decl.map(x => x.trim())) { assert.ok(!seen.has(d), `${d} declared twice`); seen.add(d); }
+    }
+  }
   // (its wings stand at most a low outcrop over the bank beside the fall, never a slab out of it)
   const groundY = (x, z) => { const x0 = Math.floor(x), z0 = Math.floor(z), fx = x - x0, fz = z - z0, v = (a, b) => w.vert(a, b); return ((v(x0, z0) * (1 - fx) + v(x0 + 1, z0) * fx) * (1 - fz) + (v(x0, z0 + 1) * (1 - fx) + v(x0 + 1, z0 + 1) * fx) * fz) * LEVEL; };
   for (let k = 0; k < rp.count; k++) {
