@@ -36,7 +36,7 @@ Branch `claude/ideas-waterfall-polish`, cut from the tip of `claude/ideas-cinema
 | 4 | Beaver dam polish | spill over full dam, dams rise over years, fell trees at dam ends, drawn-next-day check | default | M | [x] bb5b8e6 (spill not yet seen in browser; s5 checks it) |
 | 5 | Waterfall look | rock ledge, moving sheet, foam, mist and spray | default | M–L | [x] e98ae19 |
 | 6 | Waterfall sound & ice | real recording at the fall, winter ice at the edges | default | S–M | [x] 77d3510 (uses stream recording until Cole OKs a waterfall download) |
-| 7 | American dipper | new PNW bird at falls and fast creeks | default | M | [ ] |
+| 7 | American dipper | new PNW bird at falls and fast creeks | default | M | [x] 6f3a3de (look not yet seen in browser) |
 | 8 | Serengeti residents | gazelle, topi, buffalo drift to green grass within home ranges | default | M | [ ] |
 | 9 | Movement fixes | waiting lead stops, coati in trunk, sweep catches walkers on water | default | M | [ ] |
 
