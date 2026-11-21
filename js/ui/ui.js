@@ -36,6 +36,7 @@ import { SessionAnalytics } from './session-analytics.js';
 import { Cinematics } from './cinematics.js';
 import { Watch } from './watch.js';
 import { Opening } from './opening.js';
+import { Timelapse } from './timelapse.js';
 import { animalThumb, plantThumb, iconThumb } from './thumbnails.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
 import { saves } from '../saves.js';
@@ -132,12 +133,13 @@ export class UI {
       open_panel: this.modalOpen ? this.lastModal : null, tool: this.state.tool || null, category: this.state.cat || null,
     }));
     this.cinematics = new Cinematics(game, renderer, this.state, {
-      isBusy: () => this.modalOpen || this.photo, isPhoto: () => !!this.photo || !!this.watch?.on, // (after a moment, the view stays clean in either)
+      isBusy: () => this.modalOpen || this.photo || this.timelapse?.on, isPhoto: () => !!this.photo || !!this.watch?.on, // (after a moment, the view stays clean in either)
       setSpeed: speed => this.setSpeed(speed), setFollow: agent => { this.follow = agent; },
       postcardText: title => this.postcardText(title),
     });
     this.watch = new Watch(game, renderer, this);
     this.opening = new Opening(this);
+    this.timelapse = new Timelapse(this);
     this.buildToolbar();
     this.bindTopbar();
     this.minimap = $('#minimap');
@@ -159,7 +161,7 @@ export class UI {
     });
     game.on('event', kind => {
       if (kind === 'fire' || kind === 'flood') {
-        if (this.quietNow()) { this.dismissedBanners[kind] = true; this.bannerKey = null; return; } // (no banner or pause in a first visit's opening minutes)
+        if (this.quietNow() || this.timelapse.on) { this.dismissedBanners[kind] = true; this.bannerKey = null; return; } // (no banner or pause in a first visit's opening minutes, or in the time-lapse: it plays out)
         delete this.dismissedBanners[kind]; this.bannerKey = null;
         if (settings.pauseOnEvents && game.speed) this.setSpeed(0);
       }
@@ -837,6 +839,7 @@ export class UI {
   frame(dt = 0) {
     this.watch.frame(dt);
     this.opening.frame();
+    this.timelapse.frame();
     if (this.storyPending) this.maybeOfferStory();
     this.refreshTop();
     rutSounds(this.game, this.renderer, music, this.renderer.time);
@@ -1233,6 +1236,7 @@ export class UI {
       <button class="btn secondary" data-a="photo">Photo mode</button>
       <button class="btn secondary" data-a="share">Share this farm</button>
       <button class="btn secondary" data-a="watch">Watch (the camera finds the wildlife)</button>
+      <button class="btn secondary" data-a="lapse">Watch 10 years (a time-lapse)</button>
       <button class="btn secondary" data-a="feedback">Send feedback</button>
       ${newsletterAvailable() ? '<button class="btn secondary" data-a="news">Get updates by email</button>' : ''}
       <button class="btn secondary" data-a="help">How to play</button>
@@ -1256,6 +1260,7 @@ export class UI {
     m.querySelector('[data-a=share]').addEventListener('click', () => openShare(this));
     m.querySelector('[data-a=photo]').addEventListener('click', () => { this.closeModal(); this.togglePhoto(); });
     m.querySelector('[data-a=watch]').addEventListener('click', () => { this.closeModal(); this.watch.start(); });
+    m.querySelector('[data-a=lapse]').addEventListener('click', () => { this.closeModal(); this.timelapse.start('menu'); });
     m.querySelector('[data-a=save]').addEventListener('click', event => this.saving.manualSave(event.currentTarget));
     m.querySelector('[data-a=backups]').addEventListener('click', () => this.openSaveRecovery());
     m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true));
@@ -1280,7 +1285,7 @@ export class UI {
   }
   maybeOfferStory() {
     const g = this.game, now = performance.now();
-    if (g.mode !== 'free' || this.modalOpen || this.moment || this.photo || this.watch?.on || this.opening.running) return; // (not over the opening's prompts)
+    if (g.mode !== 'free' || this.modalOpen || this.moment || this.photo || this.watch?.on || this.opening.running || this.timelapse.busy) return; // (not over the opening's prompts or the time-lapse)
     const paused = g.speed === 0, idle = now - this.lastInput >= STORY_IDLE_MS;
     if (!paused && !idle) return;
     this.markStoryOffered(paused ? 'pause' : 'idle');
@@ -1579,6 +1584,7 @@ export class UI {
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
     if (sandbox) g.flags.sandbox = true; else delete g.flags.sandbox; // (saved with the farm)
     if (firstVisit) loadState.firstVisit = true; // (for first_animal_seen, ui/session-analytics.js)
+    this.firstVisit = firstVisit; // (the time-lapse offer: ui/timelapse.js)
     this.quiet = firstVisit ? { until: performance.now() + QUIET_MS, lastSoft: -1e9, held: 0 } : null;
     track('game_start', { mode, fresh, difficulty, map, ...(sandbox ? { sandbox: true } : {}), ...(firstVisit ? { first_visit: true } : {}) });
     this.newCats = new Set();

@@ -99,9 +99,11 @@ export function reportLoadingLeft() {
 //   first_animal_seen { seconds, species, beyond_fence? }   first time a larger animal is on screen, first visit only
 //   farm_opened { how: 'fence'|'culvert', seconds, prompted }   boundary fence or culvert out (ui/opening.js); share.js also sends farm_opened { map, from } for a shared farm
 //   first_tool { seconds_since_load, ... }   (session-analytics.js)
+//   timelapse_offered { map }   the "Watch 10 years" offer after a first visit's first planting (ui/timelapse.js)
+//   timelapse_started { map, from: 'offer'|'menu', first_visit, year }, timelapse_watched { map, seconds, years, ended, from }
+//   watch_mode { map, from: 'follow_deer'|'timelapse' }   "Follow a deer" in the opening (ui/opening.js), or the time-lapse
 // Names reserved for later sessions, so they stay consistent (all carry the usual super properties):
-//   intro_started, intro_skipped { second }, intro_finished,
-//   timelapse_started, timelapse_watched { seconds }
+//   intro_started, intro_skipped { second }, intro_finished
 // trackOnce sends an event the first time per page load only.
 const sentOnce = new Set();
 export function trackOnce(event, props = {}) {

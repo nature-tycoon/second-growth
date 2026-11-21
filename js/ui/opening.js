@@ -4,7 +4,8 @@
 // keeps fish out of the creek. On a first visit the view starts at the north fence, where a group
 // of deer stands at the forest edge beyond it (the real wander-in rule, its first try made at once:
 // sim/fence-gate.js), and the one prompt is to tear the fence out. The deer walk in within seconds.
-// Then one short prompt for the culvert, then the usual planting tip. Both buttons run Demolish
+// Once a deer is on the field, one button to follow it at eye level (watch mode, locked on: Done or
+// Esc comes back); then one short prompt for the culvert, then the usual planting tip. Both buttons run Demolish
 // through the same path as a stroke (cost, undo, goals, tool_used). Nothing here is scripted
 // wildlife: the deer come because the fence is gone, through the rules every arrival follows.
 //
@@ -17,9 +18,11 @@ import { F, money } from '../config.js';
 import { track } from '../analytics.js';
 import { perimeterFence } from '../sim/goals.js';
 import { toolCost } from '../tools.js';
-import { many, cap } from '../data/animals.js';
+import { many, cap, aOne } from '../data/animals.js';
 
-const CULVERT_AFTER_MS = 15e3; // the culvert prompt waits for a deer to be well in, or this long
+const CULVERT_AFTER_DAYS = 11; // the culvert prompt waits for a deer to be well in, or this long (about 15 s at normal speed; game
+                               // days, so a slow frame rate doesn't run the clock out before the deer get there)
+const FOLLOW_LIFE_MS = 12e3;   // the "Follow a deer" offer, before the culvert prompt takes its place
 const ZOOM = 1.1;
 
 // The species the opening shows at the fence: one the fence stops, that walks in from the north
@@ -64,7 +67,7 @@ export class Opening {
     this.t0 = performance.now(); // (farm_opened's seconds: since this farm was started or loaded)
     this.game.on('tool', stroke => this.onTool(stroke));
     // (a farm loaded in the middle of its opening carries on: the stage is saved with it)
-    this.game.on('reset', () => { this.t0 = performance.now(); this.prompt?.remove(); this.prompt = null; this.opened = null; this.culvertShown = false; this.pullAt = null; setTimeout(() => this.resume(), 1200); });
+    this.game.on('reset', () => { this.t0 = performance.now(); this.prompt?.remove(); this.prompt = null; this.followToast?.remove(); this.followToast = null; this.openedDay = null; this.opened = null; this.culvertShown = false; this.pullAt = null; setTimeout(() => this.resume(), 1200); });
   }
 
   get stage() { return this.game.flags.opening?.stage; }
@@ -108,12 +111,28 @@ export class Opening {
     this.stage = 'culvert'; this.opened = performance.now();
   }
 
+  // One button, no reading: follow a deer that just walked in, at eye level. Once per first visit.
+  followPrompt(a) {
+    const g = this.game, def = this.def;
+    g.flags.opening.followOffered = true;
+    this.followToast = this.ui.toast({
+      text: `They're in.`, kind: 'tip', date: g.dateString(), life: FOLLOW_LIFE_MS, sticky: true,
+      action: { label: `Follow ${aOne(def)}`, run: () => { const d = this.deerInside() || a; if (g.wildlife.hasAgent(d)) this.ui.watch.follow(d, 'follow_deer'); } },
+    });
+  }
+
+  deerInside() {
+    const g = this.game, key = g.flags.opening?.species;
+    return g.wildlife.agents.find(a => a.key === key && !a.leaving && !a.gate && a.y > 4) || null;
+  }
+
   culvertPrompt() {
     const g = this.game, i = culvertTile(g.world);
     if (i < 0) { this.finish(); return; }
     const t = g.catalog.definition.text || {};
+    this.followToast?.remove();
     this.prompt = this.ui.toast({
-      text: `${this.opened ? 'They\'re in. ' : ''}Next, the road culvert: it keeps ${t.culvertBlocks || 'fish'} out of the creek.`,
+      text: `${this.opened && !g.flags.opening.followOffered ? 'They\'re in. ' : ''}Next, the road culvert: it keeps ${t.culvertBlocks || 'fish'} out of the creek.`,
       kind: 'tip', date: g.dateString(), life: 10 * 60e3, sticky: true,
       action: { label: `Pull it out (${money(costOf(g, [i]))})`, run: () => this.pullCulvert() },
       onClose: () => this.finish(),
@@ -140,8 +159,12 @@ export class Opening {
     if (!s || s === 'done') return;
     const g = this.game, now = performance.now();
     if (s === 'culvert' && this.opened && !this.culvertShown) {
-      const inside = g.wildlife.agents.some(a => a.key === g.flags.opening.species && !a.leaving && a.y > 4);
-      if (inside || now - this.opened > CULVERT_AFTER_MS) { this.culvertShown = true; this.culvertPrompt(); }
+      const o = g.flags.opening, inside = this.deerInside();
+      if (inside && !o.followOffered && !this.ui.watch.on) this.followPrompt(inside);
+      // (the culvert prompt waits while the follow offer is up or the deer is being followed)
+      const waiting = this.followToast?.isConnected || this.ui.watch.on;
+      if (this.openedDay == null) this.openedDay = g.day;
+      if (!waiting && (o.followOffered || g.day - this.openedDay > CULVERT_AFTER_DAYS)) { this.culvertShown = true; this.culvertPrompt(); }
     }
     if (this.pullAt && now >= this.pullAt) {
       this.pullAt = null;

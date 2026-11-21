@@ -27,6 +27,11 @@
 // Shuffle (the crossed arrows on the bar) is whether the director moves on by itself. Off, it stays
 // on the animal it has until Next is pressed (or the animal is gone). Each view keeps its own: on
 // for the usual view, off at eye level, where a cut away loses the animal you were watching.
+//
+// Two ways in for a first visit (docs/ideas/2026-11-21-first-minutes): `start({ lapse })` is the
+// time-lapse (ui/timelapse.js runs the clock and ends it): no bar, and the shots drift slowly over
+// the ground the player planted, now and then an animal near it. `follow(a)` starts at eye level
+// locked onto one animal (the opening's "Follow a deer"), and puts the eye setting back after.
 
 import { animalDef, drawDef } from '../data/animals.js';
 import { dormancyStatus } from '../data/animal-dormancy.js';
@@ -40,6 +45,7 @@ const SHOT = { follow: 16, eye: 18, wide: 11 }; // seconds a shot lasts
 const TOUCH = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches; // (as the thumbstick shows)
 const FILL = 3.3, CLOSEST = 8;                   // a followed animal's longest side × zoom (about 150 pixels), and the nearest zoom
 const LONGEST = 40;                              // a hunt or a chase keeps the camera, up to this long
+const LAPSE = { len: 12, zoom: [1.05, 1.6], near: 10 }; // time-lapse shots: seconds, zoom, an animal this close to the planting
 
 // How worth watching an animal is right now: what it's doing, weighted.
 // (a night animal in its roost by day isn't drawn: roostingNow)
@@ -79,10 +85,12 @@ export class Watch {
 
   toggle() { if (this.on) this.stop(); else this.start(); }
 
-  start() {
+  start({ lapse = null, from = null } = {}) {
     if (this.on) return;
     const ui = this.ui, r = this.renderer;
     this.species = null;
+    this.lapse = lapse; this.eyeBefore = null;
+    if (lapse && this.eyeLevel) { this.eyeBefore = true; this.eyeLevel = false; } // (the time-lapse looks down on the land)
     if (ui.photo) ui.togglePhoto();
     ui.closeInfo();
     this.on = true;
@@ -91,13 +99,26 @@ export class Watch {
     document.body.classList.add('watch-mode');
     document.body.classList.toggle('watch-eye', this.eyeLevel);
     this.build();
+    this.el.classList.toggle('lapse', !!lapse);
+    this.el.querySelector('[data-a=eye]').classList.toggle('on', this.eyeLevel);
     this.showSpecies();
     this.showShuffle();
     this.lock(null); this.dateShown = null; this.showDate();
     requestAnimationFrame(() => this.el.classList.add('bars'));
     this.shot = null; this.n = 0;
     this.showControls();
-    track('watch_mode', { map: this.game.map });
+    track('watch_mode', { map: this.game.map, ...(from ? { from } : {}) });
+  }
+
+  // Watch one animal at eye level, locked on (the opening's "Follow a deer"). Done or Esc ends it
+  // as usual; the eye setting goes back to what it was.
+  follow(a, from = null) {
+    if (this.on) this.stop();
+    const before = this.eyeLevel;
+    this.eyeLevel = true;
+    this.start({ from });
+    this.eyeBefore = before;
+    this.lock(a);
   }
 
   stop() {
@@ -113,7 +134,9 @@ export class Watch {
     r.flyTo(this.prev.x, this.prev.z, this.prev.zoom, 1.4); r.azTarget = this.prev.az;
     ui.state.clean = !!ui.photo || !!ui.moment;
     document.body.classList.remove('watch-mode', 'watch-eye');
-    this.el.classList.remove('bars', 'show');
+    this.el.classList.remove('bars', 'show', 'lapse');
+    this.lapse = null;
+    if (this.eyeBefore != null) { this.eyeLevel = this.eyeBefore; this.eyeBefore = null; this.el.querySelector('[data-a=eye]').classList.toggle('on', this.eyeLevel); }
   }
 
   setEyeLevel(on) {
@@ -132,7 +155,7 @@ export class Watch {
     if (this.el) return;
     const o = document.createElement('div'); o.id = 'watch';
     o.innerHTML = `<div class="lb lb-top"></div><div class="lb lb-bot"></div>
-      <div class="w-cap"><b></b><span></span></div><div class="w-date" aria-live="off"></div>
+      <div class="w-cap"><b></b><span></span></div><div class="w-date" aria-live="off"></div><div class="w-lapse"></div>
       <button class="w-lock" title="Let go (Esc, or click empty ground)"><span></span><svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg></button>
       <div class="w-menu" role="listbox"></div>
       <div class="w-bar"><button class="w-sp" data-a="species" title="Watch one species (S)" aria-haspopup="listbox"><span></span><svg viewBox="0 0 16 16"><path d="M4 10l4-4 4 4"/></svg></button>
@@ -291,6 +314,7 @@ export class Watch {
 
   // Keys while watching (see Input.key). True when the key was used.
   key(k) {
+    if (this.lapse) return false; // (the time-lapse ends on any key: ui/timelapse.js)
     if (k === 'escape' && this.menuOpen) { this.closeMenu(); return true; }
     if (k === 'escape' && this.locked) { this.lock(null); return true; }
     if (k === 's') { this.toggleMenu(); return true; }
@@ -371,6 +395,7 @@ export class Watch {
     this.walking = false;
     if (this.locked) this.lock(null);
     this.endShot();
+    if (this.lapse) { this.lapseShot(); return; }
     const g = this.game, wide = !this.eyeLevel && !this.species && this.shuffling() && this.n % 4 === 3;
     this.n++;
     let a = wide ? null : this.pick();
@@ -425,7 +450,30 @@ export class Watch {
     this.caption(this.shot, true);
   }
 
-  wideShot() {
+  // The time-lapse: mostly a slow drift over a patch of what was planted, close enough to see it
+  // grow; every third shot an animal on or near it, if one is out (else the land again).
+  lapseShot() {
+    const g = this.game, r = this.renderer, w = g.world, tiles = this.lapse.tiles;
+    const n = this.n++;
+    if (!tiles.length) { this.wideShot(LAPSE.zoom); this.shot.len = LAPSE.len; return; }
+    const i = tiles[Math.floor(Math.random() * tiles.length)], x = i % w.w + 0.5, y = Math.floor(i / w.w) + 0.5;
+    if (n % 3 === 2) {
+      let best = null, bs = 0;
+      for (const a of g.wildlife.agents) {
+        if (Math.hypot(a.x - x, a.y - y) > LAPSE.near) continue;
+        const s = interest(a, animalDef(a, g.catalog), r.nightOut);
+        if (s > bs) { bs = s; best = a; }
+      }
+      if (best) { this.frameAnimal(best); return; }
+    }
+    r.setEyeLevel(null);
+    this.ui.follow = null; g.selectedAgent = null;
+    r.flyTo(x, y, LAPSE.zoom[0] + Math.random() * (LAPSE.zoom[1] - LAPSE.zoom[0]), 3);
+    this.shot = { agent: null, t: 0, len: LAPSE.len, eye: false, drift: (Math.random() < 0.5 ? -1 : 1) * 0.07 };
+    this.caption(this.shot, true);
+  }
+
+  wideShot(zoom = [0.75, 1.15]) {
     const r = this.renderer, w = this.game.world;
     r.setEyeLevel(null);
     this.ui.follow = null; this.game.selectedAgent = null;
@@ -436,7 +484,7 @@ export class Watch {
       x = tx; y = ty;
       if (w.tree[ty * w.w + tx] || w.shrub[ty * w.w + tx]) break; // (trees or shrubs: something to look at)
     }
-    r.flyTo(x, y, 0.75 + Math.random() * 0.4, 3);
+    r.flyTo(x, y, zoom[0] + Math.random() * (zoom[1] - zoom[0]), 3);
     this.shot = { agent: null, t: 0, len: SHOT.wide, eye: false, drift: (Math.random() < 0.5 ? -1 : 1) * 0.06 };
     this.caption(this.shot, true);
   }

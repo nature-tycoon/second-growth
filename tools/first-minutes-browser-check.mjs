@@ -5,7 +5,9 @@
 // minutes hold back what the simulation announces on its own (alarms, a stack of good news), and a
 // refused building says where it fits. The opening (session 3): the view starts at the boundary fence
 // with deer waiting beyond it, one click tears the fence out and they walk onto the field within
-// ~10 s, then one click pulls the road culvert, and only then the planting tip. A player with a saved farm still gets the chooser. FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
+// ~10 s, one button follows one at eye level (session 4), then one click pulls the road culvert,
+// and only then the planting tip. After the first planting, "Watch 10 years" runs the farm at top
+// speed over what was planted and stops on its own, on any key, or when money runs low (session 4). A player with a saved farm still gets the chooser. FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { openBrowser } from './browser-session.mjs';
@@ -65,6 +67,22 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     if (shots) await writeFile(`${shots}/deer-in-${width}x${height}.png`, Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
     const fenceEv = await b.evaluate(`window.events.find(e=>e.event==='farm_opened'&&e.props.how==='fence')?.props`);
     assert.ok(fenceEv && Number.isFinite(fenceEv.seconds) && fenceEv.prompted, 'farm_opened { how: fence, seconds } is sent');
+    // one button follows a deer at eye level (once per first visit); the culvert prompt waits for it
+    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Follow a/.test(x.textContent))`, 'follow-a-deer offer', 20000);
+    assert.equal(await b.evaluate(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Pull it out/.test(x.textContent))`), false, 'the culvert prompt waits for the follow offer');
+    await b.evaluate(`[...document.querySelectorAll('#toasts .toast-act')].find(x=>/^Follow a/.test(x.textContent)).click()`);
+    await new Promise(r => setTimeout(r, 1500));
+    const follow = await b.evaluate(`(()=>{ const {ui,renderer:R}=window.secondGrowth;
+      return { on:ui.watch.on, eye:ui.watch.eyeLevel, agent:R.eyeAgent?.key, locked:ui.watch.locked?.key,
+        ev:window.events.find(e=>e.event==='watch_mode')?.props?.from,
+        culvert:[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Pull it out/.test(x.textContent)) }; })()`);
+    assert.ok(follow.on && follow.eye, 'Follow starts watch mode at eye level');
+    assert.equal(follow.agent, 'deer', 'the eye rides with a deer');
+    assert.equal(follow.locked, 'deer', 'locked onto it');
+    assert.equal(follow.ev, 'follow_deer', 'watch_mode { from: follow_deer } is sent');
+    assert.equal(follow.culvert, false, 'no culvert prompt while following');
+    await b.evaluate(`window.secondGrowth.ui.watch.stop()`);
+    assert.equal(await b.evaluate(`window.secondGrowth.ui.watch.eyeLevel`), false, 'the eye setting goes back after');
     // then the culvert, one short prompt
     await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Pull it out/.test(x.textContent))`, 'culvert prompt', 20000);
     await b.evaluate(`[...document.querySelectorAll('#toasts .toast-act')].find(x=>/^Pull it out/.test(x.textContent)).click()`);
@@ -133,6 +151,38 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
       const shot = await b.send('Page.captureScreenshot', { format: 'png' });
       await writeFile(`${shots}/sown-${width}x${height}.png`, Buffer.from(shot.data, 'base64'));
     }
+    // "Watch 10 years": offered once after the first planting; top speed, panels away, over the planting
+    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Watch 10 years/.test(x.textContent))`, 'time-lapse offer', 30000);
+    assert.ok(await b.evaluate(`window.events.some(e=>e.event==='timelapse_offered')`), 'timelapse_offered is sent');
+    await b.evaluate(`[...document.querySelectorAll('#toasts .toast-act')].find(x=>/^Watch 10 years/.test(x.textContent)).click()`);
+    const lapseDay0 = await b.evaluate(`window.secondGrowth.game.day`);
+    await new Promise(r => setTimeout(r, 4000));
+    const lapse = await b.evaluate(`(()=>{ const {game:g,ui,renderer:R}=window.secondGrowth;
+      return { on:ui.timelapse.on, watch:ui.watch.on, cls:ui.watch.el.classList.contains('lapse'), speed:g.speed, day:g.day,
+        bar:getComputedStyle(ui.watch.el.querySelector('.w-bar')).display, hint:ui.watch.el.querySelector('.w-lapse').textContent,
+        x:R.target.x, z:R.target.z, ev:window.events.find(e=>e.event==='timelapse_started')?.props,
+        story:[...document.querySelectorAll('#toasts .toast-act')].some(x=>x.textContent==='Story mode') }; })()`);
+    assert.ok(lapse.on && lapse.watch && lapse.cls, 'the time-lapse runs in watch mode');
+    assert.equal(lapse.speed, 3, 'at the top speed');
+    assert.ok(lapse.day > lapseDay0, 'the days go by');
+    assert.equal(lapse.bar, 'none', 'no controls: it ends on a click');
+    assert.match(lapse.hint, /^Year \d+ of 10/, 'the years so far show');
+    assert.ok(Math.abs(lapse.x - 20) < 16 && Math.abs(lapse.z - 50.5) < 16, `the camera is over the planting (${lapse.x.toFixed(1)}, ${lapse.z.toFixed(1)})`);
+    assert.equal(lapse.ev?.from, 'offer', 'timelapse_started { from: offer }');
+    assert.equal(lapse.story, false, 'no Story offer during the time-lapse');
+    if (shots) await writeFile(`${shots}/lapse-${width}x${height}.png`, Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    await b.evaluate(`(()=>{ const t=window.secondGrowth.ui.timelapse; t.day0=window.secondGrowth.game.day-1200; })()`); // (ten years, without the wait)
+    await b.waitFor(`!window.secondGrowth.ui.timelapse.on`, 'the time-lapse ends on its own', 10000);
+    const lapsed = await b.evaluate(`(()=>{ const {game:g,ui}=window.secondGrowth;
+      return { watch:ui.watch.on, speed:g.speed, ev:window.events.find(e=>e.event==='timelapse_watched')?.props,
+        line:[...document.querySelectorAll('#toasts .toast-text')].map(t=>t.textContent).find(t=>/ on: /.test(t)) }; })()`);
+    assert.equal(lapsed.watch, false, 'back to the usual view');
+    assert.equal(lapsed.speed, 1, 'back to normal speed');
+    assert.equal(lapsed.ev?.ended, 'done', 'timelapse_watched { ended: done }');
+    assert.ok(Number.isFinite(lapsed.ev?.seconds), 'timelapse_watched carries seconds');
+    assert.ok(lapsed.line, 'one line on what changed');
+    console.log(`  time-lapse: ${lapsed.line}`);
+
     // the follow-up, then the one-time story offer: never while the player is busy, only on a pause
     // (the phone size) or after a while without input (the desktop size, the idle clock wound on)
     await b.waitFor(`window.secondGrowth.ui.storyPending`, 'story offer queued after the goal', 20000);
@@ -163,6 +213,22 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.equal(offer.stored, '1', 'the story is offered once per device');
     await b.evaluate(`window.secondGrowth.ui.closeModal()`);
 
+    // the time-lapse from the menu (no offer): any key ends it; money running low ends it and pauses
+    const ends = await b.evaluate(`(async()=>{
+      const {game:g,ui}=window.secondGrowth, wait=ms=>new Promise(r=>setTimeout(r,ms)), last=()=>window.events.filter(e=>e.event==='timelapse_watched').at(-1)?.props;
+      ui.timelapse.start('menu'); await wait(900);
+      const on=ui.timelapse.on; window.dispatchEvent(new KeyboardEvent('keydown',{key:'x'})); await wait(100);
+      const key={ on, ended:last()?.ended, off:!ui.timelapse.on&&!ui.watch.on };
+      const m=g.money; ui.timelapse.start('menu'); await wait(300); g.money=500;
+      for(let k=0;k<40&&ui.timelapse.on;k++) await wait(100);
+      const low={ ended:last()?.ended, speed:g.speed, from:last()?.from }; g.money=m; ui.setSpeed(1);
+      return { key, low };
+    })()`, 30000);
+    assert.ok(ends.key.on && ends.key.off && ends.key.ended === 'input', `a key ends the time-lapse (${JSON.stringify(ends.key)})`);
+    assert.equal(ends.low.ended, 'money', 'money running low stops it');
+    assert.equal(ends.low.speed, 0, 'and pauses so the player can act');
+    assert.equal(ends.low.from, 'menu');
+
     // the same browser again, with this farm saved: the chooser, with Continue
     await b.evaluate(`window.secondGrowth.game.save()`);
     await b.navigate('/?ph');
@@ -172,6 +238,6 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.equal(back.modal, 'How do you want to play?', 'a returning player gets the chooser');
     assert.equal(back.start, false, 'nothing starts before a returning player chooses');
     b.assertHealthy();
-    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, first goal in ${sown.days} day(s) after one stroke, alarms held (${quiet.held}), refusal says where, story offered on ${offer.offered.from} and taken in place, returning player gets the chooser`);
+    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, first goal in ${sown.days} day(s) after one stroke, alarms held (${quiet.held}), refusal says where, followed a deer at eye level, watched the time-lapse (ends on its own, on a key, on low money), story offered on ${offer.offered.from} and taken in place, returning player gets the chooser`);
   } finally { await b.close(); }
 }

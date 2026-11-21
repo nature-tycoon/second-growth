@@ -13,6 +13,7 @@
 - On the reef the eye stays on the animal's side of the surface (`EyeCamera.update(…, seaY)`). Perched birds on conifer boughs get a `PerchBough`; birds on snags sit on the top (`Actors.snagSite`).
 - A click or tap in watch mode (not a drag) locks the camera onto the animal under it (`Watch.tap`, `Watch.lock`: the shot never ends while locked, at eye level too); empty ground, Esc (before it leaves watch mode), the chip's ✕, Next, walking and a keystone moment let go. `pickAgent` projects through the eye's camera at eye level. The date sits in the top letterbox bar (`showDate`, the map's own season names). Two fingers twisted on the map turn it (`Renderer.twistAt`) once past `TWIST_START`, so a pinch's wobble never does. Check `tools/watch-lock-browser-check.mjs`.
 - Phones: check the watch bar in landscape (812×375). Check `node tools/watch-check.mjs`. Eye level is unmeasured on the low-end target: run `tools/play-profile.mjs` with watch mode before promoting it.
+- The time-lapse (`ui/timelapse.js`, interface only: the usual top speed underneath) runs inside watch mode with `start({ lapse })`: no bar (`#watch.lapse`), shots by `lapseShot` over the planted tiles, ended by any input through a capture listener (`Watch.key` stands aside). Keystone moments wait (`isBusy`), and fire and flood banners and the event pause stay off while it runs. Check: `first-minutes-browser-check`.
 
 ## History
 

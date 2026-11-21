@@ -1027,6 +1027,11 @@ body.watch-mode.moment-on #watch .w-bar, body.watch-mode.moment-on #watch .w-cap
 #watch .w-date { position: absolute; top: 0; right: calc(max(16px, 3vw) + env(safe-area-inset-right)); height: 6vh; line-height: 6vh;
   font-size: clamp(10px, 2.4vh, 12.5px); font-weight: 600; letter-spacing: 0.02em; color: rgba(243,236,214,0.55); white-space: nowrap; opacity: 0; transition: opacity 1.1s; pointer-events: none; }
 #watch.bars .w-date { opacity: 1; }
+/* the time-lapse (ui/timelapse.js): no controls, it ends on any click or key; the years so far top left */
+#watch.lapse .w-bar, #watch.lapse .w-expand, #watch.lapse .w-lock { display: none !important; }
+#watch .w-lapse { display: none; position: absolute; top: 0; left: calc(max(16px, 3vw) + env(safe-area-inset-left)); height: 6vh; line-height: 6vh;
+  font-size: clamp(10px, 2.4vh, 12.5px); font-weight: 600; letter-spacing: 0.02em; color: rgba(243,236,214,0.7); white-space: nowrap; pointer-events: none; }
+#watch.lapse.bars .w-lapse { display: block; }
 #watch .w-lock { position: absolute; top: calc(6vh + 10px); left: calc(max(16px, 3vw) + env(safe-area-inset-left)); display: none; align-items: center; gap: 6px; height: 28px; max-width: 60vw;
   padding: 0 6px 0 12px; border: 0; border-radius: 999px; background: rgba(14,18,12,0.55); color: #f3ecd6; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 #watch .w-lock.on { display: flex; }
