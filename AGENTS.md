@@ -60,7 +60,7 @@ Read the record for an area before changing it. Each record in [docs/decisions/]
 - [0027](docs/decisions/0027-plant-succession.md) Plant colonization and succession (`trySeed`, `forestDamp`)
 - [0028](docs/decisions/0028-succession-dynamics.md) Tree mortality, regeneration, disturbance, deadwood (`removeTree`, `sim/disturbance.js`)
 - [0029](docs/decisions/0029-pollinators-in-3d.md) 3D pollinators (`render3d/pollinators.js`)
-- [0030](docs/decisions/0030-everyday-animal-behaviours.md) Everyday behaviours: fishing, woodpeckers, climbers, night animals, flight clearance
+- [0030](docs/decisions/0030-everyday-animal-behaviours.md) Everyday behaviours: fishing, woodpeckers, climbers, night animals, flight clearance, waders (`wades`, `shallowsFor`) and the creek-bound dipper (`fastWater`, `alongCreek`)
 - [0031](docs/decisions/0031-ecosystem-report.md) Ecosystem Report (`sim/eco-metrics.js`)
 - [0032](docs/decisions/0032-real-moon-and-clear-sky.md) Real moon and clear-day sky
 - [0033](docs/decisions/0033-herbivore-pressure.md) Herbivore pressure (`sim/herbivory.js`)

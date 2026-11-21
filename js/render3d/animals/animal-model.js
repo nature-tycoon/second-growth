@@ -66,7 +66,7 @@ export function buildSpecies(def, { close = false } = {}) {
     // nearly still and the sweep growing toward the tail, whose fin turns in step with it: animatePart)
     case 'fish': fish(m, s); mo.swims = 1; mo.wave = s.size * 0.07; mo.waveK = 5.5 / s.size; mo.waveHead = s.size * 0.25; mo.waveLen = s.size * 0.9; mo.waveMin = 0.08; mo.wavePow = 1.5; mo.sink = s.size * 0.2; mo.tail = 0.5; break;
     // (every other four-legged mammal and every bird: the shared builders, from each kind's options)
-    default: if (MAMMALS[s.kind]) quadrupedModel(m, s, mo); else if (BIRDS[s.kind]) birdModel(m, s, mo); else m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
+    default: if (MAMMALS[s.kind]) quadrupedModel(m, s, mo); else if (BIRDS[s.kind]) birdModel(m, s, mo, trait(def, 'wades')); else m.ell([0, 4, 0], [4, 4, 4], s.color || '#888');
   }
   mo.eye = m.eyeAt || null; mo.eyePivot = m.eyePivot || [0, 0, 0]; // where the eyes are, in model units (for eye-shine)
   mo.eyeSpot = m.eyeAt || m.eyeSpot || null; // (and for fitting a kill's skull: every model with eyes)
@@ -155,7 +155,7 @@ function quadrupedModel(m, s, mo) {
   mo.sink = o.leg + o.H * 0.45;
 }
 
-function birdModel(m, s, mo) {
+function birdModel(m, s, mo, wades) {
   bird(m, s);
   const o = BIRDS[s.kind](s);
   mo.flap = o.flap ?? 2;
@@ -163,7 +163,7 @@ function birdModel(m, s, mo) {
   mo.wingSpan = s.size * o.span * 1.7;
   mo.sink = o.swimmer || o.duck ? s.size * 0.24 : 0;
   // Wading can cover the lower legs, while the belly stays above the surface.
-  if (o.wades) mo.wadeDepth = o.legH * s.size * 0.55;
+  if (o.wades || wades) mo.wadeDepth = o.legH * s.size * 0.55;
 }
 
 // Fold the feeding arm at its elbow into a hand-to-mouth pose. The second

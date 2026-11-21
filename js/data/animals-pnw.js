@@ -4,6 +4,7 @@
 // Months: 0=Mar ... 9=Dec 10=Jan 11=Feb
 
 import { habW, near } from './animals.js';
+import { bedDrop } from '../maps/landform.js';
 
 /** @param {import('./contracts.js').DefineAnimal} def */
 export default function buildPnwAnimals(def) {
@@ -211,6 +212,21 @@ export default function buildPnwAnimals(def) {
       hint: 'Clear water with fish and overhanging perches.' });
   }
   {
+    // Fast, clear creek water only: clean enough for caddisfly and mayfly larvae (water quality:
+    // shade and native banks), and best where it runs fastest, over a riffle or a fall (bedDrop).
+    // A pair holds a reach of creek; nothing else will do, not even a pond on the same creek.
+    const w = habW({ CREEK: 1 });
+    def({ key: 'dipper', name: 'American dipper', sci: 'Cinclus mexicanus', group: 'Birds', move: 'fly',
+      wades: true, fastWater: true, bobs: true, flitsLow: true, sitsInCrowns: false, perches: false,
+      groundFeed: false, flocks: false, hops: false, bathes: false,
+      speed: 2.5, hr: 12, max: 4, groupSize: [1, 2], sources: ['N', 'E'], mig: 0.3, breed: [1, 2], litter: [2, 4], life: 4,
+      suit: (W, i) => w[W.habitat[i]] * Math.max(0, Math.min(1, (W.waterQ[i] - 0.25) / 0.35)) * (0.4 + 0.6 * Math.min(1, bedDrop(W, i) / 0.4)),
+      req: g => Math.min(1, g.cleanWater / 15),
+      sprite: { kind: 'songbird', size: 11, color: '#646a71', breast: '#6c7279', head: '#6e6964', bill: '#26241f', cocked: true },
+      desc: 'North America\'s only truly aquatic songbird. It bobs on splash rocks, then walks right under fast water to pick insect larvae off the stones.',
+      hint: 'A clear, shaded, fast-flowing creek, best of all one with a waterfall.' });
+  }
+  {
     const w = habW({ POND: 1, MARSH: 1, CREEK: 0.5 });
     def({ key: 'woodduck', nestHole: true, name: 'Wood duck', sci: 'Aix sponsa', group: 'Birds', move: 'fly',
       speed: 2.5, hr: 20, max: 10, groupSize: [1, 2], sources: ['S'], mig: 0.4, breed: [1, 2], litter: [2, 4], life: 4,
@@ -361,7 +377,7 @@ export default function buildPnwAnimals(def) {
       robin: ['American robin', 'American robins'], hummingbird: ['rufous hummingbird', 'rufous hummingbirds'],
       meadowlark: ['western meadowlark', 'western meadowlarks'], jay: ["Steller's jay", "Steller's jays"],
       woodpecker: ['pileated woodpecker', 'pileated woodpeckers'], heron: ['great blue heron', 'great blue herons'],
-      kingfisher: ['belted kingfisher', 'belted kingfishers'], woodduck: ['wood duck', 'wood ducks'],
+      kingfisher: ['belted kingfisher', 'belted kingfishers'], dipper: ['American dipper', 'American dippers'], woodduck: ['wood duck', 'wood ducks'],
       mallard: ['mallard', 'mallards'], hawk: ['red-tailed hawk', 'red-tailed hawks'],
       owl: ['great horned owl', 'great horned owls'], eagle: ['bald eagle', 'bald eagles'],
       thrush: ["Swainson's thrush", "Swainson's thrushes"], wren: ['Pacific wren', 'Pacific wrens'],
@@ -373,7 +389,7 @@ export default function buildPnwAnimals(def) {
     shy: {
       elk: 0.85, cougar: 1, bear: 0.8, bobcat: 0.8, deer: 0.45, coyote: 0.5, otter: 0.6, beaver: 0.35,
       heron: 0.6, eagle: 0.6, owl: 0.5, woodpecker: 0.35, hawk: 0.3, turtle: 0.6, woodduck: 0.4,
-      kingfisher: 0.3, meadowlark: 0.4, squirrel: 0.1, rabbit: 0.25, vole: 0.1, jay: 0.1, wren: 0.2,
+      kingfisher: 0.3, dipper: 0.2, meadowlark: 0.4, squirrel: 0.1, rabbit: 0.25, vole: 0.1, jay: 0.1, wren: 0.2,
       thrush: 0.25, redlegged: 0.3, newt: 0.2, gartersnake: 0.3, treefrog: 0.1, mallard: 0.05,
       robin: 0, raccoon: 0, bat: 0.1, hummingbird: 0.05, cutthroat: 0.2, coho: 0.2,
     },

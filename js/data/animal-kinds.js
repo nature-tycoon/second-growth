@@ -53,6 +53,9 @@
 //                 watch and fleeUpdate; drawn crouched by actors-ground.js headPose; decision 0006)
 //   swallowsWhole  it swallows its catch whole, head first, and leaves no carcass: snakes
 //                 (animal-life.js swallow; the bulge drawn by actors-common.js gulpBulge)
+//   wades         a bird that stands and feeds in the shallows, legs in the water, stepping
+//                 about and striking at its feet: herons, cranes, dippers (animal-terrain.js
+//                 shallowsFor, wildlife-water.js wade; drawn legs-deep: animal-model.js wadeDepth)
 //
 // Traits set on a species only (no kind default):
 //   wallow        { size, rut }: it wears a wallow in damp ground, `size` how big a dish (1 for an
@@ -63,6 +66,11 @@
 //   surfaceFish   a fish of the open water near the surface, the kind seabirds come up with (fishing.js)
 //   seagrassBite  how much seagrass one meal crops (animal-foraging.js; default 0.01)
 //   bottomDweller a river fish that lies on the bed of its pool, not up near the surface (actors.js)
+//   fastWater     a wader of fast creeks only (dippers): it wades and lands only in creek water,
+//                 never a pond or marsh, and flies low along the creek from rock to rock, never
+//                 over land (animal-terrain.js shallowsFor, wildlife-water.js alongCreek)
+//   bobs          standing, it bobs its whole body down and up on its legs every second or so
+//                 (dippers; drawing only: actors-fly.js birdHeight)
 //   fishDepth     how much water a river fish keeps to, in height levels (waterline.js fishDepth;
 //                 default FISH_DEPTH): at least its drawn body's height, so it never shows its back
 
@@ -89,7 +97,7 @@ export const KIND_TRAITS = {
   woodpecker: { ...smallBird, nestHole: true, trunkFeed: true },
   duck: { ...nibble, floats: true, dabbles: true, perches: false, sitsInCrowns: false, flocks: true },
   booby: { floats: true, perches: false, flocks: true, fishes: 'dive' },
-  heron: { perches: false, sitsInCrowns: false }, crane: { perches: false, sitsInCrowns: false, groundFeed: true },
+  heron: { perches: false, sitsInCrowns: false, wades: true }, crane: { perches: false, sitsInCrowns: false, groundFeed: true, wades: true },
   secretary: { groundFeed: true }, hornbill: { ...nibble, nestHole: true, eatsFruit: 'toss' },
   macaw: { nestHole: true, flocks: true, eatsFruit: 'chew' }, toucan: { nestHole: true, eatsFruit: 'toss' },
   owl: { nestHole: true, scaresSmallBirds: true }, raptor: { scaresSmallBirds: true },
@@ -101,4 +109,4 @@ export const trait = (def, name) => def[name] ?? KIND_TRAITS[def.sprite?.kind]?.
 export const climbStyle = def => def.sprite?.ape ? 'swing' : trait(def, 'climb');
 
 // The fields above a species may set (contracts.js checks them).
-export const TRAIT_BOOLEANS = 'floats dabbles alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks freezes surfaceFish bottomDweller';
+export const TRAIT_BOOLEANS = 'floats dabbles alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks freezes surfaceFish bottomDweller wades fastWater bobs';

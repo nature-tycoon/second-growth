@@ -194,9 +194,14 @@ export function creekFalls(w, max = 2) {
 // counting the tilt across it)? From the heights alone; drawing (terrain.js) and beaver dams
 // (hollis-water.js damCrest: a pond never drowns a fall) ask it.
 export function isFall(w, i) {
-  if (w.terrain[i] !== T.CREEK) return false;
+  return w.terrain[i] === T.CREEK && bedDrop(w, i) >= FALL_MIN;
+}
+// How far a creek tile's bed drops from one edge to the edge opposite (0 off a creek): a riffle
+// or a fall's fast water, which dippers feed in (js/data/animals-pnw.js).
+export function bedDrop(w, i) {
+  if (w.terrain[i] !== T.CREEK) return 0;
   const c = w.corners(i % w.w, (i / w.w) | 0);
-  return Math.max(Math.abs(c[0] + c[1] - c[2] - c[3]), Math.abs(c[0] + c[3] - c[1] - c[2])) / 2 >= FALL_MIN;
+  return Math.max(Math.abs(c[0] + c[1] - c[2] - c[3]), Math.abs(c[0] + c[3] - c[1] - c[2])) / 2;
 }
 export function fallTiles(w) {
   const out = [];

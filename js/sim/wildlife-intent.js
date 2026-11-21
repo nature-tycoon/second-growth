@@ -7,7 +7,7 @@ import { cap, preyFor, isMaleVariant } from '../data/animals.js';
 import { predationCatchChance, preyCover } from './ecological-pressure.js';
 import { animalRadius } from './animal-positioning.js';
 import { huntStyle, stalkCoverAt, canHuntPrey, canStartHunt, beginHunt, endHunt, huntStep, pressOn, letGo, catchOdds, startFeed, missed, watch, prowl, scavenge, play, greet, harem, socialHold } from './animal-life.js';
-import { birdChoose, carryCatch } from './bird-behavior.js';
+import { birdChoose, carryCatch, birdAlarm } from './bird-behavior.js';
 import { climberChoose, fullTrees } from './climbers.js';
 import { crossingLimits, crownsJoin } from './canopy-links.js';
 import { fishChoose, fishing, fishFed } from './fishing.js';
@@ -21,7 +21,7 @@ import { swimDepth, fishDepth } from './waterline.js';
 import { trait } from '../data/animal-kinds.js';
 import { ensureHome, homeChoose, homeFalloff } from './home-range.js';
 import { markRisk, safety } from './predation-risk.js';
-import { passable, canLand, WADERS, shallows } from './animal-terrain.js';
+import { passable, canLand, wader, shallowsFor } from './animal-terrain.js';
 import { swimRoute } from './swim-routes.js';
 import { simRandom } from './sim-random.js';
 import { routeWeight, stepWeight, driftRow, grassGone, greenSpot } from './migration-route.js';
@@ -328,7 +328,9 @@ export class WildlifeIntent {
         if (this.pathTo(a, (j, x, y) => y < y0 - 14 - (a.id % 9) && map[j] > 0.2, 12000)) { a.trip = null; return; }
       }
     }
-    if (a.move === 'fly' && WADERS.has(def.sprite.kind) && !a.leaving) {
+    // (a dipper keeps to its creek: it wades, or flies low along the water to the next rock: wildlife-water.js)
+    if (a.move === 'fly' && trait(def, 'fastWater') && !a.leaving && (birdAlarm(this, a, def) || this.alongCreek(a, def))) return; // (a hawk about comes first: birdAlarm)
+    if (a.move === 'fly' && wader(def) && !a.leaving) {
       // (a hungry heron that fishes goes fishing at most decisions: fishing.js)
       const hungry = !!fishing(def, this.game) && !fishFed(a);
       if ((!a.flying || hungry) && simRandom() < (hungry ? 0.9 : 0.65) && this.wade(a)) return;
@@ -375,10 +377,10 @@ export class WildlifeIntent {
     if (a.move === 'fly') {
       const r = Math.min(14, 4 + Math.sqrt(def.hr) * 0.8);
       let [x, y] = this.bestTileSample(def, a.x, a.y, r, 10, a);
-      if (WADERS.has(def.sprite.kind)) { // waders come down in the shallows when there are any nearby
+      if (wader(def)) { // waders come down in the shallows when there are any nearby
         for (let k = 0; k < 40; k++) {
           const xx = Math.round(a.x + (simRandom() * 2 - 1) * r), yy = Math.round(a.y + (simRandom() * 2 - 1) * r);
-          if (w.inb(xx, yy) && shallows(w, w.idx(xx, yy)) && map[w.idx(xx, yy)] > 0.15) { x = xx; y = yy; break; }
+          if (w.inb(xx, yy) && shallowsFor(w, w.idx(xx, yy), def) && map[w.idx(xx, yy)] > 0.15) { x = xx; y = yy; break; }
         }
       }
       a.tx = x + 0.3 + simRandom() * 0.4; a.ty = y + 0.3 + simRandom() * 0.4;

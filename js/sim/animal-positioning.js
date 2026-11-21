@@ -6,6 +6,7 @@ import { T, F, isWater, clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { adultAnimalScale } from '../render3d/animal-scale.js';
 import { lastDry } from './waterline.js';
 import { inWood } from './ground-obstacles.js';
+import { trait } from '../data/animal-kinds.js';
 
 export function animalRadius(a, catalog = activeCatalog) {
   const def = drawDef(animalDef(a, catalog), a), s = def.sprite;
@@ -19,7 +20,8 @@ export function facePoint(a, x, y) {
   a.heading = Math.atan2(y - a.y, x - a.x);
 }
 
-const PERCHED_WADERS = new Set(['duck', 'heron', 'crane']);
+// (a bird that never sits in a crown, a duck, heron or dipper, is on the ground or water under one)
+const offCrowns = def => trait(def, 'sitsInCrowns') === false;
 // (x, y and grounded: where it would be standing on the ground, without copying the animal)
 function layer(w, a, x = a.x, y = a.y, grounded = false) {
   if (a.state === 'dormant') return null;
@@ -29,7 +31,7 @@ function layer(w, a, x = a.x, y = a.y, grounded = false) {
   const i = w.idx(tx, ty), def = w.catalog.animals[a.sp];
   if (def.reef) return 'reef';
   if (a.move === 'tree' || a.move === 'fly' && w.tree[i] && w.treeG[i] > 0.5 &&
-    !PERCHED_WADERS.has(def.sprite.kind)) return 'canopy';
+    !offCrowns(def)) return 'canopy';
   return isWater(w.terrain[i]) && w.terrain[i] !== T.MARSH ? 'water' : 'ground';
 }
 
@@ -307,7 +309,7 @@ export function shoreSpot(w, a, j, spacing, canStand) {
   const dry = a.move === 'ground' && !w.catalog.animals[a.sp]?.reef; // (a land walker drinks from the bank, never standing in the water: 0025)
   if (dry && isWater(w.terrain[j])) return null;
   if (a.move === 'fly' && w.tree[j] && w.treeG[j] > 0.5 &&
-    !PERCHED_WADERS.has(w.catalog.animals[a.sp].sprite.kind)) return null;
+    !offCrowns(w.catalog.animals[a.sp])) return null;
   const x = j % w.w, y = (j / w.w) | 0;
   let best = null, score = Infinity;
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {

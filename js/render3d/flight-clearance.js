@@ -2,6 +2,7 @@
 // flight height). Plain arithmetic with no three.js, so checks can run it headless.
 import { LEVEL } from '../config.js';
 import { treeHeight } from './tree-stature.js';
+import { trait } from '../data/animal-kinds.js';
 
 // A crown reaches about half a tile out from its trunk: look at the tile under each sample point
 // and a crown's width around it.
@@ -28,10 +29,12 @@ export function canopyTop(w, plants, x, y, ux = 0, uy = 0, ahead = 1.4) {
 export const CANOPY_GAP = 0.2, PASSAGE_GAP = 0.8;
 // Whether a flier is on its way down through the trees, where it doesn't have to clear them: a
 // stoop onto prey, the last tile before it lands (a perch, the ground under the trees, a carcass),
-// or the end of a vulture's spiral. Pollinators flit among the flowers, in crowns too.
+// or the end of a vulture's spiral. Pollinators flit among the flowers, in crowns too, and a low
+// flier (flitsLow) keeps under the crowns.
 export function descending(a, def, mx = 0, my = 0) {
   const kind = def.sprite.kind;
   if (kind === 'butterfly' || kind === 'bee' || kind === 'hummer' && a.state !== 'fly') return true;
+  if (trait(def, 'flitsLow')) return true; // (a dipper skims the creek under the alders, never over them)
   if (a.stoop > 0 || a.state === 'idle') return true; // (idle in the air: settling where it arrived)
   if (a.carry?.low) return true;
   if (a.bird?.kind === 'soar' && a.bird.carcass != null) return a.bird.t < 0.6;

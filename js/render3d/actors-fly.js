@@ -90,6 +90,16 @@ export function birdHeight(c) {
       Math.sqrt(2 * CLIMB_ACCEL * 0.8 * Math.max(0, st.cruise - st.birdY)))); // (braking in time to level off over it)
     y = st.birdY;
   }
+  // standing, a dipper (bobs) dips on its legs about once a second; feeding in the creek (its head
+  // down: a.drinkT) it goes right under the water, easing in and out (fastWater)
+  // (both ease in and out, so taking off mid-dunk or walking off mid-bob is a rise, not a jump)
+  if (def.move === 'fly' && trait(def, 'bobs')) {
+    const size = def.sprite.size * c.sc, ease = Math.min(1, frameDt * 4);
+    const under = !flying && trait(def, 'fastWater') && a.drinkT > 0 && c.surf != null ? 1 : 0;
+    st.dunk = (st.dunk || 0) + (under - (st.dunk || 0)) * ease;
+    st.bobA = (st.bobA || 0) + ((!flying && a.state !== 'walk' ? 1 : 0) - (st.bobA || 0)) * ease;
+    y -= size * (0.07 * st.bobA * Math.max(0, Math.sin(time * 6.5 + a.id * 1.7)) ** 4 + 0.4 * st.dunk);
+  }
   c.y = y;
 }
 

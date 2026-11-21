@@ -1,22 +1,29 @@
 // Shared terrain rules for movement, landing, hunting, herds and diagnostics.
 // Keep map exceptions here so new behaviors use the same boundaries.
 import { T, F, isWater } from '../config.js';
+import { trait } from '../data/animal-kinds.js';
 
-
-export const WADERS = new Set(['heron', 'crane']);
+// Birds that stand and feed in the shallows (trait wades: herons, cranes, dippers).
+export const wader = def => !!trait(def, 'wades');
 // Small land animals that keep out of the water altogether (0025): a vole or a rabbit doesn't wade
 // a marsh or a creek. Bigger ones may wade across, but don't stop in it (steering.js). The kinds
 // are drawn kinds, not species: raccoons, coatis and civets forage in the shallows and are left out.
 const DRY_FOOTED = new Set(['rodent', 'rabbit', 'squirrel', 'agouti', 'armadillo', 'turtle', 'beetle', 'pangolin', 'monitor']);
 const dryFooted = d => !!d && !d.reef && DRY_FOOTED.has(d.sprite.kind); // (a sea turtle is drawn as a turtle too)
 export const shallows = (w, i) => { const t = w.terrain[i]; return t === T.MARSH || t === T.CREEK || t === T.MUD || (w.distWater[i] === 1 && !isWater(t)); };
+// The shallows this wader stands in: a dipper (fastWater) only the creek itself, its riffles and
+// splash rocks, never a pond's or a marsh's edge.
+export const shallowsFor = (w, i, def) => trait(def, 'fastWater') ? w.terrain[i] === T.CREEK : shallows(w, i);
 
 // Flight can cross any terrain; landing needs land, a perch, or suitable water.
 export function canLand(w, i, def) {
-  if (def.move !== 'fly' || !isWater(w.terrain[i])) return true;
+  if (def.move !== 'fly') return true;
+  // (a dipper comes down only on its creek or the rocks of its bank: never a field, never a pond)
+  if (trait(def, 'fastWater')) return w.terrain[i] === T.CREEK || w.distWater[i] <= 1 && !isWater(w.terrain[i]);
+  if (!isWater(w.terrain[i])) return true;
   const kind = def.sprite.kind;
   if (kind === 'duck' || kind === 'booby' || def.group === 'Seabirds') return true;
-  if (WADERS.has(kind)) return shallows(w, i);
+  if (wader(def)) return shallowsFor(w, i, def);
   return !!(w.tree[i] && w.treeG[i] > 0.5);
 }
 
