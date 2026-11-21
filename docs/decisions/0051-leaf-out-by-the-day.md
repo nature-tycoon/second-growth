@@ -13,3 +13,5 @@
 ## History
 
 2026-11-20 (idea batch cinema-creeks, session 7). Cole: every bush leafed out on the same spring day. Before, `plantPhase(p, month)` flipped every plant at a month boundary (10 game days). Now 10–90% of Hollis's deciduous plants leaf out over about 12 game days (four weeks of the calendar), oaks last; autumn colour and leaf fall spread over a similar window. The day's diff costs about 1–2 ms per game day on a 120×90 map.
+
+2026-11-21 (waterfall-polish session 7b). The release check's scenes are on day 20, the first day of the month the Chinandega dry forest leafs out in. By the month every deciduous tree there was drawn leafing out; by the day all 1,331 are still bare (they leaf out on days 21–28). So the Chinandega forest references now show the bare dry forest, and its work budget was refreshed: draw calls 75 → 89 (one bare-tree model per species and variant, in the view and the shadow pass), triangles about the same (Fast 0.49M → 0.48M, High 0.94M → 0.97M), geometries +14. Accepted as the real, intended cost: a dozen draw calls is small next to the triangle and pixel costs in the [performance review](../performance-review-2026-10-23.md).

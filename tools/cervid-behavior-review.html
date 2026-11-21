@@ -15,7 +15,7 @@ import { T, H, DAYS_PER_YEAR, MONTH_NAMES } from '../js/config.js';
 import { mulberry32 } from '../js/rng.js';
 const g = new Game(); g.newGame(1987, 'free', 'standard', 'pnw');
 const r = new Renderer(document.querySelector('#engine'), { preserveDrawingBuffer: true });
-const ui = Object.assign(Object.create(UI.prototype), { game: g, renderer: r });
+const ui = Object.assign(Object.create(UI.prototype), { game: g, renderer: r, state: { overlay: 'none', inspect: null } }); // (agentHTML reads state.overlay)
 const activity = document.querySelector('#activity'), status = document.querySelector('#status'), season = document.querySelector('#season');
 r.resize = () => { r.vw = innerWidth; r.vh = 620; r.gl.setSize(r.vw, r.vh, false); r.canvas.style.width = r.vw+'px'; r.canvas.style.height = r.vh+'px'; r.ui.width = r.vw*r.dpr; r.ui.height = r.vh*r.dpr; r.ui.style.width=r.vw+'px'; r.ui.style.height=r.vh+'px'; r.ui.style.top=document.querySelector('header').offsetHeight+'px'; r.ambience.resize(r.vw,r.vh); r.updateCamera(); };
 r.weatherOn=false; r.shadowOn=false; r.light=true;

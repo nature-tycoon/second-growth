@@ -20,7 +20,7 @@ const g=new Game();g.newGame(1987,'free','standard','pnw');
 const r=new Renderer(document.querySelector('#engine'),{preserveDrawingBuffer:true});
 r.resize=()=>{r.vw=innerWidth;r.vh=560;r.gl.setSize(r.vw,r.vh,false);r.canvas.style.width=r.vw+'px';r.canvas.style.height=r.vh+'px';r.ui.width=r.vw*r.dpr;r.ui.height=r.vh*r.dpr;r.ui.style.width=r.vw+'px';r.ui.style.height=r.vh+'px';r.ui.style.top=document.querySelector('header').offsetHeight+'px';r.ambience.resize(r.vw,r.vh);r.updateCamera();};
 r.weatherOn=false;r.shadowOn=false;r.light=true;r.zoom=2.2;
-const ui=Object.assign(Object.create(UI.prototype),{game:g,renderer:r,state:{inspect:null},infoMin:false});
+const ui=Object.assign(Object.create(UI.prototype),{game:g,renderer:r,state:{inspect:null,overlay:'none'},infoMin:false});
 let focus,paused=false;
 function setup(){
  if(activity.value!=='passage')map.value=activity.value==='nest'?'atlanta':'pnw';

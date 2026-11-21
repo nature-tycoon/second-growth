@@ -45,8 +45,10 @@ try {
       await b.waitFor(`window.secondGrowth.ui.moment?.key === '${key}'`, `${map}/${key}: cinematic starts`, 40000);
       await b.evaluate(`window.secondGrowth.game.speed=1`);
       await pause(3500); // (fly-in, the card, and a few seconds of the game running under it)
+      // (the card comes in on a 1.5 s timer, which waits behind slow frames: on CI's software graphics
+      // Sumatra's first close-up elephant frames held it past the fixed pause, so wait for it)
+      await b.waitFor(`!!document.querySelector('#moment.card') && window.secondGrowth.ui.moment?.key === '${key}'`, `${map}/${key}: card shown`, 10000);
       b.assertHealthy();
-      assert.ok(await b.evaluate(`!!document.querySelector('#moment.card') && window.secondGrowth.ui.moment?.key === '${key}'`), `${map}/${key}: card shown`);
       const residentsPassing = await b.evaluate(`window.secondGrowth.game.wildlife.agents.filter(a => a.passing).length`);
       assert.equal(residentsPassing, 0, `${map}/${key}: no resident marked as a flyover`);
       await b.evaluate(`document.querySelector('[data-a=go]').click(); window.secondGrowth.game.speed=0`);

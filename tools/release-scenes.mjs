@@ -3,7 +3,7 @@
 import { Renderer } from '../js/render3d/scene.js';
 import { ANIMALS } from '../js/data/animals.js';
 import { renderPortrait } from '../js/render3d/portraits.js';
-import { T } from '../js/config.js';
+import { T, isWater } from '../js/config.js';
 import { releaseGame } from './release-fixtures.mjs';
 import { TOOLS } from '../js/tools.js';
 import { ToolActions } from '../js/tool-actions.js';
@@ -60,8 +60,12 @@ try {
   }
   // Production tool, undo, save/restore and rendering must agree after a world replacement.
   function interactions() {
+    // (dry, open ground: the raise tool refuses water and roads (decision 0048). The reef's animal
+    // gallery is all water, so one corner tile, off screen, is made dry ground first)
+    const dry = (t, i) => !isWater(t) && t !== T.ROAD && w.struct[i] < 0;
+    if (w.terrain.findIndex(dry) < 0) { w.terrain[0] = T.SOIL; w.struct[0] = -1; }
     const undo = new Undo(game), before = game.saveData(), money = game.money;
-    const i = w.terrain.findIndex((t, i) => t !== T.RIVER && w.struct[i] < 0), tool = TOOLS.raise;
+    const i = w.terrain.findIndex(dry), tool = TOOLS.raise;
     const actions = new ToolActions(game, { undo });
     if (actions.apply(tool, [i], { random: game.rng }).count !== 1) throw new Error('Landscape tool failed');
     renderer.markTileDirty(); draw();
