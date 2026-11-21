@@ -61,6 +61,8 @@
 //   wallow        { size, rut }: it wears a wallow in damp ground, `size` how big a dish (1 for an
 //                 elk), `rut` only in the rut (the bulls' wallows) (wallows.js, decision 0034)
 //   leaps         a canopy walker that leaps the gap between crowns in an arc (canopy-motion.js)
+//   ranges        a hunter whose range runs over the neighbouring land too: while none live here,
+//                 one crosses the farm now and then, hunts a few days and moves on (wildlife-population.js)
 //   carrionSoar   hungry with no carcass in sight, it goes up and searches from the soar (bird-behavior.js)
 //   cleans        keeps a cleaning station: picks parasites off reef fish that come to it (animal-foraging.js)
 //   surfaceFish   a fish of the open water near the surface, the kind seabirds come up with (fishing.js)
@@ -109,4 +111,4 @@ export const trait = (def, name) => def[name] ?? KIND_TRAITS[def.sprite?.kind]?.
 export const climbStyle = def => def.sprite?.ape ? 'swing' : trait(def, 'climb');
 
 // The fields above a species may set (contracts.js checks them).
-export const TRAIT_BOOLEANS = 'floats dabbles alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps carrionSoar cleans jinks freezes surfaceFish bottomDweller wades fastWater bobs';
+export const TRAIT_BOOLEANS = 'floats dabbles alwaysFlying flitsLow sitsInCrowns hops firmSkin groundFeed perches nestHole flocks bathes trunkFeed restless fearsHunters scaresSmallBirds leaps ranges carrionSoar cleans jinks freezes surfaceFish bottomDweller wades fastWater bobs';

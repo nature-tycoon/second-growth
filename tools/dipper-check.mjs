@@ -22,6 +22,9 @@ step(40, 0.01, 100); // (settling: the pair flies in from the edge to the creek)
 // (flights are counted from a takeoff on the creek: a newcomer's flight in from the map's edge is
 // over land, as any arrival is)
 const fromCreek = new Set();
+const creekBank = i => { const x = i % w.w, y = i / w.w | 0;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (w.inb(x + dx, y + dy) && w.terrain[w.idx(x + dx, y + dy)] === T.CREEK) return true;
+  return false; };
 let standing = 0, offWater = 0, flying = 0, overLand = 0;
 for (let d = 0; d < 160; d++) {
   plan.day(day++); g.dailyTick();
@@ -29,7 +32,9 @@ for (let d = 0; d < 160; d++) {
     g.wildlife.update(0.01);
     for (const a of g.wildlife.agents) {
       if (a.sp !== sp || a.leaving) continue;
-      const i = w.idx(Math.floor(a.x), Math.floor(a.y)), creekOrEdge = w.terrain[i] === T.CREEK || w.distWater[i] <= 1;
+      // (the creek or its bank: a newcomer that first lands on the river bank and then flies to
+      // its creek is arriving, not straying, so a takeoff from the river doesn't count)
+      const i = w.idx(Math.floor(a.x), Math.floor(a.y)), creekOrEdge = creekBank(i);
       if (a.flying) { if (fromCreek.has(a.id)) { flying++; if (w.distWater[i] > 1) overLand++; } }
       else { standing++; if (!creekOrEdge) offWater++; if (creekOrEdge) fromCreek.add(a.id); else fromCreek.delete(a.id); }
     }

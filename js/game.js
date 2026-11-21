@@ -67,8 +67,9 @@ export class Game {
     this.visitors = new Visitors(this);
     this.events = new Events(this);
     this.refreshEnvironment();
-    this.wildlife.computeSuitability();
+    // (the starting animals first, so a hunter's room at the start counts the prey already here)
     this.seedStartingWildlife();
+    this.wildlife.computeSuitability();
     this.mapDefinition.onStart?.(this); // anything a map wants to note about its starting state
     this.updateScore();
     this.updateEco();

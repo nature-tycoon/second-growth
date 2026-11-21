@@ -6,7 +6,7 @@
 // refused building says where it fits. The opening (session 3): the view starts at the boundary fence
 // with deer waiting beyond it, one click tears the fence out and they walk onto the field within
 // ~10 s, one button follows one at eye level (session 4), then one click pulls the road culvert,
-// and only then the planting tip. After the first planting, "Watch 10 years" runs the farm at top
+// and only then the planting tip. A hawk and a party of crows are in that first picture (session 5). After the first planting, "Watch 10 years" runs the farm at top
 // speed over what was planted and stops on its own, on any key, or when money runs low (session 4). A player with a saved farm still gets the chooser. FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -50,6 +50,13 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
       const p=d.map(a=>R.project(a.x,R.heightAtScene(a.x,a.y),a.y)).filter(Boolean);
       return { tz:R.target.z, onScreen:p.filter(q=>q.x>0&&q.y>0&&q.x<R.vw&&q.y<R.vh).length, n:d.length };
     })()`);
+    // (session 5: the farm's common animals come into the same picture while the prompt is up, the
+    // hawk overhead and crows on the field; the page counts what it has shown)
+    await b.evaluate(`(()=>{ const {game:g,renderer:R}=window.secondGrowth; window.seen5={hawk:0,crow:0};
+      const tick=()=>{ for (const k of ['hawk','crow']) { const n=g.wildlife.agents.filter(a=>a.key===k&&!a.leaving).map(a=>R.project(a.x,R.heightAtScene(a.x,a.y)+(a.flying?(a.flightY||3):0),a.y)).filter(q=>q&&q.x>0&&q.y>0&&q.x<R.vw&&q.y<R.vh).length; window.seen5[k]=Math.max(window.seen5[k],n); } };
+      tick(); window.seen5.timer=setInterval(tick,250); })()`);
+    try { await b.waitFor('window.seen5.hawk>=1&&window.seen5.crow>=2', 'hawk and crows in the opening picture', 30000); }
+    finally { await b.evaluate('clearInterval(window.seen5.timer)'); }
     assert.ok(view.tz < 10, `the view is at the north fence (target y ${view.tz.toFixed(1)})`);
     assert.ok(view.onScreen >= 1, `the waiting deer are in the picture (${view.onScreen} of ${view.n})`);
 

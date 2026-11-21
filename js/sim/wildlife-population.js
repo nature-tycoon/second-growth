@@ -4,6 +4,7 @@
 
 import { T, F, isWater, clamp, DAYS_PER_YEAR, lifeAge } from '../config.js';
 import { many, cap, preyFor, preyPer, isMale, isMaleVariant } from '../data/animals.js';
+import { trait } from '../data/animal-kinds.js';
 import { browseSapling, hungryPredator, foodDeparture } from './ecological-pressure.js';
 import { canStartHunt, leaveBody, haremDay } from './animal-life.js';
 import { inRut } from './cervid-groups.js';
@@ -378,6 +379,7 @@ export class WildlifePopulation {
       const inSeason = !def.season || def.season.includes(m);
       const mine = this.agents.filter(a => a.sp === def.index && !a.leaving);
       let pop = mine.length;
+      const passing = mine.filter(a => a.passUntil != null).length; // (hunters passing through: not residents)
       const K = st.K;
 
       if (!inSeason) {
@@ -402,8 +404,8 @@ export class WildlifePopulation {
       }
 
       // births
-      if (def.breed.includes(m) && pop >= 2 && pop < K) {
-        const adults = mine.filter(a => a.state !== 'dormant' && lifeAge(a) >= def.mature * DAYS_PER_YEAR && !hungryPredator(game, a, def));
+      if (def.breed.includes(m) && pop - passing >= 2 && pop < K) {
+        const adults = mine.filter(a => a.passUntil == null && a.state !== 'dormant' && lifeAge(a) >= def.mature * DAYS_PER_YEAR && !hungryPredator(game, a, def));
         // (the young follow a female: in family herds the adults without the male look, otherwise any
         // female adult, or any adult at all if there are no females)
         const females = def.familyHerd ? null : adults.filter(a => !isMale(def, a));
@@ -451,8 +453,9 @@ export class WildlifePopulation {
       if (K >= def.minK && pop < K && !dormancySeason(game, def)) {
         // seasonal visitors only count their months here, so they catch on proportionally faster
         // (quick: butterflies, bees and hummingbirds find a new garden within weeks, not seasons)
-        const finding = arrivalFinding(def, { ...st, pop });
-        const chance = def.mig * (pop === 0 ? 1 : 0.35) * clamp((K - pop) / K + 0.2, 0, 1) * game.diff.arrivals * finding;
+        const res = pop - passing;
+        const finding = arrivalFinding(def, { ...st, pop: res });
+        const chance = def.mig * (res === 0 ? 1 : 0.35) * clamp((K - res) / K + 0.2, 0, 1) * game.diff.arrivals * finding;
         if (rng() < chance) {
           const n = def.groupSize[0] + Math.floor(rng() * (def.groupSize[1] - def.groupSize[0] + 1));
           this.immigrate(def, n);
@@ -553,12 +556,15 @@ export class WildlifePopulation {
     }
     haremDay(this);
     this.damDay();
+    this.rangingVisits();
     for (const a of this.agents.slice()) {
       // (an animal that can't find its way off the map slips away unseen rather than staying for
       // ever: stuck coho fry once piled up by the thousand over centuries, never ageing, 2026-11)
       if (a.leaving && a.gate) continue; // (waiting at a boundary fence: fence-gate.js says how long)
       if (a.leaving) { if ((a.leaveDays = (a.leaveDays || 0) + 1) > LEAVE_DAYS) this.remove(a, 'left'); continue; }
       const def = this.game.catalog.animals[a.sp];
+      // (a hunter passing through moves on when its days are up, once it has finished a chase)
+      if (a.passUntil != null && game.day >= a.passUntil && (!a.hunt || game.day >= a.passUntil + 3)) { this.leave(a); continue; }
       const x = Math.floor(a.x), y = Math.floor(a.y);
       if (!w.inb(x, y)) continue;
       const i = w.idx(x, y);
@@ -585,6 +591,30 @@ export class WildlifePopulation {
         if (ecology) browseSapling(game, a, def);
         else if (w.tree[i] && w.treeG[i] < 0.4 && w.feature[i] !== F.FENCE) w.treeG[i] = Math.max(0.05, w.treeG[i] - 0.01);
       }
+    }
+  }
+
+  // A hunter whose range runs over the neighbouring land too (trait `ranges`: a coyote's covers
+  // several farms) crosses this one now and then while none live here, if the farm has prey to
+  // hunt: it comes in from its side, hunts a few days, and goes on its rounds (a.visit: the day it
+  // leaves: a.passUntil). One at a time, and it doesn't breed here. Once some settle (the monthly
+  // arrivals), the visits stop. None during a first visit's opening, while deer wait at the fence.
+  rangingVisits() {
+    const game = this.game, stage = game.flags.opening?.stage;
+    if (stage === 'fence' || stage === 'culvert') return;
+    for (const def of game.catalog.animals) {
+      if (!trait(def, 'ranges')) continue;
+      const st = this.state[def.index];
+      if (st.pop > 0 || !(st.habitatK >= def.minK) || dormancySeason(game, def)) continue;
+      // (prey here now, not last month's count: enough to feed some of one)
+      let prey = 0;
+      for (const pk of preyFor(def, game) || []) if (game.catalog.animal[pk]) prey += this.state[game.catalog.animal[pk].index].pop;
+      if (prey / preyPer(def, game) < 0.3) continue;
+      if (this.agents.some(a => a.sp === def.index)) continue; // (one still leaving counts too)
+      // (the wildlife stream, not game.rng: weather and fires draw from that one, decision 0035)
+      if (simRandom() >= game.diff.arrivals / 20) continue;
+      const n = this.agents.length;
+      if (this.immigrate(def, 1) && this.agents.length > n) this.agents[this.agents.length - 1].passUntil = game.day + 5 + Math.floor(simRandom() * 6);
     }
   }
 

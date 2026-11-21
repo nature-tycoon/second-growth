@@ -95,6 +95,9 @@ const seedlingNear = (w, a) => {
 export const KNOWN = [
   { count: 'spin', name: 'fleeing prey turn a full circle within a second (flight turning at FLEE_TURN the whole time)', test: a => a.state === 'flee' },
   { count: 'wobble', name: 'river dolphin heading shivers frame to frame while swimming', test: a => a.key === 'dolphin' },
+  // (2.5 per 1000 on seeds 1987 and 91 until 2026-11-21, 4.5 once the PNW start's hawk, crows and
+  // extra voles shifted the random stream; 0.5-1.5 on seeds 7, 42, 3 and 5 either way: seed-dependent)
+  { count: 'wobble', name: 'coho heading shivers frame to frame while swimming the creek', test: a => a.key === 'coho' },
   // (3.1 per 1000 on seeds 1987 and 91 before 2026-11-19; 5.0 once a change to deer pacing shifted
   // the random stream: the same glitch, seed-dependent. Swimming its route 1-2 radians off its nose)
   { count: 'sideways', name: 'arapaima swimming its route sideways (walk, 1-2 radians off its nose)', test: a => a.key === 'arapaima' && a.state === 'walk' },

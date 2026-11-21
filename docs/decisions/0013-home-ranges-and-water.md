@@ -8,6 +8,7 @@
 - Water: the home's nearest reachable bank within `clamp(√hr × 2, 6, 40) × water.reach` tiles; none in reach means no water trips (recheck every 20 days). `drinkEvery` fits trip and drink within `water.share` of time (8%, 15% for water-dependent grazers).
 - The water route is learned once and reused both ways through `followRoute` (shared with resource trips in `animal-trails.js`).
 - Population, food, breeding, K and predation formulas are unchanged by homes.
+- A hunter whose range runs over the neighbouring land (trait `ranges`, PNW coyote) crosses the farm now and then while none live here and prey is here now (`rangingVisits`): it hunts 5–10 days and leaves (`a.passUntil`, saved). A passer-by holds no home, doesn't breed, and doesn't count as a resident for the month's arrivals; none during a first visit's opening (`flags.opening`). Check: `tools/early-wildlife-check.mjs`.
 - `home` (with `waterRoute`) and `homeAfter` use the animal save/undo fields and are copied on serialization and load; older saves settle a home later.
 - Checks: `node tools/home-range-check.mjs`; `tools/activity-budget.mjs` shows how each species spends its time; clustering and territory soaks; seeded `balance-sim restore 15`.
 

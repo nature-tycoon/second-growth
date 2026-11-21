@@ -17,6 +17,7 @@ function setup(seed = 44, map = 'pnw', month = 1) {
   g.wildRng.setState(seed); // (the seed picks the wildlife's own stream too, decision 0035)
   const wl = g.wildlife, w = g.world;
   wl.agents = []; wl.flyovers = []; wl.passageWait = 1e6; wl.recount();
+  wl.nextId = 18; // (ids seed each animal's own spot: fixed, so the map's starting animals don't move the scene)
   w.terrain.fill(T.SOIL); w.struct.fill(-1); w.tree.fill(0); w.shrub.fill(0); w.feature.fill(0); w.fire.fill(0); w.distWater.fill(99);
   wl.suit.forEach(s => s.fill(1)); return g;
 }
