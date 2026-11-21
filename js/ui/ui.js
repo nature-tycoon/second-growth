@@ -35,6 +35,7 @@ import { SaveControls } from './save-controls.js';
 import { SessionAnalytics } from './session-analytics.js';
 import { Cinematics } from './cinematics.js';
 import { Watch } from './watch.js';
+import { Opening } from './opening.js';
 import { animalThumb, plantThumb, iconThumb } from './thumbnails.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
 import { saves } from '../saves.js';
@@ -136,6 +137,7 @@ export class UI {
       postcardText: title => this.postcardText(title),
     });
     this.watch = new Watch(game, renderer, this);
+    this.opening = new Opening(this);
     this.buildToolbar();
     this.bindTopbar();
     this.minimap = $('#minimap');
@@ -738,7 +740,7 @@ export class UI {
       : a.fishing?.phase === 'go' ? 'Heading out to fish' : def.move === 'fly' ? 'Watching the water for fish' : 'Fishing';
     const grouped = def.familyHerd && (a.herdOf != null && a.herdOf !== a.id || this.game.wildlife.agents.some(c => c !== a && (c.herdOf === a.id || c.mom === a.id)));
     const familyStatus = a.mom != null ? (a.follow ? 'Following mother' : 'With a family herd') : grouped ? (isMaleVariant(def, a) ? 'With a bachelor group' : 'With a family herd') : null;
-    return a.leaving ? 'Leaving the property' : dormancyStatus(a) || (roostingNow(a, def, this.renderer?.nightOut) ? 'Roosting until dusk' : null) || (a.fromFire && a.state === 'fly' ? 'Fleeing the fire' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : a.fromFire ? 'Fleeing the fire' : 'Running from danger')
+    return a.gate && !a.gate.entering ? 'Waiting at the forest edge, beyond the fence' : a.gate ? 'Coming in through the gap in the fence' : a.leaving ? 'Leaving the property' : dormancyStatus(a) || (roostingNow(a, def, this.renderer?.nightOut) ? 'Roosting until dusk' : null) || (a.fromFire && a.state === 'fly' ? 'Fleeing the fire' : a.state === 'hunt' ? hunt : a.state === 'flee' ? (a.play ? 'Playing' : a.fromFire ? 'Fleeing the fire' : 'Running from danger')
       : a.state === 'forage' ? ({ grass: 'Grazing', browse: 'Browsing leaves', leaves: 'Eating canopy leaves', fruit: 'Eating fruit', seeds: 'Foraging for seeds', insects: 'Catching insects', nectar: 'Feeding on nectar', seagrass: 'Grazing seagrass', sponge: 'Feeding on sponges', coral: 'Picking at coral', algae: 'Grazing algae', sediment: 'Deposit feeding', plankton: 'Feeding on plankton', dung: 'Feeding on dung', cleaning: 'Cleaning a reef fish', cleaned: 'Visiting a cleaning station' }[a.forage?.food] || 'Foraging') : a.forageGoal != null ? 'Moving to a feeding spot'
       : a.state === 'primate' ? 'Eating fruit' : a.fruitGoal ? 'Looking for fruit' : a.state === 'play' ? 'Playing' : a.cache === 'bury' && a.move === 'ground' ? 'Burying a nut' : a.cache === 'dig' && a.move === 'ground' ? 'Foraging on the ground' : a.state === 'fish' ? fishStatus : a.state === 'carry' ? (a.carry?.low ? 'Dragging a fish to the bank' : a.carry?.phase === 'mantle' ? 'Mantling over its catch' : 'Carrying its catch to a perch') : a.state === 'feed' ? (a.prey ? 'Eating its catch' : 'Feeding') : a.drinkT > 0 ? 'Drinking' : a.state === 'spar' ? (a.sparStyle === 'necking' ? 'Necking with a rival male' : def.sprite.male?.antlers ? 'Clashing antlers with a rival' : 'Sparring with a rival')
       : a.greet != null && def.sprite.male?.antlers && isMaleVariant(def, a) ? 'Approaching a rival' : a.socialWith != null ? 'Watching an approaching neighbour' : a.bugleT > 0 ? 'Bugling' : a.haremOf != null ? 'In a bull’s harem' : this.game.wildlife.agents.some(c => c.haremOf === a.id) ? 'Guarding his harem' : a.greetT > 0 ? 'Greeting a neighbour' : a.alertT > 0 ? 'On the alert' : familyStatus || birdStatus || (a.state === 'walk' || a.state === 'fly' ? (a.birdGround ? 'Hopping between feeding spots' : a.move === 'fly' ? 'Flying' : a.move === 'tree' && ['monkey', 'orangutan'].includes(def.sprite.kind) ? 'Climbing through the canopy' : 'Wandering') : a.state === 'idle' && a.restUntil > a.age ? (a.move === 'tree' ? 'Resting in the treetops' : 'Resting') : 'Resting / foraging'));
@@ -834,6 +836,7 @@ export class UI {
   // ------------------------------------------------------------ per-frame
   frame(dt = 0) {
     this.watch.frame(dt);
+    this.opening.frame();
     if (this.storyPending) this.maybeOfferStory();
     this.refreshTop();
     rutSounds(this.game, this.renderer, music, this.renderer.time);
@@ -856,7 +859,7 @@ export class UI {
     const box = $('#toasts');
     const icon = { good: 'good', warn: 'warn', discover: 'star', goal: 'star', season: 'leaf', info: 'info', fire: 'fire', flood: 'rain' }[n.kind] || 'info';
     const t = el('div', `toast ${n.kind}` + (n.loc ? ' clickable' : ''), `<span class="ti">${ICONS[icon]}</span><span class="toast-text">${n.text}</span>${n.action ? `<button type="button" class="btn toast-act">${n.action.label}</button>` : ''}<button type="button" class="notice-close" aria-label="Dismiss notification" title="Dismiss notification">×</button>`);
-    t.querySelector('.notice-close').addEventListener('click', e => { e.stopPropagation(); t.remove(); });
+    t.querySelector('.notice-close').addEventListener('click', e => { e.stopPropagation(); t.remove(); n.onClose?.(); });
     t.querySelector('.toast-act')?.addEventListener('click', e => { e.stopPropagation(); t.remove(); n.action.run(); });
     if (n.loc) t.addEventListener('click', () => {
       this.follow = null;
@@ -873,12 +876,16 @@ export class UI {
     box.prepend(t);
     // keep the land in view (everything is in the journal): routine notes go first, so a warning
     // isn't pushed off the screen by two bits of news that came in just after it
+    if (n.sticky) t.classList.add('sticky'); // (a prompt waiting on the player: ui/opening.js)
     while (box.children.length > 2) {
       const kids = [...box.children], routine = kids.slice(1).reverse().find(c => /\b(info|season|good)\b/.test(c.className));
-      (routine || box.lastChild).remove();
+      const old = routine || [...kids].reverse().find(c => !c.classList.contains('sticky') && c !== t);
+      if (!old) break;
+      old.remove();
     }
     const life = n.life || (n.kind === 'discover' || n.kind === 'goal' || n.kind === 'fire' || n.kind === 'flood' ? 10000 : n.kind === 'warn' ? 8000 : 5500);
-    setTimeout(() => { t.classList.add('fade'); setTimeout(() => t.remove(), 600); }, life);
+    setTimeout(() => { if (!t.isConnected) return; t.classList.add('fade'); setTimeout(() => t.remove(), 600); if (n.sticky) n.onClose?.(); }, life); // (a prompt left to time out counts as closed)
+    return t;
   }
 
   quietNow() {
@@ -1273,7 +1280,7 @@ export class UI {
   }
   maybeOfferStory() {
     const g = this.game, now = performance.now();
-    if (g.mode !== 'free' || this.modalOpen || this.moment || this.photo || this.watch?.on) return;
+    if (g.mode !== 'free' || this.modalOpen || this.moment || this.photo || this.watch?.on || this.opening.running) return; // (not over the opening's prompts)
     const paused = g.speed === 0, idle = now - this.lastInput >= STORY_IDLE_MS;
     if (!paused && !idle) return;
     this.markStoryOffered(paused ? 'pause' : 'idle');
@@ -1583,7 +1590,12 @@ export class UI {
     if (mode === 'campaign') this.openChapter(0);
     else g.notify(this.game.catalog.definition.startText, 'season');
     // a first visit starts without any panel to read, so say what to try first (kept up a while)
-    if (firstVisit) this.toast({ text: `Try it: open Plant, pick a seed mix and ${TOUCH ? 'drag a finger' : 'drag'} across a field. The brush turns green where seeds will grow.`, kind: 'tip', life: 16000, date: g.dateString() });
+    // (the opening first: open the farm to the wild, then the planting tip: ui/opening.js)
+    if (firstVisit && !this.opening.start()) this.plantingTip();
+  }
+  // A first visit's first planting tip (after the opening, when there is one).
+  plantingTip() {
+    this.toast({ text: `Try it: open Plant, pick a seed mix and ${TOUCH ? 'drag a finger' : 'drag'} across a field. The brush turns green where seeds will grow.`, kind: 'tip', life: 16000, date: this.game.dateString() });
   }
 
   // A chapter's introduction: the story, what to do, the goals, and the tools it unlocks.

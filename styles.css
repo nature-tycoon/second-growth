@@ -402,6 +402,11 @@ button:focus-visible, select:focus-visible, .tool-card:focus-visible { outline: 
 .notice-close:hover, .notice-close:focus-visible { background: #ffffff38; }
 .toast > .toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .toast .toast-act { flex: none; align-self: center; padding: 4px 10px; white-space: nowrap; }
+/* a prompt waiting on the player (ui/opening.js): its words in full, the button on a line of its own */
+.toast.sticky { flex-wrap: wrap; }
+.toast.sticky > .toast-text { flex-basis: calc(100% - 80px); }
+.toast.sticky .notice-close { order: 1; }
+.toast.sticky .toast-act { order: 2; margin-left: 28px; }
 @media (pointer: coarse) {
   .notice-close { width: 44px; min-width: 44px; height: 44px; }
   .toast .toast-act { min-height: 44px; }

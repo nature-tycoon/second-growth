@@ -20,6 +20,7 @@ import { simRandom } from './sim-random.js';
 import { swimDepth } from './waterline.js';
 import { crossingColumn } from './migration-route.js';
 import { territory, Animal, inRiver, spotIn, WITH_MOM } from './wildlife-shared.js';
+import { waitAtFence, waitingAtFence } from './fence-gate.js';
 
 const LEAVE_DAYS = 20; // (days a leaving animal has to get off the map: a walk off takes one or two)
 
@@ -173,6 +174,7 @@ export class WildlifePopulation {
     this.ids?.set(id, a);
     this.spacingDirty = true;
     const st = this.state[def.index];
+    if (opts.outside) return a; // (beyond the boundary fence: not here yet, see fence-gate.js)
     st.pop++;
     if (!st.discovered && !opts.silent) {
       st.discovered = true;
@@ -210,16 +212,18 @@ export class WildlifePopulation {
     return Math.max(0, Math.min(def.max, Math.ceil(this.state[def.index].K)) - present);
   }
 
-  immigrate(def, n, returning = false) {
+  // at: { edge, at } tries that one spot (a first visit's opening: the deer's first try made at once).
+  immigrate(def, n, returning = false, at = null) {
     n = Math.min(n, this.recruitmentRoom(def));
     if (n <= 0) return 0;
     if (def.crossing) return this.crossRiver(def, n);
     const w = this.game.world, rng = this.game.rng;
-    const edge = def.sources[Math.floor(rng() * def.sources.length)];
-    let placed = 0, blocked = false;
-    for (let tries = 0; tries < 16 && placed < n; tries++) {
+    const edge = at ? at.edge : def.sources[Math.floor(rng() * def.sources.length)];
+    let placed = 0, blocked = null;
+    for (let tries = 0; tries < (at ? 1 : 16) && placed < n; tries++) {
       let x, y;
-      if (edge === 'N') { x = Math.floor(rng() * w.w); y = 0; }
+      if (at) { x = edge === 'N' ? at.at : edge === 'E' ? w.w - 1 : 0; y = edge === 'N' ? 0 : at.at; }
+      else if (edge === 'N') { x = Math.floor(rng() * w.w); y = 0; }
       else if (edge === 'S') { x = Math.floor(rng() * w.w); y = w.h - 1; }
       else if (edge === 'E') { x = w.w - 1; y = Math.floor(rng() * (w.h - 6)); }
       else { x = 0; y = Math.floor(rng() * (w.h - 6)); }
@@ -252,17 +256,26 @@ export class WildlifePopulation {
       }
       const i = w.idx(x, y);
       if (!passable(w, i, def)) {
-        if (w.feature[i] === F.FENCE) blocked = true;
+        if (w.feature[i] === F.FENCE) blocked ??= edge === 'N' ? x : y;
         continue;
       }
       const c = this.spawn(def, x, y);
       c.wait = 0;
       placed++;
     }
-    if (!placed && blocked && !this.state[def.index].blockedNotified) {
+    // Stopped by the fence: they stand a while at the forest edge beyond it, and come in if a gap
+    // opens near them (fence-gate.js). One group waits at a time.
+    if (!placed && blocked != null && edge !== 'S' && def.move === 'ground' && !waitingAtFence(this, def)) {
+      const group = waitAtFence(this, def, n, edge, blocked);
+      if (!this.state[def.index].blockedNotified && this.game.flags.opening?.stage !== 'fence') { // (a first visit's opening says it with its prompt)
+        this.state[def.index].blockedNotified = true;
+        const dir = { N: 'north', E: 'east', W: 'west' }[edge];
+        this.game.notify(`${cap(many(def))} came to the ${dir} edge, but the old boundary fence stopped them. They're waiting at the forest edge: tear out the fence and they'll come in.`, 'warn', group[0]);
+      }
+    } else if (!placed && blocked != null && !this.state[def.index].blockedNotified && this.game.flags.opening?.stage !== 'fence') {
       this.state[def.index].blockedNotified = true;
       const dir = { N: 'north', E: 'east', W: 'west', S: 'south' }[edge];
-      this.game.notify(`${cap(many(def))} tried to wander in from the ${dir}, but the old boundary fence stopped them. Tearing out fences opens a wildlife corridor.`, 'warn', null, { keep: true }); // (shown even in a first visit's quiet minutes: session 3 turns it into the opening's hook)
+      this.game.notify(`${cap(many(def))} tried to wander in from the ${dir}, but the old boundary fence stopped them. Tearing out fences opens a wildlife corridor.`, 'warn');
     }
     return placed;
   }
@@ -543,6 +556,7 @@ export class WildlifePopulation {
     for (const a of this.agents.slice()) {
       // (an animal that can't find its way off the map slips away unseen rather than staying for
       // ever: stuck coho fry once piled up by the thousand over centuries, never ageing, 2026-11)
+      if (a.leaving && a.gate) continue; // (waiting at a boundary fence: fence-gate.js says how long)
       if (a.leaving) { if ((a.leaveDays = (a.leaveDays || 0) + 1) > LEAVE_DAYS) this.remove(a, 'left'); continue; }
       const def = this.game.catalog.animals[a.sp];
       const x = Math.floor(a.x), y = Math.floor(a.y);

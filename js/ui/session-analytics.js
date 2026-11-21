@@ -86,7 +86,7 @@ export class SessionAnalytics {
       const p = R.project(s.center.x, s.center.y, s.center.z);
       if (p.x < 0 || p.y < 0 || p.x > R.vw || p.y > R.vh) continue;
       this.firstAnimalSent = true;
-      trackOnce('first_animal_seen', { seconds: secondsSince(0), species: def.key });
+      trackOnce('first_animal_seen', { seconds: secondsSince(0), species: def.key, ...(a.gate ? { beyond_fence: true } : {}) }); // (beyond_fence: waiting at the fence in a first visit's opening, ui/opening.js)
       return;
     }
   }

@@ -300,7 +300,7 @@ export function createTools(catalog) {
       if (f) return 20;
       return 0;
     },
-    apply: (game, i) => {
+    apply: (game, i, random, stroke) => {
       const w = game.world;
       if (w.struct[i] >= 0) {
         const s = w.structures[w.struct[i]];
@@ -348,7 +348,12 @@ export function createTools(catalog) {
       if (f === F.CULVERT) {
         w.feature[i] = 0; w.hydroDirty = true;
         game.notify('The culvert is out! The creek now flows freely into the river, and fish can reach the upper creek.', 'good');
-      } else { w.feature[i] = 0; w.marks[i] &= ~PLACED; }
+        if (stroke) stroke.culvert = true; // (farm_opened: ui/opening.js)
+      } else {
+        // (the boundary fence, on the map's edge: farm_opened, ui/opening.js)
+        if (f === F.FENCE && stroke) { const x = i % w.w, y = (i / w.w) | 0; if (x === 0 || y === 0 || x === w.w - 1) stroke.boundaryFence = (stroke.boundaryFence || 0) + 1; }
+        w.feature[i] = 0; w.marks[i] &= ~PLACED;
+      }
       return true;
     } });
 

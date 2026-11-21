@@ -3,7 +3,9 @@
 // first goal within a few game days; its follow-up offers the story once, but only once the player
 // pauses or goes idle, and taking it starts Chapter 1 on the same farm without a reload. The opening
 // minutes hold back what the simulation announces on its own (alarms, a stack of good news), and a
-// refused building says where it fits. A player with a saved farm still gets the chooser. FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
+// refused building says where it fits. The opening (session 3): the view starts at the boundary fence
+// with deer waiting beyond it, one click tears the fence out and they walk onto the field within
+// ~10 s, then one click pulls the road culvert, and only then the planting tip. A player with a saved farm still gets the chooser. FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { openBrowser } from './browser-session.mjs';
@@ -26,14 +28,53 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     const start = await b.evaluate(`(()=>{
       const {game:g,ui}=window.secondGrowth, toasts=[...document.querySelectorAll('#toasts .toast-text')].map(t=>t.textContent);
       return { mode:g.mode, speed:g.speed, modal:!!ui.modalOpen, choosing:document.body.classList.contains('choosing-map'),
-        start:window.events.find(e=>e.event==='game_start')?.props, tip:toasts.some(t=>/^Try it: open Plant/.test(t)) };
+        start:window.events.find(e=>e.event==='game_start')?.props, tip:toasts.some(t=>/^Try it: open Plant/.test(t)),
+        prompt:[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Tear out the fence/.test(x.textContent)),
+        waiting:g.wildlife.agents.filter(a=>a.key==='deer'&&a.gate&&!a.gate.entering&&a.leaving&&a.y<0).length, stage:g.flags.opening?.stage, money:g.money };
     })()`);
     assert.equal(start.mode, 'free', 'a first visit plays Free Play');
     assert.equal(start.modal, false, 'no panel stands between a first visit and the farm');
     assert.equal(start.choosing, false);
     assert.ok(start.speed > 0, 'the farm is running');
     assert.equal(start.start?.first_visit, true, 'game_start marks the first visit');
-    assert.ok(start.tip, 'a first visit gets a tip on what to try');
+    assert.equal(start.stage, 'fence', 'a first visit opens on the fence');
+    assert.ok(start.waiting >= 1, `deer wait beyond the boundary fence (${start.waiting})`);
+    assert.ok(start.prompt, 'the one prompt: tear out the fence');
+    assert.equal(start.tip, false, 'the planting tip waits for the opening');
+    await b.waitFor('!window.secondGrowth.renderer.fly', 'the glide up to the fence', 30000);
+    if (shots) { await mkdir(shots, { recursive: true }); await writeFile(`${shots}/fence-${width}x${height}.png`, Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' })).data, 'base64')); }
+    const view = await b.evaluate(`(()=>{
+      const {game:g,renderer:R}=window.secondGrowth, d=g.wildlife.agents.filter(a=>a.key==='deer'&&a.gate);
+      const p=d.map(a=>R.project(a.x,R.heightAtScene(a.x,a.y),a.y)).filter(Boolean);
+      return { tz:R.target.z, onScreen:p.filter(q=>q.x>0&&q.y>0&&q.x<R.vw&&q.y<R.vh).length, n:d.length };
+    })()`);
+    assert.ok(view.tz < 10, `the view is at the north fence (target y ${view.tz.toFixed(1)})`);
+    assert.ok(view.onScreen >= 1, `the waiting deer are in the picture (${view.onScreen} of ${view.n})`);
+
+    // one click: the fence comes out, the deer walk onto the field within about 10 s
+    const t0 = Date.now(), day0 = await b.evaluate(`window.secondGrowth.game.day`);
+    await b.evaluate(`[...document.querySelectorAll('#toasts .toast-act')].find(x=>/^Tear out the fence/.test(x.textContent)).click()`);
+    // (wait on the game's clock: 10 s of play is 7.2 game days; the wall clock only bounds a stuck game)
+    try { await b.waitFor(`window.secondGrowth.game.wildlife.agents.some(a=>a.key==='deer'&&!a.leaving&&!a.gate&&a.y>2) || window.secondGrowth.game.day>=${day0}+7.2`, 'a deer on the field', 120000);
+      assert.ok(await b.evaluate(`window.secondGrowth.game.wildlife.agents.some(a=>a.key==='deer'&&!a.leaving&&!a.gate&&a.y>2)`), 'a deer on the field within 10 s of play'); }
+    catch (e) { console.log(await b.evaluate(`JSON.stringify({day:window.secondGrowth.game.day,speed:window.secondGrowth.game.speed,fence:window.secondGrowth.game.world.feature[window.secondGrowth.game.flags.opening.x],deer:window.secondGrowth.game.wildlife.agents.filter(a=>a.key==='deer').map(a=>[a.x.toFixed(1),a.y.toFixed(1),a.state,a.leaving,a.gate])})`)); throw e; }
+    // (in game time at normal speed, 0.72 days a second: headless Chrome draws a few frames a second
+    // and a frame moves the game 0.1 s at most, so the clock on the wall runs slower than a player's)
+    const inSec = (Date.now() - t0) / 1000, gameSec = (await b.evaluate(`window.secondGrowth.game.day`) - day0) / 0.72;
+    assert.ok(gameSec <= 10, `deer on the field ${gameSec.toFixed(1)} s of play (${inSec.toFixed(1)} s on the wall) after the click`);
+    if (shots) await writeFile(`${shots}/deer-in-${width}x${height}.png`, Buffer.from((await b.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+    const fenceEv = await b.evaluate(`window.events.find(e=>e.event==='farm_opened'&&e.props.how==='fence')?.props`);
+    assert.ok(fenceEv && Number.isFinite(fenceEv.seconds) && fenceEv.prompted, 'farm_opened { how: fence, seconds } is sent');
+    // then the culvert, one short prompt
+    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-act')].some(x=>/^Pull it out/.test(x.textContent))`, 'culvert prompt', 20000);
+    await b.evaluate(`[...document.querySelectorAll('#toasts .toast-act')].find(x=>/^Pull it out/.test(x.textContent)).click()`);
+    await b.waitFor(`window.events.some(e=>e.event==='farm_opened'&&e.props.how==='culvert')`, 'culvert pulled', 8000);
+    await b.waitFor(`[...document.querySelectorAll('#toasts .toast-text')].some(t=>/^Try it: open Plant/.test(t.textContent))`, 'the planting tip after the opening', 8000);
+    const after = await b.evaluate(`(()=>{ const g=window.secondGrowth.game; let c=0; for(let i=0;i<g.world.n;i++) if(g.world.feature[i]===7) c++; return { money:g.money, culverts:c, stage:g.flags.opening?.stage }; })()`);
+    assert.equal(after.culverts, 0, 'the culvert is out');
+    assert.equal(after.stage, 'done');
+    assert.ok(after.money >= 20000, `plenty left for planting ($${Math.round(after.money)} of $${Math.round(start.money)})`);
+    await b.evaluate(`document.querySelectorAll('#toasts .toast').forEach(t=>t.remove())`);
 
     // quiet opening minutes: what the simulation says on its own stays in the journal
     const quiet = await b.evaluate(`(()=>{
@@ -75,6 +116,7 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     // one stroke of meadow mix across a field, then a few game days
     const sown = await b.evaluate(`(async()=>{
       const {game:g,ui,renderer}=window.secondGrowth;
+      ui.lastInput=performance.now(); // (the player just painted: the opening's minutes left the idle clock wound on)
       const s=ui.actions.begin('mix_meadow'); for(let x=10;x<=30;x++) ui.actions.paint(s,x,50,s.tool.size); ui.actions.end(s);
       renderer.centerOn(20,50); renderer.zoom=2.2;
       const d0=g.day; g.speed=1;

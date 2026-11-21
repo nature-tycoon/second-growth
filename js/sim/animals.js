@@ -2,6 +2,7 @@
 // die when there isn't, hunt, migrate in from the surroundings, and (beavers) re-engineer the land.
 
 
+import { gateStep } from './fence-gate.js';
 import { clamp } from '../config.js';
 import { AnimalSpacing } from './animal-positioning.js';
 import { fleeUpdate, updateVigilance, playUpdate, sparUpdate, arrive, fleeFire } from './animal-life.js';
@@ -116,6 +117,7 @@ export class Wildlife {
       if (a.state !== 'walk') { a.walkOn = undefined; a.waitFam = undefined; }
       a.age += dt;
       if (this.lifePace < 1) a.lag = (a.lag || 0) + dt * (1 - this.lifePace); // (see lifeAge)
+      if (a.gate && gateStep(this, a, def, dt)) continue; // (waiting at a boundary fence, or stepping in past it: fence-gate.js)
       if (updateDormancy(this, a, def)) continue;
       // (a fish beats its tail faster the faster it swims, and only sculls gently while it hovers)
       a.phase += dt * (def.reef ? 2.5 + 5 * Math.min(1.6, (a.spd || 0) / def.speed) : 6 * clamp(a.run || 1, 0.45, 2.6)) * (def.sprite.beat ?? 1); // (beat: a big, slow swimmer's tail; a.run: legs going faster at a sprint, slower at a creep)
