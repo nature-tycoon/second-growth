@@ -7,6 +7,7 @@ import { passable } from './animal-terrain.js';
 import { foodAt } from './animal-foraging.js';
 import { hash2, valueNoise } from '../rng.js';
 import { riskAt, safety } from './predation-risk.js';
+import { turnRate } from './steering.js';
 const PASS_WEAR = 0.45;
 export const TRAIL_FOOTPRINT = 0.17; // tiles (no narrower: wear is kept four samples to a tile, and a narrower footprint can fall between them; the drawn core is narrower)
 // Unused trails fade 0.17% a day (about half in 400 days, over three game years), so routes used
@@ -338,22 +339,54 @@ export function followLeaderTrip(wl,a,lead) {
 }
 
 // A resource trip or an overland journey (a.trip) keeps a deer/elk family within following
-// distance: a calf napping when its mother sets off wakes a few tiles behind, and she slows until
-// it catches up. One linear pass over members, rather than scanning the herd for every leader.
+// distance: a calf napping when its mother sets off wakes a few tiles behind, and she stops and
+// waits for it (waitForFamily). Returns lead id -> { on: the member furthest past its following
+// distance, over: by how far }. One linear pass over members, rather than scanning the herd for
+// every leader.
 export function rangePaces(wl) {
-  const paces=new Map();
+  const lag=new Map();
   for(const b of wl.agents) {
     const id=b.mom ?? b.herdOf;if(id==null||id===b.id||b.leaving)continue;
     // (on a trip or a home-range trip; and on any walk with her own calf behind: a calf lagging a
     // short local walk after a journey fell 3.7 tiles back, 2026-11-19)
     const lead=wl.ids.get(id),calf=b.mom===id;if(lead?.range?.goal==null&&lead?.trip==null&&!calf||lead?.state!=='walk'||lead.fromFire)continue;
     if(!wl.game.catalog.animals[lead.sp].familyHerd)continue;
-    const d=Math.hypot(lead.x-b.x,lead.y-b.y);
-    // (her own calf still standing can't close any gap: she all but waits until it walks, and
-    // cervidNeedsRejoin wakes it. Not for a grown herd member standing: one with no slot is never
-    // woken, and she crept at a quarter pace with the family queued behind her: 2026-11-19)
-    // (and for her calf, slower to close a gap, she slows from 2.5 tiles back)
-    if(d>(calf?2.5:3.2))paces.set(id,Math.min(paces.get(id)||1,b.state!=='walk'&&calf?.25:d>6?.5:.7));
+    // (her own calf, whatever it's doing: one still standing is woken by cervidNeedsRejoin; a grown
+    // herd mate only while it walks her route after her, a.follow: one standing with no slot is
+    // never woken, and she crept at a quarter pace for it with the family queued behind her,
+    // 2026-11-19; one on its own errand, parked at a slot short of the gap, held her stop-start)
+    if(!calf&&!(b.state==='walk'&&b.follow))continue;
+    // (for her calf, slower to close a gap, from 2.5 tiles back; once waiting, until the gap is half
+    // a tile inside that, so she doesn't set off and stop again at every step it takes)
+    const d=Math.hypot(lead.x-b.x,lead.y-b.y),over=d-(calf?2.5:3.2)+(lead.waitFam?.on!=null?0.5:0);
+    if(over>0&&!(lag.get(id)?.over>=over))lag.set(id,{on:b.id,over});
   }
-  return paces;
+  return lag;
+}
+
+// A lead with family lagging stops, stands and looks back over its shoulder until they close up,
+// then walks on at its own pace, as a doe or cow elk does. It used to slow to a creep instead (0.25
+// to 0.7 pace) which read as a crawl, and slower still where it edged round others: PNW, 2026-11-21.
+// It stays in its walk, path kept; true while it stands, and it counts as standing for spacing and
+// settle (standsStill). At most WAIT_MAX days, then it walks on for WALK_ON before it may wait
+// again, so one that never closes up can't hold it for good. Never in water (it wades on across:
+// settle walks only standing animals off water), nor running or alarmed (a.run, a.alertT).
+// (a.waitFam: { on, t, hd }, not saved)
+// (a follower closes about two tiles a day on the lead's route: a quarter day's wait timed out
+// nearly every time, a stop-start stutter. A game day is about 1.4 s at normal speed)
+const WAIT_MAX=1,WALK_ON=0.5,LOOK=1.2;
+const wrapAngle=v=>v-Math.round(v/(Math.PI*2))*Math.PI*2;
+export function waitForFamily(wl,a,def,lag,dt) {
+  const f=a.waitFam,l=lag.get(a.id),w0=wl.game.world,tx=Math.floor(a.x),ty=Math.floor(a.y);
+  if(a.run||a.alertT>0||a.wade||!w0.inb(tx,ty)||isWater(w0.terrain[w0.idx(tx,ty)])) { if(f?.on!=null)a.waitFam=null; return false; }
+  if(f?.on==null&&f) { if((f.t+=dt)>=0)a.waitFam=null; return false; } // (walking on after a wait)
+  const m=l&&wl.ids.get(l.on);
+  if(!m) { a.waitFam=null; return false; }
+  const w=a.waitFam||={on:m.id,t:0,hd:a.heading??0};
+  w.on=m.id;
+  if((w.t+=dt)>WAIT_MAX) { a.waitFam={on:null,t:-WALK_ON}; return false; }
+  // (it turns at its own turning pace to look back, but only so far round: LOOK off its way)
+  const to=Math.atan2(m.y-a.y,m.x-a.x),want=w.hd+clamp(wrapAngle(to-w.hd),-LOOK,LOOK),rate=turnRate(def)*dt;
+  a.heading=wrapAngle((a.heading??0)+clamp(wrapAngle(want-(a.heading??0)),-rate,rate));
+  return true;
 }

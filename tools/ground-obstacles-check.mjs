@@ -186,6 +186,21 @@ check('Small animals go round fallen logs; deer step over them', () => {
   assert.ok(td.some(([x, y]) => into(d.w, x, y)), 'the deer steps straight over logs');
 });
 
+// (a coati rooting at a tree's foot stood facing the trunk's centre with its body line through it:
+// settle found no way out from the centre and left it there for good, Chinandega 2026-11-21)
+check('One standing square on to a trunk, its body through the centre, is settled out of it, to either side', () => {
+  for (const parity of [0, 1]) {
+    const s = setup(); forest(s, 'fir', 1, 40, 30, 40, 30);
+    const t = treeTrunk(s.w, 40, 30);
+    let a = animal(s, 'deer', t[0] - 0.02, t[1]);
+    if ((a.id & 1) !== parity) a = animal(s, 'deer', t[0] - 0.02, t[1]);
+    a.heading = 0; s.wl.agents = [a]; a.state = 'forage'; a.wait = 99;
+    assert.ok(intoTrunk(s.w, a.x, a.y) > 0, 'set up inside the trunk');
+    for (let k = 0; k < 20; k++) s.wl.update(0.02);
+    assert.ok(Math.hypot(a.x - t[0], a.y - t[1]) > t[2], `out of the trunk (id parity ${parity}): ${Math.hypot(a.x - t[0], a.y - t[1]).toFixed(3)} from its centre`);
+  }
+});
+
 check('Fliers, climbers and every primate ignore wood on the ground', () => {
   const pnw = setup(), sum = setup('sumatra');
   assert.equal(groundWalker(pnw.g.catalog.animal.robin, { move: 'fly' }), false);

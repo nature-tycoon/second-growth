@@ -371,12 +371,20 @@ export function settleBody(wl, a, def) {
   if (a.settleKey === key) return;
   const w = wl.game.world, b = shape(w, a, def), n = gather(w, a, def, a.x, a.y, b.half);
   if (!n) { a.settleKey = key; return; }
-  let x = a.x, y = a.y, hit = false;
-  for (let pass = 0; pass < 3; pass++) for (let k = 0; k < n; k++) {
-    const o = intrusion(near[k], x, y, b);
-    if (!(o.depth > 0.002) || !o.nx && !o.ny) continue;
-    hit = true; x += o.nx * o.depth; y += o.ny * o.depth;
+  // (its body line running right through a trunk's centre, facing it square on as a coati rooting
+  // at a tree's foot does, there is no way out from the centre: sideways off its own line, as
+  // resolveStep does, the other side if that one can't be stood on. Skipped, it stood in the trunk
+  // for good: Chinandega, 2026-11-21)
+  for (const side of a.id & 1 ? [1, -1] : [-1, 1]) {
+    let x = a.x, y = a.y, hit = false;
+    for (let pass = 0; pass < 3; pass++) for (let k = 0; k < n; k++) {
+      const o = intrusion(near[k], x, y, b);
+      if (!(o.depth > 0.002)) continue;
+      const [ux, uy] = o.nx || o.ny ? [o.nx, o.ny] : [-b.uy * side, b.ux * side];
+      hit = true; x += ux * o.depth; y += uy * o.depth;
+    }
+    if (!hit) break;
+    if (standable(w, a, x, y, a.x, a.y)) { a.x = x; a.y = y; return; }
   }
-  if (hit && standable(w, a, x, y, a.x, a.y)) { a.x = x; a.y = y; }
-  else a.settleKey = key;
+  a.settleKey = key;
 }

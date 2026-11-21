@@ -14,7 +14,7 @@ import { travelSpeed } from './climb-pace.js';
 import { hoverStep } from './animal-territory.js';
 import { updateDormancy } from './animal-dormancy.js';
 import { settle, aimDrink } from './steering.js';
-import { recordTrailStep, rangePaces } from './animal-trails.js';
+import { recordTrailStep, rangePaces, waitForFamily } from './animal-trails.js';
 import { updatePassage } from './bird-passage.js';
 import { passable, canLand, wader, shallowsFor } from './animal-terrain.js';
 import { simRandom, useSimRandom } from './sim-random.js';
@@ -105,7 +105,7 @@ export class Wildlife {
     // existing agents in place, so their lookups remain current without a rebuild.
     // (a fire is noticed within a few hours of game time)
     if ((this.fireCheck = (this.fireCheck || 0) - dt) <= 0) { this.fireCheck = 0.2; fleeFire(this); }
-    const rangePace = rangePaces(this);
+    const familyLag = rangePaces(this);
     for (let k = this.agents.length - 1; k >= 0; k--) {
       const a = this.agents[k];
       if (!a) continue;
@@ -113,7 +113,7 @@ export class Wildlife {
       if (def.reef && w.inb(Math.floor(a.x), Math.floor(a.y)) &&
         !passable(w, w.idx(Math.floor(a.x), Math.floor(a.y)), a) && !this.recoverReef(a)) continue;
       const trailX = a.x, trailY = a.y;
-      if (a.state !== 'walk') a.walkOn = undefined;
+      if (a.state !== 'walk') { a.walkOn = undefined; a.waitFam = undefined; }
       a.age += dt;
       if (this.lifePace < 1) a.lag = (a.lag || 0) + dt * (1 - this.lifePace); // (see lifeAge)
       if (updateDormancy(this, a, def)) continue;
@@ -136,7 +136,7 @@ export class Wildlife {
           else a.drinkT = 0;
         }
       }
-      const sp = travelSpeed(def) * dt * (a.follow ? 1.3 : a.wade ? 0.3 : rangePace.get(a.id) || 1); // herd members trot to keep up; waders step slowly
+      const sp = travelSpeed(def) * dt * (a.follow ? 1.3 : a.wade ? 0.3 : 1); // herd members trot to keep up; waders step slowly
       if (a.state !== 'hunt' && a.state !== 'flee' && a.state !== 'play' && a.state !== 'walk' && a.run) a.run = null;
       if (a.dash && a.state !== 'walk') a.dash = null; // (a longtom's dash ends with its escape swim)
       switch (a.state) {
@@ -157,6 +157,8 @@ export class Wildlife {
           if (a.wait <= 0) this.chooseTarget(a, def);
           break;
         case 'walk':
+          // (a family lead stands and looks back for one lagging: animal-trails.js)
+          if (def.familyHerd && waitForFamily(this, a, def, familyLag, dt)) break;
           this.walkStep(a, def, sp, dt);
           break;
         case 'approach':
@@ -241,7 +243,7 @@ export class Wildlife {
   // -------------------------------------------------------------- persistence
   serialize() {
     return {
-      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, jink, settleKey, headUp, headUpKey, detour, pressT, swimHeld, noDeep, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
+      agents: this.agents.map(({ moveProgress, pushX, pushY, course, woodLost, squeeze, trampled, dodge, dodgeOff, fleeHd, jink, settleKey, headUp, headUpKey, detour, pressT, waitFam, swimHeld, noDeep, ...a }) => saved({ ...a, territory: a.territory ? { ...a.territory } : a.territory, dormancy: a.dormancy ? { ...a.dormancy } : a.dormancy, range: a.range ? { ...a.range, route: a.range.route?.slice() } : a.range, home: a.home ? { ...a.home, waterRoute: a.home.waterRoute?.slice() } : a.home, path: null })),
       nextId: this.nextId,
       state: this.state.map(s => ({ discovered: s.discovered, lastYear: s.lastYear, blockedNotified: s.blockedNotified, births: s.births })),
       salmon: this.salmon, dams: this.dams,

@@ -42,7 +42,10 @@ function layer(w, a, x = a.x, y = a.y, grounded = false) {
 // How far a walker veers off its line to pass one in its way (radians): smoothWalk turns no
 // further than this toward steer's point, and steer brakes for whoever is walking in that lane.
 export const STEER_VEER = 1.0;
-const standing = a => a.state === 'idle' || a.state === 'feed' || a.state === 'forage';
+// Standing still on the ground: idle, feeding, foraging, or a family lead stopped mid-walk to wait
+// for its family (a.waitFam: animal-trails.js waitForFamily), which others pass round like any other.
+export const standsStill = a => a.state === 'idle' || a.state === 'feed' || a.state === 'forage' || a.waitFam?.on != null;
+const standing = standsStill;
 const HERD_ROOM = 0.85; // (of the two bodies' lengths, centre to centre: about a body length of ground between)
 
 export class AnimalSpacing {
@@ -212,7 +215,7 @@ export class AnimalSpacing {
     // Standing, drinking or eating, an animal holds its ground against those walking past: they
     // give way round it, rather than shoving it aside. Between two standing on top of each other,
     // the one only standing about shuffles over (one drinking or eating stays put).
-    const settled = a => a.state === 'idle' || a.state === 'feed' || a.state === 'forage' || a.drinkT > 0;
+    const settled = a => standsStill(a) || a.drinkT > 0;
     const grazing = a => (a.state === 'idle' || a.state === 'forage') && !(a.drinkT > 0) && !a.juvenile;
     const herd = a => !!w.catalog.animals[a.sp].herd;
     const yields = a => a.state === 'idle' && !(a.drinkT > 0);

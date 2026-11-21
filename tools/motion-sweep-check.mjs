@@ -12,6 +12,11 @@
 //   treadmill a ground walker striding (gait up) while its body covers under a tenth of its pace
 //   trunk     a ground walker's body inside wood (ground-obstacles.js inWood, the 0025 capsule)
 //   wet       a land walker (move 'ground') standing still on a water tile
+//   wetHeld   a land walker on water tiles, in any state (walking too), getting no further than
+//             WET_R in the time wading a tile takes it: a buffalo stuck on a marsh tile flipped
+//             walk and idle for seconds and `wet` never saw it, 2026-11-20. One wading across, however
+//             wide the marsh, isn't counted. Not a `crossing` herd in its river, a wader (trait
+//             wades), one passing through or flying
 //   sideways  a river or estuary swimmer whose drawn body moves over a third of its pace more than
 //             SIDEWAYS off the way its drawn head points, held SUSTAIN frames (a fish swims nose first)
 //   tailFirst a flier on the wing whose drawn body moves over a third of its pace more than TAIL off
@@ -25,7 +30,9 @@
 //   crawl     a ground walker walking (not dashing) at under CRAWL of the pace it walks at (its
 //             walking speed, trotting to keep up, wading), held HOLD seconds: a deer family once
 //             crept at a quarter pace for a herd mate standing behind (rangePaces), and followers
-//             braked to a crawl behind one grazing in their lane (spacing.steer), 2026-11-19
+//             braked to a crawl behind one grazing in their lane (spacing.steer), 2026-11-19. A
+//             family lead standing to wait for its family (a.waitFam, waitForFamily) is standing,
+//             not crawling: not counted here nor for stall
 //   clump     a ground walker or river fish with CLUMP_N or more of its own kind within CLUMP_LEN
 //             body lengths, centre to centre, held HOLD seconds: herds keep a body length of ground
 //             between them (0025). Not counted: a mother with her young, littermates, rivals in a
@@ -56,6 +63,7 @@ import { passable, canLand } from '../js/sim/animal-terrain.js';
 import { groundWalker, inWood } from '../js/sim/ground-obstacles.js';
 import { travelSpeed } from '../js/sim/climb-pace.js';
 import { trait } from '../js/data/animal-kinds.js';
+import { landWalker } from '../js/sim/steering.js';
 import { animalRadius } from '../js/sim/animal-positioning.js';
 const THREE = await import('three');
 const { Actors } = await import('../js/render3d/actors.js');
@@ -65,12 +73,12 @@ globalThis.localStorage ||= { getItem() { return null; }, setItem() {}, removeIt
 const args = process.argv.slice(2), strict = !args.includes('--report');
 const maps = args.filter(s => !s.startsWith('--'));
 const SPEED = +(process.env.SPEED || 1), DAYS = +(process.env.DAYS || 6), SEEDS = (process.env.SEEDS || '1987,91').split(',').map(Number), FPS = +(process.env.FPS || 60), WARM = 0.25;
-const CRAWL = 0.35, CLUMP_N = 2, CLUMP_LEN = 1.5, CLUMP_HOLD = 4,  HOLD = 2, SNAP = 0.6, SIDEWAYS = 0.9, TAIL = 1.9, WOBBLE = 0.08, STALL_R = 0.15, STALL_DAYS = 0.5, SUSTAIN = 10;
+const CRAWL = 0.35, CLUMP_N = 2, CLUMP_LEN = 1.5, CLUMP_HOLD = 4,  HOLD = 2, SNAP = 0.6, SIDEWAYS = 0.9, TAIL = 1.9, WOBBLE = 0.08, STALL_R = 0.15, STALL_DAYS = 0.5, SUSTAIN = 10, WET_R = 0.5;
 const MOVING = new Set(['walk', 'flee', 'approach', 'play']);
 const wrap = d => d - Math.round(d / (Math.PI * 2)) * Math.PI * 2;
-const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'wet', 'sideways', 'tailFirst', 'surfaced', 'stall', 'crawl', 'clump'];
-const PER_WALKER = new Set(['glide', 'treadmill', 'trunk', 'crawl']); // (per 1000 ground-walker frames)
-export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, wet: 0, sideways: 4, tailFirst: 0, surfaced: 0, stall: 160, crawl: 4, clump: 4 };
+const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'treadmill', 'trunk', 'wet', 'wetHeld', 'sideways', 'tailFirst', 'surfaced', 'stall', 'crawl', 'clump'];
+const PER_WALKER = new Set(['glide', 'treadmill', 'trunk', 'wetHeld', 'crawl']); // (per 1000 ground-walker frames)
+export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, wet: 0, wetHeld: 2, sideways: 4, tailFirst: 0, surfaced: 0, stall: 160, crawl: 4, clump: 4 };
 const MIN_EVENTS = 3;
 const deadwoodNear = (w, a) => {
   for (let y = Math.floor(a.y) - 1; y <= Math.floor(a.y) + 1; y++) for (let x = Math.floor(a.x) - 1; x <= Math.floor(a.x) + 1; x++)
@@ -176,7 +184,8 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
         // (its pace this frame as walkStep sets it: trotting to keep up, wading slowly, a river crossing)
         const tile = w.inb(Math.floor(a.x), Math.floor(a.y)) ? w.terrain[w.idx(Math.floor(a.x), Math.floor(a.y))] : null;
         const walkPace = travelSpeed(def) * stepDays * (a.follow ? 1.3 : a.wade ? 0.3 : 1) * (a.pace || 1) * (def.crossing && tile === T.RIVER ? 0.55 : 1);
-        now.crawl = a.state === 'walk' && p.state === 'walk' && !a.run && sd < walkPace * CRAWL ? (p.crawl || 0) + 1 : 0;
+        const waiting = a.waitFam?.on != null;
+        now.crawl = a.state === 'walk' && p.state === 'walk' && !a.run && !waiting && sd < walkPace * CRAWL ? (p.crawl || 0) + 1 : 0;
         if (now.crawl > HOLD * fps) hit(r, 'crawl', a, ` follow=${!!a.follow} path=${a.path?.length ?? '-'}`);
       }
       if (clumps(def, a)) {
@@ -201,8 +210,13 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
         if (trait(def, 'fishDepth') && mo.top != null && surf != null && !(st.jp >= 0) && st.y + mo.top * sc > surf + 0.002) hit(r, 'surfaced', a, ` ${(st.y + mo.top * sc - surf).toFixed(3)} over`);
       }
       const xx = Math.floor(a.x), yy = Math.floor(a.y), tt = w.inb(xx, yy) ? w.terrain[w.idx(xx, yy)] : null;
-      if (def.move === 'ground' && !a.flying && !(a.alt > 0.05) && !a.passing && tt != null && isWater(tt) && !(def.crossing && tt === T.RIVER) && !MOVING.has(a.state) && a.state !== 'hunt') hit(r, 'wet', a, ` ${tt}`);
-      if (MOVING.has(a.state) && a.state === p.state && !a.passing) {
+      if (def.move === 'ground' && !a.flying && !(a.alt > 0.05) && !a.passing && tt != null && isWater(tt) && !(def.crossing && tt === T.RIVER) && (!MOVING.has(a.state) || a.waitFam?.on != null) && a.state !== 'hunt') hit(r, 'wet', a, ` ${tt}`);
+      // (where it stood on water, and for how long on the animals' own clock, 0021, against the time
+      // wading a tile takes it at 0.3 pace)
+      const onWater = landWalker(def, a) && !a.flying && !(a.alt > 0.05) && !a.passing && tt != null && isWater(tt) && !(def.crossing && tt === T.RIVER) && !trait(def, 'wades');
+      now.wet = onWater ? (p.wet && Math.hypot(a.x - p.wet[0], a.y - p.wet[1]) < WET_R ? [p.wet[0], p.wet[1], p.wet[2] + stepDays] : [a.x, a.y, 0]) : null;
+      if (now.wet && now.wet[2] > 1 / (Math.max(0.05, travelSpeed(def)) * 0.3)) hit(r, 'wetHeld', a, ` ${tt} ${a.state}`);
+      if (MOVING.has(a.state) && a.state === p.state && !a.passing && !(a.waitFam?.on != null)) {
         // (a slow walker, a sloth or a sea cucumber, needs longer to cover STALL_R)
         const window = Math.max(STALL_DAYS, 4 * STALL_R / (travelSpeed(def) * (a.run || 1)));
         if (!now.anchor || Math.hypot(a.x - now.anchor[0], a.y - now.anchor[1]) > STALL_R) now.anchor = [a.x, a.y, f];
