@@ -8,8 +8,9 @@ import { backendOn, postBackend, playerId } from './backend.js';
 
 // Project API key from PostHog (Project settings → Project API key). It is meant to be public.
 const POSTHOG_KEY = 'phc_wWDczF7Egr2VV5Nj6JN2duzKW4ND298DaKjgaQ3B78sf';
-// https://us.i.posthog.com for US cloud, https://eu.i.posthog.com for EU cloud.
-const POSTHOG_HOST = 'https://us.i.posthog.com';
+// PostHog's managed reverse proxy on our own domain (Organization settings → Proxy), so ad blockers that
+// block posthog.com don't drop players' events; it serves the SDK too. ui_host keeps PostHog's own links right.
+const POSTHOG_HOST = 'https://t.secondgrowth.earth';
 export const GAME_VERSION = '0.5';
 
 // PostHog, looked up each time rather than kept: the loader puts a stand-in on window.posthog that
@@ -29,6 +30,7 @@ function loadPostHog() {
   /* eslint-enable */
   window.posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
+    ui_host: 'https://us.posthog.com',
     person_profiles: 'always',       // anonymous profiles, so returning players can be counted
     persistence: 'localStorage',     // no cookies
     respect_dnt: true,

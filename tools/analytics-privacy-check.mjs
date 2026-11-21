@@ -55,7 +55,7 @@ async function fixture({ enabled = false, navigator = {}, windowFlags = {}, host
   api.setAnalyticsEnabled(true);
   api.initAnalytics(); api.setAnalyticsEnabled(true);
   assert.equal(scripts.length, 1, 'Lazy opt-in initializes once');
-  assert.equal(scripts[0].src, 'https://us-assets.i.posthog.com/static/array.js');
+  assert.equal(scripts[0].src, 'https://t.secondgrowth.earth/static/array.js');
   const config = window.posthog._i[0][1];
   assert.equal(config.disable_session_recording, true);
   const event = { event: '$pageview' };
