@@ -97,6 +97,21 @@ export class AnimalSpacing {
     }
     return cost;
   }
+  // One standing still (grazing, resting) right in front of it and touching: steer curves round
+  // before contact, so this is one hemmed in, pressing into it (walkStep: a follower stops there).
+  // Returns its band ('ground' or 'water'), else null. (A follower stops only on the ground, where
+  // herd room then spreads them: stopped touching in the river, a hippo pod stayed clumped.)
+  standingAhead(a) {
+    const band = layer(this.w, a);
+    if (band !== 'ground' && band !== 'water') return null;
+    const r = animalRadius(a, this.w.catalog), hx = Math.cos(a.heading ?? 0), hy = Math.sin(a.heading ?? 0);
+    for (const bucket of this.around(a.x, a.y)) for (const e of bucket) {
+      if (!this.compatible(a, e, band) || !standing(e.a)) continue;
+      const ox = e.a.x - a.x, oy = e.a.y - a.y, d = Math.hypot(ox, oy);
+      if (d < r + e.r + 0.04 && ox * hx + oy * hy > d * 0.7) return band;
+    }
+    return null;
+  }
   // Grazing herd mates leave about a body length of clear ground between them (0025): bodies
   // centre to centre about 1.7 lengths apart. How far short of that (x, y) is, summed over them.
   // (Not for a calf at its mother's side, nor along the bank, where a herd drinks shoulder to shoulder.)

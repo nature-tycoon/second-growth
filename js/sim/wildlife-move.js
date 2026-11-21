@@ -96,6 +96,18 @@ export class WildlifeMove {
       (a.follow && a.path.length === 1 && remaining < 2.5 && a.moveProgress?.stalled > 0.4)) {
       a.path.pop(); return;
     }
+    // (nor pressing into one standing right in front of it: it stops there with the herd, a
+    // moment, and sets off afresh. Edging round, shoved back, an elephant crept for seconds
+    // through its resting herd, Serengeti 2026-11-20)
+    // (its slot lies past that one: it picks another next time, or it pressed the same one again a
+    // quarter second later, walk and idle in turn)
+    // A walker on its own way presses no longer than about a second before it goes round by
+    // other ground (recoverMovement): a doe leading her family crept into one of them grazing,
+    // sliding just enough to keep the stall timer from running, PNW 2026-11-20. (a.pressT: not saved)
+    const pressed = smoothWalker(def) && !(def.crossing && wading) ? this.spacing.standingAhead(a) : null;
+    a.pressT = pressed ? (a.pressT || 0) + dt : 0;
+    if (pressed === 'ground' && a.follow) { a.pressT = 0; a.path.length = 0; a.slot = null; a.bachelorSlot = null; a.momSlot = null; return; }
+    if (a.pressT >= 0.7) { a.pressT = 0; this.recoverMovement(a); return; } // (on along its new way next step)
     const pace = (wading ? sp * 0.55 : sp) * (a.pace || 1) * (a.run || 1); // (a.run: a startled animal dashing for cover)
     // curve round anyone in the way rather than walking into them (not on a dash for cover)
     const round = a.run ? null : this.spacing.steer(a, tx, ty, standable);
@@ -126,7 +138,13 @@ export class WildlifeMove {
     }
     if (distance < p.best - 0.04) { p.best = distance; p.stalled = 0; }
     else p.stalled += dt;
-    if (p.stalled >= 3) this.recoverMovement(a);
+    // (pressed against another, nose to nose in a river channel or jammed in a walking herd, it
+    // goes round or waits a day sooner: a hippo and a crocodile pushed head on for four seconds,
+    // and an elk queue braked behind its stuck leader, 2026-11-20)
+    // (walks only: not a drinker's approach to a bank lined shoulder to shoulder, nor a herd swimming
+    // the river packed together)
+    const def = this.game.catalog.animals[a.sp];
+    if (p.stalled >= 3 || p.stalled >= 1 && a.state === 'walk' && smoothWalker(def) && !(def.crossing && inRiver(this, a)) && this.spacing.crowd(a, a.x, a.y) > 0.01) this.recoverMovement(a);
   }
 
   recoverMovement(a) {

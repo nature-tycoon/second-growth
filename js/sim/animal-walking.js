@@ -59,7 +59,12 @@ export function smoothWalk(wl,a,def,tx,ty,pace,dt,avoid=null) {
   const near=Math.hypot(tx-a.x,ty-a.y);
   if(last)step=Math.min(step,near);
   let nx=a.x+Math.cos(next)*step,ny=a.y+Math.sin(next)*step;
-  if(!walkSegmentSafe(w,a,nx,ny)) {
+  // (its line clipping a blocked corner, it slides along the wall by the part of the step that's
+  // clear, east-west or north-south: already facing the waypoint, its pivot turned nothing and a
+  // deer stood pressed to a building's corner, walking on the spot for seconds, 2026-11-20)
+  const safe=walkSegmentSafe(w,a,nx,ny),slide=safe?null:[[nx,a.y],[a.x,ny]].filter(([x,y])=>Math.hypot(x-a.x,y-a.y)>step*.3&&Math.hypot(tx-x,ty-y)<near&&walkSegmentSafe(w,a,x,y)).sort((p,q)=>Math.hypot(tx-p[0],ty-p[1])-Math.hypot(tx-q[0],ty-q[1]))[0];
+  if(slide){nx=slide[0];ny=slide[1];next=heading+clamp(angleDelta(Math.atan2(ny-a.y,nx-a.x),heading),-rate*dt,rate*dt);} // (turning toward the way it slides, not sliding sideways)
+  else if(!safe) {
     // The open corridor is too narrow for this arc. Pivot toward the safe waypoint.
     const bearing=Math.atan2(ty-a.y,tx-a.x);
     next=heading+clamp(angleDelta(bearing,heading),-rate*dt,rate*dt);
