@@ -38,7 +38,7 @@ Branch `claude/ideas-waterfall-polish`, cut from the tip of `claude/ideas-cinema
 | 6 | Waterfall sound & ice | real recording at the fall, winter ice at the edges | default | S–M | [x] 77d3510 (uses stream recording until Cole OKs a waterfall download) |
 | 7 | American dipper | new PNW bird at falls and fast creeks | default | M | [x] 6f3a3de (look not yet seen in browser) |
 | 8 | Serengeti residents | gazelle, topi, buffalo drift to green grass within home ranges | default | M | [-] skipped (Cole, 2026-11-21) |
-| 9 | Movement fixes | waiting lead stops, coati in trunk, sweep catches walkers on water | default | M | [ ] |
+| 9 | Movement fixes | waiting lead stops, coati in trunk, sweep catches walkers on water | default | M | [x] 3ef98fc |
 
 Order: usage first (read-only, its findings may add to the next batch); cheap UI early; water/terrain before dams before falls (4–7 build on each other's drawing); Serengeti and movement last. Sessions 3, 4, 5 and 9 (water, terrain, movement) run `regression-reviewer` on the plan and the diff. Long checks go to `checker`.
 
