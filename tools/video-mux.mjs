@@ -1,9 +1,12 @@
 // Minimal MP4 (H.264) and WebM (VP9) writers for the website's video loops
 // (tools/capture-site-video.mjs). WebCodecs in headless Chrome encodes the frames;
 // these only wrap the encoded chunks in a file a browser plays. One video track,
-// constant frame rate, no B-frames, no audio. Runs in the page and in Node.
+// constant frame rate, no B-frames. An optional audio track (AAC in MP4, Opus in WebM: the intro
+// film, tools/film-intro.mjs) goes beside it. Runs in the page and in Node.
 //
 // chunk: { data: Uint8Array, timestamp: microseconds, key: boolean }, in decode order.
+// audio: { sampleRate, channels, description (MP4: the AudioSpecificConfig; WebM: the OpusHead),
+//   frame (samples per encoded packet: 1024 for AAC, 960 for Opus at 48 kHz), chunks: [{ data, timestamp }] }
 
 const concat = parts => {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
@@ -29,12 +32,40 @@ const fullBox = (type, version, flags, ...parts) => box(type, u8(version, flags 
 const MATRIX = concat([0x10000, 0, 0, 0, 0x10000, 0, 0, 0, 0x40000000].map(u32));
 
 // description: the avcC record (VideoEncoder's decoderConfig.description with avc.format 'avc')
-export function muxMp4({ width, height, fps, description, chunks }) {
+// MPEG-4 descriptors (the esds box): a tag, a one-byte size (all of ours are under 128 bytes), the body
+const descriptor = (tag, ...parts) => { const body = concat(parts); if (body.length > 127) throw new Error('Descriptor too long'); return concat([u8(tag, body.length), body]); };
+const u24 = v => u8(v >>> 16 & 255, v >>> 8 & 255, v & 255);
+export function muxMp4({ width, height, fps, description, chunks, audio = null }) {
   checkChunks(chunks, fps);
   const timescale = fps * 1000, delta = 1000, n = chunks.length;
   const durationMs = Math.round(n * 1000 / fps);
+  const videoBytes = chunks.reduce((s, c) => s + c.data.length, 0);
+  // (one chunk per track: the video's samples, then the audio's, in one mdat)
+  const sampleTable = (entry, count, delta, sizes, offset, keys) => box('stbl',
+    fullBox('stsd', 0, 0, u32(1), entry),
+    fullBox('stts', 0, 0, u32(1), u32(count), u32(delta)),
+    ...(keys ? [fullBox('stss', 0, 0, u32(keys.length), ...keys.map(u32))] : []),
+    fullBox('stsc', 0, 0, u32(1), u32(1), u32(count), u32(1)),
+    fullBox('stsz', 0, 0, u32(0), u32(count), ...sizes.map(u32)),
+    fullBox('stco', 0, 0, u32(1), u32(offset)));
+  const audioTrak = mdatOffset => {
+    const a = audio, count = a.chunks.length, ms = Math.round(count * a.frame * 1000 / a.sampleRate);
+    const esds = fullBox('esds', 0, 0, descriptor(3, u16(2), u8(0),
+      descriptor(4, u8(0x40, 0x15), u24(0), u32(a.bitrate || 0), u32(a.bitrate || 0), descriptor(5, a.description)),
+      descriptor(6, u8(2))));
+    const entry = box('mp4a', new Uint8Array(6), u16(1), new Uint8Array(8), u16(a.channels), u16(16), u32(0), u32(a.sampleRate << 16 >>> 0), esds);
+    return box('trak',
+      fullBox('tkhd', 0, 3, u32(0), u32(0), u32(2), u32(0), u32(ms), new Uint8Array(8), u16(0), u16(1), u16(0x100), u16(0), MATRIX, u32(0), u32(0)),
+      box('mdia',
+        fullBox('mdhd', 0, 0, u32(0), u32(0), u32(a.sampleRate), u32(count * a.frame), u16(0x55c4), u16(0)),
+        fullBox('hdlr', 0, 0, u32(0), ascii('soun'), new Uint8Array(12), ascii('SoundHandler\0')),
+        box('minf',
+          fullBox('smhd', 0, 0, u16(0), u16(0)),
+          box('dinf', fullBox('dref', 0, 0, u32(1), fullBox('url ', 0, 1))),
+          sampleTable(entry, count, a.frame, a.chunks.map(c => c.data.length), mdatOffset + videoBytes))));
+  };
   const moov = mdatOffset => box('moov',
-    fullBox('mvhd', 0, 0, u32(0), u32(0), u32(1000), u32(durationMs), u32(0x10000), u16(0x100), new Uint8Array(10), MATRIX, new Uint8Array(24), u32(2)),
+    fullBox('mvhd', 0, 0, u32(0), u32(0), u32(1000), u32(durationMs), u32(0x10000), u16(0x100), new Uint8Array(10), MATRIX, new Uint8Array(24), u32(audio ? 3 : 2)),
     box('trak',
       fullBox('tkhd', 0, 3, u32(0), u32(0), u32(1), u32(0), u32(durationMs), new Uint8Array(8), u16(0), u16(0), u16(0), u16(0), MATRIX, u32(width << 16), u32(height << 16)),
       box('mdia',
@@ -43,20 +74,17 @@ export function muxMp4({ width, height, fps, description, chunks }) {
         box('minf',
           fullBox('vmhd', 0, 1, new Uint8Array(8)),
           box('dinf', fullBox('dref', 0, 0, u32(1), fullBox('url ', 0, 1))),
-          box('stbl',
-            fullBox('stsd', 0, 0, u32(1), box('avc1',
+          sampleTable(box('avc1',
               new Uint8Array(6), u16(1), new Uint8Array(16), u16(width), u16(height),
               u32(0x480000), u32(0x480000), u32(0), u16(1), new Uint8Array(32), u16(0x18), u16(0xffff),
-              box('avcC', description))),
-            fullBox('stts', 0, 0, u32(1), u32(n), u32(delta)),
-            fullBox('stss', 0, 0, u32(chunks.filter(c => c.key).length), ...chunks.flatMap((c, i) => c.key ? [u32(i + 1)] : [])),
-            fullBox('stsc', 0, 0, u32(1), u32(1), u32(n), u32(1)),
-            fullBox('stsz', 0, 0, u32(0), u32(n), ...chunks.map(c => u32(c.data.length))),
-            fullBox('stco', 0, 0, u32(1), u32(mdatOffset)))))));
+              box('avcC', description)),
+            n, delta, chunks.map(c => c.data.length), mdatOffset, chunks.flatMap((c, i) => c.key ? [i + 1] : []))))),
+    ...(audio ? [audioTrak(mdatOffset)] : []));
   // moov goes before mdat (fast start: a browser can play before the whole file arrives)
   const ftyp = box('ftyp', ascii('isom'), u32(0x200), ascii('isomiso2avc1mp41'));
+  const audioBytes = audio ? audio.chunks.reduce((s, c) => s + c.data.length, 0) : 0;
   const offset = ftyp.length + moov(0).length + 8;
-  return concat([ftyp, moov(offset), u32(chunks.reduce((s, c) => s + c.data.length, 0) + 8), ascii('mdat'), ...chunks.map(c => c.data)]);
+  return concat([ftyp, moov(offset), u32(videoBytes + audioBytes + 8), ascii('mdat'), ...chunks.map(c => c.data), ...(audio ? audio.chunks.map(c => c.data) : [])]);
 }
 
 // ------------------------------------------------------------------ WebM
@@ -78,21 +106,34 @@ const uint = (id, v, width = 0) => {
 const float = (id, v) => { const b = new Uint8Array(8); new DataView(b.buffer).setFloat64(0, v); return el(id, b); };
 const str = (id, s) => el(id, ascii(s));
 
-export function muxWebm({ width, height, fps, codec = 'V_VP9', chunks }) {
+export function muxWebm({ width, height, fps, codec = 'V_VP9', chunks, audio = null }) {
   checkChunks(chunks, fps);
   const frameMs = 1000 / fps;
   const info = el(0x1549A966, uint(0x2AD7B1, 1e6), str(0x4D80, 'second-growth video-mux'), str(0x5741, 'second-growth video-mux'), float(0x4489, chunks.length * frameMs));
+  // (Opus: the OpusHead as CodecPrivate, and its pre-skip as the codec delay, in nanoseconds)
+  const audioTrack = audio && el(0xAE, uint(0xD7, 2), uint(0x73C5, 2), uint(0x83, 2), uint(0x9C, 0), str(0x86, 'A_OPUS'),
+    el(0x63A2, audio.description), uint(0x56AA, Math.round((audio.description[10] | audio.description[11] << 8) * 1e9 / 48000)), uint(0x56BB, 80e6),
+    el(0xE1, float(0xB5, audio.sampleRate), uint(0x9F, audio.channels)));
   const tracks = el(0x1654AE6B, el(0xAE, uint(0xD7, 1), uint(0x73C5, 1), uint(0x83, 1), uint(0x9C, 0), str(0x86, codec),
-    uint(0x23E383, Math.round(1e9 / fps)), el(0xE0, uint(0xB0, width), uint(0xBA, height))));
+    uint(0x23E383, Math.round(1e9 / fps)), el(0xE0, uint(0xB0, width), uint(0xBA, height))), ...(audioTrack ? [audioTrack] : []));
+  // audio packets go into the cluster their time falls in, in time order among the video frames
+  const sounds = audio ? audio.chunks.map((c, k) => ({ ms: Math.round(k * audio.frame * 1000 / audio.sampleRate), data: c.data })) : [];
+  let s = 0;
   // a cluster per keyframe, each with its own cue, so a page can seek (scrub) as well as loop
   const clusters = [], cues = [];
   for (let i = 0; i < chunks.length;) {
     const start = Math.round(i * frameMs), blocks = [];
     do {
-      const c = chunks[i], rel = Math.round(i * frameMs) - start;
+      const c = chunks[i], at = Math.round(i * frameMs), rel = at - start;
       if (rel > 32767) throw new Error('Keyframes too far apart for one WebM cluster');
+      for (; s < sounds.length && sounds[s].ms < at; s++) blocks.push(el(0xA3, u8(0x82), u16(sounds[s].ms - start & 0xffff), u8(0x80), sounds[s].data));
       blocks.push(el(0xA3, u8(0x81), u16(rel & 0xffff), u8(c.key ? 0x80 : 0), c.data));
       i++;
+      // (the last cluster takes whatever audio is left)
+      if (i === chunks.length) for (; s < sounds.length; s++) {
+        if (sounds[s].ms - start > 32767) throw new Error('Audio runs too far past the last video keyframe');
+        blocks.push(el(0xA3, u8(0x82), u16(sounds[s].ms - start & 0xffff), u8(0x80), sounds[s].data));
+      }
     } while (i < chunks.length && !chunks[i].key);
     clusters.push({ start, bytes: el(0x1F43B675, uint(0xE7, start), ...blocks) });
   }
