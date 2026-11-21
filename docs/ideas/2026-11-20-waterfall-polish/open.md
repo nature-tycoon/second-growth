@@ -2,6 +2,8 @@
 
 Sessions 1–7 merged to main in PR #120 (with cinema-creeks). 7b (browser suite fixes) and 9 (movement fixes) are on `claude/ideas-waterfall-polish-2`, not pushed. Session 8 was skipped (Cole). Sources: s1–s7, s7b, s9, usage-2026-11-20.md. Unless Cole says otherwise, each recommendation stands.
 
+**Cole, 2026-11-21:** push 7b + 9 live; for the waterfall and dipper sounds an agent finds public-domain/CC clips it can fetch without a sign-in; refresh the release reference pictures; no preference on the next batch's focus.
+
 ## Open questions
 
 ### Usage and what's next (s1)
