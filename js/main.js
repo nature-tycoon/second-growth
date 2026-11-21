@@ -6,7 +6,7 @@ import { music } from './audio/music.js';
 import { createFrameLoop } from './frame-loop.js';
 import { PerformanceOverlay, probeGpu, weakGpu } from './performance.js';
 import { settings, saveSettings } from './settings.js';
-import { initAnalytics, track, trackExit } from './analytics.js';
+import { initAnalytics, track, loadState, reportLoadingLeft } from './analytics.js';
 import { initLang } from './i18n.js';
 import { BIOMES } from './biome.js';
 import { sharedFarmAtBoot, startVisit, openError } from './ui/share.js';
@@ -23,8 +23,12 @@ const loadingRetry = document.getElementById('loading-retry');
 // loading_left: a player who gives up on the loading screen otherwise leaves no trace.
 const loadSteps = {};
 let loadLabel = 'Starting', loaded = false;
+// A tab closed during loading sends loading_left (analytics.js); listening from the very start covers
+// every step, and visibilitychange is the event that survives a closing tab.
+document.addEventListener('visibilitychange', () => { if (document.hidden) reportLoadingLeft(); });
+window.addEventListener('pagehide', reportLoadingLeft);
 function stage(label, progress) {
-  loadSteps[label] = Math.round(performance.now()); loadLabel = label;
+  loadSteps[label] = Math.round(performance.now()); loadLabel = label; loadState.stage = label;
   loadingStatus.textContent = label;
   setProgress(progress);
 }
@@ -64,7 +68,6 @@ async function boot() {
 
     // analytics first, so events from a game started on load (after a map switch) aren't lost
     initAnalytics();
-    window.addEventListener('pagehide', () => { if (!loaded) trackExit('loading_left', { stage: loadLabel, seconds: Math.round(performance.now() / 1000) }); });
     const game = new Game();
     game.newGame(1987, 'free', 'standard', startMap, pending?.runSeed ?? Game.randomRunSeed());
     game.speed = 0; // paused until the player chooses Start or Continue
@@ -186,7 +189,7 @@ async function boot() {
         renderer.draw(game, ui.state, 0);
         ui.frame(0);
         frame(now);
-        stage('Ready', 100); loaded = true;
+        stage('Ready', 100); loaded = true; loadState.loaded = true;
         // (page start to the first drawn frame, and each loading step's start, in ms)
         track('game_loaded', { load_ms: loadSteps.Ready, steps: loadSteps, map: game.map, quality: settings.quality, gpu: renderer.gpuName() });
         requestAnimationFrame(() => {

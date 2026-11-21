@@ -22,6 +22,25 @@ const browserOptOut = () => navigator.globalPrivacyControl === true ||
   [navigator.doNotTrack, navigator.msDoNotTrack, window.doNotTrack].some(value => value === '1' || value === 'yes');
 const trackingAllowed = () => settings.analytics && !browserOptOut();
 
+// ---- Tester tag. Visiting ?tester=dev (the developer) or ?tester=tester (a playtester) once marks
+// this browser: the role is kept in localStorage and sent as the `tester` property on every event,
+// so PostHog reports can exclude it (docs/posthog-review-2026-11.md). ?tester=off clears it. A role
+// label only, never a name. The link is read even when tracking is off, so the flag is stored
+// anyway; it is only sent when analytics runs.
+const TESTER_KEY = 'second-growth-tester', TESTER_ROLES = ['dev', 'tester'];
+export function testerRole() {
+  try {
+    const url = new URL(location.href), asked = url.searchParams.get('tester');
+    if (asked != null) {
+      if (asked === 'off') localStorage.removeItem(TESTER_KEY);
+      else if (TESTER_ROLES.includes(asked)) localStorage.setItem(TESTER_KEY, asked);
+      url.searchParams.delete('tester'); history.replaceState(history.state, '', url); // a reload or share link doesn't repeat it
+    }
+    const role = localStorage.getItem(TESTER_KEY);
+    return TESTER_ROLES.includes(role) ? role : null;
+  } catch (e) { return null; /* storage unavailable */ }
+}
+
 function loadPostHog() {
   // PostHog's standard loader: queues calls until the library arrives from their CDN.
   /* eslint-disable */
@@ -42,6 +61,8 @@ function loadPostHog() {
     before_send: event => trackingAllowed() ? event : null,
   });
   window.posthog.register({ game_version: GAME_VERSION, release: RELEASE });
+  const role = testerRole(); // a tester's own browser: every event carries it, so reports can leave it out
+  if (role) window.posthog.register({ tester: role });
   return window.posthog;
 }
 
@@ -60,6 +81,32 @@ export function trackExit(event, props = {}) {
   const ph = P();
   if (!ph || !trackingAllowed()) return;
   try { ph.capture(event, props, { transport: 'sendBeacon' }); } catch (e) { /* ignore */ }
+}
+
+// ---- Loading state, shared with main.js (which sets it) and the session code (which reads it): while
+// the game is still loading, leaving is `loading_left`, not `game_left`.
+export const loadState = { stage: 'Starting', loaded: false, firstVisit: false };
+let loadingLeftSent = false;
+// Sent once, from main.js's own listeners (visibilitychange hidden is the one that reliably runs when a
+// tab is closed; pagehide often doesn't).
+export function reportLoadingLeft() {
+  if (loadState.loaded || loadingLeftSent) return;
+  loadingLeftSent = true;
+  trackExit('loading_left', { stage: loadState.stage, seconds: Math.round(performance.now() / 1000) });
+}
+
+// Events for the first-minutes work (docs/ideas/2026-11-21-first-minutes/plan.md). Sent today:
+//   first_animal_seen { seconds, species }   first time a larger animal is on screen, first visit only
+//   first_tool { seconds_since_load, ... }   (session-analytics.js)
+// Names reserved for later sessions, so they stay consistent (all carry the usual super properties):
+//   intro_started, intro_skipped { second }, intro_finished,
+//   farm_opened { how: 'fence'|'culvert', seconds }, timelapse_started, timelapse_watched { seconds }
+// trackOnce sends an event the first time per page load only.
+const sentOnce = new Set();
+export function trackOnce(event, props = {}) {
+  if (sentOnce.has(event)) return;
+  sentOnce.add(event);
+  track(event, props);
 }
 
 // Crashes and script errors, so we can see where the game breaks for people (a few per session).

@@ -40,7 +40,7 @@ import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
 import { saves } from '../saves.js';
 import { CHALLENGE_TOOL_ADVICE, pressureTileNotes } from '../sim/ecological-pressure.js';
 import { openShare } from './share.js';
-import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible } from '../analytics.js';
+import { track, setAnalyticsEnabled, sendFeedback, feedbackPossible, loadState } from '../analytics.js';
 import { watchForOffer, openNewsletter, newsletterAvailable } from './newsletter.js';
 
 export { animalThumb, plantThumb } from './thumbnails.js';
@@ -1515,6 +1515,7 @@ export class UI {
     }
     else { g.mode = mode; g.campaign = { chapter: 0 }; g.difficulty = difficulty; g.money = g.diff.startMoney; }
     if (sandbox) g.flags.sandbox = true; else delete g.flags.sandbox; // (saved with the farm)
+    if (firstVisit) loadState.firstVisit = true; // (for first_animal_seen, ui/session-analytics.js)
     track('game_start', { mode, fresh, difficulty, map, ...(sandbox ? { sandbox: true } : {}), ...(firstVisit ? { first_visit: true } : {}) });
     this.newCats = new Set();
     this.afterNewGame();

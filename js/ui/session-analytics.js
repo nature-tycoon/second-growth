@@ -1,6 +1,6 @@
 // Session measurements and game-event analytics. Presentation is read through
 // a small callback; this module owns the session counters and reporting cadence.
-import { track, trackExit, setContext } from '../analytics.js';
+import { track, trackExit, setContext, loadState, trackOnce } from '../analytics.js';
 import { farmSnapshot } from '../farmsnap.js';
 import { speciesPresent } from '../sim/goals.js';
 import { campaignOn, currentChapter, goalMet } from '../sim/campaign.js';
@@ -72,6 +72,25 @@ export class SessionAnalytics {
     }
   }
 
+  // first_animal_seen: the first time a larger animal (10 kg or more) is inside the picture on a first
+  // visit, with the seconds since the page started and which species. Checked each second until it fires.
+  watchFirstAnimal() {
+    if (this.firstAnimalSent || !loadState.firstVisit || !loadState.loaded) return;
+    const R = this.renderer, g = this.game, pose = R.actors?.pose;
+    if (!pose || !R.project) return;
+    for (const a of g.wildlife.viewAgents) {
+      const def = g.catalog.animals[a.sp];
+      if (!def || def.domestic || !(def.kg >= 10)) continue;
+      const s = pose.get(a.id);
+      if (!s?.visible) continue;
+      const p = R.project(s.center.x, s.center.y, s.center.z);
+      if (p.x < 0 || p.y < 0 || p.x > R.vw || p.y > R.vh) continue;
+      this.firstAnimalSent = true;
+      trackOnce('first_animal_seen', { seconds: secondsSince(0), species: def.key });
+      return;
+    }
+  }
+
   bind() {
     const g = this.game;
     g.on('tool', stroke => this.trackTool(stroke));
@@ -121,6 +140,7 @@ export class SessionAnalytics {
     const doing = () => ({ speed: g.speed, ...this.getUiState(), goals_done: Object.keys(g.goalsDone).length, ...this.exitDetails() });
     setInterval(() => {
       if (document.hidden) return;
+      this.watchFirstAnimal();
       const idle = (performance.now() - S.lastInput) / 1000;
       // active time: the tab is visible and the player has touched something in the last two minutes
       if (idle < 120) {
@@ -140,6 +160,7 @@ export class SessionAnalytics {
     setInterval(() => { if (!document.hidden && (performance.now() - S.lastInput) < 120000) snap('periodic'); }, 10 * 60 * 1000);
     const perfAtExit = () => { const p = this.renderer.perfSample?.(false); return p ? { fps: p.fps, slow_frames_pct: p.slow_frames_pct } : {}; };
     const leave = reason => {
+      if (!loadState.loaded) return; // still loading: main.js sends loading_left instead
       if (performance.now() - S.leftAt < 5000) return;
       S.leftAt = performance.now();
       snap(reason, true);
