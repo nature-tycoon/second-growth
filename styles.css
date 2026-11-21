@@ -612,6 +612,10 @@ body.menu-effects-off .toast { background: rgba(28, 38, 30, 0.86); -webkit-backd
 .audio-credits summary { cursor: pointer; color: var(--ink-2); font-size: 12px; font-weight: 700; }
 .audio-credits summary:focus-visible { outline: 2px solid var(--moss); outline-offset: 3px; border-radius: 3px; }
 .audio-credits[open] summary { margin-bottom: 10px; }
+.set-more { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.set-more summary { cursor: pointer; color: var(--ink-2); font-size: 12px; font-weight: 700; padding: 4px 0; }
+.set-more summary:focus-visible { outline: 2px solid var(--moss); outline-offset: 3px; border-radius: 3px; }
+.set-more[open] summary { margin-bottom: 6px; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
 .set-row > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .set-row small { color: var(--ink-2, #6a6a58); font-size: 12px; }

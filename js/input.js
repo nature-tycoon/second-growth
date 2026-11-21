@@ -10,6 +10,8 @@ import { refusal } from './tool-actions.js';
 const SHIFTED = { '-': '_', '_': '-', '=': '+', '+': '=' };
 const GAME_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'q', 'e', '-', '_', '=', '+', '[', ']', ' ']);
 const TWIST_START = 0.2; // radians (about 11°) two fingers turn before a pinch counts as a twist
+const PAN_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
+const TAP_PAN_SECONDS = 0.12; // a tap on a pan key moves the map for at least this long
 const WALK_KEYS = new Set(['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 
 export class Input {
@@ -94,7 +96,11 @@ export class Input {
       if (k === 'shift') { this.keys.add(k); return; }
       if (this.ui.watch.key(k)) { e.preventDefault(); return; }
       if (k === ' ' || k === '0' || k === '1' || k === '2' || k === '3' || k === 'm') this.keys.add(k); else return;
-    } else this.keys.add(k);
+    } else {
+      this.keys.add(k);
+      // a quick tap (down and up between two frames) still nudges the map a little
+      if (PAN_KEYS.has(k) && !this.ui.modalOpen) (this.panTap ||= new Map()).set(k, TAP_PAN_SECONDS);
+    }
     if (k === 'escape') {
       if (this.ui.modalOpen) this.ui.closeModal();
       else if (this.ui.state.cat !== 'inspect') this.ui.openCategory('inspect');
@@ -128,6 +134,7 @@ export class Input {
     this.r.followAgent = null;
     // watch mode directs the camera itself (ui/watch.js), and a keystone moment within it too
     if (this.ui.watch.on) {
+      this.panTap?.clear();
       if (this.ui.follow) this.trackFollow(this.ui.follow, dt);
       if (this.ui.watch.walking) {
         // (on a touch screen the thumbstick walks: up goes forward, sideways turns)
@@ -146,10 +153,13 @@ export class Input {
     if (this.ui.modalOpen) return;
     const sp = 700 * dt * settings.panSpeed;
     let dx = 0, dy = 0;
-    if (this.keys.has('a') || this.keys.has('arrowleft')) dx -= sp;
-    if (this.keys.has('d') || this.keys.has('arrowright')) dx += sp;
-    if (this.keys.has('w') || this.keys.has('arrowup')) dy -= sp;
-    if (this.keys.has('s') || this.keys.has('arrowdown')) dy += sp;
+    // (a key counts while held, or for a short while after a tap: see key())
+    const tap = this.panTap, held = (...ks) => ks.some(x => this.keys.has(x) || tap?.has(x));
+    if (held('a', 'arrowleft')) dx -= sp;
+    if (held('d', 'arrowright')) dx += sp;
+    if (held('w', 'arrowup')) dy -= sp;
+    if (held('s', 'arrowdown')) dy += sp;
+    if (tap) for (const [k, t] of tap) if (t - dt <= 0) tap.delete(k); else tap.set(k, t - dt);
     const zs = 1.5 * settings.zoomSpeed;
     if (this.keys.has('-') || this.keys.has('_')) this.r.zoomAt(this.r.vw / 2, this.r.vh / 2, Math.exp(-dt * zs));
     if (this.keys.has('=') || this.keys.has('+')) this.r.zoomAt(this.r.vw / 2, this.r.vh / 2, Math.exp(dt * zs));
