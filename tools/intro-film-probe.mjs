@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { BORDER } from '../js/config.js';
 import { trunkRadius, logSpot, LOG_R, LOG_HALF, shrubSpot } from '../js/sim/ground-obstacles.js';
 import { F as FEAT } from '../js/config.js';
+import { focus } from '../js/render3d/focus.js';
 
 // The drawn terrain mesh's height at (x, z): the two triangles of its tile (terrain.js lays out each
 // tile of the land and its border as 6 vertices), not the simulation's smooth heightAt.
@@ -94,7 +95,30 @@ export function blocker(o, p, ob, ground) {
 }
 
 // cast: { name: agent } of the animals to follow. Returns measure(frame) -> a plain record.
-export function makeProbe(r, g, cast, box) {
+// The share of the frame covered by plants within `near` scene units of the camera (an eye-level
+// frame only): the scene drawn again with only the plants' own materials (so the tracking lens's
+// openings and the film's thinning count) and the camera's far plane pulled in to `near`, into a
+// small target, and its covered pixels counted. render: the renderer's real draw (the probe stubs it).
+export const NEAR_COVER = .6; // tiles: about 5 m
+export function nearCover(r, render, near = NEAR_COVER) {
+  const F = r.flora, mats = new Set([F.foliage, F.shrubs, F.grass, F.tallGrass, F.small, F.canopyCrown].filter(Boolean));
+  const W = 160, H = 90, rt = nearCover.rt ||= new THREE.WebGLRenderTarget(W, H), px = nearCover.px ||= new Uint8Array(W * H * 4);
+  const cam = r.eye.camera.clone(); cam.near = Math.min(cam.near, .01); cam.far = near; cam.aspect = r.eye.camera.aspect; cam.updateProjectionMatrix();
+  const hidden = [], bg = r.scene.background, fog = r.scene.fog, gl = r.gl;
+  r.scene.traverse(o => { if ((o.isMesh || o.isPoints || o.isLine || o.isSprite) && o.visible && !mats.has(o.material)) { o.visible = false; hidden.push(o); } });
+  r.scene.background = null; r.scene.fog = null;
+  const target = gl.getRenderTarget(), clear = gl.getClearAlpha(), auto = gl.shadowMap.autoUpdate, need = gl.shadowMap.needsUpdate;
+  gl.shadowMap.autoUpdate = false; gl.shadowMap.needsUpdate = false;
+  gl.setRenderTarget(rt); gl.setClearAlpha(0); gl.clear(); render(r.scene, cam);
+  gl.readRenderTargetPixels(rt, 0, 0, W, H, px);
+  gl.setRenderTarget(target); gl.setClearAlpha(clear); gl.shadowMap.autoUpdate = auto; gl.shadowMap.needsUpdate = need;
+  for (const o of hidden) o.visible = true;
+  r.scene.background = bg; r.scene.fog = fog;
+  let n = 0; for (let i = 3; i < px.length; i += 4) if (px[i] > 0) n++;
+  return +(n / (W * H)).toFixed(4);
+}
+
+export function makeProbe(r, g, cast, box, render = null, { key = null, keep = 1.5 } = {}) {
   const ground = meshGround(r);
   let ob = null;
   const v = new THREE.Vector3();
@@ -135,7 +159,7 @@ export function makeProbe(r, g, cast, box) {
       const body = drawn ? { x: st.center.x, y: st.center.y, z: st.center.z } : { x, y: y + tall * .5, z };
       const o = { x: cam.position.x, y: cam.position.y, z: cam.position.z };
       rec.animals[name] = {
-        sp: a.sp, kind: def?.key ?? null, drawn, x, y, z, yaw, pitch, len, tall, feet,
+        id: a.id, sp: a.sp, kind: def?.key ?? null, drawn, x, y, z, yaw, pitch, len, tall, feet,
         // (the stalking crouch: the drawing lowers the whole body by this, actors-ground.js headPose, a
         // declared pose like a leap: the motion check measures the hooves without it)
         crouch: drawn && st.crouch > .01 ? +(st.crouch * (def.sprite.leg || def.sprite.h || 8) * (st.sc || 1) * .3).toFixed(4) : 0,
@@ -144,6 +168,14 @@ export function makeProbe(r, g, cast, box) {
         headScreen: screen(head), bodyScreen: screen(body),
         headBlock: r.eyeOn ? blocker(o, head, ob, ground) : null, bodyBlock: r.eyeOn ? blocker(o, body, ob, ground) : null,
       };
+    }
+    // plants covering the frame: within NEAR_COVER of the lens, and in front of the key animal (nearer
+    // than `keep` short of it: the foreground, which hid the doe in the first shot)
+    if (r.eyeOn && render) {
+      rec.nearCover = nearCover(r, render);
+      rec.lens = { on: +focus.uFocusAmt.value.toFixed(3), id: r.eyeAgent?.id ?? null }; // (the game's tracking lens, decision 0040)
+      const a = key && rec.animals[key], o = rec.cam.pos;
+      if (a) { const d = Math.hypot(a.x - o[0], a.z - o[2]) - keep; rec.foreCover = d > NEAR_COVER ? nearCover(r, render, d) : rec.nearCover; }
     }
     return rec;
   };

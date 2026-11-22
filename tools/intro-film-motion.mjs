@@ -11,6 +11,9 @@
 //               ahead of its prey along the chase
 //   5 camera    speed, acceleration, jerk, turn rate and its change, roll, and sudden swings of the
 //               look point
+//   6 cover     plants filling the frame (Cole's rough-cut note: plants hid the doe in the first shot):
+//               the share of the frame covered by plants within 5 m of the lens, and in front of the
+//               key animal; and the game's tracking lens on it in every forest shot
 // Prints a short table and exits non-zero when anything fails.
 // (Not named *-check.mjs: those join the headless CI suite, and this needs a GPU browser and fails on
 // the first cut by design. Once a re-staged film passes, it can join the browser suite.)
@@ -61,6 +64,9 @@ const L = {
   roll: .5,              // 5: °, the horizon stays level
   lookJump: .35,         // 5: tiles a frame the look point may move beyond its own trend (a sudden new target)
   mapPan: .35,           // 5: map view: at most 0.35 of the screen's width a second
+  nearCover: .05,        // 6: plants within 5 m of the lens cover at most 5% of the frame (more reads as filming through a bush)
+  foreCover: .2,         // 6: plants in front of the key animal (nearer than 12 m short of it) at most 20%: a natural frame of foreground, not a screen
+  lensOn: .9,            // 6: the tracking lens fully on the key animal (focus.uFocusAmt) in every forest shot
 };
 
 // ------------------------------------------------------------------ probing (headless Chrome)
@@ -238,6 +244,22 @@ for (const layer of LAYERS) {
       if (along > L.ahead) aheadFrames++;
     }
     if (n) row('4 chase', shot, `${P.name} ahead of ${P.prey}`, `${ahead.v.toFixed(2)} tiles${aheadFrames ? ` (${(aheadFrames / n * 100).toFixed(0)}%)` : ''}`, `≤${L.ahead}`, ahead.v <= L.ahead, `most at ${sec(ahead.t)}`);
+  }
+
+  // ---- 6 cover
+  if (frames[0].eye && frames.some(f => f.nearCover != null)) {
+    const maxOf6 = k => frames.reduce((b, f) => f[k] != null && f[k] > b.v ? { v: f[k], t: f.t } : b, { v: 0, t: null });
+    const nc = maxOf6('nearCover');
+    row('6 cover', shot, 'plants within 5 m of the lens', `${(nc.v * 100).toFixed(1)}%`, `≤${L.nearCover * 100}%`, nc.v <= L.nearCover, `at ${nc.t != null ? sec(nc.t) : '-'}`);
+    if (frames.some(f => f.foreCover != null)) {
+      const fc = maxOf6('foreCover');
+      row('6 cover', shot, 'plants in front of the subject', `${(fc.v * 100).toFixed(1)}%`, `≤${L.foreCover * 100}%`, fc.v <= L.foreCover, `at ${fc.t != null ? sec(fc.t) : '-'}`);
+      const key = (SUBJECTS[shot] || [])[0], want = key && frames[0].animals[key];
+      if (want && layer.game === 'start') {
+        const on = Math.min(...frames.map(f => f.lens?.id === f.animals[key]?.id ? f.lens.on : 0).filter((_, i) => frames[i].t >= layer.from));
+        row('6 cover', shot, `tracking lens on ${key}`, on.toFixed(2), `≥${L.lensOn}`, on >= L.lensOn);
+      }
+    }
   }
 
   // ---- 5 camera

@@ -79,8 +79,11 @@ function renderer(g) {
 // The eye at a point, looking at another: watch mode's eye-level view (sky, haze, close-up models),
 // placed by the film rather than riding behind an animal. The look-at keeps the horizon level.
 // fov: the vertical field of view in degrees (the eye's own is 50; less is a longer lens).
-function eyeAt(r, pos, look, fov = 50) {
-  r.eyeAgent = null; r.followAgent = null; r.eyeWalk = true;
+// lens: the animal the game's tracking lens is on (decision 0040: drawn faintly through cover, cover
+// near the camera opening over its outline), as watch mode does for the animal it follows; the
+// film's own camera stays in charge (eyeWalk), so the lens doesn't move it.
+function eyeAt(r, pos, look, fov = 50, lens = null) {
+  r.eyeAgent = lens; r.followAgent = null; r.eyeWalk = true;
   r.eye.agentId = 'walk';
   r.eye.walk = function (move, L, aspect) {
     this.under = false;
@@ -154,15 +157,59 @@ function castOf(g, farm) {
   return { cast, stage, tilt };
 }
 
+// ------------------------------------------------------------------ a gap in the near cover
+// Staging (film only), as a wildlife cameraman picks a gap: understory plants (ferns, grass, shrubs,
+// small plants; never trunks, tree crowns or floor litter) are left out of a small clearing round the
+// lens (the frame's width, NEAR_GAP deep) and a narrow wedge along the line from the camera to the
+// shot's key animal, out to KEEP short of the animal, so
+// the frame isn't filled with near leaves. The animal's surroundings and the far forest stay whole,
+// and the game's tracking lens (decision 0040) opens what's left over the animal's outline.
+const KEEP = 1.5; // tiles (12 m) round the animal left untouched
+const NEAR_GAP = .7; // tiles (5.5 m): the clearing the camera stands in, the frame's full width
+const GAP_HALF = 14 * Math.PI / 180; // the wedge's half-angle (less on a long lens: the frame's own half-width)
+function nearGap(r, shot, subject) {
+  const c = shot.camera, aspect = 16 / 9, hfov = 2 * Math.atan(Math.tan(c.fov * Math.PI / 360) * aspect);
+  const tan = Math.tan(Math.min(GAP_HALF, hfov / 2 * 1.1)), wide = Math.tan(Math.min(1.4, hfov / 2 * 1.15)), lines = [];
+  for (let k = 0; k <= 12; k++) {
+    const t = lerp(shot.from, c.until ?? shot.to, k / 12), q = cameraAt(shot, t), a = animalAt(subject, realAt(t));
+    // toward the animal and along the look (a panning shot looks past it)
+    for (const [x, y] of [[a.x, a.y], [q.look[0], q.look[1]]]) {
+      const dx = x - q.pos[0], dy = y - q.pos[1], d = Math.hypot(dx, dy), da = Math.hypot(a.x - q.pos[0], a.y - q.pos[1]);
+      if (d > .05) lines.push({ x: q.pos[0], y: q.pos[1], ux: dx / d, uy: dy / d, to: da - KEEP, near: Math.min(NEAR_GAP, da - .3) });
+    }
+  }
+  const inGap = (x, z) => lines.some(L => {
+    const px = x - L.x, pz = z - L.y, u = px * L.ux + pz * L.uy, side = Math.abs(px * L.uy - pz * L.ux);
+    if (u < -.1) return false;
+    if (u <= L.near && side <= .15 + Math.max(0, u) * wide) return true; // (the clearing the camera stands in)
+    return u <= L.to && side <= .12 + Math.max(0, u) * tan;              // (the wedge toward the animal)
+  });
+  const F = r.flora, thin = new Set([F.shrubs, F.grass, F.tallGrass, F.small]), pool = F.pool.bind(F);
+  let skipped = 0;
+  F.pool = (key, build, mat, ...rest) => {
+    const p = pool(key, build, mat, ...rest);
+    if (!p.filmGap && thin.has(mat) && !/^(litter|contact|log|rocks|stump|snag)/.test(key)) {
+      const add = p.add.bind(p);
+      p.add = (x, y, z, ...a) => { if (inGap(x, z)) { skipped++; return; } add(x, y, z, ...a); };
+      p.filmGap = true;
+    }
+    return p;
+  };
+  return { lines: lines.length, skipped: () => skipped };
+}
+
 // ------------------------------------------------------------------ one layer
 async function filmLayer(name) {
   const L = LAYERS.find(l => l.name === name);
   if (!L) throw Error('Unknown layer ' + name);
   const shot = SHOTS.find(s => s.n === L.shot), camShot = L.cameraOf != null ? SHOTS.find(s => s.n === L.cameraOf) : shot;
   let g, r, stage = () => {}, tilt = () => {}, camera, simulate = null, cast = {}, box;
+  let gap = null;
   if (L.game === 'start') {
     g = startGame();
     r = renderer(g);
+    // (before the plants are first built: the gap in the near cover for the shot's key animal)
+    if (!camShot.camera.map && L.subjects[0]) gap = nearGap(r, camShot, L.subjects[0]);
     mapAt(r, 60, -4, 1.2, Math.PI / 4);
     box = { x0: 38, x1: 90, z0: -16, z1: 30 };
   } else {
@@ -185,6 +232,9 @@ async function filmLayer(name) {
     }
   }
   g.speed = 1; // (the walker drawing strides only while the game runs)
+  // the tracking lens on the shot's key animal, in every shot on today's farm (Cole's rough-cut note:
+  // plants hid the doe in the first shot)
+  const lens = L.game === 'start' && cast[L.subjects[0]] || null;
   if (camShot.camera.map) {
     const end = r.startView;
     camera = f => { const v = name === 'start' ? end : planMap(camShot, f / FPS, end); mapAt(r, v.x, v.y, v.zoom, v.az); };
@@ -193,7 +243,7 @@ async function filmLayer(name) {
       // (the renderer's smooth ground for the camera's heights: the drawn mesh's triangles give a
       // smoothed look tiny kinks, and a point on a triangle's edge can fall back to another ground)
       const c = cameraAt(camShot, f / FPS, (x, y) => r.heightAtScene(x, y));
-      eyeAt(r, { x: c.pos[0], y: c.pos[2], z: c.pos[1] }, { x: c.look[0], y: c.look[2], z: c.look[1] }, c.fov);
+      eyeAt(r, { x: c.pos[0], y: c.pos[2], z: c.pos[1] }, { x: c.look[0], y: c.look[2], z: c.look[1] }, c.fov, lens);
     };
   }
   const tod = TIME_OF_DAY[name];
@@ -230,7 +280,7 @@ async function filmLayer(name) {
   // on the GPU, and the camera, animals and sight lines read back
   let reader = null;
   function probe(f) {
-    if (!reader) { r.gl.render = () => {}; reader = makeProbe(r, g, cast, box); }
+    if (!reader) { const real = r.realRender = r.gl.render.bind(r.gl); r.gl.render = () => {}; reader = makeProbe(r, g, cast, box, real, { key: L.subjects[0], keep: KEEP }); }
     advance(f);
     return reader(f / FPS);
   }
@@ -238,7 +288,7 @@ async function filmLayer(name) {
     target: { x: r.target.x, y: r.target.y, z: r.target.z }, zoom: r.zoom, az: r.az, eye: r.eyeOn ? { pos: r.eye.pos.toArray(), look: r.eye.look.toArray() } : null,
     timeOfDay: r.todClock / DAY_CYCLE, width: r.gl.domElement.width, height: r.gl.domElement.height, ppu: r.ppu,
   });
-  return { first, last: lastFrame, frame, probe, info, game: g, renderer: r };
+  return { first, last: lastFrame, frame, probe, info, game: g, renderer: r, gap: gap && { lines: gap.lines, skipped: gap.skipped() } };
 }
 
 const ui = { clean: true, overlay: 'none' };
