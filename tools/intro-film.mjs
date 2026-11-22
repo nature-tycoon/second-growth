@@ -82,7 +82,8 @@ function renderer(g) {
 // lens: the animal the game's tracking lens is on (decision 0040: drawn faintly through cover, cover
 // near the camera opening over its outline), as watch mode does for the animal it follows; the
 // film's own camera stays in charge (eyeWalk), so the lens doesn't move it.
-function eyeAt(r, pos, look, fov = 50, lens = null) {
+// far: the eye's far plane when it must see past its haze (the sweep up to the start view)
+function eyeAt(r, pos, look, fov = 50, lens = null, far = null) {
   r.eyeAgent = lens; r.followAgent = null; r.eyeWalk = true;
   r.eye.agentId = 'walk';
   r.eye.walk = function (move, L, aspect) {
@@ -90,7 +91,7 @@ function eyeAt(r, pos, look, fov = 50, lens = null) {
     this.pos.set(pos.x, pos.y, pos.z); this.look.set(look.x, look.y, look.z);
     this.forward.set(look.x - pos.x, 0, look.z - pos.z).normalize();
     this.apply(aspect);
-    if (Math.abs(this.camera.fov - fov) > 1e-4) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+    if (Math.abs(this.camera.fov - fov) > 1e-4 || far && this.camera.far !== far) { this.camera.fov = fov; if (far) this.camera.far = far; this.camera.updateProjectionMatrix(); }
   };
 }
 function mapAt(r, x, y, zoom, az) {
@@ -105,7 +106,7 @@ function mapAt(r, x, y, zoom, az) {
 function poseState(pose, p, foodTile) {
   switch (pose) {
     // (biteRate: a slower bite than the game's, about 0.4 Hz, not 1: Cole, rough cut, "head bobbing looks weird")
-    case 'browse': return { state: 'forage', forage: { food: 'forb', i: foodTile, biteRate: 2.5 }, hunt: null, alertT: 0, run: 1 };
+    case 'browse': return { state: 'forage', forage: { food: 'forb', i: foodTile }, hunt: null, alertT: 0, run: 1 };
     case 'graze': return { state: 'forage', forage: { food: 'grass', i: foodTile }, hunt: null, alertT: 0, run: 1 };
     case 'alert': case 'stand': return { state: 'idle', forage: null, hunt: null, alertT: 99, run: 1 };
     case 'walk': return { state: 'idle', forage: null, hunt: null, alertT: 0, run: 1 };
@@ -131,16 +132,17 @@ function castOf(g, farm) {
   const last = new Map(), w = g.world;
   const browseTile = (() => { for (let i = 0; i < w.n; i++) if (w.shrub[i] && w.shrubG[i] > .4) return i; return 0; })();
   // place them for film frame f: where the plan has them at that frame's real time
-  const stage = f => {
-    const real = realAt(f / FPS);
+  // place them for film frame f at the story's time `real` (by default the plan's for that frame)
+  const stage = (f, real = realAt(f / FPS)) => {
     for (const [name, a] of Object.entries(cast)) {
       const p = animalAt(name, real), def = defs[name], q = last.get(name), moved = q ? Math.hypot(p.x - q.x, p.y - q.y) : 0;
       // (the legs keep the game's own pace for the ground covered: stride.js groundPace = 1)
-      a.phase += moved * 6 * (def.sprite.beat ?? 1) / Math.max(.05, travelSpeed(def));
+      // (kept here: on the restored farm the simulation steps too, and it advances a.phase as well)
+      a.phase = (q?.phase ?? a.phase) + moved * 6 * (def.sprite.beat ?? 1) / Math.max(.05, travelSpeed(def));
       a.x = a.tx = p.x; a.y = a.ty = p.y; a.heading = p.heading;
       const tile = w.inb(Math.floor(p.x), Math.floor(p.y)) ? w.idx(Math.floor(p.x), Math.floor(p.y)) : browseTile;
       Object.assign(a, poseState(p.pose, p, p.pose === 'browse' ? browseTile : tile), { wait: 1e9, path: null, hunger: 0, thirst: 0 });
-      last.set(name, { x: p.x, y: p.y });
+      last.set(name, { x: p.x, y: p.y, phase: a.phase });
     }
   };
   // Staging (film only): the game draws a walker level, so one facing up or down a slope has its
@@ -238,6 +240,21 @@ async function filmLayer(name) {
   // the tracking lens on the shot's key animal, in every shot on today's farm (Cole's rough-cut note:
   // plants hid the doe in the first shot)
   const lens = L.game === 'start' && cast[L.subjects[0]] || null;
+  // The sweep up to the start view (plan: camera.sweep) ends framing the ground exactly as the map
+  // view frames it: the renderer's own start view, read from its map camera (orthographic). On the way
+  // up the eye's haze, far plane and sun's shadow box reach as far as it looks (film only: the eye in
+  // play stays near the ground), so the land at the top is as clear as the map view's.
+  let endView = null, shadowAtTop = 33;
+  if (L.sweep) {
+    const sv = r.startView; mapAt(r, sv.x, sv.y, sv.zoom, sv.az);
+    const c = r.camera, p = c.position, t = r.target;
+    endView = { target: [t.x, t.z, t.y], dir: [t.x - p.x, t.z - p.z, t.y - p.y], height: (c.top - c.bottom) / c.zoom };
+    shadowAtTop = Math.max(c.right - c.left, c.top - c.bottom) / 2 / c.zoom * 1.35 + 3; // (as updateCamera fits it)
+    const sky = r.updateSky.bind(r);
+    r.updateSky = (dt, game) => { sky(dt, game); const k = Math.max(1, (r.filmSweep?.dist || 0) / 8); r.scene.fog.near *= k; r.scene.fog.far *= k; };
+    const eye = r.updateEye.bind(r);
+    r.updateEye = (dt, game) => { eye(dt, game); const v = r.filmSweep; if (v && r.eyeOn) { r.target.set(v.look.x, v.look.y, v.look.z); r.fitShadow(lerp(13, shadowAtTop, v.w)); } };
+  }
   if (camShot.camera.map) {
     const end = r.startView;
     camera = f => { const v = name === 'start' ? end : planMap(camShot, f / FPS, end); mapAt(r, v.x, v.y, v.zoom, v.az); };
@@ -245,19 +262,24 @@ async function filmLayer(name) {
     camera = f => {
       // (the renderer's smooth ground for the camera's heights: the drawn mesh's triangles give a
       // smoothed look tiny kinks, and a point on a triangle's edge can fall back to another ground)
-      const c = cameraAt(camShot, f / FPS, (x, y) => r.heightAtScene(x, y));
-      eyeAt(r, { x: c.pos[0], y: c.pos[2], z: c.pos[1] }, { x: c.look[0], y: c.look[2], z: c.look[1] }, c.fov, lens);
+      const c = cameraAt(camShot, f / FPS, (x, y) => r.heightAtScene(x, y), endView);
+      const look = { x: c.look[0], y: c.look[2], z: c.look[1] };
+      if (c.dist != null) r.filmSweep = { look, dist: c.dist, w: c.w };
+      eyeAt(r, { x: c.pos[0], y: c.pos[2], z: c.pos[1] }, look, c.fov, lens, c.dist != null ? Math.max(34, c.dist * 2.2) : null);
     };
   }
   const tod = TIME_OF_DAY[name];
   const first = Math.round(L.from * FPS), lastFrame = Math.min(SECONDS * FPS - 1, Math.round(L.to * FPS) - 1);
   const begin = Math.max(0, first - WARM);
+  // the story's time at frame f: the plan's, and in the warm-up before the layer the layer's own clock
+  // run back (so after a cut that skips ahead, the warm-up leads into the new moment, not the old one)
+  const realOf = f => f >= first ? realAt(f / FPS) : realAt(first / FPS) - (first - f) / FPS;
   // the restored farm's wildlife lives from its first layer's start, so each finds it where the last left it
   if (simulate) {
     const from = L.game === 'restored' ? Math.max(0, Math.round(LAYERS.find(l => l.game === 'restored').from * FPS) - WARM) : begin;
     for (let f = from; f < begin; f++) simulate(rateAt(f / FPS) / FPS);
   }
-  stage(begin); camera(begin);
+  stage(begin, realOf(begin)); camera(begin);
   settle(r, g);
   let clock = 1e6;
   // One frame staged and drawn. Frames must come in order. Frames before `first` (the warm-up) and
@@ -267,7 +289,7 @@ async function filmLayer(name) {
     for (; at <= f; at++) {
       const t = at / FPS, rate = rateAt(t);
       if (at > begin && simulate) simulate(rate / FPS);
-      stage(at); tilt(r, ground); camera(at);
+      stage(at, realOf(at)); tilt(r, ground); camera(at);
       r.todClock = lerp(tod[0], tod[1], Math.max(0, (t - L.from) / (L.to - L.from))) * DAY_CYCLE;
       clock += 1000 / FPS * rate; r.diagnosticTime = clock;
       const dt = at > begin ? rate / FPS : 0;

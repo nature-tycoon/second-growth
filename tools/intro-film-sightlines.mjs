@@ -29,7 +29,7 @@ const CAM = { speed: 15, turn: 40 }; // m/s, °/s (motion check limits)
 // ------------------------------------------------------------------ the samples to test
 const samples = [];
 for (const shot of SHOTS) {
-  if (!shot.camera || shot.camera.map || !shot.subjects) continue;
+  if (!shot.camera || shot.camera.map || shot.camera.sweep || shot.camera.of != null || !shot.subjects) continue; // (the sweep frames the farm, and its second half is the restored one)
   for (let t = shot.from; t <= shot.to + 1e-6; t += STEP) {
     const cam = cameraAt(shot, t), real = realAt(t);
     for (const name of shot.subjects) { const p = partsOf(name, real); samples.push({ shot: shot.n, t: +t.toFixed(2), name, cam, head: p.head, body: p.body, pose: p.pose }); }
@@ -120,7 +120,7 @@ for (const shot of SHOTS) {
     if (r.inFrame < (key ? .9 : .5)) fail(`shot ${shot.n} ${shot.title}: ${name} in frame ${Math.round(r.inFrame * 100)}%`);
   }
   // the camera: clear of trunks, its speed and pan (eye-level shots)
-  if (shot.camera && !shot.camera.map) {
+  if (shot.camera && !shot.camera.map && !shot.camera.sweep && shot.camera.of == null) { // (a sweep is judged by the motion check, against its distance)
     const cams = [];
     for (let t = shot.from; t <= shot.to + 1e-6; t += 1 / 30) cams.push(cameraAt(shot, t));
     let speed = 0, turn = 0;

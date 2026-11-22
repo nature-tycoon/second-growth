@@ -16,10 +16,15 @@ SHOTS.forEach((s, i) => {
   if (!s.camera) return;
   const c = s.camera, next = SHOTS[i + 1];
   const nextIn = next ? next.from + (next.fadeIn || 0) : SECONDS; // (a layer runs on until the next has faded in)
-  const base = { game: s.farm, shot: s.n, title: s.title, subjects: s.subjects || [] };
+  // (a sweep frames the farm, not an animal: its animals are cast and checked, none is its key subject)
+  const swept = !!(c.sweep || c.of != null && SHOTS.find(x => x.n === c.of)?.camera.sweep);
+  const base = { game: s.farm, shot: s.n, title: s.title, subjects: swept ? [] : s.subjects || [] };
   if (c.rise) LAYERS.push({ ...base, subjects: [], name: c.rise.layer, from: s.from, to: c.rise.until, fade: s.fadeIn || 0, cameraOf: c.rise.of }); // (the rise frames the farm, not the elk)
   const from = c.glide?.from ?? s.from;
-  LAYERS.push({ ...base, name: s.layer, from, to: +Math.min(SECONDS, Math.max(s.to, nextIn)).toFixed(3), fade: c.glide ? c.glide.fade : s.fadeIn || 0, fromBlack: s.n === 1 });
+  const of = c.of != null ? SHOTS.find(x => x.n === c.of) : null;
+  // (sweep: the camera's speed is judged against its distance from what it looks at: intro-film-motion.mjs)
+  LAYERS.push({ ...base, name: s.layer, from, to: +Math.min(SECONDS, Math.max(s.to, nextIn)).toFixed(3), fade: c.glide ? c.glide.fade : s.fadeIn || 0, fromBlack: s.n === 1,
+    ...(of ? { cameraOf: of.n } : {}), sweep: !!(c.sweep || of?.camera.sweep) });
 });
 // time of day through each layer (scene.js TOD: 0 dawn, .07 early morning sun, .45 the game's start):
 // today's farm in the morning haze (the "mist", f2.md 4), 30 years on a little later, the last shot

@@ -215,9 +215,18 @@ function drawCamera(s, k) {
     else label(c.map.to.x + 1.5 * k, c.map.to.y - .8 * k, `${s.n}: holds on the start view`, CAM, 'start', .9);
     return;
   }
+  if (c.of != null) return; // (the same camera as another shot, on the other farm)
+  if (c.sweep) {
+    // one sweep up and back to the start view: its path on the ground, start to end
+    const pts = []; for (let k2 = 0; k2 <= 24; k2++) { const q = cameraAt(s, s.from + (c.sweep.until - s.from) * k2 / 24); pts.push(q.pos[0].toFixed(2) + ',' + q.pos[1].toFixed(2)); }
+    el('polyline', { points: pts.join(' '), fill: 'none', stroke: CAM, 'stroke-width': .3 * k, 'stroke-dasharray': `${k} ${.6 * k}` });
+    label(c.pos[0] + 1.5 * k, c.pos[1], `${s.n}: sweeps up and back to the start view`, CAM, 'start', .9);
+    cone(cameraAt(s, s.from + .05), k, s, false);
+  } else {
   const mid = cameraAt(s, (s.from + s.to) / 2);
   if (c.look.follow) { cone(cameraAt(s, s.from + .05), k, s, true); cone(cameraAt(s, s.to - .05), k, s, true); }
   else cone(mid, k, s, false);
+  }
   if (c.to) el('line', { x1: c.pos[0], y1: c.pos[1], x2: c.to[0], y2: c.to[1], stroke: CAM, 'stroke-width': .3 * k, 'marker-end': '' });
   el('circle', { cx: c.pos[0], cy: c.pos[1], r: 1.1 * k, fill: CAM, stroke: '#08131c', 'stroke-width': .15 * k });
   const t = el('text', { x: c.pos[0], y: c.pos[1] + .48 * k, 'font-size': 1.4 * k, 'text-anchor': 'middle', fill: '#08131c', stroke: 'none', 'font-weight': 700 }); t.textContent = s.n;

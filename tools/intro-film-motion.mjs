@@ -25,6 +25,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { LAYERS, FPS, SUBJECTS, PREDATOR, SLOWMO } from './intro-film-shots.mjs';
+import { realAt } from './intro-film-plan.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const arg = name => process.argv.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -66,7 +67,11 @@ const L = {
   mapPan: .35,           // 5: map view: at most 0.35 of the screen's width a second
   nearCover: .05,        // 6: plants within 5 m of the lens cover at most 5% of the frame (more reads as filming through a bush)
   foreCover: .2,         // 6: plants in front of the key animal (nearer than 12 m short of it) at most 20%: a natural frame of foreground, not a screen
-  lensOn: .9,            // 6: the tracking lens fully on the key animal (focus.uFocusAmt) in every forest shot
+  lensOn: .9,
+  sweepSpeed: 1,         // 5: a sweep up and back (to the start view): moves at most its own distance from what it looks at each second (the land slides by at a steady rate however high it is)
+  sweepAccel: 1.5,       // 5: ...its acceleration at most 1.5 of that distance a second, a second
+  sweepJerk: 8,          // 5: ...and no lurches
+  bodyGap: .1,           // 4: predator and prey never touch: the gap between their bodies (centres apart less half of each one's length) stays over 0.1 tiles (0.8 m)            // 6: the tracking lens fully on the key animal (focus.uFocusAmt) in every forest shot
 };
 
 // ------------------------------------------------------------------ probing (headless Chrome)
@@ -101,7 +106,7 @@ else {
 const rate = t => SLOWMO.find(([a, b]) => t >= a && t < b)?.[2] ?? 1; // film seconds per real second in slow motion
 // real seconds at film time t (speeds are judged on the story's clock; a difference straddling the slow
 // motion's edge is measured over the real time it spans, not scaled by one end's rate)
-const realT = t => { let r = t; for (const [a, b, k] of SLOWMO) r -= Math.max(0, Math.min(t, b) - a) * (1 - k); return r; };
+const realT = realAt; // (the plan's: the slow motion, and cuts where the story skips ahead)
 const deg = r => r * 180 / Math.PI;
 const rows = [], details = [];
 const row = (check, shot, what, value, limit, pass, worst = null) => {
@@ -243,6 +248,15 @@ for (const layer of LAYERS) {
       if (along > ahead.v) ahead = { v: along, t: f.t };
       if (along > L.ahead) aheadFrames++;
     }
+    // never touching: the gap between the two bodies along the ground
+    let gap = { v: Infinity, t: null };
+    for (const f of inShot) {
+      const d = f.animals[P.prey], c = f.animals[P.name];
+      if (f.t < P.attacks || !d.drawn || !c.drawn) continue;
+      const g = Math.hypot(c.x - d.x, c.z - d.z) - (c.len + d.len) / 2;
+      if (g < gap.v) gap = { v: g, t: f.t };
+    }
+    if (gap.t != null) row('4 chase', shot, 'gap between their bodies', `${gap.v.toFixed(2)} tiles`, `>${L.bodyGap}`, gap.v > L.bodyGap, `closest at ${sec(gap.t)}`);
     if (n) row('4 chase', shot, `${P.name} ahead of ${P.prey}`, `${ahead.v.toFixed(2)} tiles${aheadFrames ? ` (${(aheadFrames / n * 100).toFixed(0)}%)` : ''}`, `≤${L.ahead}`, ahead.v <= L.ahead, `most at ${sec(ahead.t)}`);
   }
 
@@ -274,7 +288,15 @@ for (const layer of LAYERS) {
   const turn = ang.slice(1).map((a, i) => { let dy = a[0] - ang[i][0]; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); return [deg(dy) / dt * Math.cos(a[1]), deg(a[1] - ang[i][1]) / dt]; });
   const tAcc = diff(turn, 1), tJerk = diff(tAcc, 1);
   const roll = maxOf(C.map(c => [deg(c.roll)]), v => Math.abs(v[0]), 0);
-  if (eye) {
+  if (eye && layer.sweep) {
+    // a sweep: speeds against the camera's distance from what it looks at
+    const dist = C.map(c => Math.hypot(c.pos[0] - c.look[0], c.pos[1] - c.look[1], c.pos[2] - c.look[2]));
+    const rel = (arr, off) => arr.reduce((b, v, i) => { const x = mag(v) / Math.max(.05, dist[i + off]); return x > b.v ? { v: x, t: frames[i + off].t } : b; }, { v: 0, t: null });
+    const sp = rel(vel, 1), ac = rel(acc, 2), je = rel(jerk, 3);
+    row('5 camera', shot, 'sweep speed (its distances/s)', sp.v.toFixed(2), `≤${L.sweepSpeed}`, sp.v <= L.sweepSpeed, `at ${sp.t != null ? sec(sp.t) : '-'}`);
+    row('5 camera', shot, 'sweep acceleration (/s²)', ac.v.toFixed(2), `≤${L.sweepAccel}`, ac.v <= L.sweepAccel, `at ${ac.t != null ? sec(ac.t) : '-'}`);
+    row('5 camera', shot, 'sweep jerk (/s³)', je.v.toFixed(2), `≤${L.sweepJerk}`, je.v <= L.sweepJerk, `at ${je.t != null ? sec(je.t) : '-'}`);
+  } else if (eye) {
     const sp = maxOf(vel, v => mag(v) * TILE_M, 1), ac = maxOf(acc, v => mag(v) * TILE_M, 2), je = maxOf(jerk, v => mag(v) * TILE_M, 3);
     row('5 camera', shot, 'speed', `${sp.v.toFixed(1)} m/s`, `≤${L.camSpeed}`, sp.v <= L.camSpeed, `at ${sp.t != null ? sec(sp.t) : '-'}`);
     row('5 camera', shot, 'acceleration', `${ac.v.toFixed(1)} m/s²`, `≤${L.camAccel}`, ac.v <= L.camAccel, `at ${ac.t != null ? sec(ac.t) : '-'}`);
