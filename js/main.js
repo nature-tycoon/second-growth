@@ -207,9 +207,13 @@ async function boot() {
         // (page start to the first drawn frame, and each loading step's start, in ms)
         track('game_loaded', { load_ms: loadSteps.Ready, steps: loadSteps, map: game.map, quality: settings.quality, gpu: renderer.gpuName() });
         requestAnimationFrame(() => {
-          loading.classList.add('done');
-          loading.addEventListener('transitionend', () => loading.remove(), { once: true });
+          // (a first visit's film not playing yet: the loading screen stays up until it starts or is
+          // dropped, so the farm never shows for a moment before the film covers it)
           intro?.gameReady();
+          (intro ? intro.decided : Promise.resolve()).then(() => {
+            loading.classList.add('done');
+            loading.addEventListener('transitionend', () => loading.remove(), { once: true });
+          });
         });
       } catch (error) {
         showLoadError(error);

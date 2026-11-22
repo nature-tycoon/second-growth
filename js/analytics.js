@@ -103,7 +103,7 @@ export function reportLoadingLeft() {
 //   timelapse_offered { map }   the "Watch 10 years" offer after a first visit's first planting (ui/timelapse.js)
 //   timelapse_started { map, from: 'offer'|'menu', first_visit, year }, timelapse_watched { map, seconds, years, ended, from }
 //   watch_mode { map, from: 'follow_deer'|'timelapse' }   "Follow a deer" in the opening (ui/opening.js), or the time-lapse
-//   intro_started { first, muted }, intro_skipped { second, first }, intro_finished { first }   the intro film (ui/intro.js; first: a first visit's, else a replay)
+//   intro_started { first, muted, size, played, downsized }, intro_skipped { second, first }, intro_finished { first }   the intro film (ui/intro.js; first: a first visit's, else a replay)
 //   intro_replay { from: 'start'|'menu', map }   "Watch intro" from the start menu or the menu
 //   goal_tracker_opened { map, next }   free play's goal tracker opened (ui.js renderGoalTracker; on PNW the chain toward the cougar)
 //   species_lost now skips migrants away for their season and carries cause: 'natural'|'habitat'|'prey' (session 10)

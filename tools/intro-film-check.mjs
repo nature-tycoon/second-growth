@@ -54,6 +54,17 @@ for (const f of game1080) assert.ok(film.outputs.find(o => o.id === 'site').file
 const introJs = await readFile(root + 'js/ui/intro.js', 'utf8');
 assert.ok(introJs.includes(`'assets/intro/intro-film-1080'`) && introJs.includes(`'assets/intro/intro-film'`), 'js/ui/intro.js plays the files this check holds');
 await readFile(root + film.lastFrame.image);
+// The title drop (TITLE_IN/OUT in js/ui/intro.js) sits on the cut: it comes in once the camera starts to
+// rise and is gone (its 0.8 s fade included) a second before the last shot, which hands over to the farm.
+{
+  const num = name => Number(introJs.match(new RegExp(`${name} = ([\\d.]+)`))?.[1]);
+  const [tIn, tOut] = [num('TITLE_IN'), num('TITLE_OUT')];
+  const layer = name => film.layers.find(l => l.name === name);
+  assert.ok(layer('rise') && layer('start'), 'the film has its rise and start layers (the title drop is timed by them)');
+  assert.ok(tIn >= layer('rise').from && tIn < layer('rise').to, `the title comes in during the rise (${tIn} s, rise ${layer('rise').from}-${layer('rise').to} s)`);
+  assert.ok(tOut - tIn >= 3, `the title holds a few seconds (${(tOut - tIn).toFixed(1)} s)`);
+  assert.ok(tOut + 0.8 <= layer('start').from - 1, `the title is gone a second before the last shot (out ${tOut} s + fade, last shot ${layer('start').from} s)`);
+}
 console.log(`intro film: ends on the PNW start view (${cam.x.toFixed(2)}, ${cam.y.toFixed(2)}, zoom ${cam.zoom}, time ${cam.timeOfDay}); ${film.outputs.flatMap(o => o.files).map(f => `${f.game ? 'game ' : ''}${f.file.split('/').pop()} ${(f.bytes / 1e6).toFixed(2)} MB`).join(', ')}`);
 
 if (process.argv.includes('--live')) {

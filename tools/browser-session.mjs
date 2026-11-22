@@ -34,7 +34,7 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   const origin = `http://127.0.0.1:${server.address().port}`;
   let profile, chrome, socket, closing, sequence = 0;
-  const pending = new Map(), errors = [];
+  const pending = new Map(), errors = [], listeners = [];
   const signals = { SIGINT: () => { void close().finally(() => process.exit(130)); }, SIGTERM: () => { void close().finally(() => process.exit(143)); } };
   function close() { return closing ||= cleanup(); }
   async function cleanup() {
@@ -69,6 +69,7 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
     await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject; });
     socket.onmessage = ({ data }) => {
       const message = JSON.parse(data), request = pending.get(message.id);
+      if (message.method) for (const l of listeners) l(message);
       if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text);
       if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') errors.push(message.params.args.map(a => a.value || a.description || '').join(' '));
       if (message.method === 'Log.entryAdded' && message.params.entry.level === 'error') errors.push(message.params.entry.text);
@@ -102,6 +103,7 @@ export async function openBrowser({ label = 'release', root = projectRoot, softw
     // setting localStorage, twice ran in the blank page still there and was denied. So it waits for it)
     await waitFor(`location.origin === ${JSON.stringify(origin)}`, 'the first page loads', 15000);
     return { origin, sessionId, send, evaluate, waitFor, errors, close,
+      on: fn => listeners.push(fn), // (every protocol event, e.g. Network.* once enabled)
       // (Page.navigate returns once loading starts: on a slow machine the next evaluate still ran in
       // the old document, the logo, and a page's getElementById came back null. So it waits until a
       // new document has replaced the one it marked)

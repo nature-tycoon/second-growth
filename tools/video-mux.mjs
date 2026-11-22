@@ -40,14 +40,30 @@ export function muxMp4({ width, height, fps, description, chunks, audio = null }
   const timescale = fps * 1000, delta = 1000, n = chunks.length;
   const durationMs = Math.round(n * 1000 / fps);
   const videoBytes = chunks.reduce((s, c) => s + c.data.length, 0);
-  // (one chunk per track: the video's samples, then the audio's, in one mdat)
-  const sampleTable = (entry, count, delta, sizes, offset, keys) => box('stbl',
+  // With sound, the mdat holds a second of video, then that second's sound, and so on (interleaved):
+  // a browser needs both tracks' first samples before it can start, and with all the sound after all
+  // the video it downloaded ~95% of the film first (film-playback.md). Without sound, one chunk.
+  // chunks: { count (samples), offset (from the mdat's first byte) } per chunk, in file order.
+  const vChunks = [], aChunks = [], order = [];
+  if (audio) {
+    const seconds = Math.ceil(n / fps);
+    const aOf = k => Math.min(seconds - 1, Math.floor(k * audio.frame / audio.sampleRate));
+    let at = 0;
+    for (let s = 0; s < seconds; s++) {
+      const v = chunks.slice(s * fps, (s + 1) * fps), a = audio.chunks.filter((_, k) => aOf(k) === s);
+      vChunks.push({ count: v.length, offset: at }); at += v.reduce((t, c) => t + c.data.length, 0); order.push(...v);
+      if (a.length) { aChunks.push({ count: a.length, offset: at }); at += a.reduce((t, c) => t + c.data.length, 0); order.push(...a); }
+    }
+  } else { vChunks.push({ count: n, offset: 0 }); order.push(...chunks); }
+  // (stsc: runs of chunks with the same number of samples)
+  const stsc = list => { const runs = []; list.forEach((c, i) => { if (!runs.length || runs[runs.length - 1][1] !== c.count) runs.push([i + 1, c.count]); }); return runs; };
+  const sampleTable = (entry, count, delta, sizes, mdatOffset, list, keys) => box('stbl',
     fullBox('stsd', 0, 0, u32(1), entry),
     fullBox('stts', 0, 0, u32(1), u32(count), u32(delta)),
     ...(keys ? [fullBox('stss', 0, 0, u32(keys.length), ...keys.map(u32))] : []),
-    fullBox('stsc', 0, 0, u32(1), u32(1), u32(count), u32(1)),
+    fullBox('stsc', 0, 0, u32(stsc(list).length), ...stsc(list).flatMap(([first, per]) => [u32(first), u32(per), u32(1)])),
     fullBox('stsz', 0, 0, u32(0), u32(count), ...sizes.map(u32)),
-    fullBox('stco', 0, 0, u32(1), u32(offset)));
+    fullBox('stco', 0, 0, u32(list.length), ...list.map(c => u32(mdatOffset + c.offset))));
   const audioTrak = mdatOffset => {
     const a = audio, count = a.chunks.length, ms = Math.round(count * a.frame * 1000 / a.sampleRate);
     const esds = fullBox('esds', 0, 0, descriptor(3, u16(2), u8(0),
@@ -62,7 +78,7 @@ export function muxMp4({ width, height, fps, description, chunks, audio = null }
         box('minf',
           fullBox('smhd', 0, 0, u16(0), u16(0)),
           box('dinf', fullBox('dref', 0, 0, u32(1), fullBox('url ', 0, 1))),
-          sampleTable(entry, count, a.frame, a.chunks.map(c => c.data.length), mdatOffset + videoBytes))));
+          sampleTable(entry, count, a.frame, a.chunks.map(c => c.data.length), mdatOffset, aChunks))));
   };
   const moov = mdatOffset => box('moov',
     fullBox('mvhd', 0, 0, u32(0), u32(0), u32(1000), u32(durationMs), u32(0x10000), u16(0x100), new Uint8Array(10), MATRIX, new Uint8Array(24), u32(audio ? 3 : 2)),
@@ -78,13 +94,13 @@ export function muxMp4({ width, height, fps, description, chunks, audio = null }
               new Uint8Array(6), u16(1), new Uint8Array(16), u16(width), u16(height),
               u32(0x480000), u32(0x480000), u32(0), u16(1), new Uint8Array(32), u16(0x18), u16(0xffff),
               box('avcC', description)),
-            n, delta, chunks.map(c => c.data.length), mdatOffset, chunks.flatMap((c, i) => c.key ? [i + 1] : []))))),
+            n, delta, chunks.map(c => c.data.length), mdatOffset, vChunks, chunks.flatMap((c, i) => c.key ? [i + 1] : []))))),
     ...(audio ? [audioTrak(mdatOffset)] : []));
   // moov goes before mdat (fast start: a browser can play before the whole file arrives)
   const ftyp = box('ftyp', ascii('isom'), u32(0x200), ascii('isomiso2avc1mp41'));
   const audioBytes = audio ? audio.chunks.reduce((s, c) => s + c.data.length, 0) : 0;
   const offset = ftyp.length + moov(0).length + 8;
-  return concat([ftyp, moov(offset), u32(videoBytes + audioBytes + 8), ascii('mdat'), ...chunks.map(c => c.data), ...(audio ? audio.chunks.map(c => c.data) : [])]);
+  return concat([ftyp, moov(offset), u32(videoBytes + audioBytes + 8), ascii('mdat'), ...order.map(c => c.data)]);
 }
 
 // ------------------------------------------------------------------ WebM
