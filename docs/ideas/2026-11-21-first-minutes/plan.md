@@ -288,7 +288,7 @@ Sessions run one at a time in this checkout. "Step" is the step number above.
 | 6 | Old forest edge | 4 (edge forest) | default | M | [x] 2f356de |
 | 7 | Smooth first 10 s, faster weak-laptop loading | 2 (frames, loading) | default | M–L | [x] 3b1ae0a |
 | 8 | Film the intro | 7 | default | L | [x] c640675 |
-| 9 | Play the intro, trimmed menu, upright phones, itch embed | 8, 9 (embed), 11 | default | M | [ ] |
+| 9 | Play the intro, trimmed menu, upright phones, itch embed | 8, 9 (embed), 11 | default | M | [x] 58b4866 |
 | 10 | Minutes 5–15 | 10 | default | M | [ ] |
 
 Order: cheap and core hooks first; the frame-rate session after the start view's new animals and
