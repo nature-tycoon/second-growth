@@ -13,7 +13,8 @@
 //               look point
 //   6 cover     plants filling the frame (Cole's rough-cut note: plants hid the doe in the first shot):
 //               the share of the frame covered by plants within 5 m of the lens, and in front of the
-//               key animal; and the game's tracking lens on it in every forest shot
+//               key animal; the game's tracking lens on it in every forest shot; and no sky painted
+//               over the land
 // Prints a short table and exits non-zero when anything fails.
 // (Not named *-check.mjs: those join the headless CI suite, and this needs a GPU browser and fails on
 // the first cut by design. Once a re-staged film passes, it can join the browser suite.)
@@ -68,6 +69,7 @@ const L = {
   nearCover: .05,        // 6: plants within 5 m of the lens cover at most 5% of the frame (more reads as filming through a bush)
   foreCover: .2,         // 6: plants in front of the key animal (nearer than 12 m short of it) at most 20%: a natural frame of foreground, not a screen
   lensOn: .9,
+  skyOverLand: .01,      // 6: the eye's sky dome paints over land in at most 1% of the frame (its haze over the land read as a white wash: Cole, rough cut)
   sweepSpeed: 1,         // 5: a sweep up and back (to the start view): moves at most its own distance from what it looks at each second (the land slides by at a steady rate however high it is)
   sweepAccel: 1.5,       // 5: ...its acceleration at most 1.5 of that distance a second, a second
   sweepJerk: 8,          // 5: ...and no lurches
@@ -264,6 +266,8 @@ for (const layer of LAYERS) {
   if (frames[0].eye && frames.some(f => f.nearCover != null)) {
     const maxOf6 = k => frames.reduce((b, f) => f[k] != null && f[k] > b.v ? { v: f[k], t: f.t } : b, { v: 0, t: null });
     const nc = maxOf6('nearCover');
+    const so = maxOf6('skyOverLand');
+    row('6 cover', shot, 'sky painted over land', `${(so.v * 100).toFixed(1)}%`, `≤${L.skyOverLand * 100}%`, so.v <= L.skyOverLand, `at ${so.t != null ? sec(so.t) : '-'}`);
     row('6 cover', shot, 'plants within 5 m of the lens', `${(nc.v * 100).toFixed(1)}%`, `≤${L.nearCover * 100}%`, nc.v <= L.nearCover, `at ${nc.t != null ? sec(nc.t) : '-'}`);
     if (frames.some(f => f.foreCover != null)) {
       const fc = maxOf6('foreCover');

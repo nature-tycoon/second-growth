@@ -251,7 +251,12 @@ async function filmLayer(name) {
     endView = { target: [t.x, t.z, t.y], dir: [t.x - p.x, t.z - p.z, t.y - p.y], height: (c.top - c.bottom) / c.zoom };
     shadowAtTop = Math.max(c.right - c.left, c.top - c.bottom) / 2 / c.zoom * 1.35 + 3; // (as updateCamera fits it)
     const sky = r.updateSky.bind(r);
-    r.updateSky = (dt, game) => { sky(dt, game); const k = Math.max(1, (r.filmSweep?.dist || 0) / 8); r.scene.fog.near *= k; r.scene.fog.far *= k; };
+    r.updateSky = (dt, game) => {
+      sky(dt, game); const k = Math.max(1, (r.filmSweep?.dist || 0) / 8); r.scene.fog.near *= k; r.scene.fog.far *= k;
+      // (the sky dome too: sized for an eye on the ground, it painted haze over all the land beyond it,
+      // most of the frame on the way up: Cole, rough cut. It grows to just inside the far plane.)
+      const dome = r.eyeSky.dome; dome.scale.setScalar(Math.max(1, r.eye.camera.far * .97 / dome.geometry.parameters.radius));
+    };
     const eye = r.updateEye.bind(r);
     r.updateEye = (dt, game) => { eye(dt, game); const v = r.filmSweep; if (v && r.eyeOn) { r.target.set(v.look.x, v.look.y, v.look.z); r.fitShadow(lerp(13, shadowAtTop, v.w)); } };
   }

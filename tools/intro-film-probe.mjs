@@ -102,10 +102,15 @@ export function blocker(o, p, ob, ground) {
 export const NEAR_COVER = .6; // tiles: about 5 m
 export function nearCover(r, render, near = NEAR_COVER) {
   const F = r.flora, mats = new Set([F.foliage, F.shrubs, F.grass, F.tallGrass, F.small, F.canopyCrown].filter(Boolean));
-  const W = 160, H = 90, rt = nearCover.rt ||= new THREE.WebGLRenderTarget(W, H), px = nearCover.px ||= new Uint8Array(W * H * 4);
-  const cam = r.eye.camera.clone(); cam.near = Math.min(cam.near, .01); cam.far = near; cam.aspect = r.eye.camera.aspect; cam.updateProjectionMatrix();
+  return coverage(r, render, o => mats.has(o.material), near);
+}
+// The share of an eye-level frame covered by the objects `keep` picks, drawn alone (their own
+// materials) out to `far`, into a small target.
+function coverage(r, render, keep, far) {
+  const W = 160, H = 90, rt = coverage.rt ||= new THREE.WebGLRenderTarget(W, H), px = coverage.px ||= new Uint8Array(W * H * 4);
+  const cam = r.eye.camera.clone(); cam.near = Math.min(cam.near, .01); cam.far = far; cam.aspect = r.eye.camera.aspect; cam.updateProjectionMatrix();
   const hidden = [], bg = r.scene.background, fog = r.scene.fog, gl = r.gl;
-  r.scene.traverse(o => { if ((o.isMesh || o.isPoints || o.isLine || o.isSprite) && o.visible && !mats.has(o.material)) { o.visible = false; hidden.push(o); } });
+  r.scene.traverse(o => { if ((o.isMesh || o.isPoints || o.isLine || o.isSprite) && o.visible && !keep(o)) { o.visible = false; hidden.push(o); } });
   r.scene.background = null; r.scene.fog = null;
   const target = gl.getRenderTarget(), clear = gl.getClearAlpha(), auto = gl.shadowMap.autoUpdate, need = gl.shadowMap.needsUpdate;
   gl.shadowMap.autoUpdate = false; gl.shadowMap.needsUpdate = false;
@@ -116,6 +121,14 @@ export function nearCover(r, render, near = NEAR_COVER) {
   r.scene.background = bg; r.scene.fog = fog;
   let n = 0; for (let i = 3; i < px.length; i += 4) if (px[i] > 0) n++;
   return +(n / (W * H)).toFixed(4);
+}
+// The share of an eye-level frame where the eye's sky dome (eye-sky.js, drawn last round the eye)
+// paints over land: the land drawn alone to the camera's far plane, less the land within the dome.
+// (Cole, rough cut: a white background engulfed the sweep: the land beyond the dome was hazed over.)
+export function skyOverLand(r, render) {
+  const dome = r.eyeSky?.dome; if (!dome?.visible) return 0;
+  const land = o => o === r.terrain.mesh, R = dome.geometry.parameters.radius * dome.scale.x;
+  return +Math.max(0, coverage(r, render, land, r.eye.camera.far) - coverage(r, render, land, R)).toFixed(4);
 }
 
 export function makeProbe(r, g, cast, box, render = null, { key = null, keep = 1.5 } = {}) {
@@ -173,6 +186,7 @@ export function makeProbe(r, g, cast, box, render = null, { key = null, keep = 1
     // than `keep` short of it: the foreground, which hid the doe in the first shot)
     if (r.eyeOn && render) {
       rec.nearCover = nearCover(r, render);
+      rec.skyOverLand = skyOverLand(r, render);
       rec.lens = { on: +focus.uFocusAmt.value.toFixed(3), id: r.eyeAgent?.id ?? null }; // (the game's tracking lens, decision 0040)
       const a = key && rec.animals[key], o = rec.cam.pos;
       if (a) { const d = Math.hypot(a.x - o[0], a.z - o[2]) - keep; rec.foreCover = d > NEAR_COVER ? nearCover(r, render, d) : rec.nearCover; }
