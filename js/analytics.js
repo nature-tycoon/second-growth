@@ -102,8 +102,9 @@ export function reportLoadingLeft() {
 //   timelapse_offered { map }   the "Watch 10 years" offer after a first visit's first planting (ui/timelapse.js)
 //   timelapse_started { map, from: 'offer'|'menu', first_visit, year }, timelapse_watched { map, seconds, years, ended, from }
 //   watch_mode { map, from: 'follow_deer'|'timelapse' }   "Follow a deer" in the opening (ui/opening.js), or the time-lapse
-// Names reserved for later sessions, so they stay consistent (all carry the usual super properties):
-//   intro_started, intro_skipped { second }, intro_finished
+//   intro_started { first, muted }, intro_skipped { second, first }, intro_finished { first }   the intro film (ui/intro.js; first: a first visit's, else a replay)
+//   intro_replay { from: 'start'|'menu', map }   "Watch intro" from the start menu or the menu
+// (Names reserved for later sessions go here, so they stay consistent.)
 // trackOnce sends an event the first time per page load only.
 const sentOnce = new Set();
 export function trackOnce(event, props = {}) {

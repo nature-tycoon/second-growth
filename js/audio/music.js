@@ -135,7 +135,9 @@ export class Music {
     if (delay) setTimeout(play, delay * 1000); else play();
     for (const fn of this.listeners) fn(track);
   }
-  wantMusic() { return this.musicOn && !this.muted && !document.hidden; }
+  wantMusic() { return this.musicOn && !this.muted && !this.held && !document.hidden; }
+  // Hushed while the intro film plays over the game (ui/intro.js), whatever the settings.
+  hold(on) { this.held = !!on; this.applyVolumes(); this.syncPlayback(); }
   // Play or pause to match the settings (music off pauses the stream instead of downloading silence).
   syncPlayback() {
     if (!this.ready || !this.started) return;
@@ -160,8 +162,9 @@ export class Music {
   applyVolumes() {
     if (!this.musicGain || !this.natureGain) return;
     const t = this.ctx.currentTime;
-    this.musicGain.gain.setTargetAtTime(this.muted || !this.musicOn ? 0 : this.musicVol * 0.7, t, 0.3);
-    this.natureGain.gain.setTargetAtTime(this.muted || !this.natureOn ? 0 : this.natureVol, t, 0.3);
+    const off = this.muted || this.held;
+    this.musicGain.gain.setTargetAtTime(off || !this.musicOn ? 0 : this.musicVol * 0.7, t, 0.3);
+    this.natureGain.gain.setTargetAtTime(off || !this.natureOn ? 0 : this.natureVol, t, 0.3);
   }
   // The game tells us about the weather and season so the nature sounds can follow.
   setScene(weather, season) {

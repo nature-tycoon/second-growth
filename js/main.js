@@ -11,6 +11,7 @@ import { initLang } from './i18n.js';
 import { BIOMES } from './biome.js';
 import { sharedFarmAtBoot, startVisit, openError } from './ui/share.js';
 import { reloadIfStale, watchForNewVersion } from './fresh-version.js';
+import { IntroFilm, introWanted } from './ui/intro.js';
 import './lang/es.js'; // the Spanish language pack (only used when a map is played in Spanish)
 
 const loading = document.getElementById('loading-screen');
@@ -75,6 +76,9 @@ async function boot() {
 
     // analytics first, so events from a game started on load (after a map switch) aren't lost
     initAnalytics();
+    // A first visit plays the intro film (after analytics, so intro_started is sent) over the loading screen while the game loads underneath
+    // (ui/intro.js); the farm waits for it and opens at the film's last frame.
+    const intro = !pending && !shared && !Game.hasSave() && introWanted(startMap) ? new IntroFilm({ first: true }) : null;
     const game = new Game();
     game.newGame(1987, 'free', 'standard', startMap, pending?.runSeed ?? Game.randomRunSeed());
     game.speed = 0; // paused until the player chooses Start or Continue
@@ -94,6 +98,7 @@ async function boot() {
     const renderer = new Renderer(document.getElementById('view'), { catalog: game.catalog });
     renderer.gpuName(); // (asked now, while the chip is idle: asked first after the first draw, it waited for that frame to finish, a second on weak graphics)
     const ui = new UI(game, renderer);
+    ui.intro = intro;
     const input = new Input(game, renderer, ui);
     renderer.resetView();
     window.addEventListener('resize', () => {
@@ -128,7 +133,8 @@ async function boot() {
       // backdrop clicks cannot start an unchosen farm or make it save-ready.
       ui.startPause = true;
       document.body.classList.add('choosing-map');
-      ui.openModeChoice(Game.hasSave(startMap));
+      // (this map's farm saved: the short start menu; otherwise the full choice of map and mode)
+      if (Game.hasSave(startMap)) ui.openStartMenu(startMap); else ui.openModeChoice(false);
     }
     ui.afterNewGame();
     watchForNewVersion(game);
@@ -157,7 +163,7 @@ async function boot() {
       steps: [
         ['simulation', dt => { if (!renderer.contextLost) game.update(dt); }],
         ['input', dt => input.update(dt)],
-        ['render', dt => renderer.draw(game, ui.state, dt)],
+        ['render', dt => { if (!ui.intro?.covering) renderer.draw(game, ui.state, dt); }], // (not under the intro film)
         ['interface', dt => ui.frame(dt)],
       ],
       onError(error, phase) {
@@ -203,6 +209,7 @@ async function boot() {
         requestAnimationFrame(() => {
           loading.classList.add('done');
           loading.addEventListener('transitionend', () => loading.remove(), { once: true });
+          intro?.gameReady();
         });
       } catch (error) {
         showLoadError(error);

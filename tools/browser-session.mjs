@@ -7,7 +7,7 @@ import { join, extname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const projectRoot = fileURLToPath(new URL('../', import.meta.url));
-const mime = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.m4a': 'audio/mp4' };
+const mime = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.m4a': 'audio/mp4', '.mp4': 'video/mp4', '.webm': 'video/webm', '.jpg': 'image/jpeg' };
 export const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Every time limit here is set for a fast Mac. CI's runners draw with software graphics and run
 // checks 2-3x slower, and a check that fit with a little to spare locally kept timing out there

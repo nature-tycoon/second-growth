@@ -36,6 +36,7 @@ import { SessionAnalytics } from './session-analytics.js';
 import { Cinematics } from './cinematics.js';
 import { Watch } from './watch.js';
 import { Opening } from './opening.js';
+import { IntroFilm } from './intro.js';
 import { Timelapse } from './timelapse.js';
 import { animalThumb, plantThumb, iconThumb } from './thumbnails.js';
 import { wildlifeDiagnostics } from '../sim/wildlife-diagnostics.js';
@@ -56,6 +57,8 @@ const STORY_OFFERED = 'sg-story-offered'; // (offered once per device, after the
 // announces on its own is held back this long (alarms go to the journal only, good news one at a
 // time), and the Story offer waits for a pause, the menu, or this long without a click or key.
 const PORTRAIT_WARM_DELAY_MS = 30e3; // (see warmPortraits)
+// The one line over the farm when the first visit's intro film gives way to it (ui/intro.js)
+const INTRO_LINE = 'The forest stops at the fence. Bring it back.', INTRO_LINE_MS = 3200;
 const QUIET_MS = 5 * 60e3, QUIET_GAP_MS = 45e3, STORY_IDLE_MS = 25e3;
 const ALARMS = new Set(['warn', 'fire', 'flood', 'bad']);
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -845,6 +848,7 @@ export class UI {
 
   // ------------------------------------------------------------ per-frame
   frame(dt = 0) {
+    if (this.introBegin) { const how = this.introBegin; this.introBegin = null; this.beginPlay(this.game.mode, true, how !== 'failed'); }
     this.watch.frame(dt);
     this.opening.frame();
     this.timelapse.frame();
@@ -1248,6 +1252,7 @@ export class UI {
       <button class="btn secondary" data-a="feedback">Send feedback</button>
       ${newsletterAvailable() ? '<button class="btn secondary" data-a="news">Get updates by email</button>' : ''}
       <button class="btn secondary" data-a="help">How to play</button>
+      <button class="btn secondary" data-a="intro">Watch intro</button>
       <button class="btn secondary" data-a="save">Save game</button>
       <button class="btn secondary" data-a="backups">Restore an earlier save</button>
       ${this.game.mode !== 'campaign' && this.game.catalog.definition.campaign ? `<button class="btn ${this.storyPending ? '' : 'secondary'}" data-a="story">${this.storyPending ? 'Want a guided start? Story mode, on this farm' : 'Story mode (guided chapters)'}</button>` : ''}
@@ -1259,6 +1264,7 @@ export class UI {
       if (offered) { this.closeModal(); this.startStoryHere(); } else this.openModeChoice(true);
     });
     m.querySelector('[data-a=help]').addEventListener('click', () => this.openIntro(false));
+    m.querySelector('[data-a=intro]').addEventListener('click', () => this.watchIntro('menu'));
     m.querySelector('[data-a=overlay]').addEventListener('click', () => this.openOverlayPicker());
     m.querySelector('[data-a=settings]').addEventListener('click', () => this.openSettings());
     m.querySelector('[data-a=journal]').addEventListener('click', () => this.openJournal());
@@ -1367,7 +1373,8 @@ export class UI {
     };
     const nav = Object.entries(TABS).map(([k, [name]]) => `<button data-tab="${k}" class="${k === tab ? 'on' : ''}">${name}</button>`).join('');
     const m = this.modal('Settings', `<div class="settings-wrap"><nav class="settings-nav">${nav}</nav><div class="settings">${TABS[tab][1]}</div></div>`,
-      { foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>' });
+      { foot: '<button class="btn secondary" data-a="reset">Restore defaults</button><button class="btn" data-a="done">Done</button>',
+        onClose: () => { const back = this.afterSettings; this.afterSettings = null; back?.(); } }); // (opened from the start menu: back to it)
     m.classList.add('settings-modal');
     m.querySelectorAll('.set-more').forEach(d => d.addEventListener('toggle', () => { (this.settingsMore ||= {})[d.dataset.more] = d.open; }));
     m.querySelectorAll('.settings-nav [data-tab]').forEach(b => b.addEventListener('click', () => this.openSettings(b.dataset.tab)));
@@ -1524,26 +1531,9 @@ export class UI {
       track('setting_changed', { setting: 'language', value: b.dataset.l, map });
       this.openModeChoice(replacing, map, diff); // redrawn in the new language
     }));
-    m.querySelector('[data-a=resume]').addEventListener('click', async event => {
+    m.querySelector('[data-a=resume]').addEventListener('click', event => {
       event.currentTarget.disabled = true;
-      if (map !== this.game.map || relang()) return this.switchMap({ map, resume: true });
-      const wasStarting = !!this.startPause;
-      this.closeModal(true);
-      const speed = this.game.speed; this.setSpeed(0);
-      if (!await this.game.load(map)) {
-        this.setSpeed(wasStarting ? 0 : speed);
-        if (wasStarting) {
-          this.startPause = true;
-          document.body.classList.add('choosing-map');
-          this.openModeChoice(true, map, diff);
-        }
-        this.game.notify('That saved farm could not be opened. Your stored saves have been kept.', 'warn');
-        return;
-      }
-      void saves.requestPersistence();
-      track('game_start', { mode: 'continue', map });
-      this.afterNewGame();
-      this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
+      void this.continueFarm(map, diff);
     });
     m.querySelectorAll('[data-d]').forEach(b => b.addEventListener('click', () => {
       diff = b.dataset.d;
@@ -1564,6 +1554,56 @@ export class UI {
       await this.startMode(b.dataset.m, replacing, diff, map, undefined, { sandbox });
     }));
   }
+  // Continue a saved farm (the start menu, or the mode choice's "Continue at …").
+  async continueFarm(map, diff) {
+    if (map !== this.game.map || langFor(map) !== lang) return this.switchMap({ map, resume: true });
+    const wasStarting = !!this.startPause;
+    this.closeModal(true);
+    const speed = this.game.speed; this.setSpeed(0);
+    if (!await this.game.load(map)) {
+      this.setSpeed(wasStarting ? 0 : speed);
+      if (wasStarting) {
+        this.startPause = true;
+        document.body.classList.add('choosing-map');
+        this.openModeChoice(true, map, diff);
+      }
+      this.game.notify('That saved farm could not be opened. Your stored saves have been kept.', 'warn');
+      return;
+    }
+    void saves.requestPersistence();
+    track('game_start', { mode: 'continue', map });
+    this.afterNewGame();
+    this.game.notify(`Welcome back. It's ${this.game.dateString()}.`, 'season');
+  }
+
+  // A returning player's start (main.js, when this map has a saved farm): four choices, the rest of
+  // the old mode choice (map, mode, difficulty, sandbox, language) one step in under "New farm".
+  // Like the mode choice it can't be dismissed: Escape or a click outside never starts an unchosen farm.
+  openStartMenu(map = this.game.map) {
+    const b = BIOMES[map], year = Math.floor((saves.summary(map)?.day || 0) / DAYS_PER_YEAR) + 1;
+    const m = this.modal('Welcome back', `<div class="menu-list start-menu">
+      <button class="btn" data-a="resume">Continue at ${b.farm} <span class="small">(year ${year})</span> →</button>
+      <button class="btn secondary" data-a="new">New farm (another place, mode or difficulty)</button>
+      <button class="btn secondary" data-a="intro">Watch intro</button>
+      <button class="btn secondary" data-a="settings">Settings</button></div>`, { narrow: true, dismissible: false });
+    m.classList.add('startup-selector');
+    m.querySelector('[data-a=resume]').addEventListener('click', event => { event.currentTarget.disabled = true; void this.continueFarm(map); });
+    m.querySelector('[data-a=new]').addEventListener('click', () => this.openModeChoice(true, map));
+    m.querySelector('[data-a=intro]').addEventListener('click', () => this.watchIntro('start', () => this.openStartMenu(map)));
+    m.querySelector('[data-a=settings]').addEventListener('click', () => { this.afterSettings = () => this.openStartMenu(map); this.openSettings(); });
+  }
+
+  // "Watch intro" (the start menu, the menu): the film again over the paused farm (ui/intro.js).
+  watchIntro(from, after = null) {
+    if (this.intro && !this.intro.closed) return;
+    $('#modal-root').innerHTML = ''; this.modalOpen = false; // (not closeModal: at the start menu that would start the farm)
+    const g = this.game, speed = g.speed;
+    g.speed = 0; // (not setSpeed: the start menu's pause stays as it was)
+    track('intro_replay', { from, map: g.map });
+    this.intro = new IntroFilm();
+    this.intro.done.then(() => { g.speed = speed; this.refreshTop(true); after?.(); });
+  }
+
   // Another map means a different cast of plants and animals, so the page reloads into it:
   // every cached model, sprite and thumbnail starts clean. main.js picks up where this left off.
   async switchMap(pending) {
@@ -1600,12 +1640,34 @@ export class UI {
     g.saveReady = true;
     void saves.requestPersistence();
     if (g.autosave !== false) void g.save();
+    // A first visit with the intro film playing over it (ui/intro.js) waits, paused at the film's
+    // last view, and begins once the film is over (ui.frame: after loading, so the line is seen).
+    if (firstVisit && this.intro && !this.intro.closed) {
+      this.intro.done.then(how => { this.introBegin = how; });
+      return;
+    }
+    this.beginPlay(mode, firstVisit);
+  }
+  beginPlay(mode, firstVisit, afterIntro = false) {
+    const g = this.game;
+    if (this.quiet) this.quiet.until = performance.now() + QUIET_MS; // (the quiet minutes start now)
     if (g.speed === 0) this.setSpeed(1);
     if (mode === 'campaign') this.openChapter(0);
-    else g.notify(this.game.catalog.definition.startText, 'season');
+    else if (!afterIntro) g.notify(this.game.catalog.definition.startText, 'season');
     // a first visit starts without any panel to read, so say what to try first (kept up a while)
     // (the opening first: open the farm to the wild, then the planting tip: ui/opening.js)
-    if (firstVisit && !this.opening.start()) this.plantingTip();
+    if (!firstVisit) return;
+    // After the film, one line over the farm it ended on, then the opening's glide to the fence.
+    if (afterIntro) { this.introLine(); setTimeout(() => { if (!this.opening.start()) this.plantingTip(); }, INTRO_LINE_MS); }
+    else if (!this.opening.start()) this.plantingTip();
+  }
+  introLine() {
+    const p = document.createElement('p');
+    p.className = 'intro-line'; p.setAttribute('role', 'status');
+    p.textContent = INTRO_LINE;
+    document.body.append(p);
+    setTimeout(() => p.classList.add('out'), INTRO_LINE_MS);
+    setTimeout(() => p.remove(), INTRO_LINE_MS + 1200);
   }
   // A first visit's first planting tip (after the opening, when there is one).
   plantingTip() {

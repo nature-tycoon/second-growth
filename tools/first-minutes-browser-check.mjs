@@ -7,7 +7,7 @@
 // with deer waiting beyond it, one click tears the fence out and they walk onto the field within
 // ~10 s, one button follows one at eye level (session 4), then one click pulls the road culvert,
 // and only then the planting tip. A hawk and a party of crows are in that first picture (session 5). After the first planting, "Watch 10 years" runs the farm at top
-// speed over what was planted and stops on its own, on any key, or when money runs low (session 4). A player with a saved farm still gets the chooser. FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
+// speed over what was planted and stops on its own, on any key, or when money runs low (session 4). A player with a saved farm gets the short start menu (session 9). FIRST_MINUTES_SHOTS=<dir> also saves screenshots of the sown strip.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { openBrowser } from './browser-session.mjs';
@@ -236,15 +236,16 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
     assert.equal(ends.low.speed, 0, 'and pauses so the player can act');
     assert.equal(ends.low.from, 'menu');
 
-    // the same browser again, with this farm saved: the chooser, with Continue
+    // the same browser again, with this farm saved: the start menu (Continue, New farm, Watch intro, Settings; session 9)
     await b.evaluate(`window.secondGrowth.game.save()`);
     await b.navigate('/?ph');
     await b.waitFor(booted, 'Game boot (returning)');
     const back = await b.evaluate(`(()=>({ modal:document.querySelector('.modal-head h2')?.textContent,
       resume:!!document.querySelector('[data-a=resume]'), start:window.events.some(e=>e.event==='game_start') }))()`);
-    assert.equal(back.modal, 'How do you want to play?', 'a returning player gets the chooser');
+    assert.equal(back.modal, 'Welcome back', 'a returning player gets the start menu');
+    assert.equal(await b.evaluate(`!!document.getElementById('intro')`), false, 'and no intro film');
     assert.equal(back.start, false, 'nothing starts before a returning player chooses');
     b.assertHealthy();
-    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, first goal in ${sown.days} day(s) after one stroke, alarms held (${quiet.held}), refusal says where, followed a deer at eye level, watched the time-lapse (ends on its own, on a key, on low money), story offered on ${offer.offered.from} and taken in place, returning player gets the chooser`);
+    console.log(`PASS ${width}x${height}: first visit in Free Play with a tip, first goal in ${sown.days} day(s) after one stroke, alarms held (${quiet.held}), refusal says where, followed a deer at eye level, watched the time-lapse (ends on its own, on a key, on low money), story offered on ${offer.offered.from} and taken in place, returning player gets the start menu`);
   } finally { await b.close(); }
 }
