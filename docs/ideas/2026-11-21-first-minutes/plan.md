@@ -376,8 +376,8 @@ Cole's answers:
 
 | # | Title | Model | Size | Status |
 |---|---|---|---|---|
-| F1 | Film checks and review page | default | M | [ ] |
-| F2 | Shot list and top-down map (Cole approves) | default | S–M | [ ] |
+| F1 | Film checks and review page | default | M | [x] f55a7ef |
+| F2 | Shot list and top-down map (Cole approves) | default | S–M | [x] 680382e, approved by Cole with all six recommendations |
 | F3 | Stage to the shot list, rough cut (Cole reviews) | default | L | [ ] |
 | F4 | Cole's notes, final render, sound with crow and raven | default | M | [ ] |
 
