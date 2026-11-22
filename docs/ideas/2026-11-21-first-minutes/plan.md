@@ -378,7 +378,7 @@ Cole's answers:
 |---|---|---|---|---|
 | F1 | Film checks and review page | default | M | [x] f55a7ef |
 | F2 | Shot list and top-down map (Cole approves) | default | S–M | [x] 680382e, approved by Cole with all six recommendations |
-| F3 | Stage to the shot list, rough cut (Cole reviews) | default | L | [ ] |
-| F4 | Cole's notes, final render, sound with crow and raven | default | M | [ ] |
+| F3 | Stage to the shot list, rough cut (Cole reviews) | default | L | [x] 3c0127d…7ec51f7 (Cole's notes in the session) |
+| F4 | Cole's notes, final render, sound with crow and raven | default | M | [x] 377415b, bb457ae (done in F3) |
 
 After F4: the follow-ups from open.md.
