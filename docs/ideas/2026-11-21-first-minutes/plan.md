@@ -353,3 +353,32 @@ Read 2–3 weeks after the bundle goes live, against the baseline above.
 - Why players skip: https://fredzed.substack.com/p/why-do-players-skip
 - Steam Next Fest playtime: https://howtomarketagame.com/2024/11/04/how-was-the-october-2024-steam-next-fest/
 - Townscaper's design: https://pcgamer.com/townscapers-developer-on-how-its-radically-casual-design-is-inspiring-a-new-wave-of-low-stress-builders-to-adapt-the-blueprint
+
+## Film rework (Cole, 2026-11-21)
+
+Cole watched the s8 film. Issues: the deer's head starts hidden behind a tree; animals run far too
+fast; the deer sinks into the ground; the cougar appears from nowhere, in front of the deer; the
+camera's forest pans move oddly. Cause: the film was staged by hand-tuned coordinates and checked
+only for rendering and the last frame, never for what's on screen.
+
+Cole's answers:
+- Workflow: (1) Cole approves a written shot list with a top-down map; (2) automatic number checks
+  for his five issues run before anyone looks; (3) Cole reviews a low-res rough cut on a review page
+  and leaves timestamped notes; (4) only then the final render. Agents don't watch the video; checks
+  and Cole's notes drive fixes.
+- Story: the documentary stalk. A doe browses in misty old forest; close on her ears; reveal the
+  cougar's eyes low in the ferns (there all along); slow stalk; the doe's head snaps up; a short
+  real-speed burst with ~1.5 s of half-speed slow motion at the missed pounce; she springs over the
+  fence into the open; the cougar pulls up at the last trees and watches; the rise over the bare
+  farm, 30 years on, rewind. Fewer, longer shots, still or slow camera, long lens.
+- Length: about 30 s.
+- Bird calls approved: a crow call and a raven go into the final sound.
+
+| # | Title | Model | Size | Status |
+|---|---|---|---|---|
+| F1 | Film checks and review page | default | M | [ ] |
+| F2 | Shot list and top-down map (Cole approves) | default | S–M | [ ] |
+| F3 | Stage to the shot list, rough cut (Cole reviews) | default | L | [ ] |
+| F4 | Cole's notes, final render, sound with crow and raven | default | M | [ ] |
+
+After F4: the follow-ups from open.md.
