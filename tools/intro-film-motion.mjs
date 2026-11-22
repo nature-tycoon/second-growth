@@ -16,8 +16,8 @@
 //               key animal; the game's tracking lens on it in every forest shot; and no sky painted
 //               over the land
 // Prints a short table and exits non-zero when anything fails.
-// (Not named *-check.mjs: those join the headless CI suite, and this needs a GPU browser and fails on
-// the first cut by design. Once a re-staged film passes, it can join the browser suite.)
+// (Not named *-check.mjs, which would put it in the headless PR suite: it needs a browser. It runs in
+// the browser suite, before each itch.io upload, as tools/intro-film-motion-browser-check.mjs.)
 //
 //   nice -n 15 node tools/intro-film-motion.mjs              probe every layer, then judge
 //   nice -n 15 node tools/intro-film-motion.mjs --layers=chase,falls

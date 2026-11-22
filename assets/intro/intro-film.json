@@ -2,12 +2,12 @@
   "title": "Second Growth: first-visit intro",
   "map": "pnw",
   "seed": 1987,
-  "seconds": 40,
+  "seconds": 31.8,
   "fps": 30,
-  "sourceRevision": "917992e6b3b0e163e6e5d3880e0def35cb23b5e6",
-  "sourceDate": "2026-11-21",
+  "sourceRevision": "7ec51f7794c3773387da079fc78cfad29c4bb873",
+  "sourceDate": "2026-11-22",
   "uncommittedGameChanges": false,
-  "madeAt": "2026-11-21T22:59:01.263Z",
+  "madeAt": "2026-11-22T18:15:18.074Z",
   "madeWith": "node tools/film-intro.mjs (tools/intro-film.mjs, tools/intro-film-shots.mjs)",
   "lastFrame": {
     "image": "assets/intro/intro-film-last.jpg",
@@ -25,58 +25,169 @@
     }
   },
   "beats": {
-    "headUp": 9.2,
-    "bolt": 12,
-    "breakCover": 12.35,
-    "fence": 22.47
+    "headUp": 13.8,
+    "bolt": 14.8,
+    "breakCover": 14.8,
+    "pounce": 15.73,
+    "fence": 19.44
   },
   "layers": [
     {
-      "name": "forest",
       "game": "start",
-      "from": 2.6,
-      "to": 12,
+      "shot": 1,
+      "title": "The opening",
+      "subjects": [
+        "doe",
+        "cougar"
+      ],
+      "name": "opening",
+      "from": 0.8,
+      "to": 4.8,
       "fade": 1,
-      "fromBlack": true
+      "fromBlack": true,
+      "sweep": false
     },
     {
-      "name": "chase",
       "game": "start",
-      "from": 12,
-      "to": 22,
-      "fade": 0
+      "shot": 2,
+      "title": "Her ears",
+      "subjects": [
+        "doe"
+      ],
+      "name": "ears",
+      "from": 4.8,
+      "to": 7.8,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
     },
     {
-      "name": "falls",
       "game": "start",
-      "from": 22,
-      "to": 31,
-      "fade": 0
+      "shot": 3,
+      "title": "The cougar",
+      "subjects": [
+        "cougar"
+      ],
+      "name": "eyes",
+      "from": 7.8,
+      "to": 11.3,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
     },
     {
+      "game": "start",
+      "shot": 4,
+      "title": "The stalk",
+      "subjects": [
+        "cougar",
+        "doe"
+      ],
+      "name": "stalk",
+      "from": 11.3,
+      "to": 13.3,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 5,
+      "title": "Head up",
+      "subjects": [
+        "doe"
+      ],
+      "name": "headup",
+      "from": 13.3,
+      "to": 15.15,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 6,
+      "title": "The burst",
+      "subjects": [
+        "doe",
+        "cougar"
+      ],
+      "name": "burst",
+      "from": 15.15,
+      "to": 18.4,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 7,
+      "title": "Over the fence",
+      "subjects": [
+        "doe",
+        "cougar"
+      ],
+      "name": "fence",
+      "from": 18.4,
+      "to": 21.8,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 8,
+      "title": "It watches",
+      "subjects": [
+        "cougar"
+      ],
+      "name": "watch",
+      "from": 21.8,
+      "to": 23.2,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": false
+    },
+    {
+      "game": "start",
+      "shot": 9,
+      "title": "The rise",
+      "subjects": [],
       "name": "rise",
-      "game": "restored",
-      "from": 30,
-      "to": 34,
-      "fade": 1
+      "from": 23.2,
+      "to": 26.4,
+      "fade": 0,
+      "fromBlack": false,
+      "sweep": true
     },
     {
-      "name": "overview",
       "game": "restored",
-      "from": 33,
-      "to": 38.4,
-      "fade": 1
+      "shot": 10,
+      "title": "30 years on",
+      "subjects": [],
+      "name": "rise30",
+      "from": 25.6,
+      "to": 31.4,
+      "fade": 0.8,
+      "fromBlack": false,
+      "cameraOf": 9,
+      "sweep": true
     },
     {
-      "name": "start",
       "game": "start",
-      "from": 37,
-      "to": 40,
-      "fade": 1.4
+      "shot": 11,
+      "title": "Today",
+      "subjects": [],
+      "name": "start",
+      "from": 30.2,
+      "to": 31.8,
+      "fade": 1.2,
+      "fromBlack": false,
+      "sweep": false
     }
   ],
   "look": "Balanced detail, shadows on, no weather, 1920×1080 at a pixel ratio of 1",
-  "staging": "Start game: the farm as a first visit opens it (seed 1987, run seed 20261121). The deer and cougar are posed and moved along planned lines that thread the old forest's trunks, drawn by the game's own walker drawing (stride, gallop, head, crouch; the deer's leap over the fence is the pounce arc). Restored game: release-fixtures' restored PNW (the fence and culvert gone), September, elk and a deer posed in the meadow and then living by the simulation. Nothing is painted or generated.",
+  "staging": "Staged from the approved shot list (tools/intro-film-plan.mjs): one camera per shot, eased moves and smoothed looks. Start game: the farm as a first visit opens it (seed 1987, run seed 20261121); the doe and the cougar are posed and moved along the plan's paths at real speeds (smooth curves through its marks), pitched to the slope, drawn by the game's own walker drawing (stride, gallop, head, crouch; the doe's fence jump and the cougar's pounce are the pounce arc), with 1.5 s of half-speed slow motion at the pounce. Restored game: release-fixtures' restored PNW (the fence and culvert gone), June, three elk staged in the meadow, the rest of its wildlife living by the simulation. Nothing is painted or generated.",
   "sound": [
     {
       "file": "field-bed-stream-1",
@@ -97,42 +208,35 @@
       "by": "Jonathon Jongsma",
       "license": "CC BY-SA 3.0",
       "source": "https://commons.wikimedia.org/wiki/File:Cyanocitta_stelleri_-_Steller%27s_Jay_-_XC109654.ogg",
-      "at": 1.1
+      "at": 0.3
     },
     {
       "file": "field-pacific-wren-1",
       "by": "Alejandro Erickson",
       "license": "CC BY-SA 3.0",
       "source": "https://commons.wikimedia.org/wiki/File:Troglodytes_pacificus_-_Pacific_Wren_XC120847.ogg",
-      "at": 4.2
-    },
-    {
-      "file": "field-swainsons-thrush-1",
-      "by": "Doug Hynes",
-      "license": "CC BY-SA 4.0",
-      "source": "https://commons.wikimedia.org/wiki/File:Catharus_ustulatus_-_Swainson%27s_Thrush_XC613535.mp3",
-      "at": 7.4
+      "at": 2.6
     },
     {
       "file": "field-meadowlark-1",
       "by": "Jonathon Jongsma",
       "license": "CC BY-SA 3.0",
       "source": "https://commons.wikimedia.org/wiki/File:Sturnella_neglecta_-_Western_Meadowlark_-_XC104522.ogg",
-      "at": 31.5
+      "at": 26
     },
     {
       "file": "field-swainsons-thrush-2",
       "by": "Doug Hynes",
       "license": "CC BY-SA 4.0",
       "source": "https://commons.wikimedia.org/wiki/File:Catharus_ustulatus_-_Swainson%27s_Thrush_XC613535.mp3",
-      "at": 34
+      "at": 27.6
     },
     {
       "file": "field-robin-1",
       "by": "Jonathon Jongsma",
       "license": "CC BY-SA 3.0",
       "source": "https://commons.wikimedia.org/wiki/File:Turdus_migratorius_-_American_Robin_-_XC107523.ogg",
-      "at": 38.3
+      "at": 30
     }
   ],
   "outputs": [
@@ -153,27 +257,27 @@
         {
           "file": "assets/intro/intro-film.mp4",
           "kind": "mp4",
-          "bytes": 4729987,
-          "sha256": "435143bfa094402f9cbfebb710061f0aa7754763b641091957d5d5543077ed26",
+          "bytes": 3770703,
+          "sha256": "4a0a93c4c856973cb78930b825f3fff911d0472b5332927abfd86e29ce04b56e",
           "checked": {
-            "duration": 40.064,
+            "duration": 31.872,
             "width": 1280,
             "height": 720,
-            "soundSeconds": 40.06,
-            "soundRms": 0.0684
+            "soundSeconds": 31.87,
+            "soundRms": 0.0657
           }
         },
         {
           "file": "assets/intro/intro-film.webm",
           "kind": "webm",
-          "bytes": 4265546,
-          "sha256": "14b1d8277982a9ce3f56c9739d24db2385646c8bf6f60df2ca7c219a109914e5",
+          "bytes": 3475563,
+          "sha256": "ef16433fb8b26cdf2430895881a1e541265e77083ed9dadc7b962f78f22a32c0",
           "checked": {
-            "duration": 40,
+            "duration": 31.8,
             "width": 1280,
             "height": 720,
-            "soundSeconds": 40.01,
-            "soundRms": 0.069
+            "soundSeconds": 31.81,
+            "soundRms": 0.0665
           }
         }
       ]
@@ -195,27 +299,27 @@
         {
           "file": "website/review-media/video/intro-film-1080.mp4",
           "kind": "mp4",
-          "bytes": 9395476,
-          "sha256": "decc15859e9b8947faeca4e1e556f55d4fe0c954a27437642964f535747ab375",
+          "bytes": 7529976,
+          "sha256": "f23ffb2a92e81a7dc0d784449570a39763b6b269f079cab924a46b29820825b9",
           "checked": {
-            "duration": 40.064,
+            "duration": 31.872,
             "width": 1920,
             "height": 1080,
-            "soundSeconds": 40.06,
-            "soundRms": 0.0686
+            "soundSeconds": 31.87,
+            "soundRms": 0.0658
           }
         },
         {
           "file": "website/review-media/video/intro-film-1080.webm",
           "kind": "webm",
-          "bytes": 8783355,
-          "sha256": "89a85d61fab1d7d58743afbfbcba1cab68a500795d7dadc8fddaec7f4223208c",
+          "bytes": 7372955,
+          "sha256": "f8119ee3c2a2e05f5d28ad777d48c3a2abc41b2f421e9dcee71ad5056c1d8852",
           "checked": {
-            "duration": 40,
+            "duration": 31.8,
             "width": 1920,
             "height": 1080,
-            "soundSeconds": 40.01,
-            "soundRms": 0.069
+            "soundSeconds": 31.81,
+            "soundRms": 0.0664
           }
         }
       ]

@@ -97,6 +97,8 @@ Backend (`server/`, a Cloudflare Worker: feedback email via Resend, Kit newslett
 
 Website (secondgrowth.earth, `website/`), the loading screen's look, site video and stills, the field guide: read [docs/website-notes.md](docs/website-notes.md) before touching any of them. The plan is [docs/website-plan-2026-11.md](docs/website-plan-2026-11.md).
 
+Intro film (first visit; game copy `assets/intro/`, website 1080p): staged from one plan, `tools/intro-film-plan.mjs` (shots, animal marks, cameras, trims), which the script, the map (`tools/film-shots.html`) and the checks all read. `nice -n 15 node tools/film-intro.mjs` films it (`--rough` for a 360p review cut, `tools/film-review.html`); `tools/intro-film-motion.mjs` judges the staging by numbers (in the browser suite as `intro-film-motion-browser-check.mjs`), `intro-film-check.mjs` holds the last frame to the start view. How-to and history: `docs/ideas/2026-11-21-first-minutes/` s8, f1–f3.
+
 Performance budget: [2026-10-23 review](docs/performance-review-2026-10-23.md) has where a frame goes, the per-part ceilings for new graphics and simulation, and the open fixes (young climbing primates, daily plant redraw, daily environment update). Measure a new feature with `node tools/play-profile.mjs [maps] [quality] [years]` before and after: an organically grown game through the real frame loop, simulation vs drawing vs GPU.
 `tools/perf-guard-check.mjs` (headless CI) fails when draw calls, triangles, plant or animal instances, or plant regions rebuilt rise over 10% on a seeded fixture; if the rise is intended, check it against the budget, run it with `--update` and commit `tools/perf-guard-baseline.json` with the change. It counts geometry only, not shader or pixel cost.
 

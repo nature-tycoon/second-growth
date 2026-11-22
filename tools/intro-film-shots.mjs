@@ -50,15 +50,18 @@ export const SUBJECTS = Object.fromEntries(LAYERS.filter(L => L.subjects.length)
 export const PREDATOR = { name: 'cougar', prey: 'doe', attacks: BEATS.breakCover };
 
 // The sound: real recordings from assets/sounds (decision 0002; credits in their provenance,
-// field-sources.json), placed and faded on the film's clock. No raven in the library yet: a
+// field-sources.json), placed and faded on the film's clock (31.8 s; F3 retimed it to the restaged cut). No raven in the library yet: a
 // Steller's jay calls instead (s8.md). gain is linear; ramps are [time, gain] points.
 export const SOUND = [
-  { file: 'field-bed-stream-1', at: 0, loop: true, ramp: [[0, 0], [1.2, .55], [3, .42], [6, .2], [12, .2], [20, .28], [22, .7], [30, .6], [33, .32], [37, .3], [40, .3]] },
-  { file: 'field-bed-wind-1', at: 0, loop: true, ramp: [[0, 0], [2, .32], [12, .3], [14, .45], [22, .3], [31, .42], [36, .3], [40, .26]] },
-  { file: 'field-stellers-jay-1', at: 1.1, gain: .5 },
-  { file: 'field-pacific-wren-1', at: 4.2, gain: .32 },
-  { file: 'field-swainsons-thrush-1', at: 7.4, gain: .28 },
-  { file: 'field-meadowlark-1', at: 31.5, gain: .3 },
-  { file: 'field-swainsons-thrush-2', at: 34.0, gain: .24 },
-  { file: 'field-robin-1', at: 38.3, gain: .22 },
+  // the creek under it all: up out of the black, low in the forest, swelling at the falls, fading as the eye climbs
+  { file: 'field-bed-stream-1', at: 0, loop: true, ramp: [[0, 0], [1, .5], [2.6, .42], [4.8, .22], [11.3, .18], [13.3, .26], [15.15, .3], [18.4, .55], [19.5, .7], [23.2, .62], [26, .35], [31.8, .3]] },
+  // wind in the firs; it carries the shots where the forest goes quiet (the cougar's eyes, the stalk)
+  { file: 'field-bed-wind-1', at: 0, loop: true, ramp: [[0, 0], [1.6, .32], [7.8, .3], [8.5, .42], [13.3, .36], [15.15, .3], [23.2, .32], [26, .42], [31.8, .28]] },
+  { file: 'field-stellers-jay-1', at: .3, gain: .4 },     // far off in the black (no raven recording yet: s8.md 1)
+  { file: 'field-pacific-wren-1', at: 2.6, gain: .3 },    // the opening and her ears; done before the cougar's eyes (7.8 s), when the forest goes quiet
+  { file: 'field-meadowlark-1', at: 26, gain: .3 },       // 30 years on, the meadow
+  { file: 'field-swainsons-thrush-2', at: 27.6, gain: .2 },
+  { file: 'field-robin-1', at: 30, gain: .22 },           // today, the farm the game opens on
 ];
+// In the slow motion the sound drops to a low hush (Cole, f2.md 6): low-passed and quieter, not silent.
+export const HUSH = { cutoff: 380, gain: .55, ease: .2 };

@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { Game } from '../js/game.js';
+import { SECONDS } from './intro-film-shots.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const film = JSON.parse(await readFile(root + 'assets/intro/intro-film.json', 'utf8'));
@@ -33,7 +34,7 @@ assert.ok(start, 'the renderer\'s starting time of day (todClock) is where this 
 for (const k of ['x', 'y', 'zoom', 'az']) assert.ok(Math.abs(cam[k] - want[k]) < 1e-3, `the film's last frame is at the start view: ${k} ${cam[k]} vs ${want[k]} (re-film: node tools/film-intro.mjs)`);
 assert.ok(Math.abs(cam.timeOfDay - Number(start[1])) < 1e-3, `the film ends at the game's starting time of day (${cam.timeOfDay} vs ${start[1]})`);
 assert.equal(film.map, 'pnw'); assert.equal(film.seed, 1987);
-assert.equal(film.seconds, 40);
+assert.equal(film.seconds, SECONDS, `the film's length is the script's (${film.seconds} s filmed, ${SECONDS} s in tools/intro-film-shots.mjs): re-film`);
 
 // the files: present, as recorded, and small enough (the game's film downloads while the game loads)
 const caps = { game: 5e6, site: 10e6 };

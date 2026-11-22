@@ -22,7 +22,7 @@ import { isWater } from '../js/config.js';
 import { travelSpeed } from '../js/sim/climb-pace.js';
 import { releaseGame } from './release-fixtures.mjs';
 import { muxMp4, muxWebm } from './video-mux.mjs';
-import { FPS, SECONDS, LAYERS, TIME_OF_DAY, BEATS, SOUND, SLOWMO } from './intro-film-shots.mjs';
+import { FPS, SECONDS, LAYERS, TIME_OF_DAY, BEATS, SOUND, SLOWMO, HUSH } from './intro-film-shots.mjs';
 import { SHOTS, ANIMALS, animalAt, cameraAt, mapAt as planMap, realAt } from './intro-film-plan.mjs';
 import { makeProbe, meshGround } from './intro-film-probe.mjs';
 
@@ -418,7 +418,15 @@ async function mixSound() {
   const comp = ctx.createDynamicsCompressor();
   comp.threshold.value = -14; comp.ratio.value = 3; comp.attack.value = .01; comp.release.value = .3;
   const master = ctx.createGain(); master.gain.value = .9;
-  comp.connect(master); master.connect(ctx.destination);
+  // the hush in the slow motion: everything low-passed and quieter, eased in and out
+  const hush = ctx.createBiquadFilter(); hush.type = 'lowpass'; hush.frequency.value = 20000;
+  for (const [a, b] of SLOWMO) {
+    hush.frequency.setValueAtTime(20000, a); hush.frequency.exponentialRampToValueAtTime(HUSH.cutoff, a + HUSH.ease);
+    hush.frequency.setValueAtTime(HUSH.cutoff, b - HUSH.ease); hush.frequency.exponentialRampToValueAtTime(20000, b);
+    master.gain.setValueAtTime(.9, a); master.gain.linearRampToValueAtTime(.9 * HUSH.gain, a + HUSH.ease);
+    master.gain.setValueAtTime(.9 * HUSH.gain, b - HUSH.ease); master.gain.linearRampToValueAtTime(.9, b);
+  }
+  comp.connect(hush); hush.connect(master); master.connect(ctx.destination);
   for (const s of SOUND) {
     const res = await fetch(`/assets/sounds/${s.file}.m4a`);
     if (!res.ok) { if (s.optional) continue; throw Error('Missing recording ' + s.file); }
