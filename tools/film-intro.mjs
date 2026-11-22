@@ -22,6 +22,8 @@
 //   assets/intro/intro-film-last.jpg          the exact last frame (1920×1080), what the game's first view must match
 //   assets/intro/intro-film.json              the last frame's camera, the beats, sizes, credits, how it was made
 //   website/review-media/video/intro-film-1080.mp4 (.webm when it is small enough)   1920×1080
+//   assets/intro/intro-film-1080.mp4          the same 1080p MP4, for the game on big screens (js/ui/intro.js filmSize;
+//                                             no WebM copy: 2% smaller, and every browser that picks it plays H.264)
 //   dist/intro-film/contact/intro-film.jpg    the game copy's contact sheet (for tools/film-review.html)
 //   dist/intro-film/samples/                  a frame each second of each output, to look at
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
@@ -43,11 +45,12 @@ const gameOut = path('assets/intro/'), siteOut = path('website/review-media/vide
 const hash = b => createHash('sha256').update(b).digest('hex');
 const git = (...a) => execFileSync('git', a, { cwd: projectRoot, encoding: 'utf8' }).trim();
 // The outputs: the game's 720p must stay small (it downloads while the game loads); the 1080p is
-// for the website and itch.io. The encoders overshoot on busy footage, so a file over its budget is
+// for the website and itch.io, and the game plays it on big screens on good connections (`copies`:
+// the same MP4 bytes written there too). The encoders overshoot on busy footage, so a file over its budget is
 // encoded again at a lower rate (the frames are already filmed).
 const OUTPUTS = [
   { id: 'game', width: 1280, height: 720, bitrate: { mp4: 850e3, webm: 760e3 }, audio: 96e3, budget: 4.9e6, webmOptional: 4.9e6, files: { mp4: gameOut + 'intro-film.mp4', webm: gameOut + 'intro-film.webm' } },
-  { id: 'site', width: 1920, height: 1080, bitrate: { mp4: 1.75e6, webm: 1.7e6 }, audio: 128e3, budget: 9.4e6, webmOptional: 9.4e6, files: { mp4: siteOut + 'intro-film-1080.mp4', webm: siteOut + 'intro-film-1080.webm' } },
+  { id: 'site', width: 1920, height: 1080, bitrate: { mp4: 1.75e6, webm: 1.7e6 }, audio: 128e3, budget: 9.4e6, webmOptional: 9.4e6, files: { mp4: siteOut + 'intro-film-1080.mp4', webm: siteOut + 'intro-film-1080.webm' }, copies: { mp4: gameOut + 'intro-film-1080.mp4' } },
 ];
 
 const browser = await openBrowser({ label: 'intro-film', software: false, width: 1920, height: 1080 });
@@ -142,6 +145,7 @@ try {
         if (bytes.length !== result.sizes[kind]) throw Error(`${kind}: read back ${bytes.length} of ${result.sizes[kind]} bytes`);
         await writeFile(out.files[kind], bytes);
         files.push({ file: out.files[kind].slice(projectRoot.length), kind, bytes: bytes.length, sha256: hash(bytes) });
+        if (out.copies?.[kind]) { await writeFile(out.copies[kind], bytes); files.push({ file: out.copies[kind].slice(projectRoot.length), kind, bytes: bytes.length, sha256: hash(bytes), game: true }); }
       }
       if (out.id === 'game') {
         const parts = [];

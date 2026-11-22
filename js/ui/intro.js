@@ -17,6 +17,7 @@ import { music } from '../audio/music.js';
 
 export const INTRO_SEEN = 'second-growth-intro-seen';
 const FILM = 'assets/intro/intro-film';
+const FILM_1080 = 'assets/intro/intro-film-1080'; // (7.5 MB to the 720p's 3.8: big screens on good connections only)
 const FILM_MAP = 'pnw';   // (the film is of the PNW farm, and ends at its first view)
 const FADE_MS = 900;
 const START_GRACE_MS = 4000; // (the game is ready but the film hasn't started: how long it may still take)
@@ -29,6 +30,18 @@ export function introWanted(map) {
   if (asked === '0' || map !== FILM_MAP) return false;
   if (asked !== '1' && (navigator.webdriver || navigator.connection?.saveData)) return false;
   try { return !localStorage.getItem(INTRO_SEEN); } catch { return false; } // (no storage: it would play on every visit)
+}
+
+// Which copy of the film: the 1080p only where it would show (drawn at least 600 CSS pixels and 900
+// device pixels tall: a laptop or desktop, not a phone) and the connection can afford it (no Save-Data,
+// 4G or unknown); the 720p otherwise. The film is drawn 'cover' in landscape and 'contain' upright
+// (styles.css), so its drawn height is the larger of the window's height and a 16:9 width, or just
+// the 16:9 width upright. Even when it picks the 1080p, the 720p is the fallback source.
+export function filmSize({ width = innerWidth, height = innerHeight, dpr = devicePixelRatio || 1, connection = navigator.connection } = {}) {
+  const drawn = width > height ? Math.max(height, width * 9 / 16) : width * 9 / 16;
+  const big = drawn >= 600 && drawn * dpr >= 900;
+  const good = !connection?.saveData && (!connection?.effectiveType || connection.effectiveType === '4g');
+  return big && good ? 1080 : 720;
 }
 
 // One showing of the film. `first`: a first visit (fades into the waiting farm, held until ready);
@@ -56,14 +69,20 @@ export class IntroFilm {
       <div class="intro-bar"><button type="button" class="intro-sound" hidden></button><button type="button" class="intro-skip">Skip <span aria-hidden="true">›</span></button></div>
       <p class="intro-hint" hidden>Tap to skip</p>`;
     const v = this.video = el.querySelector('video');
-    // WebM (VP9 + Opus) where the browser plays it, MP4 (H.264 + AAC) otherwise: Safari mostly
-    for (const [ext, type] of [['webm', 'video/webm; codecs="vp9, opus"'], ['mp4', 'video/mp4; codecs="avc1.64001f, mp4a.40.2"']]) {
+    // WebM (VP9 + Opus) where the browser plays it, MP4 (H.264 + AAC) otherwise: Safari mostly. On a
+    // big screen (filmSize) the 1080p MP4 first (no 1080p WebM: it saved 2%, and every browser this
+    // picks plays H.264); the 720p after it, so a 1080p that fails or can't play falls through.
+    this.size = filmSize();
+    const sources = [['webm', 'video/webm; codecs="vp9, opus"'], ['mp4', 'video/mp4; codecs="avc1.64001f, mp4a.40.2"']].map(([ext, type]) => [`${FILM}.${ext}`, type]);
+    if (this.size === 1080) sources.unshift([`${FILM_1080}.mp4`, 'video/mp4; codecs="avc1.640028, mp4a.40.2"']);
+    for (const [src, type] of sources) {
       if (!v.canPlayType(type)) continue;
-      const s = document.createElement('source'); s.src = `${FILM}.${ext}`; s.type = type; v.append(s);
+      const s = document.createElement('source'); s.src = src; s.type = type; v.append(s);
     }
     v.addEventListener('ended', () => { this.ended = true; this.maybeFinish(); });
     v.addEventListener('playing', () => this.onPlaying(), { once: true });
-    v.addEventListener('error', () => this.fail(), true); // (on the <source>: capture)
+    // (a <source> that fails: the browser tries the next one, so only the last one's error ends it)
+    v.addEventListener('error', e => { if (e.target === v || e.target === v.querySelector('source:last-of-type')) this.fail(); }, true);
     this.soundBtn = el.querySelector('.intro-sound');
     this.soundBtn.addEventListener('click', e => { e.stopPropagation(); this.setMuted(!v.muted); });
     el.querySelector('.intro-skip').addEventListener('click', e => { e.stopPropagation(); this.skip(); });
@@ -109,7 +128,7 @@ export class IntroFilm {
     this.started = true;
     this.el.classList.add('playing');
     if (matchMedia('(pointer: coarse)').matches) this.el.querySelector('.intro-hint').hidden = false;
-    track('intro_started', { first: this.first, muted: this.video.muted });
+    track('intro_started', { first: this.first, muted: this.video.muted, size: this.size, played: /-1080\./.test(this.video.currentSrc) ? 1080 : 720 });
   }
 
   // The game behind is drawn and ready (main.js, a first visit).

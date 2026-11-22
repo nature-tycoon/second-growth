@@ -72,7 +72,7 @@ for (const clip of videoProvenance.clips) {
 // in assets/intro/intro-film.json with the game's 720p
 {
   const film = JSON.parse(await readFile(join(root, 'assets/intro/intro-film.json'), 'utf8'));
-  for (const file of film.outputs.filter(out => out.id === 'site').flatMap(out => out.files)) {
+  for (const file of film.outputs.filter(out => out.id === 'site').flatMap(out => out.files).filter(f => !f.game)) { // (game: the game's copy in assets/intro/, held by intro-film-check)
     const bytes = await readFile(join(root, file.file));
     assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256, `${file.file} must match the intro film's provenance`);
     assert.ok(bytes.length <= 10_000_000 && file.checked?.duration, `${file.file}: 10 MB or less, played back when filmed`);

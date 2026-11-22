@@ -2,7 +2,8 @@
 // hand over from the film's last frame to the live farm without a jump. This check (headless, CI)
 // fails when they drift apart: the PNW start view (Renderer.resetView, the map's startView), the
 // time of day the renderer starts at, the farm the film was made on, and the files themselves
-// (present, the hashes recorded, under their size caps). Re-film when it fails (s8.md).
+// (present, the hashes recorded, under their size caps: 5 MB for the 720p the game always may load,
+// 10 MB for the 1080p it plays on big screens and the website's copy of it). Re-film when it fails (s8.md).
 //
 //   node tools/intro-film-check.mjs           headless
 //   node tools/intro-film-check.mjs --live    also boots the real game as a first visit in Chrome and
@@ -45,8 +46,15 @@ for (const out of film.outputs) for (const f of out.files) {
   assert.ok(bytes.length <= caps[out.id], `${f.file} is under ${caps[out.id] / 1e6} MB`);
 }
 assert.ok(film.outputs.some(o => o.id === 'game' && o.files.some(f => f.kind === 'mp4') && o.files.some(f => f.kind === 'webm')), 'the game has the film as MP4 and WebM');
+// the 1080p the game plays on big screens (js/ui/intro.js filmSize): assets/intro/intro-film-1080.*, the
+// site's bytes; the MP4 at least (Safari), and every copy the game names is one the film recorded
+const game1080 = film.outputs.find(o => o.id === 'site')?.files.filter(f => f.file.startsWith('assets/intro/intro-film-1080.')) || [];
+assert.ok(game1080.some(f => f.kind === 'mp4'), 'the game has the 1080p film as MP4 (assets/intro/intro-film-1080.mp4)');
+for (const f of game1080) assert.ok(film.outputs.find(o => o.id === 'site').files.some(s => s !== f && s.kind === f.kind && s.sha256 === f.sha256), `${f.file} is the same encode as the website's 1080p`);
+const introJs = await readFile(root + 'js/ui/intro.js', 'utf8');
+assert.ok(introJs.includes(`'assets/intro/intro-film-1080'`) && introJs.includes(`'assets/intro/intro-film'`), 'js/ui/intro.js plays the files this check holds');
 await readFile(root + film.lastFrame.image);
-console.log(`intro film: ends on the PNW start view (${cam.x.toFixed(2)}, ${cam.y.toFixed(2)}, zoom ${cam.zoom}, time ${cam.timeOfDay}); ${film.outputs.flatMap(o => o.files).map(f => `${f.file.split('/').pop()} ${(f.bytes / 1e6).toFixed(2)} MB`).join(', ')}`);
+console.log(`intro film: ends on the PNW start view (${cam.x.toFixed(2)}, ${cam.y.toFixed(2)}, zoom ${cam.zoom}, time ${cam.timeOfDay}); ${film.outputs.flatMap(o => o.files).map(f => `${f.game ? 'game ' : ''}${f.file.split('/').pop()} ${(f.bytes / 1e6).toFixed(2)} MB`).join(', ')}`);
 
 if (process.argv.includes('--live')) {
   // The real game, as a first visit (no save), Balanced, at the film's size: its camera before the

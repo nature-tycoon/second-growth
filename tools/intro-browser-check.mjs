@@ -4,7 +4,7 @@
 // doesn't play it, and its start menu (Continue, New farm, Watch intro, Settings) replays it over the
 // paused farm (Esc skips); a skip (a tap) lands in the farm; the menu's "Watch intro" replays it (Skip);
 // a film that can't load is dropped without a word; on an upright phone it plays and the turn prompt
-// follows. Checks run under webdriver, where the film is off unless the address asks (?intro=1).
+// follows; a big screen gets the 1080p, and a missing 1080p falls back to the 720p. Checks run under webdriver, where the film is off unless the address asks (?intro=1).
 // The film is played at 8x speed so a run takes minutes, not hours (the check's server answers no
 // byte ranges, so it can't seek).
 import assert from 'node:assert/strict';
@@ -38,6 +38,7 @@ const key = (b, k, code) => b.send('Input.dispatchKeyEvent', { type: 'keyDown', 
     await b.waitFor(`!!document.querySelector('#intro.playing')`, 'the film starts playing', 60000);
     const started = await b.evaluate(ev('intro_started'));
     assert.equal(started.length, 1, 'intro_started once'); assert.equal(started[0].first, true);
+    assert.deepEqual([started[0].size, started[0].played], [720, 720], 'a 960×600 window gets the 720p');
     assert.equal(await b.evaluate(`localStorage.getItem('second-growth-intro-seen')`), '1', 'the film is marked seen on this device');
     await b.waitFor(booted, 'the game loads under the film');
     const under = await b.evaluate(`(()=>{const {game:g}=window.secondGrowth; return {speed:g.speed, stage:g.flags.opening?.stage??null, film:!!document.querySelector('#intro.playing'), toasts:[...document.querySelectorAll('#toasts .toast-act')].length};})()`);
@@ -125,6 +126,44 @@ const key = (b, k, code) => b.send('Input.dispatchKeyEvent', { type: 'keyDown', 
   } finally { await b.close(); }
 }
 
+// 4b. A big screen gets the 1080p (js/ui/intro.js filmSize); with the 1080p missing it plays the 720p
+{
+  const b = await open('intro-1080', { width: 1600, height: 900 });
+  try {
+    await b.navigate('/?ph&intro=1');
+    await b.waitFor(`!!document.querySelector('#intro.playing')`, 'the film starts playing on a big screen', 60000);
+    const src = await b.evaluate(`document.querySelector('#intro video').currentSrc`);
+    assert.match(src, /intro-film-1080\.(webm|mp4)$/, `a 1600×900 window plays the 1080p (${src})`);
+    const started = (await b.evaluate(ev('intro_started')))[0];
+    assert.deepEqual([started.size, started.played], [1080, 1080], 'intro_started says the 1080p was chosen and played');
+    // the choice itself, case by case: phones and small windows, slow or Save-Data connections get the 720p
+    const sizes = await b.evaluate(`import('/js/ui/intro.js').then(({filmSize:f})=>{const c=(t,s=false)=>({effectiveType:t,saveData:s});return [
+      f({width:1600,height:900,dpr:1,connection:c('4g')}), f({width:1440,height:900,dpr:2,connection:undefined}), f({width:1920,height:1080,dpr:1,connection:c(undefined)}),
+      f({width:1366,height:768,dpr:1,connection:c('4g')}), f({width:960,height:600,dpr:2,connection:c('4g')}), f({width:844,height:390,dpr:3,connection:c('4g')}),
+      f({width:390,height:844,dpr:3,connection:c('4g')}), f({width:1920,height:1080,dpr:2,connection:c('3g')}), f({width:1920,height:1080,dpr:2,connection:c('4g',true)})];})`);
+    assert.deepEqual(sizes, [1080, 1080, 1080, 720, 1080, 720, 720, 720, 720], 'filmSize: big screens on good connections only');
+    await b.evaluate(`document.querySelector('.intro-skip').click()`);
+    await b.waitFor(booted + ` && !document.getElementById('intro')`, 'the farm after a skip');
+    b.assertHealthy();
+  } finally { await b.close(); }
+}
+{
+  const b = await open('intro-1080-missing', { width: 1600, height: 900, block: '*intro-film-1080*' });
+  try {
+    await b.navigate('/?ph&intro=1');
+    await b.waitFor(`!!document.querySelector('#intro.playing')`, 'with the 1080p missing, the 720p plays', 60000);
+    const src = await b.evaluate(`document.querySelector('#intro video').currentSrc`);
+    assert.match(src, /intro-film\.(webm|mp4)$/, `the 720p (${src})`);
+    const started = (await b.evaluate(ev('intro_started')))[0];
+    assert.deepEqual([started.size, started.played], [1080, 720], 'chose the 1080p, played the 720p');
+    await b.waitFor(booted, 'the game loads');
+    await b.evaluate(fast);
+    await b.waitFor(`!document.getElementById('intro')`, 'the 720p plays to the end and fades into the farm', 90000);
+    assert.equal((await b.evaluate(ev('intro_finished'))).length, 1, 'intro_finished');
+    b.assertHealthy();
+  } finally { await b.close(); }
+}
+
 // 5. An upright phone: the film plays upright (letterboxed), then the turn prompt over the farm
 {
   const b = await open('intro-upright', { width: 390, height: 844 });
@@ -142,4 +181,4 @@ const key = (b, k, code) => b.send('Input.dispatchKeyEvent', { type: 'keyDown', 
   } finally { await b.close(); }
 }
 
-console.log('intro: a first visit plays the film and lands in the farm at its camera; skip, Esc, Watch intro and a missing film all land right; a second visit gets the start menu, not the film');
+console.log('intro: a first visit plays the film and lands in the farm at its camera; the 1080p on big screens with the 720p as its fallback; skip, Esc, Watch intro and a missing film all land right; a second visit gets the start menu, not the film');
