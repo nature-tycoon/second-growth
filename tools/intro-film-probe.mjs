@@ -15,7 +15,7 @@ import { F as FEAT } from '../js/config.js';
 
 // The drawn terrain mesh's height at (x, z): the two triangles of its tile (terrain.js lays out each
 // tile of the land and its border as 6 vertices), not the simulation's smooth heightAt.
-function meshGround(r) {
+export function meshGround(r) {
   const T = r.terrain, pos = T.mesh.geometry.attributes.position.array;
   return (x, z) => {
     const tx = Math.floor(x), tz = Math.floor(z);
@@ -35,7 +35,7 @@ function meshGround(r) {
 
 // Wood and bushes near the action, gathered once per layer (the trees don't change during a shot;
 // the border forest has no world tiles, so its trunks come from what flora drew: treeSites).
-function obstacles(r, g, box) {
+export function obstacles(r, g, box) {
   const inBox = (x, z) => x > box.x0 && x < box.x1 && z > box.z0 && z < box.z1;
   const trunks = [];
   for (const s of r.flora.treeSites.values()) {
@@ -61,7 +61,7 @@ function obstacles(r, g, box) {
 
 // What first blocks the straight line from the camera at `o` to the point `p` (both scene units),
 // or null. ground(x, z): the drawn terrain.
-function blocker(o, p, ob, ground) {
+export function blocker(o, p, ob, ground) {
   const dx = p.x - o.x, dy = p.y - o.y, dz = p.z - o.z, L = Math.hypot(dx, dz);
   const end = 1 - .12 / Math.max(.12, Math.hypot(dx, dy, dz)); // (stop just short of the point itself)
   // terrain: a few samples a tile along the line

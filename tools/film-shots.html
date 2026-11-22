@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Film shot list</title>
+<!--
+  The intro film's shot list and a top-down map of it (film rework F2, docs/ideas/2026-11-21-first-minutes/f2.md).
+    http://localhost:8347/tools/film-shots.html
+  The shots, cameras and animal paths come from tools/intro-film-plan.mjs; the land (terrain, water, trunks,
+  the fence, the falls) and the sight-line results from tools/intro-film-map.json, which
+  `nice -n 15 node tools/intro-film-sightlines.mjs` writes from the real start game. Nothing is rendered in 3D.
+-->
+<style>
+  :root { --bg: #15191a; --panel: #1f2526; --line: #343c3d; --text: #e7ece8; --dim: #9aa7a0; --accent: #8fc79a; --mark: #f0d27a;
+    --doe: #f2b36b; --cougar: #e0605a; --elk: #c9a2f0; --cam: #7fc4ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, sans-serif; }
+  main { max-width: 1400px; margin: 0 auto; padding: 16px; }
+  header { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
+  h1 { font-size: 18px; margin: 0; }
+  a { color: var(--accent); }
+  .dim { color: var(--dim); font-size: 13px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+  .mapbox { position: sticky; top: 8px; background: var(--panel); border-radius: 8px; padding: 8px; }
+  @media (max-width: 1000px) { .mapbox { position: static; } }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+  button { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button.on { background: var(--accent); color: #102014; border-color: var(--accent); font-weight: 600; }
+  input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+  #clock { min-width: 150px; font-variant-numeric: tabular-nums; }
+  svg { width: 100%; height: auto; max-height: calc(100vh - 150px); display: block; margin: 0 auto; background: #0f1312; border-radius: 6px; }
+  svg text { font-family: system-ui, sans-serif; paint-order: stroke; stroke-linejoin: round; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); margin-top: 6px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; color: var(--dim); font-weight: 500; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  td { vertical-align: top; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  tr.shot { cursor: pointer; }
+  tr.shot:hover td { background: #1b2122; }
+  tr.shot.on td { background: #24322a; }
+  td.n { font-weight: 700; color: var(--cam); width: 28px; }
+  td.t { white-space: nowrap; color: var(--mark); font-variant-numeric: tabular-nums; width: 78px; }
+  .title { font-weight: 600; }
+  .see { margin: 2px 0 4px; }
+  .meta { color: var(--dim); font-size: 13px; }
+  .meta b { color: var(--text); font-weight: 500; }
+  .ok { color: var(--accent); }
+  .bad { color: var(--cougar); }
+  .summary { background: var(--panel); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; font-size: 14px; }
+</style>
+<main>
+  <header>
+    <h1>Intro film: shot list</h1>
+    <a href="film-review.html">Film review →</a>
+    <span class="dim" id="made"></span>
+  </header>
+  <div class="layout">
+    <section class="mapbox">
+      <div class="controls">
+        <button id="vAction" class="on">The chase</button><button id="vFarm">Whole farm</button>
+        <input type="range" id="time" min="0" max="33" step="0.05" value="2" aria-label="Film time">
+        <span id="clock"></span>
+      </div>
+      <svg id="map" role="img" aria-label="Top-down map of the shots"></svg>
+      <div class="legend">
+        <span><i style="background:#2d4a33"></i>old forest</span><span><i style="background:#8a9a5c"></i>field</span><span><i style="background:#3f7fb0"></i>water</span>
+        <span><i style="background:#c9b58a;height:3px"></i>fence</span><span><i style="background:#fff;border-radius:50%"></i>waterfall</span>
+        <span><i style="background:var(--cam)"></i>camera and what it sees</span>
+        <span><i style="background:var(--doe)"></i>doe</span><span><i style="background:var(--cougar)"></i>cougar</span><span><i style="background:var(--elk)"></i>elk</span>
+        <span>dots: trunks · times: film seconds · dashed: 9 tiles out (animals stay inside) · 1 tile = 8 m</span>
+      </div>
+    </section>
+    <section>
+      <div class="summary" id="summary"></div>
+      <table>
+        <thead><tr><th>#</th><th>Time</th><th>Shot</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </div>
+</main>
+<script type="module">
+import { SHOTS, ANIMALS, SLOWMO, SECONDS, TILE_M, realAt, filmAt, animalAt, cameraAt } from './intro-film-plan.mjs';
+
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+const data = await (await fetch('intro-film-map.json', { cache: 'no-cache' })).json();
+const { land, report } = data;
+$('made').textContent = `Sight lines checked ${report.made} on the start game (seed 1987).`;
+const CAM = '#7fc4ff', ELK = '#c9a2f0'; // (SVG attributes don't take CSS variables)
+const COLOR = { doe: '#f2b36b', cougar: '#e0605a', elk1: ELK, elk2: ELK, elk3: ELK };
+const VIEWS = { action: [61.5, -9.6, 14.5, 20], farm: [34, -12, 60, 56] }; // [x, y, width, height] in tiles
+let view = 'action', on = null;
+const fmt = t => t.toFixed(1) + ' s';
+
+// ---- the shot table
+const shotCheck = s => {
+  const r = report.shots[s.n]; if (!r || !Object.keys(r.subjects).length) return '';
+  return Object.entries(r.subjects).map(([name, v]) => {
+    const clear = v.headBlocked === 0, txt = `${ANIMALS[name].label.toLowerCase()} ${clear ? 'in clear sight' : `head hidden ${Math.round(v.headBlocked * 100)}%`} (${(v.distance[0] * TILE_M).toFixed(0)}–${(v.distance[1] * TILE_M).toFixed(0)} m)`;
+    return `<span class="${clear ? 'ok' : 'bad'}">${txt}</span>`;
+  }).join(' · ');
+};
+for (const s of SHOTS) {
+  const tr = document.createElement('tr'); tr.className = 'shot'; tr.dataset.n = s.n;
+  const c = s.camera;
+  tr.innerHTML = `<td class="n">${s.n}</td><td class="t">${s.from.toFixed(1)}–${s.to.toFixed(1)}</td><td>
+    <div class="title">${s.title}${s.farm === 'restored' ? ' <span class="dim">(restored farm)</span>' : ''}</div>
+    <div class="see">${s.see}</div>
+    ${c ? `<div class="meta"><b>Camera:</b> ${c.move}, ${c.lens} lens${c.fov ? ` (${c.fov}°)` : ''}. <b>Where:</b> ${s.where}.</div>` : ''}
+    ${s.animals ? `<div class="meta"><b>Animals:</b> ${s.animals}</div>` : ''}
+    <div class="meta"><b>Sound:</b> ${s.sound}</div>
+    ${shotCheck(s) ? `<div class="meta">${shotCheck(s)}</div>` : ''}</td>`;
+  tr.onclick = () => { $('time').value = (s.from + s.to) / 2; if (s.camera?.map) setView('farm'); else if (s.camera) setView('action'); draw(); };
+  $('rows').append(tr);
+}
+const fails = report.failures.length, ch = report.chase, cg = report.animals.cougar, doe = report.animals.doe;
+$('summary').innerHTML = `${fails ? `<span class="bad">${fails} problem${fails > 1 ? 's' : ''}: ${report.failures.join('; ')}</span>` : '<span class="ok">Every planned camera has a clear line to its animals\' heads.</span>'}
+  Slow motion ${SLOWMO.map(([a, b, r]) => `${a}–${b} s at ${r}×`).join(', ')}. Fastest: doe ${Math.max(...doe.legs.map(l => l.speed)).toFixed(1)} m/s, cougar ${Math.max(...cg.legs.map(l => l.speed)).toFixed(1)} m/s
+  (sprinting ${cg.sprintSeconds} s; it never gets ahead of the doe, closest ${ch.closestM} m). ${report.notes.length ? `<br><span class="dim">${report.notes.join('; ')}</span>` : ''}`;
+
+// ---- the map
+const svg = $('map');
+const el = (tag, attrs, parent = svg) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); parent.append(e); return e; };
+const tileAt = new Map(land.tiles.map(t => [t[0] + ',' + t[1], t]));
+function terrainColor(t) {
+  const [x, y, h, ter] = t;
+  const n = tileAt.get((x + 1) + ',' + y), s = tileAt.get(x + ',' + (y + 1));
+  const shade = Math.max(-.12, Math.min(.12, ((n ? h - n[2] : 0) + (s ? h - s[2] : 0)) * .25)); // (lit from the south-east)
+  const base = ter === 7 || ter === 6 || ter === 8 ? [63, 127, 176] : ter === 5 ? [88, 122, 110] : ter === 10 ? [45, 74, 51] : ter === 9 ? [120, 116, 104] : ter === 2 || ter === 4 ? [128, 108, 80] : [138, 154, 92];
+  const band = (Math.floor(h * 4) % 2) ? 1.04 : 1; // (height bands, every quarter unit)
+  return `rgb(${base.map(c => Math.round(Math.min(255, c * band * (1 + shade)))).join(',')})`;
+}
+let dyn;
+function drawLand() {
+  svg.textContent = '';
+  const [vx, vy, vw, vh] = VIEWS[view], k = vw / 60; // k: one "point" of text and line, in tiles
+  svg.setAttribute('viewBox', `${vx} ${vy} ${vw} ${vh}`);
+  const g = el('g', {});
+  for (const t of land.tiles) {
+    if (t[0] < vx - 1 || t[0] > vx + vw || t[1] < vy - 1 || t[1] > vy + vh) continue;
+    el('rect', { x: t[0], y: t[1], width: 1.02, height: 1.02, fill: terrainColor(t) }, g);
+    if (t[6] && view === 'action') el('circle', { cx: t[0] + .5, cy: t[1] + .5, r: .22, fill: '#5b7d3f', opacity: .55 }, g); // shrubs
+  }
+  // the fence: along fence tiles' middles, joined to fence neighbours
+  for (const t of land.tiles) if (t[4]) {
+    for (const [dx, dy] of [[1, 0], [0, 1]]) { const n = tileAt.get((t[0] + dx) + ',' + (t[1] + dy)); if (n?.[4]) el('line', { x1: t[0] + .5, y1: t[1] + .5, x2: t[0] + .5 + dx, y2: t[1] + .5 + dy, stroke: '#c9b58a', 'stroke-width': .5 * k }, g); }
+  }
+  // trunks (the border forest's as drawn) with a faint crown
+  for (const [x, y, r] of land.trunks) {
+    if (x < vx || x > vx + vw || y < vy || y > vy + vh) continue;
+    if (view === 'action') el('circle', { cx: x, cy: y, r: .42, fill: '#1c3322', opacity: .45 }, g);
+    el('circle', { cx: x, cy: y, r: Math.max(r, .06 * k / .25), fill: '#6b4f36' }, g);
+  }
+  for (const t of land.tiles) if (t[5]) {
+    el('rect', { x: t[0] + .1, y: t[1] + .35, width: .8, height: .3, fill: '#fff', rx: .1 }, g);
+    label(t[0] + 1.2, t[1] + .65, 'waterfall', '#fff', 'start');
+  }
+  // the farm's north edge, and 9 tiles out
+  el('line', { x1: vx, x2: vx + vw, y1: 0, y2: 0, stroke: '#fff', 'stroke-width': .25 * k, opacity: .5 }, g);
+  el('line', { x1: vx, x2: vx + vw, y1: -9, y2: -9, stroke: '#fff', 'stroke-width': .3 * k, 'stroke-dasharray': `${1.2 * k} ${1 * k}`, opacity: .55 }, g);
+  label(vx + .3 * k, -.4 * k, 'farm edge', '#fff', 'start', .9); label(vx + .3 * k, -9.4, '9 tiles out', '#fff', 'start', .9);
+  if (view === 'farm') {
+    label(44, 38 + 1.9, 'the game\'s start view', '#fff', 'middle');
+    el('rect', { x: VIEWS.action[0], y: VIEWS.action[1], width: VIEWS.action[2], height: VIEWS.action[3], fill: 'none', stroke: '#fff', 'stroke-width': .2 * k, 'stroke-dasharray': `${k} ${k}` });
+    label(VIEWS.action[0] + VIEWS.action[2] / 2, VIEWS.action[1] - .6 * k, 'the chase', '#fff', 'middle');
+  }
+  // the cameras: each shot's view cone
+  for (const s of SHOTS) drawCamera(s, k);
+  // the animals' paths, with film-time marks
+  for (const [name, A] of Object.entries(ANIMALS)) {
+    if (view === 'action' && A.farm === 'restored') continue;
+    const pts = A.marks.map(m => `${m[1]},${m[2]}`).join(' ');
+    el('polyline', { points: pts, fill: 'none', stroke: COLOR[name], 'stroke-width': .35 * k, 'stroke-linejoin': 'round', opacity: .9 });
+    let lastXY = null, lastLabel = null, stack = 0;
+    for (const m of A.marks) {
+      const moved = !lastXY || Math.hypot(m[1] - lastXY[0], m[2] - lastXY[1]) > .05;
+      el('circle', { cx: m[1], cy: m[2], r: .45 * k, fill: COLOR[name] });
+      if (m[4] && (moved || view === 'action')) {
+        const t = filmAt(m[0]);
+        const side = name === 'cougar' ? 'end' : 'start', dx = name === 'cougar' ? -.8 * k : .8 * k;
+        stack = lastLabel && Math.hypot(m[1] - lastLabel[0], m[2] - lastLabel[1]) < 1.2 * k ? stack + 1 : 0;
+        if (view === 'action' || name !== 'cougar' || moved) {
+          // (the time only, on the map; the words in its tooltip and the shot list)
+          const lb = label(m[1] + dx, m[2] + .4 * k + stack * 1.25 * k, t.toFixed(1), COLOR[name], side, .95);
+          el('title', {}, lb).textContent = `${ANIMALS[name].label}, ${fmt(t)}: ${m[4]}`;
+          if (!stack) lastLabel = [m[1], m[2]];
+        }
+      }
+      lastXY = [m[1], m[2]];
+    }
+  }
+  dyn = el('g', {});
+}
+function label(x, y, text, color, anchor = 'start', size = 1) {
+  const k = VIEWS[view][2] / 60;
+  const t = el('text', { x, y, fill: color, 'font-size': 1.3 * k * size, 'text-anchor': anchor, stroke: '#0b0e0d', 'stroke-width': .25 * k });
+  t.textContent = text; return t;
+}
+function cone(cam, k, s, faint) {
+  const [x, y] = cam.pos, a = Math.atan2(cam.look[1] - y, cam.look[0] - x);
+  const half = Math.atan(Math.tan(cam.fov * Math.PI / 360) * 16 / 9), L = Math.min(9, Math.hypot(cam.look[0] - x, cam.look[1] - y) * 1.25);
+  const p = d => `${x + Math.cos(a + d) * L},${y + Math.sin(a + d) * L}`;
+  return el('polygon', { points: `${x},${y} ${p(-half)} ${p(half)}`, fill: CAM, opacity: faint ? .07 : .2, stroke: CAM, 'stroke-width': .15 * k, 'stroke-opacity': faint ? .25 : .7, 'data-n': s.n, class: 'cone' });
+}
+function drawCamera(s, k) {
+  const c = s.camera; if (!c) return;
+  if (c.map) {
+    if (view !== 'farm') return;
+    el('line', { x1: c.map.from.x, y1: c.map.from.y, x2: c.map.to.x, y2: c.map.to.y, stroke: CAM, 'stroke-width': .3 * k, 'stroke-dasharray': `${k} ${.6 * k}` });
+    el('circle', { cx: c.map.to.x, cy: c.map.to.y, r: .7 * k, fill: 'none', stroke: CAM, 'stroke-width': .3 * k });
+    const glides = Math.hypot(c.map.to.x - c.map.from.x, c.map.to.y - c.map.from.y) > .1;
+    if (glides) label(c.map.from.x + k, c.map.from.y, `${s.n}: map view glides to the start view`, CAM, 'start', .9);
+    else label(c.map.to.x + 1.5 * k, c.map.to.y - .8 * k, `${s.n}: holds on the start view`, CAM, 'start', .9);
+    return;
+  }
+  const mid = cameraAt(s, (s.from + s.to) / 2);
+  if (c.look.follow) { cone(cameraAt(s, s.from + .05), k, s, true); cone(cameraAt(s, s.to - .05), k, s, true); }
+  else cone(mid, k, s, false);
+  if (c.to) el('line', { x1: c.pos[0], y1: c.pos[1], x2: c.to[0], y2: c.to[1], stroke: CAM, 'stroke-width': .3 * k, 'marker-end': '' });
+  el('circle', { cx: c.pos[0], cy: c.pos[1], r: 1.1 * k, fill: CAM, stroke: '#08131c', 'stroke-width': .15 * k });
+  const t = el('text', { x: c.pos[0], y: c.pos[1] + .48 * k, 'font-size': 1.4 * k, 'text-anchor': 'middle', fill: '#08131c', stroke: 'none', 'font-weight': 700 }); t.textContent = s.n;
+}
+// ---- what's happening at the scrubber's time: the shot on screen, its cone lit, the animals where they are
+function shotAt(t) { return [...SHOTS].reverse().find(s => t >= s.from && t < s.to + 1e-6) || SHOTS[0]; }
+function draw() {
+  const t = +$('time').value, real = realAt(t), s = shotAt(t), k = VIEWS[view][2] / 60;
+  const slow = SLOWMO.some(([a, b]) => t >= a && t < b);
+  $('clock').textContent = `${t.toFixed(1)} s · shot ${s.n}${slow ? ' · slow motion' : ''}`;
+  for (const tr of document.querySelectorAll('tr.shot')) tr.classList.toggle('on', +tr.dataset.n === s.n);
+  for (const c of svg.querySelectorAll('.cone')) c.setAttribute('opacity', +c.dataset.n === s.n ? .42 : c.getAttribute('stroke-opacity') === '.25' ? .07 : .14);
+  dyn.textContent = '';
+  if (s.camera && !s.camera.map) cone(cameraAt(s, t), k, s, false).setAttribute('opacity', .5);
+  for (const [name, A] of Object.entries(ANIMALS)) {
+    const farmOn = s.farm === A.farm || (A.farm === 'start' && s.farm === undefined);
+    const p = animalAt(name, real);
+    const e = el('g', { opacity: farmOn ? 1 : .35 }, dyn);
+    el('circle', { cx: p.x, cy: p.y, r: 1.1 * k, fill: COLOR[name], stroke: '#000', 'stroke-width': .25 * k }, e);
+    el('line', { x1: p.x, y1: p.y, x2: p.x + Math.cos(p.heading) * 2.4 * k, y2: p.y + Math.sin(p.heading) * 2.4 * k, stroke: '#000', 'stroke-width': .45 * k }, e);
+  }
+}
+function setView(v) { if (v === view) return; view = v; $('vAction').classList.toggle('on', v === 'action'); $('vFarm').classList.toggle('on', v === 'farm'); drawLand(); }
+$('vAction').onclick = () => { setView('action'); draw(); };
+$('vFarm').onclick = () => { setView('farm'); draw(); };
+$('time').max = SECONDS;
+$('time').oninput = draw;
+drawLand(); draw();
+</script>
