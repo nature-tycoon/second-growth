@@ -97,7 +97,8 @@ export function reportLoadingLeft() {
 
 // Events for the first-minutes work (docs/ideas/2026-11-21-first-minutes/plan.md). Sent today:
 //   first_animal_seen { seconds, species, beyond_fence? }   first time a larger animal is on screen, first visit only
-//   farm_opened { how: 'fence'|'culvert', seconds, prompted }   boundary fence or culvert out (ui/opening.js); share.js also sends farm_opened { map, from } for a shared farm
+//   farm_opened { how: 'fence'|'culvert', seconds, prompted }   boundary fence or culvert out (ui/opening.js)
+//   (a shared farm opened as a visit is shared_farm_opened { map, game_year, from: 'link'|'file' }, ui/share.js: renamed from farm_opened, g1)
 //   first_tool { seconds_since_load, ... }   (session-analytics.js)
 //   timelapse_offered { map }   the "Watch 10 years" offer after a first visit's first planting (ui/timelapse.js)
 //   timelapse_started { map, from: 'offer'|'menu', first_visit, year }, timelapse_watched { map, seconds, years, ended, from }

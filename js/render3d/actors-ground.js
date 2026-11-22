@@ -1,4 +1,4 @@
-import { LEVEL } from '../config.js';
+import { LEVEL, BORDER } from '../config.js';
 // Drawing walkers (part of Actors.update, actors.js): a land animal wading or swimming out of its
 // depth, its stride and gait (birds' wings blend here too), where its head is (grazing, drinking,
 // stalking, a bout, a bird's head), and a hunter's crouch, pounce, lunge and stumble.
@@ -58,9 +58,16 @@ export function headPose(A, c) {
     : !moving && (a.drinkT > 0 ? aligned : ((trait(def, 'idleEat') === 'graze' || nibbles(def, a)) && !a.headUp && Math.sin(time * 0.35 + a.id * 1.7) > 0.1)) ? 1 : 0;
   st.graze += (head - st.graze) * k * (head < 0 ? 1.2 : fight ? 3 : 0.5);
   if (fight) st.gait += (fight.gait - st.gait) * k;
-  // stalking cats sink low to the ground, and a frozen rabbit a little
+  // stalking cats sink low to the ground, and a frozen rabbit a little. A walker's legs fold under
+  // it so its paws stay on the ground (it sank them by a third of a leg: f3.md question 2): the fly
+  // slot carries the drop, in model units, as -(2 + drop), which the shader reads as a fold of each
+  // leg at the knee (foldLeg in animals/animal-material.js). A pounce's leap (huntPose) overrides it.
+  // A snake lies along the ground already: lowering it sank it (motion sweep `sunk`).
   st.crouch = (st.crouch || 0) + ((swimming ? 0 : stalking ? 1 : frozen ? 0.5 : 0) - (st.crouch || 0)) * k;
-  if (st.crouch > 0.01) y -= st.crouch * (def.sprite.leg || def.sprite.h || 8) * sc * 0.3;
+  const drop = st.crouch > 0.01 && !mo.slither ? st.crouch * (def.sprite.leg || def.sprite.h || 8) * 0.3 : 0;
+  const folds = drop && c.walker && !mo.primate;
+  y -= drop * sc; st.fold = folds ? drop * sc : 0; // (how far its paws are drawn up from the body's height: the motion sweep's `sunk`)
+  if (folds) c.poseFly = -(2 + drop);
   c.y = y; c.fight = fight; c.bugling = bugling;
 }
 
@@ -104,7 +111,7 @@ export function slopePose(c) {
   st.swimming = swimming;
   if (!walker || swimming || mo.slither) { st.slope = 0; return; }
   const L = (st.foot || mo.len * sc) * 0.32, fx = Math.cos(st.yaw) * L, fy = -Math.sin(st.yaw) * L;
-  const at = (x, y) => w.heightAt(Math.min(w.w + 9, Math.max(-9, x)), Math.min(w.h + 9, Math.max(-9, y))) * LEVEL;
+  const at = (x, y) => w.heightAt(Math.min(w.w + BORDER - 0.001, Math.max(-BORDER, x)), Math.min(w.h + BORDER - 0.001, Math.max(-BORDER, y))) * LEVEL;
   const want = Math.max(-0.5, Math.min(0.5, Math.atan2(at(a.x + fx, a.y + fy) - at(a.x - fx, a.y - fy), 2 * L)));
   st.slope = st.slope == null ? want : st.slope + (want - st.slope) * Math.min(1, k * 2);
   c.posePitch += st.slope;

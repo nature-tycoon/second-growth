@@ -184,7 +184,7 @@ export function startVisit(ui, shared) {
   if (map !== g.map || !g.restoreSnapshot({ data, checksum: saveChecksum(data) }, map)) return false;
   g.visiting = true; g.saveReady = false;
   ui.refreshSaveStatus();
-  track('farm_opened', { map, game_year: g.year, from: shared.id ? 'link' : 'file' });
+  track('shared_farm_opened', { map, game_year: g.year, from: shared.id ? 'link' : 'file' });
   showVisitCard(ui, shared);
   return true;
 }

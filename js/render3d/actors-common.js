@@ -2,7 +2,7 @@
 // set-up (cull, pose record, scale, its record `c` that the per-mode drawers in actors-ground.js,
 // -climb, -fly, -swim and -reef read and write), the one turn (0025), and the final instance.
 import * as THREE from 'three';
-import { LEVEL, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
+import { LEVEL, BORDER, isWater, T, F as FEAT, clamp, lifeAge } from '../config.js';
 import { drawDef, animalDef } from '../data/animals.js';
 import { trait } from '../data/animal-kinds.js';
 import { roostingNow, activityProfileFor } from '../data/animal-activity.js';
@@ -131,7 +131,7 @@ export function beginAnimal(A, fr, a) {
   const t = inside ? w.terrain[i] : T.RIVER;
   const onWater = isWater(t) && t !== T.MARSH;
   const flying = (def.move === 'fly' && (a.flying || a.alt > 0.05)) || !!trait(def, 'alwaysFlying'); // (a manta "flies" through the water)
-  const ground = w.heightAt(clamp(a.x, -9, w.w + 9), clamp(a.y, -9, w.h + 9)) * LEVEL;
+  const ground = w.heightAt(clamp(a.x, -BORDER, w.w + BORDER - 0.001), clamp(a.y, -BORDER, w.h + BORDER - 0.001)) * LEVEL; // (the whole drawn border: a clamp to 9 tiles sank animals further out into it)
   const seaY = game.catalog.definition.look.underwater ? game.catalog.definition.look.underwater.level * LEVEL : null;
   // A located animal must acquire a fresh pose even before the camera has
   // reached it. Otherwise an offscreen canopy animal can never be followed.

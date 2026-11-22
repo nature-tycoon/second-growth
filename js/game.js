@@ -133,7 +133,7 @@ export class Game {
   goalReward(r) { return Math.round(r * 0.6 * this.diff.grants); }
 
   // (`sim`: said by the clock on its own, not in reply to the player; a first visit's opening
-  // minutes hold those back, ui.holdInFirstMinutes. `extra` adds fields, e.g. { keep: true })
+  // minutes hold those back, ui.holdInFirstMinutes. `extra` adds fields, e.g. { journal: true })
   notify(text, kind = 'info', loc = null, extra = null) { this.emit('notify', { text, kind, loc, date: this.dateString(), ...(this.inSim ? { sim: true } : null), ...extra }); }
 
   refreshEnvironment() {

@@ -1,7 +1,7 @@
 // Animals (instanced 3D models, see animals/animal-model.js), plus visitors and flames drawn as camera-facing sprites.
 
 import * as THREE from 'three';
-import { LEVEL, isWater, F as FEAT, clamp } from '../config.js';
+import { LEVEL, BORDER, isWater, F as FEAT, clamp } from '../config.js';
 import { drawDef, drawLooks, maleLook } from '../data/animals.js';
 import { trait } from '../data/animal-kinds.js';
 import { leavesCarcass } from '../sim/animal-life.js';
@@ -207,7 +207,7 @@ export class Actors {
       if (!cdef) continue;
       const def = drawDef(cdef, c, game.month);
       const ageF = def.mature > 0 ? clamp(0.55 + 0.45 * c.age / (def.mature * 120), 0.55, 1) : 1;
-      const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, 0, w.w), clamp(c.y, 0, w.h)) * LEVEL;
+      const sc = adultAnimalScale(def.sprite) * ageF, ground = w.heightAt(clamp(c.x, -BORDER, w.w + BORDER - 0.001), clamp(c.y, -BORDER, w.h + BORDER - 0.001)) * LEVEL; // (a kill out in the border lies on the border land)
       const yaw = -c.yaw, roll = c.side * Math.PI / 2;
       if (this.view.enabled && !this.view.visible(c.x, ground - 0.2, ground + 0.6, c.y, animalViewRadius(def))) continue;
       const h = (def.sprite.h || 10) * sc, len = (def.sprite.len || 10) * sc, lift = h * 0.32;

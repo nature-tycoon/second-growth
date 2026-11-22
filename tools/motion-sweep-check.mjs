@@ -80,7 +80,13 @@ const COUNTS = ['simJump', 'drawJump', 'snap', 'wobble', 'spin', 'glide', 'tread
 const PER_WALKER = new Set(['glide', 'treadmill', 'trunk', 'wetHeld', 'crawl']); // (per 1000 ground-walker frames)
 // (sunk: hooves deeper than this in the ground, scene units: about 5% of a deer's drawn height, what grass hides)
 const SINK = .03;
-const tt0 = (w, a) => { const x = Math.floor(a.x), y = Math.floor(a.y); return w.inb(x, y) && !isWater(w.terrain[w.idx(x, y)]) ? 'land' : 'other'; };
+// (land: the farm's, or the border's drawn around it, where animals walk in from: g1, they were drawn sunk there)
+const tt0 = (w, a, border) => {
+  const x = Math.floor(a.x), y = Math.floor(a.y);
+  if (w.inb(x, y)) return !isWater(w.terrain[w.idx(x, y)]) ? 'land' : 'other';
+  const b = border?.bi(x, y) ?? -1;
+  return b >= 0 && !isWater(border.terrain[b]) ? 'land' : 'other';
+};
 export const LIMITS = { simJump: 6, drawJump: 6, snap: 4, wobble: 4, spin: 2, glide: 2, treadmill: 2, trunk: 10, sunk: 20, wet: 0, wetHeld: 2, sideways: 4, tailFirst: 0, surfaced: 0, stall: 160, crawl: 4, clump: 4 };
 const MIN_EVENTS = 3;
 const deadwoodNear = (w, a) => {
@@ -188,10 +194,11 @@ export function sweep(map, { seed = SEEDS[0], days = DAYS, fps = FPS, onHit } = 
         if (now.tread > SUSTAIN) hit(r, 'treadmill', a);
         if (inWood(w, a, def, a.x, a.y, a.heading)) hit(r, 'trunk', a);
         // (sunk: a hoof, a third of a body length ahead or behind along the drawn heading, more than
-        // SINK into the ground, with the body's drawn slope pitch: not in a leap, a crouch or water)
+        // SINK into the ground, with the body's drawn slope pitch: not in a leap or water. A crouch
+        // lowers the body and folds the legs by st.fold (headPose), so the paws are measured above it)
         const L = (st.foot || .5) * .32, cy = Math.cos(st.yaw), sy = Math.sin(st.yaw), pt = st.slope || 0;
-        if (!a.hunt?.leap && !(st.crouch > .1) && !st.swimming && tt0(w, a) === 'land') {
-          const at = (f2) => w.heightAt(a.x + cy * f2 * Math.cos(pt), a.y - sy * f2 * Math.cos(pt)) * LEVEL - (st.y + Math.sin(pt) * f2);
+        if (!a.hunt?.leap && !st.swimming && tt0(w, a, g.border) === 'land') {
+          const at = (f2) => w.heightAt(a.x + cy * f2 * Math.cos(pt), a.y - sy * f2 * Math.cos(pt)) * LEVEL - (st.y + (st.fold || 0) + Math.sin(pt) * f2);
           const deep = Math.max(at(L), at(-L));
           if (deep > SINK) hit(r, 'sunk', a, ` ${deep.toFixed(3)}`);
         }

@@ -911,7 +911,7 @@ export class UI {
   // (n.sim: floods, fires, invasives, warnings) stays in the journal, and its good news pops up one
   // at a time. Replies to the player (a refused stroke, an undo), goals, tips and offers still show.
   holdInFirstMinutes(n) {
-    if (!n.sim || n.keep || n.kind === 'goal' || n.action || !this.quietNow()) return false;
+    if (!n.sim || n.kind === 'goal' || n.action || !this.quietNow()) return false;
     const now = performance.now(), q = this.quiet;
     if (!ALARMS.has(n.kind) && now - q.lastSoft >= QUIET_GAP_MS) { q.lastSoft = now; return false; }
     q.held++;

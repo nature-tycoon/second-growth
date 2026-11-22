@@ -107,17 +107,16 @@ for (const [width, height] of [[812, 375], [1280, 800]]) {
       g.inSim=true;
       g.notify('QFlood: the river spilled over','flood'); g.notify('QWarn: invasives are spreading','warn'); g.notify('QFire: wildfire','fire');
       g.notify('QFound A arrived','discover'); g.notify('QFound B arrived','discover');
-      g.notify('QFence: deer tried to wander in, but the old boundary fence stopped them','warn',null,{keep:true});
       g.inSim=false;
       g.notify('QReply: not enough money','warn'); // (a reply to the player: shown)
       const t=shown(), j=ui.journal.map(n=>n.text);
       return { alarm:t.some(x=>/^Q(Flood|Warn|Fire)/.test(x)), found:t.filter(x=>/^QFound/.test(x)).length,
-        fence:t.some(x=>/^QFence/.test(x)), reply:t.some(x=>/^QReply/.test(x)), journal:j.filter(x=>/^Q/.test(x)).length, held:ui.quiet?.held };
+        reply:t.some(x=>/^QReply/.test(x)), journal:j.filter(x=>/^Q/.test(x)).length, held:ui.quiet?.held };
     })()`);
     assert.equal(quiet.alarm, false, 'no alarm notices pop up in a first visit\'s opening minutes');
     assert.ok(quiet.found <= 1, `good news comes one at a time (${quiet.found} shown)`);
-    assert.ok(quiet.fence && quiet.reply, 'the fence note and replies to the player still show');
-    assert.equal(quiet.journal, 7, 'every held notice is still in the journal');
+    assert.ok(quiet.reply, 'replies to the player still show');
+    assert.equal(quiet.journal, 6, 'every held notice is still in the journal');
     await b.evaluate(`document.querySelectorAll('#toasts .toast').forEach(t=>t.remove())`);
 
     // a refused visitor center says where it fits
