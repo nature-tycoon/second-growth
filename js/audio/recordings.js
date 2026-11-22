@@ -669,6 +669,51 @@ export const FIELD_RECORDINGS = {
     "license": "CC BY 3.0",
     "licenseUrl": "https://creativecommons.org/licenses/by/3.0",
     "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license."
+  },
+  "raven": {
+    "clips": [
+      "field-raven-1"
+    ],
+    "gain": 0.3,
+    "source": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Common_Raven_-_001.mp3",
+    "by": "National Park Service (David Restivo), Yellowstone sound library",
+    "license": "Public domain",
+    "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "american-crow": {
+    "clips": [
+      "field-american-crow-1"
+    ],
+    "gain": 0.3,
+    "source": "https://commons.wikimedia.org/wiki/File:Corvus_brachyrhynchos_-_American_Crow_-_XC80525.ogg",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "twig-snap": {
+    "clips": [
+      "field-twig-snap-1"
+    ],
+    "gain": 0.3,
+    "source": "https://commons.wikimedia.org/wiki/File:Snapping_twig_(single).ogg",
+    "by": "stephan",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
+  },
+  "hooves": {
+    "clips": [
+      "field-hooves-1",
+      "field-hooves-2"
+    ],
+    "gain": 0.3,
+    "source": "https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg",
+    "by": "Bruno Auzet (Freesound Community, Pixabay)",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license."
   }
 };
 

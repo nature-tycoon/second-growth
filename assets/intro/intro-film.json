@@ -4,10 +4,10 @@
   "seed": 1987,
   "seconds": 31.8,
   "fps": 30,
-  "sourceRevision": "7ec51f7794c3773387da079fc78cfad29c4bb873",
+  "sourceRevision": "377415b64b5a4acca9cccb2bcee38d8d1091e0b5",
   "sourceDate": "2026-11-22",
-  "uncommittedGameChanges": false,
-  "madeAt": "2026-11-22T18:15:18.074Z",
+  "uncommittedGameChanges": true,
+  "madeAt": "2026-11-22T18:27:52.626Z",
   "madeWith": "node tools/film-intro.mjs (tools/intro-film.mjs, tools/intro-film-shots.mjs)",
   "lastFrame": {
     "image": "assets/intro/intro-film-last.jpg",
@@ -204,11 +204,11 @@
       "at": 0
     },
     {
-      "file": "field-stellers-jay-1",
-      "by": "Jonathon Jongsma",
-      "license": "CC BY-SA 3.0",
-      "source": "https://commons.wikimedia.org/wiki/File:Cyanocitta_stelleri_-_Steller%27s_Jay_-_XC109654.ogg",
-      "at": 0.3
+      "file": "field-raven-1",
+      "by": "National Park Service (David Restivo), Yellowstone sound library",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Common_Raven_-_001.mp3",
+      "at": 0.1
     },
     {
       "file": "field-pacific-wren-1",
@@ -216,6 +216,34 @@
       "license": "CC BY-SA 3.0",
       "source": "https://commons.wikimedia.org/wiki/File:Troglodytes_pacificus_-_Pacific_Wren_XC120847.ogg",
       "at": 2.6
+    },
+    {
+      "file": "field-twig-snap-1",
+      "by": "stephan",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Snapping_twig_(single).ogg",
+      "at": 13.15
+    },
+    {
+      "file": "field-hooves-1",
+      "by": "Bruno Auzet (Freesound Community, Pixabay)",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg",
+      "at": 14.7
+    },
+    {
+      "file": "field-hooves-2",
+      "by": "Bruno Auzet (Freesound Community, Pixabay)",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg",
+      "at": 20
+    },
+    {
+      "file": "field-american-crow-1",
+      "by": "Jonathon Jongsma",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Corvus_brachyrhynchos_-_American_Crow_-_XC80525.ogg",
+      "at": 21.9
     },
     {
       "file": "field-meadowlark-1",
@@ -257,27 +285,27 @@
         {
           "file": "assets/intro/intro-film.mp4",
           "kind": "mp4",
-          "bytes": 3770703,
-          "sha256": "4a0a93c4c856973cb78930b825f3fff911d0472b5332927abfd86e29ce04b56e",
+          "bytes": 3770881,
+          "sha256": "f69f9222ce608d9e4bbbeec70e03c67cb36d49531e6d610b1a1a3ca50f97514b",
           "checked": {
             "duration": 31.872,
             "width": 1280,
             "height": 720,
             "soundSeconds": 31.87,
-            "soundRms": 0.0657
+            "soundRms": 0.0697
           }
         },
         {
           "file": "assets/intro/intro-film.webm",
           "kind": "webm",
-          "bytes": 3475563,
-          "sha256": "ef16433fb8b26cdf2430895881a1e541265e77083ed9dadc7b962f78f22a32c0",
+          "bytes": 3475559,
+          "sha256": "42c0972bb75a6717b534f984afdef0666a9b397a038858949aaaabf841a1db8b",
           "checked": {
             "duration": 31.8,
             "width": 1280,
             "height": 720,
             "soundSeconds": 31.81,
-            "soundRms": 0.0665
+            "soundRms": 0.0703
           }
         }
       ]
@@ -299,27 +327,27 @@
         {
           "file": "website/review-media/video/intro-film-1080.mp4",
           "kind": "mp4",
-          "bytes": 7529976,
-          "sha256": "f23ffb2a92e81a7dc0d784449570a39763b6b269f079cab924a46b29820825b9",
+          "bytes": 7530051,
+          "sha256": "4a7a8087c6e408f1ce2befec5b4f5316d9ae431d4cbc3905890e3274a4d586cd",
           "checked": {
             "duration": 31.872,
             "width": 1920,
             "height": 1080,
             "soundSeconds": 31.87,
-            "soundRms": 0.0658
+            "soundRms": 0.0698
           }
         },
         {
           "file": "website/review-media/video/intro-film-1080.webm",
           "kind": "webm",
-          "bytes": 7372955,
-          "sha256": "f8119ee3c2a2e05f5d28ad777d48c3a2abc41b2f421e9dcee71ad5056c1d8852",
+          "bytes": 7372951,
+          "sha256": "e23c3a4eaa2c4df9b2cd548be1d8635f067703e199df6e1402783a23633a730d",
           "checked": {
             "duration": 31.8,
             "width": 1920,
             "height": 1080,
             "soundSeconds": 31.81,
-            "soundRms": 0.0664
+            "soundRms": 0.0703
           }
         }
       ]

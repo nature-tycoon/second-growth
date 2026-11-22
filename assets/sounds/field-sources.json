@@ -534,7 +534,7 @@
       {
         "name": "field-bed-crickets-1",
         "offset": 0,
-        "duration": 23.0,
+        "duration": 23,
         "bytes": 226437
       }
     ],
@@ -629,7 +629,7 @@
       {
         "name": "field-bed-reef-1",
         "offset": 0,
-        "duration": 23.0,
+        "duration": 23,
         "bytes": 255631
       }
     ],
@@ -699,7 +699,7 @@
       {
         "name": "field-bed-wind-1",
         "offset": 0,
-        "duration": 23.0,
+        "duration": 23,
         "bytes": 234717
       }
     ],
@@ -1139,7 +1139,7 @@
     "clips": [
       {
         "name": "field-thunder-crack-1",
-        "offset": 3.0,
+        "offset": 3,
         "duration": 10,
         "bytes": 101598
       }
@@ -1367,5 +1367,99 @@
     "modified": "Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.",
     "encoder": "afconvert + Node (no ffmpeg on the Mac in session wave2-s7); prepare-field-audio.py rebuilds the same window with ffmpeg",
     "loop": true
+  },
+  "raven": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/9/91/Yellowstone_sound_library_-_Common_Raven_-_001.mp3",
+    "download": "https://upload.wikimedia.org/wikipedia/commons/9/91/Yellowstone_sound_library_-_Common_Raven_-_001.mp3",
+    "source": "https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Common_Raven_-_001.mp3",
+    "by": "National Park Service (David Restivo), Yellowstone sound library",
+    "license": "Public domain",
+    "licenseUrl": "https://www.nps.gov/subjects/sound/gallery.htm",
+    "description": "As the thermal features of Black Sand Basin bubble in the background, a raven calls to its mate and takes flight.",
+    "size": 410625,
+    "title": "Yellowstone sound library - Common Raven - 001.mp3",
+    "clips": [
+      {
+        "name": "field-raven-1",
+        "offset": 3.6,
+        "duration": 5,
+        "bytes": 54344
+      }
+    ],
+    "sha256": "538acbc56806cf8f716c8c1cb91497a6ebf01904a64a497654f62eff797fbf13",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "usedBy": "the intro film (tools/intro-film-shots.mjs SOUND); not in any map's soundscape"
+  },
+  "american-crow": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/e/e9/Corvus_brachyrhynchos_-_American_Crow_-_XC80525.ogg",
+    "download": "https://upload.wikimedia.org/wikipedia/commons/e/e9/Corvus_brachyrhynchos_-_American_Crow_-_XC80525.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Corvus_brachyrhynchos_-_American_Crow_-_XC80525.ogg",
+    "by": "Jonathon Jongsma",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+    "description": "Species American Crow (Corvus brachyrhynchos) Recordist Jonathon Jongsma Remarks higher-pitched begging calls from a juvenile, and some adult calls. (The clip is the adult calls at the start, about 550 Hz; the begging is about 1.5 kHz.)",
+    "size": 379013,
+    "title": "Corvus brachyrhynchos - American Crow - XC80525.ogg",
+    "clips": [
+      {
+        "name": "field-american-crow-1",
+        "offset": 0.4,
+        "duration": 3.6,
+        "bytes": 40505
+      }
+    ],
+    "sha256": "e29ccea69ee2d80b5529787e26bdd8d32b40bde9d38981b4fbee0b53125f88b9",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "usedBy": "the intro film (tools/intro-film-shots.mjs SOUND); not in any map's soundscape"
+  },
+  "twig-snap": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/0/0d/Snapping_twig_%28single%29.ogg",
+    "download": "https://upload.wikimedia.org/wikipedia/commons/0/0d/Snapping_twig_%28single%29.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Snapping_twig_(single).ogg",
+    "by": "stephan",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "Snapping twig (single snap).",
+    "size": 20858,
+    "title": "Snapping twig (single).ogg",
+    "clips": [
+      {
+        "name": "field-twig-snap-1",
+        "offset": 0,
+        "duration": 0.83,
+        "bytes": 12165
+      }
+    ],
+    "sha256": "8c7ca06dea765cdaf0a445deba6fbf624614837d9791e3523ad8841ae575814e",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "usedBy": "the intro film (tools/intro-film-shots.mjs SOUND); not in any map's soundscape"
+  },
+  "hooves": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/9/96/Six_Horses_Galloping_By.ogg",
+    "download": "https://upload.wikimedia.org/wikipedia/commons/9/96/Six_Horses_Galloping_By.ogg",
+    "source": "https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg",
+    "by": "Bruno Auzet (Freesound Community, Pixabay)",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/",
+    "description": "Audio of six horses galloping towards the listener and then past them. (Used quietly for a running deer: no deer or elk hoof recording was found.)",
+    "size": 223876,
+    "title": "Six Horses Galloping By.ogg",
+    "clips": [
+      {
+        "name": "field-hooves-1",
+        "offset": 5.5,
+        "duration": 3.5,
+        "bytes": 38736
+      },
+      {
+        "name": "field-hooves-2",
+        "offset": 9,
+        "duration": 3,
+        "bytes": 33312
+      }
+    ],
+    "sha256": "e3f8272ee999aff5d54b8fe7f0cc58ca5d4e0468244a3200edee50453882fa1f",
+    "modified": "Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.",
+    "usedBy": "the intro film (tools/intro-film-shots.mjs SOUND); not in any map's soundscape"
   }
 }

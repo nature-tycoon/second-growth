@@ -477,3 +477,39 @@ Edits: short excerpts, mono conversion, 32 kHz AAC encoding, high-pass filtering
 - Source: https://commons.wikimedia.org/wiki/File:BioAcoustica_MHV_973_P.haglundi_nr_Barberton_2.flac
 - License: CC BY 3.0 — https://creativecommons.org/licenses/by/3.0
 - Changes: Trimmed, high-pass filtered, loudness normalized and encoded as mono AAC. Playback removes codec edges and joins a seamless equal-power loop after decoding. Derived clips retain the source license.
+
+## raven
+
+- Files: `field-raven-1.m4a`
+- Creator: National Park Service (David Restivo), Yellowstone sound library
+- Source: https://commons.wikimedia.org/wiki/File:Yellowstone_sound_library_-_Common_Raven_-_001.mp3
+- License: Public domain — https://www.nps.gov/subjects/sound/gallery.htm
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+- Used in: the intro film only
+
+## american-crow
+
+- Files: `field-american-crow-1.m4a`
+- Creator: Jonathon Jongsma
+- Source: https://commons.wikimedia.org/wiki/File:Corvus_brachyrhynchos_-_American_Crow_-_XC80525.ogg
+- License: CC BY-SA 3.0 — https://creativecommons.org/licenses/by-sa/3.0
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+- Used in: the intro film only
+
+## twig-snap
+
+- Files: `field-twig-snap-1.m4a`
+- Creator: stephan
+- Source: https://commons.wikimedia.org/wiki/File:Snapping_twig_(single).ogg
+- License: CC0 — http://creativecommons.org/publicdomain/zero/1.0/
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+- Used in: the intro film only
+
+## hooves
+
+- Files: `field-hooves-1.m4a`, `field-hooves-2.m4a`
+- Creator: Bruno Auzet (Freesound Community, Pixabay)
+- Source: https://commons.wikimedia.org/wiki/File:Six_Horses_Galloping_By.ogg
+- License: CC0 — http://creativecommons.org/publicdomain/zero/1.0/
+- Changes: Trimmed, high-pass filtered, loudness normalized, faded and encoded as mono AAC. Derived clips retain the source license.
+- Used in: the intro film only
